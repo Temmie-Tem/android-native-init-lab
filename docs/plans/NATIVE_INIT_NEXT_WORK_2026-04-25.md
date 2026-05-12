@@ -988,8 +988,13 @@ Samsung bootloader
    - v203 collector: `scripts/revalidation/wifi_baseline_refresh.py`
    - v203 보고서: `docs/reports/NATIVE_INIT_V203_WIFI_BASELINE_REFRESH_2026-05-13.md`
    - broker/security gate 이후 native/mounted-system Wi-Fi 자료를 read-only로 다시 수집했다
-   - 현재 상태: v203 PASS, final decision `no-go`
-   - 다음은 v204 read-only Android/TWRP Wi-Fi driver and firmware baseline 계획이다
+   - v203 상태: PASS, final decision `no-go`
+   - v204 계획서: `docs/plans/NATIVE_INIT_V204_ANDROID_TWRP_WIFI_BASELINE_PLAN_2026-05-13.md`
+   - v204 collector: `scripts/revalidation/android_twrp_wifi_baseline.py`
+   - v204 보고서: `docs/reports/NATIVE_INIT_V204_ANDROID_TWRP_WIFI_BASELINE_2026-05-13.md`
+   - v204 상태: TWRP ADB PASS, decision `driver-candidate-found`
+   - v204 Android 상태: Android ADB + Magisk root PASS, decision `ready-for-readonly-nl80211-probe-plan`
+   - 다음은 v205 ICNSS/WCNSS/QCA + nl80211 read-only sysfs/firmware probe 계획이다
    - Wi-Fi/NCM을 USB-local 밖으로 넓히기 전 인증/ACL/token/bind/listener lifecycle 정책을 다시 검토한다
 
 ---

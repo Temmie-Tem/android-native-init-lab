@@ -743,7 +743,48 @@
   - missing gates: `native-wlan-interface`, `wifi-rfkill`, `wlan-cnss-qca-module-evidence`
   - mounted Android-side candidates: system Wi-Fi init/permission/sysconfig files only
 - 남은 검증: 없음
-- 다음 실행 항목: v204 read-only Android/TWRP Wi-Fi driver and firmware baseline 계획
+- 다음 실행 항목: v204 read-only Android/TWRP Wi-Fi driver and firmware baseline 구현
+
+### V204. Android/TWRP Wi-Fi Driver and Firmware Baseline — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V204_ANDROID_TWRP_WIFI_BASELINE_PLAN_2026-05-13.md`
+- 보고서: `docs/reports/NATIVE_INIT_V204_ANDROID_TWRP_WIFI_BASELINE_2026-05-13.md`
+- baseline device build: `A90 Linux init 0.9.59 (v159)` + Android/TWRP ADB read-only modes
+- device flash: native-init boot image 없음. Android run은 `backups/baseline_a_20260423_030309/boot.img`를 일시 flash했고, 수집 후 `stage3/boot_linux_v159.img`로 복구했다.
+- 구현:
+  - `scripts/revalidation/android_twrp_wifi_baseline.py`
+  - `--android-adb`, `--twrp-adb`, `--serial`, `--v203-manifest`, `--out-dir`
+  - private/no-follow evidence bundle output
+  - v203-v204 comparison matrix
+  - active Wi-Fi command guard
+- 의도:
+  - v203 `no-go` 원인을 Android/TWRP read-only evidence로 좁힌다
+  - driver/module/rfkill/firmware/HAL/init/log 근거를 수집한다
+  - v205 read-only `nl80211/cfg80211` probe 계획 가능 여부만 판정한다
+- guardrails:
+  - Wi-Fi enablement, rfkill write, WLAN link-up, module mutation, firmware mutation, supplicant/hostapd/vendor daemon start 금지
+  - `/data/misc/wifi`, `dumpsys wifi`, saved network material은 기본 제외
+  - evidence output은 private/no-follow 유지
+- 정적 검증:
+  - Python compile PASS
+  - command guard PASS
+  - `--help` PASS
+- 실기 검증:
+  - native bridge `recovery` → TWRP ADB PASS
+  - `python3 scripts/revalidation/android_twrp_wifi_baseline.py --twrp-adb --v203-manifest tmp/wifi/v203-baseline/manifest.json --out-dir tmp/wifi/v204-twrp-baseline` PASS
+  - TWRP decision: `driver-candidate-found`
+  - TWRP evidence: ICNSS/WLAN kernel log hints and firmware search path present
+  - still missing: WLAN interface, Wi-Fi rfkill, loaded WLAN/CNSS/QCA module
+  - Android boot image restored from `backups/baseline_a_20260423_030309/boot.img`
+  - Android ADB PASS: `product:r3qks model:SM_A908N device:r3q`
+  - Magisk root PASS: `uid=0(root) ... context=u:r:magisk:s0`
+  - `python3 scripts/revalidation/android_twrp_wifi_baseline.py --android-adb --v203-manifest tmp/wifi/v203-baseline/manifest.json --out-dir tmp/wifi/v204-android-baseline` PASS
+  - Android decision: `ready-for-readonly-nl80211-probe-plan`
+  - Android evidence: `wlan0`, `swlan0`, `p2p0`, `wifi-aware0`, ICNSS rfkill/sysfs, firmware/HAL/init assets, root dmesg ICNSS/WLAN readiness
+  - native boot restore PASS: `stage3/boot_linux_v159.img`, SHA256 `7e7e81a6af774b3b523c993851d64b86484be4c471dbee02edf062b3903c536f`
+  - post-restore `cmdv1 version/status` PASS
+- 남은 검증: 없음
+- 다음 실행 항목: v205 ICNSS/WCNSS/QCA + nl80211 read-only sysfs/firmware probe 계획
 
 ### V187. Harness Broker Backend — PASS
 
