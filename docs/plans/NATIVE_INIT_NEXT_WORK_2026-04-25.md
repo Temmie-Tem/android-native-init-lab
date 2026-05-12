@@ -1009,7 +1009,12 @@ Samsung bootloader
    - v207 보고서: `docs/reports/NATIVE_INIT_V207_NATIVE_WIFI_PREFLIGHT_2026-05-13.md`
    - v207 상태: PASS, decision `missing-mounted-vendor`
    - v207 실기: native basic control, `mountsystem ro`, ICNSS sysfs PASS; mounted vendor firmware/init path, WLAN netdev/wiphy/rfkill, remote `a90_nl80211_ro`는 absent
-   - 다음은 v208 native vendor/firmware mount visibility 계획이다
+   - v208 계획서: `docs/plans/NATIVE_INIT_V208_VENDOR_FIRMWARE_MOUNT_PLAN_2026-05-13.md`
+   - v208 collector: `scripts/revalidation/native_vendor_mount_probe.py`
+   - v208 보고서: `docs/reports/NATIVE_INIT_V208_VENDOR_FIRMWARE_MOUNT_2026-05-13.md`
+   - v208 상태: PASS, decision `vendor-block-candidate-found`
+   - v208 실기: native basic control PASS; `sda29` vendor 후보가 `/proc/partitions`와 `/sys/class/block`에 보이나 `/dev/block/sda29`/by-name 노드는 absent, mounted vendor firmware/init path는 absent
+   - 다음은 v209 explicit read-only vendor partition mount probe 계획이다
    - Wi-Fi/NCM을 USB-local 밖으로 넓히기 전 인증/ACL/token/bind/listener lifecycle 정책을 다시 검토한다
 
 ---

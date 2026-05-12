@@ -927,6 +927,66 @@
   - v208 native vendor/firmware mount visibility 계획
   - active Wi-Fi bring-up은 계속 blocked
 
+### V208. Native Vendor/Firmware Mount Visibility — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V208_VENDOR_FIRMWARE_MOUNT_PLAN_2026-05-13.md`
+- 보고서: `docs/reports/NATIVE_INIT_V208_VENDOR_FIRMWARE_MOUNT_2026-05-13.md`
+- device flash: 없음. v208은 host-side/native read-only block/mount visibility collector로 시작한다.
+- 기준:
+  - v206 Android map: `ready-for-native-preflight-plan`
+  - v207 native preflight: `missing-mounted-vendor`
+- 구현:
+  - `scripts/revalidation/native_vendor_mount_probe.py`
+  - private/no-follow evidence output under `tmp/wifi/v208-vendor-firmware-mount`
+  - v206/v207 manifest comparison
+  - mount/write/destructive command guard
+- 허용:
+  - native version/status/bootstatus metadata 수집
+  - `/proc/mounts`, `/proc/partitions`, `/dev/block`, `/sys/class/block` read-only inventory
+  - known physical candidates `sda28`, `sda29`, `sda30`, `sda32` read-only 확인
+  - possible `dm-*`, `super`, `metadata` read-only 확인
+  - `/mnt/system/vendor` and `/vendor` firmware/init path visibility 확인
+  - firmware loader path read-only 확인
+- 금지:
+  - Wi-Fi enablement, rfkill write, WLAN link-up
+  - scan/connect, module load/unload, firmware mutation
+  - `firmware_class.path` write
+  - `cnss-daemon`, `wificond`, Wi-Fi HAL, supplicant, hostapd start
+  - vendor/product/system writes
+  - mount/umount by default
+  - destructive storage commands
+- 결정 모델:
+  - `vendor-visible-existing-mount`
+  - `vendor-block-candidate-found`
+  - `dynamic-partition-mapping-required`
+  - `vendor-path-still-missing`
+  - `manual-review-required`
+- 검증:
+  - Python compile PASS
+  - v208 command guard PASS
+  - `git diff --check` PASS
+  - native bridge live collector run PASS
+- 실기 결과:
+  - runtime: `A90 Linux init 0.9.59 (v159)`
+  - decision: `vendor-block-candidate-found`
+  - reason: `a plausible vendor block candidate exists, but default native mounts do not expose vendor assets`
+  - basic control: PASS
+  - existing vendor mount: false
+  - known physical vendor candidate: true
+  - `/proc/partitions`: `sda29`, `sda30`, `sda32` present
+  - `/sys/class/block/sda29`: present, `dev=259:22`, `size=2764800`
+  - `/dev/block/sda29`: absent
+  - `/dev/block/by-name`: absent
+  - `/dev/block/bootdevice/by-name`: absent
+  - `dm-*`/`super` evidence: absent
+  - mounted vendor firmware/init paths: missing
+  - firmware_class path: `/vendor/firmware_mnt/image`
+  - manifest SHA256: `73938c3ec139dbee5fbd5c61c13335f5bf530ed40873b5ef249cff81e2048755`
+  - summary SHA256: `81d8af25a7e0a0620233fbe1e179dae87fcb96b61e345cae14d1f79d9d53ea10`
+- 다음 실행 항목:
+  - v209 explicit read-only vendor partition mount probe
+  - active Wi-Fi bring-up은 계속 blocked
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
