@@ -714,7 +714,36 @@
   - summary with `--refresh` PASS: `tmp/kernel-capability/v202-kernel-capability-refresh.json`
   - Wi-Fi gate: `baseline-required`
 - 남은 검증: 없음
-- 다음 실행 항목: v203 read-only Wi-Fi baseline refresh 후보
+- 다음 실행 항목: v203 read-only Wi-Fi baseline refresh 계획서 구현
+
+### V203. Wi-Fi Read-Only Baseline Refresh — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V203_WIFI_BASELINE_REFRESH_PLAN_2026-05-13.md`
+- 보고서: `docs/reports/NATIVE_INIT_V203_WIFI_BASELINE_REFRESH_2026-05-13.md`
+- baseline device build: `A90 Linux init 0.9.59 (v159)`
+- device flash: 없음. v203은 host-side Wi-Fi baseline evidence refresh로 시작하며 별도 native-init boot image 없음
+- 구현:
+  - `scripts/revalidation/wifi_baseline_refresh.py`
+  - `--host/--bridge-host`, `--port/--bridge-port`, `--mount-system-ro`, `--no-mount-system-ro`
+  - kernel capability summary 자동 refresh fallback
+- 의도:
+  - F055 패치 후 live `wififeas gate`를 필수 preflight로 사용
+  - native/mounted-system/optional Android-TWRP Wi-Fi evidence를 private host bundle로 재수집
+  - active Wi-Fi bring-up 여부가 아니라 v204 controlled read-only probe 가능성만 판정
+- guardrails:
+  - Wi-Fi enablement, rfkill write, `wlan0` link-up, module load/unload, firmware mutation, Android Wi-Fi service start 금지
+  - USB ACM bridge와 NCM rescue boundary 유지
+- 정적 검증:
+  - Python compile PASS
+  - command guard PASS
+  - `git diff --check` PASS
+- 실기 검증:
+  - `python3 scripts/revalidation/wifi_baseline_refresh.py --out-dir tmp/wifi/v203-baseline` PASS
+  - decision: `no-go`
+  - missing gates: `native-wlan-interface`, `wifi-rfkill`, `wlan-cnss-qca-module-evidence`
+  - mounted Android-side candidates: system Wi-Fi init/permission/sysconfig files only
+- 남은 검증: 없음
+- 다음 실행 항목: v204 read-only Android/TWRP Wi-Fi driver and firmware baseline 계획
 
 ### V187. Harness Broker Backend — PASS
 

@@ -984,7 +984,12 @@ Samsung bootloader
    - v196 fresh security scan follow-up workflow는 PASS했다: CSV 2건 indexed, local scan PASS/WARN/FAIL=29/1/0
    - 다음은 post-v196 후보 재선정이다
 5. 이후 Wi-Fi Baseline Refresh / Network Exposure Hardening
-   - broker/security gate 이후 Android/TWRP/native Wi-Fi 자료를 다시 수집한다
+   - v203 계획서: `docs/plans/NATIVE_INIT_V203_WIFI_BASELINE_REFRESH_PLAN_2026-05-13.md`
+   - v203 collector: `scripts/revalidation/wifi_baseline_refresh.py`
+   - v203 보고서: `docs/reports/NATIVE_INIT_V203_WIFI_BASELINE_REFRESH_2026-05-13.md`
+   - broker/security gate 이후 native/mounted-system Wi-Fi 자료를 read-only로 다시 수집했다
+   - 현재 상태: v203 PASS, final decision `no-go`
+   - 다음은 v204 read-only Android/TWRP Wi-Fi driver and firmware baseline 계획이다
    - Wi-Fi/NCM을 USB-local 밖으로 넓히기 전 인증/ACL/token/bind/listener lifecycle 정책을 다시 검토한다
 
 ---
