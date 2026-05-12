@@ -987,6 +987,52 @@
   - v209 explicit read-only vendor partition mount probe
   - active Wi-Fi bring-up은 계속 blocked
 
+### V209. Vendor Read-Only Mount Probe — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V209_VENDOR_RO_MOUNT_PROBE_PLAN_2026-05-13.md`
+- 보고서: `docs/reports/NATIVE_INIT_V209_VENDOR_RO_MOUNT_PROBE_2026-05-13.md`
+- 목표:
+  - v208에서 확인한 `sda29` vendor 후보를 native init에서 안전하게 임시 mount할 수 있는지 확인
+  - Android vendor firmware/init asset이 native-visible 상태가 되는지 확인
+- 핵심 안전 기준:
+  - plain `mountfs ... ext4 ro` 금지
+  - ext4 journal replay write를 피하기 위해 `ro,noload` 필수
+  - 임시 block node와 mountpoint는 `/tmp/a90-v209-*` 아래에만 생성
+  - 성공/실패와 무관하게 `umount`와 post-mount cleanup 검증 필수
+- 구현 후보:
+  - `scripts/revalidation/native_vendor_ro_mount_probe.py`
+  - evidence output: `tmp/wifi/v209-vendor-ro-mount-probe`
+  - report: `docs/reports/NATIVE_INIT_V209_VENDOR_RO_MOUNT_PROBE_2026-05-13.md`
+- 결정 모델:
+  - `vendor-assets-visible`
+  - `vendor-mounted-no-wifi-assets`
+  - `vendor-mount-failed`
+  - `candidate-node-missing`
+  - `unsafe-ro-noload-unavailable`
+  - `cleanup-failed`
+  - `manual-review-required`
+- 검증:
+  - Python compile PASS
+  - v209 command guard PASS
+  - `git diff --check` PASS
+  - native bridge live collector run PASS
+- 실기 결과:
+  - runtime: `A90 Linux init 0.9.59 (v159)`
+  - decision: `vendor-assets-visible`
+  - reason: `safe ro,noload mount exposed vendor firmware/init assets`
+  - `sda29` major/minor: `259:22`
+  - ext4 available: true
+  - mount command: `run /cache/bin/toybox mount -t ext4 -o ro,noload /tmp/a90-v209-*/sda29 /tmp/a90-v209-*/vendor`
+  - mounted line: `ext4 ro,relatime,norecovery,i_version`
+  - cleanup rc: `0`
+  - leftover mount: false
+  - visible assets: `etc/init`, `etc/init/hw`, `android.hardware.wifi.supplicant-service.rc`, `android.hardware.wifi@1.0-service.rc`, `hostapd.android.rc`, `init.qcom.rc`, `etc/wifi`, `firmware/wlan/qca_cld/bdwlan.bin`, `firmware/wlan/qca_cld/regdb.bin`, `firmware/wlanmdsp.mbn`, `lib/modules`
+  - manifest SHA256: `b5a4fc182c84c97d9ae5533f4f39e57ce55765461e919bcf5f9fd67a34ed4b1c`
+  - summary SHA256: `f7f01980ce2a580839bb7996ae985659f7d33a2114e044d5b982fe1e1cb66f42`
+- 다음 실행 항목:
+  - v210 vendor Wi-Fi/CNSS asset classifier
+  - active Wi-Fi bring-up은 계속 blocked
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
