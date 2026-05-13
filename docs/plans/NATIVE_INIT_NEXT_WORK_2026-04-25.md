@@ -1082,6 +1082,7 @@ Samsung bootloader
    - v221 상태: PASS, decision `vendor-root-required`
    - v221 결과: host-visible vendor root가 필요하며 required paths는 `<vendor-root>/bin/cnss-daemon`, `<vendor-root>/bin/cnss_diag`
    - 다음은 v222 vendor root evidence export/extraction 계획이다. private/no-follow evidence bundle로 target binaries와 related `lib`/`lib64`를 확보한 뒤 v221 `--vendor-root` 재실행을 목표로 한다
+   - v222 계획서: `docs/plans/NATIVE_INIT_V222_VENDOR_ROOT_EVIDENCE_EXPORT_PLAN_2026-05-13.md`
    - Wi-Fi/NCM을 USB-local 밖으로 넓히기 전 인증/ACL/token/bind/listener lifecycle 정책을 다시 검토한다
 
 ---

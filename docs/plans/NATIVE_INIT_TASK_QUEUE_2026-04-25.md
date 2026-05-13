@@ -1556,12 +1556,11 @@
 
 ### V222. Vendor Root Evidence Export / Extraction — PLANNED
 
+- 계획: `docs/plans/NATIVE_INIT_V222_VENDOR_ROOT_EVIDENCE_EXPORT_PLAN_2026-05-13.md`
 - 목표:
   - v221 `vendor-root-required` 결과를 닫기 위해 host-visible vendor root 또는 최소 vendor evidence bundle을 안전하게 확보한다
   - `/vendor/bin/cnss-daemon`, `/vendor/bin/cnss_diag`, related `lib`/`lib64` 파일을 private/no-follow output으로 수집한다
   - full partition overwrite나 active Wi-Fi 작업 없이 read-only extraction만 허용한다
-- 예정 계획서:
-  - `docs/plans/NATIVE_INIT_V222_VENDOR_ROOT_EVIDENCE_EXPORT_PLAN_2026-05-13.md`
 - 후보 구현:
   - host-side vendor root locator/export helper
   - existing v209/v210 temporary `ro,noload` vendor mount evidence 재사용
@@ -1572,7 +1571,8 @@
   - full uncontrolled partition dump into world-readable path
   - Wi-Fi scan/connect
 - 다음 실행 항목:
-  - v222 계획서 작성
+  - v222 구현
+  - no source-root 기본 실행에서 `export-source-required` PASS 확인
 
 ### V187. Harness Broker Backend — PASS
 

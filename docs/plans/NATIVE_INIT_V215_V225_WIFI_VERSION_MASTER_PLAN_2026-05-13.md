@@ -246,6 +246,10 @@ Mode: `read-only`
 Goal: v221 `vendor-root-required` 결과를 닫기 위해 host-visible vendor root
 또는 최소 vendor evidence bundle을 안전하게 확보한다.
 
+Plan:
+
+- `docs/plans/NATIVE_INIT_V222_VENDOR_ROOT_EVIDENCE_EXPORT_PLAN_2026-05-13.md`
+
 Deliverables:
 
 - private/no-follow vendor evidence output
