@@ -1444,6 +1444,33 @@
   - v219 native Android-env shim plan 작성
   - mount visibility, path alias, property/socket/user/group/capability/log policy와 rollback/evidence policy 정의
 
+### V219. Native Android-Env Shim Plan — PLANNED
+
+- 계획: `docs/plans/NATIVE_INIT_V219_NATIVE_ANDROID_ENV_SHIM_PLAN_2026-05-13.md`
+- 목표:
+  - CNSS service experiment 전에 필요한 최소 Android-env shim 범위를 정의
+  - mount/path alias, property/socket, user/group/capability, logging/evidence, recovery/rollback policy를 allow/deny list로 분리
+- 예정 구현:
+  - `scripts/revalidation/wifi_android_env_shim_plan.py`
+- 입력:
+  - `tmp/wifi/v216-service-replay-model/manifest.json`
+  - `tmp/wifi/v217-icnss-debug-recovery-inventory-native/manifest.json`
+  - `tmp/wifi/v218-cnss-daemon-dryrun/manifest.json`
+  - `tmp/wifi/v218-cnss-daemon-dryrun-native/manifest.json`
+- 예정 산출물:
+  - `tmp/wifi/v219-native-android-env-shim/manifest.json`
+  - `tmp/wifi/v219-native-android-env-shim/shim-matrix.json`
+  - `tmp/wifi/v219-native-android-env-shim/summary.md`
+- 금지:
+  - daemon/service 실행
+  - Android property mutation
+  - binder/hwbinder service publication
+  - writable vendor/system/data mount
+  - Wi-Fi scan/connect
+- 다음 실행 항목:
+  - v219 planner 구현
+  - v220 gate input으로 쓸 shim matrix 생성
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
