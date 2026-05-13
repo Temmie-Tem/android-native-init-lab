@@ -12,7 +12,9 @@
 - v214에서 generic ICNSS `unbind`/`bind`는 `icnss-rebind-failed`로 중단됐다.
 - v215-v219는 read-only evidence와 dry-run planning은 통과했다.
 - v220 gate는 `no-go`를 반환했다.
-- v221 이후는 active Wi-Fi가 아니라 missing prerequisite closure로 전환한다.
+- v221-v224는 active Wi-Fi가 아니라 missing prerequisite closure로 전환했다.
+- v225는 exposure/security gate v3를 작성해 현재 상태가 다음 단계로
+  넘어갈 수 있는지 다시 판정한다.
 - daemon start, rfkill write, link-up, scan, connect는 계속 금지한다.
 
 ## Reference Basis
@@ -61,6 +63,10 @@
 | v219 | PASS | `shim-plan-partial` | Android-env shim matrix 작성, property/QMI/recovery blocker 남음 |
 | v220 | PASS | `no-go` | lifecycle-aware gate 통과, active Wi-Fi blocker 유지 |
 | v221 | PASS | `vendor-root-required` | ELF/library inspection needs host-visible vendor root evidence |
+| v222 | PASS | `export-source-required` | export helper ready; source vendor root still required |
+| v223 | PASS | `reboot-recovery-accepted` | reboot-only recovery policy accepted for later opt-in planning |
+| v224 | PASS | `shim-source-required` | Android-env shim dry-run artifacts ready; source vendor root still required |
+| v225 | PLANNED | TBD | exposure/security gate v3 integration |
 
 ## Version-By-Version Plan
 
@@ -177,7 +183,7 @@ Result:
 
 - `no-go`
 - 이유: v218 ELF/library evidence gap, v219 blocked shim items, v217 reboot-only
-  recovery, v224 security exposure review 미완료
+  recovery, v225 security exposure review 미완료
 - report:
   `docs/reports/NATIVE_INIT_V220_WIFI_PREFLIGHT_GATE_V2_2026-05-13.md`
 - gate counts: `pass=3`, `warn=1`, `fail=0`, `blocked=3`
@@ -400,13 +406,18 @@ Connect only if v223 scan and v224 security review pass.
 
 ## Practical Next Action
 
-v222 tooling is implemented and currently returns `export-source-required`; v223 recovery policy is implemented and returns `reboot-recovery-accepted`.
+v222 tooling is implemented and currently returns `export-source-required`;
+v223 recovery policy is implemented and returns `reboot-recovery-accepted`;
+v224 shim materialization is implemented and returns `shim-source-required`.
 
-1. collect or validate host-visible vendor evidence for `cnss-daemon` and `cnss_diag` with v222 `--source-vendor-root`;
-2. rerun v221 with the exported `vendor-root/` if v222 returns `vendor-root-ready`;
-3. alternatively, proceed to v224 Android-env shim dry-run materialization planning while preserving the vendor-root blocker;
-4. keep daemon execution blocked;
-5. keep Path B inactive unless a future reviewed gate supersedes v220.
+1. write and execute v225 exposure/security gate v3 in read-only mode;
+2. keep `vendor-root-required` / `export-source-required` open until a real
+   host-visible vendor root is provided;
+3. rerun v222 and then v221 only after that source vendor root exists;
+4. keep daemon execution, rfkill write, link-up, scan, connect, DHCP, and
+   credential handling blocked;
+5. keep Path B inactive unless a future reviewed gate explicitly supersedes
+   v220/v225.
 
 ## Acceptance For This Master Plan
 

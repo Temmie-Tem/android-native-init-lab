@@ -1627,8 +1627,31 @@
   - Wi-Fi credential path 접근
   - rfkill write, link-up, scan/connect
 - 다음 실행 항목:
-  - v225 Wi-Fi exposure/security gate + gate v3 계획
+  - v225 Wi-Fi exposure/security gate + gate v3 구현
   - v225도 source vendor root blocker를 명시적으로 보존해야 함
+
+### V225. Wi-Fi Exposure / Credential Security Gate v3 — PLANNED
+
+- 계획: `docs/plans/NATIVE_INIT_V225_WIFI_EXPOSURE_SECURITY_GATE_V3_PLAN_2026-05-13.md`
+- 예정 구현: `scripts/revalidation/wifi_exposure_security_gate_v3.py`
+- 예정 산출: `tmp/wifi/v225-exposure-security-gate-v3/`
+- 예정 보고서: `docs/reports/NATIVE_INIT_V225_WIFI_EXPOSURE_SECURITY_GATE_V3_2026-05-13.md`
+- 목표:
+  - v220-v224 manifest를 통합해 gate v3 판정 생성
+  - ACM/NCM/tcpctl/rshell/broker/netservice/future Wi-Fi exposure matrix 작성
+  - credential/redaction/test-AP isolation policy를 Wi-Fi active plan 전에 고정
+  - 현재 `vendor-root-required`, `export-source-required`, `shim-source-required`
+    blocker를 닫지 않고 그대로 보존
+- 예상 decision: `still-no-go`
+- 금지 유지:
+  - live device command by default
+  - daemon 실행
+  - rfkill write, link-up, scan/connect
+  - credential collection
+  - listener bind broadening
+  - firewall mutation
+- 다음 실행 항목:
+  - v225 gate v3 tool 구현과 보고서 작성
 
 ### V187. Harness Broker Backend — PASS
 

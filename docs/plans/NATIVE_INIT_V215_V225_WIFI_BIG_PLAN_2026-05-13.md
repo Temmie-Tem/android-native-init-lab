@@ -56,7 +56,7 @@ This plan does **not** approve Wi-Fi scan, connect, rfkill writes, link-up,
 | v222 | PASS | `export-source-required` | Export helper ready; source vendor root still required |
 | v223 | PASS | `reboot-recovery-accepted` | Reboot-only recovery policy accepted for later opt-in planning |
 | v224 | PASS | `shim-source-required` | Host-side shim dry-run artifacts ready; source vendor root still required |
-| v225 | PLANNED | TBD | Exposure/security gate and gate v3 integration |
+| v225 | PLANNED | expected `still-no-go` | Exposure/security gate and gate v3 integration |
 
 ## Version-Level Plan
 
@@ -289,6 +289,7 @@ Mode: `read-only`
 
 Planned deliverables:
 
+- plan: `docs/plans/NATIVE_INIT_V225_WIFI_EXPOSURE_SECURITY_GATE_V3_PLAN_2026-05-13.md`
 - ACM/NCM/tcpctl/broker/listener exposure matrix
 - auth token and binding policy review
 - credential storage and redaction policy
@@ -303,11 +304,12 @@ Decision model:
 
 ## Execution Order
 
-1. Provide a source vendor root and rerun v222, or keep the vendor-root blocker open.
-2. Rerun v221 with v222 `vendor-root/` if `vendor-root-ready` is achieved.
-3. Write v224 shim materialization dry-run plan using v223 policy as a hard dependency.
-4. Write v225 security/exposure gate and gate v3 after v221-v224 results are
-   available.
+1. Keep the vendor-root blocker open until a source vendor root is provided.
+2. Execute v225 security/exposure gate v3 with v220-v224 manifests.
+3. If v225 returns `still-no-go`, collect source vendor root evidence and rerun
+   v222/v221.
+4. If v225 ever returns `cnss-start-plan-approved`, write a separate controlled
+   CNSS start plan; do not execute daemons from this track.
 
 ## Stop Conditions
 

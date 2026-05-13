@@ -181,9 +181,10 @@ Versions: v225+
 Purpose: avoid turning a local lab kernel experiment into an exposed root
 network target.
 
-- v224 reviews credential handling, listener binding, firewall/exposure, and
+- v225 reviews credential handling, listener binding, firewall/exposure, and
   evidence redaction.
-- v225 attempts first controlled test-AP connect only if v224 approves it.
+- First controlled test-AP connect remains outside v225 and requires a later
+  explicit active-network plan after gate v3.
 
 Exit gate:
 
@@ -605,10 +606,9 @@ Decision:
 
 ## Recommended Immediate Next Step
 
-Provide a source vendor root and rerun v222/v221, or proceed to v224
-Android-env shim dry-run materialization planning while explicitly preserving
-the vendor-root blocker. Do not execute `cnss-daemon`, `cnss_diag`, Wi-Fi HAL,
-supplicant, or hostapd yet.
+Execute v225 Wi-Fi exposure/security gate v3 in read-only mode while explicitly
+preserving the vendor-root and shim-source blockers. Do not execute
+`cnss-daemon`, `cnss_diag`, Wi-Fi HAL, supplicant, or hostapd yet.
 
 The next source-root command is:
 
@@ -619,4 +619,5 @@ python3 scripts/revalidation/wifi_vendor_root_evidence_export.py \
 ```
 
 Only after v222-v224 close the remaining evidence, recovery, shim, and exposure
-gaps can v225 decide whether controlled CNSS start is eligible for planning.
+gaps can a later gate decide whether controlled CNSS start is eligible for
+planning.
