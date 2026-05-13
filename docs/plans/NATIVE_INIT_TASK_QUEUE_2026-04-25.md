@@ -1206,8 +1206,58 @@
   - manifest SHA256: `f1fea94259a979f0d9dee7c2ba548d77bb7fde1ab6b550c492f550276d7f2ba8`
   - summary SHA256: `9320206dc5734a312cd93e09872cee9dbfb1707cdf09e20ef2b78f50a1150acb`
 - 다음 실행 항목:
-  - v213 firmware request evidence 또는 controlled ICNSS/CNSS preflight 계획
+  - v213 firmware request evidence baseline/path-only PASS 완료
+  - v214에서 ICNSS reprobe 실행 여부와 추가 safety/observability를 결정
   - active Wi-Fi bring-up은 계속 blocked
+
+### V213. Firmware Request Evidence / ICNSS Reprobe Preflight — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V213_FIRMWARE_REQUEST_EVIDENCE_PLAN_2026-05-13.md`
+- 보고서: `docs/reports/NATIVE_INIT_V213_FIRMWARE_REQUEST_EVIDENCE_2026-05-13.md`
+- baseline device build: `A90 Linux init 0.9.59 (v159)`
+- 구현:
+  - `scripts/revalidation/native_firmware_request_probe.py`
+  - `stage3/linux_init/helpers/a90_icnssctl.c`
+  - `scripts/revalidation/build_icnssctl_helper.sh`
+  - evidence output:
+    - `tmp/wifi/v213-firmware-request-evidence-baseline`
+    - `tmp/wifi/v213-firmware-request-evidence`
+- live constraint:
+  - `/proc/dynamic_debug/control`: absent
+  - `/sys/kernel/tracing/events`: absent
+  - ICNSS node: `/sys/devices/platform/soc/18800000.qcom,icnss`
+  - ICNSS driver: `/sys/bus/platform/drivers/icnss`
+  - bind/unbind controls exist and are write-only root sysfs files
+- baseline 실기 결과:
+  - result: PASS
+  - decision: `baseline-only`
+  - reason: `read-only ICNSS firmware request baseline collected`
+  - captures: 24
+  - expected absent captures: dynamic debug, tracefs events, debug tracing firmware events
+  - manifest SHA256: `4ec982d385048e05078124f46a26a80ed9def439d454336652c8b2f8e621dbc6`
+  - summary SHA256: `80249d1e7551c1b93982feb5f8856538a67419d33d3774caac56109784bbd02c`
+- path-only 실기 결과:
+  - result: PASS
+  - decision: `path-only-pass`
+  - reason: `firmware path apply/readback/rollback passed without ICNSS reprobe`
+  - captures: 49
+  - applied `firmware_class.path`: `/mnt/vendor/firmware`
+  - rolled back `firmware_class.path`: `/vendor/firmware_mnt/image`
+  - post-run `firmware_class.path`: `/vendor/firmware_mnt/image`
+  - likely request paths under `/mnt/vendor/firmware`: all visible
+  - leftover `/mnt/vendor` mount: false
+  - leftover `/tmp/a90-v213-*` mount: false
+  - manifest SHA256: `b71bbc0518e3a6109574f4ccc443f15dff486ca2528f411a0d118bf66f430c81`
+  - summary SHA256: `44d5e11dd6b216d3e34d6e0edec4b62a9a97f9548cd1c6766640398b842a1234`
+- guardrails:
+  - default mode performs no mutation
+  - `firmware_class.path` apply requires `--apply-path`
+  - ICNSS unbind/bind requires both `--reprobe` and `--i-understand-icnss-reprobe`
+  - active Wi-Fi bring-up, rfkill write, link-up, scan/connect, daemon/HAL/supplicant/hostapd start, module load/unload, firmware copy, persistent mount are forbidden
+- 다음 실행 항목:
+  - v214에서 `a90_icnssctl` 배포 및 opt-in ICNSS reprobe를 할지 결정
+  - 또는 ICNSS unbind/bind 전 device-side safety/observability를 먼저 보강
+  - active Wi-Fi scan/connect는 계속 blocked
 
 ### V187. Harness Broker Backend — PASS
 

@@ -1035,7 +1035,14 @@ Samsung bootloader
    - v212 상태: PASS, decision `path-rollback-pass`
    - v212 dry-run 실기: `/mnt/vendor/firmware` likely request paths는 모두 visible, cleanup PASS, `firmware_class.path`는 `/vendor/firmware_mnt/image`로 유지
    - v212 apply 실기: `/cache/bin/a90_fwpathctl` fixed-target helper로 `firmware_class.path=/mnt/vendor/firmware` 적용/readback 후 `/vendor/firmware_mnt/image`로 rollback PASS, leftover mount 없음
-   - 다음은 v213 firmware request evidence 또는 controlled ICNSS/CNSS preflight 계획이다
+   - v213 계획서: `docs/plans/NATIVE_INIT_V213_FIRMWARE_REQUEST_EVIDENCE_PLAN_2026-05-13.md`
+   - v213 collector: `scripts/revalidation/native_firmware_request_probe.py`
+   - v213 optional helper source: `stage3/linux_init/helpers/a90_icnssctl.c`
+   - v213 보고서: `docs/reports/NATIVE_INIT_V213_FIRMWARE_REQUEST_EVIDENCE_2026-05-13.md`
+   - v213 상태: PASS, baseline decision `baseline-only`, path-only decision `path-only-pass`
+   - v213 실기: read-only ICNSS baseline PASS, `/mnt/vendor/firmware` path apply/readback/rollback PASS, likely request paths visible, leftover mount 없음
+   - v213 live constraint: dynamic debug/tracefs firmware events는 absent, ICNSS sysfs node와 driver bind/unbind controls는 present
+   - 다음은 `a90_icnssctl` 배포/opt-in ICNSS reprobe를 할지, 또는 driver unbind/bind 전 safety/observability를 보강할지 결정한다
    - Wi-Fi/NCM을 USB-local 밖으로 넓히기 전 인증/ACL/token/bind/listener lifecycle 정책을 다시 검토한다
 
 ---
