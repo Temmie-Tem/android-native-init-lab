@@ -1048,6 +1048,7 @@ Samsung bootloader
    - v214 실기: `/cache/bin/a90_icnssctl` 배포 PASS, `/mnt/vendor/firmware` path apply/readback/rollback PASS, ICNSS unbind PASS, ICNSS bind FAIL
    - v214 dmesg: `icnss: Driver is already initialized`, `probe of 18800000.qcom,icnss failed with error -17`
    - v214 recovery: native reboot 후 ICNSS bound 복구 PASS, `firmware_class.path=/vendor/firmware_mnt/image`
+   - v215-v225 큰 계획: `docs/plans/NATIVE_INIT_V215_V225_WIFI_LIFECYCLE_ROADMAP_2026-05-13.md`
    - 다음은 ICNSS/CNSS lifecycle research다. generic sysfs unbind/bind와 Wi-Fi scan/connect는 blocked
    - Wi-Fi/NCM을 USB-local 밖으로 넓히기 전 인증/ACL/token/bind/listener lifecycle 정책을 다시 검토한다
 

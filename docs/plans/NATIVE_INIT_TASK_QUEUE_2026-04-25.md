@@ -1296,8 +1296,34 @@
   - post-reboot helper SHA 유지 PASS
 - 다음 실행 항목:
   - v215 ICNSS/CNSS lifecycle research
+  - v215-v225 큰 계획: `docs/plans/NATIVE_INIT_V215_V225_WIFI_LIFECYCLE_ROADMAP_2026-05-13.md`
   - Android/TWRP dmesg/init service ordering, ICNSS recovery/debug controls, vendor CNSS hooks 조사
   - 추가 unbind/bind와 Wi-Fi scan/connect는 blocked
+
+### V215-V225. ICNSS/CNSS Lifecycle to Controlled Wi-Fi Bring-Up — ROADMAP
+
+- 계획: `docs/plans/NATIVE_INIT_V215_V225_WIFI_LIFECYCLE_ROADMAP_2026-05-13.md`
+- 기준:
+  - v214가 `icnss-rebind-failed`로 safety stop 되었으므로 active Wi-Fi bring-up은 계속 blocked
+  - generic ICNSS sysfs `unbind`/`bind`는 unsafe path로 분류
+  - v215-v220은 lifecycle/dependency/read-only gate 중심
+  - v221 이후에만 opt-in temporary mutation을 검토
+  - v223 이후에만 scan-only active-network 실험을 검토
+- 버전 축:
+  - v215: ICNSS/CNSS lifecycle research
+  - v216: Android service replay model
+  - v217: ICNSS debug/recovery inventory
+  - v218: CNSS daemon dry-run feasibility
+  - v219: native Android-env shim plan
+  - v220: Wi-Fi bring-up preflight gate v2
+  - v221: controlled CNSS start experiment
+  - v222: nl80211/rfkill passive transition check
+  - v223: first scan-only gate
+  - v224: Wi-Fi security pre-connect review
+  - v225: first controlled connect
+- 다음 실행 항목:
+  - v215 계획서 작성 및 lifecycle collector 설계
+  - 추가 unbind/bind, rfkill write, link-up, scan/connect는 v220 gate 전까지 금지
 
 ### V187. Harness Broker Backend — PASS
 
