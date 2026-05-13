@@ -1098,7 +1098,12 @@ Samsung bootloader
    - v225 보고서: `docs/reports/NATIVE_INIT_V225_WIFI_EXPOSURE_SECURITY_GATE_V3_2026-05-13.md`
    - v225 상태: PASS, decision `still-no-go`
    - v225 결과: root-control exposure/credential policy는 gate v3에 반영됐지만 `vendor_evidence`, `shim_materialization` blocker가 남아 active Wi-Fi는 계속 blocked
-   - 다음은 source vendor root 확보 후 v222/v221/v224/v225 순서 재검증이다. daemon 실행, generic sysfs unbind/bind, Wi-Fi scan/connect는 blocked
+   - v226 계획서: `docs/plans/NATIVE_INIT_V226_VENDOR_ROOT_LIVE_EXPORT_PLAN_2026-05-14.md`
+   - v226 보고서: `docs/reports/NATIVE_INIT_V226_VENDOR_ROOT_LIVE_EXPORT_2026-05-14.md`
+   - v226 상태: PASS, decision `vendor-source-exported`
+   - v226 결과: live native `sda29` ro,noload vendor export 완료, v222는 `vendor-root-ready`, v224는 `shim-dryrun-ready`로 전환
+   - 현재 blocker: v221 decision `daemon-native-blocked`, unresolved `libcutils.so`, `libnl.so`, `libhardware_legacy.so`; v225는 `vendor_evidence` 때문에 `still-no-go`
+   - 다음은 v227 Android core/system library evidence closure다. daemon 실행, generic sysfs unbind/bind, Wi-Fi scan/connect는 blocked
 
 ---
 

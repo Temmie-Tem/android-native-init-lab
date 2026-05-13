@@ -1653,8 +1653,38 @@
   - listener bind broadening
   - firewall mutation
 - 다음 실행 항목:
-  - source vendor root 확보 전까지 active Wi-Fi 작업 금지
-  - source 확보 후 v222/v221/v224/v225 순서로 재검증
+  - v226 live vendor-root export로 source blocker를 닫고 v222/v221/v224/v225 순서로 재검증
+
+### V226. Native Vendor Root Live Export — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V226_VENDOR_ROOT_LIVE_EXPORT_PLAN_2026-05-14.md`
+- 보고서: `docs/reports/NATIVE_INIT_V226_VENDOR_ROOT_LIVE_EXPORT_2026-05-14.md`
+- 구현: `scripts/revalidation/wifi_vendor_live_export.py`
+- 산출: `tmp/wifi/v226-vendor-root-live-export/`
+- 결과:
+  - decision `vendor-source-exported`
+  - live native `sda29` temporary mount: ext4 `ro,noload`
+  - dynamic major/minor: `259:32`
+  - cleanup: PASS, leftover mount 없음
+  - pulled files: `22`, total `1405464` bytes
+  - required binaries: `bin/cnss-daemon`, `bin/cnss_diag`
+- 재검증:
+  - v222: PASS, decision `vendor-root-ready`
+  - v221: FAIL, decision `daemon-native-blocked`
+  - v224: PASS, decision `shim-dryrun-ready`
+  - v225: PASS, decision `still-no-go`, blocker `vendor_evidence`
+- 남은 blocker:
+  - `libcutils.so`
+  - `libnl.so`
+  - `libhardware_legacy.so`
+- 금지 유지:
+  - daemon 실행
+  - writable vendor/system mount
+  - rfkill write, link-up, scan/connect
+  - credential collection
+- 다음 실행 항목:
+  - v227 Android core/system library evidence closure
+  - v221 unresolved libraries가 해결되기 전 active Wi-Fi 작업 금지
 
 ### V187. Harness Broker Backend — PASS
 
