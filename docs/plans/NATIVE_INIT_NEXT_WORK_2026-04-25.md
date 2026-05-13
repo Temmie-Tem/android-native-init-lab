@@ -1077,6 +1077,8 @@ Samsung bootloader
    - v220 결과: gate counts `pass=3`, `warn=1`, `fail=0`, `blocked=3`
    - v220 blocked: `icnss_recovery`, `shim_policy`, `security_exposure`
    - 다음은 v221 host vendor ELF/library evidence closure와 recovery/security prerequisite closure다. daemon 실행, generic sysfs unbind/bind, Wi-Fi scan/connect는 blocked
+   - v221 계획서: `docs/plans/NATIVE_INIT_V221_HOST_VENDOR_ELF_LIBRARY_EVIDENCE_PLAN_2026-05-13.md`
+   - v221 목표: `cnss-daemon`/`cnss_diag` ELF interpreter, `DT_NEEDED`, `DT_RPATH`, `DT_RUNPATH`, library path evidence를 daemon 실행 없이 수집하거나 `vendor-root-required` checklist를 만든다
    - Wi-Fi/NCM을 USB-local 밖으로 넓히기 전 인증/ACL/token/bind/listener lifecycle 정책을 다시 검토한다
 
 ---

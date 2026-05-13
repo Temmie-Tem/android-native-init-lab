@@ -213,6 +213,10 @@ Goal: v218의 가장 큰 evidence gap인 `cnss-daemon`/`cnss_diag` ELF,
 interpreter, DT_NEEDED, config/library path를 host-visible vendor evidence로
 닫는다.
 
+Plan:
+
+- `docs/plans/NATIVE_INIT_V221_HOST_VENDOR_ELF_LIBRARY_EVIDENCE_PLAN_2026-05-13.md`
+
 Deliverables:
 
 - host vendor root locator or mounted vendor bundle parser

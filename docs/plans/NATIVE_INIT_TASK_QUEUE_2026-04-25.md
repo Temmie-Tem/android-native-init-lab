@@ -1515,6 +1515,38 @@
   - v221은 controlled CNSS start가 아니라 host vendor ELF/library evidence closure와 recovery/security prerequisite closure로 진행
   - `cnss-daemon`/`cnss_diag` ELF/interpreter/DT_NEEDED/config/library path evidence를 먼저 닫는다
 
+### V221. Host Vendor ELF / Library Evidence Closure — PLANNED
+
+- 계획: `docs/plans/NATIVE_INIT_V221_HOST_VENDOR_ELF_LIBRARY_EVIDENCE_PLAN_2026-05-13.md`
+- 목표:
+  - v218 blocker `elf-inspection-no-host-vendor-root`를 daemon 실행 없이 닫는다
+  - `cnss-daemon`/`cnss_diag` ELF interpreter, `DT_NEEDED`, `DT_RPATH`, `DT_RUNPATH`, library path evidence를 수집한다
+  - vendor root가 없으면 `vendor-root-required`를 PASS planning result로 출력하고 필요한 경로 checklist를 만든다
+- 예정 구현:
+  - `scripts/revalidation/wifi_vendor_elf_library_closure.py`
+- 입력:
+  - v210 vendor asset classifier
+  - v216 service replay model
+  - v218 daemon dry-run model
+  - v219 shim matrix
+  - v220 bring-up gate v2
+  - optional `--vendor-root`
+- 예정 산출물:
+  - `tmp/wifi/v221-host-vendor-elf-library-evidence/manifest.json`
+  - `tmp/wifi/v221-host-vendor-elf-library-evidence/elf-dependencies.json`
+  - `tmp/wifi/v221-host-vendor-elf-library-evidence/summary.md`
+- 예상:
+  - host-visible vendor root가 없으면 `vendor-root-required`
+  - vendor root가 있으면 `elf-evidence-ready` 또는 `daemon-native-blocked`
+- 금지:
+  - daemon 실행
+  - Android service start
+  - rfkill write, link-up, scan/connect
+  - ICNSS/sysfs/debugfs writes
+- 다음 실행 항목:
+  - v221 구현
+  - 결과에 따라 vendor root 확보 재시도 또는 v222 recovery/rollback policy hardening 계획
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
