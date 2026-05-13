@@ -1029,7 +1029,12 @@ Samsung bootloader
    - v211 보고서: `docs/reports/NATIVE_INIT_V211_FIRMWARE_PATH_POLICY_2026-05-13.md`
    - v211 상태: PASS, decision `sysfs-path-update-needed`
    - v211 실기: isolated `/mnt/vendor/firmware` model과 synthetic `/vendor/firmware_mnt/image` bind model은 likely request names를 모두 resolve하지만, 현재 `/vendor/firmware_mnt/image`는 resolve하지 못한다
-   - 다음은 v212 guarded opt-in `firmware_class.path=/mnt/vendor/firmware` update and rollback test 계획이다
+   - v212 계획서: `docs/plans/NATIVE_INIT_V212_FIRMWARE_PATH_ROLLBACK_PLAN_2026-05-13.md`
+   - v212 collector: `scripts/revalidation/native_firmware_path_apply_probe.py`
+   - v212 보고서: `docs/reports/NATIVE_INIT_V212_FIRMWARE_PATH_ROLLBACK_2026-05-13.md`
+   - v212 상태: DRY-RUN PASS / APPLY PENDING, decision `apply-required`
+   - v212 dry-run 실기: `/mnt/vendor/firmware` likely request paths는 모두 visible, cleanup PASS, `firmware_class.path`는 `/vendor/firmware_mnt/image`로 유지
+   - 다음은 v212 `--apply` rollback test 명시 실행이다
    - Wi-Fi/NCM을 USB-local 밖으로 넓히기 전 인증/ACL/token/bind/listener lifecycle 정책을 다시 검토한다
 
 ---

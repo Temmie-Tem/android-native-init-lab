@@ -1141,6 +1141,58 @@
   - v212 guarded opt-in `firmware_class.path=/mnt/vendor/firmware` update and rollback test 계획
   - active Wi-Fi bring-up은 계속 blocked
 
+### V212. Guarded Firmware Path Apply / Rollback Probe — DRY-RUN PASS / APPLY PENDING
+
+- 계획: `docs/plans/NATIVE_INIT_V212_FIRMWARE_PATH_ROLLBACK_PLAN_2026-05-13.md`
+- 보고서: `docs/reports/NATIVE_INIT_V212_FIRMWARE_PATH_ROLLBACK_2026-05-13.md`
+- 목표:
+  - v211 `sysfs-path-update-needed` 결과를 기준으로 `firmware_class.path=/mnt/vendor/firmware` 적용/원복 가능성 검증
+  - no-newline sysfs write, readback, likely request resolution, rollback, cleanup을 한 번에 증명
+  - Wi-Fi daemon/HAL/supplicant/hostapd 실행 없이 firmware loader path만 다룸
+- 구현 후보:
+  - `scripts/revalidation/native_firmware_path_apply_probe.py`
+  - evidence output: `tmp/wifi/v212-firmware-path-rollback`
+  - report: `docs/reports/NATIVE_INIT_V212_FIRMWARE_PATH_ROLLBACK_2026-05-13.md`
+- 결정 모델:
+  - `path-rollback-pass`
+  - `apply-required`
+  - `write-helper-unavailable`
+  - `path-readback-mismatch`
+  - `rollback-failed`
+  - `cleanup-failed`
+  - `request-name-unknown`
+  - `manual-review-required`
+- 핵심 안전 기준:
+  - dry-run은 sysfs write 금지
+  - apply mode는 `--apply` 명시 시에만 허용
+  - plain `echo` 금지, 정확한 no-newline write만 허용
+  - 원래 `firmware_class.path` readback/rollback 필수
+  - active Wi-Fi bring-up, rfkill write, link-up, scan/connect, daemon start, firmware copy, bind mount 금지
+- 검증:
+  - Python compile PASS
+  - v212 command guard PASS
+  - `git diff --check` PASS
+  - native bridge dry-run collector PASS
+- dry-run 실기 결과:
+  - runtime: `A90 Linux init 0.9.59 (v159)`
+  - decision: `apply-required`
+  - reason: `dry-run mount and request resolution passed; rerun with --apply to test sysfs write rollback`
+  - `sda29` major/minor: `259:22`
+  - ext4 available: true
+  - mount command: `run /cache/bin/toybox mount -t ext4 -o ro,noload /tmp/a90-v212-*/sda29 /mnt/vendor`
+  - mounted line: `ext4 ro,relatime,norecovery,i_version`
+  - cleanup rc: `0`
+  - leftover `/mnt/vendor` mount: false
+  - leftover `/tmp/a90-v212-*` mount: false
+  - original `firmware_class.path`: `/vendor/firmware_mnt/image`
+  - post-run `firmware_class.path`: `/vendor/firmware_mnt/image`
+  - likely request paths under `/mnt/vendor/firmware`: all visible
+  - manifest SHA256: `64d4ebc3d7a0d913c09dc0393adc2484f0cd66097d9d16e8172cfc7c8d6cf6d5`
+  - summary SHA256: `23190130f3ad30b04be0c4b48d6bf0a42a77d96ebbcb789fb3ddf23ec1a52e09`
+- 다음 실행 항목:
+  - v212 `--apply` rollback test 명시 실행
+  - active Wi-Fi bring-up은 계속 blocked
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
