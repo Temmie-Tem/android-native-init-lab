@@ -1372,6 +1372,32 @@
   - v217 ICNSS debug/recovery inventory 계획서 작성
   - read-only로 ICNSS debugfs/sysfs/ramdump/recovery controls를 분류
 
+### V217. ICNSS Debug / Recovery Inventory — PLANNED
+
+- 계획: `docs/plans/NATIVE_INIT_V217_ICNSS_DEBUG_RECOVERY_INVENTORY_PLAN_2026-05-13.md`
+- 목표:
+  - v214에서 실패한 generic ICNSS `unbind`/`bind` 대신, driver-specific debug/recovery/status surface를 read-only로 분류
+  - `cnss-daemon`/`cnss_diag` 실행 전 ICNSS recovery/debug controls의 위험도를 명확히 함
+- 예정 구현:
+  - `scripts/revalidation/wifi_icnss_recovery_inventory.py`
+- 입력:
+  - `tmp/wifi/v215-icnss-cnss-lifecycle/manifest.json`
+  - `tmp/wifi/v215-icnss-cnss-lifecycle-native/manifest.json`
+  - `tmp/wifi/v216-service-replay-model/manifest.json`
+- 예정 산출물:
+  - `tmp/wifi/v217-icnss-debug-recovery-inventory/manifest.json`
+  - `tmp/wifi/v217-icnss-debug-recovery-inventory/controls.json`
+  - `tmp/wifi/v217-icnss-debug-recovery-inventory/source-hints.json`
+  - `tmp/wifi/v217-icnss-debug-recovery-inventory/summary.md`
+- 금지:
+  - ICNSS `unbind`/`bind`
+  - ICNSS/debugfs/sysfs write
+  - `cnss-daemon`, `cnss_diag`, Wi-Fi HAL, supplicant, hostapd start
+  - rfkill write, link-up, scan/connect
+- 다음 실행 항목:
+  - v217 collector 구현
+  - manifest-only PASS 후 native bridge read-only 검증
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
