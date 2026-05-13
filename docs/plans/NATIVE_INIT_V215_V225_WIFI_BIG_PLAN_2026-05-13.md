@@ -244,7 +244,11 @@ Gate to v224:
 Purpose: materialize only reversible shim pieces from v219 and prove their
 filesystem/runtime shape without daemon execution.
 
-Mode: `temporary-mutating` only for reversible host/native layout work
+Mode: host-side dry-run by default; no live device mutation
+
+Plan:
+
+- `docs/plans/NATIVE_INIT_V224_ANDROID_ENV_SHIM_DRYRUN_MATERIALIZATION_PLAN_2026-05-13.md`
 
 Allowed examples:
 

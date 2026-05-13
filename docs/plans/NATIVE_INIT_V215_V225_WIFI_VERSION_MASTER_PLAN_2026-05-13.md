@@ -303,7 +303,11 @@ Decision:
 
 #### v224. Android-Env Shim Dry-Run Materialization
 
-Mode: `temporary-mutating` only for reversible mount/path stubs, no daemon start
+Mode: host-side dry-run by default, no daemon start
+
+Plan:
+
+- `docs/plans/NATIVE_INIT_V224_ANDROID_ENV_SHIM_DRYRUN_MATERIALIZATION_PLAN_2026-05-13.md`
 
 Goal: v219 shim matrix에서 `shim-required` 항목만 실제 native filesystem/runtime
 layout으로 만들 수 있는지 검증한다.

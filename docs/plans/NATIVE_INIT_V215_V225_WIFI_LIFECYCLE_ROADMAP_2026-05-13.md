@@ -526,7 +526,11 @@ Decision:
 
 ### v224. Android-Env Shim Dry-Run Materialization
 
-Mode: `temporary-mutating`, no daemon start
+Mode: host-side dry-run by default, no daemon start
+
+Plan:
+
+- `docs/plans/NATIVE_INIT_V224_ANDROID_ENV_SHIM_DRYRUN_MATERIALIZATION_PLAN_2026-05-13.md`
 
 Goal: materialize only the reversible shim-required pieces from v219 and prove
 cleanup/rollback without executing CNSS services.

@@ -1603,8 +1603,28 @@
   - daemon 실행
   - rfkill write, link-up, scan/connect
 - 다음 실행 항목:
-  - v224 Android-env shim dry-run materialization 계획
+  - v224 Android-env shim dry-run materialization 구현
   - v224는 v223 policy를 hard dependency로 사용하고 daemon 실행은 계속 금지
+
+
+### V224. Android-Env Shim Dry-Run Materialization — PLANNED
+
+- 계획: `docs/plans/NATIVE_INIT_V224_ANDROID_ENV_SHIM_DRYRUN_MATERIALIZATION_PLAN_2026-05-13.md`
+- 목표:
+  - v219 `shim-required` 항목을 host-side dry-run artifact로 물질화한다
+  - v219 `blocked` 항목은 계속 blocked로 유지한다
+  - v223 reboot-only recovery policy를 hard dependency로 기록한다
+  - v222 source vendor root 부재 시 `shim-source-required`로 안전하게 멈춘다
+- 금지:
+  - daemon 실행
+  - Android property mutation
+  - QMI/PDR/SSR writes
+  - binder/HAL publication
+  - Wi-Fi credential path 접근
+  - rfkill write, link-up, scan/connect
+- 다음 실행 항목:
+  - `scripts/revalidation/wifi_android_env_shim_materialize.py` 구현
+  - no-live-command dry-run에서 `shim-source-required` 또는 `shim-dryrun-ready` 판정
 
 ### V187. Harness Broker Backend — PASS
 
