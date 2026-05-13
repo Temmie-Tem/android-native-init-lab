@@ -1042,7 +1042,13 @@ Samsung bootloader
    - v213 상태: PASS, baseline decision `baseline-only`, path-only decision `path-only-pass`
    - v213 실기: read-only ICNSS baseline PASS, `/mnt/vendor/firmware` path apply/readback/rollback PASS, likely request paths visible, leftover mount 없음
    - v213 live constraint: dynamic debug/tracefs firmware events는 absent, ICNSS sysfs node와 driver bind/unbind controls는 present
-   - 다음은 `a90_icnssctl` 배포/opt-in ICNSS reprobe를 할지, 또는 driver unbind/bind 전 safety/observability를 보강할지 결정한다
+   - v214 계획서: `docs/plans/NATIVE_INIT_V214_ICNSS_REPROBE_EXECUTION_PLAN_2026-05-13.md`
+   - v214 보고서: `docs/reports/NATIVE_INIT_V214_ICNSS_REPROBE_EXECUTION_2026-05-13.md`
+   - v214 상태: SAFETY STOP, decision `icnss-rebind-failed`
+   - v214 실기: `/cache/bin/a90_icnssctl` 배포 PASS, `/mnt/vendor/firmware` path apply/readback/rollback PASS, ICNSS unbind PASS, ICNSS bind FAIL
+   - v214 dmesg: `icnss: Driver is already initialized`, `probe of 18800000.qcom,icnss failed with error -17`
+   - v214 recovery: native reboot 후 ICNSS bound 복구 PASS, `firmware_class.path=/vendor/firmware_mnt/image`
+   - 다음은 ICNSS/CNSS lifecycle research다. generic sysfs unbind/bind와 Wi-Fi scan/connect는 blocked
    - Wi-Fi/NCM을 USB-local 밖으로 넓히기 전 인증/ACL/token/bind/listener lifecycle 정책을 다시 검토한다
 
 ---

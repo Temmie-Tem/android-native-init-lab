@@ -111,6 +111,9 @@ class ProbePaths:
     run_id: str
     base: str
     node: str
+    major: str
+    minor: str
+    dev_path: str
 
 
 def default_out_dir() -> Path:
@@ -147,9 +150,23 @@ def make_run_id(value: str = "") -> str:
     return run_id
 
 
-def make_probe_paths(run_id: str) -> ProbePaths:
+def make_probe_paths(run_id: str, major: str = EXPECTED_MAJOR, minor: str = EXPECTED_MINOR) -> ProbePaths:
     base = f"{PROBE_PREFIX}{run_id}"
-    return ProbePaths(run_id=run_id, base=base, node=f"{base}/{EXPECTED_BLOCK}")
+    return ProbePaths(
+        run_id=run_id,
+        base=base,
+        node=f"{base}/{EXPECTED_BLOCK}",
+        major=major,
+        minor=minor,
+        dev_path=f"/sys/dev/block/{major}:{minor}",
+    )
+
+
+def probe_from_sda29_dev(run_id: str, sda29_dev: str | None) -> ProbePaths:
+    if sda29_dev is None or not re.fullmatch(r"\d+:\d+", sda29_dev):
+        return make_probe_paths(run_id)
+    major, minor = sda29_dev.split(":", 1)
+    return make_probe_paths(run_id, major, minor)
 
 
 def safe_name(name: str) -> str:
@@ -213,10 +230,10 @@ def allowed_read_path(path: str, probe: ProbePaths) -> bool:
         "/sys/class/block/sda29/dev",
         "/sys/class/block/sda29/size",
         "/sys/class/block/sda29/ro",
-        "/sys/dev/block/259:22",
     }
     return (
         path in exact_paths
+        or path == probe.dev_path
         or path.startswith(f"{ICNSS_NODE}/")
         or path.startswith("/sys/class/block/sda29/")
         or is_under_probe_path(path, probe)
@@ -273,7 +290,7 @@ def validate_command(
             return
         raise RuntimeError(f"mkdir outside allowed path: {joined}")
     if name == "mknodb":
-        if command == ["mknodb", probe.node, EXPECTED_MAJOR, EXPECTED_MINOR]:
+        if command == ["mknodb", probe.node, probe.major, probe.minor]:
             return
         raise RuntimeError(f"unexpected mknodb command: {joined}")
     if name == "umount":
@@ -326,6 +343,7 @@ def baseline_commands() -> tuple[tuple[str, list[str], float], ...]:
         ("firmware-class-path-before", ["cat", FIRMWARE_CLASS_PATH], 20.0),
         ("pre-proc-mounts", ["cat", "/proc/mounts"], 20.0),
         ("proc-filesystems", ["cat", "/proc/filesystems"], 20.0),
+        ("sys-sda29-dev", ["cat", "/sys/class/block/sda29/dev"], 20.0),
         ("dynamic-debug-control", ["stat", "/proc/dynamic_debug/control"], 20.0),
         ("tracing-events", ["ls", "/sys/kernel/tracing/events"], 20.0),
         ("debug-tracing-firmware-events", ["ls", "/sys/kernel/debug/tracing/events/firmware"], 20.0),
@@ -346,13 +364,12 @@ def baseline_commands() -> tuple[tuple[str, list[str], float], ...]:
 
 def preflight_commands(probe: ProbePaths) -> tuple[tuple[str, list[str], float], ...]:
     return (
-        ("sys-sda29-dev", ["cat", "/sys/class/block/sda29/dev"], 20.0),
         ("sys-sda29-size", ["cat", "/sys/class/block/sda29/size"], 20.0),
         ("sys-sda29-ro", ["cat", "/sys/class/block/sda29/ro"], 20.0),
-        ("sys-dev-block-sda29", ["ls", "/sys/dev/block/259:22"], 20.0),
+        ("sys-dev-block-sda29", ["ls", probe.dev_path], 20.0),
         ("mkdir-probe-base", ["mkdir", probe.base], 20.0),
         ("mkdir-vendor-mountpoint", ["mkdir", VENDOR_MOUNTPOINT], 20.0),
-        ("mknodb-sda29", ["mknodb", probe.node, EXPECTED_MAJOR, EXPECTED_MINOR], 20.0),
+        ("mknodb-sda29", ["mknodb", probe.node, probe.major, probe.minor], 20.0),
         ("temp-node-stat", ["stat", probe.node], 20.0),
         ("safe-ro-noload-mount", ["run", "/cache/bin/toybox", "mount", "-t", "ext4", "-o", "ro,noload", probe.node, VENDOR_MOUNTPOINT], 45.0),
         ("mounted-proc-mounts", ["cat", "/proc/mounts"], 20.0),
@@ -534,8 +551,15 @@ def contains_wifiish(text: str) -> bool:
 
 def icnss_bound(captures: list[CaptureRecord]) -> bool:
     return (
-        "DRIVER=icnss" in capture_text(captures, "icnss-uevent", "icnss-helper-status-after")
-        or ICNSS_ID in capture_text(captures, "icnss-driver", "icnss-node-after")
+        "DRIVER=icnss" in capture_text(captures, "icnss-uevent")
+        or ICNSS_ID in capture_text(captures, "icnss-driver")
+    )
+
+
+def icnss_bound_after_reprobe(captures: list[CaptureRecord]) -> bool:
+    return (
+        "DRIVER=icnss" in capture_text(captures, "icnss-helper-status-after")
+        or ICNSS_ID in capture_text(captures, "icnss-node-after")
     )
 
 
@@ -581,7 +605,7 @@ def classify(
     leftover_probe_mount = probe_mount_in_text(post_mounts, probe)
     ext4_available = "ext4" in capture_text(captures, "proc-filesystems").split()
     sda29_dev = first_line_value(captures, "sys-sda29-dev")
-    expected_major_minor = sda29_dev == f"{EXPECTED_MAJOR}:{EXPECTED_MINOR}"
+    expected_major_minor = bool(sda29_dev and re.fullmatch(r"\d+:\d+", sda29_dev))
     mount_ok = capture_ok(captures, "safe-ro-noload-mount")
     mounted_after_mount = mountpoint_in_text(capture_text(captures, "mounted-proc-mounts"), VENDOR_MOUNTPOINT)
     missing_likely = [row["request"] for row in request_matrix(captures) if not row["visible"]]
@@ -593,7 +617,9 @@ def classify(
     rollback_ok = (not args.apply_path) or (capture_ok(captures, "rollback-firmware-class-path") and rolled_back_path == original_path and (not post_path or post_path == original_path))
     reprobe_helper_available = (not args.reprobe) or (capture_ok(captures, "icnss-helper-stat") and capture_ok(captures, "icnss-helper-status-before"))
     reprobe_attempted = capture_by_name(captures, "icnss-unbind") is not None or capture_by_name(captures, "icnss-bind") is not None
-    rebind_ok = (not args.reprobe) or (capture_ok(captures, "icnss-bind") and icnss_bound(captures))
+    icnss_bound_before = icnss_bound(captures)
+    icnss_bound_after = icnss_bound_after_reprobe(captures)
+    rebind_ok = (not args.reprobe) or (capture_ok(captures, "icnss-bind") and icnss_bound_after)
     dmesg_before = set(dmesg_lines(captures, "dmesg-before"))
     dmesg_after = set(dmesg_lines(captures, "dmesg-after-reprobe"))
     dmesg_delta = sorted(dmesg_after - dmesg_before)
@@ -687,7 +713,9 @@ def classify(
         "request_matrix": request_matrix(captures),
         "fwpath_helper_available": helper_available,
         "icnss_helper_available": reprobe_helper_available,
-        "icnss_bound": icnss_bound(captures),
+        "icnss_bound": icnss_bound_after if args.reprobe else icnss_bound_before,
+        "icnss_bound_before": icnss_bound_before,
+        "icnss_bound_after_reprobe": icnss_bound_after,
         "reprobe_attempted": reprobe_attempted,
         "request_evidence": request_evidence,
         "dmesg_before_matches": len(dmesg_before),
@@ -731,7 +759,7 @@ def build_summary(manifest: dict[str, Any]) -> str:
         ["v210", str(c["v210_decision"]), ""],
         ["v211", str(c["v211_decision"]), ""],
         ["v212", str(c["v212_decision"]), ""],
-        ["sda29", str(c["sda29_dev"]), f"expected={c['expected_major_minor']} ext4={c['ext4_available']}"],
+        ["sda29", str(c["sda29_dev"]), f"usable={c['expected_major_minor']} ext4={c['ext4_available']}"],
         ["mount", str(c["mount_ok"]), f"mounted={c['mounted_after_mount']}"],
         ["fwpath helper", str(c["fwpath_helper_available"]), FWPATH_HELPER],
         ["icnss helper", str(c["icnss_helper_available"]), ICNSS_HELPER],
@@ -791,6 +819,8 @@ def main() -> int:
     v212 = load_json(args.v212_manifest)
 
     run_sequence(store, args, probe, baseline_commands(), captures)
+    snapshot = classify(captures, probe, args, v209, v210, v211, v212)
+    probe = probe_from_sda29_dev(run_id, snapshot["sda29_dev"])
     snapshot = classify(captures, probe, args, v209, v210, v211, v212)
     should_apply = (
         args.apply_path

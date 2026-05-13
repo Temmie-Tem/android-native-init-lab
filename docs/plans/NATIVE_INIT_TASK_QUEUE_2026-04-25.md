@@ -1206,8 +1206,8 @@
   - manifest SHA256: `f1fea94259a979f0d9dee7c2ba548d77bb7fde1ab6b550c492f550276d7f2ba8`
   - summary SHA256: `9320206dc5734a312cd93e09872cee9dbfb1707cdf09e20ef2b78f50a1150acb`
 - 다음 실행 항목:
-  - v213 firmware request evidence baseline/path-only PASS 완료
-  - v214에서 ICNSS reprobe 실행 여부와 추가 safety/observability를 결정
+  - v214 ICNSS reprobe 실행 완료, `icnss-rebind-failed`로 safety stop
+  - v215에서 ICNSS/CNSS lifecycle research를 진행
   - active Wi-Fi bring-up은 계속 blocked
 
 ### V213. Firmware Request Evidence / ICNSS Reprobe Preflight — PASS
@@ -1255,9 +1255,49 @@
   - ICNSS unbind/bind requires both `--reprobe` and `--i-understand-icnss-reprobe`
   - active Wi-Fi bring-up, rfkill write, link-up, scan/connect, daemon/HAL/supplicant/hostapd start, module load/unload, firmware copy, persistent mount are forbidden
 - 다음 실행 항목:
-  - v214에서 `a90_icnssctl` 배포 및 opt-in ICNSS reprobe를 할지 결정
-  - 또는 ICNSS unbind/bind 전 device-side safety/observability를 먼저 보강
+  - v214 결과에 따라 ICNSS generic unbind/bind는 unsafe로 취급
   - active Wi-Fi scan/connect는 계속 blocked
+
+### V214. ICNSS Reprobe Execution / Firmware Request Evidence — SAFETY STOP
+
+- 계획: `docs/plans/NATIVE_INIT_V214_ICNSS_REPROBE_EXECUTION_PLAN_2026-05-13.md`
+- 보고서: `docs/reports/NATIVE_INIT_V214_ICNSS_REPROBE_EXECUTION_2026-05-13.md`
+- baseline device build: `A90 Linux init 0.9.59 (v159)`
+- helper:
+  - source: `stage3/linux_init/helpers/a90_icnssctl.c`
+  - target: `/cache/bin/a90_icnssctl`
+  - deployment: TWRP ADB push
+  - SHA256: `652b66cb9079b0e9dd194c871bee7aca8dde16577a53f1837be71bd25babf0d5`
+- collector update:
+  - `scripts/revalidation/native_firmware_request_probe.py`
+  - live `/sys/class/block/sda29/dev` major/minor 사용으로 수정
+  - post-reprobe ICNSS bound 판정이 pre-reprobe evidence를 재사용하지 않도록 수정
+- reprobe 실기 결과:
+  - result: FAIL / safety stop
+  - decision: `icnss-rebind-failed`
+  - reason: `ICNSS bind/rebind evidence did not return to bound state`
+  - `sda29`: `259:32`
+  - temporary vendor `ro,noload` mount: PASS
+  - `firmware_class.path` apply: `/mnt/vendor/firmware`
+  - likely request paths under `/mnt/vendor/firmware`: all visible
+  - `icnss unbind`: PASS
+  - `icnss bind`: FAIL, userspace `write icnss control: No such device`
+  - dmesg: `icnss: Driver is already initialized`
+  - dmesg: `icnss: probe of 18800000.qcom,icnss failed with error -17`
+  - request evidence: none
+  - `firmware_class.path` rollback: PASS
+  - cleanup: PASS, leftover mount 없음
+  - manifest SHA256: `4e71bef89f30c3e5633aa99bc8a39882a2374c39135f154751d22b72c00e094f`
+  - summary SHA256: `c9bc79cff9ecb97e838fe422c307a5b2deb604fa49d2aca68c36292bbca50df1`
+- recovery:
+  - manual bind retry도 동일한 `-17` 실패
+  - native reboot 후 ICNSS bound 복구 PASS
+  - post-reboot `firmware_class.path`: `/vendor/firmware_mnt/image`
+  - post-reboot helper SHA 유지 PASS
+- 다음 실행 항목:
+  - v215 ICNSS/CNSS lifecycle research
+  - Android/TWRP dmesg/init service ordering, ICNSS recovery/debug controls, vendor CNSS hooks 조사
+  - 추가 unbind/bind와 Wi-Fi scan/connect는 blocked
 
 ### V187. Harness Broker Backend — PASS
 
