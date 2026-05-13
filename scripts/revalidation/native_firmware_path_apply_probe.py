@@ -30,6 +30,7 @@ EXPECTED_MINOR = "22"
 VENDOR_MOUNTPOINT = "/mnt/vendor"
 FIRMWARE_ROOT = "/mnt/vendor/firmware"
 FIRMWARE_CLASS_PATH = "/sys/module/firmware_class/parameters/path"
+FWPATH_HELPER = "/cache/bin/a90_fwpathctl"
 V209_EXPECTED_DECISION = "vendor-assets-visible"
 V210_EXPECTED_DECISION = "firmware-path-policy-needed"
 V211_EXPECTED_DECISION = "sysfs-path-update-needed"
@@ -180,11 +181,11 @@ def shell_quote_path(value: str) -> str:
 
 
 def write_command(value: str, target: str) -> list[str]:
-    if target != FIRMWARE_CLASS_PATH and not target.startswith(PROBE_PREFIX):
+    if target != FIRMWARE_CLASS_PATH:
         raise RuntimeError(f"unsafe write target: {target!r}")
-    quoted_value = shell_quote_path(value)
-    quoted_target = shell_quote_path(target)
-    return ["run", "/cache/bin/toybox", "sh", "-c", f"printf %s {quoted_value} > {quoted_target}"]
+    if not SAFE_PATH_RE.fullmatch(value):
+        raise RuntimeError(f"unsafe firmware path value: {value!r}")
+    return ["run", FWPATH_HELPER, "write", value]
 
 
 def command_text(command: list[str]) -> str:
@@ -201,7 +202,7 @@ def is_under_vendor_path(path: str) -> bool:
 
 def allowed_global_read_path(path: str, probe: ProbePaths) -> bool:
     return (
-        path in {"/proc/mounts", "/proc/filesystems", FIRMWARE_CLASS_PATH, "/tmp", "/mnt", VENDOR_MOUNTPOINT}
+        path in {"/proc/mounts", "/proc/filesystems", FIRMWARE_CLASS_PATH, "/tmp", "/mnt", VENDOR_MOUNTPOINT, FWPATH_HELPER}
         or path.startswith("/sys/class/block/sda29/")
         or path == "/sys/dev/block/259:22"
         or is_under_probe_path(path, probe)
@@ -227,8 +228,6 @@ def validate_apply_command(
         raise RuntimeError("empty apply command")
     joined = command_text(command)
 
-    if is_exact_write_command(command, FIRMWARE_ROOT, probe.preflight_file):
-        return
     if apply_enabled and is_exact_write_command(command, FIRMWARE_ROOT, FIRMWARE_CLASS_PATH):
         return
     if apply_enabled and original_path is not None and is_exact_write_command(command, original_path, FIRMWARE_CLASS_PATH):
@@ -275,6 +274,20 @@ def validate_apply_command(
         ]
         if command == expected_mount:
             return
+        if len(command) >= 3 and command[1] == FWPATH_HELPER:
+            if command == ["run", FWPATH_HELPER, "read"]:
+                return
+            if (
+                len(command) == 4
+                and command[2] == "write"
+                and apply_enabled
+                and (
+                    command[3] == FIRMWARE_ROOT
+                    or (original_path is not None and command[3] == original_path)
+                )
+            ):
+                return
+            raise RuntimeError(f"unexpected fwpath helper command: {joined}")
         if len(command) >= 3 and command[1] == "/cache/bin/toybox" and command[2] == "mount":
             raise RuntimeError(f"mount command must be exact ro,noload probe mount: {joined}")
         raise RuntimeError(f"unexpected run command: {joined}")
@@ -307,8 +320,8 @@ def build_asset_commands() -> tuple[tuple[str, list[str], float], ...]:
 
 def build_apply_commands(probe: ProbePaths, original_path: str) -> tuple[tuple[str, list[str], float], ...]:
     return (
-        ("write-preflight-temp", write_command(FIRMWARE_ROOT, probe.preflight_file), 20.0),
-        ("read-preflight-temp", ["cat", probe.preflight_file], 20.0),
+        ("fwpath-helper-stat", ["stat", FWPATH_HELPER], 20.0),
+        ("fwpath-helper-read-before", ["run", FWPATH_HELPER, "read"], 20.0),
         ("apply-firmware-class-path", write_command(FIRMWARE_ROOT, FIRMWARE_CLASS_PATH), 20.0),
         ("firmware-class-path-applied", ["cat", FIRMWARE_CLASS_PATH], 20.0),
         ("rollback-firmware-class-path", write_command(original_path, FIRMWARE_CLASS_PATH), 20.0),
@@ -520,12 +533,13 @@ def classify(
     applied_path = first_line_value(captures, "firmware-class-path-applied")
     rolled_back_path = first_line_value(captures, "firmware-class-path-rolled-back")
     post_path = first_line_value(captures, "post-firmware-class-path")
-    preflight_value = first_line_value(captures, "read-preflight-temp")
+    helper_stat_ok = capture_ok(captures, "fwpath-helper-stat")
+    helper_read_ok = capture_ok(captures, "fwpath-helper-read-before")
+    helper_available = (not args.apply) or (helper_stat_ok and helper_read_ok)
     likely_rows = [row for row in request_matrix(captures) if row["kind"] == "likely"]
     uncertain_rows = [row for row in request_matrix(captures) if row["kind"] == "uncertain"]
     missing_likely = [row["request"] for row in likely_rows if not row["visible"]]
     missing_uncertain = [row["request"] for row in uncertain_rows if not row["visible"]]
-    write_preflight_ok = capture_ok(captures, "write-preflight-temp", "read-preflight-temp") and preflight_value == FIRMWARE_ROOT
     apply_attempted = capture_by_name(captures, "apply-firmware-class-path") is not None
     apply_ok = capture_ok(captures, "apply-firmware-class-path") and applied_path == FIRMWARE_ROOT
     rollback_attempted = capture_by_name(captures, "rollback-firmware-class-path") is not None
@@ -571,9 +585,9 @@ def classify(
     elif leftover_vendor_mount or leftover_probe_mount:
         decision = "cleanup-failed"
         reason = "temporary vendor mount remained after cleanup"
-    elif args.apply and not write_preflight_ok:
+    elif args.apply and not helper_available:
         decision = "write-helper-unavailable"
-        reason = "toybox sh printf no-newline preflight did not round-trip under /tmp"
+        reason = "a90_fwpathctl helper is missing or could not read firmware_class.path"
     elif args.apply and not apply_attempted:
         decision = "manual-review-required"
         reason = "apply mode requested but apply command was not attempted"
@@ -606,8 +620,10 @@ def classify(
         "applied_firmware_class_path": applied_path,
         "rolled_back_firmware_class_path": rolled_back_path,
         "post_firmware_class_path": post_path,
-        "preflight_value": preflight_value,
-        "write_preflight_ok": write_preflight_ok,
+        "fwpath_helper": FWPATH_HELPER,
+        "fwpath_helper_stat_ok": helper_stat_ok,
+        "fwpath_helper_read_ok": helper_read_ok,
+        "fwpath_helper_available": helper_available,
         "mount_attempted": mount_attempted,
         "mount_ok": mount_ok,
         "mounted_after_mount": mounted_after_mount,
@@ -630,7 +646,7 @@ def recommended_next(decision: str) -> str:
     if decision == "path-rollback-pass":
         return "plan v213 firmware request evidence or controlled ICNSS/CNSS preflight; do not jump to Wi-Fi connect"
     if decision == "write-helper-unavailable":
-        return "build a tiny static a90_fwpathctl helper instead of shell-based sysfs writes"
+        return "build/deploy /cache/bin/a90_fwpathctl, then rerun v212 with --apply"
     if decision == "rollback-failed":
         return "restore firmware_class.path manually before any further Wi-Fi work"
     if decision == "cleanup-failed":
@@ -651,6 +667,7 @@ def build_summary(manifest: dict[str, Any]) -> str:
         ["ext4", str(c["ext4_available"]), ""],
         ["mount", str(c["mount_ok"]), f"attempted={c['mount_attempted']} mounted={c['mounted_after_mount']}"],
         ["cleanup", str(not c["leftover_vendor_mount"] and not c["leftover_probe_mount"]), f"attempted={c['cleanup_attempted']} rc={c['cleanup_rc']}"],
+        ["fwpath helper", str(c["fwpath_helper_available"]), c["fwpath_helper"]],
         ["original path", c["original_firmware_class_path"] or "<empty>", ""],
         ["applied path", c["applied_firmware_class_path"] or "<not-run>", ""],
         ["rolled back path", c["rolled_back_firmware_class_path"] or "<not-run>", ""],
@@ -733,12 +750,18 @@ def main() -> int:
                                 original_path=original_path,
                             )
                         )
+                        if name in {"fwpath-helper-stat", "fwpath-helper-read-before"} and not capture_ok(captures, name):
+                            break
                         if name == "apply-firmware-class-path" and not capture_ok(captures, "apply-firmware-class-path"):
                             break
                         if name == "firmware-class-path-applied" and first_line_value(captures, "firmware-class-path-applied") != FIRMWARE_ROOT:
                             break
                 finally:
-                    if capture_by_name(captures, "rollback-firmware-class-path") is None and original_path:
+                    if (
+                        capture_by_name(captures, "apply-firmware-class-path") is not None
+                        and capture_by_name(captures, "rollback-firmware-class-path") is None
+                        and original_path
+                    ):
                         rollback = ("rollback-firmware-class-path", write_command(original_path, FIRMWARE_CLASS_PATH), 20.0)
                         captures.append(
                             capture_device(
@@ -788,7 +811,7 @@ def main() -> int:
         "guardrails": [
             "dry-run never writes firmware_class.path",
             "sysfs write requires --apply",
-            "plain echo forbidden; only exact printf no-newline write command is allowed",
+            "plain echo and shell redirection forbidden; only /cache/bin/a90_fwpathctl fixed-target writes are allowed",
             "original firmware_class.path is saved and restored",
             "mount requires ext4 ro,noload",
             "temporary block node only under /tmp/a90-v212-*",

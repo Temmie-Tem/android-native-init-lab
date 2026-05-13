@@ -148,21 +148,19 @@ Steps:
 
 The write mechanism is the highest-risk part of v212.
 
-Preferred sequence:
+Final sequence:
 
-1. Preflight no-newline write support with a harmless temporary file under
-   `/tmp/a90-v212-*`.
-2. Use a guarded `run /cache/bin/toybox sh -c` command only if toybox shell and
-   `printf %s` behavior are confirmed.
-3. Never use plain `echo`.
-4. Never put untrusted or variable shell fragments into the write command.
-5. Only permit two exact target values:
+1. Use the static `/cache/bin/a90_fwpathctl` helper for the fixed sysfs target.
+   The current `/cache/bin/toybox` has no `sh` applet, so shell redirection is
+   not an acceptable write mechanism.
+2. Never use plain `echo` or shell redirection.
+3. Never put untrusted or variable shell fragments into the write command.
+4. Only permit two exact target values:
    - candidate: `/mnt/vendor/firmware`
    - original value read from `/sys/module/firmware_class/parameters/path`
 
-If no safe no-newline write path is available, v212 must stop with
-`write-helper-unavailable` and the next step should be a tiny static helper such
-as `a90_fwpathctl` rather than a shell-quoted workaround.
+If `/cache/bin/a90_fwpathctl` is missing or cannot read the sysfs parameter,
+v212 must stop with `write-helper-unavailable`.
 
 ## Command Guard
 
@@ -172,11 +170,11 @@ Allowed mutation-like commands are limited to:
 - `mkdir /tmp/a90-v212-*`
 - `mknodb /tmp/a90-v212-*/sda29 259 22`
 - `run /cache/bin/toybox mount -t ext4 -o ro,noload /tmp/a90-v212-*/sda29 /mnt/vendor`
-- exact no-newline write of `/mnt/vendor/firmware` to
-  `/sys/module/firmware_class/parameters/path`, only with `--apply`
-- exact no-newline write of the saved original path back to
-  `/sys/module/firmware_class/parameters/path`, only after a successful apply
-  attempt or during cleanup
+- `run /cache/bin/a90_fwpathctl read`
+- `run /cache/bin/a90_fwpathctl write /mnt/vendor/firmware`, only with
+  `--apply`
+- `run /cache/bin/a90_fwpathctl write <original-firmware-class-path>`, only
+  after a successful apply attempt or during cleanup
 - `umount /mnt/vendor`
 
 Forbidden command patterns:
@@ -233,6 +231,12 @@ print('v212 command guard PASS')
 PY
 
 git diff --check
+```
+
+Helper build:
+
+```text
+scripts/revalidation/build_fwpathctl_helper.sh
 ```
 
 Dry-run live validation:
@@ -303,7 +307,7 @@ next safe candidates are:
 
 1. collect firmware request-name evidence around a controlled driver probe if
    possible without enabling WLAN link-up, or
-2. implement a rollback-safe native firmware path helper inside PID1 for future
-   controlled Wi-Fi preflight, or
+2. decide whether `/cache/bin/a90_fwpathctl` should remain an external helper
+   or move into PID1/ramdisk for future controlled Wi-Fi preflight, or
 3. plan `cnss-daemon`/ICNSS service preflight with no supplicant, no scan, and
    strict rollback.

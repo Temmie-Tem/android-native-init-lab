@@ -1032,9 +1032,10 @@ Samsung bootloader
    - v212 계획서: `docs/plans/NATIVE_INIT_V212_FIRMWARE_PATH_ROLLBACK_PLAN_2026-05-13.md`
    - v212 collector: `scripts/revalidation/native_firmware_path_apply_probe.py`
    - v212 보고서: `docs/reports/NATIVE_INIT_V212_FIRMWARE_PATH_ROLLBACK_2026-05-13.md`
-   - v212 상태: DRY-RUN PASS / APPLY PENDING, decision `apply-required`
+   - v212 상태: PASS, decision `path-rollback-pass`
    - v212 dry-run 실기: `/mnt/vendor/firmware` likely request paths는 모두 visible, cleanup PASS, `firmware_class.path`는 `/vendor/firmware_mnt/image`로 유지
-   - 다음은 v212 `--apply` rollback test 명시 실행이다
+   - v212 apply 실기: `/cache/bin/a90_fwpathctl` fixed-target helper로 `firmware_class.path=/mnt/vendor/firmware` 적용/readback 후 `/vendor/firmware_mnt/image`로 rollback PASS, leftover mount 없음
+   - 다음은 v213 firmware request evidence 또는 controlled ICNSS/CNSS preflight 계획이다
    - Wi-Fi/NCM을 USB-local 밖으로 넓히기 전 인증/ACL/token/bind/listener lifecycle 정책을 다시 검토한다
 
 ---

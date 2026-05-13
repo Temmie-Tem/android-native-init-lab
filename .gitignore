@@ -77,6 +77,7 @@ stage3/linux_init/a90_sleep
 stage3/linux_init/helpers/a90_cpustress
 stage3/linux_init/helpers/a90_rshell
 stage3/linux_init/helpers/a90_longsoak
+stage3/linux_init/helpers/a90_fwpathctl
 stage3/ramdisk_v*/
 stage3/ramdisk_v*.cpio
 

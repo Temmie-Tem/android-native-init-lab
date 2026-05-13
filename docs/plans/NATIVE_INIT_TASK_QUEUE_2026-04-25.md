@@ -1141,7 +1141,7 @@
   - v212 guarded opt-in `firmware_class.path=/mnt/vendor/firmware` update and rollback test 계획
   - active Wi-Fi bring-up은 계속 blocked
 
-### V212. Guarded Firmware Path Apply / Rollback Probe — DRY-RUN PASS / APPLY PENDING
+### V212. Guarded Firmware Path Apply / Rollback Probe — PASS
 
 - 계획: `docs/plans/NATIVE_INIT_V212_FIRMWARE_PATH_ROLLBACK_PLAN_2026-05-13.md`
 - 보고서: `docs/reports/NATIVE_INIT_V212_FIRMWARE_PATH_ROLLBACK_2026-05-13.md`
@@ -1151,6 +1151,8 @@
   - Wi-Fi daemon/HAL/supplicant/hostapd 실행 없이 firmware loader path만 다룸
 - 구현 후보:
   - `scripts/revalidation/native_firmware_path_apply_probe.py`
+  - `stage3/linux_init/helpers/a90_fwpathctl.c`
+  - `scripts/revalidation/build_fwpathctl_helper.sh`
   - evidence output: `tmp/wifi/v212-firmware-path-rollback`
   - report: `docs/reports/NATIVE_INIT_V212_FIRMWARE_PATH_ROLLBACK_2026-05-13.md`
 - 결정 모델:
@@ -1165,14 +1167,17 @@
 - 핵심 안전 기준:
   - dry-run은 sysfs write 금지
   - apply mode는 `--apply` 명시 시에만 허용
-  - plain `echo` 금지, 정확한 no-newline write만 허용
+  - plain `echo`/shell redirection 금지, `/cache/bin/a90_fwpathctl` fixed-target write만 허용
   - 원래 `firmware_class.path` readback/rollback 필수
   - active Wi-Fi bring-up, rfkill write, link-up, scan/connect, daemon start, firmware copy, bind mount 금지
 - 검증:
   - Python compile PASS
   - v212 command guard PASS
+  - `a90_fwpathctl` static ARM64 build PASS
+  - `/cache/bin/a90_fwpathctl` IPv6 link-local NCM deploy PASS
   - `git diff --check` PASS
   - native bridge dry-run collector PASS
+  - native bridge apply rollback collector PASS
 - dry-run 실기 결과:
   - runtime: `A90 Linux init 0.9.59 (v159)`
   - decision: `apply-required`
@@ -1189,8 +1194,19 @@
   - likely request paths under `/mnt/vendor/firmware`: all visible
   - manifest SHA256: `64d4ebc3d7a0d913c09dc0393adc2484f0cd66097d9d16e8172cfc7c8d6cf6d5`
   - summary SHA256: `23190130f3ad30b04be0c4b48d6bf0a42a77d96ebbcb789fb3ddf23ec1a52e09`
+- apply 실기 결과:
+  - decision: `path-rollback-pass`
+  - reason: `firmware_class.path apply, readback, request resolution, rollback, and cleanup passed`
+  - helper: `/cache/bin/a90_fwpathctl`, SHA256 `8d08de43edd921099a6c2e627222e06488913d93f56fc0db01b5c7902df5e3cc`
+  - applied `firmware_class.path`: `/mnt/vendor/firmware`
+  - rolled back `firmware_class.path`: `/vendor/firmware_mnt/image`
+  - post-run `firmware_class.path`: `/vendor/firmware_mnt/image`
+  - leftover `/mnt/vendor` mount: false
+  - leftover `/tmp/a90-v212-*` mount: false
+  - manifest SHA256: `f1fea94259a979f0d9dee7c2ba548d77bb7fde1ab6b550c492f550276d7f2ba8`
+  - summary SHA256: `9320206dc5734a312cd93e09872cee9dbfb1707cdf09e20ef2b78f50a1150acb`
 - 다음 실행 항목:
-  - v212 `--apply` rollback test 명시 실행
+  - v213 firmware request evidence 또는 controlled ICNSS/CNSS preflight 계획
   - active Wi-Fi bring-up은 계속 blocked
 
 ### V187. Harness Broker Backend — PASS
