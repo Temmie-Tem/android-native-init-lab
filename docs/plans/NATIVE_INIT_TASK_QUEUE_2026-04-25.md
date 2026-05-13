@@ -1712,6 +1712,26 @@
   - controlled CNSS start plan 작성
   - start-only 실험 전 recovery/timeout/exposure/rollback 정책 명시
 
+
+### V228. Controlled CNSS Start-Only Experiment Plan — PLANNED
+
+- 계획: `docs/plans/NATIVE_INIT_V228_CONTROLLED_CNSS_START_PLAN_2026-05-14.md`
+- 목표:
+  - v225 `cnss-start-plan-approved` 이후 첫 controlled start-only 설계
+  - v228에서는 daemon 실행 없이 command allowlist, runtime shim, timeout, stop/reap, reboot-only recovery, exposure boundary를 고정
+  - active scan/connect/credential/routing/DHCP는 계속 금지
+- 입력 증거:
+  - v216 service replay model
+  - v221 `elf-evidence-ready`
+  - v222 `vendor-root-ready`
+  - v223 `reboot-recovery-accepted`
+  - v224 `shim-dryrun-ready`
+  - v225 `cnss-start-plan-approved`
+  - v227 `system-root-ready`
+- 다음 실행 항목:
+  - v229 controlled CNSS start planner 구현
+  - 실험 실행은 별도 explicit operator confirmation 이후에만 허용
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`

@@ -1107,7 +1107,9 @@ Samsung bootloader
    - v227 상태: PASS, decision `system-root-ready`
    - v227 결과: live native `/mnt/system/system/lib*`에서 Android core/system libraries export 완료
    - 재검증 결과: v221 `elf-evidence-ready`, v224 `shim-dryrun-ready`, v225 `cnss-start-plan-approved`
-   - 다음은 controlled CNSS start plan 작성이다. 아직 Wi-Fi scan/connect는 별도 승인 전까지 blocked
+   - v228 계획서: `docs/plans/NATIVE_INIT_V228_CONTROLLED_CNSS_START_PLAN_2026-05-14.md`
+   - v228 방향: controlled CNSS start-only experiment 설계. v228에서는 daemon 실행 없이 계획/allowlist/recovery/exposure boundary만 고정
+   - 다음 구현 후보는 v229 controlled CNSS start planner/runner이며, 아직 Wi-Fi scan/connect는 별도 승인 전까지 blocked
 
 ---
 
