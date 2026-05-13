@@ -275,6 +275,10 @@ Decision:
 
 Mode: `read-only` plus reboot-only policy documentation
 
+Plan:
+
+- `docs/plans/NATIVE_INIT_V223_RECOVERY_ROLLBACK_POLICY_PLAN_2026-05-13.md`
+
 Goal: reboot-only recovery를 accepted risk로 둘 수 있는지 판단하고, active
 experiment 전에 필요한 stop condition과 evidence bundle을 고정한다.
 

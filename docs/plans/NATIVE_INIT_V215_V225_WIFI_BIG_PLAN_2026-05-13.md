@@ -209,6 +209,10 @@ mutation.
 
 Mode: `read-only` plus policy documentation
 
+Plan:
+
+- `docs/plans/NATIVE_INIT_V223_RECOVERY_ROLLBACK_POLICY_PLAN_2026-05-13.md`
+
 Planned deliverables:
 
 - broken-state detection checklist

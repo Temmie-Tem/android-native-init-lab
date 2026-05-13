@@ -496,6 +496,10 @@ Decision:
 
 Mode: `read-only`
 
+Plan:
+
+- `docs/plans/NATIVE_INIT_V223_RECOVERY_ROLLBACK_POLICY_PLAN_2026-05-13.md`
+
 Goal: decide whether reboot-only ICNSS recovery can be accepted for any later
 temporary-mutating CNSS experiment.
 
