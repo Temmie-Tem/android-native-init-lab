@@ -1019,7 +1019,14 @@ Samsung bootloader
    - v209 보고서: `docs/reports/NATIVE_INIT_V209_VENDOR_RO_MOUNT_PROBE_2026-05-13.md`
    - v209 상태: PASS, decision `vendor-assets-visible`
    - v209 실기: `sda29` 임시 block node + isolated mountpoint + ext4 `ro,noload` mount PASS, cleanup PASS, vendor init/Wi-Fi firmware assets visible
-   - 다음은 v210 vendor Wi-Fi/CNSS asset classifier 계획이다
+   - v210 계획서: `docs/plans/NATIVE_INIT_V210_VENDOR_WIFI_CNSS_ASSET_CLASSIFIER_PLAN_2026-05-13.md`
+   - v210 collector: `scripts/revalidation/native_vendor_asset_classifier.py`
+   - v210 보고서: `docs/reports/NATIVE_INIT_V210_VENDOR_WIFI_CNSS_ASSET_CLASSIFIER_2026-05-13.md`
+   - v210 상태: PASS, decision `firmware-path-policy-needed`
+   - v210 실기: required vendor firmware/init rc/service binaries/VINTF는 native-visible vendor mount에서 확인됐고, `firmware_class.path=/vendor/firmware_mnt/image`가 현재 visible Wi-Fi firmware layout을 가리키지 않는 것이 다음 blocker다
+   - v211 계획서: `docs/plans/NATIVE_INIT_V211_FIRMWARE_PATH_POLICY_PLAN_2026-05-13.md`
+   - v211 방향: `firmware_class.path` write 없이 required firmware request name이 어떤 read-only candidate layout에서 resolve되는지 먼저 모델링한다
+   - 다음은 v211 policy probe 구현이다
    - Wi-Fi/NCM을 USB-local 밖으로 넓히기 전 인증/ACL/token/bind/listener lifecycle 정책을 다시 검토한다
 
 ---

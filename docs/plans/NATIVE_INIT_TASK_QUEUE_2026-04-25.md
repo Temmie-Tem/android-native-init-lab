@@ -1033,6 +1033,90 @@
   - v210 vendor Wi-Fi/CNSS asset classifier
   - active Wi-Fi bring-up은 계속 blocked
 
+### V210. Vendor Wi-Fi/CNSS Asset Classifier — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V210_VENDOR_WIFI_CNSS_ASSET_CLASSIFIER_PLAN_2026-05-13.md`
+- 보고서: `docs/reports/NATIVE_INIT_V210_VENDOR_WIFI_CNSS_ASSET_CLASSIFIER_2026-05-13.md`
+- 목표:
+  - v209에서 확인한 native-visible vendor mount를 기준으로 Wi-Fi/CNSS asset map 작성
+  - firmware/init rc/service binary/library/module/VINTF/firmware loader implication 분류
+  - Android v206 evidence와 native-visible vendor asset parity 확인
+- 핵심 안전 기준:
+  - v209와 같은 ext4 `ro,noload` temporary vendor mount만 허용
+  - `firmware_class.path` write 금지
+  - Wi-Fi enable, rfkill write, WLAN link-up, scan/connect 금지
+  - `cnss-daemon`, `cnss_diag`, Wi-Fi HAL, `wificond`, supplicant, hostapd start 금지
+- 구현 후보:
+  - `scripts/revalidation/native_vendor_asset_classifier.py`
+  - evidence output: `tmp/wifi/v210-vendor-asset-classifier`
+  - report: `docs/reports/NATIVE_INIT_V210_VENDOR_WIFI_CNSS_ASSET_CLASSIFIER_2026-05-13.md`
+- 결정 모델:
+  - `asset-map-ready`
+  - `firmware-path-policy-needed`
+  - `service-dependency-gap`
+  - `vendor-assets-incomplete`
+  - `dependency-parser-unavailable`
+  - `cleanup-failed`
+  - `manual-review-required`
+- 검증:
+  - Python compile PASS
+  - v210 command guard PASS
+  - `git diff --check` PASS
+  - native bridge live collector run PASS
+- 실기 결과:
+  - runtime: `A90 Linux init 0.9.59 (v159)`
+  - decision: `firmware-path-policy-needed`
+  - reason: `required firmware exists, but current firmware_class.path does not point at the visible vendor firmware layout`
+  - `sda29` major/minor: `259:22`
+  - ext4 available: true
+  - mount command: `run /cache/bin/toybox mount -t ext4 -o ro,noload /tmp/a90-v210-*/sda29 /tmp/a90-v210-*/vendor`
+  - mounted line: `ext4 ro,relatime,norecovery,i_version`
+  - cleanup rc: `0`
+  - leftover mount: false
+  - visible paths: `47`
+  - missing required firmware/init rc/binaries: `0/0/0`
+  - parsed services: `btcoex_cont_config`, `cnss-daemon`, `cnss_diag`, `hostapd`, `vendor.wifi_hal_ext`, `vendor.wifi_hal_legacy`, `wpa_supplicant`
+  - firmware loader state: `firmware_class.path=/vendor/firmware_mnt/image`, required Wi-Fi firmware under current loader path: none
+  - manifest SHA256: `8a820f74497de2118e3bcc5f7e9af718894f5504993caccfe811fffdbd1b0fd7`
+  - summary SHA256: `5ec39f8a7d4d71c824015acb3cb6c7a9cae77630d2e929dbd10a9628a3af9588`
+- 다음 실행 항목:
+  - v211 firmware path/layout policy 계획
+  - active Wi-Fi bring-up은 계속 blocked
+
+### V211. Firmware Path / Vendor Layout Policy — PLAN
+
+- 계획: `docs/plans/NATIVE_INIT_V211_FIRMWARE_PATH_POLICY_PLAN_2026-05-13.md`
+- 목표:
+  - v210 `firmware-path-policy-needed` 결과를 기준으로 native firmware lookup policy를 먼저 설계
+  - required Wi-Fi/CNSS firmware request name이 어떤 candidate root에서 resolve되는지 read-only로 모델링
+  - `firmware_class.path` write, `/vendor` bind layout, full vendor layout 중 가장 낮은 리스크 경로 결정
+- 핵심 안전 기준:
+  - active Wi-Fi bring-up 금지
+  - `firmware_class.path` write 금지
+  - `/vendor`, `/lib/firmware`, `/cache` 등 persistent path bind/copy 금지
+  - v209/v210과 같은 temporary `ro,noload` vendor mount만 허용
+  - `cnss-daemon`, `cnss_diag`, Wi-Fi HAL, `wificond`, supplicant, hostapd start 금지
+- 구현 후보:
+  - `scripts/revalidation/native_firmware_path_policy_probe.py`
+  - evidence output: `tmp/wifi/v211-firmware-path-policy`
+  - report: `docs/reports/NATIVE_INIT_V211_FIRMWARE_PATH_POLICY_2026-05-13.md`
+- 정책 후보:
+  - Option A: isolated vendor firmware root + future guarded `firmware_class.path=/mnt/vendor/firmware`
+  - Option B: synthetic `/vendor/firmware_mnt/image` read-only bind layout
+  - Option C: full read-only vendor layout, later service feasibility용으로 보류
+  - Option D: copy firmware into `/lib/firmware`, 현재 reject
+- 결정 모델:
+  - `path-policy-ready`
+  - `request-name-unknown`
+  - `bind-layout-needed`
+  - `sysfs-path-update-needed`
+  - `vendor-layout-risk-too-high`
+  - `cleanup-failed`
+  - `manual-review-required`
+- 다음 실행 항목:
+  - v211 policy probe 구현
+  - active Wi-Fi bring-up은 계속 blocked
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
