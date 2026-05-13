@@ -58,24 +58,26 @@ native init must keep active Wi-Fi bring-up blocked.
   and `probe ... failed with error -17`; reboot restored ICNSS bound state.
 - v215: ICNSS/CNSS lifecycle collector passed with `lifecycle-map-ready`.
 - v216: Android service replay model passed with `replay-model-ready`.
+- v217: ICNSS debug/recovery inventory passed with `state-only-inventory`.
 
 ## Current Execution Status
 
-This roadmap is now in the post-v216 phase.
+This roadmap is now in the post-v217 phase.
 
 - completed:
   - v215 `ICNSS/CNSS Lifecycle Research`
   - v216 `Android Service Replay Model`
-- next execution item:
   - v217 `ICNSS Debug / Recovery Inventory`
+- next execution item:
+  - v218 `CNSS Daemon Dry-Run Feasibility`
 - still blocked:
   - `cnss-daemon` and `cnss_diag` execution
   - Wi-Fi HAL execution
   - supplicant/hostapd execution
   - rfkill writes, link-up, scan, connect
 - current highest-risk unknown:
-  - whether ICNSS has a driver-specific recovery/debug control path safer than
-    generic platform-driver `unbind`/`bind`
+  - whether `cnss-daemon` and `cnss_diag` dependencies can be modeled deeply
+    enough without executing them
 
 ## Safety Policy
 
@@ -270,6 +272,17 @@ Decision:
 - `safe-control-candidate`: a non-destructive or documented recovery path exists
 - `no-safe-control`: reboot remains the only known recovery from broken ICNSS
   state
+
+Status:
+
+- done
+- result: `state-only-inventory`
+- report:
+  `docs/reports/NATIVE_INIT_V217_ICNSS_DEBUG_RECOVERY_INVENTORY_2026-05-13.md`
+- important blockers preserved:
+  - generic ICNSS `bind`/`unbind` remains denied
+  - `driver_override` remains denied
+  - reboot remains the only proven recovery from broken ICNSS state
 
 ### v218. CNSS Daemon Dry-Run Feasibility
 
@@ -488,17 +501,18 @@ Decision:
 
 ## Recommended Immediate Next Step
 
-Start v217. Do not write ICNSS recovery controls and do not run any Android
-Wi-Fi/CNSS daemon yet.
+Start v218. Do not execute `cnss-daemon`, `cnss_diag`, Wi-Fi HAL, supplicant,
+or hostapd yet.
 
-The next concrete deliverable should be a read-only ICNSS debug/recovery
-inventory that combines:
+The next concrete deliverable should be a CNSS daemon dry-run feasibility model
+that inspects:
 
-- ICNSS/CNSS sysfs and debugfs path discovery
-- permission and writable-control classification
-- ramdump/recovery/rejuvenate/PDR/SSR state names
-- source-reference correlation
-- explicit deny list for controls that must not be touched
+- executable and linker requirements
+- vendor/system mount visibility
+- required libraries and config files
+- required users, groups, capabilities, sockets, and device nodes
+- Android property/runtime assumptions
+- rollback and evidence requirements for any later service experiment
 
-Only after v217 can v218 decide whether `cnss-daemon` dry-run feasibility is
-safe to model in more detail.
+Only after v218 can v219 decide whether a minimal native Android-env shim is
+small and safe enough to design.

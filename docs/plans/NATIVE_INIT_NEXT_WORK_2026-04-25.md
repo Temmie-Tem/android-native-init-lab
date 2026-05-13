@@ -1058,7 +1058,10 @@ Samsung bootloader
    - v216 상태: PASS, decision `replay-model-ready`
    - v216 결과: `cnss-daemon`, `cnss_diag`, Wi-Fi HAL, `wificond`, `wpa_supplicant`, `hostapd` service graph 작성 완료
    - v217 계획서: `docs/plans/NATIVE_INIT_V217_ICNSS_DEBUG_RECOVERY_INVENTORY_PLAN_2026-05-13.md`
-   - 다음은 v217 ICNSS debug/recovery inventory 구현이다. generic sysfs unbind/bind와 Wi-Fi scan/connect는 blocked
+   - v217 보고서: `docs/reports/NATIVE_INIT_V217_ICNSS_DEBUG_RECOVERY_INVENTORY_2026-05-13.md`
+   - v217 상태: PASS, decision `state-only-inventory`
+   - v217 결과: native read-only captures `11/11`, controls `168`, dangerous controls `bind`/`unbind`/`driver_override`
+   - 다음은 v218 CNSS daemon dry-run feasibility 계획이다. generic sysfs unbind/bind와 Wi-Fi scan/connect는 blocked
    - Wi-Fi/NCM을 USB-local 밖으로 넓히기 전 인증/ACL/token/bind/listener lifecycle 정책을 다시 검토한다
 
 ---

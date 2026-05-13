@@ -1372,31 +1372,42 @@
   - v217 ICNSS debug/recovery inventory 계획서 작성
   - read-only로 ICNSS debugfs/sysfs/ramdump/recovery controls를 분류
 
-### V217. ICNSS Debug / Recovery Inventory — PLANNED
+### V217. ICNSS Debug / Recovery Inventory — PASS
 
 - 계획: `docs/plans/NATIVE_INIT_V217_ICNSS_DEBUG_RECOVERY_INVENTORY_PLAN_2026-05-13.md`
+- 보고서: `docs/reports/NATIVE_INIT_V217_ICNSS_DEBUG_RECOVERY_INVENTORY_2026-05-13.md`
 - 목표:
   - v214에서 실패한 generic ICNSS `unbind`/`bind` 대신, driver-specific debug/recovery/status surface를 read-only로 분류
   - `cnss-daemon`/`cnss_diag` 실행 전 ICNSS recovery/debug controls의 위험도를 명확히 함
-- 예정 구현:
+- 구현:
   - `scripts/revalidation/wifi_icnss_recovery_inventory.py`
 - 입력:
   - `tmp/wifi/v215-icnss-cnss-lifecycle/manifest.json`
   - `tmp/wifi/v215-icnss-cnss-lifecycle-native/manifest.json`
   - `tmp/wifi/v216-service-replay-model/manifest.json`
-- 예정 산출물:
+- 산출물:
   - `tmp/wifi/v217-icnss-debug-recovery-inventory/manifest.json`
   - `tmp/wifi/v217-icnss-debug-recovery-inventory/controls.json`
   - `tmp/wifi/v217-icnss-debug-recovery-inventory/source-hints.json`
   - `tmp/wifi/v217-icnss-debug-recovery-inventory/summary.md`
+- 결과:
+  - manifest-only PASS, decision `state-only-inventory`
+  - native bridge read-only PASS, decision `state-only-inventory`
+  - native captures `11/11`
+  - native controls `168`
+  - native risk summary: `debug-state=1`, `ramdump-crash-evidence=11`, `read-only-state=146`, `writable-unknown=7`, `write-only-dangerous=3`
+- 해석:
+  - safe active recovery control은 아직 없음
+  - ICNSS `bind`/`unbind`, `driver_override`는 denied dangerous controls
+  - future CNSS execution experiment는 reboot를 유일하게 검증된 recovery path로 취급해야 함
 - 금지:
   - ICNSS `unbind`/`bind`
   - ICNSS/debugfs/sysfs write
   - `cnss-daemon`, `cnss_diag`, Wi-Fi HAL, supplicant, hostapd start
   - rfkill write, link-up, scan/connect
 - 다음 실행 항목:
-  - v217 collector 구현
-  - manifest-only PASS 후 native bridge read-only 검증
+  - v218 CNSS daemon dry-run feasibility 계획서 작성
+  - daemon 실행 없이 executable/library/mount/property/socket/device-node/capability requirements 조사
 
 ### V187. Harness Broker Backend — PASS
 
