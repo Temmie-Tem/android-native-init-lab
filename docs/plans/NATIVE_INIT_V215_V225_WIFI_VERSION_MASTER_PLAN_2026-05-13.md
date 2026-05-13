@@ -66,7 +66,7 @@
 | v222 | PASS | `export-source-required` | export helper ready; source vendor root still required |
 | v223 | PASS | `reboot-recovery-accepted` | reboot-only recovery policy accepted for later opt-in planning |
 | v224 | PASS | `shim-source-required` | Android-env shim dry-run artifacts ready; source vendor root still required |
-| v225 | PLANNED | TBD | exposure/security gate v3 integration |
+| v225 | PASS | `still-no-go` | exposure/security gate v3 passed; active Wi-Fi still blocked |
 
 ## Version-By-Version Plan
 
@@ -361,11 +361,19 @@ Deliverables:
 - credential and artifact redaction policy
 - test AP isolation requirements
 - go/no-go for controlled CNSS start planning
+- report:
+  `docs/reports/NATIVE_INIT_V225_WIFI_EXPOSURE_SECURITY_GATE_V3_2026-05-13.md`
 
 Decision:
 
 - `cnss-start-plan-approved`
 - `still-no-go`
+
+Status:
+
+- done
+- result: `still-no-go`
+- blockers: `vendor_evidence`, `shim_materialization`
 
 ### Path B. If v220 Returns `go-scan-prep`
 

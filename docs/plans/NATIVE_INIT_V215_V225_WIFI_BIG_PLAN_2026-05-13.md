@@ -56,7 +56,7 @@ This plan does **not** approve Wi-Fi scan, connect, rfkill writes, link-up,
 | v222 | PASS | `export-source-required` | Export helper ready; source vendor root still required |
 | v223 | PASS | `reboot-recovery-accepted` | Reboot-only recovery policy accepted for later opt-in planning |
 | v224 | PASS | `shim-source-required` | Host-side shim dry-run artifacts ready; source vendor root still required |
-| v225 | PLANNED | expected `still-no-go` | Exposure/security gate and gate v3 integration |
+| v225 | PASS | `still-no-go` | Exposure/security gate v3 passed; active Wi-Fi still blocked |
 
 ## Version-Level Plan
 
@@ -290,6 +290,7 @@ Mode: `read-only`
 Planned deliverables:
 
 - plan: `docs/plans/NATIVE_INIT_V225_WIFI_EXPOSURE_SECURITY_GATE_V3_PLAN_2026-05-13.md`
+- report: `docs/reports/NATIVE_INIT_V225_WIFI_EXPOSURE_SECURITY_GATE_V3_2026-05-13.md`
 - ACM/NCM/tcpctl/broker/listener exposure matrix
 - auth token and binding policy review
 - credential storage and redaction policy
@@ -301,6 +302,11 @@ Decision model:
 - `cnss-start-plan-approved`: only approves writing the next controlled CNSS
   start plan; it does not itself start Wi-Fi
 - `still-no-go`: active Wi-Fi remains blocked
+
+Result:
+
+- `still-no-go`
+- blockers: `vendor_evidence`, `shim_materialization`
 
 ## Execution Order
 

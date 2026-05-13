@@ -1095,8 +1095,10 @@ Samsung bootloader
    - v224 상태: PASS, decision `shim-source-required`
    - v224 결과: host-side shim dry-run artifacts 생성 완료, v219 blocked rows 유지, v223 policy hard dependency 기록, source vendor root blocker 유지
    - v225 계획서: `docs/plans/NATIVE_INIT_V225_WIFI_EXPOSURE_SECURITY_GATE_V3_PLAN_2026-05-13.md`
-   - 다음은 v225 Wi-Fi exposure/security gate + gate v3 구현이다. daemon 실행, generic sysfs unbind/bind, Wi-Fi scan/connect는 blocked
-   - Wi-Fi/NCM을 USB-local 밖으로 넓히기 전 인증/ACL/token/bind/listener lifecycle 정책을 다시 검토한다
+   - v225 보고서: `docs/reports/NATIVE_INIT_V225_WIFI_EXPOSURE_SECURITY_GATE_V3_2026-05-13.md`
+   - v225 상태: PASS, decision `still-no-go`
+   - v225 결과: root-control exposure/credential policy는 gate v3에 반영됐지만 `vendor_evidence`, `shim_materialization` blocker가 남아 active Wi-Fi는 계속 blocked
+   - 다음은 source vendor root 확보 후 v222/v221/v224/v225 순서 재검증이다. daemon 실행, generic sysfs unbind/bind, Wi-Fi scan/connect는 blocked
 
 ---
 

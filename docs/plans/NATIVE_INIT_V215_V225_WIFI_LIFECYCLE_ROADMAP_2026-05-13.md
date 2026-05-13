@@ -71,6 +71,7 @@ native init must keep active Wi-Fi bring-up blocked.
   `export-source-required`.
 - v223: recovery/rollback policy passed with `reboot-recovery-accepted`.
 - v224: Android-env shim dry-run materialization passed with `shim-source-required`.
+- v225: exposure/security gate v3 passed with `still-no-go`.
 
 ## Current Execution Status
 
@@ -574,21 +575,28 @@ Goal: review exposure and credential handling before any scan or connect
 experiment can be approved, then integrate v221-v224 prerequisite results into
 a final go/no-go for controlled CNSS start planning.
 
-Planned work:
+Completed work:
 
-- decide whether native Wi-Fi uses isolated test AP only
-- define credential storage policy; no persistent plaintext secrets by default
-- review NCM/tcpctl/rshell coexistence with Wi-Fi
-- define firewall/bind/listener policy before Wi-Fi gives wider reachability
-- define logging redaction for SSID/BSSID/PSK-sensitive artifacts
-- integrate v221-v224 results into gate v3
-- keep daemon start outside v225 unless a later explicit plan approves it
-- produce go/no-go for controlled CNSS start
+- defined isolated test AP and credential handling as later-plan requirements
+- kept credential collection denied by default
+- reviewed NCM/tcpctl/rshell/broker/netservice coexistence with Wi-Fi
+- defined listener reachability and root-control exposure boundaries
+- integrated v220-v224 results into gate v3
+- kept daemon start outside v225
+- produced final v215-v225 go/no-go result
 
 Decision:
 
 - `cnss-start-plan-approved`
 - `still-no-go`
+
+Status:
+
+- done
+- result: `still-no-go`
+- report:
+  `docs/reports/NATIVE_INIT_V225_WIFI_EXPOSURE_SECURITY_GATE_V3_2026-05-13.md`
+- blockers: `vendor_evidence`, `shim_materialization`
 
 ## Cross-Version Acceptance
 
