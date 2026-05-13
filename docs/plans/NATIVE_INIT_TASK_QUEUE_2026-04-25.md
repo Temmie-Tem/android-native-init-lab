@@ -1325,6 +1325,31 @@
   - v215 계획서 작성 및 lifecycle collector 설계
   - 추가 unbind/bind, rfkill write, link-up, scan/connect는 v220 gate 전까지 금지
 
+### V215. ICNSS/CNSS Lifecycle Research — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V215_ICNSS_CNSS_LIFECYCLE_RESEARCH_PLAN_2026-05-13.md`
+- 보고서: `docs/reports/NATIVE_INIT_V215_ICNSS_CNSS_LIFECYCLE_RESEARCH_2026-05-13.md`
+- 구현:
+  - `scripts/revalidation/wifi_icnss_lifecycle_collect.py`
+- baseline device build: `A90 Linux init 0.9.59 (v159)`
+- 결과:
+  - manifest-only: PASS, decision `lifecycle-map-ready`
+  - native bridge read-only: PASS, decision `lifecycle-map-ready`
+  - native live captures: `16/16`
+  - service evidence: `51`
+  - init evidence: `48`
+  - firmware evidence: `28`
+  - interface evidence: `133`
+  - ICNSS evidence: `160`
+  - QMI evidence: `17`
+  - log evidence: `160`
+- 해석:
+  - Android lifecycle evidence plus v214 failure are sufficient for v216 service replay modeling
+  - generic ICNSS unbind/bind, rfkill write, link-up, scan/connect remain blocked
+- 다음 실행 항목:
+  - v216 Android service replay model 계획서 작성
+  - Android init rc service/class/property trigger를 native에서 실행하지 않고 dependency graph로 모델링
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
