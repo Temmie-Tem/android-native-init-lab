@@ -1303,6 +1303,8 @@
 ### V215-V225. ICNSS/CNSS Lifecycle to Controlled Wi-Fi Bring-Up — ROADMAP
 
 - 계획: `docs/plans/NATIVE_INIT_V215_V225_WIFI_LIFECYCLE_ROADMAP_2026-05-13.md`
+- version master plan:
+  `docs/plans/NATIVE_INIT_V215_V225_WIFI_VERSION_MASTER_PLAN_2026-05-13.md`
 - 기준:
   - v214가 `icnss-rebind-failed`로 safety stop 되었으므로 active Wi-Fi bring-up은 계속 blocked
   - generic ICNSS sysfs `unbind`/`bind`는 unsafe path로 분류
@@ -1316,14 +1318,15 @@
   - v218: CNSS daemon dry-run feasibility
   - v219: native Android-env shim plan
   - v220: Wi-Fi bring-up preflight gate v2
-  - v221: controlled CNSS start experiment
-  - v222: nl80211/rfkill passive transition check
-  - v223: first scan-only gate
-  - v224: Wi-Fi security pre-connect review
-  - v225: first controlled connect
+  - v221: host vendor ELF/library evidence closure
+  - v222: recovery/rollback policy hardening
+  - v223: Android-env shim dry-run materialization
+  - v224: Wi-Fi exposure/credential security gate
+  - v225: preflight gate v3 / controlled CNSS start plan
 - 다음 실행 항목:
   - v215 계획서 작성 및 lifecycle collector 설계
   - 추가 unbind/bind, rfkill write, link-up, scan/connect는 v220 gate 전까지 금지
+  - v220 gate 결과가 `no-go`이면 v221은 controlled CNSS start가 아니라 host vendor ELF/library evidence closure로 전환
 
 ### V215. ICNSS/CNSS Lifecycle Research — PASS
 
@@ -1479,13 +1482,14 @@
   - v220 Wi-Fi bring-up preflight gate v2 계획서 작성
   - v216-v219 evidence를 gate input으로 통합
 
-### V220. Wi-Fi Bring-Up Preflight Gate v2 — PLANNED
+### V220. Wi-Fi Bring-Up Preflight Gate v2 — PASS
 
 - 계획: `docs/plans/NATIVE_INIT_V220_WIFI_PREFLIGHT_GATE_V2_PLAN_2026-05-13.md`
+- 보고서: `docs/reports/NATIVE_INIT_V220_WIFI_PREFLIGHT_GATE_V2_2026-05-13.md`
 - 목표:
   - v210-v219 evidence를 통합해 active Wi-Fi 준비 여부를 `go-scan-prep` 또는 `no-go`로 판정
   - static inventory만 보던 기존 gate를 lifecycle/recovery/shim/security-aware gate로 확장
-- 예정 구현:
+- 구현:
   - `scripts/revalidation/wifi_bringup_gate_v2.py`
 - 입력:
   - v210 vendor asset classifier
@@ -1494,15 +1498,22 @@
   - v217 ICNSS debug/recovery inventory
   - v218 daemon dry-run model
   - v219 shim matrix
-- 예정 산출물:
+- 산출물:
   - `tmp/wifi/v220-bringup-gate-v2/manifest.json`
   - `tmp/wifi/v220-bringup-gate-v2/gate.json`
   - `tmp/wifi/v220-bringup-gate-v2/summary.md`
-- 예상:
-  - 현재는 v218/v219 blocker 때문에 `no-go`가 정상 결과
+- 결과:
+  - PASS, decision `no-go`
+  - status counts: `pass=3`, `warn=1`, `fail=0`, `blocked=3`
+  - blocked: `icnss_recovery`, `shim_policy`, `security_exposure`
+  - warning: `daemon_dryrun`
+- 해석:
+  - `vendor_assets`, `firmware_path`, `service_replay`는 통과
+  - reboot-only recovery, blocked shim items, pre-connect exposure/security review가 active Wi-Fi blocker로 남음
+  - `no-go`는 정상 성공 결과이며 daemon 실행, rfkill write, link-up, scan/connect는 계속 blocked
 - 다음 실행 항목:
-  - v220 gate 구현
-  - gate 결과에 따라 v221을 controlled CNSS start로 유지할지 prerequisite 보강으로 교체할지 결정
+  - v221은 controlled CNSS start가 아니라 host vendor ELF/library evidence closure와 recovery/security prerequisite closure로 진행
+  - `cnss-daemon`/`cnss_diag` ELF/interpreter/DT_NEEDED/config/library path evidence를 먼저 닫는다
 
 ### V187. Harness Broker Backend — PASS
 

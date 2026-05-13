@@ -1049,6 +1049,8 @@ Samsung bootloader
    - v214 dmesg: `icnss: Driver is already initialized`, `probe of 18800000.qcom,icnss failed with error -17`
    - v214 recovery: native reboot 후 ICNSS bound 복구 PASS, `firmware_class.path=/vendor/firmware_mnt/image`
    - v215-v225 큰 계획: `docs/plans/NATIVE_INIT_V215_V225_WIFI_LIFECYCLE_ROADMAP_2026-05-13.md`
+   - v215-v225 version master plan:
+     `docs/plans/NATIVE_INIT_V215_V225_WIFI_VERSION_MASTER_PLAN_2026-05-13.md`
    - v215 계획서: `docs/plans/NATIVE_INIT_V215_ICNSS_CNSS_LIFECYCLE_RESEARCH_PLAN_2026-05-13.md`
    - v215 보고서: `docs/reports/NATIVE_INIT_V215_ICNSS_CNSS_LIFECYCLE_RESEARCH_2026-05-13.md`
    - v215 상태: PASS, decision `lifecycle-map-ready`
@@ -1070,7 +1072,11 @@ Samsung bootloader
    - v219 상태: PASS, decision `shim-plan-partial`
    - v219 결과: bounded shim matrix 생성 완료, property/QMI/recovery blocker와 host ELF/library evidence gap은 유지
    - v220 계획서: `docs/plans/NATIVE_INIT_V220_WIFI_PREFLIGHT_GATE_V2_PLAN_2026-05-13.md`
-   - 다음은 v220 Wi-Fi bring-up preflight gate v2 구현이다. daemon 실행, generic sysfs unbind/bind, Wi-Fi scan/connect는 blocked
+   - v220 보고서: `docs/reports/NATIVE_INIT_V220_WIFI_PREFLIGHT_GATE_V2_2026-05-13.md`
+   - v220 상태: PASS, decision `no-go`
+   - v220 결과: gate counts `pass=3`, `warn=1`, `fail=0`, `blocked=3`
+   - v220 blocked: `icnss_recovery`, `shim_policy`, `security_exposure`
+   - 다음은 v221 host vendor ELF/library evidence closure와 recovery/security prerequisite closure다. daemon 실행, generic sysfs unbind/bind, Wi-Fi scan/connect는 blocked
    - Wi-Fi/NCM을 USB-local 밖으로 넓히기 전 인증/ACL/token/bind/listener lifecycle 정책을 다시 검토한다
 
 ---

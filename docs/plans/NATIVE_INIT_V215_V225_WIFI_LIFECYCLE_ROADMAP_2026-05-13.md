@@ -7,6 +7,9 @@ platform-driver sysfs `unbind`/`bind` is not a valid ICNSS lifecycle control
 method on this kernel. v215-v225 therefore shift from direct reprobe attempts to
 evidence-driven lifecycle reconstruction.
 
+For a shorter version-by-version execution view, see
+`docs/plans/NATIVE_INIT_V215_V225_WIFI_VERSION_MASTER_PLAN_2026-05-13.md`.
+
 The roadmap goal is to reach a first controlled Wi-Fi scan/connect without
 guessing Android's hidden ICNSS/CNSS ordering. Until the lifecycle is understood,
 native init must keep active Wi-Fi bring-up blocked.
@@ -61,10 +64,11 @@ native init must keep active Wi-Fi bring-up blocked.
 - v217: ICNSS debug/recovery inventory passed with `state-only-inventory`.
 - v218: CNSS daemon dry-run feasibility passed with `daemon-dryrun-partial`.
 - v219: native Android-env shim planning passed with `shim-plan-partial`.
+- v220: lifecycle-aware bring-up preflight gate v2 passed with `no-go`.
 
 ## Current Execution Status
 
-This roadmap is now in the post-v219 phase.
+This roadmap is now in the post-v220 phase.
 
 - completed:
   - v215 `ICNSS/CNSS Lifecycle Research`
@@ -72,16 +76,17 @@ This roadmap is now in the post-v219 phase.
   - v217 `ICNSS Debug / Recovery Inventory`
   - v218 `CNSS Daemon Dry-Run Feasibility`
   - v219 `Native Android-Env Shim Plan`
-- next execution item:
   - v220 `Wi-Fi Bring-Up Preflight Gate v2`
+- next execution item:
+  - v221 `Host Vendor ELF / Library Evidence Closure`
 - still blocked:
   - `cnss-daemon` and `cnss_diag` execution
   - Wi-Fi HAL execution
   - supplicant/hostapd execution
   - rfkill writes, link-up, scan, connect
 - current highest-risk unknown:
-  - whether lifecycle, shim, recovery, and exposure evidence can justify any
-    later temporary-mutating CNSS experiment
+  - whether host ELF/library evidence plus reboot-only recovery/security policy
+    can justify any later temporary-mutating CNSS experiment
 
 ## Safety Policy
 
@@ -388,87 +393,112 @@ Decision:
 - `go-scan-prep`: scan-only experiment can be planned
 - `no-go`: active Wi-Fi remains blocked
 
-### v221. Controlled CNSS Start Experiment
+Status:
 
-Mode: `temporary-mutating`, explicit opt-in
+- done
+- result: `no-go`
+- report:
+  `docs/reports/NATIVE_INIT_V220_WIFI_PREFLIGHT_GATE_V2_2026-05-13.md`
+- gate counts: `pass=3`, `warn=1`, `fail=0`, `blocked=3`
+- blocked: `icnss_recovery`, `shim_policy`, `security_exposure`
+- warning: `daemon_dryrun`
 
-Goal: start the smallest CNSS-related component that can produce measurable
-kernel state without bringing Wi-Fi framework fully up.
+Interpretation:
 
-Allowed only if v215-v220 pass their gates.
+- active Wi-Fi remains blocked
+- v221 must be prerequisite closure, not controlled CNSS start
+- required v221 focus: host vendor ELF/library evidence for `cnss-daemon` and
+  `cnss_diag`
 
-Planned work:
-
-- start one scoped helper/service under controlled timeout
-- capture dmesg, netdev, rfkill, wiphy, ICNSS debug state before/after
-- stop/reap the helper
-- rollback temporary path/mount changes
-- reboot if ICNSS enters an unbound or inconsistent state
-
-Forbidden:
-
-- Wi-Fi scan/connect
-- persistent service enablement
-- credential handling
-
-Decision:
-
-- `cnss-state-delta`: service start produced WLAN/rfkill/wiphy or firmware
-  request evidence
-- `cnss-no-delta`: no useful kernel state changed
-- `cnss-unsafe`: service broke ICNSS or native control
-
-### v222. nl80211 / rfkill Passive Transition Check
-
-Mode: `read-only` or tightly bounded `temporary-mutating` if prior gates permit
-
-Goal: if WLAN objects appear, inspect them without connecting.
-
-Planned work:
-
-- collect `/sys/class/net/wlan*`, `/sys/class/ieee80211`, rfkill state, and
-  nl80211 read-only info
-- avoid `ip link up` unless a later gate explicitly allows it
-- compare native state against Android baseline
-
-Decision:
-
-- `passive-wlan-visible`: scan-only planning can begin
-- `wlan-still-missing`: return to lifecycle/service dependency work
-
-### v223. First Scan-Only Gate
-
-Mode: `active-network`, scan-only
-
-Goal: run the first Wi-Fi scan without connecting to any network.
-
-Required preconditions:
-
-- v220 gate is `go-scan-prep`
-- v221 or v222 produced safe WLAN visibility
-- rollback/reboot recovery is accepted
-- thermal, battery, and longsoak monitoring are active
-- security exposure review has no open high-risk blocker
-
-Forbidden:
-
-- association
-- DHCP
-- credential use
-- Internet routing
-
-Decision:
-
-- `scan-pass`
-- `scan-no-results`
-- `scan-driver-failure`
-- `scan-unsafe-stop`
-
-### v224. Wi-Fi Security Pre-Connect Review
+### v221. Host Vendor ELF / Library Evidence Closure
 
 Mode: `read-only`
 
-Goal: before connection, review exposure and credential handling.
+Goal: close the v218 evidence gap by inspecting `cnss-daemon` and `cnss_diag`
+ELF/interpreter/DT_NEEDED/config/library path requirements from host-visible
+vendor evidence.
+
+Reason:
+
+- v220 returned `no-go`
+- controlled CNSS start is not approved
+- daemon execution requires better binary/library evidence before any opt-in
+  mutating plan
+
+Planned work:
+
+- locate or reconstruct a host-visible vendor root from existing v209-v210
+  evidence
+- inspect `cnss-daemon` and `cnss_diag` ELF interpreter and `DT_NEEDED`
+  libraries
+- map required config, firmware, device node, group, and capability
+  dependencies
+- keep all daemon execution blocked
+
+Forbidden:
+
+- daemon execution
+- Wi-Fi scan/connect
+- rfkill write or link-up
+- persistent service enablement
+
+Decision:
+
+- `elf-evidence-ready`: enough ELF/library evidence exists for later recovery
+  and shim policy review
+- `daemon-native-blocked`: binary/library/runtime dependency remains too wide
+  or incomplete
+
+### v222. Recovery / Rollback Policy Hardening
+
+Mode: `read-only`
+
+Goal: decide whether reboot-only ICNSS recovery can be accepted for any later
+temporary-mutating CNSS experiment.
+
+Planned work:
+
+- define ICNSS broken-state detection checklist
+- define stop/reboot handoff policy
+- define required pre/post evidence bundle
+- keep generic ICNSS bind/unbind denied
+
+Decision:
+
+- `reboot-recovery-accepted`
+- `active-mutation-blocked`
+
+### v223. Android-Env Shim Dry-Run Materialization
+
+Mode: `temporary-mutating`, no daemon start
+
+Goal: materialize only the reversible shim-required pieces from v219 and prove
+cleanup/rollback without executing CNSS services.
+
+Allowed:
+
+- temporary read-only vendor/system path aliases
+- private evidence/log output directories
+- static property evidence files, not a real property service
+
+Forbidden:
+
+- daemon execution
+- Android property mutation service
+- QMI/PDR/SSR writes
+- Wi-Fi scan/connect
+
+Decision:
+
+- `shim-materialized`
+- `shim-too-wide`
+
+### v224. Wi-Fi Exposure / Credential Security Gate
+
+Mode: `read-only`
+
+Goal: review exposure and credential handling before any scan or connect
+experiment can be approved.
 
 Planned work:
 
@@ -483,34 +513,30 @@ Decision:
 - `connect-approved-test-only`
 - `connect-blocked-security`
 
-### v225. First Controlled Connect
+### v225. Preflight Gate v3 / Controlled CNSS Start Plan
 
-Mode: `active-network`, test AP only
+Mode: `read-only`
 
-Goal: connect to a controlled test SSID under strict exposure and rollback
-conditions.
+Goal: re-run an integrated gate after v221-v224 prerequisite closure and decide
+whether controlled CNSS start can be planned after v225.
 
 Required preconditions:
 
-- v223 scan-only passes
-- v224 security review approves test-only connect
-- test AP is isolated and disposable
-- host/device evidence collection is active
-- rollback/reboot path is known
+- v221 ELF/library evidence is complete
+- v222 recovery policy is accepted or blocks mutation
+- v223 shim materialization is bounded and reversible
+- v224 exposure/security gate passes
 
 Planned work:
 
-- connect only to controlled SSID
-- collect IP/routing/DNS without exposing root services to the broader LAN
-- verify NCM/serial control remains available
-- disconnect and clean temporary state
+- integrate v221-v224 results into gate v3
+- keep daemon start outside v225 unless a later explicit plan approves it
+- produce go/no-go for controlled CNSS start
 
 Decision:
 
-- `connect-pass`
-- `connect-pass-with-risk`
-- `connect-fail`
-- `connect-unsafe-stop`
+- `cnss-start-plan-approved`
+- `still-no-go`
 
 ## Cross-Version Acceptance
 
@@ -528,18 +554,16 @@ Decision:
 
 ## Recommended Immediate Next Step
 
-Start v220. Do not execute `cnss-daemon`, `cnss_diag`, Wi-Fi HAL, supplicant,
-or hostapd yet.
+Start v221 as prerequisite closure. Do not execute `cnss-daemon`, `cnss_diag`,
+Wi-Fi HAL, supplicant, or hostapd yet.
 
-The next concrete deliverable should be Wi-Fi bring-up preflight gate v2 that
-consumes:
+The next concrete deliverable should close the v218/v220 evidence gap by
+inspecting host-visible vendor ELF/library requirements for:
 
-- v216 service replay model
-- v217 ICNSS debug/recovery inventory
-- v218 CNSS daemon dry-run model
-- v219 shim matrix
-- existing firmware path and vendor asset evidence
-- security/exposure guardrails
+- `cnss-daemon`
+- `cnss_diag`
+- their interpreter and `DT_NEEDED` library graph
+- related config, firmware, device-node, group, and capability requirements
 
-Only after v220 returns an explicit gate result can v221 decide whether a
-temporary-mutating CNSS component experiment is even eligible for planning.
+Only after v221-v224 close the remaining evidence, recovery, shim, and exposure
+gaps can v225 decide whether controlled CNSS start is eligible for planning.
