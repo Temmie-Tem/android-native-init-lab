@@ -1069,7 +1069,8 @@ Samsung bootloader
    - v219 보고서: `docs/reports/NATIVE_INIT_V219_NATIVE_ANDROID_ENV_SHIM_2026-05-13.md`
    - v219 상태: PASS, decision `shim-plan-partial`
    - v219 결과: bounded shim matrix 생성 완료, property/QMI/recovery blocker와 host ELF/library evidence gap은 유지
-   - 다음은 v220 Wi-Fi bring-up preflight gate v2 계획이다. daemon 실행, generic sysfs unbind/bind, Wi-Fi scan/connect는 blocked
+   - v220 계획서: `docs/plans/NATIVE_INIT_V220_WIFI_PREFLIGHT_GATE_V2_PLAN_2026-05-13.md`
+   - 다음은 v220 Wi-Fi bring-up preflight gate v2 구현이다. daemon 실행, generic sysfs unbind/bind, Wi-Fi scan/connect는 blocked
    - Wi-Fi/NCM을 USB-local 밖으로 넓히기 전 인증/ACL/token/bind/listener lifecycle 정책을 다시 검토한다
 
 ---

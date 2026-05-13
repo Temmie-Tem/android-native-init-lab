@@ -1479,6 +1479,31 @@
   - v220 Wi-Fi bring-up preflight gate v2 계획서 작성
   - v216-v219 evidence를 gate input으로 통합
 
+### V220. Wi-Fi Bring-Up Preflight Gate v2 — PLANNED
+
+- 계획: `docs/plans/NATIVE_INIT_V220_WIFI_PREFLIGHT_GATE_V2_PLAN_2026-05-13.md`
+- 목표:
+  - v210-v219 evidence를 통합해 active Wi-Fi 준비 여부를 `go-scan-prep` 또는 `no-go`로 판정
+  - static inventory만 보던 기존 gate를 lifecycle/recovery/shim/security-aware gate로 확장
+- 예정 구현:
+  - `scripts/revalidation/wifi_bringup_gate_v2.py`
+- 입력:
+  - v210 vendor asset classifier
+  - v211/v212 firmware path policy/rollback
+  - v216 service replay model
+  - v217 ICNSS debug/recovery inventory
+  - v218 daemon dry-run model
+  - v219 shim matrix
+- 예정 산출물:
+  - `tmp/wifi/v220-bringup-gate-v2/manifest.json`
+  - `tmp/wifi/v220-bringup-gate-v2/gate.json`
+  - `tmp/wifi/v220-bringup-gate-v2/summary.md`
+- 예상:
+  - 현재는 v218/v219 blocker 때문에 `no-go`가 정상 결과
+- 다음 실행 항목:
+  - v220 gate 구현
+  - gate 결과에 따라 v221을 controlled CNSS start로 유지할지 prerequisite 보강으로 교체할지 결정
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
