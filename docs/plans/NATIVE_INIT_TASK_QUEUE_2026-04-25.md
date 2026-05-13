@@ -1686,6 +1686,32 @@
   - v227 Android core/system library evidence closure
   - v221 unresolved libraries가 해결되기 전 active Wi-Fi 작업 금지
 
+### V227. Android Core/System Library Evidence Export — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V227_ANDROID_CORE_SYSTEM_LIBRARY_EVIDENCE_PLAN_2026-05-14.md`
+- 보고서: `docs/reports/NATIVE_INIT_V227_ANDROID_CORE_SYSTEM_LIBRARY_EVIDENCE_2026-05-14.md`
+- 구현: `scripts/revalidation/wifi_android_core_library_export.py`
+- 확장: `scripts/revalidation/wifi_vendor_elf_library_closure.py --system-root`
+- 산출: `tmp/wifi/v227-android-core-system-library-evidence/`
+- 결과:
+  - v227: PASS, decision `system-root-ready`
+  - v221: PASS, decision `elf-evidence-ready`
+  - v224: PASS, decision `shim-dryrun-ready`
+  - v225: PASS, decision `cnss-start-plan-approved`
+- export libraries:
+  - `libcutils.so`
+  - `libnl.so`
+  - `libhardware_legacy.so`
+  - `android.system.suspend@1.0.so`
+- 금지 유지:
+  - daemon 실행
+  - Android service start
+  - rfkill write, link-up, scan/connect
+  - credential collection
+- 다음 실행 항목:
+  - controlled CNSS start plan 작성
+  - start-only 실험 전 recovery/timeout/exposure/rollback 정책 명시
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`

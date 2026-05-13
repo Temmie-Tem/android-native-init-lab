@@ -1102,8 +1102,12 @@ Samsung bootloader
    - v226 보고서: `docs/reports/NATIVE_INIT_V226_VENDOR_ROOT_LIVE_EXPORT_2026-05-14.md`
    - v226 상태: PASS, decision `vendor-source-exported`
    - v226 결과: live native `sda29` ro,noload vendor export 완료, v222는 `vendor-root-ready`, v224는 `shim-dryrun-ready`로 전환
-   - 현재 blocker: v221 decision `daemon-native-blocked`, unresolved `libcutils.so`, `libnl.so`, `libhardware_legacy.so`; v225는 `vendor_evidence` 때문에 `still-no-go`
-   - 다음은 v227 Android core/system library evidence closure다. daemon 실행, generic sysfs unbind/bind, Wi-Fi scan/connect는 blocked
+   - v227 계획서: `docs/plans/NATIVE_INIT_V227_ANDROID_CORE_SYSTEM_LIBRARY_EVIDENCE_PLAN_2026-05-14.md`
+   - v227 보고서: `docs/reports/NATIVE_INIT_V227_ANDROID_CORE_SYSTEM_LIBRARY_EVIDENCE_2026-05-14.md`
+   - v227 상태: PASS, decision `system-root-ready`
+   - v227 결과: live native `/mnt/system/system/lib*`에서 Android core/system libraries export 완료
+   - 재검증 결과: v221 `elf-evidence-ready`, v224 `shim-dryrun-ready`, v225 `cnss-start-plan-approved`
+   - 다음은 controlled CNSS start plan 작성이다. 아직 Wi-Fi scan/connect는 별도 승인 전까지 blocked
 
 ---
 

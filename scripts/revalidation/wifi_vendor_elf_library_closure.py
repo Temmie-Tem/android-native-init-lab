@@ -70,6 +70,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out-dir", type=Path, default=default_out_dir())
     parser.add_argument("--vendor-root", type=Path, default=None)
+    parser.add_argument("--system-root", type=Path, default=None)
     parser.add_argument("--v210-manifest", type=Path, default=DEFAULT_V210_MANIFEST)
     parser.add_argument("--v216-manifest", type=Path, default=DEFAULT_V216_MANIFEST)
     parser.add_argument("--v218-manifest", type=Path, default=DEFAULT_V218_MANIFEST)
@@ -128,6 +129,21 @@ def vendor_relative(executable: str) -> str:
 
 
 def normalize_vendor_root(path: Path | None) -> tuple[Path | None, str]:
+    if path is None:
+        return None, "not-provided"
+    root = repo_path(path)
+    try:
+        info = root.lstat()
+    except FileNotFoundError:
+        return root, "missing"
+    if stat.S_ISLNK(info.st_mode):
+        return root, "symlink-root-denied"
+    if not stat.S_ISDIR(info.st_mode):
+        return root, "not-directory"
+    return root.resolve(), "ok"
+
+
+def normalize_system_root(path: Path | None) -> tuple[Path | None, str]:
     if path is None:
         return None, "not-provided"
     root = repo_path(path)
@@ -268,6 +284,21 @@ def common_library_dirs(vendor_root: Path) -> list[Path]:
     ]
 
 
+def common_system_library_dirs(system_root: Path | None) -> list[Path]:
+    if system_root is None:
+        return []
+    return [
+        system_root / "system" / "lib64",
+        system_root / "system" / "lib",
+        system_root / "system" / "lib64" / "vndk-sp",
+        system_root / "system" / "lib" / "vndk-sp",
+        system_root / "system" / "lib64" / "hw",
+        system_root / "system" / "lib" / "hw",
+        system_root / "lib64",
+        system_root / "lib",
+    ]
+
+
 def resolve_existing_path(path: Path, vendor_root: Path) -> tuple[Path | None, str]:
     try:
         info = path.lstat()
@@ -296,7 +327,34 @@ def resolve_existing_path(path: Path, vendor_root: Path) -> tuple[Path | None, s
     return path, "regular"
 
 
+def resolve_existing_system_path(path: Path, system_root: Path) -> tuple[Path | None, str]:
+    try:
+        info = path.lstat()
+    except FileNotFoundError:
+        return None, "missing"
+    if stat.S_ISLNK(info.st_mode):
+        target = os.readlink(path)
+        if target.startswith("/system/"):
+            mapped = system_root / target.removeprefix("/")
+        elif target.startswith("/"):
+            return None, f"external-symlink:{target}"
+        else:
+            mapped = path.parent / target
+        try:
+            resolved = mapped.resolve()
+            resolved.relative_to(system_root)
+        except (FileNotFoundError, ValueError):
+            return None, f"unsafe-symlink:{target}"
+        if not resolved.exists():
+            return None, f"broken-symlink:{target}"
+        return resolved, "symlink"
+    if not stat.S_ISREG(info.st_mode):
+        return None, "not-regular"
+    return path, "regular"
+
+
 def resolve_library(vendor_root: Path,
+                    system_root: Path | None,
                     origin_dir: Path,
                     needed: str,
                     rpath: list[str],
@@ -315,10 +373,26 @@ def resolve_library(vendor_root: Path,
                 "name": needed,
                 "resolved": True,
                 "path": str(resolved),
+                "root": str(vendor_root),
                 "source": source,
                 "searched": searched,
                 "classification": "vendor-resolved",
             }
+    if system_root is not None:
+        for directory in unique([str(path) for path in common_system_library_dirs(system_root)]):
+            candidate = Path(directory) / needed
+            searched.append(str(candidate))
+            resolved, source = resolve_existing_system_path(candidate, system_root)
+            if resolved is not None:
+                return {
+                    "name": needed,
+                    "resolved": True,
+                    "path": str(resolved),
+                    "root": str(system_root),
+                    "source": source,
+                    "searched": searched,
+                    "classification": "android-system-resolved",
+                }
     classification = "android-core-runtime-required" if needed in ANDROID_CORE_LIBS else "unresolved"
     return {
         "name": needed,
@@ -330,8 +404,11 @@ def resolve_library(vendor_root: Path,
     }
 
 
-def inspect_elf(path: Path, vendor_root: Path) -> dict[str, Any]:
-    resolved, source = resolve_existing_path(path, vendor_root)
+def inspect_elf(path: Path, root: Path, root_kind: str) -> dict[str, Any]:
+    if root_kind == "system":
+        resolved, source = resolve_existing_system_path(path, root)
+    else:
+        resolved, source = resolve_existing_path(path, root)
     if resolved is None:
         return {
             "path": str(path),
@@ -354,15 +431,15 @@ def inspect_elf(path: Path, vendor_root: Path) -> dict[str, Any]:
     }
 
 
-def dependency_graph(vendor_root: Path, binary_path: Path) -> dict[str, Any]:
+def dependency_graph(vendor_root: Path, system_root: Path | None, binary_path: Path) -> dict[str, Any]:
     objects: list[dict[str, Any]] = []
     resolutions: list[dict[str, Any]] = []
     unresolved: list[dict[str, Any]] = []
-    queue: deque[Path] = deque([binary_path])
+    queue: deque[tuple[Path, Path, str]] = deque([(binary_path, vendor_root, "vendor")])
     visited: set[str] = set()
     while queue and len(visited) < MAX_RECURSIVE_ELF_OBJECTS:
-        current = queue.popleft()
-        inspected = inspect_elf(current, vendor_root)
+        current, current_root, current_root_kind = queue.popleft()
+        inspected = inspect_elf(current, current_root, current_root_kind)
         objects.append(inspected)
         if not inspected.get("exists") or inspected.get("readelf_status") != "ok":
             continue
@@ -375,6 +452,7 @@ def dependency_graph(vendor_root: Path, binary_path: Path) -> dict[str, Any]:
         for needed in elf.get("needed", []):
             resolution = resolve_library(
                 vendor_root,
+                system_root,
                 origin_dir,
                 needed,
                 list(elf.get("rpath", [])),
@@ -385,7 +463,8 @@ def dependency_graph(vendor_root: Path, binary_path: Path) -> dict[str, Any]:
             if resolution["resolved"]:
                 path = Path(str(resolution["path"]))
                 if str(path) not in visited:
-                    queue.append(path)
+                    root_kind = "system" if resolution.get("classification") == "android-system-resolved" else "vendor"
+                    queue.append((path, Path(str(resolution.get("root") or vendor_root)), root_kind))
             elif resolution["classification"] != "android-core-runtime-required":
                 unresolved.append(resolution)
     truncated = bool(queue)
@@ -418,6 +497,7 @@ def build_required_checklist(v218: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def inspect_daemon(vendor_root: Path | None,
+                   system_root: Path | None,
                    v216: dict[str, Any],
                    v218: dict[str, Any],
                    service: str) -> dict[str, Any]:
@@ -446,7 +526,7 @@ def inspect_daemon(vendor_root: Path | None,
         })
         return base
     binary_path = vendor_root / rel
-    graph = dependency_graph(vendor_root, binary_path)
+    graph = dependency_graph(vendor_root, system_root, binary_path)
     unresolved = graph.get("unresolved_libraries", [])
     first_object = graph["objects"][0] if graph.get("objects") else {}
     if first_object.get("readelf_status") == "ok":
@@ -467,6 +547,7 @@ def decide(v210: dict[str, Any],
            v218: dict[str, Any],
            v220: dict[str, Any],
            vendor_root_status: str,
+           system_root_status: str,
            daemons: list[dict[str, Any]]) -> tuple[str, str, bool]:
     if v210.get("decision") not in {"asset-map-ready", "firmware-path-policy-needed"}:
         return "manual-review-required", "v210 vendor asset evidence is not usable", False
@@ -480,6 +561,8 @@ def decide(v210: dict[str, Any],
         return "vendor-root-required", "host-visible vendor root is required for ELF/library inspection", True
     if vendor_root_status != "ok":
         return "daemon-native-blocked", f"vendor root is not usable: {vendor_root_status}", False
+    if system_root_status not in {"not-provided", "ok"}:
+        return "daemon-native-blocked", f"system root is not usable: {system_root_status}", False
     missing_or_bad = [
         daemon["name"]
         for daemon in daemons
@@ -519,6 +602,7 @@ def build_summary(manifest: dict[str, Any]) -> str:
         f"- decision: `{manifest['decision']}`",
         f"- reason: `{manifest['reason']}`",
         f"- vendor_root_status: `{manifest['vendor_root_status']}`",
+        f"- system_root_status: `{manifest['system_root_status']}`",
         "",
         "## Daemon ELF Summary",
         "",
@@ -560,13 +644,16 @@ def main() -> int:
     v220 = load_json(args.v220_manifest)
 
     vendor_root, vendor_root_status = normalize_vendor_root(args.vendor_root)
-    daemons = [inspect_daemon(vendor_root, v216, v218, service) for service in TARGET_SERVICES]
+    system_root, system_root_status = normalize_system_root(args.system_root)
+    daemons = [inspect_daemon(vendor_root, system_root, v216, v218, service) for service in TARGET_SERVICES]
     required_paths = build_required_checklist(v218)
-    decision, reason, pass_ok = decide(v210, v216, v218, v220, vendor_root_status, daemons)
+    decision, reason, pass_ok = decide(v210, v216, v218, v220, vendor_root_status, system_root_status, daemons)
 
     dependencies = {
         "daemons": daemons,
         "required_vendor_paths": required_paths,
+        "system_root": str(system_root) if system_root else None,
+        "system_root_status": system_root_status,
         "source_decisions": {
             "v210": v210.get("decision"),
             "v216": v216.get("decision"),
@@ -584,6 +671,8 @@ def main() -> int:
         "mode": "host-vendor-elf-library-evidence",
         "vendor_root": str(vendor_root) if vendor_root else None,
         "vendor_root_status": vendor_root_status,
+        "system_root": str(system_root) if system_root else None,
+        "system_root_status": system_root_status,
         "inputs": {
             "v210_manifest": str(repo_path(args.v210_manifest)),
             "v216_manifest": str(repo_path(args.v216_manifest)),
@@ -591,6 +680,7 @@ def main() -> int:
             "v218_native_manifest": str(repo_path(args.v218_native_manifest)),
             "v219_manifest": str(repo_path(args.v219_manifest)),
             "v220_manifest": str(repo_path(args.v220_manifest)),
+            "system_root": str(repo_path(args.system_root)) if args.system_root else None,
         },
         "visible_vendor_paths_count": len(visible_paths(v210)),
         "required_vendor_paths": required_paths,
