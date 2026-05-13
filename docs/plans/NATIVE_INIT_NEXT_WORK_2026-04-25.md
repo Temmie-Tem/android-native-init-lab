@@ -1053,7 +1053,11 @@ Samsung bootloader
    - v215 보고서: `docs/reports/NATIVE_INIT_V215_ICNSS_CNSS_LIFECYCLE_RESEARCH_2026-05-13.md`
    - v215 상태: PASS, decision `lifecycle-map-ready`
    - v215 실기: manifest-only PASS, native bridge read-only PASS, live captures `16/16`
-   - 다음은 v216 Android service replay model이다. generic sysfs unbind/bind와 Wi-Fi scan/connect는 blocked
+   - v216 계획서: `docs/plans/NATIVE_INIT_V216_ANDROID_SERVICE_REPLAY_MODEL_PLAN_2026-05-13.md`
+   - v216 보고서: `docs/reports/NATIVE_INIT_V216_ANDROID_SERVICE_REPLAY_MODEL_2026-05-13.md`
+   - v216 상태: PASS, decision `replay-model-ready`
+   - v216 결과: `cnss-daemon`, `cnss_diag`, Wi-Fi HAL, `wificond`, `wpa_supplicant`, `hostapd` service graph 작성 완료
+   - 다음은 v217 ICNSS debug/recovery inventory다. generic sysfs unbind/bind와 Wi-Fi scan/connect는 blocked
    - Wi-Fi/NCM을 USB-local 밖으로 넓히기 전 인증/ACL/token/bind/listener lifecycle 정책을 다시 검토한다
 
 ---

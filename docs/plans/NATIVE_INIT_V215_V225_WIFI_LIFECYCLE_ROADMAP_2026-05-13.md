@@ -56,6 +56,26 @@ native init must keep active Wi-Fi bring-up blocked.
 - v213: read-only ICNSS baseline and path-only firmware path flow passed.
 - v214: ICNSS unbind passed, bind failed with `Driver is already initialized`
   and `probe ... failed with error -17`; reboot restored ICNSS bound state.
+- v215: ICNSS/CNSS lifecycle collector passed with `lifecycle-map-ready`.
+- v216: Android service replay model passed with `replay-model-ready`.
+
+## Current Execution Status
+
+This roadmap is now in the post-v216 phase.
+
+- completed:
+  - v215 `ICNSS/CNSS Lifecycle Research`
+  - v216 `Android Service Replay Model`
+- next execution item:
+  - v217 `ICNSS Debug / Recovery Inventory`
+- still blocked:
+  - `cnss-daemon` and `cnss_diag` execution
+  - Wi-Fi HAL execution
+  - supplicant/hostapd execution
+  - rfkill writes, link-up, scan, connect
+- current highest-risk unknown:
+  - whether ICNSS has a driver-specific recovery/debug control path safer than
+    generic platform-driver `unbind`/`bind`
 
 ## Safety Policy
 
@@ -77,6 +97,77 @@ Every version in this roadmap must state one of three modes:
 
 v215-v220 should remain `read-only` or tightly bounded `temporary-mutating`.
 `active-network` starts no earlier than v223.
+
+## Phase Map
+
+### Phase A. Lifecycle Evidence and Replay Model
+
+Versions: v215-v217
+
+Purpose: explain Android's ICNSS/CNSS service lifecycle and find read-only
+driver-specific state/recovery evidence before starting any daemon.
+
+- v215 collects lifecycle evidence and kernel/source hints.
+- v216 converts Android init/service evidence into a replay model.
+- v217 inventories ICNSS debug/recovery controls and classifies risk.
+
+Exit gate:
+
+- service graph exists
+- ICNSS state/recovery surface is mapped
+- dangerous controls are explicitly denied
+- next step can reason about CNSS daemon dry-run without guessing
+
+### Phase B. Native Replay Feasibility
+
+Versions: v218-v220
+
+Purpose: decide whether native init can safely emulate enough Android runtime
+environment for CNSS/Wi-Fi experiments.
+
+- v218 checks `cnss-daemon` dependency feasibility without executing it.
+- v219 designs a minimal Android-env shim and rollback policy.
+- v220 upgrades the Wi-Fi preflight gate with lifecycle/service evidence.
+
+Exit gate:
+
+- dry-run dependencies are known
+- temporary mounts/properties/sockets are scoped
+- `wififeas gate` can produce a defensible `go-scan-prep` or `no-go`
+
+### Phase C. Controlled State Transition
+
+Versions: v221-v223
+
+Purpose: move from read-only evidence to the smallest reversible kernel state
+change, then scan-only Wi-Fi if WLAN objects appear safely.
+
+- v221 starts the smallest CNSS-related component under strict timeout.
+- v222 inspects WLAN/rfkill/nl80211 state passively if objects appear.
+- v223 performs first scan-only test only after prior gates pass.
+
+Exit gate:
+
+- serial/NCM fallback remains available
+- health/thermal/longsoak monitoring is active
+- scan-only succeeds or fails with enough evidence to stop safely
+
+### Phase D. Pre-Connect Security and Test AP Connect
+
+Versions: v224-v225
+
+Purpose: avoid turning a local lab kernel experiment into an exposed root
+network target.
+
+- v224 reviews credential handling, listener binding, firewall/exposure, and
+  evidence redaction.
+- v225 attempts first controlled test-AP connect only if v224 approves it.
+
+Exit gate:
+
+- test AP is isolated and disposable
+- root control services remain bound to intended channels
+- connect/disconnect produces clean rollback evidence
 
 ## Version Roadmap
 
@@ -110,6 +201,13 @@ Decision:
 - `android-only-required`: native cannot proceed without Android service layer
 - `manual-review-required`: evidence conflicts or is insufficient
 
+Status:
+
+- done
+- result: `lifecycle-map-ready`
+- report:
+  `docs/reports/NATIVE_INIT_V215_ICNSS_CNSS_LIFECYCLE_RESEARCH_2026-05-13.md`
+
 ### v216. Android Service Replay Model
 
 Mode: `read-only`
@@ -135,6 +233,17 @@ Decision:
 - `replay-model-ready`: enough dependencies are mapped for dry-run feasibility
 - `missing-android-runtime`: property/socket/SELinux/framework dependency too
   large for native init
+
+Status:
+
+- done
+- result: `replay-model-ready`
+- report:
+  `docs/reports/NATIVE_INIT_V216_ANDROID_SERVICE_REPLAY_MODEL_2026-05-13.md`
+- important blockers preserved:
+  - `cnss-daemon` and `cnss_diag` need ICNSS/CNSS recovery model first
+  - Wi-Fi HAL services need capability/runtime policy review
+  - `wpa_supplicant` and `hostapd` remain disabled until scan/connect gates
 
 ### v217. ICNSS Debug / Recovery Inventory
 
@@ -379,7 +488,17 @@ Decision:
 
 ## Recommended Immediate Next Step
 
-Start v215. Do not write another ICNSS control path and do not run scan/connect.
-The first concrete deliverable should be an ICNSS/CNSS lifecycle collector that
-combines Android/TWRP/native logs, vendor init rc parsing, and read-only ICNSS
-debug/sysfs inventory into one evidence bundle.
+Start v217. Do not write ICNSS recovery controls and do not run any Android
+Wi-Fi/CNSS daemon yet.
+
+The next concrete deliverable should be a read-only ICNSS debug/recovery
+inventory that combines:
+
+- ICNSS/CNSS sysfs and debugfs path discovery
+- permission and writable-control classification
+- ramdump/recovery/rejuvenate/PDR/SSR state names
+- source-reference correlation
+- explicit deny list for controls that must not be touched
+
+Only after v217 can v218 decide whether `cnss-daemon` dry-run feasibility is
+safe to model in more detail.

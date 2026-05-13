@@ -1350,6 +1350,28 @@
   - v216 Android service replay model 계획서 작성
   - Android init rc service/class/property trigger를 native에서 실행하지 않고 dependency graph로 모델링
 
+### V216. Android Service Replay Model — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V216_ANDROID_SERVICE_REPLAY_MODEL_PLAN_2026-05-13.md`
+- 보고서: `docs/reports/NATIVE_INIT_V216_ANDROID_SERVICE_REPLAY_MODEL_2026-05-13.md`
+- 구현:
+  - `scripts/revalidation/wifi_service_replay_model.py`
+- 입력:
+  - `tmp/wifi/v206-android-icnss-cnss-map/manifest.json`
+  - `tmp/wifi/v215-icnss-cnss-lifecycle/manifest.json`
+  - `tmp/wifi/v215-icnss-cnss-lifecycle-native/manifest.json`
+- 결과:
+  - PASS, decision `replay-model-ready`
+  - output: `tmp/wifi/v216-service-replay-model`
+  - service graph: `cnss-daemon`, `cnss_diag`, `vendor.wifi_hal_legacy`, `vendor.wifi_hal_ext`, `wificond`, `wpa_supplicant`, `hostapd`
+- 해석:
+  - first-class Android Wi-Fi/CNSS service chain is modeled without execution approval
+  - `cnss-daemon`/`cnss_diag` 실행은 ICNSS recovery/debug inventory 전까지 blocked
+  - Wi-Fi HAL, `wificond`, supplicant, hostapd, scan/connect는 계속 blocked
+- 다음 실행 항목:
+  - v217 ICNSS debug/recovery inventory 계획서 작성
+  - read-only로 ICNSS debugfs/sysfs/ramdump/recovery controls를 분류
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
