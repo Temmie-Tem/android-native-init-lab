@@ -55,7 +55,7 @@ This plan does **not** approve Wi-Fi scan, connect, rfkill writes, link-up,
 | v221 | PASS | `vendor-root-required` | Host-visible vendor root is required for ELF/library closure |
 | v222 | PASS | `export-source-required` | Export helper ready; source vendor root still required |
 | v223 | PASS | `reboot-recovery-accepted` | Reboot-only recovery policy accepted for later opt-in planning |
-| v224 | PLANNED | TBD | Reversible Android-env shim materialization dry-run |
+| v224 | PASS | `shim-source-required` | Host-side shim dry-run artifacts ready; source vendor root still required |
 | v225 | PLANNED | TBD | Exposure/security gate and gate v3 integration |
 
 ## Version-Level Plan
@@ -250,12 +250,20 @@ Plan:
 
 - `docs/plans/NATIVE_INIT_V224_ANDROID_ENV_SHIM_DRYRUN_MATERIALIZATION_PLAN_2026-05-13.md`
 
-Allowed examples:
+Status:
 
-- temporary controlled mount/path stubs
-- read-only vendor visibility under an explicit mountpoint
-- log/output directory preparation
-- dry-run validation of expected paths and capabilities
+- done
+- report: `docs/reports/NATIVE_INIT_V224_ANDROID_ENV_SHIM_MATERIALIZE_2026-05-13.md`
+- tool: `scripts/revalidation/wifi_android_env_shim_materialize.py`
+- result: `shim-source-required`
+
+Completed examples:
+
+- host-side path alias dry-run artifact
+- static property evidence artifact
+- group/capability dry-run artifact
+- private log policy artifact
+- health capture plan artifact using v223 policy
 
 Forbidden:
 
@@ -267,7 +275,8 @@ Forbidden:
 
 Decision model:
 
-- `shim-materialized`: reversible shim shape is ready for later gated planning
+- `shim-source-required`: dry-run artifacts exist but source vendor root remains missing
+- `shim-dryrun-ready`: reversible shim shape is ready for later gated planning
 - `shim-too-wide`: required shim recreates too much Android runtime and remains
   blocked
 

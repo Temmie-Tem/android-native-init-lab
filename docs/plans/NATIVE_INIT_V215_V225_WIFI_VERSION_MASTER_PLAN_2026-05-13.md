@@ -312,11 +312,21 @@ Plan:
 Goal: v219 shim matrix에서 `shim-required` 항목만 실제 native filesystem/runtime
 layout으로 만들 수 있는지 검증한다.
 
-Allowed:
+Status:
 
-- temporary `ro,noload` vendor visibility
-- temporary path aliases under controlled mountpoint
-- log/output directory preparation
+- done
+- result: `shim-source-required`
+- report:
+  `docs/reports/NATIVE_INIT_V224_ANDROID_ENV_SHIM_MATERIALIZE_2026-05-13.md`
+- tool: `scripts/revalidation/wifi_android_env_shim_materialize.py`
+
+Completed dry-run artifacts:
+
+- path alias plan
+- static properties evidence
+- groups/capabilities model
+- log policy
+- health capture plan
 
 Forbidden:
 
@@ -327,7 +337,8 @@ Forbidden:
 
 Decision:
 
-- `shim-materialized`
+- `shim-source-required`
+- `shim-dryrun-ready`
 - `shim-too-wide`
 
 #### v225. Wi-Fi Exposure / Credential Security Gate + Gate v3

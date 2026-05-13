@@ -70,10 +70,11 @@ native init must keep active Wi-Fi bring-up blocked.
 - v222: vendor root evidence export helper passed with
   `export-source-required`.
 - v223: recovery/rollback policy passed with `reboot-recovery-accepted`.
+- v224: Android-env shim dry-run materialization passed with `shim-source-required`.
 
 ## Current Execution Status
 
-This roadmap is now in the post-v223 phase.
+This roadmap is now in the post-v224 phase.
 
 - completed:
   - v215 `ICNSS/CNSS Lifecycle Research`
@@ -85,8 +86,9 @@ This roadmap is now in the post-v223 phase.
   - v221 `Host Vendor ELF / Library Evidence Closure`
   - v222 `Vendor Root Evidence Export / Extraction`
   - v223 `Recovery / Rollback Policy Hardening`
+  - v224 `Android-Env Shim Dry-Run Materialization`
 - next execution item:
-  - source vendor root acquisition and v222/v221 rerun, or v224 `Android-Env Shim Dry-Run Materialization` with daemon execution blocked
+  - v225 `Wi-Fi Exposure / Credential Security Gate + Gate v3` while preserving the source vendor root blocker
 - still blocked:
   - `cnss-daemon` and `cnss_diag` execution
   - Wi-Fi HAL execution
@@ -535,11 +537,20 @@ Plan:
 Goal: materialize only the reversible shim-required pieces from v219 and prove
 cleanup/rollback without executing CNSS services.
 
-Allowed:
+Status:
 
-- temporary read-only vendor/system path aliases
-- private evidence/log output directories
-- static property evidence files, not a real property service
+- done
+- decision: `shim-source-required`
+- report: `docs/reports/NATIVE_INIT_V224_ANDROID_ENV_SHIM_MATERIALIZE_2026-05-13.md`
+- tool: `scripts/revalidation/wifi_android_env_shim_materialize.py`
+
+Completed dry-run artifacts:
+
+- path alias plan
+- static properties evidence
+- groups/capabilities model
+- log policy
+- health capture plan
 
 Forbidden:
 
@@ -550,7 +561,8 @@ Forbidden:
 
 Decision:
 
-- `shim-materialized`
+- `shim-source-required`
+- `shim-dryrun-ready`
 - `shim-too-wide`
 
 ### v225. Wi-Fi Exposure / Credential Security Gate + Gate v3

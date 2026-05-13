@@ -1091,7 +1091,10 @@ Samsung bootloader
    - v223 상태: PASS, decision `reboot-recovery-accepted`
    - v223 결과: reboot만 accepted recovery primitive로 고정, generic ICNSS unbind/bind와 unreviewed sysfs/debugfs/configfs writes는 denied
    - v224 계획서: `docs/plans/NATIVE_INIT_V224_ANDROID_ENV_SHIM_DRYRUN_MATERIALIZATION_PLAN_2026-05-13.md`
-   - 다음은 source vendor root 확보 후 v222/v221 재실행 또는 v224 Android-env shim dry-run materialization 구현이다. daemon 실행, generic sysfs unbind/bind, Wi-Fi scan/connect는 blocked
+   - v224 보고서: `docs/reports/NATIVE_INIT_V224_ANDROID_ENV_SHIM_MATERIALIZE_2026-05-13.md`
+   - v224 상태: PASS, decision `shim-source-required`
+   - v224 결과: host-side shim dry-run artifacts 생성 완료, v219 blocked rows 유지, v223 policy hard dependency 기록, source vendor root blocker 유지
+   - 다음은 v225 Wi-Fi exposure/security gate + gate v3 계획/구현이다. daemon 실행, generic sysfs unbind/bind, Wi-Fi scan/connect는 blocked
    - Wi-Fi/NCM을 USB-local 밖으로 넓히기 전 인증/ACL/token/bind/listener lifecycle 정책을 다시 검토한다
 
 ---
