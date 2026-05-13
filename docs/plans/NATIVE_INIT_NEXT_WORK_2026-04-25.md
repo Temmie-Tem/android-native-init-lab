@@ -1062,7 +1062,10 @@ Samsung bootloader
    - v217 상태: PASS, decision `state-only-inventory`
    - v217 결과: native read-only captures `11/11`, controls `168`, dangerous controls `bind`/`unbind`/`driver_override`
    - v218 계획서: `docs/plans/NATIVE_INIT_V218_CNSS_DAEMON_DRYRUN_FEASIBILITY_PLAN_2026-05-13.md`
-   - 다음은 v218 CNSS daemon dry-run feasibility 구현이다. daemon 실행, generic sysfs unbind/bind, Wi-Fi scan/connect는 blocked
+   - v218 보고서: `docs/reports/NATIVE_INIT_V218_CNSS_DAEMON_DRYRUN_FEASIBILITY_2026-05-13.md`
+   - v218 상태: PASS, decision `daemon-dryrun-partial`
+   - v218 결과: `cnss-daemon`/`cnss_diag` binary visibility는 v210 기준 확인, ELF/library inspection은 host vendor root 부재로 incomplete
+   - 다음은 v219 native Android-env shim plan이다. daemon 실행, generic sysfs unbind/bind, Wi-Fi scan/connect는 blocked
    - Wi-Fi/NCM을 USB-local 밖으로 넓히기 전 인증/ACL/token/bind/listener lifecycle 정책을 다시 검토한다
 
 ---

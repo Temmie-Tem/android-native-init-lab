@@ -59,25 +59,28 @@ native init must keep active Wi-Fi bring-up blocked.
 - v215: ICNSS/CNSS lifecycle collector passed with `lifecycle-map-ready`.
 - v216: Android service replay model passed with `replay-model-ready`.
 - v217: ICNSS debug/recovery inventory passed with `state-only-inventory`.
+- v218: CNSS daemon dry-run feasibility passed with `daemon-dryrun-partial`.
 
 ## Current Execution Status
 
-This roadmap is now in the post-v217 phase.
+This roadmap is now in the post-v218 phase.
 
 - completed:
   - v215 `ICNSS/CNSS Lifecycle Research`
   - v216 `Android Service Replay Model`
   - v217 `ICNSS Debug / Recovery Inventory`
-- next execution item:
   - v218 `CNSS Daemon Dry-Run Feasibility`
+- next execution item:
+  - v219 `Native Android-Env Shim Plan`
 - still blocked:
   - `cnss-daemon` and `cnss_diag` execution
   - Wi-Fi HAL execution
   - supplicant/hostapd execution
   - rfkill writes, link-up, scan, connect
 - current highest-risk unknown:
-  - whether `cnss-daemon` and `cnss_diag` dependencies can be modeled deeply
-    enough without executing them
+  - whether a minimal native Android-env shim can provide enough mount/path,
+    property, socket, user/group, capability, and log policy without becoming a
+    broad Android compatibility layer
 
 ## Safety Policy
 
@@ -310,6 +313,17 @@ Decision:
 - `daemon-dryrun-ready`: enough dependencies are present or shim-able
 - `daemon-native-blocked`: missing Android runtime pieces block safe execution
 
+Status:
+
+- done
+- result: `daemon-dryrun-partial`
+- report:
+  `docs/reports/NATIVE_INIT_V218_CNSS_DAEMON_DRYRUN_FEASIBILITY_2026-05-13.md`
+- important blockers preserved:
+  - daemon execution remains denied
+  - ELF/library inspection is incomplete without a host-visible vendor root
+  - reboot remains the only proven ICNSS recovery path
+
 ### v219. Native Android-Env Shim Plan
 
 Mode: `read-only` planning plus optional harmless file/mount checks
@@ -501,18 +515,18 @@ Decision:
 
 ## Recommended Immediate Next Step
 
-Start v218. Do not execute `cnss-daemon`, `cnss_diag`, Wi-Fi HAL, supplicant,
+Start v219. Do not execute `cnss-daemon`, `cnss_diag`, Wi-Fi HAL, supplicant,
 or hostapd yet.
 
-The next concrete deliverable should be a CNSS daemon dry-run feasibility model
-that inspects:
+The next concrete deliverable should be a native Android-env shim plan that
+defines:
 
-- executable and linker requirements
-- vendor/system mount visibility
-- required libraries and config files
-- required users, groups, capabilities, sockets, and device nodes
-- Android property/runtime assumptions
-- rollback and evidence requirements for any later service experiment
+- temporary mount visibility and path aliases
+- property and socket policy
+- user/group/capability policy
+- logging and evidence policy
+- host-visible vendor root or readelf evidence strategy
+- rollback requirements for any later service experiment
 
-Only after v218 can v219 decide whether a minimal native Android-env shim is
-small and safe enough to design.
+Only after v219 can v220 turn the lifecycle/service evidence into a stricter
+Wi-Fi bring-up preflight gate.
