@@ -1880,6 +1880,26 @@
   - real Android generated linkerconfig does not resolve the `linker64 --list` crash
   - next work should be linker crash-context comparison before any Wi-Fi daemon start
 
+### V234. Linker Crash Context Comparison — PLANNED
+
+- 계획: `docs/plans/NATIVE_INIT_V234_LINKER_CRASH_CONTEXT_PLAN_2026-05-15.md`
+- 기준:
+  - native device baseline remains `A90 Linux init 0.9.59 (v159)`
+  - v234는 PID1 boot image 변경 없이 helper/host probe만 확장한다
+  - v231 none, v232 minimal-vendor, v233 copy-real 모두 `linker64 --list /vendor/bin/cnss-daemon` child `SIGSEGV(11)`로 동일하게 실패했다
+- 목표:
+  - crash가 `cnss-daemon` target-specific인지, Android linker direct invocation/private namespace generic 문제인지 분리한다
+  - target profile matrix와 debug env mode로 stdout/stderr blind spot을 줄인다
+  - 다음 작업을 vendor ELF/dependency 분석 또는 generic linker context debug 중 하나로 좁힌다
+- guardrails:
+  - no daemon entrypoint, no Wi-Fi scan/connect/link-up, no credential/DHCP/routing
+  - no global bind mount, no persistent Android partition write
+  - no ptrace by default; ptrace/register/map capture는 v235 후보로 분리
+- 다음 실행 항목:
+  - helper v3: allowlisted target profiles, debug env modes, pre-exec context output
+  - host wrapper: `scripts/revalidation/wifi_linker_crash_context_probe.py`
+  - decision labels: `android-linker-crash-target-specific`, `android-linker-crash-generic`, `android-linker-debug-output-ready`
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
