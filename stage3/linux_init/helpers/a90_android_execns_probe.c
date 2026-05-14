@@ -22,7 +22,7 @@
 #define MNT_DETACH 2
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v2"
+#define EXECNS_VERSION "a90_android_execns_probe v3"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -32,10 +32,13 @@ struct config {
     const char *vendor_block;
     const char *vendor_fstype;
     const char *target;
+    const char *target_profile;
     const char *linker;
+    const char *env_mode;
     const char *mode;
     const char *linkerconfig_mode;
     const char *linkerconfig_source;
+    const char *apex_libraries_source;
     int timeout_sec;
 };
 
@@ -64,11 +67,14 @@ static void usage(FILE *out) {
             "--system-root /mnt/system/system "
             "--vendor-block /dev/block/sda29 "
             "--vendor-fstype ext4 "
-            "--target /vendor/bin/cnss-daemon "
+            "[--target-profile cnss-daemon|system-toybox|system-sh|linker64-self] "
+            "[--target /vendor/bin/cnss-daemon] "
             "--linker /system/bin/linker64 "
+            "[--env-mode clean|ld-debug-1|ld-debug-2|auxv] "
             "--mode linker-list "
             "[--linkerconfig-mode none|copy-real|minimal-vendor] "
             "[--linkerconfig-source /cache/path/to/ld.config.txt] "
+            "[--apex-libraries-source /cache/path/to/apex.libraries.config.txt] "
             "--timeout-sec <1..30>\n");
 }
 
@@ -99,6 +105,9 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
     memset(cfg, 0, sizeof(*cfg));
     cfg->timeout_sec = 10;
     cfg->linkerconfig_mode = "none";
+    cfg->target_profile = "cnss-daemon";
+    cfg->target = "/vendor/bin/cnss-daemon";
+    cfg->env_mode = "clean";
 
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--help") == 0) {
@@ -117,14 +126,21 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             cfg->vendor_fstype = argv[++i];
         } else if (strcmp(argv[i], "--target") == 0) {
             cfg->target = argv[++i];
+            cfg->target_profile = "custom-allowlisted";
+        } else if (strcmp(argv[i], "--target-profile") == 0) {
+            cfg->target_profile = argv[++i];
         } else if (strcmp(argv[i], "--linker") == 0) {
             cfg->linker = argv[++i];
+        } else if (strcmp(argv[i], "--env-mode") == 0) {
+            cfg->env_mode = argv[++i];
         } else if (strcmp(argv[i], "--mode") == 0) {
             cfg->mode = argv[++i];
         } else if (strcmp(argv[i], "--linkerconfig-mode") == 0) {
             cfg->linkerconfig_mode = argv[++i];
         } else if (strcmp(argv[i], "--linkerconfig-source") == 0) {
             cfg->linkerconfig_source = argv[++i];
+        } else if (strcmp(argv[i], "--apex-libraries-source") == 0) {
+            cfg->apex_libraries_source = argv[++i];
         } else if (strcmp(argv[i], "--timeout-sec") == 0) {
             if (!parse_int_range(argv[++i], 1, 30, &cfg->timeout_sec)) {
                 fprintf(stderr, "invalid --timeout-sec\n");
@@ -136,16 +152,40 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
         }
     }
 
+    if (streq(cfg->target_profile, "cnss-daemon")) {
+        cfg->target = "/vendor/bin/cnss-daemon";
+    } else if (streq(cfg->target_profile, "system-toybox")) {
+        cfg->target = "/system/bin/toybox";
+    } else if (streq(cfg->target_profile, "system-sh")) {
+        cfg->target = "/system/bin/sh";
+    } else if (streq(cfg->target_profile, "linker64-self")) {
+        cfg->target = "/system/bin/linker64";
+    } else if (streq(cfg->target_profile, "custom-allowlisted")) {
+        if (!(streq(cfg->target, "/vendor/bin/cnss-daemon") ||
+              streq(cfg->target, "/system/bin/toybox") ||
+              streq(cfg->target, "/system/bin/sh") ||
+              streq(cfg->target, "/system/bin/linker64"))) {
+            fprintf(stderr, "--target must match a v234 allowlisted profile path\n");
+            return 2;
+        }
+    } else {
+        fprintf(stderr, "unknown --target-profile\n");
+        return 2;
+    }
+
     if (!streq(cfg->system_root, "/mnt/system/system") ||
         !streq(cfg->vendor_block, "/dev/block/sda29") ||
         !streq(cfg->vendor_fstype, "ext4") ||
-        !streq(cfg->target, "/vendor/bin/cnss-daemon") ||
         !streq(cfg->linker, "/system/bin/linker64") ||
         !streq(cfg->mode, "linker-list") ||
+        !(streq(cfg->env_mode, "clean") ||
+          streq(cfg->env_mode, "ld-debug-1") ||
+          streq(cfg->env_mode, "ld-debug-2") ||
+          streq(cfg->env_mode, "auxv")) ||
         !(streq(cfg->linkerconfig_mode, "none") ||
           streq(cfg->linkerconfig_mode, "copy-real") ||
           streq(cfg->linkerconfig_mode, "minimal-vendor"))) {
-        fprintf(stderr, "arguments do not match v231/v232 allowlist\n");
+        fprintf(stderr, "arguments do not match v234 allowlist\n");
         return 2;
     }
     if (streq(cfg->linkerconfig_mode, "copy-real")) {
@@ -155,8 +195,14 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             fprintf(stderr, "--linkerconfig-source must be an absolute /cache path for copy-real\n");
             return 2;
         }
-    } else if (cfg->linkerconfig_source != NULL) {
-        fprintf(stderr, "--linkerconfig-source is only valid with --linkerconfig-mode copy-real\n");
+        if (cfg->apex_libraries_source != NULL &&
+            (strncmp(cfg->apex_libraries_source, "/cache/", 7) != 0 ||
+             strstr(cfg->apex_libraries_source, "..") != NULL)) {
+            fprintf(stderr, "--apex-libraries-source must be an absolute /cache path for copy-real\n");
+            return 2;
+        }
+    } else if (cfg->linkerconfig_source != NULL || cfg->apex_libraries_source != NULL) {
+        fprintf(stderr, "--linkerconfig-source and --apex-libraries-source are only valid with --linkerconfig-mode copy-real\n");
         return 2;
     }
     return 0;
@@ -395,6 +441,20 @@ static int materialize_linkerconfig(const struct config *cfg,
             snprintf(error_buf, error_size, "copy linkerconfig: %s", strerror(errno));
             return -1;
         }
+        if (cfg->apex_libraries_source != NULL) {
+            if (append_path(dest, sizeof(dest), paths->linkerconfig, "apex.libraries.config.txt") < 0) {
+                snprintf(error_buf, error_size, "apex libraries path: %s", strerror(errno));
+                return -1;
+            }
+            if (unlink(dest) < 0 && errno != ENOENT) {
+                snprintf(error_buf, error_size, "unlink apex libraries: %s", strerror(errno));
+                return -1;
+            }
+            if (copy_linkerconfig_file(cfg->apex_libraries_source, dest, total_bytes, hash) < 0) {
+                snprintf(error_buf, error_size, "copy apex libraries: %s", strerror(errno));
+                return -1;
+            }
+        }
         return 0;
     }
     errno = EINVAL;
@@ -414,6 +474,12 @@ static void cleanup_paths(const struct paths *paths) {
                         sizeof(linkerconfig_file),
                         paths->linkerconfig,
                         "ld.config.txt") == 0) {
+            unlink(linkerconfig_file);
+        }
+        if (append_path(linkerconfig_file,
+                        sizeof(linkerconfig_file),
+                        paths->linkerconfig,
+                        "apex.libraries.config.txt") == 0) {
             unlink(linkerconfig_file);
         }
     }
@@ -530,6 +596,124 @@ static long monotonic_ms(void) {
     return ts.tv_sec * 1000L + ts.tv_nsec / 1000000L;
 }
 
+
+static int path_in_root(char *out, size_t out_size, const struct paths *paths, const char *absolute_path) {
+    const char *relative = absolute_path;
+    int rc;
+
+    if (absolute_path == NULL || absolute_path[0] != '/') {
+        errno = EINVAL;
+        return -1;
+    }
+    while (*relative == '/') {
+        relative++;
+    }
+    rc = snprintf(out, out_size, "%s/%s", paths->root, relative);
+    if (rc < 0 || (size_t)rc >= out_size) {
+        errno = ENAMETOOLONG;
+        return -1;
+    }
+    return 0;
+}
+
+static int fnv1a64_file(const char *path, uint64_t *hash, size_t *bytes) {
+    char tmp[4096];
+    int fd = open(path, O_RDONLY | O_CLOEXEC);
+
+    *hash = UINT64_C(1469598103934665603);
+    *bytes = 0;
+    if (fd < 0) {
+        return -1;
+    }
+    for (;;) {
+        ssize_t nread = read(fd, tmp, sizeof(tmp));
+
+        if (nread < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            close(fd);
+            return -1;
+        }
+        if (nread == 0) {
+            break;
+        }
+        *hash = fnv1a64_update(*hash, tmp, (size_t)nread);
+        *bytes += (size_t)nread;
+        if (*bytes > MAX_LINKERCONFIG_SIZE * 4U) {
+            break;
+        }
+    }
+    close(fd);
+    return 0;
+}
+
+static void print_context_path(const struct paths *paths, const char *label, const char *absolute_path) {
+    char host_path[MAX_PATH_LEN];
+    char link_target[MAX_PATH_LEN];
+    struct stat st;
+    ssize_t nreadlink;
+    uint64_t hash;
+    size_t bytes;
+
+    if (path_in_root(host_path, sizeof(host_path), paths, absolute_path) < 0) {
+        printf("context.%s.path=%s\n", label, absolute_path);
+        printf("context.%s.error=path-too-long\n", label);
+        return;
+    }
+    printf("context.%s.path=%s\n", label, absolute_path);
+    printf("context.%s.host_path=%s\n", label, host_path);
+    if (lstat(host_path, &st) < 0) {
+        printf("context.%s.exists=0\n", label);
+        printf("context.%s.errno=%d\n", label, errno);
+        return;
+    }
+    printf("context.%s.exists=1\n", label);
+    printf("context.%s.mode=%o\n", label, st.st_mode & 07777);
+    printf("context.%s.type=%s\n", label,
+           S_ISREG(st.st_mode) ? "regular" :
+           S_ISDIR(st.st_mode) ? "directory" :
+           S_ISLNK(st.st_mode) ? "symlink" :
+           S_ISBLK(st.st_mode) ? "block" : "other");
+    printf("context.%s.size=%lld\n", label, (long long)st.st_size);
+    nreadlink = readlink(host_path, link_target, sizeof(link_target) - 1);
+    if (nreadlink >= 0) {
+        link_target[nreadlink] = '\0';
+        printf("context.%s.readlink=%s\n", label, link_target);
+    }
+    printf("context.%s.access_r=%d\n", label, access(host_path, R_OK) == 0 ? 1 : 0);
+    printf("context.%s.access_x=%d\n", label, access(host_path, X_OK) == 0 ? 1 : 0);
+    if (S_ISREG(st.st_mode) && fnv1a64_file(host_path, &hash, &bytes) == 0) {
+        printf("context.%s.bytes=%zu\n", label, bytes);
+        printf("context.%s.hash=0x%016llx\n", label, (unsigned long long)hash);
+    }
+}
+
+static void print_preexec_context(const struct config *cfg, const struct paths *paths) {
+    print_context_path(paths, "linker", cfg->linker);
+    print_context_path(paths, "target", cfg->target);
+    print_context_path(paths, "ld_config", "/linkerconfig/ld.config.txt");
+    print_context_path(paths, "apex_libraries", "/linkerconfig/apex.libraries.config.txt");
+    print_context_path(paths, "apex_runtime", "/apex/com.android.runtime");
+    print_context_path(paths, "system_lib64", "/system/lib64");
+    print_context_path(paths, "vendor_lib64", "/vendor/lib64");
+    print_context_path(paths, "proc_self_exe", "/proc/self/exe");
+}
+
+static void apply_child_env(const struct config *cfg) {
+    clearenv();
+    setenv("PATH", "/system/bin:/vendor/bin:/bin", 1);
+    setenv("ANDROID_ROOT", "/system", 1);
+    setenv("ANDROID_DATA", "/data", 1);
+    if (streq(cfg->env_mode, "ld-debug-1")) {
+        setenv("LD_DEBUG", "1", 1);
+    } else if (streq(cfg->env_mode, "ld-debug-2")) {
+        setenv("LD_DEBUG", "2", 1);
+    } else if (streq(cfg->env_mode, "auxv")) {
+        setenv("LD_SHOW_AUXV", "1", 1);
+    }
+}
+
 static int run_linker_list(const struct config *cfg,
                            const struct paths *paths,
                            struct buffer *stdout_buf,
@@ -582,6 +766,7 @@ static int run_linker_list(const struct config *cfg,
             perror("chdir");
             _exit(121);
         }
+        apply_child_env(cfg);
         execv(cfg->linker, child_argv);
         perror("execv linker");
         _exit(127);
@@ -798,8 +983,12 @@ int main(int argc, char **argv) {
     printf("A90_EXECNS_BEGIN version=\"%s\"\n", EXECNS_VERSION);
     printf("mode=%s\n", cfg.mode);
     printf("linkerconfig_mode=%s\n", cfg.linkerconfig_mode);
+    printf("target_profile=%s\n", cfg.target_profile);
+    printf("env_mode=%s\n", cfg.env_mode);
     printf("linkerconfig_source=%s\n",
            cfg.linkerconfig_source != NULL ? cfg.linkerconfig_source : "<none>");
+    printf("apex_libraries_source=%s\n",
+           cfg.apex_libraries_source != NULL ? cfg.apex_libraries_source : "<none>");
     printf("system_root=%s\n", cfg.system_root);
     printf("vendor_block=%s\n", cfg.vendor_block);
     printf("vendor_fstype=%s\n", cfg.vendor_fstype);
@@ -834,6 +1023,7 @@ int main(int argc, char **argv) {
                : "<private-materialized>");
     printf("linkerconfig_bytes=%zu\n", linkerconfig_bytes);
     printf("linkerconfig_hash=0x%016llx\n", (unsigned long long)linkerconfig_hash);
+    print_preexec_context(&cfg, &paths);
     run_rc = run_linker_list(&cfg, &paths, &stdout_buf, &stderr_buf, &child_exit_code, &child_signal, &timed_out);
     printf("probe_run_rc=%d\n", run_rc);
     printf("child_exit_code=%d\n", child_exit_code);
