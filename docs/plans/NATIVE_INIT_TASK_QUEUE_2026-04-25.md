@@ -1862,6 +1862,24 @@
   - 비교 결과: `none` baseline도 child `SIGSEGV(11)`, no mount leak observed
   - 다음 후보: stock Android boot에서 real `/linkerconfig` capture 후 `copy-real` 재검증 또는 linker crash context 수집
 
+### V233. Real Android Linkerconfig Copy-Real Probe — EXECUTED / CRASH PERSISTS
+
+- 보고서: `docs/reports/NATIVE_INIT_V233_REAL_LINKERCONFIG_COPY_REAL_2026-05-15.md`
+- stock Android capture:
+  - boot image: `backups/baseline_a_20260423_025322/boot.img`
+  - `/linkerconfig/ld.config.txt`: size `134256`, SHA256 `1ab340f0ee1e5f6d7c43e372dfe3bc9164d34b348dd9c716ded1b4e56e079f1a`
+  - `/linkerconfig/apex.libraries.config.txt`: size `366`, SHA256 `5419adf6ed8f74c480d79096681a19a8570470ab8359c6e8c0be110da434f16e`
+- native restore:
+  - restored `stage3/boot_linux_v159.img`
+  - `cmdv1 version/status` PASS, selftest `fail=0`
+- copy-real probe:
+  - source deployed temporarily as `/cache/bin/a90_real_ld.config.txt`, SHA256 verified, removed after probe
+  - helper mode: `copy-real`
+  - result: child `SIGSEGV(11)`, stdout/stderr empty, no mount leak observed
+- conclusion:
+  - real Android generated linkerconfig does not resolve the `linker64 --list` crash
+  - next work should be linker crash-context comparison before any Wi-Fi daemon start
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`

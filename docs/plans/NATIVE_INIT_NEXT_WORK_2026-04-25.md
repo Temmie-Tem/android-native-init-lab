@@ -1133,7 +1133,10 @@ Samsung bootloader
    - v232 계획서: `docs/plans/NATIVE_INIT_V232_LINKERCONFIG_MATERIALIZATION_PLAN_2026-05-15.md`
    - v232 보고서: `docs/reports/NATIVE_INIT_V232_LINKERCONFIG_MATERIALIZATION_2026-05-15.md`
    - v232 결과: `minimal-vendor` private linkerconfig에서도 `/system/bin/linker64 --list /vendor/bin/cnss-daemon`가 stdout/stderr 없이 `SIGSEGV(11)`로 종료했다
-   - 다음 방향: stock Android boot에서 real `/linkerconfig`를 read-only capture해 `copy-real`로 재검증하거나, `linker64 --list` crash context를 추가 수집한다
+   - v233 보고서: `docs/reports/NATIVE_INIT_V233_REAL_LINKERCONFIG_COPY_REAL_2026-05-15.md`
+   - v233 상태: stock Android boot에서 real `/linkerconfig/ld.config.txt`를 read-only capture했고, native v159 복구 후 `copy-real` probe까지 실행했다
+   - v233 결과: real Android generated linkerconfig에서도 `/system/bin/linker64 --list /vendor/bin/cnss-daemon`가 stdout/stderr 없이 `SIGSEGV(11)`로 종료했다
+   - 다음 방향: Wi-Fi daemon start가 아니라 `linker64 --list` crash-context 비교를 먼저 진행한다
    - 아직 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 승인 전까지 blocked
 
 ---
