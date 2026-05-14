@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Inventory Android execution namespace prerequisites for Wi-Fi bring-up.
+"""Inventory/probe Android execution namespace prerequisites for Wi-Fi bring-up.
 
-v230 intentionally does not start Android daemons and does not perform global
-bind mounts.  The probe answers whether the native init environment has enough
-read-only evidence to later build a *temporary/private* Android exec namespace.
+v231 still refuses Android daemon execution and global bind mounts.  The probe
+can run one allowlisted helper that creates a temporary/private namespace and
+executes ``linker64 --list`` against ``/vendor/bin/cnss-daemon``.
 """
 
 from __future__ import annotations
@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
+import re
 import subprocess
 import time
 from dataclasses import asdict, dataclass
@@ -28,15 +29,21 @@ from a90_kernel_tools import (
 from a90harness.evidence import EvidenceStore
 
 
-DEFAULT_OUT_DIR = Path("tmp/wifi/v230-android-exec-namespace-probe")
+DEFAULT_OUT_DIR = Path("tmp/wifi/v231-android-linker-list-probe")
 DEFAULT_EXPECT_VERSION = "A90 Linux init 0.9.59 (v159)"
-DEFAULT_V229_OUT_DIR = Path("tmp/wifi/v229-controlled-cnss-start-experiment-preflight-before-v230")
+DEFAULT_V229_OUT_DIR = Path("tmp/wifi/v229-controlled-cnss-start-experiment-preflight-before-v231")
 DEFAULT_V221_MANIFEST = Path("tmp/wifi/v221-host-vendor-elf-library-evidence/manifest.json")
 DEFAULT_V222_MANIFEST = Path("tmp/wifi/v222-vendor-root-evidence-export/manifest.json")
 DEFAULT_V226_MANIFEST = Path("tmp/wifi/v226-vendor-root-live-export/manifest.json")
 DEFAULT_V227_MANIFEST = Path("tmp/wifi/v227-android-core-system-library-evidence/manifest.json")
 DEFAULT_V228_MANIFEST = Path("tmp/wifi/v228-controlled-cnss-start-plan/manifest.json")
 DEFAULT_V229_MANIFEST = Path("tmp/wifi/v229-controlled-cnss-start-experiment/manifest.json")
+REMOTE_EXECNS_HELPER = "/cache/bin/a90_android_execns_probe"
+ANDROID_SYSTEM_ROOT = "/mnt/system/system"
+ANDROID_VENDOR_BLOCK = "/dev/block/sda29"
+ANDROID_VENDOR_FSTYPE = "ext4"
+ANDROID_TARGET = "/vendor/bin/cnss-daemon"
+ANDROID_LINKER = "/system/bin/linker64"
 
 EXPECTED_DECISIONS = {
     "v221": {"elf-evidence-ready"},
@@ -52,6 +59,7 @@ LIVE_CAPTURE_COMMANDS: tuple[tuple[str, ...], ...] = (
     ("status",),
     ("bootstatus",),
     ("selftest", "verbose"),
+    ("netservice", "status"),
     ("mountsystem", "ro"),
     ("mounts",),
     ("cat", "/proc/mounts"),
@@ -246,6 +254,9 @@ def validate_live_command(command: Iterable[str]) -> list[str]:
     if name in {"version", "status", "bootstatus", "mounts"}:
         if len(argv) != 1:
             problems.append("unexpected arity")
+    elif name == "netservice":
+        if argv != ["netservice", "status"]:
+            problems.append("only netservice status allowed")
     elif name == "selftest":
         if argv != ["selftest", "verbose"]:
             problems.append("only selftest verbose allowed")
@@ -317,6 +328,172 @@ def read_record_text(store: EvidenceStore, record: CommandRecord | None) -> str:
     if not path.exists():
         return ""
     return strip_cmdv1_text(path.read_text(encoding="utf-8", errors="replace"))
+
+
+def android_execns_helper_command(timeout_sec: int) -> list[str]:
+    return [
+        "run",
+        REMOTE_EXECNS_HELPER,
+        "--system-root",
+        ANDROID_SYSTEM_ROOT,
+        "--vendor-block",
+        ANDROID_VENDOR_BLOCK,
+        "--vendor-fstype",
+        ANDROID_VENDOR_FSTYPE,
+        "--target",
+        ANDROID_TARGET,
+        "--linker",
+        ANDROID_LINKER,
+        "--mode",
+        "linker-list",
+        "--timeout-sec",
+        str(timeout_sec),
+    ]
+
+
+def validate_execns_helper_command(command: list[str], timeout_sec: int) -> list[str]:
+    expected = android_execns_helper_command(timeout_sec)
+    return [] if command == expected else ["android exec namespace helper command does not match v231 allowlist"]
+
+
+def parse_int_field(fields: dict[str, str], name: str, default: int = -1) -> int:
+    try:
+        return int(fields.get(name, str(default)))
+    except ValueError:
+        return default
+
+
+def parse_execns_helper_output(text: str) -> dict[str, Any]:
+    stripped = strip_cmdv1_text(text)
+    fields: dict[str, str] = {}
+    sections: dict[str, str] = {"stdout": "", "stderr": ""}
+    section: str | None = None
+    section_lines: list[str] = []
+    end_rc: int | None = None
+
+    for raw_line in stripped.splitlines():
+        line = raw_line.rstrip("\r\n")
+        if line == "A90_EXECNS_STDOUT_BEGIN":
+            section = "stdout"
+            section_lines = []
+            continue
+        if line.startswith("A90_EXECNS_STDOUT_END"):
+            sections["stdout"] = "\n".join(section_lines)
+            section = None
+            continue
+        if line == "A90_EXECNS_STDERR_BEGIN":
+            section = "stderr"
+            section_lines = []
+            continue
+        if line.startswith("A90_EXECNS_STDERR_END"):
+            sections["stderr"] = "\n".join(section_lines)
+            section = None
+            continue
+        if section is not None:
+            section_lines.append(line)
+            continue
+        if line.startswith("A90_EXECNS_BEGIN "):
+            match = re.search(r'version="([^"]+)"', line)
+            if match:
+                fields["version"] = match.group(1)
+            continue
+        if line.startswith("A90_EXECNS_END "):
+            match = re.search(r"\brc=(-?\d+)\b", line)
+            if match:
+                end_rc = int(match.group(1))
+            continue
+        if "=" in line:
+            key, value = line.split("=", 1)
+            fields[key.strip()] = value.strip()
+
+    return {
+        "raw_text": stripped,
+        "fields": fields,
+        "stdout": sections["stdout"],
+        "stderr": sections["stderr"],
+        "end_rc": end_rc,
+        "has_end": end_rc is not None,
+    }
+
+
+def classify_execns_helper_result(requirements: dict[str, Any], parsed: dict[str, Any]) -> dict[str, Any]:
+    fields = parsed.get("fields", {})
+    stdout_text = str(parsed.get("stdout", ""))
+    stderr_text = str(parsed.get("stderr", ""))
+    combined_lower = f"{stdout_text}\n{stderr_text}".lower()
+    child_exit = parse_int_field(fields, "child_exit_code")
+    child_signal = parse_int_field(fields, "child_signal", 0)
+    run_rc = parse_int_field(fields, "probe_run_rc")
+    timed_out = fields.get("timed_out") == "1"
+    helper_status = fields.get("helper_status", "missing")
+    linkerconfig_hint_patterns = (
+        "not accessible for the namespace",
+        "permitted.paths",
+        "ld.config",
+        "linkerconfig",
+        "namespace",
+    )
+    dependency_gap_patterns = (
+        "not found",
+        "cannot locate",
+        "needed by",
+        "cannot link executable",
+        "no such file or directory",
+        "library \"",
+    )
+
+    if not parsed.get("has_end") or helper_status != "namespace-ready" or run_rc != 0:
+        setup_error = fields.get("setup_error")
+        detail = f"helper did not complete namespace setup cleanly: status={helper_status} run_rc={run_rc}"
+        if setup_error:
+            detail += f" setup_error={setup_error}"
+        return {
+            "decision": "android-namespace-helper-blocked",
+            "pass": False,
+            "reason": detail,
+        }
+    if timed_out:
+        return {
+            "decision": "android-namespace-helper-blocked",
+            "pass": False,
+            "reason": "linker --list timed out inside private namespace",
+        }
+    if any(pattern in combined_lower for pattern in linkerconfig_hint_patterns):
+        return {
+            "decision": "android-linkerconfig-required",
+            "pass": True,
+            "reason": "linker output references Android linker namespace/linkerconfig constraints",
+        }
+    if any(pattern in combined_lower for pattern in dependency_gap_patterns):
+        return {
+            "decision": "android-linker-list-runtime-gap",
+            "pass": True,
+            "reason": "linker executed but reported unresolved runtime dependency/path gap",
+        }
+    if child_signal != 0:
+        return {
+            "decision": "android-namespace-manual-review-required",
+            "pass": False,
+            "reason": f"linker process terminated by signal {child_signal}",
+        }
+    if child_exit != 0:
+        return {
+            "decision": "android-namespace-manual-review-required",
+            "pass": False,
+            "reason": f"linker exited nonzero without a recognized pattern: exit={child_exit}",
+        }
+    linkerconfig_required = requirements.get("linker_apex", {}).get("linkerconfig_required")
+    if linkerconfig_required == "unknown":
+        return {
+            "decision": "android-linkerconfig-documented-absent",
+            "pass": True,
+            "reason": "linker --list passed even though read-only inventory could not prove linkerconfig availability",
+        }
+    return {
+        "decision": "android-linker-list-pass",
+        "pass": True,
+        "reason": "linker --list completed without recognized linker/runtime blockers",
+    }
 
 
 def find_record(records: dict[str, CommandRecord], command: Iterable[str]) -> CommandRecord | None:
@@ -589,19 +766,29 @@ def classify_requirements(
 
 def build_namespace_plan(requirements: dict[str, Any] | None) -> dict[str, Any]:
     return {
-        "mode": "inventory-first-private-namespace",
+        "mode": "inventory-first-private-namespace-linker-list",
         "daemon_execution": False,
         "global_mounts_allowed": False,
-        "requires_probe_flags": ["--allow-temp-namespace", "--assume-yes"],
+        "helper": REMOTE_EXECNS_HELPER,
+        "helper_command": android_execns_helper_command(10),
+        "requires_probe_flags": ["--allow-temp-namespace", "--allow-linker-list", "--assume-yes"],
         "namespace_steps_candidate": [
             "fresh-v229-preflight-must-return-start-only-runtime-gap",
             "prove-/system/vendor-relation",
             "prove-linkerconfig-and-apex-runtime-requirements",
             "classify-live-vendor-source",
-            "if-all-ready-only-then-use-private-namespace-helper-in-future-version",
+            "run-private-namespace-helper-only-for-linker64---list",
+            "classify-linker-output-with-deterministic-labels",
         ],
         "requirements": requirements,
-        "forbidden_in_v230": [
+        "classification_priority": [
+            "timeout-or-helper-setup",
+            "linkerconfig-or-namespace",
+            "missing-dependency-or-path",
+            "unknown-nonzero",
+            "pass",
+        ],
+        "forbidden_in_v231": [
             "cnss-daemon execution",
             "cnss_diag execution",
             "global bind mounts",
@@ -618,6 +805,7 @@ def decide(
     prior_checks: list[dict[str, Any]],
     fresh_v229: dict[str, Any] | None,
     requirements: dict[str, Any] | None,
+    helper_result: dict[str, Any] | None,
     args: argparse.Namespace,
 ) -> tuple[str, str, bool]:
     if any(not check["pass"] for check in prior_checks):
@@ -629,15 +817,15 @@ def decide(
         return "android-exec-manual-review-required", f"fresh v229 preflight did not return start-only-runtime-gap: {actual}", False
     if requirements is None:
         return "android-exec-namespace-blocked", "live requirements inventory was not collected", False
+    if mode == "probe":
+        if helper_result is None:
+            return "android-namespace-helper-blocked", "probe did not produce helper-result.json", False
+        return (
+            str(helper_result.get("decision", "android-namespace-manual-review-required")),
+            str(helper_result.get("reason", "helper result missing reason")),
+            bool(helper_result.get("pass")),
+        )
     if requirements.get("ready"):
-        if mode == "probe":
-            if not args.allow_temp_namespace or not args.assume_yes:
-                return "android-exec-namespace-blocked", "probe requires --allow-temp-namespace --assume-yes", False
-            return (
-                "android-exec-namespace-blocked",
-                "requirements look ready, but v230 has no private namespace helper and refuses global mounts",
-                True,
-            )
         return "android-exec-requirements-ready", "read-only inventory indicates a future private namespace probe can be implemented", True
     blockers = requirements.get("blockers", [])
     if blockers:
@@ -660,13 +848,142 @@ def collect_live_inventory(store: EvidenceStore, args: argparse.Namespace) -> tu
     return records, by_name
 
 
+def helper_deploy_instructions() -> list[str]:
+    return [
+        "scripts/revalidation/build_android_execns_probe_helper.sh",
+        (
+            "scripts/revalidation/helper_deploy.py push "
+            "stage3/linux_init/helpers/a90_android_execns_probe "
+            "a90_android_execns_probe --role android-exec-namespace-probe"
+        ),
+        "copy the helper to the printed device path, then rerun the v231 probe",
+    ]
+
+
+def run_helper_probe(
+    store: EvidenceStore,
+    args: argparse.Namespace,
+    records: dict[str, CommandRecord],
+    requirements: dict[str, Any] | None,
+) -> dict[str, Any]:
+    if not args.allow_temp_namespace or not args.allow_linker_list or not args.assume_yes:
+        result = {
+            "decision": "android-namespace-helper-blocked",
+            "pass": False,
+            "reason": "probe requires --allow-temp-namespace --allow-linker-list --assume-yes",
+            "ran": False,
+        }
+        store.write_json("helper-result.json", result)
+        return result
+    if requirements is None:
+        result = {
+            "decision": "android-namespace-helper-blocked",
+            "pass": False,
+            "reason": "requirements inventory was not collected",
+            "ran": False,
+        }
+        store.write_json("helper-result.json", result)
+        return result
+    helper_stat = find_record(records, ["stat", REMOTE_EXECNS_HELPER])
+    if not path_exists(helper_stat):
+        result = {
+            "decision": "android-namespace-helper-blocked",
+            "pass": False,
+            "reason": f"device helper is not present at {REMOTE_EXECNS_HELPER}",
+            "ran": False,
+            "deploy": helper_deploy_instructions(),
+        }
+        store.write_json("helper-result.json", result)
+        return result
+    blockers = set(requirements.get("blockers", []))
+    allowed_blockers = {"linkerconfig-need-unproven"}
+    unexpected_blockers = sorted(blockers - allowed_blockers)
+    vendor_source = requirements.get("vendor_source", {}).get("source")
+    namespace_mapping = requirements.get("system_vendor", {}).get("namespace_mapping")
+    if unexpected_blockers or vendor_source not in {"live-mounted", "needs-remount"} or namespace_mapping != "system-vendor-symlink":
+        result = {
+            "decision": "android-namespace-helper-blocked",
+            "pass": False,
+            "reason": "private helper prerequisites are not narrow enough for linker-list probe",
+            "ran": False,
+            "unexpected_blockers": unexpected_blockers,
+            "vendor_source": vendor_source,
+            "namespace_mapping": namespace_mapping,
+        }
+        store.write_json("helper-result.json", result)
+        return result
+
+    command = android_execns_helper_command(args.helper_timeout_sec)
+    problems = validate_execns_helper_command(command, args.helper_timeout_sec)
+    if problems:
+        result = {
+            "decision": "android-namespace-helper-blocked",
+            "pass": False,
+            "reason": "; ".join(problems),
+            "ran": False,
+        }
+        store.write_json("helper-result.json", result)
+        return result
+
+    capture = run_capture(args, "run-android-execns-probe", command, timeout=args.helper_timeout_sec + 30)
+    text = capture.text if capture.text else f"{capture.error}\n"
+    helper_output_path = store.write_text("helper-output.txt", text.rstrip() + "\n")
+    parsed = parse_execns_helper_output(text)
+    linker_list_text = (
+        "## stdout\n"
+        + str(parsed.get("stdout", "")).rstrip()
+        + "\n\n## stderr\n"
+        + str(parsed.get("stderr", "")).rstrip()
+        + "\n"
+    )
+    linker_list_path = store.write_text("linker-list.txt", linker_list_text)
+    classification = classify_execns_helper_result(requirements, parsed)
+    result = {
+        **classification,
+        "ran": True,
+        "command": command,
+        "capture_ok": capture.ok,
+        "capture_rc": capture.rc,
+        "capture_status": capture.status,
+        "capture_error": capture.error,
+        "helper_output": str(helper_output_path.relative_to(store.run_dir)),
+        "linker_list": str(linker_list_path.relative_to(store.run_dir)),
+        "parsed": {
+            "fields": parsed.get("fields"),
+            "end_rc": parsed.get("end_rc"),
+            "has_end": parsed.get("has_end"),
+        },
+    }
+    store.write_json("helper-result.json", result)
+    return result
+
+
+def collect_postflight(store: EvidenceStore, args: argparse.Namespace) -> dict[str, Any]:
+    commands = (
+        ["version"],
+        ["status"],
+        ["netservice", "status"],
+        ["selftest", "verbose"],
+        ["cat", "/proc/mounts"],
+        ["cat", "/proc/net/dev"],
+        ["ls", "/sys/class/net"],
+        ["ls", "/sys/class/rfkill"],
+        ["ls", "/sys/class/ieee80211"],
+        ["cat", "/sys/devices/platform/soc/18800000.qcom,icnss/uevent"],
+    )
+    records = [capture_device(store, args, f"postflight-{command_label(command)}", command) for command in commands]
+    data = {"commands": [asdict(record) for record in records]}
+    store.write_json("postflight.json", data)
+    return data
+
+
 def build_summary(manifest: dict[str, Any]) -> str:
     prior_rows = [
         [item["name"], ",".join(item["expected_any"]), item["actual"], "PASS" if item["pass"] else "FAIL"]
         for item in manifest["prior_checks"]
     ]
     lines = [
-        "# v230 Android Exec Namespace Probe",
+        "# v231 Android Linker Namespace Probe",
         "",
         f"- generated: `{manifest['created']}`",
         f"- mode: `{manifest['mode']}`",
@@ -710,13 +1027,28 @@ def build_summary(manifest: dict[str, Any]) -> str:
                 "",
             ]
         )
+    helper = manifest.get("helper_result")
+    if helper:
+        lines.extend(
+            [
+                "## Helper Probe",
+                "",
+                f"- decision: `{helper.get('decision')}`",
+                f"- pass: `{helper.get('pass')}`",
+                f"- ran: `{helper.get('ran')}`",
+                f"- reason: `{helper.get('reason')}`",
+                f"- output: `{helper.get('helper_output', '')}`",
+                f"- linker_list: `{helper.get('linker_list', '')}`",
+                "",
+            ]
+        )
     lines.extend(
         [
             "## Guardrails",
             "",
-            "- v230 does not execute `cnss-daemon`.",
-            "- v230 does not create global bind mounts.",
-            "- `probe` only records why a private namespace helper is required.",
+            "- v231 does not execute `cnss-daemon`.",
+            "- v231 does not create global bind mounts.",
+            "- The helper may only run `linker64 --list /vendor/bin/cnss-daemon` inside a private namespace.",
             "",
         ]
     )
@@ -731,7 +1063,10 @@ def run_mode(args: argparse.Namespace) -> int:
 
     fresh_v229: dict[str, Any] | None = None
     requirements: dict[str, Any] | None = None
+    helper_result: dict[str, Any] | None = None
+    postflight: dict[str, Any] | None = None
     records: list[CommandRecord] = []
+    by_name: dict[str, CommandRecord] = {}
 
     if args.subcommand in {"inventory", "preflight", "probe"}:
         bridge_check = check_bridge_ready(store, args)
@@ -755,15 +1090,12 @@ def run_mode(args: argparse.Namespace) -> int:
                 "error": bridge_check["error"],
             }
 
-    if args.subcommand == "probe":
-        store.write_text(
-            "probe-result.txt",
-            "v230 does not ship a private Android exec namespace helper.\n"
-            "Global bind mounts are refused by design.\n"
-            "Use requirements-inventory.json to decide the v231 implementation.\n",
-        )
+    if args.subcommand == "probe" and requirements is not None:
+        helper_result = run_helper_probe(store, args, by_name, requirements)
+        if helper_result.get("ran"):
+            postflight = collect_postflight(store, args)
 
-    decision, reason, pass_ok = decide(args.subcommand, prior_checks, fresh_v229, requirements, args)
+    decision, reason, pass_ok = decide(args.subcommand, prior_checks, fresh_v229, requirements, helper_result, args)
     manifest = {
         "created": now_iso(),
         "mode": args.subcommand,
@@ -775,6 +1107,8 @@ def run_mode(args: argparse.Namespace) -> int:
         "prior_checks": prior_checks,
         "fresh_v229": fresh_v229,
         "requirements": requirements,
+        "helper_result": helper_result,
+        "postflight": postflight,
         "command_count": len(records),
         "host_metadata": collect_host_metadata(),
         "guardrails": [
@@ -784,6 +1118,7 @@ def run_mode(args: argparse.Namespace) -> int:
             "no USB/NCM rebind",
             "no Wi-Fi scan/connect/link-up",
             "no persistent Android partition writes",
+            "private namespace helper is restricted to linker64 --list",
         ],
     }
     store.write_json("manifest.json", manifest)
@@ -806,6 +1141,7 @@ def parse_args() -> argparse.Namespace:
         target.add_argument("--fresh-v229-out-dir", type=Path, default=default or (REPO_ROOT / DEFAULT_V229_OUT_DIR))
         target.add_argument("--fresh-v229-timeout", type=int, default=default or 180)
         target.add_argument("--bridge-check-timeout", type=float, default=default or 3.0)
+        target.add_argument("--helper-timeout-sec", type=int, default=default or 10)
         target.add_argument("--v221-manifest", type=Path, default=default or (REPO_ROOT / DEFAULT_V221_MANIFEST))
         target.add_argument("--v222-manifest", type=Path, default=default or (REPO_ROOT / DEFAULT_V222_MANIFEST))
         target.add_argument("--v226-manifest", type=Path, default=default or (REPO_ROOT / DEFAULT_V226_MANIFEST))
@@ -822,12 +1158,16 @@ def parse_args() -> argparse.Namespace:
     subparsers.add_parser("preflight", parents=[common])
     probe_parser = subparsers.add_parser("probe", parents=[common])
     probe_parser.add_argument("--allow-temp-namespace", action="store_true")
+    probe_parser.add_argument("--allow-linker-list", action="store_true")
     probe_parser.add_argument("--assume-yes", action="store_true")
     subparsers.add_parser("cleanup", parents=[common])
     args = parser.parse_args()
     if args.subcommand != "probe":
         args.allow_temp_namespace = False
+        args.allow_linker_list = False
         args.assume_yes = False
+    if not (1 <= args.helper_timeout_sec <= 30):
+        parser.error("--helper-timeout-sec must be between 1 and 30")
     if args.subcommand == "cleanup":
         # Cleanup is intentionally a no-op until v231 ships a private helper.
         args.subcommand = "plan"

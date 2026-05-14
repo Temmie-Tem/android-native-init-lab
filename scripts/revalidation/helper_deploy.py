@@ -27,6 +27,11 @@ DEFAULT_HELPERS = (
     ("a90_usbnet", REPO_ROOT / "stage3" / "linux_init" / "helpers" / "a90_usbnet", "net-helper"),
     ("a90_tcpctl", REPO_ROOT / "external_tools" / "userland" / "bin" / "a90_tcpctl-aarch64-static", "tcp-control"),
     ("a90_rshell", REPO_ROOT / "stage3" / "linux_init" / "helpers" / "a90_rshell", "remote-shell"),
+    (
+        "a90_android_execns_probe",
+        REPO_ROOT / "stage3" / "linux_init" / "helpers" / "a90_android_execns_probe",
+        "android-exec-namespace-probe",
+    ),
     ("busybox", REPO_ROOT / "external_tools" / "userland" / "bin" / "busybox-aarch64-static", "userland"),
     ("toybox", REPO_ROOT / "stage3" / "linux_init" / "toybox", "userland"),
 )

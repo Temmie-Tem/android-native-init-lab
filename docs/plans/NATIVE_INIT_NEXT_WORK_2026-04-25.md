@@ -1124,7 +1124,12 @@ Samsung bootloader
    - 확인: `/mnt/system/system/vendor -> /vendor`, vendor source `needs-remount`, APEX runtime available
    - 남은 blocker: `linkerconfig-need-unproven`
    - v231 계획서: `docs/plans/NATIVE_INIT_V231_LINKERCONFIG_NAMESPACE_HELPER_PLAN_2026-05-15.md`
-   - 다음 구현 후보는 private mount namespace helper `a90_android_execns_probe`와 `/system/bin/linker64 --list /vendor/bin/cnss-daemon` dry-run이다. 이 단계에서 `/linkerconfig` unknown을 documented absent, required, or concrete runtime gap 중 하나로 좁힌다
+   - v231 보고서: `docs/reports/NATIVE_INIT_V231_LINKERCONFIG_NAMESPACE_HELPER_2026-05-15.md`
+   - v231 상태: private mount namespace helper와 host probe 경로 구현 완료, static ARM64 build PASS, NCM deploy PASS
+   - 실기 probe: helper setup은 `namespace-ready`, vendor `sda29`는 private temp block node로 ro,noload mount, `/linkerconfig`는 `/mnt/system/linkerconfig` read-only bind
+   - 결과: `/system/bin/linker64 --list /vendor/bin/cnss-daemon`가 stdout/stderr 없이 `SIGSEGV(11)`로 종료, decision `android-namespace-manual-review-required`
+   - 확인: `/mnt/system/linkerconfig`는 empty, `/mnt/system/system/etc/ld.config*.txt`는 absent, linker 바이너리에는 `--list`와 `/linkerconfig/ld.config.txt` 참조가 존재
+   - 다음 작업은 v232 private-only linkerconfig materialization 계획이다. global mount와 persistent Android write 없이 temporary root 안에서만 linker namespace config를 공급하고 `linker64 --list`를 재검증한다
    - 아직 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 승인 전까지 blocked
 
 ---

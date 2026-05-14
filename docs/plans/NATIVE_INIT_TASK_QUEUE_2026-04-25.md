@@ -1793,9 +1793,28 @@
   - `/linkerconfig` 필요성 입증 또는 documented absence 처리
   - v231 private namespace helper에서 vendor `sda29` ro,noload remount + `/system/vendor -> /vendor` 구성 설계
 
-### V231. Linkerconfig Decision + Private Android Namespace Helper — PLANNED
+### V231. Linkerconfig Decision + Private Android Namespace Helper — HELPER EXECUTED / LINKERCONFIG BLOCKED
 
 - 계획: `docs/plans/NATIVE_INIT_V231_LINKERCONFIG_NAMESPACE_HELPER_PLAN_2026-05-15.md`
+- 보고서: `docs/reports/NATIVE_INIT_V231_LINKERCONFIG_NAMESPACE_HELPER_2026-05-15.md`
+- 구현:
+  - `stage3/linux_init/helpers/a90_android_execns_probe.c`
+  - `scripts/revalidation/build_android_execns_probe_helper.sh`
+  - `scripts/revalidation/wifi_android_exec_namespace_probe.py`
+  - `scripts/revalidation/helper_deploy.py`
+- 산출:
+  - `tmp/wifi/v231-plan-local-check/`
+  - `tmp/wifi/v231-android-linker-list-probe-live/`
+- decision: `android-namespace-manual-review-required`
+- 상태:
+  - local static ARM64 helper build PASS
+  - host `plan` mode PASS
+  - NCM helper deploy PASS
+  - remote SHA256 PASS: `b200a8608eba661186650a93e380a5e2e0283090774f6cd44519913939316f86`
+  - `/system/bin/linker64 --list /vendor/bin/cnss-daemon` 실기 실행까지 도달
+  - private namespace setup은 `namespace-ready`
+  - linker child는 stdout/stderr 없이 `SIGSEGV(11)` 종료
+  - postflight `version/status/netservice/selftest` PASS, private mount leak 없음
 - 목표:
   - v230의 `linkerconfig-need-unproven` blocker를 닫는다
   - device-side static helper `a90_android_execns_probe`로 private mount namespace를 만들고 global mount를 피한다
@@ -1813,9 +1832,9 @@
   - Android linker namespace와 linkerconfig는 vendor process dependency resolution에 직접 영향 가능
   - bionic linker `--list`는 ldd-like mode로 target entrypoint 이전에 종료하므로 v231 dry-run에 적합
 - 다음 실행 항목:
-  - `a90_android_execns_probe.c` + build script 구현
-  - `wifi_android_exec_namespace_probe.py probe`에 helper 실행 경로 추가
-  - 실기에서 linker-list 결과로 `/linkerconfig` unknown을 `documented-absent|required|runtime-gap` 중 하나로 좁히기
+  - v232 private-only linkerconfig materialization plan
+  - `/mnt/system/linkerconfig` empty + `/system/etc/ld.config*.txt` absent 상태에서 linker namespace config를 어떻게 공급할지 설계
+  - 계속 금지: daemon entrypoint, global mount, persistent Android write, Wi-Fi scan/connect/link-up
 
 ### V187. Harness Broker Backend — PASS
 
