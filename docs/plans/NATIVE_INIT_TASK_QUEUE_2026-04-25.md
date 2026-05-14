@@ -1836,6 +1836,29 @@
   - `/mnt/system/linkerconfig` empty + `/system/etc/ld.config*.txt` absent 상태에서 linker namespace config를 어떻게 공급할지 설계
   - 계속 금지: daemon entrypoint, global mount, persistent Android write, Wi-Fi scan/connect/link-up
 
+### V232. Private Linkerconfig Materialization Probe — PLANNED
+
+- 계획: `docs/plans/NATIVE_INIT_V232_LINKERCONFIG_MATERIALIZATION_PLAN_2026-05-15.md`
+- 입력:
+  - v231 report `android-namespace-manual-review-required`
+  - helper setup `namespace-ready`
+  - linker child `SIGSEGV(11)`
+  - `/mnt/system/linkerconfig` empty
+  - `/mnt/system/system/etc/ld.config*.txt` absent
+- 목표:
+  - global mount나 Android partition write 없이 private root 안에만 `/linkerconfig/ld.config.txt`를 공급한다
+  - real Android linkerconfig capture를 우선 경로로 두고, 불가하면 `minimal-vendor` synthetic config를 명시적으로 표시한다
+  - 다시 `/system/bin/linker64 --list /vendor/bin/cnss-daemon`만 실행한다
+- guardrails:
+  - `--allow-private-linkerconfig` 같은 별도 opt-in 필요
+  - no daemon entrypoint, no `cnss_diag`, no scan/connect/link-up, no credential
+  - no global bind mount, no persistent Android write
+  - `allow_all_shared_libs`는 별도 계획 전 금지
+- 다음 실행 항목:
+  - v232 host wrapper + helper mode 설계 구현
+  - 가능하면 stock Android boot에서 real `/linkerconfig/ld.config.txt` read-only capture
+  - 불가 시 private-only `minimal-vendor` candidate로 crash가 config 문제인지 검증
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`

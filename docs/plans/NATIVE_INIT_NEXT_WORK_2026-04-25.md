@@ -1130,6 +1130,8 @@ Samsung bootloader
    - 결과: `/system/bin/linker64 --list /vendor/bin/cnss-daemon`가 stdout/stderr 없이 `SIGSEGV(11)`로 종료, decision `android-namespace-manual-review-required`
    - 확인: `/mnt/system/linkerconfig`는 empty, `/mnt/system/system/etc/ld.config*.txt`는 absent, linker 바이너리에는 `--list`와 `/linkerconfig/ld.config.txt` 참조가 존재
    - 다음 작업은 v232 private-only linkerconfig materialization 계획이다. global mount와 persistent Android write 없이 temporary root 안에서만 linker namespace config를 공급하고 `linker64 --list`를 재검증한다
+   - v232 계획서: `docs/plans/NATIVE_INIT_V232_LINKERCONFIG_MATERIALIZATION_PLAN_2026-05-15.md`
+   - v232 방향: real Android `/linkerconfig/ld.config.txt` capture를 우선하고, 불가하면 private root 안에서만 `minimal-vendor` config를 생성해 `linker64 --list` crash 원인을 좁힌다
    - 아직 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 승인 전까지 blocked
 
 ---
