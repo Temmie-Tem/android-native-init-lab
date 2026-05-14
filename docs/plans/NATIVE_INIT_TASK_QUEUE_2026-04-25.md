@@ -1768,7 +1768,8 @@
 - 계획: `docs/plans/NATIVE_INIT_V230_ANDROID_EXEC_NAMESPACE_PLAN_2026-05-15.md`
 - 목표:
   - v229 `start-only-runtime-gap`의 원인인 Android absolute path namespace gap을 안전하게 좁힌다
-  - `/system`, `/vendor`, `/system/vendor`, `/apex`, `/linkerconfig`를 temporary/private namespace 안에서만 read-only로 보이게 하는 probe를 설계한다
+  - 먼저 `/system/vendor` 관계, `/linkerconfig`/`/apex` 필요성, live vendor source 상태, fresh v229 preflight 결과를 read-only inventory로 확정한다
+  - 그 다음에만 `/system`, `/vendor`, `/system/vendor`, `/apex`, `/linkerconfig`를 temporary/private namespace 안에서 read-only로 보이게 하는 probe를 설계한다
   - `cnss-daemon` 실행은 하지 않고, 실행 전 필수 path/linkerconfig/vendor library visibility만 검증한다
 - 구현 후보:
   - host tool: `scripts/revalidation/wifi_android_exec_namespace_probe.py`
@@ -1778,7 +1779,7 @@
   - 실제 temporary namespace mount probe는 `--allow-temp-namespace --assume-yes` 필요
   - no daemon execution, no scan/connect/link-up, no credential, no ICNSS unbind/bind, no persistent Android partition write
 - 다음 실행 항목:
-  - v230 probe tool 구현
+  - v230 requirements inventory-first probe tool 구현
   - v230 plan/preflight PASS 후 private namespace helper 필요 여부 결정
 
 ### V187. Harness Broker Backend — PASS

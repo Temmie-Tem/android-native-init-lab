@@ -1118,7 +1118,8 @@ Samsung bootloader
    - v229 목표: opt-in controlled CNSS start-only runner. 기본은 plan/preflight/dry-run이며 live daemon start는 `--allow-daemon-start --assume-yes` 명시 전까지 금지
    - v229 preflight 결과: `/mnt/system/system/bin/linker64`는 보이나 `/mnt/system/vendor/bin/cnss-daemon`과 global `/system/bin/linker64`/`/system/vendor/bin/cnss-daemon` namespace가 없어 daemon 실행 전 중단
    - v230 계획서: `docs/plans/NATIVE_INIT_V230_ANDROID_EXEC_NAMESPACE_PLAN_2026-05-15.md`
-   - 다음 구현 후보는 v230 temporary Android execution namespace/shim probe이며, 아직 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 승인 전까지 blocked
+   - 다음 구현 후보는 v230 requirements inventory-first temporary Android execution namespace/shim probe이며, `/system/vendor` 관계와 `/linkerconfig`/`/apex` 필요성 확인 전에는 namespace probe를 실행하지 않는다
+   - 아직 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 승인 전까지 blocked
 
 ---
 
