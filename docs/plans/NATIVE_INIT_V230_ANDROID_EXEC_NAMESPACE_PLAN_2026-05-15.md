@@ -80,6 +80,8 @@ Produce a reviewed v230 tool/plan that can answer:
 
 Expected v230 decision labels:
 
+- `android-exec-plan-ready`: host-side prior evidence and namespace planning
+  inputs are valid; no live inventory performed yet.
 - `android-exec-requirements-ready`: read-only requirements inventory is complete
   and a concrete namespace layout can be built next.
 - `android-exec-namespace-ready`: all required absolute paths are visible inside
@@ -89,8 +91,8 @@ Expected v230 decision labels:
   missing.
 - `android-exec-namespace-blocked`: prerequisite manifests or safety guards fail
   before any namespace work.
-- `manual-review-required`: unexpected path drift, mount drift, or exposure drift
-  requires review.
+- `android-exec-manual-review-required`: unexpected path drift, bridge
+  unavailability, mount drift, or exposure drift requires review.
 
 ## Non-Goals
 
@@ -112,6 +114,13 @@ Add host-side planner/prober:
 ```text
 scripts/revalidation/wifi_android_exec_namespace_probe.py
 ```
+
+Current v230 implementation is host-side and inventory-first. It validates prior
+v221/v222/v226/v227/v228/v229 evidence, runs a fresh v229 preflight before live
+inventory, records read-only device captures, and refuses global namespace
+mounting. Because no device-side private namespace helper is included in v230,
+`probe --allow-temp-namespace --assume-yes` records the missing helper and stops
+instead of performing bind mounts.
 
 Optional helper if shell-only bind mounting is too global/risky:
 
@@ -255,7 +264,7 @@ python3 scripts/revalidation/wifi_cnss_start_experiment.py preflight \
 ```
 
 If the result is no longer `start-only-runtime-gap`, v230 must stop and record
-`manual-review-required` because the assumptions changed.
+`android-exec-manual-review-required` because the assumptions changed.
 
 ## Required Path Checks
 
@@ -315,11 +324,15 @@ After `probe`:
 
 ```text
 tmp/wifi/v230-android-exec-namespace-probe/
+├── bridge-check.json
+├── bridge-check-version.txt
 ├── manifest.json
 ├── namespace-plan.json
-├── preflight.json
-├── probe-result.json
-├── postflight.json
+├── prior-evidence.json
+├── fresh-v229-preflight.txt
+├── live-inventory-commands.json
+├── requirements-inventory.json
+├── probe-result.txt
 ├── commands/
 └── summary.md
 ```

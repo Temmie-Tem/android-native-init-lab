@@ -1763,9 +1763,13 @@
   - v230 temporary Android execution namespace/shim 계획
   - vendor source와 Android `/system` dynamic linker namespace를 임시/비영구 방식으로 노출한 뒤 v229 preflight 재실행
 
-### V230. Temporary Android Execution Namespace Probe — PLANNED
+### V230. Temporary Android Execution Namespace Probe — LIVE INVENTORY PASS / RUNTIME GAP
 
 - 계획: `docs/plans/NATIVE_INIT_V230_ANDROID_EXEC_NAMESPACE_PLAN_2026-05-15.md`
+- 보고서: `docs/reports/NATIVE_INIT_V230_ANDROID_EXEC_NAMESPACE_PROBE_2026-05-15.md`
+- 구현: `scripts/revalidation/wifi_android_exec_namespace_probe.py`
+- 산출: `tmp/wifi/v230-android-exec-namespace-inventory-20260515-033554/`
+- decision: `android-exec-namespace-runtime-gap`
 - 목표:
   - v229 `start-only-runtime-gap`의 원인인 Android absolute path namespace gap을 안전하게 좁힌다
   - 먼저 `/system/vendor` 관계, `/linkerconfig`/`/apex` 필요성, live vendor source 상태, fresh v229 preflight 결과를 read-only inventory로 확정한다
@@ -1778,9 +1782,16 @@
   - default는 `plan`/`preflight`
   - 실제 temporary namespace mount probe는 `--allow-temp-namespace --assume-yes` 필요
   - no daemon execution, no scan/connect/link-up, no credential, no ICNSS unbind/bind, no persistent Android partition write
+- 실기 결과:
+  - fresh v229 preflight는 계속 `start-only-runtime-gap`
+  - `/mnt/system/system/vendor -> /vendor`
+  - vendor source는 `needs-remount`
+  - APEX runtime은 available
+  - 남은 blocker는 `linkerconfig-need-unproven`
+  - post-inventory `version`, `netservice status`, `selftest verbose` PASS
 - 다음 실행 항목:
-  - v230 requirements inventory-first probe tool 구현
-  - v230 plan/preflight PASS 후 private namespace helper 필요 여부 결정
+  - `/linkerconfig` 필요성 입증 또는 documented absence 처리
+  - v231 private namespace helper에서 vendor `sda29` ro,noload remount + `/system/vendor -> /vendor` 구성 설계
 
 ### V187. Harness Broker Backend — PASS
 
