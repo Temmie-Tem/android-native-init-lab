@@ -1123,7 +1123,8 @@ Samsung bootloader
    - v230 live inventory PASS, decision `android-exec-namespace-runtime-gap`
    - 확인: `/mnt/system/system/vendor -> /vendor`, vendor source `needs-remount`, APEX runtime available
    - 남은 blocker: `linkerconfig-need-unproven`
-   - 다음 구현 후보는 `/linkerconfig` 필요성 입증 또는 documented absence 처리 후 v231 private Android exec namespace helper를 설계하는 것이다
+   - v231 계획서: `docs/plans/NATIVE_INIT_V231_LINKERCONFIG_NAMESPACE_HELPER_PLAN_2026-05-15.md`
+   - 다음 구현 후보는 private mount namespace helper `a90_android_execns_probe`와 `/system/bin/linker64 --list /vendor/bin/cnss-daemon` dry-run이다. 이 단계에서 `/linkerconfig` unknown을 documented absent, required, or concrete runtime gap 중 하나로 좁힌다
    - 아직 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 승인 전까지 blocked
 
 ---

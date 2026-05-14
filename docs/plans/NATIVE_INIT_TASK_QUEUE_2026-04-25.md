@@ -1793,6 +1793,27 @@
   - `/linkerconfig` 필요성 입증 또는 documented absence 처리
   - v231 private namespace helper에서 vendor `sda29` ro,noload remount + `/system/vendor -> /vendor` 구성 설계
 
+### V231. Linkerconfig Decision + Private Android Namespace Helper — PLANNED
+
+- 계획: `docs/plans/NATIVE_INIT_V231_LINKERCONFIG_NAMESPACE_HELPER_PLAN_2026-05-15.md`
+- 목표:
+  - v230의 `linkerconfig-need-unproven` blocker를 닫는다
+  - device-side static helper `a90_android_execns_probe`로 private mount namespace를 만들고 global mount를 피한다
+  - `/mnt/system/system`을 `/system`으로, vendor `sda29`를 `/vendor`로 private namespace 안에서 read-only 구성한다
+  - `/system/vendor -> /vendor` symlink 관계를 보존한다
+  - `cnss-daemon` 직접 실행 대신 `/system/bin/linker64 --list /vendor/bin/cnss-daemon`만 실행해 dependency/linkerconfig 판정을 한다
+- guardrails:
+  - no daemon entrypoint, no `cnss_diag`, no scan/connect/link-up, no credential, no ICNSS unbind/bind, no persistent Android write
+  - `probe`는 `--allow-temp-namespace --allow-linker-list --assume-yes` 필요
+  - helper와 host wrapper 모두 exact allowlist와 timeout/postflight 검증 필요
+- 참고:
+  - Android linker namespace와 linkerconfig는 vendor process dependency resolution에 직접 영향 가능
+  - bionic linker `--list`는 ldd-like mode로 target entrypoint 이전에 종료하므로 v231 dry-run에 적합
+- 다음 실행 항목:
+  - `a90_android_execns_probe.c` + build script 구현
+  - `wifi_android_exec_namespace_probe.py probe`에 helper 실행 경로 추가
+  - 실기에서 linker-list 결과로 `/linkerconfig` unknown을 `documented-absent|required|runtime-gap` 중 하나로 좁히기
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
