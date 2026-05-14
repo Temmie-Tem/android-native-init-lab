@@ -1736,6 +1736,51 @@
   - v229 controlled CNSS start planner/runner 구현
   - 실험 실행은 별도 explicit operator confirmation 이후에만 허용
 
+### V229. Controlled CNSS Start-Only Runner — PREFLIGHT SAFE STOP
+
+- 계획: `docs/plans/NATIVE_INIT_V229_CONTROLLED_CNSS_START_RUNNER_PLAN_2026-05-14.md`
+- 보고서: `docs/reports/NATIVE_INIT_V229_CONTROLLED_CNSS_START_RUNNER_2026-05-15.md`
+- 구현: `scripts/revalidation/wifi_cnss_start_experiment.py`
+- 산출: `tmp/wifi/v229-controlled-cnss-start-experiment/`
+- preflight 산출: `tmp/wifi/v229-controlled-cnss-start-experiment-preflight/`
+- decision: `start-only-runtime-gap`
+- 목표:
+  - v228 `cnss-start-plan-ready`를 입력으로 opt-in host/device start-only runner를 구현한다
+  - 기본 모드는 `plan`/`preflight`/`dry-run`이며 live daemon start는 `--allow-daemon-start --assume-yes` 없이는 실행하지 않는다
+  - `cnss-daemon` start/observe/stop만 범위로 두고, `cnss_diag` phase2와 scan/connect/link-up/credential/DHCP/routing은 계속 금지한다
+- 필수 경계:
+  - v221/v222/v223/v224/v225/v227/v228 decision 재검증
+  - Android runtime shim은 `/tmp/a90-v229-*` 같은 임시 경로만 사용
+  - Android 동적 linker/interpreter가 실행 namespace에서 보이지 않으면 `start-only-runtime-gap`으로 중단
+  - cleanup 실패 또는 ICNSS/WLAN state drift는 `start-only-reboot-required`로 기록하고 reboot-only recovery를 따른다
+- 실기 결과:
+  - bridge/cmdv1 `version` PASS, device `A90 Linux init 0.9.59 (v159)`
+  - live daemon start 없음
+  - command_count `29`, ok_count `23`
+  - runtime gap: `/mnt/system/vendor/bin/cnss-daemon`, `/system/bin/linker64`, `/system/bin/toybox`, `/system/vendor/bin/cnss-daemon`
+  - active Wi-Fi warning 없음
+- 다음 실행 항목:
+  - v230 temporary Android execution namespace/shim 계획
+  - vendor source와 Android `/system` dynamic linker namespace를 임시/비영구 방식으로 노출한 뒤 v229 preflight 재실행
+
+### V230. Temporary Android Execution Namespace Probe — PLANNED
+
+- 계획: `docs/plans/NATIVE_INIT_V230_ANDROID_EXEC_NAMESPACE_PLAN_2026-05-15.md`
+- 목표:
+  - v229 `start-only-runtime-gap`의 원인인 Android absolute path namespace gap을 안전하게 좁힌다
+  - `/system`, `/vendor`, `/system/vendor`, `/apex`, `/linkerconfig`를 temporary/private namespace 안에서만 read-only로 보이게 하는 probe를 설계한다
+  - `cnss-daemon` 실행은 하지 않고, 실행 전 필수 path/linkerconfig/vendor library visibility만 검증한다
+- 구현 후보:
+  - host tool: `scripts/revalidation/wifi_android_exec_namespace_probe.py`
+  - 필요 시 device helper: `stage3/linux_init/helpers/a90_android_execns_probe.c`
+- guardrails:
+  - default는 `plan`/`preflight`
+  - 실제 temporary namespace mount probe는 `--allow-temp-namespace --assume-yes` 필요
+  - no daemon execution, no scan/connect/link-up, no credential, no ICNSS unbind/bind, no persistent Android partition write
+- 다음 실행 항목:
+  - v230 probe tool 구현
+  - v230 plan/preflight PASS 후 private namespace helper 필요 여부 결정
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
