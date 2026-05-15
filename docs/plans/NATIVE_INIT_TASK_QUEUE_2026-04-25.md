@@ -1900,7 +1900,32 @@
 - 다음 실행 항목:
   - 완료: helper v3 allowlisted target profiles, debug env modes, pre-exec context output
   - 완료: host wrapper `scripts/revalidation/wifi_linker_crash_context_probe.py`
-  - 다음 후보: v235 direct APEX linker invocation comparison or bounded crash context capture
+  - 완료: v235 direct APEX linker invocation path 비교 구현 준비
+  - 다음 후보: v235 live matrix 실행 후 direct APEX 결과에 따라 v236 bounded crash context capture 판단
+
+### V235. Linker Invocation Path Comparison — IMPLEMENTED / LIVE BLOCKED
+
+- 계획: `docs/plans/NATIVE_INIT_V235_LINKER_INVOCATION_PATH_PLAN_2026-05-15.md`
+- 기준:
+  - native device baseline remains `A90 Linux init 0.9.59 (v159)`
+  - v235는 PID1 boot image 변경 없이 helper/host probe만 확장한다
+  - v234 decision은 `android-linker-crash-generic`
+- 구현:
+  - helper v4: `/system/bin/linker64`와 `/apex/com.android.runtime/bin/linker64` linker path allowlist
+  - target profile 추가: `apex-linker64-self`
+  - host wrapper 추가: `scripts/revalidation/wifi_linker_invocation_path_probe.py`
+- 정적 검증:
+  - helper static build PASS
+  - Python compile PASS
+  - wrapper plan smoke PASS
+  - `git diff --check` PASS
+- live 상태:
+  - 현재 `/dev/ttyACM*` absent, bridge는 `serial device is not connected`
+  - tcpctl unreachable, therefore live matrix is pending
+- 다음 실행 항목:
+  - native ACM/NCM control 복구
+  - helper v4와 real linkerconfig inputs deploy
+  - v235 live matrix 실행
 
 ### V187. Harness Broker Backend — PASS
 

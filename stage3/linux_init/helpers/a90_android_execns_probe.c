@@ -22,7 +22,7 @@
 #define MNT_DETACH 2
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v3"
+#define EXECNS_VERSION "a90_android_execns_probe v4"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -67,9 +67,9 @@ static void usage(FILE *out) {
             "--system-root /mnt/system/system "
             "--vendor-block /dev/block/sda29 "
             "--vendor-fstype ext4 "
-            "[--target-profile cnss-daemon|system-toybox|system-sh|linker64-self] "
+            "[--target-profile cnss-daemon|system-toybox|system-sh|linker64-self|apex-linker64-self] "
             "[--target /vendor/bin/cnss-daemon] "
-            "--linker /system/bin/linker64 "
+            "--linker /system/bin/linker64|/apex/com.android.runtime/bin/linker64 "
             "[--env-mode clean|ld-debug-1|ld-debug-2|auxv] "
             "--mode linker-list "
             "[--linkerconfig-mode none|copy-real|minimal-vendor] "
@@ -160,12 +160,15 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
         cfg->target = "/system/bin/sh";
     } else if (streq(cfg->target_profile, "linker64-self")) {
         cfg->target = "/system/bin/linker64";
+    } else if (streq(cfg->target_profile, "apex-linker64-self")) {
+        cfg->target = "/apex/com.android.runtime/bin/linker64";
     } else if (streq(cfg->target_profile, "custom-allowlisted")) {
         if (!(streq(cfg->target, "/vendor/bin/cnss-daemon") ||
               streq(cfg->target, "/system/bin/toybox") ||
               streq(cfg->target, "/system/bin/sh") ||
-              streq(cfg->target, "/system/bin/linker64"))) {
-            fprintf(stderr, "--target must match a v234 allowlisted profile path\n");
+              streq(cfg->target, "/system/bin/linker64") ||
+              streq(cfg->target, "/apex/com.android.runtime/bin/linker64"))) {
+            fprintf(stderr, "--target must match a v235 allowlisted profile path\n");
             return 2;
         }
     } else {
@@ -176,7 +179,8 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
     if (!streq(cfg->system_root, "/mnt/system/system") ||
         !streq(cfg->vendor_block, "/dev/block/sda29") ||
         !streq(cfg->vendor_fstype, "ext4") ||
-        !streq(cfg->linker, "/system/bin/linker64") ||
+        !(streq(cfg->linker, "/system/bin/linker64") ||
+          streq(cfg->linker, "/apex/com.android.runtime/bin/linker64")) ||
         !streq(cfg->mode, "linker-list") ||
         !(streq(cfg->env_mode, "clean") ||
           streq(cfg->env_mode, "ld-debug-1") ||
@@ -185,7 +189,7 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
         !(streq(cfg->linkerconfig_mode, "none") ||
           streq(cfg->linkerconfig_mode, "copy-real") ||
           streq(cfg->linkerconfig_mode, "minimal-vendor"))) {
-        fprintf(stderr, "arguments do not match v234 allowlist\n");
+        fprintf(stderr, "arguments do not match v235 allowlist\n");
         return 2;
     }
     if (streq(cfg->linkerconfig_mode, "copy-real")) {
