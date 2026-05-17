@@ -10,19 +10,28 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mount.h>
+#include <sys/ptrace.h>
 #include <sys/stat.h>
 #include <sys/sysmacros.h>
 #include <sys/types.h>
+#include <sys/uio.h>
 #include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
 #include <sched.h>
+#include <elf.h>
 
 #ifndef MNT_DETACH
 #define MNT_DETACH 2
 #endif
+#ifndef PTRACE_O_EXITKILL
+#define PTRACE_O_EXITKILL 0x00100000
+#endif
+#ifndef NT_PRSTATUS
+#define NT_PRSTATUS 1
+#endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v4"
+#define EXECNS_VERSION "a90_android_execns_probe v5"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -36,6 +45,7 @@ struct config {
     const char *linker;
     const char *env_mode;
     const char *mode;
+    const char *capture_mode;
     const char *linkerconfig_mode;
     const char *linkerconfig_source;
     const char *apex_libraries_source;
@@ -71,6 +81,7 @@ static void usage(FILE *out) {
             "[--target /vendor/bin/cnss-daemon] "
             "--linker /system/bin/linker64|/apex/com.android.runtime/bin/linker64 "
             "[--env-mode clean|ld-debug-1|ld-debug-2|auxv] "
+            "[--capture-mode none|ptrace-lite] "
             "--mode linker-list "
             "[--linkerconfig-mode none|copy-real|minimal-vendor] "
             "[--linkerconfig-source /cache/path/to/ld.config.txt] "
@@ -108,6 +119,7 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
     cfg->target_profile = "cnss-daemon";
     cfg->target = "/vendor/bin/cnss-daemon";
     cfg->env_mode = "clean";
+    cfg->capture_mode = "none";
 
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--help") == 0) {
@@ -135,6 +147,8 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             cfg->env_mode = argv[++i];
         } else if (strcmp(argv[i], "--mode") == 0) {
             cfg->mode = argv[++i];
+        } else if (strcmp(argv[i], "--capture-mode") == 0) {
+            cfg->capture_mode = argv[++i];
         } else if (strcmp(argv[i], "--linkerconfig-mode") == 0) {
             cfg->linkerconfig_mode = argv[++i];
         } else if (strcmp(argv[i], "--linkerconfig-source") == 0) {
@@ -182,6 +196,8 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
         !(streq(cfg->linker, "/system/bin/linker64") ||
           streq(cfg->linker, "/apex/com.android.runtime/bin/linker64")) ||
         !streq(cfg->mode, "linker-list") ||
+        !(streq(cfg->capture_mode, "none") ||
+          streq(cfg->capture_mode, "ptrace-lite")) ||
         !(streq(cfg->env_mode, "clean") ||
           streq(cfg->env_mode, "ld-debug-1") ||
           streq(cfg->env_mode, "ld-debug-2") ||
@@ -718,6 +734,156 @@ static void apply_child_env(const struct config *cfg) {
     }
 }
 
+static void proc_path(char *out, size_t out_size, pid_t pid, const char *name) {
+    snprintf(out, out_size, "/proc/%ld/%s", (long)pid, name);
+}
+
+static void print_proc_link(pid_t pid, const char *label, const char *name) {
+    char path[MAX_PATH_LEN];
+    char target[MAX_PATH_LEN];
+    ssize_t nread;
+
+    proc_path(path, sizeof(path), pid, name);
+    nread = readlink(path, target, sizeof(target) - 1);
+    if (nread < 0) {
+        printf("capture.%s.%s.error=%s\n", label, name, strerror(errno));
+        return;
+    }
+    target[nread] = '\0';
+    printf("capture.%s.%s=%s\n", label, name, target);
+}
+
+static void print_proc_text(pid_t pid, const char *label, const char *name, size_t limit) {
+    char path[MAX_PATH_LEN];
+    char buf[4096];
+    size_t total = 0;
+    bool truncated = false;
+    char last_char = '\0';
+    int fd;
+
+    proc_path(path, sizeof(path), pid, name);
+    printf("A90_EXECNS_CAPTURE_%s_%s_BEGIN path=%s limit=%zu\n", label, name, path, limit);
+    fd = open(path, O_RDONLY | O_CLOEXEC);
+    if (fd < 0) {
+        printf("open-error=%s\n", strerror(errno));
+        printf("A90_EXECNS_CAPTURE_%s_%s_END bytes=0 truncated=0\n", label, name);
+        return;
+    }
+    while (total < limit) {
+        size_t room = limit - total;
+        ssize_t nread = read(fd, buf, room < sizeof(buf) ? room : sizeof(buf));
+
+        if (nread < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            printf("\nread-error=%s\n", strerror(errno));
+            break;
+        }
+        if (nread == 0) {
+            break;
+        }
+        fwrite(buf, 1, (size_t)nread, stdout);
+        last_char = buf[nread - 1];
+        total += (size_t)nread;
+    }
+    if (total >= limit) {
+        truncated = true;
+    }
+    close(fd);
+    if (total == 0 || last_char != '\n') {
+        putchar('\n');
+    }
+    printf("A90_EXECNS_CAPTURE_%s_%s_END bytes=%zu truncated=%d\n",
+           label,
+           name,
+           total,
+           truncated ? 1 : 0);
+}
+
+static void print_proc_auxv(pid_t pid, const char *label) {
+    char path[MAX_PATH_LEN];
+    struct {
+        unsigned long key;
+        unsigned long value;
+    } item;
+    int fd;
+    int index = 0;
+
+    proc_path(path, sizeof(path), pid, "auxv");
+    fd = open(path, O_RDONLY | O_CLOEXEC);
+    if (fd < 0) {
+        printf("capture.%s.auxv.error=%s\n", label, strerror(errno));
+        return;
+    }
+    while (read(fd, &item, sizeof(item)) == (ssize_t)sizeof(item)) {
+        printf("capture.%s.auxv.%d.type=%lu\n", label, index, item.key);
+        printf("capture.%s.auxv.%d.value=0x%lx\n", label, index, item.value);
+        index++;
+        if (item.key == 0 || index >= 96) {
+            break;
+        }
+    }
+    close(fd);
+    printf("capture.%s.auxv.count=%d\n", label, index);
+}
+
+static void print_ptrace_siginfo(pid_t pid, const char *label) {
+    siginfo_t info;
+
+    memset(&info, 0, sizeof(info));
+    if (ptrace(PTRACE_GETSIGINFO, pid, NULL, &info) < 0) {
+        printf("capture.%s.siginfo.error=%s\n", label, strerror(errno));
+        return;
+    }
+    printf("capture.%s.siginfo.signo=%d\n", label, info.si_signo);
+    printf("capture.%s.siginfo.code=%d\n", label, info.si_code);
+    printf("capture.%s.siginfo.errno=%d\n", label, info.si_errno);
+    printf("capture.%s.siginfo.addr=%p\n", label, info.si_addr);
+}
+
+static void print_ptrace_regs(pid_t pid, const char *label) {
+    unsigned long long regs[96];
+    struct iovec iov;
+    size_t words;
+
+    memset(regs, 0, sizeof(regs));
+    iov.iov_base = regs;
+    iov.iov_len = sizeof(regs);
+    if (ptrace(PTRACE_GETREGSET, pid, (void *)(long)NT_PRSTATUS, &iov) < 0) {
+        printf("capture.%s.regset.nt_prstatus.error=%s\n", label, strerror(errno));
+        return;
+    }
+    printf("capture.%s.regset.nt_prstatus.bytes=%zu\n", label, iov.iov_len);
+    words = iov.iov_len / sizeof(regs[0]);
+    if (words > 40) {
+        words = 40;
+    }
+    for (size_t i = 0; i < words; i++) {
+        printf("capture.%s.regset.word%02zu=0x%016llx\n", label, i, regs[i]);
+    }
+}
+
+static void print_capture_snapshot(pid_t pid, const char *label, bool include_maps) {
+    printf("capture.%s.pid=%ld\n", label, (long)pid);
+    print_proc_link(pid, label, "exe");
+    print_proc_link(pid, label, "cwd");
+    print_proc_auxv(pid, label);
+    print_ptrace_regs(pid, label);
+    if (include_maps) {
+        print_proc_text(pid, label, "maps", 65536);
+        print_proc_text(pid, label, "mountinfo", 65536);
+    }
+}
+
+static int run_linker_list_ptrace(const struct config *cfg,
+                                  const struct paths *paths,
+                                  struct buffer *stdout_buf,
+                                  struct buffer *stderr_buf,
+                                  int *child_exit_code,
+                                  int *child_signal,
+                                  bool *timed_out);
+
 static int run_linker_list(const struct config *cfg,
                            const struct paths *paths,
                            struct buffer *stdout_buf,
@@ -733,6 +899,16 @@ static int run_linker_list(const struct config *cfg,
     pid_t pid;
     int status = 0;
     bool child_done = false;
+
+    if (streq(cfg->capture_mode, "ptrace-lite")) {
+        return run_linker_list_ptrace(cfg,
+                                      paths,
+                                      stdout_buf,
+                                      stderr_buf,
+                                      child_exit_code,
+                                      child_signal,
+                                      timed_out);
+    }
 
     *child_exit_code = -1;
     *child_signal = 0;
@@ -840,6 +1016,205 @@ static int run_linker_list(const struct config *cfg,
             }
         }
     }
+    return 0;
+
+fail:
+    if (stdout_pipe[0] >= 0) close(stdout_pipe[0]);
+    if (stdout_pipe[1] >= 0) close(stdout_pipe[1]);
+    if (stderr_pipe[0] >= 0) close(stderr_pipe[0]);
+    if (stderr_pipe[1] >= 0) close(stderr_pipe[1]);
+    return -1;
+}
+
+static int run_linker_list_ptrace(const struct config *cfg,
+                                  const struct paths *paths,
+                                  struct buffer *stdout_buf,
+                                  struct buffer *stderr_buf,
+                                  int *child_exit_code,
+                                  int *child_signal,
+                                  bool *timed_out) {
+    int stdout_pipe[2] = {-1, -1};
+    int stderr_pipe[2] = {-1, -1};
+    bool stdout_open = true;
+    bool stderr_open = true;
+    bool child_done = false;
+    bool exec_captured = false;
+    bool crash_captured = false;
+    long deadline;
+    pid_t pid;
+    int status = 0;
+
+    *child_exit_code = -1;
+    *child_signal = 0;
+    *timed_out = false;
+    printf("capture.mode=ptrace-lite\n");
+
+    if (pipe2(stdout_pipe, O_CLOEXEC) < 0 || pipe2(stderr_pipe, O_CLOEXEC) < 0) {
+        perror("pipe2");
+        goto fail;
+    }
+    pid = fork();
+    if (pid < 0) {
+        perror("fork");
+        goto fail;
+    }
+    if (pid == 0) {
+        char *const child_argv[] = {
+            (char *)cfg->linker,
+            (char *)"--list",
+            (char *)cfg->target,
+            NULL,
+        };
+
+        setpgid(0, 0);
+        close(stdout_pipe[0]);
+        close(stderr_pipe[0]);
+        dup2(stdout_pipe[1], STDOUT_FILENO);
+        dup2(stderr_pipe[1], STDERR_FILENO);
+        close(stdout_pipe[1]);
+        close(stderr_pipe[1]);
+        if (ptrace(PTRACE_TRACEME, 0, NULL, NULL) < 0) {
+            perror("ptrace-traceme");
+            _exit(122);
+        }
+        raise(SIGSTOP);
+        if (chroot(paths->root) < 0) {
+            perror("chroot");
+            _exit(120);
+        }
+        if (chdir("/") < 0) {
+            perror("chdir");
+            _exit(121);
+        }
+        apply_child_env(cfg);
+        execv(cfg->linker, child_argv);
+        perror("execv linker");
+        _exit(127);
+    }
+
+    close(stdout_pipe[1]);
+    close(stderr_pipe[1]);
+    stdout_pipe[1] = -1;
+    stderr_pipe[1] = -1;
+    set_nonblock(stdout_pipe[0]);
+    set_nonblock(stderr_pipe[0]);
+
+    if (waitpid(pid, &status, 0) != pid) {
+        printf("capture.initial_wait.error=%s\n", strerror(errno));
+        goto fail;
+    }
+    if (!WIFSTOPPED(status)) {
+        printf("capture.initial_stop.unexpected_status=0x%x\n", status);
+        if (WIFEXITED(status)) {
+            *child_exit_code = WEXITSTATUS(status);
+        } else if (WIFSIGNALED(status)) {
+            *child_signal = WTERMSIG(status);
+        }
+        child_done = true;
+    } else {
+        printf("capture.initial_stop.signal=%d\n", WSTOPSIG(status));
+        if (ptrace(PTRACE_SETOPTIONS,
+                   pid,
+                   NULL,
+                   (void *)(long)(PTRACE_O_TRACEEXEC | PTRACE_O_EXITKILL)) < 0) {
+            printf("capture.setoptions.error=%s\n", strerror(errno));
+        }
+        if (ptrace(PTRACE_CONT, pid, NULL, NULL) < 0) {
+            printf("capture.initial_cont.error=%s\n", strerror(errno));
+            goto fail;
+        }
+    }
+    deadline = monotonic_ms() + cfg->timeout_sec * 1000L;
+
+    while (stdout_open || stderr_open || !child_done) {
+        struct pollfd fds[2];
+        int nfds = 0;
+        int poll_timeout = 50;
+        long now = monotonic_ms();
+
+        if (!child_done && now >= deadline) {
+            *timed_out = true;
+            printf("capture.timeout.kill=1\n");
+            kill(-pid, SIGKILL);
+            kill(pid, SIGKILL);
+        }
+        if (stdout_open) {
+            fds[nfds].fd = stdout_pipe[0];
+            fds[nfds].events = POLLIN | POLLHUP | POLLERR;
+            nfds++;
+        }
+        if (stderr_open) {
+            fds[nfds].fd = stderr_pipe[0];
+            fds[nfds].events = POLLIN | POLLHUP | POLLERR;
+            nfds++;
+        }
+        if (nfds > 0) {
+            int rc = poll(fds, nfds, poll_timeout);
+
+            if (rc > 0) {
+                int idx = 0;
+
+                if (stdout_open) {
+                    if (fds[idx].revents != 0) {
+                        drain_fd(stdout_pipe[0], stdout_buf, &stdout_open);
+                    }
+                    idx++;
+                }
+                if (stderr_open) {
+                    if (fds[idx].revents != 0) {
+                        drain_fd(stderr_pipe[0], stderr_buf, &stderr_open);
+                    }
+                }
+            }
+        } else {
+            usleep(50000);
+        }
+
+        if (!child_done) {
+            pid_t wait_rc = waitpid(pid, &status, WNOHANG);
+
+            if (wait_rc == pid) {
+                if (WIFEXITED(status)) {
+                    child_done = true;
+                    *child_exit_code = WEXITSTATUS(status);
+                    printf("capture.child.exit=%d\n", *child_exit_code);
+                } else if (WIFSIGNALED(status)) {
+                    child_done = true;
+                    *child_signal = WTERMSIG(status);
+                    printf("capture.child.signal=%d\n", *child_signal);
+                } else if (WIFSTOPPED(status)) {
+                    int sig = WSTOPSIG(status);
+                    unsigned int event = (unsigned int)status >> 16;
+                    int deliver_sig = 0;
+
+                    printf("capture.stop.signal=%d\n", sig);
+                    printf("capture.stop.event=%u\n", event);
+                    if (sig == SIGTRAP && !exec_captured) {
+                        exec_captured = true;
+                        printf("capture.exec_stop=1\n");
+                        print_capture_snapshot(pid, "exec", true);
+                    } else if (sig == SIGSEGV || sig == SIGBUS || sig == SIGILL || sig == SIGABRT) {
+                        crash_captured = true;
+                        printf("capture.crash_stop=1\n");
+                        print_ptrace_siginfo(pid, "crash");
+                        print_capture_snapshot(pid, "crash", true);
+                        deliver_sig = sig;
+                    } else if (sig != SIGTRAP) {
+                        deliver_sig = sig;
+                    }
+                    if (ptrace(PTRACE_CONT, pid, NULL, (void *)(long)deliver_sig) < 0) {
+                        printf("capture.cont.error=%s\n", strerror(errno));
+                        kill(-pid, SIGKILL);
+                        kill(pid, SIGKILL);
+                    }
+                }
+            } else if (wait_rc < 0 && errno != EINTR && errno != ECHILD) {
+                printf("capture.wait.error=%s\n", strerror(errno));
+            }
+        }
+    }
+    printf("capture.exec_captured=%d\n", exec_captured ? 1 : 0);
+    printf("capture.crash_captured=%d\n", crash_captured ? 1 : 0);
     return 0;
 
 fail:
@@ -986,6 +1361,7 @@ int main(int argc, char **argv) {
 
     printf("A90_EXECNS_BEGIN version=\"%s\"\n", EXECNS_VERSION);
     printf("mode=%s\n", cfg.mode);
+    printf("capture_mode=%s\n", cfg.capture_mode);
     printf("linkerconfig_mode=%s\n", cfg.linkerconfig_mode);
     printf("target_profile=%s\n", cfg.target_profile);
     printf("env_mode=%s\n", cfg.env_mode);

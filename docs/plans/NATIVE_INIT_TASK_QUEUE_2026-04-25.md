@@ -1923,7 +1923,31 @@
   - cleanup: temporary real linkerconfig files removed and verified absent
   - final selftest: `pass=11 warn=1 fail=0`
 - 다음 실행 항목:
-  - v236 bounded crash context capture or Android process-context comparison
+  - 완료: v236 bounded crash context capture 계획/구현 착수
+  - Wi-Fi daemon start remains blocked
+
+### V236. Bounded Linker Crash Context Capture — EXECUTED / CONTEXT CAPTURED
+
+- 계획: `docs/plans/NATIVE_INIT_V236_LINKER_CRASH_CAPTURE_PLAN_2026-05-18.md`
+- 보고서: `docs/reports/NATIVE_INIT_V236_LINKER_CRASH_CAPTURE_2026-05-18.md`
+- 기준:
+  - native device baseline remains `A90 Linux init 0.9.59 (v159)`
+  - v236는 PID1 boot image 변경 없이 helper/host probe만 확장했다
+  - v235 decision은 `android-linker-crash-path-independent`
+- 구현:
+  - helper v5 `--capture-mode ptrace-lite`
+  - self-child only ptrace, exec-stop/crash-stop bounded `/proc` context capture
+  - host wrapper `scripts/revalidation/wifi_linker_crash_capture_probe.py`
+- 검증:
+  - helper static build PASS, Python compile PASS, plan smoke PASS
+  - live matrix: 2 linker paths x 3 targets x 1 env = 6 cases
+  - decision: `android-linker-crash-context-captured`
+  - all cases: `SIGSEGV(11)`, `capture.exec_captured=true`, `capture.crash_captured=true`, `siginfo_signo=11`, `regset_bytes=272`
+  - crash pattern: fault addr `0xa1`, linker64 PC file offset `0x1002f4`
+  - cleanup: temporary real linkerconfig files removed and verified absent
+  - final selftest: `pass=11 warn=1 fail=0`
+- 다음 실행 항목:
+  - v237 linker64 offset symbolization/disassembly or Android-vs-native process context comparison
   - Wi-Fi daemon start remains blocked
 
 ### V187. Harness Broker Backend — PASS
