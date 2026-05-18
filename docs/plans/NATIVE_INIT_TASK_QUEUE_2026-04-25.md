@@ -2529,6 +2529,37 @@
   - explicit operator approval for a v10 bounded live retry, or
   - no-start hardening of post-run analyzer before retry
 
+### V257. CNSS V10 Bounded Live Retry — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V257_CNSS_V10_LIVE_RETRY_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V257_CNSS_V10_LIVE_RETRY_2026-05-19.md`
+- host tool: `scripts/revalidation/wifi_cnss_start_only_runner.py`
+- helper: `a90_android_execns_probe v10`
+- helper SHA-256: `1c0234f5468f053ae559c5307124db4682f6ed89a1644312194eca730a623750`
+- approval: explicit operator approval granted for exactly one bounded v10 retry
+- live output: `tmp/wifi/v257-cnss-live-start-only-run/`
+- decision: `start-only-pass`
+- result:
+  - `cnss_start.exec_attempted=1`
+  - `cnss_start.child_started=1`
+  - `cnss_start.pid=5965`
+  - `cnss_start.pgid=5965`
+  - `cnss_start.observable=1`
+  - `cnss_start.reaped=1`
+  - `cnss_start.postflight_safe=1`
+  - `cnss_start.reason=observed-until-timeout-clean-stop`
+- postflight:
+  - `pidof cnss-daemon` rc=1
+  - `/proc/net/dev` has no `wlan*`
+  - `wifiinv full` reports `wlan_like=0`
+  - `status` remains healthy; selftest fail=0
+- 해석:
+  - v10 cleanup race fix is validated by a real bounded daemon start/observe/stop.
+  - This is not Wi-Fi scan/connect/link-up readiness.
+- 다음 실행 항목:
+  - analyze V257 captured CNSS runtime evidence for property/socket/device-node/QRTR blockers, or
+  - build no-start post-run analyzer before any broader live operation
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
