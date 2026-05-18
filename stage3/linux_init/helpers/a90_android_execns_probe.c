@@ -43,7 +43,7 @@
 #define PR_CAP_AMBIENT_RAISE 2
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v9"
+#define EXECNS_VERSION "a90_android_execns_probe v10"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -2143,6 +2143,24 @@ static int append_proc_file_capture(struct buffer *buf,
                          truncated ? 1 : 0);
 }
 
+
+static pid_t wait_for_child_session_pgid(pid_t pid, long timeout_ms) {
+    long deadline = monotonic_ms() + timeout_ms;
+
+    while (monotonic_ms() < deadline) {
+        pid_t pgid = getpgid(pid);
+
+        if (pgid == pid) {
+            return pgid;
+        }
+        if (pgid < 0 && errno == ESRCH) {
+            break;
+        }
+        usleep(10000);
+    }
+    return pid;
+}
+
 static int append_proc_fd_summary(struct buffer *buf, pid_t pid, bool *captured) {
     char path[MAX_PATH_LEN];
     DIR *dir;
@@ -2335,10 +2353,7 @@ static int run_cnss_start_only_guarded(const struct config *cfg,
     stderr_pipe[1] = -1;
     set_nonblock(stdout_pipe[0]);
     set_nonblock(stderr_pipe[0]);
-    pgid = getpgid(pid);
-    if (pgid < 0) {
-        pgid = pid;
-    }
+    pgid = wait_for_child_session_pgid(pid, 1000);
     if (append_format(stdout_buf,
                       "cnss_start.exec_attempted=1\n"
                       "cnss_start.child_started=1\n"

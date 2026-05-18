@@ -1229,8 +1229,12 @@ Samsung bootloader
    - v255 계획서: `docs/plans/NATIVE_INIT_V255_CNSS_LIVE_APPROVAL_PACKET_PLAN_2026-05-19.md`
    - v255 보고서: `docs/reports/NATIVE_INIT_V255_CNSS_LIVE_APPROVAL_PACKET_2026-05-19.md`
    - v255 결과: decision `live-approval-packet-ready`, generated exact manual live command, helper no-allow remained `start-only-blocked`, real `/data/vendor/wifi` state unchanged, no daemon execution
-   - v255 해석: approval packet is ready. The next live start-only run is technically prepared but still requires explicit operator approval
-   - 다음 후보: explicit operator approval for first bounded live start-only run, or another no-start review if approval is not granted
+   - v255 live attempt: explicit approval 후 실행했으나 `manual-review-required`, helper가 signal 15로 종료되고 `cnss-daemon` PID 5900이 남음. manual `kill -TERM 5900`으로 회수했고 최종 `pidof cnss-daemon` rc=1, `/proc/net/dev`에 `wlan*` 없음
+   - v256 계획서: `docs/plans/NATIVE_INIT_V256_CNSS_CLEANUP_RACE_FIX_PLAN_2026-05-19.md`
+   - v256 보고서: `docs/reports/NATIVE_INIT_V256_CNSS_CLEANUP_RACE_FIX_2026-05-19.md`
+   - v256 결과: helper v10 SHA `1c0234f5468f053ae559c5307124db4682f6ed89a1644312194eca730a623750`, child `setsid()` pgid race fix, no-allow validation PASS, runner plan/preflight/dry-run PASS, v10 approval packet PASS
+   - v256 해석: first live proved daemon can start far enough to persist, but cleanup race made the result unsafe. Future live retry requires v10 helper and explicit operator approval
+   - 다음 후보: explicit operator approval for v10 bounded live retry, or no-start hardening of post-run analyzer before retry
    - live daemon start는 `--allow-daemon-start --assume-yes --i-understand-reboot-only-recovery`와 별도 operator approval 전까지 blocked
    - 아직 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 승인 전까지 blocked
 

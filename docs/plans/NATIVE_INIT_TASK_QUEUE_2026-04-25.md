@@ -2499,6 +2499,36 @@
   - explicit operator approval for first bounded live start-only run, or
   - another no-start review if approval is not granted
 
+
+### V256. CNSS Cleanup Race Fix — PASS / LIVE RETRY REQUIRES APPROVAL
+
+- 계획: `docs/plans/NATIVE_INIT_V256_CNSS_CLEANUP_RACE_FIX_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V256_CNSS_CLEANUP_RACE_FIX_2026-05-19.md`
+- helper: `stage3/linux_init/helpers/a90_android_execns_probe.c`
+- host tools:
+  - `scripts/revalidation/wifi_cnss_start_only_runner.py`
+  - `scripts/revalidation/wifi_cnss_live_approval_packet.py`
+- V255 live result: `manual-review-required`, helper killed by signal 15 before trusted markers
+- recovery: manual `kill -TERM 5900`, then `pidof cnss-daemon` rc=1
+- root cause: parent captured child pgid before child `setsid()`, so timeout cleanup could signal the helper/control process group and leave daemon child alive
+- helper version: `a90_android_execns_probe v10`
+- helper SHA-256: `1c0234f5468f053ae559c5307124db4682f6ed89a1644312194eca730a623750`
+- 구현:
+  - added wait for child session pgid before start-only cleanup
+  - updated runner default helper SHA
+  - updated live approval packet future output path to `tmp/wifi/v256-cnss-live-start-only-run`
+- 검증:
+  - static ARM64 helper build PASS
+  - helper deploy to `/cache/bin/a90_android_execns_probe` PASS
+  - direct helper no-allow v10 PASS: `start-only-blocked`, `exec_attempted=0`, `postflight_safe=1`
+  - runner v10 `plan`/`preflight`/`dry-run` PASS
+  - v10 approval packet PASS: `live-approval-packet-ready`
+  - final `pidof cnss-daemon` rc=1
+  - final `/proc/net/dev` has no `wlan*`
+- 다음 실행 항목:
+  - explicit operator approval for a v10 bounded live retry, or
+  - no-start hardening of post-run analyzer before retry
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`

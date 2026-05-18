@@ -15,8 +15,8 @@ from a90_kernel_tools import capture_to_manifest, collect_host_metadata, repo_pa
 from a90harness.evidence import EvidenceStore
 import wifi_cnss_start_only_runner as runner
 
-DEFAULT_OUT_DIR = Path("tmp/wifi/v255-cnss-live-approval-packet")
-DEFAULT_LIVE_OUT_DIR = Path("tmp/wifi/v255-cnss-live-start-only-run")
+DEFAULT_OUT_DIR = Path("tmp/wifi/v256-cnss-live-approval-packet")
+DEFAULT_LIVE_OUT_DIR = Path("tmp/wifi/v256-cnss-live-start-only-run")
 DEFAULT_EXPECT_VERSION = runner.DEFAULT_EXPECT_VERSION
 DEFAULT_HELPER = runner.DEFAULT_HELPER
 DEFAULT_HELPER_SHA256 = runner.DEFAULT_HELPER_SHA256
