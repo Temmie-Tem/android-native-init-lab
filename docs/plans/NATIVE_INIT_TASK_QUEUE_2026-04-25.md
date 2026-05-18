@@ -2473,6 +2473,32 @@
   - first bounded live start-only operator approval review, or
   - freeze the no-start live profile and rollback checklist before approval
 
+### V255. CNSS Live Approval Packet — PASS / OPERATOR APPROVAL REQUIRED
+
+- 계획: `docs/plans/NATIVE_INIT_V255_CNSS_LIVE_APPROVAL_PACKET_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V255_CNSS_LIVE_APPROVAL_PACKET_2026-05-19.md`
+- host tool: `scripts/revalidation/wifi_cnss_live_approval_packet.py`
+- output: `tmp/wifi/v255-cnss-live-approval-packet/`
+- decision: `live-approval-packet-ready`
+- device build: `A90 Linux init 0.9.59 (v159)`
+- daemon start: not executed
+- generated manual command:
+  - `python3 scripts/revalidation/wifi_cnss_start_only_runner.py --out-dir tmp/wifi/v255-cnss-live-start-only-run --max-runtime-sec 10 run --allow-daemon-start --assume-yes --i-understand-reboot-only-recovery`
+- 검증:
+  - `py_compile` PASS
+  - `git diff --check` PASS
+  - prerequisites matched `6/6`
+  - runtime materialization profile PASS
+  - approved helper argv includes `--allow-cnss-start-only`
+  - denied pattern matches `[]`
+  - no `wlan*` interface in `/proc/net/dev`
+  - helper no-allow result `start-only-blocked`, `exec_attempted=false`, `postflight_safe=true`
+  - `pidof cnss-daemon` rc=1 before and after no-allow helper validation
+  - real `/data/vendor/wifi` state unchanged rc=-2 before/after
+- 다음 실행 항목:
+  - explicit operator approval for first bounded live start-only run, or
+  - another no-start review if approval is not granted
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`

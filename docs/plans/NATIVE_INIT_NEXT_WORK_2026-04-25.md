@@ -1226,7 +1226,11 @@ Samsung bootloader
    - v254 보고서: `docs/reports/NATIVE_INIT_V254_START_ONLY_PROFILE_REFRESH_2026-05-19.md`
    - v254 결과: decision `start-only-profile-refresh-pass`, runner default profile updated to `--null-device-mode dev-null-selinux` + `--data-wifi-mode private-empty`, helper no-allow validation kept `cnss_start.result=start-only-blocked` and `exec_attempted=0`
    - v254 해석: latest no-start runtime shims are now the default proposed start-only profile. This is still approval-gated and does not execute the daemon by default
-   - 다음 후보: first bounded live start-only operator approval review, or freeze the no-start live profile and rollback checklist before approval
+   - v255 계획서: `docs/plans/NATIVE_INIT_V255_CNSS_LIVE_APPROVAL_PACKET_PLAN_2026-05-19.md`
+   - v255 보고서: `docs/reports/NATIVE_INIT_V255_CNSS_LIVE_APPROVAL_PACKET_2026-05-19.md`
+   - v255 결과: decision `live-approval-packet-ready`, generated exact manual live command, helper no-allow remained `start-only-blocked`, real `/data/vendor/wifi` state unchanged, no daemon execution
+   - v255 해석: approval packet is ready. The next live start-only run is technically prepared but still requires explicit operator approval
+   - 다음 후보: explicit operator approval for first bounded live start-only run, or another no-start review if approval is not granted
    - live daemon start는 `--allow-daemon-start --assume-yes --i-understand-reboot-only-recovery`와 별도 operator approval 전까지 blocked
    - 아직 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 승인 전까지 blocked
 
