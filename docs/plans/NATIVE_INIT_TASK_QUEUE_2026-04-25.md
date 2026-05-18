@@ -2145,8 +2145,40 @@
   - capability: `NET_ADMIN` / `CAP_NET_ADMIN`
   - required namespace: v241 private `/dev/null`, real linkerconfig, private VNDK APEX alias
 - 다음 실행 항목:
-  - v244 non-starting launcher dry-run and harmless identity/capability probe
-  - first `cnss-daemon` start-only remains blocked until v244 proves the launcher contract on a harmless target
+  - 완료: v244 non-starting launcher dry-run and harmless identity/capability probe
+  - first `cnss-daemon` start-only remains blocked until an explicit opt-in start-only runner is planned and approved
+
+### V244. CNSS Identity / Capability Probe — EXECUTED / START-ONLY RUNNER NEXT
+
+- 계획: `docs/plans/NATIVE_INIT_V244_CNSS_IDENTITY_PROBE_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V244_CNSS_IDENTITY_PROBE_2026-05-19.md`
+- host tool: `scripts/revalidation/wifi_cnss_identity_probe.py`
+- helper: `stage3/linux_init/helpers/a90_android_execns_probe.c`
+- 기준:
+  - v243 decision은 `cnss-launcher-contract-ready`
+  - v244는 PID1 boot image 변경 없이 helper/host probe만 확장했다
+  - daemon start는 계속 blocked
+- 구현:
+  - `a90_android_execns_probe v8`
+  - `--mode identity-probe`
+  - private `/dev/null`, real linkerconfig, private read-only vendor mount
+  - private bind-backed `/apex` farm plus `com.android.vndk.v30` alias
+  - harmless child drops to uid/gid `system=1000`, groups `inet=3003/net_admin=3005/wifi=1010`, and `CAP_NET_ADMIN`
+  - post-exec verification uses only `/system/bin/toybox cat /proc/self/status`
+- 검증:
+  - helper static build PASS, SHA-256 `4ce17edfdfe9935da8a320e5a570d301517d518d0ae1dcadaef8bafec7415647`
+  - helper deployed to `/cache/bin/a90_android_execns_probe`
+  - live probe PASS: decision `cnss-identity-probe-pass`
+  - pre-exec uid/gid/groups/capability PASS
+  - post-exec uid/gid/groups and `CapEff`/`CapPrm`/`CapAmb` include `CAP_NET_ADMIN`
+- 해석:
+  - launcher identity/capability prerequisite is closed on a harmless target
+  - v241 symlink-only APEX farm is superseded by bind-backed APEX entries for dynamic exec
+  - this is not daemon start or Wi-Fi bring-up
+- 다음 실행 항목:
+  - v245 controlled CNSS start-only runner plan
+  - keep start-only opt-in, short-timeout, no scan/connect, process-group cleanup, postflight, and reboot-only recovery policy
+  - Wi-Fi scan/connect/link-up/credential/DHCP/routing remain blocked
 
 ### V187. Harness Broker Backend — PASS
 

@@ -1182,7 +1182,11 @@ Samsung bootloader
    - v243 보고서: `docs/reports/NATIVE_INIT_V243_CNSS_LAUNCHER_CONTRACT_PLAN_2026-05-18.md`
    - v243 결과: decision `cnss-launcher-contract-ready`
    - v243 해석: start-only runner는 `system=1000`, groups `inet=3003/net_admin=3005/wifi=1010`, `CAP_NET_ADMIN`, v241 private namespace를 만족해야 한다
-   - 다음 후보: v244 non-starting launcher dry-run and harmless identity/capability probe
+   - v244 계획서: `docs/plans/NATIVE_INIT_V244_CNSS_IDENTITY_PROBE_PLAN_2026-05-19.md`
+   - v244 보고서: `docs/reports/NATIVE_INIT_V244_CNSS_IDENTITY_PROBE_2026-05-19.md`
+   - v244 결과: decision `cnss-identity-probe-pass`
+   - v244 해석: non-starting harmless child에서 uid/gid/groups/`CAP_NET_ADMIN` 계약과 post-exec `/proc/self/status` 검증이 통과했다. dynamic exec에는 v241 symlink farm 대신 bind-backed private `/apex` farm이 필요했다
+   - 다음 후보: v245 controlled CNSS start-only runner plan
    - 아직 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 승인 전까지 blocked
 
 ---

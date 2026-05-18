@@ -16,11 +16,15 @@
 #include <sys/types.h>
 #include <sys/uio.h>
 #include <sys/wait.h>
+#include <sys/prctl.h>
+#include <sys/syscall.h>
 #include <time.h>
 #include <unistd.h>
 #include <sched.h>
 #include <elf.h>
 #include <dirent.h>
+#include <grp.h>
+#include <linux/capability.h>
 
 #ifndef MNT_DETACH
 #define MNT_DETACH 2
@@ -31,11 +35,21 @@
 #ifndef NT_PRSTATUS
 #define NT_PRSTATUS 1
 #endif
+#ifndef PR_CAP_AMBIENT
+#define PR_CAP_AMBIENT 47
+#endif
+#ifndef PR_CAP_AMBIENT_RAISE
+#define PR_CAP_AMBIENT_RAISE 2
+#endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v7"
+#define EXECNS_VERSION "a90_android_execns_probe v8"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
+#define A90_AID_SYSTEM 1000
+#define A90_AID_WIFI 1010
+#define A90_AID_INET 3003
+#define A90_AID_NET_ADMIN 3005
 
 struct config {
     const char *system_root;
@@ -89,15 +103,15 @@ static void usage(FILE *out) {
             "--vendor-fstype ext4 "
             "[--target-profile cnss-daemon|system-toybox|system-sh|linker64-self|apex-linker64-self] "
             "[--target /vendor/bin/cnss-daemon] "
-            "--linker /system/bin/linker64|/apex/com.android.runtime/bin/linker64 "
+            "[--linker /system/bin/linker64|/apex/com.android.runtime/bin/linker64] "
             "[--env-mode clean|ld-debug-1|ld-debug-2|auxv] "
             "[--capture-mode none|ptrace-lite] "
             "[--null-device-mode none|dev-null|dev-null-selinux] "
             "[--vndk-apex-alias-mode none|v30-to-current] "
-            "--mode linker-list "
             "[--linkerconfig-mode none|copy-real|minimal-vendor] "
             "[--linkerconfig-source /cache/path/to/ld.config.txt] "
             "[--apex-libraries-source /cache/path/to/apex.libraries.config.txt] "
+            "--mode linker-list|identity-probe "
             "--timeout-sec <1..30>\n");
 }
 
@@ -211,9 +225,8 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
     if (!streq(cfg->system_root, "/mnt/system/system") ||
         !streq(cfg->vendor_block, "/dev/block/sda29") ||
         !streq(cfg->vendor_fstype, "ext4") ||
-        !(streq(cfg->linker, "/system/bin/linker64") ||
-          streq(cfg->linker, "/apex/com.android.runtime/bin/linker64")) ||
-        !streq(cfg->mode, "linker-list") ||
+        !(streq(cfg->mode, "linker-list") ||
+          streq(cfg->mode, "identity-probe")) ||
         !(streq(cfg->capture_mode, "none") ||
           streq(cfg->capture_mode, "ptrace-lite")) ||
         !(streq(cfg->null_device_mode, "none") ||
@@ -229,6 +242,20 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
           streq(cfg->linkerconfig_mode, "copy-real") ||
           streq(cfg->linkerconfig_mode, "minimal-vendor"))) {
         fprintf(stderr, "arguments do not match v235 allowlist\n");
+        return 2;
+    }
+    if (streq(cfg->mode, "linker-list") &&
+        !(streq(cfg->linker, "/system/bin/linker64") ||
+          streq(cfg->linker, "/apex/com.android.runtime/bin/linker64"))) {
+        fprintf(stderr, "--linker is required for linker-list mode\n");
+        return 2;
+    }
+    if (streq(cfg->mode, "identity-probe") && cfg->linker != NULL) {
+        fprintf(stderr, "--linker is not used by identity-probe mode\n");
+        return 2;
+    }
+    if (streq(cfg->mode, "identity-probe") && !streq(cfg->capture_mode, "none")) {
+        fprintf(stderr, "--capture-mode must be none for identity-probe mode\n");
         return 2;
     }
     if (streq(cfg->linkerconfig_mode, "copy-real")) {
@@ -567,45 +594,58 @@ static bool safe_apex_name(const char *name) {
            strchr(name, '/') == NULL;
 }
 
-static int symlink_apex_entry(const struct paths *paths,
-                              const char *name,
-                              const char *target_name,
-                              char *error_buf,
-                              size_t error_size) {
-    char link_path[MAX_PATH_LEN];
-    char target_path[MAX_PATH_LEN];
-    int rc;
+static int bind_apex_entry(const struct paths *paths,
+                           const char *system_apex,
+                           const char *name,
+                           const char *target_name,
+                           char *error_buf,
+                           size_t error_size) {
+    char mount_path[MAX_PATH_LEN];
+    char source_path[MAX_PATH_LEN];
+    struct stat st;
 
     if (!safe_apex_name(name) || !safe_apex_name(target_name)) {
         errno = EINVAL;
         snprintf(error_buf, error_size, "unsafe apex name");
         return -1;
     }
-    if (append_path(link_path, sizeof(link_path), paths->apex, name) < 0) {
-        snprintf(error_buf, error_size, "apex link path: %s", strerror(errno));
+    if (append_path(mount_path, sizeof(mount_path), paths->apex, name) < 0) {
+        snprintf(error_buf, error_size, "apex mount path: %s", strerror(errno));
         return -1;
     }
-    rc = snprintf(target_path, sizeof(target_path), "/system/apex/%s", target_name);
-    if (rc < 0 || (size_t)rc >= sizeof(target_path)) {
-        snprintf(error_buf, error_size, "apex target path too long");
+    if (append_path(source_path, sizeof(source_path), system_apex, target_name) < 0) {
+        snprintf(error_buf, error_size, "apex source path: %s", strerror(errno));
         return -1;
     }
-    if (symlink(target_path, link_path) < 0 && errno != EEXIST) {
-        snprintf(error_buf, error_size, "symlink apex %s: %s", name, strerror(errno));
+    if (stat(source_path, &st) < 0) {
+        snprintf(error_buf, error_size, "stat apex %s: %s", target_name, strerror(errno));
+        return -1;
+    }
+    if (!S_ISDIR(st.st_mode)) {
+        snprintf(error_buf, error_size, "apex %s is not a directory", target_name);
+        errno = ENOTDIR;
+        return -1;
+    }
+    if (mkdir_p(mount_path, 0755) < 0) {
+        snprintf(error_buf, error_size, "mkdir apex %s: %s", name, strerror(errno));
+        return -1;
+    }
+    if (bind_ro(source_path, mount_path) < 0) {
+        snprintf(error_buf, error_size, "bind apex %s: %s", name, strerror(errno));
         return -1;
     }
     return 0;
 }
 
-static int materialize_apex_symlink_farm(const struct config *cfg,
-                                         struct paths *paths,
-                                         const char *system_apex,
-                                         char *error_buf,
-                                         size_t error_size) {
+static int materialize_apex_bind_farm(const struct config *cfg,
+                                      struct paths *paths,
+                                      const char *system_apex,
+                                      char *error_buf,
+                                      size_t error_size) {
     DIR *dir;
     struct dirent *entry;
     char current_source[MAX_PATH_LEN];
-    char v30_link[MAX_PATH_LEN];
+    char v30_mount[MAX_PATH_LEN];
 
     paths->apex_synthetic = true;
     dir = opendir(system_apex);
@@ -617,7 +657,12 @@ static int materialize_apex_symlink_farm(const struct config *cfg,
         if (!safe_apex_name(entry->d_name)) {
             continue;
         }
-        if (symlink_apex_entry(paths, entry->d_name, entry->d_name, error_buf, error_size) < 0) {
+        if (bind_apex_entry(paths,
+                            system_apex,
+                            entry->d_name,
+                            entry->d_name,
+                            error_buf,
+                            error_size) < 0) {
             closedir(dir);
             return -1;
         }
@@ -638,22 +683,23 @@ static int materialize_apex_symlink_farm(const struct config *cfg,
         snprintf(error_buf, error_size, "vndk current missing: %s", strerror(errno));
         return -1;
     }
-    if (append_path(v30_link, sizeof(v30_link), paths->apex, "com.android.vndk.v30") < 0) {
-        snprintf(error_buf, error_size, "vndk v30 link path: %s", strerror(errno));
+    if (append_path(v30_mount, sizeof(v30_mount), paths->apex, "com.android.vndk.v30") < 0) {
+        snprintf(error_buf, error_size, "vndk v30 mount path: %s", strerror(errno));
         return -1;
     }
-    if (access(v30_link, F_OK) == 0) {
+    if (access(v30_mount, F_OK) == 0) {
         return 0;
     }
     if (errno != ENOENT) {
-        snprintf(error_buf, error_size, "stat vndk v30 link: %s", strerror(errno));
+        snprintf(error_buf, error_size, "stat vndk v30 mount: %s", strerror(errno));
         return -1;
     }
-    return symlink_apex_entry(paths,
-                              "com.android.vndk.v30",
-                              "com.android.vndk.current",
-                              error_buf,
-                              error_size);
+    return bind_apex_entry(paths,
+                           system_apex,
+                           "com.android.vndk.v30",
+                           "com.android.vndk.current",
+                           error_buf,
+                           error_size);
 }
 
 static void cleanup_dir_entries(const char *path) {
@@ -670,7 +716,10 @@ static void cleanup_dir_entries(const char *path) {
             continue;
         }
         if (append_path(child, sizeof(child), path, entry->d_name) == 0) {
-            unlink(child);
+            umount2(child, MNT_DETACH);
+            if (rmdir(child) < 0) {
+                unlink(child);
+            }
         }
     }
     closedir(dir);
@@ -932,8 +981,12 @@ static void print_context_path(const struct paths *paths, const char *label, con
 }
 
 static void print_preexec_context(const struct config *cfg, const struct paths *paths) {
-    print_context_path(paths, "linker", cfg->linker);
-    print_context_path(paths, "target", cfg->target);
+    if (cfg->linker != NULL) {
+        print_context_path(paths, "linker", cfg->linker);
+    }
+    if (cfg->target != NULL) {
+        print_context_path(paths, "target", cfg->target);
+    }
     print_context_path(paths, "dev_null", "/dev/null");
     print_context_path(paths, "selinux_null", "/sys/fs/selinux/null");
     print_context_path(paths, "ld_config", "/linkerconfig/ld.config.txt");
@@ -960,6 +1013,262 @@ static void apply_child_env(const struct config *cfg) {
     } else if (streq(cfg->env_mode, "auxv")) {
         setenv("LD_SHOW_AUXV", "1", 1);
     }
+}
+
+static unsigned int cap_word(int cap) {
+    return (unsigned int)cap / 32U;
+}
+
+static unsigned int cap_bit(int cap) {
+    return 1U << ((unsigned int)cap % 32U);
+}
+
+static int capget_current(struct __user_cap_data_struct data[2]) {
+    struct __user_cap_header_struct header;
+
+    memset(&header, 0, sizeof(header));
+    memset(data, 0, sizeof(struct __user_cap_data_struct) * 2U);
+    header.version = _LINUX_CAPABILITY_VERSION_3;
+    header.pid = 0;
+    return (int)syscall(SYS_capget, &header, data);
+}
+
+static int capset_current(const struct __user_cap_data_struct data[2]) {
+    struct __user_cap_header_struct header;
+
+    memset(&header, 0, sizeof(header));
+    header.version = _LINUX_CAPABILITY_VERSION_3;
+    header.pid = 0;
+    return (int)syscall(SYS_capset, &header, data);
+}
+
+static bool cap_data_has(const struct __user_cap_data_struct data[2],
+                         const char *field,
+                         int cap) {
+    unsigned int word = cap_word(cap);
+    unsigned int bit = cap_bit(cap);
+
+    if (word >= 2U) {
+        return false;
+    }
+    if (strcmp(field, "effective") == 0) {
+        return (data[word].effective & bit) != 0;
+    }
+    if (strcmp(field, "permitted") == 0) {
+        return (data[word].permitted & bit) != 0;
+    }
+    if (strcmp(field, "inheritable") == 0) {
+        return (data[word].inheritable & bit) != 0;
+    }
+    return false;
+}
+
+static void print_cap_net_admin(const char *prefix) {
+    struct __user_cap_data_struct data[2];
+
+    if (capget_current(data) < 0) {
+        printf("%s.capget.error=%s\n", prefix, strerror(errno));
+        return;
+    }
+    printf("%s.cap.net_admin.effective=%d\n",
+           prefix,
+           cap_data_has(data, "effective", CAP_NET_ADMIN) ? 1 : 0);
+    printf("%s.cap.net_admin.permitted=%d\n",
+           prefix,
+           cap_data_has(data, "permitted", CAP_NET_ADMIN) ? 1 : 0);
+    printf("%s.cap.net_admin.inheritable=%d\n",
+           prefix,
+           cap_data_has(data, "inheritable", CAP_NET_ADMIN) ? 1 : 0);
+}
+
+static bool groups_contain(const gid_t *groups, int count, gid_t expected) {
+    for (int i = 0; i < count; i++) {
+        if (groups[i] == expected) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static int print_identity_snapshot(const char *prefix) {
+    uid_t ruid = (uid_t)-1;
+    uid_t euid = (uid_t)-1;
+    uid_t suid = (uid_t)-1;
+    gid_t rgid = (gid_t)-1;
+    gid_t egid = (gid_t)-1;
+    gid_t sgid = (gid_t)-1;
+    gid_t groups[32];
+    int group_count;
+
+    if (getresuid(&ruid, &euid, &suid) < 0) {
+        printf("%s.getresuid.error=%s\n", prefix, strerror(errno));
+        return -1;
+    }
+    if (getresgid(&rgid, &egid, &sgid) < 0) {
+        printf("%s.getresgid.error=%s\n", prefix, strerror(errno));
+        return -1;
+    }
+    group_count = getgroups((int)(sizeof(groups) / sizeof(groups[0])), groups);
+    if (group_count < 0) {
+        printf("%s.getgroups.error=%s\n", prefix, strerror(errno));
+        return -1;
+    }
+    printf("%s.uid.real=%ld\n", prefix, (long)ruid);
+    printf("%s.uid.effective=%ld\n", prefix, (long)euid);
+    printf("%s.uid.saved=%ld\n", prefix, (long)suid);
+    printf("%s.gid.real=%ld\n", prefix, (long)rgid);
+    printf("%s.gid.effective=%ld\n", prefix, (long)egid);
+    printf("%s.gid.saved=%ld\n", prefix, (long)sgid);
+    printf("%s.groups.count=%d\n", prefix, group_count);
+    printf("%s.groups.values=", prefix);
+    for (int i = 0; i < group_count; i++) {
+        printf("%s%ld", i == 0 ? "" : ",", (long)groups[i]);
+    }
+    printf("\n");
+    printf("%s.groups.has_inet=%d\n",
+           prefix,
+           groups_contain(groups, group_count, A90_AID_INET) ? 1 : 0);
+    printf("%s.groups.has_net_admin=%d\n",
+           prefix,
+           groups_contain(groups, group_count, A90_AID_NET_ADMIN) ? 1 : 0);
+    printf("%s.groups.has_wifi=%d\n",
+           prefix,
+           groups_contain(groups, group_count, A90_AID_WIFI) ? 1 : 0);
+    print_cap_net_admin(prefix);
+    return 0;
+}
+
+static int ensure_net_admin_inheritable_before_drop(void) {
+    struct __user_cap_data_struct data[2];
+    unsigned int word = cap_word(CAP_NET_ADMIN);
+    unsigned int bit = cap_bit(CAP_NET_ADMIN);
+
+    if (capget_current(data) < 0) {
+        return -1;
+    }
+    if (word >= 2U) {
+        errno = EINVAL;
+        return -1;
+    }
+    data[word].inheritable |= bit;
+    return capset_current(data);
+}
+
+static int restrict_to_net_admin_capability(void) {
+    struct __user_cap_data_struct data[2];
+    unsigned int word = cap_word(CAP_NET_ADMIN);
+    unsigned int bit = cap_bit(CAP_NET_ADMIN);
+
+    memset(data, 0, sizeof(data));
+    if (word >= 2U) {
+        errno = EINVAL;
+        return -1;
+    }
+    data[word].effective = bit;
+    data[word].permitted = bit;
+    data[word].inheritable = bit;
+    return capset_current(data);
+}
+
+static int run_identity_probe_child(const struct config *cfg, const struct paths *paths) {
+    gid_t groups[] = {A90_AID_INET, A90_AID_NET_ADMIN, A90_AID_WIFI};
+    int ambient_rc;
+    int ambient_errno = 0;
+    bool pass = true;
+
+    if (chroot(paths->root) < 0) {
+        perror("chroot");
+        return 120;
+    }
+    if (chdir("/") < 0) {
+        perror("chdir");
+        return 121;
+    }
+    apply_child_env(cfg);
+
+    printf("identity_probe.begin=1\n");
+    printf("identity_probe.expected.uid=%d\n", A90_AID_SYSTEM);
+    printf("identity_probe.expected.gid=%d\n", A90_AID_SYSTEM);
+    printf("identity_probe.expected.groups=%d,%d,%d\n",
+           A90_AID_INET,
+           A90_AID_NET_ADMIN,
+           A90_AID_WIFI);
+    printf("identity_probe.expected.cap=CAP_NET_ADMIN\n");
+    if (print_identity_snapshot("identity.before") < 0) {
+        pass = false;
+    }
+    if (setgroups((int)(sizeof(groups) / sizeof(groups[0])), groups) < 0) {
+        printf("identity_probe.setgroups.error=%s\n", strerror(errno));
+        pass = false;
+    } else {
+        printf("identity_probe.setgroups.ok=1\n");
+    }
+    if (prctl(PR_SET_KEEPCAPS, 1, 0, 0, 0) < 0) {
+        printf("identity_probe.pr_set_keepcaps.error=%s\n", strerror(errno));
+        pass = false;
+    } else {
+        printf("identity_probe.pr_set_keepcaps.ok=1\n");
+    }
+    if (ensure_net_admin_inheritable_before_drop() < 0) {
+        printf("identity_probe.pre_drop_inheritable.error=%s\n", strerror(errno));
+        pass = false;
+    } else {
+        printf("identity_probe.pre_drop_inheritable.ok=1\n");
+    }
+    if (setresgid(A90_AID_SYSTEM, A90_AID_SYSTEM, A90_AID_SYSTEM) < 0) {
+        printf("identity_probe.setresgid.error=%s\n", strerror(errno));
+        pass = false;
+    } else {
+        printf("identity_probe.setresgid.ok=1\n");
+    }
+    if (setresuid(A90_AID_SYSTEM, A90_AID_SYSTEM, A90_AID_SYSTEM) < 0) {
+        printf("identity_probe.setresuid.error=%s\n", strerror(errno));
+        pass = false;
+    } else {
+        printf("identity_probe.setresuid.ok=1\n");
+    }
+    if (restrict_to_net_admin_capability() < 0) {
+        printf("identity_probe.capset_net_admin.error=%s\n", strerror(errno));
+        pass = false;
+    } else {
+        printf("identity_probe.capset_net_admin.ok=1\n");
+    }
+    errno = 0;
+    ambient_rc = prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, CAP_NET_ADMIN, 0, 0);
+    if (ambient_rc < 0) {
+        ambient_errno = errno;
+        printf("identity_probe.ambient_raise.error=%s\n", strerror(errno));
+        pass = false;
+    } else {
+        printf("identity_probe.ambient_raise.ok=1\n");
+    }
+    printf("identity_probe.ambient_raise.rc=%d\n", ambient_rc);
+    printf("identity_probe.ambient_raise.errno=%d\n", ambient_errno);
+    if (print_identity_snapshot("identity.after") < 0) {
+        pass = false;
+    }
+    printf("identity_probe.preexec_status=%s\n", pass ? "pass" : "fail");
+    printf("identity_probe.exec_target=/system/bin/toybox cat /proc/self/status\n");
+    fflush(stdout);
+    if (!pass) {
+        printf("identity_probe.end=1\n");
+        fflush(stdout);
+        return 1;
+    }
+    {
+        char *const child_argv[] = {
+            (char *)"/system/bin/toybox",
+            (char *)"cat",
+            (char *)"/proc/self/status",
+            NULL,
+        };
+
+        execv("/system/bin/toybox", child_argv);
+    }
+    printf("identity_probe.exec_error=%s\n", strerror(errno));
+    printf("identity_probe.end=1\n");
+    fflush(stdout);
+    return 127;
 }
 
 static void proc_path(char *out, size_t out_size, pid_t pid, const char *name) {
@@ -1453,6 +1762,125 @@ fail:
     return -1;
 }
 
+static int run_identity_probe(const struct config *cfg,
+                              const struct paths *paths,
+                              struct buffer *stdout_buf,
+                              struct buffer *stderr_buf,
+                              int *child_exit_code,
+                              int *child_signal,
+                              bool *timed_out) {
+    int stdout_pipe[2] = {-1, -1};
+    int stderr_pipe[2] = {-1, -1};
+    bool stdout_open = true;
+    bool stderr_open = true;
+    bool child_done = false;
+    long deadline;
+    pid_t pid;
+    int status = 0;
+
+    *child_exit_code = -1;
+    *child_signal = 0;
+    *timed_out = false;
+
+    if (pipe2(stdout_pipe, O_CLOEXEC) < 0 || pipe2(stderr_pipe, O_CLOEXEC) < 0) {
+        perror("pipe2");
+        goto fail;
+    }
+    pid = fork();
+    if (pid < 0) {
+        perror("fork");
+        goto fail;
+    }
+    if (pid == 0) {
+        int rc;
+
+        setpgid(0, 0);
+        close(stdout_pipe[0]);
+        close(stderr_pipe[0]);
+        dup2(stdout_pipe[1], STDOUT_FILENO);
+        dup2(stderr_pipe[1], STDERR_FILENO);
+        close(stdout_pipe[1]);
+        close(stderr_pipe[1]);
+        rc = run_identity_probe_child(cfg, paths);
+        _exit(rc);
+    }
+
+    close(stdout_pipe[1]);
+    close(stderr_pipe[1]);
+    stdout_pipe[1] = -1;
+    stderr_pipe[1] = -1;
+    set_nonblock(stdout_pipe[0]);
+    set_nonblock(stderr_pipe[0]);
+    deadline = monotonic_ms() + cfg->timeout_sec * 1000L;
+
+    while (stdout_open || stderr_open || !child_done) {
+        struct pollfd fds[2];
+        int nfds = 0;
+        int poll_timeout = 50;
+        long now = monotonic_ms();
+
+        if (!child_done && now >= deadline) {
+            *timed_out = true;
+            kill(-pid, SIGKILL);
+            kill(pid, SIGKILL);
+        }
+        if (stdout_open) {
+            fds[nfds].fd = stdout_pipe[0];
+            fds[nfds].events = POLLIN | POLLHUP | POLLERR;
+            nfds++;
+        }
+        if (stderr_open) {
+            fds[nfds].fd = stderr_pipe[0];
+            fds[nfds].events = POLLIN | POLLHUP | POLLERR;
+            nfds++;
+        }
+        if (nfds > 0) {
+            int rc = poll(fds, nfds, poll_timeout);
+
+            if (rc > 0) {
+                int idx = 0;
+
+                if (stdout_open) {
+                    if (fds[idx].revents != 0) {
+                        drain_fd(stdout_pipe[0], stdout_buf, &stdout_open);
+                    }
+                    idx++;
+                }
+                if (stderr_open) {
+                    if (fds[idx].revents != 0) {
+                        drain_fd(stderr_pipe[0], stderr_buf, &stderr_open);
+                    }
+                }
+            }
+        } else {
+            usleep(50000);
+        }
+        if (!child_done) {
+            pid_t wait_rc = waitpid(pid, &status, WNOHANG);
+
+            if (wait_rc == pid) {
+                child_done = true;
+                if (WIFEXITED(status)) {
+                    *child_exit_code = WEXITSTATUS(status);
+                } else if (WIFSIGNALED(status)) {
+                    *child_signal = WTERMSIG(status);
+                }
+            } else if (wait_rc < 0 && errno != EINTR && errno != ECHILD) {
+                printf("identity_probe.wait.error=%s\n", strerror(errno));
+                child_done = true;
+            }
+        }
+    }
+    return 0;
+
+fail:
+    if (stdout_pipe[0] >= 0) close(stdout_pipe[0]);
+    if (stdout_pipe[1] >= 0) close(stdout_pipe[1]);
+    if (stderr_pipe[0] >= 0) close(stderr_pipe[0]);
+    if (stderr_pipe[1] >= 0) close(stderr_pipe[1]);
+    return -1;
+}
+
 static int setup_namespace(const struct config *cfg,
                            struct paths *paths,
                            size_t *linkerconfig_bytes,
@@ -1530,7 +1958,7 @@ static int setup_namespace(const struct config *cfg,
                 snprintf(error_buf, error_size, "bind apex: %s", strerror(errno));
                 return -1;
             }
-        } else if (materialize_apex_symlink_farm(cfg, paths, system_apex, error_buf, error_size) < 0) {
+        } else if (materialize_apex_bind_farm(cfg, paths, system_apex, error_buf, error_size) < 0) {
             return -1;
         }
     } else {
@@ -1610,7 +2038,7 @@ int main(int argc, char **argv) {
     printf("vendor_block=%s\n", cfg.vendor_block);
     printf("vendor_fstype=%s\n", cfg.vendor_fstype);
     printf("target=%s\n", cfg.target);
-    printf("linker=%s\n", cfg.linker);
+    printf("linker=%s\n", cfg.linker != NULL ? cfg.linker : "<none>");
     printf("timeout_sec=%d\n", cfg.timeout_sec);
 
     if (setup_namespace(&cfg,
@@ -1643,11 +2071,27 @@ int main(int argc, char **argv) {
                ? "<absent>"
                : (streq(cfg.vndk_apex_alias_mode, "none")
                       ? "/mnt/system/system/apex"
-                      : "<private-symlink-farm>"));
+                      : "<private-bind-farm>"));
     printf("linkerconfig_bytes=%zu\n", linkerconfig_bytes);
     printf("linkerconfig_hash=0x%016llx\n", (unsigned long long)linkerconfig_hash);
     print_preexec_context(&cfg, &paths);
-    run_rc = run_linker_list(&cfg, &paths, &stdout_buf, &stderr_buf, &child_exit_code, &child_signal, &timed_out);
+    if (streq(cfg.mode, "identity-probe")) {
+        run_rc = run_identity_probe(&cfg,
+                                    &paths,
+                                    &stdout_buf,
+                                    &stderr_buf,
+                                    &child_exit_code,
+                                    &child_signal,
+                                    &timed_out);
+    } else {
+        run_rc = run_linker_list(&cfg,
+                                 &paths,
+                                 &stdout_buf,
+                                 &stderr_buf,
+                                 &child_exit_code,
+                                 &child_signal,
+                                 &timed_out);
+    }
     printf("probe_run_rc=%d\n", run_rc);
     printf("child_exit_code=%d\n", child_exit_code);
     printf("child_signal=%d\n", child_signal);
