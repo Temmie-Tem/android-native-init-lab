@@ -2303,6 +2303,39 @@
   - first bounded live start-only operator approval review, or
   - continue no-start analysis for property/QRTR/SELinux runtime primitive gaps
 
+### V249. CNSS Runtime Gap Classifier — PASS / LIVE APPROVAL STILL REQUIRED
+
+- 계획: `docs/plans/NATIVE_INIT_V249_CNSS_RUNTIME_GAP_CLASSIFIER_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V249_CNSS_RUNTIME_GAP_CLASSIFIER_2026-05-19.md`
+- host tool: `scripts/revalidation/wifi_cnss_runtime_gap_classifier.py`
+- output: `tmp/wifi/v249-cnss-runtime-gap-classifier/`
+- decision: `cnss-runtime-gaps-classified`
+- daemon start: not executed
+- 검증:
+  - `python3 -m py_compile scripts/revalidation/wifi_cnss_runtime_gap_classifier.py` PASS
+  - `git diff --check` PASS
+  - v248 prerequisite PASS
+  - required cmdv1 control captures PASS
+  - `pidof cnss-daemon` returned rc=1 before/after validation
+  - `QIPCRTR` present in `/proc/net/protocols`
+  - helper no-allow `dev-null-selinux` variant reached `namespace-ready`
+  - helper no-allow guard remained `cnss_start.result=start-only-blocked`, `exec_attempted=0`
+  - private `/sys/fs/selinux/null` materialization PASS inside helper namespace
+- gap classification:
+  - property service/property area: Android-init-owned runtime gap; do not fake before a dedicated shim plan
+  - SELinux null: helper-compatible private materialization, but no Android domain transition
+  - QRTR: kernel family present; remaining risk is userspace nameservice/endpoint behavior
+  - diag: still blocks `cnss_diag`, not necessarily primary start-only
+  - init rc hints: reference-only; do not replay Android service manager in PID1
+- guardrails:
+  - no `--allow-cnss-start-only`
+  - no `cnss-daemon` or `cnss_diag` execution
+  - no property service emulation, scan/connect/link-up/credential/DHCP/routing
+  - no ICNSS bind/unbind, firmware mutation, Android partition write, or reboot
+- 다음 실행 항목:
+  - if no live approval yet, plan no-start AF_QIPCRTR socket/nameservice probe
+  - otherwise request explicit approval for exactly one bounded live start-only attempt
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`

@@ -1202,7 +1202,11 @@ Samsung bootloader
    - v248 보고서: `docs/reports/NATIVE_INIT_V248_CNSS_RUNTIME_PRIMITIVES_PREFLIGHT_2026-05-19.md`
    - v248 결과: decision `cnss-runtime-primitives-ready-for-live-approval`, daemon start not executed, helper no-allow namespace/guard PASS, private `/vendor/bin/cnss-daemon` target evidence PASS
    - v248 runtime gaps: property service/socket area, SELinux null, `/dev/diag`, `/dev/qrtr`, global `/vendor` remain missing/expected gaps
-   - 다음 후보: first bounded live start-only operator approval review 또는 property/QRTR/SELinux no-start gap analysis
+   - v249 계획서: `docs/plans/NATIVE_INIT_V249_CNSS_RUNTIME_GAP_CLASSIFIER_PLAN_2026-05-19.md`
+   - v249 보고서: `docs/reports/NATIVE_INIT_V249_CNSS_RUNTIME_GAP_CLASSIFIER_2026-05-19.md`
+   - v249 결과: decision `cnss-runtime-gaps-classified`, daemon start not executed, `QIPCRTR` kernel family present, helper `dev-null-selinux` no-allow materialization PASS
+   - v249 해석: property service/area는 Android-init-owned gap, QRTR은 kernel family가 아니라 userspace nameservice/endpoint risk, diag는 `cnss_diag` phase2 blocker
+   - 다음 후보: first bounded live start-only operator approval review 또는 no-start AF_QIPCRTR socket/nameservice probe
    - live daemon start는 `--allow-daemon-start --assume-yes --i-understand-reboot-only-recovery`와 별도 operator approval 전까지 blocked
    - 아직 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 승인 전까지 blocked
 
