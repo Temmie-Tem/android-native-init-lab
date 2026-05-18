@@ -2093,9 +2093,38 @@
   - `cnss-daemon` linker dependency graph can complete with real linkerconfig plus private VNDK APEX alias
   - this is not daemon start or Wi-Fi bring-up; runtime sockets/properties/device nodes/capabilities may still block start-only
 - 다음 실행 항목:
-  - v242 decide between controlled start-only runtime probe and runtime requirement inventory
-  - if start-only is selected, keep it short-timeout, opt-in, no scan/connect, process-group cleanup
+  - 완료: v242 daemon runtime requirement inventory
+  - 다음: v243 native launcher contract plan for bounded CNSS start-only
+  - if start-only is selected later, keep it short-timeout, opt-in, no scan/connect, process-group cleanup
   - Wi-Fi scan/connect remains blocked
+
+### V242. CNSS Runtime Requirement Inventory — EXECUTED / LAUNCHER CONTRACT NEEDED
+
+- 계획: `docs/plans/NATIVE_INIT_V242_CNSS_RUNTIME_REQUIREMENT_INVENTORY_PLAN_2026-05-18.md`
+- 보고서: `docs/reports/NATIVE_INIT_V242_CNSS_RUNTIME_REQUIREMENT_INVENTORY_2026-05-18.md`
+- host tool: `scripts/revalidation/wifi_cnss_runtime_inventory.py`
+- 기준:
+  - native device baseline target remains `A90 Linux init 0.9.59 (v159)`
+  - v242는 PID1 boot image 변경 없이 host-side live read-only inventory만 추가했다
+  - v241 decision은 `android-linker-vndk-apex-alias-cnss-list-pass`
+- 검증:
+  - Python compile PASS
+  - dry-run PASS
+  - live inventory PASS: decision `cnss-runtime-inventory-ready-for-launcher-contract-plan`
+  - 44 live read-only captures collected
+- 핵심 증거:
+  - `cnss-daemon` service contract: `/system/vendor/bin/cnss-daemon -n -l`, user `system`, groups `system,inet,net_admin,wifi`, capability `NET_ADMIN`
+  - `cnss_diag` remains phase2-only because diagnostic device availability is not proven
+  - helper, real linkerconfig, system linker, and v241 private VNDK APEX alias prerequisite are present
+- 남은 blocker:
+  - launcher identity/capability contract
+  - Android property runtime gap
+  - SELinux domain transition gap
+  - `/dev/diag` and `/dev/qrtr` gaps
+  - global `/system/vendor`/`/vendor` path alias gap outside private helper namespace
+- 다음 실행 항목:
+  - v243 native launcher contract plan for bounded CNSS start-only
+  - Wi-Fi scan/connect/link-up/credential/DHCP/routing remain blocked
 
 ### V187. Harness Broker Backend — PASS
 

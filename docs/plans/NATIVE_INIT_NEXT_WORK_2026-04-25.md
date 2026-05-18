@@ -1174,7 +1174,11 @@ Samsung bootloader
    - v241 보고서: `docs/reports/NATIVE_INIT_V241_VNDK_APEX_ALIAS_PROBE_2026-05-18.md`
    - v241 결과: decision `android-linker-vndk-apex-alias-cnss-list-pass`
    - v241 해석: private `/apex` symlink farm + `com.android.vndk.v30 -> /system/apex/com.android.vndk.current` alias로 `cnss-daemon` linker-list dependency graph가 양쪽 linker path에서 exit `0`으로 완료됐다
-   - 다음 후보: v242 controlled start-only runtime probe 또는 daemon runtime requirement inventory
+   - v242 계획서: `docs/plans/NATIVE_INIT_V242_CNSS_RUNTIME_REQUIREMENT_INVENTORY_PLAN_2026-05-18.md`
+   - v242 보고서: `docs/reports/NATIVE_INIT_V242_CNSS_RUNTIME_REQUIREMENT_INVENTORY_2026-05-18.md`
+   - v242 결과: decision `cnss-runtime-inventory-ready-for-launcher-contract-plan`
+   - v242 해석: linker prerequisite은 닫혔지만 `cnss-daemon`은 user/group/capability, property socket, SELinux service context, diag/QRTR device, private path alias 계약이 필요하다
+   - 다음 후보: v243 native launcher contract plan for bounded CNSS start-only
    - 아직 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 승인 전까지 blocked
 
 ---
