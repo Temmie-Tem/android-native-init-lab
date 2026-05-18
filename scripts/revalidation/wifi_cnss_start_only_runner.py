@@ -21,7 +21,7 @@ from a90harness.evidence import EvidenceStore
 DEFAULT_OUT_DIR = Path("tmp/wifi/v245-cnss-start-only-runner")
 DEFAULT_EXPECT_VERSION = "A90 Linux init 0.9.59 (v159)"
 DEFAULT_HELPER = "/cache/bin/a90_android_execns_probe"
-DEFAULT_HELPER_SHA256 = "4ce17edfdfe9935da8a320e5a570d301517d518d0ae1dcadaef8bafec7415647"
+DEFAULT_HELPER_SHA256 = "5ae105f0d397f845cd602eb4b283cdbd817146eff9405d10c090320eded25c65"
 DEFAULT_HELPER_TIMEOUT_SEC = 10
 
 REQUIRED_MANIFESTS = {
@@ -123,7 +123,7 @@ def build_prerequisite_checks() -> tuple[dict[str, dict[str, Any]], list[dict[st
 
 
 def helper_start_argv(args: argparse.Namespace) -> list[str]:
-    return [
+    argv = [
         args.helper,
         "--system-root",
         "/mnt/system/system",
@@ -145,11 +145,10 @@ def helper_start_argv(args: argparse.Namespace) -> list[str]:
         "/cache/bin/a90_real_apex.libraries.config.txt",
         "--timeout-sec",
         str(args.max_runtime_sec),
-        "--",
-        "/vendor/bin/cnss-daemon",
-        "-n",
-        "-l",
     ]
+    if args.command == "run" and args.allow_daemon_start and args.assume_yes and args.i_understand_reboot_only_recovery:
+        argv.append("--allow-cnss-start-only")
+    return argv
 
 
 def build_dry_run_plan(args: argparse.Namespace) -> dict[str, Any]:

@@ -2202,27 +2202,38 @@
   - no ICNSS generic bind/unbind or persistent Android partition write
 - 다음 실행 항목:
   - 완료: v246 helper `cnss-start-only` mode implementation plan
-  - 다음: v246 helper mode safe implementation
-  - or explicit operator approval gate for first bounded live start-only attempt
-  - live start-only run requires separate operator approval after reviewing dry-run evidence
+  - 완료: v246 helper mode safe implementation
+  - 다음: v247 actual start/observe/stop body plan, or explicit operator approval gate for first bounded live start-only attempt
+  - live start-only run requires separate operator approval after reviewing v246 fail-closed evidence
 
-### V246. CNSS Start-Only Helper Mode Plan — DOCUMENTED / SAFE IMPLEMENTATION NEXT
+### V246. CNSS Start-Only Helper Mode — SAFE GUARD PASS
 
 - 계획: `docs/plans/NATIVE_INIT_V246_CNSS_START_ONLY_HELPER_MODE_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V246_CNSS_START_ONLY_HELPER_MODE_2026-05-19.md`
+- helper: `stage3/linux_init/helpers/a90_android_execns_probe.c`
+- host tool: `scripts/revalidation/wifi_cnss_start_only_runner.py`
 - 기준:
   - v245 decision은 `preflight-ready`
-  - v245 runner can build safe dry-run graph but helper does not yet implement `cnss-start-only`
+  - v245 runner can build safe dry-run graph
+  - v246 helper now exposes guarded `--mode cnss-start-only`
   - live daemon start remains blocked
 - 핵심 방향:
-  - add helper mode `--mode cnss-start-only`
-  - add helper-level guard flag `--allow-cnss-start-only`
-  - reuse v244 private namespace, bind-backed `/apex`, identity/groups/capability contract
-  - fixed daemon argv only: `/vendor/bin/cnss-daemon -n -l`
-  - parent observes, stops process group, reaps, and emits stable `cnss_start.*` keys
+  - helper mode `--mode cnss-start-only` 추가 완료
+  - helper-level guard flag `--allow-cnss-start-only` 추가 완료
+  - v244 private namespace, bind-backed `/apex`, identity/groups/capability contract 재사용
+  - fixed daemon argv is surfaced as `/vendor/bin/cnss-daemon -n -l`
+  - safe build emits stable `cnss_start.*` keys but does not execute daemon
+- 검증:
+  - helper SHA-256: `5ae105f0d397f845cd602eb4b283cdbd817146eff9405d10c090320eded25c65`
+  - direct helper no-allow run: `cnss_start.result=start-only-blocked`
+  - runner `plan`: `dry-run-ready` / PASS / daemon not executed
+  - runner `preflight`: `preflight-ready` / PASS / daemon not executed
+  - runner `dry-run`: `preflight-ready` / PASS / daemon not executed
+  - runner `run` without live flags: `start-only-blocked` / expected fail-closed / daemon not executed
 - 다음 실행 항목:
-  - implement helper mode guard and safe parser/output
-  - run only static and safe fail-closed validation first
-  - live daemon execution requires separate approval
+  - v247: actual helper start/observe/stop body design, still behind explicit approval
+  - or first bounded live start-only operator approval review
+  - Wi-Fi scan/connect/link-up/credential/DHCP/routing remain blocked
 
 ### V187. Harness Broker Backend — PASS
 

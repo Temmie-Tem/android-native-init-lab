@@ -1191,8 +1191,10 @@ Samsung bootloader
    - v245 방향: v229 `runandroid` path를 버리고 v244 private namespace/helper 계약 기반의 controlled start-only runner를 만든다
    - v245 결과: `scripts/revalidation/wifi_cnss_start_only_runner.py` plan/preflight/dry-run PASS, live `run` 기본값은 fail-closed
    - v246 계획서: `docs/plans/NATIVE_INIT_V246_CNSS_START_ONLY_HELPER_MODE_PLAN_2026-05-19.md`
-   - v246 방향: helper에 guarded `--mode cnss-start-only` / `--allow-cnss-start-only`를 추가하되 safe validation에서 daemon은 실행하지 않는다
-   - 다음 후보: v246 helper mode safe implementation
+   - v246 보고서: `docs/reports/NATIVE_INIT_V246_CNSS_START_ONLY_HELPER_MODE_2026-05-19.md`
+   - v246 결과: helper에 guarded `--mode cnss-start-only` / `--allow-cnss-start-only` 추가, no-allow 직접 실행은 `cnss_start.result=start-only-blocked`, runner plan/preflight/dry-run PASS, runner `run` 기본값은 fail-closed
+   - v246 helper SHA-256: `5ae105f0d397f845cd602eb4b283cdbd817146eff9405d10c090320eded25c65`
+   - 다음 후보: v247 actual helper start/observe/stop body plan 또는 first bounded live start-only operator approval review
    - live daemon start는 `--allow-daemon-start --assume-yes --i-understand-reboot-only-recovery`와 별도 operator approval 전까지 blocked
    - 아직 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 승인 전까지 blocked
 

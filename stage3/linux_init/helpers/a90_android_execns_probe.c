@@ -67,6 +67,7 @@ struct config {
     const char *linkerconfig_source;
     const char *apex_libraries_source;
     int timeout_sec;
+    bool allow_cnss_start_only;
 };
 
 struct buffer {
@@ -111,7 +112,8 @@ static void usage(FILE *out) {
             "[--linkerconfig-mode none|copy-real|minimal-vendor] "
             "[--linkerconfig-source /cache/path/to/ld.config.txt] "
             "[--apex-libraries-source /cache/path/to/apex.libraries.config.txt] "
-            "--mode linker-list|identity-probe "
+            "[--allow-cnss-start-only] "
+            "--mode linker-list|identity-probe|cnss-start-only "
             "--timeout-sec <1..30>\n");
 }
 
@@ -153,6 +155,10 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
         if (strcmp(argv[i], "--help") == 0) {
             usage(stdout);
             exit(0);
+        }
+        if (strcmp(argv[i], "--allow-cnss-start-only") == 0) {
+            cfg->allow_cnss_start_only = true;
+            continue;
         }
         if (i + 1 >= argc) {
             fprintf(stderr, "missing value for %s\n", argv[i]);
@@ -226,7 +232,8 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
         !streq(cfg->vendor_block, "/dev/block/sda29") ||
         !streq(cfg->vendor_fstype, "ext4") ||
         !(streq(cfg->mode, "linker-list") ||
-          streq(cfg->mode, "identity-probe")) ||
+          streq(cfg->mode, "identity-probe") ||
+          streq(cfg->mode, "cnss-start-only")) ||
         !(streq(cfg->capture_mode, "none") ||
           streq(cfg->capture_mode, "ptrace-lite")) ||
         !(streq(cfg->null_device_mode, "none") ||
@@ -256,6 +263,18 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
     }
     if (streq(cfg->mode, "identity-probe") && !streq(cfg->capture_mode, "none")) {
         fprintf(stderr, "--capture-mode must be none for identity-probe mode\n");
+        return 2;
+    }
+    if (streq(cfg->mode, "cnss-start-only") && cfg->linker != NULL) {
+        fprintf(stderr, "--linker is not used by cnss-start-only mode\n");
+        return 2;
+    }
+    if (streq(cfg->mode, "cnss-start-only") && !streq(cfg->capture_mode, "none")) {
+        fprintf(stderr, "--capture-mode must be none for cnss-start-only mode\n");
+        return 2;
+    }
+    if (streq(cfg->mode, "cnss-start-only") && !streq(cfg->target, "/vendor/bin/cnss-daemon")) {
+        fprintf(stderr, "cnss-start-only target is fixed to /vendor/bin/cnss-daemon\n");
         return 2;
     }
     if (streq(cfg->linkerconfig_mode, "copy-real")) {
@@ -1881,6 +1900,66 @@ fail:
     return -1;
 }
 
+static int append_literal(struct buffer *buf, const char *text) {
+    return buffer_append(buf, text, strlen(text));
+}
+
+static int run_cnss_start_only_guarded(const struct config *cfg,
+                                       const struct paths *paths,
+                                       struct buffer *stdout_buf,
+                                       struct buffer *stderr_buf,
+                                       int *child_exit_code,
+                                       int *child_signal,
+                                       bool *timed_out) {
+    (void)paths;
+    *child_exit_code = -1;
+    *child_signal = 0;
+    *timed_out = false;
+
+    if (append_literal(stdout_buf, "cnss_start.begin=1\n") < 0 ||
+        append_literal(stdout_buf, "cnss_start.mode=guarded\n") < 0 ||
+        append_literal(stdout_buf, "cnss_start.target=/vendor/bin/cnss-daemon\n") < 0 ||
+        append_literal(stdout_buf, "cnss_start.argv=/vendor/bin/cnss-daemon -n -l\n") < 0 ||
+        append_literal(stdout_buf, "cnss_start.cnss_diag=0\n") < 0 ||
+        append_literal(stdout_buf, "cnss_start.scan_connect_linkup=0\n") < 0) {
+        return -1;
+    }
+
+    if (!cfg->allow_cnss_start_only) {
+        if (append_literal(stdout_buf, "cnss_start.allowed=0\n") < 0 ||
+            append_literal(stdout_buf, "cnss_start.exec_attempted=0\n") < 0 ||
+            append_literal(stdout_buf, "cnss_start.child_started=0\n") < 0 ||
+            append_literal(stdout_buf, "cnss_start.term_sent=0\n") < 0 ||
+            append_literal(stdout_buf, "cnss_start.kill_sent=0\n") < 0 ||
+            append_literal(stdout_buf, "cnss_start.reaped=0\n") < 0 ||
+            append_literal(stdout_buf, "cnss_start.postflight_safe=1\n") < 0 ||
+            append_literal(stdout_buf, "cnss_start.result=start-only-blocked\n") < 0 ||
+            append_literal(stdout_buf, "cnss_start.reason=missing-allow-cnss-start-only\n") < 0 ||
+            append_literal(stdout_buf, "cnss_start.end=1\n") < 0) {
+            return -1;
+        }
+        return 0;
+    }
+
+    if (append_literal(stdout_buf, "cnss_start.allowed=1\n") < 0 ||
+        append_literal(stdout_buf, "cnss_start.exec_attempted=0\n") < 0 ||
+        append_literal(stdout_buf, "cnss_start.child_started=0\n") < 0 ||
+        append_literal(stdout_buf, "cnss_start.term_sent=0\n") < 0 ||
+        append_literal(stdout_buf, "cnss_start.kill_sent=0\n") < 0 ||
+        append_literal(stdout_buf, "cnss_start.reaped=0\n") < 0 ||
+        append_literal(stdout_buf, "cnss_start.postflight_safe=1\n") < 0 ||
+        append_literal(stdout_buf, "cnss_start.result=start-only-blocked\n") < 0 ||
+        append_literal(stdout_buf, "cnss_start.reason=live-start-not-implemented-in-v246-safe-build\n") < 0 ||
+        append_literal(stdout_buf, "cnss_start.end=1\n") < 0) {
+        return -1;
+    }
+    if (append_literal(stderr_buf,
+                       "cnss-start-only live execution is intentionally not implemented in v246 safe build\n") < 0) {
+        return -1;
+    }
+    return 0;
+}
+
 static int setup_namespace(const struct config *cfg,
                            struct paths *paths,
                            size_t *linkerconfig_bytes,
@@ -2040,6 +2119,7 @@ int main(int argc, char **argv) {
     printf("target=%s\n", cfg.target);
     printf("linker=%s\n", cfg.linker != NULL ? cfg.linker : "<none>");
     printf("timeout_sec=%d\n", cfg.timeout_sec);
+    printf("allow_cnss_start_only=%d\n", cfg.allow_cnss_start_only ? 1 : 0);
 
     if (setup_namespace(&cfg,
                         &paths,
@@ -2083,6 +2163,14 @@ int main(int argc, char **argv) {
                                     &child_exit_code,
                                     &child_signal,
                                     &timed_out);
+    } else if (streq(cfg.mode, "cnss-start-only")) {
+        run_rc = run_cnss_start_only_guarded(&cfg,
+                                             &paths,
+                                             &stdout_buf,
+                                             &stderr_buf,
+                                             &child_exit_code,
+                                             &child_signal,
+                                             &timed_out);
     } else {
         run_rc = run_linker_list(&cfg,
                                  &paths,
