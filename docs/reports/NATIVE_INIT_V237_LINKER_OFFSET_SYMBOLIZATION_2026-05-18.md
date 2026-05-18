@@ -4,10 +4,9 @@
 
 - Goal: map the v236 Android `linker64` crash file offset `0x1002f4` to ELF
   section, nearest symbol, and bounded disassembly context.
-- Current result: PREPARED / `linker-offset-symbolization-blocked-no-elf`.
-- Reason: v236 crash evidence was parsed successfully, but the matching device
-  `linker64` ELF was not available in the host checkout and live serial/NCM
-  access was unavailable during this run.
+- Result: PASS / `linker-offset-symbolized`.
+- Reason: crash offset mapped to `linker64` `.text`, nearest symbol list, and
+  disassembly context.
 - No PID1 boot image update, Wi-Fi daemon start, scan, connect, DHCP,
   credential, routing, rfkill write, or Android partition write was used.
 
@@ -27,15 +26,14 @@ Tool modes:
 - `analyze`: parses v236 evidence, optionally pulls linker64 from device, and
   runs host `readelf`/`objdump` analysis.
 
-Optional device pull path is intentionally narrow:
+Live linker64 source:
 
 ```text
 /mnt/system/system/apex/com.android.runtime/bin/linker64
 ```
 
-The only device mutation allowed by the tool is the existing read-only
-`mountsystem ro` command. File export uses `toybox base64 -w 0` from the
-allowlisted linker path.
+The only device mutation used by the tool was existing read-only `mountsystem ro`.
+File export used `toybox base64 -w 0` from the allowlisted linker path.
 
 ## Validation
 
@@ -50,7 +48,7 @@ python3 scripts/revalidation/wifi_linker_offset_symbolize.py \
   --no-pull analyze || true
 ```
 
-No-ELF evidence result:
+No-ELF preflight confirmed v236 evidence parsing before live pull:
 
 ```json
 {
@@ -62,34 +60,42 @@ No-ELF evidence result:
 }
 ```
 
-Local ELF smoke test used the static helper binary only to verify the host
-`readelf`/`objdump` path:
+Live analysis command:
 
 ```bash
 python3 scripts/revalidation/wifi_linker_offset_symbolize.py \
-  --out-dir tmp/wifi/v237-local-elf-smoke \
-  --linker-elf stage3/linux_init/helpers/a90_android_execns_probe \
-  --offset 0x400 analyze
+  --out-dir tmp/wifi/v237-linker-offset-symbolize-live \
+  --pull-from-device \
+  analyze
 ```
 
-Smoke result:
+Live result:
 
 ```json
 {
-  "decision": "linker-offset-disassembled-no-symbol",
+  "decision": "linker-offset-symbolized",
   "pass": true,
-  "section": ".text",
-  "mapped_vaddr": "0x400400",
-  "disassembly": "host/objdump-crash-window.txt"
+  "reason": "crash offset mapped to linker64 section, nearest symbol list, and disassembly context"
 }
 ```
 
-This validates the host-side section/disassembly machinery, but it is not a
-conclusion about Android `linker64`.
+A local ELF smoke test also verified the host `readelf`/`objdump` path against
+`stage3/linux_init/helpers/a90_android_execns_probe`; it is not a conclusion
+about Android `linker64`.
+
+## Linker ELF
+
+| item | value |
+| --- | --- |
+| host evidence path | `tmp/wifi/v237-linker-offset-symbolize-live/files/linker64` |
+| size | `1816360` |
+| SHA-256 | `ebd1db608558ccb01f851a4988abea2f2dd8844b7bc09e1847ebaf05e36a421d` |
+| file type | `ELF 64-bit LSB shared object, ARM aarch64, dynamically linked, not stripped` |
+| BuildID | `e8fdced9e7490875160097adfe101461` |
 
 ## v236 Evidence Reuse
 
-The v237 tool successfully parsed v236 crash captures and confirmed:
+The v237 tool parsed v236 crash captures and confirmed:
 
 | item | value |
 | --- | --- |
@@ -104,41 +110,99 @@ The offset is computed from crash PC and `/proc/<pid>/maps`:
 file_offset = pc - mapping_start + mapping_file_offset
 ```
 
-## Blocker
+Crash cases:
 
-The matching Android `linker64` ELF is required before v237 can become a PASS.
-The repository does not currently contain that exact file, and the active device
-connection was not reachable in this run.
+| linker | target | fault | pc | file offset | perms |
+| --- | --- | --- | --- | --- | --- |
+| `system-linker` | `system-toybox` | `0xa1` | `0x7f821512f4` | `0x1002f4` | `r-xp` |
+| `system-linker` | `apex-linker64-self` | `0xa1` | `0x7fbbe1e2f4` | `0x1002f4` | `r-xp` |
+| `system-linker` | `cnss-daemon` | `0xa1` | `0x7fadfa32f4` | `0x1002f4` | `r-xp` |
+| `apex-linker` | `system-toybox` | `0xa1` | `0x7fbcc142f4` | `0x1002f4` | `r-xp` |
+| `apex-linker` | `apex-linker64-self` | `0xa1` | `0x7fb4f4d2f4` | `0x1002f4` | `r-xp` |
+| `apex-linker` | `cnss-daemon` | `0xa1` | `0x7fafeb32f4` | `0x1002f4` | `r-xp` |
 
-Observed access state during the run:
+## Symbolization Result
 
-- `a90ctl version`: failed with `A90P1 END marker not found before timeout` and
-  `Connection refused`.
-- `ping 192.168.7.2`: failed, 100% packet loss.
-- `tcpctl_host.py status`: failed with TCP timeout.
+| item | value |
+| --- | --- |
+| file offset | `0x1002f4` |
+| mapped vaddr | `0x1002f4` |
+| section | `.text` |
+| section index | `11` |
+| section delta | `819956` |
+| nearest containing symbol | `__dl__ZL13__early_aborti` |
+| symbol value | `0x1002e0` |
+| symbol size | `28` |
+| symbol delta | `0x14` |
+| selected instruction | `1002f4: b900011f str wzr, [x8]` |
 
-## Next Command
+Nearest symbols:
 
-When serial bridge/NCM is restored, run:
+| name | type | value | size | delta | contains |
+| --- | --- | --- | --- | --- | --- |
+| `__dl__ZL13__early_aborti` | `FUNC` | `0x1002e0` | `28` | `0x14` | `true` |
+| `__dl_$x.9` | `NOTYPE` | `0x1002e0` | `0` | `0x14` | `false` |
+| `__dl_$x.8` | `NOTYPE` | `0x100018` | `0` | `0x2dc` | `false` |
+| `__dl__Z21__libc_init_AT_SECUREPPc` | `FUNC` | `0x100018` | `712` | `0x2dc` | `false` |
+| `__dl_$x.1` | `NOTYPE` | `0xfff34` | `0` | `0x3c0` | `false` |
 
-```bash
-python3 scripts/revalidation/wifi_linker_offset_symbolize.py \
-  --out-dir tmp/wifi/v237-linker-offset-symbolize-live \
-  --pull-from-device \
-  analyze
-```
-
-Expected PASS decision if the ELF exports and analysis succeeds:
+Disassembly window evidence:
 
 ```text
-linker-offset-symbolized
+1002c8: 528017a0  mov w0, #0xbd
+1002cc: 94000005  bl  1002e0 <__dl__ZL13__early_aborti>
+1002d0: 528029e0  mov w0, #0x14f
+1002d4: 94000003  bl  1002e0 <__dl__ZL13__early_aborti>
+1002d8: 52801880  mov w0, #0xc4
+1002dc: 94000001  bl  1002e0 <__dl__ZL13__early_aborti>
+
+00000000001002e0 <__dl__ZL13__early_aborti>:
+1002e0: d503233f  paciasp
+1002e4: a9bf7bfd  stp x29, x30, [sp, #-16]!
+1002e8: 910003fd  mov x29, sp
+1002ec: 2a0003e8  mov w8, w0
+1002f0: 52800020  mov w0, #0x1
+1002f4: b900011f  str wzr, [x8]
+1002f8: 9400563a  bl  115be0 <__dl__Exit>
 ```
 
-or, if symbols are stripped but disassembly is available:
+## Interpretation
 
-```text
-linker-offset-disassembled-no-symbol
-```
+The crash is an intentional early-abort trap in Android linker initialization,
+not an arbitrary unknown instruction stream.
+
+The abort helper copies its integer argument into `w8`, then executes
+`str wzr, [x8]`.  v236 captured fault address `0xa1`, and v237 shows that the
+faulting instruction stores through `x8`.  This means the linker deliberately
+caused a `SIGSEGV` by writing to the abort-code address.
+
+The three call sites immediately before `__early_abort` pass constants:
+
+| call site | abort code |
+| --- | --- |
+| `0x1002c8` -> `__early_abort` | `0xbd` / `189` |
+| `0x1002d0` -> `__early_abort` | `0x14f` / `335` |
+| `0x1002d8` -> `__early_abort` | `0xc4` / `196` |
+
+v236 fault address was `0xa1`, so the actual caller is likely another call site
+or optimized path not fully covered by the ±`0x80` disassembly window.  Next work
+should expand call-site analysis and map abort-code constants to bionic linker
+source checks.
+
+## Next Step
+
+Recommended next work:
+
+1. disassemble or symbol-scan all call references to
+   `__dl__ZL13__early_aborti`;
+2. map the abort argument `0xa1`/`161` to the corresponding bionic linker source
+   check if source for this Samsung build or matching Android branch can be
+   correlated;
+3. compare native private namespace process context against Android context only
+   after the abort condition is identified.
+
+Wi-Fi daemon start remains blocked until this early-abort cause is understood or
+bypassed by a safer execution path.
 
 ## Guardrails
 

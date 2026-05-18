@@ -503,7 +503,8 @@ def pull_linker_from_device(store: EvidenceStore, args: argparse.Namespace) -> t
     if not base64_record["ok"]:
         return None, captures, "remote linker base64 failed"
     try:
-        data = base64.b64decode(extract_base64_payload(base64_record["text"]), validate=True)
+        base64_text = store.path(base64_record["file"]).read_text(encoding="utf-8", errors="replace")
+        data = base64.b64decode(extract_base64_payload(base64_text), validate=True)
     except (binascii.Error, RuntimeError) as exc:
         return None, captures, f"remote linker base64 decode failed: {exc}"
     if len(data) != expected_size:

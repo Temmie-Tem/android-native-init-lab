@@ -1950,7 +1950,7 @@
   - v237 linker64 offset symbolization/disassembly or Android-vs-native process context comparison
   - Wi-Fi daemon start remains blocked
 
-### V237. Linker Offset Symbolization — PREPARED / WAITING FOR LINKER ELF
+### V237. Linker Offset Symbolization — EXECUTED / EARLY ABORT SYMBOLIZED
 
 - 계획: `docs/plans/NATIVE_INIT_V237_LINKER_OFFSET_SYMBOLIZATION_PLAN_2026-05-18.md`
 - 보고서: `docs/reports/NATIVE_INIT_V237_LINKER_OFFSET_SYMBOLIZATION_2026-05-18.md`
@@ -1961,19 +1961,22 @@
 - 구현:
   - host wrapper `scripts/revalidation/wifi_linker_offset_symbolize.py`
   - v236 crash text parser: PC + linker64 maps 기반 file offset 계산
-  - optional read-only linker64 pull: `mountsystem ro` + `toybox base64` from allowlisted path
+  - read-only linker64 pull: `mountsystem ro` + `toybox base64` from allowlisted path
   - host `readelf`/`objdump` section/symbol/disassembly analysis
 - 검증:
   - Python compile PASS
   - plan smoke PASS
   - no-ELF analysis: v236 6-case evidence parsed, offset set = `0x1002f4`
   - local ELF smoke: section/disassembly machinery PASS against static helper binary
-- 현재 blocker:
-  - matching Android `linker64` ELF is not present in the checkout
-  - current serial/NCM access was unavailable during this run
+  - live pull/analyze PASS: decision `linker-offset-symbolized`
+  - exported linker64 SHA-256 `ebd1db608558ccb01f851a4988abea2f2dd8844b7bc09e1847ebaf05e36a421d`, size `1816360`, BuildID `e8fdced9e7490875160097adfe101461`
+  - offset `0x1002f4` -> `.text` / `__dl__ZL13__early_aborti+0x14` / `str wzr, [x8]`
+- 해석:
+  - crash is intentional bionic linker early-abort trap, not unknown arbitrary code execution
+  - v236 fault address `0xa1` is the abort-code address written by `str wzr, [x8]`
 - 다음 실행 항목:
-  - bridge/NCM 복구 후 `python3 scripts/revalidation/wifi_linker_offset_symbolize.py --out-dir tmp/wifi/v237-linker-offset-symbolize-live --pull-from-device analyze`
-  - PASS 후 linker64 disassembly/symbol 결과로 Android-vs-native process context comparison 범위를 좁힌다
+  - v238 `__early_abort` call-site and abort-code mapping
+  - correlate abort code `0xa1` / `161` with bionic linker source or all call references
   - Wi-Fi daemon start remains blocked
 
 ### V187. Harness Broker Backend — PASS
