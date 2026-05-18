@@ -2036,8 +2036,37 @@
   - blocker moved to normal target dependency/namespace resolution for `cnss-daemon`
   - new blocker text: `library "libcutils.so" not found: needed by main executable`
 - 다음 실행 항목:
-  - v240 classify why `cnss-daemon` linker-list cannot resolve `libcutils.so` while `system-toybox` can
-  - compare linker namespace target classification, search paths, and vendor/system permitted paths
+  - 완료: v240 `cnss-daemon` linker namespace gap classification
+  - 다음: v241 private VNDK APEX alias/materialization probe
+  - compare `/apex/com.android.vndk.v30` -> `/apex/com.android.vndk.current` inside helper namespace only
+  - Wi-Fi daemon start remains blocked
+
+### V240. Linker Namespace Gap Classification — EXECUTED / VNDK APEX ALIAS GAP
+
+- 계획: `docs/plans/NATIVE_INIT_V240_LINKER_NAMESPACE_GAP_PLAN_2026-05-18.md`
+- 보고서: `docs/reports/NATIVE_INIT_V240_LINKER_NAMESPACE_GAP_2026-05-18.md`
+- host tool: `scripts/revalidation/wifi_linker_namespace_gap_probe.py`
+- 기준:
+  - native device baseline target remains `A90 Linux init 0.9.59 (v159)`
+  - v240는 PID1 boot image 변경 없이 host-side analysis/live read-only stat probe만 추가했다
+  - v239 cleared `0xa1` early abort and exposed normal `libcutils.so` resolution failure for `cnss-daemon`
+- 검증:
+  - Python compile PASS
+  - minimal-vendor cnss linker-list smoke PASS: both linker paths exit `0` and resolve system/vendor libraries
+  - live v240 probe PASS: decision `android-linker-vndk-apex-version-alias-gap`
+- 핵심 증거:
+  - `/vendor/bin/cnss-daemon` maps to linkerconfig `[vendor]` section
+  - `[vendor] namespace.default.links` includes `vndk`
+  - `namespace.default.link.vndk.shared_libs` includes `libcutils.so`
+  - `/mnt/system/system/apex/com.android.vndk.v30/lib64/libcutils.so` is absent
+  - `/mnt/system/system/apex/com.android.vndk.current/lib64/libcutils.so` is present
+- 해석:
+  - current blocker is private namespace APEX path/version alias mismatch
+  - real linkerconfig expects `/apex/com.android.vndk.v30`, while mounted system image exposes `com.android.vndk.current`
+  - not a generic linker crash, not a missing `/system/lib64/libcutils.so`, and not the v238 `/dev/null` blocker
+- 다음 실행 항목:
+  - v241 private-only VNDK APEX alias/materialization probe
+  - keep scope to `linker64 --list`; no daemon entrypoint execution
   - Wi-Fi daemon start remains blocked
 
 ### V187. Harness Broker Backend — PASS

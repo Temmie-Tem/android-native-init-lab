@@ -1164,6 +1164,12 @@ Samsung bootloader
    - v239 결과: `a90_android_execns_probe v6` + `--null-device-mode dev-null` 실기 PASS, decision `android-linker-devnull-early-abort-cleared`
    - v239 해석: `/dev/null` char device `1:3` materialization만으로 `0xa1` early abort와 `SIGSEGV(11)`가 6-case matrix에서 사라졌다
    - 새 blocker: `cnss-daemon` linker-list가 정상 stderr로 `library "libcutils.so" not found`를 보고한다; 다음은 linker namespace/dependency search path 분류
+   - v240 계획서: `docs/plans/NATIVE_INIT_V240_LINKER_NAMESPACE_GAP_PLAN_2026-05-18.md`
+   - v240 host tool: `scripts/revalidation/wifi_linker_namespace_gap_probe.py`
+   - v240 보고서: `docs/reports/NATIVE_INIT_V240_LINKER_NAMESPACE_GAP_2026-05-18.md`
+   - v240 결과: decision `android-linker-vndk-apex-version-alias-gap`
+   - v240 해석: real linkerconfig는 vendor target의 `libcutils.so`를 `vndk` linked namespace로 허용하지만, path는 `/apex/com.android.vndk.v30`를 가리키고 live system image는 `/apex/com.android.vndk.current`만 노출한다
+   - 다음 blocker closure: v241에서 helper private namespace 안에서만 `com.android.vndk.v30 -> com.android.vndk.current` alias/materialization을 테스트한다
    - 아직 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 승인 전까지 blocked
 
 ---
