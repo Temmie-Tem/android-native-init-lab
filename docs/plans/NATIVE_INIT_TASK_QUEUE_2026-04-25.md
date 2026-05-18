@@ -2231,9 +2231,33 @@
   - runner `dry-run`: `preflight-ready` / PASS / daemon not executed
   - runner `run` without live flags: `start-only-blocked` / expected fail-closed / daemon not executed
 - 다음 실행 항목:
-  - v247: actual helper start/observe/stop body design, still behind explicit approval
-  - or first bounded live start-only operator approval review
+  - 완료: v247 actual helper start/observe/stop body design
+  - 다음: v247 helper start/observe/stop body implementation with safe no-start validation first
+  - live start-only execution remains a separate approval gate after safe evidence review
   - Wi-Fi scan/connect/link-up/credential/DHCP/routing remain blocked
+
+### V247. CNSS Start/Observe/Stop Body Plan — DOCUMENTED
+
+- 계획: `docs/plans/NATIVE_INIT_V247_CNSS_START_OBSERVE_STOP_BODY_PLAN_2026-05-19.md`
+- 기준:
+  - v246 decision은 `preflight-ready`
+  - v246 helper supports guarded `--mode cnss-start-only`
+  - v246 no-allow helper run returns `cnss_start.result=start-only-blocked`
+  - host runner `plan`/`preflight`/`dry-run` are PASS and `run` without flags remains fail-closed
+- 목표:
+  - implement exactly one bounded `/vendor/bin/cnss-daemon -n -l` start/observe/stop body behind `--allow-cnss-start-only`
+  - preserve v246 no-allow behavior
+  - keep host runner non-starting by default
+  - capture stable `cnss_start.*` lifecycle keys for host parsing
+- guardrails:
+  - no Wi-Fi scan/connect/link-up/credential/DHCP/routing
+  - no `cnss_diag`
+  - no rfkill unblock, `ip link set wlan* up`, `iw scan/connect`
+  - no ICNSS bind/unbind, firmware mutation, persistent Android partition write, or automatic reboot
+- 다음 실행 항목:
+  - implement helper body and host parser
+  - run static validation and safe no-start live validation only
+  - stop at `LIVE APPROVAL REQUIRED` before first daemon execution
 
 ### V187. Harness Broker Backend — PASS
 
