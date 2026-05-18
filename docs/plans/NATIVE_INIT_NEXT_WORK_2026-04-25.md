@@ -1148,7 +1148,10 @@ Samsung bootloader
    - v236 보고서: `docs/reports/NATIVE_INIT_V236_LINKER_CRASH_CAPTURE_2026-05-18.md`
    - v236 결과: 6-case matrix 모두 `SIGSEGV(11)` 재현, ptrace-lite exec/crash context capture 성공
    - v236 crash pattern: fault addr `0xa1`, linker64 PC file offset `0x1002f4`, regset `272` bytes
-   - 다음 방향: v237 linker64 offset symbolization/disassembly 또는 Android-vs-native process context comparison
+   - v237 계획서: `docs/plans/NATIVE_INIT_V237_LINKER_OFFSET_SYMBOLIZATION_PLAN_2026-05-18.md`
+   - v237 host tool: `scripts/revalidation/wifi_linker_offset_symbolize.py`
+   - v237 현재 결과: v236 evidence 6건에서 offset `0x1002f4` 일치 확인, matching linker64 ELF 부재로 `linker-offset-symbolization-blocked-no-elf`
+   - v237 다음 실행: bridge/NCM 복구 후 `--pull-from-device analyze`로 `/mnt/system/system/apex/com.android.runtime/bin/linker64` export + readelf/objdump 분석
    - 아직 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 승인 전까지 blocked
 
 ---

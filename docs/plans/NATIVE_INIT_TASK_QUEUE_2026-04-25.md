@@ -1950,6 +1950,32 @@
   - v237 linker64 offset symbolization/disassembly or Android-vs-native process context comparison
   - Wi-Fi daemon start remains blocked
 
+### V237. Linker Offset Symbolization — PREPARED / WAITING FOR LINKER ELF
+
+- 계획: `docs/plans/NATIVE_INIT_V237_LINKER_OFFSET_SYMBOLIZATION_PLAN_2026-05-18.md`
+- 보고서: `docs/reports/NATIVE_INIT_V237_LINKER_OFFSET_SYMBOLIZATION_2026-05-18.md`
+- 기준:
+  - native device baseline target remains `A90 Linux init 0.9.59 (v159)`
+  - v237는 PID1 boot image 변경 없이 host-side evidence tooling만 추가했다
+  - v236 decision은 `android-linker-crash-context-captured`
+- 구현:
+  - host wrapper `scripts/revalidation/wifi_linker_offset_symbolize.py`
+  - v236 crash text parser: PC + linker64 maps 기반 file offset 계산
+  - optional read-only linker64 pull: `mountsystem ro` + `toybox base64` from allowlisted path
+  - host `readelf`/`objdump` section/symbol/disassembly analysis
+- 검증:
+  - Python compile PASS
+  - plan smoke PASS
+  - no-ELF analysis: v236 6-case evidence parsed, offset set = `0x1002f4`
+  - local ELF smoke: section/disassembly machinery PASS against static helper binary
+- 현재 blocker:
+  - matching Android `linker64` ELF is not present in the checkout
+  - current serial/NCM access was unavailable during this run
+- 다음 실행 항목:
+  - bridge/NCM 복구 후 `python3 scripts/revalidation/wifi_linker_offset_symbolize.py --out-dir tmp/wifi/v237-linker-offset-symbolize-live --pull-from-device analyze`
+  - PASS 후 linker64 disassembly/symbol 결과로 Android-vs-native process context comparison 범위를 좁힌다
+  - Wi-Fi daemon start remains blocked
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
