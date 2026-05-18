@@ -2363,6 +2363,31 @@
   - first bounded live start-only operator approval review, or
   - no-start QRTR nameservice visibility / property-read surface analysis
 
+### V251. CNSS Property Surface — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V251_CNSS_PROPERTY_SURFACE_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V251_CNSS_PROPERTY_SURFACE_2026-05-19.md`
+- host tool: `scripts/revalidation/wifi_cnss_property_surface.py`
+- output: `tmp/wifi/v251-cnss-property-surface/`
+- decision: `cnss-property-read-only-surface`
+- device live command: none required
+- daemon start: not executed
+- 검증:
+  - `python3 -m py_compile scripts/revalidation/wifi_cnss_property_surface.py` PASS
+  - `git diff --check` PASS
+  - host-only `file`/`readelf -Ws`/`strings -a` analysis PASS
+  - input binary: `tmp/wifi/v226-vendor-root-live-export/vendor-source/bin/cnss-daemon`
+- findings:
+  - property read symbols: `property_get`, `property_get_int32`
+  - property write/control symbols: none detected
+  - detected property keys: `persist.vendor.cnss-daemon.debug_level`, `persist.vendor.cnss-daemon.hw_trc_disable_override`, `persist.vendor.cnss-daemon.kmsg_logging`, `ro.baseband`, `ro.board.platform`, `ro.vendor.extension_library`
+- 해석:
+  - property service/area gap is likely read/default risk, not a write/control-surface risk
+  - `/data/vendor/wifi/sockets/...` strings are a separate runtime filesystem/socket surface
+- 다음 실행 항목:
+  - first bounded live start-only operator approval review, or
+  - no-start `/data/vendor/wifi` socket path/runtime filesystem surface analysis
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
