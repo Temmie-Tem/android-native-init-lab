@@ -20,7 +20,7 @@
 - numeric `MAJOR.MINOR.PATCH`는 native init / boot image version이다.
 - `v###`는 project execution cycle이며 host tooling, 계획, 보고서, 검증 gate에도 사용한다.
 - `v###`가 항상 새 boot image나 device flash를 뜻하지 않는다.
-- 현재 예: native build `A90 Linux init 0.9.59`, device build tag `v159`, active execution cycle `v185`, device flash 없음.
+- 현재 예: native build `A90 Linux init 0.9.60`, device build tag `v261`, active execution cycle `v261`, device flash 완료.
 - 상세 규칙: `docs/operations/VERSIONING_POLICY.md`
 
 ---
@@ -1250,7 +1250,12 @@ Samsung bootloader
    - v260 보고서: `docs/reports/NATIVE_INIT_V260_CNSS_ZOMBIE_POSTFLIGHT_2026-05-19.md`
    - v260 결과: `scripts/revalidation/wifi_cnss_zombie_audit.py` 구현, current session에서 `5900 Zs [cnss-daemon]` PID1 zombie 확인, runner preflight는 `start-only-blocked`, analyzer는 process evidence 제공 시 `cnss-start-only-evidence-incomplete`
    - v260 해석: `pidof` absence만으로 CNSS cleanup을 판정하면 안 된다. 다음 live retry/QRTR probe 전 clean-state 또는 PID1 reaper hardening이 필요하다
-   - 다음 후보: PID1 orphan/zombie reaper hardening, 또는 reboot/clean-state validation 후 QRTR/QMI endpoint interaction no-scan probe
+   - v261 계획서: `docs/plans/NATIVE_INIT_V261_PID1_ORPHAN_REAPER_PLAN_2026-05-19.md`
+   - v261 보고서: `docs/reports/NATIVE_INIT_V261_PID1_ORPHAN_REAPER_2026-05-19.md`
+   - v261 결과: `A90 Linux init 0.9.60 (v261)` 실기 플래시 PASS, `reaper [status|run|verbose]` 추가, `pid1guard` reaper 항목 PASS, CNSS zombie audit clean PASS
+   - v261 live retry: explicit approval 후 bounded CNSS start-only retry PASS, decision `start-only-pass`, `reaped=1`, `postflight_safe=1`, postflight CNSS process clean PASS
+   - v261 해석: PID1 orphan reaper와 process-table audit gate가 동작한다. 다음 후보는 QRTR/QMI endpoint interaction no-scan probe 또는 CNSS warning/perfd/kmsg noise 개선이다
+   - 다음 후보: QRTR/QMI endpoint interaction no-scan probe, CNSS warning surface cleanup, 또는 broader Wi-Fi readiness gate
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
 ---

@@ -9,6 +9,7 @@
 #include "a90_config.h"
 #include "a90_log.h"
 #include "a90_netservice.h"
+#include "a90_reaper.h"
 #include "a90_runtime.h"
 #include "a90_selftest.h"
 #include "a90_service.h"
@@ -186,6 +187,19 @@ int a90_pid1_guard_run(const struct shell_command *commands, size_t command_coun
             "registered=%d expected=%d",
             a90_service_count(),
             A90_SERVICE_COUNT);
+
+    {
+        char reaper_summary[128];
+
+        (void)a90_reaper_reap_orphans("pid1guard");
+        a90_reaper_summary(reaper_summary, sizeof(reaper_summary));
+        guard_add("reaper",
+                A90_PID1_GUARD_PASS,
+                0,
+                0,
+                "%s",
+                reaper_summary);
+    }
 
     rc = a90_usb_gadget_status(&usb_status);
     if (rc == 0) {

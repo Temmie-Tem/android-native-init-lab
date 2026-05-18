@@ -8,6 +8,12 @@
     { label, summary, { d1, d2, d3, d4, d5 } }
 
 static const struct a90_changelog_entry changelog_entries[] = {
+    ENTRY("0.9.60 v261", "PID1 ORPHAN REAPER",
+          "0.9.60 v261 PID1 ORPHAN REAPER",
+          "Adds PID1 waitpid(-1) orphan/zombie reap polling",
+          "Blocks future CNSS start-only retries when process-table residue exists",
+          "Adds reaper command and pid1guard summary coverage",
+          "Prepares clean-state validation before QRTR/QMI probing"),
     ENTRY("0.9.59 v159", "TRACEFS FEASIBILITY",
           "0.9.59 v159 TRACEFS FEASIBILITY",
           "Adds read-only tracefs and ftrace feasibility command",

@@ -10,8 +10,8 @@ The numeric version is the canonical version for the native init boot artifact.
 
 Examples:
 
-- `A90 Linux init 0.9.59`
-- `0.9.59`
+- `A90 Linux init 0.9.60`
+- `0.9.60`
 
 Increase this version only when the device boot artifact changes:
 
@@ -27,13 +27,13 @@ cycles that run on an unchanged device image.
 Current canonical native build:
 
 ```text
-Native build: A90 Linux init 0.9.59
-Device build tag: v159
-Boot image: stage3/boot_linux_v159.img
+Native build: A90 Linux init 0.9.60
+Device build tag: v261
+Boot image: stage3/boot_linux_v261.img
 ```
 
-The embedded `v159` tag remains a legacy/native build tag for the current
-verified boot image. It does not mean every later `v###` cycle is a flashed
+The embedded `v261` tag is the current native build tag for the verified
+boot image. It does not mean every later `v###` cycle is a flashed
 device build.
 
 ## 2. Project Cycle: `v###`
@@ -55,7 +55,7 @@ Every `v###` plan or report must state:
 
 ```text
 Cycle label: v184
-Native build: A90 Linux init 0.9.59
+Native build: A90 Linux init 0.9.60
 Device flash: none
 Host commit: <git-sha>
 ```
@@ -90,7 +90,7 @@ The artifact hash is the final identity for reproduced deployment or validation.
 Read versions in this order:
 
 ```text
-0.9.59 = what is running on the phone
+0.9.60 = what is running on the phone
 v184   = what project/test cycle is being executed
 commit = what host/tooling source produced the evidence
 hash   = exact binary/evidence artifact identity
@@ -103,7 +103,7 @@ The v184 24h readiness test is not a v184 boot image.
 It is:
 
 ```text
-Native build: A90 Linux init 0.9.59 (device still running v159 build tag)
+Native build: A90 Linux init 0.9.60 (device running v261 build tag)
 Cycle label: v184 24h Serverization Readiness Gate
 Device flash: none
 Purpose: validate long-run host/device stability before serverization work

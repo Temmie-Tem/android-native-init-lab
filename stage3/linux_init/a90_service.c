@@ -2,6 +2,7 @@
 
 #include "a90_config.h"
 #include "a90_log.h"
+#include "a90_reaper.h"
 #include "a90_run.h"
 
 #include <errno.h>
@@ -188,6 +189,7 @@ void a90_service_reap_all(void) {
     for (index = 0; index < A90_SERVICE_COUNT; ++index) {
         (void)a90_service_reap(service_descriptors[index].id, NULL);
     }
+    (void)a90_reaper_reap_orphans("service-reap-all");
 }
 
 static const char *service_name_for_log(enum a90_service_id service) {
