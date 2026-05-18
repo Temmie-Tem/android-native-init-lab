@@ -2123,8 +2123,30 @@
   - `/dev/diag` and `/dev/qrtr` gaps
   - global `/system/vendor`/`/vendor` path alias gap outside private helper namespace
 - 다음 실행 항목:
-  - v243 native launcher contract plan for bounded CNSS start-only
+  - 완료: v243 native launcher contract plan for bounded CNSS start-only
+  - 다음: v244 non-starting launcher dry-run and harmless identity/capability probe
   - Wi-Fi scan/connect/link-up/credential/DHCP/routing remain blocked
+
+### V243. CNSS Launcher Contract Plan — EXECUTED / IDENTITY-CAPABILITY PROBE NEXT
+
+- 계획: `docs/plans/NATIVE_INIT_V243_CNSS_LAUNCHER_CONTRACT_PLAN_2026-05-18.md`
+- 보고서: `docs/reports/NATIVE_INIT_V243_CNSS_LAUNCHER_CONTRACT_PLAN_2026-05-18.md`
+- host tool: `scripts/revalidation/wifi_cnss_launcher_contract_plan.py`
+- 기준:
+  - v242 decision은 `cnss-runtime-inventory-ready-for-launcher-contract-plan`
+  - v243는 PID1 boot image 변경 없이 host-side contract planner만 추가했다
+  - daemon start는 계속 blocked
+- 검증:
+  - Python compile PASS
+  - contract planner PASS: decision `cnss-launcher-contract-ready`
+- 핵심 계약:
+  - target: `/vendor/bin/cnss-daemon -n -l` inside private Android execution namespace
+  - identity: uid/gid `system=1000`, supplemental groups `inet=3003`, `net_admin=3005`, `wifi=1010`
+  - capability: `NET_ADMIN` / `CAP_NET_ADMIN`
+  - required namespace: v241 private `/dev/null`, real linkerconfig, private VNDK APEX alias
+- 다음 실행 항목:
+  - v244 non-starting launcher dry-run and harmless identity/capability probe
+  - first `cnss-daemon` start-only remains blocked until v244 proves the launcher contract on a harmless target
 
 ### V187. Harness Broker Backend — PASS
 

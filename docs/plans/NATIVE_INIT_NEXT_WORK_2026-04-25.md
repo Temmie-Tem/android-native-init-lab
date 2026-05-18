@@ -1178,7 +1178,11 @@ Samsung bootloader
    - v242 보고서: `docs/reports/NATIVE_INIT_V242_CNSS_RUNTIME_REQUIREMENT_INVENTORY_2026-05-18.md`
    - v242 결과: decision `cnss-runtime-inventory-ready-for-launcher-contract-plan`
    - v242 해석: linker prerequisite은 닫혔지만 `cnss-daemon`은 user/group/capability, property socket, SELinux service context, diag/QRTR device, private path alias 계약이 필요하다
-   - 다음 후보: v243 native launcher contract plan for bounded CNSS start-only
+   - v243 계획서: `docs/plans/NATIVE_INIT_V243_CNSS_LAUNCHER_CONTRACT_PLAN_2026-05-18.md`
+   - v243 보고서: `docs/reports/NATIVE_INIT_V243_CNSS_LAUNCHER_CONTRACT_PLAN_2026-05-18.md`
+   - v243 결과: decision `cnss-launcher-contract-ready`
+   - v243 해석: start-only runner는 `system=1000`, groups `inet=3003/net_admin=3005/wifi=1010`, `CAP_NET_ADMIN`, v241 private namespace를 만족해야 한다
+   - 다음 후보: v244 non-starting launcher dry-run and harmless identity/capability probe
    - 아직 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 승인 전까지 blocked
 
 ---
