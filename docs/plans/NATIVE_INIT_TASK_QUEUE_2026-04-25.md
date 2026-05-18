@@ -2201,9 +2201,28 @@
   - no rfkill unblock, `ip link set wlan* up`, `iw scan/connect`
   - no ICNSS generic bind/unbind or persistent Android partition write
 - 다음 실행 항목:
-  - v246 helper `cnss-start-only` mode implementation plan
+  - 완료: v246 helper `cnss-start-only` mode implementation plan
+  - 다음: v246 helper mode safe implementation
   - or explicit operator approval gate for first bounded live start-only attempt
   - live start-only run requires separate operator approval after reviewing dry-run evidence
+
+### V246. CNSS Start-Only Helper Mode Plan — DOCUMENTED / SAFE IMPLEMENTATION NEXT
+
+- 계획: `docs/plans/NATIVE_INIT_V246_CNSS_START_ONLY_HELPER_MODE_PLAN_2026-05-19.md`
+- 기준:
+  - v245 decision은 `preflight-ready`
+  - v245 runner can build safe dry-run graph but helper does not yet implement `cnss-start-only`
+  - live daemon start remains blocked
+- 핵심 방향:
+  - add helper mode `--mode cnss-start-only`
+  - add helper-level guard flag `--allow-cnss-start-only`
+  - reuse v244 private namespace, bind-backed `/apex`, identity/groups/capability contract
+  - fixed daemon argv only: `/vendor/bin/cnss-daemon -n -l`
+  - parent observes, stops process group, reaps, and emits stable `cnss_start.*` keys
+- 다음 실행 항목:
+  - implement helper mode guard and safe parser/output
+  - run only static and safe fail-closed validation first
+  - live daemon execution requires separate approval
 
 ### V187. Harness Broker Backend — PASS
 
