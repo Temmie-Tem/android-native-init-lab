@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
+import re
 import subprocess
 import time
 from dataclasses import asdict, dataclass
@@ -38,6 +39,7 @@ LINKER_PROFILES = {
 }
 TARGET_PROFILES = ("system-toybox", "apex-linker64-self", "cnss-daemon")
 ENV_MODES = ("clean", "ld-debug-1", "ld-debug-2")
+MISSING_LIB_RE = re.compile(r'library "([^"]+)" not found')
 
 
 @dataclass
@@ -54,6 +56,7 @@ class MatrixResult:
     timed_out: bool
     stdout_bytes: int
     stderr_bytes: int
+    missing_libs: list[str]
     exec_captured: bool
     crash_captured: bool
     siginfo_signo: int
@@ -79,6 +82,15 @@ def parse_int(value: Any, default: int = -1) -> int:
         return int(str(value))
     except (TypeError, ValueError):
         return default
+
+
+def extract_missing_libs(text: str) -> list[str]:
+    libs: list[str] = []
+    for match in MISSING_LIB_RE.finditer(text):
+        lib = match.group(1)
+        if lib not in libs:
+            libs.append(lib)
+    return libs
 
 
 def helper_command(args: argparse.Namespace, linker_profile: str, profile: str, env_mode: str) -> list[str]:
@@ -108,6 +120,8 @@ def helper_command(args: argparse.Namespace, linker_profile: str, profile: str, 
         args.capture_mode,
         "--null-device-mode",
         args.null_device_mode,
+        "--vndk-apex-alias-mode",
+        args.vndk_apex_alias_mode,
     ]
     if args.linkerconfig_mode == "copy-real":
         command.extend(["--linkerconfig-source", args.linkerconfig_source])
@@ -187,6 +201,7 @@ def run_matrix(store: EvidenceStore, args: argparse.Namespace) -> list[MatrixRes
                         timed_out=fields.get("timed_out") == "1",
                         stdout_bytes=len(stdout_text.encode("utf-8")),
                         stderr_bytes=len(stderr_text.encode("utf-8")),
+                        missing_libs=extract_missing_libs(stderr_text),
                         exec_captured=fields.get("capture.exec_captured") == "1",
                         crash_captured=fields.get("capture.crash_captured") == "1",
                         siginfo_signo=parse_int(fields.get("capture.crash.siginfo.signo"), 0),
@@ -200,11 +215,37 @@ def run_matrix(store: EvidenceStore, args: argparse.Namespace) -> list[MatrixRes
     return results
 
 
-def decide(results: list[MatrixResult], null_device_mode: str) -> tuple[str, str, bool]:
+def decide(results: list[MatrixResult], null_device_mode: str, vndk_apex_alias_mode: str) -> tuple[str, str, bool]:
     if not results:
         return "android-linker-crash-capture-blocked", "matrix produced no results", False
     if any(not item.ok and item.decision == "android-linker-crash-context-blocked" for item in results):
         return "android-linker-crash-capture-blocked", "one or more helper runs were blocked", False
+    if vndk_apex_alias_mode != "none":
+        cnss = [item for item in results if item.profile == "cnss-daemon"]
+        if cnss and all(item.child_signal == 0 and item.child_exit_code == 0 for item in cnss):
+            return (
+                "android-linker-vndk-apex-alias-cnss-list-pass",
+                "private VNDK APEX alias allowed cnss-daemon linker-list dependency resolution to complete",
+                True,
+            )
+        if any("libcutils.so" in item.missing_libs for item in cnss):
+            return (
+                "android-linker-vndk-apex-alias-libcutils-persists",
+                "private VNDK APEX alias did not clear libcutils.so resolution",
+                False,
+            )
+        next_missing = sorted({lib for item in cnss for lib in item.missing_libs})
+        if next_missing:
+            return (
+                "android-linker-vndk-apex-alias-advanced-next-gap",
+                f"private VNDK APEX alias cleared libcutils.so but exposed next missing libraries: {','.join(next_missing)}",
+                True,
+            )
+        return (
+            "android-linker-vndk-apex-alias-manual-review",
+            "private VNDK APEX alias completed without libcutils.so but did not produce a clean linker-list pass",
+            True,
+        )
     if null_device_mode != "none":
         fault_0xa1 = [item for item in results if item.fault_addr.lower() == "0xa1"]
         if fault_0xa1:
@@ -232,6 +273,7 @@ def build_summary(manifest: dict[str, Any]) -> str:
         f"- reason: `{manifest['reason']}`",
         f"- out_dir: `{manifest['out_dir']}`",
         f"- null_device_mode: `{manifest.get('null_device_mode', 'none')}`",
+        f"- vndk_apex_alias_mode: `{manifest.get('vndk_apex_alias_mode', 'none')}`",
         "",
         "## Matrix",
         "",
@@ -318,7 +360,7 @@ def run(args: argparse.Namespace) -> int:
             decision, reason, pass_ok = "android-linker-crash-context-blocked", f"real apex libraries config missing at {args.apex_libraries_source}", False
         else:
             results = run_matrix(store, args)
-            decision, reason, pass_ok = decide(results, args.null_device_mode)
+            decision, reason, pass_ok = decide(results, args.null_device_mode, args.vndk_apex_alias_mode)
         postflight = {
             "selftest": device_capture(store, args, "post-selftest", ["selftest", "verbose"], timeout=max(args.timeout, 20.0)),
             "mounts": device_capture(store, args, "post-mounts", ["cat", "/proc/mounts"], timeout=args.timeout),
@@ -339,6 +381,7 @@ def run(args: argparse.Namespace) -> int:
         "linker_paths": {item: LINKER_PROFILES[item] for item in args.linker_profiles},
         "capture_mode": args.capture_mode,
         "null_device_mode": args.null_device_mode,
+        "vndk_apex_alias_mode": args.vndk_apex_alias_mode,
         "target_profiles": args.target_profiles,
         "env_modes": args.env_modes,
         "bridge": bridge,
@@ -367,6 +410,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--helper-timeout-sec", type=int, default=10)
     parser.add_argument("--capture-mode", choices=("ptrace-lite",), default="ptrace-lite")
     parser.add_argument("--null-device-mode", choices=("none", "dev-null", "dev-null-selinux"), default="none")
+    parser.add_argument("--vndk-apex-alias-mode", choices=("none", "v30-to-current"), default="none")
     parser.add_argument("--linkerconfig-mode", choices=("copy-real", "minimal-vendor", "none"), default="copy-real")
     parser.add_argument("--linkerconfig-source", default=DEFAULT_REAL_LINKERCONFIG)
     parser.add_argument("--apex-libraries-source", default=DEFAULT_REAL_APEX_LIBRARIES)

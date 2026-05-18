@@ -2065,9 +2065,37 @@
   - real linkerconfig expects `/apex/com.android.vndk.v30`, while mounted system image exposes `com.android.vndk.current`
   - not a generic linker crash, not a missing `/system/lib64/libcutils.so`, and not the v238 `/dev/null` blocker
 - 다음 실행 항목:
-  - v241 private-only VNDK APEX alias/materialization probe
-  - keep scope to `linker64 --list`; no daemon entrypoint execution
-  - Wi-Fi daemon start remains blocked
+  - 완료: v241 private-only VNDK APEX alias/materialization probe
+  - 다음: v242 controlled start-only runtime probe or runtime requirement inventory
+  - Wi-Fi daemon start remains blocked until an explicit start-only plan is approved
+
+### V241. Private VNDK APEX Alias Probe — EXECUTED / CNSS LINKER-LIST PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V241_VNDK_APEX_ALIAS_PROBE_PLAN_2026-05-18.md`
+- 보고서: `docs/reports/NATIVE_INIT_V241_VNDK_APEX_ALIAS_PROBE_2026-05-18.md`
+- 기준:
+  - native device baseline target remains `A90 Linux init 0.9.59 (v159)`
+  - v241는 PID1 boot image 변경 없이 helper/host probe만 확장했다
+  - v240 decision은 `android-linker-vndk-apex-version-alias-gap`
+- 구현:
+  - `a90_android_execns_probe v7`
+  - `--vndk-apex-alias-mode none|v30-to-current`
+  - private `/apex` symlink farm with `com.android.vndk.v30 -> /system/apex/com.android.vndk.current`
+  - host probe missing-library tracking and v241 classifier
+- 검증:
+  - helper static build PASS, SHA-256 `d6bd192b46cdeea93e8d0581335393d7101b3731a28cd441a1081e773329b2a4`
+  - helper deployed to `/cache/bin/a90_android_execns_probe`
+  - live probe PASS: decision `android-linker-vndk-apex-alias-cnss-list-pass`
+  - `system-linker` and `apex-linker` both resolve `cnss-daemon` linker-list with child exit `0`, signal `0`, missing libs `[]`
+  - postflight selftest PASS: `fail=0`
+- 해석:
+  - v240 blocker is closed inside a private namespace
+  - `cnss-daemon` linker dependency graph can complete with real linkerconfig plus private VNDK APEX alias
+  - this is not daemon start or Wi-Fi bring-up; runtime sockets/properties/device nodes/capabilities may still block start-only
+- 다음 실행 항목:
+  - v242 decide between controlled start-only runtime probe and runtime requirement inventory
+  - if start-only is selected, keep it short-timeout, opt-in, no scan/connect, process-group cleanup
+  - Wi-Fi scan/connect remains blocked
 
 ### V187. Harness Broker Backend — PASS
 

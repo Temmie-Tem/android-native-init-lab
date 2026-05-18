@@ -20,6 +20,7 @@
 #include <unistd.h>
 #include <sched.h>
 #include <elf.h>
+#include <dirent.h>
 
 #ifndef MNT_DETACH
 #define MNT_DETACH 2
@@ -31,7 +32,7 @@
 #define NT_PRSTATUS 1
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v6"
+#define EXECNS_VERSION "a90_android_execns_probe v7"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -47,6 +48,7 @@ struct config {
     const char *mode;
     const char *capture_mode;
     const char *null_device_mode;
+    const char *vndk_apex_alias_mode;
     const char *linkerconfig_mode;
     const char *linkerconfig_source;
     const char *apex_libraries_source;
@@ -75,6 +77,7 @@ struct paths {
     char proc[MAX_PATH_LEN];
     char apex[MAX_PATH_LEN];
     char linkerconfig[MAX_PATH_LEN];
+    bool apex_synthetic;
 };
 
 static void usage(FILE *out) {
@@ -90,6 +93,7 @@ static void usage(FILE *out) {
             "[--env-mode clean|ld-debug-1|ld-debug-2|auxv] "
             "[--capture-mode none|ptrace-lite] "
             "[--null-device-mode none|dev-null|dev-null-selinux] "
+            "[--vndk-apex-alias-mode none|v30-to-current] "
             "--mode linker-list "
             "[--linkerconfig-mode none|copy-real|minimal-vendor] "
             "[--linkerconfig-source /cache/path/to/ld.config.txt] "
@@ -129,6 +133,7 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
     cfg->env_mode = "clean";
     cfg->capture_mode = "none";
     cfg->null_device_mode = "none";
+    cfg->vndk_apex_alias_mode = "none";
 
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--help") == 0) {
@@ -160,6 +165,8 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             cfg->capture_mode = argv[++i];
         } else if (strcmp(argv[i], "--null-device-mode") == 0) {
             cfg->null_device_mode = argv[++i];
+        } else if (strcmp(argv[i], "--vndk-apex-alias-mode") == 0) {
+            cfg->vndk_apex_alias_mode = argv[++i];
         } else if (strcmp(argv[i], "--linkerconfig-mode") == 0) {
             cfg->linkerconfig_mode = argv[++i];
         } else if (strcmp(argv[i], "--linkerconfig-source") == 0) {
@@ -212,6 +219,8 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
         !(streq(cfg->null_device_mode, "none") ||
           streq(cfg->null_device_mode, "dev-null") ||
           streq(cfg->null_device_mode, "dev-null-selinux")) ||
+        !(streq(cfg->vndk_apex_alias_mode, "none") ||
+          streq(cfg->vndk_apex_alias_mode, "v30-to-current")) ||
         !(streq(cfg->env_mode, "clean") ||
           streq(cfg->env_mode, "ld-debug-1") ||
           streq(cfg->env_mode, "ld-debug-2") ||
@@ -550,11 +559,131 @@ static int materialize_null_devices(const struct config *cfg,
     return 0;
 }
 
+static bool safe_apex_name(const char *name) {
+    return name != NULL &&
+           name[0] != '\0' &&
+           strcmp(name, ".") != 0 &&
+           strcmp(name, "..") != 0 &&
+           strchr(name, '/') == NULL;
+}
+
+static int symlink_apex_entry(const struct paths *paths,
+                              const char *name,
+                              const char *target_name,
+                              char *error_buf,
+                              size_t error_size) {
+    char link_path[MAX_PATH_LEN];
+    char target_path[MAX_PATH_LEN];
+    int rc;
+
+    if (!safe_apex_name(name) || !safe_apex_name(target_name)) {
+        errno = EINVAL;
+        snprintf(error_buf, error_size, "unsafe apex name");
+        return -1;
+    }
+    if (append_path(link_path, sizeof(link_path), paths->apex, name) < 0) {
+        snprintf(error_buf, error_size, "apex link path: %s", strerror(errno));
+        return -1;
+    }
+    rc = snprintf(target_path, sizeof(target_path), "/system/apex/%s", target_name);
+    if (rc < 0 || (size_t)rc >= sizeof(target_path)) {
+        snprintf(error_buf, error_size, "apex target path too long");
+        return -1;
+    }
+    if (symlink(target_path, link_path) < 0 && errno != EEXIST) {
+        snprintf(error_buf, error_size, "symlink apex %s: %s", name, strerror(errno));
+        return -1;
+    }
+    return 0;
+}
+
+static int materialize_apex_symlink_farm(const struct config *cfg,
+                                         struct paths *paths,
+                                         const char *system_apex,
+                                         char *error_buf,
+                                         size_t error_size) {
+    DIR *dir;
+    struct dirent *entry;
+    char current_source[MAX_PATH_LEN];
+    char v30_link[MAX_PATH_LEN];
+
+    paths->apex_synthetic = true;
+    dir = opendir(system_apex);
+    if (dir == NULL) {
+        snprintf(error_buf, error_size, "opendir system apex: %s", strerror(errno));
+        return -1;
+    }
+    while ((entry = readdir(dir)) != NULL) {
+        if (!safe_apex_name(entry->d_name)) {
+            continue;
+        }
+        if (symlink_apex_entry(paths, entry->d_name, entry->d_name, error_buf, error_size) < 0) {
+            closedir(dir);
+            return -1;
+        }
+    }
+    closedir(dir);
+
+    if (!streq(cfg->vndk_apex_alias_mode, "v30-to-current")) {
+        return 0;
+    }
+    if (append_path(current_source,
+                    sizeof(current_source),
+                    system_apex,
+                    "com.android.vndk.current") < 0) {
+        snprintf(error_buf, error_size, "vndk current path: %s", strerror(errno));
+        return -1;
+    }
+    if (access(current_source, R_OK | X_OK) < 0) {
+        snprintf(error_buf, error_size, "vndk current missing: %s", strerror(errno));
+        return -1;
+    }
+    if (append_path(v30_link, sizeof(v30_link), paths->apex, "com.android.vndk.v30") < 0) {
+        snprintf(error_buf, error_size, "vndk v30 link path: %s", strerror(errno));
+        return -1;
+    }
+    if (access(v30_link, F_OK) == 0) {
+        return 0;
+    }
+    if (errno != ENOENT) {
+        snprintf(error_buf, error_size, "stat vndk v30 link: %s", strerror(errno));
+        return -1;
+    }
+    return symlink_apex_entry(paths,
+                              "com.android.vndk.v30",
+                              "com.android.vndk.current",
+                              error_buf,
+                              error_size);
+}
+
+static void cleanup_dir_entries(const char *path) {
+    DIR *dir = opendir(path);
+    struct dirent *entry;
+
+    if (dir == NULL) {
+        return;
+    }
+    while ((entry = readdir(dir)) != NULL) {
+        char child[MAX_PATH_LEN];
+
+        if (!safe_apex_name(entry->d_name)) {
+            continue;
+        }
+        if (append_path(child, sizeof(child), path, entry->d_name) == 0) {
+            unlink(child);
+        }
+    }
+    closedir(dir);
+}
+
 static void cleanup_paths(const struct paths *paths) {
     char linkerconfig_file[MAX_PATH_LEN];
 
     if (paths->apex[0] != '\0') {
         umount2(paths->apex, MNT_DETACH);
+        if (paths->apex_synthetic) {
+            cleanup_dir_entries(paths->apex);
+        }
     }
     if (paths->linkerconfig[0] != '\0') {
         umount2(paths->linkerconfig, MNT_DETACH);
@@ -810,6 +939,10 @@ static void print_preexec_context(const struct config *cfg, const struct paths *
     print_context_path(paths, "ld_config", "/linkerconfig/ld.config.txt");
     print_context_path(paths, "apex_libraries", "/linkerconfig/apex.libraries.config.txt");
     print_context_path(paths, "apex_runtime", "/apex/com.android.runtime");
+    print_context_path(paths, "apex_vndk_v30", "/apex/com.android.vndk.v30");
+    print_context_path(paths, "apex_vndk_v30_libcutils", "/apex/com.android.vndk.v30/lib64/libcutils.so");
+    print_context_path(paths, "apex_vndk_current", "/apex/com.android.vndk.current");
+    print_context_path(paths, "apex_vndk_current_libcutils", "/apex/com.android.vndk.current/lib64/libcutils.so");
     print_context_path(paths, "system_lib64", "/system/lib64");
     print_context_path(paths, "vendor_lib64", "/vendor/lib64");
     print_context_path(paths, "proc_self_exe", "/proc/self/exe");
@@ -1392,8 +1525,12 @@ static int setup_namespace(const struct config *cfg,
         return -1;
     }
     if (access(system_apex, R_OK | X_OK) == 0) {
-        if (bind_ro(system_apex, paths->apex) < 0) {
-            snprintf(error_buf, error_size, "bind apex: %s", strerror(errno));
+        if (streq(cfg->vndk_apex_alias_mode, "none")) {
+            if (bind_ro(system_apex, paths->apex) < 0) {
+                snprintf(error_buf, error_size, "bind apex: %s", strerror(errno));
+                return -1;
+            }
+        } else if (materialize_apex_symlink_farm(cfg, paths, system_apex, error_buf, error_size) < 0) {
             return -1;
         }
     } else {
@@ -1461,6 +1598,7 @@ int main(int argc, char **argv) {
     printf("mode=%s\n", cfg.mode);
     printf("capture_mode=%s\n", cfg.capture_mode);
     printf("null_device_mode=%s\n", cfg.null_device_mode);
+    printf("vndk_apex_alias_mode=%s\n", cfg.vndk_apex_alias_mode);
     printf("linkerconfig_mode=%s\n", cfg.linkerconfig_mode);
     printf("target_profile=%s\n", cfg.target_profile);
     printf("env_mode=%s\n", cfg.env_mode);
@@ -1500,6 +1638,12 @@ int main(int argc, char **argv) {
            streq(cfg.linkerconfig_mode, "none")
                ? (paths.linkerconfig[0] != '\0' ? "/mnt/system/linkerconfig" : "<absent>")
                : "<private-materialized>");
+    printf("apex_mount_source=%s\n",
+           paths.apex[0] == '\0'
+               ? "<absent>"
+               : (streq(cfg.vndk_apex_alias_mode, "none")
+                      ? "/mnt/system/system/apex"
+                      : "<private-symlink-farm>"));
     printf("linkerconfig_bytes=%zu\n", linkerconfig_bytes);
     printf("linkerconfig_hash=0x%016llx\n", (unsigned long long)linkerconfig_hash);
     print_preexec_context(&cfg, &paths);
