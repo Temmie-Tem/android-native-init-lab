@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""v245 safe CNSS start-only runner planner.
+"""CNSS start-only runner planner and guarded live launcher.
 
 Default modes are non-starting. The live `run` mode intentionally fails closed
-until a later explicit implementation is reviewed and approved.
+unless all explicit dangerous flags are supplied.
 """
 
 from __future__ import annotations
@@ -18,10 +18,10 @@ from typing import Any
 from a90_kernel_tools import REPO_ROOT, capture_to_manifest, collect_host_metadata, markdown_table, repo_path, run_capture
 from a90harness.evidence import EvidenceStore
 
-DEFAULT_OUT_DIR = Path("tmp/wifi/v245-cnss-start-only-runner")
+DEFAULT_OUT_DIR = Path("tmp/wifi/v247-cnss-start-only-runner")
 DEFAULT_EXPECT_VERSION = "A90 Linux init 0.9.59 (v159)"
 DEFAULT_HELPER = "/cache/bin/a90_android_execns_probe"
-DEFAULT_HELPER_SHA256 = "5ae105f0d397f845cd602eb4b283cdbd817146eff9405d10c090320eded25c65"
+DEFAULT_HELPER_SHA256 = "77fbdcdcbc6774abe5e34712097496edbac4a4ed763d87c82cf02effb88cd319"
 DEFAULT_HELPER_TIMEOUT_SEC = 10
 
 REQUIRED_MANIFESTS = {
@@ -80,6 +80,8 @@ DENIED_TEXT_PATTERNS = (
     re.compile(r"\b/sys/bus/platform/drivers/icnss/(?:bind|unbind)\b", re.IGNORECASE),
     re.compile(r"\bsetprop\b|\bctl\.start\b|\bclass_start\b", re.IGNORECASE),
 )
+
+CNSS_START_RE = re.compile(r"^cnss_start\.([A-Za-z0-9_]+)=(.*)$")
 
 
 def now_iso() -> str:
@@ -156,7 +158,7 @@ def build_dry_run_plan(args: argparse.Namespace) -> dict[str, Any]:
     joined = " ".join(argv)
     denied_matches = [pattern.pattern for pattern in DENIED_TEXT_PATTERNS if pattern.search(joined)]
     return {
-        "mode": "v245-cnss-start-only",
+        "mode": "v247-cnss-start-only",
         "daemon_start_executed": False,
         "helper": args.helper,
         "helper_expected_sha256": args.helper_sha256,
@@ -191,6 +193,37 @@ def build_dry_run_plan(args: argparse.Namespace) -> dict[str, Any]:
             "icnss_bind_unbind": False,
             "auto_reboot": False,
         },
+    }
+
+
+def parse_cnss_start_keys(text: str) -> dict[str, str]:
+    keys: dict[str, str] = {}
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        match = CNSS_START_RE.match(line)
+        if match:
+            keys[match.group(1)] = match.group(2).strip()
+    return keys
+
+
+def bool_key(keys: dict[str, str], name: str) -> bool:
+    return keys.get(name) == "1"
+
+
+def build_start_observation(capture: Any) -> dict[str, Any]:
+    keys = parse_cnss_start_keys(capture.text)
+    return {
+        "capture": capture_to_manifest(capture),
+        "cnss_start": keys,
+        "has_begin": keys.get("begin") == "1",
+        "has_end": keys.get("end") == "1",
+        "helper_result": keys.get("result", "missing"),
+        "helper_reason": keys.get("reason", ""),
+        "exec_attempted": bool_key(keys, "exec_attempted"),
+        "child_started": bool_key(keys, "child_started"),
+        "postflight_safe": bool_key(keys, "postflight_safe"),
+        "reaped": bool_key(keys, "reaped"),
+        "timed_out": bool_key(keys, "timed_out"),
     }
 
 
@@ -229,6 +262,7 @@ def decide(mode: str,
            prereq_checks: list[dict[str, Any]],
            dry_run_plan: dict[str, Any],
            preflight_summary: dict[str, Any] | None,
+           start_observation: dict[str, Any] | None,
            args: argparse.Namespace) -> tuple[str, str, bool]:
     prereq_ok = all(item.get("pass") for item in prereq_checks)
     if not prereq_ok:
@@ -245,7 +279,23 @@ def decide(mode: str,
         return "preflight-ready", "read-only preflight and dry-run graph are ready; no daemon execution performed", True
     if not (args.allow_daemon_start and args.assume_yes and args.i_understand_reboot_only_recovery):
         return "start-only-blocked", "daemon start requires explicit dangerous flags", False
-    return "start-only-blocked", "live daemon start is intentionally not implemented in v245 safe runner", False
+    if start_observation is None:
+        return "manual-review-required", "approved run did not produce a start observation", False
+    if not start_observation["capture"].get("ok"):
+        return "manual-review-required", "helper run command failed before a trusted result was parsed", False
+    if not (start_observation.get("has_begin") and start_observation.get("has_end")):
+        return "manual-review-required", "helper output is missing cnss_start begin/end markers", False
+    helper_result = start_observation.get("helper_result", "missing")
+    postflight_safe = bool(start_observation.get("postflight_safe"))
+    if helper_result == "start-only-pass":
+        return helper_result, start_observation.get("helper_reason", "helper reported pass"), postflight_safe
+    if helper_result == "start-only-runtime-gap":
+        return helper_result, start_observation.get("helper_reason", "helper reported runtime gap"), postflight_safe
+    if helper_result == "start-only-reboot-required":
+        return helper_result, start_observation.get("helper_reason", "helper could not prove safe cleanup"), False
+    if helper_result == "start-only-blocked":
+        return helper_result, start_observation.get("helper_reason", "helper blocked start"), False
+    return "manual-review-required", f"unrecognized helper result: {helper_result}", False
 
 
 def render_summary(manifest: dict[str, Any]) -> str:
@@ -259,7 +309,7 @@ def render_summary(manifest: dict[str, Any]) -> str:
         for item in manifest["prerequisite_checks"]
     ]
     lines = [
-        "# v245 CNSS Start-Only Runner\n\n",
+        "# CNSS Start-Only Runner\n\n",
         f"- generated: `{manifest['created']}`\n",
         f"- mode: `{manifest['mode']}`\n",
         f"- result: `{'PASS' if manifest['pass'] else 'FAIL'}`\n",
@@ -288,11 +338,24 @@ def render_summary(manifest: dict[str, Any]) -> str:
                 f"- active Wi-Fi warnings: `{preflight['active_wifi_warnings']}`\n\n",
             ]
         )
+    if manifest.get("start_observation") is not None:
+        observation = manifest["start_observation"]
+        lines.extend(
+            [
+                "## Start Observation\n\n",
+                f"- helper result: `{observation['helper_result']}`\n",
+                f"- helper reason: `{observation['helper_reason']}`\n",
+                f"- exec attempted: `{observation['exec_attempted']}`\n",
+                f"- child started: `{observation['child_started']}`\n",
+                f"- postflight safe: `{observation['postflight_safe']}`\n",
+                f"- reaped: `{observation['reaped']}`\n\n",
+            ]
+        )
     lines.extend(
         [
             "## Guardrails\n\n",
             "- `cnss-daemon` is not executed by plan/preflight/dry-run modes.\n",
-            "- live `run` remains fail-closed in v245 safe runner.\n",
+            "- live `run` requires all explicit dangerous flags and helper-side allow flag.\n",
             "- Wi-Fi scan/connect/link-up/credential/DHCP/routing remain blocked.\n",
             "- `cnss_diag`, ICNSS bind/unbind, rfkill unblock, and persistent Android writes remain blocked.\n",
         ]
@@ -312,7 +375,47 @@ def build_manifest(args: argparse.Namespace, mode: str) -> dict[str, Any]:
     if mode in {"preflight", "dry-run", "run"}:
         preflight_records, preflight_summary = capture_preflight(store, args)
         store.write_json("preflight.json", {"summary": preflight_summary, "commands": preflight_records})
-    decision, reason, pass_ok = decide(mode, prereq_checks, dry_run_plan, preflight_summary, args)
+    start_observation: dict[str, Any] | None = None
+    approved_run = (
+        mode == "run"
+        and args.allow_daemon_start
+        and args.assume_yes
+        and args.i_understand_reboot_only_recovery
+    )
+    if (
+        approved_run
+        and all(item.get("pass") for item in prereq_checks)
+        and preflight_summary is not None
+        and preflight_summary.get("pass")
+        and not dry_run_plan["guardrails"]["denied_pattern_matches"]
+    ):
+        helper_command = ["run", *helper_start_argv(args)]
+        capture = run_capture(
+            args,
+            "cnss-start-only-run",
+            helper_command,
+            timeout=args.timeout + args.max_runtime_sec + 20.0,
+        )
+        store.write_text("commands/cnss-start-only-run.txt", capture.text if capture.text else capture.error + "\n")
+        start_observation = build_start_observation(capture)
+        store.write_json("start-observation.json", start_observation)
+        store.write_json(
+            "postflight.json",
+            {
+                "postflight_safe": start_observation["postflight_safe"],
+                "helper_result": start_observation["helper_result"],
+                "helper_reason": start_observation["helper_reason"],
+            },
+        )
+        store.write_json(
+            "cleanup.json",
+            {
+                "reaped": start_observation["reaped"],
+                "timed_out": start_observation["timed_out"],
+                "postflight_safe": start_observation["postflight_safe"],
+            },
+        )
+    decision, reason, pass_ok = decide(mode, prereq_checks, dry_run_plan, preflight_summary, start_observation, args)
     manifest = {
         "created": now_iso(),
         "mode": mode,
@@ -320,15 +423,16 @@ def build_manifest(args: argparse.Namespace, mode: str) -> dict[str, Any]:
         "decision": decision,
         "reason": reason,
         "out_dir": str(out_dir),
-        "daemon_start_executed": False,
+        "daemon_start_executed": bool(start_observation and start_observation.get("exec_attempted")),
         "host_metadata": collect_host_metadata(),
         "prerequisite_checks": prereq_checks,
         "dry_run_plan": dry_run_plan,
         "preflight_summary": preflight_summary,
         "preflight_commands": preflight_records,
+        "start_observation": start_observation,
         "guardrails": [
             "no daemon execution in plan/preflight/dry-run modes",
-            "run mode fail-closed until explicit later implementation",
+            "run mode requires --allow-daemon-start --assume-yes --i-understand-reboot-only-recovery",
             "no Wi-Fi scan/connect/link-up/credential/DHCP/routing",
             "no cnss_diag",
             "no rfkill unblock or ICNSS bind/unbind",

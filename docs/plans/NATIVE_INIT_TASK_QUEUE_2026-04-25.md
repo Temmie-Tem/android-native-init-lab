@@ -2236,28 +2236,39 @@
   - live start-only execution remains a separate approval gate after safe evidence review
   - Wi-Fi scan/connect/link-up/credential/DHCP/routing remain blocked
 
-### V247. CNSS Start/Observe/Stop Body Plan — DOCUMENTED
+### V247. CNSS Start/Observe/Stop Body — SAFE BODY PASS / LIVE APPROVAL REQUIRED
 
 - 계획: `docs/plans/NATIVE_INIT_V247_CNSS_START_OBSERVE_STOP_BODY_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V247_CNSS_START_OBSERVE_STOP_BODY_2026-05-19.md`
+- helper: `stage3/linux_init/helpers/a90_android_execns_probe.c`
+- host tool: `scripts/revalidation/wifi_cnss_start_only_runner.py`
 - 기준:
   - v246 decision은 `preflight-ready`
   - v246 helper supports guarded `--mode cnss-start-only`
   - v246 no-allow helper run returns `cnss_start.result=start-only-blocked`
   - host runner `plan`/`preflight`/`dry-run` are PASS and `run` without flags remains fail-closed
-- 목표:
+- 구현:
   - implement exactly one bounded `/vendor/bin/cnss-daemon -n -l` start/observe/stop body behind `--allow-cnss-start-only`
   - preserve v246 no-allow behavior
   - keep host runner non-starting by default
   - capture stable `cnss_start.*` lifecycle keys for host parsing
+- 검증:
+  - helper SHA-256: `77fbdcdcbc6774abe5e34712097496edbac4a4ed763d87c82cf02effb88cd319`
+  - direct no-allow helper run: `cnss_start.result=start-only-blocked`
+  - runner `plan`: `dry-run-ready` / PASS / daemon not executed
+  - runner `preflight`: `preflight-ready` / PASS / daemon not executed
+  - runner `dry-run`: `preflight-ready` / PASS / daemon not executed
+  - runner `run` without flags: `start-only-blocked` / expected fail-closed / daemon not executed
+  - `pidof cnss-daemon`: absent after safe validation
 - guardrails:
   - no Wi-Fi scan/connect/link-up/credential/DHCP/routing
   - no `cnss_diag`
   - no rfkill unblock, `ip link set wlan* up`, `iw scan/connect`
   - no ICNSS bind/unbind, firmware mutation, persistent Android partition write, or automatic reboot
 - 다음 실행 항목:
-  - implement helper body and host parser
-  - run static validation and safe no-start live validation only
   - stop at `LIVE APPROVAL REQUIRED` before first daemon execution
+  - if approved, run exactly one bounded v247 `run --allow-daemon-start --assume-yes --i-understand-reboot-only-recovery`
+  - if not approved, plan v248 runtime primitive preflight/deeper evidence without daemon start
 
 ### V187. Harness Broker Backend — PASS
 

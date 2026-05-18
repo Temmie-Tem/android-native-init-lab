@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include <signal.h>
 #include <stdbool.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -1189,6 +1190,75 @@ static int restrict_to_net_admin_capability(void) {
     return capset_current(data);
 }
 
+static int apply_android_identity_contract(const char *prefix) {
+    gid_t groups[] = {A90_AID_INET, A90_AID_NET_ADMIN, A90_AID_WIFI};
+    int ambient_rc;
+    bool pass = true;
+
+    printf("%s.expected.uid=%d\n", prefix, A90_AID_SYSTEM);
+    printf("%s.expected.gid=%d\n", prefix, A90_AID_SYSTEM);
+    printf("%s.expected.groups=%d,%d,%d\n",
+           prefix,
+           A90_AID_INET,
+           A90_AID_NET_ADMIN,
+           A90_AID_WIFI);
+    printf("%s.expected.cap=CAP_NET_ADMIN\n", prefix);
+    if (print_identity_snapshot("cnss.identity.before") < 0) {
+        pass = false;
+    }
+    if (setgroups((int)(sizeof(groups) / sizeof(groups[0])), groups) < 0) {
+        printf("%s.setgroups.error=%s\n", prefix, strerror(errno));
+        pass = false;
+    } else {
+        printf("%s.setgroups.ok=1\n", prefix);
+    }
+    if (prctl(PR_SET_KEEPCAPS, 1, 0, 0, 0) < 0) {
+        printf("%s.pr_set_keepcaps.error=%s\n", prefix, strerror(errno));
+        pass = false;
+    } else {
+        printf("%s.pr_set_keepcaps.ok=1\n", prefix);
+    }
+    if (ensure_net_admin_inheritable_before_drop() < 0) {
+        printf("%s.pre_drop_inheritable.error=%s\n", prefix, strerror(errno));
+        pass = false;
+    } else {
+        printf("%s.pre_drop_inheritable.ok=1\n", prefix);
+    }
+    if (setresgid(A90_AID_SYSTEM, A90_AID_SYSTEM, A90_AID_SYSTEM) < 0) {
+        printf("%s.setresgid.error=%s\n", prefix, strerror(errno));
+        pass = false;
+    } else {
+        printf("%s.setresgid.ok=1\n", prefix);
+    }
+    if (setresuid(A90_AID_SYSTEM, A90_AID_SYSTEM, A90_AID_SYSTEM) < 0) {
+        printf("%s.setresuid.error=%s\n", prefix, strerror(errno));
+        pass = false;
+    } else {
+        printf("%s.setresuid.ok=1\n", prefix);
+    }
+    if (restrict_to_net_admin_capability() < 0) {
+        printf("%s.capset_net_admin.error=%s\n", prefix, strerror(errno));
+        pass = false;
+    } else {
+        printf("%s.capset_net_admin.ok=1\n", prefix);
+    }
+    errno = 0;
+    ambient_rc = prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, CAP_NET_ADMIN, 0, 0);
+    if (ambient_rc < 0) {
+        printf("%s.ambient_raise.error=%s\n", prefix, strerror(errno));
+        pass = false;
+    } else {
+        printf("%s.ambient_raise.ok=1\n", prefix);
+    }
+    printf("%s.ambient_raise.rc=%d\n", prefix, ambient_rc);
+    printf("%s.ambient_raise.errno=%d\n", prefix, ambient_rc < 0 ? errno : 0);
+    if (print_identity_snapshot("cnss.identity.after") < 0) {
+        pass = false;
+    }
+    printf("%s.preexec_status=%s\n", prefix, pass ? "pass" : "fail");
+    return pass ? 0 : -1;
+}
+
 static int run_identity_probe_child(const struct config *cfg, const struct paths *paths) {
     gid_t groups[] = {A90_AID_INET, A90_AID_NET_ADMIN, A90_AID_WIFI};
     int ambient_rc;
@@ -1904,6 +1974,128 @@ static int append_literal(struct buffer *buf, const char *text) {
     return buffer_append(buf, text, strlen(text));
 }
 
+static int append_format(struct buffer *buf, const char *fmt, ...) {
+    char small[1024];
+    char *dynamic_buf = NULL;
+    va_list ap;
+    va_list copy;
+    int needed;
+    int rc;
+
+    va_start(ap, fmt);
+    va_copy(copy, ap);
+    needed = vsnprintf(small, sizeof(small), fmt, ap);
+    va_end(ap);
+    if (needed < 0) {
+        va_end(copy);
+        return -1;
+    }
+    if ((size_t)needed < sizeof(small)) {
+        va_end(copy);
+        return buffer_append(buf, small, (size_t)needed);
+    }
+    dynamic_buf = malloc((size_t)needed + 1U);
+    if (dynamic_buf == NULL) {
+        va_end(copy);
+        return -1;
+    }
+    rc = vsnprintf(dynamic_buf, (size_t)needed + 1U, fmt, copy);
+    va_end(copy);
+    if (rc < 0) {
+        free(dynamic_buf);
+        return -1;
+    }
+    rc = buffer_append(buf, dynamic_buf, (size_t)rc);
+    free(dynamic_buf);
+    return rc;
+}
+
+static int append_proc_file_capture(struct buffer *buf,
+                                    pid_t pid,
+                                    const char *name,
+                                    size_t limit,
+                                    bool *captured) {
+    char path[MAX_PATH_LEN];
+    char tmp[4096];
+    size_t total = 0;
+    bool truncated = false;
+    int fd;
+
+    *captured = false;
+    proc_path(path, sizeof(path), pid, name);
+    if (append_format(buf, "A90_EXECNS_CNSS_PROC_%s_BEGIN path=%s limit=%zu\n", name, path, limit) < 0) {
+        return -1;
+    }
+    fd = open(path, O_RDONLY | O_CLOEXEC);
+    if (fd < 0) {
+        if (append_format(buf,
+                          "open-error=%s\nA90_EXECNS_CNSS_PROC_%s_END bytes=0 truncated=0\n",
+                          strerror(errno),
+                          name) < 0) {
+            return -1;
+        }
+        return 0;
+    }
+    *captured = true;
+    while (total < limit) {
+        size_t room = limit - total;
+        ssize_t nread = read(fd, tmp, room < sizeof(tmp) ? room : sizeof(tmp));
+
+        if (nread < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            append_format(buf, "\nread-error=%s\n", strerror(errno));
+            break;
+        }
+        if (nread == 0) {
+            break;
+        }
+        if (buffer_append(buf, tmp, (size_t)nread) < 0) {
+            close(fd);
+            return -1;
+        }
+        total += (size_t)nread;
+    }
+    if (total >= limit) {
+        truncated = true;
+    }
+    close(fd);
+    if (total == 0 || buf->data[buf->len - 1] != '\n') {
+        if (append_literal(buf, "\n") < 0) {
+            return -1;
+        }
+    }
+    return append_format(buf,
+                         "A90_EXECNS_CNSS_PROC_%s_END bytes=%zu truncated=%d\n",
+                         name,
+                         total,
+                         truncated ? 1 : 0);
+}
+
+static int append_proc_fd_summary(struct buffer *buf, pid_t pid, bool *captured) {
+    char path[MAX_PATH_LEN];
+    DIR *dir;
+    struct dirent *entry;
+    int count = 0;
+
+    *captured = false;
+    proc_path(path, sizeof(path), pid, "fd");
+    dir = opendir(path);
+    if (dir == NULL) {
+        return append_format(buf, "cnss_start.fd_summary.error=%s\n", strerror(errno));
+    }
+    while ((entry = readdir(dir)) != NULL) {
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+            continue;
+        }
+        count++;
+    }
+    closedir(dir);
+    *captured = true;
+    return append_format(buf, "cnss_start.fd_summary.count=%d\n", count);
+}
+
 static int run_cnss_start_only_guarded(const struct config *cfg,
                                        const struct paths *paths,
                                        struct buffer *stdout_buf,
@@ -1911,7 +2103,25 @@ static int run_cnss_start_only_guarded(const struct config *cfg,
                                        int *child_exit_code,
                                        int *child_signal,
                                        bool *timed_out) {
-    (void)paths;
+    int stdout_pipe[2] = {-1, -1};
+    int stderr_pipe[2] = {-1, -1};
+    bool stdout_open = true;
+    bool stderr_open = true;
+    bool child_done = false;
+    bool observable = false;
+    bool proc_status_captured = false;
+    bool fd_summary_captured = false;
+    bool maps_summary_captured = false;
+    bool term_sent = false;
+    bool kill_sent = false;
+    bool reaped = false;
+    bool postflight_safe = false;
+    bool exited_before_timeout = false;
+    long deadline;
+    pid_t pid = -1;
+    pid_t pgid = -1;
+    int status = 0;
+
     *child_exit_code = -1;
     *child_signal = 0;
     *timed_out = false;
@@ -1929,9 +2139,19 @@ static int run_cnss_start_only_guarded(const struct config *cfg,
         if (append_literal(stdout_buf, "cnss_start.allowed=0\n") < 0 ||
             append_literal(stdout_buf, "cnss_start.exec_attempted=0\n") < 0 ||
             append_literal(stdout_buf, "cnss_start.child_started=0\n") < 0 ||
+            append_literal(stdout_buf, "cnss_start.pid=-1\n") < 0 ||
+            append_literal(stdout_buf, "cnss_start.pgid=-1\n") < 0 ||
+            append_literal(stdout_buf, "cnss_start.observable=0\n") < 0 ||
+            append_literal(stdout_buf, "cnss_start.exited=0\n") < 0 ||
+            append_literal(stdout_buf, "cnss_start.exit_code=-1\n") < 0 ||
+            append_literal(stdout_buf, "cnss_start.signal=0\n") < 0 ||
+            append_literal(stdout_buf, "cnss_start.timed_out=0\n") < 0 ||
             append_literal(stdout_buf, "cnss_start.term_sent=0\n") < 0 ||
             append_literal(stdout_buf, "cnss_start.kill_sent=0\n") < 0 ||
             append_literal(stdout_buf, "cnss_start.reaped=0\n") < 0 ||
+            append_literal(stdout_buf, "cnss_start.proc_status_captured=0\n") < 0 ||
+            append_literal(stdout_buf, "cnss_start.fd_summary_captured=0\n") < 0 ||
+            append_literal(stdout_buf, "cnss_start.maps_summary_captured=0\n") < 0 ||
             append_literal(stdout_buf, "cnss_start.postflight_safe=1\n") < 0 ||
             append_literal(stdout_buf, "cnss_start.result=start-only-blocked\n") < 0 ||
             append_literal(stdout_buf, "cnss_start.reason=missing-allow-cnss-start-only\n") < 0 ||
@@ -1941,23 +2161,323 @@ static int run_cnss_start_only_guarded(const struct config *cfg,
         return 0;
     }
 
-    if (append_literal(stdout_buf, "cnss_start.allowed=1\n") < 0 ||
-        append_literal(stdout_buf, "cnss_start.exec_attempted=0\n") < 0 ||
-        append_literal(stdout_buf, "cnss_start.child_started=0\n") < 0 ||
-        append_literal(stdout_buf, "cnss_start.term_sent=0\n") < 0 ||
-        append_literal(stdout_buf, "cnss_start.kill_sent=0\n") < 0 ||
-        append_literal(stdout_buf, "cnss_start.reaped=0\n") < 0 ||
-        append_literal(stdout_buf, "cnss_start.postflight_safe=1\n") < 0 ||
-        append_literal(stdout_buf, "cnss_start.result=start-only-blocked\n") < 0 ||
-        append_literal(stdout_buf, "cnss_start.reason=live-start-not-implemented-in-v246-safe-build\n") < 0 ||
-        append_literal(stdout_buf, "cnss_start.end=1\n") < 0) {
+    if (append_literal(stdout_buf, "cnss_start.allowed=1\n") < 0) {
         return -1;
     }
-    if (append_literal(stderr_buf,
-                       "cnss-start-only live execution is intentionally not implemented in v246 safe build\n") < 0) {
-        return -1;
+    if (pipe2(stdout_pipe, O_CLOEXEC) < 0 || pipe2(stderr_pipe, O_CLOEXEC) < 0) {
+        if (append_format(stdout_buf,
+                          "cnss_start.exec_attempted=0\n"
+                          "cnss_start.child_started=0\n"
+                          "cnss_start.pid=-1\n"
+                          "cnss_start.pgid=-1\n"
+                          "cnss_start.observable=0\n"
+                          "cnss_start.exited=0\n"
+                          "cnss_start.exit_code=-1\n"
+                          "cnss_start.signal=0\n"
+                          "cnss_start.timed_out=0\n"
+                          "cnss_start.term_sent=0\n"
+                          "cnss_start.kill_sent=0\n"
+                          "cnss_start.reaped=0\n"
+                          "cnss_start.proc_status_captured=0\n"
+                          "cnss_start.fd_summary_captured=0\n"
+                          "cnss_start.maps_summary_captured=0\n"
+                          "cnss_start.postflight_safe=0\n"
+                          "cnss_start.result=manual-review-required\n"
+                          "cnss_start.reason=pipe-failed-%s\n"
+                          "cnss_start.end=1\n",
+                          strerror(errno)) < 0) {
+            return -1;
+        }
+        goto fail;
     }
+    pid = fork();
+    if (pid < 0) {
+        if (append_format(stdout_buf,
+                          "cnss_start.exec_attempted=0\n"
+                          "cnss_start.child_started=0\n"
+                          "cnss_start.pid=-1\n"
+                          "cnss_start.pgid=-1\n"
+                          "cnss_start.observable=0\n"
+                          "cnss_start.exited=0\n"
+                          "cnss_start.exit_code=-1\n"
+                          "cnss_start.signal=0\n"
+                          "cnss_start.timed_out=0\n"
+                          "cnss_start.term_sent=0\n"
+                          "cnss_start.kill_sent=0\n"
+                          "cnss_start.reaped=0\n"
+                          "cnss_start.proc_status_captured=0\n"
+                          "cnss_start.fd_summary_captured=0\n"
+                          "cnss_start.maps_summary_captured=0\n"
+                          "cnss_start.postflight_safe=0\n"
+                          "cnss_start.result=manual-review-required\n"
+                          "cnss_start.reason=fork-failed-%s\n"
+                          "cnss_start.end=1\n",
+                          strerror(errno)) < 0) {
+            return -1;
+        }
+        goto fail;
+    }
+    if (pid == 0) {
+        char *const daemon_argv[] = {
+            (char *)"/vendor/bin/cnss-daemon",
+            (char *)"-n",
+            (char *)"-l",
+            NULL,
+        };
+
+        close(stdout_pipe[0]);
+        close(stderr_pipe[0]);
+        dup2(stdout_pipe[1], STDOUT_FILENO);
+        dup2(stderr_pipe[1], STDERR_FILENO);
+        close(stdout_pipe[1]);
+        close(stderr_pipe[1]);
+        if (setsid() < 0) {
+            perror("setsid");
+            _exit(123);
+        }
+        if (chroot(paths->root) < 0) {
+            perror("chroot");
+            _exit(120);
+        }
+        if (chdir("/") < 0) {
+            perror("chdir");
+            _exit(121);
+        }
+        apply_child_env(cfg);
+        printf("cnss_child.begin=1\n");
+        if (apply_android_identity_contract("cnss_child") < 0) {
+            printf("cnss_child.end=1\n");
+            fflush(stdout);
+            _exit(126);
+        }
+        printf("cnss_child.exec_target=/vendor/bin/cnss-daemon -n -l\n");
+        fflush(stdout);
+        execv("/vendor/bin/cnss-daemon", daemon_argv);
+        printf("cnss_child.exec_error=%s\n", strerror(errno));
+        printf("cnss_child.end=1\n");
+        fflush(stdout);
+        _exit(127);
+    }
+
+    close(stdout_pipe[1]);
+    close(stderr_pipe[1]);
+    stdout_pipe[1] = -1;
+    stderr_pipe[1] = -1;
+    set_nonblock(stdout_pipe[0]);
+    set_nonblock(stderr_pipe[0]);
+    pgid = getpgid(pid);
+    if (pgid < 0) {
+        pgid = pid;
+    }
+    if (append_format(stdout_buf,
+                      "cnss_start.exec_attempted=1\n"
+                      "cnss_start.child_started=1\n"
+                      "cnss_start.pid=%ld\n"
+                      "cnss_start.pgid=%ld\n",
+                      (long)pid,
+                      (long)pgid) < 0) {
+        goto fail;
+    }
+    deadline = monotonic_ms() + cfg->timeout_sec * 1000L;
+
+    while (stdout_open || stderr_open || !child_done) {
+        struct pollfd fds[2];
+        int nfds = 0;
+        int poll_timeout = 50;
+        long now = monotonic_ms();
+
+        if (!child_done && now >= deadline) {
+            *timed_out = true;
+            break;
+        }
+        if (stdout_open) {
+            fds[nfds].fd = stdout_pipe[0];
+            fds[nfds].events = POLLIN | POLLHUP | POLLERR;
+            nfds++;
+        }
+        if (stderr_open) {
+            fds[nfds].fd = stderr_pipe[0];
+            fds[nfds].events = POLLIN | POLLHUP | POLLERR;
+            nfds++;
+        }
+        if (nfds > 0) {
+            int rc = poll(fds, nfds, poll_timeout);
+
+            if (rc > 0) {
+                int idx = 0;
+
+                if (stdout_open) {
+                    if (fds[idx].revents != 0) {
+                        drain_fd(stdout_pipe[0], stdout_buf, &stdout_open);
+                    }
+                    idx++;
+                }
+                if (stderr_open) {
+                    if (fds[idx].revents != 0) {
+                        drain_fd(stderr_pipe[0], stderr_buf, &stderr_open);
+                    }
+                }
+            }
+        } else {
+            usleep(50000);
+        }
+        if (!child_done) {
+            pid_t wait_rc = waitpid(pid, &status, WNOHANG);
+
+            if (wait_rc == pid) {
+                child_done = true;
+                reaped = true;
+                exited_before_timeout = !*timed_out;
+                if (WIFEXITED(status)) {
+                    *child_exit_code = WEXITSTATUS(status);
+                } else if (WIFSIGNALED(status)) {
+                    *child_signal = WTERMSIG(status);
+                }
+            } else if (wait_rc < 0 && errno != EINTR && errno != ECHILD) {
+                append_format(stdout_buf, "cnss_start.wait.error=%s\n", strerror(errno));
+                break;
+            }
+        }
+    }
+
+    if (!child_done && kill(pid, 0) == 0) {
+        observable = true;
+        append_proc_file_capture(stdout_buf, pid, "status", 8192, &proc_status_captured);
+        append_proc_fd_summary(stdout_buf, pid, &fd_summary_captured);
+        append_proc_file_capture(stdout_buf, pid, "maps", 65536, &maps_summary_captured);
+    }
+    if (!child_done) {
+        if (kill(-pgid, SIGTERM) == 0 || errno == ESRCH) {
+            term_sent = true;
+        }
+        deadline = monotonic_ms() + 1000L;
+        while (!child_done && monotonic_ms() < deadline) {
+            struct pollfd fds[2];
+            int nfds = 0;
+
+            if (stdout_open) {
+                fds[nfds].fd = stdout_pipe[0];
+                fds[nfds].events = POLLIN | POLLHUP | POLLERR;
+                nfds++;
+            }
+            if (stderr_open) {
+                fds[nfds].fd = stderr_pipe[0];
+                fds[nfds].events = POLLIN | POLLHUP | POLLERR;
+                nfds++;
+            }
+            if (nfds > 0 && poll(fds, nfds, 50) > 0) {
+                int idx = 0;
+
+                if (stdout_open) {
+                    if (fds[idx].revents != 0) {
+                        drain_fd(stdout_pipe[0], stdout_buf, &stdout_open);
+                    }
+                    idx++;
+                }
+                if (stderr_open && fds[idx].revents != 0) {
+                    drain_fd(stderr_pipe[0], stderr_buf, &stderr_open);
+                }
+            } else {
+                usleep(50000);
+            }
+            if (waitpid(pid, &status, WNOHANG) == pid) {
+                child_done = true;
+                reaped = true;
+                if (WIFEXITED(status)) {
+                    *child_exit_code = WEXITSTATUS(status);
+                } else if (WIFSIGNALED(status)) {
+                    *child_signal = WTERMSIG(status);
+                }
+            }
+        }
+    }
+    if (!child_done) {
+        if (kill(-pgid, SIGKILL) == 0 || errno == ESRCH) {
+            kill_sent = true;
+        }
+        deadline = monotonic_ms() + 1000L;
+        while (!child_done && monotonic_ms() < deadline) {
+            if (waitpid(pid, &status, WNOHANG) == pid) {
+                child_done = true;
+                reaped = true;
+                if (WIFEXITED(status)) {
+                    *child_exit_code = WEXITSTATUS(status);
+                } else if (WIFSIGNALED(status)) {
+                    *child_signal = WTERMSIG(status);
+                }
+                break;
+            }
+            usleep(50000);
+        }
+    }
+    if (stdout_open) {
+        drain_fd(stdout_pipe[0], stdout_buf, &stdout_open);
+    }
+    if (stderr_open) {
+        drain_fd(stderr_pipe[0], stderr_buf, &stderr_open);
+    }
+    postflight_safe = reaped && (kill(-pgid, 0) < 0 && errno == ESRCH);
+
+    if (append_format(stdout_buf,
+                      "cnss_start.observable=%d\n"
+                      "cnss_start.exited=%d\n"
+                      "cnss_start.exit_code=%d\n"
+                      "cnss_start.signal=%d\n"
+                      "cnss_start.timed_out=%d\n"
+                      "cnss_start.term_sent=%d\n"
+                      "cnss_start.kill_sent=%d\n"
+                      "cnss_start.reaped=%d\n"
+                      "cnss_start.proc_status_captured=%d\n"
+                      "cnss_start.fd_summary_captured=%d\n"
+                      "cnss_start.maps_summary_captured=%d\n"
+                      "cnss_start.postflight_safe=%d\n",
+                      observable ? 1 : 0,
+                      child_done ? 1 : 0,
+                      *child_exit_code,
+                      *child_signal,
+                      *timed_out ? 1 : 0,
+                      term_sent ? 1 : 0,
+                      kill_sent ? 1 : 0,
+                      reaped ? 1 : 0,
+                      proc_status_captured ? 1 : 0,
+                      fd_summary_captured ? 1 : 0,
+                      maps_summary_captured ? 1 : 0,
+                      postflight_safe ? 1 : 0) < 0) {
+        goto fail;
+    }
+    if (!postflight_safe) {
+        append_literal(stdout_buf,
+                       "cnss_start.result=start-only-reboot-required\n"
+                       "cnss_start.reason=process-not-proven-stopped\n");
+    } else if (*timed_out && observable) {
+        append_literal(stdout_buf,
+                       "cnss_start.result=start-only-pass\n"
+                       "cnss_start.reason=observed-until-timeout-clean-stop\n");
+    } else if (exited_before_timeout || *child_exit_code >= 0 || *child_signal != 0) {
+        append_literal(stdout_buf,
+                       "cnss_start.result=start-only-runtime-gap\n"
+                       "cnss_start.reason=child-exited-before-observe-window\n");
+    } else {
+        append_literal(stdout_buf,
+                       "cnss_start.result=manual-review-required\n"
+                       "cnss_start.reason=unclassified-lifecycle-state\n");
+    }
+    append_literal(stdout_buf, "cnss_start.end=1\n");
+    if (stdout_pipe[0] >= 0) close(stdout_pipe[0]);
+    if (stderr_pipe[0] >= 0) close(stderr_pipe[0]);
     return 0;
+
+fail:
+    if (pid > 0) {
+        kill(-pid, SIGKILL);
+        kill(pid, SIGKILL);
+        waitpid(pid, NULL, WNOHANG);
+    }
+    if (stdout_pipe[0] >= 0) close(stdout_pipe[0]);
+    if (stdout_pipe[1] >= 0) close(stdout_pipe[1]);
+    if (stderr_pipe[0] >= 0) close(stderr_pipe[0]);
+    if (stderr_pipe[1] >= 0) close(stderr_pipe[1]);
+    return -1;
 }
 
 static int setup_namespace(const struct config *cfg,
