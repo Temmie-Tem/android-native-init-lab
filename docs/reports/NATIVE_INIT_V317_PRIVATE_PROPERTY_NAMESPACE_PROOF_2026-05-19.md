@@ -51,6 +51,18 @@ Result: PASS.
 - Remote writes are constrained to `/mnt/sdext/a90/private-property-v317`.
 - NCM/tcpctl is not used for transfer.
 
+## Transfer Estimate
+
+The plan manifest estimates the approved live run before any mutation:
+
+- files: `5`
+- bytes: `524988`
+- chunk size: `384`
+- chunks: `1851`
+- estimated device commands: `1885`
+- max shell snippet length: `493`
+- status: `pass`
+
 ## Required Approval Phrase
 
 ```text

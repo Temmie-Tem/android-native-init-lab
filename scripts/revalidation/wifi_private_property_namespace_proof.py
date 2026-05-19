@@ -68,6 +68,17 @@ class CommandRecord:
     error: str
 
 
+@dataclass
+class TransferEstimate:
+    files: int
+    bytes: int
+    chunk_size: int
+    chunks: int
+    estimated_commands: int
+    max_script_chars: int
+    status: str
+
+
 def now_iso() -> str:
     return dt.datetime.now(dt.timezone.utc).isoformat()
 
@@ -168,7 +179,8 @@ def build_checks(args: argparse.Namespace,
                  v312: dict[str, Any],
                  v315: dict[str, Any],
                  v316: dict[str, Any],
-                 files: list[LayoutFile]) -> list[ProofCheck]:
+                 files: list[LayoutFile],
+                 transfer: TransferEstimate) -> list[ProofCheck]:
     phrase = str(v316.get("operator_approval_phrase") or APPROVAL_PHRASE)
     approval_ok = args.approval_phrase == phrase and args.allow_device_mutation and args.assume_yes
     bad_files = [item.relative_path for item in files if item.status != "pass"]
@@ -202,6 +214,13 @@ def build_checks(args: argparse.Namespace,
             bad_files[:8],
         ),
         ProofCheck(
+            "transfer-plan",
+            "pass" if transfer.status == "pass" else "blocked",
+            "blocker",
+            f"chunks={transfer.chunks} estimated_commands={transfer.estimated_commands} max_script_chars={transfer.max_script_chars}",
+            [f"chunk_size={transfer.chunk_size}", f"bytes={transfer.bytes}"],
+        ),
+        ProofCheck(
             "approval-gate",
             "pass" if approval_ok else "needs-operator",
             "approval",
@@ -209,6 +228,34 @@ def build_checks(args: argparse.Namespace,
             [phrase],
         ),
     ]
+
+
+def estimate_transfer(files: list[LayoutFile], chunk_size: int) -> TransferEstimate:
+    total_bytes = 0
+    total_chunks = 0
+    max_script_chars = 0
+    if chunk_size < 64 or chunk_size > 2048:
+        return TransferEstimate(len(files), 0, chunk_size, 0, 0, 0, "bad-chunk-size")
+    for entry in files:
+        if entry.status != "pass":
+            continue
+        data_len = Path(entry.local_path).stat().st_size
+        encoded_len = ((data_len + 2) // 3) * 4
+        chunks = (encoded_len + chunk_size - 1) // chunk_size
+        script_chars = len("printf %s ") + chunk_size + len(" >> ") + len(entry.remote_path) + len(".b64") + 4
+        total_bytes += data_len
+        total_chunks += chunks
+        max_script_chars = max(max_script_chars, script_chars)
+    manifest_estimate_bytes = 4096 + len(files) * 512
+    manifest_chunks = ((((manifest_estimate_bytes + 2) // 3) * 4) + chunk_size - 1) // chunk_size
+    total_chunks += manifest_chunks
+    estimated_commands = 1 + 3 + sum(
+        (((((Path(entry.local_path).stat().st_size + 2) // 3) * 4) + chunk_size - 1) // chunk_size) + 5
+        for entry in files
+        if entry.status == "pass"
+    ) + manifest_chunks + 5
+    status = "pass" if total_chunks > 0 and estimated_commands < 5000 and max_script_chars < 4096 else "too-large"
+    return TransferEstimate(len(files), total_bytes, chunk_size, total_chunks, estimated_commands, max_script_chars, status)
 
 
 def command_line(argv: list[str]) -> str:
@@ -376,7 +423,8 @@ def build_manifest(args: argparse.Namespace, store: EvidenceStore) -> dict[str, 
     v315 = load_json(args.v315_manifest)
     v316 = load_json(args.v316_manifest)
     files = file_entries(v312)
-    checks = build_checks(args, v312, v315, v316, files)
+    transfer = estimate_transfer(files, args.chunk_size)
+    checks = build_checks(args, v312, v315, v316, files, transfer)
     records: list[CommandRecord] = []
     live_error = ""
     if args.command == "run" and approval_ok(args, v316) and not any(
@@ -405,6 +453,7 @@ def build_manifest(args: argparse.Namespace, store: EvidenceStore) -> dict[str, 
         },
         "checks": [asdict(check) for check in checks],
         "files": [asdict(entry) for entry in files],
+        "transfer_estimate": asdict(transfer),
         "commands": [asdict(record) for record in records],
         "live_error": live_error,
         "device_mutations": bool(records),
@@ -444,6 +493,19 @@ def render_summary(manifest: dict[str, Any]) -> str:
     lines.extend(["", "## Files", "", "| role | relative_path | bytes | status |", "| --- | --- | --- | --- |"])
     for entry in manifest["files"]:
         lines.append(f"| `{entry['role']}` | `{entry['relative_path']}` | `{entry['bytes']}` | `{entry['status']}` |")
+    transfer = manifest["transfer_estimate"]
+    lines.extend([
+        "",
+        "## Transfer Estimate",
+        "",
+        f"- files: `{transfer['files']}`",
+        f"- bytes: `{transfer['bytes']}`",
+        f"- chunk_size: `{transfer['chunk_size']}`",
+        f"- chunks: `{transfer['chunks']}`",
+        f"- estimated_commands: `{transfer['estimated_commands']}`",
+        f"- max_script_chars: `{transfer['max_script_chars']}`",
+        f"- status: `{transfer['status']}`",
+    ])
     lines.extend(["", "## Commands", "", "| name | ok | rc | status | file |", "| --- | --- | --- | --- | --- |"])
     for record in manifest["commands"]:
         lines.append(f"| `{record['name']}` | `{record['ok']}` | `{record['rc']}` | `{record['status']}` | `{record['file']}` |")

@@ -4003,6 +4003,8 @@
 - decisions:
   - `private-property-namespace-proof-plan-ready`
   - `private-property-namespace-proof-approval-required`
+- transfer estimate:
+  - files `5`, bytes `524988`, chunks `1851`, estimated device commands `1885`
 - required approval phrase:
   - `approve v317 minimal private property namespace proof only; no daemon start and no Wi-Fi bring-up`
 - intended scope:

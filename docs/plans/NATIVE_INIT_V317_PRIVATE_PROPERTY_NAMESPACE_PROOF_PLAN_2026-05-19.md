@@ -35,6 +35,9 @@ Required subcommands:
   exact approval phrase.
 - `cleanup`: remove only the versioned private workdir created by v317.
 
+The runner also records a transfer estimate in plan/refusal manifests so the
+operator can see expected serial command volume before approving live execution.
+
 ## Inputs
 
 - `tmp/wifi/v312-private-property-runtime-layout/manifest.json`
@@ -84,6 +87,14 @@ Preferred implementation:
 
 If device toybox lacks `base64 -d` or shell redirection support, v317 must stop
 with a diagnostic decision instead of widening scope to NCM/tcpctl.
+
+Current v312 layout estimate with default 384-byte chunks:
+
+- files: `5`
+- bytes: `524988`
+- chunks: `1851`
+- estimated device commands: `1885`
+- maximum generated shell snippet length: `493`
 
 ## Safety Details
 
