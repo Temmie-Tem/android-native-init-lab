@@ -16,7 +16,8 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
-from a90_kernel_tools import collect_host_metadata, markdown_table, repo_path
+from a90_kernel_tools import collect_host_metadata, markdown_table, repo_path, strip_cmdv1_text
+from a90ctl import ProtocolResult, run_cmdv1_command
 from a90harness.evidence import EvidenceStore
 
 
@@ -28,6 +29,16 @@ APPROVAL_PHRASE = "approve v320 private property lookup proof only; no daemon st
 REMOTE_V317_WORKDIR = "/mnt/sdext/a90/private-property-v317"
 PRIVATE_PROP_ROOT = REMOTE_V317_WORKDIR + "/dev/__properties__"
 EXPECTED_NATIVE_BUILD = "A90 Linux init 0.9.61 (v319)"
+DEFAULT_HELPER_PATH = "/cache/bin/a90_android_execns_probe"
+ALLOWED_LOOKUP_KEYS = {
+    "ro.build.version.sdk",
+    "ro.build.version.release",
+    "ro.product.vendor.device",
+    "ro.board.platform",
+    "ro.product.name",
+    "ro.hardware",
+    "ro.vendor.build.version.sdk",
+}
 
 
 @dataclass
@@ -48,6 +59,19 @@ class LookupKey:
     source: str
 
 
+@dataclass
+class HelperLookupResult:
+    key: str
+    expected_value: str
+    observed_value: str
+    status: str
+    rc: int | None
+    protocol_status: str
+    command: list[str]
+    text: str
+    error: str
+
+
 def now_iso() -> str:
     return dt.datetime.now(dt.timezone.utc).isoformat()
 
@@ -61,6 +85,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--approval-phrase", default="")
     parser.add_argument("--allow-device-mutation", action="store_true")
     parser.add_argument("--assume-yes", action="store_true")
+    parser.add_argument("--bridge-host", default="127.0.0.1")
+    parser.add_argument("--bridge-port", type=int, default=54321)
+    parser.add_argument("--bridge-timeout", type=float, default=90.0)
+    parser.add_argument("--helper-path", default=DEFAULT_HELPER_PATH)
+    parser.add_argument("--helper-timeout-sec", type=int, default=10)
     subparsers = parser.add_subparsers(dest="command", required=True)
     subparsers.add_parser("plan")
     subparsers.add_parser("run")
@@ -92,6 +121,8 @@ def selected_lookup_keys(v312: dict[str, Any]) -> list[LookupKey]:
         value = str(item.get("value") or "")
         context = str(item.get("context") or "")
         if not key or not value or not context:
+            continue
+        if key not in ALLOWED_LOOKUP_KEYS:
             continue
         if str(item.get("status") or "") != "pass":
             continue
@@ -206,10 +237,115 @@ def decide(command: str, checks: list[LookupCheck]) -> tuple[str, bool, str, str
             "provide the exact v320 approval phrase only after reviewing the live operation boundary",
         )
     return (
-        "private-property-lookup-helper-not-implemented",
+        "private-property-lookup-ready-to-run-helper",
+        True,
+        "all gates passed; read-only helper lookup may execute",
+        "run helper property-lookup mode and compare values",
+    )
+
+
+def helper_command(args: argparse.Namespace, key: str) -> list[str]:
+    return [
+        "run",
+        args.helper_path,
+        "--system-root",
+        "/mnt/system/system",
+        "--vendor-block",
+        "/dev/block/sda29",
+        "--vendor-fstype",
+        "ext4",
+        "--target-profile",
+        "system-getprop",
+        "--mode",
+        "property-lookup",
+        "--null-device-mode",
+        "dev-null",
+        "--property-root",
+        PRIVATE_PROP_ROOT,
+        "--property-key",
+        key,
+        "--timeout-sec",
+        str(args.helper_timeout_sec),
+    ]
+
+
+def extract_execns_stdout(text: str) -> str:
+    stripped = strip_cmdv1_text(text)
+    begin = "A90_EXECNS_STDOUT_BEGIN"
+    end = "A90_EXECNS_STDOUT_END"
+    if begin not in stripped or end not in stripped:
+        return ""
+    body = stripped.split(begin, 1)[1].split(end, 1)[0]
+    return body.strip()
+
+
+def run_helper_lookup(args: argparse.Namespace, keys: list[LookupKey]) -> list[HelperLookupResult]:
+    results: list[HelperLookupResult] = []
+    for item in keys:
+        command = helper_command(args, item.key)
+        try:
+            capture: ProtocolResult = run_cmdv1_command(
+                args.bridge_host,
+                args.bridge_port,
+                args.bridge_timeout,
+                command,
+                retry_unsafe=False,
+            )
+            observed = extract_execns_stdout(capture.text)
+            status = "pass" if capture.rc == 0 and capture.status == "ok" and observed == item.expected_value else "mismatch"
+            results.append(HelperLookupResult(
+                key=item.key,
+                expected_value=item.expected_value,
+                observed_value=observed,
+                status=status,
+                rc=capture.rc,
+                protocol_status=capture.status,
+                command=command,
+                text=capture.text,
+                error="",
+            ))
+        except Exception as exc:  # noqa: BLE001 - proof records failure evidence
+            results.append(HelperLookupResult(
+                key=item.key,
+                expected_value=item.expected_value,
+                observed_value="",
+                status="error",
+                rc=None,
+                protocol_status="missing",
+                command=command,
+                text="",
+                error=str(exc),
+            ))
+    return results
+
+
+def decide_after_helper(results: list[HelperLookupResult]) -> tuple[str, bool, str, str]:
+    if not results:
+        return (
+            "private-property-lookup-getprop-empty",
+            False,
+            "no helper lookup results were produced",
+            "check lookup key selection and helper deployment",
+        )
+    if all(item.status == "pass" for item in results):
+        return (
+            "private-property-lookup-getprop-pass",
+            True,
+            f"{len(results)} allowlisted properties matched expected v312 values",
+            "proceed to bounded CNSS pre-start environment probe planning",
+        )
+    if any(item.status == "error" for item in results):
+        return (
+            "private-property-lookup-helper-error",
+            False,
+            "one or more helper executions failed",
+            "inspect helper lookup captures before retry",
+        )
+    return (
+        "private-property-lookup-getprop-mismatch",
         False,
-        "v320 live helper mode is intentionally not implemented in the fail-closed skeleton",
-        "extend a90_android_execns_probe with property-lookup mode after v317 PASS review",
+        "getprop ran but observed values did not match expected v312 values",
+        "compare private property layout and bionic property lookup behavior",
     )
 
 
@@ -239,13 +375,15 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
         "checks": [asdict(check) for check in checks],
         "lookup_keys": [asdict(item) for item in keys],
         "planned_device_helper": {
-            "binary": "/cache/bin/a90_android_execns_probe",
+            "binary": args.helper_path,
             "mode": "property-lookup",
             "target_profile": "system-getprop",
             "target": "/system/bin/getprop",
             "namespace": "private mount namespace only",
             "property_root_visible_as": "/dev/__properties__",
         },
+        "planned_device_commands": [helper_command(args, item.key) for item in keys],
+        "helper_lookup_results": [],
         "required_approval_phrase": APPROVAL_PHRASE,
         "device_commands_executed": False,
         "device_mutations": False,
@@ -266,6 +404,22 @@ def render_summary(manifest: dict[str, Any]) -> str:
     check_rows = [[item["name"], item["status"], item["severity"], item["detail"], "<br>".join(item["evidence"])] for item in manifest["checks"]]
     key_rows = [[item["key"], item["expected_value"], item["context"], item["prop_type"]] for item in manifest["lookup_keys"]]
     input_rows = [[name, str(item["present"]), str(item.get("decision")), str(item.get("pass")), str(item["path"])] for name, item in manifest["inputs"].items()]
+    helper_rows = [
+        [
+            item["key"],
+            item["status"],
+            item["expected_value"],
+            item["observed_value"],
+            str(item["rc"]),
+            item["protocol_status"],
+            item["error"],
+        ]
+        for item in manifest.get("helper_lookup_results", [])
+    ]
+    command_rows = [
+        [str(index), " ".join(command)]
+        for index, command in enumerate(manifest.get("planned_device_commands", []), start=1)
+    ]
     return "\n".join([
         "# v320 Private Property Lookup Proof",
         "",
@@ -290,6 +444,14 @@ def render_summary(manifest: dict[str, Any]) -> str:
         "",
         markdown_table(["key", "expected", "context", "type"], key_rows),
         "",
+        "## Planned Device Commands",
+        "",
+        markdown_table(["#", "command"], command_rows),
+        "",
+        "## Helper Lookup Results",
+        "",
+        markdown_table(["key", "status", "expected", "observed", "rc", "protocol", "error"], helper_rows),
+        "",
         "## Required Approval Phrase",
         "",
         f"`{manifest['required_approval_phrase']}`",
@@ -304,6 +466,19 @@ def render_summary(manifest: dict[str, Any]) -> str:
 def main() -> int:
     args = parse_args()
     manifest = build_manifest(args)
+    if manifest["decision"] == "private-property-lookup-ready-to-run-helper" and args.command == "run":
+        helper_results = run_helper_lookup(
+            args,
+            [LookupKey(**item) for item in manifest["lookup_keys"]],
+        )
+        decision, pass_ok, reason, next_step = decide_after_helper(helper_results)
+        manifest["helper_lookup_results"] = [asdict(item) for item in helper_results]
+        manifest["decision"] = decision
+        manifest["pass"] = pass_ok
+        manifest["reason"] = reason
+        manifest["next_step"] = next_step
+        manifest["device_commands_executed"] = True
+        manifest["device_mutations"] = True
     store = EvidenceStore(repo_path(args.out_dir))
     store.write_json("manifest.json", manifest)
     store.write_text("summary.md", render_summary(manifest))

@@ -4120,7 +4120,31 @@
   - not executed
   - blocked until v317 `private-property-namespace-proof-pass` and later v320 approval gate
 - next:
-  - either run v317 after exact approval, or update v320 runner to call helper mode after v317 PASS evidence
+  - v322 integrated the v320 runner with helper command generation; live execution remains blocked until v317 PASS evidence
+
+### V322. Private Property Lookup Runner Integration — FAIL-CLOSED PASS / LIVE BLOCKED BY V317
+
+- 계획: `docs/plans/NATIVE_INIT_V322_PRIVATE_PROPERTY_LOOKUP_RUNNER_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V322_PRIVATE_PROPERTY_LOOKUP_RUNNER_2026-05-19.md`
+- tool: `scripts/revalidation/wifi_private_property_lookup_proof.py`
+- boot image: 없음. v322는 host runner integration이며 native init version 변경 없음
+- validation:
+  - `py_compile` PASS
+  - `git diff --check` PASS
+  - `plan` decision `private-property-lookup-blocked-v317-missing`
+  - approval-flagged `run` decision `private-property-lookup-blocked-v317-missing`
+  - `device_commands_executed=false`
+  - `device_mutations=false`
+  - planned helper commands: 4
+- implemented boundary:
+  - bridge/helper args added
+  - future helper command uses `run /cache/bin/a90_android_execns_probe --mode property-lookup --target-profile system-getprop`
+  - lookup keys filtered to the v321 helper allowlist
+- live status:
+  - not executed
+  - blocked until v317 `private-property-namespace-proof-pass`
+- next:
+  - exact v317 approval is now the live blocker for the private property lookup chain
 
 ### V187. Harness Broker Backend — PASS
 

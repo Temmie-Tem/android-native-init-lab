@@ -1497,6 +1497,9 @@ Samsung bootloader
    - v321 계획서: `docs/plans/NATIVE_INIT_V321_EXECNS_PROPERTY_LOOKUP_HELPER_PLAN_2026-05-19.md`
    - v321 보고서: `docs/reports/NATIVE_INIT_V321_EXECNS_PROPERTY_LOOKUP_HELPER_2026-05-19.md`
    - v321 해석: `a90_android_execns_probe v11`에 `property-lookup`/`system-getprop` helper support를 추가했다. 정적 ARM64 빌드와 marker 검증은 PASS했지만, live 실행은 아직 V317 PASS와 V320 approval gate 전까지 금지다
+   - v322 계획서: `docs/plans/NATIVE_INIT_V322_PRIVATE_PROPERTY_LOOKUP_RUNNER_PLAN_2026-05-19.md`
+   - v322 보고서: `docs/reports/NATIVE_INIT_V322_PRIVATE_PROPERTY_LOOKUP_RUNNER_2026-05-19.md`
+   - v322 해석: V320 runner가 v321 helper command를 생성하고 future live run path를 갖도록 통합됐다. 현재 `plan`/approval-flagged `run` 모두 V317 PASS missing으로 차단되며 device command/mutation은 0이다
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
 ---
