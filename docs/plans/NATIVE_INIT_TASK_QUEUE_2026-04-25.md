@@ -3217,6 +3217,33 @@
 - next:
   - v283 bounded start-only readiness-delta observer, reusing the validated start-only primitive while capturing before/during/after ICNSS/WLFW/QMI state
 
+### V283. ICNSS/WLFW Start-Only Delta — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V283_ICNSS_WLFW_START_DELTA_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V283_ICNSS_WLFW_START_DELTA_2026-05-19.md`
+- boot image change: none
+- baseline device build: `A90 Linux init 0.9.60 (v261)`
+- tool: `scripts/revalidation/wifi_icnss_wlfw_start_delta_observer.py`
+- evidence: `tmp/wifi/v283-icnss-wlfw-start-delta-live-20260519-123206/`
+- decision: `icnss-wlfw-start-no-readiness-delta`
+- result:
+  - nested start-only runner decision: `start-only-pass`
+  - helper result: `start-only-pass`
+  - child pid/pgid observed: `1077` / `1077`
+  - process group reaped and postflight safe
+  - dmesg readiness lines: `0 -> 0`
+  - sysfs readiness candidates: `13 -> 13`
+  - debugfs readiness candidates: `0 -> 0`
+  - no `wlan*`, no wiphy, no target CNSS process after run
+- interpretation:
+  - bounded `cnss-daemon -n -l` alone does not expose ICNSS/WLFW readiness state
+  - repeating the same serial-only test is unlikely to add evidence
+  - next work needs a concurrent side-channel if live during-start sampling is required
+- safety:
+  - no QRTR nameservice packet from observer, no direct QMI payload, no scan/connect/link-up, no rfkill/ICNSS bind/unbind/debugfs write, no reboot/remount
+- next:
+  - v284 CNSS concurrent side-channel observer feasibility using NCM/tcpctl or harness broker, still read-only during sampling
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`

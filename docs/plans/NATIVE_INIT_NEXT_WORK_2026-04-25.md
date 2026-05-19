@@ -1343,6 +1343,10 @@ Samsung bootloader
    - v282 보고서: `docs/reports/NATIVE_INIT_V282_ICNSS_WLFW_READINESS_SURFACE_2026-05-19.md`
    - v282 결과: decision `icnss-readiness-sysfs-candidates-limited`, ICNSS core bound, WLAN module sysfs present, `CONFIG_DEBUG_FS=y`, `CONFIG_ICNSS_DEBUG=n`, `/sys/kernel/debug/icnss` absent, no readiness dmesg, no `wlan*`/wiphy
    - v282 해석: no-start 상태에서 직접 WLFW firmware-ready state file은 보이지 않는다. 다음은 검증된 start-only primitive로 before/during/after readiness delta를 관찰하는 v283이다
+   - v283 계획서: `docs/plans/NATIVE_INIT_V283_ICNSS_WLFW_START_DELTA_PLAN_2026-05-19.md`
+   - v283 보고서: `docs/reports/NATIVE_INIT_V283_ICNSS_WLFW_START_DELTA_2026-05-19.md`
+   - v283 결과: decision `icnss-wlfw-start-no-readiness-delta`, nested runner `start-only-pass`, child pid/pgid `1077/1077`, reaped, postflight clean, dmesg readiness `0 -> 0`, sysfs candidates `13 -> 13`, no `wlan*`/wiphy
+   - v283 해석: `cnss-daemon -n -l` start-only는 안전하게 실행/정리되지만 ICNSS/WLFW readiness surface를 바꾸지 않는다. 반복보다는 NCM/tcpctl 또는 broker 기반 concurrent side-channel observer가 다음 후보이다
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
 ---
