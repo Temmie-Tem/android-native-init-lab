@@ -3536,6 +3536,29 @@
 - next:
   - v296 property shim strategy model before any property runtime creation or service-manager execution
 
+### V296. Property Shim Strategy Model — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V296_PROPERTY_SHIM_STRATEGY_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V296_PROPERTY_SHIM_STRATEGY_2026-05-19.md`
+- boot image change: none
+- baseline device build: `A90 Linux init 0.9.60 (v261)`
+- tool: `scripts/revalidation/wifi_property_shim_strategy.py`
+- evidence: `tmp/wifi/v296-property-shim-strategy/`
+- decision: `property-shim-strategy-capture-needed`
+- result:
+  - static property count: `248`
+  - property context line count: `1264`
+  - Wi-Fi property count: `7`
+  - required present: `ro.build.version.sdk`
+  - required missing: `ro.product.name`, `ro.hardware`, `ro.vendor.build.version.sdk`
+- safety:
+  - no property runtime creation or property mutation
+  - no service-manager execution
+  - no Binder ioctl/devnode creation
+  - no Wi-Fi daemon execution, QMI/QRTR, scan/connect/link-up
+- next:
+  - v297 Android-boot property capture plan before any native property shim creation
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
