@@ -3652,6 +3652,27 @@
 - next:
   - explicit operator approval is required before v300 live `run`
 
+### V301. Property Shim Seed — WAITING FOR ANDROID CAPTURE
+
+- 계획: `docs/plans/NATIVE_INIT_V301_PROPERTY_SHIM_SEED_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V301_PROPERTY_SHIM_SEED_2026-05-19.md`
+- boot image change: none
+- baseline device build: `A90 Linux init 0.9.60 (v261)`
+- tool: `scripts/revalidation/wifi_property_shim_seed.py`
+- evidence: `tmp/wifi/v301-property-shim-seed-waiting/`
+- decision: `property-shim-seed-waiting-for-android`
+- result:
+  - generated `seed.json`
+  - selected keys remain blocked because Android capture is absent
+  - static-only `ro.build.version.sdk` is not treated as sufficient runtime truth
+- safety:
+  - no device command execution
+  - no property runtime/service creation
+  - no service-manager/HAL/Wi-Fi daemon execution
+  - no Wi-Fi scan/connect/link-up/credential/DHCP/routing
+- next:
+  - operator-approved v300 live run remains the blocker before Android-backed seed generation
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
