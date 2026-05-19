@@ -8236,3 +8236,16 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
   - device commands/mutations/daemon/Wi-Fi actions: all `False`
 - validation: `py_compile` PASS, regression PASS, analysis PASS, read-only device status PASS, `git diff --check` PASS.
 - next execution item: V389 enhanced bounded crash capture helper; Wi-Fi HAL/start/scan/connect remains blocked.
+
+### V389. Enhanced Bounded Crash Capture Helper — READY FOR APPROVAL
+
+- plan: `docs/plans/NATIVE_INIT_V389_ENHANCED_CRASH_CAPTURE_PLAN_2026-05-20.md`
+- readiness: `docs/reports/NATIVE_INIT_V389_ENHANCED_CRASH_CAPTURE_2026-05-20.md`
+- local helper: `tmp/wifi/v389-a90_android_execns_probe-v19/a90_android_execns_probe`
+- sha256: `e3da79dec1c7ca58d3208fb0d9a55ce1411fff7159ab613ff9daf6d6befd3e6d`
+- host wrappers:
+  - `scripts/revalidation/wifi_execns_helper_v19_deploy_preflight.py`
+  - `scripts/revalidation/wifi_service_manager_start_only_v389_live_runner.py`
+  - `scripts/revalidation/wifi_v389_deploy_live_executor.py`
+- validation: local static build PASS, required strings PASS, `py_compile` PASS, plan-only gates PASS, no-approval executor PASS, read-only real-device preflight blocks on expected remote helper v19 mismatch.
+- next execution item: wait for exact v389 deploy approval, then exact v389 enhanced crash capture live approval. Wi-Fi HAL/start/scan/connect remains blocked.

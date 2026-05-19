@@ -43,7 +43,7 @@
 #define PR_CAP_AMBIENT_RAISE 2
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v18"
+#define EXECNS_VERSION "a90_android_execns_probe v19"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -2872,16 +2872,261 @@ static int append_ptrace_regs_brief(struct buffer *buf, pid_t pid, const char *l
                          iov.iov_len);
 }
 
+static bool is_printable_ascii(unsigned char value) {
+    return value >= 32U && value <= 126U;
+}
+
+static int append_escaped_ascii(struct buffer *buf, const unsigned char *data, size_t len) {
+    for (size_t i = 0; i < len; i++) {
+        unsigned char value = data[i];
+
+        if (value == '\\') {
+            if (append_literal(buf, "\\\\") < 0) return -1;
+        } else if (value == '\n') {
+            if (append_literal(buf, "\\n") < 0) return -1;
+        } else if (value == '\r') {
+            if (append_literal(buf, "\\r") < 0) return -1;
+        } else if (value == '\t') {
+            if (append_literal(buf, "\\t") < 0) return -1;
+        } else if (is_printable_ascii(value)) {
+            char text[2] = {(char)value, '\0'};
+
+            if (append_literal(buf, text) < 0) return -1;
+        } else if (append_format(buf, "\\x%02x", value) < 0) {
+            return -1;
+        }
+    }
+    return 0;
+}
+
+static bool plausible_user_ptr(unsigned long long addr) {
+    return addr >= 0x1000ULL && addr < 0x0001000000000000ULL;
+}
+
+static int append_ptrace_memory_ascii_scan(struct buffer *buf,
+                                           pid_t pid,
+                                           const char *label,
+                                           const char *source,
+                                           unsigned long long addr,
+                                           size_t max_bytes) {
+    unsigned char bytes[512];
+    size_t bytes_read = 0;
+    size_t printable = 0;
+    int string_count = 0;
+
+    if (max_bytes > sizeof(bytes)) {
+        max_bytes = sizeof(bytes);
+    }
+    if (!plausible_user_ptr(addr)) {
+        return append_format(buf,
+                             "capture.%s.%s.addr=0x%016llx\n"
+                             "capture.%s.%s.bytes=0\n"
+                             "capture.%s.%s.skipped=not-plausible-user-pointer\n",
+                             label,
+                             source,
+                             addr,
+                             label,
+                             source,
+                             label,
+                             source);
+    }
+    while (bytes_read < max_bytes) {
+        unsigned long word;
+        size_t copy = sizeof(word);
+
+        errno = 0;
+        word = (unsigned long)ptrace(PTRACE_PEEKDATA,
+                                     pid,
+                                     (void *)(uintptr_t)(addr + bytes_read),
+                                     NULL);
+        if (word == (unsigned long)-1 && errno != 0) {
+            if (bytes_read == 0) {
+                return append_format(buf,
+                                     "capture.%s.%s.addr=0x%016llx\n"
+                                     "capture.%s.%s.bytes=0\n"
+                                     "capture.%s.%s.error=%s\n",
+                                     label,
+                                     source,
+                                     addr,
+                                     label,
+                                     source,
+                                     label,
+                                     source,
+                                     strerror(errno));
+            }
+            break;
+        }
+        if (copy > max_bytes - bytes_read) {
+            copy = max_bytes - bytes_read;
+        }
+        memcpy(bytes + bytes_read, &word, copy);
+        bytes_read += copy;
+    }
+    for (size_t i = 0; i < bytes_read; i++) {
+        if (is_printable_ascii(bytes[i])) {
+            printable++;
+        }
+    }
+    if (append_format(buf,
+                      "capture.%s.%s.addr=0x%016llx\n"
+                      "capture.%s.%s.bytes=%zu\n"
+                      "capture.%s.%s.printable=%zu\n",
+                      label,
+                      source,
+                      addr,
+                      label,
+                      source,
+                      bytes_read,
+                      label,
+                      source,
+                      printable) < 0) {
+        return -1;
+    }
+    for (size_t i = 0; i < bytes_read && string_count < 8;) {
+        size_t start = i;
+        size_t len;
+
+        while (start < bytes_read && !is_printable_ascii(bytes[start])) {
+            start++;
+        }
+        len = start;
+        while (len < bytes_read && is_printable_ascii(bytes[len])) {
+            len++;
+        }
+        if (len > start && len - start >= 4) {
+            size_t out_len = len - start;
+
+            if (out_len > 96) {
+                out_len = 96;
+            }
+            if (append_format(buf,
+                              "capture.%s.%s.ascii.%d.offset=%zu\n"
+                              "capture.%s.%s.ascii.%d.text=",
+                              label,
+                              source,
+                              string_count,
+                              start,
+                              label,
+                              source,
+                              string_count) < 0 ||
+                append_escaped_ascii(buf, bytes + start, out_len) < 0 ||
+                append_literal(buf, "\n") < 0) {
+                return -1;
+            }
+            string_count++;
+        }
+        i = len > start ? len : start + 1U;
+    }
+    return append_format(buf,
+                         "capture.%s.%s.ascii.count=%d\n",
+                         label,
+                         source,
+                         string_count);
+}
+
+static int append_ptrace_regs_selected(struct buffer *buf,
+                                       pid_t pid,
+                                       const char *label,
+                                       unsigned long long *sp_out) {
+    unsigned long long regs[96];
+    struct iovec iov;
+    size_t words;
+
+    if (sp_out != NULL) {
+        *sp_out = 0;
+    }
+    memset(regs, 0, sizeof(regs));
+    iov.iov_base = regs;
+    iov.iov_len = sizeof(regs);
+    if (ptrace(PTRACE_GETREGSET, pid, (void *)(long)NT_PRSTATUS, &iov) < 0) {
+        return append_format(buf,
+                             "capture.%s.regset.nt_prstatus.error=%s\n",
+                             label,
+                             strerror(errno));
+    }
+    words = iov.iov_len / sizeof(regs[0]);
+    if (append_format(buf,
+                      "capture.%s.regset.nt_prstatus.bytes=%zu\n"
+                      "capture.%s.regset.nt_prstatus.words=%zu\n",
+                      label,
+                      iov.iov_len,
+                      label,
+                      words) < 0) {
+        return -1;
+    }
+    for (size_t i = 0; i < words && i <= 8; i++) {
+        if (append_format(buf,
+                          "capture.%s.regset.nt_prstatus.x%zu=0x%016llx\n",
+                          label,
+                          i,
+                          regs[i]) < 0) {
+            return -1;
+        }
+    }
+    if (words > 30 &&
+        append_format(buf,
+                      "capture.%s.regset.nt_prstatus.lr=0x%016llx\n",
+                      label,
+                      regs[30]) < 0) {
+        return -1;
+    }
+    if (words > 31) {
+        if (sp_out != NULL) {
+            *sp_out = regs[31];
+        }
+        if (append_format(buf,
+                          "capture.%s.regset.nt_prstatus.sp=0x%016llx\n",
+                          label,
+                          regs[31]) < 0) {
+            return -1;
+        }
+    }
+    if (words > 32 &&
+        append_format(buf,
+                      "capture.%s.regset.nt_prstatus.pc=0x%016llx\n",
+                      label,
+                      regs[32]) < 0) {
+        return -1;
+    }
+    if (words > 33 &&
+        append_format(buf,
+                      "capture.%s.regset.nt_prstatus.pstate=0x%016llx\n",
+                      label,
+                      regs[33]) < 0) {
+        return -1;
+    }
+    for (size_t i = 0; i < words && i <= 8; i++) {
+        char source[32];
+
+        if (!plausible_user_ptr(regs[i])) {
+            continue;
+        }
+        snprintf(source, sizeof(source), "reg_x%zu_scan", i);
+        if (append_ptrace_memory_ascii_scan(buf, pid, label, source, regs[i], 128) < 0) {
+            return -1;
+        }
+    }
+    return 0;
+}
+
 static int append_capture_snapshot_compact(struct buffer *buf,
                                            pid_t pid,
                                            const char *label,
                                            bool include_maps) {
+    unsigned long long sp = 0;
+
     if (append_format(buf, "capture.%s.pid=%ld\n", label, (long)pid) < 0 ||
         append_proc_link_compact(buf, pid, label, "exe") < 0 ||
         append_proc_link_compact(buf, pid, label, "cwd") < 0 ||
         append_proc_auxv_brief(buf, pid, label) < 0 ||
-        append_ptrace_regs_brief(buf, pid, label) < 0 ||
+        (strcmp(label, "crash") == 0 ?
+             append_ptrace_regs_selected(buf, pid, label, &sp) :
+             append_ptrace_regs_brief(buf, pid, label)) < 0 ||
         append_proc_text_brief(buf, pid, label, "status", 8192) < 0) {
+        return -1;
+    }
+    if (strcmp(label, "crash") == 0 &&
+        append_ptrace_memory_ascii_scan(buf, pid, label, "stack", sp, 512) < 0) {
         return -1;
     }
     if (include_maps &&

@@ -1828,3 +1828,9 @@ Samsung bootloader
    - v388 report: `docs/reports/NATIVE_INIT_V388_SERVICEMANAGER_SIGABRT_TRIAGE_2026-05-20.md`
    - v388 결과: host-only triage가 V387 `servicemanager` SIGABRT를 분석했고 `servicemanager-sigabrt-triage-needs-enhanced-crash-capture` PASS로 분류했다. `/dev/binder`, property root, SELinux null node는 materialized지만 abort message, register values, stack/abort-message memory가 없어 AOSP fatal site는 아직 미확정이다
    - v389 다음: bounded enhanced crash capture. `NT_PRSTATUS` selected register values, stack/ASCII summary, abort-message memory/string scan을 compact하게 추가한다. Wi-Fi HAL/start/scan/connect remains blocked
+
+   - v389 plan: `docs/plans/NATIVE_INIT_V389_ENHANCED_CRASH_CAPTURE_PLAN_2026-05-20.md`
+   - v389 readiness report: `docs/reports/NATIVE_INIT_V389_ENHANCED_CRASH_CAPTURE_2026-05-20.md`
+   - v389 구현 상태: `a90_android_execns_probe v19`은 service-manager crash snapshot에서 selected `NT_PRSTATUS` register values(x0-x8/lr/sp/pc/pstate)와 bounded stack/register-pointer ASCII scan을 추가한다. 로컬 SHA256은 `e3da79dec1c7ca58d3208fb0d9a55ce1411fff7159ab613ff9daf6d6befd3e6d`이다
+   - v389 검증 상태: static build/required strings/py_compile/plan-only gates/no-approval executor PASS. read-only device preflight는 remote helper가 아직 v18이므로 expected `helper-v19` blocker로 막혔고 daemon start/Wi-Fi bring-up은 없음
+   - v389 실행 조건: deploy는 exact `approve v389 deploy execns helper v19 only; no daemon start and no Wi-Fi bring-up`, live는 exact `approve v389 service-manager enhanced crash capture only; no Wi-Fi HAL start and no Wi-Fi bring-up` 필요
