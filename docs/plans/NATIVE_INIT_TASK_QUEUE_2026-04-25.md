@@ -8314,3 +8314,16 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
   - device commands: read-only version/status/mountsystem/stat/base64 only
   - device mutations/daemon start/Wi-Fi bring-up: all `False`
 - next execution item: V392 service-manager crash caller-context/backchain capture. Wi-Fi HAL/start/scan/connect remains blocked.
+
+### V392. Backchain Capture Helper — READY FOR APPROVAL
+
+- plan: `docs/plans/NATIVE_INIT_V392_BACKCHAIN_CAPTURE_PLAN_2026-05-20.md`
+- readiness: `docs/reports/NATIVE_INIT_V392_BACKCHAIN_CAPTURE_2026-05-20.md`
+- local helper: `tmp/wifi/v392-a90_android_execns_probe-v21/a90_android_execns_probe`
+- sha256: `c6216cc3b579f78bfd668148a24e1948e9e08621ea7d4e21c8b280475cc09ab8`
+- host wrappers:
+  - `scripts/revalidation/wifi_execns_helper_v21_deploy_preflight.py`
+  - `scripts/revalidation/wifi_service_manager_start_only_v392_live_runner.py`
+  - `scripts/revalidation/wifi_v392_deploy_live_executor.py`
+- validation: local static build PASS, required strings PASS, `py_compile` PASS, plan-only gates PASS, no-approval executor PASS, read-only real-device preflight blocks on expected remote helper v21 mismatch.
+- next execution item: wait for exact v392 deploy approval, then exact v392 backchain capture live approval. Wi-Fi HAL/start/scan/connect remains blocked.

@@ -1860,3 +1860,9 @@ Samsung bootloader
    - v391 결과: read-only `libc.so` pull PASS, ELF SHA `05b46edc9bf95e52c7eaf73ee340d78c52971ca2482cafa3c4d0c510691ba204`, PC/LR both resolve to bionic `abort`
    - v391 해석: captured PC/LR are abort delivery, not original fatal caller. `x8=0xf0`/`svc #0` confirms SIGABRT send path
    - v392 다음: service-manager crash caller-context/backchain capture. x29/frame pointer, stack words, candidate return-address map rows, bounded backchain reconstruction을 추가한다. Wi-Fi HAL/start/scan/connect remains blocked
+
+   - v392 plan: `docs/plans/NATIVE_INIT_V392_BACKCHAIN_CAPTURE_PLAN_2026-05-20.md`
+   - v392 readiness report: `docs/reports/NATIVE_INIT_V392_BACKCHAIN_CAPTURE_2026-05-20.md`
+   - v392 구현 상태: `a90_android_execns_probe v21`은 crash snapshot에서 `x29`/frame pointer와 up to 8 frame-chain 후보를 캡처하고, 각 return address를 `frameN_ra` map row로 기록한다. 로컬 SHA256은 `c6216cc3b579f78bfd668148a24e1948e9e08621ea7d4e21c8b280475cc09ab8`이다
+   - v392 검증 상태: static build/required strings/py_compile/plan-only gates/no-approval executor PASS. read-only device preflight는 remote helper가 아직 v20이므로 expected `helper-v21` blocker로 막혔고 daemon start/Wi-Fi bring-up은 없음
+   - v392 실행 조건: deploy는 exact `approve v392 deploy execns helper v21 only; no daemon start and no Wi-Fi bring-up`, live는 exact `approve v392 service-manager backchain capture only; no Wi-Fi HAL start and no Wi-Fi bring-up` 필요

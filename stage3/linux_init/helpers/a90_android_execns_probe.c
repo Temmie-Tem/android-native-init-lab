@@ -43,7 +43,7 @@
 #define PR_CAP_AMBIENT_RAISE 2
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v20"
+#define EXECNS_VERSION "a90_android_execns_probe v21"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -3198,10 +3198,135 @@ static int append_maps_address_row(struct buffer *buf,
                          line_count);
 }
 
+static unsigned long long canonical_user_addr(unsigned long long addr) {
+    return addr & 0x0000ffffffffffffULL;
+}
+
+static bool ptrace_peek_u64(pid_t pid, unsigned long long addr, unsigned long long *value) {
+    unsigned long word;
+
+    if (value == NULL || !plausible_user_ptr(addr)) {
+        return false;
+    }
+    errno = 0;
+    word = (unsigned long)ptrace(PTRACE_PEEKDATA, pid, (void *)(uintptr_t)addr, NULL);
+    if (word == (unsigned long)-1 && errno != 0) {
+        return false;
+    }
+    *value = (unsigned long long)word;
+    return true;
+}
+
+static int append_frame_chain_capture(struct buffer *buf,
+                                      pid_t pid,
+                                      const char *label,
+                                      unsigned long long fp,
+                                      unsigned long long sp) {
+    unsigned long long current_fp = fp;
+    int frames = 0;
+
+    if (append_format(buf,
+                      "capture.%s.framechain.fp=0x%016llx\n"
+                      "capture.%s.framechain.sp=0x%016llx\n"
+                      "capture.%s.framechain.max=8\n",
+                      label,
+                      fp,
+                      label,
+                      sp,
+                      label) < 0) {
+        return -1;
+    }
+    if (!plausible_user_ptr(current_fp)) {
+        return append_format(buf,
+                             "capture.%s.framechain.count=0\n"
+                             "capture.%s.framechain.stop=fp-not-plausible\n",
+                             label,
+                             label);
+    }
+    for (frames = 0; frames < 8; frames++) {
+        unsigned long long next_fp = 0;
+        unsigned long long return_addr_raw = 0;
+        unsigned long long return_addr = 0;
+        char map_name[64];
+
+        if (!ptrace_peek_u64(pid, current_fp, &next_fp) ||
+            !ptrace_peek_u64(pid, current_fp + sizeof(unsigned long long), &return_addr_raw)) {
+            if (append_format(buf,
+                              "capture.%s.framechain.%d.fp=0x%016llx\n"
+                              "capture.%s.framechain.%d.read_error=1\n",
+                              label,
+                              frames,
+                              current_fp,
+                              label,
+                              frames) < 0) {
+                return -1;
+            }
+            break;
+        }
+        return_addr = canonical_user_addr(return_addr_raw);
+        if (append_format(buf,
+                          "capture.%s.framechain.%d.fp=0x%016llx\n"
+                          "capture.%s.framechain.%d.next_fp=0x%016llx\n"
+                          "capture.%s.framechain.%d.return_addr_raw=0x%016llx\n"
+                          "capture.%s.framechain.%d.return_addr=0x%016llx\n",
+                          label,
+                          frames,
+                          current_fp,
+                          label,
+                          frames,
+                          next_fp,
+                          label,
+                          frames,
+                          return_addr_raw,
+                          label,
+                          frames,
+                          return_addr) < 0) {
+            return -1;
+        }
+        snprintf(map_name, sizeof(map_name), "frame%d_ra", frames);
+        if (append_maps_address_row(buf, pid, label, map_name, return_addr) < 0) {
+            return -1;
+        }
+        if (!plausible_user_ptr(next_fp)) {
+            frames++;
+            if (append_format(buf,
+                              "capture.%s.framechain.stop=next-fp-not-plausible\n",
+                              label) < 0) {
+                return -1;
+            }
+            break;
+        }
+        if (next_fp <= current_fp) {
+            frames++;
+            if (append_format(buf,
+                              "capture.%s.framechain.stop=next-fp-not-increasing\n",
+                              label) < 0) {
+                return -1;
+            }
+            break;
+        }
+        if (sp != 0 && (next_fp < sp || next_fp - current_fp > 1024U * 1024U)) {
+            frames++;
+            if (append_format(buf,
+                              "capture.%s.framechain.stop=next-fp-out-of-bounds\n",
+                              label) < 0) {
+                return -1;
+            }
+            break;
+        }
+        current_fp = next_fp;
+    }
+    return append_format(buf,
+                         "capture.%s.framechain.count=%d\n",
+                         label,
+                         frames);
+}
+
 static int append_ptrace_regs_selected(struct buffer *buf,
                                        pid_t pid,
                                        const char *label,
                                        unsigned long long *sp_out,
+                                       unsigned long long *fp_out,
                                        unsigned long long *pc_out,
                                        unsigned long long *lr_out) {
     unsigned long long regs[96];
@@ -3210,6 +3335,9 @@ static int append_ptrace_regs_selected(struct buffer *buf,
 
     if (sp_out != NULL) {
         *sp_out = 0;
+    }
+    if (fp_out != NULL) {
+        *fp_out = 0;
     }
     if (pc_out != NULL) {
         *pc_out = 0;
@@ -3253,6 +3381,17 @@ static int append_ptrace_regs_selected(struct buffer *buf,
                           "capture.%s.regset.nt_prstatus.lr=0x%016llx\n",
                           label,
                           regs[30]) < 0) {
+            return -1;
+        }
+    }
+    if (words > 29) {
+        if (fp_out != NULL) {
+            *fp_out = regs[29];
+        }
+        if (append_format(buf,
+                          "capture.%s.regset.nt_prstatus.fp=0x%016llx\n",
+                          label,
+                          regs[29]) < 0) {
             return -1;
         }
     }
@@ -3304,6 +3443,7 @@ static int append_capture_snapshot_compact(struct buffer *buf,
                                            const char *label,
                                            bool include_maps) {
     unsigned long long sp = 0;
+    unsigned long long fp = 0;
     unsigned long long pc = 0;
     unsigned long long lr = 0;
 
@@ -3312,7 +3452,7 @@ static int append_capture_snapshot_compact(struct buffer *buf,
         append_proc_link_compact(buf, pid, label, "cwd") < 0 ||
         append_proc_auxv_brief(buf, pid, label) < 0 ||
         (strcmp(label, "crash") == 0 ?
-             append_ptrace_regs_selected(buf, pid, label, &sp, &pc, &lr) :
+             append_ptrace_regs_selected(buf, pid, label, &sp, &fp, &pc, &lr) :
              append_ptrace_regs_brief(buf, pid, label)) < 0 ||
         append_proc_text_brief(buf, pid, label, "status", 8192) < 0) {
         return -1;
@@ -3324,6 +3464,10 @@ static int append_capture_snapshot_compact(struct buffer *buf,
     if (strcmp(label, "crash") == 0 && include_maps &&
         (append_maps_address_row(buf, pid, label, "pc", pc) < 0 ||
          append_maps_address_row(buf, pid, label, "lr", lr) < 0)) {
+        return -1;
+    }
+    if (strcmp(label, "crash") == 0 && include_maps &&
+        append_frame_chain_capture(buf, pid, label, fp, sp) < 0) {
         return -1;
     }
     if (include_maps &&
