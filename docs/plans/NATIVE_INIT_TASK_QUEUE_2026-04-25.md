@@ -3115,6 +3115,30 @@
 - next:
   - v279 CNSS/QCA6390 probe-expectation comparison or start-only delta observation plan
 
+### V279. CNSS QCA6390 Start-Only Delta — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V279_CNSS_QCA6390_START_DELTA_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V279_CNSS_QCA6390_START_DELTA_2026-05-19.md`
+- boot image change: none
+- baseline device build: `A90 Linux init 0.9.60 (v261)`
+- tool: `scripts/revalidation/wifi_cnss_qca6390_start_delta_observer.py`
+- evidence: `tmp/wifi/v279-cnss-qca6390-start-delta-live-20260519-114525/`
+- decision: `cnss-qca6390-no-driver-delta`
+- result:
+  - guarded CNSS start-only runner PASS: `start-only-pass`
+  - QCA6390 driver link absent before and after
+  - WLAN params unchanged: `fwpath` empty, `country_code=(null)`, `con_mode=0`
+  - no `wlan*` netdev, wiphy, or Wi-Fi rfkill before/after
+  - postflight `cnss-daemon` absent
+- interpretation:
+  - bounded `cnss-daemon -n -l` start-only alone does not bind QCA6390 or change WLAN module/runtime parameter state
+  - next blocker is likely platform-driver lifecycle, probe expectation, or missing runtime control/event path rather than basic daemon execution
+  - QMI payloads remain blocked
+- safety:
+  - no QRTR nameservice packet, no QMI payload, no scan/connect/link-up, no rfkill/ICNSS write, no partition write, no reboot
+- next:
+  - v280 no-start CNSS/QCA6390 source/sysfs expectation comparison, or read-only kernel log extraction if accessible
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`

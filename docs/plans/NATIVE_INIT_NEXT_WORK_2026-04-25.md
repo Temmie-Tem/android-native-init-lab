@@ -1327,7 +1327,11 @@ Samsung bootloader
    - v278 보고서: `docs/reports/NATIVE_INIT_V278_QCA6390_DRIVER_PARAM_2026-05-19.md`
    - v278 결과: decision `qca6390-match-visible-driver-unbound`, QCA6390 compatible/modalias visible, driver link absent, WLAN params 9/9 readable (`fwpath` empty, `country_code=(null)`, `con_mode=0`), no `wlan*`/wiphy/rfkill
    - v278 해석: QCA6390 OF match는 있으나 native state에서 driver binding이 없다. 다음은 CNSS/QCA6390 probe expectation 비교 또는 명시 승인 start-only delta observation이다
-   - 다음 후보: QRTR/QMI endpoint interaction no-scan probe, CNSS warning surface cleanup, 또는 broader Wi-Fi readiness gate
+   - v279 계획서: `docs/plans/NATIVE_INIT_V279_CNSS_QCA6390_START_DELTA_PLAN_2026-05-19.md`
+   - v279 보고서: `docs/reports/NATIVE_INIT_V279_CNSS_QCA6390_START_DELTA_2026-05-19.md`
+   - v279 결과: decision `cnss-qca6390-no-driver-delta`, guarded CNSS start-only PASS, QCA6390 driver link absent before/after, WLAN params unchanged, no `wlan*`/wiphy/rfkill, postflight process clean
+   - v279 해석: start-only alone does not bind QCA6390 or change WLAN parameter state. 다음은 no-start CNSS/QCA6390 source/sysfs expectation comparison, read-only kernel log extraction, or separately approved QRTR/WLFW readback during start-only이다
+   - 다음 후보: v280 no-start CNSS/QCA6390 probe-expectation comparison, kernel log extraction feasibility, 또는 bounded start-only QRTR readback plan
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
 ---
