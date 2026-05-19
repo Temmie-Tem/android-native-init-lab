@@ -1700,6 +1700,11 @@ Samsung bootloader
    - v379 해석: `a90_android_execns_probe v13` 로컬 static helper에 service-manager start-only 전용 private `/dev/binder`, `/dev/hwbinder`, `/dev/vndbinder` provisioning을 추가했다. helper child는 Android `system` uid로 drop되므로 private Binder nodes는 `0666`으로 만든다. 아직 `/cache/bin` 배포나 daemon start는 하지 않았다
    - v379 다음: V380에서 v13 helper를 배포/검증하고, 별도 live 승인 범위에서 bounded service-manager start-only를 재실행한다
 
+   - v380 계획서: `docs/plans/NATIVE_INIT_V380_EXECNS_HELPER_V13_DEPLOY_LIVE_PLAN_2026-05-20.md`
+   - v380 보고서: `docs/reports/NATIVE_INIT_V380_EXECNS_HELPER_V13_DEPLOY_LIVE_2026-05-20.md`
+   - v380 해석: v13 helper를 `/cache/bin/a90_android_execns_probe`에 serial fallback으로 배포했고 remote SHA를 확인했다. 승인된 bounded service-manager start-only에서 `hwservicemanager`는 timeout까지 관찰 후 clean stop 됐고, `servicemanager`는 SIGABRT로 runtime-gap이다. private Binder nodes는 helper namespace 안에 정상 생성됐으므로 Binder blocker는 해소됐다
+   - v380 다음: classifier decision은 `service-manager-runtime-gap-property-runtime-required`다. V381에서 private `/dev/__properties__`와 최소 `/data` runtime materialization을 설계한다. Wi-Fi HAL/start/bring-up은 계속 blocked
+
 ---
 
 ## 당장 하지 않을 것

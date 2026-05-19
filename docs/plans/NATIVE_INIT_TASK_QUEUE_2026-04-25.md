@@ -5410,6 +5410,29 @@
 - next:
   - V380 deploy v13 and rerun service-manager start-only preflight
 
+
+### V380. Execns Helper V13 Deploy + Start-Only Live — PASS / RUNTIME GAP
+
+- 계획: `docs/plans/NATIVE_INIT_V380_EXECNS_HELPER_V13_DEPLOY_LIVE_PLAN_2026-05-20.md`
+- 보고서: `docs/reports/NATIVE_INIT_V380_EXECNS_HELPER_V13_DEPLOY_LIVE_2026-05-20.md`
+- evidence root: `tmp/wifi/v380-v13-deploy-and-live-20260520-024112/`
+- deploy:
+  - serial fallback `appendfile + uudecode`
+  - remote SHA `9866c8f1e7c346906f4a400ee431ea35ed3880c157e5ee4e8b1757377dcfffa8`
+  - daemon start 없음, Wi-Fi bring-up 없음
+- live:
+  - decision `service-manager-start-only-live-runtime-gap`
+  - `system-servicemanager`: runtime gap, SIGABRT
+  - `system-hwservicemanager`: start-only pass, clean stop
+  - postflight clean
+  - Wi-Fi bring-up 없음
+- classification:
+  - decision `service-manager-runtime-gap-property-runtime-required`
+  - Binder private devnodes now present in namespace: `binder/hwbinder/vndbinder` mode `0666`
+  - next blocker: `/dev/__properties__` and minimal `/data` runtime expectations
+- next:
+  - V381 private property/runtime materialization plan
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
