@@ -41,6 +41,12 @@ BINDER_NODES = {
 }
 VENDOR_NODE = (VENDOR_BLOCK, 259, 13)
 CLEANUP_PATHS = [*BINDER_NODES.keys(), VENDOR_BLOCK]
+TEMP_NODE_STAT_STEPS = {
+    "stat-vendor-block": VENDOR_BLOCK,
+    "stat-dev-binder": "/dev/binder",
+    "stat-dev-hwbinder": "/dev/hwbinder",
+    "stat-dev-vndbinder": "/dev/vndbinder",
+}
 CNSS_PROCESS_RE = re.compile(r"\b(cnss-daemon|cnss_diag)\b", re.IGNORECASE)
 MANAGER_PROCESS_RE = re.compile(r"\b(servicemanager|hwservicemanager|vndservicemanager)\b")
 WLAN_NETDEV_RE = re.compile(r"(^|\s)(wlan\S*|swlan\S*|p2p\S*|wifi-aware\S*|wiphy\S*|phy\d+)(\s|:|$)", re.IGNORECASE)
@@ -242,6 +248,14 @@ def build_checks(args: argparse.Namespace, store: EvidenceStore, v365: dict[str,
     sda29 = bool(re.search(r"^\s*259\s+13\s+\d+\s+sda29\s*$", partitions, re.MULTILINE))
     add_check(checks, "vendor-partition-metadata", "pass" if sda29 else "missing", "info" if sda29 else "blocker",
               "sda29=259:13" if sda29 else "sda29 not found", [], "do not create vendor node without partition metadata")
+    preexisting_nodes = [
+        path for step_name, path in TEMP_NODE_STAT_STEPS.items()
+        if step_ok(steps, step_name)
+    ]
+    add_check(checks, "preexisting-temp-nodes", "clean" if not preexisting_nodes else "present",
+              "info" if not preexisting_nodes else "blocker",
+              f"present={preexisting_nodes}", preexisting_nodes,
+              "approved smoke only owns nodes it creates; run cleanup or investigate before approval")
     approval_ok = args.approval_phrase == APPROVAL_PHRASE and args.apply and args.assume_yes
     add_check(checks, "approval-gate", "pass" if approval_ok else "needs-operator", "approval",
               f"phrase_match={args.approval_phrase == APPROVAL_PHRASE} apply={args.apply} assume_yes={args.assume_yes}",

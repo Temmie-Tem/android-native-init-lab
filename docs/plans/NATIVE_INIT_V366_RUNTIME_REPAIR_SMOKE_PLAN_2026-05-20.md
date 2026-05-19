@@ -64,7 +64,9 @@ approve v366 bounded runtime repair smoke only; no service-manager start and no 
 ```
 
 Only after that exact phrase is supplied may the runner perform this bounded
-sequence:
+sequence. The runner first checks that `/dev/block/sda29`, `/dev/binder`,
+`/dev/hwbinder`, and `/dev/vndbinder` are absent; if any are already present, it
+blocks instead of deleting or reusing nodes it did not create.
 
 1. create temporary `/dev/block/sda29` from verified `/proc/partitions` metadata
    `259:13`;
@@ -85,7 +87,8 @@ Forbidden in V366:
 - Wi-Fi scan/connect/link-up/credential/DHCP/routing;
 - rfkill unblock, ICNSS bind/unbind, module load/unload, or firmware mutation;
 - Android partition writes;
-- approved mutation without the exact phrase and both mutation flags.
+- approved mutation without the exact phrase and both mutation flags;
+- cleanup of pre-existing `/dev` nodes that were not created by the smoke run.
 
 ## Validation
 

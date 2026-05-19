@@ -1642,7 +1642,7 @@ Samsung bootloader
    - v365 다음: V366 bounded temporary device-node + private property/linker repair smoke. 아직 service-manager/HAL/scan/connect는 blocked
    - v366 계획서: `docs/plans/NATIVE_INIT_V366_RUNTIME_REPAIR_SMOKE_PLAN_2026-05-20.md`
    - v366 보고서: `docs/reports/NATIVE_INIT_V366_RUNTIME_REPAIR_SMOKE_2026-05-20.md`
-   - v366 해석: guarded runtime repair smoke runner를 추가했고 plan/preflight/no-approval refusal 경로를 검증했다. no-approval run은 `runtime-repair-smoke-approval-required`로 PASS했고 mutation step은 실행하지 않았다
+   - v366 해석: guarded runtime repair smoke runner를 추가했고 plan/preflight/no-approval refusal 경로를 검증했다. no-approval run은 `runtime-repair-smoke-approval-required`로 PASS했고 mutation step은 실행하지 않았다. 이후 `preexisting-temp-nodes` blocker를 추가해 기존 `/dev` 노드가 있으면 승인 실행도 막도록 보강했다
    - v366 다음: exact phrase `approve v366 bounded runtime repair smoke only; no service-manager start and no Wi-Fi bring-up`가 들어오기 전까지 temporary `/dev` node 생성/property lookup smoke도 보류한다
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 

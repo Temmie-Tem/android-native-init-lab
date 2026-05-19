@@ -26,6 +26,9 @@ mutation step.
 | corrected plan mode | `tmp/wifi/v366-runtime-repair-smoke-plan-20260520-r2/` | `runtime-repair-smoke-plan-ready` |
 | live preflight | `tmp/wifi/v366-runtime-repair-smoke-preflight-20260520/` | `runtime-repair-smoke-preflight-ready` |
 | no-approval run | `tmp/wifi/v366-runtime-repair-smoke-refusal-20260520/` | `runtime-repair-smoke-approval-required` |
+| safety plan refresh | `tmp/wifi/v366-runtime-repair-smoke-plan-safety-20260520-005806/` | `runtime-repair-smoke-plan-ready` |
+| safety preflight refresh | `tmp/wifi/v366-runtime-repair-smoke-preflight-safety-20260520-005806/` | `runtime-repair-smoke-preflight-ready` |
+| safety no-approval refresh | `tmp/wifi/v366-runtime-repair-smoke-refusal-safety-20260520-005806/` | `runtime-repair-smoke-approval-required` |
 
 No-approval run summary:
 
@@ -56,6 +59,11 @@ The live preflight confirmed:
 The no-approval run performed preflight/status checks only. The resulting step
 list contains no mutation names such as `create-vendor-block`, `create-binder`,
 `property-lookup`, or approved-run `cleanup`.
+
+A safety refresh added and verified `preexisting-temp-nodes`. The current live
+state is `clean` with `present=[]`, so an approved future run will only cleanup
+nodes it created. If any target node already exists, the run blocks before the
+mutation path.
 
 This is the intended state until the exact approval phrase is supplied.
 

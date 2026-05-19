@@ -5114,6 +5114,7 @@
   - preflight decision `runtime-repair-smoke-preflight-ready`
   - no-approval run decision `runtime-repair-smoke-approval-required`
   - no-approval run performed no mutation steps: no temporary `/dev` node creation and no property lookup
+  - safety refresh added `preexisting-temp-nodes` blocker; current live state is `present=[]`
   - live preflight confirmed helper/linkerconfig/property/system-root inputs and `/proc/partitions` `sda29` metadata `259:13`
   - post/preflight service-manager, CNSS, and Wi-Fi link surfaces remain clean/absent
 - next approval phrase:
