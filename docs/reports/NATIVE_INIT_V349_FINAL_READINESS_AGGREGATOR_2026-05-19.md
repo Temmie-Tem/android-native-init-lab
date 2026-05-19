@@ -4,7 +4,7 @@
 - scope: host-only final readiness aggregation before V317 live proof
 - device command: none
 - device mutation: none
-- result: `PRE-COMMIT STRUCTURE PASS / POST-COMMIT CLEAN-HEAD RUN REQUIRED`
+- result: `PASS`
 
 ## Summary
 
@@ -38,13 +38,27 @@ reason: source tree is dirty, so dependent evidence is not clean-current-HEAD
 remaining blockers are readiness steps, not device execution
 ```
 
-## Post-commit Validation Plan
+## Post-commit Validation
 
-After commit, rerun the final readiness aggregator on clean HEAD. Expected:
+Command:
+
+```bash
+python3 scripts/revalidation/wifi_v317_final_readiness.py \
+  --out-dir tmp/wifi/v349-v317-final-readiness \
+  check
+```
+
+Observed result:
 
 ```text
-v317-final-readiness-awaiting-approval
+decision: v317-final-readiness-awaiting-approval
+pass: True
 remaining_blockers: [exact-v317-approval-phrase]
+device_commands_executed: false
+device_mutations: false
+git_head: matched current HEAD at run time
+git_dirty: false
+blocked_steps: []
 ```
 
 ## Safety
@@ -52,3 +66,9 @@ remaining_blockers: [exact-v317-approval-phrase]
 - No live V317 proof was executed.
 - No daemon start was performed.
 - No Wi-Fi bring-up was performed.
+
+## Acceptance Result
+
+- V344, V345, and V348 all passed through the final readiness aggregator.
+- The only remaining blocker is `exact-v317-approval-phrase`.
+- No live V317 proof, daemon start, Wi-Fi bring-up, device command, or device mutation was executed.

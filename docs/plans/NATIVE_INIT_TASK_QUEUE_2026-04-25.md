@@ -4675,7 +4675,7 @@
   - exact V317 approval phrase 없이는 live proof 실행하지 않음
 
 
-### V349. V317 Final Readiness Aggregator — HOST-ONLY / PENDING POST-COMMIT RUN
+### V349. V317 Final Readiness Aggregator — HOST-ONLY PASS
 
 - 계획: `docs/plans/NATIVE_INIT_V349_FINAL_READINESS_AGGREGATOR_PLAN_2026-05-19.md`
 - 보고서: `docs/reports/NATIVE_INIT_V349_FINAL_READINESS_AGGREGATOR_2026-05-19.md`
@@ -4690,7 +4690,9 @@
   - dirty tree에서는 final readiness block 확인
   - `device_commands_executed=false`, `device_mutations=false`
 - post-commit validation:
-  - clean HEAD에서 final readiness 재실행 예정
+  - clean HEAD에서 `v317-final-readiness-awaiting-approval` PASS
+  - `remaining_blockers=[exact-v317-approval-phrase]`
+  - `device_commands_executed=false`, `device_mutations=false`
 - next:
   - exact V317 approval phrase 없이는 live proof 실행하지 않음
 
