@@ -4165,8 +4165,31 @@
   - v312/v315/v316/v317-plan/v317-audit/v319/v321/v322 prerequisites PASS
   - v317 live PASS evidence missing
 - next:
-  - exact v317 approval phrase is required before live private property namespace proof
+  - v324 refreshed the exact approval packet with post-v319 transfer estimates and post-v323 gate status
   - if approval is not provided, choose another read-only Wi-Fi/kernel inventory task
+
+### V324. Private Property Live Approval Refresh — READY / LIVE NOT APPROVED
+
+- 계획: `docs/plans/NATIVE_INIT_V324_PRIVATE_PROPERTY_APPROVAL_REFRESH_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V324_PRIVATE_PROPERTY_APPROVAL_REFRESH_2026-05-19.md`
+- tool: `scripts/revalidation/wifi_private_property_approval_refresh.py`
+- evidence: `tmp/wifi/v324-private-property-approval-refresh/`
+- boot image: 없음. v324는 host-only approval packet refresh이며 native init version 변경 없음
+- validation:
+  - `py_compile` PASS
+  - `git diff --check` PASS
+  - decision `private-property-approval-refresh-ready`
+  - `pass=true`
+  - `live_execution_approved=false`
+  - `device_commands_executed=false`
+  - `device_mutations=false`
+- transfer estimate:
+  - files 5, bytes 524988, chunks 471, estimated commands 505, max cmdv1x script length 3294
+- required exact phrase:
+  - `approve v317 minimal private property namespace proof only; no daemon start and no Wi-Fi bring-up`
+- next:
+  - if exact approval is provided, run v317 live proof
+  - otherwise continue read-only Wi-Fi/kernel inventory work
 
 ### V187. Harness Broker Backend — PASS
 

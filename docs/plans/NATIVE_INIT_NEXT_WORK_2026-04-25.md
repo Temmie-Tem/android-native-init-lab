@@ -1503,6 +1503,9 @@ Samsung bootloader
    - v323 계획서: `docs/plans/NATIVE_INIT_V323_PRIVATE_PROPERTY_CHAIN_AUDIT_PLAN_2026-05-19.md`
    - v323 보고서: `docs/reports/NATIVE_INIT_V323_PRIVATE_PROPERTY_CHAIN_AUDIT_2026-05-19.md`
    - v323 해석: host-only gate audit 결과 `private-property-chain-blocked-v317-missing`, audit PASS, chain_ready=false다. v312/v315/v316/v317-plan/v317-audit/v319/v321/v322는 PASS이고 남은 live blocker는 v317 PASS evidence뿐이다
+   - v324 계획서: `docs/plans/NATIVE_INIT_V324_PRIVATE_PROPERTY_APPROVAL_REFRESH_PLAN_2026-05-19.md`
+   - v324 보고서: `docs/reports/NATIVE_INIT_V324_PRIVATE_PROPERTY_APPROVAL_REFRESH_2026-05-19.md`
+   - v324 해석: 최신 approval packet을 재생성했다. live_execution_approved=false, transfer estimate는 files 5 / bytes 524988 / chunks 471 / estimated commands 505이며 exact v317 phrase 없이는 실행하지 않는다
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
 ---
