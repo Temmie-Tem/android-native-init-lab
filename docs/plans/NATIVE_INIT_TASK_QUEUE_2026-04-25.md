@@ -3584,6 +3584,27 @@
 - next:
   - boot Android intentionally and run v297 capture before property shim design
 
+### V298. Property Baseline Compare — TOOL READY / WAITING FOR ANDROID
+
+- 계획: `docs/plans/NATIVE_INIT_V298_PROPERTY_BASELINE_COMPARE_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V298_PROPERTY_BASELINE_COMPARE_2026-05-19.md`
+- boot image change: none
+- baseline device build: `A90 Linux init 0.9.60 (v261)`
+- tool: `scripts/revalidation/wifi_property_baseline_compare.py`
+- evidence: `tmp/wifi/v298-property-baseline-compare-waiting/`
+- decision: `property-baseline-compare-waiting-for-android`
+- result:
+  - v295 static snapshot is available
+  - v297 Android capture is not available yet
+  - required Android-side property values are missing until Android ADB capture is performed
+- safety:
+  - host-side manifest comparison only
+  - no property mutation/runtime creation
+  - no service-manager/HAL/Wi-Fi daemon execution
+  - no Wi-Fi scan/connect/link-up/credential/DHCP/routing
+- next:
+  - Android boot + v297 live capture remains the blocker before property shim design
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
