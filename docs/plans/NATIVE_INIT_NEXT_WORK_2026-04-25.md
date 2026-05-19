@@ -1896,3 +1896,10 @@ Samsung bootloader
    - v396 결과: read-only `servicemanager`/`libbase.so`/`liblog.so` pull PASS, framechain rerun `service-manager-framechain-symbolization-pass`, `device_mutations=False`, `daemon_start_executed=False`, `wifi_bringup_executed=False`
    - v396 해석: missing-ELF blocker는 제거됐다. frame0/1은 fatal-log abort path이고 frame2 `servicemanager+0x8294`는 `frameworks/native/cmds/servicemanager/Access.cpp` fatal-log site 근방이다. 주변 문자열상 `selinux_status_open(true)`, `gSehandle`, `getcon` 관련 SELinux runtime/status surface가 가장 강한 후보지만 아직 확정은 아니다
    - v397 다음: private Android namespace에서 `/sys/fs/selinux`, SELinux status/context/service-context 입력, binder devnode와 service-manager fatal 조건을 read-only로 증명한다. Wi-Fi HAL/start/scan/connect remains blocked
+
+   - v397 plan: `docs/plans/NATIVE_INIT_V397_SELINUX_SURFACE_PROOF_PLAN_2026-05-20.md`
+   - v397 report: `docs/reports/NATIVE_INIT_V397_SELINUX_SURFACE_PROOF_2026-05-20.md`
+   - v397 evidence: `tmp/wifi/v397-selinux-surface-final-20260520-075153/`
+   - v397 결과: `service-manager-selinux-status-native-missing` PASS as blocker classification. `/proc/filesystems`에는 `selinuxfs`가 있으나 `/proc/mounts`에는 `/sys/fs/selinux` selinuxfs mount가 없고 `/sys/fs/selinux/status`, `/sys/fs/selinux/enforce`가 absent
+   - v397 해석: `servicemanager` crash는 Wi-Fi 자체보다 Android `servicemanager`가 요구하는 SELinux runtime surface 부재 쪽으로 좁혀졌다. mounted Android service context input은 일부 보이지만 native/private runtime status page가 없다
+   - v398 다음: minimal SELinux runtime surface plan. 우선 helper v22 private context proof 또는 native selinuxfs mount/bind 설계를 안전하게 분리하고, service-manager clean-start 전까지 Wi-Fi HAL/start/scan/connect remains blocked

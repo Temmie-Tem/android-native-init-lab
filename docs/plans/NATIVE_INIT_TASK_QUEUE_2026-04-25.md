@@ -20,7 +20,7 @@
 - 상세 규칙: `docs/operations/VERSIONING_POLICY.md`
 
 
-## Current Wi-Fi V396 Runtime-Gap Status (2026-05-20)
+## Current Wi-Fi V397 Runtime-Gap Status (2026-05-20)
 
 - current native build remains `A90 Linux init 0.9.61 (v319)`.
 - current Wi-Fi work is host tooling plus bounded read-only evidence, not a new boot-image flash.
@@ -29,8 +29,9 @@
 - V392 live result: `hwservicemanager` start-only PASS; `servicemanager` remains `start-only-runtime-gap` with SIGABRT; cleanup/postflight safe; Wi-Fi bring-up false.
 - V396 result: read-only pull of `/mnt/system/system/bin/servicemanager`, `/mnt/system/system/lib64/libbase.so`, and `/mnt/system/system/lib64/liblog.so` PASS.
 - V396 framechain rerun: `service-manager-framechain-symbolization-pass`, no remaining missing-ELF blockers.
-- current interpretation: `servicemanager` abort is likely a fatal Android runtime contract check, with SELinux status/context surface the strongest current candidate.
-- next execution item: V397 SELinux status/runtime surface proof before runtime repair, service-manager clean-start, or Wi-Fi HAL/start/scan/connect.
+- V397 result: native `selinuxfs` support exists but no `selinuxfs` mount/status page is present at `/sys/fs/selinux`; `servicemanager` SELinux status surface is now the current blocker.
+- current interpretation: `servicemanager` abort is likely the fatal `selinux_status_open(true)` path, not Wi-Fi-specific failure.
+- next execution item: V398 minimal SELinux runtime surface/private-context proof before runtime repair, service-manager clean-start, or Wi-Fi HAL/start/scan/connect.
 
 ## 현재 고정 기준점
 
@@ -8419,3 +8420,19 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
   - frame2 `servicemanager+0x8294` is a fatal-log return site near `frameworks/native/cmds/servicemanager/Access.cpp` line-immediate `441`.
   - relevant strings include `Check failed: selinux_status_open(true ) >= 0`, `Check failed: gSehandle != nullptr`, and `Check failed: getcon(&mThisProcessContext) == 0`.
 - next execution item: V397 SELinux status/runtime surface proof. Wi-Fi HAL/start/scan/connect remains blocked.
+
+### V397. SELinux Surface Proof — PASS / NATIVE STATUS MISSING
+
+- plan: `docs/plans/NATIVE_INIT_V397_SELINUX_SURFACE_PROOF_PLAN_2026-05-20.md`
+- report: `docs/reports/NATIVE_INIT_V397_SELINUX_SURFACE_PROOF_2026-05-20.md`
+- tool: `scripts/revalidation/wifi_service_manager_selinux_surface_proof.py`
+- evidence: `tmp/wifi/v397-selinux-surface-final-20260520-075153/`
+- result:
+  - decision `service-manager-selinux-status-native-missing`
+  - `/proc/filesystems` has `selinuxfs`
+  - `/proc/mounts` has no `selinuxfs` at `/sys/fs/selinux`
+  - `/sys/fs/selinux/status` and `/sys/fs/selinux/enforce` are absent
+  - Android `plat_service_contexts` and `system_ext_service_contexts` are visible under `/mnt/system`
+  - `device_mutations=False`, `daemon_start_executed=False`, `wifi_bringup_executed=False`
+- interpretation: the next blocker is minimal SELinux runtime surface, not Wi-Fi HAL itself.
+- next execution item: V398 minimal SELinux runtime surface/private-context proof. Wi-Fi HAL/start/scan/connect remains blocked.
