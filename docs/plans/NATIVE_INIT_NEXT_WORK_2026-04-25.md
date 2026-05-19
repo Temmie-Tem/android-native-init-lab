@@ -1870,3 +1870,8 @@ Samsung bootloader
    - v392 분석 도구: `scripts/revalidation/wifi_service_manager_framechain_analyze.py`는 V392 live log의 frame-chain evidence와 `frameN_ra` map rows를 host-only로 파싱하고, matching ELF root가 있을 때 return-address symbolization을 시도한다. `scripts/revalidation/wifi_v392_deploy_live_executor.py`는 approved runtime-gap live 후 이 분석기를 자동 실행한다
    - v392 검증 상태: static build/required strings/py_compile/plan-only gates/no-approval executor PASS. read-only device preflight는 remote helper가 아직 v20이므로 expected `helper-v21` blocker로 막혔고 daemon start/Wi-Fi bring-up은 없음. framechain analyzer negative check는 V390 log에서 expected `service-manager-framechain-needs-v392-live` PASS. executor framechain integration smoke도 V390 runtime-gap evidence 기준 PASS
    - v392 실행 조건: deploy는 exact `approve v392 deploy execns helper v21 only; no daemon start and no Wi-Fi bring-up`, live는 exact `approve v392 service-manager backchain capture only; no Wi-Fi HAL start and no Wi-Fi bring-up` 필요
+
+   - v393 plan: `docs/plans/NATIVE_INIT_V393_FRAMECHAIN_AUTO_ELF_RESOLVER_PLAN_2026-05-20.md`
+   - v393 report: `docs/reports/NATIVE_INIT_V393_FRAMECHAIN_AUTO_ELF_RESOLVER_2026-05-20.md`
+   - v393 결과: framechain analyzer가 V391 read-only `libc.so` pull과 V221/V227/V222 host-side ELF roots를 자동 재사용한다. synthetic framechain log에서 `/tmp/.../root/apex/com.android.runtime/lib64/bionic/libc.so + 0x8be90`을 `abort`로 symbolization PASS했고 V390 negative regression은 expected `service-manager-framechain-needs-v392-live` PASS
+   - v393 해석: 다음 approved V392 live에서 frame return-address가 cached Android ELF에 매핑되면 수동 `--elf-root` 없이 top-level executor route가 symbolized caller inspection으로 이어질 수 있다. Wi-Fi HAL/start/scan/connect remains blocked until V392 exact approval

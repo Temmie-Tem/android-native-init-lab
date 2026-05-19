@@ -163,6 +163,8 @@ python3 scripts/revalidation/wifi_service_manager_framechain_analyze.py \
   analyze
 ```
 
+By default, the analyzer reuses existing host-side Android ELF evidence from V391/V221/V227/V222. Add `--no-auto-elf-cache` only when a manual roots-only run is required.
+
 ## Rollback / Stop
 
 V392 deploy only replaces `/cache/bin/a90_android_execns_probe`; it does not modify Android partitions.

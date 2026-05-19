@@ -8333,3 +8333,18 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
 - executor integration: `scripts/revalidation/wifi_v392_deploy_live_executor.py` now automatically runs runtime-gap classifier and framechain analyzer after approved runtime-gap live results.
 - validation: local static build PASS, required strings PASS, `py_compile` PASS, plan-only gates PASS, no-approval executor PASS, read-only real-device preflight blocks on expected remote helper v21 mismatch. Framechain analyzer negative check against V390 live log returns expected `service-manager-framechain-needs-v392-live`. Executor framechain integration smoke using V390 runtime-gap evidence PASS.
 - next execution item: wait for exact v392 deploy approval, then exact v392 backchain capture live approval. Wi-Fi HAL/start/scan/connect remains blocked.
+
+### V393. Framechain Auto ELF Resolver — PASS / HOST-ONLY
+
+- plan: `docs/plans/NATIVE_INIT_V393_FRAMECHAIN_AUTO_ELF_RESOLVER_PLAN_2026-05-20.md`
+- report: `docs/reports/NATIVE_INIT_V393_FRAMECHAIN_AUTO_ELF_RESOLVER_2026-05-20.md`
+- tool: `scripts/revalidation/wifi_service_manager_framechain_analyze.py`
+- result:
+  - automatic ELF cache discovery uses V391 `libc.so`, V221 root manifest, V227 system root cache, and V222 vendor root cache
+  - synthetic framechain map row `/tmp/.../root/apex/com.android.runtime/lib64/bionic/libc.so + 0x8be90` resolves to symbol `abort`
+  - V390 negative regression still returns expected `service-manager-framechain-needs-v392-live`
+  - `--no-auto-elf-cache` regression returns expected `service-manager-framechain-maprow-ready`
+  - V392 no-approval executor remains fail-closed before device commands/mutations/daemon/Wi-Fi actions
+  - no device commands, mutations, daemon start, or Wi-Fi bring-up
+- validation: `py_compile` PASS, synthetic auto-ELF smoke PASS, no-auto regression PASS, V390 negative regression PASS, V392 no-approval executor PASS, read-only device health PASS.
+- next execution item: V392 exact-approved helper v21 deploy and service-manager backchain capture live run. Wi-Fi HAL/start/scan/connect remains blocked.
