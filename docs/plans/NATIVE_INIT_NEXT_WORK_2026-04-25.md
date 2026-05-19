@@ -1807,3 +1807,8 @@ Samsung bootloader
    - v386 구현 상태: `a90_android_execns_probe v17`은 service-manager `ptrace-lite`에서 raw maps/mountinfo/register dump를 serial stdout으로 뿌리지 않고 compact summary만 보낸다. 로컬 SHA256은 `45c27e28c90a86c75a291edaf16d8233da51358647c1e6d1700f0e4f9cf437c5`이다
    - v386 검증 상태: static build/py_compile/diff check/no-approval executor gate PASS. device deploy/live는 아직 실행하지 않았다
    - v386 실행 조건: deploy는 exact `approve v386 deploy execns helper v17 only; no daemon start and no Wi-Fi bring-up`, live는 exact `approve v386 service-manager compact ptrace capture only; no Wi-Fi HAL start and no Wi-Fi bring-up` 필요
+
+   - v386 approved result report: `docs/reports/NATIVE_INIT_V386_APPROVED_LIVE_RESULT_2026-05-20.md`
+   - v386 approved deploy: serial transfer installed helper v17 SHA `45c27e28c90a86c75a291edaf16d8233da51358647c1e6d1700f0e4f9cf437c5`; daemon start/Wi-Fi bring-up 없음
+   - v386 approved live: compact ptrace capture fixed the v385 serial output blocker. Both service-manager targets returned `A90P1 END` and machine-readable `service_manager_start.*` fields. `servicemanager` remains `start-only-runtime-gap` with cleanup PASS. `hwservicemanager` is still `start-only-reboot-required` because timeout cleanup treats a ptrace stop as reaped and leaves a temporary zombie until PID1 reaps it
+   - v387 다음: ptrace timeout cleanup fix. WIFSTOPPED must not be counted as reaped; cleanup must continue the tracee with termination signal and wait for real WIFEXITED/WIFSIGNALED before claiming postflight safe

@@ -8182,3 +8182,15 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
   - `scripts/revalidation/wifi_v386_deploy_live_executor.py`
 - validation: local static build PASS, required strings PASS, `py_compile` PASS, `git diff --check` PASS, plan-only/no-approval gates PASS.
 - next execution item: wait for exact v386 deploy approval, then exact v386 compact ptrace live approval. Wi-Fi HAL/start/scan/connect remains blocked.
+
+### V386. Approved Compact Ptrace Capture Live — REVIEW REQUIRED
+
+- result: `docs/reports/NATIVE_INIT_V386_APPROVED_LIVE_RESULT_2026-05-20.md`
+- deploy evidence: `tmp/wifi/v386-approved-deploy-serial-20260520-053704/`
+- live evidence: `tmp/wifi/v386-approved-live-20260520-054304/`
+- result:
+  - helper v17 deployed by serial path, SHA `45c27e28c90a86c75a291edaf16d8233da51358647c1e6d1700f0e4f9cf437c5`
+  - `servicemanager`: `start-only-runtime-gap`, SIGABRT captured, `postflight_safe=1`, `residual_cleared=1`
+  - `hwservicemanager`: compact capture PASS and `A90P1 END` returned, but helper reports `start-only-reboot-required` because final PGID scan sees the child as `state:Z` after kill
+  - postflight read-only checks: native status/selftest PASS, no manager process, no Wi-Fi link
+- next execution item: V387 ptrace timeout cleanup fix; Wi-Fi HAL/start/scan/connect remains blocked
