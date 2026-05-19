@@ -1910,3 +1910,10 @@ Samsung bootloader
    - v398 결과: `selinuxfs-mount-approval-packet-ready` PASS. V399 executor는 exact approval phrase 없이는 run/cleanup 모두 device command 전에 refuse한다. packet은 fresh V397 read-only proof를 포함했고 device mutation/daemon/Wi-Fi bring-up은 없음
    - v398 해석: 다음 live mutation은 명확히 `mount selinuxfs /sys/fs/selinux selinuxfs` 하나로 제한된다. cleanup은 `umount /sys/fs/selinux`로 분리되어 있으며 service-manager와 Wi-Fi는 여전히 범위 밖이다
    - v399 다음: exact-approved SELinuxfs mount smoke. `/sys/fs/selinux/status` 가시성을 증명한 뒤 별도 cycle에서 service-manager start-only packet으로 넘어간다. Wi-Fi HAL/start/scan/connect remains blocked
+
+   - v399 report: `docs/reports/NATIVE_INIT_V399_SELINUXFS_MOUNT_SMOKE_2026-05-20.md`
+   - v399 evidence: `tmp/wifi/v399-selinuxfs-mount-live-20260520-080657/`
+   - v399 post-proof: `tmp/wifi/v399-post-smoke-proof-20260520-080750/`
+   - v399 결과: `selinuxfs-mount-live-executor-run-review`. 승인된 mutation path까지 갔지만 `cmdv1 mount`가 `unknown command: mount`로 거부되어 실제 selinuxfs mount/status page는 생성되지 않았다. post-smoke proof는 여전히 `service-manager-selinux-status-native-missing`
+   - v399 해석: 커널 SELinuxfs mount 불가가 아니라 executor command surface 오류다. `cmdv1 run /cache/bin/toybox mount` read-only inventory는 동작하므로 V400은 toybox-backed mount/umount executor로 좁힌다
+   - v400 다음: toybox-backed SELinuxfs mount approval packet. Wi-Fi HAL/start/scan/connect remains blocked

@@ -20,7 +20,7 @@
 - 상세 규칙: `docs/operations/VERSIONING_POLICY.md`
 
 
-## Current Wi-Fi V398 Runtime-Gap Status (2026-05-20)
+## Current Wi-Fi V399 Runtime-Gap Status (2026-05-20)
 
 - current native build remains `A90 Linux init 0.9.61 (v319)`.
 - current Wi-Fi work is host tooling plus bounded read-only evidence, not a new boot-image flash.
@@ -32,7 +32,8 @@
 - V397 result: native `selinuxfs` support exists but no `selinuxfs` mount/status page is present at `/sys/fs/selinux`; `servicemanager` SELinux status surface is now the current blocker.
 - current interpretation: `servicemanager` abort is likely the fatal `selinux_status_open(true)` path, not Wi-Fi-specific failure.
 - V398 result: non-mutating SELinuxfs mount approval packet PASS; V399 executor is fail-closed without exact approval.
-- next execution item: V399 exact-approved SELinuxfs mount smoke only; no daemon start or Wi-Fi bring-up.
+- V399 result: exact-approved SELinuxfs mount smoke reached the approved live path, but `cmdv1 mount` is not implemented. No `selinuxfs` status page appeared; post-smoke proof still returns `service-manager-selinux-status-native-missing`.
+- next execution item: V400 toybox-backed SELinuxfs mount approval packet; no daemon start or Wi-Fi bring-up.
 
 ## 현재 고정 기준점
 
@@ -8455,3 +8456,19 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
 - approval phrase:
   - `approve v399 mount selinuxfs runtime surface only; no daemon start and no Wi-Fi bring-up`
 - next execution item: V399 exact-approved SELinuxfs mount smoke. Service-manager and Wi-Fi HAL/start/scan/connect remain blocked.
+
+### V399. SELinuxfs Mount Smoke — REVIEW / TOOLING GAP
+
+- report: `docs/reports/NATIVE_INIT_V399_SELINUXFS_MOUNT_SMOKE_2026-05-20.md`
+- evidence:
+  - approved live run: `tmp/wifi/v399-selinuxfs-mount-live-20260520-080657/`
+  - post-smoke proof: `tmp/wifi/v399-post-smoke-proof-20260520-080750/`
+- approval used:
+  - `approve v399 mount selinuxfs runtime surface only; no daemon start and no Wi-Fi bring-up`
+- result:
+  - decision `selinuxfs-mount-live-executor-run-review`
+  - direct failure: `cmdv1 mount` returned `unknown command: mount`
+  - post-smoke proof still returns `service-manager-selinux-status-native-missing`
+  - `daemon_start_executed=False`, `wifi_bringup_executed=False`
+- interpretation: V399 did not prove kernel mount infeasibility. It proved the executor used an unsupported cmdv1 command surface. `cmdv1 run /cache/bin/toybox mount` works for read-only mount inventory.
+- next execution item: V400 toybox-backed SELinuxfs mount approval packet and exact-approved retry. Service-manager and Wi-Fi HAL/start/scan/connect remain blocked.
