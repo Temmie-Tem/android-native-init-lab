@@ -8320,6 +8320,7 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
 - plan: `docs/plans/NATIVE_INIT_V392_BACKCHAIN_CAPTURE_PLAN_2026-05-20.md`
 - readiness: `docs/reports/NATIVE_INIT_V392_BACKCHAIN_CAPTURE_2026-05-20.md`
 - handoff/analyzer: `docs/reports/NATIVE_INIT_V392_HANDOFF_AND_FRAMECHAIN_ANALYZER_2026-05-20.md`
+- executor integration: `docs/reports/NATIVE_INIT_V392_EXECUTOR_FRAMECHAIN_INTEGRATION_2026-05-20.md`
 - live handoff: `docs/operations/WIFI_V392_BACKCHAIN_LIVE_HANDOFF.md`
 - local helper: `tmp/wifi/v392-a90_android_execns_probe-v21/a90_android_execns_probe`
 - sha256: `c6216cc3b579f78bfd668148a24e1948e9e08621ea7d4e21c8b280475cc09ab8`
@@ -8329,5 +8330,6 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
   - `scripts/revalidation/wifi_v392_deploy_live_executor.py`
 - host analyzer:
   - `scripts/revalidation/wifi_service_manager_framechain_analyze.py`
-- validation: local static build PASS, required strings PASS, `py_compile` PASS, plan-only gates PASS, no-approval executor PASS, read-only real-device preflight blocks on expected remote helper v21 mismatch. Framechain analyzer negative check against V390 live log returns expected `service-manager-framechain-needs-v392-live`.
+- executor integration: `scripts/revalidation/wifi_v392_deploy_live_executor.py` now automatically runs runtime-gap classifier and framechain analyzer after approved runtime-gap live results.
+- validation: local static build PASS, required strings PASS, `py_compile` PASS, plan-only gates PASS, no-approval executor PASS, read-only real-device preflight blocks on expected remote helper v21 mismatch. Framechain analyzer negative check against V390 live log returns expected `service-manager-framechain-needs-v392-live`. Executor framechain integration smoke using V390 runtime-gap evidence PASS.
 - next execution item: wait for exact v392 deploy approval, then exact v392 backchain capture live approval. Wi-Fi HAL/start/scan/connect remains blocked.

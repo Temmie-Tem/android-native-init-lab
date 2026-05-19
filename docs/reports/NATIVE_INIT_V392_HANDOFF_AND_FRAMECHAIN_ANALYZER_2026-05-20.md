@@ -42,6 +42,7 @@ Older V390 approval phrases are intentionally insufficient for V392 execution.
 ## Added Analyzer
 
 - tool: `scripts/revalidation/wifi_service_manager_framechain_analyze.py`
+- executor integration: `docs/reports/NATIVE_INIT_V392_EXECUTOR_FRAMECHAIN_INTEGRATION_2026-05-20.md`
 
 The analyzer is host-only. It parses V392 live logs for:
 
@@ -111,3 +112,5 @@ approve v392 service-manager backchain capture only; no Wi-Fi HAL start and no W
 ```
 
 Once approved, run the V392 one-shot executor from the handoff document and then parse the new live log with `wifi_service_manager_framechain_analyze.py`.
+
+After the executor integration update, the one-shot executor runs that frame-chain parse automatically for runtime-gap live results. Manual parsing remains useful for ad-hoc or copied evidence.

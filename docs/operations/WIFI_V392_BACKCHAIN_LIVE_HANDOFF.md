@@ -143,7 +143,7 @@ Expected live constraints:
 
 ## Post-Run Classification
 
-If using the one-shot executor, runtime-gap classification is automatic when live decision is runtime-gap.
+If using the one-shot executor, runtime-gap classification and frame-chain parsing are automatic when live decision is runtime-gap.
 
 Manual classification:
 

@@ -1864,8 +1864,9 @@ Samsung bootloader
    - v392 plan: `docs/plans/NATIVE_INIT_V392_BACKCHAIN_CAPTURE_PLAN_2026-05-20.md`
    - v392 readiness report: `docs/reports/NATIVE_INIT_V392_BACKCHAIN_CAPTURE_2026-05-20.md`
    - v392 handoff/analyzer report: `docs/reports/NATIVE_INIT_V392_HANDOFF_AND_FRAMECHAIN_ANALYZER_2026-05-20.md`
+   - v392 executor integration report: `docs/reports/NATIVE_INIT_V392_EXECUTOR_FRAMECHAIN_INTEGRATION_2026-05-20.md`
    - v392 live handoff: `docs/operations/WIFI_V392_BACKCHAIN_LIVE_HANDOFF.md`
    - v392 구현 상태: `a90_android_execns_probe v21`은 crash snapshot에서 `x29`/frame pointer와 up to 8 frame-chain 후보를 캡처하고, 각 return address를 `frameN_ra` map row로 기록한다. 로컬 SHA256은 `c6216cc3b579f78bfd668148a24e1948e9e08621ea7d4e21c8b280475cc09ab8`이다
-   - v392 분석 도구: `scripts/revalidation/wifi_service_manager_framechain_analyze.py`는 V392 live log의 frame-chain evidence와 `frameN_ra` map rows를 host-only로 파싱하고, matching ELF root가 있을 때 return-address symbolization을 시도한다
-   - v392 검증 상태: static build/required strings/py_compile/plan-only gates/no-approval executor PASS. read-only device preflight는 remote helper가 아직 v20이므로 expected `helper-v21` blocker로 막혔고 daemon start/Wi-Fi bring-up은 없음. framechain analyzer negative check는 V390 log에서 expected `service-manager-framechain-needs-v392-live` PASS
+   - v392 분석 도구: `scripts/revalidation/wifi_service_manager_framechain_analyze.py`는 V392 live log의 frame-chain evidence와 `frameN_ra` map rows를 host-only로 파싱하고, matching ELF root가 있을 때 return-address symbolization을 시도한다. `scripts/revalidation/wifi_v392_deploy_live_executor.py`는 approved runtime-gap live 후 이 분석기를 자동 실행한다
+   - v392 검증 상태: static build/required strings/py_compile/plan-only gates/no-approval executor PASS. read-only device preflight는 remote helper가 아직 v20이므로 expected `helper-v21` blocker로 막혔고 daemon start/Wi-Fi bring-up은 없음. framechain analyzer negative check는 V390 log에서 expected `service-manager-framechain-needs-v392-live` PASS. executor framechain integration smoke도 V390 runtime-gap evidence 기준 PASS
    - v392 실행 조건: deploy는 exact `approve v392 deploy execns helper v21 only; no daemon start and no Wi-Fi bring-up`, live는 exact `approve v392 service-manager backchain capture only; no Wi-Fi HAL start and no Wi-Fi bring-up` 필요
