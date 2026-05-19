@@ -20,6 +20,7 @@ DEFAULT_V330 = Path("tmp/wifi/v330-evidence-freshness-audit/manifest.json")
 DEFAULT_V327 = Path("tmp/wifi/v327-private-property-approval-refresh/manifest.json")
 DEFAULT_V328_PLAN = Path("tmp/wifi/v328-v317-runner-plan/manifest.json")
 DEFAULT_V328_REFUSE = Path("tmp/wifi/v328-v317-runner-refuse/manifest.json")
+DEFAULT_V336 = Path("tmp/wifi/v336-v317-prelive-gate-audit/manifest.json")
 DEFAULT_RUNNER = Path("scripts/revalidation/wifi_private_property_namespace_proof.py")
 
 
@@ -42,6 +43,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--v327-manifest", type=Path, default=DEFAULT_V327)
     parser.add_argument("--v328-plan-manifest", type=Path, default=DEFAULT_V328_PLAN)
     parser.add_argument("--v328-refuse-manifest", type=Path, default=DEFAULT_V328_REFUSE)
+    parser.add_argument("--v336-manifest", type=Path, default=DEFAULT_V336)
     parser.add_argument("--runner", type=Path, default=DEFAULT_RUNNER)
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=54321)
@@ -79,6 +81,8 @@ def build_command(args: argparse.Namespace, approval_phrase: str, subcommand: st
         str(args.port),
         "--timeout",
         str(args.timeout),
+        "--prelive-gate-manifest",
+        str(args.v336_manifest),
         "--approval-phrase",
         approval_phrase,
         "--allow-device-mutation",
@@ -91,6 +95,7 @@ def build_checks(v330: dict[str, Any],
                  v327: dict[str, Any],
                  v328_plan: dict[str, Any],
                  v328_refuse: dict[str, Any],
+                 v336: dict[str, Any],
                  approval_phrase: str) -> list[ReadinessCheck]:
     v330_ok = (
         v330.get("present")
@@ -124,6 +129,16 @@ def build_checks(v330: dict[str, Any],
         and not bool(v328_refuse.get("device_commands_executed"))
         and not bool(v328_refuse.get("device_mutations"))
     )
+    v336_ok = (
+        v336.get("present")
+        and v336.get("decision") == "v317-prelive-gate-awaiting-approval"
+        and bool(v336.get("pass"))
+        and v336.get("required_approval_phrase") == approval_phrase
+        and v336.get("remaining_blockers") == ["exact-v317-approval-phrase"]
+        and not bool(v336.get("live_execution_approved"))
+        and not bool(v336.get("device_commands_executed"))
+        and not bool(v336.get("device_mutations"))
+    )
     return [
         ReadinessCheck(
             "v330-freshness",
@@ -148,6 +163,12 @@ def build_checks(v330: dict[str, Any],
             "pass" if v328_refuse_ok else "blocked",
             f"decision={v328_refuse.get('decision')} pass={v328_refuse.get('pass')}",
             str(v328_refuse.get("path", "")),
+        ),
+        ReadinessCheck(
+            "v336-prelive-gate",
+            "pass" if v336_ok else "blocked",
+            f"decision={v336.get('decision')} pass={v336.get('pass')} remaining_blockers={v336.get('remaining_blockers')}",
+            str(v336.get("path", "")),
         ),
     ]
 
@@ -174,8 +195,9 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
     v327 = load_json(args.v327_manifest)
     v328_plan = load_json(args.v328_plan_manifest)
     v328_refuse = load_json(args.v328_refuse_manifest)
+    v336 = load_json(args.v336_manifest)
     approval_phrase = str(v327.get("approval_phrase") or v328_plan.get("operator_approval_phrase") or "")
-    checks = build_checks(v330, v327, v328_plan, v328_refuse, approval_phrase)
+    checks = build_checks(v330, v327, v328_plan, v328_refuse, v336, approval_phrase)
     decision, pass_ok, reason, next_step = decide(checks)
     run_argv = build_command(args, approval_phrase, "run", args.live_out_dir)
     cleanup_argv = build_command(args, approval_phrase, "cleanup", args.cleanup_out_dir)

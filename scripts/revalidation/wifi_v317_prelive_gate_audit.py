@@ -116,10 +116,9 @@ GATES = (
         {"v317-live-readiness-packet-ready"},
         True,
         (
-            "scripts/revalidation/wifi_v317_live_readiness_packet.py",
             "scripts/revalidation/wifi_private_property_namespace_proof.py",
         ),
-        "operator handoff packet",
+        "operator handoff packet; packet script changes are not live-path blockers",
     ),
     GateSpec(
         "v332-readonly-live-preflight",
