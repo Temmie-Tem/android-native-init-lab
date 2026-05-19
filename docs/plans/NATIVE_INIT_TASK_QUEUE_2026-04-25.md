@@ -4871,6 +4871,23 @@
 - next:
   - exact V317 approval phrase 없이는 executor `run`/`cleanup` 실행하지 않음
 
+### V358. V317 Approval/Sudo Boundary Matrix — HOST-ONLY PENDING
+
+- 계획: `docs/plans/NATIVE_INIT_V358_APPROVAL_SUDO_BOUNDARY_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V358_APPROVAL_SUDO_BOUNDARY_2026-05-19.md`
+- 운영 문서: `docs/operations/WIFI_V317_APPROVAL_AND_SUDO_MATRIX.md`
+- boot image: 없음. v358은 host-side 운영 경계 문서화이며 native init version 변경 없음
+- 구현:
+  - host-only/no-sudo, host-sudo, exact approval required, separate approval required 명령군을 구분
+  - V317 exact phrase가 승인하는 범위와 승인하지 않는 범위를 명시
+  - host `sudo`는 실행 권한일 뿐 device mutation approval이 아님을 명시
+- validation:
+  - `git diff --check`
+  - operation/plans/reports 용어 연결 확인
+  - V357 pre-approval audit 재실행으로 blocker 상태 유지 확인
+- next:
+  - exact V317 approval phrase 없이는 executor `run`/`cleanup` 실행하지 않음
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
