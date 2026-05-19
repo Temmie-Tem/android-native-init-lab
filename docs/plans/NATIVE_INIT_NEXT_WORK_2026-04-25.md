@@ -1730,6 +1730,7 @@ Samsung bootloader
    - v384 결과: 로컬 `a90_android_execns_probe v15`가 `service-manager-start-only --capture-mode ptrace-lite`를 지원한다. deploy/live wrapper는 fail-closed이며, v382/v373 승인 문구로는 v384 live/deploy가 실행되지 않는다. 아직 v15 배포와 live crash capture는 미실행
    - v384 executor 보고서: `docs/reports/NATIVE_INIT_V384_DEPLOY_LIVE_EXECUTOR_2026-05-20.md`
    - v384 handoff: `docs/operations/WIFI_V384_PTRACE_LIVE_HANDOFF.md`
+   - v384 preflight ready report: `docs/reports/NATIVE_INIT_V384_PREFLIGHT_READY_2026-05-20.md`
    - v384 executor 결과: `scripts/revalidation/wifi_v384_deploy_live_executor.py`가 helper v15 deploy → ptrace-lite live capture → classifier를 fail-closed로 순서화한다. `plan`/no-approval `full` 회귀에서 device command/mutation/daemon/Wi-Fi 모두 false
    - v384 실행 조건: deploy는 exact `approve v384 deploy execns helper v15 only; no daemon start and no Wi-Fi bring-up`, live는 exact `approve v384 service-manager ptrace-lite crash capture only; no Wi-Fi HAL start and no Wi-Fi bring-up` 필요
    - v384 다음: exact v384 deploy 승인으로 v15를 `/cache/bin`에 배포한 뒤, exact v384 ptrace-lite 승인으로 bounded service-manager crash capture를 실행한다. Wi-Fi HAL/start/scan/connect는 계속 blocked
