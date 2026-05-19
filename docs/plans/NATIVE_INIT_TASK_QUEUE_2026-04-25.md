@@ -4956,6 +4956,32 @@
   - 별도 exact approval boundary 없이는 `wifi_cnss_start_only_runner.py run` 실행하지 않음
   - 다음 후보는 bounded CNSS start-only approval packet refresh 또는 추가 no-start readiness probe
 
+### V361. CNSS Start-Only Approval Packet Refresh — NO-START PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V361_CNSS_START_ONLY_APPROVAL_PACKET_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V361_CNSS_START_ONLY_APPROVAL_PACKET_2026-05-19.md`
+- tool: `scripts/revalidation/wifi_cnss_live_approval_packet.py`
+- boot image: 없음. v361은 host/no-start approval packet refresh이며 native init version 변경 없음
+- prerequisite:
+  - V320 live property lookup PASS
+  - V360 no-start runner default v11 SHA PASS
+- validation:
+  - `py_compile` PASS
+  - decision `live-approval-packet-ready`
+  - prerequisites match PASS
+  - runtime materialization profile PASS
+  - approved helper argv profile PASS
+  - helper no-allow fail-closed PASS
+  - `pidof cnss-daemon` before/after PASS
+  - no `wlan*` before PASS
+  - `/data/vendor/wifi` state unchanged PASS
+  - `daemon_start_executed=false`
+- generated future command:
+  - `python3 scripts/revalidation/wifi_cnss_start_only_runner.py --out-dir tmp/wifi/v361-cnss-live-start-only-run-v11-after-v320 --max-runtime-sec 10 run --allow-daemon-start --assume-yes --i-understand-reboot-only-recovery`
+- next:
+  - future command remains blocked until a separate explicit operator instruction for bounded CNSS start-only
+  - Wi-Fi scan/connect/link-up remains blocked even if start-only is later approved
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`

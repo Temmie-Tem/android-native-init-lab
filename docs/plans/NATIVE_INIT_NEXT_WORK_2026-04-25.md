@@ -1617,6 +1617,9 @@ Samsung bootloader
    - v360 계획서: `docs/plans/NATIVE_INIT_V360_CNSS_PRESTART_RUNNER_REFRESH_PLAN_2026-05-19.md`
    - v360 보고서: `docs/reports/NATIVE_INIT_V360_CNSS_PRESTART_RUNNER_REFRESH_2026-05-19.md`
    - v360 해석: V320에서 배포된 v11 helper SHA를 CNSS start-only runner 기본값으로 반영했다. no-start `plan`/`preflight`/`dry-run`은 모두 PASS했고 `daemon_start_executed=false`를 유지했다
+   - v361 계획서: `docs/plans/NATIVE_INIT_V361_CNSS_START_ONLY_APPROVAL_PACKET_PLAN_2026-05-19.md`
+   - v361 보고서: `docs/reports/NATIVE_INIT_V361_CNSS_START_ONLY_APPROVAL_PACKET_2026-05-19.md`
+   - v361 해석: v11 helper 기준 approval packet을 재생성했고 `live-approval-packet-ready` PASS, helper no-allow fail-closed PASS, `daemon_start_executed=false`를 확인했다. 생성된 future command는 별도 bounded start-only 승인 전까지 실행하지 않는다
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
 ---
