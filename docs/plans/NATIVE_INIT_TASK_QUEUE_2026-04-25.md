@@ -3361,6 +3361,30 @@
 - next:
   - v289 Binder / service-manager feasibility inventory
 
+### V289. Binder / Service-Manager Feasibility Inventory — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V289_BINDER_SERVICE_MANAGER_FEASIBILITY_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V289_BINDER_SERVICE_MANAGER_FEASIBILITY_2026-05-19.md`
+- boot image change: none
+- baseline device build: `A90 Linux init 0.9.60 (v261)`
+- tool: `scripts/revalidation/wifi_binder_service_manager_feasibility.py`
+- evidence:
+  - `tmp/wifi/v289-binder-service-manager-plan/`
+  - `tmp/wifi/v289-binder-service-manager-live-20260519-135726/`
+- decision: `binder-kernel-present-devnodes-missing`
+- result:
+  - `CONFIG_ANDROID_BINDER_IPC=y`
+  - `CONFIG_ANDROID_BINDER_DEVICES=binder,hwbinder,vndbinder`
+  - Binder misc devices are registered in `/proc/misc`
+  - native `/dev/binder`, `/dev/hwbinder`, `/dev/vndbinder` are absent
+  - `CONFIG_ANDROID_BINDERFS=n` and binderfs is absent from `/proc/filesystems`
+  - service-manager binaries are visible through read-only mounted system, but service-manager processes are absent
+- safety:
+  - no `mknod`, no binderfs mount, no Binder ioctl, no service-manager execution
+  - no Wi-Fi daemon execution, no QMI/QRTR payload, no scan/connect/link-up
+- next:
+  - v290 private Binder devnode feasibility plan before any service-manager/HAL execution
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
