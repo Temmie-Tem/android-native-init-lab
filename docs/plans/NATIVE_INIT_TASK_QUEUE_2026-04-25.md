@@ -38,7 +38,9 @@
 - V401 result: toybox-backed `selinuxfs` mount PASS; `/sys/fs/selinux/status` visible; post-mount proof is `service-manager-selinux-surface-native-ready-private-proof-needed`.
 - V402 packet result: helper v22, deploy preflight wrapper, and private SELinux namespace proof runner are prepared; no helper deploy, daemon start, or Wi-Fi bring-up has been executed.
 - V402 read-only preflight: private proof is blocked only by remote `helper-v22`; deploy preflight is `execns-helper-v22-deploy-preflight-ready-needs-deploy`.
-- next execution item: exact-approved V402 helper v22 deploy, then exact-approved V402 private SELinux namespace proof. Service-manager start-only remains a later separate approval.
+- V402 live result: exact-approved helper v22 deploy PASS, then exact-approved private SELinux namespace proof PASS; private namespace sees SELinuxfs status/enforce, Binder devnodes, private properties, and service context inputs together.
+- latest V402 live report: `docs/reports/NATIVE_INIT_V402_PRIVATE_SELINUX_SURFACE_PROOF_LIVE_2026-05-20.md`.
+- next execution item: V403 bounded service-manager start-only retry approval packet. Wi-Fi HAL/start/scan/connect remains blocked.
 
 ## 현재 고정 기준점
 

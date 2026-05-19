@@ -1940,3 +1940,8 @@ Samsung bootloader
    - v402 결과: helper v22 `private-selinux-proof` mode와 fail-closed deploy/private-proof runners를 준비했다. no-approval run은 mutation/daemon/Wi-Fi 없이 거부되고, read-only private proof preflight는 remote helper가 아직 v22가 아니어서 expected `helper-v22` blocker로 멈춘다
    - v402 실행 조건: deploy는 exact `approve v402 deploy execns helper v22 only; no daemon start and no Wi-Fi bring-up`, private proof는 exact `approve v402 private selinux namespace proof only; no daemon start and no Wi-Fi bring-up` 필요
    - v402 다음: exact-approved helper v22 deploy 후 private SELinux namespace proof. service-manager start-only, Wi-Fi HAL/start/scan/connect는 계속 별도 승인 전까지 blocked
+
+   - v402 live report: `docs/reports/NATIVE_INIT_V402_PRIVATE_SELINUX_SURFACE_PROOF_LIVE_2026-05-20.md`
+   - v402 live evidence: deploy `tmp/wifi/v402-execns-helper-v22-deploy-live-20260520-084231/`, proof `tmp/wifi/v402-private-selinux-surface-live-20260520-084832/`, postflight `tmp/wifi/v402-private-proof-postflight-20260520-084853/`
+   - v402 live 결과: `execns-helper-v22-deploy-pass` 후 `private-selinux-surface-proof-pass`. private namespace에서 SELinuxfs status/enforce/policy, Binder devnodes, V317 private property tree, service/hwservice context files가 함께 visible하다
+   - v402 live 해석: V401 이후 남은 private namespace SELinux surface blocker는 제거됐다. 다음은 V403 bounded service-manager start-only retry approval packet이며, Wi-Fi HAL/start/scan/connect는 계속 blocked
