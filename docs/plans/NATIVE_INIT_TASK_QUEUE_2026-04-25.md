@@ -8265,3 +8265,17 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
   - triage: `servicemanager-sigabrt-triage-partial-evidence`, remaining blocker `abort-message`
   - postflight read-only checks: native status/selftest PASS, no manager process, no Wi-Fi link
 - next execution item: V390 crash map-row/symbolization capture for `servicemanager` PC/LR. Wi-Fi HAL/start/scan/connect remains blocked.
+
+### V390. Crash Map Capture Helper — READY FOR APPROVAL
+
+- plan: `docs/plans/NATIVE_INIT_V390_CRASH_MAP_CAPTURE_PLAN_2026-05-20.md`
+- readiness: `docs/reports/NATIVE_INIT_V390_CRASH_MAP_CAPTURE_2026-05-20.md`
+- local helper: `tmp/wifi/v390-a90_android_execns_probe-v20/a90_android_execns_probe`
+- sha256: `44efea328220d37f09d91e4906b7490903d789ef509f0ae2ba74a64049a47171`
+- host wrappers:
+  - `scripts/revalidation/wifi_execns_helper_v20_deploy_preflight.py`
+  - `scripts/revalidation/wifi_service_manager_start_only_v390_live_runner.py`
+  - `scripts/revalidation/wifi_v390_deploy_live_executor.py`
+  - `scripts/revalidation/wifi_service_manager_crash_symbolize.py`
+- validation: local static build PASS, required strings PASS, `py_compile` PASS, symbolizer negative check PASS, plan-only gates PASS, no-approval executor PASS, read-only real-device preflight blocks on expected remote helper v20 mismatch.
+- next execution item: wait for exact v390 deploy approval, then exact v390 crash map capture live approval. Wi-Fi HAL/start/scan/connect remains blocked.

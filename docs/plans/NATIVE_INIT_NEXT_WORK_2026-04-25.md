@@ -1840,3 +1840,10 @@ Samsung bootloader
    - v389 approved live: `hwservicemanager` remains `start-only-pass`; `servicemanager` remains `start-only-runtime-gap` with SIGABRT, but selected register values, stack scan, register-pointer scans, and compact maps metadata are now captured
    - v389 해석: `x8=0xf0`은 AArch64 `rt_tgsigqueueinfo` syscall path로 보이며 PC/LR은 abort delivery 경로에 멈춘 상태다. 현재 capture는 map row/library offset을 보존하지 않아 fatal site symbolization이 아직 불가하다
    - v390 다음: crash map-row/symbolization capture. `pc`/`lr`가 속한 `/proc/<pid>/maps` row와 library-relative offsets를 bounded output으로 추가한다. Wi-Fi HAL/start/scan/connect remains blocked
+
+   - v390 plan: `docs/plans/NATIVE_INIT_V390_CRASH_MAP_CAPTURE_PLAN_2026-05-20.md`
+   - v390 readiness report: `docs/reports/NATIVE_INIT_V390_CRASH_MAP_CAPTURE_2026-05-20.md`
+   - v390 구현 상태: `a90_android_execns_probe v20`은 crash snapshot에서 PC/LR map row, mapping permissions, file offset, relative offset, path, escaped maps line을 추가한다. 로컬 SHA256은 `44efea328220d37f09d91e4906b7490903d789ef509f0ae2ba74a64049a47171`이다
+   - v390 host tool: `scripts/revalidation/wifi_service_manager_crash_symbolize.py`가 V390 live log의 map-row evidence를 파싱하고 matching ELF root가 있을 때 `addr2line` symbolization을 시도한다
+   - v390 검증 상태: static build/required strings/py_compile/plan-only gates/no-approval executor PASS. read-only device preflight는 remote helper가 아직 v19이므로 expected `helper-v20` blocker로 막혔고 daemon start/Wi-Fi bring-up은 없음
+   - v390 실행 조건: deploy는 exact `approve v390 deploy execns helper v20 only; no daemon start and no Wi-Fi bring-up`, live는 exact `approve v390 service-manager crash map capture only; no Wi-Fi HAL start and no Wi-Fi bring-up` 필요

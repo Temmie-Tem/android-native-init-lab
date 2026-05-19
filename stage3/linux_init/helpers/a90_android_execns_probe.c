@@ -43,7 +43,7 @@
 #define PR_CAP_AMBIENT_RAISE 2
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v19"
+#define EXECNS_VERSION "a90_android_execns_probe v20"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -3024,16 +3024,198 @@ static int append_ptrace_memory_ascii_scan(struct buffer *buf,
                          string_count);
 }
 
+static const char *skip_spaces(const char *text) {
+    while (*text == ' ' || *text == '\t') {
+        text++;
+    }
+    return text;
+}
+
+static void trim_trailing_space(char *text) {
+    size_t len = strlen(text);
+
+    while (len > 0 &&
+           (text[len - 1] == ' ' ||
+            text[len - 1] == '\t' ||
+            text[len - 1] == '\r' ||
+            text[len - 1] == '\n')) {
+        text[len - 1] = '\0';
+        len--;
+    }
+}
+
+static int append_maps_address_row(struct buffer *buf,
+                                   pid_t pid,
+                                   const char *label,
+                                   const char *name,
+                                   unsigned long long addr) {
+    char path[MAX_PATH_LEN];
+    FILE *fp;
+    char line[1024];
+    size_t line_count = 0;
+
+    if (!plausible_user_ptr(addr)) {
+        return append_format(buf,
+                             "capture.%s.maprow.%s.addr=0x%016llx\n"
+                             "capture.%s.maprow.%s.found=0\n"
+                             "capture.%s.maprow.%s.reason=not-plausible-user-pointer\n",
+                             label,
+                             name,
+                             addr,
+                             label,
+                             name,
+                             label,
+                             name);
+    }
+    proc_path(path, sizeof(path), pid, "maps");
+    fp = fopen(path, "re");
+    if (fp == NULL) {
+        return append_format(buf,
+                             "capture.%s.maprow.%s.addr=0x%016llx\n"
+                             "capture.%s.maprow.%s.found=0\n"
+                             "capture.%s.maprow.%s.error=%s\n",
+                             label,
+                             name,
+                             addr,
+                             label,
+                             name,
+                             label,
+                             name,
+                             strerror(errno));
+    }
+    while (fgets(line, sizeof(line), fp) != NULL) {
+        char original[sizeof(line)];
+        char perms[8] = "";
+        char path_text[512] = "";
+        const char *cursor;
+        const char *path_start = "";
+        char *dash;
+        char *endptr;
+        unsigned long long start;
+        unsigned long long end;
+        unsigned long long file_offset;
+        unsigned long long relative_offset;
+        size_t perms_len = 0;
+
+        line_count++;
+        memcpy(original, line, sizeof(original));
+        original[sizeof(original) - 1] = '\0';
+        trim_trailing_space(original);
+
+        errno = 0;
+        start = strtoull(line, &endptr, 16);
+        if (errno != 0 || endptr == line || *endptr != '-') {
+            continue;
+        }
+        dash = endptr;
+        errno = 0;
+        end = strtoull(dash + 1, &endptr, 16);
+        if (errno != 0 || endptr == dash + 1 || addr < start || addr >= end) {
+            continue;
+        }
+        cursor = skip_spaces(endptr);
+        while (cursor[perms_len] != '\0' &&
+               cursor[perms_len] != ' ' &&
+               cursor[perms_len] != '\t' &&
+               perms_len + 1 < sizeof(perms)) {
+            perms[perms_len] = cursor[perms_len];
+            perms_len++;
+        }
+        perms[perms_len] = '\0';
+        cursor = skip_spaces(cursor + perms_len);
+        errno = 0;
+        file_offset = strtoull(cursor, &endptr, 16);
+        if (errno != 0 || endptr == cursor) {
+            file_offset = 0;
+        }
+        cursor = skip_spaces(endptr);
+        while (*cursor != '\0' && *cursor != ' ' && *cursor != '\t') {
+            cursor++;
+        }
+        cursor = skip_spaces(cursor);
+        while (*cursor != '\0' && *cursor != ' ' && *cursor != '\t') {
+            cursor++;
+        }
+        cursor = skip_spaces(cursor);
+        path_start = cursor;
+        snprintf(path_text, sizeof(path_text), "%s", path_start);
+        trim_trailing_space(path_text);
+        relative_offset = file_offset + (addr - start);
+
+        if (append_format(buf,
+                          "capture.%s.maprow.%s.addr=0x%016llx\n"
+                          "capture.%s.maprow.%s.found=1\n"
+                          "capture.%s.maprow.%s.start=0x%016llx\n"
+                          "capture.%s.maprow.%s.end=0x%016llx\n"
+                          "capture.%s.maprow.%s.perms=%s\n"
+                          "capture.%s.maprow.%s.file_offset=0x%llx\n"
+                          "capture.%s.maprow.%s.relative_offset=0x%llx\n"
+                          "capture.%s.maprow.%s.path=",
+                          label,
+                          name,
+                          addr,
+                          label,
+                          name,
+                          label,
+                          name,
+                          start,
+                          label,
+                          name,
+                          end,
+                          label,
+                          name,
+                          perms,
+                          label,
+                          name,
+                          file_offset,
+                          label,
+                          name,
+                          relative_offset,
+                          label,
+                          name) < 0 ||
+            append_escaped_ascii(buf, (const unsigned char *)path_text, strlen(path_text)) < 0 ||
+            append_format(buf, "\ncapture.%s.maprow.%s.line=", label, name) < 0 ||
+            append_escaped_ascii(buf, (const unsigned char *)original, strlen(original)) < 0 ||
+            append_literal(buf, "\n") < 0) {
+            fclose(fp);
+            return -1;
+        }
+        fclose(fp);
+        return 0;
+    }
+    fclose(fp);
+    return append_format(buf,
+                         "capture.%s.maprow.%s.addr=0x%016llx\n"
+                         "capture.%s.maprow.%s.found=0\n"
+                         "capture.%s.maprow.%s.scanned_lines=%zu\n",
+                         label,
+                         name,
+                         addr,
+                         label,
+                         name,
+                         label,
+                         name,
+                         line_count);
+}
+
 static int append_ptrace_regs_selected(struct buffer *buf,
                                        pid_t pid,
                                        const char *label,
-                                       unsigned long long *sp_out) {
+                                       unsigned long long *sp_out,
+                                       unsigned long long *pc_out,
+                                       unsigned long long *lr_out) {
     unsigned long long regs[96];
     struct iovec iov;
     size_t words;
 
     if (sp_out != NULL) {
         *sp_out = 0;
+    }
+    if (pc_out != NULL) {
+        *pc_out = 0;
+    }
+    if (lr_out != NULL) {
+        *lr_out = 0;
     }
     memset(regs, 0, sizeof(regs));
     iov.iov_base = regs;
@@ -3063,12 +3245,16 @@ static int append_ptrace_regs_selected(struct buffer *buf,
             return -1;
         }
     }
-    if (words > 30 &&
-        append_format(buf,
-                      "capture.%s.regset.nt_prstatus.lr=0x%016llx\n",
-                      label,
-                      regs[30]) < 0) {
-        return -1;
+    if (words > 30) {
+        if (lr_out != NULL) {
+            *lr_out = regs[30];
+        }
+        if (append_format(buf,
+                          "capture.%s.regset.nt_prstatus.lr=0x%016llx\n",
+                          label,
+                          regs[30]) < 0) {
+            return -1;
+        }
     }
     if (words > 31) {
         if (sp_out != NULL) {
@@ -3081,12 +3267,16 @@ static int append_ptrace_regs_selected(struct buffer *buf,
             return -1;
         }
     }
-    if (words > 32 &&
-        append_format(buf,
-                      "capture.%s.regset.nt_prstatus.pc=0x%016llx\n",
-                      label,
-                      regs[32]) < 0) {
-        return -1;
+    if (words > 32) {
+        if (pc_out != NULL) {
+            *pc_out = regs[32];
+        }
+        if (append_format(buf,
+                          "capture.%s.regset.nt_prstatus.pc=0x%016llx\n",
+                          label,
+                          regs[32]) < 0) {
+            return -1;
+        }
     }
     if (words > 33 &&
         append_format(buf,
@@ -3114,19 +3304,26 @@ static int append_capture_snapshot_compact(struct buffer *buf,
                                            const char *label,
                                            bool include_maps) {
     unsigned long long sp = 0;
+    unsigned long long pc = 0;
+    unsigned long long lr = 0;
 
     if (append_format(buf, "capture.%s.pid=%ld\n", label, (long)pid) < 0 ||
         append_proc_link_compact(buf, pid, label, "exe") < 0 ||
         append_proc_link_compact(buf, pid, label, "cwd") < 0 ||
         append_proc_auxv_brief(buf, pid, label) < 0 ||
         (strcmp(label, "crash") == 0 ?
-             append_ptrace_regs_selected(buf, pid, label, &sp) :
+             append_ptrace_regs_selected(buf, pid, label, &sp, &pc, &lr) :
              append_ptrace_regs_brief(buf, pid, label)) < 0 ||
         append_proc_text_brief(buf, pid, label, "status", 8192) < 0) {
         return -1;
     }
     if (strcmp(label, "crash") == 0 &&
         append_ptrace_memory_ascii_scan(buf, pid, label, "stack", sp, 512) < 0) {
+        return -1;
+    }
+    if (strcmp(label, "crash") == 0 && include_maps &&
+        (append_maps_address_row(buf, pid, label, "pc", pc) < 0 ||
+         append_maps_address_row(buf, pid, label, "lr", lr) < 0)) {
         return -1;
     }
     if (include_maps &&
