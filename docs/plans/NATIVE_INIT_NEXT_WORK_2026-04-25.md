@@ -1363,6 +1363,10 @@ Samsung bootloader
    - v287 보고서: `docs/reports/NATIVE_INIT_V287_WIFI_SERVICE_ORDER_REPLAY_MODEL_2026-05-19.md`
    - v287 결과: decision `wifi-service-order-replay-model-ready`, first missing service boundary `vendor.wifi_hal_ext`, `cnss-daemon`은 bounded start-only candidate로만 유지, Wi-Fi HAL/`cnss_diag`/`wificond`/supplicant/hostapd는 blocked
    - v287 해석: 다음은 HAL/framework boundary inventory이다. binder/hwbinder/hwservicemanager/VINTF/property/socket/SELinux/capability/linker namespace를 확인하기 전 HAL 또는 `wificond` 실행은 금지한다
+   - v288 계획서: `docs/plans/NATIVE_INIT_V288_HAL_FRAMEWORK_BOUNDARY_PLAN_2026-05-19.md`
+   - v288 보고서: `docs/reports/NATIVE_INIT_V288_HAL_FRAMEWORK_BOUNDARY_2026-05-19.md`
+   - v288 결과: decision `hal-framework-boundary-native-blocked`, native `/dev/binder`, `/dev/hwbinder`, `/dev/vndbinder`, service-manager process, property runtime이 blocker로 확인됨
+   - v288 해석: binary/VINTF 일부가 보여도 HAL/`wificond` 실행 준비는 아니다. 다음은 Binder/service-manager feasibility inventory가 우선이다
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
 ---

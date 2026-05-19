@@ -3338,6 +3338,29 @@
 - next:
   - v288 HAL/framework boundary inventory before any HAL or `wificond` execution
 
+### V288. HAL / Framework Boundary Inventory — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V288_HAL_FRAMEWORK_BOUNDARY_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V288_HAL_FRAMEWORK_BOUNDARY_2026-05-19.md`
+- boot image change: none
+- baseline device build: `A90 Linux init 0.9.60 (v261)`
+- tool: `scripts/revalidation/wifi_hal_framework_boundary_inventory.py`
+- evidence:
+  - `tmp/wifi/v288-hal-framework-boundary-plan/`
+  - `tmp/wifi/v288-hal-framework-boundary-live-20260519-135154/`
+- decision: `hal-framework-boundary-native-blocked`
+- result:
+  - Android HAL service metadata, VINTF Wi-Fi evidence, HAL process domains, and Android Wi-Fi socket surfaces are present
+  - native `/dev/binder`, `/dev/hwbinder`, `/dev/vndbinder` are absent
+  - native `servicemanager`/`hwservicemanager`/`vndservicemanager` processes are absent
+  - native property runtime socket/area is absent
+  - native `wificond` and service-manager binaries may be visible through mounted system, but that is not execution readiness
+- safety:
+  - no service execution, no QMI/QRTR payload, no scan/connect/link-up, no rfkill/ICNSS writes
+  - `mountsystem ro` used only as read-only visibility step
+- next:
+  - v289 Binder / service-manager feasibility inventory
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
