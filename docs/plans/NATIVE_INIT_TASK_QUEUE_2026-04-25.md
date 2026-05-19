@@ -8221,3 +8221,18 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
   - classifier: `service-manager-runtime-gap-servicemanager-sigabrt-captured`
   - postflight read-only checks: native status/selftest PASS, no manager process, no Wi-Fi link
 - next execution item: V388 `servicemanager` SIGABRT evidence triage/runtime repair plan; Wi-Fi HAL/start/scan/connect remains blocked.
+
+### V388. Servicemanager SIGABRT Triage — DONE
+
+- plan: `docs/plans/NATIVE_INIT_V388_SERVICEMANAGER_SIGABRT_TRIAGE_PLAN_2026-05-20.md`
+- report: `docs/reports/NATIVE_INIT_V388_SERVICEMANAGER_SIGABRT_TRIAGE_2026-05-20.md`
+- evidence: `tmp/wifi/v388-sigabrt-triage-20260520-060749/`
+- tool: `scripts/revalidation/wifi_service_manager_sigabrt_triage.py`
+- result:
+  - decision: `servicemanager-sigabrt-triage-needs-enhanced-crash-capture`
+  - SIGABRT captured and postflight safe
+  - `/dev/binder`, property root, and SELinux null node are materialized
+  - abort message, selected register values, stack bytes, and abort-message memory are missing
+  - device commands/mutations/daemon/Wi-Fi actions: all `False`
+- validation: `py_compile` PASS, regression PASS, analysis PASS, read-only device status PASS, `git diff --check` PASS.
+- next execution item: V389 enhanced bounded crash capture helper; Wi-Fi HAL/start/scan/connect remains blocked.

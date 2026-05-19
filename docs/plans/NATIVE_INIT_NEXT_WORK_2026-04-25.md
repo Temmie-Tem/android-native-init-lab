@@ -1823,3 +1823,8 @@ Samsung bootloader
    - v387 approved deploy: serial transfer installed helper v18 SHA `1131f0e3dd61bafc5023c25d7fb019303902cdf6cea76dd2e09b44b13a42378e`; daemon start/Wi-Fi bring-up 없음
    - v387 approved live: `hwservicemanager` cleanup blocker is fixed. It now reports `start-only-pass`, `cleanup_stop_continued=1`, `reaped=1`, `residual_cleared=1`, `postflight_safe=1`. `servicemanager` still exits with SIGABRT but crash evidence is captured and cleanup is safe
    - v388 다음: `servicemanager` SIGABRT evidence triage and targeted runtime repair planning. Wi-Fi HAL/start/scan/connect remains blocked until this runtime gap is understood
+
+   - v388 plan: `docs/plans/NATIVE_INIT_V388_SERVICEMANAGER_SIGABRT_TRIAGE_PLAN_2026-05-20.md`
+   - v388 report: `docs/reports/NATIVE_INIT_V388_SERVICEMANAGER_SIGABRT_TRIAGE_2026-05-20.md`
+   - v388 결과: host-only triage가 V387 `servicemanager` SIGABRT를 분석했고 `servicemanager-sigabrt-triage-needs-enhanced-crash-capture` PASS로 분류했다. `/dev/binder`, property root, SELinux null node는 materialized지만 abort message, register values, stack/abort-message memory가 없어 AOSP fatal site는 아직 미확정이다
+   - v389 다음: bounded enhanced crash capture. `NT_PRSTATUS` selected register values, stack/ASCII summary, abort-message memory/string scan을 compact하게 추가한다. Wi-Fi HAL/start/scan/connect remains blocked
