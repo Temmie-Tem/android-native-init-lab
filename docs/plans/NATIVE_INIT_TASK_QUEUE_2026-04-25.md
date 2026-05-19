@@ -5044,6 +5044,37 @@
   - V364 candidate: no-scan/no-connect HAL/service-manager readiness gate
   - do not run AP scan/connect/credential/DHCP/routing before that gate
 
+
+### V364. Wi-Fi HAL/Service-Manager Readiness Gate — BLOCKED PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V364_HAL_SERVICE_READINESS_GATE_PLAN_2026-05-20.md`
+- 보고서: `docs/reports/NATIVE_INIT_V364_HAL_SERVICE_READINESS_GATE_2026-05-20.md`
+- evidence:
+  - plan: `tmp/wifi/v364-hal-service-readiness-gate-plan-20260520/`
+  - live: `tmp/wifi/v364-hal-service-readiness-gate-live-20260520/`
+- boot image: 없음. v364는 host-side read-only readiness gate이며 native init version 변경 없음
+- validation:
+  - plan decision `hal-service-readiness-gate-plan-ready`
+  - live decision `hal-service-readiness-blocked`
+  - native baseline `A90 Linux init 0.9.61 (v319)`
+  - `wlan*`/wiphy surface absent
+  - Wi-Fi rfkill absent
+  - CNSS process leak absent
+- blockers:
+  - current Binder devnodes absent
+  - service-manager processes absent
+  - mutable property runtime absent
+  - linkerconfig visibility missing
+- warnings/useful evidence:
+  - service binary visibility partial: `servicemanager`, `hwservicemanager`, `wificond`
+  - Wi-Fi VINTF metadata present, `61` matching lines
+- interpretation:
+  - V292/V320/V362/V363 prerequisites are useful but not enough for HAL/service start-only
+  - next blocker is Android service runtime and private namespace readiness
+- next:
+  - V365 candidate: bounded Binder/property/linker namespace readiness repair or approval packet
+  - do not run Wi-Fi HAL/service-manager, scan/connect/credential/DHCP/routing before that gate
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`

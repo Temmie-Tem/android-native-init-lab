@@ -1630,6 +1630,11 @@ Samsung bootloader
    - v363 해석: Wi-Fi bring-up 방향은 수락됐지만 첫 단계는 no-scan/no-connect baseline gate로 제한했다. live baseline은 `wifi-bringup-phase0-live-baseline-ready` PASS
    - v363 결과: `wlan` module present, ICNSS core bound, QCA6390 node present but driver link absent, no `wlan*`, no Wi-Fi rfkill, no CNSS process leak
    - v363 다음: V364 no-scan/no-connect HAL/service-manager readiness gate. CNSS 단독 반복보다 Android Wi-Fi HAL/service-manager/property/Binder chain을 좁히는 것이 다음 병목이다
+   - v364 계획서: `docs/plans/NATIVE_INIT_V364_HAL_SERVICE_READINESS_GATE_PLAN_2026-05-20.md`
+   - v364 보고서: `docs/reports/NATIVE_INIT_V364_HAL_SERVICE_READINESS_GATE_2026-05-20.md`
+   - v364 해석: V292/V320/V362/V363 선행 증거는 PASS지만 live gate는 `hal-service-readiness-blocked`로 판정됐다. 현재 Binder devnodes, service-manager process, mutable property runtime, linkerconfig visibility가 없다
+   - v364 결과: no `wlan*`, no Wi-Fi rfkill, no CNSS process leak은 유지됐다. service binary visibility는 partial이고 Wi-Fi VINTF metadata는 present다
+   - v364 다음: V365 bounded Binder/property/linker namespace readiness repair or approval packet. Wi-Fi HAL/service-manager start-only도 아직 별도 계획 전까지 blocked
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
 ---
