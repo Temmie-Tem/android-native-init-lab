@@ -42,6 +42,11 @@ DEFAULT_DEVICE_IP = "192.168.7.2"
 DEFAULT_TRANSFER_PORT = 18084
 HELPER_MARKER = "a90_android_execns_probe v12"
 SERVICE_MODE_TOKEN = "service-manager-start-only"
+DEPLOY_LABEL = "v12"
+DEPLOY_NAME = "execns-helper-v12"
+DEPLOY_PLAN_VERSION = "V375"
+DEPLOY_LOG_PREFIX = "v375"
+SUMMARY_TITLE = "v375 Execns Helper v12 Deploy Preflight"
 APPROVAL_PHRASE = (
     "approve v375 deploy execns helper v12 only; "
     "no daemon start and no Wi-Fi bring-up"
@@ -232,7 +237,7 @@ def build_checks(args: argparse.Namespace, store: EvidenceStore, steps: list[Ste
 
     add_check(
         checks,
-        "local-helper-v12",
+        f"local-helper-{DEPLOY_LABEL}",
         "pass" if local["exists"] and local["sha256"] == args.helper_sha256 and local["strings_marker"] and local["strings_service_mode"] else "blocked",
         "blocker",
         f"exists={local['exists']} sha={local['sha256'] or 'missing'} marker={local['strings_marker']} service_mode={local['strings_service_mode']}",
@@ -289,12 +294,12 @@ def build_checks(args: argparse.Namespace, store: EvidenceStore, steps: list[Ste
     )
     add_check(
         checks,
-        "remote-helper-v12",
+        f"remote-helper-{DEPLOY_LABEL}",
         "pass" if remote_sha_match and remote_has_mode else "needs-deploy",
         "deploy",
         f"sha_match={remote_sha_match} marker_mode={remote_has_mode}",
         [line for line in helper_sha.splitlines() if args.remote_helper in line][:2] + [line for line in helper_usage.splitlines() if "usage:" in line or "a90_android_execns_probe" in line][:4],
-        "approved V375 run installs local v12 helper if needed",
+        f"approved {DEPLOY_PLAN_VERSION} run installs local {DEPLOY_LABEL} helper if needed",
     )
     add_check(
         checks,
@@ -392,7 +397,7 @@ def run_serial_install(args: argparse.Namespace, store: EvidenceStore) -> dict[s
     target_name = Path(target).name
     stamp = f"{int(time.time())}.{os.getpid()}"
     staging_dir = args.serial_staging_dir.rstrip("/")
-    staging = f"{staging_dir}/.{target_name}.v12.{stamp}.uu"
+    staging = f"{staging_dir}/.{target_name}.{DEPLOY_LABEL}.{stamp}.uu"
     tmp_target = f"{target_dir}/.{target_name}.tmp.{stamp}"
     transcript: list[str] = []
     chunks_written = 0
@@ -417,7 +422,7 @@ def run_serial_install(args: argparse.Namespace, store: EvidenceStore) -> dict[s
             step(f"append-{chunks_written:04d}", ["appendfile", staging, chunk], timeout=20.0)
             chunks_written += 1
             if chunks_written % 100 == 0:
-                print(f"[v375] serial append chunks={chunks_written}", flush=True)
+                print(f"[{DEPLOY_LOG_PREFIX}] serial append chunks={chunks_written}", flush=True)
         step("uudecode", ["run", args.toybox, "uudecode", "-o", tmp_target, staging], timeout=60.0)
         step("chmod", ["run", args.toybox, "chmod", "755", tmp_target])
         sha_text = step("sha-tmp", ["run", args.toybox, "sha256sum", tmp_target])
@@ -492,26 +497,26 @@ def run_v373_preflight(args: argparse.Namespace, store: EvidenceStore) -> dict[s
 def decide(args: argparse.Namespace, checks: list[Check], deploy_result: dict[str, Any] | None,
            v373_result: dict[str, Any] | None) -> tuple[str, bool, str, str]:
     if args.command == "plan":
-        return "execns-helper-v12-deploy-plan-ready", True, "plan-only; no live command executed", "run preflight"
+        return f"{DEPLOY_NAME}-deploy-plan-ready", True, "plan-only; no live command executed", "run preflight"
     blockers = blocking_checks(checks, ignore_deploy=args.command == "run" and approved(args))
     if blockers:
-        return "execns-helper-v12-deploy-blocked", False, "blocked before deploy by " + ", ".join(blockers), "resolve blockers before deploy"
+        return f"{DEPLOY_NAME}-deploy-blocked", False, "blocked before deploy by " + ", ".join(blockers), "resolve blockers before deploy"
     if args.command == "preflight":
-        return "execns-helper-v12-deploy-preflight-ready", True, "preflight complete; deploy still requires exact approval", "operator may approve V375 deploy"
+        return f"{DEPLOY_NAME}-deploy-preflight-ready", True, "preflight complete; deploy still requires exact approval", f"operator may approve {DEPLOY_PLAN_VERSION} deploy"
     if not approved(args):
-        return "execns-helper-v12-deploy-approval-required", True, "exact approval phrase required; no mutation executed", "rerun with exact phrase if deploy is intended"
+        return f"{DEPLOY_NAME}-deploy-approval-required", True, "exact approval phrase required; no mutation executed", "rerun with exact phrase if deploy is intended"
     if deploy_result and not deploy_result["ok"]:
-        return "execns-helper-v12-deploy-failed", False, "install command failed", "inspect install transcript and retry after cleanup"
+        return f"{DEPLOY_NAME}-deploy-failed", False, "install command failed", "inspect install transcript and retry after cleanup"
     if v373_result and v373_result["decision"] not in {"service-manager-start-only-smoke-approval-required", "service-manager-start-only-smoke-ready-to-execute"}:
-        return "execns-helper-v12-deploy-postflight-blocked", False, f"V373 preflight decision={v373_result['decision']}", "resolve V373 post-deploy blockers"
-    return "execns-helper-v12-deploy-pass", True, "helper v12 deployed or already current; V373 preflight advanced past helper-mode blocker", "next requires separate V373 daemon-start approval"
+        return f"{DEPLOY_NAME}-deploy-postflight-blocked", False, f"V373 preflight decision={v373_result['decision']}", "resolve V373 post-deploy blockers"
+    return f"{DEPLOY_NAME}-deploy-pass", True, f"helper {DEPLOY_LABEL} deployed or already current; V373 preflight advanced past helper-mode blocker", "next requires separate V373 daemon-start approval"
 
 
 def render_summary(manifest: dict[str, Any]) -> str:
     check_rows = [[c["name"], c["status"], c["severity"], c["detail"], c["next_step"]] for c in manifest["checks"]]
     step_rows = [[s["name"], "PASS" if s["ok"] else "FAIL", s["rc"], s["status"], s["file"]] for s in manifest["steps"]]
     lines = [
-        "# v375 Execns Helper v12 Deploy Preflight",
+        f"# {SUMMARY_TITLE}",
         "",
         f"- generated: `{manifest['generated_at']}`",
         f"- command: `{manifest['command']}`",
@@ -574,8 +579,8 @@ def build_manifest(args: argparse.Namespace, store: EvidenceStore) -> dict[str, 
     checks = build_checks(args, store, steps, local, ping)
     pre_deploy_blockers = blocking_checks(checks, ignore_deploy=args.command == "run" and approved(args))
     if args.command == "run" and approved(args) and not pre_deploy_blockers:
-        remote_v12 = any(check.name == "remote-helper-v12" and check.status == "pass" for check in checks)
-        if remote_v12:
+        remote_current = any(check.name == f"remote-helper-{DEPLOY_LABEL}" and check.status == "pass" for check in checks)
+        if remote_current:
             deploy_result = {"command": "skip", "rc": 0, "ok": True, "file": "", "skipped": True}
         else:
             deploy_result = run_install(args, store)

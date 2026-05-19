@@ -1710,6 +1710,10 @@ Samsung bootloader
    - v381 해석: `a90_android_execns_probe v14` 로컬 static helper에서 service-manager start-only mode가 `--property-root`를 받을 수 있게 했다. 기존 V317 private `/dev/__properties__`를 helper temp-root에 read-only bind하고, 다음 live smoke에서 `--data-wifi-mode private-empty`로 최소 `/data` tree를 제공할 수 있다. 아직 `/cache/bin` 배포나 daemon start는 하지 않았다
    - v381 다음: V382에서 v14 helper를 배포하고 private property root + private-empty data mode로 bounded service-manager start-only를 재실행한다
 
+   - v382 계획서: `docs/plans/NATIVE_INIT_V382_EXECNS_HELPER_V14_DEPLOY_LIVE_PLAN_2026-05-20.md`
+   - v382 준비: `scripts/revalidation/wifi_execns_helper_v14_deploy_preflight.py`가 V375 deploy mechanics를 재사용하되 helper marker `a90_android_execns_probe v14`, artifact `tmp/wifi/v381-a90_android_execns_probe-v14/a90_android_execns_probe`, sha256 `f8cde6848ad49755b06bfac8136cd81f0b985ca1be13dbf27b369cdb4fe4aea7`, approval phrase `approve v382 deploy execns helper v14 only; no daemon start and no Wi-Fi bring-up`로 고정한다
+   - v382 다음: exact deploy approval 후 `/cache/bin/a90_android_execns_probe`를 v14로 교체하고, 별도 live approval 범위에서 private property root + `--data-wifi-mode private-empty` service-manager start-only smoke를 실행한다. Wi-Fi HAL/scan/connect/link-up/credential/DHCP/routing은 계속 blocked
+
 ---
 
 ## 당장 하지 않을 것

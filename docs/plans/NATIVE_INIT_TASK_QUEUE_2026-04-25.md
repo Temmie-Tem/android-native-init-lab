@@ -5454,6 +5454,24 @@
 - next:
   - V382 deploy v14 and rerun service-manager start-only with private property root and private-empty `/data`
 
+
+### V382. Execns Helper V14 Deploy + Property Runtime Start-Only — READY / APPROVAL REQUIRED
+
+- 계획: `docs/plans/NATIVE_INIT_V382_EXECNS_HELPER_V14_DEPLOY_LIVE_PLAN_2026-05-20.md`
+- deploy wrapper: `scripts/revalidation/wifi_execns_helper_v14_deploy_preflight.py`
+- helper: `a90_android_execns_probe v14`
+- artifact: `tmp/wifi/v381-a90_android_execns_probe-v14/a90_android_execns_probe`
+- sha256: `f8cde6848ad49755b06bfac8136cd81f0b985ca1be13dbf27b369cdb4fe4aea7`
+- boundary:
+  - deploy approval: `approve v382 deploy execns helper v14 only; no daemon start and no Wi-Fi bring-up`
+  - live approval: `approve v373 service-manager start-only smoke only; no Wi-Fi HAL start and no Wi-Fi bring-up`
+- scope:
+  - deploy one helper binary to `/cache/bin/a90_android_execns_probe`
+  - rerun service-manager start-only with private property root + private-empty `/data`
+  - no Wi-Fi HAL start, scan, connect, DHCP, routing, or credential operation
+- next:
+  - execute V382 only after explicit approval; if runtime gap remains, classify before HAL readiness
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
