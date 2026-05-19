@@ -2822,6 +2822,42 @@
   - v269 runner integration for approval-gated deploy/run path without execution, or
   - explicit approval to deploy and run one bounded nameservice lookup
 
+### V269. QRTR Nameservice Live Retry — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V269_QRTR_NAMESERVICE_LIVE_RETRY_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V269_QRTR_NAMESERVICE_LIVE_RETRY_2026-05-19.md`
+- boot image change: 없음
+- baseline device build: `A90 Linux init 0.9.60 (v261)`
+- runner: `scripts/revalidation/wifi_qrtr_nameservice_runner.py`
+- helper device path: `/cache/bin/a90_qrtr_ns_probe`
+- helper sha256: `c2d8707155b776c6c31e815136a66060f2087c4606c8a48cf9bd4b7944fdbb2a`
+- live evidence: `tmp/wifi/v269-qrtr-nameservice-live-retry6-20260519-102134/`
+- validation:
+  - `plan` non-transmit PASS
+  - `preflight` non-transmit PASS
+  - no-approval `run` fail-closed PASS
+  - approved `run` PASS: `qrtr-ns-runner-lookup-sent`
+  - helper deploy PASS via short-lived host HTTP + device `toybox wget`
+  - helper hash check PASS
+- live result:
+  - `QRTR_TYPE_NEW_LOOKUP` sent: service `1`, instance `1`
+  - `QRTR_TYPE_DEL_LOOKUP` cleanup sent: service `1`, instance `1`
+  - `qrtr_ns.status=lookup-sent`
+  - `qrtr_ns.send_attempted=1`
+  - `qrtr_ns.qmi_attempted=0`
+- guardrails:
+  - no QMI payload
+  - no Wi-Fi scan/connect/link-up
+  - no `cnss-daemon`/`cnss_diag`/HAL/supplicant/wificond/hostapd start
+  - no rfkill, ICNSS, firmware, Android partition, property, perfd, kmsg, DHCP, or routing mutation
+- interpretation:
+  - QRTR nameservice lookup/delete packet path works under explicit approval
+  - no `cnss-daemon` process or `wlan*` link surface appeared after the run
+  - remaining Wi-Fi blocker is endpoint/service visibility and possible QMI-control discovery, not basic QRTR nameservice send ability
+- next execution item:
+  - v270 QRTR endpoint/service visibility classifier, or
+  - v270 QMI-control discovery plan with separate explicit approval gate
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`

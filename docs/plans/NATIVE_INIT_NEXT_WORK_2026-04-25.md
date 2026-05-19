@@ -1239,6 +1239,10 @@ Samsung bootloader
    - v268 보고서: `docs/reports/NATIVE_INIT_V268_QRTR_NS_HELPER_SOURCE_2026-05-19.md`
    - v268 결과: `a90_qrtr_ns_probe.c` source/build PASS, static ARM64 helper hash `c2d8707155b776c6c31e815136a66060f2087c4606c8a48cf9bd4b7944fdbb2a`
    - v268 해석: transmit-capable helper source exists but was not deployed or executed; actual lookup remains explicit approval gated
+   - v269 계획서: `docs/plans/NATIVE_INIT_V269_QRTR_NAMESERVICE_LIVE_RETRY_PLAN_2026-05-19.md`
+   - v269 보고서: `docs/reports/NATIVE_INIT_V269_QRTR_NAMESERVICE_LIVE_RETRY_2026-05-19.md`
+   - v269 결과: explicit approval-gated `a90_qrtr_ns_probe` deploy/run PASS, `QRTR_TYPE_NEW_LOOKUP` + cleanup `DEL_LOOKUP` sent for service `1` instance `1`, `qrtr_ns.status=lookup-sent`, `qmi_attempted=0`
+   - v269 해석: basic QRTR nameservice send path is no longer the blocker; no `cnss-daemon` or `wlan*` appeared, so next blocker is endpoint/service visibility and possible QMI-control discovery under a separate approval gate
    - v251 계획서: `docs/plans/NATIVE_INIT_V251_CNSS_PROPERTY_SURFACE_PLAN_2026-05-19.md`
    - v251 보고서: `docs/reports/NATIVE_INIT_V251_CNSS_PROPERTY_SURFACE_2026-05-19.md`
    - v251 결과: decision `cnss-property-read-only-surface`, host-only analysis, property read symbols `property_get`/`property_get_int32`, no property write/control symbols detected
