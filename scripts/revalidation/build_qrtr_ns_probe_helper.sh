@@ -53,6 +53,8 @@ if ! grep -q "There is no dynamic section" "${CHECK_FILE}"; then
 fi
 
 strings "${OUT}" >"${STRINGS_FILE}"
-grep -q "a90_qrtr_ns_probe v1" "${STRINGS_FILE}"
+grep -q "a90_qrtr_ns_probe v2" "${STRINGS_FILE}"
 grep -q -- "--allow-qrtr-ns-transmit" "${STRINGS_FILE}"
+grep -q -- "--readback-ms" "${STRINGS_FILE}"
 grep -q "qrtr_ns.send_attempted=0" "${STRINGS_FILE}"
+grep -q "qrtr_ns.readback.events=%u" "${STRINGS_FILE}"

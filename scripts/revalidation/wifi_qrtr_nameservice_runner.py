@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""v269 QRTR nameservice runner.
+"""v270 QRTR nameservice runner.
 
 This runner keeps the plan and read-only preflight paths non-transmitting. The
 run path remains fail-closed unless the explicit QRTR nameservice transmit
 approval flags are present; with approval it builds/deploys the reviewed static
-helper and executes one bounded QRTR nameservice lookup cleanup pair.
+helper, executes one bounded QRTR nameservice lookup cleanup pair, and can read
+bounded nameservice notifications without sending QMI payloads.
 """
 
 from __future__ import annotations
@@ -30,11 +31,11 @@ from a90harness.evidence import EvidenceStore  # noqa: E402
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_OUT_DIR = Path("tmp/wifi/v269-qrtr-nameservice-live-retry")
+DEFAULT_OUT_DIR = Path("tmp/wifi/v270-qrtr-nameservice-readback")
 DEFAULT_V264_MANIFEST = Path("tmp/wifi/v264-qrtr-qmi-nameservice-model/manifest.json")
 DEFAULT_EXPECT_VERSION = "A90 Linux init 0.9.60 (v261)"
 DEFAULT_TOYBOX = "/cache/bin/toybox"
-DEFAULT_HELPER_LOCAL_BINARY = Path("tmp/wifi/v269-qrtr-nameservice-live-retry/build/a90_qrtr_ns_probe")
+DEFAULT_HELPER_LOCAL_BINARY = Path("tmp/wifi/v270-qrtr-nameservice-readback/build/a90_qrtr_ns_probe")
 DEFAULT_HELPER_DEVICE_BINARY = "/cache/bin/a90_qrtr_ns_probe"
 BUILD_HELPER = Path("scripts/revalidation/build_qrtr_ns_probe_helper.sh")
 
@@ -118,6 +119,13 @@ def parse_key_values(text: str, prefix: str) -> dict[str, str]:
         key, value = line.split("=", 1)
         values[key[len(dotted):]] = value
     return values
+
+
+def helper_int(helper_keys: dict[str, str], key: str, default: int = 0) -> int:
+    try:
+        return int(helper_keys.get(key, str(default)), 0)
+    except ValueError:
+        return default
 
 
 class SingleFileHandler(http.server.BaseHTTPRequestHandler):
@@ -264,6 +272,8 @@ def build_contract(args: argparse.Namespace, v264: dict[str, Any]) -> dict[str, 
             "transmit_implemented": True,
             "helper_local_binary": str(repo_path(args.helper_local_binary)),
             "helper_device_binary": args.helper_device_binary,
+            "readback_ms": args.readback_ms,
+            "max_events": args.max_events,
         },
         "target": {
             "service_raw": args.service,
@@ -393,6 +403,18 @@ def classify_executed_run(checks: list[dict[str, Any]], helper_keys: dict[str, s
     failed = [item["name"] for item in checks if item["severity"] == "critical" and not item["pass"]]
     if failed:
         return False, "qrtr-ns-runner-live-failed", "live run failed: " + ", ".join(failed)
+    if helper_keys.get("readback_enabled") == "1":
+        service_events = helper_int(helper_keys, "readback.service_events")
+        end_of_list = helper_int(helper_keys, "readback.end_of_list")
+        timeout = helper_int(helper_keys, "readback.timeout")
+        events = helper_int(helper_keys, "readback.events")
+        if service_events > 0:
+            return True, "qrtr-ns-readback-services", f"readback observed {service_events} service event(s)"
+        if end_of_list:
+            return True, "qrtr-ns-readback-empty", "readback reached nameservice end-of-list with no matching service"
+        if timeout:
+            return True, "qrtr-ns-readback-timeout", f"readback timed out after {events} event(s)"
+        return True, "qrtr-ns-readback-complete", f"readback completed with {events} event(s)"
     return True, "qrtr-ns-runner-lookup-sent", (
         "single QRTR nameservice lookup/delete packet pair executed; "
         f"helper_status={helper_keys.get('status', 'missing')}"
@@ -409,7 +431,7 @@ def render_summary(manifest: dict[str, Any]) -> str:
         else:
             contract_rows.append([section, "-", str(values)])
     return "".join([
-        "# v269 QRTR Nameservice Runner\n\n",
+        "# v270 QRTR Nameservice Runner\n\n",
         f"- generated: `{manifest['created']}`\n",
         f"- command: `{manifest['command']}`\n",
         f"- result: `{'PASS' if manifest['pass'] else 'FAIL'}`\n",
@@ -427,6 +449,7 @@ def render_summary(manifest: dict[str, Any]) -> str:
         "- `run` without explicit approval flags succeeds only as a fail-closed proof.\n",
         "- Approved `run` executes only `/cache/bin/a90_qrtr_ns_probe` with the reviewed nameservice helper.\n",
         "- The helper sends QRTR nameservice control packets only; QMI payloads remain disallowed.\n",
+        "- Readback is bounded by `--readback-ms` and `--max-events`.\n",
     ])
 
 
@@ -632,6 +655,8 @@ def run_helper(args: argparse.Namespace, store: EvidenceStore) -> dict[str, Any]
         str(int(args.instance, 0)),
         "--allow-qrtr-ns-transmit",
     ]
+    if args.readback_ms > 0:
+        command.extend(["--readback-ms", str(args.readback_ms), "--max-events", str(args.max_events)])
     if args.allow_wildcard_lookup:
         command.append("--allow-wildcard-lookup")
     if args.no_del_lookup:
@@ -757,7 +782,7 @@ def command_run(args: argparse.Namespace) -> int:
                 },
                 {
                     "name": "qrtr-lookup-sent",
-                    "pass": helper_keys.get("status") == "lookup-sent",
+                    "pass": helper_keys.get("status") in {"lookup-sent", "lookup-readback-complete"},
                     "severity": "critical",
                     "detail": json.dumps(helper_keys, sort_keys=True),
                 },
@@ -774,6 +799,32 @@ def command_run(args: argparse.Namespace) -> int:
                     "detail": json.dumps(helper_keys, sort_keys=True),
                 },
             ])
+            if args.readback_ms > 0:
+                live_checks.extend([
+                    {
+                        "name": "qrtr-readback-enabled",
+                        "pass": helper_keys.get("readback_enabled") == "1",
+                        "severity": "critical",
+                        "detail": json.dumps(helper_keys, sort_keys=True),
+                    },
+                    {
+                        "name": "qrtr-readback-rc",
+                        "pass": helper_keys.get("readback.rc") == "0",
+                        "severity": "critical",
+                        "detail": json.dumps(helper_keys, sort_keys=True),
+                    },
+                    {
+                        "name": "qrtr-readback-classified",
+                        "pass": helper_keys.get("status") == "lookup-readback-complete",
+                        "severity": "critical",
+                        "detail": json.dumps({
+                            "events": helper_keys.get("readback.events"),
+                            "service_events": helper_keys.get("readback.service_events"),
+                            "end_of_list": helper_keys.get("readback.end_of_list"),
+                            "timeout": helper_keys.get("readback.timeout"),
+                        }, sort_keys=True),
+                    },
+                ])
     if pre_ok and contract["approval"]["all_present"] and live_checks:
         checks.extend(live_checks)
         pass_ok, decision, reason = classify_executed_run(checks, helper_result.get("helper_keys", {}) if helper_result else {})
@@ -800,6 +851,7 @@ def command_run(args: argparse.Namespace) -> int:
             "read-only preflight always runs before approved helper execution",
             "fail closed unless approval flags are present",
             "approved helper sends only QRTR nameservice NEW_LOOKUP and cleanup DEL_LOOKUP",
+            "approved helper may read bounded nameservice notifications",
             "no QMI request payload",
             "no Wi-Fi scan/connect/link-up",
         ],
@@ -827,6 +879,8 @@ def add_common_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--toybox", default=DEFAULT_TOYBOX)
     parser.add_argument("--service", default="1")
     parser.add_argument("--instance", default="1")
+    parser.add_argument("--readback-ms", type=int, default=1000)
+    parser.add_argument("--max-events", type=int, default=16)
     parser.add_argument("--max-runtime-sec", type=int, default=5)
     parser.add_argument("--build-timeout", type=float, default=60.0)
     parser.add_argument("--deploy-timeout", type=float, default=120.0)

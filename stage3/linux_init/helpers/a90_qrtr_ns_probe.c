@@ -3,6 +3,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <linux/qrtr.h>
+#include <poll.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -10,13 +11,16 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <time.h>
 #include <unistd.h>
 
 #ifndef AF_QIPCRTR
 #define AF_QIPCRTR 42
 #endif
 
-#define A90_QRTR_NS_PROBE_VERSION "a90_qrtr_ns_probe v1"
+#define A90_QRTR_NS_PROBE_VERSION "a90_qrtr_ns_probe v2"
+#define A90_QRTR_NS_READBACK_MAX_MS 5000U
+#define A90_QRTR_NS_READBACK_MAX_EVENTS 64U
 
 static int open_qrtr_socket(void) {
     int fd = socket(AF_QIPCRTR, SOCK_DGRAM | SOCK_CLOEXEC, 0);
@@ -52,7 +56,45 @@ static bool parse_u32(const char *text, uint32_t *out) {
 }
 
 static void usage(const char *argv0) {
-    printf("usage: %s --service <u32> --instance <u32> [--allow-qrtr-ns-transmit] [--allow-wildcard-lookup] [--no-del-lookup]\n", argv0);
+    printf("usage: %s --service <u32> --instance <u32> [--readback-ms <0..5000>] [--max-events <1..64>] [--allow-qrtr-ns-transmit] [--allow-wildcard-lookup] [--no-del-lookup]\n", argv0);
+}
+
+static long long monotonic_millis(void) {
+    struct timespec ts;
+
+    if (clock_gettime(CLOCK_MONOTONIC, &ts) < 0) {
+        return 0;
+    }
+    return (long long)ts.tv_sec * 1000LL + ts.tv_nsec / 1000000LL;
+}
+
+static const char *cmd_name(uint32_t cmd) {
+    switch (cmd) {
+    case QRTR_TYPE_DATA:
+        return "data";
+    case QRTR_TYPE_HELLO:
+        return "hello";
+    case QRTR_TYPE_BYE:
+        return "bye";
+    case QRTR_TYPE_NEW_SERVER:
+        return "new-server";
+    case QRTR_TYPE_DEL_SERVER:
+        return "del-server";
+    case QRTR_TYPE_DEL_CLIENT:
+        return "del-client";
+    case QRTR_TYPE_RESUME_TX:
+        return "resume-tx";
+    case QRTR_TYPE_EXIT:
+        return "exit";
+    case QRTR_TYPE_PING:
+        return "ping";
+    case QRTR_TYPE_NEW_LOOKUP:
+        return "new-lookup";
+    case QRTR_TYPE_DEL_LOOKUP:
+        return "del-lookup";
+    default:
+        return "unknown";
+    }
 }
 
 static void print_sockaddr(const char *prefix, const struct sockaddr_qrtr *addr) {
@@ -111,6 +153,134 @@ static int send_lookup_packet(int fd, uint32_t cmd, uint32_t service, uint32_t i
     return sent == (ssize_t)sizeof(packet) ? 0 : -EIO;
 }
 
+static int readback_notifications(int fd, uint32_t timeout_ms, uint32_t max_events) {
+    unsigned int events = 0;
+    unsigned int new_server = 0;
+    unsigned int del_server = 0;
+    unsigned int service_events = 0;
+    unsigned int empty_events = 0;
+    unsigned int timeout = 0;
+    unsigned int end_of_list = 0;
+    long long deadline = monotonic_millis() + timeout_ms;
+
+    printf("qrtr_ns.readback.rc=0\n");
+    printf("qrtr_ns.readback.timeout_ms=%u\n", timeout_ms);
+    printf("qrtr_ns.readback.max_events=%u\n", max_events);
+
+    while (events < max_events) {
+        struct pollfd pfd;
+        struct qrtr_ctrl_pkt packet;
+        struct sockaddr_qrtr from;
+        socklen_t from_len = sizeof(from);
+        long long now = monotonic_millis();
+        int wait_ms;
+        int poll_rc;
+        ssize_t received;
+        uint32_t cmd;
+        uint32_t service = 0;
+        uint32_t instance = 0;
+        uint32_t node = 0;
+        uint32_t port = 0;
+        bool empty = false;
+
+        if (now >= deadline) {
+            timeout = 1;
+            break;
+        }
+        wait_ms = (int)(deadline - now);
+        pfd.fd = fd;
+        pfd.events = POLLIN;
+        pfd.revents = 0;
+
+        poll_rc = poll(&pfd, 1, wait_ms);
+        if (poll_rc == 0) {
+            timeout = 1;
+            break;
+        }
+        if (poll_rc < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            printf("qrtr_ns.readback.rc=-1\n");
+            printf("qrtr_ns.readback.errno=%d\n", errno);
+            printf("qrtr_ns.readback.error=%s\n", strerror(errno));
+            return -errno;
+        }
+        if ((pfd.revents & POLLIN) == 0) {
+            printf("qrtr_ns.readback.revents=%d\n", pfd.revents);
+            continue;
+        }
+
+        memset(&packet, 0, sizeof(packet));
+        memset(&from, 0, sizeof(from));
+        received = recvfrom(fd, &packet, sizeof(packet), 0, (struct sockaddr *)&from, &from_len);
+        if (received < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            printf("qrtr_ns.readback.rc=-1\n");
+            printf("qrtr_ns.readback.errno=%d\n", errno);
+            printf("qrtr_ns.readback.error=%s\n", strerror(errno));
+            return -errno;
+        }
+        if (received < (ssize_t)sizeof(uint32_t)) {
+            printf("qrtr_ns.event.%u.bytes=%zd\n", events, received);
+            printf("qrtr_ns.event.%u.type=short\n", events);
+            events++;
+            continue;
+        }
+
+        cmd = le32toh(packet.cmd);
+        if (received >= (ssize_t)sizeof(packet)) {
+            service = le32toh(packet.server.service);
+            instance = le32toh(packet.server.instance);
+            node = le32toh(packet.server.node);
+            port = le32toh(packet.server.port);
+        }
+        if (cmd == QRTR_TYPE_NEW_SERVER) {
+            new_server++;
+            empty = service == 0 && instance == 0 && node == 0 && port == 0;
+            if (empty) {
+                empty_events++;
+            } else {
+                service_events++;
+            }
+        } else if (cmd == QRTR_TYPE_DEL_SERVER) {
+            del_server++;
+        }
+
+        printf("qrtr_ns.event.%u.bytes=%zd\n", events, received);
+        printf("qrtr_ns.event.%u.from.family=%u\n", events, (unsigned int)from.sq_family);
+        printf("qrtr_ns.event.%u.from.node=%u\n", events, from.sq_node);
+        printf("qrtr_ns.event.%u.from.port=%u\n", events, from.sq_port);
+        printf("qrtr_ns.event.%u.cmd=%u\n", events, cmd);
+        printf("qrtr_ns.event.%u.type=%s\n", events, cmd_name(cmd));
+        printf("qrtr_ns.event.%u.service=%u\n", events, service);
+        printf("qrtr_ns.event.%u.instance=%u\n", events, instance);
+        printf("qrtr_ns.event.%u.node=%u\n", events, node);
+        printf("qrtr_ns.event.%u.port=%u\n", events, port);
+        printf("qrtr_ns.event.%u.empty=%u\n", events, empty ? 1U : 0U);
+
+        events++;
+        if (empty) {
+            end_of_list = 1;
+            break;
+        }
+    }
+
+    if (events >= max_events && !end_of_list) {
+        timeout = 0;
+    }
+    printf("qrtr_ns.readback.events=%u\n", events);
+    printf("qrtr_ns.readback.new_server=%u\n", new_server);
+    printf("qrtr_ns.readback.del_server=%u\n", del_server);
+    printf("qrtr_ns.readback.service_events=%u\n", service_events);
+    printf("qrtr_ns.readback.empty_events=%u\n", empty_events);
+    printf("qrtr_ns.readback.end_of_list=%u\n", end_of_list);
+    printf("qrtr_ns.readback.timeout=%u\n", timeout);
+    return 0;
+}
+
 int main(int argc, char **argv) {
     uint32_t service = 0;
     uint32_t instance = 0;
@@ -119,8 +289,11 @@ int main(int argc, char **argv) {
     bool allow_transmit = false;
     bool allow_wildcard = false;
     bool send_del_lookup = true;
+    uint32_t readback_ms = 0;
+    uint32_t max_events = 16;
     int fd;
     int rc;
+    int readback_rc = 0;
     struct sockaddr_qrtr name;
 
     printf("qrtr_ns.version=%s\n", A90_QRTR_NS_PROBE_VERSION);
@@ -142,6 +315,22 @@ int main(int argc, char **argv) {
             allow_wildcard = true;
         } else if (strcmp(argv[i], "--no-del-lookup") == 0) {
             send_del_lookup = false;
+        } else if (strcmp(argv[i], "--readback-ms") == 0 && i + 1 < argc) {
+            if (!parse_u32(argv[++i], &readback_ms) || readback_ms > A90_QRTR_NS_READBACK_MAX_MS) {
+                printf("qrtr_ns.status=usage-error\n");
+                printf("qrtr_ns.error=invalid-readback-ms\n");
+                usage(argv[0]);
+                return 2;
+            }
+        } else if (strcmp(argv[i], "--max-events") == 0 && i + 1 < argc) {
+            if (!parse_u32(argv[++i], &max_events) ||
+                max_events == 0 ||
+                max_events > A90_QRTR_NS_READBACK_MAX_EVENTS) {
+                printf("qrtr_ns.status=usage-error\n");
+                printf("qrtr_ns.error=invalid-max-events\n");
+                usage(argv[0]);
+                return 2;
+            }
         } else if (strcmp(argv[i], "--help") == 0) {
             usage(argv[0]);
             return 0;
@@ -159,6 +348,9 @@ int main(int argc, char **argv) {
     printf("qrtr_ns.have_instance=%u\n", have_instance ? 1U : 0U);
     printf("qrtr_ns.allow_transmit=%u\n", allow_transmit ? 1U : 0U);
     printf("qrtr_ns.allow_wildcard=%u\n", allow_wildcard ? 1U : 0U);
+    printf("qrtr_ns.readback_enabled=%u\n", readback_ms > 0 ? 1U : 0U);
+    printf("qrtr_ns.readback_requested_ms=%u\n", readback_ms);
+    printf("qrtr_ns.readback_requested_max_events=%u\n", max_events);
 
     if (!have_service || !have_instance) {
         printf("qrtr_ns.status=blocked\n");
@@ -195,6 +387,9 @@ int main(int argc, char **argv) {
         printf("qrtr_ns.status=new-lookup-send-failed\n");
         return 1;
     }
+    if (readback_ms > 0) {
+        readback_rc = readback_notifications(fd, readback_ms, max_events);
+    }
     if (send_del_lookup) {
         rc = send_lookup_packet(fd, QRTR_TYPE_DEL_LOOKUP, service, instance, "qrtr_ns.del_lookup_send");
         if (rc < 0) {
@@ -204,6 +399,14 @@ int main(int argc, char **argv) {
         }
     }
     close(fd);
-    printf("qrtr_ns.status=lookup-sent\n");
+    if (readback_rc < 0) {
+        printf("qrtr_ns.status=readback-failed\n");
+        return 1;
+    }
+    if (readback_ms > 0) {
+        printf("qrtr_ns.status=lookup-readback-complete\n");
+    } else {
+        printf("qrtr_ns.status=lookup-sent\n");
+    }
     return 0;
 }

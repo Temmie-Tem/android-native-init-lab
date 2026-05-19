@@ -2858,6 +2858,46 @@
   - v270 QRTR endpoint/service visibility classifier, or
   - v270 QMI-control discovery plan with separate explicit approval gate
 
+### V270. QRTR Nameservice Readback — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V270_QRTR_NAMESERVICE_READBACK_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V270_QRTR_NAMESERVICE_READBACK_2026-05-19.md`
+- boot image change: 없음
+- baseline device build: `A90 Linux init 0.9.60 (v261)`
+- helper source: `stage3/linux_init/helpers/a90_qrtr_ns_probe.c`
+- runner: `scripts/revalidation/wifi_qrtr_nameservice_runner.py`
+- helper device path: `/cache/bin/a90_qrtr_ns_probe`
+- helper sha256: `375c30c21e5715218698a67832bf31d8052be95d4933d2ab98c198d73a45076a`
+- live evidence:
+  - `tmp/wifi/v270-qrtr-ns-readback-live-20260519-103623/`
+  - `tmp/wifi/v270-qrtr-ns-readback-live-long-20260519-103732/`
+- validation:
+  - static ARM64 helper build PASS
+  - `plan` non-transmit PASS
+  - `preflight` non-transmit PASS
+  - no-approval `run` fail-closed PASS
+  - approved 1s readback PASS: `qrtr-ns-readback-timeout`
+  - approved 3s readback PASS: `qrtr-ns-readback-timeout`
+- live result:
+  - `QRTR_TYPE_NEW_LOOKUP` sent: service `1`, instance `1`
+  - `QRTR_TYPE_DEL_LOOKUP` cleanup sent: service `1`, instance `1`
+  - `qrtr_ns.qmi_attempted=0`
+  - readback events: `0`
+  - readback service events: `0`
+  - readback end-of-list marker: `0`
+  - readback timeout: `1`
+- interpretation:
+  - QRTR nameservice control send works, but no service notification returned for service `1` instance `1`
+  - selected service/instance is not enough evidence for a visible Wi-Fi control endpoint
+  - next step should select/correlate service IDs before any QMI-control payload plan
+- guardrails:
+  - no QMI payload
+  - no Wi-Fi scan/connect/link-up
+  - no `cnss-daemon`/`cnss_diag`/HAL/supplicant/wificond/hostapd start
+  - no rfkill, ICNSS, firmware, Android partition, property, perfd, kmsg, DHCP, or routing mutation
+- next execution item:
+  - v271 QRTR service/instance selection and evidence correlation plan
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
