@@ -1782,3 +1782,11 @@ Samsung bootloader
 - planned sequence: v117 roadmap baseline, v118 shell metadata cleanup, v119 menu routing cleanup, v120 command group split, v121 PID1 guard, v122 Wi-Fi inventory refresh
 - cycle goal: reduce PID 1 control debt before deciding whether Wi-Fi can move beyond read-only inventory
 - guardrails: no risky Wi-Fi bring-up, no partition writes, USB ACM serial remains rescue channel
+
+   - v384 approved live result: `docs/reports/NATIVE_INIT_V384_APPROVED_LIVE_RESULT_2026-05-20.md`
+   - v384 approved deploy/live evidence:
+     - initial full executor: `tmp/wifi/v384-approved-full-20260520-042720/`
+     - compact live rerun: `tmp/wifi/v384-approved-live-compact-20260520-044147/`
+   - v384 해석: v15 deploy는 PASS했고 ptrace-lite live는 실제 daemon start-only까지 진입했다. `servicemanager`는 SIGABRT crash context를 확보했고, `hwservicemanager`는 timeout까지 observable 상태였으나 helper 내부 process-group postflight proof가 실패해 `start-only-reboot-required`로 분류됐다. host postflight/selftest는 clean, Wi-Fi bring-up은 없음
+   - v384 도구 수정: native shell 30-arg 한계 때문에 service-manager live command에서 `--data-wifi-mode private-empty`만 compact path에서 생략한다. shell wrapper는 `/cache/bin/toybox`에 `sh` applet이 없어 사용하지 않는다
+   - v385 다음: `a90_android_execns_probe v16`에서 direct child reap 이후 남은 process group을 final SIGKILL로 정리하고, 잔존 process-group evidence를 캡처한다. Wi-Fi HAL/start/scan/connect는 계속 blocked

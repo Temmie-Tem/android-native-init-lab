@@ -8126,3 +8126,20 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
 - next execution item: v117 planning
 - completed through: v109-v116 completion audit
 - guardrails: no risky Wi-Fi bring-up, no partition writes, USB ACM serial remains rescue channel
+
+### V384. Approved Ptrace-Lite Live Result — REVIEW REQUIRED
+
+- report: `docs/reports/NATIVE_INIT_V384_APPROVED_LIVE_RESULT_2026-05-20.md`
+- evidence:
+  - initial approved executor: `tmp/wifi/v384-approved-full-20260520-042720/`
+  - compact approved live rerun: `tmp/wifi/v384-approved-live-compact-20260520-044147/`
+- host tooling fix:
+  - service-manager live command exceeded native shell 30-arg limit, which truncated `--allow-service-manager-start-only`
+  - runner now compacts service-manager live commands to 29 args by omitting only `--data-wifi-mode private-empty` on this service-manager-only path
+- result:
+  - helper v15 deployed, SHA256 `dfd543c02ccefbbbcf2fe0eb7ee168b40d40363927a63104c7aef0b9aed0bb16`
+  - `servicemanager`: SIGABRT ptrace-lite crash context captured, `start-only-runtime-gap`, helper safe
+  - `hwservicemanager`: observable until timeout, direct child reaped, but process-group postflight proof failed, `start-only-reboot-required`
+  - post-run device state: `status`/`selftest` PASS, no manager processes, no Wi-Fi links
+  - Wi-Fi HAL/start/scan/connect/link-up was not executed
+- next execution item: V385 helper v16 residual process-group cleanup/evidence; Wi-Fi bring-up remains blocked

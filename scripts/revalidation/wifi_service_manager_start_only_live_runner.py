@@ -41,6 +41,7 @@ SERVICE_TARGETS = ("system-servicemanager", "system-hwservicemanager")
 SERVICE_PROCESS_RE = re.compile(r"\b(servicemanager|hwservicemanager|vndservicemanager)\b")
 WIFI_RE = re.compile(r"\b(wlan\d*|swlan\d*|p2p\d*|wiphy\d*|phy\d+)\b", re.IGNORECASE)
 SERVICE_KEY_RE = re.compile(r"^service_manager_start\.([A-Za-z0-9_]+)=(.*)$")
+NATIVE_SHELL_MAX_COMMAND_ARGS = 30
 
 READ_ONLY_COMMANDS: tuple[tuple[str, list[str], float], ...] = (
     ("version", ["version"], 10.0),
@@ -160,6 +161,13 @@ def add_check(checks: list[Check], name: str, status: str, severity: str, detail
 
 
 def build_helper_argv(args: argparse.Namespace, target_profile: str) -> list[str]:
+    return build_helper_argv_with_options(args, target_profile, include_data_wifi=True)
+
+
+def build_helper_argv_with_options(args: argparse.Namespace,
+                                   target_profile: str,
+                                   *,
+                                   include_data_wifi: bool) -> list[str]:
     argv = [
         args.helper,
         "--system-root",
@@ -187,13 +195,32 @@ def build_helper_argv(args: argparse.Namespace, target_profile: str) -> list[str
     ]
     if args.capture_mode != "none":
         argv.extend(["--capture-mode", args.capture_mode])
-    if args.data_wifi_mode != "none":
+    if include_data_wifi and args.data_wifi_mode != "none":
         argv.extend(["--data-wifi-mode", args.data_wifi_mode])
     if args.property_root:
         argv.extend(["--property-root", args.property_root])
     if approved(args):
         argv.append("--allow-service-manager-start-only")
     return argv
+
+
+def build_native_run_command(args: argparse.Namespace, target_profile: str) -> list[str]:
+    command = ["run", *build_helper_argv(args, target_profile)]
+    if len(command) > NATIVE_SHELL_MAX_COMMAND_ARGS and args.data_wifi_mode != "none":
+        command = [
+            "run",
+            *build_helper_argv_with_options(
+                args,
+                target_profile,
+                include_data_wifi=False,
+            ),
+        ]
+    if len(command) <= NATIVE_SHELL_MAX_COMMAND_ARGS:
+        return command
+    raise RuntimeError(
+        f"service-manager helper command has {len(command)} args; "
+        f"native shell limit is {NATIVE_SHELL_MAX_COMMAND_ARGS}"
+    )
 
 
 def build_plan(args: argparse.Namespace) -> dict[str, Any]:
@@ -205,8 +232,13 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
         "property_root": args.property_root,
         "data_wifi_mode": args.data_wifi_mode,
         "capture_mode": args.capture_mode,
+        "native_shell_max_command_args": NATIVE_SHELL_MAX_COMMAND_ARGS,
+        "arg_compaction": (
+            "drops --data-wifi-mode from service-manager live command if needed; "
+            "service-manager start-only does not require /data/vendor/wifi"
+        ),
         "commands": {
-            target: ["run", *build_helper_argv(args, target)]
+            target: build_native_run_command(args, target)
             for target in SERVICE_TARGETS
         },
         "not_approved": [
@@ -261,7 +293,7 @@ def parse_service_keys(text: str) -> dict[str, str]:
 
 
 def run_target(args: argparse.Namespace, store: EvidenceStore, target_profile: str) -> dict[str, Any]:
-    command = ["run", *build_helper_argv(args, target_profile)]
+    command = build_native_run_command(args, target_profile)
     record = run_capture(args, f"run-{target_profile}", command, timeout=args.timeout + args.max_runtime_sec + 20.0)
     rel = f"native/run-{target_profile}.txt"
     store.write_text(rel, strip_cmdv1_text(record.text) if record.text else record.error + "\n")
