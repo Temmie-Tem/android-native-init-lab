@@ -1399,6 +1399,10 @@ Samsung bootloader
    - v296 보고서: `docs/reports/NATIVE_INIT_V296_PROPERTY_SHIM_STRATEGY_2026-05-19.md`
    - v296 결과: decision `property-shim-strategy-capture-needed`, static snapshot에서 `ro.product.name`, `ro.hardware`, `ro.vendor.build.version.sdk` 누락
    - v296 해석: property shim을 합성하기 전에 Android boot 상태의 `getprop`/property baseline capture가 필요하다
+   - v297 계획서: `docs/plans/NATIVE_INIT_V297_ANDROID_PROPERTY_CAPTURE_PLAN_2026-05-19.md`
+   - v297 보고서: `docs/reports/NATIVE_INIT_V297_ANDROID_PROPERTY_CAPTURE_2026-05-19.md`
+   - v297 결과: host capture tool은 준비됐고 현재 native 상태에서는 decision `android-property-capture-waiting-for-android`
+   - v297 해석: 다음 live 단계는 명시적으로 Android로 부팅한 뒤 read-only `getprop` baseline을 캡처하는 것이다. 그 전까지 native property runtime 생성과 service-manager 실행은 blocked
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
 ---

@@ -3559,6 +3559,31 @@
 - next:
   - v297 Android-boot property capture plan before any native property shim creation
 
+### V297. Android Property Capture — TOOL READY / WAITING FOR ANDROID
+
+- 계획: `docs/plans/NATIVE_INIT_V297_ANDROID_PROPERTY_CAPTURE_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V297_ANDROID_PROPERTY_CAPTURE_2026-05-19.md`
+- boot image change: none
+- baseline device build: `A90 Linux init 0.9.60 (v261)`
+- tool: `scripts/revalidation/wifi_android_property_capture.py`
+- evidence:
+  - `tmp/wifi/v297-android-property-capture-plan/`
+  - `tmp/wifi/v297-android-property-capture-preflight/`
+- decision:
+  - plan: `android-property-capture-plan-ready`
+  - preflight: `android-property-capture-waiting-for-android`
+- result:
+  - host tool and guardrails are ready
+  - current device state is not Android ADB: `adb get-state` returned `error: no devices/emulators found`
+  - actual Android `getprop` capture is deferred until Android is intentionally booted
+- safety:
+  - no property mutation or runtime creation
+  - no service-manager/HAL/Wi-Fi daemon execution
+  - no Wi-Fi scan/connect/link-up/credential/DHCP/routing
+  - no partition backup/write, mount mutation, or reboot
+- next:
+  - boot Android intentionally and run v297 capture before property shim design
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
