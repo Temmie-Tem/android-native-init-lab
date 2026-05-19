@@ -8249,3 +8249,19 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
   - `scripts/revalidation/wifi_v389_deploy_live_executor.py`
 - validation: local static build PASS, required strings PASS, `py_compile` PASS, plan-only gates PASS, no-approval executor PASS, read-only real-device preflight blocks on expected remote helper v19 mismatch.
 - next execution item: wait for exact v389 deploy approval, then exact v389 enhanced crash capture live approval. Wi-Fi HAL/start/scan/connect remains blocked.
+
+### V389. Approved Enhanced Crash Capture Live — RUNTIME GAP
+
+- result: `docs/reports/NATIVE_INIT_V389_APPROVED_LIVE_RESULT_2026-05-20.md`
+- deploy evidence: `tmp/wifi/v389-approved-deploy-serial-20260520-061712/`
+- live evidence: `tmp/wifi/v389-approved-live-20260520-062315/`
+- classifier evidence: `tmp/wifi/v389-approved-live-20260520-062315/classify/`
+- SIGABRT triage evidence: `tmp/wifi/v389-approved-live-20260520-062315/sigabrt-triage/`
+- result:
+  - helper v19 deployed by serial path, SHA `e3da79dec1c7ca58d3208fb0d9a55ce1411fff7159ab613ff9daf6d6befd3e6d`
+  - `hwservicemanager`: `start-only-pass`, `cleanup_stop_continued=1`, `reaped=1`, `residual_cleared=1`, `postflight_safe=1`
+  - `servicemanager`: `start-only-runtime-gap`, SIGABRT captured, selected registers/stack/register-pointer scans present, `postflight_safe=1`
+  - classifier: `service-manager-runtime-gap-servicemanager-sigabrt-captured`
+  - triage: `servicemanager-sigabrt-triage-partial-evidence`, remaining blocker `abort-message`
+  - postflight read-only checks: native status/selftest PASS, no manager process, no Wi-Fi link
+- next execution item: V390 crash map-row/symbolization capture for `servicemanager` PC/LR. Wi-Fi HAL/start/scan/connect remains blocked.

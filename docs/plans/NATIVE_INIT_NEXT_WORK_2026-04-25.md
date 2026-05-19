@@ -1834,3 +1834,9 @@ Samsung bootloader
    - v389 구현 상태: `a90_android_execns_probe v19`은 service-manager crash snapshot에서 selected `NT_PRSTATUS` register values(x0-x8/lr/sp/pc/pstate)와 bounded stack/register-pointer ASCII scan을 추가한다. 로컬 SHA256은 `e3da79dec1c7ca58d3208fb0d9a55ce1411fff7159ab613ff9daf6d6befd3e6d`이다
    - v389 검증 상태: static build/required strings/py_compile/plan-only gates/no-approval executor PASS. read-only device preflight는 remote helper가 아직 v18이므로 expected `helper-v19` blocker로 막혔고 daemon start/Wi-Fi bring-up은 없음
    - v389 실행 조건: deploy는 exact `approve v389 deploy execns helper v19 only; no daemon start and no Wi-Fi bring-up`, live는 exact `approve v389 service-manager enhanced crash capture only; no Wi-Fi HAL start and no Wi-Fi bring-up` 필요
+
+   - v389 approved live result: `docs/reports/NATIVE_INIT_V389_APPROVED_LIVE_RESULT_2026-05-20.md`
+   - v389 approved deploy: serial transfer installed helper v19 SHA `e3da79dec1c7ca58d3208fb0d9a55ce1411fff7159ab613ff9daf6d6befd3e6d`; daemon start/Wi-Fi bring-up 없음
+   - v389 approved live: `hwservicemanager` remains `start-only-pass`; `servicemanager` remains `start-only-runtime-gap` with SIGABRT, but selected register values, stack scan, register-pointer scans, and compact maps metadata are now captured
+   - v389 해석: `x8=0xf0`은 AArch64 `rt_tgsigqueueinfo` syscall path로 보이며 PC/LR은 abort delivery 경로에 멈춘 상태다. 현재 capture는 map row/library offset을 보존하지 않아 fatal site symbolization이 아직 불가하다
+   - v390 다음: crash map-row/symbolization capture. `pc`/`lr`가 속한 `/proc/<pid>/maps` row와 library-relative offsets를 bounded output으로 추가한다. Wi-Fi HAL/start/scan/connect remains blocked
