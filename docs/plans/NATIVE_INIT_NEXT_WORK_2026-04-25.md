@@ -1650,6 +1650,9 @@ Samsung bootloader
    - v368 계획서: `docs/plans/NATIVE_INIT_V368_RUNTIME_REPAIR_CLEANUP_GATE_PLAN_2026-05-20.md`
    - v368 보고서: `docs/reports/NATIVE_INIT_V368_RUNTIME_REPAIR_CLEANUP_GATE_2026-05-20.md`
    - v368 해석: cleanup도 device mutation이므로 exact phrase + `--apply --assume-yes` 없이는 실행하지 않게 막았다. live cleanup refusal은 `steps=[]`로 PASS했다
+   - v369 계획서: `docs/plans/NATIVE_INIT_V369_RUNTIME_REPAIR_APPROVAL_PACKET_PLAN_2026-05-20.md`
+   - v369 보고서: `docs/reports/NATIVE_INIT_V369_RUNTIME_REPAIR_APPROVAL_PACKET_2026-05-20.md`
+   - v369 해석: V366 live smoke approval packet을 생성했고, preflight/run-refusal/cleanup-refusal/regression과 run/cleanup command contract가 PASS했다. packet 자체는 `live_execution_approved=false`이며 실제 smoke는 아직 실행하지 않았다
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
 ---

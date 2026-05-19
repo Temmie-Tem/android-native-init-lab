@@ -5162,6 +5162,26 @@
   - V366 approved live smoke or cleanup remains pending until exact phrase is supplied
   - do not run service-manager/HAL/scan/connect before V366 approved smoke passes and a later separate approval packet exists
 
+
+### V369. Runtime Repair Smoke Approval Packet — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V369_RUNTIME_REPAIR_APPROVAL_PACKET_PLAN_2026-05-20.md`
+- 보고서: `docs/reports/NATIVE_INIT_V369_RUNTIME_REPAIR_APPROVAL_PACKET_2026-05-20.md`
+- evidence:
+  - approval packet: `tmp/wifi/v369-runtime-repair-smoke-approval-packet-final-20260520-011223/`
+- boot image: 없음. v369는 V366 live smoke approval packet generator
+- validation:
+  - packet decision `runtime-repair-smoke-approval-packet-ready`
+  - preflight `runtime-repair-smoke-preflight-ready`
+  - run refusal `runtime-repair-smoke-approval-required`
+  - cleanup refusal `runtime-repair-smoke-cleanup-approval-required` with `steps=0`
+  - regression `runtime-repair-smoke-regression-pass`
+  - generated run/cleanup commands pass `bash -n` and contain exact phrase + `--apply --assume-yes`
+  - `live_execution_approved=false`, `device_mutations=false`
+- next:
+  - exact approval phrase can now be used with the generated command if operator accepts the V366 boundary
+  - do not run service-manager/HAL/scan/connect before V366 approved smoke passes and a later separate approval packet exists
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
