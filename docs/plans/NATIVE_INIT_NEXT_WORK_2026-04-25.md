@@ -1885,3 +1885,7 @@ Samsung bootloader
    - v395 report: `docs/reports/NATIVE_INIT_V395_CURRENT_READINESS_PACKET_2026-05-20.md`
    - v395 결과: `scripts/revalidation/wifi_v392_current_readiness_packet.py`가 최신 safe preflight/no-approval/router/read-only health evidence를 묶어 `v392-current-readiness-ready-for-approval` PASS로 판정했다. 디바이스 명령 실행/뮤테이션/daemon/Wi-Fi bring-up은 없음
    - v395 해석: V392 approved executor를 실행할 준비는 됐지만 exact approval phrase 두 개가 없으면 계속 fail-closed 상태다
+
+   - v392 approved backchain result: `docs/reports/NATIVE_INIT_V392_APPROVED_BACKCHAIN_CAPTURE_RESULT_2026-05-20.md`
+   - v392 approved 결과: helper v21 deploy PASS, service-manager backchain capture PASS, `hwservicemanager`은 `start-only-pass`, `servicemanager`은 SIGABRT `start-only-runtime-gap`이나 cleanup/postflight safe. framechain은 7 frames를 캡처했고 libc frame `__libc_init`만 symbolization PASS, `servicemanager`/`libbase`/`liblog` frames는 matching ELF artifact가 없어 미해석
+   - v396 다음: read-only frame ELF pull/symbolization. `/mnt/system/system/bin/servicemanager`, `/mnt/system/system/lib64/libbase.so`, `/mnt/system/system/lib64/liblog.so`를 host에 안전하게 mirror한 뒤 V392 framechain analyzer를 재실행한다. Wi-Fi HAL/start/scan/connect remains blocked

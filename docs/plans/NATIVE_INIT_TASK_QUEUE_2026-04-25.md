@@ -8384,3 +8384,26 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
   - no device commands, mutations, daemon start, or Wi-Fi bring-up from packet generation
 - validation: `py_compile` PASS, readiness regression PASS, current packet PASS, `git diff --check` PASS.
 - next execution item: provide exact V392 deploy and backchain capture approval phrases, then run the approved V392 executor. Wi-Fi HAL/start/scan/connect remains blocked.
+
+### V392. Approved Backchain Capture Live — RUNTIME GAP / FRAMECHAIN CAPTURED
+
+- result: `docs/reports/NATIVE_INIT_V392_APPROVED_BACKCHAIN_CAPTURE_RESULT_2026-05-20.md`
+- evidence:
+  - approved executor: `tmp/wifi/v392-approved-full-20260520-072551/`
+  - post-live route: `tmp/wifi/v394-route-after-v392-approved-20260520-072551/`
+- result:
+  - helper v21 deployed by serial fallback, SHA `c6216cc3b579f78bfd668148a24e1948e9e08621ea7d4e21c8b280475cc09ab8`
+  - `hwservicemanager`: `start-only-pass`, clean timeout stop
+  - `servicemanager`: `start-only-runtime-gap`, SIGABRT captured, cleanup/postflight safe
+  - framechain analyzer: `service-manager-framechain-symbolization-pass`
+  - V394 router: `v392-post-live-router-symbolized-caller-ready`
+  - Wi-Fi bring-up: `False`
+  - postflight: no manager processes and no Wi-Fi links
+- framechain:
+  - frame0 `/system/lib64/liblog.so + 0x63bc`, ELF missing
+  - frame1 `/system/lib64/libbase.so + 0x16188`, ELF missing
+  - frame2 `/system/bin/servicemanager + 0x8294`, ELF missing
+  - frame3 `/system/bin/servicemanager + 0x13b14`, ELF missing
+  - frame4 bionic `libc.so + 0x84378`, symbol `__libc_init`
+  - frame5 `/system/bin/servicemanager + 0x8058`, ELF missing
+- next execution item: V396 read-only pull and symbolization of `servicemanager`, `libbase.so`, and `liblog.so` frame ELFs. Wi-Fi HAL/start/scan/connect remains blocked.
