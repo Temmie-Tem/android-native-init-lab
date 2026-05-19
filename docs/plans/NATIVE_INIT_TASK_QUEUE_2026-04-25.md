@@ -3921,7 +3921,32 @@
 - required approval phrase:
   - `approve v314 private property namespace materialization only; no daemon start and no Wi-Fi bring-up`
 - next:
-  - v314 is blocked until explicit operator approval
+  - v314 executor scaffold records the future live sequence and keeps execution fail-closed
+
+### V314. Private Property Materialization Executor Scaffold — READY / LIVE NOT IMPLEMENTED
+
+- 계획: `docs/plans/NATIVE_INIT_V314_PRIVATE_PROPERTY_MATERIALIZATION_EXECUTOR_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V314_PRIVATE_PROPERTY_MATERIALIZATION_EXECUTOR_2026-05-19.md`
+- boot image change: none
+- restored device build: `A90 Linux init 0.9.60 (v261)`
+- tool: `scripts/revalidation/wifi_private_property_materialization_executor.py`
+- evidence:
+  - `tmp/wifi/v314-private-property-materialization-executor/`
+  - `tmp/wifi/v314-private-property-materialization-executor-refuse/`
+  - `tmp/wifi/v314-private-property-materialization-executor-approved-refuse/`
+- decisions:
+  - `private-property-materialization-executor-plan-ready`
+  - `private-property-materialization-executor-approval-required`
+  - `private-property-materialization-executor-live-not-implemented`
+- result:
+  - future materialization sequence recorded
+  - exact approval phrase and approval flags checked
+  - even approved `run` remains fail-closed in v314
+- safety:
+  - no device command, no ADB command, no generated file installation
+  - no bind mount, no property service socket, no daemon start, no Wi-Fi bring-up
+- next:
+  - v315 candidate: choose between a safer intermediate live-readonly proof and the first private namespace materialization implementation
 
 ### V187. Harness Broker Backend — PASS
 

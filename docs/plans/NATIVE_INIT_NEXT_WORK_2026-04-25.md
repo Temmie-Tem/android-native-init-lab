@@ -1466,7 +1466,11 @@ Samsung bootloader
    - v313 계획서: `docs/plans/NATIVE_INIT_V313_PRIVATE_PROPERTY_MATERIALIZATION_APPROVAL_PLAN_2026-05-19.md`
    - v313 보고서: `docs/reports/NATIVE_INIT_V313_PRIVATE_PROPERTY_MATERIALIZATION_APPROVAL_2026-05-19.md`
    - v313 결과: decision `private-property-materialization-approval-ready`
-   - v313 해석: 다음 v314는 live mutation boundary다. 진행하려면 `approve v314 private property namespace materialization only; no daemon start and no Wi-Fi bring-up` 문구의 명시 승인이 필요하다
+   - v313 해석: 다음 v314는 live mutation boundary라서 `approve v314 private property namespace materialization only; no daemon start and no Wi-Fi bring-up` 문구의 명시 승인이 필요하다
+   - v314 계획서: `docs/plans/NATIVE_INIT_V314_PRIVATE_PROPERTY_MATERIALIZATION_EXECUTOR_PLAN_2026-05-19.md`
+   - v314 보고서: `docs/reports/NATIVE_INIT_V314_PRIVATE_PROPERTY_MATERIALIZATION_EXECUTOR_2026-05-19.md`
+   - v314 결과: decisions `private-property-materialization-executor-plan-ready`, `private-property-materialization-executor-approval-required`, `private-property-materialization-executor-live-not-implemented`
+   - v314 해석: executor scaffold가 future live sequence와 approval gate를 문서화했지만, v314는 device command/ADB command/generated file install/bind mount를 전혀 수행하지 않는다. 다음은 v315에서 더 작은 live-readonly proof를 둘지, 첫 private namespace materialization 구현으로 갈지 결정해야 한다
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
 ---
