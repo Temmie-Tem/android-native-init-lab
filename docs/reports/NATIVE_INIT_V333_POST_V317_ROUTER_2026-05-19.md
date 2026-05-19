@@ -9,14 +9,15 @@
 ## Summary
 
 v333 adds a router that reads V317/V331/V332 evidence and determines the next
-safe Wi-Fi step. Current state is awaiting V317 live proof evidence, so the
-router recommends only the V317 exact-approval-gated command.
+safe Wi-Fi step. After the approved V317 live proof passed, the router now
+recommends V320 plan first. V320 live lookup still requires its own exact
+approval phrase.
 
 ## Evidence
 
 - tool: `scripts/revalidation/wifi_post_v317_router.py`
 - evidence: `tmp/wifi/v333-post-v317-router/`
-- decision: `post-v317-router-awaiting-v317`
+- decision: `post-v317-router-v320-ready`
 - pass: `true`
 - device commands executed: `false`
 - device mutations: `false`
@@ -31,16 +32,17 @@ python3 scripts/revalidation/wifi_post_v317_router.py \
 git diff --check
 ```
 
-Observed output:
+Observed output after V317 live PASS:
 
 ```text
-decision: post-v317-router-awaiting-v317
+decision: post-v317-router-v320-ready
 pass: True
-reason: V317 live proof evidence is absent
+reason: V317 live proof passed; V320 property lookup planning may proceed
 ```
 
 ## Interpretation
 
 - V331 readiness packet and V332 read-only preflight are valid.
-- V317 live proof has not run.
-- V320 property lookup must not run before V317 PASS evidence exists.
+- V317 live proof passed with `private-property-namespace-proof-pass`.
+- V320 plan may run next.
+- V320 live lookup must not run before its exact approval phrase is provided.

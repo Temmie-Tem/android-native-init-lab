@@ -2,8 +2,8 @@
 
 - date: `2026-05-19`
 - scope: fail-closed host executor for V317 minimal live proof
-- device command: none in validation
-- device mutation: none in validation
+- device command: yes after exact approval
+- device mutation: yes after exact approval
 - result: `PASS`
 
 ## Summary
@@ -11,7 +11,8 @@
 v351 adds a guarded executor around the V350 operator checklist. The executor can
 plan, run, or cleanup, but `run` and `cleanup` require the exact V317 approval
 phrase plus mutation flags. Current validation covers only no-approval refusal
-and dirty-tree plan blocking.
+and dirty-tree plan blocking. After exact approval, the executor ran the bounded
+V317 live proof successfully with extended executor timeout.
 
 ## Code Change
 
@@ -66,9 +67,32 @@ git_head: matched current HEAD at run time
 git_dirty: false
 ```
 
+## Post-approval Live Validation
+
+Command:
+
+```bash
+python3 scripts/revalidation/wifi_v317_live_executor.py \
+  --out-dir tmp/wifi/v351-v317-live-executor \
+  --timeout 900 \
+  --approval-phrase 'approve v317 minimal private property namespace proof only; no daemon start and no Wi-Fi bring-up' \
+  --allow-device-mutation \
+  --assume-yes \
+  run
+```
+
+Observed result:
+
+```text
+decision: v317-live-executor-run-pass
+pass: True
+reason: v317 decision=private-property-namespace-proof-pass pass=True
+next: run V320 plan via router recommendation
+```
+
 ## Safety
 
-- No live V317 proof was executed.
+- Live V317 proof was executed only after the exact approval phrase and mutation flags.
 - No daemon start was performed.
 - No Wi-Fi bring-up was performed.
 
@@ -76,5 +100,6 @@ git_dirty: false
 
 - No-approval `run` fails before host refresh or device action.
 - Clean-head `plan` reruns V349 and V350, then records live/cleanup commands as skipped plan steps.
-- The executor `run` and `cleanup` paths remain blocked until the exact V317 approval phrase is provided.
-- No live V317 proof, daemon start, Wi-Fi bring-up, device command, or device mutation was executed.
+- The executor `run` path passed after exact V317 approval.
+- Cleanup remains available but was not needed after the successful second live attempt.
+- No daemon start or Wi-Fi bring-up was executed.

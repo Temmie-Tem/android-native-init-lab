@@ -7,6 +7,7 @@
 - current required live baseline: `A90 Linux init 0.9.61 (v319)`
 - plan: `docs/plans/NATIVE_INIT_V317_PRIVATE_PROPERTY_NAMESPACE_PROOF_PLAN_2026-05-19.md`
 - tool: `scripts/revalidation/wifi_private_property_namespace_proof.py`
+- live result: `PASS`
 
 ## Summary
 
@@ -14,13 +15,16 @@ v317 added the runner for the minimal private property namespace proof. The
 runner can generate a plan and correctly refuses `run`/`cleanup` without the
 exact approval phrase and mutation flags.
 
-No live mutation was executed in this validation.
+Initial validation did not execute a live mutation. After explicit operator
+approval on `2026-05-19`, the V351 executor ran the bounded V317 live proof with
+no daemon start and no Wi-Fi bring-up. The first executor attempt timed out after
+180 seconds while transferring files. A second attempt with executor timeout
+`900` seconds completed successfully.
 
 Post-v319 update: v318 proved `toybox sh` is unavailable, and v319 added the
 scoped native init `appendfile` command plus 4096-byte command buffers. The
 runner now uses `appendfile` + `toybox uudecode -o` + `toybox sha256sum` instead
-of the original shell-redirection transfer sketch. Live execution is still
-blocked until the exact approval phrase is provided.
+of the original shell-redirection transfer sketch.
 
 ## Evidence
 
@@ -30,6 +34,9 @@ blocked until the exact approval phrase is provided.
 | run refusal | `tmp/wifi/v317-private-property-namespace-proof-refuse/` | `private-property-namespace-proof-approval-required` |
 | cleanup refusal | `tmp/wifi/v317-private-property-namespace-proof-cleanup-refuse/` | `private-property-namespace-proof-approval-required` |
 | safety audit | `tmp/wifi/v317-private-property-namespace-proof-audit/` | `private-property-namespace-proof-audit-pass` |
+| approved live proof | `tmp/wifi/v317-private-property-namespace-proof/` | `private-property-namespace-proof-pass` |
+| V351 executor | `tmp/wifi/v351-v317-live-executor/` | `v317-live-executor-run-pass` |
+| post-V317 router | `tmp/wifi/v333-post-v317-router/` | `post-v317-router-v320-ready` |
 
 ## Validation
 
@@ -56,6 +63,27 @@ git diff --check
 
 Result: PASS.
 
+Post-approval live execution:
+
+```bash
+python3 scripts/revalidation/wifi_v317_live_executor.py \
+  --out-dir tmp/wifi/v351-v317-live-executor \
+  --timeout 900 \
+  --approval-phrase 'approve v317 minimal private property namespace proof only; no daemon start and no Wi-Fi bring-up' \
+  --allow-device-mutation \
+  --assume-yes \
+  run
+```
+
+Observed result:
+
+```text
+decision: v317-live-executor-run-pass
+pass: True
+reason: v317 decision=private-property-namespace-proof-pass pass=True
+next: run V320 plan via router recommendation
+```
+
 ## Implemented Safety Gates
 
 - Exact approval phrase required.
@@ -77,6 +105,22 @@ The plan manifest estimates the approved live run before any mutation:
 - estimated device commands: `505`
 - max cmdv1x script length: `3294`
 - status: `pass`
+
+## Live Result
+
+- decision: `private-property-namespace-proof-pass`
+- remote workdir: `/mnt/sdext/a90/private-property-v317`
+- commands: `502`
+- copied files: `5`
+- bytes: `524988`
+- chunks: `471`
+- device commands executed: `true`
+- device mutations: `true`
+- blocked actions retained:
+  - global `/dev/__properties__` replacement
+  - property service socket
+  - daemon start
+  - Wi-Fi bring-up
 
 ## Safety Audit
 
@@ -111,6 +155,7 @@ approve v317 minimal private property namespace proof only; no daemon start and 
 
 ## Decision
 
-- decision: `private-property-namespace-proof-plan-ready`
-- live run decision without approval: `private-property-namespace-proof-approval-required`
-- next step: explicit operator approval before live proof execution.
+- decision: `private-property-namespace-proof-pass`
+- V351 executor decision: `v317-live-executor-run-pass`
+- post-V317 router decision: `post-v317-router-v320-ready`
+- next step: run V320 plan first. V320 live lookup still requires its own exact approval phrase.

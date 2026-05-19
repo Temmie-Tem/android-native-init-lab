@@ -3989,7 +3989,7 @@
 - next:
   - v317 plan is ready; live execution is blocked until explicit operator approval
 
-### V317. Minimal Private Property Namespace Proof — RUNNER READY / WAITING FOR OPERATOR
+### V317. Minimal Private Property Namespace Proof — LIVE PASS
 
 - 계획: `docs/plans/NATIVE_INIT_V317_PRIVATE_PROPERTY_NAMESPACE_PROOF_PLAN_2026-05-19.md`
 - 보고서: `docs/reports/NATIVE_INIT_V317_PRIVATE_PROPERTY_NAMESPACE_PROOF_2026-05-19.md`
@@ -4001,11 +4001,17 @@
   - `tmp/wifi/v317-private-property-namespace-proof-refuse/`
   - `tmp/wifi/v317-private-property-namespace-proof-cleanup-refuse/`
   - `tmp/wifi/v317-private-property-namespace-proof-audit/`
+  - `tmp/wifi/v317-private-property-namespace-proof/`
+  - `tmp/wifi/v351-v317-live-executor/`
+  - `tmp/wifi/v333-post-v317-router/`
 - decisions:
   - `private-property-namespace-proof-plan-ready`
   - `private-property-namespace-proof-approval-required`
   - `private-property-namespace-proof-audit-pass`
   - `private-property-namespace-proof-audit-selftest-pass`
+  - `private-property-namespace-proof-pass`
+  - `v317-live-executor-run-pass`
+  - `post-v317-router-v320-ready`
 - transfer estimate:
   - files `5`, bytes `524988`, chunks `471`, estimated device commands `505`
 - required approval phrase:
@@ -4025,8 +4031,13 @@
   - no Wi-Fi scan/connect/link-up/credential/DHCP/routing
   - audit confirms plan/refusal manifests are fail-closed and scope-bounded
   - audit selftest confirms bad path, missing blocked-actions, excessive transfer, and mutation records are blocked
+- live result:
+  - approved V351 executor run PASS after retry with `--timeout 900`
+  - remote workdir `/mnt/sdext/a90/private-property-v317`
+  - 5 files copied and SHA-256 verified, 502 device commands, no daemon start, no Wi-Fi bring-up
 - next:
-  - live run only after explicit operator approval
+  - run V320 plan first
+  - V320 live lookup still needs its own exact approval phrase
 
 ### V318. Private Property Transfer Primitive Preflight — PASS
 
@@ -4069,7 +4080,7 @@
 - next:
   - V317 live private namespace proof may run after the exact V317 approval phrase; still no daemon start or Wi-Fi bring-up
 
-### V320. Private Property Lookup Proof — FAIL-CLOSED RUNNER READY / BLOCKED BY V317 LIVE PASS
+### V320. Private Property Lookup Proof — FAIL-CLOSED RUNNER READY / V317 PASS AVAILABLE
 
 - 계획: `docs/plans/NATIVE_INIT_V320_PRIVATE_PROPERTY_LOOKUP_PROOF_PLAN_2026-05-19.md`
 - 보고서: `docs/reports/NATIVE_INIT_V320_PRIVATE_PROPERTY_LOOKUP_PROOF_2026-05-19.md`
@@ -4077,7 +4088,7 @@
 - native build baseline: `A90 Linux init 0.9.61 (v319)`
 - device flash: 없음. v320은 host runner skeleton이며 boot image 변경 없음
 - prerequisite:
-  - v317 live proof `private-property-namespace-proof-pass`
+  - v317 live proof `private-property-namespace-proof-pass` — now available
   - v317 cleanup or explicit stale-workdir cleanup
   - v312 generated property layout evidence
 - validation:
@@ -4095,7 +4106,8 @@
   - no `/dev/socket/property_service`
   - no property mutation, daemon start, Wi-Fi scan/connect/link-up, credential, DHCP, routing, rfkill write, module load, or firmware mutation
 - next:
-  - V321 added static helper support for read-only property lookup; live execution is still blocked until v317 exact approval phrase and PASS evidence
+  - rerun V320 plan against current V317 PASS evidence
+  - V320 live lookup remains blocked until its own exact approval phrase
 
 ### V321. Execns Property Lookup Helper Support — STATIC PASS / LIVE BLOCKED BY V317
 

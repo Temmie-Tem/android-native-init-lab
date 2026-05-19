@@ -1611,6 +1611,7 @@ Samsung bootloader
    - v359 계획서: `docs/plans/NATIVE_INIT_V359_LIVE_BLOCKER_SNAPSHOT_PLAN_2026-05-19.md`
    - v359 보고서: `docs/reports/NATIVE_INIT_V359_LIVE_BLOCKER_SNAPSHOT_2026-05-19.md`
    - v359 해석: V357/V350을 기반으로 live blocker 상태를 manifest로 남겨 exact approval phrase만 남았는지 재확인했고 clean HEAD에서 PASS했다
+   - v317 live 해석: exact approval phrase 수신 후 V351 executor `run --timeout 900`으로 minimal private property namespace proof를 실행했고 `private-property-namespace-proof-pass` / `post-v317-router-v320-ready`를 확인했다
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
 ---
