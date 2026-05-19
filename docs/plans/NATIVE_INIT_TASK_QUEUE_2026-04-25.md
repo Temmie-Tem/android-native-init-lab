@@ -5460,9 +5460,11 @@
 - 계획: `docs/plans/NATIVE_INIT_V382_EXECNS_HELPER_V14_DEPLOY_LIVE_PLAN_2026-05-20.md`
 - 준비 보고서: `docs/reports/NATIVE_INIT_V382_RUNTIME_PROFILE_WRAPPER_2026-05-20.md`
 - 라우터 보고서: `docs/reports/NATIVE_INIT_V382_RESULT_ROUTER_2026-05-20.md`
+- final readiness 보고서: `docs/reports/NATIVE_INIT_V382_FINAL_READINESS_2026-05-20.md`
 - deploy wrapper: `scripts/revalidation/wifi_execns_helper_v14_deploy_preflight.py`
 - live wrapper: `scripts/revalidation/wifi_service_manager_start_only_v382_live_runner.py`
 - result router: `scripts/revalidation/wifi_service_manager_start_only_v382_result_router.py`
+- final readiness: `scripts/revalidation/wifi_v382_final_readiness.py`
 - helper: `a90_android_execns_probe v14`
 - artifact: `tmp/wifi/v381-a90_android_execns_probe-v14/a90_android_execns_probe`
 - sha256: `f8cde6848ad49755b06bfac8136cd81f0b985ca1be13dbf27b369cdb4fe4aea7`
@@ -5477,6 +5479,7 @@
   - V382 live wrapper plan PASS
   - V382 live wrapper preflight blocked only by remote helper v14 not deployed
   - V382 result router regression PASS and no-approval route awaits exact live approval
+  - V382 final readiness gate added; dirty-tree pre-commit run blocks as designed
   - property root visible and `private-empty` data profile included in planned argv
 - next:
   - execute V382 only after explicit approval; if runtime gap remains, classify before HAL readiness
