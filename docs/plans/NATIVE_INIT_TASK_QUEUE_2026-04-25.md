@@ -3042,6 +3042,31 @@
 - next:
   - v276 QRTR/CNSS registration-state correlation plan before any QMI payload consideration
 
+### V276. QRTR/CNSS Registration Correlation — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V276_QRTR_CNSS_REGISTRATION_CORRELATION_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V276_QRTR_CNSS_REGISTRATION_CORRELATION_2026-05-19.md`
+- boot image change: none
+- baseline device build: `A90 Linux init 0.9.60 (v261)`
+- tool: `scripts/revalidation/wifi_qrtr_cnss_registration_correlator.py`
+- evidence: `tmp/wifi/v276-qrtr-cnss-registration-correlation/`
+- decision: `qrtr-cnss-platform-surface-visible`
+- result:
+  - QIPCRTR protocol present
+  - no-send QRTR probe `bind-pass`, socket rc `0`, send/connect attempted `0`
+  - v273 WDS/DMS and v275 WLFW nameservice readback evidence all timeout with events `0` and qmi_attempted `0`
+  - `/dev` QRTR/QMI/CNSS/WLAN/DIAG/IPA matches `0`
+  - `/sys` QRTR/QMI/CNSS/WLAN/ICNSS matches `68`
+  - `cnss-daemon`/`cnss_diag` process table clean and no `wlan*` interface
+- interpretation:
+  - QRTR socket readiness is not the blocker
+  - static CNSS/WLAN/QRTR platform surfaces are present, but no active QRTR service notification is visible in native state
+  - QMI payloads remain blocked
+- safety:
+  - no packet transmission, no daemon start, no scan/connect/link-up, no rfkill/ICNSS write, no partition write, no reboot
+- next:
+  - v277 ICNSS/CNSS platform surface classifier with read-only sysfs/devicetree probes
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
