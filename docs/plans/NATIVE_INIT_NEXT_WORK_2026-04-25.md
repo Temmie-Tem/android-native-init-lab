@@ -1463,6 +1463,10 @@ Samsung bootloader
    - v312 보고서: `docs/reports/NATIVE_INIT_V312_PRIVATE_PROPERTY_LAYOUT_2026-05-19.md`
    - v312 결과: decision `private-property-layout-dryrun-ready`
    - v312 해석: private `/dev/__properties__` layout이 host-only로 생성/roundtrip 검증됐다. 다음은 실제 materialization이 아니라 명시적 approval packet 작성이며, live install/bind mount/daemon start는 계속 금지다
+   - v313 계획서: `docs/plans/NATIVE_INIT_V313_PRIVATE_PROPERTY_MATERIALIZATION_APPROVAL_PLAN_2026-05-19.md`
+   - v313 보고서: `docs/reports/NATIVE_INIT_V313_PRIVATE_PROPERTY_MATERIALIZATION_APPROVAL_2026-05-19.md`
+   - v313 결과: decision `private-property-materialization-approval-ready`
+   - v313 해석: 다음 v314는 live mutation boundary다. 진행하려면 `approve v314 private property namespace materialization only; no daemon start and no Wi-Fi bring-up` 문구의 명시 승인이 필요하다
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
 ---

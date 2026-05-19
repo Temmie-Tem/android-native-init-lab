@@ -3904,6 +3904,25 @@
 - next:
   - v313 candidate: private property runtime materialization approval packet
 
+### V313. Private Property Materialization Approval Packet — READY / WAITING FOR OPERATOR
+
+- 계획: `docs/plans/NATIVE_INIT_V313_PRIVATE_PROPERTY_MATERIALIZATION_APPROVAL_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V313_PRIVATE_PROPERTY_MATERIALIZATION_APPROVAL_2026-05-19.md`
+- boot image change: none
+- restored device build: `A90 Linux init 0.9.60 (v261)`
+- tool: `scripts/revalidation/wifi_private_property_materialization_approval.py`
+- evidence: `tmp/wifi/v313-private-property-materialization-approval/`
+- decision: `private-property-materialization-approval-ready`
+- result:
+  - v312 layout prerequisite PASS
+  - live materialization scope recorded
+  - explicit not-approved actions recorded
+  - required approval phrase emitted
+- required approval phrase:
+  - `approve v314 private property namespace materialization only; no daemon start and no Wi-Fi bring-up`
+- next:
+  - v314 is blocked until explicit operator approval
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
