@@ -5098,6 +5098,31 @@
   - V366 candidate: bounded temporary device-node + private property/linker repair smoke
   - do not run service-manager/HAL/scan/connect before V366 passes and a later separate approval packet exists
 
+
+### V366. Guarded Runtime Repair Smoke — APPROVAL REQUIRED
+
+- 계획: `docs/plans/NATIVE_INIT_V366_RUNTIME_REPAIR_SMOKE_PLAN_2026-05-20.md`
+- 보고서: `docs/reports/NATIVE_INIT_V366_RUNTIME_REPAIR_SMOKE_2026-05-20.md`
+- evidence:
+  - initial plan: `tmp/wifi/v366-runtime-repair-smoke-plan-20260520/`
+  - corrected plan: `tmp/wifi/v366-runtime-repair-smoke-plan-20260520-r2/`
+  - preflight: `tmp/wifi/v366-runtime-repair-smoke-preflight-20260520/`
+  - no-approval run: `tmp/wifi/v366-runtime-repair-smoke-refusal-20260520/`
+- boot image: 없음. v366은 host-side guarded smoke runner이며 native init version 변경 없음
+- validation:
+  - corrected plan decision `runtime-repair-smoke-plan-ready`
+  - preflight decision `runtime-repair-smoke-preflight-ready`
+  - no-approval run decision `runtime-repair-smoke-approval-required`
+  - no-approval run performed no mutation steps: no temporary `/dev` node creation and no property lookup
+  - live preflight confirmed helper/linkerconfig/property/system-root inputs and `/proc/partitions` `sda29` metadata `259:13`
+  - post/preflight service-manager, CNSS, and Wi-Fi link surfaces remain clean/absent
+- next approval phrase:
+  - `approve v366 bounded runtime repair smoke only; no service-manager start and no Wi-Fi bring-up`
+- next:
+  - V366 approved smoke remains pending until exact phrase is supplied
+  - even approved V366 is only temporary node creation, private property lookup, cleanup, and postflight cleanliness
+  - do not run service-manager/HAL/scan/connect before V366 approved smoke passes and a later separate approval packet exists
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
