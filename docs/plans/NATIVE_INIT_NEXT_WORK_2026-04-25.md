@@ -1435,6 +1435,10 @@ Samsung bootloader
    - v305 계획서: `docs/plans/NATIVE_INIT_V305_ANDROID_CAPTURE_RESCUE_DOCTOR_PLAN_2026-05-19.md`
    - v305 보고서: `docs/reports/NATIVE_INIT_V305_ANDROID_CAPTURE_RESCUE_DOCTOR_2026-05-19.md`
    - v305 결과: decision `native-ready`, rescue doctor generated live/rollback/capture operator aid commands without executing them
+   - v306 계획서: `docs/plans/NATIVE_INIT_V306_ANDROID_CAPTURE_LIVE_RESULT_PLAN_2026-05-19.md`
+   - v306 보고서: `docs/reports/NATIVE_INIT_V306_ANDROID_CAPTURE_LIVE_RESULT_2026-05-19.md`
+   - v306 결과: approval-gated v300 live handoff PASS, Android property capture PASS, baseline compare READY, Android-backed seed READY, native v261 restored and verified
+   - v306 해석: property shim 설계에 필요한 Android-backed required keys가 확보됐다. 다음 후보는 read-only property shim design이며, property runtime mutation/service-manager/HAL/Wi-Fi daemon/scan/connect는 계속 별도 safety gate 전까지 금지다
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
 ---

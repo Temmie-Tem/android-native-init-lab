@@ -3757,6 +3757,37 @@
 - next:
   - after explicit live handoff approval, run v304 guard once more and execute v300 live command
 
+### V306. Android Capture Live Result — PASS / NATIVE RESTORED
+
+- 계획: `docs/plans/NATIVE_INIT_V306_ANDROID_CAPTURE_LIVE_RESULT_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V306_ANDROID_CAPTURE_LIVE_RESULT_2026-05-19.md`
+- boot image change: Android boot temporarily flashed, then native v261 restored
+- restored device build: `A90 Linux init 0.9.60 (v261)`
+- evidence:
+  - `tmp/wifi/v300-android-capture-executor-live/`
+  - `tmp/wifi/v297-android-property-capture-android/`
+  - `tmp/wifi/v298-property-baseline-compare-android/`
+  - `tmp/wifi/v303-android-capture-postprocess-after-live/`
+  - `tmp/wifi/v301-property-shim-seed-android/`
+  - `tmp/wifi/v305-android-capture-rescue-doctor-after-live/`
+- decisions:
+  - live handoff: `android-capture-executor-pass`
+  - Android property capture: `android-property-capture-pass`
+  - baseline compare: `property-baseline-compare-ready`
+  - postprocess: `android-capture-postprocess-seed-ready`
+  - seed: `property-shim-seed-ready`
+  - rescue doctor: `native-ready`
+- result:
+  - Android boot image flash/readback PASS
+  - Android ADB reached `device`
+  - captured required Android property keys: `ro.build.version.sdk=31`, `ro.product.name=r3qks`, `ro.hardware=qcom`, `ro.vendor.build.version.sdk=30`
+  - native rollback restored and verified `A90 Linux init 0.9.60 (v261)`
+- safety:
+  - no Wi-Fi scan/connect/link-up/credential/DHCP/routing was executed
+  - no property runtime mutation or service-manager/HAL/Wi-Fi daemon execution was performed
+- next:
+  - v307 candidate: read-only property shim design using Android-backed seed
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
