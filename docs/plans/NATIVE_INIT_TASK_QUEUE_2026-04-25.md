@@ -3695,6 +3695,28 @@
 - next:
   - execute v300 live command only with explicit operator approval
 
+### V303. Android Capture Postprocess Harness — WAITING FOR LIVE
+
+- 계획: `docs/plans/NATIVE_INIT_V303_ANDROID_CAPTURE_POSTPROCESS_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V303_ANDROID_CAPTURE_POSTPROCESS_2026-05-19.md`
+- boot image change: none
+- baseline device build: `A90 Linux init 0.9.60 (v261)`
+- tool: `scripts/revalidation/android_capture_postprocess.py`
+- evidence:
+  - `tmp/wifi/v303-android-capture-postprocess-waiting/`
+  - `tmp/wifi/v303-android-capture-postprocess-waiting-run/`
+  - `tmp/wifi/v303-synthetic/out/`
+- decisions:
+  - current state: `android-capture-postprocess-waiting-for-live`
+  - synthetic ready path: `android-capture-postprocess-seed-ready`
+- result:
+  - v303 can classify missing live handoff, failed live handoff, missing Android capture/compare, seed-ready, and seed-blocked states
+  - `run` is host-only and invokes v301 seed generation only after v297/v298 are ready
+- safety:
+  - no device command, ADB command, reboot, recovery, flash, property mutation, or Wi-Fi bring-up action was executed
+- next:
+  - explicit operator approval for v300 live handoff remains the blocker
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
