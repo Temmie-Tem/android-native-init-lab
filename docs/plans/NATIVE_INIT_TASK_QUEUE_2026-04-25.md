@@ -3846,6 +3846,25 @@
 - next:
   - v310 candidate: host-side `property_info` / `prop_area` serializer compatibility proof
 
+### V310. Property Serializer Compatibility Proof — READY
+
+- 계획: `docs/plans/NATIVE_INIT_V310_PROPERTY_SERIALIZER_PROOF_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V310_PROPERTY_SERIALIZER_PROOF_2026-05-19.md`
+- boot image change: none
+- restored device build: `A90 Linux init 0.9.60 (v261)`
+- tool: `scripts/revalidation/wifi_property_serializer_proof.py`
+- evidence: `tmp/wifi/v310-property-serializer-proof/`
+- decision: `property-serializer-proof-ready`
+- result:
+  - host-only serialized `property_info` binary generated and parsed
+  - host-only `prop_area` binary generated and parsed
+  - selected Android-backed seed keys roundtrip PASS
+  - model still uses synthetic context `u:object_r:default_prop:s0`
+- safety:
+  - no device/ADB command, runtime property file install, property service socket, daemon, or Wi-Fi bring-up action
+- next:
+  - v311 candidate: context-aware `property_contexts` mapping proof before runtime prototype
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
