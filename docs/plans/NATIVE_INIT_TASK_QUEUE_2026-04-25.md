@@ -4260,6 +4260,26 @@
   - exact v317 approval phrase가 있으면 v317 minimal live proof 진행
   - approval이 없으면 다른 host-only/read-only Wi-Fi readiness 작업 진행
 
+### V328. V317 Runner Approval Refresh Gate — PASS / HOST-ONLY
+
+- 계획: `docs/plans/NATIVE_INIT_V328_V317_RUNNER_APPROVAL_REFRESH_GATE_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V328_V317_RUNNER_APPROVAL_REFRESH_GATE_2026-05-19.md`
+- tool: `scripts/revalidation/wifi_private_property_namespace_proof.py`
+- evidence:
+  - `tmp/wifi/v328-v317-runner-plan/`
+  - `tmp/wifi/v328-v317-runner-refuse/`
+- boot image: 없음. v328은 host-only runner gate alignment이며 native init version 변경 없음
+- validation:
+  - `py_compile` PASS
+  - `git diff --check` PASS
+  - plan decision `private-property-namespace-proof-plan-ready`
+  - run-without-approval decision `private-property-namespace-proof-approval-required`
+  - `approval-refresh` blocker check PASS
+  - run refusal executed no device command and performed no device mutation
+- next:
+  - exact v317 approval phrase가 있으면 v317 minimal live proof 진행
+  - approval이 없으면 다른 host-only/read-only Wi-Fi readiness 작업 진행
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`

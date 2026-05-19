@@ -1515,6 +1515,9 @@ Samsung bootloader
    - v327 계획서: `docs/plans/NATIVE_INIT_V327_PRIVATE_PROPERTY_APPROVAL_REFRESH_PLAN_2026-05-19.md`
    - v327 보고서: `docs/reports/NATIVE_INIT_V327_PRIVATE_PROPERTY_APPROVAL_REFRESH_2026-05-19.md`
    - v327 해석: approval refresh 기본 chain audit을 v326으로 올렸다. 최신 approval packet도 live_execution_approved=false이며 exact v317 phrase 없이는 실행하지 않는다
+   - v328 계획서: `docs/plans/NATIVE_INIT_V328_V317_RUNNER_APPROVAL_REFRESH_GATE_PLAN_2026-05-19.md`
+   - v328 보고서: `docs/reports/NATIVE_INIT_V328_V317_RUNNER_APPROVAL_REFRESH_GATE_2026-05-19.md`
+   - v328 해석: V317 runner가 v327 approval refresh manifest를 blocker로 요구하도록 조정했다. plan은 PASS, run-without-approval은 approval-required로 fail-closed이며 device command/mutation은 없다
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
 ---

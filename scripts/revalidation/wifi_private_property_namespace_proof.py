@@ -27,6 +27,7 @@ DEFAULT_OUT_DIR = Path("tmp/wifi/v317-private-property-namespace-proof")
 DEFAULT_V312 = Path("tmp/wifi/v312-private-property-runtime-layout/manifest.json")
 DEFAULT_V315 = Path("tmp/wifi/v315-private-property-live-preflight/manifest.json")
 DEFAULT_V316 = Path("tmp/wifi/v316-private-property-live-approval/manifest.json")
+DEFAULT_APPROVAL_REFRESH = Path("tmp/wifi/v327-private-property-approval-refresh/manifest.json")
 APPROVAL_PHRASE = "approve v317 minimal private property namespace proof only; no daemon start and no Wi-Fi bring-up"
 REMOTE_WORKDIR = "/mnt/sdext/a90/private-property-v317"
 REMOTE_PROP_PREFIX = REMOTE_WORKDIR + "/dev/__properties__"
@@ -89,6 +90,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--v312-manifest", type=Path, default=DEFAULT_V312)
     parser.add_argument("--v315-manifest", type=Path, default=DEFAULT_V315)
     parser.add_argument("--v316-manifest", type=Path, default=DEFAULT_V316)
+    parser.add_argument("--approval-refresh-manifest", type=Path, default=DEFAULT_APPROVAL_REFRESH)
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=54321)
     parser.add_argument("--timeout", type=float, default=20.0)
@@ -173,11 +175,21 @@ def build_checks(args: argparse.Namespace,
                  v312: dict[str, Any],
                  v315: dict[str, Any],
                  v316: dict[str, Any],
+                 approval_refresh: dict[str, Any],
                  files: list[LayoutFile],
                  transfer: TransferEstimate) -> list[ProofCheck]:
     phrase = str(v316.get("operator_approval_phrase") or APPROVAL_PHRASE)
     approval_ok = args.approval_phrase == phrase and args.allow_device_mutation and args.assume_yes
     bad_files = [item.relative_path for item in files if item.status != "pass"]
+    approval_refresh_ok = (
+        bool(approval_refresh.get("present")) and
+        approval_refresh.get("decision") == "private-property-approval-refresh-ready" and
+        bool(approval_refresh.get("pass")) and
+        approval_refresh.get("approval_phrase") == phrase and
+        not bool(approval_refresh.get("live_execution_approved")) and
+        not bool(approval_refresh.get("device_commands_executed")) and
+        not bool(approval_refresh.get("device_mutations"))
+    )
     return [
         ProofCheck(
             "v312-layout",
@@ -199,6 +211,16 @@ def build_checks(args: argparse.Namespace,
             "blocker",
             f"decision={v316.get('decision')} pass={v316.get('pass')}",
             [str(v316.get("path", ""))],
+        ),
+        ProofCheck(
+            "approval-refresh",
+            "pass" if approval_refresh_ok else "blocked",
+            "blocker",
+            (
+                f"decision={approval_refresh.get('decision')} pass={approval_refresh.get('pass')} "
+                f"live_execution_approved={approval_refresh.get('live_execution_approved')}"
+            ),
+            [str(approval_refresh.get("path", ""))],
         ),
         ProofCheck(
             "layout-files",
@@ -440,9 +462,10 @@ def build_manifest(args: argparse.Namespace, store: EvidenceStore) -> dict[str, 
     v312 = load_json(args.v312_manifest)
     v315 = load_json(args.v315_manifest)
     v316 = load_json(args.v316_manifest)
+    approval_refresh = load_json(args.approval_refresh_manifest)
     files = file_entries(v312)
     transfer = estimate_transfer(files, args.chunk_size)
-    checks = build_checks(args, v312, v315, v316, files, transfer)
+    checks = build_checks(args, v312, v315, v316, approval_refresh, files, transfer)
     records: list[CommandRecord] = []
     live_error = ""
     if args.command == "run" and approval_ok(args, v316) and not any(
@@ -461,19 +484,21 @@ def build_manifest(args: argparse.Namespace, store: EvidenceStore) -> dict[str, 
         "decision": decision,
         "pass": pass_ok,
         "reason": reason,
-        "next_step": "v318 private property lookup proof planning" if decision == "private-property-namespace-proof-pass" else "provide exact v317 approval before live proof execution",
+        "next_step": "v320 private property lookup proof planning" if decision == "private-property-namespace-proof-pass" else "provide exact v317 approval before live proof execution",
         "host": collect_host_metadata(),
         "remote_workdir": REMOTE_WORKDIR,
         "inputs": {
             "v312": {"path": v312.get("path"), "present": bool(v312.get("present")), "decision": v312.get("decision"), "pass": v312.get("pass")},
             "v315": {"path": v315.get("path"), "present": bool(v315.get("present")), "decision": v315.get("decision"), "pass": v315.get("pass")},
             "v316": {"path": v316.get("path"), "present": bool(v316.get("present")), "decision": v316.get("decision"), "pass": v316.get("pass")},
+            "approval_refresh": {"path": approval_refresh.get("path"), "present": bool(approval_refresh.get("present")), "decision": approval_refresh.get("decision"), "pass": approval_refresh.get("pass")},
         },
         "checks": [asdict(check) for check in checks],
         "files": [asdict(entry) for entry in files],
         "transfer_estimate": asdict(transfer),
         "commands": [asdict(record) for record in records],
         "live_error": live_error,
+        "device_commands_executed": bool(records),
         "device_mutations": bool(records),
         "blocked_actions": [
             "global /dev/__properties__ replacement",
