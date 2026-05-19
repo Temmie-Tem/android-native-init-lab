@@ -2647,9 +2647,30 @@
 - guardrails:
   - no Wi-Fi scan/connect/link-up/credential/DHCP/routing
   - no `cnss_diag`, rfkill unblock, ICNSS bind/unbind
+
+### V262. QRTR/QMI No-Scan Probe — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V262_QRTR_QMI_NO_SCAN_PROBE_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V262_QRTR_QMI_NO_SCAN_PROBE_2026-05-19.md`
+- baseline device build: `A90 Linux init 0.9.60 (v261)`
+- boot image change: 없음
+- host tool: `scripts/revalidation/wifi_qrtr_qmi_no_scan_probe.py`
+- output: `tmp/wifi/v262-qrtr-qmi-no-scan-probe/`
+- decision: `qrtr-qmi-no-scan-ready`
+- validation:
+  - required captures PASS
+  - CNSS process clean PASS
+  - `QIPCRTR` present in `/proc/net/protocols`
+  - `/cache/bin/a90_qrtr_probe` SHA PASS
+  - QRTR helper `socket.rc=0`, `status=bind-pass`, `send_attempted=0`, `connect_attempted=0`
+  - no `wlan*` in `/proc/net/dev` or `/sys/class/net`
+- interpretation:
+  - QRTR kernel socket/local bind remains ready
+  - visible `/dev` QRTR/QMI/diag/IPA/WLAN nodes remain absent
+  - remaining gap is userspace/runtime endpoint or nameservice behavior, not basic QRTR socket availability
 - next execution item:
-  - QRTR/QMI endpoint interaction no-scan probe, or
-  - CNSS warning/perfd/kmsg logging surface cleanup
+  - CNSS warning/perfd/kmsg logging surface cleanup, or
+  - QRTR/QMI userspace nameservice model with packet transmission still approval-gated
 
 ### V187. Harness Broker Backend — PASS
 
