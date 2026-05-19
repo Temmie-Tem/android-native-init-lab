@@ -1790,3 +1790,9 @@ Samsung bootloader
    - v384 해석: v15 deploy는 PASS했고 ptrace-lite live는 실제 daemon start-only까지 진입했다. `servicemanager`는 SIGABRT crash context를 확보했고, `hwservicemanager`는 timeout까지 observable 상태였으나 helper 내부 process-group postflight proof가 실패해 `start-only-reboot-required`로 분류됐다. host postflight/selftest는 clean, Wi-Fi bring-up은 없음
    - v384 도구 수정: native shell 30-arg 한계 때문에 service-manager live command에서 `--data-wifi-mode private-empty`만 compact path에서 생략한다. shell wrapper는 `/cache/bin/toybox`에 `sh` applet이 없어 사용하지 않는다
    - v385 다음: `a90_android_execns_probe v16`에서 direct child reap 이후 남은 process group을 final SIGKILL로 정리하고, 잔존 process-group evidence를 캡처한다. Wi-Fi HAL/start/scan/connect는 계속 blocked
+
+   - v385 plan: `docs/plans/NATIVE_INIT_V385_RESIDUAL_PGID_CLEANUP_PLAN_2026-05-20.md`
+   - v385 readiness report: `docs/reports/NATIVE_INIT_V385_RESIDUAL_PGID_CLEANUP_2026-05-20.md`
+   - v385 구현 상태: `a90_android_execns_probe v16`은 residual process-group scan/final SIGKILL/recheck evidence를 추가한다. 로컬 SHA256은 `4478c73518e950b425af0cf7db28e9570c983f428fbb0d4b5d2ee45573d37cd8`이다
+   - v385 검증 상태: static build/py_compile/diff check PASS. no-approval executor는 device mutation/daemon/Wi-Fi 없이 막혔고, preflight는 remote helper가 아직 v15이므로 v16 deploy 필요로 막힌다
+   - v385 실행 조건: deploy는 exact `approve v385 deploy execns helper v16 only; no daemon start and no Wi-Fi bring-up`, live는 exact `approve v385 service-manager residual pgid cleanup only; no Wi-Fi HAL start and no Wi-Fi bring-up` 필요

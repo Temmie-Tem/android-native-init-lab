@@ -43,7 +43,7 @@
 #define PR_CAP_AMBIENT_RAISE 2
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v15"
+#define EXECNS_VERSION "a90_android_execns_probe v16"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -2584,6 +2584,126 @@ static int append_proc_fd_summary(struct buffer *buf, pid_t pid, bool *captured)
     return append_format(buf, "cnss_start.fd_summary.count=%d\n", count);
 }
 
+static bool parse_pid_name(const char *text, pid_t *pid) {
+    char *end = NULL;
+    long value;
+
+    if (text == NULL || *text == '\0') {
+        return false;
+    }
+    errno = 0;
+    value = strtol(text, &end, 10);
+    if (errno != 0 || end == text || *end != '\0' || value <= 0) {
+        return false;
+    }
+    *pid = (pid_t)value;
+    return true;
+}
+
+static void read_proc_comm(pid_t pid, char *out, size_t out_size) {
+    char path[MAX_PATH_LEN];
+    FILE *file;
+
+    if (out_size == 0) {
+        return;
+    }
+    out[0] = '\0';
+    proc_path(path, sizeof(path), pid, "comm");
+    file = fopen(path, "re");
+    if (file == NULL) {
+        snprintf(out, out_size, "unknown");
+        return;
+    }
+    if (fgets(out, (int)out_size, file) == NULL) {
+        snprintf(out, out_size, "unknown");
+    } else {
+        size_t len = strlen(out);
+
+        while (len > 0 && (out[len - 1] == '\n' || out[len - 1] == '\r')) {
+            out[--len] = '\0';
+        }
+    }
+    fclose(file);
+}
+
+static char read_proc_state(pid_t pid) {
+    char path[MAX_PATH_LEN];
+    char line[512];
+    FILE *file;
+    char *close_paren;
+
+    proc_path(path, sizeof(path), pid, "stat");
+    file = fopen(path, "re");
+    if (file == NULL) {
+        return '?';
+    }
+    if (fgets(line, sizeof(line), file) == NULL) {
+        fclose(file);
+        return '?';
+    }
+    fclose(file);
+    close_paren = strrchr(line, ')');
+    if (close_paren == NULL || close_paren[1] != ' ' || close_paren[2] == '\0') {
+        return '?';
+    }
+    return close_paren[2];
+}
+
+static int append_pgid_scan_summary(struct buffer *buf,
+                                    const char *prefix,
+                                    const char *phase,
+                                    pid_t pgid,
+                                    int *match_count) {
+    DIR *dir;
+    struct dirent *entry;
+    int count = 0;
+
+    *match_count = -1;
+    dir = opendir("/proc");
+    if (dir == NULL) {
+        return append_format(buf,
+                             "%s.pgid_scan.%s.error=%s\n",
+                             prefix,
+                             phase,
+                             strerror(errno));
+    }
+    while ((entry = readdir(dir)) != NULL) {
+        pid_t pid;
+        pid_t candidate_pgid;
+        char comm[128];
+        char state;
+
+        if (!parse_pid_name(entry->d_name, &pid)) {
+            continue;
+        }
+        candidate_pgid = getpgid(pid);
+        if (candidate_pgid < 0 || candidate_pgid != pgid) {
+            continue;
+        }
+        read_proc_comm(pid, comm, sizeof(comm));
+        state = read_proc_state(pid);
+        if (append_format(buf,
+                          "%s.pgid_scan.%s.entry.%d=pid:%ld state:%c comm:%s\n",
+                          prefix,
+                          phase,
+                          count,
+                          (long)pid,
+                          state,
+                          comm) < 0) {
+            closedir(dir);
+            return -1;
+        }
+        count++;
+    }
+    closedir(dir);
+    *match_count = count;
+    return append_format(buf,
+                         "%s.pgid_scan.%s.count=%d\n",
+                         prefix,
+                         phase,
+                         count);
+}
+
 static int run_cnss_start_only_guarded(const struct config *cfg,
                                        const struct paths *paths,
                                        struct buffer *stdout_buf,
@@ -2988,6 +3108,10 @@ static int run_service_manager_start_only_guarded_ptrace(const struct config *cf
     bool exited_before_timeout = false;
     bool exec_captured = false;
     bool crash_captured = false;
+    bool residual_kill_sent = false;
+    bool residual_cleared = false;
+    int residual_before_count = -1;
+    int residual_after_count = -1;
     long deadline;
     pid_t pid = -1;
     pid_t pgid = -1;
@@ -3304,7 +3428,46 @@ static int run_service_manager_start_only_guarded_ptrace(const struct config *cf
     if (stderr_open) {
         drain_fd(stderr_pipe[0], stderr_buf, &stderr_open);
     }
-    postflight_safe = reaped && (kill(-pgid, 0) < 0 && errno == ESRCH);
+    if (reaped && pgid > 1) {
+        errno = 0;
+        postflight_safe = kill(-pgid, 0) < 0 && errno == ESRCH;
+        if (!postflight_safe) {
+            if (append_pgid_scan_summary(stdout_buf,
+                                         "service_manager_start",
+                                         "before_final_kill",
+                                         pgid,
+                                         &residual_before_count) < 0) {
+                goto fail;
+            }
+            if (kill(-pgid, SIGKILL) == 0 || errno == ESRCH) {
+                residual_kill_sent = true;
+                kill_sent = true;
+            }
+            deadline = monotonic_ms() + 1000L;
+            while (monotonic_ms() < deadline) {
+                errno = 0;
+                if (kill(-pgid, 0) < 0 && errno == ESRCH) {
+                    residual_cleared = true;
+                    break;
+                }
+                usleep(50000);
+            }
+            if (append_pgid_scan_summary(stdout_buf,
+                                         "service_manager_start",
+                                         "after_final_kill",
+                                         pgid,
+                                         &residual_after_count) < 0) {
+                goto fail;
+            }
+        }
+        errno = 0;
+        postflight_safe = kill(-pgid, 0) < 0 && errno == ESRCH;
+        if (postflight_safe) {
+            residual_cleared = true;
+        }
+    } else {
+        postflight_safe = false;
+    }
 
     if (append_format(stdout_buf,
                       "service_manager_start.observable=%d\n"
@@ -3320,6 +3483,10 @@ static int run_service_manager_start_only_guarded_ptrace(const struct config *cf
                       "service_manager_start.maps_summary_captured=%d\n"
                       "service_manager_start.capture_exec=%d\n"
                       "service_manager_start.capture_crash=%d\n"
+                      "service_manager_start.residual_kill_sent=%d\n"
+                      "service_manager_start.residual_cleared=%d\n"
+                      "service_manager_start.residual_before_count=%d\n"
+                      "service_manager_start.residual_after_count=%d\n"
                       "service_manager_start.postflight_safe=%d\n",
                       observable ? 1 : 0,
                       child_done ? 1 : 0,
@@ -3334,6 +3501,10 @@ static int run_service_manager_start_only_guarded_ptrace(const struct config *cf
                       maps_summary_captured ? 1 : 0,
                       exec_captured ? 1 : 0,
                       crash_captured ? 1 : 0,
+                      residual_kill_sent ? 1 : 0,
+                      residual_cleared ? 1 : 0,
+                      residual_before_count,
+                      residual_after_count,
                       postflight_safe ? 1 : 0) < 0) {
         goto fail;
     }

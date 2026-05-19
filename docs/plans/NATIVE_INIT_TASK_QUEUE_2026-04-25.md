@@ -8143,3 +8143,16 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
   - post-run device state: `status`/`selftest` PASS, no manager processes, no Wi-Fi links
   - Wi-Fi HAL/start/scan/connect/link-up was not executed
 - next execution item: V385 helper v16 residual process-group cleanup/evidence; Wi-Fi bring-up remains blocked
+
+### V385. Residual PGID Cleanup Helper — READY FOR APPROVAL
+
+- plan: `docs/plans/NATIVE_INIT_V385_RESIDUAL_PGID_CLEANUP_PLAN_2026-05-20.md`
+- readiness: `docs/reports/NATIVE_INIT_V385_RESIDUAL_PGID_CLEANUP_2026-05-20.md`
+- local helper: `tmp/wifi/v385-a90_android_execns_probe-v16/a90_android_execns_probe`
+- sha256: `4478c73518e950b425af0cf7db28e9570c983f428fbb0d4b5d2ee45573d37cd8`
+- host wrappers:
+  - `scripts/revalidation/wifi_execns_helper_v16_deploy_preflight.py`
+  - `scripts/revalidation/wifi_service_manager_start_only_v385_live_runner.py`
+  - `scripts/revalidation/wifi_v385_deploy_live_executor.py`
+- validation: local build PASS, `py_compile` PASS, `git diff --check` PASS, no-approval plan/live gates PASS, deploy/live preflight blocks because remote helper is still v15.
+- next execution item: wait for exact v385 deploy approval, then exact v385 residual PGID cleanup live approval. Wi-Fi bring-up remains blocked.
