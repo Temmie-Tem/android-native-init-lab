@@ -4000,9 +4000,11 @@
   - `tmp/wifi/v317-private-property-namespace-proof-plan/`
   - `tmp/wifi/v317-private-property-namespace-proof-refuse/`
   - `tmp/wifi/v317-private-property-namespace-proof-cleanup-refuse/`
+  - `tmp/wifi/v317-private-property-namespace-proof-audit/`
 - decisions:
   - `private-property-namespace-proof-plan-ready`
   - `private-property-namespace-proof-approval-required`
+  - `private-property-namespace-proof-audit-pass`
 - transfer estimate:
   - files `5`, bytes `524988`, chunks `1851`, estimated device commands `1885`
 - required approval phrase:
@@ -4020,6 +4022,7 @@
   - no property service socket
   - no service-manager/HAL/Wi-Fi daemon start
   - no Wi-Fi scan/connect/link-up/credential/DHCP/routing
+  - audit confirms plan/refusal manifests are fail-closed and scope-bounded
 - next:
   - live run only after explicit operator approval
 

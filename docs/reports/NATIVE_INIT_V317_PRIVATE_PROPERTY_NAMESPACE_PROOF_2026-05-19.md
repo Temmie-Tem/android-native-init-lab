@@ -22,6 +22,7 @@ No live mutation was executed in this validation.
 | plan | `tmp/wifi/v317-private-property-namespace-proof-plan/` | `private-property-namespace-proof-plan-ready` |
 | run refusal | `tmp/wifi/v317-private-property-namespace-proof-refuse/` | `private-property-namespace-proof-approval-required` |
 | cleanup refusal | `tmp/wifi/v317-private-property-namespace-proof-cleanup-refuse/` | `private-property-namespace-proof-approval-required` |
+| safety audit | `tmp/wifi/v317-private-property-namespace-proof-audit/` | `private-property-namespace-proof-audit-pass` |
 
 ## Validation
 
@@ -36,6 +37,10 @@ python3 scripts/revalidation/wifi_private_property_namespace_proof.py \
 python3 scripts/revalidation/wifi_private_property_namespace_proof.py \
   --out-dir tmp/wifi/v317-private-property-namespace-proof-cleanup-refuse \
   cleanup || true
+python3 -m py_compile scripts/revalidation/wifi_private_property_namespace_proof_audit.py
+python3 scripts/revalidation/wifi_private_property_namespace_proof_audit.py \
+  --out-dir tmp/wifi/v317-private-property-namespace-proof-audit \
+  run
 git diff --check
 ```
 
@@ -62,6 +67,19 @@ The plan manifest estimates the approved live run before any mutation:
 - estimated device commands: `1885`
 - max shell snippet length: `493`
 - status: `pass`
+
+## Safety Audit
+
+The audit verifies:
+
+- plan decision is `private-property-namespace-proof-plan-ready`.
+- run/cleanup without approval refuse with
+  `private-property-namespace-proof-approval-required`.
+- plan/refusal manifests have `device_mutations=false` and no command records.
+- all remote paths remain under `/mnt/sdext/a90/private-property-v317`.
+- blocked actions include global property replacement, property service socket,
+  NCM/tcpctl transfer, and Wi-Fi bring-up.
+- approval phrase exactly matches the v316 packet.
 
 ## Required Approval Phrase
 
