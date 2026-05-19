@@ -3460,6 +3460,31 @@
 - next:
   - v293 service-manager prerequisite model before any service-manager execution
 
+### V293. Service-Manager Prerequisite Model — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V293_SERVICE_MANAGER_PREREQ_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V293_SERVICE_MANAGER_PREREQ_2026-05-19.md`
+- boot image change: none
+- baseline device build: `A90 Linux init 0.9.60 (v261)`
+- tool: `scripts/revalidation/wifi_service_manager_prereq_model.py`
+- evidence:
+  - `tmp/wifi/v293-service-manager-prereq-plan/`
+  - `tmp/wifi/v293-service-manager-prereq-live-20260519-141752/`
+- decision: `service-manager-prereq-blockers-mapped`
+- result:
+  - v292 Binder open-only PASS accepted as input
+  - service-manager binaries partially visible: `present=2/3`
+  - service-manager processes absent: `process_count=0`
+  - Android property runtime absent
+  - SELinux surface present but not modeled
+  - linker/runtime namespace remains partial
+- safety:
+  - no service-manager execution
+  - no Binder ioctl or Binder devnode creation
+  - no Wi-Fi daemon execution, QMI/QRTR, scan/connect/link-up
+- next:
+  - v294 Android property-runtime feasibility before any service-manager execution
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
