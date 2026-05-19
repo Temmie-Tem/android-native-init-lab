@@ -33,6 +33,7 @@ SMOKE_SCRIPT = SCRIPT_DIR / "wifi_runtime_repair_smoke.py"
 @dataclass(frozen=True)
 class RegressionCase:
     name: str
+    command: str
     approval_phrase: str
     apply: bool
     assume_yes: bool
@@ -83,6 +84,7 @@ def cases(smoke: ModuleType) -> list[RegressionCase]:
     return [
         RegressionCase(
             "run-no-approval-clean-refuses",
+            "run",
             "",
             False,
             False,
@@ -93,6 +95,7 @@ def cases(smoke: ModuleType) -> list[RegressionCase]:
         ),
         RegressionCase(
             "run-wrong-phrase-full-flags-refuses",
+            "run",
             "approve v366 bounded runtime repair smoke only",
             True,
             True,
@@ -103,6 +106,7 @@ def cases(smoke: ModuleType) -> list[RegressionCase]:
         ),
         RegressionCase(
             "run-approved-clean-executes-synthetic-smoke",
+            "run",
             smoke.APPROVAL_PHRASE,
             True,
             True,
@@ -113,6 +117,7 @@ def cases(smoke: ModuleType) -> list[RegressionCase]:
         ),
         RegressionCase(
             "run-approved-preexisting-vendor-blocks-before-mutation",
+            "run",
             smoke.APPROVAL_PHRASE,
             True,
             True,
@@ -123,6 +128,7 @@ def cases(smoke: ModuleType) -> list[RegressionCase]:
         ),
         RegressionCase(
             "run-approved-preexisting-binder-blocks-before-mutation",
+            "run",
             smoke.APPROVAL_PHRASE,
             True,
             True,
@@ -130,6 +136,28 @@ def cases(smoke: ModuleType) -> list[RegressionCase]:
             "runtime-repair-smoke-blocked",
             False,
             (),
+        ),
+        RegressionCase(
+            "cleanup-no-approval-refuses",
+            "cleanup",
+            "",
+            False,
+            False,
+            (),
+            "runtime-repair-smoke-cleanup-approval-required",
+            True,
+            (),
+        ),
+        RegressionCase(
+            "cleanup-approved-executes-synthetic-cleanup",
+            "cleanup",
+            smoke.APPROVAL_PHRASE,
+            True,
+            True,
+            (),
+            "runtime-repair-smoke-cleanup-done",
+            True,
+            ("cleanup_nodes", "postflight"),
         ),
     ]
 
@@ -145,7 +173,7 @@ def make_args(smoke: ModuleType, case: RegressionCase, v365_manifest: Path, out_
         approval_phrase=case.approval_phrase,
         apply=case.apply,
         assume_yes=case.assume_yes,
-        command="run",
+        command=case.command,
     )
 
 

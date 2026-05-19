@@ -5143,6 +5143,25 @@
   - V366 approved live smoke remains pending until exact phrase is supplied
   - do not run service-manager/HAL/scan/connect before V366 approved smoke passes and a later separate approval packet exists
 
+
+### V368. Runtime Repair Cleanup Approval Gate — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V368_RUNTIME_REPAIR_CLEANUP_GATE_PLAN_2026-05-20.md`
+- 보고서: `docs/reports/NATIVE_INIT_V368_RUNTIME_REPAIR_CLEANUP_GATE_2026-05-20.md`
+- evidence:
+  - regression: `tmp/wifi/v368-runtime-repair-cleanup-gate-regression-20260520-010744/`
+  - cleanup refusal: `tmp/wifi/v368-cleanup-refusal-live-20260520-010802/`
+  - run refusal refresh: `tmp/wifi/v368-run-refusal-live-20260520-010802/`
+- boot image: 없음. v368은 V366 host runner cleanup safety patch
+- validation:
+  - regression decision `runtime-repair-smoke-regression-pass`
+  - cleanup refusal decision `runtime-repair-smoke-cleanup-approval-required` with `steps=[]`
+  - run refusal decision `runtime-repair-smoke-approval-required`
+  - no live mutation, service-manager/HAL/scan/connect execution 없음
+- next:
+  - V366 approved live smoke or cleanup remains pending until exact phrase is supplied
+  - do not run service-manager/HAL/scan/connect before V366 approved smoke passes and a later separate approval packet exists
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`

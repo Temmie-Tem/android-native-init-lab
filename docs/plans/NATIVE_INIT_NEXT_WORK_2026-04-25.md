@@ -1647,6 +1647,9 @@ Samsung bootloader
    - v367 계획서: `docs/plans/NATIVE_INIT_V367_RUNTIME_REPAIR_SMOKE_REGRESSION_PLAN_2026-05-20.md`
    - v367 보고서: `docs/reports/NATIVE_INIT_V367_RUNTIME_REPAIR_SMOKE_REGRESSION_2026-05-20.md`
    - v367 해석: V366 승인 경로에서 preexisting-node blocker가 mutation 전에 평가되도록 순서를 수정했고, host-only synthetic regression으로 no-approval/wrong-phrase/clean-approved/preexisting-approved 케이스를 검증했다
+   - v368 계획서: `docs/plans/NATIVE_INIT_V368_RUNTIME_REPAIR_CLEANUP_GATE_PLAN_2026-05-20.md`
+   - v368 보고서: `docs/reports/NATIVE_INIT_V368_RUNTIME_REPAIR_CLEANUP_GATE_2026-05-20.md`
+   - v368 해석: cleanup도 device mutation이므로 exact phrase + `--apply --assume-yes` 없이는 실행하지 않게 막았다. live cleanup refusal은 `steps=[]`로 PASS했다
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
 ---

@@ -226,6 +226,7 @@ def add_check(checks: list[Check], name: str, status: str, severity: str, detail
 
 def build_checks(args: argparse.Namespace, store: EvidenceStore, v365: dict[str, Any], steps: list[StepResult]) -> list[Check]:
     checks: list[Check] = []
+    approval_ok = args.approval_phrase == APPROVAL_PHRASE and args.apply and args.assume_yes
     v365_ok = v365.get("decision") == "service-runtime-repair-packet-ready" and bool(v365.get("pass"))
     add_check(checks, "v365-packet", "pass" if v365_ok else "missing", "info" if v365_ok else "blocker",
               f"decision={v365.get('decision')} pass={v365.get('pass')}", [str(v365.get("path", ""))],
@@ -234,6 +235,28 @@ def build_checks(args: argparse.Namespace, store: EvidenceStore, v365: dict[str,
         add_check(checks, "approval-gate", "needs-operator", "approval",
                   "plan-only mode; no live command executed", [APPROVAL_PHRASE],
                   "exact phrase required for any temporary node creation")
+        return checks
+    if args.command == "cleanup":
+        add_check(checks, "approval-gate", "pass" if approval_ok else "needs-operator", "approval",
+                  f"phrase_match={args.approval_phrase == APPROVAL_PHRASE} apply={args.apply} assume_yes={args.assume_yes}",
+                  [APPROVAL_PHRASE], "exact phrase and flags required before cleanup mutation")
+        if steps:
+            post_names = ("post-stat-vendor-block", "post-stat-binder", "post-stat-hwbinder", "post-stat-vndbinder")
+            still_present = [name for name in post_names if step_ok(steps, name)]
+            add_check(checks, "post-node-cleanup", "clean" if not still_present else "present",
+                      "info" if not still_present else "blocker", f"still_present={still_present}", still_present,
+                      "temporary nodes must be removed after cleanup")
+            ps_text = capture_text(store, steps, "post-ps")
+            manager_lines = [line.strip() for line in ps_text.splitlines() if MANAGER_PROCESS_RE.search(line)]
+            cnss_lines = [line.strip() for line in ps_text.splitlines() if CNSS_PROCESS_RE.search(line)]
+            net_text = capture_text(store, steps, "post-proc-net-dev")
+            wlan = WLAN_NETDEV_RE.search(net_text) is not None
+            add_check(checks, "post-service-process-clean", "clean" if not manager_lines and not cnss_lines else "present",
+                      "info" if not manager_lines and not cnss_lines else "blocker",
+                      f"manager={len(manager_lines)} cnss={len(cnss_lines)}", manager_lines[:6] + cnss_lines[:6],
+                      "cleanup must not leave service-manager or CNSS processes")
+            add_check(checks, "post-wifi-link-clean", "clean" if not wlan else "present", "info" if not wlan else "blocker",
+                      f"wlan_surface={wlan}", [], "cleanup must not create Wi-Fi link surface")
         return checks
     version_text = capture_text(store, steps, "version") or capture_text(store, steps, "post-version")
     add_check(checks, "native-version", "pass" if args.expect_version in version_text else "warn",
@@ -256,7 +279,6 @@ def build_checks(args: argparse.Namespace, store: EvidenceStore, v365: dict[str,
               "info" if not preexisting_nodes else "blocker",
               f"present={preexisting_nodes}", preexisting_nodes,
               "approved smoke only owns nodes it creates; run cleanup or investigate before approval")
-    approval_ok = args.approval_phrase == APPROVAL_PHRASE and args.apply and args.assume_yes
     add_check(checks, "approval-gate", "pass" if approval_ok else "needs-operator", "approval",
               f"phrase_match={args.approval_phrase == APPROVAL_PHRASE} apply={args.apply} assume_yes={args.assume_yes}",
               [APPROVAL_PHRASE], "exact phrase required for any temporary node creation")
@@ -300,6 +322,9 @@ def decide(args: argparse.Namespace, checks: list[Check], steps: list[StepResult
     if args.command == "preflight":
         return True, "runtime-repair-smoke-preflight-ready", "preflight ready; run still requires exact approval"
     if args.command == "cleanup":
+        approval = next((check for check in checks if check.name == "approval-gate"), None)
+        if approval is None or approval.status != "pass":
+            return True, "runtime-repair-smoke-cleanup-approval-required", "exact approval phrase required; no cleanup mutation executed"
         cleanup_ok = any(step.name == "cleanup" and step.ok for step in steps)
         return cleanup_ok, "runtime-repair-smoke-cleanup-done" if cleanup_ok else "runtime-repair-smoke-cleanup-failed", "cleanup attempted"
     approval = next((check for check in checks if check.name == "approval-gate"), None)
@@ -350,11 +375,13 @@ def build_manifest(args: argparse.Namespace, store: EvidenceStore) -> dict[str, 
         steps.extend(run_preflight(args, store))
     elif args.command == "cleanup":
         store.mkdir("native")
-        steps.extend(cleanup_nodes(args, store))
-        steps.extend(postflight(args, store))
     else:
         store.mkdir("native")
     approval_ok = args.command == "run" and args.approval_phrase == APPROVAL_PHRASE and args.apply and args.assume_yes
+    cleanup_approval_ok = args.command == "cleanup" and args.approval_phrase == APPROVAL_PHRASE and args.apply and args.assume_yes
+    if cleanup_approval_ok:
+        steps.extend(cleanup_nodes(args, store))
+        steps.extend(postflight(args, store))
     if approval_ok:
         preflight_checks = build_checks(args, store, v365, steps)
         if any(check_blocks(check) for check in preflight_checks):
