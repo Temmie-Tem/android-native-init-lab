@@ -4697,7 +4697,7 @@
   - exact V317 approval phrase 없이는 live proof 실행하지 않음
 
 
-### V350. V317 Operator Checklist — HOST-ONLY / PENDING POST-COMMIT RUN
+### V350. V317 Operator Checklist — HOST-ONLY PASS
 
 - 계획: `docs/plans/NATIVE_INIT_V350_V317_OPERATOR_CHECKLIST_PLAN_2026-05-19.md`
 - 보고서: `docs/reports/NATIVE_INIT_V350_V317_OPERATOR_CHECKLIST_2026-05-19.md`
@@ -4712,7 +4712,9 @@
   - dirty tree에서는 `current-tree-clean` block 확인
   - `device_commands_executed=false`, `device_mutations=false`
 - post-commit validation:
-  - clean HEAD에서 operator checklist 재실행 예정
+  - clean HEAD에서 `v317-operator-checklist-ready` PASS
+  - `remaining_blockers=[exact-v317-approval-phrase]`
+  - `device_commands_executed=false`, `device_mutations=false`
 - next:
   - exact V317 approval phrase 없이는 live proof 실행하지 않음
 

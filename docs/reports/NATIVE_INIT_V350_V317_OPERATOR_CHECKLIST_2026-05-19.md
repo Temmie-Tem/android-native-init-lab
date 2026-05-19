@@ -4,7 +4,7 @@
 - scope: host-only operator checklist before V317 live proof
 - device command: none
 - device mutation: none
-- result: `PRE-COMMIT STRUCTURE PASS / POST-COMMIT CLEAN-HEAD RUN REQUIRED`
+- result: `PASS`
 
 ## Summary
 
@@ -40,13 +40,26 @@ device_commands_executed: false
 device_mutations: false
 ```
 
-## Post-commit Validation Plan
+## Post-commit Validation
 
-After commit, rerun the checklist on clean HEAD. Expected:
+Command:
+
+```bash
+python3 scripts/revalidation/wifi_v317_final_readiness.py --out-dir tmp/wifi/v349-v317-final-readiness check
+python3 scripts/revalidation/wifi_v317_operator_checklist.py --out-dir tmp/wifi/v350-v317-operator-checklist build
+```
+
+Observed result:
 
 ```text
-v317-operator-checklist-ready
+decision: v317-operator-checklist-ready
+pass: True
 remaining_blockers: [exact-v317-approval-phrase]
+device_commands_executed: false
+device_mutations: false
+git_head: matched current HEAD at run time
+git_dirty: false
+blocked_checks: []
 ```
 
 ## Safety
@@ -54,3 +67,9 @@ remaining_blockers: [exact-v317-approval-phrase]
 - No live V317 proof was executed.
 - No daemon start was performed.
 - No Wi-Fi bring-up was performed.
+
+## Acceptance Result
+
+- V340 handoff command, V349 final readiness, V317 live command, cleanup command, and post-V317 router command are recorded in one checklist.
+- The only remaining blocker is `exact-v317-approval-phrase`.
+- No live V317 proof, daemon start, Wi-Fi bring-up, device command, or device mutation was executed.
