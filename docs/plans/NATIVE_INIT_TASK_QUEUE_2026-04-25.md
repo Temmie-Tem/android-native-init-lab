@@ -8194,3 +8194,16 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
   - `hwservicemanager`: compact capture PASS and `A90P1 END` returned, but helper reports `start-only-reboot-required` because final PGID scan sees the child as `state:Z` after kill
   - postflight read-only checks: native status/selftest PASS, no manager process, no Wi-Fi link
 - next execution item: V387 ptrace timeout cleanup fix; Wi-Fi HAL/start/scan/connect remains blocked
+
+### V387. Ptrace Timeout Cleanup Helper — READY FOR APPROVAL
+
+- plan: `docs/plans/NATIVE_INIT_V387_PTRACE_TIMEOUT_CLEANUP_PLAN_2026-05-20.md`
+- readiness: `docs/reports/NATIVE_INIT_V387_PTRACE_TIMEOUT_CLEANUP_2026-05-20.md`
+- local helper: `tmp/wifi/v387-a90_android_execns_probe-v18/a90_android_execns_probe`
+- sha256: `1131f0e3dd61bafc5023c25d7fb019303902cdf6cea76dd2e09b44b13a42378e`
+- host wrappers:
+  - `scripts/revalidation/wifi_execns_helper_v18_deploy_preflight.py`
+  - `scripts/revalidation/wifi_service_manager_start_only_v387_live_runner.py`
+  - `scripts/revalidation/wifi_v387_deploy_live_executor.py`
+- validation: local static build PASS, required strings PASS, `py_compile` PASS, plan-only gates PASS, no-approval executor PASS, read-only real-device preflight blocks on expected remote helper v18 mismatch.
+- next execution item: wait for exact v387 deploy approval, then exact v387 ptrace timeout cleanup live approval. Wi-Fi HAL/start/scan/connect remains blocked.

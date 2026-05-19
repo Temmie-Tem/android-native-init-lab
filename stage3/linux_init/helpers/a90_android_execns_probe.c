@@ -43,7 +43,7 @@
 #define PR_CAP_AMBIENT_RAISE 2
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v17"
+#define EXECNS_VERSION "a90_android_execns_probe v18"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -2892,6 +2892,100 @@ static int append_capture_snapshot_compact(struct buffer *buf,
     return 0;
 }
 
+static int wait_traced_child_for_cleanup(pid_t pid,
+                                         int cleanup_signal,
+                                         const char *phase,
+                                         long deadline,
+                                         struct buffer *stdout_buf,
+                                         bool timed_out_state,
+                                         bool *child_done,
+                                         bool *reaped,
+                                         bool *exited_before_timeout,
+                                         int *child_exit_code,
+                                         int *child_signal,
+                                         int *cleanup_stop_continued,
+                                         int *cleanup_stop_last_signal,
+                                         int *cleanup_continue_errors) {
+    while (!*child_done && monotonic_ms() < deadline) {
+        int status = 0;
+        pid_t wait_rc = waitpid(pid, &status, WNOHANG);
+
+        if (wait_rc == pid) {
+            if (WIFEXITED(status)) {
+                *child_done = true;
+                *reaped = true;
+                *exited_before_timeout = !timed_out_state;
+                *child_exit_code = WEXITSTATUS(status);
+                return append_format(stdout_buf,
+                                     "service_manager_start.cleanup.%s.exit=%d\n",
+                                     phase,
+                                     *child_exit_code);
+            }
+            if (WIFSIGNALED(status)) {
+                *child_done = true;
+                *reaped = true;
+                *exited_before_timeout = !timed_out_state;
+                *child_signal = WTERMSIG(status);
+                return append_format(stdout_buf,
+                                     "service_manager_start.cleanup.%s.signal=%d\n",
+                                     phase,
+                                     *child_signal);
+            }
+            if (WIFSTOPPED(status)) {
+                int stop_signal = WSTOPSIG(status);
+                unsigned int event = (unsigned int)status >> 16;
+
+                (*cleanup_stop_continued)++;
+                *cleanup_stop_last_signal = stop_signal;
+                if (append_format(stdout_buf,
+                                  "service_manager_start.cleanup.%s.stop.signal=%d\n"
+                                  "service_manager_start.cleanup.%s.stop.event=%u\n"
+                                  "service_manager_start.cleanup.%s.stop.deliver_signal=%d\n",
+                                  phase,
+                                  stop_signal,
+                                  phase,
+                                  event,
+                                  phase,
+                                  cleanup_signal) < 0) {
+                    return -1;
+                }
+                if (ptrace(PTRACE_CONT, pid, NULL, (void *)(long)cleanup_signal) < 0) {
+                    (*cleanup_continue_errors)++;
+                    if (append_format(stdout_buf,
+                                      "service_manager_start.cleanup.%s.cont.error=%s\n",
+                                      phase,
+                                      strerror(errno)) < 0) {
+                        return -1;
+                    }
+                    kill(pid, cleanup_signal);
+                }
+                continue;
+            }
+            if (append_format(stdout_buf,
+                              "service_manager_start.cleanup.%s.unexpected_status=0x%x\n",
+                              phase,
+                              status) < 0) {
+                return -1;
+            }
+        } else if (wait_rc < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            if (errno == ECHILD) {
+                return append_format(stdout_buf,
+                                     "service_manager_start.cleanup.%s.wait.echild=1\n",
+                                     phase);
+            }
+            return append_format(stdout_buf,
+                                 "service_manager_start.cleanup.%s.wait.error=%s\n",
+                                 phase,
+                                 strerror(errno));
+        }
+        usleep(50000);
+    }
+    return 0;
+}
+
 static int run_cnss_start_only_guarded(const struct config *cfg,
                                        const struct paths *paths,
                                        struct buffer *stdout_buf,
@@ -3298,6 +3392,9 @@ static int run_service_manager_start_only_guarded_ptrace(const struct config *cf
     bool crash_captured = false;
     bool residual_kill_sent = false;
     bool residual_cleared = false;
+    int cleanup_stop_continued = 0;
+    int cleanup_stop_last_signal = 0;
+    int cleanup_continue_errors = 0;
     int residual_before_count = -1;
     int residual_after_count = -1;
     long deadline;
@@ -3583,18 +3680,21 @@ static int run_service_manager_start_only_guarded_ptrace(const struct config *cf
             term_sent = true;
         }
         deadline = monotonic_ms() + 1000L;
-        while (!child_done && monotonic_ms() < deadline) {
-            if (waitpid(pid, &status, WNOHANG) == pid) {
-                child_done = true;
-                reaped = true;
-                if (WIFEXITED(status)) {
-                    *child_exit_code = WEXITSTATUS(status);
-                } else if (WIFSIGNALED(status)) {
-                    *child_signal = WTERMSIG(status);
-                }
-                break;
-            }
-            usleep(50000);
+        if (wait_traced_child_for_cleanup(pid,
+                                          SIGTERM,
+                                          "term",
+                                          deadline,
+                                          stdout_buf,
+                                          *timed_out,
+                                          &child_done,
+                                          &reaped,
+                                          &exited_before_timeout,
+                                          child_exit_code,
+                                          child_signal,
+                                          &cleanup_stop_continued,
+                                          &cleanup_stop_last_signal,
+                                          &cleanup_continue_errors) < 0) {
+            goto fail;
         }
     }
     if (!child_done) {
@@ -3602,18 +3702,21 @@ static int run_service_manager_start_only_guarded_ptrace(const struct config *cf
             kill_sent = true;
         }
         deadline = monotonic_ms() + 1000L;
-        while (!child_done && monotonic_ms() < deadline) {
-            if (waitpid(pid, &status, WNOHANG) == pid) {
-                child_done = true;
-                reaped = true;
-                if (WIFEXITED(status)) {
-                    *child_exit_code = WEXITSTATUS(status);
-                } else if (WIFSIGNALED(status)) {
-                    *child_signal = WTERMSIG(status);
-                }
-                break;
-            }
-            usleep(50000);
+        if (wait_traced_child_for_cleanup(pid,
+                                          SIGKILL,
+                                          "kill",
+                                          deadline,
+                                          stdout_buf,
+                                          *timed_out,
+                                          &child_done,
+                                          &reaped,
+                                          &exited_before_timeout,
+                                          child_exit_code,
+                                          child_signal,
+                                          &cleanup_stop_continued,
+                                          &cleanup_stop_last_signal,
+                                          &cleanup_continue_errors) < 0) {
+            goto fail;
         }
     }
     if (stdout_open) {
@@ -3677,6 +3780,9 @@ static int run_service_manager_start_only_guarded_ptrace(const struct config *cf
                       "service_manager_start.maps_summary_captured=%d\n"
                       "service_manager_start.capture_exec=%d\n"
                       "service_manager_start.capture_crash=%d\n"
+                      "service_manager_start.cleanup_stop_continued=%d\n"
+                      "service_manager_start.cleanup_stop_last_signal=%d\n"
+                      "service_manager_start.cleanup_continue_errors=%d\n"
                       "service_manager_start.residual_kill_sent=%d\n"
                       "service_manager_start.residual_cleared=%d\n"
                       "service_manager_start.residual_before_count=%d\n"
@@ -3695,6 +3801,9 @@ static int run_service_manager_start_only_guarded_ptrace(const struct config *cf
                       maps_summary_captured ? 1 : 0,
                       exec_captured ? 1 : 0,
                       crash_captured ? 1 : 0,
+                      cleanup_stop_continued,
+                      cleanup_stop_last_signal,
+                      cleanup_continue_errors,
                       residual_kill_sent ? 1 : 0,
                       residual_cleared ? 1 : 0,
                       residual_before_count,
