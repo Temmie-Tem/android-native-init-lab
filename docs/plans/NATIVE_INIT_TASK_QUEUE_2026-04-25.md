@@ -4576,7 +4576,7 @@
   - `py_compile` PASS
   - `git diff --check` PASS
 - post-commit validation:
-  - clean HEAD `a17f8c1`에서 `wifi_v317_gate_refresh.py --run-approved-preflight refresh` PASS
+  - clean current HEAD에서 `wifi_v317_gate_refresh.py --run-approved-preflight refresh` PASS
   - decision `v317-gate-refresh-ready`
   - approved preflight step `private-property-namespace-proof-preflight-ready` PASS
   - `device_commands_executed=false`, `device_mutations=false`

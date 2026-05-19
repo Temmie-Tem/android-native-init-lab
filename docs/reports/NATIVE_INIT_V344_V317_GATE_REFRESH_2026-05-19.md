@@ -36,7 +36,7 @@ static validation PASS
 
 ## Post-commit Validation
 
-After commit `a17f8c1`, ran:
+After the V344 helper commit and final documentation update, reran the refresh helper on a clean current HEAD:
 
 ```bash
 python3 scripts/revalidation/wifi_v317_gate_refresh.py \
