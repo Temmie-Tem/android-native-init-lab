@@ -1506,6 +1506,9 @@ Samsung bootloader
    - v324 계획서: `docs/plans/NATIVE_INIT_V324_PRIVATE_PROPERTY_APPROVAL_REFRESH_PLAN_2026-05-19.md`
    - v324 보고서: `docs/reports/NATIVE_INIT_V324_PRIVATE_PROPERTY_APPROVAL_REFRESH_2026-05-19.md`
    - v324 해석: 최신 approval packet을 재생성했다. live_execution_approved=false, transfer estimate는 files 5 / bytes 524988 / chunks 471 / estimated commands 505이며 exact v317 phrase 없이는 실행하지 않는다
+   - v325 계획서: `docs/plans/NATIVE_INIT_V325_EXECNS_HELPER_DEPLOY_PREFLIGHT_PLAN_2026-05-19.md`
+   - v325 보고서: `docs/reports/NATIVE_INIT_V325_EXECNS_HELPER_DEPLOY_PREFLIGHT_2026-05-19.md`
+   - v325 해석: `a90_android_execns_probe v11` fresh artifact를 private evidence에 빌드했고 deploy preflight PASS다. ignored default local helper는 아직 `v10` stale이므로, live deploy 시 v325 evidence artifact 또는 재빌드 산출물을 사용해야 한다
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
 ---

@@ -4191,6 +4191,31 @@
   - if exact approval is provided, run v317 live proof
   - otherwise continue read-only Wi-Fi/kernel inventory work
 
+### V325. Execns Helper Deploy Preflight — PASS / HOST-ONLY
+
+- 계획: `docs/plans/NATIVE_INIT_V325_EXECNS_HELPER_DEPLOY_PREFLIGHT_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V325_EXECNS_HELPER_DEPLOY_PREFLIGHT_2026-05-19.md`
+- tool: `scripts/revalidation/wifi_execns_helper_deploy_preflight.py`
+- evidence: `tmp/wifi/v325-execns-helper-deploy-preflight/`
+- boot image: 없음. v325는 host-only helper deploy preflight이며 native init version 변경 없음
+- validation:
+  - `py_compile` PASS
+  - `git diff --check` PASS
+  - decision `execns-helper-deploy-preflight-ready`
+  - `pass=true`
+  - built marker `a90_android_execns_probe v11`
+  - built sha256 `f40db33a2823662f64d7a2b3c6dca9ce174801208c14c4a83647a12db1ce636b`
+  - local default helper status `stale`
+  - local default marker `a90_android_execns_probe v10`
+  - `device_commands_executed=false`
+  - `device_mutations=false`
+- deploy boundary:
+  - future deploy target `/cache/bin/a90_android_execns_probe`
+  - deployment is a separate explicit device-mutation step
+- next:
+  - if exact v317 approval is provided, deploy the fresh v11 helper as part of the v317 minimal live proof packet
+  - otherwise continue host-only or read-only Wi-Fi/kernel inventory work
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
