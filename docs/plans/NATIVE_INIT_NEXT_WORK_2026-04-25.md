@@ -1847,3 +1847,9 @@ Samsung bootloader
    - v390 host tool: `scripts/revalidation/wifi_service_manager_crash_symbolize.py`가 V390 live log의 map-row evidence를 파싱하고 matching ELF root가 있을 때 `addr2line` symbolization을 시도한다
    - v390 검증 상태: static build/required strings/py_compile/plan-only gates/no-approval executor PASS. read-only device preflight는 remote helper가 아직 v19이므로 expected `helper-v20` blocker로 막혔고 daemon start/Wi-Fi bring-up은 없음
    - v390 실행 조건: deploy는 exact `approve v390 deploy execns helper v20 only; no daemon start and no Wi-Fi bring-up`, live는 exact `approve v390 service-manager crash map capture only; no Wi-Fi HAL start and no Wi-Fi bring-up` 필요
+
+   - v390 approved live result: `docs/reports/NATIVE_INIT_V390_APPROVED_LIVE_RESULT_2026-05-20.md`
+   - v390 approved deploy: serial transfer installed helper v20 SHA `44efea328220d37f09d91e4906b7490903d789ef509f0ae2ba74a64049a47171`; daemon start/Wi-Fi bring-up 없음
+   - v390 approved live: `hwservicemanager` remains `start-only-pass`; `servicemanager` remains `start-only-runtime-gap` with SIGABRT, but PC/LR map rows are captured and both point into bionic `libc.so`
+   - v390 해석: PC=`libc.so+0x8bebc`, LR=`libc.so+0x8be90`, `x8=0xf0` still indicates abort delivery via `rt_tgsigqueueinfo`. host symbolizer is `maprow-ready` but blocked by missing host-side Android ELF
+   - v391 다음: read-only Android `libc.so` ELF pull/mirror and symbolization/disassembly around offsets `0x8be90`/`0x8bebc`. Wi-Fi HAL/start/scan/connect remains blocked

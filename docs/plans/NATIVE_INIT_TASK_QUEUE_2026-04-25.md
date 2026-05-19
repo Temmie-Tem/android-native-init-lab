@@ -8279,3 +8279,21 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
   - `scripts/revalidation/wifi_service_manager_crash_symbolize.py`
 - validation: local static build PASS, required strings PASS, `py_compile` PASS, symbolizer negative check PASS, plan-only gates PASS, no-approval executor PASS, read-only real-device preflight blocks on expected remote helper v20 mismatch.
 - next execution item: wait for exact v390 deploy approval, then exact v390 crash map capture live approval. Wi-Fi HAL/start/scan/connect remains blocked.
+
+### V390. Approved Crash Map Capture Live — RUNTIME GAP
+
+- result: `docs/reports/NATIVE_INIT_V390_APPROVED_LIVE_RESULT_2026-05-20.md`
+- evidence: `tmp/wifi/v390-approved-full-20260520-063910/`
+- deploy result:
+  - helper v20 deployed by serial path, SHA `44efea328220d37f09d91e4906b7490903d789ef509f0ae2ba74a64049a47171`
+  - NCM host ping failed, so serial fallback wrote 783 chunks / 1094836 encoded bytes
+- live result:
+  - `hwservicemanager`: `start-only-pass`, `cleanup_stop_continued=1`, `reaped=1`, `residual_cleared=1`, `postflight_safe=1`
+  - `servicemanager`: `start-only-runtime-gap`, SIGABRT captured, PC/LR map rows present, `postflight_safe=1`
+  - PC: `/apex/com.android.runtime/lib64/bionic/libc.so + 0x8bebc`
+  - LR: `/apex/com.android.runtime/lib64/bionic/libc.so + 0x8be90`
+  - classifier: `service-manager-runtime-gap-servicemanager-sigabrt-captured`
+  - symbolizer: `service-manager-crash-symbolization-maprow-ready`, remaining blocker `elf-artifact`
+  - triage: `servicemanager-sigabrt-triage-partial-evidence`, remaining blocker `abort-message`
+  - postflight read-only checks: native status/selftest PASS, no manager process, no Wi-Fi link
+- next execution item: V391 read-only Android `libc.so` ELF pull/mirror and symbolization/disassembly. Wi-Fi HAL/start/scan/connect remains blocked.
