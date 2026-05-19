@@ -3317,6 +3317,27 @@
 - next:
   - v287 Android Wi-Fi service-order replay plan
 
+### V287. Wi-Fi Service-Order Replay Model — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V287_WIFI_SERVICE_ORDER_REPLAY_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V287_WIFI_SERVICE_ORDER_REPLAY_MODEL_2026-05-19.md`
+- boot image change: none
+- baseline device build: `A90 Linux init 0.9.60 (v261)`
+- tool: `scripts/revalidation/wifi_service_order_replay_model.py`
+- evidence: `tmp/wifi/v287-wifi-service-order-replay-model/`
+- decision: `wifi-service-order-replay-model-ready`
+- result:
+  - v216 Android service graph, v228 CNSS start plan, v286 timing comparison merged
+  - replay stages mapped from Android timing evidence
+  - first missing native boundary: `vendor.wifi_hal_ext`
+  - `cnss-daemon` remains the only bounded start-only candidate, but v287 executed nothing
+  - Wi-Fi HALs, `cnss_diag`, `wificond`, `wpa_supplicant`, and `hostapd` remain blocked
+- safety:
+  - no device command execution, no service start, no QMI/QRTR payload
+  - no scan/connect/link-up, no credential/DHCP/routing, no rfkill/ICNSS writes
+- next:
+  - v288 HAL/framework boundary inventory before any HAL or `wificond` execution
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`

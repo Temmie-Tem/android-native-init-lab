@@ -1359,6 +1359,10 @@ Samsung bootloader
    - v286 보고서: `docs/reports/NATIVE_INIT_V286_ICNSS_BOOT_TIMING_COMPARE_2026-05-19.md`
    - v286 결과: decision `icnss-boot-timing-gap-mapped`, first missing native event `android_wifi_action`, Android Wi-Fi service/WLFW/QMI readiness chain visible around `7s..15s`, native boot-window evidence lacks that chain
    - v286 해석: 다음은 blind start-only 반복이 아니라 Android Wi-Fi service-order replay plan이다. QMI payload와 link-up은 계속 blocked
+   - v287 계획서: `docs/plans/NATIVE_INIT_V287_WIFI_SERVICE_ORDER_REPLAY_PLAN_2026-05-19.md`
+   - v287 보고서: `docs/reports/NATIVE_INIT_V287_WIFI_SERVICE_ORDER_REPLAY_MODEL_2026-05-19.md`
+   - v287 결과: decision `wifi-service-order-replay-model-ready`, first missing service boundary `vendor.wifi_hal_ext`, `cnss-daemon`은 bounded start-only candidate로만 유지, Wi-Fi HAL/`cnss_diag`/`wificond`/supplicant/hostapd는 blocked
+   - v287 해석: 다음은 HAL/framework boundary inventory이다. binder/hwbinder/hwservicemanager/VINTF/property/socket/SELinux/capability/linker namespace를 확인하기 전 HAL 또는 `wificond` 실행은 금지한다
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
 ---
