@@ -5200,6 +5200,29 @@
   - exact approval phrase remains the only current blocker for V366 live smoke
   - if V366 smoke later passes, router target becomes separate service-manager start-only approval packet; still no HAL/scan/connect
 
+### V371. Runtime Repair Smoke Live Executor — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V371_RUNTIME_REPAIR_SMOKE_LIVE_EXECUTOR_PLAN_2026-05-20.md`
+- 보고서: `docs/reports/NATIVE_INIT_V371_RUNTIME_REPAIR_SMOKE_LIVE_EXECUTOR_2026-05-20.md`
+- evidence:
+  - approved run: `tmp/wifi/v371-runtime-repair-smoke-live-executor-run-20260520-012422/`
+  - v366 live smoke: `tmp/wifi/v366-runtime-repair-smoke-live-approved/`
+  - no-approval run refusal: `tmp/wifi/v371-runtime-repair-smoke-live-executor-run-refusal-20260520-012723/`
+  - no-approval cleanup refusal: `tmp/wifi/v371-runtime-repair-smoke-live-executor-cleanup-refusal-20260520-012723/`
+  - current plan route: `tmp/wifi/v371-runtime-repair-smoke-live-executor-plan-20260520-012723/`
+- boot image: 없음. v371은 host-side live executor이며 native init version 변경 없음
+- validation:
+  - approved run decision `runtime-repair-smoke-live-executor-run-pass`
+  - V366 live smoke decision `runtime-repair-smoke-pass`
+  - result router decision `runtime-repair-smoke-router-service-runtime-next-ready`
+  - run/cleanup without exact approval phrase both refuse before mutation
+  - current plan route recognizes already-passed smoke as `runtime-repair-smoke-live-executor-current-next-ready`
+  - postflight `status` and `selftest` return `rc=0/status=ok`, selftest `fail=0`
+  - no service-manager/HAL/scan/connect/link-up execution
+- next:
+  - create separate service-manager start-only approval packet
+  - keep Wi-Fi HAL start, scan/connect/link-up, credentials, DHCP, and routing blocked until later explicit plan/approval
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`

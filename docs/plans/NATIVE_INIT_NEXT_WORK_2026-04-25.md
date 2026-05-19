@@ -1656,6 +1656,10 @@ Samsung bootloader
    - v370 계획서: `docs/plans/NATIVE_INIT_V370_RUNTIME_REPAIR_RESULT_ROUTER_PLAN_2026-05-20.md`
    - v370 보고서: `docs/reports/NATIVE_INIT_V370_RUNTIME_REPAIR_RESULT_ROUTER_2026-05-20.md`
    - v370 해석: V366 live smoke 결과 router를 추가했고 현재 상태는 `runtime-repair-smoke-router-awaiting-approval`이다. live smoke가 PASS하면 다음은 service-manager start-only approval packet이고, HAL/scan/connect는 여전히 별도 승인 전까지 금지다
+   - v371 계획서: `docs/plans/NATIVE_INIT_V371_RUNTIME_REPAIR_SMOKE_LIVE_EXECUTOR_PLAN_2026-05-20.md`
+   - v371 보고서: `docs/reports/NATIVE_INIT_V371_RUNTIME_REPAIR_SMOKE_LIVE_EXECUTOR_2026-05-20.md`
+   - v371 해석: exact V366 approval phrase 이후 V371 executor로 bounded runtime repair smoke를 실행했고 `runtime-repair-smoke-live-executor-run-pass` / `runtime-repair-smoke-router-service-runtime-next-ready`를 확인했다. temporary `/dev/block/sda29`/binder node 생성, private property lookup, cleanup, postflight cleanliness까지만 수행했고 service-manager/HAL/scan/connect는 실행하지 않았다
+   - v371 다음: separate service-manager start-only approval packet 작성. 이 단계도 Wi-Fi HAL start, scan/connect/link-up/credential/DHCP/routing은 제외해야 한다
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
 ---
