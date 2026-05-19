@@ -8297,3 +8297,20 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
   - triage: `servicemanager-sigabrt-triage-partial-evidence`, remaining blocker `abort-message`
   - postflight read-only checks: native status/selftest PASS, no manager process, no Wi-Fi link
 - next execution item: V391 read-only Android `libc.so` ELF pull/mirror and symbolization/disassembly. Wi-Fi HAL/start/scan/connect remains blocked.
+
+### V391. Libc Symbolization — DONE
+
+- plan: `docs/plans/NATIVE_INIT_V391_LIBC_SYMBOLIZATION_PLAN_2026-05-20.md`
+- result: `docs/reports/NATIVE_INIT_V391_LIBC_SYMBOLIZATION_2026-05-20.md`
+- evidence: `tmp/wifi/v391-libc-symbolize-20260520-065233/`
+- tool: `scripts/revalidation/wifi_service_manager_libc_symbolize.py`
+- input: `tmp/wifi/v390-approved-full-20260520-063910/live/native/run-system-servicemanager.txt`
+- result:
+  - decision: `service-manager-libc-symbolization-pass`
+  - pulled read-only ELF: `/mnt/system/system/apex/com.android.runtime/lib64/bionic/libc.so`
+  - ELF SHA256: `05b46edc9bf95e52c7eaf73ee340d78c52971ca2482cafa3c4d0c510691ba204`
+  - PC: `0x8bebc`, `.text`, `abort@@LIBC + 168`, selected instruction `mov x1, sp`
+  - LR: `0x8be90`, `.text`, `abort@@LIBC + 124`, selected instruction `adrp x8, ...`
+  - device commands: read-only version/status/mountsystem/stat/base64 only
+  - device mutations/daemon start/Wi-Fi bring-up: all `False`
+- next execution item: V392 service-manager crash caller-context/backchain capture. Wi-Fi HAL/start/scan/connect remains blocked.

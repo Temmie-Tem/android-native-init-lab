@@ -1853,3 +1853,10 @@ Samsung bootloader
    - v390 approved live: `hwservicemanager` remains `start-only-pass`; `servicemanager` remains `start-only-runtime-gap` with SIGABRT, but PC/LR map rows are captured and both point into bionic `libc.so`
    - v390 해석: PC=`libc.so+0x8bebc`, LR=`libc.so+0x8be90`, `x8=0xf0` still indicates abort delivery via `rt_tgsigqueueinfo`. host symbolizer is `maprow-ready` but blocked by missing host-side Android ELF
    - v391 다음: read-only Android `libc.so` ELF pull/mirror and symbolization/disassembly around offsets `0x8be90`/`0x8bebc`. Wi-Fi HAL/start/scan/connect remains blocked
+
+   - v391 plan: `docs/plans/NATIVE_INIT_V391_LIBC_SYMBOLIZATION_PLAN_2026-05-20.md`
+   - v391 result: `docs/reports/NATIVE_INIT_V391_LIBC_SYMBOLIZATION_2026-05-20.md`
+   - v391 evidence: `tmp/wifi/v391-libc-symbolize-20260520-065233/`
+   - v391 결과: read-only `libc.so` pull PASS, ELF SHA `05b46edc9bf95e52c7eaf73ee340d78c52971ca2482cafa3c4d0c510691ba204`, PC/LR both resolve to bionic `abort`
+   - v391 해석: captured PC/LR are abort delivery, not original fatal caller. `x8=0xf0`/`svc #0` confirms SIGABRT send path
+   - v392 다음: service-manager crash caller-context/backchain capture. x29/frame pointer, stack words, candidate return-address map rows, bounded backchain reconstruction을 추가한다. Wi-Fi HAL/start/scan/connect remains blocked
