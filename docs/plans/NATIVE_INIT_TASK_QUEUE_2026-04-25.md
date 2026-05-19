@@ -4520,6 +4520,26 @@
 - next:
   - exact v317 approval phrase가 있으면 handoff packet의 command로 V317 minimal live proof 진행
 
+### V342. V317 Approved Preflight Mode — PASS / HOST-ONLY
+
+- 계획: `docs/plans/NATIVE_INIT_V342_V317_APPROVED_PREFLIGHT_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V342_V317_APPROVED_PREFLIGHT_2026-05-19.md`
+- target:
+  - `scripts/revalidation/wifi_private_property_namespace_proof.py`
+  - `scripts/revalidation/wifi_v317_handoff_packet.py`
+- boot image: 없음. v342는 host-side runner/handoff preflight 개선이며 native init version 변경 없음
+- validation:
+  - `py_compile` PASS
+  - `git diff --check` PASS
+  - no-approval preflight remains approval-required
+  - dirty-tree handoff blocks on `current-tree-clean`
+  - post-commit approved preflight returns `private-property-namespace-proof-preflight-ready`
+  - approved preflight `commands=[]`
+  - `device_commands_executed=false`
+  - `device_mutations=false`
+- next:
+  - exact v317 approval phrase가 있으면 handoff packet의 preflight command를 먼저 실행하고, PASS 후 live `run` command를 별도 실행
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`

@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
+import shlex
 import subprocess
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -191,6 +192,7 @@ def check_input(spec: InputSpec, manifest: dict[str, Any], current_head: str) ->
 def contract_checks(v331: dict[str, Any], v336: dict[str, Any], v339: dict[str, Any]) -> list[HandoffCheck]:
     live_command = str(v331.get("live_command") or "")
     cleanup_command = str(v331.get("cleanup_command") or "")
+    preflight_command = command_variant(live_command, "preflight")
     return [
         HandoffCheck(
             "approval-phrase",
@@ -211,6 +213,12 @@ def contract_checks(v331: dict[str, Any], v336: dict[str, Any], v339: dict[str, 
             str(v331.get("path", "")),
         ),
         HandoffCheck(
+            "preflight-command-contract",
+            "pass" if APPROVAL_PHRASE in preflight_command and "--prelive-gate-manifest" in preflight_command and preflight_command.endswith(" preflight") else "blocked",
+            "preflight command contains exact phrase, prelive gate manifest argument, and preflight subcommand",
+            str(v331.get("path", "")),
+        ),
+        HandoffCheck(
             "remaining-blocker",
             "pass" if v336.get("remaining_blockers") == ["exact-v317-approval-phrase"] else "blocked",
             f"remaining_blockers={v336.get('remaining_blockers')}",
@@ -223,6 +231,15 @@ def contract_checks(v331: dict[str, Any], v336: dict[str, Any], v339: dict[str, 
             str(v339.get("path", "")),
         ),
     ]
+
+
+def command_variant(command: str, subcommand: str) -> str:
+    argv = shlex.split(command)
+    if argv and argv[-1] in {"run", "cleanup", "preflight"}:
+        argv[-1] = subcommand
+    else:
+        argv.append(subcommand)
+    return " ".join(shlex.quote(item) for item in argv)
 
 
 def decide(checks: list[HandoffCheck]) -> tuple[str, bool, str, str, list[str]]:
@@ -251,7 +268,16 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
     manifests = [load_json(spec.path) for spec in specs]
     input_checks = [check_input(spec, manifest, current_head) for spec, manifest in zip(specs, manifests)]
     v331, v336, v339 = manifests
-    checks = input_checks + contract_checks(v331, v336, v339)
+    checks = [
+        HandoffCheck(
+            "current-tree-clean",
+            "pass" if host.get("git_dirty") is False else "blocked",
+            f"git_head={current_head} git_dirty={host.get('git_dirty')}",
+            str(repo_path(Path("."))),
+        ),
+        *input_checks,
+        *contract_checks(v331, v336, v339),
+    ]
     decision, pass_ok, reason, next_step, blockers = decide(checks)
     return {
         "generated_at": now_iso(),
@@ -264,6 +290,7 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
         "checks": [asdict(item) for item in checks],
         "remaining_blockers": blockers,
         "approval_phrase": APPROVAL_PHRASE,
+        "preflight_command": command_variant(str(v331.get("live_command") or ""), "preflight"),
         "live_command": v331.get("live_command"),
         "cleanup_command": v331.get("cleanup_command"),
         "approved_scope": v331.get("approved_scope", []),
@@ -301,6 +328,14 @@ def render_packet(manifest: dict[str, Any]) -> str:
         f"`{manifest['approval_phrase']}`",
         "",
         "## Live Command",
+        "",
+        "Run this preflight command first; it is designed to execute no device commands:",
+        "",
+        "```bash",
+        str(manifest["preflight_command"]),
+        "```",
+        "",
+        "Then run the live command only if the preflight result is `private-property-namespace-proof-preflight-ready`:",
         "",
         "```bash",
         str(manifest["live_command"]),

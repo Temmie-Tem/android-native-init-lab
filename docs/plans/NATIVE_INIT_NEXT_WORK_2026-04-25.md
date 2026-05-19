@@ -1557,6 +1557,9 @@ Samsung bootloader
    - v341 계획서: `docs/plans/NATIVE_INIT_V341_HANDOFF_REQUIRES_CURRENT_PRELIVE_PLAN_2026-05-19.md`
    - v341 보고서: `docs/reports/NATIVE_INIT_V341_HANDOFF_REQUIRES_CURRENT_PRELIVE_2026-05-19.md`
    - v341 해석: V340 handoff가 runner와 동일하게 V336 pre-live gate를 current clean HEAD로 요구하도록 수정했다. stale V336은 handoff 단계에서 blocked 된다
+   - v342 계획서: `docs/plans/NATIVE_INIT_V342_V317_APPROVED_PREFLIGHT_PLAN_2026-05-19.md`
+   - v342 보고서: `docs/reports/NATIVE_INIT_V342_V317_APPROVED_PREFLIGHT_2026-05-19.md`
+   - v342 해석: V317 runner에 no-device-command `preflight` 모드를 추가하고 handoff packet에 preflight command와 current-tree-clean check를 추가했다
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
 ---

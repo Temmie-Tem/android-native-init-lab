@@ -102,6 +102,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--chunk-size", type=int, default=CHUNK_SIZE)
     subparsers = parser.add_subparsers(dest="command", required=True)
     subparsers.add_parser("plan")
+    subparsers.add_parser("preflight")
     subparsers.add_parser("run")
     subparsers.add_parser("cleanup")
     return parser.parse_args()
@@ -485,6 +486,8 @@ def decide(args: argparse.Namespace,
         return "private-property-namespace-proof-plan-ready", True, "plan generated without device mutation"
     if approvals:
         return "private-property-namespace-proof-approval-required", False, "missing approval gates: " + ", ".join(approvals)
+    if args.command == "preflight":
+        return "private-property-namespace-proof-preflight-ready", True, "all gates passed without device command execution"
     if live_error:
         if args.command == "cleanup":
             return "private-property-namespace-proof-cleanup-failed", False, live_error
@@ -533,7 +536,15 @@ def build_manifest(args: argparse.Namespace, store: EvidenceStore) -> dict[str, 
         "decision": decision,
         "pass": pass_ok,
         "reason": reason,
-        "next_step": "v320 private property lookup proof planning" if decision == "private-property-namespace-proof-pass" else "provide exact v317 approval before live proof execution",
+        "next_step": (
+            "v320 private property lookup proof planning"
+            if decision == "private-property-namespace-proof-pass"
+            else (
+                "live run is ready but still requires explicitly choosing the run command"
+                if decision == "private-property-namespace-proof-preflight-ready"
+                else "provide exact v317 approval before live proof execution"
+            )
+        ),
         "host": host,
         "remote_workdir": REMOTE_WORKDIR,
         "inputs": {
@@ -548,6 +559,7 @@ def build_manifest(args: argparse.Namespace, store: EvidenceStore) -> dict[str, 
         "transfer_estimate": asdict(transfer),
         "commands": [asdict(record) for record in records],
         "live_error": live_error,
+        "preflight_only": args.command == "preflight",
         "device_commands_executed": bool(records),
         "device_mutations": bool(records),
         "blocked_actions": [
