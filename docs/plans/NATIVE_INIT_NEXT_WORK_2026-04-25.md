@@ -1607,7 +1607,7 @@ Samsung bootloader
    - v357 해석: V349/V350/V351-plan/V352-regression을 한 번 더 묶어 clean HEAD/current evidence/no-device-action/exact-approval-only 상태인지 확인하는 host-only pre-approval audit를 추가했고 clean HEAD에서 PASS했다
    - v358 계획서: `docs/plans/NATIVE_INIT_V358_APPROVAL_SUDO_BOUNDARY_PLAN_2026-05-19.md`
    - v358 보고서: `docs/reports/NATIVE_INIT_V358_APPROVAL_SUDO_BOUNDARY_2026-05-19.md`
-   - v358 해석: V317 live 전 host-only/no-sudo, host-sudo, exact approval required, separate approval required 명령군을 운영 문서로 고정한다
+   - v358 해석: V317 live 전 host-only/no-sudo, host-sudo, exact approval required, separate approval required 명령군을 운영 문서로 고정했고 clean HEAD V357 audit도 계속 PASS했다
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
 ---

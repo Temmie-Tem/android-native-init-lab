@@ -4871,7 +4871,7 @@
 - next:
   - exact V317 approval phrase 없이는 executor `run`/`cleanup` 실행하지 않음
 
-### V358. V317 Approval/Sudo Boundary Matrix — HOST-ONLY PENDING
+### V358. V317 Approval/Sudo Boundary Matrix — HOST-ONLY PASS
 
 - 계획: `docs/plans/NATIVE_INIT_V358_APPROVAL_SUDO_BOUNDARY_PLAN_2026-05-19.md`
 - 보고서: `docs/reports/NATIVE_INIT_V358_APPROVAL_SUDO_BOUNDARY_2026-05-19.md`
@@ -4884,7 +4884,8 @@
 - validation:
   - `git diff --check`
   - operation/plans/reports 용어 연결 확인
-  - V357 pre-approval audit 재실행으로 blocker 상태 유지 확인
+  - V357 pre-approval audit 재실행으로 `v317-preapproval-audit-awaiting-approval` PASS
+  - `device_commands_executed=false`, `device_mutations=false`
 - next:
   - exact V317 approval phrase 없이는 executor `run`/`cleanup` 실행하지 않음
 

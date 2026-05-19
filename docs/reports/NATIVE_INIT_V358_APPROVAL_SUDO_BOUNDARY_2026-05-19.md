@@ -4,7 +4,7 @@
 - scope: host-only V317 approval/sudo boundary documentation
 - device command: none
 - device mutation: none
-- result: `PENDING`
+- result: `PASS`
 
 ## Summary
 
@@ -46,4 +46,12 @@ uncommitted and V357 requires clean-head evidence.
 
 ## Acceptance Result
 
-To be filled after clean-head validation.
+- `git diff --check`: PASS
+- docs linkage search: PASS
+- clean-head V357 audit:
+  - decision: `v317-preapproval-audit-awaiting-approval`
+  - pass: `true`
+  - remaining blocker: `exact-v317-approval-phrase`
+  - `device_commands_executed=false`
+  - `device_mutations=false`
+- V358 introduced no code, boot image, or live device changes.
