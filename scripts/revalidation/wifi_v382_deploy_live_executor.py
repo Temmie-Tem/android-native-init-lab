@@ -60,7 +60,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--live-approval-phrase", default="")
     parser.add_argument("--apply", action="store_true")
     parser.add_argument("--assume-yes", action="store_true")
-    parser.add_argument("--timeout", type=int, default=360)
+    parser.add_argument("--timeout", type=int, default=1800)
     subparsers = parser.add_subparsers(dest="command", required=True)
     subparsers.add_parser("plan")
     subparsers.add_parser("deploy")
@@ -314,6 +314,12 @@ def render_summary(manifest: dict[str, Any]) -> str:
         manifest["planned_deploy_command"],
         "```",
         "",
+        "### Live Preflight",
+        "",
+        "```bash",
+        manifest["planned_live_preflight_command"],
+        "```",
+        "",
         "### Live",
         "",
         "```bash",
@@ -537,6 +543,7 @@ def main() -> int:
     print(f"next: {manifest['next_step']}")
     print(f"deploy_execution_approved: {manifest['deploy_execution_approved']}")
     print(f"live_execution_approved: {manifest['live_execution_approved']}")
+    print(f"device_commands_executed: {manifest['device_commands_executed']}")
     print(f"device_mutations: {manifest['device_mutations']}")
     print(f"daemon_start_executed: {manifest['daemon_start_executed']}")
     print(f"wifi_bringup_executed: {manifest['wifi_bringup_executed']}")

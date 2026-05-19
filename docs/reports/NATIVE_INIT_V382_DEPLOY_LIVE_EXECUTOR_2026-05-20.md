@@ -84,6 +84,7 @@ Observed for all no-approval modes:
 
 - `python3 -m py_compile` passed for the executor and dependent V382 scripts.
 - `git diff --check` passed.
+- Executor default timeout was raised to `1800s` because serial fallback transfer of the 903KB static helper can exceed 360s when NCM is unavailable.
 
 ## Safety Notes
 
