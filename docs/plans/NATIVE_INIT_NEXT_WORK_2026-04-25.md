@@ -1945,3 +1945,10 @@ Samsung bootloader
    - v402 live evidence: deploy `tmp/wifi/v402-execns-helper-v22-deploy-live-20260520-084231/`, proof `tmp/wifi/v402-private-selinux-surface-live-20260520-084832/`, postflight `tmp/wifi/v402-private-proof-postflight-20260520-084853/`
    - v402 live 결과: `execns-helper-v22-deploy-pass` 후 `private-selinux-surface-proof-pass`. private namespace에서 SELinuxfs status/enforce/policy, Binder devnodes, V317 private property tree, service/hwservice context files가 함께 visible하다
    - v402 live 해석: V401 이후 남은 private namespace SELinux surface blocker는 제거됐다. 다음은 V403 bounded service-manager start-only retry approval packet이며, Wi-Fi HAL/start/scan/connect는 계속 blocked
+
+   - v403 plan: `docs/plans/NATIVE_INIT_V403_SERVICE_MANAGER_START_ONLY_RETRY_PLAN_2026-05-20.md`
+   - v403 packet: `docs/reports/NATIVE_INIT_V403_SERVICE_MANAGER_START_ONLY_RETRY_APPROVAL_PACKET_2026-05-20.md`
+   - v403 evidence: `tmp/wifi/v403-service-manager-start-only-retry-approval-packet-20260520-085357/`
+   - v403 결과: `scripts/revalidation/wifi_service_manager_start_only_v403_live_runner.py`와 approval packet을 준비했다. runner plan/preflight/no-approval refusal 모두 PASS했고 packet decision은 `v403-service-manager-start-only-retry-approval-packet-ready`
+   - v403 실행 조건: exact `approve v403 service-manager start-only retry only; no Wi-Fi HAL start and no Wi-Fi bring-up` 필요
+   - v403 다음: 승인 시 bounded service-manager/hwservicemanager start-only retry를 실행하고 결과를 라우팅한다. Wi-Fi HAL/start/scan/connect는 계속 blocked

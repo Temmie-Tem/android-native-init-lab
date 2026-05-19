@@ -40,7 +40,9 @@
 - V402 read-only preflight: private proof is blocked only by remote `helper-v22`; deploy preflight is `execns-helper-v22-deploy-preflight-ready-needs-deploy`.
 - V402 live result: exact-approved helper v22 deploy PASS, then exact-approved private SELinux namespace proof PASS; private namespace sees SELinuxfs status/enforce, Binder devnodes, private properties, and service context inputs together.
 - latest V402 live report: `docs/reports/NATIVE_INIT_V402_PRIVATE_SELINUX_SURFACE_PROOF_LIVE_2026-05-20.md`.
-- next execution item: V403 bounded service-manager start-only retry approval packet. Wi-Fi HAL/start/scan/connect remains blocked.
+- V403 packet result: bounded service-manager start-only retry runner and approval packet are ready; no live service-manager start or Wi-Fi bring-up has been executed.
+- latest V403 packet report: `docs/reports/NATIVE_INIT_V403_SERVICE_MANAGER_START_ONLY_RETRY_APPROVAL_PACKET_2026-05-20.md`.
+- next execution item: exact-approved V403 bounded service-manager start-only retry. Wi-Fi HAL/start/scan/connect remains blocked.
 
 ## 현재 고정 기준점
 

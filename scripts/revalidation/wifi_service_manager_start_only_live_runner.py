@@ -338,7 +338,7 @@ def decide(args: argparse.Namespace, checks: list[Check],
     if blocked:
         return "service-manager-start-only-live-blocked", False, "blocked before live run by " + ", ".join(blocked), "resolve blockers before approval"
     if args.command == "preflight":
-        return "service-manager-start-only-live-preflight-ready", True, "read-only preflight is ready; live run still needs approval", "operator may approve V373 phrase"
+        return "service-manager-start-only-live-preflight-ready", True, "read-only preflight is ready; live run still needs approval", "operator may approve exact approval phrase"
     if not approved(args):
         return "service-manager-start-only-live-approval-required", True, "exact approval phrase required; no mutation executed", "rerun with exact phrase if live smoke is intended"
     if not observations:
