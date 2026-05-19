@@ -1672,6 +1672,10 @@ Samsung bootloader
    - v374 보고서: `docs/reports/NATIVE_INIT_V374_EXECNS_SERVICE_MANAGER_MODE_2026-05-20.md`
    - v374 해석: `a90_android_execns_probe v12` source와 로컬 static ARM64 artifact를 만들었고 `service-manager-start-only`, `--allow-service-manager-start-only`, `system-servicemanager`, `system-hwservicemanager` 문자열을 확인했다. 아직 `/cache/bin` 배포나 daemon start는 하지 않았다
    - v374 다음: V375 helper deploy/preflight packet. v12를 `/cache/bin/a90_android_execns_probe`에 설치/검증하고 V373 preflight를 재실행하되 service-manager live start는 여전히 별도 exact approval 전까지 blocked
+   - v375 계획서: `docs/plans/NATIVE_INIT_V375_EXECNS_HELPER_V12_DEPLOY_PREFLIGHT_PLAN_2026-05-20.md`
+   - v375 보고서: `docs/reports/NATIVE_INIT_V375_EXECNS_HELPER_V12_DEPLOY_PREFLIGHT_2026-05-20.md`
+   - v375 해석: fail-closed helper deploy/preflight runner를 추가했고 plan/Python compile은 PASS했다. read-only preflight는 native 상태와 local v12 helper를 확인했지만 host NCM ping 실패와 remote helper v11 때문에 `execns-helper-v12-deploy-blocked`로 중단했다
+   - v375 다음: host NCM reachability 복구 후 exact phrase `approve v375 deploy execns helper v12 only; no daemon start and no Wi-Fi bring-up`로 v12 helper만 `/cache/bin`에 설치/검증한다. service-manager/HAL/scan/connect는 여전히 별도 승인 전까지 blocked
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
 ---
