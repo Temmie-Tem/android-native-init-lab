@@ -25,6 +25,7 @@ DEFAULT_V319_REPORT = Path("docs/reports/NATIVE_INIT_V319_SERIAL_TRANSFER_APPEND
 DEFAULT_V321_REPORT = Path("docs/reports/NATIVE_INIT_V321_EXECNS_PROPERTY_LOOKUP_HELPER_2026-05-19.md")
 DEFAULT_V322_REPORT = Path("docs/reports/NATIVE_INIT_V322_PRIVATE_PROPERTY_LOOKUP_RUNNER_2026-05-19.md")
 DEFAULT_V322_BLOCKED = Path("tmp/wifi/v322-postcommit-run-blocked/manifest.json")
+DEFAULT_V325_MANIFEST = Path("tmp/wifi/v325-execns-helper-deploy-preflight/manifest.json")
 V317_APPROVAL_PHRASE = "approve v317 minimal private property namespace proof only; no daemon start and no Wi-Fi bring-up"
 V320_APPROVAL_PHRASE = "approve v320 private property lookup proof only; no daemon start and no Wi-Fi bring-up"
 
@@ -55,6 +56,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--v321-report", type=Path, default=DEFAULT_V321_REPORT)
     parser.add_argument("--v322-report", type=Path, default=DEFAULT_V322_REPORT)
     parser.add_argument("--v322-blocked-manifest", type=Path, default=DEFAULT_V322_BLOCKED)
+    parser.add_argument("--v325-manifest", type=Path, default=DEFAULT_V325_MANIFEST)
     subparsers = parser.add_subparsers(dest="command", required=True)
     subparsers.add_parser("audit")
     return parser.parse_args()
@@ -104,6 +106,7 @@ def build_gates(args: argparse.Namespace) -> list[Gate]:
     v317_audit = load_json(args.v317_audit_manifest)
     v317_live = load_json(args.v317_live_manifest)
     v322_blocked = load_json(args.v322_blocked_manifest)
+    v325 = load_json(args.v325_manifest)
     v319_ok, v319_path, v319_detail = text_present(args.v319_report, "A90 Linux init 0.9.61 (v319)")
     v321_ok, v321_path, v321_detail = text_present(args.v321_report, "execns-property-lookup-helper-static-pass")
     v322_ok, v322_path, v322_detail = text_present(args.v322_report, "private-property-lookup-runner-integrated-blocked-v317")
@@ -121,6 +124,25 @@ def build_gates(args: argparse.Namespace) -> list[Gate]:
             f"device_commands_executed={v322_blocked.get('device_commands_executed')} "
             f"device_mutations={v322_blocked.get('device_mutations')}"
         )
+    v325_fresh_helper_ready = (
+        bool(v325.get("present")) and
+        bool(v325.get("pass")) and
+        v325.get("decision") == "execns-helper-deploy-preflight-ready" and
+        v325.get("expected_marker") == "a90_android_execns_probe v11" and
+        v325.get("built_artifact", {}).get("marker") == "a90_android_execns_probe v11" and
+        not bool(v325.get("device_commands_executed")) and
+        not bool(v325.get("device_mutations"))
+    )
+    if not v325.get("present"):
+        v325_detail = "missing"
+    else:
+        v325_detail = (
+            f"decision={v325.get('decision')} pass={v325.get('pass')} "
+            f"built_marker={v325.get('built_artifact', {}).get('marker')} "
+            f"local_default_status={v325.get('local_default_status')} "
+            f"device_commands_executed={v325.get('device_commands_executed')} "
+            f"device_mutations={v325.get('device_mutations')}"
+        )
 
     return [
         gate_from_manifest("v312-property-layout", v312, {"private-property-layout-dryrun-ready"}),
@@ -132,6 +154,13 @@ def build_gates(args: argparse.Namespace) -> list[Gate]:
         Gate("v319-native-transfer-support", "pass" if v319_ok else "blocked", True, v319_detail, v319_path),
         Gate("v321-helper-support", "pass" if v321_ok else "blocked", True, v321_detail, v321_path),
         Gate("v322-runner-integration", "pass" if v322_ok else "blocked", True, v322_detail, v322_path),
+        Gate(
+            "v325-fresh-helper-preflight",
+            "pass" if v325_fresh_helper_ready else "blocked",
+            True,
+            v325_detail,
+            str(v325.get("path", "")),
+        ),
         Gate(
             "v322-current-run-blocked-safely",
             "pass" if v322_blocked_safe else "blocked",
@@ -198,7 +227,7 @@ def render_summary(manifest: dict[str, Any]) -> str:
         for item in manifest["gates"]
     ]
     return "\n".join([
-        "# v323 Private Property Chain Gate Audit",
+        "# Private Property Chain Gate Audit",
         "",
         f"- generated: `{manifest['generated_at']}`",
         f"- decision: `{manifest['decision']}`",

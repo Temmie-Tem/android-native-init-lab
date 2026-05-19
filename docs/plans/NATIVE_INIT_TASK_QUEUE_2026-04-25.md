@@ -4213,8 +4213,30 @@
   - future deploy target `/cache/bin/a90_android_execns_probe`
   - deployment is a separate explicit device-mutation step
 - next:
-  - if exact v317 approval is provided, deploy the fresh v11 helper as part of the v317 minimal live proof packet
+  - if exact v317 approval is provided, run the v317 minimal live proof
+  - use the fresh v11 helper for the later v320 private property lookup stage after v317 PASS evidence exists
   - otherwise continue host-only or read-only Wi-Fi/kernel inventory work
+
+### V326. Private Property Chain V325 Gate — PASS / HOST-ONLY
+
+- 계획: `docs/plans/NATIVE_INIT_V326_PRIVATE_PROPERTY_CHAIN_V325_GATE_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V326_PRIVATE_PROPERTY_CHAIN_V325_GATE_2026-05-19.md`
+- tool: `scripts/revalidation/wifi_private_property_chain_audit.py`
+- evidence: `tmp/wifi/v326-private-property-chain-audit/`
+- boot image: 없음. v326은 host-only chain audit update이며 native init version 변경 없음
+- validation:
+  - `py_compile` PASS
+  - `git diff --check` PASS
+  - decision `private-property-chain-blocked-v317-missing`
+  - `audit_pass=true`
+  - `chain_ready=false`
+  - v325 gate `v325-fresh-helper-preflight` PASS
+  - v317 live PASS evidence missing
+  - `device_commands_executed=false`
+  - `device_mutations=false`
+- next:
+  - exact v317 approval phrase가 있으면 v317 minimal live proof 진행
+  - approval이 없으면 다른 host-only/read-only Wi-Fi readiness 작업 진행
 
 ### V187. Harness Broker Backend — PASS
 

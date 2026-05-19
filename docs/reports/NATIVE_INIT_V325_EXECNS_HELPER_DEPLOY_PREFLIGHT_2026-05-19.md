@@ -71,6 +71,7 @@ approve v317 minimal private property namespace proof only; no daemon start and 
 
 ## Next Step
 
-If the approval phrase is provided, run the V317 minimal live proof with the
-fresh v11 helper deployment packet. If not, continue host-only or read-only
+If the approval phrase is provided, run the V317 minimal live proof. The fresh
+v11 helper is for the later V320 private property lookup stage after V317 PASS
+evidence exists. If approval is not provided, continue host-only or read-only
 Wi-Fi/kernel inventory work.
