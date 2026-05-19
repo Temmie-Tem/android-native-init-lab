@@ -4806,6 +4806,27 @@
 - next:
   - exact V317 approval phrase 없이는 executor `run`/`cleanup` 실행하지 않음
 
+
+### V355. Approval Matrix Regression Expansion — HOST-ONLY / PENDING POST-COMMIT RUN
+
+- 계획: `docs/plans/NATIVE_INIT_V355_APPROVAL_MATRIX_REGRESSION_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V355_APPROVAL_MATRIX_REGRESSION_2026-05-19.md`
+- tool: `scripts/revalidation/wifi_v317_live_executor_regression.py`
+- boot image: 없음. v355는 host-side regression expansion이며 native init version 변경 없음
+- 구현:
+  - `run-phrase-allow-only`, `run-phrase-assume-only` 회귀 추가
+  - `cleanup-phrase-allow-only`, `cleanup-phrase-assume-only` 회귀 추가
+  - exact phrase가 있어도 mutation 확인 플래그 하나만 빠지면 device action 없이 거부되는지 검증
+- pre-commit validation:
+  - `py_compile` PASS
+  - regression PASS
+  - missing-one-flag approval cases PASS
+  - `device_commands_executed=false`, `device_mutations=false`
+- post-commit validation:
+  - clean HEAD에서 regression 재실행 예정
+- next:
+  - exact V317 approval phrase 없이는 executor `run`/`cleanup` 실행하지 않음
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`

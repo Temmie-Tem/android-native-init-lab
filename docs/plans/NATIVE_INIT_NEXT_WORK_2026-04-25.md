@@ -1596,6 +1596,9 @@ Samsung bootloader
    - v354 계획서: `docs/plans/NATIVE_INIT_V354_CLEANUP_APPROVAL_REGRESSION_PLAN_2026-05-19.md`
    - v354 보고서: `docs/reports/NATIVE_INIT_V354_CLEANUP_APPROVAL_REGRESSION_2026-05-19.md`
    - v354 해석: V351 cleanup 경로의 phrase-only/flags-only partial approval 회귀를 추가했고 clean HEAD에서 PASS했다
+   - v355 계획서: `docs/plans/NATIVE_INIT_V355_APPROVAL_MATRIX_REGRESSION_PLAN_2026-05-19.md`
+   - v355 보고서: `docs/reports/NATIVE_INIT_V355_APPROVAL_MATRIX_REGRESSION_2026-05-19.md`
+   - v355 해석: V351 run/cleanup 경로에서 exact phrase가 있어도 mutation 확인 플래그 하나가 빠진 조합을 거부하는 회귀를 추가한다
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
 ---
