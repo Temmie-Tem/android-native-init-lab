@@ -1903,3 +1903,10 @@ Samsung bootloader
    - v397 결과: `service-manager-selinux-status-native-missing` PASS as blocker classification. `/proc/filesystems`에는 `selinuxfs`가 있으나 `/proc/mounts`에는 `/sys/fs/selinux` selinuxfs mount가 없고 `/sys/fs/selinux/status`, `/sys/fs/selinux/enforce`가 absent
    - v397 해석: `servicemanager` crash는 Wi-Fi 자체보다 Android `servicemanager`가 요구하는 SELinux runtime surface 부재 쪽으로 좁혀졌다. mounted Android service context input은 일부 보이지만 native/private runtime status page가 없다
    - v398 다음: minimal SELinux runtime surface plan. 우선 helper v22 private context proof 또는 native selinuxfs mount/bind 설계를 안전하게 분리하고, service-manager clean-start 전까지 Wi-Fi HAL/start/scan/connect remains blocked
+
+   - v398 plan: `docs/plans/NATIVE_INIT_V398_SELINUXFS_MOUNT_APPROVAL_PACKET_PLAN_2026-05-20.md`
+   - v398 report: `docs/reports/NATIVE_INIT_V398_SELINUXFS_MOUNT_APPROVAL_PACKET_2026-05-20.md`
+   - v398 evidence: `tmp/wifi/v398-selinuxfs-mount-approval-packet-final-20260520-080150/`
+   - v398 결과: `selinuxfs-mount-approval-packet-ready` PASS. V399 executor는 exact approval phrase 없이는 run/cleanup 모두 device command 전에 refuse한다. packet은 fresh V397 read-only proof를 포함했고 device mutation/daemon/Wi-Fi bring-up은 없음
+   - v398 해석: 다음 live mutation은 명확히 `mount selinuxfs /sys/fs/selinux selinuxfs` 하나로 제한된다. cleanup은 `umount /sys/fs/selinux`로 분리되어 있으며 service-manager와 Wi-Fi는 여전히 범위 밖이다
+   - v399 다음: exact-approved SELinuxfs mount smoke. `/sys/fs/selinux/status` 가시성을 증명한 뒤 별도 cycle에서 service-manager start-only packet으로 넘어간다. Wi-Fi HAL/start/scan/connect remains blocked

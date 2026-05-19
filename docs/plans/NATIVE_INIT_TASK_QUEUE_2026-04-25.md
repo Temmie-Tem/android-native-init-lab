@@ -20,7 +20,7 @@
 - 상세 규칙: `docs/operations/VERSIONING_POLICY.md`
 
 
-## Current Wi-Fi V397 Runtime-Gap Status (2026-05-20)
+## Current Wi-Fi V398 Runtime-Gap Status (2026-05-20)
 
 - current native build remains `A90 Linux init 0.9.61 (v319)`.
 - current Wi-Fi work is host tooling plus bounded read-only evidence, not a new boot-image flash.
@@ -31,7 +31,8 @@
 - V396 framechain rerun: `service-manager-framechain-symbolization-pass`, no remaining missing-ELF blockers.
 - V397 result: native `selinuxfs` support exists but no `selinuxfs` mount/status page is present at `/sys/fs/selinux`; `servicemanager` SELinux status surface is now the current blocker.
 - current interpretation: `servicemanager` abort is likely the fatal `selinux_status_open(true)` path, not Wi-Fi-specific failure.
-- next execution item: V398 minimal SELinux runtime surface/private-context proof before runtime repair, service-manager clean-start, or Wi-Fi HAL/start/scan/connect.
+- V398 result: non-mutating SELinuxfs mount approval packet PASS; V399 executor is fail-closed without exact approval.
+- next execution item: V399 exact-approved SELinuxfs mount smoke only; no daemon start or Wi-Fi bring-up.
 
 ## 현재 고정 기준점
 
@@ -8436,3 +8437,21 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
   - `device_mutations=False`, `daemon_start_executed=False`, `wifi_bringup_executed=False`
 - interpretation: the next blocker is minimal SELinux runtime surface, not Wi-Fi HAL itself.
 - next execution item: V398 minimal SELinux runtime surface/private-context proof. Wi-Fi HAL/start/scan/connect remains blocked.
+
+### V398. SELinuxfs Mount Approval Packet — PASS / READY FOR V399 APPROVAL
+
+- plan: `docs/plans/NATIVE_INIT_V398_SELINUXFS_MOUNT_APPROVAL_PACKET_PLAN_2026-05-20.md`
+- report: `docs/reports/NATIVE_INIT_V398_SELINUXFS_MOUNT_APPROVAL_PACKET_2026-05-20.md`
+- tools:
+  - `scripts/revalidation/wifi_selinuxfs_mount_live_executor.py`
+  - `scripts/revalidation/wifi_selinuxfs_mount_approval_packet.py`
+- evidence: `tmp/wifi/v398-selinuxfs-mount-approval-packet-final-20260520-080150/`
+- result:
+  - decision `selinuxfs-mount-approval-packet-ready`
+  - fresh V397 proof still returns `service-manager-selinux-status-native-missing`
+  - V399 executor plan PASS
+  - V399 run/cleanup without approval refuse before device commands
+  - `device_mutations=False`, `daemon_start_executed=False`, `wifi_bringup_executed=False`
+- approval phrase:
+  - `approve v399 mount selinuxfs runtime surface only; no daemon start and no Wi-Fi bring-up`
+- next execution item: V399 exact-approved SELinuxfs mount smoke. Service-manager and Wi-Fi HAL/start/scan/connect remain blocked.
