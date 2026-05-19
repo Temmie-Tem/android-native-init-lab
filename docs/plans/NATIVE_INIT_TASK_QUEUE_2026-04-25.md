@@ -4585,7 +4585,7 @@
   - exact V317 approval phrase 없이는 live proof 실행하지 않음
 
 
-### V345. Post-V317 Router Regression — HOST-ONLY / PENDING POST-COMMIT RERUN
+### V345. Post-V317 Router Regression — PASS / HOST-ONLY
 
 - 계획: `docs/plans/NATIVE_INIT_V345_POST_V317_ROUTER_REGRESSION_PLAN_2026-05-19.md`
 - 보고서: `docs/reports/NATIVE_INIT_V345_POST_V317_ROUTER_REGRESSION_2026-05-19.md`
@@ -4600,7 +4600,10 @@
   - router regression `post-v317-router-regression-pass` PASS
   - `git diff --check` PASS
 - post-commit validation:
-  - clean HEAD에서 router regression 재실행 예정
+  - clean current HEAD에서 router regression 재실행 PASS
+  - decision `post-v317-router-regression-pass`
+  - blocked cases 없음
+  - `device_commands_executed=false`, `device_mutations=false`
 - next:
   - exact V317 approval phrase 없이는 live proof 실행하지 않음
 

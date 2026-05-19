@@ -4,7 +4,7 @@
 - scope: host-only synthetic regression for V333 post-V317 routing
 - device command: none
 - device mutation: none
-- result: `PRE-COMMIT PASS / POST-COMMIT RERUN REQUIRED`
+- result: `PASS / HOST-ONLY`
 
 ## Summary
 
@@ -39,6 +39,27 @@ pass: True
 remaining_blockers: [exact-v317-approval-phrase]
 device_commands_executed: false
 device_mutations: false
+```
+
+## Post-commit Validation
+
+After commit, reran the regression on clean current HEAD:
+
+```bash
+python3 scripts/revalidation/wifi_post_v317_router_regression.py \
+  --out-dir tmp/wifi/v345-post-v317-router-regression \
+  run
+```
+
+Observed result:
+
+```text
+decision: post-v317-router-regression-pass
+pass: True
+remaining_blockers: [exact-v317-approval-phrase]
+device_commands_executed: false
+device_mutations: false
+blocked_cases: []
 ```
 
 ## Evidence
