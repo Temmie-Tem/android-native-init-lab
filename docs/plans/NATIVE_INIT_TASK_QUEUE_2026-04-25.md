@@ -34,6 +34,7 @@
 - v384 executor: `scripts/revalidation/wifi_v384_deploy_live_executor.py`; report `docs/reports/NATIVE_INIT_V384_DEPLOY_LIVE_EXECUTOR_2026-05-20.md`; no-approval full regression PASS with no device commands/mutations/daemon/Wi-Fi.
 - v384 handoff: `docs/operations/WIFI_V384_PTRACE_LIVE_HANDOFF.md`.
 - v384 preflight ready: `docs/reports/NATIVE_INIT_V384_PREFLIGHT_READY_2026-05-20.md`.
+- v384 preapproval audit: `docs/reports/NATIVE_INIT_V384_PREAPPROVAL_AUDIT_2026-05-20.md`, decision `v384-preapproval-audit-pass`, no device commands/mutations/daemon/Wi-Fi.
 - next execution item: v384 approved deploy of helper v15, then approved service-manager ptrace-lite crash capture; no Wi-Fi HAL/start/scan/connect.
 
 ## 현재 고정 기준점
