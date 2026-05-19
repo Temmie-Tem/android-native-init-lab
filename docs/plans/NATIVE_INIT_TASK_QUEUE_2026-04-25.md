@@ -4718,6 +4718,26 @@
 - next:
   - exact V317 approval phrase 없이는 live proof 실행하지 않음
 
+
+### V351. V317 Live Executor Guard — HOST-ONLY / PENDING POST-COMMIT PLAN
+
+- 계획: `docs/plans/NATIVE_INIT_V351_V317_LIVE_EXECUTOR_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V351_V317_LIVE_EXECUTOR_2026-05-19.md`
+- tool: `scripts/revalidation/wifi_v317_live_executor.py`
+- boot image: 없음. v351은 host-side executor guard이며 native init version 변경 없음
+- 구현:
+  - `plan`은 V349/V350을 재검증하고 live/cleanup/router command를 기록
+  - `run`/`cleanup`은 exact V317 approval phrase + mutation flags 없이는 즉시 거부
+  - 승인된 run/cleanup path는 V349/V350 재검증 후 V350 command를 실행하도록 구성
+- pre-commit validation:
+  - `py_compile` PASS
+  - no-approval `run`이 device action 없이 거부됨
+  - dirty tree `plan`이 V349/V350 clean-head check에서 block됨
+- post-commit validation:
+  - clean HEAD에서 executor `plan` 재실행 예정
+- next:
+  - exact V317 approval phrase 없이는 executor `run`/`cleanup` 실행하지 않음
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`

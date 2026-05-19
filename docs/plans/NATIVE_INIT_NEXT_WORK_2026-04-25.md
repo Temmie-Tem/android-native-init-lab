@@ -1584,6 +1584,9 @@ Samsung bootloader
    - v350 계획서: `docs/plans/NATIVE_INIT_V350_V317_OPERATOR_CHECKLIST_PLAN_2026-05-19.md`
    - v350 보고서: `docs/reports/NATIVE_INIT_V350_V317_OPERATOR_CHECKLIST_2026-05-19.md`
    - v350 해석: V340 live/cleanup command와 V349 final readiness를 사람이 실행하기 쉬운 operator checklist로 결합했고 clean HEAD에서 PASS했다
+   - v351 계획서: `docs/plans/NATIVE_INIT_V351_V317_LIVE_EXECUTOR_PLAN_2026-05-19.md`
+   - v351 보고서: `docs/reports/NATIVE_INIT_V351_V317_LIVE_EXECUTOR_2026-05-19.md`
+   - v351 해석: V350 checklist를 직접 실행하는 fail-closed executor guard를 추가했다. 승인 없는 `run`은 즉시 거부된다
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
 ---
