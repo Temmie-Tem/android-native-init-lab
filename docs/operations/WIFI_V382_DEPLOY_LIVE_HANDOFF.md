@@ -41,6 +41,22 @@ Live start-only approval:
 approve v373 service-manager start-only smoke only; no Wi-Fi HAL start and no Wi-Fi bring-up
 ```
 
+## One-Shot Executor
+
+The preferred guarded handoff path is now the executor:
+
+```bash
+python3 scripts/revalidation/wifi_v382_deploy_live_executor.py \
+  --out-dir tmp/wifi/v382-executor-full \
+  --deploy-approval-phrase "approve v382 deploy execns helper v14 only; no daemon start and no Wi-Fi bring-up" \
+  --live-approval-phrase "approve v373 service-manager start-only smoke only; no Wi-Fi HAL start and no Wi-Fi bring-up" \
+  --apply \
+  --assume-yes \
+  full
+```
+
+The manual commands below remain useful for step-by-step debugging.
+
 ## Preflight
 
 ```bash

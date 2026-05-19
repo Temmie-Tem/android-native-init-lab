@@ -19,6 +19,16 @@
   - Device flash: none
 - 상세 규칙: `docs/operations/VERSIONING_POLICY.md`
 
+
+## Current Wi-Fi V382 Handoff Status (2026-05-20)
+
+- current native build remains `A90 Linux init 0.9.61 (v319)`.
+- current Wi-Fi handoff cycle is V382 host tooling, not a new boot-image flash.
+- added guarded executor `scripts/revalidation/wifi_v382_deploy_live_executor.py`.
+- report: `docs/reports/NATIVE_INIT_V382_DEPLOY_LIVE_EXECUTOR_2026-05-20.md`.
+- no-approval deploy/live/full regression: `approval-required` PASS, no device commands, no mutations, no daemon start, no Wi-Fi bring-up.
+- next execution item: run executor `full` only with both exact approval phrases; scope remains helper v14 deploy plus bounded service-manager start-only smoke.
+
 ## 현재 고정 기준점
 
 - latest verified build: `A90 Linux init 0.9.61 (v319)`
