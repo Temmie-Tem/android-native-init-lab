@@ -3192,6 +3192,31 @@
 - next:
   - v282 ICNSS/WLFW readiness-state observation plan, no-start first
 
+### V282. ICNSS/WLFW Readiness Surface — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V282_ICNSS_WLFW_READINESS_SURFACE_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V282_ICNSS_WLFW_READINESS_SURFACE_2026-05-19.md`
+- boot image change: none
+- baseline device build: `A90 Linux init 0.9.60 (v261)`
+- tool: `scripts/revalidation/wifi_icnss_wlfw_readiness_surface.py`
+- evidence: `tmp/wifi/v282-icnss-wlfw-readiness-surface/`
+- decision: `icnss-readiness-sysfs-candidates-limited`
+- result:
+  - ICNSS core driver-device link present
+  - WLAN module sysfs present, but no `wlan*`, no wiphy, no target CNSS process
+  - `CONFIG_DEBUG_FS=y`, `CONFIG_ICNSS_DEBUG=n`
+  - debugfs is not mounted and `/sys/kernel/debug/icnss` is absent
+  - `/sys/kernel/shutdown_wlan` present but not readable
+  - ICNSS/WLFW readiness dmesg lines: `0`
+- scope:
+  - no-start, read-only ICNSS/WLFW readiness-state surface observer
+  - existing sysfs/debugfs names only; no debugfs mount by default
+  - filtered kernel log history for `fw_ready`, `wlfw`, `qmi`, and driver probe messages
+- safety:
+  - no daemon start, no QRTR nameservice packet, no QMI payload, no scan/connect/link-up, no sysfs/debugfs/control write, no reboot/remount
+- next:
+  - v283 bounded start-only readiness-delta observer, reusing the validated start-only primitive while capturing before/during/after ICNSS/WLFW/QMI state
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
