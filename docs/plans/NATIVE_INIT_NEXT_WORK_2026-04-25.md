@@ -1677,6 +1677,12 @@ Samsung bootloader
    - v375 해석: fail-closed helper deploy/preflight runner를 추가했고, NCM host IP 불안정 상황을 serial `appendfile` + `toybox uudecode -o` fallback으로 보강했다. exact phrase 이후 `/cache/bin/a90_android_execns_probe`를 v12로 설치했고 remote SHA/marker/service-manager mode를 확인했다
    - v375 결과: `execns-helper-v12-deploy-pass`, remote SHA `fef21de2897b16e4ead7fe780eff1817675d4ce988e558013ac9a37dc928d918`, V373 post-deploy preflight `service-manager-start-only-smoke-approval-required`, `helper-service-manager-mode` PASS, daemon start/Wi-Fi bring-up 없음
    - v375 다음: 별도 exact phrase `approve v373 service-manager start-only smoke only; no Wi-Fi HAL start and no Wi-Fi bring-up`가 있을 때만 V373 service-manager start-only smoke를 실행한다. Wi-Fi HAL/scan/connect/link-up/credential/DHCP/routing은 계속 blocked
+
+   - v376 계획서: `docs/plans/NATIVE_INIT_V376_SERVICE_MANAGER_START_ONLY_LIVE_RUNNER_PLAN_2026-05-20.md`
+   - v376 보고서: `docs/reports/NATIVE_INIT_V376_SERVICE_MANAGER_START_ONLY_LIVE_RUNNER_2026-05-20.md`
+   - v376 해석: V375 helper v12 배포 이후 service-manager start-only live runner 실행 본문을 추가했다. plan/preflight/no-approval refusal은 PASS했고, generic approval은 거부된다. live start는 exact phrase `approve v373 service-manager start-only smoke only; no Wi-Fi HAL start and no Wi-Fi bring-up` + `--apply --assume-yes` 없이는 실행하지 않는다
+   - v376 결과: `service-manager-start-only-live-preflight-ready`, no-approval `service-manager-start-only-live-approval-required`, daemon start/Wi-Fi bring-up 없음
+   - v376 다음: exact phrase가 주어졌을 때만 `servicemanager`/`hwservicemanager` bounded start-only smoke를 실행한다. Wi-Fi HAL/scan/connect/link-up/credential/DHCP/routing은 계속 blocked
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
 ---

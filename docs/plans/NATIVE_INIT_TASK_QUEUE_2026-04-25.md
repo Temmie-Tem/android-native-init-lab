@@ -5317,6 +5317,32 @@
   - V373 service-manager start-only smoke can be run only with separate exact approval phrase
   - Wi-Fi HAL start and Wi-Fi bring-up remain blocked
 
+
+### V376. Service-Manager Start-Only Live Runner — PREFLIGHT PASS / LIVE GATED
+
+- 계획: `docs/plans/NATIVE_INIT_V376_SERVICE_MANAGER_START_ONLY_LIVE_RUNNER_PLAN_2026-05-20.md`
+- 보고서: `docs/reports/NATIVE_INIT_V376_SERVICE_MANAGER_START_ONLY_LIVE_RUNNER_2026-05-20.md`
+- evidence:
+  - plan: `tmp/wifi/v376-plan-20260520-021643/`
+  - preflight: `tmp/wifi/v376-preflight-20260520-021643/`
+  - no-approval run: `tmp/wifi/v376-refusal-20260520-021651/`
+- boot image: 없음. v376은 host-side service-manager start-only live runner이며 native init version 변경 없음
+- validation:
+  - Python compile PASS
+  - plan decision `service-manager-start-only-live-plan-ready`
+  - preflight decision `service-manager-start-only-live-preflight-ready`
+  - no-approval run decision `service-manager-start-only-live-approval-required` with `steps=0`
+  - native `version`/`status`/`selftest` PASS
+  - remote helper v12 SHA/usage PASS
+  - `servicemanager` and `hwservicemanager` binary visibility PASS
+  - process surface, Wi-Fi link surface, and temporary Binder node preflight clean PASS
+  - `daemon_start_executed=false`, `wifi_bringup_executed=false`
+- required live phrase:
+  - `approve v373 service-manager start-only smoke only; no Wi-Fi HAL start and no Wi-Fi bring-up`
+- next:
+  - run V376 approved live only with the exact phrase and `--apply --assume-yes`
+  - Wi-Fi HAL start and Wi-Fi bring-up remain blocked
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
