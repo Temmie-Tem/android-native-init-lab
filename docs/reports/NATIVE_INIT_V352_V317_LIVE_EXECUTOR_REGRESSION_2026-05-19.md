@@ -4,7 +4,7 @@
 - scope: host-only regression tests for V351 executor guard
 - device command: none
 - device mutation: none
-- result: `PRE-COMMIT PASS / POST-COMMIT CLEAN-HEAD RUN REQUIRED`
+- result: `PASS`
 
 ## Summary
 
@@ -41,16 +41,18 @@ device_mutations: false
 plan-current-state: v317-live-executor-readiness-blocked due to dirty tree
 ```
 
-## Post-commit Validation Plan
+## Post-commit Validation
 
-After commit, rerun the regression on clean HEAD. Expected:
+Observed clean-head result:
 
 ```text
 decision: v317-live-executor-regression-pass
 pass: True
+remaining_blockers: [exact-v317-approval-phrase]
 plan-current-state: v317-live-executor-plan-ready
 device_commands_executed: false
 device_mutations: false
+git_dirty: false
 ```
 
 ## Safety
@@ -58,3 +60,10 @@ device_mutations: false
 - No approved V317 `run` or `cleanup` case is executed.
 - No live V317 proof is executed.
 - No daemon start or Wi-Fi bring-up is performed.
+
+## Acceptance Result
+
+- No-approval and partial-approval `run` cases fail before refresh steps.
+- No-approval `cleanup` fails before refresh steps.
+- Clean-head `plan` reruns V349/V350 and records skipped live/cleanup steps.
+- No approved V317 `run` or `cleanup` path was executed.

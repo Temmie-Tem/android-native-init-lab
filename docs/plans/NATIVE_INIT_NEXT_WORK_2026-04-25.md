@@ -1589,7 +1589,7 @@ Samsung bootloader
    - v351 해석: V350 checklist를 직접 실행하는 fail-closed executor guard를 추가했고 clean HEAD `plan`이 PASS했다. 승인 없는 `run`은 즉시 거부된다
    - v352 계획서: `docs/plans/NATIVE_INIT_V352_V317_LIVE_EXECUTOR_REGRESSION_PLAN_2026-05-19.md`
    - v352 보고서: `docs/reports/NATIVE_INIT_V352_V317_LIVE_EXECUTOR_REGRESSION_2026-05-19.md`
-   - v352 해석: V351 executor의 no-approval/partial-approval/plan 경로를 host-only regression으로 고정한다
+   - v352 해석: V351 executor의 no-approval/partial-approval/plan 경로를 host-only regression으로 고정했고 clean HEAD에서 PASS했다
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
 ---
