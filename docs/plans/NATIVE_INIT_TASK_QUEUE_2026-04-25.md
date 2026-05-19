@@ -20,12 +20,12 @@
 - 상세 규칙: `docs/operations/VERSIONING_POLICY.md`
 
 
-## Current Wi-Fi V400 Runtime-Gap Status (2026-05-20)
+## Current Wi-Fi V401 Runtime-Gap Status (2026-05-20)
 
 - current native build remains `A90 Linux init 0.9.61 (v319)`.
 - current Wi-Fi work is host tooling plus bounded read-only evidence, not a new boot-image flash.
-- latest approved live step: V399 exact-approved SELinuxfs mount smoke, which stayed inside no-daemon/no-Wi-Fi scope and exposed a command-surface gap.
-- latest report: `docs/reports/NATIVE_INIT_V400_TOYBOX_SELINUXFS_MOUNT_APPROVAL_PACKET_2026-05-20.md`.
+- latest approved live step: V401 exact-approved toybox-backed SELinuxfs mount smoke, no daemon start and no Wi-Fi bring-up.
+- latest report: `docs/reports/NATIVE_INIT_V401_TOYBOX_SELINUXFS_MOUNT_SMOKE_2026-05-20.md`.
 - V392 live result: `hwservicemanager` start-only PASS; `servicemanager` remains `start-only-runtime-gap` with SIGABRT; cleanup/postflight safe; Wi-Fi bring-up false.
 - V396 result: read-only pull of `/mnt/system/system/bin/servicemanager`, `/mnt/system/system/lib64/libbase.so`, and `/mnt/system/system/lib64/liblog.so` PASS.
 - V396 framechain rerun: `service-manager-framechain-symbolization-pass`, no remaining missing-ELF blockers.
@@ -35,7 +35,8 @@
 - V399 result: exact-approved SELinuxfs mount smoke reached the approved live path, but `cmdv1 mount` is not implemented. No `selinuxfs` status page appeared; post-smoke proof still returns `service-manager-selinux-status-native-missing`.
 - V400 result: non-mutating toybox-backed SELinuxfs mount approval packet PASS; V401 executor is fail-closed without exact approval.
 - V401 preapproval syntax check: direct `toybox mount --help` and `toybox umount --help` through `cmdv1 run` PASS; `toybox --list` unsupported but not required.
-- next execution item: V401 exact-approved toybox-backed SELinuxfs mount smoke only; no daemon start or Wi-Fi bring-up.
+- V401 result: toybox-backed `selinuxfs` mount PASS; `/sys/fs/selinux/status` visible; post-mount proof is `service-manager-selinux-surface-native-ready-private-proof-needed`.
+- next execution item: V402 private namespace SELinux surface proof before any daemon start or Wi-Fi bring-up.
 
 ## 현재 고정 기준점
 
@@ -8495,3 +8496,21 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
 - approval phrase:
   - `approve v401 toybox mount selinuxfs runtime surface only; no daemon start and no Wi-Fi bring-up`
 - next execution item: V401 exact-approved toybox-backed SELinuxfs mount smoke. Service-manager and Wi-Fi HAL/start/scan/connect remain blocked.
+
+### V401. Toybox SELinuxfs Mount Smoke — PASS / NATIVE SURFACE READY
+
+- report: `docs/reports/NATIVE_INIT_V401_TOYBOX_SELINUXFS_MOUNT_SMOKE_2026-05-20.md`
+- evidence:
+  - approved live run: `tmp/wifi/v401-toybox-selinuxfs-mount-live-20260520-082325/`
+  - post-mount proof: `tmp/wifi/v401-post-mount-selinux-proof-20260520-082352/`
+- approval used:
+  - `approve v401 toybox mount selinuxfs runtime surface only; no daemon start and no Wi-Fi bring-up`
+- result:
+  - decision `toybox-selinuxfs-mount-live-executor-run-pass`
+  - `selinuxfs /sys/fs/selinux selinuxfs rw,relatime 0 0`
+  - `/sys/fs/selinux/status` mode `0444`
+  - `/sys/fs/selinux/enforce` value `0`
+  - post-mount proof decision `service-manager-selinux-surface-native-ready-private-proof-needed`
+  - `daemon_start_executed=False`, `wifi_bringup_executed=False`
+- interpretation: native SELinux runtime/status surface blocker is removed. Remaining blocker is private service-manager namespace visibility of SELinux status/context inputs.
+- next execution item: V402 private namespace SELinux surface proof. Service-manager and Wi-Fi HAL/start/scan/connect remain blocked.

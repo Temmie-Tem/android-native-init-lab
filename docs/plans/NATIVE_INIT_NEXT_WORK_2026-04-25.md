@@ -1926,3 +1926,10 @@ Samsung bootloader
    - v401 preapproval syntax 결과: direct `toybox mount --help` and `toybox umount --help` PASS. `toybox --list`는 unsupported지만 V401 command contract에는 필요 없다
    - v400 해석: V399 tooling gap의 수정 경로가 준비됐다. 다음 live mutation은 `run /cache/bin/toybox mount -t selinuxfs selinuxfs /sys/fs/selinux` 하나로 제한된다. cleanup은 `run /cache/bin/toybox umount /sys/fs/selinux`로 분리한다
    - v401 다음: exact-approved toybox-backed SELinuxfs mount smoke. `/sys/fs/selinux/status` 가시성을 증명한 뒤 별도 cycle에서 service-manager start-only packet으로 넘어간다. Wi-Fi HAL/start/scan/connect remains blocked
+
+   - v401 report: `docs/reports/NATIVE_INIT_V401_TOYBOX_SELINUXFS_MOUNT_SMOKE_2026-05-20.md`
+   - v401 evidence: `tmp/wifi/v401-toybox-selinuxfs-mount-live-20260520-082325/`
+   - v401 post-proof: `tmp/wifi/v401-post-mount-selinux-proof-20260520-082352/`
+   - v401 결과: `toybox-selinuxfs-mount-live-executor-run-pass`. `/sys/fs/selinux/status` visible, `/sys/fs/selinux/enforce=0`, `/proc/mounts` includes `selinuxfs /sys/fs/selinux selinuxfs rw,relatime 0 0`
+   - v401 post-proof 결과: `service-manager-selinux-surface-native-ready-private-proof-needed`. native SELinux runtime/status surface는 준비됐지만 private service-manager execution namespace에서 status/context/binder/property visibility는 아직 미증명
+   - v402 다음: private namespace SELinux surface proof. service-manager start-only는 V402 proof 이후 별도 승인으로 분리한다. Wi-Fi HAL/start/scan/connect remains blocked
