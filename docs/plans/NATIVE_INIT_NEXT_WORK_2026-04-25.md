@@ -1578,6 +1578,9 @@ Samsung bootloader
    - v348 계획서: `docs/plans/NATIVE_INIT_V348_HANDOFF_COMMAND_CONTRACT_PLAN_2026-05-19.md`
    - v348 보고서: `docs/reports/NATIVE_INIT_V348_HANDOFF_COMMAND_CONTRACT_2026-05-19.md`
    - v348 해석: V340 generated preflight/live/cleanup command의 script/subcommand/out-dir/approval/gate contract를 host-only linter로 검증했다
+   - v349 계획서: `docs/plans/NATIVE_INIT_V349_FINAL_READINESS_AGGREGATOR_PLAN_2026-05-19.md`
+   - v349 보고서: `docs/reports/NATIVE_INIT_V349_FINAL_READINESS_AGGREGATOR_2026-05-19.md`
+   - v349 해석: V344 refresh, V345 router regression, V348 command contract를 하나로 묶는 final readiness aggregator를 추가했다
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
 ---
