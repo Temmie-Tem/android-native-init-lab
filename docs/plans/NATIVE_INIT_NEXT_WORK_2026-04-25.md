@@ -1581,6 +1581,9 @@ Samsung bootloader
    - v349 계획서: `docs/plans/NATIVE_INIT_V349_FINAL_READINESS_AGGREGATOR_PLAN_2026-05-19.md`
    - v349 보고서: `docs/reports/NATIVE_INIT_V349_FINAL_READINESS_AGGREGATOR_2026-05-19.md`
    - v349 해석: V344 refresh, V345 router regression, V348 command contract를 하나로 묶는 final readiness aggregator를 추가했고 clean HEAD에서 PASS했다
+   - v350 계획서: `docs/plans/NATIVE_INIT_V350_V317_OPERATOR_CHECKLIST_PLAN_2026-05-19.md`
+   - v350 보고서: `docs/reports/NATIVE_INIT_V350_V317_OPERATOR_CHECKLIST_2026-05-19.md`
+   - v350 해석: V340 live/cleanup command와 V349 final readiness를 사람이 실행하기 쉬운 operator checklist로 결합했다
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
 ---

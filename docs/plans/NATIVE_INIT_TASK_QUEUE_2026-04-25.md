@@ -4696,6 +4696,26 @@
 - next:
   - exact V317 approval phrase 없이는 live proof 실행하지 않음
 
+
+### V350. V317 Operator Checklist — HOST-ONLY / PENDING POST-COMMIT RUN
+
+- 계획: `docs/plans/NATIVE_INIT_V350_V317_OPERATOR_CHECKLIST_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V350_V317_OPERATOR_CHECKLIST_2026-05-19.md`
+- tool: `scripts/revalidation/wifi_v317_operator_checklist.py`
+- boot image: 없음. v350은 host-only operator checklist이며 native init version 변경 없음
+- 구현:
+  - V340 handoff packet과 V349 final readiness를 하나의 operator checklist로 결합
+  - preflight/live/cleanup command contract와 output dir, approval phrase, gate manifest 검증
+  - current clean HEAD와 no device command/mutation 검증
+- pre-commit validation:
+  - `py_compile` PASS
+  - dirty tree에서는 `current-tree-clean` block 확인
+  - `device_commands_executed=false`, `device_mutations=false`
+- post-commit validation:
+  - clean HEAD에서 operator checklist 재실행 예정
+- next:
+  - exact V317 approval phrase 없이는 live proof 실행하지 않음
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
