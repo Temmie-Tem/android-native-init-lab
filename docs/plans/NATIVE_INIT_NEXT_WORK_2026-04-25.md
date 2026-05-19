@@ -1319,6 +1319,10 @@ Samsung bootloader
    - v276 보고서: `docs/reports/NATIVE_INIT_V276_QRTR_CNSS_REGISTRATION_CORRELATION_2026-05-19.md`
    - v276 결과: decision `qrtr-cnss-platform-surface-visible`, QIPCRTR/no-send probe PASS, active `/dev` endpoint `0`, `/sys` CNSS/WLAN/QRTR surfaces `68`, cnss process clean, no `wlan*`
    - v276 해석: QRTR socket readiness가 blocker는 아니며, static platform state를 read-only로 더 좁혀야 한다. QMI payload는 계속 blocked
+   - v277 계획서: `docs/plans/NATIVE_INIT_V277_ICNSS_PLATFORM_SURFACE_PLAN_2026-05-19.md`
+   - v277 보고서: `docs/reports/NATIVE_INIT_V277_ICNSS_PLATFORM_SURFACE_2026-05-19.md`
+   - v277 결과: decision `icnss-platform-present-no-wlan-netdev`, ICNSS node/driver/device present, QCA6390 node present but driver link absent, `/sys/module/wlan` present but no `wlan*`/wiphy/rfkill
+   - v277 해석: 플랫폼/펌웨어 경로는 보이지만 QCA6390 driver lifecycle 또는 userspace sequencing 전 netdev registration이 빠져 있다. QMI payload는 계속 blocked
    - 다음 후보: QRTR/QMI endpoint interaction no-scan probe, CNSS warning surface cleanup, 또는 broader Wi-Fi readiness gate
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 

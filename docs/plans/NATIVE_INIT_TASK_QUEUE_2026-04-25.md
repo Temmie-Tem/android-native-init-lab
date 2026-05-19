@@ -3067,6 +3067,30 @@
 - next:
   - v277 ICNSS/CNSS platform surface classifier with read-only sysfs/devicetree probes
 
+### V277. ICNSS/CNSS Platform Surface — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V277_ICNSS_PLATFORM_SURFACE_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V277_ICNSS_PLATFORM_SURFACE_2026-05-19.md`
+- boot image change: none
+- baseline device build: `A90 Linux init 0.9.60 (v261)`
+- tool: `scripts/revalidation/wifi_icnss_platform_surface_classifier.py`
+- evidence: `tmp/wifi/v277-icnss-platform-surface/`
+- decision: `icnss-platform-present-no-wlan-netdev`
+- result:
+  - ICNSS platform node/driver/driver-device present
+  - QCA6390 platform node present, driver link absent
+  - `/sys/module/wlan` present, `wlan` absent from `/proc/modules`
+  - firmware path `/vendor/firmware_mnt/image`
+  - no `wlan*` netdev, wiphy, or Wi-Fi rfkill readiness surface
+- interpretation:
+  - platform description is present, but WLAN interface registration is still absent
+  - next blocker is likely QCA6390/platform-driver lifecycle or userspace runtime sequencing
+  - QMI payloads remain blocked
+- safety:
+  - no sysfs write, no bind/unbind/driver_override, no packet, no daemon, no scan/connect/link-up, no reboot/remount
+- next:
+  - v278 QCA6390 driver/bus and WLAN module parameter read-only classifier
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
