@@ -52,6 +52,28 @@ python3 scripts/revalidation/android_capture_handoff_execute.py \
 
 Result: expected failure, decision `android-capture-executor-approval-required`.
 
+Target propagation audit:
+
+```bash
+python3 -m py_compile \
+  scripts/revalidation/native_init_flash.py \
+  scripts/revalidation/android_capture_handoff_execute.py \
+  scripts/revalidation/wifi_android_property_capture.py \
+  scripts/revalidation/wifi_property_baseline_compare.py
+git diff --check
+python3 scripts/revalidation/android_capture_handoff_execute.py \
+  --out-dir tmp/wifi/v300-android-capture-executor-dryrun-target-audit \
+  --adb adb \
+  --serial TESTSER \
+  dry-run
+```
+
+Result: PASS. `capture-android-property` now receives `--adb` and `--serial`;
+`restore-native` now receives `--adb` and `--serial` through
+`native_init_flash.py`. This avoids switching target devices during the Android
+capture and rollback sequence when a non-default ADB executable or explicit ADB
+serial is supplied.
+
 Post-check:
 
 ```bash

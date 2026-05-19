@@ -229,6 +229,30 @@ def choose_images(args: argparse.Namespace) -> tuple[Any, Any]:
 def build_step_plan(args: argparse.Namespace, android_path: str, native_path: str, android_count: int) -> list[tuple[str, list[str] | str, int]]:
     remote_android = remote_quote(args.remote_android_image)
     boot_block = remote_quote(args.boot_block)
+    capture_command = [
+        "python3",
+        "scripts/revalidation/wifi_android_property_capture.py",
+        "--out-dir",
+        "tmp/wifi/v297-android-property-capture-android",
+        "--adb",
+        args.adb,
+    ]
+    restore_command = [
+        "python3",
+        "scripts/revalidation/native_init_flash.py",
+        native_path,
+        "--adb",
+        args.adb,
+        "--expect-version",
+        NATIVE_EXPECT_VERSION,
+        "--verify-protocol",
+        "auto",
+    ]
+    if args.serial:
+        capture_command.extend(["--serial", args.serial])
+        restore_command.extend(["--serial", args.serial])
+    capture_command.append("run")
+
     return [
         ("native-version", ["python3", "scripts/revalidation/a90ctl.py", "--json", "version"], args.timeout),
         ("native-status", ["python3", "scripts/revalidation/a90ctl.py", "status"], args.timeout),
@@ -250,7 +274,7 @@ def build_step_plan(args: argparse.Namespace, android_path: str, native_path: st
         ),
         ("reboot-android", [*adb_base(args), "shell", "twrp reboot"], args.timeout),
         ("wait-android", [*adb_base(args), "wait-for-device"], args.android_timeout),
-        ("capture-android-property", ["python3", "scripts/revalidation/wifi_android_property_capture.py", "--out-dir", "tmp/wifi/v297-android-property-capture-android", "run"], args.timeout * 6),
+        ("capture-android-property", capture_command, args.timeout * 6),
         (
             "compare-property-baseline",
             [
@@ -268,15 +292,7 @@ def build_step_plan(args: argparse.Namespace, android_path: str, native_path: st
         ("wait-rollback-recovery", [*adb_base(args), "devices"], args.recovery_timeout),
         (
             "restore-native",
-            [
-                "python3",
-                "scripts/revalidation/native_init_flash.py",
-                native_path,
-                "--expect-version",
-                NATIVE_EXPECT_VERSION,
-                "--verify-protocol",
-                "auto",
-            ],
+            restore_command,
             args.recovery_timeout + args.android_timeout,
         ),
     ]

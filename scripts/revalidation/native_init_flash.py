@@ -39,8 +39,8 @@ def run_command(args: list[str],
     return subprocess.run(args, check=check)
 
 
-def adb_base(serial: str | None) -> list[str]:
-    base = ["adb"]
+def adb_base(adb: str, serial: str | None) -> list[str]:
+    base = [adb]
     if serial:
         base.extend(["-s", serial])
     return base
@@ -67,9 +67,9 @@ def parse_adb_devices(output: str) -> list[tuple[str, str]]:
     return devices
 
 
-def adb_devices() -> list[tuple[str, str]]:
+def adb_devices(adb: str) -> list[tuple[str, str]]:
     result = subprocess.run(
-        ["adb", "devices"],
+        [adb, "devices"],
         check=False,
         text=True,
         stdout=subprocess.PIPE,
@@ -78,21 +78,22 @@ def adb_devices() -> list[tuple[str, str]]:
     return parse_adb_devices(result.stdout)
 
 
-def adb_state(serial: str) -> str | None:
-    for device_serial, state in adb_devices():
+def adb_state(adb: str, serial: str) -> str | None:
+    for device_serial, state in adb_devices(adb):
         if device_serial == serial:
             return state
     return None
 
 
-def wait_for_adb_state(serial: str | None,
+def wait_for_adb_state(adb: str,
+                       serial: str | None,
                        wanted_states: set[str],
                        timeout_sec: float) -> tuple[str, str]:
     deadline = time.monotonic() + timeout_sec
     last_devices: list[tuple[str, str]] = []
 
     while time.monotonic() < deadline:
-        last_devices = adb_devices()
+        last_devices = adb_devices(adb)
         for device_serial, state in last_devices:
             if serial and device_serial != serial:
                 continue
@@ -105,11 +106,11 @@ def wait_for_adb_state(serial: str | None,
     raise RuntimeError(f"ADB state timeout; wanted={sorted(wanted_states)} last={rendered}")
 
 
-def wait_for_adb_disconnect(serial: str, timeout_sec: float) -> bool:
+def wait_for_adb_disconnect(adb: str, serial: str, timeout_sec: float) -> bool:
     deadline = time.monotonic() + timeout_sec
 
     while time.monotonic() < deadline:
-        if adb_state(serial) is None:
+        if adb_state(adb, serial) is None:
             return True
         time.sleep(0.5)
 
@@ -169,9 +170,9 @@ def inspect_local_image(args: argparse.Namespace) -> tuple[Path, str, int]:
     return image_path, local_hash, image_size
 
 
-def remote_sha256(serial: str | None, remote_path: str) -> str:
+def remote_sha256(adb: str, serial: str | None, remote_path: str) -> str:
     remote = quote_remote_path(remote_path, label="remote image")
-    command = adb_base(serial) + [
+    command = adb_base(adb, serial) + [
         "shell",
         f"sha256sum {remote} 2>/dev/null || toybox sha256sum {remote}",
     ]
@@ -182,12 +183,13 @@ def remote_sha256(serial: str | None, remote_path: str) -> str:
     return first_field
 
 
-def remote_boot_prefix_sha256(serial: str | None,
+def remote_boot_prefix_sha256(adb: str,
+                              serial: str | None,
                               boot_block: str,
                               image_size: int) -> str:
     count = image_size // BOOT_READBACK_BLOCK_SIZE
     block = quote_remote_path(boot_block, label="boot block")
-    command = adb_base(serial) + [
+    command = adb_base(adb, serial) + [
         "shell",
         (
             f"dd if={block} bs={BOOT_READBACK_BLOCK_SIZE} count={count} "
@@ -278,9 +280,9 @@ def flash_boot_image(args: argparse.Namespace,
     remote = quote_remote_path(args.remote_image, label="remote image")
     block = quote_remote_path(args.boot_block, label="boot block")
 
-    run_command(adb_base(serial) + ["push", str(image_path), args.remote_image])
+    run_command(adb_base(args.adb, serial) + ["push", str(image_path), args.remote_image])
 
-    remote_hash = remote_sha256(serial, args.remote_image)
+    remote_hash = remote_sha256(args.adb, serial, args.remote_image)
     log(f"remote image sha256: {remote_hash}")
     if remote_hash != local_hash:
         raise RuntimeError("remote sha256 mismatch after adb push")
@@ -289,9 +291,9 @@ def flash_boot_image(args: argparse.Namespace,
         f"dd if={remote} of={block} "
         "bs=4M conv=fsync && sync"
     )
-    run_command(adb_base(serial) + ["shell", flash_cmd])
+    run_command(adb_base(args.adb, serial) + ["shell", flash_cmd])
 
-    boot_prefix_hash = remote_boot_prefix_sha256(serial, args.boot_block, image_size)
+    boot_prefix_hash = remote_boot_prefix_sha256(args.adb, serial, args.boot_block, image_size)
     log(f"boot block prefix sha256: {boot_prefix_hash}")
     if boot_prefix_hash != local_hash:
         raise RuntimeError("boot block prefix sha256 mismatch after flash")
@@ -303,7 +305,7 @@ def reboot_twrp_to_system(args: argparse.Namespace, serial: str) -> None:
     for attempt in range(1, 4):
         log(f"requesting system boot through TWRP no-argument reboot attempt={attempt}")
         result = run_command(
-            adb_base(serial) + ["shell", "twrp reboot"],
+            adb_base(args.adb, serial) + ["shell", "twrp reboot"],
             check=False,
             capture=True,
         )
@@ -312,7 +314,7 @@ def reboot_twrp_to_system(args: argparse.Namespace, serial: str) -> None:
             for line in output.splitlines():
                 log(f"twrp reboot: {line}")
 
-        if wait_for_adb_disconnect(serial, 8.0):
+        if wait_for_adb_disconnect(args.adb, serial, 8.0):
             return
 
         log("TWRP recovery ADB is still present after reboot request; retrying")
@@ -388,6 +390,7 @@ def parse_args() -> argparse.Namespace:
         description="Flash a native init boot image from TWRP and verify it through the serial bridge."
     )
     parser.add_argument("boot_image", nargs="?", help="boot image to flash")
+    parser.add_argument("--adb", default="adb", help="adb executable to use")
     parser.add_argument("--serial", help="ADB serial to target")
     parser.add_argument("--remote-image", default=DEFAULT_REMOTE_IMAGE)
     parser.add_argument("--boot-block", default="/dev/block/by-name/boot")
@@ -430,7 +433,7 @@ def main() -> int:
     if args.from_native:
         reboot_native_to_recovery(args)
 
-    serial, state = wait_for_adb_state(args.serial, {"recovery"}, args.recovery_timeout)
+    serial, state = wait_for_adb_state(args.adb, args.serial, {"recovery"}, args.recovery_timeout)
     if state != "recovery":
         raise RuntimeError(f"expected recovery state, got {state}")
 

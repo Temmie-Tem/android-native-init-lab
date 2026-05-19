@@ -3687,6 +3687,8 @@
   - v300 dry-run/refusal PASS
   - current native `version/status` PASS
   - live command and abort conditions generated
+  - pre-live target propagation audit PASS: explicit `--adb`/`--serial` now
+    propagate to Android property capture and native rollback restore
 - safety:
   - no reboot/recovery/flash was executed
   - no property mutation or Wi-Fi bring-up action was executed

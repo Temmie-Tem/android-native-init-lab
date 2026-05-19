@@ -21,6 +21,7 @@ DEFAULT_OUT_DIR = Path("tmp/wifi/v302-android-capture-approval-packet")
 DEFAULT_V299_MANIFEST = Path("tmp/wifi/v299-android-capture-handoff-preflight/manifest.json")
 DEFAULT_V300_DRYRUN = Path("tmp/wifi/v300-android-capture-executor-dryrun/manifest.json")
 DEFAULT_V300_REFUSE = Path("tmp/wifi/v300-android-capture-executor-refuse/manifest.json")
+DEFAULT_V300_TARGET_AUDIT = Path("tmp/wifi/v300-android-capture-executor-dryrun-target-audit/manifest.json")
 EXPECTED_NATIVE_VERSION = "A90 Linux init 0.9.60 (v261)"
 LIVE_COMMAND = (
     "python3 scripts/revalidation/android_capture_handoff_execute.py "
@@ -62,6 +63,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--v299-manifest", type=Path, default=DEFAULT_V299_MANIFEST)
     parser.add_argument("--v300-dryrun-manifest", type=Path, default=DEFAULT_V300_DRYRUN)
     parser.add_argument("--v300-refuse-manifest", type=Path, default=DEFAULT_V300_REFUSE)
+    parser.add_argument("--v300-target-audit-manifest", type=Path, default=DEFAULT_V300_TARGET_AUDIT)
     parser.add_argument("--timeout", type=int, default=20)
     parser.add_argument("--no-live-native-check", action="store_true")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -120,9 +122,17 @@ def manifest_decision(manifest: dict[str, Any]) -> str:
     return str(manifest.get("decision", "missing"))
 
 
+def step_command(manifest: dict[str, Any], name: str) -> str:
+    for step in manifest.get("steps", []):
+        if isinstance(step, dict) and step.get("name") == name:
+            return str(step.get("command", ""))
+    return ""
+
+
 def build_checks(v299: dict[str, Any],
                  v300_dryrun: dict[str, Any],
                  v300_refuse: dict[str, Any],
+                 v300_target_audit: dict[str, Any],
                  captures: list[CommandCapture]) -> list[Check]:
     checks: list[Check] = []
     checks.append(Check(
@@ -142,6 +152,22 @@ def build_checks(v299: dict[str, Any],
         "pass" if v300_refuse.get("present") and manifest_decision(v300_refuse) == "android-capture-executor-approval-required" and not bool(v300_refuse.get("pass")) else "fail",
         "blocker",
         f"decision={manifest_decision(v300_refuse)} pass={v300_refuse.get('pass')}",
+    ))
+    capture_command = step_command(v300_target_audit, "capture-android-property")
+    restore_command = step_command(v300_target_audit, "restore-native")
+    target_audit_ok = (
+        v300_target_audit.get("present")
+        and manifest_decision(v300_target_audit) == "android-capture-executor-dryrun-ready"
+        and "--adb adb" in capture_command
+        and "--serial TESTSER" in capture_command
+        and "--adb adb" in restore_command
+        and "--serial TESTSER" in restore_command
+    )
+    checks.append(Check(
+        "v300-target-propagation",
+        "pass" if target_audit_ok else "fail",
+        "blocker",
+        f"decision={manifest_decision(v300_target_audit)} capture_target={'--serial TESTSER' in capture_command} restore_target={'--serial TESTSER' in restore_command}",
     ))
     if captures:
         version_ok = any(
@@ -247,8 +273,9 @@ def main() -> int:
     v299 = load_manifest(args.v299_manifest)
     v300_dryrun = load_manifest(args.v300_dryrun_manifest)
     v300_refuse = load_manifest(args.v300_refuse_manifest)
+    v300_target_audit = load_manifest(args.v300_target_audit_manifest)
     captures = current_native_checks(store, args.timeout, args.no_live_native_check)
-    checks = build_checks(v299, v300_dryrun, v300_refuse, captures)
+    checks = build_checks(v299, v300_dryrun, v300_refuse, v300_target_audit, captures)
     decision, pass_ok, reason = decide(checks)
     manifest = {
         "generated_at": now_iso(),
@@ -260,6 +287,11 @@ def main() -> int:
             "v299": {"path": v299.get("path"), "present": bool(v299.get("present")), "decision": v299.get("decision")},
             "v300_dryrun": {"path": v300_dryrun.get("path"), "present": bool(v300_dryrun.get("present")), "decision": v300_dryrun.get("decision")},
             "v300_refuse": {"path": v300_refuse.get("path"), "present": bool(v300_refuse.get("present")), "decision": v300_refuse.get("decision")},
+            "v300_target_audit": {
+                "path": v300_target_audit.get("path"),
+                "present": bool(v300_target_audit.get("present")),
+                "decision": v300_target_audit.get("decision"),
+            },
         },
         "recommended_android_boot_image": (v299.get("recommended_android_boot_image") or {}),
         "native_rollback_image": (v299.get("native_image") or {}),

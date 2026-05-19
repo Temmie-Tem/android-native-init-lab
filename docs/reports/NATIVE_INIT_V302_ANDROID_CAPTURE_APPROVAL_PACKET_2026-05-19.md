@@ -24,7 +24,15 @@ No live handoff was executed.
 ## Validation
 
 ```bash
-python3 -m py_compile scripts/revalidation/android_capture_approval_packet.py
+python3 -m py_compile \
+  scripts/revalidation/native_init_flash.py \
+  scripts/revalidation/android_capture_handoff_execute.py \
+  scripts/revalidation/android_capture_approval_packet.py
+python3 scripts/revalidation/android_capture_handoff_execute.py \
+  --out-dir tmp/wifi/v300-android-capture-executor-dryrun-target-audit \
+  --adb adb \
+  --serial TESTSER \
+  dry-run
 python3 scripts/revalidation/android_capture_approval_packet.py \
   --out-dir tmp/wifi/v302-android-capture-approval-packet \
   run
@@ -42,6 +50,12 @@ Result: PASS.
 | v300 approval refusal | PASS |
 | current native `version/status` | PASS |
 | live command approval flags | PASS |
+| pre-live target propagation audit | PASS |
+
+The target propagation audit verified that explicit `--adb` and `--serial`
+arguments are carried into the Android property capture step and native rollback
+step. This keeps the live handoff target consistent on hosts with multiple ADB
+devices or a non-default ADB executable.
 
 ## Live Command
 

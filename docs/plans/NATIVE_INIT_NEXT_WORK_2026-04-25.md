@@ -1422,6 +1422,7 @@ Samsung bootloader
    - v302 계획서: `docs/plans/NATIVE_INIT_V302_ANDROID_CAPTURE_APPROVAL_PACKET_PLAN_2026-05-19.md`
    - v302 보고서: `docs/reports/NATIVE_INIT_V302_ANDROID_CAPTURE_APPROVAL_PACKET_2026-05-19.md`
    - v302 결과: decision `android-capture-approval-ready`, v299/v300/current-native evidence를 묶은 final approval packet 생성
+   - v302 pre-live audit: v300 executor와 `native_init_flash.py`가 explicit `--adb`/`--serial`을 Android capture 및 native rollback까지 전파하도록 보강했고, target-audit dry-run PASS
    - v302 해석: 이제 남은 것은 host-only 준비가 아니라 operator-approved live command 실행이다
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
