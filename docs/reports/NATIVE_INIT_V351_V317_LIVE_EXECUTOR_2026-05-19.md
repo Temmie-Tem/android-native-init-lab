@@ -4,7 +4,7 @@
 - scope: fail-closed host executor for V317 minimal live proof
 - device command: none in validation
 - device mutation: none in validation
-- result: `PRE-COMMIT STRUCTURE PASS / POST-COMMIT CLEAN-HEAD PLAN REQUIRED`
+- result: `PASS`
 
 ## Summary
 
@@ -44,15 +44,26 @@ device_commands_executed: false
 device_mutations: false
 ```
 
-## Post-commit Validation Plan
+## Post-commit Validation
 
-After commit, rerun the executor `plan` on clean HEAD. Expected:
+Command:
+
+```bash
+python3 scripts/revalidation/wifi_v317_live_executor.py \
+  --out-dir tmp/wifi/v351-v317-live-executor \
+  plan
+```
+
+Observed result:
 
 ```text
-v317-live-executor-plan-ready
+decision: v317-live-executor-plan-ready
+pass: True
 live_execution_approved: false
 device_commands_executed: false
 device_mutations: false
+git_head: matched current HEAD at run time
+git_dirty: false
 ```
 
 ## Safety
@@ -60,3 +71,10 @@ device_mutations: false
 - No live V317 proof was executed.
 - No daemon start was performed.
 - No Wi-Fi bring-up was performed.
+
+## Acceptance Result
+
+- No-approval `run` fails before host refresh or device action.
+- Clean-head `plan` reruns V349 and V350, then records live/cleanup commands as skipped plan steps.
+- The executor `run` and `cleanup` paths remain blocked until the exact V317 approval phrase is provided.
+- No live V317 proof, daemon start, Wi-Fi bring-up, device command, or device mutation was executed.

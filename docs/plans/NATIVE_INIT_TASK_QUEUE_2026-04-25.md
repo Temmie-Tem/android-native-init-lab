@@ -4719,7 +4719,7 @@
   - exact V317 approval phrase 없이는 live proof 실행하지 않음
 
 
-### V351. V317 Live Executor Guard — HOST-ONLY / PENDING POST-COMMIT PLAN
+### V351. V317 Live Executor Guard — HOST-ONLY PLAN PASS
 
 - 계획: `docs/plans/NATIVE_INIT_V351_V317_LIVE_EXECUTOR_PLAN_2026-05-19.md`
 - 보고서: `docs/reports/NATIVE_INIT_V351_V317_LIVE_EXECUTOR_2026-05-19.md`
@@ -4734,7 +4734,9 @@
   - no-approval `run`이 device action 없이 거부됨
   - dirty tree `plan`이 V349/V350 clean-head check에서 block됨
 - post-commit validation:
-  - clean HEAD에서 executor `plan` 재실행 예정
+  - clean HEAD에서 `v317-live-executor-plan-ready` PASS
+  - `live_execution_approved=false`
+  - `device_commands_executed=false`, `device_mutations=false`
 - next:
   - exact V317 approval phrase 없이는 executor `run`/`cleanup` 실행하지 않음
 
