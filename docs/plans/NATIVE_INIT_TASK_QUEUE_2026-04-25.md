@@ -3989,12 +3989,20 @@
 - next:
   - v317 plan is ready; live execution is blocked until explicit operator approval
 
-### V317. Minimal Private Property Namespace Proof — PLANNED / WAITING FOR OPERATOR
+### V317. Minimal Private Property Namespace Proof — RUNNER READY / WAITING FOR OPERATOR
 
 - 계획: `docs/plans/NATIVE_INIT_V317_PRIVATE_PROPERTY_NAMESPACE_PROOF_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V317_PRIVATE_PROPERTY_NAMESPACE_PROOF_2026-05-19.md`
 - boot image change: none
 - baseline device build: `A90 Linux init 0.9.60 (v261)`
-- intended tool: `scripts/revalidation/wifi_private_property_namespace_proof.py`
+- tool: `scripts/revalidation/wifi_private_property_namespace_proof.py`
+- evidence:
+  - `tmp/wifi/v317-private-property-namespace-proof-plan/`
+  - `tmp/wifi/v317-private-property-namespace-proof-refuse/`
+  - `tmp/wifi/v317-private-property-namespace-proof-cleanup-refuse/`
+- decisions:
+  - `private-property-namespace-proof-plan-ready`
+  - `private-property-namespace-proof-approval-required`
 - required approval phrase:
   - `approve v317 minimal private property namespace proof only; no daemon start and no Wi-Fi bring-up`
 - intended scope:
@@ -4011,7 +4019,7 @@
   - no service-manager/HAL/Wi-Fi daemon start
   - no Wi-Fi scan/connect/link-up/credential/DHCP/routing
 - next:
-  - implement only after explicit operator approval
+  - live run only after explicit operator approval
 
 ### V187. Harness Broker Backend — PASS
 

@@ -1480,7 +1480,9 @@ Samsung bootloader
    - v316 결과: decision `private-property-live-approval-ready`
    - v316 해석: v317 최소 private namespace proof의 승인 문구를 고정했다. 진행하려면 `approve v317 minimal private property namespace proof only; no daemon start and no Wi-Fi bring-up` 문구의 명시 승인이 필요하다
    - v317 계획서: `docs/plans/NATIVE_INIT_V317_PRIVATE_PROPERTY_NAMESPACE_PROOF_PLAN_2026-05-19.md`
-   - v317 해석: 승인 후에도 범위는 `/mnt/sdext/a90/private-property-v317` private workdir 생성, v312 layout 파일 복사, SHA-256 검증, cleanup으로 제한한다. v316 승인 범위가 daemon start를 금지하므로 NCM/tcpctl 전송은 사용하지 않고 기존 ACM bridge + toybox base64 경로만 후보로 둔다
+   - v317 보고서: `docs/reports/NATIVE_INIT_V317_PRIVATE_PROPERTY_NAMESPACE_PROOF_2026-05-19.md`
+   - v317 결과: decisions `private-property-namespace-proof-plan-ready`, `private-property-namespace-proof-approval-required`
+   - v317 해석: runner는 구현됐고 plan/refusal 검증은 PASS했다. 승인 후에도 범위는 `/mnt/sdext/a90/private-property-v317` private workdir 생성, v312 layout 파일 복사, SHA-256 검증, cleanup으로 제한한다. v316 승인 범위가 daemon start를 금지하므로 NCM/tcpctl 전송은 사용하지 않고 기존 ACM bridge + toybox base64 경로만 사용한다
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
 ---

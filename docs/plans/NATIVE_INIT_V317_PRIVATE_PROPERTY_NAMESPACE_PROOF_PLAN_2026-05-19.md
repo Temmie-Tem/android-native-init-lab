@@ -4,7 +4,7 @@
 - scope: approved minimal private property namespace proof
 - boot image change: none
 - baseline device build: `A90 Linux init 0.9.60 (v261)`
-- status: planned / blocked until operator approval
+- status: runner ready / live execution blocked until operator approval
 
 ## Summary
 
@@ -118,6 +118,20 @@ Expected decision:
 
 ```text
 private-property-namespace-proof-approval-required
+```
+
+Plan-only runner validation:
+
+```bash
+python3 scripts/revalidation/wifi_private_property_namespace_proof.py \
+  --out-dir tmp/wifi/v317-private-property-namespace-proof-plan \
+  plan
+```
+
+Expected decision:
+
+```text
+private-property-namespace-proof-plan-ready
 ```
 
 Approved live proof:
