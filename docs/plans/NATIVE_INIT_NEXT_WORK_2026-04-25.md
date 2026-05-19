@@ -1592,7 +1592,7 @@ Samsung bootloader
    - v352 해석: V351 executor의 no-approval/partial-approval/plan 경로를 host-only regression으로 고정했고 clean HEAD에서 PASS했다
    - v353 계획서: `docs/plans/NATIVE_INIT_V353_OPERATOR_EXECUTOR_PREFERENCE_PLAN_2026-05-19.md`
    - v353 보고서: `docs/reports/NATIVE_INIT_V353_OPERATOR_EXECUTOR_PREFERENCE_2026-05-19.md`
-   - v353 해석: V350 operator checklist의 기본 실행 경로를 raw V340 command가 아니라 V351 executor로 전환한다
+   - v353 해석: V350 operator checklist의 기본 실행 경로를 raw V340 command가 아니라 V351 executor로 전환했고 clean HEAD에서 V350/V351/V352 PASS했다
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
 ---

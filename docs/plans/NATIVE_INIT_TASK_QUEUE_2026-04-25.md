@@ -4764,7 +4764,7 @@
   - exact V317 approval phrase 없이는 executor `run`/`cleanup` 실행하지 않음
 
 
-### V353. Operator Executor Preference — HOST-ONLY / PENDING VALIDATION
+### V353. Operator Executor Preference — HOST-ONLY PASS
 
 - 계획: `docs/plans/NATIVE_INIT_V353_OPERATOR_EXECUTOR_PREFERENCE_PLAN_2026-05-19.md`
 - 보고서: `docs/reports/NATIVE_INIT_V353_OPERATOR_EXECUTOR_PREFERENCE_2026-05-19.md`
@@ -4775,7 +4775,11 @@
   - raw V340 live/cleanup command는 internal raw command로만 유지
   - exact V317 approval phrase gate 유지
 - validation:
-  - 실행 예정
+  - `py_compile` PASS
+  - V350 checklist `v317-operator-checklist-ready` PASS
+  - V351 executor plan `v317-live-executor-plan-ready` PASS
+  - V352 executor regression `v317-live-executor-regression-pass` PASS
+  - `device_commands_executed=false`, `device_mutations=false`
 - next:
   - exact V317 approval phrase 없이는 executor `run`/`cleanup` 실행하지 않음
 
