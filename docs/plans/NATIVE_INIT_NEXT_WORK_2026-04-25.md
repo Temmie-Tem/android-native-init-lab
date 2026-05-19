@@ -1683,6 +1683,11 @@ Samsung bootloader
    - v376 해석: V375 helper v12 배포 이후 service-manager start-only live runner 실행 본문을 추가했다. plan/preflight/no-approval refusal은 PASS했고, generic approval은 거부된다. live start는 exact phrase `approve v373 service-manager start-only smoke only; no Wi-Fi HAL start and no Wi-Fi bring-up` + `--apply --assume-yes` 없이는 실행하지 않는다
    - v376 결과: `service-manager-start-only-live-preflight-ready`, no-approval `service-manager-start-only-live-approval-required`, daemon start/Wi-Fi bring-up 없음
    - v376 다음: exact phrase가 주어졌을 때만 `servicemanager`/`hwservicemanager` bounded start-only smoke를 실행한다. Wi-Fi HAL/scan/connect/link-up/credential/DHCP/routing은 계속 blocked
+
+   - v377 계획서: `docs/plans/NATIVE_INIT_V377_SERVICE_MANAGER_RESULT_ROUTER_PLAN_2026-05-20.md`
+   - v377 보고서: `docs/reports/NATIVE_INIT_V377_SERVICE_MANAGER_RESULT_ROUTER_2026-05-20.md`
+   - v377 해석: V376 result router를 host-only로 추가했다. synthetic regression은 PASS했고 현재 route는 `service-manager-start-only-router-awaiting-approval`이다. device command/mutation 없이 exact phrase 대기를 명확히 분류한다
+   - v377 다음: exact phrase 이후 V376 approved live run을 실행하고 V377 route를 재실행한다. 결과가 pass면 HAL start-only approval packet, runtime-gap이면 gap classification으로 분기한다
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
 ---

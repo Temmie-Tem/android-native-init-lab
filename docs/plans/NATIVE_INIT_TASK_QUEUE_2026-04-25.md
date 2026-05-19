@@ -5343,6 +5343,26 @@
   - run V376 approved live only with the exact phrase and `--apply --assume-yes`
   - Wi-Fi HAL start and Wi-Fi bring-up remain blocked
 
+
+### V377. Service-Manager Start-Only Result Router — PASS / AWAITING APPROVAL
+
+- 계획: `docs/plans/NATIVE_INIT_V377_SERVICE_MANAGER_RESULT_ROUTER_PLAN_2026-05-20.md`
+- 보고서: `docs/reports/NATIVE_INIT_V377_SERVICE_MANAGER_RESULT_ROUTER_2026-05-20.md`
+- evidence:
+  - regression: `tmp/wifi/v377-service-manager-start-only-router-regression-20260520-022406/`
+  - route: `tmp/wifi/v377-service-manager-start-only-router-route-20260520-022406/`
+- boot image: 없음. v377은 host-only result router이며 native init version 변경 없음
+- validation:
+  - Python compile PASS
+  - regression decision `service-manager-start-only-router-regression-pass`
+  - current route decision `service-manager-start-only-router-awaiting-approval`
+  - route reason: V376 preflight is ready but live start is not approved
+  - `device_commands_executed=false`, `device_mutations=false`
+- next:
+  - exact V373 phrase가 주어지면 V376 approved live run 실행
+  - approved V376 evidence 후 V377 route를 재실행해 HAL readiness or runtime-gap으로 분기
+  - Wi-Fi HAL start and Wi-Fi bring-up remain blocked
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
