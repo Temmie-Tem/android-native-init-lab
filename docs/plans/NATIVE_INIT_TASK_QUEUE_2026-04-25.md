@@ -2796,6 +2796,32 @@
   - v268 transmit-capable helper source/design without deployment/execution, or
   - explicit approval request for bounded QRTR nameservice no-scan transmission after design review
 
+### V268. QRTR Nameservice Helper Source — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V268_QRTR_NS_HELPER_SOURCE_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V268_QRTR_NS_HELPER_SOURCE_2026-05-19.md`
+- boot image change: 없음
+- helper deployment: 없음
+- helper execution: 없음
+- QRTR/QMI packet transmission: 없음
+- helper source: `stage3/linux_init/helpers/a90_qrtr_ns_probe.c`
+- build script: `scripts/revalidation/build_qrtr_ns_probe_helper.sh`
+- build output: `tmp/wifi/v268-build/a90_qrtr_ns_probe`
+- sha256: `c2d8707155b776c6c31e815136a66060f2087c4606c8a48cf9bd4b7944fdbb2a`
+- validation:
+  - static ARM64 build PASS
+  - no `INTERP` PASS
+  - no dynamic section PASS
+  - marker strings PASS: `a90_qrtr_ns_probe v1`, `--allow-qrtr-ns-transmit`, `qrtr_ns.send_attempted=0`
+  - helper source defaults to blocked/no-send without approval flag
+- interpretation:
+  - transmit-capable source exists for review
+  - helper was not deployed or executed
+  - actual QRTR nameservice transmission remains explicit-approval-gated
+- next execution item:
+  - v269 runner integration for approval-gated deploy/run path without execution, or
+  - explicit approval to deploy and run one bounded nameservice lookup
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
