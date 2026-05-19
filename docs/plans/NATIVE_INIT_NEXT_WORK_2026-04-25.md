@@ -1801,3 +1801,9 @@ Samsung bootloader
    - v385 approved deploy: serial transfer installed helper v16 SHA `4478c73518e950b425af0cf7db28e9570c983f428fbb0d4b5d2ee45573d37cd8`; daemon start/Wi-Fi bring-up 없음
    - v385 approved live: `servicemanager` cleanup proof PASS but runtime gap remains. `hwservicemanager` produced large ptrace exec snapshot and host capture missed `A90P1 END`; bridge capture shows eventual 85s completion, but `service_manager_start.*` summary fields were not captured. Postflight device state is clean
    - v386 다음: compact ptrace capture mode. service-manager live proof must reduce serial output and preserve machine-readable residual cleanup summary before any Wi-Fi HAL/start/scan/connect step
+
+   - v386 plan: `docs/plans/NATIVE_INIT_V386_COMPACT_PTRACE_CAPTURE_PLAN_2026-05-20.md`
+   - v386 readiness report: `docs/reports/NATIVE_INIT_V386_COMPACT_PTRACE_CAPTURE_2026-05-20.md`
+   - v386 구현 상태: `a90_android_execns_probe v17`은 service-manager `ptrace-lite`에서 raw maps/mountinfo/register dump를 serial stdout으로 뿌리지 않고 compact summary만 보낸다. 로컬 SHA256은 `45c27e28c90a86c75a291edaf16d8233da51358647c1e6d1700f0e4f9cf437c5`이다
+   - v386 검증 상태: static build/py_compile/diff check/no-approval executor gate PASS. device deploy/live는 아직 실행하지 않았다
+   - v386 실행 조건: deploy는 exact `approve v386 deploy execns helper v17 only; no daemon start and no Wi-Fi bring-up`, live는 exact `approve v386 service-manager compact ptrace capture only; no Wi-Fi HAL start and no Wi-Fi bring-up` 필요

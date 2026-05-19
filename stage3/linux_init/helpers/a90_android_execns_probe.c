@@ -43,7 +43,7 @@
 #define PR_CAP_AMBIENT_RAISE 2
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v16"
+#define EXECNS_VERSION "a90_android_execns_probe v17"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -2704,6 +2704,194 @@ static int append_pgid_scan_summary(struct buffer *buf,
                          count);
 }
 
+static int append_proc_link_compact(struct buffer *buf,
+                                    pid_t pid,
+                                    const char *label,
+                                    const char *name) {
+    char path[MAX_PATH_LEN];
+    char target[MAX_PATH_LEN];
+    ssize_t nread;
+
+    proc_path(path, sizeof(path), pid, name);
+    nread = readlink(path, target, sizeof(target) - 1);
+    if (nread < 0) {
+        return append_format(buf,
+                             "capture.%s.%s.error=%s\n",
+                             label,
+                             name,
+                             strerror(errno));
+    }
+    target[nread] = '\0';
+    return append_format(buf,
+                         "capture.%s.%s=%s\n",
+                         label,
+                         name,
+                         target);
+}
+
+static int append_proc_text_brief(struct buffer *buf,
+                                  pid_t pid,
+                                  const char *label,
+                                  const char *name,
+                                  size_t limit) {
+    char path[MAX_PATH_LEN];
+    char tmp[4096];
+    size_t total = 0;
+    size_t lines = 0;
+    bool truncated = false;
+    int fd;
+
+    proc_path(path, sizeof(path), pid, name);
+    if (append_format(buf,
+                      "capture.%s.%s.path=%s\n",
+                      label,
+                      name,
+                      path) < 0) {
+        return -1;
+    }
+    fd = open(path, O_RDONLY | O_CLOEXEC);
+    if (fd < 0) {
+        return append_format(buf,
+                             "capture.%s.%s.error=%s\n",
+                             label,
+                             name,
+                             strerror(errno));
+    }
+    while (total < limit) {
+        size_t room = limit - total;
+        ssize_t nread = read(fd, tmp, room < sizeof(tmp) ? room : sizeof(tmp));
+
+        if (nread < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            close(fd);
+            return append_format(buf,
+                                 "capture.%s.%s.read_error=%s\n",
+                                 label,
+                                 name,
+                                 strerror(errno));
+        }
+        if (nread == 0) {
+            break;
+        }
+        for (ssize_t i = 0; i < nread; i++) {
+            if (tmp[i] == '\n') {
+                lines++;
+            }
+        }
+        total += (size_t)nread;
+    }
+    if (total >= limit) {
+        truncated = true;
+    }
+    close(fd);
+    return append_format(buf,
+                         "capture.%s.%s.bytes=%zu\n"
+                         "capture.%s.%s.lines=%zu\n"
+                         "capture.%s.%s.truncated=%d\n",
+                         label,
+                         name,
+                         total,
+                         label,
+                         name,
+                         lines,
+                         label,
+                         name,
+                         truncated ? 1 : 0);
+}
+
+static int append_proc_auxv_brief(struct buffer *buf, pid_t pid, const char *label) {
+    char path[MAX_PATH_LEN];
+    struct {
+        unsigned long key;
+        unsigned long value;
+    } item;
+    int fd;
+    int count = 0;
+
+    proc_path(path, sizeof(path), pid, "auxv");
+    fd = open(path, O_RDONLY | O_CLOEXEC);
+    if (fd < 0) {
+        return append_format(buf,
+                             "capture.%s.auxv.error=%s\n",
+                             label,
+                             strerror(errno));
+    }
+    while (read(fd, &item, sizeof(item)) == (ssize_t)sizeof(item)) {
+        count++;
+        if (item.key == 0 || count >= 96) {
+            break;
+        }
+    }
+    close(fd);
+    return append_format(buf, "capture.%s.auxv.count=%d\n", label, count);
+}
+
+static int append_ptrace_siginfo_compact(struct buffer *buf, pid_t pid, const char *label) {
+    siginfo_t info;
+
+    memset(&info, 0, sizeof(info));
+    if (ptrace(PTRACE_GETSIGINFO, pid, NULL, &info) < 0) {
+        return append_format(buf,
+                             "capture.%s.siginfo.error=%s\n",
+                             label,
+                             strerror(errno));
+    }
+    return append_format(buf,
+                         "capture.%s.siginfo.signo=%d\n"
+                         "capture.%s.siginfo.code=%d\n"
+                         "capture.%s.siginfo.errno=%d\n"
+                         "capture.%s.siginfo.addr=%p\n",
+                         label,
+                         info.si_signo,
+                         label,
+                         info.si_code,
+                         label,
+                         info.si_errno,
+                         label,
+                         info.si_addr);
+}
+
+static int append_ptrace_regs_brief(struct buffer *buf, pid_t pid, const char *label) {
+    unsigned long long regs[96];
+    struct iovec iov;
+
+    memset(regs, 0, sizeof(regs));
+    iov.iov_base = regs;
+    iov.iov_len = sizeof(regs);
+    if (ptrace(PTRACE_GETREGSET, pid, (void *)(long)NT_PRSTATUS, &iov) < 0) {
+        return append_format(buf,
+                             "capture.%s.regset.nt_prstatus.error=%s\n",
+                             label,
+                             strerror(errno));
+    }
+    return append_format(buf,
+                         "capture.%s.regset.nt_prstatus.bytes=%zu\n",
+                         label,
+                         iov.iov_len);
+}
+
+static int append_capture_snapshot_compact(struct buffer *buf,
+                                           pid_t pid,
+                                           const char *label,
+                                           bool include_maps) {
+    if (append_format(buf, "capture.%s.pid=%ld\n", label, (long)pid) < 0 ||
+        append_proc_link_compact(buf, pid, label, "exe") < 0 ||
+        append_proc_link_compact(buf, pid, label, "cwd") < 0 ||
+        append_proc_auxv_brief(buf, pid, label) < 0 ||
+        append_ptrace_regs_brief(buf, pid, label) < 0 ||
+        append_proc_text_brief(buf, pid, label, "status", 8192) < 0) {
+        return -1;
+    }
+    if (include_maps &&
+        (append_proc_text_brief(buf, pid, label, "maps", 8192) < 0 ||
+         append_proc_text_brief(buf, pid, label, "mountinfo", 8192) < 0)) {
+        return -1;
+    }
+    return 0;
+}
+
 static int run_cnss_start_only_guarded(const struct config *cfg,
                                        const struct paths *paths,
                                        struct buffer *stdout_buf,
@@ -3124,6 +3312,7 @@ static int run_service_manager_start_only_guarded_ptrace(const struct config *cf
     if (append_literal(stdout_buf, "service_manager_start.begin=1\n") < 0 ||
         append_literal(stdout_buf, "service_manager_start.mode=guarded\n") < 0 ||
         append_literal(stdout_buf, "service_manager_start.capture_mode=ptrace-lite\n") < 0 ||
+        append_literal(stdout_buf, "service_manager_start.capture_detail=compact\n") < 0 ||
         append_format(stdout_buf, "service_manager_start.target=%s\n", cfg->target) < 0 ||
         append_format(stdout_buf, "service_manager_start.argv=%s\n", cfg->target) < 0 ||
         append_literal(stdout_buf, "service_manager_start.wifi_hal=0\n") < 0 ||
@@ -3132,6 +3321,7 @@ static int run_service_manager_start_only_guarded_ptrace(const struct config *cf
         return -1;
     }
     printf("capture.mode=ptrace-lite\n");
+    printf("capture.detail=compact\n");
     printf("capture.scope=service-manager-start-only\n");
 
     if (pipe2(stdout_pipe, O_CLOEXEC) < 0 || pipe2(stderr_pipe, O_CLOEXEC) < 0) {
@@ -3355,12 +3545,16 @@ static int run_service_manager_start_only_guarded_ptrace(const struct config *cf
                     if (sig == SIGTRAP && !exec_captured) {
                         exec_captured = true;
                         printf("capture.exec_stop=1\n");
-                        print_capture_snapshot(pid, "exec", true);
+                        if (append_capture_snapshot_compact(stdout_buf, pid, "exec", true) < 0) {
+                            goto fail;
+                        }
                     } else if (sig == SIGSEGV || sig == SIGBUS || sig == SIGILL || sig == SIGABRT) {
                         crash_captured = true;
                         printf("capture.crash_stop=1\n");
-                        print_ptrace_siginfo(pid, "crash");
-                        print_capture_snapshot(pid, "crash", true);
+                        if (append_ptrace_siginfo_compact(stdout_buf, pid, "crash") < 0 ||
+                            append_capture_snapshot_compact(stdout_buf, pid, "crash", true) < 0) {
+                            goto fail;
+                        }
                         deliver_sig = sig;
                     } else if (sig != SIGTRAP) {
                         deliver_sig = sig;

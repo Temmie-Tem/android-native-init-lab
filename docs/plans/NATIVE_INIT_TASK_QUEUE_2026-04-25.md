@@ -8169,3 +8169,16 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
   - `hwservicemanager`: host runner missed `A90P1 END`; bridge capture shows eventual `duration_ms=85317`, but machine-readable `service_manager_start.*` summary was not captured
   - postflight read-only checks: native status/selftest PASS, no manager process, no Wi-Fi link
 - next execution item: V386 compact ptrace capture mode; Wi-Fi HAL/start/scan/connect remains blocked
+
+### V386. Compact Ptrace Capture Helper — READY FOR APPROVAL
+
+- plan: `docs/plans/NATIVE_INIT_V386_COMPACT_PTRACE_CAPTURE_PLAN_2026-05-20.md`
+- readiness: `docs/reports/NATIVE_INIT_V386_COMPACT_PTRACE_CAPTURE_2026-05-20.md`
+- local helper: `tmp/wifi/v386-a90_android_execns_probe-v17/a90_android_execns_probe`
+- sha256: `45c27e28c90a86c75a291edaf16d8233da51358647c1e6d1700f0e4f9cf437c5`
+- host wrappers:
+  - `scripts/revalidation/wifi_execns_helper_v17_deploy_preflight.py`
+  - `scripts/revalidation/wifi_service_manager_start_only_v386_live_runner.py`
+  - `scripts/revalidation/wifi_v386_deploy_live_executor.py`
+- validation: local static build PASS, required strings PASS, `py_compile` PASS, `git diff --check` PASS, plan-only/no-approval gates PASS.
+- next execution item: wait for exact v386 deploy approval, then exact v386 compact ptrace live approval. Wi-Fi HAL/start/scan/connect remains blocked.
