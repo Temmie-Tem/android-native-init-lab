@@ -21,6 +21,7 @@
   - V382 result-router regression
   - V382 no-approval route
 - It checks each sub-manifest for current git head, clean tree state, expected decision, expected pass value, allowed blockers, and no out-of-scope execution.
+- The live no-approval manifest itself has no `remaining_blockers`; the live approval blocker is enforced by the V382 result-router output.
 
 ## Pre-Commit Evidence
 

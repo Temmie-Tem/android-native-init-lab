@@ -139,7 +139,7 @@ def steps() -> list[ReadinessStep]:
             Path("tmp/wifi/v382-final-readiness-live-noapproval/manifest.json"),
             "service-manager-start-only-live-approval-required",
             True,
-            (LIVE_APPROVAL_BLOCKER,),
+            (),
             require_no_device_execution=True,
             require_no_device_mutation=True,
             require_no_daemon_start=True,
