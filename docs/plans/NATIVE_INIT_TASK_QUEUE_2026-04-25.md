@@ -5284,13 +5284,18 @@
   - V375 helper deploy/preflight packet: install v12 to `/cache/bin/a90_android_execns_probe`, verify remote marker/SHA-256, and rerun V373 preflight
   - service-manager live start remains blocked until deploy evidence and exact V373 approval are present
 
-### V375. Execns Helper v12 Deploy Preflight — BLOCKED / AWAITING NCM + APPROVAL
+### V375. Execns Helper v12 Deploy Preflight — PASS
 
 - 계획: `docs/plans/NATIVE_INIT_V375_EXECNS_HELPER_V12_DEPLOY_PREFLIGHT_PLAN_2026-05-20.md`
 - 보고서: `docs/reports/NATIVE_INIT_V375_EXECNS_HELPER_V12_DEPLOY_PREFLIGHT_2026-05-20.md`
 - evidence:
   - plan: `tmp/wifi/v375-plan-smoke/`
   - preflight: `tmp/wifi/v375-preflight-20260520-015315/`
+  - approved blocked run: `tmp/wifi/v375-approved-run-blocked-20260520-015737/`
+  - serial fallback failure: `tmp/wifi/v375-deploy-serial-20260520-020309/`
+  - serial fallback pass: `tmp/wifi/v375-deploy-serial2-20260520-020415/`
+  - postdeploy V375 preflight: `tmp/wifi/v375-postdeploy-preflight-20260520-021126/`
+  - postdeploy V373 preflight: `tmp/wifi/v375-v373-postdeploy-preflight-20260520-021126/`
 - boot image: 없음. v375는 host-side helper deploy/preflight runner이며 native init version 변경 없음
 - validation:
   - V375 runner plan PASS
@@ -5299,14 +5304,18 @@
   - native `version`/`status`/`selftest` PASS
   - service-manager process surface clean PASS
   - Wi-Fi link surface clean PASS
-  - remote helper remains v11 and lacks `service-manager-start-only`
-  - host NCM ping to `192.168.7.2` failed, so deploy is blocked before `/cache/bin` write
+  - first approved run blocked safely when NCM host IPv4 was absent
+  - NCM-independent serial fallback added and validated through `appendfile` + `toybox uudecode -o`
+  - remote helper SHA now matches `fef21de2897b16e4ead7fe780eff1817675d4ce988e558013ac9a37dc928d918`
+  - remote helper usage now includes `a90_android_execns_probe v12`, `--allow-service-manager-start-only`, and `service-manager-start-only`
+  - V373 post-deploy preflight decision `service-manager-start-only-smoke-approval-required`
+  - repeated V375 post-deploy preflight decision `execns-helper-v12-deploy-preflight-ready`
+  - V373 `helper-service-manager-mode` PASS
 - required deploy phrase:
   - `approve v375 deploy execns helper v12 only; no daemon start and no Wi-Fi bring-up`
 - next:
-  - restore host NCM reachability
-  - rerun approved V375 `run` to deploy/verify v12 only
-  - after V375 deploy PASS, rerun V373 preflight; service-manager live start remains a separate approval step
+  - V373 service-manager start-only smoke can be run only with separate exact approval phrase
+  - Wi-Fi HAL start and Wi-Fi bring-up remain blocked
 
 ### V187. Harness Broker Backend — PASS
 

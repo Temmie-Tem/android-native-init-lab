@@ -24,6 +24,8 @@ approve v375 deploy execns helper v12 only; no daemon start and no Wi-Fi bring-u
   - NCM `192.168.7.2`
   - device `toybox netcat` + `dd` receive
   - host `tcpctl_host.py install` 패턴 재사용
+  - NCM host IP가 불안정하면 serial `appendfile` + `toybox uudecode -o` fallback 사용
+  - serial staging path: `/cache/a90-runtime/bin`
 
 ## Guardrails
 
@@ -31,6 +33,7 @@ approve v375 deploy execns helper v12 only; no daemon start and no Wi-Fi bring-u
 - `preflight`: read-only native state, local helper hash/string, host NCM ping만 확인.
 - `run` without exact phrase: device write 없음.
 - approved `run`: helper install/verify와 V373 preflight 재실행만 수행.
+- serial fallback도 같은 approval gate를 공유하며 `/cache/bin` helper 교체 외 동작은 수행하지 않는다.
 - 명시적 금지:
   - service-manager family process start
   - Wi-Fi HAL/wificond/supplicant/hostapd/CNSS/diag start

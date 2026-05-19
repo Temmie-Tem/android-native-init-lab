@@ -18,14 +18,17 @@ import argparse
 import datetime as dt
 import hashlib
 import json
+import os
 import re
 import subprocess
 import sys
+import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
 from a90_kernel_tools import collect_host_metadata, markdown_table, repo_path, run_capture, strip_cmdv1_text
+from a90ctl import run_cmdv1_command
 from a90harness.evidence import EvidenceStore
 
 
@@ -126,6 +129,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--toybox", default=DEFAULT_TOYBOX)
     parser.add_argument("--device-ip", default=DEFAULT_DEVICE_IP)
     parser.add_argument("--transfer-port", type=int, default=DEFAULT_TRANSFER_PORT)
+    parser.add_argument("--transfer-method", choices=("auto", "ncm", "serial"), default="auto")
+    parser.add_argument("--serial-chunk-size", type=int, default=1400)
+    parser.add_argument("--serial-staging-dir", default="/cache/a90-runtime/bin")
     parser.add_argument("--approval-phrase", default="")
     parser.add_argument("--apply", action="store_true")
     parser.add_argument("--assume-yes", action="store_true")
@@ -205,6 +211,10 @@ def run_host_ping(args: argparse.Namespace, store: EvidenceStore) -> dict[str, A
     return {"rc": rc, "ok": rc == 0, "file": "host/ping-device.txt"}
 
 
+def ncm_required(args: argparse.Namespace) -> bool:
+    return args.transfer_method == "ncm"
+
+
 def build_checks(args: argparse.Namespace, store: EvidenceStore, steps: list[StepResult],
                  local: dict[str, Any], ping: dict[str, Any] | None) -> list[Check]:
     checks: list[Check] = []
@@ -253,11 +263,11 @@ def build_checks(args: argparse.Namespace, store: EvidenceStore, steps: list[Ste
     add_check(
         checks,
         "ncm-host-reachable",
-        "pass" if ping and ping["ok"] else "blocked",
-        "blocker",
-        f"ping_rc={ping['rc'] if ping else 'skipped'} device_ip={args.device_ip}",
+        "pass" if ping and ping["ok"] else ("blocked" if ncm_required(args) else "warn"),
+        "blocker" if ncm_required(args) else "warning",
+        f"ping_rc={ping['rc'] if ping else 'skipped'} device_ip={args.device_ip} transfer_method={args.transfer_method}",
         [ping["file"]] if ping else [],
-        "run ncm_host_setup.py setup before deploy",
+        "run ncm_host_setup.py setup before NCM deploy; auto/serial can use serial fallback",
     )
     add_check(
         checks,
@@ -309,6 +319,13 @@ def blocking_checks(checks: list[Check], *, ignore_deploy: bool) -> list[str]:
 
 
 def run_install(args: argparse.Namespace, store: EvidenceStore) -> dict[str, Any]:
+    if args.transfer_method == "serial":
+        return run_serial_install(args, store)
+    if args.transfer_method == "auto":
+        ping = run_host(["ping", "-c", "1", "-W", "1", args.device_ip], timeout=3)
+        if ping[0] != 0:
+            return run_serial_install(args, store)
+
     command = [
         sys.executable,
         str(repo_path(TCPCTL_SCRIPT)),
@@ -330,7 +347,114 @@ def run_install(args: argparse.Namespace, store: EvidenceStore) -> dict[str, Any
     ]
     rc, output = run_host(command, timeout=150)
     store.write_text("host/tcpctl-install-helper.txt", output)
-    return {"command": " ".join(command), "rc": rc, "ok": rc == 0, "file": "host/tcpctl-install-helper.txt"}
+    return {"method": "ncm", "command": " ".join(command), "rc": rc, "ok": rc == 0, "file": "host/tcpctl-install-helper.txt"}
+
+
+def uu_char(value: int) -> str:
+    value &= 0x3f
+    return chr(value + 0x20) if value else "`"
+
+
+def uuencode_bytes(data: bytes, *, name: str, mode: int = 0o755) -> str:
+    lines = [f"begin {mode:o} {name}\n"]
+    for offset in range(0, len(data), 45):
+        chunk = data[offset:offset + 45]
+        padded = chunk + b"\0" * ((3 - len(chunk) % 3) % 3)
+        encoded = []
+        for index in range(0, len(padded), 3):
+            first, second, third = padded[index], padded[index + 1], padded[index + 2]
+            encoded.extend(
+                uu_char(value)
+                for value in (
+                    first >> 2,
+                    ((first << 4) & 0x30) | (second >> 4),
+                    ((second << 2) & 0x3c) | (third >> 6),
+                    third & 0x3f,
+                )
+            )
+        lines.append(uu_char(len(chunk)) + "".join(encoded) + "\n")
+    lines.append("`\nend\n")
+    return "".join(lines)
+
+
+def run_device(args: argparse.Namespace, argv: list[str], timeout: float = 30.0) -> tuple[bool, str, int | None, str]:
+    try:
+        result = run_cmdv1_command(args.host, args.port, timeout, argv, retry_unsafe=False)
+    except Exception as exc:  # noqa: BLE001 - deploy evidence keeps failure text
+        return False, str(exc) + "\n", None, "missing"
+    return result.rc == 0 and result.status == "ok", result.text, result.rc, result.status
+
+
+def run_serial_install(args: argparse.Namespace, store: EvidenceStore) -> dict[str, Any]:
+    local_path = repo_path(args.local_helper)
+    target = args.remote_helper
+    target_dir = str(Path(target).parent)
+    target_name = Path(target).name
+    stamp = f"{int(time.time())}.{os.getpid()}"
+    staging_dir = args.serial_staging_dir.rstrip("/")
+    staging = f"{staging_dir}/.{target_name}.v12.{stamp}.uu"
+    tmp_target = f"{target_dir}/.{target_name}.tmp.{stamp}"
+    transcript: list[str] = []
+    chunks_written = 0
+
+    data = local_path.read_bytes()
+    encoded = uuencode_bytes(data, name=Path(tmp_target).name, mode=0o755)
+    chunk_size = max(256, min(args.serial_chunk_size, 3000))
+
+    def step(name: str, argv: list[str], timeout: float = 30.0, allow_error: bool = False) -> str:
+        ok, text, rc, status = run_device(args, argv, timeout)
+        transcript.append(f"## {name}\nargv={argv!r}\nok={ok} rc={rc} status={status}\n{text}\n")
+        if not ok and not allow_error:
+            raise RuntimeError(f"serial deploy step failed: {name} rc={rc} status={status}\n{text}")
+        return text
+
+    try:
+        step("mkdir-staging-dir", ["mkdir", staging_dir], allow_error=True)
+        step("rm-staging", ["run", args.toybox, "rm", "-f", staging], allow_error=True)
+        step("rm-tmp", ["run", args.toybox, "rm", "-f", tmp_target], allow_error=True)
+        for offset in range(0, len(encoded), chunk_size):
+            chunk = encoded[offset:offset + chunk_size]
+            step(f"append-{chunks_written:04d}", ["appendfile", staging, chunk], timeout=20.0)
+            chunks_written += 1
+            if chunks_written % 100 == 0:
+                print(f"[v375] serial append chunks={chunks_written}", flush=True)
+        step("uudecode", ["run", args.toybox, "uudecode", "-o", tmp_target, staging], timeout=60.0)
+        step("chmod", ["run", args.toybox, "chmod", "755", tmp_target])
+        sha_text = step("sha-tmp", ["run", args.toybox, "sha256sum", tmp_target])
+        if args.helper_sha256 not in sha_text:
+            raise RuntimeError(f"tmp helper sha256 mismatch, expected {args.helper_sha256}\n{sha_text}")
+        step("mv-target", ["run", args.toybox, "mv", "-f", tmp_target, target])
+        target_sha = step("sha-target", ["run", args.toybox, "sha256sum", target])
+        if args.helper_sha256 not in target_sha:
+            raise RuntimeError(f"target helper sha256 mismatch, expected {args.helper_sha256}\n{target_sha}")
+        step("helper-usage", ["run", target], timeout=20.0, allow_error=True)
+        step("rm-staging-post", ["run", args.toybox, "rm", "-f", staging], allow_error=True)
+    except Exception as exc:
+        try:
+            run_device(args, ["run", args.toybox, "rm", "-f", tmp_target], timeout=20.0)
+        finally:
+            store.write_text("host/serial-install-helper.txt", "\n".join(transcript))
+        return {
+            "method": "serial",
+            "command": "serial appendfile + uudecode",
+            "rc": 1,
+            "ok": False,
+            "file": "host/serial-install-helper.txt",
+            "error": str(exc),
+            "chunks_written": chunks_written,
+            "encoded_bytes": len(encoded.encode("utf-8")),
+        }
+
+    store.write_text("host/serial-install-helper.txt", "\n".join(transcript))
+    return {
+        "method": "serial",
+        "command": "serial appendfile + uudecode",
+        "rc": 0,
+        "ok": True,
+        "file": "host/serial-install-helper.txt",
+        "chunks_written": chunks_written,
+        "encoded_bytes": len(encoded.encode("utf-8")),
+    }
 
 
 def run_v373_preflight(args: argparse.Namespace, store: EvidenceStore) -> dict[str, Any]:
