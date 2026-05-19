@@ -1889,3 +1889,10 @@ Samsung bootloader
    - v392 approved backchain result: `docs/reports/NATIVE_INIT_V392_APPROVED_BACKCHAIN_CAPTURE_RESULT_2026-05-20.md`
    - v392 approved 결과: helper v21 deploy PASS, service-manager backchain capture PASS, `hwservicemanager`은 `start-only-pass`, `servicemanager`은 SIGABRT `start-only-runtime-gap`이나 cleanup/postflight safe. framechain은 7 frames를 캡처했고 libc frame `__libc_init`만 symbolization PASS, `servicemanager`/`libbase`/`liblog` frames는 matching ELF artifact가 없어 미해석
    - v396 다음: read-only frame ELF pull/symbolization. `/mnt/system/system/bin/servicemanager`, `/mnt/system/system/lib64/libbase.so`, `/mnt/system/system/lib64/liblog.so`를 host에 안전하게 mirror한 뒤 V392 framechain analyzer를 재실행한다. Wi-Fi HAL/start/scan/connect remains blocked
+
+   - v396 plan: `docs/plans/NATIVE_INIT_V396_FRAME_ELF_SYMBOLIZATION_PLAN_2026-05-20.md`
+   - v396 report: `docs/reports/NATIVE_INIT_V396_FRAME_ELF_SYMBOLIZATION_2026-05-20.md`
+   - v396 evidence: `tmp/wifi/v396-frame-elf-pull-20260520-073940/`
+   - v396 결과: read-only `servicemanager`/`libbase.so`/`liblog.so` pull PASS, framechain rerun `service-manager-framechain-symbolization-pass`, `device_mutations=False`, `daemon_start_executed=False`, `wifi_bringup_executed=False`
+   - v396 해석: missing-ELF blocker는 제거됐다. frame0/1은 fatal-log abort path이고 frame2 `servicemanager+0x8294`는 `frameworks/native/cmds/servicemanager/Access.cpp` fatal-log site 근방이다. 주변 문자열상 `selinux_status_open(true)`, `gSehandle`, `getcon` 관련 SELinux runtime/status surface가 가장 강한 후보지만 아직 확정은 아니다
+   - v397 다음: private Android namespace에서 `/sys/fs/selinux`, SELinux status/context/service-context 입력, binder devnode와 service-manager fatal 조건을 read-only로 증명한다. Wi-Fi HAL/start/scan/connect remains blocked

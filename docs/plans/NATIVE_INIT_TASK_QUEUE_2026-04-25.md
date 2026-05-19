@@ -20,22 +20,17 @@
 - 상세 규칙: `docs/operations/VERSIONING_POLICY.md`
 
 
-## Current Wi-Fi V382 Handoff Status (2026-05-20)
+## Current Wi-Fi V396 Runtime-Gap Status (2026-05-20)
 
 - current native build remains `A90 Linux init 0.9.61 (v319)`.
-- current Wi-Fi handoff cycle is V382 host tooling, not a new boot-image flash.
-- added guarded executor `scripts/revalidation/wifi_v382_deploy_live_executor.py`.
-- reports: `docs/reports/NATIVE_INIT_V382_DEPLOY_LIVE_EXECUTOR_2026-05-20.md`, `docs/reports/NATIVE_INIT_V382_APPROVED_DEPLOY_LIVE_RESULT_2026-05-20.md`.
-- no-approval deploy/live/full regression: `approval-required` PASS, no device commands, no mutations, no daemon start, no Wi-Fi bring-up.
-- approved executor `full`: `v382-deploy-live-executor-full-pass`, helper v14 deployed, service-manager live route `service-manager-start-only-router-runtime-gap`, Wi-Fi bring-up false.
-- v383 classifier: `service-manager-runtime-gap-servicemanager-sigabrt-capture-required` PASS from V382 live evidence; report `docs/reports/NATIVE_INIT_V383_SERVICEMANAGER_SIGABRT_CLASSIFIER_2026-05-20.md`.
-- v384 plan: `docs/plans/NATIVE_INIT_V384_SERVICEMANAGER_CRASH_CAPTURE_PLAN_2026-05-20.md`.
-- v384 local/helper implementation: `docs/reports/NATIVE_INIT_V384_SERVICEMANAGER_CRASH_CAPTURE_2026-05-20.md`; helper v15 local SHA `dfd543c02ccefbbbcf2fe0eb7ee168b40d40363927a63104c7aef0b9aed0bb16`; no deploy/live executed.
-- v384 executor: `scripts/revalidation/wifi_v384_deploy_live_executor.py`; report `docs/reports/NATIVE_INIT_V384_DEPLOY_LIVE_EXECUTOR_2026-05-20.md`; no-approval full regression PASS with no device commands/mutations/daemon/Wi-Fi.
-- v384 handoff: `docs/operations/WIFI_V384_PTRACE_LIVE_HANDOFF.md`.
-- v384 preflight ready: `docs/reports/NATIVE_INIT_V384_PREFLIGHT_READY_2026-05-20.md`.
-- v384 preapproval audit: `docs/reports/NATIVE_INIT_V384_PREAPPROVAL_AUDIT_2026-05-20.md`, decision `v384-preapproval-audit-pass`, no device commands/mutations/daemon/Wi-Fi.
-- next execution item: v384 approved deploy of helper v15, then approved service-manager ptrace-lite crash capture; no Wi-Fi HAL/start/scan/connect.
+- current Wi-Fi work is host tooling plus bounded read-only evidence, not a new boot-image flash.
+- latest approved live step: V392 helper v21 deploy plus bounded service-manager backchain capture.
+- latest report: `docs/reports/NATIVE_INIT_V396_FRAME_ELF_SYMBOLIZATION_2026-05-20.md`.
+- V392 live result: `hwservicemanager` start-only PASS; `servicemanager` remains `start-only-runtime-gap` with SIGABRT; cleanup/postflight safe; Wi-Fi bring-up false.
+- V396 result: read-only pull of `/mnt/system/system/bin/servicemanager`, `/mnt/system/system/lib64/libbase.so`, and `/mnt/system/system/lib64/liblog.so` PASS.
+- V396 framechain rerun: `service-manager-framechain-symbolization-pass`, no remaining missing-ELF blockers.
+- current interpretation: `servicemanager` abort is likely a fatal Android runtime contract check, with SELinux status/context surface the strongest current candidate.
+- next execution item: V397 SELinux status/runtime surface proof before runtime repair, service-manager clean-start, or Wi-Fi HAL/start/scan/connect.
 
 ## 현재 고정 기준점
 
@@ -8407,3 +8402,20 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
   - frame4 bionic `libc.so + 0x84378`, symbol `__libc_init`
   - frame5 `/system/bin/servicemanager + 0x8058`, ELF missing
 - next execution item: V396 read-only pull and symbolization of `servicemanager`, `libbase.so`, and `liblog.so` frame ELFs. Wi-Fi HAL/start/scan/connect remains blocked.
+
+### V396. Frame ELF Symbolization — PASS / SELINUX SURFACE CANDIDATE
+
+- plan: `docs/plans/NATIVE_INIT_V396_FRAME_ELF_SYMBOLIZATION_PLAN_2026-05-20.md`
+- report: `docs/reports/NATIVE_INIT_V396_FRAME_ELF_SYMBOLIZATION_2026-05-20.md`
+- evidence: `tmp/wifi/v396-frame-elf-pull-20260520-073940/`
+- result:
+  - `scripts/revalidation/wifi_service_manager_frame_elf_pull.py` added with strict allowlist/read-only transfer guardrails.
+  - pulled `/mnt/system/system/bin/servicemanager`, `/mnt/system/system/lib64/libbase.so`, and `/mnt/system/system/lib64/liblog.so`.
+  - framechain rerun: `service-manager-framechain-symbolization-pass`.
+  - `device_mutations=False`, `daemon_start_executed=False`, `wifi_bringup_executed=False`.
+- interpretation:
+  - frame0 `liblog.so+0x63bc` resolves to `__android_log_set_aborter`.
+  - frame1 `libbase.so+0x16188` resolves to `android::base::LogMessage::~LogMessage()`.
+  - frame2 `servicemanager+0x8294` is a fatal-log return site near `frameworks/native/cmds/servicemanager/Access.cpp` line-immediate `441`.
+  - relevant strings include `Check failed: selinux_status_open(true ) >= 0`, `Check failed: gSehandle != nullptr`, and `Check failed: getcon(&mThisProcessContext) == 0`.
+- next execution item: V397 SELinux status/runtime surface proof. Wi-Fi HAL/start/scan/connect remains blocked.
