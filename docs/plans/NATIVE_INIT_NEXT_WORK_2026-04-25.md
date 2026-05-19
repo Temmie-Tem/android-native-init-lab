@@ -1521,6 +1521,9 @@ Samsung bootloader
    - v329 계획서: `docs/plans/NATIVE_INIT_V329_WIFI_READINESS_DASHBOARD_PLAN_2026-05-19.md`
    - v329 보고서: `docs/reports/NATIVE_INIT_V329_WIFI_READINESS_DASHBOARD_2026-05-19.md`
    - v329 해석: Wi-Fi readiness dashboard를 host-only로 생성했다. 현재 decision은 `wifi-readiness-dashboard-ready-blocked-by-v317`이며, vendor assets/property layout은 준비됐지만 CNSS start-only 반복은 유효하지 않고 service-manager는 property runtime/process prerequisites로 막혀 있다
+   - v330 계획서: `docs/plans/NATIVE_INIT_V330_WIFI_EVIDENCE_FRESHNESS_PLAN_2026-05-19.md`
+   - v330 보고서: `docs/reports/NATIVE_INIT_V330_WIFI_EVIDENCE_FRESHNESS_2026-05-19.md`
+   - v330 해석: V325-V329 evidence를 current clean git head에서 재생성했는지 audit했다. decision은 `wifi-evidence-freshness-clean`이며 device command/mutation은 없다
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
 ---

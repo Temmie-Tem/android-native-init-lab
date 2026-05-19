@@ -4304,6 +4304,25 @@
   - exact v317 approval phrase가 있으면 v317 minimal live proof 진행
   - approval이 없으면 dashboard 기반으로 다른 host-only/read-only 후보 선정
 
+### V330. Wi-Fi Evidence Freshness Audit — PASS / HOST-ONLY
+
+- 계획: `docs/plans/NATIVE_INIT_V330_WIFI_EVIDENCE_FRESHNESS_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V330_WIFI_EVIDENCE_FRESHNESS_2026-05-19.md`
+- tool: `scripts/revalidation/wifi_evidence_freshness_audit.py`
+- evidence: `tmp/wifi/v330-evidence-freshness-audit/`
+- boot image: 없음. v330은 host-only evidence freshness audit이며 native init version 변경 없음
+- validation:
+  - `py_compile` PASS
+  - `git diff --check` PASS
+  - decision `wifi-evidence-freshness-clean`
+  - `pass=true`
+  - V325-V329 evidence git head matches current clean head
+  - `device_commands_executed=false`
+  - `device_mutations=false`
+- next:
+  - exact v317 approval phrase가 있으면 v317 minimal live proof 진행
+  - approval이 없으면 다른 host-only/read-only 후보 선정
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
