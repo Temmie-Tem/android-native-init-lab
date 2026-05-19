@@ -28,7 +28,8 @@
 - reports: `docs/reports/NATIVE_INIT_V382_DEPLOY_LIVE_EXECUTOR_2026-05-20.md`, `docs/reports/NATIVE_INIT_V382_APPROVED_DEPLOY_LIVE_RESULT_2026-05-20.md`.
 - no-approval deploy/live/full regression: `approval-required` PASS, no device commands, no mutations, no daemon start, no Wi-Fi bring-up.
 - approved executor `full`: `v382-deploy-live-executor-full-pass`, helper v14 deployed, service-manager live route `service-manager-start-only-router-runtime-gap`, Wi-Fi bring-up false.
-- next execution item: v383 `servicemanager` SIGABRT runtime-gap classifier/evidence capture.
+- v383 classifier: `service-manager-runtime-gap-servicemanager-sigabrt-capture-required` PASS from V382 live evidence; report `docs/reports/NATIVE_INIT_V383_SERVICEMANAGER_SIGABRT_CLASSIFIER_2026-05-20.md`.
+- next execution item: v384 service-manager start-only early-crash evidence capture helper; no Wi-Fi HAL/start/scan/connect.
 
 ## 현재 고정 기준점
 
