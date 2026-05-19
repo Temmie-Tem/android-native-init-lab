@@ -4654,6 +4654,26 @@
 - next:
   - exact V317 approval phrase 없이는 live proof 실행하지 않음
 
+
+### V348. V317 Handoff Command Contract — PASS / HOST-ONLY
+
+- 계획: `docs/plans/NATIVE_INIT_V348_HANDOFF_COMMAND_CONTRACT_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V348_HANDOFF_COMMAND_CONTRACT_2026-05-19.md`
+- tool: `scripts/revalidation/wifi_v317_handoff_command_contract.py`
+- boot image: 없음. v348은 host-only handoff command contract linter이며 native init version 변경 없음
+- 구현:
+  - V340 generated preflight/live/cleanup command를 `shlex`로 파싱
+  - script/subcommand/out-dir/V336 gate manifest/exact approval phrase/approval flags 검증
+  - preflight/live/cleanup output directory distinct 검증
+  - generated command는 실행하지 않음
+- validation:
+  - `py_compile` PASS
+  - decision `v317-handoff-command-contract-pass`
+  - blocked checks 없음
+  - `device_commands_executed=false`, `device_mutations=false`
+- next:
+  - exact V317 approval phrase 없이는 live proof 실행하지 않음
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`

@@ -1575,6 +1575,9 @@ Samsung bootloader
    - v347 계획서: `docs/plans/NATIVE_INIT_V347_GATE_REFRESH_GENERATED_PREFLIGHT_PLAN_2026-05-19.md`
    - v347 보고서: `docs/reports/NATIVE_INIT_V347_GATE_REFRESH_GENERATED_PREFLIGHT_2026-05-19.md`
    - v347 해석: `wifi_v317_gate_refresh.py --run-approved-preflight`가 V340 manifest의 generated preflight command까지 직접 실행해 검증하도록 확장했고, clean HEAD에서 direct/generated preflight 모두 PASS했다
+   - v348 계획서: `docs/plans/NATIVE_INIT_V348_HANDOFF_COMMAND_CONTRACT_PLAN_2026-05-19.md`
+   - v348 보고서: `docs/reports/NATIVE_INIT_V348_HANDOFF_COMMAND_CONTRACT_2026-05-19.md`
+   - v348 해석: V340 generated preflight/live/cleanup command의 script/subcommand/out-dir/approval/gate contract를 host-only linter로 검증했다
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
 ---
