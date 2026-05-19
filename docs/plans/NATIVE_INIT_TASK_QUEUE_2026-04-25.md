@@ -2745,6 +2745,30 @@
   - request explicit approval for bounded QRTR nameservice no-scan runner design/run, or
   - choose a non-transmit alternative such as opt-in perfd/property/kmsg shim design
 
+### V266. QRTR Nameservice Runner Skeleton — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V266_QRTR_NAMESERVICE_RUNNER_SKELETON_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V266_QRTR_NAMESERVICE_RUNNER_SKELETON_2026-05-19.md`
+- baseline input: `tmp/wifi/v264-qrtr-qmi-nameservice-model/manifest.json`
+- boot image change: 없음
+- daemon start: 없음
+- QRTR/QMI packet transmission: 구현 안 됨, 실행 안 됨
+- host tool: `scripts/revalidation/wifi_qrtr_nameservice_runner.py`
+- output: `tmp/wifi/v266-qrtr-nameservice-runner-skeleton/`
+- validation:
+  - `plan`: decision `qrtr-ns-runner-plan-ready`, PASS
+  - `preflight`: decision `qrtr-ns-runner-preflight-ready`, PASS
+  - `run` without approval: decision `qrtr-ns-runner-fail-closed`, PASS
+  - `run` with approval flags: decision `qrtr-ns-runner-transmit-not-implemented`, exit 1
+- interpretation:
+  - runner command surface now exists
+  - read-only bridge preflight passes
+  - no-approval run is fail-closed
+  - even with approval flags, v266 cannot transmit because no helper exists
+- next execution item:
+  - v267 transmit-capable helper design without execution, or
+  - explicit approval for bounded `QRTR_TYPE_NEW_LOOKUP` no-scan implementation/run after design review
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
