@@ -8156,3 +8156,16 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
   - `scripts/revalidation/wifi_v385_deploy_live_executor.py`
 - validation: local build PASS, `py_compile` PASS, `git diff --check` PASS, no-approval plan/live gates PASS, deploy/live preflight blocks because remote helper is still v15.
 - next execution item: wait for exact v385 deploy approval, then exact v385 residual PGID cleanup live approval. Wi-Fi bring-up remains blocked.
+
+### V385. Approved Residual PGID Cleanup Live — REVIEW REQUIRED
+
+- result: `docs/reports/NATIVE_INIT_V385_APPROVED_LIVE_RESULT_2026-05-20.md`
+- deploy evidence: `tmp/wifi/v385-approved-deploy-serial-20260520-050248/`
+- live evidence: `tmp/wifi/v385-approved-live-20260520-050940/`
+- bridge tail evidence: `tmp/wifi/v385-approved-live-20260520-050940/native/run-system-hwservicemanager-bridge-tail.txt`
+- result:
+  - helper v16 deployed by serial path, SHA `4478c73518e950b425af0cf7db28e9570c983f428fbb0d4b5d2ee45573d37cd8`
+  - `servicemanager`: `start-only-runtime-gap`, SIGABRT captured, `postflight_safe=1`, `residual_cleared=1`
+  - `hwservicemanager`: host runner missed `A90P1 END`; bridge capture shows eventual `duration_ms=85317`, but machine-readable `service_manager_start.*` summary was not captured
+  - postflight read-only checks: native status/selftest PASS, no manager process, no Wi-Fi link
+- next execution item: V386 compact ptrace capture mode; Wi-Fi HAL/start/scan/connect remains blocked

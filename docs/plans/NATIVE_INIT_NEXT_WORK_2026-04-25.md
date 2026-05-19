@@ -1796,3 +1796,8 @@ Samsung bootloader
    - v385 구현 상태: `a90_android_execns_probe v16`은 residual process-group scan/final SIGKILL/recheck evidence를 추가한다. 로컬 SHA256은 `4478c73518e950b425af0cf7db28e9570c983f428fbb0d4b5d2ee45573d37cd8`이다
    - v385 검증 상태: static build/py_compile/diff check PASS. no-approval executor는 device mutation/daemon/Wi-Fi 없이 막혔고, preflight는 remote helper가 아직 v15이므로 v16 deploy 필요로 막힌다
    - v385 실행 조건: deploy는 exact `approve v385 deploy execns helper v16 only; no daemon start and no Wi-Fi bring-up`, live는 exact `approve v385 service-manager residual pgid cleanup only; no Wi-Fi HAL start and no Wi-Fi bring-up` 필요
+
+   - v385 approved result report: `docs/reports/NATIVE_INIT_V385_APPROVED_LIVE_RESULT_2026-05-20.md`
+   - v385 approved deploy: serial transfer installed helper v16 SHA `4478c73518e950b425af0cf7db28e9570c983f428fbb0d4b5d2ee45573d37cd8`; daemon start/Wi-Fi bring-up 없음
+   - v385 approved live: `servicemanager` cleanup proof PASS but runtime gap remains. `hwservicemanager` produced large ptrace exec snapshot and host capture missed `A90P1 END`; bridge capture shows eventual 85s completion, but `service_manager_start.*` summary fields were not captured. Postflight device state is clean
+   - v386 다음: compact ptrace capture mode. service-manager live proof must reduce serial output and preserve machine-readable residual cleanup summary before any Wi-Fi HAL/start/scan/connect step
