@@ -1562,7 +1562,7 @@ Samsung bootloader
    - v342 해석: V317 runner에 no-device-command `preflight` 모드를 추가하고 handoff packet에 preflight command와 current-tree-clean check를 추가했다
    - v343 계획서: `docs/plans/NATIVE_INIT_V343_BREAK_V331_V336_CYCLE_PLAN_2026-05-19.md`
    - v343 보고서: `docs/reports/NATIVE_INIT_V343_BREAK_V331_V336_CYCLE_2026-05-19.md`
-   - v343 해석: V342 후 발견된 V331/V336/V333 순환 의존성을 끊었다. V336은 pre-live 입력만 확인하고, V331/V340은 V336 이후 handoff 산출물로 남긴다
+   - v343 해석: V342 후 발견된 V331/V336/V333 순환 의존성을 끊었다. clean HEAD `da70622`에서 V336/V331/V339/V340과 approved preflight가 PASS했고 남은 blocker는 exact V317 approval phrase 하나다
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
 ---

@@ -4,7 +4,7 @@
 - scope: host-side V317 gate dependency correction
 - device command: none
 - device mutation: none
-- result: `PRE-COMMIT PASS / POST-COMMIT REGEN REQUIRED`
+- result: `PASS / HOST-ONLY`
 
 ## Summary
 
@@ -42,18 +42,34 @@ V331/V333 are no longer V336 blockers.
 V326/V327/V328/V335 still block because current evidence was generated from a dirty or stale affected head.
 ```
 
-## Post-commit Validation Plan
+## Post-commit Validation
 
-After this report is committed, regenerate V326/V327/V328/V335/V336/V331/V339/V340
-on the clean current head, then run the approved preflight. Expected final state:
+After commit `da70622`, canonical host-only evidence was regenerated on clean HEAD. Observed final state:
 
 ```text
-V336: v317-prelive-gate-awaiting-approval
-V331: v317-live-readiness-packet-ready
-V339: v317-live-surface-lint-pass
-V340: v317-handoff-awaiting-approval
-V342 approved preflight: private-property-namespace-proof-preflight-ready
+V336: v317-prelive-gate-awaiting-approval / pass=true / blocker=exact-v317-approval-phrase
+V331: v317-live-readiness-packet-ready / pass=true / live_execution_approved=false
+V339: v317-live-surface-lint-pass / pass=true
+V340: v317-handoff-awaiting-approval / pass=true / blocker=exact-v317-approval-phrase
+V342 approved preflight: private-property-namespace-proof-preflight-ready / commands=[]
 ```
+
+## Regenerated Evidence
+
+- `tmp/wifi/v326-private-property-chain-audit/manifest.json`
+- `tmp/wifi/v327-private-property-approval-refresh/manifest.json`
+- `tmp/wifi/v328-v317-runner-plan/manifest.json`
+- `tmp/wifi/v328-v317-runner-refuse/manifest.json`
+- `tmp/wifi/v335-approval-gate-regression/manifest.json`
+- `tmp/wifi/v336-v317-prelive-gate-audit/manifest.json`
+- `tmp/wifi/v331-v317-live-readiness-packet/manifest.json`
+- `tmp/wifi/v339-v317-live-surface-linter/manifest.json`
+- `tmp/wifi/v340-v317-final-handoff-packet/manifest.json`
+- `tmp/wifi/v342-v317-approved-preflight/manifest.json`
+
+All regenerated manifests report `device_commands_executed=false` and
+`device_mutations=false` for the host-only gates. The approved preflight reports
+`preflight_only=true` and `commands=[]`.
 
 ## Safety
 
