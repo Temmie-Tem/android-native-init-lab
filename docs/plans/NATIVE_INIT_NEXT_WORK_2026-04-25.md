@@ -1512,6 +1512,9 @@ Samsung bootloader
    - v326 계획서: `docs/plans/NATIVE_INIT_V326_PRIVATE_PROPERTY_CHAIN_V325_GATE_PLAN_2026-05-19.md`
    - v326 보고서: `docs/reports/NATIVE_INIT_V326_PRIVATE_PROPERTY_CHAIN_V325_GATE_2026-05-19.md`
    - v326 해석: chain audit에 `v325-fresh-helper-preflight` required gate를 추가했다. 현재 v312/v315/v316/v317-plan/v317-audit/v319/v321/v322/v325는 PASS이고, live blocker는 여전히 v317 PASS evidence missing이다
+   - v327 계획서: `docs/plans/NATIVE_INIT_V327_PRIVATE_PROPERTY_APPROVAL_REFRESH_PLAN_2026-05-19.md`
+   - v327 보고서: `docs/reports/NATIVE_INIT_V327_PRIVATE_PROPERTY_APPROVAL_REFRESH_2026-05-19.md`
+   - v327 해석: approval refresh 기본 chain audit을 v326으로 올렸다. 최신 approval packet도 live_execution_approved=false이며 exact v317 phrase 없이는 실행하지 않는다
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
 ---

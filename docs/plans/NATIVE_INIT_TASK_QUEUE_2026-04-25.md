@@ -4238,6 +4238,28 @@
   - exact v317 approval phrase가 있으면 v317 minimal live proof 진행
   - approval이 없으면 다른 host-only/read-only Wi-Fi readiness 작업 진행
 
+### V327. Private Property Approval Refresh With V326 Gate — PASS / HOST-ONLY
+
+- 계획: `docs/plans/NATIVE_INIT_V327_PRIVATE_PROPERTY_APPROVAL_REFRESH_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V327_PRIVATE_PROPERTY_APPROVAL_REFRESH_2026-05-19.md`
+- tool: `scripts/revalidation/wifi_private_property_approval_refresh.py`
+- evidence: `tmp/wifi/v327-private-property-approval-refresh/`
+- boot image: 없음. v327은 host-only approval packet refresh이며 native init version 변경 없음
+- validation:
+  - `py_compile` PASS
+  - `git diff --check` PASS
+  - decision `private-property-approval-refresh-ready`
+  - `pass=true`
+  - `live_execution_approved=false`
+  - chain audit path `tmp/wifi/v326-private-property-chain-audit/manifest.json`
+  - `device_commands_executed=false`
+  - `device_mutations=false`
+- required exact phrase:
+  - `approve v317 minimal private property namespace proof only; no daemon start and no Wi-Fi bring-up`
+- next:
+  - exact v317 approval phrase가 있으면 v317 minimal live proof 진행
+  - approval이 없으면 다른 host-only/read-only Wi-Fi readiness 작업 진행
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
