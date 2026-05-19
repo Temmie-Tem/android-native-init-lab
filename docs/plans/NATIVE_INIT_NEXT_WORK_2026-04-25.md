@@ -1566,6 +1566,9 @@ Samsung bootloader
    - v344 계획서: `docs/plans/NATIVE_INIT_V344_V317_GATE_REFRESH_PLAN_2026-05-19.md`
    - v344 보고서: `docs/reports/NATIVE_INIT_V344_V317_GATE_REFRESH_2026-05-19.md`
    - v344 해석: V317 approval 직전 evidence refresh 순서를 `wifi_v317_gate_refresh.py`로 자동화했다. clean current HEAD에서 optional approved preflight 포함 PASS했고, live proof는 여전히 exact approval phrase 없이는 실행하지 않는다
+   - v345 계획서: `docs/plans/NATIVE_INIT_V345_POST_V317_ROUTER_REGRESSION_PLAN_2026-05-19.md`
+   - v345 보고서: `docs/reports/NATIVE_INIT_V345_POST_V317_ROUTER_REGRESSION_2026-05-19.md`
+   - v345 해석: V317 live proof 이후 V333 router가 PASS/cleanup/failure/manual-review/prereq-blocked 결과를 안전하게 분기하는지 host-only synthetic regression으로 검증했다
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
 ---

@@ -4584,6 +4584,26 @@
 - next:
   - exact V317 approval phrase 없이는 live proof 실행하지 않음
 
+
+### V345. Post-V317 Router Regression — HOST-ONLY / PENDING POST-COMMIT RERUN
+
+- 계획: `docs/plans/NATIVE_INIT_V345_POST_V317_ROUTER_REGRESSION_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V345_POST_V317_ROUTER_REGRESSION_2026-05-19.md`
+- tool: `scripts/revalidation/wifi_post_v317_router_regression.py`
+- boot image: 없음. v345는 host-only synthetic router regression이며 native init version 변경 없음
+- 구현:
+  - V317 missing/pass/cleaned/failed/live_error/unexpected/prereq-blocked synthetic manifest cases 추가
+  - V333 router decision, rc, pass value, recommended command count/fragments 검증
+  - recommended command는 문자열 검사만 하고 실행하지 않음
+- pre-commit validation:
+  - `py_compile` PASS
+  - router regression `post-v317-router-regression-pass` PASS
+  - `git diff --check` PASS
+- post-commit validation:
+  - clean HEAD에서 router regression 재실행 예정
+- next:
+  - exact V317 approval phrase 없이는 live proof 실행하지 않음
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
