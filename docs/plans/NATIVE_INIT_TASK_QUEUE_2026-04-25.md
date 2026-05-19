@@ -4562,7 +4562,7 @@
   - exact V317 approval phrase 없이는 live proof 실행하지 않음
 
 
-### V344. V317 Gate Refresh Helper — HOST-ONLY / PENDING POST-COMMIT REFRESH
+### V344. V317 Gate Refresh Helper — PASS / HOST-ONLY
 
 - 계획: `docs/plans/NATIVE_INIT_V344_V317_GATE_REFRESH_PLAN_2026-05-19.md`
 - 보고서: `docs/reports/NATIVE_INIT_V344_V317_GATE_REFRESH_2026-05-19.md`
@@ -4576,9 +4576,12 @@
   - `py_compile` PASS
   - `git diff --check` PASS
 - post-commit validation:
-  - clean HEAD에서 `wifi_v317_gate_refresh.py --run-approved-preflight refresh` 실행 예정
+  - clean HEAD `a17f8c1`에서 `wifi_v317_gate_refresh.py --run-approved-preflight refresh` PASS
+  - decision `v317-gate-refresh-ready`
+  - approved preflight step `private-property-namespace-proof-preflight-ready` PASS
+  - `device_commands_executed=false`, `device_mutations=false`
+  - remaining blocker `exact-v317-approval-phrase`
 - next:
-  - V344 commit 후 refresh helper로 canonical evidence 재생성
   - exact V317 approval phrase 없이는 live proof 실행하지 않음
 
 ### V187. Harness Broker Backend — PASS

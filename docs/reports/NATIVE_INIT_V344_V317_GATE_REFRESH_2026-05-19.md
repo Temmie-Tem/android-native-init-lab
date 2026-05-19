@@ -4,7 +4,7 @@
 - scope: host-only V317 evidence refresh automation
 - device command: none
 - device mutation: none
-- result: `PRE-COMMIT STATIC PASS / POST-COMMIT REFRESH REQUIRED`
+- result: `PASS / HOST-ONLY`
 
 ## Summary
 
@@ -34,9 +34,9 @@ Observed pre-commit result:
 static validation PASS
 ```
 
-## Post-commit Validation Plan
+## Post-commit Validation
 
-After commit, run:
+After commit `a17f8c1`, ran:
 
 ```bash
 python3 scripts/revalidation/wifi_v317_gate_refresh.py \
@@ -45,12 +45,26 @@ python3 scripts/revalidation/wifi_v317_gate_refresh.py \
   refresh
 ```
 
-Expected result:
+Observed result:
 
 ```text
-v317-gate-refresh-ready
-V317 live proof still blocked by exact-v317-approval-phrase
+decision: v317-gate-refresh-ready
+pass: True
+remaining_blockers: [exact-v317-approval-phrase]
+approved_preflight_requested: True
+device_commands_executed: false
+device_mutations: false
 ```
+
+## Evidence
+
+- refresh manifest: `tmp/wifi/v344-v317-gate-refresh/manifest.json`
+- refresh summary: `tmp/wifi/v344-v317-gate-refresh/summary.md`
+- transcripts: `tmp/wifi/v344-v317-gate-refresh/transcripts/`
+
+All refresh steps reported `status=pass`. The optional approved preflight step
+reported `private-property-namespace-proof-preflight-ready` with no device
+commands or mutations.
 
 ## Safety
 
