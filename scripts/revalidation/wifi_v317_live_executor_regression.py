@@ -19,6 +19,7 @@ from a90harness.evidence import EvidenceStore
 DEFAULT_OUT_DIR = Path("tmp/wifi/v352-v317-live-executor-regression")
 EXECUTOR = Path("scripts/revalidation/wifi_v317_live_executor.py")
 APPROVAL_PHRASE = "approve v317 minimal private property namespace proof only; no daemon start and no Wi-Fi bring-up"
+WRONG_APPROVAL_PHRASE = "approve v317 minimal private property namespace proof only"
 
 
 @dataclass(frozen=True)
@@ -117,6 +118,16 @@ def cases() -> list[ExecutorCase]:
             0,
         ),
         ExecutorCase(
+            "run-wrong-phrase-full-flags",
+            ["--approval-phrase", WRONG_APPROVAL_PHRASE, "--allow-device-mutation", "--assume-yes", "run"],
+            ("v317-live-executor-approval-required",),
+            1,
+            False,
+            False,
+            False,
+            0,
+        ),
+        ExecutorCase(
             "cleanup-no-approval",
             ["cleanup"],
             ("v317-live-executor-approval-required",),
@@ -159,6 +170,16 @@ def cases() -> list[ExecutorCase]:
         ExecutorCase(
             "cleanup-phrase-assume-only",
             ["--approval-phrase", APPROVAL_PHRASE, "--assume-yes", "cleanup"],
+            ("v317-live-executor-approval-required",),
+            1,
+            False,
+            False,
+            False,
+            0,
+        ),
+        ExecutorCase(
+            "cleanup-wrong-phrase-full-flags",
+            ["--approval-phrase", WRONG_APPROVAL_PHRASE, "--allow-device-mutation", "--assume-yes", "cleanup"],
             ("v317-live-executor-approval-required",),
             1,
             False,
