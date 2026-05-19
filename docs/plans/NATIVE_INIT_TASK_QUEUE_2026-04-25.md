@@ -2769,6 +2769,33 @@
   - v267 transmit-capable helper design without execution, or
   - explicit approval for bounded `QRTR_TYPE_NEW_LOOKUP` no-scan implementation/run after design review
 
+### V267. QRTR Nameservice Packet Layout — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V267_QRTR_PACKET_LAYOUT_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V267_QRTR_PACKET_LAYOUT_2026-05-19.md`
+- boot image change: 없음
+- daemon start: 없음
+- QRTR/QMI packet transmission: 없음
+- host tool: `scripts/revalidation/wifi_qrtr_nameservice_packet_layout.py`
+- output: `tmp/wifi/v267-qrtr-packet-layout/`
+- decision: `qrtr-packet-layout-ready`
+- validation:
+  - `QRTR_TYPE_NEW_LOOKUP` command value `10` PASS
+  - `QRTR_TYPE_DEL_LOOKUP` command value `11` PASS
+  - packet length `20` bytes PASS
+  - service/instance little-endian field layout PASS
+  - wildcard lookup blocked by default PASS
+  - wildcard regression `service=0 instance=0` returned `qrtr-packet-layout-blocked`, exit 1
+- packet bytes:
+  - NEW_LOOKUP: `0a00000001000000010000000000000000000000`
+  - DEL_LOOKUP: `0b00000001000000010000000000000000000000`
+- interpretation:
+  - helper code review에 필요한 bytes/offsets are fixed
+  - actual QRTR nameservice transmission remains explicit-approval-gated
+- next execution item:
+  - v268 transmit-capable helper source/design without deployment/execution, or
+  - explicit approval request for bounded QRTR nameservice no-scan transmission after design review
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`

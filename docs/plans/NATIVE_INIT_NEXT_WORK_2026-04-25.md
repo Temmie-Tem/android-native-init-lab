@@ -1231,6 +1231,10 @@ Samsung bootloader
    - v266 보고서: `docs/reports/NATIVE_INIT_V266_QRTR_NAMESERVICE_RUNNER_SKELETON_2026-05-19.md`
    - v266 결과: runner skeleton PASS, read-only preflight PASS, no-approval run fail-closed PASS, approval-flag run still `transmit-not-implemented`
    - v266 해석: 실제 QRTR packet 송신은 아직 구현되지 않았고, v267 helper design 또는 explicit approval-gated bounded run이 다음 경계다
+   - v267 계획서: `docs/plans/NATIVE_INIT_V267_QRTR_PACKET_LAYOUT_PLAN_2026-05-19.md`
+   - v267 보고서: `docs/reports/NATIVE_INIT_V267_QRTR_PACKET_LAYOUT_2026-05-19.md`
+   - v267 결과: `QRTR_TYPE_NEW_LOOKUP`/`DEL_LOOKUP` 20-byte little-endian packet layout generated, wildcard lookup block verified
+   - v267 해석: helper code review에 필요한 byte layout은 준비됐지만 실제 QRTR 송신은 여전히 explicit approval-gated다
    - v251 계획서: `docs/plans/NATIVE_INIT_V251_CNSS_PROPERTY_SURFACE_PLAN_2026-05-19.md`
    - v251 보고서: `docs/reports/NATIVE_INIT_V251_CNSS_PROPERTY_SURFACE_2026-05-19.md`
    - v251 결과: decision `cnss-property-read-only-surface`, host-only analysis, property read symbols `property_get`/`property_get_int32`, no property write/control symbols detected
