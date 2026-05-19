@@ -43,7 +43,7 @@
 #define PR_CAP_AMBIENT_RAISE 2
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v11"
+#define EXECNS_VERSION "a90_android_execns_probe v12"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -51,6 +51,7 @@
 #define A90_AID_WIFI 1010
 #define A90_AID_INET 3003
 #define A90_AID_NET_ADMIN 3005
+#define A90_AID_READPROC 3009
 
 struct config {
     const char *system_root;
@@ -72,6 +73,7 @@ struct config {
     const char *property_key;
     int timeout_sec;
     bool allow_cnss_start_only;
+    bool allow_service_manager_start_only;
 };
 
 struct buffer {
@@ -111,7 +113,7 @@ static void usage(FILE *out) {
             "--system-root /mnt/system/system "
             "--vendor-block /dev/block/sda29 "
             "--vendor-fstype ext4 "
-            "[--target-profile cnss-daemon|system-toybox|system-sh|linker64-self|apex-linker64-self|system-getprop] "
+            "[--target-profile cnss-daemon|system-toybox|system-sh|linker64-self|apex-linker64-self|system-getprop|system-servicemanager|system-hwservicemanager] "
             "[--target /vendor/bin/cnss-daemon] "
             "[--linker /system/bin/linker64|/apex/com.android.runtime/bin/linker64] "
             "[--env-mode clean|ld-debug-1|ld-debug-2|auxv] "
@@ -125,7 +127,8 @@ static void usage(FILE *out) {
             "[--property-root /mnt/sdext/a90/private-property-v317/.../dev/__properties__] "
             "[--property-key ro.build.version.sdk] "
             "[--allow-cnss-start-only] "
-            "--mode linker-list|identity-probe|cnss-start-only|property-lookup "
+            "[--allow-service-manager-start-only] "
+            "--mode linker-list|identity-probe|cnss-start-only|property-lookup|service-manager-start-only "
             "--timeout-sec <1..30>\n");
 }
 
@@ -210,6 +213,10 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             cfg->allow_cnss_start_only = true;
             continue;
         }
+        if (strcmp(argv[i], "--allow-service-manager-start-only") == 0) {
+            cfg->allow_service_manager_start_only = true;
+            continue;
+        }
         if (i + 1 >= argc) {
             fprintf(stderr, "missing value for %s\n", argv[i]);
             return 2;
@@ -272,13 +279,19 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
         cfg->target = "/apex/com.android.runtime/bin/linker64";
     } else if (streq(cfg->target_profile, "system-getprop")) {
         cfg->target = "/system/bin/getprop";
+    } else if (streq(cfg->target_profile, "system-servicemanager")) {
+        cfg->target = "/system/bin/servicemanager";
+    } else if (streq(cfg->target_profile, "system-hwservicemanager")) {
+        cfg->target = "/system/bin/hwservicemanager";
     } else if (streq(cfg->target_profile, "custom-allowlisted")) {
         if (!(streq(cfg->target, "/vendor/bin/cnss-daemon") ||
               streq(cfg->target, "/system/bin/toybox") ||
               streq(cfg->target, "/system/bin/sh") ||
               streq(cfg->target, "/system/bin/linker64") ||
               streq(cfg->target, "/apex/com.android.runtime/bin/linker64") ||
-              streq(cfg->target, "/system/bin/getprop"))) {
+              streq(cfg->target, "/system/bin/getprop") ||
+              streq(cfg->target, "/system/bin/servicemanager") ||
+              streq(cfg->target, "/system/bin/hwservicemanager"))) {
             fprintf(stderr, "--target must match a v235 allowlisted profile path\n");
             return 2;
         }
@@ -293,7 +306,8 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
         !(streq(cfg->mode, "linker-list") ||
           streq(cfg->mode, "identity-probe") ||
           streq(cfg->mode, "cnss-start-only") ||
-          streq(cfg->mode, "property-lookup")) ||
+          streq(cfg->mode, "property-lookup") ||
+          streq(cfg->mode, "service-manager-start-only")) ||
         !(streq(cfg->capture_mode, "none") ||
           streq(cfg->capture_mode, "ptrace-lite")) ||
         !(streq(cfg->null_device_mode, "none") ||
@@ -338,6 +352,21 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
     if (streq(cfg->mode, "cnss-start-only") && !streq(cfg->target, "/vendor/bin/cnss-daemon")) {
         fprintf(stderr, "cnss-start-only target is fixed to /vendor/bin/cnss-daemon\n");
         return 2;
+    }
+    if (streq(cfg->mode, "service-manager-start-only")) {
+        if (cfg->linker != NULL) {
+            fprintf(stderr, "--linker is not used by service-manager-start-only mode\n");
+            return 2;
+        }
+        if (!streq(cfg->capture_mode, "none")) {
+            fprintf(stderr, "--capture-mode must be none for service-manager-start-only mode\n");
+            return 2;
+        }
+        if (!(streq(cfg->target, "/system/bin/servicemanager") ||
+              streq(cfg->target, "/system/bin/hwservicemanager"))) {
+            fprintf(stderr, "service-manager-start-only target is fixed to system service-manager binaries\n");
+            return 2;
+        }
     }
     if (streq(cfg->mode, "property-lookup")) {
         if (cfg->linker != NULL) {
@@ -1350,6 +1379,9 @@ static int print_identity_snapshot(const char *prefix) {
     printf("%s.groups.has_wifi=%d\n",
            prefix,
            groups_contain(groups, group_count, A90_AID_WIFI) ? 1 : 0);
+    printf("%s.groups.has_readproc=%d\n",
+           prefix,
+           groups_contain(groups, group_count, A90_AID_READPROC) ? 1 : 0);
     print_cap_net_admin(prefix);
     return 0;
 }
@@ -1449,6 +1481,45 @@ static int apply_android_identity_contract(const char *prefix) {
     printf("%s.ambient_raise.rc=%d\n", prefix, ambient_rc);
     printf("%s.ambient_raise.errno=%d\n", prefix, ambient_rc < 0 ? errno : 0);
     if (print_identity_snapshot("cnss.identity.after") < 0) {
+        pass = false;
+    }
+    printf("%s.preexec_status=%s\n", prefix, pass ? "pass" : "fail");
+    return pass ? 0 : -1;
+}
+
+static int apply_service_manager_identity_contract(const char *prefix) {
+    gid_t groups[] = {A90_AID_SYSTEM, A90_AID_READPROC};
+    bool pass = true;
+
+    printf("%s.expected.uid=%d\n", prefix, A90_AID_SYSTEM);
+    printf("%s.expected.gid=%d\n", prefix, A90_AID_SYSTEM);
+    printf("%s.expected.groups=%d,%d\n",
+           prefix,
+           A90_AID_SYSTEM,
+           A90_AID_READPROC);
+    printf("%s.expected.cap=none\n", prefix);
+    if (print_identity_snapshot("service_manager.identity.before") < 0) {
+        pass = false;
+    }
+    if (setgroups((int)(sizeof(groups) / sizeof(groups[0])), groups) < 0) {
+        printf("%s.setgroups.error=%s\n", prefix, strerror(errno));
+        pass = false;
+    } else {
+        printf("%s.setgroups.ok=1\n", prefix);
+    }
+    if (setresgid(A90_AID_SYSTEM, A90_AID_SYSTEM, A90_AID_SYSTEM) < 0) {
+        printf("%s.setresgid.error=%s\n", prefix, strerror(errno));
+        pass = false;
+    } else {
+        printf("%s.setresgid.ok=1\n", prefix);
+    }
+    if (setresuid(A90_AID_SYSTEM, A90_AID_SYSTEM, A90_AID_SYSTEM) < 0) {
+        printf("%s.setresuid.error=%s\n", prefix, strerror(errno));
+        pass = false;
+    } else {
+        printf("%s.setresuid.ok=1\n", prefix);
+    }
+    if (print_identity_snapshot("service_manager.identity.after") < 0) {
         pass = false;
     }
     printf("%s.preexec_status=%s\n", prefix, pass ? "pass" : "fail");
@@ -2824,6 +2895,359 @@ fail:
     return -1;
 }
 
+static int run_service_manager_start_only_guarded(const struct config *cfg,
+                                                  const struct paths *paths,
+                                                  struct buffer *stdout_buf,
+                                                  struct buffer *stderr_buf,
+                                                  int *child_exit_code,
+                                                  int *child_signal,
+                                                  bool *timed_out) {
+    int stdout_pipe[2] = {-1, -1};
+    int stderr_pipe[2] = {-1, -1};
+    bool stdout_open = true;
+    bool stderr_open = true;
+    bool child_done = false;
+    bool observable = false;
+    bool proc_status_captured = false;
+    bool fd_summary_captured = false;
+    bool maps_summary_captured = false;
+    bool term_sent = false;
+    bool kill_sent = false;
+    bool reaped = false;
+    bool postflight_safe = false;
+    bool exited_before_timeout = false;
+    long deadline;
+    pid_t pid = -1;
+    pid_t pgid = -1;
+    int status = 0;
+
+    *child_exit_code = -1;
+    *child_signal = 0;
+    *timed_out = false;
+
+    if (append_literal(stdout_buf, "service_manager_start.begin=1\n") < 0 ||
+        append_literal(stdout_buf, "service_manager_start.mode=guarded\n") < 0 ||
+        append_format(stdout_buf, "service_manager_start.target=%s\n", cfg->target) < 0 ||
+        append_format(stdout_buf, "service_manager_start.argv=%s\n", cfg->target) < 0 ||
+        append_literal(stdout_buf, "service_manager_start.wifi_hal=0\n") < 0 ||
+        append_literal(stdout_buf, "service_manager_start.scan_connect_linkup=0\n") < 0) {
+        return -1;
+    }
+
+    if (!cfg->allow_service_manager_start_only) {
+        if (append_literal(stdout_buf, "service_manager_start.allowed=0\n") < 0 ||
+            append_literal(stdout_buf, "service_manager_start.exec_attempted=0\n") < 0 ||
+            append_literal(stdout_buf, "service_manager_start.child_started=0\n") < 0 ||
+            append_literal(stdout_buf, "service_manager_start.pid=-1\n") < 0 ||
+            append_literal(stdout_buf, "service_manager_start.pgid=-1\n") < 0 ||
+            append_literal(stdout_buf, "service_manager_start.observable=0\n") < 0 ||
+            append_literal(stdout_buf, "service_manager_start.exited=0\n") < 0 ||
+            append_literal(stdout_buf, "service_manager_start.exit_code=-1\n") < 0 ||
+            append_literal(stdout_buf, "service_manager_start.signal=0\n") < 0 ||
+            append_literal(stdout_buf, "service_manager_start.timed_out=0\n") < 0 ||
+            append_literal(stdout_buf, "service_manager_start.term_sent=0\n") < 0 ||
+            append_literal(stdout_buf, "service_manager_start.kill_sent=0\n") < 0 ||
+            append_literal(stdout_buf, "service_manager_start.reaped=0\n") < 0 ||
+            append_literal(stdout_buf, "service_manager_start.proc_status_captured=0\n") < 0 ||
+            append_literal(stdout_buf, "service_manager_start.fd_summary_captured=0\n") < 0 ||
+            append_literal(stdout_buf, "service_manager_start.maps_summary_captured=0\n") < 0 ||
+            append_literal(stdout_buf, "service_manager_start.postflight_safe=1\n") < 0 ||
+            append_literal(stdout_buf, "service_manager_start.result=start-only-blocked\n") < 0 ||
+            append_literal(stdout_buf, "service_manager_start.reason=missing-allow-service-manager-start-only\n") < 0 ||
+            append_literal(stdout_buf, "service_manager_start.end=1\n") < 0) {
+            return -1;
+        }
+        return 0;
+    }
+
+    if (append_literal(stdout_buf, "service_manager_start.allowed=1\n") < 0) {
+        return -1;
+    }
+    if (pipe2(stdout_pipe, O_CLOEXEC) < 0 || pipe2(stderr_pipe, O_CLOEXEC) < 0) {
+        if (append_format(stdout_buf,
+                          "service_manager_start.exec_attempted=0\n"
+                          "service_manager_start.child_started=0\n"
+                          "service_manager_start.pid=-1\n"
+                          "service_manager_start.pgid=-1\n"
+                          "service_manager_start.observable=0\n"
+                          "service_manager_start.exited=0\n"
+                          "service_manager_start.exit_code=-1\n"
+                          "service_manager_start.signal=0\n"
+                          "service_manager_start.timed_out=0\n"
+                          "service_manager_start.term_sent=0\n"
+                          "service_manager_start.kill_sent=0\n"
+                          "service_manager_start.reaped=0\n"
+                          "service_manager_start.proc_status_captured=0\n"
+                          "service_manager_start.fd_summary_captured=0\n"
+                          "service_manager_start.maps_summary_captured=0\n"
+                          "service_manager_start.postflight_safe=0\n"
+                          "service_manager_start.result=manual-review-required\n"
+                          "service_manager_start.reason=pipe-failed-%s\n"
+                          "service_manager_start.end=1\n",
+                          strerror(errno)) < 0) {
+            return -1;
+        }
+        goto fail;
+    }
+    pid = fork();
+    if (pid < 0) {
+        if (append_format(stdout_buf,
+                          "service_manager_start.exec_attempted=0\n"
+                          "service_manager_start.child_started=0\n"
+                          "service_manager_start.pid=-1\n"
+                          "service_manager_start.pgid=-1\n"
+                          "service_manager_start.observable=0\n"
+                          "service_manager_start.exited=0\n"
+                          "service_manager_start.exit_code=-1\n"
+                          "service_manager_start.signal=0\n"
+                          "service_manager_start.timed_out=0\n"
+                          "service_manager_start.term_sent=0\n"
+                          "service_manager_start.kill_sent=0\n"
+                          "service_manager_start.reaped=0\n"
+                          "service_manager_start.proc_status_captured=0\n"
+                          "service_manager_start.fd_summary_captured=0\n"
+                          "service_manager_start.maps_summary_captured=0\n"
+                          "service_manager_start.postflight_safe=0\n"
+                          "service_manager_start.result=manual-review-required\n"
+                          "service_manager_start.reason=fork-failed-%s\n"
+                          "service_manager_start.end=1\n",
+                          strerror(errno)) < 0) {
+            return -1;
+        }
+        goto fail;
+    }
+    if (pid == 0) {
+        char *const manager_argv[] = {
+            (char *)cfg->target,
+            NULL,
+        };
+
+        close(stdout_pipe[0]);
+        close(stderr_pipe[0]);
+        dup2(stdout_pipe[1], STDOUT_FILENO);
+        dup2(stderr_pipe[1], STDERR_FILENO);
+        close(stdout_pipe[1]);
+        close(stderr_pipe[1]);
+        if (setsid() < 0) {
+            perror("setsid");
+            _exit(123);
+        }
+        if (chroot(paths->root) < 0) {
+            perror("chroot");
+            _exit(120);
+        }
+        if (chdir("/") < 0) {
+            perror("chdir");
+            _exit(121);
+        }
+        apply_child_env(cfg);
+        printf("service_manager_child.begin=1\n");
+        if (apply_service_manager_identity_contract("service_manager_child") < 0) {
+            printf("service_manager_child.end=1\n");
+            fflush(stdout);
+            _exit(126);
+        }
+        printf("service_manager_child.exec_target=%s\n", cfg->target);
+        fflush(stdout);
+        execv(cfg->target, manager_argv);
+        printf("service_manager_child.exec_error=%s\n", strerror(errno));
+        printf("service_manager_child.end=1\n");
+        fflush(stdout);
+        _exit(127);
+    }
+
+    close(stdout_pipe[1]);
+    close(stderr_pipe[1]);
+    stdout_pipe[1] = -1;
+    stderr_pipe[1] = -1;
+    set_nonblock(stdout_pipe[0]);
+    set_nonblock(stderr_pipe[0]);
+    pgid = wait_for_child_session_pgid(pid, 1000);
+    if (append_format(stdout_buf,
+                      "service_manager_start.exec_attempted=1\n"
+                      "service_manager_start.child_started=1\n"
+                      "service_manager_start.pid=%ld\n"
+                      "service_manager_start.pgid=%ld\n",
+                      (long)pid,
+                      (long)pgid) < 0) {
+        goto fail;
+    }
+    deadline = monotonic_ms() + cfg->timeout_sec * 1000L;
+
+    while (stdout_open || stderr_open || !child_done) {
+        struct pollfd fds[2];
+        int nfds = 0;
+        int poll_timeout = 50;
+        long now = monotonic_ms();
+
+        if (!child_done && now >= deadline) {
+            *timed_out = true;
+            break;
+        }
+        if (stdout_open) {
+            fds[nfds].fd = stdout_pipe[0];
+            fds[nfds].events = POLLIN | POLLHUP | POLLERR;
+            nfds++;
+        }
+        if (stderr_open) {
+            fds[nfds].fd = stderr_pipe[0];
+            fds[nfds].events = POLLIN | POLLHUP | POLLERR;
+            nfds++;
+        }
+        if (nfds > 0) {
+            int rc = poll(fds, nfds, poll_timeout);
+
+            if (rc > 0) {
+                int idx = 0;
+
+                if (stdout_open) {
+                    if (fds[idx].revents != 0) {
+                        drain_fd(stdout_pipe[0], stdout_buf, &stdout_open);
+                    }
+                    idx++;
+                }
+                if (stderr_open) {
+                    if (fds[idx].revents != 0) {
+                        drain_fd(stderr_pipe[0], stderr_buf, &stderr_open);
+                    }
+                }
+            }
+        } else {
+            usleep(50000);
+        }
+        if (!child_done) {
+            pid_t wait_rc = waitpid(pid, &status, WNOHANG);
+
+            if (wait_rc == pid) {
+                child_done = true;
+                reaped = true;
+                exited_before_timeout = !*timed_out;
+                if (WIFEXITED(status)) {
+                    *child_exit_code = WEXITSTATUS(status);
+                } else if (WIFSIGNALED(status)) {
+                    *child_signal = WTERMSIG(status);
+                }
+            } else if (wait_rc < 0 && errno != EINTR && errno != ECHILD) {
+                append_format(stdout_buf, "service_manager_start.wait.error=%s\n", strerror(errno));
+                break;
+            }
+        }
+    }
+
+    if (!child_done && kill(pid, 0) == 0) {
+        observable = true;
+        append_proc_file_capture(stdout_buf, pid, "status", 8192, &proc_status_captured);
+        append_proc_fd_summary(stdout_buf, pid, &fd_summary_captured);
+        append_proc_file_capture(stdout_buf, pid, "maps", 65536, &maps_summary_captured);
+    }
+    if (!child_done) {
+        if (kill(-pgid, SIGTERM) == 0 || errno == ESRCH) {
+            term_sent = true;
+        }
+        deadline = monotonic_ms() + 1000L;
+        while (!child_done && monotonic_ms() < deadline) {
+            if (waitpid(pid, &status, WNOHANG) == pid) {
+                child_done = true;
+                reaped = true;
+                if (WIFEXITED(status)) {
+                    *child_exit_code = WEXITSTATUS(status);
+                } else if (WIFSIGNALED(status)) {
+                    *child_signal = WTERMSIG(status);
+                }
+                break;
+            }
+            usleep(50000);
+        }
+    }
+    if (!child_done) {
+        if (kill(-pgid, SIGKILL) == 0 || errno == ESRCH) {
+            kill_sent = true;
+        }
+        deadline = monotonic_ms() + 1000L;
+        while (!child_done && monotonic_ms() < deadline) {
+            if (waitpid(pid, &status, WNOHANG) == pid) {
+                child_done = true;
+                reaped = true;
+                if (WIFEXITED(status)) {
+                    *child_exit_code = WEXITSTATUS(status);
+                } else if (WIFSIGNALED(status)) {
+                    *child_signal = WTERMSIG(status);
+                }
+                break;
+            }
+            usleep(50000);
+        }
+    }
+    if (stdout_open) {
+        drain_fd(stdout_pipe[0], stdout_buf, &stdout_open);
+    }
+    if (stderr_open) {
+        drain_fd(stderr_pipe[0], stderr_buf, &stderr_open);
+    }
+    postflight_safe = reaped && (kill(-pgid, 0) < 0 && errno == ESRCH);
+
+    if (append_format(stdout_buf,
+                      "service_manager_start.observable=%d\n"
+                      "service_manager_start.exited=%d\n"
+                      "service_manager_start.exit_code=%d\n"
+                      "service_manager_start.signal=%d\n"
+                      "service_manager_start.timed_out=%d\n"
+                      "service_manager_start.term_sent=%d\n"
+                      "service_manager_start.kill_sent=%d\n"
+                      "service_manager_start.reaped=%d\n"
+                      "service_manager_start.proc_status_captured=%d\n"
+                      "service_manager_start.fd_summary_captured=%d\n"
+                      "service_manager_start.maps_summary_captured=%d\n"
+                      "service_manager_start.postflight_safe=%d\n",
+                      observable ? 1 : 0,
+                      child_done ? 1 : 0,
+                      *child_exit_code,
+                      *child_signal,
+                      *timed_out ? 1 : 0,
+                      term_sent ? 1 : 0,
+                      kill_sent ? 1 : 0,
+                      reaped ? 1 : 0,
+                      proc_status_captured ? 1 : 0,
+                      fd_summary_captured ? 1 : 0,
+                      maps_summary_captured ? 1 : 0,
+                      postflight_safe ? 1 : 0) < 0) {
+        goto fail;
+    }
+    if (!postflight_safe) {
+        append_literal(stdout_buf,
+                       "service_manager_start.result=start-only-reboot-required\n"
+                       "service_manager_start.reason=process-not-proven-stopped\n");
+    } else if (*timed_out && observable) {
+        append_literal(stdout_buf,
+                       "service_manager_start.result=start-only-pass\n"
+                       "service_manager_start.reason=observed-until-timeout-clean-stop\n");
+    } else if (exited_before_timeout || *child_exit_code >= 0 || *child_signal != 0) {
+        append_literal(stdout_buf,
+                       "service_manager_start.result=start-only-runtime-gap\n"
+                       "service_manager_start.reason=child-exited-before-observe-window\n");
+    } else {
+        append_literal(stdout_buf,
+                       "service_manager_start.result=manual-review-required\n"
+                       "service_manager_start.reason=unclassified-lifecycle-state\n");
+    }
+    append_literal(stdout_buf, "service_manager_start.end=1\n");
+    if (stdout_pipe[0] >= 0) close(stdout_pipe[0]);
+    if (stderr_pipe[0] >= 0) close(stderr_pipe[0]);
+    return 0;
+
+fail:
+    if (pid > 0) {
+        kill(-pid, SIGKILL);
+        kill(pid, SIGKILL);
+        waitpid(pid, NULL, WNOHANG);
+    }
+    if (stdout_pipe[0] >= 0) close(stdout_pipe[0]);
+    if (stdout_pipe[1] >= 0) close(stdout_pipe[1]);
+    if (stderr_pipe[0] >= 0) close(stderr_pipe[0]);
+    if (stderr_pipe[1] >= 0) close(stderr_pipe[1]);
+    return -1;
+}
+
 static int setup_namespace(const struct config *cfg,
                            struct paths *paths,
                            size_t *linkerconfig_bytes,
@@ -2993,6 +3417,8 @@ int main(int argc, char **argv) {
     printf("linker=%s\n", cfg.linker != NULL ? cfg.linker : "<none>");
     printf("timeout_sec=%d\n", cfg.timeout_sec);
     printf("allow_cnss_start_only=%d\n", cfg.allow_cnss_start_only ? 1 : 0);
+    printf("allow_service_manager_start_only=%d\n",
+           cfg.allow_service_manager_start_only ? 1 : 0);
 
     if (setup_namespace(&cfg,
                         &paths,
@@ -3052,6 +3478,14 @@ int main(int argc, char **argv) {
                                              &child_exit_code,
                                              &child_signal,
                                              &timed_out);
+    } else if (streq(cfg.mode, "service-manager-start-only")) {
+        run_rc = run_service_manager_start_only_guarded(&cfg,
+                                                        &paths,
+                                                        &stdout_buf,
+                                                        &stderr_buf,
+                                                        &child_exit_code,
+                                                        &child_signal,
+                                                        &timed_out);
     } else {
         run_rc = run_linker_list(&cfg,
                                  &paths,

@@ -1668,6 +1668,10 @@ Samsung bootloader
    - v373 보고서: `docs/reports/NATIVE_INIT_V373_SERVICE_MANAGER_START_ONLY_SMOKE_2026-05-20.md`
    - v373 해석: service-manager start-only runner scaffold를 추가했고 no-approval run은 `service-manager-start-only-smoke-approval-required` / `steps=0`으로 막혔다. preflight는 read-only로 PASS 조건을 확인했지만 `helper-service-manager-mode` 부재로 mutation 전 blocked 됐다
    - v373 다음: V374에서 `a90_android_execns_probe`에 bounded service-manager start-only mode를 추가하거나 동등한 fail-closed primitive를 설계한다
+   - v374 계획서: `docs/plans/NATIVE_INIT_V374_EXECNS_SERVICE_MANAGER_MODE_PLAN_2026-05-20.md`
+   - v374 보고서: `docs/reports/NATIVE_INIT_V374_EXECNS_SERVICE_MANAGER_MODE_2026-05-20.md`
+   - v374 해석: `a90_android_execns_probe v12` source와 로컬 static ARM64 artifact를 만들었고 `service-manager-start-only`, `--allow-service-manager-start-only`, `system-servicemanager`, `system-hwservicemanager` 문자열을 확인했다. 아직 `/cache/bin` 배포나 daemon start는 하지 않았다
+   - v374 다음: V375 helper deploy/preflight packet. v12를 `/cache/bin/a90_android_execns_probe`에 설치/검증하고 V373 preflight를 재실행하되 service-manager live start는 여전히 별도 exact approval 전까지 blocked
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
 ---

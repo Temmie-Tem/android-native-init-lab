@@ -5265,6 +5265,25 @@
   - V374: add or design bounded service-manager start-only mode for `a90_android_execns_probe`
   - do not run service-manager live until helper mode and approval-gated runner both pass
 
+### V374. Execns Service-Manager Start-Only Mode — PASS / DEPLOY PENDING
+
+- 계획: `docs/plans/NATIVE_INIT_V374_EXECNS_SERVICE_MANAGER_MODE_PLAN_2026-05-20.md`
+- 보고서: `docs/reports/NATIVE_INIT_V374_EXECNS_SERVICE_MANAGER_MODE_2026-05-20.md`
+- evidence:
+  - built helper: `tmp/wifi/v374-a90_android_execns_probe-v12/a90_android_execns_probe`
+  - source: `stage3/linux_init/helpers/a90_android_execns_probe.c`
+- boot image: 없음. v374는 helper source/build update이며 native init version 변경 없음
+- validation:
+  - static ARM64 build PASS
+  - no dynamic section PASS
+  - marker `a90_android_execns_probe v12` PASS
+  - strings include `service-manager-start-only`, `--allow-service-manager-start-only`, `system-servicemanager`, and `system-hwservicemanager`
+  - artifact sha256 `fef21de2897b16e4ead7fe780eff1817675d4ce988e558013ac9a37dc928d918`
+  - no `/cache/bin` deploy and no daemon execution in V374
+- next:
+  - V375 helper deploy/preflight packet: install v12 to `/cache/bin/a90_android_execns_probe`, verify remote marker/SHA-256, and rerun V373 preflight
+  - service-manager live start remains blocked until deploy evidence and exact V373 approval are present
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
