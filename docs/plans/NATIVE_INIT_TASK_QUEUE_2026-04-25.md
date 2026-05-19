@@ -4095,7 +4095,32 @@
   - no `/dev/socket/property_service`
   - no property mutation, daemon start, Wi-Fi scan/connect/link-up, credential, DHCP, routing, rfkill write, module load, or firmware mutation
 - next:
-  - wait for v317 exact approval phrase and live proof; only after that extend `a90_android_execns_probe` with read-only property lookup mode
+  - V321 added static helper support for read-only property lookup; live execution is still blocked until v317 exact approval phrase and PASS evidence
+
+### V321. Execns Property Lookup Helper Support — STATIC PASS / LIVE BLOCKED BY V317
+
+- 계획: `docs/plans/NATIVE_INIT_V321_EXECNS_PROPERTY_LOOKUP_HELPER_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V321_EXECNS_PROPERTY_LOOKUP_HELPER_2026-05-19.md`
+- helper: `stage3/linux_init/helpers/a90_android_execns_probe.c`
+- helper marker: `a90_android_execns_probe v11`
+- boot image: 없음. v321은 helper-only/static support이며 native init version 변경 없음
+- artifact sha256:
+  - `/tmp/a90_android_execns_probe_v321` `f40db33a2823662f64d7a2b3c6dca9ce174801208c14c4a83647a12db1ce636b`
+- validation:
+  - static ARM64 helper build PASS
+  - `strings` marker/options check PASS
+  - `py_compile` PASS
+  - `git diff --check` PASS
+- implemented boundary:
+  - new mode `property-lookup`
+  - new target profile `system-getprop` mapped to `/system/bin/getprop`
+  - private `/dev/__properties__` bind only inside the helper private root
+  - narrow property-root and property-key allowlists
+- live status:
+  - not executed
+  - blocked until v317 `private-property-namespace-proof-pass` and later v320 approval gate
+- next:
+  - either run v317 after exact approval, or update v320 runner to call helper mode after v317 PASS evidence
 
 ### V187. Harness Broker Backend — PASS
 

@@ -1494,6 +1494,9 @@ Samsung bootloader
    - v320 계획서: `docs/plans/NATIVE_INIT_V320_PRIVATE_PROPERTY_LOOKUP_PROOF_PLAN_2026-05-19.md`
    - v320 보고서: `docs/reports/NATIVE_INIT_V320_PRIVATE_PROPERTY_LOOKUP_PROOF_2026-05-19.md`
    - v320 해석: V317 live PASS 후에만 진행하는 조건부 계획과 fail-closed host runner를 준비했다. 현재 runner는 V317 PASS evidence가 없으면 `private-property-lookup-blocked-v317-missing`으로 거부하며, 목표는 Android-linked read-only property reader를 private namespace 안에서 실행해 v317 private `/dev/__properties__` tree의 값을 읽을 수 있는지 확인하는 것이다. global property runtime, property service socket, daemon start, Wi-Fi bring-up은 계속 금지한다
+   - v321 계획서: `docs/plans/NATIVE_INIT_V321_EXECNS_PROPERTY_LOOKUP_HELPER_PLAN_2026-05-19.md`
+   - v321 보고서: `docs/reports/NATIVE_INIT_V321_EXECNS_PROPERTY_LOOKUP_HELPER_2026-05-19.md`
+   - v321 해석: `a90_android_execns_probe v11`에 `property-lookup`/`system-getprop` helper support를 추가했다. 정적 ARM64 빌드와 marker 검증은 PASS했지만, live 실행은 아직 V317 PASS와 V320 approval gate 전까지 금지다
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
 ---

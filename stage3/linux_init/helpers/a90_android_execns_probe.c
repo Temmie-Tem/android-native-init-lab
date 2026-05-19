@@ -43,7 +43,7 @@
 #define PR_CAP_AMBIENT_RAISE 2
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v10"
+#define EXECNS_VERSION "a90_android_execns_probe v11"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -68,6 +68,8 @@ struct config {
     const char *linkerconfig_mode;
     const char *linkerconfig_source;
     const char *apex_libraries_source;
+    const char *property_root;
+    const char *property_key;
     int timeout_sec;
     bool allow_cnss_start_only;
 };
@@ -87,6 +89,7 @@ struct paths {
     char vendor_source[MAX_PATH_LEN];
     char dev[MAX_PATH_LEN];
     char dev_null[MAX_PATH_LEN];
+    char dev_properties[MAX_PATH_LEN];
     char sys[MAX_PATH_LEN];
     char sys_fs[MAX_PATH_LEN];
     char sys_fs_selinux[MAX_PATH_LEN];
@@ -108,7 +111,7 @@ static void usage(FILE *out) {
             "--system-root /mnt/system/system "
             "--vendor-block /dev/block/sda29 "
             "--vendor-fstype ext4 "
-            "[--target-profile cnss-daemon|system-toybox|system-sh|linker64-self|apex-linker64-self] "
+            "[--target-profile cnss-daemon|system-toybox|system-sh|linker64-self|apex-linker64-self|system-getprop] "
             "[--target /vendor/bin/cnss-daemon] "
             "[--linker /system/bin/linker64|/apex/com.android.runtime/bin/linker64] "
             "[--env-mode clean|ld-debug-1|ld-debug-2|auxv] "
@@ -119,8 +122,10 @@ static void usage(FILE *out) {
             "[--linkerconfig-mode none|copy-real|minimal-vendor] "
             "[--linkerconfig-source /cache/path/to/ld.config.txt] "
             "[--apex-libraries-source /cache/path/to/apex.libraries.config.txt] "
+            "[--property-root /mnt/sdext/a90/private-property-v317/.../dev/__properties__] "
+            "[--property-key ro.build.version.sdk] "
             "[--allow-cnss-start-only] "
-            "--mode linker-list|identity-probe|cnss-start-only "
+            "--mode linker-list|identity-probe|cnss-start-only|property-lookup "
             "--timeout-sec <1..30>\n");
 }
 
@@ -145,6 +150,43 @@ static bool parse_int_range(const char *value, int min_value, int max_value, int
     }
     *out = (int)parsed;
     return true;
+}
+
+static bool path_has_prefix_component(const char *path, const char *prefix) {
+    size_t prefix_len;
+
+    if (path == NULL || prefix == NULL) {
+        return false;
+    }
+    prefix_len = strlen(prefix);
+    return strncmp(path, prefix, prefix_len) == 0 &&
+           (path[prefix_len] == '\0' || path[prefix_len] == '/');
+}
+
+static bool property_root_allowed(const char *path) {
+    const char *suffix = "/dev/__properties__";
+    size_t path_len;
+    size_t suffix_len;
+
+    if (path == NULL) {
+        return false;
+    }
+    path_len = strlen(path);
+    suffix_len = strlen(suffix);
+    return path_has_prefix_component(path, "/mnt/sdext/a90/private-property-v317") &&
+           strstr(path, "..") == NULL &&
+           path_len >= suffix_len &&
+           strcmp(path + path_len - suffix_len, suffix) == 0;
+}
+
+static bool property_key_allowed(const char *key) {
+    return streq(key, "ro.build.version.sdk") ||
+           streq(key, "ro.build.version.release") ||
+           streq(key, "ro.product.vendor.device") ||
+           streq(key, "ro.board.platform") ||
+           streq(key, "ro.product.name") ||
+           streq(key, "ro.hardware") ||
+           streq(key, "ro.vendor.build.version.sdk");
 }
 
 static int parse_args(int argc, char **argv, struct config *cfg) {
@@ -203,6 +245,10 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             cfg->linkerconfig_source = argv[++i];
         } else if (strcmp(argv[i], "--apex-libraries-source") == 0) {
             cfg->apex_libraries_source = argv[++i];
+        } else if (strcmp(argv[i], "--property-root") == 0) {
+            cfg->property_root = argv[++i];
+        } else if (strcmp(argv[i], "--property-key") == 0) {
+            cfg->property_key = argv[++i];
         } else if (strcmp(argv[i], "--timeout-sec") == 0) {
             if (!parse_int_range(argv[++i], 1, 30, &cfg->timeout_sec)) {
                 fprintf(stderr, "invalid --timeout-sec\n");
@@ -224,12 +270,15 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
         cfg->target = "/system/bin/linker64";
     } else if (streq(cfg->target_profile, "apex-linker64-self")) {
         cfg->target = "/apex/com.android.runtime/bin/linker64";
+    } else if (streq(cfg->target_profile, "system-getprop")) {
+        cfg->target = "/system/bin/getprop";
     } else if (streq(cfg->target_profile, "custom-allowlisted")) {
         if (!(streq(cfg->target, "/vendor/bin/cnss-daemon") ||
               streq(cfg->target, "/system/bin/toybox") ||
               streq(cfg->target, "/system/bin/sh") ||
               streq(cfg->target, "/system/bin/linker64") ||
-              streq(cfg->target, "/apex/com.android.runtime/bin/linker64"))) {
+              streq(cfg->target, "/apex/com.android.runtime/bin/linker64") ||
+              streq(cfg->target, "/system/bin/getprop"))) {
             fprintf(stderr, "--target must match a v235 allowlisted profile path\n");
             return 2;
         }
@@ -243,7 +292,8 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
         !streq(cfg->vendor_fstype, "ext4") ||
         !(streq(cfg->mode, "linker-list") ||
           streq(cfg->mode, "identity-probe") ||
-          streq(cfg->mode, "cnss-start-only")) ||
+          streq(cfg->mode, "cnss-start-only") ||
+          streq(cfg->mode, "property-lookup")) ||
         !(streq(cfg->capture_mode, "none") ||
           streq(cfg->capture_mode, "ptrace-lite")) ||
         !(streq(cfg->null_device_mode, "none") ||
@@ -287,6 +337,31 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
     }
     if (streq(cfg->mode, "cnss-start-only") && !streq(cfg->target, "/vendor/bin/cnss-daemon")) {
         fprintf(stderr, "cnss-start-only target is fixed to /vendor/bin/cnss-daemon\n");
+        return 2;
+    }
+    if (streq(cfg->mode, "property-lookup")) {
+        if (cfg->linker != NULL) {
+            fprintf(stderr, "--linker is not used by property-lookup mode\n");
+            return 2;
+        }
+        if (!streq(cfg->capture_mode, "none")) {
+            fprintf(stderr, "--capture-mode must be none for property-lookup mode\n");
+            return 2;
+        }
+        if (!streq(cfg->target, "/system/bin/getprop")) {
+            fprintf(stderr, "property-lookup target is fixed to /system/bin/getprop\n");
+            return 2;
+        }
+        if (!property_root_allowed(cfg->property_root)) {
+            fprintf(stderr, "--property-root must be under /mnt/sdext/a90/private-property-v317 and point at dev/__properties__\n");
+            return 2;
+        }
+        if (!property_key_allowed(cfg->property_key)) {
+            fprintf(stderr, "--property-key is not in the v321 read-only allowlist\n");
+            return 2;
+        }
+    } else if (cfg->property_root != NULL || cfg->property_key != NULL) {
+        fprintf(stderr, "--property-root and --property-key are only valid with property-lookup mode\n");
         return 2;
     }
     if (streq(cfg->linkerconfig_mode, "copy-real")) {
@@ -362,6 +437,10 @@ static int init_paths(struct paths *paths) {
         append_path(paths->vendor_source, sizeof(paths->vendor_source), paths->base, "vendor-block-sda29") < 0 ||
         append_path(paths->dev, sizeof(paths->dev), paths->root, "dev") < 0 ||
         append_path(paths->dev_null, sizeof(paths->dev_null), paths->dev, "null") < 0 ||
+        append_path(paths->dev_properties,
+                    sizeof(paths->dev_properties),
+                    paths->dev,
+                    "__properties__") < 0 ||
         append_path(paths->sys, sizeof(paths->sys), paths->root, "sys") < 0 ||
         append_path(paths->sys_fs, sizeof(paths->sys_fs), paths->sys, "fs") < 0 ||
         append_path(paths->sys_fs_selinux, sizeof(paths->sys_fs_selinux), paths->sys_fs, "selinux") < 0 ||
@@ -401,6 +480,48 @@ static int bind_ro(const char *source, const char *target) {
         return -1;
     }
     if (mount(NULL, target, NULL, MS_BIND | MS_REMOUNT | MS_RDONLY | MS_NOSUID | MS_NODEV, NULL) < 0) {
+        return -1;
+    }
+    return 0;
+}
+
+static int materialize_private_properties(const struct config *cfg,
+                                          const struct paths *paths,
+                                          char *error_buf,
+                                          size_t error_size) {
+    struct stat st;
+
+    if (!streq(cfg->mode, "property-lookup")) {
+        return 0;
+    }
+    if (lstat(cfg->property_root, &st) < 0) {
+        snprintf(error_buf, error_size, "lstat property root: %s", strerror(errno));
+        return -1;
+    }
+    if (S_ISLNK(st.st_mode)) {
+        snprintf(error_buf, error_size, "property root is symlink");
+        errno = ELOOP;
+        return -1;
+    }
+    if (stat(cfg->property_root, &st) < 0) {
+        snprintf(error_buf, error_size, "stat property root: %s", strerror(errno));
+        return -1;
+    }
+    if (!S_ISDIR(st.st_mode)) {
+        snprintf(error_buf, error_size, "property root is not directory");
+        errno = ENOTDIR;
+        return -1;
+    }
+    if (mkdir_p(paths->dev, 0755) < 0) {
+        snprintf(error_buf, error_size, "mkdir dev for properties: %s", strerror(errno));
+        return -1;
+    }
+    if (mkdir_p(paths->dev_properties, 0755) < 0) {
+        snprintf(error_buf, error_size, "mkdir dev properties: %s", strerror(errno));
+        return -1;
+    }
+    if (bind_ro(cfg->property_root, paths->dev_properties) < 0) {
+        snprintf(error_buf, error_size, "bind private properties: %s", strerror(errno));
         return -1;
     }
     return 0;
@@ -827,6 +948,10 @@ static void cleanup_paths(const struct paths *paths) {
     if (paths->sys_fs_selinux_null[0] != '\0') {
         unlink(paths->sys_fs_selinux_null);
     }
+    if (paths->dev_properties[0] != '\0') {
+        umount2(paths->dev_properties, MNT_DETACH);
+        rmdir(paths->dev_properties);
+    }
     if (paths->dev_null[0] != '\0') {
         unlink(paths->dev_null);
     }
@@ -1074,6 +1199,7 @@ static void print_preexec_context(const struct config *cfg, const struct paths *
         print_context_path(paths, "target", cfg->target);
     }
     print_context_path(paths, "dev_null", "/dev/null");
+    print_context_path(paths, "dev_properties", "/dev/__properties__");
     print_context_path(paths, "selinux_null", "/sys/fs/selinux/null");
     print_context_path(paths, "data", "/data");
     print_context_path(paths, "data_vendor", "/data/vendor");
@@ -2040,6 +2166,139 @@ fail:
     return -1;
 }
 
+static int run_property_lookup(const struct config *cfg,
+                               const struct paths *paths,
+                               struct buffer *stdout_buf,
+                               struct buffer *stderr_buf,
+                               int *child_exit_code,
+                               int *child_signal,
+                               bool *timed_out) {
+    int stdout_pipe[2] = {-1, -1};
+    int stderr_pipe[2] = {-1, -1};
+    bool stdout_open = true;
+    bool stderr_open = true;
+    bool child_done = false;
+    long deadline;
+    pid_t pid;
+    int status = 0;
+
+    *child_exit_code = -1;
+    *child_signal = 0;
+    *timed_out = false;
+
+    if (pipe2(stdout_pipe, O_CLOEXEC) < 0 || pipe2(stderr_pipe, O_CLOEXEC) < 0) {
+        perror("pipe2");
+        goto fail;
+    }
+    pid = fork();
+    if (pid < 0) {
+        perror("fork");
+        goto fail;
+    }
+    if (pid == 0) {
+        char *const child_argv[] = {
+            (char *)"/system/bin/getprop",
+            (char *)cfg->property_key,
+            NULL,
+        };
+
+        setpgid(0, 0);
+        close(stdout_pipe[0]);
+        close(stderr_pipe[0]);
+        dup2(stdout_pipe[1], STDOUT_FILENO);
+        dup2(stderr_pipe[1], STDERR_FILENO);
+        close(stdout_pipe[1]);
+        close(stderr_pipe[1]);
+        if (chroot(paths->root) < 0) {
+            perror("chroot");
+            _exit(120);
+        }
+        if (chdir("/") < 0) {
+            perror("chdir");
+            _exit(121);
+        }
+        apply_child_env(cfg);
+        execv("/system/bin/getprop", child_argv);
+        perror("execv getprop");
+        _exit(127);
+    }
+
+    close(stdout_pipe[1]);
+    close(stderr_pipe[1]);
+    stdout_pipe[1] = -1;
+    stderr_pipe[1] = -1;
+    set_nonblock(stdout_pipe[0]);
+    set_nonblock(stderr_pipe[0]);
+    deadline = monotonic_ms() + cfg->timeout_sec * 1000L;
+
+    while (stdout_open || stderr_open || !child_done) {
+        struct pollfd fds[2];
+        int nfds = 0;
+        int poll_timeout = 50;
+        long now = monotonic_ms();
+
+        if (!child_done && now >= deadline) {
+            *timed_out = true;
+            kill(-pid, SIGKILL);
+            kill(pid, SIGKILL);
+        }
+        if (stdout_open) {
+            fds[nfds].fd = stdout_pipe[0];
+            fds[nfds].events = POLLIN | POLLHUP | POLLERR;
+            nfds++;
+        }
+        if (stderr_open) {
+            fds[nfds].fd = stderr_pipe[0];
+            fds[nfds].events = POLLIN | POLLHUP | POLLERR;
+            nfds++;
+        }
+        if (nfds > 0) {
+            int rc = poll(fds, nfds, poll_timeout);
+
+            if (rc > 0) {
+                int idx = 0;
+
+                if (stdout_open) {
+                    if (fds[idx].revents != 0) {
+                        drain_fd(stdout_pipe[0], stdout_buf, &stdout_open);
+                    }
+                    idx++;
+                }
+                if (stderr_open) {
+                    if (fds[idx].revents != 0) {
+                        drain_fd(stderr_pipe[0], stderr_buf, &stderr_open);
+                    }
+                }
+            }
+        } else {
+            usleep(50000);
+        }
+        if (!child_done) {
+            pid_t wait_rc = waitpid(pid, &status, WNOHANG);
+
+            if (wait_rc == pid) {
+                child_done = true;
+                if (WIFEXITED(status)) {
+                    *child_exit_code = WEXITSTATUS(status);
+                } else if (WIFSIGNALED(status)) {
+                    *child_signal = WTERMSIG(status);
+                }
+            } else if (wait_rc < 0 && errno != EINTR && errno != ECHILD) {
+                printf("property_lookup.wait.error=%s\n", strerror(errno));
+                child_done = true;
+            }
+        }
+    }
+    return 0;
+
+fail:
+    if (stdout_pipe[0] >= 0) close(stdout_pipe[0]);
+    if (stdout_pipe[1] >= 0) close(stdout_pipe[1]);
+    if (stderr_pipe[0] >= 0) close(stderr_pipe[0]);
+    if (stderr_pipe[1] >= 0) close(stderr_pipe[1]);
+    return -1;
+}
+
 static int append_literal(struct buffer *buf, const char *text) {
     return buffer_append(buf, text, strlen(text));
 }
@@ -2594,6 +2853,9 @@ static int setup_namespace(const struct config *cfg,
     if (materialize_null_devices(cfg, paths, error_buf, error_size) < 0) {
         return -1;
     }
+    if (materialize_private_properties(cfg, paths, error_buf, error_size) < 0) {
+        return -1;
+    }
     if (materialize_data_wifi(cfg, paths, error_buf, error_size) < 0) {
         return -1;
     }
@@ -2722,6 +2984,8 @@ int main(int argc, char **argv) {
            cfg.linkerconfig_source != NULL ? cfg.linkerconfig_source : "<none>");
     printf("apex_libraries_source=%s\n",
            cfg.apex_libraries_source != NULL ? cfg.apex_libraries_source : "<none>");
+    printf("property_root=%s\n", cfg.property_root != NULL ? cfg.property_root : "<none>");
+    printf("property_key=%s\n", cfg.property_key != NULL ? cfg.property_key : "<none>");
     printf("system_root=%s\n", cfg.system_root);
     printf("vendor_block=%s\n", cfg.vendor_block);
     printf("vendor_fstype=%s\n", cfg.vendor_fstype);
@@ -2772,6 +3036,14 @@ int main(int argc, char **argv) {
                                     &child_exit_code,
                                     &child_signal,
                                     &timed_out);
+    } else if (streq(cfg.mode, "property-lookup")) {
+        run_rc = run_property_lookup(&cfg,
+                                     &paths,
+                                     &stdout_buf,
+                                     &stderr_buf,
+                                     &child_exit_code,
+                                     &child_signal,
+                                     &timed_out);
     } else if (streq(cfg.mode, "cnss-start-only")) {
         run_rc = run_cnss_start_only_guarded(&cfg,
                                              &paths,
