@@ -4,7 +4,7 @@
 - scope: host-only audit of private property lookup chain gates
 - boot image change: none
 - baseline native build: `A90 Linux init 0.9.61 (v319)`
-- result: `private-property-chain-ready-for-v320-approval`
+- result: `private-property-chain-v320-live-proof-passed`
 
 ## Summary
 
@@ -14,7 +14,11 @@ private property lookup chain is ready for the next live step.
 
 Initial result: all local/static prerequisites were present, but v317 live
 namespace proof PASS evidence was absent. After the approved V317 live proof
-passed, the audit now reports that the chain is ready for V320 approval.
+passed, the audit reported that the chain was ready for V320 approval.
+
+Follow-up status: V320 live proof has now passed separately with
+`private-property-lookup-getprop-pass`, after v11 helper deployment and
+read-only `/mnt/system` mount preparation.
 
 ## Validation
 
@@ -75,15 +79,15 @@ device_mutations: False
 
 ## Current Blocker
 
-Exact V320 approval phrase is required before the next live lookup:
+No V320 blocker remains for the recorded proof. The exact phrase below was used
+for the recorded live lookup and remains required for any future V320 rerun:
 
 ```text
 approve v320 private property lookup proof only; no daemon start and no Wi-Fi bring-up
 ```
 
-Without that phrase, private property lookup remains blocked. No daemon start,
-Wi-Fi scan/connect/link-up, routing, rfkill, firmware, or property mutation is
-permitted by this audit.
+No daemon start, Wi-Fi scan/connect/link-up, routing, rfkill, firmware, or
+property mutation is permitted by this audit.
 
 ## Evidence
 
@@ -91,11 +95,13 @@ permitted by this audit.
 - summary: `tmp/wifi/v323-private-property-chain-audit/summary.md`
 - post-V317 manifest: `tmp/wifi/v323-private-property-chain-audit-after-v317/manifest.json`
 - post-V317 summary: `tmp/wifi/v323-private-property-chain-audit-after-v317/summary.md`
+- V320 live pass manifest:
+  `tmp/wifi/v320-private-property-lookup-proof-live-v11-mounted/manifest.json`
+- V320 helper deploy manifest:
+  `tmp/wifi/v320-helper-v11-serial-deploy/manifest.json`
 
 ## Next Step
 
-The chain is ready up to the V320 live boundary. The next concrete options are:
-
-1. run V320 live lookup only after the exact V320 approval phrase; or
-2. continue with another read-only Wi-Fi/kernel inventory task that does not
-   require private property namespace mutation.
+The chain has crossed the V320 live boundary successfully. The next concrete
+step is bounded CNSS pre-start environment probe planning. Daemon start and
+Wi-Fi bring-up remain outside this report's approval boundary.

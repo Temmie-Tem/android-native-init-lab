@@ -4080,7 +4080,7 @@
 - next:
   - V317 live private namespace proof may run after the exact V317 approval phrase; still no daemon start or Wi-Fi bring-up
 
-### V320. Private Property Lookup Proof — PLAN READY / V320 APPROVAL REQUIRED
+### V320. Private Property Lookup Proof — LIVE PASS
 
 - 계획: `docs/plans/NATIVE_INIT_V320_PRIVATE_PROPERTY_LOOKUP_PROOF_PLAN_2026-05-19.md`
 - 보고서: `docs/reports/NATIVE_INIT_V320_PRIVATE_PROPERTY_LOOKUP_PROOF_2026-05-19.md`
@@ -4099,6 +4099,12 @@
   - `device_commands_executed=false`, `device_mutations=false`
   - post-V317 plan decision `private-property-lookup-plan-ready`
   - post-V317 plan `device_commands_executed=false`, `device_mutations=false`
+  - exact V320 approval phrase received
+  - helper v11 serial deploy decision `execns-helper-v11-serial-deploy-pass`
+  - live stale-helper failure recorded for v10
+  - live unmounted-system failure recorded for v11 before `mountsystem ro`
+  - live mounted-system decision `private-property-lookup-getprop-pass`
+  - four allowlisted properties matched v312 expected values
 - intended proof:
   - run an Android-linked read-only property reader such as `/system/bin/getprop` inside a private Android execution namespace
   - expose only the v317 private property directory to that child as `/dev/__properties__`
@@ -4108,10 +4114,10 @@
   - no `/dev/socket/property_service`
   - no property mutation, daemon start, Wi-Fi scan/connect/link-up, credential, DHCP, routing, rfkill write, module load, or firmware mutation
 - next:
-  - V320 live lookup remains blocked until its own exact approval phrase:
-    `approve v320 private property lookup proof only; no daemon start and no Wi-Fi bring-up`
+  - proceed to bounded CNSS pre-start environment probe planning
+  - daemon start and Wi-Fi bring-up remain blocked until a new explicit approval boundary
 
-### V321. Execns Property Lookup Helper Support — STATIC PASS / LIVE BLOCKED BY V317
+### V321. Execns Property Lookup Helper Support — STATIC PASS / DEPLOYED FOR V320
 
 - 계획: `docs/plans/NATIVE_INIT_V321_EXECNS_PROPERTY_LOOKUP_HELPER_PLAN_2026-05-19.md`
 - 보고서: `docs/reports/NATIVE_INIT_V321_EXECNS_PROPERTY_LOOKUP_HELPER_2026-05-19.md`
@@ -4131,12 +4137,13 @@
   - private `/dev/__properties__` bind only inside the helper private root
   - narrow property-root and property-key allowlists
 - live status:
-  - not executed
-  - blocked until v317 `private-property-namespace-proof-pass` and later v320 approval gate
+  - v11 helper was deployed over serial for V320 live proof
+  - deploy evidence: `tmp/wifi/v320-helper-v11-serial-deploy/`
+  - no daemon start or Wi-Fi bring-up was performed by helper deployment
 - next:
-  - v322 integrated the v320 runner with helper command generation; live execution remains blocked until v317 PASS evidence
+  - V320 proved the v11 `property-lookup` mode against four allowlisted properties
 
-### V322. Private Property Lookup Runner Integration — FAIL-CLOSED PASS / LIVE BLOCKED BY V317
+### V322. Private Property Lookup Runner Integration — FAIL-CLOSED PASS / V320 LIVE PASS
 
 - 계획: `docs/plans/NATIVE_INIT_V322_PRIVATE_PROPERTY_LOOKUP_RUNNER_PLAN_2026-05-19.md`
 - 보고서: `docs/reports/NATIVE_INIT_V322_PRIVATE_PROPERTY_LOOKUP_RUNNER_2026-05-19.md`
@@ -4155,12 +4162,13 @@
   - future helper command uses `run /cache/bin/a90_android_execns_probe --mode property-lookup --target-profile system-getprop`
   - lookup keys filtered to the v321 helper allowlist
 - live status:
-  - not executed
-  - blocked until v317 `private-property-namespace-proof-pass`
+  - executed through V320 after exact approval phrase
+  - final evidence: `tmp/wifi/v320-private-property-lookup-proof-live-v11-mounted/`
+  - live decision: `private-property-lookup-getprop-pass`
 - next:
-  - v323 audit confirms exact v317 approval is the only remaining private-property chain live blocker
+  - use the V320 pass as prerequisite for bounded CNSS pre-start environment probing
 
-### V323. Private Property Chain Gate Audit — PASS / READY FOR V320 APPROVAL
+### V323. Private Property Chain Gate Audit — PASS / V320 LIVE BOUNDARY CROSSED
 
 - 계획: `docs/plans/NATIVE_INIT_V323_PRIVATE_PROPERTY_CHAIN_AUDIT_PLAN_2026-05-19.md`
 - 보고서: `docs/reports/NATIVE_INIT_V323_PRIVATE_PROPERTY_CHAIN_AUDIT_2026-05-19.md`
@@ -4179,11 +4187,11 @@
   - post-V317 `chain_ready=true`
 - gate result:
   - v312/v315/v316/v317-plan/v317-audit/v317-live/v319/v321/v322/v325 prerequisites PASS
-  - next blocker is V320 exact approval phrase
-  - v317 live PASS evidence missing
+  - V320 exact approval phrase was received and used for the recorded live proof
+  - V320 live proof passed after v11 helper deploy and `mountsystem ro`
 - next:
-  - v324 refreshed the exact approval packet with post-v319 transfer estimates and post-v323 gate status
-  - if approval is not provided, choose another read-only Wi-Fi/kernel inventory task
+  - plan bounded CNSS pre-start environment probe
+  - daemon start and Wi-Fi bring-up remain outside the current approval boundary
 
 ### V324. Private Property Live Approval Refresh — READY / LIVE NOT APPROVED
 
