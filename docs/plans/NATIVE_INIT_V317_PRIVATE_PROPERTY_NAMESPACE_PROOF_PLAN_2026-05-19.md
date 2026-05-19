@@ -3,7 +3,8 @@
 - date: `2026-05-19`
 - scope: approved minimal private property namespace proof
 - boot image change: none
-- baseline device build: `A90 Linux init 0.9.60 (v261)`
+- original baseline device build: `A90 Linux init 0.9.60 (v261)`
+- current required live baseline: `A90 Linux init 0.9.61 (v319)`
 - status: runner ready / live execution blocked until operator approval
 
 ## Summary
@@ -74,27 +75,28 @@ Explicitly forbidden:
 
 Use the existing ACM bridge and toybox only.
 
-Preferred implementation:
+Current implementation after v318/v319:
 
-1. For each file, base64 encode locally.
-2. Split base64 into bounded chunks.
-3. Append chunks to a temporary `.b64` file in the v317 private workdir through
-   `cmdv1x run /cache/bin/toybox sh -c 'printf ... >> file.b64'`.
-4. Decode with `toybox base64 -d file.b64 > file.tmp`.
-5. Verify SHA-256 of `file.tmp`.
-6. Atomically move `file.tmp` to final path.
-7. Remove `.b64` temporary file.
+1. For each file, uuencode/base64 locally.
+2. Split the uuencoded text into bounded chunks.
+3. Create an empty temporary `.uue` staging file with `toybox touch`.
+4. Append chunks with native init `appendfile`, scoped to the private workdir.
+5. Decode with `toybox uudecode -o <target.tmp> <target.uue>`.
+6. Verify SHA-256 of `<target.tmp>` with `toybox sha256sum`.
+7. Move `<target.tmp>` to the final path.
+8. Remove `.uue` temporary files.
 
-If device toybox lacks `base64 -d` or shell redirection support, v317 must stop
-with a diagnostic decision instead of widening scope to NCM/tcpctl.
+V318 proved `toybox sh` is unavailable, so v317 must not use `sh -c`, pipes, or
+shell redirection. V319 added native init `appendfile` and larger command buffers
+specifically to keep this proof on ACM serial without NCM/tcpctl daemon start.
 
-Current v312 layout estimate with default 384-byte chunks:
+Current v312 layout estimate with 1536-byte chunks:
 
 - files: `5`
 - bytes: `524988`
-- chunks: `1851`
-- estimated device commands: `1885`
-- maximum generated shell snippet length: `493`
+- chunks: `471`
+- estimated device commands: `505`
+- maximum generated cmdv1x script length: `3294`
 
 ## Safety Details
 
@@ -191,6 +193,7 @@ private-property-namespace-proof-cleaned
 
 ## Next Step
 
-If v317 passes, v318 can decide whether to attempt a private mount namespace
-lookup proof. That still must not replace global `/dev/__properties__` or start
-Android/Wi-Fi daemons.
+If v317 passes, v320 can attempt a read-only private property lookup proof using
+an Android-linked reader inside a private namespace. That still must not replace
+global `/dev/__properties__`, create `/dev/socket/property_service`, mutate
+properties, or start Android/Wi-Fi daemons.

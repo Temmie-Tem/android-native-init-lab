@@ -3,7 +3,8 @@
 - date: `2026-05-19`
 - scope: minimal private property namespace proof runner, approval-gated
 - boot image change: none
-- baseline device build: `A90 Linux init 0.9.60 (v261)`
+- original baseline device build: `A90 Linux init 0.9.60 (v261)`
+- current required live baseline: `A90 Linux init 0.9.61 (v319)`
 - plan: `docs/plans/NATIVE_INIT_V317_PRIVATE_PROPERTY_NAMESPACE_PROOF_PLAN_2026-05-19.md`
 - tool: `scripts/revalidation/wifi_private_property_namespace_proof.py`
 
@@ -14,6 +15,12 @@ runner can generate a plan and correctly refuses `run`/`cleanup` without the
 exact approval phrase and mutation flags.
 
 No live mutation was executed in this validation.
+
+Post-v319 update: v318 proved `toybox sh` is unavailable, and v319 added the
+scoped native init `appendfile` command plus 4096-byte command buffers. The
+runner now uses `appendfile` + `toybox uudecode -o` + `toybox sha256sum` instead
+of the original shell-redirection transfer sketch. Live execution is still
+blocked until the exact approval phrase is provided.
 
 ## Evidence
 
@@ -65,10 +72,10 @@ The plan manifest estimates the approved live run before any mutation:
 
 - files: `5`
 - bytes: `524988`
-- chunk size: `384`
-- chunks: `1851`
-- estimated device commands: `1885`
-- max shell snippet length: `493`
+- chunk size: `1536`
+- chunks: `471`
+- estimated device commands: `505`
+- max cmdv1x script length: `3294`
 - status: `pass`
 
 ## Safety Audit
