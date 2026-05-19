@@ -4504,6 +4504,22 @@
 - next:
   - exact v317 approval phrase가 있으면 handoff packet의 command로 V317 minimal live proof 진행
 
+### V341. Handoff Requires Current V336 Pre-live Gate — PASS / HOST-ONLY
+
+- 계획: `docs/plans/NATIVE_INIT_V341_HANDOFF_REQUIRES_CURRENT_PRELIVE_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V341_HANDOFF_REQUIRES_CURRENT_PRELIVE_2026-05-19.md`
+- target: `scripts/revalidation/wifi_v317_handoff_packet.py`
+- boot image: 없음. v341은 host-side handoff correctness fix이며 native init version 변경 없음
+- validation:
+  - `py_compile` PASS
+  - `git diff --check` PASS
+  - stale V336 pre-live manifest blocks handoff
+  - post-commit V336/V331/V340 canonical evidence regenerated
+  - `device_commands_executed=false`
+  - `device_mutations=false`
+- next:
+  - exact v317 approval phrase가 있으면 handoff packet의 command로 V317 minimal live proof 진행
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`

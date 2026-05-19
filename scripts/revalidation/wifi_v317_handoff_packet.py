@@ -30,6 +30,7 @@ class InputSpec:
     expected_decision: str
     expected_pass: bool
     critical_paths: tuple[str, ...]
+    require_current_head: bool = False
 
 
 @dataclass
@@ -61,6 +62,7 @@ INPUTS = (
             "scripts/revalidation/wifi_v317_prelive_gate_audit.py",
             "scripts/revalidation/wifi_private_property_namespace_proof.py",
         ),
+        True,
     ),
     InputSpec(
         "v339-live-surface-linter",
@@ -150,7 +152,7 @@ def is_affected(path: str, critical_paths: tuple[str, ...]) -> bool:
 def input_spec_with_args(args: argparse.Namespace) -> tuple[InputSpec, ...]:
     return (
         InputSpec(INPUTS[0].name, args.v331_manifest, INPUTS[0].expected_decision, INPUTS[0].expected_pass, INPUTS[0].critical_paths),
-        InputSpec(INPUTS[1].name, args.v336_manifest, INPUTS[1].expected_decision, INPUTS[1].expected_pass, INPUTS[1].critical_paths),
+        InputSpec(INPUTS[1].name, args.v336_manifest, INPUTS[1].expected_decision, INPUTS[1].expected_pass, INPUTS[1].critical_paths, INPUTS[1].require_current_head),
         InputSpec(INPUTS[2].name, args.v339_manifest, INPUTS[2].expected_decision, INPUTS[2].expected_pass, INPUTS[2].critical_paths),
     )
 
@@ -167,6 +169,7 @@ def check_input(spec: InputSpec, manifest: dict[str, Any], current_head: str) ->
         and manifest.get("decision") == spec.expected_decision
         and pass_value(manifest) is spec.expected_pass
         and manifest_dirty(manifest) is False
+        and (not spec.require_current_head or head == current_head)
         and freshness != "stale-affected"
         and not bool(manifest.get("device_commands_executed"))
         and not bool(manifest.get("device_mutations"))
@@ -178,6 +181,7 @@ def check_input(spec: InputSpec, manifest: dict[str, Any], current_head: str) ->
         (
             f"decision={manifest.get('decision')} pass={pass_value(manifest)} "
             f"head={head} current_head={current_head} freshness={freshness} "
+            f"require_current_head={spec.require_current_head} "
             f"affected={affected}"
         ),
         str(manifest.get("path", repo_path(spec.path))),

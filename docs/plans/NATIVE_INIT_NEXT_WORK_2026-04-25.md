@@ -1554,6 +1554,9 @@ Samsung bootloader
    - v340 계획서: `docs/plans/NATIVE_INIT_V340_V317_FINAL_HANDOFF_PACKET_PLAN_2026-05-19.md`
    - v340 보고서: `docs/reports/NATIVE_INIT_V340_V317_FINAL_HANDOFF_PACKET_2026-05-19.md`
    - v340 해석: V331/V336/V339를 단일 operator handoff packet으로 묶었다. 남은 blocker는 `exact-v317-approval-phrase` 하나다
+   - v341 계획서: `docs/plans/NATIVE_INIT_V341_HANDOFF_REQUIRES_CURRENT_PRELIVE_PLAN_2026-05-19.md`
+   - v341 보고서: `docs/reports/NATIVE_INIT_V341_HANDOFF_REQUIRES_CURRENT_PRELIVE_2026-05-19.md`
+   - v341 해석: V340 handoff가 runner와 동일하게 V336 pre-live gate를 current clean HEAD로 요구하도록 수정했다. stale V336은 handoff 단계에서 blocked 된다
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
 ---
