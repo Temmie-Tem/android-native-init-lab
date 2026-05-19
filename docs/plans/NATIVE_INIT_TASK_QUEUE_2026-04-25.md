@@ -3738,6 +3738,25 @@
 - next:
   - explicit operator approval is still required before executing the v300 live command
 
+### V305. Android Capture Rescue Doctor — NATIVE READY
+
+- 계획: `docs/plans/NATIVE_INIT_V305_ANDROID_CAPTURE_RESCUE_DOCTOR_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V305_ANDROID_CAPTURE_RESCUE_DOCTOR_2026-05-19.md`
+- boot image change: none
+- baseline device build: `A90 Linux init 0.9.60 (v261)`
+- tool: `scripts/revalidation/android_capture_rescue_doctor.py`
+- evidence: `tmp/wifi/v305-android-capture-rescue-doctor/`
+- decision: `native-ready`
+- result:
+  - native bridge version probe PASS
+  - ADB devices read-only probe PASS, no ADB targets present
+  - generated operator aid commands for live handoff, native rollback, and Android capture path
+- safety:
+  - no recommended command was executed
+  - no reboot/recovery/flash/property mutation/Wi-Fi bring-up action was executed
+- next:
+  - after explicit live handoff approval, run v304 guard once more and execute v300 live command
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
