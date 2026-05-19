@@ -4342,6 +4342,25 @@
   - exact v317 approval phrase가 있으면 readiness packet의 command로 v317 minimal live proof 진행
   - approval이 없으면 다른 host-only/read-only 후보 선정
 
+### V332. Current Read-only Live Preflight — PASS / READ-ONLY DEVICE
+
+- 계획: `docs/plans/NATIVE_INIT_V332_CURRENT_READONLY_LIVE_PREFLIGHT_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V332_CURRENT_READONLY_LIVE_PREFLIGHT_2026-05-19.md`
+- tool: `scripts/revalidation/wifi_private_property_live_preflight.py`
+- evidence: `tmp/wifi/v332-current-readonly-live-preflight/`
+- boot image: 없음. v332는 현재 native device read-only preflight이며 native init version 변경 없음
+- validation:
+  - decision `private-property-live-preflight-ready`
+  - `pass=true`
+  - evidence git head `b7965ab`
+  - evidence git dirty `false`
+  - native version `A90 Linux init 0.9.61 (v319)` PASS
+  - storage/mountsd/logpath/selftest/status PASS
+  - `device_mutations=false`
+- next:
+  - exact v317 approval phrase가 있으면 readiness packet의 command로 v317 minimal live proof 진행
+  - approval이 없으면 다른 host-only/read-only 후보 선정
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`

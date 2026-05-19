@@ -1527,6 +1527,9 @@ Samsung bootloader
    - v331 계획서: `docs/plans/NATIVE_INIT_V331_V317_LIVE_READINESS_PACKET_PLAN_2026-05-19.md`
    - v331 보고서: `docs/reports/NATIVE_INIT_V331_V317_LIVE_READINESS_PACKET_2026-05-19.md`
    - v331 해석: V317 live proof용 operator handoff packet을 host-only로 만들었다. exact approval phrase가 제공되기 전까지 live_execution_approved=false이며 device command/mutation은 없다
+   - v332 계획서: `docs/plans/NATIVE_INIT_V332_CURRENT_READONLY_LIVE_PREFLIGHT_PLAN_2026-05-19.md`
+   - v332 보고서: `docs/reports/NATIVE_INIT_V332_CURRENT_READONLY_LIVE_PREFLIGHT_2026-05-19.md`
+   - v332 해석: 현재 연결된 native device에서 read-only V317 preflight가 PASS했다. native version `A90 Linux init 0.9.61 (v319)`, SD writable, selftest fail=0, netservice disabled, logpath on SD 확인. device mutation은 없다
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
 ---
