@@ -5018,6 +5018,32 @@
   - plan no-scan/no-connect readiness delta observer before any broader Wi-Fi action
   - broader Wi-Fi scan/connect/link-up remains blocked until a separate explicit plan and approval
 
+### V363. Wi-Fi Bring-Up Phase 0 Baseline Gate — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V363_WIFI_BRINGUP_PHASE0_PLAN_2026-05-20.md`
+- 보고서: `docs/reports/NATIVE_INIT_V363_WIFI_BRINGUP_PHASE0_2026-05-20.md`
+- evidence: `tmp/wifi/v363-bringup-preflight-20260520-001255/`
+- boot image: 없음. v363은 live read-only baseline gate이며 native init version 변경 없음
+- approval:
+  - user requested Wi-Fi bring-up direction
+  - v363 deliberately limited the first step to no-scan/no-connect baseline capture
+- validation:
+  - decision `wifi-bringup-phase0-live-baseline-ready`
+  - native baseline `A90 Linux init 0.9.61 (v319)`
+  - `wlan` module present and parameters readable
+  - ICNSS core node present and bound to `icnss`
+  - QCA6390 node present but driver link absent
+  - no `wlan*` netdev
+  - no Wi-Fi rfkill
+  - no `cnss-daemon`/`cnss_diag` process
+- interpretation:
+  - V362 proved bounded CNSS daemon start-only can execute and clean up
+  - V363 confirms that CNSS alone still does not create the active Wi-Fi link surface
+  - next blocker is HAL/service-manager/property/Binder readiness, not another blind CNSS retry
+- next:
+  - V364 candidate: no-scan/no-connect HAL/service-manager readiness gate
+  - do not run AP scan/connect/credential/DHCP/routing before that gate
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`

@@ -1625,6 +1625,11 @@ Samsung bootloader
    - v362 해석: 별도 daemon start 요청 후 bounded `cnss-daemon -n -l` start-only live run을 1회 실행했고 `start-only-pass` / `cnss-start-only-evidence-classified` / `cnss-warning-disposition-ready`를 확인했다
    - v362 결과: child observable, timeout 후 SIGTERM/SIGKILL/reap, `postflight_safe=1`, postflight process count/running/zombie `0`, `/proc/net/dev`와 `wifiinv full`에서 `wlan*`/wlan-like interface 없음, `scan_connect_linkup=0`
    - v362 경계: 이 결과는 CNSS daemon start-only 가능성만 의미한다. Wi-Fi scan/connect/link-up/credential/DHCP/routing/supplicant/wificond/hostapd/Wi-Fi HAL은 별도 계획과 승인 전까지 계속 blocked
+   - v363 계획서: `docs/plans/NATIVE_INIT_V363_WIFI_BRINGUP_PHASE0_PLAN_2026-05-20.md`
+   - v363 보고서: `docs/reports/NATIVE_INIT_V363_WIFI_BRINGUP_PHASE0_2026-05-20.md`
+   - v363 해석: Wi-Fi bring-up 방향은 수락됐지만 첫 단계는 no-scan/no-connect baseline gate로 제한했다. live baseline은 `wifi-bringup-phase0-live-baseline-ready` PASS
+   - v363 결과: `wlan` module present, ICNSS core bound, QCA6390 node present but driver link absent, no `wlan*`, no Wi-Fi rfkill, no CNSS process leak
+   - v363 다음: V364 no-scan/no-connect HAL/service-manager readiness gate. CNSS 단독 반복보다 Android Wi-Fi HAL/service-manager/property/Binder chain을 좁히는 것이 다음 병목이다
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
 ---
