@@ -4,7 +4,7 @@
 - scope: conditional read-only Android property lookup proof in a private namespace
 - boot image change: none planned
 - baseline native build: `A90 Linux init 0.9.61 (v319)`
-- status: planned / blocked until v317 live proof passes
+- status: fail-closed host runner implemented / blocked until v317 live proof passes
 
 ## Summary
 
