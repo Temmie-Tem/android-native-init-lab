@@ -4028,6 +4028,25 @@
 - next:
   - live run only after explicit operator approval
 
+### V318. Private Property Transfer Primitive Preflight — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V318_PRIVATE_PROPERTY_TRANSFER_PRIMITIVE_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V318_PRIVATE_PROPERTY_TRANSFER_PRIMITIVE_2026-05-19.md`
+- boot image change: none
+- baseline device build: `A90 Linux init 0.9.60 (v261)`
+- tool: `scripts/revalidation/wifi_private_property_transfer_primitive_preflight.py`
+- evidence: `tmp/wifi/v318-private-property-transfer-primitive-preflight/`
+- decision: `private-property-transfer-primitive-preflight-ready`
+- result:
+  - read-only live primitive checks PASS
+  - `toybox uudecode -o`, `base64 -d [FILE...]`, `touch`, `writefile`, and `sha256sum` are available
+  - `toybox sh` is unavailable and must not be used for V317 transfer
+- safety:
+  - `device_mutations=false`
+  - no file write/create/remove, no NCM/tcpctl start, no daemon start, no Wi-Fi bring-up
+- next:
+  - patch V317 runner to use a redirection-free `uudecode -o` transfer strategy before any live namespace proof
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`

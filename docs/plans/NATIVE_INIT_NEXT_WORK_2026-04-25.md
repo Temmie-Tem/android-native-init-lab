@@ -1482,7 +1482,11 @@ Samsung bootloader
    - v317 계획서: `docs/plans/NATIVE_INIT_V317_PRIVATE_PROPERTY_NAMESPACE_PROOF_PLAN_2026-05-19.md`
    - v317 보고서: `docs/reports/NATIVE_INIT_V317_PRIVATE_PROPERTY_NAMESPACE_PROOF_2026-05-19.md`
    - v317 결과: decisions `private-property-namespace-proof-plan-ready`, `private-property-namespace-proof-approval-required`, `private-property-namespace-proof-audit-pass`, `private-property-namespace-proof-audit-selftest-pass`
-   - v317 해석: runner는 구현됐고 plan/refusal/audit/selftest 검증은 PASS했다. 승인 후에도 범위는 `/mnt/sdext/a90/private-property-v317` private workdir 생성, v312 layout 파일 복사, SHA-256 검증, cleanup으로 제한한다. v316 승인 범위가 daemon start를 금지하므로 NCM/tcpctl 전송은 사용하지 않고 기존 ACM bridge + toybox base64 경로만 사용한다. 현재 전송 추정은 files 5, bytes 524988, chunks 1851, estimated device commands 1885이다
+   - v317 해석: runner는 구현됐고 plan/refusal/audit/selftest 검증은 PASS했다. 승인 후에도 범위는 `/mnt/sdext/a90/private-property-v317` private workdir 생성, v312 layout 파일 복사, SHA-256 검증, cleanup으로 제한한다. v316 승인 범위가 daemon start를 금지하므로 NCM/tcpctl 전송은 사용하지 않는다. 현재 전송 추정은 files 5, bytes 524988, chunks 1851, estimated device commands 1885이다
+   - v318 계획서: `docs/plans/NATIVE_INIT_V318_PRIVATE_PROPERTY_TRANSFER_PRIMITIVE_PLAN_2026-05-19.md`
+   - v318 보고서: `docs/reports/NATIVE_INIT_V318_PRIVATE_PROPERTY_TRANSFER_PRIMITIVE_2026-05-19.md`
+   - v318 결과: decision `private-property-transfer-primitive-preflight-ready`
+   - v318 해석: read-only live preflight에서 `toybox sh`가 없다는 사실을 확인했다. 따라서 v317 runner는 shell pipeline/base64 redirection이 아니라 `touch` + native `writefile` ASCII staging + `toybox uudecode -o` + `sha256sum` 방식으로 바뀌어야 한다
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
 ---
