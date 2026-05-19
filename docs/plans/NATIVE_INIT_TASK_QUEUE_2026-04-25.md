@@ -4784,7 +4784,7 @@
   - exact V317 approval phrase 없이는 executor `run`/`cleanup` 실행하지 않음
 
 
-### V354. Cleanup Approval Regression Expansion — HOST-ONLY / PENDING POST-COMMIT RUN
+### V354. Cleanup Approval Regression Expansion — HOST-ONLY PASS
 
 - 계획: `docs/plans/NATIVE_INIT_V354_CLEANUP_APPROVAL_REGRESSION_PLAN_2026-05-19.md`
 - 보고서: `docs/reports/NATIVE_INIT_V354_CLEANUP_APPROVAL_REGRESSION_2026-05-19.md`
@@ -4800,7 +4800,9 @@
   - `cleanup-no-approval`, `cleanup-phrase-only`, `cleanup-flags-only` PASS
   - `device_commands_executed=false`, `device_mutations=false`
 - post-commit validation:
-  - clean HEAD에서 regression 재실행 예정
+  - clean HEAD에서 `v317-live-executor-regression-pass` PASS
+  - `cleanup-no-approval`, `cleanup-phrase-only`, `cleanup-flags-only` PASS
+  - `device_commands_executed=false`, `device_mutations=false`
 - next:
   - exact V317 approval phrase 없이는 executor `run`/`cleanup` 실행하지 않음
 

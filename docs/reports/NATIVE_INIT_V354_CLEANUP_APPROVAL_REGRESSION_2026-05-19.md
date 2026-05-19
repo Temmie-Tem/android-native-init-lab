@@ -4,7 +4,7 @@
 - scope: host-only regression coverage expansion for V351 cleanup gate
 - device command: none
 - device mutation: none
-- result: `PRE-COMMIT PASS / POST-COMMIT CLEAN-HEAD RUN REQUIRED`
+- result: `PASS`
 
 ## Summary
 
@@ -44,6 +44,22 @@ device_commands_executed: false
 device_mutations: false
 ```
 
-## Post-commit Validation Plan
+## Post-commit Validation
 
-Rerun regression on clean HEAD and expect the same cleanup approval cases to pass.
+Observed clean-head result:
+
+```text
+decision: v317-live-executor-regression-pass
+cleanup-no-approval: PASS
+cleanup-phrase-only: PASS
+cleanup-flags-only: PASS
+device_commands_executed: false
+device_mutations: false
+git_dirty: false
+```
+
+## Acceptance Result
+
+- V351 `cleanup` rejects no-approval, phrase-only, and flags-only cases before refresh steps.
+- V351 `run` and `cleanup` now have symmetric partial-approval regression coverage.
+- No approved V317 live or cleanup path was executed.
