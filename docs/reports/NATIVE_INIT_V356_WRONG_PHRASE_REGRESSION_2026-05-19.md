@@ -4,7 +4,7 @@
 - scope: host-only wrong-phrase approval regression for V351 executor
 - device command: none
 - device mutation: none
-- result: `PRE-COMMIT PASS / POST-COMMIT CLEAN-HEAD RUN REQUIRED`
+- result: `PASS`
 
 ## Summary
 
@@ -45,6 +45,21 @@ device_commands_executed: false
 device_mutations: false
 ```
 
-## Post-commit Validation Plan
+## Post-commit Validation
 
-Rerun regression on clean HEAD and expect the same wrong-phrase cases to pass.
+Observed clean-head result:
+
+```text
+decision: v317-live-executor-regression-pass
+run-wrong-phrase-full-flags: PASS
+cleanup-wrong-phrase-full-flags: PASS
+device_commands_executed: false
+device_mutations: false
+git_dirty: false
+```
+
+## Acceptance Result
+
+- Wrong or shortened approval phrase fails closed even with both mutation confirmation flags.
+- Wrong-phrase full-flag cases fail closed for both V351 `run` and `cleanup`.
+- No approved V317 live or cleanup path was executed.

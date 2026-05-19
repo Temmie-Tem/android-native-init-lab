@@ -4830,7 +4830,7 @@
   - exact V317 approval phrase 없이는 executor `run`/`cleanup` 실행하지 않음
 
 
-### V356. Wrong-Phrase Approval Regression — HOST-ONLY / PENDING POST-COMMIT RUN
+### V356. Wrong-Phrase Approval Regression — HOST-ONLY PASS
 
 - 계획: `docs/plans/NATIVE_INIT_V356_WRONG_PHRASE_REGRESSION_PLAN_2026-05-19.md`
 - 보고서: `docs/reports/NATIVE_INIT_V356_WRONG_PHRASE_REGRESSION_2026-05-19.md`
@@ -4846,7 +4846,9 @@
   - wrong-phrase full-flags cases PASS
   - `device_commands_executed=false`, `device_mutations=false`
 - post-commit validation:
-  - clean HEAD에서 regression 재실행 예정
+  - clean HEAD에서 `v317-live-executor-regression-pass` PASS
+  - wrong-phrase full-flags cases PASS
+  - `device_commands_executed=false`, `device_mutations=false`
 - next:
   - exact V317 approval phrase 없이는 executor `run`/`cleanup` 실행하지 않음
 
