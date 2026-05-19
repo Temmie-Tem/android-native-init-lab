@@ -4144,7 +4144,29 @@
   - not executed
   - blocked until v317 `private-property-namespace-proof-pass`
 - next:
-  - exact v317 approval is now the live blocker for the private property lookup chain
+  - v323 audit confirms exact v317 approval is the only remaining private-property chain live blocker
+
+### V323. Private Property Chain Gate Audit — PASS / BLOCKED BY V317 LIVE APPROVAL
+
+- 계획: `docs/plans/NATIVE_INIT_V323_PRIVATE_PROPERTY_CHAIN_AUDIT_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V323_PRIVATE_PROPERTY_CHAIN_AUDIT_2026-05-19.md`
+- tool: `scripts/revalidation/wifi_private_property_chain_audit.py`
+- evidence: `tmp/wifi/v323-private-property-chain-audit/`
+- boot image: 없음. v323은 host-only gate audit이며 native init version 변경 없음
+- validation:
+  - `py_compile` PASS
+  - `git diff --check` PASS
+  - audit decision `private-property-chain-blocked-v317-missing`
+  - `audit_pass=true`
+  - `chain_ready=false`
+  - `device_commands_executed=false`
+  - `device_mutations=false`
+- gate result:
+  - v312/v315/v316/v317-plan/v317-audit/v319/v321/v322 prerequisites PASS
+  - v317 live PASS evidence missing
+- next:
+  - exact v317 approval phrase is required before live private property namespace proof
+  - if approval is not provided, choose another read-only Wi-Fi/kernel inventory task
 
 ### V187. Harness Broker Backend — PASS
 

@@ -1500,6 +1500,9 @@ Samsung bootloader
    - v322 계획서: `docs/plans/NATIVE_INIT_V322_PRIVATE_PROPERTY_LOOKUP_RUNNER_PLAN_2026-05-19.md`
    - v322 보고서: `docs/reports/NATIVE_INIT_V322_PRIVATE_PROPERTY_LOOKUP_RUNNER_2026-05-19.md`
    - v322 해석: V320 runner가 v321 helper command를 생성하고 future live run path를 갖도록 통합됐다. 현재 `plan`/approval-flagged `run` 모두 V317 PASS missing으로 차단되며 device command/mutation은 0이다
+   - v323 계획서: `docs/plans/NATIVE_INIT_V323_PRIVATE_PROPERTY_CHAIN_AUDIT_PLAN_2026-05-19.md`
+   - v323 보고서: `docs/reports/NATIVE_INIT_V323_PRIVATE_PROPERTY_CHAIN_AUDIT_2026-05-19.md`
+   - v323 해석: host-only gate audit 결과 `private-property-chain-blocked-v317-missing`, audit PASS, chain_ready=false다. v312/v315/v316/v317-plan/v317-audit/v319/v321/v322는 PASS이고 남은 live blocker는 v317 PASS evidence뿐이다
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
 ---
