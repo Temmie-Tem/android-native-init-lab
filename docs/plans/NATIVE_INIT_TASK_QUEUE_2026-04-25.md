@@ -5318,7 +5318,7 @@
   - Wi-Fi HAL start and Wi-Fi bring-up remain blocked
 
 
-### V376. Service-Manager Start-Only Live Runner — PREFLIGHT PASS / LIVE GATED
+### V376. Service-Manager Start-Only Live Runner — LIVE PASS / RUNTIME GAP
 
 - 계획: `docs/plans/NATIVE_INIT_V376_SERVICE_MANAGER_START_ONLY_LIVE_RUNNER_PLAN_2026-05-20.md`
 - 보고서: `docs/reports/NATIVE_INIT_V376_SERVICE_MANAGER_START_ONLY_LIVE_RUNNER_2026-05-20.md`
@@ -5326,6 +5326,7 @@
   - plan: `tmp/wifi/v376-plan-20260520-021643/`
   - preflight: `tmp/wifi/v376-preflight-20260520-021643/`
   - no-approval run: `tmp/wifi/v376-refusal-20260520-021651/`
+  - approved live run: `tmp/wifi/v376-approved-run-20260520-022612/`
 - boot image: 없음. v376은 host-side service-manager start-only live runner이며 native init version 변경 없음
 - validation:
   - Python compile PASS
@@ -5336,31 +5337,34 @@
   - remote helper v12 SHA/usage PASS
   - `servicemanager` and `hwservicemanager` binary visibility PASS
   - process surface, Wi-Fi link surface, and temporary Binder node preflight clean PASS
-  - `daemon_start_executed=false`, `wifi_bringup_executed=false`
-- required live phrase:
-  - `approve v373 service-manager start-only smoke only; no Wi-Fi HAL start and no Wi-Fi bring-up`
+  - approved live decision `service-manager-start-only-live-runtime-gap`
+  - both service-manager targets aborted with `SIGABRT` before observe window
+  - first hard blocker: Binder driver `/dev/binder` unavailable inside helper namespace
+  - postflight clean: `manager_processes=0`, `wifi_links=0`
+  - `daemon_start_executed=true`, `wifi_bringup_executed=false`
 - next:
-  - run V376 approved live only with the exact phrase and `--apply --assume-yes`
+  - classify/fix runtime gap before HAL start-only approval packet
   - Wi-Fi HAL start and Wi-Fi bring-up remain blocked
 
 
-### V377. Service-Manager Start-Only Result Router — PASS / AWAITING APPROVAL
+### V377. Service-Manager Start-Only Result Router — PASS / RUNTIME GAP ROUTED
 
 - 계획: `docs/plans/NATIVE_INIT_V377_SERVICE_MANAGER_RESULT_ROUTER_PLAN_2026-05-20.md`
 - 보고서: `docs/reports/NATIVE_INIT_V377_SERVICE_MANAGER_RESULT_ROUTER_2026-05-20.md`
 - evidence:
   - regression: `tmp/wifi/v377-service-manager-start-only-router-regression-20260520-022406/`
   - route: `tmp/wifi/v377-service-manager-start-only-router-route-20260520-022406/`
+  - after-approved route: `tmp/wifi/v377-service-manager-start-only-router-after-approved-20260520-022647/`
 - boot image: 없음. v377은 host-only result router이며 native init version 변경 없음
 - validation:
   - Python compile PASS
   - regression decision `service-manager-start-only-router-regression-pass`
-  - current route decision `service-manager-start-only-router-awaiting-approval`
-  - route reason: V376 preflight is ready but live start is not approved
+  - initial route decision `service-manager-start-only-router-awaiting-approval`
+  - after-approved route decision `service-manager-start-only-router-runtime-gap`
   - `device_commands_executed=false`, `device_mutations=false`
 - next:
-  - exact V373 phrase가 주어지면 V376 approved live run 실행
-  - approved V376 evidence 후 V377 route를 재실행해 HAL readiness or runtime-gap으로 분기
+  - V378 runtime-gap classifier/repair planning으로 진행
+  - private Binder devnode namespace gap을 해결하기 전 HAL start-only approval packet 금지
   - Wi-Fi HAL start and Wi-Fi bring-up remain blocked
 
 ### V187. Harness Broker Backend — PASS
