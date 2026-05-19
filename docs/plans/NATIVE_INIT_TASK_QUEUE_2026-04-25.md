@@ -3605,6 +3605,28 @@
 - next:
   - Android boot + v297 live capture remains the blocker before property shim design
 
+### V299. Android Capture Handoff — PREFLIGHT READY / OPERATOR APPROVAL REQUIRED
+
+- 계획: `docs/plans/NATIVE_INIT_V299_ANDROID_CAPTURE_HANDOFF_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V299_ANDROID_CAPTURE_HANDOFF_2026-05-19.md`
+- boot image change: none
+- baseline device build: `A90 Linux init 0.9.60 (v261)`
+- tool: `scripts/revalidation/android_capture_handoff_preflight.py`
+- evidence:
+  - `tmp/wifi/v299-android-capture-handoff-plan/`
+  - `tmp/wifi/v299-android-capture-handoff-preflight/`
+- decision: `android-capture-handoff-ready-needs-operator`
+- result:
+  - native bridge `version/status` PASS
+  - native rollback image `stage3/boot_linux_v261.img` present, hash prefix `5a314c2adbd5547b`
+  - Android boot candidate `backups/baseline_a_20260423_025322/boot.img` present, hash prefix `c15ce425abb8da41`
+  - generated operator handoff and rollback commands
+- safety:
+  - v299 executed no reboot, recovery transition, boot partition write, or Android flash
+  - property/service-manager/HAL/Wi-Fi daemon/scan/connect actions remain blocked
+- next:
+  - operator-approved Android boot handoff, then v297 capture and v298 compare
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
