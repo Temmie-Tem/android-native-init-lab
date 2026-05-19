@@ -43,7 +43,7 @@
 #define PR_CAP_AMBIENT_RAISE 2
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v21"
+#define EXECNS_VERSION "a90_android_execns_probe v22"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -99,6 +99,8 @@ struct paths {
     char sys_fs[MAX_PATH_LEN];
     char sys_fs_selinux[MAX_PATH_LEN];
     char sys_fs_selinux_null[MAX_PATH_LEN];
+    char sys_fs_selinux_status[MAX_PATH_LEN];
+    char sys_fs_selinux_enforce[MAX_PATH_LEN];
     char data[MAX_PATH_LEN];
     char data_vendor[MAX_PATH_LEN];
     char data_vendor_wifi[MAX_PATH_LEN];
@@ -131,7 +133,7 @@ static void usage(FILE *out) {
             "[--property-key ro.build.version.sdk] "
             "[--allow-cnss-start-only] "
             "[--allow-service-manager-start-only] "
-            "--mode linker-list|identity-probe|cnss-start-only|property-lookup|service-manager-start-only "
+            "--mode linker-list|identity-probe|cnss-start-only|property-lookup|service-manager-start-only|private-selinux-proof "
             "--timeout-sec <1..30>\n");
 }
 
@@ -310,6 +312,7 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
           streq(cfg->mode, "identity-probe") ||
           streq(cfg->mode, "cnss-start-only") ||
           streq(cfg->mode, "property-lookup") ||
+          streq(cfg->mode, "private-selinux-proof") ||
           streq(cfg->mode, "service-manager-start-only")) ||
         !(streq(cfg->capture_mode, "none") ||
           streq(cfg->capture_mode, "ptrace-lite")) ||
@@ -377,6 +380,29 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             return 2;
         }
     }
+    if (streq(cfg->mode, "private-selinux-proof")) {
+        if (cfg->linker != NULL) {
+            fprintf(stderr, "--linker is not used by private-selinux-proof mode\n");
+            return 2;
+        }
+        if (!streq(cfg->capture_mode, "none")) {
+            fprintf(stderr, "--capture-mode must be none for private-selinux-proof mode\n");
+            return 2;
+        }
+        if (!(streq(cfg->target, "/system/bin/servicemanager") ||
+              streq(cfg->target, "/system/bin/hwservicemanager"))) {
+            fprintf(stderr, "private-selinux-proof target is fixed to system service-manager binaries\n");
+            return 2;
+        }
+        if (cfg->property_key != NULL) {
+            fprintf(stderr, "--property-key is only valid with property-lookup mode\n");
+            return 2;
+        }
+        if (cfg->property_root != NULL && !property_root_allowed(cfg->property_root)) {
+            fprintf(stderr, "--property-root must be under /mnt/sdext/a90/private-property-v317 and point at dev/__properties__\n");
+            return 2;
+        }
+    }
     if (streq(cfg->mode, "property-lookup")) {
         if (cfg->linker != NULL) {
             fprintf(stderr, "--linker is not used by property-lookup mode\n");
@@ -398,6 +424,15 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             fprintf(stderr, "--property-key is not in the v321 read-only allowlist\n");
             return 2;
         }
+    } else if (streq(cfg->mode, "private-selinux-proof")) {
+        if (cfg->property_key != NULL) {
+            fprintf(stderr, "--property-key is only valid with property-lookup mode\n");
+            return 2;
+        }
+        if (cfg->property_root != NULL && !property_root_allowed(cfg->property_root)) {
+            fprintf(stderr, "--property-root must be under /mnt/sdext/a90/private-property-v317 and point at dev/__properties__\n");
+            return 2;
+        }
     } else if (streq(cfg->mode, "service-manager-start-only")) {
         if (cfg->property_key != NULL) {
             fprintf(stderr, "--property-key is only valid with property-lookup mode\n");
@@ -408,7 +443,7 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             return 2;
         }
     } else if (cfg->property_root != NULL || cfg->property_key != NULL) {
-        fprintf(stderr, "--property-root is only valid with property-lookup or service-manager-start-only mode; --property-key is only valid with property-lookup mode\n");
+        fprintf(stderr, "--property-root is only valid with property-lookup, private-selinux-proof, or service-manager-start-only mode; --property-key is only valid with property-lookup mode\n");
         return 2;
     }
     if (streq(cfg->linkerconfig_mode, "copy-real")) {
@@ -498,6 +533,14 @@ static int init_paths(struct paths *paths) {
                     sizeof(paths->sys_fs_selinux_null),
                     paths->sys_fs_selinux,
                     "null") < 0 ||
+        append_path(paths->sys_fs_selinux_status,
+                    sizeof(paths->sys_fs_selinux_status),
+                    paths->sys_fs_selinux,
+                    "status") < 0 ||
+        append_path(paths->sys_fs_selinux_enforce,
+                    sizeof(paths->sys_fs_selinux_enforce),
+                    paths->sys_fs_selinux,
+                    "enforce") < 0 ||
         append_path(paths->data, sizeof(paths->data), paths->root, "data") < 0 ||
         append_path(paths->data_vendor, sizeof(paths->data_vendor), paths->data, "vendor") < 0 ||
         append_path(paths->data_vendor_wifi,
@@ -535,6 +578,10 @@ static int bind_ro(const char *source, const char *target) {
     return 0;
 }
 
+static int bind_rw(const char *source, const char *target) {
+    return mount(source, target, NULL, MS_BIND | MS_REC, NULL);
+}
+
 static int materialize_private_properties(const struct config *cfg,
                                           const struct paths *paths,
                                           char *error_buf,
@@ -542,6 +589,8 @@ static int materialize_private_properties(const struct config *cfg,
     struct stat st;
     bool wants_private_properties =
         streq(cfg->mode, "property-lookup") ||
+        (streq(cfg->mode, "private-selinux-proof") &&
+         cfg->property_root != NULL) ||
         (streq(cfg->mode, "service-manager-start-only") &&
          cfg->allow_service_manager_start_only &&
          cfg->property_root != NULL);
@@ -577,6 +626,31 @@ static int materialize_private_properties(const struct config *cfg,
     }
     if (bind_ro(cfg->property_root, paths->dev_properties) < 0) {
         snprintf(error_buf, error_size, "bind private properties: %s", strerror(errno));
+        return -1;
+    }
+    return 0;
+}
+
+static int materialize_selinuxfs_surface(const struct config *cfg,
+                                         const struct paths *paths,
+                                         char *error_buf,
+                                         size_t error_size) {
+    struct stat st;
+
+    if (!streq(cfg->mode, "private-selinux-proof") &&
+        !streq(cfg->mode, "service-manager-start-only")) {
+        return 0;
+    }
+    if (stat("/sys/fs/selinux/status", &st) < 0) {
+        snprintf(error_buf, error_size, "stat host selinux status: %s", strerror(errno));
+        return -1;
+    }
+    if (mkdir_p(paths->sys_fs_selinux, 0755) < 0) {
+        snprintf(error_buf, error_size, "mkdir private selinuxfs target: %s", strerror(errno));
+        return -1;
+    }
+    if (bind_rw("/sys/fs/selinux", paths->sys_fs_selinux) < 0) {
+        snprintf(error_buf, error_size, "bind selinuxfs surface: %s", strerror(errno));
         return -1;
     }
     return 0;
@@ -827,8 +901,9 @@ static int materialize_service_manager_binder_devices(const struct config *cfg,
                                                       const struct paths *paths,
                                                       char *error_buf,
                                                       size_t error_size) {
-    if (!streq(cfg->mode, "service-manager-start-only") ||
-        !cfg->allow_service_manager_start_only) {
+    if (!(streq(cfg->mode, "private-selinux-proof") ||
+          (streq(cfg->mode, "service-manager-start-only") &&
+           cfg->allow_service_manager_start_only))) {
         return 0;
     }
     if (mkdir_p(paths->dev, 0755) < 0) {
@@ -1040,6 +1115,9 @@ static void cleanup_paths(const struct paths *paths) {
     umount2(paths->proc, MNT_DETACH);
     umount2(paths->vendor, MNT_DETACH);
     umount2(paths->system, MNT_DETACH);
+    if (paths->sys_fs_selinux[0] != '\0') {
+        umount2(paths->sys_fs_selinux, MNT_DETACH);
+    }
     if (paths->sys_fs_selinux_null[0] != '\0') {
         unlink(paths->sys_fs_selinux_null);
     }
@@ -1299,6 +1377,13 @@ static void print_preexec_context(const struct config *cfg, const struct paths *
     print_context_path(paths, "dev_vndbinder", "/dev/vndbinder");
     print_context_path(paths, "dev_properties", "/dev/__properties__");
     print_context_path(paths, "selinux_null", "/sys/fs/selinux/null");
+    print_context_path(paths, "selinux_status", "/sys/fs/selinux/status");
+    print_context_path(paths, "selinux_enforce", "/sys/fs/selinux/enforce");
+    print_context_path(paths, "selinux_policy", "/sys/fs/selinux/policy");
+    print_context_path(paths, "selinux_service_manager_class", "/sys/fs/selinux/class/service_manager");
+    print_context_path(paths, "selinux_service_manager_list", "/sys/fs/selinux/class/service_manager/perms/list");
+    print_context_path(paths, "selinux_service_manager_add", "/sys/fs/selinux/class/service_manager/perms/add");
+    print_context_path(paths, "selinux_service_manager_find", "/sys/fs/selinux/class/service_manager/perms/find");
     print_context_path(paths, "data", "/data");
     print_context_path(paths, "data_vendor", "/data/vendor");
     print_context_path(paths, "data_vendor_wifi", "/data/vendor/wifi");
@@ -1312,6 +1397,12 @@ static void print_preexec_context(const struct config *cfg, const struct paths *
     print_context_path(paths, "apex_vndk_current_libcutils", "/apex/com.android.vndk.current/lib64/libcutils.so");
     print_context_path(paths, "system_lib64", "/system/lib64");
     print_context_path(paths, "vendor_lib64", "/vendor/lib64");
+    print_context_path(paths, "plat_service_contexts", "/system/etc/selinux/plat_service_contexts");
+    print_context_path(paths, "plat_hwservice_contexts", "/system/etc/selinux/plat_hwservice_contexts");
+    print_context_path(paths, "system_ext_service_contexts", "/system/system_ext/etc/selinux/system_ext_service_contexts");
+    print_context_path(paths, "system_ext_hwservice_contexts", "/system/system_ext/etc/selinux/system_ext_hwservice_contexts");
+    print_context_path(paths, "vendor_service_contexts", "/vendor/etc/selinux/vendor_service_contexts");
+    print_context_path(paths, "vendor_hwservice_contexts", "/vendor/etc/selinux/vendor_hwservice_contexts");
     print_context_path(paths, "proc_self_exe", "/proc/self/exe");
 }
 
@@ -4828,6 +4919,9 @@ static int setup_namespace(const struct config *cfg,
     if (materialize_null_devices(cfg, paths, error_buf, error_size) < 0) {
         return -1;
     }
+    if (materialize_selinuxfs_surface(cfg, paths, error_buf, error_size) < 0) {
+        return -1;
+    }
     if (materialize_service_manager_binder_devices(cfg, paths, error_buf, error_size) < 0) {
         return -1;
     }
@@ -5032,6 +5126,17 @@ int main(int argc, char **argv) {
                                              &child_exit_code,
                                              &child_signal,
                                              &timed_out);
+    } else if (streq(cfg.mode, "private-selinux-proof")) {
+        if (append_literal(&stdout_buf,
+                           "private_selinux_proof.result=pass\n"
+                           "private_selinux_proof.exec_attempted=0\n"
+                           "private_selinux_proof.daemon_start_executed=0\n"
+                           "private_selinux_proof.wifi_bringup_executed=0\n") < 0) {
+            run_rc = -1;
+        } else {
+            run_rc = 0;
+            child_exit_code = 0;
+        }
     } else if (streq(cfg.mode, "service-manager-start-only")) {
         run_rc = run_service_manager_start_only_guarded(&cfg,
                                                         &paths,

@@ -1933,3 +1933,10 @@ Samsung bootloader
    - v401 결과: `toybox-selinuxfs-mount-live-executor-run-pass`. `/sys/fs/selinux/status` visible, `/sys/fs/selinux/enforce=0`, `/proc/mounts` includes `selinuxfs /sys/fs/selinux selinuxfs rw,relatime 0 0`
    - v401 post-proof 결과: `service-manager-selinux-surface-native-ready-private-proof-needed`. native SELinux runtime/status surface는 준비됐지만 private service-manager execution namespace에서 status/context/binder/property visibility는 아직 미증명
    - v402 다음: private namespace SELinux surface proof. service-manager start-only는 V402 proof 이후 별도 승인으로 분리한다. Wi-Fi HAL/start/scan/connect remains blocked
+
+   - v402 plan: `docs/plans/NATIVE_INIT_V402_PRIVATE_SELINUX_SURFACE_PROOF_PLAN_2026-05-20.md`
+   - v402 packet: `docs/reports/NATIVE_INIT_V402_PRIVATE_SELINUX_SURFACE_PROOF_PACKET_2026-05-20.md`
+   - v402 helper artifact: `tmp/wifi/v402-a90_android_execns_probe-v22/a90_android_execns_probe`, SHA `55f83cfa43ebc69ab37b3181262fbdf0e3ed6b5b11f0e41e63d3b56e7ea080e6`
+   - v402 결과: helper v22 `private-selinux-proof` mode와 fail-closed deploy/private-proof runners를 준비했다. no-approval run은 mutation/daemon/Wi-Fi 없이 거부되고, read-only private proof preflight는 remote helper가 아직 v22가 아니어서 expected `helper-v22` blocker로 멈춘다
+   - v402 실행 조건: deploy는 exact `approve v402 deploy execns helper v22 only; no daemon start and no Wi-Fi bring-up`, private proof는 exact `approve v402 private selinux namespace proof only; no daemon start and no Wi-Fi bring-up` 필요
+   - v402 다음: exact-approved helper v22 deploy 후 private SELinux namespace proof. service-manager start-only, Wi-Fi HAL/start/scan/connect는 계속 별도 승인 전까지 blocked

@@ -20,7 +20,7 @@
 - 상세 규칙: `docs/operations/VERSIONING_POLICY.md`
 
 
-## Current Wi-Fi V401 Runtime-Gap Status (2026-05-20)
+## Current Wi-Fi V402 Runtime-Gap Status (2026-05-20)
 
 - current native build remains `A90 Linux init 0.9.61 (v319)`.
 - current Wi-Fi work is host tooling plus bounded read-only evidence, not a new boot-image flash.
@@ -36,7 +36,9 @@
 - V400 result: non-mutating toybox-backed SELinuxfs mount approval packet PASS; V401 executor is fail-closed without exact approval.
 - V401 preapproval syntax check: direct `toybox mount --help` and `toybox umount --help` through `cmdv1 run` PASS; `toybox --list` unsupported but not required.
 - V401 result: toybox-backed `selinuxfs` mount PASS; `/sys/fs/selinux/status` visible; post-mount proof is `service-manager-selinux-surface-native-ready-private-proof-needed`.
-- next execution item: V402 private namespace SELinux surface proof before any daemon start or Wi-Fi bring-up.
+- V402 packet result: helper v22, deploy preflight wrapper, and private SELinux namespace proof runner are prepared; no helper deploy, daemon start, or Wi-Fi bring-up has been executed.
+- V402 read-only preflight: private proof is blocked only by remote `helper-v22`; deploy preflight is `execns-helper-v22-deploy-preflight-ready-needs-deploy`.
+- next execution item: exact-approved V402 helper v22 deploy, then exact-approved V402 private SELinux namespace proof. Service-manager start-only remains a later separate approval.
 
 ## 현재 고정 기준점
 
