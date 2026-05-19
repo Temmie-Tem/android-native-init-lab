@@ -5433,6 +5433,27 @@
 - next:
   - V381 private property/runtime materialization plan
 
+
+### V381. Execns Service Property Runtime — LOCAL PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V381_EXECNS_SERVICE_PROPERTY_RUNTIME_PLAN_2026-05-20.md`
+- 보고서: `docs/reports/NATIVE_INIT_V381_EXECNS_SERVICE_PROPERTY_RUNTIME_2026-05-20.md`
+- helper: `a90_android_execns_probe v14`
+- artifact: `tmp/wifi/v381-a90_android_execns_probe-v14/a90_android_execns_probe`
+- sha256: `f8cde6848ad49755b06bfac8136cd81f0b985ca1be13dbf27b369cdb4fe4aea7`
+- validation:
+  - static ARM64 build PASS
+  - required strings PASS
+  - no dynamic section PASS
+  - `git diff --check` PASS
+- scope:
+  - local helper source/build only
+  - no `/cache/bin` deploy
+  - no daemon start
+  - no Wi-Fi HAL start or Wi-Fi bring-up
+- next:
+  - V382 deploy v14 and rerun service-manager start-only with private property root and private-empty `/data`
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`

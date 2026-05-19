@@ -43,7 +43,7 @@
 #define PR_CAP_AMBIENT_RAISE 2
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v13"
+#define EXECNS_VERSION "a90_android_execns_probe v14"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -392,8 +392,17 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             fprintf(stderr, "--property-key is not in the v321 read-only allowlist\n");
             return 2;
         }
+    } else if (streq(cfg->mode, "service-manager-start-only")) {
+        if (cfg->property_key != NULL) {
+            fprintf(stderr, "--property-key is only valid with property-lookup mode\n");
+            return 2;
+        }
+        if (cfg->property_root != NULL && !property_root_allowed(cfg->property_root)) {
+            fprintf(stderr, "--property-root must be under /mnt/sdext/a90/private-property-v317 and point at dev/__properties__\n");
+            return 2;
+        }
     } else if (cfg->property_root != NULL || cfg->property_key != NULL) {
-        fprintf(stderr, "--property-root and --property-key are only valid with property-lookup mode\n");
+        fprintf(stderr, "--property-root is only valid with property-lookup or service-manager-start-only mode; --property-key is only valid with property-lookup mode\n");
         return 2;
     }
     if (streq(cfg->linkerconfig_mode, "copy-real")) {
@@ -525,8 +534,13 @@ static int materialize_private_properties(const struct config *cfg,
                                           char *error_buf,
                                           size_t error_size) {
     struct stat st;
+    bool wants_private_properties =
+        streq(cfg->mode, "property-lookup") ||
+        (streq(cfg->mode, "service-manager-start-only") &&
+         cfg->allow_service_manager_start_only &&
+         cfg->property_root != NULL);
 
-    if (!streq(cfg->mode, "property-lookup")) {
+    if (!wants_private_properties) {
         return 0;
     }
     if (lstat(cfg->property_root, &st) < 0) {
