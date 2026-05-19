@@ -1635,6 +1635,11 @@ Samsung bootloader
    - v364 해석: V292/V320/V362/V363 선행 증거는 PASS지만 live gate는 `hal-service-readiness-blocked`로 판정됐다. 현재 Binder devnodes, service-manager process, mutable property runtime, linkerconfig visibility가 없다
    - v364 결과: no `wlan*`, no Wi-Fi rfkill, no CNSS process leak은 유지됐다. service binary visibility는 partial이고 Wi-Fi VINTF metadata는 present다
    - v364 다음: V365 bounded Binder/property/linker namespace readiness repair or approval packet. Wi-Fi HAL/service-manager start-only도 아직 별도 계획 전까지 blocked
+   - v365 계획서: `docs/plans/NATIVE_INIT_V365_SERVICE_RUNTIME_REPAIR_PACKET_PLAN_2026-05-20.md`
+   - v365 보고서: `docs/reports/NATIVE_INIT_V365_SERVICE_RUNTIME_REPAIR_PACKET_2026-05-20.md`
+   - v365 해석: V364 blocker를 V366 no-daemon repair smoke packet으로 전환했다. helper, real linkerconfig, private property root, system root, service-manager binaries는 준비됐고 `/dev/block/sda29`는 `/proc/partitions` `259:13` 기반 temporary `mknodb` 후보로 정리됐다
+   - v365 결과: `service-runtime-repair-packet-ready`, next approval phrase `approve v366 bounded runtime repair smoke only; no service-manager start and no Wi-Fi bring-up`
+   - v365 다음: V366 bounded temporary device-node + private property/linker repair smoke. 아직 service-manager/HAL/scan/connect는 blocked
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
 ---

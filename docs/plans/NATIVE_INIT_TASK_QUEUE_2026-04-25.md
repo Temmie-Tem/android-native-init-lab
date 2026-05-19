@@ -5075,6 +5075,29 @@
   - V365 candidate: bounded Binder/property/linker namespace readiness repair or approval packet
   - do not run Wi-Fi HAL/service-manager, scan/connect/credential/DHCP/routing before that gate
 
+
+### V365. Service Runtime Repair Packet — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V365_SERVICE_RUNTIME_REPAIR_PACKET_PLAN_2026-05-20.md`
+- 보고서: `docs/reports/NATIVE_INIT_V365_SERVICE_RUNTIME_REPAIR_PACKET_2026-05-20.md`
+- evidence:
+  - plan: `tmp/wifi/v365-service-runtime-repair-packet-plan-20260520/`
+  - initial live: `tmp/wifi/v365-service-runtime-repair-packet-live-20260520/`
+  - corrected live: `tmp/wifi/v365-service-runtime-repair-packet-live-20260520-r2/`
+- boot image: 없음. v365는 host-side packet builder이며 native init version 변경 없음
+- validation:
+  - plan decision `service-runtime-repair-packet-plan-ready`
+  - corrected live decision `service-runtime-repair-packet-ready`
+  - first live correctly exposed `/dev/block/sda29` node absence as a repair input gap
+  - corrected script classifies `/proc/partitions` `sda29` major/minor `259:13` as temporary `mknodb` candidate
+  - helper, real linkerconfig, real apex libraries config, private property root, system root, `servicemanager`, and `hwservicemanager` binaries are present
+  - current Binder devnodes absent/clean, service-manager process absent/clean, CNSS process absent/clean, Wi-Fi link surface absent/clean
+- next approval phrase:
+  - `approve v366 bounded runtime repair smoke only; no service-manager start and no Wi-Fi bring-up`
+- next:
+  - V366 candidate: bounded temporary device-node + private property/linker repair smoke
+  - do not run service-manager/HAL/scan/connect before V366 passes and a later separate approval packet exists
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
