@@ -3411,6 +3411,32 @@
 - next:
   - v291 temporary Binder devnode create/cleanup smoke, with explicit approval because it is non-read-only
 
+### V291. Binder Devnode Create/Cleanup Smoke — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V291_BINDER_DEVNODE_SMOKE_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V291_BINDER_DEVNODE_SMOKE_2026-05-19.md`
+- boot image change: none
+- baseline device build: `A90 Linux init 0.9.60 (v261)`
+- tool: `scripts/revalidation/wifi_binder_devnode_smoke.py`
+- evidence:
+  - `tmp/wifi/v291-binder-devnode-smoke-plan/`
+  - `tmp/wifi/v291-binder-devnode-smoke-live-20260519-140937/`
+- decision: `binder-devnode-create-cleanup-pass`
+- result:
+  - pre-state confirmed `/dev/binder`, `/dev/hwbinder`, `/dev/vndbinder` absent
+  - `mknodc /dev/binder 10 81` PASS
+  - `mknodc /dev/hwbinder 10 80` PASS
+  - `mknodc /dev/vndbinder 10 79` PASS
+  - created-state `stat` PASS for all three nodes
+  - cleanup `run /cache/bin/toybox rm -f ...` PASS
+  - post-state confirmed all three nodes absent
+- safety:
+  - no Binder open, no Binder ioctl, no binderfs mount
+  - no service-manager/HAL/`wificond` execution
+  - no Wi-Fi scan/connect/link-up/credential/DHCP/routing
+- next:
+  - v292 Binder open-only helper smoke, still no Binder ioctl or service-manager execution
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
