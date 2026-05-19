@@ -3091,6 +3091,30 @@
 - next:
   - v278 QCA6390 driver/bus and WLAN module parameter read-only classifier
 
+### V278. QCA6390 Driver / WLAN Parameter — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V278_QCA6390_DRIVER_PARAM_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V278_QCA6390_DRIVER_PARAM_2026-05-19.md`
+- boot image change: none
+- baseline device build: `A90 Linux init 0.9.60 (v261)`
+- tool: `scripts/revalidation/wifi_qca6390_driver_param_classifier.py`
+- evidence: `tmp/wifi/v278-qca6390-driver-param/`
+- decision: `qca6390-match-visible-driver-unbound`
+- result:
+  - QCA6390 compatible/modalias visible: `qcom,cnss-qca6390`
+  - QCA6390 driver link absent
+  - platform driver candidates: `ipa_smmu_wlan`, `icnss`, `icnss/18800000.qcom,icnss`
+  - WLAN module parameters `9/9` readable: `fwpath` empty, `country_code=(null)`, `con_mode=0`
+  - no `wlan*` netdev, wiphy, or Wi-Fi rfkill readiness surface
+- interpretation:
+  - concrete QCA6390 OF match is visible but unbound in current native state
+  - next step should be no-start source/evidence comparison or explicit-approval start-only delta observation, still no scan/connect/link-up
+  - QMI payloads remain blocked
+- safety:
+  - no sysfs write, no bind/unbind/driver_override, no packet, no daemon, no scan/connect/link-up, no reboot/remount
+- next:
+  - v279 CNSS/QCA6390 probe-expectation comparison or start-only delta observation plan
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`

@@ -1323,6 +1323,10 @@ Samsung bootloader
    - v277 보고서: `docs/reports/NATIVE_INIT_V277_ICNSS_PLATFORM_SURFACE_2026-05-19.md`
    - v277 결과: decision `icnss-platform-present-no-wlan-netdev`, ICNSS node/driver/device present, QCA6390 node present but driver link absent, `/sys/module/wlan` present but no `wlan*`/wiphy/rfkill
    - v277 해석: 플랫폼/펌웨어 경로는 보이지만 QCA6390 driver lifecycle 또는 userspace sequencing 전 netdev registration이 빠져 있다. QMI payload는 계속 blocked
+   - v278 계획서: `docs/plans/NATIVE_INIT_V278_QCA6390_DRIVER_PARAM_PLAN_2026-05-19.md`
+   - v278 보고서: `docs/reports/NATIVE_INIT_V278_QCA6390_DRIVER_PARAM_2026-05-19.md`
+   - v278 결과: decision `qca6390-match-visible-driver-unbound`, QCA6390 compatible/modalias visible, driver link absent, WLAN params 9/9 readable (`fwpath` empty, `country_code=(null)`, `con_mode=0`), no `wlan*`/wiphy/rfkill
+   - v278 해석: QCA6390 OF match는 있으나 native state에서 driver binding이 없다. 다음은 CNSS/QCA6390 probe expectation 비교 또는 명시 승인 start-only delta observation이다
    - 다음 후보: QRTR/QMI endpoint interaction no-scan probe, CNSS warning surface cleanup, 또는 broader Wi-Fi readiness gate
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
