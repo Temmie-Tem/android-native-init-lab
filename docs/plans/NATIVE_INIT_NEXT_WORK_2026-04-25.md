@@ -1688,6 +1688,11 @@ Samsung bootloader
    - v377 보고서: `docs/reports/NATIVE_INIT_V377_SERVICE_MANAGER_RESULT_ROUTER_2026-05-20.md`
    - v377 해석: V376 result router를 host-only로 추가했다. synthetic regression은 PASS했고 approved V376 evidence route는 `service-manager-start-only-router-runtime-gap`이다. device command/mutation 없이 runtime-gap classification 필요성을 명확히 분류한다
    - v377 다음: V378 runtime-gap classifier/repair planning. 현재 직접 원인은 Binder driver `/dev/binder` open 실패이며, helper private namespace에서 Binder devnode를 안전하게 provisioning하는 방향이 우선이다
+
+   - v378 계획서: `docs/plans/NATIVE_INIT_V378_SERVICE_MANAGER_RUNTIME_GAP_CLASSIFIER_PLAN_2026-05-20.md`
+   - v378 보고서: `docs/reports/NATIVE_INIT_V378_SERVICE_MANAGER_RUNTIME_GAP_CLASSIFIER_2026-05-20.md`
+   - v378 해석: V376 runtime-gap을 host-only로 분류했고 decision은 `service-manager-runtime-gap-binder-devnode-required`다. current Binder metadata refresh도 `binder-devnode-plan-ready`로, `/dev/binder c 10 81`, `/dev/hwbinder c 10 80`, `/dev/vndbinder c 10 79` 후보가 유지된다
+   - v378 다음: V379에서 service-manager start-only helper namespace 안에 private Binder devnode provisioning을 추가한다. binderfs는 별도 mount/ioctl 정책이 필요하므로 우선 static misc devnode 방식이 더 작다
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
 ---

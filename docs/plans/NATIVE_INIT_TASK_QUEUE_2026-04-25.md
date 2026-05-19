@@ -5367,6 +5367,27 @@
   - private Binder devnode namespace gap을 해결하기 전 HAL start-only approval packet 금지
   - Wi-Fi HAL start and Wi-Fi bring-up remain blocked
 
+
+### V378. Service-Manager Runtime Gap Classifier — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V378_SERVICE_MANAGER_RUNTIME_GAP_CLASSIFIER_PLAN_2026-05-20.md`
+- 보고서: `docs/reports/NATIVE_INIT_V378_SERVICE_MANAGER_RUNTIME_GAP_CLASSIFIER_2026-05-20.md`
+- evidence:
+  - regression: `tmp/wifi/v378-service-manager-runtime-gap-classifier-regression-20260520-023043/`
+  - live classify: `tmp/wifi/v378-service-manager-runtime-gap-classifier-live-20260520-023043/`
+  - current Binder metadata refresh: `tmp/wifi/v378-current-binder-devnode-feasibility-20260520-023057/`
+- boot image: 없음. v378은 host-only classifier/read-only Binder metadata refresh이며 native init version 변경 없음
+- validation:
+  - Python compile PASS
+  - classifier regression decision `service-manager-runtime-gap-classifier-regression-pass`
+  - live classify decision `service-manager-runtime-gap-binder-devnode-required`
+  - current Binder metadata decision `binder-devnode-plan-ready`
+  - Binder candidates remain `/dev/binder c 10 81`, `/dev/hwbinder c 10 80`, `/dev/vndbinder c 10 79`
+  - `device_mutations=false`, Wi-Fi bring-up 없음
+- next:
+  - V379 helper-private Binder devnode provisioning for service-manager start-only mode
+  - HAL start-only approval packet remains blocked
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
