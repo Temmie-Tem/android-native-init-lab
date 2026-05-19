@@ -2692,6 +2692,34 @@
   - QRTR/QMI userspace nameservice model with packet transmission still approval-gated, or
   - opt-in kmsg/perfd shim design without execution
 
+### V264. QRTR/QMI Userspace Nameservice Model — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V264_QRTR_QMI_NAMESERVICE_MODEL_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V264_QRTR_QMI_NAMESERVICE_MODEL_2026-05-19.md`
+- baseline evidence: `tmp/wifi/v262-qrtr-qmi-no-scan-probe/manifest.json`
+- warning evidence: `tmp/wifi/v263-cnss-live-retry-20260519-091608/warning-disposition/manifest.json`
+- boot image change: 없음
+- daemon start: 없음
+- QRTR/QMI packet transmission: 없음
+- host tool: `scripts/revalidation/wifi_qrtr_qmi_nameservice_model.py`
+- output: `tmp/wifi/v264-qrtr-qmi-nameservice-model/`
+- decision: `qrtr-qmi-userspace-model-ready`
+- validation:
+  - v262 no-scan manifest PASS
+  - `QIPCRTR` kernel protocol + AF_QIPCRTR bind readiness PASS
+  - prior QRTR send/connect attempt count `0`
+  - CNSS process clean PASS
+  - no `wlan*` link surface PASS
+  - v263 warning disposition PASS
+- interpretation:
+  - QRTR socket readiness is necessary but not sufficient for Wi-Fi bring-up
+  - actual QRTR nameservice packet or QMI service request remains explicit-approval-gated
+  - `cnss_diag`, scan/connect/link-up, credentials, DHCP, and routing remain blocked
+- next execution item:
+  - QRTR nameservice packet design document without execution, or
+  - opt-in perfd/property/kmsg shim design without execution, or
+  - bounded QRTR nameservice no-scan probe only after explicit packet-transmission approval
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`

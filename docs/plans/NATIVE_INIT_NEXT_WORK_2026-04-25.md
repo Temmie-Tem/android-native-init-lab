@@ -1219,6 +1219,10 @@ Samsung bootloader
    - v263 결과: decision `cnss-warning-disposition-ready`, `perfd-client-unavailable`과 `kmsg-write-denied`는 start-only 허용 경고로 분류, `shell-quote-noise`는 kmsg logging-path noise로 병합
    - v263 approved live retry: `tmp/wifi/v263-cnss-live-retry-20260519-091608/`, decision `start-only-pass`, postflight `cnss-process-clean`
    - v263 해석: start-only를 막는 경고는 남지 않았지만 broader Wi-Fi 전에는 perfd/property/kmsg shim을 opt-in으로 설계해야 한다
+   - v264 계획서: `docs/plans/NATIVE_INIT_V264_QRTR_QMI_NAMESERVICE_MODEL_PLAN_2026-05-19.md`
+   - v264 보고서: `docs/reports/NATIVE_INIT_V264_QRTR_QMI_NAMESERVICE_MODEL_2026-05-19.md`
+   - v264 결과: decision `qrtr-qmi-userspace-model-ready`, QRTR/QMI userspace boundary modeled without packet transmission
+   - v264 해석: QRTR kernel socket readiness는 충분조건이 아니며, nameservice/QMI request transmission은 별도 explicit approval gate가 필요하다
    - v251 계획서: `docs/plans/NATIVE_INIT_V251_CNSS_PROPERTY_SURFACE_PLAN_2026-05-19.md`
    - v251 보고서: `docs/reports/NATIVE_INIT_V251_CNSS_PROPERTY_SURFACE_2026-05-19.md`
    - v251 결과: decision `cnss-property-read-only-surface`, host-only analysis, property read symbols `property_get`/`property_get_int32`, no property write/control symbols detected
