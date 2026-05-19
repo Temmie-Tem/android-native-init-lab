@@ -1335,7 +1335,11 @@ Samsung bootloader
    - v280 보고서: `docs/reports/NATIVE_INIT_V280_CNSS_QCA6390_PROBE_EXPECTATION_2026-05-19.md`
    - v280 결과: decision `cnss2-driver-dir-missing-qca-unbound`, QCA6390 compatible/modalias visible, QCA6390 driver link absent, `/sys/bus/platform/drivers/cnss2` absent, `/sys/bus/platform/drivers/icnss` present, `CONFIG_CNSS2=n`, no `wlan*`/wiphy
    - v280 해석: CNSS2 source model is not the live kernel binding model. 다음은 live `icnss` driver model/source/sysfs expectation comparison이다
-   - 다음 후보: v281 ICNSS source/sysfs expectation comparison, then possible ICNSS read-only kernel log/attribute deepening
+   - v281 계획서: `docs/plans/NATIVE_INIT_V281_ICNSS_PROBE_EXPECTATION_PLAN_2026-05-19.md`
+   - v281 보고서: `docs/reports/NATIVE_INIT_V281_ICNSS_PROBE_EXPECTATION_2026-05-19.md`
+   - v281 결과: decision `icnss-core-bound-host-driver-waits-fw`, ICNSS core bound, QCA6390 context visible, WLAN module sysfs present, `CONFIG_ICNSS=y`, `CONFIG_ICNSS_QMI=y`, no `wlan*`/wiphy
+   - v281 해석: live model은 ICNSS core plus WLAN host-driver registration이며 host-driver probe는 firmware-ready/QMI state를 기다리는 구조다
+   - 다음 후보: v282 ICNSS/WLFW readiness-state observation plan, no-start first
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
 ---

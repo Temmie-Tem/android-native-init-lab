@@ -3165,6 +3165,33 @@
 - next:
   - v281 ICNSS source/sysfs expectation comparison, read-only first
 
+### V281. ICNSS Probe Expectation — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V281_ICNSS_PROBE_EXPECTATION_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V281_ICNSS_PROBE_EXPECTATION_2026-05-19.md`
+- boot image change: none
+- baseline device build: `A90 Linux init 0.9.60 (v261)`
+- tool: `scripts/revalidation/wifi_icnss_probe_expectation.py`
+- evidence: `tmp/wifi/v281-icnss-probe-expectation/`
+- decision: `icnss-core-bound-host-driver-waits-fw`
+- result:
+  - ICNSS compatible visible: `qcom,icnss`
+  - ICNSS driver-device link present
+  - QCA6390 context visible but QCA6390 driver link absent
+  - WLAN module sysfs present, `wlan` absent from `/proc/modules`
+  - config sample: `CONFIG_ICNSS=y`, `CONFIG_ICNSS_QMI=y`, `CONFIG_WLAN=y`, `CONFIG_QCA_CLD_WLAN=y`, `CONFIG_CNSS2=n`
+  - WLAN params: `fwpath=""`, `con_mode=0`
+  - ICNSS params: `quirks=128`, `dynamic_feature_mask=1`
+  - no `wlan*` netdev, wiphy, or CNSS process
+- interpretation:
+  - live model is ICNSS core plus WLAN host-driver registration, not direct CNSS2/QCA6390 platform-driver binding
+  - host-driver probe likely waits on firmware-ready/QMI state; repeating generic start-only is not enough evidence
+  - next work should target ICNSS/WLFW readiness state surfaces
+- safety:
+  - no daemon start, no QRTR nameservice packet, no QMI payload, no scan/connect/link-up, no sysfs/control write, no reboot/remount
+- next:
+  - v282 ICNSS/WLFW readiness-state observation plan, no-start first
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
