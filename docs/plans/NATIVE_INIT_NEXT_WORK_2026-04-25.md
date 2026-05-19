@@ -1351,6 +1351,10 @@ Samsung bootloader
    - v284 보고서: `docs/reports/NATIVE_INIT_V284_CNSS_CONCURRENT_SIDECHANNEL_2026-05-19.md`
    - v284 결과: decision `cnss-sidechannel-no-readiness-delta`, serial CNSS start-only `start-only-pass`, NCM/tcpctl 12/12 concurrent samples PASS, no readiness lines, no `wlan*`/wiphy, postflight clean
    - v284 해석: side-channel 구조는 동작한다. 다음은 같은 구조로 ICNSS/QCA6390 sysfs/module/interrupt/dmesg 상태를 더 좁게 샘플링하는 v285가 적절하다
+   - v285 계획서: `docs/plans/NATIVE_INIT_V285_ICNSS_QCA6390_DURING_START_PLAN_2026-05-19.md`
+   - v285 보고서: `docs/reports/NATIVE_INIT_V285_ICNSS_QCA6390_DURING_START_2026-05-19.md`
+   - v285 결과: decision `icnss-qca6390-focused-no-during-delta`, serial CNSS start-only `start-only-pass`, NCM/tcpctl 19 focused samples PASS, focused delta `0`, no `wlan*`/wiphy, postflight clean
+   - v285 해석: focused ICNSS/QCA6390 during-start sampling also shows no state delta. 동일 start-only 반복보다는 Android/TWRP/native ICNSS boot timing 비교가 다음 후보이다
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
 ---

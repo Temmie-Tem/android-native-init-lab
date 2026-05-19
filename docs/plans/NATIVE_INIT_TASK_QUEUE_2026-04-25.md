@@ -3265,6 +3265,32 @@
 - next:
   - v285 ICNSS/QCA6390 focused during-start sampler using the proven v284 side-channel pattern
 
+### V285. ICNSS/QCA6390 Focused During-Start Sampler — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V285_ICNSS_QCA6390_DURING_START_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V285_ICNSS_QCA6390_DURING_START_2026-05-19.md`
+- boot image change: none
+- baseline device build: `A90 Linux init 0.9.60 (v261)`
+- tool: `scripts/revalidation/wifi_icnss_qca6390_during_start_sampler.py`
+- evidence: `tmp/wifi/v285-icnss-qca6390-during-start-live-20260519-132119/`
+- decision: `icnss-qca6390-focused-no-during-delta`
+- result:
+  - serial ACM ran one bounded CNSS start-only helper command
+  - NCM/tcpctl completed 19 focused samples around/during the serial run
+  - helper result `start-only-pass`, child pid/pgid `1731/1731`, reaped, postflight clean
+  - focused delta count `0`, new focus line count `0`
+  - no `wlan*`, no wiphy, no CNSS process leak
+  - temporary `/bin/a90_tcpctl` alias and `netservice` were cleaned up
+- interpretation:
+  - generic side-channel and focused ICNSS/QCA6390 sampling both show no start-only readiness delta
+  - repeating the same bounded `cnss-daemon -n -l` run is unlikely to add evidence
+  - next work should compare Android/TWRP/native ICNSS boot timing before any QMI payload experiment
+- safety:
+  - no QMI payload, no QRTR nameservice packet, no scan/connect/link-up, no credential/DHCP/routing
+  - no rfkill write, no ICNSS bind/unbind, no debugfs mount, no reboot/recovery/poweroff
+- next:
+  - v286 Android/TWRP/native ICNSS boot-log timing comparison
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
