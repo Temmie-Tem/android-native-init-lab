@@ -20,6 +20,7 @@ DEFAULT_OUT_DIR = Path("tmp/wifi/v340-v317-final-handoff-packet")
 DEFAULT_V331 = Path("tmp/wifi/v331-v317-live-readiness-packet/manifest.json")
 DEFAULT_V336 = Path("tmp/wifi/v336-v317-prelive-gate-audit/manifest.json")
 DEFAULT_V339 = Path("tmp/wifi/v339-v317-live-surface-linter/manifest.json")
+PREFLIGHT_OUT_DIR = "tmp/wifi/v317-private-property-namespace-proof-preflight"
 
 APPROVAL_PHRASE = "approve v317 minimal private property namespace proof only; no daemon start and no Wi-Fi bring-up"
 
@@ -192,7 +193,9 @@ def check_input(spec: InputSpec, manifest: dict[str, Any], current_head: str) ->
 def contract_checks(v331: dict[str, Any], v336: dict[str, Any], v339: dict[str, Any]) -> list[HandoffCheck]:
     live_command = str(v331.get("live_command") or "")
     cleanup_command = str(v331.get("cleanup_command") or "")
-    preflight_command = command_variant(live_command, "preflight")
+    preflight_command = command_variant(live_command, "preflight", PREFLIGHT_OUT_DIR)
+    live_out_dir = command_arg(live_command, "--out-dir")
+    preflight_out_dir = command_arg(preflight_command, "--out-dir")
     return [
         HandoffCheck(
             "approval-phrase",
@@ -214,8 +217,14 @@ def contract_checks(v331: dict[str, Any], v336: dict[str, Any], v339: dict[str, 
         ),
         HandoffCheck(
             "preflight-command-contract",
-            "pass" if APPROVAL_PHRASE in preflight_command and "--prelive-gate-manifest" in preflight_command and preflight_command.endswith(" preflight") else "blocked",
-            "preflight command contains exact phrase, prelive gate manifest argument, and preflight subcommand",
+            "pass" if APPROVAL_PHRASE in preflight_command and "--prelive-gate-manifest" in preflight_command and preflight_command.endswith(" preflight") and preflight_out_dir == PREFLIGHT_OUT_DIR else "blocked",
+            f"preflight command contains exact phrase, prelive gate manifest argument, preflight subcommand, and out_dir={preflight_out_dir}",
+            str(v331.get("path", "")),
+        ),
+        HandoffCheck(
+            "preflight-output-isolated",
+            "pass" if live_out_dir and preflight_out_dir and live_out_dir != preflight_out_dir else "blocked",
+            f"live_out_dir={live_out_dir} preflight_out_dir={preflight_out_dir}",
             str(v331.get("path", "")),
         ),
         HandoffCheck(
@@ -233,8 +242,23 @@ def contract_checks(v331: dict[str, Any], v336: dict[str, Any], v339: dict[str, 
     ]
 
 
-def command_variant(command: str, subcommand: str) -> str:
+def command_arg(command: str, name: str) -> str | None:
     argv = shlex.split(command)
+    for index, item in enumerate(argv[:-1]):
+        if item == name:
+            return argv[index + 1]
+    return None
+
+
+def command_variant(command: str, subcommand: str, out_dir: str | None = None) -> str:
+    argv = shlex.split(command)
+    if out_dir is not None:
+        for index, item in enumerate(argv[:-1]):
+            if item == "--out-dir":
+                argv[index + 1] = out_dir
+                break
+        else:
+            argv[1:1] = ["--out-dir", out_dir]
     if argv and argv[-1] in {"run", "cleanup", "preflight"}:
         argv[-1] = subcommand
     else:
@@ -290,7 +314,8 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
         "checks": [asdict(item) for item in checks],
         "remaining_blockers": blockers,
         "approval_phrase": APPROVAL_PHRASE,
-        "preflight_command": command_variant(str(v331.get("live_command") or ""), "preflight"),
+        "preflight_command": command_variant(str(v331.get("live_command") or ""), "preflight", PREFLIGHT_OUT_DIR),
+        "preflight_out_dir": PREFLIGHT_OUT_DIR,
         "live_command": v331.get("live_command"),
         "cleanup_command": v331.get("cleanup_command"),
         "approved_scope": v331.get("approved_scope", []),
@@ -329,7 +354,7 @@ def render_packet(manifest: dict[str, Any]) -> str:
         "",
         "## Live Command",
         "",
-        "Run this preflight command first; it is designed to execute no device commands:",
+        "Run this preflight command first; it is designed to execute no device commands and writes to a separate preflight evidence directory:",
         "",
         "```bash",
         str(manifest["preflight_command"]),

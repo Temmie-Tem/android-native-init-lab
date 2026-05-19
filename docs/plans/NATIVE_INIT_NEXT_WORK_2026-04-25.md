@@ -1569,6 +1569,9 @@ Samsung bootloader
    - v345 계획서: `docs/plans/NATIVE_INIT_V345_POST_V317_ROUTER_REGRESSION_PLAN_2026-05-19.md`
    - v345 보고서: `docs/reports/NATIVE_INIT_V345_POST_V317_ROUTER_REGRESSION_2026-05-19.md`
    - v345 해석: V317 live proof 이후 V333 router가 PASS/cleanup/failure/manual-review/prereq-blocked 결과를 안전하게 분기하는지 host-only synthetic regression으로 검증했다
+   - v346 계획서: `docs/plans/NATIVE_INIT_V346_HANDOFF_PREFLIGHT_OUTDIR_PLAN_2026-05-19.md`
+   - v346 보고서: `docs/reports/NATIVE_INIT_V346_HANDOFF_PREFLIGHT_OUTDIR_2026-05-19.md`
+   - v346 해석: V340 generated preflight command가 live V317 result path를 오염시키지 않도록 별도 preflight out-dir을 쓰게 수정했다
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
 ---

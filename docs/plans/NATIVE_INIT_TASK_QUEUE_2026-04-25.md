@@ -4607,6 +4607,25 @@
 - next:
   - exact V317 approval phrase 없이는 live proof 실행하지 않음
 
+
+### V346. Handoff Preflight Output Isolation — HOST-ONLY / PENDING POST-COMMIT REFRESH
+
+- 계획: `docs/plans/NATIVE_INIT_V346_HANDOFF_PREFLIGHT_OUTDIR_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V346_HANDOFF_PREFLIGHT_OUTDIR_2026-05-19.md`
+- target: `scripts/revalidation/wifi_v317_handoff_packet.py`
+- boot image: 없음. v346은 host-side handoff command safety fix이며 native init version 변경 없음
+- 구현:
+  - V340 generated preflight command의 `--out-dir`를 live result path와 분리
+  - `preflight-command-contract`와 `preflight-output-isolated` handoff check 추가
+  - handoff manifest에 `preflight_out_dir` 기록
+- pre-commit validation:
+  - `py_compile` PASS
+  - dirty-tree 상태에서 V340는 `current-tree-clean`으로 block되지만 preflight out-dir contract checks PASS
+- post-commit validation:
+  - clean HEAD에서 V344 refresh와 generated V340 preflight command 실행 예정
+- next:
+  - exact V317 approval phrase 없이는 live proof 실행하지 않음
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
