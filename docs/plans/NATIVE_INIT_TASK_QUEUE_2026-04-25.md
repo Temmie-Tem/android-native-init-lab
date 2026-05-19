@@ -4069,6 +4069,26 @@
 - next:
   - V317 live private namespace proof may run after the exact V317 approval phrase; still no daemon start or Wi-Fi bring-up
 
+### V320. Private Property Lookup Proof — PLANNED / BLOCKED BY V317 LIVE PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V320_PRIVATE_PROPERTY_LOOKUP_PROOF_PLAN_2026-05-19.md`
+- native build baseline: `A90 Linux init 0.9.61 (v319)`
+- device flash: 없음. v320 계획은 helper/host-tool 후보이며 boot image 변경을 전제로 하지 않는다
+- prerequisite:
+  - v317 live proof `private-property-namespace-proof-pass`
+  - v317 cleanup or explicit stale-workdir cleanup
+  - v312 generated property layout evidence
+- intended proof:
+  - run an Android-linked read-only property reader such as `/system/bin/getprop` inside a private Android execution namespace
+  - expose only the v317 private property directory to that child as `/dev/__properties__`
+  - compare selected property output against v312 generated seed values
+- guardrails:
+  - no global `/dev/__properties__` replacement or bind mount
+  - no `/dev/socket/property_service`
+  - no property mutation, daemon start, Wi-Fi scan/connect/link-up, credential, DHCP, routing, rfkill write, module load, or firmware mutation
+- next:
+  - wait for v317 exact approval phrase and live proof; only after that implement v320 lookup runner/helper changes
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`

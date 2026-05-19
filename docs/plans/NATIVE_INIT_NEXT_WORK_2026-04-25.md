@@ -1491,6 +1491,8 @@ Samsung bootloader
    - v319 보고서: `docs/reports/NATIVE_INIT_V319_SERIAL_TRANSFER_APPEND_2026-05-19.md`
    - v319 결과: `A90 Linux init 0.9.61 (v319)` 실기 플래시 PASS, scoped `appendfile` 추가, 4096-byte shell/cmdv1x buffer 적용, appendfile transfer smoke PASS
    - v319 해석: V317 runner는 이제 `appendfile` + `toybox uudecode -o` + `sha256sum` 방식으로 private workdir 전송을 수행할 준비가 됐다. live V317 proof는 여전히 exact approval phrase 없이는 실행되지 않는다
+   - v320 계획서: `docs/plans/NATIVE_INIT_V320_PRIVATE_PROPERTY_LOOKUP_PROOF_PLAN_2026-05-19.md`
+   - v320 해석: V317 live PASS 후에만 진행하는 조건부 계획이다. 목표는 Android-linked read-only property reader를 private namespace 안에서 실행해 v317 private `/dev/__properties__` tree의 값을 읽을 수 있는지 확인하는 것이다. global property runtime, property service socket, daemon start, Wi-Fi bring-up은 계속 금지한다
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
 ---
