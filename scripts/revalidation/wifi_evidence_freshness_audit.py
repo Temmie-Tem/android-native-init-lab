@@ -14,7 +14,7 @@ from a90_kernel_tools import collect_host_metadata, markdown_table, repo_path
 from a90harness.evidence import EvidenceStore
 
 
-DEFAULT_OUT_DIR = Path("tmp/wifi/v330-evidence-freshness-audit")
+DEFAULT_OUT_DIR = Path("tmp/wifi/v334-evidence-freshness-audit")
 
 
 @dataclass
@@ -34,6 +34,9 @@ EXPECTED = (
     ("v328-runner-plan", Path("tmp/wifi/v328-v317-runner-plan/manifest.json"), {"private-property-namespace-proof-plan-ready"}, True),
     ("v328-runner-refusal", Path("tmp/wifi/v328-v317-runner-refuse/manifest.json"), {"private-property-namespace-proof-approval-required"}, False),
     ("v329-readiness-dashboard", Path("tmp/wifi/v329-wifi-readiness-dashboard/manifest.json"), {"wifi-readiness-dashboard-ready-blocked-by-v317"}, True),
+    ("v331-live-readiness-packet", Path("tmp/wifi/v331-v317-live-readiness-packet/manifest.json"), {"v317-live-readiness-packet-ready"}, True),
+    ("v332-readonly-live-preflight", Path("tmp/wifi/v332-current-readonly-live-preflight/manifest.json"), {"private-property-live-preflight-ready"}, True),
+    ("v333-post-v317-router", Path("tmp/wifi/v333-post-v317-router/manifest.json"), {"post-v317-router-awaiting-v317"}, True),
 )
 
 
@@ -116,7 +119,7 @@ def decide(checks: list[EvidenceCheck]) -> tuple[str, bool, str, str]:
     return (
         "wifi-evidence-freshness-clean",
         True,
-        "all V325-V329 host-only evidence was regenerated on the current clean git head",
+        "all V325-V333 host-only/read-only evidence was regenerated on the current clean git head",
         "V317 live proof remains the next approval-gated step",
     )
 
@@ -143,7 +146,7 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
 def render_summary(manifest: dict[str, Any]) -> str:
     rows = [[item["name"], item["status"], item["decision"], item["detail"], item["path"]] for item in manifest["checks"]]
     return "\n".join([
-        "# v330 Wi-Fi Evidence Freshness Audit",
+        "# Wi-Fi Evidence Freshness Audit",
         "",
         f"- generated: `{manifest['generated_at']}`",
         f"- decision: `{manifest['decision']}`",

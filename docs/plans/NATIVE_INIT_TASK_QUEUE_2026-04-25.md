@@ -4379,6 +4379,24 @@
   - exact v317 approval phrase가 있으면 router/readiness packet의 command로 v317 minimal live proof 진행
   - V317 PASS 후 router를 재실행해 V320 plan/live lookup 여부를 결정
 
+### V334. Wi-Fi Evidence Freshness Expansion — PASS / HOST-ONLY
+
+- 계획: `docs/plans/NATIVE_INIT_V334_WIFI_EVIDENCE_FRESHNESS_EXPANSION_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V334_WIFI_EVIDENCE_FRESHNESS_EXPANSION_2026-05-19.md`
+- tool: `scripts/revalidation/wifi_evidence_freshness_audit.py`
+- evidence: `tmp/wifi/v334-evidence-freshness-audit/`
+- boot image: 없음. v334는 host-only freshness audit expansion이며 native init version 변경 없음
+- validation:
+  - `py_compile` PASS
+  - `git diff --check` PASS
+  - decision `wifi-evidence-freshness-clean`
+  - `pass=true`
+  - V325-V333 evidence checked
+  - `device_commands_executed=false`
+  - `device_mutations=false`
+- next:
+  - exact v317 approval phrase가 있으면 router/readiness packet의 command로 v317 minimal live proof 진행
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`

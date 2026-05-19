@@ -1533,6 +1533,9 @@ Samsung bootloader
    - v333 계획서: `docs/plans/NATIVE_INIT_V333_POST_V317_ROUTER_PLAN_2026-05-19.md`
    - v333 보고서: `docs/reports/NATIVE_INIT_V333_POST_V317_ROUTER_2026-05-19.md`
    - v333 해석: V317 결과 라우터를 host-only로 추가했다. 현재 decision은 `post-v317-router-awaiting-v317`이며, V317 PASS 전에는 V320 property lookup을 실행하지 않는다
+   - v334 계획서: `docs/plans/NATIVE_INIT_V334_WIFI_EVIDENCE_FRESHNESS_EXPANSION_PLAN_2026-05-19.md`
+   - v334 보고서: `docs/reports/NATIVE_INIT_V334_WIFI_EVIDENCE_FRESHNESS_EXPANSION_2026-05-19.md`
+   - v334 해석: freshness audit 범위를 V325-V333으로 확장했다. current clean head에서 전체 approval 직전 evidence가 fresh인지 확인한다
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
 ---
