@@ -1660,6 +1660,10 @@ Samsung bootloader
    - v371 보고서: `docs/reports/NATIVE_INIT_V371_RUNTIME_REPAIR_SMOKE_LIVE_EXECUTOR_2026-05-20.md`
    - v371 해석: exact V366 approval phrase 이후 V371 executor로 bounded runtime repair smoke를 실행했고 `runtime-repair-smoke-live-executor-run-pass` / `runtime-repair-smoke-router-service-runtime-next-ready`를 확인했다. temporary `/dev/block/sda29`/binder node 생성, private property lookup, cleanup, postflight cleanliness까지만 수행했고 service-manager/HAL/scan/connect는 실행하지 않았다
    - v371 다음: separate service-manager start-only approval packet 작성. 이 단계도 Wi-Fi HAL start, scan/connect/link-up/credential/DHCP/routing은 제외해야 한다
+   - v372 계획서: `docs/plans/NATIVE_INIT_V372_SERVICE_MANAGER_START_ONLY_APPROVAL_PACKET_PLAN_2026-05-20.md`
+   - v372 보고서: `docs/reports/NATIVE_INIT_V372_SERVICE_MANAGER_START_ONLY_APPROVAL_PACKET_2026-05-20.md`
+   - v372 해석: V371/V366 PASS와 현재 read-only native state를 묶어 `service-manager-start-only-approval-packet-ready`를 확인했다. `servicemanager`/`hwservicemanager` binary visible, service-manager process clean, Wi-Fi link clean, temporary Binder nodes cleaned 상태다
+   - v372 다음: V373 fail-closed service-manager start-only smoke runner 구현. required phrase는 `approve v373 service-manager start-only smoke only; no Wi-Fi HAL start and no Wi-Fi bring-up`
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
 ---

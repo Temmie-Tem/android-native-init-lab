@@ -5223,6 +5223,28 @@
   - create separate service-manager start-only approval packet
   - keep Wi-Fi HAL start, scan/connect/link-up, credentials, DHCP, and routing blocked until later explicit plan/approval
 
+### V372. Service-Manager Start-Only Approval Packet — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V372_SERVICE_MANAGER_START_ONLY_APPROVAL_PACKET_PLAN_2026-05-20.md`
+- 보고서: `docs/reports/NATIVE_INIT_V372_SERVICE_MANAGER_START_ONLY_APPROVAL_PACKET_2026-05-20.md`
+- evidence:
+  - plan: `tmp/wifi/v372-service-manager-start-only-approval-packet-plan-20260520-013401/`
+  - live read-only packet: `tmp/wifi/v372-service-manager-start-only-approval-packet-live-20260520-013344/`
+- boot image: 없음. v372는 host-side approval packet generator이며 native init version 변경 없음
+- validation:
+  - plan decision `service-manager-start-only-approval-packet-plan-ready`
+  - live read-only decision `service-manager-start-only-approval-packet-ready`
+  - V371 live executor pass and V366 smoke pass are both checked
+  - current native status/selftest clean with `fail=0`
+  - `servicemanager` and `hwservicemanager` binary visibility checked
+  - service-manager process surface, Wi-Fi link surface, and temporary Binder nodes clean
+  - `live_execution_approved=false`, `device_mutations=false`
+- next approval phrase:
+  - `approve v373 service-manager start-only smoke only; no Wi-Fi HAL start and no Wi-Fi bring-up`
+- next:
+  - implement V373 fail-closed service-manager start-only smoke runner
+  - do not start Wi-Fi HAL, scan/connect/link-up, credentials, DHCP, or routing
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
