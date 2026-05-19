@@ -1653,6 +1653,9 @@ Samsung bootloader
    - v369 계획서: `docs/plans/NATIVE_INIT_V369_RUNTIME_REPAIR_APPROVAL_PACKET_PLAN_2026-05-20.md`
    - v369 보고서: `docs/reports/NATIVE_INIT_V369_RUNTIME_REPAIR_APPROVAL_PACKET_2026-05-20.md`
    - v369 해석: V366 live smoke approval packet을 생성했고, preflight/run-refusal/cleanup-refusal/regression과 run/cleanup command contract가 PASS했다. packet 자체는 `live_execution_approved=false`이며 실제 smoke는 아직 실행하지 않았다
+   - v370 계획서: `docs/plans/NATIVE_INIT_V370_RUNTIME_REPAIR_RESULT_ROUTER_PLAN_2026-05-20.md`
+   - v370 보고서: `docs/reports/NATIVE_INIT_V370_RUNTIME_REPAIR_RESULT_ROUTER_2026-05-20.md`
+   - v370 해석: V366 live smoke 결과 router를 추가했고 현재 상태는 `runtime-repair-smoke-router-awaiting-approval`이다. live smoke가 PASS하면 다음은 service-manager start-only approval packet이고, HAL/scan/connect는 여전히 별도 승인 전까지 금지다
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
 ---

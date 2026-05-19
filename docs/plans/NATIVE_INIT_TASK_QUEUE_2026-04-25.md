@@ -5182,6 +5182,24 @@
   - exact approval phrase can now be used with the generated command if operator accepts the V366 boundary
   - do not run service-manager/HAL/scan/connect before V366 approved smoke passes and a later separate approval packet exists
 
+
+### V370. Runtime Repair Smoke Result Router — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V370_RUNTIME_REPAIR_RESULT_ROUTER_PLAN_2026-05-20.md`
+- 보고서: `docs/reports/NATIVE_INIT_V370_RUNTIME_REPAIR_RESULT_ROUTER_2026-05-20.md`
+- evidence:
+  - route: `tmp/wifi/v370-runtime-repair-smoke-result-router-route-20260520-011726/`
+  - regression: `tmp/wifi/v370-runtime-repair-smoke-result-router-regression-20260520-011726/`
+- boot image: 없음. v370은 host-only result router
+- validation:
+  - current route decision `runtime-repair-smoke-router-awaiting-approval`
+  - regression decision `runtime-repair-smoke-router-regression-pass`
+  - awaiting/refusal/preexisting-blocker/pass-next-ready/cleanup-failed/unexpected cases PASS
+  - `device_commands_executed=false`, `device_mutations=false`
+- next:
+  - exact approval phrase remains the only current blocker for V366 live smoke
+  - if V366 smoke later passes, router target becomes separate service-manager start-only approval packet; still no HAL/scan/connect
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
