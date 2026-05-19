@@ -4630,6 +4630,26 @@
 - next:
   - exact V317 approval phrase 없이는 live proof 실행하지 않음
 
+
+### V347. Gate Refresh Runs Generated Handoff Preflight — HOST-ONLY / PENDING POST-COMMIT REFRESH
+
+- 계획: `docs/plans/NATIVE_INIT_V347_GATE_REFRESH_GENERATED_PREFLIGHT_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V347_GATE_REFRESH_GENERATED_PREFLIGHT_2026-05-19.md`
+- target: `scripts/revalidation/wifi_v317_gate_refresh.py`
+- boot image: 없음. v347은 host-side evidence refresh coverage fix이며 native init version 변경 없음
+- 구현:
+  - `--run-approved-preflight`가 direct runner preflight와 generated V340 handoff preflight를 모두 실행
+  - generated handoff preflight는 V340 manifest의 `preflight_command`를 그대로 사용
+  - no-device preflight manifest decision을 검증
+- pre-commit validation:
+  - `py_compile` PASS
+  - dirty-tree refresh는 block되지만 `v340-generated-preflight` step 포함 확인
+  - `device_commands_executed=false`, `device_mutations=false`
+- post-commit validation:
+  - clean HEAD에서 V344 refresh 재실행 예정
+- next:
+  - exact V317 approval phrase 없이는 live proof 실행하지 않음
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`

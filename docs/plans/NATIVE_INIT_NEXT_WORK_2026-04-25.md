@@ -1572,6 +1572,9 @@ Samsung bootloader
    - v346 계획서: `docs/plans/NATIVE_INIT_V346_HANDOFF_PREFLIGHT_OUTDIR_PLAN_2026-05-19.md`
    - v346 보고서: `docs/reports/NATIVE_INIT_V346_HANDOFF_PREFLIGHT_OUTDIR_2026-05-19.md`
    - v346 해석: V340 generated preflight command가 live V317 result path를 오염시키지 않도록 별도 preflight out-dir을 쓰게 수정했고, generated preflight command 자체가 no-device PASS임을 확인했다
+   - v347 계획서: `docs/plans/NATIVE_INIT_V347_GATE_REFRESH_GENERATED_PREFLIGHT_PLAN_2026-05-19.md`
+   - v347 보고서: `docs/reports/NATIVE_INIT_V347_GATE_REFRESH_GENERATED_PREFLIGHT_2026-05-19.md`
+   - v347 해석: `wifi_v317_gate_refresh.py --run-approved-preflight`가 V340 manifest의 generated preflight command까지 직접 실행해 검증하도록 확장했다
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
 ---

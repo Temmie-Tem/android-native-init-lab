@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
+import shlex
 import subprocess
 import sys
 from dataclasses import asdict, dataclass
@@ -254,11 +255,35 @@ def approved_preflight_step() -> RefreshStep:
     )
 
 
-def steps_for(args: argparse.Namespace) -> list[RefreshStep]:
-    steps = base_steps()
-    if args.run_approved_preflight:
-        steps.append(approved_preflight_step())
-    return steps
+def command_arg(argv: list[str], name: str) -> str | None:
+    for index, item in enumerate(argv[:-1]):
+        if item == name:
+            return argv[index + 1]
+    return None
+
+
+def generated_handoff_preflight_step() -> RefreshStep:
+    handoff_manifest = load_manifest(Path("tmp/wifi/v340-v317-final-handoff-packet/manifest.json"))
+    command = str(handoff_manifest.get("preflight_command") or "")
+    if not command:
+        return RefreshStep(
+            "v340-generated-preflight",
+            [sys.executable, "-c", "raise SystemExit('missing V340 preflight command')"],
+            Path("tmp/wifi/v317-private-property-namespace-proof-preflight/manifest.json"),
+            0,
+            "private-property-namespace-proof-preflight-ready",
+            True,
+        )
+    argv = shlex.split(command)
+    out_dir = command_arg(argv, "--out-dir") or "tmp/wifi/v317-private-property-namespace-proof-preflight"
+    return RefreshStep(
+        "v340-generated-preflight",
+        argv,
+        Path(out_dir) / "manifest.json",
+        0,
+        "private-property-namespace-proof-preflight-ready",
+        True,
+    )
 
 
 def load_manifest(path: Path) -> dict[str, Any]:
@@ -365,7 +390,7 @@ def build_manifest(args: argparse.Namespace, results: list[RefreshResult]) -> di
         "device_mutations": False,
         "notes": [
             "This refresh is host-only and does not run V317 live proof.",
-            "The approved preflight option executes only the runner preflight subcommand and expects commands=[].",
+            "The approved preflight option executes both the direct runner preflight and the generated V340 preflight command, and expects commands=[].",
         ],
     }
 
@@ -415,7 +440,10 @@ def main() -> int:
     store = EvidenceStore(repo_path(args.out_dir))
     transcript_dir = store.run_dir / "transcripts"
     transcript_dir.mkdir(mode=0o700, exist_ok=True)
-    results = [run_step(step, transcript_dir) for step in steps_for(args)]
+    results = [run_step(step, transcript_dir) for step in base_steps()]
+    if args.run_approved_preflight:
+        results.append(run_step(approved_preflight_step(), transcript_dir))
+        results.append(run_step(generated_handoff_preflight_step(), transcript_dir))
     manifest = build_manifest(args, results)
     store.write_json("manifest.json", manifest)
     store.write_text("summary.md", render_summary(manifest))
