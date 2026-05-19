@@ -4,7 +4,7 @@
 - scope: host-only V317 live blocker snapshot
 - device command: none
 - device mutation: none
-- result: `PENDING`
+- result: `PASS`
 
 ## Summary
 
@@ -43,4 +43,13 @@ require clean-head evidence.
 
 ## Acceptance Result
 
-To be filled after clean-head validation.
+- `python3 -m py_compile scripts/revalidation/wifi_v317_blocker_snapshot.py`: PASS
+- `git diff --check`: PASS
+- clean-head snapshot:
+  - decision: `v317-live-blocked-awaiting-exact-approval`
+  - pass: `true`
+  - remaining blocker: `exact-v317-approval-phrase`
+  - `device_commands_executed=false`
+  - `device_mutations=false`
+- V357 audit, V350 checklist, V351 executor command, and exact approval phrase checks all PASS.
+- V359 introduced no native init, boot image, or live device changes.

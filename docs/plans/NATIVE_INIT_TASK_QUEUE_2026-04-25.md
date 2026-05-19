@@ -4889,7 +4889,7 @@
 - next:
   - exact V317 approval phrase 없이는 executor `run`/`cleanup` 실행하지 않음
 
-### V359. V317 Live Blocker Snapshot — HOST-ONLY PENDING
+### V359. V317 Live Blocker Snapshot — HOST-ONLY PASS
 
 - 계획: `docs/plans/NATIVE_INIT_V359_LIVE_BLOCKER_SNAPSHOT_PLAN_2026-05-19.md`
 - 보고서: `docs/reports/NATIVE_INIT_V359_LIVE_BLOCKER_SNAPSHOT_2026-05-19.md`
@@ -4902,7 +4902,8 @@
 - validation:
   - pre-commit dirty tree에서 `v317-live-blocker-snapshot-blocked` 확인
   - pre-commit `device_commands_executed=false`, `device_mutations=false` 확인
-  - post-commit clean HEAD에서 `v317-live-blocked-awaiting-exact-approval` 기대
+  - post-commit clean HEAD에서 `v317-live-blocked-awaiting-exact-approval` PASS
+  - V357/V350/V351 command/exact phrase checks 모두 PASS
 - next:
   - exact V317 approval phrase 없이는 executor `run`/`cleanup` 실행하지 않음
 
