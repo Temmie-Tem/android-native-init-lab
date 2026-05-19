@@ -1725,6 +1725,7 @@ Samsung bootloader
    - v382 결과: exact approval 후 executor `full` PASS. `/cache/bin/a90_android_execns_probe`는 v14 SHA `f8cde6848ad49755b06bfac8136cd81f0b985ca1be13dbf27b369cdb4fe4aea7`로 교체됐고, live는 `service-manager-start-only-live-runtime-gap` / router `service-manager-start-only-router-runtime-gap`이다. `hwservicemanager`는 bounded pass, `servicemanager`는 SIGABRT manual-review. Wi-Fi HAL/scan/connect/link-up/credential/DHCP/routing은 실행 안 됨
    - v383 classifier 보고서: `docs/reports/NATIVE_INIT_V383_SERVICEMANAGER_SIGABRT_CLASSIFIER_2026-05-20.md`
    - v383 결과: `scripts/revalidation/wifi_service_manager_runtime_gap_classifier.py`가 V382 live evidence를 `service-manager-runtime-gap-servicemanager-sigabrt-capture-required`로 분류한다. device command/mutation 없이 regression PASS
+   - v384 계획서: `docs/plans/NATIVE_INIT_V384_SERVICEMANAGER_CRASH_CAPTURE_PLAN_2026-05-20.md`
    - v383 다음: V384에서 service-manager start-only 전용 `ptrace-lite` 또는 동등한 early-crash evidence capture helper를 추가한다. Wi-Fi HAL/start/scan/connect는 계속 blocked
 
 ---
