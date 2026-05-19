@@ -3485,6 +3485,32 @@
 - next:
   - v294 Android property-runtime feasibility before any service-manager execution
 
+### V294. Android Property Runtime Feasibility — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V294_PROPERTY_RUNTIME_FEASIBILITY_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V294_PROPERTY_RUNTIME_FEASIBILITY_2026-05-19.md`
+- boot image change: none
+- baseline device build: `A90 Linux init 0.9.60 (v261)`
+- tool: `scripts/revalidation/wifi_property_runtime_feasibility.py`
+- evidence:
+  - `tmp/wifi/v294-property-runtime-plan/`
+  - `tmp/wifi/v294-property-runtime-live-20260519-142338/`
+- decision: `property-runtime-inputs-visible-runtime-absent`
+- result:
+  - Android property input files are visible through mounted system evidence
+  - live native property runtime paths are absent:
+    - `/dev/socket/property_service` absent
+    - `/dev/__properties__` absent
+    - `/dev/socket` absent
+  - first live run exposed an overly narrow path-list assumption; tool was corrected to use live `find` evidence
+- safety:
+  - no property service creation or property mutation
+  - no service-manager execution
+  - no Binder ioctl/devnode creation
+  - no Wi-Fi daemon execution, QMI/QRTR, scan/connect/link-up
+- next:
+  - v295 read-only property snapshot/shim model before any service-manager execution
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
