@@ -1259,6 +1259,10 @@ Samsung bootloader
    - v273 보고서: `docs/reports/NATIVE_INIT_V273_QRTR_READBACK_MATRIX_2026-05-19.md`
    - v273 결과: approved bounded matrix PASS, WDS `1`/DMS `2` with instances `0,1` all `qrtr-readback-matrix-timeout`, events `0`, `qmi_attempted=0`
    - v273 해석: DMS/WDS visible service lookup도 현재 native state에서 QRTR service notification을 만들지 않는다. 다음은 WLFW service-object locator 또는 CNSS/runtime endpoint registration 조건 분석이다
+   - v274 계획서: `docs/plans/NATIVE_INIT_V274_WLFW_SERVICE_LOCATOR_PLAN_2026-05-19.md`
+   - v274 보고서: `docs/reports/NATIVE_INIT_V274_WLFW_SERVICE_LOCATOR_2026-05-19.md`
+   - v274 결과: host-only locator PASS, decision `wlfw-service-id-source-backed`, WLFW service id `0x45` / `69`, version `1`, local CNSS WLFW strings matched
+   - v274 해석: 다음 live 후보는 WLFW service `0x45` instance `0,1`에 대한 bounded QRTR nameservice readback이다. QMI payload는 계속 금지한다
    - v251 계획서: `docs/plans/NATIVE_INIT_V251_CNSS_PROPERTY_SURFACE_PLAN_2026-05-19.md`
    - v251 보고서: `docs/reports/NATIVE_INIT_V251_CNSS_PROPERTY_SURFACE_2026-05-19.md`
    - v251 결과: decision `cnss-property-read-only-surface`, host-only analysis, property read symbols `property_get`/`property_get_int32`, no property write/control symbols detected

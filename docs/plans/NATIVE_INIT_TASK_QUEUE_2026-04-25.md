@@ -2989,6 +2989,36 @@
 - next execution item:
   - v274 WLFW service-object locator
 
+### V274. WLFW Service Locator — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V274_WLFW_SERVICE_LOCATOR_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V274_WLFW_SERVICE_LOCATOR_2026-05-19.md`
+- boot image change: 없음
+- device command: 없음
+- packet transmission: 없음
+- baseline device build: `A90 Linux init 0.9.60 (v261)`
+- tool: `scripts/revalidation/wifi_wlfw_service_locator.py`
+- evidence: `tmp/wifi/v274-wlfw-service-locator/`
+- validation:
+  - host-only locator PASS: `wlfw-service-id-source-backed`
+  - WLFW service id: `69` / `0x45`
+  - WLFW service version: `1`
+  - local `cnss-daemon` WLFW string coverage PASS
+  - local exported WLFW service object remains absent/unresolved
+- interpretation:
+  - WLFW is now a concrete Wi-Fi-specific service-id candidate
+  - WDS/DMS readback timeout does not close the WLFW path
+  - next live step can be a bounded WLFW QRTR nameservice readback matrix, still no QMI payload
+- guardrails:
+  - no Android code execution
+  - no device command executed
+  - no QRTR socket opened
+  - no QRTR nameservice packet sent
+  - no QMI payload sent
+  - no Wi-Fi scan/connect/link-up or daemon start
+- next execution item:
+  - v275 explicit-approval WLFW QRTR nameservice readback matrix
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
