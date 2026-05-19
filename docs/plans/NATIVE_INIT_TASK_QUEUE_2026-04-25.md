@@ -4323,6 +4323,25 @@
   - exact v317 approval phrase가 있으면 v317 minimal live proof 진행
   - approval이 없으면 다른 host-only/read-only 후보 선정
 
+### V331. V317 Live Readiness Packet — PASS / HOST-ONLY
+
+- 계획: `docs/plans/NATIVE_INIT_V331_V317_LIVE_READINESS_PACKET_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V331_V317_LIVE_READINESS_PACKET_2026-05-19.md`
+- tool: `scripts/revalidation/wifi_v317_live_readiness_packet.py`
+- evidence: `tmp/wifi/v331-v317-live-readiness-packet/`
+- boot image: 없음. v331은 host-only operator handoff packet이며 native init version 변경 없음
+- validation:
+  - `py_compile` PASS
+  - `git diff --check` PASS
+  - decision `v317-live-readiness-packet-ready`
+  - `pass=true`
+  - `live_execution_approved=false`
+  - `device_commands_executed=false`
+  - `device_mutations=false`
+- next:
+  - exact v317 approval phrase가 있으면 readiness packet의 command로 v317 minimal live proof 진행
+  - approval이 없으면 다른 host-only/read-only 후보 선정
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`

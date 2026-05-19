@@ -1524,6 +1524,9 @@ Samsung bootloader
    - v330 계획서: `docs/plans/NATIVE_INIT_V330_WIFI_EVIDENCE_FRESHNESS_PLAN_2026-05-19.md`
    - v330 보고서: `docs/reports/NATIVE_INIT_V330_WIFI_EVIDENCE_FRESHNESS_2026-05-19.md`
    - v330 해석: V325-V329 evidence를 current clean git head에서 재생성했는지 audit했다. decision은 `wifi-evidence-freshness-clean`이며 device command/mutation은 없다
+   - v331 계획서: `docs/plans/NATIVE_INIT_V331_V317_LIVE_READINESS_PACKET_PLAN_2026-05-19.md`
+   - v331 보고서: `docs/reports/NATIVE_INIT_V331_V317_LIVE_READINESS_PACKET_2026-05-19.md`
+   - v331 해석: V317 live proof용 operator handoff packet을 host-only로 만들었다. exact approval phrase가 제공되기 전까지 live_execution_approved=false이며 device command/mutation은 없다
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
 ---
