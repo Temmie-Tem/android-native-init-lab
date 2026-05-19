@@ -3827,6 +3827,25 @@
 - next:
   - v309 candidate: AOSP property area/property info format extractor before any runtime prototype
 
+### V309. Property Format Source Probe — READY
+
+- 계획: `docs/plans/NATIVE_INIT_V309_PROPERTY_FORMAT_SOURCE_PROBE_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V309_PROPERTY_FORMAT_SOURCE_PROBE_2026-05-19.md`
+- boot image change: none
+- restored device build: `A90 Linux init 0.9.60 (v261)`
+- tool: `scripts/revalidation/wifi_property_format_source_probe.py`
+- evidence: `tmp/wifi/v309-property-format-source-probe/`
+- decision: `property-format-source-map-ready`
+- result:
+  - Android 12 AOSP ref `android-12.0.0_r34` selected for SDK 31 seed
+  - source fetch `11/11` PASS
+  - prop area constants, bionic serialized read path, and property info serializer/parser markers found
+- safety:
+  - host-only source probe
+  - no device/ADB command, runtime property file, property service socket, daemon, or Wi-Fi bring-up action
+- next:
+  - v310 candidate: host-side `property_info` / `prop_area` serializer compatibility proof
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`

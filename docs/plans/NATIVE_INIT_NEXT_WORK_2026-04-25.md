@@ -1447,6 +1447,10 @@ Samsung bootloader
    - v308 보고서: `docs/reports/NATIVE_INIT_V308_PRIVATE_PROPERTY_AREA_PROOF_2026-05-19.md`
    - v308 결과: decision `private-property-area-proof-needs-format-source`
    - v308 해석: Android-backed seed는 read-only 모델 입력으로 유효하지만 property area binary layout과 serialized `property_info` compatibility가 아직 증명되지 않았다. 다음은 runtime node 생성이 아니라 AOSP source 기반 format extractor/proof이다
+   - v309 계획서: `docs/plans/NATIVE_INIT_V309_PROPERTY_FORMAT_SOURCE_PROBE_PLAN_2026-05-19.md`
+   - v309 보고서: `docs/reports/NATIVE_INIT_V309_PROPERTY_FORMAT_SOURCE_PROBE_2026-05-19.md`
+   - v309 결과: decision `property-format-source-map-ready`
+   - v309 해석: Android 12 AOSP source에서 property area constants, serialized `property_info` header/version, bionic `ContextsSerialized` read path를 확인했다. 다음은 여전히 host-only인 serializer/parser compatibility proof이며 runtime property file creation은 아직 금지다
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
 ---
