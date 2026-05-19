@@ -2720,6 +2720,31 @@
   - opt-in perfd/property/kmsg shim design without execution, or
   - bounded QRTR nameservice no-scan probe only after explicit packet-transmission approval
 
+### V265. QRTR Nameservice Approval Contract — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V265_QRTR_NAMESERVICE_APPROVAL_CONTRACT_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V265_QRTR_NAMESERVICE_APPROVAL_CONTRACT_2026-05-19.md`
+- baseline input: `tmp/wifi/v264-qrtr-qmi-nameservice-model/manifest.json`
+- boot image change: 없음
+- daemon start: 없음
+- QRTR/QMI packet transmission: 없음
+- host tool: `scripts/revalidation/wifi_qrtr_nameservice_approval_contract.py`
+- output: `tmp/wifi/v265-qrtr-nameservice-approval-contract/`
+- decision: `qrtr-nameservice-approval-contract-ready`
+- validation:
+  - v264 model prerequisite PASS
+  - future command template includes `--allow-qrtr-ns-transmit`, `--assume-yes`, and `--i-understand-qrtr-packet-transmission`
+  - wildcard lookup blocked by default
+  - QMI payload and Wi-Fi link actions blocked
+  - no bridge/device execution in v265
+- interpretation:
+  - v265 is the last safe non-transmit step before QRTR nameservice probing
+  - future runner can be designed next, but actual QRTR packet transmission needs explicit user approval
+  - QMI service request, `cnss_diag`, scan/connect/link-up, credentials, DHCP, and routing remain blocked
+- next execution item:
+  - request explicit approval for bounded QRTR nameservice no-scan runner design/run, or
+  - choose a non-transmit alternative such as opt-in perfd/property/kmsg shim design
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
