@@ -25,9 +25,10 @@
 - current native build remains `A90 Linux init 0.9.61 (v319)`.
 - current Wi-Fi handoff cycle is V382 host tooling, not a new boot-image flash.
 - added guarded executor `scripts/revalidation/wifi_v382_deploy_live_executor.py`.
-- report: `docs/reports/NATIVE_INIT_V382_DEPLOY_LIVE_EXECUTOR_2026-05-20.md`.
+- reports: `docs/reports/NATIVE_INIT_V382_DEPLOY_LIVE_EXECUTOR_2026-05-20.md`, `docs/reports/NATIVE_INIT_V382_APPROVED_DEPLOY_LIVE_RESULT_2026-05-20.md`.
 - no-approval deploy/live/full regression: `approval-required` PASS, no device commands, no mutations, no daemon start, no Wi-Fi bring-up.
-- next execution item: run executor `full` only with both exact approval phrases; scope remains helper v14 deploy plus bounded service-manager start-only smoke.
+- approved executor `full`: `v382-deploy-live-executor-full-pass`, helper v14 deployed, service-manager live route `service-manager-start-only-router-runtime-gap`, Wi-Fi bring-up false.
+- next execution item: v383 `servicemanager` SIGABRT runtime-gap classifier/evidence capture.
 
 ## 현재 고정 기준점
 
