@@ -4862,6 +4862,7 @@
   - V349 final readiness, V350 operator checklist, V351 executor plan, V352 executor regression을 한 번에 재검증
   - clean HEAD/current evidence/no device mutation/approval blocker only 조건을 통합 검사
   - V350 executor preference, V351 no-approval plan, no/partial/wrong phrase regression matrix를 재확인
+  - V351 executor manifest에 approval blocker metadata를 명시해 audit 대상에 포함
 - validation:
   - pre-commit dirty tree에서 `v317-preapproval-audit-blocked` 확인
   - pre-commit `device_commands_executed=false`, `device_mutations=false` 확인

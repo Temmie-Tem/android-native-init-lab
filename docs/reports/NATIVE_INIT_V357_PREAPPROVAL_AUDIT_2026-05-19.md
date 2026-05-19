@@ -20,6 +20,9 @@ current, clean, non-mutating, and blocked only by the exact V317 approval phrase
   - validates no device command or mutation
   - validates V350 executor preference and V351 no-approval plan state
   - validates no/partial/wrong phrase regression cases
+- `scripts/revalidation/wifi_v317_live_executor.py`
+  - adds explicit `remaining_blockers` metadata for V351 plan and approval-required manifests
+  - keeps approved `run`/`cleanup` behavior unchanged
 
 ## Pre-commit Validation
 

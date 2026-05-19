@@ -21,6 +21,7 @@ DEFAULT_OUT_DIR = Path("tmp/wifi/v351-v317-live-executor")
 DEFAULT_V350 = Path("tmp/wifi/v350-v317-operator-checklist/manifest.json")
 DEFAULT_V317 = Path("tmp/wifi/v317-private-property-namespace-proof/manifest.json")
 APPROVAL_PHRASE = "approve v317 minimal private property namespace proof only; no daemon start and no Wi-Fi bring-up"
+APPROVAL_BLOCKER = "exact-v317-approval-phrase"
 
 
 @dataclass
@@ -234,6 +235,7 @@ def build_manifest(args: argparse.Namespace, store: EvidenceStore) -> dict[str, 
             "live_command": str(v350.get("live_command") or ""),
             "cleanup_command": str(v350.get("cleanup_command") or ""),
             "post_router_command": str(v350.get("post_router_command") or ""),
+            "remaining_blockers": [APPROVAL_BLOCKER],
             "live_execution_approved": False,
             "device_commands_executed": False,
             "device_mutations": False,
@@ -252,6 +254,7 @@ def build_manifest(args: argparse.Namespace, store: EvidenceStore) -> dict[str, 
         pass_ok = False
         reason = v350_reason
         next_step = "repair V349/V350 readiness before V317 live proof"
+        remaining_blockers = ["v350-readiness"]
         device_executed = False
         device_mutated = False
     elif args.command == "plan":
@@ -261,6 +264,7 @@ def build_manifest(args: argparse.Namespace, store: EvidenceStore) -> dict[str, 
         pass_ok = True
         reason = "V350 checklist is current; live proof remains approval-gated"
         next_step = "run executor with exact approval phrase only if accepting the approved scope"
+        remaining_blockers = [APPROVAL_BLOCKER]
         device_executed = False
         device_mutated = False
     elif args.command == "run":
@@ -271,6 +275,7 @@ def build_manifest(args: argparse.Namespace, store: EvidenceStore) -> dict[str, 
         decision = "v317-live-executor-run-pass" if pass_ok else "v317-live-executor-run-needs-review"
         reason = f"v317 decision={v317.get('decision')} pass={v317.get('pass')}"
         next_step = "run V320 plan via router recommendation" if pass_ok else "inspect V317 evidence and run cleanup if required"
+        remaining_blockers = [] if pass_ok else ["v317-live-proof-review"]
         device_executed = True
         device_mutated = True
     else:
@@ -281,6 +286,7 @@ def build_manifest(args: argparse.Namespace, store: EvidenceStore) -> dict[str, 
         pass_ok = cleanup_ok
         reason = f"cleanup rc={steps[-2].rc}"
         next_step = "rerun V349/V350 readiness before another V317 attempt" if cleanup_ok else "manual review required before further live action"
+        remaining_blockers = [] if cleanup_ok else ["v317-cleanup-review"]
         device_executed = True
         device_mutated = True
 
@@ -300,6 +306,7 @@ def build_manifest(args: argparse.Namespace, store: EvidenceStore) -> dict[str, 
         "live_command": live_command,
         "cleanup_command": cleanup_command,
         "post_router_command": post_router_command,
+        "remaining_blockers": remaining_blockers,
         "live_execution_approved": bool(args.command in {"run", "cleanup"} and approval_ok),
         "device_commands_executed": device_executed,
         "device_mutations": device_mutated,

@@ -9,6 +9,7 @@
 ## Key Changes
 
 - `scripts/revalidation/wifi_v317_preapproval_audit.py`를 추가한다.
+- `scripts/revalidation/wifi_v317_live_executor.py`는 V351 `plan`/approval-required manifest에 `remaining_blockers`를 명시한다.
 - audit 대상은 다음 네 도구다.
   - V349 final readiness: `wifi_v317_final_readiness.py`
   - V350 operator checklist: `wifi_v317_operator_checklist.py`
