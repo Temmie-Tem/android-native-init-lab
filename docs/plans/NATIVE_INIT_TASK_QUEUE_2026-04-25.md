@@ -4361,6 +4361,24 @@
   - exact v317 approval phrase가 있으면 readiness packet의 command로 v317 minimal live proof 진행
   - approval이 없으면 다른 host-only/read-only 후보 선정
 
+### V333. Post-V317 Router — PASS / HOST-ONLY
+
+- 계획: `docs/plans/NATIVE_INIT_V333_POST_V317_ROUTER_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V333_POST_V317_ROUTER_2026-05-19.md`
+- tool: `scripts/revalidation/wifi_post_v317_router.py`
+- evidence: `tmp/wifi/v333-post-v317-router/`
+- boot image: 없음. v333은 host-only result router이며 native init version 변경 없음
+- validation:
+  - `py_compile` PASS
+  - `git diff --check` PASS
+  - decision `post-v317-router-awaiting-v317`
+  - `pass=true`
+  - `device_commands_executed=false`
+  - `device_mutations=false`
+- next:
+  - exact v317 approval phrase가 있으면 router/readiness packet의 command로 v317 minimal live proof 진행
+  - V317 PASS 후 router를 재실행해 V320 plan/live lookup 여부를 결정
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`

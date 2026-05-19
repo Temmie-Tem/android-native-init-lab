@@ -1530,6 +1530,9 @@ Samsung bootloader
    - v332 계획서: `docs/plans/NATIVE_INIT_V332_CURRENT_READONLY_LIVE_PREFLIGHT_PLAN_2026-05-19.md`
    - v332 보고서: `docs/reports/NATIVE_INIT_V332_CURRENT_READONLY_LIVE_PREFLIGHT_2026-05-19.md`
    - v332 해석: 현재 연결된 native device에서 read-only V317 preflight가 PASS했다. native version `A90 Linux init 0.9.61 (v319)`, SD writable, selftest fail=0, netservice disabled, logpath on SD 확인. device mutation은 없다
+   - v333 계획서: `docs/plans/NATIVE_INIT_V333_POST_V317_ROUTER_PLAN_2026-05-19.md`
+   - v333 보고서: `docs/reports/NATIVE_INIT_V333_POST_V317_ROUTER_2026-05-19.md`
+   - v333 해석: V317 결과 라우터를 host-only로 추가했다. 현재 decision은 `post-v317-router-awaiting-v317`이며, V317 PASS 전에는 V320 property lookup을 실행하지 않는다
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
 ---
