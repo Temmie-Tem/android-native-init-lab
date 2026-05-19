@@ -3244,6 +3244,27 @@
 - next:
   - v284 CNSS concurrent side-channel observer feasibility using NCM/tcpctl or harness broker, still read-only during sampling
 
+### V284. CNSS Concurrent Side-Channel Observer — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V284_CNSS_CONCURRENT_SIDECHANNEL_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V284_CNSS_CONCURRENT_SIDECHANNEL_2026-05-19.md`
+- boot image change: none
+- baseline device build: `A90 Linux init 0.9.60 (v261)`
+- tool: `scripts/revalidation/wifi_cnss_concurrent_sidechannel_observer.py`
+- evidence: `tmp/wifi/v284-cnss-concurrent-sidechannel-live-20260519-130404/`
+- decision: `cnss-sidechannel-no-readiness-delta`
+- result:
+  - serial ACM ran one bounded CNSS start-only helper command
+  - NCM/tcpctl completed 12 concurrent read-only sample cycles while serial was busy
+  - helper result `start-only-pass`, child pid/pgid `1258/1258`, reaped, postflight clean
+  - readiness line count `0`, no `wlan*`, no wiphy, no CNSS process leak
+  - temporary `/bin/a90_tcpctl` alias and `netservice` were cleaned up
+- safety:
+  - no QMI payload, no QRTR nameservice packet, no scan/connect/link-up, no credential/DHCP/routing
+  - no rfkill write, no ICNSS bind/unbind, no reboot/recovery/poweroff
+- next:
+  - v285 ICNSS/QCA6390 focused during-start sampler using the proven v284 side-channel pattern
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
