@@ -3987,7 +3987,31 @@
   - `device_commands_executed=false`
   - no device command, ADB command, generated file copy, mount, daemon start, or Wi-Fi bring-up
 - next:
-  - v317 is blocked until explicit operator approval
+  - v317 plan is ready; live execution is blocked until explicit operator approval
+
+### V317. Minimal Private Property Namespace Proof — PLANNED / WAITING FOR OPERATOR
+
+- 계획: `docs/plans/NATIVE_INIT_V317_PRIVATE_PROPERTY_NAMESPACE_PROOF_PLAN_2026-05-19.md`
+- boot image change: none
+- baseline device build: `A90 Linux init 0.9.60 (v261)`
+- intended tool: `scripts/revalidation/wifi_private_property_namespace_proof.py`
+- required approval phrase:
+  - `approve v317 minimal private property namespace proof only; no daemon start and no Wi-Fi bring-up`
+- intended scope:
+  - create `/mnt/sdext/a90/private-property-v317`
+  - copy v312 generated property layout files under that private workdir only
+  - verify device SHA-256 for copied files
+  - cleanup only that versioned workdir
+- transfer policy:
+  - existing ACM bridge only
+  - no NCM/tcpctl start because the approval packet forbids daemon start
+- safety:
+  - no global `/dev/__properties__` replacement
+  - no property service socket
+  - no service-manager/HAL/Wi-Fi daemon start
+  - no Wi-Fi scan/connect/link-up/credential/DHCP/routing
+- next:
+  - implement only after explicit operator approval
 
 ### V187. Harness Broker Backend — PASS
 
