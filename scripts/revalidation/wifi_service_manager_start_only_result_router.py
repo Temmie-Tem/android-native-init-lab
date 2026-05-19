@@ -22,6 +22,10 @@ from wifi_service_manager_start_only_approval_packet import APPROVAL_PHRASE
 
 DEFAULT_OUT_DIR = Path("tmp/wifi/v377-service-manager-start-only-result-router")
 DEFAULT_V376_GLOB = "v376-*/manifest.json"
+LIVE_LABEL = "V376"
+LIVE_RUNNER_SCRIPT = "scripts/revalidation/wifi_service_manager_start_only_live_runner.py"
+LIVE_RUNNER_OUT_DIR = "tmp/wifi/v376-approved-run-$(date +%Y%m%d-%H%M%S)"
+SUMMARY_TITLE = "V377 Service-Manager Start-Only Result Router"
 
 
 @dataclass(frozen=True)
@@ -69,9 +73,9 @@ def shell_command(argv: list[str]) -> str:
 def approved_live_command() -> str:
     return shell_command([
         "python3",
-        "scripts/revalidation/wifi_service_manager_start_only_live_runner.py",
+        LIVE_RUNNER_SCRIPT,
         "--out-dir",
-        "tmp/wifi/v376-approved-run-$(date +%Y%m%d-%H%M%S)",
+        LIVE_RUNNER_OUT_DIR,
         "--apply",
         "--assume-yes",
         "--approval-phrase",
@@ -142,10 +146,10 @@ def route_result(v376: dict[str, Any]) -> RouteResult:
         return RouteResult(
             "service-manager-start-only-router-awaiting-v376",
             True,
-            "V376 manifest is absent",
-            "run V376 preflight, then approved live only after exact phrase",
+            f"{LIVE_LABEL} manifest is absent",
+            f"run {LIVE_LABEL} preflight, then approved live only after exact phrase",
             [approved_live_command()],
-            ["v376-manifest"],
+            [f"{LIVE_LABEL.lower()}-manifest"],
         )
 
     decision = str(v376.get("decision") or "")
@@ -170,8 +174,8 @@ def route_result(v376: dict[str, Any]) -> RouteResult:
         return RouteResult(
             "service-manager-start-only-router-awaiting-approval",
             True,
-            f"V376 is ready but live start is not approved: decision={decision}",
-            "run V376 approved live only after exact V373 phrase",
+            f"{LIVE_LABEL} is ready but live start is not approved: decision={decision}",
+            f"run {LIVE_LABEL} approved live only after exact V373 phrase",
             [approved_live_command()],
             ["exact-v373-service-manager-approval-phrase"],
         )
@@ -181,8 +185,8 @@ def route_result(v376: dict[str, Any]) -> RouteResult:
         return RouteResult(
             "service-manager-start-only-router-blocked",
             False,
-            "V376 blocked: " + ", ".join(blockers),
-            "resolve V376 blockers before any daemon start",
+            f"{LIVE_LABEL} blocked: " + ", ".join(blockers),
+            f"resolve {LIVE_LABEL} blockers before any daemon start",
             [],
             blockers,
         )
@@ -194,8 +198,8 @@ def route_result(v376: dict[str, Any]) -> RouteResult:
         return RouteResult(
             "service-manager-start-only-router-review-required",
             False,
-            f"V376 requires review: decision={decision} pass={pass_value}",
-            "inspect V376 observations/postflight before HAL planning",
+            f"{LIVE_LABEL} requires review: decision={decision} pass={pass_value}",
+            f"inspect {LIVE_LABEL} observations/postflight before HAL planning",
             [],
             ["manual-review"],
         )
@@ -205,8 +209,8 @@ def route_result(v376: dict[str, Any]) -> RouteResult:
             return RouteResult(
                 "service-manager-start-only-router-pass-postflight-review",
                 False,
-                "V376 pass decision lacks daemon/postflight safety evidence",
-                "inspect V376 manifest before HAL planning",
+                f"{LIVE_LABEL} pass decision lacks daemon/postflight safety evidence",
+                f"inspect {LIVE_LABEL} manifest before HAL planning",
                 [],
                 ["postflight-safety-evidence"],
             )
@@ -225,7 +229,7 @@ def route_result(v376: dict[str, Any]) -> RouteResult:
                 "service-manager-start-only-router-runtime-gap-review",
                 False,
                 "runtime-gap result lacks daemon/postflight safety evidence",
-                "inspect V376 manifest and classify runtime gap",
+                f"inspect {LIVE_LABEL} manifest and classify runtime gap",
                 [],
                 ["runtime-gap-review"],
             )
@@ -242,8 +246,8 @@ def route_result(v376: dict[str, Any]) -> RouteResult:
     return RouteResult(
         "service-manager-start-only-router-manual-review",
         False,
-        f"unexpected V376 decision={decision} pass={pass_value}",
-        "inspect V376 manifest before continuing",
+        f"unexpected {LIVE_LABEL} decision={decision} pass={pass_value}",
+        f"inspect {LIVE_LABEL} manifest before continuing",
         [],
         ["manual-review"],
     )
@@ -328,7 +332,7 @@ def synthetic_cases() -> list[tuple[str, dict[str, Any], str, bool, int, tuple[s
             "service-manager-start-only-router-awaiting-v376",
             True,
             1,
-            ("v376-manifest",),
+            (f"{LIVE_LABEL.lower()}-manifest",),
         ),
         (
             "preflight-ready",
@@ -436,7 +440,7 @@ def run_regression(args: argparse.Namespace, store: EvidenceStore) -> dict[str, 
         "decision": "service-manager-start-only-router-regression-pass" if not failed else "service-manager-start-only-router-regression-failed",
         "pass": not failed,
         "reason": "all router cases passed" if not failed else "failed cases: " + ", ".join(failed),
-        "next_step": "V376 live start remains blocked by exact approval phrase",
+        "next_step": f"{LIVE_LABEL} live start remains blocked by exact approval phrase",
         "host": collect_host_metadata(),
         "results": [asdict(item) for item in results],
         "device_commands_executed": False,
@@ -468,7 +472,7 @@ def render_summary(manifest: dict[str, Any]) -> str:
             ],
         )
     return "\n".join([
-        "# V377 Service-Manager Start-Only Result Router",
+        f"# {SUMMARY_TITLE}",
         "",
         f"- generated: `{manifest['generated_at']}`",
         f"- command: `{manifest['command']}`",

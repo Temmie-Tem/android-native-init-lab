@@ -105,6 +105,15 @@ Expected live constraints:
 
 ## Post-Run Classification
 
+First route the live manifest:
+
+```bash
+python3 scripts/revalidation/wifi_service_manager_start_only_v382_result_router.py \
+  --v376-manifest tmp/wifi/v382-handoff-live/manifest.json \
+  --out-dir tmp/wifi/v382-handoff-route \
+  route
+```
+
 If the live decision is `service-manager-start-only-live-runtime-gap`, run:
 
 ```bash

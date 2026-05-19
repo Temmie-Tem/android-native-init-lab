@@ -1712,8 +1712,10 @@ Samsung bootloader
 
    - v382 계획서: `docs/plans/NATIVE_INIT_V382_EXECNS_HELPER_V14_DEPLOY_LIVE_PLAN_2026-05-20.md`
    - v382 준비 보고서: `docs/reports/NATIVE_INIT_V382_RUNTIME_PROFILE_WRAPPER_2026-05-20.md`
+   - v382 라우터 보고서: `docs/reports/NATIVE_INIT_V382_RESULT_ROUTER_2026-05-20.md`
    - v382 준비: `scripts/revalidation/wifi_execns_helper_v14_deploy_preflight.py`가 V375 deploy mechanics를 재사용하되 helper marker `a90_android_execns_probe v14`, artifact `tmp/wifi/v381-a90_android_execns_probe-v14/a90_android_execns_probe`, sha256 `f8cde6848ad49755b06bfac8136cd81f0b985ca1be13dbf27b369cdb4fe4aea7`, approval phrase `approve v382 deploy execns helper v14 only; no daemon start and no Wi-Fi bring-up`로 고정한다
    - v382 live wrapper: `scripts/revalidation/wifi_service_manager_start_only_v382_live_runner.py`가 기존 V376 runner를 재사용하되 helper sha256 v14, `--property-root /mnt/sdext/a90/private-property-v317/dev/__properties__`, `--data-wifi-mode private-empty`를 기본 profile로 고정한다
+   - v382 result router: `scripts/revalidation/wifi_service_manager_start_only_v382_result_router.py`가 V377 router를 재사용하되 권장 live command를 V382 wrapper로 고정한다. no-approval route는 `service-manager-start-only-router-awaiting-approval`로 PASS했고 device command/mutation은 없음
    - v382 로컬 검증: live wrapper plan은 PASS했고, read-only preflight는 property root visible/data profile PASS 후 remote helper가 아직 v13이어서 `helper-v14` blocker로 멈춘다. daemon start와 Wi-Fi bring-up은 없음
    - v382 다음: exact deploy approval 후 `/cache/bin/a90_android_execns_probe`를 v14로 교체하고, 별도 live approval 범위에서 v382 wrapper로 service-manager start-only smoke를 실행한다. Wi-Fi HAL/scan/connect/link-up/credential/DHCP/routing은 계속 blocked
 
