@@ -2927,6 +2927,37 @@
 - next execution item:
   - v272 QMI service-object ID extractor plan without QMI payloads
 
+### V272. QMI Service Object Extractor — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V272_QMI_SERVICE_OBJECT_EXTRACTOR_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V272_QMI_SERVICE_OBJECT_EXTRACTOR_2026-05-19.md`
+- boot image change: 없음
+- device command: 없음
+- QRTR/QMI packet transmission: 없음
+- baseline device build: `A90 Linux init 0.9.60 (v261)`
+- tool: `scripts/revalidation/wifi_qmi_service_object_extractor.py`
+- evidence: `tmp/wifi/v272-qmi-service-object-extractor/`
+- validation:
+  - host-only ELF parser PASS: `qmi-service-object-ids-extracted`
+  - extracted service object count: `37`
+  - DMS service id extracted: `2`
+  - service id `1` maps to WDS
+  - WLFW exported service object remains absent/unresolved
+- interpretation:
+  - v269/v270 service `1`, instance `1` was not a useful Wi-Fi firmware-control selector; it maps to WDS in vendor evidence
+  - DMS is resolved and can be used for a future nameservice visibility matrix if explicitly approved
+  - WLFW remains the Wi-Fi-specific unresolved candidate and needs source/blob symbol location
+- guardrails:
+  - no Android code execution
+  - no device command executed
+  - no QRTR socket opened
+  - no QRTR nameservice packet sent
+  - no QMI payload sent
+  - no Wi-Fi scan/connect/link-up or daemon start
+- next execution item:
+  - v273 explicit-approval QRTR nameservice readback matrix for known service ids, or
+  - v273 WLFW service-object locator
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`

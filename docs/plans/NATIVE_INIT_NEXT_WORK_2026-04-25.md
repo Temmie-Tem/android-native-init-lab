@@ -1251,6 +1251,10 @@ Samsung bootloader
    - v271 보고서: `docs/reports/NATIVE_INIT_V271_QRTR_SERVICE_SELECTOR_2026-05-19.md`
    - v271 결과: host-only selector PASS, decision `qrtr-service-selector-ready`, service `1`/instance `1` negative evidence confirmed, DMS strong service-object-backed candidate, WLFW strong but unresolved
    - v271 해석: 다음 단계는 QMI payload가 아니라 real service object 기반 numeric service id extraction이다. QRTR/QMI live payload는 계속 별도 approval gate로 둔다
+   - v272 계획서: `docs/plans/NATIVE_INIT_V272_QMI_SERVICE_OBJECT_EXTRACTOR_PLAN_2026-05-19.md`
+   - v272 보고서: `docs/reports/NATIVE_INIT_V272_QMI_SERVICE_OBJECT_EXTRACTOR_2026-05-19.md`
+   - v272 결과: host-only ELF parser PASS, decision `qmi-service-object-ids-extracted`, DMS service id `2`, service id `1` maps to WDS, WLFW exported object unresolved
+   - v272 해석: v269/v270의 service `1` 실험은 WDS 기반 negative evidence로 정리한다. 다음은 DMS `2` visibility matrix 또는 WLFW service-object locator이며 QMI payload는 계속 금지한다
    - v251 계획서: `docs/plans/NATIVE_INIT_V251_CNSS_PROPERTY_SURFACE_PLAN_2026-05-19.md`
    - v251 보고서: `docs/reports/NATIVE_INIT_V251_CNSS_PROPERTY_SURFACE_2026-05-19.md`
    - v251 결과: decision `cnss-property-read-only-surface`, host-only analysis, property read symbols `property_get`/`property_get_int32`, no property write/control symbols detected
