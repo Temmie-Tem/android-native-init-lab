@@ -4608,7 +4608,7 @@
   - exact V317 approval phrase 없이는 live proof 실행하지 않음
 
 
-### V346. Handoff Preflight Output Isolation — HOST-ONLY / PENDING POST-COMMIT REFRESH
+### V346. Handoff Preflight Output Isolation — PASS / HOST-ONLY
 
 - 계획: `docs/plans/NATIVE_INIT_V346_HANDOFF_PREFLIGHT_OUTDIR_PLAN_2026-05-19.md`
 - 보고서: `docs/reports/NATIVE_INIT_V346_HANDOFF_PREFLIGHT_OUTDIR_2026-05-19.md`
@@ -4622,7 +4622,11 @@
   - `py_compile` PASS
   - dirty-tree 상태에서 V340는 `current-tree-clean`으로 block되지만 preflight out-dir contract checks PASS
 - post-commit validation:
-  - clean HEAD에서 V344 refresh와 generated V340 preflight command 실행 예정
+  - clean HEAD에서 V344 refresh PASS
+  - V340 handoff `v317-handoff-awaiting-approval` PASS
+  - generated V340 preflight command 실행 PASS
+  - generated preflight `private-property-namespace-proof-preflight-ready`, `commands=[]`
+  - `device_commands_executed=false`, `device_mutations=false`
 - next:
   - exact V317 approval phrase 없이는 live proof 실행하지 않음
 

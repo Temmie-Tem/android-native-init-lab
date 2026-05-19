@@ -4,7 +4,7 @@
 - scope: host-side V317 handoff command safety
 - device command: none
 - device mutation: none
-- result: `PRE-COMMIT CONTRACT PASS / POST-COMMIT REFRESH REQUIRED`
+- result: `PASS / HOST-ONLY`
 
 ## Summary
 
@@ -50,11 +50,28 @@ preflight-output-isolated: pass
 V340 overall: blocked only by current-tree-clean while source tree is dirty
 ```
 
-## Post-commit Validation Plan
+## Post-commit Validation
 
-After commit, run V344 refresh and then execute the generated V340 preflight
-command. The generated command must complete as no-device preflight evidence and
-must write to the isolated preflight output directory.
+After commit, ran V344 refresh and then executed the generated V340 preflight
+command itself. Observed result:
+
+```text
+V344 refresh: v317-gate-refresh-ready / pass=True
+V340 handoff: v317-handoff-awaiting-approval / pass=True
+preflight-command-contract: pass
+preflight-output-isolated: pass
+generated V340 preflight: private-property-namespace-proof-preflight-ready / pass=True
+preflight_only: true
+device_commands_executed: false
+device_mutations: false
+commands: []
+```
+
+Evidence:
+
+- V344 refresh manifest: `tmp/wifi/v344-v317-gate-refresh/manifest.json`
+- V340 handoff manifest: `tmp/wifi/v340-v317-final-handoff-packet/manifest.json`
+- generated preflight manifest: `tmp/wifi/v317-private-property-namespace-proof-preflight/manifest.json`
 
 ## Safety
 
