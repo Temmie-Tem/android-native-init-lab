@@ -1536,6 +1536,9 @@ Samsung bootloader
    - v334 계획서: `docs/plans/NATIVE_INIT_V334_WIFI_EVIDENCE_FRESHNESS_EXPANSION_PLAN_2026-05-19.md`
    - v334 보고서: `docs/reports/NATIVE_INIT_V334_WIFI_EVIDENCE_FRESHNESS_EXPANSION_2026-05-19.md`
    - v334 해석: freshness audit 범위를 V325-V333으로 확장했다. current clean head에서 전체 approval 직전 evidence가 fresh인지 확인한다
+   - v335 계획서: `docs/plans/NATIVE_INIT_V335_WIFI_APPROVAL_GATE_REGRESSION_PLAN_2026-05-19.md`
+   - v335 보고서: `docs/reports/NATIVE_INIT_V335_WIFI_APPROVAL_GATE_REGRESSION_2026-05-19.md`
+   - v335 해석: V317/V320 approval gate regression을 host-only로 추가했다. partial approval과 V320-before-V317은 device command/mutation 없이 거부된다
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
 ---

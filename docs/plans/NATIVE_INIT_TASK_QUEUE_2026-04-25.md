@@ -4397,6 +4397,24 @@
 - next:
   - exact v317 approval phrase가 있으면 router/readiness packet의 command로 v317 minimal live proof 진행
 
+### V335. Wi-Fi Approval Gate Regression — PASS / HOST-ONLY
+
+- 계획: `docs/plans/NATIVE_INIT_V335_WIFI_APPROVAL_GATE_REGRESSION_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V335_WIFI_APPROVAL_GATE_REGRESSION_2026-05-19.md`
+- tool: `scripts/revalidation/wifi_approval_gate_regression.py`
+- evidence: `tmp/wifi/v335-approval-gate-regression/`
+- boot image: 없음. v335는 host-only approval gate regression이며 native init version 변경 없음
+- validation:
+  - `py_compile` PASS
+  - `git diff --check` PASS
+  - decision `wifi-approval-gate-regression-pass`
+  - `pass=true`
+  - `device_commands_executed=false`
+  - `device_mutations=false`
+  - dangerous V317 full-approval case intentionally not run
+- next:
+  - exact v317 approval phrase가 있으면 router/readiness packet의 command로 v317 minimal live proof 진행
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
