@@ -3,7 +3,8 @@
 ## Result
 
 - decision before commit: `v382-final-readiness-blocked`
-- expected decision after commit: `v382-final-readiness-awaiting-deploy-approval`
+- observed decision after commit: `v382-final-readiness-awaiting-deploy-approval`
+- post-commit pass: `true`
 - scope: host-only readiness aggregation
 - device commands executed: `false`
 - device mutations: `false`
@@ -48,7 +49,7 @@ The blocked result is expected before commit because the readiness gate rejects 
 
 ## Post-Commit Validation
 
-Run after this report and script are committed:
+Command:
 
 ```bash
 python3 scripts/revalidation/wifi_v382_final_readiness.py \
@@ -56,7 +57,7 @@ python3 scripts/revalidation/wifi_v382_final_readiness.py \
   check
 ```
 
-Expected:
+Observed:
 
 - decision: `v382-final-readiness-awaiting-deploy-approval`
 - pass: `true`
@@ -70,6 +71,6 @@ Expected:
 
 ## Next
 
-If post-commit readiness passes, V382 remains blocked only by the explicit deploy approval phrase:
+V382 remains blocked by explicit approval only:
 
 `approve v382 deploy execns helper v14 only; no daemon start and no Wi-Fi bring-up`

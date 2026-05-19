@@ -5479,7 +5479,7 @@
   - V382 live wrapper plan PASS
   - V382 live wrapper preflight blocked only by remote helper v14 not deployed
   - V382 result router regression PASS and no-approval route awaits exact live approval
-  - V382 final readiness gate added; dirty-tree pre-commit run blocks as designed
+  - V382 final readiness PASS on clean HEAD; remaining blockers are exact deploy/live approval phrases
   - property root visible and `private-empty` data profile included in planned argv
 - next:
   - execute V382 only after explicit approval; if runtime gap remains, classify before HAL readiness
