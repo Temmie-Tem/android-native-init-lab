@@ -23,6 +23,7 @@ DEFAULT_WIFI_ROOT = Path("tmp/wifi")
 READY_PACKET_DECISIONS = {
     "v448-operator-handoff-packet-ready",
     "v453-operator-postroute-packet-ready",
+    "v454-operator-strict-postroute-packet-ready",
 }
 
 
@@ -85,6 +86,7 @@ def latest_packet(root: Path) -> dict[str, Any] | None:
     for pattern in (
         "v448-operator-handoff-packet-run*/manifest.json",
         "v453-operator-postroute-packet-run*/manifest.json",
+        "v454-operator-strict-postroute-packet-run*/manifest.json",
     ):
         rows.extend(manifests(root, pattern, include_synthetic=True))
     rows.sort(key=lambda item: float(item.get("_mtime") or 0.0))
@@ -178,7 +180,7 @@ def classify(command: str, state: dict[str, Any]) -> dict[str, Any]:
             return {
                 "decision": "v449-wifi-handoff-packet-ready-run-preflight",
                 "pass": True,
-                "reason": "latest V448/V453 handoff packet is ready and no private V447 preflight result exists yet",
+                "reason": "latest V448/V453/V454 handoff packet is ready and no private V447 preflight result exists yet",
                 "next_gate": "run generated host preflight script",
                 "recommended_command": commands.get("preflight_command", ""),
             }
