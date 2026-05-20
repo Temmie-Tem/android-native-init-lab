@@ -51,7 +51,7 @@
 #define BINDER_BUFFER_FLAG_REF 0x02
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v48"
+#define EXECNS_VERSION "a90_android_execns_probe v49"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -207,7 +207,7 @@ static void usage(FILE *out) {
             "[--allow-hal-service-query] "
             "[--allow-iwifi-start-only] "
             "[--allow-policy-load-proof] "
-            "--mode linker-list|identity-probe|sepolicy-inventory|sepolicy-compile-proof|sepolicy-load-proof|selinux-domain-proof|cnss-start-only|property-lookup|service-manager-start-only|private-selinux-proof|wifi-hal-lshal-vintf-status-list|wifi-hal-composite-start-only|wifi-hal-composite-lshal-list|wifi-hal-composite-lshal-binderized-list|wifi-hal-composite-lshal-wait-target|wifi-surface-composite-lshal-wait-iwifi|wifi-surface-composite-lshal-wait-samsung|wifi-surface-composite-lshal-wait-samsung-ptrace|wifi-hal-composite-lshal-status-list|wifi-hal-composite-lshal-binderized-status-list|wifi-surface-composite-start-only|wifi-iwifi-start-surface "
+            "--mode linker-list|identity-probe|sepolicy-inventory|sepolicy-compile-proof|sepolicy-load-proof|selinux-domain-proof|cnss-start-only|property-lookup|service-manager-start-only|private-selinux-proof|wifi-hal-lshal-vintf-status-list|wifi-hal-composite-start-only|wifi-hal-composite-lshal-list|wifi-hal-composite-lshal-binderized-list|wifi-hal-composite-lshal-wait-target|wifi-surface-composite-lshal-wait-iwifi|wifi-surface-composite-lshal-wait-samsung|wifi-surface-composite-lshal-wait-samsung-ptrace|wifi-hal-composite-lshal-status-list|wifi-hal-composite-lshal-binderized-status-list|wifi-surface-composite-start-only|wifi-iwifi-start-surface|wifi-active-session-surface "
             "[v27 binderized query runs: /system/bin/lshal list --types=binderized --neat] "
             "[v28 target query runs: /system/bin/lshal wait <fqinstance>] "
             "[v29 status query runs: /system/bin/lshal list --types=binderized,vintf --neat -V -S -i -p -e -c] "
@@ -231,7 +231,8 @@ static bool is_wifi_hal_composite_mode(const char *mode) {
            streq(mode, "wifi-hal-composite-lshal-status-list") ||
            streq(mode, "wifi-hal-composite-lshal-binderized-status-list") ||
            streq(mode, "wifi-surface-composite-start-only") ||
-           streq(mode, "wifi-iwifi-start-surface");
+           streq(mode, "wifi-iwifi-start-surface") ||
+           streq(mode, "wifi-active-session-surface");
 }
 
 static bool is_wifi_surface_composite_mode(const char *mode) {
@@ -239,11 +240,17 @@ static bool is_wifi_surface_composite_mode(const char *mode) {
            streq(mode, "wifi-surface-composite-lshal-wait-iwifi") ||
            streq(mode, "wifi-surface-composite-lshal-wait-samsung") ||
            streq(mode, "wifi-surface-composite-lshal-wait-samsung-ptrace") ||
-           streq(mode, "wifi-iwifi-start-surface");
+           streq(mode, "wifi-iwifi-start-surface") ||
+           streq(mode, "wifi-active-session-surface");
+}
+
+static bool is_wifi_active_session_surface_mode(const char *mode) {
+    return streq(mode, "wifi-active-session-surface");
 }
 
 static bool is_wifi_iwifi_start_surface_mode(const char *mode) {
-    return streq(mode, "wifi-iwifi-start-surface");
+    return streq(mode, "wifi-iwifi-start-surface") ||
+           is_wifi_active_session_surface_mode(mode);
 }
 
 static bool is_wifi_hal_service_query_mode(const char *mode) {
@@ -746,7 +753,7 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
         }
     }
     if (cfg->allow_iwifi_start_only && !is_wifi_iwifi_start_surface_mode(cfg->mode)) {
-        fprintf(stderr, "--allow-iwifi-start-only is only valid with wifi-iwifi-start-surface mode\n");
+        fprintf(stderr, "--allow-iwifi-start-only is only valid with wifi-iwifi-start-surface or wifi-active-session-surface mode\n");
         return 2;
     }
     if (is_lshal_readonly_query_mode(cfg->mode)) {
@@ -9656,6 +9663,7 @@ static int run_wifi_hal_composite_start_only_guarded(const struct config *cfg,
     const bool wait_target_query_mode = is_wifi_hal_lshal_wait_target_mode(cfg->mode);
     const bool status_query_mode = streq(cfg->mode, "wifi-hal-composite-lshal-status-list");
     const bool surface_composite_mode = is_wifi_surface_composite_mode(cfg->mode);
+    const bool active_session_mode = is_wifi_active_session_surface_mode(cfg->mode);
     const bool iwifi_start_mode = is_wifi_iwifi_start_surface_mode(cfg->mode);
     const size_t child_count = surface_composite_mode ?
         A90_WIFI_SURFACE_COMPOSITE_CHILD_COUNT :
@@ -9699,6 +9707,7 @@ static int run_wifi_hal_composite_start_only_guarded(const struct config *cfg,
         append_format(stdout_buf, "wifi_hal_composite_start.cnss_daemon=%d\n", surface_composite_mode ? 1 : 0) < 0 ||
         append_format(stdout_buf, "wifi_hal_composite_start.service_query=%d\n", service_query_mode ? 1 : 0) < 0 ||
         append_format(stdout_buf, "wifi_hal_composite_start.iwifi_start=%d\n", iwifi_start_mode ? 1 : 0) < 0 ||
+        append_format(stdout_buf, "wifi_hal_composite_start.active_session=%d\n", active_session_mode ? 1 : 0) < 0 ||
         append_literal(stdout_buf, "wifi_hal_composite_start.scan_connect_linkup=0\n") < 0 ||
         append_literal(stdout_buf, "wifi_hal_composite_start.wificond=0\n") < 0 ||
         append_literal(stdout_buf, "wifi_hal_composite_start.supplicant=0\n") < 0 ||
@@ -9737,6 +9746,20 @@ static int run_wifi_hal_composite_start_only_guarded(const struct config *cfg,
     if (append_literal(stdout_buf,
                        "wifi_hal_composite_start.allowed=1\n"
                        "wifi_hal_composite_start.exec_attempted=1\n") < 0) {
+        return -1;
+    }
+    if (active_session_mode &&
+        append_format(stdout_buf,
+                      "wifi_active_session.begin=1\n"
+                      "wifi_active_session.helper_version=%s\n"
+                      "wifi_active_session.mode=bounded-surface-window\n"
+                      "wifi_active_session.timeout_sec=%d\n"
+                      "wifi_active_session.scan_connect_linkup=0\n"
+                      "wifi_active_session.credentials=0\n"
+                      "wifi_active_session.dhcp_routing=0\n"
+                      "wifi_active_session.external_ping=0\n",
+                      EXECNS_VERSION,
+                      cfg->timeout_sec) < 0) {
         return -1;
     }
     if (surface_composite_mode &&
@@ -9835,6 +9858,12 @@ static int run_wifi_hal_composite_start_only_guarded(const struct config *cfg,
     }
     if (surface_composite_mode &&
         append_wifi_surface_snapshot(stdout_buf, "wifi_surface_composite.after_cleanup") < 0) {
+        return -1;
+    }
+    if (active_session_mode &&
+        append_literal(stdout_buf,
+                       "wifi_active_session.cleanup_attempted=1\n"
+                       "wifi_active_session.end=1\n") < 0) {
         return -1;
     }
 
