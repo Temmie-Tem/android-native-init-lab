@@ -28,8 +28,12 @@ REQUIRED_GITIGNORE_PATTERNS = [
     "!.env.*.example",
     "wifi-target-policy.private.json",
     "wifi-target-policy.local.json",
+    "native-wifi-target-policy.private.json",
+    "native-wifi-target-policy.local.json",
     "WIFI_TARGET_ALLOWLIST*.private.json",
     "WIFI_TARGET_ALLOWLIST*.local.json",
+    "NATIVE_WIFI_TARGET_ALLOWLIST*.private.json",
+    "NATIVE_WIFI_TARGET_ALLOWLIST*.local.json",
 ]
 TEXT_EXTENSIONS_FOR_JSON_FIELDS = {
     ".conf",
@@ -63,7 +67,9 @@ BSSID_EQUALS_RE = re.compile(r"\bBSSID=(?P<value>(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-
 MAC_RE = re.compile(r"\b(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}\b")
 PRIVATE_PATH_RE = re.compile(
     r"(?i)(^|/)(?:wifi-target-policy\.(?:private|local)\.json|"
+    r"native-wifi-target-policy\.(?:private|local)\.json|"
     r"WIFI_TARGET_ALLOWLIST.*\.(?:private|local)\.json|"
+    r"NATIVE_WIFI_TARGET_ALLOWLIST.*\.(?:private|local)\.json|"
     r"wpa_supplicant\.conf|\.env(?:\..*)?)$"
 )
 
