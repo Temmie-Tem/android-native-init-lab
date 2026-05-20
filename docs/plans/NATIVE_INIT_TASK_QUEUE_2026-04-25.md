@@ -102,7 +102,8 @@
 - V418 live deploy result: helper v27 deployed to `/cache/bin/a90_android_execns_probe` through serial fallback, and post-deploy V411 binderized query preflight became ready; no daemon/HAL start or Wi-Fi bring-up occurred.
 - V419 live query result: bounded binderized `lshal list --types=binderized --neat` timed out with `v411-hal-registration-query-runtime-gap`; postflight was clean, with no residual manager/HAL processes, no Wi-Fi links, and no Wi-Fi bring-up.
 - V420 post-live routing result: V412 and V415 both route the result to `micro-query-needed`; the updated current gate packet reports `v416-current-gate-micro-query-needed`. Report: `docs/reports/NATIVE_INIT_V418_V419_V420_BINDERIZED_QUERY_LIVE_2026-05-20.md`.
-- next execution item: V421 micro hwservicemanager/HIDL query plan and implementation using V414 primary target patterns; keep scan/connect/link-up and Wi-Fi bring-up out of scope.
+- V421 plan result: host-only micro hwservicemanager query packet is ready; next implementation is helper v28 mode `wifi-hal-composite-hwservice-listbyinterface` plus fail-closed runner, targeting only V414 Samsung `ISehWifi/default` patterns. Report: `docs/reports/NATIVE_INIT_V421_MICRO_HWSERVICE_QUERY_PLAN_2026-05-20.md`.
+- next execution item: implement helper v28 micro `listByInterface` proof and runner; keep scan/connect/link-up and Wi-Fi bring-up out of scope.
 
 ## 현재 고정 기준점
 
