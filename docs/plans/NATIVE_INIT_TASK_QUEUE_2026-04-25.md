@@ -8857,3 +8857,21 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
   - `wifi_bringup_executed=False`.
 - interpretation: Android auto-connect is a real external-exposure surface before explicit test commands. The next gate must choose a policy: disable/contain auto-connect for lab work, or explicitly accept it and continue with exposure-aware stability sampling.
 - next execution item: V434 Android Wi-Fi auto-connect policy gate. Do not proceed to server exposure or explicit scan/connect until the policy is chosen and verified.
+
+### V434. Android Wi-Fi Auto-connect Policy — PASS / CONTAIN-FIRST SELECTED
+
+- plan: `docs/plans/NATIVE_INIT_V434_ANDROID_WIFI_AUTOCONNECT_POLICY_PLAN_2026-05-20.md`
+- report: `docs/reports/NATIVE_INIT_V434_ANDROID_WIFI_AUTOCONNECT_POLICY_2026-05-20.md`
+- policy selector: `scripts/revalidation/wifi_android_autoconnect_policy_v434.py`
+- handoff: `scripts/revalidation/android_wifi_autoconnect_policy_handoff_v434.py`
+- live evidence: `tmp/wifi/v434-android-autoconnect-policy-handoff-live-20260520-161134/`
+- result:
+  - decision `v434-android-wifi-policy-contain-first-pass`.
+  - policy `contain-first`.
+  - nested fresh V433 decision `v433-android-wifi-autoconnect-exposure-mapped`.
+  - Android boot-complete passed and native rollback restored `A90 Linux init 0.9.61 (v319)`.
+  - evidence state kept `wifi_connected=True`, `route_get_wlan=True`, `default_route_wlan=True`, `connectivity_validated_wifi=True`, `dns_surface_wlan=True`, and `global_listener_observed=False`.
+  - V434 did not add Wi-Fi enable/disable, scan/connect, credential, DHCP/routing mutation, external probe, or server-exposure steps.
+  - `wifi_bringup_executed=False`.
+- interpretation: Wi-Fi is usable but externally routed via saved Android auto-connect. The project should contain or intentionally disable auto-connect for lab runs before any server exposure.
+- next execution item: V435 bounded Android Wi-Fi auto-connect disable/containment proof. Keep scan/connect, credentials, server exposure, and external probes blocked.

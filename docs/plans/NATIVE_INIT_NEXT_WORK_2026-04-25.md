@@ -2139,3 +2139,11 @@ Samsung bootloader
 - live evidence: `tmp/wifi/v433-android-autoconnect-containment-handoff-live-redactfix2-20260520-160156/`
 - result: Android boot-complete handoff and native rollback PASS. Wi-Fi auto-connect was stable, `wlan0` had IP, default-route/local-route evidence pointed to `wlan0`, Android connectivity was validated, DNS surface was present, and no global listening sockets were observed. V433 did not send external probes or mutate Wi-Fi state; `wifi_bringup_executed=False`.
 - next: V434 Android Wi-Fi auto-connect policy gate. Decide whether lab runs should disable/contain Android auto-connect or explicitly accept it for longer exposure-aware stability testing before any server exposure or explicit scan/connect work.
+
+### V434. Android Wi-Fi Auto-connect Policy Result
+
+- plan: `docs/plans/NATIVE_INIT_V434_ANDROID_WIFI_AUTOCONNECT_POLICY_PLAN_2026-05-20.md`
+- report: `docs/reports/NATIVE_INIT_V434_ANDROID_WIFI_AUTOCONNECT_POLICY_2026-05-20.md`
+- live evidence: `tmp/wifi/v434-android-autoconnect-policy-handoff-live-20260520-161134/`
+- result: fresh V433 containment handoff plus host-side policy selection PASS. Policy is `contain-first` because Android Wi-Fi is stable and externally routed through saved auto-connect state. Native rollback restored `A90 Linux init 0.9.61 (v319)`, postflight selftest passed, and redaction scan passed.
+- next: V435 bounded Android Wi-Fi auto-connect disable/containment proof. This is the first cleanup/containment gate; it should still forbid scan/connect, credentials, server exposure, and external probes.
