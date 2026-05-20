@@ -51,7 +51,7 @@
 #define BINDER_BUFFER_FLAG_REF 0x02
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v44"
+#define EXECNS_VERSION "a90_android_execns_probe v45"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -273,7 +273,8 @@ static bool is_lshal_readonly_query_mode(const char *mode) {
 }
 
 static bool selinux_context_allowed(const char *context) {
-    return streq(context, "u:r:hal_wifi_default:s0") ||
+    return streq(context, "u:r:init:s0") ||
+           streq(context, "u:r:hal_wifi_default:s0") ||
            streq(context, "u:r:hwservicemanager:s0") ||
            streq(context, "u:r:servicemanager:s0");
 }
@@ -953,6 +954,7 @@ static int materialize_selinuxfs_surface(const struct config *cfg,
     struct stat st;
 
     if (!streq(cfg->mode, "private-selinux-proof") &&
+        !streq(cfg->mode, "selinux-domain-proof") &&
         !streq(cfg->mode, "service-manager-start-only") &&
         !(is_wifi_hal_composite_mode(cfg->mode) &&
           cfg->allow_service_manager_start_only &&
