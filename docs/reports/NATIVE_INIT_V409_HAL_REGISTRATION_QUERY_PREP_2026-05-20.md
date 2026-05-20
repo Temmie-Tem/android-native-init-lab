@@ -237,45 +237,65 @@ explicit `--allow-hal-service-query` guard before any approved deploy.
 
 ## Interpretation
 
-V409 is ready for the next operator-approved live step, but it has not been
-executed live.
+V409 is superseded by V410 and must not be used for live deploy or live query.
 
-The direct query path depends on `/mnt/system/system/bin/lshal`.  Read-only
-preflight now proves that it is present.  Therefore the next live step remains
-helper v25 deploy only.  The actual registration query remains a separate later
-approval after deploy and post-deploy preflight.
+The direct query path proved that `/mnt/system/system/bin/lshal` is present, but
+the V409 approved command stayed inside the native argument budget only by
+omitting explicit `--data-wifi-mode private-empty`.  V410 fixed that by moving
+the private-empty data boundary into helper v26 defaults.
 
-## Next Target
+## Superseded Refusal Evidence
 
-First live gate:
-
-```text
-approve v409 deploy execns helper v25 only; no daemon start and no Wi-Fi bring-up
-```
-
-Approved deploy command:
-
-```bash
-OUT=tmp/wifi/v409-execns-helper-v25-deploy-live-$(date +%Y%m%d-%H%M%S)
-python3 scripts/revalidation/wifi_execns_helper_v25_deploy_preflight.py \
-  --out-dir "$OUT" \
-  --approval-phrase 'approve v409 deploy execns helper v25 only; no daemon start and no Wi-Fi bring-up' \
-  --apply \
-  --assume-yes \
-  run
-```
-
-Post-deploy read-only preflight command:
-
-```bash
-OUT=tmp/wifi/v409-registration-query-post-deploy-preflight-$(date +%Y%m%d-%H%M%S)
-python3 scripts/revalidation/wifi_hal_registration_query_v409_runner.py \
-  --out-dir "$OUT" \
-  preflight
-```
-
-Second live gate, only after deploy and preflight:
+The V409 deploy wrapper is now a superseded fail-closed gate.  Even when invoked
+with the old exact approval phrase and `--apply --assume-yes`, it writes
+evidence and executes no device command.
 
 ```text
-approve v409 bounded lshal registration query only; no scan/connect/link-up and no Wi-Fi bring-up
+evidence: tmp/wifi/v409-helper-v25-deploy-superseded-20260520-111400/
+decision: v409-superseded-by-v410
+pass: True
+device_commands_executed: False
+device_mutations: False
+daemon_start_executed: False
+wifi_hal_start_executed: False
+wifi_bringup_executed: False
+```
+
+The V409 registration-query runner is also a superseded fail-closed gate.
+
+```text
+evidence: tmp/wifi/v409-registration-query-superseded-20260520-111400/
+decision: v409-superseded-by-v410
+pass: True
+device_commands_executed: False
+device_mutations: False
+daemon_start_executed: False
+wifi_hal_start_executed: False
+wifi_bringup_executed: False
+```
+
+Both evidence directories are private and use no-follow exclusive evidence
+writes:
+
+```text
+700 tmp/wifi/v409-helper-v25-deploy-superseded-20260520-111400
+600 tmp/wifi/v409-helper-v25-deploy-superseded-20260520-111400/manifest.json
+600 tmp/wifi/v409-helper-v25-deploy-superseded-20260520-111400/README.md
+700 tmp/wifi/v409-registration-query-superseded-20260520-111400
+600 tmp/wifi/v409-registration-query-superseded-20260520-111400/manifest.json
+600 tmp/wifi/v409-registration-query-superseded-20260520-111400/README.md
+```
+
+## Replacement Target
+
+Use the V410 runner only:
+
+```text
+scripts/revalidation/wifi_hal_registration_query_v410_runner.py
+```
+
+The next live gate is:
+
+```text
+approve v410 bounded lshal registration query only; no scan/connect/link-up and no Wi-Fi bring-up
 ```

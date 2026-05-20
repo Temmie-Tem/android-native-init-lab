@@ -103,6 +103,27 @@ The linter writes evidence with private output handling:
 600 tmp/wifi/v410-arg-budget-linter-privatewrite-20260520-110025/README.md
 ```
 
+V409 superseded fail-closed wrappers:
+
+```text
+script: scripts/revalidation/wifi_execns_helper_v25_deploy_preflight.py
+evidence: tmp/wifi/v409-helper-v25-deploy-superseded-20260520-111400/
+decision: v409-superseded-by-v410
+device_commands_executed: False
+device_mutations: False
+```
+
+```text
+script: scripts/revalidation/wifi_hal_registration_query_v409_runner.py
+evidence: tmp/wifi/v409-registration-query-superseded-20260520-111400/
+decision: v409-superseded-by-v410
+device_commands_executed: False
+device_mutations: False
+daemon_start_executed: False
+wifi_hal_start_executed: False
+wifi_bringup_executed: False
+```
+
 ## Fail-Closed Evidence
 
 V410 helper deploy plan:

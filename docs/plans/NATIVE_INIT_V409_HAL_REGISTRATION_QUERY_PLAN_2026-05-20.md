@@ -1,5 +1,13 @@
 # Native Init v409 Wi-Fi HAL Registration Query Plan
 
+## Superseded Status
+
+V409 is retained as historical design context only.  It was superseded by V410
+before live deploy because the V409 approved command could stay inside the
+native argument budget only by omitting explicit `--data-wifi-mode
+private-empty`.  The V409 deploy and query scripts now fail closed with
+`v409-superseded-by-v410` and execute no device command.
+
 ## Scope
 
 V409 prepares the first direct runtime registration query after the V407/V408
@@ -51,33 +59,18 @@ The helper keeps the existing private namespace setup:
 
 ## Approval Gates
 
-Helper deploy and live registration query are separate approvals.
-
-Deploy approval phrase:
-
-```text
-approve v409 deploy execns helper v25 only; no daemon start and no Wi-Fi bring-up
-```
-
-Live query approval phrase:
+V409 approval gates are closed.  Do not use the old V409 deploy or query
+approval phrases.  The replacement live gate is V410:
 
 ```text
-approve v409 bounded lshal registration query only; no scan/connect/link-up and no Wi-Fi bring-up
+approve v410 bounded lshal registration query only; no scan/connect/link-up and no Wi-Fi bring-up
 ```
 
 ## Expected Flow
 
-1. Build helper v25 locally.
-2. Run deploy plan/no-approval checks.
-3. With deploy approval, install only `/cache/bin/a90_android_execns_probe`.
-4. Run V409 read-only preflight.
-5. If helper v25 and `/mnt/system/system/bin/lshal` are present, request live
-   query approval.
-6. With live approval, run the bounded query and classify:
-   - `v409-hal-registration-query-pass`
-   - `v409-hal-registration-query-tool-missing`
-   - `v409-hal-registration-query-runtime-gap`
-   - `v409-hal-registration-query-review-required`
+Historical V409 flow is not executable anymore.  Any invocation of the V409
+deploy wrapper or query runner records superseded refusal evidence and exits
+without device commands, daemon start, HAL start, `lshal`, or Wi-Fi bring-up.
 
 ## Blockers
 
@@ -90,7 +83,7 @@ is absent, V409 must not widen scope.  The next route is V410:
 
 ## Success Criteria
 
-V409 is successful only when:
+The historical V409 design would have been successful only when:
 
 - V408 evidence packet is PASS.
 - helper v25 is deployed and verified by SHA-256.

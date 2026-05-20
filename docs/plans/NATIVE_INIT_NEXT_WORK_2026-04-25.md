@@ -2035,12 +2035,12 @@ Samsung bootloader
    - v409 query runner: `scripts/revalidation/wifi_hal_registration_query_v409_runner.py`
    - v409 결과: helper v25 `wifi-hal-composite-lshal-list` mode와 `--allow-hal-service-query` guard를 구현했고 static ARM64 build PASS, SHA `e90639d55dacc5486c998c4d1470235a6c72e4759cc63ebd1f07cf90c5852b37`. plan/no-approval manifests는 모두 device command와 mutation 없이 fail-closed PASS
    - v409 해석: 실제 `hwservicemanager` publication listing은 `/system/bin/lshal` 또는 별도 HIDL client가 필요하다. V409 runner는 먼저 `/mnt/system/system/bin/lshal` 존재를 read-only preflight로 확인하고, 없으면 V410으로 라우팅한다
-   - v409 다음: `approve v409 deploy execns helper v25 only; no daemon start and no Wi-Fi bring-up` 승인 시 helper deploy만 수행한다. 이후 preflight가 `lshal`을 확인한 뒤 별도 `approve v409 bounded lshal registration query only; no scan/connect/link-up and no Wi-Fi bring-up` 승인이 필요하다
+   - v409 superseded: V409 approved-plan argcheck가 native argument budget을 맞추기 위해 `--data-wifi-mode private-empty`를 생략해야 했으므로 live deploy 전에 V410으로 대체했다. V409 deploy/query scripts는 이제 `v409-superseded-by-v410`으로 fail-closed된다
 
    - v409 read-only deploy preflight: `tmp/wifi/v409-helper-v25-deploy-readonly-preflight-20260520-103906/`
    - v409 read-only query preflight: `tmp/wifi/v409-registration-query-readonly-preflight-20260520-103926/`
    - v409 preflight 결과: deploy preflight는 `execns-helper-v25-deploy-preflight-ready-needs-deploy` PASS. query preflight는 `v409-hal-registration-query-blocked`이며 blocker는 `helper-v25`뿐이다. `/mnt/system/system/bin/lshal`, runtime materials, system_ext VNDK v30, service-manager binaries, process surface, Wi-Fi link surface는 모두 pass. device mutation, daemon start, HAL start, Wi-Fi bring-up은 모두 false
-   - v409 preflight 해석: V410 대체 HIDL client로 우회할 필요는 현재 없다. `lshal` direct path가 존재하므로 다음은 exact-approved helper v25 deploy다
+   - v409 preflight 해석: `lshal` direct path는 존재하지만 V409 arg-budget contract가 약하므로 exact-approved helper v25 deploy는 더 이상 next step이 아니다. V410 helper v26 + implicit `private-empty` contract가 대체 경로다
    - v409 guardcheck: `tmp/wifi/v409-helper-v25-deploy-guardcheck-preflight-20260520-104455/` PASS. deploy wrapper now records `local-helper-v25-query-guard=pass` and `remote-helper-v25-query-guard=needs-deploy`, proving the local artifact contains the explicit `--allow-hal-service-query` guard before deploy
 
    - v410 plan: `docs/plans/NATIVE_INIT_V410_ARG_BUDGET_REPAIR_PLAN_2026-05-20.md`

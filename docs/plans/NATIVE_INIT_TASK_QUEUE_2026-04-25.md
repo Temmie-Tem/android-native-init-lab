@@ -75,6 +75,7 @@
 - latest V410 prep report: `docs/reports/NATIVE_INIT_V410_ARG_BUDGET_REPAIR_PREP_2026-05-20.md`.
 - V410 preflight result: approved query plan command length is 29, `--allow-hal-service-query` remains present, `helper_implicit_data_wifi_mode=private-empty`, deploy no-approval refuses before mutation, and read-only query preflight initially confirmed `lshal-binary` pass with only `helper-v26` blocked.
 - V410 contract linter result: `scripts/revalidation/wifi_v410_arg_budget_linter.py` PASS, proving helper source, runner, deploy wrapper, and approved-plan manifest all agree on the implicit `private-empty` arg-budget contract.
+- V409 superseded wrapper result: `scripts/revalidation/wifi_execns_helper_v25_deploy_preflight.py` and `scripts/revalidation/wifi_hal_registration_query_v409_runner.py` now fail closed with `v409-superseded-by-v410`, even when old V409 approval phrases and `--apply --assume-yes` are supplied.
 - V410 deploy result: exact-approved helper v26 deploy PASS through serial fallback; remote helper is now ready for the V410 registration query path.
 - latest V410 deploy report: `docs/reports/NATIVE_INIT_V410_HELPER_V26_DEPLOY_LIVE_2026-05-20.md`.
 - V410 post-deploy preflight result: `v410-hal-registration-query-preflight-ready`; `helper-v26`, `lshal-binary`, runtime materials, service-manager binaries, clean process surface, and clean Wi-Fi link surface all PASS.
