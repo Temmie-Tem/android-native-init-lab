@@ -43,7 +43,7 @@
 #define PR_CAP_AMBIENT_RAISE 2
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v26"
+#define EXECNS_VERSION "a90_android_execns_probe v27"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -140,7 +140,8 @@ static void usage(FILE *out) {
             "[--allow-service-manager-start-only] "
             "[--allow-wifi-hal-start-only] "
             "[--allow-hal-service-query] "
-            "--mode linker-list|identity-probe|cnss-start-only|property-lookup|service-manager-start-only|private-selinux-proof|wifi-hal-composite-start-only|wifi-hal-composite-lshal-list "
+            "--mode linker-list|identity-probe|cnss-start-only|property-lookup|service-manager-start-only|private-selinux-proof|wifi-hal-composite-start-only|wifi-hal-composite-lshal-list|wifi-hal-composite-lshal-binderized-list "
+            "[v27 binderized query runs: /system/bin/lshal list --types=binderized --neat] "
             "--timeout-sec <1..30>\n");
 }
 
@@ -326,7 +327,8 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
         return 2;
     }
 
-    if (streq(cfg->mode, "wifi-hal-composite-lshal-list") &&
+    if ((streq(cfg->mode, "wifi-hal-composite-lshal-list") ||
+         streq(cfg->mode, "wifi-hal-composite-lshal-binderized-list")) &&
         streq(cfg->data_wifi_mode, "none")) {
         cfg->data_wifi_mode = "private-empty";
     }
@@ -341,7 +343,8 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
           streq(cfg->mode, "private-selinux-proof") ||
           streq(cfg->mode, "service-manager-start-only") ||
           streq(cfg->mode, "wifi-hal-composite-start-only") ||
-          streq(cfg->mode, "wifi-hal-composite-lshal-list")) ||
+          streq(cfg->mode, "wifi-hal-composite-lshal-list") ||
+          streq(cfg->mode, "wifi-hal-composite-lshal-binderized-list")) ||
         !(streq(cfg->capture_mode, "none") ||
           streq(cfg->capture_mode, "ptrace-lite")) ||
         !(streq(cfg->null_device_mode, "none") ||
@@ -410,7 +413,8 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
         }
     }
     if (streq(cfg->mode, "wifi-hal-composite-start-only") ||
-        streq(cfg->mode, "wifi-hal-composite-lshal-list")) {
+        streq(cfg->mode, "wifi-hal-composite-lshal-list") ||
+        streq(cfg->mode, "wifi-hal-composite-lshal-binderized-list")) {
         if (cfg->linker != NULL) {
             fprintf(stderr, "--linker is not used by wifi-hal-composite modes\n");
             return 2;
@@ -489,7 +493,8 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
         }
     } else if (streq(cfg->mode, "service-manager-start-only") ||
                streq(cfg->mode, "wifi-hal-composite-start-only") ||
-               streq(cfg->mode, "wifi-hal-composite-lshal-list")) {
+               streq(cfg->mode, "wifi-hal-composite-lshal-list") ||
+               streq(cfg->mode, "wifi-hal-composite-lshal-binderized-list")) {
         if (cfg->property_key != NULL) {
             fprintf(stderr, "--property-key is only valid with property-lookup mode\n");
             return 2;
@@ -651,7 +656,8 @@ static int materialize_private_properties(const struct config *cfg,
          cfg->allow_service_manager_start_only &&
          cfg->property_root != NULL) ||
         ((streq(cfg->mode, "wifi-hal-composite-start-only") ||
-          streq(cfg->mode, "wifi-hal-composite-lshal-list")) &&
+          streq(cfg->mode, "wifi-hal-composite-lshal-list") ||
+          streq(cfg->mode, "wifi-hal-composite-lshal-binderized-list")) &&
          cfg->allow_service_manager_start_only &&
          cfg->allow_wifi_hal_start_only &&
          cfg->property_root != NULL);
@@ -701,7 +707,8 @@ static int materialize_selinuxfs_surface(const struct config *cfg,
     if (!streq(cfg->mode, "private-selinux-proof") &&
         !streq(cfg->mode, "service-manager-start-only") &&
         !((streq(cfg->mode, "wifi-hal-composite-start-only") ||
-           streq(cfg->mode, "wifi-hal-composite-lshal-list")) &&
+           streq(cfg->mode, "wifi-hal-composite-lshal-list") ||
+           streq(cfg->mode, "wifi-hal-composite-lshal-binderized-list")) &&
           cfg->allow_service_manager_start_only &&
           cfg->allow_wifi_hal_start_only)) {
         return 0;
@@ -970,7 +977,8 @@ static int materialize_service_manager_binder_devices(const struct config *cfg,
           (streq(cfg->mode, "service-manager-start-only") &&
            cfg->allow_service_manager_start_only) ||
           ((streq(cfg->mode, "wifi-hal-composite-start-only") ||
-            streq(cfg->mode, "wifi-hal-composite-lshal-list")) &&
+            streq(cfg->mode, "wifi-hal-composite-lshal-list") ||
+            streq(cfg->mode, "wifi-hal-composite-lshal-binderized-list")) &&
            cfg->allow_service_manager_start_only &&
            cfg->allow_wifi_hal_start_only))) {
         return 0;
@@ -5365,6 +5373,7 @@ static int run_lshal_service_query_child(const struct config *cfg,
                                          struct buffer *stdout_buf,
                                          struct buffer *stderr_buf,
                                          int timeout_ms) {
+    const bool binderized_only = streq(cfg->mode, "wifi-hal-composite-lshal-binderized-list");
     char lshal_host_path[MAX_PATH_LEN];
     int stdout_pipe[2] = {-1, -1};
     int stderr_pipe[2] = {-1, -1};
@@ -5387,12 +5396,14 @@ static int run_lshal_service_query_child(const struct config *cfg,
     append_literal(stdout_buf, "wifi_hal_service_query.begin=1\n");
     append_literal(stdout_buf, "wifi_hal_service_query.tool=/system/bin/lshal\n");
     append_format(stdout_buf,
+                  "wifi_hal_service_query.variant=%s\n"
                   "wifi_hal_service_query.host_path=%s\n"
                   "wifi_hal_service_query.exists=%d\n"
                   "wifi_hal_service_query.executable=%d\n"
                   "wifi_hal_service_query.scan_connect_linkup=0\n"
                   "wifi_hal_service_query.credentials=0\n"
                   "wifi_hal_service_query.dhcp_routing=0\n",
+                  binderized_only ? "binderized-only" : "default",
                   lshal_host_path,
                   access(lshal_host_path, F_OK) == 0 ? 1 : 0,
                   access(lshal_host_path, X_OK) == 0 ? 1 : 0);
@@ -5431,10 +5442,18 @@ static int run_lshal_service_query_child(const struct config *cfg,
         return -1;
     }
     if (pid == 0) {
-        char *const child_argv[] = {
+        char *const default_argv[] = {
             (char *)"/system/bin/lshal",
             NULL,
         };
+        char *const binderized_argv[] = {
+            (char *)"/system/bin/lshal",
+            (char *)"list",
+            (char *)"--types=binderized",
+            (char *)"--neat",
+            NULL,
+        };
+        char *const *child_argv = binderized_only ? binderized_argv : default_argv;
 
         close(stdout_pipe[0]);
         close(stderr_pipe[0]);
@@ -5462,6 +5481,11 @@ static int run_lshal_service_query_child(const struct config *cfg,
             _exit(126);
         }
         printf("wifi_hal_service_query.child.exec_target=/system/bin/lshal\n");
+        if (binderized_only) {
+            printf("wifi_hal_service_query.child.argv.1=list\n");
+            printf("wifi_hal_service_query.child.argv.2=--types=binderized\n");
+            printf("wifi_hal_service_query.child.argv.3=--neat\n");
+        }
         fflush(stdout);
         execv("/system/bin/lshal", child_argv);
         printf("wifi_hal_service_query.child.exec_error=%s\n", strerror(errno));
@@ -5717,7 +5741,8 @@ static int run_wifi_hal_composite_start_only_guarded(const struct config *cfg,
                                                      int *child_signal,
                                                      bool *timed_out) {
     struct composite_child children[A90_COMPOSITE_CHILD_COUNT];
-    const bool service_query_mode = streq(cfg->mode, "wifi-hal-composite-lshal-list");
+    const bool service_query_mode = streq(cfg->mode, "wifi-hal-composite-lshal-list") ||
+                                    streq(cfg->mode, "wifi-hal-composite-lshal-binderized-list");
     bool all_postflight_safe = true;
     bool any_runtime_gap = false;
     bool all_observable_at_timeout = true;
@@ -6187,7 +6212,8 @@ int main(int argc, char **argv) {
                                                         &child_signal,
                                                         &timed_out);
     } else if (streq(cfg.mode, "wifi-hal-composite-start-only") ||
-               streq(cfg.mode, "wifi-hal-composite-lshal-list")) {
+               streq(cfg.mode, "wifi-hal-composite-lshal-list") ||
+               streq(cfg.mode, "wifi-hal-composite-lshal-binderized-list")) {
         run_rc = run_wifi_hal_composite_start_only_guarded(&cfg,
                                                            &paths,
                                                            &stdout_buf,

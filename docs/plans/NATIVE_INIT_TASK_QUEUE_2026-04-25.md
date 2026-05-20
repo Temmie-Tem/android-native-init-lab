@@ -81,8 +81,10 @@
 - V410 post-deploy preflight result: `v410-hal-registration-query-preflight-ready`; `helper-v26`, `lshal-binary`, runtime materials, service-manager binaries, clean process surface, and clean Wi-Fi link surface all PASS.
 - V410 live query result: exact-approved bounded `lshal` registration query returned `v410-hal-registration-query-runtime-gap` with `service_query.reason=lshal-timeout`; the service-manager trio and Wi-Fi HAL were observable, safely terminated, and postflight clean; Wi-Fi bring-up remained false.
 - latest V410 live report: `docs/reports/NATIVE_INIT_V410_HAL_REGISTRATION_QUERY_LIVE_2026-05-20.md`.
-- current interpretation: V410 proves the composite namespace remains stable, but default `lshal` is too broad for this gate. Next target is V411 binderized-only `lshal list --types=binderized --neat`.
-- next execution item: implement V411 helper/runner prep for binderized-only HAL registration query; live deploy/query still require separate exact approval phrases.
+- current interpretation: V410 proves the composite namespace remains stable, but default `lshal` is too broad for this gate. V411 narrows the query to binderized-only `lshal list --types=binderized --neat`.
+- V411 prep result: helper v27, deploy wrapper, and binderized lshal runner are implemented. Static ARM64 helper build PASS, SHA `0519b557482f347d47962e9da76ee7afcce270bf12df860d37678e9a26bf2c74`; approved query plan command length remains 29; no-approval paths execute no mutation or daemon/HAL/Wi-Fi bring-up.
+- latest V411 prep report: `docs/reports/NATIVE_INIT_V411_BINDERIZED_LSHAL_QUERY_PREP_2026-05-20.md`.
+- next execution item: exact-approved V411 helper v27 deploy only. Required phrase: `approve v411 deploy execns helper v27 only; no daemon start and no Wi-Fi bring-up`.
 
 ## 현재 고정 기준점
 

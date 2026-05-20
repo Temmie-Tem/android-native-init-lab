@@ -2054,3 +2054,12 @@ Samsung bootloader
    - v410 contract linter: `tmp/wifi/v410-arg-budget-linter-privatewrite-20260520-110025/` PASS. helper source default, data-wifi allowlist, runner implicit plan marker, deploy v26 guard, approved command arg budget, query guard, and host-only manifest contract all agree. Evidence output uses 0700 directory and 0600 no-follow/exclusive files
    - v410 deploy/live 결과: helper v26 deploy PASS 후 exact-approved bounded `lshal` registration query를 실행했다. Trio(`servicemanager`, `hwservicemanager`, Wi-Fi HAL)는 observable/clean stop PASS였고 Wi-Fi bring-up은 false였지만 `/system/bin/lshal` 기본 실행은 `lshal-timeout`으로 `v410-hal-registration-query-runtime-gap`을 반환했다
    - v410 해석: 기본 `lshal`은 binderized/passthrough 범위가 넓어 이 gate의 질문보다 과하다. 다음은 V411에서 `lshal list --types=binderized --neat`처럼 hwservicemanager 등록 목록만 좁혀 확인하는 helper/runner를 준비한다
+
+   - v411 plan: `docs/plans/NATIVE_INIT_V411_BINDERIZED_LSHAL_QUERY_PLAN_2026-05-20.md`
+   - v411 report: `docs/reports/NATIVE_INIT_V411_BINDERIZED_LSHAL_QUERY_PREP_2026-05-20.md`
+   - v411 helper artifact: `tmp/wifi/v411-a90_android_execns_probe-v27/a90_android_execns_probe`
+   - v411 deploy wrapper: `scripts/revalidation/wifi_execns_helper_v27_deploy_preflight.py`
+   - v411 query runner: `scripts/revalidation/wifi_hal_binderized_registration_query_v411_runner.py`
+   - v411 결과: helper v27 `wifi-hal-composite-lshal-binderized-list` mode를 추가했고 query child를 `/system/bin/lshal list --types=binderized --neat`로 좁혔다. Static ARM64 build PASS, SHA `0519b557482f347d47962e9da76ee7afcce270bf12df860d37678e9a26bf2c74`. approved query plan은 command length 29로 유지된다
+   - v411 preflight 결과: query read-only preflight는 expected blocker `helper-v27`만 남기고 `lshal-binary`, runtime materials, system_ext VNDK v30, service-manager binaries, process surface, Wi-Fi link surface를 PASS로 확인했다. deploy read-only preflight는 `execns-helper-v27-deploy-preflight-ready-needs-deploy` PASS
+   - v411 다음: exact-approved helper v27 deploy only. Required phrase: `approve v411 deploy execns helper v27 only; no daemon start and no Wi-Fi bring-up`
