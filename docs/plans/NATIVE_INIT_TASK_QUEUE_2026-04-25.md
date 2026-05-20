@@ -8787,3 +8787,21 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
   - `wifi_bringup_executed=False`.
 - interpretation: V407 proves the first HAL candidate can stay alive through the bounded observe window in the private namespace. The next step is not Wi-Fi bring-up; it is HAL registration/service-surface evidence collection while this bounded trio is alive.
 - next execution item: V408 Wi-Fi HAL registration/service-surface evidence plan. Wi-Fi scan/connect/link-up remains blocked.
+
+### V430. Android lshal Explicit Mirror — PASS / STATUS-CRASH EVIDENCE
+
+- plan: `docs/plans/NATIVE_INIT_V430_ANDROID_LSHAL_EXPLICIT_MIRROR_PLAN_2026-05-20.md`
+- report: `docs/reports/NATIVE_INIT_V430_ANDROID_LSHAL_EXPLICIT_MIRROR_2026-05-20.md`
+- collector: `scripts/revalidation/wifi_android_lshal_explicit_v430.py`
+- handoff: `scripts/revalidation/android_lshal_explicit_handoff_v430.py`
+- corrected live evidence: `tmp/wifi/v430-android-lshal-explicit-handoff-live-fix-20260520-145456/`
+- result:
+  - decision `v430-android-explicit-targets-present-status-crash`.
+  - Android boot-complete passed and native rollback restored `A90 Linux init 0.9.61 (v319)`.
+  - Android binderized neat output showed all Samsung `ISehWifi/default` `@2.0`, `@2.1`, and `@2.2` target rows, but as not-fetchable.
+  - Android binderized explicit status query `lshal list --types=binderized --neat -S` exited `rc=136`.
+  - VINTF status listed only Samsung `vendor.samsung.hardware.wifi@2.2::ISehWifi/default`.
+  - Android boot-complete process surface included `android.hardware.wifi@1.0-service`, `vendor.samsung.hardware.wifi@2.0-service`, `wificond`, and `wpa_supplicant`.
+  - `wifi_bringup_executed=False`.
+- interpretation: `lshal -S` should no longer be the decisive probe. Android boot-complete already runs the relevant Wi-Fi daemon stack, while native private `lshal` still times out.
+- next execution item: V431 Android Wi-Fi runtime gap map. Keep it read-only: collect Android init service definitions, Wi-Fi properties, socket/devnode/data surfaces, and native namespace deltas before choosing Android-managed Wi-Fi control versus deeper native repair.

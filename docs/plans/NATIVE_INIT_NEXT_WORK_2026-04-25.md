@@ -2107,3 +2107,11 @@ Samsung bootloader
   - `wifi_bringup_executed=False`.
 - interpretation: V429 rules out V428's heavy `-p -e -c` and mixed `binderized,vintf` output as the main cause. Native private runtime still cannot return Samsung Wi-Fi binderized registrations. Android boot-complete evidence remains the stronger path.
 - next execution item: V430 Android explicit-column mirror. Boot Android to `sys.boot_completed=1`, run read-only minimal `lshal` status commands, restore native v319, then decide Android-managed runtime pivot versus further native reconstruction.
+
+### V430. Android lshal Explicit Mirror Result
+
+- plan: `docs/plans/NATIVE_INIT_V430_ANDROID_LSHAL_EXPLICIT_MIRROR_PLAN_2026-05-20.md`
+- report: `docs/reports/NATIVE_INIT_V430_ANDROID_LSHAL_EXPLICIT_MIRROR_2026-05-20.md`
+- live evidence: `tmp/wifi/v430-android-lshal-explicit-handoff-live-fix-20260520-145456/`
+- result: Android boot-complete handoff and native rollback PASS. Android neat `lshal` shows all three Samsung `ISehWifi/default` target rows, but explicit `lshal -S` exits `rc=136`; Wi-Fi bring-up remains false.
+- next: V431 Android Wi-Fi runtime gap map. Collect read-only Android init rc/service/property/socket/devnode/data surfaces and compare them with the native private namespace before deciding Android-managed Wi-Fi control or native repair.
