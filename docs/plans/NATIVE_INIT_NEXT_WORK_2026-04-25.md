@@ -2403,3 +2403,18 @@ Samsung bootloader
 - result: sanitized session bundle PASS. Current state is `v458-wifi-session-bundle-awaiting-operator` with `leak_findings=0`.
 - interpretation: after V456 runs, V457 should classify the result and V458 should package the current evidence as a sanitized index without copying raw captures.
 - next: run the V456 one-session script locally, then run V457 and V458. Server exposure remains blocked.
+
+### V459. Wi-Fi NetworkManager Profile Handoff Result
+
+- plan: `docs/plans/NATIVE_INIT_V459_WIFI_NM_PROFILE_HANDOFF_PLAN_2026-05-20.md`
+- report: `docs/reports/NATIVE_INIT_V459_WIFI_NM_PROFILE_HANDOFF_2026-05-20.md`
+- evidence:
+  - packet `tmp/wifi/v459-nm-profile-handoff-packet-run-20260520-193122/`
+  - router `tmp/wifi/v449-wifi-handoff-result-router-v459-20260520-193122/`
+  - readiness `tmp/wifi/v450-operator-preflight-readiness-v459-20260520-193122/`
+  - outcome `tmp/wifi/v457-wifi-operator-session-outcome-v459-20260520-193122/`
+  - bundle `tmp/wifi/v458-wifi-operator-session-bundle-v459-20260520-193122/`
+  - secret guard `tmp/wifi/v446-wifi-private-secret-guard-v459-final-20260520-193122/`
+- result: saved-profile handoff PASS. V459 generated a private script that lists saved NetworkManager Wi-Fi profiles by number and length metadata only, then runs V447 preflight/live with strict route/proof handling.
+- interpretation: V459 supersedes V456 as the preferred next local action on this host because two saved Wi-Fi profiles exist and the operator can choose by number without typing SSID/PSK into the terminal.
+- next: run `bash /home/temmie/dev/A90_5G_rooting/tmp/wifi/v459-nm-profile-handoff-packet-run-20260520-193122/run-v459-nm-profile-wifi-flow.sh`, select the intended saved profile, and type `V447-LIVE` only if preflight passes. Server exposure remains blocked.

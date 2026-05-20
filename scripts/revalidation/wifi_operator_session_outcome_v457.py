@@ -20,7 +20,10 @@ from a90harness.evidence import EvidenceStore
 
 DEFAULT_OUT_DIR = Path("tmp/wifi/v457-wifi-operator-session-outcome")
 DEFAULT_WIFI_ROOT = Path("tmp/wifi")
-READY_V456_DECISION = "v456-operator-one-session-packet-ready"
+READY_PACKET_DECISIONS = {
+    "v456-operator-one-session-packet-ready",
+    "v459-nm-profile-handoff-packet-ready",
+}
 PREFLIGHT_READY_DECISION = "v447-explicit-connect-flow-preflight-ready"
 LIVE_PASS_DECISION = "v447-explicit-connect-flow-live-pass"
 CLEANUP_PASS_DECISION = "v452-wifi-live-cleanup-proof-pass"
@@ -78,6 +81,19 @@ def latest_v456(root: Path) -> dict[str, Any] | None:
     return latest(root, "v456-operator-one-session-packet-run*/manifest.json", include_synthetic=True)
 
 
+def latest_operator_packet(root: Path) -> dict[str, Any] | None:
+    rows: list[dict[str, Any]] = []
+    for pattern in (
+        "v456-operator-one-session-packet-run*/manifest.json",
+        "v459-nm-profile-handoff-packet-run*/manifest.json",
+    ):
+        row = latest(root, pattern, include_synthetic=True)
+        if row:
+            rows.append(row)
+    rows.sort(key=lambda item: float(item.get("_mtime") or 0.0))
+    return rows[-1] if rows else None
+
+
 def nested_v445(live: dict[str, Any] | None) -> dict[str, Any]:
     if not live:
         return {}
@@ -95,13 +111,14 @@ def nested_v445(live: dict[str, Any] | None) -> dict[str, Any]:
 
 def packet_command(packet: dict[str, Any] | None) -> str:
     payload = (packet or {}).get("packet") or {}
-    return str(payload.get("one_session_command") or payload.get("preflight_command") or "")
+    return str(payload.get("nm_profile_command") or payload.get("one_session_command") or payload.get("preflight_command") or "")
 
 
 def evidence_state(args: argparse.Namespace) -> dict[str, Any]:
     root = args.wifi_root
     live = latest(root, "v447-explicit-connect-flow-live-*/manifest.json", include_synthetic=args.include_synthetic)
     return {
+        "operator_packet": latest_operator_packet(root),
         "v456": latest_v456(root),
         "preflight": latest(root, "v447-explicit-connect-flow-private-preflight-*/manifest.json", include_synthetic=args.include_synthetic),
         "live": live,
@@ -126,7 +143,7 @@ def classify(command: str, state: dict[str, Any]) -> dict[str, Any]:
             "recommended_command": "",
         }
 
-    packet = state.get("v456")
+    packet = state.get("operator_packet") or state.get("v456")
     preflight = state.get("preflight")
     live = state.get("live")
     cleanup = state.get("cleanup_after_live") or state.get("cleanup")
@@ -136,24 +153,24 @@ def classify(command: str, state: dict[str, Any]) -> dict[str, Any]:
         return {
             "decision": "v457-wifi-session-needs-v456-packet",
             "pass": False,
-            "reason": "no V456 one-session packet exists",
-            "next_gate": "generate V456 one-session packet",
-            "recommended_command": "python3 scripts/revalidation/wifi_operator_one_session_packet_v456.py run",
+            "reason": "no V456/V459 operator handoff packet exists",
+            "next_gate": "generate V459 saved-profile handoff packet or V456 one-session packet",
+            "recommended_command": "python3 scripts/revalidation/wifi_operator_nm_profile_handoff_v459.py run",
         }
-    if packet.get("decision") != READY_V456_DECISION or packet.get("pass") is not True:
+    if packet.get("decision") not in READY_PACKET_DECISIONS or packet.get("pass") is not True:
         return {
             "decision": "v457-wifi-session-v456-not-ready",
             "pass": False,
-            "reason": str(packet.get("reason") or "latest V456 packet did not pass"),
-            "next_gate": "repair or regenerate V456 one-session packet",
+            "reason": str(packet.get("reason") or "latest operator handoff packet did not pass"),
+            "next_gate": "repair or regenerate V459/V456 operator handoff packet",
             "recommended_command": "",
         }
     if not preflight and not live:
         return {
             "decision": "v457-wifi-session-awaiting-operator",
             "pass": True,
-            "reason": "V456 packet is ready but no real V447 preflight/live evidence exists yet",
-            "next_gate": "run generated one-session script and enter Wi-Fi values locally",
+            "reason": "operator handoff packet is ready but no real V447 preflight/live evidence exists yet",
+            "next_gate": "run generated operator script and provide local Wi-Fi input",
             "recommended_command": command_text,
         }
     if preflight and (preflight.get("decision") != PREFLIGHT_READY_DECISION or preflight.get("pass") is not True):
@@ -224,6 +241,7 @@ def render_summary(manifest: dict[str, Any]) -> str:
     state = manifest["state"]
     rows = [
         manifest_row("v456_packet", state.get("v456")),
+        manifest_row("operator_packet", state.get("operator_packet")),
         manifest_row("v447_private_preflight", state.get("preflight")),
         manifest_row("v447_live", state.get("live")),
         manifest_row("nested_v445", state.get("nested_v445")),

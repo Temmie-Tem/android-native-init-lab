@@ -9321,3 +9321,30 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
   - `wifi_bringup_executed=False`.
 - interpretation: V458 provides the post-run review package path. Current blocker remains local Wi-Fi input.
 - next execution item: run the V456 one-session script locally, then run V457 and V458. Server exposure remains blocked.
+
+### V459. Wi-Fi NetworkManager Profile Handoff — PASS / SAVED PROFILE SELECT NEXT
+
+- plan: `docs/plans/NATIVE_INIT_V459_WIFI_NM_PROFILE_HANDOFF_PLAN_2026-05-20.md`
+- report: `docs/reports/NATIVE_INIT_V459_WIFI_NM_PROFILE_HANDOFF_2026-05-20.md`
+- generator: `scripts/revalidation/wifi_operator_nm_profile_handoff_v459.py`
+- routing updates:
+  - `scripts/revalidation/wifi_handoff_result_router_v449.py`
+  - `scripts/revalidation/wifi_operator_preflight_readiness_v450.py`
+  - `scripts/revalidation/wifi_operator_session_outcome_v457.py`
+  - `scripts/revalidation/wifi_operator_session_bundle_v458.py`
+- evidence:
+  - packet `tmp/wifi/v459-nm-profile-handoff-packet-run-20260520-193122/`
+  - router `tmp/wifi/v449-wifi-handoff-result-router-v459-20260520-193122/`
+  - readiness `tmp/wifi/v450-operator-preflight-readiness-v459-20260520-193122/`
+  - outcome `tmp/wifi/v457-wifi-operator-session-outcome-v459-20260520-193122/`
+  - bundle `tmp/wifi/v458-wifi-operator-session-bundle-v459-20260520-193122/`
+  - secret guard `tmp/wifi/v446-wifi-private-secret-guard-v459-final-20260520-193122/`
+- result:
+  - decision `v459-nm-profile-handoff-packet-ready`.
+  - generated script prints profile numbers and length metadata only.
+  - generated script reads SSID/PSK locally through `nmcli`.
+  - V449/V450/V457/V458 now recommend the V459 script.
+  - no successful preflight/live path, device command, or mutation ran.
+  - `wifi_bringup_executed=False`.
+- interpretation: current blocker is now local saved-profile selection, not manual SSID/PSK entry or repo-side readiness.
+- next execution item: run `bash /home/temmie/dev/A90_5G_rooting/tmp/wifi/v459-nm-profile-handoff-packet-run-20260520-193122/run-v459-nm-profile-wifi-flow.sh`, select the intended saved profile, and type `V447-LIVE` only after preflight passes. Server exposure remains blocked.

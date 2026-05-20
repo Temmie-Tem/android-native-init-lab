@@ -124,6 +124,7 @@ def manifest_summary(name: str, payload: dict[str, Any] | None) -> dict[str, Any
 
 def selected_manifests(state: dict[str, Any]) -> list[dict[str, Any]]:
     return [
+        manifest_summary("operator_packet", state.get("operator_packet")),
         manifest_summary("v456_packet", state.get("v456")),
         manifest_summary("v447_private_preflight", state.get("preflight")),
         manifest_summary("v447_live", state.get("live")),

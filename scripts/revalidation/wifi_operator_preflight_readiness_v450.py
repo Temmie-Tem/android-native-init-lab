@@ -28,6 +28,7 @@ READY_PACKET_DECISIONS = {
     "v453-operator-postroute-packet-ready",
     "v454-operator-strict-postroute-packet-ready",
     "v456-operator-one-session-packet-ready",
+    "v459-nm-profile-handoff-packet-ready",
 }
 SECRET_LITERAL_RE = re.compile(
     r"(?i)(codex-test-network|12345678|A90_WIFI_(?:SSID|PSK)=['\"][^'\"]+['\"]|"
@@ -79,6 +80,7 @@ def latest_packet(root: Path) -> dict[str, Any] | None:
         "v453-operator-postroute-packet-run*/manifest.json",
         "v454-operator-strict-postroute-packet-run*/manifest.json",
         "v456-operator-one-session-packet-run*/manifest.json",
+        "v459-nm-profile-handoff-packet-run*/manifest.json",
     ):
         for path in repo_path(root).glob(pattern):
             if path.name == "manifest.json":
@@ -133,16 +135,29 @@ def script_audit(path_text: str, expected_markers: list[str]) -> dict[str, Any]:
 
 def audit_scripts(packet: dict[str, Any] | None) -> dict[str, Any]:
     payload = (packet or {}).get("packet") or {}
-    preflight = script_audit(
-        str(payload.get("preflight_script") or ""),
-        [
+    decision = str((packet or {}).get("decision") or "")
+    if decision == "v459-nm-profile-handoff-packet-ready":
+        preflight_markers = [
+            "Select saved NetworkManager Wi-Fi profile number",
+            "names and secrets are not printed",
+            "nmcli",
+            "trap cleanup EXIT",
+            "wifi_explicit_connect_flow_v447.py",
+            "--allow-read-wifi-env --i-understand-wifi-secret-env",
+            "run",
+        ]
+    else:
+        preflight_markers = [
             "read -r -p \"A90 Wi-Fi SSID: \" A90_WIFI_SSID",
             "read -r -s -p \"A90 Wi-Fi PSK: \" A90_WIFI_PSK",
             "trap cleanup EXIT",
             "wifi_explicit_connect_flow_v447.py",
             "--allow-read-wifi-env --i-understand-wifi-secret-env",
             "run",
-        ],
+        ]
+    preflight = script_audit(
+        str(payload.get("preflight_script") or ""),
+        preflight_markers,
     )
     live = script_audit(
         str(payload.get("live_script") or ""),
@@ -205,7 +220,7 @@ def classify(command: str, state: dict[str, Any]) -> dict[str, Any]:
         return {
             "decision": "v450-operator-preflight-v448-not-ready",
             "pass": False,
-            "reason": str(packet.get("reason") or "latest V448/V453/V454/V456 packet did not pass"),
+            "reason": str(packet.get("reason") or "latest V448/V453/V454/V456/V459 packet did not pass"),
             "next_gate": "repair or rerun handoff packet generation",
             "recommended_command": "",
         }
@@ -254,8 +269,8 @@ def classify(command: str, state: dict[str, Any]) -> dict[str, Any]:
     return {
         "decision": "v450-operator-preflight-ready-run-host-preflight",
         "pass": True,
-        "reason": "V448/V453/V454/V456 packet scripts are private and V449 routes the next step to host preflight",
-        "next_gate": "run generated host preflight script and enter Wi-Fi values locally",
+        "reason": "V448/V453/V454/V456/V459 packet scripts are private and V449 routes the next step to host preflight",
+        "next_gate": "run generated host preflight script and provide local Wi-Fi input",
         "recommended_command": ((packet.get("packet") or {}).get("preflight_command") or ""),
     }
 
