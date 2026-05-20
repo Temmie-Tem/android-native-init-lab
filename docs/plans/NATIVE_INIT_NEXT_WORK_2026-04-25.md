@@ -2365,3 +2365,17 @@ Samsung bootloader
 - result: strict post-route semantics PASS. V455 audited the generated V454 scripts for strict markers and proved the return-code matrix: V447 success plus route/proof failure fails the script, while V447 failure preserves the V447 return code.
 - interpretation: V454 strict behavior is now proven without executing generated operator scripts or device commands.
 - next: run `bash /home/temmie/dev/A90_5G_rooting/tmp/wifi/v454-operator-strict-postroute-packet-run-20260520-185718/run-v454-host-preflight-strict-route.sh`, enter Wi-Fi values locally, then follow the routed live command. Server exposure remains blocked.
+
+### V456. Wi-Fi Operator One-session Packet Result
+
+- plan: `docs/plans/NATIVE_INIT_V456_WIFI_OPERATOR_ONE_SESSION_PACKET_PLAN_2026-05-20.md`
+- report: `docs/reports/NATIVE_INIT_V456_WIFI_OPERATOR_ONE_SESSION_PACKET_2026-05-20.md`
+- evidence:
+  - plan `tmp/wifi/v456-operator-one-session-packet-plan-20260520-191243/`
+  - packet `tmp/wifi/v456-operator-one-session-packet-run-20260520-191231/`
+  - router `tmp/wifi/v449-wifi-handoff-result-router-v456-20260520-191231/`
+  - readiness `tmp/wifi/v450-operator-preflight-readiness-v456-20260520-191231/`
+  - secret guard `tmp/wifi/v446-wifi-private-secret-guard-v456-repair2-20260520-191231/`
+- result: one-session operator packet PASS. V456 generated one private script that prompts once, runs V447 preflight, routes/proves the result, then optionally runs V447 live after exact `V447-LIVE` confirmation.
+- interpretation: V456 supersedes V454 as the next operator action because it preserves strict post-route behavior while removing duplicate Wi-Fi credential prompts.
+- next: run `bash /home/temmie/dev/A90_5G_rooting/tmp/wifi/v456-operator-one-session-packet-run-20260520-191231/run-v456-one-session-wifi-flow.sh`, enter Wi-Fi values locally, and type `V447-LIVE` only if preflight passes. Server exposure remains blocked.

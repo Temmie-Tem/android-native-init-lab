@@ -9259,3 +9259,27 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
   - `wifi_bringup_executed=False`.
 - interpretation: V454 strict post-route behavior is proven. There is no remaining repo-side blocker before local Wi-Fi input.
 - next execution item: run `bash /home/temmie/dev/A90_5G_rooting/tmp/wifi/v454-operator-strict-postroute-packet-run-20260520-185718/run-v454-host-preflight-strict-route.sh`, enter Wi-Fi values locally, then follow the routed live command. Server exposure remains blocked.
+
+### V456. Wi-Fi Operator One-session Packet — PASS / ONE COMMAND NEXT
+
+- plan: `docs/plans/NATIVE_INIT_V456_WIFI_OPERATOR_ONE_SESSION_PACKET_PLAN_2026-05-20.md`
+- report: `docs/reports/NATIVE_INIT_V456_WIFI_OPERATOR_ONE_SESSION_PACKET_2026-05-20.md`
+- generator: `scripts/revalidation/wifi_operator_one_session_packet_v456.py`
+- router updates:
+  - `scripts/revalidation/wifi_handoff_result_router_v449.py`
+  - `scripts/revalidation/wifi_operator_preflight_readiness_v450.py`
+- evidence:
+  - plan `tmp/wifi/v456-operator-one-session-packet-plan-20260520-191243/`
+  - packet `tmp/wifi/v456-operator-one-session-packet-run-20260520-191231/`
+  - router `tmp/wifi/v449-wifi-handoff-result-router-v456-20260520-191231/`
+  - readiness `tmp/wifi/v450-operator-preflight-readiness-v456-20260520-191231/`
+  - secret guard `tmp/wifi/v446-wifi-private-secret-guard-v456-repair2-20260520-191231/`
+- result:
+  - decision `v456-operator-one-session-packet-ready`.
+  - generated one private script for preflight, route/proof, optional live, and final proof.
+  - generated script passed `bash -n` and empty-input fail-closed validation.
+  - V449 and V450 now recommend the V456 one-session script.
+  - no device commands or mutations ran.
+  - `wifi_bringup_executed=False`.
+- interpretation: the next operator step is a single local script. It prompts for Wi-Fi values once, passes them only to V447 child processes, and keeps live gated behind exact `V447-LIVE` confirmation.
+- next execution item: run `bash /home/temmie/dev/A90_5G_rooting/tmp/wifi/v456-operator-one-session-packet-run-20260520-191231/run-v456-one-session-wifi-flow.sh`, enter Wi-Fi values locally, and type `V447-LIVE` only after preflight passes. Server exposure remains blocked.

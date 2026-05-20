@@ -24,6 +24,7 @@ READY_PACKET_DECISIONS = {
     "v448-operator-handoff-packet-ready",
     "v453-operator-postroute-packet-ready",
     "v454-operator-strict-postroute-packet-ready",
+    "v456-operator-one-session-packet-ready",
 }
 
 
@@ -87,6 +88,7 @@ def latest_packet(root: Path) -> dict[str, Any] | None:
         "v448-operator-handoff-packet-run*/manifest.json",
         "v453-operator-postroute-packet-run*/manifest.json",
         "v454-operator-strict-postroute-packet-run*/manifest.json",
+        "v456-operator-one-session-packet-run*/manifest.json",
     ):
         rows.extend(manifests(root, pattern, include_synthetic=True))
     rows.sort(key=lambda item: float(item.get("_mtime") or 0.0))
@@ -99,7 +101,7 @@ def packet_commands(packet: dict[str, Any] | None) -> dict[str, str]:
     payload = packet.get("packet") or {}
     return {
         key: str(payload.get(key) or "")
-        for key in ("preflight_command", "live_command", "preflight_script", "live_script")
+        for key in ("preflight_command", "live_command", "preflight_script", "live_script", "one_session_command", "one_session_script")
         if payload.get(key)
     }
 
@@ -180,7 +182,7 @@ def classify(command: str, state: dict[str, Any]) -> dict[str, Any]:
             return {
                 "decision": "v449-wifi-handoff-packet-ready-run-preflight",
                 "pass": True,
-                "reason": "latest V448/V453/V454 handoff packet is ready and no private V447 preflight result exists yet",
+                "reason": "latest V448/V453/V454/V456 handoff packet is ready and no private V447 preflight result exists yet",
                 "next_gate": "run generated host preflight script",
                 "recommended_command": commands.get("preflight_command", ""),
             }

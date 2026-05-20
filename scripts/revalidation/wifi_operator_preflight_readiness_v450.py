@@ -27,6 +27,7 @@ READY_PACKET_DECISIONS = {
     "v448-operator-handoff-packet-ready",
     "v453-operator-postroute-packet-ready",
     "v454-operator-strict-postroute-packet-ready",
+    "v456-operator-one-session-packet-ready",
 }
 SECRET_LITERAL_RE = re.compile(
     r"(?i)(codex-test-network|12345678|A90_WIFI_(?:SSID|PSK)=['\"][^'\"]+['\"]|"
@@ -77,6 +78,7 @@ def latest_packet(root: Path) -> dict[str, Any] | None:
         "v448-operator-handoff-packet-run*/manifest.json",
         "v453-operator-postroute-packet-run*/manifest.json",
         "v454-operator-strict-postroute-packet-run*/manifest.json",
+        "v456-operator-one-session-packet-run*/manifest.json",
     ):
         for path in repo_path(root).glob(pattern):
             if path.name == "manifest.json":
@@ -203,7 +205,7 @@ def classify(command: str, state: dict[str, Any]) -> dict[str, Any]:
         return {
             "decision": "v450-operator-preflight-v448-not-ready",
             "pass": False,
-            "reason": str(packet.get("reason") or "latest V448/V453/V454 packet did not pass"),
+            "reason": str(packet.get("reason") or "latest V448/V453/V454/V456 packet did not pass"),
             "next_gate": "repair or rerun handoff packet generation",
             "recommended_command": "",
         }
@@ -252,7 +254,7 @@ def classify(command: str, state: dict[str, Any]) -> dict[str, Any]:
     return {
         "decision": "v450-operator-preflight-ready-run-host-preflight",
         "pass": True,
-        "reason": "V448/V453/V454 packet scripts are private and V449 routes the next step to host preflight",
+        "reason": "V448/V453/V454/V456 packet scripts are private and V449 routes the next step to host preflight",
         "next_gate": "run generated host preflight script and enter Wi-Fi values locally",
         "recommended_command": ((packet.get("packet") or {}).get("preflight_command") or ""),
     }
