@@ -2207,3 +2207,12 @@ Samsung bootloader
 - result: exposure-aware Android-managed Wi-Fi stability PASS. V441 used V438 to enable Wi-Fi and V439 to observe 11 samples over 300 seconds. All samples stayed connected/exposed with `wlan0` IP, default route, route-get, validated connectivity, and DNS surface; no global listener was observed. Cleanup disable passed and removed active IP/route/DNS/connectivity exposure. Native rollback restored `A90 Linux init 0.9.61 (v319)`.
 - interpretation: Android-managed Wi-Fi is functionally stable enough for bounded test windows. The next risk boundary is explicit scan/connect and credential/target handling, not basic connectivity. Server exposure remains blocked.
 - next: V442 credential/target allowlist design before explicit scan/connect. Longer stability can be run later, but the immediate design gap is policy-safe credential and target handling.
+
+### V442. Wi-Fi Target Policy Result
+
+- plan: `docs/plans/NATIVE_INIT_V442_WIFI_TARGET_POLICY_PLAN_2026-05-20.md`
+- report: `docs/reports/NATIVE_INIT_V442_WIFI_TARGET_POLICY_2026-05-20.md`
+- host-run evidence: `tmp/wifi/v442-android-wifi-target-policy-hostrun-20260520-174415/`
+- result: host-side target/credential policy gate PASS in template mode. V441 evidence was ready, V442 generated a secret-free target policy template, and the tracked example policy was correctly rejected as not live-ready because it contains a placeholder `ssid_sha256`.
+- interpretation: explicit scan/connect is now blocked on an operator-provided private untracked target policy, not on basic Wi-Fi function. Raw SSID/BSSID/password/passphrase/PSK values must not enter tracked files or evidence.
+- next: V443 private-policy validation plus explicit scan/connect preflight. Do not issue scan/connect until V442 returns `v442-wifi-target-policy-allowlist-ready` for a private policy.

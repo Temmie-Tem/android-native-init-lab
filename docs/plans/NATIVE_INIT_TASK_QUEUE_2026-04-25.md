@@ -8995,3 +8995,23 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
   - `wifi_enable_executed=True`, `wifi_disable_executed=True`, `wifi_bringup_executed=True`.
 - interpretation: Android-managed Wi-Fi is stable enough for bounded Wi-Fi test windows. The next blocker is explicit scan/connect credential and target-network policy, not basic Wi-Fi availability.
 - next execution item: V442 credential/target allowlist design for explicit scan/connect. Server exposure remains blocked until binding, ACL, authentication, and listener policy are explicit.
+
+### V442. Wi-Fi Target Policy — PASS / PRIVATE POLICY REQUIRED
+
+- plan: `docs/plans/NATIVE_INIT_V442_WIFI_TARGET_POLICY_PLAN_2026-05-20.md`
+- report: `docs/reports/NATIVE_INIT_V442_WIFI_TARGET_POLICY_2026-05-20.md`
+- validator: `scripts/revalidation/wifi_android_target_policy_v442.py`
+- example: `docs/operations/WIFI_TARGET_ALLOWLIST_V442.example.json`
+- evidence:
+  - plan `tmp/wifi/v442-android-wifi-target-policy-plan-20260520-174415/`
+  - host-run `tmp/wifi/v442-android-wifi-target-policy-hostrun-20260520-174415/`
+  - example rejection `tmp/wifi/v442-android-wifi-target-policy-example-reject-20260520-174432/`
+- result:
+  - decision `v442-wifi-target-policy-template-pass`.
+  - V441 ready markers were present: stable samples, cleanup containment, and listener safety.
+  - no private policy was provided, so V442 generated a secret-free template and stopped before live readiness.
+  - tracked example policy was correctly rejected because `ssid_sha256` is a placeholder.
+  - V442 did not execute device commands or mutations.
+  - `wifi_bringup_executed=False`.
+- interpretation: explicit scan/connect now has a concrete safety contract. The next blocker is a private untracked target policy containing only hashes/env references, not raw SSID/BSSID/PSK.
+- next execution item: V443 private-policy validation plus explicit scan/connect preflight. Server exposure remains blocked, and scan/connect remains blocked until V442 returns `v442-wifi-target-policy-allowlist-ready` for a private policy.

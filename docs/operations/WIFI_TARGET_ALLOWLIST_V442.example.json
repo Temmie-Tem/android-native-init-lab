@@ -1,0 +1,29 @@
+{
+  "version": "v442",
+  "mode": "explicit-scan-connect-allowlist",
+  "runner_contract": {
+    "allow_start_scan": true,
+    "allow_connect_network": true,
+    "allow_add_network": false,
+    "allow_forget_network_cleanup": true,
+    "allow_external_probes": false,
+    "allow_server_exposure": false,
+    "require_cleanup_disable": true,
+    "require_native_rollback": true
+  },
+  "targets": [
+    {
+      "id": "lab-primary",
+      "ssid_source": "env:A90_WIFI_SSID",
+      "ssid_sha256": "<64 lowercase hex sha256 of SSID bytes>",
+      "security": "wpa2",
+      "credential_source": "env:A90_WIFI_PSK",
+      "autojoin": false,
+      "metered": true,
+      "private": true,
+      "mac_randomization": "non_persistent",
+      "allow_bssid_lock": false,
+      "post_test_cleanup": "forget-network-and-disable-wifi"
+    }
+  ]
+}
