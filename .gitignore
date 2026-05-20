@@ -140,6 +140,14 @@ ssh_keys/
 *.pem
 *.key
 *.p12
+.env
+.env.*
+!.env.example
+!.env.*.example
+wifi-target-policy.private.json
+wifi-target-policy.local.json
+WIFI_TARGET_ALLOWLIST*.private.json
+WIFI_TARGET_ALLOWLIST*.local.json
 
 # =================================
 # IDE/편집기 설정

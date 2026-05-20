@@ -9068,3 +9068,20 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
   - `wifi_bringup_executed=False`.
 - interpretation: V445 live implementation is in place and fail-closed. This is the correct state until real private policy/env values exist.
 - next execution item: set local `A90_WIFI_SSID`/`A90_WIFI_PSK`, run V443 materialization, run V444 ready preflight, then run V445 live. Server exposure remains blocked.
+
+### V446. Wi-Fi Private Secret Guard — PASS / REPO SECRET GUARD READY
+
+- plan: `docs/plans/NATIVE_INIT_V446_WIFI_PRIVATE_SECRET_GUARD_PLAN_2026-05-20.md`
+- report: `docs/reports/NATIVE_INIT_V446_WIFI_PRIVATE_SECRET_GUARD_2026-05-20.md`
+- scanner: `scripts/revalidation/wifi_private_secret_guard_v446.py`
+- evidence:
+  - clean scan `tmp/wifi/v446-wifi-private-secret-guard-postdoc-20260520-181446/`
+  - negative probe `tmp/wifi/v446-wifi-private-secret-guard-negative-20260520-181251/`
+- result:
+  - decision `v446-wifi-private-secret-guard-pass` for current tracked plus untracked repository-visible files.
+  - required `.gitignore` patterns are present for local env and private/local Wi-Fi policy material.
+  - synthetic negative probe returned `v446-wifi-private-secret-guard-findings` with 3 findings, then the probe file was removed.
+  - no device commands or mutations ran.
+  - `wifi_bringup_executed=False`.
+- interpretation: the private credential path is now guarded at the repository boundary. V445 live remains blocked until real local env values are provided and V443/V444 pass.
+- next execution item: set private local env values outside chat/tracked files, run V443 materialization, run V444 preflight, then run V445 live. Server exposure remains blocked.

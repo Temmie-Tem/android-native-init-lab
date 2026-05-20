@@ -2251,3 +2251,14 @@ Samsung bootloader
 - result: V445 bounded explicit scan/connect live runner implemented. Plan/dry-run passed. Missing real policy live attempt was blocked by V444 preflight before Android boot/flash; no device commands, no device mutations, no Wi-Fi bring-up.
 - interpretation: the live runner exists and is fail-closed at the correct boundary. Actual V445 live remains blocked until V443 materializes a private policy and V444 returns ready for that policy.
 - next: set local private env values, run V443, rerun V444, then run V445 live. Server exposure remains blocked.
+
+### V446. Wi-Fi Private Secret Guard Result
+
+- plan: `docs/plans/NATIVE_INIT_V446_WIFI_PRIVATE_SECRET_GUARD_PLAN_2026-05-20.md`
+- report: `docs/reports/NATIVE_INIT_V446_WIFI_PRIVATE_SECRET_GUARD_2026-05-20.md`
+- evidence:
+  - clean scan `tmp/wifi/v446-wifi-private-secret-guard-postdoc-20260520-181446/`
+  - negative probe `tmp/wifi/v446-wifi-private-secret-guard-negative-20260520-181251/`
+- result: repository-side private Wi-Fi secret guard PASS. `.gitignore` now blocks local env and private/local Wi-Fi target policy filenames. The scanner passed on current tracked plus untracked repository-visible files, and a synthetic negative probe correctly failed closed with findings before the probe was removed.
+- interpretation: V445 live is still blocked by missing real private env/policy, but the local credential flow now has a repo guard before V443/V444/V445.
+- next: set local private env values outside chat/tracked files, run V443 materialization, run V444 preflight, then run V445 live. Server exposure remains blocked.
