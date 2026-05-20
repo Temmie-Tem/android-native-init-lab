@@ -94,6 +94,8 @@
 - V413 live read-only result: structured VINTF parser found 46 Wi-Fi-looking declaration candidates, with clean process/netdev surface and no device mutation or Wi-Fi bring-up. Report: `docs/reports/NATIVE_INIT_V413_VINTF_WIFI_DECLARATIONS_LIVE_2026-05-20.md`.
 - V414 planned static/runtime target classifier: rank V413 declarations by source and Wi-Fi target relevance before comparing them with V411 runtime registrations. Plan: `docs/plans/NATIVE_INIT_V414_STATIC_RUNTIME_TARGET_CLASSIFIER_PLAN_2026-05-20.md`.
 - V414 result: ranked 33 static records and selected `vendor.samsung.hardware.wifi@2.0-2::ISehWifi/default` as the primary static comparison target, with runtime match set `@2.0`, `@2.1`, and `@2.2`. Report: `docs/reports/NATIVE_INIT_V414_STATIC_RUNTIME_TARGET_CLASSIFIER_2026-05-20.md`.
+- V415 planned runtime/static comparator: compare V411 binderized runtime registrations with V414 primary/secondary target patterns without any device command. Plan: `docs/plans/NATIVE_INIT_V415_RUNTIME_STATIC_COMPARATOR_PLAN_2026-05-20.md`.
+- V415 result: current V411 blocked evidence routes to `v415-runtime-static-comparator-waiting-for-v411-deploy`; synthetic primary-match smoke routes `vendor.samsung.hardware.wifi@2.1::ISehWifi/default` to `v415-runtime-static-primary-match`. Report: `docs/reports/NATIVE_INIT_V415_RUNTIME_STATIC_COMPARATOR_2026-05-20.md`.
 - next execution item: exact-approved V411 helper v27 deploy only. Required phrase: `approve v411 deploy execns helper v27 only; no daemon start and no Wi-Fi bring-up`.
 
 ## 현재 고정 기준점
