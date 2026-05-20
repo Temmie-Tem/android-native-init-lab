@@ -43,7 +43,7 @@
 #define PR_CAP_AMBIENT_RAISE 2
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v28"
+#define EXECNS_VERSION "a90_android_execns_probe v29"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -141,9 +141,11 @@ static void usage(FILE *out) {
             "[--allow-service-manager-start-only] "
             "[--allow-wifi-hal-start-only] "
             "[--allow-hal-service-query] "
-            "--mode linker-list|identity-probe|cnss-start-only|property-lookup|service-manager-start-only|private-selinux-proof|wifi-hal-composite-start-only|wifi-hal-composite-lshal-list|wifi-hal-composite-lshal-binderized-list|wifi-hal-composite-lshal-wait-target "
+            "--mode linker-list|identity-probe|cnss-start-only|property-lookup|service-manager-start-only|private-selinux-proof|wifi-hal-lshal-vintf-status-list|wifi-hal-composite-start-only|wifi-hal-composite-lshal-list|wifi-hal-composite-lshal-binderized-list|wifi-hal-composite-lshal-wait-target|wifi-hal-composite-lshal-status-list "
             "[v27 binderized query runs: /system/bin/lshal list --types=binderized --neat] "
             "[v28 target query runs: /system/bin/lshal wait <fqinstance>] "
+            "[v29 status query runs: /system/bin/lshal list --types=binderized,vintf --neat -V -S -i -p -e -c] "
+            "[v29 VINTF control runs: /system/bin/lshal list --types=vintf --neat -V -S -i] "
             "--timeout-sec <1..30>\n");
 }
 
@@ -155,17 +157,23 @@ static bool is_wifi_hal_composite_mode(const char *mode) {
     return streq(mode, "wifi-hal-composite-start-only") ||
            streq(mode, "wifi-hal-composite-lshal-list") ||
            streq(mode, "wifi-hal-composite-lshal-binderized-list") ||
-           streq(mode, "wifi-hal-composite-lshal-wait-target");
+           streq(mode, "wifi-hal-composite-lshal-wait-target") ||
+           streq(mode, "wifi-hal-composite-lshal-status-list");
 }
 
 static bool is_wifi_hal_service_query_mode(const char *mode) {
     return streq(mode, "wifi-hal-composite-lshal-list") ||
            streq(mode, "wifi-hal-composite-lshal-binderized-list") ||
-           streq(mode, "wifi-hal-composite-lshal-wait-target");
+           streq(mode, "wifi-hal-composite-lshal-wait-target") ||
+           streq(mode, "wifi-hal-composite-lshal-status-list");
 }
 
 static bool is_wifi_hal_lshal_wait_target_mode(const char *mode) {
     return streq(mode, "wifi-hal-composite-lshal-wait-target");
+}
+
+static bool is_lshal_readonly_query_mode(const char *mode) {
+    return streq(mode, "wifi-hal-lshal-vintf-status-list");
 }
 
 static const char *const A90_WIFI_HAL_WAIT_TARGETS[A90_WIFI_HAL_WAIT_TARGET_COUNT] = {
@@ -366,6 +374,7 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
           streq(cfg->mode, "property-lookup") ||
           streq(cfg->mode, "private-selinux-proof") ||
           streq(cfg->mode, "service-manager-start-only") ||
+          is_lshal_readonly_query_mode(cfg->mode) ||
           is_wifi_hal_composite_mode(cfg->mode)) ||
         !(streq(cfg->capture_mode, "none") ||
           streq(cfg->capture_mode, "ptrace-lite")) ||
@@ -458,6 +467,27 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             return 2;
         }
     }
+    if (is_lshal_readonly_query_mode(cfg->mode)) {
+        if (cfg->linker != NULL) {
+            fprintf(stderr, "--linker is not used by lshal read-only query modes\n");
+            return 2;
+        }
+        if (!streq(cfg->capture_mode, "none")) {
+            fprintf(stderr, "--capture-mode must be none for lshal read-only query modes\n");
+            return 2;
+        }
+        if (!streq(cfg->target, "/system/bin/toybox")) {
+            fprintf(stderr, "lshal read-only query target-profile must be system-toybox\n");
+            return 2;
+        }
+        if (cfg->allow_cnss_start_only ||
+            cfg->allow_service_manager_start_only ||
+            cfg->allow_wifi_hal_start_only ||
+            cfg->allow_hal_service_query) {
+            fprintf(stderr, "lshal read-only query modes do not accept daemon/HAL allow flags\n");
+            return 2;
+        }
+    }
     if (streq(cfg->mode, "private-selinux-proof")) {
         if (cfg->linker != NULL) {
             fprintf(stderr, "--linker is not used by private-selinux-proof mode\n");
@@ -512,6 +542,7 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             return 2;
         }
     } else if (streq(cfg->mode, "service-manager-start-only") ||
+               is_lshal_readonly_query_mode(cfg->mode) ||
                is_wifi_hal_composite_mode(cfg->mode)) {
         if (cfg->property_key != NULL) {
             fprintf(stderr, "--property-key is only valid with property-lookup mode\n");
@@ -5386,6 +5417,13 @@ static int run_lshal_service_query_child(const struct config *cfg,
                                          struct buffer *stderr_buf,
                                          int timeout_ms) {
     const bool binderized_only = streq(cfg->mode, "wifi-hal-composite-lshal-binderized-list");
+    const bool status_columns = streq(cfg->mode, "wifi-hal-composite-lshal-status-list");
+    const bool vintf_status_only = streq(cfg->mode, "wifi-hal-lshal-vintf-status-list");
+    const char *variant = status_columns
+                              ? "binderized-vintf-status"
+                              : (vintf_status_only
+                                     ? "vintf-status-only"
+                                     : (binderized_only ? "binderized-only" : "default"));
     char lshal_host_path[MAX_PATH_LEN];
     int stdout_pipe[2] = {-1, -1};
     int stderr_pipe[2] = {-1, -1};
@@ -5415,7 +5453,7 @@ static int run_lshal_service_query_child(const struct config *cfg,
                   "wifi_hal_service_query.scan_connect_linkup=0\n"
                   "wifi_hal_service_query.credentials=0\n"
                   "wifi_hal_service_query.dhcp_routing=0\n",
-                  binderized_only ? "binderized-only" : "default",
+                  variant,
                   lshal_host_path,
                   access(lshal_host_path, F_OK) == 0 ? 1 : 0,
                   access(lshal_host_path, X_OK) == 0 ? 1 : 0);
@@ -5465,7 +5503,38 @@ static int run_lshal_service_query_child(const struct config *cfg,
             (char *)"--neat",
             NULL,
         };
-        char *const *child_argv = binderized_only ? binderized_argv : default_argv;
+        char *const status_argv[] = {
+            (char *)"/system/bin/lshal",
+            (char *)"list",
+            (char *)"--types=binderized,vintf",
+            (char *)"--neat",
+            (char *)"-V",
+            (char *)"-S",
+            (char *)"-i",
+            (char *)"-p",
+            (char *)"-e",
+            (char *)"-c",
+            NULL,
+        };
+        char *const vintf_status_argv[] = {
+            (char *)"/system/bin/lshal",
+            (char *)"list",
+            (char *)"--types=vintf",
+            (char *)"--neat",
+            (char *)"-V",
+            (char *)"-S",
+            (char *)"-i",
+            NULL,
+        };
+        char *const *child_argv = default_argv;
+
+        if (status_columns) {
+            child_argv = status_argv;
+        } else if (vintf_status_only) {
+            child_argv = vintf_status_argv;
+        } else if (binderized_only) {
+            child_argv = binderized_argv;
+        }
 
         close(stdout_pipe[0]);
         close(stderr_pipe[0]);
@@ -5497,6 +5566,23 @@ static int run_lshal_service_query_child(const struct config *cfg,
             printf("wifi_hal_service_query.child.argv.1=list\n");
             printf("wifi_hal_service_query.child.argv.2=--types=binderized\n");
             printf("wifi_hal_service_query.child.argv.3=--neat\n");
+        } else if (status_columns) {
+            printf("wifi_hal_service_query.child.argv.1=list\n");
+            printf("wifi_hal_service_query.child.argv.2=--types=binderized,vintf\n");
+            printf("wifi_hal_service_query.child.argv.3=--neat\n");
+            printf("wifi_hal_service_query.child.argv.4=-V\n");
+            printf("wifi_hal_service_query.child.argv.5=-S\n");
+            printf("wifi_hal_service_query.child.argv.6=-i\n");
+            printf("wifi_hal_service_query.child.argv.7=-p\n");
+            printf("wifi_hal_service_query.child.argv.8=-e\n");
+            printf("wifi_hal_service_query.child.argv.9=-c\n");
+        } else if (vintf_status_only) {
+            printf("wifi_hal_service_query.child.argv.1=list\n");
+            printf("wifi_hal_service_query.child.argv.2=--types=vintf\n");
+            printf("wifi_hal_service_query.child.argv.3=--neat\n");
+            printf("wifi_hal_service_query.child.argv.4=-V\n");
+            printf("wifi_hal_service_query.child.argv.5=-S\n");
+            printf("wifi_hal_service_query.child.argv.6=-i\n");
         }
         fflush(stdout);
         execv("/system/bin/lshal", child_argv);
@@ -6082,6 +6168,7 @@ static int run_wifi_hal_composite_start_only_guarded(const struct config *cfg,
     struct composite_child children[A90_COMPOSITE_CHILD_COUNT];
     const bool service_query_mode = is_wifi_hal_service_query_mode(cfg->mode);
     const bool wait_target_query_mode = is_wifi_hal_lshal_wait_target_mode(cfg->mode);
+    const bool status_query_mode = streq(cfg->mode, "wifi-hal-composite-lshal-status-list");
     bool all_postflight_safe = true;
     bool any_runtime_gap = false;
     bool all_observable_at_timeout = true;
@@ -6184,7 +6271,7 @@ static int run_wifi_hal_composite_start_only_guarded(const struct config *cfg,
                                                                  paths,
                                                                  stdout_buf,
                                                                  stderr_buf,
-                                                                 3000);
+                                                                 status_query_mode ? 5000 : 3000);
         }
     }
     if (composite_poll_children(children,
@@ -6562,6 +6649,15 @@ int main(int argc, char **argv) {
                                                         &child_exit_code,
                                                         &child_signal,
                                                         &timed_out);
+    } else if (is_lshal_readonly_query_mode(cfg.mode)) {
+        run_rc = run_lshal_service_query_child(&cfg,
+                                               &paths,
+                                               &stdout_buf,
+                                               &stderr_buf,
+                                               cfg.timeout_sec * 1000);
+        child_exit_code = run_rc == 0 ? 0 : run_rc;
+        child_signal = 0;
+        timed_out = run_rc == 12;
     } else if (is_wifi_hal_composite_mode(cfg.mode)) {
         run_rc = run_wifi_hal_composite_start_only_guarded(&cfg,
                                                            &paths,

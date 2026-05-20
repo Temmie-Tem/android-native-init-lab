@@ -2064,3 +2064,24 @@ Samsung bootloader
    - v411 preflight 결과: query read-only preflight는 expected blocker `helper-v27`만 남기고 `lshal-binary`, runtime materials, system_ext VNDK v30, service-manager binaries, process surface, Wi-Fi link surface를 PASS로 확인했다. deploy read-only preflight는 `execns-helper-v27-deploy-preflight-ready-needs-deploy` PASS
    - v411 contract linter: `tmp/wifi/v411-binderized-lshal-linter-20260520-113507/` PASS. helper source, runner, deploy wrapper, approved-plan/noapproval manifests, deploy plan, and read-only preflight all agree on the binderized-only lshal contract. Evidence output uses 0700 directory and 0600 no-follow/exclusive files
    - v411 다음: exact-approved helper v27 deploy only. Required phrase: `approve v411 deploy execns helper v27 only; no daemon start and no Wi-Fi bring-up`
+
+### V428. Explicit lshal Status-Column Probe — RUNTIME-GAP / SAFE CLEANUP
+
+- plan: `docs/plans/NATIVE_INIT_V428_LSHAL_STATUS_COLUMNS_PLAN_2026-05-20.md`
+- report: `docs/reports/NATIVE_INIT_V428_LSHAL_STATUS_COLUMNS_2026-05-20.md`
+- helper: `a90_android_execns_probe v29`
+- helper artifact: `tmp/wifi/v428-a90_android_execns_probe-v29/a90_android_execns_probe`
+- helper SHA256: `fcb1a7440995d018a73d52e74fbdd826102cc3fa93ba5f46d50bdca585f2d1bb`
+- deploy evidence: `tmp/wifi/v428-helper-v29-deploy-live-20260520-141412/`
+- live evidence: `tmp/wifi/v428-lshal-status-query-live-after-selinux-20260520-142354/`
+- result:
+  - deploy decision `execns-helper-v29-deploy-pass`.
+  - live decision `v428-lshal-status-query-runtime-gap`.
+  - VINTF-only native rows include `vendor.samsung.hardware.wifi@2.2::ISehWifi/default` as `declared`.
+  - VINTF-only native rows do not include Samsung `ISehWifi/default` `@2.0` or `@2.1`.
+  - composite status query child timed out: `wifi_hal_service_query.result=service-query-timeout`.
+  - composite children were observable and postflight safe.
+  - postflight process surface and Wi-Fi link surface were clean.
+  - `wifi_bringup_executed=False`.
+- interpretation: native private runtime still does not prove live Samsung Wi-Fi hwservice registration. Android boot-complete remains the richer service surface. Next should split the query into cheaper VINTF-only and binderized-only status probes before deciding on Android-managed Wi-Fi runtime control.
+- next execution item: V429 minimal lshal status split; no Wi-Fi scan/connect/link-up yet.
