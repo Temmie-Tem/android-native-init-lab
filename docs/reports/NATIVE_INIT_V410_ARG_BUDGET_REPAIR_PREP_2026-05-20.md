@@ -70,7 +70,7 @@ V410 arg-budget contract linter:
 
 ```text
 script: scripts/revalidation/wifi_v410_arg_budget_linter.py
-evidence: tmp/wifi/v410-arg-budget-linter-20260520-105712/
+evidence: tmp/wifi/v410-arg-budget-linter-privatewrite-20260520-110025/
 decision: v410-arg-budget-contract-pass
 pass: True
 reason: all V410 arg-budget contract checks passed
@@ -93,6 +93,14 @@ approved-command-arg-budget: pass
 approved-command-query-guard: pass
 approved-command-uses-implicit-data-wifi: pass
 approved-plan-no-device-command: pass
+```
+
+The linter writes evidence with private output handling:
+
+```text
+700 tmp/wifi/v410-arg-budget-linter-privatewrite-20260520-110025
+600 tmp/wifi/v410-arg-budget-linter-privatewrite-20260520-110025/manifest.json
+600 tmp/wifi/v410-arg-budget-linter-privatewrite-20260520-110025/README.md
 ```
 
 ## Fail-Closed Evidence

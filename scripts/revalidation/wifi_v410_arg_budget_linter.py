@@ -63,11 +63,25 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def ensure_private_dir(path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    os.mkdir(path, 0o700)
+    os.chmod(path, 0o700)
+
+
+def safe_write_text(path: Path, text: str) -> None:
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    fd = os.open(path, flags, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as handle:
+        handle.write(text)
+
+
 def main() -> int:
     args = parse_args()
     out_dir = args.out_dir or DEFAULT_OUT_PARENT / f"v410-arg-budget-linter-{now_stamp()}"
-    out_dir.mkdir(parents=True, exist_ok=False)
-    os.chmod(out_dir, 0o700)
+    ensure_private_dir(out_dir)
 
     helper = read_text(HELPER_SOURCE)
     runner = read_text(RUNNER_SOURCE)
@@ -171,18 +185,16 @@ def main() -> int:
         "device_mutations": False,
         "wifi_bringup_executed": False,
     }
-    (out_dir / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    os.chmod(out_dir / "manifest.json", 0o600)
-    (out_dir / "README.md").write_text(
+    safe_write_text(out_dir / "manifest.json", json.dumps(manifest, indent=2, sort_keys=True) + "\n")
+    safe_write_text(
+        out_dir / "README.md",
         "# V410 Arg-Budget Contract Linter\n\n"
         f"- decision: `{manifest['decision']}`\n"
         f"- pass: `{manifest['pass']}`\n"
         f"- reason: {manifest['reason']}\n"
         "- device_commands_executed: `False`\n"
         "- wifi_bringup_executed: `False`\n",
-        encoding="utf-8",
     )
-    os.chmod(out_dir / "README.md", 0o600)
     print(json.dumps({
         "decision": manifest["decision"],
         "pass": manifest["pass"],
