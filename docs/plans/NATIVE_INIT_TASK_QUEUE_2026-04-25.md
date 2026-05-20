@@ -96,6 +96,8 @@
 - V414 result: ranked 33 static records and selected `vendor.samsung.hardware.wifi@2.0-2::ISehWifi/default` as the primary static comparison target, with runtime match set `@2.0`, `@2.1`, and `@2.2`. Report: `docs/reports/NATIVE_INIT_V414_STATIC_RUNTIME_TARGET_CLASSIFIER_2026-05-20.md`.
 - V415 planned runtime/static comparator: compare V411 binderized runtime registrations with V414 primary/secondary target patterns without any device command. Plan: `docs/plans/NATIVE_INIT_V415_RUNTIME_STATIC_COMPARATOR_PLAN_2026-05-20.md`.
 - V415 result: current V411 blocked evidence routes to `v415-runtime-static-comparator-waiting-for-v411-deploy`; synthetic primary-match smoke routes `vendor.samsung.hardware.wifi@2.1::ISehWifi/default` to `v415-runtime-static-primary-match`. Report: `docs/reports/NATIVE_INIT_V415_RUNTIME_STATIC_COMPARATOR_2026-05-20.md`.
+- V416 planned current gate packet: aggregate V411-V415 evidence into one no-device-command gate decision and required next approval phrase. Plan: `docs/plans/NATIVE_INIT_V416_CURRENT_GATE_PACKET_PLAN_2026-05-20.md`.
+- V416 result: current gate packet routes to `v416-current-gate-waiting-for-v411-deploy`, confirms V412-V416 follow-up tooling is ready, and records the only next approval phrase. Report: `docs/reports/NATIVE_INIT_V416_CURRENT_GATE_PACKET_2026-05-20.md`.
 - next execution item: exact-approved V411 helper v27 deploy only. Required phrase: `approve v411 deploy execns helper v27 only; no daemon start and no Wi-Fi bring-up`.
 
 ## 현재 고정 기준점
