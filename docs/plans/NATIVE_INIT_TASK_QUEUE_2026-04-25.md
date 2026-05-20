@@ -8839,3 +8839,21 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
   - `wifi_bringup_executed=False`.
 - interpretation: Android-managed Wi-Fi is functional enough to auto-connect without the V432 test causing it. The next gate is no longer enable-only; it must characterize and contain already-connected state before any explicit scan/connect or server exposure.
 - next execution item: V433 Android Wi-Fi auto-connect containment/stability gate. Keep scan/connect/credentials/routing blocked until containment and cleanup behavior are proven.
+
+### V433. Android Wi-Fi Auto-connect Containment — PASS / EXPOSURE MAPPED
+
+- plan: `docs/plans/NATIVE_INIT_V433_ANDROID_WIFI_AUTOCONNECT_CONTAINMENT_PLAN_2026-05-20.md`
+- report: `docs/reports/NATIVE_INIT_V433_ANDROID_WIFI_AUTOCONNECT_CONTAINMENT_2026-05-20.md`
+- collector: `scripts/revalidation/wifi_android_autoconnect_containment_v433.py`
+- handoff: `scripts/revalidation/android_wifi_autoconnect_containment_handoff_v433.py`
+- corrected live evidence: `tmp/wifi/v433-android-autoconnect-containment-handoff-live-redactfix2-20260520-160156/`
+- result:
+  - decision `v433-android-wifi-autoconnect-exposure-mapped`.
+  - Android boot-complete passed and native rollback restored `A90 Linux init 0.9.61 (v319)`.
+  - Wi-Fi remained connected and stable across the V433 sample window.
+  - state markers: `wifi_connected=True`, `wlan0_has_ip=True`, `default_route_wlan=True`, `route_get_wlan=True`, `connectivity_validated_wifi=True`, `dns_surface_wlan=True`.
+  - `global_listener_observed=False`.
+  - V433 did not issue Wi-Fi enable, scan, connect, credentials, DHCP/routing changes, external packet probes, rfkill/sysfs writes, module operations, `setprop`, or direct daemon starts.
+  - `wifi_bringup_executed=False`.
+- interpretation: Android auto-connect is a real external-exposure surface before explicit test commands. The next gate must choose a policy: disable/contain auto-connect for lab work, or explicitly accept it and continue with exposure-aware stability sampling.
+- next execution item: V434 Android Wi-Fi auto-connect policy gate. Do not proceed to server exposure or explicit scan/connect until the policy is chosen and verified.

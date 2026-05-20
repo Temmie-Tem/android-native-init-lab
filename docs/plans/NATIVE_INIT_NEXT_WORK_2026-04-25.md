@@ -2131,3 +2131,11 @@ Samsung bootloader
 - live evidence: `tmp/wifi/v432-android-control-gate-handoff-live-classifierfix-20260520-154009/`
 - result: Android boot-complete handoff and native rollback PASS. Android Wi-Fi was already enabled and connected from saved framework state by boot-complete, with `wifi_connected=True`, `android_auto_connect_observed=True`, and `wlan0_has_ip=True`. V432 did not issue enable/scan/connect/credential/routing operations and `wifi_bringup_executed=False`.
 - next: V433 Android Wi-Fi auto-connect containment/stability gate. Do not proceed to scan/connect or server exposure until routing exposure, stability, cleanup, and intentional-disable behavior are characterized.
+
+### V433. Android Wi-Fi Auto-connect Containment Result
+
+- plan: `docs/plans/NATIVE_INIT_V433_ANDROID_WIFI_AUTOCONNECT_CONTAINMENT_PLAN_2026-05-20.md`
+- report: `docs/reports/NATIVE_INIT_V433_ANDROID_WIFI_AUTOCONNECT_CONTAINMENT_2026-05-20.md`
+- live evidence: `tmp/wifi/v433-android-autoconnect-containment-handoff-live-redactfix2-20260520-160156/`
+- result: Android boot-complete handoff and native rollback PASS. Wi-Fi auto-connect was stable, `wlan0` had IP, default-route/local-route evidence pointed to `wlan0`, Android connectivity was validated, DNS surface was present, and no global listening sockets were observed. V433 did not send external probes or mutate Wi-Fi state; `wifi_bringup_executed=False`.
+- next: V434 Android Wi-Fi auto-connect policy gate. Decide whether lab runs should disable/contain Android auto-connect or explicitly accept it for longer exposure-aware stability testing before any server exposure or explicit scan/connect work.
