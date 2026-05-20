@@ -66,6 +66,35 @@ wifi_bringup_executed: False
 The approved command remains under the 30-argument limit while helper v26 keeps
 the private Wi-Fi data boundary.
 
+V410 arg-budget contract linter:
+
+```text
+script: scripts/revalidation/wifi_v410_arg_budget_linter.py
+evidence: tmp/wifi/v410-arg-budget-linter-20260520-105712/
+decision: v410-arg-budget-contract-pass
+pass: True
+reason: all V410 arg-budget contract checks passed
+device_commands_executed: False
+device_mutations: False
+wifi_bringup_executed: False
+```
+
+The linter checks the helper source, V410 runner, V410 deploy wrapper, and the
+approved-plan manifest together.  It proves:
+
+```text
+helper-v26-version: pass
+helper-implicit-data-wifi-default: pass
+helper-data-wifi-allowlist: pass
+runner-v26-sha: pass
+runner-records-implicit-contract: pass
+deploy-v26-sha-and-guard: pass
+approved-command-arg-budget: pass
+approved-command-query-guard: pass
+approved-command-uses-implicit-data-wifi: pass
+approved-plan-no-device-command: pass
+```
+
 ## Fail-Closed Evidence
 
 V410 helper deploy plan:

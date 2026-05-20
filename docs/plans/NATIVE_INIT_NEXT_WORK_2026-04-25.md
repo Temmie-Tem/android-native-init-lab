@@ -2051,4 +2051,5 @@ Samsung bootloader
    - v410 배경: exact-approved v409 query plan에서 command length는 29였지만 `--data-wifi-mode private-empty`가 빠졌다. live query에서 V407과 같은 private `/data/vendor/wifi` boundary를 유지하려면 배포 전 수정이 필요했다
    - v410 결과: helper v26은 `wifi-hal-composite-lshal-list` mode에서 `--data-wifi-mode`가 생략되면 `private-empty`를 기본값으로 설정한다. approved V410 query plan은 command length 29, `--allow-hal-service-query` present, `helper_implicit_data_wifi_mode=private-empty`, device commands false
    - v410 preflight 결과: deploy plan/preflight/no-approval PASS. query read-only preflight는 `lshal-binary` PASS와 `helper-v26` blocker만 확인했다. device mutation, daemon start, HAL start, Wi-Fi bring-up은 모두 false
+   - v410 contract linter: `tmp/wifi/v410-arg-budget-linter-20260520-105712/` PASS. helper source default, data-wifi allowlist, runner implicit plan marker, deploy v26 guard, approved command arg budget, query guard, and host-only manifest contract all agree
    - v410 다음: `approve v410 deploy execns helper v26 only; no daemon start and no Wi-Fi bring-up` 승인 시 helper v26 deploy만 수행한다. V409 deploy approval은 superseded이므로 사용하지 않는다
