@@ -42,7 +42,9 @@
 - latest V402 live report: `docs/reports/NATIVE_INIT_V402_PRIVATE_SELINUX_SURFACE_PROOF_LIVE_2026-05-20.md`.
 - V403 packet result: bounded service-manager start-only retry runner and approval packet are ready; no live service-manager start or Wi-Fi bring-up has been executed.
 - latest V403 packet report: `docs/reports/NATIVE_INIT_V403_SERVICE_MANAGER_START_ONLY_RETRY_APPROVAL_PACKET_2026-05-20.md`.
-- next execution item: exact-approved V403 bounded service-manager start-only retry. Wi-Fi HAL/start/scan/connect remains blocked.
+- V403 live result: exact-approved bounded service-manager start-only retry PASS; `servicemanager` and `hwservicemanager` both observed until timeout, cleaned, and reaped; Wi-Fi bring-up remained false.
+- latest V403 live report: `docs/reports/NATIVE_INIT_V403_SERVICE_MANAGER_START_ONLY_RETRY_LIVE_2026-05-20.md`.
+- next execution item: V404 private-composite Wi-Fi HAL readiness packet. Wi-Fi scan/connect/link-up remains blocked.
 
 ## 현재 고정 기준점
 

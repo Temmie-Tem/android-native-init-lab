@@ -1952,3 +1952,9 @@ Samsung bootloader
    - v403 결과: `scripts/revalidation/wifi_service_manager_start_only_v403_live_runner.py`와 approval packet을 준비했다. runner plan/preflight/no-approval refusal 모두 PASS했고 packet decision은 `v403-service-manager-start-only-retry-approval-packet-ready`
    - v403 실행 조건: exact `approve v403 service-manager start-only retry only; no Wi-Fi HAL start and no Wi-Fi bring-up` 필요
    - v403 다음: 승인 시 bounded service-manager/hwservicemanager start-only retry를 실행하고 결과를 라우팅한다. Wi-Fi HAL/start/scan/connect는 계속 blocked
+
+   - v403 live report: `docs/reports/NATIVE_INIT_V403_SERVICE_MANAGER_START_ONLY_RETRY_LIVE_2026-05-20.md`
+   - v403 live evidence: `tmp/wifi/v403-service-manager-start-only-retry-live-20260520-085702/`, postflight `tmp/wifi/v403-service-manager-start-only-postflight-20260520-085747/`
+   - v403 live 결과: `service-manager-start-only-live-pass`. `servicemanager`와 `hwservicemanager` 모두 bounded observation window 동안 살아 있었고, timeout 후 terminate/reap/postflight clean을 증명했다. Wi-Fi bring-up은 없음
+   - v403 supplemental HAL gate: old V364 gate refresh는 global/current runtime 기준이라 `current-binder-devnodes`, `current-service-manager-processes`, `current-property-runtime`, `linkerconfig-visibility` blocker로 남는다. 이는 V403 private helper-owned namespace PASS와 충돌하지 않는다
+   - v403 다음: V404 private-composite Wi-Fi HAL readiness packet. V403-proven service-manager/hwservicemanager pair를 같은 bounded helper-owned runtime 안에서 유지하는 설계를 먼저 만든 뒤 HAL start-only를 별도 승인으로 분리한다. Wi-Fi scan/connect/link-up/credentials remain blocked
