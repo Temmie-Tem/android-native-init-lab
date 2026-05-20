@@ -8960,3 +8960,20 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
   - `wifi_disable_executed=True`, `wifi_bringup_executed=False`.
 - interpretation: Android-managed Wi-Fi is functional and saved auto-connect produces external network exposure. The cleanup path is reliable enough to restore the contained lab baseline. This still does not approve server exposure or explicit scan/connect.
 - next execution item: V440 Android Wi-Fi control policy after proven auto-connect. Choose contained lab mode, exposure-aware observation mode, or explicit scan/connect mode with credential/target allowlist handling before continuing.
+
+### V440. Android Wi-Fi Control Policy — PASS / CONTAINED LAB DEFAULT
+
+- plan: `docs/plans/NATIVE_INIT_V440_ANDROID_WIFI_CONTROL_POLICY_PLAN_2026-05-20.md`
+- report: `docs/reports/NATIVE_INIT_V440_ANDROID_WIFI_CONTROL_POLICY_2026-05-20.md`
+- selector: `scripts/revalidation/wifi_android_control_policy_v440.py`
+- evidence:
+  - plan `tmp/wifi/v440-android-wifi-control-policy-plan-20260520-171835/`
+  - host-run `tmp/wifi/v440-android-wifi-control-policy-hostrun-20260520-171835/`
+- result:
+  - decision `v440-android-wifi-policy-contained-lab-default-pass`.
+  - policy `contained-lab-default`.
+  - input V439 evidence proved Android-managed auto-connect exposure (`exposure_seen=True`, `first_exposure_phase=sample-000`) and cleanup containment (`cleanup_ok=True`, `cleanup_contained=True`).
+  - V440 did not execute device commands or mutations.
+  - `wifi_bringup_executed=False`.
+- interpretation: Wi-Fi is functional in Android-managed mode, but lab default should remain disabled unless a bounded Wi-Fi test is active. This prevents accidental external exposure before serverization security policy exists.
+- next execution item: V441 planning. Choose exposure-aware Wi-Fi stability observation with cleanup, or explicit scan/connect credential/target allowlist design. Server exposure remains blocked.
