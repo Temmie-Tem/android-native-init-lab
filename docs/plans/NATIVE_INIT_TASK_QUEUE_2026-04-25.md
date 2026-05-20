@@ -90,6 +90,8 @@
 - V411 current read-only preflight result: deploy preflight is ready but still needs helper v27 deploy; binderized query preflight is blocked only by remote helper-v27 and approval gate. Report: `docs/reports/NATIVE_INIT_V411_CURRENT_PREFLIGHT_2026-05-20.md`.
 - V412 planned next-branch router: classify V411 binderized registration evidence into deploy-wait, live-query-wait, Wi-Fi-service-candidates-ready, no-wifi-service, micro-query-needed, or tool-missing without any device command. Plan: `docs/plans/NATIVE_INIT_V412_REGISTRATION_RESULT_ROUTER_PLAN_2026-05-20.md`.
 - V412 prep result: `scripts/revalidation/wifi_v412_registration_result_router.py` routes the current V411 blocked preflight to `v412-registration-router-waiting-for-v411-deploy`, executes no device command or mutation, and preserves the no-Wi-Fi-bring-up boundary. Report: `docs/reports/NATIVE_INIT_V412_REGISTRATION_RESULT_ROUTER_PREP_2026-05-20.md`.
+- V413 planned read-only VINTF Wi-Fi declaration collector: gather static Wi-Fi-looking VINTF service declarations and keep them separate from V411 runtime registration evidence. Plan: `docs/plans/NATIVE_INIT_V413_VINTF_WIFI_DECLARATIONS_PLAN_2026-05-20.md`.
+- V413 live read-only result: structured VINTF parser found 46 Wi-Fi-looking declaration candidates, with clean process/netdev surface and no device mutation or Wi-Fi bring-up. Report: `docs/reports/NATIVE_INIT_V413_VINTF_WIFI_DECLARATIONS_LIVE_2026-05-20.md`.
 - next execution item: exact-approved V411 helper v27 deploy only. Required phrase: `approve v411 deploy execns helper v27 only; no daemon start and no Wi-Fi bring-up`.
 
 ## 현재 고정 기준점
