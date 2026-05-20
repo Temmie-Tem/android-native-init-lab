@@ -2391,3 +2391,15 @@ Samsung bootloader
 - result: outcome gate PASS. Current state is `v457-wifi-session-awaiting-operator` because V456 is ready and no real V447 preflight/live evidence exists yet.
 - interpretation: V457 is the no-secret post-run classifier. After the operator runs V456, V457 summarizes whether the session is blocked, live-pending, cleanup-proof-pending, or ready for bounded stability/server-binding policy.
 - next: run the V456 one-session script locally, then run `python3 scripts/revalidation/wifi_operator_session_outcome_v457.py run`. Server exposure remains blocked.
+
+### V458. Wi-Fi Operator Session Bundle Result
+
+- plan: `docs/plans/NATIVE_INIT_V458_WIFI_OPERATOR_SESSION_BUNDLE_PLAN_2026-05-20.md`
+- report: `docs/reports/NATIVE_INIT_V458_WIFI_OPERATOR_SESSION_BUNDLE_2026-05-20.md`
+- evidence:
+  - plan `tmp/wifi/v458-wifi-operator-session-bundle-plan-20260520-192406/`
+  - run `tmp/wifi/v458-wifi-operator-session-bundle-run-20260520-192406/`
+  - secret guard `tmp/wifi/v446-wifi-private-secret-guard-v458-20260520-192406/`
+- result: sanitized session bundle PASS. Current state is `v458-wifi-session-bundle-awaiting-operator` with `leak_findings=0`.
+- interpretation: after V456 runs, V457 should classify the result and V458 should package the current evidence as a sanitized index without copying raw captures.
+- next: run the V456 one-session script locally, then run V457 and V458. Server exposure remains blocked.

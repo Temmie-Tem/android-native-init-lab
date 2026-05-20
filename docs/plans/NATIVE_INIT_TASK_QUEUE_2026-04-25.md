@@ -9302,3 +9302,22 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
   - `wifi_bringup_executed=False`.
 - interpretation: V457 gives a no-secret current-state summary before or after the one-session operator script. Current blocker remains local Wi-Fi input, not repo-side readiness.
 - next execution item: run the V456 one-session script locally, then run `python3 scripts/revalidation/wifi_operator_session_outcome_v457.py run`. Server exposure remains blocked.
+
+### V458. Wi-Fi Operator Session Bundle — PASS / SANITIZED INDEX READY
+
+- plan: `docs/plans/NATIVE_INIT_V458_WIFI_OPERATOR_SESSION_BUNDLE_PLAN_2026-05-20.md`
+- report: `docs/reports/NATIVE_INIT_V458_WIFI_OPERATOR_SESSION_BUNDLE_2026-05-20.md`
+- bundle gate: `scripts/revalidation/wifi_operator_session_bundle_v458.py`
+- evidence:
+  - plan `tmp/wifi/v458-wifi-operator-session-bundle-plan-20260520-192406/`
+  - run `tmp/wifi/v458-wifi-operator-session-bundle-run-20260520-192406/`
+  - secret guard `tmp/wifi/v446-wifi-private-secret-guard-v458-20260520-192406/`
+- result:
+  - decision `v458-wifi-session-bundle-awaiting-operator`.
+  - leak audit findings `0`.
+  - bundle writes a sanitized session index rather than copying raw captures.
+  - no Wi-Fi secrets were read.
+  - no device commands or mutations ran.
+  - `wifi_bringup_executed=False`.
+- interpretation: V458 provides the post-run review package path. Current blocker remains local Wi-Fi input.
+- next execution item: run the V456 one-session script locally, then run V457 and V458. Server exposure remains blocked.
