@@ -238,6 +238,17 @@ def read_capture_text(captures: list[CaptureRecord], name: str) -> str:
     return ""
 
 
+def read_capture_file_text(store: EvidenceStore, captures: list[CaptureRecord], name: str) -> str:
+    for capture in captures:
+        if capture.name != name:
+            continue
+        path = store.run_dir / capture.file
+        if not path.exists():
+            return capture.text
+        return path.read_text(encoding="utf-8", errors="replace")
+    return ""
+
+
 def adb_state(args: argparse.Namespace, store: EvidenceStore) -> tuple[list[CaptureRecord], str]:
     captures = [
         capture_command(store, "adb-devices", [*adb_base(args), "devices", "-l"], args.timeout),
@@ -305,12 +316,12 @@ def collect_android(args: argparse.Namespace, store: EvidenceStore) -> tuple[lis
     return captures, state
 
 
-def classify(args: argparse.Namespace, captures: list[CaptureRecord], state: str, v422: dict[str, Any]) -> dict[str, Any]:
-    lshal_text = read_capture_text(captures, "lshal-binderized-neat") + "\n" + read_capture_text(captures, "lshal-wifi-filter")
-    service_text = read_capture_text(captures, "service-list-wifi") + "\n" + read_capture_text(captures, "dumpsys-service-names-wifi")
-    process_text = read_capture_text(captures, "service-processes")
-    vintf_text = read_capture_text(captures, "vintf-wifi-hal")
-    netdev_text = read_capture_text(captures, "netdev-rfkill-readonly")
+def classify(args: argparse.Namespace, store: EvidenceStore, captures: list[CaptureRecord], state: str, v422: dict[str, Any]) -> dict[str, Any]:
+    lshal_text = read_capture_file_text(store, captures, "lshal-binderized-neat") + "\n" + read_capture_file_text(store, captures, "lshal-wifi-filter")
+    service_text = read_capture_file_text(store, captures, "service-list-wifi") + "\n" + read_capture_file_text(store, captures, "dumpsys-service-names-wifi")
+    process_text = read_capture_file_text(store, captures, "service-processes")
+    vintf_text = read_capture_file_text(store, captures, "vintf-wifi-hal")
+    netdev_text = read_capture_file_text(store, captures, "netdev-rfkill-readonly")
     wifi_lshal_lines = unique_matching_lines(lshal_text)
     wifi_service_lines = unique_matching_lines(service_text)
     wifi_process_lines = unique_matching_lines(process_text)
@@ -418,7 +429,7 @@ def run_preflight(args: argparse.Namespace, store: EvidenceStore) -> dict[str, A
 def run_capture_mode(args: argparse.Namespace, store: EvidenceStore) -> dict[str, Any]:
     v422 = load_v422(args)
     captures, state = collect_android(args, store)
-    classification = classify(args, captures, state, v422)
+    classification = classify(args, store, captures, state, v422)
     return {
         "generated_at": now_iso(),
         "command": "run",

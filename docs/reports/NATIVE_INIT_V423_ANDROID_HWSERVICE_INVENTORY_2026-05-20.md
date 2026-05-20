@@ -82,3 +82,10 @@ The next useful step is a bounded Android handoff/rollback packet:
 
 Wi-Fi bring-up remains blocked until Android-side registration evidence and the
 native private-runtime gap are reconciled.
+
+## V424 Follow-up Correction
+
+V424 live evidence showed that `lshal list --types=binderized --neat` can place
+Samsung Wi-Fi target rows after the truncated manifest preview.  The V423
+classifier now reads the full private command evidence files for matching while
+still keeping the manifest preview bounded.
