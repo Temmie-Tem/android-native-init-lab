@@ -9085,3 +9085,21 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
   - `wifi_bringup_executed=False`.
 - interpretation: the private credential path is now guarded at the repository boundary. V445 live remains blocked until real local env values are provided and V443/V444 pass.
 - next execution item: set private local env values outside chat/tracked files, run V443 materialization, run V444 preflight, then run V445 live. Server exposure remains blocked.
+
+### V447. Wi-Fi Explicit Connect Flow — READY / REAL ENV BLOCKED
+
+- plan: `docs/plans/NATIVE_INIT_V447_WIFI_EXPLICIT_CONNECT_FLOW_PLAN_2026-05-20.md`
+- report: `docs/reports/NATIVE_INIT_V447_WIFI_EXPLICIT_CONNECT_FLOW_2026-05-20.md`
+- runner: `scripts/revalidation/wifi_explicit_connect_flow_v447.py`
+- evidence:
+  - plan `tmp/wifi/v447-explicit-connect-flow-plan-final2-20260520-182148/`
+  - env-missing `tmp/wifi/v447-explicit-connect-flow-env-missing-final2-20260520-182148/`
+  - synthetic preflight `tmp/wifi/v447-explicit-connect-flow-synthetic-final2-20260520-182148/`
+- result:
+  - decision `v447-explicit-connect-flow-v443-blocked` for the current real environment because private env values are absent.
+  - synthetic host-only path reached `v447-explicit-connect-flow-preflight-ready`.
+  - synthetic V447 evidence leak scan was clean.
+  - no device commands or mutations ran.
+  - `wifi_bringup_executed=False`.
+- interpretation: V446/V443/V444/V445 sequencing is now automated behind one gate. Real explicit Wi-Fi connect remains blocked only on local private env values and then live approval flags.
+- next execution item: set private local env values outside chat/tracked files, run V447 host preflight, then rerun V447 with `--allow-live-v445` and V445 live flags for bounded explicit scan/connect. Server exposure remains blocked.

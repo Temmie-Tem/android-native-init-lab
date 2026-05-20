@@ -2262,3 +2262,15 @@ Samsung bootloader
 - result: repository-side private Wi-Fi secret guard PASS. `.gitignore` now blocks local env and private/local Wi-Fi target policy filenames. The scanner passed on current tracked plus untracked repository-visible files, and a synthetic negative probe correctly failed closed with findings before the probe was removed.
 - interpretation: V445 live is still blocked by missing real private env/policy, but the local credential flow now has a repo guard before V443/V444/V445.
 - next: set local private env values outside chat/tracked files, run V443 materialization, run V444 preflight, then run V445 live. Server exposure remains blocked.
+
+### V447. Wi-Fi Explicit Connect Flow Result
+
+- plan: `docs/plans/NATIVE_INIT_V447_WIFI_EXPLICIT_CONNECT_FLOW_PLAN_2026-05-20.md`
+- report: `docs/reports/NATIVE_INIT_V447_WIFI_EXPLICIT_CONNECT_FLOW_2026-05-20.md`
+- evidence:
+  - plan `tmp/wifi/v447-explicit-connect-flow-plan-final2-20260520-182148/`
+  - env-missing `tmp/wifi/v447-explicit-connect-flow-env-missing-final2-20260520-182148/`
+  - synthetic preflight `tmp/wifi/v447-explicit-connect-flow-synthetic-final2-20260520-182148/`
+- result: one-command gated flow implemented. Current real env state blocks at V443 because `A90_WIFI_SSID` and `A90_WIFI_PSK` are absent. Synthetic host-only flow passed V446, V443, and V444 and stopped before V445 live.
+- interpretation: manual sequencing is no longer the blocker. The next blocker is local private Wi-Fi env input, followed by a V447 host preflight and explicit V447/V445 live run.
+- next: set private local env values outside chat/tracked files, run V447 host preflight, then rerun V447 with live flags for bounded explicit scan/connect. Server exposure remains blocked.
