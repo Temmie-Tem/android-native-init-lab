@@ -2085,3 +2085,25 @@ Samsung bootloader
   - `wifi_bringup_executed=False`.
 - interpretation: native private runtime still does not prove live Samsung Wi-Fi hwservice registration. Android boot-complete remains the richer service surface. Next should split the query into cheaper VINTF-only and binderized-only status probes before deciding on Android-managed Wi-Fi runtime control.
 - next execution item: V429 minimal lshal status split; no Wi-Fi scan/connect/link-up yet.
+
+### V429. Minimal lshal Status Split — RUNTIME-GAP / SAFE CLEANUP
+
+- plan: `docs/plans/NATIVE_INIT_V429_LSHAL_MINIMAL_SPLIT_PLAN_2026-05-20.md`
+- report: `docs/reports/NATIVE_INIT_V429_LSHAL_MINIMAL_SPLIT_2026-05-20.md`
+- helper: `a90_android_execns_probe v30`
+- helper artifact: `tmp/wifi/v429-a90_android_execns_probe-v30/a90_android_execns_probe`
+- helper SHA256: `65b279db9f5a66979140b71688cd3998ddc5832c1ca374e2187db981d5c17757`
+- deploy evidence: `tmp/wifi/v429-helper-v30-deploy-live-20260520-143348/`
+- live evidence: `tmp/wifi/v429-lshal-minimal-split-live-20260520-144031/`
+- result:
+  - deploy decision `execns-helper-v30-deploy-pass`.
+  - live decision `v429-lshal-minimal-split-runtime-gap`.
+  - VINTF-only native rows include `vendor.samsung.hardware.wifi@2.2::ISehWifi/default` as `declared`.
+  - VINTF-only native rows do not include Samsung `ISehWifi/default` `@2.0` or `@2.1`.
+  - binderized-only status query child timed out: `wifi_hal_service_query.result=service-query-timeout`.
+  - query argv was reduced to `/system/bin/lshal list --types=binderized --neat -S`.
+  - composite children were observable and postflight safe.
+  - postflight process surface and Wi-Fi link surface were clean.
+  - `wifi_bringup_executed=False`.
+- interpretation: V429 rules out V428's heavy `-p -e -c` and mixed `binderized,vintf` output as the main cause. Native private runtime still cannot return Samsung Wi-Fi binderized registrations. Android boot-complete evidence remains the stronger path.
+- next execution item: V430 Android explicit-column mirror. Boot Android to `sys.boot_completed=1`, run read-only minimal `lshal` status commands, restore native v319, then decide Android-managed runtime pivot versus further native reconstruction.
