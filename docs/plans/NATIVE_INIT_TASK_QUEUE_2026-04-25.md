@@ -9177,3 +9177,21 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
   - `wifi_bringup_executed=False`.
 - interpretation: the generated handoff scripts are structurally valid, shell-syntax valid, and fail closed on accidental empty/cancel input.
 - next execution item: run `bash /home/temmie/dev/A90_5G_rooting/tmp/wifi/v448-operator-handoff-packet-run-final-20260520-182644/run-v447-host-preflight.sh`, enter Wi-Fi values locally, then rerun V449/V450. Server exposure remains blocked.
+
+### V452. Wi-Fi Live Cleanup Proof — READY / AWAITING LIVE
+
+- plan: `docs/plans/NATIVE_INIT_V452_WIFI_LIVE_CLEANUP_PROOF_PLAN_2026-05-20.md`
+- report: `docs/reports/NATIVE_INIT_V452_WIFI_LIVE_CLEANUP_PROOF_2026-05-20.md`
+- gate: `scripts/revalidation/wifi_live_cleanup_proof_v452.py`
+- evidence:
+  - pre-live run `tmp/wifi/v452-wifi-live-cleanup-proof-run-final-20260520-184611/`
+  - synthetic pass `tmp/wifi/v452-wifi-live-cleanup-proof-synth-pass-final-20260520-184611/`
+  - synthetic blocked cleanup `tmp/wifi/v452-wifi-live-cleanup-proof-synth-block-final-20260520-184611/`
+- result:
+  - current real decision `v452-wifi-live-cleanup-proof-awaiting-live`.
+  - synthetic complete cleanup evidence reached `v452-wifi-live-cleanup-proof-pass`.
+  - synthetic incomplete cleanup evidence reached `v452-wifi-live-cleanup-proof-blocked`.
+  - no device commands or mutations ran.
+  - `wifi_bringup_executed=False`.
+- interpretation: V452 defines the post-live proof boundary. It is intentionally awaiting live now, but will block future stability/server work unless V447/V445 live cleanup evidence is complete.
+- next execution item: run the generated host preflight script, enter Wi-Fi values locally, run live if routed, then run V452 before post-live stability/server policy. Server exposure remains blocked.

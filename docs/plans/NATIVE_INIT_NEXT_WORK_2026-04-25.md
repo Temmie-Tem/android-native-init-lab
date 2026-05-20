@@ -2318,3 +2318,15 @@ Samsung bootloader
 - result: operator script validation PASS. V451 validated generated V448 host preflight/live scripts with `bash -n`, verified host preflight empty-input fail-closed behavior, and verified live cancellation fail-closed behavior.
 - interpretation: generated operator scripts now have syntax and fail-closed prompt validation in addition to V450 structural/private-mode validation.
 - next: run the generated host preflight script, enter Wi-Fi values locally, then rerun V449/V450. Server exposure remains blocked.
+
+### V452. Wi-Fi Live Cleanup Proof Result
+
+- plan: `docs/plans/NATIVE_INIT_V452_WIFI_LIVE_CLEANUP_PROOF_PLAN_2026-05-20.md`
+- report: `docs/reports/NATIVE_INIT_V452_WIFI_LIVE_CLEANUP_PROOF_2026-05-20.md`
+- evidence:
+  - pre-live run `tmp/wifi/v452-wifi-live-cleanup-proof-run-final-20260520-184611/`
+  - synthetic pass `tmp/wifi/v452-wifi-live-cleanup-proof-synth-pass-final-20260520-184611/`
+  - synthetic blocked cleanup `tmp/wifi/v452-wifi-live-cleanup-proof-synth-block-final-20260520-184611/`
+- result: post-live cleanup proof gate implemented. Current real state is `v452-wifi-live-cleanup-proof-awaiting-live`, which is expected before private host preflight/live. Synthetic pass and blocked-cleanup paths verified that the gate accepts complete cleanup evidence and fails closed on incomplete cleanup.
+- interpretation: after eventual V447 live, V452 must pass before Wi-Fi stability or server binding work proceeds.
+- next: run the generated host preflight script, enter Wi-Fi values locally, run live if routed, then run V452 on live evidence. Server exposure remains blocked.
