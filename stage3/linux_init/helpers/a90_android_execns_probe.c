@@ -43,7 +43,7 @@
 #define PR_CAP_AMBIENT_RAISE 2
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v25"
+#define EXECNS_VERSION "a90_android_execns_probe v26"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -324,6 +324,11 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
     } else {
         fprintf(stderr, "unknown --target-profile\n");
         return 2;
+    }
+
+    if (streq(cfg->mode, "wifi-hal-composite-lshal-list") &&
+        streq(cfg->data_wifi_mode, "none")) {
+        cfg->data_wifi_mode = "private-empty";
     }
 
     if (!streq(cfg->system_root, "/mnt/system/system") ||

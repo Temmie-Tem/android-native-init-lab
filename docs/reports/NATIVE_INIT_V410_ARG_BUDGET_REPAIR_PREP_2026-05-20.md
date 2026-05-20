@@ -1,0 +1,181 @@
+# Native Init v410 Registration Query Arg-Budget Repair Prep
+
+## Summary
+
+V410 supersedes V409 before live deploy.
+
+The V409 approved query command stayed under the native shell argument limit by
+dropping `--data-wifi-mode private-empty`.  V410 repairs this by moving the
+private-empty Wi-Fi data boundary into helper v26 defaults for
+`wifi-hal-composite-lshal-list`.
+
+No helper deploy, daemon start, HAL start, `lshal` execution, or Wi-Fi bring-up
+was executed in V410 prep.
+
+## Build Evidence
+
+Helper v26:
+
+```text
+artifact: tmp/wifi/v410-a90_android_execns_probe-v26/a90_android_execns_probe
+sha256: daf1b59e2475c0db28fb99eb83f8be02a46f695d8c4e435c47e68f45370a7caa
+file: ELF 64-bit LSB executable, ARM aarch64, statically linked, stripped
+dynamic section: none
+```
+
+Required strings:
+
+```text
+a90_android_execns_probe v26
+wifi-hal-composite-lshal-list
+private-empty
+--allow-hal-service-query
+```
+
+## Arg-Budget Evidence
+
+V409 approved plan argcheck:
+
+```text
+evidence: tmp/wifi/v409-registration-query-approved-plan-argcheck-20260520-104659/
+decision: v409-hal-registration-query-plan-ready
+command_len: 29
+has_data_wifi: False
+has_query_guard: True
+```
+
+Interpretation: V409 would have relied on omitting `--data-wifi-mode
+private-empty`.  It is therefore superseded before live deploy.
+
+V410 approved plan argcheck:
+
+```text
+evidence: tmp/wifi/v410-registration-query-approved-plan-argcheck-20260520-104923/
+decision: v410-hal-registration-query-plan-ready
+command_len: 29
+has_data_wifi_arg: False
+implicit_data_wifi: private-empty
+has_query_guard: True
+device_commands_executed: False
+device_mutations: False
+daemon_start_executed: False
+wifi_hal_start_executed: False
+wifi_bringup_executed: False
+```
+
+The approved command remains under the 30-argument limit while helper v26 keeps
+the private Wi-Fi data boundary.
+
+## Fail-Closed Evidence
+
+V410 helper deploy plan:
+
+```text
+evidence: tmp/wifi/v410-helper-v26-deploy-plan-20260520-104934/
+decision: execns-helper-v26-deploy-plan-ready
+pass: True
+device_mutations: False
+daemon_start_executed: False
+wifi_bringup_executed: False
+```
+
+V410 helper deploy read-only preflight:
+
+```text
+evidence: tmp/wifi/v410-helper-v26-deploy-readonly-preflight-20260520-104934/
+decision: execns-helper-v26-deploy-preflight-ready-needs-deploy
+pass: True
+device_mutations: False
+daemon_start_executed: False
+wifi_bringup_executed: False
+```
+
+V410 helper deploy no-approval run:
+
+```text
+evidence: tmp/wifi/v410-helper-v26-deploy-noapproval-20260520-104934/
+decision: execns-helper-v26-deploy-approval-required
+pass: True
+device_mutations: False
+daemon_start_executed: False
+wifi_bringup_executed: False
+```
+
+V410 registration query no-approval run:
+
+```text
+evidence: tmp/wifi/v410-registration-query-noapproval-20260520-105350/
+decision: v410-hal-registration-query-approval-required
+pass: True
+device_commands_executed: False
+device_mutations: False
+daemon_start_executed: False
+wifi_hal_start_executed: False
+wifi_bringup_executed: False
+```
+
+V410 registration query read-only preflight:
+
+```text
+evidence: tmp/wifi/v410-registration-query-readonly-preflight-20260520-104934/
+decision: v410-hal-registration-query-blocked
+pass: False
+reason: blocked before live run by helper-v26
+device_commands_executed: True
+device_mutations: False
+daemon_start_executed: False
+wifi_hal_start_executed: False
+wifi_bringup_executed: False
+```
+
+The registration preflight still confirms:
+
+```text
+lshal-binary: pass
+runtime-materials: pass
+system-ext-vndk-v30: pass
+service-manager-binaries: pass
+process-surface-clean: pass
+wifi-link-clean: pass
+```
+
+Remaining blocker:
+
+```text
+helper-v26
+```
+
+## Next Target
+
+First live gate:
+
+```text
+approve v410 deploy execns helper v26 only; no daemon start and no Wi-Fi bring-up
+```
+
+Approved deploy command:
+
+```bash
+OUT=tmp/wifi/v410-execns-helper-v26-deploy-live-$(date +%Y%m%d-%H%M%S)
+python3 scripts/revalidation/wifi_execns_helper_v26_deploy_preflight.py \
+  --out-dir "$OUT" \
+  --approval-phrase 'approve v410 deploy execns helper v26 only; no daemon start and no Wi-Fi bring-up' \
+  --apply \
+  --assume-yes \
+  run
+```
+
+Post-deploy read-only preflight:
+
+```bash
+OUT=tmp/wifi/v410-registration-query-post-deploy-preflight-$(date +%Y%m%d-%H%M%S)
+python3 scripts/revalidation/wifi_hal_registration_query_v410_runner.py \
+  --out-dir "$OUT" \
+  preflight
+```
+
+Second live gate, only after deploy and post-deploy preflight:
+
+```text
+approve v410 bounded lshal registration query only; no scan/connect/link-up and no Wi-Fi bring-up
+```

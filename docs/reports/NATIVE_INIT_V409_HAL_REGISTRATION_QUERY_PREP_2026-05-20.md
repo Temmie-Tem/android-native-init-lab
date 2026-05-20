@@ -7,6 +7,9 @@ V409 preparation is implemented and fail-closed.
 No live helper deploy, daemon start, HAL start, `lshal` execution, or Wi-Fi
 bring-up was executed in this prep step.
 
+V409 is superseded by V410 before live deploy.  Do not execute the V409 deploy
+approval path; use the V410 helper v26 deploy gate instead.
+
 Prepared artifacts:
 
 - helper source: `stage3/linux_init/helpers/a90_android_execns_probe.c`

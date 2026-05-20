@@ -20,7 +20,7 @@
 - 상세 규칙: `docs/operations/VERSIONING_POLICY.md`
 
 
-## Current Wi-Fi V409 Registration Query Status (2026-05-20)
+## Current Wi-Fi V410 Registration Query Status (2026-05-20)
 
 - current native build remains `A90 Linux init 0.9.61 (v319)`.
 - current Wi-Fi work is host tooling plus bounded read-only evidence, not a new boot-image flash.
@@ -70,8 +70,12 @@
 - latest V409 prep report: `docs/reports/NATIVE_INIT_V409_HAL_REGISTRATION_QUERY_PREP_2026-05-20.md`.
 - V409 read-only preflight result: deploy preflight PASS and needs helper v25 deploy; registration-query preflight confirms `/mnt/system/system/bin/lshal` is present, with only `helper-v25` blocked. No device mutation, daemon start, HAL start, or Wi-Fi bring-up was executed.
 - V409 guardcheck result: deploy wrapper now records explicit local/remote `--allow-hal-service-query` guard checks; local helper v25 guard PASS, remote guard still needs deploy.
-- current interpretation: next live step is helper v25 deploy only. Registration query is a separate later approval after deploy and post-deploy preflight.
-- next execution item: exact-approved V409 helper v25 deploy only. Required phrase: `approve v409 deploy execns helper v25 only; no daemon start and no Wi-Fi bring-up`.
+- V409 superseded result: approved V409 query plan argcheck showed the command stayed within the 30-argument native limit by omitting `--data-wifi-mode private-empty`, which is not acceptable for live query.
+- V410 prep result: helper v26 defaults `wifi-hal-composite-lshal-list` to `data_wifi_mode=private-empty` when the data-wifi arg is omitted. Static ARM64 helper build PASS, SHA `daf1b59e2475c0db28fb99eb83f8be02a46f695d8c4e435c47e68f45370a7caa`.
+- latest V410 prep report: `docs/reports/NATIVE_INIT_V410_ARG_BUDGET_REPAIR_PREP_2026-05-20.md`.
+- V410 preflight result: approved query plan command length is 29, `--allow-hal-service-query` remains present, `helper_implicit_data_wifi_mode=private-empty`, deploy no-approval refuses before mutation, and read-only query preflight still confirms `lshal-binary` pass with only `helper-v26` blocked.
+- current interpretation: next live step is helper v26 deploy only. Registration query is a separate later approval after deploy and post-deploy preflight.
+- next execution item: exact-approved V410 helper v26 deploy only. Required phrase: `approve v410 deploy execns helper v26 only; no daemon start and no Wi-Fi bring-up`.
 
 ## 현재 고정 기준점
 

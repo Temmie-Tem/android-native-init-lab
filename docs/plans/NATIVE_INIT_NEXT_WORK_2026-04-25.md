@@ -2042,3 +2042,13 @@ Samsung bootloader
    - v409 preflight 결과: deploy preflight는 `execns-helper-v25-deploy-preflight-ready-needs-deploy` PASS. query preflight는 `v409-hal-registration-query-blocked`이며 blocker는 `helper-v25`뿐이다. `/mnt/system/system/bin/lshal`, runtime materials, system_ext VNDK v30, service-manager binaries, process surface, Wi-Fi link surface는 모두 pass. device mutation, daemon start, HAL start, Wi-Fi bring-up은 모두 false
    - v409 preflight 해석: V410 대체 HIDL client로 우회할 필요는 현재 없다. `lshal` direct path가 존재하므로 다음은 exact-approved helper v25 deploy다
    - v409 guardcheck: `tmp/wifi/v409-helper-v25-deploy-guardcheck-preflight-20260520-104455/` PASS. deploy wrapper now records `local-helper-v25-query-guard=pass` and `remote-helper-v25-query-guard=needs-deploy`, proving the local artifact contains the explicit `--allow-hal-service-query` guard before deploy
+
+   - v410 plan: `docs/plans/NATIVE_INIT_V410_ARG_BUDGET_REPAIR_PLAN_2026-05-20.md`
+   - v410 report: `docs/reports/NATIVE_INIT_V410_ARG_BUDGET_REPAIR_PREP_2026-05-20.md`
+   - v410 helper artifact: `tmp/wifi/v410-a90_android_execns_probe-v26/a90_android_execns_probe`
+   - v410 deploy wrapper: `scripts/revalidation/wifi_execns_helper_v26_deploy_preflight.py`
+   - v410 query runner: `scripts/revalidation/wifi_hal_registration_query_v410_runner.py`
+   - v410 배경: exact-approved v409 query plan에서 command length는 29였지만 `--data-wifi-mode private-empty`가 빠졌다. live query에서 V407과 같은 private `/data/vendor/wifi` boundary를 유지하려면 배포 전 수정이 필요했다
+   - v410 결과: helper v26은 `wifi-hal-composite-lshal-list` mode에서 `--data-wifi-mode`가 생략되면 `private-empty`를 기본값으로 설정한다. approved V410 query plan은 command length 29, `--allow-hal-service-query` present, `helper_implicit_data_wifi_mode=private-empty`, device commands false
+   - v410 preflight 결과: deploy plan/preflight/no-approval PASS. query read-only preflight는 `lshal-binary` PASS와 `helper-v26` blocker만 확인했다. device mutation, daemon start, HAL start, Wi-Fi bring-up은 모두 false
+   - v410 다음: `approve v410 deploy execns helper v26 only; no daemon start and no Wi-Fi bring-up` 승인 시 helper v26 deploy만 수행한다. V409 deploy approval은 superseded이므로 사용하지 않는다
