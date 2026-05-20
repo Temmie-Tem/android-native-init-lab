@@ -2006,3 +2006,10 @@ Samsung bootloader
    - v406 linker-list 결과: exact-approved proof PASS. helper v24 `v30-to-system-ext-v30` mode에서 `/vendor/bin/hw/vendor.samsung.hardware.wifi@2.0-service`가 linker-list child exit `0`, signal `0`, timed_out `0`, missing_libs `[]`로 완료됐다. device mutation, daemon start, HAL start, Wi-Fi bring-up은 모두 false
    - v406 해석: V405의 `android.hardware.wifi@1.0.so` missing blocker는 system_ext VNDK v30 APEX materialization으로 해소됐다
    - v407 다음: bounded composite Wi-Fi HAL start-only retry plan/approval packet을 작성한다. 같은 helper-owned namespace에서 `servicemanager`, `hwservicemanager`, `vendor.wifi_hal_ext`만 시작하고 scan/connect/link-up, credentials, DHCP, routing은 계속 별도 gate로 유지한다
+
+   - v407 plan: `docs/plans/NATIVE_INIT_V407_COMPOSITE_HAL_RETRY_PLAN_2026-05-20.md`
+   - v407 report: `docs/reports/NATIVE_INIT_V407_COMPOSITE_HAL_RETRY_APPROVAL_PACKET_2026-05-20.md`
+   - v407 runner: `scripts/revalidation/wifi_composite_hal_start_only_v407_runner.py`
+   - v407 결과: approval packet PASS. plan은 `v407-composite-hal-start-only-retry-plan-ready`, no-approval은 `v407-composite-hal-start-only-retry-approval-required`, read-only preflight는 `v407-composite-hal-start-only-retry-preflight-ready`
+   - v407 guard 결과: V406 linker-list input, helper v24 SHA/mode, system_ext VNDK v30 source, manager binaries, process surface, Wi-Fi link surface가 모두 pass. device mutation, daemon start, HAL start, Wi-Fi bring-up은 모두 false
+   - v407 다음: `approve v407 composite Wi-Fi HAL start-only retry only; no scan/connect/link-up and no Wi-Fi bring-up` 승인 시 bounded start-only retry만 실행한다. scan/connect/link-up, credentials, DHCP, routing은 별도 gate로 유지한다

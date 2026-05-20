@@ -59,7 +59,9 @@
 - latest V406 deploy report: `docs/reports/NATIVE_INIT_V406_HELPER_V24_DEPLOY_LIVE_2026-05-20.md`.
 - V406 linker-list result: exact-approved system_ext VNDK APEX proof PASS; `vendor.samsung.hardware.wifi@2.0-service` linker-list resolved with child exit `0`, signal `0`, and no missing libraries.
 - latest V406 linker-list report: `docs/reports/NATIVE_INIT_V406_SYSTEM_EXT_VNDK_LINKER_LIST_LIVE_2026-05-20.md`.
-- next execution item: V407 bounded composite Wi-Fi HAL start-only retry using helper v24 `v30-to-system-ext-v30`. Wi-Fi scan/connect/link-up, credentials, DHCP, and routing remain blocked.
+- V407 approval packet result: bounded composite HAL retry runner is implemented and fail-closed; read-only preflight is ready; no live HAL retry has been executed.
+- latest V407 approval packet report: `docs/reports/NATIVE_INIT_V407_COMPOSITE_HAL_RETRY_APPROVAL_PACKET_2026-05-20.md`.
+- next execution item: exact-approved V407 bounded composite Wi-Fi HAL start-only retry using helper v24 `v30-to-system-ext-v30`. Wi-Fi scan/connect/link-up, credentials, DHCP, and routing remain blocked.
 
 ## 현재 고정 기준점
 
@@ -8697,3 +8699,23 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
   - `device_mutations=False`, `daemon_start_executed=False`, `wifi_hal_start_executed=False`, `wifi_bringup_executed=False`.
 - interpretation: V405's missing `android.hardware.wifi@1.0.so` linker blocker is closed. The next step is not Wi-Fi bring-up; it is a new bounded HAL start-only retry plan that uses helper v24's system_ext VNDK mapping.
 - next execution item: V407 bounded composite Wi-Fi HAL start-only retry plan/approval packet. Wi-Fi scan/connect/link-up remains blocked.
+
+### V407. Composite Wi-Fi HAL Start-Only Retry Approval Packet — PASS / READY FOR LIVE APPROVAL
+
+- plan: `docs/plans/NATIVE_INIT_V407_COMPOSITE_HAL_RETRY_PLAN_2026-05-20.md`
+- report: `docs/reports/NATIVE_INIT_V407_COMPOSITE_HAL_RETRY_APPROVAL_PACKET_2026-05-20.md`
+- runner: `scripts/revalidation/wifi_composite_hal_start_only_v407_runner.py`
+- evidence:
+  - plan `tmp/wifi/v407-composite-hal-retry-plan-20260520-101054/`
+  - no-approval `tmp/wifi/v407-composite-hal-retry-noapproval-20260520-101054/`
+  - preflight `tmp/wifi/v407-composite-hal-retry-preflight-20260520-101101/`
+- result:
+  - plan `v407-composite-hal-start-only-retry-plan-ready`.
+  - no-approval `v407-composite-hal-start-only-retry-approval-required`.
+  - preflight `v407-composite-hal-start-only-retry-preflight-ready`.
+  - V406 linker-list input PASS.
+  - helper v24 SHA/mode PASS.
+  - process and Wi-Fi link surfaces clean.
+  - non-approved paths report `device_mutations=False`, `daemon_start_executed=False`, `wifi_hal_start_executed=False`, `wifi_bringup_executed=False`.
+- interpretation: V407 live retry is now gated only by exact approval. It remains start-only and does not approve scan/connect/link-up.
+- next execution item: exact-approved V407 composite Wi-Fi HAL start-only retry. Required phrase: `approve v407 composite Wi-Fi HAL start-only retry only; no scan/connect/link-up and no Wi-Fi bring-up`.
