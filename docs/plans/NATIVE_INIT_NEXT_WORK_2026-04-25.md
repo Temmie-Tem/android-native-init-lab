@@ -2227,3 +2227,15 @@ Samsung bootloader
 - result: materializer plan PASS and env-missing negative validation PASS. `A90_WIFI_SSID` and `A90_WIFI_PSK` are not currently present, so V443 refused to create a private policy.
 - interpretation: the private policy materializer is ready. The next blocker is local operator env values, which must not be pasted into chat, committed, or written to tracked files.
 - next: set `A90_WIFI_SSID` and `A90_WIFI_PSK` locally, rerun V443 to produce `v443-wifi-private-policy-materialized-pass`, then proceed to V444 explicit scan/connect preflight.
+
+### V444. Wi-Fi Explicit Connect Preflight Result
+
+- plan: `docs/plans/NATIVE_INIT_V444_WIFI_EXPLICIT_CONNECT_PREFLIGHT_PLAN_2026-05-20.md`
+- report: `docs/reports/NATIVE_INIT_V444_WIFI_EXPLICIT_CONNECT_PREFLIGHT_2026-05-20.md`
+- evidence:
+  - `tmp/wifi/v444-explicit-connect-preflight-plan-20260520-175411/`
+  - `tmp/wifi/v444-explicit-connect-preflight-missing-policy-20260520-175411/`
+  - `tmp/wifi/v444-explicit-connect-preflight-synthetic-pass-20260520-175411/`
+- result: host-side explicit scan/connect preflight implemented. Missing real private policy is blocked as expected. Synthetic positive path passed and did not leak synthetic SSID/PSK into evidence.
+- interpretation: V445 live execution is now technically gated, but real execution remains blocked until V443 materializes a private policy from local env values and V444 returns `v444-wifi-explicit-connect-preflight-ready` for that policy.
+- next: provide local private env values, rerun V443 and V444, then run V445 bounded explicit scan/connect. Server exposure remains blocked.

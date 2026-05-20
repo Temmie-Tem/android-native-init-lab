@@ -9031,3 +9031,21 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
   - no raw network identifiers or credentials were written.
 - interpretation: V443 tool path is ready, but explicit scan/connect cannot progress until local private env values are set by the operator.
 - next execution item: rerun V443 with private env values to create `wifi-target-policy.private.json`; then V444 explicit scan/connect preflight can consume that private policy. Server exposure remains blocked.
+
+### V444. Wi-Fi Explicit Connect Preflight — BLOCKED / REAL POLICY REQUIRED
+
+- plan: `docs/plans/NATIVE_INIT_V444_WIFI_EXPLICIT_CONNECT_PREFLIGHT_PLAN_2026-05-20.md`
+- report: `docs/reports/NATIVE_INIT_V444_WIFI_EXPLICIT_CONNECT_PREFLIGHT_2026-05-20.md`
+- preflight: `scripts/revalidation/wifi_android_explicit_connect_preflight_v444.py`
+- evidence:
+  - plan `tmp/wifi/v444-explicit-connect-preflight-plan-20260520-175411/`
+  - missing-policy `tmp/wifi/v444-explicit-connect-preflight-missing-policy-20260520-175411/`
+  - synthetic-pass `tmp/wifi/v444-explicit-connect-preflight-synthetic-pass-20260520-175411/`
+- result:
+  - decision `v444-wifi-explicit-connect-preflight-missing-policy` for real current state.
+  - synthetic positive path reached `v444-wifi-explicit-connect-preflight-ready`.
+  - synthetic SSID/PSK did not appear in V444 evidence.
+  - no device commands or mutations ran.
+  - `wifi_bringup_executed=False`.
+- interpretation: live explicit scan/connect is now gated behind V443+V444, with command templates and cleanup requirements defined. The only current blocker is absence of a real private policy/env pair.
+- next execution item: V443 materialize with local private env values, then V444 ready preflight, then V445 bounded explicit scan/connect live run. Server exposure remains blocked.
