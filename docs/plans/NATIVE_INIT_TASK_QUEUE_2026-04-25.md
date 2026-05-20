@@ -20,12 +20,12 @@
 - 상세 규칙: `docs/operations/VERSIONING_POLICY.md`
 
 
-## Current Wi-Fi V402 Runtime-Gap Status (2026-05-20)
+## Current Wi-Fi V404 Runtime-Gap Status (2026-05-20)
 
 - current native build remains `A90 Linux init 0.9.61 (v319)`.
 - current Wi-Fi work is host tooling plus bounded read-only evidence, not a new boot-image flash.
-- latest approved live step: V401 exact-approved toybox-backed SELinuxfs mount smoke, no daemon start and no Wi-Fi bring-up.
-- latest report: `docs/reports/NATIVE_INIT_V401_TOYBOX_SELINUXFS_MOUNT_SMOKE_2026-05-20.md`.
+- latest approved live step: V403 exact-approved service-manager/hwservicemanager start-only retry, no Wi-Fi HAL start and no Wi-Fi bring-up.
+- latest approved-live report: `docs/reports/NATIVE_INIT_V403_SERVICE_MANAGER_START_ONLY_RETRY_LIVE_2026-05-20.md`.
 - V392 live result: `hwservicemanager` start-only PASS; `servicemanager` remains `start-only-runtime-gap` with SIGABRT; cleanup/postflight safe; Wi-Fi bring-up false.
 - V396 result: read-only pull of `/mnt/system/system/bin/servicemanager`, `/mnt/system/system/lib64/libbase.so`, and `/mnt/system/system/lib64/liblog.so` PASS.
 - V396 framechain rerun: `service-manager-framechain-symbolization-pass`, no remaining missing-ELF blockers.
@@ -44,7 +44,9 @@
 - latest V403 packet report: `docs/reports/NATIVE_INIT_V403_SERVICE_MANAGER_START_ONLY_RETRY_APPROVAL_PACKET_2026-05-20.md`.
 - V403 live result: exact-approved bounded service-manager start-only retry PASS; `servicemanager` and `hwservicemanager` both observed until timeout, cleaned, and reaped; Wi-Fi bring-up remained false.
 - latest V403 live report: `docs/reports/NATIVE_INIT_V403_SERVICE_MANAGER_START_ONLY_RETRY_LIVE_2026-05-20.md`.
-- next execution item: V404 private-composite Wi-Fi HAL readiness packet. Wi-Fi scan/connect/link-up remains blocked.
+- V404 packet result: non-mutating private-composite Wi-Fi HAL readiness packet PASS; first HAL candidate is `vendor.wifi_hal_ext`; current blocker is implementation of a composite helper/runner that keeps `servicemanager`, `hwservicemanager`, and one HAL candidate in the same helper-owned namespace.
+- latest V404 packet report: `docs/reports/NATIVE_INIT_V404_PRIVATE_COMPOSITE_HAL_READINESS_PACKET_2026-05-20.md`.
+- next execution item: V405 composite helper/runner approval packet. Wi-Fi HAL start, scan/connect/link-up, credentials, DHCP, and routing remain blocked.
 
 ## 현재 고정 기준점
 
@@ -8522,3 +8524,52 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
   - `daemon_start_executed=False`, `wifi_bringup_executed=False`
 - interpretation: native SELinux runtime/status surface blocker is removed. Remaining blocker is private service-manager namespace visibility of SELinux status/context inputs.
 - next execution item: V402 private namespace SELinux surface proof. Service-manager and Wi-Fi HAL/start/scan/connect remain blocked.
+
+### V402. Private SELinux Surface Proof — PASS / PRIVATE RUNTIME READY
+
+- plan: `docs/plans/NATIVE_INIT_V402_PRIVATE_SELINUX_SURFACE_PROOF_PLAN_2026-05-20.md`
+- report: `docs/reports/NATIVE_INIT_V402_PRIVATE_SELINUX_SURFACE_PROOF_LIVE_2026-05-20.md`
+- evidence:
+  - helper deploy: `tmp/wifi/v402-execns-helper-v22-deploy-live-20260520-084231/`
+  - private proof: `tmp/wifi/v402-private-selinux-surface-live-20260520-084832/`
+  - postflight: `tmp/wifi/v402-private-proof-postflight-20260520-084853/`
+- result:
+  - helper v22 deploy PASS.
+  - private SELinux namespace proof PASS.
+  - private namespace sees SELinuxfs status/enforce, Binder devnodes, private property tree, and service/hwservice context files together.
+  - `daemon_start_executed=False`, `wifi_bringup_executed=False`
+- interpretation: V401 removed native SELinuxfs absence; V402 proves the private helper namespace can see the Android runtime surfaces that service-manager requires.
+- next execution item: V403 bounded service-manager start-only retry. Wi-Fi HAL/start/scan/connect remains blocked.
+
+### V403. Service-Manager Start-Only Retry — PASS / MANAGER PAIR CLEAN
+
+- plan: `docs/plans/NATIVE_INIT_V403_SERVICE_MANAGER_START_ONLY_RETRY_PLAN_2026-05-20.md`
+- packet: `docs/reports/NATIVE_INIT_V403_SERVICE_MANAGER_START_ONLY_RETRY_APPROVAL_PACKET_2026-05-20.md`
+- live report: `docs/reports/NATIVE_INIT_V403_SERVICE_MANAGER_START_ONLY_RETRY_LIVE_2026-05-20.md`
+- evidence:
+  - approval packet: `tmp/wifi/v403-service-manager-start-only-retry-approval-packet-20260520-085357/`
+  - live run: `tmp/wifi/v403-service-manager-start-only-retry-live-20260520-085702/`
+  - postflight: `tmp/wifi/v403-service-manager-start-only-postflight-20260520-085747/`
+  - supplemental HAL gate refresh: `tmp/wifi/v403-post-service-manager-hal-readiness-refresh-20260520-085835/`
+- result:
+  - decision `service-manager-start-only-live-pass`.
+  - `servicemanager` and `hwservicemanager` both reached exec, remained observable until timeout, and were terminated/reaped cleanly.
+  - postflight had no manager processes and no Wi-Fi links.
+  - `daemon_start_executed=True`, `wifi_bringup_executed=False`
+- interpretation: service-manager lifecycle is no longer the blocker. The old V364 global/current gate is now context only because it does not model the helper-owned private namespace.
+- next execution item: V404 private-composite Wi-Fi HAL readiness packet. Wi-Fi HAL/start/scan/connect remains blocked.
+
+### V404. Private-Composite Wi-Fi HAL Readiness Packet — PASS / READY FOR V405 DESIGN
+
+- plan: `docs/plans/NATIVE_INIT_V404_PRIVATE_COMPOSITE_HAL_READINESS_PLAN_2026-05-20.md`
+- report: `docs/reports/NATIVE_INIT_V404_PRIVATE_COMPOSITE_HAL_READINESS_PACKET_2026-05-20.md`
+- tool: `scripts/revalidation/wifi_private_composite_hal_readiness_packet.py`
+- evidence: `tmp/wifi/v404-private-composite-hal-readiness-packet-fixed-20260520-090542/`
+- result:
+  - decision `v404-private-composite-hal-readiness-packet-ready`.
+  - blocker checks PASS.
+  - first HAL candidate is `vendor.wifi_hal_ext`.
+  - sibling fallback is `vendor.wifi_hal_legacy`.
+  - `live_execution_approved=False`, `device_mutations=False`, `daemon_start_executed=False`, `wifi_bringup_executed=False`
+- interpretation: V210/V216/V287 vendor-root and service-order evidence should drive HAL readiness, not global `/mnt/system/vendor` stat visibility. V405 must implement a composite helper/runner because the current helper starts one target per invocation.
+- next execution item: V405 composite helper/runner approval packet. Wi-Fi HAL start, scan/connect/link-up, credentials, DHCP, and routing remain blocked.

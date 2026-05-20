@@ -1958,3 +1958,10 @@ Samsung bootloader
    - v403 live 결과: `service-manager-start-only-live-pass`. `servicemanager`와 `hwservicemanager` 모두 bounded observation window 동안 살아 있었고, timeout 후 terminate/reap/postflight clean을 증명했다. Wi-Fi bring-up은 없음
    - v403 supplemental HAL gate: old V364 gate refresh는 global/current runtime 기준이라 `current-binder-devnodes`, `current-service-manager-processes`, `current-property-runtime`, `linkerconfig-visibility` blocker로 남는다. 이는 V403 private helper-owned namespace PASS와 충돌하지 않는다
    - v403 다음: V404 private-composite Wi-Fi HAL readiness packet. V403-proven service-manager/hwservicemanager pair를 같은 bounded helper-owned runtime 안에서 유지하는 설계를 먼저 만든 뒤 HAL start-only를 별도 승인으로 분리한다. Wi-Fi scan/connect/link-up/credentials remain blocked
+
+   - v404 plan: `docs/plans/NATIVE_INIT_V404_PRIVATE_COMPOSITE_HAL_READINESS_PLAN_2026-05-20.md`
+   - v404 report: `docs/reports/NATIVE_INIT_V404_PRIVATE_COMPOSITE_HAL_READINESS_PACKET_2026-05-20.md`
+   - v404 evidence: `tmp/wifi/v404-private-composite-hal-readiness-packet-fixed-20260520-090542/`
+   - v404 결과: `v404-private-composite-hal-readiness-packet-ready` PASS. packet은 V402/V403/V210/V216/V287 입력과 현재 read-only native 상태를 묶어 blocker checks PASS로 판정했다. live execution approval, device mutation, daemon start, Wi-Fi bring-up은 모두 false
+   - v404 HAL boundary: first candidate는 `vendor.wifi_hal_ext`, sibling fallback은 `vendor.wifi_hal_legacy`. vendor HAL binary/init rc/VINTF 가시성은 현재 global `/mnt/system/vendor` stat가 아니라 V210 vendor-root evidence를 기준으로 판단한다
+   - v404 다음: V405 composite helper/runner approval packet. 현재 helper는 한 invocation에 한 target만 start하므로, HAL start-only 전에 `servicemanager` + `hwservicemanager` + 첫 HAL 후보를 같은 helper-owned private namespace에서 bounded supervision하는 실행기를 만들어야 한다. Wi-Fi scan/connect/link-up/credentials/DHCP/routing remain blocked
