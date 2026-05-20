@@ -87,6 +87,7 @@
 - latest V411 prep report: `docs/reports/NATIVE_INIT_V411_BINDERIZED_LSHAL_QUERY_PREP_2026-05-20.md`.
 - V411 live handoff: `docs/operations/WIFI_V411_BINDERIZED_LSHAL_LIVE_HANDOFF.md`.
 - V411 deploy/query executor result: `scripts/revalidation/wifi_v411_deploy_query_executor.py` is fail-closed; plan/deploy/live/full no-approval paths and partial-full-approval paths execute no device command or mutation.
+- V411 current read-only preflight result: deploy preflight is ready but still needs helper v27 deploy; binderized query preflight is blocked only by remote helper-v27 and approval gate. Report: `docs/reports/NATIVE_INIT_V411_CURRENT_PREFLIGHT_2026-05-20.md`.
 - next execution item: exact-approved V411 helper v27 deploy only. Required phrase: `approve v411 deploy execns helper v27 only; no daemon start and no Wi-Fi bring-up`.
 
 ## 현재 고정 기준점
