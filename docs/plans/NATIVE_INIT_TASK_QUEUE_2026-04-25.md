@@ -73,10 +73,13 @@
 - V409 superseded result: approved V409 query plan argcheck showed the command stayed within the 30-argument native limit by omitting `--data-wifi-mode private-empty`, which is not acceptable for live query.
 - V410 prep result: helper v26 defaults `wifi-hal-composite-lshal-list` to `data_wifi_mode=private-empty` when the data-wifi arg is omitted. Static ARM64 helper build PASS, SHA `daf1b59e2475c0db28fb99eb83f8be02a46f695d8c4e435c47e68f45370a7caa`.
 - latest V410 prep report: `docs/reports/NATIVE_INIT_V410_ARG_BUDGET_REPAIR_PREP_2026-05-20.md`.
-- V410 preflight result: approved query plan command length is 29, `--allow-hal-service-query` remains present, `helper_implicit_data_wifi_mode=private-empty`, deploy no-approval refuses before mutation, and read-only query preflight still confirms `lshal-binary` pass with only `helper-v26` blocked.
+- V410 preflight result: approved query plan command length is 29, `--allow-hal-service-query` remains present, `helper_implicit_data_wifi_mode=private-empty`, deploy no-approval refuses before mutation, and read-only query preflight initially confirmed `lshal-binary` pass with only `helper-v26` blocked.
 - V410 contract linter result: `scripts/revalidation/wifi_v410_arg_budget_linter.py` PASS, proving helper source, runner, deploy wrapper, and approved-plan manifest all agree on the implicit `private-empty` arg-budget contract.
-- current interpretation: next live step is helper v26 deploy only. Registration query is a separate later approval after deploy and post-deploy preflight.
-- next execution item: exact-approved V410 helper v26 deploy only. Required phrase: `approve v410 deploy execns helper v26 only; no daemon start and no Wi-Fi bring-up`.
+- V410 deploy result: exact-approved helper v26 deploy PASS through serial fallback; remote helper is now ready for the V410 registration query path.
+- latest V410 deploy report: `docs/reports/NATIVE_INIT_V410_HELPER_V26_DEPLOY_LIVE_2026-05-20.md`.
+- V410 post-deploy preflight result: `v410-hal-registration-query-preflight-ready`; `helper-v26`, `lshal-binary`, runtime materials, service-manager binaries, clean process surface, and clean Wi-Fi link surface all PASS.
+- current interpretation: next live step is the bounded lshal registration query only. It is separate from deploy and still must not perform scan/connect/link-up or Wi-Fi bring-up.
+- next execution item: exact-approved V410 bounded lshal registration query only. Required phrase: `approve v410 bounded lshal registration query only; no scan/connect/link-up and no Wi-Fi bring-up`.
 
 ## 현재 고정 기준점
 

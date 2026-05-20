@@ -182,36 +182,46 @@ Remaining blocker:
 helper-v26
 ```
 
-## Next Target
+## Live Deploy Update
 
-First live gate:
+V410 helper v26 deploy completed after exact approval.
 
 ```text
-approve v410 deploy execns helper v26 only; no daemon start and no Wi-Fi bring-up
+evidence: tmp/wifi/v410-execns-helper-v26-deploy-live-20260520-110409/
+decision: execns-helper-v26-deploy-pass
+pass: True
+device_mutations: True
+daemon_start_executed: False
+wifi_bringup_executed: False
 ```
 
-Approved deploy command:
+The deployment used serial fallback and installed the expected helper SHA:
 
-```bash
-OUT=tmp/wifi/v410-execns-helper-v26-deploy-live-$(date +%Y%m%d-%H%M%S)
-python3 scripts/revalidation/wifi_execns_helper_v26_deploy_preflight.py \
-  --out-dir "$OUT" \
-  --approval-phrase 'approve v410 deploy execns helper v26 only; no daemon start and no Wi-Fi bring-up' \
-  --apply \
-  --assume-yes \
-  run
+```text
+daf1b59e2475c0db28fb99eb83f8be02a46f695d8c4e435c47e68f45370a7caa
 ```
 
-Post-deploy read-only preflight:
+Post-deploy read-only preflight also passed.
 
-```bash
-OUT=tmp/wifi/v410-registration-query-post-deploy-preflight-$(date +%Y%m%d-%H%M%S)
-python3 scripts/revalidation/wifi_hal_registration_query_v410_runner.py \
-  --out-dir "$OUT" \
-  preflight
+```text
+evidence: tmp/wifi/v410-registration-query-post-deploy-preflight-20260520-111017/
+decision: v410-hal-registration-query-preflight-ready
+pass: True
+device_mutations: False
+daemon_start_executed: False
+wifi_hal_start_executed: False
+wifi_bringup_executed: False
 ```
 
-Second live gate, only after deploy and post-deploy preflight:
+Detailed live report:
+
+```text
+docs/reports/NATIVE_INIT_V410_HELPER_V26_DEPLOY_LIVE_2026-05-20.md
+```
+
+## Next Target
+
+Next live gate, only after this deploy and post-deploy preflight:
 
 ```text
 approve v410 bounded lshal registration query only; no scan/connect/link-up and no Wi-Fi bring-up
