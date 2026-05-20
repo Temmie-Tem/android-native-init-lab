@@ -24,8 +24,8 @@
 
 - current native build remains `A90 Linux init 0.9.61 (v319)`.
 - current Wi-Fi work is host tooling plus bounded read-only evidence, not a new boot-image flash.
-- latest approved live step: V406 exact-approved helper v24 deploy only, no daemon start and no Wi-Fi bring-up.
-- latest approved-live report: `docs/reports/NATIVE_INIT_V406_HELPER_V24_DEPLOY_LIVE_2026-05-20.md`.
+- latest approved live step: V406 exact-approved system_ext VNDK APEX linker-list proof only, no daemon start and no Wi-Fi bring-up.
+- latest approved-live report: `docs/reports/NATIVE_INIT_V406_SYSTEM_EXT_VNDK_LINKER_LIST_LIVE_2026-05-20.md`.
 - V392 live result: `hwservicemanager` start-only PASS; `servicemanager` remains `start-only-runtime-gap` with SIGABRT; cleanup/postflight safe; Wi-Fi bring-up false.
 - V396 result: read-only pull of `/mnt/system/system/bin/servicemanager`, `/mnt/system/system/lib64/libbase.so`, and `/mnt/system/system/lib64/liblog.so` PASS.
 - V396 framechain rerun: `service-manager-framechain-symbolization-pass`, no remaining missing-ELF blockers.
@@ -57,7 +57,9 @@
 - latest V406 prep report: `docs/reports/NATIVE_INIT_V406_SYSTEM_EXT_VNDK_APEX_PREP_2026-05-20.md`.
 - V406 deploy result: exact-approved helper v24 deploy PASS through serial fallback; remote helper SHA/mode now match v24; post-deploy linker-list preflight is ready.
 - latest V406 deploy report: `docs/reports/NATIVE_INIT_V406_HELPER_V24_DEPLOY_LIVE_2026-05-20.md`.
-- next execution item: exact-approved V406 system_ext VNDK APEX linker-list proof only. Wi-Fi scan/connect/link-up, credentials, DHCP, and routing remain blocked.
+- V406 linker-list result: exact-approved system_ext VNDK APEX proof PASS; `vendor.samsung.hardware.wifi@2.0-service` linker-list resolved with child exit `0`, signal `0`, and no missing libraries.
+- latest V406 linker-list report: `docs/reports/NATIVE_INIT_V406_SYSTEM_EXT_VNDK_LINKER_LIST_LIVE_2026-05-20.md`.
+- next execution item: V407 bounded composite Wi-Fi HAL start-only retry using helper v24 `v30-to-system-ext-v30`. Wi-Fi scan/connect/link-up, credentials, DHCP, and routing remain blocked.
 
 ## 현재 고정 기준점
 
@@ -8680,3 +8682,18 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
   - `daemon_start_executed=False`, `wifi_hal_start_executed=False`, `wifi_bringup_executed=False`
 - interpretation: helper deploy is no longer the blocker. The next live step is a separate `linker-list` proof only, not daemon/HAL start.
 - next execution item: exact-approved V406 system_ext VNDK APEX linker-list proof only. Required phrase: `approve v406 system_ext VNDK APEX linker-list proof only; no daemon start and no Wi-Fi bring-up`.
+
+### V406. System_ext VNDK APEX Linker-List Live — PASS / READY FOR HAL START-ONLY RETRY PLAN
+
+- report: `docs/reports/NATIVE_INIT_V406_SYSTEM_EXT_VNDK_LINKER_LIST_LIVE_2026-05-20.md`
+- evidence: `tmp/wifi/v406-system-ext-vndk-linker-list-live-20260520-100627/`
+- native transcript: `tmp/wifi/v406-system-ext-vndk-linker-list-live-20260520-100627/native/run-system-ext-vndk-linker-list.txt`
+- result:
+  - decision `system-ext-vndk-wifi-hal-linker-list-pass`.
+  - target `/vendor/bin/hw/vendor.samsung.hardware.wifi@2.0-service`.
+  - helper v24 mode `v30-to-system-ext-v30`.
+  - private `/apex/com.android.vndk.v30/lib64/android.hardware.wifi@1.0.so` exists.
+  - `child_exit_code=0`, `child_signal=0`, `timed_out=0`, `missing_libs=[]`.
+  - `device_mutations=False`, `daemon_start_executed=False`, `wifi_hal_start_executed=False`, `wifi_bringup_executed=False`.
+- interpretation: V405's missing `android.hardware.wifi@1.0.so` linker blocker is closed. The next step is not Wi-Fi bring-up; it is a new bounded HAL start-only retry plan that uses helper v24's system_ext VNDK mapping.
+- next execution item: V407 bounded composite Wi-Fi HAL start-only retry plan/approval packet. Wi-Fi scan/connect/link-up remains blocked.

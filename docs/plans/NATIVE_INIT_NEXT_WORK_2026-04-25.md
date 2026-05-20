@@ -2000,3 +2000,9 @@ Samsung bootloader
    - v406 deploy 결과: exact-approved helper v24 deploy PASS. serial fallback으로 783 chunks / 1,094,836 encoded bytes를 전송했고 remote helper SHA/mode가 v24로 확인됐다. daemon start, HAL start, Wi-Fi bring-up은 모두 false
    - v406 post-deploy preflight 결과: `system-ext-vndk-linker-list-preflight-ready` PASS. 남은 gate는 exact approval phrase뿐이다
    - v406 다음: `approve v406 system_ext VNDK APEX linker-list proof only; no daemon start and no Wi-Fi bring-up` 승인 시 linker-list proof만 실행한다. HAL start-only retry, scan/connect/link-up, credentials, DHCP, routing은 별도 gate로 유지한다
+
+   - v406 linker-list report: `docs/reports/NATIVE_INIT_V406_SYSTEM_EXT_VNDK_LINKER_LIST_LIVE_2026-05-20.md`
+   - v406 linker-list evidence: `tmp/wifi/v406-system-ext-vndk-linker-list-live-20260520-100627/`
+   - v406 linker-list 결과: exact-approved proof PASS. helper v24 `v30-to-system-ext-v30` mode에서 `/vendor/bin/hw/vendor.samsung.hardware.wifi@2.0-service`가 linker-list child exit `0`, signal `0`, timed_out `0`, missing_libs `[]`로 완료됐다. device mutation, daemon start, HAL start, Wi-Fi bring-up은 모두 false
+   - v406 해석: V405의 `android.hardware.wifi@1.0.so` missing blocker는 system_ext VNDK v30 APEX materialization으로 해소됐다
+   - v407 다음: bounded composite Wi-Fi HAL start-only retry plan/approval packet을 작성한다. 같은 helper-owned namespace에서 `servicemanager`, `hwservicemanager`, `vendor.wifi_hal_ext`만 시작하고 scan/connect/link-up, credentials, DHCP, routing은 계속 별도 gate로 유지한다
