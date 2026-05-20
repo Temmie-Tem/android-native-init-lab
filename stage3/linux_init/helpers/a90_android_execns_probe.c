@@ -43,7 +43,7 @@
 #define PR_CAP_AMBIENT_RAISE 2
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v23"
+#define EXECNS_VERSION "a90_android_execns_probe v24"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -129,7 +129,7 @@ static void usage(FILE *out) {
             "[--capture-mode none|ptrace-lite] "
             "[--null-device-mode none|dev-null|dev-null-selinux] "
             "[--data-wifi-mode none|private-empty] "
-            "[--vndk-apex-alias-mode none|v30-to-current] "
+            "[--vndk-apex-alias-mode none|v30-to-current|v30-to-system-ext-v30] "
             "[--linkerconfig-mode none|copy-real|minimal-vendor] "
             "[--linkerconfig-source /cache/path/to/ld.config.txt] "
             "[--apex-libraries-source /cache/path/to/apex.libraries.config.txt] "
@@ -338,7 +338,8 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
         !(streq(cfg->data_wifi_mode, "none") ||
           streq(cfg->data_wifi_mode, "private-empty")) ||
         !(streq(cfg->vndk_apex_alias_mode, "none") ||
-          streq(cfg->vndk_apex_alias_mode, "v30-to-current")) ||
+          streq(cfg->vndk_apex_alias_mode, "v30-to-current") ||
+          streq(cfg->vndk_apex_alias_mode, "v30-to-system-ext-v30")) ||
         !(streq(cfg->env_mode, "clean") ||
           streq(cfg->env_mode, "ld-debug-1") ||
           streq(cfg->env_mode, "ld-debug-2") ||
@@ -1054,6 +1055,8 @@ static int materialize_apex_bind_farm(const struct config *cfg,
     DIR *dir;
     struct dirent *entry;
     char current_source[MAX_PATH_LEN];
+    char system_ext_apex[MAX_PATH_LEN];
+    char system_ext_source[MAX_PATH_LEN];
     char v30_mount[MAX_PATH_LEN];
 
     paths->apex_synthetic = true;
@@ -1078,19 +1081,8 @@ static int materialize_apex_bind_farm(const struct config *cfg,
     }
     closedir(dir);
 
-    if (!streq(cfg->vndk_apex_alias_mode, "v30-to-current")) {
+    if (streq(cfg->vndk_apex_alias_mode, "none")) {
         return 0;
-    }
-    if (append_path(current_source,
-                    sizeof(current_source),
-                    system_apex,
-                    "com.android.vndk.current") < 0) {
-        snprintf(error_buf, error_size, "vndk current path: %s", strerror(errno));
-        return -1;
-    }
-    if (access(current_source, R_OK | X_OK) < 0) {
-        snprintf(error_buf, error_size, "vndk current missing: %s", strerror(errno));
-        return -1;
     }
     if (append_path(v30_mount, sizeof(v30_mount), paths->apex, "com.android.vndk.v30") < 0) {
         snprintf(error_buf, error_size, "vndk v30 mount path: %s", strerror(errno));
@@ -1101,6 +1093,40 @@ static int materialize_apex_bind_farm(const struct config *cfg,
     }
     if (errno != ENOENT) {
         snprintf(error_buf, error_size, "stat vndk v30 mount: %s", strerror(errno));
+        return -1;
+    }
+    if (streq(cfg->vndk_apex_alias_mode, "v30-to-system-ext-v30")) {
+        if (append_path(system_ext_apex, sizeof(system_ext_apex), cfg->system_root, "system_ext/apex") < 0) {
+            snprintf(error_buf, error_size, "system_ext apex path: %s", strerror(errno));
+            return -1;
+        }
+        if (append_path(system_ext_source,
+                        sizeof(system_ext_source),
+                        system_ext_apex,
+                        "com.android.vndk.v30") < 0) {
+            snprintf(error_buf, error_size, "system_ext vndk v30 path: %s", strerror(errno));
+            return -1;
+        }
+        if (access(system_ext_source, R_OK | X_OK) < 0) {
+            snprintf(error_buf, error_size, "system_ext vndk v30 missing: %s", strerror(errno));
+            return -1;
+        }
+        return bind_apex_entry(paths,
+                               system_ext_apex,
+                               "com.android.vndk.v30",
+                               "com.android.vndk.v30",
+                               error_buf,
+                               error_size);
+    }
+    if (append_path(current_source,
+                    sizeof(current_source),
+                    system_apex,
+                    "com.android.vndk.current") < 0) {
+        snprintf(error_buf, error_size, "vndk current path: %s", strerror(errno));
+        return -1;
+    }
+    if (access(current_source, R_OK | X_OK) < 0) {
+        snprintf(error_buf, error_size, "vndk current missing: %s", strerror(errno));
         return -1;
     }
     return bind_apex_entry(paths,
@@ -1439,10 +1465,12 @@ static void print_preexec_context(const struct config *cfg, const struct paths *
     print_context_path(paths, "apex_runtime", "/apex/com.android.runtime");
     print_context_path(paths, "apex_vndk_v30", "/apex/com.android.vndk.v30");
     print_context_path(paths, "apex_vndk_v30_libcutils", "/apex/com.android.vndk.v30/lib64/libcutils.so");
+    print_context_path(paths, "apex_vndk_v30_wifi_1_0", "/apex/com.android.vndk.v30/lib64/android.hardware.wifi@1.0.so");
     print_context_path(paths, "apex_vndk_current", "/apex/com.android.vndk.current");
     print_context_path(paths, "apex_vndk_current_libcutils", "/apex/com.android.vndk.current/lib64/libcutils.so");
     print_context_path(paths, "system_lib64", "/system/lib64");
     print_context_path(paths, "vendor_lib64", "/vendor/lib64");
+    print_context_path(paths, "system_ext_apex_vndk_v30", "/system/system_ext/apex/com.android.vndk.v30");
     print_context_path(paths, "plat_service_contexts", "/system/etc/selinux/plat_service_contexts");
     print_context_path(paths, "plat_hwservice_contexts", "/system/etc/selinux/plat_hwservice_contexts");
     print_context_path(paths, "system_ext_service_contexts", "/system/system_ext/etc/selinux/system_ext_service_contexts");

@@ -1986,3 +1986,10 @@ Samsung bootloader
    - v405 live 결과: exact-approved composite start-only smoke는 승인 경계 안에서 실행됐고 safety PASS. `servicemanager`, `hwservicemanager`, `vendor.samsung.hardware.wifi@2.0-service`가 같은 helper-owned namespace에서 시작됐지만 Wi-Fi HAL이 `android.hardware.wifi@1.0.so` 미해결로 exit `1` 처리되어 `composite-hal-start-only-runtime-gap`로 분류됐다. scan/connect/link-up 및 Wi-Fi bring-up은 false
    - v405 해석: blocker는 service-manager runtime이 아니라 private APEX materialization이다. 필요한 Wi-Fi HIDL interface libs는 `/mnt/system/system/system_ext/apex/com.android.vndk.v30/lib64/`에 있고, 현재 helper는 `/mnt/system/system/apex` 기반 private farm만 구성한다
    - v406 다음: private `/apex/com.android.vndk.v30`에 `system_ext/apex/com.android.vndk.v30`를 bind/materialize하는 helper/runner를 만들고 linker-list closure를 먼저 증명한다. HAL start-only retry, scan/connect/link-up, credentials, DHCP, routing은 별도 gate로 유지한다
+
+   - v406 plan: `docs/plans/NATIVE_INIT_V406_SYSTEM_EXT_VNDK_APEX_PLAN_2026-05-20.md`
+   - v406 report: `docs/reports/NATIVE_INIT_V406_SYSTEM_EXT_VNDK_APEX_PREP_2026-05-20.md`
+   - v406 helper artifact: `tmp/wifi/v406-a90_android_execns_probe-v24/a90_android_execns_probe`
+   - v406 결과: helper v24가 `v30-to-system-ext-v30` private APEX materialization mode를 추가했고 static ARM64 build PASS, SHA `7ec11d95085f1c3dc370884725b080b44150bf8b0a5f7d897df048188a815063`
+   - v406 gate 결과: runner preflight는 `system-ext-vndk-linker-list-preflight-ready-needs-deploy`, deploy preflight는 `execns-helper-v24-deploy-preflight-ready-needs-deploy`, deploy no-approval은 `execns-helper-v24-deploy-approval-required`, runner no-approval은 `system-ext-vndk-linker-list-approval-required`. daemon start, HAL start, Wi-Fi bring-up은 모두 false
+   - v406 다음: 먼저 `approve v406 deploy execns helper v24 only; no daemon start and no Wi-Fi bring-up` 승인으로 helper deploy만 진행한다. 그 다음 별도 `approve v406 system_ext VNDK APEX linker-list proof only; no daemon start and no Wi-Fi bring-up` 승인으로 linker-list proof만 진행한다

@@ -20,7 +20,7 @@
 - 상세 규칙: `docs/operations/VERSIONING_POLICY.md`
 
 
-## Current Wi-Fi V405 Runtime-Gap Status (2026-05-20)
+## Current Wi-Fi V406 System_ext VNDK APEX Status (2026-05-20)
 
 - current native build remains `A90 Linux init 0.9.61 (v319)`.
 - current Wi-Fi work is host tooling plus bounded read-only evidence, not a new boot-image flash.
@@ -53,7 +53,9 @@
 - V405 composite HAL live result: exact-approved start-only smoke reached the approved runtime boundary and stayed safe, but classified `composite-hal-start-only-runtime-gap` because `/vendor/bin/hw/vendor.samsung.hardware.wifi@2.0-service` could not link `android.hardware.wifi@1.0.so`.
 - latest V405 composite HAL live report: `docs/reports/NATIVE_INIT_V405_COMPOSITE_HAL_START_ONLY_LIVE_2026-05-20.md`.
 - current blocker: helper private `/apex` materialization uses `/mnt/system/system/apex`, while the Wi-Fi HIDL interface libraries are under `/mnt/system/system/system_ext/apex/com.android.vndk.v30`.
-- next execution item: V406 system_ext VNDK APEX materialization for Wi-Fi HAL linker dependency closure. Wi-Fi scan/connect/link-up, credentials, DHCP, and routing remain blocked.
+- V406 prep result: helper v24 and fail-closed deploy/linker-list gates are implemented. No helper deploy, daemon start, Wi-Fi HAL start, or Wi-Fi bring-up has been executed in V406.
+- latest V406 prep report: `docs/reports/NATIVE_INIT_V406_SYSTEM_EXT_VNDK_APEX_PREP_2026-05-20.md`.
+- next execution item: exact-approved V406 helper v24 deploy only. Wi-Fi scan/connect/link-up, credentials, DHCP, and routing remain blocked.
 
 ## 현재 고정 기준점
 
@@ -8635,3 +8637,29 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
   - current helper private APEX farm is based on `/mnt/system/system/apex`; that was enough for earlier generic VNDK alias work but not this Wi-Fi HAL dependency closure.
 - interpretation: V405 proves the composite process model and cleanup path are viable. The next blocker is private `system_ext` VNDK APEX materialization, not service-manager startup.
 - next execution item: V406 helper/runner support for binding `system_ext/apex/com.android.vndk.v30` into private `/apex/com.android.vndk.v30`, with linker-list proof before any HAL start-only retry.
+
+### V406. System_ext VNDK APEX Prep — PASS / READY FOR HELPER V24 DEPLOY APPROVAL
+
+- plan: `docs/plans/NATIVE_INIT_V406_SYSTEM_EXT_VNDK_APEX_PLAN_2026-05-20.md`
+- report: `docs/reports/NATIVE_INIT_V406_SYSTEM_EXT_VNDK_APEX_PREP_2026-05-20.md`
+- helper source: `stage3/linux_init/helpers/a90_android_execns_probe.c`
+- helper artifact: `tmp/wifi/v406-a90_android_execns_probe-v24/a90_android_execns_probe`
+- runner: `scripts/revalidation/wifi_system_ext_vndk_apex_v406_runner.py`
+- deploy wrapper: `scripts/revalidation/wifi_execns_helper_v24_deploy_preflight.py`
+- evidence:
+  - runner plan `tmp/wifi/v406-system-ext-vndk-runner-plan-20260520-094844/`
+  - runner preflight `tmp/wifi/v406-system-ext-vndk-runner-preflight-fixed3-20260520-095025/`
+  - deploy preflight `tmp/wifi/v406-helper-v24-deploy-preflight-20260520-095042/`
+  - deploy no-approval `tmp/wifi/v406-helper-v24-deploy-noapproval-20260520-095050/`
+  - runner no-approval `tmp/wifi/v406-system-ext-vndk-runner-noapproval-20260520-095105/`
+- result:
+  - helper v24 static ARM64 build PASS.
+  - helper v24 SHA `7ec11d95085f1c3dc370884725b080b44150bf8b0a5f7d897df048188a815063`.
+  - new private APEX mode: `v30-to-system-ext-v30`.
+  - runner preflight `system-ext-vndk-linker-list-preflight-ready-needs-deploy`.
+  - deploy preflight `execns-helper-v24-deploy-preflight-ready-needs-deploy`.
+  - deploy no-approval `execns-helper-v24-deploy-approval-required`.
+  - runner no-approval `system-ext-vndk-linker-list-approval-required`.
+  - `daemon_start_executed=False`, `wifi_hal_start_executed=False`, `wifi_bringup_executed=False`.
+- interpretation: V406 is ready for helper v24 deploy approval. The linker-list proof remains a separate later approval after deploy.
+- next execution item: exact-approved helper v24 deploy only. Required phrase: `approve v406 deploy execns helper v24 only; no daemon start and no Wi-Fi bring-up`.
