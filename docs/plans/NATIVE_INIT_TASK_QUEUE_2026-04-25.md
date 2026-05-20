@@ -24,8 +24,8 @@
 
 - current native build remains `A90 Linux init 0.9.61 (v319)`.
 - current Wi-Fi work is host tooling plus bounded read-only evidence, not a new boot-image flash.
-- latest approved live step: V406 exact-approved system_ext VNDK APEX linker-list proof only, no daemon start and no Wi-Fi bring-up.
-- latest approved-live report: `docs/reports/NATIVE_INIT_V406_SYSTEM_EXT_VNDK_LINKER_LIST_LIVE_2026-05-20.md`.
+- latest approved live step: V407 exact-approved composite Wi-Fi HAL start-only retry only, no scan/connect/link-up and no Wi-Fi bring-up.
+- latest approved-live report: `docs/reports/NATIVE_INIT_V407_COMPOSITE_HAL_START_ONLY_RETRY_LIVE_2026-05-20.md`.
 - V392 live result: `hwservicemanager` start-only PASS; `servicemanager` remains `start-only-runtime-gap` with SIGABRT; cleanup/postflight safe; Wi-Fi bring-up false.
 - V396 result: read-only pull of `/mnt/system/system/bin/servicemanager`, `/mnt/system/system/lib64/libbase.so`, and `/mnt/system/system/lib64/liblog.so` PASS.
 - V396 framechain rerun: `service-manager-framechain-symbolization-pass`, no remaining missing-ELF blockers.
@@ -61,7 +61,9 @@
 - latest V406 linker-list report: `docs/reports/NATIVE_INIT_V406_SYSTEM_EXT_VNDK_LINKER_LIST_LIVE_2026-05-20.md`.
 - V407 approval packet result: bounded composite HAL retry runner is implemented and fail-closed; read-only preflight is ready; no live HAL retry has been executed.
 - latest V407 approval packet report: `docs/reports/NATIVE_INIT_V407_COMPOSITE_HAL_RETRY_APPROVAL_PACKET_2026-05-20.md`.
-- next execution item: exact-approved V407 bounded composite Wi-Fi HAL start-only retry using helper v24 `v30-to-system-ext-v30`. Wi-Fi scan/connect/link-up, credentials, DHCP, and routing remain blocked.
+- V407 live result: exact-approved bounded composite HAL start-only retry PASS; `servicemanager`, `hwservicemanager`, and `vendor.samsung.hardware.wifi@2.0-service` were all observable until timeout and cleaned safely.
+- latest V407 live report: `docs/reports/NATIVE_INIT_V407_COMPOSITE_HAL_START_ONLY_RETRY_LIVE_2026-05-20.md`.
+- next execution item: V408 Wi-Fi HAL registration/service-surface evidence. Wi-Fi scan/connect/link-up, credentials, DHCP, and routing remain blocked.
 
 ## 현재 고정 기준점
 
@@ -8719,3 +8721,21 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
   - non-approved paths report `device_mutations=False`, `daemon_start_executed=False`, `wifi_hal_start_executed=False`, `wifi_bringup_executed=False`.
 - interpretation: V407 live retry is now gated only by exact approval. It remains start-only and does not approve scan/connect/link-up.
 - next execution item: exact-approved V407 composite Wi-Fi HAL start-only retry. Required phrase: `approve v407 composite Wi-Fi HAL start-only retry only; no scan/connect/link-up and no Wi-Fi bring-up`.
+
+### V407. Composite Wi-Fi HAL Start-Only Retry Live — PASS / READY FOR REGISTRATION EVIDENCE
+
+- report: `docs/reports/NATIVE_INIT_V407_COMPOSITE_HAL_START_ONLY_RETRY_LIVE_2026-05-20.md`
+- evidence: `tmp/wifi/v407-composite-hal-start-only-retry-live-20260520-101410/`
+- native transcript: `tmp/wifi/v407-composite-hal-start-only-retry-live-20260520-101410/native/run-composite-hal.txt`
+- result:
+  - decision `v407-composite-hal-start-only-retry-pass`.
+  - helper result `start-only-pass`.
+  - reason `observed-until-timeout-clean-stop`.
+  - helper v24 mode `v30-to-system-ext-v30`.
+  - `servicemanager`, `hwservicemanager`, and Wi-Fi HAL child all `observable=1`.
+  - all three children `postflight_safe=1`, `reaped=1`, and `signal=15`.
+  - postflight process surface clean.
+  - postflight Wi-Fi link surface clean; no WLAN-like interface appeared.
+  - `wifi_bringup_executed=False`.
+- interpretation: V407 proves the first HAL candidate can stay alive through the bounded observe window in the private namespace. The next step is not Wi-Fi bring-up; it is HAL registration/service-surface evidence collection while this bounded trio is alive.
+- next execution item: V408 Wi-Fi HAL registration/service-surface evidence plan. Wi-Fi scan/connect/link-up remains blocked.

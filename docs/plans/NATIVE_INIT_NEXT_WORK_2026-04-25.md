@@ -2013,3 +2013,9 @@ Samsung bootloader
    - v407 결과: approval packet PASS. plan은 `v407-composite-hal-start-only-retry-plan-ready`, no-approval은 `v407-composite-hal-start-only-retry-approval-required`, read-only preflight는 `v407-composite-hal-start-only-retry-preflight-ready`
    - v407 guard 결과: V406 linker-list input, helper v24 SHA/mode, system_ext VNDK v30 source, manager binaries, process surface, Wi-Fi link surface가 모두 pass. device mutation, daemon start, HAL start, Wi-Fi bring-up은 모두 false
    - v407 다음: `approve v407 composite Wi-Fi HAL start-only retry only; no scan/connect/link-up and no Wi-Fi bring-up` 승인 시 bounded start-only retry만 실행한다. scan/connect/link-up, credentials, DHCP, routing은 별도 gate로 유지한다
+
+   - v407 live report: `docs/reports/NATIVE_INIT_V407_COMPOSITE_HAL_START_ONLY_RETRY_LIVE_2026-05-20.md`
+   - v407 live evidence: `tmp/wifi/v407-composite-hal-start-only-retry-live-20260520-101410/`
+   - v407 live 결과: exact-approved bounded composite HAL start-only retry PASS. `servicemanager`, `hwservicemanager`, `vendor.samsung.hardware.wifi@2.0-service`가 모두 observe window 끝까지 observable했고 SIGTERM cleanup/reap/postflight safe로 종료됐다. scan/connect/link-up 및 Wi-Fi bring-up은 false
+   - v407 해석: private namespace와 helper v24 `v30-to-system-ext-v30` 조합은 첫 HAL 후보를 bounded start-only로 유지할 수 있다
+   - v408 다음: HAL registration/service-surface evidence를 수집하는 plan/approval packet을 작성한다. scan/connect/link-up, credentials, DHCP, routing은 계속 별도 gate로 유지한다
