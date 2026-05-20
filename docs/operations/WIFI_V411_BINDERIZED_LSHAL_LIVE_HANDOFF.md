@@ -50,6 +50,40 @@ approve v411 bounded binderized lshal registration query only; no scan/connect/l
 
 Older V410/V409 approval phrases are intentionally insufficient.
 
+## One-Shot Executor
+
+Preferred guarded path when both deploy and query approvals are intentionally
+provided:
+
+```bash
+OUT=tmp/wifi/v411-executor-full-$(date +%Y%m%d-%H%M%S)
+python3 scripts/revalidation/wifi_v411_deploy_query_executor.py \
+  --out-dir "$OUT" \
+  --deploy-approval-phrase 'approve v411 deploy execns helper v27 only; no daemon start and no Wi-Fi bring-up' \
+  --live-approval-phrase 'approve v411 bounded binderized lshal registration query only; no scan/connect/link-up and no Wi-Fi bring-up' \
+  --apply \
+  --assume-yes \
+  full
+```
+
+The executor is fail-closed:
+
+- `plan` runs no device command.
+- `deploy`, `live`, and `full` require exact phrase matching plus `--apply --assume-yes`.
+- `full` refuses before any device command if either deploy or live approval is missing.
+- output root is private `0700`; manifest and summary are private `0600`.
+
+Executor no-approval evidence:
+
+```text
+tmp/wifi/v411-executor-plan-noapproval-20260520-114711/
+tmp/wifi/v411-executor-deploy-noapproval-20260520-114711/
+tmp/wifi/v411-executor-live-noapproval-20260520-114711/
+tmp/wifi/v411-executor-full-noapproval-20260520-114711/
+tmp/wifi/v411-executor-full-deployonly-refusal-20260520-114711/
+tmp/wifi/v411-executor-full-liveonly-refusal-20260520-114711/
+```
+
 ## Preflight
 
 ```bash

@@ -199,6 +199,84 @@ process-surface-clean: pass
 wifi-link-clean: pass
 ```
 
+## Fail-Closed Executor
+
+V411 deploy/query executor:
+
+```text
+script: scripts/revalidation/wifi_v411_deploy_query_executor.py
+```
+
+No-approval executor evidence:
+
+```text
+evidence: tmp/wifi/v411-executor-plan-noapproval-20260520-114711/
+decision: v411-deploy-query-executor-plan-ready
+pass: True
+device_commands_executed: False
+device_mutations: False
+daemon_start_executed: False
+wifi_hal_start_executed: False
+wifi_bringup_executed: False
+```
+
+```text
+evidence: tmp/wifi/v411-executor-deploy-noapproval-20260520-114711/
+decision: v411-deploy-query-executor-approval-required
+remaining_blockers: exact-v411-deploy-approval-phrase
+device_commands_executed: False
+device_mutations: False
+daemon_start_executed: False
+wifi_hal_start_executed: False
+wifi_bringup_executed: False
+```
+
+```text
+evidence: tmp/wifi/v411-executor-live-noapproval-20260520-114711/
+decision: v411-deploy-query-executor-approval-required
+remaining_blockers: exact-v411-binderized-lshal-live-approval-phrase
+device_commands_executed: False
+device_mutations: False
+daemon_start_executed: False
+wifi_hal_start_executed: False
+wifi_bringup_executed: False
+```
+
+```text
+evidence: tmp/wifi/v411-executor-full-noapproval-20260520-114711/
+decision: v411-deploy-query-executor-approval-required
+remaining_blockers: exact-v411-deploy-approval-phrase, exact-v411-binderized-lshal-live-approval-phrase
+device_commands_executed: False
+device_mutations: False
+daemon_start_executed: False
+wifi_hal_start_executed: False
+wifi_bringup_executed: False
+```
+
+Partial full-approval refusal evidence:
+
+```text
+evidence: tmp/wifi/v411-executor-full-deployonly-refusal-20260520-114711/
+remaining_blockers: exact-v411-binderized-lshal-live-approval-phrase
+device_commands_executed: False
+device_mutations: False
+```
+
+```text
+evidence: tmp/wifi/v411-executor-full-liveonly-refusal-20260520-114711/
+remaining_blockers: exact-v411-deploy-approval-phrase
+device_commands_executed: False
+device_mutations: False
+```
+
+Executor evidence permissions:
+
+```text
+700 tmp/wifi/v411-executor-plan-noapproval-20260520-114711
+600 tmp/wifi/v411-executor-plan-noapproval-20260520-114711/manifest.json
+600 tmp/wifi/v411-executor-plan-noapproval-20260520-114711/summary.md
+```
+
 ## Interpretation
 
 V411 is ready for the next operator-approved deploy gate.  The only expected
