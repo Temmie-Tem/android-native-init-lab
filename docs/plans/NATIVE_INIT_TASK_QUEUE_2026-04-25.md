@@ -20,7 +20,7 @@
 - 상세 규칙: `docs/operations/VERSIONING_POLICY.md`
 
 
-## Current Wi-Fi V404 Runtime-Gap Status (2026-05-20)
+## Current Wi-Fi V405 Runtime-Gap Status (2026-05-20)
 
 - current native build remains `A90 Linux init 0.9.61 (v319)`.
 - current Wi-Fi work is host tooling plus bounded read-only evidence, not a new boot-image flash.
@@ -46,7 +46,9 @@
 - latest V403 live report: `docs/reports/NATIVE_INIT_V403_SERVICE_MANAGER_START_ONLY_RETRY_LIVE_2026-05-20.md`.
 - V404 packet result: non-mutating private-composite Wi-Fi HAL readiness packet PASS; first HAL candidate is `vendor.wifi_hal_ext`; current blocker is implementation of a composite helper/runner that keeps `servicemanager`, `hwservicemanager`, and one HAL candidate in the same helper-owned namespace.
 - latest V404 packet report: `docs/reports/NATIVE_INIT_V404_PRIVATE_COMPOSITE_HAL_READINESS_PACKET_2026-05-20.md`.
-- next execution item: V405 composite helper/runner approval packet. Wi-Fi HAL start, scan/connect/link-up, credentials, DHCP, and routing remain blocked.
+- V405 packet result: helper v23 composite HAL mode built locally and non-mutating approval packet PASS; deploy and HAL start-only both remain behind separate exact approval phrases.
+- latest V405 packet report: `docs/reports/NATIVE_INIT_V405_COMPOSITE_HAL_APPROVAL_PACKET_2026-05-20.md`.
+- next execution item: exact-approved V405 helper v23 deploy only. Wi-Fi HAL start, scan/connect/link-up, credentials, DHCP, and routing remain blocked.
 
 ## 현재 고정 기준점
 
@@ -8573,3 +8575,23 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
   - `live_execution_approved=False`, `device_mutations=False`, `daemon_start_executed=False`, `wifi_bringup_executed=False`
 - interpretation: V210/V216/V287 vendor-root and service-order evidence should drive HAL readiness, not global `/mnt/system/vendor` stat visibility. V405 must implement a composite helper/runner because the current helper starts one target per invocation.
 - next execution item: V405 composite helper/runner approval packet. Wi-Fi HAL start, scan/connect/link-up, credentials, DHCP, and routing remain blocked.
+
+### V405. Composite Wi-Fi HAL Approval Packet — PASS / READY FOR HELPER V23 DEPLOY APPROVAL
+
+- plan: `docs/plans/NATIVE_INIT_V405_COMPOSITE_HAL_APPROVAL_PACKET_PLAN_2026-05-20.md`
+- report: `docs/reports/NATIVE_INIT_V405_COMPOSITE_HAL_APPROVAL_PACKET_2026-05-20.md`
+- tools:
+  - `scripts/revalidation/wifi_composite_hal_start_only_v405_runner.py`
+  - `scripts/revalidation/wifi_execns_helper_v23_deploy_preflight.py`
+  - `scripts/revalidation/wifi_composite_hal_v405_approval_packet.py`
+- helper source: `stage3/linux_init/helpers/a90_android_execns_probe.c`
+- helper artifact: `tmp/wifi/v405-a90_android_execns_probe-v23/a90_android_execns_probe`
+- evidence: `tmp/wifi/v405-composite-hal-approval-packet-final-20260520-092442/`
+- result:
+  - decision `v405-composite-hal-approval-packet-ready`.
+  - helper v23 SHA `64c80e73d791b82e0b9f60b05db1df1781bf5033b1ffd76e323cf52ce3dbc520`.
+  - deploy preflight `execns-helper-v23-deploy-preflight-ready-needs-deploy`.
+  - deploy no-approval and HAL no-approval runners both refuse before mutation.
+  - `live_execution_approved=False`, `device_mutations=False`, `daemon_start_executed=False`, `wifi_hal_start_executed=False`, `wifi_bringup_executed=False`
+- interpretation: helper v23 now has the composite mode V404 required, but the device still has helper v22. The next mutation is helper deploy only, not HAL start.
+- next execution item: exact-approved V405 helper v23 deploy. Wi-Fi HAL start-only requires a separate approval after deploy and preflight.

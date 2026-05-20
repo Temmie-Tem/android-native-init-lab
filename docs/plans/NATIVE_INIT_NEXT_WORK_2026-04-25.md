@@ -1965,3 +1965,10 @@ Samsung bootloader
    - v404 결과: `v404-private-composite-hal-readiness-packet-ready` PASS. packet은 V402/V403/V210/V216/V287 입력과 현재 read-only native 상태를 묶어 blocker checks PASS로 판정했다. live execution approval, device mutation, daemon start, Wi-Fi bring-up은 모두 false
    - v404 HAL boundary: first candidate는 `vendor.wifi_hal_ext`, sibling fallback은 `vendor.wifi_hal_legacy`. vendor HAL binary/init rc/VINTF 가시성은 현재 global `/mnt/system/vendor` stat가 아니라 V210 vendor-root evidence를 기준으로 판단한다
    - v404 다음: V405 composite helper/runner approval packet. 현재 helper는 한 invocation에 한 target만 start하므로, HAL start-only 전에 `servicemanager` + `hwservicemanager` + 첫 HAL 후보를 같은 helper-owned private namespace에서 bounded supervision하는 실행기를 만들어야 한다. Wi-Fi scan/connect/link-up/credentials/DHCP/routing remain blocked
+
+   - v405 plan: `docs/plans/NATIVE_INIT_V405_COMPOSITE_HAL_APPROVAL_PACKET_PLAN_2026-05-20.md`
+   - v405 report: `docs/reports/NATIVE_INIT_V405_COMPOSITE_HAL_APPROVAL_PACKET_2026-05-20.md`
+   - v405 evidence: `tmp/wifi/v405-composite-hal-approval-packet-final-20260520-092442/`
+   - v405 결과: `v405-composite-hal-approval-packet-ready` PASS. helper v23 local artifact SHA는 `64c80e73d791b82e0b9f60b05db1df1781bf5033b1ffd76e323cf52ce3dbc520`이고, `wifi-hal-composite-start-only`, `vendor-wifi-hal-ext`, `vendor-wifi-hal-legacy`, `--allow-wifi-hal-start-only` guard strings가 확인됐다
+   - v405 guard 결과: deploy preflight는 expected `execns-helper-v23-deploy-preflight-ready-needs-deploy`, deploy no-approval은 `execns-helper-v23-deploy-approval-required`, HAL runner no-approval은 `composite-hal-start-only-approval-required`로 모두 fail-closed. device mutation, daemon start, HAL start, Wi-Fi bring-up은 모두 false
+   - v405 다음: exact-approved helper v23 deploy only. HAL start-only는 deploy 후 V405 runner preflight PASS를 본 뒤 별도 exact approval로만 진행한다. scan/connect/link-up/credentials/DHCP/routing remain blocked
