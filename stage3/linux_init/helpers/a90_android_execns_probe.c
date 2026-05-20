@@ -43,7 +43,7 @@
 #define PR_CAP_AMBIENT_RAISE 2
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v27"
+#define EXECNS_VERSION "a90_android_execns_probe v28"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -55,6 +55,7 @@
 #define A90_AID_NET_ADMIN 3005
 #define A90_AID_READPROC 3009
 #define A90_COMPOSITE_CHILD_COUNT 3
+#define A90_WIFI_HAL_WAIT_TARGET_COUNT 3
 
 struct config {
     const char *system_root;
@@ -140,14 +141,38 @@ static void usage(FILE *out) {
             "[--allow-service-manager-start-only] "
             "[--allow-wifi-hal-start-only] "
             "[--allow-hal-service-query] "
-            "--mode linker-list|identity-probe|cnss-start-only|property-lookup|service-manager-start-only|private-selinux-proof|wifi-hal-composite-start-only|wifi-hal-composite-lshal-list|wifi-hal-composite-lshal-binderized-list "
+            "--mode linker-list|identity-probe|cnss-start-only|property-lookup|service-manager-start-only|private-selinux-proof|wifi-hal-composite-start-only|wifi-hal-composite-lshal-list|wifi-hal-composite-lshal-binderized-list|wifi-hal-composite-lshal-wait-target "
             "[v27 binderized query runs: /system/bin/lshal list --types=binderized --neat] "
+            "[v28 target query runs: /system/bin/lshal wait <fqinstance>] "
             "--timeout-sec <1..30>\n");
 }
 
 static bool streq(const char *a, const char *b) {
     return a != NULL && b != NULL && strcmp(a, b) == 0;
 }
+
+static bool is_wifi_hal_composite_mode(const char *mode) {
+    return streq(mode, "wifi-hal-composite-start-only") ||
+           streq(mode, "wifi-hal-composite-lshal-list") ||
+           streq(mode, "wifi-hal-composite-lshal-binderized-list") ||
+           streq(mode, "wifi-hal-composite-lshal-wait-target");
+}
+
+static bool is_wifi_hal_service_query_mode(const char *mode) {
+    return streq(mode, "wifi-hal-composite-lshal-list") ||
+           streq(mode, "wifi-hal-composite-lshal-binderized-list") ||
+           streq(mode, "wifi-hal-composite-lshal-wait-target");
+}
+
+static bool is_wifi_hal_lshal_wait_target_mode(const char *mode) {
+    return streq(mode, "wifi-hal-composite-lshal-wait-target");
+}
+
+static const char *const A90_WIFI_HAL_WAIT_TARGETS[A90_WIFI_HAL_WAIT_TARGET_COUNT] = {
+    "vendor.samsung.hardware.wifi@2.0::ISehWifi/default",
+    "vendor.samsung.hardware.wifi@2.1::ISehWifi/default",
+    "vendor.samsung.hardware.wifi@2.2::ISehWifi/default",
+};
 
 static bool parse_int_range(const char *value, int min_value, int max_value, int *out) {
     char *end = NULL;
@@ -327,8 +352,7 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
         return 2;
     }
 
-    if ((streq(cfg->mode, "wifi-hal-composite-lshal-list") ||
-         streq(cfg->mode, "wifi-hal-composite-lshal-binderized-list")) &&
+    if (is_wifi_hal_service_query_mode(cfg->mode) &&
         streq(cfg->data_wifi_mode, "none")) {
         cfg->data_wifi_mode = "private-empty";
     }
@@ -342,9 +366,7 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
           streq(cfg->mode, "property-lookup") ||
           streq(cfg->mode, "private-selinux-proof") ||
           streq(cfg->mode, "service-manager-start-only") ||
-          streq(cfg->mode, "wifi-hal-composite-start-only") ||
-          streq(cfg->mode, "wifi-hal-composite-lshal-list") ||
-          streq(cfg->mode, "wifi-hal-composite-lshal-binderized-list")) ||
+          is_wifi_hal_composite_mode(cfg->mode)) ||
         !(streq(cfg->capture_mode, "none") ||
           streq(cfg->capture_mode, "ptrace-lite")) ||
         !(streq(cfg->null_device_mode, "none") ||
@@ -412,9 +434,7 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             return 2;
         }
     }
-    if (streq(cfg->mode, "wifi-hal-composite-start-only") ||
-        streq(cfg->mode, "wifi-hal-composite-lshal-list") ||
-        streq(cfg->mode, "wifi-hal-composite-lshal-binderized-list")) {
+    if (is_wifi_hal_composite_mode(cfg->mode)) {
         if (cfg->linker != NULL) {
             fprintf(stderr, "--linker is not used by wifi-hal-composite modes\n");
             return 2;
@@ -492,9 +512,7 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             return 2;
         }
     } else if (streq(cfg->mode, "service-manager-start-only") ||
-               streq(cfg->mode, "wifi-hal-composite-start-only") ||
-               streq(cfg->mode, "wifi-hal-composite-lshal-list") ||
-               streq(cfg->mode, "wifi-hal-composite-lshal-binderized-list")) {
+               is_wifi_hal_composite_mode(cfg->mode)) {
         if (cfg->property_key != NULL) {
             fprintf(stderr, "--property-key is only valid with property-lookup mode\n");
             return 2;
@@ -655,9 +673,7 @@ static int materialize_private_properties(const struct config *cfg,
         (streq(cfg->mode, "service-manager-start-only") &&
          cfg->allow_service_manager_start_only &&
          cfg->property_root != NULL) ||
-        ((streq(cfg->mode, "wifi-hal-composite-start-only") ||
-          streq(cfg->mode, "wifi-hal-composite-lshal-list") ||
-          streq(cfg->mode, "wifi-hal-composite-lshal-binderized-list")) &&
+        (is_wifi_hal_composite_mode(cfg->mode) &&
          cfg->allow_service_manager_start_only &&
          cfg->allow_wifi_hal_start_only &&
          cfg->property_root != NULL);
@@ -706,9 +722,7 @@ static int materialize_selinuxfs_surface(const struct config *cfg,
 
     if (!streq(cfg->mode, "private-selinux-proof") &&
         !streq(cfg->mode, "service-manager-start-only") &&
-        !((streq(cfg->mode, "wifi-hal-composite-start-only") ||
-           streq(cfg->mode, "wifi-hal-composite-lshal-list") ||
-           streq(cfg->mode, "wifi-hal-composite-lshal-binderized-list")) &&
+        !(is_wifi_hal_composite_mode(cfg->mode) &&
           cfg->allow_service_manager_start_only &&
           cfg->allow_wifi_hal_start_only)) {
         return 0;
@@ -976,9 +990,7 @@ static int materialize_service_manager_binder_devices(const struct config *cfg,
     if (!(streq(cfg->mode, "private-selinux-proof") ||
           (streq(cfg->mode, "service-manager-start-only") &&
            cfg->allow_service_manager_start_only) ||
-          ((streq(cfg->mode, "wifi-hal-composite-start-only") ||
-            streq(cfg->mode, "wifi-hal-composite-lshal-list") ||
-            streq(cfg->mode, "wifi-hal-composite-lshal-binderized-list")) &&
+          (is_wifi_hal_composite_mode(cfg->mode) &&
            cfg->allow_service_manager_start_only &&
            cfg->allow_wifi_hal_start_only))) {
         return 0;
@@ -5606,6 +5618,333 @@ static int run_lshal_service_query_child(const struct config *cfg,
     return 11;
 }
 
+static int run_lshal_wait_target_attempt(const struct config *cfg,
+                                         const struct paths *paths,
+                                         struct buffer *stdout_buf,
+                                         struct buffer *stderr_buf,
+                                         const char *fqinstance,
+                                         size_t target_index,
+                                         int timeout_ms) {
+    int stdout_pipe[2] = {-1, -1};
+    int stderr_pipe[2] = {-1, -1};
+    pid_t pid;
+    pid_t pgid;
+    bool stdout_open = false;
+    bool stderr_open = false;
+    bool child_done = false;
+    bool timed_out = false;
+    int exit_code = -1;
+    int signal_no = 0;
+    long deadline;
+
+    append_format(stdout_buf,
+                  "wifi_hal_micro_query.target.%zu.begin=1\n"
+                  "wifi_hal_micro_query.target.%zu.fqinstance=%s\n",
+                  target_index,
+                  target_index,
+                  fqinstance);
+    if (pipe2(stdout_pipe, O_CLOEXEC) < 0 || pipe2(stderr_pipe, O_CLOEXEC) < 0) {
+        append_format(stdout_buf,
+                      "wifi_hal_micro_query.target.%zu.result=manual-review-required\n"
+                      "wifi_hal_micro_query.target.%zu.reason=pipe-failed-%s\n"
+                      "wifi_hal_micro_query.target.%zu.end=1\n",
+                      target_index,
+                      target_index,
+                      strerror(errno),
+                      target_index);
+        if (stdout_pipe[0] >= 0) close(stdout_pipe[0]);
+        if (stdout_pipe[1] >= 0) close(stdout_pipe[1]);
+        if (stderr_pipe[0] >= 0) close(stderr_pipe[0]);
+        if (stderr_pipe[1] >= 0) close(stderr_pipe[1]);
+        return -1;
+    }
+    pid = fork();
+    if (pid < 0) {
+        append_format(stdout_buf,
+                      "wifi_hal_micro_query.target.%zu.result=manual-review-required\n"
+                      "wifi_hal_micro_query.target.%zu.reason=fork-failed-%s\n"
+                      "wifi_hal_micro_query.target.%zu.end=1\n",
+                      target_index,
+                      target_index,
+                      strerror(errno),
+                      target_index);
+        close(stdout_pipe[0]);
+        close(stdout_pipe[1]);
+        close(stderr_pipe[0]);
+        close(stderr_pipe[1]);
+        return -1;
+    }
+    if (pid == 0) {
+        char *const wait_argv[] = {
+            (char *)"/system/bin/lshal",
+            (char *)"wait",
+            (char *)fqinstance,
+            NULL,
+        };
+
+        close(stdout_pipe[0]);
+        close(stderr_pipe[0]);
+        dup2(stdout_pipe[1], STDOUT_FILENO);
+        dup2(stderr_pipe[1], STDERR_FILENO);
+        close(stdout_pipe[1]);
+        close(stderr_pipe[1]);
+        if (setsid() < 0) {
+            perror("setsid");
+            _exit(123);
+        }
+        if (chroot(paths->root) < 0) {
+            perror("chroot");
+            _exit(120);
+        }
+        if (chdir("/") < 0) {
+            perror("chdir");
+            _exit(121);
+        }
+        apply_child_env(cfg);
+        printf("wifi_hal_micro_query.target.%zu.child.begin=1\n", target_index);
+        if (apply_service_manager_identity_contract("wifi_hal_micro_query.child") < 0) {
+            printf("wifi_hal_micro_query.target.%zu.child.end=1\n", target_index);
+            fflush(stdout);
+            _exit(126);
+        }
+        printf("wifi_hal_micro_query.target.%zu.child.exec_target=/system/bin/lshal\n", target_index);
+        printf("wifi_hal_micro_query.target.%zu.child.argv.1=wait\n", target_index);
+        printf("wifi_hal_micro_query.target.%zu.child.argv.2=%s\n", target_index, fqinstance);
+        fflush(stdout);
+        execv("/system/bin/lshal", wait_argv);
+        printf("wifi_hal_micro_query.target.%zu.child.exec_error=%s\n", target_index, strerror(errno));
+        printf("wifi_hal_micro_query.target.%zu.child.end=1\n", target_index);
+        fflush(stdout);
+        _exit(127);
+    }
+    close(stdout_pipe[1]);
+    close(stderr_pipe[1]);
+    stdout_open = true;
+    stderr_open = true;
+    set_nonblock(stdout_pipe[0]);
+    set_nonblock(stderr_pipe[0]);
+    pgid = wait_for_child_session_pgid(pid, 1000);
+    append_format(stdout_buf,
+                  "wifi_hal_micro_query.target.%zu.exec_attempted=1\n"
+                  "wifi_hal_micro_query.target.%zu.child_started=1\n"
+                  "wifi_hal_micro_query.target.%zu.pid=%ld\n"
+                  "wifi_hal_micro_query.target.%zu.pgid=%ld\n",
+                  target_index,
+                  target_index,
+                  target_index,
+                  (long)pid,
+                  target_index,
+                  (long)pgid);
+
+    deadline = monotonic_ms() + timeout_ms;
+    while (stdout_open || stderr_open || !child_done) {
+        struct pollfd fds[2];
+        int nfds = 0;
+
+        if (!child_done && monotonic_ms() >= deadline) {
+            timed_out = true;
+            if (pgid > 1) {
+                kill(-pgid, SIGTERM);
+            }
+            kill(pid, SIGTERM);
+        }
+        if (stdout_open) {
+            fds[nfds].fd = stdout_pipe[0];
+            fds[nfds].events = POLLIN | POLLHUP | POLLERR;
+            nfds++;
+        }
+        if (stderr_open) {
+            fds[nfds].fd = stderr_pipe[0];
+            fds[nfds].events = POLLIN | POLLHUP | POLLERR;
+            nfds++;
+        }
+        if (nfds > 0) {
+            int rc = poll(fds, nfds, 50);
+
+            if (rc > 0) {
+                int idx = 0;
+
+                if (stdout_open) {
+                    if (fds[idx].revents != 0) {
+                        drain_fd(stdout_pipe[0], stdout_buf, &stdout_open);
+                    }
+                    idx++;
+                }
+                if (stderr_open && fds[idx].revents != 0) {
+                    drain_fd(stderr_pipe[0], stderr_buf, &stderr_open);
+                }
+            }
+        } else {
+            usleep(50000);
+        }
+        if (!child_done) {
+            int status = 0;
+            pid_t wait_rc = waitpid(pid, &status, WNOHANG);
+
+            if (wait_rc == pid) {
+                child_done = true;
+                if (WIFEXITED(status)) {
+                    exit_code = WEXITSTATUS(status);
+                } else if (WIFSIGNALED(status)) {
+                    signal_no = WTERMSIG(status);
+                }
+            } else if (wait_rc < 0) {
+                if (errno == ECHILD) {
+                    child_done = true;
+                } else if (errno != EINTR) {
+                    append_format(stdout_buf,
+                                  "wifi_hal_micro_query.target.%zu.wait.error=%s\n",
+                                  target_index,
+                                  strerror(errno));
+                    child_done = true;
+                }
+            }
+        }
+        if (timed_out && !child_done && monotonic_ms() >= deadline + 1000L) {
+            if (pgid > 1) {
+                kill(-pgid, SIGKILL);
+            }
+            kill(pid, SIGKILL);
+        }
+    }
+    if (stdout_pipe[0] >= 0) close(stdout_pipe[0]);
+    if (stderr_pipe[0] >= 0) close(stderr_pipe[0]);
+    append_format(stdout_buf,
+                  "wifi_hal_micro_query.target.%zu.exit_code=%d\n"
+                  "wifi_hal_micro_query.target.%zu.signal=%d\n"
+                  "wifi_hal_micro_query.target.%zu.timed_out=%d\n",
+                  target_index,
+                  exit_code,
+                  target_index,
+                  signal_no,
+                  target_index,
+                  timed_out ? 1 : 0);
+    if (timed_out) {
+        append_format(stdout_buf,
+                      "wifi_hal_micro_query.target.%zu.result=service-query-timeout\n"
+                      "wifi_hal_micro_query.target.%zu.reason=lshal-wait-timeout\n"
+                      "wifi_hal_micro_query.target.%zu.end=1\n",
+                      target_index,
+                      target_index,
+                      target_index);
+        return 12;
+    }
+    if (exit_code == 0 && signal_no == 0) {
+        append_format(stdout_buf,
+                      "wifi_hal_micro_query.target.%zu.result=service-query-pass\n"
+                      "wifi_hal_micro_query.target.%zu.reason=lshal-wait-exit-zero\n"
+                      "wifi_hal_micro_query.target.%zu.end=1\n",
+                      target_index,
+                      target_index,
+                      target_index);
+        return 0;
+    }
+    append_format(stdout_buf,
+                  "wifi_hal_micro_query.target.%zu.result=service-query-runtime-gap\n"
+                  "wifi_hal_micro_query.target.%zu.reason=lshal-wait-nonzero\n"
+                  "wifi_hal_micro_query.target.%zu.end=1\n",
+                  target_index,
+                  target_index,
+                  target_index);
+    return 11;
+}
+
+static int run_lshal_wait_target_query_child(const struct config *cfg,
+                                             const struct paths *paths,
+                                             struct buffer *stdout_buf,
+                                             struct buffer *stderr_buf,
+                                             int timeout_ms) {
+    char lshal_host_path[MAX_PATH_LEN];
+    bool any_timeout = false;
+    bool any_nonzero = false;
+
+    if (append_path(lshal_host_path, sizeof(lshal_host_path), paths->root, "system/bin/lshal") < 0) {
+        append_format(stdout_buf,
+                      "wifi_hal_micro_query.result=manual-review-required\n"
+                      "wifi_hal_micro_query.reason=lshal-path-too-long\n");
+        return -1;
+    }
+    append_literal(stdout_buf, "wifi_hal_micro_query.begin=1\n");
+    append_literal(stdout_buf, "wifi_hal_micro_query.tool=/system/bin/lshal\n");
+    append_format(stdout_buf,
+                  "wifi_hal_micro_query.variant=targeted-lshal-wait\n"
+                  "wifi_hal_micro_query.host_path=%s\n"
+                  "wifi_hal_micro_query.exists=%d\n"
+                  "wifi_hal_micro_query.executable=%d\n"
+                  "wifi_hal_micro_query.target_count=%d\n"
+                  "wifi_hal_micro_query.per_target_timeout_ms=%d\n"
+                  "wifi_hal_micro_query.scan_connect_linkup=0\n"
+                  "wifi_hal_micro_query.credentials=0\n"
+                  "wifi_hal_micro_query.dhcp_routing=0\n",
+                  lshal_host_path,
+                  access(lshal_host_path, F_OK) == 0 ? 1 : 0,
+                  access(lshal_host_path, X_OK) == 0 ? 1 : 0,
+                  A90_WIFI_HAL_WAIT_TARGET_COUNT,
+                  timeout_ms);
+    if (access(lshal_host_path, X_OK) < 0) {
+        append_format(stdout_buf,
+                      "wifi_hal_micro_query.exec_attempted=0\n"
+                      "wifi_hal_micro_query.result=service-query-tool-missing\n"
+                      "wifi_hal_micro_query.reason=system-bin-lshal-unavailable-%s\n"
+                      "wifi_hal_micro_query.end=1\n",
+                      strerror(errno));
+        return 10;
+    }
+    append_literal(stdout_buf, "wifi_hal_micro_query.exec_attempted=1\n");
+    for (size_t i = 0; i < A90_WIFI_HAL_WAIT_TARGET_COUNT; i++) {
+        int rc = run_lshal_wait_target_attempt(cfg,
+                                               paths,
+                                               stdout_buf,
+                                               stderr_buf,
+                                               A90_WIFI_HAL_WAIT_TARGETS[i],
+                                               i,
+                                               timeout_ms);
+
+        if (rc == 0) {
+            append_format(stdout_buf,
+                          "wifi_hal_micro_query.result=service-query-pass\n"
+                          "wifi_hal_micro_query.reason=lshal-wait-exit-zero\n"
+                          "wifi_hal_micro_query.matched_index=%zu\n"
+                          "wifi_hal_micro_query.matched_fqinstance=%s\n"
+                          "wifi_hal_micro_query.end=1\n",
+                          i,
+                          A90_WIFI_HAL_WAIT_TARGETS[i]);
+            return 0;
+        }
+        if (rc == 12) {
+            any_timeout = true;
+        } else if (rc != 0) {
+            any_nonzero = true;
+        }
+        if (rc < 0) {
+            append_literal(stdout_buf,
+                           "wifi_hal_micro_query.result=manual-review-required\n"
+                           "wifi_hal_micro_query.reason=lshal-wait-attempt-failed\n"
+                           "wifi_hal_micro_query.end=1\n");
+            return -1;
+        }
+    }
+    if (any_timeout) {
+        append_literal(stdout_buf,
+                       "wifi_hal_micro_query.result=service-query-timeout\n"
+                       "wifi_hal_micro_query.reason=lshal-wait-timeout\n"
+                       "wifi_hal_micro_query.end=1\n");
+        return 12;
+    }
+    if (any_nonzero) {
+        append_literal(stdout_buf,
+                       "wifi_hal_micro_query.result=service-query-runtime-gap\n"
+                       "wifi_hal_micro_query.reason=lshal-wait-nonzero\n"
+                       "wifi_hal_micro_query.end=1\n");
+        return 11;
+    }
+    append_literal(stdout_buf,
+                   "wifi_hal_micro_query.result=manual-review-required\n"
+                   "wifi_hal_micro_query.reason=no-targets-attempted\n"
+                   "wifi_hal_micro_query.end=1\n");
+    return -1;
+}
+
 static void composite_capture_observable_children(struct composite_child *children,
                                                   size_t child_count,
                                                   struct buffer *stdout_buf) {
@@ -5741,8 +6080,8 @@ static int run_wifi_hal_composite_start_only_guarded(const struct config *cfg,
                                                      int *child_signal,
                                                      bool *timed_out) {
     struct composite_child children[A90_COMPOSITE_CHILD_COUNT];
-    const bool service_query_mode = streq(cfg->mode, "wifi-hal-composite-lshal-list") ||
-                                    streq(cfg->mode, "wifi-hal-composite-lshal-binderized-list");
+    const bool service_query_mode = is_wifi_hal_service_query_mode(cfg->mode);
+    const bool wait_target_query_mode = is_wifi_hal_lshal_wait_target_mode(cfg->mode);
     bool all_postflight_safe = true;
     bool any_runtime_gap = false;
     bool all_observable_at_timeout = true;
@@ -5834,11 +6173,19 @@ static int run_wifi_hal_composite_start_only_guarded(const struct config *cfg,
             composite_cleanup_children(children, A90_COMPOSITE_CHILD_COUNT, stdout_buf);
             return -1;
         }
-        service_query_result = run_lshal_service_query_child(cfg,
-                                                             paths,
-                                                             stdout_buf,
-                                                             stderr_buf,
-                                                             3000);
+        if (wait_target_query_mode) {
+            service_query_result = run_lshal_wait_target_query_child(cfg,
+                                                                     paths,
+                                                                     stdout_buf,
+                                                                     stderr_buf,
+                                                                     2000);
+        } else {
+            service_query_result = run_lshal_service_query_child(cfg,
+                                                                 paths,
+                                                                 stdout_buf,
+                                                                 stderr_buf,
+                                                                 3000);
+        }
     }
     if (composite_poll_children(children,
                                 A90_COMPOSITE_CHILD_COUNT,
@@ -5928,13 +6275,17 @@ static int run_wifi_hal_composite_start_only_guarded(const struct config *cfg,
                        "wifi_hal_composite_start.result=service-query-tool-missing\n"
                        "wifi_hal_composite_start.reason=lshal-unavailable\n");
     } else if (service_query_mode && service_query_result != 0) {
-        append_literal(stdout_buf,
-                       "wifi_hal_composite_start.result=service-query-runtime-gap\n"
-                       "wifi_hal_composite_start.reason=lshal-query-failed\n");
+        append_format(stdout_buf,
+                      "wifi_hal_composite_start.result=service-query-runtime-gap\n"
+                      "wifi_hal_composite_start.reason=%s\n",
+                      wait_target_query_mode ? "lshal-wait-query-failed" : "lshal-query-failed");
     } else if (service_query_mode && *timed_out && all_observable_at_timeout) {
-        append_literal(stdout_buf,
-                       "wifi_hal_composite_start.result=service-query-pass\n"
-                       "wifi_hal_composite_start.reason=lshal-query-exit-zero-and-children-clean\n");
+        append_format(stdout_buf,
+                      "wifi_hal_composite_start.result=service-query-pass\n"
+                      "wifi_hal_composite_start.reason=%s\n",
+                      wait_target_query_mode
+                          ? "lshal-wait-target-exit-zero-and-children-clean"
+                          : "lshal-query-exit-zero-and-children-clean");
     } else if (*timed_out && all_observable_at_timeout) {
         append_literal(stdout_buf,
                        "wifi_hal_composite_start.result=start-only-pass\n"
@@ -6211,9 +6562,7 @@ int main(int argc, char **argv) {
                                                         &child_exit_code,
                                                         &child_signal,
                                                         &timed_out);
-    } else if (streq(cfg.mode, "wifi-hal-composite-start-only") ||
-               streq(cfg.mode, "wifi-hal-composite-lshal-list") ||
-               streq(cfg.mode, "wifi-hal-composite-lshal-binderized-list")) {
+    } else if (is_wifi_hal_composite_mode(cfg.mode)) {
         run_rc = run_wifi_hal_composite_start_only_guarded(&cfg,
                                                            &paths,
                                                            &stdout_buf,

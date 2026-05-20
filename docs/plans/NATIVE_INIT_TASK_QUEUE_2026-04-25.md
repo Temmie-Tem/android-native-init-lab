@@ -103,7 +103,8 @@
 - V419 live query result: bounded binderized `lshal list --types=binderized --neat` timed out with `v411-hal-registration-query-runtime-gap`; postflight was clean, with no residual manager/HAL processes, no Wi-Fi links, and no Wi-Fi bring-up.
 - V420 post-live routing result: V412 and V415 both route the result to `micro-query-needed`; the updated current gate packet reports `v416-current-gate-micro-query-needed`. Report: `docs/reports/NATIVE_INIT_V418_V419_V420_BINDERIZED_QUERY_LIVE_2026-05-20.md`.
 - V421 plan result: host-only micro hwservicemanager query packet is ready; next implementation is helper v28 mode `wifi-hal-composite-hwservice-listbyinterface` plus fail-closed runner, targeting only V414 Samsung `ISehWifi/default` patterns. Report: `docs/reports/NATIVE_INIT_V421_MICRO_HWSERVICE_QUERY_PLAN_2026-05-20.md`.
-- next execution item: implement helper v28 micro `listByInterface` proof and runner; keep scan/connect/link-up and Wi-Fi bring-up out of scope.
+- V422 targeted lshal wait result: helper v28 mode `wifi-hal-composite-lshal-wait-target` deployed and ran a bounded fallback query against the three V414 Samsung `ISehWifi/default` fqinstances; all three timed out, postflight was clean, and Wi-Fi bring-up remained unexecuted. Plan: `docs/plans/NATIVE_INIT_V422_TARGETED_LSHAL_WAIT_PLAN_2026-05-20.md`. Report: `docs/reports/NATIVE_INIT_V422_TARGETED_LSHAL_WAIT_2026-05-20.md`.
+- next execution item: either build the raw `hwservicemanager listByInterface` proof with an Android/HIDL-capable toolchain or collect Android-side `lshal`/hwservice evidence in full Android runtime; keep scan/connect/link-up and Wi-Fi bring-up out of scope until registration is proven.
 
 ## 현재 고정 기준점
 
