@@ -30,6 +30,58 @@ deploy.APPROVAL_PHRASE = (
 )
 deploy.V373_SCRIPT = deploy.Path("scripts/revalidation/wifi_hal_registration_query_v409_runner.py")
 
+QUERY_GUARD_TOKEN = "--allow-hal-service-query"
+
+_BASE_LOCAL_HELPER_INFO = deploy.local_helper_info
+_BASE_BUILD_CHECKS = deploy.build_checks
+
+
+def local_helper_info(args: deploy.argparse.Namespace) -> dict[str, object]:
+    info = _BASE_LOCAL_HELPER_INFO(args)
+    info["strings_query_guard"] = False
+    if not info.get("exists"):
+        return info
+    rc, strings_output = deploy.run_host(["strings", str(deploy.repo_path(args.local_helper))], timeout=10)
+    if rc == 0:
+        info["strings_query_guard"] = QUERY_GUARD_TOKEN in strings_output
+    return info
+
+
+def build_checks(args: deploy.argparse.Namespace, store: deploy.EvidenceStore,
+                 steps: list[deploy.StepResult], local: dict[str, object],
+                 ping: dict[str, object] | None) -> list[deploy.Check]:
+    checks = _BASE_BUILD_CHECKS(args, store, steps, local, ping)
+    local_guard_ok = bool(local.get("strings_query_guard"))
+    deploy.add_check(
+        checks,
+        "local-helper-v25-query-guard",
+        "pass" if local_guard_ok else "blocked",
+        "blocker",
+        f"query_guard={local_guard_ok}",
+        [str(local.get("path", ""))],
+        "rebuild helper v25 with --allow-hal-service-query guard before deploy",
+    )
+    if args.command == "plan":
+        return checks
+    helper_usage = deploy.capture_text(store, steps, "helper-usage")
+    helper_sha = deploy.capture_text(store, steps, "sha-helper")
+    remote_guard_ok = (
+        args.helper_sha256 in helper_sha
+        and deploy.HELPER_MARKER in helper_usage
+        and deploy.SERVICE_MODE_TOKEN in helper_usage
+        and QUERY_GUARD_TOKEN in helper_usage
+    )
+    deploy.add_check(
+        checks,
+        "remote-helper-v25-query-guard",
+        "pass" if remote_guard_ok else "needs-deploy",
+        "deploy",
+        f"query_guard={remote_guard_ok}",
+        [line for line in helper_usage.splitlines() if QUERY_GUARD_TOKEN in line or deploy.SERVICE_MODE_TOKEN in line][:4],
+        "approved V409 deploy installs helper v25 with query guard if needed",
+    )
+    return checks
+
 
 def run_v409_preflight(args: deploy.argparse.Namespace, store: deploy.EvidenceStore) -> dict[str, object]:
     out_dir = store.path("v409-registration-query-preflight")
@@ -95,6 +147,8 @@ def decide(args: deploy.argparse.Namespace,
 
 deploy.run_v373_preflight = run_v409_preflight
 deploy.decide = decide
+deploy.local_helper_info = local_helper_info
+deploy.build_checks = build_checks
 
 
 if __name__ == "__main__":

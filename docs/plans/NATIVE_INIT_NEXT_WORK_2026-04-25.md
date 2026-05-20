@@ -2041,3 +2041,4 @@ Samsung bootloader
    - v409 read-only query preflight: `tmp/wifi/v409-registration-query-readonly-preflight-20260520-103926/`
    - v409 preflight 결과: deploy preflight는 `execns-helper-v25-deploy-preflight-ready-needs-deploy` PASS. query preflight는 `v409-hal-registration-query-blocked`이며 blocker는 `helper-v25`뿐이다. `/mnt/system/system/bin/lshal`, runtime materials, system_ext VNDK v30, service-manager binaries, process surface, Wi-Fi link surface는 모두 pass. device mutation, daemon start, HAL start, Wi-Fi bring-up은 모두 false
    - v409 preflight 해석: V410 대체 HIDL client로 우회할 필요는 현재 없다. `lshal` direct path가 존재하므로 다음은 exact-approved helper v25 deploy다
+   - v409 guardcheck: `tmp/wifi/v409-helper-v25-deploy-guardcheck-preflight-20260520-104455/` PASS. deploy wrapper now records `local-helper-v25-query-guard=pass` and `remote-helper-v25-query-guard=needs-deploy`, proving the local artifact contains the explicit `--allow-hal-service-query` guard before deploy

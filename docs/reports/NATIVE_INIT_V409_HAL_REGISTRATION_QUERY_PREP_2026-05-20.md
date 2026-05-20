@@ -163,10 +163,12 @@ Key deploy-preflight checks:
 
 ```text
 local-helper-v25: pass
+local-helper-v25-query-guard: pass
 native-clean: pass
 service-manager-processes-clean: pass
 wifi-link-surface-clean: pass
 remote-helper-v25: needs-deploy
+remote-helper-v25-query-guard: needs-deploy
 approval-gate: needs-operator
 ```
 
@@ -213,6 +215,22 @@ The important narrowing is:
 /mnt/system/system/bin/lshal exists and is usable for the direct V409 query path.
 The remaining blocker is helper v25 deploy.
 ```
+
+Additional approval-readiness guardcheck:
+
+```text
+evidence: tmp/wifi/v409-helper-v25-deploy-guardcheck-preflight-20260520-104455/
+decision: execns-helper-v25-deploy-preflight-ready-needs-deploy
+pass: True
+local-helper-v25-query-guard: pass
+remote-helper-v25-query-guard: needs-deploy
+device_mutations: False
+daemon_start_executed: False
+wifi_bringup_executed: False
+```
+
+This confirms the local helper artifact contains both the new mode and the
+explicit `--allow-hal-service-query` guard before any approved deploy.
 
 ## Interpretation
 
