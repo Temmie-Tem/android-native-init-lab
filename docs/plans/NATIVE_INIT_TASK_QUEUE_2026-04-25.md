@@ -8892,3 +8892,19 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
   - `wifi_disable_executed=True`, `wifi_bringup_executed=False`.
 - interpretation: Android Wi-Fi auto-connect can be contained through framework disable, removing the route/DNS/connectivity exposure that V433 mapped. The final pass also implies disabled state persisted into a later Android boot-complete handoff.
 - next execution item: V436 Android Wi-Fi disabled persistence check. Boot Android and verify containment without issuing another disable command; keep re-enable, scan/connect, credentials, and server exposure blocked.
+
+### V436. Android Wi-Fi Disabled Persistence — PASS / CONTAINED BASELINE
+
+- plan: `docs/plans/NATIVE_INIT_V436_ANDROID_WIFI_DISABLED_PERSISTENCE_PLAN_2026-05-20.md`
+- report: `docs/reports/NATIVE_INIT_V436_ANDROID_WIFI_DISABLED_PERSISTENCE_2026-05-20.md`
+- collector: `scripts/revalidation/wifi_android_disabled_persistence_v436.py`
+- handoff: `scripts/revalidation/android_wifi_disabled_persistence_handoff_v436.py`
+- live evidence: `tmp/wifi/v436-android-wifi-disabled-persistence-handoff-live-20260520-164037/`
+- result:
+  - decision `v436-android-wifi-disabled-persistence-pass`.
+  - Android boot-complete passed without issuing another Wi-Fi disable command.
+  - sample state: `enabled_by_status=False`, `disabled_by_status=True`, `wlan0_has_ip=False`, `default_route_wlan=False`, `route_get_wlan=False`, `connectivity_validated_wifi=False`, `dns_surface_wlan=False`, `global_listener_observed=False`.
+  - native rollback restored `A90 Linux init 0.9.61 (v319)`, selftest passed, and redaction scan passed.
+  - `wifi_disable_executed=False`, `wifi_bringup_executed=False`.
+- interpretation: Android disabled containment persisted across a fresh Android boot-complete handoff. This is now the safe baseline before any controlled re-enable or native-side Wi-Fi branch.
+- next execution item: V437 controlled Android Wi-Fi branch decision. Choose controlled re-enable observation or native-side Wi-Fi work while preserving disabled containment.

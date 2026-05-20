@@ -2155,3 +2155,11 @@ Samsung bootloader
 - live evidence: `tmp/wifi/v435-android-wifi-disable-handoff-live-statefix-20260520-163102/`
 - result: bounded Android Wi-Fi disable containment PASS. `cmd wifi set-wifi-enabled disabled` executed, final corrected state had Wi-Fi disabled, no `wlan0` IP, no `wlan0` route candidate, no active validated Wi-Fi connectivity, no DNS surface, and no global listener. Native rollback restored `A90 Linux init 0.9.61 (v319)`.
 - next: V436 Android Wi-Fi disabled persistence check. Boot Android and verify containment without another disable command before deciding controlled re-enable or native-side Wi-Fi work.
+
+### V436. Android Wi-Fi Disabled Persistence Result
+
+- plan: `docs/plans/NATIVE_INIT_V436_ANDROID_WIFI_DISABLED_PERSISTENCE_PLAN_2026-05-20.md`
+- report: `docs/reports/NATIVE_INIT_V436_ANDROID_WIFI_DISABLED_PERSISTENCE_2026-05-20.md`
+- live evidence: `tmp/wifi/v436-android-wifi-disabled-persistence-handoff-live-20260520-164037/`
+- result: read-only Android disabled persistence PASS. Android boot-complete showed Wi-Fi still disabled, no `wlan0` IP, no `wlan0` route candidate, no active validated Wi-Fi connectivity, no active DNS surface, and no global listener. No additional disable command ran.
+- next: V437 controlled Android Wi-Fi branch decision. Decide whether to run a controlled re-enable observation gate or resume native-side Wi-Fi integration while preserving Android disabled containment.
