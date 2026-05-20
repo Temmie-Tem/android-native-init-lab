@@ -2198,3 +2198,12 @@ Samsung bootloader
 - result: host-side policy selector PASS. Selected `contained-lab-default` because V439 proved Android-managed Wi-Fi functionality, immediate external route/DNS/connectivity exposure through saved auto-connect, no global listener, and successful cleanup containment.
 - interpretation: default lab state is Wi-Fi disabled unless a bounded Wi-Fi test is active. Android-managed Wi-Fi may be used for explicit exposure-aware test windows, but server exposure and explicit scan/connect remain blocked until policy/credential/target handling is documented.
 - next: V441 planning. Choose exposure-aware Wi-Fi stability observation with cleanup, or explicit scan/connect credential and target allowlist design. Serverization remains blocked.
+
+### V441. Android Wi-Fi Exposure-aware Stability Result
+
+- plan: `docs/plans/NATIVE_INIT_V441_ANDROID_WIFI_EXPOSURE_STABILITY_PLAN_2026-05-20.md`
+- report: `docs/reports/NATIVE_INIT_V441_ANDROID_WIFI_EXPOSURE_STABILITY_2026-05-20.md`
+- live evidence: `tmp/wifi/v441-android-wifi-exposure-stability-live-20260520-172446/`
+- result: exposure-aware Android-managed Wi-Fi stability PASS. V441 used V438 to enable Wi-Fi and V439 to observe 11 samples over 300 seconds. All samples stayed connected/exposed with `wlan0` IP, default route, route-get, validated connectivity, and DNS surface; no global listener was observed. Cleanup disable passed and removed active IP/route/DNS/connectivity exposure. Native rollback restored `A90 Linux init 0.9.61 (v319)`.
+- interpretation: Android-managed Wi-Fi is functionally stable enough for bounded test windows. The next risk boundary is explicit scan/connect and credential/target handling, not basic connectivity. Server exposure remains blocked.
+- next: V442 credential/target allowlist design before explicit scan/connect. Longer stability can be run later, but the immediate design gap is policy-safe credential and target handling.

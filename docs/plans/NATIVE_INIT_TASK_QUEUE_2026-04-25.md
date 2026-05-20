@@ -8977,3 +8977,21 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
   - `wifi_bringup_executed=False`.
 - interpretation: Wi-Fi is functional in Android-managed mode, but lab default should remain disabled unless a bounded Wi-Fi test is active. This prevents accidental external exposure before serverization security policy exists.
 - next execution item: V441 planning. Choose exposure-aware Wi-Fi stability observation with cleanup, or explicit scan/connect credential/target allowlist design. Server exposure remains blocked.
+
+### V441. Android Wi-Fi Exposure-aware Stability — PASS / 5-MINUTE STABLE
+
+- plan: `docs/plans/NATIVE_INIT_V441_ANDROID_WIFI_EXPOSURE_STABILITY_PLAN_2026-05-20.md`
+- report: `docs/reports/NATIVE_INIT_V441_ANDROID_WIFI_EXPOSURE_STABILITY_2026-05-20.md`
+- orchestrator: `scripts/revalidation/wifi_android_exposure_stability_v441.py`
+- live evidence: `tmp/wifi/v441-android-wifi-exposure-stability-live-20260520-172446/`
+- result:
+  - decision `v441-android-wifi-exposure-stability-cleanup-pass`.
+  - nested V438 controlled enable PASS.
+  - nested V439 300-second observation/cleanup PASS.
+  - 11 of 11 samples showed Wi-Fi connected/exposed with `wlan0` IP, default route, route-get, validated connectivity, and DNS surface.
+  - `global_listener_observed=False` across the window.
+  - cleanup disable removed active `wlan0` IP, route, route-get, DNS, and validated connectivity exposure.
+  - native rollback restored `A90 Linux init 0.9.61 (v319)`, selftest passed, and redaction scan passed.
+  - `wifi_enable_executed=True`, `wifi_disable_executed=True`, `wifi_bringup_executed=True`.
+- interpretation: Android-managed Wi-Fi is stable enough for bounded Wi-Fi test windows. The next blocker is explicit scan/connect credential and target-network policy, not basic Wi-Fi availability.
+- next execution item: V442 credential/target allowlist design for explicit scan/connect. Server exposure remains blocked until binding, ACL, authentication, and listener policy are explicit.
