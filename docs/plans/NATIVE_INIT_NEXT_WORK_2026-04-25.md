@@ -2027,3 +2027,12 @@ Samsung bootloader
    - v408 결과: host-only evidence packet PASS. V407 transcript에서 no-bring-up boundary, composite child start, private Binder/HwBinder/VndBinder devnodes, hwservice context inputs, HAL/hwservicemanager proc/fd/maps captures, Wi-Fi HIDL/HwBinder maps, fatal-runtime-noise absence, clean postflight를 모두 확인했다. V408 자체는 device command, daemon start, HAL start, Wi-Fi bring-up을 실행하지 않았다
    - v408 해석: V407은 실제 Wi-Fi bring-up이 아니라 “HAL service surface까지 살아 있음”을 증명한다. `hwservicemanager`에 실제 service publication/listing이 되었는지는 아직 미검증이다
    - v409 다음: 같은 bounded trio를 live로 띄운 상태에서 `hwservicemanager`/HIDL service-list registration query를 수행하는 gate를 설계한다. scan/connect/link-up, credentials, DHCP, routing은 계속 별도 gate로 유지한다
+
+   - v409 plan: `docs/plans/NATIVE_INIT_V409_HAL_REGISTRATION_QUERY_PLAN_2026-05-20.md`
+   - v409 report: `docs/reports/NATIVE_INIT_V409_HAL_REGISTRATION_QUERY_PREP_2026-05-20.md`
+   - v409 helper artifact: `tmp/wifi/v409-a90_android_execns_probe-v25/a90_android_execns_probe`
+   - v409 deploy wrapper: `scripts/revalidation/wifi_execns_helper_v25_deploy_preflight.py`
+   - v409 query runner: `scripts/revalidation/wifi_hal_registration_query_v409_runner.py`
+   - v409 결과: helper v25 `wifi-hal-composite-lshal-list` mode와 `--allow-hal-service-query` guard를 구현했고 static ARM64 build PASS, SHA `e90639d55dacc5486c998c4d1470235a6c72e4759cc63ebd1f07cf90c5852b37`. plan/no-approval manifests는 모두 device command와 mutation 없이 fail-closed PASS
+   - v409 해석: 실제 `hwservicemanager` publication listing은 `/system/bin/lshal` 또는 별도 HIDL client가 필요하다. V409 runner는 먼저 `/mnt/system/system/bin/lshal` 존재를 read-only preflight로 확인하고, 없으면 V410으로 라우팅한다
+   - v409 다음: `approve v409 deploy execns helper v25 only; no daemon start and no Wi-Fi bring-up` 승인 시 helper deploy만 수행한다. 이후 preflight가 `lshal`을 확인한 뒤 별도 `approve v409 bounded lshal registration query only; no scan/connect/link-up and no Wi-Fi bring-up` 승인이 필요하다

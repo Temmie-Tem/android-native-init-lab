@@ -20,7 +20,7 @@
 - 상세 규칙: `docs/operations/VERSIONING_POLICY.md`
 
 
-## Current Wi-Fi V408 Registration Surface Status (2026-05-20)
+## Current Wi-Fi V409 Registration Query Status (2026-05-20)
 
 - current native build remains `A90 Linux init 0.9.61 (v319)`.
 - current Wi-Fi work is host tooling plus bounded read-only evidence, not a new boot-image flash.
@@ -66,7 +66,10 @@
 - V408 packet result: host-only registration/service-surface evidence classification PASS. V408 executed no device command and did not start daemon/HAL/Wi-Fi bring-up.
 - latest V408 packet report: `docs/reports/NATIVE_INIT_V408_HAL_REGISTRATION_SURFACE_PACKET_2026-05-20.md`.
 - current interpretation: V407 reached a viable Wi-Fi HAL service surface with Binder/HwBinder devnodes, hwservice context inputs, HIDL/HwBinder maps, observable HAL/hwservicemanager captures, and clean postflight. Actual `hwservicemanager` service publication is not proven yet.
-- next execution item: V409 bounded `hwservicemanager`/service-list registration query. Wi-Fi scan/connect/link-up, credentials, DHCP, and routing remain blocked.
+- V409 prep result: helper v25 `wifi-hal-composite-lshal-list` mode, deploy wrapper, and fail-closed registration query runner are implemented. Static ARM64 helper build PASS, SHA `e90639d55dacc5486c998c4d1470235a6c72e4759cc63ebd1f07cf90c5852b37`.
+- latest V409 prep report: `docs/reports/NATIVE_INIT_V409_HAL_REGISTRATION_QUERY_PREP_2026-05-20.md`.
+- current interpretation: next live step is helper v25 deploy only. Registration query is a separate later approval and is blocked unless `/mnt/system/system/bin/lshal` is present in read-only preflight.
+- next execution item: exact-approved V409 helper v25 deploy only. Required phrase: `approve v409 deploy execns helper v25 only; no daemon start and no Wi-Fi bring-up`.
 
 ## 현재 고정 기준점
 
