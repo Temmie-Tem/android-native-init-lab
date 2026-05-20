@@ -20,6 +20,10 @@ from a90harness.evidence import EvidenceStore
 
 DEFAULT_OUT_DIR = Path("tmp/wifi/v449-wifi-handoff-result-router")
 DEFAULT_WIFI_ROOT = Path("tmp/wifi")
+READY_PACKET_DECISIONS = {
+    "v448-operator-handoff-packet-ready",
+    "v453-operator-postroute-packet-ready",
+}
 
 
 def now_iso() -> str:
@@ -76,6 +80,17 @@ def latest(root: Path, pattern: str, include_synthetic: bool = False) -> dict[st
     return rows[-1] if rows else None
 
 
+def latest_packet(root: Path) -> dict[str, Any] | None:
+    rows: list[dict[str, Any]] = []
+    for pattern in (
+        "v448-operator-handoff-packet-run*/manifest.json",
+        "v453-operator-postroute-packet-run*/manifest.json",
+    ):
+        rows.extend(manifests(root, pattern, include_synthetic=True))
+    rows.sort(key=lambda item: float(item.get("_mtime") or 0.0))
+    return rows[-1] if rows else None
+
+
 def packet_commands(packet: dict[str, Any] | None) -> dict[str, str]:
     if not packet:
         return {}
@@ -96,7 +111,7 @@ def nested_v445(v447_live: dict[str, Any] | None) -> dict[str, Any]:
 
 def evidence_state(args: argparse.Namespace) -> dict[str, Any]:
     root = args.wifi_root
-    packet = latest(root, "v448-operator-handoff-packet-run*/manifest.json", include_synthetic=True)
+    packet = latest_packet(root)
     private_preflight = latest(root, "v447-explicit-connect-flow-private-preflight-*/manifest.json", include_synthetic=args.include_synthetic)
     live = latest(root, "v447-explicit-connect-flow-live-*/manifest.json", include_synthetic=args.include_synthetic)
     return {
@@ -159,12 +174,12 @@ def classify(command: str, state: dict[str, Any]) -> dict[str, Any]:
         }
 
     if packet:
-        if packet.get("decision") == "v448-operator-handoff-packet-ready" and packet.get("pass") is True:
+        if packet.get("decision") in READY_PACKET_DECISIONS and packet.get("pass") is True:
             return {
                 "decision": "v449-wifi-handoff-packet-ready-run-preflight",
                 "pass": True,
-                "reason": "latest V448 handoff packet is ready and no private V447 preflight result exists yet",
-                "next_gate": "run V448 generated host preflight script",
+                "reason": "latest V448/V453 handoff packet is ready and no private V447 preflight result exists yet",
+                "next_gate": "run generated host preflight script",
                 "recommended_command": commands.get("preflight_command", ""),
             }
         return {

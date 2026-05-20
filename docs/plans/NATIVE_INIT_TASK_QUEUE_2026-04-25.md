@@ -9195,3 +9195,26 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
   - `wifi_bringup_executed=False`.
 - interpretation: V452 defines the post-live proof boundary. It is intentionally awaiting live now, but will block future stability/server work unless V447/V445 live cleanup evidence is complete.
 - next execution item: run the generated host preflight script, enter Wi-Fi values locally, run live if routed, then run V452 before post-live stability/server policy. Server exposure remains blocked.
+
+### V453. Wi-Fi Operator Post-route Packet — PASS / NEXT OPERATOR COMMAND
+
+- plan: `docs/plans/NATIVE_INIT_V453_WIFI_OPERATOR_POSTROUTE_PACKET_PLAN_2026-05-20.md`
+- report: `docs/reports/NATIVE_INIT_V453_WIFI_OPERATOR_POSTROUTE_PACKET_2026-05-20.md`
+- generator: `scripts/revalidation/wifi_operator_postroute_packet_v453.py`
+- router updates:
+  - `scripts/revalidation/wifi_handoff_result_router_v449.py`
+  - `scripts/revalidation/wifi_operator_preflight_readiness_v450.py`
+- evidence:
+  - plan `tmp/wifi/v453-operator-postroute-packet-plan-final-20260520-185152/`
+  - packet `tmp/wifi/v453-operator-postroute-packet-run-final-20260520-185152/`
+  - router `tmp/wifi/v449-wifi-handoff-result-router-v453-final-20260520-185152/`
+  - readiness `tmp/wifi/v450-operator-preflight-readiness-v453-final-20260520-185152/`
+- result:
+  - decision `v453-operator-postroute-packet-ready`.
+  - generated host preflight/live scripts include automatic V449/V450/V452 post-route calls.
+  - generated scripts passed `bash -n` and fail-closed empty/cancel probes.
+  - V449 and V450 now recommend the V453 host preflight script.
+  - no device commands or mutations ran.
+  - `wifi_bringup_executed=False`.
+- interpretation: the next operator command should use the V453 post-route script, not the older V448 script.
+- next execution item: run `bash /home/temmie/dev/A90_5G_rooting/tmp/wifi/v453-operator-postroute-packet-run-final-20260520-185152/run-v453-host-preflight-and-route.sh`, enter Wi-Fi values locally, then follow the automatically routed live command. Server exposure remains blocked.

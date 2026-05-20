@@ -23,6 +23,10 @@ from a90harness.evidence import EvidenceStore
 
 DEFAULT_OUT_DIR = Path("tmp/wifi/v450-operator-preflight-readiness")
 DEFAULT_WIFI_ROOT = Path("tmp/wifi")
+READY_PACKET_DECISIONS = {
+    "v448-operator-handoff-packet-ready",
+    "v453-operator-postroute-packet-ready",
+}
 SECRET_LITERAL_RE = re.compile(
     r"(?i)(codex-test-network|12345678|A90_WIFI_(?:SSID|PSK)=['\"][^'\"]+['\"]|"
     r"cmd\s+wifi\s+connect-network\s+\S+\s+(?:wpa2|wpa3)\s+\S+)"
@@ -62,6 +66,19 @@ def latest_manifest(root: Path, pattern: str) -> dict[str, Any] | None:
     for path in repo_path(root).glob(pattern):
         if path.name == "manifest.json":
             manifests.append(load_json(path))
+    manifests.sort(key=lambda payload: float(payload.get("_mtime") or 0.0))
+    return manifests[-1] if manifests else None
+
+
+def latest_packet(root: Path) -> dict[str, Any] | None:
+    manifests: list[dict[str, Any]] = []
+    for pattern in (
+        "v448-operator-handoff-packet-run*/manifest.json",
+        "v453-operator-postroute-packet-run*/manifest.json",
+    ):
+        for path in repo_path(root).glob(pattern):
+            if path.name == "manifest.json":
+                manifests.append(load_json(path))
     manifests.sort(key=lambda payload: float(payload.get("_mtime") or 0.0))
     return manifests[-1] if manifests else None
 
@@ -143,7 +160,7 @@ def audit_scripts(packet: dict[str, Any] | None) -> dict[str, Any]:
 
 
 def route_state(args: argparse.Namespace) -> dict[str, Any]:
-    packet = latest_manifest(args.wifi_root, "v448-operator-handoff-packet-run*/manifest.json")
+    packet = latest_packet(args.wifi_root)
     router = latest_manifest(args.wifi_root, "v449-wifi-handoff-result-router-*/manifest.json")
     private_preflight = latest_manifest(args.wifi_root, "v447-explicit-connect-flow-private-preflight-*/manifest.json")
     live = latest_manifest(args.wifi_root, "v447-explicit-connect-flow-live-*/manifest.json")
@@ -180,12 +197,12 @@ def classify(command: str, state: dict[str, Any]) -> dict[str, Any]:
             "next_gate": "run V448 packet generation",
             "recommended_command": "python3 scripts/revalidation/wifi_operator_handoff_packet_v448.py run",
         }
-    if packet.get("decision") != "v448-operator-handoff-packet-ready" or packet.get("pass") is not True:
+    if packet.get("decision") not in READY_PACKET_DECISIONS or packet.get("pass") is not True:
         return {
             "decision": "v450-operator-preflight-v448-not-ready",
             "pass": False,
-            "reason": str(packet.get("reason") or "latest V448 packet did not pass"),
-            "next_gate": "repair or rerun V448",
+            "reason": str(packet.get("reason") or "latest V448/V453 packet did not pass"),
+            "next_gate": "repair or rerun handoff packet generation",
             "recommended_command": "",
         }
     if not scripts.get("ok"):
@@ -233,7 +250,7 @@ def classify(command: str, state: dict[str, Any]) -> dict[str, Any]:
     return {
         "decision": "v450-operator-preflight-ready-run-host-preflight",
         "pass": True,
-        "reason": "V448 packet scripts are private and V449 routes the next step to host preflight",
+        "reason": "V448/V453 packet scripts are private and V449 routes the next step to host preflight",
         "next_gate": "run generated host preflight script and enter Wi-Fi values locally",
         "recommended_command": ((packet.get("packet") or {}).get("preflight_command") or ""),
     }
