@@ -2171,3 +2171,12 @@ Samsung bootloader
 - host-run evidence: `tmp/wifi/v437-wifi-branch-decision-hostrun-20260520-164708/`
 - result: host-side branch decision PASS. Selected `controlled-android-reenable-observation` because V436 proved persistent disabled containment. No device command or mutation ran.
 - next: V438 controlled Android Wi-Fi re-enable observation. Permit only bounded `cmd wifi set-wifi-enabled enabled`; still forbid scan/connect, credentials, server exposure, external probes, and routing mutation.
+
+### V438. Android Wi-Fi Re-enable Observation Result
+
+- plan: `docs/plans/NATIVE_INIT_V438_ANDROID_WIFI_REENABLE_OBSERVATION_PLAN_2026-05-20.md`
+- report: `docs/reports/NATIVE_INIT_V438_ANDROID_WIFI_REENABLE_OBSERVATION_2026-05-20.md`
+- live evidence: `tmp/wifi/v438-android-wifi-reenable-handoff-live-20260520-165358/`
+- result: bounded Android Wi-Fi re-enable observation PASS. Android accepted `cmd wifi set-wifi-enabled enabled`; post-enable status reported Wi-Fi enabled, but no active Wi-Fi connection, no `wlan0` IP, no `wlan0` route candidate, no validated Wi-Fi connectivity, no DNS surface, and no global listener were observed. Native rollback restored `A90 Linux init 0.9.61 (v319)`, postflight selftest passed, and redaction scan passed.
+- interpretation: V438 is a controlled bring-up observation, not permission for scan/connect, credentials, server exposure, or external traffic. Android framework Wi-Fi is now set enabled and may persist on a future Android boot, even though the current native boot is contained.
+- next: V439 post-reenable persistence and containment decision. Either run a longer read-only enabled observation, or disable Wi-Fi again to restore the V436 contained baseline before continuing native/server-side work.

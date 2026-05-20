@@ -8925,3 +8925,20 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
   - `wifi_bringup_executed=False`.
 - interpretation: contained Android baseline is strong enough for the next Wi-Fi-progressing gate to be controlled framework re-enable observation. This is still not scan/connect or server exposure.
 - next execution item: V438 controlled Android Wi-Fi re-enable observation. Allow only bounded `cmd wifi set-wifi-enabled enabled`; keep scan/connect, credentials, server exposure, external probes, and routing mutation blocked.
+
+### V438. Android Wi-Fi Re-enable Observation — PASS / ENABLED BUT CONTAINED
+
+- plan: `docs/plans/NATIVE_INIT_V438_ANDROID_WIFI_REENABLE_OBSERVATION_PLAN_2026-05-20.md`
+- report: `docs/reports/NATIVE_INIT_V438_ANDROID_WIFI_REENABLE_OBSERVATION_2026-05-20.md`
+- collector: `scripts/revalidation/wifi_android_reenable_observation_v438.py`
+- handoff: `scripts/revalidation/android_wifi_reenable_observation_handoff_v438.py`
+- live evidence: `tmp/wifi/v438-android-wifi-reenable-handoff-live-20260520-165358/`
+- result:
+  - decision `v438-android-wifi-reenable-enabled-contained-pass`.
+  - Android accepted the bounded `cmd wifi set-wifi-enabled enabled` mutation.
+  - post-enable state: `enabled_by_status=True`, `wifi_connected=False`, `wlan0_has_ip=False`, `default_route_wlan=False`, `route_get_wlan=False`, `connectivity_validated_wifi=False`, `dns_surface_wlan=False`, `global_listener_observed=False`.
+  - auto-connect policy/log clues remained observable, but no active Wi-Fi connection or route/DNS/connectivity exposure appeared within the V438 window.
+  - native rollback restored `A90 Linux init 0.9.61 (v319)`, selftest passed, and redaction scan passed.
+  - `wifi_enable_executed=True`, `wifi_bringup_executed=True`.
+- interpretation: V438 intentionally changed Android framework Wi-Fi to enabled, so future Android boots may not start from the V436 disabled baseline. Current native v319 boot remains contained. Do not proceed to server exposure, credentials, or explicit scan/connect until the post-reenable state is resolved.
+- next execution item: V439 post-reenable persistence and containment decision. Prefer longer read-only enabled observation followed by explicit cleanup/disable if no immediate next Wi-Fi control test is run.
