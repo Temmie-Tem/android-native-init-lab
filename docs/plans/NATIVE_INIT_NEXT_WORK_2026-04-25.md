@@ -2239,3 +2239,15 @@ Samsung bootloader
 - result: host-side explicit scan/connect preflight implemented. Missing real private policy is blocked as expected. Synthetic positive path passed and did not leak synthetic SSID/PSK into evidence.
 - interpretation: V445 live execution is now technically gated, but real execution remains blocked until V443 materializes a private policy from local env values and V444 returns `v444-wifi-explicit-connect-preflight-ready` for that policy.
 - next: provide local private env values, rerun V443 and V444, then run V445 bounded explicit scan/connect. Server exposure remains blocked.
+
+### V445. Wi-Fi Explicit Connect Live Runner Result
+
+- plan: `docs/plans/NATIVE_INIT_V445_WIFI_EXPLICIT_CONNECT_LIVE_PLAN_2026-05-20.md`
+- report: `docs/reports/NATIVE_INIT_V445_WIFI_EXPLICIT_CONNECT_LIVE_2026-05-20.md`
+- evidence:
+  - `tmp/wifi/v445-explicit-connect-live-plan-20260520-180041/`
+  - `tmp/wifi/v445-explicit-connect-live-dryrun-20260520-180041/`
+  - `tmp/wifi/v445-explicit-connect-live-missing-policy-fixed-20260520-180117/`
+- result: V445 bounded explicit scan/connect live runner implemented. Plan/dry-run passed. Missing real policy live attempt was blocked by V444 preflight before Android boot/flash; no device commands, no device mutations, no Wi-Fi bring-up.
+- interpretation: the live runner exists and is fail-closed at the correct boundary. Actual V445 live remains blocked until V443 materializes a private policy and V444 returns ready for that policy.
+- next: set local private env values, run V443, rerun V444, then run V445 live. Server exposure remains blocked.

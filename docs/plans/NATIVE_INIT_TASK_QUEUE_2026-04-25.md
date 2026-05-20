@@ -9049,3 +9049,22 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
   - `wifi_bringup_executed=False`.
 - interpretation: live explicit scan/connect is now gated behind V443+V444, with command templates and cleanup requirements defined. The only current blocker is absence of a real private policy/env pair.
 - next execution item: V443 materialize with local private env values, then V444 ready preflight, then V445 bounded explicit scan/connect live run. Server exposure remains blocked.
+
+### V445. Wi-Fi Explicit Connect Live Runner — READY / PRE-LIVE BLOCKED
+
+- plan: `docs/plans/NATIVE_INIT_V445_WIFI_EXPLICIT_CONNECT_LIVE_PLAN_2026-05-20.md`
+- report: `docs/reports/NATIVE_INIT_V445_WIFI_EXPLICIT_CONNECT_LIVE_2026-05-20.md`
+- runner: `scripts/revalidation/wifi_android_explicit_connect_live_v445.py`
+- evidence:
+  - plan `tmp/wifi/v445-explicit-connect-live-plan-20260520-180041/`
+  - dry-run `tmp/wifi/v445-explicit-connect-live-dryrun-20260520-180041/`
+  - preflight-blocked `tmp/wifi/v445-explicit-connect-live-missing-policy-fixed-20260520-180117/`
+- result:
+  - plan decision `v445-handoff-plan-ready`.
+  - dry-run decision `v445-handoff-dryrun-ready`.
+  - current real run decision `v445-handoff-preflight-blocked`.
+  - V445 refused to boot/flash Android because V444 was not ready.
+  - no device commands or mutations ran in the blocked real run.
+  - `wifi_bringup_executed=False`.
+- interpretation: V445 live implementation is in place and fail-closed. This is the correct state until real private policy/env values exist.
+- next execution item: set local `A90_WIFI_SSID`/`A90_WIFI_PSK`, run V443 materialization, run V444 ready preflight, then run V445 live. Server exposure remains blocked.
