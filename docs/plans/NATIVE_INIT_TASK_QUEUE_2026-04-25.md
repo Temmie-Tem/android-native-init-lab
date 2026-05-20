@@ -24,7 +24,7 @@
 
 - current native build remains `A90 Linux init 0.9.61 (v319)`.
 - current Wi-Fi work is host tooling plus bounded read-only evidence, not a new boot-image flash.
-- latest approved live step: V405 exact-approved helper v23 deploy only, no daemon start and no Wi-Fi bring-up.
+- latest approved live step: V405 exact-approved composite Wi-Fi HAL start-only smoke, no scan/connect/link-up and no Wi-Fi bring-up.
 - latest approved-live report: `docs/reports/NATIVE_INIT_V405_HELPER_V23_DEPLOY_LIVE_2026-05-20.md`.
 - V392 live result: `hwservicemanager` start-only PASS; `servicemanager` remains `start-only-runtime-gap` with SIGABRT; cleanup/postflight safe; Wi-Fi bring-up false.
 - V396 result: read-only pull of `/mnt/system/system/bin/servicemanager`, `/mnt/system/system/lib64/libbase.so`, and `/mnt/system/system/lib64/liblog.so` PASS.
@@ -50,7 +50,10 @@
 - latest V405 packet report: `docs/reports/NATIVE_INIT_V405_COMPOSITE_HAL_APPROVAL_PACKET_2026-05-20.md`.
 - V405 deploy result: exact-approved helper v23 deploy PASS through serial fallback; remote helper SHA/mode now match v23; post-deploy composite HAL preflight is ready.
 - latest V405 deploy report: `docs/reports/NATIVE_INIT_V405_HELPER_V23_DEPLOY_LIVE_2026-05-20.md`.
-- next execution item: exact-approved V405 composite Wi-Fi HAL start-only smoke. Wi-Fi scan/connect/link-up, credentials, DHCP, and routing remain blocked.
+- V405 composite HAL live result: exact-approved start-only smoke reached the approved runtime boundary and stayed safe, but classified `composite-hal-start-only-runtime-gap` because `/vendor/bin/hw/vendor.samsung.hardware.wifi@2.0-service` could not link `android.hardware.wifi@1.0.so`.
+- latest V405 composite HAL live report: `docs/reports/NATIVE_INIT_V405_COMPOSITE_HAL_START_ONLY_LIVE_2026-05-20.md`.
+- current blocker: helper private `/apex` materialization uses `/mnt/system/system/apex`, while the Wi-Fi HIDL interface libraries are under `/mnt/system/system/system_ext/apex/com.android.vndk.v30`.
+- next execution item: V406 system_ext VNDK APEX materialization for Wi-Fi HAL linker dependency closure. Wi-Fi scan/connect/link-up, credentials, DHCP, and routing remain blocked.
 
 ## 현재 고정 기준점
 
@@ -8612,3 +8615,23 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
   - `daemon_start_executed=False`, `wifi_hal_start_executed=False`, `wifi_bringup_executed=False`
 - interpretation: helper deploy is no longer the blocker. The next live mutation is the separate bounded composite HAL start-only smoke, and it still needs exact approval.
 - next execution item: exact-approved V405 composite Wi-Fi HAL start-only smoke. Wi-Fi scan/connect/link-up remains blocked.
+
+### V405. Composite Wi-Fi HAL Start-Only Live — PASS / RUNTIME GAP
+
+- report: `docs/reports/NATIVE_INIT_V405_COMPOSITE_HAL_START_ONLY_LIVE_2026-05-20.md`
+- pre-live preflight: `tmp/wifi/v405-composite-hal-preflight-before-live-20260520-093943/`
+- approved live evidence: `tmp/wifi/v405-composite-hal-start-only-live-20260520-094000/`
+- read-only library locate evidence: `tmp/wifi/v405-wifi-hal-lib-locate-20260520-094105/`
+- result:
+  - decision `composite-hal-start-only-runtime-gap`.
+  - approved children started: `servicemanager`, `hwservicemanager`, and `/vendor/bin/hw/vendor.samsung.hardware.wifi@2.0-service`.
+  - `wifi_hal_composite_start.scan_connect_linkup=0`, `wificond=0`, `supplicant=0`, `hostapd=0`, `cnss_diag=0`.
+  - `servicemanager` and `hwservicemanager` were observable, SIGTERM-cleaned, and reaped.
+  - Wi-Fi HAL child exited with code `1` before the observe window.
+  - `wifi_bringup_executed=False`.
+- gap:
+  - linker stderr: `library "android.hardware.wifi@1.0.so" not found`.
+  - read-only locate found the Wi-Fi HIDL libraries under `/mnt/system/system/system_ext/apex/com.android.vndk.v30/lib64/`.
+  - current helper private APEX farm is based on `/mnt/system/system/apex`; that was enough for earlier generic VNDK alias work but not this Wi-Fi HAL dependency closure.
+- interpretation: V405 proves the composite process model and cleanup path are viable. The next blocker is private `system_ext` VNDK APEX materialization, not service-manager startup.
+- next execution item: V406 helper/runner support for binding `system_ext/apex/com.android.vndk.v30` into private `/apex/com.android.vndk.v30`, with linker-list proof before any HAL start-only retry.

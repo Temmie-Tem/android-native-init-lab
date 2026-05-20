@@ -1979,3 +1979,10 @@ Samsung bootloader
    - v405 deploy 결과: exact-approved helper v23 deploy PASS. serial fallback으로 783 chunks / 1,094,836 encoded bytes를 전송했고 remote helper SHA/mode가 v23으로 확인됐다. daemon start, HAL start, Wi-Fi bring-up은 모두 false
    - v405 post-deploy preflight 결과: `composite-hal-start-only-preflight-ready` PASS. 남은 gate는 exact approval phrase뿐이다
    - v405 다음: `approve v405 composite Wi-Fi HAL start-only smoke only; no scan/connect/link-up and no Wi-Fi bring-up` 승인 시 bounded composite HAL start-only smoke만 실행한다. Wi-Fi scan/connect/link-up/credentials/DHCP/routing remain blocked
+
+   - v405 live report: `docs/reports/NATIVE_INIT_V405_COMPOSITE_HAL_START_ONLY_LIVE_2026-05-20.md`
+   - v405 live evidence: `tmp/wifi/v405-composite-hal-start-only-live-20260520-094000/`
+   - v405 library locate evidence: `tmp/wifi/v405-wifi-hal-lib-locate-20260520-094105/`
+   - v405 live 결과: exact-approved composite start-only smoke는 승인 경계 안에서 실행됐고 safety PASS. `servicemanager`, `hwservicemanager`, `vendor.samsung.hardware.wifi@2.0-service`가 같은 helper-owned namespace에서 시작됐지만 Wi-Fi HAL이 `android.hardware.wifi@1.0.so` 미해결로 exit `1` 처리되어 `composite-hal-start-only-runtime-gap`로 분류됐다. scan/connect/link-up 및 Wi-Fi bring-up은 false
+   - v405 해석: blocker는 service-manager runtime이 아니라 private APEX materialization이다. 필요한 Wi-Fi HIDL interface libs는 `/mnt/system/system/system_ext/apex/com.android.vndk.v30/lib64/`에 있고, 현재 helper는 `/mnt/system/system/apex` 기반 private farm만 구성한다
+   - v406 다음: private `/apex/com.android.vndk.v30`에 `system_ext/apex/com.android.vndk.v30`를 bind/materialize하는 helper/runner를 만들고 linker-list closure를 먼저 증명한다. HAL start-only retry, scan/connect/link-up, credentials, DHCP, routing은 별도 gate로 유지한다
