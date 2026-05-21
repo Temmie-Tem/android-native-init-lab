@@ -76,7 +76,7 @@
 #define AF_QIPCRTR 42
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v95"
+#define EXECNS_VERSION "a90_android_execns_probe v96"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -1146,11 +1146,15 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
         }
         if ((!registration_query_mode && cfg->allow_hal_service_query) ||
             (!iwifi_start_mode && cfg->allow_iwifi_start_only) ||
-            cfg->allow_wlan_driver_state_on ||
             cfg->allow_scan_only ||
             cfg->allow_connect_dhcp_ping ||
             cfg->allow_cnss_userspace_readiness) {
             fprintf(stderr, "Wi-Fi companion HAL order mode does not accept query/IWifi/scan/connect allow flags\n");
+            return 2;
+        }
+        if (cfg->allow_wlan_driver_state_on &&
+            !is_wifi_companion_dual_hal_wificond_lshal_then_iwifi_start_mode(cfg->mode)) {
+            fprintf(stderr, "--allow-wlan-driver-state-on is only valid with companion dual-HAL lshal-then-IWifi.start mode\n");
             return 2;
         }
         if (!(streq(cfg->target, "/vendor/bin/hw/vendor.samsung.hardware.wifi@2.0-service") ||
@@ -1295,8 +1299,10 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
         fprintf(stderr, "--allow-iwifi-start-only is only valid with wifi-iwifi-start-surface, wifi-dual-hal-iwifi-start-surface, active-session, or companion dual-HAL IWifi.start modes\n");
         return 2;
     }
-    if (cfg->allow_wlan_driver_state_on && !is_wifi_surface_composite_mode(cfg->mode)) {
-        fprintf(stderr, "--allow-wlan-driver-state-on is only valid with Wi-Fi surface composite modes\n");
+    if (cfg->allow_wlan_driver_state_on &&
+        !is_wifi_surface_composite_mode(cfg->mode) &&
+        !is_wifi_companion_dual_hal_wificond_lshal_then_iwifi_start_mode(cfg->mode)) {
+        fprintf(stderr, "--allow-wlan-driver-state-on is only valid with Wi-Fi surface composite or companion dual-HAL lshal-then-IWifi.start modes\n");
         return 2;
     }
     if (cfg->allow_scan_only && !is_wifi_active_session_scan_only_mode(cfg->mode)) {
@@ -14946,7 +14952,7 @@ static int run_wifi_companion_hal_order_start_only_guarded(const struct config *
         append_format(stdout_buf, "wifi_companion_hal_order.wificond=%d\n", with_wificond ? 1 : 0) < 0 ||
         append_literal(stdout_buf, "wifi_companion_hal_order.supplicant=0\n") < 0 ||
         append_literal(stdout_buf, "wifi_companion_hal_order.hostapd=0\n") < 0 ||
-        append_literal(stdout_buf, "wifi_companion_hal_order.qcwlanstate_write=0\n") < 0 ||
+        append_format(stdout_buf, "wifi_companion_hal_order.qcwlanstate_write=%d\n", cfg->allow_wlan_driver_state_on ? 1 : 0) < 0 ||
         append_literal(stdout_buf, "wifi_companion_hal_order.scan_connect_linkup=0\n") < 0 ||
         append_literal(stdout_buf, "wifi_companion_hal_order.credentials=0\n") < 0 ||
         append_literal(stdout_buf, "wifi_companion_hal_order.dhcp_routing=0\n") < 0 ||
@@ -14976,6 +14982,7 @@ static int run_wifi_companion_hal_order_start_only_guarded(const struct config *
                           "wifi_companion_hal_order.allow_wifi_hal_start_only=%d\n"
                           "wifi_companion_hal_order.allow_hal_service_query=%d\n"
                           "wifi_companion_hal_order.allow_iwifi_start_only=%d\n"
+                          "wifi_companion_hal_order.allow_wlan_driver_state_on=%d\n"
                           "wifi_companion_hal_order.exec_attempted=0\n"
                           "wifi_companion_hal_order.child_started=0\n"
                           "wifi_companion_hal_order.result=start-only-blocked\n"
@@ -14986,7 +14993,8 @@ static int run_wifi_companion_hal_order_start_only_guarded(const struct config *
                           cfg->allow_service_manager_start_only ? 1 : 0,
                           cfg->allow_wifi_hal_start_only ? 1 : 0,
                           cfg->allow_hal_service_query ? 1 : 0,
-                          cfg->allow_iwifi_start_only ? 1 : 0) < 0) {
+                          cfg->allow_iwifi_start_only ? 1 : 0,
+                          cfg->allow_wlan_driver_state_on ? 1 : 0) < 0) {
             return -1;
         }
         return 0;
@@ -15033,6 +15041,11 @@ static int run_wifi_companion_hal_order_start_only_guarded(const struct config *
         }
     }
     append_format(stdout_buf, "wifi_companion_hal_order.child_started=%zu\n", child_count);
+    if (write_wlan_driver_state_on_if_allowed(cfg, paths, stdout_buf) < 0) {
+        composite_cleanup_children(children, child_count, stdout_buf, stderr_buf);
+        stop_property_service_shim(&property_shim, paths, stdout_buf);
+        return -1;
+    }
     if (append_qipcrtr_protocol_summary(stdout_buf, "wifi_companion_hal_order.net_after_spawn") < 0) {
         composite_cleanup_children(children, child_count, stdout_buf, stderr_buf);
         stop_property_service_shim(&property_shim, paths, stdout_buf);
