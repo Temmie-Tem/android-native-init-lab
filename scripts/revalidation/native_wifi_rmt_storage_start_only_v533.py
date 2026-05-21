@@ -28,8 +28,8 @@ DEFAULT_PORT = 54321
 DEFAULT_TIMEOUT = 45.0
 DEFAULT_EXPECT_VERSION = "A90 Linux init 0.9.61 (v319)"
 DEFAULT_HELPER = "/cache/bin/a90_android_execns_probe"
-DEFAULT_HELPER_SHA256 = "8030c00267a35581406f6faf487090e081133f5aca1967b6d2edeae737db3948"
-DEFAULT_HELPER_MARKER = "a90_android_execns_probe v94"
+DEFAULT_HELPER_SHA256 = "d59596a0e951d05db9b4ed7f2099f1043d463f4e3dd1dc5a8fa40887e210f45d"
+DEFAULT_HELPER_MARKER = "a90_android_execns_probe v95"
 DEFAULT_PROPERTY_ROOT = "/mnt/sdext/a90/private-property-v317/v471/dev/__properties__"
 DEFAULT_V490_MANIFEST = Path("tmp/wifi/v527-v490-current-run/manifest.json")
 DEFAULT_V529_MANIFEST = Path("tmp/wifi/v529-rmt-storage-surface-classifier/manifest.json")
@@ -361,7 +361,7 @@ def classify(args: argparse.Namespace,
              live_result: dict[str, Any] | None,
              dmesg: dict[str, Any]) -> tuple[str, bool, str, str, bool]:
     if args.command == "plan":
-        return "v533-rmt-storage-start-only-plan-ready", True, "plan-only; no device command executed", "deploy helper v94 and run preflight", False
+        return "v533-rmt-storage-start-only-plan-ready", True, "plan-only; no device command executed", "deploy helper v95 and run preflight", False
     blocked = blockers(checks)
     if blocked:
         return "v533-rmt-storage-start-only-blocked", False, "blocked before live run by " + ", ".join(blocked), "resolve blockers before V533 live", False
@@ -375,7 +375,7 @@ def classify(args: argparse.Namespace,
         return "v533-rmt-storage-start-only-cleanup-review", False, "rmt_storage was not proven cleaned", "inspect evidence and consider recovery reboot", True
     helper_result = live_result["helper_result"]
     if helper_result == "rmt-window-pass":
-        return "v533-rmt-storage-window-pass", True, "rmt_storage stayed observable through the bounded window and cleaned up", "advance to companion replay with v94 surfaces", True
+        return "v533-rmt-storage-window-pass", True, "rmt_storage stayed observable through the bounded window and cleaned up", "advance to companion replay with v95 surfaces", True
     if helper_result == "start-only-runtime-gap":
         return "v533-rmt-storage-runtime-gap", True, "rmt_storage still exited before the observe window", "inspect stderr/context keys; add only the next missing surface", True
     return "v533-rmt-storage-review", True, f"helper_result={helper_result} dmesg_counts={dmesg.get('counts')}", "inspect V533 transcript", True

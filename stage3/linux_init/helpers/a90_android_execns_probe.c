@@ -76,7 +76,7 @@
 #define AF_QIPCRTR 42
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v94"
+#define EXECNS_VERSION "a90_android_execns_probe v95"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -3451,39 +3451,50 @@ static int apply_qrtr_ns_identity_contract(const char *prefix) {
                                              true);
 }
 
-static int apply_rmt_storage_identity_contract(const char *prefix) {
-    gid_t groups[] = {A90_AID_SYSTEM, A90_AID_WAKELOCK};
-    int caps[] = {CAP_NET_BIND_SERVICE, CAP_BLOCK_SUSPEND};
+static int apply_android_init_root_identity_contract(const char *prefix,
+                                                     const char *label) {
+    bool pass = true;
 
-    return apply_companion_identity_contract(prefix,
-                                             "rmt_storage-android-runtime",
-                                             A90_AID_NOBODY,
-                                             A90_AID_SYSTEM,
-                                             groups,
-                                             sizeof(groups) / sizeof(groups[0]),
-                                             caps,
-                                             sizeof(caps) / sizeof(caps[0]),
-                                             true);
+    printf("%s.expected.contract=%s\n", prefix, label);
+    printf("%s.expected.init_rc_user=root\n", prefix);
+    printf("%s.expected.uid=0\n", prefix);
+    printf("%s.expected.gid=0\n", prefix);
+    printf("%s.expected.groups=\n", prefix);
+    printf("%s.expected.capability_mode=android-init-root\n", prefix);
+    if (print_identity_snapshot("companion.identity.before") < 0) {
+        pass = false;
+    }
+    if (setgroups(0, NULL) < 0) {
+        printf("%s.setgroups.error=%s\n", prefix, strerror(errno));
+        pass = false;
+    } else {
+        printf("%s.setgroups.ok=1\n", prefix);
+    }
+    if (setresgid(0, 0, 0) < 0) {
+        printf("%s.setresgid.error=%s\n", prefix, strerror(errno));
+        pass = false;
+    } else {
+        printf("%s.setresgid.ok=1\n", prefix);
+    }
+    if (setresuid(0, 0, 0) < 0) {
+        printf("%s.setresuid.error=%s\n", prefix, strerror(errno));
+        pass = false;
+    } else {
+        printf("%s.setresuid.ok=1\n", prefix);
+    }
+    if (print_identity_snapshot("companion.identity.after") < 0) {
+        pass = false;
+    }
+    printf("%s.preexec_status=%s\n", prefix, pass ? "pass" : "fail");
+    return pass ? 0 : -1;
+}
+
+static int apply_rmt_storage_identity_contract(const char *prefix) {
+    return apply_android_init_root_identity_contract(prefix, "rmt_storage-init-root");
 }
 
 static int apply_tftp_server_identity_contract(const char *prefix) {
-    gid_t groups[] = {
-        A90_AID_SYSTEM,
-        A90_AID_VENDOR_RFS,
-        A90_AID_VENDOR_RFS_SHARED,
-        A90_AID_WAKELOCK,
-    };
-    int caps[] = {CAP_NET_BIND_SERVICE, CAP_BLOCK_SUSPEND};
-
-    return apply_companion_identity_contract(prefix,
-                                             "tftp_server-android-runtime",
-                                             A90_AID_VENDOR_RFS,
-                                             A90_AID_VENDOR_RFS,
-                                             groups,
-                                             sizeof(groups) / sizeof(groups[0]),
-                                             caps,
-                                             sizeof(caps) / sizeof(caps[0]),
-                                             true);
+    return apply_android_init_root_identity_contract(prefix, "tftp_server-init-root");
 }
 
 static int apply_pd_mapper_identity_contract(const char *prefix) {

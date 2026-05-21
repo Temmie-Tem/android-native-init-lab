@@ -22,7 +22,7 @@ import native_selinux_policy_inventory_v488 as base
 
 base.__doc__ = __doc__
 base.DEFAULT_OUT_DIR = Path("tmp/wifi/v490-native-selinux-policy-load-proof")
-base.DEFAULT_HELPER_SHA256 = "8030c00267a35581406f6faf487090e081133f5aca1967b6d2edeae737db3948"
+base.DEFAULT_HELPER_SHA256 = "d59596a0e951d05db9b4ed7f2099f1043d463f4e3dd1dc5a8fa40887e210f45d"
 base.APPROVAL_PHRASE = (
     "approve v490 native SELinux policy-load proof only; "
     "no init reexec, no daemon start and no Wi-Fi bring-up"
