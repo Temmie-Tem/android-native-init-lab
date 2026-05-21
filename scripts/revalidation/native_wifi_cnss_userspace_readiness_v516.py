@@ -41,6 +41,7 @@ KEY_RE = re.compile(r"^(cnss_userspace_readiness|wifi_hal_composite_start|wifi_h
 PROCESS_RE = re.compile(r"\b(cnss-daemon|cnss_diag|wificond|supplicant|hostapd|android\.hardware\.wifi|vendor\.samsung\.hardware\.wifi)\b", re.IGNORECASE)
 WIFI_RE = re.compile(r"\b(wlan\d*|swlan\d*|p2p\d*|wifi-aware\d*|wiphy\d*|phy\d+)\b", re.IGNORECASE)
 ANSI_RE = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
+DMESG_TS_RE = re.compile(r"^\[\s*([0-9]+(?:\.[0-9]+)?)\]")
 DMESG_PATTERNS = {
     "cnss_diag_netlink": re.compile(r"netlink_create.*comm:\s*cnss_diag|comm:cnss_diag", re.IGNORECASE),
     "cnss_daemon_netlink": re.compile(r"netlink_create.*comm:\s*cnss-daemon|comm:cnss-daemon|cnss-daemon.*ctrl_getfamily", re.IGNORECASE),
@@ -141,6 +142,29 @@ def step_payload(steps: list[dict[str, Any]], name: str) -> str:
     return ""
 
 
+def dmesg_last_timestamp(text: str) -> float | None:
+    last: float | None = None
+    for raw_line in text.splitlines():
+        line = ANSI_RE.sub("", raw_line).strip()
+        match = DMESG_TS_RE.match(line)
+        if match:
+            last = float(match.group(1))
+    return last
+
+
+def dmesg_delta_text(before: str, after: str) -> str:
+    before_last = dmesg_last_timestamp(before)
+    if before_last is None:
+        return after[len(before):] if after.startswith(before) else after
+    lines = []
+    for raw_line in after.splitlines():
+        line = ANSI_RE.sub("", raw_line).strip()
+        match = DMESG_TS_RE.match(line)
+        if match and float(match.group(1)) > before_last:
+            lines.append(raw_line)
+    return "\n".join(lines) + ("\n" if lines else "")
+
+
 def preflight_steps(args: argparse.Namespace, store: EvidenceStore) -> list[dict[str, Any]]:
     store.mkdir("native")
     return [
@@ -183,7 +207,7 @@ def run_live(args: argparse.Namespace, store: EvidenceStore) -> dict[str, Any]:
     keys = parse_keys(step_payload([live], "v516-helper-run"))
     before_payload = step_payload([before], "dmesg-before")
     after_payload = step_payload([after], "dmesg-after")
-    dmesg_delta = after_payload[len(before_payload):] if after_payload.startswith(before_payload) else after_payload
+    dmesg_delta = dmesg_delta_text(before_payload, after_payload)
     write_capture(store, "dmesg-delta", dmesg_delta)
     return {
         "before": before,
