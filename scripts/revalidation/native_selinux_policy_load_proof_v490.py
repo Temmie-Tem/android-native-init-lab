@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """V490 native SELinux policy-load proof.
 
-This runner uses `a90_android_execns_probe v48` in `sepolicy-load-proof` mode
+This runner uses `a90_android_execns_probe` in `sepolicy-load-proof` mode
 to compile Android split policy and write the resulting binary policy to
 `/sys/fs/selinux/load`. This is a global SELinux policy mutation, so `run`
 requires the exact approval phrase and the helper also requires
@@ -22,7 +22,7 @@ import native_selinux_policy_inventory_v488 as base
 
 base.__doc__ = __doc__
 base.DEFAULT_OUT_DIR = Path("tmp/wifi/v490-native-selinux-policy-load-proof")
-base.DEFAULT_HELPER_SHA256 = "5bc491c7ed0c4da498c6ee16568004dd886df577edd5f8cbebd50fb0740db10c"
+base.DEFAULT_HELPER_SHA256 = "3c41c86852c43eb475b991628ca2d9e1234f635b8b6ca80463ffa62978e230a4"
 base.APPROVAL_PHRASE = (
     "approve v490 native SELinux policy-load proof only; "
     "no init reexec, no daemon start and no Wi-Fi bring-up"
@@ -93,6 +93,7 @@ def build_checks(args: base.argparse.Namespace,
     ps = base.read_step(steps.get("ps"))
     netdev = base.read_step(steps.get("netdev"))
     mounts = base.read_step(steps.get("mounts"))
+    system_root = base.read_step(steps.get("system-root"))
     helper_sha = base.read_step(steps.get("helper-sha"))
     helper_usage = base.read_step(steps.get("helper-usage"))
     process_hits = [
@@ -117,18 +118,36 @@ def build_checks(args: base.argparse.Namespace,
                    "fix native runtime before SELinux policy-load proof")
     helper_marker_ready = any(
         marker in helper_usage
-        for marker in ("a90_android_execns_probe v48", "a90_android_execns_probe v52", "a90_android_execns_probe v53")
+        for marker in (
+            "a90_android_execns_probe v48",
+            "a90_android_execns_probe v52",
+            "a90_android_execns_probe v53",
+            "a90_android_execns_probe v60",
+            "a90_android_execns_probe v61",
+            "a90_android_execns_probe v62",
+            "a90_android_execns_probe v63",
+            "a90_android_execns_probe v64",
+            "a90_android_execns_probe v65",
+            "a90_android_execns_probe v66",
+            "a90_android_execns_probe v67",
+        )
     )
+    sha_match = base.helper_sha_matches(args.helper_sha256, helper_sha, args.helper)
     helper_ready = (
-        args.helper_sha256 in helper_sha
+        sha_match
         and helper_marker_ready
         and "sepolicy-load-proof" in helper_usage
         and "--allow-policy-load-proof" in helper_usage
     )
     base.add_check(checks, "helper-v48", "pass" if helper_ready else "blocked", "blocker",
-                   f"sha_match={args.helper_sha256 in helper_sha} marker={helper_marker_ready} mode={'sepolicy-load-proof' in helper_usage} allow_flag={'--allow-policy-load-proof' in helper_usage}",
+                   f"sha_match={sha_match} marker={helper_marker_ready} mode={'sepolicy-load-proof' in helper_usage} allow_flag={'--allow-policy-load-proof' in helper_usage}",
                    [line for line in helper_sha.splitlines() if args.helper in line][:2],
                    "deploy helper v48 before V490 run")
+    system_root_ready = "/mnt/system/system" in system_root and "/mnt/system/system/bin" in system_root
+    base.add_check(checks, "system-root-mounted", "pass" if system_root_ready else "blocked", "blocker",
+                   "Android system root must be mounted before policy load proof",
+                   [line for line in system_root.splitlines() if "/mnt/system/system" in line][:4],
+                   "mount system read-only before V490 run")
     base.add_check(checks, "selinuxfs-mounted", "pass" if "/sys/fs/selinux" in mounts and " selinuxfs " in mounts else "blocked", "blocker",
                    "global SELinuxfs must be mounted for policy load", [line for line in mounts.splitlines() if "/sys/fs/selinux" in line][:3],
                    "mount SELinuxfs before policy-load proof")
@@ -251,7 +270,7 @@ def build_manifest(args: base.argparse.Namespace, store: base.EvidenceStore) -> 
         "host": base.collect_host_metadata(),
         "plan": {
             "helper": args.helper,
-            "helper_version": "a90_android_execns_probe v48",
+            "helper_version": "a90_android_execns_probe rolling sepolicy-load-proof helper",
             "helper_sha256": args.helper_sha256,
             "helper_mode": "sepolicy-load-proof",
             "system_root": "/mnt/system/system",

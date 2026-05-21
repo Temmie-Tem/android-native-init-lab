@@ -59,6 +59,7 @@ APPROVAL_PHRASE = (
 )
 V373_SCRIPT = Path("scripts/revalidation/wifi_service_manager_start_only_smoke.py")
 TCPCTL_SCRIPT = Path("scripts/revalidation/tcpctl_host.py")
+NCM_PREFLIGHT_SCRIPT = Path("scripts/revalidation/a90_ncm_host_preflight.py")
 MANAGER_RE = re.compile(r"\b(servicemanager|hwservicemanager|vndservicemanager)\b")
 WIFI_RE = re.compile(r"\b(wlan\d*|swlan\d*|p2p\d*|wiphy\d*|phy\d+)\b", re.IGNORECASE)
 
@@ -236,12 +237,38 @@ def run_host_ncm_addr_probe(args: argparse.Namespace, store: EvidenceStore) -> d
     cidr = args.device_ip.rsplit(".", 1)[0] + ".1/24"
     rc, output = run_host(["ip", "-4", "-o", "addr"], timeout=10)
     store.write_text("host/ip-addr.txt", output)
+    preflight: dict[str, Any] = {}
+    checker = repo_path(NCM_PREFLIGHT_SCRIPT)
+    if checker.exists():
+        preflight_dir = store.path("host/ncm-host-preflight")
+        preflight_rc, preflight_output = run_host(
+            [
+                sys.executable,
+                str(checker),
+                "--out-dir",
+                str(preflight_dir),
+                "--device-ip",
+                args.device_ip,
+                "run",
+            ],
+            timeout=20,
+        )
+        store.write_text("host/ncm-host-preflight.txt", preflight_output)
+        manifest_path = preflight_dir / "manifest.json"
+        if manifest_path.exists():
+            try:
+                preflight = json.loads(manifest_path.read_text(encoding="utf-8"))
+            except json.JSONDecodeError:
+                preflight = {"decision": "invalid-json", "pass": False}
+        preflight["rc"] = preflight_rc
+        preflight["file"] = "host/ncm-host-preflight.txt"
     return {
         "rc": rc,
         "ok": rc == 0 and cidr in output,
         "cidr": cidr,
         "file": "host/ip-addr.txt",
         "matches": [line.strip() for line in output.splitlines() if cidr in line],
+        "preflight": preflight,
     }
 
 
@@ -300,9 +327,17 @@ def build_checks(args: argparse.Namespace, store: EvidenceStore, steps: list[Ste
         "host-ncm-address",
         "pass" if host_ncm_addr and host_ncm_addr["ok"] else ("blocked" if ncm_required(args) else "warn"),
         "blocker" if ncm_required(args) else "warning",
-        f"expected_cidr={host_ncm_addr['cidr'] if host_ncm_addr else args.device_ip.rsplit('.', 1)[0] + '.1/24'} transfer_method={args.transfer_method}",
-        (host_ncm_addr or {}).get("matches", [])[:4] + ([host_ncm_addr["file"]] if host_ncm_addr else []),
-        "configure host NCM IP before NCM deploy",
+        (
+            f"expected_cidr={host_ncm_addr['cidr'] if host_ncm_addr else args.device_ip.rsplit('.', 1)[0] + '.1/24'} "
+            f"transfer_method={args.transfer_method} "
+            f"ncm_preflight={(host_ncm_addr or {}).get('preflight', {}).get('decision', 'missing')}"
+        ),
+        (
+            (host_ncm_addr or {}).get("matches", [])[:4] +
+            ([host_ncm_addr["file"]] if host_ncm_addr else []) +
+            ([host_ncm_addr["preflight"]["file"]] if host_ncm_addr and host_ncm_addr.get("preflight", {}).get("file") else [])
+        ),
+        "run a90_ncm_host_preflight.py and install one persistent host autoconfig option, or use --transfer-method serial explicitly",
     )
     add_check(
         checks,

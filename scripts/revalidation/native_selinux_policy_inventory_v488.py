@@ -132,6 +132,18 @@ def parse_keys(text: str) -> dict[str, str]:
     return keys
 
 
+def helper_sha_matches(expected_sha256: str, helper_sha_text: str, helper: str) -> bool:
+    if not re.fullmatch(r"[0-9a-fA-F]{64}", expected_sha256):
+        return False
+    for line in helper_sha_text.splitlines():
+        if helper not in line:
+            continue
+        fields = line.strip().split()
+        if fields and fields[0].lower() == expected_sha256.lower():
+            return True
+    return False
+
+
 def add_check(checks: list[Check], name: str, status: str, severity: str,
               detail: str, evidence: list[str] | None = None, next_step: str = "") -> None:
     checks.append(Check(name, status, severity, detail, evidence or [], next_step))
@@ -165,6 +177,7 @@ def preflight(args: argparse.Namespace, store: EvidenceStore) -> dict[str, Step]
         "mounts": run_capture(args, store, "proc-mounts", ["run", args.toybox, "cat", "/proc/mounts"], args.timeout),
         "selinux-current": run_capture(args, store, "selinux-current", ["run", args.toybox, "cat", "/proc/self/attr/current"], args.timeout),
         "selinux-enforce": run_capture(args, store, "selinux-enforce", ["run", args.toybox, "cat", "/sys/fs/selinux/enforce"], args.timeout),
+        "system-root": run_capture(args, store, "system-root", ["run", args.toybox, "ls", "-ld", "/mnt/system/system", "/mnt/system/system/bin"], args.timeout),
         "helper-sha": run_capture(args, store, "helper-sha", ["run", args.toybox, "sha256sum", args.helper], args.timeout),
         "helper-usage": run_capture(args, store, "helper-usage", ["run", args.helper], args.timeout),
     }
@@ -206,6 +219,7 @@ def build_checks(args: argparse.Namespace,
     ps = read_step(steps.get("ps"))
     netdev = read_step(steps.get("netdev"))
     mounts = read_step(steps.get("mounts"))
+    system_root = read_step(steps.get("system-root"))
     helper_sha = read_step(steps.get("helper-sha"))
     helper_usage = read_step(steps.get("helper-usage"))
     process_hits = [
@@ -228,15 +242,21 @@ def build_checks(args: argparse.Namespace,
     add_check(checks, "native-clean", "pass" if "fail=0" in status else "blocked", "blocker",
               "status/selftest fail=0 expected", [line for line in status.splitlines() if "selftest:" in line][:2],
               "fix native runtime before SELinux inventory")
+    sha_match = helper_sha_matches(args.helper_sha256, helper_sha, args.helper)
     helper_ready = (
-        args.helper_sha256 in helper_sha
+        sha_match
         and "a90_android_execns_probe v46" in helper_usage
         and "sepolicy-inventory" in helper_usage
     )
     add_check(checks, "helper-v46", "pass" if helper_ready else "blocked", "blocker",
-              f"sha_match={args.helper_sha256 in helper_sha} marker={'a90_android_execns_probe v46' in helper_usage} mode={'sepolicy-inventory' in helper_usage}",
+              f"sha_match={sha_match} marker={'a90_android_execns_probe v46' in helper_usage} mode={'sepolicy-inventory' in helper_usage}",
               [line for line in helper_sha.splitlines() if args.helper in line][:2],
               "deploy helper v46 before V488 run")
+    system_root_ready = "/mnt/system/system" in system_root and "/mnt/system/system/bin" in system_root
+    add_check(checks, "system-root-mounted", "pass" if system_root_ready else "blocked", "blocker",
+              "Android system root must be mounted before private namespace policy probing",
+              [line for line in system_root.splitlines() if "/mnt/system/system" in line][:4],
+              "mount system read-only before SELinux policy probing")
     add_check(checks, "selinuxfs-mounted", "pass" if "/sys/fs/selinux" in mounts and " selinuxfs " in mounts else "blocked", "blocker",
               "global SELinuxfs must be mounted for inventory context", [line for line in mounts.splitlines() if "/sys/fs/selinux" in line][:3],
               "mount SELinuxfs before policy inventory")
