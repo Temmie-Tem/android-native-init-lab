@@ -150,6 +150,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V579_V95_COMPANION_DRIVER_STATE_2026-05-22.md` – V95 companion stack과 `/dev/wlan` driver-state `ON`을 결합한 bounded proof; qcwlanstate는 여전히 `EINVAL`/ICNSS modules-not-initialized에서 막힘
 - `reports/NATIVE_INIT_V578_COMBINED_GATE_CLASSIFIER_2026-05-21.md` – V513 qcwlanstate branch와 V577 V95 companion branch를 비교해 V579 combined bounded proof 필요성을 분류
 - `reports/NATIVE_INIT_V577_V95_BROADER_IWIFI_RETRY_2026-05-21.md` – V95 init-root 계약으로 service-manager/dual-HAL/`IWifi.start()` broader window 재검증, 여전히 `ERROR_UNKNOWN/9` 및 QRTR socket 0
 - `reports/NATIVE_INIT_V576_QRTR_NAMESPACE_SURFACE_2026-05-21.md` – V95 companion baseline 이후 read-only QRTR namespace surface 재분류, `QIPCRTR` protocol은 있으나 socket 0/`/proc/net/qrtr` 없음
