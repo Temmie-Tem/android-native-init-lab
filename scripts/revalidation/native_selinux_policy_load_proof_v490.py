@@ -115,14 +115,18 @@ def build_checks(args: base.argparse.Namespace,
     base.add_check(checks, "native-clean", "pass" if "fail=0" in status else "blocked", "blocker",
                    "status/selftest fail=0 expected", [line for line in status.splitlines() if "selftest:" in line][:2],
                    "fix native runtime before SELinux policy-load proof")
+    helper_marker_ready = any(
+        marker in helper_usage
+        for marker in ("a90_android_execns_probe v48", "a90_android_execns_probe v52", "a90_android_execns_probe v53")
+    )
     helper_ready = (
         args.helper_sha256 in helper_sha
-        and "a90_android_execns_probe v48" in helper_usage
+        and helper_marker_ready
         and "sepolicy-load-proof" in helper_usage
         and "--allow-policy-load-proof" in helper_usage
     )
     base.add_check(checks, "helper-v48", "pass" if helper_ready else "blocked", "blocker",
-                   f"sha_match={args.helper_sha256 in helper_sha} marker={'a90_android_execns_probe v48' in helper_usage} mode={'sepolicy-load-proof' in helper_usage} allow_flag={'--allow-policy-load-proof' in helper_usage}",
+                   f"sha_match={args.helper_sha256 in helper_sha} marker={helper_marker_ready} mode={'sepolicy-load-proof' in helper_usage} allow_flag={'--allow-policy-load-proof' in helper_usage}",
                    [line for line in helper_sha.splitlines() if args.helper in line][:2],
                    "deploy helper v48 before V490 run")
     base.add_check(checks, "selinuxfs-mounted", "pass" if "/sys/fs/selinux" in mounts and " selinuxfs " in mounts else "blocked", "blocker",

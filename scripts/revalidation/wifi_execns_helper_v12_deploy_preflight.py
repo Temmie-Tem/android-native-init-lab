@@ -28,7 +28,7 @@ from pathlib import Path
 from typing import Any
 
 from a90_kernel_tools import collect_host_metadata, markdown_table, repo_path, run_capture, strip_cmdv1_text
-from a90ctl import run_cmdv1_command
+from a90ctl import encode_cmdv1_line, run_cmdv1_command
 from a90harness.evidence import EvidenceStore
 
 
@@ -40,6 +40,12 @@ DEFAULT_EXPECT_VERSION = "A90 Linux init 0.9.61 (v319)"
 DEFAULT_HELPER_SHA256 = "fef21de2897b16e4ead7fe780eff1817675d4ce988e558013ac9a37dc928d918"
 DEFAULT_DEVICE_IP = "192.168.7.2"
 DEFAULT_TRANSFER_PORT = 18084
+DEFAULT_TRANSFER_METHOD = "ncm"
+DEFAULT_SERIAL_CHUNK_SIZE = 1900
+SERIAL_CONSOLE_LINE_LIMIT = 4096
+SERIAL_CONSOLE_LINE_MARGIN = 128
+SERIAL_SAFE_LINE_LIMIT = SERIAL_CONSOLE_LINE_LIMIT - SERIAL_CONSOLE_LINE_MARGIN
+SERIAL_MAX_REQUESTED_CHUNK_SIZE = 3000
 HELPER_MARKER = "a90_android_execns_probe v12"
 SERVICE_MODE_TOKEN = "service-manager-start-only"
 DEPLOY_LABEL = "v12"
@@ -134,8 +140,18 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--toybox", default=DEFAULT_TOYBOX)
     parser.add_argument("--device-ip", default=DEFAULT_DEVICE_IP)
     parser.add_argument("--transfer-port", type=int, default=DEFAULT_TRANSFER_PORT)
-    parser.add_argument("--transfer-method", choices=("auto", "ncm", "serial"), default="auto")
-    parser.add_argument("--serial-chunk-size", type=int, default=1400)
+    parser.add_argument(
+        "--transfer-method",
+        choices=("auto", "ncm", "serial"),
+        default=DEFAULT_TRANSFER_METHOD,
+        help="helper transfer path; ncm is the default to avoid slow surprise serial fallback",
+    )
+    parser.add_argument(
+        "--serial-chunk-size",
+        type=int,
+        default=DEFAULT_SERIAL_CHUNK_SIZE,
+        help="serial appendfile fallback chunk size; default stays below the v319 cmdv1x 4096-byte line limit",
+    )
     parser.add_argument("--serial-staging-dir", default="/cache/a90-runtime/bin")
     parser.add_argument("--approval-phrase", default="")
     parser.add_argument("--apply", action="store_true")
@@ -216,6 +232,19 @@ def run_host_ping(args: argparse.Namespace, store: EvidenceStore) -> dict[str, A
     return {"rc": rc, "ok": rc == 0, "file": "host/ping-device.txt"}
 
 
+def run_host_ncm_addr_probe(args: argparse.Namespace, store: EvidenceStore) -> dict[str, Any]:
+    cidr = args.device_ip.rsplit(".", 1)[0] + ".1/24"
+    rc, output = run_host(["ip", "-4", "-o", "addr"], timeout=10)
+    store.write_text("host/ip-addr.txt", output)
+    return {
+        "rc": rc,
+        "ok": rc == 0 and cidr in output,
+        "cidr": cidr,
+        "file": "host/ip-addr.txt",
+        "matches": [line.strip() for line in output.splitlines() if cidr in line],
+    }
+
+
 def ncm_required(args: argparse.Namespace) -> bool:
     return args.transfer_method == "ncm"
 
@@ -223,6 +252,7 @@ def ncm_required(args: argparse.Namespace) -> bool:
 def build_checks(args: argparse.Namespace, store: EvidenceStore, steps: list[StepResult],
                  local: dict[str, Any], ping: dict[str, Any] | None) -> list[Check]:
     checks: list[Check] = []
+    host_ncm_addr = getattr(args, "_host_ncm_addr", None)
     version = capture_text(store, steps, "version")
     status = capture_text(store, steps, "status")
     selftest = capture_text(store, steps, "selftest")
@@ -264,6 +294,15 @@ def build_checks(args: argparse.Namespace, store: EvidenceStore, steps: list[Ste
         "status/selftest rc=0 fail=0 expected",
         [line.strip() for line in (status + "\n" + selftest).splitlines() if line.strip().startswith("selftest:")][:4],
         "fix native health before helper deploy",
+    )
+    add_check(
+        checks,
+        "host-ncm-address",
+        "pass" if host_ncm_addr and host_ncm_addr["ok"] else ("blocked" if ncm_required(args) else "warn"),
+        "blocker" if ncm_required(args) else "warning",
+        f"expected_cidr={host_ncm_addr['cidr'] if host_ncm_addr else args.device_ip.rsplit('.', 1)[0] + '.1/24'} transfer_method={args.transfer_method}",
+        (host_ncm_addr or {}).get("matches", [])[:4] + ([host_ncm_addr["file"]] if host_ncm_addr else []),
+        "configure host NCM IP before NCM deploy",
     )
     add_check(
         checks,
@@ -382,6 +421,32 @@ def uuencode_bytes(data: bytes, *, name: str, mode: int = 0o755) -> str:
     return "".join(lines)
 
 
+def serial_append_line_check(staging: str, encoded: str, chunk_size: int) -> dict[str, Any]:
+    max_line_bytes = 0
+    max_line_offset = 0
+    uses_cmdv1x = False
+    chunks = 0
+    for offset in range(0, len(encoded), chunk_size):
+        chunk = encoded[offset:offset + chunk_size]
+        line = encode_cmdv1_line(["appendfile", staging, chunk])
+        line_bytes = len(line.encode("utf-8"))
+        if line_bytes > max_line_bytes:
+            max_line_bytes = line_bytes
+            max_line_offset = offset
+        uses_cmdv1x = uses_cmdv1x or line.startswith("cmdv1x ")
+        chunks += 1
+    return {
+        "ok": max_line_bytes <= SERIAL_SAFE_LINE_LIMIT,
+        "chunk_size": chunk_size,
+        "chunks": chunks,
+        "max_cmdv1_line_bytes": max_line_bytes,
+        "max_cmdv1_line_offset": max_line_offset,
+        "safe_line_limit": SERIAL_SAFE_LINE_LIMIT,
+        "console_line_limit": SERIAL_CONSOLE_LINE_LIMIT,
+        "uses_cmdv1x": uses_cmdv1x,
+    }
+
+
 def run_device(args: argparse.Namespace, argv: list[str], timeout: float = 30.0) -> tuple[bool, str, int | None, str]:
     try:
         result = run_cmdv1_command(args.host, args.port, timeout, argv, retry_unsafe=False)
@@ -404,7 +469,26 @@ def run_serial_install(args: argparse.Namespace, store: EvidenceStore) -> dict[s
 
     data = local_path.read_bytes()
     encoded = uuencode_bytes(data, name=Path(tmp_target).name, mode=0o755)
-    chunk_size = max(256, min(args.serial_chunk_size, 3000))
+    chunk_size = max(256, min(args.serial_chunk_size, SERIAL_MAX_REQUESTED_CHUNK_SIZE))
+    line_check = serial_append_line_check(staging, encoded, chunk_size)
+    if not line_check["ok"]:
+        message = (
+            "serial chunk size is unsafe for the native console line limit: "
+            f"chunk_size={chunk_size} max_cmdv1_line_bytes={line_check['max_cmdv1_line_bytes']} "
+            f"safe_line_limit={SERIAL_SAFE_LINE_LIMIT}; use NCM transfer or lower --serial-chunk-size"
+        )
+        store.write_text("host/serial-install-helper.txt", message + "\n")
+        return {
+            "method": "serial",
+            "command": "serial appendfile + uudecode",
+            "rc": 1,
+            "ok": False,
+            "file": "host/serial-install-helper.txt",
+            "error": message,
+            "chunks_written": 0,
+            "encoded_bytes": len(encoded.encode("utf-8")),
+            **line_check,
+        }
 
     def step(name: str, argv: list[str], timeout: float = 30.0, allow_error: bool = False) -> str:
         ok, text, rc, status = run_device(args, argv, timeout)
@@ -448,6 +532,7 @@ def run_serial_install(args: argparse.Namespace, store: EvidenceStore) -> dict[s
             "error": str(exc),
             "chunks_written": chunks_written,
             "encoded_bytes": len(encoded.encode("utf-8")),
+            **line_check,
         }
 
     store.write_text("host/serial-install-helper.txt", "\n".join(transcript))
@@ -459,6 +544,7 @@ def run_serial_install(args: argparse.Namespace, store: EvidenceStore) -> dict[s
         "file": "host/serial-install-helper.txt",
         "chunks_written": chunks_written,
         "encoded_bytes": len(encoded.encode("utf-8")),
+        **line_check,
     }
 
 
@@ -527,6 +613,8 @@ def render_summary(manifest: dict[str, Any]) -> str:
         f"- device_mutations: `{manifest['device_mutations']}`",
         f"- daemon_start_executed: `{manifest['daemon_start_executed']}`",
         f"- wifi_bringup_executed: `{manifest['wifi_bringup_executed']}`",
+        f"- transfer_method: `{manifest['transfer_method']}`",
+        f"- device_ip: `{manifest['device_ip']}`",
         "",
         "## Checks",
         "",
@@ -545,6 +633,7 @@ def render_summary(manifest: dict[str, Any]) -> str:
         lines.extend([
             "## Deploy Result",
             "",
+            f"- method: `{manifest['deploy_result'].get('method', 'skip')}`",
             f"- rc: `{manifest['deploy_result']['rc']}`",
             f"- ok: `{manifest['deploy_result']['ok']}`",
             f"- file: `{manifest['deploy_result']['file']}`",
@@ -568,11 +657,14 @@ def build_manifest(args: argparse.Namespace, store: EvidenceStore) -> dict[str, 
     store.write_json("local-helper.json", local)
     steps: list[StepResult] = []
     ping: dict[str, Any] | None = None
+    host_ncm_addr: dict[str, Any] | None = None
     deploy_result: dict[str, Any] | None = None
     v373_result: dict[str, Any] | None = None
     device_mutations = False
 
     if args.command != "plan":
+        host_ncm_addr = run_host_ncm_addr_probe(args, store)
+        setattr(args, "_host_ncm_addr", host_ncm_addr)
         ping = run_host_ping(args, store)
         steps = run_read_only_preflight(args, store)
 
@@ -602,9 +694,14 @@ def build_manifest(args: argparse.Namespace, store: EvidenceStore) -> dict[str, 
         "local_helper": local,
         "remote_helper": args.remote_helper,
         "helper_expected_sha256": args.helper_sha256,
+        "transfer_method": args.transfer_method,
+        "device_ip": args.device_ip,
+        "transfer_port": args.transfer_port,
+        "serial_chunk_size": args.serial_chunk_size,
         "steps": [asdict(step) for step in steps],
         "checks": [asdict(check) for check in checks],
         "host_ping": ping,
+        "host_ncm_addr": host_ncm_addr,
         "deploy_result": deploy_result,
         "v373_preflight_result": v373_result,
         "required_approval_phrase": APPROVAL_PHRASE,

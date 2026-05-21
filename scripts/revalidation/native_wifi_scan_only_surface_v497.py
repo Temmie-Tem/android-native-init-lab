@@ -184,9 +184,13 @@ def build_checks(args: base.argparse.Namespace,
         return checks
     helper_sha = base.step_text(store, steps, "sha-helper")
     helper_usage = base.step_text(store, steps, "helper-usage")
+    helper_marker_ready = any(
+        marker in helper_usage
+        for marker in ("a90_android_execns_probe v50", "a90_android_execns_probe v52", "a90_android_execns_probe v53")
+    )
     helper_ready = (
         args.helper_sha256 in helper_sha
-        and "a90_android_execns_probe v50" in helper_usage
+        and helper_marker_ready
         and "wifi-active-session-scan-only" in helper_usage
         and "--allow-scan-only" in helper_usage
     )
@@ -196,7 +200,7 @@ def build_checks(args: base.argparse.Namespace,
             check.status = "pass" if helper_ready else "blocked"
             check.detail = (
                 f"sha_match={args.helper_sha256 in helper_sha} "
-                f"marker={'a90_android_execns_probe v50' in helper_usage} "
+                f"marker={helper_marker_ready} "
                 f"mode={'wifi-active-session-scan-only' in helper_usage} "
                 f"allow={'--allow-scan-only' in helper_usage}"
             )

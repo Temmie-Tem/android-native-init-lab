@@ -35,7 +35,12 @@ DEFAULT_PORT = 54321
 DEFAULT_TIMEOUT = 45.0
 DEFAULT_EXPECT_VERSION = "A90 Linux init 0.9.61 (v319)"
 DEFAULT_HELPER = "/cache/bin/a90_android_execns_probe"
-DEFAULT_HELPER_SHA256 = "830662d66c3030641a9d73c482ab0b67f42b45cf064668ae293966c76e0b825d"
+DEFAULT_HELPER_SHA256 = "2a3b83f852e17f93cf82a9617f396457718024f28ac510fb915848e3e3547a7d"
+ACCEPTED_HELPER_MARKERS = (
+    "a90_android_execns_probe v51",
+    "a90_android_execns_probe v52",
+    "a90_android_execns_probe v53",
+)
 EXPECTED_V497_DECISION = "v497-native-scan-only-pass-redacted"
 EXPECTED_V498_DECISIONS = {
     "v498-native-private-policy-ready",
@@ -154,7 +159,7 @@ def run_step(args: argparse.Namespace, store: EvidenceStore, name: str, command:
     text = strip_cmdv1_text(capture.text) if capture.text else capture.error + "\n"
     item = capture_to_manifest(capture)
     item["file"] = write_step(store, name, text)
-    item["payload"] = text[:4096]
+    item["payload"] = text
     return item
 
 
@@ -242,9 +247,10 @@ def build_checks(args: argparse.Namespace,
     v497_info = v497_state(v497)
     v498_info = v498_state(v498)
     native_clean = args.expect_version in version and "fail=0" in status
+    helper_marker_ready = any(marker in helper_usage for marker in ACCEPTED_HELPER_MARKERS)
     helper_ready = (
         args.helper_sha256 in helper_sha
-        and "a90_android_execns_probe v51" in helper_usage
+        and helper_marker_ready
         and "wifi-connect-tool-surface" in helper_usage
     )
     v497_ready = (
@@ -273,7 +279,7 @@ def build_checks(args: argparse.Namespace,
     tools_ready = connect_keys.get("result") == "connect-tools-ready"
 
     add_check(checks, "native-health", "pass" if native_clean else "blocked", "blocker", f"expect_version={args.expect_version} fail0={'fail=0' in status}", [], "restore native health before connect readiness")
-    add_check(checks, "helper-v51-connect-tool-surface", "pass" if helper_ready else "blocked", "blocker", f"sha={args.helper_sha256 in helper_sha} marker={'a90_android_execns_probe v51' in helper_usage} mode={'wifi-connect-tool-surface' in helper_usage}", [line for line in helper_sha.splitlines() if args.helper in line][:2], "deploy helper v51 before V499 preflight")
+    add_check(checks, "helper-v51plus-connect-tool-surface", "pass" if helper_ready else "blocked", "blocker", f"sha={args.helper_sha256 in helper_sha} marker={helper_marker_ready} mode={'wifi-connect-tool-surface' in helper_usage}", [line for line in helper_sha.splitlines() if args.helper in line][:2], "deploy helper v51 or later before V499 preflight")
     add_check(checks, "v497-scan-only-pass-redacted", "pass" if v497_ready else "blocked", "blocker", f"path={v497_info['path']} decision={v497_info['decision']} scan={v497_info['scan_only_executed']} redacted={v497_info['raw_results_redacted']}", [v497_info["path"]], "complete V490-V497 scan-only proof first")
     add_check(checks, "v498-private-policy-ready", "pass" if v498_ready else "blocked", "blocker", f"path={v498_info['path']} decision={v498_info['decision']} materialized={v498_info['policy_materialized']} validation={v498_info['validation_ready']} credentials_read={v498_info['credentials_read']} synthetic={v498_info['synthetic_placeholder_detected']}", [v498_info["path"]], "run V498 with private non-placeholder Wi-Fi env and approval flags")
     add_check(checks, "connect-tool-surface-ready", "pass" if tools_ready else "blocked", "blocker", f"result={connect_keys.get('result', 'missing')} supplicant={connect_keys.get('supplicant_ready', '0')} dhcp={connect_keys.get('dhcp_ready', '0')} ping={connect_keys.get('ping_ready', '0')}", [line for line in connect_text.splitlines() if "wifi_connect_tool_surface." in line][:12], "provide supplicant, DHCP client, and ping tools before live connect")
@@ -302,7 +308,7 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
         "preconditions": [
             EXPECTED_V497_DECISION,
             "v498-native-private-policy-ready or ready-awaiting-v497",
-            "a90_android_execns_probe v51 deployed",
+            "a90_android_execns_probe v51 or later deployed",
             "supplicant, DHCP client, ip, and ping tools present",
         ],
         "blocked_actions": [

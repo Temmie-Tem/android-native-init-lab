@@ -136,9 +136,13 @@ def build_checks(args: base.argparse.Namespace,
         return checks
     helper_sha = base.step_text(store, steps, "sha-helper")
     helper_usage = base.step_text(store, steps, "helper-usage")
+    helper_marker_ready = any(
+        marker in helper_usage
+        for marker in ("a90_android_execns_probe v48", "a90_android_execns_probe v52", "a90_android_execns_probe v53")
+    )
     helper_ready = (
         args.helper_sha256 in helper_sha
-        and "a90_android_execns_probe v48" in helper_usage
+        and helper_marker_ready
         and "wifi-iwifi-start-surface" in helper_usage
         and "--allow-iwifi-start-only" in helper_usage
     )
@@ -146,7 +150,7 @@ def build_checks(args: base.argparse.Namespace,
         if check.name == "helper-v32":
             check.name = "helper-v48-iwifi-start"
             check.status = "pass" if helper_ready else "blocked"
-            check.detail = f"sha_match={args.helper_sha256 in helper_sha} marker={'a90_android_execns_probe v48' in helper_usage} mode={'wifi-iwifi-start-surface' in helper_usage} allow={'--allow-iwifi-start-only' in helper_usage}"
+            check.detail = f"sha_match={args.helper_sha256 in helper_sha} marker={helper_marker_ready} mode={'wifi-iwifi-start-surface' in helper_usage} allow={'--allow-iwifi-start-only' in helper_usage}"
             check.evidence = [line for line in helper_sha.splitlines() if args.helper in line][:2]
             check.next_step = "deploy helper v48 before V493 live run"
     v492 = _load_v492_manifest(args)

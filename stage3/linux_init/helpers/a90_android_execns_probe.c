@@ -67,13 +67,16 @@
 #define NLA_TYPE_MASK ~(NLA_F_NESTED | NLA_F_NET_BYTEORDER)
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v51"
+#define EXECNS_VERSION "a90_android_execns_probe v60"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
 #define MAX_SEPOLICY_LOAD_SIZE (16 * 1024 * 1024)
 #define A90_PROP_NAME_MAX 512
 #define A90_PROP_VALUE_MAX 1024
+#define A90_PROP_LEGACY_NAME_MAX 32
+#define A90_PROP_LEGACY_VALUE_MAX 92
+#define A90_PROP_MSG_SETPROP 0x00000001u
 #define A90_PROP_MSG_SETPROP2 0x00020001u
 #define A90_PROP_SUCCESS 0u
 #define A90_PROP_ERROR_READ_CMD 0x0004u
@@ -81,14 +84,17 @@
 #define A90_PROP_ERROR_PERMISSION_DENIED 0x0018u
 #define A90_PROP_ERROR_INVALID_CMD 0x001bu
 #define A90_AID_SYSTEM 1000
+#define A90_AID_SDCARD_RW 1015
 #define A90_AID_WIFI 1010
 #define A90_AID_GPS 1021
+#define A90_AID_MEDIA_RW 1023
+#define A90_AID_DIAG 2002
 #define A90_AID_INET 3003
 #define A90_AID_NET_RAW 3004
 #define A90_AID_NET_ADMIN 3005
 #define A90_AID_READPROC 3009
 #define A90_WIFI_HAL_COMPOSITE_CHILD_COUNT 3
-#define A90_WIFI_SURFACE_COMPOSITE_CHILD_COUNT 4
+#define A90_WIFI_SURFACE_COMPOSITE_CHILD_COUNT 5
 #define A90_WIFI_HAL_WAIT_TARGET_COUNT 3
 #define A90_HWBINDER_DATA_MAX 2048
 #define A90_HWBINDER_OBJECT_MAX 16
@@ -117,13 +123,19 @@ struct config {
     const char *selinux_context;
     const char *selinux_attr_mode;
     const char *android_selinux_context_mode;
+    const char *connect_config;
+    const char *connect_iface;
+    const char *ping_target;
     int timeout_sec;
     bool allow_cnss_start_only;
     bool allow_service_manager_start_only;
     bool allow_wifi_hal_start_only;
     bool allow_hal_service_query;
     bool allow_iwifi_start_only;
+    bool allow_wlan_driver_state_on;
+    bool allow_cnss_userspace_readiness;
     bool allow_scan_only;
+    bool allow_connect_dhcp_ping;
     bool allow_policy_load_proof;
 };
 
@@ -173,6 +185,7 @@ struct paths {
     char vendor_source[MAX_PATH_LEN];
     char dev[MAX_PATH_LEN];
     char dev_null[MAX_PATH_LEN];
+    char dev_wlan[MAX_PATH_LEN];
     char dev_binder[MAX_PATH_LEN];
     char dev_hwbinder[MAX_PATH_LEN];
     char dev_vndbinder[MAX_PATH_LEN];
@@ -225,9 +238,15 @@ static void usage(FILE *out) {
             "[--allow-wifi-hal-start-only] "
             "[--allow-hal-service-query] "
             "[--allow-iwifi-start-only] "
+            "[--allow-wlan-driver-state-on] "
+            "[--allow-cnss-userspace-readiness] "
             "[--allow-scan-only] "
+            "[--allow-connect-dhcp-ping] "
             "[--allow-policy-load-proof] "
-            "--mode linker-list|identity-probe|sepolicy-inventory|sepolicy-compile-proof|sepolicy-load-proof|selinux-domain-proof|cnss-start-only|property-lookup|service-manager-start-only|private-selinux-proof|wifi-hal-lshal-vintf-status-list|wifi-hal-composite-start-only|wifi-hal-composite-lshal-list|wifi-hal-composite-lshal-binderized-list|wifi-hal-composite-lshal-wait-target|wifi-surface-composite-lshal-wait-iwifi|wifi-surface-composite-lshal-wait-samsung|wifi-surface-composite-lshal-wait-samsung-ptrace|wifi-hal-composite-lshal-status-list|wifi-hal-composite-lshal-binderized-status-list|wifi-surface-composite-start-only|wifi-iwifi-start-surface|wifi-active-session-surface|wifi-active-session-scan-only|wifi-connect-tool-surface "
+            "[--connect-config /cache/a90-wifi/...] "
+            "[--connect-iface auto|wlan0] "
+            "[--ping-target 1.1.1.1] "
+            "--mode linker-list|identity-probe|sepolicy-inventory|sepolicy-compile-proof|sepolicy-load-proof|selinux-domain-proof|cnss-start-only|cnss-userspace-readiness|property-lookup|service-manager-start-only|private-selinux-proof|wifi-hal-lshal-vintf-status-list|wifi-hal-composite-start-only|wifi-hal-composite-lshal-list|wifi-hal-composite-lshal-binderized-list|wifi-hal-composite-lshal-wait-target|wifi-surface-composite-lshal-wait-iwifi|wifi-surface-composite-lshal-wait-samsung|wifi-surface-composite-lshal-wait-samsung-ptrace|wifi-hal-composite-lshal-status-list|wifi-hal-composite-lshal-binderized-status-list|wifi-surface-composite-start-only|wifi-dual-hal-lshal-wait-iwifi|wifi-dual-hal-iwifi-start-surface|wifi-iwifi-start-surface|wifi-active-session-surface|wifi-active-session-scan-only|wifi-active-session-connect-ping|wifi-connect-tool-surface "
             "[v27 binderized query runs: /system/bin/lshal list --types=binderized --neat] "
             "[v28 target query runs: /system/bin/lshal wait <fqinstance>] "
             "[v29 status query runs: /system/bin/lshal list --types=binderized,vintf --neat -V -S -i -p -e -c] "
@@ -251,9 +270,12 @@ static bool is_wifi_hal_composite_mode(const char *mode) {
            streq(mode, "wifi-hal-composite-lshal-status-list") ||
            streq(mode, "wifi-hal-composite-lshal-binderized-status-list") ||
            streq(mode, "wifi-surface-composite-start-only") ||
+           streq(mode, "wifi-dual-hal-lshal-wait-iwifi") ||
+           streq(mode, "wifi-dual-hal-iwifi-start-surface") ||
            streq(mode, "wifi-iwifi-start-surface") ||
            streq(mode, "wifi-active-session-surface") ||
-           streq(mode, "wifi-active-session-scan-only");
+           streq(mode, "wifi-active-session-scan-only") ||
+           streq(mode, "wifi-active-session-connect-ping");
 }
 
 static bool is_wifi_surface_composite_mode(const char *mode) {
@@ -261,26 +283,48 @@ static bool is_wifi_surface_composite_mode(const char *mode) {
            streq(mode, "wifi-surface-composite-lshal-wait-iwifi") ||
            streq(mode, "wifi-surface-composite-lshal-wait-samsung") ||
            streq(mode, "wifi-surface-composite-lshal-wait-samsung-ptrace") ||
+           streq(mode, "wifi-dual-hal-lshal-wait-iwifi") ||
+           streq(mode, "wifi-dual-hal-iwifi-start-surface") ||
            streq(mode, "wifi-iwifi-start-surface") ||
            streq(mode, "wifi-active-session-surface") ||
-           streq(mode, "wifi-active-session-scan-only");
+           streq(mode, "wifi-active-session-scan-only") ||
+           streq(mode, "wifi-active-session-connect-ping");
+}
+
+static bool is_wifi_dual_hal_iwifi_start_mode(const char *mode) {
+    return streq(mode, "wifi-dual-hal-iwifi-start-surface");
+}
+
+static bool is_wifi_dual_hal_composite_mode(const char *mode) {
+    return streq(mode, "wifi-dual-hal-lshal-wait-iwifi") ||
+           is_wifi_dual_hal_iwifi_start_mode(mode);
 }
 
 static bool is_wifi_active_session_surface_mode(const char *mode) {
     return streq(mode, "wifi-active-session-surface") ||
-           streq(mode, "wifi-active-session-scan-only");
+           streq(mode, "wifi-active-session-scan-only") ||
+           streq(mode, "wifi-active-session-connect-ping");
 }
 
 static bool is_wifi_active_session_scan_only_mode(const char *mode) {
     return streq(mode, "wifi-active-session-scan-only");
 }
 
+static bool is_wifi_active_session_connect_ping_mode(const char *mode) {
+    return streq(mode, "wifi-active-session-connect-ping");
+}
+
 static bool is_wifi_connect_tool_surface_mode(const char *mode) {
     return streq(mode, "wifi-connect-tool-surface");
 }
 
+static bool is_cnss_userspace_readiness_mode(const char *mode) {
+    return streq(mode, "cnss-userspace-readiness");
+}
+
 static bool is_wifi_iwifi_start_surface_mode(const char *mode) {
     return streq(mode, "wifi-iwifi-start-surface") ||
+           is_wifi_dual_hal_iwifi_start_mode(mode) ||
            is_wifi_active_session_surface_mode(mode);
 }
 
@@ -292,14 +336,16 @@ static bool is_wifi_hal_service_query_mode(const char *mode) {
            streq(mode, "wifi-surface-composite-lshal-wait-samsung") ||
            streq(mode, "wifi-surface-composite-lshal-wait-samsung-ptrace") ||
            streq(mode, "wifi-hal-composite-lshal-status-list") ||
-           streq(mode, "wifi-hal-composite-lshal-binderized-status-list");
+           streq(mode, "wifi-hal-composite-lshal-binderized-status-list") ||
+           streq(mode, "wifi-dual-hal-lshal-wait-iwifi");
 }
 
 static bool is_wifi_hal_lshal_wait_target_mode(const char *mode) {
     return streq(mode, "wifi-hal-composite-lshal-wait-target") ||
            streq(mode, "wifi-surface-composite-lshal-wait-iwifi") ||
            streq(mode, "wifi-surface-composite-lshal-wait-samsung") ||
-           streq(mode, "wifi-surface-composite-lshal-wait-samsung-ptrace");
+           streq(mode, "wifi-surface-composite-lshal-wait-samsung-ptrace") ||
+           streq(mode, "wifi-dual-hal-lshal-wait-iwifi");
 }
 
 static bool is_wifi_hal_composite_ptrace_mode(const char *mode) {
@@ -307,7 +353,8 @@ static bool is_wifi_hal_composite_ptrace_mode(const char *mode) {
 }
 
 static bool is_wifi_hal_lshal_wait_iwifi_mode(const char *mode) {
-    return streq(mode, "wifi-surface-composite-lshal-wait-iwifi");
+    return streq(mode, "wifi-surface-composite-lshal-wait-iwifi") ||
+           streq(mode, "wifi-dual-hal-lshal-wait-iwifi");
 }
 
 static bool is_lshal_readonly_query_mode(const char *mode) {
@@ -318,7 +365,8 @@ static bool selinux_context_allowed(const char *context) {
     return streq(context, "u:r:init:s0") ||
            streq(context, "u:r:hal_wifi_default:s0") ||
            streq(context, "u:r:hwservicemanager:s0") ||
-           streq(context, "u:r:servicemanager:s0");
+           streq(context, "u:r:servicemanager:s0") ||
+           streq(context, "u:r:vendor_wcnss_service:s0");
 }
 
 static const char *const A90_WIFI_HAL_WAIT_TARGETS[A90_WIFI_HAL_WAIT_TARGET_COUNT] = {
@@ -377,6 +425,49 @@ static bool property_root_allowed(const char *path) {
            strcmp(path + path_len - suffix_len, suffix) == 0;
 }
 
+static bool connect_config_allowed(const char *path) {
+    return path_has_prefix_component(path, "/cache/a90-wifi") &&
+           strstr(path, "..") == NULL &&
+           strstr(path, "\n") == NULL &&
+           strstr(path, "\r") == NULL;
+}
+
+static bool connect_iface_allowed(const char *ifname) {
+    if (streq(ifname, "auto")) {
+        return true;
+    }
+    if (ifname == NULL || ifname[0] == '\0' || strlen(ifname) >= A90_NL80211_IFNAME_MAX) {
+        return false;
+    }
+    for (size_t i = 0; ifname[i] != '\0'; i++) {
+        char ch = ifname[i];
+
+        if (!((ch >= 'A' && ch <= 'Z') ||
+              (ch >= 'a' && ch <= 'z') ||
+              (ch >= '0' && ch <= '9') ||
+              ch == '_' ||
+              ch == '-' ||
+              ch == '.')) {
+            return false;
+        }
+    }
+    return true;
+}
+
+static bool ping_target_allowed(const char *target) {
+    if (target == NULL || target[0] == '\0' || strlen(target) > 63U) {
+        return false;
+    }
+    for (size_t i = 0; target[i] != '\0'; i++) {
+        char ch = target[i];
+
+        if (!((ch >= '0' && ch <= '9') || ch == '.')) {
+            return false;
+        }
+    }
+    return true;
+}
+
 static bool property_key_allowed(const char *key) {
     return streq(key, "ro.build.version.sdk") ||
            streq(key, "ro.build.version.release") ||
@@ -414,6 +505,8 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
     cfg->vndk_apex_alias_mode = "none";
     cfg->selinux_attr_mode = "exec";
     cfg->android_selinux_context_mode = "auto";
+    cfg->connect_iface = "auto";
+    cfg->ping_target = "1.1.1.1";
 
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--help") == 0) {
@@ -440,8 +533,20 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             cfg->allow_iwifi_start_only = true;
             continue;
         }
+        if (strcmp(argv[i], "--allow-wlan-driver-state-on") == 0) {
+            cfg->allow_wlan_driver_state_on = true;
+            continue;
+        }
+        if (strcmp(argv[i], "--allow-cnss-userspace-readiness") == 0) {
+            cfg->allow_cnss_userspace_readiness = true;
+            continue;
+        }
         if (strcmp(argv[i], "--allow-scan-only") == 0) {
             cfg->allow_scan_only = true;
+            continue;
+        }
+        if (strcmp(argv[i], "--allow-connect-dhcp-ping") == 0) {
+            cfg->allow_connect_dhcp_ping = true;
             continue;
         }
         if (strcmp(argv[i], "--allow-policy-load-proof") == 0) {
@@ -493,6 +598,12 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             cfg->selinux_attr_mode = argv[++i];
         } else if (strcmp(argv[i], "--android-selinux-context-mode") == 0) {
             cfg->android_selinux_context_mode = argv[++i];
+        } else if (strcmp(argv[i], "--connect-config") == 0) {
+            cfg->connect_config = argv[++i];
+        } else if (strcmp(argv[i], "--connect-iface") == 0) {
+            cfg->connect_iface = argv[++i];
+        } else if (strcmp(argv[i], "--ping-target") == 0) {
+            cfg->ping_target = argv[++i];
         } else if (strcmp(argv[i], "--timeout-sec") == 0) {
             if (!parse_int_range(argv[++i], 1, 30, &cfg->timeout_sec)) {
                 fprintf(stderr, "invalid --timeout-sec\n");
@@ -563,6 +674,7 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
           streq(cfg->mode, "sepolicy-load-proof") ||
           streq(cfg->mode, "selinux-domain-proof") ||
           streq(cfg->mode, "cnss-start-only") ||
+          is_cnss_userspace_readiness_mode(cfg->mode) ||
           streq(cfg->mode, "property-lookup") ||
           streq(cfg->mode, "private-selinux-proof") ||
           streq(cfg->mode, "service-manager-start-only") ||
@@ -627,6 +739,7 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             cfg->allow_wifi_hal_start_only ||
             cfg->allow_hal_service_query ||
             cfg->allow_iwifi_start_only ||
+            cfg->allow_cnss_userspace_readiness ||
             cfg->allow_policy_load_proof) {
             fprintf(stderr, "sepolicy-inventory does not accept daemon/HAL allow flags\n");
             return 2;
@@ -650,6 +763,7 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             cfg->allow_wifi_hal_start_only ||
             cfg->allow_hal_service_query ||
             cfg->allow_iwifi_start_only ||
+            cfg->allow_cnss_userspace_readiness ||
             cfg->allow_policy_load_proof) {
             fprintf(stderr, "sepolicy-compile-proof does not accept daemon/HAL allow flags\n");
             return 2;
@@ -676,7 +790,8 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             cfg->allow_service_manager_start_only ||
             cfg->allow_wifi_hal_start_only ||
             cfg->allow_hal_service_query ||
-            cfg->allow_iwifi_start_only) {
+            cfg->allow_iwifi_start_only ||
+            cfg->allow_cnss_userspace_readiness) {
             fprintf(stderr, "sepolicy-load-proof does not accept daemon/HAL allow flags\n");
             return 2;
         }
@@ -701,7 +816,8 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             cfg->allow_service_manager_start_only ||
             cfg->allow_wifi_hal_start_only ||
             cfg->allow_hal_service_query ||
-            cfg->allow_iwifi_start_only) {
+            cfg->allow_iwifi_start_only ||
+            cfg->allow_cnss_userspace_readiness) {
             fprintf(stderr, "selinux-domain-proof does not accept daemon/HAL allow flags\n");
             return 2;
         }
@@ -710,8 +826,10 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
         return 2;
     }
     if (streq(cfg->android_selinux_context_mode, "service-defaults") &&
-        !(streq(cfg->mode, "service-manager-start-only") || is_wifi_hal_composite_mode(cfg->mode))) {
-        fprintf(stderr, "--android-selinux-context-mode is only valid with service-manager or Wi-Fi HAL composite modes\n");
+        !(streq(cfg->mode, "service-manager-start-only") ||
+          is_wifi_hal_composite_mode(cfg->mode) ||
+          is_cnss_userspace_readiness_mode(cfg->mode))) {
+        fprintf(stderr, "--android-selinux-context-mode is only valid with service-manager, Wi-Fi HAL composite, or CNSS userspace readiness modes\n");
         return 2;
     }
     if (streq(cfg->mode, "cnss-start-only") && cfg->linker != NULL) {
@@ -724,6 +842,33 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
     }
     if (streq(cfg->mode, "cnss-start-only") && !streq(cfg->target, "/vendor/bin/cnss-daemon")) {
         fprintf(stderr, "cnss-start-only target is fixed to /vendor/bin/cnss-daemon\n");
+        return 2;
+    }
+    if (is_cnss_userspace_readiness_mode(cfg->mode)) {
+        if (cfg->linker != NULL) {
+            fprintf(stderr, "--linker is not used by cnss-userspace-readiness mode\n");
+            return 2;
+        }
+        if (!streq(cfg->capture_mode, "none")) {
+            fprintf(stderr, "--capture-mode must be none for cnss-userspace-readiness mode\n");
+            return 2;
+        }
+        if (!cfg->allow_cnss_start_only || !cfg->allow_cnss_userspace_readiness) {
+            fprintf(stderr, "cnss-userspace-readiness requires --allow-cnss-start-only and --allow-cnss-userspace-readiness\n");
+            return 2;
+        }
+        if (cfg->allow_service_manager_start_only ||
+            cfg->allow_wifi_hal_start_only ||
+            cfg->allow_hal_service_query ||
+            cfg->allow_iwifi_start_only ||
+            cfg->allow_wlan_driver_state_on ||
+            cfg->allow_scan_only ||
+            cfg->allow_connect_dhcp_ping) {
+            fprintf(stderr, "cnss-userspace-readiness does not accept HAL/scan/connect allow flags\n");
+            return 2;
+        }
+    } else if (cfg->allow_cnss_userspace_readiness) {
+        fprintf(stderr, "--allow-cnss-userspace-readiness is only valid with cnss-userspace-readiness mode\n");
         return 2;
     }
     if (streq(cfg->mode, "service-manager-start-only")) {
@@ -779,6 +924,13 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             fprintf(stderr, "--allow-iwifi-start-only requires service-manager, Wi-Fi HAL, and CNSS allow flags\n");
             return 2;
         }
+        if (cfg->allow_wlan_driver_state_on &&
+            (!cfg->allow_service_manager_start_only ||
+             !cfg->allow_wifi_hal_start_only ||
+             !cfg->allow_cnss_start_only)) {
+            fprintf(stderr, "--allow-wlan-driver-state-on requires service-manager, Wi-Fi HAL, and CNSS allow flags\n");
+            return 2;
+        }
         if (cfg->allow_scan_only &&
             (!cfg->allow_service_manager_start_only ||
              !cfg->allow_wifi_hal_start_only ||
@@ -787,22 +939,56 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             fprintf(stderr, "--allow-scan-only requires service-manager, Wi-Fi HAL, CNSS, and IWifi.start allow flags\n");
             return 2;
         }
+        if (cfg->allow_connect_dhcp_ping &&
+            (!cfg->allow_service_manager_start_only ||
+             !cfg->allow_wifi_hal_start_only ||
+             !cfg->allow_cnss_start_only ||
+             !cfg->allow_iwifi_start_only)) {
+            fprintf(stderr, "--allow-connect-dhcp-ping requires service-manager, Wi-Fi HAL, CNSS, and IWifi.start allow flags\n");
+            return 2;
+        }
         if (is_wifi_surface_composite_mode(cfg->mode) &&
             (!cfg->allow_service_manager_start_only ||
              !cfg->allow_wifi_hal_start_only ||
              !cfg->allow_cnss_start_only ||
              (is_wifi_iwifi_start_surface_mode(cfg->mode) && !cfg->allow_iwifi_start_only) ||
-             (is_wifi_active_session_scan_only_mode(cfg->mode) && !cfg->allow_scan_only))) {
+             (is_wifi_active_session_scan_only_mode(cfg->mode) && !cfg->allow_scan_only) ||
+             (is_wifi_active_session_connect_ping_mode(cfg->mode) && !cfg->allow_connect_dhcp_ping))) {
             fprintf(stderr, "wifi surface modes require service-manager, Wi-Fi HAL, CNSS, and mode-specific allow flags\n");
             return 2;
         }
     }
     if (cfg->allow_iwifi_start_only && !is_wifi_iwifi_start_surface_mode(cfg->mode)) {
-        fprintf(stderr, "--allow-iwifi-start-only is only valid with wifi-iwifi-start-surface or active-session modes\n");
+        fprintf(stderr, "--allow-iwifi-start-only is only valid with wifi-iwifi-start-surface, wifi-dual-hal-iwifi-start-surface, or active-session modes\n");
+        return 2;
+    }
+    if (cfg->allow_wlan_driver_state_on && !is_wifi_surface_composite_mode(cfg->mode)) {
+        fprintf(stderr, "--allow-wlan-driver-state-on is only valid with Wi-Fi surface composite modes\n");
         return 2;
     }
     if (cfg->allow_scan_only && !is_wifi_active_session_scan_only_mode(cfg->mode)) {
         fprintf(stderr, "--allow-scan-only is only valid with wifi-active-session-scan-only mode\n");
+        return 2;
+    }
+    if (cfg->allow_connect_dhcp_ping && !is_wifi_active_session_connect_ping_mode(cfg->mode)) {
+        fprintf(stderr, "--allow-connect-dhcp-ping is only valid with wifi-active-session-connect-ping mode\n");
+        return 2;
+    }
+    if (is_wifi_active_session_connect_ping_mode(cfg->mode)) {
+        if (cfg->connect_config == NULL || !connect_config_allowed(cfg->connect_config)) {
+            fprintf(stderr, "wifi-active-session-connect-ping requires --connect-config under /cache/a90-wifi\n");
+            return 2;
+        }
+        if (!connect_iface_allowed(cfg->connect_iface)) {
+            fprintf(stderr, "--connect-iface must be auto or a simple interface name\n");
+            return 2;
+        }
+        if (!ping_target_allowed(cfg->ping_target)) {
+            fprintf(stderr, "--ping-target must be an IPv4 literal\n");
+            return 2;
+        }
+    } else if (cfg->connect_config != NULL) {
+        fprintf(stderr, "--connect-config is only valid with wifi-active-session-connect-ping mode\n");
         return 2;
     }
     if (is_lshal_readonly_query_mode(cfg->mode)) {
@@ -822,7 +1008,8 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             cfg->allow_service_manager_start_only ||
             cfg->allow_wifi_hal_start_only ||
             cfg->allow_hal_service_query ||
-            cfg->allow_iwifi_start_only) {
+            cfg->allow_iwifi_start_only ||
+            cfg->allow_cnss_userspace_readiness) {
             fprintf(stderr, "lshal read-only query modes do not accept daemon/HAL allow flags\n");
             return 2;
         }
@@ -968,6 +1155,7 @@ static int init_paths(struct paths *paths) {
         append_path(paths->vendor_source, sizeof(paths->vendor_source), paths->base, "vendor-block-sda29") < 0 ||
         append_path(paths->dev, sizeof(paths->dev), paths->root, "dev") < 0 ||
         append_path(paths->dev_null, sizeof(paths->dev_null), paths->dev, "null") < 0 ||
+        append_path(paths->dev_wlan, sizeof(paths->dev_wlan), paths->dev, "wlan") < 0 ||
         append_path(paths->dev_binder, sizeof(paths->dev_binder), paths->dev, "binder") < 0 ||
         append_path(paths->dev_hwbinder, sizeof(paths->dev_hwbinder), paths->dev, "hwbinder") < 0 ||
         append_path(paths->dev_vndbinder, sizeof(paths->dev_vndbinder), paths->dev, "vndbinder") < 0 ||
@@ -1467,6 +1655,52 @@ static int materialize_service_manager_binder_devices(const struct config *cfg,
     return 0;
 }
 
+static int materialize_wifi_wlan_device(const struct config *cfg,
+                                        const struct paths *paths,
+                                        char *error_buf,
+                                        size_t error_size) {
+    struct stat st;
+
+    if (!(is_wifi_hal_composite_mode(cfg->mode) &&
+          cfg->allow_service_manager_start_only &&
+          cfg->allow_wifi_hal_start_only)) {
+        return 0;
+    }
+    if (lstat("/dev/wlan", &st) < 0) {
+        if (errno == ENOENT) {
+            return 0;
+        }
+        snprintf(error_buf, error_size, "stat host dev wlan: %s", strerror(errno));
+        return -1;
+    }
+    if (!S_ISCHR(st.st_mode)) {
+        snprintf(error_buf, error_size, "host dev wlan is not a char device");
+        errno = ENODEV;
+        return -1;
+    }
+    if (mkdir_p(paths->dev, 0755) < 0) {
+        snprintf(error_buf, error_size, "mkdir dev for wlan: %s", strerror(errno));
+        return -1;
+    }
+    if (unlink(paths->dev_wlan) < 0 && errno != ENOENT) {
+        snprintf(error_buf, error_size, "unlink dev wlan: %s", strerror(errno));
+        return -1;
+    }
+    if (mknod(paths->dev_wlan, S_IFCHR | 0660, st.st_rdev) < 0) {
+        snprintf(error_buf, error_size, "mknod dev wlan: %s", strerror(errno));
+        return -1;
+    }
+    if (chown(paths->dev_wlan, A90_AID_WIFI, A90_AID_WIFI) < 0) {
+        snprintf(error_buf, error_size, "chown dev wlan: %s", strerror(errno));
+        return -1;
+    }
+    if (chmod(paths->dev_wlan, 0660) < 0) {
+        snprintf(error_buf, error_size, "chmod dev wlan: %s", strerror(errno));
+        return -1;
+    }
+    return 0;
+}
+
 static int materialize_data_wifi(const struct config *cfg,
                                  const struct paths *paths,
                                  char *error_buf,
@@ -1704,6 +1938,9 @@ static void cleanup_paths(const struct paths *paths) {
     }
     if (paths->dev_socket[0] != '\0') {
         rmdir(paths->dev_socket);
+    }
+    if (paths->dev_wlan[0] != '\0') {
+        unlink(paths->dev_wlan);
     }
     if (paths->dev_null[0] != '\0') {
         unlink(paths->dev_null);
@@ -1951,9 +2188,10 @@ static void print_preexec_context(const struct config *cfg, const struct paths *
         print_context_path(paths, "linker", cfg->linker);
     }
     if (cfg->target != NULL) {
-        print_context_path(paths, "target", cfg->target);
+    print_context_path(paths, "target", cfg->target);
     }
     print_context_path(paths, "dev_null", "/dev/null");
+    print_context_path(paths, "dev_wlan", "/dev/wlan");
     print_context_path(paths, "dev_binder", "/dev/binder");
     print_context_path(paths, "dev_hwbinder", "/dev/hwbinder");
     print_context_path(paths, "dev_vndbinder", "/dev/vndbinder");
@@ -2188,6 +2426,10 @@ static const char *android_default_selinux_context_for_target(const char *target
     if (streq(target, "/vendor/bin/hw/vendor.samsung.hardware.wifi@2.0-service") ||
         streq(target, "/vendor/bin/hw/android.hardware.wifi@1.0-service")) {
         return "u:r:hal_wifi_default:s0";
+    }
+    if (streq(target, "/vendor/bin/cnss-daemon") ||
+        streq(target, "/vendor/bin/cnss_diag")) {
+        return "u:r:vendor_wcnss_service:s0";
     }
     return NULL;
 }
@@ -2513,9 +2755,65 @@ static int apply_android_identity_contract(const char *prefix) {
     return pass ? 0 : -1;
 }
 
+static int apply_cnss_diag_identity_contract(const char *prefix) {
+    gid_t groups[] = {
+        A90_AID_SYSTEM,
+        A90_AID_WIFI,
+        A90_AID_INET,
+        A90_AID_SDCARD_RW,
+        A90_AID_MEDIA_RW,
+        A90_AID_DIAG,
+    };
+    bool pass = true;
+
+    printf("%s.expected.uid=%d\n", prefix, A90_AID_SYSTEM);
+    printf("%s.expected.gid=%d\n", prefix, A90_AID_SYSTEM);
+    printf("%s.expected.groups=%d,%d,%d,%d,%d,%d\n",
+           prefix,
+           A90_AID_SYSTEM,
+           A90_AID_WIFI,
+           A90_AID_INET,
+           A90_AID_SDCARD_RW,
+           A90_AID_MEDIA_RW,
+           A90_AID_DIAG);
+    printf("%s.expected.cap=none\n", prefix);
+    if (print_identity_snapshot("cnss_diag.identity.before") < 0) {
+        pass = false;
+    }
+    if (setgroups((int)(sizeof(groups) / sizeof(groups[0])), groups) < 0) {
+        printf("%s.setgroups.error=%s\n", prefix, strerror(errno));
+        pass = false;
+    } else {
+        printf("%s.setgroups.ok=1\n", prefix);
+    }
+    if (setresgid(A90_AID_SYSTEM, A90_AID_SYSTEM, A90_AID_SYSTEM) < 0) {
+        printf("%s.setresgid.error=%s\n", prefix, strerror(errno));
+        pass = false;
+    } else {
+        printf("%s.setresgid.ok=1\n", prefix);
+    }
+    if (setresuid(A90_AID_SYSTEM, A90_AID_SYSTEM, A90_AID_SYSTEM) < 0) {
+        printf("%s.setresuid.error=%s\n", prefix, strerror(errno));
+        pass = false;
+    } else {
+        printf("%s.setresuid.ok=1\n", prefix);
+    }
+    if (restrict_to_capabilities(NULL, 0) < 0) {
+        printf("%s.capset_empty.error=%s\n", prefix, strerror(errno));
+        pass = false;
+    } else {
+        printf("%s.capset_empty.ok=1\n", prefix);
+    }
+    if (print_identity_snapshot("cnss_diag.identity.after") < 0) {
+        pass = false;
+    }
+    printf("%s.preexec_status=%s\n", prefix, pass ? "pass" : "fail");
+    return pass ? 0 : -1;
+}
+
 static int apply_wifi_hal_identity_contract(const char *prefix) {
     gid_t groups[] = {A90_AID_WIFI, A90_AID_GPS, A90_AID_NET_RAW, A90_AID_NET_ADMIN};
-    int caps[] = {CAP_NET_ADMIN, CAP_NET_RAW, CAP_SYS_MODULE};
+    int caps[] = {CAP_NET_ADMIN, CAP_NET_RAW};
     bool pass = true;
 
     printf("%s.expected.uid=%d\n", prefix, A90_AID_WIFI);
@@ -2526,7 +2824,7 @@ static int apply_wifi_hal_identity_contract(const char *prefix) {
            A90_AID_GPS,
            A90_AID_NET_RAW,
            A90_AID_NET_ADMIN);
-    printf("%s.expected.cap=CAP_NET_ADMIN,CAP_NET_RAW,CAP_SYS_MODULE\n", prefix);
+    printf("%s.expected.cap=CAP_NET_ADMIN,CAP_NET_RAW\n", prefix);
     if (print_identity_snapshot("wifi_hal.identity.before") < 0) {
         pass = false;
     }
@@ -2570,9 +2868,6 @@ static int apply_wifi_hal_identity_contract(const char *prefix) {
         pass = false;
     }
     if (raise_ambient_capability_report(prefix, CAP_NET_RAW, "net_raw") < 0) {
-        pass = false;
-    }
-    if (raise_ambient_capability_report(prefix, CAP_SYS_MODULE, "sys_module") < 0) {
         pass = false;
     }
     if (print_identity_snapshot("wifi_hal.identity.after") < 0) {
@@ -4100,6 +4395,159 @@ static int run_wifi_connect_tool_surface(const struct config *cfg,
                           "wifi_connect_tool_surface.end=1\n");
 }
 
+static int run_wifi_connect_ping_scaffold(const struct config *cfg,
+                                          const struct paths *paths,
+                                          struct buffer *stdout_buf) {
+    struct stat config_st;
+    int config_errno = 0;
+    int config_fd = -1;
+    int config_flags = O_RDONLY | O_CLOEXEC;
+    bool vendor_wpa_hw_present = false;
+    bool vendor_wpa_hw_executable = false;
+    bool vendor_wpa_present = false;
+    bool vendor_wpa_executable = false;
+    bool system_ip_present = false;
+    bool system_ip_executable = false;
+    bool system_ping_present = false;
+    bool system_ping_executable = false;
+    bool system_dhcpcd_present = false;
+    bool system_dhcpcd_executable = false;
+    bool system_udhcpc_present = false;
+    bool system_udhcpc_executable = false;
+    bool cache_busybox_present = false;
+    bool cache_busybox_executable = false;
+    bool supplicant_ready;
+    bool dhcp_ready;
+    bool ping_ready;
+
+#ifdef O_NOFOLLOW
+    config_flags |= O_NOFOLLOW;
+#endif
+
+    memset(&config_st, 0, sizeof(config_st));
+    if (lstat(cfg->connect_config, &config_st) < 0) {
+        config_errno = errno;
+    } else if (!S_ISREG(config_st.st_mode)) {
+        config_errno = EINVAL;
+    } else {
+        config_fd = open(cfg->connect_config, config_flags);
+        if (config_fd < 0) {
+            config_errno = errno;
+        } else {
+            close(config_fd);
+            config_fd = -1;
+        }
+    }
+
+    if (append_literal(stdout_buf,
+                       "wifi_connect_ping.begin=1\n"
+                       "wifi_connect_ping.helper_version=" EXECNS_VERSION "\n"
+                       "wifi_connect_ping.mode=v52-scaffold\n"
+                       "wifi_connect_ping.allowed=1\n"
+                       "wifi_connect_ping.credentials_read=0\n"
+                       "wifi_connect_ping.secret_values_logged=0\n"
+                       "wifi_connect_ping.exec_attempted=0\n"
+                       "wifi_connect_ping.supplicant_started=0\n"
+                       "wifi_connect_ping.dhcp_executed=0\n"
+                       "wifi_connect_ping.external_ping_executed=0\n") < 0 ||
+        append_format(stdout_buf,
+                      "wifi_connect_ping.connect_config.path=%s\n"
+                      "wifi_connect_ping.connect_config.present=%d\n"
+                      "wifi_connect_ping.connect_config.mode=%o\n"
+                      "wifi_connect_ping.connect_config.size=%lld\n"
+                      "wifi_connect_ping.connect_config.private_mode=%d\n"
+                      "wifi_connect_ping.connect_config.errno=%d\n"
+                      "wifi_connect_ping.iface=%s\n"
+                      "wifi_connect_ping.ping_target=%s\n",
+                      cfg->connect_config,
+                      config_errno == 0 ? 1 : 0,
+                      config_errno == 0 ? (unsigned int)(config_st.st_mode & 07777) : 0,
+                      config_errno == 0 ? (long long)config_st.st_size : 0LL,
+                      (config_errno == 0 &&
+                       S_ISREG(config_st.st_mode) &&
+                       (config_st.st_mode & 0077) == 0 &&
+                       config_st.st_size > 0 &&
+                       config_st.st_size <= 8192) ? 1 : 0,
+                      config_errno,
+                      cfg->connect_iface,
+                      cfg->ping_target) < 0) {
+        return -1;
+    }
+
+    if (append_root_stat_line(paths,
+                              stdout_buf,
+                              "wifi_connect_ping",
+                              "vendor_wpa_supplicant_hw",
+                              "/vendor/bin/hw/wpa_supplicant",
+                              &vendor_wpa_hw_present,
+                              &vendor_wpa_hw_executable) < 0 ||
+        append_root_stat_line(paths,
+                              stdout_buf,
+                              "wifi_connect_ping",
+                              "vendor_wpa_supplicant",
+                              "/vendor/bin/wpa_supplicant",
+                              &vendor_wpa_present,
+                              &vendor_wpa_executable) < 0 ||
+        append_root_stat_line(paths,
+                              stdout_buf,
+                              "wifi_connect_ping",
+                              "system_ip",
+                              "/system/bin/ip",
+                              &system_ip_present,
+                              &system_ip_executable) < 0 ||
+        append_root_stat_line(paths,
+                              stdout_buf,
+                              "wifi_connect_ping",
+                              "system_ping",
+                              "/system/bin/ping",
+                              &system_ping_present,
+                              &system_ping_executable) < 0 ||
+        append_root_stat_line(paths,
+                              stdout_buf,
+                              "wifi_connect_ping",
+                              "system_dhcpcd",
+                              "/system/bin/dhcpcd",
+                              &system_dhcpcd_present,
+                              &system_dhcpcd_executable) < 0 ||
+        append_root_stat_line(paths,
+                              stdout_buf,
+                              "wifi_connect_ping",
+                              "system_udhcpc",
+                              "/system/bin/udhcpc",
+                              &system_udhcpc_present,
+                              &system_udhcpc_executable) < 0 ||
+        append_host_stat_line(stdout_buf,
+                              "wifi_connect_ping",
+                              "cache_busybox",
+                              "/cache/bin/busybox",
+                              &cache_busybox_present,
+                              &cache_busybox_executable) < 0) {
+        return -1;
+    }
+
+    supplicant_ready = (vendor_wpa_hw_present && vendor_wpa_hw_executable) ||
+                       (vendor_wpa_present && vendor_wpa_executable);
+    dhcp_ready = (system_dhcpcd_present && system_dhcpcd_executable) ||
+                 (system_udhcpc_present && system_udhcpc_executable) ||
+                 (cache_busybox_present && cache_busybox_executable);
+    ping_ready = system_ip_present && system_ip_executable &&
+                 system_ping_present && system_ping_executable;
+    if (append_format(stdout_buf,
+                      "wifi_connect_ping.supplicant_ready=%d\n"
+                      "wifi_connect_ping.dhcp_ready=%d\n"
+                      "wifi_connect_ping.ping_ready=%d\n"
+                      "wifi_connect_ping.executor_implemented=0\n"
+                      "wifi_connect_ping.result=executor-scaffold-only\n"
+                      "wifi_connect_ping.reason=v52-contract-present-live-execution-deferred-to-v53\n"
+                      "wifi_connect_ping.end=1\n",
+                      supplicant_ready ? 1 : 0,
+                      dhcp_ready ? 1 : 0,
+                      ping_ready ? 1 : 0) < 0) {
+        return -1;
+    }
+    return 40;
+}
+
 static int run_sepolicy_inventory(const struct config *cfg,
                                   const struct paths *paths,
                                   struct buffer *stdout_buf) {
@@ -5425,6 +5873,166 @@ static int append_wifi_surface_snapshot(struct buffer *buf, const char *prefix) 
     return 0;
 }
 
+static const char *runtime_path_type(mode_t mode) {
+    if (S_ISREG(mode)) return "regular";
+    if (S_ISDIR(mode)) return "directory";
+    if (S_ISLNK(mode)) return "symlink";
+    if (S_ISCHR(mode)) return "char";
+    if (S_ISBLK(mode)) return "block";
+    if (S_ISSOCK(mode)) return "socket";
+    if (S_ISFIFO(mode)) return "fifo";
+    return "other";
+}
+
+static int append_runtime_path_status(struct buffer *buf,
+                                      const char *prefix,
+                                      const char *scope,
+                                      const char *label,
+                                      const char *path) {
+    char link_target[MAX_PATH_LEN];
+    struct stat st;
+    ssize_t nreadlink;
+
+    if (append_format(buf,
+                      "%s.%s.%s.path=%s\n",
+                      prefix,
+                      scope,
+                      label,
+                      path) < 0) {
+        return -1;
+    }
+    if (lstat(path, &st) < 0) {
+        return append_format(buf,
+                             "%s.%s.%s.exists=0\n"
+                             "%s.%s.%s.errno=%d\n",
+                             prefix,
+                             scope,
+                             label,
+                             prefix,
+                             scope,
+                             label,
+                             errno);
+    }
+    if (append_format(buf,
+                      "%s.%s.%s.exists=1\n"
+                      "%s.%s.%s.uid=%u\n"
+                      "%s.%s.%s.gid=%u\n"
+                      "%s.%s.%s.mode=%o\n"
+                      "%s.%s.%s.type=%s\n"
+                      "%s.%s.%s.size=%lld\n"
+                      "%s.%s.%s.access_r=%d\n"
+                      "%s.%s.%s.access_w=%d\n"
+                      "%s.%s.%s.access_x=%d\n",
+                      prefix, scope, label,
+                      prefix, scope, label, (unsigned int)st.st_uid,
+                      prefix, scope, label, (unsigned int)st.st_gid,
+                      prefix, scope, label, st.st_mode & 07777,
+                      prefix, scope, label, runtime_path_type(st.st_mode),
+                      prefix, scope, label, (long long)st.st_size,
+                      prefix, scope, label, access(path, R_OK) == 0 ? 1 : 0,
+                      prefix, scope, label, access(path, W_OK) == 0 ? 1 : 0,
+                      prefix, scope, label, access(path, X_OK) == 0 ? 1 : 0) < 0) {
+        return -1;
+    }
+    if (S_ISCHR(st.st_mode) || S_ISBLK(st.st_mode)) {
+        if (append_format(buf,
+                          "%s.%s.%s.rdev=%u:%u\n",
+                          prefix,
+                          scope,
+                          label,
+                          major(st.st_rdev),
+                          minor(st.st_rdev)) < 0) {
+            return -1;
+        }
+    }
+    nreadlink = readlink(path, link_target, sizeof(link_target) - 1);
+    if (nreadlink >= 0) {
+        link_target[nreadlink] = '\0';
+        if (append_format(buf,
+                          "%s.%s.%s.readlink=%s\n",
+                          prefix,
+                          scope,
+                          label,
+                          link_target) < 0) {
+            return -1;
+        }
+    }
+    return 0;
+}
+
+static int append_private_runtime_path_status(struct buffer *buf,
+                                              const struct paths *paths,
+                                              const char *prefix,
+                                              const char *label,
+                                              const char *absolute_path) {
+    char host_path[MAX_PATH_LEN];
+
+    if (path_in_root(host_path, sizeof(host_path), paths, absolute_path) < 0) {
+        return append_format(buf,
+                             "%s.private.%s.absolute=%s\n"
+                             "%s.private.%s.error=path-too-long\n",
+                             prefix,
+                             label,
+                             absolute_path,
+                             prefix,
+                             label);
+    }
+    if (append_format(buf,
+                      "%s.private.%s.absolute=%s\n"
+                      "%s.private.%s.host_path=%s\n",
+                      prefix,
+                      label,
+                      absolute_path,
+                      prefix,
+                      label,
+                      host_path) < 0) {
+        return -1;
+    }
+    return append_runtime_path_status(buf, prefix, "private", label, host_path);
+}
+
+static int append_wifi_runtime_surface_snapshot(struct buffer *buf,
+                                                const struct paths *paths,
+                                                const char *prefix) {
+    static const struct {
+        const char *label;
+        const char *path;
+    } runtime_paths[] = {
+        { "dev_socket_wifihal", "/dev/socket/wifihal" },
+        { "dev_socket_wifihal_ctrlsock", "/dev/socket/wifihal/wifihal_ctrlsock" },
+        { "dev_socket_wpa_wlan0", "/dev/socket/wpa_wlan0" },
+        { "dev_wlan", "/dev/wlan" },
+        { "data_vendor_wifi", "/data/vendor/wifi" },
+        { "data_vendor_wifi_sockets", "/data/vendor/wifi/sockets" },
+        { "data_vendor_wifi_sockets_wlan0", "/data/vendor/wifi/sockets/wlan0" },
+        { "sys_class_net_wlan0", "/sys/class/net/wlan0" },
+    };
+
+    if (append_format(buf,
+                      "%s.begin=1\n"
+                      "%s.path_count=%zu\n",
+                      prefix,
+                      prefix,
+                      sizeof(runtime_paths) / sizeof(runtime_paths[0])) < 0) {
+        return -1;
+    }
+    for (size_t i = 0; i < sizeof(runtime_paths) / sizeof(runtime_paths[0]); i++) {
+        if (append_runtime_path_status(buf,
+                                       prefix,
+                                       "host",
+                                       runtime_paths[i].label,
+                                       runtime_paths[i].path) < 0 ||
+            append_private_runtime_path_status(buf,
+                                               paths,
+                                               prefix,
+                                               runtime_paths[i].label,
+                                               runtime_paths[i].path) < 0) {
+            return -1;
+        }
+    }
+    return append_format(buf, "%s.end=1\n", prefix);
+}
+
 static size_t align_up_size(size_t value, size_t alignment) {
     return (value + alignment - 1U) & ~(alignment - 1U);
 }
@@ -5963,11 +6571,12 @@ static int run_iwifi_start_hwbinder_probe(const struct paths *paths,
     return start_transaction_ok ? 0 : 22;
 }
 
-static int append_proc_file_capture(struct buffer *buf,
-                                    pid_t pid,
-                                    const char *name,
-                                    size_t limit,
-                                    bool *captured) {
+static int append_proc_file_capture_named(struct buffer *buf,
+                                          pid_t pid,
+                                          const char *name,
+                                          const char *label,
+                                          size_t limit,
+                                          bool *captured) {
     char path[MAX_PATH_LEN];
     char tmp[4096];
     size_t total = 0;
@@ -5976,7 +6585,7 @@ static int append_proc_file_capture(struct buffer *buf,
 
     *captured = false;
     proc_path(path, sizeof(path), pid, name);
-    if (append_format(buf, "A90_EXECNS_CNSS_PROC_%s_BEGIN path=%s limit=%zu\n", name, path, limit) < 0) {
+    if (append_format(buf, "A90_EXECNS_CNSS_PROC_%s_BEGIN path=%s name=%s limit=%zu\n", label, path, name, limit) < 0) {
         return -1;
     }
     fd = open(path, O_RDONLY | O_CLOEXEC);
@@ -5984,7 +6593,7 @@ static int append_proc_file_capture(struct buffer *buf,
         if (append_format(buf,
                           "open-error=%s\nA90_EXECNS_CNSS_PROC_%s_END bytes=0 truncated=0\n",
                           strerror(errno),
-                          name) < 0) {
+                          label) < 0) {
             return -1;
         }
         return 0;
@@ -6021,9 +6630,17 @@ static int append_proc_file_capture(struct buffer *buf,
     }
     return append_format(buf,
                          "A90_EXECNS_CNSS_PROC_%s_END bytes=%zu truncated=%d\n",
-                         name,
+                         label,
                          total,
                          truncated ? 1 : 0);
+}
+
+static int append_proc_file_capture(struct buffer *buf,
+                                    pid_t pid,
+                                    const char *name,
+                                    size_t limit,
+                                    bool *captured) {
+    return append_proc_file_capture_named(buf, pid, name, name, limit, captured);
 }
 
 
@@ -8296,6 +8913,7 @@ enum composite_identity {
     COMPOSITE_ID_SERVICE_MANAGER,
     COMPOSITE_ID_WIFI_HAL,
     COMPOSITE_ID_CNSS,
+    COMPOSITE_ID_CNSS_DIAG,
 };
 
 struct composite_child {
@@ -8315,6 +8933,7 @@ struct composite_child {
     bool kill_sent;
     bool reaped;
     bool proc_status_captured;
+    bool proc_attr_current_captured;
     bool fd_summary_captured;
     bool maps_summary_captured;
     bool traced;
@@ -8404,7 +9023,17 @@ static int composite_spawn_child(const struct config *cfg,
             (char *)"-l",
             NULL,
         };
-        char *const *child_argv = child->identity == COMPOSITE_ID_CNSS ? cnss_argv : default_argv;
+        char *const cnss_diag_argv[] = {
+            (char *)"/vendor/bin/cnss_diag",
+            (char *)"-q",
+            (char *)"-f",
+            (char *)"-t",
+            (char *)"HELIUM",
+            NULL,
+        };
+        char *const *child_argv = child->identity == COMPOSITE_ID_CNSS
+            ? cnss_argv
+            : (child->identity == COMPOSITE_ID_CNSS_DIAG ? cnss_diag_argv : default_argv);
 
         close(stdout_pipe[0]);
         close(stderr_pipe[0]);
@@ -8439,8 +9068,14 @@ static int composite_spawn_child(const struct config *cfg,
                 fflush(stdout);
                 _exit(126);
             }
-        } else {
+        } else if (child->identity == COMPOSITE_ID_CNSS) {
             if (apply_android_identity_contract(prefix) < 0) {
+                printf("%s.end=1\n", prefix);
+                fflush(stdout);
+                _exit(126);
+            }
+        } else {
+            if (apply_cnss_diag_identity_contract(prefix) < 0) {
                 printf("%s.end=1\n", prefix);
                 fflush(stdout);
                 _exit(126);
@@ -8464,7 +9099,9 @@ static int composite_spawn_child(const struct config *cfg,
             raise(SIGSTOP);
         }
         printf("%s.exec_target=%s%s\n", prefix, child->target,
-               child->identity == COMPOSITE_ID_CNSS ? " -n -l" : "");
+               child->identity == COMPOSITE_ID_CNSS
+                   ? " -n -l"
+                   : (child->identity == COMPOSITE_ID_CNSS_DIAG ? " -q -f -t HELIUM" : ""));
         fflush(stdout);
         execv(child->target, child_argv);
         printf("%s.exec_error=%s\n", prefix, strerror(errno));
@@ -9329,6 +9966,12 @@ static void composite_capture_observable_children(struct composite_child *childr
                                  "status",
                                  8192,
                                  &children[i].proc_status_captured);
+        append_proc_file_capture_named(stdout_buf,
+                                       children[i].pid,
+                                       "attr/current",
+                                       "attr_current",
+                                       4096,
+                                       &children[i].proc_attr_current_captured);
         append_proc_fd_summary(stdout_buf, children[i].pid, &children[i].fd_summary_captured);
         append_proc_file_capture(stdout_buf,
                                  children[i].pid,
@@ -9460,6 +10103,186 @@ static bool composite_child_postflight_safe(const struct composite_child *child)
     return true;
 }
 
+static int run_cnss_userspace_readiness_guarded(const struct config *cfg,
+                                                const struct paths *paths,
+                                                struct buffer *stdout_buf,
+                                                struct buffer *stderr_buf,
+                                                int *child_exit_code,
+                                                int *child_signal,
+                                                bool *timed_out) {
+    struct composite_child children[2];
+    bool all_postflight_safe = true;
+    bool any_runtime_gap = false;
+    bool any_observable = false;
+    long deadline;
+
+    *child_exit_code = -1;
+    *child_signal = 0;
+    *timed_out = false;
+
+    composite_child_init(&children[0],
+                         "cnss_diag",
+                         "/vendor/bin/cnss_diag",
+                         COMPOSITE_ID_CNSS_DIAG);
+    composite_child_init(&children[1],
+                         "cnss_daemon",
+                         "/vendor/bin/cnss-daemon",
+                         COMPOSITE_ID_CNSS);
+
+    if (append_literal(stdout_buf, "cnss_userspace_readiness.begin=1\n") < 0 ||
+        append_literal(stdout_buf, "cnss_userspace_readiness.mode=guarded\n") < 0 ||
+        append_literal(stdout_buf, "cnss_userspace_readiness.cnss_diag=1\n") < 0 ||
+        append_literal(stdout_buf, "cnss_userspace_readiness.cnss_daemon=1\n") < 0 ||
+        append_literal(stdout_buf, "cnss_userspace_readiness.cnss_diag_argv=/vendor/bin/cnss_diag -q -f -t HELIUM\n") < 0 ||
+        append_literal(stdout_buf, "cnss_userspace_readiness.cnss_daemon_argv=/vendor/bin/cnss-daemon -n -l\n") < 0 ||
+        append_literal(stdout_buf, "cnss_userspace_readiness.wifi_hal=0\n") < 0 ||
+        append_literal(stdout_buf, "cnss_userspace_readiness.wificond=0\n") < 0 ||
+        append_literal(stdout_buf, "cnss_userspace_readiness.supplicant=0\n") < 0 ||
+        append_literal(stdout_buf, "cnss_userspace_readiness.hostapd=0\n") < 0 ||
+        append_literal(stdout_buf, "cnss_userspace_readiness.qcwlanstate_write=0\n") < 0 ||
+        append_literal(stdout_buf, "cnss_userspace_readiness.scan_connect_linkup=0\n") < 0 ||
+        append_literal(stdout_buf, "cnss_userspace_readiness.external_ping=0\n") < 0) {
+        return -1;
+    }
+    if (!cfg->allow_cnss_start_only || !cfg->allow_cnss_userspace_readiness) {
+        if (append_format(stdout_buf,
+                          "cnss_userspace_readiness.allowed=0\n"
+                          "cnss_userspace_readiness.allow_cnss_start_only=%d\n"
+                          "cnss_userspace_readiness.allow_cnss_userspace_readiness=%d\n"
+                          "cnss_userspace_readiness.exec_attempted=0\n"
+                          "cnss_userspace_readiness.child_started=0\n"
+                          "cnss_userspace_readiness.result=start-only-blocked\n"
+                          "cnss_userspace_readiness.reason=missing-cnss-userspace-allow-flags\n"
+                          "cnss_userspace_readiness.end=1\n",
+                          cfg->allow_cnss_start_only ? 1 : 0,
+                          cfg->allow_cnss_userspace_readiness ? 1 : 0) < 0) {
+            return -1;
+        }
+        *child_exit_code = 0;
+        return 0;
+    }
+    if (append_literal(stdout_buf,
+                       "cnss_userspace_readiness.allowed=1\n"
+                       "cnss_userspace_readiness.exec_attempted=1\n") < 0) {
+        return -1;
+    }
+    if (composite_spawn_child(cfg, paths, &children[0], stdout_buf) < 0) {
+        composite_cleanup_children(children, 2, stdout_buf);
+        append_literal(stdout_buf,
+                       "cnss_userspace_readiness.result=manual-review-required\n"
+                       "cnss_userspace_readiness.reason=cnss-diag-spawn-failed\n"
+                       "cnss_userspace_readiness.end=1\n");
+        return -1;
+    }
+    usleep(300000);
+    if (composite_spawn_child(cfg, paths, &children[1], stdout_buf) < 0) {
+        composite_cleanup_children(children, 2, stdout_buf);
+        append_literal(stdout_buf,
+                       "cnss_userspace_readiness.result=manual-review-required\n"
+                       "cnss_userspace_readiness.reason=cnss-daemon-spawn-failed\n"
+                       "cnss_userspace_readiness.end=1\n");
+        return -1;
+    }
+    append_literal(stdout_buf, "cnss_userspace_readiness.child_started=2\n");
+    deadline = monotonic_ms() + cfg->timeout_sec * 1000L;
+    if (composite_poll_children(children, 2, stdout_buf, stderr_buf, deadline, timed_out) < 0) {
+        composite_cleanup_children(children, 2, stdout_buf);
+        return -1;
+    }
+    composite_capture_observable_children(children, 2, stdout_buf);
+    composite_cleanup_children(children, 2, stdout_buf);
+
+    for (size_t i = 0; i < 2; i++) {
+        bool safe = composite_child_postflight_safe(&children[i]);
+
+        if (!safe) {
+            all_postflight_safe = false;
+        }
+        if (children[i].observable) {
+            any_observable = true;
+        }
+        if (children[i].exited_before_timeout || children[i].exit_code >= 0 || children[i].signal != 0) {
+            any_runtime_gap = true;
+            if (*child_exit_code < 0 && children[i].exit_code >= 0) {
+                *child_exit_code = children[i].exit_code;
+            }
+            if (*child_signal == 0 && children[i].signal != 0) {
+                *child_signal = children[i].signal;
+            }
+        }
+        if (append_format(stdout_buf,
+                          "cnss_userspace_readiness.child.%s.observable=%d\n"
+                          "cnss_userspace_readiness.child.%s.exited=%d\n"
+                          "cnss_userspace_readiness.child.%s.exit_code=%d\n"
+                          "cnss_userspace_readiness.child.%s.signal=%d\n"
+                          "cnss_userspace_readiness.child.%s.term_sent=%d\n"
+                          "cnss_userspace_readiness.child.%s.kill_sent=%d\n"
+                          "cnss_userspace_readiness.child.%s.reaped=%d\n"
+                          "cnss_userspace_readiness.child.%s.proc_status_captured=%d\n"
+                          "cnss_userspace_readiness.child.%s.proc_attr_current_captured=%d\n"
+                          "cnss_userspace_readiness.child.%s.fd_summary_captured=%d\n"
+                          "cnss_userspace_readiness.child.%s.maps_summary_captured=%d\n"
+                          "cnss_userspace_readiness.child.%s.postflight_safe=%d\n",
+                          children[i].name,
+                          children[i].observable ? 1 : 0,
+                          children[i].name,
+                          children[i].child_done ? 1 : 0,
+                          children[i].name,
+                          children[i].exit_code,
+                          children[i].name,
+                          children[i].signal,
+                          children[i].name,
+                          children[i].term_sent ? 1 : 0,
+                          children[i].name,
+                          children[i].kill_sent ? 1 : 0,
+                          children[i].name,
+                          children[i].reaped ? 1 : 0,
+                          children[i].name,
+                          children[i].proc_status_captured ? 1 : 0,
+                          children[i].name,
+                          children[i].proc_attr_current_captured ? 1 : 0,
+                          children[i].name,
+                          children[i].fd_summary_captured ? 1 : 0,
+                          children[i].name,
+                          children[i].maps_summary_captured ? 1 : 0,
+                          children[i].name,
+                          safe ? 1 : 0) < 0) {
+            return -1;
+        }
+    }
+    if (*child_exit_code < 0 && *child_signal == 0) {
+        *child_exit_code = 0;
+    }
+    if (append_format(stdout_buf,
+                      "cnss_userspace_readiness.timed_out=%d\n"
+                      "cnss_userspace_readiness.any_observable=%d\n"
+                      "cnss_userspace_readiness.all_postflight_safe=%d\n",
+                      *timed_out ? 1 : 0,
+                      any_observable ? 1 : 0,
+                      all_postflight_safe ? 1 : 0) < 0) {
+        return -1;
+    }
+    if (!all_postflight_safe) {
+        append_literal(stdout_buf,
+                       "cnss_userspace_readiness.result=start-only-reboot-required\n"
+                       "cnss_userspace_readiness.reason=process-not-proven-stopped\n");
+    } else if (*timed_out && any_observable) {
+        append_literal(stdout_buf,
+                       "cnss_userspace_readiness.result=readiness-window-pass\n"
+                       "cnss_userspace_readiness.reason=cnss-userspace-observed-until-timeout-clean-stop\n");
+    } else if (any_runtime_gap) {
+        append_literal(stdout_buf,
+                       "cnss_userspace_readiness.result=start-only-runtime-gap\n"
+                       "cnss_userspace_readiness.reason=child-exited-before-observe-window\n");
+    } else {
+        append_literal(stdout_buf,
+                       "cnss_userspace_readiness.result=manual-review-required\n"
+                       "cnss_userspace_readiness.reason=unclassified-lifecycle-state\n");
+    }
+    append_literal(stdout_buf, "cnss_userspace_readiness.end=1\n");
+    return 0;
+}
+
 struct property_service_shim {
     pid_t pid;
     int record_fd;
@@ -9568,6 +10391,30 @@ static int property_shim_read_string(int fd, char *out, size_t out_size, long de
     return 0;
 }
 
+static int property_shim_read_legacy_setprop(int fd,
+                                             char *name,
+                                             size_t name_size,
+                                             char *value,
+                                             size_t value_size,
+                                             long deadline) {
+    char legacy_name[A90_PROP_LEGACY_NAME_MAX];
+    char legacy_value[A90_PROP_LEGACY_VALUE_MAX];
+
+    if (name_size == 0 || value_size == 0) {
+        errno = EINVAL;
+        return -1;
+    }
+    if (read_full_timeout(fd, legacy_name, sizeof(legacy_name), deadline) < 0 ||
+        read_full_timeout(fd, legacy_value, sizeof(legacy_value), deadline) < 0) {
+        return -1;
+    }
+    legacy_name[sizeof(legacy_name) - 1] = '\0';
+    legacy_value[sizeof(legacy_value) - 1] = '\0';
+    snprintf(name, name_size, "%s", legacy_name);
+    snprintf(value, value_size, "%s", legacy_value);
+    return 0;
+}
+
 static void property_shim_record(int fd,
                                  int index,
                                  uint32_t cmd,
@@ -9611,6 +10458,24 @@ static uint32_t property_shim_handle_client(int client_fd, int record_fd, int *r
         write_all_fd(client_fd, &result, sizeof(result));
         return result;
     }
+    if (cmd == A90_PROP_MSG_SETPROP) {
+        if (property_shim_read_legacy_setprop(client_fd,
+                                              name,
+                                              sizeof(name),
+                                              value,
+                                              sizeof(value),
+                                              deadline) < 0) {
+            result = A90_PROP_ERROR_READ_DATA;
+        } else if (streq(name, "hwservicemanager.ready") && streq(value, "true")) {
+            allowed = true;
+            result = A90_PROP_SUCCESS;
+        } else {
+            result = A90_PROP_ERROR_PERMISSION_DENIED;
+        }
+        (*request_count)++;
+        property_shim_record(record_fd, *request_count, cmd, name, value, result, allowed);
+        return result;
+    }
     if (cmd == A90_PROP_MSG_SETPROP2) {
         if (property_shim_read_string(client_fd, name, sizeof(name), deadline) < 0 ||
             property_shim_read_string(client_fd, value, sizeof(value), deadline) < 0) {
@@ -9641,7 +10506,7 @@ static void property_service_shim_child(int listen_fd, int record_fd, int timeou
     set_nonblock(listen_fd);
     dprintf(record_fd,
             "wifi_hal_composite_start.property_service_shim.child_started=1\n"
-            "wifi_hal_composite_start.property_service_shim.protocol=PROP_MSG_SETPROP2\n"
+            "wifi_hal_composite_start.property_service_shim.protocol=PROP_MSG_SETPROP|PROP_MSG_SETPROP2\n"
             "wifi_hal_composite_start.property_service_shim.allowlist=hwservicemanager.ready:true\n");
     while (monotonic_ms() < deadline && request_count < 16) {
         int timeout_ms = (int)(deadline - monotonic_ms());
@@ -10511,6 +11376,63 @@ static int run_wifi_scan_only_probe(struct buffer *stdout_buf) {
     return 0;
 }
 
+static int write_wlan_driver_state_on_if_allowed(const struct config *cfg,
+                                                 const struct paths *paths,
+                                                 struct buffer *stdout_buf) {
+    static const char wlan_on[] = "ON";
+    long started;
+    long duration;
+    int fd = -1;
+    int write_rc = 1;
+    int write_errno = 0;
+    int close_errno = 0;
+
+    if (!cfg->allow_wlan_driver_state_on) {
+        return append_literal(stdout_buf,
+                              "wifi_hal_composite_start.wlan_driver_state_on.allowed=0\n"
+                              "wifi_hal_composite_start.wlan_driver_state_on.executed=0\n");
+    }
+
+    if (append_literal(stdout_buf,
+                       "wifi_hal_composite_start.wlan_driver_state_on.allowed=1\n"
+                       "wifi_hal_composite_start.wlan_driver_state_on.executed=1\n"
+                       "wifi_hal_composite_start.wlan_driver_state_on.path=/dev/wlan\n"
+                       "wifi_hal_composite_start.wlan_driver_state_on.scan_connect_linkup=0\n"
+                       "wifi_hal_composite_start.wlan_driver_state_on.credentials=0\n"
+                       "wifi_hal_composite_start.wlan_driver_state_on.dhcp_routing=0\n"
+                       "wifi_hal_composite_start.wlan_driver_state_on.external_ping=0\n") < 0) {
+        return -1;
+    }
+
+    started = monotonic_ms();
+    fd = open(paths->dev_wlan, O_WRONLY | O_CLOEXEC | O_NOFOLLOW);
+    if (fd < 0) {
+        write_errno = errno;
+    } else if (write_all_fd(fd, wlan_on, sizeof(wlan_on)) < 0) {
+        write_errno = errno;
+    } else {
+        write_rc = 0;
+    }
+    if (fd >= 0 && close(fd) < 0 && write_rc == 0) {
+        write_rc = 1;
+        close_errno = errno;
+        write_errno = errno;
+    }
+    duration = monotonic_ms() - started;
+    if (append_format(stdout_buf,
+                      "wifi_hal_composite_start.wlan_driver_state_on.write_rc=%d\n"
+                      "wifi_hal_composite_start.wlan_driver_state_on.write_errno=%d\n"
+                      "wifi_hal_composite_start.wlan_driver_state_on.close_errno=%d\n"
+                      "wifi_hal_composite_start.wlan_driver_state_on.duration_ms=%ld\n",
+                      write_rc,
+                      write_errno,
+                      close_errno,
+                      duration) < 0) {
+        return -1;
+    }
+    return 0;
+}
+
 static int run_wifi_hal_composite_start_only_guarded(const struct config *cfg,
                                                      const struct paths *paths,
                                                      struct buffer *stdout_buf,
@@ -10525,15 +11447,18 @@ static int run_wifi_hal_composite_start_only_guarded(const struct config *cfg,
     const bool surface_composite_mode = is_wifi_surface_composite_mode(cfg->mode);
     const bool active_session_mode = is_wifi_active_session_surface_mode(cfg->mode);
     const bool scan_only_mode = is_wifi_active_session_scan_only_mode(cfg->mode);
+    const bool connect_ping_mode = is_wifi_active_session_connect_ping_mode(cfg->mode);
     const bool iwifi_start_mode = is_wifi_iwifi_start_surface_mode(cfg->mode);
-    const size_t child_count = surface_composite_mode ?
+    const bool dual_hal_mode = is_wifi_dual_hal_composite_mode(cfg->mode);
+    const size_t child_count = dual_hal_mode ?
         A90_WIFI_SURFACE_COMPOSITE_CHILD_COUNT :
-        A90_WIFI_HAL_COMPOSITE_CHILD_COUNT;
+        (surface_composite_mode ? 4 : A90_WIFI_HAL_COMPOSITE_CHILD_COUNT);
     bool all_postflight_safe = true;
     bool any_runtime_gap = false;
     bool all_observable_at_timeout = true;
     int service_query_result = 0;
     int scan_only_result = 0;
+    int connect_ping_result = 0;
     long deadline;
     struct property_service_shim property_shim;
 
@@ -10554,7 +11479,20 @@ static int run_wifi_hal_composite_start_only_guarded(const struct config *cfg,
                          "wifi_hal",
                          cfg->target,
                          COMPOSITE_ID_WIFI_HAL);
-    if (surface_composite_mode) {
+    if (dual_hal_mode) {
+        composite_child_init(&children[2],
+                             "wifi_hal_legacy",
+                             "/vendor/bin/hw/android.hardware.wifi@1.0-service",
+                             COMPOSITE_ID_WIFI_HAL);
+        composite_child_init(&children[3],
+                             "wifi_hal_ext",
+                             "/vendor/bin/hw/vendor.samsung.hardware.wifi@2.0-service",
+                             COMPOSITE_ID_WIFI_HAL);
+        composite_child_init(&children[4],
+                             "cnss_daemon",
+                             "/vendor/bin/cnss-daemon",
+                             COMPOSITE_ID_CNSS);
+    } else if (surface_composite_mode) {
         composite_child_init(&children[3],
                              "cnss_daemon",
                              "/vendor/bin/cnss-daemon",
@@ -10565,14 +11503,20 @@ static int run_wifi_hal_composite_start_only_guarded(const struct config *cfg,
         append_literal(stdout_buf, "wifi_hal_composite_start.mode=guarded\n") < 0 ||
         append_format(stdout_buf, "wifi_hal_composite_start.target=%s\n", cfg->target) < 0 ||
         append_format(stdout_buf, "wifi_hal_composite_start.target_profile=%s\n", cfg->target_profile) < 0 ||
+        append_format(stdout_buf, "wifi_hal_composite_start.dual_hal=%d\n", dual_hal_mode ? 1 : 0) < 0 ||
+        append_format(stdout_buf,
+                      "wifi_hal_composite_start.secondary_target=%s\n",
+                      dual_hal_mode ? "/vendor/bin/hw/vendor.samsung.hardware.wifi@2.0-service" : "<none>") < 0 ||
         append_literal(stdout_buf, "wifi_hal_composite_start.wifi_hal=1\n") < 0 ||
         append_format(stdout_buf, "wifi_hal_composite_start.cnss_daemon=%d\n", surface_composite_mode ? 1 : 0) < 0 ||
         append_format(stdout_buf, "wifi_hal_composite_start.service_query=%d\n", service_query_mode ? 1 : 0) < 0 ||
         append_format(stdout_buf, "wifi_hal_composite_start.iwifi_start=%d\n", iwifi_start_mode ? 1 : 0) < 0 ||
+        append_format(stdout_buf, "wifi_hal_composite_start.wlan_driver_state_on=%d\n", cfg->allow_wlan_driver_state_on ? 1 : 0) < 0 ||
         append_format(stdout_buf, "wifi_hal_composite_start.active_session=%d\n", active_session_mode ? 1 : 0) < 0 ||
         append_format(stdout_buf, "wifi_hal_composite_start.scan_only=%d\n", scan_only_mode ? 1 : 0) < 0 ||
-        append_literal(stdout_buf, "wifi_hal_composite_start.connect_linkup=0\n") < 0 ||
-        append_format(stdout_buf, "wifi_hal_composite_start.scan_connect_linkup=%d\n", scan_only_mode ? 1 : 0) < 0 ||
+        append_format(stdout_buf, "wifi_hal_composite_start.connect_ping=%d\n", connect_ping_mode ? 1 : 0) < 0 ||
+        append_format(stdout_buf, "wifi_hal_composite_start.connect_linkup=%d\n", connect_ping_mode ? 1 : 0) < 0 ||
+        append_format(stdout_buf, "wifi_hal_composite_start.scan_connect_linkup=%d\n", (scan_only_mode || connect_ping_mode) ? 1 : 0) < 0 ||
         append_literal(stdout_buf, "wifi_hal_composite_start.wificond=0\n") < 0 ||
         append_literal(stdout_buf, "wifi_hal_composite_start.supplicant=0\n") < 0 ||
         append_literal(stdout_buf, "wifi_hal_composite_start.hostapd=0\n") < 0 ||
@@ -10585,7 +11529,8 @@ static int run_wifi_hal_composite_start_only_guarded(const struct config *cfg,
         (surface_composite_mode && !cfg->allow_cnss_start_only) ||
         (service_query_mode && !cfg->allow_hal_service_query) ||
         (iwifi_start_mode && !cfg->allow_iwifi_start_only) ||
-        (scan_only_mode && !cfg->allow_scan_only)) {
+        (scan_only_mode && !cfg->allow_scan_only) ||
+        (connect_ping_mode && !cfg->allow_connect_dhcp_ping)) {
         if (append_format(stdout_buf,
                           "wifi_hal_composite_start.allowed=0\n"
                           "wifi_hal_composite_start.allow_cnss_start_only=%d\n"
@@ -10593,7 +11538,9 @@ static int run_wifi_hal_composite_start_only_guarded(const struct config *cfg,
                           "wifi_hal_composite_start.allow_wifi_hal_start_only=%d\n"
                           "wifi_hal_composite_start.allow_hal_service_query=%d\n"
                           "wifi_hal_composite_start.allow_iwifi_start_only=%d\n"
+                          "wifi_hal_composite_start.allow_wlan_driver_state_on=%d\n"
                           "wifi_hal_composite_start.allow_scan_only=%d\n"
+                          "wifi_hal_composite_start.allow_connect_dhcp_ping=%d\n"
                           "wifi_hal_composite_start.exec_attempted=0\n"
                           "wifi_hal_composite_start.child_started=0\n"
                           "wifi_hal_composite_start.result=start-only-blocked\n"
@@ -10604,7 +11551,9 @@ static int run_wifi_hal_composite_start_only_guarded(const struct config *cfg,
                           cfg->allow_wifi_hal_start_only ? 1 : 0,
                           cfg->allow_hal_service_query ? 1 : 0,
                           cfg->allow_iwifi_start_only ? 1 : 0,
-                          cfg->allow_scan_only ? 1 : 0) < 0) {
+                          cfg->allow_wlan_driver_state_on ? 1 : 0,
+                          cfg->allow_scan_only ? 1 : 0,
+                          cfg->allow_connect_dhcp_ping ? 1 : 0) < 0) {
             return -1;
         }
         return 0;
@@ -10622,20 +11571,31 @@ static int run_wifi_hal_composite_start_only_guarded(const struct config *cfg,
                       "wifi_active_session.mode=%s\n"
                       "wifi_active_session.timeout_sec=%d\n"
                       "wifi_active_session.scan_only=%d\n"
-                      "wifi_active_session.connect_linkup=0\n"
+                      "wifi_active_session.connect_ping=%d\n"
+                      "wifi_active_session.connect_linkup=%d\n"
                       "wifi_active_session.scan_connect_linkup=%d\n"
-                      "wifi_active_session.credentials=0\n"
-                      "wifi_active_session.dhcp_routing=0\n"
-                      "wifi_active_session.external_ping=0\n",
+                      "wifi_active_session.credentials=%d\n"
+                      "wifi_active_session.dhcp_routing=%d\n"
+                      "wifi_active_session.external_ping=%d\n",
                       EXECNS_VERSION,
+                      connect_ping_mode ? "bounded-connect-dhcp-ping-window" :
                       scan_only_mode ? "bounded-scan-only-window" : "bounded-surface-window",
                       cfg->timeout_sec,
                       scan_only_mode ? 1 : 0,
-                      scan_only_mode ? 1 : 0) < 0) {
+                      connect_ping_mode ? 1 : 0,
+                      connect_ping_mode ? 1 : 0,
+                      (scan_only_mode || connect_ping_mode) ? 1 : 0,
+                      connect_ping_mode ? 1 : 0,
+                      connect_ping_mode ? 1 : 0,
+                      connect_ping_mode ? 1 : 0) < 0) {
         return -1;
     }
     if (surface_composite_mode &&
         append_wifi_surface_snapshot(stdout_buf, "wifi_surface_composite.before") < 0) {
+        return -1;
+    }
+    if (surface_composite_mode &&
+        append_wifi_runtime_surface_snapshot(stdout_buf, paths, "wifi_runtime_surface.before") < 0) {
         return -1;
     }
     if (start_property_service_shim(cfg, paths, &property_shim, stdout_buf) < 0) {
@@ -10665,6 +11625,11 @@ static int run_wifi_hal_composite_start_only_guarded(const struct config *cfg,
         }
     }
     append_format(stdout_buf, "wifi_hal_composite_start.child_started=%zu\n", child_count);
+    if (write_wlan_driver_state_on_if_allowed(cfg, paths, stdout_buf) < 0) {
+        composite_cleanup_children(children, child_count, stdout_buf);
+        stop_property_service_shim(&property_shim, paths, stdout_buf);
+        return -1;
+    }
     deadline = monotonic_ms() + cfg->timeout_sec * 1000L;
     if (service_query_mode || iwifi_start_mode) {
         bool warmup_timed_out = false;
@@ -10689,6 +11654,8 @@ static int run_wifi_hal_composite_start_only_guarded(const struct config *cfg,
             }
             if (scan_only_mode) {
                 scan_only_result = run_wifi_scan_only_probe(stdout_buf);
+            } else if (connect_ping_mode) {
+                connect_ping_result = run_wifi_connect_ping_scaffold(cfg, paths, stdout_buf);
             }
         } else if (wait_target_query_mode) {
             const int wait_timeout_ms = surface_composite_mode ?
@@ -10724,6 +11691,12 @@ static int run_wifi_hal_composite_start_only_guarded(const struct config *cfg,
         stop_property_service_shim(&property_shim, paths, stdout_buf);
         return -1;
     }
+    if (surface_composite_mode &&
+        append_wifi_runtime_surface_snapshot(stdout_buf, paths, "wifi_runtime_surface.during") < 0) {
+        composite_cleanup_children(children, child_count, stdout_buf);
+        stop_property_service_shim(&property_shim, paths, stdout_buf);
+        return -1;
+    }
     composite_cleanup_children(children, child_count, stdout_buf);
     if (stop_property_service_shim(&property_shim, paths, stdout_buf) < 0) {
         return -1;
@@ -10733,6 +11706,10 @@ static int run_wifi_hal_composite_start_only_guarded(const struct config *cfg,
     }
     if (surface_composite_mode &&
         append_wifi_surface_snapshot(stdout_buf, "wifi_surface_composite.after_cleanup") < 0) {
+        return -1;
+    }
+    if (surface_composite_mode &&
+        append_wifi_runtime_surface_snapshot(stdout_buf, paths, "wifi_runtime_surface.after_cleanup") < 0) {
         return -1;
     }
     if (active_session_mode &&
@@ -10769,6 +11746,7 @@ static int run_wifi_hal_composite_start_only_guarded(const struct config *cfg,
                           "wifi_hal_composite_start.child.%s.kill_sent=%d\n"
                           "wifi_hal_composite_start.child.%s.reaped=%d\n"
                           "wifi_hal_composite_start.child.%s.proc_status_captured=%d\n"
+                          "wifi_hal_composite_start.child.%s.proc_attr_current_captured=%d\n"
                           "wifi_hal_composite_start.child.%s.fd_summary_captured=%d\n"
                           "wifi_hal_composite_start.child.%s.maps_summary_captured=%d\n"
                           "wifi_hal_composite_start.child.%s.traced=%d\n"
@@ -10795,6 +11773,8 @@ static int run_wifi_hal_composite_start_only_guarded(const struct config *cfg,
                           children[i].reaped ? 1 : 0,
                           children[i].name,
                           children[i].proc_status_captured ? 1 : 0,
+                          children[i].name,
+                          children[i].proc_attr_current_captured ? 1 : 0,
                           children[i].name,
                           children[i].fd_summary_captured ? 1 : 0,
                           children[i].name,
@@ -10867,6 +11847,14 @@ static int run_wifi_hal_composite_start_only_guarded(const struct config *cfg,
         append_literal(stdout_buf,
                        "wifi_hal_composite_start.result=scan-only-runtime-gap\n"
                        "wifi_hal_composite_start.reason=nl80211-scan-only-runtime-gap\n");
+    } else if (connect_ping_mode && connect_ping_result == 0 && all_postflight_safe) {
+        append_literal(stdout_buf,
+                       "wifi_hal_composite_start.result=connect-ping-pass\n"
+                       "wifi_hal_composite_start.reason=connect-dhcp-ping-executor-passed-and-children-clean\n");
+    } else if (connect_ping_mode && connect_ping_result != 0) {
+        append_literal(stdout_buf,
+                       "wifi_hal_composite_start.result=connect-ping-blocked\n"
+                       "wifi_hal_composite_start.reason=connect-dhcp-ping-executor-did-not-pass\n");
     } else if (scan_only_mode && *timed_out && all_observable_at_timeout) {
         append_literal(stdout_buf,
                        "wifi_hal_composite_start.result=scan-only-pass\n"
@@ -10932,6 +11920,9 @@ static int setup_namespace(const struct config *cfg,
         return -1;
     }
     if (materialize_service_manager_binder_devices(cfg, paths, error_buf, error_size) < 0) {
+        return -1;
+    }
+    if (materialize_wifi_wlan_device(cfg, paths, error_buf, error_size) < 0) {
         return -1;
     }
     if (materialize_private_properties(cfg, paths, error_buf, error_size) < 0) {
@@ -11089,10 +12080,17 @@ int main(int argc, char **argv) {
            cfg.allow_hal_service_query ? 1 : 0);
     printf("allow_iwifi_start_only=%d\n",
            cfg.allow_iwifi_start_only ? 1 : 0);
+    printf("allow_cnss_userspace_readiness=%d\n",
+           cfg.allow_cnss_userspace_readiness ? 1 : 0);
     printf("allow_scan_only=%d\n",
            cfg.allow_scan_only ? 1 : 0);
+    printf("allow_connect_dhcp_ping=%d\n",
+           cfg.allow_connect_dhcp_ping ? 1 : 0);
     printf("allow_policy_load_proof=%d\n",
            cfg.allow_policy_load_proof ? 1 : 0);
+    printf("connect_config=%s\n", cfg.connect_config != NULL ? cfg.connect_config : "<none>");
+    printf("connect_iface=%s\n", cfg.connect_iface != NULL ? cfg.connect_iface : "<none>");
+    printf("ping_target=%s\n", cfg.ping_target != NULL ? cfg.ping_target : "<none>");
 
     if (setup_namespace(&cfg,
                         &paths,
@@ -11179,6 +12177,14 @@ int main(int argc, char **argv) {
                                              &child_exit_code,
                                              &child_signal,
                                              &timed_out);
+    } else if (is_cnss_userspace_readiness_mode(cfg.mode)) {
+        run_rc = run_cnss_userspace_readiness_guarded(&cfg,
+                                                      &paths,
+                                                      &stdout_buf,
+                                                      &stderr_buf,
+                                                      &child_exit_code,
+                                                      &child_signal,
+                                                      &timed_out);
     } else if (streq(cfg.mode, "private-selinux-proof")) {
         if (append_literal(&stdout_buf,
                            "private_selinux_proof.result=pass\n"

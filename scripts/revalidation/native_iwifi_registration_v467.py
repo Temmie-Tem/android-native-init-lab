@@ -146,9 +146,10 @@ def build_checks(args: base.argparse.Namespace, store: base.EvidenceStore, steps
     wifi_links = [line.strip() for line in netdev.splitlines() if base.WIFI_RE.search(line)]
     selinuxfs_mounted = "/sys/fs/selinux" in mounts and " selinuxfs " in mounts
     helper_marker = f"a90_android_execns_probe {base.HELPER_LABEL}"
+    helper_marker_ready = helper_marker in helper_usage or "a90_android_execns_probe v52" in helper_usage or "a90_android_execns_probe v53" in helper_usage
     helper_ready = (
         args.helper_sha256 in helper_sha
-        and helper_marker in helper_usage
+        and helper_marker_ready
         and "wifi-surface-composite-lshal-wait-iwifi" in helper_usage
         and "--allow-hal-service-query" in helper_usage
     )
@@ -164,7 +165,7 @@ def build_checks(args: base.argparse.Namespace, store: base.EvidenceStore, steps
     )
     base.add_check(checks, "native-version", "pass" if args.expect_version in version else "warn", "warning", f"expect_version={args.expect_version}", [line for line in version.splitlines() if "A90 Linux init" in line][:3], "refresh baseline if native version intentionally changed")
     base.add_check(checks, "native-clean", "pass" if base.step_ok(steps, "status") and base.step_ok(steps, "selftest") and "fail=0" in status and "fail=0" in selftest else "blocked", "blocker", "status/selftest rc=0 fail=0 expected", [], "fix native health before live run")
-    base.add_check(checks, f"helper-{base.HELPER_LABEL}", "pass" if helper_ready else "blocked", "blocker", f"remote helper must be {base.HELPER_LABEL} with IWifi lshal wait mode", [line for line in helper_sha.splitlines() if args.helper in line][:2], f"deploy helper {base.HELPER_LABEL} before V467 live run")
+    base.add_check(checks, f"helper-{base.HELPER_LABEL}", "pass" if helper_ready else "blocked", "blocker", f"sha_match={args.helper_sha256 in helper_sha} marker={helper_marker_ready} mode={'wifi-surface-composite-lshal-wait-iwifi' in helper_usage}", [line for line in helper_sha.splitlines() if args.helper in line][:2], f"deploy helper {base.HELPER_LABEL} or compatible newer helper before V467 live run")
     base.add_check(checks, "selinuxfs-runtime-surface", "pass" if base.step_ok(steps, "stat-selinux-status") and selinuxfs_mounted else "blocked", "blocker", f"mounted={selinuxfs_mounted} status={base.step_ok(steps, 'stat-selinux-status')}", [line for line in mounts.splitlines() if "/sys/fs/selinux" in line][:3], "mount selinuxfs runtime surface before V467")
     base.add_check(checks, "runtime-materials", "pass" if base.step_ok(steps, "stat-real-ld-config") and base.step_ok(steps, "stat-real-apex-libraries") and base.step_ok(steps, "stat-property-root") else "blocked", "blocker", f"ld={base.step_ok(steps, 'stat-real-ld-config')} apex={base.step_ok(steps, 'stat-real-apex-libraries')} property={base.step_ok(steps, 'stat-property-root')}", [], "restore private runtime materialization inputs")
     base.add_check(checks, "system-ext-vndk-v30", "pass" if base.step_ok(steps, "stat-system-ext-vndk-v30") and base.step_ok(steps, "stat-system-ext-wifi-1-0") else "blocked", "blocker", "system_ext VNDK v30 and android.hardware.wifi@1.0.so must exist", [], "restore system_ext VNDK v30 source")

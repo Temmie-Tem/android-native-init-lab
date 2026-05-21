@@ -151,6 +151,8 @@
   - 기본값은 `netservice token show`로 tcpctl token을 읽어 `run`/`shutdown` 전에 `auth <token>`을 보낸다
   - legacy pre-v123 checks only: `--no-auth`
   - v124부터 `install`은 runtime/cache helper root만 허용하고 임시 파일 업로드, SHA256 검증, `mv -f` 교체, 실패 시 임시 파일 삭제 순서로 동작
+  - Wi-Fi execns helper deploy는 NCM `tcpctl install`을 기본 경로로 쓰며, serial `appendfile + uudecode`는 NCM이 불가능한 rescue fallback으로만 사용
+  - serial fallback은 `cmdv1x` hex 인코딩 때문에 4096-byte line/buffer 한계가 병목이며, 현재 기본 chunk는 안전 검증된 `1900` bytes
   - install 후 chmod/sha256, smoke/soak의 bridge version 확인은 `cmdv1` rc/status 우선
   - tcpctl listener처럼 long-running serial command는 raw bridge streaming 유지
   - `smoke`는 start → ping/version/status/run/shutdown → serial/NCM 상태 확인을 한 번에 수행
