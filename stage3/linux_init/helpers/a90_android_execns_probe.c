@@ -76,7 +76,7 @@
 #define AF_QIPCRTR 42
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v96"
+#define EXECNS_VERSION "a90_android_execns_probe v97"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -213,6 +213,10 @@ struct paths {
     char system[MAX_PATH_LEN];
     char vendor[MAX_PATH_LEN];
     char vendor_source[MAX_PATH_LEN];
+    char vendor_firmware_mnt[MAX_PATH_LEN];
+    char vendor_firmware_modem[MAX_PATH_LEN];
+    char firmware_mnt_source[MAX_PATH_LEN];
+    char firmware_modem_source[MAX_PATH_LEN];
     char dev[MAX_PATH_LEN];
     char dev_null[MAX_PATH_LEN];
     char dev_wlan[MAX_PATH_LEN];
@@ -1496,6 +1500,22 @@ static int init_paths(struct paths *paths) {
         append_path(paths->system, sizeof(paths->system), paths->root, "system") < 0 ||
         append_path(paths->vendor, sizeof(paths->vendor), paths->root, "vendor") < 0 ||
         append_path(paths->vendor_source, sizeof(paths->vendor_source), paths->base, "vendor-block-sda29") < 0 ||
+        append_path(paths->vendor_firmware_mnt,
+                    sizeof(paths->vendor_firmware_mnt),
+                    paths->vendor,
+                    "firmware_mnt") < 0 ||
+        append_path(paths->vendor_firmware_modem,
+                    sizeof(paths->vendor_firmware_modem),
+                    paths->vendor,
+                    "firmware-modem") < 0 ||
+        append_path(paths->firmware_mnt_source,
+                    sizeof(paths->firmware_mnt_source),
+                    paths->base,
+                    "firmware-block-apnhlos") < 0 ||
+        append_path(paths->firmware_modem_source,
+                    sizeof(paths->firmware_modem_source),
+                    paths->base,
+                    "firmware-block-modem") < 0 ||
         append_path(paths->dev, sizeof(paths->dev), paths->root, "dev") < 0 ||
         append_path(paths->dev_null, sizeof(paths->dev_null), paths->dev, "null") < 0 ||
         append_path(paths->dev_wlan, sizeof(paths->dev_wlan), paths->dev, "wlan") < 0 ||
@@ -2333,6 +2353,8 @@ static void cleanup_paths(const struct paths *paths) {
         }
     }
     umount2(paths->proc, MNT_DETACH);
+    umount2(paths->vendor_firmware_modem, MNT_DETACH);
+    umount2(paths->vendor_firmware_mnt, MNT_DETACH);
     umount2(paths->vendor, MNT_DETACH);
     umount2(paths->system, MNT_DETACH);
     if (paths->sys_fs_selinux[0] != '\0') {
@@ -2487,6 +2509,8 @@ static void cleanup_paths(const struct paths *paths) {
     rmdir(paths->vendor);
     rmdir(paths->system);
     rmdir(paths->root);
+    unlink(paths->firmware_modem_source);
+    unlink(paths->firmware_mnt_source);
     unlink(paths->vendor_source);
     rmdir(paths->base);
 }
@@ -6777,6 +6801,74 @@ static int materialize_one_rmt_block_alias(const struct paths *paths,
     if (symlink_replace(by_name_target, by_name_path) < 0 ||
         symlink_replace(bootdevice_target, bootdevice_by_name_path) < 0) {
         snprintf(error_buf, error_size, "symlink rmt block alias %s: %s", partname, strerror(errno));
+        return -1;
+    }
+    return 0;
+}
+
+static int mount_one_wifi_firmware_partition(const char *partname,
+                                             const char *source,
+                                             const char *target,
+                                             char *error_buf,
+                                             size_t error_size) {
+    struct stat st;
+    char devname[128];
+    unsigned int major_no = 0;
+    unsigned int minor_no = 0;
+
+    if (stat(target, &st) < 0) {
+        snprintf(error_buf, error_size, "stat firmware mount target %s: %s", partname, strerror(errno));
+        return -1;
+    }
+    if (!S_ISDIR(st.st_mode)) {
+        snprintf(error_buf, error_size, "firmware mount target %s is not a directory", partname);
+        errno = ENOTDIR;
+        return -1;
+    }
+    if (find_block_partition(partname, devname, sizeof(devname), &major_no, &minor_no) < 0) {
+        snprintf(error_buf, error_size, "find firmware partition %s: %s", partname, strerror(errno));
+        return -1;
+    }
+    if (unlink(source) < 0 && errno != ENOENT) {
+        snprintf(error_buf, error_size, "unlink firmware source %s: %s", partname, strerror(errno));
+        return -1;
+    }
+    if (mknod(source, S_IFBLK | 0600, makedev(major_no, minor_no)) < 0) {
+        snprintf(error_buf, error_size, "mknod firmware source %s: %s", partname, strerror(errno));
+        return -1;
+    }
+    if (mount(source,
+              target,
+              "vfat",
+              MS_RDONLY | MS_NOSUID | MS_NODEV,
+              "shortname=lower,uid=0,gid=1000,dmask=227,fmask=337") < 0) {
+        snprintf(error_buf, error_size, "mount firmware partition %s: %s", partname, strerror(errno));
+        return -1;
+    }
+    return 0;
+}
+
+static int materialize_wifi_firmware_mounts(const struct config *cfg,
+                                            const struct paths *paths,
+                                            char *error_buf,
+                                            size_t error_size) {
+    if (!is_wifi_companion_any_start_only_mode(cfg->mode) &&
+        !is_wifi_companion_hal_order_start_only_mode(cfg->mode) &&
+        !is_wifi_hal_composite_mode(cfg->mode)) {
+        return 0;
+    }
+    if (mount_one_wifi_firmware_partition("apnhlos",
+                                          paths->firmware_mnt_source,
+                                          paths->vendor_firmware_mnt,
+                                          error_buf,
+                                          error_size) < 0) {
+        return -1;
+    }
+    if (mount_one_wifi_firmware_partition("modem",
+                                          paths->firmware_modem_source,
+                                          paths->vendor_firmware_modem,
+                                          error_buf,
+                                          error_size) < 0) {
         return -1;
     }
     return 0;
@@ -15348,6 +15440,9 @@ static int setup_namespace(const struct config *cfg,
         snprintf(error_buf, error_size, "mount vendor: %s", strerror(errno));
         return -1;
     }
+    if (materialize_wifi_firmware_mounts(cfg, paths, error_buf, error_size) < 0) {
+        return -1;
+    }
     if (mount("proc", paths->proc, "proc", MS_NOSUID | MS_NODEV | MS_NOEXEC, NULL) < 0) {
         snprintf(error_buf, error_size, "mount proc: %s", strerror(errno));
         return -1;
@@ -15500,6 +15595,10 @@ int main(int argc, char **argv) {
     printf("temp_root=%s\n", paths.root);
     printf("vendor_mount_source=%s\n",
            access(paths.vendor_source, F_OK) == 0 ? paths.vendor_source : cfg.vendor_block);
+    printf("firmware_mnt_mount_source=%s\n",
+           access(paths.firmware_mnt_source, F_OK) == 0 ? paths.firmware_mnt_source : "<not-mounted>");
+    printf("firmware_modem_mount_source=%s\n",
+           access(paths.firmware_modem_source, F_OK) == 0 ? paths.firmware_modem_source : "<not-mounted>");
     printf("linkerconfig_mount_source=%s\n",
            streq(cfg.linkerconfig_mode, "none")
                ? (paths.linkerconfig[0] != '\0' ? "/mnt/system/linkerconfig" : "<absent>")
