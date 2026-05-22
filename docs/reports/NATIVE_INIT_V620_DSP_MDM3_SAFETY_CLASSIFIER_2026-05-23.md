@@ -142,6 +142,12 @@ on repo-local Android/native timing evidence.
   - confirms adjacent mainline Qualcomm work and evolving service packaging,
     but does not provide a direct Samsung vendor-kernel
     `mdm_helper`/`esoc0` recipe.
+- Linux `QCOM_PD_MAPPER` kernel config:
+  `https://cateee.net/lkddb/web-lkddb/QCOM_PD_MAPPER.html`
+  - shows the upstream kernel-side Protection Domain Mapper depends on
+    `NET`/`QRTR` and covers SM8150/SM8250-class Qualcomm targets. This supports
+    the QRTR/PD-mapper framing, but it is still not proof that this downstream
+    Samsung vendor kernel has an equivalent in-kernel mapper path.
 
 The external material therefore supports the QRTR/firmware-service framing, but
 it does not justify raw `esoc0` access or a live `mdm_helper` start without

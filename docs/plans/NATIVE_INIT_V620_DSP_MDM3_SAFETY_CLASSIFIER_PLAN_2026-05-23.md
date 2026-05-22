@@ -71,6 +71,9 @@ V620 must not:
    - Debian `pd-mapper` ITP describes it as the Qualcomm Protection Domain
      mapper service that lets userspace access Wi-Fi/modem/sensor remote
      processors over QRTR;
+   - upstream Linux `QCOM_PD_MAPPER` context shows a kernel-side PD mapper is
+     tied to `NET`/`QRTR` and covers SM8150/SM8250-class Qualcomm targets, but
+     this remains context rather than proof for the downstream Samsung kernel;
    - pmaports QRTR dependency discussions and SM8150/SM8250 package history can
      guide QRTR/mainline service-order expectations, but they are not direct
      evidence for Samsung vendor-kernel `mdm_helper`/`esoc0` semantics.

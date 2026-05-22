@@ -158,6 +158,11 @@ EXTERNAL_REFERENCES = [
         "url": "https://gitlab.com/postmarketOS/pmaports/-/merge_requests/5608",
         "relevance": "Shows adjacent Qualcomm service packaging changes; useful context, not direct proof for this vendor kernel.",
     },
+    {
+        "title": "Linux QCOM_PD_MAPPER kernel config",
+        "url": "https://cateee.net/lkddb/web-lkddb/QCOM_PD_MAPPER.html",
+        "relevance": "Shows upstream kernel-side PD mapper depends on NET/QRTR and covers SM8150/SM8250; useful for context, not proof of this downstream vendor kernel path.",
+    },
 ]
 
 MDM_HELPER_PATH_PATTERNS: tuple[tuple[str, re.Pattern[str], str], ...] = (
