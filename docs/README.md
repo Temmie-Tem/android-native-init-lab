@@ -202,6 +202,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V649_ANDROID_FULL_AUDIO_WIFI_RECAPTURE_LIVE_2026-05-23.md` – V649 live/replay 결과 Android도 service `74` 직후 ASoC duplicate `pm_qos` warning을 내지만 WLFW/WLAN-PD/QMI/BDF/`wlan0`까지 계속 진행하므로 다음 gate는 post-warning continuation gap 비교
 - `reports/NATIVE_INIT_V649_ANDROID_FULL_AUDIO_WIFI_RECAPTURE_PREP_2026-05-23.md` – V649 prep 결과 Android full audio/Wi-Fi collector와 v641 rollback handoff가 plan/dry-run 통과했고 다음은 live handoff recapture
 - `reports/NATIVE_INIT_V648_AUDIO_ASOC_PARITY_GUARD_LIVE_2026-05-23.md` – V648 read-only 결과 current native v641 idle은 ASoC probe/duplicate `pm_qos`가 없고 V644 service `74` 경로에서만 warning이 나타나므로 다음 gate는 Android full audio/Wi-Fi dmesg recapture
 - `reports/NATIVE_INIT_V647_WARNING_SOURCE_CLASSIFIER_2026-05-23.md` – V647 host-only 결과 V644 warning은 `msm_asoc_machine_probe` duplicate `pm_qos_add_request` 경로이며 V619/V638이 service `74` 없이 같은 warning을 재현하므로 다음 gate는 audio/ASoC parity guard

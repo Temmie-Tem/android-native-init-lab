@@ -105,7 +105,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--serial", default="")
     parser.add_argument("--timeout", type=float, default=DEFAULT_TIMEOUT)
     parser.add_argument("--no-su", action="store_true")
-    parser.add_argument("command", choices=("plan", "preflight", "run"))
+    parser.add_argument("--replay-dir", type=Path, default=None)
+    parser.add_argument("command", choices=("plan", "preflight", "run", "replay"))
     return parser.parse_args()
 
 
@@ -146,7 +147,7 @@ def collect(args: argparse.Namespace, store: EvidenceStore) -> list[Capture]:
 
 def capture_text(captures: list[Capture], *names: str) -> str:
     wanted = set(names)
-    return "\\n".join(capture.text for capture in captures if capture.name in wanted)
+    return "\n".join(capture.text for capture in captures if capture.name in wanted)
 
 
 def line_time(line: str) -> float | None:
@@ -172,7 +173,11 @@ def parse_key_values(text: str) -> dict[str, str]:
 
 
 def parse_markers(text: str) -> dict[str, Any]:
-    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    lines = [
+        line.strip()
+        for line in text.splitlines()
+        if line.strip() and not line.lstrip().startswith("$ ") and not line.strip().startswith("rc=")
+    ]
     counts: dict[str, int] = {}
     first_lines: dict[str, str] = {}
     first_times: dict[str, float | None] = {}
@@ -214,6 +219,38 @@ def marker_rows(summary: dict[str, Any]) -> list[list[str]]:
     return rows
 
 
+def load_replay_captures(args: argparse.Namespace, store: EvidenceStore) -> list[Capture]:
+    if args.replay_dir is None:
+        return []
+    base = args.replay_dir if args.replay_dir.is_absolute() else Path.cwd() / args.replay_dir
+    command_dir = base / "android" / "commands"
+    captures: list[Capture] = []
+    for name in (
+        "same-boot-props",
+        "dmesg-audio-wifi-tail",
+        "dmesg-unfiltered-tail",
+        "proc-asound-cards",
+        "dev-snd",
+        "platform-audio-devices",
+    ):
+        path = command_dir / f"{name}.txt"
+        text = path.read_text(encoding="utf-8", errors="replace") if path.exists() else ""
+        if text:
+            store.write_text(f"android/replay/{name}.txt", text)
+        captures.append(Capture(
+            name=name,
+            command=f"replay:{path}",
+            ok=path.exists(),
+            rc=0 if path.exists() else None,
+            status="ok" if path.exists() else "missing",
+            duration_sec=0.0,
+            file=f"android/replay/{name}.txt",
+            text=text,
+            error="" if path.exists() else "missing replay input",
+        ))
+    return captures
+
+
 def summarize(captures: list[Capture]) -> dict[str, Any]:
     props = parse_key_values(capture_text(captures, "same-boot-props"))
     dmesg_text = capture_text(captures, "dmesg-audio-wifi-tail", "dmesg-unfiltered-tail")
@@ -243,6 +280,29 @@ def decide(args: argparse.Namespace, devices: dict[str, Any], captures: list[Cap
             "plan-only; no adb command executed",
             "boot Android or run approved handoff, then execute V649 collector",
         )
+    if args.command == "replay":
+        if not captures:
+            return "v649-replay-input-missing", False, "no replay captures were loaded", "provide --replay-dir"
+        if summary.get("warning_dirty") and summary.get("has_audio_context"):
+            return (
+                "v649-android-audio-pm-qos-warning-reference-captured",
+                True,
+                "replayed Android evidence contains service/audio context and duplicate pm_qos warning; the warning is not native-only",
+                "plan V650 Android/V644 warning timing comparison; do not retry V644 or start HAL/scan/connect",
+            )
+        if summary.get("has_service74") and summary.get("has_wlan_pd") and summary.get("has_audio_context") and not summary.get("warning_dirty"):
+            return (
+                "v649-android-audio-wifi-warning-free-reference-captured",
+                True,
+                "replayed Android evidence reaches service74/WLAN-PD with audio context and no duplicate pm_qos warning",
+                "plan V650 native ASoC-guarded clean-DSP service74 retry; keep HAL/scan/connect blocked",
+            )
+        return (
+            "v649-replay-review-required",
+            False,
+            f"service74={summary.get('has_service74')} wlan_pd={summary.get('has_wlan_pd')} audio={summary.get('has_audio_context')} warning={summary.get('warning_dirty')}",
+            "inspect replayed Android evidence manually",
+        )
     if devices["device_count"] == 0:
         return "v649-android-adb-unavailable", False, "no Android ADB device is currently visible", "run Android handoff before V649"
     if not selected_device_available(args, devices):
@@ -251,10 +311,15 @@ def decide(args: argparse.Namespace, devices: dict[str, Any], captures: list[Cap
         return "v649-android-full-audio-wifi-preflight-ready", True, "one Android ADB device is visible", "run V649 collector"
     if not summary.get("boot_completed"):
         return "v649-android-not-boot-complete", False, "Android ADB is visible but sys.boot_completed=1 was not captured", "wait for Android boot-complete and rerun V649"
+    if summary.get("warning_dirty"):
+        return (
+            "v649-android-audio-pm-qos-warning-reference-captured",
+            True,
+            "Android capture contains service/audio context and duplicate pm_qos warning; the warning is not native-only",
+            "plan V650 Android/V644 warning timing comparison; do not retry V644 or start HAL/scan/connect",
+        )
     if not summary.get("has_service74") or not summary.get("has_wlan_pd"):
         return "v649-lower-wifi-evidence-gap", False, "Android capture lacks service74 or WLAN-PD", "recapture with broader dmesg access"
-    if summary.get("warning_dirty"):
-        return "v649-android-audio-warning-dirty", False, "Android capture contains duplicate pm_qos/qos warning", "inspect Android warning before native retry"
     if not summary.get("has_audio_context"):
         return "v649-android-audio-context-missing", False, "Android lower path captured but audio context is still absent", "recapture earlier or with broader dmesg buffer"
     return (
@@ -267,7 +332,7 @@ def decide(args: argparse.Namespace, devices: dict[str, Any], captures: list[Cap
 
 def render_summary(manifest: dict[str, Any]) -> str:
     summary = manifest["android_summary"]
-    return "\\n".join([
+    return "\n".join([
         "# V649 Android Full Audio/Wi-Fi Recapture",
         "",
         f"- generated: `{manifest['generated_at']}`",
@@ -300,8 +365,13 @@ def render_summary(manifest: dict[str, Any]) -> str:
 def main() -> int:
     args = parse_args()
     store = EvidenceStore(repo_path(args.out_dir))
-    devices = adb_devices(args) if args.command != "plan" else {"device_count": 0, "devices": []}
-    captures = collect(args, store) if args.command == "run" else []
+    devices = adb_devices(args) if args.command not in {"plan", "replay"} else {"device_count": 0, "devices": []}
+    if args.command == "run":
+        captures = collect(args, store)
+    elif args.command == "replay":
+        captures = load_replay_captures(args, store)
+    else:
+        captures = []
     summary = summarize(captures) if captures else {"boot_completed": False, "markers": parse_markers(""), "warning_dirty": False, "has_audio_context": False}
     decision, pass_ok, reason, next_step = decide(args, devices, captures, summary)
     manifest = {
