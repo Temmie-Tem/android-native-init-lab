@@ -205,6 +205,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V652_SERVICE74_BINDER_PARITY_PREFLIGHT_2026-05-23.md` – V652 preflight 결과 helper v104와 real linkerconfig/APEX config는 준비됐지만 current boot의 V490 policy-load 증거와 V641 clean-DSP/RPMSG 상태가 없어, 다음은 V641 one-shot 재무장·재부팅 후 V490 refresh
 - `reports/NATIVE_INIT_V651_CNSS_WLFW_CONTINUATION_2026-05-23.md` – V651 host-only 결과 Android는 CNSS genl failure 후 WLFW/WLAN-PD/QMI/BDF/`wlan0`까지 진행하지만 native V644는 CNSS netlink/`cld80211` 뒤 binder `-22` 반복으로 WLFW 전에서 멈춰 다음 gate는 bounded service-manager/binder-runtime parity proof
 - `reports/NATIVE_INIT_V650_POST_WARNING_CONTINUATION_2026-05-23.md` – V650 host-only 결과 Android/native 모두 ASoC warning 후 sound-card까지 진행하지만 native만 WLFW/WLAN-PD/QMI/BDF/`wlan0`가 없어 다음 gate는 CNSS/WLFW continuation guard
 - `reports/NATIVE_INIT_V649_ANDROID_FULL_AUDIO_WIFI_RECAPTURE_LIVE_2026-05-23.md` – V649 live/replay 결과 Android도 service `74` 직후 ASoC duplicate `pm_qos` warning을 내지만 WLFW/WLAN-PD/QMI/BDF/`wlan0`까지 계속 진행하므로 다음 gate는 post-warning continuation gap 비교

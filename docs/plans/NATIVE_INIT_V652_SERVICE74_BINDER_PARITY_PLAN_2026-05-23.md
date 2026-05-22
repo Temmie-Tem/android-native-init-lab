@@ -26,14 +26,20 @@ Older service-manager proofs are not sufficient by themselves:
   appear together under the clean-DSP state, but it intentionally did not start
   service-manager and therefore hit the `cnss-daemon` binder `-22` loop.
 
-V652 should therefore combine only the necessary parts:
+V652 should therefore combine only the necessary parts. The current helper v104
+does not have an explicit "wait until service `74`, then start service-manager"
+mode, so the first implementation uses the closest bounded primitive:
+`wifi-companion-cnss-first-delayed-vnd-service-manager-start-only` under the
+V641 clean-DSP/V644 preflight. The runner must classify service `74` regression
+as its own valid result; if that happens, a later helper revision should add an
+explicit service-publication gate.
 
 ```text
 V641 clean-DSP state
-  -> V644 lower path until service 74 is observed
-    -> start minimal service-manager binder surface
-      -> start/continue cnss_diag + cnss-daemon
-        -> observe WLFW only
+  -> V644 lower path
+    -> cnss_diag + cnss-daemon
+      -> delayed minimal service-manager binder surface
+        -> observe whether service 74 is preserved and WLFW advances
 ```
 
 ## Guardrails
@@ -71,7 +77,8 @@ Allowed only if bounded and cleanup-safe:
 
 ## Implementation Shape
 
-V652 should be implemented as a new runner, not by widening V644 in place.
+V652 is implemented as a new runner, not by widening V644 in place:
+`scripts/revalidation/native_wifi_service74_binder_parity_v652.py`.
 
 Recommended base:
 
@@ -79,8 +86,10 @@ Recommended base:
   preflight and V644 marker accounting;
 - reuse the V601/V603 service-manager command construction for copy-real
   linkerconfig and private binder service-manager startup;
-- add a service-publication gate that waits for service `74` before starting
-  the service-manager trio;
+- use helper v104's CNSS-first delayed service-manager mode as the first
+  bounded implementation;
+- classify service `74` regression separately so a later explicit wait-gate
+  helper can be justified if needed;
 - collect dmesg before/after, `ps`, QRTR readback, binder errors, WLFW markers,
   and postflight process cleanup.
 
@@ -90,10 +99,11 @@ The live sequence should be:
 2. verify V641 proof log says ADSP/CDSP/SLPI writes completed cleanly during
    boot, without repeating those writes;
 3. refresh SELinux/runtime prerequisites if needed;
-4. start the lower V644 stack and wait for service-notifier `74`;
-5. if service `74` is missing, stop and classify as lower-path regression;
-6. start only `servicemanager`, `hwservicemanager`, and `vndservicemanager`;
-7. start or continue only `cnss_diag` and `cnss-daemon`;
+4. start the V644 lower stack using CNSS-first delayed service-manager ordering;
+5. start only `servicemanager`, `hwservicemanager`, and `vndservicemanager`
+   inside that bounded helper window;
+6. start only `cnss_diag` and `cnss-daemon` as the CNSS userspace children;
+7. classify whether service `74` is preserved after the delayed manager start;
 8. observe for `wlfw_start`, `wlfw_service_request`, WLAN-PD, QMI server
    connected, BDF requests, firmware-ready, and `wlan0`;
 9. cleanup by bounded process termination or reboot cleanup;

@@ -3,7 +3,7 @@
 - date: `2026-05-23 KST`
 - status: `classified/refined`; Wi-Fi external ping is **not** complete
 - runner: `scripts/revalidation/native_wifi_dsp_mdm3_safety_classifier_v620.py`
-- evidence: `tmp/wifi/v620-dsp-mdm3-safety-classifier-refined-v2/`
+- evidence: `tmp/wifi/v620-dsp-mdm3-safety-classifier-current-request-20260523/`
 - decision: `v620-esoc0-notifier-causality-refined`
 
 ## Scope
@@ -11,6 +11,11 @@
 V620 is host-only. It reads existing Android V611/V612 evidence, native
 V615/V619 evidence, V616/V617/V618 classifier manifests, and static vendor init
 evidence.
+
+The current evidence manifest also exposes machine-readable aliases for the
+requested additions: `requested_hypothesis_additions`, `timing_deltas_ms`,
+`mdm_helper_path`, `evidence_matrix`, `android_timeline`, and
+`native_timeline`.
 
 No device command, sysfs write, DSP boot-node write, daemon start,
 service-manager start, Wi-Fi HAL start, scan/connect/link-up, credential, DHCP,
