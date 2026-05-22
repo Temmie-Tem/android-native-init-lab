@@ -182,6 +182,7 @@ def run_live(args: base.argparse.Namespace,
         "all_postflight_safe": keys.get("wifi_companion_start.all_postflight_safe", "") == "1",
         "markers": base.marker_summary(delta),
         "sibling_counts": sibling_counts(delta),
+        "esoc_get_seen": "__subsystem_get: esoc0" in delta,
         "dmesg_delta": delta[-12000:],
         "reboot_cleanup": reboot,
     }
@@ -219,6 +220,14 @@ def decide(args: base.argparse.Namespace,
     if counts.get("kernel_warning"):
         return "v613-esoc-holder-unsafe", False, "kernel WARNING/reference mismatch appeared during live window", "do not repeat; inspect esoc holder safety", True
     if not live.get("esoc_holder_started"):
+        if live.get("esoc_get_seen"):
+            return (
+                "v613-esoc-open-blocked-no-publication",
+                True,
+                f"esoc open reached kernel get path but did not return; mdm3={live.get('mdm3_after_companion')} sibling={sibling}",
+                "do not repeat esoc raw holder; compare Android init/esoc trigger path before any CNSS/HAL retry",
+                True,
+            )
         return "v613-esoc-holder-not-opened", False, "esoc holder did not report opened", "inspect esoc holder transcript", True
     if live.get("mdm3_after_esoc_holder") == "ONLINE" or any(sibling.get(k, 0) for k in ("sysmon_slpi", "sysmon_cdsp", "sysmon_adsp", "sysmon_esoc0")) or counts.get("service_notifier"):
         return (
@@ -250,6 +259,10 @@ def render_summary(manifest: dict[str, Any]) -> str:
         "# V598 Modem Holder WLFW QRTR Readback Proof",
         "# V613 MDM3/ESOC Targeted Observer",
         1,
+    ).replace(
+        "# V609 Post-Sysmon Observer Proof",
+        "# V613 MDM3/ESOC Targeted Observer",
+        1,
     )
     live = manifest.get("live") or {}
     return "\n".join([
@@ -259,6 +272,7 @@ def render_summary(manifest: dict[str, Any]) -> str:
         "",
         f"- modem_holder_started: `{live.get('modem_holder_started')}`",
         f"- esoc_holder_started: `{live.get('esoc_holder_started')}`",
+        f"- esoc_get_seen: `{live.get('esoc_get_seen')}`",
         f"- mdm3_after_esoc_holder: `{live.get('mdm3_after_esoc_holder')}`",
         f"- mdm3_after_companion: `{live.get('mdm3_after_companion')}`",
         f"- sibling_counts: `{live.get('sibling_counts')}`",

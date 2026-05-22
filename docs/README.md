@@ -167,6 +167,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V613_MDM3_ESOC_TARGETED_OBSERVER_LIVE_2026-05-23.md` – V613 live에서 `mss=ONLINE`, QRTR `RX/TX`, modem `sysmon-qmi`, `rmt_storage`까지 재현했지만 raw `subsys_esoc0` open은 반환되지 않고 `mdm3=OFFLINING`/service-notifier 없음으로 끝나 다음 블로커를 `mdm3/esoc0` trigger path로 좁힘
 - `reports/NATIVE_INIT_V613_MDM3_ESOC_TARGETED_OBSERVER_PREP_2026-05-23.md` – V612에서 좁힌 `mdm3/esoc0` delta를 native no-close holder + reboot cleanup으로 검증하는 V613 runner를 추가했고 current preflight는 V490 freshness만 차단
 - `reports/NATIVE_INIT_V612_ANDROID_LOWER_SURFACE_HANDOFF_LIVE_2026-05-23.md` – Android handoff로 V611 lower-surface recapture를 실행해 `mdm3=ONLINE`, sibling sysmon, service-notifier `180/74`, QIPCRTR/rpmsg/service-locator를 확보하고 native v319 rollback 검증 완료
 - `reports/NATIVE_INIT_V612_ANDROID_LOWER_SURFACE_HANDOFF_PREP_2026-05-23.md` – V611 Android lower-surface collector를 Android boot handoff/rollback 경로에 연결하는 wrapper를 추가하고 plan/dry-run 검증 완료
