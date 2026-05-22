@@ -8,6 +8,12 @@
     { label, summary, { d1, d2, d3, d4, d5 } }
 
 static const struct a90_changelog_entry changelog_entries[] = {
+    ENTRY("0.9.67 v641", "FIRMWARE-BACKED SIBLING SSCTL PROOF",
+          "0.9.67 v641 FIRMWARE-BACKED SIBLING SSCTL PROOF",
+          "Mounts apnhlos and modem firmware surfaces read-only before proof",
+          "Reuses one-shot arm flag and per-node timeout/reap handling",
+          "Stops proof on firmware mount failure but continues to shell",
+          "Keeps Wi-Fi HAL, scan/connect, credentials, and external ping blocked"),
     ENTRY("0.9.66 v631", "PER-NODE SIBLING SSCTL PROOF",
           "0.9.66 v631 PER-NODE SIBLING SSCTL PROOF",
           "Splits ADSP/CDSP/SLPI boot-node proof into independent child attempts",
