@@ -527,6 +527,21 @@ def requested_hypothesis_rows(manifest: dict[str, Any]) -> list[list[str]]:
     ]
 
 
+def rows_to_dicts(headers: list[str], rows: list[list[str]]) -> list[dict[str, str]]:
+    return [dict(zip(headers, row, strict=True)) for row in rows]
+
+
+def timeline_map(rows: list[list[str]]) -> dict[str, dict[str, str]]:
+    return {
+        row[0]: {
+            "count": row[1],
+            "first_timestamp": row[2],
+            "first_line": row[3],
+        }
+        for row in rows
+    }
+
+
 def classify(manifest: dict[str, Any]) -> tuple[str, bool, str, str]:
     prior_pass = all(
         bool(manifest["prior"][key].get("pass"))
@@ -744,6 +759,34 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
     })
     manifest["evidence_rows"] = evidence_rows(manifest)
     manifest["requested_hypothesis_rows"] = requested_hypothesis_rows(manifest)
+    manifest["evidence_matrix"] = rows_to_dicts(
+        ["subject", "classification", "evidence", "next"],
+        manifest["evidence_rows"],
+    )
+    manifest["requested_hypothesis_additions"] = rows_to_dicts(
+        ["item", "observation", "timing_or_context", "classification"],
+        manifest["requested_hypothesis_rows"],
+    )
+    manifest["mdm_helper_path"] = rows_to_dicts(
+        ["key", "present", "line", "interpretation"],
+        manifest["mdm_helper_path_rows"],
+    )
+    manifest["timing_deltas_ms"] = {
+        "android_sysmon_modem_to_service_notifier_180": manifest["android_v611"]["deltas_ms"].get("sysmon_modem_to_service_notifier_180"),
+        "android_service_notifier_180_to_service_notifier_74": manifest["android_v611"]["deltas_ms"].get("service_notifier_180_to_service_notifier_74"),
+        "android_service_notifier_180_to_wlan_pd": manifest["android_v611"]["deltas_ms"].get("service_notifier_180_to_wlan_pd"),
+        "android_service_notifier_180_to_qmi_server_connected": manifest["android_v611"]["deltas_ms"].get("service_notifier_180_to_qmi_server_connected"),
+        "android_service_notifier_180_to_sysmon_esoc0": manifest["android_v611"]["deltas_ms"].get("service_notifier_180_to_sysmon_esoc0"),
+        "android_wlan_pd_to_sysmon_esoc0": manifest["android_v611"]["deltas_ms"].get("wlan_pd_to_sysmon_esoc0"),
+        "native_v619_sysmon_modem_to_service_notifier_180": manifest["native_v619"]["deltas_ms"].get("sysmon_modem_to_service_notifier_180"),
+        "native_v619_sysmon_modem_to_pm_qos_warning": manifest["native_v619"]["deltas_ms"].get("sysmon_modem_to_pm_qos_warning"),
+        "native_v619_sysmon_modem_to_asoc_probe": manifest["native_v619"]["deltas_ms"].get("sysmon_modem_to_asoc_probe"),
+        "native_v619_qrtr_tx_to_sysmon_modem": manifest["native_v619"]["deltas_ms"].get("qrtr_tx_to_sysmon_modem"),
+    }
+    manifest["android_timeline"] = timeline_map(manifest["android_v611"]["timeline_rows"])
+    manifest["native_v615_timeline"] = timeline_map(manifest["native_v615"]["timeline_rows"])
+    manifest["native_v619_timeline"] = timeline_map(manifest["native_v619"]["timeline_rows"])
+    manifest["native_timeline"] = manifest["native_v619_timeline"]
     manifest["inferences"] = {
         "service_notifier_is_kernel_qmi_callback": True,
         "userspace_cnss_daemon_not_primary_trigger": True,
