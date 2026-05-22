@@ -142,6 +142,7 @@
 - `plans/NATIVE_INIT_V102_DIAGNOSTICS_PLAN_2026-05-03.md` – v102 diagnostics/log bundle 실행 계획
 - `plans/NATIVE_INIT_V103_WIFI_INVENTORY_PLAN_2026-05-04.md` – v103 Wi-Fi read-only inventory 실행 계획
 - `plans/NATIVE_INIT_V104_WIFI_FEASIBILITY_PLAN_2026-05-04.md` – v104 Wi-Fi enablement feasibility gate 실행 계획
+- `plans/NATIVE_INIT_V616_POST_SIBLING_SYSMON_SERVICE_NOTIFIER_CLASSIFIER_PLAN_2026-05-23.md` – V615 이후 sibling `sysmon-qmi`는 재현됐지만 service-notifier `180/74`가 없는 갭을 host-only로 분류하는 V616 계획
 - `plans/NATIVE_INIT_V615_DSP_BOOT_NODE_OBSERVER_PLAN_2026-05-23.md` – V614가 좁힌 ADSP/CDSP/SLPI boot-node delta를 no-CNSS companion window로 검증하는 V615 live observer 계획
 - `plans/NATIVE_INIT_V613_MDM3_ESOC_TARGETED_OBSERVER_PLAN_2026-05-23.md` – V612 이후 `mdm3`/`esoc0` lower publication delta를 native에서 no-close/reboot-cleanup으로 검증하는 계획
 - `plans/NATIVE_INIT_V611_ANDROID_LOWER_SURFACE_RECAPTURE_PLAN_2026-05-23.md` – V610의 Android evidence limit을 닫기 위한 lower-surface read-only recapture 계획
@@ -168,6 +169,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V616_POST_SIBLING_SYSMON_SERVICE_NOTIFIER_CLASSIFIER_2026-05-23.md` – V616 host-only 분류 결과 V615는 sibling `sysmon-qmi`와 service-locator까지 재현했지만 service-notifier `180/74`는 없고 `pm_qos_add_request` warning 23개로 direct boot-node retry가 차단됨
 - `reports/NATIVE_INIT_V615_DSP_BOOT_NODE_OBSERVER_LIVE_2026-05-23.md` – V615 live에서 ADSP/CDSP/SLPI boot node write로 sibling `sysmon-qmi`까지 진전했지만 service-notifier `180/74`/WLAN-PD는 없고 `pm_qos_add_request` kernel warning이 발생해 direct boot-node retry를 중단
 - `reports/NATIVE_INIT_V615_DSP_BOOT_NODE_OBSERVER_PREP_2026-05-23.md` – V614 다음 gate인 ADSP/CDSP/SLPI boot-node observer runner를 추가하고 plan 통과/current preflight는 V490 freshness로 차단됨을 기록
 - `reports/NATIVE_INIT_V614_MDM3_TRIGGER_PATH_CLASSIFIER_2026-05-23.md` – V611/V613/vendor init 비교로 Android는 ADSP/CDSP/SLPI PIL 이후 sibling sysmon/service-notifier에 도달하지만 native V613은 MSS만 부팅함을 분류하고 V615 DSP boot-node observer를 다음 gate로 선정
