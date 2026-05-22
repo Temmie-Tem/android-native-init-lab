@@ -142,6 +142,8 @@
 - `plans/NATIVE_INIT_V102_DIAGNOSTICS_PLAN_2026-05-03.md` – v102 diagnostics/log bundle 실행 계획
 - `plans/NATIVE_INIT_V103_WIFI_INVENTORY_PLAN_2026-05-04.md` – v103 Wi-Fi read-only inventory 실행 계획
 - `plans/NATIVE_INIT_V104_WIFI_FEASIBILITY_PLAN_2026-05-04.md` – v104 Wi-Fi enablement feasibility gate 실행 계획
+- `plans/NATIVE_INIT_V638_FIRMWARE_SIBLING_SSCTL_COMPOSITE_PLAN_2026-05-23.md` – V637 이후 firmware-backed ADSP/CDSP/SLPI per-node sibling SSCTL write가 Android-like sibling `sysmon-qmi`/service `74`를 만드는지 검증하는 V638 bounded live 계획
+- `plans/NATIVE_INIT_V637_SERVICE74_POST_CDSP_CLASSIFIER_PLAN_2026-05-23.md` – V636 CDSP-online + V598 composite가 service `180`까지만 재현한 뒤 service `74` blocker가 CDSP power가 아닌 sibling SSCTL sysmon 계층인지 host-only로 분류하는 V637 계획
 - `plans/NATIVE_INIT_V636_CDSP_V598_COMPOSITE_PLAN_2026-05-23.md` – V635 CDSP-online proof와 V625/V627 V598-class partial-positive를 같은 boot에서 결합해 service `74`/WLAN-PD/WLFW 진전 여부를 확인하는 V636 계획
 - `plans/NATIVE_INIT_V635_FIRMWARE_CDSP_ONLY_PROOF_PLAN_2026-05-23.md` – V634 firmware mount parity에 CDSP-only bounded boot-node write를 더해 service `74`/WLAN-PD 진입 여부를 확인하는 V635 계획
 - `plans/NATIVE_INIT_V634_FIRMWARE_MOUNT_PARITY_PLAN_2026-05-23.md` – V633 firmware surface missing 이후 `apnhlos`/`modem` read-only mount parity와 cleanup을 검증하는 V634 계획
@@ -189,6 +191,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V637_SERVICE74_POST_CDSP_CLASSIFIER_2026-05-23.md` – V637 host-only 결과 CDSP power/ONLINE은 Android CDSP SSCTL `sysmon-qmi`와 다르며 V636이 service `180`까지만 재현했으므로 다음은 firmware-backed per-node sibling SSCTL composite observer 계획
 - `reports/NATIVE_INIT_V636_CDSP_V598_COMPOSITE_LIVE_2026-05-23.md` – V636 live 결과 CDSP-online + V598-class modem-holder/readback 조합에서도 service `180`만 재현되고 service `74`/WLAN-PD/WLFW/BDF/`wlan0`는 없어 lower service `74` publisher dependency가 다음 blocker
 - `reports/NATIVE_INIT_V636_CDSP_V598_COMPOSITE_PREP_2026-05-23.md` – V636 prep 결과 V635 CDSP-online proof와 V598/V625/V627 modem-holder partial-positive를 결합하는 runner가 plan/pass 상태이며, fresh V490 후 preflight/live가 다음 gate
 - `reports/NATIVE_INIT_V635_FIRMWARE_CDSP_ONLY_PROOF_LIVE_2026-05-23.md` – V635 live 결과 firmware mount 상태에서 CDSP write는 timeout 없이 반환되고 CDSP PIL/reset/power-clock까지 진행했지만 `sysmon_cdsp`/service `74`/WLAN-PD/WLFW는 없어 post-CDSP-online gap이 다음 blocker
