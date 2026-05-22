@@ -142,6 +142,7 @@
 - `plans/NATIVE_INIT_V102_DIAGNOSTICS_PLAN_2026-05-03.md` – v102 diagnostics/log bundle 실행 계획
 - `plans/NATIVE_INIT_V103_WIFI_INVENTORY_PLAN_2026-05-04.md` – v103 Wi-Fi read-only inventory 실행 계획
 - `plans/NATIVE_INIT_V104_WIFI_FEASIBILITY_PLAN_2026-05-04.md` – v104 Wi-Fi enablement feasibility gate 실행 계획
+- `plans/NATIVE_INIT_V641_FIRMWARE_BACKED_BOOT_WINDOW_PLAN_2026-05-23.md` – V640 이후 service `74`를 향한 유일한 남은 mutation 후보인 rollback-ready firmware-backed early boot-window sibling trigger proof 계획
 - `plans/NATIVE_INIT_V640_SAFE_SIBLING_TRIGGER_RECLASSIFICATION_PLAN_2026-05-23.md` – V639 이후 late direct all-sibling write를 제외하고 service `74`로 이어지는 안전한 sibling SSCTL trigger 후보를 host-only로 재분류하는 V640 계획
 - `plans/NATIVE_INIT_V639_SIBLING_WARNING_ATTRIBUTION_PLAN_2026-05-23.md` – V638 `pm_qos` warning 재발을 V619/V635/V636과 비교해 direct all-sibling write retry 가능 여부를 host-only로 분류하는 V639 계획
 - `plans/NATIVE_INIT_V638_FIRMWARE_SIBLING_SSCTL_COMPOSITE_PLAN_2026-05-23.md` – V637 이후 firmware-backed ADSP/CDSP/SLPI per-node sibling SSCTL write가 Android-like sibling `sysmon-qmi`/service `74`를 만드는지 검증하는 V638 bounded live 계획
