@@ -142,6 +142,7 @@
 - `plans/NATIVE_INIT_V102_DIAGNOSTICS_PLAN_2026-05-03.md` – v102 diagnostics/log bundle 실행 계획
 - `plans/NATIVE_INIT_V103_WIFI_INVENTORY_PLAN_2026-05-04.md` – v103 Wi-Fi read-only inventory 실행 계획
 - `plans/NATIVE_INIT_V104_WIFI_FEASIBILITY_PLAN_2026-05-04.md` – v104 Wi-Fi enablement feasibility gate 실행 계획
+- `plans/NATIVE_INIT_V652_SERVICE74_BINDER_PARITY_PLAN_2026-05-23.md` – V651 이후 V644 service `74` positive 경로에 V601/V603 service-manager binder surface를 결합해 WLFW 진입 여부만 검증하는 V652 계획
 - `plans/NATIVE_INIT_V651_CNSS_WLFW_CONTINUATION_PLAN_2026-05-23.md` – V650 이후 Android/native CNSS netlink와 WLFW continuation 차이를 비교해 native `cnss-daemon` binder `-22` blocker를 분류하는 V651 계획
 - `plans/NATIVE_INIT_V650_POST_WARNING_CONTINUATION_PLAN_2026-05-23.md` – Android V649와 native V644의 ASoC warning 이후 WLFW/WLAN-PD/QMI/BDF/`wlan0` continuation 차이를 비교하는 V650 계획
 - `plans/NATIVE_INIT_V649_ANDROID_FULL_AUDIO_WIFI_RECAPTURE_PLAN_2026-05-23.md` – Android same-boot audio/ASoC + Wi-Fi lower-surface full dmesg reference를 수집하는 V649 계획
