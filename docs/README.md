@@ -142,6 +142,7 @@
 - `plans/NATIVE_INIT_V102_DIAGNOSTICS_PLAN_2026-05-03.md` – v102 diagnostics/log bundle 실행 계획
 - `plans/NATIVE_INIT_V103_WIFI_INVENTORY_PLAN_2026-05-04.md` – v103 Wi-Fi read-only inventory 실행 계획
 - `plans/NATIVE_INIT_V104_WIFI_FEASIBILITY_PLAN_2026-05-04.md` – v104 Wi-Fi enablement feasibility gate 실행 계획
+- `plans/NATIVE_INIT_V615_DSP_BOOT_NODE_OBSERVER_PLAN_2026-05-23.md` – V614가 좁힌 ADSP/CDSP/SLPI boot-node delta를 no-CNSS companion window로 검증하는 V615 live observer 계획
 - `plans/NATIVE_INIT_V613_MDM3_ESOC_TARGETED_OBSERVER_PLAN_2026-05-23.md` – V612 이후 `mdm3`/`esoc0` lower publication delta를 native에서 no-close/reboot-cleanup으로 검증하는 계획
 - `plans/NATIVE_INIT_V611_ANDROID_LOWER_SURFACE_RECAPTURE_PLAN_2026-05-23.md` – V610의 Android evidence limit을 닫기 위한 lower-surface read-only recapture 계획
 - `plans/NATIVE_INIT_V610_QMI_PUBLICATION_PRECONDITION_PLAN_2026-05-23.md` – V609 이후 Android/native lower QMI publication precondition을 host-only로 비교하는 계획
@@ -167,6 +168,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V614_MDM3_TRIGGER_PATH_CLASSIFIER_2026-05-23.md` – V611/V613/vendor init 비교로 Android는 ADSP/CDSP/SLPI PIL 이후 sibling sysmon/service-notifier에 도달하지만 native V613은 MSS만 부팅함을 분류하고 V615 DSP boot-node observer를 다음 gate로 선정
 - `reports/NATIVE_INIT_V613_MDM3_ESOC_TARGETED_OBSERVER_LIVE_2026-05-23.md` – V613 live에서 `mss=ONLINE`, QRTR `RX/TX`, modem `sysmon-qmi`, `rmt_storage`까지 재현했지만 raw `subsys_esoc0` open은 반환되지 않고 `mdm3=OFFLINING`/service-notifier 없음으로 끝나 다음 블로커를 `mdm3/esoc0` trigger path로 좁힘
 - `reports/NATIVE_INIT_V613_MDM3_ESOC_TARGETED_OBSERVER_PREP_2026-05-23.md` – V612에서 좁힌 `mdm3/esoc0` delta를 native no-close holder + reboot cleanup으로 검증하는 V613 runner를 추가했고 current preflight는 V490 freshness만 차단
 - `reports/NATIVE_INIT_V612_ANDROID_LOWER_SURFACE_HANDOFF_LIVE_2026-05-23.md` – Android handoff로 V611 lower-surface recapture를 실행해 `mdm3=ONLINE`, sibling sysmon, service-notifier `180/74`, QIPCRTR/rpmsg/service-locator를 확보하고 native v319 rollback 검증 완료
