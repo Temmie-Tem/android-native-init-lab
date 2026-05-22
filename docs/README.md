@@ -142,6 +142,7 @@
 - `plans/NATIVE_INIT_V102_DIAGNOSTICS_PLAN_2026-05-03.md` – v102 diagnostics/log bundle 실행 계획
 - `plans/NATIVE_INIT_V103_WIFI_INVENTORY_PLAN_2026-05-04.md` – v103 Wi-Fi read-only inventory 실행 계획
 - `plans/NATIVE_INIT_V104_WIFI_FEASIBILITY_PLAN_2026-05-04.md` – v104 Wi-Fi enablement feasibility gate 실행 계획
+- `plans/NATIVE_INIT_V607_QMI_SERVICE_PUBLICATION_DELTA_PLAN_2026-05-23.md` – V598-positive/V606-negative 증거를 host-only로 비교해 `sysmon-qmi` 이후 QMI service publication 갭을 분류하는 계획
 - `plans/NATIVE_INIT_V604_CNSS_FIRST_SERVICE_MANAGER_PROOF_PLAN_2026-05-22.md` – V603 이후 CNSS를 service-manager보다 먼저 시작해 service-notifier `180` 보존과 binder clean을 함께 검증하는 계획
 - `plans/NATIVE_INIT_V603_QRTR_FIRST_SERVICE_MANAGER_PROOF_PLAN_2026-05-22.md` – V602 ordering gap을 검증하기 위해 QRTR/modem companion을 먼저 시작하고 service-manager를 뒤에 붙이는 helper v101 계획
 - `plans/NATIVE_INIT_V602_SERVICE_MANAGER_ORDERING_GAP_PLAN_2026-05-22.md` – V598/V601을 비교해 service-manager ordering/timing gap을 host-only로 분류하는 계획
@@ -161,6 +162,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V606_V102_BASELINE_REPLAY_2026-05-23.md` – current helper v102로 V598 no-service-manager baseline을 재생했지만 `service-notifier` `180`이 재현되지 않아 lower QMI service-publication 갭으로 분류
 - `reports/NATIVE_INIT_V605_SERVICE_NOTIFIER_TIMING_CLASSIFIER_2026-05-22.md` – V598의 service-notifier `180`은 CNSS보다 먼저 떴고 V604b는 더 긴 pre-CNSS window에도 안 떠서 다음 후보를 v102 no-service-manager baseline replay로 좁힘
 - `reports/NATIVE_INIT_V604_CNSS_FIRST_SERVICE_MANAGER_LIVE_2026-05-22.md` – CNSS-first delayed service-manager live proof에서도 service-notifier `180`은 없고 binder transaction failure 3회가 확인되어 V598/V604 timing classifier가 다음 후보로 분류됨
 - `reports/NATIVE_INIT_V604_CNSS_FIRST_SERVICE_MANAGER_PREP_2026-05-22.md` – helper v102에 CNSS-first delayed service-manager 모드를 추가하고 deploy/live runner plan-only 검증을 완료
