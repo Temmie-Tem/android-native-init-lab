@@ -142,6 +142,7 @@
 - `plans/NATIVE_INIT_V102_DIAGNOSTICS_PLAN_2026-05-03.md` – v102 diagnostics/log bundle 실행 계획
 - `plans/NATIVE_INIT_V103_WIFI_INVENTORY_PLAN_2026-05-04.md` – v103 Wi-Fi read-only inventory 실행 계획
 - `plans/NATIVE_INIT_V104_WIFI_FEASIBILITY_PLAN_2026-05-04.md` – v104 Wi-Fi enablement feasibility gate 실행 계획
+- `plans/NATIVE_INIT_V642_CLEAN_DSP_LOWER_COMPANION_PLAN_2026-05-23.md` – V641 clean-DSP 상태를 재사용해 direct DSP boot-node 재시도 없이 lower modem/QRTR companion publication을 관찰하는 V642 계획
 - `plans/NATIVE_INIT_V641_FIRMWARE_BACKED_BOOT_WINDOW_PLAN_2026-05-23.md` – V640 이후 service `74`를 향한 유일한 남은 mutation 후보인 rollback-ready firmware-backed early boot-window sibling trigger proof 계획
 - `plans/NATIVE_INIT_V640_SAFE_SIBLING_TRIGGER_RECLASSIFICATION_PLAN_2026-05-23.md` – V639 이후 late direct all-sibling write를 제외하고 service `74`로 이어지는 안전한 sibling SSCTL trigger 후보를 host-only로 재분류하는 V640 계획
 - `plans/NATIVE_INIT_V639_SIBLING_WARNING_ATTRIBUTION_PLAN_2026-05-23.md` – V638 `pm_qos` warning 재발을 V619/V635/V636과 비교해 direct all-sibling write retry 가능 여부를 host-only로 분류하는 V639 계획
@@ -194,6 +195,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V642_CLEAN_DSP_LOWER_COMPANION_LIVE_2026-05-23.md` – V642 live 결과 V641 clean-DSP 상태에서 Android-order lower companion이 QRTR TX와 `sysmon-qmi`까지 재현했지만 `service-notifier`/WLAN-PD/WLFW/`wlan0`는 없어 다음은 post-sysmon publisher gap classifier
 - `reports/NATIVE_INIT_V641_FIRMWARE_BACKED_BOOT_WINDOW_ARMED_LIVE_2026-05-23.md` – V641 armed live 결과 firmware-backed ADSP/CDSP/SLPI writes는 모두 `rc=0`과 DSP PIL ready까지 진행했지만 `sysmon-qmi`/service `74`/WLAN-PD/WLFW/`wlan0`는 없어 다음은 clean DSP-PIL 상태의 lower companion observer
 - `reports/NATIVE_INIT_V641_FIRMWARE_BACKED_BOOT_WINDOW_DISABLED_SMOKE_LIVE_2026-05-23.md` – V641 disabled-smoke live 결과 arm flag 없이 v641이 shell까지 부팅하고 proof log/flag/timeline marker 및 `pm_qos` proof marker가 없어 다음은 one-shot armed proof
 - `reports/NATIVE_INIT_V641_FIRMWARE_BACKED_BOOT_WINDOW_PREP_2026-05-23.md` – V641 prep 결과 firmware-backed sibling SSCTL boot-window image가 로컬 빌드/marker/diff 검증을 통과했으며 다음 gate는 disabled-smoke 후 one-shot armed live proof
