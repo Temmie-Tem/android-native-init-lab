@@ -142,6 +142,7 @@
 - `plans/NATIVE_INIT_V102_DIAGNOSTICS_PLAN_2026-05-03.md` – v102 diagnostics/log bundle 실행 계획
 - `plans/NATIVE_INIT_V103_WIFI_INVENTORY_PLAN_2026-05-04.md` – v103 Wi-Fi read-only inventory 실행 계획
 - `plans/NATIVE_INIT_V104_WIFI_FEASIBILITY_PLAN_2026-05-04.md` – v104 Wi-Fi enablement feasibility gate 실행 계획
+- `plans/NATIVE_INIT_V648_AUDIO_ASOC_PARITY_GUARD_PLAN_2026-05-23.md` – V647 이후 current native idle audio surface와 V644/Android evidence를 비교해 ASoC warning guard를 정하는 V648 계획
 - `plans/NATIVE_INIT_V647_WARNING_SOURCE_CLASSIFIER_PLAN_2026-05-23.md` – V644 service `74` 직후 warning이 Wi-Fi QMI/HAL이 아니라 ASoC duplicate `pm_qos` 경로인지 host-only로 분류하는 V647 계획
 - `plans/NATIVE_INIT_V646_ANDROID_POST74_TIMING_PLAN_2026-05-23.md` – Android 정상 service `74` 이후 WLAN-PD/WLFW timing과 V644 service `74` 이후 warning timing을 비교하는 V646 host-only 계획
 - `plans/NATIVE_INIT_V645_V644_WARNING_ATTRIBUTION_PLAN_2026-05-23.md` – V644가 service `74` 직후 `pm_qos` warning을 낸 원인을 V619/V627/V642와 host-only로 비교해 다음 안전 gate를 고르는 V645 계획
@@ -200,6 +201,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V648_AUDIO_ASOC_PARITY_GUARD_LIVE_2026-05-23.md` – V648 read-only 결과 current native v641 idle은 ASoC probe/duplicate `pm_qos`가 없고 V644 service `74` 경로에서만 warning이 나타나므로 다음 gate는 Android full audio/Wi-Fi dmesg recapture
 - `reports/NATIVE_INIT_V647_WARNING_SOURCE_CLASSIFIER_2026-05-23.md` – V647 host-only 결과 V644 warning은 `msm_asoc_machine_probe` duplicate `pm_qos_add_request` 경로이며 V619/V638이 service `74` 없이 같은 warning을 재현하므로 다음 gate는 audio/ASoC parity guard
 - `reports/NATIVE_INIT_V646_ANDROID_POST74_TIMING_2026-05-23.md` – V646 host-only 결과 Android는 service `74` 후 WLAN-PD까지 약 2.421초를 기다리지만 V644는 11.789ms 만에 warning을 내므로 다음 gate는 warning-source classifier
 - `reports/NATIVE_INIT_V645_V644_WARNING_ATTRIBUTION_2026-05-23.md` – V645 host-only 결과 clean-DSP 단독/V627 service `180` 단독은 warning-free이고 V644 service `74` 후 11.789ms에 warning이 발생해 V646 Android post-service74 timing 비교가 다음 gate
