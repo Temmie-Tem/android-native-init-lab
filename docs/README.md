@@ -142,6 +142,7 @@
 - `plans/NATIVE_INIT_V102_DIAGNOSTICS_PLAN_2026-05-03.md` – v102 diagnostics/log bundle 실행 계획
 - `plans/NATIVE_INIT_V103_WIFI_INVENTORY_PLAN_2026-05-04.md` – v103 Wi-Fi read-only inventory 실행 계획
 - `plans/NATIVE_INIT_V104_WIFI_FEASIBILITY_PLAN_2026-05-04.md` – v104 Wi-Fi enablement feasibility gate 실행 계획
+- `plans/NATIVE_INIT_V631_PER_NODE_SIBLING_SSCTL_PROOF_PLAN_2026-05-23.md` – V630의 ADSP 이후 timeout을 좁히기 위해 ADSP/CDSP/SLPI를 per-node child/timeout으로 분리하는 V631 계획
 - `plans/NATIVE_INIT_V630_SIBLING_SSCTL_BOOT_WINDOW_PROOF_PLAN_2026-05-23.md` – V629가 선정한 ADSP/CDSP/SLPI sibling SSCTL trigger를 post-ACM one-shot boot window에서 검증하는 V630 계획
 - `plans/NATIVE_INIT_V629_SIBLING_SSCTL_TRIGGER_CLASSIFIER_PLAN_2026-05-23.md` – V628 이후 Android의 early-boot ADSP/CDSP/SLPI sibling SSCTL trigger와 native v319 누락을 host-only로 분류하는 V629 계획
 - `plans/NATIVE_INIT_V628_SERVICE74_PUBLISHER_CLASSIFIER_PLAN_2026-05-23.md` – V627 이후 native service-locator/`180`은 재현됐지만 Android의 sibling `sysmon-qmi`/service `74`와의 차이를 host-only로 분류하는 V628 계획
@@ -183,6 +184,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V631_PER_NODE_SIBLING_SSCTL_PROOF_PREP_2026-05-23.md` – V631 prep 결과 ADSP/CDSP/SLPI를 per-node child/timeout으로 나눈 `A90 Linux init 0.9.66 (v631)` boot image 로컬 빌드와 marker 검증 통과
 - `reports/NATIVE_INIT_V630_SIBLING_SSCTL_BOOT_WINDOW_PROOF_LIVE_2026-05-23.md` – V630 live 결과 disabled-smoke와 rollback은 PASS, armed proof는 ADSP write 성공 후 child timeout으로 CDSP/SLPI 전 중단되어 V631 per-node bounded proof가 다음 gate
 - `reports/NATIVE_INIT_V630_SIBLING_SSCTL_BOOT_WINDOW_PROOF_PREP_2026-05-23.md` – V630 prep 결과 `A90 Linux init 0.9.65 (v630)` boot image를 로컬 빌드했고 post-ACM one-shot sibling SSCTL proof marker 검증 통과, live disabled-smoke/armed proof/rollback이 다음 단계
 - `reports/NATIVE_INIT_V629_SIBLING_SSCTL_TRIGGER_CLASSIFIER_2026-05-23.md` – V629 host-only 결과 Android visible trigger는 early-boot ADSP/CDSP/SLPI boot-node writes이고 native v319에는 equivalent path가 없어 V630 rollback-ready boot-time one-shot proof를 다음 gate로 선정

@@ -8,6 +8,12 @@
     { label, summary, { d1, d2, d3, d4, d5 } }
 
 static const struct a90_changelog_entry changelog_entries[] = {
+    ENTRY("0.9.66 v631", "PER-NODE SIBLING SSCTL PROOF",
+          "0.9.66 v631 PER-NODE SIBLING SSCTL PROOF",
+          "Splits ADSP/CDSP/SLPI boot-node proof into independent child attempts",
+          "Logs per-node status, timeout, and reap result before continuing",
+          "Stops only if a timed-out child cannot be reaped safely",
+          "Keeps Wi-Fi HAL, qcwlanstate, scan/connect, credentials, and external ping blocked"),
     ENTRY("0.9.65 v630", "SIBLING SSCTL BOOT-WINDOW PROOF",
           "0.9.65 v630 SIBLING SSCTL BOOT-WINDOW PROOF",
           "Adds opt-in one-shot ADSP/CDSP/SLPI sibling SSCTL proof",
