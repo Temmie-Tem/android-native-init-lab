@@ -173,6 +173,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V620_DSP_MDM3_SAFETY_CLASSIFIER_2026-05-23.md` – V620 host-only 분류 결과 Android-order companion은 원인이 아니며 `mdm3=OFFLINING`/`sysmon_esoc0` 부재가 service-notifier QMI publication 앞단 블로커로 확정됨
 - `reports/NATIVE_INIT_V619_ANDROID_ORDER_POST_SYSMON_OBSERVER_LIVE_2026-05-23.md` – V619 live에서 Android-order lower companion contract는 통과했지만 service-notifier는 0이고 `pm_qos_add_request` kernel warning이 재발해 direct DSP boot-node 반복을 중단
 - `reports/NATIVE_INIT_V619_ANDROID_ORDER_POST_SYSMON_OBSERVER_PREP_2026-05-23.md` – helper v104에 `qrtr_ns,pd_mapper,rmt_storage,tftp_server` no-CNSS/no-HAL observer mode를 추가하고 현재 live preflight 환경 블로커를 기록
 - `reports/NATIVE_INIT_V618_RFS_ALIAS_ORDER_CLASSIFIER_2026-05-23.md` – V618 host-only 분류 결과 `rfs_access`는 별도 live daemon 후보가 아니며 Android의 `qrtr_ns,pd_mapper,rmt_storage,tftp_server` 순서가 다음 bounded observer 후보로 좁혀짐
