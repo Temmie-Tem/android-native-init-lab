@@ -160,6 +160,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V603_QRTR_FIRST_SERVICE_MANAGER_LIVE_2026-05-22.md` – QRTR-first service-manager live proof에서 binder failure는 0으로 유지됐지만 service-notifier `180`이 재소실되어 delayed-CNSS/order 조정이 다음 후보로 분류됨
 - `reports/NATIVE_INIT_V603_QRTR_FIRST_SERVICE_MANAGER_PREP_2026-05-22.md` – helper v101에 `wifi-companion-qrtr-first-vnd-service-manager-start-only` 모드를 추가해 service-notifier `180` 보존과 binder clean을 함께 검증할 준비를 완료
 - `reports/NATIVE_INIT_V602_SERVICE_MANAGER_ORDERING_GAP_2026-05-22.md` – V598은 service-notifier `180`까지 도달하지만 binder transaction failure가 있고, V601은 binder failure를 해소하지만 service-notifier `180`을 잃어 다음 live gate를 qrtr-first/delayed service-manager로 좁힘
 - `reports/NATIVE_INIT_V601_SERVICE_MANAGER_BINDER_PROOF_2026-05-22.md` – service-manager 포함 modem-holder companion window에서 binder transaction failure는 해소됐지만 WLFW service `69`/service-notifier `74`/WLAN-PD는 여전히 미등록
