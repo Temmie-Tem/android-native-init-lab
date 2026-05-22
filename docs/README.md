@@ -168,6 +168,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V615_DSP_BOOT_NODE_OBSERVER_LIVE_2026-05-23.md` – V615 live에서 ADSP/CDSP/SLPI boot node write로 sibling `sysmon-qmi`까지 진전했지만 service-notifier `180/74`/WLAN-PD는 없고 `pm_qos_add_request` kernel warning이 발생해 direct boot-node retry를 중단
 - `reports/NATIVE_INIT_V615_DSP_BOOT_NODE_OBSERVER_PREP_2026-05-23.md` – V614 다음 gate인 ADSP/CDSP/SLPI boot-node observer runner를 추가하고 plan 통과/current preflight는 V490 freshness로 차단됨을 기록
 - `reports/NATIVE_INIT_V614_MDM3_TRIGGER_PATH_CLASSIFIER_2026-05-23.md` – V611/V613/vendor init 비교로 Android는 ADSP/CDSP/SLPI PIL 이후 sibling sysmon/service-notifier에 도달하지만 native V613은 MSS만 부팅함을 분류하고 V615 DSP boot-node observer를 다음 gate로 선정
 - `reports/NATIVE_INIT_V613_MDM3_ESOC_TARGETED_OBSERVER_LIVE_2026-05-23.md` – V613 live에서 `mss=ONLINE`, QRTR `RX/TX`, modem `sysmon-qmi`, `rmt_storage`까지 재현했지만 raw `subsys_esoc0` open은 반환되지 않고 `mdm3=OFFLINING`/service-notifier 없음으로 끝나 다음 블로커를 `mdm3/esoc0` trigger path로 좁힘

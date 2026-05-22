@@ -95,6 +95,13 @@ def pattern_counts(text: str) -> dict[str, int]:
     return {name: len([line for line in text.splitlines() if pattern.search(line)]) for name, pattern in DSP_PATTERNS.items()}
 
 
+def step_ok(steps: list[dict[str, Any]], name: str) -> bool:
+    for step in steps:
+        if step.get("name") == name:
+            return bool(step.get("ok")) and step.get("status") == "ok"
+    return False
+
+
 def capture_preflight(args: base.argparse.Namespace,
                       store: base.EvidenceStore,
                       steps: list[dict[str, Any]]) -> dict[str, Any]:
@@ -191,7 +198,7 @@ def run_live(args: base.argparse.Namespace,
     keys = base.companion.parse_keys(str(companion_live.get("payload") or ""))
     return {
         "base": base_dir,
-        "boot_nodes_written": {name: base.step_ok(steps, f"write-boot-{name}") for name in BOOT_NODES},
+        "boot_nodes_written": {name: step_ok(steps, f"write-boot-{name}") for name in BOOT_NODES},
         "holder_started": (
             "v615.modem-holder.status=opened" in str(holder.get("payload") or "")
             or qrtr_wait.get("seen") is True
