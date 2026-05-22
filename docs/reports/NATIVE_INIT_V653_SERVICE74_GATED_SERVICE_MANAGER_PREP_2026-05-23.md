@@ -104,7 +104,7 @@ wifi_bringup_executed: False
 
 ## Next Gate
 
-1. Re-arm V641 clean-DSP one-shot and refresh V401/V490 current-boot
-   prerequisites.
-2. Run V653 live proof with Wi-Fi HAL, scan/connect, credentials, DHCP, route
-   changes, and external ping still blocked.
+This prep report is superseded by
+`docs/reports/NATIVE_INIT_V653_SERVICE74_GATED_SERVICE_MANAGER_LIVE_2026-05-23.md`.
+The live proof has been executed; follow the live report's V654 binder/runtime
+mismatch classifier gate.
