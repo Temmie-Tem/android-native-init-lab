@@ -71,6 +71,25 @@ V620 must not:
 8. Produce a next live gate only if it avoids repeating direct DSP boot-node
    warnings.
 
+## Explicit Hypothesis Additions
+
+V620 should record these checks even if the final decision moves away from the
+initial hypothesis:
+
+- `sysmon_esoc0` missing check: Android V612 has `sysmon_esoc0=1`; native V619
+  has `sysmon_esoc0=0`. Compare exact timestamp order against
+  service-notifier `180/74` and WLAN-PD before treating it as causal.
+- `mdm_helper` path check: if raw `esoc0` open is unsafe or unsupported by
+  vendor init, classify whether Android uses `vendor.mdm_helper`,
+  `vendor.mdm_launcher`, properties, or a binary-only ioctl path to move modem
+  state.
+- SM8150/pmaports context check: use Qualcomm mainline/pmaports material only
+  for adjacent QRTR/firmware-service expectations, not as direct proof for this
+  Samsung vendor kernel.
+- Core hypothesis under test: `esoc0` SSCTL absence could block
+  service-notifier publication. V620 must either support it with timing data or
+  explicitly demote it to a later-state delta.
+
 ## Success Criteria
 
 V620 passes if it selects one of these outcomes using existing evidence:

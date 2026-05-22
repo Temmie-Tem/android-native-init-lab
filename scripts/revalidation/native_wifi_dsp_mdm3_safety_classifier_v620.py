@@ -134,6 +134,11 @@ EXTERNAL_REFERENCES = [
         "relevance": "pmaports discusses pd-mapper/tqftpserv dependence on QRTR or kernel QRTR availability.",
     },
     {
+        "title": "Ubuntu tqftpserv package",
+        "url": "https://launchpad.net/ubuntu/+source/tqftpserv",
+        "relevance": "Distribution metadata identifies tqftpserv as a TFTP server for the QRTR protocol.",
+    },
+    {
         "title": "postmarketOS tqftpserv init script",
         "url": "https://gitlab.com/postmarketOS/pmaports/-/raw/master/modem/tqftpserv/tqftpserv.initd",
         "relevance": "tqftpserv is ordered before rmtfs and uses qrtr-ns; useful for companion ordering checks, not esoc0 triggering.",
@@ -467,6 +472,51 @@ def evidence_rows(manifest: dict[str, Any]) -> list[list[str]]:
     ]
 
 
+def requested_hypothesis_rows(manifest: dict[str, Any]) -> list[list[str]]:
+    android = manifest["android_v611"]
+    v619 = manifest["native_v619"]
+    checks = manifest["causality_checks"]
+    return [
+        [
+            "sysmon_esoc0 absence",
+            (
+                f"Android sysmon_esoc0={android['counts'].get('sysmon_esoc0', 0)}; "
+                f"native V619 sysmon_esoc0={v619['counts'].get('sysmon_esoc0', 0)}"
+            ),
+            (
+                f"Android 180->esoc0={android['deltas_ms'].get('service_notifier_180_to_sysmon_esoc0')}ms; "
+                f"Android wlan_pd->esoc0={android['deltas_ms'].get('wlan_pd_to_sysmon_esoc0')}ms"
+            ),
+            "missing native sysmon_esoc0 is confirmed, but Android publishes first notifier before esoc0",
+        ],
+        [
+            "mdm_helper ioctl/property path",
+            (
+                f"init_contract={checks.get('mdm_helper_init_contract_visible')}; "
+                f"raw_esoc_visible={checks.get('static_raw_esoc_path_visible')}; "
+                f"ioctl_hint_visible={checks.get('static_ioctl_hint_visible')}"
+            ),
+            "V614 vendor init exposes launcher/helper/property contract but no raw esoc0/ioctl call site",
+            "same-boot timing and binary/static inspection are required before any mdm_helper start-only proof",
+        ],
+        [
+            "SM8150/pmaports context",
+            "QRTR, pd-mapper, tqftpserv, and rmtfs are adjacent Qualcomm modem/Wi-Fi prerequisites",
+            "mainline packaging is supporting context only",
+            "do not treat pmaports as proof of Samsung vendor-kernel esoc/mdm_helper semantics",
+        ],
+        [
+            "core hypothesis",
+            "esoc0 SSCTL absence blocks service-notifier publication",
+            (
+                f"supported_for_first_notifier={checks.get('hypothesis_esoc0_pre_notifier_supported')}; "
+                f"native_mdm3_offlining={checks.get('native_mdm3_offlining')}"
+            ),
+            "falsified as first-notifier cause; still useful as later-state delta below CNSS/HAL",
+        ],
+    ]
+
+
 def classify(manifest: dict[str, Any]) -> tuple[str, bool, str, str]:
     prior_pass = all(
         bool(manifest["prior"][key].get("pass"))
@@ -683,6 +733,7 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
         "next_step": next_step,
     })
     manifest["evidence_rows"] = evidence_rows(manifest)
+    manifest["requested_hypothesis_rows"] = requested_hypothesis_rows(manifest)
     manifest["inferences"] = {
         "service_notifier_is_kernel_qmi_callback": True,
         "userspace_cnss_daemon_not_primary_trigger": True,
@@ -720,6 +771,13 @@ def render_summary(manifest: dict[str, Any]) -> str:
         "## Evidence Matrix",
         "",
         markdown_table(["subject", "classification", "evidence", "next"], manifest["evidence_rows"]),
+        "",
+        "## Requested Hypothesis Checks",
+        "",
+        markdown_table(
+            ["item", "observation", "timing_or_context", "classification"],
+            manifest["requested_hypothesis_rows"],
+        ),
         "",
         "## Prior Decisions",
         "",

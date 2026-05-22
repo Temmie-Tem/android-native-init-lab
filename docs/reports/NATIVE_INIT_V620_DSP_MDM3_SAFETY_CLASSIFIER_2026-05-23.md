@@ -78,6 +78,15 @@ Native:  sibling sysmon + no service-notifier + mdm3 OFFLINING + no sysmon_esoc0
 | Init-visible raw `esoc0` path | false | raw `esoc0` open is not justified by vendor init evidence |
 | Init-visible `ioctl` hint | false | ioctl path remains a hypothesis requiring binary/behavioral analysis, not a live retry |
 
+## Requested Hypothesis Additions
+
+| item | observation | timing/context | classification |
+| --- | --- | --- | --- |
+| `sysmon_esoc0` absence | Android V612 has `sysmon_esoc0=1`; native V619 has `sysmon_esoc0=0` | Android `180->esoc0=4472.856ms`; Android `wlan_pd->esoc0=2153.42ms` | absence is real, but Android publishes first notifier before `esoc0` |
+| `mdm_helper` ioctl/property path | V614 exposes `vendor.mdm_launcher` and `vendor.mdm_helper` contract | no init-visible raw `esoc0` path and no visible `ioctl` string | same-boot timing and binary/static inspection are required before any start-only proof |
+| SM8150/pmaports context | QRTR, `pd-mapper`, `tqftpserv`, and `rmtfs` remain adjacent Qualcomm prerequisites | mainline packaging helps frame firmware-service ordering only | not direct proof of Samsung vendor-kernel `mdm_helper`/`esoc0` semantics |
+| core hypothesis | `esoc0` SSCTL absence might block service-notifier publication | current Android timing shows service-notifier `180/74` precedes `sysmon_esoc0` | falsified as first-notifier cause; retained only as later-state delta |
+
 ## MDM Helper Path
 
 Static vendor evidence shows:
@@ -108,6 +117,9 @@ decide whether a bounded start-only proof is worth running.
 - pmaports QRTR dependency issue: `pd-mapper`/`tqftpserv` depend on QRTR or
   kernel QRTR availability; this aligns with the lower companion work already
   tested in V619.
+- Ubuntu `tqftpserv` package metadata identifies `tqftpserv` as a TFTP server
+  for the QRTR protocol; this supports treating it as firmware-service context,
+  not an `esoc0` trigger.
 - pmaports `tqftpserv` and `pd-mapper` init scripts confirm the QRTR-centered
   ordering model, but they do not explain the Samsung vendor-kernel
   `mdm3`/`esoc0` transition.
