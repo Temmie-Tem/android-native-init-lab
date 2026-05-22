@@ -51,6 +51,11 @@ The live runner was added and plan-only validation passed. Read-only preflight
 correctly blocks because the current boot still needs a fresh V490 policy-load
 manifest and the device still has the previous helper instead of helper v101.
 
+Serial deploy note: a first `--serial-chunk-size 3000` attempt was rejected
+before writing chunks because cmdv1x line expansion exceeded the native console
+safe line limit. The V603 wrapper default is therefore kept at `1850`, matching
+the prior safe helper deploy path.
+
 ## Interpretation
 
 The V602 comparison means the next live proof must preserve two independent
