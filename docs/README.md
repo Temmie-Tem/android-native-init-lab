@@ -175,6 +175,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V622_ANDROID_MDM_HELPER_TIMING_RECAPTURE_LIVE_2026-05-23.md` – V622 live same-boot Android capture 결과 `service-notifier 180`이 `mdm_launcher`/`mdm_helper`/`cnss_diag`보다 먼저 나타나므로 `mdm_helper` first-trigger 후보를 배제하고 V623 `qmiproxy`/lower QMI publication 분류로 이동
 - `reports/NATIVE_INIT_V622_ANDROID_MDM_HELPER_TIMING_RECAPTURE_PREP_2026-05-23.md` – V622 same-boot Android read-only collector와 rollback handoff wrapper를 추가했고 plan/dry-run은 통과, 현재 native 상태에서는 Android ADB가 없어 live handoff가 다음 단계
 - `reports/NATIVE_INIT_V621_MDM_HELPER_CONTRACT_CLASSIFIER_2026-05-23.md` – V621 host-only 분류 결과 `vendor.mdm_helper`는 실제 Android 서비스 후보지만 현재 boottime과 service-notifier dmesg가 서로 다른 부팅 증거라 V622 same-boot read-only recapture가 필요함
 - `reports/NATIVE_INIT_V620_DSP_MDM3_SAFETY_CLASSIFIER_2026-05-23.md` – V620 host-only 재분류 결과 Android `sysmon_esoc0`은 service-notifier 뒤에 나타나므로 선행조건 가설을 배제하고 `mdm_helper`/launcher ioctl·property 경로를 다음 분석 대상으로 좁힘
