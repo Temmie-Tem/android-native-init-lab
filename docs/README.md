@@ -142,6 +142,7 @@
 - `plans/NATIVE_INIT_V102_DIAGNOSTICS_PLAN_2026-05-03.md` – v102 diagnostics/log bundle 실행 계획
 - `plans/NATIVE_INIT_V103_WIFI_INVENTORY_PLAN_2026-05-04.md` – v103 Wi-Fi read-only inventory 실행 계획
 - `plans/NATIVE_INIT_V104_WIFI_FEASIBILITY_PLAN_2026-05-04.md` – v104 Wi-Fi enablement feasibility gate 실행 계획
+- `plans/NATIVE_INIT_V625_FRESH_V598_REPLAY_PLAN_2026-05-23.md` – V624가 선정한 safe partial positive를 fresh native boot에서 재현해 다음 lower-QMI blocker를 좁히는 V625 계획
 - `plans/NATIVE_INIT_V624_SAFE_POSITIVE_REGRESSION_PLAN_2026-05-23.md` – V598 safe partial positive와 이후 negative replay/unsafe DSP path를 비교해 다음 안전 live gate를 고르는 V624 계획
 - `plans/NATIVE_INIT_V623_LOWER_QMI_PUBLICATION_GAP_PLAN_2026-05-23.md` – V622 이후 `qmiproxy`와 lower QMI publication gap을 host-only로 비교 분류하는 V623 계획
 - `plans/NATIVE_INIT_V622_ANDROID_MDM_HELPER_TIMING_RECAPTURE_PLAN_2026-05-23.md` – V621의 cross-boot `mdm_helper`/service-notifier 타이밍 갭을 Android same-boot read-only capture로 닫는 V622 계획
@@ -177,6 +178,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V625_FRESH_V598_REPLAY_LIVE_2026-05-23.md` – V625 live 결과 fresh boot에서 QRTR RX/TX, modem `sysmon-qmi`, service-notifier `180`이 warning 없이 재현됐지만 WLFW service `69`는 end-of-list라 `74`/WLAN-PD publication gap이 다음 blocker
 - `reports/NATIVE_INIT_V624_SAFE_POSITIVE_REGRESSION_2026-05-23.md` – V624 host-only 분류 결과 V598은 warning-free partial positive지만 V606/V608에서 재현되지 않아, 다음은 새 daemon 추가가 아니라 fresh-boot V598-class replay/observer
 - `reports/NATIVE_INIT_V623_LOWER_QMI_PUBLICATION_GAP_2026-05-23.md` – V623 host-only 분류 결과 `qmiproxy`는 disabled/static 후보일 뿐 Android running 증거가 없어 blind live target에서 제외하고, 다음은 direct DSP boot-node 없이 lower QMI publication을 재현할 안전 경로 분류
 - `reports/NATIVE_INIT_V622_ANDROID_MDM_HELPER_TIMING_RECAPTURE_LIVE_2026-05-23.md` – V622 live same-boot Android capture 결과 `service-notifier 180`이 `mdm_launcher`/`mdm_helper`/`cnss_diag`보다 먼저 나타나므로 `mdm_helper` first-trigger 후보를 배제하고 V623 `qmiproxy`/lower QMI publication 분류로 이동
