@@ -70,6 +70,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--qrtr-rx-timeout-sec", type=float, default=35.0)
     parser.add_argument("--qrtr-rx-poll-sec", type=float, default=2.0)
     parser.add_argument("--cdsp-timeout-sec", type=int, default=v635.DEFAULT_CDSP_TIMEOUT_SEC)
+    parser.add_argument("--proof-id", default=None)
     parser.add_argument("--approval-phrase", default="")
     parser.add_argument("--apply", action="store_true")
     parser.add_argument("--assume-yes", action="store_true")

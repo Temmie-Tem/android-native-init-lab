@@ -189,6 +189,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V636_CDSP_V598_COMPOSITE_LIVE_2026-05-23.md` – V636 live 결과 CDSP-online + V598-class modem-holder/readback 조합에서도 service `180`만 재현되고 service `74`/WLAN-PD/WLFW/BDF/`wlan0`는 없어 lower service `74` publisher dependency가 다음 blocker
 - `reports/NATIVE_INIT_V636_CDSP_V598_COMPOSITE_PREP_2026-05-23.md` – V636 prep 결과 V635 CDSP-online proof와 V598/V625/V627 modem-holder partial-positive를 결합하는 runner가 plan/pass 상태이며, fresh V490 후 preflight/live가 다음 gate
 - `reports/NATIVE_INIT_V635_FIRMWARE_CDSP_ONLY_PROOF_LIVE_2026-05-23.md` – V635 live 결과 firmware mount 상태에서 CDSP write는 timeout 없이 반환되고 CDSP PIL/reset/power-clock까지 진행했지만 `sysmon_cdsp`/service `74`/WLAN-PD/WLFW는 없어 post-CDSP-online gap이 다음 blocker
 - `reports/NATIVE_INIT_V634_FIRMWARE_MOUNT_PARITY_LIVE_2026-05-23.md` – V634 live 결과 `apnhlos -> /vendor/firmware_mnt`, `modem -> /vendor/firmware-modem` read-only mount와 cleanup은 PASS, mount-only QRTR delta는 없어 V635 CDSP-only bounded proof가 다음 gate
