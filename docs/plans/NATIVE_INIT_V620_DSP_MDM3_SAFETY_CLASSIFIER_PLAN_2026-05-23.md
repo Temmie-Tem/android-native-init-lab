@@ -62,11 +62,17 @@ V620 must not:
    contract hints, including `ro.baseband`, Android init `start`, raw `esoc0`
    paths, and any visible `ioctl` hints. Absence of an init-visible raw/ioctl
    path means a live raw `esoc0` retry is not justified.
-7. Cross-check adjacent postmarketOS Qualcomm references only as supporting
+7. Cross-check adjacent postmarketOS/Qualcomm references only as supporting
    context:
-   - `tqftpserv` and `pd-mapper` depend on QRTR ordering and firmware service
-     availability;
-   - SM8150 mainline packaging can guide kernel/DT expectations, but it is not
+   - SDM845 notes describe `rmtfs`, `pd-mapper`, and `tqftpserv` as required
+     firmware/modem communication services for Wi-Fi firmware loading;
+   - Debian/Fedora package metadata describes `tqftpserv` as a TFTP server over
+     QRTR/AF_QIPCRTR for remote processors;
+   - Debian `pd-mapper` ITP describes it as the Qualcomm Protection Domain
+     mapper service that lets userspace access Wi-Fi/modem/sensor remote
+     processors over QRTR;
+   - pmaports QRTR dependency discussions and SM8150/SM8250 package history can
+     guide QRTR/mainline service-order expectations, but they are not direct
      evidence for Samsung vendor-kernel `mdm_helper`/`esoc0` semantics.
 8. Produce a next live gate only if it avoids repeating direct DSP boot-node
    warnings.
@@ -89,6 +95,14 @@ initial hypothesis:
 - Core hypothesis under test: `esoc0` SSCTL absence could block
   service-notifier publication. V620 must either support it with timing data or
   explicitly demote it to a later-state delta.
+
+## Reference Scope
+
+External references are background only. They may justify why QRTR,
+`pd-mapper`, `tqftpserv`, and firmware-service ordering are worth checking, but
+they must not override device-local Android/native timing evidence. A live
+native gate still requires repo evidence that the target action is bounded,
+cleanup-safe, and does not start CNSS/HAL or Wi-Fi bring-up prematurely.
 
 ## Success Criteria
 

@@ -112,20 +112,40 @@ decide whether a bounded start-only proof is worth running.
 
 ## External References
 
-- postmarketOS SDM845 Wi-Fi notes: adjacent Qualcomm platforms require
-  `rmtfs`, `pd-mapper`, and `tqftpserv` for Wi-Fi firmware loading.
-- pmaports QRTR dependency issue: `pd-mapper`/`tqftpserv` depend on QRTR or
-  kernel QRTR availability; this aligns with the lower companion work already
-  tested in V619.
-- Ubuntu `tqftpserv` package metadata identifies `tqftpserv` as a TFTP server
-  for the QRTR protocol; this supports treating it as firmware-service context,
-  not an `esoc0` trigger.
-- pmaports `tqftpserv` and `pd-mapper` init scripts confirm the QRTR-centered
-  ordering model, but they do not explain the Samsung vendor-kernel
-  `mdm3`/`esoc0` transition.
-- postmarketOS SM8150 packaging confirms adjacent mainline kernel work exists,
-  but it does not expose a vendor-kernel `mdm_helper`/`esoc0` recipe for this
-  path.
+These references are supporting context only; the V620 decision remains based
+on repo-local Android/native timing evidence.
+
+- postmarketOS SDM845 Wi-Fi notes:
+  `https://wiki.postmarketos.org/wiki/SDM845_Mainlining`
+  - public mirror/search snippets describe `rmtfs`, `pd-mapper`, and
+    `tqftpserv` as required services for modem communication and Wi-Fi firmware
+    loading on adjacent Qualcomm platforms.
+- Debian `tqftpserv` package:
+  `https://packages.debian.org/bookworm/tqftpserv`
+  - describes `tqftpserv` as a TFTP server over QRTR for communication with
+    remote processors such as Wi-Fi, modem, and sensors.
+- Fedora `tqftpserv` package:
+  `https://packages.fedoraproject.org/pkgs/tqftpserv/tqftpserv/`
+  - identifies the AF_QIPCRTR transport and upstream
+    `https://github.com/linux-msm/tqftpserv`.
+- Debian `pd-mapper` ITP:
+  `https://groups.google.com/g/linux.debian.devel/c/gZWi4_ca9yw`
+  - describes `pd-mapper` as the Qualcomm Protection Domain mapper service for
+    userspace access to Wi-Fi/modem/sensor remote processors over QRTR.
+- pmaports QRTR dependency issue:
+  `https://gitlab.com/postmarketOS/pmaports/-/issues/863`
+  - frames `pd-mapper`/`tqftpserv` as QRTR-adjacent services and notes that
+    mainline kernels may provide QRTR in-kernel.
+- pmaports SM8150/SM8250 history:
+  `https://gitlab.com/postmarketOS/pmaports/-/merge_requests/3019`
+  and `https://gitlab.com/postmarketOS/pmaports/-/merge_requests/5608`
+  - confirms adjacent mainline Qualcomm work and evolving service packaging,
+    but does not provide a direct Samsung vendor-kernel
+    `mdm_helper`/`esoc0` recipe.
+
+The external material therefore supports the QRTR/firmware-service framing, but
+it does not justify raw `esoc0` access or a live `mdm_helper` start without
+device-local proof.
 
 ## Next Gate
 

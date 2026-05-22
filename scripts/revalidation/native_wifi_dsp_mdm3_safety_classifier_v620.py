@@ -125,33 +125,38 @@ FORBIDDEN_ACTIONS = [
 EXTERNAL_REFERENCES = [
     {
         "title": "postmarketOS SDM845 Wi-Fi notes",
-        "url": "https://wiki.postmarketos.org/wiki/Qualcomm_Snapdragon_845/850_%28SDM845/SDM850%29",
-        "relevance": "Adjacent Qualcomm Wi-Fi notes list rmtfs, pd-mapper, and tqftpserv as firmware-loading prerequisites.",
+        "url": "https://wiki.postmarketos.org/wiki/SDM845_Mainlining",
+        "relevance": "Adjacent Qualcomm Wi-Fi notes frame rmtfs, pd-mapper, and tqftpserv as modem communication and Wi-Fi firmware-loading services.",
+    },
+    {
+        "title": "Debian tqftpserv package",
+        "url": "https://packages.debian.org/bookworm/tqftpserv",
+        "relevance": "Describes tqftpserv as a TFTP server over QRTR for remote processors such as Wi-Fi, modem, and sensors.",
+    },
+    {
+        "title": "Fedora tqftpserv package",
+        "url": "https://packages.fedoraproject.org/pkgs/tqftpserv/tqftpserv/",
+        "relevance": "Identifies tqftpserv as AF_QIPCRTR transport code and links the linux-msm upstream.",
+    },
+    {
+        "title": "Debian pd-mapper ITP",
+        "url": "https://groups.google.com/g/linux.debian.devel/c/gZWi4_ca9yw",
+        "relevance": "Describes pd-mapper as the Qualcomm Protection Domain mapper for userspace access to Wi-Fi/modem/sensor remote processors over QRTR.",
     },
     {
         "title": "pmaports QRTR dependency issue",
         "url": "https://gitlab.com/postmarketOS/pmaports/-/issues/863",
-        "relevance": "pmaports discusses pd-mapper/tqftpserv dependence on QRTR or kernel QRTR availability.",
+        "relevance": "Frames pd-mapper/tqftpserv as QRTR-adjacent services and notes that mainline kernels may provide QRTR in-kernel.",
     },
     {
-        "title": "Ubuntu tqftpserv package",
-        "url": "https://launchpad.net/ubuntu/+source/tqftpserv",
-        "relevance": "Distribution metadata identifies tqftpserv as a TFTP server for the QRTR protocol.",
+        "title": "pmaports SM8150 kernel package history",
+        "url": "https://gitlab.com/postmarketOS/pmaports/-/merge_requests/3019",
+        "relevance": "Confirms adjacent SM8150 mainline kernel work exists, but does not provide a Samsung vendor-kernel mdm_helper/esoc recipe.",
     },
     {
-        "title": "postmarketOS tqftpserv init script",
-        "url": "https://gitlab.com/postmarketOS/pmaports/-/raw/master/modem/tqftpserv/tqftpserv.initd",
-        "relevance": "tqftpserv is ordered before rmtfs and uses qrtr-ns; useful for companion ordering checks, not esoc0 triggering.",
-    },
-    {
-        "title": "postmarketOS pd-mapper init script",
-        "url": "https://gitlab.com/postmarketOS/pmaports/-/raw/master/modem/pd-mapper/pd-mapper.initd",
-        "relevance": "pd-mapper wants qrtr-ns; aligns with native lower companion sequencing already tested.",
-    },
-    {
-        "title": "postmarketOS SM8150 kernel package",
-        "url": "https://pkgs.postmarketos.org/package/master/postmarketos/aarch64/linux-postmarketos-qcom-sm8150",
-        "relevance": "SM8150 mainline package confirms adjacent platform work exists, but does not provide a vendor-kernel mdm_helper/esoc recipe.",
+        "title": "pmaports SM8250 service packaging history",
+        "url": "https://gitlab.com/postmarketOS/pmaports/-/merge_requests/5608",
+        "relevance": "Shows adjacent Qualcomm service packaging changes; useful context, not direct proof for this vendor kernel.",
     },
 ]
 
@@ -834,10 +839,14 @@ def render_summary(manifest: dict[str, Any]) -> str:
         "",
         "## External References",
         "",
+        "These references are supporting context only; V620 decisions remain based on repo-local Android/native timing evidence.",
+        "",
         markdown_table(
             ["title", "url", "relevance"],
             [[item["title"], item["url"], item["relevance"]] for item in manifest["external_references"]],
         ),
+        "",
+        "They support the QRTR/firmware-service framing, but they do not justify raw `esoc0` access or a live `mdm_helper` start without device-local proof.",
         "",
         "## Guardrails",
         "",
