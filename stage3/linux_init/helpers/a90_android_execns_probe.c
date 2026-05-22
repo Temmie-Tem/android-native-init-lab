@@ -76,7 +76,7 @@
 #define AF_QIPCRTR 42
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v102"
+#define EXECNS_VERSION "a90_android_execns_probe v103"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -301,7 +301,7 @@ static void usage(FILE *out) {
             "[--connect-config /cache/a90-wifi/...] "
             "[--connect-iface auto|wlan0] "
             "[--ping-target 1.1.1.1] "
-            "--mode linker-list|identity-probe|sepolicy-inventory|sepolicy-compile-proof|sepolicy-load-proof|selinux-domain-proof|cnss-start-only|cnss-userspace-readiness|wifi-companion-start-only|wifi-companion-service-manager-start-only|wifi-companion-vnd-service-manager-start-only|wifi-companion-qrtr-first-vnd-service-manager-start-only|wifi-companion-cnss-first-delayed-vnd-service-manager-start-only|wifi-companion-hal-order-start-only|wifi-companion-hal-wificond-order-start-only|wifi-companion-hal-wificond-lshal-wait-samsung|wifi-companion-hal-wificond-lshal-wait-iwifi|wifi-companion-dual-hal-wificond-lshal-wait-iwifi|wifi-companion-dual-hal-wificond-iwifi-start|wifi-companion-dual-hal-wificond-lshal-then-iwifi-start|rmt-storage-start-only|property-lookup|service-manager-start-only|private-selinux-proof|wifi-hal-lshal-vintf-status-list|wifi-hal-composite-start-only|wifi-hal-composite-lshal-list|wifi-hal-composite-lshal-binderized-list|wifi-hal-composite-lshal-wait-target|wifi-surface-composite-lshal-wait-iwifi|wifi-surface-composite-lshal-wait-samsung|wifi-surface-composite-lshal-wait-samsung-ptrace|wifi-hal-composite-lshal-status-list|wifi-hal-composite-lshal-binderized-status-list|wifi-surface-composite-start-only|wifi-dual-hal-lshal-wait-iwifi|wifi-dual-hal-iwifi-start-surface|wifi-iwifi-start-surface|wifi-active-session-surface|wifi-active-session-scan-only|wifi-active-session-connect-ping|wifi-connect-tool-surface|subsys-hold-open-proof "
+            "--mode linker-list|identity-probe|sepolicy-inventory|sepolicy-compile-proof|sepolicy-load-proof|selinux-domain-proof|cnss-start-only|cnss-userspace-readiness|wifi-companion-start-only|wifi-companion-post-sysmon-observer-start-only|wifi-companion-service-manager-start-only|wifi-companion-vnd-service-manager-start-only|wifi-companion-qrtr-first-vnd-service-manager-start-only|wifi-companion-cnss-first-delayed-vnd-service-manager-start-only|wifi-companion-hal-order-start-only|wifi-companion-hal-wificond-order-start-only|wifi-companion-hal-wificond-lshal-wait-samsung|wifi-companion-hal-wificond-lshal-wait-iwifi|wifi-companion-dual-hal-wificond-lshal-wait-iwifi|wifi-companion-dual-hal-wificond-iwifi-start|wifi-companion-dual-hal-wificond-lshal-then-iwifi-start|rmt-storage-start-only|property-lookup|service-manager-start-only|private-selinux-proof|wifi-hal-lshal-vintf-status-list|wifi-hal-composite-start-only|wifi-hal-composite-lshal-list|wifi-hal-composite-lshal-binderized-list|wifi-hal-composite-lshal-wait-target|wifi-surface-composite-lshal-wait-iwifi|wifi-surface-composite-lshal-wait-samsung|wifi-surface-composite-lshal-wait-samsung-ptrace|wifi-hal-composite-lshal-status-list|wifi-hal-composite-lshal-binderized-status-list|wifi-surface-composite-start-only|wifi-dual-hal-lshal-wait-iwifi|wifi-dual-hal-iwifi-start-surface|wifi-iwifi-start-surface|wifi-active-session-surface|wifi-active-session-scan-only|wifi-active-session-connect-ping|wifi-connect-tool-surface|subsys-hold-open-proof "
             "[v27 binderized query runs: /system/bin/lshal list --types=binderized --neat] "
             "[v28 target query runs: /system/bin/lshal wait <fqinstance>] "
             "[v29 status query runs: /system/bin/lshal list --types=binderized,vintf --neat -V -S -i -p -e -c] "
@@ -385,6 +385,10 @@ static bool is_wifi_companion_start_only_mode(const char *mode) {
     return streq(mode, "wifi-companion-start-only");
 }
 
+static bool is_wifi_companion_post_sysmon_observer_start_only_mode(const char *mode) {
+    return streq(mode, "wifi-companion-post-sysmon-observer-start-only");
+}
+
 static bool is_wifi_companion_service_manager_start_only_mode(const char *mode) {
     return streq(mode, "wifi-companion-service-manager-start-only");
 }
@@ -410,6 +414,7 @@ static bool is_wifi_companion_with_service_manager_start_only_mode(const char *m
 
 static bool is_wifi_companion_any_start_only_mode(const char *mode) {
     return is_wifi_companion_start_only_mode(mode) ||
+           is_wifi_companion_post_sysmon_observer_start_only_mode(mode) ||
            is_wifi_companion_with_service_manager_start_only_mode(mode);
 }
 
@@ -1097,6 +1102,8 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
         return 2;
     }
     if (is_wifi_companion_any_start_only_mode(cfg->mode)) {
+        const bool post_sysmon_observer =
+            is_wifi_companion_post_sysmon_observer_start_only_mode(cfg->mode);
         const bool with_service_manager =
             is_wifi_companion_with_service_manager_start_only_mode(cfg->mode);
 
@@ -1109,8 +1116,14 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             fprintf(stderr, "--capture-mode must be none or ptrace-lite for Wi-Fi companion modes\n");
             return 2;
         }
-        if (!cfg->allow_wifi_companion_start_only || !cfg->allow_cnss_start_only) {
-            fprintf(stderr, "Wi-Fi companion modes require --allow-wifi-companion-start-only and --allow-cnss-start-only\n");
+        if (!cfg->allow_wifi_companion_start_only ||
+            (!post_sysmon_observer && !cfg->allow_cnss_start_only)) {
+            fprintf(stderr, "Wi-Fi companion modes require --allow-wifi-companion-start-only%s\n",
+                    post_sysmon_observer ? "" : " and --allow-cnss-start-only");
+            return 2;
+        }
+        if (post_sysmon_observer && cfg->allow_cnss_start_only) {
+            fprintf(stderr, "wifi-companion-post-sysmon-observer-start-only must not use --allow-cnss-start-only\n");
             return 2;
         }
         if (with_service_manager && !cfg->allow_service_manager_start_only) {
@@ -13586,6 +13599,8 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
         is_wifi_companion_qrtr_first_vnd_service_manager_start_only_mode(cfg->mode);
     const bool cnss_first_delayed_service_manager =
         is_wifi_companion_cnss_first_delayed_vnd_service_manager_start_only_mode(cfg->mode);
+    const bool post_sysmon_observer =
+        is_wifi_companion_post_sysmon_observer_start_only_mode(cfg->mode);
     const bool with_service_manager =
         is_wifi_companion_with_service_manager_start_only_mode(cfg->mode);
     const bool with_vnd_service_manager =
@@ -13651,14 +13666,16 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
                              "/vendor/bin/vndservicemanager",
                              COMPOSITE_ID_VND_SERVICE_MANAGER);
     }
-    composite_child_init(&children[child_count++],
-                         "cnss_diag",
-                         "/vendor/bin/cnss_diag",
-                         COMPOSITE_ID_CNSS_DIAG);
-    composite_child_init(&children[child_count++],
-                         "cnss_daemon",
-                         "/vendor/bin/cnss-daemon",
-                         COMPOSITE_ID_CNSS);
+    if (!post_sysmon_observer) {
+        composite_child_init(&children[child_count++],
+                             "cnss_diag",
+                             "/vendor/bin/cnss_diag",
+                             COMPOSITE_ID_CNSS_DIAG);
+        composite_child_init(&children[child_count++],
+                             "cnss_daemon",
+                             "/vendor/bin/cnss-daemon",
+                             COMPOSITE_ID_CNSS);
+    }
     if (cnss_first_delayed_service_manager) {
         composite_child_init(&children[child_count++],
                              "servicemanager",
@@ -13673,7 +13690,9 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
                              "/vendor/bin/vndservicemanager",
                              COMPOSITE_ID_VND_SERVICE_MANAGER);
     }
-    order = qrtr_first_service_manager
+    order = post_sysmon_observer
+                ? "qrtr_ns,rmt_storage,tftp_server,pd_mapper"
+                : (qrtr_first_service_manager
                 ? "qrtr_ns,rmt_storage,tftp_server,pd_mapper,servicemanager,hwservicemanager,vndservicemanager,cnss_diag,cnss_daemon"
                 : (cnss_first_delayed_service_manager
                        ? "qrtr_ns,rmt_storage,tftp_server,pd_mapper,cnss_diag,cnss_daemon,servicemanager,hwservicemanager,vndservicemanager"
@@ -13681,7 +13700,7 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
                               ? (with_vnd_service_manager
                                      ? "servicemanager,hwservicemanager,vndservicemanager,qrtr_ns,rmt_storage,tftp_server,pd_mapper,cnss_diag,cnss_daemon"
                                      : "servicemanager,hwservicemanager,qrtr_ns,rmt_storage,tftp_server,pd_mapper,cnss_diag,cnss_daemon")
-                              : "qrtr_ns,rmt_storage,tftp_server,pd_mapper,cnss_diag,cnss_daemon"));
+                              : "qrtr_ns,rmt_storage,tftp_server,pd_mapper,cnss_diag,cnss_daemon")));
 
     if (append_literal(stdout_buf, "wifi_companion_start.begin=1\n") < 0 ||
         append_literal(stdout_buf, "wifi_companion_start.mode=guarded\n") < 0 ||
@@ -13723,7 +13742,7 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
         return -1;
     }
     if (!cfg->allow_wifi_companion_start_only ||
-        !cfg->allow_cnss_start_only ||
+        (!post_sysmon_observer && !cfg->allow_cnss_start_only) ||
         (with_service_manager && !cfg->allow_service_manager_start_only)) {
         if (append_format(stdout_buf,
                           "wifi_companion_start.allowed=0\n"

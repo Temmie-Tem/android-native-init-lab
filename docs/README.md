@@ -164,6 +164,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V609_POST_SYSMON_OBSERVER_PREP_2026-05-23.md` – helper v103에 CNSS 없는 post-sysmon observer mode를 추가하고 runner/deploy preflight를 검증해 V609 live 준비 완료
 - `reports/NATIVE_INIT_V608_HELPER_V100_BASELINE_REPLAY_2026-05-23.md` – helper v100 재배포 후 V598 baseline을 재생해도 `service-notifier` `180`이 복구되지 않아 lower modem QMI publication 안정성/전제조건 갭으로 재분류
 - `reports/NATIVE_INIT_V607_QMI_SERVICE_PUBLICATION_DELTA_2026-05-23.md` – V598/V606 비교에서 lower readiness/order/readback/timing은 같고 helper marker만 v100→v102로 바뀐 상태에서 `service-notifier` `180`이 소실되어 helper v100 replay를 다음 gate로 선정
 - `reports/NATIVE_INIT_V606_V102_BASELINE_REPLAY_2026-05-23.md` – current helper v102로 V598 no-service-manager baseline을 재생했지만 `service-notifier` `180`이 재현되지 않아 lower QMI service-publication 갭으로 분류
