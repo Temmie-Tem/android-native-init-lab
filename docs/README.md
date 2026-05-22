@@ -142,6 +142,7 @@
 - `plans/NATIVE_INIT_V102_DIAGNOSTICS_PLAN_2026-05-03.md` – v102 diagnostics/log bundle 실행 계획
 - `plans/NATIVE_INIT_V103_WIFI_INVENTORY_PLAN_2026-05-04.md` – v103 Wi-Fi read-only inventory 실행 계획
 - `plans/NATIVE_INIT_V104_WIFI_FEASIBILITY_PLAN_2026-05-04.md` – v104 Wi-Fi enablement feasibility gate 실행 계획
+- `plans/NATIVE_INIT_V624_SAFE_POSITIVE_REGRESSION_PLAN_2026-05-23.md` – V598 safe partial positive와 이후 negative replay/unsafe DSP path를 비교해 다음 안전 live gate를 고르는 V624 계획
 - `plans/NATIVE_INIT_V623_LOWER_QMI_PUBLICATION_GAP_PLAN_2026-05-23.md` – V622 이후 `qmiproxy`와 lower QMI publication gap을 host-only로 비교 분류하는 V623 계획
 - `plans/NATIVE_INIT_V622_ANDROID_MDM_HELPER_TIMING_RECAPTURE_PLAN_2026-05-23.md` – V621의 cross-boot `mdm_helper`/service-notifier 타이밍 갭을 Android same-boot read-only capture로 닫는 V622 계획
 - `plans/NATIVE_INIT_V621_MDM_HELPER_CONTRACT_CLASSIFIER_PLAN_2026-05-23.md` – V620 이후 `vendor.mdm_helper`/`vendor.mdm_launcher` Android init 계약과 같은 부팅 타이밍 필요성을 host-only로 분류하는 V621 계획
@@ -176,6 +177,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V624_SAFE_POSITIVE_REGRESSION_2026-05-23.md` – V624 host-only 분류 결과 V598은 warning-free partial positive지만 V606/V608에서 재현되지 않아, 다음은 새 daemon 추가가 아니라 fresh-boot V598-class replay/observer
 - `reports/NATIVE_INIT_V623_LOWER_QMI_PUBLICATION_GAP_2026-05-23.md` – V623 host-only 분류 결과 `qmiproxy`는 disabled/static 후보일 뿐 Android running 증거가 없어 blind live target에서 제외하고, 다음은 direct DSP boot-node 없이 lower QMI publication을 재현할 안전 경로 분류
 - `reports/NATIVE_INIT_V622_ANDROID_MDM_HELPER_TIMING_RECAPTURE_LIVE_2026-05-23.md` – V622 live same-boot Android capture 결과 `service-notifier 180`이 `mdm_launcher`/`mdm_helper`/`cnss_diag`보다 먼저 나타나므로 `mdm_helper` first-trigger 후보를 배제하고 V623 `qmiproxy`/lower QMI publication 분류로 이동
 - `reports/NATIVE_INIT_V622_ANDROID_MDM_HELPER_TIMING_RECAPTURE_PREP_2026-05-23.md` – V622 same-boot Android read-only collector와 rollback handoff wrapper를 추가했고 plan/dry-run은 통과, 현재 native 상태에서는 Android ADB가 없어 live handoff가 다음 단계
