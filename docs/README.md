@@ -161,6 +161,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V605_SERVICE_NOTIFIER_TIMING_CLASSIFIER_2026-05-22.md` – V598의 service-notifier `180`은 CNSS보다 먼저 떴고 V604b는 더 긴 pre-CNSS window에도 안 떠서 다음 후보를 v102 no-service-manager baseline replay로 좁힘
 - `reports/NATIVE_INIT_V604_CNSS_FIRST_SERVICE_MANAGER_LIVE_2026-05-22.md` – CNSS-first delayed service-manager live proof에서도 service-notifier `180`은 없고 binder transaction failure 3회가 확인되어 V598/V604 timing classifier가 다음 후보로 분류됨
 - `reports/NATIVE_INIT_V604_CNSS_FIRST_SERVICE_MANAGER_PREP_2026-05-22.md` – helper v102에 CNSS-first delayed service-manager 모드를 추가하고 deploy/live runner plan-only 검증을 완료
 - `reports/NATIVE_INIT_V603_QRTR_FIRST_SERVICE_MANAGER_LIVE_2026-05-22.md` – QRTR-first service-manager live proof에서 binder failure는 0으로 유지됐지만 service-notifier `180`이 재소실되어 delayed-CNSS/order 조정이 다음 후보로 분류됨
