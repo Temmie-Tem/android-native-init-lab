@@ -142,6 +142,7 @@
 - `plans/NATIVE_INIT_V102_DIAGNOSTICS_PLAN_2026-05-03.md` – v102 diagnostics/log bundle 실행 계획
 - `plans/NATIVE_INIT_V103_WIFI_INVENTORY_PLAN_2026-05-04.md` – v103 Wi-Fi read-only inventory 실행 계획
 - `plans/NATIVE_INIT_V104_WIFI_FEASIBILITY_PLAN_2026-05-04.md` – v104 Wi-Fi enablement feasibility gate 실행 계획
+- `plans/NATIVE_INIT_V603_QRTR_FIRST_SERVICE_MANAGER_PROOF_PLAN_2026-05-22.md` – V602 ordering gap을 검증하기 위해 QRTR/modem companion을 먼저 시작하고 service-manager를 뒤에 붙이는 helper v101 계획
 - `plans/NATIVE_INIT_V602_SERVICE_MANAGER_ORDERING_GAP_PLAN_2026-05-22.md` – V598/V601을 비교해 service-manager ordering/timing gap을 host-only로 분류하는 계획
 - `plans/NATIVE_INIT_V601_SERVICE_MANAGER_BINDER_PROOF_PLAN_2026-05-22.md` – V600 이후 `cnss-daemon` binder/runtime gap을 service-manager 포함 modem-holder companion window로 검증하는 계획
 - `plans/NATIVE_INIT_V600_REGISTRY_CNSS_MATRIX_PLAN_2026-05-22.md` – V598/V599 증거에서 service-registry와 CNSS runtime gap을 host-only matrix로 분류하는 계획
@@ -159,6 +160,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V603_QRTR_FIRST_SERVICE_MANAGER_PREP_2026-05-22.md` – helper v101에 `wifi-companion-qrtr-first-vnd-service-manager-start-only` 모드를 추가해 service-notifier `180` 보존과 binder clean을 함께 검증할 준비를 완료
 - `reports/NATIVE_INIT_V602_SERVICE_MANAGER_ORDERING_GAP_2026-05-22.md` – V598은 service-notifier `180`까지 도달하지만 binder transaction failure가 있고, V601은 binder failure를 해소하지만 service-notifier `180`을 잃어 다음 live gate를 qrtr-first/delayed service-manager로 좁힘
 - `reports/NATIVE_INIT_V601_SERVICE_MANAGER_BINDER_PROOF_2026-05-22.md` – service-manager 포함 modem-holder companion window에서 binder transaction failure는 해소됐지만 WLFW service `69`/service-notifier `74`/WLAN-PD는 여전히 미등록
 - `reports/NATIVE_INIT_V600_REGISTRY_CNSS_MATRIX_2026-05-22.md` – native는 QRTR TX/`sysmon-qmi`/service-notifier `180`/CNSS netlink까지 도달하지만 `cnss-daemon` binder `-22` 반복으로 `wlfw_start` 전에 멈춤
