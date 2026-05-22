@@ -76,7 +76,7 @@
 #define AF_QIPCRTR 42
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v98"
+#define EXECNS_VERSION "a90_android_execns_probe v99"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -8365,10 +8365,25 @@ static int append_wifi_window_surface_capture(struct buffer *buf, const char *ph
     bool dev_filtered_captured = false;
     bool msm_subsys_captured = false;
     bool rpmsg_captured = false;
+    bool rpmsg_drivers_captured = false;
+    bool rpmsg_autoprobe_captured = false;
     bool remoteproc_captured = false;
     bool service_notifier_captured = false;
     bool mdm3_captured = false;
     bool mss_captured = false;
+    bool mss_subsys0_uevent_captured = false;
+    bool mss_subsys0_name_captured = false;
+    bool mss_subsys0_state_captured = false;
+    bool mss_subsys0_restart_level_captured = false;
+    bool mss_subsys0_firmware_name_captured = false;
+    bool mss_subsys0_crash_count_captured = false;
+    bool mdm3_subsys9_uevent_captured = false;
+    bool mdm3_subsys9_name_captured = false;
+    bool mdm3_subsys9_state_captured = false;
+    bool mdm3_subsys9_restart_level_captured = false;
+    bool mdm3_subsys9_firmware_name_captured = false;
+    bool mdm3_subsys9_crash_count_captured = false;
+    int subsys_value_captures = 0;
 
     if (append_format(buf, "wifi_companion_start.surface_%s.begin=1\n", phase) < 0 ||
         append_path_file_capture_named(buf,
@@ -8395,6 +8410,17 @@ static int append_wifi_window_surface_capture(struct buffer *buf, const char *ph
                                  128,
                                  &rpmsg_captured) < 0 ||
         append_dir_capture_named(buf,
+                                 "/sys/bus/rpmsg/drivers",
+                                 "wifi_window_rpmsg_drivers",
+                                 false,
+                                 128,
+                                 &rpmsg_drivers_captured) < 0 ||
+        append_path_file_capture_named(buf,
+                                       "/sys/bus/rpmsg/drivers_autoprobe",
+                                       "wifi_window_rpmsg_drivers_autoprobe",
+                                       1024,
+                                       &rpmsg_autoprobe_captured) < 0 ||
+        append_dir_capture_named(buf,
                                  "/sys/class/remoteproc",
                                  "wifi_window_remoteproc",
                                  false,
@@ -8418,15 +8444,94 @@ static int append_wifi_window_surface_capture(struct buffer *buf, const char *ph
                                  false,
                                  96,
                                  &mss_captured) < 0 ||
-        append_format(buf,
+        append_path_file_capture_named(buf,
+                                       "/sys/devices/platform/soc/4080000.qcom,mss/subsys0/uevent",
+                                       "wifi_window_soc_mss_subsys0_uevent",
+                                       2048,
+                                       &mss_subsys0_uevent_captured) < 0 ||
+        append_path_file_capture_named(buf,
+                                       "/sys/devices/platform/soc/4080000.qcom,mss/subsys0/name",
+                                       "wifi_window_soc_mss_subsys0_name",
+                                       1024,
+                                       &mss_subsys0_name_captured) < 0 ||
+        append_path_file_capture_named(buf,
+                                       "/sys/devices/platform/soc/4080000.qcom,mss/subsys0/state",
+                                       "wifi_window_soc_mss_subsys0_state",
+                                       1024,
+                                       &mss_subsys0_state_captured) < 0 ||
+        append_path_file_capture_named(buf,
+                                       "/sys/devices/platform/soc/4080000.qcom,mss/subsys0/restart_level",
+                                       "wifi_window_soc_mss_subsys0_restart_level",
+                                       1024,
+                                       &mss_subsys0_restart_level_captured) < 0 ||
+        append_path_file_capture_named(buf,
+                                       "/sys/devices/platform/soc/4080000.qcom,mss/subsys0/firmware_name",
+                                       "wifi_window_soc_mss_subsys0_firmware_name",
+                                       1024,
+                                       &mss_subsys0_firmware_name_captured) < 0 ||
+        append_path_file_capture_named(buf,
+                                       "/sys/devices/platform/soc/4080000.qcom,mss/subsys0/crash_count",
+                                       "wifi_window_soc_mss_subsys0_crash_count",
+                                       1024,
+                                       &mss_subsys0_crash_count_captured) < 0 ||
+        append_path_file_capture_named(buf,
+                                       "/sys/devices/platform/soc/soc:qcom,mdm3/subsys9/uevent",
+                                       "wifi_window_soc_mdm3_subsys9_uevent",
+                                       2048,
+                                       &mdm3_subsys9_uevent_captured) < 0 ||
+        append_path_file_capture_named(buf,
+                                       "/sys/devices/platform/soc/soc:qcom,mdm3/subsys9/name",
+                                       "wifi_window_soc_mdm3_subsys9_name",
+                                       1024,
+                                       &mdm3_subsys9_name_captured) < 0 ||
+        append_path_file_capture_named(buf,
+                                       "/sys/devices/platform/soc/soc:qcom,mdm3/subsys9/state",
+                                       "wifi_window_soc_mdm3_subsys9_state",
+                                       1024,
+                                       &mdm3_subsys9_state_captured) < 0 ||
+        append_path_file_capture_named(buf,
+                                       "/sys/devices/platform/soc/soc:qcom,mdm3/subsys9/restart_level",
+                                       "wifi_window_soc_mdm3_subsys9_restart_level",
+                                       1024,
+                                       &mdm3_subsys9_restart_level_captured) < 0 ||
+        append_path_file_capture_named(buf,
+                                       "/sys/devices/platform/soc/soc:qcom,mdm3/subsys9/firmware_name",
+                                       "wifi_window_soc_mdm3_subsys9_firmware_name",
+                                       1024,
+                                       &mdm3_subsys9_firmware_name_captured) < 0 ||
+        append_path_file_capture_named(buf,
+                                       "/sys/devices/platform/soc/soc:qcom,mdm3/subsys9/crash_count",
+                                       "wifi_window_soc_mdm3_subsys9_crash_count",
+                                       1024,
+                                       &mdm3_subsys9_crash_count_captured) < 0) {
+        return -1;
+    }
+    subsys_value_captures += mss_subsys0_uevent_captured ? 1 : 0;
+    subsys_value_captures += mss_subsys0_name_captured ? 1 : 0;
+    subsys_value_captures += mss_subsys0_state_captured ? 1 : 0;
+    subsys_value_captures += mss_subsys0_restart_level_captured ? 1 : 0;
+    subsys_value_captures += mss_subsys0_firmware_name_captured ? 1 : 0;
+    subsys_value_captures += mss_subsys0_crash_count_captured ? 1 : 0;
+    subsys_value_captures += mdm3_subsys9_uevent_captured ? 1 : 0;
+    subsys_value_captures += mdm3_subsys9_name_captured ? 1 : 0;
+    subsys_value_captures += mdm3_subsys9_state_captured ? 1 : 0;
+    subsys_value_captures += mdm3_subsys9_restart_level_captured ? 1 : 0;
+    subsys_value_captures += mdm3_subsys9_firmware_name_captured ? 1 : 0;
+    subsys_value_captures += mdm3_subsys9_crash_count_captured ? 1 : 0;
+    if (append_format(buf,
                       "wifi_companion_start.surface_%s.proc_qrtr_captured=%d\n"
                       "wifi_companion_start.surface_%s.dev_filtered_captured=%d\n"
                       "wifi_companion_start.surface_%s.msm_subsys_captured=%d\n"
                       "wifi_companion_start.surface_%s.rpmsg_captured=%d\n"
+                      "wifi_companion_start.surface_%s.rpmsg_drivers_captured=%d\n"
+                      "wifi_companion_start.surface_%s.rpmsg_autoprobe_captured=%d\n"
                       "wifi_companion_start.surface_%s.remoteproc_captured=%d\n"
                       "wifi_companion_start.surface_%s.service_notifier_captured=%d\n"
                       "wifi_companion_start.surface_%s.mdm3_captured=%d\n"
                       "wifi_companion_start.surface_%s.mss_captured=%d\n"
+                      "wifi_companion_start.surface_%s.mss_subsys0_state_captured=%d\n"
+                      "wifi_companion_start.surface_%s.mdm3_subsys9_state_captured=%d\n"
+                      "wifi_companion_start.surface_%s.subsys_value_captures=%d\n"
                       "wifi_companion_start.surface_%s.end=1\n",
                       phase,
                       proc_qrtr_captured ? 1 : 0,
@@ -8437,6 +8542,10 @@ static int append_wifi_window_surface_capture(struct buffer *buf, const char *ph
                       phase,
                       rpmsg_captured ? 1 : 0,
                       phase,
+                      rpmsg_drivers_captured ? 1 : 0,
+                      phase,
+                      rpmsg_autoprobe_captured ? 1 : 0,
+                      phase,
                       remoteproc_captured ? 1 : 0,
                       phase,
                       service_notifier_captured ? 1 : 0,
@@ -8444,6 +8553,12 @@ static int append_wifi_window_surface_capture(struct buffer *buf, const char *ph
                       mdm3_captured ? 1 : 0,
                       phase,
                       mss_captured ? 1 : 0,
+                      phase,
+                      mss_subsys0_state_captured ? 1 : 0,
+                      phase,
+                      mdm3_subsys9_state_captured ? 1 : 0,
+                      phase,
+                      subsys_value_captures,
                       phase) < 0) {
         return -1;
     }
