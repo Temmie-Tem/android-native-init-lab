@@ -142,6 +142,7 @@
 - `plans/NATIVE_INIT_V102_DIAGNOSTICS_PLAN_2026-05-03.md` – v102 diagnostics/log bundle 실행 계획
 - `plans/NATIVE_INIT_V103_WIFI_INVENTORY_PLAN_2026-05-04.md` – v103 Wi-Fi read-only inventory 실행 계획
 - `plans/NATIVE_INIT_V104_WIFI_FEASIBILITY_PLAN_2026-05-04.md` – v104 Wi-Fi enablement feasibility gate 실행 계획
+- `plans/NATIVE_INIT_V645_V644_WARNING_ATTRIBUTION_PLAN_2026-05-23.md` – V644가 service `74` 직후 `pm_qos` warning을 낸 원인을 V619/V627/V642와 host-only로 비교해 다음 안전 gate를 고르는 V645 계획
 - `plans/NATIVE_INIT_V644_CLEAN_DSP_CNSS_WLFW_READBACK_PLAN_2026-05-23.md` – V641 clean-DSP 상태에서 V598-class CNSS-including WLFW readback을 재생해 service `180` 재현과 service `74`/WLAN-PD 진전 여부를 검증하는 V644 계획
 - `plans/NATIVE_INIT_V643_V642_PUBLISHER_GAP_CLASSIFIER_PLAN_2026-05-23.md` – V642 no-CNSS clean-DSP 결과와 V598/V625/V627 CNSS-including partial-positive를 비교해 service-notifier publisher gap을 분류하는 V643 계획
 - `plans/NATIVE_INIT_V642_CLEAN_DSP_LOWER_COMPANION_PLAN_2026-05-23.md` – V641 clean-DSP 상태를 재사용해 direct DSP boot-node 재시도 없이 lower modem/QRTR companion publication을 관찰하는 V642 계획
@@ -197,6 +198,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V645_V644_WARNING_ATTRIBUTION_2026-05-23.md` – V645 host-only 결과 clean-DSP 단독/V627 service `180` 단독은 warning-free이고 V644 service `74` 후 11.789ms에 warning이 발생해 V646 Android post-service74 timing 비교가 다음 gate
 - `reports/NATIVE_INIT_V644_CLEAN_DSP_CNSS_WLFW_READBACK_LIVE_2026-05-23.md` – V644 live 결과 V641 clean-DSP + CNSS-including companion에서 service `180`과 `74`가 처음 함께 재현됐지만 직후 `pm_qos_add_request` warning이 발생해 fail-safe로 중단하고 V645 warning attribution이 다음 gate
 - `reports/NATIVE_INIT_V643_V642_PUBLISHER_GAP_CLASSIFIER_2026-05-23.md` – V643 host-only 결과 V642 no-CNSS clean-DSP 경로는 QRTR TX/`sysmon-qmi`까지만 가고, V598/V625/V627 CNSS-including 경로만 service `180`을 재현하므로 다음은 clean-DSP CNSS/WLFW readback replay
 - `reports/NATIVE_INIT_V642_CLEAN_DSP_LOWER_COMPANION_LIVE_2026-05-23.md` – V642 live 결과 V641 clean-DSP 상태에서 Android-order lower companion이 QRTR TX와 `sysmon-qmi`까지 재현했지만 `service-notifier`/WLAN-PD/WLFW/`wlan0`는 없어 다음은 post-sysmon publisher gap classifier
