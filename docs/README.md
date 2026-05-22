@@ -142,6 +142,7 @@
 - `plans/NATIVE_INIT_V102_DIAGNOSTICS_PLAN_2026-05-03.md` – v102 diagnostics/log bundle 실행 계획
 - `plans/NATIVE_INIT_V103_WIFI_INVENTORY_PLAN_2026-05-04.md` – v103 Wi-Fi read-only inventory 실행 계획
 - `plans/NATIVE_INIT_V104_WIFI_FEASIBILITY_PLAN_2026-05-04.md` – v104 Wi-Fi enablement feasibility gate 실행 계획
+- `plans/NATIVE_INIT_V619_ANDROID_ORDER_POST_SYSMON_OBSERVER_PLAN_2026-05-23.md` – V618이 좁힌 `pd_mapper` order delta를 no-CNSS/no-HAL Android-order observer로 검증하는 V619 계획
 - `plans/NATIVE_INIT_V618_RFS_ALIAS_ORDER_CLASSIFIER_PLAN_2026-05-23.md` – V617의 `rfs_access` 후보를 alias/domain 힌트인지 확인하고 Android companion order delta를 분류하는 V618 계획
 - `plans/NATIVE_INIT_V617_ANDROID_INIT_QMI_TRIGGER_CANDIDATE_PLAN_2026-05-23.md` – V616 이후 Android init/QMI service-registration 후보를 host-only로 분류하는 V617 계획
 - `plans/NATIVE_INIT_V616_POST_SIBLING_SYSMON_SERVICE_NOTIFIER_CLASSIFIER_PLAN_2026-05-23.md` – V615 이후 sibling `sysmon-qmi`는 재현됐지만 service-notifier `180/74`가 없는 갭을 host-only로 분류하는 V616 계획
@@ -171,6 +172,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V619_ANDROID_ORDER_POST_SYSMON_OBSERVER_PREP_2026-05-23.md` – helper v104에 `qrtr_ns,pd_mapper,rmt_storage,tftp_server` no-CNSS/no-HAL observer mode를 추가하고 현재 live preflight 환경 블로커를 기록
 - `reports/NATIVE_INIT_V618_RFS_ALIAS_ORDER_CLASSIFIER_2026-05-23.md` – V618 host-only 분류 결과 `rfs_access`는 별도 live daemon 후보가 아니며 Android의 `qrtr_ns,pd_mapper,rmt_storage,tftp_server` 순서가 다음 bounded observer 후보로 좁혀짐
 - `reports/NATIVE_INIT_V617_ANDROID_INIT_QMI_TRIGGER_CANDIDATE_CLASSIFIER_2026-05-23.md` – V617 host-only 분류 결과 Android는 `sysmon-qmi` 뒤 즉시 service-notifier `180/74`를 publish하지만 native V615는 core companion replay 후에도 notifier가 없고 `rfs_access`가 unreplayed 후보로 남음
 - `reports/NATIVE_INIT_V616_POST_SIBLING_SYSMON_SERVICE_NOTIFIER_CLASSIFIER_2026-05-23.md` – V616 host-only 분류 결과 V615는 sibling `sysmon-qmi`와 service-locator까지 재현했지만 service-notifier `180/74`는 없고 `pm_qos_add_request` warning 23개로 direct boot-node retry가 차단됨
