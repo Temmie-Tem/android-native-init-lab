@@ -1,7 +1,7 @@
 # Native Init V653 Service74-Gated Service-Manager Prep Report
 
 - date: `2026-05-23 KST`
-- status: `prep-pass`; live proof not yet executed
+- status: `prep-pass/deployed`; live proof not yet executed
 - helper: `a90_android_execns_probe v105`
 - helper artifact:
   `tmp/wifi/v653-execns-helper-v105-build/a90_android_execns_probe`
@@ -57,7 +57,7 @@ decision: execns-helper-v105-deploy-plan-ready
 pass: True
 ```
 
-Current live deploy preflight was run without mutation and correctly stopped on
+Initial live deploy preflight was run without mutation and correctly stopped on
 host NCM prerequisites:
 
 ```text
@@ -68,11 +68,43 @@ device_mutations: False
 wifi_bringup_executed: False
 ```
 
+Because non-interactive sudo is unavailable on the host, V653 deployment used
+the explicit serial transfer fallback. A `3000` byte chunk retry was rejected
+before writes because it exceeded the native console line limit; the safe
+`1850` byte default completed:
+
+```text
+evidence: tmp/wifi/v653-helper-v105-serial-deploy-run-1850/
+method: serial appendfile + uudecode
+chunk_size: 1850
+chunks_written: 739
+device_mutations: True
+daemon_start_executed: False
+wifi_bringup_executed: False
+```
+
+Remote helper verification after deployment:
+
+```text
+remote: /cache/bin/a90_android_execns_probe
+sha256: 8e712fab67de9e4e330e2c9ac2ab2f3328fe4b08fbad02b7279977ba6db76117
+marker: a90_android_execns_probe v105
+mode: wifi-companion-service74-gated-vnd-service-manager-start-only
+```
+
+Post-deploy V653 preflight now reaches the intended next blockers:
+
+```text
+evidence: tmp/wifi/v653-service74-gated-preflight-after-deploy/
+decision: v653-service74-gated-service-manager-blocked
+reason: blocked by v490-current-policy-load, v641-clean-dsp-state
+device_mutations: False
+wifi_bringup_executed: False
+```
+
 ## Next Gate
 
-1. Re-enable host NCM or use the approved serial deploy fallback.
-2. Deploy helper v105 only.
-3. Re-arm V641 clean-DSP one-shot and refresh V401/V490 current-boot
+1. Re-arm V641 clean-DSP one-shot and refresh V401/V490 current-boot
    prerequisites.
-4. Run V653 live proof with Wi-Fi HAL, scan/connect, credentials, DHCP, route
+2. Run V653 live proof with Wi-Fi HAL, scan/connect, credentials, DHCP, route
    changes, and external ping still blocked.
