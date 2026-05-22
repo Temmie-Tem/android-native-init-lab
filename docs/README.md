@@ -142,6 +142,7 @@
 - `plans/NATIVE_INIT_V102_DIAGNOSTICS_PLAN_2026-05-03.md` – v102 diagnostics/log bundle 실행 계획
 - `plans/NATIVE_INIT_V103_WIFI_INVENTORY_PLAN_2026-05-04.md` – v103 Wi-Fi read-only inventory 실행 계획
 - `plans/NATIVE_INIT_V104_WIFI_FEASIBILITY_PLAN_2026-05-04.md` – v104 Wi-Fi enablement feasibility gate 실행 계획
+- `plans/NATIVE_INIT_V601_SERVICE_MANAGER_BINDER_PROOF_PLAN_2026-05-22.md` – V600 이후 `cnss-daemon` binder/runtime gap을 service-manager 포함 modem-holder companion window로 검증하는 계획
 - `plans/NATIVE_INIT_V600_REGISTRY_CNSS_MATRIX_PLAN_2026-05-22.md` – V598/V599 증거에서 service-registry와 CNSS runtime gap을 host-only matrix로 분류하는 계획
 - `plans/NATIVE_INIT_V599_SERVICE_NOTIFIER_INSTANCE_GAP_PLAN_2026-05-22.md` – V598 이후 service-notifier `180`만 보이고 `74`/WLAN-PD/WLFW service `69`가 없는 갭을 host-only로 분류하는 계획
 - `plans/NATIVE_INIT_V590_ANDROID_SUBSYS_STATE_SAMPLE_PLAN_2026-05-22.md` – Android ADB 상태에서 modem/esoc subsystem 값을 read-only로 수집하는 V590 계획
@@ -157,6 +158,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V601_SERVICE_MANAGER_BINDER_PROOF_2026-05-22.md` – service-manager 포함 modem-holder companion window에서 binder transaction failure는 해소됐지만 WLFW service `69`/service-notifier `74`/WLAN-PD는 여전히 미등록
 - `reports/NATIVE_INIT_V600_REGISTRY_CNSS_MATRIX_2026-05-22.md` – native는 QRTR TX/`sysmon-qmi`/service-notifier `180`/CNSS netlink까지 도달하지만 `cnss-daemon` binder `-22` 반복으로 `wlfw_start` 전에 멈춤
 - `reports/NATIVE_INIT_V599_SERVICE_NOTIFIER_INSTANCE_GAP_2026-05-22.md` – V598 native는 `sysmon-qmi` modem과 service-notifier `180`까지만 도달했고 Android의 `74`/WLAN-PD/WLFW service `69` 등록은 아직 없음
 - `reports/NATIVE_INIT_V598_MODEM_HOLDER_WLFW_READBACK_2026-05-22.md` – V596 holder window에 WLFW QRTR nameservice readback을 추가해 service-notifier `180`까지는 진입했지만 WLFW service `69`는 end-of-list로 미등록임을 확인
