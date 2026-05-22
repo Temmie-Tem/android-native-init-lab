@@ -155,6 +155,11 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V596_MODEM_HOLDER_COMPANION_2026-05-22.md` – global firmware mounts + `subsys_modem` holder + companion start-only로 QRTR RX 이후 QRTR TX와 `sysmon-qmi`까지 진입, WLFW/BDF/`wlan0`는 아직 없음
+- `reports/NATIVE_INIT_V594_V595_GLOBAL_FIRMWARE_MODEM_READINESS_2026-05-22.md` – native global namespace에 `/vendor/firmware_mnt`와 `/vendor/firmware-modem`을 마운트하면 modem PIL/QRTR RX까지 진행함을 확인하고 raw close reference mismatch 위험을 분류
+- `reports/NATIVE_INIT_V593_SUBSYS_OFFLINING_CLASSIFIER_2026-05-22.md` – native modem/esoc OFFLINING 원인을 firmware/PIL readiness gap으로 좁히기 위한 classifier 결과
+- `reports/NATIVE_INIT_V592_SUBSYS_HOLD_OPEN_2026-05-22.md` – modem/esoc subsystem hold-open 실험으로 lower modem readiness trigger 가능성을 확인
+- `reports/NATIVE_INIT_V591_ANDROID_SUBSYS_STATE_HANDOFF_2026-05-22.md` – Android handoff 기반 subsystem state 비교 자료
 - `reports/NATIVE_INIT_V590_ANDROID_SUBSYS_STATE_SAMPLE_2026-05-22.md` – Android-side read-only modem/esoc state collector를 추가했고 현재 native 상태에서는 Android ADB가 없어 handoff 후 실행해야 함을 기록
 - `reports/NATIVE_INIT_V589_ANDROID_SUBSYS_STATE_GAP_2026-05-22.md` – Android readiness timeline은 있으나 direct Android modem/esoc state sample이 없어 V590 Android read-only state capture가 필요함을 분류
 - `reports/NATIVE_INIT_V588_MODEM_SUBSYS_WINDOW_VALUES_2026-05-22.md` – helper v99로 companion window 내부 `modem`/`esoc0` subsystem 값이 둘 다 `OFFLINING`임을 캡처하고 QRTR/QMI/WLFW/BDF/FW-ready marker 부재를 분류
