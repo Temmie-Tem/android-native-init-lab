@@ -76,7 +76,7 @@
 #define AF_QIPCRTR 42
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v97"
+#define EXECNS_VERSION "a90_android_execns_probe v98"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -8221,6 +8221,235 @@ static int append_proc_file_capture(struct buffer *buf,
     return append_proc_file_capture_named(buf, pid, name, name, limit, captured);
 }
 
+static int append_path_file_capture_named(struct buffer *buf,
+                                          const char *path,
+                                          const char *label,
+                                          size_t limit,
+                                          bool *captured) {
+    char tmp[4096];
+    size_t total = 0;
+    bool truncated = false;
+    int fd;
+
+    *captured = false;
+    if (append_format(buf, "A90_EXECNS_PATH_%s_BEGIN path=%s limit=%zu\n", label, path, limit) < 0) {
+        return -1;
+    }
+    fd = open(path, O_RDONLY | O_CLOEXEC);
+    if (fd < 0) {
+        return append_format(buf,
+                             "open-error=%s\nA90_EXECNS_PATH_%s_END bytes=0 truncated=0\n",
+                             strerror(errno),
+                             label);
+    }
+    while (total < limit) {
+        size_t room = limit - total;
+        ssize_t nread = read(fd, tmp, room < sizeof(tmp) ? room : sizeof(tmp));
+
+        if (nread < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            {
+                int saved_errno = errno;
+
+                close(fd);
+                return append_format(buf,
+                                     "read-error=%s\nA90_EXECNS_PATH_%s_END bytes=%zu truncated=0\n",
+                                     strerror(saved_errno),
+                                     label,
+                                     total);
+            }
+        }
+        if (nread == 0) {
+            break;
+        }
+        if (buffer_append(buf, tmp, (size_t)nread) < 0) {
+            close(fd);
+            return -1;
+        }
+        total += (size_t)nread;
+    }
+    if (total >= limit) {
+        truncated = true;
+    }
+    close(fd);
+    if (total == 0 || buf->data[buf->len - 1] != '\n') {
+        if (append_literal(buf, "\n") < 0) {
+            return -1;
+        }
+    }
+    *captured = true;
+    return append_format(buf,
+                         "A90_EXECNS_PATH_%s_END bytes=%zu truncated=%d\n",
+                         label,
+                         total,
+                         truncated ? 1 : 0);
+}
+
+static bool window_surface_entry_interesting(const char *name) {
+    return strcasestr(name, "qrtr") != NULL ||
+           strcasestr(name, "qmi") != NULL ||
+           strcasestr(name, "cnss") != NULL ||
+           strcasestr(name, "diag") != NULL ||
+           strcasestr(name, "wlan") != NULL ||
+           strcasestr(name, "icnss") != NULL ||
+           strcasestr(name, "rpmsg") != NULL ||
+           strcasestr(name, "subsys") != NULL ||
+           strcasestr(name, "modem") != NULL ||
+           strcasestr(name, "sysmon") != NULL ||
+           strcasestr(name, "service") != NULL;
+}
+
+static int append_dir_capture_named(struct buffer *buf,
+                                    const char *path,
+                                    const char *label,
+                                    bool filter_interesting,
+                                    int max_entries,
+                                    bool *captured) {
+    DIR *dir;
+    struct dirent *entry;
+    int count = 0;
+    int shown = 0;
+    bool truncated = false;
+
+    *captured = false;
+    if (append_format(buf,
+                      "A90_EXECNS_DIR_%s_BEGIN path=%s filter=%d max_entries=%d\n",
+                      label,
+                      path,
+                      filter_interesting ? 1 : 0,
+                      max_entries) < 0) {
+        return -1;
+    }
+    dir = opendir(path);
+    if (dir == NULL) {
+        return append_format(buf,
+                             "open-error=%s\nA90_EXECNS_DIR_%s_END count=0 shown=0 truncated=0\n",
+                             strerror(errno),
+                             label);
+    }
+    while ((entry = readdir(dir)) != NULL) {
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+            continue;
+        }
+        count++;
+        if (filter_interesting && !window_surface_entry_interesting(entry->d_name)) {
+            continue;
+        }
+        if (shown >= max_entries) {
+            truncated = true;
+            continue;
+        }
+        if (append_format(buf,
+                          "entry.%03d=%s\n",
+                          shown,
+                          entry->d_name) < 0) {
+            closedir(dir);
+            return -1;
+        }
+        shown++;
+    }
+    closedir(dir);
+    *captured = true;
+    return append_format(buf,
+                         "A90_EXECNS_DIR_%s_END count=%d shown=%d truncated=%d\n",
+                         label,
+                         count,
+                         shown,
+                         truncated ? 1 : 0);
+}
+
+static int append_wifi_window_surface_capture(struct buffer *buf, const char *phase) {
+    bool proc_qrtr_captured = false;
+    bool dev_filtered_captured = false;
+    bool msm_subsys_captured = false;
+    bool rpmsg_captured = false;
+    bool remoteproc_captured = false;
+    bool service_notifier_captured = false;
+    bool mdm3_captured = false;
+    bool mss_captured = false;
+
+    if (append_format(buf, "wifi_companion_start.surface_%s.begin=1\n", phase) < 0 ||
+        append_path_file_capture_named(buf,
+                                       "/proc/net/qrtr",
+                                       "wifi_window_proc_net_qrtr",
+                                       8192,
+                                       &proc_qrtr_captured) < 0 ||
+        append_dir_capture_named(buf,
+                                 "/dev",
+                                 "wifi_window_dev_filtered",
+                                 true,
+                                 96,
+                                 &dev_filtered_captured) < 0 ||
+        append_dir_capture_named(buf,
+                                 "/sys/bus/msm_subsys/devices",
+                                 "wifi_window_msm_subsys_devices",
+                                 false,
+                                 96,
+                                 &msm_subsys_captured) < 0 ||
+        append_dir_capture_named(buf,
+                                 "/sys/bus/rpmsg/devices",
+                                 "wifi_window_rpmsg_devices",
+                                 false,
+                                 128,
+                                 &rpmsg_captured) < 0 ||
+        append_dir_capture_named(buf,
+                                 "/sys/class/remoteproc",
+                                 "wifi_window_remoteproc",
+                                 false,
+                                 96,
+                                 &remoteproc_captured) < 0 ||
+        append_dir_capture_named(buf,
+                                 "/sys/kernel/debug/service_notifier",
+                                 "wifi_window_service_notifier",
+                                 false,
+                                 96,
+                                 &service_notifier_captured) < 0 ||
+        append_dir_capture_named(buf,
+                                 "/sys/devices/platform/soc/soc:qcom,mdm3",
+                                 "wifi_window_soc_mdm3",
+                                 false,
+                                 96,
+                                 &mdm3_captured) < 0 ||
+        append_dir_capture_named(buf,
+                                 "/sys/devices/platform/soc/4080000.qcom,mss",
+                                 "wifi_window_soc_mss",
+                                 false,
+                                 96,
+                                 &mss_captured) < 0 ||
+        append_format(buf,
+                      "wifi_companion_start.surface_%s.proc_qrtr_captured=%d\n"
+                      "wifi_companion_start.surface_%s.dev_filtered_captured=%d\n"
+                      "wifi_companion_start.surface_%s.msm_subsys_captured=%d\n"
+                      "wifi_companion_start.surface_%s.rpmsg_captured=%d\n"
+                      "wifi_companion_start.surface_%s.remoteproc_captured=%d\n"
+                      "wifi_companion_start.surface_%s.service_notifier_captured=%d\n"
+                      "wifi_companion_start.surface_%s.mdm3_captured=%d\n"
+                      "wifi_companion_start.surface_%s.mss_captured=%d\n"
+                      "wifi_companion_start.surface_%s.end=1\n",
+                      phase,
+                      proc_qrtr_captured ? 1 : 0,
+                      phase,
+                      dev_filtered_captured ? 1 : 0,
+                      phase,
+                      msm_subsys_captured ? 1 : 0,
+                      phase,
+                      rpmsg_captured ? 1 : 0,
+                      phase,
+                      remoteproc_captured ? 1 : 0,
+                      phase,
+                      service_notifier_captured ? 1 : 0,
+                      phase,
+                      mdm3_captured ? 1 : 0,
+                      phase,
+                      mss_captured ? 1 : 0,
+                      phase) < 0) {
+        return -1;
+    }
+    return 0;
+}
+
 
 static pid_t wait_for_child_session_pgid(pid_t pid, long timeout_ms) {
     long deadline = monotonic_ms() + timeout_ms;
@@ -12905,6 +13134,11 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
         return -1;
     }
     if (append_qipcrtr_protocol_summary(stdout_buf, "wifi_companion_start.net_window") < 0) {
+        composite_cleanup_children(children, child_count, stdout_buf, stderr_buf);
+        stop_property_service_shim(&property_shim, paths, stdout_buf);
+        return -1;
+    }
+    if (append_wifi_window_surface_capture(stdout_buf, "window") < 0) {
         composite_cleanup_children(children, child_count, stdout_buf, stderr_buf);
         stop_property_service_shim(&property_shim, paths, stdout_buf);
         return -1;
