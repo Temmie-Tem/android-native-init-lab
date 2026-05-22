@@ -155,6 +155,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V597_POST_SYSMON_GAP_2026-05-22.md` – Android reference에서 `sysmon-qmi` 이후 약 22ms 만에 service-notifier가 뜨고, native V596은 QRTR TX/sysmon까지만 도달해 post-sysmon service-notifier gap임을 host-only로 분류
 - `reports/NATIVE_INIT_V596_MODEM_HOLDER_COMPANION_2026-05-22.md` – global firmware mounts + `subsys_modem` holder + companion start-only로 QRTR RX 이후 QRTR TX와 `sysmon-qmi`까지 진입, WLFW/BDF/`wlan0`는 아직 없음
 - `reports/NATIVE_INIT_V594_V595_GLOBAL_FIRMWARE_MODEM_READINESS_2026-05-22.md` – native global namespace에 `/vendor/firmware_mnt`와 `/vendor/firmware-modem`을 마운트하면 modem PIL/QRTR RX까지 진행함을 확인하고 raw close reference mismatch 위험을 분류
 - `reports/NATIVE_INIT_V593_SUBSYS_OFFLINING_CLASSIFIER_2026-05-22.md` – native modem/esoc OFFLINING 원인을 firmware/PIL readiness gap으로 좁히기 위한 classifier 결과
