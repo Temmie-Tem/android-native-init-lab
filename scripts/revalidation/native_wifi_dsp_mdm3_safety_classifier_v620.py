@@ -134,11 +134,54 @@ EXTERNAL_REFERENCES = [
         "relevance": "pmaports discusses pd-mapper/tqftpserv dependence on QRTR or kernel QRTR availability.",
     },
     {
-        "title": "pmaports SM8150 kernel upgrade",
-        "url": "https://gitlab.com/postmarketOS/pmaports/-/merge_requests/3019",
-        "relevance": "SM8150 mainline history exists, but no vendor-kernel mdm_helper/esoc start recipe is exposed here.",
+        "title": "postmarketOS tqftpserv init script",
+        "url": "https://gitlab.com/postmarketOS/pmaports/-/raw/master/modem/tqftpserv/tqftpserv.initd",
+        "relevance": "tqftpserv is ordered before rmtfs and uses qrtr-ns; useful for companion ordering checks, not esoc0 triggering.",
+    },
+    {
+        "title": "postmarketOS pd-mapper init script",
+        "url": "https://gitlab.com/postmarketOS/pmaports/-/raw/master/modem/pd-mapper/pd-mapper.initd",
+        "relevance": "pd-mapper wants qrtr-ns; aligns with native lower companion sequencing already tested.",
+    },
+    {
+        "title": "postmarketOS SM8150 kernel package",
+        "url": "https://pkgs.postmarketos.org/package/master/postmarketos/aarch64/linux-postmarketos-qcom-sm8150",
+        "relevance": "SM8150 mainline package confirms adjacent platform work exists, but does not provide a vendor-kernel mdm_helper/esoc recipe.",
     },
 ]
+
+MDM_HELPER_PATH_PATTERNS: tuple[tuple[str, re.Pattern[str], str], ...] = (
+    (
+        "mdm_helper_service",
+        re.compile(r"service\s+vendor\.mdm_helper\s+/vendor/bin/mdm_helper", re.I),
+        "Android init declares the long-running mdm_helper service.",
+    ),
+    (
+        "mdm_launcher_service",
+        re.compile(r"service\s+vendor\.mdm_launcher\s+/vendor/bin/sh\s+/vendor/bin/init\.mdm\.sh", re.I),
+        "Android init declares mdm_launcher as a shell wrapper.",
+    ),
+    (
+        "mdm_launcher_reads_baseband",
+        re.compile(r"baseband=`getprop\s+ro\.baseband`", re.I),
+        "The wrapper gates mdm_helper through ro.baseband.",
+    ),
+    (
+        "mdm_launcher_starts_helper",
+        re.compile(r"\bstart\s+vendor\.mdm_helper\b", re.I),
+        "The wrapper starts mdm_helper through Android init.",
+    ),
+    (
+        "static_esoc_path_visible",
+        re.compile(r"/dev/esoc|/sys/(?:bus/)?(?:esoc|subsys)|subsys_esoc0|esoc0", re.I),
+        "A raw esoc/sysfs path is visible in the init snapshot.",
+    ),
+    (
+        "static_ioctl_hint_visible",
+        re.compile(r"\bioctl\b", re.I),
+        "An ioctl-style helper path is visible in the init snapshot.",
+    ),
+)
 
 
 @dataclass(frozen=True)
@@ -331,6 +374,19 @@ def vendor_static_hits(snapshot: str, v616: dict[str, Any], v617: dict[str, Any]
     }
 
 
+def mdm_helper_path_rows(snapshot: str) -> list[list[str]]:
+    rows: list[list[str]] = []
+    for key, pattern, interpretation in MDM_HELPER_PATH_PATTERNS:
+        line = first_line_with(snapshot, pattern.pattern)
+        rows.append([
+            key,
+            bool_text(line != "missing"),
+            line,
+            interpretation,
+        ])
+    return rows
+
+
 def evidence_rows(manifest: dict[str, Any]) -> list[list[str]]:
     android = manifest["android_v611"]
     v615 = manifest["native_v615"]
@@ -403,7 +459,8 @@ def evidence_rows(manifest: dict[str, Any]) -> list[list[str]]:
             (
                 f"service={bool_text(bool(manifest['vendor_static_hits'].get('mdm_helper_service')))}; "
                 f"launcher={bool_text(bool(manifest['vendor_static_hits'].get('mdm_launcher_service')))}; "
-                f"baseband_gate={bool_text(bool(manifest['vendor_static_hits'].get('mdm_helper_baseband_gate')))}"
+                f"baseband_gate={bool_text(bool(manifest['vendor_static_hits'].get('mdm_helper_baseband_gate')))}; "
+                f"raw_esoc_visible={manifest['causality_checks'].get('static_raw_esoc_path_visible')}"
             ),
             "classify exact Android trigger/identity and ioctl/property path before any start-only proof",
         ],
@@ -500,6 +557,8 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
 
     v619_keys = parse_key_values(read_text(repo_path(args.v619_dir) / "native" / "companion-start-only-with-dsp-boot.txt"))
     marker_counts = safe_get(v619, ("live", "markers", "counts"), {}) or {}
+    mdm_path_rows = mdm_helper_path_rows(snapshot)
+    mdm_path_values = {row[0]: row[1] == "yes" for row in mdm_path_rows}
 
     manifest: dict[str, Any] = {
         "generated_at": now_iso(),
@@ -567,6 +626,7 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
             },
         },
         "vendor_static_hits": vendor_static_hits(snapshot, v616, v617),
+        "mdm_helper_path_rows": mdm_path_rows,
         "forbidden_actions": FORBIDDEN_ACTIONS,
         "device_commands_executed": False,
         "device_mutations": False,
@@ -583,6 +643,28 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
         "wlan_pd_to_sysmon_esoc0": delta_ms(android_found, "sysmon_esoc0", "wlan_pd"),
         "qmi_server_connected_to_sysmon_esoc0": delta_ms(android_found, "sysmon_esoc0", "qmi_server_connected"),
     })
+    service_to_esoc0 = manifest["android_v611"]["deltas_ms"].get("service_notifier_180_to_sysmon_esoc0")
+    wlan_pd_to_esoc0 = manifest["android_v611"]["deltas_ms"].get("wlan_pd_to_sysmon_esoc0")
+    manifest["causality_checks"] = {
+        "android_service_notifier_before_sysmon_esoc0": bool(service_to_esoc0 is not None and service_to_esoc0 > 0),
+        "android_wlan_pd_before_sysmon_esoc0": bool(wlan_pd_to_esoc0 is not None and wlan_pd_to_esoc0 > 0),
+        "native_missing_service_notifier": marker_counts.get("service_notifier", 0) == 0,
+        "native_missing_sysmon_esoc0": v619_counts.get("sysmon_esoc0", 0) == 0,
+        "native_mdm3_offlining": safe_get(v619, ("live", "mdm3_after_companion"), "") == "OFFLINING",
+        "direct_dsp_warning_present": marker_counts.get("kernel_warning", 0) > 0,
+        "mdm_helper_init_contract_visible": all(
+            mdm_path_values.get(key, False)
+            for key in (
+                "mdm_helper_service",
+                "mdm_launcher_service",
+                "mdm_launcher_reads_baseband",
+                "mdm_launcher_starts_helper",
+            )
+        ),
+        "static_raw_esoc_path_visible": mdm_path_values.get("static_esoc_path_visible", False),
+        "static_ioctl_hint_visible": mdm_path_values.get("static_ioctl_hint_visible", False),
+        "hypothesis_esoc0_pre_notifier_supported": False,
+    }
 
     if args.command == "plan":
         decision, pass_ok, reason, next_step = (
@@ -607,6 +689,11 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
         "android_order_lower_companion_falsified": manifest["native_v619"]["order"] == ANDROID_ORDER,
         "direct_dsp_boot_node_retry_blocked_by_warning": manifest["native_v619"]["marker_counts"].get("kernel_warning", 0) > 0,
         "sysmon_esoc0_is_not_pre_notifier_prerequisite": decision == "v620-esoc0-notifier-causality-refined",
+        "mdm_helper_ioctl_path_unproven_from_init_snapshot": (
+            manifest["causality_checks"]["mdm_helper_init_contract_visible"]
+            and not manifest["causality_checks"]["static_ioctl_hint_visible"]
+        ),
+        "raw_esoc_open_should_not_be_retried": True,
         "mdm3_state_delta_still_unresolved": True,
         "wifi_bringup_still_blocked": True,
     }
@@ -674,6 +761,14 @@ def render_summary(manifest: dict[str, Any]) -> str:
         "## Native V619 First Lines",
         "",
         markdown_table(["key", "line"], [[key, value] for key, value in v619["first_lines"].items()]),
+        "",
+        "## Causality Checks",
+        "",
+        markdown_table(["key", "value"], [[key, str(value)] for key, value in manifest["causality_checks"].items()]),
+        "",
+        "## MDM Helper Path Hints",
+        "",
+        markdown_table(["key", "present", "line", "interpretation"], manifest["mdm_helper_path_rows"]),
         "",
         "## Inferences",
         "",

@@ -47,15 +47,28 @@ V620 must not:
 1. Compare Android/native `pm_qos_add_request` warning presence and call traces.
 2. Compare Android/native timing for ADSP/CDSP/SLPI boot, modem `sysmon-qmi`,
    sibling `sysmon-qmi`, service-locator, service-notifier, and `mdm3`.
-3. Determine whether `mdm3=OFFLINING` is the stronger blocker than companion
+3. Explicitly test whether Android publishes service-notifier `180/74` before
+   or after `sysmon_esoc0`; if `sysmon_esoc0` appears later, treat native
+   `sysmon_esoc0=0` as a state delta rather than a proven first-notifier cause.
+4. Determine whether `mdm3=OFFLINING` is the stronger blocker than companion
    order.
-4. Classify `vendor.mdm_launcher`, `vendor.mdm_helper`, `wcnss-service`, and
+5. Classify `vendor.mdm_launcher`, `vendor.mdm_helper`, `wcnss-service`, and
    `boot_wlan` as:
    - pre-service-notifier candidate;
    - later WLAN-only candidate;
    - unsafe/write-only candidate;
    - or unsupported by current evidence.
-5. Produce a next live gate only if it avoids repeating direct DSP boot-node
+6. Search the V614 vendor init snapshot for `mdm_helper`/`mdm_launcher`
+   contract hints, including `ro.baseband`, Android init `start`, raw `esoc0`
+   paths, and any visible `ioctl` hints. Absence of an init-visible raw/ioctl
+   path means a live raw `esoc0` retry is not justified.
+7. Cross-check adjacent postmarketOS Qualcomm references only as supporting
+   context:
+   - `tqftpserv` and `pd-mapper` depend on QRTR ordering and firmware service
+     availability;
+   - SM8150 mainline packaging can guide kernel/DT expectations, but it is not
+     evidence for Samsung vendor-kernel `mdm_helper`/`esoc0` semantics.
+8. Produce a next live gate only if it avoids repeating direct DSP boot-node
    warnings.
 
 ## Success Criteria
@@ -70,4 +83,3 @@ V620 passes if it selects one of these outcomes using existing evidence:
 Passing V620 does not authorize CNSS/HAL/Wi-Fi bring-up. If evidence is
 insufficient, the next action should be Android read-only recapture, not another
 native live write.
-

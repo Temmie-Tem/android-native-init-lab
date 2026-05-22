@@ -146,7 +146,7 @@
 - `plans/NATIVE_INIT_V623_LOWER_QMI_PUBLICATION_GAP_PLAN_2026-05-23.md` – V622 이후 `qmiproxy`와 lower QMI publication gap을 host-only로 비교 분류하는 V623 계획
 - `plans/NATIVE_INIT_V622_ANDROID_MDM_HELPER_TIMING_RECAPTURE_PLAN_2026-05-23.md` – V621의 cross-boot `mdm_helper`/service-notifier 타이밍 갭을 Android same-boot read-only capture로 닫는 V622 계획
 - `plans/NATIVE_INIT_V621_MDM_HELPER_CONTRACT_CLASSIFIER_PLAN_2026-05-23.md` – V620 이후 `vendor.mdm_helper`/`vendor.mdm_launcher` Android init 계약과 같은 부팅 타이밍 필요성을 host-only로 분류하는 V621 계획
-- `plans/NATIVE_INIT_V620_DSP_MDM3_SAFETY_CLASSIFIER_PLAN_2026-05-23.md` – V619 이후 direct DSP boot-node warning과 `mdm3=OFFLINING`/service-notifier gap을 host-only로 분류하는 V620 계획
+- `plans/NATIVE_INIT_V620_DSP_MDM3_SAFETY_CLASSIFIER_PLAN_2026-05-23.md` – V619 이후 direct DSP boot-node warning, `mdm3=OFFLINING`, `sysmon_esoc0`, `mdm_helper` 경로를 host-only로 분류하는 V620 계획
 - `plans/NATIVE_INIT_V619_ANDROID_ORDER_POST_SYSMON_OBSERVER_PLAN_2026-05-23.md` – V618이 좁힌 `pd_mapper` order delta를 no-CNSS/no-HAL Android-order observer로 검증하는 V619 계획
 - `plans/NATIVE_INIT_V618_RFS_ALIAS_ORDER_CLASSIFIER_PLAN_2026-05-23.md` – V617의 `rfs_access` 후보를 alias/domain 힌트인지 확인하고 Android companion order delta를 분류하는 V618 계획
 - `plans/NATIVE_INIT_V617_ANDROID_INIT_QMI_TRIGGER_CANDIDATE_PLAN_2026-05-23.md` – V616 이후 Android init/QMI service-registration 후보를 host-only로 분류하는 V617 계획
@@ -182,7 +182,7 @@
 - `reports/NATIVE_INIT_V622_ANDROID_MDM_HELPER_TIMING_RECAPTURE_LIVE_2026-05-23.md` – V622 live same-boot Android capture 결과 `service-notifier 180`이 `mdm_launcher`/`mdm_helper`/`cnss_diag`보다 먼저 나타나므로 `mdm_helper` first-trigger 후보를 배제하고 V623 `qmiproxy`/lower QMI publication 분류로 이동
 - `reports/NATIVE_INIT_V622_ANDROID_MDM_HELPER_TIMING_RECAPTURE_PREP_2026-05-23.md` – V622 same-boot Android read-only collector와 rollback handoff wrapper를 추가했고 plan/dry-run은 통과, 현재 native 상태에서는 Android ADB가 없어 live handoff가 다음 단계
 - `reports/NATIVE_INIT_V621_MDM_HELPER_CONTRACT_CLASSIFIER_2026-05-23.md` – V621 host-only 분류 결과 `vendor.mdm_helper`는 실제 Android 서비스 후보지만 현재 boottime과 service-notifier dmesg가 서로 다른 부팅 증거라 V622 same-boot read-only recapture가 필요함
-- `reports/NATIVE_INIT_V620_DSP_MDM3_SAFETY_CLASSIFIER_2026-05-23.md` – V620 host-only 재분류 결과 Android `sysmon_esoc0`은 service-notifier 뒤에 나타나므로 선행조건 가설을 배제하고 `mdm_helper`/launcher ioctl·property 경로를 다음 분석 대상으로 좁힘
+- `reports/NATIVE_INIT_V620_DSP_MDM3_SAFETY_CLASSIFIER_2026-05-23.md` – V620 host-only 재분류 결과 Android `sysmon_esoc0`은 service-notifier 뒤에 나타나 선행조건 가설을 배제하고, vendor init에 raw `esoc0`/`ioctl` 경로가 보이지 않아 `mdm_helper`/launcher 계약 분석으로 좁힘
 - `reports/NATIVE_INIT_V619_ANDROID_ORDER_POST_SYSMON_OBSERVER_LIVE_2026-05-23.md` – V619 live에서 Android-order lower companion contract는 통과했지만 service-notifier는 0이고 `pm_qos_add_request` kernel warning이 재발해 direct DSP boot-node 반복을 중단
 - `reports/NATIVE_INIT_V619_ANDROID_ORDER_POST_SYSMON_OBSERVER_PREP_2026-05-23.md` – helper v104에 `qrtr_ns,pd_mapper,rmt_storage,tftp_server` no-CNSS/no-HAL observer mode를 추가하고 현재 live preflight 환경 블로커를 기록
 - `reports/NATIVE_INIT_V618_RFS_ALIAS_ORDER_CLASSIFIER_2026-05-23.md` – V618 host-only 분류 결과 `rfs_access`는 별도 live daemon 후보가 아니며 Android의 `qrtr_ns,pd_mapper,rmt_storage,tftp_server` 순서가 다음 bounded observer 후보로 좁혀짐

@@ -3,7 +3,7 @@
 - date: `2026-05-23 KST`
 - status: `classified/refined`; Wi-Fi external ping is **not** complete
 - runner: `scripts/revalidation/native_wifi_dsp_mdm3_safety_classifier_v620.py`
-- evidence: `tmp/wifi/v620-dsp-mdm3-safety-classifier-refined/`
+- evidence: `tmp/wifi/v620-dsp-mdm3-safety-classifier-refined-v2/`
 - decision: `v620-esoc0-notifier-causality-refined`
 
 ## Scope
@@ -64,6 +64,20 @@ Android: sibling sysmon + service-notifier 180/74 + WLAN-PD/QMI + later sysmon_e
 Native:  sibling sysmon + no service-notifier + mdm3 OFFLINING + no sysmon_esoc0
 ```
 
+## Causality Checks
+
+| check | result | interpretation |
+| --- | --- | --- |
+| Android service-notifier before `sysmon_esoc0` | true | `sysmon_esoc0` is not a proven first-notifier prerequisite |
+| Android WLAN-PD before `sysmon_esoc0` | true | `sysmon_esoc0` is later than the first lower WLAN path |
+| Native missing service-notifier | true | lower QMI publication is still the active blocker |
+| Native missing `sysmon_esoc0` | true | useful state delta, but not enough to justify raw `esoc0` retry |
+| Native `mdm3=OFFLINING` | true | stronger unresolved state gap than companion order |
+| Direct DSP warning present | true | direct ADSP/CDSP/SLPI boot-node retry remains blocked |
+| `mdm_helper` init contract visible | true | valid next analysis target |
+| Init-visible raw `esoc0` path | false | raw `esoc0` open is not justified by vendor init evidence |
+| Init-visible `ioctl` hint | false | ioctl path remains a hypothesis requiring binary/behavioral analysis, not a live retry |
+
 ## MDM Helper Path
 
 Static vendor evidence shows:
@@ -81,6 +95,12 @@ visible raw fd-open path to move modem/MDM state. V621 should classify that
 contract from existing Android/vendor evidence before any bounded start-only
 proof.
 
+The V614 vendor init snapshot proves the Android-init contract but does not show
+a raw `esoc0` sysfs/device path or an explicit `ioctl` string. That means the
+right next step is still host-only: compare same-boot Android boottime/dmesg,
+inspect `mdm_helper` identity and static symbols if available, and only then
+decide whether a bounded start-only proof is worth running.
+
 ## External References
 
 - postmarketOS SDM845 Wi-Fi notes: adjacent Qualcomm platforms require
@@ -88,8 +108,12 @@ proof.
 - pmaports QRTR dependency issue: `pd-mapper`/`tqftpserv` depend on QRTR or
   kernel QRTR availability; this aligns with the lower companion work already
   tested in V619.
-- pmaports SM8150 kernel history confirms SM8150 mainline work exists, but it
-  does not expose a vendor-kernel `mdm_helper`/`esoc0` recipe for this path.
+- pmaports `tqftpserv` and `pd-mapper` init scripts confirm the QRTR-centered
+  ordering model, but they do not explain the Samsung vendor-kernel
+  `mdm3`/`esoc0` transition.
+- postmarketOS SM8150 packaging confirms adjacent mainline kernel work exists,
+  but it does not expose a vendor-kernel `mdm_helper`/`esoc0` recipe for this
+  path.
 
 ## Next Gate
 
