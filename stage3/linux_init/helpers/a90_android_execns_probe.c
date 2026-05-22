@@ -76,7 +76,7 @@
 #define AF_QIPCRTR 42
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v99"
+#define EXECNS_VERSION "a90_android_execns_probe v100"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -301,7 +301,7 @@ static void usage(FILE *out) {
             "[--connect-config /cache/a90-wifi/...] "
             "[--connect-iface auto|wlan0] "
             "[--ping-target 1.1.1.1] "
-            "--mode linker-list|identity-probe|sepolicy-inventory|sepolicy-compile-proof|sepolicy-load-proof|selinux-domain-proof|cnss-start-only|cnss-userspace-readiness|wifi-companion-start-only|wifi-companion-service-manager-start-only|wifi-companion-vnd-service-manager-start-only|wifi-companion-hal-order-start-only|wifi-companion-hal-wificond-order-start-only|wifi-companion-hal-wificond-lshal-wait-samsung|wifi-companion-hal-wificond-lshal-wait-iwifi|wifi-companion-dual-hal-wificond-lshal-wait-iwifi|wifi-companion-dual-hal-wificond-iwifi-start|wifi-companion-dual-hal-wificond-lshal-then-iwifi-start|rmt-storage-start-only|property-lookup|service-manager-start-only|private-selinux-proof|wifi-hal-lshal-vintf-status-list|wifi-hal-composite-start-only|wifi-hal-composite-lshal-list|wifi-hal-composite-lshal-binderized-list|wifi-hal-composite-lshal-wait-target|wifi-surface-composite-lshal-wait-iwifi|wifi-surface-composite-lshal-wait-samsung|wifi-surface-composite-lshal-wait-samsung-ptrace|wifi-hal-composite-lshal-status-list|wifi-hal-composite-lshal-binderized-status-list|wifi-surface-composite-start-only|wifi-dual-hal-lshal-wait-iwifi|wifi-dual-hal-iwifi-start-surface|wifi-iwifi-start-surface|wifi-active-session-surface|wifi-active-session-scan-only|wifi-active-session-connect-ping|wifi-connect-tool-surface "
+            "--mode linker-list|identity-probe|sepolicy-inventory|sepolicy-compile-proof|sepolicy-load-proof|selinux-domain-proof|cnss-start-only|cnss-userspace-readiness|wifi-companion-start-only|wifi-companion-service-manager-start-only|wifi-companion-vnd-service-manager-start-only|wifi-companion-hal-order-start-only|wifi-companion-hal-wificond-order-start-only|wifi-companion-hal-wificond-lshal-wait-samsung|wifi-companion-hal-wificond-lshal-wait-iwifi|wifi-companion-dual-hal-wificond-lshal-wait-iwifi|wifi-companion-dual-hal-wificond-iwifi-start|wifi-companion-dual-hal-wificond-lshal-then-iwifi-start|rmt-storage-start-only|property-lookup|service-manager-start-only|private-selinux-proof|wifi-hal-lshal-vintf-status-list|wifi-hal-composite-start-only|wifi-hal-composite-lshal-list|wifi-hal-composite-lshal-binderized-list|wifi-hal-composite-lshal-wait-target|wifi-surface-composite-lshal-wait-iwifi|wifi-surface-composite-lshal-wait-samsung|wifi-surface-composite-lshal-wait-samsung-ptrace|wifi-hal-composite-lshal-status-list|wifi-hal-composite-lshal-binderized-status-list|wifi-surface-composite-start-only|wifi-dual-hal-lshal-wait-iwifi|wifi-dual-hal-iwifi-start-surface|wifi-iwifi-start-surface|wifi-active-session-surface|wifi-active-session-scan-only|wifi-active-session-connect-ping|wifi-connect-tool-surface|subsys-hold-open-proof "
             "[v27 binderized query runs: /system/bin/lshal list --types=binderized --neat] "
             "[v28 target query runs: /system/bin/lshal wait <fqinstance>] "
             "[v29 status query runs: /system/bin/lshal list --types=binderized,vintf --neat -V -S -i -p -e -c] "
@@ -371,6 +371,10 @@ static bool is_wifi_active_session_connect_ping_mode(const char *mode) {
 
 static bool is_wifi_connect_tool_surface_mode(const char *mode) {
     return streq(mode, "wifi-connect-tool-surface");
+}
+
+static bool is_subsys_hold_open_proof_mode(const char *mode) {
+    return streq(mode, "subsys-hold-open-proof");
 }
 
 static bool is_cnss_userspace_readiness_mode(const char *mode) {
@@ -826,6 +830,7 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
     if ((is_wifi_hal_service_query_mode(cfg->mode) ||
          is_wifi_surface_composite_mode(cfg->mode) ||
          is_rmt_storage_start_only_mode(cfg->mode) ||
+         is_subsys_hold_open_proof_mode(cfg->mode) ||
          is_wifi_companion_any_start_only_mode(cfg->mode) ||
          is_wifi_companion_hal_order_start_only_mode(cfg->mode)) &&
         streq(cfg->data_wifi_mode, "none")) {
@@ -873,6 +878,7 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
           streq(cfg->mode, "cnss-start-only") ||
           is_cnss_userspace_readiness_mode(cfg->mode) ||
           is_rmt_storage_start_only_mode(cfg->mode) ||
+          is_subsys_hold_open_proof_mode(cfg->mode) ||
           is_wifi_companion_any_start_only_mode(cfg->mode) ||
           is_wifi_companion_hal_order_start_only_mode(cfg->mode) ||
           streq(cfg->mode, "property-lookup") ||
@@ -1167,7 +1173,8 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             return 2;
         }
     } else if (cfg->allow_wifi_companion_start_only) {
-        if (!is_rmt_storage_start_only_mode(cfg->mode)) {
+        if (!is_rmt_storage_start_only_mode(cfg->mode) &&
+            !is_subsys_hold_open_proof_mode(cfg->mode)) {
             fprintf(stderr, "--allow-wifi-companion-start-only is only valid with Wi-Fi companion, companion HAL order, or rmt-storage-start-only modes\n");
             return 2;
         }
@@ -1199,7 +1206,8 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
         }
     } else if (cfg->allow_wifi_companion_start_only &&
                !is_wifi_companion_any_start_only_mode(cfg->mode) &&
-               !is_wifi_companion_hal_order_start_only_mode(cfg->mode)) {
+               !is_wifi_companion_hal_order_start_only_mode(cfg->mode) &&
+               !is_subsys_hold_open_proof_mode(cfg->mode)) {
         fprintf(stderr, "--allow-wifi-companion-start-only is only valid with Wi-Fi companion, companion HAL order, or rmt-storage-start-only modes\n");
         return 2;
     }
@@ -6854,6 +6862,7 @@ static int materialize_wifi_firmware_mounts(const struct config *cfg,
                                             size_t error_size) {
     if (!is_wifi_companion_any_start_only_mode(cfg->mode) &&
         !is_wifi_companion_hal_order_start_only_mode(cfg->mode) &&
+        !is_subsys_hold_open_proof_mode(cfg->mode) &&
         !is_wifi_hal_composite_mode(cfg->mode)) {
         return 0;
     }
@@ -8563,6 +8572,498 @@ static int append_wifi_window_surface_capture(struct buffer *buf, const char *ph
         return -1;
     }
     return 0;
+}
+
+static int count_dir_entries_matching(const char *path,
+                                      const char *needle,
+                                      int *count,
+                                      bool *matched) {
+    DIR *dir;
+    struct dirent *entry;
+
+    *count = 0;
+    *matched = false;
+    dir = opendir(path);
+    if (dir == NULL) {
+        return -1;
+    }
+    while ((entry = readdir(dir)) != NULL) {
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+            continue;
+        }
+        (*count)++;
+        if (needle != NULL && strstr(entry->d_name, needle) != NULL) {
+            *matched = true;
+        }
+    }
+    closedir(dir);
+    return 0;
+}
+
+static void read_state_or_error(const char *path, char *out, size_t out_size) {
+    int saved_errno;
+
+    if (read_small_file_trim(path, out, out_size) == 0) {
+        return;
+    }
+    saved_errno = errno;
+    snprintf(out, out_size, "error:%s", strerror(saved_errno));
+}
+
+static int append_subsys_hold_snapshot(struct buffer *buf, const char *phase) {
+    char mss_state[128];
+    char mdm3_state[128];
+    int rpmsg_count = -1;
+    bool rpmsg_ipcrtr_present = false;
+    bool rpmsg_error = false;
+
+    read_state_or_error("/sys/devices/platform/soc/4080000.qcom,mss/subsys0/state",
+                        mss_state,
+                        sizeof(mss_state));
+    read_state_or_error("/sys/devices/platform/soc/soc:qcom,mdm3/subsys9/state",
+                        mdm3_state,
+                        sizeof(mdm3_state));
+    if (count_dir_entries_matching("/sys/bus/rpmsg/devices",
+                                   "IPCRTR",
+                                   &rpmsg_count,
+                                   &rpmsg_ipcrtr_present) < 0) {
+        rpmsg_error = true;
+    }
+    return append_format(buf,
+                         "wifi_companion_start.subsys_hold.%s.mss_state=%s\n"
+                         "wifi_companion_start.subsys_hold.%s.mdm3_state=%s\n"
+                         "wifi_companion_start.subsys_hold.%s.rpmsg_count=%d\n"
+                         "wifi_companion_start.subsys_hold.%s.rpmsg_ipcrtr_present=%d\n"
+                         "wifi_companion_start.subsys_hold.%s.rpmsg_error=%d\n",
+                         phase,
+                         mss_state,
+                         phase,
+                         mdm3_state,
+                         phase,
+                         rpmsg_count,
+                         phase,
+                         rpmsg_ipcrtr_present ? 1 : 0,
+                         phase,
+                         rpmsg_error ? 1 : 0);
+}
+
+static int parse_dev_major_minor(const char *path,
+                                 unsigned int *major_no,
+                                 unsigned int *minor_no,
+                                 char *text,
+                                 size_t text_size) {
+    if (read_small_file_trim(path, text, text_size) < 0) {
+        return -1;
+    }
+    if (sscanf(text, "%u:%u", major_no, minor_no) != 2) {
+        errno = EINVAL;
+        return -1;
+    }
+    return 0;
+}
+
+static int materialize_subsys_hold_node(const char *sys_dev_path,
+                                        const char *node_path,
+                                        const char *label,
+                                        struct buffer *stdout_buf) {
+    char dev_text[64];
+    unsigned int major_no = 0;
+    unsigned int minor_no = 0;
+    int saved_errno;
+
+    if (parse_dev_major_minor(sys_dev_path, &major_no, &minor_no, dev_text, sizeof(dev_text)) < 0) {
+        saved_errno = errno;
+        return append_format(stdout_buf,
+                             "wifi_companion_start.subsys_hold.%s_node_ready=0\n"
+                             "wifi_companion_start.subsys_hold.%s_dev_path=%s\n"
+                             "wifi_companion_start.subsys_hold.%s_dev_error=%s\n",
+                             label,
+                             label,
+                             sys_dev_path,
+                             label,
+                             strerror(saved_errno));
+    }
+    if (unlink(node_path) < 0 && errno != ENOENT) {
+        saved_errno = errno;
+        return append_format(stdout_buf,
+                             "wifi_companion_start.subsys_hold.%s_node_ready=0\n"
+                             "wifi_companion_start.subsys_hold.%s_node_error=unlink-%s\n",
+                             label,
+                             label,
+                             strerror(saved_errno));
+    }
+    if (mknod(node_path, S_IFCHR | 0600, makedev(major_no, minor_no)) < 0) {
+        saved_errno = errno;
+        return append_format(stdout_buf,
+                             "wifi_companion_start.subsys_hold.%s_node_ready=0\n"
+                             "wifi_companion_start.subsys_hold.%s_node_error=mknod-%s\n",
+                             label,
+                             label,
+                             strerror(saved_errno));
+    }
+    if (chmod(node_path, 0600) < 0) {
+        saved_errno = errno;
+        return append_format(stdout_buf,
+                             "wifi_companion_start.subsys_hold.%s_node_ready=0\n"
+                             "wifi_companion_start.subsys_hold.%s_node_error=chmod-%s\n",
+                             label,
+                             label,
+                             strerror(saved_errno));
+    }
+    return append_format(stdout_buf,
+                         "wifi_companion_start.subsys_hold.%s_node_ready=1\n"
+                         "wifi_companion_start.subsys_hold.%s_dev_path=%s\n"
+                         "wifi_companion_start.subsys_hold.%s_dev=%s\n"
+                         "wifi_companion_start.subsys_hold.%s_node=%s\n",
+                         label,
+                         label,
+                         sys_dev_path,
+                         label,
+                         dev_text,
+                         label,
+                         node_path);
+}
+
+static int open_subsys_hold_child_node(int out_fd, const char *path, const char *label) {
+    int fd;
+    int saved_errno = 0;
+
+    fd = open(path, O_RDONLY | O_NONBLOCK | O_CLOEXEC);
+    if (fd < 0 && errno == EINVAL) {
+        fd = open(path, O_RDONLY | O_CLOEXEC);
+    }
+    if (fd < 0) {
+        saved_errno = errno;
+        dprintf(out_fd,
+                "wifi_companion_start.subsys_hold.%s_opened=0\n"
+                "wifi_companion_start.subsys_hold.%s_open_errno=%d\n"
+                "wifi_companion_start.subsys_hold.%s_open_error=%s\n",
+                label,
+                label,
+                saved_errno,
+                label,
+                strerror(saved_errno));
+        return -1;
+    }
+    dprintf(out_fd,
+            "wifi_companion_start.subsys_hold.%s_opened=1\n"
+            "wifi_companion_start.subsys_hold.%s_fd=%d\n",
+            label,
+            label,
+            fd);
+    return fd;
+}
+
+static pid_t wait_for_child_session_pgid(pid_t pid, long timeout_ms);
+
+static int run_subsys_hold_open_proof(const struct config *cfg,
+                                      const struct paths *paths,
+                                      struct buffer *stdout_buf,
+                                      struct buffer *stderr_buf,
+                                      int *child_exit_code,
+                                      int *child_signal,
+                                      bool *timed_out) {
+    int stdout_pipe[2] = {-1, -1};
+    bool stdout_open = true;
+    bool child_done = false;
+    bool child_started = false;
+    bool term_sent = false;
+    bool kill_sent = false;
+    bool reaped = false;
+    bool postflight_safe = true;
+    char modem_node[MAX_PATH_LEN];
+    char esoc_node[MAX_PATH_LEN];
+    long deadline;
+    pid_t pid = -1;
+    pid_t pgid = -1;
+    int status = 0;
+    int hold_sec = cfg->timeout_sec > 3 ? cfg->timeout_sec - 2 : 1;
+
+    (void)stderr_buf;
+    *child_exit_code = -1;
+    *child_signal = 0;
+    *timed_out = false;
+
+    if (append_literal(stdout_buf,
+                       "wifi_companion_start.begin=1\n"
+                       "wifi_companion_start.mode=subsys-hold-open-proof\n"
+                       "wifi_companion_start.service_manager=0\n"
+                       "wifi_companion_start.wifi_hal=0\n"
+                       "wifi_companion_start.scan_connect_linkup=0\n"
+                       "wifi_companion_start.external_ping=0\n"
+                       "wifi_companion_start.subsys_hold.qcwlanstate_write=0\n"
+                       "wifi_companion_start.subsys_hold.scan_connect_linkup=0\n"
+                       "wifi_companion_start.subsys_hold.external_ping=0\n") < 0) {
+        return -1;
+    }
+    if (!cfg->allow_wifi_companion_start_only) {
+        return append_literal(stdout_buf,
+                              "wifi_companion_start.allowed=0\n"
+                              "wifi_companion_start.exec_attempted=0\n"
+                              "wifi_companion_start.child_started=0\n"
+                              "wifi_companion_start.all_observable=0\n"
+                              "wifi_companion_start.all_postflight_safe=1\n"
+                              "wifi_companion_start.result=subsys-hold-blocked\n"
+                              "wifi_companion_start.reason=missing-allow-wifi-companion-start-only\n"
+                              "wifi_companion_start.end=1\n");
+    }
+    if (append_literal(stdout_buf, "wifi_companion_start.allowed=1\n") < 0 ||
+        append_subsys_hold_snapshot(stdout_buf, "before") < 0 ||
+        append_wifi_window_surface_capture(stdout_buf, "subsys_before") < 0) {
+        return -1;
+    }
+    if (append_path(modem_node, sizeof(modem_node), paths->dev, "subsys_modem") < 0 ||
+        append_path(esoc_node, sizeof(esoc_node), paths->dev, "subsys_esoc0") < 0) {
+        return -1;
+    }
+    if (materialize_subsys_hold_node("/sys/class/subsys/subsys_modem/dev",
+                                     modem_node,
+                                     "modem",
+                                     stdout_buf) < 0 ||
+        materialize_subsys_hold_node("/sys/class/subsys/subsys_esoc0/dev",
+                                     esoc_node,
+                                     "esoc0",
+                                     stdout_buf) < 0) {
+        return -1;
+    }
+    if (strstr(stdout_buf->data != NULL ? stdout_buf->data : "", "node_ready=0") != NULL) {
+        append_literal(stdout_buf,
+                       "wifi_companion_start.exec_attempted=0\n"
+                       "wifi_companion_start.child_started=0\n"
+                       "wifi_companion_start.all_observable=0\n"
+                       "wifi_companion_start.all_postflight_safe=1\n"
+                       "wifi_companion_start.result=subsys-hold-setup-failed\n"
+                       "wifi_companion_start.reason=subsys-cdev-node-unavailable\n"
+                       "wifi_companion_start.end=1\n");
+        unlink(modem_node);
+        unlink(esoc_node);
+        return 0;
+    }
+    if (pipe2(stdout_pipe, O_CLOEXEC) < 0) {
+        return append_format(stdout_buf,
+                             "wifi_companion_start.exec_attempted=0\n"
+                             "wifi_companion_start.child_started=0\n"
+                             "wifi_companion_start.all_observable=0\n"
+                             "wifi_companion_start.all_postflight_safe=0\n"
+                             "wifi_companion_start.result=manual-review-required\n"
+                             "wifi_companion_start.reason=pipe-failed-%s\n"
+                             "wifi_companion_start.end=1\n",
+                             strerror(errno));
+    }
+    pid = fork();
+    if (pid < 0) {
+        int saved_errno = errno;
+
+        close(stdout_pipe[0]);
+        close(stdout_pipe[1]);
+        unlink(modem_node);
+        unlink(esoc_node);
+        return append_format(stdout_buf,
+                             "wifi_companion_start.exec_attempted=0\n"
+                             "wifi_companion_start.child_started=0\n"
+                             "wifi_companion_start.all_observable=0\n"
+                             "wifi_companion_start.all_postflight_safe=0\n"
+                             "wifi_companion_start.result=manual-review-required\n"
+                             "wifi_companion_start.reason=fork-failed-%s\n"
+                             "wifi_companion_start.end=1\n",
+                             strerror(saved_errno));
+    }
+    if (pid == 0) {
+        int modem_fd;
+        int esoc_fd;
+        int any_open;
+
+        close(stdout_pipe[0]);
+        if (setsid() < 0) {
+            dprintf(stdout_pipe[1], "wifi_companion_start.subsys_hold.child_setsid_error=%s\n", strerror(errno));
+            _exit(120);
+        }
+        if (chroot(paths->root) < 0) {
+            dprintf(stdout_pipe[1], "wifi_companion_start.subsys_hold.child_chroot_error=%s\n", strerror(errno));
+            _exit(121);
+        }
+        if (chdir("/") < 0) {
+            dprintf(stdout_pipe[1], "wifi_companion_start.subsys_hold.child_chdir_error=%s\n", strerror(errno));
+            _exit(122);
+        }
+        dprintf(stdout_pipe[1],
+                "wifi_companion_start.subsys_hold.child_chroot=1\n"
+                "wifi_companion_start.subsys_hold.hold_sec=%d\n",
+                hold_sec);
+        modem_fd = open_subsys_hold_child_node(stdout_pipe[1], "/dev/subsys_modem", "modem");
+        esoc_fd = open_subsys_hold_child_node(stdout_pipe[1], "/dev/subsys_esoc0", "esoc0");
+        any_open = modem_fd >= 0 || esoc_fd >= 0;
+        dprintf(stdout_pipe[1], "wifi_companion_start.subsys_hold.any_open=%d\n", any_open ? 1 : 0);
+        if (any_open) {
+            for (int i = 0; i < hold_sec * 10; i++) {
+                usleep(100000);
+            }
+        }
+        if (modem_fd >= 0) {
+            close(modem_fd);
+        }
+        if (esoc_fd >= 0) {
+            close(esoc_fd);
+        }
+        dprintf(stdout_pipe[1], "wifi_companion_start.subsys_hold.child_done=1\n");
+        close(stdout_pipe[1]);
+        _exit(any_open ? 0 : 31);
+    }
+
+    child_started = true;
+    close(stdout_pipe[1]);
+    stdout_pipe[1] = -1;
+    set_nonblock(stdout_pipe[0]);
+    pgid = wait_for_child_session_pgid(pid, 1000);
+    if (append_format(stdout_buf,
+                      "wifi_companion_start.exec_attempted=1\n"
+                      "wifi_companion_start.child_started=1\n"
+                      "wifi_companion_start.pid=%ld\n"
+                      "wifi_companion_start.pgid=%ld\n",
+                      (long)pid,
+                      (long)pgid) < 0) {
+        goto fail;
+    }
+    usleep(500000);
+    drain_fd(stdout_pipe[0], stdout_buf, &stdout_open);
+    if (append_subsys_hold_snapshot(stdout_buf, "hold") < 0 ||
+        append_wifi_window_surface_capture(stdout_buf, "subsys_hold") < 0) {
+        goto fail;
+    }
+    deadline = monotonic_ms() + cfg->timeout_sec * 1000L;
+    while (stdout_open || !child_done) {
+        struct pollfd fds[1];
+        int nfds = 0;
+
+        if (!child_done && monotonic_ms() >= deadline) {
+            *timed_out = true;
+            break;
+        }
+        if (stdout_open) {
+            fds[nfds].fd = stdout_pipe[0];
+            fds[nfds].events = POLLIN | POLLHUP | POLLERR;
+            nfds++;
+        }
+        if (nfds > 0 && poll(fds, nfds, 50) > 0 && fds[0].revents != 0) {
+            drain_fd(stdout_pipe[0], stdout_buf, &stdout_open);
+        } else {
+            usleep(50000);
+        }
+        if (!child_done) {
+            pid_t wait_rc = waitpid(pid, &status, WNOHANG);
+
+            if (wait_rc == pid) {
+                child_done = true;
+                reaped = true;
+                if (WIFEXITED(status)) {
+                    *child_exit_code = WEXITSTATUS(status);
+                } else if (WIFSIGNALED(status)) {
+                    *child_signal = WTERMSIG(status);
+                }
+            } else if (wait_rc < 0 && errno != EINTR && errno != ECHILD) {
+                append_format(stdout_buf, "wifi_companion_start.subsys_hold.wait_error=%s\n", strerror(errno));
+                break;
+            }
+        }
+    }
+    if (!child_done) {
+        if (kill(-pgid, SIGTERM) == 0 || errno == ESRCH) {
+            term_sent = true;
+        }
+        deadline = monotonic_ms() + 1000L;
+        while (!child_done && monotonic_ms() < deadline) {
+            if (waitpid(pid, &status, WNOHANG) == pid) {
+                child_done = true;
+                reaped = true;
+                if (WIFEXITED(status)) {
+                    *child_exit_code = WEXITSTATUS(status);
+                } else if (WIFSIGNALED(status)) {
+                    *child_signal = WTERMSIG(status);
+                }
+                break;
+            }
+            if (stdout_open) {
+                drain_fd(stdout_pipe[0], stdout_buf, &stdout_open);
+            }
+            usleep(50000);
+        }
+    }
+    if (!child_done) {
+        if (kill(-pgid, SIGKILL) == 0 || errno == ESRCH) {
+            kill_sent = true;
+        }
+        deadline = monotonic_ms() + 1000L;
+        while (!child_done && monotonic_ms() < deadline) {
+            if (waitpid(pid, &status, WNOHANG) == pid) {
+                child_done = true;
+                reaped = true;
+                if (WIFEXITED(status)) {
+                    *child_exit_code = WEXITSTATUS(status);
+                } else if (WIFSIGNALED(status)) {
+                    *child_signal = WTERMSIG(status);
+                }
+                break;
+            }
+            usleep(50000);
+        }
+    }
+    if (stdout_open) {
+        drain_fd(stdout_pipe[0], stdout_buf, &stdout_open);
+    }
+    postflight_safe = reaped && (kill(-pgid, 0) < 0 && errno == ESRCH);
+    if (append_subsys_hold_snapshot(stdout_buf, "after") < 0 ||
+        append_wifi_window_surface_capture(stdout_buf, "subsys_after") < 0 ||
+        append_format(stdout_buf,
+                      "wifi_companion_start.exited=%d\n"
+                      "wifi_companion_start.exit_code=%d\n"
+                      "wifi_companion_start.signal=%d\n"
+                      "wifi_companion_start.timed_out=%d\n"
+                      "wifi_companion_start.term_sent=%d\n"
+                      "wifi_companion_start.kill_sent=%d\n"
+                      "wifi_companion_start.reaped=%d\n"
+                      "wifi_companion_start.all_observable=%d\n"
+                      "wifi_companion_start.all_postflight_safe=%d\n",
+                      child_done ? 1 : 0,
+                      *child_exit_code,
+                      *child_signal,
+                      *timed_out ? 1 : 0,
+                      term_sent ? 1 : 0,
+                      kill_sent ? 1 : 0,
+                      reaped ? 1 : 0,
+                      child_started ? 1 : 0,
+                      postflight_safe ? 1 : 0) < 0) {
+        goto fail;
+    }
+    if (!postflight_safe) {
+        append_literal(stdout_buf,
+                       "wifi_companion_start.result=subsys-hold-reboot-required\n"
+                       "wifi_companion_start.reason=child-not-proven-stopped\n");
+    } else if (*child_exit_code == 0) {
+        append_literal(stdout_buf,
+                       "wifi_companion_start.result=subsys-hold-window-pass\n"
+                       "wifi_companion_start.reason=temporary-subsys-cdev-open-held-and-cleaned\n");
+    } else {
+        append_literal(stdout_buf,
+                       "wifi_companion_start.result=subsys-hold-open-failed\n"
+                       "wifi_companion_start.reason=no-subsys-cdev-open-succeeded\n");
+    }
+    append_literal(stdout_buf, "wifi_companion_start.end=1\n");
+    if (stdout_pipe[0] >= 0) close(stdout_pipe[0]);
+    unlink(modem_node);
+    unlink(esoc_node);
+    return 0;
+
+fail:
+    if (pid > 0) {
+        kill(-pid, SIGKILL);
+        kill(pid, SIGKILL);
+        waitpid(pid, NULL, WNOHANG);
+    }
+    if (stdout_pipe[0] >= 0) close(stdout_pipe[0]);
+    if (stdout_pipe[1] >= 0) close(stdout_pipe[1]);
+    unlink(modem_node);
+    unlink(esoc_node);
+    return -1;
 }
 
 
@@ -16028,6 +16529,14 @@ int main(int argc, char **argv) {
                                                     &child_exit_code,
                                                     &child_signal,
                                                     &timed_out);
+    } else if (is_subsys_hold_open_proof_mode(cfg.mode)) {
+        run_rc = run_subsys_hold_open_proof(&cfg,
+                                            &paths,
+                                            &stdout_buf,
+                                            &stderr_buf,
+                                            &child_exit_code,
+                                            &child_signal,
+                                            &timed_out);
     } else if (is_wifi_companion_any_start_only_mode(cfg.mode)) {
         run_rc = run_wifi_companion_start_only_guarded(&cfg,
                                                        &paths,
