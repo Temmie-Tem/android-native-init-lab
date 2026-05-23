@@ -212,6 +212,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V659_VNDSERVICEMANAGER_READINESS_ONLY_LIVE_2026-05-23.md` – V659 live 결과 helper v107이 service `74` gate 뒤 `vndservicemanager` readiness를 증명했고 CNSS retry tail은 실행하지 않아, 다음은 proven readiness 이후 fresh `cnss-daemon` binder attempt gate
 - `reports/NATIVE_INIT_V658_VNDBINDER_SURFACE_CLASSIFIER_2026-05-23.md` – V658 host-only 결과 helper v106 exact mode는 service `74`를 재현하지만 V653/V657 모두 `cnss-daemon` vndbinder transaction 전 WLFW에서 멈춰 다음은 V659 `vndservicemanager` readiness-only gate
 - `reports/NATIVE_INIT_V657_SERVICE74_V106_REPLAY_LIVE_2026-05-23.md` – V657 live 결과 helper v106이 V653 exact mode에서 service `74` gate를 재현해 V655 timeout이 helper v106 일반 실패가 아님을 확인했고, 남은 blocker는 service-manager 이후 `cnss-daemon` binder surface
 - `reports/NATIVE_INIT_V656_SERVICE74_REGRESSION_CLASSIFIER_2026-05-23.md` – V656 host-only 결과 V655는 QRTR/sysmon/V490은 V653과 같았지만 service `74`만 회귀했고 service-manager는 시작 전이라 다음은 helper v106으로 V653 exact mode replay

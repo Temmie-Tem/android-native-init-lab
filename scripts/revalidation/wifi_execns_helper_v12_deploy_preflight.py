@@ -28,7 +28,7 @@ from pathlib import Path
 from typing import Any
 
 from a90_kernel_tools import collect_host_metadata, markdown_table, repo_path, run_capture, strip_cmdv1_text
-from a90ctl import encode_cmdv1_line, run_cmdv1_command
+from a90ctl import bridge_exchange, encode_cmdv1_line, run_cmdv1_command
 from a90harness.evidence import EvidenceStore
 
 
@@ -487,6 +487,19 @@ def run_device(args: argparse.Namespace, argv: list[str], timeout: float = 30.0)
         result = run_cmdv1_command(args.host, args.port, timeout, argv, retry_unsafe=False)
     except Exception as exc:  # noqa: BLE001 - deploy evidence keeps failure text
         return False, str(exc) + "\n", None, "missing"
+    if result.status == "busy":
+        hide_text = ""
+        try:
+            hide_text = bridge_exchange(
+                args.host,
+                args.port,
+                "hide",
+                min(timeout, 8.0),
+                markers=(b"[busy]", b"[done]", b"[err]"),
+            )
+            result = run_cmdv1_command(args.host, args.port, timeout, argv, retry_unsafe=False)
+        except Exception as exc:  # noqa: BLE001 - deploy evidence keeps failure text
+            return False, result.text + "\n## auto-hide retry failed\n" + hide_text + str(exc) + "\n", result.rc, result.status
     return result.rc == 0 and result.status == "ok", result.text, result.rc, result.status
 
 
@@ -514,15 +527,16 @@ def run_serial_install(args: argparse.Namespace, store: EvidenceStore) -> dict[s
         )
         store.write_text("host/serial-install-helper.txt", message + "\n")
         return {
+            **line_check,
             "method": "serial",
             "command": "serial appendfile + uudecode",
             "rc": 1,
             "ok": False,
+            "line_check_ok": line_check["ok"],
             "file": "host/serial-install-helper.txt",
             "error": message,
             "chunks_written": 0,
             "encoded_bytes": len(encoded.encode("utf-8")),
-            **line_check,
         }
 
     def step(name: str, argv: list[str], timeout: float = 30.0, allow_error: bool = False) -> str:
@@ -559,27 +573,29 @@ def run_serial_install(args: argparse.Namespace, store: EvidenceStore) -> dict[s
         finally:
             store.write_text("host/serial-install-helper.txt", "\n".join(transcript))
         return {
+            **line_check,
             "method": "serial",
             "command": "serial appendfile + uudecode",
             "rc": 1,
             "ok": False,
+            "line_check_ok": line_check["ok"],
             "file": "host/serial-install-helper.txt",
             "error": str(exc),
             "chunks_written": chunks_written,
             "encoded_bytes": len(encoded.encode("utf-8")),
-            **line_check,
         }
 
     store.write_text("host/serial-install-helper.txt", "\n".join(transcript))
     return {
+        **line_check,
         "method": "serial",
         "command": "serial appendfile + uudecode",
         "rc": 0,
         "ok": True,
+        "line_check_ok": line_check["ok"],
         "file": "host/serial-install-helper.txt",
         "chunks_written": chunks_written,
         "encoded_bytes": len(encoded.encode("utf-8")),
-        **line_check,
     }
 
 
