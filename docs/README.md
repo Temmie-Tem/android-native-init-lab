@@ -143,6 +143,7 @@
 - `plans/NATIVE_INIT_V102_DIAGNOSTICS_PLAN_2026-05-03.md` – v102 diagnostics/log bundle 실행 계획
 - `plans/NATIVE_INIT_V103_WIFI_INVENTORY_PLAN_2026-05-04.md` – v103 Wi-Fi read-only inventory 실행 계획
 - `plans/NATIVE_INIT_V104_WIFI_FEASIBILITY_PLAN_2026-05-04.md` – v104 Wi-Fi enablement feasibility gate 실행 계획
+- `plans/NATIVE_INIT_V686_PERIPHERAL_MANAGER_HELPER_MODE_PLAN_2026-05-24.md` – V685가 확정한 `vendor.per_mgr`/`vendor.per_proxy` provider gap을 helper v113 start-only mode로 구현하기 위한 V686 계획
 - `plans/NATIVE_INIT_V685_PERIPHERAL_MANAGER_PROVIDER_PLAN_2026-05-24.md` – V684가 좁힌 `vendor.qcom.PeripheralManager`의 A90 provider가 `vendor.per_mgr`/`pm-service`와 `vendor.per_proxy`인지 확인하고 helper start-order gap을 분류하는 V685 계획
 - `plans/NATIVE_INIT_V684_CNSS_DAEMON_VNDBINDER_TARGET_PLAN_2026-05-24.md` – V683 이후 `cnss-daemon` vndbinder `-22`의 정적/기존 live target 후보를 `vendor.qcom.PeripheralManager`로 좁히는 V684 host-only 계획
 - `plans/NATIVE_INIT_V683_CNSS2_QMI_TRIGGER_ISOLATION_PLAN_2026-05-24.md` – V682/V651/V654/V669 증거로 pre-WLFW cnss2/QMI trigger가 direct QCA power 문제가 아니라 `cnss-daemon` vndbinder continuation 문제인지 host-only 분류하는 V683 계획
@@ -239,6 +240,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V686_PERIPHERAL_MANAGER_HELPER_MODE_BUILD_2026-05-24.md` – V686 build 결과 helper v113에 service `74` gated `per_mgr`/`per_proxy` provider mode가 추가되어 다음은 V687 deploy/live start-only proof
 - `reports/NATIVE_INIT_V685_PERIPHERAL_MANAGER_PROVIDER_LIVE_2026-05-24.md` – V685 live read-only 결과 A90 provider는 `vendor.per_mgr`/`pm-service`와 `vendor.per_proxy`이며 현재 helper가 이를 materialize/start 하지 않아 다음은 V686 helper start-only 지원
 - `reports/NATIVE_INIT_V684_CNSS_DAEMON_VNDBINDER_TARGET_2026-05-24.md` – V684 host-only 결과 `cnss-daemon`이 `libperipheral_client.so`를 통해 `vendor.qcom.PeripheralManager` over vndbinder를 사용할 가능성이 높고 다음은 V685 live availability/start-order proof
 - `reports/NATIVE_INIT_V683_CNSS2_QMI_TRIGGER_ISOLATION_2026-05-24.md` – V683 host-only 결과 Android는 CNSS→WLFW로 계속되지만 native는 `cnss-daemon` vndbinder transaction 뒤 WLFW 전 정지하므로 다음은 V684 transaction target capture/repair
