@@ -143,6 +143,7 @@
 - `plans/NATIVE_INIT_V102_DIAGNOSTICS_PLAN_2026-05-03.md` – v102 diagnostics/log bundle 실행 계획
 - `plans/NATIVE_INIT_V103_WIFI_INVENTORY_PLAN_2026-05-04.md` – v103 Wi-Fi read-only inventory 실행 계획
 - `plans/NATIVE_INIT_V104_WIFI_FEASIBILITY_PLAN_2026-05-04.md` – v104 Wi-Fi enablement feasibility gate 실행 계획
+- `plans/NATIVE_INIT_V674_POST_HAL_WIFICOND_CLASSIFIER_PLAN_2026-05-24.md` – V673 post-HAL evidence를 기반으로 Wi-Fi HAL/`wificond` 이후 WLFW/BDF/`wlan0` 미진입 원인을 property/binder runtime gap으로 분류하는 V674 계획
 - `plans/NATIVE_INIT_V673_SAME_HELPER_REPLAY_PLAN_2026-05-24.md` – V672가 좁힌 service `74/180` regression을 helper v111 same-helper replay matrix로 재검증하는 V673 계획
 - `plans/NATIVE_INIT_V672_SERVICE74_REGRESSION_CLASSIFIER_PLAN_2026-05-24.md` – V671 service `74/180` timeout을 V668 service74-positive 증거와 비교해 Wi-Fi HAL/`wificond` 이전 lower service-notifier 재현성 문제인지 분류하는 V672 계획
 - `plans/NATIVE_INIT_V671_SERVICE74_ANDROID_USERSPACE_ORDER_PLAN_2026-05-24.md` – V670 service-order delta 이후 service `74` positive path에 Wi-Fi HAL legacy/ext와 `wificond` start-only를 결합한 V671 계획
@@ -227,6 +228,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V674_POST_HAL_WIFICOND_CLASSIFIER_2026-05-24.md` – V674 host-only 결과 V673 V671-arm은 HAL/`wificond`/fresh CNSS 시작과 UID/GID/cap/SELinux/Binder FD surface는 통과했지만 WLFW/BDF/`wlan0`는 없고 property-context 및 binder runtime gap이 남아 다음은 V675 targeted property/binder repair/capture
 - `reports/NATIVE_INIT_V673_SAME_HELPER_REPLAY_LIVE_2026-05-24.md` – V673 live 결과 helper v111 same-helper matrix에서 V668-compatible/V671 둘 다 service `74/180`을 재현했고 V671은 Wi-Fi HAL/`wificond`/fresh CNSS retry까지 cleanup-safe로 실행했지만 WLFW/BDF/`wlan0`는 0이라 다음은 post-HAL/wificond runtime classifier
 - `reports/NATIVE_INIT_V672_SERVICE74_REGRESSION_CLASSIFIER_2026-05-24.md` – V672 host-only 결과 V668과 V671 모두 QRTR RX/TX와 `sysmon-qmi` 및 firmware/modem surface는 같지만 V671에서만 service `74/180`이 사라져 다음은 helper v111 same-helper replay matrix
 - `reports/NATIVE_INIT_V671_SERVICE74_ANDROID_USERSPACE_ORDER_LIVE_2026-05-24.md` – V671 live 결과 QRTR RX/TX와 `sysmon-qmi`는 재현됐지만 service `74/180` gate가 timeout되어 Wi-Fi HAL/`wificond` child start는 withheld됐고 다음은 V668-positive 대비 lower service-notifier regression classifier
