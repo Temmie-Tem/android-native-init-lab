@@ -142,6 +142,7 @@
 - `plans/NATIVE_INIT_V102_DIAGNOSTICS_PLAN_2026-05-03.md` – v102 diagnostics/log bundle 실행 계획
 - `plans/NATIVE_INIT_V103_WIFI_INVENTORY_PLAN_2026-05-04.md` – v103 Wi-Fi read-only inventory 실행 계획
 - `plans/NATIVE_INIT_V104_WIFI_FEASIBILITY_PLAN_2026-05-04.md` – v104 Wi-Fi enablement feasibility gate 실행 계획
+- `plans/NATIVE_INIT_V655_VNDSERVICEMANAGER_CNSS_RETRY_PLAN_2026-05-23.md` – V654가 좁힌 `cnss-daemon` vndbinder transaction blocker를 vndservicemanager readiness 후 fresh retry로 검증하는 V655 계획
 - `plans/NATIVE_INIT_V654_BINDER_RUNTIME_MISMATCH_CLASSIFIER_PLAN_2026-05-23.md` – V653 service `74` gate 이후 남은 `cnss-daemon` vndbinder transaction `-22`를 host-only로 분류하는 V654 계획
 - `plans/NATIVE_INIT_V653_SERVICE74_GATED_SERVICE_MANAGER_PLAN_2026-05-23.md` – V652 fixed-delay service-manager regression 이후 fresh service `74` kernel marker가 관찰될 때만 service-manager trio를 시작하는 V653 계획
 - `plans/NATIVE_INIT_V652_SERVICE74_BINDER_PARITY_PLAN_2026-05-23.md` – V651 이후 V644 service `74` positive 경로에 V601/V603 service-manager binder surface를 결합해 WLFW 진입 여부만 검증하는 V652 계획
@@ -207,6 +208,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V655_VNDSERVICEMANAGER_CNSS_RETRY_PREP_2026-05-23.md` – V655 prep 결과 helper v106, runner, deploy wrapper가 빌드/plan/serial preflight를 통과했고 현재는 helper v106 deploy 후 bounded live proof가 다음 단계
 - `reports/NATIVE_INIT_V654_BINDER_RUNTIME_MISMATCH_CLASSIFIER_2026-05-23.md` – V654 host-only 결과 binder devnode/SELinux/generic binder ioctl은 root cause 가능성이 낮고, `cnss-daemon`이 `vndservicemanager` readiness 증거 전 vndbinder transaction `-22`로 멈춰 다음은 vndservicemanager-ready + fresh `cnss-daemon` binder attempt proof
 - `reports/NATIVE_INIT_V653_SERVICE74_GATED_SERVICE_MANAGER_LIVE_2026-05-23.md` – V653 live 결과 fresh service `74` gate 후 service-manager trio를 시작하면 service `180/74`는 보존되지만 `cnss-daemon` binder `-22`가 남아 다음은 binder/runtime mismatch classifier
 - `reports/NATIVE_INIT_V653_SERVICE74_GATED_SERVICE_MANAGER_PREP_2026-05-23.md` – V653 prep/deploy 결과 helper v105가 service `74` gate 후 service-manager를 시작하는 새 모드로 배포됐고, live proof는 V641 clean-DSP와 V490 refresh가 다음 prerequisite
