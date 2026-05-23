@@ -143,6 +143,7 @@
 - `plans/NATIVE_INIT_V102_DIAGNOSTICS_PLAN_2026-05-03.md` – v102 diagnostics/log bundle 실행 계획
 - `plans/NATIVE_INIT_V103_WIFI_INVENTORY_PLAN_2026-05-04.md` – v103 Wi-Fi read-only inventory 실행 계획
 - `plans/NATIVE_INIT_V104_WIFI_FEASIBILITY_PLAN_2026-05-04.md` – v104 Wi-Fi enablement feasibility gate 실행 계획
+- `plans/NATIVE_INIT_V678_BINDER_FAILURE_TARGET_CLASSIFIER_PLAN_2026-05-24.md` – V677 이후 property denial 0 상태에서 남은 Binder `-22` actor/code/FD surface를 host-only로 분류해 V679 registry/debug capture gate를 정하는 V678 계획
 - `plans/NATIVE_INIT_V677_V676_RESIDUAL_PROPERTY_PLAN_2026-05-24.md` – V676 잔여 20개 property denial을 V535 private property root에 delta로 반영해 property blocker 제거 여부를 검증하는 V677 계획
 - `plans/NATIVE_INIT_V676_V535_PROPERTY_ANDROID_ORDER_PLAN_2026-05-24.md` – V535 private property root로 V671 Android userspace-order path를 재생해 V675 property target 개선 효과와 남은 blocker를 검증하는 V676 계획
 - `plans/NATIVE_INIT_V675_PROPERTY_BINDER_TARGET_CLASSIFIER_PLAN_2026-05-24.md` – V674 post-HAL property/Binder gap을 Android getprop/property_context와 비교해 다음 private property_info/seed 및 Binder capture 대상을 정하는 V675 계획
@@ -231,6 +232,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V678_BINDER_FAILURE_TARGET_CLASSIFIER_2026-05-24.md` – V678 host-only 결과 V677 property denial 0 상태에서 Binder failure 5개를 `servicemanager`/`hwservicemanager`/`wificond` ioctl noise와 `cnss-daemon` vndbinder transaction blocker로 분류했고 다음은 V679 Binder registry/debug snapshot
 - `reports/NATIVE_INIT_V677_V676_RESIDUAL_PROPERTY_LIVE_2026-05-24.md` – V677 live 결과 V676 잔여 property denial 370개/20키를 private property root delta로 제거해 property denial이 0이 되었고, 남은 blocker는 Binder `-22` registration/transaction 경로로 좁혀짐
 - `reports/NATIVE_INIT_V676_V535_PROPERTY_ANDROID_ORDER_LIVE_2026-05-24.md` – V676 live 결과 V535 property root가 V675 denial set을 크게 줄였지만 service-manager/HAL/wificond/SKU/libvintf 관련 370개 property denial과 Binder failure가 남아 WLFW/BDF/`wlan0`는 아직 미진입
 - `reports/NATIVE_INIT_V675_PROPERTY_BINDER_TARGET_CLASSIFIER_2026-05-24.md` – V675 host-only 결과 V674의 `24`개 property lookup failure는 모두 Android property_context에 매핑되고 runtime-required 값도 Android getprop에서 확인되어 다음은 private property_info/seed 확장과 bounded Binder registration capture
