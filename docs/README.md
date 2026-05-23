@@ -142,6 +142,7 @@
 - `plans/NATIVE_INIT_V102_DIAGNOSTICS_PLAN_2026-05-03.md` – v102 diagnostics/log bundle 실행 계획
 - `plans/NATIVE_INIT_V103_WIFI_INVENTORY_PLAN_2026-05-04.md` – v103 Wi-Fi read-only inventory 실행 계획
 - `plans/NATIVE_INIT_V104_WIFI_FEASIBILITY_PLAN_2026-05-04.md` – v104 Wi-Fi enablement feasibility gate 실행 계획
+- `plans/NATIVE_INIT_V657_SERVICE74_V106_REPLAY_PLAN_2026-05-23.md` – V656 이후 helper v106으로 V653 exact service `74` gate를 재현해 V655 retry tail 전 blocker를 분리하는 계획
 - `plans/NATIVE_INIT_V656_SERVICE74_REGRESSION_CLASSIFIER_PLAN_2026-05-23.md` – V655 service `74` gate timeout을 V644/V653 positive와 host-only로 비교해 다음 V657 exact replay gate를 정하는 계획
 - `plans/NATIVE_INIT_V655_VNDSERVICEMANAGER_CNSS_RETRY_PLAN_2026-05-23.md` – V654가 좁힌 `cnss-daemon` vndbinder transaction blocker를 vndservicemanager readiness 후 fresh retry로 검증하는 V655 계획
 - `plans/NATIVE_INIT_V654_BINDER_RUNTIME_MISMATCH_CLASSIFIER_PLAN_2026-05-23.md` – V653 service `74` gate 이후 남은 `cnss-daemon` vndbinder transaction `-22`를 host-only로 분류하는 V654 계획
@@ -209,6 +210,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V657_SERVICE74_V106_REPLAY_LIVE_2026-05-23.md` – V657 live 결과 helper v106이 V653 exact mode에서 service `74` gate를 재현해 V655 timeout이 helper v106 일반 실패가 아님을 확인했고, 남은 blocker는 service-manager 이후 `cnss-daemon` binder surface
 - `reports/NATIVE_INIT_V656_SERVICE74_REGRESSION_CLASSIFIER_2026-05-23.md` – V656 host-only 결과 V655는 QRTR/sysmon/V490은 V653과 같았지만 service `74`만 회귀했고 service-manager는 시작 전이라 다음은 helper v106으로 V653 exact mode replay
 - `reports/NATIVE_INIT_V655_VNDSERVICEMANAGER_CNSS_RETRY_LIVE_2026-05-23.md` – V655 live 결과 helper v106/V641/V490 전제조건은 통과했지만 fresh service `74` gate가 timeout되어 service-manager/vndservicemanager/CNSS retry는 의도대로 보류됐고 다음은 V653 대비 service `74` 회귀 분류
 - `reports/NATIVE_INIT_V655_VNDSERVICEMANAGER_CNSS_RETRY_PREP_2026-05-23.md` – V655 prep 결과 helper v106, runner, deploy wrapper가 빌드/plan/serial preflight를 통과했고 현재는 helper v106 deploy 후 bounded live proof가 다음 단계
