@@ -143,6 +143,7 @@
 - `plans/NATIVE_INIT_V102_DIAGNOSTICS_PLAN_2026-05-03.md` – v102 diagnostics/log bundle 실행 계획
 - `plans/NATIVE_INIT_V103_WIFI_INVENTORY_PLAN_2026-05-04.md` – v103 Wi-Fi read-only inventory 실행 계획
 - `plans/NATIVE_INIT_V104_WIFI_FEASIBILITY_PLAN_2026-05-04.md` – v104 Wi-Fi enablement feasibility gate 실행 계획
+- `plans/NATIVE_INIT_V702_CNSS2_FOCUS_SURFACE_CLASSIFIER_PLAN_2026-05-24.md` – V700 provider-first retry window의 cnss2/icnss/QCA focus capture를 구조화해 `qca6390` binding gap을 분류하는 V702 host-only 계획
 - `plans/NATIVE_INIT_V701_PRE_WLFW_TRIGGER_CLASSIFIER_PLAN_2026-05-24.md` – V700 이후 남은 WLFW 전 정지를 Binder가 아닌 cnss2/icnss/QCA kernel progression gap으로 분류하는 V701 host-only 계획
 - `plans/NATIVE_INIT_V700_PROVIDER_FIRST_CNSS_LIVE_PLAN_2026-05-24.md` – V699 helper v119를 배포하고 provider-first initial-suppressed CNSS retry를 bounded live로 검증하는 V700 계획
 - `plans/NATIVE_INIT_V699_PROVIDER_FIRST_CNSS_HELPER_PLAN_2026-05-24.md` – V698에서 분리한 초기 pre-provider CNSS 실패를 제거하기 위해 provider-first initial-suppressed CNSS helper v119 모드를 추가하는 V699 계획
@@ -255,6 +256,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V702_CNSS2_FOCUS_SURFACE_CLASSIFIER_2026-05-24.md` – V702 결과 `icnss`는 bound, `qca6390` node는 visible이지만 driver symlink가 없고 `wlan0`/debug ICNSS/WLFW/BDF가 없어 다음은 Android-vs-native binding 비교
 - `reports/NATIVE_INIT_V701_PRE_WLFW_TRIGGER_CLASSIFIER_2026-05-24.md` – V701 결과 V700의 provider-first CNSS retry는 Binder 실패 없이 netlink/`cld80211`까지만 도달하고 ICNSS/QCA/WLFW/BDF/`wlan0`가 없어 다음은 V702 read-only platform-state capture
 - `reports/NATIVE_INIT_V700_PROVIDER_FIRST_CNSS_LIVE_2026-05-24.md` – V700 live 결과 초기 pre-provider CNSS를 억제한 상태에서 provider 등록과 post-provider CNSS retry는 통과했지만 WLFW/BDF/`wlan0`는 여전히 0이라 다음은 pre-WLFW trigger classifier
 - `reports/NATIVE_INIT_V699_PROVIDER_FIRST_CNSS_HELPER_2026-05-24.md` – V699 helper-build 결과 `a90_android_execns_probe v119`에 provider-first initial-suppressed CNSS 모드를 추가했고 다음은 helper v119 배포 후 bounded live proof
