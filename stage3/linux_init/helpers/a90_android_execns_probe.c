@@ -76,7 +76,7 @@
 #define AF_QIPCRTR 42
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v116"
+#define EXECNS_VERSION "a90_android_execns_probe v117"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -310,7 +310,7 @@ static void usage(FILE *out) {
             "[--connect-config /cache/a90-wifi/...] "
             "[--connect-iface auto|wlan0] "
             "[--ping-target 1.1.1.1] "
-            "--mode linker-list|identity-probe|sepolicy-inventory|sepolicy-compile-proof|sepolicy-load-proof|selinux-domain-proof|cnss-start-only|cnss-userspace-readiness|wifi-companion-start-only|wifi-companion-post-sysmon-observer-start-only|wifi-companion-android-order-post-sysmon-observer-start-only|wifi-companion-service-manager-start-only|wifi-companion-vnd-service-manager-start-only|wifi-companion-qrtr-first-vnd-service-manager-start-only|wifi-companion-cnss-first-delayed-vnd-service-manager-start-only|wifi-companion-service74-gated-vnd-service-manager-start-only|wifi-companion-service74-gated-vnd-service-manager-readiness-start-only|wifi-companion-service74-gated-vnd-service-manager-cnss-retry-start-only|wifi-companion-service74-gated-peripheral-manager-cnss-retry-start-only|wifi-companion-service74-gated-peripheral-manager-cnss-retry-registry-snapshot-start-only|wifi-companion-service74-gated-android-userspace-cnss-retry-start-only|wifi-companion-service74-gated-android-userspace-cnss-retry-registry-snapshot-start-only|wifi-companion-service74-gated-vnd-service-manager-registry-snapshot-start-only|wifi-companion-hal-order-start-only|wifi-companion-hal-wificond-order-start-only|wifi-companion-hal-wificond-lshal-wait-samsung|wifi-companion-hal-wificond-lshal-wait-iwifi|wifi-companion-dual-hal-wificond-lshal-wait-iwifi|wifi-companion-dual-hal-wificond-iwifi-start|wifi-companion-dual-hal-wificond-lshal-then-iwifi-start|rmt-storage-start-only|property-lookup|service-manager-start-only|private-selinux-proof|wifi-hal-lshal-vintf-status-list|wifi-hal-composite-start-only|wifi-hal-composite-lshal-list|wifi-hal-composite-lshal-binderized-list|wifi-hal-composite-lshal-wait-target|wifi-surface-composite-lshal-wait-iwifi|wifi-surface-composite-lshal-wait-samsung|wifi-surface-composite-lshal-wait-samsung-ptrace|wifi-hal-composite-lshal-status-list|wifi-hal-composite-lshal-binderized-status-list|wifi-surface-composite-start-only|wifi-dual-hal-lshal-wait-iwifi|wifi-dual-hal-iwifi-start-surface|wifi-iwifi-start-surface|wifi-active-session-surface|wifi-active-session-scan-only|wifi-active-session-connect-ping|wifi-connect-tool-surface|subsys-hold-open-proof "
+            "--mode linker-list|identity-probe|sepolicy-inventory|sepolicy-compile-proof|sepolicy-load-proof|selinux-domain-proof|cnss-start-only|cnss-userspace-readiness|wifi-companion-start-only|wifi-companion-post-sysmon-observer-start-only|wifi-companion-android-order-post-sysmon-observer-start-only|wifi-companion-service-manager-start-only|wifi-companion-vnd-service-manager-start-only|wifi-companion-qrtr-first-vnd-service-manager-start-only|wifi-companion-cnss-first-delayed-vnd-service-manager-start-only|wifi-companion-service74-gated-vnd-service-manager-start-only|wifi-companion-service74-gated-vnd-service-manager-readiness-start-only|wifi-companion-service74-gated-vnd-service-manager-cnss-retry-start-only|wifi-companion-service74-gated-peripheral-manager-cnss-retry-start-only|wifi-companion-service74-gated-peripheral-manager-cnss-retry-registry-snapshot-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-start-only|wifi-companion-service74-gated-android-userspace-cnss-retry-start-only|wifi-companion-service74-gated-android-userspace-cnss-retry-registry-snapshot-start-only|wifi-companion-service74-gated-vnd-service-manager-registry-snapshot-start-only|wifi-companion-hal-order-start-only|wifi-companion-hal-wificond-order-start-only|wifi-companion-hal-wificond-lshal-wait-samsung|wifi-companion-hal-wificond-lshal-wait-iwifi|wifi-companion-dual-hal-wificond-lshal-wait-iwifi|wifi-companion-dual-hal-wificond-iwifi-start|wifi-companion-dual-hal-wificond-lshal-then-iwifi-start|rmt-storage-start-only|property-lookup|service-manager-start-only|private-selinux-proof|wifi-hal-lshal-vintf-status-list|wifi-hal-composite-start-only|wifi-hal-composite-lshal-list|wifi-hal-composite-lshal-binderized-list|wifi-hal-composite-lshal-wait-target|wifi-surface-composite-lshal-wait-iwifi|wifi-surface-composite-lshal-wait-samsung|wifi-surface-composite-lshal-wait-samsung-ptrace|wifi-hal-composite-lshal-status-list|wifi-hal-composite-lshal-binderized-status-list|wifi-surface-composite-start-only|wifi-dual-hal-lshal-wait-iwifi|wifi-dual-hal-iwifi-start-surface|wifi-iwifi-start-surface|wifi-active-session-surface|wifi-active-session-scan-only|wifi-active-session-connect-ping|wifi-connect-tool-surface|subsys-hold-open-proof "
             "[v27 binderized query runs: /system/bin/lshal list --types=binderized --neat] "
             "[v28 target query runs: /system/bin/lshal wait <fqinstance>] "
             "[v29 status query runs: /system/bin/lshal list --types=binderized,vintf --neat -V -S -i -p -e -c] "
@@ -438,6 +438,10 @@ static bool is_wifi_companion_service74_gated_peripheral_manager_cnss_retry_regi
     return streq(mode, "wifi-companion-service74-gated-peripheral-manager-cnss-retry-registry-snapshot-start-only");
 }
 
+static bool is_wifi_companion_service74_gated_peripheral_manager_vndservice_query_start_only_mode(const char *mode) {
+    return streq(mode, "wifi-companion-service74-gated-peripheral-manager-vndservice-query-start-only");
+}
+
 static bool is_wifi_companion_service74_gated_android_userspace_cnss_retry_start_only_mode(const char *mode) {
     return streq(mode, "wifi-companion-service74-gated-android-userspace-cnss-retry-start-only");
 }
@@ -460,6 +464,7 @@ static bool is_wifi_companion_with_service_manager_start_only_mode(const char *m
            is_wifi_companion_service74_gated_vnd_service_manager_cnss_retry_start_only_mode(mode) ||
            is_wifi_companion_service74_gated_peripheral_manager_cnss_retry_start_only_mode(mode) ||
            is_wifi_companion_service74_gated_peripheral_manager_cnss_retry_registry_snapshot_start_only_mode(mode) ||
+           is_wifi_companion_service74_gated_peripheral_manager_vndservice_query_start_only_mode(mode) ||
            is_wifi_companion_service74_gated_android_userspace_cnss_retry_start_only_mode(mode) ||
            is_wifi_companion_service74_gated_android_userspace_cnss_retry_registry_snapshot_start_only_mode(mode) ||
            is_wifi_companion_service74_gated_vnd_service_manager_registry_snapshot_start_only_mode(mode);
@@ -13144,6 +13149,324 @@ static int run_lshal_wait_target_query_child(const struct config *cfg,
     return -1;
 }
 
+static int append_named_buffer_capture(struct buffer *out,
+                                       const char *label,
+                                       const char *stream,
+                                       const struct buffer *capture) {
+    if (append_format(out,
+                      "A90_EXECNS_VNDSERVICE_QUERY_%s_%s_BEGIN bytes=%zu truncated=%d\n",
+                      label,
+                      stream,
+                      capture->len,
+                      capture->truncated ? 1 : 0) < 0) {
+        return -1;
+    }
+    if (capture->data != NULL && capture->len > 0 &&
+        buffer_append(out, capture->data, capture->len) < 0) {
+        return -1;
+    }
+    if (out->len == 0 || out->data[out->len - 1] != '\n') {
+        if (append_literal(out, "\n") < 0) {
+            return -1;
+        }
+    }
+    return append_format(out,
+                         "A90_EXECNS_VNDSERVICE_QUERY_%s_%s_END bytes=%zu truncated=%d\n",
+                         label,
+                         stream,
+                         capture->len,
+                         capture->truncated ? 1 : 0);
+}
+
+static int append_vndservice_query(struct buffer *stdout_buf,
+                                   struct buffer *stderr_buf,
+                                   const struct config *cfg,
+                                   const struct paths *paths,
+                                   const char *phase,
+                                   int timeout_ms) {
+    char vndservice_host_path[MAX_PATH_LEN];
+    struct buffer query_stdout;
+    struct buffer query_stderr;
+    int stdout_pipe[2] = {-1, -1};
+    int stderr_pipe[2] = {-1, -1};
+    pid_t pid;
+    pid_t pgid;
+    bool stdout_open = false;
+    bool stderr_open = false;
+    bool child_done = false;
+    bool timed_out = false;
+    int exit_code = -1;
+    int signal_no = 0;
+    long deadline;
+    int rc = 0;
+
+    memset(&query_stdout, 0, sizeof(query_stdout));
+    memset(&query_stderr, 0, sizeof(query_stderr));
+    if (buffer_init(&query_stdout) < 0 || buffer_init(&query_stderr) < 0) {
+        if (query_stdout.data != NULL) {
+            buffer_free(&query_stdout);
+        }
+        if (query_stderr.data != NULL) {
+            buffer_free(&query_stderr);
+        }
+        return -1;
+    }
+    if (append_path(vndservice_host_path, sizeof(vndservice_host_path), paths->root, "vendor/bin/vndservice") < 0) {
+        rc = append_format(stdout_buf,
+                           "wifi_vndservice_query.%s.result=manual-review-required\n"
+                           "wifi_vndservice_query.%s.reason=vndservice-path-too-long\n",
+                           phase,
+                           phase);
+        goto out;
+    }
+    if (append_format(stdout_buf,
+                      "wifi_vndservice_query.%s.begin=1\n"
+                      "wifi_vndservice_query.%s.tool=/vendor/bin/vndservice\n"
+                      "wifi_vndservice_query.%s.argv=/vendor/bin/vndservice list\n"
+                      "wifi_vndservice_query.%s.host_path=%s\n"
+                      "wifi_vndservice_query.%s.exists=%d\n"
+                      "wifi_vndservice_query.%s.executable=%d\n"
+                      "wifi_vndservice_query.%s.scan_connect_linkup=0\n"
+                      "wifi_vndservice_query.%s.credentials=0\n"
+                      "wifi_vndservice_query.%s.dhcp_routing=0\n"
+                      "wifi_vndservice_query.%s.external_ping=0\n",
+                      phase,
+                      phase,
+                      phase,
+                      phase,
+                      vndservice_host_path,
+                      phase,
+                      access(vndservice_host_path, F_OK) == 0 ? 1 : 0,
+                      phase,
+                      access(vndservice_host_path, X_OK) == 0 ? 1 : 0,
+                      phase,
+                      phase,
+                      phase,
+                      phase) < 0) {
+        rc = -1;
+        goto out;
+    }
+    if (access(vndservice_host_path, X_OK) < 0) {
+        rc = append_format(stdout_buf,
+                           "wifi_vndservice_query.%s.exec_attempted=0\n"
+                           "wifi_vndservice_query.%s.result=query-tool-missing\n"
+                           "wifi_vndservice_query.%s.reason=vendor-bin-vndservice-unavailable-%s\n"
+                           "wifi_vndservice_query.%s.end=1\n",
+                           phase,
+                           phase,
+                           phase,
+                           strerror(errno),
+                           phase);
+        goto out;
+    }
+    if (pipe2(stdout_pipe, O_CLOEXEC) < 0 || pipe2(stderr_pipe, O_CLOEXEC) < 0) {
+        rc = append_format(stdout_buf,
+                           "wifi_vndservice_query.%s.result=manual-review-required\n"
+                           "wifi_vndservice_query.%s.reason=pipe-failed-%s\n"
+                           "wifi_vndservice_query.%s.end=1\n",
+                           phase,
+                           phase,
+                           strerror(errno),
+                           phase);
+        goto out;
+    }
+    pid = fork();
+    if (pid < 0) {
+        rc = append_format(stdout_buf,
+                           "wifi_vndservice_query.%s.result=manual-review-required\n"
+                           "wifi_vndservice_query.%s.reason=fork-failed-%s\n"
+                           "wifi_vndservice_query.%s.end=1\n",
+                           phase,
+                           phase,
+                           strerror(errno),
+                           phase);
+        goto out;
+    }
+    if (pid == 0) {
+        char *const vndservice_argv[] = {
+            (char *)"/vendor/bin/vndservice",
+            (char *)"list",
+            NULL,
+        };
+
+        close(stdout_pipe[0]);
+        close(stderr_pipe[0]);
+        dup2(stdout_pipe[1], STDOUT_FILENO);
+        dup2(stderr_pipe[1], STDERR_FILENO);
+        close(stdout_pipe[1]);
+        close(stderr_pipe[1]);
+        if (setsid() < 0) {
+            perror("setsid");
+            _exit(123);
+        }
+        if (chroot(paths->root) < 0) {
+            perror("chroot");
+            _exit(120);
+        }
+        if (chdir("/") < 0) {
+            perror("chdir");
+            _exit(121);
+        }
+        apply_child_env(cfg);
+        printf("wifi_vndservice_query.%s.child.begin=1\n", phase);
+        if (apply_service_manager_identity_contract("wifi_vndservice_query.child") < 0) {
+            printf("wifi_vndservice_query.%s.child.end=1\n", phase);
+            fflush(stdout);
+            _exit(126);
+        }
+        printf("wifi_vndservice_query.%s.child.exec_target=/vendor/bin/vndservice\n", phase);
+        printf("wifi_vndservice_query.%s.child.argv.1=list\n", phase);
+        fflush(stdout);
+        execv("/vendor/bin/vndservice", vndservice_argv);
+        printf("wifi_vndservice_query.%s.child.exec_error=%s\n", phase, strerror(errno));
+        printf("wifi_vndservice_query.%s.child.end=1\n", phase);
+        fflush(stdout);
+        _exit(127);
+    }
+    close(stdout_pipe[1]);
+    close(stderr_pipe[1]);
+    stdout_pipe[1] = -1;
+    stderr_pipe[1] = -1;
+    stdout_open = true;
+    stderr_open = true;
+    set_nonblock(stdout_pipe[0]);
+    set_nonblock(stderr_pipe[0]);
+    pgid = wait_for_child_session_pgid(pid, 1000);
+    if (append_format(stdout_buf,
+                      "wifi_vndservice_query.%s.exec_attempted=1\n"
+                      "wifi_vndservice_query.%s.child_started=1\n"
+                      "wifi_vndservice_query.%s.pid=%ld\n"
+                      "wifi_vndservice_query.%s.pgid=%ld\n",
+                      phase,
+                      phase,
+                      phase,
+                      (long)pid,
+                      phase,
+                      (long)pgid) < 0) {
+        rc = -1;
+        goto out;
+    }
+
+    deadline = monotonic_ms() + timeout_ms;
+    while (stdout_open || stderr_open || !child_done) {
+        struct pollfd fds[2];
+        int nfds = 0;
+
+        if (!child_done && monotonic_ms() >= deadline) {
+            timed_out = true;
+            if (pgid > 1) {
+                kill(-pgid, SIGTERM);
+            }
+            kill(pid, SIGTERM);
+        }
+        if (stdout_open) {
+            fds[nfds].fd = stdout_pipe[0];
+            fds[nfds].events = POLLIN | POLLHUP | POLLERR;
+            nfds++;
+        }
+        if (stderr_open) {
+            fds[nfds].fd = stderr_pipe[0];
+            fds[nfds].events = POLLIN | POLLHUP | POLLERR;
+            nfds++;
+        }
+        if (nfds > 0) {
+            int poll_rc = poll(fds, nfds, 50);
+
+            if (poll_rc > 0) {
+                int idx = 0;
+
+                if (stdout_open) {
+                    if (fds[idx].revents != 0) {
+                        drain_fd(stdout_pipe[0], &query_stdout, &stdout_open);
+                    }
+                    idx++;
+                }
+                if (stderr_open && fds[idx].revents != 0) {
+                    drain_fd(stderr_pipe[0], &query_stderr, &stderr_open);
+                }
+            }
+        } else {
+            usleep(50000);
+        }
+        if (!child_done) {
+            int status = 0;
+            pid_t wait_rc = waitpid(pid, &status, WNOHANG);
+
+            if (wait_rc == pid) {
+                child_done = true;
+                if (WIFEXITED(status)) {
+                    exit_code = WEXITSTATUS(status);
+                } else if (WIFSIGNALED(status)) {
+                    signal_no = WTERMSIG(status);
+                }
+            } else if (wait_rc < 0 && errno != EINTR) {
+                if (errno == ECHILD) {
+                    child_done = true;
+                } else {
+                    append_format(stdout_buf,
+                                  "wifi_vndservice_query.%s.wait.error=%s\n",
+                                  phase,
+                                  strerror(errno));
+                    child_done = true;
+                }
+            }
+        }
+        if (timed_out && !child_done && monotonic_ms() >= deadline + 1000L) {
+            if (pgid > 1) {
+                kill(-pgid, SIGKILL);
+            }
+            kill(pid, SIGKILL);
+        }
+    }
+    if (append_named_buffer_capture(stdout_buf, phase, "STDOUT", &query_stdout) < 0 ||
+        append_named_buffer_capture(stderr_buf, phase, "STDERR", &query_stderr) < 0) {
+        rc = -1;
+        goto out;
+    }
+    if (append_format(stdout_buf,
+                      "wifi_vndservice_query.%s.exit_code=%d\n"
+                      "wifi_vndservice_query.%s.signal=%d\n"
+                      "wifi_vndservice_query.%s.timed_out=%d\n"
+                      "wifi_vndservice_query.%s.stdout_bytes=%zu\n"
+                      "wifi_vndservice_query.%s.stderr_bytes=%zu\n"
+                      "wifi_vndservice_query.%s.vendor_qcom_peripheral_manager_seen=%d\n"
+                      "wifi_vndservice_query.%s.peripheral_seen=%d\n"
+                      "wifi_vndservice_query.%s.result=%s\n"
+                      "wifi_vndservice_query.%s.reason=%s\n"
+                      "wifi_vndservice_query.%s.end=1\n",
+                      phase,
+                      exit_code,
+                      phase,
+                      signal_no,
+                      phase,
+                      timed_out ? 1 : 0,
+                      phase,
+                      query_stdout.len,
+                      phase,
+                      query_stderr.len,
+                      phase,
+                      strcasestr(query_stdout.data, "vendor.qcom.PeripheralManager") != NULL ? 1 : 0,
+                      phase,
+                      strcasestr(query_stdout.data, "peripheral") != NULL ? 1 : 0,
+                      phase,
+                      timed_out ? "query-timeout" : (exit_code == 0 && signal_no == 0 ? "query-exit-zero" : "query-runtime-gap"),
+                      phase,
+                      timed_out ? "vndservice-timeout" : (exit_code == 0 && signal_no == 0 ? "vndservice-list-exit-zero" : "vndservice-list-nonzero"),
+                      phase) < 0) {
+        rc = -1;
+        goto out;
+    }
+
+out:
+    if (stdout_pipe[0] >= 0) close(stdout_pipe[0]);
+    if (stdout_pipe[1] >= 0) close(stdout_pipe[1]);
+    if (stderr_pipe[0] >= 0) close(stderr_pipe[0]);
+    if (stderr_pipe[1] >= 0) close(stderr_pipe[1]);
+    buffer_free(&query_stdout);
+    buffer_free(&query_stderr);
+    return rc;
+}
+
 static void composite_capture_observable_children(struct composite_child *children,
                                                   size_t child_count,
                                                   struct buffer *stdout_buf) {
@@ -14151,6 +14474,8 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
         is_wifi_companion_service74_gated_peripheral_manager_cnss_retry_registry_snapshot_start_only_mode(cfg->mode);
     const bool service74_gated_peripheral_manager_cnss_retry =
         is_wifi_companion_service74_gated_peripheral_manager_cnss_retry_start_only_mode(cfg->mode);
+    const bool service74_gated_peripheral_manager_vndservice_query =
+        is_wifi_companion_service74_gated_peripheral_manager_vndservice_query_start_only_mode(cfg->mode);
     const bool service74_gated_android_userspace_registry_retry =
         is_wifi_companion_service74_gated_android_userspace_cnss_retry_registry_snapshot_start_only_mode(cfg->mode);
     const bool service74_gated_android_userspace_retry =
@@ -14165,11 +14490,14 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
     const bool service74_gated_peripheral_manager_any_retry =
         service74_gated_peripheral_manager_cnss_retry ||
         service74_gated_peripheral_manager_registry_retry;
+    const bool service74_gated_peripheral_manager_any =
+        service74_gated_peripheral_manager_any_retry ||
+        service74_gated_peripheral_manager_vndservice_query;
     const bool service74_gated_any =
         service74_gated_service_manager ||
         service74_gated_vnd_readiness ||
         service74_gated_cnss_retry ||
-        service74_gated_peripheral_manager_any_retry ||
+        service74_gated_peripheral_manager_any ||
         service74_gated_android_userspace_retry ||
         service74_gated_registry_snapshot;
     const bool post_sysmon_observer =
@@ -14330,6 +14658,15 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
                              "cnss_daemon_retry",
                              "/vendor/bin/cnss-daemon",
                              COMPOSITE_ID_CNSS);
+    } else if (service74_gated_peripheral_manager_vndservice_query) {
+        composite_child_init(&children[child_count++],
+                             "per_mgr",
+                             "/vendor/bin/pm-service",
+                             COMPOSITE_ID_PER_MGR);
+        composite_child_init(&children[child_count++],
+                             "per_proxy",
+                             "/vendor/bin/pm-proxy",
+                             COMPOSITE_ID_PER_PROXY);
     }
     if (post_sysmon_observer) {
         order = android_order_post_sysmon_observer
@@ -14349,6 +14686,8 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
         order = service74_gated_peripheral_manager_registry_retry
                     ? "qrtr_ns,rmt_storage,tftp_server,pd_mapper,cnss_diag,cnss_daemon,service74_gate,servicemanager,hwservicemanager,vndservicemanager,vndservicemanager_ready,cnss_daemon_initial_cleanup,per_mgr,per_proxy,cnss_daemon_retry,registry_snapshot"
                     : "qrtr_ns,rmt_storage,tftp_server,pd_mapper,cnss_diag,cnss_daemon,service74_gate,servicemanager,hwservicemanager,vndservicemanager,vndservicemanager_ready,cnss_daemon_initial_cleanup,per_mgr,per_proxy,cnss_daemon_retry";
+    } else if (service74_gated_peripheral_manager_vndservice_query) {
+        order = "qrtr_ns,rmt_storage,tftp_server,pd_mapper,cnss_diag,cnss_daemon,service74_gate,servicemanager,hwservicemanager,vndservicemanager,vndservicemanager_ready,cnss_daemon_initial_cleanup,per_mgr,vndservice_query,per_proxy,vndservice_query";
     } else if (service74_gated_registry_snapshot) {
         order = "qrtr_ns,rmt_storage,tftp_server,pd_mapper,cnss_diag,cnss_daemon,service74_gate,servicemanager,hwservicemanager,vndservicemanager,vndservicemanager_ready,registry_snapshot";
     } else if (service74_gated_vnd_readiness) {
@@ -14412,9 +14751,12 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
                       (service74_gated_cnss_retry ||
                        service74_gated_peripheral_manager_any_retry ||
                        service74_gated_android_userspace_retry) ? 1 : 0,
-                      service74_gated_peripheral_manager_any_retry ? 1 : 0,
+                      service74_gated_peripheral_manager_any ? 1 : 0,
                       service74_gated_android_userspace_retry ? 1 : 0,
                       service74_gated_registry_capture ? 1 : 0) < 0 ||
+        append_format(stdout_buf,
+                      "wifi_companion_start.vndservice_query.enabled=%d\n",
+                      service74_gated_peripheral_manager_vndservice_query ? 1 : 0) < 0 ||
         append_format(stdout_buf, "wifi_companion_start.wifi_hal=%d\n",
                       service74_gated_android_userspace_retry ? 2 : 0) < 0 ||
         append_format(stdout_buf, "wifi_companion_start.wificond=%d\n",
@@ -14544,7 +14886,7 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
             }
         } else if ((service74_gated_vnd_readiness ||
                     service74_gated_cnss_retry ||
-                    service74_gated_peripheral_manager_any_retry ||
+                    service74_gated_peripheral_manager_any ||
                     service74_gated_android_userspace_retry ||
                     service74_gated_registry_snapshot) &&
                    vndservicemanager_index >= 0 &&
@@ -14622,7 +14964,7 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
             if (!vnd_ready || !initial_cleanup_safe) {
                 break;
             }
-        } else if (service74_gated_peripheral_manager_any_retry &&
+        } else if (service74_gated_peripheral_manager_any &&
                    streq(children[i].name, "per_mgr")) {
             usleep(1000000);
             composite_capture_observable_children(&children[i], 1, stdout_buf);
@@ -14652,7 +14994,18 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
                 stop_property_service_shim(&property_shim, paths, stdout_buf);
                 return -1;
             }
-        } else if (service74_gated_peripheral_manager_any_retry &&
+            if (service74_gated_peripheral_manager_vndservice_query &&
+                append_vndservice_query(stdout_buf,
+                                        stderr_buf,
+                                        cfg,
+                                        paths,
+                                        "after_per_mgr_probe",
+                                        3000) < 0) {
+                composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+                stop_property_service_shim(&property_shim, paths, stdout_buf);
+                return -1;
+            }
+        } else if (service74_gated_peripheral_manager_any &&
                    streq(children[i].name, "per_proxy")) {
             usleep(1000000);
             composite_capture_observable_children(&children[i], 1, stdout_buf);
@@ -14678,6 +15031,17 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
                                                       paths,
                                                       children,
                                                       active_child_count) < 0) {
+                composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+                stop_property_service_shim(&property_shim, paths, stdout_buf);
+                return -1;
+            }
+            if (service74_gated_peripheral_manager_vndservice_query &&
+                append_vndservice_query(stdout_buf,
+                                        stderr_buf,
+                                        cfg,
+                                        paths,
+                                        "after_per_proxy_probe",
+                                        3000) < 0) {
                 composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
                 stop_property_service_shim(&property_shim, paths, stdout_buf);
                 return -1;

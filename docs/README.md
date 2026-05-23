@@ -143,6 +143,7 @@
 - `plans/NATIVE_INIT_V102_DIAGNOSTICS_PLAN_2026-05-03.md` – v102 diagnostics/log bundle 실행 계획
 - `plans/NATIVE_INIT_V103_WIFI_INVENTORY_PLAN_2026-05-04.md` – v103 Wi-Fi read-only inventory 실행 계획
 - `plans/NATIVE_INIT_V104_WIFI_FEASIBILITY_PLAN_2026-05-04.md` – v104 Wi-Fi enablement feasibility gate 실행 계획
+- `plans/NATIVE_INIT_V694_PERIPHERAL_VNDSERVICE_QUERY_PLAN_2026-05-24.md` – V692/V693 registry observability gap 뒤 `vendor.qcom.PeripheralManager`가 실제 `vndservicemanager`에 등록되는지 helper v117 `/vendor/bin/vndservice list`로 확인하는 V694 계획
 - `plans/NATIVE_INIT_V693_PERIPHERAL_REGISTRY_EVIDENCE_CLASSIFIER_PLAN_2026-05-24.md` – V692 registry snapshot이 provider 등록을 증명하는지 아니면 Binder 관측성 gap인지 host-only로 분류하는 V693 계획
 - `plans/NATIVE_INIT_V692_PERIPHERAL_REGISTRY_SNAPSHOT_PLAN_2026-05-24.md` – V691 post-property provider exit 이후 `pm-service`/`pm-proxy` start 주변 vndservicemanager/binder registry snapshot을 helper v116으로 캡처하는 V692 계획
 - `plans/NATIVE_INIT_V691_PERIPHERAL_POST_PROPERTY_EXIT_CLASSIFIER_PLAN_2026-05-24.md` – V690 property ack 이후에도 provider가 남지 않는 post-property exit gap을 host-only로 분류하는 V691 계획
@@ -252,6 +253,7 @@
 - `reports/NATIVE_INIT_V691_PERIPHERAL_POST_PROPERTY_EXIT_CLASSIFIER_2026-05-24.md` – V691 host-only 결과 property ack는 clean이고 `pm-service`는 vndbinder open 후 exit 0, `pm-proxy`는 exit 1, residual provider process는 0이라 다음은 targeted provider exit/registration capture
 - `reports/NATIVE_INIT_V690_PERIPHERAL_PROPERTY_SHIM_ACK_2026-05-24.md` – V690 live 결과 helper v115 exact private property ack는 통과했고 `vendor.peripheral.*.state` set 실패는 제거됐지만 provider는 post-property runtime/registration gap으로 종료
 - `reports/NATIVE_INIT_V689_PERIPHERAL_PROPERTY_SHIM_CLASSIFIER_2026-05-24.md` – V689 host-only 결과 V688의 property-service blocker는 exact private shim ack 후보 `vendor.peripheral.SDX50M.state=OFFLINE`와 `vendor.peripheral.modem.state=OFFLINE`로 좁혀져 다음은 helper v115
+- `reports/NATIVE_INIT_V694_PERIPHERAL_VNDSERVICE_QUERY_LIVE_2026-05-24.md` – V694 live 결과 helper v117이 service `74` positive private namespace에서 `/vendor/bin/vndservice list`를 두 번 실행했고 `vendor.qcom.PeripheralManager` 등록을 확인했으며 다음은 provider-confirmed CNSS retry tail
 - `reports/NATIVE_INIT_V688_PERIPHERAL_MANAGER_SELINUX_CONTEXT_REPAIR_2026-05-24.md` – V688 live 결과 helper v114에서 `pm-service`/`pm-proxy`의 invalid `u:r:per_mgr:s0` `setexeccon`은 제거됐고 다음 blocker는 provider property service 접근/registration runtime gap
 - `reports/NATIVE_INIT_V687_PERIPHERAL_MANAGER_LIVE_PROOF_2026-05-24.md` – V687 live 결과 helper v113 배포와 service `74` gated provider/CNSS retry는 실행됐지만 `pm-service`/`pm-proxy`의 강제 `u:r:per_mgr:s0` `setexeccon`이 `EINVAL`로 실패해 다음은 provider SELinux context mapping 수리
 - `reports/NATIVE_INIT_V686_PERIPHERAL_MANAGER_HELPER_MODE_BUILD_2026-05-24.md` – V686 build 결과 helper v113에 service `74` gated `per_mgr`/`per_proxy` provider mode가 추가되어 다음은 V687 deploy/live start-only proof
