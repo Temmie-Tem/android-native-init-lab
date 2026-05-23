@@ -143,6 +143,7 @@
 - `plans/NATIVE_INIT_V102_DIAGNOSTICS_PLAN_2026-05-03.md` – v102 diagnostics/log bundle 실행 계획
 - `plans/NATIVE_INIT_V103_WIFI_INVENTORY_PLAN_2026-05-04.md` – v103 Wi-Fi read-only inventory 실행 계획
 - `plans/NATIVE_INIT_V104_WIFI_FEASIBILITY_PLAN_2026-05-04.md` – v104 Wi-Fi enablement feasibility gate 실행 계획
+- `plans/NATIVE_INIT_V676_V535_PROPERTY_ANDROID_ORDER_PLAN_2026-05-24.md` – V535 private property root로 V671 Android userspace-order path를 재생해 V675 property target 개선 효과와 남은 blocker를 검증하는 V676 계획
 - `plans/NATIVE_INIT_V675_PROPERTY_BINDER_TARGET_CLASSIFIER_PLAN_2026-05-24.md` – V674 post-HAL property/Binder gap을 Android getprop/property_context와 비교해 다음 private property_info/seed 및 Binder capture 대상을 정하는 V675 계획
 - `plans/NATIVE_INIT_V674_POST_HAL_WIFICOND_CLASSIFIER_PLAN_2026-05-24.md` – V673 post-HAL evidence를 기반으로 Wi-Fi HAL/`wificond` 이후 WLFW/BDF/`wlan0` 미진입 원인을 property/binder runtime gap으로 분류하는 V674 계획
 - `plans/NATIVE_INIT_V673_SAME_HELPER_REPLAY_PLAN_2026-05-24.md` – V672가 좁힌 service `74/180` regression을 helper v111 same-helper replay matrix로 재검증하는 V673 계획
@@ -229,6 +230,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V676_V535_PROPERTY_ANDROID_ORDER_LIVE_2026-05-24.md` – V676 live 결과 V535 property root가 V675 denial set을 크게 줄였지만 service-manager/HAL/wificond/SKU/libvintf 관련 370개 property denial과 Binder failure가 남아 WLFW/BDF/`wlan0`는 아직 미진입
 - `reports/NATIVE_INIT_V675_PROPERTY_BINDER_TARGET_CLASSIFIER_2026-05-24.md` – V675 host-only 결과 V674의 `24`개 property lookup failure는 모두 Android property_context에 매핑되고 runtime-required 값도 Android getprop에서 확인되어 다음은 private property_info/seed 확장과 bounded Binder registration capture
 - `reports/NATIVE_INIT_V674_POST_HAL_WIFICOND_CLASSIFIER_2026-05-24.md` – V674 host-only 결과 V673 V671-arm은 HAL/`wificond`/fresh CNSS 시작과 UID/GID/cap/SELinux/Binder FD surface는 통과했지만 WLFW/BDF/`wlan0`는 없고 property-context 및 binder runtime gap이 남아 다음은 V675 targeted property/binder repair/capture
 - `reports/NATIVE_INIT_V673_SAME_HELPER_REPLAY_LIVE_2026-05-24.md` – V673 live 결과 helper v111 same-helper matrix에서 V668-compatible/V671 둘 다 service `74/180`을 재현했고 V671은 Wi-Fi HAL/`wificond`/fresh CNSS retry까지 cleanup-safe로 실행했지만 WLFW/BDF/`wlan0`는 0이라 다음은 post-HAL/wificond runtime classifier
