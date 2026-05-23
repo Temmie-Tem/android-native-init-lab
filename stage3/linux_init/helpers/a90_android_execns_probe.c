@@ -76,7 +76,7 @@
 #define AF_QIPCRTR 42
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v113"
+#define EXECNS_VERSION "a90_android_execns_probe v114"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -566,8 +566,7 @@ static bool selinux_context_allowed(const char *context) {
            streq(context, "u:r:vendor_qrtr:s0") ||
            streq(context, "u:r:vendor_rmt_storage:s0") ||
            streq(context, "u:r:vendor_rfs_access:s0") ||
-           streq(context, "u:r:vendor_pd_mapper:s0") ||
-           streq(context, "u:r:per_mgr:s0");
+           streq(context, "u:r:vendor_pd_mapper:s0");
 }
 
 static const char *const A90_WIFI_HAL_WAIT_TARGETS[A90_WIFI_HAL_WAIT_TARGET_COUNT] = {
@@ -3113,10 +3112,6 @@ static const char *android_default_selinux_context_for_target(const char *target
     }
     if (streq(target, "/vendor/bin/pd-mapper")) {
         return "u:r:vendor_pd_mapper:s0";
-    }
-    if (streq(target, "/vendor/bin/pm-service") ||
-        streq(target, "/vendor/bin/pm-proxy")) {
-        return "u:r:per_mgr:s0";
     }
     return NULL;
 }
