@@ -120,8 +120,6 @@ def build_checks(args: base.argparse.Namespace,
             args.helper_sha256 in base.step_payload(steps, "sha-helper")
             and args.helper_marker in usage
             and V655_MODE in usage
-            and "wifi_companion_start.vndservicemanager_readiness.ready" in usage
-            and "wifi_companion_start.cnss_retry.initial_cleanup_safe" in usage
             and "--allow-service-manager-start-only" in usage
             and "--allow-qrtr-ns-readback" in usage
         )

@@ -208,6 +208,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V655_VNDSERVICEMANAGER_CNSS_RETRY_LIVE_2026-05-23.md` – V655 live 결과 helper v106/V641/V490 전제조건은 통과했지만 fresh service `74` gate가 timeout되어 service-manager/vndservicemanager/CNSS retry는 의도대로 보류됐고 다음은 V653 대비 service `74` 회귀 분류
 - `reports/NATIVE_INIT_V655_VNDSERVICEMANAGER_CNSS_RETRY_PREP_2026-05-23.md` – V655 prep 결과 helper v106, runner, deploy wrapper가 빌드/plan/serial preflight를 통과했고 현재는 helper v106 deploy 후 bounded live proof가 다음 단계
 - `reports/NATIVE_INIT_V654_BINDER_RUNTIME_MISMATCH_CLASSIFIER_2026-05-23.md` – V654 host-only 결과 binder devnode/SELinux/generic binder ioctl은 root cause 가능성이 낮고, `cnss-daemon`이 `vndservicemanager` readiness 증거 전 vndbinder transaction `-22`로 멈춰 다음은 vndservicemanager-ready + fresh `cnss-daemon` binder attempt proof
 - `reports/NATIVE_INIT_V653_SERVICE74_GATED_SERVICE_MANAGER_LIVE_2026-05-23.md` – V653 live 결과 fresh service `74` gate 후 service-manager trio를 시작하면 service `180/74`는 보존되지만 `cnss-daemon` binder `-22`가 남아 다음은 binder/runtime mismatch classifier
