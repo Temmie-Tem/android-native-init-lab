@@ -143,6 +143,7 @@
 - `plans/NATIVE_INIT_V102_DIAGNOSTICS_PLAN_2026-05-03.md` – v102 diagnostics/log bundle 실행 계획
 - `plans/NATIVE_INIT_V103_WIFI_INVENTORY_PLAN_2026-05-04.md` – v103 Wi-Fi read-only inventory 실행 계획
 - `plans/NATIVE_INIT_V104_WIFI_FEASIBILITY_PLAN_2026-05-04.md` – v104 Wi-Fi enablement feasibility gate 실행 계획
+- `plans/NATIVE_INIT_V704_CNSS_RETRY_STALL_SNAPSHOT_PLAN_2026-05-24.md` – V700 provider-first `cnss-daemon` retry가 crash/Binder 실패가 아니라 alive pre-WLFW stall인지 기존 proc/fd snapshot으로 분류하는 V704 host-only 계획
 - `plans/NATIVE_INIT_V703_ANDROID_NATIVE_BINDING_COMPARE_PLAN_2026-05-24.md` – Android baseline과 V702 native focus를 비교해 다음 target이 `qca6390` bind가 아니라 ICNSS/WLFW readiness edge인지 분류하는 V703 host-only 계획
 - `plans/NATIVE_INIT_V702_CNSS2_FOCUS_SURFACE_CLASSIFIER_PLAN_2026-05-24.md` – V700 provider-first retry window의 cnss2/icnss/QCA focus capture를 구조화해 `qca6390` binding gap을 분류하는 V702 host-only 계획
 - `plans/NATIVE_INIT_V701_PRE_WLFW_TRIGGER_CLASSIFIER_PLAN_2026-05-24.md` – V700 이후 남은 WLFW 전 정지를 Binder가 아닌 cnss2/icnss/QCA kernel progression gap으로 분류하는 V701 host-only 계획
@@ -257,6 +258,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V704_CNSS_RETRY_STALL_SNAPSHOT_2026-05-24.md` – V704 결과 provider-first `cnss-daemon` retry는 alive/sleeping + vndbinder/socket fd 상태로 WLFW 전에서 멈추므로 다음은 live `wchan`/`syscall`/task/socket inode stall capture
 - `reports/NATIVE_INIT_V703_ANDROID_NATIVE_BINDING_COMPARE_2026-05-24.md` – V703 결과 Android는 ICNSS parent 아래 `wlan0`와 WLFW/BDF/fw-ready까지 진행하지만 native는 ICNSS-QMI/WLFW 전에서 멈추므로 다음 target은 `qca6390` bind가 아니라 ICNSS/WLFW readiness edge
 - `reports/NATIVE_INIT_V702_CNSS2_FOCUS_SURFACE_CLASSIFIER_2026-05-24.md` – V702 결과 `icnss`는 bound, `qca6390` node는 visible이지만 driver symlink가 없고 `wlan0`/debug ICNSS/WLFW/BDF가 없어 다음은 Android-vs-native binding 비교
 - `reports/NATIVE_INIT_V701_PRE_WLFW_TRIGGER_CLASSIFIER_2026-05-24.md` – V701 결과 V700의 provider-first CNSS retry는 Binder 실패 없이 netlink/`cld80211`까지만 도달하고 ICNSS/QCA/WLFW/BDF/`wlan0`가 없어 다음은 V702 read-only platform-state capture
