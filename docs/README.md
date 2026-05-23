@@ -123,6 +123,7 @@
 ### 2. Operations
 
 - `operations/DEVELOPMENT_LOOP_STANDARD.md` – native init 작업 표준 개발 루프, gate, bypass mode 기준
+- `operations/HOST_VALIDATION_RESOURCE_GUARDRAILS.md` – host-side 검증/secret scan/log 검색의 OOM 방지 기준
 - `operations/CLAUDE_NATIVE_INIT_RUNBOOK.md` – 에이전트용 bridge/TWRP/custom init 작업 런북
 - `operations/NATIVE_INIT_FLASH_AND_BRIDGE_GUIDE.md` – 사람이 직접 따라 하는 flash/bridge 운영 절차서
 - `operations/CLAUDE_HANDOFF_PROMPT.md` – Claude에게 그대로 붙여 넣는 안전 작업 프롬프트
