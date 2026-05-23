@@ -142,6 +142,7 @@
 - `plans/NATIVE_INIT_V102_DIAGNOSTICS_PLAN_2026-05-03.md` – v102 diagnostics/log bundle 실행 계획
 - `plans/NATIVE_INIT_V103_WIFI_INVENTORY_PLAN_2026-05-04.md` – v103 Wi-Fi read-only inventory 실행 계획
 - `plans/NATIVE_INIT_V104_WIFI_FEASIBILITY_PLAN_2026-05-04.md` – v104 Wi-Fi enablement feasibility gate 실행 계획
+- `plans/NATIVE_INIT_V654_BINDER_RUNTIME_MISMATCH_CLASSIFIER_PLAN_2026-05-23.md` – V653 service `74` gate 이후 남은 `cnss-daemon` vndbinder transaction `-22`를 host-only로 분류하는 V654 계획
 - `plans/NATIVE_INIT_V653_SERVICE74_GATED_SERVICE_MANAGER_PLAN_2026-05-23.md` – V652 fixed-delay service-manager regression 이후 fresh service `74` kernel marker가 관찰될 때만 service-manager trio를 시작하는 V653 계획
 - `plans/NATIVE_INIT_V652_SERVICE74_BINDER_PARITY_PLAN_2026-05-23.md` – V651 이후 V644 service `74` positive 경로에 V601/V603 service-manager binder surface를 결합해 WLFW 진입 여부만 검증하는 V652 계획
 - `plans/NATIVE_INIT_V651_CNSS_WLFW_CONTINUATION_PLAN_2026-05-23.md` – V650 이후 Android/native CNSS netlink와 WLFW continuation 차이를 비교해 native `cnss-daemon` binder `-22` blocker를 분류하는 V651 계획
@@ -206,6 +207,9 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V654_BINDER_RUNTIME_MISMATCH_CLASSIFIER_2026-05-23.md` – V654 host-only 결과 binder devnode/SELinux/generic binder ioctl은 root cause 가능성이 낮고, `cnss-daemon`이 `vndservicemanager` readiness 증거 전 vndbinder transaction `-22`로 멈춰 다음은 vndservicemanager-ready + fresh `cnss-daemon` binder attempt proof
+- `reports/NATIVE_INIT_V653_SERVICE74_GATED_SERVICE_MANAGER_LIVE_2026-05-23.md` – V653 live 결과 fresh service `74` gate 후 service-manager trio를 시작하면 service `180/74`는 보존되지만 `cnss-daemon` binder `-22`가 남아 다음은 binder/runtime mismatch classifier
+- `reports/NATIVE_INIT_V653_SERVICE74_GATED_SERVICE_MANAGER_PREP_2026-05-23.md` – V653 prep/deploy 결과 helper v105가 service `74` gate 후 service-manager를 시작하는 새 모드로 배포됐고, live proof는 V641 clean-DSP와 V490 refresh가 다음 prerequisite
 - `reports/NATIVE_INIT_V652_SERVICE74_BINDER_PARITY_LIVE_2026-05-23.md` – V652 live 결과 clean-DSP/V401/V490 전제조건에서 helper v104 CNSS-first delayed service-manager mode는 cleanup-safe였지만 service `180/74` publication을 회귀시켜, 다음은 service `74` 관찰 후 service-manager를 붙이는 explicit gated helper mode
 - `reports/NATIVE_INIT_V652_SERVICE74_BINDER_PARITY_PREFLIGHT_2026-05-23.md` – V652 preflight 결과 helper v104와 real linkerconfig/APEX config는 준비됐지만 current boot의 V490 policy-load 증거와 V641 clean-DSP/RPMSG 상태가 없어, 다음은 V641 one-shot 재무장·재부팅 후 V490 refresh
 - `reports/NATIVE_INIT_V651_CNSS_WLFW_CONTINUATION_2026-05-23.md` – V651 host-only 결과 Android는 CNSS genl failure 후 WLFW/WLAN-PD/QMI/BDF/`wlan0`까지 진행하지만 native V644는 CNSS netlink/`cld80211` 뒤 binder `-22` 반복으로 WLFW 전에서 멈춰 다음 gate는 bounded service-manager/binder-runtime parity proof
@@ -213,8 +217,6 @@
 - `reports/NATIVE_INIT_V649_ANDROID_FULL_AUDIO_WIFI_RECAPTURE_LIVE_2026-05-23.md` – V649 live/replay 결과 Android도 service `74` 직후 ASoC duplicate `pm_qos` warning을 내지만 WLFW/WLAN-PD/QMI/BDF/`wlan0`까지 계속 진행하므로 다음 gate는 post-warning continuation gap 비교
 - `reports/NATIVE_INIT_V649_ANDROID_FULL_AUDIO_WIFI_RECAPTURE_PREP_2026-05-23.md` – V649 prep 결과 Android full audio/Wi-Fi collector와 v641 rollback handoff가 plan/dry-run 통과했고 다음은 live handoff recapture
 - `reports/NATIVE_INIT_V648_AUDIO_ASOC_PARITY_GUARD_LIVE_2026-05-23.md` – V648 read-only 결과 current native v641 idle은 ASoC probe/duplicate `pm_qos`가 없고 V644 service `74` 경로에서만 warning이 나타나므로 다음 gate는 Android full audio/Wi-Fi dmesg recapture
-- `reports/NATIVE_INIT_V653_SERVICE74_GATED_SERVICE_MANAGER_LIVE_2026-05-23.md` – V653 live 결과 fresh service `74` gate 후 service-manager trio를 시작하면 service `180/74`는 보존되지만 `cnss-daemon` binder `-22`가 남아 다음은 binder/runtime mismatch classifier
-- `reports/NATIVE_INIT_V653_SERVICE74_GATED_SERVICE_MANAGER_PREP_2026-05-23.md` – V653 prep/deploy 결과 helper v105가 service `74` gate 후 service-manager를 시작하는 새 모드로 배포됐고, live proof는 V641 clean-DSP와 V490 refresh가 다음 prerequisite
 - `reports/NATIVE_INIT_V647_WARNING_SOURCE_CLASSIFIER_2026-05-23.md` – V647 host-only 결과 V644 warning은 `msm_asoc_machine_probe` duplicate `pm_qos_add_request` 경로이며 V619/V638이 service `74` 없이 같은 warning을 재현하므로 다음 gate는 audio/ASoC parity guard
 - `reports/NATIVE_INIT_V646_ANDROID_POST74_TIMING_2026-05-23.md` – V646 host-only 결과 Android는 service `74` 후 WLAN-PD까지 약 2.421초를 기다리지만 V644는 11.789ms 만에 warning을 내므로 다음 gate는 warning-source classifier
 - `reports/NATIVE_INIT_V645_V644_WARNING_ATTRIBUTION_2026-05-23.md` – V645 host-only 결과 clean-DSP 단독/V627 service `180` 단독은 warning-free이고 V644 service `74` 후 11.789ms에 warning이 발생해 V646 Android post-service74 timing 비교가 다음 gate
