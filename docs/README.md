@@ -142,6 +142,7 @@
 - `plans/NATIVE_INIT_V102_DIAGNOSTICS_PLAN_2026-05-03.md` – v102 diagnostics/log bundle 실행 계획
 - `plans/NATIVE_INIT_V103_WIFI_INVENTORY_PLAN_2026-05-04.md` – v103 Wi-Fi read-only inventory 실행 계획
 - `plans/NATIVE_INIT_V104_WIFI_FEASIBILITY_PLAN_2026-05-04.md` – v104 Wi-Fi enablement feasibility gate 실행 계획
+- `plans/NATIVE_INIT_V661_BINDER_REGISTRATION_CONTEXT_CLASSIFIER_PLAN_2026-05-23.md` – V660 fresh CNSS retry가 proven `vndservicemanager` readiness 뒤에도 binder transaction `-22`로 멈춘 원인을 service registration/property context gap으로 host-only 분류하는 계획
 - `plans/NATIVE_INIT_V660_READY_CNSS_RETRY_PLAN_2026-05-23.md` – V659 readiness pass 이후 같은 gate에서 fresh `cnss-daemon` retry tail만 추가해 WLFW/WLAN-PD/QMI/BDF/`wlan0` 진전 여부를 검증하는 계획
 - `plans/NATIVE_INIT_V659_VNDSERVICEMANAGER_READINESS_ONLY_PLAN_2026-05-23.md` – V658 이후 service `74` gate 뒤 `vndservicemanager` readiness만 분리 검증하고 CNSS retry tail은 보류하는 계획
 - `plans/NATIVE_INIT_V658_VNDBINDER_SURFACE_CLASSIFIER_PLAN_2026-05-23.md` – V657 이후 V653/V657/V655 binder surface를 host-only로 비교해 V659 readiness-only gate를 정하는 계획
@@ -213,6 +214,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V661_BINDER_REGISTRATION_CONTEXT_CLASSIFIER_2026-05-23.md` – V661 host-only 결과 V660이 readiness/order/devnode/context-file 원인을 낮췄고, 남은 blocker를 dynamic vendor binder registration/property namespace gap으로 좁혀 다음은 bounded registry/context snapshot gate
 - `reports/NATIVE_INIT_V660_READY_CNSS_RETRY_LIVE_2026-05-23.md` – V660 live 결과 V659-proven readiness 뒤 fresh `cnss_daemon_retry`가 실행됐지만 binder transaction `-22`가 지속되어 다음은 vendor binder registration/context classifier
 - `reports/NATIVE_INIT_V659_VNDSERVICEMANAGER_READINESS_ONLY_LIVE_2026-05-23.md` – V659 live 결과 helper v107이 service `74` gate 뒤 `vndservicemanager` readiness를 증명했고 CNSS retry tail은 실행하지 않아, 다음은 proven readiness 이후 fresh `cnss-daemon` binder attempt gate
 - `reports/NATIVE_INIT_V658_VNDBINDER_SURFACE_CLASSIFIER_2026-05-23.md` – V658 host-only 결과 helper v106 exact mode는 service `74`를 재현하지만 V653/V657 모두 `cnss-daemon` vndbinder transaction 전 WLFW에서 멈춰 다음은 V659 `vndservicemanager` readiness-only gate
