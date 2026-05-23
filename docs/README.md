@@ -143,6 +143,7 @@
 - `plans/NATIVE_INIT_V102_DIAGNOSTICS_PLAN_2026-05-03.md` – v102 diagnostics/log bundle 실행 계획
 - `plans/NATIVE_INIT_V103_WIFI_INVENTORY_PLAN_2026-05-04.md` – v103 Wi-Fi read-only inventory 실행 계획
 - `plans/NATIVE_INIT_V104_WIFI_FEASIBILITY_PLAN_2026-05-04.md` – v104 Wi-Fi enablement feasibility gate 실행 계획
+- `plans/NATIVE_INIT_V667_CNSS2_PD_NOTIFIER_CLASSIFIER_PLAN_2026-05-24.md` – V666의 service-notifier `180/74` 이후 WLFW service `69` 전 갭을 cnss2/WLAN-PD `pd_notifier` progression 관점에서 host-only/read-only로 분류하는 V667 계획
 - `plans/NATIVE_INIT_V666_REPAIRED_PRIVATE_CNSS_RETRY_PLAN_2026-05-24.md` – V665 repaired private property/runtime surface를 V660/V655 fresh `cnss-daemon` retry 경로에 결합하는 V666 계획
 - `plans/NATIVE_INIT_V665_PRIVATE_REGISTRY_SNAPSHOT_PATH_REPAIR_PLAN_2026-05-23.md` – V664에서 드러난 host/global `/dev` snapshot 오판을 helper private temp-root path capture로 고치는 V665 계획
 - `plans/NATIVE_INIT_V664_PRIVATE_RUNTIME_MATERIALIZATION_PLAN_2026-05-23.md` – V663 이후 V317 private property root를 V662 service `74` snapshot 경로에 결합해 private `/dev/__properties__`와 `/dev/socket/property_service` materialization을 검증하는 계획
@@ -220,6 +221,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V667_CNSS2_PD_NOTIFIER_CLASSIFIER_2026-05-24.md` – V667 결과 V666의 service-notifier `180/74` 이후 cnss2 `pd_notifier`/QCA6390 power/WLFW/BDF/`wlan0` progression marker가 모두 없어 다음은 binder retry가 아니라 cnss2/WLAN-PD kernel progression gate
 - `reports/NATIVE_INIT_V666_REPAIRED_PRIVATE_CNSS_RETRY_LIVE_2026-05-24.md` – V666 live 결과 private property/runtime surface와 service `74`/`vndservicemanager`/fresh CNSS retry는 통과했지만 WLFW service `69`/BDF/`wlan0`는 여전히 없어 다음은 cnss2/WLAN-PD `pd_notifier` progression classifier
 - `reports/NATIVE_INIT_V666_REPAIRED_PRIVATE_CNSS_RETRY_PREP_2026-05-24.md` – helper v109와 V317 private property root를 fresh `cnss-daemon` retry 경로에 결합하는 V666 prep 기록
 - `reports/NATIVE_INIT_V665_PRIVATE_REGISTRY_SNAPSHOT_PATH_REPAIR_2026-05-23.md` – helper v109로 registry snapshot이 private `dev/__properties__`와 `dev/socket` 경로를 캡처함을 live proof로 검증했고 다음은 repaired surface 기반 fresh CNSS retry
