@@ -142,6 +142,7 @@
 - `plans/NATIVE_INIT_V102_DIAGNOSTICS_PLAN_2026-05-03.md` – v102 diagnostics/log bundle 실행 계획
 - `plans/NATIVE_INIT_V103_WIFI_INVENTORY_PLAN_2026-05-04.md` – v103 Wi-Fi read-only inventory 실행 계획
 - `plans/NATIVE_INIT_V104_WIFI_FEASIBILITY_PLAN_2026-05-04.md` – v104 Wi-Fi enablement feasibility gate 실행 계획
+- `plans/NATIVE_INIT_V664_PRIVATE_RUNTIME_MATERIALIZATION_PLAN_2026-05-23.md` – V663 이후 V317 private property root를 V662 service `74` snapshot 경로에 결합해 private `/dev/__properties__`와 `/dev/socket/property_service` materialization을 검증하는 계획
 - `plans/NATIVE_INIT_V663_SNAPSHOT_ZERO_COUNT_CLASSIFIER_PLAN_2026-05-23.md` – V662 registry/context snapshot zero-count가 helper 실패인지 private runtime surface 부재인지 host-only로 분류하는 계획
 - `plans/NATIVE_INIT_V662_REGISTRY_CONTEXT_SNAPSHOT_PLAN_2026-05-23.md` – V661이 좁힌 dynamic binder registration/property context gap을 service `74`/`vndservicemanager_ready` 뒤 read-only snapshot으로 관찰하는 V662 계획
 - `plans/NATIVE_INIT_V661_BINDER_REGISTRATION_CONTEXT_CLASSIFIER_PLAN_2026-05-23.md` – V660 fresh CNSS retry가 proven `vndservicemanager` readiness 뒤에도 binder transaction `-22`로 멈춘 원인을 service registration/property context gap으로 host-only 분류하는 계획
@@ -216,6 +217,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V664_PRIVATE_RUNTIME_MATERIALIZATION_PREP_2026-05-23.md` – V664 prep으로 helper v108/V662 mode에 V317 private property root를 추가하는 no-CNSS-retry materialization runner를 준비
 - `reports/NATIVE_INIT_V663_SNAPSHOT_ZERO_COUNT_CLASSIFIER_2026-05-23.md` – V663 host-only 결과 V662 zero-count는 snapshot 실패가 아니라 private Binder debugfs/property/socket runtime surface 부재로 분류되며, 다음은 V664 private property/runtime materialization proof
 - `reports/NATIVE_INIT_V662_REGISTRY_CONTEXT_SNAPSHOT_LIVE_2026-05-23.md` – V662 live 결과 service `74`/`vndservicemanager_ready` 뒤 registry/context snapshot begin/end를 캡처했고 CNSS retry는 비활성으로 유지했으며, 다음은 snapshot zero-count 원인과 private Binder/property/service-registration surface 분류
 - `reports/NATIVE_INIT_V662_REGISTRY_CONTEXT_SNAPSHOT_PREP_2026-05-23.md` – V662 prep 결과 helper v108에 service `74` gated registry/context snapshot mode를 추가하고 정적 ARM64 빌드와 runner/deploy wrapper 준비를 완료
