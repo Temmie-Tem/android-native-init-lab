@@ -222,6 +222,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V668_CNSS2_FOCUSED_CAPTURE_LIVE_2026-05-24.md` – V668 live 결과 service `74` open/window 모두에서 icnss/QCA6390 sysfs focused capture는 준비됐지만 WLFW/BDF/`wlan0`는 여전히 0이라 다음은 Android/native cnss2 runtime delta 분류
 - `reports/NATIVE_INIT_V667_CNSS2_PD_NOTIFIER_CLASSIFIER_2026-05-24.md` – V667 결과 V666의 service-notifier `180/74` 이후 cnss2 `pd_notifier`/QCA6390 power/WLFW/BDF/`wlan0` progression marker가 모두 없어 다음은 binder retry가 아니라 cnss2/WLAN-PD kernel progression gate
 - `reports/NATIVE_INIT_V666_REPAIRED_PRIVATE_CNSS_RETRY_LIVE_2026-05-24.md` – V666 live 결과 private property/runtime surface와 service `74`/`vndservicemanager`/fresh CNSS retry는 통과했지만 WLFW service `69`/BDF/`wlan0`는 여전히 없어 다음은 cnss2/WLAN-PD `pd_notifier` progression classifier
 - `reports/NATIVE_INIT_V666_REPAIRED_PRIVATE_CNSS_RETRY_PREP_2026-05-24.md` – helper v109와 V317 private property root를 fresh `cnss-daemon` retry 경로에 결합하는 V666 prep 기록

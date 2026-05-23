@@ -16,7 +16,7 @@ deploy.DEFAULT_HELPER_SHA256 = "a9e2d9dd414389f676f3055725c7203a9d47ce708b0abbb6
 deploy.DEFAULT_EXPECT_VERSION = "A90 Linux init 0.9.67 (v641)"
 deploy.DEFAULT_SERIAL_CHUNK_SIZE = 1850
 deploy.HELPER_MARKER = "a90_android_execns_probe v110"
-deploy.SERVICE_MODE_TOKEN = "wifi_companion_start.cnss2_focus_%s.begin=1"
+deploy.SERVICE_MODE_TOKEN = "wifi-companion-service74-gated-vnd-service-manager-cnss-retry-start-only"
 deploy.DEPLOY_LABEL = "v110"
 deploy.DEPLOY_NAME = "execns-helper-v110"
 deploy.DEPLOY_PLAN_VERSION = "V668"

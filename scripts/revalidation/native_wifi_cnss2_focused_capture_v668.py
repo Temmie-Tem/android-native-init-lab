@@ -31,11 +31,9 @@ V668_FOCUS_PREFIX = "wifi_companion_start.cnss2_focus_"
 FOCUS_PHASES = ("service74_open", "window")
 V668_TOKENS = (
     "a90_android_execns_probe v110",
-    "wifi_companion_start.cnss2_focus_%s.begin=1",
-    "wifi_cnss2_focus_icnss_device",
-    "wifi_cnss2_focus_qca6390_device",
-    "wifi_cnss2_focus_wlan0",
     "wifi-companion-service74-gated-vnd-service-manager-cnss-retry-start-only",
+    "--property-root",
+    "--allow-qrtr-ns-readback",
 )
 
 _v666_build_checks = base.build_checks
