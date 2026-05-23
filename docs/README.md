@@ -143,6 +143,7 @@
 - `plans/NATIVE_INIT_V102_DIAGNOSTICS_PLAN_2026-05-03.md` – v102 diagnostics/log bundle 실행 계획
 - `plans/NATIVE_INIT_V103_WIFI_INVENTORY_PLAN_2026-05-04.md` – v103 Wi-Fi read-only inventory 실행 계획
 - `plans/NATIVE_INIT_V104_WIFI_FEASIBILITY_PLAN_2026-05-04.md` – v104 Wi-Fi enablement feasibility gate 실행 계획
+- `plans/NATIVE_INIT_V684_CNSS_DAEMON_VNDBINDER_TARGET_PLAN_2026-05-24.md` – V683 이후 `cnss-daemon` vndbinder `-22`의 정적/기존 live target 후보를 `vendor.qcom.PeripheralManager`로 좁히는 V684 host-only 계획
 - `plans/NATIVE_INIT_V683_CNSS2_QMI_TRIGGER_ISOLATION_PLAN_2026-05-24.md` – V682/V651/V654/V669 증거로 pre-WLFW cnss2/QMI trigger가 direct QCA power 문제가 아니라 `cnss-daemon` vndbinder continuation 문제인지 host-only 분류하는 V683 계획
 - `plans/NATIVE_INIT_V682_CNSS2_WLFW_PROGRESSION_OBSERVER_PLAN_2026-05-24.md` – helper v112/V679 live arm을 재사용해 Binder debugfs가 아닌 cnss2/WLFW progression 기준으로 현재 부팅 상태를 관찰하는 V682 계획
 - `plans/NATIVE_INIT_V681_CNSS2_CAUSAL_CHAIN_REBASE_PLAN_2026-05-24.md` – V667~V680 증거와 cnss2/WLFW 의존성 모델을 재정렬해 다음 게이트를 Binder debugfs가 아닌 cnss2/WLFW progression observer로 라우팅하는 V681 계획
@@ -237,6 +238,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V684_CNSS_DAEMON_VNDBINDER_TARGET_2026-05-24.md` – V684 host-only 결과 `cnss-daemon`이 `libperipheral_client.so`를 통해 `vendor.qcom.PeripheralManager` over vndbinder를 사용할 가능성이 높고 다음은 V685 live availability/start-order proof
 - `reports/NATIVE_INIT_V683_CNSS2_QMI_TRIGGER_ISOLATION_2026-05-24.md` – V683 host-only 결과 Android는 CNSS→WLFW로 계속되지만 native는 `cnss-daemon` vndbinder transaction 뒤 WLFW 전 정지하므로 다음은 V684 transaction target capture/repair
 - `reports/NATIVE_INIT_V682_CNSS2_WLFW_PROGRESSION_OBSERVER_LIVE_2026-05-24.md` – V682 live 결과 service `74`, CNSS retry, focused ICNSS/QCA6390 sysfs, Android userspace start-only는 통과했지만 WLFW/BDF/`wlan0`는 0이라 다음은 cnss2/QMI trigger isolation
 - `reports/NATIVE_INIT_V681_CNSS2_CAUSAL_CHAIN_REBASE_2026-05-24.md` – V681 host-only 결과 service `74` positive와 Binder debugfs gap은 이미 확인됐지만 Android/native 차이는 cnss2/WLFW progression 전환점에 있어 다음은 V682 bounded cnss2/WLFW observer
