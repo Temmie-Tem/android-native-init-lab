@@ -76,7 +76,7 @@
 #define AF_QIPCRTR 42
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v114"
+#define EXECNS_VERSION "a90_android_execns_probe v115"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -15280,7 +15280,9 @@ static void property_shim_record(int fd,
 
 static bool property_shim_set_allowed(const char *name, const char *value) {
     return (streq(name, "hwservicemanager.ready") && streq(value, "true")) ||
-           (streq(name, "ctl.stop") && streq(value, "vendor.rmt_storage"));
+           (streq(name, "ctl.stop") && streq(value, "vendor.rmt_storage")) ||
+           (streq(name, "vendor.peripheral.SDX50M.state") && streq(value, "OFFLINE")) ||
+           (streq(name, "vendor.peripheral.modem.state") && streq(value, "OFFLINE"));
 }
 
 static uint32_t property_shim_handle_client(int client_fd, int record_fd, int *request_count) {
@@ -15345,7 +15347,7 @@ static void property_service_shim_child(int listen_fd, int record_fd, int timeou
     dprintf(record_fd,
             "wifi_hal_composite_start.property_service_shim.child_started=1\n"
             "wifi_hal_composite_start.property_service_shim.protocol=PROP_MSG_SETPROP|PROP_MSG_SETPROP2\n"
-            "wifi_hal_composite_start.property_service_shim.allowlist=hwservicemanager.ready:true,ctl.stop:vendor.rmt_storage\n");
+            "wifi_hal_composite_start.property_service_shim.allowlist=hwservicemanager.ready:true,ctl.stop:vendor.rmt_storage,vendor.peripheral.SDX50M.state:OFFLINE,vendor.peripheral.modem.state:OFFLINE\n");
     while (monotonic_ms() < deadline && request_count < 16) {
         int timeout_ms = (int)(deadline - monotonic_ms());
         struct pollfd pfd;

@@ -143,6 +143,7 @@
 - `plans/NATIVE_INIT_V102_DIAGNOSTICS_PLAN_2026-05-03.md` – v102 diagnostics/log bundle 실행 계획
 - `plans/NATIVE_INIT_V103_WIFI_INVENTORY_PLAN_2026-05-04.md` – v103 Wi-Fi read-only inventory 실행 계획
 - `plans/NATIVE_INIT_V104_WIFI_FEASIBILITY_PLAN_2026-05-04.md` – v104 Wi-Fi enablement feasibility gate 실행 계획
+- `plans/NATIVE_INIT_V690_PERIPHERAL_PROPERTY_SHIM_ACK_PLAN_2026-05-24.md` – V689에서 좁힌 exact private property shim ack 두 개를 helper v115로 구현하고 bounded provider/CNSS retry를 검증하는 V690 계획
 - `plans/NATIVE_INIT_V689_PERIPHERAL_PROPERTY_SHIM_CLASSIFIER_PLAN_2026-05-24.md` – V688 provider property-service blocker를 host-only로 분류해 V690 private shim exact-ack 후보를 좁히는 V689 계획
 - `plans/NATIVE_INIT_V688_PERIPHERAL_MANAGER_SELINUX_CONTEXT_REPAIR_PLAN_2026-05-24.md` – V687에서 확인된 invalid `u:r:per_mgr:s0` 강제 context를 제거하고 helper v114로 provider/CNSS retry를 재검증하는 V688 계획
 - `plans/NATIVE_INIT_V687_PERIPHERAL_MANAGER_LIVE_PROOF_PLAN_2026-05-24.md` – V686 helper v113 provider mode를 배포하고 service `74` gated `pm-service`/`pm-proxy` + CNSS retry live proof로 연결하는 V687 계획
@@ -243,6 +244,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V690_PERIPHERAL_PROPERTY_SHIM_ACK_2026-05-24.md` – V690 live 결과 helper v115 exact private property ack는 통과했고 `vendor.peripheral.*.state` set 실패는 제거됐지만 provider는 post-property runtime/registration gap으로 종료
 - `reports/NATIVE_INIT_V689_PERIPHERAL_PROPERTY_SHIM_CLASSIFIER_2026-05-24.md` – V689 host-only 결과 V688의 property-service blocker는 exact private shim ack 후보 `vendor.peripheral.SDX50M.state=OFFLINE`와 `vendor.peripheral.modem.state=OFFLINE`로 좁혀져 다음은 helper v115
 - `reports/NATIVE_INIT_V688_PERIPHERAL_MANAGER_SELINUX_CONTEXT_REPAIR_2026-05-24.md` – V688 live 결과 helper v114에서 `pm-service`/`pm-proxy`의 invalid `u:r:per_mgr:s0` `setexeccon`은 제거됐고 다음 blocker는 provider property service 접근/registration runtime gap
 - `reports/NATIVE_INIT_V687_PERIPHERAL_MANAGER_LIVE_PROOF_2026-05-24.md` – V687 live 결과 helper v113 배포와 service `74` gated provider/CNSS retry는 실행됐지만 `pm-service`/`pm-proxy`의 강제 `u:r:per_mgr:s0` `setexeccon`이 `EINVAL`로 실패해 다음은 provider SELinux context mapping 수리
