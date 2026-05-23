@@ -142,6 +142,7 @@
 - `plans/NATIVE_INIT_V102_DIAGNOSTICS_PLAN_2026-05-03.md` – v102 diagnostics/log bundle 실행 계획
 - `plans/NATIVE_INIT_V103_WIFI_INVENTORY_PLAN_2026-05-04.md` – v103 Wi-Fi read-only inventory 실행 계획
 - `plans/NATIVE_INIT_V104_WIFI_FEASIBILITY_PLAN_2026-05-04.md` – v104 Wi-Fi enablement feasibility gate 실행 계획
+- `plans/NATIVE_INIT_V659_VNDSERVICEMANAGER_READINESS_ONLY_PLAN_2026-05-23.md` – V658 이후 service `74` gate 뒤 `vndservicemanager` readiness만 분리 검증하고 CNSS retry tail은 보류하는 계획
 - `plans/NATIVE_INIT_V658_VNDBINDER_SURFACE_CLASSIFIER_PLAN_2026-05-23.md` – V657 이후 V653/V657/V655 binder surface를 host-only로 비교해 V659 readiness-only gate를 정하는 계획
 - `plans/NATIVE_INIT_V657_SERVICE74_V106_REPLAY_PLAN_2026-05-23.md` – V656 이후 helper v106으로 V653 exact service `74` gate를 재현해 V655 retry tail 전 blocker를 분리하는 계획
 - `plans/NATIVE_INIT_V656_SERVICE74_REGRESSION_CLASSIFIER_PLAN_2026-05-23.md` – V655 service `74` gate timeout을 V644/V653 positive와 host-only로 비교해 다음 V657 exact replay gate를 정하는 계획
