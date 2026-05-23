@@ -220,6 +220,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V666_REPAIRED_PRIVATE_CNSS_RETRY_LIVE_2026-05-24.md` – V666 live 결과 private property/runtime surface와 service `74`/`vndservicemanager`/fresh CNSS retry는 통과했지만 WLFW service `69`/BDF/`wlan0`는 여전히 없어 다음은 cnss2/WLAN-PD `pd_notifier` progression classifier
 - `reports/NATIVE_INIT_V666_REPAIRED_PRIVATE_CNSS_RETRY_PREP_2026-05-24.md` – helper v109와 V317 private property root를 fresh `cnss-daemon` retry 경로에 결합하는 V666 prep 기록
 - `reports/NATIVE_INIT_V665_PRIVATE_REGISTRY_SNAPSHOT_PATH_REPAIR_2026-05-23.md` – helper v109로 registry snapshot이 private `dev/__properties__`와 `dev/socket` 경로를 캡처함을 live proof로 검증했고 다음은 repaired surface 기반 fresh CNSS retry
 - `reports/NATIVE_INIT_V664_PRIVATE_RUNTIME_MATERIALIZATION_PREP_2026-05-23.md` – V664 prep으로 helper v108/V662 mode에 V317 private property root를 추가하는 no-CNSS-retry materialization runner를 준비
