@@ -143,6 +143,7 @@
 - `plans/NATIVE_INIT_V102_DIAGNOSTICS_PLAN_2026-05-03.md` – v102 diagnostics/log bundle 실행 계획
 - `plans/NATIVE_INIT_V103_WIFI_INVENTORY_PLAN_2026-05-04.md` – v103 Wi-Fi read-only inventory 실행 계획
 - `plans/NATIVE_INIT_V104_WIFI_FEASIBILITY_PLAN_2026-05-04.md` – v104 Wi-Fi enablement feasibility gate 실행 계획
+- `plans/NATIVE_INIT_V671_SERVICE74_ANDROID_USERSPACE_ORDER_PLAN_2026-05-24.md` – V670 service-order delta 이후 service `74` positive path에 Wi-Fi HAL legacy/ext와 `wificond` start-only를 결합한 V671 계획
 - `plans/NATIVE_INIT_V670_ANDROID_SERVICE_ORDER_DELTA_PLAN_2026-05-24.md` – V669 runtime gap 이후 Android Wi-Fi HAL/wificond/CNSS service order와 V668 native order를 비교해 다음 start-only gate를 정하는 V670 계획
 - `plans/NATIVE_INIT_V669_ANDROID_CNSS2_RUNTIME_DELTA_PLAN_2026-05-24.md` – V668 focused capture 이후 Android 성공 경로와 native service `74` window를 비교해 다음 runtime/order gate를 정하는 V669 host-only 계획
 - `plans/NATIVE_INIT_V668_CNSS2_FOCUSED_CAPTURE_PLAN_2026-05-24.md` – V667이 좁힌 service `74` 이후 cnss2/QCA6390/WLFW gap을 helper v110 focused sysfs capture로 service74-open/window 안에서 관찰하는 V668 계획
@@ -224,6 +225,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V671_SERVICE74_ANDROID_USERSPACE_ORDER_LIVE_2026-05-24.md` – V671 live 결과 QRTR RX/TX와 `sysmon-qmi`는 재현됐지만 service `74/180` gate가 timeout되어 Wi-Fi HAL/`wificond` child start는 withheld됐고 다음은 V668-positive 대비 lower service-notifier regression classifier
 - `reports/NATIVE_INIT_V670_ANDROID_SERVICE_ORDER_DELTA_2026-05-24.md` – V670 host-only 결과 Android는 Wi-Fi HAL legacy/ext, `cnss_diag`, `wificond`가 `cnss-daemon`보다 먼저 running이고 V668 native order에는 HAL/wificond가 없어 다음은 service74-gated Android userspace-order start-only proof
 - `reports/NATIVE_INIT_V669_ANDROID_CNSS2_RUNTIME_DELTA_2026-05-24.md` – V669 host-only 결과 Android는 WLFW/BDF/firmware-ready/ICNSS `wlan0`까지 진행하지만 V668 native는 icnss/QCA6390 device만 보이고 WLFW 전 binder/`pm_qos` blocker에 남아 다음은 Android init/service-order 분류
 - `reports/NATIVE_INIT_V668_CNSS2_FOCUSED_CAPTURE_LIVE_2026-05-24.md` – V668 live 결과 service `74` open/window 모두에서 icnss/QCA6390 sysfs focused capture는 준비됐지만 WLFW/BDF/`wlan0`는 여전히 0이라 다음은 Android/native cnss2 runtime delta 분류
