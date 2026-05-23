@@ -143,6 +143,7 @@
 - `plans/NATIVE_INIT_V102_DIAGNOSTICS_PLAN_2026-05-03.md` – v102 diagnostics/log bundle 실행 계획
 - `plans/NATIVE_INIT_V103_WIFI_INVENTORY_PLAN_2026-05-04.md` – v103 Wi-Fi read-only inventory 실행 계획
 - `plans/NATIVE_INIT_V104_WIFI_FEASIBILITY_PLAN_2026-05-04.md` – v104 Wi-Fi enablement feasibility gate 실행 계획
+- `plans/NATIVE_INIT_V683_CNSS2_QMI_TRIGGER_ISOLATION_PLAN_2026-05-24.md` – V682/V651/V654/V669 증거로 pre-WLFW cnss2/QMI trigger가 direct QCA power 문제가 아니라 `cnss-daemon` vndbinder continuation 문제인지 host-only 분류하는 V683 계획
 - `plans/NATIVE_INIT_V682_CNSS2_WLFW_PROGRESSION_OBSERVER_PLAN_2026-05-24.md` – helper v112/V679 live arm을 재사용해 Binder debugfs가 아닌 cnss2/WLFW progression 기준으로 현재 부팅 상태를 관찰하는 V682 계획
 - `plans/NATIVE_INIT_V681_CNSS2_CAUSAL_CHAIN_REBASE_PLAN_2026-05-24.md` – V667~V680 증거와 cnss2/WLFW 의존성 모델을 재정렬해 다음 게이트를 Binder debugfs가 아닌 cnss2/WLFW progression observer로 라우팅하는 V681 계획
 - `plans/NATIVE_INIT_V680_BINDER_DEBUGFS_GAP_PLAN_2026-05-24.md` – V679 registry snapshot은 실행됐지만 `/sys/kernel/debug/binder*`가 ENOENT인 원인을 host-only로 분류해 Binder debugfs/대체 transaction 관찰 후보를 정하는 V680 계획
@@ -236,6 +237,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V683_CNSS2_QMI_TRIGGER_ISOLATION_2026-05-24.md` – V683 host-only 결과 Android는 CNSS→WLFW로 계속되지만 native는 `cnss-daemon` vndbinder transaction 뒤 WLFW 전 정지하므로 다음은 V684 transaction target capture/repair
 - `reports/NATIVE_INIT_V682_CNSS2_WLFW_PROGRESSION_OBSERVER_LIVE_2026-05-24.md` – V682 live 결과 service `74`, CNSS retry, focused ICNSS/QCA6390 sysfs, Android userspace start-only는 통과했지만 WLFW/BDF/`wlan0`는 0이라 다음은 cnss2/QMI trigger isolation
 - `reports/NATIVE_INIT_V681_CNSS2_CAUSAL_CHAIN_REBASE_2026-05-24.md` – V681 host-only 결과 service `74` positive와 Binder debugfs gap은 이미 확인됐지만 Android/native 차이는 cnss2/WLFW progression 전환점에 있어 다음은 V682 bounded cnss2/WLFW observer
 - `reports/NATIVE_INIT_V680_BINDER_DEBUGFS_GAP_2026-05-24.md` – V680 host-only 결과 V679 snapshot phase는 실행됐지만 Binder debug path blocks 20개가 모두 비어 있고 `/sys/kernel/debug/binder*` ENOENT가 반복되어 Binder debugfs는 secondary observability gap으로 유지
