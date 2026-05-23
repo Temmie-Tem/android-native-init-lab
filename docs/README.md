@@ -143,6 +143,7 @@
 - `plans/NATIVE_INIT_V102_DIAGNOSTICS_PLAN_2026-05-03.md` – v102 diagnostics/log bundle 실행 계획
 - `plans/NATIVE_INIT_V103_WIFI_INVENTORY_PLAN_2026-05-04.md` – v103 Wi-Fi read-only inventory 실행 계획
 - `plans/NATIVE_INIT_V104_WIFI_FEASIBILITY_PLAN_2026-05-04.md` – v104 Wi-Fi enablement feasibility gate 실행 계획
+- `plans/NATIVE_INIT_V669_ANDROID_CNSS2_RUNTIME_DELTA_PLAN_2026-05-24.md` – V668 focused capture 이후 Android 성공 경로와 native service `74` window를 비교해 다음 runtime/order gate를 정하는 V669 host-only 계획
 - `plans/NATIVE_INIT_V668_CNSS2_FOCUSED_CAPTURE_PLAN_2026-05-24.md` – V667이 좁힌 service `74` 이후 cnss2/QCA6390/WLFW gap을 helper v110 focused sysfs capture로 service74-open/window 안에서 관찰하는 V668 계획
 - `plans/NATIVE_INIT_V667_CNSS2_PD_NOTIFIER_CLASSIFIER_PLAN_2026-05-24.md` – V666의 service-notifier `180/74` 이후 WLFW service `69` 전 갭을 cnss2/WLAN-PD `pd_notifier` progression 관점에서 host-only/read-only로 분류하는 V667 계획
 - `plans/NATIVE_INIT_V666_REPAIRED_PRIVATE_CNSS_RETRY_PLAN_2026-05-24.md` – V665 repaired private property/runtime surface를 V660/V655 fresh `cnss-daemon` retry 경로에 결합하는 V666 계획
@@ -222,6 +223,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V669_ANDROID_CNSS2_RUNTIME_DELTA_2026-05-24.md` – V669 host-only 결과 Android는 WLFW/BDF/firmware-ready/ICNSS `wlan0`까지 진행하지만 V668 native는 icnss/QCA6390 device만 보이고 WLFW 전 binder/`pm_qos` blocker에 남아 다음은 Android init/service-order 분류
 - `reports/NATIVE_INIT_V668_CNSS2_FOCUSED_CAPTURE_LIVE_2026-05-24.md` – V668 live 결과 service `74` open/window 모두에서 icnss/QCA6390 sysfs focused capture는 준비됐지만 WLFW/BDF/`wlan0`는 여전히 0이라 다음은 Android/native cnss2 runtime delta 분류
 - `reports/NATIVE_INIT_V667_CNSS2_PD_NOTIFIER_CLASSIFIER_2026-05-24.md` – V667 결과 V666의 service-notifier `180/74` 이후 cnss2 `pd_notifier`/QCA6390 power/WLFW/BDF/`wlan0` progression marker가 모두 없어 다음은 binder retry가 아니라 cnss2/WLAN-PD kernel progression gate
 - `reports/NATIVE_INIT_V666_REPAIRED_PRIVATE_CNSS_RETRY_LIVE_2026-05-24.md` – V666 live 결과 private property/runtime surface와 service `74`/`vndservicemanager`/fresh CNSS retry는 통과했지만 WLFW service `69`/BDF/`wlan0`는 여전히 없어 다음은 cnss2/WLAN-PD `pd_notifier` progression classifier
