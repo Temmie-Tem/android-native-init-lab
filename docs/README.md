@@ -143,6 +143,7 @@
 - `plans/NATIVE_INIT_V102_DIAGNOSTICS_PLAN_2026-05-03.md` – v102 diagnostics/log bundle 실행 계획
 - `plans/NATIVE_INIT_V103_WIFI_INVENTORY_PLAN_2026-05-04.md` – v103 Wi-Fi read-only inventory 실행 계획
 - `plans/NATIVE_INIT_V104_WIFI_FEASIBILITY_PLAN_2026-05-04.md` – v104 Wi-Fi enablement feasibility gate 실행 계획
+- `plans/NATIVE_INIT_V696_POST_PROVIDER_RETRY_BLOCKER_CLASSIFIER_PLAN_2026-05-24.md` – V695 이후 WLFW 전 정지의 1차 원인이 CNSS Binder `-22`인지 duplicate `pm_qos`인지 Android/V695 dmesg 타이밍으로 분류하는 V696 host-only 계획
 - `plans/NATIVE_INIT_V695_PROVIDER_CONFIRMED_CNSS_RETRY_PLAN_2026-05-24.md` – V694로 확인한 `vendor.qcom.PeripheralManager` 등록 뒤 같은 private namespace에서 fresh `cnss-daemon` retry tail을 실행하는 V695 계획
 - `plans/NATIVE_INIT_V694_PERIPHERAL_VNDSERVICE_QUERY_PLAN_2026-05-24.md` – V692/V693 registry observability gap 뒤 `vendor.qcom.PeripheralManager`가 실제 `vndservicemanager`에 등록되는지 helper v117 `/vendor/bin/vndservice list`로 확인하는 V694 계획
 - `plans/NATIVE_INIT_V693_PERIPHERAL_REGISTRY_EVIDENCE_CLASSIFIER_PLAN_2026-05-24.md` – V692 registry snapshot이 provider 등록을 증명하는지 아니면 Binder 관측성 gap인지 host-only로 분류하는 V693 계획
@@ -249,6 +250,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V696_POST_PROVIDER_RETRY_BLOCKER_CLASSIFIER_2026-05-24.md` – V696 host-only 결과 V695 provider-confirmed retry 이후에도 native-only CNSS Binder `-22`가 WLFW 전 primary blocker로 남고 duplicate `pm_qos`는 secondary signal로 분류
 - `reports/NATIVE_INIT_V695_PROVIDER_CONFIRMED_CNSS_RETRY_LIVE_2026-05-24.md` – V695 live 결과 provider 등록 확인 뒤 fresh `cnss-daemon` retry tail은 실행됐지만 WLFW/BDF/`wlan0`는 여전히 0이라 다음은 post-provider retry blocker classifier
 - `reports/NATIVE_INIT_V693_PERIPHERAL_REGISTRY_EVIDENCE_CLASSIFIER_2026-05-24.md` – V693 host-only 결과 `pm-service`는 `/dev/vndbinder`를 열고 exit 0, `pm-proxy`는 fd 0으로 exit 1이며 Binder debugfs가 없어 V692는 provider 등록 증명이 아니라 관측성 gap으로 분류
 - `reports/NATIVE_INIT_V692_PERIPHERAL_REGISTRY_SNAPSHOT_LIVE_2026-05-24.md` – V692 live 결과 helper v116 registry snapshot 5단계가 모두 완료됐고 provider pair는 observable/ready 이후 observe window 전에 종료되어 다음은 `/dev/socket` registry와 provider stdout/stderr 분석
