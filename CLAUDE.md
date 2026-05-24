@@ -157,7 +157,7 @@ New `vNNN` experiment scripts must:
 - Gate live action behind explicit `--allow-*` + `--assume-yes` flags
 - Run `version`, `status`, `bootstatus`, `selftest verbose` as postflight regression
 
-## Wi-Fi bring-up research state (v598–v772, active)
+## Wi-Fi bring-up research state (v598–v773, active)
 
 Goal: bring up `wlan0` from native init without Android userspace.
 
@@ -179,7 +179,7 @@ stable enough in every boot. Helper v124 added a `sysmon-qmi` gated
 `mdm_helper` mode. V746 proved `mdm_helper` starts safely after `sysmon-qmi`,
 but it does not advance mdm3/WLAN-PD/WLFW.
 
-### Current blocker (V772)
+### Current blocker (V773)
 
 ```
 mss: OFFLINING → ONLINE ✓  (read-only firmware mounts + subsys_modem holder)
@@ -214,6 +214,7 @@ V769 RKP_CFP packaging: bounded host repair passed. Disposable `scripts/rkp_cfp`
 V770 diagnostic boot staging: local-only repack passed. V769 `Image-dtb` was packaged with current v724 native-init ramdisk/header metadata into private tmp evidence; staged image is 4096-byte aligned, mode `0600`, contains the native-init marker and all 19 `A90V765` markers, and unpacks to a kernel hash matching V769 `Image-dtb`. No device command, partition write, flash, reboot, service-manager/Wi-Fi HAL, scan/connect, credential use, DHCP/routes, or external ping was executed. Next gate is V771 diagnostic live handoff/flash/capture under rollback rules.
 V771 diagnostic live handoff: TWRP flash/readback succeeded for the V770 image, but the phone did not return to native init after reboot and instead enumerated as Samsung Download mode (`04e8:685d`) with no ADB device. Treat this as `v771-instrumented-kernel-boot-failed-download-mode`. Do not retry the same V770 image as-is. Rollback is complete: TWRP flashed `stage3/boot_linux_v724.img`, native `version/status`, `bootstatus`, and `selftest` pass again. Next run a host-only boot incompatibility classifier before any further custom-kernel flash.
 V772 boot incompatibility classifier: host-only classification points to missing appended DTB/FDT payloads. Known-good v724 kernel payload has three FDT blobs at offsets `48830500`, `49327831`, `49827440`; V770 diagnostic payload has zero FDT magic hits. Embedded config hashes match and the diagnostic payload preserves all 19 `A90V765` markers. Do not retry V770 as-is. Next gate is V773 local-only stock-DTB-tail append and repack verification.
+V773 stock DTB tail repack: local-only PASS. The V769 instrumented payload plus stock v724 appended DTB tail now repacks into `tmp/wifi/v773-stock-dtb-tail-repack/boot_linux_v773_icnss_diag_stockdtb.img`, with three FDT blobs, all 19 `A90V765` markers, native-init marker, 4096-byte alignment, mode `0600`, and unpack roundtrip hash pass. No device command or flash was executed. Live boot remains unproven; any V774 flash must use only this artifact with rollback ready and immediate health checks.
 ```
 
 Vendor firmware files (`wlanmdsp.mbn`, `bdwlan.bin`, `regdb.bin`) confirmed at `sda29` (isolated mount), NOT in default native `/vendor`.

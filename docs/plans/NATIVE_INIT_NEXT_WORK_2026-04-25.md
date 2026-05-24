@@ -2846,3 +2846,18 @@ Samsung bootloader
 - result: host-only classifier PASS. The known-good v724 kernel payload has three appended FDT blobs at offsets `48830500`, `49327831`, and `49827440`; the V770 diagnostic payload has zero FDT magic hits. The stock DTB tail is `997113` bytes. Embedded kernel configs match, and the diagnostic payload still contains all 19 `A90V765` markers.
 - interpretation: V771 likely failed because V770 packaged a bare OSRC-built/instrumented kernel payload without the appended device DTB tail required by this boot path. The write/readback was valid, but the kernel payload was structurally not boot-compatible. Do not retry V770 as-is.
 - next: V773 should be local-only: append the stock v724 DTB tail to the V769 instrumented Image payload, repack, and verify FDT/marker/roundtrip checks before any live flash is considered.
+
+### V773. Stock DTB Tail Repack
+
+- plan: `docs/plans/NATIVE_INIT_V773_STOCK_DTB_TAIL_REPACK_PLAN_2026-05-25.md`
+- report: `docs/reports/NATIVE_INIT_V773_STOCK_DTB_TAIL_REPACK_2026-05-25.md`
+- runner: `scripts/revalidation/native_wifi_dtb_tail_repack_v773.py`
+- evidence:
+  - `tmp/wifi/v773-stock-dtb-tail-repack/manifest.json`
+  - `tmp/wifi/v773-stock-dtb-tail-repack/instrumented-image-with-stock-dtb-tail.bin`
+  - `tmp/wifi/v773-stock-dtb-tail-repack/boot_linux_v773_icnss_diag_stockdtb.img`
+- decision: `v773-stock-dtb-tail-diagnostic-boot-staged`
+- result: local-only repack PASS. The runner appended the stock v724 DTB tail to the V769 instrumented payload and repacked a private diagnostic boot image. The combined kernel has three FDT blobs at offsets `48830516`, `49327847`, and `49827456`, preserves all 19 `A90V765` markers, and roundtrips through `unpack_bootimg.py`. The staged boot image is 4096-byte aligned, mode `0600`, size `53972992`, sha256 `0fcde6e76fd0de3d2b974aad20dcbbba714e5a81b9fccf5ea2b6a67bdc06f400`.
+- safety: no device command, partition write, flash, reboot, service-manager/Wi-Fi HAL start, scan/connect, credential use, DHCP/routes, or external ping was executed.
+- interpretation: V773 removes the missing-DTB-tail structural blocker found by V772, but live boot is still unproven. A future live gate must flash only this V773 artifact with rollback ready and immediate health checks.
+- next: V774 can be a separately gated live handoff for the V773 artifact. If attempted, verify native boot first, capture `A90V765` dmesg around `boot_wlan`, and roll back on any boot-health failure. Wi-Fi scan/connect and credentials remain blocked until `wlan0`/wiphy exists.
