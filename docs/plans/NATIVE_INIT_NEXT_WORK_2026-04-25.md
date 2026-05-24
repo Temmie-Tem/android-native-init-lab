@@ -2733,3 +2733,16 @@ Samsung bootloader
 - access surface: `/sys/bus/esoc/devices/esoc0` and `/sys/class/subsys/subsys_esoc0` are visible with `SDX50M`/`PCIe` metadata, but `/dev/subsys_esoc0` is absent. Global native `/vendor/bin/mdm_helper` is not visible; it only starts inside the private vendor namespace helper path.
 - interpretation: this closes the requested mdm_helper retry. `mdm_helper` is safe and startable under service180, but still insufficient as the lower trigger. Unless new evidence changes the service180/esoc model, do not repeat `mdm_helper` as the primary trigger.
 - next: reconcile V764 with V749/V750 lower-window `boot_wlan` and the later HDD/PLD stall evidence. If that still cannot locate the gap, return to minimal ICNSS/QCACLD source log instrumentation as a separate V765+ gate.
+
+### V765. ICNSS/QCACLD Log Patch Generator
+
+- plan: `docs/plans/NATIVE_INIT_V765_ICNSS_QCACLD_LOG_PATCH_PLAN_2026-05-24.md`
+- report: `docs/reports/NATIVE_INIT_V765_ICNSS_QCACLD_LOG_PATCH_2026-05-24.md`
+- runner: `scripts/revalidation/native_wifi_icnss_qcacld_log_patch_v765.py`
+- evidence:
+  - `tmp/wifi/v765-icnss-qcacld-log-patch/manifest.json`
+  - `tmp/wifi/v765-icnss-qcacld-log-patch/a90-v765-icnss-qcacld-log.patch`
+- decision: `v765-icnss-qcacld-log-patch-ready`
+- result: host-only patch generator passed. It generated a review-only unified diff with 19 `A90V765` log insertions across ICNSS QMI/core, PLD-SNOC, and QCACLD HDD loader/register/startup paths. It did not mutate `kernel_build`, build a kernel, write a boot image, or run any device command.
+- interpretation: after V764 closed the `mdm_helper` retry path, the strongest next path is source-backed instrumentation. V765 provides the patch artifact needed to locate the HDD/PLD/register-driver stall, while keeping build/apply/flash as separate gates.
+- next: V766 should apply the generated patch to a disposable source build tree and run build/package checks. Keep boot-image writes, live handoff, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, and external ping blocked until their own gates.

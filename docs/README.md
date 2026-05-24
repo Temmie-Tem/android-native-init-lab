@@ -130,6 +130,16 @@
 
 ### 3. Plans
 
+- `plans/NATIVE_INIT_V765_ICNSS_QCACLD_LOG_PATCH_PLAN_2026-05-24.md` – V764 이후 ICNSS/QCACLD SNOC 경로에 `A90V765` 로그 패치를 review-only로 생성하는 계획
+- `plans/NATIVE_INIT_V764_SERVICE180_MDM_HELPER_RETRY_PLAN_2026-05-24.md` – V763 계측 진행 전 service-notifier `180` gated `mdm_helper` retry와 mdm/esoc 표면 확인을 우선 수행하는 계획
+- `plans/NATIVE_INIT_V763_ICNSS_ARCH_REBASE_PLAN_2026-05-24.md` – SM-A908N live 경로를 CNSS2/MHI가 아닌 ICNSS/QCACLD SNOC로 재분류하는 계획
+- `plans/NATIVE_INIT_V762_SOURCE_TARGET_VERIFICATION_PLAN_2026-05-24.md` – staged Samsung OSRC archive가 ICNSS/QCACLD target source를 포함하는지 검증하는 계획
+- `plans/NATIVE_INIT_V761_SOURCE_DOWNLOAD_HANDOFF_PLAN_2026-05-24.md` – Samsung OSRC 수동 다운로드와 ignored staging handoff를 준비하는 계획
+- `plans/NATIVE_INIT_V760_SOURCE_STAGING_PLAN_2026-05-24.md` – local `kernel_build/` staging에서 source archive/tree target availability를 검증하는 계획
+- `plans/NATIVE_INIT_V759_SOURCE_ACQUISITION_PLAN_2026-05-24.md` – SM-A908N/A908NKSU5EWA3 kernel source acquisition target을 공식 OSRC 기준으로 특정하는 계획
+- `plans/NATIVE_INIT_V758_KERNEL_INSTRUMENTATION_FEASIBILITY_PLAN_2026-05-24.md` – rollback-safe kernel/source/boot-image instrumentation 가능 여부를 source 확보 전 분류하는 계획
+- `plans/NATIVE_INIT_V757_ANDROID_NATIVE_HDD_PLD_DIFF_PLAN_2026-05-24.md` – Android/native HDD/PLD dmesg 차이와 boot-image log instrumentation 후보를 분류하는 계획
+- `plans/NATIVE_INIT_V756_NONFTRACE_HDD_PLD_OBSERVABILITY_PLAN_2026-05-24.md` – ftrace 실패 이후 non-ftrace HDD/PLD 관측성 후보를 분류하는 계획
 - `plans/NATIVE_INIT_V755_TRACEFS_MOUNT_FILTER_PROOF_PLAN_2026-05-24.md` – V754 이후 tracefs를 bounded mount/read/cleanup으로 검증하고 HDD/PLD target filter function 노출 여부를 확인하는 계획
 - `plans/NATIVE_INIT_V754_HDD_PLD_TRACEABILITY_SELECTOR_PLAN_2026-05-24.md` – V753 이후 HDD/PLD/register-driver 관측성을 ftrace/tracefs/kallsyms로 확보 가능한지 read-only로 분류하는 계획
 - `plans/NATIVE_INIT_V753_HDD_PLD_PREREQ_CLASSIFIER_PLAN_2026-05-24.md` – V752 이후 HDD/PLD/register-driver 경계에 명시적 실패 마커가 있는지 read-only로 분류하는 계획
@@ -305,6 +315,16 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V765_ICNSS_QCACLD_LOG_PATCH_2026-05-24.md` – V765 host-only 결과 `A90V765` ICNSS/QCACLD 로그 patch artifact를 생성했고 source/build/boot image/device mutation은 실행하지 않았음을 확인
+- `reports/NATIVE_INIT_V764_SERVICE180_MDM_HELPER_RETRY_2026-05-24.md` – V764 live 결과 service `180` gate에서 `mdm_helper`는 시작됐지만 mdm3/WLFW/BDF/`wlan0` 진전은 없어 `mdm_helper`를 즉시 trigger 후보에서 닫음
+- `reports/NATIVE_INIT_V763_ICNSS_ARCH_REBASE_2026-05-24.md` – V763 host-only 결과 SM-A908N live path는 ICNSS/QCACLD SNOC이며 instrumentation target을 ICNSS QMI/core, PLD-SNOC, HDD로 재고정
+- `reports/NATIVE_INIT_V762_SOURCE_TARGET_VERIFICATION_2026-05-24.md` – V762 host-only 결과 staged OSRC `Kernel.tar.gz`에서 live ICNSS/QCACLD target groups가 확인되어 source acquisition blocker를 해제
+- `reports/NATIVE_INIT_V761_SOURCE_DOWNLOAD_HANDOFF_2026-05-24.md` – V761 결과 공식 OSRC download/staging handoff script를 생성했고 브라우저 open은 opt-in으로 유지
+- `reports/NATIVE_INIT_V760_SOURCE_STAGING_2026-05-24.md` – V760 결과 source staging verifier가 archive/tree 구조와 target file availability를 분류하도록 준비됨
+- `reports/NATIVE_INIT_V759_SOURCE_ACQUISITION_2026-05-24.md` – V759 결과 SM-A908N/A908NKSU5EWA3 official OSRC package와 source upload id를 특정
+- `reports/NATIVE_INIT_V758_KERNEL_INSTRUMENTATION_FEASIBILITY_2026-05-24.md` – V758 결과 boot-image tooling은 있으나 exact source가 없어 instrumentation은 source acquisition 전까지 차단됨을 확인
+- `reports/NATIVE_INIT_V757_ANDROID_NATIVE_HDD_PLD_DIFF_2026-05-24.md` – V757 결과 기존 Android/native dmesg만으로 PLD/HDD/register-driver 경계를 닫기 어려워 source-backed log instrumentation을 선택
+- `reports/NATIVE_INIT_V756_NONFTRACE_HDD_PLD_OBSERVABILITY_2026-05-24.md` – V756 결과 dynamic debug/kprobe/live observers가 현재 kernel state에서 usable하지 않아 non-ftrace source path로 이동
 - `reports/NATIVE_INIT_V755_TRACEFS_MOUNT_FILTER_PROOF_2026-05-24.md` – V755 live 결과 tracefs mount/cleanup은 가능하지만 `available_filter_functions`/function filter target이 없어 ftrace 경로는 현재 blocker에 쓸 수 없음을 확인
 - `reports/NATIVE_INIT_V754_HDD_PLD_TRACEABILITY_SELECTOR_2026-05-24.md` – V754 read-only 결과 tracefs와 kallsyms 표면은 있으나 tracefs가 미마운트라 V755 bounded mount/filter proof가 필요함을 확인
 - `reports/NATIVE_INIT_V753_HDD_PLD_PREREQ_CLASSIFIER_2026-05-24.md` – V753 read-only 결과 V752는 HDD entry/qcwlanstate 생성까지만 증명하고 PLD/hdd_init/register-driver 중 어디서 멈췄는지는 추가 instrumentation 없이는 구분되지 않음을 확인
