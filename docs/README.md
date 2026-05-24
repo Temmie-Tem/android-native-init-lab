@@ -130,6 +130,7 @@
 
 ### 3. Plans
 
+- `plans/NATIVE_INIT_V751_ICNSS_MODULE_INIT_CLASSIFIER_PLAN_2026-05-24.md` – V750의 lower-window `boot_wlan` 결과를 QCACLD/HDD init 경계에서 read-only로 분류하는 계획
 - `plans/NATIVE_INIT_V750_LOWER_WINDOW_BOOT_WLAN_PLAN_2026-05-24.md` – V749가 선정한 lower-window `boot_wlan` proof를 firmware mount, `subsys_modem` holder, lower companion stack 안에서만 bounded 실행하는 계획
 - `plans/NATIVE_INIT_V749_NONBIND_TRIGGER_SELECTOR_PLAN_2026-05-24.md` – V748 이후 `fs_ready`, `boot_wlan`, `qcwlanstate` 후보를 read-only로 분류하고 lower-window `boot_wlan` proof를 V750 후보로 선정하는 계획
 - `plans/NATIVE_INIT_V748_NONBIND_POWERUP_TRIGGER_PLAN_2026-05-24.md` – V746/V747 이후 남은 후보를 host-only로 정리해 bind/unbind, `mdm_helper`, CNSS/HAL retry, vendor namespace, `wlan` module load를 분류하고 다음 gate를 non-bind ICNSS/QCA WLFW trigger capture로 좁히는 계획
@@ -300,6 +301,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V751_ICNSS_MODULE_INIT_CLASSIFIER_2026-05-24.md` – V751 read-only 결과 `boot_wlan`은 QCACLD/HDD init에 진입해 `qcwlanstate`를 만들지만 driver-loaded/ICNSS-QMI/FW-ready/netdev 전 단계에서 정지함을 확인
 - `reports/NATIVE_INIT_V750_LOWER_WINDOW_BOOT_WLAN_2026-05-24.md` – V750 live 결과 lower-ready window 안에서 `boot_wlan` write는 성공했지만 `qcwlanstate=OFF`, `/dev/wlan`/wiphy/`wlan0`/WLFW/service69/BDF는 absent라 ICNSS modules-initialized path가 다음 blocker임을 확인
 - `reports/NATIVE_INIT_V749_NONBIND_TRIGGER_SELECTOR_2026-05-24.md` – V749 read-only 결과 current native에는 `fs_ready`가 없고 standalone `boot_wlan`/`qcwlanstate`는 이미 부족했으므로 V750 후보를 lower-ready window 안의 bounded `boot_wlan` proof로 선정
 - `reports/NATIVE_INIT_V748_NONBIND_POWERUP_TRIGGER_2026-05-24.md` – V748 host-only 결과 bind/unbind, `mdm_helper`, CNSS/HAL retry, vendor namespace, `wlan` module load 후보를 닫고 다음 gate를 read-only non-bind ICNSS/QCA WLFW trigger capture로 선정

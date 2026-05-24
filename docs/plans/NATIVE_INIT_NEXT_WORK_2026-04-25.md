@@ -2545,3 +2545,16 @@ Samsung bootloader
 - result: live proof passed safely. Firmware mounts, `subsys_modem` holder, QRTR RX/TX, `sysmon-qmi`, lower companion contract, `boot_wlan` write, and reboot cleanup all passed. `qcwlanstate` stayed `OFF`; `/dev/wlan`, wiphy, `wlan0`, WLFW/service `69`, and BDF stayed absent.
 - interpretation: lower-window `boot_wlan` is not the missing single trigger. The active blocker is now the ICNSS/QCA "modules initialized" path before WLFW/BDF/`wlan0`.
 - next: V751 should classify why `icnss: Modules not initialized just return` persists in native. Keep bind/unbind, `driver_override`, module load/unload, service-manager, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, and external ping blocked.
+
+### V751. ICNSS Module-init Classifier
+
+- plan: `docs/plans/NATIVE_INIT_V751_ICNSS_MODULE_INIT_CLASSIFIER_PLAN_2026-05-24.md`
+- report: `docs/reports/NATIVE_INIT_V751_ICNSS_MODULE_INIT_CLASSIFIER_2026-05-24.md`
+- runner: `scripts/revalidation/native_wifi_icnss_module_init_classifier_v751.py`
+- evidence:
+  - plan `tmp/wifi/v751-icnss-module-init-classifier-plan/`
+  - run `tmp/wifi/v751-icnss-module-init-classifier/`
+- decision: `v751-boot-wlan-hdd-init-stalls-before-driver-loaded`
+- result: read-only classifier passed. V750 `boot_wlan` enters QCACLD/HDD init and creates `qcwlanstate`, but `wlan: driver loaded`, ICNSS-QMI, firmware-ready, wiphy, and `wlan0` never appear. Current native has ICNSS parent bound, but no ICNSS net/ieee80211 child and no MHI devices.
+- interpretation: the blocker is inside or before the HDD/PLD/register-driver completion path, not the fixed `boot_wlan` write itself.
+- next: V752 should choose between bounded CNSS-daemon plus `boot_wlan` ordering proof and deeper HDD/PLD prerequisite instrumentation. Keep service-manager, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, bind/unbind, `driver_override`, and module load/unload blocked.
