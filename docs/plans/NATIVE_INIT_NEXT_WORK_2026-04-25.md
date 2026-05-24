@@ -2462,11 +2462,26 @@ Samsung bootloader
 ### V745. Service180-gated MDM Helper Prep Result
 
 - plan: `docs/plans/NATIVE_INIT_V745_SERVICE180_GATED_MDM_HELPER_PLAN_2026-05-24.md`
-- report: `docs/reports/NATIVE_INIT_V745_SERVICE180_GATED_MDM_HELPER_PREP_2026-05-24.md`
+- prep report: `docs/reports/NATIVE_INIT_V745_SERVICE180_GATED_MDM_HELPER_PREP_2026-05-24.md`
+- live report: `docs/reports/NATIVE_INIT_V745_SERVICE180_GATED_MDM_HELPER_LIVE_2026-05-24.md`
 - evidence:
   - helper build `tmp/wifi/v745-execns-helper-v123-build/`
   - runner plan `tmp/wifi/v745-mdm-helper-service180-live-plan2/`
   - deploy preflight `tmp/wifi/v745-execns-helper-v123-deploy-preflight-after-hide/`
-- result: helper v123 adds `wifi-companion-service180-gated-mdm-helper-start-only`; local static build, mode/order markers, V745 runner plan, and deploy preflight pass. Remote helper remains v122 and needs deploy.
-- interpretation: the next safe live gate is not HAL/connect. It is v123 deploy followed by same-window service `180` gated `mdm_helper` start-only.
-- next: deploy helper v123, refresh current-boot SELinuxfs/policy-load prep, then run V745 live. Wi-Fi HAL/scan/connect/credentials/DHCP/external ping remain blocked until lower WLFW/BDF/`wlan0` evidence appears.
+  - deploy run `tmp/wifi/v745-execns-helper-v123-deploy-run-serial1850/`
+  - live run `tmp/wifi/v745-mdm-helper-service180-live-current/`
+- result: helper v123 deployed and live-tested. The run reached `mss=ONLINE`, QRTR RX/TX, and `sysmon-qmi`, but service `180` gate stayed closed; `mdm_helper`, service-manager, Wi-Fi HAL, scan/connect, DHCP/routes, credentials, and external ping were not executed.
+- interpretation: service `180` is not stable enough as the next live gate. `sysmon-qmi` is the reproducible lower marker in the same window.
+- next: implement and deploy helper v124 with sysmon-gated `mdm_helper` start-only.
+
+### V746. Sysmon-gated MDM Helper Prep Result
+
+- plan: `docs/plans/NATIVE_INIT_V746_SYSMON_GATED_MDM_HELPER_PLAN_2026-05-24.md`
+- report: `docs/reports/NATIVE_INIT_V746_SYSMON_GATED_MDM_HELPER_PREP_2026-05-24.md`
+- evidence:
+  - helper build `tmp/wifi/v746-execns-helper-v124-build/`
+  - runner plan `tmp/wifi/v746-mdm-helper-sysmon-live-plan-final/`
+  - deploy preflight `tmp/wifi/v746-execns-helper-v124-deploy-preflight-final/`
+- result: helper v124 adds `wifi-companion-sysmon-gated-mdm-helper-start-only`; local static build, mode/order markers, V746 runner plan, and deploy preflight pass. Remote helper remains v123 and needs deploy.
+- interpretation: the next safe live gate is v124 deploy followed by same-window `sysmon-qmi` gated `mdm_helper` start-only.
+- next: deploy helper v124, refresh current-boot SELinuxfs/policy-load prep, then run V746 live. Wi-Fi HAL/scan/connect/credentials/DHCP/external ping remain blocked until lower WLFW/BDF/`wlan0` evidence appears.

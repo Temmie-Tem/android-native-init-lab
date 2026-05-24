@@ -15,9 +15,10 @@ V745 adds helper v123 and a new service `180` gated `mdm_helper` mode. This is
 the direct repair for V743: V743 waited on service `74`, but V744 proved the
 reproducible current native marker is service-notifier `180`.
 
-The current committed unit is prep/static/read-only validation only. Helper
-v123 is built locally and deploy preflight is ready, but remote `/cache/bin`
-still contains helper v122 until the next deploy gate runs.
+The prep unit was followed by live execution. Helper v123 was deployed in
+`tmp/wifi/v745-execns-helper-v123-deploy-run-serial1850/`, and the live result
+is recorded in
+`docs/reports/NATIVE_INIT_V745_SERVICE180_GATED_MDM_HELPER_LIVE_2026-05-24.md`.
 
 ## Key Results
 
@@ -70,6 +71,5 @@ wifi_bringup_executed: False
 
 ## Next Gate
 
-Deploy helper v123, then rerun current-boot SELinux prep and execute V745 live.
-The live run may start `mdm_helper` only after service-notifier `180` appears
-inside the bounded lower/CNSS-only window.
+V745 live showed service-notifier `180` is not stable enough as the gate.
+Continue with V746 sysmon-gated `mdm_helper` proof.
