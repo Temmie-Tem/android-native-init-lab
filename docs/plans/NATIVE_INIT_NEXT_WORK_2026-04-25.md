@@ -2514,4 +2514,17 @@ Samsung bootloader
 - decision: `v748-icnss-qmi-wlfw-nonbind-trigger-selected`
 - result: host-only classifier passed. It rejected QCA6390 `bind`/`unbind`, `mdm_helper` retry, repeated CNSS/HAL start, and `wlan` module load; it marked the private vendor firmware namespace as satisfied.
 - interpretation: the remaining pre-connection blocker is below Wi-Fi HAL/connect. The next unit must identify the non-bind ICNSS/CNSS2/QCA path that advances Android from ICNSS parent readiness to WLFW/BDF/`wlan0`.
-- next: V749 should be a read-only Android/native ICNSS-QMI/WLFW trigger capture. Do not start Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, or QCA bind/unbind.
+- next: V749 selected the concrete non-bind control candidate for the next lower-window proof.
+
+### V749. Non-bind Trigger Selector
+
+- plan: `docs/plans/NATIVE_INIT_V749_NONBIND_TRIGGER_SELECTOR_PLAN_2026-05-24.md`
+- report: `docs/reports/NATIVE_INIT_V749_NONBIND_TRIGGER_SELECTOR_2026-05-24.md`
+- runner: `scripts/revalidation/native_wifi_nonbind_trigger_selector_v749.py`
+- plan evidence: `tmp/wifi/v749-nonbind-trigger-selector-plan/`
+- preflight evidence: `tmp/wifi/v749-nonbind-trigger-selector-preflight/`
+- run evidence: `tmp/wifi/v749-nonbind-trigger-selector/`
+- decision: `v749-lower-window-boot-wlan-trigger-selected`
+- result: read-only selector passed. Current native exposes `boot_wlan` and `qcwlanstate=OFF`, does not expose `fs_ready`, and still has no `/dev/wlan`, wiphy, or `wlan0`.
+- interpretation: standalone `boot_wlan` and standalone `qcwlanstate` are already rejected by V508/V513. The only useful next write is a bounded `boot_wlan` proof inside the lower-ready firmware/modem/companion window.
+- next: V750 should implement lower-window `boot_wlan` observe only. Keep service-manager, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, and bind/unbind blocked.

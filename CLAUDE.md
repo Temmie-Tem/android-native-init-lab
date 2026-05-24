@@ -157,7 +157,7 @@ New `vNNN` experiment scripts must:
 - Gate live action behind explicit `--allow-*` + `--assume-yes` flags
 - Run `version`, `status`, `bootstatus`, `selftest verbose` as postflight regression
 
-## Wi-Fi bring-up research state (v598–v748, active)
+## Wi-Fi bring-up research state (v598–v749, active)
 
 Goal: bring up `wlan0` from native init without Android userspace.
 
@@ -179,7 +179,7 @@ stable enough in every boot. Helper v124 added a `sysmon-qmi` gated
 `mdm_helper` mode. V746 proved `mdm_helper` starts safely after `sysmon-qmi`,
 but it does not advance mdm3/WLAN-PD/MHI/WLFW.
 
-### Current blocker (V748)
+### Current blocker (V749)
 
 ```
 mss: OFFLINING → ONLINE ✓  (read-only firmware mounts + subsys_modem holder)
@@ -204,7 +204,11 @@ the QCA6390 child driver-link gap as **not a bind/unbind target**. V748
 host-only then rejected `mdm_helper` retry, repeated CNSS/HAL start, vendor
 namespace repair, and `wlan` module load as next candidates. The selected next
 gate is a read-only non-bind ICNSS/CNSS2/QCA trigger capture for the transition
-from ICNSS parent readiness to WLFW/BDF/`wlan0`.
+from ICNSS parent readiness to WLFW/BDF/`wlan0`. V749 then classified the
+concrete control surfaces: current native has `boot_wlan` and `qcwlanstate=OFF`,
+does not expose `fs_ready`, and still has no `/dev/wlan`, wiphy, or `wlan0`.
+V508/V513 reject standalone `boot_wlan`/`qcwlanstate`; the next live gate is
+therefore lower-window `boot_wlan` observe only.
 
 ### Key milestones
 
@@ -227,6 +231,7 @@ from ICNSS parent readiness to WLFW/BDF/`wlan0`.
 | v746 | helper v124 deployed and live-tested: sysmon gate opened and `mdm_helper` started, but no mdm3/MHI/WLFW/wlan0 progress |
 | v747 | QCA6390 driver-link gap classified as not a bind/unbind target |
 | v748 | host-only candidate matrix selects non-bind ICNSS/CNSS2/QCA WLFW trigger capture |
+| v749 | read-only selector chooses lower-window `boot_wlan` proof; no HAL/connect |
 | v747 | host-only QCA6390 driver-binding delta: child unbound confirmed; bind/unbind remains blocked |
 
 ### Safety additions (Wi-Fi research)

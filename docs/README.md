@@ -130,6 +130,7 @@
 
 ### 3. Plans
 
+- `plans/NATIVE_INIT_V749_NONBIND_TRIGGER_SELECTOR_PLAN_2026-05-24.md` – V748 이후 `fs_ready`, `boot_wlan`, `qcwlanstate` 후보를 read-only로 분류하고 lower-window `boot_wlan` proof를 V750 후보로 선정하는 계획
 - `plans/NATIVE_INIT_V748_NONBIND_POWERUP_TRIGGER_PLAN_2026-05-24.md` – V746/V747 이후 남은 후보를 host-only로 정리해 bind/unbind, `mdm_helper`, CNSS/HAL retry, vendor namespace, `wlan` module load를 분류하고 다음 gate를 non-bind ICNSS/QCA WLFW trigger capture로 좁히는 계획
 - `plans/NATIVE_INIT_V747_QCA6390_DRIVER_BINDING_DELTA_PLAN_2026-05-24.md` – V746/V717 증거를 묶어 QCA6390 platform child driver link 부재와 MHI device 미생성을 Android/native read-only로 분류하는 다음 계획
 - `plans/NATIVE_INIT_V746_SYSMON_GATED_MDM_HELPER_PLAN_2026-05-24.md` – V745에서 service `180` gate가 닫힌 반면 `sysmon-qmi`는 재현된 결과를 반영해 helper v124로 `mdm_helper`를 sysmon 뒤에서만 시작하는 계획
@@ -298,6 +299,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V749_NONBIND_TRIGGER_SELECTOR_2026-05-24.md` – V749 read-only 결과 current native에는 `fs_ready`가 없고 standalone `boot_wlan`/`qcwlanstate`는 이미 부족했으므로 V750 후보를 lower-ready window 안의 bounded `boot_wlan` proof로 선정
 - `reports/NATIVE_INIT_V748_NONBIND_POWERUP_TRIGGER_2026-05-24.md` – V748 host-only 결과 bind/unbind, `mdm_helper`, CNSS/HAL retry, vendor namespace, `wlan` module load 후보를 닫고 다음 gate를 read-only non-bind ICNSS/QCA WLFW trigger capture로 선정
 - `reports/NATIVE_INIT_V747_QCA6390_DRIVER_BINDING_DELTA_2026-05-24.md` – V746/V715/V716/V703 증거를 host-only로 묶어 QCA6390 child driver-link gap은 재현되지만 bind/unbind 대상이 아니며 다음은 non-bind ICNSS/QCA power-up trigger 분류임을 확인
 - `reports/NATIVE_INIT_V746_SYSMON_GATED_MDM_HELPER_LIVE_2026-05-24.md` – helper v124 배포 후 `sysmon-qmi` gate가 열려 `mdm_helper`는 시작됐지만 mdm3/MHI/WLFW/`wlan0` 진전이 없고 QCA6390 platform device driver link가 비어 있음을 확인
