@@ -2860,4 +2860,17 @@ Samsung bootloader
 - result: local-only repack PASS. The runner appended the stock v724 DTB tail to the V769 instrumented payload and repacked a private diagnostic boot image. The combined kernel has three FDT blobs at offsets `48830516`, `49327847`, and `49827456`, preserves all 19 `A90V765` markers, and roundtrips through `unpack_bootimg.py`. The staged boot image is 4096-byte aligned, mode `0600`, size `53972992`, sha256 `0fcde6e76fd0de3d2b974aad20dcbbba714e5a81b9fccf5ea2b6a67bdc06f400`.
 - safety: no device command, partition write, flash, reboot, service-manager/Wi-Fi HAL start, scan/connect, credential use, DHCP/routes, or external ping was executed.
 - interpretation: V773 removes the missing-DTB-tail structural blocker found by V772, but live boot is still unproven. A future live gate must flash only this V773 artifact with rollback ready and immediate health checks.
-- next: V774 can be a separately gated live handoff for the V773 artifact. If attempted, verify native boot first, capture `A90V765` dmesg around `boot_wlan`, and roll back on any boot-health failure. Wi-Fi scan/connect and credentials remain blocked until `wlan0`/wiphy exists.
+- next: superseded by V774 live result. Wi-Fi scan/connect and credentials remain blocked until `wlan0`/wiphy exists.
+
+### V774. Stock DTB Tail Live Boot Failure
+
+- report: `docs/reports/NATIVE_INIT_V774_STOCK_DTB_TAIL_LIVE_BOOT_FAIL_2026-05-25.md`
+- evidence:
+  - `tmp/wifi/v774-stockdtb-live-handoff-20260525-015926/native-init-flash-v773.txt`
+  - `tmp/wifi/v774-stockdtb-live-handoff-20260525-015926/abort-state.txt`
+  - `tmp/wifi/v774-rollback-v724-20260525-020056/native-init-flash-rollback.txt`
+- decision: `v774-stock-dtb-tail-kernel-boot-failed-recovery-mode`
+- result: live handoff failed after a successful TWRP flash/readback of the V773 stock-DTB-tail image. The local image sha256 was `0fcde6e76fd0de3d2b974aad20dcbbba714e5a81b9fccf5ea2b6a67bdc06f400`; the remote pushed image matched; `dd` to `/dev/block/by-name/boot` completed; and the boot partition prefix sha256 matched. After `twrp reboot`, native init did not verify. The abort snapshot initially showed no ADB devices, and recovery/TWRP was subsequently available.
+- recovery: completed. TWRP flashed `stage3/boot_linux_v724.img`, remote sha256 and boot prefix sha256 matched `4ca72f17aec64153d49def4ad42a49714d27bd833623aa9423220ce2181fc682`, and native verify passed with `version/status rc=0 status=ok`. Current native status reports `BOOT OK shell 4.2s`; `selftest` reports `pass=11 warn=1 fail=0`.
+- interpretation: V773 eliminated the missing appended DTB tail as the sole V771 root cause, but the current Samsung OSRC-built instrumented kernel remains live-boot incompatible. V774 differs from V771 because the failure returned to or remained recoverable through TWRP/recovery instead of Download mode, but the same no-retry rule applies to the current custom-kernel artifacts.
+- next: V775 should be host-only. Compare v724 stock kernel and V773 diagnostic payload for remaining boot acceptance differences, including kernel provenance, payload size/delta, toolchain string, Samsung production transforms, RKP/CFP metadata, RTIC/DEFEX assumptions, and boot image header constraints. Prefer stock-kernel runtime observability over further custom-kernel flash until V775 identifies a safer gate.

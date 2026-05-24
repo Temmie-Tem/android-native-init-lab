@@ -322,6 +322,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V774_STOCK_DTB_TAIL_LIVE_BOOT_FAIL_2026-05-25.md` – V774 결과 stock v724 appended DTB tail을 붙인 V773 diagnostic image도 TWRP flash/readback 이후 native verify에 도달하지 못했으며, v724 rollback 후 native `version/status`와 `selftest` 통과로 복구 완료
 - `reports/NATIVE_INIT_V773_STOCK_DTB_TAIL_REPACK_2026-05-25.md` – V773 결과 V769 계측 payload에 stock v724 appended DTB tail을 붙여 FDT 3개, `A90V765` marker 19개, roundtrip hash를 local-only로 검증
 - `reports/NATIVE_INIT_V772_BOOT_INCOMPAT_CLASSIFIER_2026-05-25.md` – V772 결과 known-good v724 kernel payload에는 appended FDT/DTB 3개가 있지만 V770 diagnostic payload에는 FDT가 없어 boot failure의 유력 원인을 DTB tail 누락으로 분류
 - `reports/NATIVE_INIT_V771_ROLLBACK_RECOVERY_2026-05-25.md` – V771 rollback 결과 `stage3/boot_linux_v724.img` flash/readback 후 native `version/status`, `bootstatus`, `selftest` 통과로 복구 완료 확인
