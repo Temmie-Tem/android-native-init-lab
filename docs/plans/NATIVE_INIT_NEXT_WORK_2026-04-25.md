@@ -2802,3 +2802,18 @@ Samsung bootloader
 - safety: no boot image write, partition write, flash, reboot, device command, service-manager/Wi-Fi HAL start, scan/connect, credential use, DHCP/routes, or external ping was executed.
 - interpretation: the V767 final-image blocker was host `RKP_CFP` Python compatibility, not the Wi-Fi instrumentation patch. The instrumented kernel is now image-ready for a separate diagnostic boot-image staging gate.
 - next: V770 should package/stage a diagnostic boot image from the V769 `Image` and existing boot artifacts without flashing. Live flash/reboot and Wi-Fi observation remain separate explicit gates.
+
+### V770. Instrumented Diagnostic Boot Staging
+
+- plan: `docs/plans/NATIVE_INIT_V770_INSTRUMENTED_DIAGNOSTIC_BOOT_STAGING_PLAN_2026-05-25.md`
+- report: `docs/reports/NATIVE_INIT_V770_INSTRUMENTED_DIAGNOSTIC_BOOT_STAGING_2026-05-25.md`
+- runner: `scripts/revalidation/native_wifi_diag_boot_staging_v770.py`
+- evidence:
+  - `tmp/wifi/v770-instrumented-diagnostic-boot-staging/manifest.json`
+  - `tmp/wifi/v770-instrumented-diagnostic-boot-staging/boot_linux_v770_icnss_diag.img`
+  - `tmp/wifi/v770-instrumented-diagnostic-boot-staging/logs/unpack-staged.txt`
+- decision: `v770-instrumented-diagnostic-boot-staged`
+- result: local-only staging PASS. The runner repacked V769 `Image-dtb` with the current verified v724 native-init ramdisk/header metadata. The staged image is 4096-byte aligned, mode `0600`, contains the native-init v724 marker and all 19 `A90V765` markers, and unpacks back to a kernel hash matching the V769 `Image-dtb`.
+- safety: created a local tmp boot image only. No device command, partition write, flash, reboot, service-manager/Wi-Fi HAL start, scan/connect, credential use, DHCP/routes, or external ping was executed.
+- interpretation: the diagnostic boot artifact is ready for an explicitly gated live handoff. This still has not proven runtime Wi-Fi; it only prepares the observable kernel needed to classify the HDD/PLD/ICNSS stall on-device.
+- next: V771 should flash the staged diagnostic image under rollback rules, boot native init, verify serial/bridge health, capture dmesg for `A90V765` markers around `boot_wlan`, and roll back if health fails. Wi-Fi scan/connect and credential use remain blocked until `wlan0`/wiphy exists.
