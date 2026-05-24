@@ -130,6 +130,7 @@
 
 ### 3. Plans
 
+- `plans/NATIVE_INIT_V735_CURRENT_CNSS_ONLY_OBSERVER_PLAN_2026-05-24.md` – V734가 선정한 current-build CNSS-only gate를 실행해 lower companion + `cnss_diag`/`cnss-daemon`까지만 시작하고 service publication, MHI/QCA6390, WLFW/service `69`, BDF, `wlan0`를 관측하는 V735 계획
 - `plans/NATIVE_INIT_V734_CURRENT_POST_SYSMON_ROUTE_PLAN_2026-05-24.md` – current V733 post-sysmon 결과를 Android V622 및 V625/V627 safe positive와 비교해 다음 live gate를 current-build CNSS-only replay로 라우팅하는 V734 host-only 계획
 - `plans/NATIVE_INIT_V733_HOLDER_LOWER_COMPANION_PLAN_2026-05-24.md` – V732의 firmware-mounted `subsys_modem` holder window에 lower companion/TFTP 4개(`qrtr_ns,rmt_storage,tftp_server,pd_mapper`)만 추가해 QRTR TX/sysmon/WLFW/service `69` 진행 여부를 검증하는 V733 계획
 - `plans/NATIVE_INIT_V732_CNSS2_MHI_HOLDER_WINDOW_PLAN_2026-05-24.md` – SM8250 CNSS2/PCIe 모델로 재정렬해 V731 firmware-mounted `subsys_modem` holder window 안에서 `wlan` load semantics, CNSS/MHI/QCA6390/WLFW/service `69`, global WLAN firmware visibility를 read-only로 분류하는 V732 계획
@@ -284,6 +285,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V735_CURRENT_CNSS_ONLY_OBSERVER_2026-05-24.md` – V735 live 결과 current-build CNSS-only replay가 `service_notifier=1`까지 진전했지만 WLAN-PD/MHI/QCA6390/WLFW/service `69`/BDF/`wlan0`는 absent라 다음은 WLAN-PD/service-publication-to-MHI gap 분류
 - `reports/NATIVE_INIT_V734_CURRENT_POST_SYSMON_ROUTE_2026-05-24.md` – V734 host-only 결과 current V733 lower-only는 QRTR TX/sysmon까지만 복원하고, V625/V627 safe CNSS-only class가 service `180`을 만든 전례가 있어 다음은 current-build CNSS-only replay
 - `reports/NATIVE_INIT_V733_HOLDER_LOWER_COMPANION_2026-05-24.md` – V733 live 결과 lower companion/TFTP 4개가 `mss=ONLINE`, QRTR RX/TX, modem `sysmon-qmi`까지 복원했지만 service-notifier/WLFW/service `69`/BDF/`wlan0`는 absent라 다음은 post-sysmon publication gap host-only 분류
 - `reports/NATIVE_INIT_V732_CNSS2_MHI_HOLDER_WINDOW_2026-05-24.md` – V732 live 결과 firmware-mounted `subsys_modem` holder가 `mss=ONLINE`과 QRTR RX를 재현했지만 QRTR TX/sysmon/rpmsg/MHI/QCA6390/WLFW/service `69`/BDF/`wlan0`가 모두 absent라 다음은 real vendor-root + lower companion/TFTP gate
