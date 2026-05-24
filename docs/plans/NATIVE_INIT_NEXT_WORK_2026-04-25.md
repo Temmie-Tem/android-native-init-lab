@@ -2588,3 +2588,16 @@ Samsung bootloader
 - result: read-only classifier passed. V752 is valid input, stayed in the safety envelope, and confirmed HDD entry (`boot_wlan=True`, `wlan_loading=1`, `hdd_state_major=1`, `qcwlanstate=30`). No explicit `hdd_init`/PLD/register-driver failure marker appeared, and no driver-loaded/ICNSS-QMI/FW-ready/WLFW/BDF/wiphy/`wlan0` marker appeared. Current native remains healthy and contained with no wiphy/`wlan0`.
 - interpretation: current evidence cannot distinguish `pld_init`, `hdd_init`, and `wlan_hdd_register_driver` as the stall point. Another CNSS/`boot_wlan` retry is not useful without new instrumentation.
 - next: V754 should add bounded, source-backed HDD/PLD/register-driver observability. If this needs boot image changes, use the standard build/flash/rollback gate; keep service-manager, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, and external ping blocked.
+
+### V754. HDD/PLD Traceability Selector
+
+- plan: `docs/plans/NATIVE_INIT_V754_HDD_PLD_TRACEABILITY_SELECTOR_PLAN_2026-05-24.md`
+- report: `docs/reports/NATIVE_INIT_V754_HDD_PLD_TRACEABILITY_SELECTOR_2026-05-24.md`
+- runner: `scripts/revalidation/native_wifi_hdd_pld_traceability_selector_v754.py`
+- evidence:
+  - plan `tmp/wifi/v754-hdd-pld-traceability-selector-plan/`
+  - run `tmp/wifi/v754-hdd-pld-traceability-selector/`
+- decision: `v754-tracefs-mount-gated-observer-needed`
+- result: read-only selector passed. tracefs/debugfs filesystem support exists, tracefs/debugfs are not mounted, target symbols are partially visible in `/proc/kallsyms`, and no tracefs mount or ftrace write was executed. `available_filter_functions` is not readable until a mount/filter proof.
+- interpretation: ftrace readiness is not proven yet, but a bounded tracefs mount/filter proof is the least invasive next observability gate before any boot image instrumentation or another Wi-Fi trigger.
+- next: V755 should mount tracefs with cleanup, read `available_tracers`/`current_tracer`/`available_filter_functions`, verify target filter functions, then stop before `boot_wlan`, service-manager, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, or external ping.
