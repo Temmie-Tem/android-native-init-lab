@@ -130,6 +130,11 @@
 
 ### 3. Plans
 
+- `plans/NATIVE_INIT_V795_LOWER_WINDOW_MDM3_ESOC_OBSERVER_PLAN_2026-05-25.md` – V794 idle surface 이후 firmware mounts + `subsys_modem` holder window 안에서 mdm3/esoc/ICNSS/WLFW를 관측하는 계획
+- `plans/NATIVE_INIT_V794_MDM3_ICNSS_SURFACE_OBSERVER_PLAN_2026-05-25.md` – V793 이후 현재 idle native surface에서 mdm3/esoc, ICNSS, WLAN control, QRTR, dmesg를 read-only로 캡처하는 계획
+- `plans/NATIVE_INIT_V793_CNSS_ICNSS_ROUTE_CLASSIFIER_PLAN_2026-05-25.md` – V792와 과거 CNSS/binder/ICNSS 증거를 비교해 다음 경로를 mdm3 + ICNSS/WLFW continuation으로 좁히는 host-only 계획
+- `plans/NATIVE_INIT_V792_KNOWN_ASOC_WARNING_CNSS_WLFW_PLAN_2026-05-25.md` – V791 known ASoC warning 분류를 전제로 CNSS/WLFW readback을 warning-tolerant하게 재검증하는 계획
+- `plans/NATIVE_INIT_V791_CURRENT_WARNING_ROUTE_CLASSIFIER_PLAN_2026-05-25.md` – V790/V788/V787 및 Android 증거를 비교해 current `pm_qos` warning이 WLFW route blocker인지 분류하는 host-only 계획
 - `plans/NATIVE_INIT_V790_CLEAN_DSP_LOWER_ONLY_PLAN_2026-05-25.md` – V789 결과에 따라 CNSS를 빼고 clean-DSP + V401/V490 + lower-only companion으로 `pm_qos` warning 원인을 좁히는 계획
 - `plans/NATIVE_INIT_V789_V788_WARNING_CLASSIFIER_PLAN_2026-05-25.md` – V788 `pm_qos_add_request` warning을 device action 없이 V733/V735/V787 증거와 비교해 다음 live gate를 더 좁게 선정하는 계획
 - `plans/NATIVE_INIT_V788_CLEAN_DSP_LOWER_READBACK_PLAN_2026-05-25.md` – V787 clean-DSP proof after current boot prep with V401/V490 refresh, then CNSS-only lower companion readback while keeping HAL/scan/connect blocked
@@ -330,6 +335,11 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V795_LOWER_WINDOW_MDM3_ESOC_OBSERVER_2026-05-25.md` – V795 결과 firmware-backed `subsys_modem` holder가 `mss=ONLINE`과 QRTR RX는 만들지만 mdm3/esoc0은 OFFLINING, service `69`/WLFW/BDF/`wlan0`는 absent로 남아 V796 mdm3/esoc trigger contract로 라우팅
+- `reports/NATIVE_INIT_V794_MDM3_ICNSS_SURFACE_OBSERVER_2026-05-25.md` – V794 결과 idle native에서 modem/esoc0은 OFFLINING, ICNSS는 bound, WLAN control node는 존재하지만 QRTR/service69/WLFW/BDF/`wlan0`는 absent임을 read-only로 확인
+- `reports/NATIVE_INIT_V793_CNSS_ICNSS_ROUTE_CLASSIFIER_2026-05-25.md` – V793 결과 service-manager/binder-only/boot_wlan blind retry를 보류하고 다음 경로를 mdm3 + ICNSS/WLFW continuation으로 선정
+- `reports/NATIVE_INIT_V792_KNOWN_ASOC_WARNING_CNSS_WLFW_2026-05-25.md` – V792 결과 known ASoC warning을 허용해 CNSS readback을 수행했지만 service `69`/WLFW/BDF/`wlan0`가 모두 absent로 유지됨
+- `reports/NATIVE_INIT_V791_CURRENT_WARNING_ROUTE_CLASSIFIER_2026-05-25.md` – V791 결과 current `pm_qos_add_request` warning은 Android에서도 WLFW까지 진행 가능한 known ASoC signature로 분류되어 1차 blocker에서 제외
 - `reports/NATIVE_INIT_V790_CLEAN_DSP_LOWER_ONLY_2026-05-25.md` – V790 결과 CNSS 없이 lower-only에서도 동일 `pm_qos_add_request` warning이 재현되어 원인을 clean-DSP/current prep/lower companion/audio deferred-probe 조합으로 좁힘
 - `reports/NATIVE_INIT_V789_V788_WARNING_CLASSIFIER_2026-05-25.md` – V789 결과 V788 warning은 service-notifier 이후 ADSP/APR audio deferred probe의 `pm_qos_add_request` duplicate boundary로 분류되어 V790 lower-only clean-DSP replay로 라우팅
 - `reports/NATIVE_INIT_V788_CLEAN_DSP_LOWER_READBACK_2026-05-25.md` – V788 결과 clean-DSP/V401/V490/CNSS-only lower readback은 조합됐지만 `pm_qos_add_request` warning boundary가 발생해 HAL/scan/connect로 widening하지 않고 V789 host-only warning classifier로 라우팅
