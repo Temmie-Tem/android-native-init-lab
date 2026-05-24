@@ -2746,3 +2746,18 @@ Samsung bootloader
 - result: host-only patch generator passed. It generated a review-only unified diff with 19 `A90V765` log insertions across ICNSS QMI/core, PLD-SNOC, and QCACLD HDD loader/register/startup paths. It did not mutate `kernel_build`, build a kernel, write a boot image, or run any device command.
 - interpretation: after V764 closed the `mdm_helper` retry path, the strongest next path is source-backed instrumentation. V765 provides the patch artifact needed to locate the HDD/PLD/register-driver stall, while keeping build/apply/flash as separate gates.
 - next: V766 should apply the generated patch to a disposable source build tree and run build/package checks. Keep boot-image writes, live handoff, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, and external ping blocked until their own gates.
+
+### V766. ICNSS/QCACLD Patch Apply Build-readiness
+
+- plan: `docs/plans/NATIVE_INIT_V766_ICNSS_QCACLD_PATCH_APPLY_BUILD_PLAN_2026-05-25.md`
+- report: `docs/reports/NATIVE_INIT_V766_ICNSS_QCACLD_PATCH_APPLY_BUILD_2026-05-25.md`
+- runner: `scripts/revalidation/native_wifi_icnss_qcacld_patch_apply_build_v766.py`
+- evidence:
+  - `tmp/wifi/v766-icnss-qcacld-patch-apply-build/manifest.json`
+  - `tmp/wifi/v766-icnss-qcacld-patch-apply-build/logs/patch-dry-run.txt`
+  - `tmp/wifi/v766-icnss-qcacld-patch-apply-build/logs/patch-apply.txt`
+  - `tmp/wifi/v766-icnss-qcacld-patch-apply-build/logs/defconfig.txt`
+- decision: `v766-patch-applied-defconfig-pass-toolchain-incomplete`
+- result: V766 corrected the V765 patch formatting issue, safely extracted the Samsung OSRC source to private evidence, applied the `A90V765` patch cleanly, verified 19 markers, and passed `r3q_kor_single_defconfig`. It did not mutate `kernel_build`, run a full kernel build, write a boot image, or run any device command.
+- interpretation: instrumentation is now source-apply-ready and defconfig-ready. The next host blocker is not patch context; it is selecting/staging a compatible Android/Samsung toolchain for a bounded full kernel build/package check.
+- next: V767 should select or stage toolchain inputs and run a bounded full kernel build/package readiness gate. Keep boot-image writes, live handoff, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, and external ping blocked until their own gates.

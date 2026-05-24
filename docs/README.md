@@ -130,6 +130,7 @@
 
 ### 3. Plans
 
+- `plans/NATIVE_INIT_V766_ICNSS_QCACLD_PATCH_APPLY_BUILD_PLAN_2026-05-25.md` – V765 `A90V765` patch를 disposable OSRC source tree에 적용하고 bounded defconfig/build-readiness를 확인하는 계획
 - `plans/NATIVE_INIT_V765_ICNSS_QCACLD_LOG_PATCH_PLAN_2026-05-24.md` – V764 이후 ICNSS/QCACLD SNOC 경로에 `A90V765` 로그 패치를 review-only로 생성하는 계획
 - `plans/NATIVE_INIT_V764_SERVICE180_MDM_HELPER_RETRY_PLAN_2026-05-24.md` – V763 계측 진행 전 service-notifier `180` gated `mdm_helper` retry와 mdm/esoc 표면 확인을 우선 수행하는 계획
 - `plans/NATIVE_INIT_V763_ICNSS_ARCH_REBASE_PLAN_2026-05-24.md` – SM-A908N live 경로를 CNSS2/MHI가 아닌 ICNSS/QCACLD SNOC로 재분류하는 계획
@@ -315,6 +316,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V766_ICNSS_QCACLD_PATCH_APPLY_BUILD_2026-05-25.md` – V766 결과 V765 patch formatting을 수정한 뒤 disposable source apply, 19개 marker 검증, `r3q_kor_single_defconfig` 통과를 확인하고 full build는 toolchain gate로 분리
 - `reports/NATIVE_INIT_V765_ICNSS_QCACLD_LOG_PATCH_2026-05-24.md` – V765 host-only 결과 `A90V765` ICNSS/QCACLD 로그 patch artifact를 생성했고 source/build/boot image/device mutation은 실행하지 않았음을 확인
 - `reports/NATIVE_INIT_V764_SERVICE180_MDM_HELPER_RETRY_2026-05-24.md` – V764 live 결과 service `180` gate에서 `mdm_helper`는 시작됐지만 mdm3/WLFW/BDF/`wlan0` 진전은 없어 `mdm_helper`를 즉시 trigger 후보에서 닫음
 - `reports/NATIVE_INIT_V763_ICNSS_ARCH_REBASE_2026-05-24.md` – V763 host-only 결과 SM-A908N live path는 ICNSS/QCACLD SNOC이며 instrumentation target을 ICNSS QMI/core, PLD-SNOC, HDD로 재고정

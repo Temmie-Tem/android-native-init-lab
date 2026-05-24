@@ -73,3 +73,7 @@ V766 should review and apply the generated patch to a disposable source build
 tree, then run the kernel build/package checks. Boot image write, flash, live
 handoff, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, and external ping
 remain separate gates.
+
+V766 follow-up fixed the generated unified-diff formatting so the patch is
+actually `patch -p1` applicable, then verified clean apply and defconfig in a
+disposable tree.

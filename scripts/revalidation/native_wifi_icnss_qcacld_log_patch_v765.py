@@ -69,31 +69,31 @@ HDD_OPS = "drivers/net/wireless/qualcomm/wcn39xx/qcacld-3.0/core/hdd/src/wlan_hd
 
 EDITS = (
     Edit(ICNSS_QMI, r"^\s*ret = qmi_handle_init\(&priv->qmi,", False,
-         '\ticnss_pr_info("A90V765 icnss_register_fw_service enter state:0x%lx\\\\n", priv ? priv->state : 0);',
+         '\ticnss_pr_info("A90V765 icnss_register_fw_service enter state:0x%lx\\n", priv ? priv->state : 0);',
          "prove WLFW service lookup registration function is entered"),
     Edit(ICNSS_QMI, r"^\s*icnss_pr_dbg\(\"WLFW server arrive: node %u port %u\\n\",", False,
-         '\ticnss_pr_info("A90V765 wlfw_new_server enter node:%u port:%u state:0x%lx\\\\n", service ? service->node : 0, service ? service->port : 0, priv->state);',
+         '\ticnss_pr_info("A90V765 wlfw_new_server enter node:%u port:%u state:0x%lx\\n", service ? service->node : 0, service ? service->port : 0, priv->state);',
          "prove WLFW service 69 arrival callback fires"),
     Edit(ICNSS_CORE, r"^\s*set_bit\(ICNSS_WLFW_EXISTS, &penv->state\);", False,
-         '\ticnss_pr_info("A90V765 icnss_server_arrive enter state:0x%lx\\\\n", penv ? penv->state : 0);',
+         '\ticnss_pr_info("A90V765 icnss_server_arrive enter state:0x%lx\\n", penv ? penv->state : 0);',
          "prove ICNSS processes WLFW server arrival"),
     Edit(ICNSS_CORE, r"^\s*set_bit\(ICNSS_FW_READY, &penv->state\);", False,
-         '\ticnss_pr_info("A90V765 icnss_fw_ready_ind enter state:0x%lx\\\\n", penv ? penv->state : 0);',
+         '\ticnss_pr_info("A90V765 icnss_fw_ready_ind enter state:0x%lx\\n", penv ? penv->state : 0);',
          "prove FW-ready indication reaches ICNSS"),
     Edit(ICNSS_CORE, r"^\s*if \(penv->ops\)", False,
-         '\ticnss_pr_info("A90V765 icnss_register_event enter state:0x%lx fw_ready:%d\\\\n", penv ? penv->state : 0, penv ? test_bit(ICNSS_FW_READY, &penv->state) : -1);',
+         '\ticnss_pr_info("A90V765 icnss_register_event enter state:0x%lx fw_ready:%d\\n", penv ? penv->state : 0, penv ? test_bit(ICNSS_FW_READY, &penv->state) : -1);',
          "prove QCACLD registration event and FW-ready gate state"),
     Edit(ICNSS_CORE, r"^\s*if \(!priv->ops \|\| !priv->ops->probe\)", False,
-         '\ticnss_pr_info("A90V765 icnss_call_driver_probe enter state:0x%lx ops:%p probe:%p\\\\n", priv ? priv->state : 0, priv ? priv->ops : NULL, (priv && priv->ops) ? priv->ops->probe : NULL);',
+         '\ticnss_pr_info("A90V765 icnss_call_driver_probe enter state:0x%lx ops:%p probe:%p\\n", priv ? priv->state : 0, priv ? priv->ops : NULL, (priv && priv->ops) ? priv->ops->probe : NULL);',
          "prove ICNSS attempts QCACLD probe handoff"),
     Edit(ICNSS_CORE, r"^\s*icnss_pr_dbg\(\"Registering driver, state: 0x%lx\\n\", penv->state\);", False,
-         '\ticnss_pr_info("A90V765 __icnss_register_driver enter penv:%p pdev:%p ops:%p probe:%p\\\\n", penv, penv ? penv->pdev : NULL, ops, ops ? ops->probe : NULL);',
+         '\ticnss_pr_info("A90V765 __icnss_register_driver enter penv:%p pdev:%p ops:%p probe:%p\\n", penv, penv ? penv->pdev : NULL, ops, ops ? ops->probe : NULL);',
          "prove QCACLD registers with ICNSS"),
     Edit(PLD_SNOC, r"^\s*pld_context = pld_get_global_context\(\);", False,
-         '\tpr_err("A90V765 pld_snoc_probe enter dev:%p\\\\n", dev);',
+         '\tpr_err("A90V765 pld_snoc_probe enter dev:%p\\n", dev);',
          "prove PLD-SNOC probe callback fires"),
     Edit(PLD_SNOC, r"^\s*int\s+pld_snoc_register_driver\s*\(", True,
-         '\tpr_err("A90V765 pld_snoc_register_driver enter\\\\n");',
+         '\tpr_err("A90V765 pld_snoc_register_driver enter\\n");',
          "prove PLD registers driver with ICNSS"),
     Edit(HDD_MAIN, r"^\s*static\s+ssize_t\s+wlan_boot_cb\s*\(", True,
          '\thdd_err("A90V765 wlan_boot_cb enter loaded_state:%d count:%zu", wlan_loader ? wlan_loader->loaded_state : -1, count);',
@@ -123,7 +123,7 @@ EDITS = (
          '\thdd_err("A90V765 hdd_wlan_startup enter hdd_ctx:%p", hdd_ctx);',
          "prove full HDD startup starts after probe"),
     Edit(HDD_OPS, r"^\s*int\s+wlan_hdd_register_driver\s*\(", True,
-         '\tpr_err("A90V765 wlan_hdd_register_driver enter\\\\n");',
+         '\tpr_err("A90V765 wlan_hdd_register_driver enter\\n");',
          "prove HDD register-driver wrapper is entered"),
 )
 
@@ -253,8 +253,8 @@ def load_sources(args: argparse.Namespace) -> tuple[dict[str, Any], dict[str, li
 def unified_patch(original: dict[str, list[str]], modified: dict[str, list[str]], member_names: dict[str, str]) -> str:
     chunks: list[str] = []
     for suffix in sorted(modified):
-        before = [line + "\n" for line in original[suffix]]
-        after = [line + "\n" for line in modified[suffix]]
+        before = list(original[suffix])
+        after = list(modified[suffix])
         if before == after:
             continue
         name = member_names.get(suffix, suffix).strip("/")
