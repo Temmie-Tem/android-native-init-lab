@@ -2774,3 +2774,16 @@ Samsung bootloader
 - result: V767 staged ignored Android/Samsung toolchain inputs, applied disposable host-build repairs, and ran a bounded full kernel build. The build compiled all five ICNSS/QCACLD instrumented target objects with all 19 `A90V765` markers preserved. Final `Image` packaging did not complete because Samsung post-link `scripts/rkp_cfp/instrument.py` is Python2-only and fails under the current host Python path.
 - interpretation: the V765 patch is now source-apply, defconfig, and target-object compile proven. This does not explain why WLFW service `69` is absent at runtime; it only proves the planned printk instrumentation can compile up to the relevant object boundary.
 - next: split the work into two gates. V768 should classify the mdm_helper/esoc/mdm3 gap without repeating blind Wi-Fi starts. A later packaging gate can decide whether to provide Python2, port/patch `RKP_CFP`, or intentionally bypass that post-link step for a diagnostic boot image. Keep boot-image writes, live handoff, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, and external ping blocked until their own gates.
+
+### V768. MDM3/ESOC Gap Classifier
+
+- plan: `docs/plans/NATIVE_INIT_V768_MDM3_ESOC_GAP_CLASSIFIER_PLAN_2026-05-25.md`
+- report: `docs/reports/NATIVE_INIT_V768_MDM3_ESOC_GAP_CLASSIFIER_2026-05-25.md`
+- runner: `scripts/revalidation/native_wifi_mdm3_esoc_gap_classifier_v768.py`
+- evidence:
+  - `tmp/wifi/v768-mdm3-esoc-gap-classifier/manifest.json`
+  - `tmp/wifi/v768-mdm3-esoc-gap-classifier/summary.md`
+- decision: `v768-mdm3-esoc-gap-rerouted-to-instrumentation-packaging`
+- result: host-only classifier PASS. V764 already proves service180-gated `mdm_helper` starts with no mdm3/WLFW/BDF/`wlan0` progress. Direct esoc0 open/hold remains unavailable because `/dev/subsys_esoc0` is absent and no safe init-visible contract is proven. Blind lower-window `boot_wlan` retry remains rejected without new observability. V767 proves the ICNSS/QCACLD instrumentation objects compile.
+- interpretation: the runtime `mdm_helper`/esoc direct retry branch is not the best next step. The nearest diagnostic path is to get the V767 instrumented kernel through final packaging so the missing HDD/PLD/ICNSS boundary can be observed on-device.
+- next: V769 should solve the RKP_CFP/Python2 packaging blocker inside the disposable source tree, or explicitly classify a diagnostic-only RKP_CFP bypass. Keep boot-image handoff, flash, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, and external ping blocked until separate gates.

@@ -130,6 +130,7 @@
 
 ### 3. Plans
 
+- `plans/NATIVE_INIT_V768_MDM3_ESOC_GAP_CLASSIFIER_PLAN_2026-05-25.md` – V620/V622/V740/V764/V767 증거를 묶어 `mdm_helper`/esoc 직접 retry를 닫고 다음 gate를 RKP_CFP/package 쪽으로 라우팅하는 host-only 계획
 - `plans/NATIVE_INIT_V767_ICNSS_QCACLD_FULL_BUILD_PLAN_2026-05-25.md` – V766 적용済み `A90V765` source tree를 ignored toolchain으로 bounded full build해 계측 객체 컴파일과 final image blocker를 분류하는 계획
 - `plans/NATIVE_INIT_V766_ICNSS_QCACLD_PATCH_APPLY_BUILD_PLAN_2026-05-25.md` – V765 `A90V765` patch를 disposable OSRC source tree에 적용하고 bounded defconfig/build-readiness를 확인하는 계획
 - `plans/NATIVE_INIT_V765_ICNSS_QCACLD_LOG_PATCH_PLAN_2026-05-24.md` – V764 이후 ICNSS/QCACLD SNOC 경로에 `A90V765` 로그 패치를 review-only로 생성하는 계획
@@ -317,6 +318,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V768_MDM3_ESOC_GAP_CLASSIFIER_2026-05-25.md` – V768 결과 service180-gated `mdm_helper`, raw esoc0, blind `boot_wlan` retry를 현 증거 기준으로 닫고 V769 RKP_CFP/Python2 packaging gate를 다음 후보로 선정
 - `reports/NATIVE_INIT_V767_ICNSS_QCACLD_FULL_BUILD_2026-05-25.md` – V767 결과 ICNSS/QCACLD 계측 객체 5개가 빌드되고 19개 `A90V765` marker가 보존됐지만 final `Image`는 post-link `RKP_CFP` Python2 blocker로 분리됨
 - `reports/NATIVE_INIT_V766_ICNSS_QCACLD_PATCH_APPLY_BUILD_2026-05-25.md` – V766 결과 V765 patch formatting을 수정한 뒤 disposable source apply, 19개 marker 검증, `r3q_kor_single_defconfig` 통과를 확인하고 full build는 toolchain gate로 분리
 - `reports/NATIVE_INIT_V765_ICNSS_QCACLD_LOG_PATCH_2026-05-24.md` – V765 host-only 결과 `A90V765` ICNSS/QCACLD 로그 patch artifact를 생성했고 source/build/boot image/device mutation은 실행하지 않았음을 확인
