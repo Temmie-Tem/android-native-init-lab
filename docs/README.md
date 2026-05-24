@@ -130,6 +130,7 @@
 
 ### 3. Plans
 
+- `plans/NATIVE_INIT_V737_CNSS2_ARCH_REBASE_PLAN_2026-05-24.md` – V736의 service-`74` 중심 next step을 V726/V727 SM8250 CNSS2/PCIe 모델로 재분류해 다음 gate를 modem+WLAN/MHI prerequisite observer로 라우팅하는 V737 host-only 계획
 - `plans/NATIVE_INIT_V736_SERVICE180_TO_MHI_GAP_PLAN_2026-05-24.md` – V735 service-notifier `180` 양성 상태를 Android V622 및 V627과 비교해 service `74`/WLAN-PD/MHI/WLFW/`wlan0` 미진입을 host-only로 분류하는 V736 계획
 - `plans/NATIVE_INIT_V735_CURRENT_CNSS_ONLY_OBSERVER_PLAN_2026-05-24.md` – V734가 선정한 current-build CNSS-only gate를 실행해 lower companion + `cnss_diag`/`cnss-daemon`까지만 시작하고 service publication, MHI/QCA6390, WLFW/service `69`, BDF, `wlan0`를 관측하는 V735 계획
 - `plans/NATIVE_INIT_V734_CURRENT_POST_SYSMON_ROUTE_PLAN_2026-05-24.md` – current V733 post-sysmon 결과를 Android V622 및 V625/V627 safe positive와 비교해 다음 live gate를 current-build CNSS-only replay로 라우팅하는 V734 host-only 계획
@@ -286,6 +287,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V737_CNSS2_ARCH_REBASE_2026-05-24.md` – V737 host-only 결과 service `180/74` publication은 side evidence이고 V721에서 이미 service-positive/no-WLFW 갭이 확인됐으므로 다음은 real vendor firmware namespace + modem/WLAN/MHI prerequisite observer
 - `reports/NATIVE_INIT_V736_SERVICE180_TO_MHI_GAP_2026-05-24.md` – V736 host-only 결과 native는 service `180`까지 도달하지만 Android의 service `74`/WLAN-PD/MHI/WLFW/service `69`/BDF/`wlan0`로 이어지지 않고 QCA6390도 unbound라 다음은 lower service-74/WLAN-PD publisher trigger 분류
 - `reports/NATIVE_INIT_V735_CURRENT_CNSS_ONLY_OBSERVER_2026-05-24.md` – V735 live 결과 current-build CNSS-only replay가 `service_notifier=1`까지 진전했지만 WLAN-PD/MHI/QCA6390/WLFW/service `69`/BDF/`wlan0`는 absent라 다음은 WLAN-PD/service-publication-to-MHI gap 분류
 - `reports/NATIVE_INIT_V734_CURRENT_POST_SYSMON_ROUTE_2026-05-24.md` – V734 host-only 결과 current V733 lower-only는 QRTR TX/sysmon까지만 복원하고, V625/V627 safe CNSS-only class가 service `180`을 만든 전례가 있어 다음은 current-build CNSS-only replay
