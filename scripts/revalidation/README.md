@@ -387,9 +387,32 @@ python3 ./scripts/revalidation/ncm_host_setup.py status
 python3 ./scripts/revalidation/ncm_host_setup.py off
 ```
 
-Host에 A90 NCM udev 자동 설정이 설치된 경우에는 A90 NCM 인터페이스가
-생길 때 host IP가 자동으로 설정된다. 이 경우 매번 수동
+Host에 A90 NCM 자동 설정이 설치된 경우에는 A90 NCM 인터페이스가 생길 때
+host IP가 자동으로 설정된다. 이 경우 매번 수동
 `sudo ip addr replace 192.168.7.1/24 dev <ifname>`가 필요하지 않다.
+
+현재 개발 host 기준 NetworkManager 자동 설정:
+
+- NM profile: `유선 연결 2`
+- interface: `enx362362068825`
+- MAC: `36:23:62:06:88:25`
+- host IP: `192.168.7.1/24`
+- device IP: `192.168.7.2`
+- autoconnect: on
+- prerequisite: native init `netservice`가 활성화되어 NCM interface가 올라와야 함
+
+NetworkManager preflight:
+
+```bash
+ip -4 addr show enx362362068825 | grep 192.168.7.1
+ip -4 addr show | grep 192.168.7.1
+python3 scripts/revalidation/a90ctl.py netservice status
+```
+
+주의: `enx0000000005e1`은 USB hub 유선 LAN(`192.168.0.8/24`)이며 A90 NCM이
+아니다.
+
+대체 udev 자동 설정:
 
 - udev rule: `/etc/udev/rules.d/90-a90-ncm.rules`
 - match: `cdc_ncm` driver + Samsung VID `04e8`

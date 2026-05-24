@@ -157,7 +157,7 @@ New `vNNN` experiment scripts must:
 - Gate live action behind explicit `--allow-*` + `--assume-yes` flags
 - Run `version`, `status`, `bootstatus`, `selftest verbose` as postflight regression
 
-## Wi-Fi bring-up research state (v598–v768, active)
+## Wi-Fi bring-up research state (v598–v769, active)
 
 Goal: bring up `wlan0` from native init without Android userspace.
 
@@ -179,7 +179,7 @@ stable enough in every boot. Helper v124 added a `sysmon-qmi` gated
 `mdm_helper` mode. V746 proved `mdm_helper` starts safely after `sysmon-qmi`,
 but it does not advance mdm3/WLAN-PD/WLFW.
 
-### Current blocker (V768)
+### Current blocker (V769)
 
 ```
 mss: OFFLINING → ONLINE ✓  (read-only firmware mounts + subsys_modem holder)
@@ -208,8 +208,9 @@ Architecture correction: SM-A908N live evidence shows `18800000.qcom,icnss` boun
 V764 service180 retry: helper v124 started `mdm_helper` under service180 gate, but mdm3/WLAN-PD/MHI/QCA6390/WLFW/BDF/wlan0 did not advance. This closes `mdm_helper` as the immediate lower trigger unless new evidence changes the service180/esoc model.
 V765 source patch: generated review-only `A90V765` ICNSS/QCACLD log patch with 19 insertions across ICNSS QMI/core, PLD-SNOC, and QCACLD HDD loader/register/startup paths; no source mutation, build, boot image write, or device command executed.
 V766 apply/build-readiness: fixed V765 patch formatting, applied the generated patch cleanly to a disposable extracted OSRC tree, verified 19 `A90V765` markers, and passed `r3q_kor_single_defconfig`; full kernel build is still gated on compatible Android/Samsung toolchain selection, with no boot image write or device command executed.
-V767 full-build gate: staged ignored Android/Samsung toolchains and disposable host-build repairs, then compiled all five ICNSS/QCACLD instrumented target objects with all 19 `A90V765` markers preserved. Final `Image` packaging is blocked by Samsung post-link `RKP_CFP` Python2-only `instrument.py`, not by the Wi-Fi log patch. Runtime root cause remains a separate mdm_helper/esoc/mdm3/WLFW service-69 branch.
+V767 full-build gate: staged ignored Android/Samsung toolchains and disposable host-build repairs, then compiled all five ICNSS/QCACLD instrumented target objects with all 19 `A90V765` markers preserved. Final `Image` packaging was blocked by Samsung post-link `RKP_CFP` Python2-only `instrument.py`, not by the Wi-Fi log patch. Runtime root cause remains a separate mdm_helper/esoc/mdm3/WLFW service-69 branch.
 V768 mdm3/esoc classifier: host-only reconciliation closes repeat service180-gated `mdm_helper`, raw esoc0 open/hold, subsystem writes/bind/unbind, and blind `boot_wlan` retry as next steps under current evidence. The selected next gate is V769 RKP_CFP/Python2 packaging so the already-compiled ICNSS/QCACLD instrumentation can become a diagnostic image candidate.
+V769 RKP_CFP packaging: bounded host repair passed. Disposable `scripts/rkp_cfp` Python3 compatibility repair now produces `Image` and `Image-dtb`, with all five ICNSS/QCACLD objects and all 19 `A90V765` markers preserved. No boot image write, flash, device command, service-manager/Wi-Fi HAL, scan/connect, credential use, DHCP/routes, or external ping was executed. Next gate is V770 diagnostic boot-image staging/package verification without flashing.
 ```
 
 Vendor firmware files (`wlanmdsp.mbn`, `bdwlan.bin`, `regdb.bin`) confirmed at `sda29` (isolated mount), NOT in default native `/vendor`.

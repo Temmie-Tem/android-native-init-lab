@@ -2787,3 +2787,18 @@ Samsung bootloader
 - result: host-only classifier PASS. V764 already proves service180-gated `mdm_helper` starts with no mdm3/WLFW/BDF/`wlan0` progress. Direct esoc0 open/hold remains unavailable because `/dev/subsys_esoc0` is absent and no safe init-visible contract is proven. Blind lower-window `boot_wlan` retry remains rejected without new observability. V767 proves the ICNSS/QCACLD instrumentation objects compile.
 - interpretation: the runtime `mdm_helper`/esoc direct retry branch is not the best next step. The nearest diagnostic path is to get the V767 instrumented kernel through final packaging so the missing HDD/PLD/ICNSS boundary can be observed on-device.
 - next: V769 should solve the RKP_CFP/Python2 packaging blocker inside the disposable source tree, or explicitly classify a diagnostic-only RKP_CFP bypass. Keep boot-image handoff, flash, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, and external ping blocked until separate gates.
+
+### V769. RKP_CFP Python3 Packaging Gate
+
+- plan: `docs/plans/NATIVE_INIT_V769_RKP_CFP_PYTHON3_PACKAGING_PLAN_2026-05-25.md`
+- report: `docs/reports/NATIVE_INIT_V769_RKP_CFP_PYTHON3_PACKAGING_2026-05-25.md`
+- runner: `scripts/revalidation/native_wifi_rkp_cfp_packaging_v769.py`
+- evidence:
+  - `tmp/wifi/v769-rkp-cfp-python3-packaging/manifest.json`
+  - `tmp/wifi/v769-rkp-cfp-python3-packaging/logs/kernel-build.txt`
+  - `tmp/wifi/v769-rkp-cfp-python3-packaging/logs/rkp-cfp-py-compile.txt`
+- decision: `v769-rkp-cfp-python3-repair-image-pass`
+- result: bounded host packaging gate PASS. The runner applies idempotent Python3 compatibility repairs for Samsung `scripts/rkp_cfp`, compiles the repaired scripts, and reruns the V767 bounded build path. Final `Image` and `Image-dtb` are present in the disposable source tree; all five ICNSS/QCACLD instrumented objects still exist and preserve all 19 `A90V765` markers.
+- safety: no boot image write, partition write, flash, reboot, device command, service-manager/Wi-Fi HAL start, scan/connect, credential use, DHCP/routes, or external ping was executed.
+- interpretation: the V767 final-image blocker was host `RKP_CFP` Python compatibility, not the Wi-Fi instrumentation patch. The instrumented kernel is now image-ready for a separate diagnostic boot-image staging gate.
+- next: V770 should package/stage a diagnostic boot image from the V769 `Image` and existing boot artifacts without flashing. Live flash/reboot and Wi-Fi observation remain separate explicit gates.
