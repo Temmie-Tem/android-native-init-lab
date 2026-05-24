@@ -2937,3 +2937,21 @@ Samsung bootloader
 - host surface: `aarch64-linux-gnu-gcc`, `aarch64-linux-gnu-strip`, and `aarch64-linux-gnu-readelf` are present, and BPF/perf headers are available. Host can build a minimal static aarch64 C helper.
 - safety: BPF attach, ftrace control writes, Wi-Fi action, scan/connect, credential use, DHCP/routes, external ping, reboot, flash, and partition write were all not executed.
 - interpretation: V778 cannot proceed directly to attach because there is no existing loader. V779 should be build-only: create and statically build a minimal reviewed helper for one target, then audit it before any deploy or attach proof.
+- next: superseded by V779.
+
+### V779. BPF Loader Build
+
+- plan: `docs/plans/NATIVE_INIT_V779_BPF_LOADER_BUILD_PLAN_2026-05-25.md`
+- report: `docs/reports/NATIVE_INIT_V779_BPF_LOADER_BUILD_2026-05-25.md`
+- runner: `scripts/revalidation/native_wifi_bpf_loader_build_v779.py`
+- source: `stage3/linux_init/helpers/a90_bpf_trace_probe.c`
+- evidence:
+  - `tmp/wifi/v779-bpf-loader-build/manifest.json`
+  - `tmp/wifi/v779-bpf-loader-build/summary.md`
+  - `tmp/wifi/v779-bpf-loader-build/a90_bpf_trace_probe-aarch64-static`
+  - `tmp/wifi/v779-bpf-loader-build/logs/readelf-program.txt`
+- decision: `v779-bpf-loader-build-pass`
+- result: host build-only PASS. The minimal helper compiles with `aarch64-linux-gnu-gcc -static`, strips successfully, has no `INTERP` program header, preserves marker `a90_bpf_trace_probe v779`, and includes explicit `--check-only` and `--allow-attach` gates. Artifact size is `597920` bytes; sha256 is `9d8fdfeaa9281ba814db62ddc588b37959021d68fbd08164ae366dde3f08b1c3`.
+- helper contract: default run is check-only and no attach. Attach path is present but gated by `--allow-attach`, targets only `msm_pil_event:pil_notif`, reads the tracepoint id from tracefs, loads a minimal two-instruction tracepoint BPF program, attaches through `perf_event_open`, waits briefly, disables, and closes fds.
+- safety: no device command, deploy, BPF attach, ftrace control write, Wi-Fi action, scan/connect, credential use, DHCP/routes, external ping, reboot, flash, or partition write was executed.
+- next: V780 should deploy the helper and run only `--check-only` on device, verifying remote hash/version/default no-attach behavior. BPF attach remains blocked until a later separate gate.
