@@ -2986,3 +2986,20 @@ Samsung bootloader
 - result: BPF tracepoint attach/detach PASS on stock v724. Tracepoint `msm_pil_event:pil_notif` id was `595`; helper returned `bpf_prog_fd=3`, `result=attach-detach-pass`, `attach_attempted=1`. Tracefs cleanup passed and status after remained `BOOT OK`.
 - hard gates: no modem/WLAN trigger, Wi-Fi HAL/service-manager, scan/connect, credential use, DHCP/routes/external ping, module load/unload, sysfs bind/unbind, reboot/flash/partition write was executed.
 - next: V782 can use the BPF observer around one bounded modem/WLAN state transition, still without Wi-Fi scan/connect or external networking.
+
+### V782. BPF Counter Boot WLAN Observer
+
+- plan: `docs/plans/NATIVE_INIT_V782_BPF_COUNTER_BOOT_WLAN_PLAN_2026-05-25.md`
+- report: `docs/reports/NATIVE_INIT_V782_BPF_COUNTER_BOOT_WLAN_2026-05-25.md`
+- runner: `scripts/revalidation/native_wifi_bpf_counter_boot_wlan_v782.py`
+- helper source: `stage3/linux_init/helpers/a90_bpf_trace_counter.c`
+- evidence:
+  - `tmp/wifi/v782-bpf-counter-boot-wlan/manifest.json`
+  - `tmp/wifi/v782-bpf-counter-boot-wlan/summary.md`
+  - `tmp/wifi/v782-bpf-counter-boot-wlan/native/bpf-counter-collect.txt`
+  - `tmp/wifi/v782-bpf-counter-boot-wlan/native/boot-wlan-observe.txt`
+  - `tmp/wifi/v782-bpf-counter-boot-wlan/native/dmesg-delta.txt`
+- decision: `v782-bpf-counter-boot-wlan-counted-control-surface-only`
+- result: BPF counter captured `event_count=8` on `msm_pil_event:pil_notif` during the lower-window transition. `mss` reached `ONLINE`, QRTR RX/TX and `sysmon-qmi` appeared, and `boot_wlan` executed, but `mdm3` stayed `OFFLINING`; service `69/74/180`, WLFW/BDF, wiphy, and `wlan0` remained absent.
+- hard gates: no Wi-Fi HAL/service-manager, scan/connect, credential use, DHCP/routes/external ping, `qcwlanstate ON`, module load/unload, sysfs bind/unbind, `esoc0`, boot image write, or partition write was executed.
+- next: V783 should classify Android vs native PIL notification names/codes or related mdm3/WLAN-PD trigger evidence before any further live trigger.
