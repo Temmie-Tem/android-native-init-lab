@@ -130,6 +130,7 @@
 
 ### 3. Plans
 
+- `plans/NATIVE_INIT_V727_LOWER_PREREQ_PLAN_2026-05-24.md` – V726의 SM8250 CNSS2/PCIe 재해석 이후 current `/vendor`와 isolated `sda29` vendor firmware visibility, `/sys/module/wlan` static surface, modem/MHI/WLFW 상태를 read-only로 분류하는 V727 계획
 - `plans/NATIVE_INIT_V726_CNSS2_PCIE_PREREQ_PLAN_2026-05-24.md` – SM8250 CNSS2/PCIe 경로로 모델을 재정렬해 modem MPSS/MDM3 ONLINE, `/proc/modules`의 `wlan`, MHI/QCA6390, `wlanmdsp` firmware 전제조건을 read-only로 분류하는 V726 계획
 - `plans/NATIVE_INIT_V725_SERVLOC_MODEM_QMI_GAP_PLAN_2026-05-24.md` – V724가 service-locator timeout은 제거했지만 QRTR RX/TX, sysmon, `mss/mdm3` ONLINE, service `180/74`가 모두 없어 blocker를 modem/QMI readiness gap으로 분류하는 V725 host-only 계획
 - `plans/NATIVE_INIT_V724_QRTR_SERVICE_LOCATOR_BOOT_PROOF_PLAN_2026-05-24.md` – V723 late rearm 한계를 반영해 post-ACM boot window에서 lower-only `qrtr-ns`/`pd-mapper`/`rmt_storage`/`tftp_server`를 one-shot으로 시작하는 V724 계획
@@ -276,6 +277,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V727_LOWER_PREREQ_2026-05-24.md` – V727 live 결과 current `/vendor -> /mnt/system/vendor`에는 Wi-Fi firmware가 없지만 isolated `sda29` vendor에는 `wlanmdsp.mbn`, `bdwlan.bin`, `regdb.bin`이 있고, `wlan`은 loadable `/proc/modules` 항목이 아니라 static parameter surface로 보여 V728 private vendor root layout proof가 다음
 - `reports/NATIVE_INIT_V726_CNSS2_PCIE_PREREQ_2026-05-24.md` – V726 read-only 결과 SM8250 CNSS2는 service `180/74` 중심이 아니라 modem ONLINE + WLAN module/load-state + MHI/QCA6390/WLFW 경로로 봐야 하며, 현재는 `mss/mdm3=OFFLINING`, `/proc/modules`에 `wlan` 없음, `wlanmdsp` 미발견으로 V727 lower-prereq gate가 다음
 - `reports/NATIVE_INIT_V725_SERVLOC_MODEM_QMI_GAP_2026-05-24.md` – V725 host-only 결과 V724는 service-locator를 boot window에서 연결했지만 native에는 QRTR RX/TX, sysmon, ONLINE modem/mdm3, rpmsg devices, service `180/74`가 없음을 확인했고, V726에서 이를 SM8250 CNSS2 lower-prereq gap으로 재해석
 - `reports/NATIVE_INIT_V724_QRTR_SERVICE_LOCATOR_BOOT_PROOF_LIVE_2026-05-24.md` – post-ACM one-shot V724 boot hook은 service-locator를 4.408초에 연결하고 기존 `servloc` timeout을 제거했지만 service `180/74`/CNSS2/WLFW/`wlan0`는 여전히 없어 다음 gate를 SERVREG/WLAN-PD publication gap으로 고정
