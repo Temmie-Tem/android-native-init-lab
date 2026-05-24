@@ -2693,3 +2693,15 @@ Samsung bootloader
 - result: host-only handoff packet passed. It generated private `handoff.md` and `run-v761-source-download-handoff.sh`; the script opens the browser only with `V761_OPEN_BROWSER=1`, copies only an already downloaded official archive into ignored `kernel_build/`, and reruns V760.
 - interpretation: the source blocker is reduced to one manual browser download plus rerun; no device or boot-image work is justified until V760 verifies target source files.
 - next: execute the generated V761 handoff after downloading the official OSRC package, rerun V760, then proceed to kernel log instrumentation planning only after target files are verified. Keep live device, boot-image writes, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, and external ping blocked.
+
+### V762. Source Target Verification
+
+- plan: `docs/plans/NATIVE_INIT_V762_SOURCE_TARGET_VERIFICATION_PLAN_2026-05-24.md`
+- report: `docs/reports/NATIVE_INIT_V762_SOURCE_TARGET_VERIFICATION_2026-05-24.md`
+- runner: `scripts/revalidation/native_wifi_source_staging_v760.py`
+- evidence:
+  - run `tmp/wifi/v760-source-staging/`
+- decision: `v760-source-targets-verified`
+- result: host-only verifier passed after operator staging. `Kernel.tar.gz` inside `kernel_build/SM-A908N_KOR_12_Opensource/` exposes all required target groups: `qcacld_hdd_main`, `qcacld_hdd_driver_ops`, `cnss2_main`, and `cnss2_qmi`. V760 was tightened to require all four groups and accept Samsung's actual `drivers/net/wireless/qualcomm/wcn39xx/qcacld-3.0` path.
+- interpretation: the source acquisition blocker is cleared for planning. This does not authorize patching, building, flashing, or live Wi-Fi bring-up yet.
+- next: V763 should plan minimal kernel log instrumentation against the verified HDD/QCACLD/CNSS2 source targets. Keep source patching/building, boot-image writes, live device, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, and external ping blocked until their own gates.

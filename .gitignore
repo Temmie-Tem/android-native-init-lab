@@ -10,6 +10,7 @@ android-ndk-*.zip
 kernel_build/
 SM-A908N_KOR_12_Opensource.zip
 !kernel_build/
+kernel_build/*
 !kernel_build/.gitkeep
 !kernel_build/README.md
 

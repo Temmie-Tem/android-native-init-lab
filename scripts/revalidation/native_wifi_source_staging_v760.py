@@ -43,11 +43,27 @@ SOURCE_ROOT_CANDIDATES = (
     Path("SM-A908N_KOR_12_Opensource"),
 )
 
-TARGET_SOURCE_SUFFIXES = (
-    "drivers/staging/qcacld-3.0/core/hdd/src/wlan_hdd_main.c",
-    "drivers/staging/qcacld-3.0/core/hdd/src/wlan_hdd_driver_ops.c",
-    "drivers/net/wireless/cnss2/main.c",
-    "drivers/net/wireless/cnss2/qmi.c",
+TARGET_SOURCE_GROUPS = {
+    "qcacld_hdd_main": (
+        "drivers/staging/qcacld-3.0/core/hdd/src/wlan_hdd_main.c",
+        "drivers/net/wireless/qualcomm/wcn39xx/qcacld-3.0/core/hdd/src/wlan_hdd_main.c",
+    ),
+    "qcacld_hdd_driver_ops": (
+        "drivers/staging/qcacld-3.0/core/hdd/src/wlan_hdd_driver_ops.c",
+        "drivers/net/wireless/qualcomm/wcn39xx/qcacld-3.0/core/hdd/src/wlan_hdd_driver_ops.c",
+    ),
+    "cnss2_main": (
+        "drivers/net/wireless/cnss2/main.c",
+    ),
+    "cnss2_qmi": (
+        "drivers/net/wireless/cnss2/qmi.c",
+    ),
+}
+
+TARGET_SOURCE_SUFFIXES = tuple(
+    suffix
+    for suffixes in TARGET_SOURCE_GROUPS.values()
+    for suffix in suffixes
 )
 
 NESTED_ARCHIVE_SUFFIXES = (
@@ -143,13 +159,17 @@ def file_info(path: Path, hash_full: bool = False) -> dict[str, Any]:
     return info
 
 
+def empty_hits() -> dict[str, list[str]]:
+    return {group: [] for group in TARGET_SOURCE_GROUPS}
+
+
 def member_hits(members: list[str]) -> dict[str, list[str]]:
-    hits: dict[str, list[str]] = {suffix: [] for suffix in TARGET_SOURCE_SUFFIXES}
+    hits = empty_hits()
     for member in members:
         normalized = member.strip("/")
-        for suffix in TARGET_SOURCE_SUFFIXES:
-            if normalized.endswith(suffix):
-                hits[suffix].append(normalized)
+        for group, suffixes in TARGET_SOURCE_GROUPS.items():
+            if any(normalized.endswith(suffix) for suffix in suffixes):
+                hits[group].append(normalized)
     return hits
 
 
@@ -169,7 +189,7 @@ def inspect_zip(path: Path, hash_full: bool) -> dict[str, Any]:
         "kind": "zip",
         "readable": False,
         "member_count": 0,
-        "target_hits": {suffix: [] for suffix in TARGET_SOURCE_SUFFIXES},
+        "target_hits": empty_hits(),
         "nested_archives": [],
         "error": "",
     }
@@ -194,7 +214,7 @@ def inspect_tar(path: Path, hash_full: bool) -> dict[str, Any]:
         "kind": "tar",
         "readable": False,
         "member_count": 0,
-        "target_hits": {suffix: [] for suffix in TARGET_SOURCE_SUFFIXES},
+        "target_hits": empty_hits(),
         "nested_archives": [],
         "error": "",
     }
@@ -234,7 +254,7 @@ def inspect_archive(path: Path, hash_full: bool) -> dict[str, Any]:
         "kind": kind,
         "readable": False,
         "member_count": 0,
-        "target_hits": {suffix: [] for suffix in TARGET_SOURCE_SUFFIXES},
+        "target_hits": empty_hits(),
         "nested_archives": [],
         "error": "unsupported archive suffix" if file_info(path)["exists"] else "",
     }
@@ -243,20 +263,23 @@ def inspect_archive(path: Path, hash_full: bool) -> dict[str, Any]:
 def inspect_source_root(path: Path) -> dict[str, Any]:
     resolved = resolve_path(path)
     root = file_info(path)
-    hits: dict[str, list[str]] = {suffix: [] for suffix in TARGET_SOURCE_SUFFIXES}
+    hits = empty_hits()
     if not root["exists"] or not root["is_dir"]:
         return {"root": root, "target_hits": hits, "searched": False}
-    for suffix in TARGET_SOURCE_SUFFIXES:
-        exact = resolved / suffix
-        if exact.exists():
-            hits[suffix].append(str(exact))
+    for group, suffixes in TARGET_SOURCE_GROUPS.items():
+        for suffix in suffixes:
+            exact = resolved / suffix
+            if exact.exists():
+                hits[group].append(str(exact))
+                break
+        if hits[group]:
             continue
-        basename = Path(suffix).name
+        basename = Path(suffixes[0]).name
         for candidate in resolved.rglob(basename):
             normalized = str(candidate).replace("\\", "/")
-            if normalized.endswith(suffix):
-                hits[suffix].append(str(candidate))
-                if len(hits[suffix]) >= 20:
+            if any(normalized.endswith(suffix) for suffix in suffixes):
+                hits[group].append(str(candidate))
+                if len(hits[group]) >= 20:
                     break
     return {"root": root, "target_hits": hits, "searched": True}
 
@@ -270,6 +293,21 @@ def count_hits(items: list[dict[str, Any]], key: str) -> int:
     return count
 
 
+def verified_groups(*items: list[dict[str, Any]]) -> list[str]:
+    groups: set[str] = set()
+    for collection in items:
+        for item in collection:
+            hits = item.get("target_hits")
+            if isinstance(hits, dict):
+                groups.update(group for group, values in hits.items() if isinstance(values, list) and values)
+    return sorted(groups)
+
+
+def missing_groups(groups: list[str]) -> list[str]:
+    present = set(groups)
+    return [group for group in TARGET_SOURCE_GROUPS if group not in present]
+
+
 def staged_paths(extra_sources: list[Path]) -> tuple[list[Path], list[Path]]:
     archive_candidates = list(ARCHIVE_CANDIDATES)
     root_candidates = list(SOURCE_ROOT_CANDIDATES)
@@ -279,6 +317,13 @@ def staged_paths(extra_sources: list[Path]) -> tuple[list[Path], list[Path]]:
             root_candidates.append(source)
         else:
             archive_candidates.append(source)
+    for root in root_candidates:
+        resolved = resolve_path(root)
+        if not resolved.is_dir():
+            continue
+        for child in resolved.iterdir():
+            if child.is_file() and archive_kind(child) in {"zip", "tar"}:
+                archive_candidates.append(child)
     return archive_candidates, root_candidates
 
 
@@ -291,8 +336,10 @@ def build_analysis(args: argparse.Namespace) -> dict[str, Any]:
     archive_readable = any(item["readable"] for item in archives)
     archive_target_hits = count_hits(archives, "target_hits")
     root_target_hits = count_hits(roots, "target_hits")
+    target_groups_verified = verified_groups(archives, roots)
+    target_groups_missing = missing_groups(target_groups_verified)
     nested_archive_count = sum(len(item.get("nested_archives") or []) for item in archives)
-    target_sources_verified = archive_target_hits > 0 or root_target_hits > 0
+    target_sources_verified = not target_groups_missing
     return {
         "v759": {
             "manifest": str(resolve_path(args.v759_manifest)),
@@ -308,6 +355,8 @@ def build_analysis(args: argparse.Namespace) -> dict[str, Any]:
             "archive_readable": archive_readable,
             "archive_target_hits": archive_target_hits,
             "root_target_hits": root_target_hits,
+            "target_groups_verified": target_groups_verified,
+            "target_groups_missing": target_groups_missing,
             "nested_archive_count": nested_archive_count,
             "target_sources_verified": target_sources_verified,
             "hash_mode": "full" if args.hash_full else "prefix-1m",
@@ -317,7 +366,7 @@ def build_analysis(args: argparse.Namespace) -> dict[str, Any]:
             "extract_required": archive_present and archive_readable and not target_sources_verified and nested_archive_count > 0,
             "target_sources_verified": target_sources_verified,
             "can_plan_kernel_instrumentation": target_sources_verified,
-            "next_cycle": "v761-kernel-log-instrumentation-plan" if target_sources_verified else "v760-stage-official-source-and-rerun",
+            "next_cycle": "v763-kernel-log-instrumentation-plan" if target_sources_verified else "v760-stage-official-source-and-rerun",
         },
     }
 
@@ -415,7 +464,7 @@ def decide(command: str, checks: list[Check], analysis: dict[str, Any] | None) -
             "v760-source-targets-verified",
             True,
             "staged source exposes required QCACLD/CNSS target files",
-            "V761 can plan minimal kernel log instrumentation without live flash",
+            "V763 can plan minimal kernel log instrumentation without live flash",
         )
     if route["extract_required"]:
         return (
