@@ -341,6 +341,9 @@ def run_arm(args: argparse.Namespace, store: EvidenceStore, label: str, script: 
         "--assume-yes",
         "run",
     ]
+    arm_companion_runtime_sec = getattr(args, "arm_companion_runtime_sec", None)
+    if arm_companion_runtime_sec is not None:
+        command[-1:-1] = ["--companion-runtime-sec", str(arm_companion_runtime_sec)]
     result = run_script(store, f"{label}-live", command, 300.0)
     manifest_path = out_dir / "manifest.json"
     manifest = load_json(manifest_path)

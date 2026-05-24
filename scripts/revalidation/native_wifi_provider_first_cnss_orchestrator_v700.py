@@ -58,6 +58,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--helper-sha256", default=HELPER_SHA256)
     parser.add_argument("--helper-marker", default=HELPER_MARKER)
     parser.add_argument("--wait-sec", type=float, default=75.0)
+    parser.add_argument("--arm-companion-runtime-sec", type=int, default=None)
     parser.add_argument("--apply", action="store_true")
     parser.add_argument("--assume-yes", action="store_true")
     parser.add_argument("command", choices=("plan", "run"), nargs="?", default="run")
@@ -284,6 +285,7 @@ def build_manifest(args: argparse.Namespace, prep: dict[str, Any] | None, arm: d
         "host": collect_host_metadata(),
         "helper_marker": args.helper_marker,
         "helper_sha256": args.helper_sha256,
+        "arm_companion_runtime_sec": args.arm_companion_runtime_sec,
         "allowed_live_actions": ALLOWED_LIVE_ACTIONS,
         "forbidden_actions": FORBIDDEN_ACTIONS,
         "prep_v700": prep or {},
@@ -319,6 +321,7 @@ def render_summary(manifest: dict[str, Any]) -> str:
         f"- reason: {manifest['reason']}",
         f"- next_step: {manifest['next_step']}",
         f"- helper_marker: `{manifest['helper_marker']}`",
+        f"- arm_companion_runtime_sec: `{manifest.get('arm_companion_runtime_sec')}`",
         f"- device_commands_executed: `{manifest['device_commands_executed']}`",
         f"- wifi_hal_start_executed: `{manifest['wifi_hal_start_executed']}`",
         f"- scan_connect_executed: `{manifest['scan_connect_executed']}`",

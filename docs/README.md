@@ -130,6 +130,7 @@
 
 ### 3. Plans
 
+- `plans/NATIVE_INIT_V717_ICNSS_EDGE_LONG_OBSERVE_PLAN_2026-05-24.md` – V712 helper v121 provider-first ICNSS edge proof를 30초 observation window로 재실행해 WLFW/BDF/`wlan0` 미진입이 짧은 대기시간 문제가 아님을 검증하는 계획
 - `plans/NATIVE_INIT_V716_QCA_BIND_RECONCILIATION_PLAN_2026-05-24.md` – V715의 QCA6390 child-unbound 결과를 V703 Android reference와 대조해 QCA bind/unbind가 아니라 ICNSS-QMI/WLFW readiness edge가 다음 target임을 고정하는 host-only 계획
 - `plans/NATIVE_INIT_V715_ICNSS_EDGE_SURFACE_CLASSIFIER_PLAN_2026-05-24.md` – V712 helper v121 ICNSS edge capture를 host-only로 분류해 ICNSS parent/QCA6390 child/WLFW·BDF·`wlan0` 중 어느 경계에서 멈췄는지 라벨링하는 계획
 - `plans/NATIVE_INIT_NEXT_WORK_2026-04-25.md` – v42 이후 역추적/셸/HUD/로그/네트워크 작업 목록
@@ -266,6 +267,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V717_ICNSS_EDGE_LONG_OBSERVE_2026-05-24.md` – V712 helper v121 provider-first ICNSS edge proof를 30초 observation window로 재실행해 service `180/74`와 provider/CNSS retry는 재현되지만 WLFW/BDF/`wlan0`는 여전히 0임을 확인
 - `reports/NATIVE_INIT_V716_QCA_BIND_RECONCILIATION_2026-05-24.md` – V715의 QCA6390 child-unbound는 사실이나 V703 Android reference가 QCA bind/unbind target을 거부하므로 다음 live gate를 ICNSS-QMI/WLFW readiness trigger로 재고정
 - `reports/NATIVE_INIT_V715_ICNSS_EDGE_SURFACE_CLASSIFIER_2026-05-24.md` – V714/V712 edge evidence를 host-only 분류한 결과 service `180/74` window에서 ICNSS parent는 bound지만 QCA6390 platform child가 unbound임을 확인했고, V716에서 QCA bind/unbind가 아닌 ICNSS-QMI/WLFW edge로 재라우팅
 - `reports/NATIVE_INIT_V714_HELPER_V121_ICNSS_EDGE_LIVE_2026-05-24.md` – helper v121을 serial safe chunk로 배포하고 V712 provider-first ICNSS edge proof를 실행했으며, WLFW/BDF/`wlan0` 미진입과 top-level orchestrator summary 보정 내용을 기록
