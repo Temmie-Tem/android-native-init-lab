@@ -130,6 +130,7 @@
 
 ### 3. Plans
 
+- `plans/NATIVE_INIT_V776_TRACEPOINT_INVENTORY_PLAN_2026-05-25.md` – V775 이후 custom kernel flash 대신 recovered v724 stock kernel에서 tracefs `available_events`와 ICNSS/WLAN/QMI/QRTR 후보 tracepoint를 bounded mount/read/cleanup으로 분류하는 계획
 - `plans/NATIVE_INIT_V775_BOOT_INCOMPAT_POSTMORTEM_PLAN_2026-05-25.md` – V774 이후 custom OSRC kernel flash를 중단하고 v724 stock kernel과 V773 diagnostic payload의 non-DTB 차이 및 tracepoint/BPF 관측 후보를 host-only로 분류하는 계획
 - `plans/NATIVE_INIT_V773_STOCK_DTB_TAIL_REPACK_PLAN_2026-05-25.md` – V772에서 확인한 DTB tail 누락을 local-only로 보정해 stock v724 appended DTB tail + V769 계측 payload를 repack하는 계획
 - `plans/NATIVE_INIT_V772_BOOT_INCOMPAT_CLASSIFIER_PLAN_2026-05-25.md` – V771 boot failure를 live 재플래시 없이 stock/v724 payload와 V770 diagnostic payload의 header/config/FDT/marker 차이로 분류하는 계획
@@ -323,6 +324,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V776_TRACEPOINT_INVENTORY_2026-05-25.md` – V776 결과 recovered v724 stock kernel에서 tracefs `available_events=1250`와 후보 event 153개를 확인했고, `msm_pil_event:*`, `dfc:dfc_qmi_tc`, `cfg80211:cfg80211_report_wowlan_wakeup` 등을 V777 format 분류 후보로 선정
 - `reports/NATIVE_INIT_V775_BOOT_INCOMPAT_POSTMORTEM_2026-05-25.md` – V775 결과 V773/V774로 DTB tail 누락은 단독 원인이 아님을 확인하고, pre-DTB `+16` byte delta, kernel provenance/toolchain, RKP/RTIC marker delta를 남은 custom-kernel boot incompatibility 후보로 분류
 - `reports/NATIVE_INIT_V774_STOCK_DTB_TAIL_LIVE_BOOT_FAIL_2026-05-25.md` – V774 결과 stock v724 appended DTB tail을 붙인 V773 diagnostic image도 TWRP flash/readback 이후 native verify에 도달하지 못했으며, v724 rollback 후 native `version/status`와 `selftest` 통과로 복구 완료
 - `reports/NATIVE_INIT_V773_STOCK_DTB_TAIL_REPACK_2026-05-25.md` – V773 결과 V769 계측 payload에 stock v724 appended DTB tail을 붙여 FDT 3개, `A90V765` marker 19개, roundtrip hash를 local-only로 검증

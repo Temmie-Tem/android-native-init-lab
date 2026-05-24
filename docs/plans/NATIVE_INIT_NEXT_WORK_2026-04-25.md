@@ -2889,4 +2889,20 @@ Samsung bootloader
 - result: host-only classifier PASS. The v724 stock and V773 diagnostic boot header args match after normalized unpack, and both kernel payloads contain three appended FDT blobs. The remaining differences are non-DTB: V773 diagnostic kernel size is `49827629` vs stock `49827613`, every appended FDT offset is shifted by `16` bytes, kernel provenance/toolchain strings differ, and coarse RKP/RTIC marker counts differ.
 - observability: config surface confirms `CONFIG_KPROBES=n`, `CONFIG_DYNAMIC_DEBUG=n`, `CONFIG_FUNCTION_TRACER=n`, `CONFIG_FTRACE=y`, `CONFIG_TRACEPOINTS=y`, `CONFIG_BPF_SYSCALL=y`, and `CONFIG_BPF_EVENTS=y`.
 - interpretation: missing appended DTB tail is no longer the sole cause. The custom OSRC kernel flash route is paused until a separate host-only compatibility gate explains the remaining production/provenance/pre-DTB delta. Repeating V770, V773, or equivalent OSRC-built images is blocked.
-- next: V776 should stay on recovered stock v724 and perform bounded read-only tracepoint inventory only: capture `available_events`, search ICNSS/WLAN/QMI/QRTR candidates, and classify whether a later BPF tracepoint attach proof is worth attempting. No custom kernel flash.
+- next: superseded by V776. No custom kernel flash.
+
+### V776. Tracepoint Inventory
+
+- plan: `docs/plans/NATIVE_INIT_V776_TRACEPOINT_INVENTORY_PLAN_2026-05-25.md`
+- report: `docs/reports/NATIVE_INIT_V776_TRACEPOINT_INVENTORY_2026-05-25.md`
+- runner: `scripts/revalidation/native_wifi_tracepoint_inventory_v776.py`
+- evidence:
+  - `tmp/wifi/v776-tracepoint-inventory/manifest.json`
+  - `tmp/wifi/v776-tracepoint-inventory/summary.md`
+  - `tmp/wifi/v776-tracepoint-inventory/native/available-events-head.txt`
+  - `tmp/wifi/v776-tracepoint-inventory/native/candidate-*.txt`
+- decision: `v776-tracepoint-candidates-found`
+- result: live stock-v724 bounded tracefs inventory PASS. V776 temporarily mounted tracefs, read event surfaces, and unmounted cleanly. `available_events` is readable with `1250` events. Candidate counts: ICNSS/WLAN/Wi-Fi `1`, QMI/QRTR/service `1`, subsystem/remoteproc `3`, network stack `39`, scheduler/workqueue/IRQ `109`, total `153`.
+- focused candidates: `cfg80211:cfg80211_report_wowlan_wakeup`, `dfc:dfc_qmi_tc`, and `msm_pil_event:{pil_event,pil_notif,pil_func}`. Network and scheduler events are broad context rather than primary Wi-Fi bring-up evidence.
+- safety: BPF attach, ftrace control writes, Wi-Fi action, scan/connect, credential use, DHCP/routes, external ping, reboot, flash, and partition write were all not executed. Postflight tracefs status confirms no tracefs mount remains.
+- interpretation: stock kernel static tracepoints are viable enough for a next observer gate, but not yet enough for BPF attach. V777 should inspect selected tracepoint `format` files and field semantics before any attach proof. Custom OSRC kernel flashing remains paused.
