@@ -2667,3 +2667,16 @@ Samsung bootloader
 - result: host-only classifier passed. The exact Samsung OSRC package is identified as `SM-A908N_KOR_12_Opensource.zip` for `SM-A908N` / `A908NKSU5EWA3` with source upload id `13272` and announcement attach id `39494`; the source download is hCaptcha/manual-browser gated and the archive is not staged locally.
 - interpretation: kernel instrumentation remains blocked until the official source archive is manually downloaded, staged under an ignored path, and verified for target QCACLD/CNSS files.
 - next: V760 should verify the staged official archive/source tree and target file availability before any kernel instrumentation patch. Keep live device, boot-image writes, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, and external ping blocked.
+
+### V760. Source Staging Verifier
+
+- plan: `docs/plans/NATIVE_INIT_V760_SOURCE_STAGING_PLAN_2026-05-24.md`
+- report: `docs/reports/NATIVE_INIT_V760_SOURCE_STAGING_2026-05-24.md`
+- runner: `scripts/revalidation/native_wifi_source_staging_v760.py`
+- evidence:
+  - plan `tmp/wifi/v760-source-staging-plan/`
+  - run `tmp/wifi/v760-source-staging/`
+- decision: `v760-source-stage-missing`
+- result: host-only verifier passed as a classifier. `kernel_build/` is now an explicit ignored staging area with a tracked README/.gitkeep, but the official source archive or extracted source tree is still absent. Target QCACLD/CNSS files are not verified.
+- interpretation: the kernel instrumentation path is still blocked by external/manual source staging, not by repo tooling.
+- next: manually download `SM-A908N_KOR_12_Opensource.zip`, stage it under `kernel_build/`, rerun V760, and only proceed to V761 kernel log instrumentation planning after target source files are verified. Keep live device, boot-image writes, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, and external ping blocked.

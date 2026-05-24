@@ -9,6 +9,7 @@ android-ndk-*.zip
 # Samsung 커널 소스 (9.5GB 빌드 결과 포함)
 kernel_build/
 SM-A908N_KOR_12_Opensource.zip
+!kernel_build/
 !kernel_build/.gitkeep
 !kernel_build/README.md
 
