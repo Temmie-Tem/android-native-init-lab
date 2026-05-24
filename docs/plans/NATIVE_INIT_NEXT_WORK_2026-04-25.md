@@ -2575,3 +2575,16 @@ Samsung bootloader
 - result: live proof passed safely. Firmware mounts, `subsys_modem` holder, QRTR RX/TX, `sysmon-qmi`, six-child CNSS companion start-only, `boot_wlan` observe, and reboot cleanup all passed. `cnss_diag` and `cnss-daemon` started, but `qcwlanstate` stayed `OFF`; `/dev/wlan`, ICNSS net/ieee80211 child, wiphy, `wlan0`, WLFW/service `69`, BDF, ICNSS-QMI, and firmware-ready stayed absent.
 - interpretation: CNSS companion ordering before `boot_wlan` is not sufficient. The blocker remains inside or immediately before HDD/PLD/register-driver completion.
 - next: V753 should instrument HDD/PLD prerequisites and the missing driver-loaded / ICNSS-QMI transition. Do not repeat CNSS plus `boot_wlan` ordering blindly; keep service-manager, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, bind/unbind, `driver_override`, and module load/unload blocked.
+
+### V753. HDD/PLD Prerequisite Classifier
+
+- plan: `docs/plans/NATIVE_INIT_V753_HDD_PLD_PREREQ_CLASSIFIER_PLAN_2026-05-24.md`
+- report: `docs/reports/NATIVE_INIT_V753_HDD_PLD_PREREQ_CLASSIFIER_2026-05-24.md`
+- runner: `scripts/revalidation/native_wifi_hdd_pld_prereq_classifier_v753.py`
+- evidence:
+  - plan `tmp/wifi/v753-hdd-pld-prereq-classifier-plan/`
+  - run `tmp/wifi/v753-hdd-pld-prereq-classifier/`
+- decision: `v753-hdd-pld-register-driver-gap-needs-instrumentation`
+- result: read-only classifier passed. V752 is valid input, stayed in the safety envelope, and confirmed HDD entry (`boot_wlan=True`, `wlan_loading=1`, `hdd_state_major=1`, `qcwlanstate=30`). No explicit `hdd_init`/PLD/register-driver failure marker appeared, and no driver-loaded/ICNSS-QMI/FW-ready/WLFW/BDF/wiphy/`wlan0` marker appeared. Current native remains healthy and contained with no wiphy/`wlan0`.
+- interpretation: current evidence cannot distinguish `pld_init`, `hdd_init`, and `wlan_hdd_register_driver` as the stall point. Another CNSS/`boot_wlan` retry is not useful without new instrumentation.
+- next: V754 should add bounded, source-backed HDD/PLD/register-driver observability. If this needs boot image changes, use the standard build/flash/rollback gate; keep service-manager, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, and external ping blocked.
