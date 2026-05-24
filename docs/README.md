@@ -130,6 +130,7 @@
 
 ### 3. Plans
 
+- `plans/NATIVE_INIT_V799_POST_V798_ROUTE_CLASSIFIER_PLAN_2026-05-25.md` – V797/V798 lower-only 음성 경로와 V653/V657/V659/V668/V694 service74 양성 경로를 비교해 다음 live gate를 below-HAL CNSS tail replay로 선정하는 host-only 계획
 - `plans/NATIVE_INIT_V798_PIL_CODE_GAP_CLASSIFIER_PLAN_2026-05-25.md` – V797 `pil_notif` code `2/3/6/7`를 Samsung OSRC enum에 매핑하고 Android/native service-notifier gap과 대조하는 host-only 계획
 - `plans/NATIVE_INIT_V797_PIL_TRACE_PAYLOAD_PLAN_2026-05-25.md` – V796 이후 `msm_pil_event:pil_notif` tracefs payload를 lower-window transition 중 캡처해 PIL event name/code/fw sequence를 얻는 계획
 - `plans/NATIVE_INIT_V796_POST_V795_ROUTE_CLASSIFIER_PLAN_2026-05-25.md` – V795 이후 CNSS/BPF/memshare/mdm_helper 증거를 재정렬해 다음 gate를 PIL payload capture로 선정하는 host-only 계획
@@ -338,6 +339,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V799_POST_V798_ROUTE_CLASSIFIER_2026-05-25.md` – V799 결과 현재 lower-only 경로보다 기존 service74 양성 + V694 PeripheralManager 확인 경로가 최단이므로 V800 below-HAL CNSS tail replay로 라우팅
 - `reports/NATIVE_INIT_V798_PIL_CODE_GAP_CLASSIFIER_2026-05-25.md` – V798 결과 V797의 modem PIL power-up/proxy sequence는 완성됐지만 native는 여전히 mdm3/service-notifier `74/180`/service `69`/wiphy/`wlan0`가 absent라 V799 service-notifier/root-PD gap으로 라우팅
 - `reports/NATIVE_INIT_V797_PIL_TRACE_PAYLOAD_2026-05-25.md` – V797 결과 lower-window transition 중 `msm_pil_event:pil_notif` 8개 payload를 캡처했고 모두 `fw=modem`, code `2/3/6/7`이나 mdm3/service69/WLFW/BDF/`wlan0`는 여전히 absent임을 확인
 - `reports/NATIVE_INIT_V796_POST_V795_ROUTE_CLASSIFIER_2026-05-25.md` – V796 결과 V795/V792/V782/V785/V764/V768을 종합해 반복 trigger 대신 `msm_pil_event:pil_notif`의 `event_name`/`code`/`fw_name` payload capture를 다음 gate로 선정
