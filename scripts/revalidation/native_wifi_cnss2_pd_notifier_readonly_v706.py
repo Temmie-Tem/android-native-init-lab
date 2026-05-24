@@ -12,6 +12,7 @@ import argparse
 import datetime as dt
 import json
 import re
+import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
@@ -35,6 +36,15 @@ APPROVAL_PHRASES = {
     "approve v666 cnss2 pd-notifier firing check and modem subsys state read; no Wi-Fi HAL start, no scan/connect, no DHCP, no external ping",
     "approve v706 cnss2 pd-notifier firing check and modem subsys state read; no Wi-Fi HAL start, no scan/connect, no DHCP, no external ping",
 }
+ESSENTIAL_STEP_NAMES = {
+    "status",
+    "selftest",
+    "firmware-class-path",
+    "msm-subsys-devices",
+    "class-subsys",
+    "sys-class-net",
+    "dmesg",
+}
 
 DMESG_MARKERS: dict[str, re.Pattern[str]] = {
     "service_notifier_180": re.compile(r"service-notifier:.*\b180 service\b|wlan_pd", re.I),
@@ -43,8 +53,16 @@ DMESG_MARKERS: dict[str, re.Pattern[str]] = {
     "icnss": re.compile(r"\bicnss\b", re.I),
     "cnss2": re.compile(r"\bcnss2\b", re.I),
     "qca6390": re.compile(r"\bqca6390\b", re.I),
-    "power_on": re.compile(r"\bpower[_ -]?on\b|\bpowering\b", re.I),
-    "mhi_pcie": re.compile(r"\b(MHI|PCIe|pcie)\b", re.I),
+    "power_on": re.compile(
+        r"(icnss|cnss2|cnss|qca6390|wlan).*(power[_ -]?on|power on|powering)|"
+        r"(power[_ -]?on|power on|powering).*(icnss|cnss2|cnss|qca6390|wlan)",
+        re.I,
+    ),
+    "mhi_pcie": re.compile(
+        r"(icnss|cnss2|cnss|qca6390|wlan).*(MHI|PCIe|pcie)|"
+        r"(MHI|PCIe|pcie).*(icnss|cnss2|cnss|qca6390|wlan)",
+        re.I,
+    ),
     "icnss_qmi": re.compile(r"icnss[_ -]?qmi|QMI Server Connected", re.I),
     "wlfw_service": re.compile(r"\bWLFW\b|wlfw[_ -]?start|service\s+69", re.I),
     "bdf": re.compile(r"\bBDF\b|bdwlan|regdb", re.I),
@@ -109,6 +127,17 @@ def run_step(args: argparse.Namespace,
     return item
 
 
+def is_busy_step(step: dict[str, Any]) -> bool:
+    text = str(step.get("payload") or step.get("text") or step.get("error") or "")
+    return step.get("status") == "busy" or step.get("rc") == -16 or "[busy]" in text
+
+
+def hide_menu(args: argparse.Namespace, store: EvidenceStore) -> dict[str, Any]:
+    item = run_step(args, store, "hide-menu", ["hide"], 8.0)
+    time.sleep(0.4)
+    return item
+
+
 def step_payload(steps: list[dict[str, Any]], name: str) -> str:
     for step in steps:
         if step.get("name") == name:
@@ -122,6 +151,7 @@ def cat_step(name: str, path: str) -> tuple[str, list[str]]:
 
 def collect_steps(args: argparse.Namespace, store: EvidenceStore) -> list[dict[str, Any]]:
     store.mkdir("native")
+    steps = [hide_menu(args, store)]
     commands: list[tuple[str, list[str], float]] = [
         ("status", ["status"], 20.0),
         ("selftest", ["selftest"], 25.0),
@@ -158,7 +188,8 @@ def collect_steps(args: argparse.Namespace, store: EvidenceStore) -> list[dict[s
         cat_step("qca6390-runtime-status", "/sys/bus/platform/devices/a0000000.qcom,cnss-qca6390/power/runtime_status"),
     ]
     commands.extend((name, command, 10.0) for name, command in sysfs_files)
-    return [run_step(args, store, name, command, timeout) for name, command, timeout in commands]
+    steps.extend(run_step(args, store, name, command, timeout) for name, command, timeout in commands)
+    return steps
 
 
 def clean_line(line: str) -> str:
@@ -215,7 +246,15 @@ def captured_ok(steps: list[dict[str, Any]], name: str) -> bool:
 
 def build_surface(steps: list[dict[str, Any]]) -> dict[str, Any]:
     dmesg = parse_dmesg(step_payload(steps, "dmesg"))
+    busy_steps = [str(step.get("name")) for step in steps if is_busy_step(step)]
+    failed_steps = [
+        str(step.get("name"))
+        for step in steps
+        if step.get("name") in ESSENTIAL_STEP_NAMES and not step.get("ok") and not is_busy_step(step)
+    ]
     return {
+        "busy_steps": busy_steps,
+        "failed_steps": failed_steps,
         "firmware_class_path": read_value(steps, "firmware-class-path"),
         "mss_state": read_value(steps, "mss-subsys0-state"),
         "mdm3_state": read_value(steps, "mdm3-subsys9-state"),
@@ -267,6 +306,27 @@ def build_checks(args: argparse.Namespace,
         )
     if surface is None:
         return checks
+
+    busy_steps = list(surface.get("busy_steps") or [])
+    failed_steps = list(surface.get("failed_steps") or [])
+    add_check(
+        checks,
+        "capture-not-busy",
+        "pass" if not busy_steps else "blocked",
+        "blocker",
+        f"busy_steps={','.join(busy_steps[:12])}" if busy_steps else "no busy steps",
+        [],
+        "hide menu and rerun before interpreting CNSS2 state",
+    )
+    add_check(
+        checks,
+        "capture-essential-steps-ok",
+        "pass" if not failed_steps and captured_ok(steps, "dmesg") else "blocked",
+        "blocker",
+        f"failed_steps={','.join(failed_steps[:12])}; dmesg_ok={captured_ok(steps, 'dmesg')}",
+        [],
+        "fix bridge/device read-only capture before interpreting CNSS2 state",
+    )
 
     dmesg_counts = (surface.get("dmesg") or {}).get("counts") or {}
     service180 = int(dmesg_counts.get("service_notifier_180", 0))
@@ -328,7 +388,8 @@ def blocking_checks(checks: list[Check]) -> list[str]:
 
 def decide(args: argparse.Namespace,
            checks: list[Check],
-           surface: dict[str, Any] | None) -> tuple[str, bool, str, str, bool]:
+           surface: dict[str, Any] | None,
+           steps: list[dict[str, Any]]) -> tuple[str, bool, str, str, bool]:
     if args.command == "plan":
         return (
             "v706-cnss2-pd-notifier-readonly-plan-ready",
@@ -347,12 +408,20 @@ def decide(args: argparse.Namespace,
         )
     blockers = blocking_checks(checks)
     if blockers:
+        if blockers == ["approval"]:
+            return (
+                "v706-cnss2-pd-notifier-readonly-approval-required",
+                True,
+                "blocked by approval; no live command executed",
+                "rerun with exact V666/V706 read-only approval phrase",
+                False,
+            )
         return (
-            "v706-cnss2-pd-notifier-readonly-approval-required",
-            True,
-            "blocked by " + ", ".join(blockers) + "; no live command executed",
-            "rerun with exact V666/V706 read-only approval phrase",
+            "v706-cnss2-pd-notifier-readonly-blocked",
             False,
+            "blocked by " + ", ".join(blockers),
+            "fix read-only capture gate before interpreting CNSS2 state",
+            bool(surface),
         )
     if surface is None:
         return (
@@ -361,6 +430,25 @@ def decide(args: argparse.Namespace,
             "live surface was not collected",
             "inspect runner failure",
             False,
+        )
+
+    busy_steps = list(surface.get("busy_steps") or [])
+    failed_steps = list(surface.get("failed_steps") or [])
+    if busy_steps:
+        return (
+            "v706-readonly-capture-busy",
+            False,
+            "read-only capture was blocked by active menu: " + ", ".join(busy_steps[:12]),
+            "hide menu and rerun before interpreting CNSS2 state",
+            True,
+        )
+    if failed_steps or not captured_ok(steps, "dmesg"):
+        return (
+            "v706-readonly-capture-incomplete",
+            False,
+            f"failed_steps={failed_steps[:12]}; dmesg_ok={captured_ok(steps, 'dmesg')}",
+            "fix bridge/device read-only capture before interpreting CNSS2 state",
+            True,
         )
 
     counts = (surface.get("dmesg") or {}).get("counts") or {}
@@ -421,6 +509,8 @@ def render_summary(manifest: dict[str, Any]) -> str:
     ]
     count_rows = [[name, str(value)] for name, value in sorted(counts.items())]
     sysfs_rows = [
+        ["busy_steps", ", ".join(surface.get("busy_steps") or [])],
+        ["failed_steps", ", ".join(surface.get("failed_steps") or [])],
         ["firmware_class.path", surface.get("firmware_class_path", "")],
         ["mss_state", surface.get("mss_state", "")],
         ["mdm3_state", surface.get("mdm3_state", "")],
@@ -476,7 +566,7 @@ def build_manifest(args: argparse.Namespace, store: EvidenceStore) -> dict[str, 
         surface = build_surface(steps)
         live_executed = True
     checks = build_checks(args, surface, steps)
-    decision, pass_ok, reason, next_step, live_executed = decide(args, checks, surface)
+    decision, pass_ok, reason, next_step, live_executed = decide(args, checks, surface, steps)
     return {
         "cycle": "v706",
         "created_at": now_iso(),
