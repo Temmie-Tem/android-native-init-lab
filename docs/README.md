@@ -130,6 +130,7 @@
 
 ### 3. Plans
 
+- `plans/NATIVE_INIT_V742_EXECNS_HELPER_V122_DEPLOY_PLAN_2026-05-24.md` – helper v122를 `/cache/bin/a90_android_execns_probe`로 배포하기 위한 V742 wrapper 계획과 busy read-only preflight blocker 기준
 - `plans/NATIVE_INIT_V741_MDM_HELPER_GATED_LIVE_PLAN_2026-05-24.md` – V740이 선정한 post-notifier `mdm_helper` 후보를 service `74` gate 뒤 bounded start-only proof로 검증하기 위한 helper v122/V741 계획
 - `plans/NATIVE_INIT_V740_MDM_HELPER_BASEBAND_CONTRACT_PLAN_2026-05-24.md` – V621/V622 `mdm_helper`/`ro.baseband` 계약을 V739 `mdm3=OFFLINING` blocker와 재조합해 blind start 금지와 post-notifier gated proof를 고정하는 V740 계획
 - `plans/NATIVE_INIT_V739_MDM3_WLANPD_DELTA_PLAN_2026-05-24.md` – Android `mss/mdm3=ONLINE` + WLAN-PD/WLFW/BDF/`wlan0`와 native V738 `mss=ONLINE, mdm3=OFFLINING`을 host-only로 비교해 다음 gate를 `mdm_helper`/baseband contract 분류로 고정하는 V739 계획
@@ -291,6 +292,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V742_EXECNS_HELPER_V122_DEPLOY_PREP_2026-05-24.md` – V742 helper v122 deploy wrapper/preflight가 통과했고, auto menu `busy`를 deploy blocker로 승격했으며 실제 배포는 다음 run 단계
 - `reports/NATIVE_INIT_V741_MDM_HELPER_GATED_LIVE_2026-05-24.md` – helper v122가 service `74` gate 뒤 `/vendor/bin/mdm_helper`만 추가하는 V741 start-only proof를 구현했고, plan/static 검증은 통과했으며 live는 helper v122 배포 후 실행 예정
 - `reports/NATIVE_INIT_V740_MDM_HELPER_BASEBAND_CONTRACT_2026-05-24.md` – V740 host-only 결과 Android `mdm_helper`는 service `180` 이후/WLAN-PD 이전에 시작되므로 first-trigger가 아니라 bounded post-notifier candidate이며 V741은 gated start-only proof로 진행
 - `reports/NATIVE_INIT_V739_MDM3_WLANPD_DELTA_2026-05-24.md` – V739 host-only 결과 Android는 `mss/mdm3=ONLINE`과 WLAN-PD/WLFW/BDF/`wlan0`를 갖지만 native V738은 `mss=ONLINE, mdm3=OFFLINING`과 no-MHI/WLFW라 다음은 `mdm_helper`/baseband contract 분류
