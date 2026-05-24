@@ -130,6 +130,7 @@
 
 ### 3. Plans
 
+- `plans/NATIVE_INIT_V808_OVERLAP_COMPANION_BOOT_WLAN_PLAN_2026-05-25.md` – V807에서 선정한 provider-first companion과 `boot_wlan`의 true overlap live gate로 WLFW/service69 publication 여부를 검증하는 계획
 - `plans/NATIVE_INIT_V807_PRE_WLFW_OVERLAP_CLASSIFIER_PLAN_2026-05-25.md` – V806 service69 absent 결과가 provider-first companion과 `boot_wlan`의 sequential cleanup/lifetime gap인지 host-only로 분류하는 계획
 - `plans/NATIVE_INIT_V806_WLFW_SERVICE69_LIVE_GATE_PLAN_2026-05-25.md` – V805에서 선정한 WLFW service `0x45/69` publication을 provider-first + `boot_wlan` live gate로 직접 관측하는 계획
 - `plans/NATIVE_INIT_V805_ICNSS_FW_READY_WLFW_GATE_CLASSIFIER_PLAN_2026-05-25.md` – V804 이후 ICNSS `FW_READY`가 WLFW service `0x45/69` 도착에 의해 열리는지 source/evidence로 host-only 분류하는 계획
@@ -347,6 +348,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V808_OVERLAP_COMPANION_BOOT_WLAN_2026-05-25.md` – V808 결과 provider-first companion이 `boot_wlan` 시작 시 살아 있고 service74/provider/CNSS retry 계약이 성립해도 WLFW/service69/FW_READY/BDF/`wlan0`가 absent라 ICNSS module-initialized prerequisite 분류로 라우팅
 - `reports/NATIVE_INIT_V807_PRE_WLFW_OVERLAP_CLASSIFIER_2026-05-25.md` – V807 결과 V806은 companion cleanup 후 `boot_wlan`을 실행한 sequential gate였으므로 V808 overlapped companion + `boot_wlan` live gate로 라우팅
 - `reports/NATIVE_INIT_V806_WLFW_SERVICE69_LIVE_GATE_2026-05-25.md` – V806 결과 provider-first + `boot_wlan`에서도 QRTR WLFW service `69`가 absent라 pre-WLFW publication prerequisite 분류로 라우팅
 - `reports/NATIVE_INIT_V805_ICNSS_FW_READY_WLFW_GATE_CLASSIFIER_2026-05-25.md` – V805 결과 WLFW service `0x45/69` publication이 `FW_READY`/probe/BDF/`wlan0` 전 첫 missing observable임을 host-only로 선정
