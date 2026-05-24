@@ -130,6 +130,7 @@
 
 ### 3. Plans
 
+- `plans/NATIVE_INIT_V797_PIL_TRACE_PAYLOAD_PLAN_2026-05-25.md` – V796 이후 `msm_pil_event:pil_notif` tracefs payload를 lower-window transition 중 캡처해 PIL event name/code/fw sequence를 얻는 계획
 - `plans/NATIVE_INIT_V796_POST_V795_ROUTE_CLASSIFIER_PLAN_2026-05-25.md` – V795 이후 CNSS/BPF/memshare/mdm_helper 증거를 재정렬해 다음 gate를 PIL payload capture로 선정하는 host-only 계획
 - `plans/NATIVE_INIT_V795_LOWER_WINDOW_MDM3_ESOC_OBSERVER_PLAN_2026-05-25.md` – V794 idle surface 이후 firmware mounts + `subsys_modem` holder window 안에서 mdm3/esoc/ICNSS/WLFW를 관측하는 계획
 - `plans/NATIVE_INIT_V794_MDM3_ICNSS_SURFACE_OBSERVER_PLAN_2026-05-25.md` – V793 이후 현재 idle native surface에서 mdm3/esoc, ICNSS, WLAN control, QRTR, dmesg를 read-only로 캡처하는 계획
@@ -336,6 +337,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V797_PIL_TRACE_PAYLOAD_2026-05-25.md` – V797 결과 lower-window transition 중 `msm_pil_event:pil_notif` 8개 payload를 캡처했고 모두 `fw=modem`, code `2/3/6/7`이나 mdm3/service69/WLFW/BDF/`wlan0`는 여전히 absent임을 확인
 - `reports/NATIVE_INIT_V796_POST_V795_ROUTE_CLASSIFIER_2026-05-25.md` – V796 결과 V795/V792/V782/V785/V764/V768을 종합해 반복 trigger 대신 `msm_pil_event:pil_notif`의 `event_name`/`code`/`fw_name` payload capture를 다음 gate로 선정
 - `reports/NATIVE_INIT_V795_LOWER_WINDOW_MDM3_ESOC_OBSERVER_2026-05-25.md` – V795 결과 firmware-backed `subsys_modem` holder가 `mss=ONLINE`과 QRTR RX는 만들지만 mdm3/esoc0은 OFFLINING, service `69`/WLFW/BDF/`wlan0`는 absent로 남아 V796 mdm3/esoc trigger contract로 라우팅
 - `reports/NATIVE_INIT_V794_MDM3_ICNSS_SURFACE_OBSERVER_2026-05-25.md` – V794 결과 idle native에서 modem/esoc0은 OFFLINING, ICNSS는 bound, WLAN control node는 존재하지만 QRTR/service69/WLFW/BDF/`wlan0`는 absent임을 read-only로 확인
