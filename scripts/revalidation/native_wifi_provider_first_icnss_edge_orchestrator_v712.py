@@ -45,17 +45,31 @@ def build_manifest(args: v700.argparse.Namespace,
     manifest = _build_manifest(args, prep, arm)
     manifest = _replace(manifest)
     assert isinstance(manifest, dict)
+    live = (arm or {}).get("live") or {}
+    edge_surface = live.get("v712_icnss_edge_surface") if isinstance(live, dict) else {}
+    arm_summary = manifest.get("arm_v700")
+    if isinstance(arm_summary, dict) and arm:
+        arm_summary["manifest"] = arm.get("manifest", "")
+        arm_summary["decision"] = arm.get("decision", arm_summary.get("decision", ""))
+        arm_summary["reason"] = arm.get("reason", arm_summary.get("reason", ""))
+        arm_summary["next_step"] = arm.get("next_step", arm_summary.get("next_step", ""))
     manifest["cycle"] = "v712"
     manifest["helper_marker"] = v700.HELPER_MARKER
     manifest["helper_sha256"] = v700.HELPER_SHA256
-    manifest["icnss_edge_captured"] = bool(
-        ((arm or {}).get("live") or {}).get("v712_icnss_edge_captured")
+    manifest["icnss_edge_captured"] = (
+        bool(live.get("v712_icnss_edge_captured")) if isinstance(live, dict) else False
     )
+    manifest["icnss_edge_surface"] = edge_surface if isinstance(edge_surface, dict) else {}
+    arm_decision = str((arm or {}).get("decision") or "")
+    if arm_decision.startswith("v712-provider-first-icnss-edge-"):
+        manifest["decision"] = arm_decision
+        manifest["reason"] = str((arm or {}).get("reason") or manifest.get("reason", ""))
+        manifest["next_step"] = str((arm or {}).get("next_step") or manifest.get("next_step", ""))
     return manifest
 
 
 def render_summary(manifest: dict[str, Any]) -> str:
-    return (
+    text = (
         _render_summary(manifest)
         .replace("v700", "v712")
         .replace("V700", "V712")
@@ -64,6 +78,31 @@ def render_summary(manifest: dict[str, Any]) -> str:
         .replace("v119", "v121")
         .replace("v120", "v121")
     )
+    edge = manifest.get("icnss_edge_surface") or {}
+    if not isinstance(edge, dict):
+        edge = {}
+    preferred_keys = [
+        key for key in sorted(edge)
+        if key.endswith(".icnss_edge_captured")
+        or key.endswith(".begin")
+        or key.endswith(".end")
+        or key.endswith(".icnss_driver_link.exists")
+        or key.endswith(".qca6390_driver_link.exists")
+        or key.endswith(".wlan0_netdev.exists")
+        or key.endswith(".shutdown_wlan.exists")
+        or key.endswith(".value_captures")
+    ]
+    rows = [[key, str(edge.get(key, ""))] for key in preferred_keys]
+    return "\n".join([
+        text,
+        "",
+        "## V712 ICNSS Edge Capture",
+        "",
+        f"- icnss_edge_captured: `{manifest.get('icnss_edge_captured')}`",
+        "",
+        v700.markdown_table(["key", "value"], rows) if rows else "- not captured",
+        "",
+    ])
 
 
 v700.build_manifest = build_manifest
