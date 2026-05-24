@@ -179,7 +179,7 @@ stable enough in every boot. Helper v124 added a `sysmon-qmi` gated
 `mdm_helper` mode. V746 proved `mdm_helper` starts safely after `sysmon-qmi`,
 but it does not advance mdm3/WLAN-PD/MHI/WLFW.
 
-### Current blocker (V758)
+### Current blocker (V759)
 
 ```
 mss: OFFLINING → ONLINE ✓  (read-only firmware mounts + subsys_modem holder)
@@ -199,6 +199,7 @@ Ftrace result: tracefs mount/cleanup works, but function filter controls/target 
 Non-ftrace live observers: dynamic debug is not compiled in and has no control catalog; kprobes/kprobe_events are not configured; printk/dmesg exists but does not resolve the PLD/HDD/register-driver boundary
 Android/native differential: Android proves QMI/BDF/FW-ready/wlan0, native proves HDD/qcwlanstate entry with success-marker absence, but existing dmesg lacks the pre-QMI PLD/HDD/register-driver boundary
 Instrumentation feasibility: boot-image tooling and rollback artifacts are present, but exact local kernel/QCACLD/CNSS source is absent; do not patch or flash instrumentation until source is acquired and verified
+Source acquisition: exact Samsung OSRC source package is identified as SM-A908N_KOR_12_Opensource.zip for SM-A908N/A908NKSU5EWA3, source upload id 13272, but download is hCaptcha/manual-browser gated and no local archive/source tree is staged yet
 ```
 
 Vendor firmware files (`wlanmdsp.mbn`, `bdwlan.bin`, `regdb.bin`) confirmed at `sda29` (isolated mount), NOT in default native `/vendor`.

@@ -2654,3 +2654,16 @@ Samsung bootloader
 - result: host-only classifier passed. Boot image tooling and rollback artifacts exist, including current/v319/v261/v48 images, but exact local kernel/QCACLD/CNSS source is absent.
 - interpretation: boot-image handoff is feasible after source exists, but patching now would be blind and should remain blocked.
 - next: V759 should acquire or stage exact SM-A908N/A908NKSU5EWA3-compatible Samsung kernel source and verify target files before any instrumentation patch. Keep live device, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, and external ping blocked.
+
+### V759. Source Acquisition Gate
+
+- plan: `docs/plans/NATIVE_INIT_V759_SOURCE_ACQUISITION_PLAN_2026-05-24.md`
+- report: `docs/reports/NATIVE_INIT_V759_SOURCE_ACQUISITION_2026-05-24.md`
+- runner: `scripts/revalidation/native_wifi_source_acquisition_v759.py`
+- evidence:
+  - plan `tmp/wifi/v759-source-acquisition-plan/`
+  - run `tmp/wifi/v759-source-acquisition/`
+- decision: `v759-official-source-identified-manual-download-gated`
+- result: host-only classifier passed. The exact Samsung OSRC package is identified as `SM-A908N_KOR_12_Opensource.zip` for `SM-A908N` / `A908NKSU5EWA3` with source upload id `13272` and announcement attach id `39494`; the source download is hCaptcha/manual-browser gated and the archive is not staged locally.
+- interpretation: kernel instrumentation remains blocked until the official source archive is manually downloaded, staged under an ignored path, and verified for target QCACLD/CNSS files.
+- next: V760 should verify the staged official archive/source tree and target file availability before any kernel instrumentation patch. Keep live device, boot-image writes, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, and external ping blocked.
