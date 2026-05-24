@@ -2601,3 +2601,17 @@ Samsung bootloader
 - result: read-only selector passed. tracefs/debugfs filesystem support exists, tracefs/debugfs are not mounted, target symbols are partially visible in `/proc/kallsyms`, and no tracefs mount or ftrace write was executed. `available_filter_functions` is not readable until a mount/filter proof.
 - interpretation: ftrace readiness is not proven yet, but a bounded tracefs mount/filter proof is the least invasive next observability gate before any boot image instrumentation or another Wi-Fi trigger.
 - next: V755 should mount tracefs with cleanup, read `available_tracers`/`current_tracer`/`available_filter_functions`, verify target filter functions, then stop before `boot_wlan`, service-manager, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, or external ping.
+
+### V755. Tracefs Mount/Filter Proof
+
+- plan: `docs/plans/NATIVE_INIT_V755_TRACEFS_MOUNT_FILTER_PROOF_PLAN_2026-05-24.md`
+- report: `docs/reports/NATIVE_INIT_V755_TRACEFS_MOUNT_FILTER_PROOF_2026-05-24.md`
+- runner: `scripts/revalidation/native_wifi_tracefs_mount_filter_proof_v755.py`
+- evidence:
+  - plan `tmp/wifi/v755-tracefs-mount-filter-proof-plan/`
+  - preflight retry `tmp/wifi/v755-tracefs-mount-filter-proof-preflight-retry/`
+  - final live `tmp/wifi/v755-tracefs-mount-filter-proof-retry/`
+- decision: `v755-tracefs-mounted-no-target-filter-functions`
+- result: bounded live proof passed. Tracefs mount returned `0`, controls were readable only for `available_tracers`, `current_tracer`, `tracing_on`, and `trace`; `available_filter_functions`, `set_ftrace_filter`, and `set_graph_function` were not readable. Target filter hits were `0`. Cleanup unmounted tracefs and postflight confirmed `mount_tracefs=no`.
+- interpretation: ftrace/function-filter instrumentation is not available for the HDD/PLD target on this kernel state. Do not proceed to ftrace write or boot_wlan trace pairing.
+- next: V756 should plan non-ftrace HDD/PLD observability: Android/native dmesg differential expansion, source-backed boot image/kernel-log instrumentation feasibility, or another safe non-ftrace signal path. Keep service-manager, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, and external ping blocked.

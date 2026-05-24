@@ -130,6 +130,7 @@
 
 ### 3. Plans
 
+- `plans/NATIVE_INIT_V755_TRACEFS_MOUNT_FILTER_PROOF_PLAN_2026-05-24.md` – V754 이후 tracefs를 bounded mount/read/cleanup으로 검증하고 HDD/PLD target filter function 노출 여부를 확인하는 계획
 - `plans/NATIVE_INIT_V754_HDD_PLD_TRACEABILITY_SELECTOR_PLAN_2026-05-24.md` – V753 이후 HDD/PLD/register-driver 관측성을 ftrace/tracefs/kallsyms로 확보 가능한지 read-only로 분류하는 계획
 - `plans/NATIVE_INIT_V753_HDD_PLD_PREREQ_CLASSIFIER_PLAN_2026-05-24.md` – V752 이후 HDD/PLD/register-driver 경계에 명시적 실패 마커가 있는지 read-only로 분류하는 계획
 - `plans/NATIVE_INIT_V752_CNSS_THEN_BOOT_WLAN_PLAN_2026-05-24.md` – V751 후보인 CNSS companion start-only 후 bounded `boot_wlan` observe ordering을 service-manager/HAL/connect 없이 검증하는 계획
@@ -304,6 +305,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V755_TRACEFS_MOUNT_FILTER_PROOF_2026-05-24.md` – V755 live 결과 tracefs mount/cleanup은 가능하지만 `available_filter_functions`/function filter target이 없어 ftrace 경로는 현재 blocker에 쓸 수 없음을 확인
 - `reports/NATIVE_INIT_V754_HDD_PLD_TRACEABILITY_SELECTOR_2026-05-24.md` – V754 read-only 결과 tracefs와 kallsyms 표면은 있으나 tracefs가 미마운트라 V755 bounded mount/filter proof가 필요함을 확인
 - `reports/NATIVE_INIT_V753_HDD_PLD_PREREQ_CLASSIFIER_2026-05-24.md` – V753 read-only 결과 V752는 HDD entry/qcwlanstate 생성까지만 증명하고 PLD/hdd_init/register-driver 중 어디서 멈췄는지는 추가 instrumentation 없이는 구분되지 않음을 확인
 - `reports/NATIVE_INIT_V752_CNSS_THEN_BOOT_WLAN_2026-05-24.md` – V752 live 결과 `cnss_diag`/`cnss-daemon`을 먼저 시작한 뒤 `boot_wlan`을 실행해도 HDD/qcwlanstate 경계에서 계속 정지하고 driver-loaded/ICNSS-QMI/FW-ready/netdev는 absent임을 확인

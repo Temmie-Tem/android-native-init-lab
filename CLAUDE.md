@@ -157,7 +157,7 @@ New `vNNN` experiment scripts must:
 - Gate live action behind explicit `--allow-*` + `--assume-yes` flags
 - Run `version`, `status`, `bootstatus`, `selftest verbose` as postflight regression
 
-## Wi-Fi bring-up research state (v598–v754, active)
+## Wi-Fi bring-up research state (v598–v755, active)
 
 Goal: bring up `wlan0` from native init without Android userspace.
 
@@ -179,7 +179,7 @@ stable enough in every boot. Helper v124 added a `sysmon-qmi` gated
 `mdm_helper` mode. V746 proved `mdm_helper` starts safely after `sysmon-qmi`,
 but it does not advance mdm3/WLAN-PD/MHI/WLFW.
 
-### Current blocker (V754)
+### Current blocker (V755)
 
 ```
 mss: OFFLINING → ONLINE ✓  (read-only firmware mounts + subsys_modem holder)
@@ -195,6 +195,7 @@ QCACLD/HDD init: boot_wlan reaches "wlan: Loading driver" and qcwlanstate char-d
 CNSS-before-boot_wlan ordering: cnss_diag and cnss-daemon start safely before boot_wlan, but the same HDD/qcwlanstate stall remains
 HDD/PLD visibility: no explicit hdd_init/PLD/register-driver failure marker; need bounded instrumentation to distinguish pld_init vs hdd_init vs wlan_hdd_register_driver stall
 Traceability: tracefs/debugfs support exists and target symbols are partially visible in kallsyms, but tracefs is not mounted and ftrace filter readiness is unproven
+Ftrace result: tracefs mount/cleanup works, but function filter controls/target functions are unavailable; ftrace is not a usable HDD/PLD instrumentation route
 ```
 
 Vendor firmware files (`wlanmdsp.mbn`, `bdwlan.bin`, `regdb.bin`) confirmed at `sda29` (isolated mount), NOT in default native `/vendor`.
@@ -229,7 +230,10 @@ visible explicit `hdd_init`/PLD/register-driver failure marker in existing
 evidence, so V754 should add source-backed observability for that exact boundary.
 V754 found tracefs/kallsyms are plausible but not active: tracefs is not mounted
 and `available_filter_functions` is not readable. V755 should be a bounded
-tracefs mount/filter proof with cleanup and no `boot_wlan` trigger.
+tracefs mount/filter proof with cleanup and no `boot_wlan` trigger. V755 then
+proved tracefs mount/cleanup works but `available_filter_functions`,
+`set_ftrace_filter`, and `set_graph_function` are unavailable, so the ftrace
+path should be closed for this blocker.
 
 ### Key milestones
 
@@ -258,6 +262,7 @@ tracefs mount/filter proof with cleanup and no `boot_wlan` trigger.
 | v752 | CNSS companion before `boot_wlan` still stalls at HDD/qcwlanstate; next is HDD/PLD instrumentation |
 | v753 | no explicit HDD/PLD/register-driver failure marker; V754 needs bounded instrumentation |
 | v754 | tracefs/kallsyms plausible but unmounted; V755 needs bounded mount/filter proof |
+| v755 | tracefs mount/cleanup works but no function filter target; route to non-ftrace instrumentation |
 
 ### Safety additions (Wi-Fi research)
 
