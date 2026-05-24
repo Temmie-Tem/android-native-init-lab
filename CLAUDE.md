@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: v812 pending after V811 WLFW publication precondition classification; plan the smallest below-HAL mdm3/WLAN-PD/service69 live observer
+- **Active research cycle**: v813 pending after V812 below-HAL mdm3/WLAN-PD/service69 observer; target post-sysmon mdm3/WLAN-PD service-publication preconditions
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -157,7 +157,7 @@ New `vNNN` experiment scripts must:
 - Gate live action behind explicit `--allow-*` + `--assume-yes` flags
 - Run `version`, `status`, `bootstatus`, `selftest verbose` as postflight regression
 
-## Wi-Fi bring-up research state (v598–v773, active)
+## Wi-Fi bring-up research state (v598–v812, active)
 
 Goal: bring up `wlan0` from native init without Android userspace.
 
@@ -179,7 +179,7 @@ stable enough in every boot. Helper v124 added a `sysmon-qmi` gated
 `mdm_helper` mode. V746 proved `mdm_helper` starts safely after `sysmon-qmi`,
 but it does not advance mdm3/WLAN-PD/WLFW.
 
-### Current blocker (V773)
+### Current blocker (V812)
 
 ```
 mss: OFFLINING → ONLINE ✓  (read-only firmware mounts + subsys_modem holder)
@@ -228,6 +228,7 @@ V787 clean-DSP arm-only: live stock-v724 PASS. The existing V641 one-shot siblin
 V788 clean-DSP lower readback: live stock-v724 BLOCKED. Inline clean-DSP, V401 SELinuxfs mount, V490 policy load, firmware mounts, `subsys_modem` holder, and CNSS-only lower companion all ran below service-manager/HAL/scan/connect. `mss` reached `ONLINE`, `mdm3` stayed `OFFLINING`, QRTR RX/TX, `sysmon-qmi`, and service-notifier markers appeared, but no QRTR services `69/74/180`, MHI/QCA6390, WLFW/BDF, wiphy, or `wlan0` appeared. Stop widening because dmesg produced a new `pm_qos_add_request()` duplicate-request warning through `msm_asoc_machine_probe` deferred probe. Cleanup reboot restored healthy v724. Next V789 should be host-only warning attribution before any live retry.
 V789 V788 warning classifier: host-only PASS. V788 is the only compared run with the warning (`kernel_warning=5`; V733/V735/V787 all `0`). Warning context is service-notifier `180/74` -> ADSP/APR audio -> duplicate `msm_asoc_machine_probe` -> `pm_qos_add_request()` duplicate request in deferred probe; WLFW/BDF/wiphy/`wlan0` remain absent. Next live gate should be narrower than V788: clean-DSP + current V401/V490 + lower-only companion readback, omitting `cnss_diag` and `cnss-daemon`.
 V790 clean-DSP lower-only: live stock-v724 BLOCKED. CNSS was omitted, but lower-only (`qrtr-ns,rmt_storage,tftp_server,pd-mapper`) still reproduced the same `pm_qos_add_request()` duplicate warning after service-notifier `180/74` and ADSP/APR audio deferred probe. `mss` reached `ONLINE`; `mdm3` stayed `OFFLINING`; no MHI/QCA6390/WLFW/BDF/wiphy/`wlan0`. Cleanup reboot restored healthy v724. Do not repeat lower companion live until V791 host-only compares V790/V788/V787/V733 and chooses a narrower isolation path.
+V812 mdm3/WLAN-PD/service69 observer: live stock-v724 PASS. Current-boot V401 SELinuxfs mount, V490 policy load, firmware mounts, `subsys_modem` holder, and lower companion/CNSS diagnostic stack completed below service-manager/HAL/scan/connect. `mss` stayed `ONLINE`, QRTR RX/TX and `sysmon-qmi` were present, but `mdm3` stayed `OFFLINING` and service-notifier/WLAN-PD/WLFW/service69/BDF/wiphy/`wlan0` remained absent. Cleanup reboot restored healthy v724. Next gate is post-sysmon mdm3/WLAN-PD service-publication precondition isolation, not qcwlanstate, service-manager, HAL, scan/connect, or custom-kernel flash.
 ```
 
 Vendor firmware files (`wlanmdsp.mbn`, `bdwlan.bin`, `regdb.bin`) confirmed at `sda29` (isolated mount), NOT in default native `/vendor`.
@@ -318,6 +319,7 @@ path should be closed for this blocker.
 | v809 | host-only source mapping: qcwlanstate `OFF` is a status mirror for QCACLD not reaching `DRIVER_MODULES_ENABLED`; next boundary is PLD/ICNSS register-to-WLFW/FW_READY |
 | v810 | host-only register/probe mapping: PLD/SNOC/ICNSS register is async, while QCACLD probe is gated by WLFW/service69 -> ICNSS-QMI -> `FW_READY`; next is WLFW publication preconditions |
 | v811 | host-only WLFW precondition mapping: Android reaches mdm3 ONLINE + WLAN-PD/WLFW/BDF/wlan0, while native keeps mdm3 OFFLINING and service69 clean-empty; next is below-HAL mdm3/WLAN-PD/service69 observer |
+| v812 | live stock-v724 observer reaches mss ONLINE + QRTR/sysmon but mdm3 remains OFFLINING and service69/WLFW/BDF/wlan0 stay absent; next is post-sysmon mdm3/WLAN-PD service publication |
 
 ### Safety additions (Wi-Fi research)
 

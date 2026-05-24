@@ -130,6 +130,7 @@
 
 ### 3. Plans
 
+- `plans/NATIVE_INIT_V812_MDM3_WLANPD_SERVICE69_OBSERVER_PLAN_2026-05-25.md` – V811에서 선정한 mdm3/WLAN-PD/service69 publication blocker를 현재 stock v724에서 V401/V490 refresh와 lower companion/CNSS-only window로 제한 관측하는 계획
 - `plans/NATIVE_INIT_V811_WLFW_PUBLICATION_PRECONDITION_CLASSIFIER_PLAN_2026-05-25.md` – V810 이후 Android/native mdm3/WLAN-PD delta와 V626/V731/V733/V735/V738/V808 증거를 묶어 WLFW/service69 publication 전제조건을 host-only로 선정하는 계획
 - `plans/NATIVE_INIT_V810_REGISTER_PROBE_WLFW_FWREADY_CLASSIFIER_PLAN_2026-05-25.md` – V809 이후 PLD/SNOC/ICNSS register 자체가 아니라 WLFW/service69와 `FW_READY`가 QCACLD probe를 여는 gate인지 host-only로 분류하는 계획
 - `plans/NATIVE_INIT_V809_ICNSS_MODULES_NOT_INITIALIZED_SOURCE_CLASSIFIER_PLAN_2026-05-25.md` – V808 true-overlap 결과의 `icnss: Modules not initialized`/qcwlanstate `OFF`가 원인이 아니라 QCACLD `DRIVER_MODULES_ENABLED` 미도달 status mirror인지 host-only로 소스 매핑하는 계획
@@ -351,6 +352,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V812_MDM3_WLANPD_SERVICE69_OBSERVER_2026-05-25.md` – V812 결과 V401/V490 refresh와 lower companion/CNSS diagnostic stack 후에도 mss/QRTR/sysmon까지만 도달하고 mdm3 `OFFLINING`, service69/WLFW/BDF/`wlan0` absent가 유지되어 post-sysmon mdm3/WLAN-PD publication precondition으로 라우팅
 - `reports/NATIVE_INIT_V811_WLFW_PUBLICATION_PRECONDITION_CLASSIFIER_2026-05-25.md` – V811 결과 Android는 mdm3 `ONLINE` + WLAN-PD/WLFW/BDF/`wlan0`까지 이어지지만 native는 mss/QRTR/sysmon/service-notifier 표면 후 mdm3 `OFFLINING`과 service69 clean-empty로 멈추므로 다음 blocker를 mdm3/WLAN-PD/WLFW publication precondition으로 선정
 - `reports/NATIVE_INIT_V810_REGISTER_PROBE_WLFW_FWREADY_CLASSIFIER_2026-05-25.md` – V810 결과 PLD/SNOC/ICNSS register는 async 등록 경로이고 실제 QCACLD probe는 WLFW/service69 -> ICNSS-QMI -> `FW_READY` 이후에만 열리므로 다음 blocker를 WLFW publication precondition으로 선정
 - `reports/NATIVE_INIT_V809_ICNSS_MODULES_NOT_INITIALIZED_SOURCE_CLASSIFIER_2026-05-25.md` – V809 결과 qcwlanstate `OFF`는 원인이 아니라 ICNSS/QCACLD가 `DRIVER_MODULES_ENABLED`에 도달하지 못했음을 보여주는 status mirror이며, 다음 blocker를 PLD/ICNSS register-to-WLFW/FW_READY 경계로 선정
