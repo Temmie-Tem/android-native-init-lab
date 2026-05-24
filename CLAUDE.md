@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: v814 pending after V813 post-sysmon publication classifier; isolate sibling sysmon/service-publication prerequisites below HAL/connect
+- **Active research cycle**: v815 pending after V814 source classifier; collect read-only stock-v724 subsystem/sysmon/service-locator registration snapshot
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -157,7 +157,7 @@ New `vNNN` experiment scripts must:
 - Gate live action behind explicit `--allow-*` + `--assume-yes` flags
 - Run `version`, `status`, `bootstatus`, `selftest verbose` as postflight regression
 
-## Wi-Fi bring-up research state (v598–v813, active)
+## Wi-Fi bring-up research state (v598–v814, active)
 
 Goal: bring up `wlan0` from native init without Android userspace.
 
@@ -179,7 +179,7 @@ stable enough in every boot. Helper v124 added a `sysmon-qmi` gated
 `mdm_helper` mode. V746 proved `mdm_helper` starts safely after `sysmon-qmi`,
 but it does not advance mdm3/WLAN-PD/WLFW.
 
-### Current blocker (V813)
+### Current blocker (V814)
 
 ```
 mss: OFFLINING → ONLINE ✓  (read-only firmware mounts + subsys_modem holder)
@@ -230,6 +230,7 @@ V789 V788 warning classifier: host-only PASS. V788 is the only compared run with
 V790 clean-DSP lower-only: live stock-v724 BLOCKED. CNSS was omitted, but lower-only (`qrtr-ns,rmt_storage,tftp_server,pd-mapper`) still reproduced the same `pm_qos_add_request()` duplicate warning after service-notifier `180/74` and ADSP/APR audio deferred probe. `mss` reached `ONLINE`; `mdm3` stayed `OFFLINING`; no MHI/QCA6390/WLFW/BDF/wiphy/`wlan0`. Cleanup reboot restored healthy v724. Do not repeat lower companion live until V791 host-only compares V790/V788/V787/V733 and chooses a narrower isolation path.
 V812 mdm3/WLAN-PD/service69 observer: live stock-v724 PASS. Current-boot V401 SELinuxfs mount, V490 policy load, firmware mounts, `subsys_modem` holder, and lower companion/CNSS diagnostic stack completed below service-manager/HAL/scan/connect. `mss` stayed `ONLINE`, QRTR RX/TX and `sysmon-qmi` were present, but `mdm3` stayed `OFFLINING` and service-notifier/WLAN-PD/WLFW/service69/BDF/wiphy/`wlan0` remained absent. Cleanup reboot restored healthy v724. Next gate is post-sysmon mdm3/WLAN-PD service-publication precondition isolation, not qcwlanstate, service-manager, HAL, scan/connect, or custom-kernel flash.
 V813 post-sysmon classifier: host-only PASS. V812 confirms current sysmon-without-service69, V785 demotes memshare/CMA as a sole blocker, and V626/V783 show Android publishes sibling sysmon plus service74/WLAN-PD/WLFW while native lacks sibling sysmon/service74/WLFW. Next gate is V814 sibling sysmon/service-publication precondition isolation below HAL/connect, with custom-kernel flashing still paused.
+V814 sibling sysmon source classifier: host-only PASS. Samsung OSRC source maps service-notifier to SERVREG QMI listener/state indication and sysmon to subsystem registration/QMI lookup. This confirms the next useful step is a read-only stock-v724 subsystem/sysmon/service-locator registration snapshot, not userspace daemon/HAL/connect retry or custom-kernel flash.
 ```
 
 Vendor firmware files (`wlanmdsp.mbn`, `bdwlan.bin`, `regdb.bin`) confirmed at `sda29` (isolated mount), NOT in default native `/vendor`.
@@ -322,6 +323,7 @@ path should be closed for this blocker.
 | v811 | host-only WLFW precondition mapping: Android reaches mdm3 ONLINE + WLAN-PD/WLFW/BDF/wlan0, while native keeps mdm3 OFFLINING and service69 clean-empty; next is below-HAL mdm3/WLAN-PD/service69 observer |
 | v812 | live stock-v724 observer reaches mss ONLINE + QRTR/sysmon but mdm3 remains OFFLINING and service69/WLFW/BDF/wlan0 stay absent; next is post-sysmon mdm3/WLAN-PD service publication |
 | v813 | host-only post-sysmon classifier selects sibling sysmon/service-publication prerequisites as the next blocker; custom-kernel flashing remains paused |
+| v814 | host-only source classifier maps service-notifier/sysmon to kernel registration paths; next is read-only stock-v724 subsystem/sysmon/service-locator snapshot |
 
 ### Safety additions (Wi-Fi research)
 
