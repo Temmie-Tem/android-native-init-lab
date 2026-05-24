@@ -130,6 +130,7 @@
 
 ### 3. Plans
 
+- `plans/NATIVE_INIT_V730_MODEM_TRIGGER_RECONCILE_PLAN_2026-05-24.md` – V729 open-pending 결과를 V592 no-firmware class 및 V594/V595/V596 firmware-mounted modem readiness와 대조해, 다음 gate를 `mdm_helper`가 아니라 global firmware mount + `subsys_modem` holder로 재고정하는 V730 계획
 - `plans/NATIVE_INIT_V729_MODEM_ONLY_HOLD_PLAN_2026-05-24.md` – V728이 증명한 private real vendor root 이후, `esoc0` 없이 임시 `subsys_modem` cdev만 bounded open해 modem ONLINE/QRTR/sysmon/MHI/WLFW 진행 여부를 분류하는 V729 계획
 - `plans/NATIVE_INIT_V728_PRIVATE_VENDOR_ROOT_PLAN_2026-05-24.md` – V727이 확인한 real `sda29` vendor firmware를 기존 exec namespace helper의 private `/vendor` layout과 상관시켜, modem ONLINE 전에 helper namespace vendor root가 맞는지 증명하는 V728 계획
 - `plans/NATIVE_INIT_V727_LOWER_PREREQ_PLAN_2026-05-24.md` – V726의 SM8250 CNSS2/PCIe 재해석 이후 current `/vendor`와 isolated `sda29` vendor firmware visibility, `/sys/module/wlan` static surface, modem/MHI/WLFW 상태를 read-only로 분류하는 V727 계획
@@ -279,6 +280,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V730_MODEM_TRIGGER_RECONCILE_2026-05-24.md` – V730 read-only 결과 현재 global `/vendor/firmware_mnt`, `/vendor/firmware-modem`, `/firmware`와 `modem.b00`가 모두 absent라 V729는 no-firmware open-pending 재현으로 분류되고, V731은 current-build read-only firmware mount + `subsys_modem` holder gate가 다음
 - `reports/NATIVE_INIT_V729_MODEM_ONLY_HOLD_2026-05-24.md` – V729 live 결과 `subsys_modem` 임시 cdev open attempt는 bounded window 동안 pending/blocking 상태로 남고 `mss/mdm3`는 계속 `OFFLINING`, QRTR/sysmon/MHI/WLFW/BDF/`wlan0`는 0이라 다음은 Android `mdm_helper`/ioctl/property trigger 비교
 - `reports/NATIVE_INIT_V728_PRIVATE_VENDOR_ROOT_2026-05-24.md` – V728 live 결과 기존 helper `v121`이 private namespace에서 `sda29`를 `/vendor`로 마운트하고 `/vendor/bin/cnss-daemon`을 볼 수 있으며, 같은 `sda29`에 Wi-Fi firmware가 있음을 상관시켜 V729 safe modem ONLINE trigger proof가 다음
 - `reports/NATIVE_INIT_V727_LOWER_PREREQ_2026-05-24.md` – V727 live 결과 current `/vendor -> /mnt/system/vendor`에는 Wi-Fi firmware가 없지만 isolated `sda29` vendor에는 `wlanmdsp.mbn`, `bdwlan.bin`, `regdb.bin`이 있고, `wlan`은 loadable `/proc/modules` 항목이 아니라 static parameter surface로 보여 V728 private vendor root layout proof가 다음
