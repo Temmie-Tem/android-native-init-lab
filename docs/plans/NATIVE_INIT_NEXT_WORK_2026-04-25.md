@@ -3089,3 +3089,17 @@ Samsung bootloader
 - blocker: dmesg delta produced a new `pm_qos_add_request() called for already added request` warning through `msm_asoc_machine_probe` in deferred probe work after ADSP/APR/audio service activity. Historical V733/V735 and V787 had `kernel_warning=0` for this boundary.
 - hard gates: no service-manager, Wi-Fi HAL, scan/connect, credential use, DHCP/routes, external ping, boot image or partition write, or custom kernel flash was executed. Cleanup reboot returned to healthy v724.
 - next: V789 should be host-only first. Classify whether the V788 warning is caused by clean-DSP plus lower companion composition, CNSS-only addition, service-notifier/audio deferred probe ordering, or current V401/V490 runtime state before any live retry.
+
+### V789. V788 Warning Classifier
+
+- plan: `docs/plans/NATIVE_INIT_V789_V788_WARNING_CLASSIFIER_PLAN_2026-05-25.md`
+- report: `docs/reports/NATIVE_INIT_V789_V788_WARNING_CLASSIFIER_2026-05-25.md`
+- runner: `scripts/revalidation/native_wifi_v788_warning_classifier_v789.py`
+- evidence:
+  - `tmp/wifi/v789-v788-warning-classifier/manifest.json`
+  - `tmp/wifi/v789-v788-warning-classifier/summary.md`
+  - `tmp/wifi/v789-v788-warning-classifier/warning-context.txt`
+- decision: `v789-pm-qos-audio-deferred-probe-boundary-classified`
+- result: host-only PASS. V788 is the only compared run with the `pm_qos_add_request` warning boundary: V788 `kernel_warning=5`, V733 `0`, V735 `0`, V787 `0`. V788 warning context occurs after service-notifier `180/74`, ADSP/APR audio activity, and duplicate `msm_asoc_machine_probe`; the call trace goes through `msm_asoc_machine_probe` and `deferred_probe_work_func`. WLFW/BDF/wiphy/`wlan0` remain absent.
+- hard gates: no device command, reboot, mount/unmount, daemon start, Wi-Fi HAL, scan/connect, credential use, DHCP/routes, external ping, boot image/partition write, or custom kernel flash was executed.
+- next: V790 should be narrower than V788: clean-DSP plus current V401/V490 prep plus lower-only companion readback, omitting `cnss_diag` and `cnss-daemon`. If warning-free, CNSS-only can be reintroduced later with a narrower guard; if it warns, classify clean-DSP/lower/audio ordering before repeating CNSS.

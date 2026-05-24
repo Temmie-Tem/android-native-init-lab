@@ -130,6 +130,7 @@
 
 ### 3. Plans
 
+- `plans/NATIVE_INIT_V789_V788_WARNING_CLASSIFIER_PLAN_2026-05-25.md` – V788 `pm_qos_add_request` warning을 device action 없이 V733/V735/V787 증거와 비교해 다음 live gate를 더 좁게 선정하는 계획
 - `plans/NATIVE_INIT_V788_CLEAN_DSP_LOWER_READBACK_PLAN_2026-05-25.md` – V787 clean-DSP proof after current boot prep with V401/V490 refresh, then CNSS-only lower companion readback while keeping HAL/scan/connect blocked
 - `plans/NATIVE_INIT_V779_BPF_LOADER_BUILD_PLAN_2026-05-25.md` – V778 결과에 따라 `msm_pil_event:pil_notif` 전용 minimal static aarch64 BPF tracepoint helper를 build-only로 생성하고 deploy/attach 없이 정적 검증하는 계획
 - `plans/NATIVE_INIT_V778_BPF_ATTACH_FEASIBILITY_PLAN_2026-05-25.md` – V777에서 선정한 `msm_pil_event:pil_notif` BPF attach proof 전에 device loader/sysctl과 host static helper build 가능성을 분류하는 계획
@@ -328,6 +329,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V789_V788_WARNING_CLASSIFIER_2026-05-25.md` – V789 결과 V788 warning은 service-notifier 이후 ADSP/APR audio deferred probe의 `pm_qos_add_request` duplicate boundary로 분류되어 V790 lower-only clean-DSP replay로 라우팅
 - `reports/NATIVE_INIT_V788_CLEAN_DSP_LOWER_READBACK_2026-05-25.md` – V788 결과 clean-DSP/V401/V490/CNSS-only lower readback은 조합됐지만 `pm_qos_add_request` warning boundary가 발생해 HAL/scan/connect로 widening하지 않고 V789 host-only warning classifier로 라우팅
 - `reports/NATIVE_INIT_V779_BPF_LOADER_BUILD_2026-05-25.md` – V779 결과 `a90_bpf_trace_probe v779` minimal static aarch64 helper를 build-only로 생성하고 no-INTERP, `--check-only`, `--allow-attach` safety marker를 검증
 - `reports/NATIVE_INIT_V778_BPF_ATTACH_FEASIBILITY_2026-05-25.md` – V778 결과 device에 `bpftool`/`bpftrace` loader가 없어 바로 attach하지 않고, host aarch64 static helper build surface가 준비됐음을 확인해 V779 custom minimal loader build gate로 라우팅
