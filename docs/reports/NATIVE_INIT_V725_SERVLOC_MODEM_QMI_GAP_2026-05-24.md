@@ -120,6 +120,12 @@ modem/QMI readiness absent -> no SERVREG service 180/74 publication
 Do not retry `qcwlanstate`, CNSS daemon, Wi-Fi HAL, scan/connect, DHCP, routes,
 credentials, or external ping until native reproduces QRTR RX/TX and sysmon.
 
+Follow-up V726 model correction: on SM8250, service `180/74` is side evidence
+rather than the primary CNSS2 trigger. The next blocker should be read as the
+lower modem/WLAN-driver prerequisite layer: modem MPSS/MDM3 ONLINE state,
+`wlan` module/load-state, MHI/QCA6390 progression, and `wlanmdsp` firmware
+visibility.
+
 ## Validation
 
 Executed:
