@@ -3073,3 +3073,19 @@ Samsung bootloader
 - interpretation: clean-DSP prerequisite is restored on current v724, but arm-only still does not produce sibling `sysmon-qmi`, service-notifier, WLFW/BDF, or `wlan0`. This matches historical V641 and keeps scan/connect premature.
 - hard gates: no boot image or partition write, custom kernel flash, v724 QRTR flag, `boot_wlan`, `qcwlanstate`, CNSS/HAL/service-manager, scan/connect, credential use, DHCP/routes, or external ping was executed.
 - next: V788 should be a separate clean-DSP plus lower companion readback gate. It should arm V641, reboot, then run only the lower companion observer/readback; still no HAL, scan/connect, credentials, DHCP/routes, external ping, or custom-kernel flash.
+
+### V788. Clean-DSP Lower Readback
+
+- plan: `docs/plans/NATIVE_INIT_V788_CLEAN_DSP_LOWER_READBACK_PLAN_2026-05-25.md`
+- report: `docs/reports/NATIVE_INIT_V788_CLEAN_DSP_LOWER_READBACK_2026-05-25.md`
+- runner: `scripts/revalidation/native_wifi_clean_dsp_lower_readback_v788.py`
+- evidence:
+  - `tmp/wifi/v788-clean-dsp-lower-readback/manifest.json`
+  - `tmp/wifi/v788-clean-dsp-lower-readback/summary.md`
+  - `tmp/wifi/v788-clean-dsp-lower-readback/native/dmesg-delta.txt`
+  - `tmp/wifi/v788-clean-dsp-lower-readback/lower-companion-summary.json`
+- decision: `v788-clean-dsp-lower-readback-blocked`
+- result: live stock-v724 BLOCKED. Inline clean-DSP proof passed, V401 SELinuxfs mount passed, V490 policy load passed, firmware mounts and `subsys_modem` holder opened, and CNSS-only lower companion observed all six children. `mss` reached `ONLINE`, while `mdm3` stayed `OFFLINING`. QRTR RX/TX, `sysmon-qmi`, and service-notifier markers appeared, but QRTR services `69/74/180`, MHI/QCA6390, WLFW/BDF, wiphy, and `wlan0` remained absent.
+- blocker: dmesg delta produced a new `pm_qos_add_request() called for already added request` warning through `msm_asoc_machine_probe` in deferred probe work after ADSP/APR/audio service activity. Historical V733/V735 and V787 had `kernel_warning=0` for this boundary.
+- hard gates: no service-manager, Wi-Fi HAL, scan/connect, credential use, DHCP/routes, external ping, boot image or partition write, or custom kernel flash was executed. Cleanup reboot returned to healthy v724.
+- next: V789 should be host-only first. Classify whether the V788 warning is caused by clean-DSP plus lower companion composition, CNSS-only addition, service-notifier/audio deferred probe ordering, or current V401/V490 runtime state before any live retry.
