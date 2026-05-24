@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: v747+ (QCA6390 driver-binding gap; read-only comparison pending)
+- **Active research cycle**: v748+ (non-bind ICNSS/QCA power-up trigger classification pending)
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -157,7 +157,7 @@ New `vNNN` experiment scripts must:
 - Gate live action behind explicit `--allow-*` + `--assume-yes` flags
 - Run `version`, `status`, `bootstatus`, `selftest verbose` as postflight regression
 
-## Wi-Fi bring-up research state (v598–v747, active)
+## Wi-Fi bring-up research state (v598–v748, active)
 
 Goal: bring up `wlan0` from native init without Android userspace.
 
@@ -199,9 +199,10 @@ because the gate stayed closed. V744 proved helper v122 still reproduces the
 older CNSS-only service publication window. V745 deployed helper v123 and proved
 the service `180` gate can stay closed even with QRTR TX and `sysmon-qmi`
 present. V746 deployed helper v124 and proved `mdm_helper` can start after
-`sysmon-qmi`, but lower markers still do not move. Next work should compare
-Android/native QCA6390 platform-driver binding and MHI power-up state read-only;
-do not perform generic ICNSS/CNSS bind or unbind.
+`sysmon-qmi`, but lower markers still do not move. V747 host-only classified
+the QCA6390 child driver-link gap as **not a bind/unbind target**. Next work
+should classify the non-bind ICNSS/QCA power-up trigger that Android uses before
+MHI/WLFW appears.
 
 ### Key milestones
 
@@ -222,6 +223,7 @@ do not perform generic ICNSS/CNSS bind or unbind.
 | v744 | helper v122 CNSS-only comparison: QRTR TX/sysmon/service-notifier 180 reproduced, no MHI/WLFW/wlan0 |
 | v745 | helper v123 deployed and live-tested: service180 gate stayed closed; no `mdm_helper`, no HAL/connect |
 | v746 | helper v124 deployed and live-tested: sysmon gate opened and `mdm_helper` started, but no mdm3/MHI/WLFW/wlan0 progress |
+| v747 | host-only QCA6390 driver-binding delta: child unbound confirmed; bind/unbind remains blocked |
 
 ### Safety additions (Wi-Fi research)
 

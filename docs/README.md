@@ -297,6 +297,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V747_QCA6390_DRIVER_BINDING_DELTA_2026-05-24.md` – V746/V715/V716/V703 증거를 host-only로 묶어 QCA6390 child driver-link gap은 재현되지만 bind/unbind 대상이 아니며 다음은 non-bind ICNSS/QCA power-up trigger 분류임을 확인
 - `reports/NATIVE_INIT_V746_SYSMON_GATED_MDM_HELPER_LIVE_2026-05-24.md` – helper v124 배포 후 `sysmon-qmi` gate가 열려 `mdm_helper`는 시작됐지만 mdm3/MHI/WLFW/`wlan0` 진전이 없고 QCA6390 platform device driver link가 비어 있음을 확인
 - `reports/NATIVE_INIT_V746_SYSMON_GATED_MDM_HELPER_PREP_2026-05-24.md` – helper v124에 `sysmon-qmi` gated `mdm_helper` mode를 추가했고 static build, V746 plan, v124 deploy preflight가 통과했으며 이후 live로 검증됨
 - `reports/NATIVE_INIT_V745_SERVICE180_GATED_MDM_HELPER_LIVE_2026-05-24.md` – helper v123 배포 후 V745 live를 실행했지만 service `180` gate가 열리지 않아 `mdm_helper`는 시작되지 않았고, QRTR TX/sysmon까지만 재현됨

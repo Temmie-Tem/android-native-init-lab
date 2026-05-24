@@ -2492,10 +2492,13 @@ Samsung bootloader
 ### V747. QCA6390 Driver-binding Delta Plan
 
 - plan: `docs/plans/NATIVE_INIT_V747_QCA6390_DRIVER_BINDING_DELTA_PLAN_2026-05-24.md`
+- report: `docs/reports/NATIVE_INIT_V747_QCA6390_DRIVER_BINDING_DELTA_2026-05-24.md`
 - basis evidence:
   - `tmp/wifi/v746-mdm-helper-sysmon-live-current/`
   - `tmp/wifi/v717-provider-first-icnss-edge-long-observe-20260524-103333/`
   - `tmp/wifi/v717-icnss-edge-surface-classifier/`
   - `tmp/wifi/v717-qca-bind-reconciliation/`
-- result: planned only.
-- next: implement a host-only/read-only classifier. If Android-side QCA6390 driver-link evidence is missing, require a narrow Android handoff capture rather than guessing.
+- run evidence: `tmp/wifi/v747-qca6390-driver-binding-delta/`
+- result: host-only classifier passed with decision `v747-qca-driver-link-gap-not-bind-target`. V746 confirms `mdm_helper` is safe but insufficient; QCA6390 child remains unbound; V716 keeps bind/unbind blocked; Android reference is usable.
+- interpretation: the next target is not `mdm_helper` and not QCA6390 `bind`/`unbind`.
+- next: V748 should classify the non-bind ICNSS/QCA power-up trigger or capture a narrow Android binding/power-up reference if existing evidence is insufficient.
