@@ -2528,3 +2528,20 @@ Samsung bootloader
 - result: read-only selector passed. Current native exposes `boot_wlan` and `qcwlanstate=OFF`, does not expose `fs_ready`, and still has no `/dev/wlan`, wiphy, or `wlan0`.
 - interpretation: standalone `boot_wlan` and standalone `qcwlanstate` are already rejected by V508/V513. The only useful next write is a bounded `boot_wlan` proof inside the lower-ready firmware/modem/companion window.
 - next: V750 should implement lower-window `boot_wlan` observe only. Keep service-manager, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, and bind/unbind blocked.
+
+### V750. Lower-window Boot WLAN Proof
+
+- plan: `docs/plans/NATIVE_INIT_V750_LOWER_WINDOW_BOOT_WLAN_PLAN_2026-05-24.md`
+- report: `docs/reports/NATIVE_INIT_V750_LOWER_WINDOW_BOOT_WLAN_2026-05-24.md`
+- runner: `scripts/revalidation/native_wifi_lower_window_boot_wlan_v750.py`
+- evidence:
+  - plan `tmp/wifi/v750-lower-window-boot-wlan-plan/`
+  - first preflight `tmp/wifi/v750-lower-window-boot-wlan-preflight/`
+  - current V401 `tmp/wifi/v750-v401-current-run/`
+  - current V490 `tmp/wifi/v750-v490-current-run/`
+  - final preflight `tmp/wifi/v750-lower-window-boot-wlan-preflight-retry/`
+  - live `tmp/wifi/v750-lower-window-boot-wlan/`
+- decision: `v750-lower-window-boot-wlan-control-surface-only`
+- result: live proof passed safely. Firmware mounts, `subsys_modem` holder, QRTR RX/TX, `sysmon-qmi`, lower companion contract, `boot_wlan` write, and reboot cleanup all passed. `qcwlanstate` stayed `OFF`; `/dev/wlan`, wiphy, `wlan0`, WLFW/service `69`, and BDF stayed absent.
+- interpretation: lower-window `boot_wlan` is not the missing single trigger. The active blocker is now the ICNSS/QCA "modules initialized" path before WLFW/BDF/`wlan0`.
+- next: V751 should classify why `icnss: Modules not initialized just return` persists in native. Keep bind/unbind, `driver_override`, module load/unload, service-manager, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, and external ping blocked.

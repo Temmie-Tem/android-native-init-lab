@@ -157,7 +157,7 @@ New `vNNN` experiment scripts must:
 - Gate live action behind explicit `--allow-*` + `--assume-yes` flags
 - Run `version`, `status`, `bootstatus`, `selftest verbose` as postflight regression
 
-## Wi-Fi bring-up research state (v598–v749, active)
+## Wi-Fi bring-up research state (v598–v750, active)
 
 Goal: bring up `wlan0` from native init without Android userspace.
 
@@ -179,7 +179,7 @@ stable enough in every boot. Helper v124 added a `sysmon-qmi` gated
 `mdm_helper` mode. V746 proved `mdm_helper` starts safely after `sysmon-qmi`,
 but it does not advance mdm3/WLAN-PD/MHI/WLFW.
 
-### Current blocker (V749)
+### Current blocker (V750)
 
 ```
 mss: OFFLINING → ONLINE ✓  (read-only firmware mounts + subsys_modem holder)
@@ -190,6 +190,7 @@ mdm_helper after sysmon: starts safely but no lower progress
 QCA6390 platform device: exists but driver link missing
 mdm3: stays OFFLINING
 MHI/QCA6390/WLFW/BDF/wlan0: absent
+lower-window boot_wlan: write executes, but qcwlanstate stays OFF and no /dev/wlan/wiphy/wlan0
 ```
 
 Vendor firmware files (`wlanmdsp.mbn`, `bdwlan.bin`, `regdb.bin`) confirmed at `sda29` (isolated mount), NOT in default native `/vendor`.
@@ -207,8 +208,12 @@ gate is a read-only non-bind ICNSS/CNSS2/QCA trigger capture for the transition
 from ICNSS parent readiness to WLFW/BDF/`wlan0`. V749 then classified the
 concrete control surfaces: current native has `boot_wlan` and `qcwlanstate=OFF`,
 does not expose `fs_ready`, and still has no `/dev/wlan`, wiphy, or `wlan0`.
-V508/V513 reject standalone `boot_wlan`/`qcwlanstate`; the next live gate is
-therefore lower-window `boot_wlan` observe only.
+V508/V513 reject standalone `boot_wlan`/`qcwlanstate`. V750 then ran bounded
+lower-window `boot_wlan`: firmware mounts, modem holder, QRTR RX/TX,
+`sysmon-qmi`, lower companion, write, and reboot cleanup passed, but
+`qcwlanstate` remained `OFF` and `/dev/wlan`/wiphy/`wlan0`/WLFW/service `69`/BDF
+remained absent. The next target is the ICNSS/QCA "modules initialized" path,
+not another `boot_wlan` retry.
 
 ### Key milestones
 
@@ -232,7 +237,7 @@ therefore lower-window `boot_wlan` observe only.
 | v747 | QCA6390 driver-link gap classified as not a bind/unbind target |
 | v748 | host-only candidate matrix selects non-bind ICNSS/CNSS2/QCA WLFW trigger capture |
 | v749 | read-only selector chooses lower-window `boot_wlan` proof; no HAL/connect |
-| v747 | host-only QCA6390 driver-binding delta: child unbound confirmed; bind/unbind remains blocked |
+| v750 | lower-window `boot_wlan` write succeeds but only control surface moves; no WLFW/BDF/wlan0 |
 
 ### Safety additions (Wi-Fi research)
 
