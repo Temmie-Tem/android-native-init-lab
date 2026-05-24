@@ -130,6 +130,7 @@
 
 ### 3. Plans
 
+- `plans/NATIVE_INIT_V772_BOOT_INCOMPAT_CLASSIFIER_PLAN_2026-05-25.md` – V771 boot failure를 live 재플래시 없이 stock/v724 payload와 V770 diagnostic payload의 header/config/FDT/marker 차이로 분류하는 계획
 - `plans/NATIVE_INIT_V770_INSTRUMENTED_DIAGNOSTIC_BOOT_STAGING_PLAN_2026-05-25.md` – V769 `Image-dtb`를 현재 native-init ramdisk/header와 local-only로 repack하고 roundtrip hash/marker를 검증하는 계획
 - `plans/NATIVE_INIT_V769_RKP_CFP_PYTHON3_PACKAGING_PLAN_2026-05-25.md` – V767 post-link `RKP_CFP` Python2 blocker를 disposable tree 안에서 Python3 호환 수리해 instrumented `Image` 생성까지 확인하는 계획
 - `plans/NATIVE_INIT_V768_MDM3_ESOC_GAP_CLASSIFIER_PLAN_2026-05-25.md` – V620/V622/V740/V764/V767 증거를 묶어 `mdm_helper`/esoc 직접 retry를 닫고 다음 gate를 RKP_CFP/package 쪽으로 라우팅하는 host-only 계획
@@ -320,6 +321,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V772_BOOT_INCOMPAT_CLASSIFIER_2026-05-25.md` – V772 결과 known-good v724 kernel payload에는 appended FDT/DTB 3개가 있지만 V770 diagnostic payload에는 FDT가 없어 boot failure의 유력 원인을 DTB tail 누락으로 분류
 - `reports/NATIVE_INIT_V771_ROLLBACK_RECOVERY_2026-05-25.md` – V771 rollback 결과 `stage3/boot_linux_v724.img` flash/readback 후 native `version/status`, `bootstatus`, `selftest` 통과로 복구 완료 확인
 - `reports/NATIVE_INIT_V771_DIAGNOSTIC_LIVE_HANDOFF_BOOT_FAIL_2026-05-25.md` – V771 결과 V770 diagnostic image의 TWRP flash/readback은 성공했지만 reboot 후 native verify에 도달하지 못하고 Download mode로 빠져 rollback 필요 상태로 분류
 - `reports/NATIVE_INIT_V770_INSTRUMENTED_DIAGNOSTIC_BOOT_STAGING_2026-05-25.md` – V770 결과 V769 계측 kernel을 local diagnostic boot image로 repack하고 kernel roundtrip hash, native-init marker, `A90V765` marker 19개를 검증

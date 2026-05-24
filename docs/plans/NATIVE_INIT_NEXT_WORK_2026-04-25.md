@@ -2832,3 +2832,17 @@ Samsung bootloader
 - interpretation: the failure is not an adb push, TWRP transfer, or boot partition write mismatch. The V769/V770 instrumented OSRC kernel image is not currently boot-compatible with the known-good native-init boot image. Do not retry the same V770 image as-is.
 - recovery: completed. TWRP flashed `stage3/boot_linux_v724.img`, remote sha256 and boot prefix sha256 matched `4ca72f17aec64153d49def4ad42a49714d27bd833623aa9423220ce2181fc682`, and native verify passed with `version/status rc=0 status=ok`. Post-rollback `bootstatus` reports `BOOT OK shell 4.1s`; `selftest` reports `pass=11 warn=1 fail=0`.
 - next: V772 should run a host-only boot incompatibility classifier before any further custom-kernel flash. Wi-Fi scan/connect and credential use remain blocked until `wlan0`/wiphy exists on a healthy native boot.
+
+### V772. Boot Incompatibility Classifier
+
+- plan: `docs/plans/NATIVE_INIT_V772_BOOT_INCOMPAT_CLASSIFIER_PLAN_2026-05-25.md`
+- report: `docs/reports/NATIVE_INIT_V772_BOOT_INCOMPAT_CLASSIFIER_2026-05-25.md`
+- runner: `scripts/revalidation/native_wifi_boot_incompat_classifier_v772.py`
+- evidence:
+  - `tmp/wifi/v772-boot-incompat-classifier/manifest.json`
+  - `tmp/wifi/v772-boot-incompat-classifier/logs/base-ikconfig.txt`
+  - `tmp/wifi/v772-boot-incompat-classifier/logs/diag-ikconfig.txt`
+- decision: `v772-boot-fail-likely-missing-appended-dtb`
+- result: host-only classifier PASS. The known-good v724 kernel payload has three appended FDT blobs at offsets `48830500`, `49327831`, and `49827440`; the V770 diagnostic payload has zero FDT magic hits. The stock DTB tail is `997113` bytes. Embedded kernel configs match, and the diagnostic payload still contains all 19 `A90V765` markers.
+- interpretation: V771 likely failed because V770 packaged a bare OSRC-built/instrumented kernel payload without the appended device DTB tail required by this boot path. The write/readback was valid, but the kernel payload was structurally not boot-compatible. Do not retry V770 as-is.
+- next: V773 should be local-only: append the stock v724 DTB tail to the V769 instrumented Image payload, repack, and verify FDT/marker/roundtrip checks before any live flash is considered.
