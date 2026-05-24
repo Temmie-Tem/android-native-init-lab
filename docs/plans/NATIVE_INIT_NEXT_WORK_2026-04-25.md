@@ -2761,3 +2761,16 @@ Samsung bootloader
 - result: V766 corrected the V765 patch formatting issue, safely extracted the Samsung OSRC source to private evidence, applied the `A90V765` patch cleanly, verified 19 markers, and passed `r3q_kor_single_defconfig`. It did not mutate `kernel_build`, run a full kernel build, write a boot image, or run any device command.
 - interpretation: instrumentation is now source-apply-ready and defconfig-ready. The next host blocker is not patch context; it is selecting/staging a compatible Android/Samsung toolchain for a bounded full kernel build/package check.
 - next: V767 should select or stage toolchain inputs and run a bounded full kernel build/package readiness gate. Keep boot-image writes, live handoff, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, and external ping blocked until their own gates.
+
+### V767. ICNSS/QCACLD Full Build Gate
+
+- plan: `docs/plans/NATIVE_INIT_V767_ICNSS_QCACLD_FULL_BUILD_PLAN_2026-05-25.md`
+- report: `docs/reports/NATIVE_INIT_V767_ICNSS_QCACLD_FULL_BUILD_2026-05-25.md`
+- runner: `scripts/revalidation/native_wifi_icnss_qcacld_full_build_v767.py`
+- evidence:
+  - `tmp/wifi/v767-icnss-qcacld-full-build/manifest.json`
+  - `tmp/wifi/v767-icnss-qcacld-full-build/logs/kernel-build.txt`
+- decision: `v767-instrumented-objects-built-rkp-cfp-python2-blocked`
+- result: V767 staged ignored Android/Samsung toolchain inputs, applied disposable host-build repairs, and ran a bounded full kernel build. The build compiled all five ICNSS/QCACLD instrumented target objects with all 19 `A90V765` markers preserved. Final `Image` packaging did not complete because Samsung post-link `scripts/rkp_cfp/instrument.py` is Python2-only and fails under the current host Python path.
+- interpretation: the V765 patch is now source-apply, defconfig, and target-object compile proven. This does not explain why WLFW service `69` is absent at runtime; it only proves the planned printk instrumentation can compile up to the relevant object boundary.
+- next: split the work into two gates. V768 should classify the mdm_helper/esoc/mdm3 gap without repeating blind Wi-Fi starts. A later packaging gate can decide whether to provide Python2, port/patch `RKP_CFP`, or intentionally bypass that post-link step for a diagnostic boot image. Keep boot-image writes, live handoff, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, and external ping blocked until their own gates.
