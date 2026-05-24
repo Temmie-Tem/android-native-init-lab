@@ -130,6 +130,7 @@
 
 ### 3. Plans
 
+- `plans/NATIVE_INIT_V802_PROVIDER_FIRST_BOOT_WLAN_OBSERVE_PLAN_2026-05-25.md` – V801에서 고른 provider-first context와 V752-style `boot_wlan` observe를 결합해 HDD/ICNSS-QMI/WLFW 경계를 분류하는 live 계획
 - `plans/NATIVE_INIT_V801_V800_EDGE_ROUTE_CLASSIFIER_PLAN_2026-05-25.md` – V800 ICNSS edge와 V752 `boot_wlan` stall 증거를 비교해 다음 gate를 provider-first + `boot_wlan` observe로 선정하는 host-only 계획
 - `plans/NATIVE_INIT_V800_PROVIDER_FIRST_ICNSS_EDGE_V124_REPLAY_PLAN_2026-05-25.md` – V799에서 고른 service74 양성 + PeripheralManager 확인 + provider-first CNSS tail 경로를 현재 v724/helper v124로 재검증하는 live 계획
 - `plans/NATIVE_INIT_V799_POST_V798_ROUTE_CLASSIFIER_PLAN_2026-05-25.md` – V797/V798 lower-only 음성 경로와 V653/V657/V659/V668/V694 service74 양성 경로를 비교해 다음 live gate를 below-HAL CNSS tail replay로 선정하는 host-only 계획
@@ -341,6 +342,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V802_PROVIDER_FIRST_BOOT_WLAN_OBSERVE_2026-05-25.md` – V802 결과 provider-first context + `boot_wlan`에서도 HDD init/qcwlanstate까지만 진행되고 ICNSS-QMI/WLFW/BDF/wiphy/`wlan0`는 absent라 V803 HDD/PLD prerequisite classifier로 라우팅
 - `reports/NATIVE_INIT_V801_V800_EDGE_ROUTE_CLASSIFIER_2026-05-25.md` – V801 결과 QCA6390 unbound를 1차 목표로 보지 않고 V800 provider-first context와 V752 `boot_wlan` trigger를 결합하는 V802 live gate로 라우팅
 - `reports/NATIVE_INIT_V800_PROVIDER_FIRST_ICNSS_EDGE_V124_REPLAY_2026-05-25.md` – V800 결과 v724/helper v124에서도 service74 + PeripheralManager + provider-first CNSS retry + ICNSS edge capture는 통과하지만 QCA6390/WLFW/BDF/`wlan0`는 absent로 유지됨
 - `reports/NATIVE_INIT_V799_POST_V798_ROUTE_CLASSIFIER_2026-05-25.md` – V799 결과 현재 lower-only 경로보다 기존 service74 양성 + V694 PeripheralManager 확인 경로가 최단이므로 V800 below-HAL CNSS tail replay로 라우팅
