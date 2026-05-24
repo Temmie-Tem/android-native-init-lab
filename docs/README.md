@@ -130,6 +130,7 @@
 
 ### 3. Plans
 
+- `plans/NATIVE_INIT_V733_HOLDER_LOWER_COMPANION_PLAN_2026-05-24.md` – V732의 firmware-mounted `subsys_modem` holder window에 lower companion/TFTP 4개(`qrtr_ns,rmt_storage,tftp_server,pd_mapper`)만 추가해 QRTR TX/sysmon/WLFW/service `69` 진행 여부를 검증하는 V733 계획
 - `plans/NATIVE_INIT_V732_CNSS2_MHI_HOLDER_WINDOW_PLAN_2026-05-24.md` – SM8250 CNSS2/PCIe 모델로 재정렬해 V731 firmware-mounted `subsys_modem` holder window 안에서 `wlan` load semantics, CNSS/MHI/QCA6390/WLFW/service `69`, global WLAN firmware visibility를 read-only로 분류하는 V732 계획
 - `plans/NATIVE_INIT_V731_FIRMWARE_MOUNTED_MODEM_HOLDER_PLAN_2026-05-24.md` – V730이 재고정한 current-build firmware mount prerequisite을 실제로 적용해 `/vendor/firmware_mnt`/`/vendor/firmware-modem` read-only mount + `subsys_modem` holder로 `mss`/QRTR RX 복원을 검증하는 V731 계획
 - `plans/NATIVE_INIT_V730_MODEM_TRIGGER_RECONCILE_PLAN_2026-05-24.md` – V729 open-pending 결과를 V592 no-firmware class 및 V594/V595/V596 firmware-mounted modem readiness와 대조해, 다음 gate를 `mdm_helper`가 아니라 global firmware mount + `subsys_modem` holder로 재고정하는 V730 계획
@@ -282,6 +283,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V733_HOLDER_LOWER_COMPANION_2026-05-24.md` – V733 live 결과 lower companion/TFTP 4개가 `mss=ONLINE`, QRTR RX/TX, modem `sysmon-qmi`까지 복원했지만 service-notifier/WLFW/service `69`/BDF/`wlan0`는 absent라 다음은 post-sysmon publication gap host-only 분류
 - `reports/NATIVE_INIT_V732_CNSS2_MHI_HOLDER_WINDOW_2026-05-24.md` – V732 live 결과 firmware-mounted `subsys_modem` holder가 `mss=ONLINE`과 QRTR RX를 재현했지만 QRTR TX/sysmon/rpmsg/MHI/QCA6390/WLFW/service `69`/BDF/`wlan0`가 모두 absent라 다음은 real vendor-root + lower companion/TFTP gate
 - `reports/NATIVE_INIT_V731_FIRMWARE_MOUNTED_MODEM_HOLDER_2026-05-24.md` – V731 live 결과 current V724에서 read-only firmware mount + `subsys_modem` holder가 `mss=ONLINE`과 QRTR RX를 복원했고, `esoc0`/daemon/HAL/scan/connect 없이 reboot cleanup pass라 다음은 같은 창에서 CNSS2/MHI read-only 관측
 - `reports/NATIVE_INIT_V730_MODEM_TRIGGER_RECONCILE_2026-05-24.md` – V730 read-only 결과 현재 global `/vendor/firmware_mnt`, `/vendor/firmware-modem`, `/firmware`와 `modem.b00`가 모두 absent라 V729는 no-firmware open-pending 재현으로 분류되고, V731은 current-build read-only firmware mount + `subsys_modem` holder gate가 다음
