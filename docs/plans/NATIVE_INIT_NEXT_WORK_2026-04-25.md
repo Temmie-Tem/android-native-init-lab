@@ -2558,3 +2558,20 @@ Samsung bootloader
 - result: read-only classifier passed. V750 `boot_wlan` enters QCACLD/HDD init and creates `qcwlanstate`, but `wlan: driver loaded`, ICNSS-QMI, firmware-ready, wiphy, and `wlan0` never appear. Current native has ICNSS parent bound, but no ICNSS net/ieee80211 child and no MHI devices.
 - interpretation: the blocker is inside or before the HDD/PLD/register-driver completion path, not the fixed `boot_wlan` write itself.
 - next: V752 should choose between bounded CNSS-daemon plus `boot_wlan` ordering proof and deeper HDD/PLD prerequisite instrumentation. Keep service-manager, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, bind/unbind, `driver_override`, and module load/unload blocked.
+
+### V752. CNSS then Boot WLAN Proof
+
+- plan: `docs/plans/NATIVE_INIT_V752_CNSS_THEN_BOOT_WLAN_PLAN_2026-05-24.md`
+- report: `docs/reports/NATIVE_INIT_V752_CNSS_THEN_BOOT_WLAN_2026-05-24.md`
+- runner: `scripts/revalidation/native_wifi_cnss_then_boot_wlan_v752.py`
+- evidence:
+  - plan `tmp/wifi/v752-cnss-then-boot-wlan-plan2/`
+  - initial preflight `tmp/wifi/v752-cnss-then-boot-wlan-preflight/`
+  - current V401 `tmp/wifi/v752-v401-current-run/`
+  - current V490 `tmp/wifi/v752-v490-current-run/`
+  - final preflight `tmp/wifi/v752-cnss-then-boot-wlan-preflight-retry/`
+  - live `tmp/wifi/v752-cnss-then-boot-wlan/`
+- decision: `v752-cnss-then-boot-wlan-hdd-init-still-stalls`
+- result: live proof passed safely. Firmware mounts, `subsys_modem` holder, QRTR RX/TX, `sysmon-qmi`, six-child CNSS companion start-only, `boot_wlan` observe, and reboot cleanup all passed. `cnss_diag` and `cnss-daemon` started, but `qcwlanstate` stayed `OFF`; `/dev/wlan`, ICNSS net/ieee80211 child, wiphy, `wlan0`, WLFW/service `69`, BDF, ICNSS-QMI, and firmware-ready stayed absent.
+- interpretation: CNSS companion ordering before `boot_wlan` is not sufficient. The blocker remains inside or immediately before HDD/PLD/register-driver completion.
+- next: V753 should instrument HDD/PLD prerequisites and the missing driver-loaded / ICNSS-QMI transition. Do not repeat CNSS plus `boot_wlan` ordering blindly; keep service-manager, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, bind/unbind, `driver_override`, and module load/unload blocked.

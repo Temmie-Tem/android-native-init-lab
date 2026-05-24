@@ -157,7 +157,7 @@ New `vNNN` experiment scripts must:
 - Gate live action behind explicit `--allow-*` + `--assume-yes` flags
 - Run `version`, `status`, `bootstatus`, `selftest verbose` as postflight regression
 
-## Wi-Fi bring-up research state (v598–v751, active)
+## Wi-Fi bring-up research state (v598–v752, active)
 
 Goal: bring up `wlan0` from native init without Android userspace.
 
@@ -179,7 +179,7 @@ stable enough in every boot. Helper v124 added a `sysmon-qmi` gated
 `mdm_helper` mode. V746 proved `mdm_helper` starts safely after `sysmon-qmi`,
 but it does not advance mdm3/WLAN-PD/MHI/WLFW.
 
-### Current blocker (V751)
+### Current blocker (V752)
 
 ```
 mss: OFFLINING → ONLINE ✓  (read-only firmware mounts + subsys_modem holder)
@@ -192,6 +192,7 @@ mdm3: stays OFFLINING
 MHI/QCA6390/WLFW/BDF/wlan0: absent
 lower-window boot_wlan: write executes, but qcwlanstate stays OFF and no /dev/wlan/wiphy/wlan0
 QCACLD/HDD init: boot_wlan reaches "wlan: Loading driver" and qcwlanstate char-device creation, but never reaches "wlan: driver loaded", ICNSS-QMI, FW-ready, BDF, wiphy, or wlan0
+CNSS-before-boot_wlan ordering: cnss_diag and cnss-daemon start safely before boot_wlan, but the same HDD/qcwlanstate stall remains
 ```
 
 Vendor firmware files (`wlanmdsp.mbn`, `bdwlan.bin`, `regdb.bin`) confirmed at `sda29` (isolated mount), NOT in default native `/vendor`.
@@ -217,7 +218,11 @@ remained absent. V751 classified the source-level meaning: `boot_wlan` enters
 QCACLD/HDD init and creates `qcwlanstate`, but the static WLAN driver never
 reaches driver-loaded / ICNSS-QMI / firmware-ready. The next target is inside or
 immediately before HDD/PLD/register-driver completion, not another `boot_wlan`
-retry.
+retry. V752 then started the six-child CNSS companion window through `cnss_diag`
+and `cnss-daemon` before bounded `boot_wlan`; this also stayed at the same HDD
+init/qcwlanstate boundary with no ICNSS-QMI, FW-ready, WLFW/BDF, wiphy, or
+`wlan0`. The next gate must instrument HDD/PLD/register-driver prerequisites
+rather than repeat CNSS plus `boot_wlan` ordering.
 
 ### Key milestones
 
@@ -243,6 +248,7 @@ retry.
 | v749 | read-only selector chooses lower-window `boot_wlan` proof; no HAL/connect |
 | v750 | lower-window `boot_wlan` write succeeds but only control surface moves; no WLFW/BDF/wlan0 |
 | v751 | `boot_wlan` enters HDD init but stalls before driver-loaded / ICNSS-QMI / FW-ready |
+| v752 | CNSS companion before `boot_wlan` still stalls at HDD/qcwlanstate; next is HDD/PLD instrumentation |
 
 ### Safety additions (Wi-Fi research)
 
