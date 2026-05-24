@@ -2680,3 +2680,16 @@ Samsung bootloader
 - result: host-only verifier passed as a classifier. `kernel_build/` is now an explicit ignored staging area with a tracked README/.gitkeep, but the official source archive or extracted source tree is still absent. Target QCACLD/CNSS files are not verified.
 - interpretation: the kernel instrumentation path is still blocked by external/manual source staging, not by repo tooling.
 - next: manually download `SM-A908N_KOR_12_Opensource.zip`, stage it under `kernel_build/`, rerun V760, and only proceed to V761 kernel log instrumentation planning after target source files are verified. Keep live device, boot-image writes, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, and external ping blocked.
+
+### V761. Source Download Handoff
+
+- plan: `docs/plans/NATIVE_INIT_V761_SOURCE_DOWNLOAD_HANDOFF_PLAN_2026-05-24.md`
+- report: `docs/reports/NATIVE_INIT_V761_SOURCE_DOWNLOAD_HANDOFF_2026-05-24.md`
+- runner: `scripts/revalidation/native_wifi_source_handoff_v761.py`
+- evidence:
+  - plan `tmp/wifi/v761-source-download-handoff-plan/`
+  - run `tmp/wifi/v761-source-download-handoff/`
+- decision: `v761-source-download-handoff-ready`
+- result: host-only handoff packet passed. It generated private `handoff.md` and `run-v761-source-download-handoff.sh`; the script opens the browser only with `V761_OPEN_BROWSER=1`, copies only an already downloaded official archive into ignored `kernel_build/`, and reruns V760.
+- interpretation: the source blocker is reduced to one manual browser download plus rerun; no device or boot-image work is justified until V760 verifies target source files.
+- next: execute the generated V761 handoff after downloading the official OSRC package, rerun V760, then proceed to kernel log instrumentation planning only after target files are verified. Keep live device, boot-image writes, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, and external ping blocked.

@@ -179,7 +179,7 @@ stable enough in every boot. Helper v124 added a `sysmon-qmi` gated
 `mdm_helper` mode. V746 proved `mdm_helper` starts safely after `sysmon-qmi`,
 but it does not advance mdm3/WLAN-PD/MHI/WLFW.
 
-### Current blocker (V760)
+### Current blocker (V761)
 
 ```
 mss: OFFLINING → ONLINE ✓  (read-only firmware mounts + subsys_modem holder)
@@ -201,6 +201,7 @@ Android/native differential: Android proves QMI/BDF/FW-ready/wlan0, native prove
 Instrumentation feasibility: boot-image tooling and rollback artifacts are present, but exact local kernel/QCACLD/CNSS source is absent; do not patch or flash instrumentation until source is acquired and verified
 Source acquisition: exact Samsung OSRC source package is identified as SM-A908N_KOR_12_Opensource.zip for SM-A908N/A908NKSU5EWA3, source upload id 13272, but download is hCaptcha/manual-browser gated and no local archive/source tree is staged yet
 Source staging: kernel_build/ is prepared as ignored local staging, but the official archive/extracted source is still absent; V760 verifier reports no target QCACLD/CNSS files, so V761 kernel instrumentation remains blocked
+Source handoff: V761 generated a private operator handoff script for manual OSRC download/staging and V760 rerun; browser open is opt-in via V761_OPEN_BROWSER=1, and kernel instrumentation remains blocked until V760 verifies target files
 ```
 
 Vendor firmware files (`wlanmdsp.mbn`, `bdwlan.bin`, `regdb.bin`) confirmed at `sda29` (isolated mount), NOT in default native `/vendor`.
