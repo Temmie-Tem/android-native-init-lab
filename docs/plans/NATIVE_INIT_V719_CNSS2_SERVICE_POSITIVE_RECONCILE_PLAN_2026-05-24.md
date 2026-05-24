@@ -29,7 +29,7 @@ post-reboot lower-not-ready state.
 modem ONLINE
   -> service-locator can resolve WLAN-PD
     -> service-notifier 180/74 appears
-      -> kernel ICNSS/CNSS2 notifier should fire
+      -> kernel CNSS2 notifier should fire
         -> QCA6390 power/MHI/WLFW progresses
           -> service 69 / BDF / fw_ready / wlan0
 ```
@@ -37,6 +37,9 @@ modem ONLINE
 V719 checks whether service-positive dmesg contains any of the kernel
 progression markers:
 
+- `qrtr-ns` companion startup observability and postflight safety;
+- service-locator / SERVREG text, including whether any `SERVICE_STATE_UP`
+  indication is visible;
 - `pd_notifier` / `server_arrive`
 - QCA6390-specific power or MHI/PCIe lines
 - `icnss_qmi`
@@ -68,4 +71,6 @@ V719 is host-only:
 
 If V719 confirms service `180/74` without CNSS2/QCA/WLFW progression, V720
 should be a bounded live gate that reproduces lower readiness and captures
-ICNSS/CNSS2 notifier-to-QCA transition in that same window.
+CNSS2 notifier-to-QCA transition in that same window. For SM8250, treat CNSS2
+as the target driver path; legacy `ICNSS` labels are preserved only where they
+are existing script names or literal kernel/log marker names.

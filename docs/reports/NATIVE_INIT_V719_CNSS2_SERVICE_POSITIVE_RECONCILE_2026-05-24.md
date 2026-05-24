@@ -3,7 +3,8 @@
 - date: `2026-05-24 KST`
 - runner: `scripts/revalidation/native_wifi_cnss2_service_positive_reconcile_v719.py`
 - evidence: `tmp/wifi/v719-cnss2-service-positive-reconcile/`
-- decision: `v719-service-positive-cnss2-trigger-gap-classified`
+- refined evidence: `tmp/wifi/v720-v719-regression-check-after-patch/`
+- decision: `v719-qrtr-ns-present-servreg-cnss2-trigger-gap-classified`
 - status: `pass`
 
 ## Scope Result
@@ -42,8 +43,12 @@ V717 service-positive dmesg counts:
 | `qrtr_rx` | `1` |
 | `qrtr_tx` | `1` |
 | `sysmon_qmi` | `4` |
+| `sysmon_esoc0` | `0` |
+| `service_locator` | `2` |
+| `service_state_up` | `0` |
 | `service_notifier_180` | `1` |
 | `service_notifier_74` | `1` |
+| `wlan_pd` | `0` |
 | `cnss_daemon_netlink` | `5` |
 | `cnss_daemon_cld80211` | `2` |
 | `pd_notifier` | `0` |
@@ -60,6 +65,21 @@ The host-only V667 replay on the same V717 dmesg also returned:
 ```text
 v667-cnss2-pd-notifier-gap-classified
 ```
+
+The refined V719 replay additionally confirmed the companion lower stack was
+not missing `qrtr-ns`:
+
+| item | value |
+| --- | --- |
+| `companion_order` | `qrtr_ns,rmt_storage,tftp_server,pd_mapper,cnss_diag,service74_gate,servicemanager,hwservicemanager,vndservicemanager,vndservicemanager_ready,per_mgr,vndservice_query,per_proxy,vndservice_query,cnss_daemon_retry` |
+| `qrtr_ns_observable` | `True` |
+| `qrtr_ns_postflight_safe` | `True` |
+| `qrtr_ns_start_order` | `1` |
+| `service74_gate_status` | `open` |
+
+That narrows the gap: userspace-visible QRTR service `180/74` and `qrtr-ns`
+presence are not enough. The missing edge is still SERVREG/WLAN-PD
+`SERVICE_STATE_UP` into CNSS2 kernel progression.
 
 ## Current-boot Read-only State
 
@@ -82,13 +102,13 @@ The current blocker is now sharply scoped:
 
 ```text
 service-notifier 180/74 present
-  -> no visible ICNSS/CNSS2 pd_notifier/server_arrive
+  -> no visible CNSS2 pd_notifier/server_arrive
   -> no QCA6390 power/MHI/WLFW progression
   -> no BDF/fw_ready/wlan0
 ```
 
 This supports the user-provided causal chain refinement: seeing service
-`180/74` from userspace is necessary but not enough to prove the kernel ICNSS
+`180/74` from userspace is necessary but not enough to prove the kernel CNSS2
 path fired.
 
 Do not move to Wi-Fi HAL, scan/connect, credentials, DHCP, route change, or
@@ -107,6 +127,9 @@ python3 scripts/revalidation/native_wifi_cnss2_service_positive_reconcile_v719.p
 python3 scripts/revalidation/native_wifi_cnss2_service_positive_reconcile_v719.py \
   --out-dir tmp/wifi/v719-cnss2-service-positive-reconcile run
 
+python3 scripts/revalidation/native_wifi_cnss2_service_positive_reconcile_v719.py \
+  --out-dir tmp/wifi/v720-v719-regression-check-after-patch run
+
 python3 scripts/revalidation/native_wifi_cnss2_pd_notifier_classifier_v667.py \
   --out-dir tmp/wifi/v719-v667-on-v717-dmesg \
   --v666-manifest tmp/wifi/v717-provider-first-icnss-edge-long-observe-20260524-103333/arm-v700-v119-provider-first-cnss/live/manifest.json \
@@ -122,8 +145,10 @@ V720 should be a bounded same-window live observer:
 
 1. fresh V641/V401/V490 lower-readiness prep;
 2. reproduce service `180/74`;
-3. capture ICNSS/CNSS2 notifier, platform driver, QCA6390 power/MHI/PCIe,
+3. confirm whether `qrtr-ns`, service-locator/SERVREG, and
+   `SERVICE_STATE_UP` are visible;
+4. capture CNSS2 notifier, platform driver, QCA6390 power/MHI/PCIe,
    QRTR service `69`, BDF, firmware-ready, and `wlan0` in the same active
    window;
-4. keep Wi-Fi HAL, scan/connect, credentials, DHCP, route change, and external
+5. keep Wi-Fi HAL, scan/connect, credentials, DHCP, route change, and external
    ping blocked unless WLFW/BDF/fw-ready/`wlan0` progresses.

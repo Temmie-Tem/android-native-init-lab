@@ -25,6 +25,8 @@ MARKERS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("qrtr_tx", re.compile(r"qrtr: Modem QMI Readiness TX", re.I)),
     ("sysmon_qmi", re.compile(r"sysmon-qmi", re.I)),
     ("sysmon_esoc0", re.compile(r"sysmon-qmi:.*esoc0", re.I)),
+    ("service_locator", re.compile(r"service[-_ ]?locator|servreg", re.I)),
+    ("service_state_up", re.compile(r"SERVICE_STATE_UP|service.*state.*up|servreg.*up", re.I)),
     ("service_notifier_180", re.compile(r"service-notifier: service_notifier_new_server:.*180 service", re.I)),
     ("service_notifier_74", re.compile(r"service-notifier: service_notifier_new_server:.*74 service", re.I)),
     ("wlan_pd", re.compile(r"service-notifier:.*msm/modem/wlan_pd|wlan_pd", re.I)),
@@ -181,11 +183,18 @@ def live_counts(manifest: dict[str, Any]) -> dict[str, int]:
     return {key: int_value(value) for key, value in counts.items()}
 
 
+def companion_keys(manifest: dict[str, Any]) -> dict[str, str]:
+    live = manifest.get("live") if isinstance(manifest.get("live"), dict) else {}
+    keys = live.get("companion_keys") if isinstance(live.get("companion_keys"), dict) else {}
+    return {str(key): str(value) for key, value in keys.items()}
+
+
 def service_surface(top_source: Path) -> dict[str, Any]:
     run_dir, top_path = resolve_manifest(top_source)
     top = load_json(top_path)
     nested = nested_service_manifest(run_dir, top)
     arm = load_json(nested)
+    keys = companion_keys(arm)
     dmesg_path = service_dmesg_path(nested)
     dmesg = parse_dmesg(read_text(dmesg_path))
     counts = dmesg["counts"]
@@ -203,6 +212,12 @@ def service_surface(top_source: Path) -> dict[str, Any]:
         "arm_decision": arm.get("decision"),
         "arm_pass": arm.get("pass"),
         "helper_counts": helper_counts,
+        "companion_order": keys.get("wifi_companion_start.order", ""),
+        "qrtr_ns_observable": keys.get("wifi_companion_start.child.qrtr_ns.observable") == "1",
+        "qrtr_ns_postflight_safe": keys.get("wifi_companion_start.child.qrtr_ns.postflight_safe") == "1",
+        "qrtr_ns_start_order": keys.get("wifi_companion_start.child.qrtr_ns.start_order", ""),
+        "service74_gate_status": keys.get("wifi_companion_start.service74_gate.status", ""),
+        "service74_gate_open": keys.get("wifi_companion_start.service74_gate.open", ""),
         "dmesg": dmesg,
         "service180": service180,
         "service74": service74,
@@ -263,12 +278,34 @@ def build_checks(service: dict[str, Any], current: dict[str, Any]) -> list[Check
     )
     add_check(
         checks,
+        "qrtr-ns-observable",
+        "pass" if service.get("qrtr_ns_observable") else "finding",
+        "info",
+        (
+            f"observable={service.get('qrtr_ns_observable')} "
+            f"postflight_safe={service.get('qrtr_ns_postflight_safe')} "
+            f"start_order={service.get('qrtr_ns_start_order')}"
+        ),
+        [service["arm_manifest"]],
+        "if false, service-locator cannot be trusted; repair QRTR nameservice startup first",
+    )
+    add_check(
+        checks,
+        "service-locator-servreg-visible",
+        "pass" if service_counts.get("service_locator", 0) > 0 or service_counts.get("service_state_up", 0) > 0 else "finding",
+        "info",
+        f"service_locator={service_counts.get('service_locator', 0)} service_state_up={service_counts.get('service_state_up', 0)} wlan_pd={service_counts.get('wlan_pd', 0)}",
+        [service["dmesg_delta"]],
+        "if absent with service 180/74 present, target SERVREG/service-locator indication path before HAL/connect",
+    )
+    add_check(
+        checks,
         "service-positive-no-kernel-progression",
         "finding" if not service["kernel_progression"] else "pass",
         "info",
         "; ".join(f"{name}={service_counts.get(name, 0)}" for name in KERNEL_PROGRESSION),
         [service["dmesg_delta"]],
-        "next live gate must instrument ICNSS/CNSS2 notifier-to-QCA transition",
+        "next live gate must instrument CNSS2 notifier-to-QCA transition",
     )
     add_check(
         checks,
@@ -321,12 +358,24 @@ def decide(command: str, service: dict[str, Any] | None, current: dict[str, Any]
     blocked = blockers(checks)
     if blocked:
         return "v719-cnss2-reconcile-blocked", False, "blocked by " + ", ".join(blocked), "refresh missing evidence"
+    if (
+        service["service_positive"]
+        and service.get("qrtr_ns_observable")
+        and not service["kernel_progression"]
+        and not current["service_positive"]
+    ):
+        return (
+            "v719-qrtr-ns-present-servreg-cnss2-trigger-gap-classified",
+            True,
+            "service-positive evidence has qrtr-ns observable and 180/74, but no SERVREG/WLAN-PD/CNSS2/QCA/WLFW/wlan0 progression; current boot is lower-not-ready",
+            "build next live gate around SERVREG/service-locator indication and CNSS2 notifier instrumentation in the same lower-ready window",
+        )
     if service["service_positive"] and not service["kernel_progression"] and not current["service_positive"]:
         return (
             "v719-service-positive-cnss2-trigger-gap-classified",
             True,
             "service-positive evidence has 180/74 but no pd_notifier/QCA power/MHI/WLFW/wlan0; current boot is lower-not-ready",
-            "build next live gate around same-window ICNSS/CNSS2 notifier instrumentation after lower readiness is reproduced",
+            "build next live gate around same-window CNSS2 notifier instrumentation after lower readiness is reproduced",
         )
     if service["service_positive"] and service["kernel_progression"] and not service["wlfw_or_wlan0"]:
         return (
@@ -364,6 +413,10 @@ def render_summary(manifest: dict[str, Any]) -> str:
         ["dmesg_delta", service.get("dmesg_delta", "")],
         ["arm_decision", service.get("arm_decision", "")],
         ["service_positive", str(service.get("service_positive"))],
+        ["companion_order", service.get("companion_order", "")],
+        ["qrtr_ns_observable", str(service.get("qrtr_ns_observable"))],
+        ["qrtr_ns_postflight_safe", str(service.get("qrtr_ns_postflight_safe"))],
+        ["service74_gate_status", service.get("service74_gate_status", "")],
         ["kernel_progression", str(service.get("kernel_progression"))],
         ["wlfw_or_wlan0", str(service.get("wlfw_or_wlan0"))],
     ]
@@ -410,7 +463,7 @@ def render_summary(manifest: dict[str, Any]) -> str:
         "",
         "## Interpretation",
         "",
-        "- Service `180/74` visibility and kernel ICNSS/CNSS2 progression are separate gates.",
+        "- Service `180/74` visibility and kernel CNSS2 progression are separate gates.",
         "- Post-reboot current-boot absence of service `180/74` must not overwrite same-window service-positive evidence.",
         "- The next live step must reproduce lower readiness and instrument the notifier-to-QCA edge in that same window.",
     ])

@@ -130,7 +130,8 @@
 
 ### 3. Plans
 
-- `plans/NATIVE_INIT_V719_CNSS2_SERVICE_POSITIVE_RECONCILE_PLAN_2026-05-24.md` – V717 service `180/74` 양성 창과 V718 current-boot lower-not-ready 상태를 분리해, 다음 gate를 same-window ICNSS/CNSS2 notifier instrumentation으로 고정하는 host-only 계획
+- `plans/NATIVE_INIT_V720_SAME_WINDOW_CNSS2_OBSERVER_PLAN_2026-05-24.md` – V712 service-positive window, V706 current read-only capture, and V719 reconciliation을 한 번에 묶어 `qrtr-ns`/SERVREG/CNSS2 trigger gap을 같은 창에서 확인하는 계획
+- `plans/NATIVE_INIT_V719_CNSS2_SERVICE_POSITIVE_RECONCILE_PLAN_2026-05-24.md` – V717 service `180/74` 양성 창과 V718 current-boot lower-not-ready 상태를 분리해, 다음 gate를 same-window CNSS2 notifier/SERVREG 관측으로 고정하는 host-only 계획
 - `plans/NATIVE_INIT_V718_CNSS2_PD_NOTIFIER_CURRENT_HARDENING_PLAN_2026-05-24.md` – V666/V706 read-only CNSS2 pd-notifier check를 current boot에서 안전하게 재사용하도록 busy-capture 차단과 QCA power/MHI 마커 정밀화를 추가하는 계획
 - `plans/NATIVE_INIT_V717_ICNSS_EDGE_LONG_OBSERVE_PLAN_2026-05-24.md` – V712 helper v121 provider-first ICNSS edge proof를 30초 observation window로 재실행해 WLFW/BDF/`wlan0` 미진입이 짧은 대기시간 문제가 아님을 검증하는 계획
 - `plans/NATIVE_INIT_V716_QCA_BIND_RECONCILIATION_PLAN_2026-05-24.md` – V715의 QCA6390 child-unbound 결과를 V703 Android reference와 대조해 QCA bind/unbind가 아니라 ICNSS-QMI/WLFW readiness edge가 다음 target임을 고정하는 host-only 계획
@@ -269,7 +270,8 @@
 
 ### 4. Current Native Init Reports
 
-- `reports/NATIVE_INIT_V719_CNSS2_SERVICE_POSITIVE_RECONCILE_2026-05-24.md` – V717 same-window service `180/74` 양성 증거에는 CNSS2 pd-notifier/QCA power/MHI/WLFW/`wlan0` 진행이 없고, V718 post-cleanup current boot는 lower-not-ready라 다음은 same-window ICNSS/CNSS2 notifier 관측 gate임을 확정
+- `reports/NATIVE_INIT_V720_SAME_WINDOW_CNSS2_OBSERVER_LIVE_2026-05-24.md` – V720 live 결과 `qrtr-ns`와 service `180/74`는 확인됐지만 `SERVICE_STATE_UP`/`wlan_pd`/CNSS2 pd-notifier/QCA power/WLFW/BDF/`wlan0`가 모두 없어 같은 창 CNSS2 trigger gap을 확정
+- `reports/NATIVE_INIT_V719_CNSS2_SERVICE_POSITIVE_RECONCILE_2026-05-24.md` – V717 same-window service `180/74` 양성 증거에는 CNSS2 pd-notifier/QCA power/MHI/WLFW/`wlan0` 진행이 없고, V718 post-cleanup current boot는 lower-not-ready라 다음은 same-window CNSS2/SERVREG 관측 gate임을 확정
 - `reports/NATIVE_INIT_V718_CNSS2_PD_NOTIFIER_CURRENT_HARDENING_2026-05-24.md` – V706 read-only classifier에 menu busy 차단과 QCA power/MHI 마커 정밀화를 추가하고, 현재 부팅은 service `180/74` 부재 + `mss`/`mdm3` `OFFLINING` 상태라 lower modem/WLAN-PD readiness 복원이 먼저임을 재확인
 - `reports/NATIVE_INIT_V717_ICNSS_EDGE_LONG_OBSERVE_2026-05-24.md` – V712 helper v121 provider-first ICNSS edge proof를 30초 observation window로 재실행해 service `180/74`와 provider/CNSS retry는 재현되지만 WLFW/BDF/`wlan0`는 여전히 0임을 확인
 - `reports/NATIVE_INIT_V716_QCA_BIND_RECONCILIATION_2026-05-24.md` – V715의 QCA6390 child-unbound는 사실이나 V703 Android reference가 QCA bind/unbind target을 거부하므로 다음 live gate를 ICNSS-QMI/WLFW readiness trigger로 재고정
@@ -279,7 +281,7 @@
 - `reports/NATIVE_INIT_V712_EXECNS_HELPER_V121_ICNSS_EDGE_PREP_2026-05-24.md` – V712 prep 결과 helper v121 static build/strings 계약과 V712 provider-first/deploy preflight wrapper가 통과했고 실제 배포와 live proof가 다음 gate
 - `reports/NATIVE_INIT_V711_ICNSS_EDGE_READONLY_LIVE_2026-05-24.md` – V711 live read-only 결과 현재 ICNSS core는 bound, QCA6390 context는 visible/unbound, `wlan0`는 absent라 다음 V712를 ICNSS-QMI/WLFW event-source window capture로 선정
 - `reports/NATIVE_INIT_V710_KERNEL_EVENT_SOURCE_CLASSIFIER_2026-05-24.md` – V710 host-only 결과 service `180/74` + provider + CNSS retry poll wait 이후 QCA6390은 visible/unbound이고 WLFW/BDF/`wlan0`가 없어 다음 target을 QCA6390 bind/power/MHI-or-ICNSS edge로 분류
-- `reports/NATIVE_INIT_V709_V708_STALL_CLASSIFIER_2026-05-24.md` – V709 host-only 결과 v120 stall snapshot에서 `cnss-daemon` retry가 service `180/74`와 provider 등록 후 `poll/futex` 대기 중이라 다음은 kernel ICNSS/WLFW event source 분류
+- `reports/NATIVE_INIT_V709_V708_STALL_CLASSIFIER_2026-05-24.md` – V709 host-only 결과 v120 stall snapshot에서 `cnss-daemon` retry가 service `180/74`와 provider 등록 후 `poll/futex` 대기 중이라 다음은 kernel CNSS/WLFW event source 분류
 - `reports/NATIVE_INIT_V708_PROVIDER_FIRST_CNSS_V120_STALL_LIVE_2026-05-24.md` – V708 live 결과 helper v120 provider-first path가 service `180/74`, provider 등록, post-provider CNSS retry, stall snapshot을 모두 통과했지만 WLFW/BDF/`wlan0`는 여전히 0
 - `reports/NATIVE_INIT_V707_LOWER_REPLAY_AND_V120_DEPLOY_2026-05-24.md` – V707 결과 V598-class replay는 QRTR/sysmon까지만 복원하고 service `180`은 미재현했으며 helper v120 deploy는 성공
 - `reports/NATIVE_INIT_V706_CNSS2_PD_NOTIFIER_READONLY_LIVE_2026-05-24.md` – V706 live 결과 현재 부팅은 service-notifier `180`이 재현되지 않고 `mss`/`mdm3`가 `OFFLINING`이라 CNSS retry/HAL보다 lower modem/WLAN-PD readiness 복원이 선행되어야 함
