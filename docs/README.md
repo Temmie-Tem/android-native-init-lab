@@ -143,6 +143,7 @@
 - `plans/NATIVE_INIT_V102_DIAGNOSTICS_PLAN_2026-05-03.md` – v102 diagnostics/log bundle 실행 계획
 - `plans/NATIVE_INIT_V103_WIFI_INVENTORY_PLAN_2026-05-04.md` – v103 Wi-Fi read-only inventory 실행 계획
 - `plans/NATIVE_INIT_V104_WIFI_FEASIBILITY_PLAN_2026-05-04.md` – v104 Wi-Fi enablement feasibility gate 실행 계획
+- `plans/NATIVE_INIT_V711_ICNSS_EDGE_READONLY_PLAN_2026-05-24.md` – V710의 QCA6390/WLFW event-source 결과를 현재 ICNSS 모델로 재정렬해 다음 target을 qca bind 쓰기가 아닌 ICNSS-QMI/WLFW readiness edge로 고정하는 read-only 계획
 - `plans/NATIVE_INIT_V710_KERNEL_EVENT_SOURCE_CLASSIFIER_PLAN_2026-05-24.md` – V708/V709 provider-first CNSS stall과 Android 기준 증거를 대조해 service `180/74` 이후 QCA6390/ICNSS/WLFW event source gap을 host-only로 분류하는 계획
 - `plans/NATIVE_INIT_V708_PROVIDER_FIRST_CNSS_V120_STALL_PLAN_2026-05-24.md` – helper v120으로 provider-first CNSS retry를 재실행해 `cnss_daemon_retry` live stall snapshot을 수집하는 계획
 - `plans/NATIVE_INIT_V706_CNSS2_PD_NOTIFIER_READONLY_PLAN_2026-05-24.md` – service-notifier `180` 이후 kernel `icnss`/CNSS pd-notifier 및 QCA6390 power/WLFW 진행 여부를 현재 부팅에서 read-only로 분류하는 계획
@@ -262,6 +263,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V711_ICNSS_EDGE_READONLY_LIVE_2026-05-24.md` – V711 live read-only 결과 현재 ICNSS core는 bound, QCA6390 context는 visible/unbound, `wlan0`는 absent라 다음 V712를 ICNSS-QMI/WLFW event-source window capture로 선정
 - `reports/NATIVE_INIT_V710_KERNEL_EVENT_SOURCE_CLASSIFIER_2026-05-24.md` – V710 host-only 결과 service `180/74` + provider + CNSS retry poll wait 이후 QCA6390은 visible/unbound이고 WLFW/BDF/`wlan0`가 없어 다음 target을 QCA6390 bind/power/MHI-or-ICNSS edge로 분류
 - `reports/NATIVE_INIT_V709_V708_STALL_CLASSIFIER_2026-05-24.md` – V709 host-only 결과 v120 stall snapshot에서 `cnss-daemon` retry가 service `180/74`와 provider 등록 후 `poll/futex` 대기 중이라 다음은 kernel ICNSS/WLFW event source 분류
 - `reports/NATIVE_INIT_V708_PROVIDER_FIRST_CNSS_V120_STALL_LIVE_2026-05-24.md` – V708 live 결과 helper v120 provider-first path가 service `180/74`, provider 등록, post-provider CNSS retry, stall snapshot을 모두 통과했지만 WLFW/BDF/`wlan0`는 여전히 0
