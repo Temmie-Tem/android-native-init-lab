@@ -130,6 +130,7 @@
 
 ### 3. Plans
 
+- `plans/NATIVE_INIT_V721_SERVREG_CNSS2_DELTA_PLAN_2026-05-24.md` – Android V622와 native V720을 host-only로 비교해 service `180/74` 이후 SERVREG/WLAN-PD/CNSS2 callback 경계가 다음 blocker인지 분류하는 계획
 - `plans/NATIVE_INIT_V720_SAME_WINDOW_CNSS2_OBSERVER_PLAN_2026-05-24.md` – V712 service-positive window, V706 current read-only capture, and V719 reconciliation을 한 번에 묶어 `qrtr-ns`/SERVREG/CNSS2 trigger gap을 같은 창에서 확인하는 계획
 - `plans/NATIVE_INIT_V719_CNSS2_SERVICE_POSITIVE_RECONCILE_PLAN_2026-05-24.md` – V717 service `180/74` 양성 창과 V718 current-boot lower-not-ready 상태를 분리해, 다음 gate를 same-window CNSS2 notifier/SERVREG 관측으로 고정하는 host-only 계획
 - `plans/NATIVE_INIT_V718_CNSS2_PD_NOTIFIER_CURRENT_HARDENING_PLAN_2026-05-24.md` – V666/V706 read-only CNSS2 pd-notifier check를 current boot에서 안전하게 재사용하도록 busy-capture 차단과 QCA power/MHI 마커 정밀화를 추가하는 계획
@@ -270,6 +271,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V721_SERVREG_CNSS2_DELTA_2026-05-24.md` – Android는 service `180/74` 이후 WLAN-PD/QMI/BDF/fw-ready/`wlan0`까지 진행하지만 native V720은 `qrtr-ns`와 service `180/74` 이후 `SERVICE_STATE_UP`/WLAN-PD/CNSS2/QCA/WLFW 진행이 없어 다음 gate를 SERVREG/CNSS2 callback 관측으로 고정
 - `reports/NATIVE_INIT_V720_SAME_WINDOW_CNSS2_OBSERVER_LIVE_2026-05-24.md` – V720 live 결과 `qrtr-ns`와 service `180/74`는 확인됐지만 `SERVICE_STATE_UP`/`wlan_pd`/CNSS2 pd-notifier/QCA power/WLFW/BDF/`wlan0`가 모두 없어 같은 창 CNSS2 trigger gap을 확정
 - `reports/NATIVE_INIT_V719_CNSS2_SERVICE_POSITIVE_RECONCILE_2026-05-24.md` – V717 same-window service `180/74` 양성 증거에는 CNSS2 pd-notifier/QCA power/MHI/WLFW/`wlan0` 진행이 없고, V718 post-cleanup current boot는 lower-not-ready라 다음은 same-window CNSS2/SERVREG 관측 gate임을 확정
 - `reports/NATIVE_INIT_V718_CNSS2_PD_NOTIFIER_CURRENT_HARDENING_2026-05-24.md` – V706 read-only classifier에 menu busy 차단과 QCA power/MHI 마커 정밀화를 추가하고, 현재 부팅은 service `180/74` 부재 + `mss`/`mdm3` `OFFLINING` 상태라 lower modem/WLAN-PD readiness 복원이 먼저임을 재확인
