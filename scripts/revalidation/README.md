@@ -387,6 +387,33 @@ python3 ./scripts/revalidation/ncm_host_setup.py status
 python3 ./scripts/revalidation/ncm_host_setup.py off
 ```
 
+Host에 A90 NCM udev 자동 설정이 설치된 경우에는 A90 NCM 인터페이스가
+생길 때 host IP가 자동으로 설정된다. 이 경우 매번 수동
+`sudo ip addr replace 192.168.7.1/24 dev <ifname>`가 필요하지 않다.
+
+- udev rule: `/etc/udev/rules.d/90-a90-ncm.rules`
+- match: `cdc_ncm` driver + Samsung VID `04e8`
+- action: `/usr/local/sbin/a90-ncm-up <ifname>`
+- result: `ip link set <ifname> up` + `192.168.7.1/24`
+
+udev 자동 설정 최초 설치 (1회, operator가 직접 실행):
+
+```bash
+python3 scripts/revalidation/a90_ncm_host_preflight.py --no-ping run
+sudo cp tmp/host/a90-ncm-host-preflight/templates/a90-ncm-up.sh /usr/local/sbin/a90-ncm-up
+sudo chmod 755 /usr/local/sbin/a90-ncm-up
+sudo cp tmp/host/a90-ncm-host-preflight/templates/90-a90-ncm.rules /etc/udev/rules.d/
+sudo udevadm control --reload-rules
+```
+
+주의: `enx*` 인터페이스가 항상 A90 NCM인 것은 아니다. USB 허브를 통한
+유선 LAN 어댑터도 `enx*` 이름을 가질 수 있다. preflight는 인터페이스
+이름이 아니라 실제 IP 주소로 확인한다:
+
+```bash
+ip -4 addr show | grep 192.168.7.1
+```
+
 TCP nettest helper 빌드 예:
 
 ```bash
