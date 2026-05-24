@@ -298,6 +298,11 @@ path should be closed for this blocker.
 | v766 | `A90V765` patch applies and defconfig passes in disposable OSRC tree |
 | v767 | instrumented ICNSS/QCACLD objects compile; final Image blocked by RKP_CFP Python2 post-link |
 | v768 | mdm_helper/esoc direct retry branch closed; route to RKP_CFP/Python2 packaging gate |
+| v775 | V771/V774 custom OSRC kernel boot failures classified; custom-kernel flashing paused |
+| v776 | stock v724 tracepoint inventory confirms static tracepoints remain usable |
+| v781 | BPF idle attach/detach passes on `msm_pil_event:pil_notif` |
+| v782 | BPF counter around lower-window `boot_wlan`: 8 PIL notifications counted, but no service 69/74/180, WLFW/BDF, or `wlan0` |
+| v783 | host-only Android/native gap classifier: first divergence is post-sysmon before service-notifier 74/180; native memshare/CMA failure at sysmon window becomes next read-only lead |
 
 ### Safety additions (Wi-Fi research)
 

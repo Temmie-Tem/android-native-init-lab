@@ -3003,3 +3003,16 @@ Samsung bootloader
 - result: BPF counter captured `event_count=8` on `msm_pil_event:pil_notif` during the lower-window transition. `mss` reached `ONLINE`, QRTR RX/TX and `sysmon-qmi` appeared, and `boot_wlan` executed, but `mdm3` stayed `OFFLINING`; service `69/74/180`, WLFW/BDF, wiphy, and `wlan0` remained absent.
 - hard gates: no Wi-Fi HAL/service-manager, scan/connect, credential use, DHCP/routes/external ping, `qcwlanstate ON`, module load/unload, sysfs bind/unbind, `esoc0`, boot image write, or partition write was executed.
 - next: V783 should classify Android vs native PIL notification names/codes or related mdm3/WLAN-PD trigger evidence before any further live trigger.
+
+### V783. Android/Native PIL Gap Classifier
+
+- plan: `docs/plans/NATIVE_INIT_V783_ANDROID_NATIVE_PIL_GAP_PLAN_2026-05-25.md`
+- report: `docs/reports/NATIVE_INIT_V783_ANDROID_NATIVE_PIL_GAP_2026-05-25.md`
+- runner: `scripts/revalidation/native_wifi_android_native_pil_gap_v783.py`
+- evidence:
+  - `tmp/wifi/v783-android-native-pil-gap/manifest.json`
+  - `tmp/wifi/v783-android-native-pil-gap/summary.md`
+- decision: `v783-mdm3-wlan-pd-gap-memshare-lead-classified`
+- result: host-only PASS. Android reference reaches service-notifier `74/180`, WLAN-PD indication, ICNSS-QMI, BDF, firmware-ready, and `wlan0`; native V782 reaches `mss ONLINE`, QRTR RX/TX, modem `sysmon-qmi`, service-locator, and HDD control-surface creation but lacks service-notifier `74/180` and everything downstream. Native V782 also shows memshare/CMA allocation failures at the sysmon window.
+- hard gates: no device command, reboot, boot image or partition write, Wi-Fi HAL/service-manager, scan/connect, credential use, DHCP/routes/external ping, `qcwlanstate ON`, module load/unload, bind/unbind, or `esoc0` access was executed.
+- next: V784 should be read-only and target memshare/CMA/reserved-memory plus matching Android/native dmesg recapture before any further live trigger.
