@@ -2615,3 +2615,16 @@ Samsung bootloader
 - result: bounded live proof passed. Tracefs mount returned `0`, controls were readable only for `available_tracers`, `current_tracer`, `tracing_on`, and `trace`; `available_filter_functions`, `set_ftrace_filter`, and `set_graph_function` were not readable. Target filter hits were `0`. Cleanup unmounted tracefs and postflight confirmed `mount_tracefs=no`.
 - interpretation: ftrace/function-filter instrumentation is not available for the HDD/PLD target on this kernel state. Do not proceed to ftrace write or boot_wlan trace pairing.
 - next: V756 should plan non-ftrace HDD/PLD observability: Android/native dmesg differential expansion, source-backed boot image/kernel-log instrumentation feasibility, or another safe non-ftrace signal path. Keep service-manager, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, and external ping blocked.
+
+### V756. Non-ftrace HDD/PLD Observability
+
+- plan: `docs/plans/NATIVE_INIT_V756_NONFTRACE_HDD_PLD_OBSERVABILITY_PLAN_2026-05-24.md`
+- report: `docs/reports/NATIVE_INIT_V756_NONFTRACE_HDD_PLD_OBSERVABILITY_2026-05-24.md`
+- runner: `scripts/revalidation/native_wifi_nonftrace_hdd_pld_observability_v756.py`
+- evidence:
+  - plan `tmp/wifi/v756-nonftrace-hdd-pld-observability-plan/`
+  - run `tmp/wifi/v756-nonftrace-hdd-pld-observability/`
+- decision: `v756-nonftrace-live-observers-exhausted`
+- result: read-only classifier passed. Dynamic debug is not compiled in and has no control catalog; kprobes and kprobe events are not configured; printk exists but current dmesg does not expose the missing PLD/HDD/register-driver boundary; target kallsyms remain partially visible; no wiphy or `wlan0` appeared.
+- interpretation: live ftrace/dyndbg/kprobe instrumentation is not available on this kernel state. Another `boot_wlan` retry will not add evidence.
+- next: V757 should either perform expanded Android/native dmesg differential analysis around the HDD/PLD window or plan a rollback-safe boot-image/kernel-log instrumentation unit. Keep service-manager, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, and external ping blocked.
