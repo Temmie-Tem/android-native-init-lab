@@ -303,6 +303,7 @@ path should be closed for this blocker.
 | v781 | BPF idle attach/detach passes on `msm_pil_event:pil_notif` |
 | v782 | BPF counter around lower-window `boot_wlan`: 8 PIL notifications counted, but no service 69/74/180, WLFW/BDF, or `wlan0` |
 | v783 | host-only Android/native gap classifier: first divergence is post-sysmon before service-notifier 74/180; native memshare/CMA failure at sysmon window becomes next read-only lead |
+| v784 | live read-only memshare/CMA surface: client_4/CMA/reserved-memory present, idle CMA headroom exceeds V782 request sum, so next lead is client registration/timing or Android/native memshare behavior |
 
 ### Safety additions (Wi-Fi research)
 

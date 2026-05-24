@@ -3016,3 +3016,17 @@ Samsung bootloader
 - result: host-only PASS. Android reference reaches service-notifier `74/180`, WLAN-PD indication, ICNSS-QMI, BDF, firmware-ready, and `wlan0`; native V782 reaches `mss ONLINE`, QRTR RX/TX, modem `sysmon-qmi`, service-locator, and HDD control-surface creation but lacks service-notifier `74/180` and everything downstream. Native V782 also shows memshare/CMA allocation failures at the sysmon window.
 - hard gates: no device command, reboot, boot image or partition write, Wi-Fi HAL/service-manager, scan/connect, credential use, DHCP/routes/external ping, `qcwlanstate ON`, module load/unload, bind/unbind, or `esoc0` access was executed.
 - next: V784 should be read-only and target memshare/CMA/reserved-memory plus matching Android/native dmesg recapture before any further live trigger.
+
+### V784. Native Memshare/CMA Surface
+
+- plan: `docs/plans/NATIVE_INIT_V784_MEMSHARE_CMA_SURFACE_PLAN_2026-05-25.md`
+- report: `docs/reports/NATIVE_INIT_V784_MEMSHARE_CMA_SURFACE_2026-05-25.md`
+- runner: `scripts/revalidation/native_wifi_memshare_cma_surface_v784.py`
+- evidence:
+  - `tmp/wifi/v784-memshare-cma-surface/manifest.json`
+  - `tmp/wifi/v784-memshare-cma-surface/summary.md`
+  - `tmp/wifi/v784-memshare-cma-surface/native/memshare-cma-surface.txt`
+- decision: `v784-native-memshare-cma-surface-classified`
+- result: live read-only PASS on v724. Native exposes memshare sysfs, `client_4`, CMA, and reserved-memory nodes including `linux,cma`, `pil_wlan_fw_region`, and `mhi_region`. V782 failure sizes were confirmed as `100663296` and `33554432` bytes, while current idle `CmaFree` was `243380224` bytes, larger than the V782 request sum.
+- hard gates: no boot image or partition write, reboot, mount/unmount, bind/unbind, `driver_override`, module load/unload, `boot_wlan`, `qcwlanstate ON`, service-manager/Wi-Fi HAL, scan/connect, credential use, DHCP/routes, or external ping was executed.
+- next: V785 should recapture Android and native dmesg with explicit memshare/CMA filters and map `client_4` / client id `3` registration before any further WLAN trigger.
