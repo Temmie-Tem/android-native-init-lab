@@ -320,6 +320,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V771_ROLLBACK_RECOVERY_2026-05-25.md` – V771 rollback 결과 `stage3/boot_linux_v724.img` flash/readback 후 native `version/status`, `bootstatus`, `selftest` 통과로 복구 완료 확인
 - `reports/NATIVE_INIT_V771_DIAGNOSTIC_LIVE_HANDOFF_BOOT_FAIL_2026-05-25.md` – V771 결과 V770 diagnostic image의 TWRP flash/readback은 성공했지만 reboot 후 native verify에 도달하지 못하고 Download mode로 빠져 rollback 필요 상태로 분류
 - `reports/NATIVE_INIT_V770_INSTRUMENTED_DIAGNOSTIC_BOOT_STAGING_2026-05-25.md` – V770 결과 V769 계측 kernel을 local diagnostic boot image로 repack하고 kernel roundtrip hash, native-init marker, `A90V765` marker 19개를 검증
 - `reports/NATIVE_INIT_V769_RKP_CFP_PYTHON3_PACKAGING_2026-05-25.md` – V769 결과 RKP_CFP Python3 repair 후 ICNSS/QCACLD 계측 `Image`와 `Image-dtb` 생성, 19개 `A90V765` marker 보존, live/device/Wi-Fi action 미실행을 확인

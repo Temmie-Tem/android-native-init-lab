@@ -2821,11 +2821,14 @@ Samsung bootloader
 ### V771. Diagnostic Live Handoff Boot Failure
 
 - report: `docs/reports/NATIVE_INIT_V771_DIAGNOSTIC_LIVE_HANDOFF_BOOT_FAIL_2026-05-25.md`
+- recovery_report: `docs/reports/NATIVE_INIT_V771_ROLLBACK_RECOVERY_2026-05-25.md`
 - evidence:
   - `tmp/wifi/v771-diagnostic-live-handoff-20260525-013724/native-init-flash.txt`
   - `tmp/wifi/v771-diagnostic-live-handoff-20260525-013724/abort-state.txt`
+  - `tmp/wifi/v771-rollback-v724-20260525-014803/native-init-flash-rollback.txt`
+  - `tmp/wifi/v771-rollback-v724-20260525-014803/post-rollback-verify.txt`
 - decision: `v771-instrumented-kernel-boot-failed-download-mode`
 - result: live handoff failed after a successful TWRP flash/readback. The V770 image was pushed to recovery, remote sha256 matched local, `dd` to `/dev/block/by-name/boot` completed, and boot partition prefix sha256 matched. After `twrp reboot`, native init did not verify and the phone enumerated as Samsung Download mode (`04e8:685d`) with no ADB device.
 - interpretation: the failure is not an adb push, TWRP transfer, or boot partition write mismatch. The V769/V770 instrumented OSRC kernel image is not currently boot-compatible with the known-good native-init boot image. Do not retry the same V770 image as-is.
-- recovery: rollback is pending and requires TWRP/recovery ADB or another boot-partition write path. Preferred rollback target is `stage3/boot_linux_v724.img` with expected version `A90 Linux init 0.9.68 (v724)`.
-- next: after rollback is verified, V772 should run a host-only boot incompatibility classifier before any further flash. Wi-Fi scan/connect and credential use remain blocked until `wlan0`/wiphy exists on a healthy native boot.
+- recovery: completed. TWRP flashed `stage3/boot_linux_v724.img`, remote sha256 and boot prefix sha256 matched `4ca72f17aec64153d49def4ad42a49714d27bd833623aa9423220ce2181fc682`, and native verify passed with `version/status rc=0 status=ok`. Post-rollback `bootstatus` reports `BOOT OK shell 4.1s`; `selftest` reports `pass=11 warn=1 fail=0`.
+- next: V772 should run a host-only boot incompatibility classifier before any further custom-kernel flash. Wi-Fi scan/connect and credential use remain blocked until `wlan0`/wiphy exists on a healthy native boot.
