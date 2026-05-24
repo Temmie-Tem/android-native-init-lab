@@ -2641,3 +2641,16 @@ Samsung bootloader
 - result: host-only classifier passed. Android success evidence contains QMI/BDF/FW-ready/`wlan0`; native V752 evidence contains HDD entry/qcwlanstate creation with success-marker absence; existing Android dmesg has post-FW HDD markers but no pre-QMI PLD/HDD/register-driver boundary.
 - interpretation: existing dmesg proves the gap but cannot locate the internal failing call. Live ftrace/dyndbg/kprobe routes are closed.
 - next: V758 should classify rollback-safe kernel/source/boot-image log instrumentation feasibility before any patch. Keep service-manager, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, and external ping blocked.
+
+### V758. Kernel Instrumentation Feasibility
+
+- plan: `docs/plans/NATIVE_INIT_V758_KERNEL_INSTRUMENTATION_FEASIBILITY_PLAN_2026-05-24.md`
+- report: `docs/reports/NATIVE_INIT_V758_KERNEL_INSTRUMENTATION_FEASIBILITY_2026-05-24.md`
+- runner: `scripts/revalidation/native_wifi_kernel_instrumentation_feasibility_v758.py`
+- evidence:
+  - plan `tmp/wifi/v758-kernel-instrumentation-feasibility-plan/`
+  - run `tmp/wifi/v758-kernel-instrumentation-feasibility/`
+- decision: `v758-source-acquisition-required-before-kernel-instrumentation`
+- result: host-only classifier passed. Boot image tooling and rollback artifacts exist, including current/v319/v261/v48 images, but exact local kernel/QCACLD/CNSS source is absent.
+- interpretation: boot-image handoff is feasible after source exists, but patching now would be blind and should remain blocked.
+- next: V759 should acquire or stage exact SM-A908N/A908NKSU5EWA3-compatible Samsung kernel source and verify target files before any instrumentation patch. Keep live device, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, and external ping blocked.
