@@ -76,7 +76,7 @@
 #define AF_QIPCRTR 42
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v119"
+#define EXECNS_VERSION "a90_android_execns_probe v120"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -9571,6 +9571,180 @@ static int append_proc_fd_links_compact(struct buffer *buf, pid_t pid, const cha
                          label);
 }
 
+static bool decimal_name(const char *name) {
+    if (name == NULL || *name == '\0') {
+        return false;
+    }
+    for (const char *ptr = name; *ptr != '\0'; ptr++) {
+        if (*ptr < '0' || *ptr > '9') {
+            return false;
+        }
+    }
+    return true;
+}
+
+static int append_proc_task_stall_capture(struct buffer *buf, pid_t pid, const char *label) {
+    char task_path[MAX_PATH_LEN];
+    DIR *dir;
+    struct dirent *entry;
+    int count = 0;
+    int shown = 0;
+    bool truncated = false;
+
+    if (snprintf(task_path, sizeof(task_path), "/proc/%ld/task", (long)pid) >= (int)sizeof(task_path)) {
+        return append_format(buf,
+                             "capture.%s.stall_tasks.begin=1\n"
+                             "capture.%s.stall_tasks.error=path-too-long\n"
+                             "capture.%s.stall_tasks.end=1\n",
+                             label,
+                             label,
+                             label);
+    }
+    if (append_format(buf,
+                      "capture.%s.stall_tasks.begin=1\n"
+                      "capture.%s.stall_tasks.path=%s\n",
+                      label,
+                      label,
+                      task_path) < 0) {
+        return -1;
+    }
+    dir = opendir(task_path);
+    if (dir == NULL) {
+        return append_format(buf,
+                             "capture.%s.stall_tasks.error=%s\n"
+                             "capture.%s.stall_tasks.end=1\n",
+                             label,
+                             strerror(errno),
+                             label);
+    }
+    while ((entry = readdir(dir)) != NULL) {
+        char path[MAX_PATH_LEN];
+        char capture_label[160];
+        bool captured = false;
+
+        if (!decimal_name(entry->d_name)) {
+            continue;
+        }
+        count++;
+        if (shown >= 16) {
+            truncated = true;
+            continue;
+        }
+        if (append_format(buf,
+                          "capture.%s.stall_tasks.entry_%02d.tid=%s\n",
+                          label,
+                          shown,
+                          entry->d_name) < 0) {
+            closedir(dir);
+            return -1;
+        }
+        if (snprintf(path, sizeof(path), "%s/%s/status", task_path, entry->d_name) < (int)sizeof(path) &&
+            snprintf(capture_label, sizeof(capture_label), "%s_stall_task_%s_status", label, entry->d_name) < (int)sizeof(capture_label) &&
+            append_path_file_capture_named(buf, path, capture_label, 4096, &captured) < 0) {
+            closedir(dir);
+            return -1;
+        }
+        if (snprintf(path, sizeof(path), "%s/%s/stat", task_path, entry->d_name) < (int)sizeof(path) &&
+            snprintf(capture_label, sizeof(capture_label), "%s_stall_task_%s_stat", label, entry->d_name) < (int)sizeof(capture_label) &&
+            append_path_file_capture_named(buf, path, capture_label, 2048, &captured) < 0) {
+            closedir(dir);
+            return -1;
+        }
+        if (snprintf(path, sizeof(path), "%s/%s/wchan", task_path, entry->d_name) < (int)sizeof(path) &&
+            snprintf(capture_label, sizeof(capture_label), "%s_stall_task_%s_wchan", label, entry->d_name) < (int)sizeof(capture_label) &&
+            append_path_file_capture_named(buf, path, capture_label, 1024, &captured) < 0) {
+            closedir(dir);
+            return -1;
+        }
+        if (snprintf(path, sizeof(path), "%s/%s/syscall", task_path, entry->d_name) < (int)sizeof(path) &&
+            snprintf(capture_label, sizeof(capture_label), "%s_stall_task_%s_syscall", label, entry->d_name) < (int)sizeof(capture_label) &&
+            append_path_file_capture_named(buf, path, capture_label, 1024, &captured) < 0) {
+            closedir(dir);
+            return -1;
+        }
+        shown++;
+    }
+    closedir(dir);
+    return append_format(buf,
+                         "capture.%s.stall_tasks.count=%d\n"
+                         "capture.%s.stall_tasks.shown=%d\n"
+                         "capture.%s.stall_tasks.truncated=%d\n"
+                         "capture.%s.stall_tasks.end=1\n",
+                         label,
+                         count,
+                         label,
+                         shown,
+                         label,
+                         truncated ? 1 : 0,
+                         label);
+}
+
+static int append_cnss_stall_snapshot_capture(struct buffer *buf, pid_t pid, const char *label) {
+    bool wchan_captured = false;
+    bool syscall_captured = false;
+    bool stack_captured = false;
+    bool stat_captured = false;
+    bool sched_captured = false;
+    bool netlink_captured = false;
+    bool unix_captured = false;
+    bool qrtr_captured = false;
+    bool protocols_captured = false;
+    bool task_captured = false;
+
+    if (append_format(buf,
+                      "capture.%s.stall_snapshot.begin=1\n"
+                      "capture.%s.stall_snapshot.pid=%ld\n",
+                      label,
+                      label,
+                      (long)pid) < 0 ||
+        append_proc_file_capture_named(buf, pid, "wchan", "wifi_stall_cnss_wchan", 1024, &wchan_captured) < 0 ||
+        append_proc_file_capture_named(buf, pid, "syscall", "wifi_stall_cnss_syscall", 1024, &syscall_captured) < 0 ||
+        append_proc_file_capture_named(buf, pid, "stack", "wifi_stall_cnss_stack", 8192, &stack_captured) < 0 ||
+        append_proc_file_capture_named(buf, pid, "stat", "wifi_stall_cnss_stat", 2048, &stat_captured) < 0 ||
+        append_proc_file_capture_named(buf, pid, "sched", "wifi_stall_cnss_sched", 8192, &sched_captured) < 0 ||
+        append_path_file_capture_named(buf, "/proc/net/netlink", "wifi_stall_proc_net_netlink", 32768, &netlink_captured) < 0 ||
+        append_path_file_capture_named(buf, "/proc/net/unix", "wifi_stall_proc_net_unix", 32768, &unix_captured) < 0 ||
+        append_path_file_capture_named(buf, "/proc/net/qrtr", "wifi_stall_proc_net_qrtr", 32768, &qrtr_captured) < 0 ||
+        append_path_file_capture_named(buf, "/proc/net/protocols", "wifi_stall_proc_net_protocols", 32768, &protocols_captured) < 0 ||
+        append_proc_task_stall_capture(buf, pid, label) < 0) {
+        return -1;
+    }
+    task_captured = true;
+    return append_format(buf,
+                         "capture.%s.stall_snapshot.wchan_captured=%d\n"
+                         "capture.%s.stall_snapshot.syscall_captured=%d\n"
+                         "capture.%s.stall_snapshot.stack_captured=%d\n"
+                         "capture.%s.stall_snapshot.stat_captured=%d\n"
+                         "capture.%s.stall_snapshot.sched_captured=%d\n"
+                         "capture.%s.stall_snapshot.netlink_captured=%d\n"
+                         "capture.%s.stall_snapshot.unix_captured=%d\n"
+                         "capture.%s.stall_snapshot.qrtr_captured=%d\n"
+                         "capture.%s.stall_snapshot.protocols_captured=%d\n"
+                         "capture.%s.stall_snapshot.task_captured=%d\n"
+                         "capture.%s.stall_snapshot.end=1\n",
+                         label,
+                         wchan_captured ? 1 : 0,
+                         label,
+                         syscall_captured ? 1 : 0,
+                         label,
+                         stack_captured ? 1 : 0,
+                         label,
+                         stat_captured ? 1 : 0,
+                         label,
+                         sched_captured ? 1 : 0,
+                         label,
+                         netlink_captured ? 1 : 0,
+                         label,
+                         unix_captured ? 1 : 0,
+                         label,
+                         qrtr_captured ? 1 : 0,
+                         label,
+                         protocols_captured ? 1 : 0,
+                         label,
+                         task_captured ? 1 : 0,
+                         label);
+}
+
 static int append_qipcrtr_protocol_summary(struct buffer *buf, const char *prefix) {
     FILE *file;
     char line[512];
@@ -11894,6 +12068,7 @@ struct composite_child {
     bool proc_attr_current_captured;
     bool fd_summary_captured;
     bool maps_summary_captured;
+    bool stall_snapshot_captured;
     bool traced;
     bool trace_initial_stop;
     bool capture_exec;
@@ -13501,6 +13676,11 @@ static void composite_capture_observable_children(struct composite_child *childr
                                        &children[i].proc_attr_current_captured);
         append_proc_fd_summary(stdout_buf, children[i].pid, &children[i].fd_summary_captured);
         append_proc_fd_links_compact(stdout_buf, children[i].pid, label);
+        if (strcmp(children[i].name, "cnss_daemon") == 0 ||
+            strcmp(children[i].name, "cnss_daemon_retry") == 0) {
+            children[i].stall_snapshot_captured =
+                append_cnss_stall_snapshot_capture(stdout_buf, children[i].pid, label) == 0;
+        }
         append_proc_file_capture(stdout_buf,
                                  children[i].pid,
                                  "maps",
@@ -15323,6 +15503,7 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
                           "wifi_companion_start.child.%s.proc_attr_current_captured=%d\n"
                           "wifi_companion_start.child.%s.fd_summary_captured=%d\n"
                           "wifi_companion_start.child.%s.maps_summary_captured=%d\n"
+                          "wifi_companion_start.child.%s.stall_snapshot_captured=%d\n"
                           "wifi_companion_start.child.%s.postflight_safe=%d\n",
                           children[i].name,
                           children[i].observable ? 1 : 0,
@@ -15346,6 +15527,8 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
                           children[i].fd_summary_captured ? 1 : 0,
                           children[i].name,
                           children[i].maps_summary_captured ? 1 : 0,
+                          children[i].name,
+                          children[i].stall_snapshot_captured ? 1 : 0,
                           children[i].name,
                           safe ? 1 : 0) < 0) {
             return -1;
