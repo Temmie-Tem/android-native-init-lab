@@ -8,6 +8,12 @@
     { label, summary, { d1, d2, d3, d4, d5 } }
 
 static const struct a90_changelog_entry changelog_entries[] = {
+    ENTRY("0.9.68 v724", "QRTR SERVICE-LOCATOR BOOT PROOF",
+          "0.9.68 v724 QRTR SERVICE-LOCATOR BOOT PROOF",
+          "Adds opt-in post-ACM QRTR/service-locator lower companion proof",
+          "Starts only qrtr-ns, pd-mapper, rmt_storage, and tftp_server",
+          "Spawns helper out-of-line so PID1 returns to shell without waiting",
+          "Keeps CNSS daemon, Wi-Fi HAL, scan/connect, credentials, and external ping blocked"),
     ENTRY("0.9.67 v641", "FIRMWARE-BACKED SIBLING SSCTL PROOF",
           "0.9.67 v641 FIRMWARE-BACKED SIBLING SSCTL PROOF",
           "Mounts apnhlos and modem firmware surfaces read-only before proof",

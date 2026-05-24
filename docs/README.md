@@ -131,6 +131,7 @@
 ### 3. Plans
 
 - `plans/NATIVE_INIT_V723_QRTR_SERVICE_LOCATOR_REARM_PLAN_2026-05-24.md` – boot-time `servloc` timeout 이후 lower-only `qrtr-ns`/service-locator 재연결이 WLAN-PD service `180/74`까지 복구하는지 분류하는 계획
+- `plans/NATIVE_INIT_V724_QRTR_SERVICE_LOCATOR_BOOT_PROOF_PLAN_2026-05-24.md` – V723 late rearm 한계를 반영해 post-ACM boot window에서 lower-only `qrtr-ns`/`pd-mapper`/`rmt_storage`/`tftp_server`를 one-shot으로 시작하는 V724 계획
 - `plans/NATIVE_INIT_V722_CNSS_LAUNCH_WINDOW_PLAN_2026-05-24.md` – Android V622, native V659/V660, V720을 비교해 early CNSS binder failure와 provider-first late CNSS launch 사이 tradeoff를 분류하는 계획
 - `plans/NATIVE_INIT_V721_SERVREG_CNSS2_DELTA_PLAN_2026-05-24.md` – Android V622와 native V720을 host-only로 비교해 service `180/74` 이후 SERVREG/WLAN-PD/CNSS2 callback 경계가 다음 blocker인지 분류하는 계획
 - `plans/NATIVE_INIT_V720_SAME_WINDOW_CNSS2_OBSERVER_PLAN_2026-05-24.md` – V712 service-positive window, V706 current read-only capture, and V719 reconciliation을 한 번에 묶어 `qrtr-ns`/SERVREG/CNSS2 trigger gap을 같은 창에서 확인하는 계획
@@ -274,6 +275,7 @@
 ### 4. Current Native Init Reports
 
 - `reports/NATIVE_INIT_V723_QRTR_SERVICE_LOCATOR_REARM_LIVE_2026-05-24.md` – lower-only `qrtr-ns`/`pd-mapper`/`rmt_storage`/`tftp_server` late rearm은 service-locator 재연결까지만 만들고 service `180/74`/CNSS2/WLFW/`wlan0`는 복구하지 못해 다음 gate를 boot-time lower companion proof로 고정
+- `reports/NATIVE_INIT_V724_QRTR_SERVICE_LOCATOR_BOOT_PROOF_LIVE_2026-05-24.md` – post-ACM one-shot V724 boot hook은 service-locator를 4.408초에 연결하고 기존 `servloc` timeout을 제거했지만 service `180/74`/CNSS2/WLFW/`wlan0`는 여전히 없어 다음 gate를 SERVREG/WLAN-PD publication gap으로 고정
 - `reports/NATIVE_INIT_V722_CNSS_LAUNCH_WINDOW_2026-05-24.md` – early native CNSS는 binder failure를 만들고 provider-first native CNSS는 그 failure를 제거하지만 Android WLFW timing보다 늦게 `cnss-daemon`을 시작함을 확인해 다음 gate를 provider-preserving earlier CNSS retry로 고정
 - `reports/NATIVE_INIT_V721_SERVREG_CNSS2_DELTA_2026-05-24.md` – Android는 service `180/74` 이후 WLAN-PD/QMI/BDF/fw-ready/`wlan0`까지 진행하지만 native V720은 `qrtr-ns`와 service `180/74` 이후 `SERVICE_STATE_UP`/WLAN-PD/CNSS2/QCA/WLFW 진행이 없어 다음 gate를 SERVREG/CNSS2 callback 관측으로 고정
 - `reports/NATIVE_INIT_V720_SAME_WINDOW_CNSS2_OBSERVER_LIVE_2026-05-24.md` – V720 live 결과 `qrtr-ns`와 service `180/74`는 확인됐지만 `SERVICE_STATE_UP`/`wlan_pd`/CNSS2 pd-notifier/QCA power/WLFW/BDF/`wlan0`가 모두 없어 같은 창 CNSS2 trigger gap을 확정
