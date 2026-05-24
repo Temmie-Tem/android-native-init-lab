@@ -2873,4 +2873,20 @@ Samsung bootloader
 - result: live handoff failed after a successful TWRP flash/readback of the V773 stock-DTB-tail image. The local image sha256 was `0fcde6e76fd0de3d2b974aad20dcbbba714e5a81b9fccf5ea2b6a67bdc06f400`; the remote pushed image matched; `dd` to `/dev/block/by-name/boot` completed; and the boot partition prefix sha256 matched. After `twrp reboot`, native init did not verify. The abort snapshot initially showed no ADB devices, and recovery/TWRP was subsequently available.
 - recovery: completed. TWRP flashed `stage3/boot_linux_v724.img`, remote sha256 and boot prefix sha256 matched `4ca72f17aec64153d49def4ad42a49714d27bd833623aa9423220ce2181fc682`, and native verify passed with `version/status rc=0 status=ok`. Current native status reports `BOOT OK shell 4.2s`; `selftest` reports `pass=11 warn=1 fail=0`.
 - interpretation: V773 eliminated the missing appended DTB tail as the sole V771 root cause, but the current Samsung OSRC-built instrumented kernel remains live-boot incompatible. V774 differs from V771 because the failure returned to or remained recoverable through TWRP/recovery instead of Download mode, but the same no-retry rule applies to the current custom-kernel artifacts.
-- next: V775 should be host-only. Compare v724 stock kernel and V773 diagnostic payload for remaining boot acceptance differences, including kernel provenance, payload size/delta, toolchain string, Samsung production transforms, RKP/CFP metadata, RTIC/DEFEX assumptions, and boot image header constraints. Prefer stock-kernel runtime observability over further custom-kernel flash until V775 identifies a safer gate.
+- next: superseded by V775. Prefer stock-kernel runtime observability over further custom-kernel flash.
+
+### V775. Boot Incompatibility Postmortem
+
+- plan: `docs/plans/NATIVE_INIT_V775_BOOT_INCOMPAT_POSTMORTEM_PLAN_2026-05-25.md`
+- report: `docs/reports/NATIVE_INIT_V775_BOOT_INCOMPAT_POSTMORTEM_2026-05-25.md`
+- runner: `scripts/revalidation/native_wifi_boot_incompat_postmortem_v775.py`
+- evidence:
+  - `tmp/wifi/v775-boot-incompat-postmortem/manifest.json`
+  - `tmp/wifi/v775-boot-incompat-postmortem/summary.md`
+  - `tmp/wifi/v775-boot-incompat-postmortem/logs/unpack-base-boot.txt`
+  - `tmp/wifi/v775-boot-incompat-postmortem/logs/unpack-diag-boot.txt`
+- decision: `v775-non-dtb-custom-kernel-incompat-classified`
+- result: host-only classifier PASS. The v724 stock and V773 diagnostic boot header args match after normalized unpack, and both kernel payloads contain three appended FDT blobs. The remaining differences are non-DTB: V773 diagnostic kernel size is `49827629` vs stock `49827613`, every appended FDT offset is shifted by `16` bytes, kernel provenance/toolchain strings differ, and coarse RKP/RTIC marker counts differ.
+- observability: config surface confirms `CONFIG_KPROBES=n`, `CONFIG_DYNAMIC_DEBUG=n`, `CONFIG_FUNCTION_TRACER=n`, `CONFIG_FTRACE=y`, `CONFIG_TRACEPOINTS=y`, `CONFIG_BPF_SYSCALL=y`, and `CONFIG_BPF_EVENTS=y`.
+- interpretation: missing appended DTB tail is no longer the sole cause. The custom OSRC kernel flash route is paused until a separate host-only compatibility gate explains the remaining production/provenance/pre-DTB delta. Repeating V770, V773, or equivalent OSRC-built images is blocked.
+- next: V776 should stay on recovered stock v724 and perform bounded read-only tracepoint inventory only: capture `available_events`, search ICNSS/WLAN/QMI/QRTR candidates, and classify whether a later BPF tracepoint attach proof is worth attempting. No custom kernel flash.
