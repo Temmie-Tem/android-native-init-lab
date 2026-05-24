@@ -2971,3 +2971,18 @@ Samsung bootloader
 - result: serial deploy to `/cache/bin/a90_bpf_trace_probe` PASS. Remote sha256 matched `9d8fdfeaa9281ba814db62ddc588b37959021d68fbd08164ae366dde3f08b1c3`. `--check-only` and default no-argument modes both printed marker `a90_bpf_trace_probe v779`, `result=check-only`, and `attach_attempted=0`.
 - hard gates: no `--allow-attach`, BPF attach, ftrace control write, Wi-Fi action, scan/connect, credential use, DHCP/routes/external ping, reboot/flash/partition write was executed.
 - next: V781 may be planned as a separate bounded idle attach/detach proof for `msm_pil_event:pil_notif`.
+
+### V781. BPF Idle Attach Classifier
+
+- plan: `docs/plans/NATIVE_INIT_V781_BPF_IDLE_ATTACH_PLAN_2026-05-25.md`
+- report: `docs/reports/NATIVE_INIT_V781_BPF_IDLE_ATTACH_2026-05-25.md`
+- runner: `scripts/revalidation/native_wifi_bpf_idle_attach_v781.py`
+- evidence:
+  - `tmp/wifi/v781-bpf-idle-attach/manifest.json`
+  - `tmp/wifi/v781-bpf-idle-attach/summary.md`
+  - `tmp/wifi/v781-bpf-idle-attach/native/helper-allow-attach.txt`
+  - `tmp/wifi/v781-bpf-idle-attach/native/status-after.txt`
+- decision: `v781-bpf-idle-attach-detach-pass`
+- result: BPF tracepoint attach/detach PASS on stock v724. Tracepoint `msm_pil_event:pil_notif` id was `595`; helper returned `bpf_prog_fd=3`, `result=attach-detach-pass`, `attach_attempted=1`. Tracefs cleanup passed and status after remained `BOOT OK`.
+- hard gates: no modem/WLAN trigger, Wi-Fi HAL/service-manager, scan/connect, credential use, DHCP/routes/external ping, module load/unload, sysfs bind/unbind, reboot/flash/partition write was executed.
+- next: V782 can use the BPF observer around one bounded modem/WLAN state transition, still without Wi-Fi scan/connect or external networking.
