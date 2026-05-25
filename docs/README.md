@@ -130,6 +130,7 @@
 
 ### 3. Plans
 
+- `plans/NATIVE_INIT_V927_CNSS_BEFORE_ESOC_COMPACT_LIVE_PLAN_2026-05-26.md` – helper `v153` compact CNSS surface로 V923 CNSS-before-eSoC live gate를 재실행해 transcript truncation 없이 WLFW precondition gap을 확인하는 V927 계획
 - `plans/NATIVE_INIT_V926_HELPER_V153_DEPLOY_PLAN_2026-05-26.md` – helper `v153`를 `/cache/bin/a90_android_execns_probe`로 deploy-only 배포하고 remote checksum parity를 증명하는 V926 계획
 - `plans/NATIVE_INIT_V925_CNSS_RUNTIME_NAMESPACE_SUPPORT_PLAN_2026-05-26.md` – V924가 지정한 CNSS runtime namespace/output-throttle blocker를 helper `v153` source/build-only로 수리하는 V925 계획
 - `plans/NATIVE_INIT_V924_CNSS_WLFW_PRECONDITION_GAP_PLAN_2026-05-26.md` – V923 이후 CNSS가 `cld80211` netlink에는 도달하지만 WLFW/BDF/`wlan0`로 진행하지 못하는 precondition gap을 host-only로 분류하는 V924 계획
@@ -430,6 +431,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V927_CNSS_BEFORE_ESOC_COMPACT_LIVE_2026-05-26.md` – helper `v153` compact CNSS-before-eSoC live gate 결과; runtime namespace repair와 compact output은 동작하지만 WLFW precondition이 없어 `/dev/subsys_esoc0` open 없이 fail-closed PASS로 분류한 V927 결과
 - `reports/NATIVE_INIT_V926_HELPER_V153_DEPLOY_2026-05-26.md` – helper `v153`를 serial safe chunk로 `/cache/bin/a90_android_execns_probe`에 deploy하고 remote checksum, bootstatus/selftest, no-daemon/no-Wi-Fi guard를 확인한 V926 결과
 - `reports/NATIVE_INIT_V925_CNSS_RUNTIME_NAMESPACE_SUPPORT_2026-05-26.md` – helper `v153`에 compact CNSS-before-eSoC output throttle과 linkerconfig/APEX/VNDK/property-context runtime namespace reporting을 source/build-only로 추가한 V925 결과
 - `reports/NATIVE_INIT_V924_CNSS_WLFW_PRECONDITION_GAP_2026-05-26.md` – V923 결과를 host-only로 분류해 native CNSS가 `cld80211` netlink에는 도달하지만 linkerconfig/property-context namespace gap 때문에 WLFW/BDF/`wlan0`로 진행하지 못함을 정리한 V924 결과
