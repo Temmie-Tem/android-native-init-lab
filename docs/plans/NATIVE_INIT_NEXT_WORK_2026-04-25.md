@@ -25,9 +25,9 @@
 
 ## 현재 Wi-Fi Gate
 
-- 최신 기준: V891/V892 conditional eSoC response proof pass. Helper `v142`
-  is deployed, `ESOC_IMG_XFER_DONE` succeeds, and `ESOC_GET_STATUS` remains
-  not-ready.
+- 최신 기준: V893 post-image-done classifier pass. Helper `v142` is deployed,
+  `ESOC_IMG_XFER_DONE` succeeds, and the remaining blocker is the MDM2AP
+  status/ready transition after image-done.
 - V874 결론: `/dev/esoc-0` read-only control path가 live에서 열렸고
   `GET_STATUS`/`GET_ERR_FATAL`은 rc `0`, `GET_LINK_ID`는 errno `22`로
   반환됐다. 결과는 `read-only-ioctl-probe-complete`이며 created nodes cleanup,
@@ -133,6 +133,11 @@
   value `0`이어서 `ESOC_BOOT_DONE`은 보내지 않았다. cleanup reboot 후
   `bootstatus`와 `selftest fail=0`가 통과했다. 다음 후보는 V893
   post-image-done readiness classifier다.
+- V893 결론: `ESOC_IMG_XFER_DONE`은 readiness setter가 아니라
+  `MDM2AP_STATUS` readiness check를 schedule하는 notify다. ready 전환은
+  `MDM2AP_STATUS` line/IRQ가 high가 되어 `mdm->ready = true`가 되는
+  경로에 달려 있다. blind `ESOC_BOOT_DONE`은 계속 금지한다. 다음 후보는
+  V894 bounded MDM2AP status/ready observer 계획이다.
 
 - 아래 V840-V847 항목은 V874/V875 이전 경로 요약이다.
 - V840 결론: provider-first service-manager/PeripheralManager, CNSS retry,
@@ -4475,3 +4480,20 @@ Samsung bootloader
 - hard gates held: deploy-only helper replacement; no live eSoC ioctl,
   subsystem open, actor start, service-manager, Wi-Fi HAL, scan/connect,
   credentials, DHCP/routes, external ping, reboot, or Wi-Fi bring-up.
+
+### V893. Post Image-done Readiness Classifier
+
+- plan: `docs/plans/NATIVE_INIT_V893_ESOC_POST_IMG_XFER_CLASSIFIER_PLAN_2026-05-26.md`
+- report: `docs/reports/NATIVE_INIT_V893_ESOC_POST_IMG_XFER_CLASSIFIER_2026-05-26.md`
+- classifier: `scripts/revalidation/native_wifi_esoc_post_img_xfer_classifier_v893.py`
+- evidence:
+  - `tmp/wifi/v893-esoc-post-img-xfer-classifier/manifest.json`
+- decision: `v893-post-img-xfer-status-line-classified`
+- result: host-only PASS. V891 showed `ESOC_IMG_XFER_DONE` sent and
+  `ESOC_GET_STATUS` value `0`; source shows `IMG_XFER_DONE` only schedules
+  MDM2AP status checking. Readiness still depends on the MDM2AP status/ready
+  transition.
+- hard gates held: no device command, no live eSoC ioctl, no subsystem open,
+  no `ESOC_NOTIFY`, no actor start, no Wi-Fi HAL, no scan/connect, no
+  credentials, no DHCP/routes, and no external ping.
+- next: V894 bounded MDM2AP status/ready observer planning.

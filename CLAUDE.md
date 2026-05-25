@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V891 proved `ESOC_IMG_XFER_DONE` can be sent; next is post-image-done `ESOC_GET_STATUS` not-ready classification
+- **Active research cycle**: V893 classified post-image-done blocker as MDM2AP status/ready transition; next is bounded readiness observer planning
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -605,6 +605,7 @@ path should be closed for this blocker.
 | v890 | helper v141 deploy-only: serial deploy pass; remote sha/mode marker, selftest, actor-clean, and Wi-Fi-link-clean pass; no live eSoC ioctl |
 | v891 | bounded conditional response proof: first v141 attempt failed allowlist before live action; v142 rerun sent `ESOC_IMG_XFER_DONE`, `GET_STATUS` stayed 0, no `BOOT_DONE`, cleanup reboot pass |
 | v892 | helper v142 allowlist repair/deploy: adds conditional response mode to global v235 allowlist; deploy-only pass |
+| v893 | host-only post-image-done classifier: `IMG_XFER_DONE` is not a readiness setter; next blocker is MDM2AP status/ready transition |
 
 ### Safety additions (Wi-Fi research)
 
@@ -739,8 +740,10 @@ path should be closed for this blocker.
   and deployed helper `v142`. The repaired V891 live proof observed
   `ESOC_REQ_IMG`, sent `ESOC_IMG_XFER_DONE` with rc `0`, then polled
   `ESOC_GET_STATUS` 87 times with value `0`; `ESOC_BOOT_DONE` was not sent.
-  Cleanup reboot restored healthy native selftest. Next is classifying why
-  post-image-done status stays not-ready.
+  Cleanup reboot restored healthy native selftest. V893 then classified this as
+  a post-image-done MDM2AP status/ready transition blocker: `IMG_XFER_DONE`
+  schedules status checking but does not directly set ready. Next is a bounded
+  readiness observer, not blind `BOOT_DONE` or actor/HAL start.
   Keep Wi-Fi HAL, scan/connect, DHCP/routes, credentials, external ping, live
   direct userspace `CMD_EXE`/explicit userspace `PWR_ON`, `NOTIFY`, subsystem
   writes, GPIO/sysfs/debugfs writes, module load/unload, and boot image writes

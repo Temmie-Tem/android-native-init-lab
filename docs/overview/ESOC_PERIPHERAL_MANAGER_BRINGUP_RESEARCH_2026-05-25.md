@@ -1231,3 +1231,35 @@ Next candidate:
 - V893 post-image-done readiness classifier.
 - Specifically classify what Android/mdm_helper does between
   `ESOC_IMG_XFER_DONE` and readiness/status transition.
+
+---
+
+## 35. V893 post image-done classifier result
+
+V893 classified the V891 not-ready result using staged ESOC source only.
+
+Evidence:
+
+- `tmp/wifi/v893-esoc-post-img-xfer-classifier/manifest.json`
+- `docs/plans/NATIVE_INIT_V893_ESOC_POST_IMG_XFER_CLASSIFIER_PLAN_2026-05-26.md`
+- `docs/reports/NATIVE_INIT_V893_ESOC_POST_IMG_XFER_CLASSIFIER_2026-05-26.md`
+
+Decision:
+
+- `v893-post-img-xfer-status-line-classified`
+
+Result:
+
+- `ESOC_IMG_XFER_DONE` is not a readiness setter.
+- Source shows `ESOC_IMG_XFER_DONE` schedules MDM2AP status checking when
+  `MDM2AP_STATUS` is still low.
+- Readiness requires the `MDM2AP_STATUS` line/IRQ path to set
+  `mdm->ready = true`.
+- `ESOC_BOOT_DONE` only sends `ESOC_RUN_STATE`; blind `BOOT_DONE` remains
+  blocked because it would synthesize state without proving modem readiness.
+
+Next candidate:
+
+- V894 bounded MDM2AP status/ready observer planning.
+- If no read-only status surface is available, compare Android `mdm_helper`
+  behavior around image-done -> ready before any new live action.
