@@ -1690,3 +1690,46 @@ Next candidate:
 
 - V904 should compare Android and native `mdm_helper` runtime inputs before any
   new `/dev/subsys_esoc0` open retry.
+
+---
+
+## 45. V904 mdm_helper runtime-input parity result
+
+V904 compared Android positive-control `mdm_helper` evidence with native V903
+without contacting the device.
+
+Evidence:
+
+- `scripts/revalidation/native_wifi_mdm_helper_runtime_input_parity_v904.py`
+- `tmp/wifi/v904-mdm-helper-runtime-input-parity/manifest.json`
+- `tmp/wifi/v904-mdm-helper-runtime-input-parity/summary.md`
+- `docs/plans/NATIVE_INIT_V904_MDM_HELPER_RUNTIME_INPUT_PARITY_PLAN_2026-05-26.md`
+- `docs/reports/NATIVE_INIT_V904_MDM_HELPER_RUNTIME_INPUT_PARITY_2026-05-26.md`
+
+Decision:
+
+- `v904-mdm-helper-runtime-input-parity-classified`
+
+Result:
+
+- Android contract:
+  - `mdm_helper` runs as `u:r:vendor_mdm_helper:s0`;
+  - `mdm_helper` holds `/dev/esoc-0`;
+  - `ks` reaches `/dev/mhi_0305_01.01.00_pipe_10`;
+  - `pm-service` holds `/dev/subsys_esoc0` and `/dev/subsys_modem`;
+  - `vendor.mdm_helper` is init-managed and triggered after
+    `init.svc.vendor.per_mgr=running`.
+- Native V903 contract:
+  - direct `mdm_helper` starts and is observable;
+  - `attr/current=kernel`;
+  - final state is `SyS_nanosleep`;
+  - fds are tty, pipes, and one socket;
+  - no `/dev/esoc-0`, MHI, or `ks` surface appears.
+
+Interpretation:
+
+- The current blocker is an Android runtime-contract gap, not a reason to retry
+  raw `/dev/subsys_esoc0` open.
+- V905 should design a fail-closed runtime-input repair around SELinux/init
+  service context, `pm-service`/peripheral-manager ordering, properties,
+  sockets, and environment parity.

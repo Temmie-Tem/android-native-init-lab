@@ -25,14 +25,15 @@
 
 ## 현재 Wi-Fi Gate
 
-- 최신 기준: V903 mdm_helper-only deep capture pass as diagnostic. Helper
-  `v147` is deployed. Native can start `/vendor/bin/mdm_helper`, but without
-  opening `/dev/subsys_esoc0` it does not hold `/dev/esoc-0`, does not spawn
-  `/vendor/bin/ks`, and does not touch the MHI pipe. This moves the blocker to
-  Android `mdm_helper` runtime input parity: init/service context,
-  argv/basename, properties, SELinux context, socket/fd surface, or another
-  Android-only input. Wi-Fi HAL, scan/connect, credentials, DHCP/routes, and
-  external ping remain blocked.
+- 최신 기준: V904 host-only parity confirms the blocker is Android
+  `mdm_helper` runtime input parity. Android runs `vendor.mdm_helper` as
+  `u:r:vendor_mdm_helper:s0` after `vendor.per_mgr=running`; `pm-service`
+  owns `/dev/subsys_esoc0`/`/dev/subsys_modem`, `mdm_helper` owns
+  `/dev/esoc-0`, and `ks` reaches the MHI pipe. Native V903 direct
+  `mdm_helper` remains in `kernel` context with tty/pipe/socket fds only and no
+  `/dev/esoc-0`, MHI, or `ks`. Next is V905 fail-closed runtime-input repair
+  design before any subsystem-open retry. Wi-Fi HAL, scan/connect, credentials,
+  DHCP/routes, and external ping remain blocked.
 - V874 결론: `/dev/esoc-0` read-only control path가 live에서 열렸고
   `GET_STATUS`/`GET_ERR_FATAL`은 rc `0`, `GET_LINK_ID`는 errno `22`로
   반환됐다. 결과는 `read-only-ioctl-probe-complete`이며 created nodes cleanup,
@@ -4720,3 +4721,22 @@ Samsung bootloader
   `/vendor/bin/ks`, and postflight is clean without reboot.
 - next: V904 Android/native `mdm_helper` runtime-input parity classifier before
   any new subsystem-open retry.
+
+### V904. mdm_helper Runtime Input Parity
+
+- plan: `docs/plans/NATIVE_INIT_V904_MDM_HELPER_RUNTIME_INPUT_PARITY_PLAN_2026-05-26.md`
+- report: `docs/reports/NATIVE_INIT_V904_MDM_HELPER_RUNTIME_INPUT_PARITY_2026-05-26.md`
+- classifier:
+  `scripts/revalidation/native_wifi_mdm_helper_runtime_input_parity_v904.py`
+- evidence:
+  - `tmp/wifi/v904-mdm-helper-runtime-input-parity/manifest.json`
+  - `tmp/wifi/v904-mdm-helper-runtime-input-parity/summary.md`
+- decision: `v904-mdm-helper-runtime-input-parity-classified`
+- result: host-only PASS. Android `mdm_helper` is init-managed as
+  `u:r:vendor_mdm_helper:s0`, after `vendor.per_mgr=running`, with
+  `pm-service` holding subsystem nodes and `mdm_helper`/`ks` reaching
+  `/dev/esoc-0`/MHI. Native V903 starts `mdm_helper` directly in `kernel`
+  context and never reaches the eSoC/MHI path.
+- next: V905 fail-closed runtime-input repair design; do not retry
+  `/dev/subsys_esoc0` before modelling missing init/SELinux/per_mgr/property
+  context.

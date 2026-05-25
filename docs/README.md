@@ -130,6 +130,7 @@
 
 ### 3. Plans
 
+- `plans/NATIVE_INIT_V904_MDM_HELPER_RUNTIME_INPUT_PARITY_PLAN_2026-05-26.md` – Android/native `mdm_helper` runtime input parity를 host-only로 분류하는 V904 계획
 - `plans/NATIVE_INIT_V903_MDM_HELPER_ONLY_DEEP_CAPTURE_PLAN_2026-05-26.md` – `/dev/subsys_esoc0` open 없이 native `mdm_helper` process/fd/socket surface만 capture하는 V903 계획
 - `plans/NATIVE_INIT_V902_MDM_HELPER_KS_BLOCKER_CAPTURE_PLAN_2026-05-26.md` – V900의 `/dev/subsys_esoc0` block child에 wchan/syscall/stack/status/sched capture를 추가하는 V902 계획
 - `plans/NATIVE_INIT_V901_HELPER_V145_ALLOWLIST_DEPLOY_PLAN_2026-05-26.md` – V900 첫 시도에서 드러난 helper global v235 allowlist 누락을 `v145`로 수정하고 deploy-only 배포하는 V901 계획
@@ -414,6 +415,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V904_MDM_HELPER_RUNTIME_INPUT_PARITY_2026-05-26.md` – V904 결과 native direct `mdm_helper`는 Android init/SELinux/per_mgr runtime contract가 없어 eSoC/MHI path로 진입하지 않음을 분류
 - `reports/NATIVE_INIT_V903_MDM_HELPER_ONLY_DEEP_CAPTURE_2026-05-26.md` – V903 결과 native `mdm_helper`는 observable이나 `/dev/esoc-0`/`/dev/subsys_esoc0`/MHI/`ks` surface 미진입
 - `reports/NATIVE_INIT_V902_MDM_HELPER_KS_BLOCKER_CAPTURE_2026-05-26.md` – V902 결과 block child wchan=`mdm_subsys_powerup`, stack capture PASS, native `mdm_helper`는 `/dev/esoc-0` 미보유
 - `reports/NATIVE_INIT_V901_HELPER_V145_ALLOWLIST_DEPLOY_2026-05-26.md` – V901 결과 helper `v145` allowlist repair/build/deploy PASS

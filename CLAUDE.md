@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V903 mdm_helper-only deep capture completed; next is V904 Android/native mdm_helper runtime-input parity before any subsystem-open retry
+- **Active research cycle**: V904 mdm_helper runtime-input parity completed; next is V905 fail-closed runtime-input repair design before any subsystem-open retry
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -804,11 +804,17 @@ path should be closed for this blocker.
   deployed helper `v147` and captured `mdm_helper` directly without opening
   `/dev/subsys_esoc0`: `mdm_helper` was observable but held no `/dev/esoc-0`,
   `/dev/subsys_esoc0`, or MHI pipe fd, spawned no `/vendor/bin/ks`, and
-  postflight was clean without reboot. Next is V904 Android/native
-  `mdm_helper` runtime-input parity: init/service context, argv/basename,
-  properties, SELinux context, socket/fd surface, or another Android-only
-  input before any subsystem-open retry. Wi-Fi HAL, scan/connect, credentials,
-  DHCP/routes, and external ping remain blocked until lower readiness is proven.
+  postflight was clean without reboot. V904 then classified the Android/native
+  parity gap host-only: Android runs `vendor.mdm_helper` as
+  `u:r:vendor_mdm_helper:s0` after `vendor.per_mgr=running`, `pm-service` owns
+  `/dev/subsys_esoc0` and `/dev/subsys_modem`, `mdm_helper` owns
+  `/dev/esoc-0`, and `ks` reaches `/dev/mhi_0305_01.01.00_pipe_10`; native
+  V903 direct `mdm_helper` stays in `kernel` context with tty/pipe/socket fds
+  only. Next is V905 fail-closed runtime-input repair design around
+  SELinux/init service context, `pm-service` ordering, properties, sockets, and
+  environment before any subsystem-open retry. Wi-Fi HAL, scan/connect,
+  credentials, DHCP/routes, and external ping remain blocked until lower
+  readiness is proven.
   Keep Wi-Fi HAL, scan/connect, DHCP/routes, credentials, external ping, live
   direct userspace `CMD_EXE`/explicit userspace `PWR_ON`, `NOTIFY`, subsystem
   writes, GPIO/sysfs/debugfs writes, module load/unload, and boot image writes
