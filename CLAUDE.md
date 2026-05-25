@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: v845 selected V846 source-backed mdm3/eSoC state-control contract classification, still below HAL/connect
+- **Active research cycle**: v846 selected V847 bounded `subsys_esoc0` char-device materialize/open smoke, still below HAL/connect
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -157,7 +157,7 @@ New `vNNN` experiment scripts must:
 - Gate live action behind explicit `--allow-*` + `--assume-yes` flags
 - Run `version`, `status`, `bootstatus`, `selftest verbose` as postflight regression
 
-## Wi-Fi bring-up research state (v598–v845, active)
+## Wi-Fi bring-up research state (v598–v846, active)
 
 Goal: bring up `wlan0` from native init without Android userspace.
 
@@ -304,6 +304,19 @@ writable candidates include `esoc_link`, `esoc_link_info`, `esoc_name`,
 gate is V846: source-backed mdm3/eSoC state-control contract classification
 before any bounded write or GPIO action. HAL/connect, credentials, DHCP/routes,
 external ping, and boot-image work remain blocked.
+
+V846 host-only PASS mapped V845 candidates to OSRC source. Direct
+`/sys/.../subsys9/state` writes are rejected because `state` is
+`DEVICE_ATTR_RO(state)` with no store path. Opaque `esoc_link`/`esoc_name`
+writes and raw `/dev/esoc*` ioctls stay rejected. The source-backed userspace
+boot contract is the subsystem char-device path: `subsys_device_open()` calls
+`subsystem_get_with_fwname()` and `subsys_start()`, while release calls
+`subsystem_put()`/`subsys_stop()`. V845 provides `subsys_esoc0` uevent
+`major=236 minor=9 devname=subsys_esoc0` but no `/dev` node. The next gate is
+V847: materialize only `/dev/subsys_esoc0` and run one bounded open/hold smoke
+with watchdog, dmesg/state evidence, cleanup reboot, and postflight health.
+Still no service-manager, Wi-Fi HAL, scan/connect, credentials, DHCP/routes,
+external ping, or boot-image work.
 
 ```text
 servloc:64:257;ssctl:43:4098;servnotif:66:18945,46081;wlfw:69:1

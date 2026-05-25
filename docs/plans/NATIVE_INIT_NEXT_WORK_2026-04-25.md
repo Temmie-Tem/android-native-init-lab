@@ -25,7 +25,7 @@
 
 ## 현재 Wi-Fi Gate
 
-- 최신 기준: V845 pass.
+- 최신 기준: V846 pass.
 - V840 결론: provider-first service-manager/PeripheralManager, CNSS retry,
   prearmed WLAN-PD listener를 결합해도 native는 WLAN-PD `UNINIT` 상태이고
   `wlfw_start`, BDF, FW-ready, `wlan0`가 모두 없다.
@@ -54,6 +54,15 @@
 - 다음 후보: V846 source-backed mdm3/eSoC state-control contract classifier.
   쓰기 가능한 파일이 있다는 이유로 바로 쓰지 말고, OSRC eSoC/subsystem
   code path와 rollback 가능성을 먼저 분류한다.
+- V846 결론: direct `subsys9/state` write는 OSRC상 `DEVICE_ATTR_RO(state)`라
+  거부한다. opaque `esoc_link`/`esoc_name` write와 raw `/dev/esoc*` ioctl도
+  다음 gate로 쓰지 않는다. source-backed userspace boot contract는
+  `subsys_esoc0` char-device open 경로이며, open은
+  `subsystem_get_with_fwname()`/`subsys_start()`, release는
+  `subsystem_put()`/`subsys_stop()`으로 이어진다.
+- 다음 후보: V847 bounded live `subsys_esoc0` char-device materialize/open
+  smoke. V845 uevent `major=236 minor=9 devname=subsys_esoc0`만 사용하고,
+  watchdog, dmesg/state evidence, cleanup reboot, postflight health를 포함한다.
 - Wi-Fi HAL, scan/connect, DHCP/routes, credentials, external ping, `esoc0`,
   subsystem writes, module load/unload, boot image writes는 계속 막는다.
 
@@ -3245,3 +3254,28 @@ Samsung bootloader
   write, partition write, or custom kernel flash was executed.
 - next: V846 should classify the source-backed mdm3/eSoC state-control contract
   before any bounded write or GPIO action.
+
+### V846. mdm3/eSoC State-Control Contract
+
+- plan: `docs/plans/NATIVE_INIT_V846_MDM3_ESOC_STATE_CONTROL_CONTRACT_PLAN_2026-05-25.md`
+- report: `docs/reports/NATIVE_INIT_V846_MDM3_ESOC_STATE_CONTROL_CONTRACT_2026-05-25.md`
+- runner: `scripts/revalidation/native_wifi_mdm3_esoc_state_control_contract_v846.py`
+- evidence:
+  - `tmp/wifi/v846-mdm3-esoc-state-control-contract/manifest.json`
+  - `tmp/wifi/v846-mdm3-esoc-state-control-contract/summary.md`
+- decision: `v846-mdm3-esoc-char-open-contract-selected`
+- result: host-only PASS. OSRC rejects direct subsystem `state` write because
+  `state` is `DEVICE_ATTR_RO(state)`. `subsys_device_open()` calls
+  `subsystem_get_with_fwname()` and reaches `subsys_start()`, while close calls
+  `subsystem_put()` and can reach `subsys_stop()`. V845 provides
+  `subsys_esoc0` uevent major `236`, minor `9`, devname `subsys_esoc0`, but no
+  `/dev/subsys_esoc0` node. MHI/eSoC hooks are present downstream; raw
+  `/dev/esoc*`, opaque `esoc_link` writes, HAL/connect, and MHI `power_up` are
+  not selected as the immediate next gate.
+- hard gates: no device command, `mknod`, char-device open, sysfs/GPIO write,
+  daemon start, service-manager, Wi-Fi HAL, scan/connect, credential use,
+  DHCP/routes, external ping, boot image write, partition write, or custom
+  kernel flash was executed.
+- next: V847 should run one bounded live `subsys_esoc0` char-device
+  materialize/open/hold smoke with watchdog, dmesg/state evidence, cleanup
+  reboot, and postflight health checks.
