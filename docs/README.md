@@ -425,6 +425,7 @@
 ### 4. Current Native Init Reports
 
 - `reports/NATIVE_INIT_V913_ANDROID_ESOC_GPIO_TIMELINE_TOOL_2026-05-26.md` – Android 정상 부팅 후 GPIO135/PMIC GPIO9/GPIO142/PCIe/MDM3/KS/MHI/WLFW 양성 타임라인을 read-only로 수집하는 V913 도구와 현재 native 상태의 ADB unavailable preflight 결과
+- `reports/NATIVE_INIT_V913_ANDROID_ESOC_GPIO_TIMELINE_HANDOFF_PLAN_2026-05-26.md` – V913 Android eSoC/GPIO 양성 타임라인 collector를 Android boot/rollback handoff로 실행하기 위한 plan-mode 래퍼 검증 결과
 - `reports/NATIVE_INIT_V911_MDM_HELPER_ESOC_FD_STALL_CLASSIFIER_2026-05-26.md` – V911 결과 `mdm_helper`가 `/dev/esoc-0` fd를 보유한 상태에서 worker thread가 `ESOC_WAIT_FOR_REQ` ioctl에 진입함을 분류
 - `reports/NATIVE_INIT_V910_HELPER_V149_DEPLOY_2026-05-26.md` – V910 결과 helper `v149` deploy-only PASS, remote sha/mode marker/selftest/actor-clean/Wi-Fi-link-clean 확인
 - `reports/NATIVE_INIT_V909_MDM_HELPER_ESOC_FD_STALL_SUPPORT_2026-05-26.md` – V909 결과 helper `v149`에 `/dev/esoc-0` fdinfo와 `mdm_helper` wchan/syscall/stack/status/sched snapshot을 source/build-only로 추가
