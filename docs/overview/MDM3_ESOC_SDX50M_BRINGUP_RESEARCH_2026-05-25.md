@@ -622,3 +622,45 @@ proof and no actor start. V867 should be the first bounded live proof of the new
 init-contract mode: `pm_proxy_helper` oneshot, `per_mgr` with ioprio, and
 property-gated `per_proxy` under Android node parity. `mdm_helper`, `ks`, Wi-Fi
 HAL, scan/connect, credentials, DHCP/routes, and external ping remain blocked.
+
+## 21. V866 helper v134 deploy-only outcome
+
+V866 completed deploy-only. It installed helper `a90_android_execns_probe v134`
+to `/cache/bin/a90_android_execns_probe` and did not start any Android actor or
+Wi-Fi component.
+
+Evidence:
+
+| Unit | Path | Result |
+|---|---|---|
+| plan | `tmp/wifi/v866-execns-helper-v134-plan/manifest.json` | `execns-helper-v134-deploy-plan-ready` |
+| preflight | `tmp/wifi/v866-execns-helper-v134-preflight/manifest.json` | `execns-helper-v134-deploy-preflight-ready` |
+| deploy | `tmp/wifi/v866-execns-helper-v134-deploy-r3/manifest.json` | `execns-helper-v134-deploy-pass` |
+| post health | `tmp/wifi/v866-post-health/` | checksum/selftest/actor-clean pass |
+
+Serial deploy details:
+
+- safe chunk size: `1850`;
+- chunks written: `788`;
+- remote sha256:
+  `92792fb954de42825d328c047498c5291be803185d9897d22dd734fd9bd77582`;
+- remote helper marker: `a90_android_execns_probe v134`;
+- new mode present:
+  `wifi-companion-peripheral-manager-init-contract-start-only`.
+
+Post-deploy state:
+
+- selftest: `pass=11 warn=1 fail=0`;
+- gated actor process count: `0`;
+- Wi-Fi link count: `0`;
+- deploy wrapper `daemon_start_executed=False`;
+- deploy wrapper `wifi_bringup_executed=False`.
+
+Two earlier serial attempts used chunk sizes that exceeded the native console
+safe line limit and failed before writing chunks. The successful deploy used the
+safe 1850-byte chunk size.
+
+Next gate: V867 bounded start-only proof. It may start only
+`pm_proxy_helper`, `per_mgr`, and `per_proxy` through helper `v134` under the
+new init-contract mode. `mdm_helper`, `ks`, Wi-Fi HAL, scan/connect,
+credentials, DHCP/routes, and external ping remain blocked.

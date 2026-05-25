@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V865 built helper `v134` with PeripheralManager init-contract support; next is V866 deploy-only checksum proof, then V867 bounded `pm_proxy_helper` + `per_mgr`/`per_proxy` start-only below `mdm_helper`/HAL/connect
+- **Active research cycle**: V866 deployed helper `v134` to `/cache/bin` with checksum/version proof; next is V867 bounded `pm_proxy_helper` + `per_mgr`/`per_proxy` start-only below `mdm_helper`/HAL/connect
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -578,6 +578,7 @@ path should be closed for this blocker.
 | v863 | live read-only `pm_proxy_helper.rc` capture: `vendor.per_proxy_helper /vendor/bin/pm_proxy_helper`, `class core`, `system:system`, `disabled`, `oneshot`, started at `post-fs-data`; current `sda29` dev is `259:13` |
 | v864 | host-only helper-support classifier: current helper has runtime domain/fd capture but lacks `pm_proxy_helper`, `per_proxy_helper` SELinux mapping, `ioprio rt 4`, `init.svc.vendor.per_mgr=running`, and shutdown-stop contract support |
 | v865 | helper v134 source/build-only: adds `pm_proxy_helper`, `per_proxy_helper` SELinux mapping, `per_mgr` `ioprio rt 4`, `init.svc.vendor.per_mgr=running` proxy gate, and shutdown-stop markers; static ARM64 build passes |
+| v866 | helper v134 deploy-only: serial 1850-byte chunk deploy to `/cache/bin/a90_android_execns_probe`; remote sha/version/mode, selftest, and actor-clean state pass |
 
 ### Safety additions (Wi-Fi research)
 
@@ -618,11 +619,13 @@ path should be closed for this blocker.
   `vendor.per_mgr` `ioprio rt 4`, `init.svc.vendor.per_mgr=running` lifecycle,
   and explicit shutdown-stop semantics for `vendor.per_proxy`. V865 added those
   pieces to helper `v134` and built a static ARM64 artifact; the post-build
-  classifier now shows all source support markers present. The remaining gaps
-  are live evidence questions: runtime `attr/current` previously stayed
-  `kernel`, and `pm-service` has not yet proved `/dev/subsys_esoc0` or
-  `/dev/subsys_modem` fd holds. The next gate is V866 deploy-only checksum
-  proof, then V867 bounded start-only. Keep Wi-Fi HAL, scan/connect,
+  classifier now shows all source support markers present. V866 then deployed
+  helper `v134` to `/cache/bin/a90_android_execns_probe` by serial 1850-byte
+  chunks and proved the remote sha, usage marker, new mode token, selftest, and
+  actor-clean state. The remaining gaps are live evidence questions: runtime
+  `attr/current` previously stayed `kernel`, and `pm-service` has not yet
+  proved `/dev/subsys_esoc0` or `/dev/subsys_modem` fd holds. The next gate is
+  V867 bounded start-only. Keep Wi-Fi HAL, scan/connect,
   DHCP/routes, credentials, external ping, raw eSoC ioctl, subsystem writes,
   GPIO/sysfs/debugfs writes, module load/unload, and boot image writes blocked.
   Do not start `mdm_helper`, `ks`, HAL, or scan/connect until V867 proves PM

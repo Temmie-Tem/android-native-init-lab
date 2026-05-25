@@ -3830,3 +3830,29 @@ Samsung bootloader
 - next: V866 should deploy helper `v134` only with checksum/version proof and
   no actor start. V867 should then run the first bounded
   `pm_proxy_helper`/`per_mgr`/`per_proxy` init-contract start-only proof.
+
+### V866. Helper v134 Deploy-only Proof
+
+- plan: `docs/plans/NATIVE_INIT_V866_HELPER_V134_DEPLOY_PLAN_2026-05-25.md`
+- report: `docs/reports/NATIVE_INIT_V866_HELPER_V134_DEPLOY_2026-05-25.md`
+- deploy wrapper: `scripts/revalidation/wifi_execns_helper_v134_deploy_preflight.py`
+- evidence:
+  - `tmp/wifi/v866-execns-helper-v134-plan/manifest.json`
+  - `tmp/wifi/v866-execns-helper-v134-preflight/manifest.json`
+  - `tmp/wifi/v866-execns-helper-v134-deploy-r3/manifest.json`
+  - `tmp/wifi/v866-post-health/`
+- decision: `execns-helper-v134-deploy-pass`
+- result: deploy-only PASS. Helper `v134` was installed to
+  `/cache/bin/a90_android_execns_probe` by serial appendfile/uudecode using a
+  safe 1850-byte chunk size. Remote sha is
+  `92792fb954de42825d328c047498c5291be803185d9897d22dd734fd9bd77582`, usage
+  shows `a90_android_execns_probe v134`, and the new
+  `wifi-companion-peripheral-manager-init-contract-start-only` mode is present.
+  Post-deploy selftest is `pass=11 warn=1 fail=0`, gated actor process count is
+  `0`, and Wi-Fi link count is `0`.
+- hard gates: no actor start, no `mdm_helper`, no `ks`, no Wi-Fi HAL,
+  scan/connect, credentials, DHCP/routes, external ping, raw eSoC ioctl,
+  GPIO/sysfs/debugfs/subsystem write, module load/unload, boot image write, or
+  partition write.
+- next: V867 should run the bounded PM init-contract start-only proof with only
+  `pm_proxy_helper`, `per_mgr`, and `per_proxy` under Android node parity.
