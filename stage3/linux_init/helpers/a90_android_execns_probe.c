@@ -88,7 +88,7 @@
 #define IOPRIO_PRIO_VALUE(class_value, data) (((class_value) << IOPRIO_CLASS_SHIFT) | (data))
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v138"
+#define EXECNS_VERSION "a90_android_execns_probe v139"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -10125,6 +10125,37 @@ static int open_esoc_req_registered_subsys_child_node(int out_fd) {
     return fd;
 }
 
+static int run_esoc_wait_for_req_observer_child(int out_fd, int req_fd, int hold_sec) {
+    unsigned int request_value = 0;
+    int rc;
+    int saved_errno;
+    long started_ms = monotonic_ms();
+
+    dprintf(out_fd,
+            "esoc_req_registered_subsys_hold_preflight.wait_for_req_observer.begin=1\n"
+            "esoc_req_registered_subsys_hold_preflight.wait_for_req_observer.mode=passive\n"
+            "esoc_req_registered_subsys_hold_preflight.wait_for_req_observer.hold_sec=%d\n"
+            "esoc_req_registered_subsys_hold_preflight.wait_for_req_observer.ioctl.request=0x%lx\n",
+            hold_sec,
+            (unsigned long)A90_ESOC_WAIT_FOR_REQ);
+    errno = 0;
+    rc = ioctl(req_fd, A90_ESOC_WAIT_FOR_REQ, &request_value);
+    saved_errno = rc < 0 ? errno : 0;
+    dprintf(out_fd,
+            "esoc_req_registered_subsys_hold_preflight.wait_for_req_observer.ioctl.rc=%d\n"
+            "esoc_req_registered_subsys_hold_preflight.wait_for_req_observer.ioctl.errno=%d\n"
+            "esoc_req_registered_subsys_hold_preflight.wait_for_req_observer.ioctl.value=%u\n"
+            "esoc_req_registered_subsys_hold_preflight.wait_for_req_observer.elapsed_ms=%ld\n"
+            "esoc_req_registered_subsys_hold_preflight.wait_for_req_observer.result=%s\n"
+            "esoc_req_registered_subsys_hold_preflight.wait_for_req_observer.end=1\n",
+            rc,
+            saved_errno,
+            request_value,
+            monotonic_ms() - started_ms,
+            rc == 0 ? "request-observed" : "ioctl-error");
+    return rc == 0 ? 0 : 32;
+}
+
 static pid_t wait_for_child_session_pgid(pid_t pid, long timeout_ms);
 
 static int run_subsys_hold_open_proof(const struct config *cfg,
@@ -10306,7 +10337,7 @@ static int run_subsys_hold_open_proof(const struct config *cfg,
         struct pollfd fds[1];
         int nfds = 0;
 
-        if (!child_done && monotonic_ms() >= deadline) {
+        if (monotonic_ms() >= deadline) {
             *timed_out = true;
             break;
         }
@@ -10337,21 +10368,22 @@ static int run_subsys_hold_open_proof(const struct config *cfg,
             }
         }
     }
-    if (!child_done) {
+    if (!child_done || stdout_open) {
         if (kill(-pgid, SIGTERM) == 0 || errno == ESRCH) {
             term_sent = true;
         }
         deadline = monotonic_ms() + 1000L;
-        while (!child_done && monotonic_ms() < deadline) {
-            if (waitpid(pid, &status, WNOHANG) == pid) {
-                child_done = true;
-                reaped = true;
-                if (WIFEXITED(status)) {
-                    *child_exit_code = WEXITSTATUS(status);
-                } else if (WIFSIGNALED(status)) {
-                    *child_signal = WTERMSIG(status);
+        while ((!child_done || stdout_open) && monotonic_ms() < deadline) {
+            if (!child_done) {
+                if (waitpid(pid, &status, WNOHANG) == pid) {
+                    child_done = true;
+                    reaped = true;
+                    if (WIFEXITED(status)) {
+                        *child_exit_code = WEXITSTATUS(status);
+                    } else if (WIFSIGNALED(status)) {
+                        *child_signal = WTERMSIG(status);
+                    }
                 }
-                break;
             }
             if (stdout_open) {
                 drain_fd(stdout_pipe[0], stdout_buf, &stdout_open);
@@ -10359,21 +10391,25 @@ static int run_subsys_hold_open_proof(const struct config *cfg,
             usleep(50000);
         }
     }
-    if (!child_done) {
+    if (!child_done || stdout_open) {
         if (kill(-pgid, SIGKILL) == 0 || errno == ESRCH) {
             kill_sent = true;
         }
         deadline = monotonic_ms() + 1000L;
-        while (!child_done && monotonic_ms() < deadline) {
-            if (waitpid(pid, &status, WNOHANG) == pid) {
-                child_done = true;
-                reaped = true;
-                if (WIFEXITED(status)) {
-                    *child_exit_code = WEXITSTATUS(status);
-                } else if (WIFSIGNALED(status)) {
-                    *child_signal = WTERMSIG(status);
+        while ((!child_done || stdout_open) && monotonic_ms() < deadline) {
+            if (!child_done) {
+                if (waitpid(pid, &status, WNOHANG) == pid) {
+                    child_done = true;
+                    reaped = true;
+                    if (WIFEXITED(status)) {
+                        *child_exit_code = WEXITSTATUS(status);
+                    } else if (WIFSIGNALED(status)) {
+                        *child_signal = WTERMSIG(status);
+                    }
                 }
-                break;
+            }
+            if (stdout_open) {
+                drain_fd(stdout_pipe[0], stdout_buf, &stdout_open);
             }
             usleep(50000);
         }
@@ -10484,6 +10520,9 @@ static int run_wifi_companion_esoc_req_registered_subsys_hold_preflight_guarded(
                        "esoc_req_registered_subsys_hold_preflight.reg_cmd_eng_attempted=0\n"
                        "esoc_req_registered_subsys_hold_preflight.cmd_exe_attempted=0\n"
                        "esoc_req_registered_subsys_hold_preflight.pwr_on_attempted=0\n"
+                       "esoc_req_registered_subsys_hold_preflight.wait_for_req_loop_implemented=0\n"
+                       "esoc_req_registered_subsys_hold_preflight.wait_for_req_passive_observer_supported=1\n"
+                       "esoc_req_registered_subsys_hold_preflight.wait_for_req_passive_observer_attempted=0\n"
                        "esoc_req_registered_subsys_hold_preflight.wait_for_req_attempted=0\n"
                        "esoc_req_registered_subsys_hold_preflight.notify_attempted=0\n") < 0 ||
         append_format(stdout_buf,
@@ -10512,6 +10551,7 @@ static int run_wifi_companion_esoc_req_registered_subsys_hold_preflight_guarded(
                            "esoc_req_registered_subsys_hold_preflight.open_req_attempted=0\n"
                            "esoc_req_registered_subsys_hold_preflight.reg_req_eng_attempted=0\n"
                            "esoc_req_registered_subsys_hold_preflight.subsys_esoc0_open_attempted=0\n"
+                           "esoc_req_registered_subsys_hold_preflight.wait_for_req_passive_observer_attempted=0\n"
                            "esoc_req_registered_subsys_hold_preflight.child_started=0\n"
                            "esoc_req_registered_subsys_hold_preflight.result=blocked\n"
                            "esoc_req_registered_subsys_hold_preflight.reason=missing-esoc-req-registered-subsys-hold-preflight-allow-flag\n"
@@ -10593,6 +10633,8 @@ static int run_wifi_companion_esoc_req_registered_subsys_hold_preflight_guarded(
         append_format(stdout_buf,
                       "esoc_req_registered_subsys_hold_preflight.req_fd_held=1\n"
                       "esoc_req_registered_subsys_hold_preflight.subsys_esoc0_open_attempted=1\n"
+                      "esoc_req_registered_subsys_hold_preflight.wait_for_req_passive_observer_attempted=1\n"
+                      "esoc_req_registered_subsys_hold_preflight.wait_for_req_attempted=1\n"
                       "esoc_req_registered_subsys_hold_preflight.hold_sec=%d\n",
                       hold_sec) < 0) {
         close(req_fd);
@@ -10625,6 +10667,13 @@ static int run_wifi_companion_esoc_req_registered_subsys_hold_preflight_guarded(
     }
     if (pid == 0) {
         int esoc_fd;
+        pid_t observer_pid = -1;
+        int observer_status = 0;
+        int observer_exit_code = -1;
+        int observer_signal = 0;
+        bool observer_term_sent = false;
+        bool observer_kill_sent = false;
+        bool observer_reaped = false;
 
         close(stdout_pipe[0]);
         if (setsid() < 0) {
@@ -10643,12 +10692,78 @@ static int run_wifi_companion_esoc_req_registered_subsys_hold_preflight_guarded(
                 "esoc_req_registered_subsys_hold_preflight.child_chroot=1\n"
                 "esoc_req_registered_subsys_hold_preflight.child_hold_sec=%d\n",
                 hold_sec);
+        observer_pid = fork();
+        if (observer_pid < 0) {
+            dprintf(stdout_pipe[1],
+                    "esoc_req_registered_subsys_hold_preflight.wait_for_req_observer.child_started=0\n"
+                    "esoc_req_registered_subsys_hold_preflight.wait_for_req_observer.fork_errno=%d\n"
+                    "esoc_req_registered_subsys_hold_preflight.wait_for_req_observer.fork_error=%s\n",
+                    errno,
+                    strerror(errno));
+        } else if (observer_pid == 0) {
+            int observer_rc = run_esoc_wait_for_req_observer_child(stdout_pipe[1], req_fd, hold_sec);
+
+            _exit(observer_rc);
+        } else {
+            dprintf(stdout_pipe[1],
+                    "esoc_req_registered_subsys_hold_preflight.wait_for_req_observer.child_started=1\n"
+                    "esoc_req_registered_subsys_hold_preflight.wait_for_req_observer.pid=%ld\n",
+                    (long)observer_pid);
+        }
         esoc_fd = open_esoc_req_registered_subsys_child_node(stdout_pipe[1]);
         if (esoc_fd >= 0) {
             for (int i = 0; i < hold_sec * 10; i++) {
                 usleep(100000);
             }
             close(esoc_fd);
+        }
+        if (observer_pid > 0) {
+            pid_t wait_rc = waitpid(observer_pid, &observer_status, WNOHANG);
+
+            if (wait_rc == observer_pid) {
+                observer_reaped = true;
+            } else if (wait_rc == 0) {
+                if (kill(observer_pid, SIGTERM) == 0 || errno == ESRCH) {
+                    observer_term_sent = true;
+                }
+                for (int i = 0; i < 10 && !observer_reaped; i++) {
+                    wait_rc = waitpid(observer_pid, &observer_status, WNOHANG);
+                    if (wait_rc == observer_pid) {
+                        observer_reaped = true;
+                        break;
+                    }
+                    usleep(100000);
+                }
+                if (!observer_reaped && (kill(observer_pid, SIGKILL) == 0 || errno == ESRCH)) {
+                    observer_kill_sent = true;
+                }
+                for (int i = 0; i < 10 && !observer_reaped; i++) {
+                    wait_rc = waitpid(observer_pid, &observer_status, WNOHANG);
+                    if (wait_rc == observer_pid) {
+                        observer_reaped = true;
+                        break;
+                    }
+                    usleep(100000);
+                }
+            }
+            if (observer_reaped) {
+                if (WIFEXITED(observer_status)) {
+                    observer_exit_code = WEXITSTATUS(observer_status);
+                } else if (WIFSIGNALED(observer_status)) {
+                    observer_signal = WTERMSIG(observer_status);
+                }
+            }
+            dprintf(stdout_pipe[1],
+                    "esoc_req_registered_subsys_hold_preflight.wait_for_req_observer.term_sent=%d\n"
+                    "esoc_req_registered_subsys_hold_preflight.wait_for_req_observer.kill_sent=%d\n"
+                    "esoc_req_registered_subsys_hold_preflight.wait_for_req_observer.reaped=%d\n"
+                    "esoc_req_registered_subsys_hold_preflight.wait_for_req_observer.exit_code=%d\n"
+                    "esoc_req_registered_subsys_hold_preflight.wait_for_req_observer.signal=%d\n",
+                    observer_term_sent ? 1 : 0,
+                    observer_kill_sent ? 1 : 0,
+                    observer_reaped ? 1 : 0,
+                    observer_exit_code,
+                    observer_signal);
         }
         dprintf(stdout_pipe[1],
                 "esoc_req_registered_subsys_hold_preflight.child_done=1\n");

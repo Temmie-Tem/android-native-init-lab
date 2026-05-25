@@ -393,6 +393,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V882_PASSIVE_WAIT_FOR_REQ_HELPER_BUILD_2026-05-26.md` – V882 결과 helper `v139` static build PASS, passive `ESOC_WAIT_FOR_REQ` observer support 추가
 - `reports/NATIVE_INIT_V881_HELPER_V138_DEPLOY_2026-05-26.md` – V881 결과 helper `v138` deploy-only PASS, remote sha/mode marker/selftest/actor-clean/Wi-Fi-link-clean 확인과 V882 passive WAIT_FOR_REQ observer route 선정
 - `reports/NATIVE_INIT_V880_REQ_REGISTERED_SUBSYS_HOLD_HELPER_BUILD_2026-05-26.md` – V880 결과 helper `v138` static build PASS, stale-open-errno repair와 REQ-registered subsystem-hold preflight mode 추가
 - `reports/NATIVE_INIT_V879_CMD_ENGINE_OWNERSHIP_CLASSIFIER_2026-05-26.md` – V879 결과 direct userspace `CMD_EXE` 차단과 V880 helper `v138` source/build-only 후보 선정

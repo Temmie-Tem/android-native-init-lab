@@ -811,3 +811,44 @@ Next candidate:
 - Still block helper deploy, live eSoC ioctl, `/dev/subsys_esoc0` open,
   `ESOC_NOTIFY`, actors, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, and
   external ping in V882.
+
+---
+
+## 25. V882 passive WAIT_FOR_REQ observer helper build result
+
+V882 added passive request observation support as a source/build-only step.
+
+Evidence:
+
+- `tmp/wifi/v882-execns-helper-v139-build/manifest.json`
+- `docs/plans/NATIVE_INIT_V882_PASSIVE_WAIT_FOR_REQ_HELPER_PLAN_2026-05-26.md`
+- `docs/reports/NATIVE_INIT_V882_PASSIVE_WAIT_FOR_REQ_HELPER_BUILD_2026-05-26.md`
+
+Decision:
+
+- `v882-helper-v139-build-pass`
+
+Result:
+
+- helper marker: `a90_android_execns_probe v139`
+- artifact sha256:
+  `077ced65ae5b0b546ecdf3b1bb0c808d3ec34bfa2462516e6ceba170b18f23c5`
+- mode token remains:
+  `wifi-companion-esoc-req-registered-subsys-hold-preflight`
+- passive observer markers added under:
+  `esoc_req_registered_subsys_hold_preflight.wait_for_req_observer.*`
+- `ESOC_NOTIFY`, explicit userspace `PWR_ON`, direct userspace `CMD_EXE`,
+  actors, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, and external ping
+  remain blocked.
+- Timeout cleanup now treats surviving observer process/pipe state as
+  reboot-required evidence instead of an unbounded host wait.
+
+Guardrails held: V882 did not deploy the helper, did not contact the device,
+did not execute live eSoC ioctls, did not open `/dev/subsys_esoc0`, did not
+start Android actors, and did not bring up Wi-Fi.
+
+Next candidate:
+
+- V883 helper `v139` deploy-only checksum/version/mode proof.
+- Still block live eSoC ioctls, `/dev/subsys_esoc0` open, `ESOC_NOTIFY`,
+  actors, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, and external ping.

@@ -594,6 +594,7 @@ path should be closed for this blocker.
 | v879 | host-only CMD engine classifier: direct userspace `CMD_EXE` remains blocked; next is helper v138 source/build-only REQ-registered subsystem-hold support |
 | v880 | helper v138 source/build-only: adds fail-closed REQ-registered subsystem-hold mode and repairs stale open errno reporting |
 | v881 | helper v138 deploy-only: serial deploy pass; remote sha/mode marker, selftest, actor-clean, and Wi-Fi-link-clean pass; next is passive WAIT_FOR_REQ observer source build |
+| v882 | helper v139 source/build-only: adds passive `ESOC_WAIT_FOR_REQ` observer child and reboot-required cleanup markers; no deploy or live eSoC ioctl |
 
 ### Safety additions (Wi-Fi research)
 
@@ -686,8 +687,12 @@ path should be closed for this blocker.
   no Wi-Fi bring-up. Follow-up source analysis corrects the next route:
   `CMD_ENG` ownership is not required for initial subsystem powerup, while
   `REG_REQ_ENG` is the important precondition, and SDX50M may not emit
-  `ESOC_REQ_IMG`. Next is V882 helper `v139` source/build-only passive
-  `ESOC_WAIT_FOR_REQ` observer support before any live subsystem-hold window.
+  `ESOC_REQ_IMG`. V882 then added helper `v139` source/build-only passive
+  `ESOC_WAIT_FOR_REQ` observer support and kill/reboot-required cleanup markers;
+  static build passed with sha256
+  `077ced65ae5b0b546ecdf3b1bb0c808d3ec34bfa2462516e6ceba170b18f23c5`, with no
+  deploy, device contact, live eSoC ioctl, subsystem open, actors, or Wi-Fi
+  bring-up. Next is V883 helper `v139` deploy-only checksum/version/mode proof.
   Keep Wi-Fi HAL, scan/connect, DHCP/routes, credentials, external ping, live
   direct userspace `CMD_EXE`/explicit userspace `PWR_ON`, `NOTIFY`, subsystem
   writes, GPIO/sysfs/debugfs writes, module load/unload, and boot image writes

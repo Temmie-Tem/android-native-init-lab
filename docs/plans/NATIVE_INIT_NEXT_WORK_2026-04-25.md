@@ -25,7 +25,7 @@
 
 ## 현재 Wi-Fi Gate
 
-- 최신 기준: V881 pass.
+- 최신 기준: V882 pass.
 - V874 결론: `/dev/esoc-0` read-only control path가 live에서 열렸고
   `GET_STATUS`/`GET_ERR_FATAL`은 rc `0`, `GET_LINK_ID`는 errno `22`로
   반환됐다. 결과는 `read-only-ioctl-probe-complete`이며 created nodes cleanup,
@@ -70,6 +70,11 @@
   있으며, SDX50M은 `ESOC_REQ_IMG`를 내지 않을 수 있다. 다음 후보는 live가
   아니라 V882 helper `v139` source/build-only passive `ESOC_WAIT_FOR_REQ`
   observer support다.
+- V882 결론: helper `v139` source/build-only가 통과했다. 기존
+  REQ-registered subsystem-hold mode에 passive `ESOC_WAIT_FOR_REQ` observer
+  child와 cleanup/reboot-required markers가 추가됐고 deploy/device
+  contact/live eSoC ioctl/subsystem open/Wi-Fi bring-up은 없었다. 다음 후보는
+  V883 helper `v139` deploy-only proof다.
 
 - 아래 V840-V847 항목은 V874/V875 이전 경로 요약이다.
 - V840 결론: provider-first service-manager/PeripheralManager, CNSS retry,
@@ -4188,3 +4193,23 @@ Samsung bootloader
   start, no Wi-Fi HAL, scan/connect, DHCP/routes, credentials, or external ping.
 - next: V882 helper `v139` source/build-only passive `ESOC_WAIT_FOR_REQ`
   observer support before any live subsystem-hold window.
+
+### V882. Passive WAIT_FOR_REQ Observer Helper v139 Build
+
+- plan: `docs/plans/NATIVE_INIT_V882_PASSIVE_WAIT_FOR_REQ_HELPER_PLAN_2026-05-26.md`
+- report: `docs/reports/NATIVE_INIT_V882_PASSIVE_WAIT_FOR_REQ_HELPER_BUILD_2026-05-26.md`
+- helper source: `stage3/linux_init/helpers/a90_android_execns_probe.c`
+- evidence:
+  - `tmp/wifi/v882-execns-helper-v139-build/manifest.json`
+  - `tmp/wifi/v882-execns-helper-v139-build/a90_android_execns_probe`
+- decision: `v882-helper-v139-build-pass`
+- result: source/build-only PASS. Helper `v139` adds passive
+  `ESOC_WAIT_FOR_REQ` observer markers to the REQ-registered subsystem-hold
+  preflight mode.
+- build: sha256
+  `077ced65ae5b0b546ecdf3b1bb0c808d3ec34bfa2462516e6ceba170b18f23c5`, static
+  ARM64, no dynamic section.
+- hard gates held: no device contact, no helper deploy, no live eSoC ioctl, no
+  `/dev/subsys_esoc0` open, no `ESOC_NOTIFY`, no actor start, no Wi-Fi HAL,
+  scan/connect, DHCP/routes, credentials, or external ping.
+- next: V883 helper `v139` deploy-only checksum/version/mode proof.
