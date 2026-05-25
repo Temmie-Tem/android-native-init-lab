@@ -3930,3 +3930,31 @@ Samsung bootloader
 - next: V870 should deploy helper `v135` only with checksum/version/mode proof
   and post-deploy health. Live eSoC control preflight remains a separate later
   gate.
+
+### V870. Helper v135 Deploy-only Proof
+
+- plan: `docs/plans/NATIVE_INIT_V870_HELPER_V135_DEPLOY_PLAN_2026-05-25.md`
+- report: `docs/reports/NATIVE_INIT_V870_HELPER_V135_DEPLOY_2026-05-25.md`
+- deploy wrapper: `scripts/revalidation/wifi_execns_helper_v135_deploy_preflight.py`
+- evidence:
+  - `tmp/wifi/v870-execns-helper-v135-plan/manifest.json`
+  - `tmp/wifi/v870-execns-helper-v135-preflight/manifest.json`
+  - `tmp/wifi/v870-execns-helper-v135-deploy/manifest.json`
+  - `tmp/wifi/v870-post-health/manifest.json`
+- decision: `execns-helper-v135-deploy-pass`
+- result: deploy-only PASS. Helper `v135` was installed to
+  `/cache/bin/a90_android_execns_probe` by serial appendfile/uudecode using
+  1850-byte chunks. Remote sha is
+  `ad1bbbf295be61ef612406091ccd469c4ef45ab44c0f753c4de034e487ddaad1`; usage
+  shows `a90_android_execns_probe v135` and
+  `wifi-companion-esoc-control-preflight`.
+- post health: selftest `pass=11 warn=1 fail=0`, exact actor process hits `0`,
+  and Wi-Fi link hits `0`.
+- hard gates held: no actor start, no `mdm_helper`, no `ks`,
+  no `pm_proxy_helper`, no CNSS, no service-manager trio, no Wi-Fi HAL,
+  no scan/connect, credentials, DHCP/routes, external ping, live eSoC control
+  preflight, mutating eSoC ioctl, module load/unload, boot image write,
+  partition write, or firmware mutation.
+- next: V871 should run a bounded live eSoC control preflight with helper
+  `v135`, limited to node visibility and read-only eSoC status ioctls. Mutating
+  eSoC state-machine steps remain blocked.

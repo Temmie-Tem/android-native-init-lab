@@ -435,3 +435,34 @@ Evidence:
 
 - V870 helper `v135` deploy-only checksum/version/mode proof
 - V871 bounded live eSoC control preflight는 V870 이후 별도 gate
+
+---
+
+## 14. V870 deploy 결과
+
+V870 deploy-only evidence:
+
+- `tmp/wifi/v870-execns-helper-v135-deploy/manifest.json`
+- `tmp/wifi/v870-post-health/manifest.json`
+
+Decision:
+
+- `execns-helper-v135-deploy-pass`
+
+결과:
+
+- `/cache/bin/a90_android_execns_probe` remote sha:
+  `ad1bbbf295be61ef612406091ccd469c4ef45ab44c0f753c4de034e487ddaad1`
+- remote marker: `a90_android_execns_probe v135`
+- mode token: `wifi-companion-esoc-control-preflight`
+- selftest: `pass=11 warn=1 fail=0`
+- actor hits: `0`
+- Wi-Fi link hits: `0`
+
+다음 후보:
+
+- V871 bounded live eSoC control preflight
+- 범위는 `/dev/esoc-0` visibility와 read-only status ioctl로 제한한다.
+- `REG_REQ_ENG`, `REG_CMD_ENG`, `CMD_EXE`, `WAIT_FOR_REQ`, `NOTIFY`,
+  `PWR_ON`, `mdm_helper`, `ks`, `pm_proxy_helper`, CNSS, HAL, scan/connect는
+  계속 별도 gate 전까지 차단한다.

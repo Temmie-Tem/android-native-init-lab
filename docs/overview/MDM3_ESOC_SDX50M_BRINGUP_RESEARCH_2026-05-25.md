@@ -772,3 +772,34 @@ Added contract:
 
 Next gate: V870 deploy-only for helper `v135`. Live eSoC control preflight
 remains blocked until deploy parity and native health are proven.
+
+## 25. V870 helper v135 deploy-only outcome
+
+V870 deployed helper `v135` to `/cache/bin/a90_android_execns_probe`.
+
+Evidence:
+
+| Unit | Path | Result |
+|---|---|---|
+| deploy | `tmp/wifi/v870-execns-helper-v135-deploy/manifest.json` | `execns-helper-v135-deploy-pass` |
+| post health | `tmp/wifi/v870-post-health/manifest.json` | PASS |
+
+Deploy details:
+
+- method: serial appendfile + uudecode;
+- chunk size: `1850`;
+- chunks written: `788`;
+- remote sha:
+  `ad1bbbf295be61ef612406091ccd469c4ef45ab44c0f753c4de034e487ddaad1`;
+- remote marker: `a90_android_execns_probe v135`;
+- mode token: `wifi-companion-esoc-control-preflight`.
+
+Post-health:
+
+- selftest: `pass=11 warn=1 fail=0`;
+- actor hits: `0`;
+- Wi-Fi link hits: `0`.
+
+Next gate: V871 bounded live eSoC control preflight with helper `v135`, limited
+to node visibility and read-only status ioctls. Mutating eSoC state-machine
+steps remain blocked.

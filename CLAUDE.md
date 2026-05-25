@@ -582,6 +582,7 @@ path should be closed for this blocker.
 | v867 | PM init-contract start-only: mode/ioprio/lifecycle markers execute, but runtime domains stay `kernel`, no subsystem fd hold appears, and `pm_proxy_helper` remains D-state until native reboot cleanup |
 | v868 | PM/eSoC contract classifier: `pm_proxy_helper` alone is closed; local A90 OSRC requires `/dev/esoc-0` CMD/REQ engine preflight (`ESOC_REG_REQ_ENG=7`, `ESOC_REG_CMD_ENG=8`) before another `/dev/subsys_esoc0` hold |
 | v869 | helper v135 source/build-only: adds `wifi-companion-esoc-control-preflight`, local eSoC UAPI markers, `--allow-esoc-control-preflight`, and fail-closed markers with static ARM64 build pass |
+| v870 | helper v135 deploy-only: serial deploy to `/cache/bin/a90_android_execns_probe`; remote sha/version/mode, selftest, actor-clean, and Wi-Fi-link-clean pass |
 
 ### Safety additions (Wi-Fi research)
 
@@ -639,12 +640,14 @@ path should be closed for this blocker.
   contract and closed `pm_proxy_helper`-alone retries. V869 then added helper
   `v135` with a source/build-only `wifi-companion-esoc-control-preflight` mode
   and fail-closed markers. The next candidate is V870 deploy-only for helper
-  `v135` with checksum/version/mode proof and post-deploy health. Keep Wi-Fi
-  HAL, scan/connect, DHCP/routes, credentials, external ping, live
+  `v135` with checksum/version/mode proof and post-deploy health. V870 deployed
+  helper `v135` successfully; remote sha/mode marker, selftest, actor-clean, and
+  Wi-Fi-link-clean pass. The next candidate is V871 bounded live eSoC control
+  preflight, limited to node visibility and read-only eSoC status ioctls. Keep
+  Wi-Fi HAL, scan/connect, DHCP/routes, credentials, external ping, live
   `ESOC_PWR_ON`, subsystem writes, GPIO/sysfs/debugfs writes, module
   load/unload, and boot image writes blocked. Do not start `mdm_helper`, `ks`,
-  HAL, or scan/connect until helper v135 is deployed and a narrower eSoC
-  control preflight live gate is planned.
+  HAL, or scan/connect before a separate mutating eSoC state-machine gate.
 
 ## Docs structure
 
