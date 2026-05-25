@@ -439,6 +439,7 @@ path should be closed for this blocker.
 | v837 | timestamped listener hold proves the listener opened about `613ms` after service74; next is concurrent prearm |
 | v838 | concurrent prearmed listener registers about `637ms` before service74, stays open through service74+5s, and still receives no WLAN-PD `UP`; timing blocker ruled out |
 | v839 | host-only classifier selects provider-first CNSS retry plus prearmed WLAN-PD listener as V840 |
+| v840 | provider-first service-manager/PeripheralManager + CNSS retry with prearmed WLAN-PD listener still reports `UNINIT`; no WLFW/BDF/wlan0 |
 
 ### Safety additions (Wi-Fi research)
 
@@ -447,9 +448,11 @@ path should be closed for this blocker.
 - No `wlan.ko` load/unload without explicit approval
 - `firmware_class.path` rollback value: `/vendor/firmware_mnt/image`
 - `sda29` mount must be read-only in all proof windows
-- Current Wi-Fi gate after V839: V840 should combine provider-first CNSS retry
-  with the prearmed WLAN-PD listener. Keep Wi-Fi HAL, scan/connect, DHCP/routes,
-  credentials, and external ping blocked until WLAN-PD `UP` or WLFW/BDF moves.
+- Current Wi-Fi gate after V840: provider-first service-manager/PeripheralManager
+  plus CNSS retry does not supply WLAN-PD `UP`. Keep Wi-Fi HAL, scan/connect,
+  DHCP/routes, credentials, and external ping blocked; next classify the lower
+  native WLAN-PD state-up trigger, with `sysmon_esoc0` still a key missing
+  native signal.
 
 ## Docs structure
 

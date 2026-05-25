@@ -3132,3 +3132,27 @@ Samsung bootloader
 - blocker: the same `pm_qos_add_request() called for already added request` warning recurred through duplicate `msm_asoc_machine_probe` in deferred probe work after service-notifier `180/74` and ADSP/APR audio activity. This proves CNSS-only userspace is not required for the warning.
 - hard gates: no `cnss_diag`, `cnss-daemon`, service-manager, Wi-Fi HAL, scan/connect, credential use, DHCP/routes, external ping, boot image or partition write, or custom kernel flash was executed. Cleanup reboot returned to healthy v724.
 - next: V791 should be host-only first. Compare V790, V788, V787, and historical V733 to choose whether the next safe live isolation omits V401/V490, omits clean-DSP, or only reads lower service surfaces without spawning lower daemons.
+
+### V840. Provider-first Prearmed Listener
+
+- plan: `docs/plans/NATIVE_INIT_V840_PROVIDER_FIRST_PREARMED_LISTENER_PLAN_2026-05-25.md`
+- report: `docs/reports/NATIVE_INIT_V840_PROVIDER_FIRST_PREARMED_LISTENER_2026-05-25.md`
+- runner: `scripts/revalidation/native_wifi_provider_first_prearmed_listener_v840.py`
+- evidence:
+  - `tmp/wifi/v840-provider-first-prearmed-listener-live/manifest.json`
+  - `tmp/wifi/v840-provider-first-prearmed-listener-live/summary.md`
+  - `tmp/wifi/v840-provider-first-prearmed-listener-live/provider-first-prearmed-summary.json`
+- decision: `v840-provider-first-prearmed-no-indication`
+- result: live stock-v724 PASS. Helper v130 exposed both provider-first and
+  listener-only modes. Clean-DSP, V401, V490, firmware mounts, `subsys_modem`
+  holder, V700 provider-first service-manager/PeripheralManager path, and one
+  fresh CNSS retry all ran. The listener registered about `1309ms` before
+  service `74`, stayed open about `13705ms` after service `74`, and still
+  reported WLAN-PD `UNINIT` with no indication.
+- hard gates: no Wi-Fi HAL, wificond, supplicant, hostapd, scan/connect,
+  credentials, DHCP/routes, external ping, `esoc0`, subsystem state writes,
+  `wlan.ko` load/unload, boot image writes, partition writes, or custom kernel
+  flash was executed.
+- next: V841 should classify the missing lower native WLAN-PD state-up trigger.
+  Native has service `74/180`, provider-first service-manager/PeripheralManager,
+  and CNSS retry, but still lacks WLAN-PD `UP`, WLFW/BDF, and `wlan0`.
