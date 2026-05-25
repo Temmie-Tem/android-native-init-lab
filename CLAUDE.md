@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: v824 pending after V823 matrix; classify kernel QMI client visibility versus userspace AF_QIPCRTR nameservice visibility before wider triggers
+- **Active research cycle**: v825 pending after V824 classifier; run encoded-instance AF_QIPCRTR nameservice matrix before wider triggers
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -157,7 +157,7 @@ New `vNNN` experiment scripts must:
 - Gate live action behind explicit `--allow-*` + `--assume-yes` flags
 - Run `version`, `status`, `bootstatus`, `selftest verbose` as postflight regression
 
-## Wi-Fi bring-up research state (v598–v823, active)
+## Wi-Fi bring-up research state (v598–v824, active)
 
 Goal: bring up `wlan0` from native init without Android userspace.
 
@@ -179,7 +179,18 @@ stable enough in every boot. Helper v124 added a `sysmon-qmi` gated
 `mdm_helper` mode. V746 proved `mdm_helper` starts safely after `sysmon-qmi`,
 but it does not advance mdm3/WLAN-PD/WLFW.
 
-### Current blocker (V823)
+### Current blocker (V824)
+
+V824 host-only source/evidence classification found that kernel QMI clients do
+not send raw QMI instance IDs to QRTR nameservice. `qmi_interface.c` encodes the
+lookup instance as `version | instance << 8`, so V823 did not test the exact
+service-locator, SSCTL, or service-notifier instance values that kernel
+`qmi_add_lookup()` users send. V825 must rerun only the no-QMI nameservice matrix
+with encoded values:
+
+```text
+servloc:64:257;ssctl:43:4098;servnotif:66:18945,46081;wlfw:69:1
+```
 
 ```
 mss: OFFLINING → ONLINE ✓  (read-only firmware mounts + subsys_modem holder)
@@ -240,6 +251,7 @@ V820 QRTR namespace classifier: host-only PASS. V819 evidence shows QIPCRTR prot
 V821 QRTR nameservice matrix: live stock-v724 PASS. Helper v125 added `--qrtr-readback-matrix` and was deployed below HAL/connect. The V817 lower window still passes, AF_QIPCRTR lookup/delete sends work for service-locator `64/1`, service-notifier `66/74`, service-notifier `66/180`, WLFW `69/0`, and WLFW `69/1`, but all five cases return only end-of-list with `service_events=0`. No QMI payload, service-manager, Wi-Fi HAL, scan/connect, credential use, DHCP/routes, external ping, `esoc0`, module load/unload, boot image write, partition write, or custom-kernel flash executed. Cleanup reboot restored healthy v724. Next gate V822 should classify why kernel sysmon/service-locator dmesg appears while userspace AF_QIPCRTR nameservice publication stays clean-empty.
 V822 sysmon nameservice gap classifier: host-only PASS. OSRC source shows service-locator is `64/1`, service-notifier is `66/<instance>`, WLFW is `69/0`, but `sysmon-qmi.c` looks up SSCTL service `0x2b` version `2` with `desc->ssctl_instance_id`. The r3q board DTS sets mdm3 `qcom,ssctl-instance-id=<0x10>`, so V821 did not query the actual sysmon SSCTL nameservice path. Next gate V823 should reuse helper v125 and add `ssctl:43:16` to the no-QMI matrix before any QMI payload, service-manager, Wi-Fi HAL, scan/connect, credential, DHCP/routes, external ping, or custom-kernel flash.
 V823 SSCTL nameservice matrix: live stock-v724 PASS. Helper v125 was reused/redeployed and the V817 lower window still passes. Expanded no-QMI AF_QIPCRTR matrix covered service-locator `64/1`, SSCTL `43/16`, service-notifier `66/74`, service-notifier `66/180`, WLFW `69/0`, and WLFW `69/1`; all six lookup/delete sends returned rc `0`, no timeout, no QMI payload, but all returned end-of-list with `service_events=0`. Runtime dmesg counters still show after-companion `service_locator=5` and `sysmon_qmi=1`, while mdm3 stays `OFFLINING` and service-notifier/WLFW/BDF/wlan0 stay absent. Cleanup reboot restored healthy v724. Next V824 should classify kernel QMI client visibility versus userspace AF_QIPCRTR nameservice visibility before any wider trigger.
+V824 QRTR encoded instance classifier: host-only PASS. Samsung OSRC `qmi_interface.c` shows `qmi_send_new_lookup()` sends QRTR nameservice instance as `svc->version | svc->instance << 8`; V823 mostly queried raw instance IDs. The next encoded no-QMI matrix is `servloc:64:257;ssctl:43:4098;servnotif:66:18945,46081;wlfw:69:1`. No bridge/device command, QRTR socket, QMI payload, service-manager, Wi-Fi HAL, scan/connect, credential, DHCP/routes, external ping, boot image write, partition write, or custom-kernel flash executed. Next V825 should run that encoded-instance matrix below HAL/connect before any wider trigger.
 ```
 
 Vendor firmware files (`wlanmdsp.mbn`, `bdwlan.bin`, `regdb.bin`) confirmed at `sda29` (isolated mount), NOT in default native `/vendor`.
@@ -342,6 +354,7 @@ path should be closed for this blocker.
 | v821 | live helper v125 nameservice matrix: AF_QIPCRTR lookup works for service-locator/service-notifier/WLFW candidates, but all return end-of-list with service publication 0; next is sysmon dmesg vs userspace nameservice gap classification |
 | v822 | host-only source/evidence classifier: sysmon-qmi uses SSCTL service `43` instance `16`, which V821 did not query; next is V823 no-QMI matrix extension with `ssctl:43:16` |
 | v823 | live helper v125 SSCTL matrix: `ssctl:43:16` also returns end-of-list with publication 0; next is kernel QMI client visibility vs userspace AF_QIPCRTR nameservice semantics |
+| v824 | host-only QRTR encoded-instance classifier: kernel `qmi_add_lookup()` encodes instances as `version | instance << 8`; next is encoded no-QMI matrix `servloc:64:257;ssctl:43:4098;servnotif:66:18945,46081;wlfw:69:1` |
 
 ### Safety additions (Wi-Fi research)
 

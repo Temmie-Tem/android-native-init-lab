@@ -130,6 +130,7 @@
 
 ### 3. Plans
 
+- `plans/NATIVE_INIT_V824_QRTR_ENCODED_INSTANCE_PLAN_2026-05-25.md` – V823 raw-instance matrix를 Samsung OSRC `qmi_interface.c`의 encoded QRTR instance 규칙과 비교하는 host-only 계획
 - `plans/NATIVE_INIT_V823_SSCTL_NAMESERVICE_MATRIX_PLAN_2026-05-25.md` – V822가 특정한 sysmon SSCTL `43/16`을 helper v125 no-QMI nameservice matrix에 추가하는 live 계획
 - `plans/NATIVE_INIT_V822_SYSMON_NAMESERVICE_GAP_PLAN_2026-05-25.md` – V821 clean-empty matrix와 OSRC source를 host-only로 비교해 sysmon SSCTL `43/16` 누락 여부를 분류하는 계획
 - `plans/NATIVE_INIT_V821_QRTR_NAMESERVICE_MATRIX_PLAN_2026-05-25.md` – V820 결과에 따라 helper v125로 service-locator/service-notifier/WLFW 후보를 in-helper AF_QIPCRTR nameservice matrix로 확인하는 계획
@@ -363,6 +364,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V824_QRTR_ENCODED_INSTANCE_2026-05-25.md` – V824 결과 kernel QMI client는 QRTR instance를 `version | instance << 8`로 encode하므로 V825 encoded-instance no-QMI matrix로 라우팅
 - `reports/NATIVE_INIT_V823_SSCTL_NAMESERVICE_MATRIX_2026-05-25.md` – V823 결과 `ssctl:43:16`도 AF_QIPCRTR lookup은 성공하지만 service publication은 0이라 kernel QMI client visibility와 userspace nameservice visibility 갭으로 라우팅
 - `reports/NATIVE_INIT_V822_SYSMON_NAMESERVICE_GAP_2026-05-25.md` – V822 결과 `sysmon-qmi`의 실제 source lookup은 SSCTL service `43` instance `16`인데 V821 matrix에는 빠져 있어 V823 `ssctl:43:16` no-QMI matrix 확장으로 라우팅
 - `reports/NATIVE_INIT_V821_QRTR_NAMESERVICE_MATRIX_2026-05-25.md` – V821 결과 helper v125 matrix에서 service-locator/service-notifier/WLFW 후보 모두 AF_QIPCRTR lookup은 성공했지만 service publication은 0이라 V822 sysmon/service-locator dmesg와 userspace nameservice clean-empty 갭으로 라우팅
