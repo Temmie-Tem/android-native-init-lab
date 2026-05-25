@@ -130,6 +130,7 @@
 
 ### 3. Plans
 
+- `plans/NATIVE_INIT_V915_CORRECTED_NATIVE_TRIGGER_GATE_PLAN_2026-05-26.md` – V914 결과를 반영해 다음 native `/dev/subsys_esoc0` trigger gate의 성공 기준을 WLFW/BDF/wlan0 중심으로 보정하는 V915 계획
 - `plans/NATIVE_INIT_V913_ANDROID_ESOC_GPIO_TIMELINE_PLAN_2026-05-26.md` – V912의 `/dev/subsys_esoc0` trigger 전에 Android 정상 부팅의 GPIO135/PMIC GPIO9/GPIO142/PCIe/MDM3/KS/MHI/WLFW 양성 타임라인을 read-only로 재분류하는 V913 계획
 - `plans/NATIVE_INIT_V912_MDM_HELPER_SUBSYS_TRIGGER_PLAN_2026-05-26.md` – V911에서 `mdm_helper`가 `ESOC_WAIT_FOR_REQ`에 들어간 뒤 `/dev/subsys_esoc0` powerup trigger를 어떻게 안전하게 계획할지 정의하는 V912 계획
 - `plans/NATIVE_INIT_V911_MDM_HELPER_ESOC_FD_STALL_CLASSIFIER_PLAN_2026-05-26.md` – helper `v149` live capture를 분류해 `mdm_helper` worker가 `ESOC_WAIT_FOR_REQ`에 들어가는지 검증하는 V911 계획
