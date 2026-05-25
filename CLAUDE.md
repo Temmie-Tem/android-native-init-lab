@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: v849 selected V850 ext-mdm `mdm_subsys_powerup` surface classifier, still below HAL/connect
+- **Active research cycle**: v850 selected V851 live read-only ext-mdm provider surface snapshot, still below HAL/connect
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -157,7 +157,7 @@ New `vNNN` experiment scripts must:
 - Gate live action behind explicit `--allow-*` + `--assume-yes` flags
 - Run `version`, `status`, `bootstatus`, `selftest verbose` as postflight regression
 
-## Wi-Fi bring-up research state (v598–v849, active)
+## Wi-Fi bring-up research state (v598–v850, active)
 
 Goal: bring up `wlan0` from native init without Android userspace.
 
@@ -354,6 +354,16 @@ WLFW service 69. Next gate is V850 host-only/read-only: classify
 surface, available symbols, and Android reference behavior. Still no GPIO/sysfs
 write, raw eSoC ioctl, MHI write, HAL/connect, DHCP/routes, credentials,
 external ping, or boot-image work.
+
+V850 host-only PASS correlated V849 with Android V591 and DTS. Android can
+bring mdm3 `ONLINE` and WLAN-PD present, while native blocks in
+`mdm_subsys_powerup`. DTS maps mdm3 to `qcom,ext-sdx50m`, AP2MDM status GPIO
+`0x87`, MDM2AP status GPIO `0x8e`, SSCTL instance `0x10`, and sysmon id
+`0x14`. ESOC MDM configs are enabled but the staged OSRC tree lacks provider
+source, so no GPIO/sysfs/raw-eSoC/MHI write is justified. V851 should capture
+read-only live provider surface: filtered kallsyms, interrupts, platform
+driver/sysfs/of_node/power state, eSoC sysfs, msm_subsys state, readable
+GPIO/debug/pinctrl if available, and focused ext-mdm dmesg.
 
 ```text
 servloc:64:257;ssctl:43:4098;servnotif:66:18945,46081;wlfw:69:1

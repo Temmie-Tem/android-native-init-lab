@@ -3366,3 +3366,30 @@ Samsung bootloader
   surfaces, available symbols, and Android reference behavior before any GPIO,
   raw eSoC ioctl, MHI write, HAL/connect, DHCP/routes, external ping, or
   boot-image work.
+
+### V850. ext-mdm Powerup Surface Classifier
+
+- plan: `docs/plans/NATIVE_INIT_V850_EXT_MDM_POWERUP_SURFACE_CLASSIFIER_PLAN_2026-05-25.md`
+- report: `docs/reports/NATIVE_INIT_V850_EXT_MDM_POWERUP_SURFACE_CLASSIFIER_2026-05-25.md`
+- runner: `scripts/revalidation/native_wifi_ext_mdm_powerup_surface_classifier_v850.py`
+- evidence:
+  - `tmp/wifi/v850-ext-mdm-powerup-surface-classifier/manifest.json`
+  - `tmp/wifi/v850-ext-mdm-powerup-surface-classifier/summary.md`
+- decision: `v850-ext-mdm-powerup-surface-selected`
+- result: host-only PASS. V850 correlates V849's `mdm_subsys_powerup`
+  D-state stack with Android V591 mdm3/WLAN-PD positive reference and the
+  Samsung DTS `qcom,ext-sdx50m` GPIO/IRQ contract. The blocker is provider
+  `powerup()` level, not `wait_for_err_ready`, MHI, HAL, or credentials.
+  Defconfig enables ESOC MDM support, but the staged OSRC tree lacks the
+  provider source. V849 dmesg also preserves `MDM_PMIC_PWR_STATUS` and
+  `AP2MDM_ERRFATAL2` provider hints.
+- hard gates: no device command, node creation, char open, raw `/dev/esoc*`
+  open/ioctl, GPIO/sysfs/debugfs write, bind/unbind, module load/unload,
+  daemon start, service-manager, Wi-Fi HAL, scan/connect, credential use,
+  DHCP/routes, external ping, boot image write, partition write, or custom
+  kernel flash was executed.
+- next: V851 should run a live read-only ext-mdm provider surface snapshot:
+  filtered `/proc/kallsyms`, `/proc/interrupts`, platform driver/sysfs/of_node
+  power state, eSoC sysfs, msm_subsys state, readable GPIO/debug/pinctrl if
+  available, and focused dmesg. No raw eSoC open, GPIO/sysfs write, MHI write,
+  HAL/connect, DHCP/routes, external ping, or boot-image work.
