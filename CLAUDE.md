@@ -590,6 +590,7 @@ path should be closed for this blocker.
 | v875 | host-only eSoC state-machine classifier: selects helper-only CMD/REQ registration support as V876; no live contact or mutating ioctl |
 | v876 | helper v137 source/build-only: adds fail-closed `wifi-companion-esoc-engine-register-preflight` mode and allow flag; no deploy or live ioctl |
 | v877 | helper v137 deploy-only: serial deploy to `/cache/bin/a90_android_execns_probe`; remote sha/mode marker, selftest, actor-clean, and Wi-Fi-link-clean pass |
+| v878 | bounded eSoC engine registration preflight: `REG_REQ_ENG` rc0, `REG_CMD_ENG` errno16/EBUSY; no `CMD_EXE`/`PWR_ON`, no actor start, cleanup and health pass |
 
 ### Safety additions (Wi-Fi research)
 
@@ -661,13 +662,17 @@ path should be closed for this blocker.
   `--allow-esoc-engine-register-preflight` flag without deploy or live ioctl.
   V877 then deployed helper `v137` to `/cache/bin/a90_android_execns_probe` by
   serial appendfile/uudecode; remote sha/mode marker, selftest fail0,
-  actor-clean, and Wi-Fi-link-clean passed. Next is V878 bounded live
-  `REG_CMD_ENG`/`REG_REQ_ENG` registration preflight only. Keep Wi-Fi HAL,
-  scan/connect, DHCP/routes, credentials, external ping, live
-  `CMD_EXE`/`PWR_ON`, `WAIT_FOR_REQ`, `NOTIFY`, `/dev/subsys_esoc0` open,
-  subsystem writes, GPIO/sysfs/debugfs writes, module load/unload, and boot
-  image writes blocked. Do not start `mdm_helper`, `ks`, HAL, or scan/connect
-  before a separate mutating eSoC state-machine gate.
+  actor-clean, and Wi-Fi-link-clean passed. V878 ran the bounded live
+  CMD/REQ registration preflight: `REG_REQ_ENG` returned rc `0`, `REG_CMD_ENG`
+  returned errno `16` (`EBUSY`), helper fds closed, cleanup/selftest/actor-clean
+  stayed good, and no `CMD_EXE`, `PWR_ON`, `WAIT_FOR_REQ`, `NOTIFY`,
+  `/dev/subsys_esoc0` open, actors, or Wi-Fi bring-up occurred. Next is V879
+  host-only classification of CMD engine ownership, eSoC client hooks, and the
+  next safe subsystem-powerup guardrails. Keep Wi-Fi HAL, scan/connect,
+  DHCP/routes, credentials, external ping, live `CMD_EXE`/`PWR_ON`,
+  `WAIT_FOR_REQ`, `NOTIFY`, subsystem writes, GPIO/sysfs/debugfs writes, module
+  load/unload, and boot image writes blocked. Do not start `mdm_helper`, `ks`,
+  HAL, or scan/connect before a separate mutating eSoC state-machine gate.
 
 ## Docs structure
 

@@ -47,6 +47,12 @@
   `WAIT_FOR_REQ`, `NOTIFY`, `/dev/subsys_esoc0` open, `mdm_helper`, `ks`,
   `pm_proxy_helper`, CNSS, HAL, scan/connect, credentials, DHCP/routes,
   external ping은 별도 gate 전까지 계속 막는다.
+- V878 결론: bounded live CMD/REQ registration preflight는 안전하게 끝났지만
+  decision은 `v878-esoc-engine-register-ioctl-review`다. `REG_REQ_ENG`는 rc `0`,
+  `REG_CMD_ENG`는 errno `16`(`EBUSY`)였고, dmesg에는 `Client hooks not
+  registered for the device`가 남았다. 금지 액션과 Wi-Fi bring-up은 없었고
+  selftest fail0/cleanup/actor-clean/Wi-Fi-link-clean은 유지됐다. 다음 후보는
+  V879 host-only CMD engine ownership/eSoC client-hook classifier다.
 
 - 아래 V840-V847 항목은 V874/V875 이전 경로 요약이다.
 - V840 결론: provider-first service-manager/PeripheralManager, CNSS retry,
@@ -4086,3 +4092,23 @@ Samsung bootloader
 - hard gates held: no live eSoC ioctl, no `/dev/subsys_esoc0` open, no actor
   start, no Wi-Fi HAL, scan/connect, DHCP/routes, credentials, or external ping.
 - next: V878 bounded live `REG_CMD_ENG`/`REG_REQ_ENG` registration preflight.
+
+### V878. eSoC Engine Register Preflight
+
+- plan: `docs/plans/NATIVE_INIT_V878_ESOC_ENGINE_REGISTER_PREFLIGHT_PLAN_2026-05-25.md`
+- report: `docs/reports/NATIVE_INIT_V878_ESOC_ENGINE_REGISTER_PREFLIGHT_2026-05-25.md`
+- live runner: `scripts/revalidation/native_wifi_esoc_engine_register_preflight_v878.py`
+- evidence:
+  - `tmp/wifi/v878-esoc-engine-register-preflight-plan/manifest.json`
+  - `tmp/wifi/v878-esoc-engine-register-preflight-missing-flags/manifest.json`
+  - `tmp/wifi/v878-esoc-engine-register-preflight-live/manifest.json`
+- decision: `v878-esoc-engine-register-ioctl-review`
+- result: bounded live review. `REG_REQ_ENG` returned rc `0`; `REG_CMD_ENG`
+  returned errno `16` (`EBUSY`). Helper fds were closed, created nodes were
+  cleaned up, postflight selftest stayed fail0, and actor/Wi-Fi surfaces stayed
+  clean.
+- hard gates held: no `CMD_EXE`, `PWR_ON`, `WAIT_FOR_REQ`, `NOTIFY`,
+  `/dev/subsys_esoc0` open, actor start, Wi-Fi HAL, scan/connect, DHCP/routes,
+  credentials, or external ping.
+- next: V879 host-only classifier for CMD engine ownership, eSoC client hooks,
+  and the next safe subsystem-powerup guardrails.

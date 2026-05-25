@@ -641,3 +641,46 @@ Next candidate:
 - Still block `CMD_EXE`, `PWR_ON`, `WAIT_FOR_REQ`, `NOTIFY`,
   `/dev/subsys_esoc0` open, actors, Wi-Fi HAL, scan/connect, credentials,
   DHCP/routes, and external ping.
+
+---
+
+## 21. V878 CMD/REQ engine registration preflight result
+
+V878 ran the first bounded mutating eSoC preflight with helper `v137`.
+
+Evidence:
+
+- `tmp/wifi/v878-esoc-engine-register-preflight-plan/manifest.json`
+- `tmp/wifi/v878-esoc-engine-register-preflight-missing-flags/manifest.json`
+- `tmp/wifi/v878-esoc-engine-register-preflight-live/manifest.json`
+- `docs/reports/NATIVE_INIT_V878_ESOC_ENGINE_REGISTER_PREFLIGHT_2026-05-25.md`
+
+Decision:
+
+- `v878-esoc-engine-register-ioctl-review`
+
+Result:
+
+| Operation | rc | errno | Interpretation |
+| --- | --- | --- | --- |
+| `REG_CMD_ENG` | `-1` | `16` | command engine busy/unavailable; direct userspace `CMD_EXE` remains blocked |
+| `REG_REQ_ENG` | `0` | `0` | request engine registration path works |
+
+Additional findings:
+
+- helper result: `engine-register-preflight-complete`
+- fds were closed after a 6s hold
+- created private nodes were removed
+- selftest stayed `fail=0`
+- actor hits: `0`
+- Wi-Fi netdev hits: `0`
+- dmesg filter: `mdm-4x esoc0: Client hooks not registered for the device`
+
+Guardrails held: no `CMD_EXE`, no `PWR_ON`, no `WAIT_FOR_REQ`, no `NOTIFY`, no
+`/dev/subsys_esoc0` open, no actor start, no Wi-Fi HAL, and no Wi-Fi bring-up.
+
+Next candidate:
+
+- V879 host-only classifier for `REG_CMD_ENG` `EBUSY`, eSoC client-hook state,
+  and whether the next live gate should use a REQ-registered subsystem powerup
+  path rather than direct userspace `CMD_EXE`.
