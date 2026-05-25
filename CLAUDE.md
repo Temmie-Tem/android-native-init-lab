@@ -592,6 +592,8 @@ path should be closed for this blocker.
 | v877 | helper v137 deploy-only: serial deploy to `/cache/bin/a90_android_execns_probe`; remote sha/mode marker, selftest, actor-clean, and Wi-Fi-link-clean pass |
 | v878 | bounded eSoC engine registration preflight: `REG_REQ_ENG` rc0, `REG_CMD_ENG` errno16/EBUSY; no `CMD_EXE`/`PWR_ON`, no actor start, cleanup and health pass |
 | v879 | host-only CMD engine classifier: direct userspace `CMD_EXE` remains blocked; next is helper v138 source/build-only REQ-registered subsystem-hold support |
+| v880 | helper v138 source/build-only: adds fail-closed REQ-registered subsystem-hold mode and repairs stale open errno reporting |
+| v881 | helper v138 deploy-only: serial deploy pass; remote sha/mode marker, selftest, actor-clean, and Wi-Fi-link-clean pass; next is passive WAIT_FOR_REQ observer source build |
 
 ### Safety additions (Wi-Fi research)
 
@@ -678,13 +680,19 @@ path should be closed for this blocker.
   ARM64 build passed with sha256
   `2ac8c6730768f86a221722a6ff259e3a4617134221498bd1956a63980a22a9b5`; no
   deploy, device contact, live eSoC ioctl, `/dev/subsys_esoc0` open, actors, or
-  Wi-Fi bring-up occurred. Next is V881 deploy-only helper `v138`
-  checksum/version/mode proof. Keep Wi-Fi HAL, scan/connect, DHCP/routes,
-  credentials, external ping, live direct userspace `CMD_EXE`/explicit
-  userspace `PWR_ON`, `WAIT_FOR_REQ`, `NOTIFY`, subsystem writes,
-  GPIO/sysfs/debugfs writes, module load/unload, and boot image writes blocked.
-  Do not start `mdm_helper`, `ks`, HAL, or scan/connect before a separate
-  mutating eSoC state-machine gate.
+  Wi-Fi bring-up occurred. V881 deployed helper `v138` by serial appendfile;
+  remote sha/mode marker, selftest fail0, actor-clean, and Wi-Fi-link-clean
+  passed, with no live eSoC ioctl, no `/dev/subsys_esoc0` open, no actors, and
+  no Wi-Fi bring-up. Follow-up source analysis corrects the next route:
+  `CMD_ENG` ownership is not required for initial subsystem powerup, while
+  `REG_REQ_ENG` is the important precondition, and SDX50M may not emit
+  `ESOC_REQ_IMG`. Next is V882 helper `v139` source/build-only passive
+  `ESOC_WAIT_FOR_REQ` observer support before any live subsystem-hold window.
+  Keep Wi-Fi HAL, scan/connect, DHCP/routes, credentials, external ping, live
+  direct userspace `CMD_EXE`/explicit userspace `PWR_ON`, `NOTIFY`, subsystem
+  writes, GPIO/sysfs/debugfs writes, module load/unload, and boot image writes
+  blocked. Do not start `mdm_helper`, `ks`, HAL, or scan/connect before a
+  separate mutating eSoC state-machine gate.
 
 ## Docs structure
 

@@ -759,3 +759,55 @@ Next candidate:
 - V881 helper `v138` deploy-only checksum/version/mode proof.
 - Still block live eSoC ioctls, `/dev/subsys_esoc0` open, actors, Wi-Fi HAL,
   scan/connect, credentials, DHCP/routes, and external ping.
+
+---
+
+## 24. V881 helper v138 deploy result and route correction
+
+V881 deployed helper `v138` to `/cache/bin/a90_android_execns_probe`.
+
+Evidence:
+
+- `tmp/wifi/v881-execns-helper-v138-plan/manifest.json`
+- `tmp/wifi/v881-execns-helper-v138-preflight/manifest.json`
+- `tmp/wifi/v881-execns-helper-v138-deploy-preflight/manifest.json`
+- `docs/plans/NATIVE_INIT_V881_HELPER_V138_DEPLOY_PLAN_2026-05-26.md`
+- `docs/reports/NATIVE_INIT_V881_HELPER_V138_DEPLOY_2026-05-26.md`
+
+Decision:
+
+- `execns-helper-v138-deploy-pass`
+
+Result:
+
+- remote sha256:
+  `2ac8c6730768f86a221722a6ff259e3a4617134221498bd1956a63980a22a9b5`
+- remote marker: `a90_android_execns_probe v138`
+- mode token:
+  `wifi-companion-esoc-req-registered-subsys-hold-preflight`
+- serial chunks written: `788`
+- post-deploy selftest stayed `fail=0`
+- service-manager process hits: `0`
+- Wi-Fi netdev hits: `0`
+
+Guardrails held: V881 did not execute live eSoC ioctls, did not open
+`/dev/subsys_esoc0`, did not start Android actors, and did not bring up Wi-Fi.
+
+Route correction from follow-up source analysis:
+
+- `REG_CMD_ENG` ownership is not required for initial subsystem powerup; the
+  kernel eSoC path can issue the initial power-on command internally after
+  `REG_REQ_ENG` releases `req_eng_wait`.
+- SDX50M may not emit `ESOC_REQ_IMG`; that request loop is more likely an
+  older USB/HSIC modem image-transfer pattern.
+- The next useful helper gap is passive `ESOC_WAIT_FOR_REQ` observation during
+  a future REQ-registered subsystem-hold window, not direct userspace
+  `CMD_EXE`.
+
+Next candidate:
+
+- V882 helper `v139` source/build-only passive `ESOC_WAIT_FOR_REQ` observer
+  support.
+- Still block helper deploy, live eSoC ioctl, `/dev/subsys_esoc0` open,
+  `ESOC_NOTIFY`, actors, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, and
+  external ping in V882.

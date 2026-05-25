@@ -25,7 +25,7 @@
 
 ## 현재 Wi-Fi Gate
 
-- 최신 기준: V877 pass.
+- 최신 기준: V881 pass.
 - V874 결론: `/dev/esoc-0` read-only control path가 live에서 열렸고
   `GET_STATUS`/`GET_ERR_FATAL`은 rc `0`, `GET_LINK_ID`는 errno `22`로
   반환됐다. 결과는 `read-only-ioctl-probe-complete`이며 created nodes cleanup,
@@ -60,6 +60,16 @@
   bounded `/dev/subsys_esoc0` hold preflight support 추가이며, 직접
   `CMD_EXE`/명시적 userspace `PWR_ON`/`WAIT_FOR_REQ`/`NOTIFY`/actor/Wi-Fi
   bring-up은 계속 막는다.
+- V880 결론: helper `v138` source/build-only가 통과했고
+  `wifi-companion-esoc-req-registered-subsys-hold-preflight` mode와
+  allow flag가 추가됐다. Deploy/live ioctl/subsystem open은 없었다.
+- V881 결론: helper `v138` deploy-only가 통과했다. Remote sha/mode marker,
+  selftest fail0, actor-clean, Wi-Fi-link-clean이 pass였고 live eSoC ioctl,
+  `/dev/subsys_esoc0` open, actor start, Wi-Fi bring-up은 없었다. 후속 분석상
+  초기 powerup은 `REG_REQ_ENG`가 핵심이고 `CMD_ENG` ownership은 불필요할 수
+  있으며, SDX50M은 `ESOC_REQ_IMG`를 내지 않을 수 있다. 다음 후보는 live가
+  아니라 V882 helper `v139` source/build-only passive `ESOC_WAIT_FOR_REQ`
+  observer support다.
 
 - 아래 V840-V847 항목은 V874/V875 이전 경로 요약이다.
 - V840 결론: provider-first service-manager/PeripheralManager, CNSS retry,
@@ -4156,3 +4166,25 @@ Samsung bootloader
   `/dev/subsys_esoc0` open, no actor start, no Wi-Fi HAL, scan/connect,
   DHCP/routes, credentials, or external ping.
 - next: V881 helper `v138` deploy-only checksum/version/mode proof.
+
+### V881. Helper v138 Deploy-only Proof
+
+- plan: `docs/plans/NATIVE_INIT_V881_HELPER_V138_DEPLOY_PLAN_2026-05-26.md`
+- report: `docs/reports/NATIVE_INIT_V881_HELPER_V138_DEPLOY_2026-05-26.md`
+- deploy wrapper: `scripts/revalidation/wifi_execns_helper_v138_deploy_preflight.py`
+- evidence:
+  - `tmp/wifi/v881-execns-helper-v138-plan/manifest.json`
+  - `tmp/wifi/v881-execns-helper-v138-preflight/manifest.json`
+  - `tmp/wifi/v881-execns-helper-v138-deploy-preflight/manifest.json`
+- decision: `execns-helper-v138-deploy-pass`
+- result: deploy-only PASS. Helper `v138` was installed by serial
+  appendfile/uudecode using 1850-byte chunks. Remote sha, helper marker, eSoC
+  REQ-registered subsystem-hold mode token, selftest fail0, actor-clean, and
+  Wi-Fi-link-clean all passed.
+- route correction: follow-up source analysis says initial powerup only needs
+  `REG_REQ_ENG`; `REG_CMD_ENG` ownership is not required for the kernel's
+  internal power-on path, and SDX50M may not emit `ESOC_REQ_IMG`.
+- hard gates held: no live eSoC ioctl, no `/dev/subsys_esoc0` open, no actor
+  start, no Wi-Fi HAL, scan/connect, DHCP/routes, credentials, or external ping.
+- next: V882 helper `v139` source/build-only passive `ESOC_WAIT_FOR_REQ`
+  observer support before any live subsystem-hold window.
