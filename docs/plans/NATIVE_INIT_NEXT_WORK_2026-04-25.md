@@ -3673,3 +3673,26 @@ Samsung bootloader
 - next: V861 should classify the post-property-clean `pm-service` lifetime and
   provider-input gap. Focus on child exit status, stdout/stderr, provider
   registration, and fd timing versus Android V853 before actor escalation.
+
+### V861. pm-service Domain Parity
+
+- plan: `docs/plans/NATIVE_INIT_V861_PM_SERVICE_DOMAIN_PARITY_PLAN_2026-05-25.md`
+- report: `docs/reports/NATIVE_INIT_V861_PM_SERVICE_DOMAIN_PARITY_2026-05-25.md`
+- helper source: `stage3/linux_init/helpers/a90_android_execns_probe.c`
+- deploy wrapper: `scripts/revalidation/wifi_execns_helper_v133_deploy_preflight.py`
+- runner: `scripts/revalidation/native_wifi_pm_service_domain_parity_v861.py`
+- evidence:
+  - `tmp/wifi/v861-pm-service-domain-parity-plan-r2/manifest.json`
+  - `tmp/wifi/v861-pm-service-domain-parity-live-r2/manifest.json`
+- decision: `v861-exec-target-accepted-current-kernel-no-subsys-hold`
+- result: bounded native live PASS. Helper v133 mapped `/vendor/bin/pm-service`
+  and `/vendor/bin/pm-proxy` to `u:r:vendor_per_mgr:s0`; the exec target was
+  accepted and property denials stayed zero. Runtime `attr/current` still read
+  `kernel`, `pm-service` exited `0`, `pm-proxy` exited `1`, and no subsystem fd
+  hold appeared.
+- hard gates: no `mdm_helper`/`ks`, no Wi-Fi HAL, scan/connect, credentials,
+  DHCP/routes, external ping, raw eSoC ioctl, GPIO/sysfs/debugfs/subsystem
+  write, module load/unload, boot image write, or partition write.
+- next: V862 should classify Android init service contract differences for
+  `vendor.per_mgr`, `vendor.per_proxy`, and `vendor.per_proxy_helper` before
+  actor escalation.

@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: v860 removed the current pm-service/pm-proxy property denials with a V858/V859/V677 private property superset, but pm-service still does not hold subsystem fds; next is V861 lifetime/provider-input classification below mdm_helper/HAL/connect
+- **Active research cycle**: v861 accepted helper-side vendor_per_mgr exec targets for pm-service/pm-proxy, but runtime attr/current remains kernel and no subsystem fd hold appears; next is V862 Android init service-contract classification below mdm_helper/HAL/connect
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -573,6 +573,7 @@ path should be closed for this blocker.
 | v858 | pm-service/pm-proxy property-context delta maps 8 V857 residual keys and deploys the private property root update without daemon start |
 | v859 | V858 target denials are gone, but new vndservicemanager/ServiceManager/PerMgrLib property denials remain; no subsystem fd hold yet |
 | v860 | V858/V859/V677 property superset drops property denials to zero; pm-service still has no `/dev/subsys_esoc0` or `/dev/subsys_modem` fd hold |
+| v861 | helper v133 accepts `vendor_per_mgr` exec targets for `pm-service`/`pm-proxy`, but runtime `attr/current` stays `kernel`; still no subsystem fd hold |
 
 ### Safety additions (Wi-Fi research)
 
@@ -595,11 +596,16 @@ path should be closed for this blocker.
   property-context delta, V859 proved those target denials are gone, and V860
   merged the V858/V859/V677 property sets into one private superset. V860 replay
   has `property_denials.total=0` but still no `/dev/subsys_esoc0` or
-  `/dev/subsys_modem` fd hold from `pm-service`. Keep Wi-Fi HAL, scan/connect,
-  DHCP/routes, credentials, external ping, raw eSoC ioctl, subsystem writes,
-  GPIO/sysfs/debugfs writes, module load/unload, and boot image writes blocked.
-  Next gate is V861 lifetime/provider-input classification for `pm-service` and
-  `pm-proxy`. Do not start `mdm_helper`, `ks`, HAL, or scan/connect yet.
+  `/dev/subsys_modem` fd hold from `pm-service`. V861 added helper-side
+  `vendor_per_mgr` exec targets for `pm-service`/`pm-proxy`; the target writes
+  were accepted, but runtime `attr/current` remained `kernel`, `pm-service`
+  exited `0`, `pm-proxy` exited `1`, and subsystem fd holds were still absent.
+  Keep Wi-Fi HAL, scan/connect, DHCP/routes, credentials, external ping, raw
+  eSoC ioctl, subsystem writes, GPIO/sysfs/debugfs writes, module load/unload,
+  and boot image writes blocked. Next gate is V862 Android init service-contract
+  classification for `vendor.per_mgr`, `vendor.per_proxy`, and
+  `vendor.per_proxy_helper`. Do not start `mdm_helper`, `ks`, HAL, or
+  scan/connect yet.
 
 ## Docs structure
 

@@ -76,7 +76,7 @@
 #define AF_QIPCRTR 42
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v132"
+#define EXECNS_VERSION "a90_android_execns_probe v133"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -3262,6 +3262,10 @@ static const char *android_default_selinux_context_for_target(const char *target
     }
     if (streq(target, "/vendor/bin/pd-mapper")) {
         return "u:r:vendor_pd_mapper:s0";
+    }
+    if (streq(target, "/vendor/bin/pm-service") ||
+        streq(target, "/vendor/bin/pm-proxy")) {
+        return "u:r:vendor_per_mgr:s0";
     }
     return NULL;
 }

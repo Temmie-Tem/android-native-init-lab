@@ -247,6 +247,7 @@
 - `plans/NATIVE_INIT_V101_SERVICE_MANAGER_PLAN_2026-05-03.md` – v101 minimal service manager 구현 계획
 - `plans/NATIVE_INIT_V102_DIAGNOSTICS_PLAN_2026-05-03.md` – v102 diagnostics/log bundle 실행 계획
 - `plans/NATIVE_INIT_V103_WIFI_INVENTORY_PLAN_2026-05-04.md` – v103 Wi-Fi read-only inventory 실행 계획
+- `plans/NATIVE_INIT_V861_PM_SERVICE_DOMAIN_PARITY_PLAN_2026-05-25.md` – V860 이후 `pm-service`/`pm-proxy`에 Android `vendor_per_mgr` exec context를 추가해 subsystem fd hold 여부를 재검증하는 V861 계획
 - `plans/NATIVE_INIT_V860_PM_SERVICE_PROPERTY_SUPERSET_PLAN_2026-05-25.md` – V858/V859/V677 property key를 하나의 private property superset으로 묶고 `pm-service`/`pm-proxy` start-only를 재검증하는 V860 계획
 - `plans/NATIVE_INIT_V859_PM_SERVICE_PROPERTY_DELTA_REPLAY_PLAN_2026-05-25.md` – V858 property delta 적용 후 helper 재배포 없이 `pm-service`/`pm-proxy` start-only를 재실행해 기존 denial 제거 여부와 새 property gap을 분류하는 V859 계획
 - `plans/NATIVE_INIT_V858_PM_SERVICE_PROPERTY_CONTEXT_DELTA_PLAN_2026-05-25.md` – V857에서 드러난 `pm-service`/`pm-proxy` property-context gap 8개를 private property root delta로 매핑/배포하는 V858 계획
@@ -500,6 +501,7 @@
 - `reports/NATIVE_INIT_V700_PROVIDER_FIRST_CNSS_LIVE_2026-05-24.md` – V700 live 결과 초기 pre-provider CNSS를 억제한 상태에서 provider 등록과 post-provider CNSS retry는 통과했지만 WLFW/BDF/`wlan0`는 여전히 0이라 다음은 pre-WLFW trigger classifier
 - `reports/NATIVE_INIT_V699_PROVIDER_FIRST_CNSS_HELPER_2026-05-24.md` – V699 helper-build 결과 `a90_android_execns_probe v119`에 provider-first initial-suppressed CNSS 모드를 추가했고 다음은 helper v119 배포 후 bounded live proof
 - `reports/NATIVE_INIT_V698_CNSS_RETRY_ATTRIBUTION_2026-05-24.md` – V698 host-only 결과 Binder `29189/-22`는 초기 pre-provider `cnss-daemon` pid에 귀속되고 post-provider retry는 Binder fail 없이 netlink 뒤 WLFW 전 정지로 분류되어 다음은 provider-first initial-suppressed CNSS live gate
+- `reports/NATIVE_INIT_V861_PM_SERVICE_DOMAIN_PARITY_2026-05-25.md` – V861 live 결과 `vendor_per_mgr` exec target은 accepted지만 runtime context는 `kernel`로 남고 `pm-service` subsystem fd hold는 여전히 미증명
 - `reports/NATIVE_INIT_V860_PM_SERVICE_PROPERTY_SUPERSET_2026-05-25.md` – V860 live 결과 property denial은 0으로 정리됐지만 `pm-service` subsystem fd hold는 아직 미증명이라 다음은 lifetime/provider-input 분류
 - `reports/NATIVE_INIT_V859_PM_SERVICE_PROPERTY_DELTA_REPLAY_2026-05-25.md` – V859 live 결과 V858 target denial 8개는 제거됐고 새 `vndservicemanager`/`ServiceManager`/`PerMgrLib` property gap으로 이동했으며 `pm-service` subsystem fd hold는 아직 미증명
 - `reports/NATIVE_INIT_V858_PM_SERVICE_PROPERTY_CONTEXT_DELTA_2026-05-25.md` – V858 결과 V857 residual property key 8개를 Android property_context에 모두 매핑하고 private V535 property root에 델타 배포 및 device-side hash 검증 완료

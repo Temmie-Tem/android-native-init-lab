@@ -406,3 +406,32 @@ Interpretation: the active blocker moved past private property coverage. The
 next gate is V861 lifetime/provider-input classification for `pm-service` and
 `pm-proxy`: capture exit status, stdout/stderr, provider registration, and fd
 timing under the same node parity before considering `mdm_helper`/`ks`.
+
+## 15. V861 domain parity outcome
+
+V861 added helper-side Android default exec-context mappings for
+`/vendor/bin/pm-service` and `/vendor/bin/pm-proxy`:
+
+| Target | Requested context |
+|---|---|
+| `/vendor/bin/pm-service` | `u:r:vendor_per_mgr:s0` |
+| `/vendor/bin/pm-proxy` | `u:r:vendor_per_mgr:s0` |
+
+Bounded replay result: `v861-exec-target-accepted-current-kernel-no-subsys-hold`.
+
+| Check | Result |
+|---|---|
+| property denial total | `0` |
+| `pm-service` exec target accepted | `true` |
+| `pm-proxy` exec target accepted | `true` |
+| `pm-service` runtime `attr/current` | `kernel` |
+| `pm-proxy` runtime `attr/current` | `kernel` |
+| `pm-service` exit code | `0` |
+| `pm-proxy` exit code | `1` |
+| `pm-service` holds `/dev/subsys_esoc0` | `false` |
+| `pm-service` holds `/dev/subsys_modem` | `false` |
+
+Interpretation: V861 fixed the helper-side missing target mapping, but direct
+exec still does not behave like Android init-managed `vendor.per_mgr`. The next
+gate should classify the Android init service contract for `vendor.per_mgr`,
+`vendor.per_proxy`, and `vendor.per_proxy_helper` before `mdm_helper`/`ks`.
