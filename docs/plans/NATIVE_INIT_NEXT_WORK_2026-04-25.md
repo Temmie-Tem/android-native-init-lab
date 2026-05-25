@@ -3311,3 +3311,31 @@ Samsung bootloader
   partition write, or custom kernel flash was executed.
 - next: V848 should classify the `subsys_esoc0` open-block boundary below
   `subsystem_get()` and before MHI/WLFW, using V847 evidence and OSRC source.
+
+### V848. subsys_esoc0 Open-Block Classifier
+
+- plan: `docs/plans/NATIVE_INIT_V848_SUBSYS_ESOC0_OPEN_BLOCK_CLASSIFIER_PLAN_2026-05-25.md`
+- report: `docs/reports/NATIVE_INIT_V848_SUBSYS_ESOC0_OPEN_BLOCK_CLASSIFIER_2026-05-25.md`
+- runner: `scripts/revalidation/native_wifi_subsys_esoc0_open_block_classifier_v848.py`
+- evidence:
+  - `tmp/wifi/v848-subsys-esoc0-open-block-classifier/manifest.json`
+  - `tmp/wifi/v848-subsys-esoc0-open-block-classifier/summary.md`
+- decision: `v848-subsys-esoc0-open-block-boundary-classified`
+- result: host-only PASS. V847's holder reached
+  `__subsystem_get(esoc0)` and `Changing subsys fw_name to esoc0`, but open
+  did not complete, mdm3/subsys9 stayed `OFFLINING`, and MHI/PCIe,
+  WLFW/BDF/FW-ready/`wlan0` markers stayed absent. OSRC maps the remaining
+  branch to either provider `powerup()` or `wait_for_err_ready()`. Defconfig
+  enables ESOC/ESOC_DEV/ESOC_CLIENT/ESOC_MDM_4x/ESOC_MDM_DRV, but the staged
+  OSRC tree lacks the eSoC MDM provider source, so source-only attribution is
+  insufficient.
+- hard gates: no device command, `mknod`, char-device open, raw `/dev/esoc*`
+  open/ioctl, sysfs/GPIO/debugfs write, bind/unbind, module load/unload,
+  daemon start, service-manager, Wi-Fi HAL, scan/connect, credential use,
+  DHCP/routes, external ping, boot image write, partition write, or custom
+  kernel flash was executed.
+- next: V849 should run one bounded live `subsys_esoc0` char-open wait-state
+  sampler with holder process tree, `/proc/<pid>/wchan`, `/proc/<pid>/stack`
+  if readable, `/proc/<pid>/status`, `/proc/<pid>/syscall`, read-only
+  `/sys/module` eSoC/module surface, mdm3 state, focused dmesg, node removal,
+  cleanup reboot, and postflight health checks.

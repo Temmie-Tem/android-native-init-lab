@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: v847 selected V848 host-only `subsys_esoc0` open-block boundary classifier, still below HAL/connect
+- **Active research cycle**: v848 selected V849 bounded `subsys_esoc0` wait-state sampler, still below HAL/connect
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -157,7 +157,7 @@ New `vNNN` experiment scripts must:
 - Gate live action behind explicit `--allow-*` + `--assume-yes` flags
 - Run `version`, `status`, `bootstatus`, `selftest verbose` as postflight regression
 
-## Wi-Fi bring-up research state (v598–v847, active)
+## Wi-Fi bring-up research state (v598–v848, active)
 
 Goal: bring up `wlan0` from native init without Android userspace.
 
@@ -328,6 +328,19 @@ absent in the focused output. Next gate is V848 host-only: classify the
 `subsys_esoc0` open-block boundary below `subsystem_get()` and before MHI/WLFW
 before any retry, longer hold, HAL/connect, DHCP/routes, credentials, external
 ping, or boot-image work.
+
+V848 host-only PASS classified the V847 block. `subsys_device_open()` enters
+`subsystem_get_with_fwname()`/`__subsystem_get()`, then `subsys_start()` calls
+the provider `powerup()` hook and later `wait_for_err_ready()`. V847 proves the
+entry point and `fw_name` update but not open success, MHI/PCIe, WLFW/BDF, or
+`wlan0`. The branch is now provider `powerup()` GPIO/IRQ handshake versus
+`wait_for_err_ready()` completion wait. Defconfig enables ESOC/ESOC_DEV/
+ESOC_CLIENT/ESOC_MDM_4x/ESOC_MDM_DRV, but the staged OSRC tree lacks the eSoC
+MDM provider source, so V849 must sample the blocked holder task's `wchan`,
+stack/status/syscall, read-only `/sys/module` eSoC surface, mdm3 state, and
+focused dmesg rather than doing a blind longer hold or widening to GPIO writes,
+raw eSoC ioctls, HAL/connect, DHCP/routes, credentials, external ping, or
+boot-image work.
 
 ```text
 servloc:64:257;ssctl:43:4098;servnotif:66:18945,46081;wlfw:69:1
