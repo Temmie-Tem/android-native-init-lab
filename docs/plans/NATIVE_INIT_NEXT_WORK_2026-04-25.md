@@ -3339,3 +3339,30 @@ Samsung bootloader
   if readable, `/proc/<pid>/status`, `/proc/<pid>/syscall`, read-only
   `/sys/module` eSoC/module surface, mdm3 state, focused dmesg, node removal,
   cleanup reboot, and postflight health checks.
+
+### V849. subsys_esoc0 Wait-State Sampler
+
+- plan: `docs/plans/NATIVE_INIT_V849_SUBSYS_ESOC0_WAIT_STATE_SAMPLER_PLAN_2026-05-25.md`
+- report: `docs/reports/NATIVE_INIT_V849_SUBSYS_ESOC0_WAIT_STATE_SAMPLER_2026-05-25.md`
+- runner: `scripts/revalidation/native_wifi_subsys_esoc0_wait_state_sampler_v849.py`
+- evidence:
+  - `tmp/wifi/v849-subsys-esoc0-wait-state-sampler/manifest.json`
+  - `tmp/wifi/v849-subsys-esoc0-wait-state-sampler/summary.md`
+  - `tmp/wifi/v849-subsys-esoc0-wait-state-sampler/native/sample-after-start.txt`
+- decision: `v849-subsys-esoc0-block-provider-powerup-or-opaque`
+- result: live stock-v724 bounded PASS. V849 created `/dev/subsys_esoc0`,
+  started one holder, captured in-window `/proc` wait-state evidence, removed
+  the node, and reboot-cleaned successfully. The holder did not complete open;
+  its `wchan` was `mdm_subsys_powerup`, task state was `D (disk sleep)`, and
+  stack showed `mdm_subsys_powerup -> __subsystem_get -> subsys_device_open`.
+  `wait_for_err_ready`, MHI/WLFW/BDF/FW-ready/`wlan0` progress stayed absent,
+  and mdm3/subsys9 remained `OFFLINING`.
+- hard gates: no raw `/dev/esoc*` open/ioctl, GPIO/sysfs/debugfs write,
+  bind/unbind, module load/unload, daemon start, service-manager, Wi-Fi HAL,
+  scan/connect, credential use, DHCP/routes, external ping, boot image write,
+  partition write, or custom kernel flash was executed.
+- next: V850 should classify the proprietary ext-mdm provider surface around
+  `mdm_subsys_powerup` using V849 evidence, current read-only sysfs/module
+  surfaces, available symbols, and Android reference behavior before any GPIO,
+  raw eSoC ioctl, MHI write, HAL/connect, DHCP/routes, external ping, or
+  boot-image work.

@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: v848 selected V849 bounded `subsys_esoc0` wait-state sampler, still below HAL/connect
+- **Active research cycle**: v849 selected V850 ext-mdm `mdm_subsys_powerup` surface classifier, still below HAL/connect
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -157,7 +157,7 @@ New `vNNN` experiment scripts must:
 - Gate live action behind explicit `--allow-*` + `--assume-yes` flags
 - Run `version`, `status`, `bootstatus`, `selftest verbose` as postflight regression
 
-## Wi-Fi bring-up research state (v598–v848, active)
+## Wi-Fi bring-up research state (v598–v849, active)
 
 Goal: bring up `wlan0` from native init without Android userspace.
 
@@ -341,6 +341,19 @@ stack/status/syscall, read-only `/sys/module` eSoC surface, mdm3 state, and
 focused dmesg rather than doing a blind longer hold or widening to GPIO writes,
 raw eSoC ioctls, HAL/connect, DHCP/routes, credentials, external ping, or
 boot-image work.
+
+V849 live bounded PASS captured the missing task wait state. The
+`subsys_esoc0` holder does not reach `wait_for_err_ready()` and does not
+progress to MHI/WLFW. Its `wchan` is `mdm_subsys_powerup`, task state is
+`D (disk sleep)`, and stack is `mdm_subsys_powerup -> __subsystem_get ->
+subsys_device_open`. mdm3/subsys9 remains `OFFLINING`; WLFW/BDF/FW-ready/
+`wlan0` remains absent. Cleanup reboot restored healthy v724. Current blocker
+is now inside proprietary ext-mdm provider power-up, before SDX50M publishes
+WLFW service 69. Next gate is V850 host-only/read-only: classify
+`mdm_subsys_powerup` provider surface from V849 evidence, live sysfs/module
+surface, available symbols, and Android reference behavior. Still no GPIO/sysfs
+write, raw eSoC ioctl, MHI write, HAL/connect, DHCP/routes, credentials,
+external ping, or boot-image work.
 
 ```text
 servloc:64:257;ssctl:43:4098;servnotif:66:18945,46081;wlfw:69:1
