@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: v817 pending after V816 idle-vs-trigger delta; add in-window read-only subsystem/sysmon/service-locator sampler
+- **Active research cycle**: v818 pending after V817 in-window sampler; isolate mdm3/esoc0 service-locator/sysmon registration state without `esoc0` open or HAL/connect
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -157,7 +157,7 @@ New `vNNN` experiment scripts must:
 - Gate live action behind explicit `--allow-*` + `--assume-yes` flags
 - Run `version`, `status`, `bootstatus`, `selftest verbose` as postflight regression
 
-## Wi-Fi bring-up research state (v598–v816, active)
+## Wi-Fi bring-up research state (v598–v817, active)
 
 Goal: bring up `wlan0` from native init without Android userspace.
 
@@ -179,7 +179,7 @@ stable enough in every boot. Helper v124 added a `sysmon-qmi` gated
 `mdm_helper` mode. V746 proved `mdm_helper` starts safely after `sysmon-qmi`,
 but it does not advance mdm3/WLAN-PD/WLFW.
 
-### Current blocker (V816)
+### Current blocker (V817)
 
 ```
 mss: OFFLINING → ONLINE ✓  (read-only firmware mounts + subsys_modem holder)
@@ -233,6 +233,7 @@ V813 post-sysmon classifier: host-only PASS. V812 confirms current sysmon-withou
 V814 sibling sysmon source classifier: host-only PASS. Samsung OSRC source maps service-notifier to SERVREG QMI listener/state indication and sysmon to subsystem registration/QMI lookup. This confirms the next useful step is a read-only stock-v724 subsystem/sysmon/service-locator registration snapshot, not userspace daemon/HAL/connect retry or custom-kernel flash.
 V815 subsystem/sysmon snapshot: live stock-v724 read-only PASS. Idle native has msm_subsys surface present, modem/mss `OFFLINING`, mdm3/esoc0 `OFFLINING`, esoc sysfs present, ICNSS platform present, service-locator timeout markers, and no runtime service-notifier/service74/WLAN-PD/WLFW/BDF/`wlan0`. Static devicetree/sysfs WLAN strings are separated from runtime marker counts. Next gate is V816 idle-vs-trigger delta classification using V815 and V812 evidence.
 V816 idle-vs-trigger delta classifier: host-only PASS. Idle has modem/mdm3 `OFFLINING` and no runtime service publication. V812 lower trigger advances mss/QRTR/sysmon, but mdm3 remains `OFFLINING` and service74/WLAN-PD/WLFW/service69/BDF/`wlan0` remain absent. Next gate is V817 in-window read-only sampling of V815 surfaces around the existing lower trigger, not HAL/connect or custom-kernel flash.
+V817 in-window sysmon sampler: live stock-v724 PASS. Current-boot V401/V490 refresh, firmware mounts, `subsys_modem` holder, and lower companion/CNSS diagnostic stack ran below service-manager/HAL/scan/connect. In-window snapshots show mss `OFFLINING -> ONLINE -> ONLINE`, QRTR readiness and `sysmon-qmi` appear, but mdm3 stays `OFFLINING` and service74/WLAN-PD/WLFW/service69/BDF/`wlan0` remain absent. Cleanup reboot restored healthy v724. Next gate V818 should isolate mdm3/esoc0 service-locator/sysmon registration state without `esoc0` open, HAL/connect, or custom-kernel flash.
 ```
 
 Vendor firmware files (`wlanmdsp.mbn`, `bdwlan.bin`, `regdb.bin`) confirmed at `sda29` (isolated mount), NOT in default native `/vendor`.
@@ -328,6 +329,7 @@ path should be closed for this blocker.
 | v814 | host-only source classifier maps service-notifier/sysmon to kernel registration paths; next is read-only stock-v724 subsystem/sysmon/service-locator snapshot |
 | v815 | live read-only idle snapshot captures modem/mdm3 OFFLINING baseline and no runtime service74/WLAN-PD/WLFW; next is idle-vs-trigger delta classifier |
 | v816 | host-only idle-vs-trigger delta: lower trigger advances mss/sysmon only; mdm3 and service-publication stay blocked |
+| v817 | live in-window sampler: lower window advances mss/QRTR/sysmon but mdm3 remains OFFLINING and service74/WLAN-PD/WLFW stay absent; next is mdm3/esoc0 registration isolation |
 
 ### Safety additions (Wi-Fi research)
 

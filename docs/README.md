@@ -130,6 +130,7 @@
 
 ### 3. Plans
 
+- `plans/NATIVE_INIT_V817_IN_WINDOW_SYSMON_SAMPLER_PLAN_2026-05-25.md` – V816 이후 기존 lower-trigger window 안에서 before-holder/after-holder/after-companion read-only subsystem/sysmon/service-locator surface를 샘플링하는 계획
 - `plans/NATIVE_INIT_V816_IDLE_TRIGGER_DELTA_CLASSIFIER_PLAN_2026-05-25.md` – V815 idle snapshot과 V812 lower-trigger evidence를 host-only로 비교해 mss/sysmon만 전진하고 mdm3/service-publication이 막히는 delta인지 분류하는 계획
 - `plans/NATIVE_INIT_V815_SUBSYSTEM_SYSMON_SNAPSHOT_PLAN_2026-05-25.md` – V814 이후 stock v724 idle 상태에서 msm_subsys/sysmon/service-locator/esoc/ICNSS/QRTR/dmesg surface를 read-only로 수집하는 계획
 - `plans/NATIVE_INIT_V814_SIBLING_SYSMON_SOURCE_CLASSIFIER_PLAN_2026-05-25.md` – V813 이후 Samsung OSRC `service-notifier`/`sysmon`/`subsystem_restart` 소스 anchor로 다음 blocker가 subsystem/sysmon/service-publication registration surface인지 host-only로 분류하는 계획
@@ -356,6 +357,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V817_IN_WINDOW_SYSMON_SAMPLER_2026-05-25.md` – V817 결과 lower window 안에서 mss/QRTR/sysmon은 전진하지만 mdm3는 계속 `OFFLINING`, service74/WLAN-PD/WLFW/BDF/`wlan0`는 absent라 V818 mdm3/esoc0 service-locator/sysmon registration isolation으로 라우팅
 - `reports/NATIVE_INIT_V816_IDLE_TRIGGER_DELTA_CLASSIFIER_2026-05-25.md` – V816 결과 idle은 modem/mdm3 OFFLINING과 runtime service-publication absent, V812 lower-trigger는 mss/QRTR/sysmon만 전진하고 mdm3/service74/WLAN-PD/WLFW/BDF/`wlan0`는 absent라 V817 in-window read-only sampler로 라우팅
 - `reports/NATIVE_INIT_V815_SUBSYSTEM_SYSMON_SNAPSHOT_2026-05-25.md` – V815 결과 idle stock v724에서 msm_subsys 10개, modem/mss `OFFLINING`, mdm3/esoc0 `OFFLINING`, ICNSS platform present, service-locator timeout marker, runtime service74/WLAN-PD/WLFW/BDF/`wlan0` absent를 read-only로 캡처
 - `reports/NATIVE_INIT_V814_SIBLING_SYSMON_SOURCE_CLASSIFIER_2026-05-25.md` – V814 결과 OSRC source가 service-notifier를 SERVREG QMI listener/state indication 경로로, sysmon을 subsystem registration/QMI lookup 경로로 매핑하므로 V815를 stock v724 read-only subsystem/sysmon/service-locator registration snapshot으로 선정
