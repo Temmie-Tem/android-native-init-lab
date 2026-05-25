@@ -76,7 +76,7 @@
 #define AF_QIPCRTR 42
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v127"
+#define EXECNS_VERSION "a90_android_execns_probe v128"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -97,8 +97,8 @@
 #define A90_SERVNOTIF_ACK_MSG_ID 0x0023U
 #define A90_SERVNOTIF_TXN_ID 1U
 #define A90_SERVNOTIF_ACK_TXN_ID 2U
-#define A90_SERVNOTIF_READBACK_MS 1000U
-#define A90_SERVNOTIF_RESPONSE_MS 3000U
+#define A90_SERVNOTIF_READBACK_MS 10000U
+#define A90_SERVNOTIF_RESPONSE_MS 15000U
 #define A90_WLAN_PD_SERVICE_NAME "msm/modem/wlan_pd"
 #define A90_PROP_NAME_MAX 512
 #define A90_PROP_VALUE_MAX 1024
@@ -16158,6 +16158,7 @@ static int append_companion_service_notifier_listener_probe(struct buffer *buf,
                       "wifi_companion_service_notifier_listener.service=%u\n"
                       "wifi_companion_service_notifier_listener.instance=%u\n"
                       "wifi_companion_service_notifier_listener.service_name=%s\n"
+                      "wifi_companion_service_notifier_listener.phase=early-window\n"
                       "wifi_companion_service_notifier_listener.qmi_payload=%d\n"
                       "wifi_companion_service_notifier_listener.wifi_hal=0\n"
                       "wifi_companion_service_notifier_listener.scan_connect_linkup=0\n"
@@ -16392,10 +16393,8 @@ static int append_companion_service_notifier_listener_probe(struct buffer *buf,
             }
         }
         packets++;
-        if (response_seen && (!indication_seen || ack_success)) {
-            if (response_state_valid || packets >= 2U) {
-                break;
-            }
+        if (indication_seen && (!indication_valid || ack_success)) {
+            break;
         }
     }
     close(fd);
@@ -17504,6 +17503,12 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
         stop_property_service_shim(&property_shim, paths, stdout_buf);
         return -1;
     }
+    if (cfg->allow_service_notifier_listener_probe &&
+        append_companion_service_notifier_listener_probe(stdout_buf, cfg) < 0) {
+        composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+        stop_property_service_shim(&property_shim, paths, stdout_buf);
+        return -1;
+    }
     deadline = monotonic_ms() + cfg->timeout_sec * 1000L;
     if (composite_poll_children(children, active_child_count, stdout_buf, stderr_buf, deadline, timed_out) < 0) {
         composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
@@ -17543,12 +17548,6 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
     }
     if (cfg->allow_servloc_domain_list_probe &&
         append_companion_servloc_domain_list_probe(stdout_buf, cfg) < 0) {
-        composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
-        stop_property_service_shim(&property_shim, paths, stdout_buf);
-        return -1;
-    }
-    if (cfg->allow_service_notifier_listener_probe &&
-        append_companion_service_notifier_listener_probe(stdout_buf, cfg) < 0) {
         composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
         stop_property_service_shim(&property_shim, paths, stdout_buf);
         return -1;
