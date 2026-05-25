@@ -53,6 +53,13 @@
   registered for the device`가 남았다. 금지 액션과 Wi-Fi bring-up은 없었고
   selftest fail0/cleanup/actor-clean/Wi-Fi-link-clean은 유지됐다. 다음 후보는
   V879 host-only CMD engine ownership/eSoC client-hook classifier다.
+- V879 결론: host-only classifier가 `REG_CMD_ENG EBUSY`를 직접 userspace
+  `CMD_EXE` 차단으로 분류했다. `REG_REQ_ENG rc0`는 V849 `req_eng_wait`
+  블로커를 좁히므로, 다음 후보는 live가 아니라 V880 helper `v138`
+  source/build-only다. 범위는 stale open errno repair와 REQ fd를 유지한
+  bounded `/dev/subsys_esoc0` hold preflight support 추가이며, 직접
+  `CMD_EXE`/명시적 userspace `PWR_ON`/`WAIT_FOR_REQ`/`NOTIFY`/actor/Wi-Fi
+  bring-up은 계속 막는다.
 
 - 아래 V840-V847 항목은 V874/V875 이전 경로 요약이다.
 - V840 결론: provider-first service-manager/PeripheralManager, CNSS retry,
@@ -4112,3 +4119,20 @@ Samsung bootloader
   credentials, or external ping.
 - next: V879 host-only classifier for CMD engine ownership, eSoC client hooks,
   and the next safe subsystem-powerup guardrails.
+
+### V879. CMD Engine Ownership Classifier
+
+- plan: `docs/plans/NATIVE_INIT_V879_CMD_ENGINE_OWNERSHIP_CLASSIFIER_PLAN_2026-05-26.md`
+- report: `docs/reports/NATIVE_INIT_V879_CMD_ENGINE_OWNERSHIP_CLASSIFIER_2026-05-26.md`
+- classifier: `scripts/revalidation/native_wifi_esoc_cmd_engine_classifier_v879.py`
+- evidence:
+  - `tmp/wifi/v879-cmd-engine-ownership-classifier/manifest.json`
+- decision: `v879-cmd-engine-ebusy-classified`
+- result: host-only PASS. Direct userspace `CMD_EXE` remains blocked because
+  `REG_CMD_ENG` returned `EBUSY`. `REG_REQ_ENG` rc0 makes a REQ-registered
+  subsystem-open helper mode the next source/build-only candidate.
+- hard gates held: no device contact, no helper deploy, no eSoC ioctl, no
+  subsystem open, no actor start, no Wi-Fi HAL, scan/connect, DHCP/routes,
+  credentials, or external ping.
+- next: V880 helper `v138` source/build-only stale-open-errno repair plus
+  fail-closed REQ-registered subsystem-hold preflight support.

@@ -591,6 +591,7 @@ path should be closed for this blocker.
 | v876 | helper v137 source/build-only: adds fail-closed `wifi-companion-esoc-engine-register-preflight` mode and allow flag; no deploy or live ioctl |
 | v877 | helper v137 deploy-only: serial deploy to `/cache/bin/a90_android_execns_probe`; remote sha/mode marker, selftest, actor-clean, and Wi-Fi-link-clean pass |
 | v878 | bounded eSoC engine registration preflight: `REG_REQ_ENG` rc0, `REG_CMD_ENG` errno16/EBUSY; no `CMD_EXE`/`PWR_ON`, no actor start, cleanup and health pass |
+| v879 | host-only CMD engine classifier: direct userspace `CMD_EXE` remains blocked; next is helper v138 source/build-only REQ-registered subsystem-hold support |
 
 ### Safety additions (Wi-Fi research)
 
@@ -668,11 +669,17 @@ path should be closed for this blocker.
   stayed good, and no `CMD_EXE`, `PWR_ON`, `WAIT_FOR_REQ`, `NOTIFY`,
   `/dev/subsys_esoc0` open, actors, or Wi-Fi bring-up occurred. Next is V879
   host-only classification of CMD engine ownership, eSoC client hooks, and the
-  next safe subsystem-powerup guardrails. Keep Wi-Fi HAL, scan/connect,
-  DHCP/routes, credentials, external ping, live `CMD_EXE`/`PWR_ON`,
-  `WAIT_FOR_REQ`, `NOTIFY`, subsystem writes, GPIO/sysfs/debugfs writes, module
-  load/unload, and boot image writes blocked. Do not start `mdm_helper`, `ks`,
-  HAL, or scan/connect before a separate mutating eSoC state-machine gate.
+  next safe subsystem-powerup guardrails. V879 classified direct userspace
+  `CMD_EXE` as blocked because command-engine ownership was not acquired, while
+  `REG_REQ_ENG rc0` makes a REQ-registered subsystem-open helper mode the next
+  source/build-only candidate. Next is V880 helper `v138`: repair stale
+  successful-open errno reporting and add fail-closed REQ-registered
+  subsystem-hold preflight support. Keep Wi-Fi HAL, scan/connect, DHCP/routes,
+  credentials, external ping, live direct userspace `CMD_EXE`/explicit
+  userspace `PWR_ON`, `WAIT_FOR_REQ`, `NOTIFY`, subsystem writes,
+  GPIO/sysfs/debugfs writes, module load/unload, and boot image writes blocked.
+  Do not start `mdm_helper`, `ks`, HAL, or scan/connect before a separate
+  mutating eSoC state-machine gate.
 
 ## Docs structure
 

@@ -684,3 +684,39 @@ Next candidate:
 - V879 host-only classifier for `REG_CMD_ENG` `EBUSY`, eSoC client-hook state,
   and whether the next live gate should use a REQ-registered subsystem powerup
   path rather than direct userspace `CMD_EXE`.
+
+---
+
+## 22. V879 CMD engine ownership classifier result
+
+V879 classified V878 host-only.
+
+Evidence:
+
+- `tmp/wifi/v879-cmd-engine-ownership-classifier/manifest.json`
+- `docs/reports/NATIVE_INIT_V879_CMD_ENGINE_OWNERSHIP_CLASSIFIER_2026-05-26.md`
+
+Decision:
+
+- `v879-cmd-engine-ebusy-classified`
+
+Classification:
+
+- Direct userspace `CMD_EXE` remains blocked because V878 did not acquire
+  command-engine ownership (`REG_CMD_ENG` returned `EBUSY`).
+- `REG_REQ_ENG` returned rc `0`, so the earlier V849 `req_eng_wait` blocker now
+  has a narrower next candidate.
+- The next path should be kernel subsystem powerup with a REQ fd held, not a
+  helper-owned direct `ESOC_CMD_EXE`.
+- V878 dmesg still reported `Client hooks not registered for the device`, so
+  any future live subsystem-open proof must capture MHI/CNSS eSoC hook state
+  around the window.
+
+Next candidate:
+
+- V880 helper `v138` source/build-only:
+  1. repair stale successful-open errno reporting,
+  2. add fail-closed REQ-registered subsystem-hold preflight support,
+  3. keep direct userspace `CMD_EXE`, explicit userspace `PWR_ON`,
+     `WAIT_FOR_REQ`, `NOTIFY`, actors, Wi-Fi HAL, scan/connect, credentials,
+     DHCP/routes, and external ping blocked.
