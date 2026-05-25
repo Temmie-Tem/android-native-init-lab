@@ -29,7 +29,7 @@ from a90harness.evidence import EvidenceStore, write_private_text
 DEFAULT_OUT_DIR = Path("tmp/wifi/v833-android-servnotif-positive-control")
 LATEST_POINTER = Path("tmp/wifi/latest-v833-android-servnotif-positive-control.txt")
 DEFAULT_LOCAL_HELPER = Path("tmp/wifi/v833-servnotif-helper-build/a90_servnotif_listener_probe")
-DEFAULT_HELPER_SHA256 = "df558e095ccbd452269e7be8b3987c3d52b48806ccd56978f0f0d526f0a0534f"
+DEFAULT_HELPER_SHA256 = "0d0cc09d4b23b53b0797d9daac1d134b3fc02aa0c38b891ac0d9af8432078981"
 DEFAULT_REMOTE_HELPER = "/data/local/tmp/a90_servnotif_listener_probe_v1"
 HELPER_MARKER = "a90_servnotif_listener_probe v1"
 
@@ -178,6 +178,19 @@ def parse_key_values(text: str) -> dict[str, str]:
     return values
 
 
+def canonical_state_name(output: dict[str, str], key_prefix: str) -> str:
+    name = output.get(f"{key_prefix}_name", "")
+    raw_value = output.get(key_prefix, "")
+    if name not in {"", "unknown", "other"}:
+        return name
+    return {
+        "0x0fffffff": "down",
+        "0x1fffffff": "up",
+        "0x2fffffff": "early-down",
+        "0x7fffffff": "uninit",
+    }.get(raw_value.lower(), name or "unknown")
+
+
 def adb_devices(args: argparse.Namespace, store: EvidenceStore) -> tuple[Capture, dict[str, Any]]:
     capture, text = capture_command(store, "adb-devices", [*adb_base(args), "devices", "-l"], args.timeout)
     devices: list[str] = []
@@ -293,8 +306,8 @@ def decide(args: argparse.Namespace, helper: dict[str, Any], details: dict[str, 
             "wait or rerun through the handoff wrapper",
         )
     output = details.get("helper_output") or {}
-    response_name = output.get("servnotif.response_curr_state_name", "")
-    indication_name = output.get("servnotif.indication_curr_state_name", "")
+    response_name = canonical_state_name(output, "servnotif.response_curr_state")
+    indication_name = canonical_state_name(output, "servnotif.indication_curr_state")
     endpoint_found = output.get("servnotif.endpoint.found") == "1"
     response_seen = output.get("servnotif.response_seen") == "1"
     response_success = output.get("servnotif.response_success") == "1"
@@ -333,6 +346,7 @@ def render_summary(manifest: dict[str, Any]) -> str:
         for capture in manifest["captures"]
     ]
     output = manifest["android"].get("helper_output") or {}
+    canonical = manifest["android"].get("canonical_state") or {}
     selected_keys = [
         "servnotif.endpoint.found",
         "servnotif.endpoint.node",
@@ -373,6 +387,10 @@ def render_summary(manifest: dict[str, Any]) -> str:
         "## Service-notifier Result",
         "",
         markdown_table(["key", "value"], [[key, output.get(key, "-")] for key in selected_keys]),
+        "",
+        "## Canonical State",
+        "",
+        markdown_table(["key", "value"], [[key, value] for key, value in canonical.items()]),
     ])
 
 
@@ -391,6 +409,11 @@ def build_manifest(args: argparse.Namespace, store: EvidenceStore) -> dict[str, 
         else:
             captures, details = run_android_probe(args, store)
     decision, ok, reason, next_step = decide(args, helper, details)
+    output = details.get("helper_output") or {}
+    details["canonical_state"] = {
+        "response": canonical_state_name(output, "servnotif.response_curr_state"),
+        "indication": canonical_state_name(output, "servnotif.indication_curr_state"),
+    }
     manifest: dict[str, Any] = {
         "cycle": "v833",
         "generated_at": now_iso(),

@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: v833 prepared; next live gate is Android service-notifier positive-control for `msm/modem/wlan_pd` using stock Android handoff and native v724 rollback
+- **Active research cycle**: v834 pending after V833 Android positive-control proved the same `msm/modem/wlan_pd` service-notifier listener returns `UP` on Android while native V830/V831 return `UNINIT`
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -157,7 +157,7 @@ New `vNNN` experiment scripts must:
 - Gate live action behind explicit `--allow-*` + `--assume-yes` flags
 - Run `version`, `status`, `bootstatus`, `selftest verbose` as postflight regression
 
-## Wi-Fi bring-up research state (v598–v832, active)
+## Wi-Fi bring-up research state (v598–v833, active)
 
 Goal: bring up `wlan0` from native init without Android userspace.
 
@@ -179,7 +179,7 @@ stable enough in every boot. Helper v124 added a `sysmon-qmi` gated
 `mdm_helper` mode. V746 proved `mdm_helper` starts safely after `sysmon-qmi`,
 but it does not advance mdm3/WLAN-PD/WLFW.
 
-### Current blocker (V832)
+### Current blocker (V833)
 
 V829 executed the exact bounded service-locator `GET_DOMAIN_LIST` QMI request
 for `wlan/fw`:
@@ -199,11 +199,17 @@ and early-window native probes registered successfully, but current state stayed
 service-locator, listener timing, `boot_wlan`, `qcwlanstate`, CNSS ordering, and
 `mdm_helper` retries.
 
-V833 prep added a static Android-run helper and handoff wrapper for an
-Android-success positive-control of the same `msm/modem/wlan_pd`
-service-notifier listener query. The dry-run is ready. Live V833 should decide
-whether native genuinely lacks the lower WLAN-PD state transition, or whether
-the listener payload/model/state interpretation is still incomplete.
+V833 added a static Android-run helper and handoff wrapper for an Android
+positive-control of the same `msm/modem/wlan_pd` service-notifier listener
+query. Live V833 booted Android, ran the bounded listener request, and rolled
+back to native v724. Android returned raw state `0x1fffffff`, which OSRC defines
+as `SERVREG_NOTIF_SERVICE_STATE_UP_V01`.
+
+This proves the listener payload/model is valid. Native V830/V831 `UNINIT`
+therefore means native is genuinely missing the lower WLAN-PD state transition
+before WLFW/service69, BDF, wiphy, and `wlan0`. V834 should be a host-only
+Android/native state-up delta classifier before selecting the next native lower
+trigger.
 
 ```text
 servloc:64:257;ssctl:43:4098;servnotif:66:18945,46081;wlfw:69:1

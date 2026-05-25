@@ -77,11 +77,9 @@ static uint32_t read_le32_bytes(const uint8_t *data) {
 
 static const char *state_name(uint32_t state) {
     switch (state) {
-    case 0:
-        return "unknown";
-    case 1:
+    case 0x0fffffffu:
         return "down";
-    case 2:
+    case 0x1fffffffu:
         return "up";
     case 0x2fffffffu:
         return "early-down";

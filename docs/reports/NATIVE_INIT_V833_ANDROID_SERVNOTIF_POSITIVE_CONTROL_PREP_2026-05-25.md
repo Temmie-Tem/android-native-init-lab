@@ -37,7 +37,7 @@ python3 scripts/revalidation/android_servnotif_positive_control_handoff_v833.py 
 | Signal | Result |
 | --- | --- |
 | helper marker | `a90_servnotif_listener_probe v1` |
-| helper sha256 | `df558e095ccbd452269e7be8b3987c3d52b48806ccd56978f0f0d526f0a0534f` |
+| helper sha256 | `0d0cc09d4b23b53b0797d9daac1d134b3fc02aa0c38b891ac0d9af8432078981` |
 | helper binary | static aarch64, no dynamic section |
 | native rollback image | `stage3/boot_linux_v724.img`, Android boot image format, native marker present |
 | Android boot candidates | two baseline `boot.img` candidates, stock Android marker profile |
