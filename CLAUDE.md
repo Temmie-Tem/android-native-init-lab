@@ -564,6 +564,7 @@ path should be closed for this blocker.
 | v849 | live wait-state sampler captures holder in `mdm_subsys_powerup` D-state; no MHI/WLFW/BDF/wlan0 |
 | v850 | host-only classifier selects proprietary ext-mdm provider surface and preserves PMIC/GPIO hints |
 | v851 | live read-only provider snapshot: mdm3 OFFLINING, surrounding symbols visible, `mdm_subsys_powerup` not exposed in idle kallsyms |
+| v852 | Android handoff positive-control: mdm3/mss ONLINE, real eSoC/subsys nodes, WLAN-PD/BDF/wlan0 present, rollback to native v724 verified |
 
 ### Safety additions (Wi-Fi research)
 
@@ -572,14 +573,14 @@ path should be closed for this blocker.
 - No `wlan.ko` load/unload without explicit approval
 - `firmware_class.path` rollback value: `/vendor/firmware_mnt/image`
 - `sda29` mount must be read-only in all proof windows
-- Current Wi-Fi gate after V851: native `cnss-daemon`/service-notifier/QMI
-  ordering is no longer the lead blocker. The blocker is below upper Wi-Fi at
-  the mdm3/ext-sdx50m provider path: V849 proved `mdm_subsys_powerup` D-state,
-  while V851 shows idle native cannot expose that symbol in kallsyms and mdm3
-  remains `OFFLINING`. Keep Wi-Fi HAL, scan/connect, DHCP/routes, credentials,
-  external ping, raw `esoc0`, subsystem writes, GPIO/sysfs/debugfs writes,
+- Current Wi-Fi gate after V852: Android proves the stock kernel/hardware can
+  bring mdm3/mss `ONLINE`, publish WLAN-PD, download BDF, and create `wlan0`.
+  Native still lacks the Android eSoC/subsys device-node and activation context
+  and blocks in `mdm_subsys_powerup` when `/dev/subsys_esoc0` is manually
+  opened. Keep Wi-Fi HAL, scan/connect, DHCP/routes, credentials, external
+  ping, raw eSoC ioctl, subsystem writes, GPIO/sysfs/debugfs writes,
   module load/unload, and boot image writes blocked. Next gate is an Android
-  matched positive-control snapshot of the same provider surface.
+  actor/FD/ueventd classifier for `/dev/esoc-0` and `/dev/subsys_esoc0`.
 
 ## Docs structure
 

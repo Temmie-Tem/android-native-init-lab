@@ -3423,3 +3423,33 @@ Samsung bootloader
   a matched positive-control snapshot. Compare mdm3 state, AP2MDM/MDM2AP IRQ
   counts, PMIC/pinctrl visibility, GPIO/debug exposure, and MHI/WLFW/BDF/`wlan0`
   deltas before any GPIO/eSoC write or upper Wi-Fi action.
+
+### V852. Android ext-mdm Provider Surface Handoff
+
+- plan: `docs/plans/NATIVE_INIT_V852_ANDROID_EXT_MDM_PROVIDER_SURFACE_HANDOFF_PLAN_2026-05-25.md`
+- report: `docs/reports/NATIVE_INIT_V852_ANDROID_EXT_MDM_PROVIDER_SURFACE_HANDOFF_2026-05-25.md`
+- handoff runner: `scripts/revalidation/android_ext_mdm_provider_surface_handoff_v852.py`
+- Android collector:
+  `scripts/revalidation/native_wifi_android_ext_mdm_provider_surface_sample_v852.py`
+- evidence:
+  - `tmp/wifi/v852-android-ext-mdm-provider-surface-handoff/manifest.json`
+  - `tmp/wifi/v852-android-ext-mdm-provider-surface-handoff/summary.md`
+  - `tmp/wifi/v852-android-ext-mdm-provider-surface-handoff/v852-android-ext-mdm-provider-surface-run/manifest.json`
+  - `tmp/wifi/v852-android-ext-mdm-provider-surface-handoff/v852-android-ext-mdm-provider-surface-run/summary.md`
+- decision: `v852-android-mdm3-online-provider-surface-captured`
+- result: bounded Android handoff PASS with native v724 rollback verified.
+  Android positive-control captured mdm3 `ONLINE`, mss `ONLINE`, readable
+  GPIO/pinctrl debug, real `/dev/esoc-0` and `/dev/subsys_esoc0` nodes, MHI
+  IRQs, WLAN-PD indication, BDF downloads for `regdb.bin`/`bdwlan.bin`, and
+  `wlan0` dmesg markers. Native V851 still has mdm3 `OFFLINING`, no raw eSoC
+  node, no debug GPIO/pinctrl visibility, and no MHI/WLFW/BDF/`wlan0`.
+- hard gates: Android collector did not enable Wi-Fi, scan/connect, use
+  credentials, run DHCP, change routes, ping externally, write provider
+  sysfs/debugfs, export/write GPIOs, load/unload modules, or start services
+  directly. Handoff temporarily wrote boot only to enter Android and restored
+  native v724.
+- next: V853 should classify the Android actor/device-node path for mdm3/eSoC:
+  process FDs for `/dev/esoc-0` and `/dev/subsys_esoc0`, SELinux domains,
+  ueventd/init rules, and service ordering. Do this before any native raw eSoC
+  ioctl, GPIO write, subsystem write, HAL start, scan/connect, DHCP/routes,
+  external ping, or boot-image change.
