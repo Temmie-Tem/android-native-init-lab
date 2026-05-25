@@ -433,6 +433,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V933_CNSS_SERVICE_MANAGER_BEFORE_CNSS_LIVE_2026-05-26.md` – helper `v154`의 `before-cnss` matrix live 결과; service-manager/`mdm_helper`/CNSS actor와 `/dev/esoc-0` fd는 재현됐지만 Binder failure와 WLFW absence가 유지되어 `/dev/subsys_esoc0` open 없이 fail-closed PASS로 분류한 V933 결과
 - `reports/NATIVE_INIT_V932_CNSS_SERVICE_MANAGER_ORDER_DELTA_2026-05-26.md` – V927/V601/V603/V931 evidence를 host-only로 비교해 다음 bounded live order를 helper `v154`의 `before-cnss` matrix로 선정한 V932 결과
 - `reports/NATIVE_INIT_V931_CNSS_SERVICE_MANAGER_MATRIX_LIVE_2026-05-26.md` – helper `v154` CNSS/service-manager matrix live 결과; `mdm_helper` `/dev/esoc-0` fd와 service-manager/CNSS actor start는 재현됐지만 WLFW precondition이 없어 `/dev/subsys_esoc0` open 없이 fail-closed PASS로 분류한 V931 결과
 - `reports/NATIVE_INIT_V930_HELPER_V154_DEPLOY_2026-05-26.md` – helper `v154`를 `/cache/bin/a90_android_execns_probe`로 serial deploy-only 배포하고 remote sha/mode/order enum parity, postflight health, no-daemon/no-Wi-Fi guard를 확인한 V930 결과
