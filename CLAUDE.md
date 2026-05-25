@@ -556,6 +556,14 @@ path should be closed for this blocker.
 | v841 | host-only classifier selects `cnss-daemon` pre-WLFW launch/runtime contract as V842; `sysmon_esoc0` is not the current prerequisite |
 | v842 | host-only classifier closes coarse CNSS launch contract and selects current-window CNSS stall snapshot as V843 |
 | v843 | host-only classifier confirms current retry `cnss-daemon` waits in poll/futex with CNSS socket/netlink surfaces; selects V844 event-source prerequisite classification |
+| v844 | host-only classifier identifies mdm3/ext-sdx50m eSoC boot interface as the WLFW publication prerequisite |
+| v845 | live read-only mdm3/eSoC surface snapshot: mdm3 OFFLINING, eSoC/sysfs present, raw device nodes absent |
+| v846 | host-only state-control contract selects bounded `subsys_esoc0` char-open over sysfs/GPIO writes |
+| v847 | bounded `subsys_esoc0` open reaches `__subsystem_get(esoc0)` but does not complete; no MHI/WLFW/wlan0 |
+| v848 | host-only classifier narrows the block to provider `powerup()` versus `wait_for_err_ready()` |
+| v849 | live wait-state sampler captures holder in `mdm_subsys_powerup` D-state; no MHI/WLFW/BDF/wlan0 |
+| v850 | host-only classifier selects proprietary ext-mdm provider surface and preserves PMIC/GPIO hints |
+| v851 | live read-only provider snapshot: mdm3 OFFLINING, surrounding symbols visible, `mdm_subsys_powerup` not exposed in idle kallsyms |
 
 ### Safety additions (Wi-Fi research)
 
@@ -564,12 +572,14 @@ path should be closed for this blocker.
 - No `wlan.ko` load/unload without explicit approval
 - `firmware_class.path` rollback value: `/vendor/firmware_mnt/image`
 - `sda29` mount must be read-only in all proof windows
-- Current Wi-Fi gate after V843: native `cnss-daemon` launch contract and
-  current-window process liveness are good enough; the missing piece is the
-  lower ICNSS/WLFW event source. Keep Wi-Fi HAL, scan/connect, DHCP/routes,
-  credentials, external ping, `esoc0`, subsystem writes, module load/unload,
-  and boot image writes blocked; next classify the event-publication
-  prerequisite.
+- Current Wi-Fi gate after V851: native `cnss-daemon`/service-notifier/QMI
+  ordering is no longer the lead blocker. The blocker is below upper Wi-Fi at
+  the mdm3/ext-sdx50m provider path: V849 proved `mdm_subsys_powerup` D-state,
+  while V851 shows idle native cannot expose that symbol in kallsyms and mdm3
+  remains `OFFLINING`. Keep Wi-Fi HAL, scan/connect, DHCP/routes, credentials,
+  external ping, raw `esoc0`, subsystem writes, GPIO/sysfs/debugfs writes,
+  module load/unload, and boot image writes blocked. Next gate is an Android
+  matched positive-control snapshot of the same provider surface.
 
 ## Docs structure
 

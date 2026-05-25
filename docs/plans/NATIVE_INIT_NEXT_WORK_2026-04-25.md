@@ -3393,3 +3393,33 @@ Samsung bootloader
   power state, eSoC sysfs, msm_subsys state, readable GPIO/debug/pinctrl if
   available, and focused dmesg. No raw eSoC open, GPIO/sysfs write, MHI write,
   HAL/connect, DHCP/routes, external ping, or boot-image work.
+
+### V851. ext-mdm Provider Surface Snapshot
+
+- plan: `docs/plans/NATIVE_INIT_V851_EXT_MDM_PROVIDER_SURFACE_SNAPSHOT_PLAN_2026-05-25.md`
+- report: `docs/reports/NATIVE_INIT_V851_EXT_MDM_PROVIDER_SURFACE_SNAPSHOT_2026-05-25.md`
+- runner: `scripts/revalidation/native_wifi_ext_mdm_provider_surface_snapshot_v851.py`
+- overview:
+  - `docs/overview/MDM3_ESOC_SDX50M_BRINGUP_RESEARCH_2026-05-25.md`
+- evidence:
+  - `tmp/wifi/v851-ext-mdm-provider-surface-snapshot/manifest.json`
+  - `tmp/wifi/v851-ext-mdm-provider-surface-snapshot/summary.md`
+- decision: `v851-ext-mdm-provider-surface-limited`
+- result: live stock-v724 read-only PASS. Pre/post health stayed `BOOT OK`
+  with selftest `fail=0`. mdm3 remains `OFFLINING`. Idle `/proc/kallsyms`
+  exposes `__subsystem_get`, `subsys_device_open`,
+  `mhi_arch_esoc_ops_power_on`, and `mhi_pci_probe`, but does not expose
+  `mdm_subsys_powerup`; V849 stack evidence remains the authoritative proof for
+  that blocked symbol. mdm3/eSoC/sysfs and live devicetree AP2MDM/MDM2AP status
+  properties are present, but GPIO debug is unreadable, pinctrl debug is not
+  present/readable, raw `/dev/esoc*` remains absent, and MHI/WLFW/BDF/`wlan0`
+  progress is still absent.
+- hard gates: no raw `/dev/esoc*` or `/dev/subsys*` open/ioctl,
+  GPIO/sysfs/debugfs write, GPIO export, subsystem state write, bind/unbind,
+  driver override, module load/unload, daemon start, service-manager, Wi-Fi
+  HAL, scan/connect, credential use, DHCP/routes, external ping, boot image
+  write, partition write, or custom kernel flash was executed.
+- next: V852 should capture the same ext-mdm provider surface from Android as
+  a matched positive-control snapshot. Compare mdm3 state, AP2MDM/MDM2AP IRQ
+  counts, PMIC/pinctrl visibility, GPIO/debug exposure, and MHI/WLFW/BDF/`wlan0`
+  deltas before any GPIO/eSoC write or upper Wi-Fi action.
