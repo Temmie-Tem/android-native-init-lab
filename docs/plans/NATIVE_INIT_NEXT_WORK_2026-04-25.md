@@ -3540,3 +3540,35 @@ Samsung bootloader
   start `mdm_helper`, `ks`, Wi-Fi HAL, scan/connect, DHCP/routes, external
   ping, raw eSoC ioctl, GPIO/sysfs/debugfs writes, subsystem state writes,
   module load/unload, or boot-image changes.
+
+### V856. pm-service Node Parity Start-Only
+
+- plan: `docs/plans/NATIVE_INIT_V856_PM_SERVICE_NODE_PARITY_START_ONLY_PLAN_2026-05-25.md`
+- report: `docs/reports/NATIVE_INIT_V856_PM_SERVICE_NODE_PARITY_START_ONLY_2026-05-25.md`
+- runner: `scripts/revalidation/native_wifi_pm_service_node_parity_start_only_v856.py`
+- deploy wrapper: `scripts/revalidation/wifi_execns_helper_v131_deploy_preflight.py`
+- helper: `a90_android_execns_probe v131`
+- evidence:
+  - `tmp/wifi/v856-pm-service-node-parity-start-only-r5/manifest.json`
+  - `tmp/wifi/v856-pm-service-node-parity-start-only-r5/summary.md`
+- decision: `v856-pm-service-observable-without-subsys-hold`
+- result: bounded native live PASS. V856 prepared `mountsystem ro`, V401
+  SELinuxfs, helper v131, service-manager trio, private property root, and
+  V855-equivalent node parity. It started only `pm-service`/`pm-proxy`, captured
+  both actors, and cleaned up created nodes with postflight `BOOT OK` and
+  selftest `fail=0`.
+- finding: native `pm-service` did not prove fd holds on `/dev/subsys_esoc0` or
+  `/dev/subsys_modem`, unlike Android V853. The clearest runtime delta is the
+  property shim: `vendor.peripheral.SDX50M.state=OFFLINE` and
+  `vendor.peripheral.modem.state=OFFLINE` were accepted, while
+  `vendor.peripheral.shutdown_critical_list` updates for `SDX50M ` and
+  `SDX50M modem ` were denied.
+- hard gates: no `mdm_helper`, `ks`, CNSS retry, Wi-Fi HAL, scan/connect,
+  credential use, DHCP/routes, external ping, raw eSoC ioctl,
+  GPIO/sysfs/debugfs write, subsystem state write, module load/unload,
+  boot-image write, or Android partition write was executed.
+- next: V857 should replay only the narrow PeripheralManager property contract,
+  permitting exactly the observed `vendor.peripheral.shutdown_critical_list`
+  values under the same no-`mdm_helper`/no-Wi-Fi guardrails. If subsystem fd
+  holds appear, then V858 can plan `mdm_helper`/`ks` contract replay; otherwise
+  continue classifying missing init property/context/service inputs.

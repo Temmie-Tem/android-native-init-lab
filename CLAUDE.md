@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: v855 passed native Android eSoC/subsys node parity preflight; next is V856 pm-service start-only, still below mdm_helper/HAL/connect
+- **Active research cycle**: v856 passed pm-service node-parity start-only; next is V857 narrow PeripheralManager property-contract replay, still below mdm_helper/HAL/connect
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -568,6 +568,7 @@ path should be closed for this blocker.
 | v853 | Android actor handoff: `mdm_helper`/`ks` hold `/dev/esoc-0`, `pm-service` holds `/dev/subsys_esoc0` and `/dev/subsys_modem`; rollback to native v724 verified |
 | v854 | host-only actor parity classifier rejects blind repeats and selects V855 native Android node/ueventd parity preflight before actor open/ioctl |
 | v855 | native node parity preflight materializes `/dev/esoc-0`, `/dev/subsys_esoc0`, and `/dev/subsys_modem`, confirms no holders, cleans up, and preserves health |
+| v856 | pm-service node-parity start-only reaches service managers plus `pm-service`/`pm-proxy`, but no subsystem fd hold; next is narrow `vendor.peripheral.shutdown_critical_list` property-contract replay |
 
 ### Safety additions (Wi-Fi research)
 
@@ -576,20 +577,22 @@ path should be closed for this blocker.
 - No `wlan.ko` load/unload without explicit approval
 - `firmware_class.path` rollback value: `/vendor/firmware_mnt/image`
 - `sda29` mount must be read-only in all proof windows
-- Current Wi-Fi gate after V855: Android proves the stock kernel/hardware can
+- Current Wi-Fi gate after V856: Android proves the stock kernel/hardware can
   bring mdm3/mss `ONLINE`, publish WLAN-PD, download BDF, and create `wlan0`,
   and it identifies the lower actors: `mdm_helper`/`ks` hold `/dev/esoc-0`,
   while `pm-service` holds `/dev/subsys_esoc0` and `/dev/subsys_modem`.
-  Native can now materialize and clean up Android-equivalent `/dev/esoc-0`,
-  `/dev/subsys_esoc0`, and `/dev/subsys_modem` nodes without implicit holders
-  or health regression, but still lacks the Android-equivalent eSoC/subsys
-  actor contract.
+  Native can materialize and clean up Android-equivalent `/dev/esoc-0`,
+  `/dev/subsys_esoc0`, and `/dev/subsys_modem` nodes, and can start
+  service-manager trio plus `pm-service`/`pm-proxy` under that node parity.
+  However, native `pm-service` did not prove `/dev/subsys_esoc0` or
+  `/dev/subsys_modem` fd holds. The immediate gap is the
+  PeripheralManager property contract: `vendor.peripheral.shutdown_critical_list`
+  updates were blocked by the private property shim.
   Keep Wi-Fi HAL, scan/connect, DHCP/routes, credentials, external ping, raw
   eSoC ioctl, subsystem writes, GPIO/sysfs/debugfs writes, module load/unload,
-  and boot image writes blocked. Next gate is V856 `pm-service` start-only with
-  Android node parity present: capture whether it holds `/dev/subsys_esoc0` and
-  `/dev/subsys_modem`, then cleanup. Do not start `mdm_helper`, `ks`, HAL, or
-  scan/connect yet.
+  and boot image writes blocked. Next gate is V857 property-contract replay for
+  exactly the observed `vendor.peripheral.shutdown_critical_list` values. Do not
+  start `mdm_helper`, `ks`, HAL, or scan/connect yet.
 
 ## Docs structure
 
