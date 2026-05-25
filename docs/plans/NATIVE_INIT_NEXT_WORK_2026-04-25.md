@@ -25,21 +25,11 @@
 
 ## 현재 Wi-Fi Gate
 
-- 최신 기준: V874 pass.
-- V872 결론: helper `v135`의 eSoC preflight mode가 service-manager/SELinuxfs
-  runtime setup으로 오분류되던 문제를 helper `v136`에서 분리했다.
-- V873 결론: helper `v136`을 `/cache/bin/a90_android_execns_probe`에 serial
-  deploy했고 remote sha/mode marker가 pass였다. actor start와 Wi-Fi bring-up은
-  없었다.
+- 최신 기준: V877 pass.
 - V874 결론: `/dev/esoc-0` read-only control path가 live에서 열렸고
   `GET_STATUS`/`GET_ERR_FATAL`은 rc `0`, `GET_LINK_ID`는 errno `22`로
   반환됐다. 결과는 `read-only-ioctl-probe-complete`이며 created nodes cleanup,
   selftest fail0, actor-clean, Wi-Fi-link-clean이 모두 pass다.
-- 다음 후보: V875 host-only eSoC state-machine precondition classifier.
-  `REG_CMD_ENG`/`REG_REQ_ENG`의 fd ownership, timeout, cleanup, rollback을
-  먼저 설계한다. `CMD_EXE`, `PWR_ON`, `WAIT_FOR_REQ`, `NOTIFY`, `mdm_helper`,
-  `ks`, `pm_proxy_helper`, CNSS, HAL, scan/connect, credentials, DHCP/routes,
-  external ping은 별도 gate 전까지 계속 막는다.
 - V875 결론: host-only classifier가 local OSRC와 V849/V874 evidence를 기준으로
   helper-only CMD/REQ registration support를 다음 단계로 선택했다. Live contact
   및 mutating eSoC ioctl은 없었다. 다음 후보는 V876 helper `v137`
@@ -49,6 +39,14 @@
   `wifi-companion-esoc-engine-register-preflight`이고 allow flag는
   `--allow-esoc-engine-register-preflight`이다. V876에서는 deploy/live ioctl
   실행이 없었다. 다음 후보는 V877 helper `v137` deploy-only proof다.
+- V877 결론: helper `v137`을 `/cache/bin/a90_android_execns_probe`에 serial
+  deploy했고 remote sha/mode marker, selftest fail0, actor-clean,
+  Wi-Fi-link-clean이 pass였다. V877에서는 live eSoC ioctl, actor start,
+  Wi-Fi bring-up이 없었다. 다음 후보는 V878 bounded live
+  `REG_CMD_ENG`/`REG_REQ_ENG` registration preflight다. `CMD_EXE`, `PWR_ON`,
+  `WAIT_FOR_REQ`, `NOTIFY`, `/dev/subsys_esoc0` open, `mdm_helper`, `ks`,
+  `pm_proxy_helper`, CNSS, HAL, scan/connect, credentials, DHCP/routes,
+  external ping은 별도 gate 전까지 계속 막는다.
 
 - 아래 V840-V847 항목은 V874/V875 이전 경로 요약이다.
 - V840 결론: provider-first service-manager/PeripheralManager, CNSS retry,
@@ -4070,3 +4068,21 @@ Samsung bootloader
   `WAIT_FOR_REQ`, `NOTIFY`, `/dev/subsys_esoc0` open, actor start, Wi-Fi HAL,
   scan/connect, DHCP/routes, credentials, or external ping.
 - next: V877 helper `v137` deploy-only checksum/version/mode proof.
+
+### V877. Helper v137 Deploy-only Proof
+
+- plan: `docs/plans/NATIVE_INIT_V877_HELPER_V137_DEPLOY_PLAN_2026-05-25.md`
+- report: `docs/reports/NATIVE_INIT_V877_HELPER_V137_DEPLOY_2026-05-25.md`
+- deploy wrapper: `scripts/revalidation/wifi_execns_helper_v137_deploy_preflight.py`
+- evidence:
+  - `tmp/wifi/v877-execns-helper-v137-plan/manifest.json`
+  - `tmp/wifi/v877-execns-helper-v137-preflight/manifest.json`
+  - `tmp/wifi/v877-execns-helper-v137-deploy-preflight/manifest.json`
+- decision: `execns-helper-v137-deploy-pass`
+- result: deploy-only PASS. Helper `v137` was installed by serial
+  appendfile/uudecode using 1850-byte chunks. Remote sha, helper marker,
+  eSoC engine registration mode token, selftest fail0, actor-clean, and
+  Wi-Fi-link-clean all passed.
+- hard gates held: no live eSoC ioctl, no `/dev/subsys_esoc0` open, no actor
+  start, no Wi-Fi HAL, scan/connect, DHCP/routes, credentials, or external ping.
+- next: V878 bounded live `REG_CMD_ENG`/`REG_REQ_ENG` registration preflight.

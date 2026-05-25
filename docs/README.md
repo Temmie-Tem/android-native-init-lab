@@ -130,6 +130,7 @@
 
 ### 3. Plans
 
+- `plans/NATIVE_INIT_V877_HELPER_V137_DEPLOY_PLAN_2026-05-25.md` – helper `v137`을 `/cache/bin/a90_android_execns_probe`에 deploy-only로 올리는 V877 계획
 - `plans/NATIVE_INIT_V876_ESOC_ENGINE_REGISTER_HELPER_PLAN_2026-05-25.md` – helper `v137`에 fail-closed CMD/REQ engine registration preflight mode를 source/build-only로 추가하는 V876 계획
 - `plans/NATIVE_INIT_V875_ESOC_STATE_MACHINE_PRECONDITION_PLAN_2026-05-25.md` – V874 이후 CMD/REQ registration gate를 live write 전에 host-only로 분류하는 V875 계획
 - `plans/NATIVE_INIT_V874_ESOC_CONTROL_PREFLIGHT_PLAN_2026-05-25.md` – helper `v136`으로 `/dev/esoc-0` read-only status ioctl preflight를 실행하는 V874 계획
@@ -387,6 +388,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V877_HELPER_V137_DEPLOY_2026-05-25.md` – V877 결과 helper `v137` deploy-only PASS, remote sha/mode marker/selftest/actor-clean/Wi-Fi-link-clean 확인
 - `reports/NATIVE_INIT_V876_ESOC_ENGINE_REGISTER_HELPER_BUILD_2026-05-25.md` – V876 결과 helper `v137` static build PASS, CMD/REQ registration preflight mode 추가, deploy/live ioctl 없음
 - `reports/NATIVE_INIT_V875_ESOC_STATE_MACHINE_PRECONDITION_2026-05-25.md` – V875 결과 helper-only CMD/REQ registration support를 V876 후보로 선택, live contact/mutating ioctl 없음
 - `reports/NATIVE_INIT_V874_ESOC_CONTROL_PREFLIGHT_2026-05-25.md` – V874 결과 `/dev/esoc-0` read-only ioctl preflight PASS, mutating eSoC ioctl/actor/Wi-Fi bring-up 없음

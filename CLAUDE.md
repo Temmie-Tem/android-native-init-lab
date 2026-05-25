@@ -589,6 +589,7 @@ path should be closed for this blocker.
 | v874 | bounded eSoC read-only control preflight pass: `/dev/esoc-0` opened, `GET_STATUS`/`GET_ERR_FATAL` rc 0, `GET_LINK_ID` errno 22; no mutating ioctl or actor start |
 | v875 | host-only eSoC state-machine classifier: selects helper-only CMD/REQ registration support as V876; no live contact or mutating ioctl |
 | v876 | helper v137 source/build-only: adds fail-closed `wifi-companion-esoc-engine-register-preflight` mode and allow flag; no deploy or live ioctl |
+| v877 | helper v137 deploy-only: serial deploy to `/cache/bin/a90_android_execns_probe`; remote sha/mode marker, selftest, actor-clean, and Wi-Fi-link-clean pass |
 
 ### Safety additions (Wi-Fi research)
 
@@ -658,12 +659,15 @@ path should be closed for this blocker.
   helper `v137` source/build-only CMD/REQ registration support. V876 added the
   fail-closed `wifi-companion-esoc-engine-register-preflight` mode and
   `--allow-esoc-engine-register-preflight` flag without deploy or live ioctl.
-  Next is V877 helper `v137` deploy-only proof. Keep Wi-Fi HAL, scan/connect,
-  DHCP/routes, credentials, external ping, live `CMD_EXE`/`PWR_ON`,
-  `WAIT_FOR_REQ`, `NOTIFY`, `/dev/subsys_esoc0` open, subsystem writes,
-  GPIO/sysfs/debugfs writes, module load/unload, and boot image writes blocked.
-  Do not start `mdm_helper`, `ks`, HAL, or scan/connect before a separate
-  mutating eSoC state-machine gate.
+  V877 then deployed helper `v137` to `/cache/bin/a90_android_execns_probe` by
+  serial appendfile/uudecode; remote sha/mode marker, selftest fail0,
+  actor-clean, and Wi-Fi-link-clean passed. Next is V878 bounded live
+  `REG_CMD_ENG`/`REG_REQ_ENG` registration preflight only. Keep Wi-Fi HAL,
+  scan/connect, DHCP/routes, credentials, external ping, live
+  `CMD_EXE`/`PWR_ON`, `WAIT_FOR_REQ`, `NOTIFY`, `/dev/subsys_esoc0` open,
+  subsystem writes, GPIO/sysfs/debugfs writes, module load/unload, and boot
+  image writes blocked. Do not start `mdm_helper`, `ks`, HAL, or scan/connect
+  before a separate mutating eSoC state-machine gate.
 
 ## Docs structure
 

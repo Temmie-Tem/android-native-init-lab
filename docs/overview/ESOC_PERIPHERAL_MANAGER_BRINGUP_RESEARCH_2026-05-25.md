@@ -604,3 +604,40 @@ DHCP/routes, and external ping blocked.
 Next candidate:
 
 - V877 helper `v137` deploy-only checksum/version/mode proof.
+
+---
+
+## 20. V877 helper v137 deploy result
+
+V877 deployed helper `v137` to `/cache/bin/a90_android_execns_probe`.
+
+Evidence:
+
+- `tmp/wifi/v877-execns-helper-v137-plan/manifest.json`
+- `tmp/wifi/v877-execns-helper-v137-preflight/manifest.json`
+- `tmp/wifi/v877-execns-helper-v137-deploy-preflight/manifest.json`
+- `docs/reports/NATIVE_INIT_V877_HELPER_V137_DEPLOY_2026-05-25.md`
+
+Decision:
+
+- `execns-helper-v137-deploy-pass`
+
+Result:
+
+- remote sha256:
+  `e47eb52b0b2b2fb601fdbc4ecebdf72e2fda9519eac37e776d62c11d2d469aa3`
+- remote marker: `a90_android_execns_probe v137`
+- mode token: `wifi-companion-esoc-engine-register-preflight`
+- selftest stayed `fail=0`
+- service-manager process hits: `0`
+- Wi-Fi netdev hits: `0`
+
+Guardrails held: V877 did not execute live eSoC ioctls, did not open
+`/dev/subsys_esoc0`, did not start Android actors, and did not bring up Wi-Fi.
+
+Next candidate:
+
+- V878 bounded live `REG_CMD_ENG`/`REG_REQ_ENG` registration preflight.
+- Still block `CMD_EXE`, `PWR_ON`, `WAIT_FOR_REQ`, `NOTIFY`,
+  `/dev/subsys_esoc0` open, actors, Wi-Fi HAL, scan/connect, credentials,
+  DHCP/routes, and external ping.
