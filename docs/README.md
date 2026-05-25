@@ -130,6 +130,7 @@
 
 ### 3. Plans
 
+- `plans/NATIVE_INIT_V827_SERVICE_NOTIFIER_CONTINUATION_PLAN_2026-05-25.md` – V826 visible service-notifier 180 endpoint가 ICNSS continuation에 충분한지 OSRC source와 evidence로 분류하는 계획
 - `plans/NATIVE_INIT_V826_QRTR_EVENT_DETAIL_CLASSIFIER_PLAN_2026-05-25.md` – V825 annotated evidence에서 QRTR NEW_SERVER event payload를 host-only로 추출하는 계획
 - `plans/NATIVE_INIT_V825_QRTR_ENCODED_MATRIX_PLAN_2026-05-25.md` – V824가 산출한 encoded instance matrix를 helper v125 no-QMI live gate로 검증하는 계획
 - `plans/NATIVE_INIT_V824_QRTR_ENCODED_INSTANCE_PLAN_2026-05-25.md` – V823 raw-instance matrix를 Samsung OSRC `qmi_interface.c`의 encoded QRTR instance 규칙과 비교하는 host-only 계획
@@ -366,6 +367,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V827_SERVICE_NOTIFIER_CONTINUATION_2026-05-25.md` – V827 결과 service-notifier 180은 control endpoint일 뿐이며 ICNSS continuation은 service-locator `wlan/fw` domain-list QMI proof가 필요해 V828로 라우팅
 - `reports/NATIVE_INIT_V826_QRTR_EVENT_DETAIL_CLASSIFIER_2026-05-25.md` – V826 결과 service-locator `64/257`은 node `1` port `16475`, service-notifier `66/46081`은 node `0` port `2`로 보여 V827 continuation classifier로 라우팅
 - `reports/NATIVE_INIT_V825_QRTR_ENCODED_MATRIX_2026-05-25.md` – V825 결과 encoded service-locator `64/257`과 service-notifier `66/46081` publication이 보여 V826 event-detail observer로 라우팅
 - `reports/NATIVE_INIT_V824_QRTR_ENCODED_INSTANCE_2026-05-25.md` – V824 결과 kernel QMI client는 QRTR instance를 `version | instance << 8`로 encode하므로 V825 encoded-instance no-QMI matrix로 라우팅
