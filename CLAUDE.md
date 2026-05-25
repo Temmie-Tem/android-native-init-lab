@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: v832 pending after V831 early-window service-notifier listener still left `msm/modem/wlan_pd` at `uninit`; next gate should classify the minimal safe modem/WLAN-PD online trigger before HAL/connect
+- **Active research cycle**: v833 pending after V832 selected an Android service-notifier positive-control; V829 proved `wlan/fw -> msm/modem/wlan_pd`, and V830/V831 proved native listener registration still returns `uninit`
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -157,7 +157,7 @@ New `vNNN` experiment scripts must:
 - Gate live action behind explicit `--allow-*` + `--assume-yes` flags
 - Run `version`, `status`, `bootstatus`, `selftest verbose` as postflight regression
 
-## Wi-Fi bring-up research state (v598–v828, active)
+## Wi-Fi bring-up research state (v598–v832, active)
 
 Goal: bring up `wlan0` from native init without Android userspace.
 
@@ -179,19 +179,30 @@ stable enough in every boot. Helper v124 added a `sysmon-qmi` gated
 `mdm_helper` mode. V746 proved `mdm_helper` starts safely after `sysmon-qmi`,
 but it does not advance mdm3/WLAN-PD/WLFW.
 
-### Current blocker (V828)
+### Current blocker (V832)
 
-V828 host-only derivation produced the exact bounded service-locator
-`GET_DOMAIN_LIST` QMI request for `wlan/fw`:
+V829 executed the exact bounded service-locator `GET_DOMAIN_LIST` QMI request
+for `wlan/fw`:
 
 ```text
 00 01 00 21 00 11 00 01 07 00 77 6c 61 6e 2f 66 77 10 04 00 00 00 00 00
 ```
 
-The visible destination from V826 is service-locator `64/257`, node `1`, port
-`16475`. V829 should send only this request and parse the response; still no
-service-manager, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external
-ping, boot image writes, partition writes, or custom kernel flashes.
+The visible destination from V826 was service-locator `64/257`, node `1`, port
+`16475`. V829 returned `msm/modem/wlan_pd` instance `180`, so the pd-mapper DB
+empty hypothesis is closed.
+
+V830 and V831 then sent a bounded service-notifier `REGISTER_LISTENER` request
+for that returned domain against service-notifier `66/46081`. Both late-window
+and early-window native probes registered successfully, but current state stayed
+`uninit` and no state indication arrived. V832 therefore rejects duplicate
+service-locator, listener timing, `boot_wlan`, `qcwlanstate`, CNSS ordering, and
+`mdm_helper` retries.
+
+The next gate is V833: an Android-success positive-control for the same
+`msm/modem/wlan_pd` service-notifier listener query. This should decide whether
+native genuinely lacks the lower WLAN-PD state transition, or whether the
+listener payload/model/state interpretation is still incomplete.
 
 ```text
 servloc:64:257;ssctl:43:4098;servnotif:66:18945,46081;wlfw:69:1
