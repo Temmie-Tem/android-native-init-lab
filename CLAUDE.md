@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: v835 selected after V834 classified Android `UP` vs native `UNINIT`; next gate is a bounded corrected service-notifier listener replay inside the known-ASoC-warning clean-DSP/CNSS lower window
+- **Active research cycle**: v836 pending after V835 proved native still returns WLAN-PD `UNINIT` even inside the known-ASoC-warning clean-DSP/CNSS lower window
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -157,7 +157,7 @@ New `vNNN` experiment scripts must:
 - Gate live action behind explicit `--allow-*` + `--assume-yes` flags
 - Run `version`, `status`, `bootstatus`, `selftest verbose` as postflight regression
 
-## Wi-Fi bring-up research state (v598–v834, active)
+## Wi-Fi bring-up research state (v598–v835, active)
 
 Goal: bring up `wlan0` from native init without Android userspace.
 
@@ -179,7 +179,7 @@ stable enough in every boot. Helper v124 added a `sysmon-qmi` gated
 `mdm_helper` mode. V746 proved `mdm_helper` starts safely after `sysmon-qmi`,
 but it does not advance mdm3/WLAN-PD/WLFW.
 
-### Current blocker (V834)
+### Current blocker (V835)
 
 V829 executed the exact bounded service-locator `GET_DOMAIN_LIST` QMI request
 for `wlan/fw`:
@@ -215,6 +215,16 @@ V829 service-locator, V830/V831 listener timing, `boot_wlan`, `qcwlanstate`,
 scan/connect, DHCP, routes, and external ping. The next selected gate is V835:
 run the corrected service-notifier listener inside the best existing bounded
 native lower window, the known-ASoC-warning clean-DSP/CNSS path from V792.
+
+V835 live PASS executed that selected gate. Helper v128 was deployed, clean-DSP
+inline proof passed, V401/V490 current-boot prep passed, and the lower companion
+started `qrtr_ns,rmt_storage,tftp_server,pd_mapper,cnss_diag,cnss_daemon`.
+Service-notifier `180/74` and the exact known ASoC warning were present, but the
+corrected `msm/modem/wlan_pd` listener still returned `0x7fffffff` / `UNINIT`;
+no indication arrived, WLFW service `69`, BDF, wiphy, and `wlan0` stayed absent,
+and cleanup reboot restored healthy native v724. V836 should be host-only first:
+classify the remaining Android-only WLAN-PD state-up contract after service
+`180/74`; do not widen to HAL/scan/connect/DHCP/routes/external ping.
 
 ```text
 servloc:64:257;ssctl:43:4098;servnotif:66:18945,46081;wlfw:69:1
