@@ -1067,3 +1067,37 @@ Next candidate:
 - V888 host-only response-gate plan/classifier before any live `ESOC_NOTIFY`.
 - Decide whether the next live response proof should send `ESOC_IMG_XFER_DONE`,
   `ESOC_BOOT_DONE`, or a bounded two-step sequence.
+
+---
+
+## 31. V888 eSoC response gate classifier result
+
+V888 classified the next response gate host-only.
+
+Evidence:
+
+- `tmp/wifi/v888-esoc-response-gate-classifier/manifest.json`
+- `tmp/wifi/v888-esoc-response-gate-classifier/summary.md`
+- `docs/plans/NATIVE_INIT_V888_ESOC_RESPONSE_GATE_CLASSIFIER_PLAN_2026-05-26.md`
+- `docs/reports/NATIVE_INIT_V888_ESOC_RESPONSE_GATE_CLASSIFIER_2026-05-26.md`
+
+Decision:
+
+- `v888-esoc-response-gate-classified`
+
+Result:
+
+- First response after `ESOC_REQ_IMG` should be `ESOC_IMG_XFER_DONE`.
+- `ESOC_BOOT_DONE` is not safe as a blind first response because it emits
+  `ESOC_RUN_STATE`, and `ESOC_RUN_STATE` completes the subsystem powerup wait.
+- The next live response proof must poll `ESOC_GET_STATUS` or equivalent
+  mdm2ap readiness evidence before `ESOC_BOOT_DONE`.
+
+Guardrails held: V888 did not contact the device, did not execute live eSoC
+ioctls, did not open `/dev/subsys_esoc0`, did not issue `ESOC_NOTIFY`, did not
+start Android actors, and did not bring up Wi-Fi.
+
+Next candidate:
+
+- V889 helper `v141` source/build-only conditional response mode.
+- Live response remains blocked until a separate bounded proof exists.

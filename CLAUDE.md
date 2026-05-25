@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V887 deployed helper `v140`; next is V888 host-only response-gate classifier before any live `ESOC_NOTIFY`
+- **Active research cycle**: V888 classified the response gate; next is V889 helper `v141` source/build-only conditional response mode before any live `ESOC_NOTIFY`
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -600,6 +600,7 @@ path should be closed for this blocker.
 | v885 | host-only ESOC_REQ_IMG response classifier: V884 `WAIT_FOR_REQ rc4 value1` is request evidence, not ioctl failure; next is helper v140 semantic repair and guarded response scaffold |
 | v886 | helper v140 source/build-only: repairs `WAIT_FOR_REQ` byte-count semantics, labels `ESOC_REQ_IMG`, and adds fail-closed response scaffold markers; no deploy or live notify |
 | v887 | helper v140 deploy-only: serial chunk 3000 blocked safely before writes, chunk 1850 deploy passed; remote sha/mode marker verified, no live eSoC ioctl or Wi-Fi bring-up |
+| v888 | host-only response gate classifier: choose `ESOC_IMG_XFER_DONE` first, then readiness-gated `ESOC_BOOT_DONE`; blind BOOT_DONE remains blocked |
 
 ### Safety additions (Wi-Fi research)
 
@@ -719,7 +720,11 @@ path should be closed for this blocker.
   markers without executing live notify. V887 then deployed helper `v140`;
   serial chunk `3000` failed line-safety before writes, chunk `1850` installed
   the helper, and remote sha/mode marker verification passed. Next is V888
-  host-only response-gate classifier before any live `ESOC_NOTIFY`.
+  host-only response-gate classifier before any live `ESOC_NOTIFY`. V888 then
+  classified the gate: respond to `ESOC_REQ_IMG` first with
+  `ESOC_IMG_XFER_DONE`, poll `ESOC_GET_STATUS` or equivalent readiness, and
+  send `ESOC_BOOT_DONE` only after readiness is proven. Next is V889 helper
+  `v141` source/build-only conditional response mode.
   Keep Wi-Fi HAL, scan/connect, DHCP/routes, credentials, external ping, live
   direct userspace `CMD_EXE`/explicit userspace `PWR_ON`, `NOTIFY`, subsystem
   writes, GPIO/sysfs/debugfs writes, module load/unload, and boot image writes

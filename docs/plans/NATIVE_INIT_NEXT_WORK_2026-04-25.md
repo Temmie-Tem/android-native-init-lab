@@ -25,7 +25,7 @@
 
 ## 현재 Wi-Fi Gate
 
-- 최신 기준: V887 helper v140 deploy-only pass.
+- 최신 기준: V888 host-only eSoC response gate classifier pass.
 - V874 결론: `/dev/esoc-0` read-only control path가 live에서 열렸고
   `GET_STATUS`/`GET_ERR_FATAL`은 rc `0`, `GET_LINK_ID`는 errno `22`로
   반환됐다. 결과는 `read-only-ioctl-probe-complete`이며 created nodes cleanup,
@@ -110,6 +110,10 @@
   `894fdd753cb6567b2abbb3c94f332ce63cf959b7d1708768cf3bcdc10b2b53e0`이고
   helper marker/mode가 확인됐다. 다음 후보는 live가 아니라 V888 host-only
   response-gate plan/classifier다.
+- V888 결론: host-only classifier가 next response gate를 확정했다. 첫 response는
+  `ESOC_IMG_XFER_DONE`이고, `ESOC_BOOT_DONE`은 `ESOC_RUN_STATE`를 발생시켜
+  subsystem powerup wait를 완료하므로 blind first response로 쓰지 않는다.
+  다음 후보는 V889 helper `v141` source/build-only conditional response mode다.
 
 - 아래 V840-V847 항목은 V874/V875 이전 경로 요약이다.
 - V840 결론: provider-first service-manager/PeripheralManager, CNSS retry,
@@ -4354,3 +4358,22 @@ Samsung bootloader
   scan/connect, DHCP/routes, credentials, or external ping.
 - next: V888 host-only response-gate classifier. Live response remains blocked
   until it decides the exact bounded `ESOC_NOTIFY` sequence and cleanup rules.
+
+### V888. eSoC Response Gate Classifier
+
+- plan: `docs/plans/NATIVE_INIT_V888_ESOC_RESPONSE_GATE_CLASSIFIER_PLAN_2026-05-26.md`
+- report: `docs/reports/NATIVE_INIT_V888_ESOC_RESPONSE_GATE_CLASSIFIER_2026-05-26.md`
+- classifier: `scripts/revalidation/native_wifi_esoc_response_gate_classifier_v888.py`
+- evidence:
+  - `tmp/wifi/v888-esoc-response-gate-classifier/manifest.json`
+  - `tmp/wifi/v888-esoc-response-gate-classifier/summary.md`
+- decision: `v888-esoc-response-gate-classified`
+- result: host-only PASS. The next response sequence is
+  `ESOC_IMG_XFER_DONE` first, then `ESOC_GET_STATUS`/readiness polling, then
+  conditional `ESOC_BOOT_DONE` only if readiness is proven.
+- hard gates held: no device contact, no live eSoC ioctl, no
+  `/dev/subsys_esoc0` open, no `ESOC_NOTIFY`, no actor start, no
+  service-manager, no Wi-Fi HAL, scan/connect, DHCP/routes, credentials, or
+  external ping.
+- next: V889 helper `v141` source/build-only conditional response mode. Live
+  response remains blocked until a separate bounded proof.
