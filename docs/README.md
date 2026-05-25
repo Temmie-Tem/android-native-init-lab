@@ -130,6 +130,7 @@
 
 ### 3. Plans
 
+- `plans/NATIVE_INIT_V910_HELPER_V149_DEPLOY_PLAN_2026-05-26.md` – helper `v149`를 `/cache/bin/a90_android_execns_probe`로 deploy-only 배포하고 원격 checksum/mode parity를 증명하는 V910 계획
 - `plans/NATIVE_INIT_V909_MDM_HELPER_ESOC_FD_STALL_SUPPORT_PLAN_2026-05-26.md` – V908의 `/dev/esoc-0` fd 이후 `ks`/MHI 미진입 경계를 보기 위한 helper `v149` fdinfo/stall snapshot source/build-only 계획
 - `plans/NATIVE_INIT_V908_MDM_HELPER_RUNTIME_CONTRACT_CAPTURE_PLAN_2026-05-26.md` – helper `v148` runtime-contract capture를 selinuxfs mount/cleanup + property shim + `per_mgr_light` 순서로 bounded live 검증하는 V908 계획
 - `plans/NATIVE_INIT_V907_HELPER_V148_DEPLOY_PLAN_2026-05-26.md` – helper `v148`를 `/cache/bin/a90_android_execns_probe`로 deploy-only 배포하고 원격 checksum/mode parity를 증명하는 V907 계획
@@ -420,6 +421,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V910_HELPER_V149_DEPLOY_2026-05-26.md` – V910 결과 helper `v149` deploy-only PASS, remote sha/mode marker/selftest/actor-clean/Wi-Fi-link-clean 확인
 - `reports/NATIVE_INIT_V909_MDM_HELPER_ESOC_FD_STALL_SUPPORT_2026-05-26.md` – V909 결과 helper `v149`에 `/dev/esoc-0` fdinfo와 `mdm_helper` wchan/syscall/stack/status/sched snapshot을 source/build-only로 추가
 - `reports/NATIVE_INIT_V908_MDM_HELPER_RUNTIME_CONTRACT_CAPTURE_2026-05-26.md` – V908 결과 `mdm_helper`가 property/per_mgr runtime contract 아래 `/dev/esoc-0` fd까지 도달했지만 `ks`/MHI/WLFW는 아직 없음
 - `reports/NATIVE_INIT_V907_HELPER_V148_DEPLOY_2026-05-26.md` – V907 결과 helper `v148` deploy-only PASS, remote sha/mode marker/selftest/actor-clean/Wi-Fi-link-clean 확인
