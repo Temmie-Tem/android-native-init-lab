@@ -293,6 +293,13 @@ Android node/ueventd parity preflight로 고정됐다. 즉 `/dev/esoc-0`,
 native에서 안전하게 맞추고 cleanup 가능한지 검증한 뒤에야 `pm-service` 또는
 `mdm_helper` start-only를 검토한다.
 
+V855 live 결과 이 node parity는 통과했다. native에서 `esoc` major `484`,
+`subsys` major `236`, `subsys_esoc0=236:9`, `subsys_modem=236:0`, eSoC
+`mdm-4x/qcom,ext-sdx50m/PCIe/SDX50M` 표면이 확인됐고, 세 node를 Android
+metadata에 맞춰 생성한 뒤 holder 없이 cleanup 가능했다. 따라서 다음 gate는
+`pm-service` start-only이며, 아직 `mdm_helper`/`ks`, raw eSoC ioctl, GPIO
+write, HAL/connect는 이르다.
+
 ---
 
 ## 참고 문헌

@@ -3513,3 +3513,30 @@ Samsung bootloader
   open/ioctl nodes or start `pm-service`, `mdm_helper`, `ks`, Wi-Fi HAL,
   scan/connect, DHCP/routes, external ping, GPIO/sysfs/debugfs writes,
   subsystem state writes, module load/unload, or boot-image changes.
+
+### V855. eSoC Node Parity Preflight
+
+- plan: `docs/plans/NATIVE_INIT_V855_ESOC_NODE_PARITY_PREFLIGHT_PLAN_2026-05-25.md`
+- report: `docs/reports/NATIVE_INIT_V855_ESOC_NODE_PARITY_PREFLIGHT_2026-05-25.md`
+- runner: `scripts/revalidation/native_wifi_esoc_node_parity_preflight_v855.py`
+- evidence:
+  - `tmp/wifi/v855-esoc-node-parity-preflight/manifest.json`
+  - `tmp/wifi/v855-esoc-node-parity-preflight/summary.md`
+- decision: `v855-esoc-node-parity-clean`
+- result: bounded native live PASS. V855 confirmed native exposes `subsys`
+  major `236`, `esoc` major `484`, `subsys_esoc0` dev `236:9`,
+  `subsys_modem` dev `236:0`, and eSoC metadata `mdm-4x` / `qcom,ext-sdx50m`
+  / `PCIe` / `SDX50M`. It materialized `/dev/esoc-0`, `/dev/subsys_esoc0`,
+  and `/dev/subsys_modem` with Android-equivalent mode/owner/major/minor,
+  confirmed `holder_found=0`, removed all created nodes, and postflight stayed
+  `BOOT OK` with selftest `fail=0`.
+- hard gates: no eSoC/subsys node open/ioctl, actor service start, `pm-service`,
+  `mdm_helper`, `ks`, CNSS retry, Wi-Fi HAL, scan/connect, credential use,
+  DHCP/routes, external ping, GPIO/sysfs/debugfs write, subsystem state write,
+  module load/unload, boot image write, or partition write was executed.
+- next: V856 should run `pm-service` start-only with Android node parity
+  present. It should capture whether `pm-service` holds `/dev/subsys_esoc0` and
+  `/dev/subsys_modem`, then terminate/cleanup and verify native health. Do not
+  start `mdm_helper`, `ks`, Wi-Fi HAL, scan/connect, DHCP/routes, external
+  ping, raw eSoC ioctl, GPIO/sysfs/debugfs writes, subsystem state writes,
+  module load/unload, or boot-image changes.
