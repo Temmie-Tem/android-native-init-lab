@@ -25,7 +25,7 @@
 
 ## 현재 Wi-Fi Gate
 
-- 최신 기준: V842 pass.
+- 최신 기준: V843 pass.
 - V840 결론: provider-first service-manager/PeripheralManager, CNSS retry,
   prearmed WLAN-PD listener를 결합해도 native는 WLAN-PD `UNINIT` 상태이고
   `wlfw_start`, BDF, FW-ready, `wlan0`가 모두 없다.
@@ -36,9 +36,12 @@
 - V842 결론: coarse `cnss-daemon` launch contract는 닫혔다. Android/native
   모두 command, identity, SELinux domain, capability, vndbinder/fd surface가
   맞고 native는 alive sleeping pre-WLFW stall이다.
-- 다음 후보: V843 current-window `cnss-daemon` stall snapshot. V840 provider-
-  first 순서를 유지하고 cleanup 전 `wchan`, syscall, task status/stat,
-  optional stack, fd/socket inode, dmesg delta를 캡처한다.
+- V843 결론: V840 current-window retry는 `do_sys_poll`/`futex_wait_queue_me`
+  대기 상태로 살아 있고 CNSS user socket, netlink, vndbinder surface가
+  존재한다. 그러나 `wlfw_start`, WLAN-PD, BDF, FW-ready, `wlan0`는 없다.
+- 다음 후보: V844 source-backed ICNSS/WLFW event publication prerequisite
+  classifier. CNSS launcher 재시도나 HAL/scan/connect가 아니라, Android가
+  갖고 native가 아직 갖지 못한 lower event source를 분류한다.
 - Wi-Fi HAL, scan/connect, DHCP/routes, credentials, external ping, `esoc0`,
   subsystem writes, module load/unload, boot image writes는 계속 막는다.
 
@@ -3162,3 +3165,25 @@ Samsung bootloader
 - next: V841 should classify the missing lower native WLAN-PD state-up trigger.
   Native has service `74/180`, provider-first service-manager/PeripheralManager,
   and CNSS retry, but still lacks WLAN-PD `UP`, WLFW/BDF, and `wlan0`.
+
+### V843. Current-Window CNSS Stall Classifier
+
+- plan: `docs/plans/NATIVE_INIT_V843_CURRENT_WINDOW_CNSS_STALL_CLASSIFIER_PLAN_2026-05-25.md`
+- report: `docs/reports/NATIVE_INIT_V843_CURRENT_WINDOW_CNSS_STALL_CLASSIFIER_2026-05-25.md`
+- runner: `scripts/revalidation/native_wifi_current_window_cnss_stall_classifier_v843.py`
+- evidence:
+  - `tmp/wifi/v843-current-window-cnss-stall-classifier/manifest.json`
+  - `tmp/wifi/v843-current-window-cnss-stall-classifier/summary.md`
+- decision: `v843-cnss-retry-poll-futex-prewlfw-event-gap`
+- result: host-only PASS. V843 parsed the V840 cleanup-time stall snapshot and
+  confirmed the retry `cnss-daemon` process is alive in `do_sys_poll` with
+  worker threads in `do_sys_poll`/`futex_wait_queue_me`. The CNSS user socket,
+  netlink entry, socket fd surface, and vndbinder fd are present, while
+  `wlfw_start`, WLAN-PD, BDF, FW-ready, and `wlan0` remain absent.
+- hard gates: no device command, daemon start, service-manager, Wi-Fi HAL,
+  scan/connect, credential use, DHCP/routes, external ping, boot image or
+  partition write, custom kernel flash, `esoc0`, subsystem write, or module
+  load/unload was executed.
+- next: V844 should classify the missing source-backed ICNSS/WLFW event
+  publication prerequisite before any HAL, scan/connect, DHCP/routes,
+  credential, external ping, or boot-image work.

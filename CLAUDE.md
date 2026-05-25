@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: v842 selected V843 current-window `cnss-daemon` pre-WLFW stall snapshot, still below HAL/connect
+- **Active research cycle**: v843 selected V844 ICNSS/WLFW event-source prerequisite classification, still below HAL/connect
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -274,6 +274,14 @@ provider-first CNSS retry stall point with `wchan`, syscall, task status/stat,
 optional stack, fd targets, socket inode mapping, and dmesg deltas before
 cleanup.
 
+V843 host-only PASS parsed the existing V840 cleanup-time stall snapshot.
+Current-window retry `cnss-daemon` is alive in `do_sys_poll`, with worker
+threads split between `do_sys_poll` and `futex_wait_queue_me`. CNSS user socket,
+netlink, socket fd, and vndbinder surfaces are present, while `wlfw_start`,
+WLAN-PD, BDF, FW-ready, and `wlan0` remain absent. The next gate is V844:
+classify the source-backed ICNSS/WLFW event publication prerequisite before
+any Wi-Fi HAL, scan/connect, DHCP/routes, credential, or external ping action.
+
 ```text
 servloc:64:257;ssctl:43:4098;servnotif:66:18945,46081;wlfw:69:1
 ```
@@ -464,6 +472,7 @@ path should be closed for this blocker.
 | v840 | provider-first service-manager/PeripheralManager + CNSS retry with prearmed WLAN-PD listener still reports `UNINIT`; no WLFW/BDF/wlan0 |
 | v841 | host-only classifier selects `cnss-daemon` pre-WLFW launch/runtime contract as V842; `sysmon_esoc0` is not the current prerequisite |
 | v842 | host-only classifier closes coarse CNSS launch contract and selects current-window CNSS stall snapshot as V843 |
+| v843 | host-only classifier confirms current retry `cnss-daemon` waits in poll/futex with CNSS socket/netlink surfaces; selects V844 event-source prerequisite classification |
 
 ### Safety additions (Wi-Fi research)
 
@@ -472,11 +481,12 @@ path should be closed for this blocker.
 - No `wlan.ko` load/unload without explicit approval
 - `firmware_class.path` rollback value: `/vendor/firmware_mnt/image`
 - `sda29` mount must be read-only in all proof windows
-- Current Wi-Fi gate after V842: native `cnss-daemon` launch contract is good
-  enough and the process is alive/sleeping before WLFW. Keep Wi-Fi HAL,
-  scan/connect, DHCP/routes, credentials, external ping, `esoc0`, subsystem
-  writes, module load/unload, and boot image writes blocked; next capture the
-  current-window CNSS retry stall point before cleanup.
+- Current Wi-Fi gate after V843: native `cnss-daemon` launch contract and
+  current-window process liveness are good enough; the missing piece is the
+  lower ICNSS/WLFW event source. Keep Wi-Fi HAL, scan/connect, DHCP/routes,
+  credentials, external ping, `esoc0`, subsystem writes, module load/unload,
+  and boot image writes blocked; next classify the event-publication
+  prerequisite.
 
 ## Docs structure
 
