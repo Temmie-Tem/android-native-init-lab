@@ -3647,3 +3647,29 @@ Samsung bootloader
 - next: V860 should extend the private property layout for the new
   `vndservicemanager`/`ServiceManager`/`PerMgrLib` keys and rerun the same
   bounded replay before any actor escalation.
+
+### V860. pm-service Property Superset Delta
+
+- plan: `docs/plans/NATIVE_INIT_V860_PM_SERVICE_PROPERTY_SUPERSET_PLAN_2026-05-25.md`
+- report: `docs/reports/NATIVE_INIT_V860_PM_SERVICE_PROPERTY_SUPERSET_2026-05-25.md`
+- classifier: `scripts/revalidation/native_property_runtime_pm_service_v860.py`
+- deployer: `scripts/revalidation/native_property_runtime_incremental_v860.py`
+- runner: `scripts/revalidation/native_wifi_pm_service_property_superset_replay_v860.py`
+- evidence:
+  - `tmp/wifi/v860-pm-service-property-superset-runtime/manifest.json`
+  - `tmp/wifi/v860-pm-service-property-superset-incremental-live/manifest.json`
+  - `tmp/wifi/v860-pm-service-property-superset-replay-live/manifest.json`
+- decision: `v860-property-clean-no-subsys-hold`
+- result: bounded native live PASS. V860 generated a single private property
+  superset from V858, V859, and V677 evidence, deployed selected files into the
+  versioned private V535 property root, and reran the same `pm-service`/
+  `pm-proxy` start-only path. Property denials dropped to zero
+  (`total=0`, `unique=0`, `v860_target_remaining=[]`), but `pm-service` still
+  did not hold `/dev/subsys_esoc0` or `/dev/subsys_modem`.
+- hard gates: no helper deployment, no `mdm_helper`/`ks`, no Wi-Fi HAL,
+  scan/connect, credentials, DHCP/routes, external ping, raw eSoC ioctl,
+  GPIO/sysfs/debugfs/subsystem write, module load/unload, boot image write, or
+  partition write.
+- next: V861 should classify the post-property-clean `pm-service` lifetime and
+  provider-input gap. Focus on child exit status, stdout/stderr, provider
+  registration, and fd timing versus Android V853 before actor escalation.

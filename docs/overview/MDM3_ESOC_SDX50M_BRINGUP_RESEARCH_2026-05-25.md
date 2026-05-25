@@ -378,3 +378,31 @@ Interpretation: the current path is still property-runtime completeness below
 PeripheralManager lifetime, not `mdm_helper`/`ks` or GPIO/eSoC writes. V860
 should produce a superset property delta that preserves the V858 keys and adds
 these newly exposed keys, then rerun the same bounded replay.
+
+## 14. V860 property superset outcome
+
+V860 produced and deployed that superset. The host layout combined:
+
+- the 8 V858 `pm-service`/`pm-proxy` keys,
+- the 8 V859 newly exposed `vndservicemanager`/`ServiceManager`/`PerMgrLib`
+  keys,
+- the 20 V677 residual keys as a regression guard.
+
+The resulting private property model has `131` properties and `21` contexts.
+The incremental deploy updated only the existing versioned private V535
+property root and verified device-side hashes for all selected files.
+
+Bounded replay result: `v860-property-clean-no-subsys-hold`.
+
+| Check | Result |
+|---|---|
+| property denial total | `0` |
+| V860 target remaining | `[]` |
+| new after V860 | `[]` |
+| `pm-service` holds `/dev/subsys_esoc0` | `false` |
+| `pm-service` holds `/dev/subsys_modem` | `false` |
+
+Interpretation: the active blocker moved past private property coverage. The
+next gate is V861 lifetime/provider-input classification for `pm-service` and
+`pm-proxy`: capture exit status, stdout/stderr, provider registration, and fd
+timing under the same node parity before considering `mdm_helper`/`ks`.

@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: v859 proved V858 removed the targeted pm-service/pm-proxy property denials, but new vndservicemanager/ServiceManager/PerMgrLib property gaps remain; next is V860 property superset delta, still below mdm_helper/HAL/connect
+- **Active research cycle**: v860 removed the current pm-service/pm-proxy property denials with a V858/V859/V677 private property superset, but pm-service still does not hold subsystem fds; next is V861 lifetime/provider-input classification below mdm_helper/HAL/connect
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -572,6 +572,7 @@ path should be closed for this blocker.
 | v857 | pm-service property-contract replay allows the observed shutdown-critical-list values but still has no subsystem fd hold; next is property-info context delta for pm-service/pm-proxy read keys |
 | v858 | pm-service/pm-proxy property-context delta maps 8 V857 residual keys and deploys the private property root update without daemon start |
 | v859 | V858 target denials are gone, but new vndservicemanager/ServiceManager/PerMgrLib property denials remain; no subsystem fd hold yet |
+| v860 | V858/V859/V677 property superset drops property denials to zero; pm-service still has no `/dev/subsys_esoc0` or `/dev/subsys_modem` fd hold |
 
 ### Safety additions (Wi-Fi research)
 
@@ -591,13 +592,14 @@ path should be closed for this blocker.
   `/dev/subsys_modem` fd holds even after the observed
   `vendor.peripheral.shutdown_critical_list` values were allowed by the private
   property shim. V858 then added the service-specific `pm-service`/`pm-proxy`
-  property-context delta, and V859 proved those target denials are gone. The
-  next gap is now the newly exposed `vndservicemanager`/`ServiceManager`/
-  `PerMgrLib` property keys. Keep Wi-Fi HAL, scan/connect, DHCP/routes,
-  credentials, external ping, raw eSoC ioctl, subsystem writes,
+  property-context delta, V859 proved those target denials are gone, and V860
+  merged the V858/V859/V677 property sets into one private superset. V860 replay
+  has `property_denials.total=0` but still no `/dev/subsys_esoc0` or
+  `/dev/subsys_modem` fd hold from `pm-service`. Keep Wi-Fi HAL, scan/connect,
+  DHCP/routes, credentials, external ping, raw eSoC ioctl, subsystem writes,
   GPIO/sysfs/debugfs writes, module load/unload, and boot image writes blocked.
-  Next gate is V860 property superset delta and replay. Do not start
-  `mdm_helper`, `ks`, HAL, or scan/connect yet.
+  Next gate is V861 lifetime/provider-input classification for `pm-service` and
+  `pm-proxy`. Do not start `mdm_helper`, `ks`, HAL, or scan/connect yet.
 
 ## Docs structure
 
