@@ -434,6 +434,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V942_HELPER_V156_DEPLOY_2026-05-26.md` – helper `v156`를 `/cache/bin/a90_android_execns_probe`로 deploy-only 배포하고 remote checksum/contract parity와 postflight health를 확인한 V942 결과
 - `reports/NATIVE_INIT_V941_MDM_HELPER_QUEUE_TIMING_SUPPORT_2026-05-26.md` – helper `v156`에 `mdm_helper_queue_timing.*` 진단을 기존 runtime-contract mode에 source/build-only로 추가하고 static build/guardrail 검증을 통과한 V941 결과
 - `reports/NATIVE_INIT_V940_SDX50M_QUEUE_INPUT_CONTRACT_2026-05-26.md` – V938/V939와 V857/V860/V861/V867 PM evidence를 묶어 다음 작업을 helper `v156` queue-timing diagnostics로 좁힌 V940 결과
 - `reports/NATIVE_INIT_V939_V938_LOWER_CONTRACT_CLASSIFIER_2026-05-26.md` – V938/V914 evidence를 host-only로 묶어 exact `mdm_helper` property-context gap은 co-present지만 다음 blocker로 충분하지 않고, 다음 gate를 SDX50M queue input contract 분류로 라우팅한 V939 결과
