@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: v819 pending after V818 classifier; run bounded read-only mdm3/esoc0 service-locator/sysmon registration catalogue below HAL/connect
+- **Active research cycle**: v820 pending after V819 catalogue; inspect helper/per-process QRTR namespace state and service-locator visibility below HAL/connect
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -157,7 +157,7 @@ New `vNNN` experiment scripts must:
 - Gate live action behind explicit `--allow-*` + `--assume-yes` flags
 - Run `version`, `status`, `bootstatus`, `selftest verbose` as postflight regression
 
-## Wi-Fi bring-up research state (v598–v818, active)
+## Wi-Fi bring-up research state (v598–v819, active)
 
 Goal: bring up `wlan0` from native init without Android userspace.
 
@@ -179,7 +179,7 @@ stable enough in every boot. Helper v124 added a `sysmon-qmi` gated
 `mdm_helper` mode. V746 proved `mdm_helper` starts safely after `sysmon-qmi`,
 but it does not advance mdm3/WLAN-PD/WLFW.
 
-### Current blocker (V818)
+### Current blocker (V819)
 
 ```
 mss: OFFLINING → ONLINE ✓  (read-only firmware mounts + subsys_modem holder)
@@ -235,6 +235,7 @@ V815 subsystem/sysmon snapshot: live stock-v724 read-only PASS. Idle native has 
 V816 idle-vs-trigger delta classifier: host-only PASS. Idle has modem/mdm3 `OFFLINING` and no runtime service publication. V812 lower trigger advances mss/QRTR/sysmon, but mdm3 remains `OFFLINING` and service74/WLAN-PD/WLFW/service69/BDF/`wlan0` remain absent. Next gate is V817 in-window read-only sampling of V815 surfaces around the existing lower trigger, not HAL/connect or custom-kernel flash.
 V817 in-window sysmon sampler: live stock-v724 PASS. Current-boot V401/V490 refresh, firmware mounts, `subsys_modem` holder, and lower companion/CNSS diagnostic stack ran below service-manager/HAL/scan/connect. In-window snapshots show mss `OFFLINING -> ONLINE -> ONLINE`, QRTR readiness and `sysmon-qmi` appear, but mdm3 stays `OFFLINING` and service74/WLAN-PD/WLFW/service69/BDF/`wlan0` remain absent. Cleanup reboot restored healthy v724. Next gate V818 should isolate mdm3/esoc0 service-locator/sysmon registration state without `esoc0` open, HAL/connect, or custom-kernel flash.
 V818 mdm3/esoc registration classifier: host-only PASS. V817 proves the live lower window advances mss/QRTR/sysmon but not mdm3/service publication; V798 removes missing modem PIL notifications as the active blocker; V795 removes holder-only retry; V817 evidence shows esoc sysfs/class surfaces but no `/dev/esoc*` or `/dev/subsys*` node. Next gate V819 is a bounded read-only mdm3/esoc0 service-locator/sysmon registration catalogue below service-manager/HAL/connect.
+V819 mdm3/esoc registration catalogue: live stock-v724 PASS. Wrapped V817 still passes: mss moves `OFFLINING -> ONLINE -> ONLINE`, mdm3 remains `OFFLINING`, and WLAN-PD/WLFW remain absent. Added read-only catalogue shows esoc/mdm3 sysfs surfaces exist, but debugfs service surfaces are missing, global `/proc/net/qrtr` is missing, and per-process QRTR catalogue sections are empty. Cleanup reboot restored healthy v724. Next gate V820 should inspect helper/per-process QRTR namespace state and service-locator visibility without HAL/connect.
 ```
 
 Vendor firmware files (`wlanmdsp.mbn`, `bdwlan.bin`, `regdb.bin`) confirmed at `sda29` (isolated mount), NOT in default native `/vendor`.
@@ -332,6 +333,7 @@ path should be closed for this blocker.
 | v816 | host-only idle-vs-trigger delta: lower trigger advances mss/sysmon only; mdm3 and service-publication stay blocked |
 | v817 | live in-window sampler: lower window advances mss/QRTR/sysmon but mdm3 remains OFFLINING and service74/WLAN-PD/WLFW stay absent; next is mdm3/esoc0 registration isolation |
 | v818 | host-only registration classifier: V817/V798/V795 close holder-only, PIL, HAL/connect, and custom-kernel retry paths; next is bounded read-only mdm3/esoc0 registration catalogue |
+| v819 | live read-only registration catalogue: esoc/mdm3 sysfs exists, but debugfs service surfaces, global `/proc/net/qrtr`, and per-process QRTR sections are absent; next is helper/per-process QRTR namespace inspection |
 
 ### Safety additions (Wi-Fi research)
 
