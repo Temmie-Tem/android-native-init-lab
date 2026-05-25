@@ -76,11 +76,14 @@
 #define AF_QIPCRTR 42
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v124"
+#define EXECNS_VERSION "a90_android_execns_probe v125"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
 #define MAX_SEPOLICY_LOAD_SIZE (16 * 1024 * 1024)
+#define DEFAULT_QRTR_READBACK_MATRIX "wlfw:69:0,1"
+#define MAX_QRTR_READBACK_CASES 16
+#define MAX_QRTR_READBACK_LABEL 32
 #define A90_PROP_NAME_MAX 512
 #define A90_PROP_VALUE_MAX 1024
 #define A90_PROP_LEGACY_NAME_MAX 32
@@ -153,6 +156,7 @@ struct config {
     const char *connect_config;
     const char *connect_iface;
     const char *ping_target;
+    const char *qrtr_readback_matrix;
     int timeout_sec;
     bool allow_cnss_start_only;
     bool allow_wifi_companion_start_only;
@@ -308,6 +312,7 @@ static void usage(FILE *out) {
             "[--allow-scan-only] "
             "[--allow-connect-dhcp-ping] "
             "[--allow-policy-load-proof] "
+            "[--qrtr-readback-matrix label:service:instance[,instance][;...]] "
             "[--connect-config /cache/a90-wifi/...] "
             "[--connect-iface auto|wlan0] "
             "[--ping-target 1.1.1.1] "
@@ -772,6 +777,7 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
     cfg->android_selinux_context_mode = "auto";
     cfg->connect_iface = "auto";
     cfg->ping_target = "1.1.1.1";
+    cfg->qrtr_readback_matrix = DEFAULT_QRTR_READBACK_MATRIX;
 
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--help") == 0) {
@@ -877,6 +883,8 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             cfg->connect_iface = argv[++i];
         } else if (strcmp(argv[i], "--ping-target") == 0) {
             cfg->ping_target = argv[++i];
+        } else if (strcmp(argv[i], "--qrtr-readback-matrix") == 0) {
+            cfg->qrtr_readback_matrix = argv[++i];
         } else if (strcmp(argv[i], "--timeout-sec") == 0) {
             if (!parse_int_range(argv[++i], 1, 30, &cfg->timeout_sec)) {
                 fprintf(stderr, "invalid --timeout-sec\n");
@@ -14415,6 +14423,7 @@ static int append_qrtr_readback_events(struct buffer *buf,
 
 static int append_companion_qrtr_readback_case(struct buffer *buf,
                                                const char *prefix,
+                                               const char *label,
                                                uint32_t service,
                                                uint32_t instance) {
     char socket_name_prefix[160];
@@ -14433,10 +14442,13 @@ static int append_companion_qrtr_readback_case(struct buffer *buf,
     }
     if (append_format(buf,
                       "%s.begin=1\n"
+                      "%s.label=%s\n"
                       "%s.service=%u\n"
                       "%s.instance=%u\n"
                       "%s.qmi_attempted=0\n",
                       prefix,
+                      prefix,
+                      label,
                       prefix,
                       service,
                       prefix,
@@ -14498,12 +14510,149 @@ static int append_companion_qrtr_readback_case(struct buffer *buf,
     return append_format(buf, "%s.status=complete\n%s.end=1\n", prefix, prefix);
 }
 
+struct qrtr_readback_case {
+    char label[MAX_QRTR_READBACK_LABEL];
+    uint32_t service;
+    uint32_t instance;
+};
+
+static char *trim_token(char *value) {
+    char *end;
+
+    while (*value == ' ' || *value == '\t' || *value == '\r' || *value == '\n') {
+        value++;
+    }
+    end = value + strlen(value);
+    while (end > value &&
+           (end[-1] == ' ' || end[-1] == '\t' || end[-1] == '\r' || end[-1] == '\n')) {
+        *--end = '\0';
+    }
+    return value;
+}
+
+static void sanitize_qrtr_label(char *dst, size_t dst_len, const char *src) {
+    size_t out = 0;
+
+    if (dst_len == 0) {
+        return;
+    }
+    while (*src != '\0' && out + 1 < dst_len) {
+        unsigned char ch = (unsigned char)*src++;
+
+        if ((ch >= 'A' && ch <= 'Z') ||
+            (ch >= 'a' && ch <= 'z') ||
+            (ch >= '0' && ch <= '9') ||
+            ch == '_' || ch == '-') {
+            dst[out++] = (char)ch;
+        } else {
+            dst[out++] = '_';
+        }
+    }
+    dst[out] = '\0';
+    if (out == 0) {
+        strlcpy(dst, "case", dst_len);
+    }
+}
+
+static bool parse_u32_token(const char *text, uint32_t *out) {
+    char *end = NULL;
+    unsigned long value;
+
+    if (text == NULL || *text == '\0') {
+        return false;
+    }
+    errno = 0;
+    value = strtoul(text, &end, 0);
+    if (errno != 0 || end == text || *trim_token(end) != '\0' || value > UINT32_MAX) {
+        return false;
+    }
+    *out = (uint32_t)value;
+    return true;
+}
+
+static int parse_qrtr_readback_matrix(const char *matrix,
+                                      struct qrtr_readback_case *cases,
+                                      size_t max_cases,
+                                      char *error,
+                                      size_t error_len) {
+    char *copy;
+    char *group;
+    char *group_save = NULL;
+    size_t count = 0;
+
+    if (matrix == NULL || *matrix == '\0') {
+        snprintf(error, error_len, "empty-matrix");
+        return -1;
+    }
+    copy = strdup(matrix);
+    if (copy == NULL) {
+        snprintf(error, error_len, "oom");
+        return -1;
+    }
+    for (group = strtok_r(copy, ";", &group_save);
+         group != NULL;
+         group = strtok_r(NULL, ";", &group_save)) {
+        char *parts[3];
+        char *part_save = NULL;
+        char *inst;
+        char *inst_save = NULL;
+        uint32_t service = 0;
+        size_t part_count = 0;
+
+        group = trim_token(group);
+        if (*group == '\0') {
+            continue;
+        }
+        for (char *part = strtok_r(group, ":", &part_save);
+             part != NULL && part_count < 3;
+             part = strtok_r(NULL, ":", &part_save)) {
+            parts[part_count++] = trim_token(part);
+        }
+        if (part_count != 3 || !parse_u32_token(parts[1], &service)) {
+            snprintf(error, error_len, "invalid-group");
+            free(copy);
+            return -1;
+        }
+        for (inst = strtok_r(parts[2], ",", &inst_save);
+             inst != NULL;
+             inst = strtok_r(NULL, ",", &inst_save)) {
+            uint32_t instance = 0;
+
+            if (count >= max_cases) {
+                snprintf(error, error_len, "too-many-cases");
+                free(copy);
+                return -1;
+            }
+            inst = trim_token(inst);
+            if (!parse_u32_token(inst, &instance)) {
+                snprintf(error, error_len, "invalid-instance");
+                free(copy);
+                return -1;
+            }
+            sanitize_qrtr_label(cases[count].label, sizeof(cases[count].label), parts[0]);
+            cases[count].service = service;
+            cases[count].instance = instance;
+            count++;
+        }
+    }
+    free(copy);
+    if (count == 0) {
+        snprintf(error, error_len, "empty-matrix");
+        return -1;
+    }
+    return (int)count;
+}
+
 static int append_companion_qrtr_wlfw_readback(struct buffer *buf,
                                                const struct config *cfg) {
+    struct qrtr_readback_case cases[MAX_QRTR_READBACK_CASES];
+    char parse_error[64] = "";
+    int case_count = 0;
+
     if (append_format(buf,
                       "wifi_companion_qrtr_readback.begin=1\n"
                       "wifi_companion_qrtr_readback.allowed=%d\n"
-                      "wifi_companion_qrtr_readback.matrix=wlfw:69:0,1\n"
+                      "wifi_companion_qrtr_readback.matrix=%s\n"
                       "wifi_companion_qrtr_readback.new_lookup=%u\n"
                       "wifi_companion_qrtr_readback.del_lookup=%u\n"
                       "wifi_companion_qrtr_readback.readback_ms=1000\n"
@@ -14513,6 +14662,7 @@ static int append_companion_qrtr_wlfw_readback(struct buffer *buf,
                       "wifi_companion_qrtr_readback.scan_connect_linkup=0\n"
                       "wifi_companion_qrtr_readback.external_ping=0\n",
                       cfg->allow_qrtr_ns_readback ? 1 : 0,
+                      cfg->qrtr_readback_matrix != NULL ? cfg->qrtr_readback_matrix : DEFAULT_QRTR_READBACK_MATRIX,
                       QRTR_TYPE_NEW_LOOKUP,
                       QRTR_TYPE_DEL_LOOKUP) < 0) {
         return -1;
@@ -14524,15 +14674,36 @@ static int append_companion_qrtr_wlfw_readback(struct buffer *buf,
                               "wifi_companion_qrtr_readback.reason=missing-allow-qrtr-ns-readback\n"
                               "wifi_companion_qrtr_readback.end=1\n");
     }
-    if (append_companion_qrtr_readback_case(buf,
-                                            "wifi_companion_qrtr_readback.case_0",
-                                            69U,
-                                            0U) < 0 ||
-        append_companion_qrtr_readback_case(buf,
-                                            "wifi_companion_qrtr_readback.case_1",
-                                            69U,
-                                            1U) < 0) {
+    case_count = parse_qrtr_readback_matrix(
+        cfg->qrtr_readback_matrix != NULL ? cfg->qrtr_readback_matrix : DEFAULT_QRTR_READBACK_MATRIX,
+        cases,
+        MAX_QRTR_READBACK_CASES,
+        parse_error,
+        sizeof(parse_error));
+    if (case_count < 0) {
+        return append_format(buf,
+                             "wifi_companion_qrtr_readback.send_attempted=0\n"
+                             "wifi_companion_qrtr_readback.result=invalid-matrix\n"
+                             "wifi_companion_qrtr_readback.reason=%s\n"
+                             "wifi_companion_qrtr_readback.end=1\n",
+                             parse_error);
+    }
+    if (append_format(buf, "wifi_companion_qrtr_readback.case_count=%d\n", case_count) < 0) {
         return -1;
+    }
+    for (int i = 0; i < case_count; i++) {
+        char prefix[96];
+
+        if (snprintf(prefix, sizeof(prefix), "wifi_companion_qrtr_readback.case_%d", i) >= (int)sizeof(prefix)) {
+            return -1;
+        }
+        if (append_companion_qrtr_readback_case(buf,
+                                                prefix,
+                                                cases[i].label,
+                                                cases[i].service,
+                                                cases[i].instance) < 0) {
+            return -1;
+        }
     }
     return append_literal(buf,
                           "wifi_companion_qrtr_readback.send_attempted=1\n"
@@ -18312,6 +18483,8 @@ int main(int argc, char **argv) {
     printf("connect_config=%s\n", cfg.connect_config != NULL ? cfg.connect_config : "<none>");
     printf("connect_iface=%s\n", cfg.connect_iface != NULL ? cfg.connect_iface : "<none>");
     printf("ping_target=%s\n", cfg.ping_target != NULL ? cfg.ping_target : "<none>");
+    printf("qrtr_readback_matrix=%s\n",
+           cfg.qrtr_readback_matrix != NULL ? cfg.qrtr_readback_matrix : "<none>");
 
     if (setup_namespace(&cfg,
                         &paths,
