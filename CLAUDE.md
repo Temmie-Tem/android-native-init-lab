@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: v837 selected after V836 classified the next gate as timestamped post-service74 listener hold, still below HAL/connect
+- **Active research cycle**: v838 selected after V837 proved current listener placement starts after service74, still below HAL/connect
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -234,6 +234,15 @@ BDF, wiphy, or `wlan0`. V836 rejects an identical V835 replay, HAL/connect, and
 send/response/hold evidence relative to service `74` and hold through at least
 the Android post-service74 WLAN-PD window, still below HAL/connect.
 
+V837 live PASS added helper v129 timestamp fields and reran the V835 lower
+window. Service `74` arrived at `86470.953 ms`, but the listener send was
+`87084.000 ms`, about `613 ms` later. The listener then held for `15006 ms` and
+closed `15619 ms` after service `74`, but it was not open at service `74`
+publication time; response remained `UNINIT`, no indication arrived, and
+WLFW/BDF/wiphy/`wlan0` stayed absent. Cleanup reboot restored healthy native
+v724. V838 should make listener registration earlier or concurrent with
+service-notifier publication before widening to service-manager/HAL/connect.
+
 ```text
 servloc:64:257;ssctl:43:4098;servnotif:66:18945,46081;wlfw:69:1
 ```
@@ -305,6 +314,7 @@ V828 service-locator domain-list payload derivation: host-only PASS. Derived QMI
 V829 service-locator domain-list probe: live stock-v724 PASS. Helper v126 queried service-locator `64/257` node `1` port `16475` with the V828 `GET_DOMAIN_LIST wlan/fw` request and received QMI success `result=0 error=0`; the returned domain list contains `msm/modem/wlan_pd` instance `180`. Cleanup reboot restored healthy v724. No service-manager, Wi-Fi HAL, scan/connect, credential, DHCP/routes, external ping, boot image write, partition write, or custom-kernel flash executed. Next V830 should derive a bounded service-notifier `REGISTER_LISTENER` proof for `msm/modem/wlan_pd` instance `180`.
 V830 service-notifier listener probe: live stock-v724 PASS. Helper v127 queried service-notifier `66/46081` node `0` port `2` and sent only the bounded `REGISTER_LISTENER` request for `msm/modem/wlan_pd`. The endpoint returned QMI success `result=0 error=0`, but current state was `0x7fffffff` / `uninit`; no state indication arrived, so no ACK was sent. Cleanup reboot restored healthy v724. No service-manager, Wi-Fi HAL, scan/connect, credential use, DHCP/routes, external ping, `esoc0`, module load/unload, boot image write, partition write, or custom-kernel flash executed. Next V831 should classify why WLAN-PD remains uninitialized despite successful service-locator and service-notifier registration.
 V831 early service-notifier listener probe: live stock-v724 PASS. Helper v128 moved the service-notifier listener to the early lower companion window, kept the endpoint lookup bounded to `10s`, and kept the listener open for the bounded indication window. Service-notifier `66/46081` again accepted `REGISTER_LISTENER` for `msm/modem/wlan_pd` with QMI success `result=0 error=0`, but current state remained `0x7fffffff` / `uninit` and no state indication arrived. Cleanup reboot restored healthy v724. No service-manager, Wi-Fi HAL, scan/connect, credential use, DHCP/routes, external ping, `esoc0`, module load/unload, boot image write, partition write, or custom-kernel flash executed. Next V832 should focus on the Android-only `mdm3=ONLINE` / WLAN-PD-UP trigger contract, not listener timing.
+V837 timestamped listener hold: live stock-v724 PASS. Helper v129 proved the current lower-window listener placement is too late: service `74` arrived at `86470.953 ms`, listener send was `87084.000 ms`, and the listener was not open at service `74`; it then held for `15006 ms`, response stayed `UNINIT`, no indication arrived, and no WLFW/BDF/wlan0 appeared. No service-manager, Wi-Fi HAL, scan/connect, credential use, DHCP/routes, external ping, `esoc0`, module load/unload, boot image write, partition write, or custom-kernel flash executed. Next V838 should make listener registration earlier or concurrent with service-notifier publication.
 ```
 
 Vendor firmware files (`wlanmdsp.mbn`, `bdwlan.bin`, `regdb.bin`) confirmed at `sda29` (isolated mount), NOT in default native `/vendor`.

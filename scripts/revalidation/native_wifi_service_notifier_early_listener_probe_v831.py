@@ -251,6 +251,7 @@ def summarize_service_notifier(helper_payload: str) -> dict[str, Any]:
             "type": int_value(keys.get(f"{packet_prefix}.type")),
             "txn_id": int_value(keys.get(f"{packet_prefix}.txn_id")),
             "msg_id": int_value(keys.get(f"{packet_prefix}.msg_id")),
+            "recv_ms": int_value(keys.get(f"{packet_prefix}.recv_ms")),
         })
         index += 1
     return {
@@ -283,6 +284,15 @@ def summarize_service_notifier(helper_payload: str) -> dict[str, Any]:
         "indication_curr_state_name": keys.get(f"{prefix}.indication_curr_state_name", ""),
         "ack_sent": int_value(keys.get(f"{prefix}.ack_sent")),
         "ack_success": int_value(keys.get(f"{prefix}.ack_success")),
+        "timing_begin_ms": int_value(keys.get(f"{prefix}.timing.begin_ms")),
+        "timing_send_before_ms": int_value(keys.get(f"{prefix}.timing.send_before_ms")),
+        "timing_send_after_ms": int_value(keys.get(f"{prefix}.timing.send_after_ms")),
+        "timing_first_response_ms": int_value(keys.get(f"{prefix}.timing.first_response_ms")),
+        "timing_first_indication_ms": int_value(keys.get(f"{prefix}.timing.first_indication_ms")),
+        "timing_close_ms": int_value(keys.get(f"{prefix}.timing.close_ms")),
+        "timing_hold_ms": int_value(keys.get(f"{prefix}.timing.hold_ms")),
+        "timing_target_hold_ms": int_value(keys.get(f"{prefix}.timing.target_hold_ms")),
+        "timing_poll_timeout": int_value(keys.get(f"{prefix}.timing.poll_timeout")),
         "packets": packets,
     }
 

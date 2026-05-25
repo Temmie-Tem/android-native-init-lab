@@ -76,7 +76,7 @@
 #define AF_QIPCRTR 42
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v128"
+#define EXECNS_VERSION "a90_android_execns_probe v129"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -16147,6 +16147,13 @@ static int append_companion_service_notifier_listener_probe(struct buffer *buf,
     uint32_t indication_state = 0;
     bool ack_sent = false;
     bool ack_success = false;
+    bool response_poll_timeout = false;
+    const long listener_begin_ms = monotonic_ms();
+    long send_before_ms = 0;
+    long send_after_ms = 0;
+    long first_response_ms = 0;
+    long first_indication_ms = 0;
+    long close_ms = 0;
 
     build_servnotif_register_request(register_request,
                                      &register_request_len,
@@ -16210,7 +16217,9 @@ static int append_companion_service_notifier_listener_probe(struct buffer *buf,
     dest.sq_family = AF_QIPCRTR;
     dest.sq_node = endpoint.node;
     dest.sq_port = endpoint.port;
+    send_before_ms = monotonic_ms();
     sent = sendto(fd, register_request, register_request_len, 0, (const struct sockaddr *)&dest, sizeof(dest));
+    send_after_ms = monotonic_ms();
     if (sent < 0) {
         int saved_errno = errno;
 
@@ -16229,17 +16238,25 @@ static int append_companion_service_notifier_listener_probe(struct buffer *buf,
     if (append_format(buf,
                       "wifi_companion_service_notifier_listener.socket.rc=0\n"
                       "wifi_companion_service_notifier_listener.send_attempted=1\n"
-                      "wifi_companion_service_notifier_listener.register_send.rc=0\n"
-                      "wifi_companion_service_notifier_listener.register_send.bytes=%zd\n"
-                      "wifi_companion_service_notifier_listener.register_send.node=%u\n"
-                      "wifi_companion_service_notifier_listener.register_send.port=%u\n",
-                      sent,
-                      endpoint.node,
-                      endpoint.port) < 0) {
+	                      "wifi_companion_service_notifier_listener.register_send.rc=0\n"
+	                      "wifi_companion_service_notifier_listener.register_send.bytes=%zd\n"
+	                      "wifi_companion_service_notifier_listener.register_send.node=%u\n"
+	                      "wifi_companion_service_notifier_listener.register_send.port=%u\n"
+	                      "wifi_companion_service_notifier_listener.timing.begin_ms=%ld\n"
+	                      "wifi_companion_service_notifier_listener.timing.send_before_ms=%ld\n"
+	                      "wifi_companion_service_notifier_listener.timing.send_after_ms=%ld\n"
+	                      "wifi_companion_service_notifier_listener.timing.target_hold_ms=%u\n",
+	                      sent,
+	                      endpoint.node,
+	                      endpoint.port,
+	                      listener_begin_ms,
+	                      send_before_ms,
+	                      send_after_ms,
+	                      A90_SERVNOTIF_RESPONSE_MS) < 0) {
         close(fd);
         return -1;
     }
-    deadline = monotonic_ms() + (long)A90_SERVNOTIF_RESPONSE_MS;
+    deadline = send_after_ms + (long)A90_SERVNOTIF_RESPONSE_MS;
     while (packets < 12U) {
         struct pollfd pfd;
         struct sockaddr_qrtr from;
@@ -16254,6 +16271,7 @@ static int append_companion_service_notifier_listener_probe(struct buffer *buf,
         uint16_t packet_msg = 0;
 
         if (now >= deadline) {
+            response_poll_timeout = true;
             break;
         }
         pfd.fd = fd;
@@ -16261,6 +16279,7 @@ static int append_companion_service_notifier_listener_probe(struct buffer *buf,
         pfd.revents = 0;
         poll_rc = poll(&pfd, 1, (int)(deadline - now));
         if (poll_rc == 0) {
+            response_poll_timeout = true;
             break;
         }
         if (poll_rc < 0) {
@@ -16296,25 +16315,29 @@ static int append_companion_service_notifier_listener_probe(struct buffer *buf,
             packet_txn = read_le16_bytes(packet + 1);
             packet_msg = read_le16_bytes(packet + 3);
         }
+        now = monotonic_ms();
         if (append_format(buf,
-                          "wifi_companion_service_notifier_listener.packet.%u.bytes=%zd\n"
-                          "wifi_companion_service_notifier_listener.packet.%u.from.node=%u\n"
-                          "wifi_companion_service_notifier_listener.packet.%u.from.port=%u\n"
-                          "wifi_companion_service_notifier_listener.packet.%u.type=%u\n"
-                          "wifi_companion_service_notifier_listener.packet.%u.txn_id=%u\n"
-                          "wifi_companion_service_notifier_listener.packet.%u.msg_id=%u\n",
-                          packets,
-                          received,
-                          packets,
-                          from.sq_node,
+	                          "wifi_companion_service_notifier_listener.packet.%u.bytes=%zd\n"
+	                          "wifi_companion_service_notifier_listener.packet.%u.from.node=%u\n"
+	                          "wifi_companion_service_notifier_listener.packet.%u.from.port=%u\n"
+	                          "wifi_companion_service_notifier_listener.packet.%u.type=%u\n"
+	                          "wifi_companion_service_notifier_listener.packet.%u.txn_id=%u\n"
+	                          "wifi_companion_service_notifier_listener.packet.%u.msg_id=%u\n"
+	                          "wifi_companion_service_notifier_listener.packet.%u.recv_ms=%ld\n",
+	                          packets,
+	                          received,
+	                          packets,
+	                          from.sq_node,
                           packets,
                           from.sq_port,
                           packets,
                           (unsigned int)packet_type,
-                          packets,
-                          (unsigned int)packet_txn,
-                          packets,
-                          (unsigned int)packet_msg) < 0) {
+	                          packets,
+	                          (unsigned int)packet_txn,
+	                          packets,
+	                          (unsigned int)packet_msg,
+	                          packets,
+	                          now) < 0) {
             close(fd);
             return -1;
         }
@@ -16328,8 +16351,11 @@ static int append_companion_service_notifier_listener_probe(struct buffer *buf,
         }
         if (packet_type == 2U &&
             packet_txn == A90_SERVNOTIF_TXN_ID &&
-            packet_msg == A90_SERVNOTIF_REGISTER_LISTENER_MSG_ID) {
+	            packet_msg == A90_SERVNOTIF_REGISTER_LISTENER_MSG_ID) {
             response_seen = true;
+            if (first_response_ms == 0) {
+                first_response_ms = now;
+            }
             if (parse_servnotif_register_response(buf,
                                                   "wifi_companion_service_notifier_listener",
                                                   packet,
@@ -16341,12 +16367,15 @@ static int append_companion_service_notifier_listener_probe(struct buffer *buf,
                 return -1;
             }
         } else if (packet_type == 4U &&
-                   packet_msg == A90_SERVNOTIF_STATE_UPDATED_IND_MSG_ID) {
+	                   packet_msg == A90_SERVNOTIF_STATE_UPDATED_IND_MSG_ID) {
             uint8_t ack_request[96];
             size_t ack_request_len = 0;
             ssize_t ack_sent_bytes;
 
             indication_seen = true;
+            if (first_indication_ms == 0) {
+                first_indication_ms = now;
+            }
             if (parse_servnotif_indication(buf,
                                            "wifi_companion_service_notifier_listener",
                                            packet,
@@ -16396,34 +16425,45 @@ static int append_companion_service_notifier_listener_probe(struct buffer *buf,
         if (indication_seen && (!indication_valid || ack_success)) {
             break;
         }
-    }
+	    }
+    close_ms = monotonic_ms();
     close(fd);
     return append_format(buf,
-                         "wifi_companion_service_notifier_listener.response_seen=%u\n"
-                         "wifi_companion_service_notifier_listener.response_success=%u\n"
-                         "wifi_companion_service_notifier_listener.response_curr_state_valid=%u\n"
+	                         "wifi_companion_service_notifier_listener.response_seen=%u\n"
+	                         "wifi_companion_service_notifier_listener.response_success=%u\n"
+	                         "wifi_companion_service_notifier_listener.response_curr_state_valid=%u\n"
                          "wifi_companion_service_notifier_listener.response_curr_state=0x%08x\n"
                          "wifi_companion_service_notifier_listener.response_curr_state_name=%s\n"
                          "wifi_companion_service_notifier_listener.indication_seen=%u\n"
                          "wifi_companion_service_notifier_listener.indication_valid=%u\n"
                          "wifi_companion_service_notifier_listener.indication_curr_state=0x%08x\n"
                          "wifi_companion_service_notifier_listener.indication_curr_state_name=%s\n"
-                         "wifi_companion_service_notifier_listener.ack_sent=%u\n"
-                         "wifi_companion_service_notifier_listener.ack_success=%u\n"
-                         "wifi_companion_service_notifier_listener.result=%s\n"
-                         "wifi_companion_service_notifier_listener.end=1\n",
-                         response_seen ? 1U : 0U,
+	                         "wifi_companion_service_notifier_listener.ack_sent=%u\n"
+	                         "wifi_companion_service_notifier_listener.ack_success=%u\n"
+	                         "wifi_companion_service_notifier_listener.timing.first_response_ms=%ld\n"
+	                         "wifi_companion_service_notifier_listener.timing.first_indication_ms=%ld\n"
+	                         "wifi_companion_service_notifier_listener.timing.close_ms=%ld\n"
+	                         "wifi_companion_service_notifier_listener.timing.hold_ms=%ld\n"
+	                         "wifi_companion_service_notifier_listener.timing.poll_timeout=%u\n"
+	                         "wifi_companion_service_notifier_listener.result=%s\n"
+	                         "wifi_companion_service_notifier_listener.end=1\n",
+	                         response_seen ? 1U : 0U,
                          response_success ? 1U : 0U,
                          response_state_valid ? 1U : 0U,
                          response_state,
                          servnotif_state_name(response_state),
                          indication_seen ? 1U : 0U,
                          indication_valid ? 1U : 0U,
-                         indication_state,
-                         servnotif_state_name(indication_state),
-                         ack_sent ? 1U : 0U,
-                         ack_success ? 1U : 0U,
-                         response_seen ? (response_success ? "listener-response-success" : "listener-response-error") : "no-response");
+	                         indication_state,
+	                         servnotif_state_name(indication_state),
+	                         ack_sent ? 1U : 0U,
+	                         ack_success ? 1U : 0U,
+	                         first_response_ms,
+	                         first_indication_ms,
+	                         close_ms,
+	                         send_after_ms > 0 && close_ms >= send_after_ms ? close_ms - send_after_ms : 0,
+	                         response_poll_timeout ? 1U : 0U,
+	                         response_seen ? (response_success ? "listener-response-success" : "listener-response-error") : "no-response");
 }
 
 struct service74_klog_state {
