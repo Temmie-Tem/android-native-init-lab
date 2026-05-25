@@ -25,7 +25,7 @@
 
 ## 현재 Wi-Fi Gate
 
-- 최신 기준: V886 helper v140 source/build-only semantic repair pass.
+- 최신 기준: V887 helper v140 deploy-only pass.
 - V874 결론: `/dev/esoc-0` read-only control path가 live에서 열렸고
   `GET_STATUS`/`GET_ERR_FATAL`은 rc `0`, `GET_LINK_ID`는 errno `22`로
   반환됐다. 결과는 `read-only-ioctl-probe-complete`이며 created nodes cleanup,
@@ -104,6 +104,12 @@
   `ESOC_IMG_XFER_DONE`/`ESOC_BOOT_DONE` response scaffold marker는 생겼지만
   live `ESOC_NOTIFY`는 여전히 실행하지 않는다. 다음 후보는 V887 helper
   `v140` deploy-only checksum/version/mode proof다.
+- V887 결론: helper `v140` deploy-only가 통과했다. Serial chunk `3000`은
+  line-safety check에서 `chunks_written=0`으로 중단됐고, chunk `1850` retry가
+  `788` chunks, max line `3890`/safe `3968`로 성공했다. Remote sha는
+  `894fdd753cb6567b2abbb3c94f332ce63cf959b7d1708768cf3bcdc10b2b53e0`이고
+  helper marker/mode가 확인됐다. 다음 후보는 live가 아니라 V888 host-only
+  response-gate plan/classifier다.
 
 - 아래 V840-V847 항목은 V874/V875 이전 경로 요약이다.
 - V840 결론: provider-first service-manager/PeripheralManager, CNSS retry,
@@ -4328,3 +4334,23 @@ Samsung bootloader
   scan/connect, DHCP/routes, credentials, or external ping.
 - next: V887 helper `v140` deploy-only checksum/version/mode proof. Live
   response remains blocked until a separate bounded response gate.
+
+### V887. Helper v140 Deploy-only Proof
+
+- plan: `docs/plans/NATIVE_INIT_V887_HELPER_V140_DEPLOY_PLAN_2026-05-26.md`
+- report: `docs/reports/NATIVE_INIT_V887_HELPER_V140_DEPLOY_2026-05-26.md`
+- deploy wrapper: `scripts/revalidation/wifi_execns_helper_v140_deploy_preflight.py`
+- evidence:
+  - `tmp/wifi/v887-execns-helper-v140-plan/manifest.json`
+  - `tmp/wifi/v887-execns-helper-v140-preflight/manifest.json`
+  - `tmp/wifi/v887-execns-helper-v140-deploy-preflight/manifest.json`
+  - `tmp/wifi/v887-execns-helper-v140-deploy-preflight-retry1850/manifest.json`
+- decision: `execns-helper-v140-deploy-pass`
+- result: deploy-only PASS. First serial chunk `3000` failed line-safety before
+  writes (`chunks_written=0`); retry with chunk `1850` installed helper `v140`
+  and verified remote sha/mode marker.
+- hard gates held: no live eSoC ioctl, no `/dev/subsys_esoc0` open, no
+  `ESOC_NOTIFY`, no actor start, no service-manager, no Wi-Fi HAL,
+  scan/connect, DHCP/routes, credentials, or external ping.
+- next: V888 host-only response-gate classifier. Live response remains blocked
+  until it decides the exact bounded `ESOC_NOTIFY` sequence and cleanup rules.

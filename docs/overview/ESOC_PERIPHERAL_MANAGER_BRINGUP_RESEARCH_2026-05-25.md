@@ -1027,3 +1027,43 @@ Next candidate:
 - Live `ESOC_NOTIFY`, subsystem-open retry, actors, Wi-Fi HAL, scan/connect,
   credentials, DHCP/routes, and external ping remain blocked until a separate
   bounded response gate.
+
+---
+
+## 30. V887 helper v140 deploy result
+
+V887 deployed helper `v140` to `/cache/bin/a90_android_execns_probe`.
+
+Evidence:
+
+- `tmp/wifi/v887-execns-helper-v140-plan/manifest.json`
+- `tmp/wifi/v887-execns-helper-v140-preflight/manifest.json`
+- `tmp/wifi/v887-execns-helper-v140-deploy-preflight/manifest.json`
+- `tmp/wifi/v887-execns-helper-v140-deploy-preflight-retry1850/manifest.json`
+- `docs/plans/NATIVE_INIT_V887_HELPER_V140_DEPLOY_PLAN_2026-05-26.md`
+- `docs/reports/NATIVE_INIT_V887_HELPER_V140_DEPLOY_2026-05-26.md`
+
+Decision:
+
+- final retry: `execns-helper-v140-deploy-pass`
+
+Result:
+
+- Initial `--serial-chunk-size 3000` attempt failed before device writes:
+  `chunks_written=0`, `max_cmdv1_line_bytes=6190`, safe limit `3968`.
+- Retry with `--serial-chunk-size 1850` passed:
+  `chunks=788`, `max_cmdv1_line_bytes=3890`, safe limit `3968`.
+- Remote helper sha256 matches V886:
+  `894fdd753cb6567b2abbb3c94f332ce63cf959b7d1708768cf3bcdc10b2b53e0`.
+- Remote helper usage output includes `a90_android_execns_probe v140`.
+- Post-deploy read-only health checks passed; no Wi-Fi bring-up occurred.
+
+Guardrails held: V887 did not execute live eSoC ioctls, did not open
+`/dev/subsys_esoc0`, did not issue `ESOC_NOTIFY`, did not start Android actors,
+and did not bring up Wi-Fi.
+
+Next candidate:
+
+- V888 host-only response-gate plan/classifier before any live `ESOC_NOTIFY`.
+- Decide whether the next live response proof should send `ESOC_IMG_XFER_DONE`,
+  `ESOC_BOOT_DONE`, or a bounded two-step sequence.
