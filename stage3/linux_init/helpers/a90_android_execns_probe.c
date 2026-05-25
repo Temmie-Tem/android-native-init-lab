@@ -76,7 +76,7 @@
 #define AF_QIPCRTR 42
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v129"
+#define EXECNS_VERSION "a90_android_execns_probe v130"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -336,7 +336,7 @@ static void usage(FILE *out) {
             "[--connect-config /cache/a90-wifi/...] "
             "[--connect-iface auto|wlan0] "
             "[--ping-target 1.1.1.1] "
-            "--mode linker-list|identity-probe|sepolicy-inventory|sepolicy-compile-proof|sepolicy-load-proof|selinux-domain-proof|cnss-start-only|cnss-userspace-readiness|wifi-companion-start-only|wifi-companion-post-sysmon-observer-start-only|wifi-companion-android-order-post-sysmon-observer-start-only|wifi-companion-service-manager-start-only|wifi-companion-vnd-service-manager-start-only|wifi-companion-qrtr-first-vnd-service-manager-start-only|wifi-companion-cnss-first-delayed-vnd-service-manager-start-only|wifi-companion-service74-gated-vnd-service-manager-start-only|wifi-companion-service74-gated-vnd-service-manager-readiness-start-only|wifi-companion-service74-gated-vnd-service-manager-cnss-retry-start-only|wifi-companion-service74-gated-peripheral-manager-cnss-retry-start-only|wifi-companion-service74-gated-peripheral-manager-cnss-retry-registry-snapshot-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-cnss-retry-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-provider-first-cnss-start-only|wifi-companion-service74-gated-android-userspace-cnss-retry-start-only|wifi-companion-service74-gated-android-userspace-cnss-retry-registry-snapshot-start-only|wifi-companion-service74-gated-vnd-service-manager-registry-snapshot-start-only|wifi-companion-service74-gated-mdm-helper-start-only|wifi-companion-service180-gated-mdm-helper-start-only|wifi-companion-sysmon-gated-mdm-helper-start-only|wifi-companion-hal-order-start-only|wifi-companion-hal-wificond-order-start-only|wifi-companion-hal-wificond-lshal-wait-samsung|wifi-companion-hal-wificond-lshal-wait-iwifi|wifi-companion-dual-hal-wificond-lshal-wait-iwifi|wifi-companion-dual-hal-wificond-iwifi-start|wifi-companion-dual-hal-wificond-lshal-then-iwifi-start|rmt-storage-start-only|property-lookup|service-manager-start-only|private-selinux-proof|wifi-hal-lshal-vintf-status-list|wifi-hal-composite-start-only|wifi-hal-composite-lshal-list|wifi-hal-composite-lshal-binderized-list|wifi-hal-composite-lshal-wait-target|wifi-surface-composite-lshal-wait-iwifi|wifi-surface-composite-lshal-wait-samsung|wifi-surface-composite-lshal-wait-samsung-ptrace|wifi-hal-composite-lshal-status-list|wifi-hal-composite-lshal-binderized-status-list|wifi-surface-composite-start-only|wifi-dual-hal-lshal-wait-iwifi|wifi-dual-hal-iwifi-start-surface|wifi-iwifi-start-surface|wifi-active-session-surface|wifi-active-session-scan-only|wifi-active-session-connect-ping|wifi-connect-tool-surface|subsys-hold-open-proof "
+            "--mode linker-list|identity-probe|sepolicy-inventory|sepolicy-compile-proof|sepolicy-load-proof|selinux-domain-proof|cnss-start-only|cnss-userspace-readiness|wifi-companion-start-only|wifi-companion-post-sysmon-observer-start-only|wifi-companion-android-order-post-sysmon-observer-start-only|wifi-companion-service-manager-start-only|wifi-companion-vnd-service-manager-start-only|wifi-companion-qrtr-first-vnd-service-manager-start-only|wifi-companion-cnss-first-delayed-vnd-service-manager-start-only|wifi-companion-service74-gated-vnd-service-manager-start-only|wifi-companion-service74-gated-vnd-service-manager-readiness-start-only|wifi-companion-service74-gated-vnd-service-manager-cnss-retry-start-only|wifi-companion-service74-gated-peripheral-manager-cnss-retry-start-only|wifi-companion-service74-gated-peripheral-manager-cnss-retry-registry-snapshot-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-cnss-retry-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-provider-first-cnss-start-only|wifi-companion-service74-gated-android-userspace-cnss-retry-start-only|wifi-companion-service74-gated-android-userspace-cnss-retry-registry-snapshot-start-only|wifi-companion-service74-gated-vnd-service-manager-registry-snapshot-start-only|wifi-companion-service74-gated-mdm-helper-start-only|wifi-companion-service180-gated-mdm-helper-start-only|wifi-companion-sysmon-gated-mdm-helper-start-only|wifi-companion-hal-order-start-only|wifi-companion-hal-wificond-order-start-only|wifi-companion-hal-wificond-lshal-wait-samsung|wifi-companion-hal-wificond-lshal-wait-iwifi|wifi-companion-dual-hal-wificond-lshal-wait-iwifi|wifi-companion-dual-hal-wificond-iwifi-start|wifi-companion-dual-hal-wificond-lshal-then-iwifi-start|rmt-storage-start-only|property-lookup|service-manager-start-only|private-selinux-proof|wifi-hal-lshal-vintf-status-list|wifi-hal-composite-start-only|wifi-hal-composite-lshal-list|wifi-hal-composite-lshal-binderized-list|wifi-hal-composite-lshal-wait-target|wifi-surface-composite-lshal-wait-iwifi|wifi-surface-composite-lshal-wait-samsung|wifi-surface-composite-lshal-wait-samsung-ptrace|wifi-hal-composite-lshal-status-list|wifi-hal-composite-lshal-binderized-status-list|wifi-surface-composite-start-only|wifi-dual-hal-lshal-wait-iwifi|wifi-dual-hal-iwifi-start-surface|wifi-iwifi-start-surface|wifi-active-session-surface|wifi-active-session-scan-only|wifi-active-session-connect-ping|wifi-connect-tool-surface|subsys-hold-open-proof|service-notifier-listener-only "
             "[v27 binderized query runs: /system/bin/lshal list --types=binderized --neat] "
             "[v28 target query runs: /system/bin/lshal wait <fqinstance>] "
             "[v29 status query runs: /system/bin/lshal list --types=binderized,vintf --neat -V -S -i -p -e -c] "
@@ -410,6 +410,10 @@ static bool is_wifi_connect_tool_surface_mode(const char *mode) {
 
 static bool is_subsys_hold_open_proof_mode(const char *mode) {
     return streq(mode, "subsys-hold-open-proof");
+}
+
+static bool is_service_notifier_listener_only_mode(const char *mode) {
+    return streq(mode, "service-notifier-listener-only");
 }
 
 static bool is_cnss_userspace_readiness_mode(const char *mode) {
@@ -1037,6 +1041,7 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
           streq(cfg->mode, "private-selinux-proof") ||
           streq(cfg->mode, "service-manager-start-only") ||
           is_wifi_connect_tool_surface_mode(cfg->mode) ||
+          is_service_notifier_listener_only_mode(cfg->mode) ||
           is_lshal_readonly_query_mode(cfg->mode) ||
           is_wifi_hal_composite_mode(cfg->mode)) ||
         !(streq(cfg->capture_mode, "none") ||
@@ -1393,9 +1398,40 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
         return 2;
     }
     if (cfg->allow_service_notifier_listener_probe &&
-        !is_wifi_companion_any_start_only_mode(cfg->mode)) {
-        fprintf(stderr, "--allow-service-notifier-listener-probe is only valid with Wi-Fi companion start-only modes\n");
+        !is_wifi_companion_any_start_only_mode(cfg->mode) &&
+        !is_service_notifier_listener_only_mode(cfg->mode)) {
+        fprintf(stderr, "--allow-service-notifier-listener-probe is only valid with Wi-Fi companion start-only or service-notifier-listener-only modes\n");
         return 2;
+    }
+    if (is_service_notifier_listener_only_mode(cfg->mode)) {
+        if (cfg->linker != NULL) {
+            fprintf(stderr, "--linker is not used by service-notifier-listener-only mode\n");
+            return 2;
+        }
+        if (!streq(cfg->capture_mode, "none")) {
+            fprintf(stderr, "--capture-mode must be none for service-notifier-listener-only mode\n");
+            return 2;
+        }
+        if (!cfg->allow_service_notifier_listener_probe) {
+            fprintf(stderr, "service-notifier-listener-only requires --allow-service-notifier-listener-probe\n");
+            return 2;
+        }
+        if (cfg->allow_cnss_start_only ||
+            cfg->allow_wifi_companion_start_only ||
+            cfg->allow_service_manager_start_only ||
+            cfg->allow_wifi_hal_start_only ||
+            cfg->allow_hal_service_query ||
+            cfg->allow_iwifi_start_only ||
+            cfg->allow_wlan_driver_state_on ||
+            cfg->allow_scan_only ||
+            cfg->allow_connect_dhcp_ping ||
+            cfg->allow_cnss_userspace_readiness ||
+            cfg->allow_qrtr_ns_readback ||
+            cfg->allow_servloc_domain_list_probe ||
+            cfg->allow_policy_load_proof) {
+            fprintf(stderr, "service-notifier-listener-only accepts only --allow-service-notifier-listener-probe\n");
+            return 2;
+        }
     }
     if (streq(cfg->mode, "service-manager-start-only")) {
         if (cfg->linker != NULL) {
@@ -15165,6 +15201,9 @@ static int servloc_find_endpoint(struct buffer *buf,
                 close(fd);
                 return -1;
             }
+            if ((pfd.revents & (POLLERR | POLLHUP | POLLNVAL)) != 0) {
+                break;
+            }
             continue;
         }
         memset(&packet, 0, sizeof(packet));
@@ -15529,7 +15568,8 @@ static const char *servnotif_state_name(uint32_t state) {
 
 static int servnotif_find_endpoint(struct buffer *buf,
                                    const char *prefix,
-                                   struct qrtr_service_endpoint *endpoint) {
+                                   struct qrtr_service_endpoint *endpoint,
+                                   bool wait_through_empty) {
     int fd;
     long deadline;
     char socket_name_prefix[160];
@@ -15623,6 +15663,9 @@ static int servnotif_find_endpoint(struct buffer *buf,
                 close(fd);
                 return -1;
             }
+            if ((pfd.revents & (POLLERR | POLLHUP | POLLNVAL)) != 0) {
+                break;
+            }
             continue;
         }
         memset(&packet, 0, sizeof(packet));
@@ -15711,7 +15754,7 @@ static int servnotif_find_endpoint(struct buffer *buf,
             endpoint->port = port;
             break;
         }
-        if (empty) {
+        if (empty && !wait_through_empty) {
             break;
         }
     }
@@ -15736,6 +15779,57 @@ static int servnotif_find_endpoint(struct buffer *buf,
                          endpoint->events,
                          prefix,
                          endpoint->timeout,
+                         prefix,
+                         endpoint->found ? 1U : 0U,
+                         prefix,
+                         endpoint->node,
+                         prefix,
+                         endpoint->port,
+                         prefix,
+                         endpoint->found ? "found" : "not-found");
+}
+
+static int servnotif_find_endpoint_with_retries(struct buffer *buf,
+                                                const char *prefix,
+                                                struct qrtr_service_endpoint *endpoint,
+                                                bool retry_until_deadline) {
+    long deadline;
+    unsigned int attempts = 0;
+
+    if (!retry_until_deadline) {
+        return servnotif_find_endpoint(buf, prefix, endpoint, false);
+    }
+    deadline = monotonic_ms() + (long)A90_SERVNOTIF_READBACK_MS;
+    memset(endpoint, 0, sizeof(*endpoint));
+    while (monotonic_ms() < deadline && attempts < 96U) {
+        struct qrtr_service_endpoint attempt_endpoint;
+        char attempt_prefix[192];
+
+        if (snprintf(attempt_prefix,
+                     sizeof(attempt_prefix),
+                     "%s.attempt.%u",
+                     prefix,
+                     attempts) >= (int)sizeof(attempt_prefix)) {
+            return append_format(buf, "%s.status=attempt-prefix-too-long\n", prefix);
+        }
+        if (servnotif_find_endpoint(buf, attempt_prefix, &attempt_endpoint, false) < 0) {
+            return -1;
+        }
+        attempts++;
+        if (attempt_endpoint.found) {
+            *endpoint = attempt_endpoint;
+            break;
+        }
+        usleep(100000);
+    }
+    return append_format(buf,
+                         "%s.wait_attempts=%u\n"
+                         "%s.found=%u\n"
+                         "%s.node=%u\n"
+                         "%s.port=%u\n"
+                         "%s.status=%s\n",
+                         prefix,
+                         attempts,
                          prefix,
                          endpoint->found ? 1U : 0U,
                          prefix,
@@ -16190,7 +16284,10 @@ static int append_companion_service_notifier_listener_probe(struct buffer *buf,
                               "wifi_companion_service_notifier_listener.reason=missing-allow-service-notifier-listener-probe\n"
                               "wifi_companion_service_notifier_listener.end=1\n");
     }
-    if (servnotif_find_endpoint(buf, "wifi_companion_service_notifier_listener.endpoint", &endpoint) < 0) {
+    if (servnotif_find_endpoint_with_retries(buf,
+                                             "wifi_companion_service_notifier_listener.endpoint",
+                                             &endpoint,
+                                             is_service_notifier_listener_only_mode(cfg->mode)) < 0) {
         return -1;
     }
     if (!endpoint.found) {
@@ -20262,6 +20359,42 @@ int main(int argc, char **argv) {
     printf("ping_target=%s\n", cfg.ping_target != NULL ? cfg.ping_target : "<none>");
     printf("qrtr_readback_matrix=%s\n",
            cfg.qrtr_readback_matrix != NULL ? cfg.qrtr_readback_matrix : "<none>");
+
+    if (is_service_notifier_listener_only_mode(cfg.mode)) {
+        printf("helper_status=namespace-skipped\n");
+        if (append_literal(&stdout_buf,
+                           "service_notifier_listener_only.begin=1\n"
+                           "service_notifier_listener_only.namespace=global\n"
+                           "service_notifier_listener_only.service_manager_start_executed=0\n"
+                           "service_notifier_listener_only.wifi_hal_start_executed=0\n"
+                           "service_notifier_listener_only.scan_connect_linkup=0\n"
+                           "service_notifier_listener_only.credentials=0\n"
+                           "service_notifier_listener_only.dhcp_routing=0\n"
+                           "service_notifier_listener_only.external_ping=0\n") < 0 ||
+            append_companion_service_notifier_listener_probe(&stdout_buf, &cfg) < 0 ||
+            append_literal(&stdout_buf,
+                           "service_notifier_listener_only.result=complete\n"
+                           "service_notifier_listener_only.end=1\n") < 0) {
+            run_rc = -1;
+            child_exit_code = 20;
+        } else {
+            run_rc = 0;
+            child_exit_code = 0;
+        }
+        child_signal = 0;
+        timed_out = false;
+        printf("probe_run_rc=%d\n", run_rc);
+        printf("child_exit_code=%d\n", child_exit_code);
+        printf("child_signal=%d\n", child_signal);
+        printf("timed_out=%d\n", timed_out ? 1 : 0);
+        print_section("STDOUT", &stdout_buf);
+        print_section("STDERR", &stderr_buf);
+        printf("cleanup_status=not-required\n");
+        printf("A90_EXECNS_END rc=0\n");
+        buffer_free(&stdout_buf);
+        buffer_free(&stderr_buf);
+        return 0;
+    }
 
     if (setup_namespace(&cfg,
                         &paths,

@@ -23,6 +23,16 @@
 - 현재 예: native build `A90 Linux init 0.9.61`, device build tag `v319`, active execution cycle `v319`, device flash 완료.
 - 상세 규칙: `docs/operations/VERSIONING_POLICY.md`
 
+## 현재 Wi-Fi Gate
+
+- 최신 기준: V838 pass.
+- V838 결론: service-notifier listener는 service `74`보다 약 `637ms` 먼저
+  등록됐고 service `74` + `5s` 이상 유지됐지만 WLAN-PD `UP` indication은
+  없었다.
+- 따라서 단순 timing blocker는 닫혔다.
+- 다음 후보: Android-only explicit WLAN-PD state-up trigger를
+  service-manager/HAL/scan/connect 이전, lower userspace/QMI 경계에서 분류한다.
+
 ---
 
 ## 모듈화 설계 기준

@@ -422,6 +422,13 @@ path should be closed for this blocker.
 | v826 | host-only event detail classifier: visible events are `servloc 64/257 node=1 port=16475` and `servnotif 66/46081 node=0 port=2`; next is service-notifier 180 continuation classification |
 | v827 | host-only continuation classifier: service-notifier 180 is only a control endpoint; ICNSS still needs service-locator `wlan/fw` domain-list and notifier registration |
 | v828 | host-only payload derivation: exact `GET_DOMAIN_LIST wlan/fw` QMI request bytes derived; next is bounded no-HAL live probe |
+| v829 | live service-locator probe: `GET_DOMAIN_LIST wlan/fw` returns `msm/modem/wlan_pd` instance `180`; pd-mapper empty-domain blocker closed |
+| v830 | host-only service-notifier request derivation selects bounded `REGISTER_LISTENER msm/modem/wlan_pd` |
+| v831 | live service-notifier listener probe succeeds but reports current state `uninit`; no HAL/connect |
+| v833 | Android positive-control proves the same listener model can report WLAN-PD `UP` |
+| v835 | native lower-window replay still reports `uninit` with service74/180 present; ordering/model/timing-as-placed blockers narrowed |
+| v837 | timestamped listener hold proves the listener opened about `613ms` after service74; next is concurrent prearm |
+| v838 | concurrent prearmed listener registers about `637ms` before service74, stays open through service74+5s, and still receives no WLAN-PD `UP`; timing blocker ruled out |
 
 ### Safety additions (Wi-Fi research)
 
@@ -430,6 +437,8 @@ path should be closed for this blocker.
 - No `wlan.ko` load/unload without explicit approval
 - `firmware_class.path` rollback value: `/vendor/firmware_mnt/image`
 - `sda29` mount must be read-only in all proof windows
+- Current Wi-Fi gate after V838: classify the Android-only explicit WLAN-PD
+  state-up trigger below service-manager/HAL and before scan/connect.
 
 ## Docs structure
 
