@@ -25,7 +25,7 @@
 
 ## 현재 Wi-Fi Gate
 
-- 최신 기준: V885 host-only ESOC_REQ_IMG response contract classifier pass.
+- 최신 기준: V886 helper v140 source/build-only semantic repair pass.
 - V874 결론: `/dev/esoc-0` read-only control path가 live에서 열렸고
   `GET_STATUS`/`GET_ERR_FATAL`은 rc `0`, `GET_LINK_ID`는 errno `22`로
   반환됐다. 결과는 `read-only-ioctl-probe-complete`이며 created nodes cleanup,
@@ -98,6 +98,12 @@
   V886 helper `v140` source/build-only semantic repair와 guarded response
   scaffold다. Live `ESOC_NOTIFY`와 subsystem-open retry는 별도 gate 전까지
   막는다.
+- V886 결론: helper `v140` source/build-only가 통과했다. Passive
+  `ESOC_WAIT_FOR_REQ` observer가 nonnegative `sizeof(u32)` byte count를
+  `request-observed`로 분류하고 request name/`ESOC_REQ_IMG` marker를 출력한다.
+  `ESOC_IMG_XFER_DONE`/`ESOC_BOOT_DONE` response scaffold marker는 생겼지만
+  live `ESOC_NOTIFY`는 여전히 실행하지 않는다. 다음 후보는 V887 helper
+  `v140` deploy-only checksum/version/mode proof다.
 
 - 아래 V840-V847 항목은 V874/V875 이전 경로 요약이다.
 - V840 결론: provider-first service-manager/PeripheralManager, CNSS retry,
@@ -4299,3 +4305,26 @@ Samsung bootloader
 - next: V886 helper `v140` source/build-only semantic repair plus guarded
   response-mode scaffold. Live `ESOC_NOTIFY` remains blocked until a separate
   deploy/live response gate.
+
+### V886. ESOC_REQ_IMG Response Helper v140 Build
+
+- plan: `docs/plans/NATIVE_INIT_V886_ESOC_REQ_IMG_RESPONSE_HELPER_PLAN_2026-05-26.md`
+- report: `docs/reports/NATIVE_INIT_V886_ESOC_REQ_IMG_RESPONSE_HELPER_BUILD_2026-05-26.md`
+- helper source: `stage3/linux_init/helpers/a90_android_execns_probe.c`
+- evidence:
+  - `tmp/wifi/v886-execns-helper-v140-build/manifest.json`
+  - `tmp/wifi/v886-execns-helper-v140-build/build.log`
+  - `tmp/wifi/v886-execns-helper-v140-build/a90_android_execns_probe`
+- decision: `v886-helper-v140-build-pass`
+- result: source/build-only PASS. Helper `v140` repairs passive
+  `ESOC_WAIT_FOR_REQ` semantics so copied `sizeof(u32)` byte counts are
+  `request-observed`, labels value `1` as `ESOC_REQ_IMG`, and adds fail-closed
+  response scaffold markers for `ESOC_IMG_XFER_DONE`/`ESOC_BOOT_DONE`.
+- build: sha256
+  `894fdd753cb6567b2abbb3c94f332ce63cf959b7d1708768cf3bcdc10b2b53e0`, static
+  ARM64, no dynamic section.
+- hard gates held: no helper deploy, no device contact, no live eSoC ioctl, no
+  `/dev/subsys_esoc0` open, no `ESOC_NOTIFY`, no actor start, no Wi-Fi HAL,
+  scan/connect, DHCP/routes, credentials, or external ping.
+- next: V887 helper `v140` deploy-only checksum/version/mode proof. Live
+  response remains blocked until a separate bounded response gate.

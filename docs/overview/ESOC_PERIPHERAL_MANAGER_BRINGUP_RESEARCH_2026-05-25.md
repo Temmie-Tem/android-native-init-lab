@@ -987,3 +987,43 @@ Next candidate:
 - Keep live `ESOC_NOTIFY`, subsystem open retries, actors, Wi-Fi HAL,
   scan/connect, credentials, DHCP/routes, and external ping blocked until a
   separate deploy/live response gate exists.
+
+---
+
+## 29. V886 helper v140 ESOC_REQ_IMG response scaffold result
+
+V886 updated the helper source and built helper `v140`.
+
+Evidence:
+
+- `tmp/wifi/v886-execns-helper-v140-build/manifest.json`
+- `tmp/wifi/v886-execns-helper-v140-build/build.log`
+- `tmp/wifi/v886-execns-helper-v140-build/a90_android_execns_probe`
+- `docs/plans/NATIVE_INIT_V886_ESOC_REQ_IMG_RESPONSE_HELPER_PLAN_2026-05-26.md`
+- `docs/reports/NATIVE_INIT_V886_ESOC_REQ_IMG_RESPONSE_HELPER_BUILD_2026-05-26.md`
+
+Decision:
+
+- `v886-helper-v140-build-pass`
+
+Result:
+
+- helper marker is now `a90_android_execns_probe v140`.
+- Passive `ESOC_WAIT_FOR_REQ` observer now treats rc equal to copied
+  `sizeof(u32)` as `request-observed`.
+- Observer output now includes byte count, expected byte count, request name,
+  request-observed, and `ESOC_REQ_IMG` classification markers.
+- Response scaffold markers expose `ESOC_REQ_IMG`, `ESOC_IMG_XFER_DONE`, and
+  `ESOC_BOOT_DONE` values while keeping live notify execution blocked.
+- Static ARM64 build passed with no dynamic section.
+
+Guardrails held: V886 did not deploy the helper, did not contact the device,
+did not execute live eSoC ioctls, did not open `/dev/subsys_esoc0`, did not
+issue `ESOC_NOTIFY`, did not start Android actors, and did not bring up Wi-Fi.
+
+Next candidate:
+
+- V887 helper `v140` deploy-only checksum/version/mode proof.
+- Live `ESOC_NOTIFY`, subsystem-open retry, actors, Wi-Fi HAL, scan/connect,
+  credentials, DHCP/routes, and external ping remain blocked until a separate
+  bounded response gate.

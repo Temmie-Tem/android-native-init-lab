@@ -88,7 +88,7 @@
 #define IOPRIO_PRIO_VALUE(class_value, data) (((class_value) << IOPRIO_CLASS_SHIFT) | (data))
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v139"
+#define EXECNS_VERSION "a90_android_execns_probe v140"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -170,6 +170,7 @@
 #define A90_ESOC_REG_CMD_ENG _IO(A90_ESOC_CODE, 8)
 #define A90_ESOC_GET_LINK_ID _IOWR(A90_ESOC_CODE, 9, uint64_t)
 #define A90_ESOC_PWR_ON 1U
+#define A90_ESOC_REQ_IMG 1U
 #define A90_ESOC_IMG_XFER_DONE 1U
 #define A90_ESOC_BOOT_DONE 2U
 
@@ -10125,11 +10126,36 @@ static int open_esoc_req_registered_subsys_child_node(int out_fd) {
     return fd;
 }
 
+static const char *esoc_req_name(unsigned int request_value) {
+    if (request_value == A90_ESOC_REQ_IMG) {
+        return "ESOC_REQ_IMG";
+    }
+    return "unknown";
+}
+
+static bool esoc_wait_for_req_observed(int rc, unsigned int request_value) {
+    return rc == (int)sizeof(request_value);
+}
+
+static const char *esoc_wait_for_req_result(int rc, int saved_errno, unsigned int request_value) {
+    if (esoc_wait_for_req_observed(rc, request_value)) {
+        return "request-observed";
+    }
+    if (rc >= 0) {
+        return "short-request-read";
+    }
+    if (saved_errno == EINTR) {
+        return "interrupted";
+    }
+    return "ioctl-error";
+}
+
 static int run_esoc_wait_for_req_observer_child(int out_fd, int req_fd, int hold_sec) {
     unsigned int request_value = 0;
     int rc;
     int saved_errno;
     long started_ms = monotonic_ms();
+    bool request_observed;
 
     dprintf(out_fd,
             "esoc_req_registered_subsys_hold_preflight.wait_for_req_observer.begin=1\n"
@@ -10141,19 +10167,30 @@ static int run_esoc_wait_for_req_observer_child(int out_fd, int req_fd, int hold
     errno = 0;
     rc = ioctl(req_fd, A90_ESOC_WAIT_FOR_REQ, &request_value);
     saved_errno = rc < 0 ? errno : 0;
+    request_observed = esoc_wait_for_req_observed(rc, request_value);
     dprintf(out_fd,
             "esoc_req_registered_subsys_hold_preflight.wait_for_req_observer.ioctl.rc=%d\n"
             "esoc_req_registered_subsys_hold_preflight.wait_for_req_observer.ioctl.errno=%d\n"
+            "esoc_req_registered_subsys_hold_preflight.wait_for_req_observer.ioctl.byte_count=%d\n"
+            "esoc_req_registered_subsys_hold_preflight.wait_for_req_observer.ioctl.expected_bytes=%zu\n"
             "esoc_req_registered_subsys_hold_preflight.wait_for_req_observer.ioctl.value=%u\n"
+            "esoc_req_registered_subsys_hold_preflight.wait_for_req_observer.ioctl.request_name=%s\n"
+            "esoc_req_registered_subsys_hold_preflight.wait_for_req_observer.ioctl.request_observed=%d\n"
+            "esoc_req_registered_subsys_hold_preflight.wait_for_req_observer.ioctl.is_esoc_req_img=%d\n"
             "esoc_req_registered_subsys_hold_preflight.wait_for_req_observer.elapsed_ms=%ld\n"
             "esoc_req_registered_subsys_hold_preflight.wait_for_req_observer.result=%s\n"
             "esoc_req_registered_subsys_hold_preflight.wait_for_req_observer.end=1\n",
             rc,
             saved_errno,
+            rc,
+            sizeof(request_value),
             request_value,
+            esoc_req_name(request_value),
+            request_observed ? 1 : 0,
+            request_value == A90_ESOC_REQ_IMG ? 1 : 0,
             monotonic_ms() - started_ms,
-            rc == 0 ? "request-observed" : "ioctl-error");
-    return rc == 0 ? 0 : 32;
+            esoc_wait_for_req_result(rc, saved_errno, request_value));
+    return request_observed ? 0 : 32;
 }
 
 static pid_t wait_for_child_session_pgid(pid_t pid, long timeout_ms);
@@ -10524,6 +10561,14 @@ static int run_wifi_companion_esoc_req_registered_subsys_hold_preflight_guarded(
                        "esoc_req_registered_subsys_hold_preflight.wait_for_req_passive_observer_supported=1\n"
                        "esoc_req_registered_subsys_hold_preflight.wait_for_req_passive_observer_attempted=0\n"
                        "esoc_req_registered_subsys_hold_preflight.wait_for_req_attempted=0\n"
+                       "esoc_req_registered_subsys_hold_preflight.wait_for_req_success_semantic=nonnegative-sizeof-u32-byte-count\n"
+                       "esoc_req_registered_subsys_hold_preflight.response_scaffold_supported=1\n"
+                       "esoc_req_registered_subsys_hold_preflight.response_scaffold_attempted=0\n"
+                       "esoc_req_registered_subsys_hold_preflight.response_scaffold.live_response_attempted=0\n"
+                       "esoc_req_registered_subsys_hold_preflight.response_scaffold.notify_attempted=0\n"
+                       "esoc_req_registered_subsys_hold_preflight.response_scaffold.ESOC_REQ_IMG.value=1\n"
+                       "esoc_req_registered_subsys_hold_preflight.response_scaffold.ESOC_IMG_XFER_DONE.value=1\n"
+                       "esoc_req_registered_subsys_hold_preflight.response_scaffold.ESOC_BOOT_DONE.value=2\n"
                        "esoc_req_registered_subsys_hold_preflight.notify_attempted=0\n") < 0 ||
         append_format(stdout_buf,
                       "esoc_req_registered_subsys_hold_preflight.uapi.ESOC_CODE=0x%x\n"
