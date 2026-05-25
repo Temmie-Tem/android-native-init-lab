@@ -88,7 +88,7 @@
 #define IOPRIO_PRIO_VALUE(class_value, data) (((class_value) << IOPRIO_CLASS_SHIFT) | (data))
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v152"
+#define EXECNS_VERSION "a90_android_execns_probe v153"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -199,7 +199,9 @@ struct config {
     const char *connect_iface;
     const char *ping_target;
     const char *qrtr_readback_matrix;
+    const char *cnss_surface_mode;
     int timeout_sec;
+    bool cnss_surface_mode_explicit;
     bool allow_cnss_start_only;
     bool allow_wifi_companion_start_only;
     bool allow_service_manager_start_only;
@@ -380,6 +382,7 @@ static void usage(FILE *out) {
             "[--connect-config /cache/a90-wifi/...] "
             "[--connect-iface auto|wlan0] "
             "[--ping-target 1.1.1.1] "
+            "[--cnss-surface-mode full|compact] "
             "--mode linker-list|identity-probe|sepolicy-inventory|sepolicy-compile-proof|sepolicy-load-proof|selinux-domain-proof|cnss-start-only|cnss-userspace-readiness|wifi-companion-start-only|wifi-companion-post-sysmon-observer-start-only|wifi-companion-android-order-post-sysmon-observer-start-only|wifi-companion-service-manager-start-only|wifi-companion-vnd-service-manager-start-only|wifi-companion-qrtr-first-vnd-service-manager-start-only|wifi-companion-cnss-first-delayed-vnd-service-manager-start-only|wifi-companion-service74-gated-vnd-service-manager-start-only|wifi-companion-service74-gated-vnd-service-manager-readiness-start-only|wifi-companion-service74-gated-vnd-service-manager-cnss-retry-start-only|wifi-companion-peripheral-manager-node-parity-start-only|wifi-companion-peripheral-manager-property-contract-start-only|wifi-companion-peripheral-manager-init-contract-start-only|wifi-companion-esoc-control-preflight|wifi-companion-esoc-engine-register-preflight|wifi-companion-esoc-req-registered-subsys-hold-preflight|wifi-companion-esoc-conditional-response-preflight|wifi-companion-mdm-helper-ks-image-contract-preflight|wifi-companion-mdm-helper-only-deep-capture|wifi-companion-mdm-helper-runtime-contract-capture|wifi-companion-mdm-helper-runtime-subsys-trigger-capture|wifi-companion-mdm-helper-cnss-before-subsys-trigger-capture|wifi-companion-service74-gated-peripheral-manager-cnss-retry-start-only|wifi-companion-service74-gated-peripheral-manager-cnss-retry-registry-snapshot-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-cnss-retry-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-provider-first-cnss-start-only|wifi-companion-service74-gated-android-userspace-cnss-retry-start-only|wifi-companion-service74-gated-android-userspace-cnss-retry-registry-snapshot-start-only|wifi-companion-service74-gated-vnd-service-manager-registry-snapshot-start-only|wifi-companion-service74-gated-mdm-helper-start-only|wifi-companion-service180-gated-mdm-helper-start-only|wifi-companion-sysmon-gated-mdm-helper-start-only|wifi-companion-hal-order-start-only|wifi-companion-hal-wificond-order-start-only|wifi-companion-hal-wificond-lshal-wait-samsung|wifi-companion-hal-wificond-lshal-wait-iwifi|wifi-companion-dual-hal-wificond-lshal-wait-iwifi|wifi-companion-dual-hal-wificond-iwifi-start|wifi-companion-dual-hal-wificond-lshal-then-iwifi-start|rmt-storage-start-only|property-lookup|service-manager-start-only|private-selinux-proof|wifi-hal-lshal-vintf-status-list|wifi-hal-composite-start-only|wifi-hal-composite-lshal-list|wifi-hal-composite-lshal-binderized-list|wifi-hal-composite-lshal-wait-target|wifi-surface-composite-lshal-wait-iwifi|wifi-surface-composite-lshal-wait-samsung|wifi-surface-composite-lshal-wait-samsung-ptrace|wifi-hal-composite-lshal-status-list|wifi-hal-composite-lshal-binderized-status-list|wifi-surface-composite-start-only|wifi-dual-hal-lshal-wait-iwifi|wifi-dual-hal-iwifi-start-surface|wifi-iwifi-start-surface|wifi-active-session-surface|wifi-active-session-scan-only|wifi-active-session-connect-ping|wifi-connect-tool-surface|subsys-hold-open-proof|service-notifier-listener-only "
             "[v27 binderized query runs: /system/bin/lshal list --types=binderized --neat] "
             "[v28 target query runs: /system/bin/lshal wait <fqinstance>] "
@@ -918,6 +921,7 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
     cfg->connect_iface = "auto";
     cfg->ping_target = "1.1.1.1";
     cfg->qrtr_readback_matrix = DEFAULT_QRTR_READBACK_MATRIX;
+    cfg->cnss_surface_mode = "full";
 
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--help") == 0) {
@@ -1069,6 +1073,9 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             cfg->ping_target = argv[++i];
         } else if (strcmp(argv[i], "--qrtr-readback-matrix") == 0) {
             cfg->qrtr_readback_matrix = argv[++i];
+        } else if (strcmp(argv[i], "--cnss-surface-mode") == 0) {
+            cfg->cnss_surface_mode = argv[++i];
+            cfg->cnss_surface_mode_explicit = true;
         } else if (strcmp(argv[i], "--timeout-sec") == 0) {
             if (!parse_int_range(argv[++i], 1, 30, &cfg->timeout_sec)) {
                 fprintf(stderr, "invalid --timeout-sec\n");
@@ -1170,6 +1177,25 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             cfg->android_selinux_context_mode = "service-defaults";
         }
     }
+    if (is_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_mode(cfg->mode)) {
+        if (streq(cfg->null_device_mode, "none")) {
+            cfg->null_device_mode = "dev-null";
+        }
+        if (streq(cfg->vndk_apex_alias_mode, "none")) {
+            cfg->vndk_apex_alias_mode = "v30-to-system-ext-v30";
+        }
+        if (streq(cfg->linkerconfig_mode, "none")) {
+            cfg->linkerconfig_mode = "copy-real";
+            cfg->linkerconfig_source = "/cache/bin/a90_real_ld.config.txt";
+            cfg->apex_libraries_source = "/cache/bin/a90_real_apex.libraries.config.txt";
+        }
+        if (streq(cfg->android_selinux_context_mode, "auto")) {
+            cfg->android_selinux_context_mode = "service-defaults";
+        }
+        if (!cfg->cnss_surface_mode_explicit) {
+            cfg->cnss_surface_mode = "compact";
+        }
+    }
     if (is_wifi_hal_composite_ptrace_mode(cfg->mode) &&
         streq(cfg->capture_mode, "none")) {
         cfg->capture_mode = "ptrace-lite";
@@ -1224,6 +1250,8 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
         !(streq(cfg->android_selinux_context_mode, "auto") ||
           streq(cfg->android_selinux_context_mode, "none") ||
           streq(cfg->android_selinux_context_mode, "service-defaults")) ||
+        !(streq(cfg->cnss_surface_mode, "full") ||
+          streq(cfg->cnss_surface_mode, "compact")) ||
         !(streq(cfg->linkerconfig_mode, "none") ||
           streq(cfg->linkerconfig_mode, "copy-real") ||
           streq(cfg->linkerconfig_mode, "minimal-vendor"))) {
@@ -1581,6 +1609,9 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             fprintf(stderr, "wifi-companion-mdm-helper-cnss-before-subsys-trigger-capture does not accept other mdm-helper proof allow flags\n");
             return 2;
         }
+    } else if (cfg->cnss_surface_mode_explicit) {
+        fprintf(stderr, "--cnss-surface-mode is only valid with wifi-companion-mdm-helper-cnss-before-subsys-trigger-capture mode\n");
+        return 2;
     }
     if (streq(cfg->mode, "selinux-domain-proof")) {
         if (cfg->linker != NULL) {
@@ -18615,6 +18646,7 @@ static int run_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_guar
     int esoc0_fd_count_gate = -1;
     int esoc_gate_poll_count = 0;
     int surface_poll_count = 0;
+    const bool compact_surface = streq(cfg->cnss_surface_mode, "compact");
     pid_t trigger_pid = -1;
     pid_t trigger_pgid = -1;
     long settle_deadline;
@@ -18661,14 +18693,32 @@ static int run_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_guar
                        "cnss_before_esoc.reg_req_eng_attempted=0\n"
                        "cnss_before_esoc.notify_attempted=0\n"
                        "cnss_before_esoc.boot_done_attempted=0\n") < 0 ||
+        append_format(stdout_buf,
+                      "cnss_before_esoc.surface_mode=%s\n"
+                      "cnss_before_esoc.runtime_namespace.linkerconfig_mode=%s\n"
+                      "cnss_before_esoc.runtime_namespace.vndk_apex_alias_mode=%s\n"
+                      "cnss_before_esoc.runtime_namespace.android_selinux_context_mode=%s\n"
+                      "cnss_before_esoc.runtime_namespace.property_root_present=%d\n",
+                      cfg->cnss_surface_mode,
+                      cfg->linkerconfig_mode,
+                      cfg->vndk_apex_alias_mode,
+                      cfg->android_selinux_context_mode,
+                      cfg->property_root != NULL ? 1 : 0) < 0 ||
         append_private_android_node_status(stdout_buf, paths, "esoc-0", "esoc_0") < 0 ||
         append_private_android_node_status(stdout_buf, paths, "subsys_esoc0", "subsys_esoc0") < 0 ||
         append_private_android_node_status(stdout_buf, paths, "subsys_modem", "subsys_modem") < 0 ||
         append_mdm_helper_runtime_path_visibility(stdout_buf, paths, "cnss_before_esoc_before") < 0 ||
         mirror_mdm_helper_runtime_mhi_pipe_if_present(stdout_buf, paths, "cnss_before_esoc_before") < 0 ||
-        append_subsys_hold_snapshot(stdout_buf, "cnss_before_esoc_before") < 0 ||
-        append_wifi_window_surface_capture(stdout_buf, "cnss_before_esoc_before") < 0 ||
-        append_wifi_cnss2_focus_capture(stdout_buf, "cnss_before_esoc_before") < 0) {
+        append_subsys_hold_snapshot(stdout_buf, "cnss_before_esoc_before") < 0) {
+        return -1;
+    }
+    if (compact_surface) {
+        if (append_literal(stdout_buf,
+                           "cnss_before_esoc.surface_capture.cnss_before_esoc_before=compact-skipped\n") < 0) {
+            return -1;
+        }
+    } else if (append_wifi_window_surface_capture(stdout_buf, "cnss_before_esoc_before") < 0 ||
+               append_wifi_cnss2_focus_capture(stdout_buf, "cnss_before_esoc_before") < 0) {
         return -1;
     }
     if (!cfg->allow_mdm_helper_cnss_before_subsys_trigger_capture) {
@@ -18825,8 +18875,16 @@ static int run_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_guar
             if (snprintf(phase, sizeof(phase), "cnss_before_esoc_poll_%02d", surface_poll_count) >= (int)sizeof(phase)) {
                 goto fail;
             }
-            if (append_wifi_window_surface_capture(stdout_buf, phase) < 0 ||
-                append_wifi_cnss2_focus_capture(stdout_buf, phase) < 0) {
+            if (compact_surface) {
+                if (append_format(stdout_buf,
+                                  "cnss_before_esoc.compact_surface_poll=%d\n"
+                                  "cnss_before_esoc.compact_surface_phase=%s\n",
+                                  surface_poll_count,
+                                  phase) < 0) {
+                    goto fail;
+                }
+            } else if (append_wifi_window_surface_capture(stdout_buf, phase) < 0 ||
+                       append_wifi_cnss2_focus_capture(stdout_buf, phase) < 0) {
                 goto fail;
             }
             wlfw_precondition_observed =
@@ -18846,9 +18904,16 @@ static int run_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_guar
                                                                 &trigger_pid,
                                                                 &trigger_pgid,
                                                                 &trigger_started,
-                                                                &trigger_stdout_open) < 0 ||
-                    append_wifi_window_surface_capture(stdout_buf, "cnss_before_esoc_after_open") < 0 ||
-                    append_wifi_cnss2_focus_capture(stdout_buf, "cnss_before_esoc_after_open") < 0) {
+                                                                &trigger_stdout_open) < 0) {
+                    goto fail;
+                }
+                if (compact_surface) {
+                    if (append_literal(stdout_buf,
+                                       "cnss_before_esoc.surface_capture.cnss_before_esoc_after_open=compact-skipped\n") < 0) {
+                        goto fail;
+                    }
+                } else if (append_wifi_window_surface_capture(stdout_buf, "cnss_before_esoc_after_open") < 0 ||
+                           append_wifi_cnss2_focus_capture(stdout_buf, "cnss_before_esoc_after_open") < 0) {
                     goto fail;
                 }
             }
@@ -18933,9 +18998,16 @@ static int run_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_guar
         close(trigger_pipe[0]);
         trigger_pipe[0] = -1;
     }
-    if (append_wifi_window_surface_capture(stdout_buf, "cnss_before_esoc_final") < 0 ||
-        append_wifi_cnss2_focus_capture(stdout_buf, "cnss_before_esoc_final") < 0 ||
-        append_subsys_hold_snapshot(stdout_buf, "cnss_before_esoc_final") < 0 ||
+    if (compact_surface) {
+        if (append_literal(stdout_buf,
+                           "cnss_before_esoc.surface_capture.cnss_before_esoc_final=compact-skipped\n") < 0) {
+            goto fail;
+        }
+    } else if (append_wifi_window_surface_capture(stdout_buf, "cnss_before_esoc_final") < 0 ||
+               append_wifi_cnss2_focus_capture(stdout_buf, "cnss_before_esoc_final") < 0) {
+        goto fail;
+    }
+    if (append_subsys_hold_snapshot(stdout_buf, "cnss_before_esoc_final") < 0 ||
         append_mdm_helper_runtime_path_visibility(stdout_buf, paths, "cnss_before_esoc_final") < 0) {
         goto fail;
     }
@@ -18962,6 +19034,7 @@ static int run_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_guar
                       "cnss_before_esoc.mdm_helper_esoc0_fd_seen=%d\n"
                       "cnss_before_esoc.cnss_diag_started=%d\n"
                       "cnss_before_esoc.cnss_daemon_started=%d\n"
+                      "cnss_before_esoc.surface_poll_count=%d\n"
                       "cnss_before_esoc.wlfw_precondition_observed=%d\n"
                       "cnss_before_esoc.subsys_esoc0_open_gate=cnss-wlfw-precondition\n"
                       "cnss_before_esoc.subsys_esoc0_open_attempted=%d\n"
@@ -18982,6 +19055,7 @@ static int run_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_guar
                       mdm_esoc_fd_seen ? 1 : 0,
                       cnss_diag_started ? 1 : 0,
                       cnss_daemon_started ? 1 : 0,
+                      surface_poll_count,
                       wlfw_precondition_observed ? 1 : 0,
                       trigger_started ? 1 : 0,
                       trigger_started ? 1 : 0,
@@ -25378,6 +25452,7 @@ int main(int argc, char **argv) {
     printf("ping_target=%s\n", cfg.ping_target != NULL ? cfg.ping_target : "<none>");
     printf("qrtr_readback_matrix=%s\n",
            cfg.qrtr_readback_matrix != NULL ? cfg.qrtr_readback_matrix : "<none>");
+    printf("cnss_surface_mode=%s\n", cfg.cnss_surface_mode);
 
     if (is_service_notifier_listener_only_mode(cfg.mode)) {
         printf("helper_status=namespace-skipped\n");
