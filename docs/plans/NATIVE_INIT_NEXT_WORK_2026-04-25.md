@@ -25,7 +25,7 @@
 
 ## 현재 Wi-Fi Gate
 
-- 최신 기준: V843 pass.
+- 최신 기준: V844 pass.
 - V840 결론: provider-first service-manager/PeripheralManager, CNSS retry,
   prearmed WLAN-PD listener를 결합해도 native는 WLAN-PD `UNINIT` 상태이고
   `wlfw_start`, BDF, FW-ready, `wlan0`가 모두 없다.
@@ -39,9 +39,15 @@
 - V843 결론: V840 current-window retry는 `do_sys_poll`/`futex_wait_queue_me`
   대기 상태로 살아 있고 CNSS user socket, netlink, vndbinder surface가
   존재한다. 그러나 `wlfw_start`, WLAN-PD, BDF, FW-ready, `wlan0`는 없다.
-- 다음 후보: V844 source-backed ICNSS/WLFW event publication prerequisite
-  classifier. CNSS launcher 재시도나 HAL/scan/connect가 아니라, Android가
-  갖고 native가 아직 갖지 못한 lower event source를 분류한다.
+- V844 결론: OSRC DTS에서 `qcom,mdm3`는 `qcom,ext-sdx50m` external eSoC
+  경로이고 AP/MDM GPIO handshake, SSCTL instance `16`, sysmon id `20`을
+  가진다. ICNSS source상 service-notifier UP는 초기 boot trigger가 아니며
+  실제 초기 진행은 QRTR service 69 `wlfw_new_server()` publication에
+  의존한다. Native는 `mss=ONLINE`이어도 `mdm3=OFFLINING`이고 WLFW/BDF/
+  FW-ready/`wlan0`가 없다.
+- 다음 후보: V845 read-only mdm3/ext-sdx50m eSoC GPIO/sysfs surface snapshot.
+  CNSS launcher/listener 재시도나 HAL/scan/connect가 아니라, raw `esoc0`
+  open과 GPIO/sysfs write 전에 안전한 boot-interface 표면을 먼저 분류한다.
 - Wi-Fi HAL, scan/connect, DHCP/routes, credentials, external ping, `esoc0`,
   subsystem writes, module load/unload, boot image writes는 계속 막는다.
 
@@ -3187,3 +3193,26 @@ Samsung bootloader
 - next: V844 should classify the missing source-backed ICNSS/WLFW event
   publication prerequisite before any HAL, scan/connect, DHCP/routes,
   credential, external ping, or boot-image work.
+
+### V844. mdm3/ext-sdx50m Boot Interface Classifier
+
+- plan: `docs/plans/NATIVE_INIT_V844_MDM3_EXT_SDX50M_BOOT_INTERFACE_CLASSIFIER_PLAN_2026-05-25.md`
+- report: `docs/reports/NATIVE_INIT_V844_MDM3_EXT_SDX50M_BOOT_INTERFACE_CLASSIFIER_2026-05-25.md`
+- runner: `scripts/revalidation/native_wifi_mdm3_ext_sdx50m_boot_interface_classifier_v844.py`
+- evidence:
+  - `tmp/wifi/v844-mdm3-ext-sdx50m-boot-interface-classifier/manifest.json`
+  - `tmp/wifi/v844-mdm3-ext-sdx50m-boot-interface-classifier/summary.md`
+- decision: `v844-mdm3-ext-sdx50m-boot-interface-selected`
+- result: host-only PASS. Samsung OSRC DTS identifies `qcom,mdm3` as
+  `qcom,ext-sdx50m` with AP/MDM GPIO handshake, `qcom,ssctl-instance-id=<0x10>`,
+  and `qcom,sysmon-id=<0x14>`. ICNSS source shows service-notifier UP is not
+  the initial boot trigger and WLFW depends on QRTR service 69 arrival through
+  `wlfw_new_server()`. Existing native evidence has `mss=ONLINE`,
+  `mdm3=OFFLINING`, SSCTL 43/16 clean-empty, and no WLFW/BDF/FW-ready/`wlan0`.
+- hard gates: no device command, QRTR/QMI payload, raw `esoc0` open, GPIO/sysfs
+  write, daemon start, service-manager, Wi-Fi HAL, scan/connect, credential
+  use, DHCP/routes, external ping, boot image write, partition write, or custom
+  kernel flash was executed.
+- next: V845 should capture a read-only live mdm3/ext-sdx50m eSoC GPIO/sysfs
+  surface snapshot before any raw `esoc0` open, GPIO/sysfs write, HAL/connect,
+  or boot-image work.

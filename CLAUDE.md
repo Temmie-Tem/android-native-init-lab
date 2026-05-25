@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: v843 selected V844 ICNSS/WLFW event-source prerequisite classification, still below HAL/connect
+- **Active research cycle**: v844 selected V845 read-only mdm3/ext-sdx50m eSoC GPIO/sysfs surface classification, still below HAL/connect
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -157,7 +157,7 @@ New `vNNN` experiment scripts must:
 - Gate live action behind explicit `--allow-*` + `--assume-yes` flags
 - Run `version`, `status`, `bootstatus`, `selftest verbose` as postflight regression
 
-## Wi-Fi bring-up research state (v598–v842, active)
+## Wi-Fi bring-up research state (v598–v844, active)
 
 Goal: bring up `wlan0` from native init without Android userspace.
 
@@ -165,8 +165,10 @@ Goal: bring up `wlan0` from native init without Android userspace.
 
 - **Driver**: ICNSS core (`drivers/soc/qcom/icnss.c`, `drivers/soc/qcom/icnss_qmi.c`) plus QCACLD SNOC/PLD path — not the live `cnss2` PCIe/MHI path
 - **ICNSS bootstrap**: ICNSS platform probe → QCACLD `pld_snoc_register_driver()` / `icnss_register_driver()` → WLFW service 69 on QRTR triggers `wlfw_new_server()` / `icnss_call_driver_probe()` → HDD probe/startup → BDF/FW-ready → `wlan0`
-- **WLAN-PD** (`msm/modem/wlan_pd`, instance 180) runs ON modem MPSS DSP — modem must be ONLINE for `wlanmdsp.mbn` to load and WLFW to appear
-- **service-notifier 180/74** are side evidence, not direct ICNSS driver-probe triggers
+- **mss** is the internal modem path and can reach `ONLINE` in native lower-window tests, but this is not sufficient for WLFW publication
+- **mdm3/eSoC** is the external SDX50M path from DTS (`qcom,mdm3`, `qcom,ext-sdx50m`, `ssctl-instance-id=<0x10>`, `sysmon-id=<0x14>`, AP/MDM GPIO handshake)
+- **WLAN-PD/WLFW** publication is now gated on the mdm3/ext-sdx50m side advancing far enough to publish QRTR service 69
+- **service-notifier 180/74** are side/recovery evidence, not direct ICNSS initial driver-probe triggers
 - **wlan module**: static (`/sys/module/wlan` exists, not in `/proc/modules`)
 
 ### Companion stack (required, confirmed working)
@@ -281,6 +283,16 @@ netlink, socket fd, and vndbinder surfaces are present, while `wlfw_start`,
 WLAN-PD, BDF, FW-ready, and `wlan0` remain absent. The next gate is V844:
 classify the source-backed ICNSS/WLFW event publication prerequisite before
 any Wi-Fi HAL, scan/connect, DHCP/routes, credential, or external ping action.
+
+V844 host-only PASS corrected the architecture model from DTS and ICNSS source.
+`qcom,mdm3` is `qcom,ext-sdx50m` with AP/MDM GPIO handshake, SSCTL instance
+`16`, and sysmon id `20`. ICNSS service-notifier UP is not the initial boot
+trigger; WLFW still depends on QRTR service 69 arrival via `wlfw_new_server()`.
+Existing native evidence has `mss=ONLINE`, `mdm3=OFFLINING`, and no WLFW/BDF/
+FW-ready/`wlan0`. The next gate is V845: read-only live mdm3/ext-sdx50m eSoC
+GPIO/sysfs surface classification. Keep raw `esoc0` open, GPIO/sysfs writes,
+Wi-Fi HAL, scan/connect, DHCP/routes, credentials, external ping, and boot-image
+work blocked.
 
 ```text
 servloc:64:257;ssctl:43:4098;servnotif:66:18945,46081;wlfw:69:1
