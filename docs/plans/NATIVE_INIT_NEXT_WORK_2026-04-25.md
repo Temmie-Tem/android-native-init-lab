@@ -3453,3 +3453,36 @@ Samsung bootloader
   ueventd/init rules, and service ordering. Do this before any native raw eSoC
   ioctl, GPIO write, subsystem write, HAL start, scan/connect, DHCP/routes,
   external ping, or boot-image change.
+
+### V853. Android eSoC Actor Handoff
+
+- plan: `docs/plans/NATIVE_INIT_V853_ANDROID_ESOC_ACTOR_HANDOFF_PLAN_2026-05-25.md`
+- report: `docs/reports/NATIVE_INIT_V853_ANDROID_ESOC_ACTOR_HANDOFF_2026-05-25.md`
+- handoff runner: `scripts/revalidation/android_esoc_actor_handoff_v853.py`
+- Android collector:
+  `scripts/revalidation/native_wifi_android_esoc_actor_sample_v853.py`
+- evidence:
+  - `tmp/wifi/v853-android-esoc-actor-handoff/manifest.json`
+  - `tmp/wifi/v853-android-esoc-actor-handoff/summary.md`
+  - `tmp/wifi/v853-android-esoc-actor-handoff/v853-android-esoc-actor-run/manifest.json`
+  - `tmp/wifi/v853-android-esoc-actor-handoff/v853-android-esoc-actor-run/summary.md`
+- decision: `v853-android-esoc-actor-surface-captured`
+- result: bounded Android handoff PASS with native v724 rollback verified.
+  Android actor sampling captured real `/dev/esoc-0`, `/dev/subsys_esoc0`,
+  `/dev/subsys_modem`, and `/dev/wlan` nodes. `/dev/esoc-0` is held by
+  `mdm_helper` and child `ks` in `u:r:vendor_mdm_helper:s0`; `/dev/subsys_esoc0`
+  and `/dev/subsys_modem` are held by `pm-service` in `u:r:vendor_per_mgr:s0`.
+  ueventd rules set `/dev/esoc-0` to `0660 root:radio` and `/dev/subsys_*` to
+  `0640 system:system`; SELinux labels are `vendor_esoc_device` and
+  `vendor_ssr_device`.
+- hard gates: Android collector did not directly open/ioctl eSoC/subsys nodes,
+  enable Wi-Fi, scan/connect, use credentials, run DHCP, change routes, ping
+  externally, write provider sysfs/debugfs, export/write GPIOs, load/unload
+  modules, or start services directly. Handoff temporarily wrote boot only to
+  enter Android and restored native v724.
+- next: V854 should host-only classify the smallest safe native equivalent of
+  the Android actor contract: device-node/ueventd parity, `pm-service`
+  PeripheralManager start-only, `mdm_helper` `/dev/esoc-0` contract, or init
+  ordering replay. Do this before any native raw eSoC ioctl, GPIO/sysfs write,
+  subsystem state write, HAL start, scan/connect, DHCP/routes, external ping,
+  or boot-image change.
