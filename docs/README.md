@@ -247,6 +247,7 @@
 - `plans/NATIVE_INIT_V101_SERVICE_MANAGER_PLAN_2026-05-03.md` – v101 minimal service manager 구현 계획
 - `plans/NATIVE_INIT_V102_DIAGNOSTICS_PLAN_2026-05-03.md` – v102 diagnostics/log bundle 실행 계획
 - `plans/NATIVE_INIT_V103_WIFI_INVENTORY_PLAN_2026-05-04.md` – v103 Wi-Fi read-only inventory 실행 계획
+- `plans/NATIVE_INIT_V867_PM_INIT_CONTRACT_START_ONLY_PLAN_2026-05-25.md` – helper `v134`의 PeripheralManager init-contract mode를 bounded live로 검증하고 cleanup blocker를 분류하는 V867 계획
 - `plans/NATIVE_INIT_V866_HELPER_V134_DEPLOY_PLAN_2026-05-25.md` – helper `v134`를 `/cache/bin/a90_android_execns_probe`에 deploy-only로 배포하고 checksum/version parity를 증명하는 V866 계획
 - `plans/NATIVE_INIT_V865_PM_INIT_CONTRACT_HELPER_PLAN_2026-05-25.md` – V864가 요구한 PeripheralManager init contract 모델을 helper `v134`에 source/build-only로 추가하는 V865 계획
 - `plans/NATIVE_INIT_V864_PM_INIT_CONTRACT_SUPPORT_PLAN_2026-05-25.md` – V861/V862/V863 증거와 helper source를 비교해 PeripheralManager init contract 지원 여부를 host-only로 분류하는 V864 계획
@@ -506,6 +507,7 @@
 - `reports/NATIVE_INIT_V700_PROVIDER_FIRST_CNSS_LIVE_2026-05-24.md` – V700 live 결과 초기 pre-provider CNSS를 억제한 상태에서 provider 등록과 post-provider CNSS retry는 통과했지만 WLFW/BDF/`wlan0`는 여전히 0이라 다음은 pre-WLFW trigger classifier
 - `reports/NATIVE_INIT_V699_PROVIDER_FIRST_CNSS_HELPER_2026-05-24.md` – V699 helper-build 결과 `a90_android_execns_probe v119`에 provider-first initial-suppressed CNSS 모드를 추가했고 다음은 helper v119 배포 후 bounded live proof
 - `reports/NATIVE_INIT_V698_CNSS_RETRY_ATTRIBUTION_2026-05-24.md` – V698 host-only 결과 Binder `29189/-22`는 초기 pre-provider `cnss-daemon` pid에 귀속되고 post-provider retry는 Binder fail 없이 netlink 뒤 WLFW 전 정지로 분류되어 다음은 provider-first initial-suppressed CNSS live gate
+- `reports/NATIVE_INIT_V867_PM_INIT_CONTRACT_START_ONLY_2026-05-25.md` – V867 bounded live 결과 PM init-contract markers/ioprio/lifecycle은 실행됐지만 `pm_proxy_helper` D-state 잔류로 reboot cleanup이 필요함을 분류
 - `reports/NATIVE_INIT_V866_HELPER_V134_DEPLOY_2026-05-25.md` – V866 deploy-only 결과 helper `v134`를 serial 1850-byte chunk로 `/cache/bin`에 배포하고 remote sha/usage/selftest/actor-clean 상태 확인
 - `reports/NATIVE_INIT_V865_PM_INIT_CONTRACT_HELPER_BUILD_2026-05-25.md` – V865 source/build-only 결과 helper `v134`에 `pm_proxy_helper`, `ioprio rt 4`, `init.svc.vendor.per_mgr=running`, shutdown-stop 모델을 추가하고 static ARM64 build 및 classifier source-support pass 확인
 - `reports/NATIVE_INIT_V864_PM_INIT_CONTRACT_SUPPORT_2026-05-25.md` – V864 host-only 결과 helper가 `pm_proxy_helper`, `ioprio rt 4`, `init.svc.vendor.per_mgr=running`, shutdown-stop 모델을 아직 지원하지 않아 V865 source/build-only 구현으로 라우팅

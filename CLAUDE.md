@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V866 deployed helper `v134` to `/cache/bin` with checksum/version proof; next is V867 bounded `pm_proxy_helper` + `per_mgr`/`per_proxy` start-only below `mdm_helper`/HAL/connect
+- **Active research cycle**: V867 proved helper `v134` PM init-contract markers execute, but `pm_proxy_helper` blocks in D-state and needs reboot cleanup; next is V868 host-only/read-only `pm_proxy_helper` and SELinux transition classification
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -579,6 +579,7 @@ path should be closed for this blocker.
 | v864 | host-only helper-support classifier: current helper has runtime domain/fd capture but lacks `pm_proxy_helper`, `per_proxy_helper` SELinux mapping, `ioprio rt 4`, `init.svc.vendor.per_mgr=running`, and shutdown-stop contract support |
 | v865 | helper v134 source/build-only: adds `pm_proxy_helper`, `per_proxy_helper` SELinux mapping, `per_mgr` `ioprio rt 4`, `init.svc.vendor.per_mgr=running` proxy gate, and shutdown-stop markers; static ARM64 build passes |
 | v866 | helper v134 deploy-only: serial 1850-byte chunk deploy to `/cache/bin/a90_android_execns_probe`; remote sha/version/mode, selftest, and actor-clean state pass |
+| v867 | PM init-contract start-only: mode/ioprio/lifecycle markers execute, but runtime domains stay `kernel`, no subsystem fd hold appears, and `pm_proxy_helper` remains D-state until native reboot cleanup |
 
 ### Safety additions (Wi-Fi research)
 
@@ -625,11 +626,17 @@ path should be closed for this blocker.
   actor-clean state. The remaining gaps are live evidence questions: runtime
   `attr/current` previously stayed `kernel`, and `pm-service` has not yet
   proved `/dev/subsys_esoc0` or `/dev/subsys_modem` fd holds. The next gate is
-  V867 bounded start-only. Keep Wi-Fi HAL, scan/connect,
-  DHCP/routes, credentials, external ping, raw eSoC ioctl, subsystem writes,
-  GPIO/sysfs/debugfs writes, module load/unload, and boot image writes blocked.
-  Do not start `mdm_helper`, `ks`, HAL, or scan/connect until V867 proves PM
-  lifecycle parity is useful and cleanup-safe.
+  V867 then ran the bounded PM init-contract mode. The helper markers executed:
+  `pm_proxy_helper`, `per_mgr` `ioprio rt 4`, `init.svc.vendor.per_mgr=running`,
+  property-gated `per_proxy`, and shutdown-stop markers were observed. However
+  runtime domains still read `kernel`, no subsystem fd hold appeared, and
+  `pm_proxy_helper` remained in `Ds` state until a native reboot cleanup. The
+  next gate is V868 host-only/read-only classification of `pm_proxy_helper`
+  blocking behavior and SELinux transition semantics. Keep Wi-Fi HAL,
+  scan/connect, DHCP/routes, credentials, external ping, raw eSoC ioctl,
+  subsystem writes, GPIO/sysfs/debugfs writes, module load/unload, and boot
+  image writes blocked. Do not start `mdm_helper`, `ks`, HAL, or scan/connect
+  until PM actor cleanup is proven safe.
 
 ## Docs structure
 

@@ -664,3 +664,53 @@ Next gate: V867 bounded start-only proof. It may start only
 `pm_proxy_helper`, `per_mgr`, and `per_proxy` through helper `v134` under the
 new init-contract mode. `mdm_helper`, `ks`, Wi-Fi HAL, scan/connect,
 credentials, DHCP/routes, and external ping remain blocked.
+
+## 22. V867 PM init-contract start-only outcome
+
+V867 ran helper `v134`'s new
+`wifi-companion-peripheral-manager-init-contract-start-only` mode. This was a
+bounded live proof below `mdm_helper`, `ks`, CNSS, Wi-Fi HAL, scan/connect,
+DHCP/routes, credentials, and external ping.
+
+Evidence:
+
+| Unit | Path | Result |
+|---|---|---|
+| plan | `tmp/wifi/v867-pm-init-contract-plan/manifest.json` | `v867-pm-init-contract-plan-ready` |
+| live r3 | `tmp/wifi/v867-pm-init-contract-live-r3/manifest.json` | `v867-residual-actor-cleanup-required` |
+| reboot cleanup | `tmp/wifi/v867-reboot-cleanup/` | v724/selftest/actor-clean restored |
+
+Confirmed contract pieces:
+
+- `pm_proxy_helper` child was started as the new oneshot actor;
+- `per_mgr` applied `ioprio rt 4` with `ok=1 errno=0`;
+- `per_proxy` started only after the
+  `init.svc.vendor.per_mgr=running` lifecycle marker opened;
+- shutdown-stop markers were emitted;
+- Android-equivalent `/dev/esoc-0`, `/dev/subsys_esoc0`, and
+  `/dev/subsys_modem` nodes were materialized and cleaned up.
+
+New blockers:
+
+| Item | Observation |
+|---|---|
+| `per_proxy_helper` runtime domain | target `u:r:per_proxy_helper:s0`, actual `kernel` |
+| `per_mgr` runtime domain | target `u:r:vendor_per_mgr:s0`, actual `kernel` |
+| subsystem fd hold | none on `/dev/subsys_esoc0` or `/dev/subsys_modem` |
+| `pm_proxy_helper` lifetime | remains `Ds` after helper cleanup window |
+| cleanup | bounded kill did not clear r3 D-state; native reboot restored clean state |
+
+Interpretation: V867 proves the helper can construct the Android init-contract
+sequence, but it also proves that the sequence is not safe to extend toward
+`mdm_helper` yet. The unresolved lower issue is no longer simply missing
+`pm_proxy_helper`; it is native execution context/lifetime behavior. In native,
+`setexeccon` target evidence is accepted but runtime `attr/current` remains
+`kernel`, and `pm_proxy_helper` can block in uninterruptible sleep.
+
+Next gate: V868 should be host-only/read-only first. It should classify:
+
+1. why helper-launched Android services keep runtime `attr/current=kernel`;
+2. what `pm_proxy_helper` opens or waits on in Android versus native;
+3. whether the next live attempt should suppress `pm_proxy_helper`, run it in a
+   shorter isolated observation window, or repair the launch context before
+   another PM proof.

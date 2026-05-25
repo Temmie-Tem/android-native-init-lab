@@ -3856,3 +3856,27 @@ Samsung bootloader
   partition write.
 - next: V867 should run the bounded PM init-contract start-only proof with only
   `pm_proxy_helper`, `per_mgr`, and `per_proxy` under Android node parity.
+
+### V867. PeripheralManager Init-contract Start-only Proof
+
+- plan: `docs/plans/NATIVE_INIT_V867_PM_INIT_CONTRACT_START_ONLY_PLAN_2026-05-25.md`
+- report: `docs/reports/NATIVE_INIT_V867_PM_INIT_CONTRACT_START_ONLY_2026-05-25.md`
+- runner: `scripts/revalidation/native_wifi_pm_init_contract_start_only_v867.py`
+- evidence:
+  - `tmp/wifi/v867-pm-init-contract-plan/manifest.json`
+  - `tmp/wifi/v867-pm-init-contract-live-r3/manifest.json`
+  - `tmp/wifi/v867-reboot-cleanup/`
+- decision: `v867-residual-actor-cleanup-required`
+- result: bounded live proof found a blocker. Helper `v134` PM init-contract
+  markers executed: `pm_proxy_helper` child, `per_mgr` `ioprio rt 4`,
+  `init.svc.vendor.per_mgr=running`, property-gated `per_proxy`, and
+  shutdown-stop markers. Runtime domains still stayed `kernel`, `per_mgr` did
+  not hold `/dev/subsys_esoc0` or `/dev/subsys_modem`, and `pm_proxy_helper`
+  remained `Ds` after the helper cleanup window. Native reboot restored v724,
+  selftest `pass=11 warn=1 fail=0`, and actor process count `0`.
+- hard gates held: no `mdm_helper`, no `ks`, no CNSS, no Wi-Fi HAL,
+  scan/connect, credentials, DHCP/routes, external ping, raw eSoC ioctl,
+  GPIO/sysfs/debugfs/subsystem state write, module load/unload, boot image
+  write, or partition write.
+- next: V868 should classify `pm_proxy_helper` blocking behavior and SELinux
+  transition semantics host-only/read-only before any more live actor start.
