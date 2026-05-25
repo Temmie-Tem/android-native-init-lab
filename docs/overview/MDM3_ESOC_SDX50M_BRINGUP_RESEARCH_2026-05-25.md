@@ -462,3 +462,40 @@ Open native gaps:
 Next gate: V863 should capture `/vendor/etc/init/pm_proxy_helper.rc` read-only
 and classify `vendor.per_proxy_helper` before any `mdm_helper`/`ks`, eSoC ioctl,
 GPIO/sysfs write, Wi-Fi HAL, scan/connect, DHCP, or external ping.
+
+## 17. V863 pm_proxy_helper.rc capture outcome
+
+V863 captured `/vendor/etc/init/pm_proxy_helper.rc` from the live vendor
+partition using a temporary ext4 `ro,noload` mount.
+
+Result: `v863-pm-proxy-helper-contract-captured`.
+
+Important runtime correction: current `sda29` major/minor is `259:13`; older
+`259:22` evidence is stale and must not be hardcoded.
+
+Captured contract:
+
+```text
+service vendor.per_proxy_helper /vendor/bin/pm_proxy_helper
+    class core
+    user system
+    group system
+    disabled
+    oneshot
+
+on post-fs-data
+    start vendor.per_proxy_helper
+```
+
+Cleanup passed and post-run selftest passed. No daemon start, `mdm_helper`,
+`ks`, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, raw eSoC
+ioctl, GPIO/sysfs/debugfs/subsystem write, module load, boot image write, or
+partition write occurred.
+
+Next gate: V864 should classify helper support for the complete
+PeripheralManager init contract before starting any new actor:
+
+- `vendor.per_proxy_helper` post-fs-data oneshot;
+- `vendor.per_mgr` `ioprio rt 4`;
+- `vendor.per_proxy` property-start and shutdown-stop lifecycle;
+- V861 runtime domain still reading `kernel`.

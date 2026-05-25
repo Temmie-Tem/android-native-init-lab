@@ -3720,3 +3720,29 @@ Samsung bootloader
   write, or partition write.
 - next: V863 should capture `/vendor/etc/init/pm_proxy_helper.rc` read-only and
   classify `vendor.per_proxy_helper` before modelling or starting it.
+
+### V863. pm_proxy_helper.rc Read-only Capture
+
+- plan: `docs/plans/NATIVE_INIT_V863_PM_PROXY_HELPER_RC_CAPTURE_PLAN_2026-05-25.md`
+- report: `docs/reports/NATIVE_INIT_V863_PM_PROXY_HELPER_RC_CAPTURE_2026-05-25.md`
+- runner: `scripts/revalidation/native_wifi_pm_proxy_helper_rc_capture_v863.py`
+- evidence:
+  - `tmp/wifi/v863-pm-proxy-helper-rc-plan/manifest.json`
+  - `tmp/wifi/v863-pm-proxy-helper-rc-live/manifest.json`
+- decision: `v863-pm-proxy-helper-contract-captured`
+- result: bounded read-only live PASS. V863 dynamically read current
+  `/sys/class/block/sda29/dev` as `259:13`, created only a temporary block node
+  under `/tmp/a90-v863-*`, mounted it ext4 `ro,noload`, captured
+  `/vendor/etc/init/pm_proxy_helper.rc`, then unmounted and removed the
+  temporary path. Captured service:
+  `vendor.per_proxy_helper /vendor/bin/pm_proxy_helper`, `class core`,
+  `user system`, `group system`, `disabled`, `oneshot`, started by
+  `on post-fs-data`. Cleanup and post-run selftest passed.
+- hard gates: no daemon start, no `mdm_helper`/`ks`, no Wi-Fi HAL,
+  scan/connect, credentials, DHCP/routes, external ping, raw eSoC ioctl,
+  GPIO/sysfs/debugfs/subsystem write, module load/unload, boot image write, or
+  partition write.
+- next: V864 should classify helper support for the complete PeripheralManager
+  init contract before starting anything new: `vendor.per_proxy_helper`
+  post-fs-data oneshot, `vendor.per_mgr` `ioprio rt 4`, `vendor.per_proxy`
+  property lifecycle, and V861's runtime `kernel` domain gap.

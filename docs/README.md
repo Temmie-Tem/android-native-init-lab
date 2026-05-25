@@ -247,6 +247,7 @@
 - `plans/NATIVE_INIT_V101_SERVICE_MANAGER_PLAN_2026-05-03.md` – v101 minimal service manager 구현 계획
 - `plans/NATIVE_INIT_V102_DIAGNOSTICS_PLAN_2026-05-03.md` – v102 diagnostics/log bundle 실행 계획
 - `plans/NATIVE_INIT_V103_WIFI_INVENTORY_PLAN_2026-05-04.md` – v103 Wi-Fi read-only inventory 실행 계획
+- `plans/NATIVE_INIT_V863_PM_PROXY_HELPER_RC_CAPTURE_PLAN_2026-05-25.md` – V862가 지목한 `pm_proxy_helper.rc`를 live vendor partition에서 read-only로 캡처/분류하는 V863 계획
 - `plans/NATIVE_INIT_V862_ANDROID_INIT_SERVICE_CONTRACT_PLAN_2026-05-25.md` – V861 이후 Android init-managed PeripheralManager 서비스 계약을 host-only로 분류하는 V862 계획
 - `plans/NATIVE_INIT_V861_PM_SERVICE_DOMAIN_PARITY_PLAN_2026-05-25.md` – V860 이후 `pm-service`/`pm-proxy`에 Android `vendor_per_mgr` exec context를 추가해 subsystem fd hold 여부를 재검증하는 V861 계획
 - `plans/NATIVE_INIT_V860_PM_SERVICE_PROPERTY_SUPERSET_PLAN_2026-05-25.md` – V858/V859/V677 property key를 하나의 private property superset으로 묶고 `pm-service`/`pm-proxy` start-only를 재검증하는 V860 계획
@@ -502,6 +503,7 @@
 - `reports/NATIVE_INIT_V700_PROVIDER_FIRST_CNSS_LIVE_2026-05-24.md` – V700 live 결과 초기 pre-provider CNSS를 억제한 상태에서 provider 등록과 post-provider CNSS retry는 통과했지만 WLFW/BDF/`wlan0`는 여전히 0이라 다음은 pre-WLFW trigger classifier
 - `reports/NATIVE_INIT_V699_PROVIDER_FIRST_CNSS_HELPER_2026-05-24.md` – V699 helper-build 결과 `a90_android_execns_probe v119`에 provider-first initial-suppressed CNSS 모드를 추가했고 다음은 helper v119 배포 후 bounded live proof
 - `reports/NATIVE_INIT_V698_CNSS_RETRY_ATTRIBUTION_2026-05-24.md` – V698 host-only 결과 Binder `29189/-22`는 초기 pre-provider `cnss-daemon` pid에 귀속되고 post-provider retry는 Binder fail 없이 netlink 뒤 WLFW 전 정지로 분류되어 다음은 provider-first initial-suppressed CNSS live gate
+- `reports/NATIVE_INIT_V863_PM_PROXY_HELPER_RC_CAPTURE_2026-05-25.md` – V863 live 결과 `vendor.per_proxy_helper`가 `post-fs-data`에서 시작되는 disabled/oneshot `system:system` 서비스임을 read-only로 캡처
 - `reports/NATIVE_INIT_V862_ANDROID_INIT_SERVICE_CONTRACT_2026-05-25.md` – V862 host-only 결과 `vendor.per_mgr` ioprio/lifecycle 및 Android-started `vendor.per_proxy_helper` 계약 누락을 분류하고 V863 read-only rc capture로 라우팅
 - `reports/NATIVE_INIT_V861_PM_SERVICE_DOMAIN_PARITY_2026-05-25.md` – V861 live 결과 `vendor_per_mgr` exec target은 accepted지만 runtime context는 `kernel`로 남고 `pm-service` subsystem fd hold는 여전히 미증명
 - `reports/NATIVE_INIT_V860_PM_SERVICE_PROPERTY_SUPERSET_2026-05-25.md` – V860 live 결과 property denial은 0으로 정리됐지만 `pm-service` subsystem fd hold는 아직 미증명이라 다음은 lifetime/provider-input 분류
