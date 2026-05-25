@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: v833 pending after V832 selected an Android service-notifier positive-control; V829 proved `wlan/fw -> msm/modem/wlan_pd`, and V830/V831 proved native listener registration still returns `uninit`
+- **Active research cycle**: v833 prepared; next live gate is Android service-notifier positive-control for `msm/modem/wlan_pd` using stock Android handoff and native v724 rollback
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -199,10 +199,11 @@ and early-window native probes registered successfully, but current state stayed
 service-locator, listener timing, `boot_wlan`, `qcwlanstate`, CNSS ordering, and
 `mdm_helper` retries.
 
-The next gate is V833: an Android-success positive-control for the same
-`msm/modem/wlan_pd` service-notifier listener query. This should decide whether
-native genuinely lacks the lower WLAN-PD state transition, or whether the
-listener payload/model/state interpretation is still incomplete.
+V833 prep added a static Android-run helper and handoff wrapper for an
+Android-success positive-control of the same `msm/modem/wlan_pd`
+service-notifier listener query. The dry-run is ready. Live V833 should decide
+whether native genuinely lacks the lower WLAN-PD state transition, or whether
+the listener payload/model/state interpretation is still incomplete.
 
 ```text
 servloc:64:257;ssctl:43:4098;servnotif:66:18945,46081;wlfw:69:1
