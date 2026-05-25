@@ -1352,3 +1352,48 @@ Next candidate:
 - V896 host-only Android `mdm_helper` / image-transfer contract classifier.
 - Determine what Android does between `ESOC_REQ_IMG` and MDM2AP status-high
   before any new live mutating eSoC state-machine attempt.
+
+---
+
+## 38. V896 Android mdm_helper image contract result
+
+V896 classified the Android positive path against V895 using existing
+host-side evidence only.
+
+Evidence:
+
+- `tmp/wifi/v896-android-mdm-helper-image-contract/manifest.json`
+- `docs/plans/NATIVE_INIT_V896_ANDROID_MDM_HELPER_IMAGE_CONTRACT_PLAN_2026-05-26.md`
+- `docs/reports/NATIVE_INIT_V896_ANDROID_MDM_HELPER_IMAGE_CONTRACT_2026-05-26.md`
+
+Decision:
+
+- `v896-android-mdm-helper-image-contract-classified`
+
+Result:
+
+- Android positive control has `mdm3=ONLINE`, WLFW/BDF/`wlan0`, and GPIO 142
+  `mdm status` IRQ count `1`.
+- V895 native negative control sent `ESOC_IMG_XFER_DONE`, kept
+  `ESOC_GET_STATUS=0`, withheld `ESOC_BOOT_DONE`, and saw GPIO 142 IRQ delta
+  `0`.
+- Android actor evidence shows `mdm_helper` and `ks` holding `/dev/esoc-0`.
+- `ks` uses `/dev/mhi_0305_01.01.00_pipe_10` plus bootdevice image path.
+- `pm-service` holds `/dev/subsys_esoc0` and `/dev/subsys_modem`.
+- Source markers show `ESOC_REQ_IMG` asks userspace to confirm link
+  establishment before `ESOC_IMG_XFER_DONE`.
+
+Interpretation:
+
+- Existing Android dmesg/IRQ/debugfs/actor evidence is sufficient for this
+  comparison; a Magisk module or new Android handoff is not required for V896.
+- The remaining gap is the Android `mdm_helper`/`ks` MHI image/link contract,
+  not a longer native polling window or blind `BOOT_DONE`.
+
+Next candidate:
+
+- V897 host-only native `mdm_helper`/`ks` contract design and preflight
+  classifier.
+- Keep live actor start, Wi-Fi HAL, scan/connect, credentials, DHCP/routes,
+  external ping, GPIO/sysfs/debugfs writes, and boot image writes blocked until
+  a separate bounded live gate.

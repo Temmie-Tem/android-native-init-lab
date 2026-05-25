@@ -4559,3 +4559,29 @@ Samsung bootloader
   write, or Wi-Fi link-up.
 - next: V896 host-only Android `mdm_helper` / image-transfer contract
   classifier before any new live mutating eSoC state-machine attempt.
+
+### V896. Android mdm_helper Image Contract Classifier
+
+- plan: `docs/plans/NATIVE_INIT_V896_ANDROID_MDM_HELPER_IMAGE_CONTRACT_PLAN_2026-05-26.md`
+- report: `docs/reports/NATIVE_INIT_V896_ANDROID_MDM_HELPER_IMAGE_CONTRACT_2026-05-26.md`
+- classifier:
+  `scripts/revalidation/native_wifi_android_mdm_helper_image_contract_v896.py`
+- evidence:
+  - `tmp/wifi/v896-android-mdm-helper-image-contract/manifest.json`
+  - `tmp/wifi/v896-android-mdm-helper-image-contract/summary.md`
+- decision: `v896-android-mdm-helper-image-contract-classified`
+- result: host-only PASS. Existing Android V852/V853 evidence is sufficient:
+  Android reaches `mdm3=ONLINE`, WLFW/BDF/`wlan0`, and GPIO 142 IRQ count `1`
+  while `mdm_helper` plus `ks` hold `/dev/esoc-0`; `ks` uses the MHI pipe
+  `/dev/mhi_0305_01.01.00_pipe_10`, and `pm-service` holds
+  `/dev/subsys_esoc0` plus `/dev/subsys_modem`.
+- contrast: V895 native sent `ESOC_IMG_XFER_DONE`, kept `GET_STATUS=0`,
+  withheld `BOOT_DONE`, and saw GPIO 142 IRQ delta `0`.
+- interpretation: the missing piece is Android's `mdm_helper`/`ks` MHI
+  image/link contract before image-done, not a blind retry.
+- hard gates held: no Android boot, ADB command, Magisk module, device contact,
+  live eSoC ioctl, subsystem open, actor start, daemon start, Wi-Fi HAL,
+  scan/connect, credentials, DHCP/routes, external ping, GPIO/sysfs/debugfs
+  write, boot image write, or Wi-Fi bring-up.
+- next: V897 host-only native `mdm_helper`/`ks` contract design and preflight
+  classifier before any live actor start.

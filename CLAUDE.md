@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V895 proved `ESOC_IMG_XFER_DONE` does not fire GPIO 142 `mdm status`; next is host-only Android `mdm_helper` image-transfer contract classification
+- **Active research cycle**: V896 classified the missing Android `mdm_helper`/`ks` MHI image/link contract; next is host-only native contract design before any live actor start
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -754,7 +754,14 @@ path should be closed for this blocker.
   was not sent, and GPIO 142 `mdm status` IRQ count stayed `0` across 89
   phases. Cleanup reboot restored healthy selftest. Next is host-only Android
   `mdm_helper` / image-transfer contract classification before any new live
-  mutating eSoC state-machine attempt.
+  mutating eSoC state-machine attempt. V896 then classified that contract
+  host-only: Android reaches `mdm3=ONLINE`, WLFW/BDF/`wlan0`, and GPIO 142
+  IRQ count `1` while `mdm_helper` plus `ks` hold `/dev/esoc-0`; `ks` uses
+  `/dev/mhi_0305_01.01.00_pipe_10`, and `pm-service` holds
+  `/dev/subsys_esoc0` plus `/dev/subsys_modem`. Existing Android dmesg/IRQ
+  evidence was sufficient, so no Magisk module or new Android boot was needed.
+  Next is V897 host-only native `mdm_helper`/`ks` contract design before any
+  live actor start.
   Keep Wi-Fi HAL, scan/connect, DHCP/routes, credentials, external ping, live
   direct userspace `CMD_EXE`/explicit userspace `PWR_ON`, `NOTIFY`, subsystem
   writes, GPIO/sysfs/debugfs writes, module load/unload, and boot image writes
