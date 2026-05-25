@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: v853 captured Android eSoC actor/FD surface; next is V854 native parity classification, still below HAL/connect
+- **Active research cycle**: v854 selected V855 native Android eSoC/subsys node parity preflight, still below actor replay and HAL/connect
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -566,6 +566,7 @@ path should be closed for this blocker.
 | v851 | live read-only provider snapshot: mdm3 OFFLINING, surrounding symbols visible, `mdm_subsys_powerup` not exposed in idle kallsyms |
 | v852 | Android handoff positive-control: mdm3/mss ONLINE, real eSoC/subsys nodes, WLAN-PD/BDF/wlan0 present, rollback to native v724 verified |
 | v853 | Android actor handoff: `mdm_helper`/`ks` hold `/dev/esoc-0`, `pm-service` holds `/dev/subsys_esoc0` and `/dev/subsys_modem`; rollback to native v724 verified |
+| v854 | host-only actor parity classifier rejects blind repeats and selects V855 native Android node/ueventd parity preflight before actor open/ioctl |
 
 ### Safety additions (Wi-Fi research)
 
@@ -574,7 +575,7 @@ path should be closed for this blocker.
 - No `wlan.ko` load/unload without explicit approval
 - `firmware_class.path` rollback value: `/vendor/firmware_mnt/image`
 - `sda29` mount must be read-only in all proof windows
-- Current Wi-Fi gate after V853: Android proves the stock kernel/hardware can
+- Current Wi-Fi gate after V854: Android proves the stock kernel/hardware can
   bring mdm3/mss `ONLINE`, publish WLAN-PD, download BDF, and create `wlan0`,
   and it identifies the lower actors: `mdm_helper`/`ks` hold `/dev/esoc-0`,
   while `pm-service` holds `/dev/subsys_esoc0` and `/dev/subsys_modem`.
@@ -582,9 +583,10 @@ path should be closed for this blocker.
   blocks in `mdm_subsys_powerup` when `/dev/subsys_esoc0` is manually opened.
   Keep Wi-Fi HAL, scan/connect, DHCP/routes, credentials, external ping, raw
   eSoC ioctl, subsystem writes, GPIO/sysfs/debugfs writes, module load/unload,
-  and boot image writes blocked. Next gate is V854 host-only native parity
-  classification for ueventd/device-node, PeripheralManager, and `mdm_helper`
-  contracts.
+  and boot image writes blocked. Next gate is V855 native Android node/ueventd
+  parity preflight only: compute/materialize `/dev/esoc-0`,
+  `/dev/subsys_esoc0`, and `/dev/subsys_modem` metadata, verify paths, clean up,
+  and do not open/ioctl or start `pm-service`/`mdm_helper` yet.
 
 ## Docs structure
 

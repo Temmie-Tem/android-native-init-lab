@@ -287,6 +287,12 @@ ueventd/SELinux 계약:
 점을 보여준다. 다음 단계는 GPIO 직접 조작이 아니라 Android actor 계약의 최소
 native equivalent를 host-only로 분류하는 것이다.
 
+V854 host-only 분류 결과, 다음 live gate는 actor replay가 아니라
+Android node/ueventd parity preflight로 고정됐다. 즉 `/dev/esoc-0`,
+`/dev/subsys_esoc0`, `/dev/subsys_modem`의 major/minor/mode/owner를 먼저
+native에서 안전하게 맞추고 cleanup 가능한지 검증한 뒤에야 `pm-service` 또는
+`mdm_helper` start-only를 검토한다.
+
 ---
 
 ## 참고 문헌

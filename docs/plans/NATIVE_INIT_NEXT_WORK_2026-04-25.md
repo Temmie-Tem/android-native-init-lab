@@ -3486,3 +3486,30 @@ Samsung bootloader
   ordering replay. Do this before any native raw eSoC ioctl, GPIO/sysfs write,
   subsystem state write, HAL start, scan/connect, DHCP/routes, external ping,
   or boot-image change.
+
+### V854. eSoC Actor Parity Classifier
+
+- plan: `docs/plans/NATIVE_INIT_V854_ESOC_ACTOR_PARITY_CLASSIFIER_PLAN_2026-05-25.md`
+- report: `docs/reports/NATIVE_INIT_V854_ESOC_ACTOR_PARITY_CLASSIFIER_2026-05-25.md`
+- runner: `scripts/revalidation/native_wifi_esoc_actor_parity_classifier_v854.py`
+- evidence:
+  - `tmp/wifi/v854-esoc-actor-parity-classifier/manifest.json`
+  - `tmp/wifi/v854-esoc-actor-parity-classifier/summary.md`
+- decision: `v854-esoc-actor-parity-selects-node-contract-preflight`
+- result: host-only PASS. V854 reconciled V853 Android actor evidence with V849
+  `mdm_subsys_powerup` block, V840 provider-first no-indication, and V764
+  `mdm_helper` no-progress results. It rejects blind repeats of manual
+  `/dev/subsys_esoc0` open, `mdm_helper` alone, and provider-first
+  PeripheralManager without node parity. It keeps GPIO/sysfs/debugfs writes and
+  raw eSoC ioctl forbidden for now.
+- hard gates: no bridge, ADB, QRTR socket, device command, node creation/open,
+  service start, GPIO/sysfs/debugfs write, subsystem state write, module
+  load/unload, boot/partition write, Wi-Fi HAL, scan/connect, credential use,
+  DHCP/routes, or external ping was executed.
+- next: V855 should implement native Android eSoC/subsys node parity preflight:
+  compute and optionally materialize `/dev/esoc-0`, `/dev/subsys_esoc0`, and
+  `/dev/subsys_modem` with Android-equivalent major/minor/mode/owner, verify
+  vendor path prerequisites, clean up, and verify native health. Do not
+  open/ioctl nodes or start `pm-service`, `mdm_helper`, `ks`, Wi-Fi HAL,
+  scan/connect, DHCP/routes, external ping, GPIO/sysfs/debugfs writes,
+  subsystem state writes, module load/unload, or boot-image changes.
