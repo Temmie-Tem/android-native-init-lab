@@ -1101,3 +1101,40 @@ Next candidate:
 
 - V889 helper `v141` source/build-only conditional response mode.
 - Live response remains blocked until a separate bounded proof exists.
+
+---
+
+## 32. V889 helper v141 conditional response build result
+
+V889 updated and built helper `v141`.
+
+Evidence:
+
+- `tmp/wifi/v889-execns-helper-v141-build/manifest.json`
+- `tmp/wifi/v889-execns-helper-v141-build/build.log`
+- `tmp/wifi/v889-execns-helper-v141-build/a90_android_execns_probe`
+- `docs/plans/NATIVE_INIT_V889_ESOC_CONDITIONAL_RESPONSE_HELPER_PLAN_2026-05-26.md`
+- `docs/reports/NATIVE_INIT_V889_ESOC_CONDITIONAL_RESPONSE_HELPER_BUILD_2026-05-26.md`
+
+Decision:
+
+- `v889-helper-v141-build-pass`
+
+Result:
+
+- helper marker is now `a90_android_execns_probe v141`.
+- Added mode `wifi-companion-esoc-conditional-response-preflight`.
+- Added allow flag `--allow-esoc-conditional-response-preflight`.
+- Conditional response logic is present but not executed in V889:
+  `ESOC_REQ_IMG` -> `ESOC_IMG_XFER_DONE` -> `ESOC_GET_STATUS` polling ->
+  conditional `ESOC_BOOT_DONE`.
+- Static ARM64 build passed with no dynamic section.
+
+Guardrails held: V889 did not deploy the helper, did not contact the device,
+did not execute live eSoC ioctls, did not open `/dev/subsys_esoc0`, did not
+issue `ESOC_NOTIFY`, did not start Android actors, and did not bring up Wi-Fi.
+
+Next candidate:
+
+- V890 helper `v141` deploy-only checksum/version/mode proof.
+- Live conditional response remains blocked until a separate bounded proof.

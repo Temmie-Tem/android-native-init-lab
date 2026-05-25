@@ -25,7 +25,7 @@
 
 ## 현재 Wi-Fi Gate
 
-- 최신 기준: V888 host-only eSoC response gate classifier pass.
+- 최신 기준: V889 helper v141 source/build-only conditional response mode pass.
 - V874 결론: `/dev/esoc-0` read-only control path가 live에서 열렸고
   `GET_STATUS`/`GET_ERR_FATAL`은 rc `0`, `GET_LINK_ID`는 errno `22`로
   반환됐다. 결과는 `read-only-ioctl-probe-complete`이며 created nodes cleanup,
@@ -114,6 +114,12 @@
   `ESOC_IMG_XFER_DONE`이고, `ESOC_BOOT_DONE`은 `ESOC_RUN_STATE`를 발생시켜
   subsystem powerup wait를 완료하므로 blind first response로 쓰지 않는다.
   다음 후보는 V889 helper `v141` source/build-only conditional response mode다.
+- V889 결론: helper `v141` source/build-only가 통과했다. 새 mode
+  `wifi-companion-esoc-conditional-response-preflight`와 allow flag
+  `--allow-esoc-conditional-response-preflight`가 추가됐다. Conditional response
+  logic은 `ESOC_REQ_IMG` 관측 후 `ESOC_IMG_XFER_DONE`, `ESOC_GET_STATUS` polling,
+  status `1`일 때만 `ESOC_BOOT_DONE`을 수행하도록 준비됐지만 V889에서는
+  deploy/live 실행이 없었다. 다음 후보는 V890 helper `v141` deploy-only다.
 
 - 아래 V840-V847 항목은 V874/V875 이전 경로 요약이다.
 - V840 결론: provider-first service-manager/PeripheralManager, CNSS retry,
@@ -4377,3 +4383,25 @@ Samsung bootloader
   external ping.
 - next: V889 helper `v141` source/build-only conditional response mode. Live
   response remains blocked until a separate bounded proof.
+
+### V889. eSoC Conditional Response Helper v141 Build
+
+- plan: `docs/plans/NATIVE_INIT_V889_ESOC_CONDITIONAL_RESPONSE_HELPER_PLAN_2026-05-26.md`
+- report: `docs/reports/NATIVE_INIT_V889_ESOC_CONDITIONAL_RESPONSE_HELPER_BUILD_2026-05-26.md`
+- helper source: `stage3/linux_init/helpers/a90_android_execns_probe.c`
+- evidence:
+  - `tmp/wifi/v889-execns-helper-v141-build/manifest.json`
+  - `tmp/wifi/v889-execns-helper-v141-build/build.log`
+  - `tmp/wifi/v889-execns-helper-v141-build/a90_android_execns_probe`
+- decision: `v889-helper-v141-build-pass`
+- result: source/build-only PASS. Helper `v141` adds fail-closed conditional
+  response mode and allow flag. It prepares `ESOC_IMG_XFER_DONE` first,
+  `ESOC_GET_STATUS` polling, and status-gated `ESOC_BOOT_DONE`.
+- build: sha256
+  `e6909cbfee79a4a1f55a3f039cdc29dca57f31e00c19d63a1a452d633c060f21`, static
+  ARM64, no dynamic section.
+- hard gates held: no helper deploy, no device contact, no live eSoC ioctl, no
+  `/dev/subsys_esoc0` open, no `ESOC_NOTIFY`, no actor start, no
+  service-manager, no Wi-Fi HAL, scan/connect, DHCP/routes, credentials, or
+  external ping.
+- next: V890 helper `v141` deploy-only checksum/version/mode proof.

@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V888 classified the response gate; next is V889 helper `v141` source/build-only conditional response mode before any live `ESOC_NOTIFY`
+- **Active research cycle**: V889 built helper `v141`; next is V890 deploy-only checksum/version/mode proof before any live conditional response
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -601,6 +601,7 @@ path should be closed for this blocker.
 | v886 | helper v140 source/build-only: repairs `WAIT_FOR_REQ` byte-count semantics, labels `ESOC_REQ_IMG`, and adds fail-closed response scaffold markers; no deploy or live notify |
 | v887 | helper v140 deploy-only: serial chunk 3000 blocked safely before writes, chunk 1850 deploy passed; remote sha/mode marker verified, no live eSoC ioctl or Wi-Fi bring-up |
 | v888 | host-only response gate classifier: choose `ESOC_IMG_XFER_DONE` first, then readiness-gated `ESOC_BOOT_DONE`; blind BOOT_DONE remains blocked |
+| v889 | helper v141 source/build-only: adds fail-closed conditional response mode and allow flag; no deploy or live notify |
 
 ### Safety additions (Wi-Fi research)
 
@@ -724,7 +725,10 @@ path should be closed for this blocker.
   classified the gate: respond to `ESOC_REQ_IMG` first with
   `ESOC_IMG_XFER_DONE`, poll `ESOC_GET_STATUS` or equivalent readiness, and
   send `ESOC_BOOT_DONE` only after readiness is proven. Next is V889 helper
-  `v141` source/build-only conditional response mode.
+  `v141` source/build-only conditional response mode. V889 then built helper
+  `v141` with mode `wifi-companion-esoc-conditional-response-preflight` and
+  allow flag `--allow-esoc-conditional-response-preflight`; no deploy or live
+  notify occurred. Next is V890 helper `v141` deploy-only proof.
   Keep Wi-Fi HAL, scan/connect, DHCP/routes, credentials, external ping, live
   direct userspace `CMD_EXE`/explicit userspace `PWR_ON`, `NOTIFY`, subsystem
   writes, GPIO/sysfs/debugfs writes, module load/unload, and boot image writes
