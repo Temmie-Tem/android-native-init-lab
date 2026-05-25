@@ -3696,3 +3696,27 @@ Samsung bootloader
 - next: V862 should classify Android init service contract differences for
   `vendor.per_mgr`, `vendor.per_proxy`, and `vendor.per_proxy_helper` before
   actor escalation.
+
+### V862. Android Init Service Contract Classifier
+
+- plan: `docs/plans/NATIVE_INIT_V862_ANDROID_INIT_SERVICE_CONTRACT_PLAN_2026-05-25.md`
+- report: `docs/reports/NATIVE_INIT_V862_ANDROID_INIT_SERVICE_CONTRACT_2026-05-25.md`
+- classifier: `scripts/revalidation/native_wifi_android_init_service_contract_v862.py`
+- evidence:
+  - `tmp/wifi/v862-android-init-service-contract/manifest.json`
+- decision: `v862-init-contract-classified-pm-proxy-helper-content-needed`
+- result: host-only PASS. V862 parsed the V210 vendor init capture, V210
+  inventory, V853 Android actor dmesg, V861 native replay, and helper source.
+  Android `vendor.per_mgr` is `/vendor/bin/pm-service` with `class core`,
+  `user system`, `group system`, and `ioprio rt 4`; `vendor.per_proxy` is
+  `/vendor/bin/pm-proxy`, disabled, and started by
+  `init.svc.vendor.per_mgr=running`. V210 lists `pm_proxy_helper.rc`, and V853
+  proves Android starts `vendor.per_proxy_helper`, but that rc content was not
+  captured. V861 still leaves runtime `attr/current=kernel` and no subsystem fd
+  hold.
+- hard gates: no device contact, no daemon start, no `mdm_helper`/`ks`, no
+  Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, raw eSoC
+  ioctl, GPIO/sysfs/debugfs/subsystem write, module load/unload, boot image
+  write, or partition write.
+- next: V863 should capture `/vendor/etc/init/pm_proxy_helper.rc` read-only and
+  classify `vendor.per_proxy_helper` before modelling or starting it.

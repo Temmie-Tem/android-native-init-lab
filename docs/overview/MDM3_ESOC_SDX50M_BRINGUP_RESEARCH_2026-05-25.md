@@ -435,3 +435,30 @@ Interpretation: V861 fixed the helper-side missing target mapping, but direct
 exec still does not behave like Android init-managed `vendor.per_mgr`. The next
 gate should classify the Android init service contract for `vendor.per_mgr`,
 `vendor.per_proxy`, and `vendor.per_proxy_helper` before `mdm_helper`/`ks`.
+
+## 16. V862 Android init service-contract outcome
+
+V862 classified the Android init contract that V861 direct exec still lacks.
+
+Host-only result: `v862-init-contract-classified-pm-proxy-helper-content-needed`.
+
+| Item | Android contract / evidence |
+|---|---|
+| `vendor.per_mgr` | `/vendor/bin/pm-service`, `class core`, `user system`, `group system`, `ioprio rt 4` |
+| `vendor.per_proxy` | `/vendor/bin/pm-proxy`, `class core`, `user system`, `group system`, `disabled` |
+| per-proxy lifecycle | `on property:init.svc.vendor.per_mgr=running` starts `vendor.per_proxy` |
+| shutdown lifecycle | `on property:sys.shutdown.requested=*` stops `vendor.per_proxy` |
+| `vendor.per_proxy_helper` | V210 lists `pm_proxy_helper.rc`; V853 dmesg shows Android starts `vendor.per_proxy_helper` |
+
+Open native gaps:
+
+- helper has no `ioprio rt 4` model for `vendor.per_mgr`;
+- helper starts `per_proxy` directly instead of through the Android
+  `init.svc.vendor.per_mgr=running` lifecycle;
+- helper does not model shutdown stop semantics;
+- `pm_proxy_helper.rc` content is not captured yet;
+- V861 runtime domains still stayed `kernel` and no subsystem fd hold appeared.
+
+Next gate: V863 should capture `/vendor/etc/init/pm_proxy_helper.rc` read-only
+and classify `vendor.per_proxy_helper` before any `mdm_helper`/`ks`, eSoC ioctl,
+GPIO/sysfs write, Wi-Fi HAL, scan/connect, DHCP, or external ping.
