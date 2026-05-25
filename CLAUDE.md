@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V899 deployed helper `v144`; next is V900 bounded live `mdm_helper`/`ks` contract proof
+- **Active research cycle**: V900 live proof completed as reboot-required-cleaned; next is V902 blocker wchan/stack capture before retrying the same subsystem-open path
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -608,6 +608,12 @@ path should be closed for this blocker.
 | v893 | host-only post-image-done classifier: `IMG_XFER_DONE` is not a readiness setter; next blocker is MDM2AP status/ready transition |
 | v894 | MDM2AP ready-surface classifier: `/proc/interrupts` exposes GPIO 142 `mdm status` as read-only observer; debugfs GPIO absent |
 | v895 | MDM2AP IRQ snapshot proof: `IMG_XFER_DONE` sent, `GET_STATUS` stayed 0, GPIO142 `mdm status` IRQ count stayed 0; cleanup reboot pass |
+| v896 | host-only Android contract classifier: Android reaches `mdm3=ONLINE`/WLFW/BDF/`wlan0` while `mdm_helper` and `ks` hold `/dev/esoc-0` |
+| v897 | host-only native helper delta: helper lacked pre-subsys `mdm_helper`/`ks` image-contract mode and MHI pipe observation |
+| v898 | helper v144 source/build-only: adds fail-closed `mdm_helper` before `/dev/subsys_esoc0` contract mode; no deploy/live action |
+| v899 | helper v144 deploy-only: serial deploy pass; remote sha/mode marker, selftest, actor-clean, and Wi-Fi-link-clean pass |
+| v900 | bounded live `mdm_helper`/`ks` contract: after v145 repair, `mdm_helper` observable, `/dev/subsys_esoc0` open child blocked, no `ks`/MHI/GPIO142 progress; cleanup reboot pass |
+| v901 | helper v145 allowlist repair/deploy: adds mdm_helper/ks mode to global v235 allowlist and deploys repaired helper |
 
 ### Safety additions (Wi-Fi research)
 
@@ -616,10 +622,14 @@ path should be closed for this blocker.
 - No `wlan.ko` load/unload without explicit approval
 - `firmware_class.path` rollback value: `/vendor/firmware_mnt/image`
 - `sda29` mount must be read-only in all proof windows
-- Current Wi-Fi gate after V857: Android proves the stock kernel/hardware can
+- Current Wi-Fi gate after V900: Android proves the stock kernel/hardware can
   bring mdm3/mss `ONLINE`, publish WLAN-PD, download BDF, and create `wlan0`,
   and it identifies the lower actors: `mdm_helper`/`ks` hold `/dev/esoc-0`,
   while `pm-service` holds `/dev/subsys_esoc0` and `/dev/subsys_modem`.
+  Native has now reproduced the `mdm_helper` before `/dev/subsys_esoc0`
+  ordering, but the subsystem open child still blocks and produces no `ks`,
+  MHI pipe, GPIO 142, WLFW/BDF, or `wlan0`; next capture the blocked wait
+  location instead of repeating the same open blindly.
   Native can materialize and clean up Android-equivalent `/dev/esoc-0`,
   `/dev/subsys_esoc0`, and `/dev/subsys_modem` nodes, and can start
   service-manager trio plus `pm-service`/`pm-proxy` under that node parity.
@@ -776,9 +786,18 @@ path should be closed for this blocker.
   then deployed helper `v144` to `/cache/bin/a90_android_execns_probe` by
   serial appendfile/uudecode (`788` chunks) and postdeploy preflight proved
   remote sha/mode parity, selftest fail0, service-manager-clean, and
-  Wi-Fi-link-clean state. Next is V900 bounded live `mdm_helper`/`ks` contract
-  proof; Wi-Fi HAL, scan/connect, credentials, DHCP/routes, and external ping
-  remain blocked until lower readiness is proven.
+  Wi-Fi-link-clean state. The first V900 live attempt then failed before live
+  action because helper `v144` omitted the new mode from the global v235
+  allowlist. V901 repaired this in helper `v145`, deployed it, and proved
+  remote parity. Repaired V900 then started `/vendor/bin/mdm_helper`, observed
+  it, and attempted `/dev/subsys_esoc0` only after that gate opened. The
+  trigger child blocked and could not be reaped after TERM/KILL, so V900
+  correctly classified `reboot-required`; cleanup reboot restored
+  `selftest fail=0`. No `ks`, MHI pipe, GPIO 142 IRQ, `mdm3=ONLINE`, WLFW/BDF,
+  or `wlan0` progress was observed. Next is V902 blocker capture
+  (`wchan`/process state/available stack) before repeating this open path;
+  Wi-Fi HAL, scan/connect, credentials, DHCP/routes, and external ping remain
+  blocked until lower readiness is proven.
   Keep Wi-Fi HAL, scan/connect, DHCP/routes, credentials, external ping, live
   direct userspace `CMD_EXE`/explicit userspace `PWR_ON`, `NOTIFY`, subsystem
   writes, GPIO/sysfs/debugfs writes, module load/unload, and boot image writes

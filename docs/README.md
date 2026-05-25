@@ -130,6 +130,8 @@
 
 ### 3. Plans
 
+- `plans/NATIVE_INIT_V901_HELPER_V145_ALLOWLIST_DEPLOY_PLAN_2026-05-26.md` – V900 첫 시도에서 드러난 helper global v235 allowlist 누락을 `v145`로 수정하고 deploy-only 배포하는 V901 계획
+- `plans/NATIVE_INIT_V900_MDM_HELPER_KS_CONTRACT_LIVE_PLAN_2026-05-26.md` – Android-derived `mdm_helper` before `/dev/subsys_esoc0` + `ks`/MHI 관찰을 bounded live로 검증하는 V900 계획
 - `plans/NATIVE_INIT_V899_HELPER_V144_DEPLOY_PLAN_2026-05-26.md` – helper `v144`를 `/cache/bin/a90_android_execns_probe`로 deploy-only 배포하고 원격 checksum/mode parity를 증명하는 V899 계획
 - `plans/NATIVE_INIT_V898_MDM_HELPER_KS_CONTRACT_HELPER_PLAN_2026-05-26.md` – V897에서 요구한 pre-subsys `mdm_helper`/`ks` image-contract mode를 helper `v144`에 source/build-only로 추가하는 V898 계획
 - `plans/NATIVE_INIT_V897_MDM_HELPER_KS_CONTRACT_DESIGN_PLAN_2026-05-26.md` – Android `mdm_helper`/`ks` image/link contract를 native helper에 어떻게 옮길지 host-only로 분류하는 V897 계획
@@ -410,6 +412,8 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V901_HELPER_V145_ALLOWLIST_DEPLOY_2026-05-26.md` – V901 결과 helper `v145` allowlist repair/build/deploy PASS
+- `reports/NATIVE_INIT_V900_MDM_HELPER_KS_CONTRACT_LIVE_2026-05-26.md` – V900 결과 `mdm_helper`는 observable, `/dev/subsys_esoc0` open child는 blocked/reboot-required, `ks`/MHI/GPIO142 진전 없음
 - `reports/NATIVE_INIT_V899_HELPER_V144_DEPLOY_2026-05-26.md` – V899 결과 helper `v144` deploy-only PASS, remote sha/mode marker/selftest/actor-clean/Wi-Fi-link-clean 확인
 - `reports/NATIVE_INIT_V898_MDM_HELPER_KS_CONTRACT_HELPER_BUILD_2026-05-26.md` – V898 결과 helper `v144`에 fail-closed `mdm_helper`/`ks` image-contract mode를 source/build-only로 추가하고 static ARM64 build PASS
 - `reports/NATIVE_INIT_V897_MDM_HELPER_KS_CONTRACT_DESIGN_2026-05-26.md` – V897 결과 current helper가 pre-subsys `mdm_helper`/`ks` image-contract mode를 아직 갖지 않아 V898 source/build-only helper 작업이 필요함을 분류

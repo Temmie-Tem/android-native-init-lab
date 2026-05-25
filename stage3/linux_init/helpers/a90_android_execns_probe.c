@@ -88,7 +88,7 @@
 #define IOPRIO_PRIO_VALUE(class_value, data) (((class_value) << IOPRIO_CLASS_SHIFT) | (data))
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v144"
+#define EXECNS_VERSION "a90_android_execns_probe v145"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -367,6 +367,7 @@ static void usage(FILE *out) {
             "[--allow-esoc-engine-register-preflight] "
             "[--allow-esoc-req-registered-subsys-hold-preflight] "
             "[--allow-esoc-conditional-response-preflight] "
+            "[--allow-mdm-helper-ks-contract-preflight] "
             "[--qrtr-readback-matrix label:service:instance[,instance][;...]] "
             "[--connect-config /cache/a90-wifi/...] "
             "[--connect-iface auto|wlan0] "
@@ -1142,6 +1143,7 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
           is_wifi_companion_esoc_engine_register_preflight_mode(cfg->mode) ||
           is_wifi_companion_esoc_req_registered_subsys_hold_preflight_mode(cfg->mode) ||
           is_wifi_companion_esoc_conditional_response_preflight_mode(cfg->mode) ||
+          is_wifi_companion_mdm_helper_ks_image_contract_preflight_mode(cfg->mode) ||
           is_wifi_companion_any_start_only_mode(cfg->mode) ||
           is_wifi_companion_hal_order_start_only_mode(cfg->mode) ||
           streq(cfg->mode, "property-lookup") ||

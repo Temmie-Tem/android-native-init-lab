@@ -1536,3 +1536,58 @@ Next candidate:
 - V900 bounded live `mdm_helper`/`ks` contract proof.
 - Keep Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, and
   Wi-Fi link-up blocked until lower readiness is proven.
+
+---
+
+## 42. V900/V901 mdm_helper/ks live contract result
+
+V900 executed the first bounded live `mdm_helper`/`ks` contract proof after a
+V901 helper allowlist repair.
+
+Evidence:
+
+- `tmp/wifi/v900-mdm-helper-ks-contract-live/manifest.json`
+- `tmp/wifi/v901-execns-helper-v145-deploy-preflight/manifest.json`
+- `docs/plans/NATIVE_INIT_V900_MDM_HELPER_KS_CONTRACT_LIVE_PLAN_2026-05-26.md`
+- `docs/plans/NATIVE_INIT_V901_HELPER_V145_ALLOWLIST_DEPLOY_PLAN_2026-05-26.md`
+- `docs/reports/NATIVE_INIT_V900_MDM_HELPER_KS_CONTRACT_LIVE_2026-05-26.md`
+- `docs/reports/NATIVE_INIT_V901_HELPER_V145_ALLOWLIST_DEPLOY_2026-05-26.md`
+
+Decisions:
+
+- first V900 attempt: `v900-step-failed` before live action
+- V901 deploy: `execns-helper-v145-deploy-pass`
+- repaired V900 live: `v900-reboot-required-cleaned`
+
+Result:
+
+- The first V900 attempt exposed the same class of helper allowlist gap as
+  V891/V892: helper `v144` had the new mode in parser/usage but not in the
+  global v235 mode allowlist.
+- V901 bumped the helper to `a90_android_execns_probe v145`, added
+  `wifi-companion-mdm-helper-ks-image-contract-preflight` to the global
+  allowlist, advertised `--allow-mdm-helper-ks-contract-preflight`, built a
+  static ARM64 artifact, and deployed it.
+- Repaired V900 started `/vendor/bin/mdm_helper` and observed it.
+- `/dev/subsys_esoc0` open was attempted only after `mdm_helper_observable=1`.
+- The trigger child entered the open path, timed out, received TERM/KILL, but
+  was not reaped; the helper classified `reboot-required`.
+- Cleanup reboot restored `bootstatus` OK and `selftest fail=0`.
+- No `/vendor/bin/ks` process, MHI pipe command line, MHI device node, GPIO 142
+  IRQ, `mdm3=ONLINE`, WLFW/BDF, or `wlan0` progress was observed.
+
+Interpretation:
+
+- Android-equivalent ordering is not sufficient by itself. Native can start
+  `mdm_helper` before `/dev/subsys_esoc0`, but the subsystem open still blocks
+  below userspace before `ks`/MHI appears.
+- Repeating the same open without added blocker instrumentation is low-value and
+  forces reboot cleanup.
+
+Next candidate:
+
+- V902 should capture the blocked trigger child's `/proc/<pid>/wchan`, process
+  state, and available stack evidence while preserving the same ordering.
+- Keep `ESOC_NOTIFY`, `BOOT_DONE`, service-manager, CNSS, Wi-Fi HAL,
+  scan/connect, credentials, DHCP/routes, external ping, GPIO writes, module
+  load/unload, and boot image writes blocked.
