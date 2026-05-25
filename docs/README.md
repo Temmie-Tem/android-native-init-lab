@@ -433,6 +433,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V938_MDM_HELPER_LOWER_CONTRACT_CAPTURE_2026-05-26.md` – helper `v155` lower-contract live capture 결과; `mdm_helper`는 `/dev/esoc-0` fd까지 도달하지만 `ks`/MHI/WLFW는 없고 exact `mdm_helper` property-context gap이 co-present함을 확인한 V938 결과
 - `reports/NATIVE_INIT_V937_HELPER_V155_DEPLOY_2026-05-26.md` – helper `v155`를 `/cache/bin/a90_android_execns_probe`로 deploy-only 배포하고 remote sha/usage, postflight health, no-daemon/no-Wi-Fi guard를 확인한 V937 결과
 - `reports/NATIVE_INIT_V936_MDM_HELPER_LOWER_CONTRACT_SUPPORT_2026-05-26.md` – helper `v155`에 `mdm_helper` property-context/SDX50M lower-contract 진단을 기존 runtime-contract mode에 source/build-only로 추가한 V936 결과
 - `reports/NATIVE_INIT_V935_MDM_HELPER_SDX50M_QUEUE_CONTRACT_2026-05-26.md` – V931/V933 service-manager matrix evidence를 host-only로 재분류해 현재 Binder blocker는 닫히고 `mdm_helper` SDX50M queue failure와 property-context gap이 남은 lower-contract blocker임을 확정한 V935 결과
