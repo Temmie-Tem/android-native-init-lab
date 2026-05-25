@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V893 classified post-image-done blocker as MDM2AP status/ready transition; next is bounded readiness observer planning
+- **Active research cycle**: V894 selected `/proc/interrupts` GPIO 142 `mdm status` as the read-only readiness observer; next is V895 bounded IRQ snapshot proof
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -606,6 +606,7 @@ path should be closed for this blocker.
 | v891 | bounded conditional response proof: first v141 attempt failed allowlist before live action; v142 rerun sent `ESOC_IMG_XFER_DONE`, `GET_STATUS` stayed 0, no `BOOT_DONE`, cleanup reboot pass |
 | v892 | helper v142 allowlist repair/deploy: adds conditional response mode to global v235 allowlist; deploy-only pass |
 | v893 | host-only post-image-done classifier: `IMG_XFER_DONE` is not a readiness setter; next blocker is MDM2AP status/ready transition |
+| v894 | MDM2AP ready-surface classifier: `/proc/interrupts` exposes GPIO 142 `mdm status` as read-only observer; debugfs GPIO absent |
 
 ### Safety additions (Wi-Fi research)
 
@@ -743,7 +744,11 @@ path should be closed for this blocker.
   Cleanup reboot restored healthy native selftest. V893 then classified this as
   a post-image-done MDM2AP status/ready transition blocker: `IMG_XFER_DONE`
   schedules status checking but does not directly set ready. Next is a bounded
-  readiness observer, not blind `BOOT_DONE` or actor/HAL start.
+  readiness observer, not blind `BOOT_DONE` or actor/HAL start. V894 selected
+  `/proc/interrupts` line `msmgpio-dc 142 Edge mdm status` as the read-only
+  observer for that transition; debugfs GPIO is absent in current native boot.
+  Next is V895 bounded IRQ snapshot proof around the existing guarded
+  `IMG_XFER_DONE` flow.
   Keep Wi-Fi HAL, scan/connect, DHCP/routes, credentials, external ping, live
   direct userspace `CMD_EXE`/explicit userspace `PWR_ON`, `NOTIFY`, subsystem
   writes, GPIO/sysfs/debugfs writes, module load/unload, and boot image writes

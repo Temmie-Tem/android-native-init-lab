@@ -1263,3 +1263,46 @@ Next candidate:
 - V894 bounded MDM2AP status/ready observer planning.
 - If no read-only status surface is available, compare Android `mdm_helper`
   behavior around image-done -> ready before any new live action.
+
+---
+
+## 36. V894 MDM2AP ready surface result
+
+V894 found a read-only observer for the readiness transition.
+
+Evidence:
+
+- `tmp/wifi/v894-mdm2ap-ready-surface/manifest.json`
+- `docs/plans/NATIVE_INIT_V894_MDM2AP_READY_SURFACE_PLAN_2026-05-26.md`
+- `docs/reports/NATIVE_INIT_V894_MDM2AP_READY_SURFACE_2026-05-26.md`
+
+Decision:
+
+- `v894-mdm2ap-ready-surface-classified`
+
+Result:
+
+- DTS maps `mdm2ap-status-gpio` to GPIO `142`.
+- Current native `/proc/interrupts` exposes
+  `msmgpio-dc 142 Edge mdm status`.
+- Current count is `0`.
+- `subsys9/state` remains `OFFLINING`.
+- debugfs GPIO is not available in current native boot.
+
+Source reconciliation:
+
+- `mdm_subsys_powerup()` waits only for `REG_REQ_ENG` before executing
+  kernel-side `ESOC_PWR_ON`; `REG_CMD_ENG` is not required for the initial
+  power-up path.
+- V891 already proved `ESOC_REQ_IMG` is observable through the request engine,
+  so V895 should not grow into a broader userspace command engine or blind
+  wait-loop experiment.
+- `ESOC_IMG_XFER_DONE` remains useful only as the guarded response that starts
+  the kernel's MDM2AP status check window.
+
+Next candidate:
+
+- V895 bounded `mdm status` IRQ snapshot proof.
+- It should sample `/proc/interrupts` before `IMG_XFER_DONE`, during
+  `GET_STATUS` polling, and after cleanup. `BOOT_DONE` remains blocked unless
+  readiness is proven.

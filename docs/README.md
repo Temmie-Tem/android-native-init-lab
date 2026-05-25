@@ -130,6 +130,7 @@
 
 ### 3. Plans
 
+- `plans/NATIVE_INIT_V894_MDM2AP_READY_SURFACE_PLAN_2026-05-26.md` – MDM2AP status/ready 전환을 관측할 read-only surface를 분류하는 V894 계획
 - `plans/NATIVE_INIT_V893_ESOC_POST_IMG_XFER_CLASSIFIER_PLAN_2026-05-26.md` – V891의 `IMG_XFER_DONE` 이후 `GET_STATUS=0` 원인을 source-backed로 분류하는 V893 계획
 - `plans/NATIVE_INIT_V892_HELPER_V142_ALLOWLIST_DEPLOY_PLAN_2026-05-26.md` – helper `v142`에서 conditional response mode 전역 allowlist 누락을 수정하고 deploy-only로 올리는 V892 계획
 - `plans/NATIVE_INIT_V891_ESOC_CONDITIONAL_RESPONSE_PROOF_PLAN_2026-05-26.md` – `ESOC_REQ_IMG`에 `ESOC_IMG_XFER_DONE`으로 응답하고 status-gated `BOOT_DONE`을 검증하는 V891 계획
@@ -404,6 +405,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V894_MDM2AP_READY_SURFACE_2026-05-26.md` – V894 결과 `/proc/interrupts`의 GPIO 142 `mdm status` IRQ를 다음 readiness observer로 선정
 - `reports/NATIVE_INIT_V893_ESOC_POST_IMG_XFER_CLASSIFIER_2026-05-26.md` – V893 결과 `IMG_XFER_DONE`은 readiness setter가 아니며 MDM2AP status/ready 전환이 다음 blocker임을 분류
 - `reports/NATIVE_INIT_V892_HELPER_V142_ALLOWLIST_DEPLOY_2026-05-26.md` – V892 결과 helper `v142` allowlist repair/build/deploy PASS
 - `reports/NATIVE_INIT_V891_ESOC_CONDITIONAL_RESPONSE_PROOF_2026-05-26.md` – V891 결과 `ESOC_IMG_XFER_DONE` sent, `GET_STATUS` not-ready, cleanup reboot PASS

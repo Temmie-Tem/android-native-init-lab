@@ -25,9 +25,9 @@
 
 ## 현재 Wi-Fi Gate
 
-- 최신 기준: V893 post-image-done classifier pass. Helper `v142` is deployed,
-  `ESOC_IMG_XFER_DONE` succeeds, and the remaining blocker is the MDM2AP
-  status/ready transition after image-done.
+- 최신 기준: V894 MDM2AP ready-surface classifier pass. Helper `v142` is
+  deployed, `ESOC_IMG_XFER_DONE` succeeds, and `/proc/interrupts` GPIO 142
+  `mdm status` is the next read-only readiness observer.
 - V874 결론: `/dev/esoc-0` read-only control path가 live에서 열렸고
   `GET_STATUS`/`GET_ERR_FATAL`은 rc `0`, `GET_LINK_ID`는 errno `22`로
   반환됐다. 결과는 `read-only-ioctl-probe-complete`이며 created nodes cleanup,
@@ -138,6 +138,10 @@
   `MDM2AP_STATUS` line/IRQ가 high가 되어 `mdm->ready = true`가 되는
   경로에 달려 있다. blind `ESOC_BOOT_DONE`은 계속 금지한다. 다음 후보는
   V894 bounded MDM2AP status/ready observer 계획이다.
+- V894 결론: DTS와 current native surface 기준으로
+  `/proc/interrupts`의 `msmgpio-dc 142 Edge mdm status` line이 MDM2AP
+  readiness transition의 read-only observer다. debugfs GPIO는 현재 native
+  boot에서 없다. 다음 후보는 V895 bounded IRQ snapshot proof다.
 
 - 아래 V840-V847 항목은 V874/V875 이전 경로 요약이다.
 - V840 결론: provider-first service-manager/PeripheralManager, CNSS retry,
@@ -4497,3 +4501,25 @@ Samsung bootloader
   no `ESOC_NOTIFY`, no actor start, no Wi-Fi HAL, no scan/connect, no
   credentials, no DHCP/routes, and no external ping.
 - next: V894 bounded MDM2AP status/ready observer planning.
+
+### V894. MDM2AP Ready Surface Classifier
+
+- plan: `docs/plans/NATIVE_INIT_V894_MDM2AP_READY_SURFACE_PLAN_2026-05-26.md`
+- report: `docs/reports/NATIVE_INIT_V894_MDM2AP_READY_SURFACE_2026-05-26.md`
+- classifier: `scripts/revalidation/native_wifi_mdm2ap_ready_surface_v894.py`
+- evidence:
+  - `tmp/wifi/v894-mdm2ap-ready-surface/manifest.json`
+- decision: `v894-mdm2ap-ready-surface-classified`
+- result: read-only PASS. DTS maps MDM2AP status to GPIO `142`, and current
+  native `/proc/interrupts` exposes `msmgpio-dc 142 Edge mdm status`.
+- source reconciliation: `mdm_subsys_powerup()` waits on `REG_REQ_ENG`, then
+  the kernel executes `ESOC_PWR_ON`; `REG_CMD_ENG` is not needed for this
+  initial path. V891 already observed `ESOC_REQ_IMG`, so the next gate should
+  stay focused on the MDM2AP status transition rather than adding a generic
+  command engine or blind request loop.
+- hard gates held: no device mutation, no live eSoC ioctl, no subsystem open,
+  no `ESOC_NOTIFY`, no GPIO export/write, no debugfs/sysfs write, no actor
+  start, no Wi-Fi HAL, no scan/connect, no credentials, no DHCP/routes, and no
+  external ping.
+- next: V895 bounded `mdm status` IRQ snapshot proof around the existing
+  guarded `IMG_XFER_DONE` flow.
