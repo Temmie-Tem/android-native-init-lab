@@ -897,3 +897,51 @@ Next candidate:
 - Still block `REG_CMD_ENG` dependency, direct userspace `CMD_EXE`, explicit
   userspace `PWR_ON`, `ESOC_NOTIFY`, actors, Wi-Fi HAL, scan/connect,
   credentials, DHCP/routes, and external ping.
+
+---
+
+## 27. V884 REQ-registered subsystem-hold observer result
+
+V884 ran the first REQ-registered `/dev/subsys_esoc0` hold window with helper
+`v139`.
+
+Evidence:
+
+- `tmp/wifi/v884-esoc-req-registered-subsys-hold-plan/manifest.json`
+- `tmp/wifi/v884-esoc-req-registered-subsys-hold-live/manifest.json`
+- `tmp/wifi/v884-esoc-req-registered-subsys-hold-reboot-cleanup/`
+- `docs/plans/NATIVE_INIT_V884_REQ_REGISTERED_SUBSYS_HOLD_OBSERVER_PLAN_2026-05-26.md`
+- `docs/reports/NATIVE_INIT_V884_REQ_REGISTERED_SUBSYS_HOLD_OBSERVER_2026-05-26.md`
+
+Decision:
+
+- live runner: `v884-reboot-required`
+- recovery: post-reboot native version returned and selftest stayed `fail=0`
+
+Result:
+
+- `REG_REQ_ENG` returned rc `0`, errno `0`.
+- Passive `ESOC_WAIT_FOR_REQ` returned rc `4`, errno `0`, value `1`.
+- Local OSRC interprets this as request observed: rc `4` is the copied
+  `sizeof(u32)` byte count and value `1` is `ESOC_REQ_IMG`.
+- `/dev/subsys_esoc0` open did not return, was not reaped after TERM/KILL, and
+  required reboot cleanup.
+- `mss`, `mdm3`, and `rpmsg` stayed `OFFLINING`/empty across before, hold, and
+  after snapshots.
+
+Guardrails held: V884 did not execute `REG_CMD_ENG`, direct userspace
+`CMD_EXE`, explicit userspace `PWR_ON`, `ESOC_NOTIFY`, Android actors, Wi-Fi
+HAL, scan/connect, credentials, DHCP/routes, or external ping.
+
+Route correction:
+
+- The earlier assumption that SDX50M may not emit `ESOC_REQ_IMG` is wrong for
+  this live path.
+- The next blocker is the missing Android-equivalent response to
+  `ESOC_REQ_IMG`, not another `/dev/subsys_esoc0` open retry.
+
+Next candidate:
+
+- V885 host-only Android `mdm_helper` image-request response classifier.
+- Determine which image transfer path and `ESOC_NOTIFY` value Android uses
+  before any new live eSoC ioctl or subsystem open attempt.

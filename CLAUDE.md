@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V883 deployed helper `v139`; next is V884 bounded live REQ-registered subsystem-hold observer preflight with passive `ESOC_WAIT_FOR_REQ` logging and no Wi-Fi bring-up
+- **Active research cycle**: V884 observed `ESOC_REQ_IMG` after `REG_REQ_ENG`; next is V885 host-only Android `mdm_helper` image-request response classifier before any new live eSoC attempt
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -596,6 +596,7 @@ path should be closed for this blocker.
 | v881 | helper v138 deploy-only: serial deploy pass; remote sha/mode marker, selftest, actor-clean, and Wi-Fi-link-clean pass; next is passive WAIT_FOR_REQ observer source build |
 | v882 | helper v139 source/build-only: adds passive `ESOC_WAIT_FOR_REQ` observer child and reboot-required cleanup markers; no deploy or live eSoC ioctl |
 | v883 | helper v139 deploy-only: serial deploy pass; remote sha/mode marker, selftest, actor-clean, and Wi-Fi-link-clean pass; next is bounded live REQ-registered subsystem-hold observer |
+| v884 | REQ-registered subsystem-hold live gate: `REG_REQ_ENG rc0`, passive `ESOC_WAIT_FOR_REQ rc4 value1` = `ESOC_REQ_IMG`, `/dev/subsys_esoc0` remained D-state and recovery reboot restored health |
 
 ### Safety additions (Wi-Fi research)
 
@@ -699,7 +700,15 @@ path should be closed for this blocker.
   Wi-Fi bring-up. Next is V884 bounded live REQ-registered subsystem-hold
   observer preflight: rely on `REG_REQ_ENG`, record passive
   `ESOC_WAIT_FOR_REQ`, and treat absent `ESOC_REQ_IMG` as diagnostic data rather
-  than immediate failure.
+  than immediate failure. V884 then proved `REG_REQ_ENG` succeeds and
+  `ESOC_WAIT_FOR_REQ` returns rc `4`, errno `0`, value `1`. Local OSRC maps this
+  to copied `sizeof(u32)` plus `ESOC_REQ_IMG`, so SDX50M does emit the image
+  request in this path. `/dev/subsys_esoc0` remained blocked in D-state because
+  native did not answer the request with Android-equivalent image
+  transfer/notify handling; recovery reboot restored native v724 health and
+  selftest fail0. Next is V885 host-only Android `mdm_helper` image-request
+  response classification. Do not retry `/dev/subsys_esoc0` live until the
+  `ESOC_REQ_IMG` response contract is known.
   Keep Wi-Fi HAL, scan/connect, DHCP/routes, credentials, external ping, live
   direct userspace `CMD_EXE`/explicit userspace `PWR_ON`, `NOTIFY`, subsystem
   writes, GPIO/sysfs/debugfs writes, module load/unload, and boot image writes

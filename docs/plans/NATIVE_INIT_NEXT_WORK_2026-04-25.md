@@ -25,7 +25,7 @@
 
 ## 현재 Wi-Fi Gate
 
-- 최신 기준: V883 pass.
+- 최신 기준: V884 evidence + reboot cleanup complete.
 - V874 결론: `/dev/esoc-0` read-only control path가 live에서 열렸고
   `GET_STATUS`/`GET_ERR_FATAL`은 rc `0`, `GET_LINK_ID`는 errno `22`로
   반환됐다. 결과는 `read-only-ioctl-probe-complete`이며 created nodes cleanup,
@@ -84,6 +84,13 @@
   보지 않는다. 직접 userspace `CMD_EXE`, 명시적 userspace `PWR_ON`,
   `ESOC_NOTIFY`, actor/HAL/scan/connect/credentials/DHCP/routes/external ping은
   계속 막는다.
+- V884 결론: REQ-registered subsystem-hold live gate가 `REG_REQ_ENG rc0` 뒤
+  `ESOC_WAIT_FOR_REQ rc=4 errno=0 value=1`을 기록했다. 로컬 OSRC 기준 rc `4`는
+  copied `sizeof(u32)`이고 value `1`은 `ESOC_REQ_IMG`다. 즉 SDX50M은 실제로
+  image request를 냈고, native가 Android-equivalent image transfer/notify
+  sequence를 수행하지 않아 `/dev/subsys_esoc0` open이 D-state로 남았다.
+  Recovery reboot 후 native version/selftest는 정상 복구됐다. 다음 후보는
+  V885 host-only Android `mdm_helper` image-request response classifier다.
 
 - 아래 V840-V847 항목은 V874/V875 이전 경로 요약이다.
 - V840 결론: provider-first service-manager/PeripheralManager, CNSS retry,
@@ -4243,3 +4250,26 @@ Samsung bootloader
 - next: V884 bounded live REQ-registered subsystem-hold observer preflight.
   The next gate should rely on `REG_REQ_ENG`, record passive
   `ESOC_WAIT_FOR_REQ`, and treat absent `ESOC_REQ_IMG` as diagnostic data.
+
+### V884. REQ-registered Subsystem-hold Observer
+
+- plan: `docs/plans/NATIVE_INIT_V884_REQ_REGISTERED_SUBSYS_HOLD_OBSERVER_PLAN_2026-05-26.md`
+- report: `docs/reports/NATIVE_INIT_V884_REQ_REGISTERED_SUBSYS_HOLD_OBSERVER_2026-05-26.md`
+- live runner: `scripts/revalidation/native_wifi_esoc_req_registered_subsys_hold_v884.py`
+- evidence:
+  - `tmp/wifi/v884-esoc-req-registered-subsys-hold-plan/manifest.json`
+  - `tmp/wifi/v884-esoc-req-registered-subsys-hold-live/manifest.json`
+  - `tmp/wifi/v884-esoc-req-registered-subsys-hold-reboot-cleanup/`
+- decision: `v884-reboot-required`
+- result: bounded live evidence PASS, cleanup required. `REG_REQ_ENG` returned
+  rc `0`. Passive `ESOC_WAIT_FOR_REQ` returned rc `4`, errno `0`, value `1`,
+  which local OSRC maps to copied `sizeof(u32)` plus `ESOC_REQ_IMG`.
+  `/dev/subsys_esoc0` open did not return and required recovery reboot.
+- cleanup: reboot returned to native `v724`; post-reboot `BOOT OK` and
+  selftest `fail=0` were confirmed.
+- hard gates held: no `REG_CMD_ENG`, no direct userspace `CMD_EXE`, no
+  explicit userspace `PWR_ON`, no `ESOC_NOTIFY`, no actor start, no Wi-Fi HAL,
+  scan/connect, DHCP/routes, credentials, or external ping.
+- next: V885 host-only Android `mdm_helper` image-request response classifier.
+  Do not retry `/dev/subsys_esoc0` live until the `ESOC_REQ_IMG` response
+  contract is known.
