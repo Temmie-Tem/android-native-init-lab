@@ -88,7 +88,7 @@
 #define IOPRIO_PRIO_VALUE(class_value, data) (((class_value) << IOPRIO_CLASS_SHIFT) | (data))
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v155"
+#define EXECNS_VERSION "a90_android_execns_probe v156"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -9946,6 +9946,7 @@ static int append_mdm_helper_lower_contract_snapshot(struct buffer *buf,
                          phase);
 }
 
+
 static int append_wifi_window_surface_capture(struct buffer *buf, const char *phase) {
     bool proc_qrtr_captured = false;
     bool dev_filtered_captured = false;
@@ -17053,6 +17054,217 @@ static bool composite_child_postflight_safe(const struct composite_child *child)
     return true;
 }
 
+static bool composite_child_alive_for_snapshot(const struct composite_child *child) {
+    return child != NULL && child->pid > 0 && !child->child_done && kill(child->pid, 0) == 0;
+}
+
+static int append_mdm_helper_queue_timing_child(struct buffer *buf,
+                                                const char *phase,
+                                                const char *name,
+                                                const struct composite_child *child) {
+    bool alive = composite_child_alive_for_snapshot(child);
+    char state = alive ? read_proc_state(child->pid) : '-';
+
+    return append_format(buf,
+                         "mdm_helper_queue_timing.%s.%s.pid=%ld\n"
+                         "mdm_helper_queue_timing.%s.%s.alive=%d\n"
+                         "mdm_helper_queue_timing.%s.%s.child_done=%d\n"
+                         "mdm_helper_queue_timing.%s.%s.observable=%d\n"
+                         "mdm_helper_queue_timing.%s.%s.state=%c\n"
+                         "mdm_helper_queue_timing.%s.%s.exit_code=%d\n"
+                         "mdm_helper_queue_timing.%s.%s.signal=%d\n"
+                         "mdm_helper_queue_timing.%s.%s.term_sent=%d\n"
+                         "mdm_helper_queue_timing.%s.%s.kill_sent=%d\n"
+                         "mdm_helper_queue_timing.%s.%s.reaped=%d\n",
+                         phase,
+                         name,
+                         child != NULL ? (long)child->pid : -1L,
+                         phase,
+                         name,
+                         alive ? 1 : 0,
+                         phase,
+                         name,
+                         child != NULL && child->child_done ? 1 : 0,
+                         phase,
+                         name,
+                         child != NULL && child->observable ? 1 : 0,
+                         phase,
+                         name,
+                         state,
+                         phase,
+                         name,
+                         child != NULL ? child->exit_code : -1,
+                         phase,
+                         name,
+                         child != NULL ? child->signal : 0,
+                         phase,
+                         name,
+                         child != NULL && child->term_sent ? 1 : 0,
+                         phase,
+                         name,
+                         child != NULL && child->kill_sent ? 1 : 0,
+                         phase,
+                         name,
+                         child != NULL && child->reaped ? 1 : 0);
+}
+
+static int append_mdm_helper_queue_timing_snapshot(struct buffer *buf,
+                                                   const char *phase,
+                                                   const struct composite_child *per_mgr,
+                                                   const struct composite_child *mdm_helper) {
+    char label[128];
+    int per_mgr_subsys_modem = -1;
+    int per_mgr_subsys_esoc0 = -1;
+    int per_mgr_esoc0 = -1;
+    int mdm_esoc0 = -1;
+    int mdm_subsys_esoc0 = -1;
+    int mdm_mhi_pipe = -1;
+    int pm_service_count = -1;
+    int pm_proxy_count = -1;
+    int pm_proxy_helper_count = -1;
+    int ks_count = -1;
+    int mhi_cmdline_count = -1;
+    bool per_mgr_alive;
+    bool mdm_alive;
+
+    per_mgr_alive = composite_child_alive_for_snapshot(per_mgr);
+    mdm_alive = composite_child_alive_for_snapshot(mdm_helper);
+    if (append_format(buf,
+                      "mdm_helper_queue_timing.%s.begin=1\n"
+                      "mdm_helper_queue_timing.%s.monotonic_ms=%ld\n",
+                      phase,
+                      phase,
+                      monotonic_ms()) < 0 ||
+        append_mdm_helper_queue_timing_child(buf, phase, "per_mgr", per_mgr) < 0 ||
+        append_mdm_helper_queue_timing_child(buf, phase, "mdm_helper", mdm_helper) < 0) {
+        return -1;
+    }
+    if (per_mgr_alive) {
+        if (snprintf(label, sizeof(label), "%s_per_mgr_subsys_modem", phase) >= (int)sizeof(label) ||
+            append_proc_fd_target_match_scan(buf,
+                                             per_mgr->pid,
+                                             "mdm_helper_queue_timing",
+                                             label,
+                                             "/dev/subsys_modem",
+                                             &per_mgr_subsys_modem) < 0 ||
+            snprintf(label, sizeof(label), "%s_per_mgr_subsys_esoc0", phase) >= (int)sizeof(label) ||
+            append_proc_fd_target_match_scan(buf,
+                                             per_mgr->pid,
+                                             "mdm_helper_queue_timing",
+                                             label,
+                                             "/dev/subsys_esoc0",
+                                             &per_mgr_subsys_esoc0) < 0 ||
+            snprintf(label, sizeof(label), "%s_per_mgr_esoc0", phase) >= (int)sizeof(label) ||
+            append_proc_fd_target_match_scan(buf,
+                                             per_mgr->pid,
+                                             "mdm_helper_queue_timing",
+                                             label,
+                                             "/dev/esoc-0",
+                                             &per_mgr_esoc0) < 0) {
+            return -1;
+        }
+    }
+    if (mdm_alive) {
+        if (snprintf(label, sizeof(label), "%s_mdm_helper_esoc0", phase) >= (int)sizeof(label) ||
+            append_proc_fd_target_match_scan(buf,
+                                             mdm_helper->pid,
+                                             "mdm_helper_queue_timing",
+                                             label,
+                                             "/dev/esoc-0",
+                                             &mdm_esoc0) < 0 ||
+            snprintf(label, sizeof(label), "%s_mdm_helper_subsys_esoc0", phase) >= (int)sizeof(label) ||
+            append_proc_fd_target_match_scan(buf,
+                                             mdm_helper->pid,
+                                             "mdm_helper_queue_timing",
+                                             label,
+                                             "/dev/subsys_esoc0",
+                                             &mdm_subsys_esoc0) < 0 ||
+            snprintf(label, sizeof(label), "%s_mdm_helper_mhi_pipe", phase) >= (int)sizeof(label) ||
+            append_proc_fd_target_match_scan(buf,
+                                             mdm_helper->pid,
+                                             "mdm_helper_queue_timing",
+                                             label,
+                                             "/dev/mhi_0305_01.01.00_pipe_10",
+                                             &mdm_mhi_pipe) < 0) {
+            return -1;
+        }
+    }
+    if (snprintf(label, sizeof(label), "%s_pm_service", phase) >= (int)sizeof(label) ||
+        append_process_cmdline_match_scan(buf,
+                                          "mdm_helper_queue_timing",
+                                          label,
+                                          "/vendor/bin/pm-service",
+                                          8,
+                                          &pm_service_count) < 0 ||
+        snprintf(label, sizeof(label), "%s_pm_proxy", phase) >= (int)sizeof(label) ||
+        append_process_cmdline_match_scan(buf,
+                                          "mdm_helper_queue_timing",
+                                          label,
+                                          "/vendor/bin/pm-proxy",
+                                          8,
+                                          &pm_proxy_count) < 0 ||
+        snprintf(label, sizeof(label), "%s_pm_proxy_helper", phase) >= (int)sizeof(label) ||
+        append_process_cmdline_match_scan(buf,
+                                          "mdm_helper_queue_timing",
+                                          label,
+                                          "/vendor/bin/pm_proxy_helper",
+                                          8,
+                                          &pm_proxy_helper_count) < 0 ||
+        snprintf(label, sizeof(label), "%s_ks", phase) >= (int)sizeof(label) ||
+        append_process_cmdline_match_scan(buf,
+                                          "mdm_helper_queue_timing",
+                                          label,
+                                          "/vendor/bin/ks",
+                                          8,
+                                          &ks_count) < 0 ||
+        snprintf(label, sizeof(label), "%s_mhi_pipe_cmdline", phase) >= (int)sizeof(label) ||
+        append_process_cmdline_match_scan(buf,
+                                          "mdm_helper_queue_timing",
+                                          label,
+                                          "/dev/mhi_0305_01.01.00_pipe_10",
+                                          8,
+                                          &mhi_cmdline_count) < 0) {
+        return -1;
+    }
+    return append_format(buf,
+                         "mdm_helper_queue_timing.%s.per_mgr_subsys_modem_count=%d\n"
+                         "mdm_helper_queue_timing.%s.per_mgr_subsys_esoc0_count=%d\n"
+                         "mdm_helper_queue_timing.%s.per_mgr_esoc0_count=%d\n"
+                         "mdm_helper_queue_timing.%s.mdm_helper_esoc0_count=%d\n"
+                         "mdm_helper_queue_timing.%s.mdm_helper_subsys_esoc0_count=%d\n"
+                         "mdm_helper_queue_timing.%s.mdm_helper_mhi_pipe_count=%d\n"
+                         "mdm_helper_queue_timing.%s.pm_service_count=%d\n"
+                         "mdm_helper_queue_timing.%s.pm_proxy_count=%d\n"
+                         "mdm_helper_queue_timing.%s.pm_proxy_helper_count=%d\n"
+                         "mdm_helper_queue_timing.%s.ks_count=%d\n"
+                         "mdm_helper_queue_timing.%s.mhi_cmdline_count=%d\n"
+                         "mdm_helper_queue_timing.%s.end=1\n",
+                         phase,
+                         per_mgr_subsys_modem,
+                         phase,
+                         per_mgr_subsys_esoc0,
+                         phase,
+                         per_mgr_esoc0,
+                         phase,
+                         mdm_esoc0,
+                         phase,
+                         mdm_subsys_esoc0,
+                         phase,
+                         mdm_mhi_pipe,
+                         phase,
+                         pm_service_count,
+                         phase,
+                         pm_proxy_count,
+                         phase,
+                         pm_proxy_helper_count,
+                         phase,
+                         ks_count,
+                         phase,
+                         mhi_cmdline_count,
+                         phase);
+}
+
+
 static bool composite_child_runtime_gap(const struct composite_child *child, bool timed_out) {
     if (timed_out && child->observable && child->term_sent && !child->exited_before_timeout) {
         if (child->signal == SIGTERM ||
@@ -17856,6 +18068,10 @@ static int run_wifi_companion_mdm_helper_runtime_contract_capture_guarded(const 
         append_private_android_node_status(stdout_buf, paths, "subsys_modem", "subsys_modem") < 0 ||
         append_mdm_helper_runtime_path_visibility(stdout_buf, paths, "before") < 0 ||
         append_mdm_helper_lower_contract_snapshot(stdout_buf, paths, "runtime_contract_before") < 0 ||
+        append_mdm_helper_queue_timing_snapshot(stdout_buf,
+                                                "before_property_shim",
+                                                per_mgr,
+                                                mdm_helper) < 0 ||
         mirror_mdm_helper_runtime_mhi_pipe_if_present(stdout_buf, paths, "before") < 0 ||
         append_subsys_hold_snapshot(stdout_buf, "runtime_contract_before") < 0 ||
         append_wifi_cnss2_focus_capture(stdout_buf, "runtime_contract_before") < 0) {
@@ -17934,6 +18150,14 @@ static int run_wifi_companion_mdm_helper_runtime_contract_capture_guarded(const 
         stop_property_service_shim(&property_shim, paths, stdout_buf);
         return -1;
     }
+    if (append_mdm_helper_queue_timing_snapshot(stdout_buf,
+                                                "after_per_mgr_settle",
+                                                per_mgr,
+                                                mdm_helper) < 0) {
+        composite_cleanup_children(children, 1, stdout_buf, stderr_buf);
+        stop_property_service_shim(&property_shim, paths, stdout_buf);
+        return -1;
+    }
     if (composite_spawn_child(cfg, paths, mdm_helper, stdout_buf) < 0) {
         composite_cleanup_children(children, 1, stdout_buf, stderr_buf);
         stop_property_service_shim(&property_shim, paths, stdout_buf);
@@ -17941,6 +18165,14 @@ static int run_wifi_companion_mdm_helper_runtime_contract_capture_guarded(const 
                        "mdm_helper_runtime_contract.result=manual-review-required\n"
                        "mdm_helper_runtime_contract.reason=mdm-helper-spawn-failed\n"
                        "mdm_helper_runtime_contract.end=1\n");
+        return -1;
+    }
+    if (append_mdm_helper_queue_timing_snapshot(stdout_buf,
+                                                "after_mdm_helper_spawn",
+                                                per_mgr,
+                                                mdm_helper) < 0) {
+        composite_cleanup_children(children, 2, stdout_buf, stderr_buf);
+        stop_property_service_shim(&property_shim, paths, stdout_buf);
         return -1;
     }
 
@@ -17992,6 +18224,10 @@ static int run_wifi_companion_mdm_helper_runtime_contract_capture_guarded(const 
                                                   "/dev/mhi_0305_01.01.00_pipe_10",
                                                   8,
                                                   &mhi_cmdline_count_window) < 0 ||
+                append_mdm_helper_queue_timing_snapshot(stdout_buf,
+                                                        "window",
+                                                        per_mgr,
+                                                        mdm_helper) < 0 ||
                 append_mdm_helper_runtime_path_visibility(stdout_buf, paths, "window") < 0 ||
                 append_mdm_helper_lower_contract_snapshot(stdout_buf, paths, "runtime_contract_window") < 0 ||
                 append_generic_stall_snapshot_capture(stdout_buf,
@@ -18045,6 +18281,10 @@ static int run_wifi_companion_mdm_helper_runtime_contract_capture_guarded(const 
                                               "/dev/mhi_0305_01.01.00_pipe_10",
                                               8,
                                               &mhi_cmdline_count_final) < 0 ||
+            append_mdm_helper_queue_timing_snapshot(stdout_buf,
+                                                    "final",
+                                                    per_mgr,
+                                                    mdm_helper) < 0 ||
             append_mdm_helper_runtime_path_visibility(stdout_buf, paths, "final") < 0 ||
             append_mdm_helper_lower_contract_snapshot(stdout_buf, paths, "runtime_contract_final") < 0 ||
             append_generic_stall_snapshot_capture(stdout_buf,
@@ -18074,6 +18314,10 @@ static int run_wifi_companion_mdm_helper_runtime_contract_capture_guarded(const 
     }
     if (append_mdm_helper_runtime_path_visibility(stdout_buf, paths, "after") < 0 ||
         append_mdm_helper_lower_contract_snapshot(stdout_buf, paths, "runtime_contract_after") < 0 ||
+        append_mdm_helper_queue_timing_snapshot(stdout_buf,
+                                                "after_cleanup",
+                                                per_mgr,
+                                                mdm_helper) < 0 ||
         append_format(stdout_buf,
                       "mdm_helper_runtime_contract.mdm_helper_observable=%d\n"
                       "mdm_helper_runtime_contract.window_snapshot_captured=%d\n"
