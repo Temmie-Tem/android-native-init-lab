@@ -25,13 +25,16 @@
 
 ## 현재 Wi-Fi Gate
 
-- 최신 기준: V838 pass.
+- 최신 기준: V839 pass.
 - V838 결론: service-notifier listener는 service `74`보다 약 `637ms` 먼저
   등록됐고 service `74` + `5s` 이상 유지됐지만 WLAN-PD `UP` indication은
   없었다.
 - 따라서 단순 timing blocker는 닫혔다.
-- 다음 후보: Android-only explicit WLAN-PD state-up trigger를
-  service-manager/HAL/scan/connect 이전, lower userspace/QMI 경계에서 분류한다.
+- V839 결론: Android V833 positive-control, native V838, V700 provider-first
+  CNSS retry를 비교하면 다음 최소 gate는 provider-first CNSS retry와
+  prearmed WLAN-PD listener의 결합이다.
+- 다음 후보: V840 provider-first prearmed service-notifier listener.
+  Wi-Fi HAL, scan/connect, DHCP/routes, credentials, external ping은 계속 막는다.
 
 ---
 

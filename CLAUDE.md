@@ -157,7 +157,7 @@ New `vNNN` experiment scripts must:
 - Gate live action behind explicit `--allow-*` + `--assume-yes` flags
 - Run `version`, `status`, `bootstatus`, `selftest verbose` as postflight regression
 
-## Wi-Fi bring-up research state (v598–v836, active)
+## Wi-Fi bring-up research state (v598–v839, active)
 
 Goal: bring up `wlan0` from native init without Android userspace.
 
@@ -242,6 +242,15 @@ publication time; response remained `UNINIT`, no indication arrived, and
 WLFW/BDF/wiphy/`wlan0` stayed absent. Cleanup reboot restored healthy native
 v724. V838 should make listener registration earlier or concurrent with
 service-notifier publication before widening to service-manager/HAL/connect.
+
+V838 live PASS added helper v130 `service-notifier-listener-only` and prearmed
+the listener before the lower CNSS companion stack. The listener registered
+about `637 ms` before service `74`, remained open through service `74` + `5s`,
+and still received no WLAN-PD `UP` indication. This closes the simple timing
+explanation. V839 host-only PASS then compared V833 Android positive-control,
+V838, and V700 provider-first CNSS retry. It selected V840: combine
+provider-first CNSS retry with the V838-style prearmed WLAN-PD listener, still
+below Wi-Fi HAL, scan/connect, DHCP/routes, and external ping.
 
 ```text
 servloc:64:257;ssctl:43:4098;servnotif:66:18945,46081;wlfw:69:1
@@ -429,6 +438,7 @@ path should be closed for this blocker.
 | v835 | native lower-window replay still reports `uninit` with service74/180 present; ordering/model/timing-as-placed blockers narrowed |
 | v837 | timestamped listener hold proves the listener opened about `613ms` after service74; next is concurrent prearm |
 | v838 | concurrent prearmed listener registers about `637ms` before service74, stays open through service74+5s, and still receives no WLAN-PD `UP`; timing blocker ruled out |
+| v839 | host-only classifier selects provider-first CNSS retry plus prearmed WLAN-PD listener as V840 |
 
 ### Safety additions (Wi-Fi research)
 
@@ -437,8 +447,9 @@ path should be closed for this blocker.
 - No `wlan.ko` load/unload without explicit approval
 - `firmware_class.path` rollback value: `/vendor/firmware_mnt/image`
 - `sda29` mount must be read-only in all proof windows
-- Current Wi-Fi gate after V838: classify the Android-only explicit WLAN-PD
-  state-up trigger below service-manager/HAL and before scan/connect.
+- Current Wi-Fi gate after V839: V840 should combine provider-first CNSS retry
+  with the prearmed WLAN-PD listener. Keep Wi-Fi HAL, scan/connect, DHCP/routes,
+  credentials, and external ping blocked until WLAN-PD `UP` or WLFW/BDF moves.
 
 ## Docs structure
 
