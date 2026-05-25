@@ -130,6 +130,7 @@
 
 ### 3. Plans
 
+- `plans/NATIVE_INIT_V908_MDM_HELPER_RUNTIME_CONTRACT_CAPTURE_PLAN_2026-05-26.md` – helper `v148` runtime-contract capture를 selinuxfs mount/cleanup + property shim + `per_mgr_light` 순서로 bounded live 검증하는 V908 계획
 - `plans/NATIVE_INIT_V907_HELPER_V148_DEPLOY_PLAN_2026-05-26.md` – helper `v148`를 `/cache/bin/a90_android_execns_probe`로 deploy-only 배포하고 원격 checksum/mode parity를 증명하는 V907 계획
 - `plans/NATIVE_INIT_V906_MDM_HELPER_RUNTIME_CONTRACT_HELPER_PLAN_2026-05-26.md` – helper `v148`에 property shim 기반 `mdm_helper` runtime-contract capture mode를 source/build-only로 추가하는 V906 계획
 - `plans/NATIVE_INIT_V905_MDM_HELPER_RUNTIME_REPAIR_DESIGN_PLAN_2026-05-26.md` – V896 Android dmesg/Magisk 재캡처 필요성과 V904 이후 `mdm_helper` runtime-input repair 방향을 host-only로 분류하는 V905 계획
@@ -418,6 +419,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V908_MDM_HELPER_RUNTIME_CONTRACT_CAPTURE_2026-05-26.md` – V908 결과 `mdm_helper`가 property/per_mgr runtime contract 아래 `/dev/esoc-0` fd까지 도달했지만 `ks`/MHI/WLFW는 아직 없음
 - `reports/NATIVE_INIT_V907_HELPER_V148_DEPLOY_2026-05-26.md` – V907 결과 helper `v148` deploy-only PASS, remote sha/mode marker/selftest/actor-clean/Wi-Fi-link-clean 확인
 - `reports/NATIVE_INIT_V906_MDM_HELPER_RUNTIME_CONTRACT_HELPER_BUILD_2026-05-26.md` – V906 결과 helper `v148`에 `mdm_helper` runtime-contract capture mode, context mapping, property shim, per_mgr-light ordering, MHI mirror를 source/build-only로 추가
 - `reports/NATIVE_INIT_V905_MDM_HELPER_RUNTIME_REPAIR_DESIGN_2026-05-26.md` – V905 결과 Android dmesg/Magisk 재캡처는 즉시 blocker가 아니며 다음은 property shim 기반 `mdm_helper` runtime-contract helper source/build-only 단위임을 분류
