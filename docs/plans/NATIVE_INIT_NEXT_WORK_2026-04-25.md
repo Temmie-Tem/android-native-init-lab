@@ -25,7 +25,7 @@
 
 ## 현재 Wi-Fi Gate
 
-- 최신 기준: V882 pass.
+- 최신 기준: V883 pass.
 - V874 결론: `/dev/esoc-0` read-only control path가 live에서 열렸고
   `GET_STATUS`/`GET_ERR_FATAL`은 rc `0`, `GET_LINK_ID`는 errno `22`로
   반환됐다. 결과는 `read-only-ioctl-probe-complete`이며 created nodes cleanup,
@@ -75,6 +75,15 @@
   child와 cleanup/reboot-required markers가 추가됐고 deploy/device
   contact/live eSoC ioctl/subsystem open/Wi-Fi bring-up은 없었다. 다음 후보는
   V883 helper `v139` deploy-only proof다.
+- V883 결론: helper `v139` deploy-only가 통과했다. Remote sha/mode marker,
+  selftest fail0, actor-clean, Wi-Fi-link-clean이 pass였고 live eSoC ioctl,
+  `/dev/subsys_esoc0` open, actor start, Wi-Fi bring-up은 없었다. 다음 후보는
+  V884 bounded live REQ-registered subsystem-hold observer preflight다.
+  V884는 `REG_REQ_ENG`를 핵심 precondition으로 보고 passive
+  `ESOC_WAIT_FOR_REQ` 결과를 기록하되, `ESOC_REQ_IMG` 부재를 즉시 실패로
+  보지 않는다. 직접 userspace `CMD_EXE`, 명시적 userspace `PWR_ON`,
+  `ESOC_NOTIFY`, actor/HAL/scan/connect/credentials/DHCP/routes/external ping은
+  계속 막는다.
 
 - 아래 V840-V847 항목은 V874/V875 이전 경로 요약이다.
 - V840 결론: provider-first service-manager/PeripheralManager, CNSS retry,
@@ -4213,3 +4222,24 @@ Samsung bootloader
   `/dev/subsys_esoc0` open, no `ESOC_NOTIFY`, no actor start, no Wi-Fi HAL,
   scan/connect, DHCP/routes, credentials, or external ping.
 - next: V883 helper `v139` deploy-only checksum/version/mode proof.
+
+### V883. Helper v139 Deploy-only Proof
+
+- plan: `docs/plans/NATIVE_INIT_V883_HELPER_V139_DEPLOY_PLAN_2026-05-26.md`
+- report: `docs/reports/NATIVE_INIT_V883_HELPER_V139_DEPLOY_2026-05-26.md`
+- deploy wrapper: `scripts/revalidation/wifi_execns_helper_v139_deploy_preflight.py`
+- evidence:
+  - `tmp/wifi/v883-execns-helper-v139-plan/manifest.json`
+  - `tmp/wifi/v883-execns-helper-v139-preflight/manifest.json`
+  - `tmp/wifi/v883-execns-helper-v139-deploy-preflight/manifest.json`
+  - `tmp/wifi/v883-execns-helper-v139-postdeploy/manifest.json`
+- decision: `execns-helper-v139-deploy-pass`
+- result: deploy-only PASS. Helper `v139` was installed by serial
+  appendfile/uudecode using 1850-byte chunks. Remote sha, helper marker, eSoC
+  REQ-registered subsystem-hold mode token, selftest fail0, actor-clean, and
+  Wi-Fi-link-clean all passed.
+- hard gates held: no live eSoC ioctl, no `/dev/subsys_esoc0` open, no actor
+  start, no Wi-Fi HAL, scan/connect, DHCP/routes, credentials, or external ping.
+- next: V884 bounded live REQ-registered subsystem-hold observer preflight.
+  The next gate should rely on `REG_REQ_ENG`, record passive
+  `ESOC_WAIT_FOR_REQ`, and treat absent `ESOC_REQ_IMG` as diagnostic data.

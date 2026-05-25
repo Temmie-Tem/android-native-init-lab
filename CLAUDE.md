@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V867 proved helper `v134` PM init-contract markers execute, but `pm_proxy_helper` blocks in D-state and needs reboot cleanup; next is V868 host-only/read-only `pm_proxy_helper` and SELinux transition classification
+- **Active research cycle**: V883 deployed helper `v139`; next is V884 bounded live REQ-registered subsystem-hold observer preflight with passive `ESOC_WAIT_FOR_REQ` logging and no Wi-Fi bring-up
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -595,6 +595,7 @@ path should be closed for this blocker.
 | v880 | helper v138 source/build-only: adds fail-closed REQ-registered subsystem-hold mode and repairs stale open errno reporting |
 | v881 | helper v138 deploy-only: serial deploy pass; remote sha/mode marker, selftest, actor-clean, and Wi-Fi-link-clean pass; next is passive WAIT_FOR_REQ observer source build |
 | v882 | helper v139 source/build-only: adds passive `ESOC_WAIT_FOR_REQ` observer child and reboot-required cleanup markers; no deploy or live eSoC ioctl |
+| v883 | helper v139 deploy-only: serial deploy pass; remote sha/mode marker, selftest, actor-clean, and Wi-Fi-link-clean pass; next is bounded live REQ-registered subsystem-hold observer |
 
 ### Safety additions (Wi-Fi research)
 
@@ -692,7 +693,13 @@ path should be closed for this blocker.
   static build passed with sha256
   `077ced65ae5b0b546ecdf3b1bb0c808d3ec34bfa2462516e6ceba170b18f23c5`, with no
   deploy, device contact, live eSoC ioctl, subsystem open, actors, or Wi-Fi
-  bring-up. Next is V883 helper `v139` deploy-only checksum/version/mode proof.
+  bring-up. V883 then deployed helper `v139` by serial appendfile; remote
+  sha/mode marker, selftest fail0, actor-clean, and Wi-Fi-link-clean passed,
+  with no live eSoC ioctl, no `/dev/subsys_esoc0` open, no actors, and no
+  Wi-Fi bring-up. Next is V884 bounded live REQ-registered subsystem-hold
+  observer preflight: rely on `REG_REQ_ENG`, record passive
+  `ESOC_WAIT_FOR_REQ`, and treat absent `ESOC_REQ_IMG` as diagnostic data rather
+  than immediate failure.
   Keep Wi-Fi HAL, scan/connect, DHCP/routes, credentials, external ping, live
   direct userspace `CMD_EXE`/explicit userspace `PWR_ON`, `NOTIFY`, subsystem
   writes, GPIO/sysfs/debugfs writes, module load/unload, and boot image writes

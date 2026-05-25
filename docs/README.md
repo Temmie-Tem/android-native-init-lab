@@ -130,6 +130,7 @@
 
 ### 3. Plans
 
+- `plans/NATIVE_INIT_V883_HELPER_V139_DEPLOY_PLAN_2026-05-26.md` – helper `v139`을 `/cache/bin/a90_android_execns_probe`에 deploy-only로 올리는 V883 계획
 - `plans/NATIVE_INIT_V882_PASSIVE_WAIT_FOR_REQ_HELPER_PLAN_2026-05-26.md` – helper `v139`에 passive `ESOC_WAIT_FOR_REQ` observer support를 source/build-only로 추가하는 V882 계획
 - `plans/NATIVE_INIT_V881_HELPER_V138_DEPLOY_PLAN_2026-05-26.md` – helper `v138`을 `/cache/bin/a90_android_execns_probe`에 deploy-only로 올리는 V881 계획
 - `plans/NATIVE_INIT_V880_REQ_REGISTERED_SUBSYS_HOLD_HELPER_PLAN_2026-05-26.md` – helper `v138`에 fail-closed REQ-registered subsystem-hold preflight mode를 source/build-only로 추가하는 V880 계획
@@ -393,6 +394,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V883_HELPER_V139_DEPLOY_2026-05-26.md` – V883 결과 helper `v139` deploy-only PASS, remote sha/mode marker/selftest/actor-clean/Wi-Fi-link-clean 확인
 - `reports/NATIVE_INIT_V882_PASSIVE_WAIT_FOR_REQ_HELPER_BUILD_2026-05-26.md` – V882 결과 helper `v139` static build PASS, passive `ESOC_WAIT_FOR_REQ` observer support 추가
 - `reports/NATIVE_INIT_V881_HELPER_V138_DEPLOY_2026-05-26.md` – V881 결과 helper `v138` deploy-only PASS, remote sha/mode marker/selftest/actor-clean/Wi-Fi-link-clean 확인과 V882 passive WAIT_FOR_REQ observer route 선정
 - `reports/NATIVE_INIT_V880_REQ_REGISTERED_SUBSYS_HOLD_HELPER_BUILD_2026-05-26.md` – V880 결과 helper `v138` static build PASS, stale-open-errno repair와 REQ-registered subsystem-hold preflight mode 추가

@@ -852,3 +852,48 @@ Next candidate:
 - V883 helper `v139` deploy-only checksum/version/mode proof.
 - Still block live eSoC ioctls, `/dev/subsys_esoc0` open, `ESOC_NOTIFY`,
   actors, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, and external ping.
+
+---
+
+## 26. V883 helper v139 deploy result
+
+V883 deployed helper `v139` to `/cache/bin/a90_android_execns_probe`.
+
+Evidence:
+
+- `tmp/wifi/v883-execns-helper-v139-plan/manifest.json`
+- `tmp/wifi/v883-execns-helper-v139-preflight/manifest.json`
+- `tmp/wifi/v883-execns-helper-v139-deploy-preflight/manifest.json`
+- `tmp/wifi/v883-execns-helper-v139-postdeploy/manifest.json`
+- `docs/plans/NATIVE_INIT_V883_HELPER_V139_DEPLOY_PLAN_2026-05-26.md`
+- `docs/reports/NATIVE_INIT_V883_HELPER_V139_DEPLOY_2026-05-26.md`
+
+Decision:
+
+- `execns-helper-v139-deploy-pass`
+
+Result:
+
+- remote sha256:
+  `077ced65ae5b0b546ecdf3b1bb0c808d3ec34bfa2462516e6ceba170b18f23c5`
+- remote marker: `a90_android_execns_probe v139`
+- mode token:
+  `wifi-companion-esoc-req-registered-subsys-hold-preflight`
+- serial chunks written: `788`
+- post-deploy selftest stayed `fail=0`
+- service-manager process hits: `0`
+- Wi-Fi netdev hits: `0`
+
+Guardrails held: V883 did not execute live eSoC ioctls, did not open
+`/dev/subsys_esoc0`, did not start Android actors, and did not bring up Wi-Fi.
+
+Next candidate:
+
+- V884 bounded live REQ-registered subsystem-hold observer preflight using
+  deployed helper `v139`.
+- The next gate should rely on `REG_REQ_ENG` as the powerup precondition,
+  record passive `ESOC_WAIT_FOR_REQ` output, and treat absent `ESOC_REQ_IMG`
+  as diagnostic data rather than a failure.
+- Still block `REG_CMD_ENG` dependency, direct userspace `CMD_EXE`, explicit
+  userspace `PWR_ON`, `ESOC_NOTIFY`, actors, Wi-Fi HAL, scan/connect,
+  credentials, DHCP/routes, and external ping.
