@@ -3746,3 +3746,38 @@ Samsung bootloader
   init contract before starting anything new: `vendor.per_proxy_helper`
   post-fs-data oneshot, `vendor.per_mgr` `ioprio rt 4`, `vendor.per_proxy`
   property lifecycle, and V861's runtime `kernel` domain gap.
+
+### V864-V869. PeripheralManager Init Contract Path
+
+- basis:
+  `docs/overview/MDM3_ESOC_SDX50M_BRINGUP_RESEARCH_2026-05-25.md`
+  section 18.
+- external references checked:
+  - Android init service/property-trigger semantics:
+    `https://android.googlesource.com/platform/system/core/+/refs/heads/android10-dev/init/README.md`
+  - Qualcomm/Pixel `per_mgr`/`per_proxy` init pattern:
+    `https://android.googlesource.com/device/google/redbull/+/2cd0dab5d232bbf2bf5af38cb2e92111e882af43/init.hardware.rc`
+  - Linux `ioprio_set(2)` behavior and permissions:
+    `https://man7.org/linux/man-pages/man2/ioprio_set.2.html`
+- decision: V864 is the immediate next cycle. It is host-only and must not
+  start any service.
+- V864 target: compare current helper source against V861/V862/V863 evidence
+  and produce a fail-closed implementation checklist for the full
+  PeripheralManager init contract.
+- V865 target: implement helper support for `pm_proxy_helper`, `ioprio rt 4`,
+  `init.svc.vendor.per_mgr=running` proxy lifecycle, shutdown stop, child
+  fd/domain capture, and mode guardrails. Build only.
+- V866 target: deploy new helper only after static validation and checksum
+  proof. No daemon start.
+- V867 target: bounded live start-only of `pm_proxy_helper` oneshot plus
+  init-equivalent `per_mgr`/`per_proxy` lifecycle under Android node parity.
+  Capture fd holds, runtime `attr/current`, ioprio result, dmesg, and cleanup.
+- V868 target: classify V867 result. If no subsystem fd hold appears, separate
+  SELinux transition gap from missing PeripheralManager input. If fd hold or
+  `mdm3` movement appears, classify the next safe gate.
+- V869 target: only if V867/V868 prove PeripheralManager parity, consider a
+  PM-gated `mdm_helper`/`ks` start-only proof.
+- hard gates for V864-V868: no `mdm_helper`, no `ks`, no Wi-Fi HAL,
+  scan/connect, credentials, DHCP/routes, external ping, raw eSoC ioctl,
+  GPIO/sysfs/debugfs/subsystem write, module load/unload, boot image write, or
+  partition write.

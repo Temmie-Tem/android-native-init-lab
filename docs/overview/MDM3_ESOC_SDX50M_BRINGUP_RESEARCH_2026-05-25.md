@@ -499,3 +499,48 @@ PeripheralManager init contract before starting any new actor:
 - `vendor.per_mgr` `ioprio rt 4`;
 - `vendor.per_proxy` property-start and shutdown-stop lifecycle;
 - V861 runtime domain still reading `kernel`.
+
+## 18. V864+ next candidate selection
+
+V863 changes the immediate path. The next useful work is no longer another
+`mdm_helper` replay or direct eSoC/sysfs attempt. The evidence chain now points
+at Android init contract parity for the Qualcomm PeripheralManager stack:
+
+- V849 proved raw `/dev/subsys_esoc0` open blocks inside proprietary
+  `mdm_subsys_powerup`.
+- V853 proved Android has distinct actors for `/dev/subsys_esoc0`,
+  `/dev/subsys_modem`, and `/dev/esoc-0`.
+- V856-V861 proved direct `pm-service`/`pm-proxy` execution is safe but still
+  not Android-equivalent and does not hold subsystem fds.
+- V862/V863 proved Android starts a third actor,
+  `vendor.per_proxy_helper /vendor/bin/pm_proxy_helper`, as a disabled oneshot
+  from `post-fs-data`.
+
+External reference checks support this direction:
+
+- Android init defines service identity, class, disabled/oneshot semantics,
+  shutdown behavior, and property triggers; therefore modelling
+  `init.svc.vendor.per_mgr=running` is not optional if the goal is Android init
+  parity.
+- AOSP/Pixel Qualcomm device init files use the same pattern:
+  `vendor.per_mgr /vendor/bin/pm-service` with `user system`, `group system`,
+  `ioprio rt 4`, a disabled `/vendor/bin/pm-proxy`, and a property trigger
+  that starts the proxy when `vendor.per_mgr` becomes running.
+- Linux `ioprio_set(2)` requires explicit syscall handling and may fail with
+  privilege errors for realtime I/O priority; a live runner must record the
+  exact result instead of assuming `ioprio rt 4` was applied.
+
+Selected next candidates:
+
+| Version | Candidate | Type | Purpose | Hard gates |
+|---|---|---|---|---|
+| V864 | PeripheralManager helper-support classifier | host-only | Compare V861/V862/V863 evidence against current helper source and decide the exact implementation gap. | no device contact |
+| V865 | Init-contract wrapper implementation | source/build only | Add model support for `pm_proxy_helper`, `ioprio rt 4`, `init.svc.vendor.per_mgr=running`, proxy start/stop lifecycle, child fd/domain capture, and fail-closed guards. | no helper deploy, no daemon start |
+| V866 | Helper v134 deploy preflight/live deploy | deploy only | Verify the new helper binary, checksum, mode list, and device deployment without starting actors. | no daemon start |
+| V867 | PeripheralManager contract start-only proof | bounded live | Start only `pm_proxy_helper` oneshot plus init-equivalent `per_mgr`/`per_proxy` lifecycle under node parity and capture fd holds, runtime domain, ioprio result, dmesg, and cleanup. | no `mdm_helper`, no `ks`, no HAL, no Wi-Fi bring-up |
+| V868 | Post-contract blocker classifier | host-only/live read-only if needed | If V867 still has no subsystem fd hold, separate SELinux transition gap from missing PeripheralManager inputs; if fds appear, classify `mdm3`/WLFW movement. | no new actor escalation |
+| V869 | PM-gated `mdm_helper` candidate | gated live only if V867/V868 pass | Start `mdm_helper`/`ks` only after PM stack parity proves stable and useful. | no Wi-Fi HAL, no scan/connect, no DHCP/routes, no external ping |
+
+Primary decision: **V864 is the immediate next cycle.** It should not start
+anything. It should produce a concrete implementation checklist for V865 and
+block V867 until helper support is explicitly proven.
