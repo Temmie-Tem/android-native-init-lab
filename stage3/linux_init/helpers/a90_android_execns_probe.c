@@ -76,7 +76,7 @@
 #define AF_QIPCRTR 42
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v125"
+#define EXECNS_VERSION "a90_android_execns_probe v126"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -84,6 +84,12 @@
 #define DEFAULT_QRTR_READBACK_MATRIX "wlfw:69:0,1"
 #define MAX_QRTR_READBACK_CASES 16
 #define MAX_QRTR_READBACK_LABEL 32
+#define A90_SERVLOC_SERVICE 64U
+#define A90_SERVLOC_INSTANCE_ENCODED 257U
+#define A90_SERVLOC_GET_DOMAIN_LIST_MSG_ID 0x0021U
+#define A90_SERVLOC_TXN_ID 1U
+#define A90_SERVLOC_READBACK_MS 1000U
+#define A90_SERVLOC_RESPONSE_MS 2000U
 #define A90_PROP_NAME_MAX 512
 #define A90_PROP_VALUE_MAX 1024
 #define A90_PROP_LEGACY_NAME_MAX 32
@@ -167,6 +173,7 @@ struct config {
     bool allow_wlan_driver_state_on;
     bool allow_cnss_userspace_readiness;
     bool allow_qrtr_ns_readback;
+    bool allow_servloc_domain_list_probe;
     bool allow_scan_only;
     bool allow_connect_dhcp_ping;
     bool allow_policy_load_proof;
@@ -309,6 +316,7 @@ static void usage(FILE *out) {
             "[--allow-wlan-driver-state-on] "
             "[--allow-cnss-userspace-readiness] "
             "[--allow-qrtr-ns-readback] "
+            "[--allow-servloc-domain-list-probe] "
             "[--allow-scan-only] "
             "[--allow-connect-dhcp-ping] "
             "[--allow-policy-load-proof] "
@@ -820,6 +828,10 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             cfg->allow_qrtr_ns_readback = true;
             continue;
         }
+        if (strcmp(argv[i], "--allow-servloc-domain-list-probe") == 0) {
+            cfg->allow_servloc_domain_list_probe = true;
+            continue;
+        }
         if (strcmp(argv[i], "--allow-scan-only") == 0) {
             cfg->allow_scan_only = true;
             continue;
@@ -1072,6 +1084,7 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             cfg->allow_iwifi_start_only ||
             cfg->allow_cnss_userspace_readiness ||
             cfg->allow_qrtr_ns_readback ||
+            cfg->allow_servloc_domain_list_probe ||
             cfg->allow_policy_load_proof) {
             fprintf(stderr, "sepolicy-inventory does not accept daemon/HAL allow flags\n");
             return 2;
@@ -1355,6 +1368,11 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
         !is_wifi_companion_any_start_only_mode(cfg->mode) &&
         !is_wifi_companion_hal_order_start_only_mode(cfg->mode)) {
         fprintf(stderr, "--allow-qrtr-ns-readback is only valid with Wi-Fi companion modes\n");
+        return 2;
+    }
+    if (cfg->allow_servloc_domain_list_probe &&
+        !is_wifi_companion_any_start_only_mode(cfg->mode)) {
+        fprintf(stderr, "--allow-servloc-domain-list-probe is only valid with Wi-Fi companion start-only modes\n");
         return 2;
     }
     if (streq(cfg->mode, "service-manager-start-only")) {
@@ -14711,6 +14729,767 @@ static int append_companion_qrtr_wlfw_readback(struct buffer *buf,
                           "wifi_companion_qrtr_readback.end=1\n");
 }
 
+struct qrtr_service_endpoint {
+    bool found;
+    uint32_t node;
+    uint32_t port;
+    unsigned int events;
+    unsigned int timeout;
+};
+
+static uint16_t read_le16_bytes(const uint8_t *data) {
+    uint16_t value = 0;
+
+    memcpy(&value, data, sizeof(value));
+    return le16toh(value);
+}
+
+static uint32_t read_le32_bytes(const uint8_t *data) {
+    uint32_t value = 0;
+
+    memcpy(&value, data, sizeof(value));
+    return le32toh(value);
+}
+
+static int append_hex_bytes(struct buffer *buf,
+                            const char *key,
+                            const uint8_t *data,
+                            size_t len) {
+    if (append_format(buf, "%s=", key) < 0) {
+        return -1;
+    }
+    for (size_t i = 0; i < len; i++) {
+        if (append_format(buf, "%02x", data[i]) < 0) {
+            return -1;
+        }
+    }
+    return append_literal(buf, "\n");
+}
+
+static int append_servloc_domain_entry(struct buffer *buf,
+                                       const char *prefix,
+                                       unsigned int index,
+                                       const uint8_t *data,
+                                       size_t len,
+                                       size_t *offset,
+                                       unsigned int *wlan_like) {
+    uint8_t name_len;
+    const uint8_t *name;
+    uint32_t instance_id;
+    uint8_t service_data_valid;
+    uint32_t service_data;
+    bool contains_wlan = false;
+
+    if (*offset >= len) {
+        return append_format(buf, "%s.domain.%u.status=truncated-before-name-len\n", prefix, index);
+    }
+    name_len = data[(*offset)++];
+    if (*offset + (size_t)name_len + 9U > len) {
+        return append_format(buf,
+                             "%s.domain.%u.name_len=%u\n"
+                             "%s.domain.%u.status=truncated-entry\n",
+                             prefix,
+                             index,
+                             (unsigned int)name_len,
+                             prefix,
+                             index);
+    }
+    name = data + *offset;
+    for (uint8_t i = 0; i < name_len; i++) {
+        if (i + 3U < name_len &&
+            name[i] == 'w' &&
+            name[i + 1U] == 'l' &&
+            name[i + 2U] == 'a' &&
+            name[i + 3U] == 'n') {
+            contains_wlan = true;
+        }
+    }
+    *offset += name_len;
+    instance_id = read_le32_bytes(data + *offset);
+    *offset += sizeof(uint32_t);
+    service_data_valid = data[(*offset)++];
+    service_data = read_le32_bytes(data + *offset);
+    *offset += sizeof(uint32_t);
+    if (contains_wlan) {
+        (*wlan_like)++;
+    }
+    if (append_format(buf,
+                      "%s.domain.%u.name_len=%u\n"
+                      "%s.domain.%u.name=",
+                      prefix,
+                      index,
+                      (unsigned int)name_len,
+                      prefix,
+                      index) < 0 ||
+        append_escaped_ascii(buf, name, name_len) < 0 ||
+        append_format(buf,
+                      "\n"
+                      "%s.domain.%u.instance_id=%u\n"
+                      "%s.domain.%u.service_data_valid=%u\n"
+                      "%s.domain.%u.service_data=%u\n"
+                      "%s.domain.%u.contains_wlan=%u\n"
+                      "%s.domain.%u.status=parsed\n",
+                      prefix,
+                      index,
+                      instance_id,
+                      prefix,
+                      index,
+                      (unsigned int)service_data_valid,
+                      prefix,
+                      index,
+                      service_data,
+                      prefix,
+                      index,
+                      contains_wlan ? 1U : 0U,
+                      prefix,
+                      index) < 0) {
+        return -1;
+    }
+    return 0;
+}
+
+static int parse_servloc_domain_response(struct buffer *buf,
+                                         const char *prefix,
+                                         const uint8_t *packet,
+                                         size_t received,
+                                         bool *success_out,
+                                         unsigned int *domain_count_out,
+                                         unsigned int *wlan_like_out) {
+    uint8_t message_type;
+    uint16_t txn_id;
+    uint16_t msg_id;
+    uint16_t msg_len;
+    size_t end;
+    size_t offset = 7;
+    unsigned int tlv_count = 0;
+    unsigned int total_domains_valid = 0;
+    unsigned int db_rev_count_valid = 0;
+    unsigned int domain_list_valid = 0;
+    unsigned int result_valid = 0;
+    uint16_t result = 0xffffU;
+    uint16_t error = 0xffffU;
+    uint16_t total_domains = 0;
+    uint16_t db_rev_count = 0;
+    unsigned int domain_count = 0;
+    unsigned int wlan_like = 0;
+
+    *success_out = false;
+    *domain_count_out = 0;
+    *wlan_like_out = 0;
+    if (received < 7U) {
+        return append_format(buf,
+                             "%s.response_parse=short-header\n"
+                             "%s.response_bytes=%zu\n",
+                             prefix,
+                             prefix,
+                             received);
+    }
+    message_type = packet[0];
+    txn_id = read_le16_bytes(packet + 1);
+    msg_id = read_le16_bytes(packet + 3);
+    msg_len = read_le16_bytes(packet + 5);
+    end = 7U + (size_t)msg_len;
+    if (end > received) {
+        end = received;
+    }
+    if (append_format(buf,
+                      "%s.response.type=%u\n"
+                      "%s.response.txn_id=%u\n"
+                      "%s.response.msg_id=%u\n"
+                      "%s.response.msg_len=%u\n"
+                      "%s.response.body_available=%zu\n",
+                      prefix,
+                      (unsigned int)message_type,
+                      prefix,
+                      (unsigned int)txn_id,
+                      prefix,
+                      (unsigned int)msg_id,
+                      prefix,
+                      (unsigned int)msg_len,
+                      prefix,
+                      end > 7U ? end - 7U : 0U) < 0) {
+        return -1;
+    }
+    while (offset + 3U <= end) {
+        uint8_t tlv_type = packet[offset++];
+        uint16_t tlv_len = read_le16_bytes(packet + offset);
+        const uint8_t *tlv_data;
+        char tlv_key[128];
+
+        offset += sizeof(uint16_t);
+        if (offset + (size_t)tlv_len > end) {
+            if (append_format(buf,
+                              "%s.tlv.%u.type=0x%02x\n"
+                              "%s.tlv.%u.len=%u\n"
+                              "%s.tlv.%u.status=truncated\n",
+                              prefix,
+                              tlv_count,
+                              (unsigned int)tlv_type,
+                              prefix,
+                              tlv_count,
+                              (unsigned int)tlv_len,
+                              prefix,
+                              tlv_count) < 0) {
+                return -1;
+            }
+            break;
+        }
+        tlv_data = packet + offset;
+        if (append_format(buf,
+                          "%s.tlv.%u.type=0x%02x\n"
+                          "%s.tlv.%u.len=%u\n"
+                          "%s.tlv.%u.status=parsed\n",
+                          prefix,
+                          tlv_count,
+                          (unsigned int)tlv_type,
+                          prefix,
+                          tlv_count,
+                          (unsigned int)tlv_len,
+                          prefix,
+                          tlv_count) < 0) {
+            return -1;
+        }
+        if (snprintf(tlv_key, sizeof(tlv_key), "%s.tlv.%u.hex", prefix, tlv_count) >= (int)sizeof(tlv_key) ||
+            append_hex_bytes(buf, tlv_key, tlv_data, tlv_len) < 0) {
+            return -1;
+        }
+        if (tlv_type == 0x02U && tlv_len >= 4U) {
+            result = read_le16_bytes(tlv_data);
+            error = read_le16_bytes(tlv_data + 2);
+            result_valid = 1;
+        } else if (tlv_type == 0x10U && tlv_len >= 2U) {
+            total_domains = read_le16_bytes(tlv_data);
+            total_domains_valid = 1;
+        } else if (tlv_type == 0x11U && tlv_len >= 2U) {
+            db_rev_count = read_le16_bytes(tlv_data);
+            db_rev_count_valid = 1;
+        } else if (tlv_type == 0x12U && tlv_len >= 1U) {
+            size_t domain_offset = 1;
+            uint8_t wire_count = tlv_data[0];
+
+            domain_list_valid = 1;
+            domain_count = wire_count;
+            if (append_format(buf,
+                              "%s.domain_list.wire_count=%u\n",
+                              prefix,
+                              (unsigned int)wire_count) < 0) {
+                return -1;
+            }
+            for (unsigned int i = 0; i < (unsigned int)wire_count && i < 32U; i++) {
+                if (append_servloc_domain_entry(buf,
+                                                prefix,
+                                                i,
+                                                tlv_data,
+                                                tlv_len,
+                                                &domain_offset,
+                                                &wlan_like) < 0) {
+                    return -1;
+                }
+                if (domain_offset >= tlv_len) {
+                    break;
+                }
+            }
+            if (append_format(buf,
+                              "%s.domain_list.bytes_consumed=%zu\n",
+                              prefix,
+                              domain_offset) < 0) {
+                return -1;
+            }
+        }
+        offset += tlv_len;
+        tlv_count++;
+    }
+    *success_out = message_type == 2U &&
+                   msg_id == A90_SERVLOC_GET_DOMAIN_LIST_MSG_ID &&
+                   txn_id == A90_SERVLOC_TXN_ID &&
+                   result_valid &&
+                   result == 0U;
+    *domain_count_out = domain_count;
+    *wlan_like_out = wlan_like;
+    return append_format(buf,
+                         "%s.response_parse=complete\n"
+                         "%s.tlv_count=%u\n"
+                         "%s.qmi_result_valid=%u\n"
+                         "%s.qmi_result=%u\n"
+                         "%s.qmi_error=%u\n"
+                         "%s.total_domains_valid=%u\n"
+                         "%s.total_domains=%u\n"
+                         "%s.db_rev_count_valid=%u\n"
+                         "%s.db_rev_count=%u\n"
+                         "%s.domain_list_valid=%u\n"
+                         "%s.domain_count=%u\n"
+                         "%s.wlan_like_domains=%u\n"
+                         "%s.success=%u\n",
+                         prefix,
+                         prefix,
+                         tlv_count,
+                         prefix,
+                         result_valid,
+                         prefix,
+                         (unsigned int)result,
+                         prefix,
+                         (unsigned int)error,
+                         prefix,
+                         total_domains_valid,
+                         prefix,
+                         (unsigned int)total_domains,
+                         prefix,
+                         db_rev_count_valid,
+                         prefix,
+                         (unsigned int)db_rev_count,
+                         prefix,
+                         domain_list_valid,
+                         prefix,
+                         domain_count,
+                         prefix,
+                         wlan_like,
+                         prefix,
+                         *success_out ? 1U : 0U);
+}
+
+static int servloc_find_endpoint(struct buffer *buf,
+                                 const char *prefix,
+                                 struct qrtr_service_endpoint *endpoint) {
+    int fd;
+    long deadline;
+    char socket_name_prefix[160];
+    char lookup_prefix[160];
+    char del_prefix[160];
+
+    memset(endpoint, 0, sizeof(*endpoint));
+    if (snprintf(socket_name_prefix, sizeof(socket_name_prefix), "%s.socket_name", prefix) >= (int)sizeof(socket_name_prefix) ||
+        snprintf(lookup_prefix, sizeof(lookup_prefix), "%s.lookup_send", prefix) >= (int)sizeof(lookup_prefix) ||
+        snprintf(del_prefix, sizeof(del_prefix), "%s.del_lookup_send", prefix) >= (int)sizeof(del_prefix)) {
+        return append_format(buf, "%s.status=prefix-too-long\n", prefix);
+    }
+    fd = open_qrtr_dgram_socket();
+    if (fd < 0) {
+        int saved_errno = errno;
+
+        return append_format(buf,
+                             "%s.socket.rc=-1\n"
+                             "%s.socket.errno=%d\n"
+                             "%s.socket.error=%s\n"
+                             "%s.status=socket-failed\n",
+                             prefix,
+                             prefix,
+                             saved_errno,
+                             prefix,
+                             strerror(saved_errno),
+                             prefix);
+    }
+    if (append_format(buf, "%s.socket.rc=0\n%s.af=%d\n", prefix, prefix, AF_QIPCRTR) < 0 ||
+        append_qrtr_getname(buf, fd, socket_name_prefix, &(struct sockaddr_qrtr){0}) < 0 ||
+        append_qrtr_send_lookup_packet(buf,
+                                       fd,
+                                       QRTR_TYPE_NEW_LOOKUP,
+                                       A90_SERVLOC_SERVICE,
+                                       A90_SERVLOC_INSTANCE_ENCODED,
+                                       lookup_prefix) < 0) {
+        close(fd);
+        return -1;
+    }
+    deadline = monotonic_ms() + (long)A90_SERVLOC_READBACK_MS;
+    while (endpoint->events < 8U) {
+        struct pollfd pfd;
+        struct qrtr_ctrl_pkt packet;
+        struct sockaddr_qrtr from;
+        socklen_t from_len = sizeof(from);
+        long now = monotonic_ms();
+        int poll_rc;
+        ssize_t received;
+        uint32_t cmd;
+        uint32_t service = 0;
+        uint32_t instance = 0;
+        uint32_t node = 0;
+        uint32_t port = 0;
+        bool empty = false;
+
+        if (now >= deadline) {
+            endpoint->timeout = 1;
+            break;
+        }
+        pfd.fd = fd;
+        pfd.events = POLLIN;
+        pfd.revents = 0;
+        poll_rc = poll(&pfd, 1, (int)(deadline - now));
+        if (poll_rc == 0) {
+            endpoint->timeout = 1;
+            break;
+        }
+        if (poll_rc < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            append_qrtr_send_lookup_packet(buf,
+                                           fd,
+                                           QRTR_TYPE_DEL_LOOKUP,
+                                           A90_SERVLOC_SERVICE,
+                                           A90_SERVLOC_INSTANCE_ENCODED,
+                                           del_prefix);
+            close(fd);
+            return append_format(buf,
+                                 "%s.readback.rc=-1\n"
+                                 "%s.readback.errno=%d\n"
+                                 "%s.readback.error=%s\n",
+                                 prefix,
+                                 prefix,
+                                 errno,
+                                 prefix,
+                                 strerror(errno));
+        }
+        if ((pfd.revents & POLLIN) == 0) {
+            if (append_format(buf, "%s.readback.revents=%d\n", prefix, pfd.revents) < 0) {
+                close(fd);
+                return -1;
+            }
+            continue;
+        }
+        memset(&packet, 0, sizeof(packet));
+        memset(&from, 0, sizeof(from));
+        received = recvfrom(fd, &packet, sizeof(packet), 0, (struct sockaddr *)&from, &from_len);
+        if (received < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            append_qrtr_send_lookup_packet(buf,
+                                           fd,
+                                           QRTR_TYPE_DEL_LOOKUP,
+                                           A90_SERVLOC_SERVICE,
+                                           A90_SERVLOC_INSTANCE_ENCODED,
+                                           del_prefix);
+            close(fd);
+            return append_format(buf,
+                                 "%s.readback.rc=-1\n"
+                                 "%s.readback.errno=%d\n"
+                                 "%s.readback.error=%s\n",
+                                 prefix,
+                                 prefix,
+                                 errno,
+                                 prefix,
+                                 strerror(errno));
+        }
+        cmd = received >= (ssize_t)sizeof(uint32_t) ? le32toh(packet.cmd) : 0U;
+        if (received >= (ssize_t)sizeof(packet)) {
+            service = le32toh(packet.server.service);
+            instance = le32toh(packet.server.instance);
+            node = le32toh(packet.server.node);
+            port = le32toh(packet.server.port);
+        }
+        empty = cmd == QRTR_TYPE_NEW_SERVER && service == 0U && instance == 0U && node == 0U && port == 0U;
+        if (append_format(buf,
+                          "%s.event.%u.bytes=%zd\n"
+                          "%s.event.%u.from.node=%u\n"
+                          "%s.event.%u.from.port=%u\n"
+                          "%s.event.%u.cmd=%u\n"
+                          "%s.event.%u.type=%s\n"
+                          "%s.event.%u.service=%u\n"
+                          "%s.event.%u.instance=%u\n"
+                          "%s.event.%u.node=%u\n"
+                          "%s.event.%u.port=%u\n"
+                          "%s.event.%u.empty=%u\n",
+                          prefix,
+                          endpoint->events,
+                          received,
+                          prefix,
+                          endpoint->events,
+                          from.sq_node,
+                          prefix,
+                          endpoint->events,
+                          from.sq_port,
+                          prefix,
+                          endpoint->events,
+                          cmd,
+                          prefix,
+                          endpoint->events,
+                          qrtr_ctrl_cmd_name(cmd),
+                          prefix,
+                          endpoint->events,
+                          service,
+                          prefix,
+                          endpoint->events,
+                          instance,
+                          prefix,
+                          endpoint->events,
+                          node,
+                          prefix,
+                          endpoint->events,
+                          port,
+                          prefix,
+                          endpoint->events,
+                          empty ? 1U : 0U) < 0) {
+            close(fd);
+            return -1;
+        }
+        endpoint->events++;
+        if (cmd == QRTR_TYPE_NEW_SERVER &&
+            service == A90_SERVLOC_SERVICE &&
+            instance == A90_SERVLOC_INSTANCE_ENCODED &&
+            node != 0U &&
+            port != 0U) {
+            endpoint->found = true;
+            endpoint->node = node;
+            endpoint->port = port;
+            break;
+        }
+        if (empty) {
+            break;
+        }
+    }
+    if (append_qrtr_send_lookup_packet(buf,
+                                       fd,
+                                       QRTR_TYPE_DEL_LOOKUP,
+                                       A90_SERVLOC_SERVICE,
+                                       A90_SERVLOC_INSTANCE_ENCODED,
+                                       del_prefix) < 0) {
+        close(fd);
+        return -1;
+    }
+    close(fd);
+    return append_format(buf,
+                         "%s.readback.events=%u\n"
+                         "%s.readback.timeout=%u\n"
+                         "%s.found=%u\n"
+                         "%s.node=%u\n"
+                         "%s.port=%u\n"
+                         "%s.status=%s\n",
+                         prefix,
+                         endpoint->events,
+                         prefix,
+                         endpoint->timeout,
+                         prefix,
+                         endpoint->found ? 1U : 0U,
+                         prefix,
+                         endpoint->node,
+                         prefix,
+                         endpoint->port,
+                         prefix,
+                         endpoint->found ? "found" : "not-found");
+}
+
+static int append_companion_servloc_domain_list_probe(struct buffer *buf,
+                                                      const struct config *cfg) {
+    static const uint8_t request[] = {
+        0x00, 0x01, 0x00, 0x21, 0x00, 0x11, 0x00,
+        0x01, 0x07, 0x00, 0x77, 0x6c, 0x61, 0x6e, 0x2f, 0x66, 0x77,
+        0x10, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00,
+    };
+    struct qrtr_service_endpoint endpoint;
+    int fd;
+    struct sockaddr_qrtr dest;
+    ssize_t sent;
+    long deadline;
+    unsigned int packets = 0;
+    bool response_seen = false;
+    bool response_success = false;
+    unsigned int domain_count = 0;
+    unsigned int wlan_like = 0;
+
+    if (append_format(buf,
+                      "wifi_companion_servloc_domain_list.begin=1\n"
+                      "wifi_companion_servloc_domain_list.allowed=%d\n"
+                      "wifi_companion_servloc_domain_list.service=%u\n"
+                      "wifi_companion_servloc_domain_list.instance=%u\n"
+                      "wifi_companion_servloc_domain_list.service_name=wlan/fw\n"
+                      "wifi_companion_servloc_domain_list.qmi_payload=%d\n"
+                      "wifi_companion_servloc_domain_list.wifi_hal=0\n"
+                      "wifi_companion_servloc_domain_list.scan_connect_linkup=0\n"
+                      "wifi_companion_servloc_domain_list.credentials=0\n"
+                      "wifi_companion_servloc_domain_list.dhcp_routing=0\n"
+                      "wifi_companion_servloc_domain_list.external_ping=0\n",
+                      cfg->allow_servloc_domain_list_probe ? 1 : 0,
+                      A90_SERVLOC_SERVICE,
+                      A90_SERVLOC_INSTANCE_ENCODED,
+                      cfg->allow_servloc_domain_list_probe ? 1 : 0) < 0 ||
+        append_hex_bytes(buf,
+                         "wifi_companion_servloc_domain_list.request_hex",
+                         request,
+                         sizeof(request)) < 0) {
+        return -1;
+    }
+    if (!cfg->allow_servloc_domain_list_probe) {
+        return append_literal(buf,
+                              "wifi_companion_servloc_domain_list.send_attempted=0\n"
+                              "wifi_companion_servloc_domain_list.result=blocked\n"
+                              "wifi_companion_servloc_domain_list.reason=missing-allow-servloc-domain-list-probe\n"
+                              "wifi_companion_servloc_domain_list.end=1\n");
+    }
+    if (servloc_find_endpoint(buf, "wifi_companion_servloc_domain_list.endpoint", &endpoint) < 0) {
+        return -1;
+    }
+    if (!endpoint.found) {
+        return append_literal(buf,
+                              "wifi_companion_servloc_domain_list.send_attempted=0\n"
+                              "wifi_companion_servloc_domain_list.result=no-endpoint\n"
+                              "wifi_companion_servloc_domain_list.end=1\n");
+    }
+    fd = open_qrtr_dgram_socket();
+    if (fd < 0) {
+        int saved_errno = errno;
+
+        return append_format(buf,
+                             "wifi_companion_servloc_domain_list.socket.rc=-1\n"
+                             "wifi_companion_servloc_domain_list.socket.errno=%d\n"
+                             "wifi_companion_servloc_domain_list.socket.error=%s\n"
+                             "wifi_companion_servloc_domain_list.send_attempted=0\n"
+                             "wifi_companion_servloc_domain_list.result=socket-failed\n"
+                             "wifi_companion_servloc_domain_list.end=1\n",
+                             saved_errno,
+                             strerror(saved_errno));
+    }
+    memset(&dest, 0, sizeof(dest));
+    dest.sq_family = AF_QIPCRTR;
+    dest.sq_node = endpoint.node;
+    dest.sq_port = endpoint.port;
+    sent = sendto(fd, request, sizeof(request), 0, (const struct sockaddr *)&dest, sizeof(dest));
+    if (sent < 0) {
+        int saved_errno = errno;
+
+        close(fd);
+        return append_format(buf,
+                             "wifi_companion_servloc_domain_list.socket.rc=0\n"
+                             "wifi_companion_servloc_domain_list.send_attempted=1\n"
+                             "wifi_companion_servloc_domain_list.send.rc=-1\n"
+                             "wifi_companion_servloc_domain_list.send.errno=%d\n"
+                             "wifi_companion_servloc_domain_list.send.error=%s\n"
+                             "wifi_companion_servloc_domain_list.result=send-failed\n"
+                             "wifi_companion_servloc_domain_list.end=1\n",
+                             saved_errno,
+                             strerror(saved_errno));
+    }
+    if (append_format(buf,
+                      "wifi_companion_servloc_domain_list.socket.rc=0\n"
+                      "wifi_companion_servloc_domain_list.send_attempted=1\n"
+                      "wifi_companion_servloc_domain_list.send.rc=0\n"
+                      "wifi_companion_servloc_domain_list.send.bytes=%zd\n"
+                      "wifi_companion_servloc_domain_list.send.node=%u\n"
+                      "wifi_companion_servloc_domain_list.send.port=%u\n",
+                      sent,
+                      endpoint.node,
+                      endpoint.port) < 0) {
+        close(fd);
+        return -1;
+    }
+    deadline = monotonic_ms() + (long)A90_SERVLOC_RESPONSE_MS;
+    while (packets < 8U) {
+        struct pollfd pfd;
+        struct sockaddr_qrtr from;
+        socklen_t from_len = sizeof(from);
+        uint8_t packet[4096];
+        long now = monotonic_ms();
+        int poll_rc;
+        ssize_t received;
+        char packet_hex_key[128];
+        uint8_t response_type = 0;
+        uint16_t response_txn = 0;
+        uint16_t response_msg = 0;
+
+        if (now >= deadline) {
+            break;
+        }
+        pfd.fd = fd;
+        pfd.events = POLLIN;
+        pfd.revents = 0;
+        poll_rc = poll(&pfd, 1, (int)(deadline - now));
+        if (poll_rc == 0) {
+            break;
+        }
+        if (poll_rc < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            close(fd);
+            return append_format(buf,
+                                 "wifi_companion_servloc_domain_list.response.errno=%d\n"
+                                 "wifi_companion_servloc_domain_list.response.error=%s\n"
+                                 "wifi_companion_servloc_domain_list.result=response-poll-failed\n"
+                                 "wifi_companion_servloc_domain_list.end=1\n",
+                                 errno,
+                                 strerror(errno));
+        }
+        memset(&from, 0, sizeof(from));
+        received = recvfrom(fd, packet, sizeof(packet), 0, (struct sockaddr *)&from, &from_len);
+        if (received < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            close(fd);
+            return append_format(buf,
+                                 "wifi_companion_servloc_domain_list.response.errno=%d\n"
+                                 "wifi_companion_servloc_domain_list.response.error=%s\n"
+                                 "wifi_companion_servloc_domain_list.result=response-recv-failed\n"
+                                 "wifi_companion_servloc_domain_list.end=1\n",
+                                 errno,
+                                 strerror(errno));
+        }
+        if (received >= 7) {
+            response_type = packet[0];
+            response_txn = read_le16_bytes(packet + 1);
+            response_msg = read_le16_bytes(packet + 3);
+        }
+        if (append_format(buf,
+                          "wifi_companion_servloc_domain_list.packet.%u.bytes=%zd\n"
+                          "wifi_companion_servloc_domain_list.packet.%u.from.node=%u\n"
+                          "wifi_companion_servloc_domain_list.packet.%u.from.port=%u\n"
+                          "wifi_companion_servloc_domain_list.packet.%u.type=%u\n"
+                          "wifi_companion_servloc_domain_list.packet.%u.txn_id=%u\n"
+                          "wifi_companion_servloc_domain_list.packet.%u.msg_id=%u\n",
+                          packets,
+                          received,
+                          packets,
+                          from.sq_node,
+                          packets,
+                          from.sq_port,
+                          packets,
+                          (unsigned int)response_type,
+                          packets,
+                          (unsigned int)response_txn,
+                          packets,
+                          (unsigned int)response_msg) < 0) {
+            close(fd);
+            return -1;
+        }
+        if (snprintf(packet_hex_key,
+                     sizeof(packet_hex_key),
+                     "wifi_companion_servloc_domain_list.packet.%u.hex",
+                     packets) >= (int)sizeof(packet_hex_key) ||
+            append_hex_bytes(buf, packet_hex_key, packet, (size_t)received) < 0) {
+            close(fd);
+            return -1;
+        }
+        if (response_type == 2U &&
+            response_txn == A90_SERVLOC_TXN_ID &&
+            response_msg == A90_SERVLOC_GET_DOMAIN_LIST_MSG_ID) {
+            response_seen = true;
+            if (parse_servloc_domain_response(buf,
+                                              "wifi_companion_servloc_domain_list",
+                                              packet,
+                                              (size_t)received,
+                                              &response_success,
+                                              &domain_count,
+                                              &wlan_like) < 0) {
+                close(fd);
+                return -1;
+            }
+            break;
+        }
+        packets++;
+    }
+    close(fd);
+    return append_format(buf,
+                         "wifi_companion_servloc_domain_list.response_seen=%u\n"
+                         "wifi_companion_servloc_domain_list.response_success=%u\n"
+                         "wifi_companion_servloc_domain_list.domain_count=%u\n"
+                         "wifi_companion_servloc_domain_list.wlan_like_domains=%u\n"
+                         "wifi_companion_servloc_domain_list.result=%s\n"
+                         "wifi_companion_servloc_domain_list.end=1\n",
+                         response_seen ? 1U : 0U,
+                         response_success ? 1U : 0U,
+                         domain_count,
+                         wlan_like,
+                         response_seen ? (response_success ? "domain-list-response-success" : "domain-list-response-error") : "no-response");
+}
+
 struct service74_klog_state {
     unsigned int sysmon_qmi_count;
     unsigned int service180_count;
@@ -15451,8 +16230,11 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
         append_literal(stdout_buf, "wifi_companion_start.external_ping=0\n") < 0 ||
         append_format(stdout_buf,
                       "wifi_companion_start.qrtr_nameservice_readback=%d\n"
-                      "wifi_companion_start.qmi_payload=0\n",
-                      cfg->allow_qrtr_ns_readback ? 1 : 0) < 0) {
+                      "wifi_companion_start.servloc_domain_list_probe=%d\n"
+                      "wifi_companion_start.qmi_payload=%d\n",
+                      cfg->allow_qrtr_ns_readback ? 1 : 0,
+                      cfg->allow_servloc_domain_list_probe ? 1 : 0,
+                      cfg->allow_servloc_domain_list_probe ? 1 : 0) < 0) {
         return -1;
     }
     if (!cfg->allow_wifi_companion_start_only ||
@@ -15815,6 +16597,12 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
         return -1;
     }
     if (append_companion_qrtr_wlfw_readback(stdout_buf, cfg) < 0) {
+        composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+        stop_property_service_shim(&property_shim, paths, stdout_buf);
+        return -1;
+    }
+    if (cfg->allow_servloc_domain_list_probe &&
+        append_companion_servloc_domain_list_probe(stdout_buf, cfg) < 0) {
         composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
         stop_property_service_shim(&property_shim, paths, stdout_buf);
         return -1;
@@ -18474,6 +19262,8 @@ int main(int argc, char **argv) {
            cfg.allow_cnss_userspace_readiness ? 1 : 0);
     printf("allow_qrtr_ns_readback=%d\n",
            cfg.allow_qrtr_ns_readback ? 1 : 0);
+    printf("allow_servloc_domain_list_probe=%d\n",
+           cfg.allow_servloc_domain_list_probe ? 1 : 0);
     printf("allow_scan_only=%d\n",
            cfg.allow_scan_only ? 1 : 0);
     printf("allow_connect_dhcp_ping=%d\n",
