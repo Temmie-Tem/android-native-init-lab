@@ -425,6 +425,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V917_MDM_HELPER_SUBSYS_TRIGGER_LIVE_2026-05-26.md` – helper v150 배포와 corrected native trigger live gate 결과; `mdm_helper`의 `/dev/esoc-0` fd가 최종 시점에만 나타나 V918 bounded wait gate가 필요함을 확정한 V917 결과
 - `reports/NATIVE_INIT_V916_MDM_HELPER_SUBSYS_TRIGGER_SUPPORT_2026-05-26.md` – V915 보정 기준에 맞춰 `mdm_helper` 관찰 후 제한적 `/dev/subsys_esoc0` trigger child를 실행하는 helper v150 source/build-only 검증 결과
 - `reports/NATIVE_INIT_V914_V913_ANDROID_TIMELINE_RECLASSIFIER_2026-05-26.md` – V913 Android handoff live evidence를 host-only로 재분류해 WLFW/BDF/wlan0는 양성이지만 post-boot mdm3/GPIO142/ks/MHI 표면은 필수 성공조건이 아님을 확정한 V914 결과
 - `reports/NATIVE_INIT_V913_ANDROID_ESOC_GPIO_TIMELINE_TOOL_2026-05-26.md` – Android 정상 부팅 후 GPIO135/PMIC GPIO9/GPIO142/PCIe/MDM3/KS/MHI/WLFW 양성 타임라인을 read-only로 수집하는 V913 도구와 현재 native 상태의 ADB unavailable preflight 결과
