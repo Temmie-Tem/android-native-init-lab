@@ -130,6 +130,7 @@
 
 ### 3. Plans
 
+- `plans/NATIVE_INIT_V906_MDM_HELPER_RUNTIME_CONTRACT_HELPER_PLAN_2026-05-26.md` – helper `v148`에 property shim 기반 `mdm_helper` runtime-contract capture mode를 source/build-only로 추가하는 V906 계획
 - `plans/NATIVE_INIT_V905_MDM_HELPER_RUNTIME_REPAIR_DESIGN_PLAN_2026-05-26.md` – V896 Android dmesg/Magisk 재캡처 필요성과 V904 이후 `mdm_helper` runtime-input repair 방향을 host-only로 분류하는 V905 계획
 - `plans/NATIVE_INIT_V904_MDM_HELPER_RUNTIME_INPUT_PARITY_PLAN_2026-05-26.md` – Android/native `mdm_helper` runtime input parity를 host-only로 분류하는 V904 계획
 - `plans/NATIVE_INIT_V903_MDM_HELPER_ONLY_DEEP_CAPTURE_PLAN_2026-05-26.md` – `/dev/subsys_esoc0` open 없이 native `mdm_helper` process/fd/socket surface만 capture하는 V903 계획
@@ -416,6 +417,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V906_MDM_HELPER_RUNTIME_CONTRACT_HELPER_BUILD_2026-05-26.md` – V906 결과 helper `v148`에 `mdm_helper` runtime-contract capture mode, context mapping, property shim, per_mgr-light ordering, MHI mirror를 source/build-only로 추가
 - `reports/NATIVE_INIT_V905_MDM_HELPER_RUNTIME_REPAIR_DESIGN_2026-05-26.md` – V905 결과 Android dmesg/Magisk 재캡처는 즉시 blocker가 아니며 다음은 property shim 기반 `mdm_helper` runtime-contract helper source/build-only 단위임을 분류
 - `reports/NATIVE_INIT_V904_MDM_HELPER_RUNTIME_INPUT_PARITY_2026-05-26.md` – V904 결과 native direct `mdm_helper`는 Android init/SELinux/per_mgr runtime contract가 없어 eSoC/MHI path로 진입하지 않음을 분류
 - `reports/NATIVE_INIT_V903_MDM_HELPER_ONLY_DEEP_CAPTURE_2026-05-26.md` – V903 결과 native `mdm_helper`는 observable이나 `/dev/esoc-0`/`/dev/subsys_esoc0`/MHI/`ks` surface 미진입
