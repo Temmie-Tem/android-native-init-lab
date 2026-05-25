@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: v836 pending after V835 proved native still returns WLAN-PD `UNINIT` even inside the known-ASoC-warning clean-DSP/CNSS lower window
+- **Active research cycle**: v837 selected after V836 classified the next gate as timestamped post-service74 listener hold, still below HAL/connect
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -157,7 +157,7 @@ New `vNNN` experiment scripts must:
 - Gate live action behind explicit `--allow-*` + `--assume-yes` flags
 - Run `version`, `status`, `bootstatus`, `selftest verbose` as postflight regression
 
-## Wi-Fi bring-up research state (v598–v835, active)
+## Wi-Fi bring-up research state (v598–v836, active)
 
 Goal: bring up `wlan0` from native init without Android userspace.
 
@@ -179,7 +179,7 @@ stable enough in every boot. Helper v124 added a `sysmon-qmi` gated
 `mdm_helper` mode. V746 proved `mdm_helper` starts safely after `sysmon-qmi`,
 but it does not advance mdm3/WLAN-PD/WLFW.
 
-### Current blocker (V835)
+### Current blocker (V836)
 
 V829 executed the exact bounded service-locator `GET_DOMAIN_LIST` QMI request
 for `wlan/fw`:
@@ -225,6 +225,14 @@ no indication arrived, WLFW service `69`, BDF, wiphy, and `wlan0` stayed absent,
 and cleanup reboot restored healthy native v724. V836 should be host-only first:
 classify the remaining Android-only WLAN-PD state-up contract after service
 `180/74`; do not widen to HAL/scan/connect/DHCP/routes/external ping.
+
+V836 host-only PASS compared V835 with Android V649. Android reaches WLFW about
+`1.292s` and WLAN-PD about `2.361s` after service `74`, while native V835 has
+service `180/74` and the exact known ASoC warning but no WLAN-PD `UP`, WLFW,
+BDF, wiphy, or `wlan0`. V836 rejects an identical V835 replay, HAL/connect, and
+`boot_wlan`/`qcwlanstate` retry. V837 should add timestamped listener
+send/response/hold evidence relative to service `74` and hold through at least
+the Android post-service74 WLAN-PD window, still below HAL/connect.
 
 ```text
 servloc:64:257;ssctl:43:4098;servnotif:66:18945,46081;wlfw:69:1
