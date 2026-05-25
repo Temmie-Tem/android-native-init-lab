@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V898 added helper `v144` source/build-only `mdm_helper`/`ks` image-contract support; next is V899 deploy-only parity
+- **Active research cycle**: V899 deployed helper `v144`; next is V900 bounded live `mdm_helper`/`ks` contract proof
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -772,9 +772,13 @@ path should be closed for this blocker.
   `/vendor/bin/ks` and `/dev/mhi_0305_01.01.00_pipe_10`, and still blocks
   controller-side `REG_REQ_ENG`, `ESOC_NOTIFY`, and `BOOT_DONE`. Static ARM64
   build passed with sha256
-  `c7b02320f143f57a837b5f1cf8af17258307439be3b8969dc33000735116ce4e`. Next is
-  V899 deploy-only helper `v144` parity; live actor start remains a later
-  bounded cycle.
+  `c7b02320f143f57a837b5f1cf8af17258307439be3b8969dc33000735116ce4e`. V899
+  then deployed helper `v144` to `/cache/bin/a90_android_execns_probe` by
+  serial appendfile/uudecode (`788` chunks) and postdeploy preflight proved
+  remote sha/mode parity, selftest fail0, service-manager-clean, and
+  Wi-Fi-link-clean state. Next is V900 bounded live `mdm_helper`/`ks` contract
+  proof; Wi-Fi HAL, scan/connect, credentials, DHCP/routes, and external ping
+  remain blocked until lower readiness is proven.
   Keep Wi-Fi HAL, scan/connect, DHCP/routes, credentials, external ping, live
   direct userspace `CMD_EXE`/explicit userspace `PWR_ON`, `NOTIFY`, subsystem
   writes, GPIO/sysfs/debugfs writes, module load/unload, and boot image writes

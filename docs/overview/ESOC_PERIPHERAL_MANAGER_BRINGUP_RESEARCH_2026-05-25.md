@@ -1494,3 +1494,45 @@ Next candidate:
 - V899 deploy-only helper `v144` parity.
 - V900 or later bounded live `mdm_helper`/`ks` contract proof only after remote
   checksum/version/mode parity is confirmed.
+
+---
+
+## 41. V899 helper v144 deploy-only result
+
+V899 deployed helper `v144` and proved remote parity.
+
+Evidence:
+
+- `tmp/wifi/v899-execns-helper-v144-deploy-preflight/manifest.json`
+- `tmp/wifi/v899-execns-helper-v144-postdeploy-preflight/manifest.json`
+- `docs/plans/NATIVE_INIT_V899_HELPER_V144_DEPLOY_PLAN_2026-05-26.md`
+- `docs/reports/NATIVE_INIT_V899_HELPER_V144_DEPLOY_2026-05-26.md`
+
+Decision:
+
+- `execns-helper-v144-deploy-pass`
+
+Result:
+
+- `/cache/bin/a90_android_execns_probe` now matches helper `v144`.
+- Remote sha256:
+  `c7b02320f143f57a837b5f1cf8af17258307439be3b8969dc33000735116ce4e`.
+- Remote marker/mode check passed for
+  `wifi-companion-mdm-helper-ks-image-contract-preflight`.
+- Postdeploy `selftest fail=0`.
+- Service-manager and Wi-Fi link surfaces remained clean.
+- Transfer used serial appendfile/uudecode because NCM was not active:
+  `788` chunks, max cmdv1 line `3890` under safe limit `3968`.
+
+Interpretation:
+
+- The deploy/parity blocker is removed.
+- The next blocker is no longer tooling availability. It is the actual lower
+  live contract: whether Android-equivalent `mdm_helper` before
+  `/dev/subsys_esoc0` can produce `ks`/MHI and then GPIO 142 readiness.
+
+Next candidate:
+
+- V900 bounded live `mdm_helper`/`ks` contract proof.
+- Keep Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, and
+  Wi-Fi link-up blocked until lower readiness is proven.

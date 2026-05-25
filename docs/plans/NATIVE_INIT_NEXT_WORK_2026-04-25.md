@@ -4642,3 +4642,30 @@ Samsung bootloader
   Wi-Fi link-up.
 - next: V899 deploy-only helper `v144` checksum/version/mode parity. First
   live contract execution remains a separate bounded cycle.
+
+### V899. Helper v144 Deploy-only Parity
+
+- plan: `docs/plans/NATIVE_INIT_V899_HELPER_V144_DEPLOY_PLAN_2026-05-26.md`
+- report: `docs/reports/NATIVE_INIT_V899_HELPER_V144_DEPLOY_2026-05-26.md`
+- deploy wrapper: `scripts/revalidation/wifi_execns_helper_v144_deploy_preflight.py`
+- evidence:
+  - `tmp/wifi/v899-execns-helper-v144-deploy-preflight/manifest.json`
+  - `tmp/wifi/v899-execns-helper-v144-postdeploy-preflight/manifest.json`
+- decision: `execns-helper-v144-deploy-pass`
+- result: deploy-only PASS. Helper `v144` is installed at
+  `/cache/bin/a90_android_execns_probe`; postdeploy preflight shows remote sha
+  and mode marker match.
+- transfer: serial appendfile/uudecode, `788` chunks, `1456699` encoded bytes,
+  max cmdv1 line `3890` under safe limit `3968`.
+- remote sha256:
+  `c7b02320f143f57a837b5f1cf8af17258307439be3b8969dc33000735116ce4e`.
+- health: post-deploy `selftest fail=0`, service-manager process surface clean,
+  Wi-Fi link surface clean, and manual `bootstatus` OK.
+- hard gates held: no live eSoC ioctl, no `/dev/subsys_esoc0` open, no
+  `REG_REQ_ENG`, `ESOC_NOTIFY`, `BOOT_DONE`, `mdm_helper` start, `ks` start,
+  service-manager, CNSS daemon, Wi-Fi HAL, scan/connect, credentials,
+  DHCP/routes, external ping, boot image write, partition write, firmware
+  mutation, GPIO/sysfs/debugfs write, module load/unload, reboot, or Wi-Fi
+  link-up.
+- next: V900 bounded live `mdm_helper`/`ks` contract proof. Wi-Fi HAL,
+  scan/connect, credentials, DHCP/routes, and external ping remain blocked.
