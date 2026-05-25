@@ -945,3 +945,45 @@ Next candidate:
 - V885 host-only Android `mdm_helper` image-request response classifier.
 - Determine which image transfer path and `ESOC_NOTIFY` value Android uses
   before any new live eSoC ioctl or subsystem open attempt.
+
+---
+
+## 28. V885 ESOC_REQ_IMG response classifier result
+
+V885 classified the V884 request evidence host-only.
+
+Evidence:
+
+- `tmp/wifi/v885-esoc-req-img-response-classifier/manifest.json`
+- `tmp/wifi/v885-esoc-req-img-response-classifier/summary.md`
+- `docs/plans/NATIVE_INIT_V885_ESOC_REQ_IMG_RESPONSE_CLASSIFIER_PLAN_2026-05-26.md`
+- `docs/reports/NATIVE_INIT_V885_ESOC_REQ_IMG_RESPONSE_CLASSIFIER_2026-05-26.md`
+
+Decision:
+
+- `v885-esoc-req-img-response-contract-classified`
+
+Result:
+
+- V884 `ESOC_WAIT_FOR_REQ rc=4 errno=0 value=1` is request evidence, not an
+  ioctl failure.
+- Local OSRC `esoc_dev.c` returns the copied `u32` byte count after reading the
+  request FIFO and writing the request value to userspace.
+- Local `esoc_ctrl.h` maps value `1` to `ESOC_REQ_IMG`.
+- Local `esoc-mdm-pon.c` shows the SDX50M path can queue `ESOC_REQ_IMG`.
+- Local `esoc-mdm-4x.c` exposes the response hooks for `ESOC_IMG_XFER_DONE` and
+  `ESOC_BOOT_DONE`.
+
+Guardrails held: V885 did not contact the device, did not execute live eSoC
+ioctls, did not open `/dev/subsys_esoc0`, did not issue `ESOC_NOTIFY`, did not
+start Android actors, and did not bring up Wi-Fi.
+
+Next candidate:
+
+- V886 helper `v140` source/build-only semantic repair plus guarded response
+  scaffold.
+- Fix helper output so nonnegative `WAIT_FOR_REQ` byte-count returns are
+  classified as request observations.
+- Keep live `ESOC_NOTIFY`, subsystem open retries, actors, Wi-Fi HAL,
+  scan/connect, credentials, DHCP/routes, and external ping blocked until a
+  separate deploy/live response gate exists.

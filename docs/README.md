@@ -130,6 +130,7 @@
 
 ### 3. Plans
 
+- `plans/NATIVE_INIT_V885_ESOC_REQ_IMG_RESPONSE_CLASSIFIER_PLAN_2026-05-26.md` – V884 `ESOC_WAIT_FOR_REQ rc=4 value=1`을 `ESOC_REQ_IMG` response contract로 host-only 분류하는 V885 계획
 - `plans/NATIVE_INIT_V884_REQ_REGISTERED_SUBSYS_HOLD_OBSERVER_PLAN_2026-05-26.md` – helper `v139`으로 REQ-registered `/dev/subsys_esoc0` hold window와 passive `ESOC_WAIT_FOR_REQ` observer를 실행하는 V884 계획
 - `plans/NATIVE_INIT_V883_HELPER_V139_DEPLOY_PLAN_2026-05-26.md` – helper `v139`을 `/cache/bin/a90_android_execns_probe`에 deploy-only로 올리는 V883 계획
 - `plans/NATIVE_INIT_V882_PASSIVE_WAIT_FOR_REQ_HELPER_PLAN_2026-05-26.md` – helper `v139`에 passive `ESOC_WAIT_FOR_REQ` observer support를 source/build-only로 추가하는 V882 계획
@@ -395,6 +396,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V885_ESOC_REQ_IMG_RESPONSE_CLASSIFIER_2026-05-26.md` – V885 결과 `ESOC_WAIT_FOR_REQ rc=4 value=1`은 ioctl failure가 아니라 `ESOC_REQ_IMG`이며 V886 helper semantic repair 후보 선정
 - `reports/NATIVE_INIT_V884_REQ_REGISTERED_SUBSYS_HOLD_OBSERVER_2026-05-26.md` – V884 결과 `REG_REQ_ENG rc0`, `ESOC_REQ_IMG` 관측, `/dev/subsys_esoc0` D-state/reboot cleanup 확인
 - `reports/NATIVE_INIT_V883_HELPER_V139_DEPLOY_2026-05-26.md` – V883 결과 helper `v139` deploy-only PASS, remote sha/mode marker/selftest/actor-clean/Wi-Fi-link-clean 확인
 - `reports/NATIVE_INIT_V882_PASSIVE_WAIT_FOR_REQ_HELPER_BUILD_2026-05-26.md` – V882 결과 helper `v139` static build PASS, passive `ESOC_WAIT_FOR_REQ` observer support 추가

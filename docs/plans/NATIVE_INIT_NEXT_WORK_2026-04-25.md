@@ -25,7 +25,7 @@
 
 ## 현재 Wi-Fi Gate
 
-- 최신 기준: V884 evidence + reboot cleanup complete.
+- 최신 기준: V885 host-only ESOC_REQ_IMG response contract classifier pass.
 - V874 결론: `/dev/esoc-0` read-only control path가 live에서 열렸고
   `GET_STATUS`/`GET_ERR_FATAL`은 rc `0`, `GET_LINK_ID`는 errno `22`로
   반환됐다. 결과는 `read-only-ioctl-probe-complete`이며 created nodes cleanup,
@@ -91,6 +91,13 @@
   sequence를 수행하지 않아 `/dev/subsys_esoc0` open이 D-state로 남았다.
   Recovery reboot 후 native version/selftest는 정상 복구됐다. 다음 후보는
   V885 host-only Android `mdm_helper` image-request response classifier다.
+- V885 결론: host-only classifier가 V884 요청을 `ESOC_REQ_IMG`로 확정했다.
+  `WAIT_FOR_REQ rc=4 errno=0 value=1`은 ioctl failure가 아니라 copied
+  `sizeof(u32)` byte count와 request value다. Local OSRC는
+  `ESOC_IMG_XFER_DONE`/`ESOC_BOOT_DONE` response hook을 노출한다. 다음 후보는
+  V886 helper `v140` source/build-only semantic repair와 guarded response
+  scaffold다. Live `ESOC_NOTIFY`와 subsystem-open retry는 별도 gate 전까지
+  막는다.
 
 - 아래 V840-V847 항목은 V874/V875 이전 경로 요약이다.
 - V840 결론: provider-first service-manager/PeripheralManager, CNSS retry,
@@ -4273,3 +4280,22 @@ Samsung bootloader
 - next: V885 host-only Android `mdm_helper` image-request response classifier.
   Do not retry `/dev/subsys_esoc0` live until the `ESOC_REQ_IMG` response
   contract is known.
+
+### V885. ESOC_REQ_IMG Response Contract Classifier
+
+- plan: `docs/plans/NATIVE_INIT_V885_ESOC_REQ_IMG_RESPONSE_CLASSIFIER_PLAN_2026-05-26.md`
+- report: `docs/reports/NATIVE_INIT_V885_ESOC_REQ_IMG_RESPONSE_CLASSIFIER_2026-05-26.md`
+- classifier: `scripts/revalidation/native_wifi_esoc_req_img_response_classifier_v885.py`
+- evidence:
+  - `tmp/wifi/v885-esoc-req-img-response-classifier/manifest.json`
+  - `tmp/wifi/v885-esoc-req-img-response-classifier/summary.md`
+- decision: `v885-esoc-req-img-response-contract-classified`
+- result: host-only PASS. V884 `ESOC_WAIT_FOR_REQ rc=4 errno=0 value=1` maps
+  to copied `sizeof(u32)` plus `ESOC_REQ_IMG`, not an ioctl failure. Local OSRC
+  exposes `ESOC_IMG_XFER_DONE` and `ESOC_BOOT_DONE` response hooks.
+- hard gates held: no device contact, no live eSoC ioctl, no
+  `/dev/subsys_esoc0` open, no `ESOC_NOTIFY`, no actor start, no Wi-Fi HAL,
+  scan/connect, DHCP/routes, credentials, or external ping.
+- next: V886 helper `v140` source/build-only semantic repair plus guarded
+  response-mode scaffold. Live `ESOC_NOTIFY` remains blocked until a separate
+  deploy/live response gate.
