@@ -134,6 +134,7 @@
 - `plans/NATIVE_INIT_V1005_V1004_FD_GAP_CLASSIFIER_PLAN_2026-05-26.md` – V1000 Android dmesg/process, V911 native `mdm_helper` fd, V1004 service-window fd-gate 실패를 host-only로 비교해 다음 gate를 고르는 V1005 계획
 - `plans/NATIVE_INIT_V1006_SERVICE_WINDOW_FD_POLL_SUPPORT_PLAN_2026-05-26.md` – V1005가 선택한 helper `v171` service-window `mdm_helper` `/dev/esoc-0` repeated fd-poll support source/build 계획
 - `plans/NATIVE_INIT_V1007_HELPER_V171_DEPLOY_PLAN_2026-05-26.md` – helper `v171`을 `/cache/bin/a90_android_execns_probe`로 deploy-only 배포하고 remote sha/contract parity를 확인하는 V1007 계획
+- `plans/NATIVE_INIT_V1008_SERVICE_WINDOW_FD_POLL_LIVE_PLAN_2026-05-26.md` – helper `v171`으로 current-boot SELinux refresh 후 Android service-window fd-poll/subsystem-trigger live gate를 실행하는 V1008 계획
 - `plans/NATIVE_INIT_V1003_HELPER_V170_DEPLOY_PLAN_2026-05-26.md` – V1002 helper `v170` 산출물을 `/cache/bin/a90_android_execns_probe`로 deploy-only 배포하고 sha/contract parity를 확인하는 V1003 계획
 - `plans/NATIVE_INIT_V1002_ANDROID_SERVICE_WINDOW_SUBSYS_TRIGGER_SUPPORT_PLAN_2026-05-26.md` – V1001에서 선택한 service-window-scoped `/dev/subsys_esoc0` trigger capture를 helper `v170`에 source/build-only로 추가하는 V1002 계획
 - `plans/NATIVE_INIT_V1001_V1000_ROUTE_COMPARATOR_PLAN_2026-05-26.md` – V1000 Android timing과 V998/V923/V964/V965 native evidence를 비교해 WLFW-precondition gate가 circular인지 host-only로 판정하는 V1001 계획
