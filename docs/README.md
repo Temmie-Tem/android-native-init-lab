@@ -435,6 +435,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V984_HELPER_V166_DEPLOY_2026-05-26.md` – helper `v166`를 `/cache/bin/a90_android_execns_probe`에 deploy-only로 설치하고 remote sha/mode parity 및 no-Wi-Fi guard를 확인한 V984 결과
 - `reports/NATIVE_INIT_V983_ANDROID_SERVICE_WINDOW_PROPERTY_SHIM_2026-05-26.md` – helper `v166`에서 Android service-window 전용 mode에 private property service shim을 활성화해 V982 `wificond` property-service gap을 source/build-only로 수리한 V983 결과
 - `reports/NATIVE_INIT_V982_ANDROID_SERVICE_WINDOW_LIVE_V165_2026-05-26.md` – helper `v165` Android service-window에서 binder abort는 해소됐으나 property service shim 비활성으로 `wificond` `SIGABRT` runtime gap이 남았음을 분류한 V982 결과
 - `reports/NATIVE_INIT_V981_HELPER_V165_DEPLOY_2026-05-26.md` – helper `v165`를 `/cache/bin/a90_android_execns_probe`에 deploy-only로 설치하고 remote sha/mode parity 및 no-Wi-Fi guard를 확인한 V981 결과
