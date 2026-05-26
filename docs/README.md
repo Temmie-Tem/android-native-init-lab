@@ -130,6 +130,7 @@
 
 ### 3. Plans
 
+- `plans/NATIVE_INIT_V1002_ANDROID_SERVICE_WINDOW_SUBSYS_TRIGGER_SUPPORT_PLAN_2026-05-26.md` – V1001에서 선택한 service-window-scoped `/dev/subsys_esoc0` trigger capture를 helper `v170`에 source/build-only로 추가하는 V1002 계획
 - `plans/NATIVE_INIT_V1001_V1000_ROUTE_COMPARATOR_PLAN_2026-05-26.md` – V1000 Android timing과 V998/V923/V964/V965 native evidence를 비교해 WLFW-precondition gate가 circular인지 host-only로 판정하는 V1001 계획
 - `plans/NATIVE_INIT_V1000_ANDROID_ESOC_GPIO_RECAPTURE_HANDOFF_PLAN_2026-05-26.md` – V999 이후 Android boot image로 임시 handoff해 MDM3/eSoC/GPIO/PMIC/PCIe 타이밍을 read-only ADB로 재캡처하고 native v724로 롤백하는 V1000 계획
 - `plans/NATIVE_INIT_V999_POST_SELINUX_WLFW_ROUTE_PLAN_2026-05-26.md` – V998 이후 SELinux/service-window blocker가 제거됐지만 WLFW precondition이 남은 상태에서 Android dmesg/eSoC/GPIO 재캡처를 다음 route로 선택할지 host-only로 분류하는 V999 계획
