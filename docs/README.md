@@ -435,6 +435,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V972_HELPER_V162_DEPLOY_2026-05-26.md` – helper `v162`를 `/cache/bin/a90_android_execns_probe`에 deploy-only로 설치하고 remote sha/mode parity 및 no-Wi-Fi guard를 확인한 V972 결과
 - `reports/NATIVE_INIT_V971_ANDROID_SERVICE_WINDOW_VALIDATION_REPAIR_2026-05-26.md` – helper `v162`에서 Android service-window mode의 `service-defaults` SELinux context validation allowlist 누락을 source/build-only로 수리한 V971 결과
 - `reports/NATIVE_INIT_V970_ANDROID_SERVICE_WINDOW_LIVE_2026-05-26.md` – helper `v161` Android service-window live proof가 actor 실행 전 `android_selinux_context_mode=service-defaults` allowlist 누락으로 거부됨을 분류한 V970 결과
 - `reports/NATIVE_INIT_V969_HELPER_V161_DEPLOY_2026-05-26.md` – helper `v161`을 `/cache/bin/a90_android_execns_probe`에 deploy-only로 설치하고 remote sha/mode parity 및 no-Wi-Fi guard를 확인한 V969 결과
