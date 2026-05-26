@@ -137,6 +137,7 @@
 - `plans/NATIVE_INIT_V1008_SERVICE_WINDOW_FD_POLL_LIVE_PLAN_2026-05-26.md` – helper `v171`으로 current-boot SELinux refresh 후 Android service-window fd-poll/subsystem-trigger live gate를 실행하는 V1008 계획
 - `plans/NATIVE_INIT_V1009_V911_V1008_CONTRACT_COMPARATOR_PLAN_2026-05-26.md` – V911 reduced runtime-contract fd-positive 경로와 V1008 full service-window fd-negative 경로를 host-only로 비교해 V1010 격리 gate를 고르는 계획
 - `plans/NATIVE_INIT_V1010_MDM_HELPER_RUNTIME_SERVICE_DEFAULTS_PLAN_2026-05-26.md` – reduced V911 `mdm_helper` runtime-contract 순서에 service-defaults SELinux를 강제해 V911 양성 경로의 domain 의존성을 격리하는 V1010 계획
+- `plans/NATIVE_INIT_V1011_V1008_V1010_ACTOR_DELTA_PLAN_2026-05-26.md` – V1008 full service-window fd-negative와 V1010 reduced service-defaults fd-positive를 비교해 after-fd CNSS/service-manager matrix gate를 선택하는 V1011 계획
 - `plans/NATIVE_INIT_V1003_HELPER_V170_DEPLOY_PLAN_2026-05-26.md` – V1002 helper `v170` 산출물을 `/cache/bin/a90_android_execns_probe`로 deploy-only 배포하고 sha/contract parity를 확인하는 V1003 계획
 - `plans/NATIVE_INIT_V1002_ANDROID_SERVICE_WINDOW_SUBSYS_TRIGGER_SUPPORT_PLAN_2026-05-26.md` – V1001에서 선택한 service-window-scoped `/dev/subsys_esoc0` trigger capture를 helper `v170`에 source/build-only로 추가하는 V1002 계획
 - `plans/NATIVE_INIT_V1001_V1000_ROUTE_COMPARATOR_PLAN_2026-05-26.md` – V1000 Android timing과 V998/V923/V964/V965 native evidence를 비교해 WLFW-precondition gate가 circular인지 host-only로 판정하는 V1001 계획
@@ -458,6 +459,7 @@
 - `reports/NATIVE_INIT_V1008_SERVICE_WINDOW_FD_POLL_LIVE_2026-05-26.md` – helper `v171` live 결과 current-boot SELinux refresh와 service-window actors는 통과했지만 fd-poll 전 구간에서 `mdm_helper` `/dev/esoc-0`가 0이라 trigger를 미실행한 V1008 결과
 - `reports/NATIVE_INIT_V1009_V911_V1008_CONTRACT_COMPARATOR_2026-05-26.md` – V911 reduced path의 `/dev/esoc-0` fd-positive와 V1008 service-window fd-negative를 비교해 다음을 service-defaults reduced `mdm_helper` isolation gate로 선택한 V1009 결과
 - `reports/NATIVE_INIT_V1010_MDM_HELPER_RUNTIME_SERVICE_DEFAULTS_2026-05-26.md` – helper `v171` reduced runtime-contract를 service-defaults SELinux로 실행해 `mdm_helper`가 `u:r:vendor_mdm_helper:s0`에서도 `/dev/esoc-0`를 여는 것을 확인한 V1010 결과
+- `reports/NATIVE_INIT_V1011_V1008_V1010_ACTOR_DELTA_2026-05-26.md` – V1008 full service-window가 fd predicate를 잃고 V1010 reduced route가 유지함을 비교해 V1012 after-fd CNSS/service-manager matrix를 선택한 결과
 - `reports/NATIVE_INIT_V1004_SERVICE_WINDOW_SUBSYS_TRIGGER_LIVE_2026-05-26.md` – V1004 live 결과 current-boot SELinux refresh 후 Android service-window actors는 관측됐지만 `mdm_helper`가 `/dev/esoc-0` fd를 hold하지 않아 `/dev/subsys_esoc0` trigger는 안전하게 미실행된 결과
 - `reports/NATIVE_INIT_V1003_HELPER_V170_DEPLOY_2026-05-26.md` – helper `v170`을 `/cache/bin/a90_android_execns_probe`로 deploy-only 설치하고 remote sha/contract parity 및 no-Wi-Fi guard를 확인한 V1003 결과
 - `reports/NATIVE_INIT_V1002_ANDROID_SERVICE_WINDOW_SUBSYS_TRIGGER_SUPPORT_2026-05-26.md` – helper `v170`에 Android service-window scoped `/dev/subsys_esoc0` trigger capture mode를 source/build-only로 추가한 V1002 결과
