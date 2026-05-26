@@ -434,6 +434,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V962_HELPER_V160_DEPLOY_2026-05-26.md` – helper `v160`을 `/cache/bin/a90_android_execns_probe`로 deploy-only 배포하고 no-daemon/no-Wi-Fi guard와 postflight health를 확인한 V962 결과
 - `reports/NATIVE_INIT_V961_POST_PROVIDER_TRIGGER_GATE_SUPPORT_2026-05-26.md` – helper `v160`에 명시적 `post-provider-no-wlfw` subsystem trigger gate를 source/build-only로 추가하고 기본 `wlfw-precondition` gate 보존 및 no-Wi-Fi guard를 검증한 V961 결과
 - `reports/NATIVE_INIT_V960_V959_FULL_SURFACE_CLASSIFIER_2026-05-26.md` – V959 full-surface evidence를 host-only로 분류해 provider/CNSS netlink는 살아 있고 남은 blocker가 MHI/WLFW/BDF/`wlan0` 부재임을 확정한 V960 결과
 - `reports/NATIVE_INIT_V959_PM_PROXY_FULL_SURFACE_LIVE_2026-05-26.md` – helper `v159` `pm-proxy` matrix를 full surface로 재실행해 `cld80211` netlink 도달과 MHI/WLFW/BDF/`wlan0` 부재를 fail-closed로 수집한 V959 결과
