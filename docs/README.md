@@ -183,6 +183,7 @@
 - `plans/NATIVE_INIT_V1058_FIRST_OPEN_RUNTIME_PREREQ_PLAN_2026-05-27.md` – V1056 이후 current native boot의 firmware_class path, firmware mounts, modem PIL blob visibility, device-node presence, lower perturbation markers를 read-only로 분류하는 계획
 - `plans/NATIVE_INIT_V1060_CURRENT_CNSS_ONLY_OBSERVER_PLAN_2026-05-27.md` – V1059 firmware mount refresh 이후 current-boot SELinux/policy를 갱신하고 helper v180 CNSS-only observer로 QRTR/sysmon/WLFW/MHI/wlan0 marker를 확인하는 계획
 - `plans/NATIVE_INIT_V1061_GLOBAL_FIRMWARE_PM_FULL_CONTRACT_PLAN_2026-05-27.md` – global firmware mount와 global `/dev/subsys_modem` holder를 유지한 상태에서 helper v180 PM full-contract-with-modem-holder gate를 재검증하는 계획
+- `plans/NATIVE_INIT_V1062_PM_CONTRACT_GAP_CLASSIFIER_PLAN_2026-05-27.md` – V1024 Android-positive PM fd evidence와 V1061 native PM full-contract gap/eSoC warning을 host-only로 비교 분류하는 계획
 - `plans/NATIVE_INIT_V1003_HELPER_V170_DEPLOY_PLAN_2026-05-26.md` – V1002 helper `v170` 산출물을 `/cache/bin/a90_android_execns_probe`로 deploy-only 배포하고 sha/contract parity를 확인하는 V1003 계획
 - `plans/NATIVE_INIT_V1002_ANDROID_SERVICE_WINDOW_SUBSYS_TRIGGER_SUPPORT_PLAN_2026-05-26.md` – V1001에서 선택한 service-window-scoped `/dev/subsys_esoc0` trigger capture를 helper `v170`에 source/build-only로 추가하는 V1002 계획
 - `plans/NATIVE_INIT_V1001_V1000_ROUTE_COMPARATOR_PLAN_2026-05-26.md` – V1000 Android timing과 V998/V923/V964/V965 native evidence를 비교해 WLFW-precondition gate가 circular인지 host-only로 판정하는 V1001 계획
@@ -548,6 +549,7 @@
 - `reports/NATIVE_INIT_V1059_FIRMWARE_MOUNT_REFRESH_2026-05-27.md` – V1059 결과 `apnhlos`/`modem` firmware partitions를 read-only global mount로 검증하고 cleanup까지 통과했지만 mount-only로는 QRTR/WLFW marker delta가 없어 다음을 bounded companion start-only와 결합하도록 라우팅한 결과
 - `reports/NATIVE_INIT_V1060_CURRENT_CNSS_ONLY_OBSERVER_2026-05-27.md` – V1060 결과 current-boot SELinux/policy refresh 후 firmware mounts, modem holder, lower companions, `cnss_diag`, `cnss-daemon`은 통과했지만 WLFW/MHI/BDF/`wlan0` service publication은 여전히 비어 있음을 분류한 결과
 - `reports/NATIVE_INIT_V1061_GLOBAL_FIRMWARE_PM_FULL_CONTRACT_2026-05-27.md` – V1061 결과 global firmware mount가 helper modem pre-holder를 해결했지만 `pm-service`/`per_mgr`의 `/dev/subsys_modem` fd가 없어 PM full contract가 미완성이고 eSoC refcount warning을 별도 blocker로 분류한 결과
+- `reports/NATIVE_INIT_V1062_PM_CONTRACT_GAP_CLASSIFIER_2026-05-27.md` – V1062 결과 Android는 `pm-service` `/dev/subsys_modem` fd와 WLFW chain이 있지만 native V1061은 `per_mgr` fd가 없고 eSoC refcount warning이 있어 다음을 PM service trigger/input 분석으로 라우팅한 결과
 - `reports/NATIVE_INIT_V1004_SERVICE_WINDOW_SUBSYS_TRIGGER_LIVE_2026-05-26.md` – V1004 live 결과 current-boot SELinux refresh 후 Android service-window actors는 관측됐지만 `mdm_helper`가 `/dev/esoc-0` fd를 hold하지 않아 `/dev/subsys_esoc0` trigger는 안전하게 미실행된 결과
 - `reports/NATIVE_INIT_V1003_HELPER_V170_DEPLOY_2026-05-26.md` – helper `v170`을 `/cache/bin/a90_android_execns_probe`로 deploy-only 설치하고 remote sha/contract parity 및 no-Wi-Fi guard를 확인한 V1003 결과
 - `reports/NATIVE_INIT_V1002_ANDROID_SERVICE_WINDOW_SUBSYS_TRIGGER_SUPPORT_2026-05-26.md` – helper `v170`에 Android service-window scoped `/dev/subsys_esoc0` trigger capture mode를 source/build-only로 추가한 V1002 결과
