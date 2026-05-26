@@ -141,6 +141,7 @@
 - `plans/NATIVE_INIT_V1012_AFTER_FD_CNSS_MATRIX_PLAN_2026-05-26.md` – helper `v171` after-fd CNSS/service-manager matrix를 실행해 fd-positive lower state 뒤 CNSS/WLFW precondition을 검증하는 V1012 계획
 - `plans/NATIVE_INIT_V1013_V1012_WLFW_GAP_CLASSIFIER_PLAN_2026-05-26.md` – V1012 after-fd CNSS matrix의 WLFW gap을 V1008/Android dmesg/helper-source 증거와 비교해 after-fd Wi-Fi surface matrix를 다음 단위로 선택하는 V1013 계획
 - `plans/NATIVE_INIT_V1014_AFTER_FD_WIFI_SURFACE_MATRIX_SUPPORT_PLAN_2026-05-26.md` – helper `v172`에 after-fd Wi-Fi HAL legacy/ext + `wificond` surface matrix order를 source/build-only로 추가하는 V1014 계획
+- `plans/NATIVE_INIT_V1015_HELPER_V172_DEPLOY_PLAN_2026-05-26.md` – helper `v172`를 `/cache/bin/a90_android_execns_probe`로 deploy-only 설치하고 remote sha/contract parity를 확인하는 V1015 계획
 - `plans/NATIVE_INIT_V1003_HELPER_V170_DEPLOY_PLAN_2026-05-26.md` – V1002 helper `v170` 산출물을 `/cache/bin/a90_android_execns_probe`로 deploy-only 배포하고 sha/contract parity를 확인하는 V1003 계획
 - `plans/NATIVE_INIT_V1002_ANDROID_SERVICE_WINDOW_SUBSYS_TRIGGER_SUPPORT_PLAN_2026-05-26.md` – V1001에서 선택한 service-window-scoped `/dev/subsys_esoc0` trigger capture를 helper `v170`에 source/build-only로 추가하는 V1002 계획
 - `plans/NATIVE_INIT_V1001_V1000_ROUTE_COMPARATOR_PLAN_2026-05-26.md` – V1000 Android timing과 V998/V923/V964/V965 native evidence를 비교해 WLFW-precondition gate가 circular인지 host-only로 판정하는 V1001 계획
@@ -466,6 +467,7 @@
 - `reports/NATIVE_INIT_V1012_AFTER_FD_CNSS_MATRIX_2026-05-26.md` – V1012 after-fd matrix live 결과 `mdm_helper` fd, service-manager, CNSS는 성립했지만 WLFW precondition은 0으로 남아 `/dev/subsys_esoc0` open 없이 cleanup reboot로 복구한 결과
 - `reports/NATIVE_INIT_V1013_V1012_WLFW_GAP_CLASSIFIER_2026-05-26.md` – V1012의 fd-positive/CNSS/no-WLFW와 V1008의 upper-surface/fd-missing split을 비교해 V1014 after-fd Wi-Fi surface helper support를 선택한 결과
 - `reports/NATIVE_INIT_V1014_AFTER_FD_WIFI_SURFACE_MATRIX_SUPPORT_2026-05-26.md` – helper `v172`에 fd predicate 이후 Wi-Fi HAL legacy/ext와 `wificond`를 추가하고 CNSS를 그 뒤로 gate하는 source/build-only 결과
+- `reports/NATIVE_INIT_V1015_HELPER_V172_DEPLOY_2026-05-26.md` – helper `v172` deploy-only 결과 remote sha/usage contract가 일치하고 daemon/Wi-Fi bring-up 없이 V1016 live gate 준비가 완료된 결과
 - `reports/NATIVE_INIT_V1004_SERVICE_WINDOW_SUBSYS_TRIGGER_LIVE_2026-05-26.md` – V1004 live 결과 current-boot SELinux refresh 후 Android service-window actors는 관측됐지만 `mdm_helper`가 `/dev/esoc-0` fd를 hold하지 않아 `/dev/subsys_esoc0` trigger는 안전하게 미실행된 결과
 - `reports/NATIVE_INIT_V1003_HELPER_V170_DEPLOY_2026-05-26.md` – helper `v170`을 `/cache/bin/a90_android_execns_probe`로 deploy-only 설치하고 remote sha/contract parity 및 no-Wi-Fi guard를 확인한 V1003 결과
 - `reports/NATIVE_INIT_V1002_ANDROID_SERVICE_WINDOW_SUBSYS_TRIGGER_SUPPORT_2026-05-26.md` – helper `v170`에 Android service-window scoped `/dev/subsys_esoc0` trigger capture mode를 source/build-only로 추가한 V1002 결과
