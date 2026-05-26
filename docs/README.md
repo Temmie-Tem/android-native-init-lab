@@ -435,6 +435,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V969_HELPER_V161_DEPLOY_2026-05-26.md` – helper `v161`을 `/cache/bin/a90_android_execns_probe`에 deploy-only로 설치하고 remote sha/mode parity 및 no-Wi-Fi guard를 확인한 V969 결과
 - `reports/NATIVE_INIT_V968_ANDROID_DMESG_ESOC_GPIO_TIMING_2026-05-26.md` – V913 Android-good dmesg/sysfs evidence를 재분류해 Wi-Fi 양성 service-window timing은 확보됐지만 GPIO135/142 level-transition timing은 기존 snapshot만으로 부족함을 확정한 V968 결과
 - `reports/NATIVE_INIT_V967_ANDROID_WIFI_SERVICE_WINDOW_SUPPORT_2026-05-26.md` – helper `v161`에 Android Wi-Fi service-window start-only mode를 source/build-only로 추가하고 no-qcwlanstate/no-eSoC/no-scan/connect guard를 검증한 V967 결과
 - `reports/NATIVE_INIT_V966_ANDROID_WLFW_START_ATTRIBUTION_2026-05-26.md` – V913 Android same-boot dmesg와 V963 native comparator를 host-only로 비교해 `wlfw_start`가 Android init Wi-Fi service-window에서 발생하며 direct eSoC open/qcwlanstate 재시도보다 V967 service-window parity가 먼저임을 분류한 결과
