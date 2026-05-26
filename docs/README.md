@@ -180,6 +180,7 @@
 - `plans/NATIVE_INIT_V1054_HELPER_V180_DEPLOY_PLAN_2026-05-26.md` – helper `v180`을 `/cache/bin/a90_android_execns_probe`로 deploy-only 설치하고 remote sha/native health/no-Wi-Fi guard를 검증하는 계획
 - `plans/NATIVE_INIT_V1055_PM_FULL_CONTRACT_WITH_MODEM_HOLDER_V180_PLAN_2026-05-26.md` – helper `v180`로 plain fallback modem pre-holder PM full-contract live gate를 재실행하는 계획
 - `plans/NATIVE_INIT_V1056_PM_FIRST_OPENER_RECLASSIFIER_PLAN_2026-05-26.md` – Android count-zero first-open positive control과 V1055 native block을 비교해 pre-holder 재시도 대신 first-open runtime prerequisite로 재분류하는 계획
+- `plans/NATIVE_INIT_V1058_FIRST_OPEN_RUNTIME_PREREQ_PLAN_2026-05-27.md` – V1056 이후 current native boot의 firmware_class path, firmware mounts, modem PIL blob visibility, device-node presence, lower perturbation markers를 read-only로 분류하는 계획
 - `plans/NATIVE_INIT_V1003_HELPER_V170_DEPLOY_PLAN_2026-05-26.md` – V1002 helper `v170` 산출물을 `/cache/bin/a90_android_execns_probe`로 deploy-only 배포하고 sha/contract parity를 확인하는 V1003 계획
 - `plans/NATIVE_INIT_V1002_ANDROID_SERVICE_WINDOW_SUBSYS_TRIGGER_SUPPORT_PLAN_2026-05-26.md` – V1001에서 선택한 service-window-scoped `/dev/subsys_esoc0` trigger capture를 helper `v170`에 source/build-only로 추가하는 V1002 계획
 - `plans/NATIVE_INIT_V1001_V1000_ROUTE_COMPARATOR_PLAN_2026-05-26.md` – V1000 Android timing과 V998/V923/V964/V965 native evidence를 비교해 WLFW-precondition gate가 circular인지 host-only로 판정하는 V1001 계획
@@ -541,6 +542,7 @@
 - `reports/NATIVE_INIT_V1055_PM_FULL_CONTRACT_WITH_MODEM_HOLDER_V180_2026-05-26.md` – V1055 결과 nonblocking open은 `errno=14`, plain fallback은 반환하지 않아 native first-opener/PIL blocker로 분류한 결과
 - `reports/NATIVE_INIT_V1056_PM_FIRST_OPENER_RECLASSIFIER_2026-05-26.md` – V1056 결과 Android도 `modem count:0`에서 `pm_proxy_helper` first-open을 시작해 `count:1`로 진행하므로 synthetic pre-holder가 아니라 first-open runtime prerequisite가 다음 blocker임을 분류한 결과
 - `reports/NATIVE_INIT_V1057_TCPCTL_RAMDISK_REPACK_2026-05-26.md` – V1057 결과 v724 ramdisk에 누락된 `/bin/a90_tcpctl`을 reproducible builder에 포함하고 flash/readback/native/NCM TCP control 검증을 통과한 결과
+- `reports/NATIVE_INIT_V1058_FIRST_OPEN_RUNTIME_PREREQ_2026-05-27.md` – V1058 결과 current native boot에서 `firmware_class.path`는 맞지만 global firmware mounts와 modem PIL blob visibility가 없어 다음을 bounded firmware-mount prerequisite refresh로 라우팅한 결과
 - `reports/NATIVE_INIT_V1004_SERVICE_WINDOW_SUBSYS_TRIGGER_LIVE_2026-05-26.md` – V1004 live 결과 current-boot SELinux refresh 후 Android service-window actors는 관측됐지만 `mdm_helper`가 `/dev/esoc-0` fd를 hold하지 않아 `/dev/subsys_esoc0` trigger는 안전하게 미실행된 결과
 - `reports/NATIVE_INIT_V1003_HELPER_V170_DEPLOY_2026-05-26.md` – helper `v170`을 `/cache/bin/a90_android_execns_probe`로 deploy-only 설치하고 remote sha/contract parity 및 no-Wi-Fi guard를 확인한 V1003 결과
 - `reports/NATIVE_INIT_V1002_ANDROID_SERVICE_WINDOW_SUBSYS_TRIGGER_SUPPORT_2026-05-26.md` – helper `v170`에 Android service-window scoped `/dev/subsys_esoc0` trigger capture mode를 source/build-only로 추가한 V1002 결과
