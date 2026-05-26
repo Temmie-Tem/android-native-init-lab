@@ -15,10 +15,11 @@
 
 ## 최신 Wi-Fi bring-up 조사 기준
 
-- 2026-05-27 기준 최신 PM observer proof는 `docs/reports/NATIVE_INIT_V1107_PM_SERVER_MUTEX_OWNER_CLASSIFIER_2026-05-27.md`입니다.
-- V1107에서 pre-CNSS `per_proxy` positive control의 Binder thread가 modem record mutex를 잡은 뒤 `__subsystem_get`/`_request_firmware`에서 막혀, 이후 `cnss-daemon`이 같은 mutex에서 `futex_wait_queue_me`로 대기함을 확인했습니다.
+- 2026-05-27 기준 최신 PM observer proof는 `docs/reports/NATIVE_INIT_V1108_PM_ORDERING_NO_PRE_CNSS_PER_PROXY_2026-05-27.md`입니다.
+- V1108에서 pre-CNSS `per_proxy` connect를 skip하고 `cnss-daemon`을 먼저 시작하면 PM register/connect가 모두 `0x0`으로 반환됨을 확인했습니다.
+- V1107에서 확인된 pre-CNSS `per_proxy` mutex wait blocker는 ordering 문제로 닫혔고, 현재 블로커는 성공한 CNSS PM connect 이후에도 `mdm3=OFFLINING`으로 남는 lower PM/eSoC side-effect gap입니다.
 - 아직 Wi-Fi HAL, scan/connect/link-up, DHCP, route, external ping은 실행하지 않았습니다.
-- 다음 블로커는 pre-CNSS `per_proxy` connect 없이 PM provider + CNSS register 경로를 검증하는 ordering test입니다.
+- 다음 블로커는 Wi-Fi HAL 전에 성공한 CNSS PM connect 직후의 lower PM/eSoC 상태와 dmesg delta를 분류하는 것입니다.
 
 ## 현재 기준점
 
