@@ -446,6 +446,9 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V1004_SERVICE_WINDOW_SUBSYS_TRIGGER_LIVE_2026-05-26.md` – V1004 live 결과 current-boot SELinux refresh 후 Android service-window actors는 관측됐지만 `mdm_helper`가 `/dev/esoc-0` fd를 hold하지 않아 `/dev/subsys_esoc0` trigger는 안전하게 미실행된 결과
+- `reports/NATIVE_INIT_V1003_HELPER_V170_DEPLOY_2026-05-26.md` – helper `v170`을 `/cache/bin/a90_android_execns_probe`로 deploy-only 설치하고 remote sha/contract parity 및 no-Wi-Fi guard를 확인한 V1003 결과
+- `reports/NATIVE_INIT_V1002_ANDROID_SERVICE_WINDOW_SUBSYS_TRIGGER_SUPPORT_2026-05-26.md` – helper `v170`에 Android service-window scoped `/dev/subsys_esoc0` trigger capture mode를 source/build-only로 추가한 V1002 결과
 - `reports/NATIVE_INIT_V1001_V1000_ROUTE_COMPARATOR_2026-05-26.md` – V1000에서 `/dev/subsys_esoc0` get이 `wlfw_start`보다 앞섰음을 반영해 V1002 service-window-scoped subsystem trigger helper support를 선택한 V1001 결과
 - `reports/NATIVE_INIT_V1000_ANDROID_ESOC_GPIO_RECAPTURE_HANDOFF_LIVE_2026-05-26.md` – V1000 live Android handoff가 boot-complete/read-only capture/native rollback을 수행했고, 완전 양성 타임라인은 미충족이지만 `/dev/subsys_esoc0` get 직후 `wlfw_start`/WLAN-PD/ICNSS QMI까지 도달한 현재 Android lower timing 증거
 - `reports/NATIVE_INIT_V1000_ANDROID_ESOC_GPIO_RECAPTURE_HANDOFF_PLAN_2026-05-26.md` – V1000 Android eSoC/GPIO read-only recapture handoff의 plan mode가 boot image/rollback 후보와 18-step sequence를 검증한 결과
