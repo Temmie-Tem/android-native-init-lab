@@ -165,6 +165,7 @@
 - `plans/NATIVE_INIT_V1036_PM_SELINUX_DOMAIN_PROOF_V176_PLAN_2026-05-26.md` – helper `v176`과 current-boot V490 policy-load로 PM SELinux domain proof를 재실행하는 계획
 - `plans/NATIVE_INIT_V1037_PM_RUNTIME_DOMAIN_GUARD_LIVE_V176_PLAN_2026-05-26.md` – helper `v176` PM runtime-domain guard를 live로 재검증하고 PM fd contract blocker를 분리하는 계획
 - `plans/NATIVE_INIT_V1038_PM_FD_AFTER_DOMAIN_CLASSIFIER_PLAN_2026-05-26.md` – V1037 이후 PM fd gap을 Android V1024/V1036 evidence와 비교해 `pm-proxy` context parity bug를 분류하는 계획
+- `plans/NATIVE_INIT_V1039_PM_PROXY_CONTEXT_PARITY_SUPPORT_PLAN_2026-05-26.md` – helper `v177`에서 `pm-proxy`를 Android의 `vendor_per_proxy` domain으로 분리하고 PM fd/wchan gap capture를 추가하는 source/build 계획
 - `plans/NATIVE_INIT_V1003_HELPER_V170_DEPLOY_PLAN_2026-05-26.md` – V1002 helper `v170` 산출물을 `/cache/bin/a90_android_execns_probe`로 deploy-only 배포하고 sha/contract parity를 확인하는 V1003 계획
 - `plans/NATIVE_INIT_V1002_ANDROID_SERVICE_WINDOW_SUBSYS_TRIGGER_SUPPORT_PLAN_2026-05-26.md` – V1001에서 선택한 service-window-scoped `/dev/subsys_esoc0` trigger capture를 helper `v170`에 source/build-only로 추가하는 V1002 계획
 - `plans/NATIVE_INIT_V1001_V1000_ROUTE_COMPARATOR_PLAN_2026-05-26.md` – V1000 Android timing과 V998/V923/V964/V965 native evidence를 비교해 WLFW-precondition gate가 circular인지 host-only로 판정하는 V1001 계획
@@ -510,6 +511,7 @@
 - `reports/NATIVE_INIT_V1032_PM_RUNTIME_DOMAIN_GUARD_LIVE_2026-05-26.md` – V1032 live 결과 helper `v175`가 PM actor들의 Android SELinux exec context mismatch를 `execv` 전에 차단했고 Wi-Fi/eSoC forbidden action 없이 runtime-domain gap을 확정한 결과
 - `reports/NATIVE_INIT_V1033_PM_SELINUX_DOMAIN_PROOF_2026-05-26.md` – V1033 live 결과 current-boot V490 policy-load는 통과했지만 helper `v175` domain-proof allowlist가 PM contexts를 차단해 V1034 source/build repair를 선택한 결과
 - `reports/NATIVE_INIT_V1034_PM_SELINUX_DOMAIN_ALLOWLIST_SUPPORT_2026-05-26.md` – V1034 source/build 결과 helper `v176`에 PM SELinux domain-proof contexts가 추가되고 static build가 통과한 결과
+- `reports/NATIVE_INIT_V1039_PM_PROXY_CONTEXT_PARITY_SUPPORT_2026-05-26.md` – V1039 source/build 결과 helper `v177`이 `pm-proxy`를 `vendor_per_proxy`로 매핑하고 PM fd/wchan gap capture marker를 포함한 결과
 - `reports/NATIVE_INIT_V1004_SERVICE_WINDOW_SUBSYS_TRIGGER_LIVE_2026-05-26.md` – V1004 live 결과 current-boot SELinux refresh 후 Android service-window actors는 관측됐지만 `mdm_helper`가 `/dev/esoc-0` fd를 hold하지 않아 `/dev/subsys_esoc0` trigger는 안전하게 미실행된 결과
 - `reports/NATIVE_INIT_V1003_HELPER_V170_DEPLOY_2026-05-26.md` – helper `v170`을 `/cache/bin/a90_android_execns_probe`로 deploy-only 설치하고 remote sha/contract parity 및 no-Wi-Fi guard를 확인한 V1003 결과
 - `reports/NATIVE_INIT_V1002_ANDROID_SERVICE_WINDOW_SUBSYS_TRIGGER_SUPPORT_2026-05-26.md` – helper `v170`에 Android service-window scoped `/dev/subsys_esoc0` trigger capture mode를 source/build-only로 추가한 V1002 결과

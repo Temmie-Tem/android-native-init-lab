@@ -88,7 +88,7 @@
 #define IOPRIO_PRIO_VALUE(class_value, data) (((class_value) << IOPRIO_CLASS_SHIFT) | (data))
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v176"
+#define EXECNS_VERSION "a90_android_execns_probe v177"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -3935,9 +3935,11 @@ static const char *android_default_selinux_context_for_target(const char *target
     if (streq(target, "/vendor/bin/pd-mapper")) {
         return "u:r:vendor_pd_mapper:s0";
     }
-    if (streq(target, "/vendor/bin/pm-service") ||
-        streq(target, "/vendor/bin/pm-proxy")) {
+    if (streq(target, "/vendor/bin/pm-service")) {
         return "u:r:vendor_per_mgr:s0";
+    }
+    if (streq(target, "/vendor/bin/pm-proxy")) {
+        return "u:r:vendor_per_proxy:s0";
     }
     if (streq(target, "/vendor/bin/pm_proxy_helper")) {
         return "u:r:per_proxy_helper:s0";
@@ -19861,6 +19863,7 @@ static int run_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_guar
     bool service_manager_started = false;
     bool pm_proxy_started = false;
     bool pm_proxy_helper_started = false;
+    bool pm_full_contract_gap_snapshot_captured = false;
     bool provider_service_manager_snapshot_captured = false;
     bool mdm_esoc_fd_seen = false;
     bool pm_full_contract_seen = false;
@@ -20737,6 +20740,46 @@ static int run_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_guar
                                                       mdm_helper) < 0) {
         goto fail;
     }
+    if (pm_full_contract_matrix && !pm_full_contract_seen && !pm_full_contract_gap_snapshot_captured) {
+        bool gap_snapshot_captured = false;
+
+        if (append_literal(stdout_buf,
+                           "cnss_before_esoc.pm_full_contract_gap_snapshot_attempted=1\n") < 0) {
+            goto fail;
+        }
+        if (!pm_proxy_helper->child_done &&
+            pm_proxy_helper->pid > 0 &&
+            kill(pm_proxy_helper->pid, 0) == 0) {
+            if (append_proc_fd_links_compact(stdout_buf,
+                                             pm_proxy_helper->pid,
+                                             "cnss_before_esoc_pm_full_gap_pm_proxy_helper") < 0 ||
+                append_generic_stall_snapshot_capture(stdout_buf,
+                                                      pm_proxy_helper->pid,
+                                                      "cnss_before_esoc_pm_full_gap_pm_proxy_helper") < 0) {
+                goto fail;
+            }
+            gap_snapshot_captured = true;
+        }
+        if (!per_mgr->child_done &&
+            per_mgr->pid > 0 &&
+            kill(per_mgr->pid, 0) == 0) {
+            if (append_proc_fd_links_compact(stdout_buf,
+                                             per_mgr->pid,
+                                             "cnss_before_esoc_pm_full_gap_per_mgr") < 0 ||
+                append_generic_stall_snapshot_capture(stdout_buf,
+                                                      per_mgr->pid,
+                                                      "cnss_before_esoc_pm_full_gap_per_mgr") < 0) {
+                goto fail;
+            }
+            gap_snapshot_captured = true;
+        }
+        pm_full_contract_gap_snapshot_captured = gap_snapshot_captured;
+        if (append_format(stdout_buf,
+                          "cnss_before_esoc.pm_full_contract_gap_snapshot_captured=%d\n",
+                          pm_full_contract_gap_snapshot_captured ? 1 : 0) < 0) {
+            goto fail;
+        }
+    }
     composite_capture_observable_children(children, child_count, stdout_buf);
     composite_cleanup_children(children, child_count, stdout_buf, stderr_buf);
     stop_property_service_shim(&property_shim, paths, stdout_buf);
@@ -20783,6 +20826,7 @@ static int run_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_guar
                       "cnss_before_esoc.pm_proxy_helper_subsys_modem_fd_count=%d\n"
                       "cnss_before_esoc.per_mgr_subsys_modem_fd_count=%d\n"
                       "cnss_before_esoc.pm_full_contract_seen=%d\n"
+                      "cnss_before_esoc.pm_full_contract_gap_snapshot_captured=%d\n"
                       "cnss_before_esoc.wifi_hal_started=%d\n"
                       "cnss_before_esoc.wificond_started=%d\n"
                       "cnss_before_esoc.cnss_diag_started=%d\n"
@@ -20829,6 +20873,7 @@ static int run_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_guar
                       pm_proxy_helper_subsys_modem_fd_count,
                       per_mgr_subsys_modem_fd_count,
                       pm_full_contract_seen ? 1 : 0,
+                      pm_full_contract_gap_snapshot_captured ? 1 : 0,
                       wifi_hal_started ? 1 : 0,
                       wificond_started ? 1 : 0,
                       cnss_diag_started ? 1 : 0,
