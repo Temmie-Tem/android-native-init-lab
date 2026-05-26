@@ -435,6 +435,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V971_ANDROID_SERVICE_WINDOW_VALIDATION_REPAIR_2026-05-26.md` – helper `v162`에서 Android service-window mode의 `service-defaults` SELinux context validation allowlist 누락을 source/build-only로 수리한 V971 결과
 - `reports/NATIVE_INIT_V970_ANDROID_SERVICE_WINDOW_LIVE_2026-05-26.md` – helper `v161` Android service-window live proof가 actor 실행 전 `android_selinux_context_mode=service-defaults` allowlist 누락으로 거부됨을 분류한 V970 결과
 - `reports/NATIVE_INIT_V969_HELPER_V161_DEPLOY_2026-05-26.md` – helper `v161`을 `/cache/bin/a90_android_execns_probe`에 deploy-only로 설치하고 remote sha/mode parity 및 no-Wi-Fi guard를 확인한 V969 결과
 - `reports/NATIVE_INIT_V968_ANDROID_DMESG_ESOC_GPIO_TIMING_2026-05-26.md` – V913 Android-good dmesg/sysfs evidence를 재분류해 Wi-Fi 양성 service-window timing은 확보됐지만 GPIO135/142 level-transition timing은 기존 snapshot만으로 부족함을 확정한 V968 결과
