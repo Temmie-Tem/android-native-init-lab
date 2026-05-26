@@ -435,6 +435,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V978_HELPER_V164_DEPLOY_2026-05-26.md` – helper `v164`를 `/cache/bin/a90_android_execns_probe`에 deploy-only로 설치하고 remote sha/mode parity 및 no-Wi-Fi guard를 확인한 V978 결과
 - `reports/NATIVE_INIT_V977_ANDROID_SERVICE_WINDOW_ALLOW_GATE_REPAIR_2026-05-26.md` – helper `v164`에서 Android service-window mode의 generic predicate coverage는 유지하면서 generic companion allow-flag 요구만 전용 mode에서 제외한 V977 source/build-only 수리 결과
 - `reports/NATIVE_INIT_V976_ANDROID_SERVICE_WINDOW_LIVE_V163_2026-05-26.md` – helper `v163` Android service-window live 재시도가 actor 실행 전 generic companion allow-flag gate에 걸렸음을 분류한 V976 결과
 - `reports/NATIVE_INIT_V975_HELPER_V163_DEPLOY_2026-05-26.md` – helper `v163`를 `/cache/bin/a90_android_execns_probe`에 deploy-only로 설치하고 remote sha/mode parity 및 no-Wi-Fi guard를 확인한 V975 결과
