@@ -198,6 +198,17 @@ def sample_loop_script(sample_count: int, sample_sleep: float) -> str:
     sleep_s = max(0.1, min(sample_sleep, 5.0))
     return f"""
 RE='{FOCUS_RE}'
+dump_target_proc() {{
+  pid="$1"
+  tag="$2"
+  d="/proc/$pid"
+  [ -d "$d" ] || return 0
+  comm=$(cat "$d/comm" 2>/dev/null)
+  attr=$(cat "$d/attr/current" 2>/dev/null)
+  cmd=$(tr '\\000' ' ' < "$d/cmdline" 2>/dev/null)
+  printf 'TARGET_PROC tag=%s pid=%s comm=%s attr=%s cmd=%s\\n' "$tag" "$pid" "$comm" "$attr" "$cmd"
+  [ -d "$d/fd" ] && ls -lZ "$d/fd" 2>/dev/null | grep -Ei '/dev/(esoc|subsys|mhi|wlan|qcwlanstate)' | head -n 80 || true
+}}
 for i in $(seq 1 {count}); do
   echo "== SAMPLE $i =="
   date '+epoch=%s.%N' 2>/dev/null || true
@@ -206,6 +217,20 @@ for i in $(seq 1 {count}); do
     printf '%s=%s ' "$svc" "$(getprop init.svc.$svc 2>/dev/null)"
   done
   printf '\\n'
+  echo '-- target-pidof-fd --'
+  for name in pm_proxy_helper pm-service pm-proxy mdm_helper cnss-daemon cnss_diag wificond android.hardware.wifi@1.0-service vendor.samsung.hardware.wifi@2.0-service; do
+    for pid in $(pidof "$name" 2>/dev/null); do dump_target_proc "$pid" "$name"; done
+  done
+  echo '-- target-comm-fd --'
+  for d in /proc/[0-9]*; do
+    pid=${{d##*/}}
+    comm=$(cat "$d/comm" 2>/dev/null)
+    case "$comm" in
+      pm_proxy_helper|pm-service|pm-proxy|mdm_helper|cnss-daemon|cnss_diag|wificond|*wifi*)
+        dump_target_proc "$pid" "comm:$comm"
+        ;;
+    esac
+  done
   ps -AZ 2>&1 | grep -Ei 'pm_proxy_helper|pm-proxy|pm-service|mdm_helper|cnss-daemon|cnss_diag|wificond|wifi@' | head -n 120 || true
   for d in /proc/[0-9]*; do
     pid=${{d##*/}}
@@ -292,6 +317,27 @@ def count_samples(text: str) -> int:
     return len(re.findall(r"^== SAMPLE \d+ ==", text, flags=re.MULTILINE))
 
 
+def proc_block_has_fd(text: str, proc_pattern: str, fd_pattern: str) -> bool:
+    proc_regex = re.compile(proc_pattern, re.IGNORECASE)
+    fd_regex = re.compile(fd_pattern, re.IGNORECASE)
+    active = False
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if (
+            line.startswith("TARGET_PROC ")
+            or line.startswith("PROC ")
+            or line.startswith("== SAMPLE ")
+            or line.startswith("-- target-")
+        ):
+            active = bool(proc_regex.search(line)) and (
+                line.startswith("TARGET_PROC ") or line.startswith("PROC ")
+            )
+            continue
+        if active and fd_regex.search(line):
+            return True
+    return False
+
+
 def classify(captures: dict[str, Capture]) -> dict[str, Any]:
     sample_text = captures.get("sample-loop", Capture("", "", False, None, "", 0.0, "", "", "")).text
     dmesg_text = captures.get("dmesg-full", Capture("", "", False, None, "", 0.0, "", "", "")).text
@@ -313,9 +359,11 @@ def classify(captures: dict[str, Capture]) -> dict[str, Any]:
     }
     fd_snapshot = {
         "per_proxy_helper_process_seen": "pm_proxy_helper" in sample_text,
-        "per_proxy_helper_subsys_esoc0_fd_seen": bool(re.search(r"pm_proxy_helper[\s\S]{0,800}/dev/subsys_esoc0", sample_text)),
-        "pm_service_subsys_modem_fd_seen": bool(re.search(r"pm-service[\s\S]{0,800}/dev/subsys_modem", sample_text)),
-        "mdm_helper_esoc0_fd_seen": bool(re.search(r"mdm_helper[\s\S]{0,800}/dev/esoc-0", sample_text)),
+        "per_proxy_helper_subsys_esoc0_fd_seen": proc_block_has_fd(sample_text, r"pm_proxy_helper", r"/dev/subsys_esoc0"),
+        "per_proxy_helper_subsys_modem_fd_seen": proc_block_has_fd(sample_text, r"pm_proxy_helper", r"/dev/subsys_modem"),
+        "per_proxy_helper_esoc0_fd_seen": proc_block_has_fd(sample_text, r"pm_proxy_helper", r"/dev/esoc-0"),
+        "pm_service_subsys_modem_fd_seen": proc_block_has_fd(sample_text, r"pm-service", r"/dev/subsys_modem"),
+        "mdm_helper_esoc0_fd_seen": proc_block_has_fd(sample_text, r"mdm_helper", r"/dev/esoc-0"),
     }
     gpio = {
         "debug_gpio_readable": "GPIO_DEBUG readable=1" in gpio_text or "/sys/kernel/debug/gpio" in sample_text,
@@ -326,7 +374,13 @@ def classify(captures: dict[str, Capture]) -> dict[str, Any]:
     }
     sample_count = count_samples(sample_text)
     chain_positive = all(timeline[name]["present"] for name in ("subsys_esoc0_get", "wlfw_start", "wlan_pd"))
-    fd_positive = fd_snapshot["per_proxy_helper_subsys_esoc0_fd_seen"] or fd_snapshot["pm_service_subsys_modem_fd_seen"]
+    fd_positive = (
+        fd_snapshot["per_proxy_helper_subsys_esoc0_fd_seen"]
+        or fd_snapshot["per_proxy_helper_subsys_modem_fd_seen"]
+        or fd_snapshot["per_proxy_helper_esoc0_fd_seen"]
+        or fd_snapshot["pm_service_subsys_modem_fd_seen"]
+        or fd_snapshot["mdm_helper_esoc0_fd_seen"]
+    )
     if chain_positive and fd_positive:
         decision = "v1022-android-pm-esoc-fd-timing-captured"
         pass_ok = True
