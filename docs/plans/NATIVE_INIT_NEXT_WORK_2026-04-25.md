@@ -4740,3 +4740,30 @@ Samsung bootloader
 - next: V905 fail-closed runtime-input repair design; do not retry
   `/dev/subsys_esoc0` before modelling missing init/SELinux/per_mgr/property
   context.
+
+### V1046. Android /vendor/etc/init/ RC Capture
+
+- report: `docs/reports/NATIVE_INIT_V1046_ANDROID_VENDOR_INIT_RC_CAPTURE_2026-05-26.md`
+- script: `scripts/revalidation/android_vendor_init_rc_handoff_v1046.py`
+- evidence: `tmp/wifi/v1046-android-vendor-init-rc-handoff/manifest.json`
+- decision: `v1046-android-vendor-init-rc-partial`
+- result: Android boot RC capture PASS. All PM/eSoC actor definitions are in
+  `/vendor/etc/init/hw/init.target.rc`; `pm_proxy_helper.rc` is a separate file.
+  `vendor.mdm_helper` is disabled; starts only via `vendor.mdm_launcher` →
+  `init.mdm.sh` → `ro.baseband=mdm` check. `ks` has no RC entry, spawned
+  directly by `mdm_helper`. Native rollback to v724 verified.
+- next: V1047 source/build-only — add subsys_modem holder before pm_proxy_helper.
+
+### V1047. PM Full Contract with Modem Holder — Source/Build-Only
+
+- report: `docs/reports/NATIVE_INIT_V1047_PM_FULL_CONTRACT_WITH_MODEM_HOLDER_SOURCE_BUILD_2026-05-26.md`
+- helper: `stage3/linux_init/helpers/a90_android_execns_probe.c` (v177 → v178)
+- decision: `v1047-pm-full-contract-with-modem-holder-source-build-pass`
+- result: source/build PASS. New order value
+  `after-mdm-helper-esoc-fd-with-pm-full-contract-with-modem-holder` and allow
+  flag `--allow-pm-full-contract-with-modem-holder` added. Helper forks a modem
+  pre-holder child that opens `/dev/subsys_modem` (PIL boot) before
+  `pm_proxy_helper`, mirroring Android's pm-service → pm_proxy_helper ordering.
+  Binary: sha256 `7df75c618f58d599ece1a6017f66040aff57badb8955a70e07de2a77a3561c75`,
+  size 1336728, static aarch64, no dynamic section.
+- next: V1048 deploy-only preflight, then V1049 bounded live gate.

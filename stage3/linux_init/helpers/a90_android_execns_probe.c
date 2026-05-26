@@ -88,7 +88,7 @@
 #define IOPRIO_PRIO_VALUE(class_value, data) (((class_value) << IOPRIO_CLASS_SHIFT) | (data))
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v177"
+#define EXECNS_VERSION "a90_android_execns_probe v178"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -230,6 +230,7 @@ struct config {
     bool allow_mdm_helper_subsys_trigger_capture;
     bool allow_mdm_helper_cnss_before_subsys_trigger_capture;
     bool allow_mdm_helper_cnss_service_manager_matrix;
+    bool allow_pm_full_contract_with_modem_holder;
     bool allow_android_wifi_service_window;
     bool allow_android_wifi_service_window_subsys_trigger_capture;
     bool require_android_selinux_exec_match;
@@ -600,6 +601,7 @@ static bool is_cnss_service_manager_matrix_order(const char *order) {
            streq(order, "after-mdm-helper-esoc-fd") ||
            streq(order, "after-mdm-helper-esoc-fd-with-pm-proxy") ||
            streq(order, "after-mdm-helper-esoc-fd-with-pm-full-contract") ||
+           streq(order, "after-mdm-helper-esoc-fd-with-pm-full-contract-with-modem-holder") ||
            streq(order, "after-mdm-helper-esoc-fd-with-wifi-surface") ||
            streq(order, "after-mdm-helper-esoc-fd-with-wifi-surface-subsys-window");
 }
@@ -1082,6 +1084,10 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             cfg->allow_mdm_helper_cnss_service_manager_matrix = true;
             continue;
         }
+        if (strcmp(argv[i], "--allow-pm-full-contract-with-modem-holder") == 0) {
+            cfg->allow_pm_full_contract_with_modem_holder = true;
+            continue;
+        }
         if (strcmp(argv[i], "--allow-android-wifi-service-window") == 0) {
             cfg->allow_android_wifi_service_window = true;
             continue;
@@ -1517,6 +1523,11 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
         fprintf(stderr, "--allow-mdm-helper-cnss-service-manager-matrix is only valid with wifi-companion-mdm-helper-cnss-service-manager-matrix mode\n");
         return 2;
     }
+    if (cfg->allow_pm_full_contract_with_modem_holder &&
+        !is_wifi_companion_mdm_helper_cnss_service_manager_matrix_mode(cfg->mode)) {
+        fprintf(stderr, "--allow-pm-full-contract-with-modem-holder is only valid with wifi-companion-mdm-helper-cnss-service-manager-matrix mode\n");
+        return 2;
+    }
     if (cfg->allow_android_wifi_service_window &&
         !is_wifi_companion_android_wifi_service_window_any_mode(cfg->mode)) {
         fprintf(stderr, "--allow-android-wifi-service-window is only valid with Android Wi-Fi service-window modes\n");
@@ -1738,7 +1749,8 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             cfg->allow_mdm_helper_only_capture ||
             cfg->allow_mdm_helper_runtime_contract_capture ||
             cfg->allow_mdm_helper_subsys_trigger_capture ||
-            cfg->allow_mdm_helper_cnss_service_manager_matrix) {
+            cfg->allow_mdm_helper_cnss_service_manager_matrix ||
+            cfg->allow_pm_full_contract_with_modem_holder) {
             fprintf(stderr, "wifi-companion-mdm-helper-cnss-before-subsys-trigger-capture does not accept other mdm-helper proof allow flags\n");
             return 2;
         }
@@ -19896,8 +19908,11 @@ static int run_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_guar
     const char *service_manager_order = service_manager_matrix ? cfg->service_manager_order : "none";
     const bool pm_proxy_matrix =
         streq(service_manager_order, "after-mdm-helper-esoc-fd-with-pm-proxy");
+    const bool pm_full_contract_with_modem_holder_matrix =
+        streq(service_manager_order, "after-mdm-helper-esoc-fd-with-pm-full-contract-with-modem-holder");
     const bool pm_full_contract_matrix =
-        streq(service_manager_order, "after-mdm-helper-esoc-fd-with-pm-full-contract");
+        streq(service_manager_order, "after-mdm-helper-esoc-fd-with-pm-full-contract") ||
+        pm_full_contract_with_modem_holder_matrix;
     const bool pm_proxy_child_matrix = pm_proxy_matrix || pm_full_contract_matrix;
     const bool wifi_surface_matrix =
         streq(service_manager_order, "after-mdm-helper-esoc-fd-with-wifi-surface");
@@ -19923,6 +19938,9 @@ static int run_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_guar
     const size_t child_count = (wifi_surface_children || pm_full_contract_matrix) ? 12U : 8U;
     pid_t trigger_pid = -1;
     pid_t trigger_pgid = -1;
+    pid_t modem_pre_holder_pid = -1;
+    int modem_pre_holder_pipe_rd = -1;
+    bool modem_pre_holder_opened = false;
     long settle_deadline;
     long deadline;
     long next_surface_poll_ms = 0;
@@ -19991,6 +20009,8 @@ static int run_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_guar
             run_order = post_provider_no_wlfw_gate
                             ? "property-shim,per_mgr_light,pm_proxy,mdm_helper,esoc0-fd-gate,servicemanager,hwservicemanager,vndservicemanager,cnss_diag,cnss_daemon,post-provider-no-wlfw-gate,subsys_esoc0-open-child"
                             : "property-shim,per_mgr_light,pm_proxy,mdm_helper,esoc0-fd-gate,servicemanager,hwservicemanager,vndservicemanager,cnss_diag,cnss_daemon,wlfw-precondition-gate,subsys_esoc0-open-child";
+        } else if (pm_full_contract_with_modem_holder_matrix) {
+            run_order = "property-shim,modem-pre-holder,pm_proxy_helper,per_mgr_light,pm_proxy,mdm_helper,pm-full-contract-fd-gate,esoc0-fd-gate,servicemanager,hwservicemanager,vndservicemanager,cnss_diag,cnss_daemon,wlfw-precondition-gate,subsys_esoc0-open-child";
         } else if (pm_full_contract_matrix) {
             run_order = post_provider_no_wlfw_gate
                             ? "property-shim,pm_proxy_helper,per_mgr_light,pm_proxy,mdm_helper,pm-full-contract-fd-gate,esoc0-fd-gate,servicemanager,hwservicemanager,vndservicemanager,cnss_diag,cnss_daemon,post-provider-no-wlfw-gate,subsys_esoc0-open-child"
@@ -20081,7 +20101,9 @@ static int run_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_guar
                append_wifi_cnss2_focus_capture(stdout_buf, "cnss_before_esoc_before") < 0) {
         return -1;
     }
-    if ((service_manager_matrix && !cfg->allow_mdm_helper_cnss_service_manager_matrix) ||
+    if ((service_manager_matrix &&
+         !cfg->allow_mdm_helper_cnss_service_manager_matrix &&
+         !cfg->allow_pm_full_contract_with_modem_holder) ||
         (!service_manager_matrix && !cfg->allow_mdm_helper_cnss_before_subsys_trigger_capture)) {
         if (append_format(stdout_buf,
                           "cnss_before_esoc.allowed=0\n"
@@ -20099,7 +20121,9 @@ static int run_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_guar
                           "cnss_before_esoc.end=1\n",
                           cfg->subsys_trigger_gate,
                           service_manager_matrix
-                              ? "mdm-helper-cnss-service-manager-matrix"
+                              ? (pm_full_contract_with_modem_holder_matrix
+                                     ? "pm-full-contract-with-modem-holder"
+                                     : "mdm-helper-cnss-service-manager-matrix")
                               : "mdm-helper-cnss-before-subsys-trigger-capture") < 0) {
             return -1;
         }
@@ -20159,6 +20183,111 @@ static int run_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_guar
     }
     if (service_manager_started && streq(service_manager_order, "before-cnss")) {
         provider_service_manager_snapshot_captured = true;
+    }
+    if (pm_full_contract_with_modem_holder_matrix) {
+        /* Open /dev/subsys_modem holder before pm_proxy_helper.
+         * Mirrors Android: pm-service (class core) holds subsys_modem before
+         * pm_proxy_helper starts at post-fs-data, so pm_proxy_helper opens it
+         * with refcount already >= 1 and avoids triggering PIL boot itself. */
+        int _holder_pipe[2] = {-1, -1};
+        if (pipe2(_holder_pipe, O_CLOEXEC) < 0) {
+            composite_cleanup_children(children, child_count, stdout_buf, stderr_buf);
+            stop_property_service_shim(&property_shim, paths, stdout_buf);
+            append_literal(stdout_buf,
+                           "cnss_before_esoc.result=manual-review-required\n"
+                           "cnss_before_esoc.reason=modem-pre-holder-pipe-failed\n"
+                           "cnss_before_esoc.end=1\n");
+            return -1;
+        }
+        modem_pre_holder_pid = fork();
+        if (modem_pre_holder_pid < 0) {
+            int saved_errno = errno;
+            close(_holder_pipe[0]);
+            close(_holder_pipe[1]);
+            composite_cleanup_children(children, child_count, stdout_buf, stderr_buf);
+            stop_property_service_shim(&property_shim, paths, stdout_buf);
+            append_format(stdout_buf,
+                          "cnss_before_esoc.result=manual-review-required\n"
+                          "cnss_before_esoc.reason=modem-pre-holder-fork-failed-%s\n"
+                          "cnss_before_esoc.end=1\n",
+                          strerror(saved_errno));
+            return -1;
+        }
+        if (modem_pre_holder_pid == 0) {
+            int mfd;
+            close(_holder_pipe[0]);
+            mfd = open("/dev/subsys_modem", O_RDONLY | O_NONBLOCK | O_CLOEXEC);
+            if (mfd < 0 && errno == EINVAL)
+                mfd = open("/dev/subsys_modem", O_RDONLY | O_CLOEXEC);
+            if (mfd < 0) {
+                int e = errno;
+                dprintf(_holder_pipe[1],
+                        "cnss_before_esoc.modem_pre_holder_opened=0\n"
+                        "cnss_before_esoc.modem_pre_holder_errno=%d\n",
+                        e);
+                close(_holder_pipe[1]);
+                _exit(31);
+            }
+            dprintf(_holder_pipe[1],
+                    "cnss_before_esoc.modem_pre_holder_opened=1\n"
+                    "cnss_before_esoc.modem_pre_holder_fd=%d\n",
+                    mfd);
+            close(_holder_pipe[1]);
+            /* Hold fd until killed by parent cleanup */
+            for (;;) {
+                pause();
+            }
+            close(mfd);
+            _exit(0);
+        }
+        close(_holder_pipe[1]);
+        modem_pre_holder_pipe_rd = _holder_pipe[0];
+        set_nonblock(modem_pre_holder_pipe_rd);
+        append_format(stdout_buf,
+                      "cnss_before_esoc.modem_pre_holder_start_attempted=1\n"
+                      "cnss_before_esoc.modem_pre_holder_pid=%ld\n",
+                      (long)modem_pre_holder_pid);
+        /* Wait up to 90 s for modem PIL boot (subsys_device_open) to complete */
+        settle_deadline = monotonic_ms() + 90000L;
+        {
+            bool pipe_open = true;
+            while (pipe_open && monotonic_ms() < settle_deadline) {
+                if (drain_fd(modem_pre_holder_pipe_rd, stdout_buf, &pipe_open) < 0)
+                    break;
+                if (pipe_open)
+                    usleep(100000);
+            }
+            if (pipe_open)
+                drain_fd(modem_pre_holder_pipe_rd, stdout_buf, &pipe_open);
+        }
+        close(modem_pre_holder_pipe_rd);
+        modem_pre_holder_pipe_rd = -1;
+        /* Check if holder is still alive (got fd) vs exited (failed) */
+        {
+            int holder_status = 0;
+            pid_t wpid = waitpid(modem_pre_holder_pid, &holder_status, WNOHANG);
+            if (wpid == 0) {
+                modem_pre_holder_opened = true;
+            } else if (wpid == modem_pre_holder_pid) {
+                modem_pre_holder_opened = false;
+                modem_pre_holder_pid = -1;
+            }
+        }
+        if (append_format(stdout_buf,
+                          "cnss_before_esoc.modem_pre_holder_confirmed=%d\n",
+                          modem_pre_holder_opened ? 1 : 0) < 0) {
+            if (modem_pre_holder_pid > 0)
+                kill(modem_pre_holder_pid, SIGKILL);
+            composite_cleanup_children(children, child_count, stdout_buf, stderr_buf);
+            stop_property_service_shim(&property_shim, paths, stdout_buf);
+            return -1;
+        }
+    } else if (pm_full_contract_matrix) {
+        if (append_literal(stdout_buf, "cnss_before_esoc.modem_pre_holder_start_attempted=0\n") < 0) {
+            composite_cleanup_children(children, child_count, stdout_buf, stderr_buf);
+            stop_property_service_shim(&property_shim, paths, stdout_buf);
+            return -1;
+        }
     }
     if (pm_full_contract_matrix) {
         if (append_literal(stdout_buf, "cnss_before_esoc.pm_proxy_helper_start_attempted=1\n") < 0 ||
@@ -20782,6 +20911,11 @@ static int run_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_guar
     }
     composite_capture_observable_children(children, child_count, stdout_buf);
     composite_cleanup_children(children, child_count, stdout_buf, stderr_buf);
+    if (modem_pre_holder_pid > 0) {
+        kill(modem_pre_holder_pid, SIGKILL);
+        waitpid(modem_pre_holder_pid, NULL, 0);
+        modem_pre_holder_pid = -1;
+    }
     stop_property_service_shim(&property_shim, paths, stdout_buf);
     if (append_mdm_helper_provider_readiness_snapshot(stdout_buf,
                                                       paths,
@@ -20821,6 +20955,8 @@ static int run_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_guar
                       "cnss_before_esoc.service_manager_started=%d\n"
                       "cnss_before_esoc.pm_proxy_started=%d\n"
                       "cnss_before_esoc.pm_proxy_helper_started=%d\n"
+                      "cnss_before_esoc.pm_full_contract_with_modem_holder_matrix=%d\n"
+                      "cnss_before_esoc.modem_pre_holder_confirmed=%d\n"
                       "cnss_before_esoc.pm_full_contract_matrix=%d\n"
                       "cnss_before_esoc.pm_full_contract_poll_count=%d\n"
                       "cnss_before_esoc.pm_proxy_helper_subsys_modem_fd_count=%d\n"
@@ -20868,6 +21004,8 @@ static int run_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_guar
                       service_manager_started ? 1 : 0,
                       pm_proxy_started ? 1 : 0,
                       pm_proxy_helper_started ? 1 : 0,
+                      pm_full_contract_with_modem_holder_matrix ? 1 : 0,
+                      modem_pre_holder_opened ? 1 : 0,
                       pm_full_contract_matrix ? 1 : 0,
                       pm_full_contract_poll_count,
                       pm_proxy_helper_subsys_modem_fd_count,
@@ -20963,6 +21101,11 @@ static int run_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_guar
     return all_postflight_safe ? 0 : 42;
 
 fail:
+    if (modem_pre_holder_pid > 0) {
+        kill(modem_pre_holder_pid, SIGKILL);
+        waitpid(modem_pre_holder_pid, NULL, WNOHANG);
+    }
+    if (modem_pre_holder_pipe_rd >= 0) close(modem_pre_holder_pipe_rd);
     if (trigger_pid > 0) {
         if (trigger_pgid > 1) {
             kill(-trigger_pgid, SIGKILL);
