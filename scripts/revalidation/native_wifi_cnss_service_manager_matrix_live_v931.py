@@ -68,6 +68,7 @@ def parse_args() -> argparse.Namespace:
             "after-cnss",
             "after-mdm-helper-esoc-fd",
             "after-mdm-helper-esoc-fd-with-pm-proxy",
+            "after-mdm-helper-esoc-fd-with-pm-full-contract",
         ),
         default=DEFAULT_SERVICE_MANAGER_ORDER,
     )

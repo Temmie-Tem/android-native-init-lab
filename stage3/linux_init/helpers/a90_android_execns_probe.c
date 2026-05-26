@@ -88,7 +88,7 @@
 #define IOPRIO_PRIO_VALUE(class_value, data) (((class_value) << IOPRIO_CLASS_SHIFT) | (data))
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v173"
+#define EXECNS_VERSION "a90_android_execns_probe v174"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -393,7 +393,7 @@ static void usage(FILE *out) {
             "[--connect-iface auto|wlan0] "
             "[--ping-target 1.1.1.1] "
             "[--cnss-surface-mode full|compact] "
-            "[--service-manager-order none|before-cnss|after-cnss|after-mdm-helper-esoc-fd|after-mdm-helper-esoc-fd-with-pm-proxy|after-mdm-helper-esoc-fd-with-wifi-surface|after-mdm-helper-esoc-fd-with-wifi-surface-subsys-window] "
+            "[--service-manager-order none|before-cnss|after-cnss|after-mdm-helper-esoc-fd|after-mdm-helper-esoc-fd-with-pm-proxy|after-mdm-helper-esoc-fd-with-pm-full-contract|after-mdm-helper-esoc-fd-with-wifi-surface|after-mdm-helper-esoc-fd-with-wifi-surface-subsys-window] "
             "[--subsys-trigger-gate wlfw-precondition|post-provider-no-wlfw|post-upper-surface-no-wlfw] "
             "--mode linker-list|identity-probe|sepolicy-inventory|sepolicy-compile-proof|sepolicy-load-proof|selinux-domain-proof|cnss-start-only|cnss-userspace-readiness|wifi-companion-start-only|wifi-companion-post-sysmon-observer-start-only|wifi-companion-android-order-post-sysmon-observer-start-only|wifi-companion-service-manager-start-only|wifi-companion-vnd-service-manager-start-only|wifi-companion-qrtr-first-vnd-service-manager-start-only|wifi-companion-cnss-first-delayed-vnd-service-manager-start-only|wifi-companion-service74-gated-vnd-service-manager-start-only|wifi-companion-service74-gated-vnd-service-manager-readiness-start-only|wifi-companion-service74-gated-vnd-service-manager-cnss-retry-start-only|wifi-companion-peripheral-manager-node-parity-start-only|wifi-companion-peripheral-manager-property-contract-start-only|wifi-companion-peripheral-manager-init-contract-start-only|wifi-companion-esoc-control-preflight|wifi-companion-esoc-engine-register-preflight|wifi-companion-esoc-req-registered-subsys-hold-preflight|wifi-companion-esoc-conditional-response-preflight|wifi-companion-mdm-helper-ks-image-contract-preflight|wifi-companion-mdm-helper-only-deep-capture|wifi-companion-mdm-helper-runtime-contract-capture|wifi-companion-mdm-helper-runtime-subsys-trigger-capture|wifi-companion-mdm-helper-cnss-before-subsys-trigger-capture|wifi-companion-mdm-helper-cnss-service-manager-matrix|wifi-companion-android-wifi-service-window-start-only|wifi-companion-android-wifi-service-window-subsys-trigger-capture|wifi-companion-service74-gated-peripheral-manager-cnss-retry-start-only|wifi-companion-service74-gated-peripheral-manager-cnss-retry-registry-snapshot-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-cnss-retry-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-provider-first-cnss-start-only|wifi-companion-service74-gated-android-userspace-cnss-retry-start-only|wifi-companion-service74-gated-android-userspace-cnss-retry-registry-snapshot-start-only|wifi-companion-service74-gated-vnd-service-manager-registry-snapshot-start-only|wifi-companion-service74-gated-mdm-helper-start-only|wifi-companion-service180-gated-mdm-helper-start-only|wifi-companion-sysmon-gated-mdm-helper-start-only|wifi-companion-hal-order-start-only|wifi-companion-hal-wificond-order-start-only|wifi-companion-hal-wificond-lshal-wait-samsung|wifi-companion-hal-wificond-lshal-wait-iwifi|wifi-companion-dual-hal-wificond-lshal-wait-iwifi|wifi-companion-dual-hal-wificond-iwifi-start|wifi-companion-dual-hal-wificond-lshal-then-iwifi-start|rmt-storage-start-only|property-lookup|service-manager-start-only|private-selinux-proof|wifi-hal-lshal-vintf-status-list|wifi-hal-composite-start-only|wifi-hal-composite-lshal-list|wifi-hal-composite-lshal-binderized-list|wifi-hal-composite-lshal-wait-target|wifi-surface-composite-lshal-wait-iwifi|wifi-surface-composite-lshal-wait-samsung|wifi-surface-composite-lshal-wait-samsung-ptrace|wifi-hal-composite-lshal-status-list|wifi-hal-composite-lshal-binderized-status-list|wifi-surface-composite-start-only|wifi-dual-hal-lshal-wait-iwifi|wifi-dual-hal-iwifi-start-surface|wifi-iwifi-start-surface|wifi-active-session-surface|wifi-active-session-scan-only|wifi-active-session-connect-ping|wifi-connect-tool-surface|subsys-hold-open-proof|service-notifier-listener-only "
             "[v27 binderized query runs: /system/bin/lshal list --types=binderized --neat] "
@@ -597,6 +597,7 @@ static bool is_cnss_service_manager_matrix_order(const char *order) {
            streq(order, "after-cnss") ||
            streq(order, "after-mdm-helper-esoc-fd") ||
            streq(order, "after-mdm-helper-esoc-fd-with-pm-proxy") ||
+           streq(order, "after-mdm-helper-esoc-fd-with-pm-full-contract") ||
            streq(order, "after-mdm-helper-esoc-fd-with-wifi-surface") ||
            streq(order, "after-mdm-helper-esoc-fd-with-wifi-surface-subsys-window");
 }
@@ -1813,8 +1814,9 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
         return 2;
     }
     if (streq(cfg->subsys_trigger_gate, "post-provider-no-wlfw") &&
-        !streq(cfg->service_manager_order, "after-mdm-helper-esoc-fd-with-pm-proxy")) {
-        fprintf(stderr, "--subsys-trigger-gate post-provider-no-wlfw requires --service-manager-order after-mdm-helper-esoc-fd-with-pm-proxy\n");
+        !streq(cfg->service_manager_order, "after-mdm-helper-esoc-fd-with-pm-proxy") &&
+        !streq(cfg->service_manager_order, "after-mdm-helper-esoc-fd-with-pm-full-contract")) {
+        fprintf(stderr, "--subsys-trigger-gate post-provider-no-wlfw requires --service-manager-order after-mdm-helper-esoc-fd-with-pm-proxy or after-mdm-helper-esoc-fd-with-pm-full-contract\n");
         return 2;
     }
     if (streq(cfg->subsys_trigger_gate, "post-upper-surface-no-wlfw") &&
@@ -19811,7 +19813,7 @@ static int run_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_guar
                                                                                     int *child_exit_code,
                                                                                     int *child_signal,
                                                                                     bool *timed_out) {
-    struct composite_child children[11];
+    struct composite_child children[12];
     struct composite_child *per_mgr = &children[0];
     struct composite_child *mdm_helper = &children[1];
     struct composite_child *cnss_diag = &children[2];
@@ -19820,17 +19822,20 @@ static int run_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_guar
     struct composite_child *hwservicemanager = &children[5];
     struct composite_child *vndservicemanager = &children[6];
     struct composite_child *pm_proxy = &children[7];
-    struct composite_child *wifi_hal_legacy = &children[8];
-    struct composite_child *wifi_hal_ext = &children[9];
-    struct composite_child *wificond = &children[10];
+    struct composite_child *pm_proxy_helper = &children[8];
+    struct composite_child *wifi_hal_legacy = &children[9];
+    struct composite_child *wifi_hal_ext = &children[10];
+    struct composite_child *wificond = &children[11];
     struct property_service_shim property_shim;
     int trigger_pipe[2] = {-1, -1};
     bool cnss_diag_started = false;
     bool cnss_daemon_started = false;
     bool service_manager_started = false;
     bool pm_proxy_started = false;
+    bool pm_proxy_helper_started = false;
     bool provider_service_manager_snapshot_captured = false;
     bool mdm_esoc_fd_seen = false;
+    bool pm_full_contract_seen = false;
     bool wifi_hal_started = false;
     bool wificond_started = false;
     bool wlfw_precondition_observed = false;
@@ -19848,6 +19853,9 @@ static int run_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_guar
     int trigger_exit_code = -1;
     int trigger_signal = 0;
     int esoc0_fd_count_gate = -1;
+    int pm_proxy_helper_subsys_modem_fd_count = -1;
+    int per_mgr_subsys_modem_fd_count = -1;
+    int pm_full_contract_poll_count = 0;
     int esoc_gate_poll_count = 0;
     int surface_poll_count = 0;
     const bool service_manager_matrix =
@@ -19857,6 +19865,9 @@ static int run_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_guar
     const char *service_manager_order = service_manager_matrix ? cfg->service_manager_order : "none";
     const bool pm_proxy_matrix =
         streq(service_manager_order, "after-mdm-helper-esoc-fd-with-pm-proxy");
+    const bool pm_full_contract_matrix =
+        streq(service_manager_order, "after-mdm-helper-esoc-fd-with-pm-full-contract");
+    const bool pm_proxy_child_matrix = pm_proxy_matrix || pm_full_contract_matrix;
     const bool wifi_surface_matrix =
         streq(service_manager_order, "after-mdm-helper-esoc-fd-with-wifi-surface");
     const bool wifi_surface_subsys_window_matrix =
@@ -19864,7 +19875,7 @@ static int run_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_guar
     const bool wifi_surface_children = wifi_surface_matrix || wifi_surface_subsys_window_matrix;
     const bool after_mdm_service_manager_order =
         streq(service_manager_order, "after-mdm-helper-esoc-fd") ||
-        pm_proxy_matrix ||
+        pm_proxy_child_matrix ||
         wifi_surface_matrix ||
         wifi_surface_subsys_window_matrix;
     const bool post_provider_no_wlfw_gate =
@@ -19878,13 +19889,14 @@ static int run_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_guar
                                : "mdm-helper-cnss-before-subsys-trigger-capture";
     const char *run_order = "property-shim,per_mgr_light,mdm_helper,cnss_diag,cnss_daemon,wlfw-precondition-gate,subsys_esoc0-open-child";
     const bool compact_surface = streq(cfg->cnss_surface_mode, "compact");
-    const size_t child_count = wifi_surface_children ? 11U : 8U;
+    const size_t child_count = (wifi_surface_children || pm_full_contract_matrix) ? 12U : 8U;
     pid_t trigger_pid = -1;
     pid_t trigger_pgid = -1;
     long settle_deadline;
     long deadline;
     long next_surface_poll_ms = 0;
     long next_esoc_fd_poll_ms = 0;
+    long next_pm_full_contract_poll_ms = 0;
 
     *child_exit_code = -1;
     *child_signal = 0;
@@ -19922,6 +19934,10 @@ static int run_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_guar
                          "pm_proxy",
                          "/vendor/bin/pm-proxy",
                          COMPOSITE_ID_PER_PROXY);
+    composite_child_init(pm_proxy_helper,
+                         "pm_proxy_helper",
+                         "/vendor/bin/pm_proxy_helper",
+                         COMPOSITE_ID_PER_PROXY_HELPER);
     composite_child_init(wifi_hal_legacy,
                          "wifi_hal_legacy",
                          "/vendor/bin/hw/android.hardware.wifi@1.0-service",
@@ -19944,6 +19960,10 @@ static int run_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_guar
             run_order = post_provider_no_wlfw_gate
                             ? "property-shim,per_mgr_light,pm_proxy,mdm_helper,esoc0-fd-gate,servicemanager,hwservicemanager,vndservicemanager,cnss_diag,cnss_daemon,post-provider-no-wlfw-gate,subsys_esoc0-open-child"
                             : "property-shim,per_mgr_light,pm_proxy,mdm_helper,esoc0-fd-gate,servicemanager,hwservicemanager,vndservicemanager,cnss_diag,cnss_daemon,wlfw-precondition-gate,subsys_esoc0-open-child";
+        } else if (pm_full_contract_matrix) {
+            run_order = post_provider_no_wlfw_gate
+                            ? "property-shim,pm_proxy_helper,per_mgr_light,pm_proxy,mdm_helper,pm-full-contract-fd-gate,esoc0-fd-gate,servicemanager,hwservicemanager,vndservicemanager,cnss_diag,cnss_daemon,post-provider-no-wlfw-gate,subsys_esoc0-open-child"
+                            : "property-shim,pm_proxy_helper,per_mgr_light,pm_proxy,mdm_helper,pm-full-contract-fd-gate,esoc0-fd-gate,servicemanager,hwservicemanager,vndservicemanager,cnss_diag,cnss_daemon,wlfw-precondition-gate,subsys_esoc0-open-child";
         } else if (wifi_surface_matrix) {
             run_order = "property-shim,per_mgr_light,mdm_helper,esoc0-fd-gate,servicemanager,hwservicemanager,vndservicemanager,wifi_hal_legacy,wifi_hal_ext,wificond,cnss_diag,cnss_daemon,wlfw-precondition-gate,subsys_esoc0-open-child";
         } else if (wifi_surface_subsys_window_matrix) {
@@ -19964,6 +19984,7 @@ static int run_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_guar
                       "cnss_before_esoc.order=%s\n"
                       "cnss_before_esoc.per_mgr_argv=/vendor/bin/pm-service\n"
                       "cnss_before_esoc.pm_proxy_argv=/vendor/bin/pm-proxy\n"
+                      "cnss_before_esoc.pm_proxy_helper_argv=/vendor/bin/pm_proxy_helper\n"
                       "cnss_before_esoc.mdm_helper_argv=/vendor/bin/mdm_helper\n"
                       "cnss_before_esoc.servicemanager_argv=/system/bin/servicemanager\n"
                       "cnss_before_esoc.hwservicemanager_argv=/system/bin/hwservicemanager\n"
@@ -19982,7 +20003,8 @@ static int run_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_guar
                       "cnss_before_esoc.credentials=0\n"
                       "cnss_before_esoc.dhcp_routing=0\n"
                       "cnss_before_esoc.external_ping=0\n"
-                      "cnss_before_esoc.pm_proxy_helper_start_executed=0\n"
+                      "cnss_before_esoc.pm_proxy_helper_start_requested=%d\n"
+                      "cnss_before_esoc.pm_proxy_helper_start_executed=%d\n"
                       "cnss_before_esoc.subsys_esoc0_controller_open_attempted=0\n"
                       "cnss_before_esoc.reg_req_eng_attempted=0\n"
                       "cnss_before_esoc.notify_attempted=0\n"
@@ -19992,7 +20014,9 @@ static int run_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_guar
                       service_manager_order,
                       cfg->subsys_trigger_gate,
                       run_order,
-                      service_manager_start_requested ? 1 : 0) < 0 ||
+                      service_manager_start_requested ? 1 : 0,
+                      pm_full_contract_matrix ? 1 : 0,
+                      0) < 0 ||
         append_format(stdout_buf,
                       "cnss_before_esoc.surface_mode=%s\n"
                       "cnss_before_esoc.runtime_namespace.linkerconfig_mode=%s\n"
@@ -20105,6 +20129,47 @@ static int run_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_guar
     if (service_manager_started && streq(service_manager_order, "before-cnss")) {
         provider_service_manager_snapshot_captured = true;
     }
+    if (pm_full_contract_matrix) {
+        if (append_literal(stdout_buf, "cnss_before_esoc.pm_proxy_helper_start_attempted=1\n") < 0 ||
+            composite_spawn_child(cfg, paths, pm_proxy_helper, stdout_buf) < 0) {
+            composite_cleanup_children(children, child_count, stdout_buf, stderr_buf);
+            stop_property_service_shim(&property_shim, paths, stdout_buf);
+            append_literal(stdout_buf,
+                           "cnss_before_esoc.result=manual-review-required\n"
+                           "cnss_before_esoc.reason=pm-proxy-helper-spawn-failed\n"
+                           "cnss_before_esoc.end=1\n");
+            return -1;
+        }
+        pm_proxy_helper_started = true;
+        settle_deadline = monotonic_ms() + 300L;
+        while (monotonic_ms() < settle_deadline) {
+            if (composite_child_drain_wait_once(pm_proxy_helper, stdout_buf, stderr_buf) < 0 ||
+                drain_property_service_shim_records(&property_shim, stdout_buf) < 0) {
+                composite_cleanup_children(children, child_count, stdout_buf, stderr_buf);
+                stop_property_service_shim(&property_shim, paths, stdout_buf);
+                return -1;
+            }
+            usleep(50000);
+        }
+        composite_capture_observable_children(pm_proxy_helper, 1, stdout_buf);
+        if (append_proc_fd_target_match_scan(stdout_buf,
+                                             pm_proxy_helper->pid,
+                                             "cnss_before_esoc",
+                                             "cnss_before_esoc_pm_proxy_helper_initial",
+                                             "/dev/subsys_modem",
+                                             &pm_proxy_helper_subsys_modem_fd_count) < 0 ||
+            append_format(stdout_buf,
+                          "cnss_before_esoc.pm_proxy_helper_subsys_modem_initial_count=%d\n",
+                          pm_proxy_helper_subsys_modem_fd_count) < 0) {
+            composite_cleanup_children(children, child_count, stdout_buf, stderr_buf);
+            stop_property_service_shim(&property_shim, paths, stdout_buf);
+            return -1;
+        }
+    } else if (append_literal(stdout_buf, "cnss_before_esoc.pm_proxy_helper_start_attempted=0\n") < 0) {
+        composite_cleanup_children(children, child_count, stdout_buf, stderr_buf);
+        stop_property_service_shim(&property_shim, paths, stdout_buf);
+        return -1;
+    }
     if (append_literal(stdout_buf,
                        "cnss_before_esoc.allowed=1\n"
                        "cnss_before_esoc.per_mgr_start_attempted=1\n") < 0) {
@@ -20130,6 +20195,24 @@ static int run_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_guar
         usleep(50000);
     }
     composite_capture_observable_children(per_mgr, 1, stdout_buf);
+    if (pm_full_contract_matrix &&
+        (append_proc_fd_target_match_scan(stdout_buf,
+                                          per_mgr->pid,
+                                          "cnss_before_esoc",
+                                          "cnss_before_esoc_per_mgr_initial",
+                                          "/dev/subsys_modem",
+                                          &per_mgr_subsys_modem_fd_count) < 0 ||
+         append_format(stdout_buf,
+                       "cnss_before_esoc.per_mgr_subsys_modem_initial_count=%d\n",
+                       per_mgr_subsys_modem_fd_count) < 0)) {
+        composite_cleanup_children(children, child_count, stdout_buf, stderr_buf);
+        stop_property_service_shim(&property_shim, paths, stdout_buf);
+        return -1;
+    }
+    pm_full_contract_seen =
+        pm_full_contract_matrix &&
+        pm_proxy_helper_subsys_modem_fd_count > 0 &&
+        per_mgr_subsys_modem_fd_count > 0;
     if (append_mdm_helper_provider_readiness_snapshot(stdout_buf,
                                                       paths,
                                                       "cnss_before_esoc_after_per_mgr_settle",
@@ -20139,7 +20222,7 @@ static int run_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_guar
         stop_property_service_shim(&property_shim, paths, stdout_buf);
         return -1;
     }
-    if (pm_proxy_matrix) {
+    if (pm_proxy_child_matrix) {
         if (append_literal(stdout_buf, "cnss_before_esoc.pm_proxy_start_attempted=1\n") < 0 ||
             composite_spawn_child(cfg, paths, pm_proxy, stdout_buf) < 0) {
             composite_cleanup_children(children, child_count, stdout_buf, stderr_buf);
@@ -20203,6 +20286,7 @@ static int run_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_guar
         long now = monotonic_ms();
 
         if (composite_child_drain_wait_once(per_mgr, stdout_buf, stderr_buf) < 0 ||
+            composite_child_drain_wait_once(pm_proxy_helper, stdout_buf, stderr_buf) < 0 ||
             composite_child_drain_wait_once(pm_proxy, stdout_buf, stderr_buf) < 0 ||
             composite_child_drain_wait_once(mdm_helper, stdout_buf, stderr_buf) < 0 ||
             composite_child_drain_wait_once(cnss_diag, stdout_buf, stderr_buf) < 0 ||
@@ -20233,6 +20317,61 @@ static int run_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_guar
                 trigger_done = true;
                 trigger_reaped = true;
             }
+        }
+        if (pm_full_contract_matrix &&
+            !pm_full_contract_seen &&
+            now >= next_pm_full_contract_poll_ms) {
+            char helper_phase[64];
+            char per_mgr_phase[64];
+
+            if (snprintf(helper_phase,
+                         sizeof(helper_phase),
+                         "cnss_before_esoc_pm_full_helper_%02d",
+                         pm_full_contract_poll_count) >= (int)sizeof(helper_phase) ||
+                snprintf(per_mgr_phase,
+                         sizeof(per_mgr_phase),
+                         "cnss_before_esoc_pm_full_per_mgr_%02d",
+                         pm_full_contract_poll_count) >= (int)sizeof(per_mgr_phase)) {
+                goto fail;
+            }
+            if (!pm_proxy_helper->child_done &&
+                pm_proxy_helper->pid > 0 &&
+                kill(pm_proxy_helper->pid, 0) == 0 &&
+                append_proc_fd_target_match_scan(stdout_buf,
+                                                 pm_proxy_helper->pid,
+                                                 "cnss_before_esoc",
+                                                 helper_phase,
+                                                 "/dev/subsys_modem",
+                                                 &pm_proxy_helper_subsys_modem_fd_count) < 0) {
+                goto fail;
+            }
+            if (!per_mgr->child_done &&
+                per_mgr->pid > 0 &&
+                kill(per_mgr->pid, 0) == 0 &&
+                append_proc_fd_target_match_scan(stdout_buf,
+                                                 per_mgr->pid,
+                                                 "cnss_before_esoc",
+                                                 per_mgr_phase,
+                                                 "/dev/subsys_modem",
+                                                 &per_mgr_subsys_modem_fd_count) < 0) {
+                goto fail;
+            }
+            pm_full_contract_seen =
+                pm_proxy_helper_subsys_modem_fd_count > 0 &&
+                per_mgr_subsys_modem_fd_count > 0;
+            if (append_format(stdout_buf,
+                              "cnss_before_esoc.pm_full_contract_poll=%d\n"
+                              "cnss_before_esoc.pm_proxy_helper_subsys_modem_fd_count=%d\n"
+                              "cnss_before_esoc.per_mgr_subsys_modem_fd_count=%d\n"
+                              "cnss_before_esoc.pm_full_contract_seen=%d\n",
+                              pm_full_contract_poll_count,
+                              pm_proxy_helper_subsys_modem_fd_count,
+                              per_mgr_subsys_modem_fd_count,
+                              pm_full_contract_seen ? 1 : 0) < 0) {
+                goto fail;
+            }
+            pm_full_contract_poll_count++;
+            next_pm_full_contract_poll_ms = now + 250L;
         }
         if (!mdm_esoc_fd_seen &&
             !mdm_helper->child_done &&
@@ -20265,6 +20404,7 @@ static int run_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_guar
             next_esoc_fd_poll_ms = now + 250L;
         }
         if (mdm_esoc_fd_seen &&
+            (!pm_full_contract_matrix || pm_full_contract_seen) &&
             service_manager_start_requested &&
             !service_manager_started &&
             after_mdm_service_manager_order &&
@@ -20292,6 +20432,7 @@ static int run_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_guar
             provider_service_manager_snapshot_captured = true;
         }
         if (mdm_esoc_fd_seen &&
+            (!pm_full_contract_matrix || pm_full_contract_seen) &&
             service_manager_started &&
             wifi_surface_children &&
             !wifi_hal_started) {
@@ -20334,6 +20475,7 @@ static int run_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_guar
             }
         }
         if (mdm_esoc_fd_seen && !cnss_diag_started &&
+            (!pm_full_contract_matrix || pm_full_contract_seen) &&
             (!wifi_surface_children || (wifi_hal_started && wificond_started)) &&
             (!service_manager_start_requested ||
              service_manager_started ||
@@ -20412,6 +20554,7 @@ static int run_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_guar
                 !wlfw_precondition_observed &&
                 surface_poll_count > 0 &&
                 mdm_esoc_fd_seen &&
+                (!pm_full_contract_matrix || pm_full_contract_seen) &&
                 pm_proxy_started &&
                 service_manager_started &&
                 cnss_diag_started &&
@@ -20578,7 +20721,8 @@ static int run_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_guar
     }
     all_postflight_safe =
         cnss_before_esoc_child_postflight_safe(per_mgr) &&
-        (!pm_proxy_matrix || cnss_before_esoc_child_postflight_safe(pm_proxy)) &&
+        (!pm_proxy_child_matrix || cnss_before_esoc_child_postflight_safe(pm_proxy)) &&
+        (!pm_full_contract_matrix || cnss_before_esoc_child_postflight_safe(pm_proxy_helper)) &&
         cnss_before_esoc_child_postflight_safe(mdm_helper) &&
         cnss_before_esoc_child_postflight_safe(cnss_diag) &&
         cnss_before_esoc_child_postflight_safe(cnss_daemon) &&
@@ -20605,6 +20749,12 @@ static int run_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_guar
                       "cnss_before_esoc.service_manager_start_requested=%d\n"
                       "cnss_before_esoc.service_manager_started=%d\n"
                       "cnss_before_esoc.pm_proxy_started=%d\n"
+                      "cnss_before_esoc.pm_proxy_helper_started=%d\n"
+                      "cnss_before_esoc.pm_full_contract_matrix=%d\n"
+                      "cnss_before_esoc.pm_full_contract_poll_count=%d\n"
+                      "cnss_before_esoc.pm_proxy_helper_subsys_modem_fd_count=%d\n"
+                      "cnss_before_esoc.per_mgr_subsys_modem_fd_count=%d\n"
+                      "cnss_before_esoc.pm_full_contract_seen=%d\n"
                       "cnss_before_esoc.wifi_hal_started=%d\n"
                       "cnss_before_esoc.wificond_started=%d\n"
                       "cnss_before_esoc.cnss_diag_started=%d\n"
@@ -20628,6 +20778,7 @@ static int run_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_guar
                       "cnss_before_esoc.subsys_trigger.blocker_snapshot_captured=%d\n"
                       "cnss_before_esoc.per_mgr_light.postflight_safe=%d\n"
                       "cnss_before_esoc.pm_proxy.postflight_safe=%d\n"
+                      "cnss_before_esoc.pm_proxy_helper.postflight_safe=%d\n"
                       "cnss_before_esoc.mdm_helper.postflight_safe=%d\n"
                       "cnss_before_esoc.servicemanager.postflight_safe=%d\n"
                       "cnss_before_esoc.hwservicemanager.postflight_safe=%d\n"
@@ -20644,6 +20795,12 @@ static int run_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_guar
                       service_manager_start_requested ? 1 : 0,
                       service_manager_started ? 1 : 0,
                       pm_proxy_started ? 1 : 0,
+                      pm_proxy_helper_started ? 1 : 0,
+                      pm_full_contract_matrix ? 1 : 0,
+                      pm_full_contract_poll_count,
+                      pm_proxy_helper_subsys_modem_fd_count,
+                      per_mgr_subsys_modem_fd_count,
+                      pm_full_contract_seen ? 1 : 0,
                       wifi_hal_started ? 1 : 0,
                       wificond_started ? 1 : 0,
                       cnss_diag_started ? 1 : 0,
@@ -20666,7 +20823,8 @@ static int run_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_guar
                       trigger_reaped ? 1 : 0,
                       trigger_stall_snapshot_captured ? 1 : 0,
                       cnss_before_esoc_child_postflight_safe(per_mgr) ? 1 : 0,
-                      (!pm_proxy_matrix || cnss_before_esoc_child_postflight_safe(pm_proxy)) ? 1 : 0,
+                      (!pm_proxy_child_matrix || cnss_before_esoc_child_postflight_safe(pm_proxy)) ? 1 : 0,
+                      (!pm_full_contract_matrix || cnss_before_esoc_child_postflight_safe(pm_proxy_helper)) ? 1 : 0,
                       cnss_before_esoc_child_postflight_safe(mdm_helper) ? 1 : 0,
                       cnss_before_esoc_child_postflight_safe(servicemanager) ? 1 : 0,
                       cnss_before_esoc_child_postflight_safe(hwservicemanager) ? 1 : 0,
@@ -20688,6 +20846,10 @@ static int run_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_guar
         append_literal(stdout_buf,
                        "cnss_before_esoc.result=mdm-helper-esoc-fd-missing-no-open\n"
                        "cnss_before_esoc.reason=bounded-gate-did-not-see-dev-esoc-0\n");
+    } else if (pm_full_contract_matrix && !pm_full_contract_seen) {
+        append_literal(stdout_buf,
+                       "cnss_before_esoc.result=pm-full-contract-missing-no-open\n"
+                       "cnss_before_esoc.reason=pm-proxy-helper-and-per-mgr-did-not-both-hold-dev-subsys-modem\n");
     } else if (post_provider_no_wlfw_trigger_started && trigger_started) {
         append_literal(stdout_buf,
                        "cnss_before_esoc.result=post-provider-no-wlfw-trigger-clean\n"
@@ -20717,13 +20879,14 @@ static int run_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_guar
                   "cnss_before_esoc.credentials=0\n"
                   "cnss_before_esoc.dhcp_routing=0\n"
                   "cnss_before_esoc.external_ping=0\n"
-                  "cnss_before_esoc.pm_proxy_helper_start_executed=0\n"
+                  "cnss_before_esoc.pm_proxy_helper_start_executed=%d\n"
                   "cnss_before_esoc.notify_attempted=0\n"
                   "cnss_before_esoc.boot_done_attempted=0\n"
                   "cnss_before_esoc.end=1\n",
                   service_manager_started ? 1 : 0,
                   wifi_hal_started ? 1 : 0,
-                  wificond_started ? 1 : 0);
+                  wificond_started ? 1 : 0,
+                  pm_proxy_helper_started ? 1 : 0);
     return all_postflight_safe ? 0 : 42;
 
 fail:
