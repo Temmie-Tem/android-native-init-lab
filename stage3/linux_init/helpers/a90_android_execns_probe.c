@@ -88,7 +88,7 @@
 #define IOPRIO_PRIO_VALUE(class_value, data) (((class_value) << IOPRIO_CLASS_SHIFT) | (data))
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v163"
+#define EXECNS_VERSION "a90_android_execns_probe v164"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -1862,6 +1862,8 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
         const bool service74_gated_android_userspace_retry =
             is_wifi_companion_service74_gated_android_userspace_cnss_retry_start_only_mode(cfg->mode) ||
             is_wifi_companion_service74_gated_android_userspace_cnss_retry_registry_snapshot_start_only_mode(cfg->mode);
+        const bool android_service_window =
+            is_wifi_companion_android_wifi_service_window_start_only_mode(cfg->mode);
 
         if (cfg->linker != NULL) {
             fprintf(stderr, "--linker is not used by Wi-Fi companion modes\n");
@@ -1872,10 +1874,11 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             fprintf(stderr, "--capture-mode must be none or ptrace-lite for Wi-Fi companion modes\n");
             return 2;
         }
-        if (!cfg->allow_wifi_companion_start_only ||
-            (!post_sysmon_observer &&
-             !peripheral_manager_node_parity &&
-             !cfg->allow_cnss_start_only)) {
+        if (!android_service_window &&
+            (!cfg->allow_wifi_companion_start_only ||
+             (!post_sysmon_observer &&
+              !peripheral_manager_node_parity &&
+              !cfg->allow_cnss_start_only))) {
             fprintf(stderr, "Wi-Fi companion modes require --allow-wifi-companion-start-only%s\n",
                     (post_sysmon_observer || peripheral_manager_node_parity) ? "" : " and --allow-cnss-start-only");
             return 2;
