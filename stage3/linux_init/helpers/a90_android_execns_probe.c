@@ -88,7 +88,7 @@
 #define IOPRIO_PRIO_VALUE(class_value, data) (((class_value) << IOPRIO_CLASS_SHIFT) | (data))
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v156"
+#define EXECNS_VERSION "a90_android_execns_probe v157"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -17264,6 +17264,224 @@ static int append_mdm_helper_queue_timing_snapshot(struct buffer *buf,
                          phase);
 }
 
+static int append_mdm_helper_provider_path_status(struct buffer *buf,
+                                                  const char *phase,
+                                                  const char *name,
+                                                  const char *path) {
+    struct stat path_stat;
+    int exists;
+    int stat_errno = 0;
+
+    exists = lstat(path, &path_stat) == 0;
+    if (!exists) {
+        stat_errno = errno;
+    }
+    return append_format(buf,
+                         "mdm_helper_provider_readiness.%s.path.%s.exists=%d\n"
+                         "mdm_helper_provider_readiness.%s.path.%s.errno=%d\n"
+                         "mdm_helper_provider_readiness.%s.path.%s.char_device=%d\n"
+                         "mdm_helper_provider_readiness.%s.path.%s.socket=%d\n"
+                         "mdm_helper_provider_readiness.%s.path.%s.mode=%04o\n"
+                         "mdm_helper_provider_readiness.%s.path.%s.path=%s\n",
+                         phase,
+                         name,
+                         exists ? 1 : 0,
+                         phase,
+                         name,
+                         stat_errno,
+                         phase,
+                         name,
+                         (exists && S_ISCHR(path_stat.st_mode)) ? 1 : 0,
+                         phase,
+                         name,
+                         (exists && S_ISSOCK(path_stat.st_mode)) ? 1 : 0,
+                         phase,
+                         name,
+                         exists ? (unsigned int)(path_stat.st_mode & 07777) : 0U,
+                         phase,
+                         name,
+                         path);
+}
+
+static int append_mdm_helper_provider_readiness_fd_matches(struct buffer *buf,
+                                                           const char *phase,
+                                                           const char *child_name,
+                                                           const struct composite_child *child,
+                                                           int *binder_count,
+                                                           int *hwbinder_count,
+                                                           int *vndbinder_count) {
+    char label[160];
+
+    *binder_count = -1;
+    *hwbinder_count = -1;
+    *vndbinder_count = -1;
+    if (!composite_child_alive_for_snapshot(child)) {
+        return 0;
+    }
+    if (snprintf(label, sizeof(label), "%s_%s_binder", phase, child_name) >= (int)sizeof(label) ||
+        append_proc_fd_target_match_scan(buf,
+                                         child->pid,
+                                         "mdm_helper_provider_readiness",
+                                         label,
+                                         "/dev/binder",
+                                         binder_count) < 0 ||
+        snprintf(label, sizeof(label), "%s_%s_hwbinder", phase, child_name) >= (int)sizeof(label) ||
+        append_proc_fd_target_match_scan(buf,
+                                         child->pid,
+                                         "mdm_helper_provider_readiness",
+                                         label,
+                                         "/dev/hwbinder",
+                                         hwbinder_count) < 0 ||
+        snprintf(label, sizeof(label), "%s_%s_vndbinder", phase, child_name) >= (int)sizeof(label) ||
+        append_proc_fd_target_match_scan(buf,
+                                         child->pid,
+                                         "mdm_helper_provider_readiness",
+                                         label,
+                                         "/dev/vndbinder",
+                                         vndbinder_count) < 0) {
+        return -1;
+    }
+    return 0;
+}
+
+static int append_mdm_helper_provider_readiness_snapshot(struct buffer *buf,
+                                                         const struct paths *paths,
+                                                         const char *phase,
+                                                         const struct composite_child *per_mgr,
+                                                         const struct composite_child *mdm_helper) {
+    char label[160];
+    int servicemanager_count = -1;
+    int hwservicemanager_count = -1;
+    int vndservicemanager_count = -1;
+    int pm_service_count = -1;
+    int pm_proxy_count = -1;
+    int pm_proxy_helper_count = -1;
+    int per_mgr_binder_count = -1;
+    int per_mgr_hwbinder_count = -1;
+    int per_mgr_vndbinder_count = -1;
+    int mdm_helper_binder_count = -1;
+    int mdm_helper_hwbinder_count = -1;
+    int mdm_helper_vndbinder_count = -1;
+
+    if (append_format(buf,
+                      "mdm_helper_provider_readiness.%s.begin=1\n"
+                      "mdm_helper_provider_readiness.%s.monotonic_ms=%ld\n"
+                      "mdm_helper_provider_readiness.%s.actor_start_executed=0\n"
+                      "mdm_helper_provider_readiness.%s.subsys_esoc0_open_attempted=0\n"
+                      "mdm_helper_provider_readiness.%s.wifi_hal_start_executed=0\n"
+                      "mdm_helper_provider_readiness.%s.scan_connect_linkup=0\n",
+                      phase,
+                      phase,
+                      monotonic_ms(),
+                      phase,
+                      phase,
+                      phase,
+                      phase) < 0 ||
+        append_mdm_helper_provider_path_status(buf, phase, "binder", paths->dev_binder) < 0 ||
+        append_mdm_helper_provider_path_status(buf, phase, "hwbinder", paths->dev_hwbinder) < 0 ||
+        append_mdm_helper_provider_path_status(buf, phase, "vndbinder", paths->dev_vndbinder) < 0 ||
+        append_mdm_helper_provider_path_status(buf, phase, "property_service_socket", paths->property_service_socket) < 0 ||
+        append_mdm_helper_provider_readiness_fd_matches(buf,
+                                                        phase,
+                                                        "per_mgr",
+                                                        per_mgr,
+                                                        &per_mgr_binder_count,
+                                                        &per_mgr_hwbinder_count,
+                                                        &per_mgr_vndbinder_count) < 0 ||
+        append_mdm_helper_provider_readiness_fd_matches(buf,
+                                                        phase,
+                                                        "mdm_helper",
+                                                        mdm_helper,
+                                                        &mdm_helper_binder_count,
+                                                        &mdm_helper_hwbinder_count,
+                                                        &mdm_helper_vndbinder_count) < 0) {
+        return -1;
+    }
+    if (snprintf(label, sizeof(label), "%s_servicemanager", phase) >= (int)sizeof(label) ||
+        append_process_cmdline_match_scan(buf,
+                                          "mdm_helper_provider_readiness",
+                                          label,
+                                          "/system/bin/servicemanager",
+                                          4,
+                                          &servicemanager_count) < 0 ||
+        snprintf(label, sizeof(label), "%s_hwservicemanager", phase) >= (int)sizeof(label) ||
+        append_process_cmdline_match_scan(buf,
+                                          "mdm_helper_provider_readiness",
+                                          label,
+                                          "/system/bin/hwservicemanager",
+                                          4,
+                                          &hwservicemanager_count) < 0 ||
+        snprintf(label, sizeof(label), "%s_vndservicemanager", phase) >= (int)sizeof(label) ||
+        append_process_cmdline_match_scan(buf,
+                                          "mdm_helper_provider_readiness",
+                                          label,
+                                          "/vendor/bin/vndservicemanager",
+                                          4,
+                                          &vndservicemanager_count) < 0 ||
+        snprintf(label, sizeof(label), "%s_pm_service", phase) >= (int)sizeof(label) ||
+        append_process_cmdline_match_scan(buf,
+                                          "mdm_helper_provider_readiness",
+                                          label,
+                                          "/vendor/bin/pm-service",
+                                          8,
+                                          &pm_service_count) < 0 ||
+        snprintf(label, sizeof(label), "%s_pm_proxy", phase) >= (int)sizeof(label) ||
+        append_process_cmdline_match_scan(buf,
+                                          "mdm_helper_provider_readiness",
+                                          label,
+                                          "/vendor/bin/pm-proxy",
+                                          8,
+                                          &pm_proxy_count) < 0 ||
+        snprintf(label, sizeof(label), "%s_pm_proxy_helper", phase) >= (int)sizeof(label) ||
+        append_process_cmdline_match_scan(buf,
+                                          "mdm_helper_provider_readiness",
+                                          label,
+                                          "/vendor/bin/pm_proxy_helper",
+                                          8,
+                                          &pm_proxy_helper_count) < 0) {
+        return -1;
+    }
+    return append_format(buf,
+                         "mdm_helper_provider_readiness.%s.servicemanager_count=%d\n"
+                         "mdm_helper_provider_readiness.%s.hwservicemanager_count=%d\n"
+                         "mdm_helper_provider_readiness.%s.vndservicemanager_count=%d\n"
+                         "mdm_helper_provider_readiness.%s.pm_service_count=%d\n"
+                         "mdm_helper_provider_readiness.%s.pm_proxy_count=%d\n"
+                         "mdm_helper_provider_readiness.%s.pm_proxy_helper_count=%d\n"
+                         "mdm_helper_provider_readiness.%s.per_mgr_binder_count=%d\n"
+                         "mdm_helper_provider_readiness.%s.per_mgr_hwbinder_count=%d\n"
+                         "mdm_helper_provider_readiness.%s.per_mgr_vndbinder_count=%d\n"
+                         "mdm_helper_provider_readiness.%s.mdm_helper_binder_count=%d\n"
+                         "mdm_helper_provider_readiness.%s.mdm_helper_hwbinder_count=%d\n"
+                         "mdm_helper_provider_readiness.%s.mdm_helper_vndbinder_count=%d\n"
+                         "mdm_helper_provider_readiness.%s.end=1\n",
+                         phase,
+                         servicemanager_count,
+                         phase,
+                         hwservicemanager_count,
+                         phase,
+                         vndservicemanager_count,
+                         phase,
+                         pm_service_count,
+                         phase,
+                         pm_proxy_count,
+                         phase,
+                         pm_proxy_helper_count,
+                         phase,
+                         per_mgr_binder_count,
+                         phase,
+                         per_mgr_hwbinder_count,
+                         phase,
+                         per_mgr_vndbinder_count,
+                         phase,
+                         mdm_helper_binder_count,
+                         phase,
+                         mdm_helper_hwbinder_count,
+                         phase,
+                         mdm_helper_vndbinder_count,
+                         phase);
+}
+
 
 static bool composite_child_runtime_gap(const struct composite_child *child, bool timed_out) {
     if (timed_out && child->observable && child->term_sent && !child->exited_before_timeout) {
@@ -18072,6 +18290,11 @@ static int run_wifi_companion_mdm_helper_runtime_contract_capture_guarded(const 
                                                 "before_property_shim",
                                                 per_mgr,
                                                 mdm_helper) < 0 ||
+        append_mdm_helper_provider_readiness_snapshot(stdout_buf,
+                                                      paths,
+                                                      "before_property_shim",
+                                                      per_mgr,
+                                                      mdm_helper) < 0 ||
         mirror_mdm_helper_runtime_mhi_pipe_if_present(stdout_buf, paths, "before") < 0 ||
         append_subsys_hold_snapshot(stdout_buf, "runtime_contract_before") < 0 ||
         append_wifi_cnss2_focus_capture(stdout_buf, "runtime_contract_before") < 0) {
@@ -18158,6 +18381,15 @@ static int run_wifi_companion_mdm_helper_runtime_contract_capture_guarded(const 
         stop_property_service_shim(&property_shim, paths, stdout_buf);
         return -1;
     }
+    if (append_mdm_helper_provider_readiness_snapshot(stdout_buf,
+                                                      paths,
+                                                      "after_per_mgr_settle",
+                                                      per_mgr,
+                                                      mdm_helper) < 0) {
+        composite_cleanup_children(children, 1, stdout_buf, stderr_buf);
+        stop_property_service_shim(&property_shim, paths, stdout_buf);
+        return -1;
+    }
     if (composite_spawn_child(cfg, paths, mdm_helper, stdout_buf) < 0) {
         composite_cleanup_children(children, 1, stdout_buf, stderr_buf);
         stop_property_service_shim(&property_shim, paths, stdout_buf);
@@ -18171,6 +18403,15 @@ static int run_wifi_companion_mdm_helper_runtime_contract_capture_guarded(const 
                                                 "after_mdm_helper_spawn",
                                                 per_mgr,
                                                 mdm_helper) < 0) {
+        composite_cleanup_children(children, 2, stdout_buf, stderr_buf);
+        stop_property_service_shim(&property_shim, paths, stdout_buf);
+        return -1;
+    }
+    if (append_mdm_helper_provider_readiness_snapshot(stdout_buf,
+                                                      paths,
+                                                      "after_mdm_helper_spawn",
+                                                      per_mgr,
+                                                      mdm_helper) < 0) {
         composite_cleanup_children(children, 2, stdout_buf, stderr_buf);
         stop_property_service_shim(&property_shim, paths, stdout_buf);
         return -1;
@@ -18228,6 +18469,11 @@ static int run_wifi_companion_mdm_helper_runtime_contract_capture_guarded(const 
                                                         "window",
                                                         per_mgr,
                                                         mdm_helper) < 0 ||
+                append_mdm_helper_provider_readiness_snapshot(stdout_buf,
+                                                              paths,
+                                                              "window",
+                                                              per_mgr,
+                                                              mdm_helper) < 0 ||
                 append_mdm_helper_runtime_path_visibility(stdout_buf, paths, "window") < 0 ||
                 append_mdm_helper_lower_contract_snapshot(stdout_buf, paths, "runtime_contract_window") < 0 ||
                 append_generic_stall_snapshot_capture(stdout_buf,
@@ -18285,6 +18531,11 @@ static int run_wifi_companion_mdm_helper_runtime_contract_capture_guarded(const 
                                                     "final",
                                                     per_mgr,
                                                     mdm_helper) < 0 ||
+            append_mdm_helper_provider_readiness_snapshot(stdout_buf,
+                                                          paths,
+                                                          "final",
+                                                          per_mgr,
+                                                          mdm_helper) < 0 ||
             append_mdm_helper_runtime_path_visibility(stdout_buf, paths, "final") < 0 ||
             append_mdm_helper_lower_contract_snapshot(stdout_buf, paths, "runtime_contract_final") < 0 ||
             append_generic_stall_snapshot_capture(stdout_buf,
@@ -18318,6 +18569,11 @@ static int run_wifi_companion_mdm_helper_runtime_contract_capture_guarded(const 
                                                 "after_cleanup",
                                                 per_mgr,
                                                 mdm_helper) < 0 ||
+        append_mdm_helper_provider_readiness_snapshot(stdout_buf,
+                                                      paths,
+                                                      "after_cleanup",
+                                                      per_mgr,
+                                                      mdm_helper) < 0 ||
         append_format(stdout_buf,
                       "mdm_helper_runtime_contract.mdm_helper_observable=%d\n"
                       "mdm_helper_runtime_contract.window_snapshot_captured=%d\n"
