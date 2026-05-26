@@ -130,6 +130,7 @@
 
 ### 3. Plans
 
+- `plans/NATIVE_INIT_V1001_V1000_ROUTE_COMPARATOR_PLAN_2026-05-26.md` – V1000 Android timing과 V998/V923/V964/V965 native evidence를 비교해 WLFW-precondition gate가 circular인지 host-only로 판정하는 V1001 계획
 - `plans/NATIVE_INIT_V1000_ANDROID_ESOC_GPIO_RECAPTURE_HANDOFF_PLAN_2026-05-26.md` – V999 이후 Android boot image로 임시 handoff해 MDM3/eSoC/GPIO/PMIC/PCIe 타이밍을 read-only ADB로 재캡처하고 native v724로 롤백하는 V1000 계획
 - `plans/NATIVE_INIT_V999_POST_SELINUX_WLFW_ROUTE_PLAN_2026-05-26.md` – V998 이후 SELinux/service-window blocker가 제거됐지만 WLFW precondition이 남은 상태에서 Android dmesg/eSoC/GPIO 재캡처를 다음 route로 선택할지 host-only로 분류하는 V999 계획
 - `plans/NATIVE_INIT_V998_ANDROID_SERVICE_WINDOW_POST_SELINUX_PLAN_2026-05-26.md` – V997 current-boot SELinux proof 이후 helper `v169` Android service-window를 scan/connect 없이 한 번 재검증하는 V998 계획
@@ -442,6 +443,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V1001_V1000_ROUTE_COMPARATOR_2026-05-26.md` – V1000에서 `/dev/subsys_esoc0` get이 `wlfw_start`보다 앞섰음을 반영해 V1002 service-window-scoped subsystem trigger helper support를 선택한 V1001 결과
 - `reports/NATIVE_INIT_V1000_ANDROID_ESOC_GPIO_RECAPTURE_HANDOFF_LIVE_2026-05-26.md` – V1000 live Android handoff가 boot-complete/read-only capture/native rollback을 수행했고, 완전 양성 타임라인은 미충족이지만 `/dev/subsys_esoc0` get 직후 `wlfw_start`/WLAN-PD/ICNSS QMI까지 도달한 현재 Android lower timing 증거
 - `reports/NATIVE_INIT_V1000_ANDROID_ESOC_GPIO_RECAPTURE_HANDOFF_PLAN_2026-05-26.md` – V1000 Android eSoC/GPIO read-only recapture handoff의 plan mode가 boot image/rollback 후보와 18-step sequence를 검증한 결과
 - `reports/NATIVE_INIT_V999_POST_SELINUX_WLFW_ROUTE_CLASSIFIER_2026-05-26.md` – V998 clean service-window/no-WLFW 결과와 V966/V968/V918/V923/V924/V965 증거를 종합해 다음 단위를 Android-positive read-only eSoC/GPIO dmesg recapture로 선택한 V999 결과
