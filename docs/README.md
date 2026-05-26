@@ -15,10 +15,10 @@
 
 ## 최신 Wi-Fi bring-up 조사 기준
 
-- 2026-05-27 기준 최신 PM observer proof는 `docs/reports/NATIVE_INIT_V1093_PM_POST_PROVIDER_SURFACE_2026-05-27.md`입니다.
-- V1093에서 `vndservicemanager` readiness와 V490 policy-load precondition 하에 `vendor.qcom.PeripheralManager` 등록을 재현했고, provider 직후에도 `mdm3=OFFLINING`/WLFW 없음이 확인됐습니다.
+- 2026-05-27 기준 최신 PM observer proof는 `docs/reports/NATIVE_INIT_V1095_PM_CNSS_VOTER_SURFACE_2026-05-27.md`입니다.
+- V1095에서 `vndservicemanager` readiness와 V490 policy-load precondition 하에 `vendor.qcom.PeripheralManager` 등록, `pm-proxy`, bounded `cnss-daemon`까지 재현했지만 `mdm3=OFFLINING`/WLFW 없음이 유지됐습니다.
 - 아직 Wi-Fi HAL, scan/connect/link-up, DHCP, route, external ping은 실행하지 않았습니다.
-- 다음 블로커는 PM provider가 아니라 lower native mdm3/eSoC/WLAN-PD 전진 조건 분류입니다.
+- 다음 블로커는 PM provider나 `cnss-daemon` 단독 start가 아니라 lower native PM voter request/eSoC/WLAN-PD 전진 조건 분류입니다.
 
 ## 현재 기준점
 
@@ -202,6 +202,8 @@
 - `plans/NATIVE_INIT_V1077_PM_SERVICE_UPROBE_HELPER_DEPLOY_CHECKONLY_PLAN_2026-05-27.md` – V1076 helper를 NCM으로 `/cache/bin`에 배포하고 no-attach 기본 동작을 검증하는 계획
 - `plans/NATIVE_INIT_V1092_PM_PROVIDER_READY_PLAN_2026-05-27.md` – V490 policy-load와 `vndservicemanager` readiness 뒤 `vendor.qcom.PeripheralManager` provider 등록을 재현하는 계획
 - `plans/NATIVE_INIT_V1093_PM_POST_PROVIDER_SURFACE_PLAN_2026-05-27.md` – provider-positive window에서 mdm3/ICNSS/QRTR/WLFW/`wlan0` lower surface를 compact capture하는 계획
+- `plans/NATIVE_INIT_V1094_PM_PER_PROXY_SURFACE_PLAN_2026-05-27.md` – provider-positive PM observer window를 `pm-proxy`까지 연장해 PM fd와 lower surface를 분류하는 계획
+- `plans/NATIVE_INIT_V1095_PM_CNSS_VOTER_SURFACE_PLAN_2026-05-27.md` – PM provider와 `pm-proxy` 뒤 bounded `cnss-daemon`을 시작해 PM voter/lower surface 전진 여부를 분류하는 계획
 - `plans/NATIVE_INIT_V1003_HELPER_V170_DEPLOY_PLAN_2026-05-26.md` – V1002 helper `v170` 산출물을 `/cache/bin/a90_android_execns_probe`로 deploy-only 배포하고 sha/contract parity를 확인하는 V1003 계획
 - `plans/NATIVE_INIT_V1002_ANDROID_SERVICE_WINDOW_SUBSYS_TRIGGER_SUPPORT_PLAN_2026-05-26.md` – V1001에서 선택한 service-window-scoped `/dev/subsys_esoc0` trigger capture를 helper `v170`에 source/build-only로 추가하는 V1002 계획
 - `plans/NATIVE_INIT_V1001_V1000_ROUTE_COMPARATOR_PLAN_2026-05-26.md` – V1000 Android timing과 V998/V923/V964/V965 native evidence를 비교해 WLFW-precondition gate가 circular인지 host-only로 판정하는 V1001 계획
@@ -590,6 +592,7 @@
 - `reports/NATIVE_INIT_V1092_PM_PROVIDER_READY_2026-05-27.md` – V1092 결과 V490 policy-load와 `vndservicemanager` readiness 뒤 `vendor.qcom.PeripheralManager` provider 등록을 확인한 결과
 - `reports/NATIVE_INIT_V1093_PM_POST_PROVIDER_SURFACE_2026-05-27.md` – V1093 결과 provider-positive window에서도 `mdm3=OFFLINING`, WLFW service `69` 없음, `wlan0` 없음이 유지되어 lower mdm3/eSoC trigger가 다음 blocker임을 확인한 결과
 - `reports/NATIVE_INIT_V1094_PM_PER_PROXY_SURFACE_2026-05-27.md` – V1094 결과 `pm-proxy`까지 이어진 provider-positive window에서도 `/dev/subsys_modem` fd, mdm3, WLFW, `wlan0`가 모두 전진하지 않아 다음 blocker를 lower PM client/voter 또는 eSoC trigger로 좁힌 결과
+- `reports/NATIVE_INIT_V1095_PM_CNSS_VOTER_SURFACE_2026-05-27.md` – V1095 결과 PM provider와 `pm-proxy` 뒤 bounded `cnss-daemon`까지 시작해도 `/dev/subsys_modem` fd, mdm3, WLFW, `wlan0`가 모두 전진하지 않음을 확인한 결과
 - `reports/NATIVE_INIT_V1004_SERVICE_WINDOW_SUBSYS_TRIGGER_LIVE_2026-05-26.md` – V1004 live 결과 current-boot SELinux refresh 후 Android service-window actors는 관측됐지만 `mdm_helper`가 `/dev/esoc-0` fd를 hold하지 않아 `/dev/subsys_esoc0` trigger는 안전하게 미실행된 결과
 - `reports/NATIVE_INIT_V1003_HELPER_V170_DEPLOY_2026-05-26.md` – helper `v170`을 `/cache/bin/a90_android_execns_probe`로 deploy-only 설치하고 remote sha/contract parity 및 no-Wi-Fi guard를 확인한 V1003 결과
 - `reports/NATIVE_INIT_V1002_ANDROID_SERVICE_WINDOW_SUBSYS_TRIGGER_SUPPORT_2026-05-26.md` – helper `v170`에 Android service-window scoped `/dev/subsys_esoc0` trigger capture mode를 source/build-only로 추가한 V1002 결과

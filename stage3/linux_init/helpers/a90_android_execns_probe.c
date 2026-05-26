@@ -97,7 +97,7 @@
 #define IOPRIO_PRIO_VALUE(class_value, data) (((class_value) << IOPRIO_CLASS_SHIFT) | (data))
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v205"
+#define EXECNS_VERSION "a90_android_execns_probe v206"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -247,6 +247,7 @@ struct config {
     bool allow_android_wifi_service_window_subsys_trigger_capture;
     bool require_android_selinux_exec_match;
     bool pm_observer_continue_after_provider;
+    bool pm_observer_start_cnss_after_provider;
 };
 
 struct a90_hidl_string_wire {
@@ -407,6 +408,7 @@ static void usage(FILE *out) {
             "[--allow-android-wifi-service-window] "
             "[--allow-android-wifi-service-window-subsys-trigger-capture] "
             "[--pm-observer-continue-after-provider] "
+            "[--pm-observer-start-cnss-after-provider] "
             "[--qrtr-readback-matrix label:service:instance[,instance][;...]] "
             "[--connect-config /cache/a90-wifi/...] "
             "[--connect-iface auto|wlan0] "
@@ -1130,6 +1132,10 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             cfg->pm_observer_continue_after_provider = true;
             continue;
         }
+        if (strcmp(argv[i], "--pm-observer-start-cnss-after-provider") == 0) {
+            cfg->pm_observer_start_cnss_after_provider = true;
+            continue;
+        }
         if (strcmp(argv[i], "--allow-android-wifi-service-window") == 0) {
             cfg->allow_android_wifi_service_window = true;
             continue;
@@ -1579,6 +1585,16 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
     if (cfg->pm_observer_continue_after_provider &&
         !is_wifi_companion_pm_service_trigger_observer_mode(cfg->mode)) {
         fprintf(stderr, "--pm-observer-continue-after-provider is only valid with wifi-companion-pm-service-trigger-observer mode\n");
+        return 2;
+    }
+    if (cfg->pm_observer_start_cnss_after_provider &&
+        !is_wifi_companion_pm_service_trigger_observer_mode(cfg->mode)) {
+        fprintf(stderr, "--pm-observer-start-cnss-after-provider is only valid with wifi-companion-pm-service-trigger-observer mode\n");
+        return 2;
+    }
+    if (cfg->pm_observer_start_cnss_after_provider &&
+        !cfg->pm_observer_continue_after_provider) {
+        fprintf(stderr, "--pm-observer-start-cnss-after-provider requires --pm-observer-continue-after-provider\n");
         return 2;
     }
     if (cfg->allow_android_wifi_service_window &&
@@ -26814,11 +26830,13 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
         PM_OBSERVER_PM_PROXY_HELPER = 3,
         PM_OBSERVER_PER_MGR = 4,
         PM_OBSERVER_PER_PROXY = 5,
-        PM_OBSERVER_CHILD_COUNT = 6,
+        PM_OBSERVER_CNSS_DAEMON = 6,
+        PM_OBSERVER_CHILD_COUNT = 7,
     };
     struct composite_child children[PM_OBSERVER_CHILD_COUNT];
     struct composite_child *pm_proxy_helper = &children[PM_OBSERVER_PM_PROXY_HELPER];
     struct composite_child *per_mgr = &children[PM_OBSERVER_PER_MGR];
+    struct composite_child *cnss_daemon = &children[PM_OBSERVER_CNSS_DAEMON];
     struct property_service_shim property_shim;
     size_t active_child_count = 0;
     long deadline;
@@ -26861,27 +26879,36 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                          "per_proxy",
                          "/vendor/bin/pm-proxy",
                          COMPOSITE_ID_PER_PROXY);
+    composite_child_init(cnss_daemon,
+                         "cnss_daemon",
+                         "/vendor/bin/cnss-daemon",
+                         COMPOSITE_ID_CNSS);
 
-    if (append_literal(stdout_buf,
-                       "pm_service_trigger_observer.begin=1\n"
-                       "pm_service_trigger_observer.mode=wifi-companion-pm-service-trigger-observer\n"
-                       "pm_service_trigger_observer.order=servicemanager,hwservicemanager,vndservicemanager,vndservicemanager_ready,pm_proxy_helper,per_mgr,vndservice_query,per_proxy,vndservice_query\n"
-                       "pm_service_trigger_observer.service_manager_start_executed=1\n"
-                       "pm_service_trigger_observer.pm_proxy_helper_start_executed=1\n"
-                       "pm_service_trigger_observer.per_mgr_start_executed=1\n"
-                       "pm_service_trigger_observer.per_proxy_start_executed=1\n"
-                       "pm_service_trigger_observer.mdm_helper_start_executed=0\n"
-                       "pm_service_trigger_observer.cnss_daemon_start_executed=0\n"
-                       "pm_service_trigger_observer.wifi_hal_start_executed=0\n"
-                       "pm_service_trigger_observer.scan_connect_linkup=0\n"
-                       "pm_service_trigger_observer.external_ping=0\n"
-                       "pm_service_trigger_observer.subsys_esoc0_open_attempted=0\n"
-                       "pm_service_trigger_observer.policy_load_precondition.required=1\n"
-                       "pm_service_trigger_observer.vndservicemanager_readiness.enabled=1\n"
-                       "pm_service_trigger_observer.vndservice_query.enabled=1\n") < 0 ||
-        append_format(stdout_buf,
-                      "pm_service_trigger_observer.continue_after_provider=%d\n",
-                      cfg->pm_observer_continue_after_provider ? 1 : 0) < 0) {
+    if (append_format(stdout_buf,
+                      "pm_service_trigger_observer.begin=1\n"
+                      "pm_service_trigger_observer.mode=wifi-companion-pm-service-trigger-observer\n"
+                      "pm_service_trigger_observer.order=%s\n"
+                      "pm_service_trigger_observer.service_manager_start_executed=1\n"
+                      "pm_service_trigger_observer.pm_proxy_helper_start_executed=1\n"
+                      "pm_service_trigger_observer.per_mgr_start_executed=1\n"
+                      "pm_service_trigger_observer.per_proxy_start_executed=1\n"
+                      "pm_service_trigger_observer.mdm_helper_start_executed=0\n"
+                      "pm_service_trigger_observer.cnss_daemon_start_executed=%d\n"
+                      "pm_service_trigger_observer.wifi_hal_start_executed=0\n"
+                      "pm_service_trigger_observer.scan_connect_linkup=0\n"
+                      "pm_service_trigger_observer.external_ping=0\n"
+                      "pm_service_trigger_observer.subsys_esoc0_open_attempted=0\n"
+                      "pm_service_trigger_observer.policy_load_precondition.required=1\n"
+                      "pm_service_trigger_observer.vndservicemanager_readiness.enabled=1\n"
+                      "pm_service_trigger_observer.vndservice_query.enabled=1\n"
+                      "pm_service_trigger_observer.continue_after_provider=%d\n"
+                      "pm_service_trigger_observer.start_cnss_after_provider=%d\n",
+                      cfg->pm_observer_start_cnss_after_provider
+                          ? "servicemanager,hwservicemanager,vndservicemanager,vndservicemanager_ready,pm_proxy_helper,per_mgr,vndservice_query,per_proxy,vndservice_query,cnss_daemon,vndservice_query"
+                          : "servicemanager,hwservicemanager,vndservicemanager,vndservicemanager_ready,pm_proxy_helper,per_mgr,vndservice_query,per_proxy,vndservice_query",
+                      cfg->pm_observer_start_cnss_after_provider ? 1 : 0,
+                      cfg->pm_observer_continue_after_provider ? 1 : 0,
+                      cfg->pm_observer_start_cnss_after_provider ? 1 : 0) < 0) {
         return -1;
     }
     if (!cfg->allow_pm_service_trigger_observer) {
@@ -26919,6 +26946,10 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
         return 0;
     }
     for (size_t i = 0; i < PM_OBSERVER_CHILD_COUNT; i++) {
+        if (i == PM_OBSERVER_CNSS_DAEMON &&
+            (!cfg->pm_observer_start_cnss_after_provider || !vndservice_provider_seen)) {
+            break;
+        }
         if (composite_spawn_child(cfg, paths, &children[i], stdout_buf) < 0) {
             composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
             stop_property_service_shim(&property_shim, paths, stdout_buf);
@@ -27056,9 +27087,78 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                     i == PM_OBSERVER_PER_MGR) {
                     continue;
                 }
+                if (cfg->pm_observer_start_cnss_after_provider &&
+                    i == PM_OBSERVER_PER_PROXY) {
+                    continue;
+                }
                 break;
             }
             continue;
+        }
+        if (i == PM_OBSERVER_CNSS_DAEMON) {
+            bool child_ready;
+            bool query_provider_seen = false;
+            int per_mgr_subsys_modem_count = -1;
+            int pm_proxy_helper_subsys_modem_count = -1;
+
+            usleep(1500000);
+            if (drain_pm_service_trigger_observer_children(children,
+                                                           active_child_count,
+                                                           &property_shim,
+                                                           stdout_buf,
+                                                           stderr_buf) < 0) {
+                composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+                stop_property_service_shim(&property_shim, paths, stdout_buf);
+                return -1;
+            }
+            composite_capture_observable_children(&children[i], 1, stdout_buf);
+            child_ready = children[i].observable &&
+                          !children[i].child_done &&
+                          children[i].fd_summary_captured;
+            if (append_format(stdout_buf,
+                              "pm_service_trigger_observer.child.%s.post_start_probe=1\n"
+                              "pm_service_trigger_observer.child.%s.post_start_probe_wait_ms=1500\n"
+                              "pm_service_trigger_observer.child.%s.post_start_observable=%d\n"
+                              "pm_service_trigger_observer.child.%s.post_start_fd_summary_captured=%d\n"
+                              "pm_service_trigger_observer.child.%s.post_start_ready=%d\n",
+                              children[i].name,
+                              children[i].name,
+                              children[i].name,
+                              children[i].observable ? 1 : 0,
+                              children[i].name,
+                              children[i].fd_summary_captured ? 1 : 0,
+                              children[i].name,
+                              child_ready ? 1 : 0) < 0 ||
+                append_vndservice_query(stdout_buf,
+                                        stderr_buf,
+                                        cfg,
+                                        paths,
+                                        "pm_observer_after_cnss_daemon_probe",
+                                        3000,
+                                        &query_provider_seen) < 0 ||
+                append_pm_service_trigger_observer_fd_snapshot(stdout_buf,
+                                                               "after_cnss_daemon",
+                                                               per_mgr,
+                                                               pm_proxy_helper,
+                                                               &per_mgr_subsys_modem_count,
+                                                               &pm_proxy_helper_subsys_modem_count) < 0 ||
+                append_pm_provider_lower_surface_snapshot(stdout_buf,
+                                                          cfg,
+                                                          "after_cnss_daemon") < 0) {
+                composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+                stop_property_service_shim(&property_shim, paths, stdout_buf);
+                return -1;
+            }
+            if (query_provider_seen) {
+                vndservice_provider_seen = true;
+            }
+            if (per_mgr_subsys_modem_count > 0) {
+                per_mgr_subsys_modem_seen = true;
+            }
+            if (pm_proxy_helper_subsys_modem_count > 0) {
+                pm_proxy_helper_subsys_modem_seen = true;
+            }
+            break;
         }
         usleep(150000);
         if (drain_pm_service_trigger_observer_children(children,
