@@ -15,7 +15,7 @@ v1100-cnss-pm-register-blocks-after-code1-mdm3-still-offline
 `pm-proxy` remains the positive control: it registers with PM, returns `0x0`,
 connects, returns `0x0`, and reaches PM server transaction `0x3`. In the same
 window, `cnss-daemon` enters `pm_client_register` with
-`client="modem"`/`peripheral="cnss-daemon"` and reaches PM server transaction
+`peripheral="modem"`/`client="cnss-daemon"` and reaches PM server transaction
 `0x1`, but `pm_client_register` never returns before the bounded cleanup. It
 therefore never calls `pm_client_connect`, so no actionable PM connect/vote path
 is issued for CNSS.
@@ -81,14 +81,14 @@ Register arguments:
 {
   "cnss-daemon": [
     {
-      "client": "modem",
-      "peripheral": "cnss-daemon"
+      "client": "cnss-daemon",
+      "peripheral": "modem"
     }
   ],
   "pm-proxy": [
     {
-      "client": "modem",
-      "peripheral": "PM-PROXY-THREAD"
+      "client": "PM-PROXY-THREAD",
+      "peripheral": "modem"
     }
   ]
 }
@@ -130,7 +130,11 @@ PM provider visible
 The next gate should classify why PM server code `0x1` does not return for the
 CNSS client while it does return for `pm-proxy`. The likely targets are server
 reply fields, callback registration behavior, and PM event readiness associated
-with `peripheral="cnss-daemon"`.
+with `peripheral="modem"` and `client="cnss-daemon"`.
+
+Note: the original V1100 wrapper/report text labeled the two PM client strings
+in reverse. V1101 corrected the semantics from disassembly and positive-control
+trace comparison.
 
 ## Safety
 

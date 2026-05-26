@@ -15,10 +15,10 @@
 
 ## 최신 Wi-Fi bring-up 조사 기준
 
-- 2026-05-27 기준 최신 PM observer proof는 `docs/reports/NATIVE_INIT_V1100_CNSS_PM_REGISTER_RETURN_TRACEFS_2026-05-27.md`입니다.
-- V1100에서 `pm-proxy`는 PM register/connect 모두 `0x0`으로 반환되지만 `cnss-daemon`은 `client="modem"`/`peripheral="cnss-daemon"` register transaction `0x1` 이후 `pm_client_register`가 반환되지 않아 connect/vote transaction `0x3`로 전진하지 못함을 확인했습니다.
+- 2026-05-27 기준 최신 PM observer proof는 `docs/reports/NATIVE_INIT_V1101_PM_SERVER_REGISTER_PATH_TRACEFS_2026-05-27.md`입니다.
+- V1101에서 `pm-proxy`는 PM register/connect 모두 `0x0`으로 반환되지만 `cnss-daemon`은 `peripheral="modem"`/`client="cnss-daemon"` client register entry 뒤 `pm-service` server register entry `0x6048`까지만 도달하고 supported-peripheral match `0x60cc` 전에서 멈춤을 확인했습니다.
 - 아직 Wi-Fi HAL, scan/connect/link-up, DHCP, route, external ping은 실행하지 않았습니다.
-- 다음 블로커는 PM server code `0x1` register가 CNSS client에만 반환되지 않는 조건 분류입니다.
+- 다음 블로커는 `pm-service` register entry 직후부터 `0x60cc` match 전까지의 String/argument/peripheral-list early path 분류입니다.
 
 ## 현재 기준점
 
@@ -602,7 +602,8 @@
 - `reports/NATIVE_INIT_V1097_PM_SERVER_ONTRANSACT_TRACEFS_2026-05-27.md` – V1097 결과 CNSS PM request가 `pm-service` Binder server까지 도달했지만 mdm3/WLFW 전진이 없어 다음 blocker를 PM service vote/QMI decision 또는 lower eSoC trigger로 좁힌 결과
 - `reports/NATIVE_INIT_V1098_PM_SERVICE_QMI_TRACEFS_2026-05-27.md` – V1098 결과 `pm-service` QMI loop는 register/select/unregister만 수행하고 CNSS request window에서 QMI send/handle이 없어 다음 blocker를 PM Binder transaction case 또는 request actionability로 좁힌 결과
 - `reports/NATIVE_INIT_V1099_PM_SERVER_TRANSACTION_CODE_TRACEFS_2026-05-27.md` – V1099 결과 `pm-proxy`는 PM server transaction `0x1`/`0x3`/`0x5`까지 진행하지만 `cnss-daemon`은 `0x1`만 호출해 다음 blocker를 CNSS actionable PM connect/vote 조건으로 좁힌 결과
-- `reports/NATIVE_INIT_V1100_CNSS_PM_REGISTER_RETURN_TRACEFS_2026-05-27.md` – V1100 결과 `cnss-daemon`은 `peripheral="cnss-daemon"` register transaction `0x1` 이후 `pm_client_register`가 반환되지 않아 connect/vote로 전진하지 못함을 확인한 결과
+- `reports/NATIVE_INIT_V1101_PM_SERVER_REGISTER_PATH_TRACEFS_2026-05-27.md` – V1101 결과 `cnss-daemon`은 `peripheral="modem"`/`client="cnss-daemon"` register에서 `pm-service` server entry까지 도달하지만 `0x60cc` supported-peripheral match 전에서 멈춤을 확인한 결과
+- `reports/NATIVE_INIT_V1100_CNSS_PM_REGISTER_RETURN_TRACEFS_2026-05-27.md` – V1100 결과 `cnss-daemon`은 `peripheral="modem"`/`client="cnss-daemon"` register transaction `0x1` 이후 `pm_client_register`가 반환되지 않아 connect/vote로 전진하지 못함을 확인한 결과
 - `reports/NATIVE_INIT_V1004_SERVICE_WINDOW_SUBSYS_TRIGGER_LIVE_2026-05-26.md` – V1004 live 결과 current-boot SELinux refresh 후 Android service-window actors는 관측됐지만 `mdm_helper`가 `/dev/esoc-0` fd를 hold하지 않아 `/dev/subsys_esoc0` trigger는 안전하게 미실행된 결과
 - `reports/NATIVE_INIT_V1003_HELPER_V170_DEPLOY_2026-05-26.md` – helper `v170`을 `/cache/bin/a90_android_execns_probe`로 deploy-only 설치하고 remote sha/contract parity 및 no-Wi-Fi guard를 확인한 V1003 결과
 - `reports/NATIVE_INIT_V1002_ANDROID_SERVICE_WINDOW_SUBSYS_TRIGGER_SUPPORT_2026-05-26.md` – helper `v170`에 Android service-window scoped `/dev/subsys_esoc0` trigger capture mode를 source/build-only로 추가한 V1002 결과
