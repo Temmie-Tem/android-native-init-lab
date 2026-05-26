@@ -15,10 +15,10 @@
 
 ## 최신 Wi-Fi bring-up 조사 기준
 
-- 2026-05-27 기준 최신 PM observer proof는 `docs/reports/NATIVE_INIT_V1106_PM_SERVER_WCHAN_TRACEFS_2026-05-27.md`입니다.
-- V1106에서 `pm-proxy`는 PM register/connect 모두 `0x0`으로 반환되고 connect helper가 modem mutex를 unlock하지만, 이후 `cnss-daemon`은 같은 modem record의 raw `pthread_mutex_lock@plt` call에서 `wchan=futex_wait_queue_me`로 대기함을 확인했습니다.
+- 2026-05-27 기준 최신 PM observer proof는 `docs/reports/NATIVE_INIT_V1107_PM_SERVER_MUTEX_OWNER_CLASSIFIER_2026-05-27.md`입니다.
+- V1107에서 pre-CNSS `per_proxy` positive control의 Binder thread가 modem record mutex를 잡은 뒤 `__subsystem_get`/`_request_firmware`에서 막혀, 이후 `cnss-daemon`이 같은 mutex에서 `futex_wait_queue_me`로 대기함을 확인했습니다.
 - 아직 Wi-Fi HAL, scan/connect/link-up, DHCP, route, external ping은 실행하지 않았습니다.
-- 다음 블로커는 modem record mutex owner/lifetime 또는 CNSS register 전 record 초기화 순서 분류입니다.
+- 다음 블로커는 pre-CNSS `per_proxy` connect 없이 PM provider + CNSS register 경로를 검증하는 ordering test입니다.
 
 ## 현재 기준점
 
@@ -609,6 +609,7 @@
 - `reports/NATIVE_INIT_V1104_PM_SERVER_CONNECT_MUTEX_TRACEFS_2026-05-27.md` – V1104 결과 `pm-proxy` connect helper는 modem mutex를 unlock하고 반환하지만 이후 CNSS가 같은 mutex에서 block되어 다음을 raw mutex owner/waiter state로 좁힌 결과
 - `reports/NATIVE_INIT_V1105_PM_SERVER_RAW_MUTEX_TRACEFS_2026-05-27.md` – V1105 결과 CNSS Binder thread가 modem record raw `pthread_mutex_lock@plt` call에서 return 없이 pending됨을 확인해 다음을 Binder thread `wchan`/futex owner state로 좁힌 결과
 - `reports/NATIVE_INIT_V1106_PM_SERVER_WCHAN_TRACEFS_2026-05-27.md` – V1106 결과 CNSS pending Binder TID가 `wchan=futex_wait_queue_me`로 sleep 중임을 확인해 다음을 modem record mutex owner/lifetime 또는 초기화 순서로 좁힌 결과
+- `reports/NATIVE_INIT_V1107_PM_SERVER_MUTEX_OWNER_CLASSIFIER_2026-05-27.md` – V1107 결과 pre-CNSS `per_proxy` connect owner가 modem mutex를 들고 `__subsystem_get`/`_request_firmware`에서 막혀 CNSS를 futex wait로 밀어 넣는 구조임을 확인한 host-only 분류 결과
 - `reports/NATIVE_INIT_V1004_SERVICE_WINDOW_SUBSYS_TRIGGER_LIVE_2026-05-26.md` – V1004 live 결과 current-boot SELinux refresh 후 Android service-window actors는 관측됐지만 `mdm_helper`가 `/dev/esoc-0` fd를 hold하지 않아 `/dev/subsys_esoc0` trigger는 안전하게 미실행된 결과
 - `reports/NATIVE_INIT_V1003_HELPER_V170_DEPLOY_2026-05-26.md` – helper `v170`을 `/cache/bin/a90_android_execns_probe`로 deploy-only 설치하고 remote sha/contract parity 및 no-Wi-Fi guard를 확인한 V1003 결과
 - `reports/NATIVE_INIT_V1002_ANDROID_SERVICE_WINDOW_SUBSYS_TRIGGER_SUPPORT_2026-05-26.md` – helper `v170`에 Android service-window scoped `/dev/subsys_esoc0` trigger capture mode를 source/build-only로 추가한 V1002 결과
