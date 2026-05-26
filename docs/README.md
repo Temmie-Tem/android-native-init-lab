@@ -173,6 +173,7 @@
 - `plans/NATIVE_INIT_V1044_PM_PIL_ANDROID_GPIO_ESOC_CLASSIFIER_PLAN_2026-05-26.md` – V1043 PM fd blocker를 Android GPIO/eSoC timing 양성 증거와 비교해 lower PIL prerequisite 문제인지 host-only로 분류하는 계획
 - `plans/NATIVE_INIT_V1048_HELPER_V178_DEPLOY_PLAN_2026-05-26.md` – helper `v178`을 `/cache/bin/a90_android_execns_probe`로 deploy-only 설치하고 remote sha/native health/no-Wi-Fi guard를 검증하는 계획
 - `plans/NATIVE_INIT_V1049_PM_FULL_CONTRACT_WITH_MODEM_HOLDER_PLAN_2026-05-26.md` – helper `v178` modem pre-holder가 PM fd contract를 형성하는지 current-boot SELinux refresh 후 bounded live로 검증하는 계획
+- `plans/NATIVE_INIT_V1050_PM_MODEM_PRE_HOLDER_PRIVATE_ROOT_REPAIR_PLAN_2026-05-26.md` – V1049 `ENOENT` 원인을 helper private-root 미진입으로 보고 `v179` source/build-only로 수정하는 계획
 - `plans/NATIVE_INIT_V1003_HELPER_V170_DEPLOY_PLAN_2026-05-26.md` – V1002 helper `v170` 산출물을 `/cache/bin/a90_android_execns_probe`로 deploy-only 배포하고 sha/contract parity를 확인하는 V1003 계획
 - `plans/NATIVE_INIT_V1002_ANDROID_SERVICE_WINDOW_SUBSYS_TRIGGER_SUPPORT_PLAN_2026-05-26.md` – V1001에서 선택한 service-window-scoped `/dev/subsys_esoc0` trigger capture를 helper `v170`에 source/build-only로 추가하는 V1002 계획
 - `plans/NATIVE_INIT_V1001_V1000_ROUTE_COMPARATOR_PLAN_2026-05-26.md` – V1000 Android timing과 V998/V923/V964/V965 native evidence를 비교해 WLFW-precondition gate가 circular인지 host-only로 판정하는 V1001 계획
@@ -526,6 +527,7 @@
 - `reports/NATIVE_INIT_V1044_PM_PIL_ANDROID_GPIO_ESOC_CLASSIFIER_2026-05-26.md` – V1044 결과 V1043 blocker가 SELinux parity가 아니라 Android-only lower PM/PIL prerequisite delta임을 host-only로 분류한 결과
 - `reports/NATIVE_INIT_V1048_HELPER_V178_DEPLOY_2026-05-26.md` – V1048 결과 helper `v178` remote sha가 일치하고 native health/actor-clean/Wi-Fi-link-clean을 유지한 deploy-only 결과
 - `reports/NATIVE_INIT_V1049_PM_FULL_CONTRACT_WITH_MODEM_HOLDER_2026-05-26.md` – V1049 결과 modem pre-holder가 `ENOENT`로 `/dev/subsys_modem`을 열지 못해 PM fd contract가 미형성됨을 검증한 결과
+- `reports/NATIVE_INIT_V1050_PM_MODEM_PRE_HOLDER_PRIVATE_ROOT_REPAIR_2026-05-26.md` – V1050 결과 helper `v179`가 private root에서 `/dev/subsys_modem` pre-holder를 열도록 source/build-only 수정한 결과
 - `reports/NATIVE_INIT_V1004_SERVICE_WINDOW_SUBSYS_TRIGGER_LIVE_2026-05-26.md` – V1004 live 결과 current-boot SELinux refresh 후 Android service-window actors는 관측됐지만 `mdm_helper`가 `/dev/esoc-0` fd를 hold하지 않아 `/dev/subsys_esoc0` trigger는 안전하게 미실행된 결과
 - `reports/NATIVE_INIT_V1003_HELPER_V170_DEPLOY_2026-05-26.md` – helper `v170`을 `/cache/bin/a90_android_execns_probe`로 deploy-only 설치하고 remote sha/contract parity 및 no-Wi-Fi guard를 확인한 V1003 결과
 - `reports/NATIVE_INIT_V1002_ANDROID_SERVICE_WINDOW_SUBSYS_TRIGGER_SUPPORT_2026-05-26.md` – helper `v170`에 Android service-window scoped `/dev/subsys_esoc0` trigger capture mode를 source/build-only로 추가한 V1002 결과

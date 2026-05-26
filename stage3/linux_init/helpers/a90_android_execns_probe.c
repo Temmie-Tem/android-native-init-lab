@@ -88,7 +88,7 @@
 #define IOPRIO_PRIO_VALUE(class_value, data) (((class_value) << IOPRIO_CLASS_SHIFT) | (data))
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v178"
+#define EXECNS_VERSION "a90_android_execns_probe v179"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -389,6 +389,7 @@ static void usage(FILE *out) {
             "[--allow-mdm-helper-subsys-trigger-capture] "
             "[--allow-mdm-helper-cnss-before-subsys-trigger-capture] "
             "[--allow-mdm-helper-cnss-service-manager-matrix] "
+            "[--allow-pm-full-contract-with-modem-holder] "
             "[--allow-android-wifi-service-window] "
             "[--allow-android-wifi-service-window-subsys-trigger-capture] "
             "[--qrtr-readback-matrix label:service:instance[,instance][;...]] "
@@ -396,7 +397,7 @@ static void usage(FILE *out) {
             "[--connect-iface auto|wlan0] "
             "[--ping-target 1.1.1.1] "
             "[--cnss-surface-mode full|compact] "
-            "[--service-manager-order none|before-cnss|after-cnss|after-mdm-helper-esoc-fd|after-mdm-helper-esoc-fd-with-pm-proxy|after-mdm-helper-esoc-fd-with-pm-full-contract|after-mdm-helper-esoc-fd-with-wifi-surface|after-mdm-helper-esoc-fd-with-wifi-surface-subsys-window] "
+            "[--service-manager-order none|before-cnss|after-cnss|after-mdm-helper-esoc-fd|after-mdm-helper-esoc-fd-with-pm-proxy|after-mdm-helper-esoc-fd-with-pm-full-contract|after-mdm-helper-esoc-fd-with-pm-full-contract-with-modem-holder|after-mdm-helper-esoc-fd-with-wifi-surface|after-mdm-helper-esoc-fd-with-wifi-surface-subsys-window] "
             "[--subsys-trigger-gate wlfw-precondition|post-provider-no-wlfw|post-upper-surface-no-wlfw] "
             "--mode linker-list|identity-probe|sepolicy-inventory|sepolicy-compile-proof|sepolicy-load-proof|selinux-domain-proof|cnss-start-only|cnss-userspace-readiness|wifi-companion-start-only|wifi-companion-post-sysmon-observer-start-only|wifi-companion-android-order-post-sysmon-observer-start-only|wifi-companion-service-manager-start-only|wifi-companion-vnd-service-manager-start-only|wifi-companion-qrtr-first-vnd-service-manager-start-only|wifi-companion-cnss-first-delayed-vnd-service-manager-start-only|wifi-companion-service74-gated-vnd-service-manager-start-only|wifi-companion-service74-gated-vnd-service-manager-readiness-start-only|wifi-companion-service74-gated-vnd-service-manager-cnss-retry-start-only|wifi-companion-peripheral-manager-node-parity-start-only|wifi-companion-peripheral-manager-property-contract-start-only|wifi-companion-peripheral-manager-init-contract-start-only|wifi-companion-esoc-control-preflight|wifi-companion-esoc-engine-register-preflight|wifi-companion-esoc-req-registered-subsys-hold-preflight|wifi-companion-esoc-conditional-response-preflight|wifi-companion-mdm-helper-ks-image-contract-preflight|wifi-companion-mdm-helper-only-deep-capture|wifi-companion-mdm-helper-runtime-contract-capture|wifi-companion-mdm-helper-runtime-subsys-trigger-capture|wifi-companion-mdm-helper-cnss-before-subsys-trigger-capture|wifi-companion-mdm-helper-cnss-service-manager-matrix|wifi-companion-android-wifi-service-window-start-only|wifi-companion-android-wifi-service-window-subsys-trigger-capture|wifi-companion-service74-gated-peripheral-manager-cnss-retry-start-only|wifi-companion-service74-gated-peripheral-manager-cnss-retry-registry-snapshot-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-cnss-retry-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-provider-first-cnss-start-only|wifi-companion-service74-gated-android-userspace-cnss-retry-start-only|wifi-companion-service74-gated-android-userspace-cnss-retry-registry-snapshot-start-only|wifi-companion-service74-gated-vnd-service-manager-registry-snapshot-start-only|wifi-companion-service74-gated-mdm-helper-start-only|wifi-companion-service180-gated-mdm-helper-start-only|wifi-companion-sysmon-gated-mdm-helper-start-only|wifi-companion-hal-order-start-only|wifi-companion-hal-wificond-order-start-only|wifi-companion-hal-wificond-lshal-wait-samsung|wifi-companion-hal-wificond-lshal-wait-iwifi|wifi-companion-dual-hal-wificond-lshal-wait-iwifi|wifi-companion-dual-hal-wificond-iwifi-start|wifi-companion-dual-hal-wificond-lshal-then-iwifi-start|rmt-storage-start-only|property-lookup|service-manager-start-only|private-selinux-proof|wifi-hal-lshal-vintf-status-list|wifi-hal-composite-start-only|wifi-hal-composite-lshal-list|wifi-hal-composite-lshal-binderized-list|wifi-hal-composite-lshal-wait-target|wifi-surface-composite-lshal-wait-iwifi|wifi-surface-composite-lshal-wait-samsung|wifi-surface-composite-lshal-wait-samsung-ptrace|wifi-hal-composite-lshal-status-list|wifi-hal-composite-lshal-binderized-status-list|wifi-surface-composite-start-only|wifi-dual-hal-lshal-wait-iwifi|wifi-dual-hal-iwifi-start-surface|wifi-iwifi-start-surface|wifi-active-session-surface|wifi-active-session-scan-only|wifi-active-session-connect-ping|wifi-connect-tool-surface|subsys-hold-open-proof|service-notifier-listener-only "
             "[v27 binderized query runs: /system/bin/lshal list --types=binderized --neat] "
@@ -19941,6 +19942,8 @@ static int run_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_guar
     pid_t modem_pre_holder_pid = -1;
     int modem_pre_holder_pipe_rd = -1;
     bool modem_pre_holder_opened = false;
+    bool modem_pre_holder_reported_open = false;
+    bool modem_pre_holder_reported_result = false;
     long settle_deadline;
     long deadline;
     long next_surface_poll_ms = 0;
@@ -20216,6 +20219,39 @@ static int run_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_guar
         if (modem_pre_holder_pid == 0) {
             int mfd;
             close(_holder_pipe[0]);
+            if (setsid() < 0) {
+                dprintf(_holder_pipe[1],
+                        "cnss_before_esoc.modem_pre_holder_opened=0\n"
+                        "cnss_before_esoc.modem_pre_holder_errno=%d\n"
+                        "cnss_before_esoc.modem_pre_holder_setsid_error=%s\n",
+                        errno,
+                        strerror(errno));
+                close(_holder_pipe[1]);
+                _exit(32);
+            }
+            if (chroot(paths->root) < 0) {
+                dprintf(_holder_pipe[1],
+                        "cnss_before_esoc.modem_pre_holder_opened=0\n"
+                        "cnss_before_esoc.modem_pre_holder_errno=%d\n"
+                        "cnss_before_esoc.modem_pre_holder_chroot_error=%s\n",
+                        errno,
+                        strerror(errno));
+                close(_holder_pipe[1]);
+                _exit(33);
+            }
+            if (chdir("/") < 0) {
+                dprintf(_holder_pipe[1],
+                        "cnss_before_esoc.modem_pre_holder_opened=0\n"
+                        "cnss_before_esoc.modem_pre_holder_errno=%d\n"
+                        "cnss_before_esoc.modem_pre_holder_chdir_error=%s\n",
+                        errno,
+                        strerror(errno));
+                close(_holder_pipe[1]);
+                _exit(34);
+            }
+            dprintf(_holder_pipe[1],
+                    "cnss_before_esoc.modem_pre_holder_child_chroot=1\n"
+                    "cnss_before_esoc.modem_pre_holder_path=/dev/subsys_modem\n");
             mfd = open("/dev/subsys_modem", O_RDONLY | O_NONBLOCK | O_CLOEXEC);
             if (mfd < 0 && errno == EINVAL)
                 mfd = open("/dev/subsys_modem", O_RDONLY | O_CLOEXEC);
@@ -20260,21 +20296,32 @@ static int run_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_guar
             if (pipe_open)
                 drain_fd(modem_pre_holder_pipe_rd, stdout_buf, &pipe_open);
         }
+        modem_pre_holder_reported_open =
+            stdout_buf->data != NULL &&
+            strstr(stdout_buf->data, "cnss_before_esoc.modem_pre_holder_opened=1\n") != NULL;
+        modem_pre_holder_reported_result =
+            modem_pre_holder_reported_open ||
+            (stdout_buf->data != NULL &&
+             strstr(stdout_buf->data, "cnss_before_esoc.modem_pre_holder_opened=0\n") != NULL);
         close(modem_pre_holder_pipe_rd);
         modem_pre_holder_pipe_rd = -1;
-        /* Check if holder is still alive (got fd) vs exited (failed) */
+        /* Confirm only an explicit child open-success report while it is alive. */
         {
             int holder_status = 0;
             pid_t wpid = waitpid(modem_pre_holder_pid, &holder_status, WNOHANG);
             if (wpid == 0) {
-                modem_pre_holder_opened = true;
+                modem_pre_holder_opened = modem_pre_holder_reported_open;
             } else if (wpid == modem_pre_holder_pid) {
                 modem_pre_holder_opened = false;
                 modem_pre_holder_pid = -1;
             }
         }
         if (append_format(stdout_buf,
+                          "cnss_before_esoc.modem_pre_holder_open_reported=%d\n"
+                          "cnss_before_esoc.modem_pre_holder_result_reported=%d\n"
                           "cnss_before_esoc.modem_pre_holder_confirmed=%d\n",
+                          modem_pre_holder_reported_open ? 1 : 0,
+                          modem_pre_holder_reported_result ? 1 : 0,
                           modem_pre_holder_opened ? 1 : 0) < 0) {
             if (modem_pre_holder_pid > 0)
                 kill(modem_pre_holder_pid, SIGKILL);
@@ -20913,7 +20960,7 @@ static int run_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_guar
     composite_cleanup_children(children, child_count, stdout_buf, stderr_buf);
     if (modem_pre_holder_pid > 0) {
         kill(modem_pre_holder_pid, SIGKILL);
-        waitpid(modem_pre_holder_pid, NULL, 0);
+        waitpid(modem_pre_holder_pid, NULL, WNOHANG);
         modem_pre_holder_pid = -1;
     }
     stop_property_service_shim(&property_shim, paths, stdout_buf);
