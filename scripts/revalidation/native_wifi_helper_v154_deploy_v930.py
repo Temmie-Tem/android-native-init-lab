@@ -162,6 +162,13 @@ def capture_command(args: argparse.Namespace, store: EvidenceStore, name: str,
     command = [args.remote_helper if item == DEFAULT_REMOTE_HELPER else item for item in command]
     command = [args.toybox if item == DEFAULT_TOYBOX else item for item in command]
     record = run_capture(args, name, command, timeout=timeout)
+    if record.status == "busy":
+        hide_record = run_capture(args, f"{name}-hide-on-busy", ["hide"], timeout=min(args.timeout, 8.0))
+        store.write_text(
+            f"native/{safe_name(name)}.hide-on-busy.txt",
+            strip_cmdv1_text(hide_record.text) if hide_record.text else hide_record.error + "\n",
+        )
+        record = run_capture(args, name, command, timeout=timeout)
     text = strip_cmdv1_text(record.text) if record.text else record.error + "\n"
     rel = f"native/{safe_name(name)}.txt"
     store.write_text(rel, text)
