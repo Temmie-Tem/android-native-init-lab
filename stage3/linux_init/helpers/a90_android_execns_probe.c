@@ -45,6 +45,12 @@
 #ifndef PTRACE_O_EXITKILL
 #define PTRACE_O_EXITKILL 0x00100000
 #endif
+#ifndef PTRACE_O_TRACEEXIT
+#define PTRACE_O_TRACEEXIT 0x00000040
+#endif
+#ifndef PTRACE_EVENT_EXIT
+#define PTRACE_EVENT_EXIT 6
+#endif
 #ifndef NT_PRSTATUS
 #define NT_PRSTATUS 1
 #endif
@@ -88,7 +94,7 @@
 #define IOPRIO_PRIO_VALUE(class_value, data) (((class_value) << IOPRIO_CLASS_SHIFT) | (data))
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v189"
+#define EXECNS_VERSION "a90_android_execns_probe v192"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -412,6 +418,19 @@ static void usage(FILE *out) {
 
 static bool streq(const char *a, const char *b) {
     return a != NULL && b != NULL && strcmp(a, b) == 0;
+}
+
+static bool str_has_suffix(const char *value, const char *suffix) {
+    size_t value_len;
+    size_t suffix_len;
+
+    if (value == NULL || suffix == NULL) {
+        return false;
+    }
+    value_len = strlen(value);
+    suffix_len = strlen(suffix);
+    return value_len >= suffix_len &&
+           strcmp(value + value_len - suffix_len, suffix) == 0;
 }
 
 static bool is_wifi_hal_composite_mode(const char *mode) {
@@ -14348,6 +14367,8 @@ static int append_capture_snapshot_compact(struct buffer *buf,
     unsigned long long fp = 0;
     unsigned long long pc = 0;
     unsigned long long lr = 0;
+    bool fd_summary_captured = false;
+    bool exit_capture = streq(label, "exit") || str_has_suffix(label, "_exit");
 
     if (append_format(buf, "capture.%s.pid=%ld\n", label, (long)pid) < 0 ||
         append_proc_link_compact(buf, pid, label, "exe") < 0 ||
@@ -14363,6 +14384,15 @@ static int append_capture_snapshot_compact(struct buffer *buf,
     }
     if (strcmp(label, "crash") == 0 &&
         append_ptrace_memory_ascii_scan(buf, pid, label, "stack", sp, 512) < 0) {
+        return -1;
+    }
+    if (exit_capture &&
+        (append_proc_fd_summary(buf, pid, &fd_summary_captured) < 0 ||
+         append_proc_fd_links_compact(buf, pid, label) < 0 ||
+         append_format(buf,
+                       "capture.%s.fd_summary_captured=%d\n",
+                       label,
+                       fd_summary_captured ? 1 : 0) < 0)) {
         return -1;
     }
     if (strcmp(label, "crash") == 0 && include_maps &&
@@ -15756,6 +15786,8 @@ struct composite_child {
     bool trace_initial_stop;
     bool capture_exec;
     bool capture_crash;
+    bool capture_exit;
+    unsigned long trace_exit_event;
     int trace_cleanup_stop_continued;
     int trace_cleanup_stop_last_signal;
     int trace_cleanup_continue_errors;
@@ -15790,7 +15822,9 @@ static bool composite_child_should_trace(const struct config *cfg,
             cfg->allow_pm_service_trigger_observer &&
             streq(cfg->capture_mode, "ptrace-lite") &&
             (child->identity == COMPOSITE_ID_SERVICE_MANAGER ||
-             child->identity == COMPOSITE_ID_VND_SERVICE_MANAGER)) ||
+             child->identity == COMPOSITE_ID_VND_SERVICE_MANAGER ||
+             child->identity == COMPOSITE_ID_PER_MGR ||
+             child->identity == COMPOSITE_ID_PER_PROXY)) ||
            (is_wifi_companion_android_wifi_service_window_any_mode(cfg->mode) &&
             cfg->allow_android_wifi_service_window &&
             child->identity == COMPOSITE_ID_WIFICOND);
@@ -16245,7 +16279,7 @@ static int composite_handle_traced_stop(struct composite_child *child,
         if (ptrace(PTRACE_SETOPTIONS,
                    child->pid,
                    NULL,
-                   (void *)(long)(PTRACE_O_TRACEEXEC | PTRACE_O_EXITKILL)) < 0) {
+                   (void *)(long)(PTRACE_O_TRACEEXEC | PTRACE_O_TRACEEXIT | PTRACE_O_EXITKILL)) < 0) {
             return append_format(stdout_buf,
                                  "wifi_hal_composite_start.child.%s.trace.setoptions.error=%s\n",
                                  child->name,
@@ -16259,7 +16293,25 @@ static int composite_handle_traced_stop(struct composite_child *child,
         }
         return 0;
     }
-    if (sig == SIGTRAP && !child->capture_exec) {
+    if (event == PTRACE_EVENT_EXIT && !child->capture_exit) {
+        unsigned long event_msg = 0;
+        char exit_label[96];
+
+        child->capture_exit = true;
+        snprintf(exit_label, sizeof(exit_label), "%s_exit", child->name);
+        if (ptrace(PTRACE_GETEVENTMSG, child->pid, NULL, &event_msg) == 0) {
+            child->trace_exit_event = event_msg;
+        }
+        append_format(stdout_buf,
+                      "wifi_hal_composite_start.child.%s.trace.exit_stop=1\n"
+                      "wifi_hal_composite_start.child.%s.trace.exit_event=0x%08lx\n",
+                      child->name,
+                      child->name,
+                      child->trace_exit_event);
+        if (append_capture_snapshot_compact(stdout_buf, child->pid, exit_label, false) < 0) {
+            return -1;
+        }
+    } else if (sig == SIGTRAP && !child->capture_exec) {
         child->capture_exec = true;
         append_format(stdout_buf,
                       "wifi_hal_composite_start.child.%s.trace.exec_stop=1\n",
@@ -26136,6 +26188,8 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                           "pm_service_trigger_observer.child.%s.trace_initial_stop=%d\n"
                           "pm_service_trigger_observer.child.%s.capture_exec=%d\n"
                           "pm_service_trigger_observer.child.%s.capture_crash=%d\n"
+                          "pm_service_trigger_observer.child.%s.capture_exit=%d\n"
+                          "pm_service_trigger_observer.child.%s.trace_exit_event=0x%08lx\n"
                           "pm_service_trigger_observer.child.%s.term_sent=%d\n"
                           "pm_service_trigger_observer.child.%s.kill_sent=%d\n"
                           "pm_service_trigger_observer.child.%s.reaped=%d\n"
@@ -26156,6 +26210,10 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                           children[i].capture_exec ? 1 : 0,
                           children[i].name,
                           children[i].capture_crash ? 1 : 0,
+                          children[i].name,
+                          children[i].capture_exit ? 1 : 0,
+                          children[i].name,
+                          children[i].trace_exit_event,
                           children[i].name,
                           children[i].term_sent ? 1 : 0,
                           children[i].name,
