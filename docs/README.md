@@ -15,10 +15,10 @@
 
 ## 최신 Wi-Fi bring-up 조사 기준
 
-- 2026-05-27 기준 최신 PM observer proof는 `docs/reports/NATIVE_INIT_V1098_PM_SERVICE_QMI_TRACEFS_2026-05-27.md`입니다.
-- V1098에서 `pm-service` QMI loop가 register/select/unregister까지만 진행되고 CNSS request window 동안 QMI send/handle이 없음을 tracefs-only uprobe로 확인했으며 `mdm3=OFFLINING`/WLFW 없음이 유지됐습니다.
+- 2026-05-27 기준 최신 PM observer proof는 `docs/reports/NATIVE_INIT_V1099_PM_SERVER_TRANSACTION_CODE_TRACEFS_2026-05-27.md`입니다.
+- V1099에서 `pm-proxy`는 PM server transaction `0x1`/`0x3`/`0x5`까지 진행하지만 `cnss-daemon`은 `0x1` register/listener 경계까지만 도달함을 tracefs-only uprobe fetcharg로 확인했으며 `mdm3=OFFLINING`/WLFW 없음이 유지됐습니다.
 - 아직 Wi-Fi HAL, scan/connect/link-up, DHCP, route, external ping은 실행하지 않았습니다.
-- 다음 블로커는 CNSS PM client 호출/Binder delivery 부재가 아니라 PM Binder transaction case 또는 QMI send/handle이 발생하지 않는 조건 분류입니다.
+- 다음 블로커는 CNSS PM client 호출/Binder delivery 부재가 아니라 CNSS가 actionable PM connect/vote transaction을 내지 않는 조건 분류입니다.
 
 ## 현재 기준점
 
@@ -207,6 +207,7 @@
 - `plans/NATIVE_INIT_V1096_PM_CNSS_PERIPHERAL_TRACEFS_PLAN_2026-05-27.md` – V1095 window에서 tracefs-only uprobes로 `cnss-daemon`의 `libperipheral_client.so` PM client path 진입 여부를 분류하는 계획
 - `plans/NATIVE_INIT_V1097_PM_SERVER_ONTRANSACT_TRACEFS_PLAN_2026-05-27.md` – V1095 window에서 PM Binder server `onTransact` trace로 CNSS request delivery 여부를 분류하는 계획
 - `plans/NATIVE_INIT_V1098_PM_SERVICE_QMI_TRACEFS_PLAN_2026-05-27.md` – V1095 window에서 `pm-service` PLT trace로 QMI register/send/handle 경계를 분류하는 계획
+- `plans/NATIVE_INIT_V1099_PM_SERVER_TRANSACTION_CODE_TRACEFS_PLAN_2026-05-27.md` – V1095 window에서 PM Binder server transaction code fetcharg를 캡처해 CNSS request가 register/listener 경계에 머무는지 분류하는 계획
 - `plans/NATIVE_INIT_V1003_HELPER_V170_DEPLOY_PLAN_2026-05-26.md` – V1002 helper `v170` 산출물을 `/cache/bin/a90_android_execns_probe`로 deploy-only 배포하고 sha/contract parity를 확인하는 V1003 계획
 - `plans/NATIVE_INIT_V1002_ANDROID_SERVICE_WINDOW_SUBSYS_TRIGGER_SUPPORT_PLAN_2026-05-26.md` – V1001에서 선택한 service-window-scoped `/dev/subsys_esoc0` trigger capture를 helper `v170`에 source/build-only로 추가하는 V1002 계획
 - `plans/NATIVE_INIT_V1001_V1000_ROUTE_COMPARATOR_PLAN_2026-05-26.md` – V1000 Android timing과 V998/V923/V964/V965 native evidence를 비교해 WLFW-precondition gate가 circular인지 host-only로 판정하는 V1001 계획
@@ -599,6 +600,7 @@
 - `reports/NATIVE_INIT_V1096_PM_CNSS_PERIPHERAL_TRACEFS_2026-05-27.md` – V1096 결과 `cnss-daemon`이 PM client path에 실제 진입함을 확인했지만 mdm3/WLFW 전진이 없어 다음 blocker를 PM service 응답/vote semantics 또는 lower eSoC trigger로 좁힌 결과
 - `reports/NATIVE_INIT_V1097_PM_SERVER_ONTRANSACT_TRACEFS_2026-05-27.md` – V1097 결과 CNSS PM request가 `pm-service` Binder server까지 도달했지만 mdm3/WLFW 전진이 없어 다음 blocker를 PM service vote/QMI decision 또는 lower eSoC trigger로 좁힌 결과
 - `reports/NATIVE_INIT_V1098_PM_SERVICE_QMI_TRACEFS_2026-05-27.md` – V1098 결과 `pm-service` QMI loop는 register/select/unregister만 수행하고 CNSS request window에서 QMI send/handle이 없어 다음 blocker를 PM Binder transaction case 또는 request actionability로 좁힌 결과
+- `reports/NATIVE_INIT_V1099_PM_SERVER_TRANSACTION_CODE_TRACEFS_2026-05-27.md` – V1099 결과 `pm-proxy`는 PM server transaction `0x1`/`0x3`/`0x5`까지 진행하지만 `cnss-daemon`은 `0x1`만 호출해 다음 blocker를 CNSS actionable PM connect/vote 조건으로 좁힌 결과
 - `reports/NATIVE_INIT_V1004_SERVICE_WINDOW_SUBSYS_TRIGGER_LIVE_2026-05-26.md` – V1004 live 결과 current-boot SELinux refresh 후 Android service-window actors는 관측됐지만 `mdm_helper`가 `/dev/esoc-0` fd를 hold하지 않아 `/dev/subsys_esoc0` trigger는 안전하게 미실행된 결과
 - `reports/NATIVE_INIT_V1003_HELPER_V170_DEPLOY_2026-05-26.md` – helper `v170`을 `/cache/bin/a90_android_execns_probe`로 deploy-only 설치하고 remote sha/contract parity 및 no-Wi-Fi guard를 확인한 V1003 결과
 - `reports/NATIVE_INIT_V1002_ANDROID_SERVICE_WINDOW_SUBSYS_TRIGGER_SUPPORT_2026-05-26.md` – helper `v170`에 Android service-window scoped `/dev/subsys_esoc0` trigger capture mode를 source/build-only로 추가한 V1002 결과
