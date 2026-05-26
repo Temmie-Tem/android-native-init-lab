@@ -434,6 +434,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V949_MATRIX_PROVIDER_READINESS_SUPPORT_2026-05-26.md` – helper `v158`에 provider-readiness snapshots를 CNSS/service-manager matrix path까지 확장해 다음 bounded matrix live comparator를 준비한 V949 source/build-only 결과
 - `reports/NATIVE_INIT_V948_V947_PROVIDER_READINESS_CLASSIFIER_2026-05-26.md` – V947 provider-readiness evidence를 host-only로 분류해 binder/property surface는 존재하고 다음 비교 대상은 CNSS/service-manager matrix provider fd 관측성임을 확정한 V948 결과
 - `reports/NATIVE_INIT_V947_PROVIDER_READINESS_CAPTURE_2026-05-26.md` – helper `v157` live capture에서 `pm-service` vndbinder fd, `mdm_helper` `/dev/esoc-0`, service-manager/proxy absence, subsystem fd absence를 bounded runtime-contract path로 수집한 V947 결과
 - `reports/NATIVE_INIT_V946_HELPER_V157_DEPLOY_2026-05-26.md` – helper `v157`를 `/cache/bin/a90_android_execns_probe`로 deploy-only 배포하고 remote checksum/contract parity와 no-daemon/no-Wi-Fi guard를 확인한 V946 결과

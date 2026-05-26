@@ -88,7 +88,7 @@
 #define IOPRIO_PRIO_VALUE(class_value, data) (((class_value) << IOPRIO_CLASS_SHIFT) | (data))
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v157"
+#define EXECNS_VERSION "a90_android_execns_probe v158"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -17366,7 +17366,7 @@ static int append_mdm_helper_provider_readiness_snapshot(struct buffer *buf,
     if (append_format(buf,
                       "mdm_helper_provider_readiness.%s.begin=1\n"
                       "mdm_helper_provider_readiness.%s.monotonic_ms=%ld\n"
-                      "mdm_helper_provider_readiness.%s.actor_start_executed=0\n"
+                      "mdm_helper_provider_readiness.%s.snapshot_only=1\n"
                       "mdm_helper_provider_readiness.%s.subsys_esoc0_open_attempted=0\n"
                       "mdm_helper_provider_readiness.%s.wifi_hal_start_executed=0\n"
                       "mdm_helper_provider_readiness.%s.scan_connect_linkup=0\n",
@@ -19481,6 +19481,7 @@ static int run_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_guar
     bool cnss_diag_started = false;
     bool cnss_daemon_started = false;
     bool service_manager_started = false;
+    bool provider_service_manager_snapshot_captured = false;
     bool mdm_esoc_fd_seen = false;
     bool wlfw_precondition_observed = false;
     bool trigger_started = false;
@@ -19601,7 +19602,12 @@ static int run_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_guar
         append_private_android_node_status(stdout_buf, paths, "subsys_modem", "subsys_modem") < 0 ||
         append_mdm_helper_runtime_path_visibility(stdout_buf, paths, "cnss_before_esoc_before") < 0 ||
         mirror_mdm_helper_runtime_mhi_pipe_if_present(stdout_buf, paths, "cnss_before_esoc_before") < 0 ||
-        append_subsys_hold_snapshot(stdout_buf, "cnss_before_esoc_before") < 0) {
+        append_subsys_hold_snapshot(stdout_buf, "cnss_before_esoc_before") < 0 ||
+        append_mdm_helper_provider_readiness_snapshot(stdout_buf,
+                                                      paths,
+                                                      "cnss_before_esoc_before",
+                                                      per_mgr,
+                                                      mdm_helper) < 0) {
         return -1;
     }
     if (compact_surface) {
@@ -19674,6 +19680,20 @@ static int run_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_guar
                        "cnss_before_esoc.end=1\n");
         return -1;
     }
+    if (service_manager_started &&
+        streq(service_manager_order, "before-cnss") &&
+        append_mdm_helper_provider_readiness_snapshot(stdout_buf,
+                                                      paths,
+                                                      "cnss_before_esoc_after_service_manager_start",
+                                                      per_mgr,
+                                                      mdm_helper) < 0) {
+        composite_cleanup_children(children, 7, stdout_buf, stderr_buf);
+        stop_property_service_shim(&property_shim, paths, stdout_buf);
+        return -1;
+    }
+    if (service_manager_started && streq(service_manager_order, "before-cnss")) {
+        provider_service_manager_snapshot_captured = true;
+    }
     if (append_literal(stdout_buf,
                        "cnss_before_esoc.allowed=1\n"
                        "cnss_before_esoc.per_mgr_start_attempted=1\n") < 0) {
@@ -19699,6 +19719,15 @@ static int run_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_guar
         usleep(50000);
     }
     composite_capture_observable_children(per_mgr, 1, stdout_buf);
+    if (append_mdm_helper_provider_readiness_snapshot(stdout_buf,
+                                                      paths,
+                                                      "cnss_before_esoc_after_per_mgr_settle",
+                                                      per_mgr,
+                                                      mdm_helper) < 0) {
+        composite_cleanup_children(children, 7, stdout_buf, stderr_buf);
+        stop_property_service_shim(&property_shim, paths, stdout_buf);
+        return -1;
+    }
     if (append_literal(stdout_buf, "cnss_before_esoc.mdm_helper_start_attempted=1\n") < 0 ||
         composite_spawn_child(cfg, paths, mdm_helper, stdout_buf) < 0) {
         composite_cleanup_children(children, 7, stdout_buf, stderr_buf);
@@ -19707,6 +19736,15 @@ static int run_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_guar
                        "cnss_before_esoc.result=manual-review-required\n"
                        "cnss_before_esoc.reason=mdm-helper-spawn-failed\n"
                        "cnss_before_esoc.end=1\n");
+        return -1;
+    }
+    if (append_mdm_helper_provider_readiness_snapshot(stdout_buf,
+                                                      paths,
+                                                      "cnss_before_esoc_after_mdm_helper_spawn",
+                                                      per_mgr,
+                                                      mdm_helper) < 0) {
+        composite_cleanup_children(children, 7, stdout_buf, stderr_buf);
+        stop_property_service_shim(&property_shim, paths, stdout_buf);
         return -1;
     }
 
@@ -19787,6 +19825,19 @@ static int run_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_guar
                                                         &service_manager_started) < 0) {
             goto fail;
         }
+        if (service_manager_started &&
+            !provider_service_manager_snapshot_captured &&
+            streq(service_manager_order, "after-mdm-helper-esoc-fd") &&
+            append_mdm_helper_provider_readiness_snapshot(stdout_buf,
+                                                          paths,
+                                                          "cnss_before_esoc_after_service_manager_start",
+                                                          per_mgr,
+                                                          mdm_helper) < 0) {
+            goto fail;
+        }
+        if (service_manager_started && streq(service_manager_order, "after-mdm-helper-esoc-fd")) {
+            provider_service_manager_snapshot_captured = true;
+        }
         if (mdm_esoc_fd_seen && !cnss_diag_started &&
             (!service_manager_start_requested ||
              service_manager_started ||
@@ -19804,6 +19855,13 @@ static int run_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_guar
             }
             cnss_daemon_started = true;
             next_surface_poll_ms = now;
+            if (append_mdm_helper_provider_readiness_snapshot(stdout_buf,
+                                                              paths,
+                                                              "cnss_before_esoc_after_cnss_daemon_start",
+                                                              per_mgr,
+                                                              mdm_helper) < 0) {
+                goto fail;
+            }
         }
         if (cnss_daemon_started &&
             service_manager_start_requested &&
@@ -19818,6 +19876,19 @@ static int run_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_guar
                                                         "after-cnss",
                                                         &service_manager_started) < 0) {
             goto fail;
+        }
+        if (service_manager_started &&
+            !provider_service_manager_snapshot_captured &&
+            streq(service_manager_order, "after-cnss") &&
+            append_mdm_helper_provider_readiness_snapshot(stdout_buf,
+                                                          paths,
+                                                          "cnss_before_esoc_after_service_manager_start",
+                                                          per_mgr,
+                                                          mdm_helper) < 0) {
+            goto fail;
+        }
+        if (service_manager_started && streq(service_manager_order, "after-cnss")) {
+            provider_service_manager_snapshot_captured = true;
         }
         if (cnss_daemon_started && !wlfw_precondition_observed && now >= next_surface_poll_ms) {
             char phase[64];
@@ -19958,12 +20029,24 @@ static int run_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_guar
         goto fail;
     }
     if (append_subsys_hold_snapshot(stdout_buf, "cnss_before_esoc_final") < 0 ||
-        append_mdm_helper_runtime_path_visibility(stdout_buf, paths, "cnss_before_esoc_final") < 0) {
+        append_mdm_helper_runtime_path_visibility(stdout_buf, paths, "cnss_before_esoc_final") < 0 ||
+        append_mdm_helper_provider_readiness_snapshot(stdout_buf,
+                                                      paths,
+                                                      "cnss_before_esoc_final",
+                                                      per_mgr,
+                                                      mdm_helper) < 0) {
         goto fail;
     }
     composite_capture_observable_children(children, 7, stdout_buf);
     composite_cleanup_children(children, 7, stdout_buf, stderr_buf);
     stop_property_service_shim(&property_shim, paths, stdout_buf);
+    if (append_mdm_helper_provider_readiness_snapshot(stdout_buf,
+                                                      paths,
+                                                      "cnss_before_esoc_after_cleanup",
+                                                      per_mgr,
+                                                      mdm_helper) < 0) {
+        return -1;
+    }
     all_postflight_safe =
         cnss_before_esoc_child_postflight_safe(per_mgr) &&
         cnss_before_esoc_child_postflight_safe(mdm_helper) &&
