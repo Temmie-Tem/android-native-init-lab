@@ -88,7 +88,7 @@
 #define IOPRIO_PRIO_VALUE(class_value, data) (((class_value) << IOPRIO_CLASS_SHIFT) | (data))
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v162"
+#define EXECNS_VERSION "a90_android_execns_probe v163"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -677,6 +677,7 @@ static bool is_wifi_companion_any_start_only_mode(const char *mode) {
     return is_wifi_companion_start_only_mode(mode) ||
            is_wifi_companion_post_sysmon_observer_start_only_mode(mode) ||
            is_wifi_companion_android_order_post_sysmon_observer_start_only_mode(mode) ||
+           is_wifi_companion_android_wifi_service_window_start_only_mode(mode) ||
            is_wifi_companion_service74_gated_mdm_helper_start_only_mode(mode) ||
            is_wifi_companion_service180_gated_mdm_helper_start_only_mode(mode) ||
            is_wifi_companion_sysmon_gated_mdm_helper_start_only_mode(mode) ||
