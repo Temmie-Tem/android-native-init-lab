@@ -434,6 +434,11 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V954_V953_AFTER_MDM_PROVIDER_CLASSIFIER_2026-05-26.md` – V953 after-mdm provider evidence를 host-only로 분류해 다음 safe comparator를 `pm-proxy` matrix로 선정한 V954 결과
+- `reports/NATIVE_INIT_V953_MATRIX_PROVIDER_READINESS_AFTER_MDM_2026-05-26.md` – helper `v158` matrix `after-mdm-helper-esoc-fd` order에서 service-manager 전후 `pm-service`/vndbinder provider surface 변화를 관측한 V953 live 결과
+- `reports/NATIVE_INIT_V952_V951_MATRIX_PROVIDER_CLASSIFIER_2026-05-26.md` – V951 before-CNSS matrix와 V947 runtime-contract provider evidence를 비교해 `after-mdm-helper-esoc-fd` order를 다음 comparator로 선정한 V952 결과
+- `reports/NATIVE_INIT_V951_MATRIX_PROVIDER_READINESS_BEFORE_CNSS_2026-05-26.md` – helper `v158` matrix `before-cnss` order에서 service-manager trio는 존재하지만 `pm-service` provider surface가 사라지는 것을 관측한 V951 live 결과
+- `reports/NATIVE_INIT_V950_HELPER_V158_DEPLOY_2026-05-26.md` – helper `v158`를 `/cache/bin/a90_android_execns_probe`로 deploy-only 배포하고 no-daemon/no-Wi-Fi guard를 확인한 V950 결과
 - `reports/NATIVE_INIT_V949_MATRIX_PROVIDER_READINESS_SUPPORT_2026-05-26.md` – helper `v158`에 provider-readiness snapshots를 CNSS/service-manager matrix path까지 확장해 다음 bounded matrix live comparator를 준비한 V949 source/build-only 결과
 - `reports/NATIVE_INIT_V948_V947_PROVIDER_READINESS_CLASSIFIER_2026-05-26.md` – V947 provider-readiness evidence를 host-only로 분류해 binder/property surface는 존재하고 다음 비교 대상은 CNSS/service-manager matrix provider fd 관측성임을 확정한 V948 결과
 - `reports/NATIVE_INIT_V947_PROVIDER_READINESS_CAPTURE_2026-05-26.md` – helper `v157` live capture에서 `pm-service` vndbinder fd, `mdm_helper` `/dev/esoc-0`, service-manager/proxy absence, subsystem fd absence를 bounded runtime-contract path로 수집한 V947 결과
