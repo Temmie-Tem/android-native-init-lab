@@ -568,6 +568,7 @@
 - `reports/NATIVE_INIT_V1075_PM_SERVICE_UPROBE_HOST_CLASSIFIER_2026-05-27.md` – V1075 결과 `pm-service` entry/main/PLT 후보와 `CONFIG_UPROBES`/`BPF_EVENTS` readiness가 확인되어 V1076 bounded uprobe helper로 라우팅한 결과
 - `reports/NATIVE_INIT_V1076_PM_SERVICE_UPROBE_HELPER_BUILD_2026-05-27.md` – V1076 결과 `a90_pm_service_uprobe_counter v1076` static helper가 빌드되고 deploy/check-only V1077로 라우팅된 결과
 - `reports/NATIVE_INIT_V1077_PM_SERVICE_UPROBE_HELPER_DEPLOY_CHECKONLY_2026-05-27.md` – V1077 결과 PM-service uprobe helper가 NCM으로 배포되고 `--check-only`/기본 no-attach 검증을 통과한 결과
+- `reports/NATIVE_INIT_V1078_PM_SERVICE_UPROBE_ACTIVE_LIVE_2026-05-27.md` – V1078 결과 read-only vendor mount와 dynamic uprobe event 등록은 통과했지만 BPF/perf attach가 `EINVAL`로 막혀 tracefs-only collector가 다음임을 분류한 결과
 - `reports/NATIVE_INIT_V1004_SERVICE_WINDOW_SUBSYS_TRIGGER_LIVE_2026-05-26.md` – V1004 live 결과 current-boot SELinux refresh 후 Android service-window actors는 관측됐지만 `mdm_helper`가 `/dev/esoc-0` fd를 hold하지 않아 `/dev/subsys_esoc0` trigger는 안전하게 미실행된 결과
 - `reports/NATIVE_INIT_V1003_HELPER_V170_DEPLOY_2026-05-26.md` – helper `v170`을 `/cache/bin/a90_android_execns_probe`로 deploy-only 설치하고 remote sha/contract parity 및 no-Wi-Fi guard를 확인한 V1003 결과
 - `reports/NATIVE_INIT_V1002_ANDROID_SERVICE_WINDOW_SUBSYS_TRIGGER_SUPPORT_2026-05-26.md` – helper `v170`에 Android service-window scoped `/dev/subsys_esoc0` trigger capture mode를 source/build-only로 추가한 V1002 결과
