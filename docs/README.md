@@ -442,6 +442,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V1000_ANDROID_ESOC_GPIO_RECAPTURE_HANDOFF_LIVE_2026-05-26.md` – V1000 live Android handoff가 boot-complete/read-only capture/native rollback을 수행했고, 완전 양성 타임라인은 미충족이지만 `/dev/subsys_esoc0` get 직후 `wlfw_start`/WLAN-PD/ICNSS QMI까지 도달한 현재 Android lower timing 증거
 - `reports/NATIVE_INIT_V1000_ANDROID_ESOC_GPIO_RECAPTURE_HANDOFF_PLAN_2026-05-26.md` – V1000 Android eSoC/GPIO read-only recapture handoff의 plan mode가 boot image/rollback 후보와 18-step sequence를 검증한 결과
 - `reports/NATIVE_INIT_V999_POST_SELINUX_WLFW_ROUTE_CLASSIFIER_2026-05-26.md` – V998 clean service-window/no-WLFW 결과와 V966/V968/V918/V923/V924/V965 증거를 종합해 다음 단위를 Android-positive read-only eSoC/GPIO dmesg recapture로 선택한 V999 결과
 - `reports/NATIVE_INIT_V998_ANDROID_SERVICE_WINDOW_POST_SELINUX_2026-05-26.md` – V997 이후 service-window 재시도에서 `wificond`가 `u:r:wificond:s0`로 exec되고 14개 actor가 모두 관측됐지만 WLFW precondition이 남은 V998 결과
