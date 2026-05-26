@@ -130,6 +130,7 @@
 
 ### 3. Plans
 
+- `plans/NATIVE_INIT_V994_SELINUX_ROUTE_CLASSIFIER_PLAN_2026-05-26.md` – V993 이후 `wificond` SELinux transition gap의 다음 route를 current-boot V490/domain proof refresh로 좁히는 V994 host-only 계획
 - `plans/NATIVE_INIT_V968_ANDROID_DMESG_ESOC_GPIO_TIMING_PLAN_2026-05-26.md` – Android-good boot의 MDM3/eSoC GPIO/PMIC/PCIe timing을 read-only dmesg와 sysfs evidence로 분류해 V967 service-window live 전 native divergence를 줄이는 V968 계획
 - `plans/NATIVE_INIT_V940_SDX50M_QUEUE_INPUT_CONTRACT_PLAN_2026-05-26.md` – V938/V939 이후 exact property-context override 대신 `mdm_helper`/PeripheralManager SDX50M queue input contract를 host-only로 분류하기 위한 V940 계획
 - `plans/NATIVE_INIT_V929_CURRENT_V153_CNSS_SERVICE_MANAGER_MATRIX_PLAN_2026-05-26.md` – V603/V604/V605/V606의 단순 ordering 실패를 반복하지 않도록 helper `v153` repaired namespace 기반 CNSS/service-manager matrix helper `v154`를 source/build-only로 설계하는 V929 계획
@@ -435,6 +436,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V994_SELINUX_ROUTE_CLASSIFIER_2026-05-26.md` – V993 service-window가 current-boot SELinux policy-load/domain proof 없이 실행됐음을 분류하고 다음 gate를 V995 fresh SELinux refresh/domain proof로 선택한 V994 결과
 - `reports/NATIVE_INIT_V993_ANDROID_SERVICE_WINDOW_LIVE_V168_2026-05-26.md` – helper `v168` Android service-window live proof에서 traced `exec`/`crash` 시점 모두 `wificond`가 `kernel` SELinux context에 남는 것을 확인한 V993 결과
 - `reports/NATIVE_INIT_V992_HELPER_V168_DEPLOY_2026-05-26.md` – helper `v168`를 `/cache/bin/a90_android_execns_probe`에 deploy-only로 설치하고 remote sha/mode parity 및 no-Wi-Fi guard를 확인한 V992 결과
 - `reports/NATIVE_INIT_V991_SELINUX_EXEC_ATTR_CAPTURE_2026-05-26.md` – helper `v168`에서 traced `exec`/`crash` stop의 SELinux `attr/current`/`attr/exec` 값을 compact capture로 남기도록 source/build-only 보강한 V991 결과
