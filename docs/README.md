@@ -453,6 +453,7 @@
 - `reports/NATIVE_INIT_V1005_V1004_FD_GAP_CLASSIFIER_2026-05-26.md` – V1000 Android lower timing, V911 native `mdm_helper` fd positive, V1004 service-window fd-gate miss를 host-only로 비교해 helper `v171` fd-poll support를 다음으로 선택한 V1005 결과
 - `reports/NATIVE_INIT_V1006_SERVICE_WINDOW_FD_POLL_SUPPORT_2026-05-26.md` – helper `v171`에 Android service-window `mdm_helper` `/dev/esoc-0` repeated fd-poll markers와 Android-like mdm-helper→cnss timing support를 source/build-only로 추가한 V1006 결과
 - `reports/NATIVE_INIT_V1007_HELPER_V171_DEPLOY_2026-05-26.md` – helper `v171`을 `/cache/bin/a90_android_execns_probe`로 deploy-only 설치하고 remote sha/contract parity 및 no-Wi-Fi guard를 확인한 V1007 결과
+- `reports/NATIVE_INIT_V1008_SERVICE_WINDOW_FD_POLL_LIVE_2026-05-26.md` – helper `v171` live 결과 current-boot SELinux refresh와 service-window actors는 통과했지만 fd-poll 전 구간에서 `mdm_helper` `/dev/esoc-0`가 0이라 trigger를 미실행한 V1008 결과
 - `reports/NATIVE_INIT_V1004_SERVICE_WINDOW_SUBSYS_TRIGGER_LIVE_2026-05-26.md` – V1004 live 결과 current-boot SELinux refresh 후 Android service-window actors는 관측됐지만 `mdm_helper`가 `/dev/esoc-0` fd를 hold하지 않아 `/dev/subsys_esoc0` trigger는 안전하게 미실행된 결과
 - `reports/NATIVE_INIT_V1003_HELPER_V170_DEPLOY_2026-05-26.md` – helper `v170`을 `/cache/bin/a90_android_execns_probe`로 deploy-only 설치하고 remote sha/contract parity 및 no-Wi-Fi guard를 확인한 V1003 결과
 - `reports/NATIVE_INIT_V1002_ANDROID_SERVICE_WINDOW_SUBSYS_TRIGGER_SUPPORT_2026-05-26.md` – helper `v170`에 Android service-window scoped `/dev/subsys_esoc0` trigger capture mode를 source/build-only로 추가한 V1002 결과
