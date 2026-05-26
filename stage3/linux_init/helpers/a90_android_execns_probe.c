@@ -88,7 +88,7 @@
 #define IOPRIO_PRIO_VALUE(class_value, data) (((class_value) << IOPRIO_CLASS_SHIFT) | (data))
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v167"
+#define EXECNS_VERSION "a90_android_execns_probe v168"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -13369,6 +13369,60 @@ static int append_proc_text_brief(struct buffer *buf,
                          truncated ? 1 : 0);
 }
 
+static int append_escaped_ascii(struct buffer *buf, const unsigned char *data, size_t len);
+
+static int append_proc_attr_value_compact(struct buffer *buf,
+                                          pid_t pid,
+                                          const char *label,
+                                          const char *name) {
+    char path[MAX_PATH_LEN];
+    unsigned char value[256];
+    ssize_t nread;
+    int fd;
+
+    proc_path(path, sizeof(path), pid, name);
+    if (append_format(buf,
+                      "capture.%s.%s.path=%s\n",
+                      label,
+                      name,
+                      path) < 0) {
+        return -1;
+    }
+    fd = open(path, O_RDONLY | O_CLOEXEC);
+    if (fd < 0) {
+        return append_format(buf,
+                             "capture.%s.%s.error=%s\n",
+                             label,
+                             name,
+                             strerror(errno));
+    }
+    nread = read(fd, value, sizeof(value));
+    close(fd);
+    if (nread < 0) {
+        return append_format(buf,
+                             "capture.%s.%s.read_error=%s\n",
+                             label,
+                             name,
+                             strerror(errno));
+    }
+    while (nread > 0 && (value[nread - 1] == '\n' || value[nread - 1] == '\r')) {
+        nread--;
+    }
+    if (append_format(buf,
+                      "capture.%s.%s.bytes=%ld\n"
+                      "capture.%s.%s.value=",
+                      label,
+                      name,
+                      (long)nread,
+                      label,
+                      name) < 0 ||
+        append_escaped_ascii(buf, value, (size_t)nread) < 0 ||
+        append_literal(buf, "\n") < 0) {
+        return -1;
+    }
+    return 0;
+}
+
 static int append_proc_auxv_brief(struct buffer *buf, pid_t pid, const char *label) {
     char path[MAX_PATH_LEN];
     struct {
@@ -14022,6 +14076,8 @@ static int append_capture_snapshot_compact(struct buffer *buf,
         (strcmp(label, "crash") == 0 ?
              append_ptrace_regs_selected(buf, pid, label, &sp, &fp, &pc, &lr) :
              append_ptrace_regs_brief(buf, pid, label)) < 0 ||
+        append_proc_attr_value_compact(buf, pid, label, "attr/current") < 0 ||
+        append_proc_attr_value_compact(buf, pid, label, "attr/exec") < 0 ||
         append_proc_text_brief(buf, pid, label, "status", 8192) < 0) {
         return -1;
     }
