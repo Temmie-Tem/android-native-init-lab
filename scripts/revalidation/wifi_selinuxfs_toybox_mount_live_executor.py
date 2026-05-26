@@ -48,10 +48,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--approval-phrase", default="")
     parser.add_argument("--apply", action="store_true")
     parser.add_argument("--assume-yes", action="store_true")
+    parser.add_argument("--no-hide-on-busy", dest="hide_on_busy", action="store_false")
     subparsers = parser.add_subparsers(dest="command", required=True)
     subparsers.add_parser("plan")
     subparsers.add_parser("run")
     subparsers.add_parser("cleanup")
+    parser.set_defaults(hide_on_busy=True)
     return parser.parse_args()
 
 
@@ -138,6 +140,13 @@ def execute_device_step(
             skipped=True,
         )
     capture = run_capture(args, name, command, timeout=timeout or args.timeout)
+    if args.hide_on_busy and capture.status == "busy":
+        hide_capture = run_capture(args, f"{name}-hide-on-busy", ["hide"], timeout=min(args.timeout, 8.0))
+        store.write_text(
+            f"steps/{name}.hide-on-busy.raw.txt",
+            hide_capture.text if hide_capture.text else hide_capture.error + "\n",
+        )
+        capture = run_capture(args, name, command, timeout=timeout or args.timeout)
     text = strip_cmdv1_text(capture.text) if capture.text else capture.error
     step = write_step_capture(
         store,
