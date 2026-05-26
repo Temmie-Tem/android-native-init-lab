@@ -435,6 +435,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V988_ANDROID_SERVICE_WINDOW_LIVE_V167_2026-05-26.md` – helper `v167` Android service-window에서 `wificond` ptrace crash capture가 동작했고 crash offset 분류가 다음 blocker임을 확인한 V988 결과
 - `reports/NATIVE_INIT_V987_HELPER_V167_DEPLOY_2026-05-26.md` – helper `v167`를 `/cache/bin/a90_android_execns_probe`에 deploy-only로 설치하고 remote sha/mode parity 및 no-Wi-Fi guard를 확인한 V987 결과
 - `reports/NATIVE_INIT_V986_ANDROID_SERVICE_WINDOW_WIFICOND_TRACE_2026-05-26.md` – helper `v167`에서 Android service-window 전용 `wificond` ptrace crash capture를 source/build-only로 추가한 V986 결과
 - `reports/NATIVE_INIT_V985_ANDROID_SERVICE_WINDOW_LIVE_V166_2026-05-26.md` – helper `v166` Android service-window에서 property shim은 동작했지만 `wificond` `SIGABRT`와 `wlfw_precondition=0` runtime gap이 남았음을 분류한 V985 결과
