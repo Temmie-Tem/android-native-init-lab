@@ -13,6 +13,13 @@
 3. 필요한 하드웨어/커널 경로만 역추적
 4. BusyBox/network/SSH 같은 서버형 확장 가능성 검토
 
+## 최신 Wi-Fi bring-up 조사 기준
+
+- 2026-05-27 기준 최신 PM observer proof는 `docs/reports/NATIVE_INIT_V1092_PM_PROVIDER_READY_2026-05-27.md`입니다.
+- V1092에서 `vndservicemanager` readiness와 V490 policy-load precondition 하에 `vendor.qcom.PeripheralManager` 등록을 확인했습니다.
+- 아직 Wi-Fi HAL, scan/connect/link-up, DHCP, route, external ping은 실행하지 않았습니다.
+- 다음 블로커는 provider 등록 이후 mdm3/WLAN-PD 전진 조건 분류입니다.
+
 ## 현재 기준점
 
 - 디바이스: `SM-A908N`
