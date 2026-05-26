@@ -88,7 +88,7 @@
 #define IOPRIO_PRIO_VALUE(class_value, data) (((class_value) << IOPRIO_CLASS_SHIFT) | (data))
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v180"
+#define EXECNS_VERSION "a90_android_execns_probe v181"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -231,6 +231,7 @@ struct config {
     bool allow_mdm_helper_cnss_before_subsys_trigger_capture;
     bool allow_mdm_helper_cnss_service_manager_matrix;
     bool allow_pm_full_contract_with_modem_holder;
+    bool allow_pm_service_trigger_observer;
     bool allow_android_wifi_service_window;
     bool allow_android_wifi_service_window_subsys_trigger_capture;
     bool require_android_selinux_exec_match;
@@ -390,6 +391,7 @@ static void usage(FILE *out) {
             "[--allow-mdm-helper-cnss-before-subsys-trigger-capture] "
             "[--allow-mdm-helper-cnss-service-manager-matrix] "
             "[--allow-pm-full-contract-with-modem-holder] "
+            "[--allow-pm-service-trigger-observer] "
             "[--allow-android-wifi-service-window] "
             "[--allow-android-wifi-service-window-subsys-trigger-capture] "
             "[--qrtr-readback-matrix label:service:instance[,instance][;...]] "
@@ -399,7 +401,7 @@ static void usage(FILE *out) {
             "[--cnss-surface-mode full|compact] "
             "[--service-manager-order none|before-cnss|after-cnss|after-mdm-helper-esoc-fd|after-mdm-helper-esoc-fd-with-pm-proxy|after-mdm-helper-esoc-fd-with-pm-full-contract|after-mdm-helper-esoc-fd-with-pm-full-contract-with-modem-holder|after-mdm-helper-esoc-fd-with-wifi-surface|after-mdm-helper-esoc-fd-with-wifi-surface-subsys-window] "
             "[--subsys-trigger-gate wlfw-precondition|post-provider-no-wlfw|post-upper-surface-no-wlfw] "
-            "--mode linker-list|identity-probe|sepolicy-inventory|sepolicy-compile-proof|sepolicy-load-proof|selinux-domain-proof|cnss-start-only|cnss-userspace-readiness|wifi-companion-start-only|wifi-companion-post-sysmon-observer-start-only|wifi-companion-android-order-post-sysmon-observer-start-only|wifi-companion-service-manager-start-only|wifi-companion-vnd-service-manager-start-only|wifi-companion-qrtr-first-vnd-service-manager-start-only|wifi-companion-cnss-first-delayed-vnd-service-manager-start-only|wifi-companion-service74-gated-vnd-service-manager-start-only|wifi-companion-service74-gated-vnd-service-manager-readiness-start-only|wifi-companion-service74-gated-vnd-service-manager-cnss-retry-start-only|wifi-companion-peripheral-manager-node-parity-start-only|wifi-companion-peripheral-manager-property-contract-start-only|wifi-companion-peripheral-manager-init-contract-start-only|wifi-companion-esoc-control-preflight|wifi-companion-esoc-engine-register-preflight|wifi-companion-esoc-req-registered-subsys-hold-preflight|wifi-companion-esoc-conditional-response-preflight|wifi-companion-mdm-helper-ks-image-contract-preflight|wifi-companion-mdm-helper-only-deep-capture|wifi-companion-mdm-helper-runtime-contract-capture|wifi-companion-mdm-helper-runtime-subsys-trigger-capture|wifi-companion-mdm-helper-cnss-before-subsys-trigger-capture|wifi-companion-mdm-helper-cnss-service-manager-matrix|wifi-companion-android-wifi-service-window-start-only|wifi-companion-android-wifi-service-window-subsys-trigger-capture|wifi-companion-service74-gated-peripheral-manager-cnss-retry-start-only|wifi-companion-service74-gated-peripheral-manager-cnss-retry-registry-snapshot-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-cnss-retry-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-provider-first-cnss-start-only|wifi-companion-service74-gated-android-userspace-cnss-retry-start-only|wifi-companion-service74-gated-android-userspace-cnss-retry-registry-snapshot-start-only|wifi-companion-service74-gated-vnd-service-manager-registry-snapshot-start-only|wifi-companion-service74-gated-mdm-helper-start-only|wifi-companion-service180-gated-mdm-helper-start-only|wifi-companion-sysmon-gated-mdm-helper-start-only|wifi-companion-hal-order-start-only|wifi-companion-hal-wificond-order-start-only|wifi-companion-hal-wificond-lshal-wait-samsung|wifi-companion-hal-wificond-lshal-wait-iwifi|wifi-companion-dual-hal-wificond-lshal-wait-iwifi|wifi-companion-dual-hal-wificond-iwifi-start|wifi-companion-dual-hal-wificond-lshal-then-iwifi-start|rmt-storage-start-only|property-lookup|service-manager-start-only|private-selinux-proof|wifi-hal-lshal-vintf-status-list|wifi-hal-composite-start-only|wifi-hal-composite-lshal-list|wifi-hal-composite-lshal-binderized-list|wifi-hal-composite-lshal-wait-target|wifi-surface-composite-lshal-wait-iwifi|wifi-surface-composite-lshal-wait-samsung|wifi-surface-composite-lshal-wait-samsung-ptrace|wifi-hal-composite-lshal-status-list|wifi-hal-composite-lshal-binderized-status-list|wifi-surface-composite-start-only|wifi-dual-hal-lshal-wait-iwifi|wifi-dual-hal-iwifi-start-surface|wifi-iwifi-start-surface|wifi-active-session-surface|wifi-active-session-scan-only|wifi-active-session-connect-ping|wifi-connect-tool-surface|subsys-hold-open-proof|service-notifier-listener-only "
+            "--mode linker-list|identity-probe|sepolicy-inventory|sepolicy-compile-proof|sepolicy-load-proof|selinux-domain-proof|cnss-start-only|cnss-userspace-readiness|wifi-companion-start-only|wifi-companion-post-sysmon-observer-start-only|wifi-companion-android-order-post-sysmon-observer-start-only|wifi-companion-service-manager-start-only|wifi-companion-vnd-service-manager-start-only|wifi-companion-qrtr-first-vnd-service-manager-start-only|wifi-companion-cnss-first-delayed-vnd-service-manager-start-only|wifi-companion-service74-gated-vnd-service-manager-start-only|wifi-companion-service74-gated-vnd-service-manager-readiness-start-only|wifi-companion-service74-gated-vnd-service-manager-cnss-retry-start-only|wifi-companion-peripheral-manager-node-parity-start-only|wifi-companion-peripheral-manager-property-contract-start-only|wifi-companion-peripheral-manager-init-contract-start-only|wifi-companion-pm-service-trigger-observer|wifi-companion-esoc-control-preflight|wifi-companion-esoc-engine-register-preflight|wifi-companion-esoc-req-registered-subsys-hold-preflight|wifi-companion-esoc-conditional-response-preflight|wifi-companion-mdm-helper-ks-image-contract-preflight|wifi-companion-mdm-helper-only-deep-capture|wifi-companion-mdm-helper-runtime-contract-capture|wifi-companion-mdm-helper-runtime-subsys-trigger-capture|wifi-companion-mdm-helper-cnss-before-subsys-trigger-capture|wifi-companion-mdm-helper-cnss-service-manager-matrix|wifi-companion-android-wifi-service-window-start-only|wifi-companion-android-wifi-service-window-subsys-trigger-capture|wifi-companion-service74-gated-peripheral-manager-cnss-retry-start-only|wifi-companion-service74-gated-peripheral-manager-cnss-retry-registry-snapshot-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-cnss-retry-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-provider-first-cnss-start-only|wifi-companion-service74-gated-android-userspace-cnss-retry-start-only|wifi-companion-service74-gated-android-userspace-cnss-retry-registry-snapshot-start-only|wifi-companion-service74-gated-vnd-service-manager-registry-snapshot-start-only|wifi-companion-service74-gated-mdm-helper-start-only|wifi-companion-service180-gated-mdm-helper-start-only|wifi-companion-sysmon-gated-mdm-helper-start-only|wifi-companion-hal-order-start-only|wifi-companion-hal-wificond-order-start-only|wifi-companion-hal-wificond-lshal-wait-samsung|wifi-companion-hal-wificond-lshal-wait-iwifi|wifi-companion-dual-hal-wificond-lshal-wait-iwifi|wifi-companion-dual-hal-wificond-iwifi-start|wifi-companion-dual-hal-wificond-lshal-then-iwifi-start|rmt-storage-start-only|property-lookup|service-manager-start-only|private-selinux-proof|wifi-hal-lshal-vintf-status-list|wifi-hal-composite-start-only|wifi-hal-composite-lshal-list|wifi-hal-composite-lshal-binderized-list|wifi-hal-composite-lshal-wait-target|wifi-surface-composite-lshal-wait-iwifi|wifi-surface-composite-lshal-wait-samsung|wifi-surface-composite-lshal-wait-samsung-ptrace|wifi-hal-composite-lshal-status-list|wifi-hal-composite-lshal-binderized-status-list|wifi-surface-composite-start-only|wifi-dual-hal-lshal-wait-iwifi|wifi-dual-hal-iwifi-start-surface|wifi-iwifi-start-surface|wifi-active-session-surface|wifi-active-session-scan-only|wifi-active-session-connect-ping|wifi-connect-tool-surface|subsys-hold-open-proof|service-notifier-listener-only "
             "[v27 binderized query runs: /system/bin/lshal list --types=binderized --neat] "
             "[v28 target query runs: /system/bin/lshal wait <fqinstance>] "
             "[v29 status query runs: /system/bin/lshal list --types=binderized,vintf --neat -V -S -i -p -e -c] "
@@ -535,6 +537,10 @@ static bool is_wifi_companion_peripheral_manager_init_contract_start_only_mode(c
     return streq(mode, "wifi-companion-peripheral-manager-init-contract-start-only");
 }
 
+static bool is_wifi_companion_pm_service_trigger_observer_mode(const char *mode) {
+    return streq(mode, "wifi-companion-pm-service-trigger-observer");
+}
+
 static bool is_wifi_companion_esoc_control_preflight_mode(const char *mode) {
     return streq(mode, "wifi-companion-esoc-control-preflight");
 }
@@ -621,6 +627,7 @@ static bool is_wifi_companion_peripheral_manager_service_node_materialization_mo
 
 static bool is_wifi_companion_peripheral_manager_node_materialization_mode(const char *mode) {
     return is_wifi_companion_peripheral_manager_service_node_materialization_mode(mode) ||
+           is_wifi_companion_pm_service_trigger_observer_mode(mode) ||
            is_wifi_companion_esoc_control_preflight_mode(mode) ||
            is_wifi_companion_esoc_engine_register_preflight_mode(mode) ||
            is_wifi_companion_esoc_req_registered_subsys_hold_preflight_mode(mode) ||
@@ -1089,6 +1096,10 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             cfg->allow_pm_full_contract_with_modem_holder = true;
             continue;
         }
+        if (strcmp(argv[i], "--allow-pm-service-trigger-observer") == 0) {
+            cfg->allow_pm_service_trigger_observer = true;
+            continue;
+        }
         if (strcmp(argv[i], "--allow-android-wifi-service-window") == 0) {
             cfg->allow_android_wifi_service_window = true;
             continue;
@@ -1529,6 +1540,11 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
         fprintf(stderr, "--allow-pm-full-contract-with-modem-holder is only valid with wifi-companion-mdm-helper-cnss-service-manager-matrix mode\n");
         return 2;
     }
+    if (cfg->allow_pm_service_trigger_observer &&
+        !is_wifi_companion_pm_service_trigger_observer_mode(cfg->mode)) {
+        fprintf(stderr, "--allow-pm-service-trigger-observer is only valid with wifi-companion-pm-service-trigger-observer mode\n");
+        return 2;
+    }
     if (cfg->allow_android_wifi_service_window &&
         !is_wifi_companion_android_wifi_service_window_any_mode(cfg->mode)) {
         fprintf(stderr, "--allow-android-wifi-service-window is only valid with Android Wi-Fi service-window modes\n");
@@ -1816,6 +1832,49 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             fprintf(stderr, "Android Wi-Fi service-window modes accept only their service-window allow flags and no other actor/HAL/scan/connect proof flags\n");
             return 2;
         }
+    } else if (is_wifi_companion_pm_service_trigger_observer_mode(cfg->mode)) {
+        if (cfg->linker != NULL) {
+            fprintf(stderr, "--linker is not used by wifi-companion-pm-service-trigger-observer mode\n");
+            return 2;
+        }
+        if (!streq(cfg->capture_mode, "none")) {
+            fprintf(stderr, "--capture-mode must be none for wifi-companion-pm-service-trigger-observer mode\n");
+            return 2;
+        }
+        if (!cfg->allow_pm_service_trigger_observer) {
+            fprintf(stderr, "wifi-companion-pm-service-trigger-observer requires --allow-pm-service-trigger-observer\n");
+            return 2;
+        }
+        if (cfg->allow_cnss_start_only ||
+            cfg->allow_wifi_companion_start_only ||
+            cfg->allow_service_manager_start_only ||
+            cfg->allow_wifi_hal_start_only ||
+            cfg->allow_hal_service_query ||
+            cfg->allow_iwifi_start_only ||
+            cfg->allow_wlan_driver_state_on ||
+            cfg->allow_cnss_userspace_readiness ||
+            cfg->allow_qrtr_ns_readback ||
+            cfg->allow_servloc_domain_list_probe ||
+            cfg->allow_service_notifier_listener_probe ||
+            cfg->allow_scan_only ||
+            cfg->allow_connect_dhcp_ping ||
+            cfg->allow_policy_load_proof ||
+            cfg->allow_esoc_control_preflight ||
+            cfg->allow_esoc_engine_register_preflight ||
+            cfg->allow_esoc_req_registered_subsys_hold_preflight ||
+            cfg->allow_esoc_conditional_response_preflight ||
+            cfg->allow_mdm_helper_ks_contract_preflight ||
+            cfg->allow_mdm_helper_only_capture ||
+            cfg->allow_mdm_helper_runtime_contract_capture ||
+            cfg->allow_mdm_helper_subsys_trigger_capture ||
+            cfg->allow_mdm_helper_cnss_before_subsys_trigger_capture ||
+            cfg->allow_mdm_helper_cnss_service_manager_matrix ||
+            cfg->allow_pm_full_contract_with_modem_holder ||
+            cfg->allow_android_wifi_service_window ||
+            cfg->allow_android_wifi_service_window_subsys_trigger_capture) {
+            fprintf(stderr, "wifi-companion-pm-service-trigger-observer accepts only --allow-pm-service-trigger-observer and no daemon/HAL/scan/connect/eSOC proof flags\n");
+            return 2;
+        }
     } else if (cfg->cnss_surface_mode_explicit) {
         fprintf(stderr, "--cnss-surface-mode is only valid with mdm-helper CNSS capture modes\n");
         return 2;
@@ -1882,6 +1941,7 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
           is_wifi_companion_any_start_only_mode(cfg->mode) ||
           is_wifi_companion_mdm_helper_runtime_any_mode(cfg->mode) ||
           is_wifi_companion_android_wifi_service_window_any_mode(cfg->mode) ||
+          is_wifi_companion_pm_service_trigger_observer_mode(cfg->mode) ||
           is_wifi_companion_hal_order_start_only_mode(cfg->mode))) {
         fprintf(stderr, "--android-selinux-context-mode is only valid with service-manager, Wi-Fi HAL composite, CNSS userspace readiness, or Wi-Fi companion modes\n");
         return 2;
@@ -25200,6 +25260,9 @@ static bool property_service_shim_needed(const struct config *cfg) {
     if (is_wifi_companion_android_wifi_service_window_any_mode(cfg->mode)) {
         return cfg->allow_android_wifi_service_window;
     }
+    if (is_wifi_companion_pm_service_trigger_observer_mode(cfg->mode)) {
+        return cfg->allow_pm_service_trigger_observer;
+    }
     if (is_rmt_storage_start_only_mode(cfg->mode) ||
         is_wifi_companion_mdm_helper_runtime_any_mode(cfg->mode) ||
         is_wifi_companion_any_start_only_mode(cfg->mode)) {
@@ -25575,6 +25638,7 @@ static int start_property_service_shim(const struct config *cfg,
     if (shim->pid == 0) {
         bool allow_peripheral_shutdown_list =
             is_wifi_companion_peripheral_manager_property_contract_start_only_mode(cfg->mode) ||
+            is_wifi_companion_pm_service_trigger_observer_mode(cfg->mode) ||
             is_wifi_companion_mdm_helper_runtime_any_mode(cfg->mode);
 
         close(pipe_fds[0]);
@@ -25706,6 +25770,386 @@ static int stop_property_service_shim(struct property_service_shim *shim,
                   shim->exit_code,
                   shim->signal,
                   (shim->reaped && !shim->kill_sent) ? 1 : 0);
+    return 0;
+}
+
+static int append_pm_service_trigger_observer_fd_snapshot(struct buffer *buf,
+                                                          const char *phase,
+                                                          const struct composite_child *per_mgr,
+                                                          const struct composite_child *pm_proxy_helper,
+                                                          int *per_mgr_subsys_modem_count,
+                                                          int *pm_proxy_helper_subsys_modem_count) {
+    char label[160];
+    int per_mgr_vndbinder_count = -1;
+    int pm_proxy_helper_vndbinder_count = -1;
+
+    *per_mgr_subsys_modem_count = -1;
+    *pm_proxy_helper_subsys_modem_count = -1;
+    if (append_format(buf,
+                      "pm_service_trigger_observer.%s.fd_snapshot.begin=1\n"
+                      "pm_service_trigger_observer.%s.fd_snapshot.monotonic_ms=%ld\n",
+                      phase,
+                      phase,
+                      monotonic_ms()) < 0) {
+        return -1;
+    }
+    if (composite_child_alive_for_snapshot(per_mgr)) {
+        if (snprintf(label, sizeof(label), "%s_per_mgr_subsys_modem", phase) >= (int)sizeof(label) ||
+            append_proc_fd_target_match_scan(buf,
+                                             per_mgr->pid,
+                                             "pm_service_trigger_observer",
+                                             label,
+                                             "/dev/subsys_modem",
+                                             per_mgr_subsys_modem_count) < 0 ||
+            snprintf(label, sizeof(label), "%s_per_mgr_vndbinder", phase) >= (int)sizeof(label) ||
+            append_proc_fd_target_match_scan(buf,
+                                             per_mgr->pid,
+                                             "pm_service_trigger_observer",
+                                             label,
+                                             "/dev/vndbinder",
+                                             &per_mgr_vndbinder_count) < 0) {
+            return -1;
+        }
+    }
+    if (composite_child_alive_for_snapshot(pm_proxy_helper)) {
+        if (snprintf(label, sizeof(label), "%s_pm_proxy_helper_subsys_modem", phase) >= (int)sizeof(label) ||
+            append_proc_fd_target_match_scan(buf,
+                                             pm_proxy_helper->pid,
+                                             "pm_service_trigger_observer",
+                                             label,
+                                             "/dev/subsys_modem",
+                                             pm_proxy_helper_subsys_modem_count) < 0 ||
+            snprintf(label, sizeof(label), "%s_pm_proxy_helper_vndbinder", phase) >= (int)sizeof(label) ||
+            append_proc_fd_target_match_scan(buf,
+                                             pm_proxy_helper->pid,
+                                             "pm_service_trigger_observer",
+                                             label,
+                                             "/dev/vndbinder",
+                                             &pm_proxy_helper_vndbinder_count) < 0) {
+            return -1;
+        }
+    }
+    return append_format(buf,
+                         "pm_service_trigger_observer.%s.per_mgr_subsys_modem_count=%d\n"
+                         "pm_service_trigger_observer.%s.per_mgr_vndbinder_count=%d\n"
+                         "pm_service_trigger_observer.%s.pm_proxy_helper_subsys_modem_count=%d\n"
+                         "pm_service_trigger_observer.%s.pm_proxy_helper_vndbinder_count=%d\n"
+                         "pm_service_trigger_observer.%s.fd_snapshot.end=1\n",
+                         phase,
+                         *per_mgr_subsys_modem_count,
+                         phase,
+                         per_mgr_vndbinder_count,
+                         phase,
+                         *pm_proxy_helper_subsys_modem_count,
+                         phase,
+                         pm_proxy_helper_vndbinder_count,
+                         phase);
+}
+
+static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct config *cfg,
+                                                                  const struct paths *paths,
+                                                                  struct buffer *stdout_buf,
+                                                                  struct buffer *stderr_buf,
+                                                                  int *child_exit_code,
+                                                                  int *child_signal,
+                                                                  bool *timed_out) {
+    enum {
+        PM_OBSERVER_SERVICE_MANAGER = 0,
+        PM_OBSERVER_HWSERVICE_MANAGER = 1,
+        PM_OBSERVER_VNDSERVICE_MANAGER = 2,
+        PM_OBSERVER_PM_PROXY_HELPER = 3,
+        PM_OBSERVER_PER_MGR = 4,
+        PM_OBSERVER_PER_PROXY = 5,
+        PM_OBSERVER_CHILD_COUNT = 6,
+    };
+    struct composite_child children[PM_OBSERVER_CHILD_COUNT];
+    struct composite_child *pm_proxy_helper = &children[PM_OBSERVER_PM_PROXY_HELPER];
+    struct composite_child *per_mgr = &children[PM_OBSERVER_PER_MGR];
+    struct property_service_shim property_shim;
+    size_t active_child_count = 0;
+    long deadline;
+    long next_snapshot;
+    int snapshot_index = 0;
+    bool per_mgr_subsys_modem_seen = false;
+    bool pm_proxy_helper_subsys_modem_seen = false;
+    bool all_postflight_safe = true;
+    bool all_observable = true;
+    bool any_runtime_gap = false;
+
+    memset(children, 0, sizeof(children));
+    *child_exit_code = -1;
+    *child_signal = 0;
+    *timed_out = false;
+    composite_child_init(&children[PM_OBSERVER_SERVICE_MANAGER],
+                         "servicemanager",
+                         "/system/bin/servicemanager",
+                         COMPOSITE_ID_SERVICE_MANAGER);
+    composite_child_init(&children[PM_OBSERVER_HWSERVICE_MANAGER],
+                         "hwservicemanager",
+                         "/system/bin/hwservicemanager",
+                         COMPOSITE_ID_SERVICE_MANAGER);
+    composite_child_init(&children[PM_OBSERVER_VNDSERVICE_MANAGER],
+                         "vndservicemanager",
+                         "/vendor/bin/vndservicemanager",
+                         COMPOSITE_ID_VND_SERVICE_MANAGER);
+    composite_child_init(pm_proxy_helper,
+                         "pm_proxy_helper",
+                         "/vendor/bin/pm_proxy_helper",
+                         COMPOSITE_ID_PER_PROXY_HELPER);
+    composite_child_init(per_mgr,
+                         "per_mgr",
+                         "/vendor/bin/pm-service",
+                         COMPOSITE_ID_PER_MGR);
+    composite_child_init(&children[PM_OBSERVER_PER_PROXY],
+                         "per_proxy",
+                         "/vendor/bin/pm-proxy",
+                         COMPOSITE_ID_PER_PROXY);
+
+    if (append_literal(stdout_buf,
+                       "pm_service_trigger_observer.begin=1\n"
+                       "pm_service_trigger_observer.mode=wifi-companion-pm-service-trigger-observer\n"
+                       "pm_service_trigger_observer.order=servicemanager,hwservicemanager,vndservicemanager,pm_proxy_helper,per_mgr,per_proxy\n"
+                       "pm_service_trigger_observer.service_manager_start_executed=1\n"
+                       "pm_service_trigger_observer.pm_proxy_helper_start_executed=1\n"
+                       "pm_service_trigger_observer.per_mgr_start_executed=1\n"
+                       "pm_service_trigger_observer.per_proxy_start_executed=1\n"
+                       "pm_service_trigger_observer.mdm_helper_start_executed=0\n"
+                       "pm_service_trigger_observer.cnss_daemon_start_executed=0\n"
+                       "pm_service_trigger_observer.wifi_hal_start_executed=0\n"
+                       "pm_service_trigger_observer.scan_connect_linkup=0\n"
+                       "pm_service_trigger_observer.external_ping=0\n"
+                       "pm_service_trigger_observer.subsys_esoc0_open_attempted=0\n") < 0) {
+        return -1;
+    }
+    if (!cfg->allow_pm_service_trigger_observer) {
+        if (append_literal(stdout_buf,
+                           "pm_service_trigger_observer.allowed=0\n"
+                           "pm_service_trigger_observer.exec_attempted=0\n"
+                           "pm_service_trigger_observer.result=observer-blocked\n"
+                           "pm_service_trigger_observer.reason=missing-allow-pm-service-trigger-observer\n"
+                           "pm_service_trigger_observer.end=1\n") < 0) {
+            return -1;
+        }
+        *child_exit_code = 0;
+        return 0;
+    }
+    if (append_literal(stdout_buf,
+                       "pm_service_trigger_observer.allowed=1\n"
+                       "pm_service_trigger_observer.exec_attempted=1\n") < 0 ||
+        append_private_android_node_status(stdout_buf, paths, "subsys_modem", "subsys_modem") < 0 ||
+        append_private_android_node_status(stdout_buf, paths, "subsys_esoc0", "subsys_esoc0") < 0 ||
+        append_private_android_node_status(stdout_buf, paths, "esoc-0", "esoc_0") < 0) {
+        return -1;
+    }
+    if (start_property_service_shim(cfg, paths, &property_shim, stdout_buf) < 0) {
+        return -1;
+    }
+    if (property_service_shim_needed(cfg) && !property_shim.started) {
+        append_literal(stdout_buf,
+                       "pm_service_trigger_observer.result=property-service-shim-setup-failed\n"
+                       "pm_service_trigger_observer.reason=private-property-service-socket-not-ready\n"
+                       "pm_service_trigger_observer.end=1\n");
+        *child_exit_code = 124;
+        return 0;
+    }
+    for (size_t i = 0; i < PM_OBSERVER_CHILD_COUNT; i++) {
+        char phase[96];
+
+        if (composite_spawn_child(cfg, paths, &children[i], stdout_buf) < 0) {
+            composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+            stop_property_service_shim(&property_shim, paths, stdout_buf);
+            return -1;
+        }
+        active_child_count++;
+        if (append_format(stdout_buf,
+                          "pm_service_trigger_observer.child.%s.start_order=%zu\n",
+                          children[i].name,
+                          active_child_count) < 0) {
+            composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+            stop_property_service_shim(&property_shim, paths, stdout_buf);
+            return -1;
+        }
+        usleep(150000);
+        for (size_t drain_index = 0; drain_index < active_child_count; drain_index++) {
+            if (composite_child_drain_wait_once(&children[drain_index], stdout_buf, stderr_buf) < 0) {
+                composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+                stop_property_service_shim(&property_shim, paths, stdout_buf);
+                return -1;
+            }
+        }
+        if (drain_property_service_shim_records(&property_shim, stdout_buf) < 0) {
+            composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+            stop_property_service_shim(&property_shim, paths, stdout_buf);
+            return -1;
+        }
+        if (snprintf(phase, sizeof(phase), "after_start_%s", children[i].name) >= (int)sizeof(phase)) {
+            composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+            stop_property_service_shim(&property_shim, paths, stdout_buf);
+            return -1;
+        }
+        if (append_mdm_helper_provider_readiness_snapshot(stdout_buf, paths, phase, per_mgr, NULL) < 0 ||
+            append_mdm_helper_queue_timing_snapshot(stdout_buf, phase, per_mgr, NULL) < 0) {
+            composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+            stop_property_service_shim(&property_shim, paths, stdout_buf);
+            return -1;
+        }
+    }
+    deadline = monotonic_ms() + cfg->timeout_sec * 1000L;
+    next_snapshot = monotonic_ms();
+    while (monotonic_ms() < deadline) {
+        bool all_done = true;
+
+        for (size_t i = 0; i < active_child_count; i++) {
+            if (composite_child_drain_wait_once(&children[i], stdout_buf, stderr_buf) < 0) {
+                composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+                stop_property_service_shim(&property_shim, paths, stdout_buf);
+                return -1;
+            }
+            if (!children[i].child_done) {
+                all_done = false;
+            }
+        }
+        if (drain_property_service_shim_records(&property_shim, stdout_buf) < 0) {
+            composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+            stop_property_service_shim(&property_shim, paths, stdout_buf);
+            return -1;
+        }
+        if (monotonic_ms() >= next_snapshot || all_done) {
+            char phase[64];
+            int per_mgr_subsys_modem_count = -1;
+            int pm_proxy_helper_subsys_modem_count = -1;
+
+            if (snprintf(phase, sizeof(phase), "poll_%02d", snapshot_index++) >= (int)sizeof(phase)) {
+                composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+                stop_property_service_shim(&property_shim, paths, stdout_buf);
+                return -1;
+            }
+            if (append_pm_service_trigger_observer_fd_snapshot(stdout_buf,
+                                                               phase,
+                                                               per_mgr,
+                                                               pm_proxy_helper,
+                                                               &per_mgr_subsys_modem_count,
+                                                               &pm_proxy_helper_subsys_modem_count) < 0 ||
+                append_mdm_helper_provider_readiness_snapshot(stdout_buf, paths, phase, per_mgr, NULL) < 0 ||
+                append_mdm_helper_queue_timing_snapshot(stdout_buf, phase, per_mgr, NULL) < 0) {
+                composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+                stop_property_service_shim(&property_shim, paths, stdout_buf);
+                return -1;
+            }
+            if (per_mgr_subsys_modem_count > 0) {
+                per_mgr_subsys_modem_seen = true;
+            }
+            if (pm_proxy_helper_subsys_modem_count > 0) {
+                pm_proxy_helper_subsys_modem_seen = true;
+            }
+            next_snapshot = monotonic_ms() + 1000L;
+        }
+        if (all_done) {
+            break;
+        }
+        usleep(100000);
+    }
+    if (monotonic_ms() >= deadline) {
+        *timed_out = true;
+    }
+    if (composite_child_alive_for_snapshot(per_mgr) &&
+        append_generic_stall_snapshot_capture(stdout_buf,
+                                             per_mgr->pid,
+                                             "pm_service_trigger_observer_per_mgr") < 0) {
+        composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+        stop_property_service_shim(&property_shim, paths, stdout_buf);
+        return -1;
+    }
+    composite_capture_observable_children(children, active_child_count, stdout_buf);
+    composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+    stop_property_service_shim(&property_shim, paths, stdout_buf);
+
+    for (size_t i = 0; i < active_child_count; i++) {
+        bool safe = composite_child_postflight_safe(&children[i]);
+
+        if (!safe) {
+            all_postflight_safe = false;
+        }
+        if (!children[i].observable) {
+            all_observable = false;
+        }
+        if (composite_child_runtime_gap(&children[i], *timed_out)) {
+            any_runtime_gap = true;
+            if (*child_exit_code < 0 && children[i].exit_code >= 0) {
+                *child_exit_code = children[i].exit_code;
+            }
+            if (*child_signal == 0 && children[i].signal != 0) {
+                *child_signal = children[i].signal;
+            }
+        }
+        if (append_format(stdout_buf,
+                          "pm_service_trigger_observer.child.%s.observable=%d\n"
+                          "pm_service_trigger_observer.child.%s.exited=%d\n"
+                          "pm_service_trigger_observer.child.%s.exit_code=%d\n"
+                          "pm_service_trigger_observer.child.%s.signal=%d\n"
+                          "pm_service_trigger_observer.child.%s.term_sent=%d\n"
+                          "pm_service_trigger_observer.child.%s.kill_sent=%d\n"
+                          "pm_service_trigger_observer.child.%s.reaped=%d\n"
+                          "pm_service_trigger_observer.child.%s.postflight_safe=%d\n",
+                          children[i].name,
+                          children[i].observable ? 1 : 0,
+                          children[i].name,
+                          children[i].child_done ? 1 : 0,
+                          children[i].name,
+                          children[i].exit_code,
+                          children[i].name,
+                          children[i].signal,
+                          children[i].name,
+                          children[i].term_sent ? 1 : 0,
+                          children[i].name,
+                          children[i].kill_sent ? 1 : 0,
+                          children[i].name,
+                          children[i].reaped ? 1 : 0,
+                          children[i].name,
+                          safe ? 1 : 0) < 0) {
+            return -1;
+        }
+    }
+    if (*child_exit_code < 0 && *child_signal == 0) {
+        *child_exit_code = 0;
+    }
+    if (append_format(stdout_buf,
+                      "pm_service_trigger_observer.snapshot_count=%d\n"
+                      "pm_service_trigger_observer.per_mgr_subsys_modem_seen=%d\n"
+                      "pm_service_trigger_observer.pm_proxy_helper_subsys_modem_seen=%d\n"
+                      "pm_service_trigger_observer.timed_out=%d\n"
+                      "pm_service_trigger_observer.all_observable=%d\n"
+                      "pm_service_trigger_observer.all_postflight_safe=%d\n",
+                      snapshot_index,
+                      per_mgr_subsys_modem_seen ? 1 : 0,
+                      pm_proxy_helper_subsys_modem_seen ? 1 : 0,
+                      *timed_out ? 1 : 0,
+                      all_observable ? 1 : 0,
+                      all_postflight_safe ? 1 : 0) < 0) {
+        return -1;
+    }
+    if (!all_postflight_safe) {
+        append_literal(stdout_buf,
+                       "pm_service_trigger_observer.result=observer-reboot-required\n"
+                       "pm_service_trigger_observer.reason=process-not-proven-stopped\n");
+    } else if (per_mgr_subsys_modem_seen || pm_proxy_helper_subsys_modem_seen) {
+        append_literal(stdout_buf,
+                       "pm_service_trigger_observer.result=pm-service-subsys-modem-observed\n"
+                       "pm_service_trigger_observer.reason=peripheral-manager-opened-subsys-modem\n");
+    } else if (any_runtime_gap) {
+        append_literal(stdout_buf,
+                       "pm_service_trigger_observer.result=observer-runtime-gap\n"
+                       "pm_service_trigger_observer.reason=child-exited-before-observe-window\n");
+    } else if (*timed_out && all_observable) {
+        append_literal(stdout_buf,
+                       "pm_service_trigger_observer.result=pm-service-idle-input-gap-observed\n"
+                       "pm_service_trigger_observer.reason=pm-stack-alive-but-no-subsys-modem-open\n");
+    } else {
+        append_literal(stdout_buf,
+                       "pm_service_trigger_observer.result=manual-review-required\n"
+                       "pm_service_trigger_observer.reason=unclassified-lifecycle-state\n");
+    }
+    append_literal(stdout_buf, "pm_service_trigger_observer.end=1\n");
     return 0;
 }
 
@@ -28307,6 +28751,14 @@ int main(int argc, char **argv) {
                                                                                          &timed_out);
     } else if (is_wifi_companion_android_wifi_service_window_any_mode(cfg.mode)) {
         run_rc = run_wifi_companion_android_wifi_service_window_guarded(&cfg,
+                                                                        &paths,
+                                                                        &stdout_buf,
+                                                                        &stderr_buf,
+                                                                        &child_exit_code,
+                                                                        &child_signal,
+                                                                        &timed_out);
+    } else if (is_wifi_companion_pm_service_trigger_observer_mode(cfg.mode)) {
+        run_rc = run_wifi_companion_pm_service_trigger_observer_guarded(&cfg,
                                                                         &paths,
                                                                         &stdout_buf,
                                                                         &stderr_buf,
