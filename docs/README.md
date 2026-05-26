@@ -155,6 +155,7 @@
 - `plans/NATIVE_INIT_V1026_HELPER_V174_DEPLOY_PLAN_2026-05-26.md` – helper `v174`를 `/cache/bin/a90_android_execns_probe`로 deploy-only 설치하고 remote sha/order parity를 확인하는 계획
 - `plans/NATIVE_INIT_V1027_PM_FULL_CONTRACT_LIVE_PLAN_2026-05-26.md` – helper `v174` PM full-contract order를 live로 실행해 `pm_proxy_helper`/`pm-service` `/dev/subsys_modem` fd predicate를 검증하는 계획
 - `plans/NATIVE_INIT_V1028_PM_PROXY_HELPER_MODEM_GET_CLASSIFIER_PLAN_2026-05-26.md` – V1024 Android PM fd contract와 V1027 native PM full-contract 실패를 비교해 `pm_proxy_helper` modem subsystem-get blocker를 host-only로 분류하는 계획
+- `plans/NATIVE_INIT_V1029_PM_RUNTIME_INPUT_DELTA_PLAN_2026-05-26.md` – V1024 Android PM actor domains/fds와 V1027 native `attr/current=kernel` runtime gap을 비교해 다음 PM runtime-domain proof gate를 선택하는 계획
 - `plans/NATIVE_INIT_V1003_HELPER_V170_DEPLOY_PLAN_2026-05-26.md` – V1002 helper `v170` 산출물을 `/cache/bin/a90_android_execns_probe`로 deploy-only 배포하고 sha/contract parity를 확인하는 V1003 계획
 - `plans/NATIVE_INIT_V1002_ANDROID_SERVICE_WINDOW_SUBSYS_TRIGGER_SUPPORT_PLAN_2026-05-26.md` – V1001에서 선택한 service-window-scoped `/dev/subsys_esoc0` trigger capture를 helper `v170`에 source/build-only로 추가하는 V1002 계획
 - `plans/NATIVE_INIT_V1001_V1000_ROUTE_COMPARATOR_PLAN_2026-05-26.md` – V1000 Android timing과 V998/V923/V964/V965 native evidence를 비교해 WLFW-precondition gate가 circular인지 host-only로 판정하는 V1001 계획
@@ -494,6 +495,7 @@
 - `reports/NATIVE_INIT_V1026_HELPER_V174_DEPLOY_2026-05-26.md` – V1026 deploy-only 결과 helper `v174` remote sha/order parity가 일치하고 daemon/Wi-Fi bring-up 없이 V1027 live gate 준비가 완료된 결과
 - `reports/NATIVE_INIT_V1027_PM_FULL_CONTRACT_LIVE_2026-05-26.md` – V1027 live 결과 `pm_proxy_helper`는 시작됐지만 `/dev/subsys_modem` fd predicate가 성립하지 않아 post-provider retry 전 PM blocker로 분류한 결과
 - `reports/NATIVE_INIT_V1028_PM_PROXY_HELPER_MODEM_GET_CLASSIFIER_2026-05-26.md` – V1028 host-only 결과 native `pm_proxy_helper`가 modem subsystem-get/PIL-loading 경로에서 fd predicate 전 block됨을 Android V1024와 비교 분류한 결과
+- `reports/NATIVE_INIT_V1029_PM_RUNTIME_INPUT_DELTA_2026-05-26.md` – V1029 host-only 결과 Android PM actors는 vendor domains에서 fd를 잡지만 native V1027 actors는 target context 요청 후에도 `attr/current=kernel`에 남는 runtime-domain gap으로 분류한 결과
 - `reports/NATIVE_INIT_V1004_SERVICE_WINDOW_SUBSYS_TRIGGER_LIVE_2026-05-26.md` – V1004 live 결과 current-boot SELinux refresh 후 Android service-window actors는 관측됐지만 `mdm_helper`가 `/dev/esoc-0` fd를 hold하지 않아 `/dev/subsys_esoc0` trigger는 안전하게 미실행된 결과
 - `reports/NATIVE_INIT_V1003_HELPER_V170_DEPLOY_2026-05-26.md` – helper `v170`을 `/cache/bin/a90_android_execns_probe`로 deploy-only 설치하고 remote sha/contract parity 및 no-Wi-Fi guard를 확인한 V1003 결과
 - `reports/NATIVE_INIT_V1002_ANDROID_SERVICE_WINDOW_SUBSYS_TRIGGER_SUPPORT_2026-05-26.md` – helper `v170`에 Android service-window scoped `/dev/subsys_esoc0` trigger capture mode를 source/build-only로 추가한 V1002 결과
