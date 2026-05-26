@@ -88,7 +88,7 @@
 #define IOPRIO_PRIO_VALUE(class_value, data) (((class_value) << IOPRIO_CLASS_SHIFT) | (data))
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v159"
+#define EXECNS_VERSION "a90_android_execns_probe v160"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -201,9 +201,11 @@ struct config {
     const char *qrtr_readback_matrix;
     const char *cnss_surface_mode;
     const char *service_manager_order;
+    const char *subsys_trigger_gate;
     int timeout_sec;
     bool cnss_surface_mode_explicit;
     bool service_manager_order_explicit;
+    bool subsys_trigger_gate_explicit;
     bool allow_cnss_start_only;
     bool allow_wifi_companion_start_only;
     bool allow_service_manager_start_only;
@@ -388,6 +390,7 @@ static void usage(FILE *out) {
             "[--ping-target 1.1.1.1] "
             "[--cnss-surface-mode full|compact] "
             "[--service-manager-order none|before-cnss|after-cnss|after-mdm-helper-esoc-fd|after-mdm-helper-esoc-fd-with-pm-proxy] "
+            "[--subsys-trigger-gate wlfw-precondition|post-provider-no-wlfw] "
             "--mode linker-list|identity-probe|sepolicy-inventory|sepolicy-compile-proof|sepolicy-load-proof|selinux-domain-proof|cnss-start-only|cnss-userspace-readiness|wifi-companion-start-only|wifi-companion-post-sysmon-observer-start-only|wifi-companion-android-order-post-sysmon-observer-start-only|wifi-companion-service-manager-start-only|wifi-companion-vnd-service-manager-start-only|wifi-companion-qrtr-first-vnd-service-manager-start-only|wifi-companion-cnss-first-delayed-vnd-service-manager-start-only|wifi-companion-service74-gated-vnd-service-manager-start-only|wifi-companion-service74-gated-vnd-service-manager-readiness-start-only|wifi-companion-service74-gated-vnd-service-manager-cnss-retry-start-only|wifi-companion-peripheral-manager-node-parity-start-only|wifi-companion-peripheral-manager-property-contract-start-only|wifi-companion-peripheral-manager-init-contract-start-only|wifi-companion-esoc-control-preflight|wifi-companion-esoc-engine-register-preflight|wifi-companion-esoc-req-registered-subsys-hold-preflight|wifi-companion-esoc-conditional-response-preflight|wifi-companion-mdm-helper-ks-image-contract-preflight|wifi-companion-mdm-helper-only-deep-capture|wifi-companion-mdm-helper-runtime-contract-capture|wifi-companion-mdm-helper-runtime-subsys-trigger-capture|wifi-companion-mdm-helper-cnss-before-subsys-trigger-capture|wifi-companion-mdm-helper-cnss-service-manager-matrix|wifi-companion-service74-gated-peripheral-manager-cnss-retry-start-only|wifi-companion-service74-gated-peripheral-manager-cnss-retry-registry-snapshot-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-cnss-retry-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-provider-first-cnss-start-only|wifi-companion-service74-gated-android-userspace-cnss-retry-start-only|wifi-companion-service74-gated-android-userspace-cnss-retry-registry-snapshot-start-only|wifi-companion-service74-gated-vnd-service-manager-registry-snapshot-start-only|wifi-companion-service74-gated-mdm-helper-start-only|wifi-companion-service180-gated-mdm-helper-start-only|wifi-companion-sysmon-gated-mdm-helper-start-only|wifi-companion-hal-order-start-only|wifi-companion-hal-wificond-order-start-only|wifi-companion-hal-wificond-lshal-wait-samsung|wifi-companion-hal-wificond-lshal-wait-iwifi|wifi-companion-dual-hal-wificond-lshal-wait-iwifi|wifi-companion-dual-hal-wificond-iwifi-start|wifi-companion-dual-hal-wificond-lshal-then-iwifi-start|rmt-storage-start-only|property-lookup|service-manager-start-only|private-selinux-proof|wifi-hal-lshal-vintf-status-list|wifi-hal-composite-start-only|wifi-hal-composite-lshal-list|wifi-hal-composite-lshal-binderized-list|wifi-hal-composite-lshal-wait-target|wifi-surface-composite-lshal-wait-iwifi|wifi-surface-composite-lshal-wait-samsung|wifi-surface-composite-lshal-wait-samsung-ptrace|wifi-hal-composite-lshal-status-list|wifi-hal-composite-lshal-binderized-status-list|wifi-surface-composite-start-only|wifi-dual-hal-lshal-wait-iwifi|wifi-dual-hal-iwifi-start-surface|wifi-iwifi-start-surface|wifi-active-session-surface|wifi-active-session-scan-only|wifi-active-session-connect-ping|wifi-connect-tool-surface|subsys-hold-open-proof|service-notifier-listener-only "
             "[v27 binderized query runs: /system/bin/lshal list --types=binderized --neat] "
             "[v28 target query runs: /system/bin/lshal wait <fqinstance>] "
@@ -577,6 +580,11 @@ static bool is_cnss_service_manager_matrix_order(const char *order) {
            streq(order, "after-cnss") ||
            streq(order, "after-mdm-helper-esoc-fd") ||
            streq(order, "after-mdm-helper-esoc-fd-with-pm-proxy");
+}
+
+static bool is_cnss_subsys_trigger_gate(const char *gate) {
+    return streq(gate, "wlfw-precondition") ||
+           streq(gate, "post-provider-no-wlfw");
 }
 
 static bool is_wifi_companion_peripheral_manager_service_node_materialization_mode(const char *mode) {
@@ -941,6 +949,7 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
     cfg->qrtr_readback_matrix = DEFAULT_QRTR_READBACK_MATRIX;
     cfg->cnss_surface_mode = "full";
     cfg->service_manager_order = "none";
+    cfg->subsys_trigger_gate = "wlfw-precondition";
 
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--help") == 0) {
@@ -1102,6 +1111,9 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
         } else if (strcmp(argv[i], "--service-manager-order") == 0) {
             cfg->service_manager_order = argv[++i];
             cfg->service_manager_order_explicit = true;
+        } else if (strcmp(argv[i], "--subsys-trigger-gate") == 0) {
+            cfg->subsys_trigger_gate = argv[++i];
+            cfg->subsys_trigger_gate_explicit = true;
         } else if (strcmp(argv[i], "--timeout-sec") == 0) {
             if (!parse_int_range(argv[++i], 1, 30, &cfg->timeout_sec)) {
                 fprintf(stderr, "invalid --timeout-sec\n");
@@ -1279,6 +1291,7 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
           streq(cfg->android_selinux_context_mode, "service-defaults")) ||
         !(streq(cfg->cnss_surface_mode, "full") ||
           streq(cfg->cnss_surface_mode, "compact")) ||
+        !is_cnss_subsys_trigger_gate(cfg->subsys_trigger_gate) ||
         !(streq(cfg->linkerconfig_mode, "none") ||
           streq(cfg->linkerconfig_mode, "copy-real") ||
           streq(cfg->linkerconfig_mode, "minimal-vendor"))) {
@@ -1437,6 +1450,10 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
     }
     if (!is_cnss_service_manager_matrix_order(cfg->service_manager_order)) {
         fprintf(stderr, "invalid --service-manager-order\n");
+        return 2;
+    }
+    if (!is_cnss_subsys_trigger_gate(cfg->subsys_trigger_gate)) {
+        fprintf(stderr, "invalid --subsys-trigger-gate\n");
         return 2;
     }
     if (is_wifi_companion_esoc_engine_register_preflight_mode(cfg->mode)) {
@@ -1663,6 +1680,22 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
     if (!is_wifi_companion_mdm_helper_cnss_service_manager_matrix_mode(cfg->mode) &&
         cfg->service_manager_order_explicit) {
         fprintf(stderr, "--service-manager-order is only valid with wifi-companion-mdm-helper-cnss-service-manager-matrix mode\n");
+        return 2;
+    }
+    if (!is_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_mode(cfg->mode) &&
+        !is_wifi_companion_mdm_helper_cnss_service_manager_matrix_mode(cfg->mode) &&
+        cfg->subsys_trigger_gate_explicit) {
+        fprintf(stderr, "--subsys-trigger-gate is only valid with mdm-helper CNSS capture modes\n");
+        return 2;
+    }
+    if (streq(cfg->subsys_trigger_gate, "post-provider-no-wlfw") &&
+        !is_wifi_companion_mdm_helper_cnss_service_manager_matrix_mode(cfg->mode)) {
+        fprintf(stderr, "--subsys-trigger-gate post-provider-no-wlfw is only valid with wifi-companion-mdm-helper-cnss-service-manager-matrix mode\n");
+        return 2;
+    }
+    if (streq(cfg->subsys_trigger_gate, "post-provider-no-wlfw") &&
+        !streq(cfg->service_manager_order, "after-mdm-helper-esoc-fd-with-pm-proxy")) {
+        fprintf(stderr, "--subsys-trigger-gate post-provider-no-wlfw requires --service-manager-order after-mdm-helper-esoc-fd-with-pm-proxy\n");
         return 2;
     }
     if (streq(cfg->mode, "selinux-domain-proof")) {
@@ -19378,10 +19411,12 @@ static int start_cnss_before_esoc_subsys_trigger_child(const struct config *cfg,
         }
         dprintf(trigger_pipe[1],
                 "cnss_before_esoc.subsys_trigger.child_chroot=1\n"
+                "cnss_before_esoc.subsys_trigger.gate=%s\n"
                 "cnss_before_esoc.subsys_trigger.hold_sec=%d\n"
                 "cnss_before_esoc.subsys_trigger.no_notify=1\n"
                 "cnss_before_esoc.subsys_trigger.no_boot_done=1\n"
                 "cnss_before_esoc.subsys_esoc0_open_attempting=1\n",
+                cfg->subsys_trigger_gate,
                 hold_sec);
         errno = 0;
         fd = open("/dev/subsys_esoc0", O_RDONLY | O_NONBLOCK | O_CLOEXEC);
@@ -19419,10 +19454,11 @@ static int start_cnss_before_esoc_subsys_trigger_child(const struct config *cfg,
     set_nonblock(trigger_pipe[0]);
     *trigger_pgid = wait_for_child_session_pgid(*trigger_pid, 1000);
     return append_format(stdout_buf,
-                         "cnss_before_esoc.subsys_esoc0_open_gate=cnss-wlfw-precondition\n"
+                         "cnss_before_esoc.subsys_esoc0_open_gate=%s\n"
                          "cnss_before_esoc.subsys_esoc0_open_attempted=1\n"
                          "cnss_before_esoc.subsys_trigger.pid=%ld\n"
                          "cnss_before_esoc.subsys_trigger.pgid=%ld\n",
+                         cfg->subsys_trigger_gate,
                          (long)*trigger_pid,
                          (long)*trigger_pgid);
 }
@@ -19494,6 +19530,7 @@ static int run_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_guar
     bool trigger_reaped = false;
     bool trigger_stdout_open = false;
     bool trigger_stall_snapshot_captured = false;
+    bool post_provider_no_wlfw_trigger_started = false;
     bool all_postflight_safe = true;
     int trigger_status = 0;
     int trigger_exit_code = -1;
@@ -19510,6 +19547,8 @@ static int run_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_guar
         streq(service_manager_order, "after-mdm-helper-esoc-fd-with-pm-proxy");
     const bool after_mdm_service_manager_order =
         streq(service_manager_order, "after-mdm-helper-esoc-fd") || pm_proxy_matrix;
+    const bool post_provider_no_wlfw_gate =
+        streq(cfg->subsys_trigger_gate, "post-provider-no-wlfw");
     const char *run_mode = service_manager_matrix
                                ? "mdm-helper-cnss-service-manager-matrix"
                                : "mdm-helper-cnss-before-subsys-trigger-capture";
@@ -19565,7 +19604,9 @@ static int run_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_guar
         } else if (streq(service_manager_order, "after-mdm-helper-esoc-fd")) {
             run_order = "property-shim,per_mgr_light,mdm_helper,esoc0-fd-gate,servicemanager,hwservicemanager,vndservicemanager,cnss_diag,cnss_daemon,wlfw-precondition-gate,subsys_esoc0-open-child";
         } else if (pm_proxy_matrix) {
-            run_order = "property-shim,per_mgr_light,pm_proxy,mdm_helper,esoc0-fd-gate,servicemanager,hwservicemanager,vndservicemanager,cnss_diag,cnss_daemon,wlfw-precondition-gate,subsys_esoc0-open-child";
+            run_order = post_provider_no_wlfw_gate
+                            ? "property-shim,per_mgr_light,pm_proxy,mdm_helper,esoc0-fd-gate,servicemanager,hwservicemanager,vndservicemanager,cnss_diag,cnss_daemon,post-provider-no-wlfw-gate,subsys_esoc0-open-child"
+                            : "property-shim,per_mgr_light,pm_proxy,mdm_helper,esoc0-fd-gate,servicemanager,hwservicemanager,vndservicemanager,cnss_diag,cnss_daemon,wlfw-precondition-gate,subsys_esoc0-open-child";
         } else if (streq(service_manager_order, "after-cnss")) {
             run_order = "property-shim,per_mgr_light,mdm_helper,esoc0-fd-gate,cnss_diag,cnss_daemon,servicemanager,hwservicemanager,vndservicemanager,wlfw-precondition-gate,subsys_esoc0-open-child";
         }
@@ -19576,6 +19617,7 @@ static int run_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_guar
                       "cnss_before_esoc.mode=%s\n"
                       "cnss_before_esoc.matrix_mode=%d\n"
                       "cnss_before_esoc.service_manager_order=%s\n"
+                      "cnss_before_esoc.subsys_trigger_gate=%s\n"
                       "cnss_before_esoc.order=%s\n"
                       "cnss_before_esoc.per_mgr_argv=/vendor/bin/pm-service\n"
                       "cnss_before_esoc.pm_proxy_argv=/vendor/bin/pm-proxy\n"
@@ -19599,6 +19641,7 @@ static int run_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_guar
                       run_mode,
                       service_manager_matrix ? 1 : 0,
                       service_manager_order,
+                      cfg->subsys_trigger_gate,
                       run_order,
                       service_manager_start_requested ? 1 : 0) < 0 ||
         append_format(stdout_buf,
@@ -19645,11 +19688,12 @@ static int run_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_guar
                           "cnss_before_esoc.cnss_diag_start_attempted=0\n"
                           "cnss_before_esoc.cnss_daemon_start_attempted=0\n"
                           "cnss_before_esoc.wlfw_precondition_observed=0\n"
-                          "cnss_before_esoc.subsys_esoc0_open_gate=cnss-wlfw-precondition\n"
+                          "cnss_before_esoc.subsys_esoc0_open_gate=%s\n"
                           "cnss_before_esoc.subsys_esoc0_open_attempted=0\n"
                           "cnss_before_esoc.result=blocked\n"
                           "cnss_before_esoc.reason=missing-allow-%s\n"
                           "cnss_before_esoc.end=1\n",
+                          cfg->subsys_trigger_gate,
                           service_manager_matrix
                               ? "mdm-helper-cnss-service-manager-matrix"
                               : "mdm-helper-cnss-before-subsys-trigger-capture") < 0) {
@@ -19662,20 +19706,21 @@ static int run_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_guar
         return -1;
     }
     if (property_service_shim_needed(cfg) && !property_shim.started) {
-        append_literal(stdout_buf,
-                       "cnss_before_esoc.allowed=1\n"
-                       "cnss_before_esoc.per_mgr_start_attempted=0\n"
-                       "cnss_before_esoc.pm_proxy_start_attempted=0\n"
-                       "cnss_before_esoc.mdm_helper_start_attempted=0\n"
-                       "cnss_before_esoc.service_manager_start_attempted=0\n"
-                       "cnss_before_esoc.cnss_diag_start_attempted=0\n"
-                       "cnss_before_esoc.cnss_daemon_start_attempted=0\n"
-                       "cnss_before_esoc.wlfw_precondition_observed=0\n"
-                       "cnss_before_esoc.subsys_esoc0_open_gate=cnss-wlfw-precondition\n"
-                       "cnss_before_esoc.subsys_esoc0_open_attempted=0\n"
-                       "cnss_before_esoc.result=property-shim-setup-failed\n"
-                       "cnss_before_esoc.reason=private-property-service-socket-not-ready\n"
-                       "cnss_before_esoc.end=1\n");
+        append_format(stdout_buf,
+                      "cnss_before_esoc.allowed=1\n"
+                      "cnss_before_esoc.per_mgr_start_attempted=0\n"
+                      "cnss_before_esoc.pm_proxy_start_attempted=0\n"
+                      "cnss_before_esoc.mdm_helper_start_attempted=0\n"
+                      "cnss_before_esoc.service_manager_start_attempted=0\n"
+                      "cnss_before_esoc.cnss_diag_start_attempted=0\n"
+                      "cnss_before_esoc.cnss_daemon_start_attempted=0\n"
+                      "cnss_before_esoc.wlfw_precondition_observed=0\n"
+                      "cnss_before_esoc.subsys_esoc0_open_gate=%s\n"
+                      "cnss_before_esoc.subsys_esoc0_open_attempted=0\n"
+                      "cnss_before_esoc.result=property-shim-setup-failed\n"
+                      "cnss_before_esoc.reason=private-property-service-socket-not-ready\n"
+                      "cnss_before_esoc.end=1\n",
+                      cfg->subsys_trigger_gate);
         *child_exit_code = 124;
         return 0;
     }
@@ -19966,14 +20011,28 @@ static int run_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_guar
             }
             wlfw_precondition_observed =
                 cnss_before_esoc_wlfw_precondition_observed(stdout_buf, stderr_buf);
+            const bool post_provider_trigger_ready =
+                post_provider_no_wlfw_gate &&
+                !trigger_started &&
+                !wlfw_precondition_observed &&
+                surface_poll_count > 0 &&
+                mdm_esoc_fd_seen &&
+                pm_proxy_started &&
+                service_manager_started &&
+                cnss_diag_started &&
+                cnss_daemon_started;
             if (append_format(stdout_buf,
                               "cnss_before_esoc.wlfw_precondition_poll=%d\n"
-                              "cnss_before_esoc.wlfw_precondition_observed=%d\n",
+                              "cnss_before_esoc.wlfw_precondition_observed=%d\n"
+                              "cnss_before_esoc.post_provider_no_wlfw_gate_ready=%d\n",
                               surface_poll_count,
-                              wlfw_precondition_observed ? 1 : 0) < 0) {
+                              wlfw_precondition_observed ? 1 : 0,
+                              post_provider_trigger_ready ? 1 : 0) < 0) {
                 goto fail;
             }
-            if (wlfw_precondition_observed) {
+            if (!trigger_started && (wlfw_precondition_observed || post_provider_trigger_ready)) {
+                post_provider_no_wlfw_trigger_started =
+                    post_provider_trigger_ready && !wlfw_precondition_observed;
                 if (start_cnss_before_esoc_subsys_trigger_child(cfg,
                                                                 paths,
                                                                 stdout_buf,
@@ -20010,7 +20069,10 @@ static int run_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_guar
             trigger_stall_snapshot_captured = true;
         }
         if ((!cnss_daemon_started && mdm_helper->child_done) ||
-            (cnss_daemon_started && cnss_daemon->child_done && !wlfw_precondition_observed) ||
+            (cnss_daemon_started &&
+             cnss_daemon->child_done &&
+             !wlfw_precondition_observed &&
+             (!post_provider_no_wlfw_gate || trigger_started)) ||
             (trigger_started && trigger_done)) {
             break;
         }
@@ -20133,7 +20195,10 @@ static int run_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_guar
                       "cnss_before_esoc.cnss_daemon_started=%d\n"
                       "cnss_before_esoc.surface_poll_count=%d\n"
                       "cnss_before_esoc.wlfw_precondition_observed=%d\n"
-                      "cnss_before_esoc.subsys_esoc0_open_gate=cnss-wlfw-precondition\n"
+                      "cnss_before_esoc.subsys_trigger_gate=%s\n"
+                      "cnss_before_esoc.post_provider_no_wlfw_gate=%d\n"
+                      "cnss_before_esoc.post_provider_no_wlfw_trigger_started=%d\n"
+                      "cnss_before_esoc.subsys_esoc0_open_gate=%s\n"
                       "cnss_before_esoc.subsys_esoc0_open_attempted=%d\n"
                       "cnss_before_esoc.subsys_trigger.started=%d\n"
                       "cnss_before_esoc.subsys_trigger.exited=%d\n"
@@ -20162,6 +20227,10 @@ static int run_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_guar
                       cnss_daemon_started ? 1 : 0,
                       surface_poll_count,
                       wlfw_precondition_observed ? 1 : 0,
+                      cfg->subsys_trigger_gate,
+                      post_provider_no_wlfw_gate ? 1 : 0,
+                      post_provider_no_wlfw_trigger_started ? 1 : 0,
+                      cfg->subsys_trigger_gate,
                       trigger_started ? 1 : 0,
                       trigger_started ? 1 : 0,
                       trigger_done ? 1 : 0,
@@ -20191,6 +20260,10 @@ static int run_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_guar
         append_literal(stdout_buf,
                        "cnss_before_esoc.result=mdm-helper-esoc-fd-missing-no-open\n"
                        "cnss_before_esoc.reason=bounded-gate-did-not-see-dev-esoc-0\n");
+    } else if (post_provider_no_wlfw_trigger_started && trigger_started) {
+        append_literal(stdout_buf,
+                       "cnss_before_esoc.result=post-provider-no-wlfw-trigger-clean\n"
+                       "cnss_before_esoc.reason=post-provider-no-wlfw-gate-opened-subsys-esoc0-child-finished-or-was-cleaned\n");
     } else if (!wlfw_precondition_observed) {
         append_literal(stdout_buf,
                        "cnss_before_esoc.result=wlfw-precondition-missing-no-open\n"
@@ -26568,6 +26641,7 @@ int main(int argc, char **argv) {
            cfg.qrtr_readback_matrix != NULL ? cfg.qrtr_readback_matrix : "<none>");
     printf("cnss_surface_mode=%s\n", cfg.cnss_surface_mode);
     printf("service_manager_order=%s\n", cfg.service_manager_order);
+    printf("subsys_trigger_gate=%s\n", cfg.subsys_trigger_gate);
 
     if (is_service_notifier_listener_only_mode(cfg.mode)) {
         printf("helper_status=namespace-skipped\n");
