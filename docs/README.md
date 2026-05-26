@@ -148,6 +148,7 @@
 - `plans/NATIVE_INIT_V1019_HELPER_V173_DEPLOY_PLAN_2026-05-26.md` – helper `v173`를 `/cache/bin/a90_android_execns_probe`로 deploy-only 설치하고 remote sha/order/gate parity를 확인하는 V1019 계획
 - `plans/NATIVE_INIT_V1020_AFTER_FD_SUBSYS_WINDOW_LIVE_PLAN_2026-05-26.md` – helper `v173`으로 fd-positive upper-surface 뒤 WLFW가 없는 상태에서 scoped `/dev/subsys_esoc0` window를 여는 V1020 live 계획
 - `plans/NATIVE_INIT_V1021_V1020_ANDROID_RESET_HANDSHAKE_CLASSIFIER_PLAN_2026-05-26.md` – V1020 `sdx50m_toggle_soft_reset` D-state를 Android-good PM/eSoC evidence와 비교해 다음 read-only recapture route를 고르는 V1021 계획
+- `plans/NATIVE_INIT_V1022_ANDROID_PM_ESOC_TIMING_SAMPLER_PLAN_2026-05-26.md` – Android 정상 부팅 직후 ADB read-only로 PM/eSoC/GPIO/IRQ/WLFW 타이밍을 캡처하는 V1022 계획
 - `plans/NATIVE_INIT_V1003_HELPER_V170_DEPLOY_PLAN_2026-05-26.md` – V1002 helper `v170` 산출물을 `/cache/bin/a90_android_execns_probe`로 deploy-only 배포하고 sha/contract parity를 확인하는 V1003 계획
 - `plans/NATIVE_INIT_V1002_ANDROID_SERVICE_WINDOW_SUBSYS_TRIGGER_SUPPORT_PLAN_2026-05-26.md` – V1001에서 선택한 service-window-scoped `/dev/subsys_esoc0` trigger capture를 helper `v170`에 source/build-only로 추가하는 V1002 계획
 - `plans/NATIVE_INIT_V1001_V1000_ROUTE_COMPARATOR_PLAN_2026-05-26.md` – V1000 Android timing과 V998/V923/V964/V965 native evidence를 비교해 WLFW-precondition gate가 circular인지 host-only로 판정하는 V1001 계획
@@ -480,6 +481,7 @@
 - `reports/NATIVE_INIT_V1019_HELPER_V173_DEPLOY_2026-05-26.md` – V1019 deploy-only 결과 helper `v173` remote sha/order/gate parity가 일치하고 daemon/Wi-Fi bring-up 없이 V1020 live gate 준비가 완료된 결과
 - `reports/NATIVE_INIT_V1020_AFTER_FD_SUBSYS_WINDOW_LIVE_2026-05-26.md` – V1020 live 결과 fd-positive upper-surface 뒤 `/dev/subsys_esoc0` open은 실제 시도됐지만 `sdx50m_toggle_soft_reset` D-state로 막혀 cleanup reboot 후 V1021 Android/native reset-handshake classifier가 필요해진 결과
 - `reports/NATIVE_INIT_V1021_V1020_ANDROID_RESET_HANDSHAKE_CLASSIFIER_2026-05-26.md` – V1021 host-only 결과 V1020 stall을 lower reset-handshake blocker로 분류하고 blind native retry 대신 Android PM/eSoC read-only timing recapture를 V1022로 선택한 결과
+- `reports/NATIVE_INIT_V1022_ANDROID_PM_ESOC_TIMING_SAMPLER_2026-05-26.md` – V1022 source/plan 결과 Android 정상 부팅 직후 ADB read-only PM/eSoC/GPIO/IRQ/WLFW timing sampler가 준비된 결과
 - `reports/NATIVE_INIT_V1004_SERVICE_WINDOW_SUBSYS_TRIGGER_LIVE_2026-05-26.md` – V1004 live 결과 current-boot SELinux refresh 후 Android service-window actors는 관측됐지만 `mdm_helper`가 `/dev/esoc-0` fd를 hold하지 않아 `/dev/subsys_esoc0` trigger는 안전하게 미실행된 결과
 - `reports/NATIVE_INIT_V1003_HELPER_V170_DEPLOY_2026-05-26.md` – helper `v170`을 `/cache/bin/a90_android_execns_probe`로 deploy-only 설치하고 remote sha/contract parity 및 no-Wi-Fi guard를 확인한 V1003 결과
 - `reports/NATIVE_INIT_V1002_ANDROID_SERVICE_WINDOW_SUBSYS_TRIGGER_SUPPORT_2026-05-26.md` – helper `v170`에 Android service-window scoped `/dev/subsys_esoc0` trigger capture mode를 source/build-only로 추가한 V1002 결과
