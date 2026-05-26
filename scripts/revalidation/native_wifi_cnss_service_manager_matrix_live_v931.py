@@ -62,7 +62,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--toybox-timeout-sec", type=int, default=36)
     parser.add_argument(
         "--service-manager-order",
-        choices=("none", "before-cnss", "after-cnss", "after-mdm-helper-esoc-fd"),
+        choices=(
+            "none",
+            "before-cnss",
+            "after-cnss",
+            "after-mdm-helper-esoc-fd",
+            "after-mdm-helper-esoc-fd-with-pm-proxy",
+        ),
         default=DEFAULT_SERVICE_MANAGER_ORDER,
     )
     parser.add_argument("--allow-mountsystem-ro", action="store_true")
