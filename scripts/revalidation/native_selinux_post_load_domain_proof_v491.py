@@ -194,10 +194,9 @@ def build_checks(args: argparse.Namespace,
     base.add_check(checks, "native-clean", "pass" if "fail=0" in status else "blocked", "blocker",
                    "status/selftest fail=0 expected", [line for line in status.splitlines() if "selftest:" in line][:2],
                    "fix native runtime before post-load domain proof")
-    helper_marker_ready = any(
-        marker in helper_usage
-        for marker in ("a90_android_execns_probe v48", "a90_android_execns_probe v52", "a90_android_execns_probe v53")
-    )
+    helper_marker_match = re.search(r"a90_android_execns_probe v([0-9]+)", helper_usage)
+    helper_marker_version = int(helper_marker_match.group(1)) if helper_marker_match else 0
+    helper_marker_ready = helper_marker_version >= 48
     helper_ready = (
         args.helper_sha256 in helper_sha
         and helper_marker_ready

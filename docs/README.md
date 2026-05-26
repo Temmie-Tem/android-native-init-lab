@@ -130,6 +130,8 @@
 
 ### 3. Plans
 
+- `plans/NATIVE_INIT_V998_ANDROID_SERVICE_WINDOW_POST_SELINUX_PLAN_2026-05-26.md` – V997 current-boot SELinux proof 이후 helper `v169` Android service-window를 scan/connect 없이 한 번 재검증하는 V998 계획
+- `plans/NATIVE_INIT_V997_CURRENT_BOOT_SELINUX_DOMAIN_PROOF_PLAN_2026-05-26.md` – helper `v169` 배포 후 current-boot V401/V490 refresh와 service-window 핵심 domain proof를 실행하는 V997 계획
 - `plans/NATIVE_INIT_V996_HELPER_V169_DEPLOY_PLAN_2026-05-26.md` – helper `v169`를 deploy-only로 올리고 remote sha/contract parity를 확인하는 V996 계획
 - `plans/NATIVE_INIT_V995_SELINUX_DOMAIN_ALLOWLIST_PLAN_2026-05-26.md` – V994가 선택한 fresh SELinux proof route를 위해 helper `v169`에서 `wificond`/`vndservicemanager` domain proof coverage를 source/build-only로 추가하는 V995 계획
 - `plans/NATIVE_INIT_V994_SELINUX_ROUTE_CLASSIFIER_PLAN_2026-05-26.md` – V993 이후 `wificond` SELinux transition gap의 다음 route를 current-boot V490/domain proof refresh로 좁히는 V994 host-only 계획
@@ -438,6 +440,8 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V998_ANDROID_SERVICE_WINDOW_POST_SELINUX_2026-05-26.md` – V997 이후 service-window 재시도에서 `wificond`가 `u:r:wificond:s0`로 exec되고 14개 actor가 모두 관측됐지만 WLFW precondition이 남은 V998 결과
+- `reports/NATIVE_INIT_V997_CURRENT_BOOT_SELINUX_DOMAIN_PROOF_2026-05-26.md` – current-boot V401/V490 refresh 후 service-manager trio, `vndservicemanager`, `wificond`, Wi-Fi HAL domain post-exec proof가 5/5 PASS한 V997 결과
 - `reports/NATIVE_INIT_V996_HELPER_V169_DEPLOY_2026-05-26.md` – helper `v169`를 `/cache/bin/a90_android_execns_probe`로 deploy-only 설치하고 remote sha/contract parity와 post-deploy health를 확인한 V996 결과
 - `reports/NATIVE_INIT_V995_SELINUX_DOMAIN_ALLOWLIST_2026-05-26.md` – helper `v169`에서 `wificond`/`vndservicemanager` SELinux domain proof allowlist와 target profile을 추가하고 static build PASS를 확인한 V995 결과
 - `reports/NATIVE_INIT_V994_SELINUX_ROUTE_CLASSIFIER_2026-05-26.md` – V993 service-window가 current-boot SELinux policy-load/domain proof 없이 실행됐음을 분류하고 다음 gate를 V995 fresh SELinux refresh/domain proof로 선택한 V994 결과
