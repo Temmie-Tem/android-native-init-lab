@@ -191,6 +191,7 @@
 - `plans/NATIVE_INIT_V1067_PM_OBSERVER_BINDER_MATERIALIZATION_PLAN_2026-05-27.md` – V1066 observer namespace의 Binder device 누락을 helper `v185`로 수리하고 PM observer를 재검증하는 계획
 - `plans/NATIVE_INIT_V1074_PM_SERVICE_SYSCALL_TRACE_PLAN_2026-05-27.md` – helper `v196` PM observer에 bounded `pm-service` syscall trace와 compact output gate를 추가하는 계획
 - `plans/NATIVE_INIT_V1075_PM_SERVICE_UPROBE_HOST_CLASSIFIER_PLAN_2026-05-27.md` – V1074 ptrace 한계를 닫기 위해 `pm-service` ELF/PLT와 stock kernel uprobe/BPF readiness를 host-only로 분류하는 계획
+- `plans/NATIVE_INIT_V1076_PM_SERVICE_UPROBE_HELPER_BUILD_PLAN_2026-05-27.md` – V1075 후보 offset을 tracefs dynamic uprobe + BPF counter로 관찰할 static helper source/build-only 계획
 - `plans/NATIVE_INIT_V1003_HELPER_V170_DEPLOY_PLAN_2026-05-26.md` – V1002 helper `v170` 산출물을 `/cache/bin/a90_android_execns_probe`로 deploy-only 배포하고 sha/contract parity를 확인하는 V1003 계획
 - `plans/NATIVE_INIT_V1002_ANDROID_SERVICE_WINDOW_SUBSYS_TRIGGER_SUPPORT_PLAN_2026-05-26.md` – V1001에서 선택한 service-window-scoped `/dev/subsys_esoc0` trigger capture를 helper `v170`에 source/build-only로 추가하는 V1002 계획
 - `plans/NATIVE_INIT_V1001_V1000_ROUTE_COMPARATOR_PLAN_2026-05-26.md` – V1000 Android timing과 V998/V923/V964/V965 native evidence를 비교해 WLFW-precondition gate가 circular인지 host-only로 판정하는 V1001 계획
@@ -564,6 +565,7 @@
 - `reports/NATIVE_INIT_V1067_PM_OBSERVER_BINDER_MATERIALIZATION_2026-05-27.md` – V1067 결과 observer namespace에 Binder devices를 materialize해 V1066 Binder-open blocker를 제거했지만 service-manager SIGABRT와 `pm-service` exit 255가 남음을 분류한 결과
 - `reports/NATIVE_INIT_V1074_PM_SERVICE_SYSCALL_TRACE_2026-05-27.md` – V1074 결과 helper `v196`이 final summary를 보존하며 `per_mgr` syscall trace를 캡처했지만 exit-255 root cause는 uprobe/BPF로 넘긴 결과
 - `reports/NATIVE_INIT_V1075_PM_SERVICE_UPROBE_HOST_CLASSIFIER_2026-05-27.md` – V1075 결과 `pm-service` entry/main/PLT 후보와 `CONFIG_UPROBES`/`BPF_EVENTS` readiness가 확인되어 V1076 bounded uprobe helper로 라우팅한 결과
+- `reports/NATIVE_INIT_V1076_PM_SERVICE_UPROBE_HELPER_BUILD_2026-05-27.md` – V1076 결과 `a90_pm_service_uprobe_counter v1076` static helper가 빌드되고 deploy/check-only V1077로 라우팅된 결과
 - `reports/NATIVE_INIT_V1004_SERVICE_WINDOW_SUBSYS_TRIGGER_LIVE_2026-05-26.md` – V1004 live 결과 current-boot SELinux refresh 후 Android service-window actors는 관측됐지만 `mdm_helper`가 `/dev/esoc-0` fd를 hold하지 않아 `/dev/subsys_esoc0` trigger는 안전하게 미실행된 결과
 - `reports/NATIVE_INIT_V1003_HELPER_V170_DEPLOY_2026-05-26.md` – helper `v170`을 `/cache/bin/a90_android_execns_probe`로 deploy-only 설치하고 remote sha/contract parity 및 no-Wi-Fi guard를 확인한 V1003 결과
 - `reports/NATIVE_INIT_V1002_ANDROID_SERVICE_WINDOW_SUBSYS_TRIGGER_SUPPORT_2026-05-26.md` – helper `v170`에 Android service-window scoped `/dev/subsys_esoc0` trigger capture mode를 source/build-only로 추가한 V1002 결과
