@@ -434,6 +434,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V966_ANDROID_WLFW_START_ATTRIBUTION_2026-05-26.md` – V913 Android same-boot dmesg와 V963 native comparator를 host-only로 비교해 `wlfw_start`가 Android init Wi-Fi service-window에서 발생하며 direct eSoC open/qcwlanstate 재시도보다 V967 service-window parity가 먼저임을 분류한 결과
 - `reports/NATIVE_INIT_V965_V964_ROUTE_CLASSIFIER_2026-05-26.md` – V963/V964 이후 direct `/dev/subsys_esoc0`, `qcwlanstate`, `IWifi.start` 재시도를 보류하고 다음 단위를 Android `cnss-daemon wlfw_start` trigger attribution으로 선정한 V965 결과
 - `reports/NATIVE_INIT_V964_V963_POST_PROVIDER_TRIGGER_CLASSIFIER_2026-05-26.md` – V963 post-provider trigger evidence를 host-only로 분류해 `/dev/subsys_esoc0` open이 `sdx50m_toggle_soft_reset`/`mdm_subsys_powerup` 경로에서 stall됨을 확정한 V964 결과
 - `reports/NATIVE_INIT_V963_POST_PROVIDER_TRIGGER_LIVE_2026-05-26.md` – helper `v160`의 `post-provider-no-wlfw` gate로 `/dev/subsys_esoc0` child open을 live 실행하고 cleanup reboot로 회복한 V963 결과
