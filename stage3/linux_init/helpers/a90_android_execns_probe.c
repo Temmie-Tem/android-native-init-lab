@@ -88,7 +88,7 @@
 #define IOPRIO_PRIO_VALUE(class_value, data) (((class_value) << IOPRIO_CLASS_SHIFT) | (data))
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v164"
+#define EXECNS_VERSION "a90_android_execns_probe v165"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -2911,6 +2911,8 @@ static int materialize_service_manager_binder_devices(const struct config *cfg,
           (is_wifi_companion_any_start_only_mode(cfg->mode) &&
            cfg->allow_wifi_companion_start_only &&
            cfg->allow_cnss_start_only) ||
+          (is_wifi_companion_android_wifi_service_window_start_only_mode(cfg->mode) &&
+           cfg->allow_android_wifi_service_window) ||
           (is_wifi_companion_mdm_helper_runtime_any_mode(cfg->mode) &&
            (cfg->allow_mdm_helper_runtime_contract_capture ||
             cfg->allow_mdm_helper_subsys_trigger_capture ||
