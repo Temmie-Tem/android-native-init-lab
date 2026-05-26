@@ -435,6 +435,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V981_HELPER_V165_DEPLOY_2026-05-26.md` – helper `v165`를 `/cache/bin/a90_android_execns_probe`에 deploy-only로 설치하고 remote sha/mode parity 및 no-Wi-Fi guard를 확인한 V981 결과
 - `reports/NATIVE_INIT_V980_ANDROID_SERVICE_WINDOW_BINDER_MATERIALIZATION_2026-05-26.md` – V979 조기 `SIGABRT` 원인이 private namespace `/dev/binder` 부재임을 반영해 helper `v165`에서 Android service-window 전용 binder/hwbinder/vndbinder materialization gate를 source/build-only로 수리한 V980 결과
 - `reports/NATIVE_INIT_V979_ANDROID_SERVICE_WINDOW_LIVE_V164_2026-05-26.md` – helper `v164` Android service-window start-only가 14개 actor 실행까지 도달했으나 service-manager/HAL 계열 조기 `SIGABRT`와 `wlfw_precondition=0` runtime gap으로 분류된 V979 결과
 - `reports/NATIVE_INIT_V978_HELPER_V164_DEPLOY_2026-05-26.md` – helper `v164`를 `/cache/bin/a90_android_execns_probe`에 deploy-only로 설치하고 remote sha/mode parity 및 no-Wi-Fi guard를 확인한 V978 결과
