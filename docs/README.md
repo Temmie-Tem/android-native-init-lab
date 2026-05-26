@@ -435,6 +435,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V990_WIFICOND_SERVICE_REGISTRATION_GAP_2026-05-26.md` – `wifinl80211` service context는 존재하지만 `wificond`/`servicemanager`가 `kernel` SELinux context로 남아 `addService`가 실패하는 갭을 분류한 V990 결과
 - `reports/NATIVE_INIT_V989_WIFICOND_OFFSET_CLASSIFIER_2026-05-26.md` – V988 `wificond` crash offset을 matching binary로 분류해 `sm->addService(...) == android::NO_ERROR` fatal check가 다음 blocker임을 확인한 V989 결과
 - `reports/NATIVE_INIT_V988_ANDROID_SERVICE_WINDOW_LIVE_V167_2026-05-26.md` – helper `v167` Android service-window에서 `wificond` ptrace crash capture가 동작했고 crash offset 분류가 다음 blocker임을 확인한 V988 결과
 - `reports/NATIVE_INIT_V987_HELPER_V167_DEPLOY_2026-05-26.md` – helper `v167`를 `/cache/bin/a90_android_execns_probe`에 deploy-only로 설치하고 remote sha/mode parity 및 no-Wi-Fi guard를 확인한 V987 결과
