@@ -88,7 +88,7 @@
 #define IOPRIO_PRIO_VALUE(class_value, data) (((class_value) << IOPRIO_CLASS_SHIFT) | (data))
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v186"
+#define EXECNS_VERSION "a90_android_execns_probe v188"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -1838,8 +1838,9 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             fprintf(stderr, "--linker is not used by wifi-companion-pm-service-trigger-observer mode\n");
             return 2;
         }
-        if (!streq(cfg->capture_mode, "none")) {
-            fprintf(stderr, "--capture-mode must be none for wifi-companion-pm-service-trigger-observer mode\n");
+        if (!(streq(cfg->capture_mode, "none") ||
+              streq(cfg->capture_mode, "ptrace-lite"))) {
+            fprintf(stderr, "--capture-mode must be none or ptrace-lite for wifi-companion-pm-service-trigger-observer mode\n");
             return 2;
         }
         if (!cfg->allow_pm_service_trigger_observer) {
@@ -15749,6 +15750,7 @@ struct composite_child {
     bool maps_summary_captured;
     bool stall_snapshot_captured;
     bool traced;
+    bool trace_minimal;
     bool trace_initial_stop;
     bool capture_exec;
     bool capture_crash;
@@ -15782,6 +15784,11 @@ static bool composite_child_should_trace(const struct config *cfg,
             child->identity == COMPOSITE_ID_WIFI_HAL) ||
            (is_wifi_companion_ptrace_capture(cfg) &&
             child->identity == COMPOSITE_ID_CNSS) ||
+           (is_wifi_companion_pm_service_trigger_observer_mode(cfg->mode) &&
+            cfg->allow_pm_service_trigger_observer &&
+            streq(cfg->capture_mode, "ptrace-lite") &&
+            (child->identity == COMPOSITE_ID_SERVICE_MANAGER ||
+             child->identity == COMPOSITE_ID_VND_SERVICE_MANAGER)) ||
            (is_wifi_companion_android_wifi_service_window_any_mode(cfg->mode) &&
             cfg->allow_android_wifi_service_window &&
             child->identity == COMPOSITE_ID_WIFICOND);
@@ -16185,6 +16192,10 @@ static int composite_spawn_child(const struct config *cfg,
     child->stdout_open = true;
     child->stderr_open = true;
     child->traced = composite_child_should_trace(cfg, child);
+    child->trace_minimal =
+        is_wifi_companion_pm_service_trigger_observer_mode(cfg->mode) &&
+        cfg->allow_pm_service_trigger_observer &&
+        streq(cfg->capture_mode, "ptrace-lite");
     set_nonblock(child->stdout_fd);
     set_nonblock(child->stderr_fd);
     child->pgid = wait_for_child_session_pgid(child->pid, 1000);
@@ -16251,7 +16262,7 @@ static int composite_handle_traced_stop(struct composite_child *child,
         append_format(stdout_buf,
                       "wifi_hal_composite_start.child.%s.trace.exec_stop=1\n",
                       child->name);
-        if (append_capture_snapshot_compact(stdout_buf, child->pid, "exec", true) < 0) {
+        if (append_capture_snapshot_compact(stdout_buf, child->pid, "exec", !child->trace_minimal) < 0) {
             return -1;
         }
     } else if ((sig == SIGSEGV || sig == SIGBUS || sig == SIGILL || sig == SIGABRT) &&
@@ -16261,7 +16272,7 @@ static int composite_handle_traced_stop(struct composite_child *child,
                       "wifi_hal_composite_start.child.%s.trace.crash_stop=1\n",
                       child->name);
         if (append_ptrace_siginfo_compact(stdout_buf, child->pid, "crash") < 0 ||
-            append_capture_snapshot_compact(stdout_buf, child->pid, "crash", true) < 0) {
+            append_capture_snapshot_compact(stdout_buf, child->pid, "crash", !child->trace_minimal) < 0) {
             return -1;
         }
         deliver_sig = sig;
@@ -17384,6 +17395,39 @@ static void composite_capture_observable_children(struct composite_child *childr
                       "wifi_hal_composite_start.child.%s.capture_label=%s\n",
                       children[i].name,
                       label);
+    }
+}
+
+static void composite_capture_observable_children_no_maps(struct composite_child *children,
+                                                          size_t child_count,
+                                                          struct buffer *stdout_buf) {
+    for (size_t i = 0; i < child_count; i++) {
+        char label[96];
+
+        if (children[i].child_done || children[i].pid <= 0 || kill(children[i].pid, 0) < 0) {
+            continue;
+        }
+        children[i].observable = true;
+        snprintf(label, sizeof(label), "wifi_hal_composite_%s", children[i].name);
+        append_proc_file_capture(stdout_buf,
+                                 children[i].pid,
+                                 "status",
+                                 8192,
+                                 &children[i].proc_status_captured);
+        append_proc_file_capture_named(stdout_buf,
+                                       children[i].pid,
+                                       "attr/current",
+                                       "attr_current",
+                                       4096,
+                                       &children[i].proc_attr_current_captured);
+        append_proc_fd_summary(stdout_buf, children[i].pid, &children[i].fd_summary_captured);
+        append_proc_fd_links_compact(stdout_buf, children[i].pid, label);
+        append_format(stdout_buf,
+                      "wifi_hal_composite_start.child.%s.capture_label=%s\n"
+                      "wifi_hal_composite_start.child.%s.maps_summary_captured=0\n",
+                      children[i].name,
+                      label,
+                      children[i].name);
     }
 }
 
@@ -26055,7 +26099,11 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
         stop_property_service_shim(&property_shim, paths, stdout_buf);
         return -1;
     }
-    composite_capture_observable_children(children, active_child_count, stdout_buf);
+    if (streq(cfg->capture_mode, "ptrace-lite")) {
+        composite_capture_observable_children_no_maps(children, active_child_count, stdout_buf);
+    } else {
+        composite_capture_observable_children(children, active_child_count, stdout_buf);
+    }
     composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
     stop_property_service_shim(&property_shim, paths, stdout_buf);
 
@@ -26082,6 +26130,10 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                           "pm_service_trigger_observer.child.%s.exited=%d\n"
                           "pm_service_trigger_observer.child.%s.exit_code=%d\n"
                           "pm_service_trigger_observer.child.%s.signal=%d\n"
+                          "pm_service_trigger_observer.child.%s.traced=%d\n"
+                          "pm_service_trigger_observer.child.%s.trace_initial_stop=%d\n"
+                          "pm_service_trigger_observer.child.%s.capture_exec=%d\n"
+                          "pm_service_trigger_observer.child.%s.capture_crash=%d\n"
                           "pm_service_trigger_observer.child.%s.term_sent=%d\n"
                           "pm_service_trigger_observer.child.%s.kill_sent=%d\n"
                           "pm_service_trigger_observer.child.%s.reaped=%d\n"
@@ -26094,6 +26146,14 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                           children[i].exit_code,
                           children[i].name,
                           children[i].signal,
+                          children[i].name,
+                          children[i].traced ? 1 : 0,
+                          children[i].name,
+                          children[i].trace_initial_stop ? 1 : 0,
+                          children[i].name,
+                          children[i].capture_exec ? 1 : 0,
+                          children[i].name,
+                          children[i].capture_crash ? 1 : 0,
                           children[i].name,
                           children[i].term_sent ? 1 : 0,
                           children[i].name,
