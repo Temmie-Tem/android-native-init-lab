@@ -88,7 +88,7 @@
 #define IOPRIO_PRIO_VALUE(class_value, data) (((class_value) << IOPRIO_CLASS_SHIFT) | (data))
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v185"
+#define EXECNS_VERSION "a90_android_execns_probe v186"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -2636,6 +2636,9 @@ static int materialize_private_properties(const struct config *cfg,
           cfg->allow_mdm_helper_subsys_trigger_capture ||
           cfg->allow_mdm_helper_cnss_before_subsys_trigger_capture ||
           cfg->allow_mdm_helper_cnss_service_manager_matrix) &&
+         cfg->property_root != NULL) ||
+        (is_wifi_companion_pm_service_trigger_observer_mode(cfg->mode) &&
+         cfg->allow_pm_service_trigger_observer &&
          cfg->property_root != NULL) ||
         ((is_rmt_storage_start_only_mode(cfg->mode) ||
           is_wifi_companion_any_start_only_mode(cfg->mode) ||
