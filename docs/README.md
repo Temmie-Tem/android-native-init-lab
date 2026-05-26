@@ -571,6 +571,7 @@
 - `reports/NATIVE_INIT_V1078_PM_SERVICE_UPROBE_ACTIVE_LIVE_2026-05-27.md` – V1078 결과 read-only vendor mount와 dynamic uprobe event 등록은 통과했지만 BPF/perf attach가 `EINVAL`로 막혀 tracefs-only collector가 다음임을 분류한 결과
 - `reports/NATIVE_INIT_V1079_PM_SERVICE_TRACEFS_UPROBE_LIVE_2026-05-27.md` – V1079 결과 BPF 없이 tracefs-only dynamic uprobe로 `pm-service` entry/main 및 `mdmdetect_system_info`/`android_log` hit를 캡처하고 PM runtime gap을 재확인한 결과
 - `reports/NATIVE_INIT_V1080_PM_SERVICE_TRACEFS_EXPANDED_LIVE_2026-05-27.md` – V1080 결과 expanded PLT trace에서 `pipe`/`get_system_info`/`android_log`/`close`만 hit되고 Binder/QMI/open 계열은 0이라 `per_mgr` exit-255가 매우 초기 경로임을 분류한 결과
+- `reports/NATIVE_INIT_V1081_PM_SERVICE_EARLY_PATH_CLASSIFIER_2026-05-27.md` – V1081 host-only 결과 `get_system_info` 실패 분기(`0x6bc4` success branch 미진입) 후 `per_mgr`가 Binder/QMI 전에 종료되는 early path와 V1082 instruction uprobe 후보를 분류한 결과
 - `reports/NATIVE_INIT_V1004_SERVICE_WINDOW_SUBSYS_TRIGGER_LIVE_2026-05-26.md` – V1004 live 결과 current-boot SELinux refresh 후 Android service-window actors는 관측됐지만 `mdm_helper`가 `/dev/esoc-0` fd를 hold하지 않아 `/dev/subsys_esoc0` trigger는 안전하게 미실행된 결과
 - `reports/NATIVE_INIT_V1003_HELPER_V170_DEPLOY_2026-05-26.md` – helper `v170`을 `/cache/bin/a90_android_execns_probe`로 deploy-only 설치하고 remote sha/contract parity 및 no-Wi-Fi guard를 확인한 V1003 결과
 - `reports/NATIVE_INIT_V1002_ANDROID_SERVICE_WINDOW_SUBSYS_TRIGGER_SUPPORT_2026-05-26.md` – helper `v170`에 Android service-window scoped `/dev/subsys_esoc0` trigger capture mode를 source/build-only로 추가한 V1002 결과
