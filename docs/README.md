@@ -15,10 +15,10 @@
 
 ## 최신 Wi-Fi bring-up 조사 기준
 
-- 2026-05-27 기준 최신 PM observer proof는 `docs/reports/NATIVE_INIT_V1102_PM_SERVER_EARLY_REGISTER_TRACEFS_2026-05-27.md`입니다.
-- V1102에서 `pm-proxy`는 PM register/connect 모두 `0x0`으로 반환되지만 `cnss-daemon`은 `peripheral="modem"`/`client="cnss-daemon"` register 중 supported list의 첫 `SDX50M` entry를 통과한 뒤 두 번째/modem entry helper call에서 멈춤을 확인했습니다.
+- 2026-05-27 기준 최신 PM observer proof는 `docs/reports/NATIVE_INIT_V1103_PM_SERVER_NAME_HELPER_TRACEFS_2026-05-27.md`입니다.
+- V1103에서 `pm-proxy`는 PM register/connect 모두 `0x0`으로 반환되지만 `cnss-daemon`은 `peripheral="modem"`/`client="cnss-daemon"` register 중 두 번째/modem record의 `pthread_mutex_lock(entry + 0x18)`에서 멈춤을 확인했습니다.
 - 아직 Wi-Fi HAL, scan/connect/link-up, DHCP, route, external ping은 실행하지 않았습니다.
-- 다음 블로커는 `pm-service` helper `0x9538` 내부의 `pthread_mutex_lock(entry + 0x18)` 경계 분류입니다.
+- 다음 블로커는 `pm-proxy` 이후 modem record mutex가 CNSS Binder thread에서 반환되지 않는 lock owner/lifetime 분류입니다.
 
 ## 현재 기준점
 
@@ -605,6 +605,7 @@
 - `reports/NATIVE_INIT_V1100_CNSS_PM_REGISTER_RETURN_TRACEFS_2026-05-27.md` – V1100 결과 `cnss-daemon`은 `peripheral="modem"`/`client="cnss-daemon"` register transaction `0x1` 이후 `pm_client_register`가 반환되지 않아 connect/vote로 전진하지 못함을 확인한 결과
 - `reports/NATIVE_INIT_V1101_PM_SERVER_REGISTER_PATH_TRACEFS_2026-05-27.md` – V1101 결과 `cnss-daemon`은 `peripheral="modem"`/`client="cnss-daemon"` register에서 `pm-service` server entry까지 도달하지만 `0x60cc` supported-peripheral match 전에서 멈춤을 확인한 결과
 - `reports/NATIVE_INIT_V1102_PM_SERVER_EARLY_REGISTER_TRACEFS_2026-05-27.md` – V1102 결과 `cnss-daemon`은 `pm-service` register path에서 첫 `SDX50M` entry 비교 후 두 번째/modem entry helper call `0x9538`에서 반환하지 않아 다음을 helper mutex boundary로 좁힌 결과
+- `reports/NATIVE_INIT_V1103_PM_SERVER_NAME_HELPER_TRACEFS_2026-05-27.md` – V1103 결과 두 번째/modem entry helper가 `pthread_mutex_lock(entry + 0x18)`에서 반환하지 않아 다음을 modem record mutex owner/lifetime 분류로 좁힌 결과
 - `reports/NATIVE_INIT_V1004_SERVICE_WINDOW_SUBSYS_TRIGGER_LIVE_2026-05-26.md` – V1004 live 결과 current-boot SELinux refresh 후 Android service-window actors는 관측됐지만 `mdm_helper`가 `/dev/esoc-0` fd를 hold하지 않아 `/dev/subsys_esoc0` trigger는 안전하게 미실행된 결과
 - `reports/NATIVE_INIT_V1003_HELPER_V170_DEPLOY_2026-05-26.md` – helper `v170`을 `/cache/bin/a90_android_execns_probe`로 deploy-only 설치하고 remote sha/contract parity 및 no-Wi-Fi guard를 확인한 V1003 결과
 - `reports/NATIVE_INIT_V1002_ANDROID_SERVICE_WINDOW_SUBSYS_TRIGGER_SUPPORT_2026-05-26.md` – helper `v170`에 Android service-window scoped `/dev/subsys_esoc0` trigger capture mode를 source/build-only로 추가한 V1002 결과
