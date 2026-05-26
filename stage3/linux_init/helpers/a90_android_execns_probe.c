@@ -88,7 +88,7 @@
 #define IOPRIO_PRIO_VALUE(class_value, data) (((class_value) << IOPRIO_CLASS_SHIFT) | (data))
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v188"
+#define EXECNS_VERSION "a90_android_execns_probe v189"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -2700,6 +2700,8 @@ static int materialize_selinuxfs_surface(const struct config *cfg,
         !streq(cfg->mode, "selinux-domain-proof") &&
         !streq(cfg->mode, "service-manager-start-only") &&
         !is_rmt_storage_start_only_mode(cfg->mode) &&
+        !(is_wifi_companion_pm_service_trigger_observer_mode(cfg->mode) &&
+          cfg->allow_pm_service_trigger_observer) &&
         !is_wifi_companion_mdm_helper_runtime_any_mode(cfg->mode) &&
         !is_wifi_companion_any_start_only_mode(cfg->mode) &&
         !is_wifi_companion_hal_order_start_only_mode(cfg->mode) &&
