@@ -434,6 +434,8 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V960_V959_FULL_SURFACE_CLASSIFIER_2026-05-26.md` – V959 full-surface evidence를 host-only로 분류해 provider/CNSS netlink는 살아 있고 남은 blocker가 MHI/WLFW/BDF/`wlan0` 부재임을 확정한 V960 결과
+- `reports/NATIVE_INIT_V959_PM_PROXY_FULL_SURFACE_LIVE_2026-05-26.md` – helper `v159` `pm-proxy` matrix를 full surface로 재실행해 `cld80211` netlink 도달과 MHI/WLFW/BDF/`wlan0` 부재를 fail-closed로 수집한 V959 결과
 - `reports/NATIVE_INIT_V958_V957_PM_PROXY_MATRIX_CLASSIFIER_2026-05-26.md` – V957 `pm-proxy` matrix evidence를 V953과 비교해 provider lifecycle gap은 수리됐고 남은 blocker가 post-provider WLFW/CNSS gap임을 분류한 V958 결과
 - `reports/NATIVE_INIT_V957_PM_PROXY_MATRIX_LIVE_2026-05-26.md` – helper `v159` bounded `pm-proxy` matrix live 결과; `pm-service`/`pm-proxy` provider surface는 service-manager/CNSS 이후까지 유지되지만 WLFW precondition은 계속 없음
 - `reports/NATIVE_INIT_V956_HELPER_V159_DEPLOY_2026-05-26.md` – helper `v159`를 `/cache/bin/a90_android_execns_probe`로 deploy-only 배포하고 no-daemon/no-Wi-Fi guard를 확인한 V956 결과
