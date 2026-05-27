@@ -97,7 +97,7 @@
 #define IOPRIO_PRIO_VALUE(class_value, data) (((class_value) << IOPRIO_CLASS_SHIFT) | (data))
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v211"
+#define EXECNS_VERSION "a90_android_execns_probe v212"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -251,6 +251,7 @@ struct config {
     bool pm_observer_start_cnss_before_per_proxy;
     bool pm_observer_start_cnss_immediate_after_per_mgr;
     bool pm_observer_start_cnss_zero_delay_after_per_mgr;
+    bool pm_observer_private_firmware_mounts;
 };
 
 struct a90_hidl_string_wire {
@@ -415,6 +416,7 @@ static void usage(FILE *out) {
             "[--pm-observer-start-cnss-before-per-proxy] "
             "[--pm-observer-start-cnss-immediate-after-per-mgr] "
             "[--pm-observer-start-cnss-zero-delay-after-per-mgr] "
+            "[--pm-observer-private-firmware-mounts] "
             "[--qrtr-readback-matrix label:service:instance[,instance][;...]] "
             "[--connect-config /cache/a90-wifi/...] "
             "[--connect-iface auto|wlan0] "
@@ -1154,6 +1156,10 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             cfg->pm_observer_start_cnss_zero_delay_after_per_mgr = true;
             continue;
         }
+        if (strcmp(argv[i], "--pm-observer-private-firmware-mounts") == 0) {
+            cfg->pm_observer_private_firmware_mounts = true;
+            continue;
+        }
         if (strcmp(argv[i], "--allow-android-wifi-service-window") == 0) {
             cfg->allow_android_wifi_service_window = true;
             continue;
@@ -1648,6 +1654,11 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
     if (cfg->pm_observer_start_cnss_immediate_after_per_mgr &&
         cfg->pm_observer_start_cnss_zero_delay_after_per_mgr) {
         fprintf(stderr, "--pm-observer-start-cnss-immediate-after-per-mgr and --pm-observer-start-cnss-zero-delay-after-per-mgr are mutually exclusive\n");
+        return 2;
+    }
+    if (cfg->pm_observer_private_firmware_mounts &&
+        !is_wifi_companion_pm_service_trigger_observer_mode(cfg->mode)) {
+        fprintf(stderr, "--pm-observer-private-firmware-mounts is only valid with wifi-companion-pm-service-trigger-observer mode\n");
         return 2;
     }
     if (cfg->allow_android_wifi_service_window &&
@@ -8568,7 +8579,9 @@ static int materialize_wifi_firmware_mounts(const struct config *cfg,
         !is_wifi_companion_mdm_helper_runtime_any_mode(cfg->mode) &&
         !is_wifi_companion_hal_order_start_only_mode(cfg->mode) &&
         !is_subsys_hold_open_proof_mode(cfg->mode) &&
-        !is_wifi_hal_composite_mode(cfg->mode)) {
+        !is_wifi_hal_composite_mode(cfg->mode) &&
+        !(is_wifi_companion_pm_service_trigger_observer_mode(cfg->mode) &&
+          cfg->pm_observer_private_firmware_mounts)) {
         return 0;
     }
     if (mount_one_wifi_firmware_partition("apnhlos",
@@ -27302,7 +27315,10 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                       "pm_service_trigger_observer.start_cnss_after_provider=%d\n"
                       "pm_service_trigger_observer.start_cnss_before_per_proxy=%d\n"
                       "pm_service_trigger_observer.start_cnss_immediate_after_per_mgr=%d\n"
-                      "pm_service_trigger_observer.start_cnss_zero_delay_after_per_mgr=%d\n",
+                      "pm_service_trigger_observer.start_cnss_zero_delay_after_per_mgr=%d\n"
+                      "pm_service_trigger_observer.private_firmware_mounts_requested=%d\n"
+                      "pm_service_trigger_observer.private_firmware_mnt_mounted=%d\n"
+                      "pm_service_trigger_observer.private_firmware_modem_mounted=%d\n",
                       cfg->pm_observer_start_cnss_zero_delay_after_per_mgr
                           ? "servicemanager,hwservicemanager,vndservicemanager,vndservicemanager_ready,pm_proxy_helper,per_mgr,cnss_daemon_zero_delay,per_proxy_skipped,vndservice_query"
                           : (cfg->pm_observer_start_cnss_immediate_after_per_mgr
@@ -27318,7 +27334,10 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                       cfg->pm_observer_start_cnss_after_provider ? 1 : 0,
                       cfg->pm_observer_start_cnss_before_per_proxy ? 1 : 0,
                       cfg->pm_observer_start_cnss_immediate_after_per_mgr ? 1 : 0,
-                      cfg->pm_observer_start_cnss_zero_delay_after_per_mgr ? 1 : 0) < 0) {
+                      cfg->pm_observer_start_cnss_zero_delay_after_per_mgr ? 1 : 0,
+                      cfg->pm_observer_private_firmware_mounts ? 1 : 0,
+                      access(paths->firmware_mnt_source, F_OK) == 0 ? 1 : 0,
+                      access(paths->firmware_modem_source, F_OK) == 0 ? 1 : 0) < 0) {
         return -1;
     }
     if (!cfg->allow_pm_service_trigger_observer) {
