@@ -97,7 +97,7 @@
 #define IOPRIO_PRIO_VALUE(class_value, data) (((class_value) << IOPRIO_CLASS_SHIFT) | (data))
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v212"
+#define EXECNS_VERSION "a90_android_execns_probe v213"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -243,6 +243,7 @@ struct config {
     bool allow_mdm_helper_cnss_service_manager_matrix;
     bool allow_pm_full_contract_with_modem_holder;
     bool allow_pm_service_trigger_observer;
+    bool allow_pm_observer_modem_pre_holder;
     bool allow_android_wifi_service_window;
     bool allow_android_wifi_service_window_subsys_trigger_capture;
     bool require_android_selinux_exec_match;
@@ -252,6 +253,7 @@ struct config {
     bool pm_observer_start_cnss_immediate_after_per_mgr;
     bool pm_observer_start_cnss_zero_delay_after_per_mgr;
     bool pm_observer_private_firmware_mounts;
+    bool pm_observer_modem_pre_holder;
 };
 
 struct a90_hidl_string_wire {
@@ -409,6 +411,7 @@ static void usage(FILE *out) {
             "[--allow-mdm-helper-cnss-service-manager-matrix] "
             "[--allow-pm-full-contract-with-modem-holder] "
             "[--allow-pm-service-trigger-observer] "
+            "[--allow-pm-observer-modem-pre-holder] "
             "[--allow-android-wifi-service-window] "
             "[--allow-android-wifi-service-window-subsys-trigger-capture] "
             "[--pm-observer-continue-after-provider] "
@@ -417,6 +420,7 @@ static void usage(FILE *out) {
             "[--pm-observer-start-cnss-immediate-after-per-mgr] "
             "[--pm-observer-start-cnss-zero-delay-after-per-mgr] "
             "[--pm-observer-private-firmware-mounts] "
+            "[--pm-observer-modem-pre-holder] "
             "[--qrtr-readback-matrix label:service:instance[,instance][;...]] "
             "[--connect-config /cache/a90-wifi/...] "
             "[--connect-iface auto|wlan0] "
@@ -1136,6 +1140,10 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             cfg->allow_pm_service_trigger_observer = true;
             continue;
         }
+        if (strcmp(argv[i], "--allow-pm-observer-modem-pre-holder") == 0) {
+            cfg->allow_pm_observer_modem_pre_holder = true;
+            continue;
+        }
         if (strcmp(argv[i], "--pm-observer-continue-after-provider") == 0) {
             cfg->pm_observer_continue_after_provider = true;
             continue;
@@ -1158,6 +1166,10 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
         }
         if (strcmp(argv[i], "--pm-observer-private-firmware-mounts") == 0) {
             cfg->pm_observer_private_firmware_mounts = true;
+            continue;
+        }
+        if (strcmp(argv[i], "--pm-observer-modem-pre-holder") == 0) {
+            cfg->pm_observer_modem_pre_holder = true;
             continue;
         }
         if (strcmp(argv[i], "--allow-android-wifi-service-window") == 0) {
@@ -1606,6 +1618,11 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
         fprintf(stderr, "--allow-pm-service-trigger-observer is only valid with wifi-companion-pm-service-trigger-observer mode\n");
         return 2;
     }
+    if (cfg->allow_pm_observer_modem_pre_holder &&
+        !is_wifi_companion_pm_service_trigger_observer_mode(cfg->mode)) {
+        fprintf(stderr, "--allow-pm-observer-modem-pre-holder is only valid with wifi-companion-pm-service-trigger-observer mode\n");
+        return 2;
+    }
     if (cfg->pm_observer_continue_after_provider &&
         !is_wifi_companion_pm_service_trigger_observer_mode(cfg->mode)) {
         fprintf(stderr, "--pm-observer-continue-after-provider is only valid with wifi-companion-pm-service-trigger-observer mode\n");
@@ -1659,6 +1676,16 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
     if (cfg->pm_observer_private_firmware_mounts &&
         !is_wifi_companion_pm_service_trigger_observer_mode(cfg->mode)) {
         fprintf(stderr, "--pm-observer-private-firmware-mounts is only valid with wifi-companion-pm-service-trigger-observer mode\n");
+        return 2;
+    }
+    if (cfg->pm_observer_modem_pre_holder &&
+        !is_wifi_companion_pm_service_trigger_observer_mode(cfg->mode)) {
+        fprintf(stderr, "--pm-observer-modem-pre-holder is only valid with wifi-companion-pm-service-trigger-observer mode\n");
+        return 2;
+    }
+    if (cfg->pm_observer_modem_pre_holder &&
+        !cfg->allow_pm_observer_modem_pre_holder) {
+        fprintf(stderr, "--pm-observer-modem-pre-holder requires --allow-pm-observer-modem-pre-holder\n");
         return 2;
     }
     if (cfg->allow_android_wifi_service_window &&
@@ -1988,7 +2015,7 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             cfg->allow_pm_full_contract_with_modem_holder ||
             cfg->allow_android_wifi_service_window ||
             cfg->allow_android_wifi_service_window_subsys_trigger_capture) {
-            fprintf(stderr, "wifi-companion-pm-service-trigger-observer accepts only --allow-pm-service-trigger-observer and no daemon/HAL/scan/connect/eSOC proof flags\n");
+            fprintf(stderr, "wifi-companion-pm-service-trigger-observer accepts only --allow-pm-service-trigger-observer plus its scoped modem pre-holder allow flag and no daemon/HAL/scan/connect/eSOC proof flags\n");
             return 2;
         }
     } else if (cfg->cnss_surface_mode_explicit) {
@@ -27226,6 +27253,148 @@ static int append_pm_provider_lower_surface_snapshot(struct buffer *buf,
     return 0;
 }
 
+static int start_pm_service_trigger_observer_modem_pre_holder(const struct paths *paths,
+                                                              struct buffer *stdout_buf,
+                                                              pid_t *holder_pid,
+                                                              bool *holder_opened) {
+    int holder_pipe[2] = {-1, -1};
+    bool pipe_open = true;
+    bool reported_open;
+    bool reported_result;
+    long deadline;
+
+    *holder_pid = -1;
+    *holder_opened = false;
+    if (pipe2(holder_pipe, O_CLOEXEC) < 0) {
+        return append_format(stdout_buf,
+                             "pm_service_trigger_observer.modem_pre_holder_start_attempted=1\n"
+                             "pm_service_trigger_observer.modem_pre_holder_pipe_error=%s\n",
+                             strerror(errno));
+    }
+    *holder_pid = fork();
+    if (*holder_pid < 0) {
+        int saved_errno = errno;
+        close(holder_pipe[0]);
+        close(holder_pipe[1]);
+        return append_format(stdout_buf,
+                             "pm_service_trigger_observer.modem_pre_holder_start_attempted=1\n"
+                             "pm_service_trigger_observer.modem_pre_holder_fork_error=%s\n",
+                             strerror(saved_errno));
+    }
+    if (*holder_pid == 0) {
+        int mfd;
+
+        close(holder_pipe[0]);
+        prctl(PR_SET_PDEATHSIG, SIGKILL, 0, 0, 0);
+        if (setsid() < 0) {
+            dprintf(holder_pipe[1],
+                    "pm_service_trigger_observer.modem_pre_holder_opened=0\n"
+                    "pm_service_trigger_observer.modem_pre_holder_errno=%d\n"
+                    "pm_service_trigger_observer.modem_pre_holder_setsid_error=%s\n",
+                    errno,
+                    strerror(errno));
+            close(holder_pipe[1]);
+            _exit(32);
+        }
+        if (chroot(paths->root) < 0) {
+            dprintf(holder_pipe[1],
+                    "pm_service_trigger_observer.modem_pre_holder_opened=0\n"
+                    "pm_service_trigger_observer.modem_pre_holder_errno=%d\n"
+                    "pm_service_trigger_observer.modem_pre_holder_chroot_error=%s\n",
+                    errno,
+                    strerror(errno));
+            close(holder_pipe[1]);
+            _exit(33);
+        }
+        if (chdir("/") < 0) {
+            dprintf(holder_pipe[1],
+                    "pm_service_trigger_observer.modem_pre_holder_opened=0\n"
+                    "pm_service_trigger_observer.modem_pre_holder_errno=%d\n"
+                    "pm_service_trigger_observer.modem_pre_holder_chdir_error=%s\n",
+                    errno,
+                    strerror(errno));
+            close(holder_pipe[1]);
+            _exit(34);
+        }
+        dprintf(holder_pipe[1],
+                "pm_service_trigger_observer.modem_pre_holder_child_chroot=1\n"
+                "pm_service_trigger_observer.modem_pre_holder_path=/dev/subsys_modem\n"
+                "pm_service_trigger_observer.modem_pre_holder_plain_retry=0\n");
+        mfd = open("/dev/subsys_modem", O_RDONLY | O_NONBLOCK | O_CLOEXEC);
+        if (mfd < 0) {
+            int saved_errno = errno;
+            dprintf(holder_pipe[1],
+                    "pm_service_trigger_observer.modem_pre_holder_nonblock_opened=0\n"
+                    "pm_service_trigger_observer.modem_pre_holder_nonblock_errno=%d\n"
+                    "pm_service_trigger_observer.modem_pre_holder_opened=0\n"
+                    "pm_service_trigger_observer.modem_pre_holder_errno=%d\n",
+                    saved_errno,
+                    saved_errno);
+            close(holder_pipe[1]);
+            _exit(31);
+        }
+        dprintf(holder_pipe[1],
+                "pm_service_trigger_observer.modem_pre_holder_nonblock_opened=1\n"
+                "pm_service_trigger_observer.modem_pre_holder_nonblock_errno=0\n"
+                "pm_service_trigger_observer.modem_pre_holder_opened=1\n"
+                "pm_service_trigger_observer.modem_pre_holder_fd=%d\n",
+                mfd);
+        close(holder_pipe[1]);
+        for (;;) {
+            pause();
+        }
+        close(mfd);
+        _exit(0);
+    }
+
+    close(holder_pipe[1]);
+    set_nonblock(holder_pipe[0]);
+    if (append_format(stdout_buf,
+                      "pm_service_trigger_observer.modem_pre_holder_start_attempted=1\n"
+                      "pm_service_trigger_observer.modem_pre_holder_pid=%ld\n",
+                      (long)*holder_pid) < 0) {
+        close(holder_pipe[0]);
+        return -1;
+    }
+    deadline = monotonic_ms() + 5000L;
+    while (pipe_open && monotonic_ms() < deadline) {
+        if (drain_fd(holder_pipe[0], stdout_buf, &pipe_open) < 0) {
+            break;
+        }
+        if (pipe_open) {
+            usleep(100000);
+        }
+    }
+    if (pipe_open) {
+        drain_fd(holder_pipe[0], stdout_buf, &pipe_open);
+    }
+    close(holder_pipe[0]);
+    reported_open =
+        stdout_buf->data != NULL &&
+        strstr(stdout_buf->data, "pm_service_trigger_observer.modem_pre_holder_opened=1\n") != NULL;
+    reported_result =
+        reported_open ||
+        (stdout_buf->data != NULL &&
+         strstr(stdout_buf->data, "pm_service_trigger_observer.modem_pre_holder_opened=0\n") != NULL);
+    if (*holder_pid > 0) {
+        int holder_status = 0;
+        pid_t wpid = waitpid(*holder_pid, &holder_status, WNOHANG);
+        if (wpid == 0) {
+            *holder_opened = reported_open;
+        } else if (wpid == *holder_pid) {
+            *holder_opened = false;
+            *holder_pid = -1;
+        }
+    }
+    return append_format(stdout_buf,
+                         "pm_service_trigger_observer.modem_pre_holder_open_reported=%d\n"
+                         "pm_service_trigger_observer.modem_pre_holder_result_reported=%d\n"
+                         "pm_service_trigger_observer.modem_pre_holder_confirmed=%d\n",
+                         reported_open ? 1 : 0,
+                         reported_result ? 1 : 0,
+                         *holder_opened ? 1 : 0);
+}
+
 static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct config *cfg,
                                                                   const struct paths *paths,
                                                                   struct buffer *stdout_buf,
@@ -27260,6 +27429,10 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
     bool vndservicemanager_ready = false;
     bool vndservicemanager_ready_checked = false;
     bool vndservice_provider_seen = false;
+    pid_t modem_pre_holder_pid = -1;
+    bool modem_pre_holder_opened = false;
+    bool modem_pre_holder_cleanup_kill_sent = false;
+    bool modem_pre_holder_cleanup_reaped = false;
 
     memset(children, 0, sizeof(children));
     *child_exit_code = -1;
@@ -27318,7 +27491,9 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                       "pm_service_trigger_observer.start_cnss_zero_delay_after_per_mgr=%d\n"
                       "pm_service_trigger_observer.private_firmware_mounts_requested=%d\n"
                       "pm_service_trigger_observer.private_firmware_mnt_mounted=%d\n"
-                      "pm_service_trigger_observer.private_firmware_modem_mounted=%d\n",
+                      "pm_service_trigger_observer.private_firmware_modem_mounted=%d\n"
+                      "pm_service_trigger_observer.modem_pre_holder_requested=%d\n"
+                      "pm_service_trigger_observer.modem_pre_holder_allowed=%d\n",
                       cfg->pm_observer_start_cnss_zero_delay_after_per_mgr
                           ? "servicemanager,hwservicemanager,vndservicemanager,vndservicemanager_ready,pm_proxy_helper,per_mgr,cnss_daemon_zero_delay,per_proxy_skipped,vndservice_query"
                           : (cfg->pm_observer_start_cnss_immediate_after_per_mgr
@@ -27337,7 +27512,9 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                       cfg->pm_observer_start_cnss_zero_delay_after_per_mgr ? 1 : 0,
                       cfg->pm_observer_private_firmware_mounts ? 1 : 0,
                       access(paths->firmware_mnt_source, F_OK) == 0 ? 1 : 0,
-                      access(paths->firmware_modem_source, F_OK) == 0 ? 1 : 0) < 0) {
+                      access(paths->firmware_modem_source, F_OK) == 0 ? 1 : 0,
+                      cfg->pm_observer_modem_pre_holder ? 1 : 0,
+                      cfg->allow_pm_observer_modem_pre_holder ? 1 : 0) < 0) {
         return -1;
     }
     if (!cfg->allow_pm_service_trigger_observer) {
@@ -27401,6 +27578,26 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                 return -1;
             }
             continue;
+        }
+        if (i == PM_OBSERVER_PM_PROXY_HELPER &&
+            cfg->pm_observer_modem_pre_holder &&
+            modem_pre_holder_pid < 0) {
+            if (start_pm_service_trigger_observer_modem_pre_holder(paths,
+                                                                   stdout_buf,
+                                                                   &modem_pre_holder_pid,
+                                                                   &modem_pre_holder_opened) < 0) {
+                composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+                stop_property_service_shim(&property_shim, paths, stdout_buf);
+                return -1;
+            }
+        } else if (i == PM_OBSERVER_PM_PROXY_HELPER &&
+                   !cfg->pm_observer_modem_pre_holder) {
+            if (append_literal(stdout_buf,
+                               "pm_service_trigger_observer.modem_pre_holder_start_attempted=0\n") < 0) {
+                composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+                stop_property_service_shim(&property_shim, paths, stdout_buf);
+                return -1;
+            }
         }
         if (composite_spawn_child(cfg, paths, &children[i], stdout_buf) < 0) {
             composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
@@ -27768,6 +27965,15 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
     }
     composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
     stop_property_service_shim(&property_shim, paths, stdout_buf);
+    if (modem_pre_holder_pid > 0) {
+        int holder_status = 0;
+        modem_pre_holder_cleanup_kill_sent = true;
+        kill(modem_pre_holder_pid, SIGKILL);
+        if (waitpid(modem_pre_holder_pid, &holder_status, WNOHANG) == modem_pre_holder_pid) {
+            modem_pre_holder_cleanup_reaped = true;
+            modem_pre_holder_pid = -1;
+        }
+    }
 
     for (size_t i = 0; i < active_child_count; i++) {
         bool safe = composite_child_postflight_safe(&children[i]);
@@ -27854,6 +28060,9 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
             return -1;
         }
     }
+    if (modem_pre_holder_pid > 0) {
+        all_postflight_safe = false;
+    }
     if (*child_exit_code < 0 && *child_signal == 0) {
         *child_exit_code = 0;
     }
@@ -27864,6 +28073,9 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                       "pm_service_trigger_observer.timed_out=%d\n"
                       "pm_service_trigger_observer.all_observable=%d\n"
                       "pm_service_trigger_observer.all_postflight_safe=%d\n"
+                      "pm_service_trigger_observer.modem_pre_holder_confirmed_final=%d\n"
+                      "pm_service_trigger_observer.modem_pre_holder_cleanup_kill_sent=%d\n"
+                      "pm_service_trigger_observer.modem_pre_holder_cleanup_reaped=%d\n"
                       "pm_service_trigger_observer.vndservicemanager_readiness.checked=%d\n"
                       "pm_service_trigger_observer.vndservicemanager_readiness.ready=%d\n"
                       "pm_service_trigger_observer.vndservice_provider_seen=%d\n",
@@ -27873,6 +28085,9 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                       *timed_out ? 1 : 0,
                       all_observable ? 1 : 0,
                       all_postflight_safe ? 1 : 0,
+                      modem_pre_holder_opened ? 1 : 0,
+                      modem_pre_holder_cleanup_kill_sent ? 1 : 0,
+                      modem_pre_holder_cleanup_reaped ? 1 : 0,
                       vndservicemanager_ready_checked ? 1 : 0,
                       vndservicemanager_ready ? 1 : 0,
                       vndservice_provider_seen ? 1 : 0) < 0) {
