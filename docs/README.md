@@ -28,7 +28,8 @@
 - V1134에서 helper-private pre-holder 없이 V731/V1113 outer global holder window와 V1128 post-policy CNSS PM observer를 결합했고, CNSS PM register/connect는 `0x0`으로 성공했지만 WLFW/service69/wlan0 delta는 없었습니다.
 - 최신 V1135 lower publication classifier는 `docs/reports/NATIVE_INIT_V1135_LOWER_PUBLICATION_GAP_CLASSIFIER_2026-05-27.md`입니다.
 - V1135에서 성공한 PM/CNSS 경로 아래 남은 blocker를 `mdm3`/eSoC/MDM2AP/WLFW publication gap으로 고정했습니다.
-- 다음 블로커는 V1136에서 post-PM eSoC/MDM2AP observer 또는 state-machine gate를 설계·preflight하는 것입니다.
+- 다음 V1136 계획은 `docs/plans/NATIVE_INIT_V1136_POST_PM_ESOC_MDM2AP_GATE_PLAN_2026-05-27.md`입니다.
+- V1136에서는 V1134 upper PM/CNSS 성공을 보존한 상태에서 post-PM `mdm_helper`/eSoC/MDM2AP observer 또는 state-machine gate를 설계·preflight합니다.
 - 2026-05-27 기준 최신 PM observer live gate는 `docs/reports/NATIVE_INIT_V1124_PRIVATE_FIRMWARE_PM_OBSERVER_LIVE_2026-05-27.md`입니다.
 - 최신 firmware mount-only provider gate는 `docs/reports/NATIVE_INIT_V1121_FIRMWARE_MOUNT_ONLY_PROVIDER_LIVE_2026-05-27.md`입니다.
 - 최신 provider namespace delta classifier는 `docs/reports/NATIVE_INIT_V1122_PROVIDER_NAMESPACE_DELTA_CLASSIFIER_2026-05-27.md`입니다.
