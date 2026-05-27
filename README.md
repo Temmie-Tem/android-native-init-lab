@@ -101,6 +101,7 @@ Android userspace 대신 직접 만든 static `/init`를 실행하고,
 - diagnostics: v102에서 `a90_diag.c/h`와 `diag_collect.py`로 read-only diagnostics/log bundle 검증 완료
 - Wi-Fi inventory: v103에서 `a90_wifiinv.c/h`와 `wifi_inventory_collect.py`로 read-only WLAN/rfkill/firmware path 조사 완료
 - Wi-Fi feasibility: v104에서 `a90_wififeas.c/h`와 `wififeas [summary|full|gate|paths]`로 read-only evidence 기반 bring-up gate 검증 완료
+- Wi-Fi native bring-up research: V1165에서 `a90_android_execns_probe v217` late `pm-proxy` actionability gate를 실행해 `pm-proxy` 생존/PM connect 성공에도 `pm-service`의 `/dev/subsys_esoc0` open이 발생하지 않는 PM action-contract gap으로 분류
 - soak RC: v105에서 `native_soak_validate.py` 10-cycle quick soak와 recovery-friendly baseline 검증 완료
 - UI app split: v106 `a90_app_about.c/h`, v107 `a90_app_displaytest.c/h`, v108 `a90_app_inputmon.c/h` 분리와 실기 flash/quick soak 검증 완료
 - structure audit 2: v109에서 post-v108 구조 감사와 next cleanup boundary 기록 완료

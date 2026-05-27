@@ -97,7 +97,7 @@
 #define IOPRIO_PRIO_VALUE(class_value, data) (((class_value) << IOPRIO_CLASS_SHIFT) | (data))
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v216"
+#define EXECNS_VERSION "a90_android_execns_probe v217"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -27827,6 +27827,8 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
     bool late_per_proxy_started = false;
     bool late_per_proxy_snapshot_captured = false;
     bool late_per_proxy_gate_positive = false;
+    const int late_per_proxy_poll_max = 12;
+    const int late_per_proxy_poll_interval_ms = 1000;
     int late_per_proxy_poll_count = 0;
     bool mdm_helper_observable = false;
     bool mdm_helper_window_snapshot_captured = false;
@@ -28486,11 +28488,16 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                                                mdm_helper_esoc0_fd_count > 0;
                 if (append_format(stdout_buf,
                                   "pm_service_trigger_observer.late_per_proxy.begin=1\n"
+                                  "pm_service_trigger_observer.late_per_proxy.instrumentation=v1165\n"
+                                  "pm_service_trigger_observer.late_per_proxy.poll_max=%d\n"
+                                  "pm_service_trigger_observer.late_per_proxy.poll_interval_ms=%d\n"
                                   "pm_service_trigger_observer.late_per_proxy.gate_mdm_helper_observable=%d\n"
                                   "pm_service_trigger_observer.late_per_proxy.gate_mdm_helper_esoc0_fd_count=%d\n"
                                   "pm_service_trigger_observer.late_per_proxy.gate_positive=%d\n"
                                   "post_pm_mdm_helper_esoc_observer.late_per_proxy.gate_positive=%d\n"
                                   "post_pm_mdm_helper_esoc_observer.late_per_proxy.gate_fd_esoc0_count=%d\n",
+                                  late_per_proxy_poll_max,
+                                  late_per_proxy_poll_interval_ms,
                                   mdm_helper_observable ? 1 : 0,
                                   mdm_helper_esoc0_fd_count,
                                   late_per_proxy_gate_positive ? 1 : 0,
@@ -28532,23 +28539,28 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                                       "pm_service_trigger_observer.child.%s.late_start_order=%zu\n"
                                       "pm_service_trigger_observer.late_per_proxy.started=1\n"
                                       "pm_service_trigger_observer.late_per_proxy.pid=%ld\n"
+                                      "pm_service_trigger_observer.late_per_proxy.stdout_open=%d\n"
+                                      "pm_service_trigger_observer.late_per_proxy.stderr_open=%d\n"
                                       "post_pm_mdm_helper_esoc_observer.late_per_proxy.started=1\n"
                                       "post_pm_mdm_helper_esoc_observer.late_per_proxy.pid=%ld\n",
                                       per_proxy->name,
                                       per_proxy->name,
                                       active_child_count,
                                       (long)per_proxy->pid,
+                                      per_proxy->stdout_open ? 1 : 0,
+                                      per_proxy->stderr_open ? 1 : 0,
                                       (long)per_proxy->pid) < 0) {
                         composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
                         stop_property_service_shim(&property_shim, paths, stdout_buf);
                         return -1;
                     }
-                    for (int poll = 0; poll < 6; poll++) {
+                    for (int poll = 0; poll < late_per_proxy_poll_max; poll++) {
                         char phase[64];
                         int per_mgr_subsys_modem_count = -1;
                         int pm_proxy_helper_subsys_modem_count = -1;
+                        bool per_proxy_alive;
 
-                        usleep(500000);
+                        usleep((useconds_t)late_per_proxy_poll_interval_ms * 1000U);
                         if (drain_pm_service_trigger_observer_children(children,
                                                                        active_child_count,
                                                                        &property_shim,
@@ -28557,7 +28569,42 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                             snprintf(phase,
                                      sizeof(phase),
                                      "late_per_proxy_poll_%02d",
-                                     poll) >= (int)sizeof(phase) ||
+                                     poll) >= (int)sizeof(phase)) {
+                            composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+                            stop_property_service_shim(&property_shim, paths, stdout_buf);
+                            return -1;
+                        }
+                        per_proxy_alive = !per_proxy->child_done &&
+                                          per_proxy->pid > 0 &&
+                                          kill(per_proxy->pid, 0) == 0;
+                        if (append_format(stdout_buf,
+                                          "pm_service_trigger_observer.%s.per_proxy_alive=%d\n"
+                                          "pm_service_trigger_observer.%s.per_proxy_child_done=%d\n"
+                                          "pm_service_trigger_observer.%s.per_proxy_observable=%d\n"
+                                          "pm_service_trigger_observer.%s.per_proxy_exited_before_timeout=%d\n"
+                                          "pm_service_trigger_observer.%s.per_proxy_exit_code=%d\n"
+                                          "pm_service_trigger_observer.%s.per_proxy_signal=%d\n"
+                                          "pm_service_trigger_observer.%s.per_proxy_reaped=%d\n"
+                                          "pm_service_trigger_observer.%s.per_proxy_stdout_open=%d\n"
+                                          "pm_service_trigger_observer.%s.per_proxy_stderr_open=%d\n",
+                                          phase,
+                                          per_proxy_alive ? 1 : 0,
+                                          phase,
+                                          per_proxy->child_done ? 1 : 0,
+                                          phase,
+                                          per_proxy->observable ? 1 : 0,
+                                          phase,
+                                          per_proxy->exited_before_timeout ? 1 : 0,
+                                          phase,
+                                          per_proxy->exit_code,
+                                          phase,
+                                          per_proxy->signal,
+                                          phase,
+                                          per_proxy->reaped ? 1 : 0,
+                                          phase,
+                                          per_proxy->stdout_open ? 1 : 0,
+                                          phase,
+                                          per_proxy->stderr_open ? 1 : 0) < 0 ||
                             append_pm_service_trigger_observer_fd_snapshot(stdout_buf,
                                                                            phase,
                                                                            per_mgr,
