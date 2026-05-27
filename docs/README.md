@@ -23,7 +23,8 @@
 - 최신 modem pre-holder live 결과는 `docs/reports/NATIVE_INIT_V1131_POST_POLICY_GLOBAL_FIRMWARE_MODEM_HOLDER_LIVE_2026-05-27.md`입니다.
 - 최신 subsys nonblock classifier는 `docs/reports/NATIVE_INIT_V1132_SUBSYS_NONBLOCK_SEMANTICS_CLASSIFIER_2026-05-27.md`입니다.
 - 최신 lower holder route classifier는 `docs/reports/NATIVE_INIT_V1133_LOWER_HOLDER_ROUTE_CLASSIFIER_2026-05-27.md`입니다.
-- 다음 live 후보는 helper-private pre-holder가 아니라 V731/V1113 outer global holder window와 V1128 post-policy CNSS PM observer를 결합하는 V1134입니다.
+- 최신 V1134 live runner 준비 결과는 `docs/reports/NATIVE_INIT_V1134_OUTER_HOLDER_POST_POLICY_CNSS_SUPPORT_2026-05-27.md`입니다.
+- 다음 live 실행은 helper-private pre-holder 없이 V731/V1113 outer global holder window와 V1128 post-policy CNSS PM observer를 결합하는 V1134입니다.
 - 2026-05-27 기준 최신 PM observer live gate는 `docs/reports/NATIVE_INIT_V1124_PRIVATE_FIRMWARE_PM_OBSERVER_LIVE_2026-05-27.md`입니다.
 - 최신 firmware mount-only provider gate는 `docs/reports/NATIVE_INIT_V1121_FIRMWARE_MOUNT_ONLY_PROVIDER_LIVE_2026-05-27.md`입니다.
 - 최신 provider namespace delta classifier는 `docs/reports/NATIVE_INIT_V1122_PROVIDER_NAMESPACE_DELTA_CLASSIFIER_2026-05-27.md`입니다.
@@ -676,6 +677,7 @@
 - `reports/NATIVE_INIT_V1131_POST_POLICY_GLOBAL_FIRMWARE_MODEM_HOLDER_LIVE_2026-05-27.md` – V1131 결과 helper `v213` modem pre-holder도 `/dev/subsys_modem` open-pending으로 남고 PM Binder worker의 `__subsystem_get` blocker와 mss/mdm3 OFFLINING이 유지됨을 확인한 결과
 - `reports/NATIVE_INIT_V1132_SUBSYS_NONBLOCK_SEMANTICS_CLASSIFIER_2026-05-27.md` – V1132 결과 Samsung OSRC `subsys_device_open()`이 `file->f_flags`/`O_NONBLOCK`를 보지 않아 synthetic `/dev/subsys_modem` nonblock route를 닫은 결과
 - `reports/NATIVE_INIT_V1133_LOWER_HOLDER_ROUTE_CLASSIFIER_2026-05-27.md` – V1133 결과 V731/V1113 outer global holder positive와 V1128 post-policy CNSS PM success를 결합하는 V1134 live route를 선택한 결과
+- `reports/NATIVE_INIT_V1134_OUTER_HOLDER_POST_POLICY_CNSS_SUPPORT_2026-05-27.md` – V1134 결과 outer global holder + post-policy CNSS PM observer composite runner를 source/plan 검증하고 live 실행 준비를 마친 결과
 - `reports/NATIVE_INIT_V1004_SERVICE_WINDOW_SUBSYS_TRIGGER_LIVE_2026-05-26.md` – V1004 live 결과 current-boot SELinux refresh 후 Android service-window actors는 관측됐지만 `mdm_helper`가 `/dev/esoc-0` fd를 hold하지 않아 `/dev/subsys_esoc0` trigger는 안전하게 미실행된 결과
 - `reports/NATIVE_INIT_V1003_HELPER_V170_DEPLOY_2026-05-26.md` – helper `v170`을 `/cache/bin/a90_android_execns_probe`로 deploy-only 설치하고 remote sha/contract parity 및 no-Wi-Fi guard를 확인한 V1003 결과
 - `reports/NATIVE_INIT_V1002_ANDROID_SERVICE_WINDOW_SUBSYS_TRIGGER_SUPPORT_2026-05-26.md` – helper `v170`에 Android service-window scoped `/dev/subsys_esoc0` trigger capture mode를 source/build-only로 추가한 V1002 결과
