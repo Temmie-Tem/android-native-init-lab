@@ -15,11 +15,11 @@
 
 ## 최신 Wi-Fi bring-up 조사 기준
 
-- 2026-05-27 기준 최신 PM observer live gate는 `docs/reports/NATIVE_INIT_V1118_GLOBAL_HOLDER_ZERO_DELAY_CNSS_LIVE_2026-05-27.md`입니다.
+- 2026-05-27 기준 최신 PM observer live gate는 `docs/reports/NATIVE_INIT_V1124_PRIVATE_FIRMWARE_PM_OBSERVER_LIVE_2026-05-27.md`입니다.
 - 최신 firmware mount-only provider gate는 `docs/reports/NATIVE_INIT_V1121_FIRMWARE_MOUNT_ONLY_PROVIDER_LIVE_2026-05-27.md`입니다.
 - 최신 provider namespace delta classifier는 `docs/reports/NATIVE_INIT_V1122_PROVIDER_NAMESPACE_DELTA_CLASSIFIER_2026-05-27.md`입니다.
 - 최신 private firmware PM observer helper build는 `docs/reports/NATIVE_INIT_V1123_PRIVATE_FIRMWARE_PM_OBSERVER_HELPER_BUILD_2026-05-27.md`입니다.
-- 다음 private firmware PM observer live 계획은 `docs/plans/NATIVE_INIT_V1124_PRIVATE_FIRMWARE_PM_OBSERVER_LIVE_PLAN_2026-05-27.md`입니다.
+- 최신 private firmware PM observer live 결과는 `docs/reports/NATIVE_INIT_V1124_PRIVATE_FIRMWARE_PM_OBSERVER_LIVE_2026-05-27.md`입니다.
 - 최신 PM register branch live gate는 `docs/reports/NATIVE_INIT_V1120_PM_REGISTER_CONNECT_BRANCH_LIVE_2026-05-27.md`입니다.
 - 최신 PM register failure classifier는 `docs/reports/NATIVE_INIT_V1119_PM_REGISTER_FAILURE_HOST_CLASSIFIER_2026-05-27.md`입니다.
 - 최신 PM observer helper build는 `docs/reports/NATIVE_INIT_V1117_ZERO_DELAY_CNSS_HELPER_BUILD_2026-05-27.md`입니다.
@@ -43,8 +43,9 @@
 - V1121에서 global `/dev/subsys_modem` holder 없이 firmware mount만 추가해도 `pm-service`가 `exit_code=0`으로 사라지고 provider가 보이지 않아, provider regression이 holder 단독 문제가 아니라 firmware mount/global `/vendor` surface와 연관됨을 확인했습니다.
 - V1122에서 V1108/V1121을 host-only 비교했고, 동일한 no-pre-CNSS `per_proxy` 계약에서 global firmware `/vendor` surface가 provider-positive 경로를 깨는 차이점임을 분류했습니다.
 - V1123에서 helper `v212`에 PM observer 전용 opt-in private firmware mount flag를 추가하고 static build를 통과했습니다.
+- V1124에서 helper-private firmware mounts는 성공했지만 provider가 여전히 보이지 않아, 다음 blocker를 private-firmware namespace 안의 `pm-service` early clean-exit branch로 좁혔습니다.
 - 아직 Wi-Fi HAL, scan/connect/link-up, DHCP, route, external ping은 실행하지 않았습니다.
-- 다음 블로커는 V1124에서 global `/vendor`를 건드리지 않는 private-namespace firmware mount live gate를 실행해 provider-positive path가 보존되는지 확인하는 것입니다.
+- 다음 블로커는 V1125에서 private-firmware PM observer namespace 안의 `pm-service` early clean-exit branch를 trace하는 것입니다.
 
 ## 현재 기준점
 
@@ -653,6 +654,7 @@
 - `reports/NATIVE_INIT_V1117_ZERO_DELAY_CNSS_HELPER_BUILD_2026-05-27.md` – V1117 결과 helper `v211`에 zero-delay CNSS-after-`per_mgr` PM observer order를 추가하고 static helper build/string 검증을 통과한 결과
 - `reports/NATIVE_INIT_V1118_GLOBAL_HOLDER_ZERO_DELAY_CNSS_LIVE_2026-05-27.md` – V1118 결과 zero-delay CNSS gate에서도 PM register `0xffffffff`가 유지되어 다음을 register failure semantics 분류로 좁힌 결과
 - `reports/NATIVE_INIT_V1123_PRIVATE_FIRMWARE_PM_OBSERVER_HELPER_BUILD_2026-05-27.md` – V1123 결과 helper `v212`에 PM observer opt-in private firmware mount flag를 추가하고 static helper build/string 검증을 통과한 결과
+- `reports/NATIVE_INIT_V1124_PRIVATE_FIRMWARE_PM_OBSERVER_LIVE_2026-05-27.md` – V1124 결과 helper-private firmware mounts는 성공했지만 provider가 보이지 않아 다음을 private-firmware namespace의 `pm-service` early clean-exit trace로 좁힌 결과
 - `reports/NATIVE_INIT_V1004_SERVICE_WINDOW_SUBSYS_TRIGGER_LIVE_2026-05-26.md` – V1004 live 결과 current-boot SELinux refresh 후 Android service-window actors는 관측됐지만 `mdm_helper`가 `/dev/esoc-0` fd를 hold하지 않아 `/dev/subsys_esoc0` trigger는 안전하게 미실행된 결과
 - `reports/NATIVE_INIT_V1003_HELPER_V170_DEPLOY_2026-05-26.md` – helper `v170`을 `/cache/bin/a90_android_execns_probe`로 deploy-only 설치하고 remote sha/contract parity 및 no-Wi-Fi guard를 확인한 V1003 결과
 - `reports/NATIVE_INIT_V1002_ANDROID_SERVICE_WINDOW_SUBSYS_TRIGGER_SUPPORT_2026-05-26.md` – helper `v170`에 Android service-window scoped `/dev/subsys_esoc0` trigger capture mode를 source/build-only로 추가한 V1002 결과
