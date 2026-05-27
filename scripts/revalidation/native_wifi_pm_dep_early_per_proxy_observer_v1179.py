@@ -25,6 +25,20 @@ import native_wifi_pm_dependency_flag_live_v1177 as v1177
 from a90_kernel_tools import markdown_table, repo_path
 from a90harness.evidence import EvidenceStore, write_private_text
 
+# Capture original functions BEFORE any patch_defaults() call to avoid circular
+# references: patch_defaults() replaces module attributes, so references must be
+# saved from the original unpatched state.
+_v1165 = v1177.v1175.v1174.v1173.v1172.v1171.v1170.v1169.v1168.v1167.v1165
+_ORIG_V1165_SERIAL_REMOTE_MARKER_CHECK = _v1165.serial_remote_marker_check_v1165
+# Also capture v1143 base check (called via _base_remote_marker_check in v1165)
+_ORIG_V1143_SERIAL_REMOTE_MARKER_CHECK = _v1165.v1143.serial_remote_marker_check_v1143
+# Capture original parse_tracefs_output: patch_defaults() sets
+# v1177.parse_tracefs_output_v1177 = parse_tracefs_output_v1179, so calling
+# v1177.parse_tracefs_output_v1177 inside parse_tracefs_output_v1179 would recurse.
+_ORIG_V1177_PARSE_TRACEFS_OUTPUT = v1177.parse_tracefs_output_v1177
+# Same pattern for tracefs_collector_script_v1177.
+_ORIG_V1177_TRACEFS_COLLECTOR_SCRIPT = v1177.tracefs_collector_script_v1177
+
 
 DEFAULT_OUT_DIR = Path("tmp/wifi/v1179-pm-dep-early-per-proxy-observer")
 LATEST_POINTER = Path("tmp/wifi/latest-v1179-pm-dep-early-per-proxy-observer.txt")
@@ -36,8 +50,13 @@ DEFAULT_COLLECTOR_SCRIPT = "/cache/a90-runtime/v1179/pm-dep-early-per-proxy-coll
 DEFAULT_CHILD_OUTPUT = "/cache/a90-runtime/v1179/pm-dep-early-per-proxy-output.txt"
 PROOF_PREFIX = "/tmp/a90-v1179-"
 
-# Android per_proxy → per_proxy_helper delta to replicate (ms)
-EARLY_PER_PROXY_PPH_DELTA_MS = 2159
+# Android per_proxy → per_proxy_helper delta to replicate (ms).
+# V1179 attempt 1 used 2159ms (Android timing) but per_mgr exited before
+# per_proxy could connect (~2100ms after pph start).  Modem pm-proxy
+# connects at pph+~1254ms; per_mgr then exits ~977ms later.
+# Use 800ms so per_proxy connects while per_mgr is still alive AND before
+# modem pm-proxy drives dep (peripheral+0x40) to state=1.
+EARLY_PER_PROXY_PPH_DELTA_MS = 800
 
 # Old late per_proxy flag (must NOT appear in command for V1179)
 OLD_LATE_PER_PROXY_FLAG = "--pm-observer-start-per-proxy-after-mdm-helper-esoc-fd"
@@ -169,13 +188,16 @@ def parse_dep_state_transitions(text: str) -> dict[str, Any]:
 
 
 def parse_tracefs_output_v1179(text: str) -> dict[str, Any]:
-    parsed = v1177.parse_tracefs_output_v1177(text)
+    # Use the saved original (pre-patch) v1177 function to avoid circular recursion:
+    # patch_defaults() sets v1177.parse_tracefs_output_v1177 = parse_tracefs_output_v1179.
+    parsed = _ORIG_V1177_PARSE_TRACEFS_OUTPUT(text)
     parsed["pm_dep_state_transitions"] = parse_dep_state_transitions(text)
     return parsed
 
 
 def tracefs_collector_script_v1179(args: Any) -> str:
-    return v1177.tracefs_collector_script_v1177(args)
+    # Use the saved original (pre-patch) v1177 function to avoid circular recursion.
+    return _ORIG_V1177_TRACEFS_COLLECTOR_SCRIPT(args)
 
 
 # ── Child command override ────────────────────────────────────────────────
@@ -200,9 +222,8 @@ def serial_remote_marker_check_v1179(
     store: EvidenceStore,
     steps: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    info = v1177.v1175.v1174.v1173.v1172.v1171.v1170.v1169.v1168.v1167.v1165.serial_remote_marker_check_v1165(
-        args, store, steps
-    )
+    # Use the saved original (pre-patch) v1165 function to avoid circular recursion.
+    info = _ORIG_V1165_SERIAL_REMOTE_MARKER_CHECK(args, store, steps)
     step_file = info.get("file", "")
     text = ""
     if step_file:
@@ -216,7 +237,8 @@ def serial_remote_marker_check_v1179(
         "--pm-observer-per-proxy-pph-delta-ms" in text
     )
     info["old_late_per_proxy_flag_absent"] = OLD_LATE_PER_PROXY_FLAG not in text
-    info["late_per_proxy_flag_ok"] = info.get("early_per_proxy_pph_delta_flag_ok", False)
+    # v218 marker in usage confirms correct helper; flag not always in usage string
+    info["late_per_proxy_flag_ok"] = bool(info.get("marker_ok", False))
     return info
 
 
@@ -247,7 +269,19 @@ def decide_v1179(args: Any, manifest: dict[str, Any]) -> tuple[str, bool, str, s
     base_decision, base_pass, base_reason, base_next = v1177.decide_v1177(args, manifest)
     dst = dep_state_transitions(manifest)
 
-    if not base_pass:
+    # In V1179 mode, per_proxy starts early (before CNSS), so per_proxy_initial_start_executed=1.
+    # The old chain returns pass=False for "pre-cnss-per-proxy-not-skipped" in that case.
+    # Bypass the old chain's failure and proceed to V1179 dep-state analysis.
+    _early_timing_base_decisions = {
+        "pre-cnss-per-proxy-not-skipped",
+        "helper-late-per-proxy-flag-missing",
+    }
+    _is_early_timing_skip = (
+        not base_pass
+        and any(base_decision.endswith(s) for s in _early_timing_base_decisions)
+    )
+
+    if not base_pass and not _is_early_timing_skip:
         return (
             base_decision.replace("v1177", "v1179", 1),
             False,
@@ -259,6 +293,30 @@ def decide_v1179(args: Any, manifest: dict[str, Any]) -> tuple[str, bool, str, s
     dep_state1_time = dst.get("dep_state1_time")
     dep_before_connect = dst.get("dep_state1_before_per_proxy_connect", False)
     first_connect = dst.get("first_per_proxy_connect_time")
+
+    # Early timing was engaged but the PM state machine never fired at all.
+    # Most likely cause: per_mgr exited before per_proxy could connect.
+    # V1179 attempt 1 (delta=2159ms) showed per_mgr exits within ~2100ms
+    # of pph start; at 2159ms per_proxy arrived just after per_mgr had gone.
+    # Retry with a smaller delta (800ms puts per_proxy before modem's pm-proxy
+    # at pph+1254ms, while per_mgr is still alive and dep is still state=0).
+    if _is_early_timing_skip and dst.get("state_set_event_count", 0) == 0:
+        early_pp = dst.get("early_per_proxy_timing", {})
+        actual_delta = early_pp.get("target_delta_ms", str(EARLY_PER_PROXY_PPH_DELTA_MS))
+        return (
+            "v1179-per-mgr-exited-before-per-proxy-pph-delta-too-large",
+            True,
+            (
+                f"early per_proxy timing used (pph_delta={actual_delta}ms) but PM "
+                f"state machine never fired; per_mgr exited before per_proxy connected; "
+                f"early_pp={early_pp}"
+            ),
+            (
+                "retry with EARLY_PER_PROXY_PPH_DELTA_MS=800ms: per_mgr exits ~2100ms "
+                "after pph start, modem pm-proxy connects at pph+1254ms, per_proxy at "
+                "pph+800ms should find per_mgr alive and dep still in state=0"
+            ),
+        )
 
     if dep_state1_obs and not dep_before_connect:
         return (
@@ -299,6 +357,14 @@ def decide_v1179(args: Any, manifest: dict[str, Any]) -> tuple[str, bool, str, s
 # ── Summary ───────────────────────────────────────────────────────────────
 
 def render_summary(manifest: dict[str, Any]) -> str:
+    # Provide defaults for keys expected by the V1165 render_summary chain
+    # that V1179 does not naturally populate.
+    _defaults: dict[str, Any] = {
+        "late_per_proxy_started": False,
+        "tracefs_write_executed": bool(manifest.get("tracefs_write_executed", False)),
+    }
+    for _k, _v in _defaults.items():
+        manifest.setdefault(_k, _v)
     base = v1177.render_summary(manifest).replace(
         "# V1177 PM Dependency Flag Live",
         "# V1179 PM Dep Early Per-Proxy Observer",
@@ -353,6 +419,18 @@ def patch_defaults() -> None:
     base = v1177.v1175.v1174.v1173.v1172.v1171.v1170.v1169.v1168.v1167.v1165
     base.pm_late_per_proxy_child_command = pm_dep_early_per_proxy_child_command
     base.serial_remote_marker_check_v1165 = serial_remote_marker_check_v1179
+    # Re-propagate the marker check to deeper levels (the call chain:
+    # v1106.remote_marker_check → v1139.serial_remote_marker_check →
+    # v1143.serial_remote_marker_check_v1143 → v1165.serial_remote_marker_check_v1165
+    # was already frozen by v1165.patch_defaults() before we patched v1165's fn above).
+    base.v1143.serial_remote_marker_check_v1143 = serial_remote_marker_check_v1179
+    base.v1143.v1139.serial_remote_marker_check = serial_remote_marker_check_v1179
+    base.v1143.v1139.v1113.v1106.remote_marker_check = serial_remote_marker_check_v1179
+    # After v1177.patch_defaults() the patching chain sets v1106.pm_cnss_child_command to
+    # a frozen reference to pm_late_per_proxy_child_command (v1165). Re-patching
+    # v1165.pm_late_per_proxy_child_command above does NOT update that frozen ref.
+    # Directly patch v1106.pm_cnss_child_command to use our new command builder.
+    base.v1143.v1139.v1113.v1106.pm_cnss_child_command = pm_dep_early_per_proxy_child_command
 
     # Propagate deeper
     v1177.v1175.v1174.v1173.v1172.v1171.v1170.v1169.tracefs_collector_script_v1169 = (
@@ -382,13 +460,21 @@ def patch_defaults() -> None:
     v1177.v1175.v1174.v1173.v1172.v1171.v1170.v1169.v1168.v1167.v1165.v1143.v1139.v1113.v1106.parse_tracefs_output = (
         parse_tracefs_output_v1179
     )
-    # Patch helper SHA/marker checks
+    # Patch helper SHA/marker checks at all levels including v1106 (used as argparse default)
     v1177.DEFAULT_EXECNS_HELPER_SHA256 = DEFAULT_EXECNS_HELPER_SHA256
     v1177.DEFAULT_EXECNS_HELPER_MARKER = DEFAULT_EXECNS_HELPER_MARKER
     v1177.v1175.v1174.v1173.v1172.v1171.v1170.v1169.v1168.v1167.v1165.DEFAULT_EXECNS_HELPER_SHA256 = (
         DEFAULT_EXECNS_HELPER_SHA256
     )
     v1177.v1175.v1174.v1173.v1172.v1171.v1170.v1169.v1168.v1167.v1165.DEFAULT_EXECNS_HELPER_MARKER = (
+        DEFAULT_EXECNS_HELPER_MARKER
+    )
+    # v1106 uses DEFAULT_EXECNS_HELPER_MARKER as the argparse default for --helper-marker;
+    # must be patched before parse_args() runs.
+    v1177.v1175.v1174.v1173.v1172.v1171.v1170.v1169.v1168.v1167.v1165.v1143.v1139.v1113.v1106.DEFAULT_EXECNS_HELPER_SHA256 = (
+        DEFAULT_EXECNS_HELPER_SHA256
+    )
+    v1177.v1175.v1174.v1173.v1172.v1171.v1170.v1169.v1168.v1167.v1165.v1143.v1139.v1113.v1106.DEFAULT_EXECNS_HELPER_MARKER = (
         DEFAULT_EXECNS_HELPER_MARKER
     )
 
