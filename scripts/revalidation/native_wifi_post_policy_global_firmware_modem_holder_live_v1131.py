@@ -109,16 +109,23 @@ def cnss_return_values(manifest: dict[str, Any], label: str) -> list[str]:
     return v1121.cnss_return_values(tracefs(manifest), label)
 
 
+def contract_value(values: dict[str, str], key: str) -> str:
+    return values.get(key) or values.get(f"pm_service_trigger_observer.{key}", "")
+
+
 def holder_confirmed(values: dict[str, str]) -> bool:
     return (
-        values.get("pm_service_trigger_observer.modem_pre_holder_confirmed") == "1"
-        or values.get("pm_service_trigger_observer.modem_pre_holder_confirmed_final") == "1"
+        contract_value(values, "modem_pre_holder_confirmed") == "1"
+        or contract_value(values, "modem_pre_holder_confirmed_final") == "1"
     )
 
 
 def modem_holder_fields(values: dict[str, str]) -> dict[str, str]:
-    prefix = "pm_service_trigger_observer.modem_pre_holder"
-    return {key: value for key, value in sorted(values.items()) if key.startswith(prefix)}
+    return {
+        key: value
+        for key, value in sorted(values.items())
+        if key.startswith("modem_pre_holder") or key.startswith("pm_service_trigger_observer.modem_pre_holder")
+    }
 
 
 def decide_v1131(args: argparse.Namespace, manifest: dict[str, Any]) -> tuple[str, bool, str, str]:
@@ -182,21 +189,21 @@ def decide_v1131(args: argparse.Namespace, manifest: dict[str, Any]) -> tuple[st
             f"start_cnss_before_per_proxy={values.get('start_cnss_before_per_proxy')} cnss={values.get('cnss_daemon_start_executed')}",
             "repair child command flags before retry",
         )
-    if values.get("pm_service_trigger_observer.modem_pre_holder_requested") != "1":
+    if contract_value(values, "modem_pre_holder_requested") != "1":
         return (
             "v1131-modem-holder-not-requested",
             False,
             f"holder={holder_fields}",
             "verify V1131 child command appended modem pre-holder flags",
         )
-    if values.get("pm_service_trigger_observer.modem_pre_holder_allowed") != "1":
+    if contract_value(values, "modem_pre_holder_allowed") != "1":
         return (
             "v1131-modem-holder-not-allowed",
             False,
             f"holder={holder_fields}",
             "verify allow flag is present before retry",
         )
-    if values.get("pm_service_trigger_observer.modem_pre_holder_start_attempted") != "1":
+    if contract_value(values, "modem_pre_holder_start_attempted") != "1":
         return (
             "v1131-modem-holder-not-started",
             False,
@@ -322,7 +329,7 @@ def main() -> int:
     values = contract(manifest)
     manifest["firmware_mounts_executed"] = bool(fw.get("mount_results"))
     manifest["global_modem_holder_opened"] = False
-    manifest["modem_pre_holder_requested"] = values.get("pm_service_trigger_observer.modem_pre_holder_requested") == "1"
+    manifest["modem_pre_holder_requested"] = contract_value(values, "modem_pre_holder_requested") == "1"
     manifest["modem_pre_holder_confirmed"] = holder_confirmed(values)
     manifest["reboot_executed"] = bool(fw.get("reboot_cleanup"))
     manifest["cnss_daemon_start_executed"] = values.get("cnss_daemon_start_executed") == "1"
