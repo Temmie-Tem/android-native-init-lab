@@ -15,8 +15,10 @@
 
 ## 최신 Wi-Fi bring-up 조사 기준
 
-- 2026-05-27 기준 최신 PM observer live gate는 `docs/reports/NATIVE_INIT_V1116_GLOBAL_HOLDER_IMMEDIATE_CNSS_LIVE_2026-05-27.md`입니다.
-- 최신 PM observer helper build는 `docs/reports/NATIVE_INIT_V1115_IMMEDIATE_CNSS_HELPER_BUILD_2026-05-27.md`입니다.
+- 2026-05-27 기준 최신 PM observer live gate는 `docs/reports/NATIVE_INIT_V1118_GLOBAL_HOLDER_ZERO_DELAY_CNSS_LIVE_2026-05-27.md`입니다.
+- 최신 PM observer helper build는 `docs/reports/NATIVE_INIT_V1117_ZERO_DELAY_CNSS_HELPER_BUILD_2026-05-27.md`입니다.
+- 이전 PM observer live gate는 `docs/reports/NATIVE_INIT_V1116_GLOBAL_HOLDER_IMMEDIATE_CNSS_LIVE_2026-05-27.md`입니다.
+- 이전 PM observer helper build는 `docs/reports/NATIVE_INIT_V1115_IMMEDIATE_CNSS_HELPER_BUILD_2026-05-27.md`입니다.
 - 최신 PM observer classifier는 `docs/reports/NATIVE_INIT_V1114_PM_SERVICE_LIFETIME_CLASSIFIER_2026-05-27.md`입니다.
 - 이전 PM observer live gate는 `docs/reports/NATIVE_INIT_V1113_GLOBAL_FIRMWARE_PM_CONNECT_LIVE_2026-05-27.md`입니다.
 - 최신 PM observer route classifier는 `docs/reports/NATIVE_INIT_V1112_SUBSYS_MODEM_PRECONDITION_CLASSIFIER_2026-05-27.md`입니다.
@@ -29,9 +31,10 @@
 - V1114에서 `pm-service`가 현재 1000 ms post-start probe 전에 `exit_code=0`으로 사라져 CNSS PM client path가 zero-hit임을 host-only로 분류했습니다.
 - V1115에서 helper `v210`에 `per_mgr` fork 직후 20 ms sample 뒤 `cnss-daemon`을 즉시 시작하는 PM observer order를 source/build-only로 추가했습니다.
 - V1116에서 global firmware + modem holder + helper `v210` immediate-CNSS gate가 `cnss-daemon` PM register entry까지 도달했지만 `pm_client_register_ret=0xffffffff`로 PM connect 전 단계에서 멈춤을 확인했습니다.
-- V1107에서 확인된 pre-CNSS `per_proxy` mutex wait blocker는 ordering 문제로 닫혔고, 현재 블로커는 V1116의 CNSS PM register `0xffffffff` 반환이 20 ms sample 지연 때문인지입니다.
+- V1117/V1118에서 helper `v211` zero-delay CNSS order를 추가·검증했고, 20 ms sample을 제거해도 `pm_client_register_ret=0xffffffff`가 유지되어 timing-delay 가설을 닫았습니다.
+- V1107에서 확인된 pre-CNSS `per_proxy` mutex wait blocker와 V1116의 20 ms sample 지연 가설은 닫혔고, 현재 블로커는 CNSS PM register `0xffffffff` 반환의 의미입니다.
 - 아직 Wi-Fi HAL, scan/connect/link-up, DHCP, route, external ping은 실행하지 않았습니다.
-- 다음 블로커는 V1117에서 `per_mgr` fork 뒤 20 ms sample도 제거한 zero-delay CNSS fork order를 검증하는 것입니다.
+- 다음 블로커는 V1119에서 CNSS `pm_client_register`의 `0xffffffff` 반환 경로를 provider lookup, Binder transaction, server reject, client-side precondition 중 하나로 분류하는 것입니다.
 
 ## 현재 기준점
 
@@ -227,6 +230,8 @@
 - `plans/NATIVE_INIT_V1114_PM_SERVICE_LIFETIME_CLASSIFIER_PLAN_2026-05-27.md` – V1113 evidence에서 `pm-service` lifetime/readiness와 CNSS PM client zero-hit 원인을 host-only로 분류하는 계획
 - `plans/NATIVE_INIT_V1115_IMMEDIATE_CNSS_HELPER_BUILD_PLAN_2026-05-27.md` – V1114가 선택한 immediate-CNSS-after-`per_mgr` observer order를 helper `v210`에 source/build-only로 추가하는 계획
 - `plans/NATIVE_INIT_V1116_GLOBAL_HOLDER_IMMEDIATE_CNSS_LIVE_PLAN_2026-05-27.md` – helper `v210` 배포 뒤 global firmware/modem-holder + immediate-CNSS observer를 bounded live로 검증하는 계획
+- `plans/NATIVE_INIT_V1117_ZERO_DELAY_CNSS_HELPER_BUILD_PLAN_2026-05-27.md` – V1116의 20 ms sample 지연 가설을 닫기 위해 zero-delay CNSS-after-`per_mgr` helper `v211`을 source/build-only로 추가하는 계획
+- `plans/NATIVE_INIT_V1118_GLOBAL_HOLDER_ZERO_DELAY_CNSS_LIVE_PLAN_2026-05-27.md` – helper `v211` 배포 뒤 global firmware/modem-holder + zero-delay CNSS observer를 bounded live로 검증하는 계획
 - `plans/NATIVE_INIT_V1003_HELPER_V170_DEPLOY_PLAN_2026-05-26.md` – V1002 helper `v170` 산출물을 `/cache/bin/a90_android_execns_probe`로 deploy-only 배포하고 sha/contract parity를 확인하는 V1003 계획
 - `plans/NATIVE_INIT_V1002_ANDROID_SERVICE_WINDOW_SUBSYS_TRIGGER_SUPPORT_PLAN_2026-05-26.md` – V1001에서 선택한 service-window-scoped `/dev/subsys_esoc0` trigger capture를 helper `v170`에 source/build-only로 추가하는 V1002 계획
 - `plans/NATIVE_INIT_V1001_V1000_ROUTE_COMPARATOR_PLAN_2026-05-26.md` – V1000 Android timing과 V998/V923/V964/V965 native evidence를 비교해 WLFW-precondition gate가 circular인지 host-only로 판정하는 V1001 계획
@@ -633,6 +638,8 @@
 - `reports/NATIVE_INIT_V1114_PM_SERVICE_LIFETIME_CLASSIFIER_2026-05-27.md` – V1114 결과 `pm-service`가 1000 ms post-start probe 전에 `exit_code=0`으로 종료되어 V1115 immediate-CNSS-after-per_mgr gate를 선택한 결과
 - `reports/NATIVE_INIT_V1115_IMMEDIATE_CNSS_HELPER_BUILD_2026-05-27.md` – V1115 결과 helper `v210`에 immediate-CNSS-after-`per_mgr` PM observer order를 추가하고 static helper build/string 검증을 통과한 결과
 - `reports/NATIVE_INIT_V1116_GLOBAL_HOLDER_IMMEDIATE_CNSS_LIVE_2026-05-27.md` – V1116 결과 helper `v210` deploy와 global-holder immediate-CNSS gate가 통과했고 CNSS PM register가 `0xffffffff`로 반환되어 다음을 zero-delay fork order로 좁힌 결과
+- `reports/NATIVE_INIT_V1117_ZERO_DELAY_CNSS_HELPER_BUILD_2026-05-27.md` – V1117 결과 helper `v211`에 zero-delay CNSS-after-`per_mgr` PM observer order를 추가하고 static helper build/string 검증을 통과한 결과
+- `reports/NATIVE_INIT_V1118_GLOBAL_HOLDER_ZERO_DELAY_CNSS_LIVE_2026-05-27.md` – V1118 결과 zero-delay CNSS gate에서도 PM register `0xffffffff`가 유지되어 다음을 register failure semantics 분류로 좁힌 결과
 - `reports/NATIVE_INIT_V1004_SERVICE_WINDOW_SUBSYS_TRIGGER_LIVE_2026-05-26.md` – V1004 live 결과 current-boot SELinux refresh 후 Android service-window actors는 관측됐지만 `mdm_helper`가 `/dev/esoc-0` fd를 hold하지 않아 `/dev/subsys_esoc0` trigger는 안전하게 미실행된 결과
 - `reports/NATIVE_INIT_V1003_HELPER_V170_DEPLOY_2026-05-26.md` – helper `v170`을 `/cache/bin/a90_android_execns_probe`로 deploy-only 설치하고 remote sha/contract parity 및 no-Wi-Fi guard를 확인한 V1003 결과
 - `reports/NATIVE_INIT_V1002_ANDROID_SERVICE_WINDOW_SUBSYS_TRIGGER_SUPPORT_2026-05-26.md` – helper `v170`에 Android service-window scoped `/dev/subsys_esoc0` trigger capture mode를 source/build-only로 추가한 V1002 결과
