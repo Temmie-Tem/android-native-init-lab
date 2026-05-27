@@ -130,6 +130,7 @@ def verify_module_root(module_root: Path) -> tuple[bool, list[str]]:
         root / "module.prop",
         root / "bin/strace",
         root / "system/vendor/bin/mdm_helper",
+        root / "vendor/bin/mdm_helper",
         root / "post-fs-data.sh",
         root / "service.sh",
     ]
@@ -149,6 +150,9 @@ def verify_module_root(module_root: Path) -> tuple[bool, list[str]]:
         for syscall in ("openat", "ioctl", "read", "write", "execve"):
             if syscall not in text:
                 problems.append(f"wrapper lacks syscall filter {syscall}")
+    vendor_wrapper = root / "vendor/bin/mdm_helper"
+    if vendor_wrapper.exists() and wrapper.exists() and vendor_wrapper.read_bytes() != wrapper.read_bytes():
+        problems.append("vendor/bin/mdm_helper wrapper differs from system/vendor/bin/mdm_helper")
     return not problems, problems
 
 
@@ -296,6 +300,17 @@ def build_step_plan(args: argparse.Namespace, store: EvidenceStore, android_imag
             ("wait-android-capture-boot", [*adb_base(args), "devices"], args.android_timeout),
             ("wait-capture-boot-complete", prop_poll_command(args), args.boot_complete_timeout),
             ("capture-settle", f"sleep {args.capture_settle_sleep}", args.capture_settle_sleep + args.timeout),
+            (
+                "android-overlay-proof",
+                adb_su(
+                    args,
+                    "set -x; "
+                    "ls -lZ /vendor/bin/mdm_helper /system/vendor/bin/mdm_helper 2>/dev/null || true; "
+                    "readlink -f /vendor/bin/mdm_helper /system/vendor/bin/mdm_helper 2>/dev/null || true; "
+                    "grep -E 'a90_mdm_trace|mdm_helper|/vendor' /proc/mounts | head -n 80 || true",
+                ),
+                args.timeout,
+            ),
             (
                 "android-trace-surface",
                 adb_su(
@@ -477,6 +492,7 @@ def execute_plan(args: argparse.Namespace, store: EvidenceStore, execute: bool) 
     if not module_ok:
         return [], context, "v1149-handoff-module-not-ready", False
     zip_module(args.module_root, store)
+    store.mkdir("android-trace")
     if not native_image.present or not native_image.aligned_4k or not native_image.android_magic or not native_image.native_marker:
         return [], context, "v1149-handoff-missing-native-rollback", False
     if android_image is None:

@@ -30,6 +30,7 @@ MODULE_ID = "a90_mdm_trace"
 TRACE_DIR = "/data/local/tmp/a90-wifi"
 MODULE_DIR = f"/data/adb/modules/{MODULE_ID}"
 WRAPPER_RELATIVE_PATH = "module/system/vendor/bin/mdm_helper"
+VENDOR_WRAPPER_RELATIVE_PATH = "module/vendor/bin/mdm_helper"
 STRACE_RELATIVE_PATH = "module/bin/strace"
 
 REQUIRED_SYSCALLS = ("openat", "ioctl", "read", "write", "execve")
@@ -240,6 +241,7 @@ This directory is host-generated only. It has not been installed on the device.
 - `strace_binary_present`: `{strace_binary_present}`
 - `install_ready`: `{install_ready}`
 - wrapper path: `{WRAPPER_RELATIVE_PATH}`
+- vendor wrapper path: `{VENDOR_WRAPPER_RELATIVE_PATH}`
 - strace path: `{STRACE_RELATIVE_PATH}`
 - Android output directory: `{TRACE_DIR}`
 
@@ -423,6 +425,7 @@ def main() -> int:
     module_root = store.mkdir("module")
     store.mkdir("module/bin")
     store.mkdir("module/system/vendor/bin")
+    store.mkdir("module/vendor/bin")
     store.mkdir("module/original")
 
     write_module_file(store, "module/module.prop", module_prop())
@@ -430,6 +433,7 @@ def main() -> int:
     write_exec_text(store, "module/service.sh", service_script())
     wrapper_text = wrapper_script()
     write_exec_text(store, WRAPPER_RELATIVE_PATH, wrapper_text)
+    write_exec_text(store, VENDOR_WRAPPER_RELATIVE_PATH, wrapper_text)
     write_module_file(store, "module/original/README.md", "Optional fallback location for copied original mdm_helper.\n")
 
     strace_info = verify_strace_binary(args.strace_binary, store)

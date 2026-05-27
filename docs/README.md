@@ -57,7 +57,9 @@
 - V1148에서 `strace 7.0`을 static AArch64로 빌드했고, V1147 scaffold를 `install_ready=true` 상태로 재생성했습니다. 아직 Android boot/module install/live capture는 실행하지 않았습니다.
 - 최신 V1149 Android `mdm_helper` strace handoff runner 결과는 `docs/reports/NATIVE_INIT_V1149_ANDROID_MDM_HELPER_STRACE_HANDOFF_RUNNER_2026-05-27.md`입니다.
 - V1149 runner dry-run에서 Magisk module ZIP packaging, two-boot Android install/capture flow, cleanup/native rollback path, and guardrails를 검증했습니다. 아직 live Android boot/module install/capture는 실행하지 않았습니다.
-- 다음 단위는 V1149 live run으로 Android `mdm_helper` strace capture를 수행한 뒤 native v724로 rollback하는 것입니다.
+- 최신 V1150 Magisk vendor overlay repair 결과는 `docs/reports/NATIVE_INIT_V1150_MAGISK_VENDOR_OVERLAY_REPAIR_2026-05-27.md`입니다.
+- V1149 첫 live는 Android 두 번 부팅, module install, Magisk hook 실행, native v724 rollback까지는 성공했지만 `/system/vendor` wrapper가 `/vendor/bin/mdm_helper` 실행 경로를 잡지 못했고 host pull 디렉터리 생성도 누락됐습니다.
+- V1150에서 `vendor/bin/mdm_helper` wrapper를 추가하고 host pull directory 및 `android-overlay-proof` step을 보강했습니다. 다음 단위는 repaired V1149 live retry입니다.
 - 2026-05-27 기준 최신 PM observer live gate는 `docs/reports/NATIVE_INIT_V1124_PRIVATE_FIRMWARE_PM_OBSERVER_LIVE_2026-05-27.md`입니다.
 - 최신 firmware mount-only provider gate는 `docs/reports/NATIVE_INIT_V1121_FIRMWARE_MOUNT_ONLY_PROVIDER_LIVE_2026-05-27.md`입니다.
 - 최신 provider namespace delta classifier는 `docs/reports/NATIVE_INIT_V1122_PROVIDER_NAMESPACE_DELTA_CLASSIFIER_2026-05-27.md`입니다.
