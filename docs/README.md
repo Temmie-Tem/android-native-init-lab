@@ -29,7 +29,9 @@
 - 최신 V1135 lower publication classifier는 `docs/reports/NATIVE_INIT_V1135_LOWER_PUBLICATION_GAP_CLASSIFIER_2026-05-27.md`입니다.
 - V1135에서 성공한 PM/CNSS 경로 아래 남은 blocker를 `mdm3`/eSoC/MDM2AP/WLFW publication gap으로 고정했습니다.
 - 다음 V1136 계획은 `docs/plans/NATIVE_INIT_V1136_POST_PM_ESOC_MDM2AP_GATE_PLAN_2026-05-27.md`입니다.
-- V1136에서는 V1134 upper PM/CNSS 성공을 보존한 상태에서 post-PM `mdm_helper`/eSoC/MDM2AP observer 또는 state-machine gate를 설계·preflight합니다.
+- 최신 V1136 planner 결과는 `docs/reports/NATIVE_INIT_V1136_POST_PM_ESOC_GATE_PLANNER_2026-05-27.md`입니다.
+- V1136에서 helper `v213`은 PM observer와 `mdm_helper` runtime capture를 별도 모드로만 제공하고, post-PM `mdm_helper`/eSoC composite mode가 없음을 확인했습니다.
+- 다음 구현 단위는 V1137 source/build-only로 V1134 upper PM/CNSS path와 `mdm_helper`/eSoC observer를 결합하는 guarded helper mode를 추가하는 것입니다.
 - 2026-05-27 기준 최신 PM observer live gate는 `docs/reports/NATIVE_INIT_V1124_PRIVATE_FIRMWARE_PM_OBSERVER_LIVE_2026-05-27.md`입니다.
 - 최신 firmware mount-only provider gate는 `docs/reports/NATIVE_INIT_V1121_FIRMWARE_MOUNT_ONLY_PROVIDER_LIVE_2026-05-27.md`입니다.
 - 최신 provider namespace delta classifier는 `docs/reports/NATIVE_INIT_V1122_PROVIDER_NAMESPACE_DELTA_CLASSIFIER_2026-05-27.md`입니다.
