@@ -100,6 +100,8 @@
 - V1175에서 PM-service state-2 open fd `8`이 `/tmp/a90-v231-1047/root/dev/subsys_modem`으로 확인됐고 `/dev/subsys_esoc0`는 열리지 않아, 다음 blocker를 Android state-3 post-open actor 또는 별도 mdm3/eSoC request path로 좁혔습니다.
 - 최신 V1176 PM state3 dependency classifier 결과는 `docs/reports/NATIVE_INIT_V1176_PM_STATE3_DEPENDENCY_CLASSIFIER_2026-05-27.md`입니다.
 - V1176에서 PM-service state `3`은 no-op return이고 native state `2`는 dependency flag `0` 때문에 dependency/eSoC branch를 스킵함을 확인해, 다음 blocker를 PM dependency flag/state-order parity로 좁혔습니다.
+- 최신 V1177 PM dependency flag live 결과는 `docs/reports/NATIVE_INIT_V1177_PM_DEPENDENCY_FLAG_LIVE_2026-05-27.md`입니다.
+- V1177에서 state `0` 진입 시 dependency state가 이미 `1`이라 dependency state-0 call/wait/flag-set path를 타지 않고, state `2` dependency/eSoC call도 발생하지 않음을 확인해 다음 blocker를 PM dependency object 초기 state/order parity로 좁혔습니다.
 - 2026-05-27 기준 최신 PM observer live gate는 `docs/reports/NATIVE_INIT_V1124_PRIVATE_FIRMWARE_PM_OBSERVER_LIVE_2026-05-27.md`입니다.
 - 최신 firmware mount-only provider gate는 `docs/reports/NATIVE_INIT_V1121_FIRMWARE_MOUNT_ONLY_PROVIDER_LIVE_2026-05-27.md`입니다.
 - 최신 provider namespace delta classifier는 `docs/reports/NATIVE_INIT_V1122_PROVIDER_NAMESPACE_DELTA_CLASSIFIER_2026-05-27.md`입니다.
@@ -263,6 +265,7 @@
 - `plans/NATIVE_INIT_V1174_PM_ACK_BODY_LIVE_PLAN_2026-05-27.md` – V1173에서 매핑한 `pm-service+0x63f4` ack implementation과 `pm-service+0x8788` state-transition body의 state-2 open path를 live tracefs로 확인하는 V1174 계획
 - `plans/NATIVE_INIT_V1175_PM_ACK_FD_TARGET_LIVE_PLAN_2026-05-27.md` – V1174의 state-2 open fd `8`을 `/proc/<pm-service>/fd` sampling으로 실제 device target에 매핑하는 V1175 계획
 - `plans/NATIVE_INIT_V1176_PM_STATE3_DEPENDENCY_CLASSIFIER_PLAN_2026-05-27.md` – V1175 fd-target 결과와 PM-service disassembly로 state `3` no-op 및 dependency flag/state-order gap을 분류하는 V1176 host-only 계획
+- `plans/NATIVE_INIT_V1177_PM_DEPENDENCY_FLAG_LIVE_PLAN_2026-05-27.md` – PM-service state-0 dependency call/wait/flag-set path와 state-2 dependency call 여부를 live tracefs로 확인하는 V1177 계획
 - `plans/NATIVE_INIT_V1004_SERVICE_WINDOW_SUBSYS_TRIGGER_LIVE_PLAN_2026-05-26.md` – helper `v170`으로 current-boot SELinux refresh 후 Android service-window scoped `/dev/subsys_esoc0` trigger capture를 수행하는 V1004 live 계획
 - `plans/NATIVE_INIT_V1005_V1004_FD_GAP_CLASSIFIER_PLAN_2026-05-26.md` – V1000 Android dmesg/process, V911 native `mdm_helper` fd, V1004 service-window fd-gate 실패를 host-only로 비교해 다음 gate를 고르는 V1005 계획
 - `plans/NATIVE_INIT_V1006_SERVICE_WINDOW_FD_POLL_SUPPORT_PLAN_2026-05-26.md` – V1005가 선택한 helper `v171` service-window `mdm_helper` `/dev/esoc-0` repeated fd-poll support source/build 계획
@@ -793,6 +796,7 @@
 - `reports/NATIVE_INIT_V1174_PM_ACK_BODY_LIVE_2026-05-27.md` – V1174 결과 PM-service state-2 ack body가 device open 성공과 state `3` 전환까지 수행하지만 mdm3/WLFW/`wlan0`가 없어 opened path/fd target을 다음 blocker로 좁힌 결과
 - `reports/NATIVE_INIT_V1175_PM_ACK_FD_TARGET_LIVE_2026-05-27.md` – V1175 결과 PM-service state-2 open fd `8`은 `/dev/subsys_modem`이고 `/dev/subsys_esoc0`는 아니므로 Android state-3 post-open actor를 다음 blocker로 좁힌 결과
 - `reports/NATIVE_INIT_V1176_PM_STATE3_DEPENDENCY_CLASSIFIER_2026-05-27.md` – V1176 결과 state `3`은 no-op이고 state `2`는 dependency flag `0`으로 dependency branch를 스킵해 PM dependency flag/state-order parity를 다음 blocker로 좁힌 결과
+- `reports/NATIVE_INIT_V1177_PM_DEPENDENCY_FLAG_LIVE_2026-05-27.md` – V1177 결과 state `0`에서도 dependency state가 이미 `1`이라 dependency call/wait/flag-set path가 미실행되어 PM dependency object 초기 state/order parity를 다음 blocker로 좁힌 결과
 - `reports/NATIVE_INIT_V1004_SERVICE_WINDOW_SUBSYS_TRIGGER_LIVE_2026-05-26.md` – V1004 live 결과 current-boot SELinux refresh 후 Android service-window actors는 관측됐지만 `mdm_helper`가 `/dev/esoc-0` fd를 hold하지 않아 `/dev/subsys_esoc0` trigger는 안전하게 미실행된 결과
 - `reports/NATIVE_INIT_V1003_HELPER_V170_DEPLOY_2026-05-26.md` – helper `v170`을 `/cache/bin/a90_android_execns_probe`로 deploy-only 설치하고 remote sha/contract parity 및 no-Wi-Fi guard를 확인한 V1003 결과
 - `reports/NATIVE_INIT_V1002_ANDROID_SERVICE_WINDOW_SUBSYS_TRIGGER_SUPPORT_2026-05-26.md` – helper `v170`에 Android service-window scoped `/dev/subsys_esoc0` trigger capture mode를 source/build-only로 추가한 V1002 결과
