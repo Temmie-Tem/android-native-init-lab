@@ -45,7 +45,9 @@
 - V1142에서 helper `v215`를 `/cache/bin/a90_android_execns_probe`로 배포하고, serial chunk size `1800`으로 console line safety limit 안에서 deploy-only 검증을 통과했습니다.
 - 최신 V1143 post-PM lower-trace live 결과는 `docs/reports/NATIVE_INIT_V1143_POST_PM_LOWER_TRACE_LIVE_2026-05-27.md`입니다.
 - V1143에서 `mdm_helper`는 `/dev/esoc-0` fd를 유지하고 worker thread가 `esoc_dev_ioctl` request `0x8004cc02`에 머무름을 확인했지만, `/dev/subsys_esoc0`/MHI/`ks`/WLFW/service69/wlan0는 전진하지 않았습니다.
-- 다음 단위는 `esoc_dev_ioctl` request `0x8004cc02`의 userspace/kernel contract를 host-only로 분류하는 것입니다.
+- 최신 V1144 eSoC wait ioctl contract classifier는 `docs/reports/NATIVE_INIT_V1144_ESOC_WAIT_IOCTL_CONTRACT_2026-05-27.md`입니다.
+- V1144에서 `0x8004cc02`를 `_IOR(0xcc, 2, unsigned int)` = `ESOC_WAIT_FOR_REQ`로 host-only 분류했고, 현재 `mdm_helper`가 직접 power-on이 아니라 eSoC request FIFO를 기다리는 상태임을 고정했습니다.
+- 다음 단위는 Android `mdm_helper`/`ks`/MHI image-link contract를 host-only로 재구성해 native에서 fail-closed verifier를 설계하는 것입니다.
 - 2026-05-27 기준 최신 PM observer live gate는 `docs/reports/NATIVE_INIT_V1124_PRIVATE_FIRMWARE_PM_OBSERVER_LIVE_2026-05-27.md`입니다.
 - 최신 firmware mount-only provider gate는 `docs/reports/NATIVE_INIT_V1121_FIRMWARE_MOUNT_ONLY_PROVIDER_LIVE_2026-05-27.md`입니다.
 - 최신 provider namespace delta classifier는 `docs/reports/NATIVE_INIT_V1122_PROVIDER_NAMESPACE_DELTA_CLASSIFIER_2026-05-27.md`입니다.
