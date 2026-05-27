@@ -62,6 +62,8 @@
 - V1150에서 `vendor/bin/mdm_helper` wrapper를 추가하고 host pull directory 및 `android-overlay-proof` step을 보강했습니다. 다음 단위는 repaired V1149 live retry입니다.
 - 최신 V1157 Android `mdm_helper` strace capture 결과는 `docs/reports/NATIVE_INIT_V1157_ANDROID_MDM_HELPER_STRACE_CAPTURE_2026-05-27.md`입니다.
 - V1157에서 Magisk ELF wrapper가 `/vendor/bin/mdm_helper.real` 원본과 `/vendor/bin/a90_strace`를 사용해 Android `mdm_helper`의 `/dev/esoc-0` open 및 `ESOC_WAIT_FOR_REQ` ioctl을 실제 strace로 캡처했고, native v724 rollback을 검증했습니다.
+- 최신 V1158 Android `mdm_helper` extended strace capture 결과는 `docs/reports/NATIVE_INIT_V1158_ANDROID_MDM_HELPER_EXTENDED_STRACE_CAPTURE_2026-05-27.md`입니다.
+- V1158에서 FW-ready/`wlan0`까지 캡처를 연장했지만 `mdm_helper`는 post-wakelock 후 `SyS_nanosleep`에 머물렀고, Android dmesg/proc 증거상 `pm-service` Binder thread가 `esoc0` subsystem get을 트리거하는 더 강한 후보로 분류됐습니다.
 - 2026-05-27 기준 최신 PM observer live gate는 `docs/reports/NATIVE_INIT_V1124_PRIVATE_FIRMWARE_PM_OBSERVER_LIVE_2026-05-27.md`입니다.
 - 최신 firmware mount-only provider gate는 `docs/reports/NATIVE_INIT_V1121_FIRMWARE_MOUNT_ONLY_PROVIDER_LIVE_2026-05-27.md`입니다.
 - 최신 provider namespace delta classifier는 `docs/reports/NATIVE_INIT_V1122_PROVIDER_NAMESPACE_DELTA_CLASSIFIER_2026-05-27.md`입니다.

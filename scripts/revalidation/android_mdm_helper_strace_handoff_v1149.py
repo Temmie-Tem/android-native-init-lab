@@ -90,6 +90,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--android-timeout", type=int, default=420)
     parser.add_argument("--boot-complete-timeout", type=int, default=DEFAULT_BOOT_COMPLETE_TIMEOUT)
     parser.add_argument("--capture-settle-sleep", type=int, default=30)
+    parser.add_argument("--capture-wifi-ready-timeout", type=int, default=180)
+    parser.add_argument("--capture-wifi-ready-poll", type=int, default=2)
     parser.add_argument("--allow-android-boot-flash", action="store_true")
     parser.add_argument("--assume-yes", action="store_true")
     parser.add_argument("--i-understand-native-rollback", action="store_true")
@@ -314,6 +316,22 @@ def build_step_plan(args: argparse.Namespace, store: EvidenceStore, android_imag
     trace_dir_q = remote_quote(TRACE_DIR)
     remote_trace_tar_q = remote_quote(args.remote_trace_tar)
     module_id_q = shlex.quote(MODULE_ID)
+    ready_timeout = max(1, args.capture_wifi_ready_timeout)
+    ready_poll = max(1, args.capture_wifi_ready_poll)
+    wifi_ready_wait = (
+        "set -x; "
+        f"end=$(( $(date +%s) + {ready_timeout} )); "
+        "reason=timeout; ready=0; "
+        "while [ $(date +%s) -lt $end ]; do "
+        "if ip link show wlan0 >/dev/null 2>&1; then reason=wlan0-netdev; ready=1; break; fi; "
+        "if dmesg | tail -n 400 | grep -E 'WLAN FW is ready|FW ready event received|dev : wlan0 : event : 16|dev : swlan0 : event : 16|dev : p2p0 : event : 16|dev : wifi-aware0 : event : 16' >/dev/null 2>&1; then reason=dmesg-fw-ready; ready=1; break; fi; "
+        f"sleep {ready_poll}; "
+        "done; "
+        "echo wifi_ready=$ready; echo wifi_ready_reason=$reason; "
+        "ip link show wlan0 2>/dev/null || true; "
+        "dmesg | grep -E 'WLAN FW is ready|FW ready event received|dev : wlan0 : event : 16|dev : swlan0 : event : 16|dev : p2p0 : event : 16|dev : wifi-aware0 : event : 16' | tail -n 40 || true; "
+        "exit 0"
+    )
     plan: list[tuple[str, list[str] | str, int]] = [
         ("native-version", ["python3", "scripts/revalidation/a90ctl.py", "--json", "version"], args.timeout),
         ("native-selftest", ["python3", "scripts/revalidation/a90ctl.py", "selftest"], args.timeout),
@@ -350,6 +368,11 @@ def build_step_plan(args: argparse.Namespace, store: EvidenceStore, android_imag
             ("reboot-android-for-capture", [*adb_base(args), "reboot"], args.timeout),
             ("wait-android-capture-boot", [*adb_base(args), "devices"], args.android_timeout),
             ("wait-capture-boot-complete", prop_poll_command(args), args.boot_complete_timeout),
+            (
+                "android-wifi-fw-ready-wait",
+                adb_su(args, wifi_ready_wait),
+                ready_timeout + args.timeout,
+            ),
             ("capture-settle", f"sleep {args.capture_settle_sleep}", args.capture_settle_sleep + args.timeout),
             (
                 "android-overlay-proof",
@@ -392,8 +415,10 @@ def build_step_plan(args: argparse.Namespace, store: EvidenceStore, android_imag
                     args,
                     f"set -x; ls -lR {trace_dir_q} 2>/dev/null || true; "
                     f"for f in {trace_dir_q}/mdm_helper.wrapper.log {trace_dir_q}/mdm_helper.strace.txt "
-                    f"{trace_dir_q}/service.log {trace_dir_q}/post-fs-data.log {trace_dir_q}/pids.txt; do "
-                    "echo ===$f===; [ -f \"$f\" ] && (head -n 80 \"$f\"; echo ---TAIL---; tail -n 80 \"$f\") || true; done",
+                    f"{trace_dir_q}/service.log {trace_dir_q}/post-fs-data.log {trace_dir_q}/wifi_ready_wait.txt {trace_dir_q}/pids.txt; do "
+                    "echo ===$f===; [ -f \"$f\" ] && (head -n 120 \"$f\"; echo ---TAIL---; tail -n 160 \"$f\") || true; done; "
+                    f"for d in {trace_dir_q}/proc_a90_strace_* {trace_dir_q}/proc_mdm_helper_real_* {trace_dir_q}/proc_mdm_helper_*; do "
+                    "echo ===$d===; [ -d \"$d\" ] && (ls -l \"$d\"; for f in wchan.txt syscall.txt stack.txt fd.txt cmdline.bin status.txt; do echo ---$f---; [ -f \"$d/$f\" ] && cat \"$d/$f\" || true; done) || true; done",
                 ),
                 args.timeout * 2,
             ),
@@ -515,14 +540,17 @@ def extract_trace_tar(store: EvidenceStore) -> dict[str, Any]:
     service_log = trace_root / "service.log"
     pids = trace_root / "pids.txt"
     boot_dmesg = trace_root / "boot_dmesg.txt"
+    wifi_ready_wait = trace_root / "wifi_ready_wait.txt"
     strace_text = strace_log.read_text(encoding="utf-8", errors="replace")[:2_000_000] if strace_log.exists() else ""
     wrapper_text = wrapper_log.read_text(encoding="utf-8", errors="replace")[:200_000] if wrapper_log.exists() else ""
     pids_text = pids.read_text(encoding="utf-8", errors="replace")[:200_000] if pids.exists() else ""
     dmesg_text = boot_dmesg.read_text(encoding="utf-8", errors="replace")[:2_000_000] if boot_dmesg.exists() else ""
+    wifi_ready_text = wifi_ready_wait.read_text(encoding="utf-8", errors="replace")[:20_000] if wifi_ready_wait.exists() else ""
     mdm_helper_exit_statuses = [
         int(match.group(1))
         for match in re.finditer(r"Service 'vendor\.mdm_helper'.*exited with status (\d+)", dmesg_text)
     ]
+    proc_dirs = sorted(item.name for item in trace_root.glob("proc_*") if item.is_dir())
     strace_has_ks_exec = bool(
         re.search(r'execve\("([^"]*/)?ks"', strace_text)
         or re.search(r'openat\([^,]+,\s*"[^"]*/ks"', strace_text)
@@ -535,20 +563,29 @@ def extract_trace_tar(store: EvidenceStore) -> dict[str, Any]:
         "strace_log_present": strace_log.exists(),
         "service_log_present": service_log.exists(),
         "pids_present": pids.exists(),
+        "wifi_ready_wait_present": wifi_ready_wait.exists(),
+        "wifi_ready_wait": wifi_ready_text.strip(),
         "wrapper_started": "wrapper_start=" in wrapper_text,
         "strace_executed": "exec_strace=" in wrapper_text,
         "original_selected": "original=" in wrapper_text,
         "strace_has_esoc0": "/dev/esoc-0" in strace_text,
         "strace_has_ioctl": "ioctl(" in strace_text,
+        "strace_has_cmd_engine_register": "_IOC(_IOC_NONE, 0xcc, 0x7, 0)" in strace_text,
+        "strace_has_wait_for_req": "_IOC(_IOC_READ, 0xcc, 0x2, 0x4)" in strace_text,
+        "strace_has_wakelock": "/sys/power/wake_lock" in strace_text and "mdm_helper" in strace_text,
         "strace_has_execve": "execve(" in strace_text,
         "strace_has_ks": strace_has_ks_exec,
         "strace_has_mhi_pipe": "/dev/mhi_0305_01.01.00_pipe_10" in strace_text,
         "strace_size": strace_log.stat().st_size if strace_log.exists() else 0,
+        "strace_line_count": strace_text.count("\n"),
         "dmesg_present": boot_dmesg.exists(),
+        "dmesg_fw_ready": "WLAN FW is ready" in dmesg_text or "FW ready event received" in dmesg_text,
+        "dmesg_wlan0_created": "dev : wlan0 : event : 16" in dmesg_text,
         "mdm_helper_init_started": "starting service 'vendor.mdm_helper'" in dmesg_text,
         "mdm_helper_exit_statuses": mdm_helper_exit_statuses,
         "mdm_helper_exit_127": 127 in mdm_helper_exit_statuses,
         "mdm_helper_load_script_crash": "Comm: mdm_helper" in dmesg_text and "load_script" in dmesg_text,
+        "proc_dirs": proc_dirs[:80],
     }
 
 

@@ -109,8 +109,8 @@ def write_module_file(store: EvidenceStore, relative_path: str, text: str, mode:
 def module_prop() -> str:
     return f"""id={MODULE_ID}
 name=A90 mdm_helper strace capture scaffold
-version=v1157
-versionCode=1157
+version=v1158
+versionCode=1158
 author=Temmie/Codex
 description=Temporary Android mdm_helper/ks strace capture scaffold. Remove after capture.
 """
@@ -264,8 +264,51 @@ collect_one_pid() {{
   cat "/proc/$pid/cmdline" > "$proc_dir/cmdline.bin" 2>/dev/null || true
   cat "/proc/$pid/status" > "$proc_dir/status.txt" 2>/dev/null || true
   cat "/proc/$pid/wchan" > "$proc_dir/wchan.txt" 2>/dev/null || true
+  cat "/proc/$pid/syscall" > "$proc_dir/syscall.txt" 2>/dev/null || true
+  cat "/proc/$pid/stack" > "$proc_dir/stack.txt" 2>/dev/null || true
+  cat "/proc/$pid/sched" > "$proc_dir/sched.txt" 2>/dev/null || true
   cat "/proc/$pid/attr/current" > "$proc_dir/attr_current.txt" 2>/dev/null || true
   ls -l "/proc/$pid/fd" > "$proc_dir/fd.txt" 2>&1 || true
+}}
+
+collect_cmdline_matches() {{
+  tag="$1"
+  needle="$2"
+  for proc in /proc/[0-9]*; do
+    pid="${{proc##*/}}"
+    cmdline="$(tr '\\0' ' ' < "$proc/cmdline" 2>/dev/null)"
+    case "$cmdline" in
+      *"$needle"*)
+        echo "$tag $pid $cmdline" >> "$TRACE_DIR/pids.txt"
+        collect_one_pid "$tag" "$pid"
+        ;;
+    esac
+  done
+}}
+
+wifi_ready=0
+wifi_ready_reason=timeout
+wait_wifi_ready() {{
+  j=0
+  while [ "$j" -lt 180 ]; do
+    if ip link show wlan0 >/dev/null 2>&1; then
+      wifi_ready=1
+      wifi_ready_reason=wlan0-netdev
+      break
+    fi
+    if dmesg | tail -n 400 | grep -E "WLAN FW is ready|FW ready event received|dev : wlan0 : event : 16|dev : swlan0 : event : 16|dev : p2p0 : event : 16|dev : wifi-aware0 : event : 16" >/dev/null 2>&1; then
+      wifi_ready=1
+      wifi_ready_reason=dmesg-fw-ready
+      break
+    fi
+    j=$((j + 1))
+    sleep 1
+  done
+  {{
+    echo "wifi_ready=$wifi_ready"
+    echo "wifi_ready_reason=$wifi_ready_reason"
+    echo "wifi_ready_wait_sec=$j"
+  }} > "$TRACE_DIR/wifi_ready_wait.txt" 2>/dev/null || true
 }}
 
 (
@@ -284,6 +327,7 @@ collect_one_pid() {{
     sleep 1
   done
 
+  wait_wifi_ready
   date '+%Y-%m-%dT%H:%M:%S%z' > "$TRACE_DIR/snapshot_time.txt" 2>/dev/null || true
   getprop > "$TRACE_DIR/getprop.txt" 2>&1 || true
   dmesg > "$TRACE_DIR/boot_dmesg.txt" 2>&1 || true
@@ -299,6 +343,8 @@ collect_one_pid() {{
       collect_one_pid "$name" "$pid"
     done
   done
+  collect_cmdline_matches a90_strace /vendor/bin/a90_strace
+  collect_cmdline_matches mdm_helper_real /vendor/bin/mdm_helper.real
 ) &
 
 exit 0
@@ -717,7 +763,7 @@ def main() -> int:
     write_module_file(store, "README.md", readme_text)
 
     decision = (
-        "v1157-magisk-strace-module-vendor-original-strace-wrapper-install-ready"
+        "v1158-magisk-strace-module-vendor-original-strace-wrapper-install-ready"
         if scaffold_ready and install_ready
         else "v1157-magisk-strace-module-scaffold-ready-vendor-original-strace-or-wrapper-required"
     )
@@ -725,7 +771,7 @@ def main() -> int:
         decision = "v1147-magisk-strace-module-scaffold-invalid"
 
     manifest: dict[str, Any] = {
-        "version": "v1157",
+        "version": "v1158",
         "created_at": now_iso(),
         "decision": decision,
         "pass": scaffold_ready,
