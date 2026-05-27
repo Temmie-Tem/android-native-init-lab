@@ -39,7 +39,9 @@
 - V1139에서 PM/CNSS register/connect 뒤 `mdm_helper`가 `/dev/esoc-0` fd를 잡는 lower artifact를 확인했지만, `mdm3`/MHI/ks/WLFW/service69/wlan0는 아직 전진하지 않았습니다.
 - 최신 V1140 post-PM lower gap classifier는 `docs/reports/NATIVE_INIT_V1140_POST_PM_LOWER_GAP_CLASSIFIER_2026-05-27.md`입니다.
 - V1140에서 V1071 `pm-service exit 255`/BPF-uProbe 경로를 현재 기준 obsolete로 닫고, 남은 blocker를 post-PM `mdm_helper`의 `/dev/esoc-0` 이후 `/dev/subsys_esoc0`/MHI/`ks`/WLFW 미진입으로 고정했습니다.
-- 다음 단위는 post-PM `mdm_helper` syscall/ioctl/wchan/fd 진행과 Android `ks`/MHI contract delta를 제한 관찰하는 helper support입니다.
+- 최신 V1141 lower-trace helper build 결과는 `docs/reports/NATIVE_INIT_V1141_POST_PM_LOWER_TRACE_HELPER_BUILD_2026-05-27.md`입니다.
+- V1141에서 helper `v215`에 post-PM `mdm_helper` syscall/wchan/fd lower-trace 지원을 opt-in flag로 추가하고 static ARM64 build를 통과했습니다.
+- 다음 단위는 helper `v215` deploy-only와 bounded post-PM lower-trace live입니다.
 - 2026-05-27 기준 최신 PM observer live gate는 `docs/reports/NATIVE_INIT_V1124_PRIVATE_FIRMWARE_PM_OBSERVER_LIVE_2026-05-27.md`입니다.
 - 최신 firmware mount-only provider gate는 `docs/reports/NATIVE_INIT_V1121_FIRMWARE_MOUNT_ONLY_PROVIDER_LIVE_2026-05-27.md`입니다.
 - 최신 provider namespace delta classifier는 `docs/reports/NATIVE_INIT_V1122_PROVIDER_NAMESPACE_DELTA_CLASSIFIER_2026-05-27.md`입니다.
@@ -700,6 +702,7 @@
 - `reports/NATIVE_INIT_V1138_EXECNS_HELPER_V214_DEPLOY_2026-05-27.md` – V1138 결과 helper `v214`를 serial fallback으로 배포하고 remote SHA/mode/native health/post-deploy preflight를 확인한 결과
 - `reports/NATIVE_INIT_V1139_POST_PM_MDM_HELPER_ESOC_LIVE_2026-05-27.md` – V1139 결과 post-PM `mdm_helper`가 `/dev/esoc-0` fd를 잡는 lower artifact를 확인했지만 MHI/ks/WLFW/service69/wlan0는 아직 없는 결과
 - `reports/NATIVE_INIT_V1140_POST_PM_LOWER_GAP_CLASSIFIER_2026-05-27.md` – V1140 결과 V1071 `pm-service exit 255`/BPF-uProbe 경로를 obsolete로 닫고 남은 blocker를 post-PM `mdm_helper` `/dev/esoc-0` 이후 lower eSoC/MHI/`ks` 미진입으로 고정한 결과
+- `reports/NATIVE_INIT_V1141_POST_PM_LOWER_TRACE_HELPER_BUILD_2026-05-27.md` – V1141 결과 helper `v215`에 opt-in post-PM `mdm_helper` lower-trace 지원을 추가하고 static ARM64 build/marker 검증을 통과한 결과
 - `reports/NATIVE_INIT_V1004_SERVICE_WINDOW_SUBSYS_TRIGGER_LIVE_2026-05-26.md` – V1004 live 결과 current-boot SELinux refresh 후 Android service-window actors는 관측됐지만 `mdm_helper`가 `/dev/esoc-0` fd를 hold하지 않아 `/dev/subsys_esoc0` trigger는 안전하게 미실행된 결과
 - `reports/NATIVE_INIT_V1003_HELPER_V170_DEPLOY_2026-05-26.md` – helper `v170`을 `/cache/bin/a90_android_execns_probe`로 deploy-only 설치하고 remote sha/contract parity 및 no-Wi-Fi guard를 확인한 V1003 결과
 - `reports/NATIVE_INIT_V1002_ANDROID_SERVICE_WINDOW_SUBSYS_TRIGGER_SUPPORT_2026-05-26.md` – helper `v170`에 Android service-window scoped `/dev/subsys_esoc0` trigger capture mode를 source/build-only로 추가한 V1002 결과

@@ -97,7 +97,7 @@
 #define IOPRIO_PRIO_VALUE(class_value, data) (((class_value) << IOPRIO_CLASS_SHIFT) | (data))
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v214"
+#define EXECNS_VERSION "a90_android_execns_probe v215"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -245,6 +245,7 @@ struct config {
     bool allow_pm_service_trigger_observer;
     bool allow_pm_observer_modem_pre_holder;
     bool allow_post_pm_mdm_helper_esoc_observer;
+    bool allow_post_pm_mdm_helper_lower_trace;
     bool allow_android_wifi_service_window;
     bool allow_android_wifi_service_window_subsys_trigger_capture;
     bool require_android_selinux_exec_match;
@@ -415,6 +416,7 @@ static void usage(FILE *out) {
             "[--allow-pm-service-trigger-observer] "
             "[--allow-pm-observer-modem-pre-holder] "
             "[--allow-post-pm-mdm-helper-esoc-observer] "
+            "[--allow-post-pm-mdm-helper-lower-trace] "
             "[--allow-android-wifi-service-window] "
             "[--allow-android-wifi-service-window-subsys-trigger-capture] "
             "[--pm-observer-continue-after-provider] "
@@ -1161,6 +1163,10 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             cfg->allow_post_pm_mdm_helper_esoc_observer = true;
             continue;
         }
+        if (strcmp(argv[i], "--allow-post-pm-mdm-helper-lower-trace") == 0) {
+            cfg->allow_post_pm_mdm_helper_lower_trace = true;
+            continue;
+        }
         if (strcmp(argv[i], "--pm-observer-continue-after-provider") == 0) {
             cfg->pm_observer_continue_after_provider = true;
             continue;
@@ -1648,6 +1654,16 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
     if (cfg->allow_post_pm_mdm_helper_esoc_observer &&
         !is_wifi_companion_post_pm_mdm_helper_esoc_observer_mode(cfg->mode)) {
         fprintf(stderr, "--allow-post-pm-mdm-helper-esoc-observer is only valid with wifi-companion-post-pm-mdm-helper-esoc-observer mode\n");
+        return 2;
+    }
+    if (cfg->allow_post_pm_mdm_helper_lower_trace &&
+        !is_wifi_companion_post_pm_mdm_helper_esoc_observer_mode(cfg->mode)) {
+        fprintf(stderr, "--allow-post-pm-mdm-helper-lower-trace is only valid with wifi-companion-post-pm-mdm-helper-esoc-observer mode\n");
+        return 2;
+    }
+    if (cfg->allow_post_pm_mdm_helper_lower_trace &&
+        !cfg->allow_post_pm_mdm_helper_esoc_observer) {
+        fprintf(stderr, "--allow-post-pm-mdm-helper-lower-trace requires --allow-post-pm-mdm-helper-esoc-observer\n");
         return 2;
     }
     if (cfg->pm_observer_continue_after_provider &&
@@ -16796,7 +16812,9 @@ static bool composite_child_should_trace(const struct config *cfg,
             (child->identity == COMPOSITE_ID_SERVICE_MANAGER ||
              child->identity == COMPOSITE_ID_VND_SERVICE_MANAGER ||
              child->identity == COMPOSITE_ID_PER_MGR ||
-             child->identity == COMPOSITE_ID_PER_PROXY)) ||
+             child->identity == COMPOSITE_ID_PER_PROXY ||
+             (cfg->allow_post_pm_mdm_helper_lower_trace &&
+              child->identity == COMPOSITE_ID_MDM_HELPER))) ||
            (is_wifi_companion_android_wifi_service_window_any_mode(cfg->mode) &&
             cfg->allow_android_wifi_service_window &&
             child->identity == COMPOSITE_ID_WIFICOND);
@@ -17207,7 +17225,9 @@ static int composite_spawn_child(const struct config *cfg,
         streq(cfg->capture_mode, "ptrace-lite");
     child->trace_syscalls =
         child->trace_minimal &&
-        child->identity == COMPOSITE_ID_PER_MGR;
+        (child->identity == COMPOSITE_ID_PER_MGR ||
+         (cfg->allow_post_pm_mdm_helper_lower_trace &&
+          child->identity == COMPOSITE_ID_MDM_HELPER));
     child->syscall_trace_started = child->trace_syscalls;
     child->syscall_entry_next = true;
     set_nonblock(child->stdout_fd);
@@ -27185,6 +27205,278 @@ static int append_pm_service_trigger_observer_syscall_probe(struct buffer *buf,
                          phase);
 }
 
+static int append_post_pm_mdm_helper_thread_probe(struct buffer *buf,
+                                                  const char *phase,
+                                                  const struct composite_child *mdm_helper) {
+    char task_path[MAX_PATH_LEN];
+    DIR *dir;
+    struct dirent *entry;
+    int count = 0;
+    int shown = 0;
+    int path_candidate_count = 0;
+    bool truncated = false;
+
+    if (!composite_child_alive_for_snapshot(mdm_helper)) {
+        return append_format(buf,
+                             "post_pm_mdm_helper_lower_trace.thread_probe.%s.begin=1\n"
+                             "post_pm_mdm_helper_lower_trace.thread_probe.%s.pid=%ld\n"
+                             "post_pm_mdm_helper_lower_trace.thread_probe.%s.alive=0\n"
+                             "post_pm_mdm_helper_lower_trace.thread_probe.%s.end=1\n",
+                             phase,
+                             phase,
+                             mdm_helper != NULL ? (long)mdm_helper->pid : -1L,
+                             phase,
+                             phase);
+    }
+    if (snprintf(task_path, sizeof(task_path), "/proc/%ld/task", (long)mdm_helper->pid) >= (int)sizeof(task_path)) {
+        return append_format(buf,
+                             "post_pm_mdm_helper_lower_trace.thread_probe.%s.begin=1\n"
+                             "post_pm_mdm_helper_lower_trace.thread_probe.%s.error=task-path-too-long\n"
+                             "post_pm_mdm_helper_lower_trace.thread_probe.%s.end=1\n",
+                             phase,
+                             phase,
+                             phase);
+    }
+    dir = opendir(task_path);
+    if (dir == NULL) {
+        return append_format(buf,
+                             "post_pm_mdm_helper_lower_trace.thread_probe.%s.begin=1\n"
+                             "post_pm_mdm_helper_lower_trace.thread_probe.%s.pid=%ld\n"
+                             "post_pm_mdm_helper_lower_trace.thread_probe.%s.error=%s\n"
+                             "post_pm_mdm_helper_lower_trace.thread_probe.%s.end=1\n",
+                             phase,
+                             phase,
+                             (long)mdm_helper->pid,
+                             phase,
+                             strerror(errno),
+                             phase);
+    }
+    if (append_format(buf,
+                      "post_pm_mdm_helper_lower_trace.thread_probe.%s.begin=1\n"
+                      "post_pm_mdm_helper_lower_trace.thread_probe.%s.pid=%ld\n"
+                      "post_pm_mdm_helper_lower_trace.thread_probe.%s.alive=1\n",
+                      phase,
+                      phase,
+                      (long)mdm_helper->pid,
+                      phase) < 0) {
+        closedir(dir);
+        return -1;
+    }
+    while ((entry = readdir(dir)) != NULL) {
+        char syscall_path[MAX_PATH_LEN];
+        char wchan_path[MAX_PATH_LEN];
+        char comm_path[MAX_PATH_LEN];
+        char syscall_line[512];
+        char wchan[128];
+        char comm[128];
+        char prefix[192];
+        long nr = -1;
+        unsigned long long args[6] = {0};
+        int path_index;
+        pid_t tid;
+
+        if (!decimal_name(entry->d_name)) {
+            continue;
+        }
+        count++;
+        if (shown >= 16) {
+            truncated = true;
+            continue;
+        }
+        tid = (pid_t)strtol(entry->d_name, NULL, 10);
+        if (snprintf(syscall_path, sizeof(syscall_path), "%s/%s/syscall", task_path, entry->d_name) >= (int)sizeof(syscall_path) ||
+            snprintf(wchan_path, sizeof(wchan_path), "%s/%s/wchan", task_path, entry->d_name) >= (int)sizeof(wchan_path) ||
+            snprintf(comm_path, sizeof(comm_path), "%s/%s/comm", task_path, entry->d_name) >= (int)sizeof(comm_path) ||
+            snprintf(prefix,
+                     sizeof(prefix),
+                     "post_pm_mdm_helper_lower_trace.thread_probe.%s.entry_%02d",
+                     phase,
+                     shown) >= (int)sizeof(prefix)) {
+            closedir(dir);
+            return -1;
+        }
+        read_first_line_path(syscall_path, syscall_line, sizeof(syscall_line));
+        read_first_line_path(wchan_path, wchan, sizeof(wchan));
+        read_first_line_path(comm_path, comm, sizeof(comm));
+        if (append_format(buf,
+                          "%s.tid=%ld\n"
+                          "%s.comm=",
+                          prefix,
+                          (long)tid,
+                          prefix) < 0 ||
+            append_escaped_ascii(buf, (const unsigned char *)comm, strlen(comm)) < 0 ||
+            append_format(buf,
+                          "\n%s.wchan=",
+                          prefix) < 0 ||
+            append_escaped_ascii(buf, (const unsigned char *)wchan, strlen(wchan)) < 0 ||
+            append_format(buf,
+                          "\n%s.syscall.raw=",
+                          prefix) < 0 ||
+            append_escaped_ascii(buf, (const unsigned char *)syscall_line, strlen(syscall_line)) < 0 ||
+            append_literal(buf, "\n") < 0) {
+            closedir(dir);
+            return -1;
+        }
+        if (parse_proc_syscall_line(syscall_line, &nr, args)) {
+            path_index = a90_syscall_path_arg_index(nr);
+            if (append_format(buf,
+                              "%s.nr=%ld\n"
+                              "%s.name=%s\n"
+                              "%s.path_arg_index=%d\n",
+                              prefix,
+                              nr,
+                              prefix,
+                              a90_syscall_name(nr),
+                              prefix,
+                              path_index) < 0) {
+                closedir(dir);
+                return -1;
+            }
+            if (path_index >= 0) {
+                path_candidate_count++;
+                if (append_process_vm_c_string_field(buf,
+                                                     mdm_helper->pid,
+                                                     prefix,
+                                                     "path",
+                                                     args[path_index],
+                                                     192) < 0) {
+                    closedir(dir);
+                    return -1;
+                }
+            }
+        } else if (append_format(buf,
+                                 "%s.nr=-1\n"
+                                 "%s.name=unparsed\n"
+                                 "%s.path_arg_index=-1\n",
+                                 prefix,
+                                 prefix,
+                                 prefix) < 0) {
+            closedir(dir);
+            return -1;
+        }
+        shown++;
+    }
+    closedir(dir);
+    return append_format(buf,
+                         "post_pm_mdm_helper_lower_trace.thread_probe.%s.count=%d\n"
+                         "post_pm_mdm_helper_lower_trace.thread_probe.%s.shown=%d\n"
+                         "post_pm_mdm_helper_lower_trace.thread_probe.%s.truncated=%d\n"
+                         "post_pm_mdm_helper_lower_trace.thread_probe.%s.path_candidate_count=%d\n"
+                         "post_pm_mdm_helper_lower_trace.thread_probe.%s.end=1\n",
+                         phase,
+                         count,
+                         phase,
+                         shown,
+                         phase,
+                         truncated ? 1 : 0,
+                         phase,
+                         path_candidate_count,
+                         phase);
+}
+
+static int append_post_pm_mdm_helper_lower_trace_snapshot(struct buffer *buf,
+                                                          const char *phase,
+                                                          const struct composite_child *mdm_helper,
+                                                          bool include_fd_links) {
+    int esoc0_count = -1;
+    int subsys_esoc0_count = -1;
+    int mhi_pipe_count = -1;
+    int ks_count = -1;
+    int mhi_cmdline_count = -1;
+    bool alive = composite_child_alive_for_snapshot(mdm_helper);
+    char state = alive ? read_proc_state(mdm_helper->pid) : '-';
+    char fd_label[160];
+
+    if (append_format(buf,
+                      "post_pm_mdm_helper_lower_trace.%s.begin=1\n"
+                      "post_pm_mdm_helper_lower_trace.%s.monotonic_ms=%ld\n"
+                      "post_pm_mdm_helper_lower_trace.%s.pid=%ld\n"
+                      "post_pm_mdm_helper_lower_trace.%s.alive=%d\n"
+                      "post_pm_mdm_helper_lower_trace.%s.state=%c\n",
+                      phase,
+                      phase,
+                      monotonic_ms(),
+                      phase,
+                      mdm_helper != NULL ? (long)mdm_helper->pid : -1L,
+                      phase,
+                      alive ? 1 : 0,
+                      phase,
+                      state) < 0) {
+        return -1;
+    }
+    if (alive) {
+        if (snprintf(fd_label, sizeof(fd_label), "%s_mdm_helper_esoc0", phase) >= (int)sizeof(fd_label) ||
+            append_proc_fd_target_match_scan(buf,
+                                             mdm_helper->pid,
+                                             "post_pm_mdm_helper_lower_trace",
+                                             fd_label,
+                                             "/dev/esoc-0",
+                                             &esoc0_count) < 0 ||
+            snprintf(fd_label, sizeof(fd_label), "%s_mdm_helper_subsys_esoc0", phase) >= (int)sizeof(fd_label) ||
+            append_proc_fd_target_match_scan(buf,
+                                             mdm_helper->pid,
+                                             "post_pm_mdm_helper_lower_trace",
+                                             fd_label,
+                                             "/dev/subsys_esoc0",
+                                             &subsys_esoc0_count) < 0 ||
+            snprintf(fd_label, sizeof(fd_label), "%s_mdm_helper_mhi_pipe", phase) >= (int)sizeof(fd_label) ||
+            append_proc_fd_target_match_scan(buf,
+                                             mdm_helper->pid,
+                                             "post_pm_mdm_helper_lower_trace",
+                                             fd_label,
+                                             "/dev/mhi_0305_01.01.00_pipe_10",
+                                             &mhi_pipe_count) < 0 ||
+            append_post_pm_mdm_helper_thread_probe(buf, phase, mdm_helper) < 0) {
+            return -1;
+        }
+        if (include_fd_links) {
+            if (snprintf(fd_label,
+                         sizeof(fd_label),
+                         "post_pm_mdm_helper_lower_trace_%s_fd_links",
+                         phase) >= (int)sizeof(fd_label) ||
+                append_proc_fd_links_compact(buf, mdm_helper->pid, fd_label) < 0 ||
+                append_generic_stall_snapshot_capture(buf, mdm_helper->pid, "post_pm_mdm_helper_lower_trace_stall") < 0) {
+                return -1;
+            }
+        }
+    }
+    if (append_process_cmdline_match_scan(buf,
+                                          "post_pm_mdm_helper_lower_trace",
+                                          "window_ks",
+                                          "/vendor/bin/ks",
+                                          8,
+                                          &ks_count) < 0 ||
+        append_process_cmdline_match_scan(buf,
+                                          "post_pm_mdm_helper_lower_trace",
+                                          "window_mhi_pipe_cmdline",
+                                          "/dev/mhi_0305_01.01.00_pipe_10",
+                                          8,
+                                          &mhi_cmdline_count) < 0) {
+        return -1;
+    }
+    return append_format(buf,
+                         "post_pm_mdm_helper_lower_trace.%s.fd_esoc0_count=%d\n"
+                         "post_pm_mdm_helper_lower_trace.%s.fd_subsys_esoc0_count=%d\n"
+                         "post_pm_mdm_helper_lower_trace.%s.fd_mhi_pipe_count=%d\n"
+                         "post_pm_mdm_helper_lower_trace.%s.ks_count=%d\n"
+                         "post_pm_mdm_helper_lower_trace.%s.mhi_pipe_cmdline_count=%d\n"
+                         "post_pm_mdm_helper_lower_trace.%s.include_fd_links=%d\n"
+                         "post_pm_mdm_helper_lower_trace.%s.end=1\n",
+                         phase,
+                         esoc0_count,
+                         phase,
+                         subsys_esoc0_count,
+                         phase,
+                         mhi_pipe_count,
+                         phase,
+                         ks_count,
+                         phase,
+                         mhi_cmdline_count,
+                         phase,
+                         include_fd_links ? 1 : 0,
+                         phase);
+}
+
 static int drain_pm_service_trigger_observer_children(struct composite_child *children,
                                                       size_t active_child_count,
                                                       struct property_service_shim *property_shim,
@@ -27486,8 +27778,10 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
     bool post_pm_mdm_helper_mode = is_wifi_companion_post_pm_mdm_helper_esoc_observer_mode(cfg->mode);
     bool post_pm_mdm_helper_allowed = cfg->allow_post_pm_mdm_helper_esoc_observer;
     bool post_pm_mdm_helper_start = cfg->pm_observer_start_mdm_helper_after_cnss;
+    bool post_pm_mdm_helper_lower_trace = cfg->allow_post_pm_mdm_helper_lower_trace;
     bool mdm_helper_observable = false;
     bool mdm_helper_window_snapshot_captured = false;
+    int mdm_helper_lower_trace_samples = 0;
     int mdm_helper_esoc0_fd_count = -1;
     int mdm_helper_subsys_esoc0_fd_count = -1;
     int mdm_helper_mhi_fd_count = -1;
@@ -27604,9 +27898,11 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                           "post_pm_mdm_helper_esoc_observer.scan_connect_linkup=0\n"
                           "post_pm_mdm_helper_esoc_observer.credentials=0\n"
                           "post_pm_mdm_helper_esoc_observer.dhcp_routing=0\n"
-                          "post_pm_mdm_helper_esoc_observer.external_ping=0\n",
+                          "post_pm_mdm_helper_esoc_observer.external_ping=0\n"
+                          "post_pm_mdm_helper_esoc_observer.lower_trace_allowed=%d\n",
                           post_pm_mdm_helper_allowed ? 1 : 0,
-                          post_pm_mdm_helper_start ? 1 : 0) < 0) {
+                          post_pm_mdm_helper_start ? 1 : 0,
+                          post_pm_mdm_helper_lower_trace ? 1 : 0) < 0) {
             return -1;
         }
     }
@@ -28010,6 +28306,53 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                 return -1;
             }
             if (mdm_helper_observable) {
+                if (post_pm_mdm_helper_lower_trace) {
+                    if (append_literal(stdout_buf,
+                                       "post_pm_mdm_helper_lower_trace.begin=1\n"
+                                       "post_pm_mdm_helper_lower_trace.mode=read-only-proc-fd-syscall\n"
+                                       "post_pm_mdm_helper_lower_trace.subsys_esoc0_open_attempted=0\n"
+                                       "post_pm_mdm_helper_lower_trace.wifi_hal_start_executed=0\n"
+                                       "post_pm_mdm_helper_lower_trace.scan_connect_linkup=0\n"
+                                       "post_pm_mdm_helper_lower_trace.credentials=0\n"
+                                       "post_pm_mdm_helper_lower_trace.dhcp_routing=0\n"
+                                       "post_pm_mdm_helper_lower_trace.external_ping=0\n") < 0) {
+                        composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+                        stop_property_service_shim(&property_shim, paths, stdout_buf);
+                        return -1;
+                    }
+                    for (int sample = 0; sample < 3; sample++) {
+                        char phase[32];
+
+                        if (snprintf(phase, sizeof(phase), "sample_%02d", sample) >= (int)sizeof(phase) ||
+                            append_post_pm_mdm_helper_lower_trace_snapshot(stdout_buf,
+                                                                          phase,
+                                                                          mdm_helper,
+                                                                          sample == 2) < 0) {
+                            composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+                            stop_property_service_shim(&property_shim, paths, stdout_buf);
+                            return -1;
+                        }
+                        mdm_helper_lower_trace_samples++;
+                        if (sample < 2) {
+                            usleep(250000);
+                            if (drain_pm_service_trigger_observer_children(children,
+                                                                           active_child_count,
+                                                                           &property_shim,
+                                                                           stdout_buf,
+                                                                           stderr_buf) < 0) {
+                                composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+                                stop_property_service_shim(&property_shim, paths, stdout_buf);
+                                return -1;
+                            }
+                        }
+                    }
+                    if (append_literal(stdout_buf,
+                                       "post_pm_mdm_helper_lower_trace.end=1\n") < 0) {
+                        composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+                        stop_property_service_shim(&property_shim, paths, stdout_buf);
+                        return -1;
+                    }
+                }
                 if (append_mdm_helper_runtime_contract_snapshot(stdout_buf,
                                                                 mdm_helper->pid,
                                                                 "post_pm_window") < 0 ||
@@ -28035,9 +28378,12 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                     stop_property_service_shim(&property_shim, paths, stdout_buf);
                     return -1;
                 }
-            } else if (append_literal(stdout_buf,
+            } else if (append_format(stdout_buf,
                                       "post_pm_mdm_helper_esoc_observer.window_snapshot.skipped=1\n"
-                                      "post_pm_mdm_helper_esoc_observer.window_snapshot.skip_reason=mdm-helper-not-alive\n") < 0) {
+                                      "post_pm_mdm_helper_esoc_observer.window_snapshot.skip_reason=mdm-helper-not-alive\n"
+                                      "post_pm_mdm_helper_lower_trace.skipped=%d\n"
+                                      "post_pm_mdm_helper_lower_trace.skip_reason=mdm-helper-not-alive\n",
+                                      post_pm_mdm_helper_lower_trace ? 1 : 0) < 0) {
                 composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
                 stop_property_service_shim(&property_shim, paths, stdout_buf);
                 return -1;
@@ -28321,7 +28667,8 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                           "post_pm_mdm_helper_esoc_observer.fd_mhi_pipe_count.window=%d\n"
                           "post_pm_mdm_helper_esoc_observer.ks_count.window=%d\n"
                           "post_pm_mdm_helper_esoc_observer.mhi_pipe_cmdline_count.window=%d\n"
-                          "post_pm_mdm_helper_esoc_observer.lower_artifact_observed=%d\n",
+                          "post_pm_mdm_helper_esoc_observer.lower_artifact_observed=%d\n"
+                          "post_pm_mdm_helper_esoc_observer.lower_trace_samples=%d\n",
                           mdm_helper_window_snapshot_captured ? 1 : 0,
                           mdm_helper_observable ? 1 : 0,
                           mdm_helper_esoc0_fd_count,
@@ -28329,7 +28676,8 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                           mdm_helper_mhi_fd_count,
                           mdm_helper_ks_count,
                           mdm_helper_mhi_cmdline_count,
-                          mdm_lower_artifact_observed ? 1 : 0) < 0) {
+                          mdm_lower_artifact_observed ? 1 : 0,
+                          mdm_helper_lower_trace_samples) < 0) {
             return -1;
         }
         if (!all_postflight_safe) {
