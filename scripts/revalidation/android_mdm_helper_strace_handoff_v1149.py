@@ -128,20 +128,24 @@ def verify_module_root(module_root: Path) -> tuple[bool, list[str]]:
     root = repo_path(module_root)
     required = [
         root / "module.prop",
-        root / "bin/strace",
+        root / "system/vendor/bin/a90_strace",
+        root / "vendor/bin/a90_strace",
         root / "system/vendor/bin/mdm_helper",
         root / "vendor/bin/mdm_helper",
         root / "post-fs-data.sh",
         root / "service.sh",
+        root / "sepolicy.rule",
+        root / "customize.sh",
     ]
     problems: list[str] = []
     for path in required:
         if not path.exists():
             problems.append(f"missing {path}")
-    if (root / "bin/strace").exists():
-        mode = root.joinpath("bin/strace").stat().st_mode & 0o777
-        if mode & 0o111 == 0:
-            problems.append("bin/strace is not executable")
+    for strace_path in (root / "system/vendor/bin/a90_strace", root / "vendor/bin/a90_strace"):
+        if strace_path.exists():
+            mode = strace_path.stat().st_mode & 0o777
+            if mode & 0o111 == 0:
+                problems.append(f"{strace_path.relative_to(root)} is not executable")
     wrapper = root / "system/vendor/bin/mdm_helper"
     if wrapper.exists():
         wrapper_mode = wrapper.stat().st_mode & 0o777
@@ -150,8 +154,9 @@ def verify_module_root(module_root: Path) -> tuple[bool, list[str]]:
         wrapper_bytes = wrapper.read_bytes()
         if wrapper_bytes.startswith(b"\x7fELF"):
             required_markers = [
-                b"a90_mdm_helper_strace_wrapper v1151",
-                b"/data/adb/modules/a90_mdm_trace/bin/strace",
+                b"a90_mdm_helper_strace_wrapper v1157",
+                b"/vendor/bin/a90_strace",
+                b"/vendor/bin/mdm_helper.real",
                 b"trace=openat,ioctl,read,write,execve",
                 b"/sbin/.magisk/mirror/vendor/bin/mdm_helper",
                 b"refusing recursive original path",
@@ -173,6 +178,32 @@ def verify_module_root(module_root: Path) -> tuple[bool, list[str]]:
             problems.append("vendor/bin/mdm_helper wrapper is not executable")
     if vendor_wrapper.exists() and wrapper.exists() and vendor_wrapper.read_bytes() != wrapper.read_bytes():
         problems.append("vendor/bin/mdm_helper wrapper differs from system/vendor/bin/mdm_helper")
+    sepolicy = root / "sepolicy.rule"
+    if sepolicy.exists():
+        sepolicy_text = sepolicy.read_text(encoding="utf-8", errors="replace")
+        required_policy_markers = [
+            "allow vendor_mdm_helper magisk_file file",
+            "allow vendor_mdm_helper adb_data_file file",
+            "allow vendor_mdm_helper system_file file",
+            "allow vendor_mdm_helper system_data_file file",
+            "allow vendor_mdm_helper vendor_file file",
+            "execute_no_trans",
+            "allow vendor_mdm_helper shell_data_file file",
+            "allow vendor_mdm_helper vendor_mdm_helper process ptrace",
+        ]
+        for marker in required_policy_markers:
+            if marker not in sepolicy_text:
+                problems.append(f"sepolicy.rule lacks marker {marker}")
+        if "setenforce" in sepolicy_text or "permissive" in sepolicy_text.lower():
+            problems.append("sepolicy.rule contains forbidden permissive marker")
+    customize = root / "customize.sh"
+    if customize.exists():
+        customize_text = customize.read_text(encoding="utf-8", errors="replace")
+        for marker in ("vendor/bin/a90_strace", "system/vendor/bin/a90_strace", "vendor/bin/mdm_helper.real", "system/vendor/bin/mdm_helper.real", "vendor/bin/mdm_helper", "system/vendor/bin/mdm_helper"):
+            if marker not in customize_text:
+                problems.append(f"customize.sh lacks marker {marker}")
+        if "setenforce" in customize_text or "permissive" in customize_text.lower():
+            problems.append("customize.sh contains forbidden permissive marker")
     return not problems, problems
 
 
@@ -325,8 +356,32 @@ def build_step_plan(args: argparse.Namespace, store: EvidenceStore, android_imag
                 adb_su(
                     args,
                     "set -x; "
-                    "ls -lZ /vendor/bin/mdm_helper /system/vendor/bin/mdm_helper 2>/dev/null || true; "
-                    "readlink -f /vendor/bin/mdm_helper /system/vendor/bin/mdm_helper 2>/dev/null || true; "
+                    "getenforce 2>/dev/null || true; "
+                    "for p in "
+                    "/vendor/bin/mdm_helper "
+                    "/system/vendor/bin/mdm_helper "
+                    "/vendor/bin/mdm_helper.real "
+                    "/system/vendor/bin/mdm_helper.real "
+                    "/vendor/bin/a90_strace "
+                    "/system/vendor/bin/a90_strace "
+                    "/data/adb/modules/a90_mdm_trace/vendor/bin/a90_strace "
+                    "/data/adb/modules/a90_mdm_trace/system/vendor/bin/a90_strace "
+                    "/data/adb/modules/a90_mdm_trace/customize.sh "
+                    "/data/adb/modules/a90_mdm_trace/sepolicy.rule "
+                    "/data/adb/modules/a90_mdm_trace/vendor/bin/mdm_helper "
+                    "/data/adb/modules/a90_mdm_trace/vendor/bin/mdm_helper.real "
+                    "/data/adb/modules/a90_mdm_trace/system/vendor/bin/mdm_helper "
+                    "/data/adb/modules/a90_mdm_trace/system/vendor/bin/mdm_helper.real "
+                    "/data/local/tmp/a90-wifi; do "
+                    "echo ===$p===; "
+                    "ls -ldZ \"$p\" 2>/dev/null || true; "
+                    "stat -c '%a %U %G %n' \"$p\" 2>/dev/null || true; "
+                    "readlink -f \"$p\" 2>/dev/null || true; "
+                    "done; "
+                    "echo ===sepolicy.rule.head===; "
+                    "head -n 40 /data/adb/modules/a90_mdm_trace/sepolicy.rule 2>/dev/null || true; "
+                    "echo ===customize.sh.head===; "
+                    "head -n 40 /data/adb/modules/a90_mdm_trace/customize.sh 2>/dev/null || true; "
                     "grep -E 'a90_mdm_trace|mdm_helper|/vendor' /proc/mounts | head -n 80 || true",
                 ),
                 args.timeout,
@@ -468,6 +523,11 @@ def extract_trace_tar(store: EvidenceStore) -> dict[str, Any]:
         int(match.group(1))
         for match in re.finditer(r"Service 'vendor\.mdm_helper'.*exited with status (\d+)", dmesg_text)
     ]
+    strace_has_ks_exec = bool(
+        re.search(r'execve\("([^"]*/)?ks"', strace_text)
+        or re.search(r'openat\([^,]+,\s*"[^"]*/ks"', strace_text)
+        or re.search(r"^ks\s+\d+", pids_text, flags=re.MULTILINE)
+    )
     return {
         "present": True,
         "trace_root": str(trace_root),
@@ -481,7 +541,7 @@ def extract_trace_tar(store: EvidenceStore) -> dict[str, Any]:
         "strace_has_esoc0": "/dev/esoc-0" in strace_text,
         "strace_has_ioctl": "ioctl(" in strace_text,
         "strace_has_execve": "execve(" in strace_text,
-        "strace_has_ks": "ks" in strace_text or "ks " in pids_text,
+        "strace_has_ks": strace_has_ks_exec,
         "strace_has_mhi_pipe": "/dev/mhi_0305_01.01.00_pipe_10" in strace_text,
         "strace_size": strace_log.stat().st_size if strace_log.exists() else 0,
         "dmesg_present": boot_dmesg.exists(),

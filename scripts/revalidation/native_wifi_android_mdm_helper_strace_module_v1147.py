@@ -31,7 +31,10 @@ TRACE_DIR = "/data/local/tmp/a90-wifi"
 MODULE_DIR = f"/data/adb/modules/{MODULE_ID}"
 WRAPPER_RELATIVE_PATH = "module/system/vendor/bin/mdm_helper"
 VENDOR_WRAPPER_RELATIVE_PATH = "module/vendor/bin/mdm_helper"
-STRACE_RELATIVE_PATH = "module/bin/strace"
+STRACE_RELATIVE_PATH = "module/system/vendor/bin/a90_strace"
+VENDOR_STRACE_RELATIVE_PATH = "module/vendor/bin/a90_strace"
+SEPOLICY_RELATIVE_PATH = "module/sepolicy.rule"
+CUSTOMIZE_RELATIVE_PATH = "module/customize.sh"
 
 REQUIRED_SYSCALLS = ("openat", "ioctl", "read", "write", "execve")
 
@@ -106,10 +109,53 @@ def write_module_file(store: EvidenceStore, relative_path: str, text: str, mode:
 def module_prop() -> str:
     return f"""id={MODULE_ID}
 name=A90 mdm_helper strace capture scaffold
-version=v1151
-versionCode=1151
+version=v1157
+versionCode=1157
 author=Temmie/Codex
 description=Temporary Android mdm_helper/ks strace capture scaffold. Remove after capture.
+"""
+
+
+def sepolicy_rule() -> str:
+    return """# Temporary V1157 capture-only policy for Android mdm_helper strace.
+# Removed with the a90_mdm_trace Magisk module after capture.
+allow vendor_mdm_helper magisk_file dir { getattr open read search };
+allow vendor_mdm_helper magisk_file file { execute execute_no_trans getattr map open read };
+allow vendor_mdm_helper adb_data_file dir { getattr open read search };
+allow vendor_mdm_helper adb_data_file file { execute execute_no_trans getattr map open read };
+allow vendor_mdm_helper system_file dir { getattr open read search };
+allow vendor_mdm_helper system_file file { execute execute_no_trans getattr map open read };
+allow vendor_mdm_helper system_data_file dir { getattr open read search };
+allow vendor_mdm_helper system_data_file file { execute execute_no_trans getattr map open read };
+allow vendor_mdm_helper vendor_file dir { getattr open read search };
+allow vendor_mdm_helper vendor_file file { execute execute_no_trans getattr map open read };
+allow vendor_mdm_helper shell_data_file dir { add_name create getattr open read remove_name search write };
+allow vendor_mdm_helper shell_data_file file { append create getattr open read setattr unlink write };
+allow vendor_mdm_helper vendor_mdm_helper process ptrace;
+"""
+
+
+def customize_script() -> str:
+    return f"""#!/system/bin/sh
+MODPATH="${{MODPATH:-{MODULE_DIR}}}"
+
+chmod 0755 "$MODPATH/vendor" "$MODPATH/vendor/bin" 2>/dev/null || true
+if [ -x /vendor/bin/mdm_helper ] && [ ! -f "$MODPATH/vendor/bin/mdm_helper.real" ]; then
+  cp -p /vendor/bin/mdm_helper "$MODPATH/vendor/bin/mdm_helper.real" 2>/dev/null || true
+fi
+if [ -x /vendor/bin/mdm_helper ] && [ ! -f "$MODPATH/system/vendor/bin/mdm_helper.real" ]; then
+  cp -p /vendor/bin/mdm_helper "$MODPATH/system/vendor/bin/mdm_helper.real" 2>/dev/null || true
+fi
+chmod 0755 "$MODPATH/vendor/bin/mdm_helper" 2>/dev/null || true
+chmod 0755 "$MODPATH/vendor/bin/mdm_helper.real" 2>/dev/null || true
+chmod 0755 "$MODPATH/vendor/bin/a90_strace" 2>/dev/null || true
+chmod 0755 "$MODPATH/system" "$MODPATH/system/vendor" "$MODPATH/system/vendor/bin" 2>/dev/null || true
+chmod 0755 "$MODPATH/system/vendor/bin/mdm_helper" 2>/dev/null || true
+chmod 0755 "$MODPATH/system/vendor/bin/mdm_helper.real" 2>/dev/null || true
+chmod 0755 "$MODPATH/system/vendor/bin/a90_strace" 2>/dev/null || true
+chmod 0755 "$MODPATH/post-fs-data.sh" "$MODPATH/service.sh" 2>/dev/null || true
+chmod 0644 "$MODPATH/sepolicy.rule" "$MODPATH/module.prop" 2>/dev/null || true
+true
 """
 
 
@@ -117,8 +163,7 @@ def wrapper_script() -> str:
     syscall_filter = ",".join(REQUIRED_SYSCALLS)
     return f"""#!/system/bin/sh
 TRACE_DIR="{TRACE_DIR}"
-MODULE_DIR="{MODULE_DIR}"
-STRACE_BIN="$MODULE_DIR/bin/strace"
+STRACE_BIN="/vendor/bin/a90_strace"
 TRACE_OUT="$TRACE_DIR/mdm_helper.strace.txt"
 WRAPPER_LOG="$TRACE_DIR/mdm_helper.wrapper.log"
 
@@ -174,14 +219,35 @@ exec "$STRACE_BIN" -f -tt -s 256 -e trace={syscall_filter} -o "$TRACE_OUT" "$ORI
 def post_fs_data_script() -> str:
     return f"""#!/system/bin/sh
 TRACE_DIR="{TRACE_DIR}"
-umask 077
+umask 000
 mkdir -p "$TRACE_DIR"
+chmod 1777 "$TRACE_DIR" 2>/dev/null || true
+
+POLICY_TOOL=""
+for candidate in /debug_ramdisk/magiskpolicy /sbin/magiskpolicy /data/adb/magisk/magiskpolicy /system/bin/magiskpolicy; do
+  if [ -x "$candidate" ]; then
+    POLICY_TOOL="$candidate"
+    break
+  fi
+done
+
 {{
   echo "post_fs_data_start=$(date '+%Y-%m-%dT%H:%M:%S%z') pid=$$"
   id
   getenforce 2>/dev/null || true
   cat /proc/self/attr/current 2>/dev/null || true
+  echo "policy_tool=$POLICY_TOOL"
 }} >> "$TRACE_DIR/post-fs-data.log" 2>&1
+
+if [ -n "$POLICY_TOOL" ]; then
+  "$POLICY_TOOL" --live "allow vendor_mdm_helper system_file dir {{ getattr open read search }}" >> "$TRACE_DIR/post-fs-data.log" 2>&1 || true
+  "$POLICY_TOOL" --live "allow vendor_mdm_helper system_file file {{ execute execute_no_trans getattr map open read }}" >> "$TRACE_DIR/post-fs-data.log" 2>&1 || true
+  "$POLICY_TOOL" --live "allow vendor_mdm_helper vendor_file dir {{ getattr open read search }}" >> "$TRACE_DIR/post-fs-data.log" 2>&1 || true
+  "$POLICY_TOOL" --live "allow vendor_mdm_helper vendor_file file {{ execute execute_no_trans getattr map open read }}" >> "$TRACE_DIR/post-fs-data.log" 2>&1 || true
+  "$POLICY_TOOL" --live "allow vendor_mdm_helper shell_data_file dir {{ add_name create getattr open read remove_name search write }}" >> "$TRACE_DIR/post-fs-data.log" 2>&1 || true
+  "$POLICY_TOOL" --live "allow vendor_mdm_helper shell_data_file file {{ append create getattr open read setattr unlink write }}" >> "$TRACE_DIR/post-fs-data.log" 2>&1 || true
+  "$POLICY_TOOL" --live "allow vendor_mdm_helper vendor_mdm_helper process ptrace" >> "$TRACE_DIR/post-fs-data.log" 2>&1 || true
+fi
 exit 0
 """
 
@@ -203,8 +269,10 @@ collect_one_pid() {{
 }}
 
 (
-  umask 077
+  umask 000
   mkdir -p "$TRACE_DIR"
+  chmod 1777 "$TRACE_DIR" 2>/dev/null || true
+  umask 077
   echo "service_start=$(date '+%Y-%m-%dT%H:%M:%S%z') pid=$$" >> "$TRACE_DIR/service.log"
 
   i=0
@@ -249,11 +317,14 @@ This directory is host-generated only. It has not been installed on the device.
 - wrapper path: `{WRAPPER_RELATIVE_PATH}`
 - vendor wrapper path: `{VENDOR_WRAPPER_RELATIVE_PATH}`
 - strace path: `{STRACE_RELATIVE_PATH}`
+- vendor strace path: `{VENDOR_STRACE_RELATIVE_PATH}`
+- sepolicy path: `{SEPOLICY_RELATIVE_PATH}`
+- customize path: `{CUSTOMIZE_RELATIVE_PATH}`
 - Android output directory: `{TRACE_DIR}`
 
 ## Required live sequence
 
-1. Place a static aarch64 `strace` at `module/bin/strace` if absent.
+1. Place a static aarch64 `strace` at the module vendor overlay strace paths if absent.
 2. Place the static ELF wrapper at both mdm_helper overlay paths; do not use the shell fallback for live.
 3. Zip the contents of `module/` only after re-running the verifier.
 4. Install through Magisk, not by directly mutating `/vendor`.
@@ -340,9 +411,11 @@ def verify_strace_binary(path: Path | None, store: EvidenceStore) -> dict[str, A
     store.write_text("strace-readelf-d.txt", readelf_d)
 
     if ok:
-        target = store.path(STRACE_RELATIVE_PATH)
-        write_private_bytes(target, resolved.read_bytes())
-        target.chmod(0o700)
+        payload = resolved.read_bytes()
+        for relative_path in (STRACE_RELATIVE_PATH, VENDOR_STRACE_RELATIVE_PATH):
+            target = store.path(relative_path)
+            write_private_bytes(target, payload)
+            target.chmod(0o700)
 
     return {
         "provided": True,
@@ -411,8 +484,8 @@ def verify_wrapper_binary(path: Path | None, store: EvidenceStore) -> dict[str, 
     has_dynamic = "There is no dynamic section" not in readelf_d if readelf_d_rc == 0 else False
     static_or_no_interp = readelf_l_rc == 0 and not has_interp
     markers = {
-        "version": "a90_mdm_helper_strace_wrapper v1151" in strings_out,
-        "strace_path": f"{MODULE_DIR}/bin/strace" in strings_out,
+        "version": "a90_mdm_helper_strace_wrapper v1157" in strings_out,
+        "strace_path": "/vendor/bin/a90_strace" in strings_out,
         "trace_out": f"{TRACE_DIR}/mdm_helper.strace.txt" in strings_out,
         "syscall_filter": f"trace={','.join(REQUIRED_SYSCALLS)}" in strings_out,
         "mirror_search": "/sbin/.magisk/mirror/vendor/bin/mdm_helper" in strings_out,
@@ -486,6 +559,44 @@ def verify_wrapper(text: str) -> dict[str, Any]:
     }
 
 
+def verify_sepolicy_rule(text: str) -> dict[str, Any]:
+    required_markers = {
+        "vendor_mdm_helper": "vendor_mdm_helper" in text,
+        "magisk_file_exec": "magisk_file file" in text and "execute_no_trans" in text,
+        "adb_data_file_exec": "adb_data_file file" in text and "execute_no_trans" in text,
+        "system_file_exec": "system_file file" in text and "execute_no_trans" in text,
+        "system_data_file_exec": "system_data_file file" in text and "execute_no_trans" in text,
+        "vendor_file_exec": "vendor_file file" in text and "execute_no_trans" in text,
+        "shell_data_file_write": "shell_data_file file" in text and "write" in text,
+        "self_ptrace": "vendor_mdm_helper process ptrace" in text,
+    }
+    forbidden_markers = {
+        "setenforce": "setenforce" in text,
+        "permissive": "permissive" in text.lower(),
+        "wifi_credentials": "ssid=" in text.lower() or "psk=" in text.lower() or "passphrase" in text.lower(),
+    }
+    return {
+        "required_markers": required_markers,
+        "forbidden_markers": forbidden_markers,
+        "ok": all(required_markers.values()) and not any(forbidden_markers.values()),
+        "reason": "ok" if all(required_markers.values()) and not any(forbidden_markers.values()) else "sepolicy rule missing required scoped markers or contains forbidden marker",
+    }
+
+
+def verify_customize_script(text: str) -> dict[str, Any]:
+    required_markers = {
+        "chmod_strace_exec": "vendor/bin/a90_strace" in text and "system/vendor/bin/a90_strace" in text,
+        "chmod_wrappers_exec": "vendor/bin/mdm_helper" in text and "system/vendor/bin/mdm_helper" in text,
+        "no_permissive": "setenforce" not in text and "permissive" not in text.lower(),
+        "no_exit": "exit " not in text,
+    }
+    return {
+        "required_markers": required_markers,
+        "ok": all(required_markers.values()),
+        "reason": "ok" if all(required_markers.values()) else "customize script missing scoped chmod markers",
+    }
+
+
 def generated_files(root: Path) -> list[dict[str, Any]]:
     files: list[dict[str, Any]] = []
     for path in sorted(root.rglob("*")):
@@ -512,6 +623,8 @@ def build_summary(manifest: dict[str, Any]) -> str:
         ["wrapper_mode", f"`{manifest['classification']['wrapper']['mode']}`"],
         ["wrapper_binary_present", f"`{manifest['classification']['wrapper_binary']['present']}`"],
         ["wrapper_nonrecursive", f"`{manifest['classification']['wrapper']['has_recursive_guard']}`"],
+        ["sepolicy_rule_ok", f"`{manifest['classification']['sepolicy_rule']['ok']}`"],
+        ["customize_script_ok", f"`{manifest['classification']['customize_script']['ok']}`"],
         ["module_root", f"`{manifest['module_root']}`"],
     ]
     return "\n".join(
@@ -543,6 +656,10 @@ def main() -> int:
     store.mkdir("module/original")
 
     write_module_file(store, "module/module.prop", module_prop())
+    sepolicy_text = sepolicy_rule()
+    write_module_file(store, SEPOLICY_RELATIVE_PATH, sepolicy_text)
+    customize_text = customize_script()
+    write_exec_text(store, CUSTOMIZE_RELATIVE_PATH, customize_text)
     write_exec_text(store, "module/post-fs-data.sh", post_fs_data_script())
     write_exec_text(store, "module/service.sh", service_script())
     wrapper_text = wrapper_script()
@@ -552,6 +669,8 @@ def main() -> int:
 
     wrapper_info = verify_wrapper(wrapper_text)
     wrapper_binary_info = verify_wrapper_binary(args.wrapper_binary, store)
+    sepolicy_info = verify_sepolicy_rule(sepolicy_text)
+    customize_info = verify_customize_script(customize_text)
     wrapper_ready = all(
         bool(wrapper_info[key])
         for key in (
@@ -586,22 +705,27 @@ def main() -> int:
         wrapper_ready = True
 
     strace_info = verify_strace_binary(args.strace_binary, store)
-    install_ready = bool(strace_info["ok"]) and bool(wrapper_binary_info["ok"])
-    scaffold_ready = wrapper_ready
+    install_ready = (
+        bool(strace_info["ok"])
+        and bool(wrapper_binary_info["ok"])
+        and bool(sepolicy_info["ok"])
+        and bool(customize_info["ok"])
+    )
+    scaffold_ready = wrapper_ready and bool(sepolicy_info["ok"]) and bool(customize_info["ok"])
 
     readme_text = scaffold_readme(strace_binary_present=bool(strace_info["present"]), install_ready=install_ready)
     write_module_file(store, "README.md", readme_text)
 
     decision = (
-        "v1151-magisk-strace-module-elf-wrapper-install-ready"
+        "v1157-magisk-strace-module-vendor-original-strace-wrapper-install-ready"
         if scaffold_ready and install_ready
-        else "v1151-magisk-strace-module-scaffold-ready-elf-wrapper-required"
+        else "v1157-magisk-strace-module-scaffold-ready-vendor-original-strace-or-wrapper-required"
     )
     if not scaffold_ready:
         decision = "v1147-magisk-strace-module-scaffold-invalid"
 
     manifest: dict[str, Any] = {
-        "version": "v1151",
+        "version": "v1157",
         "created_at": now_iso(),
         "decision": decision,
         "pass": scaffold_ready,
@@ -616,6 +740,8 @@ def main() -> int:
             "install_ready": install_ready,
             "wrapper": wrapper_info,
             "wrapper_binary": wrapper_binary_info,
+            "sepolicy_rule": sepolicy_info,
+            "customize_script": customize_info,
             "strace_binary": strace_info,
             "android_trace_dir": TRACE_DIR,
             "module_id": MODULE_ID,

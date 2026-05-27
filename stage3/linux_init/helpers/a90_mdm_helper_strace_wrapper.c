@@ -12,14 +12,16 @@
 #include <time.h>
 #include <unistd.h>
 
-#define WRAPPER_VERSION "a90_mdm_helper_strace_wrapper v1151"
+#define WRAPPER_VERSION "a90_mdm_helper_strace_wrapper v1157"
 #define TRACE_DIR "/data/local/tmp/a90-wifi"
 #define TRACE_OUT TRACE_DIR "/mdm_helper.strace.txt"
 #define WRAPPER_LOG TRACE_DIR "/mdm_helper.wrapper.log"
-#define STRACE_BIN "/data/adb/modules/a90_mdm_trace/bin/strace"
+#define STRACE_BIN "/vendor/bin/a90_strace"
 #define SYSCALL_FILTER "trace=openat,ioctl,read,write,execve"
 
 static const char *const original_candidates[] = {
+    "/vendor/bin/mdm_helper.real",
+    "/system/vendor/bin/mdm_helper.real",
     "/sbin/.magisk/mirror/vendor/bin/mdm_helper",
     "/debug_ramdisk/.magisk/mirror/vendor/bin/mdm_helper",
     "/data/adb/modules/a90_mdm_trace/original/mdm_helper",
