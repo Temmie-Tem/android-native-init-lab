@@ -88,6 +88,8 @@
 - V1169에서 callback pointer가 `libperipheral_client.so+0x8a5c`로 매핑됐고, 해당 경로는 state를 Parcel에 써 Binder transact를 호출하는 notification stub이므로 다음 blocker를 Binder callback delivery 또는 수신 client action으로 좁혔습니다.
 - 최신 V1170 PM-service callback transact live 결과는 `docs/reports/NATIVE_INIT_V1170_PM_CALLBACK_TRANSACT_LIVE_2026-05-27.md`입니다.
 - V1170에서 primary `state=2` Binder transact는 `0x0`으로 성공했고 `/dev/subsys_esoc0`은 여전히 열리지 않아, 다음 blocker를 수신 client-side Binder callback handler/action으로 좁혔습니다.
+- 최신 V1171 PM receiver callback live 결과는 `docs/reports/NATIVE_INIT_V1171_PM_RECEIVER_CALLBACK_LIVE_2026-05-27.md`입니다.
+- V1171에서 receiver-side `state=2` Binder callback이 `cnss-daemon`의 `libperipheral_client.so` thunk를 통해 local callback `cnss-daemon+0xc340`으로 전달됨을 확인했고, 다음 blocker를 해당 callback body/action branch로 좁혔습니다.
 - 2026-05-27 기준 최신 PM observer live gate는 `docs/reports/NATIVE_INIT_V1124_PRIVATE_FIRMWARE_PM_OBSERVER_LIVE_2026-05-27.md`입니다.
 - 최신 firmware mount-only provider gate는 `docs/reports/NATIVE_INIT_V1121_FIRMWARE_MOUNT_ONLY_PROVIDER_LIVE_2026-05-27.md`입니다.
 - 최신 provider namespace delta classifier는 `docs/reports/NATIVE_INIT_V1122_PROVIDER_NAMESPACE_DELTA_CLASSIFIER_2026-05-27.md`입니다.
@@ -245,6 +247,7 @@
 - `plans/NATIVE_INIT_V1168_PM_CALLBACK_DISPATCH_LIVE_PLAN_2026-05-27.md` – V1167이 증명한 `state=2` helper 아래 client callback dispatch와 callback target pointer를 추적하는 V1168 계획
 - `plans/NATIVE_INIT_V1169_PM_CALLBACK_MAPS_LIVE_PLAN_2026-05-27.md` – V1168 callback pointer를 live sample-loop `/proc/<pm-service>/maps`로 매핑하는 V1169 계획
 - `plans/NATIVE_INIT_V1170_PM_CALLBACK_TRANSACT_LIVE_PLAN_2026-05-27.md` – V1169가 매핑한 `libperipheral_client.so+0x8a5c` Binder callback stub의 transact call/return을 live tracefs로 확인하는 V1170 계획
+- `plans/NATIVE_INIT_V1171_PM_RECEIVER_CALLBACK_LIVE_PLAN_2026-05-27.md` – V1170의 successful `state=2` Binder transact 이후 receiver-side callback handler와 실제 target process를 live tracefs로 확인하는 V1171 계획
 - `plans/NATIVE_INIT_V1004_SERVICE_WINDOW_SUBSYS_TRIGGER_LIVE_PLAN_2026-05-26.md` – helper `v170`으로 current-boot SELinux refresh 후 Android service-window scoped `/dev/subsys_esoc0` trigger capture를 수행하는 V1004 live 계획
 - `plans/NATIVE_INIT_V1005_V1004_FD_GAP_CLASSIFIER_PLAN_2026-05-26.md` – V1000 Android dmesg/process, V911 native `mdm_helper` fd, V1004 service-window fd-gate 실패를 host-only로 비교해 다음 gate를 고르는 V1005 계획
 - `plans/NATIVE_INIT_V1006_SERVICE_WINDOW_FD_POLL_SUPPORT_PLAN_2026-05-26.md` – V1005가 선택한 helper `v171` service-window `mdm_helper` `/dev/esoc-0` repeated fd-poll support source/build 계획
