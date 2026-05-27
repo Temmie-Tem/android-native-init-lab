@@ -12,7 +12,6 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
-import os
 import shutil
 import stat
 import subprocess
@@ -70,6 +69,19 @@ def read_text(path: Path, limit: int = 2_000_000) -> str:
     if not resolved.exists():
         return ""
     return resolved.read_bytes()[:limit].replace(b"\0", b"\\0").decode("utf-8", errors="replace")
+
+
+def prepare_out_dir(path: Path) -> None:
+    if not path.exists():
+        return
+    info = path.lstat()
+    if stat.S_ISLNK(info.st_mode) or not stat.S_ISDIR(info.st_mode):
+        raise RuntimeError(f"refusing non-directory output path: {path}")
+    tmp_root = repo_path("tmp").resolve()
+    resolved = path.resolve()
+    if tmp_root != resolved and tmp_root not in resolved.parents:
+        raise RuntimeError(f"refusing to clean output outside tmp/: {path}")
+    shutil.rmtree(path)
 
 
 def write_exec_text(store: EvidenceStore, relative_path: str, text: str) -> Path:
@@ -406,6 +418,7 @@ def build_summary(manifest: dict[str, Any]) -> str:
 def main() -> int:
     args = parse_args()
     out_dir = repo_path(args.out_dir)
+    prepare_out_dir(out_dir)
     store = EvidenceStore(out_dir)
     module_root = store.mkdir("module")
     store.mkdir("module/bin")
