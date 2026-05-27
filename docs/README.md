@@ -21,7 +21,8 @@
 - 최신 helper deploy 결과는 `docs/reports/NATIVE_INIT_V1131_EXECNS_HELPER_V213_DEPLOY_2026-05-27.md`입니다.
 - 다음 live 계획은 `docs/plans/NATIVE_INIT_V1131_POST_POLICY_GLOBAL_FIRMWARE_MODEM_HOLDER_LIVE_PLAN_2026-05-27.md`입니다.
 - 최신 modem pre-holder live 결과는 `docs/reports/NATIVE_INIT_V1131_POST_POLICY_GLOBAL_FIRMWARE_MODEM_HOLDER_LIVE_2026-05-27.md`입니다.
-- 다음 blocker는 `/dev/subsys_modem` `O_NONBLOCK` pre-holder도 `__subsystem_get` 경로에서 open-pending으로 남는 원인을 host-only/read-only로 분류하는 것입니다.
+- 최신 subsys nonblock classifier는 `docs/reports/NATIVE_INIT_V1132_SUBSYS_NONBLOCK_SEMANTICS_CLASSIFIER_2026-05-27.md`입니다.
+- 다음 blocker는 synthetic `/dev/subsys_modem` pre-holder가 아니라 lower eSoC/SDX50M powerup precondition을 host-only/read-only로 분류하는 것입니다.
 - 2026-05-27 기준 최신 PM observer live gate는 `docs/reports/NATIVE_INIT_V1124_PRIVATE_FIRMWARE_PM_OBSERVER_LIVE_2026-05-27.md`입니다.
 - 최신 firmware mount-only provider gate는 `docs/reports/NATIVE_INIT_V1121_FIRMWARE_MOUNT_ONLY_PROVIDER_LIVE_2026-05-27.md`입니다.
 - 최신 provider namespace delta classifier는 `docs/reports/NATIVE_INIT_V1122_PROVIDER_NAMESPACE_DELTA_CLASSIFIER_2026-05-27.md`입니다.
@@ -256,6 +257,7 @@
 - `plans/NATIVE_INIT_V1125_PRIVATE_FIRMWARE_PM_SERVICE_EARLY_EXIT_TRACE_PLAN_2026-05-27.md` – private firmware PM observer namespace에서 `pm-service` early clean-exit terminal branch를 tracefs-only로 분류하는 계획
 - `plans/NATIVE_INIT_V1131_EXECNS_HELPER_V213_DEPLOY_PLAN_2026-05-27.md` – V1130 helper `v213`를 `/cache/bin/a90_android_execns_probe`에 deploy-only로 설치하고 remote contract parity를 확인하는 계획
 - `plans/NATIVE_INIT_V1131_POST_POLICY_GLOBAL_FIRMWARE_MODEM_HOLDER_LIVE_PLAN_2026-05-27.md` – helper `v213` PM observer modem pre-holder와 global firmware mount를 결합해 `/dev/subsys_modem` lower state 전진 여부를 검증하는 live 계획
+- `plans/NATIVE_INIT_V1132_SUBSYS_NONBLOCK_SEMANTICS_CLASSIFIER_PLAN_2026-05-27.md` – Samsung OSRC `subsys_device_open()`과 V1131 evidence를 비교해 `/dev/subsys_modem` nonblocking pre-holder route를 닫는 계획
 - `plans/NATIVE_INIT_V1003_HELPER_V170_DEPLOY_PLAN_2026-05-26.md` – V1002 helper `v170` 산출물을 `/cache/bin/a90_android_execns_probe`로 deploy-only 배포하고 sha/contract parity를 확인하는 V1003 계획
 - `plans/NATIVE_INIT_V1002_ANDROID_SERVICE_WINDOW_SUBSYS_TRIGGER_SUPPORT_PLAN_2026-05-26.md` – V1001에서 선택한 service-window-scoped `/dev/subsys_esoc0` trigger capture를 helper `v170`에 source/build-only로 추가하는 V1002 계획
 - `plans/NATIVE_INIT_V1001_V1000_ROUTE_COMPARATOR_PLAN_2026-05-26.md` – V1000 Android timing과 V998/V923/V964/V965 native evidence를 비교해 WLFW-precondition gate가 circular인지 host-only로 판정하는 V1001 계획
@@ -671,6 +673,7 @@
 - `reports/NATIVE_INIT_V1130_PM_OBSERVER_MODEM_HOLDER_HELPER_BUILD_2026-05-27.md` – V1130 결과 helper `v213`에 PM observer scoped modem pre-holder flags를 추가하고 static build/string 검증을 통과한 결과
 - `reports/NATIVE_INIT_V1131_EXECNS_HELPER_V213_DEPLOY_2026-05-27.md` – V1131 결과 helper `v213`를 deploy-only로 설치하고 remote helper contract parity 및 no-Wi-Fi guard를 확인한 결과
 - `reports/NATIVE_INIT_V1131_POST_POLICY_GLOBAL_FIRMWARE_MODEM_HOLDER_LIVE_2026-05-27.md` – V1131 결과 helper `v213` modem pre-holder도 `/dev/subsys_modem` open-pending으로 남고 PM Binder worker의 `__subsystem_get` blocker와 mss/mdm3 OFFLINING이 유지됨을 확인한 결과
+- `reports/NATIVE_INIT_V1132_SUBSYS_NONBLOCK_SEMANTICS_CLASSIFIER_2026-05-27.md` – V1132 결과 Samsung OSRC `subsys_device_open()`이 `file->f_flags`/`O_NONBLOCK`를 보지 않아 synthetic `/dev/subsys_modem` nonblock route를 닫은 결과
 - `reports/NATIVE_INIT_V1004_SERVICE_WINDOW_SUBSYS_TRIGGER_LIVE_2026-05-26.md` – V1004 live 결과 current-boot SELinux refresh 후 Android service-window actors는 관측됐지만 `mdm_helper`가 `/dev/esoc-0` fd를 hold하지 않아 `/dev/subsys_esoc0` trigger는 안전하게 미실행된 결과
 - `reports/NATIVE_INIT_V1003_HELPER_V170_DEPLOY_2026-05-26.md` – helper `v170`을 `/cache/bin/a90_android_execns_probe`로 deploy-only 설치하고 remote sha/contract parity 및 no-Wi-Fi guard를 확인한 V1003 결과
 - `reports/NATIVE_INIT_V1002_ANDROID_SERVICE_WINDOW_SUBSYS_TRIGGER_SUPPORT_2026-05-26.md` – helper `v170`에 Android service-window scoped `/dev/subsys_esoc0` trigger capture mode를 source/build-only로 추가한 V1002 결과
