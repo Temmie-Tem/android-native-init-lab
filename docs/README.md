@@ -16,6 +16,7 @@
 ## 최신 Wi-Fi bring-up 조사 기준
 
 - 2026-05-27 기준 최신 PM observer live gate는 `docs/reports/NATIVE_INIT_V1118_GLOBAL_HOLDER_ZERO_DELAY_CNSS_LIVE_2026-05-27.md`입니다.
+- 최신 PM register branch live gate는 `docs/reports/NATIVE_INIT_V1120_PM_REGISTER_CONNECT_BRANCH_LIVE_2026-05-27.md`입니다.
 - 최신 PM register failure classifier는 `docs/reports/NATIVE_INIT_V1119_PM_REGISTER_FAILURE_HOST_CLASSIFIER_2026-05-27.md`입니다.
 - 최신 PM observer helper build는 `docs/reports/NATIVE_INIT_V1117_ZERO_DELAY_CNSS_HELPER_BUILD_2026-05-27.md`입니다.
 - 이전 PM observer live gate는 `docs/reports/NATIVE_INIT_V1116_GLOBAL_HOLDER_IMMEDIATE_CNSS_LIVE_2026-05-27.md`입니다.
@@ -34,8 +35,9 @@
 - V1116에서 global firmware + modem holder + helper `v210` immediate-CNSS gate가 `cnss-daemon` PM register entry까지 도달했지만 `pm_client_register_ret=0xffffffff`로 PM connect 전 단계에서 멈춤을 확인했습니다.
 - V1117/V1118에서 helper `v211` zero-delay CNSS order를 추가·검증했고, 20 ms sample을 제거해도 `pm_client_register_ret=0xffffffff`가 유지되어 timing-delay 가설을 닫았습니다.
 - V1119에서 CNSS PM register `0xffffffff` 반환은 server-side register reject가 아니라 pre-server `vendor.qcom.PeripheralManager` provider lookup/interface readiness gap으로 host-only 분류했습니다.
+- V1120에서 `pm_register_connect()` 내부 branch를 live trace했고, `getService("vendor.qcom.PeripheralManager")` 결과가 `0x0`이라 service lookup null branch로 `0xffffffff`가 반환됨을 확정했습니다.
 - 아직 Wi-Fi HAL, scan/connect/link-up, DHCP, route, external ping은 실행하지 않았습니다.
-- 다음 블로커는 V1120에서 `pm_register_connect` 내부 null-service/null-interface/remote-register branch를 tracefs-only live gate로 확정하는 것입니다.
+- 다음 블로커는 V1121에서 `vendor.qcom.PeripheralManager` provider lifetime/readiness를 최소 수정해 CNSS PM register가 provider를 resolve하게 만드는 것입니다.
 
 ## 현재 기준점
 
