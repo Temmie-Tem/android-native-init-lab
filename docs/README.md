@@ -72,6 +72,8 @@
 - V1161에서 helper `v216`에 `mdm_helper` `/dev/esoc-0` 확인 뒤 `pm-proxy`를 late-start하는 guarded eSoC trigger gate를 추가하고 static ARM64 build를 통과했습니다.
 - 최신 V1162 helper deploy 결과는 `docs/reports/NATIVE_INIT_V1162_EXECNS_HELPER_V216_DEPLOY_2026-05-27.md`입니다.
 - V1162에서 helper `v216`을 `/cache/bin/a90_android_execns_probe`로 배포했고, serial chunk size `1800`으로 console line safety limit 안에서 deploy-only 검증을 통과했습니다.
+- 최신 V1163 late `pm-proxy` eSoC live 결과는 `docs/reports/NATIVE_INIT_V1163_LATE_PER_PROXY_ESOC_LIVE_2026-05-27.md`입니다.
+- V1163에서 late `pm-proxy`는 아직 시작되지 않았고, `pm-service`가 post-PM `mdm_helper` `/dev/esoc-0` readiness 전 `exit_code=0`으로 종료되는 blocker를 확인했습니다.
 - 2026-05-27 기준 최신 PM observer live gate는 `docs/reports/NATIVE_INIT_V1124_PRIVATE_FIRMWARE_PM_OBSERVER_LIVE_2026-05-27.md`입니다.
 - 최신 firmware mount-only provider gate는 `docs/reports/NATIVE_INIT_V1121_FIRMWARE_MOUNT_ONLY_PROVIDER_LIVE_2026-05-27.md`입니다.
 - 최신 provider namespace delta classifier는 `docs/reports/NATIVE_INIT_V1122_PROVIDER_NAMESPACE_DELTA_CLASSIFIER_2026-05-27.md`입니다.
