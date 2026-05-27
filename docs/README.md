@@ -19,6 +19,7 @@
 - 최신 post-policy CNSS PM blocker는 `docs/reports/NATIVE_INIT_V1128_POST_POLICY_PRIVATE_FIRMWARE_CNSS_PM_2026-05-27.md`와 `docs/reports/NATIVE_INIT_V1129_POST_POLICY_GLOBAL_FIRMWARE_MOUNT_ONLY_2026-05-27.md`입니다.
 - 최신 PM observer modem pre-holder helper build는 `docs/reports/NATIVE_INIT_V1130_PM_OBSERVER_MODEM_HOLDER_HELPER_BUILD_2026-05-27.md`입니다.
 - 최신 helper deploy 결과는 `docs/reports/NATIVE_INIT_V1131_EXECNS_HELPER_V213_DEPLOY_2026-05-27.md`입니다.
+- 다음 live 계획은 `docs/plans/NATIVE_INIT_V1131_POST_POLICY_GLOBAL_FIRMWARE_MODEM_HOLDER_LIVE_PLAN_2026-05-27.md`입니다.
 - 다음 blocker는 helper `v213`으로 V401/V490 + global firmware + PM observer modem pre-holder live gate를 실행해 `/dev/subsys_modem` lower state가 `mss`/`mdm3`/WLFW/`wlan0`를 전진시키는지 확인하는 것입니다.
 - 2026-05-27 기준 최신 PM observer live gate는 `docs/reports/NATIVE_INIT_V1124_PRIVATE_FIRMWARE_PM_OBSERVER_LIVE_2026-05-27.md`입니다.
 - 최신 firmware mount-only provider gate는 `docs/reports/NATIVE_INIT_V1121_FIRMWARE_MOUNT_ONLY_PROVIDER_LIVE_2026-05-27.md`입니다.
@@ -253,6 +254,7 @@
 - `plans/NATIVE_INIT_V1124_PRIVATE_FIRMWARE_PM_OBSERVER_LIVE_PLAN_2026-05-27.md` – helper `v212` 배포 뒤 V1108 no-pre-CNSS `per_proxy` order에 private firmware mounts를 더해 provider 보존 여부를 검증하는 계획
 - `plans/NATIVE_INIT_V1125_PRIVATE_FIRMWARE_PM_SERVICE_EARLY_EXIT_TRACE_PLAN_2026-05-27.md` – private firmware PM observer namespace에서 `pm-service` early clean-exit terminal branch를 tracefs-only로 분류하는 계획
 - `plans/NATIVE_INIT_V1131_EXECNS_HELPER_V213_DEPLOY_PLAN_2026-05-27.md` – V1130 helper `v213`를 `/cache/bin/a90_android_execns_probe`에 deploy-only로 설치하고 remote contract parity를 확인하는 계획
+- `plans/NATIVE_INIT_V1131_POST_POLICY_GLOBAL_FIRMWARE_MODEM_HOLDER_LIVE_PLAN_2026-05-27.md` – helper `v213` PM observer modem pre-holder와 global firmware mount를 결합해 `/dev/subsys_modem` lower state 전진 여부를 검증하는 live 계획
 - `plans/NATIVE_INIT_V1003_HELPER_V170_DEPLOY_PLAN_2026-05-26.md` – V1002 helper `v170` 산출물을 `/cache/bin/a90_android_execns_probe`로 deploy-only 배포하고 sha/contract parity를 확인하는 V1003 계획
 - `plans/NATIVE_INIT_V1002_ANDROID_SERVICE_WINDOW_SUBSYS_TRIGGER_SUPPORT_PLAN_2026-05-26.md` – V1001에서 선택한 service-window-scoped `/dev/subsys_esoc0` trigger capture를 helper `v170`에 source/build-only로 추가하는 V1002 계획
 - `plans/NATIVE_INIT_V1001_V1000_ROUTE_COMPARATOR_PLAN_2026-05-26.md` – V1000 Android timing과 V998/V923/V964/V965 native evidence를 비교해 WLFW-precondition gate가 circular인지 host-only로 판정하는 V1001 계획
