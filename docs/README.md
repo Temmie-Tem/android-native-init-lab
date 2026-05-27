@@ -24,7 +24,9 @@
 - 최신 subsys nonblock classifier는 `docs/reports/NATIVE_INIT_V1132_SUBSYS_NONBLOCK_SEMANTICS_CLASSIFIER_2026-05-27.md`입니다.
 - 최신 lower holder route classifier는 `docs/reports/NATIVE_INIT_V1133_LOWER_HOLDER_ROUTE_CLASSIFIER_2026-05-27.md`입니다.
 - 최신 V1134 live runner 준비 결과는 `docs/reports/NATIVE_INIT_V1134_OUTER_HOLDER_POST_POLICY_CNSS_SUPPORT_2026-05-27.md`입니다.
-- 다음 live 실행은 helper-private pre-holder 없이 V731/V1113 outer global holder window와 V1128 post-policy CNSS PM observer를 결합하는 V1134입니다.
+- 최신 V1134 live 결과는 `docs/reports/NATIVE_INIT_V1134_OUTER_HOLDER_POST_POLICY_CNSS_LIVE_2026-05-27.md`입니다.
+- V1134에서 helper-private pre-holder 없이 V731/V1113 outer global holder window와 V1128 post-policy CNSS PM observer를 결합했고, CNSS PM register/connect는 `0x0`으로 성공했지만 WLFW/service69/wlan0 delta는 없었습니다.
+- 다음 블로커는 V1135에서 성공한 PM 경로 아래의 `mdm3`/eSoC/WLFW publication gap을 분류하는 것입니다.
 - 2026-05-27 기준 최신 PM observer live gate는 `docs/reports/NATIVE_INIT_V1124_PRIVATE_FIRMWARE_PM_OBSERVER_LIVE_2026-05-27.md`입니다.
 - 최신 firmware mount-only provider gate는 `docs/reports/NATIVE_INIT_V1121_FIRMWARE_MOUNT_ONLY_PROVIDER_LIVE_2026-05-27.md`입니다.
 - 최신 provider namespace delta classifier는 `docs/reports/NATIVE_INIT_V1122_PROVIDER_NAMESPACE_DELTA_CLASSIFIER_2026-05-27.md`입니다.
