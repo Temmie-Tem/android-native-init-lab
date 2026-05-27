@@ -33,6 +33,9 @@ namespace surface.
 - No `/dev/subsys_esoc0` open, eSoC ioctl/control, partition write, boot image
   write, flash, or intentional reboot.
 - Tracefs events must be removed during cleanup.
+- The trace collector runs through the serial `cmdv1 run` path instead of
+  `a90_tcpctl run`, because `a90_tcpctl` enforces a 10 second device-side run
+  timeout and the PM observer window can exceed that before trace cleanup.
 
 ## Success Criteria
 
