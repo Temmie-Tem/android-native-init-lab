@@ -97,7 +97,7 @@
 #define IOPRIO_PRIO_VALUE(class_value, data) (((class_value) << IOPRIO_CLASS_SHIFT) | (data))
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v217"
+#define EXECNS_VERSION "a90_android_execns_probe v218"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -258,6 +258,8 @@ struct config {
     bool pm_observer_modem_pre_holder;
     bool pm_observer_start_mdm_helper_after_cnss;
     bool pm_observer_start_per_proxy_after_mdm_helper_esoc_fd;
+    /* start per_proxy N ms after per_proxy_helper becomes observable (0 = disabled) */
+    int pm_observer_per_proxy_pph_delta_ms;
 };
 
 struct a90_hidl_string_wire {
@@ -1203,6 +1205,15 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
         }
         if (strcmp(argv[i], "--pm-observer-start-per-proxy-after-mdm-helper-esoc-fd") == 0) {
             cfg->pm_observer_start_per_proxy_after_mdm_helper_esoc_fd = true;
+            continue;
+        }
+        if (strcmp(argv[i], "--pm-observer-per-proxy-pph-delta-ms") == 0) {
+            if (i + 1 >= argc) {
+                fprintf(stderr, "--pm-observer-per-proxy-pph-delta-ms requires an argument\n");
+                return -1;
+            }
+            i++;
+            cfg->pm_observer_per_proxy_pph_delta_ms = atoi(argv[i]);
             continue;
         }
         if (strcmp(argv[i], "--allow-android-wifi-service-window") == 0) {
@@ -27827,6 +27838,9 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
     bool late_per_proxy_started = false;
     bool late_per_proxy_snapshot_captured = false;
     bool late_per_proxy_gate_positive = false;
+    /* early per_proxy: target delta from pph spawn (0 = disabled) */
+    const int early_per_proxy_delta_ms = cfg->pm_observer_per_proxy_pph_delta_ms;
+    long pph_spawn_mono_ms = 0;
     const int late_per_proxy_poll_max = 12;
     const int late_per_proxy_poll_interval_ms = 1000;
     int late_per_proxy_poll_count = 0;
@@ -28065,6 +28079,9 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
             stop_property_service_shim(&property_shim, paths, stdout_buf);
             return -1;
         }
+        if (i == PM_OBSERVER_PM_PROXY_HELPER && early_per_proxy_delta_ms > 0) {
+            pph_spawn_mono_ms = monotonic_ms();
+        }
         active_child_count++;
         if (append_format(stdout_buf,
                           "pm_service_trigger_observer.child.%s.start_order=%zu\n",
@@ -28172,7 +28189,45 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                 continue;
             }
 
-            usleep(1000000);
+            /* early per_proxy: sleep until pph_delta_ms from pph spawn, not fixed 1s */
+            if (i == PM_OBSERVER_PER_PROXY &&
+                early_per_proxy_delta_ms > 0 &&
+                pph_spawn_mono_ms > 0) {
+                long elapsed_since_pph = monotonic_ms() - pph_spawn_mono_ms;
+                long remaining_ms = (long)early_per_proxy_delta_ms - elapsed_since_pph;
+                if (remaining_ms > 0) {
+                    if (append_format(stdout_buf,
+                                      "pm_service_trigger_observer.early_per_proxy.pph_spawn_mono_ms=%ld\n"
+                                      "pm_service_trigger_observer.early_per_proxy.elapsed_since_pph_ms=%ld\n"
+                                      "pm_service_trigger_observer.early_per_proxy.target_delta_ms=%d\n"
+                                      "pm_service_trigger_observer.early_per_proxy.remaining_sleep_ms=%ld\n",
+                                      pph_spawn_mono_ms,
+                                      elapsed_since_pph,
+                                      early_per_proxy_delta_ms,
+                                      remaining_ms) < 0) {
+                        composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+                        stop_property_service_shim(&property_shim, paths, stdout_buf);
+                        return -1;
+                    }
+                    usleep((useconds_t)remaining_ms * 1000U);
+                } else {
+                    if (append_format(stdout_buf,
+                                      "pm_service_trigger_observer.early_per_proxy.pph_spawn_mono_ms=%ld\n"
+                                      "pm_service_trigger_observer.early_per_proxy.elapsed_since_pph_ms=%ld\n"
+                                      "pm_service_trigger_observer.early_per_proxy.target_delta_ms=%d\n"
+                                      "pm_service_trigger_observer.early_per_proxy.remaining_sleep_ms=0\n"
+                                      "pm_service_trigger_observer.early_per_proxy.already_elapsed=1\n",
+                                      pph_spawn_mono_ms,
+                                      elapsed_since_pph,
+                                      early_per_proxy_delta_ms) < 0) {
+                        composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+                        stop_property_service_shim(&property_shim, paths, stdout_buf);
+                        return -1;
+                    }
+                }
+            } else {
+                usleep(1000000);
+            }
             if (drain_pm_service_trigger_observer_children(children,
                                                            active_child_count,
                                                            &property_shim,
@@ -28186,14 +28241,21 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
             child_ready = children[i].observable &&
                           !children[i].child_done &&
                           children[i].fd_summary_captured;
-            if (append_format(stdout_buf,
+            {
+                long probe_wait_ms = (i == PM_OBSERVER_PER_PROXY &&
+                                      early_per_proxy_delta_ms > 0 &&
+                                      pph_spawn_mono_ms > 0)
+                                         ? (long)early_per_proxy_delta_ms
+                                         : 1000L;
+                if (append_format(stdout_buf,
                               "pm_service_trigger_observer.child.%s.post_start_probe=1\n"
-                              "pm_service_trigger_observer.child.%s.post_start_probe_wait_ms=1000\n"
+                              "pm_service_trigger_observer.child.%s.post_start_probe_wait_ms=%ld\n"
                               "pm_service_trigger_observer.child.%s.post_start_observable=%d\n"
                               "pm_service_trigger_observer.child.%s.post_start_fd_summary_captured=%d\n"
                               "pm_service_trigger_observer.child.%s.post_start_ready=%d\n",
                               children[i].name,
                               children[i].name,
+                              probe_wait_ms,
                               children[i].name,
                               children[i].observable ? 1 : 0,
                               children[i].name,
@@ -28212,7 +28274,8 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                 composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
                 stop_property_service_shim(&property_shim, paths, stdout_buf);
                 return -1;
-            }
+                }
+            } /* end early_per_proxy timing block */
             if (cfg->pm_observer_continue_after_provider &&
                 i == PM_OBSERVER_PER_PROXY) {
                 int per_mgr_subsys_modem_count = -1;
