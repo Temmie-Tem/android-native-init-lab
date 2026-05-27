@@ -15,7 +15,8 @@
 
 ## 최신 Wi-Fi bring-up 조사 기준
 
-- 2026-05-27 기준 최신 PM observer classifier는 `docs/reports/NATIVE_INIT_V1114_PM_SERVICE_LIFETIME_CLASSIFIER_2026-05-27.md`입니다.
+- 2026-05-27 기준 최신 PM observer helper build는 `docs/reports/NATIVE_INIT_V1115_IMMEDIATE_CNSS_HELPER_BUILD_2026-05-27.md`입니다.
+- 최신 PM observer classifier는 `docs/reports/NATIVE_INIT_V1114_PM_SERVICE_LIFETIME_CLASSIFIER_2026-05-27.md`입니다.
 - 최신 PM observer live gate는 `docs/reports/NATIVE_INIT_V1113_GLOBAL_FIRMWARE_PM_CONNECT_LIVE_2026-05-27.md`입니다.
 - 최신 PM observer route classifier는 `docs/reports/NATIVE_INIT_V1112_SUBSYS_MODEM_PRECONDITION_CLASSIFIER_2026-05-27.md`입니다.
 - 최신 PM observer path proof는 `docs/reports/NATIVE_INIT_V1111_TAGGED_PM_CONNECT_PATH_CAPTURE_2026-05-27.md`입니다.
@@ -25,9 +26,10 @@
 - V1112에서 현재 base native namespace는 `firmware_class.path=/vendor/firmware_mnt/image`를 가리키지만 해당 global mount/blob가 없고 `modem=OFFLINING`임을 read-only로 확인했습니다.
 - V1113에서 global firmware + modem holder prerequisite은 안정적으로 성립했지만, stable rerun에서는 CNSS PM register/connect return이 재현되지 않아 PM-service lifetime/readiness gap으로 좁혔습니다.
 - V1114에서 `pm-service`가 현재 1000 ms post-start probe 전에 `exit_code=0`으로 사라져 CNSS PM client path가 zero-hit임을 host-only로 분류했습니다.
+- V1115에서 helper `v210`에 `per_mgr` fork 직후 20 ms sample 뒤 `cnss-daemon`을 즉시 시작하는 PM observer order를 source/build-only로 추가했습니다.
 - V1107에서 확인된 pre-CNSS `per_proxy` mutex wait blocker는 ordering 문제로 닫혔고, 현재 블로커는 `per_mgr` fork 직후 CNSS를 즉시 시작하면 PM client path가 잡히는지입니다.
 - 아직 Wi-Fi HAL, scan/connect/link-up, DHCP, route, external ping은 실행하지 않았습니다.
-- 다음 블로커는 V1115에서 immediate-CNSS-after-`per_mgr` observer를 source/build-only로 추가하는 것입니다.
+- 다음 블로커는 V1116에서 helper `v210`을 배포하고 global firmware/modem-holder + immediate-CNSS live gate를 실행하는 것입니다.
 
 ## 현재 기준점
 
@@ -221,6 +223,7 @@
 - `plans/NATIVE_INIT_V1112_SUBSYS_MODEM_PRECONDITION_CLASSIFIER_PLAN_2026-05-27.md` – V1111 `/dev/subsys_modem` block을 V1061 global firmware/modem holder와 current read-only subsystem surface로 비교해 V1113 결합 gate를 선택하는 계획
 - `plans/NATIVE_INIT_V1113_GLOBAL_FIRMWARE_PM_CONNECT_LIVE_PLAN_2026-05-27.md` – V1061 global firmware/modem holder와 V1111 CNSS-first PM connect observer를 결합해 `/dev/subsys_modem` blocker 재현 여부를 확인하는 계획
 - `plans/NATIVE_INIT_V1114_PM_SERVICE_LIFETIME_CLASSIFIER_PLAN_2026-05-27.md` – V1113 evidence에서 `pm-service` lifetime/readiness와 CNSS PM client zero-hit 원인을 host-only로 분류하는 계획
+- `plans/NATIVE_INIT_V1115_IMMEDIATE_CNSS_HELPER_BUILD_PLAN_2026-05-27.md` – V1114가 선택한 immediate-CNSS-after-`per_mgr` observer order를 helper `v210`에 source/build-only로 추가하는 계획
 - `plans/NATIVE_INIT_V1003_HELPER_V170_DEPLOY_PLAN_2026-05-26.md` – V1002 helper `v170` 산출물을 `/cache/bin/a90_android_execns_probe`로 deploy-only 배포하고 sha/contract parity를 확인하는 V1003 계획
 - `plans/NATIVE_INIT_V1002_ANDROID_SERVICE_WINDOW_SUBSYS_TRIGGER_SUPPORT_PLAN_2026-05-26.md` – V1001에서 선택한 service-window-scoped `/dev/subsys_esoc0` trigger capture를 helper `v170`에 source/build-only로 추가하는 V1002 계획
 - `plans/NATIVE_INIT_V1001_V1000_ROUTE_COMPARATOR_PLAN_2026-05-26.md` – V1000 Android timing과 V998/V923/V964/V965 native evidence를 비교해 WLFW-precondition gate가 circular인지 host-only로 판정하는 V1001 계획
@@ -625,6 +628,7 @@
 - `reports/NATIVE_INIT_V1112_SUBSYS_MODEM_PRECONDITION_CLASSIFIER_2026-05-27.md` – V1112 결과 V1111 CNSS-triggered `/dev/subsys_modem` open block과 V1061 global firmware/modem holder proof를 결합해 V1113 route를 선택한 결과
 - `reports/NATIVE_INIT_V1113_GLOBAL_FIRMWARE_PM_CONNECT_LIVE_2026-05-27.md` – V1113 결과 global firmware/modem holder prerequisite은 성립했지만 stable window에서 CNSS PM connect return이 재현되지 않아 V1114 PM-service lifetime/readiness 분류로 좁힌 결과
 - `reports/NATIVE_INIT_V1114_PM_SERVICE_LIFETIME_CLASSIFIER_2026-05-27.md` – V1114 결과 `pm-service`가 1000 ms post-start probe 전에 `exit_code=0`으로 종료되어 V1115 immediate-CNSS-after-per_mgr gate를 선택한 결과
+- `reports/NATIVE_INIT_V1115_IMMEDIATE_CNSS_HELPER_BUILD_2026-05-27.md` – V1115 결과 helper `v210`에 immediate-CNSS-after-`per_mgr` PM observer order를 추가하고 static helper build/string 검증을 통과한 결과
 - `reports/NATIVE_INIT_V1004_SERVICE_WINDOW_SUBSYS_TRIGGER_LIVE_2026-05-26.md` – V1004 live 결과 current-boot SELinux refresh 후 Android service-window actors는 관측됐지만 `mdm_helper`가 `/dev/esoc-0` fd를 hold하지 않아 `/dev/subsys_esoc0` trigger는 안전하게 미실행된 결과
 - `reports/NATIVE_INIT_V1003_HELPER_V170_DEPLOY_2026-05-26.md` – helper `v170`을 `/cache/bin/a90_android_execns_probe`로 deploy-only 설치하고 remote sha/contract parity 및 no-Wi-Fi guard를 확인한 V1003 결과
 - `reports/NATIVE_INIT_V1002_ANDROID_SERVICE_WINDOW_SUBSYS_TRIGGER_SUPPORT_2026-05-26.md` – helper `v170`에 Android service-window scoped `/dev/subsys_esoc0` trigger capture mode를 source/build-only로 추가한 V1002 결과
