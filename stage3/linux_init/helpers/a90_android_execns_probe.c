@@ -97,7 +97,7 @@
 #define IOPRIO_PRIO_VALUE(class_value, data) (((class_value) << IOPRIO_CLASS_SHIFT) | (data))
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v218"
+#define EXECNS_VERSION "a90_android_execns_probe v219"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -249,6 +249,7 @@ struct config {
     bool allow_android_wifi_service_window;
     bool allow_android_wifi_service_window_subsys_trigger_capture;
     bool require_android_selinux_exec_match;
+    bool pm_observer_zero_delay_per_mgr_probe;
     bool pm_observer_continue_after_provider;
     bool pm_observer_start_cnss_after_provider;
     bool pm_observer_start_cnss_before_per_proxy;
@@ -1214,6 +1215,10 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             }
             i++;
             cfg->pm_observer_per_proxy_pph_delta_ms = atoi(argv[i]);
+            continue;
+        }
+        if (strcmp(argv[i], "--pm-observer-zero-delay-per-mgr-probe") == 0) {
+            cfg->pm_observer_zero_delay_per_mgr_probe = true;
             continue;
         }
         if (strcmp(argv[i], "--allow-android-wifi-service-window") == 0) {
@@ -28225,6 +28230,9 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                         return -1;
                     }
                 }
+            } else if (i == PM_OBSERVER_PER_MGR &&
+                       cfg->pm_observer_zero_delay_per_mgr_probe) {
+                /* zero-delay per_mgr probe: no sleep */
             } else {
                 usleep(1000000);
             }
@@ -28246,7 +28254,10 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                                       early_per_proxy_delta_ms > 0 &&
                                       pph_spawn_mono_ms > 0)
                                          ? (long)early_per_proxy_delta_ms
-                                         : 1000L;
+                                         : (i == PM_OBSERVER_PER_MGR &&
+                                            cfg->pm_observer_zero_delay_per_mgr_probe)
+                                               ? 0L
+                                               : 1000L;
                 if (append_format(stdout_buf,
                               "pm_service_trigger_observer.child.%s.post_start_probe=1\n"
                               "pm_service_trigger_observer.child.%s.post_start_probe_wait_ms=%ld\n"
