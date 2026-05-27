@@ -109,8 +109,8 @@ def write_module_file(store: EvidenceStore, relative_path: str, text: str, mode:
 def module_prop() -> str:
     return f"""id={MODULE_ID}
 name=A90 mdm_helper strace capture scaffold
-version=v1158
-versionCode=1158
+version=v1159
+versionCode=1159
 author=Temmie/Codex
 description=Temporary Android mdm_helper/ks strace capture scaffold. Remove after capture.
 """
@@ -220,8 +220,85 @@ def post_fs_data_script() -> str:
     return f"""#!/system/bin/sh
 TRACE_DIR="{TRACE_DIR}"
 umask 000
+rm -rf "$TRACE_DIR" 2>/dev/null || true
 mkdir -p "$TRACE_DIR"
 chmod 1777 "$TRACE_DIR" 2>/dev/null || true
+
+collect_task_snapshot() {{
+  label="$1"
+  pid="$2"
+  tid="$3"
+  dir="$TRACE_DIR/pm_thread_snapshots/${{label}}_${{pid}}_${{tid}}"
+  mkdir -p "$dir"
+  cat "/proc/$pid/cmdline" > "$dir/cmdline.bin" 2>/dev/null || true
+  cat "/proc/$pid/task/$tid/comm" > "$dir/comm.txt" 2>/dev/null || true
+  cat "/proc/$pid/task/$tid/status" > "$dir/status.txt" 2>/dev/null || true
+  cat "/proc/$pid/task/$tid/wchan" > "$dir/wchan.txt" 2>/dev/null || true
+  cat "/proc/$pid/task/$tid/syscall" > "$dir/syscall.txt" 2>/dev/null || true
+  cat "/proc/$pid/task/$tid/stack" > "$dir/stack.txt" 2>/dev/null || true
+  ls -l "/proc/$pid/fd" > "$dir/fd.txt" 2>&1 || true
+}}
+
+sample_pm_threads() {{
+  samples="$TRACE_DIR/pm_thread_samples.txt"
+  interesting="$TRACE_DIR/pm_thread_interesting.txt"
+  summary="$TRACE_DIR/pm_thread_summary.txt"
+  mkdir -p "$TRACE_DIR/pm_thread_snapshots"
+  i=0
+  fw_seen=0
+  fw_seen_at=-1
+  while [ "$i" -lt 360 ]; do
+    uptime="$(cat /proc/uptime 2>/dev/null | awk '{{print $1}}')"
+    for proc in /proc/[0-9]*; do
+      pid="${{proc##*/}}"
+      cmdline="$(tr '\\0' ' ' < "$proc/cmdline" 2>/dev/null)"
+      label=""
+      case "$cmdline" in
+        */vendor/bin/pm-service*|/vendor/bin/pm-service*) label="pm-service" ;;
+        */vendor/bin/pm_proxy_helper*|/vendor/bin/pm_proxy_helper*) label="pm_proxy_helper" ;;
+        */vendor/bin/mdm_helper.real*|/vendor/bin/mdm_helper.real*) label="mdm_helper_real" ;;
+        */vendor/bin/mdm_helper*|/vendor/bin/mdm_helper*) label="mdm_helper" ;;
+        */vendor/bin/cnss-daemon*|*/system/vendor/bin/cnss-daemon*) label="cnss-daemon" ;;
+      esac
+      [ -n "$label" ] || continue
+      for task in "$proc"/task/[0-9]*; do
+        [ -d "$task" ] || continue
+        tid="${{task##*/}}"
+        comm="$(cat "$task/comm" 2>/dev/null)"
+        wchan="$(cat "$task/wchan" 2>/dev/null)"
+        syscall="$(cat "$task/syscall" 2>/dev/null)"
+        line="sample=$i uptime=$uptime label=$label pid=$pid tid=$tid comm=$comm wchan=$wchan syscall=$syscall"
+        echo "$line" >> "$samples"
+        case "$label $comm $wchan $syscall" in
+          *Binder*|*binder*|*subsys*|*esoc*|*pil*|*wait*|*ioctl*|*nanosleep*)
+            echo "$line" >> "$interesting"
+            collect_task_snapshot "$label" "$pid" "$tid"
+            ;;
+        esac
+      done
+    done
+    if [ "$fw_seen" = "0" ] && dmesg | tail -n 400 | grep -E "WLAN FW is ready|FW ready event received|dev : wlan0 : event : 16" >/dev/null 2>&1; then
+      fw_seen=1
+      fw_seen_at="$i"
+      echo "fw_seen_at_sample=$i uptime=$uptime" >> "$summary"
+    fi
+    if [ "$fw_seen" = "1" ] && [ "$i" -gt "$((fw_seen_at + 30))" ]; then
+      break
+    fi
+    i=$((i + 1))
+    sleep 0.1 2>/dev/null || sleep 1
+  done
+  {{
+    echo "samples=$i"
+    echo "fw_seen=$fw_seen"
+    echo "fw_seen_at=$fw_seen_at"
+    echo "pm_service_pids=$(pidof pm-service 2>/dev/null)"
+    echo "pm_proxy_helper_pids=$(pidof pm_proxy_helper 2>/dev/null)"
+    echo "mdm_helper_pids=$(pidof mdm_helper mdm_helper.real 2>/dev/null)"
+    echo "cnss_daemon_pids=$(pidof cnss-daemon 2>/dev/null)"
+  }} >> "$summary"
+  dmesg > "$TRACE_DIR/pm_thread_dmesg_end.txt" 2>&1 || true
+}}
 
 POLICY_TOOL=""
 for candidate in /debug_ramdisk/magiskpolicy /sbin/magiskpolicy /data/adb/magisk/magiskpolicy /system/bin/magiskpolicy; do
@@ -248,6 +325,8 @@ if [ -n "$POLICY_TOOL" ]; then
   "$POLICY_TOOL" --live "allow vendor_mdm_helper shell_data_file file {{ append create getattr open read setattr unlink write }}" >> "$TRACE_DIR/post-fs-data.log" 2>&1 || true
   "$POLICY_TOOL" --live "allow vendor_mdm_helper vendor_mdm_helper process ptrace" >> "$TRACE_DIR/post-fs-data.log" 2>&1 || true
 fi
+
+( sample_pm_threads >> "$TRACE_DIR/pm_thread_sampler.log" 2>&1 ) &
 exit 0
 """
 
@@ -763,7 +842,7 @@ def main() -> int:
     write_module_file(store, "README.md", readme_text)
 
     decision = (
-        "v1158-magisk-strace-module-vendor-original-strace-wrapper-install-ready"
+        "v1159-magisk-strace-module-vendor-original-strace-wrapper-install-ready"
         if scaffold_ready and install_ready
         else "v1157-magisk-strace-module-scaffold-ready-vendor-original-strace-or-wrapper-required"
     )
@@ -771,7 +850,7 @@ def main() -> int:
         decision = "v1147-magisk-strace-module-scaffold-invalid"
 
     manifest: dict[str, Any] = {
-        "version": "v1158",
+        "version": "v1159",
         "created_at": now_iso(),
         "decision": decision,
         "pass": scaffold_ready,

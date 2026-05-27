@@ -415,7 +415,8 @@ def build_step_plan(args: argparse.Namespace, store: EvidenceStore, android_imag
                     args,
                     f"set -x; ls -lR {trace_dir_q} 2>/dev/null || true; "
                     f"for f in {trace_dir_q}/mdm_helper.wrapper.log {trace_dir_q}/mdm_helper.strace.txt "
-                    f"{trace_dir_q}/service.log {trace_dir_q}/post-fs-data.log {trace_dir_q}/wifi_ready_wait.txt {trace_dir_q}/pids.txt; do "
+                    f"{trace_dir_q}/service.log {trace_dir_q}/post-fs-data.log {trace_dir_q}/wifi_ready_wait.txt {trace_dir_q}/pids.txt "
+                    f"{trace_dir_q}/pm_thread_summary.txt {trace_dir_q}/pm_thread_interesting.txt {trace_dir_q}/pm_thread_sampler.log; do "
                     "echo ===$f===; [ -f \"$f\" ] && (head -n 120 \"$f\"; echo ---TAIL---; tail -n 160 \"$f\") || true; done; "
                     f"for d in {trace_dir_q}/proc_a90_strace_* {trace_dir_q}/proc_mdm_helper_real_* {trace_dir_q}/proc_mdm_helper_*; do "
                     "echo ===$d===; [ -d \"$d\" ] && (ls -l \"$d\"; for f in wchan.txt syscall.txt stack.txt fd.txt cmdline.bin status.txt; do echo ---$f---; [ -f \"$d/$f\" ] && cat \"$d/$f\" || true; done) || true; done",
@@ -541,11 +542,17 @@ def extract_trace_tar(store: EvidenceStore) -> dict[str, Any]:
     pids = trace_root / "pids.txt"
     boot_dmesg = trace_root / "boot_dmesg.txt"
     wifi_ready_wait = trace_root / "wifi_ready_wait.txt"
+    pm_thread_samples = trace_root / "pm_thread_samples.txt"
+    pm_thread_interesting = trace_root / "pm_thread_interesting.txt"
+    pm_thread_summary = trace_root / "pm_thread_summary.txt"
     strace_text = strace_log.read_text(encoding="utf-8", errors="replace")[:2_000_000] if strace_log.exists() else ""
     wrapper_text = wrapper_log.read_text(encoding="utf-8", errors="replace")[:200_000] if wrapper_log.exists() else ""
     pids_text = pids.read_text(encoding="utf-8", errors="replace")[:200_000] if pids.exists() else ""
     dmesg_text = boot_dmesg.read_text(encoding="utf-8", errors="replace")[:2_000_000] if boot_dmesg.exists() else ""
     wifi_ready_text = wifi_ready_wait.read_text(encoding="utf-8", errors="replace")[:20_000] if wifi_ready_wait.exists() else ""
+    pm_samples_text = pm_thread_samples.read_text(encoding="utf-8", errors="replace")[:2_000_000] if pm_thread_samples.exists() else ""
+    pm_interesting_text = pm_thread_interesting.read_text(encoding="utf-8", errors="replace")[:2_000_000] if pm_thread_interesting.exists() else ""
+    pm_summary_text = pm_thread_summary.read_text(encoding="utf-8", errors="replace")[:80_000] if pm_thread_summary.exists() else ""
     mdm_helper_exit_statuses = [
         int(match.group(1))
         for match in re.finditer(r"Service 'vendor\.mdm_helper'.*exited with status (\d+)", dmesg_text)
@@ -565,6 +572,24 @@ def extract_trace_tar(store: EvidenceStore) -> dict[str, Any]:
         "pids_present": pids.exists(),
         "wifi_ready_wait_present": wifi_ready_wait.exists(),
         "wifi_ready_wait": wifi_ready_text.strip(),
+        "pm_thread_samples_present": pm_thread_samples.exists(),
+        "pm_thread_interesting_present": pm_thread_interesting.exists(),
+        "pm_thread_summary": pm_summary_text.strip(),
+        "pm_thread_sample_count": pm_samples_text.count("\n"),
+        "pm_thread_interesting_count": pm_interesting_text.count("\n"),
+        "pm_thread_has_pm_service": "label=pm-service" in pm_samples_text,
+        "pm_thread_has_pm_proxy_helper": "label=pm_proxy_helper" in pm_samples_text,
+        "pm_thread_has_binder_thread": "Binder" in pm_samples_text or "binder" in pm_samples_text,
+        "pm_thread_has_esoc_marker": "esoc" in pm_samples_text.lower() or "esoc" in pm_interesting_text.lower(),
+        "pm_thread_has_mdm_subsys_powerup": "mdm_subsys_powerup" in pm_samples_text
+        or "mdm_subsys_powerup" in pm_interesting_text,
+        "dmesg_esoc0_subsystem_get": bool(re.search(r"__subsystem_get:\s+esoc0 count:0", dmesg_text)),
+        "dmesg_pm_service_esoc0_thread": bool(
+            re.search(r"Binder:\d+_\d+.*__subsystem_get\(\): __subsystem_get:\s+esoc0 count:0", dmesg_text)
+        ),
+        "pm_thread_snapshot_dir_count": len([item for item in (trace_root / "pm_thread_snapshots").glob("*") if item.is_dir()])
+        if (trace_root / "pm_thread_snapshots").exists()
+        else 0,
         "wrapper_started": "wrapper_start=" in wrapper_text,
         "strace_executed": "exec_strace=" in wrapper_text,
         "original_selected": "original=" in wrapper_text,
