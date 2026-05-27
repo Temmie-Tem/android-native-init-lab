@@ -20,6 +20,7 @@
 - 최신 provider namespace delta classifier는 `docs/reports/NATIVE_INIT_V1122_PROVIDER_NAMESPACE_DELTA_CLASSIFIER_2026-05-27.md`입니다.
 - 최신 private firmware PM observer helper build는 `docs/reports/NATIVE_INIT_V1123_PRIVATE_FIRMWARE_PM_OBSERVER_HELPER_BUILD_2026-05-27.md`입니다.
 - 최신 private firmware PM observer live 결과는 `docs/reports/NATIVE_INIT_V1124_PRIVATE_FIRMWARE_PM_OBSERVER_LIVE_2026-05-27.md`입니다.
+- 다음 private firmware PM-service early-exit trace 계획은 `docs/plans/NATIVE_INIT_V1125_PRIVATE_FIRMWARE_PM_SERVICE_EARLY_EXIT_TRACE_PLAN_2026-05-27.md`입니다.
 - 최신 PM register branch live gate는 `docs/reports/NATIVE_INIT_V1120_PM_REGISTER_CONNECT_BRANCH_LIVE_2026-05-27.md`입니다.
 - 최신 PM register failure classifier는 `docs/reports/NATIVE_INIT_V1119_PM_REGISTER_FAILURE_HOST_CLASSIFIER_2026-05-27.md`입니다.
 - 최신 PM observer helper build는 `docs/reports/NATIVE_INIT_V1117_ZERO_DELAY_CNSS_HELPER_BUILD_2026-05-27.md`입니다.
@@ -245,6 +246,7 @@
 - `plans/NATIVE_INIT_V1118_GLOBAL_HOLDER_ZERO_DELAY_CNSS_LIVE_PLAN_2026-05-27.md` – helper `v211` 배포 뒤 global firmware/modem-holder + zero-delay CNSS observer를 bounded live로 검증하는 계획
 - `plans/NATIVE_INIT_V1123_PRIVATE_FIRMWARE_PM_OBSERVER_HELPER_BUILD_PLAN_2026-05-27.md` – V1122 global firmware `/vendor` delta를 피하기 위해 PM observer opt-in private firmware mount helper `v212`를 source/build-only로 추가하는 계획
 - `plans/NATIVE_INIT_V1124_PRIVATE_FIRMWARE_PM_OBSERVER_LIVE_PLAN_2026-05-27.md` – helper `v212` 배포 뒤 V1108 no-pre-CNSS `per_proxy` order에 private firmware mounts를 더해 provider 보존 여부를 검증하는 계획
+- `plans/NATIVE_INIT_V1125_PRIVATE_FIRMWARE_PM_SERVICE_EARLY_EXIT_TRACE_PLAN_2026-05-27.md` – private firmware PM observer namespace에서 `pm-service` early clean-exit terminal branch를 tracefs-only로 분류하는 계획
 - `plans/NATIVE_INIT_V1003_HELPER_V170_DEPLOY_PLAN_2026-05-26.md` – V1002 helper `v170` 산출물을 `/cache/bin/a90_android_execns_probe`로 deploy-only 배포하고 sha/contract parity를 확인하는 V1003 계획
 - `plans/NATIVE_INIT_V1002_ANDROID_SERVICE_WINDOW_SUBSYS_TRIGGER_SUPPORT_PLAN_2026-05-26.md` – V1001에서 선택한 service-window-scoped `/dev/subsys_esoc0` trigger capture를 helper `v170`에 source/build-only로 추가하는 V1002 계획
 - `plans/NATIVE_INIT_V1001_V1000_ROUTE_COMPARATOR_PLAN_2026-05-26.md` – V1000 Android timing과 V998/V923/V964/V965 native evidence를 비교해 WLFW-precondition gate가 circular인지 host-only로 판정하는 V1001 계획
