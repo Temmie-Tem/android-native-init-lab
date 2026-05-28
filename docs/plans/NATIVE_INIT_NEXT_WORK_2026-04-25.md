@@ -25,7 +25,24 @@
 
 ## 현재 Wi-Fi Gate
 
-- 최신 기준: V904 host-only parity confirms the blocker is Android
+- 최신 기준: V1181 host-only PASS — per_mgr 자발 종료 root cause 분류 완료.
+  핵심: (1) helper v218/v219에서 `materialize_peripheral_manager_node_parity()`
+  추가로 private namespace에 `/dev/subsys_modem` 노드 생성됨 → pm_proxy_helper가
+  노드를 열 수 있게 됨. (2) `--pm-observer-per-proxy-pph-delta-ms` flag로
+  per_proxy가 per_mgr+~250ms 시점에 `pm_client_register("modem")` Binder 호출
+  → per_mgr 내부 peripheral list 미완성 상태에서 모뎀 등록 수신 → exit 0.
+  V1105(구 helper)는 subsys_modem 노드 없음, per_proxy는 per_mgr+1000ms에 시작
+  (충분한 초기화 시간) → pm_client_register_ret=0 성공. 다음은 V1182 host-only:
+  per_mgr-ready gate (vndservice_provider_seen=1 확인 후 per_proxy 시작) helper
+  source/build-only 설계. pph_delta는 진단용으로 유지, 실제 spawn은 vndservice
+  확인 게이트로 대체. Wi-Fi HAL, scan/connect, credentials, DHCP/routes,
+  external ping 계속 블록.
+- V1180 live PASS — per_proxy pph+247ms (target 300ms) 내 시작,
+  pm_proxy_helper가 `/dev/subsys_modem` (fd=3) 보유 확인. 그러나 per_mgr
+  (pm-service)이 exit_code=0으로 자발 종료 (<247ms), PM state machine
+  state_set_event_count=0, vndservice_provider_seen=0. pm_proxy_helper는
+  `/dev/vndbinder` fd 없음 (one-shot이므로 불필요).
+- V1179 기준: V904 host-only parity confirms the blocker is Android
   `mdm_helper` runtime input parity. Android runs `vendor.mdm_helper` as
   `u:r:vendor_mdm_helper:s0` after `vendor.per_mgr=running`; `pm-service`
   owns `/dev/subsys_esoc0`/`/dev/subsys_modem`, `mdm_helper` owns

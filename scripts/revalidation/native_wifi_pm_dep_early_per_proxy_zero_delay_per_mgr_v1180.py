@@ -302,6 +302,10 @@ def main() -> int:
     manifest["firmware_mounts_executed"] = bool(fw.get("mount_results"))
     manifest["global_modem_holder_opened"] = bool(fw.get("holder_opened"))
     manifest["reboot_executed"] = bool(fw.get("reboot_cleanup"))
+    manifest["post_pm_mdm_helper_executed"] = post.get("exec_attempted") == "1"
+    manifest["post_pm_mdm_helper_lower_trace_emitted"] = lower.get("begin") == "1"
+    manifest["tracefs_write_executed"] = bool(manifest.get("analysis", {}).get("tracefs_uprobe"))
+    manifest["late_per_proxy_started"] = False
     manifest["dep_state1_observed"] = dst.get("dep_state1_observed", False)
     manifest["dep_state1_time"] = dst.get("dep_state1_time")
     manifest["dep_state1_before_per_proxy_connect"] = dst.get("dep_state1_before_per_proxy_connect", False)
