@@ -59,7 +59,7 @@ _ORIG_VNDSERVICE_GATE_CMD = None
 
 def pm_per_mgr_policy_load_child_command(args: Any) -> list[str]:
     """Build helper command: add policy load flag to the vndservice gate command."""
-    result = v1183.pm_per_proxy_vndservice_gate_child_command(args)
+    result = _ORIG_VNDSERVICE_GATE_CMD(args)
     if POLICY_LOAD_FLAG not in result:
         result.append(POLICY_LOAD_FLAG)
     return result
@@ -284,6 +284,8 @@ def patch_defaults() -> None:
         module.DEFAULT_EXECNS_HELPER_SHA256 = DEFAULT_EXECNS_HELPER_SHA256
         module.DEFAULT_EXECNS_HELPER_MARKER = DEFAULT_EXECNS_HELPER_MARKER
 
+    global _ORIG_VNDSERVICE_GATE_CMD
+    _ORIG_VNDSERVICE_GATE_CMD = v1183.pm_per_proxy_vndservice_gate_child_command
     v1183.pm_per_proxy_vndservice_gate_child_command = pm_per_mgr_policy_load_child_command
     v1106.pm_cnss_child_command = pm_per_mgr_policy_load_child_command
 
