@@ -64,7 +64,8 @@ File: `stage3/linux_init/helpers/a90_android_execns_probe.c`
 ### Build result
 
 ```
-SHA256: b456ca27ca7ba3becfea538ea4a3c723500084499537900e1a5a83ac72601654
+SHA256 (v0, before EXECNS_VERSION bump): b456ca27ca7ba3becfea538ea4a3c723500084499537900e1a5a83ac72601654
+SHA256 (v220 marker added):              985675707ee433ec0203cbd1e59b0cd439dee0bc05d315266657b889d0c384a0
 ELF 64-bit LSB executable, ARM aarch64, statically linked
 No dynamic section.
 ```

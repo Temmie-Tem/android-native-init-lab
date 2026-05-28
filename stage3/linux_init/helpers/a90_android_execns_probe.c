@@ -97,7 +97,7 @@
 #define IOPRIO_PRIO_VALUE(class_value, data) (((class_value) << IOPRIO_CLASS_SHIFT) | (data))
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v219"
+#define EXECNS_VERSION "a90_android_execns_probe v221"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -28095,6 +28095,94 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                 return -1;
             }
         }
+        /* V1185: vndservice gate runs BEFORE per_proxy spawn so it actually
+         * prevents the V1181 race (V1183 had it after spawn — log-only). */
+        if (i == PM_OBSERVER_PER_PROXY &&
+            cfg->pm_observer_per_proxy_after_vndservice_provider) {
+            long gate_start_ms = monotonic_ms();
+            long gate_deadline = gate_start_ms + 5000L;
+            int gate_poll_count = 0;
+            bool gate_open = false;
+            bool gate_query_error = false;
+
+            if (append_format(stdout_buf,
+                              "pm_service_trigger_observer.per_proxy_vndservice_gate.begin=1\n"
+                              "pm_service_trigger_observer.per_proxy_vndservice_gate.timeout_ms=5000\n"
+                              "pm_service_trigger_observer.per_proxy_vndservice_gate.poll_interval_ms=200\n") < 0) {
+                composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+                stop_property_service_shim(&property_shim, paths, stdout_buf);
+                return -1;
+            }
+            while (!gate_open && monotonic_ms() < gate_deadline) {
+                bool per_mgr_seen = false;
+                gate_poll_count++;
+                if (append_vndservice_query(stdout_buf,
+                                            stderr_buf,
+                                            cfg,
+                                            paths,
+                                            "per_proxy_vndservice_gate_poll",
+                                            2000,
+                                            &per_mgr_seen) < 0) {
+                    gate_query_error = true;
+                    break;
+                }
+                if (per_mgr_seen) {
+                    gate_open = true;
+                    break;
+                }
+                if (monotonic_ms() < gate_deadline) {
+                    usleep(200000);
+                }
+            }
+            {
+                long gate_elapsed_ms = monotonic_ms() - gate_start_ms;
+                if (append_format(stdout_buf,
+                                  "pm_service_trigger_observer.per_proxy_vndservice_gate.poll_count=%d\n"
+                                  "pm_service_trigger_observer.per_proxy_vndservice_gate.elapsed_ms=%ld\n"
+                                  "pm_service_trigger_observer.per_proxy_vndservice_gate.gate_open=%d\n"
+                                  "pm_service_trigger_observer.per_proxy_vndservice_gate.query_error=%d\n"
+                                  "pm_service_trigger_observer.per_proxy_vndservice_gate.result=%s\n",
+                                  gate_poll_count,
+                                  gate_elapsed_ms,
+                                  gate_open ? 1 : 0,
+                                  gate_query_error ? 1 : 0,
+                                  gate_query_error ? "error"
+                                      : gate_open ? "ready"
+                                      : "timeout") < 0) {
+                    composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+                    stop_property_service_shim(&property_shim, paths, stdout_buf);
+                    return -1;
+                }
+            }
+            if (gate_query_error) {
+                composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+                stop_property_service_shim(&property_shim, paths, stdout_buf);
+                return -1;
+            }
+            if (!gate_open) {
+                /* gate timed out: skip per_proxy spawn, proceed to CNSS */
+                children[i].observable = false;
+                children[i].child_done = true;
+                children[i].reaped = true;
+                children[i].exit_code = -1;
+                active_child_count++;
+                if (append_format(stdout_buf,
+                                  "pm_service_trigger_observer.child.%s.start_order=%zu\n"
+                                  "pm_service_trigger_observer.child.%s.start_skipped=1\n"
+                                  "pm_service_trigger_observer.child.%s.skip_reason=%s\n",
+                                  children[i].name,
+                                  active_child_count,
+                                  children[i].name,
+                                  children[i].name,
+                                  "vndservice-gate-timeout") < 0) {
+                    composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+                    stop_property_service_shim(&property_shim, paths, stdout_buf);
+                    return -1;
+                }
+                continue;
+            }
+            /* gate_open: fall through to composite_spawn_child */
+        }
         if (composite_spawn_child(cfg, paths, &children[i], stdout_buf) < 0) {
             composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
             stop_property_service_shim(&property_shim, paths, stdout_buf);
@@ -28210,70 +28298,16 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                 continue;
             }
 
-            /* vndservice gate: poll until per_mgr registers with vndservicemanager */
+            /* vndservice gate ran pre-spawn (V1185+); per_proxy only reached here
+             * if gate opened.  Emit a marker so post-spawn analysis can confirm. */
             if (i == PM_OBSERVER_PER_PROXY &&
                 cfg->pm_observer_per_proxy_after_vndservice_provider) {
-                long gate_start_ms = monotonic_ms();
-                long gate_deadline = gate_start_ms + 5000L;
-                int gate_poll_count = 0;
-                bool gate_open = false;
-                bool gate_query_error = false;
-
-                if (append_format(stdout_buf,
-                                  "pm_service_trigger_observer.per_proxy_vndservice_gate.begin=1\n"
-                                  "pm_service_trigger_observer.per_proxy_vndservice_gate.timeout_ms=5000\n"
-                                  "pm_service_trigger_observer.per_proxy_vndservice_gate.poll_interval_ms=200\n") < 0) {
+                if (append_literal(stdout_buf,
+                                   "pm_service_trigger_observer.per_proxy_vndservice_gate.post_spawn_check=pre_spawn_gate_ran\n") < 0) {
                     composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
                     stop_property_service_shim(&property_shim, paths, stdout_buf);
                     return -1;
                 }
-                while (!gate_open && monotonic_ms() < gate_deadline) {
-                    bool per_mgr_seen = false;
-                    gate_poll_count++;
-                    if (append_vndservice_query(stdout_buf,
-                                                stderr_buf,
-                                                cfg,
-                                                paths,
-                                                "per_proxy_vndservice_gate_poll",
-                                                2000,
-                                                &per_mgr_seen) < 0) {
-                        gate_query_error = true;
-                        break;
-                    }
-                    if (per_mgr_seen) {
-                        gate_open = true;
-                        break;
-                    }
-                    if (monotonic_ms() < gate_deadline) {
-                        usleep(200000);
-                    }
-                }
-                {
-                    long gate_elapsed_ms = monotonic_ms() - gate_start_ms;
-                    if (append_format(stdout_buf,
-                                      "pm_service_trigger_observer.per_proxy_vndservice_gate.poll_count=%d\n"
-                                      "pm_service_trigger_observer.per_proxy_vndservice_gate.elapsed_ms=%ld\n"
-                                      "pm_service_trigger_observer.per_proxy_vndservice_gate.gate_open=%d\n"
-                                      "pm_service_trigger_observer.per_proxy_vndservice_gate.query_error=%d\n"
-                                      "pm_service_trigger_observer.per_proxy_vndservice_gate.result=%s\n",
-                                      gate_poll_count,
-                                      gate_elapsed_ms,
-                                      gate_open ? 1 : 0,
-                                      gate_query_error ? 1 : 0,
-                                      gate_query_error ? "error"
-                                          : gate_open ? "ready"
-                                          : "timeout") < 0) {
-                        composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
-                        stop_property_service_shim(&property_shim, paths, stdout_buf);
-                        return -1;
-                    }
-                }
-                if (gate_query_error) {
-                    composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
-                    stop_property_service_shim(&property_shim, paths, stdout_buf);
-                    return -1;
-                }
-                /* continue to per_proxy spawn regardless of gate result (log-only gate) */
             } else if (i == PM_OBSERVER_PER_PROXY &&
                 early_per_proxy_delta_ms > 0 &&
                 pph_spawn_mono_ms > 0) {

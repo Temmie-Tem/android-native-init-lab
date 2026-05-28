@@ -25,14 +25,35 @@
 
 ## 현재 Wi-Fi Gate
 
-- 최신 기준: V1182 source/build-only PASS — `--pm-observer-per-proxy-after-vndservice-provider`
-  flag 추가 완료. per_proxy spawn 전에 vndservice list를 200ms 간격(최대 5s)으로
-  폴링해 `vendor.qcom.PeripheralManager` 등록 확인 후 per_proxy를 시작하는 게이트.
-  helper SHA256: `b456ca27ca7ba3becfea538ea4a3c723500084499537900e1a5a83ac72601654`.
-  다음은 V1183: helper 배포 + live 실행. mode=`wifi-companion-post-pm-mdm-helper-esoc-observer`
-  + `--pm-observer-start-cnss-after-provider` + `--pm-observer-per-proxy-after-vndservice-provider`
-  + `--pm-observer-zero-delay-per-mgr-probe`. Wi-Fi HAL, scan/connect, credentials,
-  DHCP/routes, external ping 계속 블록.
+- 최신 기준: V1184 host-only PASS — V1183 live 결과 분류 완료. 두 가지 독립 버그 확인:
+  (1) **게이트 위치 버그**: helper C 코드에서 `composite_spawn_child(per_proxy)` (line 28098)
+  실행 후에 vndservice gate 폴링 블록 (line 28213)이 실행됨. per_proxy가 이미 실행 중인
+  상태에서 gate가 폴링하므로 race condition을 막을 수 없음. 증거: tracefs에서
+  `child.per_proxy.start_order=6` 로그 후 `per_proxy_vndservice_gate.begin=1` 순서.
+  (2) **파싱 버그**: `parse_tracefs_output_v1183()`이 `v1106.parse_tracefs_output(text)`를
+  호출하는데, `patch_defaults()`에서 이 심볼을 자기 자신으로 패치 → 무한 재귀 →
+  manifest에 `gate_begin=False` / decision `v1183-vndservice-gate-not-activated` 오진단.
+  실제로는 게이트가 실행됐으나 per_proxy가 이미 alive 상태. 파싱 버그는
+  `_ORIG_V1106_PARSE_TRACEFS_OUTPUT` 모듈 레벨 캡처로 수정 완료.
+  V1183 live 결과 핵심: per_mgr이 vndbinder를 한 번도 열지 않고(per_mgr_vndbinder_count=-1)
+  exit_code=0으로 종료. per_proxy(PID 3728)가 index=0 수집 시점에 이미 vndbinder 매핑 보유.
+  `pm_client_register_ret.count=1, pm_server_register_entry.count=0` → dead-object 반환.
+  다음: V1185 live — helper v221 배포 + live 실행.
+  Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping 계속 블록.
+- V1185 source/build-only PASS — helper v221 빌드 완료.
+  C 변경사항: (1) 버전 v221, (2) `composite_spawn_child(per_proxy)` **이전**에
+  vndservice gate 블록 추가 (gate open 시 spawn, timeout 시 skip+continue),
+  (3) post-spawn gate 블록을 `post_spawn_check=pre_spawn_gate_ran` 마커로 교체.
+  SHA256: `120fad47dad2965ab8a541759bf1cd04396b9f81eb0c06986096e6f05dfdf05d`.
+  다음: V1185 live — helper v221 배포 + live gate test. per_mgr이 vndbinder를 열고
+  vndservice에 등록하면 gate_open, 그렇지 않으면 gate_timeout (SELinux 등 추가 blocker).
+- V1183 live FAIL (gate design bug) — helper v220 배포 성공, vndservice gate 실행됨.
+  그러나 gate가 per_proxy spawn 이후에 위치해 있어 race condition을 막지 못함.
+  per_mgr은 vndbinder 없이 종료, vndservice timeout 후 per_proxy도 dead-object 반환.
+  script parse bug로 manifest decision이 잘못 `v1183-vndservice-gate-not-activated`로 분류됨.
+- V1182 source/build-only PASS — `--pm-observer-per-proxy-after-vndservice-provider`
+  flag 추가 완료. helper SHA256: `b456ca27ca7ba3becfea538ea4a3c723500084499537900e1a5a83ac72601654`.
+  (flag는 helper에 있으나 gate 위치 버그로 실제 spawn 전 blocking은 V1185에서 수정)
 - V1181 host-only PASS — per_mgr 자발 종료 root cause 분류 완료.
   핵심: (1) helper v218/v219에서 `materialize_peripheral_manager_node_parity()`
   추가로 private namespace에 `/dev/subsys_modem` 노드 생성됨 → pm_proxy_helper가
