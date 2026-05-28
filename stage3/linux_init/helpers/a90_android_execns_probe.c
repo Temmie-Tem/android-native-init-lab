@@ -97,7 +97,7 @@
 #define IOPRIO_PRIO_VALUE(class_value, data) (((class_value) << IOPRIO_CLASS_SHIFT) | (data))
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v228"
+#define EXECNS_VERSION "a90_android_execns_probe v237"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -260,6 +260,8 @@ struct config {
     bool pm_observer_start_mdm_helper_after_cnss;
     bool pm_observer_start_mdm_helper_before_cnss; /* v226 */
     bool pm_observer_open_subsys_esoc0_after_mdm_helper_esoc; /* v227 */
+    bool pm_observer_set_mdm3_restart_level_related; /* v229 */
+    bool pm_observer_trigger_pcie_enumerate; /* v235/v236 */
     bool pm_observer_start_per_proxy_after_mdm_helper_esoc_fd;
     /* start per_proxy N ms after per_proxy_helper becomes observable (0 = disabled) */
     int pm_observer_per_proxy_pph_delta_ms;
@@ -439,6 +441,8 @@ static void usage(FILE *out) {
             "[--pm-observer-start-mdm-helper-after-cnss] "
             "[--pm-observer-start-mdm-helper-before-cnss] "
             "[--pm-observer-open-subsys-esoc0-after-mdm-helper-esoc] "
+            "[--pm-observer-set-mdm3-restart-level-related] "
+            "[--pm-observer-trigger-pcie-enumerate] "
             "[--pm-observer-start-per-proxy-after-mdm-helper-esoc-fd] "
             "[--pm-observer-load-precompiled-policy] "
             "[--qrtr-readback-matrix label:service:instance[,instance][;...]] "
@@ -1219,6 +1223,14 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
         }
         if (strcmp(argv[i], "--pm-observer-open-subsys-esoc0-after-mdm-helper-esoc") == 0) {
             cfg->pm_observer_open_subsys_esoc0_after_mdm_helper_esoc = true;
+            continue;
+        }
+        if (strcmp(argv[i], "--pm-observer-set-mdm3-restart-level-related") == 0) {
+            cfg->pm_observer_set_mdm3_restart_level_related = true;
+            continue;
+        }
+        if (strcmp(argv[i], "--pm-observer-trigger-pcie-enumerate") == 0) {
+            cfg->pm_observer_trigger_pcie_enumerate = true;
             continue;
         }
         if (strcmp(argv[i], "--pm-observer-start-per-proxy-after-mdm-helper-esoc-fd") == 0) {
@@ -27991,9 +28003,18 @@ static int load_precompiled_policy_for_pm_observer(const struct paths *paths,
  * The child blocks in mdm_subsys_powerup() until MDM hardware powers on,
  * handles ESOC_REQ_IMG, and GPIO 142 fires. Polls GPIO 142 from parent.
  * v228: writes directly to stdout (not stdout_buf) so output survives
- * a device reboot triggered by the subsys_esoc0 open. */
-static void pm_observer_trigger_mdm_power_on(const struct paths *paths,
-                                              int hold_sec) {
+ * a device reboot triggered by the subsys_esoc0 open.
+ * v229: optional restart_level=RELATED write before fork.
+ * v230: 10s periodic status (mdm3 state/crash, gpio142 count).
+ * v231: fdatasync on stdout after each periodic output; child wchan.
+ * v232: accepts mdm_helper_pid for per-process wchan/fd observation.
+ * v233: all thread wchans + MHI pipe existence check.
+ * v235/v236: optional PCIe RC1 enumerate pre-fork.
+ * v237: mdm_helper fd listing in periodic status. */
+static void pm_observer_trigger_mdm_power_on(const struct config *cfg,
+                                              const struct paths *paths,
+                                              int hold_sec,
+                                              int mdm_helper_pid) {
     char subsys_esoc0_path[MAX_PATH_LEN * 2];
     pid_t child_pid;
     int pipefd[2];
@@ -28008,9 +28029,54 @@ static void pm_observer_trigger_mdm_power_on(const struct paths *paths,
     /* write directly to stdout so output survives a reboot */
     printf("pm_observer_mdm_power_on.begin=1\n"
            "pm_observer_mdm_power_on.path=%s\n"
-           "pm_observer_mdm_power_on.hold_sec=%d\n",
-           subsys_esoc0_path, hold_sec);
+           "pm_observer_mdm_power_on.hold_sec=%d\n"
+           "pm_observer_mdm_power_on.mdm_helper_pid=%d\n",
+           subsys_esoc0_path, hold_sec, mdm_helper_pid);
     fflush(stdout);
+
+    /* v229: optionally set restart_level=RELATED before opening subsys_esoc0 */
+    if (cfg->pm_observer_set_mdm3_restart_level_related) {
+        int rl_fd = open("/sys/bus/msm_subsys/devices/subsys9/restart_level",
+                         O_WRONLY | O_CLOEXEC);
+        if (rl_fd < 0) {
+            rl_fd = open("/sys/devices/platform/soc/soc:qcom,mdm3/subsys9/restart_level",
+                         O_WRONLY | O_CLOEXEC);
+        }
+        printf("pm_observer_mdm_power_on.restart_level_set=%s\n",
+               rl_fd >= 0 ? "RELATED" : "open-failed");
+        fflush(stdout);
+        if (rl_fd >= 0) {
+            ssize_t written = write(rl_fd, "RELATED\n", 8);
+            printf("pm_observer_mdm_power_on.restart_level_write_ok=%d\n",
+                   written == 8 ? 1 : 0);
+            fflush(stdout);
+            close(rl_fd);
+        } else {
+            printf("pm_observer_mdm_power_on.restart_level_write_ok=0\n");
+            fflush(stdout);
+        }
+    }
+
+    /* v235/v236: optionally trigger PCIe RC1 enumerate before fork */
+    if (cfg->pm_observer_trigger_pcie_enumerate) {
+        const char *pcie_enum_path =
+            "/sys/devices/platform/soc/1c08000.qcom,pcie/debug/enumerate";
+        int pce_fd = open(pcie_enum_path, O_WRONLY | O_CLOEXEC);
+        int pce_rc = -1;
+        if (pce_fd >= 0) {
+            ssize_t wr = write(pce_fd, "1\n", 2);
+            pce_rc = (wr == 2) ? 0 : -1;
+            close(pce_fd);
+        }
+        printf("pm_observer_mdm_power_on.pcie_pre_fork.attempted=1\n"
+               "pm_observer_mdm_power_on.pcie_pre_fork.rc=%d\n",
+               pce_rc);
+        fflush(stdout);
+        usleep(500000); /* 500ms for AP PCIe RC1 to power up */
+        printf("pm_observer_mdm_power_on.pcie_pre_fork.wait_done=1\n");
+        fflush(stdout);
+    }
+
     irq_before = collect_mdm_status_irq_snapshot();
     printf("pm_observer_mdm_power_on.gpio142_before=%lu\n"
            "pm_observer_mdm_power_on.gpio142_before_parsed=%d\n",
@@ -28054,7 +28120,7 @@ static void pm_observer_trigger_mdm_power_on(const struct paths *paths,
         _exit(0);
     }
 
-    /* parent: read child status, then poll GPIO 142 */
+    /* parent: read child status, then poll GPIO 142 with periodic status */
     close(pipefd[1]);
     fcntl(pipefd[0], F_SETFL, O_NONBLOCK);
     for (int i = 0; i < hold_sec * 10 && !gpio_fired; i++) {
@@ -28067,8 +28133,168 @@ static void pm_observer_trigger_mdm_power_on(const struct paths *paths,
                 printf("pm_observer_mdm_power_on.child_status=%s\n",
                        child_buf);
                 fflush(stdout);
+                fdatasync(fileno(stdout)); /* v231 */
                 open_reported = 1;
             }
+        }
+
+        /* v230: every 10s emit periodic status snapshot */
+        if ((i % 100) == 0) {
+            char mdm3_state_buf[64];
+            char mdm3_crash_buf[32];
+            char child_wchan_buf[64];
+            /* v233: MHI pipe existence */
+            struct stat mhi_st;
+            int mhi_dev_count = (lstat("/dev/mhi_0305_01.01.00_pipe_10", &mhi_st) == 0) ? 1 : 0;
+
+            read_state_or_error("/sys/bus/msm_subsys/devices/subsys9/state",
+                                mdm3_state_buf, sizeof(mdm3_state_buf));
+            read_state_or_error("/sys/bus/msm_subsys/devices/subsys9/crash_count",
+                                mdm3_crash_buf, sizeof(mdm3_crash_buf));
+
+            /* v231: child wchan */
+            {
+                char wchan_path[80];
+                char wbuf[64];
+                int wfd;
+                snprintf(wchan_path, sizeof(wchan_path),
+                         "/proc/%d/wchan", (int)child_pid);
+                wfd = open(wchan_path, O_RDONLY | O_CLOEXEC);
+                if (wfd >= 0) {
+                    ssize_t wn = read(wfd, wbuf, sizeof(wbuf) - 1);
+                    close(wfd);
+                    if (wn > 0) { wbuf[wn] = '\0'; }
+                    else { wbuf[0] = '\0'; }
+                    snprintf(child_wchan_buf, sizeof(child_wchan_buf),
+                             "%s", wbuf);
+                } else {
+                    snprintf(child_wchan_buf, sizeof(child_wchan_buf),
+                             "open-failed");
+                }
+            }
+
+            /* v232/v233: mdm_helper thread wchans */
+            char mh_wchans_buf[256];
+            mh_wchans_buf[0] = '\0';
+            if (mdm_helper_pid > 0) {
+                char task_dir[80];
+                DIR *tdp;
+                struct dirent *tent;
+                size_t mh_pos = 0;
+
+                snprintf(task_dir, sizeof(task_dir),
+                         "/proc/%d/task", mdm_helper_pid);
+                tdp = opendir(task_dir);
+                if (tdp != NULL) {
+                    while ((tent = readdir(tdp)) != NULL) {
+                        char wchan_path[256];
+                        char wbuf[64];
+                        int wfd;
+
+                        if (tent->d_name[0] == '.') continue;
+                        snprintf(wchan_path, sizeof(wchan_path),
+                                 "/proc/%d/task/%s/wchan",
+                                 mdm_helper_pid, tent->d_name);
+                        wfd = open(wchan_path, O_RDONLY | O_CLOEXEC);
+                        if (wfd < 0) continue;
+                        ssize_t wn = read(wfd, wbuf, sizeof(wbuf) - 1);
+                        close(wfd);
+                        if (wn <= 0) continue;
+                        wbuf[wn] = '\0';
+                        /* strip trailing newline */
+                        for (ssize_t k = wn - 1; k >= 0 && (wbuf[k]=='\n'||wbuf[k]=='\r'); k--)
+                            wbuf[k] = '\0';
+                        int nw = snprintf(mh_wchans_buf + mh_pos,
+                                          sizeof(mh_wchans_buf) - mh_pos,
+                                          "%s%s:%s",
+                                          mh_pos > 0 ? "," : "",
+                                          tent->d_name, wbuf);
+                        if (nw > 0 && (size_t)nw < sizeof(mh_wchans_buf) - mh_pos)
+                            mh_pos += (size_t)nw;
+                        else
+                            break;
+                    }
+                    closedir(tdp);
+                }
+            }
+
+            /* v237: mdm_helper fd listing (look for mhi/esoc/firmware) */
+            char mh_fds_buf[512];
+            mh_fds_buf[0] = '\0';
+            if (mdm_helper_pid > 0) {
+                char fd_dir[80];
+                DIR *fddp;
+                struct dirent *fdent;
+                size_t fd_pos = 0;
+
+                snprintf(fd_dir, sizeof(fd_dir),
+                         "/proc/%d/fd", mdm_helper_pid);
+                fddp = opendir(fd_dir);
+                if (fddp != NULL) {
+                    while ((fdent = readdir(fddp)) != NULL) {
+                        char fd_link[384];
+                        char target[256];
+                        ssize_t tlen;
+
+                        if (fdent->d_name[0] == '.') continue;
+                        snprintf(fd_link, sizeof(fd_link), "%s/%s",
+                                 fd_dir, fdent->d_name);
+                        tlen = readlink(fd_link, target, sizeof(target) - 1);
+                        if (tlen <= 0) continue;
+                        target[tlen] = '\0';
+                        /* only include interesting targets */
+                        if (strncmp(target, "/dev/mhi", 8) == 0 ||
+                            strncmp(target, "/dev/esoc", 9) == 0 ||
+                            strstr(target, "wlan") != NULL ||
+                            strstr(target, "firmware") != NULL ||
+                            strstr(target, ".mbn") != NULL ||
+                            strstr(target, ".bin") != NULL) {
+                            int nf = snprintf(mh_fds_buf + fd_pos,
+                                              sizeof(mh_fds_buf) - fd_pos,
+                                              "%s%s",
+                                              fd_pos > 0 ? "," : "",
+                                              target);
+                            if (nf > 0 && (size_t)nf < sizeof(mh_fds_buf) - fd_pos)
+                                fd_pos += (size_t)nf;
+                            else
+                                break;
+                        }
+                    }
+                    closedir(fddp);
+                }
+            }
+
+            irq_after = collect_mdm_status_irq_snapshot();
+            printf("pm_observer_mdm_power_on.status.elapsed_ms=%d\n"
+                   "pm_observer_mdm_power_on.status.gpio142_count=%lu\n"
+                   "pm_observer_mdm_power_on.status.mdm3_state=%s\n"
+                   "pm_observer_mdm_power_on.status.mdm3_crash_count=%s\n"
+                   "pm_observer_mdm_power_on.status.child_wchan=%s\n"
+                   "pm_observer_mdm_power_on.status.mhi_dev_count=%d\n"
+                   "pm_observer_mdm_power_on.status.mdm_helper_wchans=%s\n"
+                   "pm_observer_mdm_power_on.status.mdm_helper_fds=%s\n",
+                   i * 100,
+                   irq_after.count_total,
+                   mdm3_state_buf,
+                   mdm3_crash_buf,
+                   child_wchan_buf,
+                   mhi_dev_count,
+                   mh_wchans_buf[0] ? mh_wchans_buf : "none",
+                   mh_fds_buf[0] ? mh_fds_buf : "none");
+            fflush(stdout);
+            fdatasync(fileno(stdout)); /* v231 */
+
+            /* also check GPIO in the status window */
+            if (irq_after.parsed && irq_before.parsed &&
+                irq_after.count_total != irq_before.count_total) {
+                gpio_fired = 1;
+                printf("pm_observer_mdm_power_on.gpio142_fired=1\n"
+                       "pm_observer_mdm_power_on.gpio142_after=%lu\n"
+                       "pm_observer_mdm_power_on.gpio142_elapsed_ms=%d\n",
+                       irq_after.count_total, i * 100);
+                fflush(stdout);
+            }
+            continue; /* don't re-check GPIO below on status intervals */
         }
 
         if ((i % 10) == 0) {  /* check GPIO every 1s */
@@ -28111,6 +28337,7 @@ static void pm_observer_trigger_mdm_power_on(const struct paths *paths,
     printf("pm_observer_mdm_power_on.reboot_required=1\n"
            "pm_observer_mdm_power_on.end=1\n");
     fflush(stdout);
+    fdatasync(fileno(stdout)); /* v231 */
 }
 
 static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct config *cfg,
@@ -28581,7 +28808,8 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                         fflush(stdout);
                         stdout_buf->len = 0;
                     }
-                    pm_observer_trigger_mdm_power_on(paths, 300);
+                    pm_observer_trigger_mdm_power_on(cfg, paths, 300,
+                        (mdm_helper->pid > 0) ? (int)mdm_helper->pid : -1);
                 }
             }
         }
