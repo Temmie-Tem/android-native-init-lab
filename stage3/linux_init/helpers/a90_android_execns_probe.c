@@ -97,7 +97,7 @@
 #define IOPRIO_PRIO_VALUE(class_value, data) (((class_value) << IOPRIO_CLASS_SHIFT) | (data))
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v223"
+#define EXECNS_VERSION "a90_android_execns_probe v224"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -4349,6 +4349,44 @@ static int apply_android_exec_selinux_context_if_requested(const struct config *
             return -1;
         }
         printf("%s.selinux_exec.attr_exec_match=1\n", prefix);
+    }
+    return 0;
+}
+
+/* v224: dynamically relabel to the target domain by writing attr/current
+ * in the child before exec. In permissive mode the dyntransition AVC is
+ * logged but not enforced, so the write succeeds even without a policy
+ * rule. After this write, execv() runs from the vendor domain and the
+ * standard type_transition (already in Android stock policy) applies,
+ * landing pm-service in vendor_per_mgr rather than kernel. */
+static int apply_android_current_selinux_context_for_pm(const char *prefix,
+                                                        const char *target) {
+    const char *context;
+    char current_before[256];
+    char current_after[256];
+
+    context = android_default_selinux_context_for_target(target);
+    if (context == NULL) {
+        printf("%s.selinux_current.skipped=1\n", prefix);
+        printf("%s.selinux_current.reason=no-default-context-for-target\n", prefix);
+        return 0;
+    }
+    printf("%s.selinux_current.target_context=%s\n", prefix, context);
+    if (read_selinux_attr("current", current_before, sizeof(current_before)) >= 0) {
+        printf("%s.selinux_current.before=%s\n", prefix, current_before);
+    }
+    errno = 0;
+    if (write_selinux_attr("current", context) < 0) {
+        printf("%s.selinux_current.ok=0\n", prefix);
+        printf("%s.selinux_current.errno=%d\n", prefix, errno);
+        printf("%s.selinux_current.error=%s\n", prefix, strerror(errno));
+        /* Non-fatal: exec will proceed but domain may stay kernel.
+         * The pre-drain probe captures the actual domain. */
+        return 0;
+    }
+    printf("%s.selinux_current.ok=1\n", prefix);
+    if (read_selinux_attr("current", current_after, sizeof(current_after)) >= 0) {
+        printf("%s.selinux_current.after=%s\n", prefix, current_after);
     }
     return 0;
 }
@@ -17246,6 +17284,17 @@ static int composite_spawn_child(const struct config *cfg,
             printf("%s.end=1\n", prefix);
             fflush(stdout);
             _exit(126);
+        }
+        /* v224: for PM children, also write attr/current so the running
+         * domain is vendor_per_mgr before exec. This handles the case where
+         * the compiled policy lacks "allow kernel vendor_per_mgr:process
+         * transition" — permissive mode allows the dyntransition AVC, and
+         * exec then follows the standard type_transition from vendor_per_mgr
+         * on pm_service_exec which IS present in the stock policy. */
+        if (child->identity == COMPOSITE_ID_PER_MGR ||
+            child->identity == COMPOSITE_ID_PER_PROXY ||
+            child->identity == COMPOSITE_ID_PER_PROXY_HELPER) {
+            apply_android_current_selinux_context_for_pm(prefix, child->target);
         }
         if (composite_child_should_trace(cfg, child)) {
             if (ptrace(PTRACE_TRACEME, 0, NULL, NULL) < 0) {
