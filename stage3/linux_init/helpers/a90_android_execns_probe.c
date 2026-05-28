@@ -97,7 +97,7 @@
 #define IOPRIO_PRIO_VALUE(class_value, data) (((class_value) << IOPRIO_CLASS_SHIFT) | (data))
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v238"
+#define EXECNS_VERSION "a90_android_execns_probe v239"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -263,6 +263,7 @@ struct config {
     bool pm_observer_open_subsys_esoc0_after_mdm_helper_esoc; /* v227 */
     bool pm_observer_set_mdm3_restart_level_related; /* v229 */
     bool pm_observer_trigger_pcie_enumerate; /* v235/v236 */
+    bool pm_observer_set_mdm_helper_selinux_context; /* v239 */
     bool pm_observer_start_per_proxy_after_mdm_helper_esoc_fd;
     /* start per_proxy N ms after per_proxy_helper becomes observable (0 = disabled) */
     int pm_observer_per_proxy_pph_delta_ms;
@@ -445,6 +446,7 @@ static void usage(FILE *out) {
             "[--pm-observer-open-subsys-esoc0-after-mdm-helper-esoc] "
             "[--pm-observer-set-mdm3-restart-level-related] "
             "[--pm-observer-trigger-pcie-enumerate] "
+            "[--pm-observer-set-mdm-helper-selinux-context] "
             "[--pm-observer-start-per-proxy-after-mdm-helper-esoc-fd] "
             "[--pm-observer-load-precompiled-policy] "
             "[--qrtr-readback-matrix label:service:instance[,instance][;...]] "
@@ -1242,6 +1244,10 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
         }
         if (strcmp(argv[i], "--pm-observer-trigger-pcie-enumerate") == 0) {
             cfg->pm_observer_trigger_pcie_enumerate = true;
+            continue;
+        }
+        if (strcmp(argv[i], "--pm-observer-set-mdm-helper-selinux-context") == 0) {
+            cfg->pm_observer_set_mdm_helper_selinux_context = true;
             continue;
         }
         if (strcmp(argv[i], "--pm-observer-start-per-proxy-after-mdm-helper-esoc-fd") == 0) {
@@ -17547,6 +17553,13 @@ static int composite_spawn_child(const struct config *cfg,
         if (child->identity == COMPOSITE_ID_PER_MGR ||
             child->identity == COMPOSITE_ID_PER_PROXY ||
             child->identity == COMPOSITE_ID_PER_PROXY_HELPER) {
+            apply_android_current_selinux_context_for_pm(prefix, child->target);
+        }
+        /* v239: optional mdm_helper selinux domain transition (kernel →
+         * vendor_mdm_helper:s0) using the same current-attr mechanism as
+         * per_mgr; requires precompiled policy loaded + enforce=0 first. */
+        if (cfg->pm_observer_set_mdm_helper_selinux_context &&
+            child->identity == COMPOSITE_ID_MDM_HELPER) {
             apply_android_current_selinux_context_for_pm(prefix, child->target);
         }
         if (composite_child_should_trace(cfg, child)) {
