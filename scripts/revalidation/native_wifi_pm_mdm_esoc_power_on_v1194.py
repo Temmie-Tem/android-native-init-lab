@@ -36,9 +36,9 @@ _ORIG_V1193_PATCH_DEFAULTS = v1193.patch_defaults
 DEFAULT_OUT_DIR = Path("tmp/wifi/v1194-pm-mdm-esoc-power-on")
 LATEST_POINTER = Path("tmp/wifi/latest-v1194-pm-mdm-esoc-power-on.txt")
 DEFAULT_EXECNS_HELPER_SHA256 = (
-    "5916fd8e28a419f2f0391d86df274646b80abb1eb54e68bb12efaafe0295299a"
+    "dc2e8fd57ff23e308b3a778e6e7adbcf59ad05f73598c4b01d2a8abd45dadb50"
 )
-DEFAULT_EXECNS_HELPER_MARKER = "a90_android_execns_probe v227"
+DEFAULT_EXECNS_HELPER_MARKER = "a90_android_execns_probe v228"
 DEFAULT_WORK_DIR = "/cache/a90-runtime/v1194"
 DEFAULT_CHILD_SCRIPT = "/cache/a90-runtime/v1194/pm-mdm-esoc-power-on-child.sh"
 DEFAULT_COLLECTOR_SCRIPT = (
