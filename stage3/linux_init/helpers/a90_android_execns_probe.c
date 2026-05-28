@@ -261,6 +261,8 @@ struct config {
     bool pm_observer_start_per_proxy_after_mdm_helper_esoc_fd;
     /* start per_proxy N ms after per_proxy_helper becomes observable (0 = disabled) */
     int pm_observer_per_proxy_pph_delta_ms;
+    /* wait for per_mgr to register with vndservicemanager before starting per_proxy */
+    bool pm_observer_per_proxy_after_vndservice_provider;
 };
 
 struct a90_hidl_string_wire {
@@ -1221,6 +1223,10 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             cfg->pm_observer_zero_delay_per_mgr_probe = true;
             continue;
         }
+        if (strcmp(argv[i], "--pm-observer-per-proxy-after-vndservice-provider") == 0) {
+            cfg->pm_observer_per_proxy_after_vndservice_provider = true;
+            continue;
+        }
         if (strcmp(argv[i], "--allow-android-wifi-service-window") == 0) {
             cfg->allow_android_wifi_service_window = true;
             continue;
@@ -1795,6 +1801,16 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
         (cfg->pm_observer_start_cnss_immediate_after_per_mgr ||
          cfg->pm_observer_start_cnss_zero_delay_after_per_mgr)) {
         fprintf(stderr, "--pm-observer-start-per-proxy-after-mdm-helper-esoc-fd requires the standard post-provider CNSS order\n");
+        return 2;
+    }
+    if (cfg->pm_observer_per_proxy_after_vndservice_provider &&
+        !cfg->pm_observer_start_cnss_after_provider) {
+        fprintf(stderr, "--pm-observer-per-proxy-after-vndservice-provider requires --pm-observer-start-cnss-after-provider\n");
+        return 2;
+    }
+    if (cfg->pm_observer_per_proxy_after_vndservice_provider &&
+        cfg->pm_observer_per_proxy_pph_delta_ms > 0) {
+        fprintf(stderr, "--pm-observer-per-proxy-after-vndservice-provider is mutually exclusive with --pm-observer-per-proxy-pph-delta-ms\n");
         return 2;
     }
     if (cfg->allow_android_wifi_service_window &&
@@ -28194,10 +28210,74 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                 continue;
             }
 
-            /* early per_proxy: sleep until pph_delta_ms from pph spawn, not fixed 1s */
+            /* vndservice gate: poll until per_mgr registers with vndservicemanager */
             if (i == PM_OBSERVER_PER_PROXY &&
+                cfg->pm_observer_per_proxy_after_vndservice_provider) {
+                long gate_start_ms = monotonic_ms();
+                long gate_deadline = gate_start_ms + 5000L;
+                int gate_poll_count = 0;
+                bool gate_open = false;
+                bool gate_query_error = false;
+
+                if (append_format(stdout_buf,
+                                  "pm_service_trigger_observer.per_proxy_vndservice_gate.begin=1\n"
+                                  "pm_service_trigger_observer.per_proxy_vndservice_gate.timeout_ms=5000\n"
+                                  "pm_service_trigger_observer.per_proxy_vndservice_gate.poll_interval_ms=200\n") < 0) {
+                    composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+                    stop_property_service_shim(&property_shim, paths, stdout_buf);
+                    return -1;
+                }
+                while (!gate_open && monotonic_ms() < gate_deadline) {
+                    bool per_mgr_seen = false;
+                    gate_poll_count++;
+                    if (append_vndservice_query(stdout_buf,
+                                                stderr_buf,
+                                                cfg,
+                                                paths,
+                                                "per_proxy_vndservice_gate_poll",
+                                                2000,
+                                                &per_mgr_seen) < 0) {
+                        gate_query_error = true;
+                        break;
+                    }
+                    if (per_mgr_seen) {
+                        gate_open = true;
+                        break;
+                    }
+                    if (monotonic_ms() < gate_deadline) {
+                        usleep(200000);
+                    }
+                }
+                {
+                    long gate_elapsed_ms = monotonic_ms() - gate_start_ms;
+                    if (append_format(stdout_buf,
+                                      "pm_service_trigger_observer.per_proxy_vndservice_gate.poll_count=%d\n"
+                                      "pm_service_trigger_observer.per_proxy_vndservice_gate.elapsed_ms=%ld\n"
+                                      "pm_service_trigger_observer.per_proxy_vndservice_gate.gate_open=%d\n"
+                                      "pm_service_trigger_observer.per_proxy_vndservice_gate.query_error=%d\n"
+                                      "pm_service_trigger_observer.per_proxy_vndservice_gate.result=%s\n",
+                                      gate_poll_count,
+                                      gate_elapsed_ms,
+                                      gate_open ? 1 : 0,
+                                      gate_query_error ? 1 : 0,
+                                      gate_query_error ? "error"
+                                          : gate_open ? "ready"
+                                          : "timeout") < 0) {
+                        composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+                        stop_property_service_shim(&property_shim, paths, stdout_buf);
+                        return -1;
+                    }
+                }
+                if (gate_query_error) {
+                    composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+                    stop_property_service_shim(&property_shim, paths, stdout_buf);
+                    return -1;
+                }
+                /* continue to per_proxy spawn regardless of gate result (log-only gate) */
+            } else if (i == PM_OBSERVER_PER_PROXY &&
                 early_per_proxy_delta_ms > 0 &&
                 pph_spawn_mono_ms > 0) {
+                /* early per_proxy: sleep until pph_delta_ms from pph spawn, not fixed 1s */
                 long elapsed_since_pph = monotonic_ms() - pph_spawn_mono_ms;
                 long remaining_ms = (long)early_per_proxy_delta_ms - elapsed_since_pph;
                 if (remaining_ms > 0) {
