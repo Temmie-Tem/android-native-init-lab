@@ -97,7 +97,7 @@
 #define IOPRIO_PRIO_VALUE(class_value, data) (((class_value) << IOPRIO_CLASS_SHIFT) | (data))
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v225"
+#define EXECNS_VERSION "a90_android_execns_probe v226"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -258,6 +258,7 @@ struct config {
     bool pm_observer_private_firmware_mounts;
     bool pm_observer_modem_pre_holder;
     bool pm_observer_start_mdm_helper_after_cnss;
+    bool pm_observer_start_mdm_helper_before_cnss; /* v226 */
     bool pm_observer_start_per_proxy_after_mdm_helper_esoc_fd;
     /* start per_proxy N ms after per_proxy_helper becomes observable (0 = disabled) */
     int pm_observer_per_proxy_pph_delta_ms;
@@ -435,6 +436,7 @@ static void usage(FILE *out) {
             "[--pm-observer-private-firmware-mounts] "
             "[--pm-observer-modem-pre-holder] "
             "[--pm-observer-start-mdm-helper-after-cnss] "
+            "[--pm-observer-start-mdm-helper-before-cnss] "
             "[--pm-observer-start-per-proxy-after-mdm-helper-esoc-fd] "
             "[--pm-observer-load-precompiled-policy] "
             "[--qrtr-readback-matrix label:service:instance[,instance][;...]] "
@@ -1209,6 +1211,10 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             cfg->pm_observer_start_mdm_helper_after_cnss = true;
             continue;
         }
+        if (strcmp(argv[i], "--pm-observer-start-mdm-helper-before-cnss") == 0) {
+            cfg->pm_observer_start_mdm_helper_before_cnss = true;
+            continue;
+        }
         if (strcmp(argv[i], "--pm-observer-start-per-proxy-after-mdm-helper-esoc-fd") == 0) {
             cfg->pm_observer_start_per_proxy_after_mdm_helper_esoc_fd = true;
             continue;
@@ -1782,6 +1788,11 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
         !cfg->pm_observer_start_cnss_immediate_after_per_mgr &&
         !cfg->pm_observer_start_cnss_zero_delay_after_per_mgr) {
         fprintf(stderr, "--pm-observer-start-mdm-helper-after-cnss requires a CNSS PM observer start order\n");
+        return 2;
+    }
+    if (cfg->pm_observer_start_mdm_helper_before_cnss &&
+        !cfg->pm_observer_start_mdm_helper_after_cnss) {
+        fprintf(stderr, "--pm-observer-start-mdm-helper-before-cnss requires --pm-observer-start-mdm-helper-after-cnss\n");
         return 2;
     }
     if (cfg->pm_observer_start_per_proxy_after_mdm_helper_esoc_fd &&
@@ -28015,6 +28026,7 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
     const int late_per_proxy_poll_max = 12;
     const int late_per_proxy_poll_interval_ms = 1000;
     int late_per_proxy_poll_count = 0;
+    bool mdm_helper_spawned_early = false; /* v226 */
     bool mdm_helper_observable = false;
     bool mdm_helper_window_snapshot_captured = false;
     int mdm_helper_lower_trace_samples = 0;
@@ -28112,7 +28124,9 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                                  : "servicemanager,hwservicemanager,vndservicemanager,vndservicemanager_ready,pm_proxy_helper,per_mgr,vndservice_query,per_proxy_skipped,cnss_daemon,vndservice_query")
                           : (cfg->pm_observer_start_cnss_after_provider
                           ? (post_pm_mdm_helper_start
-                                 ? "servicemanager,hwservicemanager,vndservicemanager,vndservicemanager_ready,pm_proxy_helper,per_mgr,vndservice_query,per_proxy,vndservice_query,cnss_daemon,mdm_helper,vndservice_query"
+                                 ? (cfg->pm_observer_start_mdm_helper_before_cnss
+                                        ? "servicemanager,hwservicemanager,vndservicemanager,vndservicemanager_ready,pm_proxy_helper,per_mgr,vndservice_query,per_proxy,vndservice_query,mdm_helper,esoc0_wait,cnss_daemon,vndservice_query"
+                                        : "servicemanager,hwservicemanager,vndservicemanager,vndservicemanager_ready,pm_proxy_helper,per_mgr,vndservice_query,per_proxy,vndservice_query,cnss_daemon,mdm_helper,vndservice_query")
                                  : "servicemanager,hwservicemanager,vndservicemanager,vndservicemanager_ready,pm_proxy_helper,per_mgr,vndservice_query,per_proxy,vndservice_query,cnss_daemon,vndservice_query")
                              : "servicemanager,hwservicemanager,vndservicemanager,vndservicemanager_ready,pm_proxy_helper,per_mgr,vndservice_query,per_proxy,vndservice_query"))),
                       (late_per_proxy_requested || !cfg->pm_observer_start_cnss_before_per_proxy) ? 1 : 0,
@@ -28341,22 +28355,115 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
             }
             /* gate_open: fall through to composite_spawn_child */
         }
-        if (composite_spawn_child(cfg, paths, &children[i], stdout_buf) < 0) {
-            composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
-            stop_property_service_shim(&property_shim, paths, stdout_buf);
-            return -1;
+        /* v226: When --pm-observer-start-mdm-helper-before-cnss is set, spawn
+         * mdm_helper before cnss_daemon so the eSoC image transfer begins
+         * before per_mgr serves modem peripheral power-up requests. */
+        if (i == PM_OBSERVER_CNSS_DAEMON &&
+            cfg->pm_observer_start_mdm_helper_before_cnss &&
+            post_pm_mdm_helper_start && !mdm_helper_spawned_early) {
+            if (composite_spawn_child(cfg, paths, mdm_helper, stdout_buf) < 0) {
+                composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+                stop_property_service_shim(&property_shim, paths, stdout_buf);
+                return -1;
+            }
+            active_child_count++;
+            mdm_helper_spawned_early = true;
+            if (append_format(stdout_buf,
+                              "pm_service_trigger_observer.child.%s.start_order=%zu\n"
+                              "pm_service_trigger_observer.child.%s.early_spawn=1\n"
+                              "pm_service_trigger_observer.child.%s.early_spawn_reason=before-cnss\n",
+                              mdm_helper->name, active_child_count,
+                              mdm_helper->name,
+                              mdm_helper->name) < 0) {
+                composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+                stop_property_service_shim(&property_shim, paths, stdout_buf);
+                return -1;
+            }
+            /* Poll for mdm_helper esoc-0 fd: up to 30s (60 x 500ms) */
+            {
+                char esoc0_target[MAX_PATH_LEN];
+                int esoc0_poll_count = 0;
+                int esoc0_found = 0;
+                const int poll_max = 60;
+
+                if (snprintf(esoc0_target, sizeof(esoc0_target),
+                             "%s/dev/esoc-0", paths->root) >= (int)sizeof(esoc0_target)) {
+                    esoc0_target[0] = '\0';
+                }
+                while (esoc0_poll_count < poll_max && !esoc0_found) {
+                    char fd_dir[80];
+                    DIR *dp;
+                    struct dirent *ent;
+
+                    usleep(500000);
+                    esoc0_poll_count++;
+                    if (mdm_helper->child_done || mdm_helper->pid <= 0) {
+                        break;
+                    }
+                    snprintf(fd_dir, sizeof(fd_dir), "/proc/%d/fd", (int)mdm_helper->pid);
+                    dp = opendir(fd_dir);
+                    if (dp == NULL) {
+                        continue;
+                    }
+                    while ((ent = readdir(dp)) != NULL) {
+                        char fd_path[MAX_PATH_LEN];
+                        char link_target[MAX_PATH_LEN];
+                        ssize_t link_len;
+
+                        snprintf(fd_path, sizeof(fd_path), "%s/%s", fd_dir, ent->d_name);
+                        link_len = readlink(fd_path, link_target, sizeof(link_target) - 1);
+                        if (link_len > 0) {
+                            link_target[link_len] = '\0';
+                            if (streq(link_target, esoc0_target)) {
+                                esoc0_found = 1;
+                                break;
+                            }
+                        }
+                    }
+                    closedir(dp);
+                }
+                if (append_format(stdout_buf,
+                                  "pm_service_trigger_observer.child.mdm_helper_early.esoc0_poll_count=%d\n"
+                                  "pm_service_trigger_observer.child.mdm_helper_early.esoc0_found=%d\n"
+                                  "pm_service_trigger_observer.child.mdm_helper_early.esoc0_wait_ms=%d\n",
+                                  esoc0_poll_count, esoc0_found,
+                                  esoc0_poll_count * 500) < 0) {
+                    composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+                    stop_property_service_shim(&property_shim, paths, stdout_buf);
+                    return -1;
+                }
+            }
         }
-        if (i == PM_OBSERVER_PM_PROXY_HELPER && early_per_proxy_delta_ms > 0) {
-            pph_spawn_mono_ms = monotonic_ms();
-        }
-        active_child_count++;
-        if (append_format(stdout_buf,
-                          "pm_service_trigger_observer.child.%s.start_order=%zu\n",
-                          children[i].name,
-                          active_child_count) < 0) {
-            composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
-            stop_property_service_shim(&property_shim, paths, stdout_buf);
-            return -1;
+        /* v226: skip re-spawn if mdm_helper was early-spawned before cnss_daemon */
+        if (i == PM_OBSERVER_MDM_HELPER && mdm_helper_spawned_early) {
+            /* already running; note it and fall through to post-observation */
+            if (append_format(stdout_buf,
+                              "pm_service_trigger_observer.child.%s.start_order=%zu\n"
+                              "pm_service_trigger_observer.child.%s.early_spawn_active=1\n",
+                              mdm_helper->name, active_child_count,
+                              mdm_helper->name) < 0) {
+                composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+                stop_property_service_shim(&property_shim, paths, stdout_buf);
+                return -1;
+            }
+        } else {
+            if (composite_spawn_child(cfg, paths, &children[i], stdout_buf) < 0) {
+                composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+                stop_property_service_shim(&property_shim, paths, stdout_buf);
+                return -1;
+            }
+            if (i == PM_OBSERVER_PM_PROXY_HELPER && early_per_proxy_delta_ms > 0) {
+                pph_spawn_mono_ms = monotonic_ms();
+            }
+            active_child_count++;
+            if (append_format(stdout_buf,
+                              "pm_service_trigger_observer.child.%s.start_order=%zu\n",
+                              children[i].name,
+                              active_child_count) < 0) {
+                composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+                stop_property_service_shim(&property_shim, paths, stdout_buf);
+                return -1;
+            }
         }
         if (i == PM_OBSERVER_VNDSERVICE_MANAGER) {
             usleep(A90_VNDSERVICEMANAGER_READY_SETTLE_MS * 1000L);
