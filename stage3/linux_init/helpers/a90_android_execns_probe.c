@@ -97,7 +97,7 @@
 #define IOPRIO_PRIO_VALUE(class_value, data) (((class_value) << IOPRIO_CLASS_SHIFT) | (data))
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v224"
+#define EXECNS_VERSION "a90_android_execns_probe v225"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -263,6 +263,8 @@ struct config {
     int pm_observer_per_proxy_pph_delta_ms;
     /* wait for per_mgr to register with vndservicemanager before starting per_proxy */
     bool pm_observer_per_proxy_after_vndservice_provider;
+    /* v225: load precompiled_sepolicy + set enforce=0 before spawning PM children */
+    bool pm_observer_load_precompiled_policy;
 };
 
 struct a90_hidl_string_wire {
@@ -434,6 +436,7 @@ static void usage(FILE *out) {
             "[--pm-observer-modem-pre-holder] "
             "[--pm-observer-start-mdm-helper-after-cnss] "
             "[--pm-observer-start-per-proxy-after-mdm-helper-esoc-fd] "
+            "[--pm-observer-load-precompiled-policy] "
             "[--qrtr-readback-matrix label:service:instance[,instance][;...]] "
             "[--connect-config /cache/a90-wifi/...] "
             "[--connect-iface auto|wlan0] "
@@ -1225,6 +1228,10 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
         }
         if (strcmp(argv[i], "--pm-observer-per-proxy-after-vndservice-provider") == 0) {
             cfg->pm_observer_per_proxy_after_vndservice_provider = true;
+            continue;
+        }
+        if (strcmp(argv[i], "--pm-observer-load-precompiled-policy") == 0) {
+            cfg->pm_observer_load_precompiled_policy = true;
             continue;
         }
         if (strcmp(argv[i], "--allow-android-wifi-service-window") == 0) {
@@ -27863,6 +27870,100 @@ static int start_pm_service_trigger_observer_modem_pre_holder(const struct paths
                          *holder_opened ? 1 : 0);
 }
 
+/* v225: load precompiled_sepolicy from vendor and set enforce=0 so the
+ * exec-attr domain transition (kernel → vendor_per_mgr) works in permissive
+ * mode. Without a loaded policy, security_context_to_sid() returns EINVAL and
+ * write_selinux_attr("exec"/"current") silently fails, leaving per_mgr in the
+ * kernel domain. */
+static int load_precompiled_policy_for_pm_observer(const struct paths *paths,
+                                                   struct buffer *stdout_buf) {
+    char policy_path[MAX_PATH_LEN];
+    char enforce_path[MAX_PATH_LEN];
+    int load_fd;
+    int enforce_fd;
+    size_t load_bytes = 0;
+    uint64_t load_hash = 0;
+
+    if (append_literal(stdout_buf,
+                       "pm_service_trigger_observer.policy_load.begin=1\n") < 0) {
+        return -1;
+    }
+
+    if (snprintf(policy_path, sizeof(policy_path), "%s%s",
+                 paths->root,
+                 "/vendor/etc/selinux/precompiled_sepolicy") >= (int)sizeof(policy_path)) {
+        return append_literal(stdout_buf,
+                              "pm_service_trigger_observer.policy_load.result=path-overflow\n"
+                              "pm_service_trigger_observer.policy_load.end=1\n");
+    }
+    if (access(policy_path, R_OK) != 0) {
+        return append_format(stdout_buf,
+                             "pm_service_trigger_observer.policy_load.result=policy-file-missing\n"
+                             "pm_service_trigger_observer.policy_load.policy_path=%s\n"
+                             "pm_service_trigger_observer.policy_load.end=1\n",
+                             policy_path);
+    }
+    if (paths->sys_fs_selinux_load[0] == '\0' ||
+        access(paths->sys_fs_selinux_load, W_OK) != 0) {
+        return append_format(stdout_buf,
+                             "pm_service_trigger_observer.policy_load.result=selinuxfs-load-not-writable\n"
+                             "pm_service_trigger_observer.policy_load.load_path=%s\n"
+                             "pm_service_trigger_observer.policy_load.end=1\n",
+                             paths->sys_fs_selinux_load);
+    }
+
+    load_fd = open(paths->sys_fs_selinux_load, O_WRONLY | O_CLOEXEC);
+    if (load_fd < 0) {
+        return append_format(stdout_buf,
+                             "pm_service_trigger_observer.policy_load.result=load-fd-open-failed\n"
+                             "pm_service_trigger_observer.policy_load.errno=%d\n"
+                             "pm_service_trigger_observer.policy_load.error=%s\n"
+                             "pm_service_trigger_observer.policy_load.end=1\n",
+                             errno, strerror(errno));
+    }
+    if (write_file_once_to_fd(policy_path, load_fd, &load_bytes, &load_hash) < 0) {
+        int saved = errno;
+
+        close(load_fd);
+        return append_format(stdout_buf,
+                             "pm_service_trigger_observer.policy_load.result=load-write-failed\n"
+                             "pm_service_trigger_observer.policy_load.errno=%d\n"
+                             "pm_service_trigger_observer.policy_load.error=%s\n"
+                             "pm_service_trigger_observer.policy_load.bytes=%zu\n"
+                             "pm_service_trigger_observer.policy_load.end=1\n",
+                             saved, strerror(saved), load_bytes);
+    }
+    close(load_fd);
+
+    /* Set permissive mode: write "0" to /sys/fs/selinux/enforce. */
+    if (snprintf(enforce_path, sizeof(enforce_path), "%s",
+                 paths->sys_fs_selinux_enforce) >= (int)sizeof(enforce_path) ||
+        enforce_path[0] == '\0') {
+        /* Non-fatal: policy is loaded; permissive write is best-effort. */
+        return append_format(stdout_buf,
+                             "pm_service_trigger_observer.policy_load.result=policy-load-pass-enforce-path-missing\n"
+                             "pm_service_trigger_observer.policy_load.bytes=%zu\n"
+                             "pm_service_trigger_observer.policy_load.hash=0x%016llx\n"
+                             "pm_service_trigger_observer.policy_load.end=1\n",
+                             load_bytes, (unsigned long long)load_hash);
+    }
+    enforce_fd = open(enforce_path, O_WRONLY | O_CLOEXEC);
+    if (enforce_fd >= 0) {
+        ssize_t wrc = write(enforce_fd, "0", 1);
+        (void)wrc;
+        close(enforce_fd);
+    }
+
+    return append_format(stdout_buf,
+                         "pm_service_trigger_observer.policy_load.result=policy-load-pass\n"
+                         "pm_service_trigger_observer.policy_load.bytes=%zu\n"
+                         "pm_service_trigger_observer.policy_load.hash=0x%016llx\n"
+                         "pm_service_trigger_observer.policy_load.enforce_written=%d\n"
+                         "pm_service_trigger_observer.policy_load.end=1\n",
+                         load_bytes, (unsigned long long)load_hash,
+                         enforce_fd >= 0 ? 1 : 0);
+}
+
 static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct config *cfg,
                                                                   const struct paths *paths,
                                                                   struct buffer *stdout_buf,
@@ -27981,6 +28082,7 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                       "pm_service_trigger_observer.external_ping=0\n"
                       "pm_service_trigger_observer.subsys_esoc0_open_attempted=0\n"
                       "pm_service_trigger_observer.policy_load_precondition.required=1\n"
+                      "pm_service_trigger_observer.policy_load_precondition.precompiled_load_requested=%d\n"
                       "pm_service_trigger_observer.vndservicemanager_readiness.enabled=1\n"
                       "pm_service_trigger_observer.vndservice_query.enabled=1\n"
                       "pm_service_trigger_observer.continue_after_provider=%d\n"
@@ -28018,6 +28120,8 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                       late_per_proxy_requested ? 1 : 0,
                       post_pm_mdm_helper_start ? 1 : 0,
                       cfg->pm_observer_start_cnss_after_provider ? 1 : 0,
+                      /* v225: position 8 matches precompiled_load_requested in format string */
+                      cfg->pm_observer_load_precompiled_policy ? 1 : 0,
                       cfg->pm_observer_continue_after_provider ? 1 : 0,
                       cfg->pm_observer_start_cnss_after_provider ? 1 : 0,
                       cfg->pm_observer_start_cnss_before_per_proxy ? 1 : 0,
@@ -28067,6 +28171,11 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
         }
         *child_exit_code = 0;
         return 0;
+    }
+    if (cfg->pm_observer_load_precompiled_policy) {
+        if (load_precompiled_policy_for_pm_observer(paths, stdout_buf) < 0) {
+            return -1;
+        }
     }
     if (append_literal(stdout_buf,
                        "pm_service_trigger_observer.allowed=1\n"
