@@ -25,20 +25,33 @@
 
 ## 현재 Wi-Fi Gate
 
-- 최신 기준: V1193 live FAIL — mdm_helper before cnss 순서 변경 확인.
-  mdm_helper가 esoc-0 (fd=3) 보유 확인 (500ms), esoc_dev_ioctl (ESOC_WAIT_FOR_REQ) 블록.
-  그러나 ESOC_REQ_IMG가 53분 동안 도착 안 함 = MDM 하드웨어 전원 미공급.
-  per_mgr의 subsys_esoc0 open이 binder timeout으로 중단 → t=3193s에 Reference count mismatch.
-  다음: V1194 — helper가 직접 subsys_esoc0 open (V849 방식 + mdm_helper 동시 실행).
+- 최신 기준: V1197 — helper v237 deploy + live gate (mdm_helper fd/wchan listing).
+  V1196 결과: GPIO 142 silent, mhi_dev_count=0, PCIe RC1 POLL_COMPLIANCE,
+  MDM PMIC GPIO not supported, mdm_helper thread 2 went esoc_dev_ioctl→SyS_nanosleep
+  at t<10s (ESOC_REQ_IMG received). restart_level=RELATED confirmed (no reboot).
+  v237: periodic status now includes mdm_helper fd listing (/dev/mhi*, /dev/esoc*, .mbn, .bin)
+  and thread wchans. Goal: determine if mdm_helper attempts MHI path after ESOC_REQ_IMG.
+  SHA256: a450e8274745144c23efbd57d56d51cce701391a8f919bc11be2994f4841b9df.
+  다음: deploy helper v237 → run V1197 live gate → classify mdm_helper path from fds/wchans.
   Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping 계속 블록.
-- V1192 host-only PASS — V1191 evidence 분류 완료.
-  per_mgr 도메인 ✓, PM Binder IPC (pm-proxy + cnss-daemon 연결) ✓,
-  subsys_modem + vndbinder hold ✓, per_proxy/cnss_daemon/mdm_helper 시작 ✓.
-  per_mgr이 subsys_esoc0 open 시도 → mdm_subsys_powerup D-state 블록 →
-  인터럽트/취소 → subsystem_put(esoc0 count:0) Reference count mismatch →
-  modem SSR at t=261s. mdm_helper가 /dev/esoc-0 미보유 (V902/V903 확인).
-  다음: V1193 — mdm_helper eSoC image contract 완성 (esoc-0 CMD/REQ + IMG_XFER_DONE +
-  GPIO 142 handshake), 그 후 subsys_esoc0 hold. Wi-Fi HAL, scan/connect, credentials,
+- V1196 live results (v229–v236 progressive):
+  - v229: restart_level=RELATED write (prevents device reboot on MDM SSR) — confirmed working
+  - v230–v231: 10s periodic status + fdatasync — 18 status entries captured in V1196
+  - v232–v233: mdm_helper PID tracking + thread wchans — esoc_dev_ioctl→nanosleep observed
+  - v235–v236: PCIe enumerate pre-fork — POLL_COMPLIANCE persists regardless of timing
+  - PCIe RC1 LTSSM always reaches POLL_COMPLIANCE; "MDM PMIC GPIO is not supported" from mdm-4x
+  - mhi_dev_count=0 throughout 3-minute window; GPIO 142 IRQ count=0
+- V1186 host-only 분류기 — per_mgr SELinux 도메인 및 early exit path 분류.
+  V1185 live 결과: gate_begin=True, poll_count=22, gate_timeout → per_proxy_skipped=1.
+  V1181 race condition은 차단됐으나 per_mgr이 vndservicemanager 등록 전에 exit_code=0으로
+  자발 종료 (per_mgr_vndbinder_count=-1, pm_server_register_entry=0, per_mgr_obs_at_probe=1).
+  per_mgr은 시작 직후 alive 상태였으나 ~5s gate window 내 종료.
+  `preexec_context_suppressed_reason=pm-service-trigger-observer-ptrace-lite-output-budget`
+  → per_mgr exec context 로그 없음. helper가 `kernel` 도메인에서 실행 시
+  `allow kernel vendor_per_mgr:process transition` 규칙 없으면 per_mgr도 `kernel`
+  도메인으로 실행 → pm-service 초기화(vendor socket, binder 등) 실패 가능.
+  다음: V1186 host-only — per_mgr 실행 도메인 캡처 (ptrace-lite 예산 한도 완화 또는
+  별도 SELinux 컨텍스트 확인 방법 검토). Wi-Fi HAL, scan/connect, credentials,
   DHCP/routes, external ping 계속 블록.
 - V1185 live FAIL (gate timeout, new blocker) — gate 위치 수정 확인됨 (per_proxy_skipped=1).
   per_mgr이 vndbinder 없이 exit_code=0으로 종료. pm_server_register_entry=0.
