@@ -97,7 +97,7 @@
 #define IOPRIO_PRIO_VALUE(class_value, data) (((class_value) << IOPRIO_CLASS_SHIFT) | (data))
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v221"
+#define EXECNS_VERSION "a90_android_execns_probe v223"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -28349,6 +28349,49 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                 /* zero-delay per_mgr probe: no sleep */
             } else {
                 usleep(1000000);
+            }
+            /* v223: capture per_mgr attr/current before drain; v222 used
+             * append_proc_file_capture_named() which emits A90_EXECNS_CNSS_PROC_*
+             * markers that are filtered out by the child-script grep filter
+             * (only pm_service_trigger_observer.* passes through). Read the
+             * domain directly and emit it as a single key=value line instead. */
+            if (i == PM_OBSERVER_PER_MGR && children[i].pid > 0) {
+                char domain_path[MAX_PATH_LEN];
+                char domain_buf[256];
+                int domain_captured = 0;
+                char domain_value[256];
+                domain_value[0] = '\0';
+                proc_path(domain_path, sizeof(domain_path), children[i].pid, "attr/current");
+                {
+                    int dfd = open(domain_path, O_RDONLY | O_CLOEXEC);
+                    if (dfd >= 0) {
+                        ssize_t n = read(dfd, domain_buf, sizeof(domain_buf) - 1);
+                        close(dfd);
+                        if (n > 0) {
+                            domain_buf[n] = '\0';
+                            /* strip trailing whitespace/newlines */
+                            while (n > 0 && (domain_buf[n-1] == '\n' ||
+                                             domain_buf[n-1] == '\r' ||
+                                             domain_buf[n-1] == ' '))
+                                domain_buf[--n] = '\0';
+                            strncpy(domain_value, domain_buf, sizeof(domain_value) - 1);
+                            domain_value[sizeof(domain_value) - 1] = '\0';
+                            domain_captured = 1;
+                        }
+                    }
+                }
+                if (append_format(stdout_buf,
+                                  "pm_service_trigger_observer.child.per_mgr.pre_drain_domain_probe=1\n"
+                                  "pm_service_trigger_observer.child.per_mgr.pre_drain_pid=%ld\n"
+                                  "pm_service_trigger_observer.child.per_mgr.pre_drain_attr_current_captured=%d\n"
+                                  "pm_service_trigger_observer.child.per_mgr.pre_drain_domain_value=%s\n",
+                                  (long)children[i].pid,
+                                  domain_captured,
+                                  domain_value) < 0) {
+                    composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+                    stop_property_service_shim(&property_shim, paths, stdout_buf);
+                    return -1;
+                }
             }
             if (drain_pm_service_trigger_observer_children(children,
                                                            active_child_count,
