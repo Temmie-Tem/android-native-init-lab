@@ -25,11 +25,14 @@
 
 ## 현재 Wi-Fi Gate
 
-- 최신 기준: V1191 live PASS — per_mgr SELinux domain fix + vndservice gate open.
-  precompiled_sepolicy (1,329,357 bytes) 로드, enforce=0, per_mgr 도메인
-  `u:r:vendor_per_mgr:s0` 확인, vndservice gate ready (poll_count=1, elapsed_ms=30ms).
-  다음: V1192 — per_proxy spawn + PM subsystem open (per_proxy 시작 및 /dev/subsys_esoc0,
-  /dev/subsys_modem fd hold 확인). Wi-Fi HAL, scan/connect, credentials,
+- 최신 기준: V1192 host-only PASS — V1191 evidence 분류 완료.
+  per_mgr 도메인 ✓, PM Binder IPC (pm-proxy + cnss-daemon 연결) ✓,
+  subsys_modem + vndbinder hold ✓, per_proxy/cnss_daemon/mdm_helper 시작 ✓.
+  per_mgr이 subsys_esoc0 open 시도 → mdm_subsys_powerup D-state 블록 →
+  인터럽트/취소 → subsystem_put(esoc0 count:0) Reference count mismatch →
+  modem SSR at t=261s. mdm_helper가 /dev/esoc-0 미보유 (V902/V903 확인).
+  다음: V1193 — mdm_helper eSoC image contract 완성 (esoc-0 CMD/REQ + IMG_XFER_DONE +
+  GPIO 142 handshake), 그 후 subsys_esoc0 hold. Wi-Fi HAL, scan/connect, credentials,
   DHCP/routes, external ping 계속 블록.
 - V1185 live FAIL (gate timeout, new blocker) — gate 위치 수정 확인됨 (per_proxy_skipped=1).
   per_mgr이 vndbinder 없이 exit_code=0으로 종료. pm_server_register_entry=0.
