@@ -25,7 +25,13 @@
 
 ## 현재 Wi-Fi Gate
 
-- 최신 기준: V1192 host-only PASS — V1191 evidence 분류 완료.
+- 최신 기준: V1193 live FAIL — mdm_helper before cnss 순서 변경 확인.
+  mdm_helper가 esoc-0 (fd=3) 보유 확인 (500ms), esoc_dev_ioctl (ESOC_WAIT_FOR_REQ) 블록.
+  그러나 ESOC_REQ_IMG가 53분 동안 도착 안 함 = MDM 하드웨어 전원 미공급.
+  per_mgr의 subsys_esoc0 open이 binder timeout으로 중단 → t=3193s에 Reference count mismatch.
+  다음: V1194 — helper가 직접 subsys_esoc0 open (V849 방식 + mdm_helper 동시 실행).
+  Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping 계속 블록.
+- V1192 host-only PASS — V1191 evidence 분류 완료.
   per_mgr 도메인 ✓, PM Binder IPC (pm-proxy + cnss-daemon 연결) ✓,
   subsys_modem + vndbinder hold ✓, per_proxy/cnss_daemon/mdm_helper 시작 ✓.
   per_mgr이 subsys_esoc0 open 시도 → mdm_subsys_powerup D-state 블록 →
