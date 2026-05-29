@@ -97,7 +97,7 @@
 #define IOPRIO_PRIO_VALUE(class_value, data) (((class_value) << IOPRIO_CLASS_SHIFT) | (data))
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v241"
+#define EXECNS_VERSION "a90_android_execns_probe v242"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -28368,9 +28368,66 @@ static void pm_observer_trigger_mdm_power_on(const struct config *cfg,
             char mdm3_state_buf[64];
             char mdm3_crash_buf[32];
             char child_wchan_buf[64];
-            /* v233: MHI pipe existence */
+            /* v233: MHI pipe existence (DATA pipe, appears after MHI link-up) */
             struct stat mhi_st;
             int mhi_dev_count = (lstat("/dev/mhi_0305_01.01.00_pipe_10", &mhi_st) == 0) ? 1 : 0;
+
+            /* v242: PCIe link state — reads current_link_state or link_state */
+            char pcie_link_buf[64];
+            pcie_link_buf[0] = '\0';
+            {
+                static const char * const pcie_link_paths[] = {
+                    "/sys/devices/platform/soc/1c08000.qcom,pcie/current_link_state",
+                    "/sys/devices/platform/soc/1c08000.qcom,pcie/link_state",
+                    NULL,
+                };
+                for (int pi = 0; pcie_link_paths[pi] != NULL; pi++) {
+                    int plfd = open(pcie_link_paths[pi], O_RDONLY | O_CLOEXEC);
+                    if (plfd >= 0) {
+                        ssize_t pn = read(plfd, pcie_link_buf,
+                                          sizeof(pcie_link_buf) - 1);
+                        close(plfd);
+                        if (pn > 0) {
+                            pcie_link_buf[pn] = '\0';
+                            for (ssize_t k = pn-1; k >= 0 &&
+                                 (pcie_link_buf[k] == '\n' ||
+                                  pcie_link_buf[k] == '\r'); k--)
+                                pcie_link_buf[k] = '\0';
+                        }
+                        break;
+                    }
+                }
+                if (pcie_link_buf[0] == '\0')
+                    snprintf(pcie_link_buf, sizeof(pcie_link_buf), "absent");
+            }
+
+            /* v242: count /sys/bus/pci/devices entries (MDM PCIe endpoint) */
+            int pci_dev_count = 0;
+            {
+                DIR *pci_dp = opendir("/sys/bus/pci/devices");
+                if (pci_dp != NULL) {
+                    struct dirent *pcient;
+                    while ((pcient = readdir(pci_dp)) != NULL) {
+                        if (pcient->d_name[0] != '.')
+                            pci_dev_count++;
+                    }
+                    closedir(pci_dp);
+                }
+            }
+
+            /* v242: count /sys/bus/mhi/devices entries (BHI + data channels) */
+            int mhi_bus_count = 0;
+            {
+                DIR *mhi_dp = opendir("/sys/bus/mhi/devices");
+                if (mhi_dp != NULL) {
+                    struct dirent *mhient;
+                    while ((mhient = readdir(mhi_dp)) != NULL) {
+                        if (mhient->d_name[0] != '.')
+                            mhi_bus_count++;
+                    }
+                    closedir(mhi_dp);
+                }
+            }
 
             read_state_or_error("/sys/bus/msm_subsys/devices/subsys9/state",
                                 mdm3_state_buf, sizeof(mdm3_state_buf));
@@ -28548,6 +28605,7 @@ static void pm_observer_trigger_mdm_power_on(const struct config *cfg,
             }
 
             irq_after = collect_mdm_status_irq_snapshot();
+            /* v242: 13 fields (added pcie_link_state, pci_dev_count, mhi_bus_count) */
             printf("pm_observer_mdm_power_on.status.elapsed_ms=%d\n"
                    "pm_observer_mdm_power_on.status.gpio142_count=%lu\n"
                    "pm_observer_mdm_power_on.status.mdm3_state=%s\n"
@@ -28557,7 +28615,10 @@ static void pm_observer_trigger_mdm_power_on(const struct config *cfg,
                    "pm_observer_mdm_power_on.status.mdm_helper_wchans=%s\n"
                    "pm_observer_mdm_power_on.status.mdm_helper_fds=%s\n"
                    "pm_observer_mdm_power_on.status.ks_count=%d\n"
-                   "pm_observer_mdm_power_on.status.ks_wchans=%s\n",
+                   "pm_observer_mdm_power_on.status.ks_wchans=%s\n"
+                   "pm_observer_mdm_power_on.status.pcie_link_state=%s\n"
+                   "pm_observer_mdm_power_on.status.pci_dev_count=%d\n"
+                   "pm_observer_mdm_power_on.status.mhi_bus_count=%d\n",
                    i * 100,
                    irq_after.count_total,
                    mdm3_state_buf,
@@ -28567,7 +28628,10 @@ static void pm_observer_trigger_mdm_power_on(const struct config *cfg,
                    mh_wchans_buf[0] ? mh_wchans_buf : "none",
                    mh_fds_buf[0] ? mh_fds_buf : "none",
                    ks_count,
-                   ks_wchans_buf[0] ? ks_wchans_buf : "none");
+                   ks_wchans_buf[0] ? ks_wchans_buf : "none",
+                   pcie_link_buf,
+                   pci_dev_count,
+                   mhi_bus_count);
             fflush(stdout);
             fdatasync(fileno(stdout)); /* v231 */
 
