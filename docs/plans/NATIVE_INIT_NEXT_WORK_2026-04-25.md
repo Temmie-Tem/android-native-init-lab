@@ -25,16 +25,14 @@
 
 ## 현재 Wi-Fi Gate
 
-- 최신 기준: V1202/V1203 — helper v242 (PCIe LTSSM + MHI bus count 모니터링).
-  V1201 결과: mdm_helper vendor_mdm_helper:s0, esoc-0 fd 보유, ESOC_REQ_IMG 수신(t=0),
-  이후 10s nanosleep 반복 루프 100s. ks_count=0, mhi_dev_count=0 throughout.
-  Root cause: PCIe 링크 트레이닝 실패 — sdx50m_toggle_soft_reset 후 MDM endpoint가
-  PCIe link training에 응답 안 함 (V1196: POLL_COMPLIANCE). MHI 미생성 → ks 미spawn.
-  V1202: host-only binary grep + PCIe/MHI idle surface classifier.
-  V1203: helper v242 (pcie_link_state, pci_dev_count, mhi_bus_count 3개 필드 추가)
-  + live gate로 PCIe 링크 트레이닝 실패 직접 관찰.
-  결정 경로: v1203-pcie-link-training-failed (예상) → 다음은 PCIe 리소스 관리 수정
-  (PM dependency_flag=1로 pm-service가 esoc0를 PCIe 리소스 보팅과 함께 여는 경로).
+- 최신 기준: V1203 LIVE PASS — PCIe 링크 트레이닝 실패 직접 확인 완료.
+  V1203 결과: `pcie_link_state=absent`, `pci_dev_count=0`, `mhi_bus_count=0` 100s 내내.
+  mdm_helper: vendor_mdm_helper:s0, esoc-0 fd 보유 확인. GPIO 142 미발화.
+  ROOT CAUSE CONFIRMED: sdx50m_toggle_soft_reset 후 PCIe RC1 LTSSM이 POLL_COMPLIANCE에
+  머무르며 MDM endpoint가 없음 — PCIe PERST#/전원이 PM 프레임워크 없이 관리되지 않음.
+  다음 게이트 V1204: PM dependency_flag=1 수정 — per_proxy를 per_proxy_helper 상태 머신
+  state-0 처리 전에 연결시켜 pm-service가 esoc0를 PCIe 리소스 보팅과 함께 여는 경로.
+  V1202: host-only 분류기 (exec 커맨드 미지원으로 binary grep 실패; PCIe 관찰은 V1203에서 수행).
   Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping 계속 블록.
 - V1198 배경: V1197 root cause 분석 완료: 세 가지 레이어 문제가 중첩됨.
   V1197 root cause 분석 완료: 세 가지 레이어 문제가 중첩됨.
@@ -4944,10 +4942,17 @@ Samsung bootloader
 
 - script: `scripts/revalidation/native_wifi_pm_mdm_pcie_observe_v1203.py`
 - helper: `a90_android_execns_probe v242`
-- decision paths:
-  - `v1203-pcie-link-training-failed`: pci_dev_count=0 throughout (expected)
-  - `v1203-pcie-link-trained-mhi-pending`: pci_dev_count > 0 (unexpected)
-  - `v1203-gpio142-fired`: MDM fully powered on (success)
-- if v1203-pcie-link-training-failed: next is PM dependency_flag fix —
-  per_proxy timing to get pm-service to open subsys_esoc0 via proper
-  PCIe-resourced path (PM dependency_flag=1 for state-2).
+  SHA256: `affc335d580bbb016c651b19d44998ec755e9471fd2fff1ae7784c63861fe3fc`
+- decision: `v1203-pcie-link-training-failed`
+- result: live PASS. pcie_link_state=absent, pci_dev_count=0, mhi_bus_count=0
+  throughout 10 status entries (0–90s). mdm_helper holds esoc-0 as
+  `u:r:vendor_mdm_helper:s0`, GPIO 142 stays 0, mdm3 stays OFFLINING.
+  PCIe link training failure definitively confirmed: after sdx50m_toggle_soft_reset,
+  /sys/devices/platform/soc/1c08000.qcom,pcie/current_link_state stays absent,
+  no MDM endpoint on PCIe bus, no MHI bus devices, no ks spawn.
+  selftest pass=11 fail=0 after cleanup reboot.
+- root cause: PCIe PERST# / power not managed by PM framework when trigger
+  child opens subsys_esoc0 directly (bypassing pm-service state machine).
+- next: V1204 — PM dependency_flag=1 fix: per_proxy timing so pm-service
+  opens subsys_esoc0 via proper PCIe-resourced path (state-2 with dep flag=1).
+  Keep Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping blocked.
