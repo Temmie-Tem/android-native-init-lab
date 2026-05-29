@@ -25,7 +25,18 @@
 
 ## 현재 Wi-Fi Gate
 
-- 최신 기준: V1198 — helper v237 (reuse) + live gate, PCIe enumerate 제거 + tail -f 스트리밍.
+- 최신 기준: V1202/V1203 — helper v242 (PCIe LTSSM + MHI bus count 모니터링).
+  V1201 결과: mdm_helper vendor_mdm_helper:s0, esoc-0 fd 보유, ESOC_REQ_IMG 수신(t=0),
+  이후 10s nanosleep 반복 루프 100s. ks_count=0, mhi_dev_count=0 throughout.
+  Root cause: PCIe 링크 트레이닝 실패 — sdx50m_toggle_soft_reset 후 MDM endpoint가
+  PCIe link training에 응답 안 함 (V1196: POLL_COMPLIANCE). MHI 미생성 → ks 미spawn.
+  V1202: host-only binary grep + PCIe/MHI idle surface classifier.
+  V1203: helper v242 (pcie_link_state, pci_dev_count, mhi_bus_count 3개 필드 추가)
+  + live gate로 PCIe 링크 트레이닝 실패 직접 관찰.
+  결정 경로: v1203-pcie-link-training-failed (예상) → 다음은 PCIe 리소스 관리 수정
+  (PM dependency_flag=1로 pm-service가 esoc0를 PCIe 리소스 보팅과 함께 여는 경로).
+  Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping 계속 블록.
+- V1198 배경: V1197 root cause 분석 완료: 세 가지 레이어 문제가 중첩됨.
   V1197 root cause 분석 완료: 세 가지 레이어 문제가 중첩됨.
   (1) V1194/V1195/V1196: SAMPLE_COUNT!=0 → serial 홍수 (pm_proxy/pm-service /proc/maps 덤프
       매 0.25s) → 480s timeout 안에 wait "$child_pid" 미도달 → child_summary 미실행.
@@ -4898,3 +4909,45 @@ Samsung bootloader
   drives dep state=1 after per_proxy is already connected.
   Keep Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, boot image
   write, partition write, and flash blocked.
+
+### V1199. ESOC IMG_XFER_DONE + MHI Observe (Option B)
+
+- script: `scripts/revalidation/native_wifi_esoc_img_xfer_mhi_observe_v1199.py`
+- helper: `stage3/linux_init/helpers/a90_android_execns_probe.c` (v238)
+- decision: `v1199-mhi-not-appeared-after-img-xfer-done`
+- result: live PASS. ESOC_IMG_XFER_DONE sent; MHI devices did not appear.
+  SDX50M requires actual firmware bytes via ks/MHI pipe, not just IMG_XFER_DONE signal.
+- next: V1200 Option A — mdm_helper SELinux context repair.
+
+### V1200/V1201. PM Observer: mdm_helper SELinux Context Repair
+
+- script: `scripts/revalidation/native_wifi_pm_mdm_helper_selinux_context_v1200.py`
+- helper: `stage3/linux_init/helpers/a90_android_execns_probe.c` (v239→v241)
+- decision: `v1200-mdm-helper-has-esoc0-fd-no-mhi`
+- result: live PASS. mdm_helper runs as `u:r:vendor_mdm_helper:s0`, holds
+  `/dev/esoc-0` (chroot path confirmed), receives ESOC_REQ_IMG at t=0, then
+  enters 10s SyS_nanosleep retry loop. ks_count=0, mhi_dev_count=0 throughout 100s.
+  v241 fixed fd filter (chroot path artifact) and added ks_count scan.
+- next: V1202 — root cause: PCIe link training failure.
+
+### V1202. mdm_helper Binary Strings + PCIe/MHI Idle Surface Classifier
+
+- script: `scripts/revalidation/native_wifi_mdm_helper_binary_pcie_surface_v1202.py`
+- deploy: `scripts/revalidation/wifi_execns_helper_v242_deploy_preflight_v1202.py`
+- helper: `stage3/linux_init/helpers/a90_android_execns_probe.c` (v242)
+  SHA256: `affc335d580bbb016c651b19d44998ec755e9471fd2fff1ae7784c63861fe3fc`
+- decision: expected `v1202-pcie-link-training-blocker-classified`
+- v242 new status fields: `pcie_link_state`, `pci_dev_count`, `mhi_bus_count`
+- next: V1203 live gate with PCIe monitoring.
+
+### V1203. PM Observer: PCIe LTSSM + MHI Bus Count Monitoring
+
+- script: `scripts/revalidation/native_wifi_pm_mdm_pcie_observe_v1203.py`
+- helper: `a90_android_execns_probe v242`
+- decision paths:
+  - `v1203-pcie-link-training-failed`: pci_dev_count=0 throughout (expected)
+  - `v1203-pcie-link-trained-mhi-pending`: pci_dev_count > 0 (unexpected)
+  - `v1203-gpio142-fired`: MDM fully powered on (success)
+- if v1203-pcie-link-training-failed: next is PM dependency_flag fix —
+  per_proxy timing to get pm-service to open subsys_esoc0 via proper
+  PCIe-resourced path (PM dependency_flag=1 for state-2).
