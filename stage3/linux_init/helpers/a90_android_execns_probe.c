@@ -97,7 +97,7 @@
 #define IOPRIO_PRIO_VALUE(class_value, data) (((class_value) << IOPRIO_CLASS_SHIFT) | (data))
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v239"
+#define EXECNS_VERSION "a90_android_execns_probe v240"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -28958,6 +28958,14 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
             }
             active_child_count++;
             mdm_helper_spawned_early = true;
+            /* v239: drain mdm_helper child pipe immediately after spawn so that
+             * wifi_hal_composite_child.mdm_helper.* markers (including selinux_current)
+             * are captured before pm_observer_trigger_mdm_power_on runs. */
+            if (composite_child_drain_wait_once(mdm_helper, stdout_buf, stderr_buf) < 0) {
+                composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+                stop_property_service_shim(&property_shim, paths, stdout_buf);
+                return -1;
+            }
             if (append_format(stdout_buf,
                               "pm_service_trigger_observer.child.%s.start_order=%zu\n"
                               "pm_service_trigger_observer.child.%s.early_spawn=1\n"

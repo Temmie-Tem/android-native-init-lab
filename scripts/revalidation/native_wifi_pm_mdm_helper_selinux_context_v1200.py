@@ -36,9 +36,9 @@ LATEST_POINTER = Path(
     "tmp/wifi/latest-v1200-pm-mdm-helper-selinux-context.txt"
 )
 DEFAULT_EXECNS_HELPER_SHA256 = (
-    "9e2442941c80d55673d7bba4f8af588da7bb6d4cb502c187dacca88b92e3df28"
+    "c4633478c91610aa18de7da6fc4983c6bc4f8c0d02fb12511842936f850ce1f6"
 )
-DEFAULT_EXECNS_HELPER_MARKER = "a90_android_execns_probe v239"
+DEFAULT_EXECNS_HELPER_MARKER = "a90_android_execns_probe v240"
 DEFAULT_WORK_DIR = "/cache/a90-runtime/v1200"
 DEFAULT_CHILD_SCRIPT = "/cache/a90-runtime/v1200/pm-mdm-helper-selinux-context-child.sh"
 DEFAULT_COLLECTOR_SCRIPT = (
@@ -52,6 +52,7 @@ PROOF_PREFIX = "/tmp/a90-v1200-"
 SUBSYS_ESOC0_FLAG = "--pm-observer-open-subsys-esoc0-after-mdm-helper-esoc"
 RESTART_LEVEL_FLAG = "--pm-observer-set-mdm3-restart-level-related"
 MDM_HELPER_SELINUX_FLAG = "--pm-observer-set-mdm-helper-selinux-context"
+PRIVATE_FIRMWARE_MOUNTS_FLAG = "--pm-observer-private-firmware-mounts"
 
 
 def pm_mdm_helper_selinux_context_v1200_child_command(args: Any) -> list[str]:
@@ -66,6 +67,8 @@ def pm_mdm_helper_selinux_context_v1200_child_command(args: Any) -> list[str]:
         result.append(RESTART_LEVEL_FLAG)
     if MDM_HELPER_SELINUX_FLAG not in result:
         result.append(MDM_HELPER_SELINUX_FLAG)
+    if PRIVATE_FIRMWARE_MOUNTS_FLAG not in result:
+        result.append(PRIVATE_FIRMWARE_MOUNTS_FLAG)
     return result
 
 
@@ -148,11 +151,11 @@ def _mdm_helper_domain(manifest: dict[str, Any]) -> dict[str, Any]:
             # Look for mdm_helper selinux_current markers
             for key, prefix in (
                 ("selinux_current_ok",
-                 "wifi_hal_composite_child.mdm-helper.selinux_current.ok="),
+                 "wifi_hal_composite_child.mdm_helper.selinux_current.ok="),
                 ("selinux_current_before",
-                 "wifi_hal_composite_child.mdm-helper.selinux_current.before="),
+                 "wifi_hal_composite_child.mdm_helper.selinux_current.before="),
                 ("selinux_current_after",
-                 "wifi_hal_composite_child.mdm-helper.selinux_current.after="),
+                 "wifi_hal_composite_child.mdm_helper.selinux_current.after="),
             ):
                 if line.startswith(prefix):
                     result[key] = line.split("=", 1)[1].strip()
