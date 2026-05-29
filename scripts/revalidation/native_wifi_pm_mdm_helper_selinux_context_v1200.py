@@ -36,9 +36,9 @@ LATEST_POINTER = Path(
     "tmp/wifi/latest-v1200-pm-mdm-helper-selinux-context.txt"
 )
 DEFAULT_EXECNS_HELPER_SHA256 = (
-    "c4633478c91610aa18de7da6fc4983c6bc4f8c0d02fb12511842936f850ce1f6"
+    "824ddb597cae36ec9e1163e1bcbf426934a37b9887eab98607f030c8d7766afa"
 )
-DEFAULT_EXECNS_HELPER_MARKER = "a90_android_execns_probe v240"
+DEFAULT_EXECNS_HELPER_MARKER = "a90_android_execns_probe v241"
 DEFAULT_WORK_DIR = "/cache/a90-runtime/v1200"
 DEFAULT_CHILD_SCRIPT = "/cache/a90-runtime/v1200/pm-mdm-helper-selinux-context-child.sh"
 DEFAULT_COLLECTOR_SCRIPT = (
@@ -116,11 +116,13 @@ def _mdm_power_on(manifest: dict[str, Any]) -> dict[str, Any]:
                 "mhi_dev_count",
                 "mdm_helper_wchans",
                 "mdm_helper_fds",
+                "ks_count",
+                "ks_wchans",
             ):
                 prefix = f"pm_observer_mdm_power_on.status.{skey}="
                 if line.startswith(prefix):
                     current_status[skey] = line.split("=", 1)[1].strip()
-                    if len(current_status) == 8:
+                    if len(current_status) == 10:
                         status_entries.append(dict(current_status))
                         current_status = {}
     result["_status_entries"] = status_entries  # type: ignore[assignment]
@@ -240,6 +242,10 @@ def decide_v1200(args: Any, manifest: dict[str, Any]) -> tuple[str, bool, str, s
         (int(e.get("mhi_dev_count", "0"))
          for e in status_entries if e.get("mhi_dev_count", "0").isdigit()),
         default=0,
+    )
+    ks_seen = any(
+        e.get("ks_count", "0") not in ("0", "")
+        for e in status_entries
     )
 
     # Check mdm_helper domain transition

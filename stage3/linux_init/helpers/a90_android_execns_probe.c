@@ -97,7 +97,7 @@
 #define IOPRIO_PRIO_VALUE(class_value, data) (((class_value) << IOPRIO_CLASS_SHIFT) | (data))
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v240"
+#define EXECNS_VERSION "a90_android_execns_probe v241"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -28443,8 +28443,9 @@ static void pm_observer_trigger_mdm_power_on(const struct config *cfg,
                 }
             }
 
-            /* v237: mdm_helper fd listing (look for mhi/esoc/firmware) */
-            char mh_fds_buf[512];
+            /* v237: mdm_helper fd listing; v241: widen filter to include
+             * chroot paths (/tmp/a90-*) and any /dev/ device nodes. */
+            char mh_fds_buf[1024];
             mh_fds_buf[0] = '\0';
             if (mdm_helper_pid > 0) {
                 char fd_dir[80];
@@ -28458,7 +28459,7 @@ static void pm_observer_trigger_mdm_power_on(const struct config *cfg,
                 if (fddp != NULL) {
                     while ((fdent = readdir(fddp)) != NULL) {
                         char fd_link[384];
-                        char target[256];
+                        char target[512];
                         ssize_t tlen;
 
                         if (fdent->d_name[0] == '.') continue;
@@ -28467,13 +28468,14 @@ static void pm_observer_trigger_mdm_power_on(const struct config *cfg,
                         tlen = readlink(fd_link, target, sizeof(target) - 1);
                         if (tlen <= 0) continue;
                         target[tlen] = '\0';
-                        /* only include interesting targets */
-                        if (strncmp(target, "/dev/mhi", 8) == 0 ||
-                            strncmp(target, "/dev/esoc", 9) == 0 ||
-                            strstr(target, "wlan") != NULL ||
+                        /* v241: include any /dev/ node, chroot /dev/ path,
+                         * firmware files, and ks-related paths */
+                        if (strncmp(target, "/dev/", 5) == 0 ||
+                            strstr(target, "/root/dev/") != NULL ||
                             strstr(target, "firmware") != NULL ||
                             strstr(target, ".mbn") != NULL ||
-                            strstr(target, ".bin") != NULL) {
+                            strstr(target, ".bin") != NULL ||
+                            strstr(target, "/ks") != NULL) {
                             int nf = snprintf(mh_fds_buf + fd_pos,
                                               sizeof(mh_fds_buf) - fd_pos,
                                               "%s%s",
@@ -28489,6 +28491,62 @@ static void pm_observer_trigger_mdm_power_on(const struct config *cfg,
                 }
             }
 
+            /* v241: scan for ks child process of mdm_helper */
+            int ks_count = 0;
+            char ks_wchans_buf[128];
+            ks_wchans_buf[0] = '\0';
+            {
+                DIR *proc_dp = opendir("/proc");
+                if (proc_dp != NULL) {
+                    struct dirent *pent;
+                    while ((pent = readdir(proc_dp)) != NULL) {
+                        char comm_path[64];
+                        char comm_buf[32];
+                        int comm_fd;
+                        ssize_t cn;
+                        char *endptr;
+                        if (strtol(pent->d_name, &endptr, 10) <= 0 ||
+                            *endptr != '\0') continue;
+                        snprintf(comm_path, sizeof(comm_path),
+                                 "/proc/%s/comm", pent->d_name);
+                        comm_fd = open(comm_path, O_RDONLY | O_CLOEXEC);
+                        if (comm_fd < 0) continue;
+                        cn = read(comm_fd, comm_buf, sizeof(comm_buf) - 1);
+                        close(comm_fd);
+                        if (cn <= 0) continue;
+                        comm_buf[cn] = '\0';
+                        /* strip trailing newline */
+                        for (ssize_t k = cn-1; k>=0 && (comm_buf[k]=='\n'||
+                             comm_buf[k]=='\r'); k--) comm_buf[k]='\0';
+                        if (strcmp(comm_buf, "ks") == 0) {
+                            char wchan_path[64];
+                            char wbuf[64];
+                            int wfd;
+                            ks_count++;
+                            snprintf(wchan_path, sizeof(wchan_path),
+                                     "/proc/%s/wchan", pent->d_name);
+                            wfd = open(wchan_path, O_RDONLY | O_CLOEXEC);
+                            if (wfd >= 0) {
+                                ssize_t wn = read(wfd, wbuf,
+                                                  sizeof(wbuf)-1);
+                                close(wfd);
+                                if (wn > 0) { wbuf[wn]='\0'; }
+                                else { wbuf[0]='\0'; }
+                                int ns = snprintf(ks_wchans_buf +
+                                                  strlen(ks_wchans_buf),
+                                                  sizeof(ks_wchans_buf) -
+                                                  strlen(ks_wchans_buf),
+                                                  "%s%s:%s",
+                                                  ks_count>1 ? "," : "",
+                                                  pent->d_name, wbuf);
+                                (void)ns;
+                            }
+                        }
+                    }
+                    closedir(proc_dp);
+                }
+            }
+
             irq_after = collect_mdm_status_irq_snapshot();
             printf("pm_observer_mdm_power_on.status.elapsed_ms=%d\n"
                    "pm_observer_mdm_power_on.status.gpio142_count=%lu\n"
@@ -28497,7 +28555,9 @@ static void pm_observer_trigger_mdm_power_on(const struct config *cfg,
                    "pm_observer_mdm_power_on.status.child_wchan=%s\n"
                    "pm_observer_mdm_power_on.status.mhi_dev_count=%d\n"
                    "pm_observer_mdm_power_on.status.mdm_helper_wchans=%s\n"
-                   "pm_observer_mdm_power_on.status.mdm_helper_fds=%s\n",
+                   "pm_observer_mdm_power_on.status.mdm_helper_fds=%s\n"
+                   "pm_observer_mdm_power_on.status.ks_count=%d\n"
+                   "pm_observer_mdm_power_on.status.ks_wchans=%s\n",
                    i * 100,
                    irq_after.count_total,
                    mdm3_state_buf,
@@ -28505,7 +28565,9 @@ static void pm_observer_trigger_mdm_power_on(const struct config *cfg,
                    child_wchan_buf,
                    mhi_dev_count,
                    mh_wchans_buf[0] ? mh_wchans_buf : "none",
-                   mh_fds_buf[0] ? mh_fds_buf : "none");
+                   mh_fds_buf[0] ? mh_fds_buf : "none",
+                   ks_count,
+                   ks_wchans_buf[0] ? ks_wchans_buf : "none");
             fflush(stdout);
             fdatasync(fileno(stdout)); /* v231 */
 
