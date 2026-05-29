@@ -4956,3 +4956,22 @@ Samsung bootloader
 - next: V1204 — PM dependency_flag=1 fix: per_proxy timing so pm-service
   opens subsys_esoc0 via proper PCIe-resourced path (state-2 with dep flag=1).
   Keep Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping blocked.
+
+### V1204. PM Dep per_proxy Late Start (pph+20s)
+
+- script: `scripts/revalidation/native_wifi_pm_dep_per_proxy_late_start_v1204.py`
+- helper: `a90_android_execns_probe v242`
+- decision: `v1203-pcie-link-training-failed` (false vndservice-gate check; actual data present)
+- result: live PASS (evidence captured). per_proxy started at pph+20000ms (after state-0 at
+  pph+15.99s per V1177). pm-service STILL opened subsys_modem (not esoc0). PCIe still absent
+  (pci_dev_count=0, mhi_bus_count=0, pcie_link_state=absent). Dep state tracefs events NOT
+  captured (state-0 dep path may not have run or trace buffer overflow). selftest pass=11 fail=0.
+- root cause: dep_flag per_proxy timing approach is INEFFECTIVE — pm-service opens modem
+  regardless of when per_proxy starts. dep_flag mechanism either doesn't apply to native
+  pm-service, or a different client is needed to trigger esoc0 open.
+- new hypothesis: In Android V853, pm-service holds BOTH /dev/subsys_esoc0 AND
+  /dev/subsys_modem. The esoc0 open may be triggered by a SECOND PM client (cnss-daemon?
+  or other) registering for the MDM3/eSoC peripheral, not by the dep_flag state-2 path.
+- next: V1205 host-only — identify what PM client triggers pm-service to open subsys_esoc0
+  in Android V853 evidence. Focus on pm_client_connect call pattern for MDM3/eSoC
+  peripheral vs modem peripheral. Check if cnss-daemon or mdm_helper makes this call.
