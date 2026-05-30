@@ -5013,3 +5013,14 @@ Samsung bootloader
 - finding: V1222 already repairs the CNSS/PM selection branch enough to reach `/dev/subsys_esoc0`; the post-open failure is a lower SDX50M image-link/lifetime gap. Android success requires init-managed `vendor_mdm_helper` owning `/dev/esoc-0`, `ks` reaching `/dev/mhi_0305_01.01.00_pipe_10`, and `pm-service` owning subsystem nodes. Direct native `mdm_helper` evidence lacked `/dev/esoc-0`, `ks`, and MHI pipe surface.
 - safety: host-only classifier; no device contact, live daemon start, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, boot image write, or partition write.
 - next: V1224 should run a bounded live parity gate that proves `mdm_helper` owns `/dev/esoc-0` and `ks`/MHI appears before or while `pm-service` opens `/dev/subsys_esoc0`. Keep Wi-Fi HAL and connect/ping gates blocked until WLFW/BDF/`wlan0` readiness is proven.
+
+## V1224 mdm_helper / ks / MHI Parity Live Gate (2026-05-31)
+
+- runner: `scripts/revalidation/native_wifi_mdm_helper_ks_mhi_parity_live_v1224.py`
+- evidence: `tmp/wifi/v1224-mdm-helper-ks-mhi-parity-live/manifest.json`
+- report: `docs/reports/NATIVE_INIT_V1224_MDM_HELPER_KS_MHI_PARITY_LIVE_2026-05-31.md`
+- result: `v1224-mdm-helper-esoc-present-ks-mhi-absent-crash`, pass `true`.
+- finding: the native path now proves `mdm_helper` owns `/dev/esoc-0` and `pm-service` attempts `/dev/subsys_esoc0`, but `ks` and `/dev/mhi_0305_01.01.00_pipe_10` never appear before modem-down/crash markers. `mdm3` remains `OFFLINING`, WLFW/BDF/`wlan0` markers remain `0`.
+- postflight: selftest `pass=11 warn=1 fail=0`, netservice stopped, and no PM/CNSS/`mdm_helper`/`ks` actors remained in `ps`.
+- safety: no Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, boot image write, flash, or partition write.
+- next: V1225 should classify why native `mdm_helper` remains before Android's `ks`/MHI image-transfer path. Focus on `mdm_helper` eSoC ioctl/wchan, MHI device creation, and Android timing around `ESOC_WAIT_FOR_REQ`, PCIe/MHI readiness, and `ks` spawn.
