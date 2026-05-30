@@ -25,20 +25,20 @@
 
 ## 현재 Wi-Fi Gate
 
-- 최신 기준: V1218 LIVE FAIL — helper v252 bounded PM/CNSS observer에서
-  fake `esoc_name=SDXPRAIRIE` bind의 direct platform path와
-  `/sys/bus/esoc/devices/esoc0/esoc_name` readback은 모두 `SDXPRAIRIE`였지만,
-  `cnss-daemon`은 여전히 `peripheral='modem'`만 등록했다.
-  `SDXPRAIRIE` PM client registration은 관측되지 않았고,
-  `per_mgr_esoc0_any=false`, `wlan0_up=false`, `pm_client_register_ret=0`
-  for modem path 상태다. Post-run dmesg에는 cleanup 중
-  `subsystem_put(esoc0) count:0` reference mismatch warning이 남았으나
-  postflight `selftest fail=0`으로 복구됐다.
-  다음 게이트 V1219: bind-path 재시도보다 `cnss-daemon` /
-  `libmdmdetect.so`가 positive readback 이후에도 second type-0
-  `SDXPRAIRIE` registration을 내지 않는 이유를 추적한다. Wi-Fi HAL,
-  scan/connect, credentials, DHCP/routes, external ping, boot image write,
-  partition write는 계속 블록한다.
+- 최신 기준: V1219 LIVE FAIL — `cnss-daemon` / `libmdmdetect.so` trace가
+  selection gap을 직접 좁혔다. `cnss-daemon`은 second vote
+  `vote_type=0x0 vote_name="SDXPRAIRIE"`를 실제 호출하지만,
+  `libmdmdetect::get_system_info()` 결과 배열에는 type-0 eSoC entry가 없고
+  `request_type=0x0` 검색 중 `entry_type=0x1 entry_name="modem"`만 보인다.
+  따라서 `strcmp("SDXPRAIRIE", candidate)` 경로와
+  `peripheral="SDXPRAIRIE"` PM client registration은 발생하지 않는다.
+  해석: fake `esoc_name=SDXPRAIRIE` bind는 readback은 되지만
+  `libmdmdetect`의 supported-eSoC 필터에서 type-0 entry를 제거한다.
+  다음 게이트 V1220: host/build-only로 private patched `cnss-daemon` 후보를
+  검토한다. 방향은 vendor partition write 없이 runtime selection literal
+  `SDXPRAIRIE`를 실제 supported eSoC name `SDX50M`으로 맞추는 것.
+  Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, boot image
+  write, partition write는 계속 블록한다.
 - V1198 배경: V1197 root cause 분석 완료: 세 가지 레이어 문제가 중첩됨.
   V1197 root cause 분석 완료: 세 가지 레이어 문제가 중첩됨.
   (1) V1194/V1195/V1196: SAMPLE_COUNT!=0 → serial 홍수 (pm_proxy/pm-service /proc/maps 덤프

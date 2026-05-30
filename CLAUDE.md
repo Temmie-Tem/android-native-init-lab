@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V1218 LIVE FAIL → V1219 planned — helper v252 bounded PM/CNSS observer preserved positive fake `esoc_name=SDXPRAIRIE` readback through both the direct platform path and `/sys/bus/esoc/devices/esoc0/esoc_name`, but `cnss-daemon` still registered only `peripheral='modem'`; no `SDXPRAIRIE` PM client, no `per_mgr` `/dev/subsys_esoc0`, no MDM/WLFW/`wlan0`. Next: trace/classify `cnss-daemon` / `libmdmdetect.so` selection after `get_system_info()` instead of adding more bind-path work.
+- **Active research cycle**: V1219 LIVE FAIL → V1220 planned — tracefs proved `cnss-daemon` does call second vote `type=0 name=SDXPRAIRIE`, but `libmdmdetect::get_system_info()` returns only `type=1 name=modem` to that search; no strcmp against SDXPRAIRIE, no SDXPRAIRIE PM client, no `per_mgr` `/dev/subsys_esoc0`, no MDM/WLFW/`wlan0`. Next: host/build-only private `cnss-daemon` selection-literal patch candidate (`SDXPRAIRIE` → real supported `SDX50M`) with no vendor writes.
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -648,6 +648,7 @@ path should be closed for this blocker.
 | v1216 | live FAIL: helper v250 deploy PASS and fake esoc_name bind_rc=0/content=SDXPRAIRIE, but cnss-daemon still registered peripheral='modem'; per_mgr_esoc0_any=False, mdm_subsys_powerup_any=False, wlan0_up=False; next V1217 must prove exact libmdmdetect read path inside chroot before another PM/CNSS trigger |
 | v1217 | live PASS: helper v252 readback-only proof confirmed direct platform esoc_name and /sys/bus/esoc/devices/esoc0/esoc_name both read SDXPRAIRIE inside the private namespace; /sys/class/esoc-dev opendir_rc=0 count=1; daemon/service-manager/HAL/scan/connect/credentials/DHCP/external-ping all 0; next V1218 bounded PM/CNSS observer must require cnss-daemon peripheral='SDXPRAIRIE' and per_mgr subsys_esoc0 |
 | v1218 | live FAIL: helper v252 PM/CNSS observer kept positive SDXPRAIRIE readback, but cnss-daemon still registered only peripheral='modem'; no SDXPRAIRIE PM client, no persistent per_mgr subsys_esoc0 fd, no mdm_subsys_powerup/WLFW/wlan0; cleanup dmesg showed subsystem_put(esoc0) count:0 reference mismatch but selftest fail=0; next V1219 trace/classify cnss-daemon/libmdmdetect selection after get_system_info |
+| v1219 | live FAIL: cnss-daemon/libmdmdetect trace proved second vote type=0 name=SDXPRAIRIE is called, but libmdmdetect output visible to that loop contains only type=1 name=modem; strcmp against SDXPRAIRIE is never reached; fake esoc_name removes the type-0 entry via supported-eSoC filtering; next V1220 host/build-only private cnss-daemon selection literal patch candidate |
 
 ### Safety additions (Wi-Fi research)
 
@@ -656,7 +657,7 @@ path should be closed for this blocker.
 - No `wlan.ko` load/unload without explicit approval
 - `firmware_class.path` rollback value: `/vendor/firmware_mnt/image`
 - `sda29` mount must be read-only in all proof windows
-- Current Wi-Fi gate after V1218: cnss-daemon/libmdmdetect selection tracing.
+- Current Wi-Fi gate after V1219: host/build-only private cnss-daemon selection-literal patch candidate.
   V1215 host-only PASS disassembled libmdmdetect.so + cnss-daemon and found:
   `get_system_info()` finds SDX50M (type=0) from esoc bus scan AND "modem" (type=1)
   from msm_subsys scan (`/sys/bus/msm_subsys/devices/subsys0/name="modem"` →
@@ -671,9 +672,15 @@ path should be closed for this blocker.
   before daemon start, with `/sys/class/esoc-dev` enumerable. V1218 reran the
   bounded PM/CNSS observer with the same positive readback and still saw only
   `peripheral='modem'`, no `SDXPRAIRIE` PM client, no persistent per_mgr
-  `/dev/subsys_esoc0`, no MDM/WLFW/`wlan0`. V1219 should trace/classify the
-  `cnss-daemon` / `libmdmdetect.so` selection path after `get_system_info()`;
-  more bind-path work is not the next useful gate.
+  `/dev/subsys_esoc0`, no MDM/WLFW/`wlan0`. V1219 traced the selection path:
+  second vote `type=0 name=SDXPRAIRIE` is called, but `get_system_info()` output
+  visible to that loop contains only `type=1 name=modem`; `strcmp` against
+  `SDXPRAIRIE` is never reached. The fake `esoc_name=SDXPRAIRIE` bind is
+  rejected by libmdmdetect's supported-eSoC filtering before type-0 output is
+  filled. V1220 should first be host/build-only: create/verify a private
+  `cnss-daemon` artifact that changes only the runtime selection literal from
+  `SDXPRAIRIE` to real supported `SDX50M`, then plan a bounded live observer
+  that uses that private binary without vendor partition writes.
   Scripts: `native_wifi_pm_dep_post_cnss_per_mgr_wchan_v1210.py` (V1210 run),
   `native_wifi_cnss_daemon_peripheral_name_v1211.py` (V1211 run).
   Key V1198 findings: (1) subsys_esoc0 open triggers `sdx50m_toggle_soft_reset`;
