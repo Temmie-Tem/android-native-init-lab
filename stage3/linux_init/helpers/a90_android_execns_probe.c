@@ -97,7 +97,7 @@
 #define IOPRIO_PRIO_VALUE(class_value, data) (((class_value) << IOPRIO_CLASS_SHIFT) | (data))
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v252"
+#define EXECNS_VERSION "a90_android_execns_probe v253"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -213,6 +213,7 @@ struct config {
     const char *cnss_surface_mode;
     const char *service_manager_order;
     const char *subsys_trigger_gate;
+    const char *private_cnss_daemon_path;
     int timeout_sec;
     bool cnss_surface_mode_explicit;
     bool service_manager_order_explicit;
@@ -266,6 +267,7 @@ struct config {
     bool pm_observer_mknod_esoc_dev_node_before_cnss; /* v247 */
     bool pm_observer_fake_esoc_name_sdxprairie; /* v250 */
     bool pm_observer_fake_esoc_name_readback_only; /* v251 */
+    bool pm_observer_private_cnss_daemon_sdx50m; /* v253 */
     bool pm_observer_open_subsys_esoc0_after_mdm_helper_esoc; /* v227 */
     bool pm_observer_set_mdm3_restart_level_related; /* v229 */
     bool pm_observer_trigger_pcie_enumerate; /* v235/v236 */
@@ -361,6 +363,7 @@ struct paths {
     char sys_class_uio[MAX_PATH_LEN];
     char sys_class_esoc_dev[MAX_PATH_LEN]; /* v248 */
     char fake_esoc_name_file[MAX_PATH_LEN]; /* v250 */
+    char private_cnss_daemon_target[MAX_PATH_LEN]; /* v253 */
     char sys_devices[MAX_PATH_LEN];
     char sys_devices_platform[MAX_PATH_LEN];
     char sys_devices_platform_soc[MAX_PATH_LEN];
@@ -459,6 +462,8 @@ static void usage(FILE *out) {
             "[--pm-observer-mknod-esoc-dev-node-before-cnss] "
             "[--pm-observer-fake-esoc-name-sdxprairie] "
             "[--pm-observer-fake-esoc-name-readback-only] "
+            "[--pm-observer-private-cnss-daemon-sdx50m] "
+            "[--private-cnss-daemon-path /cache/bin/cnss-daemon.sdx50m] "
             "[--pm-observer-load-precompiled-policy] "
             "[--qrtr-readback-matrix label:service:instance[,instance][;...]] "
             "[--connect-config /cache/a90-wifi/...] "
@@ -1083,6 +1088,7 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
     cfg->cnss_surface_mode = "full";
     cfg->service_manager_order = "none";
     cfg->subsys_trigger_gate = "wlfw-precondition";
+    cfg->private_cnss_daemon_path = "/cache/bin/cnss-daemon.sdx50m";
 
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--help") == 0) {
@@ -1306,6 +1312,10 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             cfg->pm_observer_fake_esoc_name_readback_only = true;
             continue;
         }
+        if (strcmp(argv[i], "--pm-observer-private-cnss-daemon-sdx50m") == 0) {
+            cfg->pm_observer_private_cnss_daemon_sdx50m = true;
+            continue;
+        }
         if (strcmp(argv[i], "--allow-android-wifi-service-window") == 0) {
             cfg->allow_android_wifi_service_window = true;
             continue;
@@ -1380,6 +1390,8 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
         } else if (strcmp(argv[i], "--subsys-trigger-gate") == 0) {
             cfg->subsys_trigger_gate = argv[++i];
             cfg->subsys_trigger_gate_explicit = true;
+        } else if (strcmp(argv[i], "--private-cnss-daemon-path") == 0) {
+            cfg->private_cnss_daemon_path = argv[++i];
         } else if (strcmp(argv[i], "--timeout-sec") == 0) {
             if (!parse_int_range(argv[++i], 1, 30, &cfg->timeout_sec)) {
                 fprintf(stderr, "invalid --timeout-sec\n");
@@ -1941,6 +1953,16 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
     if (cfg->pm_observer_fake_esoc_name_readback_only &&
         !cfg->pm_observer_fake_esoc_name_sdxprairie) {
         fprintf(stderr, "--pm-observer-fake-esoc-name-readback-only requires --pm-observer-fake-esoc-name-sdxprairie\n");
+        return 2;
+    }
+    if (cfg->pm_observer_private_cnss_daemon_sdx50m &&
+        !is_wifi_companion_pm_observer_any_mode(cfg->mode)) {
+        fprintf(stderr, "--pm-observer-private-cnss-daemon-sdx50m is only valid with Wi-Fi PM observer modes\n");
+        return 2;
+    }
+    if (cfg->pm_observer_private_cnss_daemon_sdx50m &&
+        cfg->pm_observer_fake_esoc_name_sdxprairie) {
+        fprintf(stderr, "--pm-observer-private-cnss-daemon-sdx50m is mutually exclusive with fake esoc_name\n");
         return 2;
     }
     if (cfg->allow_android_wifi_service_window &&
@@ -3825,6 +3847,9 @@ static void cleanup_paths(const struct paths *paths) {
             umount2(fake_target, MNT_DETACH);
         }
         unlink(paths->fake_esoc_name_file);
+    }
+    if (paths->private_cnss_daemon_target[0] != '\0') {
+        umount2(paths->private_cnss_daemon_target, MNT_DETACH);
     }
     if (paths->sys_bus_esoc[0] != '\0') {
         umount2(paths->sys_bus_esoc, MNT_DETACH);
@@ -9399,6 +9424,82 @@ static int materialize_fake_esoc_name_sdxprairie(const struct config *cfg,
     printf("fake_esoc_name.content=SDXPRAIRIE\n");
     printf("fake_esoc_name.bind_rc=0\n");
     print_fake_esoc_name_readbacks(paths);
+    return 0;
+}
+
+static int materialize_private_cnss_daemon_sdx50m(const struct config *cfg,
+                                                  struct paths *paths,
+                                                  char *error_buf,
+                                                  size_t error_size) {
+    char target[MAX_PATH_LEN];
+    struct stat source_st;
+    struct stat target_st;
+
+    if (!cfg->pm_observer_private_cnss_daemon_sdx50m) {
+        return 0;
+    }
+    if (!(is_wifi_companion_pm_observer_any_mode(cfg->mode) &&
+          cfg->allow_pm_service_trigger_observer)) {
+        return 0;
+    }
+    if (cfg->private_cnss_daemon_path == NULL ||
+        cfg->private_cnss_daemon_path[0] != '/') {
+        snprintf(error_buf, error_size,
+                 "private cnss-daemon: source path must be absolute");
+        return -1;
+    }
+    if (stat(cfg->private_cnss_daemon_path, &source_st) < 0) {
+        snprintf(error_buf, error_size,
+                 "private cnss-daemon: stat source: %s", strerror(errno));
+        return -1;
+    }
+    if (!S_ISREG(source_st.st_mode)) {
+        snprintf(error_buf, error_size,
+                 "private cnss-daemon: source is not regular");
+        errno = EINVAL;
+        return -1;
+    }
+    if ((source_st.st_mode & 0111) == 0) {
+        snprintf(error_buf, error_size,
+                 "private cnss-daemon: source is not executable");
+        errno = EACCES;
+        return -1;
+    }
+    if (append_path(target, sizeof(target), paths->vendor, "bin/cnss-daemon") < 0) {
+        snprintf(error_buf, error_size, "private cnss-daemon: target path overflow");
+        return -1;
+    }
+    if (stat(target, &target_st) < 0) {
+        snprintf(error_buf, error_size,
+                 "private cnss-daemon: stat target: %s", strerror(errno));
+        return -1;
+    }
+    if (!S_ISREG(target_st.st_mode)) {
+        snprintf(error_buf, error_size,
+                 "private cnss-daemon: target is not regular");
+        errno = EINVAL;
+        return -1;
+    }
+    if (mount(cfg->private_cnss_daemon_path, target, NULL, MS_BIND, NULL) < 0) {
+        snprintf(error_buf, error_size,
+                 "private cnss-daemon: bind mount: %s", strerror(errno));
+        return -1;
+    }
+    if (snprintf(paths->private_cnss_daemon_target,
+                 sizeof(paths->private_cnss_daemon_target),
+                 "%s",
+                 target) < 0 ||
+        strlen(target) >= sizeof(paths->private_cnss_daemon_target)) {
+        paths->private_cnss_daemon_target[0] = '\0';
+        snprintf(error_buf, error_size, "private cnss-daemon: stored target overflow");
+        return -1;
+    }
+    printf("private_cnss_daemon.source=%s\n", cfg->private_cnss_daemon_path);
+    printf("private_cnss_daemon.target=%s\n", target);
+    printf("private_cnss_daemon.source_size=%lld\n", (long long)source_st.st_size);
+    printf("private_cnss_daemon.target_size_before=%lld\n", (long long)target_st.st_size);
+    printf("private_cnss_daemon.bind_rc=0\n");
+    printf("private_cnss_daemon.expected_c_string=SDX50M\n");
     return 0;
 }
 
@@ -33107,6 +33208,9 @@ static int setup_namespace(const struct config *cfg,
         snprintf(error_buf, error_size, "mount vendor: %s", strerror(errno));
         return -1;
     }
+    if (materialize_private_cnss_daemon_sdx50m(cfg, paths, error_buf, error_size) < 0) {
+        return -1;
+    }
     if (materialize_wifi_firmware_mounts(cfg, paths, error_buf, error_size) < 0) {
         return -1;
     }
@@ -33275,6 +33379,10 @@ int main(int argc, char **argv) {
     printf("cnss_surface_mode=%s\n", cfg.cnss_surface_mode);
     printf("service_manager_order=%s\n", cfg.service_manager_order);
     printf("subsys_trigger_gate=%s\n", cfg.subsys_trigger_gate);
+    printf("private_cnss_daemon_path=%s\n",
+           cfg.private_cnss_daemon_path != NULL ? cfg.private_cnss_daemon_path : "<none>");
+    printf("pm_observer_private_cnss_daemon_sdx50m=%d\n",
+           cfg.pm_observer_private_cnss_daemon_sdx50m ? 1 : 0);
 
     if (is_service_notifier_listener_only_mode(cfg.mode)) {
         printf("helper_status=namespace-skipped\n");
