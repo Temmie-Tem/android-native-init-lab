@@ -5024,3 +5024,13 @@ Samsung bootloader
 - postflight: selftest `pass=11 warn=1 fail=0`, netservice stopped, and no PM/CNSS/`mdm_helper`/`ks` actors remained in `ps`.
 - safety: no Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, boot image write, flash, or partition write.
 - next: V1225 should classify why native `mdm_helper` remains before Android's `ks`/MHI image-transfer path. Focus on `mdm_helper` eSoC ioctl/wchan, MHI device creation, and Android timing around `ESOC_WAIT_FOR_REQ`, PCIe/MHI readiness, and `ks` spawn.
+
+## V1225 mdm_helper WAIT_FOR_REQ Gap Classifier (2026-05-31)
+
+- runner: `scripts/revalidation/native_wifi_mdm_helper_wait_req_gap_classifier_v1225.py`
+- evidence: `tmp/wifi/v1225-mdm-helper-wait-req-gap-classifier/manifest.json`
+- report: `docs/reports/NATIVE_INIT_V1225_MDM_HELPER_WAIT_REQ_GAP_CLASSIFIER_2026-05-31.md`
+- result: `v1225-mdm-helper-post-wait-sleep-gap-classified`, pass `true`.
+- finding: V1224 did not merely lack `mdm_helper` visibility; lower trace shows `mdm_helper` threads in `SyS_nanosleep`, with `/dev/esoc-0` held but no `ks`, MHI pipe, WLFW/BDF/FW-ready, or `wlan0`. V911/V1144 keep `ESOC_WAIT_FOR_REQ` as the earlier request-engine boundary, so the current gap is the post-wait sleep/no-MHI branch.
+- safety: host-only classifier; no device command, live eSoC ioctl, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, boot image write, flash, or partition write.
+- next: V1226 should add a bounded lower-trace v2 live gate in the V1224 PM/CNSS path: trace `mdm_helper` syscall/returns from process start, capture the `ESOC_WAIT_FOR_REQ` result and subsequent open/exec/ioctl errors, and poll `/dev/mhi_0305_01.01.00_pipe_10`, `/sys/bus/mhi/devices`, PCIe link state, and `/vendor/bin/ks` before/after `pm-service` opens `/dev/subsys_esoc0`.
