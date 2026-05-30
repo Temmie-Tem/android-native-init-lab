@@ -5055,3 +5055,26 @@ Samsung bootloader
 - next: V1227 should implement focused `mdm_helper`-only tracing or compact
   helper-side eSoC event markers for `/dev/esoc-0` and `ESOC_WAIT_FOR_REQ`,
   without tracing earlier PM actors or perturbing the V1224 path.
+
+## V1227 mdm_helper Focused Trace Live Gate (2026-05-31)
+
+- helper: `a90_android_execns_probe v254`
+- helper source: `stage3/linux_init/helpers/a90_android_execns_probe.c`
+- deploy wrapper: `scripts/revalidation/wifi_execns_helper_v254_deploy_preflight_v1227.py`
+- live runner: `scripts/revalidation/native_wifi_mdm_helper_focused_trace_live_v1227.py`
+- report: `docs/reports/NATIVE_INIT_V1227_MDM_HELPER_FOCUSED_TRACE_LIVE_2026-05-31.md`
+- result: `v1227-focused-ptrace-stops-mdm-helper-before-esoc`, pass `true`.
+- finding: v254 adds `--pm-observer-mdm-helper-only-syscall-trace`, and V1227
+  proves this disables earlier `per_mgr` syscall tracing while tracing
+  `mdm_helper`. However, pre-gate ptrace still stops `mdm_helper` before
+  `/dev/esoc-0` opens. The observer sees `ptrace_stop`, `fd_esoc0_count=0`, no
+  selected syscall records, no `ESOC_WAIT_FOR_REQ`, no `ks`/MHI, and no
+  WLFW/`wlan0`.
+- interpretation: broad tracing was narrowed successfully, but pre-gate ptrace
+  itself is incompatible with the existing `/dev/esoc-0` readiness gate.
+- safety: no Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping,
+  boot image write, flash, or partition write. Postflight selftest remained
+  fail0 and netservice was stopped.
+- next: V1228 should avoid pre-gate ptrace. Use delayed attach after
+  `/dev/esoc-0` appears, or compact non-ptrace helper-side event capture around
+  `mdm_helper` eSoC request/response state.

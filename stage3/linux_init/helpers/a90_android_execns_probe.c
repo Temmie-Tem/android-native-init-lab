@@ -97,7 +97,7 @@
 #define IOPRIO_PRIO_VALUE(class_value, data) (((class_value) << IOPRIO_CLASS_SHIFT) | (data))
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v253"
+#define EXECNS_VERSION "a90_android_execns_probe v254"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -249,6 +249,7 @@ struct config {
     bool allow_pm_observer_defer_modem_holder; /* v244 */
     bool allow_post_pm_mdm_helper_esoc_observer;
     bool allow_post_pm_mdm_helper_lower_trace;
+    bool pm_observer_mdm_helper_only_syscall_trace; /* v254 */
     bool allow_android_wifi_service_window;
     bool allow_android_wifi_service_window_subsys_trigger_capture;
     bool require_android_selinux_exec_match;
@@ -443,6 +444,7 @@ static void usage(FILE *out) {
             "[--allow-pm-observer-modem-pre-holder] "
             "[--allow-post-pm-mdm-helper-esoc-observer] "
             "[--allow-post-pm-mdm-helper-lower-trace] "
+            "[--pm-observer-mdm-helper-only-syscall-trace] "
             "[--allow-android-wifi-service-window] "
             "[--allow-android-wifi-service-window-subsys-trigger-capture] "
             "[--pm-observer-continue-after-provider] "
@@ -1219,6 +1221,10 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             cfg->allow_post_pm_mdm_helper_lower_trace = true;
             continue;
         }
+        if (strcmp(argv[i], "--pm-observer-mdm-helper-only-syscall-trace") == 0) {
+            cfg->pm_observer_mdm_helper_only_syscall_trace = true;
+            continue;
+        }
         if (strcmp(argv[i], "--pm-observer-continue-after-provider") == 0) {
             cfg->pm_observer_continue_after_provider = true;
             continue;
@@ -1789,6 +1795,11 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
     if (cfg->allow_post_pm_mdm_helper_lower_trace &&
         !cfg->allow_post_pm_mdm_helper_esoc_observer) {
         fprintf(stderr, "--allow-post-pm-mdm-helper-lower-trace requires --allow-post-pm-mdm-helper-esoc-observer\n");
+        return 2;
+    }
+    if (cfg->pm_observer_mdm_helper_only_syscall_trace &&
+        !cfg->allow_post_pm_mdm_helper_lower_trace) {
+        fprintf(stderr, "--pm-observer-mdm-helper-only-syscall-trace requires --allow-post-pm-mdm-helper-lower-trace\n");
         return 2;
     }
     if (cfg->pm_observer_continue_after_provider &&
@@ -17616,14 +17627,21 @@ static int composite_ptrace_continue_child(struct composite_child *child,
 
 static bool composite_child_should_trace(const struct config *cfg,
                                          const struct composite_child *child) {
+    bool pm_observer_ptrace =
+        is_wifi_companion_pm_observer_any_mode(cfg->mode) &&
+        (cfg->allow_pm_service_trigger_observer ||
+         cfg->allow_post_pm_mdm_helper_esoc_observer) &&
+        streq(cfg->capture_mode, "ptrace-lite");
+
+    if (pm_observer_ptrace && cfg->pm_observer_mdm_helper_only_syscall_trace) {
+        return cfg->allow_post_pm_mdm_helper_lower_trace &&
+               child->identity == COMPOSITE_ID_MDM_HELPER;
+    }
     return (is_wifi_hal_composite_ptrace_mode(cfg->mode) &&
             child->identity == COMPOSITE_ID_WIFI_HAL) ||
            (is_wifi_companion_ptrace_capture(cfg) &&
             child->identity == COMPOSITE_ID_CNSS) ||
-           (is_wifi_companion_pm_observer_any_mode(cfg->mode) &&
-            (cfg->allow_pm_service_trigger_observer ||
-             cfg->allow_post_pm_mdm_helper_esoc_observer) &&
-            streq(cfg->capture_mode, "ptrace-lite") &&
+           (pm_observer_ptrace &&
             (child->identity == COMPOSITE_ID_SERVICE_MANAGER ||
              child->identity == COMPOSITE_ID_VND_SERVICE_MANAGER ||
              child->identity == COMPOSITE_ID_PER_MGR ||
@@ -18058,7 +18076,8 @@ static int composite_spawn_child(const struct config *cfg,
         streq(cfg->capture_mode, "ptrace-lite");
     child->trace_syscalls =
         child->trace_minimal &&
-        (child->identity == COMPOSITE_ID_PER_MGR ||
+        ((!cfg->pm_observer_mdm_helper_only_syscall_trace &&
+          child->identity == COMPOSITE_ID_PER_MGR) ||
          (cfg->allow_post_pm_mdm_helper_lower_trace &&
           child->identity == COMPOSITE_ID_MDM_HELPER));
     child->syscall_trace_started = child->trace_syscalls;
@@ -33383,6 +33402,8 @@ int main(int argc, char **argv) {
            cfg.private_cnss_daemon_path != NULL ? cfg.private_cnss_daemon_path : "<none>");
     printf("pm_observer_private_cnss_daemon_sdx50m=%d\n",
            cfg.pm_observer_private_cnss_daemon_sdx50m ? 1 : 0);
+    printf("pm_observer_mdm_helper_only_syscall_trace=%d\n",
+           cfg.pm_observer_mdm_helper_only_syscall_trace ? 1 : 0);
 
     if (is_service_notifier_listener_only_mode(cfg.mode)) {
         printf("helper_status=namespace-skipped\n");
