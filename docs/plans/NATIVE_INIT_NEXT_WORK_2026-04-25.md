@@ -5003,3 +5003,13 @@ Samsung bootloader
 - current blocker: the lower SDX50M power-up/firmware/MHI handoff fails before WLFW publication. CNSS selection and PM eSoC routing are no longer the primary blocker.
 - safety: no Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, boot image write, or vendor partition write. `cnss-daemon` start was intentional for this gate.
 - next: V1223 should classify why Android's post-`subsys_esoc0` path reaches `mdm_helper` `/dev/esoc-0`, `ks`, MHI pipe, WLFW/BDF/`wlan0`, while native V1222 crashes/stalls before WLFW. Keep Wi-Fi HAL and connect/ping gates blocked until lower readiness is proven.
+
+## V1223 SDX50M Crash Source Classifier (2026-05-31)
+
+- runner: `scripts/revalidation/native_wifi_sdx50m_crash_source_classifier_v1223.py`
+- evidence: `tmp/wifi/v1223-sdx50m-crash-source-classifier/manifest.json`
+- report: `docs/reports/NATIVE_INIT_V1223_SDX50M_CRASH_SOURCE_CLASSIFIER_2026-05-31.md`
+- result: `v1223-sdx50m-crash-source-contract-gap-classified`, pass `true`.
+- finding: V1222 already repairs the CNSS/PM selection branch enough to reach `/dev/subsys_esoc0`; the post-open failure is a lower SDX50M image-link/lifetime gap. Android success requires init-managed `vendor_mdm_helper` owning `/dev/esoc-0`, `ks` reaching `/dev/mhi_0305_01.01.00_pipe_10`, and `pm-service` owning subsystem nodes. Direct native `mdm_helper` evidence lacked `/dev/esoc-0`, `ks`, and MHI pipe surface.
+- safety: host-only classifier; no device contact, live daemon start, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, boot image write, or partition write.
+- next: V1224 should run a bounded live parity gate that proves `mdm_helper` owns `/dev/esoc-0` and `ks`/MHI appears before or while `pm-service` opens `/dev/subsys_esoc0`. Keep Wi-Fi HAL and connect/ping gates blocked until WLFW/BDF/`wlan0` readiness is proven.
