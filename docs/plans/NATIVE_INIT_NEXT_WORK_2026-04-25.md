@@ -5034,3 +5034,24 @@ Samsung bootloader
 - finding: V1224 did not merely lack `mdm_helper` visibility; lower trace shows `mdm_helper` threads in `SyS_nanosleep`, with `/dev/esoc-0` held but no `ks`, MHI pipe, WLFW/BDF/FW-ready, or `wlan0`. V911/V1144 keep `ESOC_WAIT_FOR_REQ` as the earlier request-engine boundary, so the current gap is the post-wait sleep/no-MHI branch.
 - safety: host-only classifier; no device command, live eSoC ioctl, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, boot image write, flash, or partition write.
 - next: V1226 should add a bounded lower-trace v2 live gate in the V1224 PM/CNSS path: trace `mdm_helper` syscall/returns from process start, capture the `ESOC_WAIT_FOR_REQ` result and subsequent open/exec/ioctl errors, and poll `/dev/mhi_0305_01.01.00_pipe_10`, `/sys/bus/mhi/devices`, PCIe link state, and `/vendor/bin/ks` before/after `pm-service` opens `/dev/subsys_esoc0`.
+
+## V1226 mdm_helper Lower Trace v2 Live Gate (2026-05-31)
+
+- runner: `scripts/revalidation/native_wifi_mdm_helper_lower_trace_v2_live_v1226.py`
+- evidence: `tmp/wifi/v1226-mdm-helper-lower-trace-v2-live/manifest.json`
+- report: `docs/reports/NATIVE_INIT_V1226_MDM_HELPER_LOWER_TRACE_V2_LIVE_2026-05-31.md`
+- result: `v1226-ptrace-lite-perturbed-mdm-helper-window`, pass `true`.
+- finding: forcing the existing broad `ptrace-lite` capture onto the V1224
+  PM/CNSS path changes the observed path before the target lower boundary.
+  `mdm_helper` starts but is not observable in the post-PM window,
+  `pm-service` never attempts `/dev/subsys_esoc0`, `per_mgr` syscall tracing
+  reaches the stop limit, and no `mdm_helper` syscall or `ESOC_WAIT_FOR_REQ`
+  records are captured.
+- interpretation: V1226 is a valid instrumentation-blocker classification, not
+  lower-Wi-Fi progress. V1224 remains the better behavioral baseline.
+- safety: no Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping,
+  boot image write, flash, or partition write. Postflight selftest remained
+  fail0 and netservice was stopped.
+- next: V1227 should implement focused `mdm_helper`-only tracing or compact
+  helper-side eSoC event markers for `/dev/esoc-0` and `ESOC_WAIT_FOR_REQ`,
+  without tracing earlier PM actors or perturbing the V1224 path.
