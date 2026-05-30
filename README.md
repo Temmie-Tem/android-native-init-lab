@@ -1,14 +1,57 @@
 # Samsung Galaxy A90 5G Native Init Workspace
 
-이 저장소는 `Samsung Galaxy A90 5G (SM-A908N)`의 stock Android Linux kernel 위에서
-Android userspace 대신 직접 만든 static `/init`를 실행하고,
-그 위에 작은 Linux userspace/runtime을 쌓아 가는 실험 작업 공간입니다.
+이 저장소는 단순 rooting, 보안 우회, 또는 exploit 실습 프로젝트가 아닙니다.
+저장소 소유자가 소유·관리하는 `Samsung Galaxy A90 5G (SM-A908N)` 실기에서
+stock Android Linux kernel 위에 custom static `/init`(PID 1)와 최소
+Linux-style runtime을 구성·검증하는 로컬 연구/문서화 작업 공간입니다.
 
 초기 목표였던 `native Linux rechallenge`의 핵심 진입점 확보 단계는 통과했고,
 현재 프로젝트의 중심은 **Android kernel 기반 native init 환경을 안정화하고
 서버형 임베디드 Linux 콘솔로 확장하는 것**입니다.
 
+> **Note on repository name**
+>
+> This repository was originally named during an early rooting/recovery access
+> phase for a Samsung Galaxy A90 5G device owned by the repository owner.
+> The project direction has since changed. The current focus is not general
+> rooting guidance, but local development and documentation of a custom native
+> `/init` and minimal Linux-style runtime on top of the stock Android Linux
+> kernel.
+
+## Safety, Scope, and Ethics
+
+이 작업은 저장소 소유자가 직접 소유하고 복구 경로를 관리하는 로컬 기기에서만
+진행합니다. README와 관련 문서는 제3자 기기, 서비스, 계정, 네트워크를 대상으로 한
+접근 방법이나 우회 절차로 해석하지 않습니다.
+
+허용 범위는 다음으로 제한합니다.
+
+- local device research
+- documentation
+- build troubleshooting
+- native init/runtime development
+- read-only diagnostics
+- recovery-safe validation
+
+금지/비목표 범위는 다음을 명확히 포함합니다.
+
+- unauthorized access
+- third-party targeting
+- exploit deployment
+- persistence
+- malware
+- credential theft
+- stealth/evasion
+- 타인 소유 기기 조작
+
+실험 전에는 항상 TWRP, known-good boot/recovery/vbmeta, 로그 보존 경로를 확인하고,
+복구 가능성을 해치거나 소유권이 불명확한 대상에는 적용하지 않습니다.
+
 ## Current State
+
+아래는 외부 심사자와 협업자가 빠르게 확인해야 하는 핵심 상태입니다.
+긴 version/history 목록과 세부 검증 기록은 이 README 상단에서 반복하지 않고
+`docs/overview/PROJECT_STATUS.md`와 `CHANGELOG.md`를 기준으로 확인합니다.
 
 - device: `SM-A908N`
 - build: `A908NKSU5EWA3`
@@ -18,6 +61,24 @@ Android userspace 대신 직접 만든 static `/init`를 실행하고,
 - official version: `0.9.61`
 - build tag: `v319`
 - creator: `made by temmie0214`
+- latest verified source tree: modular native init under `stage3/linux_init/`, rooted at `init_v319.c`
+- latest verified boot image: `stage3/boot_linux_v319.img`
+- known-good fallback: `stage3/boot_linux_v48.img`
+- control channel: USB CDC ACM serial (`/dev/ttyGS0` ↔ `/dev/ttyACM0`)
+- host bridge: `scripts/revalidation/serial_tcp_bridge.py --port 54321`
+- display/input: custom boot splash, status HUD/menu, and physical button gesture handling
+- logging: SD log path first, `/cache/native-init.log` fallback, private `/tmp/a90-native/native-init.log` emergency fallback
+- storage: `/cache` safe write, ext4 SD workspace `/mnt/sdext/a90`, critical partitions do-not-touch
+- validation posture: non-destructive selftest, read-only inventory/diagnostics, and recovery-safe smoke/soak checks
+- userland policy: toybox fallback is verified; SD BusyBox remains blocked until manifest SHA-256 validation
+- network posture: USB ACM/NCM and token-authenticated local control are opt-in, local-device channels only
+
+<details>
+<summary>Detailed local state and historical verification notes</summary>
+
+The detailed list below is retained as local project context. New readers should prefer
+`docs/overview/PROJECT_STATUS.md` and `CHANGELOG.md` for current status and version history.
+
 - latest verified source: `stage3/linux_init/init_v319.c` + `stage3/linux_init/v319/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/helpers/a90_rshell.c` + `stage3/linux_init/helpers/a90_longsoak.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_input_cmd.c/h` + `stage3/linux_init/a90_kernelinv.c/h` + `stage3/linux_init/a90_sensormap.c/h` + `stage3/linux_init/a90_pstore.c/h` + `stage3/linux_init/a90_watchdoginv.c/h` + `stage3/linux_init/a90_tracefs.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h` + `stage3/linux_init/a90_shell.c/h` + `stage3/linux_init/a90_controller.c/h` + `stage3/linux_init/a90_storage.c/h` + `stage3/linux_init/a90_selftest.c/h` + `stage3/linux_init/a90_usb_gadget.c/h` + `stage3/linux_init/a90_netservice.c/h` + `stage3/linux_init/a90_pid1_guard.c/h` + `stage3/linux_init/a90_reaper.c/h` + `stage3/linux_init/a90_runtime.c/h` + `stage3/linux_init/a90_helper.c/h` + `stage3/linux_init/a90_userland.c/h` + `stage3/linux_init/a90_diag.c/h` + `stage3/linux_init/a90_exposure.c/h` + `stage3/linux_init/a90_wifiinv.c/h` + `stage3/linux_init/a90_wififeas.c/h` + `stage3/linux_init/a90_changelog.c/h` + `stage3/linux_init/a90_longsoak.c/h` + `stage3/linux_init/a90_app_about.c/h` + `stage3/linux_init/a90_app_cpustress.c/h` + `stage3/linux_init/a90_app_displaytest.c/h` + `stage3/linux_init/a90_app_inputmon.c/h` + `stage3/linux_init/a90_app_log.c/h` + `stage3/linux_init/a90_app_network.c/h`
 - latest verified boot image: `stage3/boot_linux_v319.img`
 - previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
@@ -176,6 +237,8 @@ Android userspace 대신 직접 만든 static `/init`를 실행하고,
 - changelog UI: v129부터 `ABOUT / CHANGELOG`는 viewport 범위 표시와 selected-row auto-scroll을 사용하고, detail/about 화면은 VOL page navigation을 지원; v132부터 shared changelog table 단일 경로, v133부터 version series 분류를 사용
 - menu input UX: v131부터 긴 메뉴에서 커널 repeat 이벤트 없이 VOL hold timer scroll을 사용하고 VOL+DN 조합으로 뒤로가기/숨기기를 수행
 - ADB: 보류. 현재 기준 제어 채널은 serial bridge
+
+</details>
 
 ## Current Objective
 
