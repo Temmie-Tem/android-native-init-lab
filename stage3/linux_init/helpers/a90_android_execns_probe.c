@@ -97,7 +97,7 @@
 #define IOPRIO_PRIO_VALUE(class_value, data) (((class_value) << IOPRIO_CLASS_SHIFT) | (data))
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v242"
+#define EXECNS_VERSION "a90_android_execns_probe v250"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -245,6 +245,7 @@ struct config {
     bool allow_pm_full_contract_with_modem_holder;
     bool allow_pm_service_trigger_observer;
     bool allow_pm_observer_modem_pre_holder;
+    bool allow_pm_observer_defer_modem_holder; /* v244 */
     bool allow_post_pm_mdm_helper_esoc_observer;
     bool allow_post_pm_mdm_helper_lower_trace;
     bool allow_android_wifi_service_window;
@@ -258,8 +259,12 @@ struct config {
     bool pm_observer_start_cnss_zero_delay_after_per_mgr;
     bool pm_observer_private_firmware_mounts;
     bool pm_observer_modem_pre_holder;
+    /* v244: defer modem holder open to N ms after pph spawn (0 = disabled) */
+    int pm_observer_defer_modem_holder_pph_ms;
     bool pm_observer_start_mdm_helper_after_cnss;
     bool pm_observer_start_mdm_helper_before_cnss; /* v226 */
+    bool pm_observer_mknod_esoc_dev_node_before_cnss; /* v247 */
+    bool pm_observer_fake_esoc_name_sdxprairie; /* v250 */
     bool pm_observer_open_subsys_esoc0_after_mdm_helper_esoc; /* v227 */
     bool pm_observer_set_mdm3_restart_level_related; /* v229 */
     bool pm_observer_trigger_pcie_enumerate; /* v235/v236 */
@@ -353,6 +358,8 @@ struct paths {
     char sys_bus_msm_subsys[MAX_PATH_LEN];
     char sys_class[MAX_PATH_LEN];
     char sys_class_uio[MAX_PATH_LEN];
+    char sys_class_esoc_dev[MAX_PATH_LEN]; /* v248 */
+    char fake_esoc_name_file[MAX_PATH_LEN]; /* v250 */
     char sys_devices[MAX_PATH_LEN];
     char sys_devices_platform[MAX_PATH_LEN];
     char sys_devices_platform_soc[MAX_PATH_LEN];
@@ -448,6 +455,8 @@ static void usage(FILE *out) {
             "[--pm-observer-trigger-pcie-enumerate] "
             "[--pm-observer-set-mdm-helper-selinux-context] "
             "[--pm-observer-start-per-proxy-after-mdm-helper-esoc-fd] "
+            "[--pm-observer-mknod-esoc-dev-node-before-cnss] "
+            "[--pm-observer-fake-esoc-name-sdxprairie] "
             "[--pm-observer-load-precompiled-policy] "
             "[--qrtr-readback-matrix label:service:instance[,instance][;...]] "
             "[--connect-config /cache/a90-wifi/...] "
@@ -1190,6 +1199,10 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             cfg->allow_pm_observer_modem_pre_holder = true;
             continue;
         }
+        if (strcmp(argv[i], "--allow-pm-observer-defer-modem-holder") == 0) {
+            cfg->allow_pm_observer_defer_modem_holder = true;
+            continue;
+        }
         if (strcmp(argv[i], "--allow-post-pm-mdm-helper-esoc-observer") == 0) {
             cfg->allow_post_pm_mdm_helper_esoc_observer = true;
             continue;
@@ -1224,6 +1237,10 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
         }
         if (strcmp(argv[i], "--pm-observer-modem-pre-holder") == 0) {
             cfg->pm_observer_modem_pre_holder = true;
+            continue;
+        }
+        if (strcmp(argv[i], "--pm-observer-defer-modem-holder-pph-ms") == 0 && i + 1 < argc) {
+            cfg->pm_observer_defer_modem_holder_pph_ms = atoi(argv[++i]);
             continue;
         }
         if (strcmp(argv[i], "--pm-observer-start-mdm-helper-after-cnss") == 0) {
@@ -1273,6 +1290,14 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
         }
         if (strcmp(argv[i], "--pm-observer-load-precompiled-policy") == 0) {
             cfg->pm_observer_load_precompiled_policy = true;
+            continue;
+        }
+        if (strcmp(argv[i], "--pm-observer-mknod-esoc-dev-node-before-cnss") == 0) {
+            cfg->pm_observer_mknod_esoc_dev_node_before_cnss = true;
+            continue;
+        }
+        if (strcmp(argv[i], "--pm-observer-fake-esoc-name-sdxprairie") == 0) {
+            cfg->pm_observer_fake_esoc_name_sdxprairie = true;
             continue;
         }
         if (strcmp(argv[i], "--allow-android-wifi-service-window") == 0) {
@@ -1813,6 +1838,21 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
         fprintf(stderr, "--pm-observer-modem-pre-holder requires --allow-pm-observer-modem-pre-holder\n");
         return 2;
     }
+    if (cfg->pm_observer_defer_modem_holder_pph_ms > 0 &&
+        !is_wifi_companion_pm_observer_any_mode(cfg->mode)) {
+        fprintf(stderr, "--pm-observer-defer-modem-holder-pph-ms is only valid with Wi-Fi PM observer modes\n");
+        return 2;
+    }
+    if (cfg->pm_observer_defer_modem_holder_pph_ms > 0 &&
+        !cfg->allow_pm_observer_defer_modem_holder) {
+        fprintf(stderr, "--pm-observer-defer-modem-holder-pph-ms requires --allow-pm-observer-defer-modem-holder\n");
+        return 2;
+    }
+    if (cfg->allow_pm_observer_defer_modem_holder &&
+        !is_wifi_companion_pm_observer_any_mode(cfg->mode)) {
+        fprintf(stderr, "--allow-pm-observer-defer-modem-holder is only valid with Wi-Fi PM observer modes\n");
+        return 2;
+    }
     if (cfg->pm_observer_start_mdm_helper_after_cnss &&
         !is_wifi_companion_post_pm_mdm_helper_esoc_observer_mode(cfg->mode)) {
         fprintf(stderr, "--pm-observer-start-mdm-helper-after-cnss is only valid with wifi-companion-post-pm-mdm-helper-esoc-observer mode\n");
@@ -1875,6 +1915,16 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
     if (cfg->pm_observer_per_proxy_after_vndservice_provider &&
         cfg->pm_observer_per_proxy_pph_delta_ms > 0) {
         fprintf(stderr, "--pm-observer-per-proxy-after-vndservice-provider is mutually exclusive with --pm-observer-per-proxy-pph-delta-ms\n");
+        return 2;
+    }
+    if (cfg->pm_observer_mknod_esoc_dev_node_before_cnss &&
+        !is_wifi_companion_pm_observer_any_mode(cfg->mode)) {
+        fprintf(stderr, "--pm-observer-mknod-esoc-dev-node-before-cnss is only valid with Wi-Fi PM observer modes\n");
+        return 2;
+    }
+    if (cfg->pm_observer_fake_esoc_name_sdxprairie &&
+        !is_wifi_companion_pm_observer_any_mode(cfg->mode)) {
+        fprintf(stderr, "--pm-observer-fake-esoc-name-sdxprairie is only valid with Wi-Fi PM observer modes\n");
         return 2;
     }
     if (cfg->allow_android_wifi_service_window &&
@@ -2907,6 +2957,10 @@ static int init_paths(struct paths *paths) {
                     "msm_subsys") < 0 ||
         append_path(paths->sys_class, sizeof(paths->sys_class), paths->sys, "class") < 0 ||
         append_path(paths->sys_class_uio, sizeof(paths->sys_class_uio), paths->sys_class, "uio") < 0 ||
+        append_path(paths->sys_class_esoc_dev,
+                    sizeof(paths->sys_class_esoc_dev),
+                    paths->sys_class,
+                    "esoc-dev") < 0 ||
         append_path(paths->sys_devices, sizeof(paths->sys_devices), paths->sys, "devices") < 0 ||
         append_path(paths->sys_devices_platform,
                     sizeof(paths->sys_devices_platform),
@@ -3742,6 +3796,18 @@ static void cleanup_paths(const struct paths *paths) {
     }
     if (paths->sys_class_uio[0] != '\0') {
         umount2(paths->sys_class_uio, MNT_DETACH);
+    }
+    if (paths->sys_class_esoc_dev[0] != '\0') {
+        umount2(paths->sys_class_esoc_dev, MNT_DETACH);
+    }
+    if (paths->fake_esoc_name_file[0] != '\0') {
+        char fake_target[MAX_PATH_LEN];
+        if (append_path(fake_target, sizeof(fake_target),
+                        paths->sys_devices_platform_soc_mdm3,
+                        "esoc0/esoc_name") == 0) {
+            umount2(fake_target, MNT_DETACH);
+        }
+        unlink(paths->fake_esoc_name_file);
     }
     if (paths->sys_bus_esoc[0] != '\0') {
         umount2(paths->sys_bus_esoc, MNT_DETACH);
@@ -9034,6 +9100,19 @@ static int materialize_rmt_modem_detect_surface(const struct paths *paths,
                              error_size) < 0) {
         return -1;
     }
+    /* v248: bind /sys/class/esoc-dev/ so libmdmdetect esoc_framework_supported()
+     * can scan it inside the chroot. */
+    if (mkdir_p(paths->sys_class, 0755) < 0) {
+        snprintf(error_buf, error_size, "mkdir sys_class for esoc-dev: %s", strerror(errno));
+        return -1;
+    }
+    if (bind_optional_ro_dir("/sys/class/esoc-dev",
+                             paths->sys_class_esoc_dev,
+                             "esoc-dev class sysfs",
+                             error_buf,
+                             error_size) < 0) {
+        return -1;
+    }
     return 0;
 }
 
@@ -9047,6 +9126,74 @@ static int materialize_pm_service_modem_detect_surface(const struct config *cfg,
         return 0;
     }
     return materialize_rmt_modem_detect_surface(paths, error_buf, error_size);
+}
+
+/* v250: bind-mount a fake esoc_name file containing "SDXPRAIRIE\n" over the
+ * real /sys/devices/platform/soc/soc:qcom,mdm3/esoc0/esoc_name inside the
+ * private chroot.  libmdmdetect get_soc_name("esoc0") reads this file via the
+ * /sys/bus/esoc/devices/esoc0/esoc_name symlink, so after this bind cnss-daemon
+ * second pm_client_register call (type=0 + strcmp("SDXPRAIRIE")) matches the
+ * esoc entry and selects peripheral='SDXPRAIRIE' instead of peripheral='modem'. */
+static int materialize_fake_esoc_name_sdxprairie(const struct config *cfg,
+                                                  struct paths *paths,
+                                                  char *error_buf,
+                                                  size_t error_size) {
+    char target[MAX_PATH_LEN];
+    int fd;
+
+    if (!cfg->pm_observer_fake_esoc_name_sdxprairie) {
+        return 0;
+    }
+    if (!(is_wifi_companion_pm_observer_any_mode(cfg->mode) &&
+          (cfg->allow_pm_service_trigger_observer ||
+           cfg->allow_post_pm_mdm_helper_esoc_observer))) {
+        return 0;
+    }
+    if (paths->sys_devices_platform_soc_mdm3[0] == '\0') {
+        snprintf(error_buf, error_size,
+                 "fake esoc_name: mdm3 sysfs path not bound; esoc_name bind skipped");
+        return -1;
+    }
+    if (append_path(paths->fake_esoc_name_file,
+                    sizeof(paths->fake_esoc_name_file),
+                    paths->base,
+                    "fake_esoc_name") < 0) {
+        snprintf(error_buf, error_size, "fake esoc_name: source path overflow");
+        return -1;
+    }
+    if (append_path(target, sizeof(target),
+                    paths->sys_devices_platform_soc_mdm3,
+                    "esoc0/esoc_name") < 0) {
+        snprintf(error_buf, error_size, "fake esoc_name: target path overflow");
+        return -1;
+    }
+    fd = open(paths->fake_esoc_name_file, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0600);
+    if (fd < 0) {
+        snprintf(error_buf, error_size, "fake esoc_name: create source: %s", strerror(errno));
+        paths->fake_esoc_name_file[0] = '\0';
+        return -1;
+    }
+    if (write(fd, "SDXPRAIRIE\n", 11) != 11) {
+        int saved = errno;
+        close(fd);
+        unlink(paths->fake_esoc_name_file);
+        paths->fake_esoc_name_file[0] = '\0';
+        errno = saved;
+        snprintf(error_buf, error_size, "fake esoc_name: write source: %s", strerror(errno));
+        return -1;
+    }
+    close(fd);
+    if (mount(paths->fake_esoc_name_file, target, NULL, MS_BIND, NULL) < 0) {
+        snprintf(error_buf, error_size, "fake esoc_name: bind mount: %s", strerror(errno));
+        unlink(paths->fake_esoc_name_file);
+        paths->fake_esoc_name_file[0] = '\0';
+        return -1;
+    }
+    printf("fake_esoc_name.source=%s\n", paths->fake_esoc_name_file);
+    printf("fake_esoc_name.target=%s\n", target);
+    printf("fake_esoc_name.content=SDXPRAIRIE\n");
+    printf("fake_esoc_name.bind_rc=0\n");
+    return 0;
 }
 
 static int materialize_rmt_storage_runtime_surface(const struct config *cfg,
@@ -28239,7 +28386,9 @@ static int load_precompiled_policy_for_pm_observer(const struct paths *paths,
 static void pm_observer_trigger_mdm_power_on(const struct config *cfg,
                                               const struct paths *paths,
                                               int hold_sec,
-                                              int mdm_helper_pid) {
+                                              int mdm_helper_pid,
+                                              int per_mgr_pid,
+                                              int cnss_daemon_pid) {
     char subsys_esoc0_path[MAX_PATH_LEN * 2];
     pid_t child_pid;
     int pipefd[2];
@@ -28604,8 +28753,64 @@ static void pm_observer_trigger_mdm_power_on(const struct config *cfg,
                 }
             }
 
+            /* v243: per_mgr fd scan for subsys_esoc0 (has pm-service opened esoc0?) */
+            int per_mgr_has_esoc0 = 0;
+            if (per_mgr_pid > 0) {
+                char pm_fd_dir[64];
+                DIR *pm_fddp;
+                struct dirent *pm_fdent;
+                snprintf(pm_fd_dir, sizeof(pm_fd_dir), "/proc/%d/fd", per_mgr_pid);
+                pm_fddp = opendir(pm_fd_dir);
+                if (pm_fddp != NULL) {
+                    while ((pm_fdent = readdir(pm_fddp)) != NULL) {
+                        char pm_link[256];
+                        char pm_tgt[512];
+                        ssize_t plen;
+                        if (pm_fdent->d_name[0] == '.') continue;
+                        snprintf(pm_link, sizeof(pm_link), "%s/%s",
+                                 pm_fd_dir, pm_fdent->d_name);
+                        plen = readlink(pm_link, pm_tgt, sizeof(pm_tgt)-1);
+                        if (plen <= 0) continue;
+                        pm_tgt[plen] = '\0';
+                        if (strstr(pm_tgt, "subsys_esoc") != NULL) {
+                            per_mgr_has_esoc0 = 1;
+                            break;
+                        }
+                    }
+                    closedir(pm_fddp);
+                }
+            }
+
+            /* v243: cnss-daemon fd scan for vndbinder connection to pm-service */
+            int cnss_has_vndbinder = 0;
+            if (cnss_daemon_pid > 0) {
+                char cn_fd_dir[64];
+                DIR *cn_fddp;
+                struct dirent *cn_fdent;
+                snprintf(cn_fd_dir, sizeof(cn_fd_dir), "/proc/%d/fd", cnss_daemon_pid);
+                cn_fddp = opendir(cn_fd_dir);
+                if (cn_fddp != NULL) {
+                    while ((cn_fdent = readdir(cn_fddp)) != NULL) {
+                        char cn_link[256];
+                        char cn_tgt[512];
+                        ssize_t clen;
+                        if (cn_fdent->d_name[0] == '.') continue;
+                        snprintf(cn_link, sizeof(cn_link), "%s/%s",
+                                 cn_fd_dir, cn_fdent->d_name);
+                        clen = readlink(cn_link, cn_tgt, sizeof(cn_tgt)-1);
+                        if (clen <= 0) continue;
+                        cn_tgt[clen] = '\0';
+                        if (strstr(cn_tgt, "vndbinder") != NULL) {
+                            cnss_has_vndbinder = 1;
+                            break;
+                        }
+                    }
+                    closedir(cn_fddp);
+                }
+            }
+
             irq_after = collect_mdm_status_irq_snapshot();
-            /* v242: 13 fields (added pcie_link_state, pci_dev_count, mhi_bus_count) */
+            /* v243: 15 fields (+per_mgr_has_esoc0, +cnss_has_vndbinder) */
             printf("pm_observer_mdm_power_on.status.elapsed_ms=%d\n"
                    "pm_observer_mdm_power_on.status.gpio142_count=%lu\n"
                    "pm_observer_mdm_power_on.status.mdm3_state=%s\n"
@@ -28618,7 +28823,9 @@ static void pm_observer_trigger_mdm_power_on(const struct config *cfg,
                    "pm_observer_mdm_power_on.status.ks_wchans=%s\n"
                    "pm_observer_mdm_power_on.status.pcie_link_state=%s\n"
                    "pm_observer_mdm_power_on.status.pci_dev_count=%d\n"
-                   "pm_observer_mdm_power_on.status.mhi_bus_count=%d\n",
+                   "pm_observer_mdm_power_on.status.mhi_bus_count=%d\n"
+                   "pm_observer_mdm_power_on.status.per_mgr_has_esoc0=%d\n"
+                   "pm_observer_mdm_power_on.status.cnss_has_vndbinder=%d\n",
                    i * 100,
                    irq_after.count_total,
                    mdm3_state_buf,
@@ -28631,7 +28838,9 @@ static void pm_observer_trigger_mdm_power_on(const struct config *cfg,
                    ks_wchans_buf[0] ? ks_wchans_buf : "none",
                    pcie_link_buf,
                    pci_dev_count,
-                   mhi_bus_count);
+                   mhi_bus_count,
+                   per_mgr_has_esoc0,
+                   cnss_has_vndbinder);
             fflush(stdout);
             fdatasync(fileno(stdout)); /* v231 */
 
@@ -28755,6 +28964,8 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
     bool modem_pre_holder_opened = false;
     bool modem_pre_holder_cleanup_kill_sent = false;
     bool modem_pre_holder_cleanup_reaped = false;
+    pid_t deferred_modem_holder_pid = -1; /* v244 */
+    bool deferred_modem_holder_opened = false; /* v244 */
 
     memset(children, 0, sizeof(children));
     *child_exit_code = -1;
@@ -29168,7 +29379,9 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                         stdout_buf->len = 0;
                     }
                     pm_observer_trigger_mdm_power_on(cfg, paths, 300,
-                        (mdm_helper->pid > 0) ? (int)mdm_helper->pid : -1);
+                        (mdm_helper->pid > 0) ? (int)mdm_helper->pid : -1,
+                        (per_mgr->pid > 0) ? (int)per_mgr->pid : -1,
+                        (cnss_daemon->pid > 0) ? (int)cnss_daemon->pid : -1);
                 }
             }
         }
@@ -29185,6 +29398,46 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                 return -1;
             }
         } else {
+            /* v247: materialise /dev/esoc-0 before cnss-daemon so libmdmdetect
+             * esoc_framework_supported() returns true → peripheral='SDX50M'.
+             * v249: also chmod 0666 so uid=system can open the node (Android
+             * cnss-daemon has radio group; private namespace does not). */
+            if (i == PM_OBSERVER_CNSS_DAEMON &&
+                cfg->pm_observer_mknod_esoc_dev_node_before_cnss) {
+                char esoc0_path[MAX_PATH_LEN];
+                int esoc0_mknod_rc = -1;
+                int esoc0_mknod_errno = 0;
+                int esoc0_chmod_rc = -1;
+                int esoc0_chmod_errno = 0;
+                esoc0_path[0] = '\0';
+                if (append_path(esoc0_path, sizeof(esoc0_path), paths->dev, "esoc-0") >= 0) {
+                    esoc0_mknod_rc = mknod(esoc0_path, S_IFCHR | 0600, makedev(484, 0));
+                    esoc0_mknod_errno = errno;
+                    /* chmod 0666: make readable by system/any uid so
+                     * esoc_framework_supported() open() succeeds. */
+                    esoc0_chmod_rc = chmod(esoc0_path, 0666);
+                    esoc0_chmod_errno = errno;
+                }
+                if (append_format(stdout_buf,
+                                  "pm_service_trigger_observer.esoc_dev_node_before_cnss.path=%s\n"
+                                  "pm_service_trigger_observer.esoc_dev_node_before_cnss.major=484\n"
+                                  "pm_service_trigger_observer.esoc_dev_node_before_cnss.minor=0\n"
+                                  "pm_service_trigger_observer.esoc_dev_node_before_cnss.mknod_rc=%d\n"
+                                  "pm_service_trigger_observer.esoc_dev_node_before_cnss.mknod_errno=%d\n"
+                                  "pm_service_trigger_observer.esoc_dev_node_before_cnss.created=%d\n"
+                                  "pm_service_trigger_observer.esoc_dev_node_before_cnss.chmod_rc=%d\n"
+                                  "pm_service_trigger_observer.esoc_dev_node_before_cnss.chmod_errno=%d\n",
+                                  esoc0_path,
+                                  esoc0_mknod_rc,
+                                  esoc0_mknod_errno,
+                                  esoc0_mknod_rc == 0 ? 1 : 0,
+                                  esoc0_chmod_rc,
+                                  esoc0_chmod_errno) < 0) {
+                    composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+                    stop_property_service_shim(&property_shim, paths, stdout_buf);
+                    return -1;
+                }
+            }
             if (composite_spawn_child(cfg, paths, &children[i], stdout_buf) < 0) {
                 composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
                 stop_property_service_shim(&property_shim, paths, stdout_buf);
@@ -29201,6 +29454,138 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                 composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
                 stop_property_service_shim(&property_shim, paths, stdout_buf);
                 return -1;
+            }
+        }
+        /* v246: multi-sample pm_proxy_helper probe at 300ms, 1s, 3s, 5s.
+         * V1208 showed pph alive at 300ms with subsys_modem (fd=3) but no esoc0.
+         * V1209 hypothesis: pph opens modem unconditionally, then tries esoc0 in a
+         * separate thread (blocks in mdm_subsys_powerup). Sampling across time
+         * will show if esoc0 ever appears (state=D mdm_subsys_powerup confirms attempt). */
+        if (i == PM_OBSERVER_PM_PROXY_HELPER) {
+            static const long pph_sample_offsets_ms[4] = {300L, 1000L, 3000L, 5000L};
+            static const char *const pph_sample_labels[4] = {"300ms", "1s", "3s", "5s"};
+            long pph_spawn_mono = monotonic_ms();
+            for (size_t pph_si = 0; pph_si < 4; pph_si++) {
+                long pph_sample_target = pph_spawn_mono + pph_sample_offsets_ms[pph_si];
+                while (monotonic_ms() < pph_sample_target) {
+                    if (drain_pm_service_trigger_observer_children(children,
+                                                                   active_child_count,
+                                                                   &property_shim,
+                                                                   stdout_buf,
+                                                                   stderr_buf) < 0) {
+                        composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+                        stop_property_service_shim(&property_shim, paths, stdout_buf);
+                        return -1;
+                    }
+                    usleep(50000);
+                }
+                composite_capture_observable_children(pm_proxy_helper, 1, stdout_buf);
+                {
+                    const char *slabel = pph_sample_labels[pph_si];
+                    long elapsed_ms = monotonic_ms() - pph_spawn_mono;
+                    int pph_alive = composite_child_alive_for_snapshot(pm_proxy_helper) ? 1 : 0;
+                    char pph_wchan[64];
+                    char pph_state[4];
+                    pph_wchan[0] = '\0';
+                    pph_state[0] = '-'; pph_state[1] = '\0';
+                    int pph_esoc0_count = -1;
+                    int pph_subsys_esoc0_count = -1;
+                    int pph_subsys_modem_count = -1;
+                    if (pph_alive) {
+                        char pph_path[80];
+                        int pph_fd;
+                        /* wchan */
+                        snprintf(pph_path, sizeof(pph_path),
+                                 "/proc/%d/wchan", (int)pm_proxy_helper->pid);
+                        pph_fd = open(pph_path, O_RDONLY | O_CLOEXEC);
+                        if (pph_fd >= 0) {
+                            ssize_t wn = read(pph_fd, pph_wchan, sizeof(pph_wchan) - 1);
+                            close(pph_fd);
+                            if (wn > 0) { pph_wchan[wn] = '\0'; }
+                        }
+                        /* task state (S=sleeping, D=uninterruptible, R=running) */
+                        pph_state[0] = read_proc_state(pm_proxy_helper->pid);
+                        pph_state[1] = '\0';
+                        /* fd scans */
+                        char pph_label[96];
+                        snprintf(pph_label, sizeof(pph_label),
+                                 "pph_%s_esoc0", slabel);
+                        if (append_proc_fd_target_match_scan(stdout_buf,
+                                                             pm_proxy_helper->pid,
+                                                             "pm_service_trigger_observer",
+                                                             pph_label,
+                                                             "/dev/esoc-0",
+                                                             &pph_esoc0_count) < 0) {
+                            composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+                            stop_property_service_shim(&property_shim, paths, stdout_buf);
+                            return -1;
+                        }
+                        snprintf(pph_label, sizeof(pph_label),
+                                 "pph_%s_subsys_esoc0", slabel);
+                        if (append_proc_fd_target_match_scan(stdout_buf,
+                                                             pm_proxy_helper->pid,
+                                                             "pm_service_trigger_observer",
+                                                             pph_label,
+                                                             "/dev/subsys_esoc0",
+                                                             &pph_subsys_esoc0_count) < 0) {
+                            composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+                            stop_property_service_shim(&property_shim, paths, stdout_buf);
+                            return -1;
+                        }
+                        snprintf(pph_label, sizeof(pph_label),
+                                 "pph_%s_subsys_modem", slabel);
+                        if (append_proc_fd_target_match_scan(stdout_buf,
+                                                             pm_proxy_helper->pid,
+                                                             "pm_service_trigger_observer",
+                                                             pph_label,
+                                                             "/dev/subsys_modem",
+                                                             &pph_subsys_modem_count) < 0) {
+                            composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+                            stop_property_service_shim(&property_shim, paths, stdout_buf);
+                            return -1;
+                        }
+                    }
+                    if (append_format(stdout_buf,
+                                      "pm_service_trigger_observer.pph_sample.%s.alive=%d\n"
+                                      "pm_service_trigger_observer.pph_sample.%s.elapsed_ms=%ld\n"
+                                      "pm_service_trigger_observer.pph_sample.%s.state=%s\n"
+                                      "pm_service_trigger_observer.pph_sample.%s.wchan=%s\n"
+                                      "pm_service_trigger_observer.pph_sample.%s.esoc0_count=%d\n"
+                                      "pm_service_trigger_observer.pph_sample.%s.subsys_esoc0_count=%d\n"
+                                      "pm_service_trigger_observer.pph_sample.%s.subsys_modem_count=%d\n",
+                                      slabel, pph_alive,
+                                      slabel, elapsed_ms,
+                                      slabel, pph_state,
+                                      slabel, pph_wchan[0] ? pph_wchan : "unknown",
+                                      slabel, pph_esoc0_count,
+                                      slabel, pph_subsys_esoc0_count,
+                                      slabel, pph_subsys_modem_count) < 0) {
+                        composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+                        stop_property_service_shim(&property_shim, paths, stdout_buf);
+                        return -1;
+                    }
+                    /* keep backward compat alias from v245 using the 300ms sample */
+                    if (pph_si == 0) {
+                        if (append_format(stdout_buf,
+                                          "pm_service_trigger_observer.after_pm_proxy_helper_spawn.alive=%d\n"
+                                          "pm_service_trigger_observer.after_pm_proxy_helper_spawn.settle_ms=%ld\n"
+                                          "pm_service_trigger_observer.after_pm_proxy_helper_spawn.esoc0_count=%d\n"
+                                          "pm_service_trigger_observer.after_pm_proxy_helper_spawn.subsys_esoc0_count=%d\n"
+                                          "pm_service_trigger_observer.after_pm_proxy_helper_spawn.subsys_modem_count=%d\n"
+                                          "pm_service_trigger_observer.after_pm_proxy_helper_spawn.wchan=%s\n",
+                                          pph_alive, pph_sample_offsets_ms[0],
+                                          pph_esoc0_count, pph_subsys_esoc0_count,
+                                          pph_subsys_modem_count,
+                                          pph_wchan[0] ? pph_wchan : "unknown") < 0) {
+                            composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+                            stop_property_service_shim(&property_shim, paths, stdout_buf);
+                            return -1;
+                        }
+                    }
+                    if (!pph_alive) {
+                        break; /* no further samples needed */
+                    }
+                }
             }
         }
         if (i == PM_OBSERVER_VNDSERVICE_MANAGER) {
@@ -29317,6 +29702,93 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                 /* early per_proxy: sleep until pph_delta_ms from pph spawn, not fixed 1s */
                 long elapsed_since_pph = monotonic_ms() - pph_spawn_mono_ms;
                 long remaining_ms = (long)early_per_proxy_delta_ms - elapsed_since_pph;
+                /* v244: deferred modem holder — open subsys_modem at pph + defer_ms
+                 * so per_mgr sees mss OFFLINING at state-0 (pph+15.99s) → dep_flag=1 */
+                if (cfg->pm_observer_defer_modem_holder_pph_ms > 0 &&
+                    !deferred_modem_holder_opened) {
+                    long holder_remaining_ms =
+                        (long)cfg->pm_observer_defer_modem_holder_pph_ms - elapsed_since_pph;
+                    if (holder_remaining_ms > 0)
+                        usleep((useconds_t)holder_remaining_ms * 1000U);
+                    {
+                        int holder_pipe[2] = {-1, -1};
+                        if (pipe2(holder_pipe, O_CLOEXEC) == 0) {
+                            deferred_modem_holder_pid = fork();
+                            if (deferred_modem_holder_pid == 0) {
+                                close(holder_pipe[0]);
+                                if (chroot(paths->root) < 0 || chdir("/") < 0) {
+                                    dprintf(holder_pipe[1],
+                                            "deferred_modem_holder_opened=0 chroot_errno=%d\n",
+                                            errno);
+                                    close(holder_pipe[1]);
+                                    _exit(1);
+                                }
+                                int mfd = open("/dev/subsys_modem",
+                                               O_RDONLY | O_NONBLOCK | O_CLOEXEC);
+                                if (mfd < 0 && errno == EINVAL)
+                                    mfd = open("/dev/subsys_modem", O_RDONLY | O_CLOEXEC);
+                                if (mfd < 0) {
+                                    dprintf(holder_pipe[1],
+                                            "deferred_modem_holder_opened=0 open_errno=%d\n",
+                                            errno);
+                                    close(holder_pipe[1]);
+                                    _exit(2);
+                                }
+                                dprintf(holder_pipe[1],
+                                        "deferred_modem_holder_opened=1 fd=%d\n", mfd);
+                                close(holder_pipe[1]);
+                                for (;;) pause();
+                                _exit(0);
+                            }
+                            /* parent */
+                            if (deferred_modem_holder_pid > 0) {
+                                char hbuf[128];
+                                close(holder_pipe[1]);
+                                fcntl(holder_pipe[0], F_SETFL, O_NONBLOCK);
+                                usleep(500000); /* 500ms for child to open */
+                                ssize_t hn = read(holder_pipe[0], hbuf,
+                                                   sizeof(hbuf) - 1);
+                                if (hn > 0) hbuf[hn] = '\0'; else hbuf[0] = '\0';
+                                close(holder_pipe[0]);
+                                elapsed_since_pph = monotonic_ms() - pph_spawn_mono_ms;
+                                if (append_format(stdout_buf,
+                                    "pm_service_trigger_observer.deferred_modem_holder.spawned=1\n"
+                                    "pm_service_trigger_observer.deferred_modem_holder.pph_delta_ms=%d\n"
+                                    "pm_service_trigger_observer.deferred_modem_holder.elapsed_since_pph_ms=%ld\n"
+                                    "pm_service_trigger_observer.deferred_modem_holder.pid=%d\n"
+                                    "pm_service_trigger_observer.deferred_modem_holder.child_status=%s\n",
+                                    cfg->pm_observer_defer_modem_holder_pph_ms,
+                                    elapsed_since_pph,
+                                    (int)deferred_modem_holder_pid,
+                                    hbuf) < 0) {
+                                    composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+                                    stop_property_service_shim(&property_shim, paths, stdout_buf);
+                                    return -1;
+                                }
+                            } else {
+                                close(holder_pipe[0]);
+                                close(holder_pipe[1]);
+                                if (append_literal(stdout_buf,
+                                    "pm_service_trigger_observer.deferred_modem_holder.fork_failed=1\n") < 0) {
+                                    composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+                                    stop_property_service_shim(&property_shim, paths, stdout_buf);
+                                    return -1;
+                                }
+                            }
+                        } else {
+                            if (append_literal(stdout_buf,
+                                "pm_service_trigger_observer.deferred_modem_holder.pipe_failed=1\n") < 0) {
+                                composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+                                stop_property_service_shim(&property_shim, paths, stdout_buf);
+                                return -1;
+                            }
+                        }
+                        deferred_modem_holder_opened = true;
+                    }
+                    /* recalculate remaining for per_proxy */
+                    elapsed_since_pph = monotonic_ms() - pph_spawn_mono_ms;
+                    remaining_ms = (long)early_per_proxy_delta_ms - elapsed_since_pph;
+                }
                 if (remaining_ms > 0) {
                     if (append_format(stdout_buf,
                                       "pm_service_trigger_observer.early_per_proxy.pph_spawn_mono_ms=%ld\n"
@@ -29987,6 +30459,13 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
             modem_pre_holder_pid = -1;
         }
     }
+    if (deferred_modem_holder_pid > 0) { /* v244 */
+        int dholder_status = 0;
+        kill(deferred_modem_holder_pid, SIGKILL);
+        if (waitpid(deferred_modem_holder_pid, &dholder_status, WNOHANG) ==
+            deferred_modem_holder_pid)
+            deferred_modem_holder_pid = -1;
+    }
 
     for (size_t i = 0; i < active_child_count; i++) {
         bool safe = composite_child_postflight_safe(&children[i]);
@@ -30074,6 +30553,9 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
         }
     }
     if (modem_pre_holder_pid > 0) {
+        all_postflight_safe = false;
+    }
+    if (deferred_modem_holder_pid > 0) { /* v244 */
         all_postflight_safe = false;
     }
     if (*child_exit_code < 0 && *child_signal == 0) {
@@ -32368,6 +32850,9 @@ static int setup_namespace(const struct config *cfg,
         return -1;
     }
     if (materialize_pm_service_modem_detect_surface(cfg, paths, error_buf, error_size) < 0) {
+        return -1;
+    }
+    if (materialize_fake_esoc_name_sdxprairie(cfg, paths, error_buf, error_size) < 0) {
         return -1;
     }
     if (materialize_wifi_wlan_device(cfg, paths, error_buf, error_size) < 0) {

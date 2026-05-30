@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V1198 LIVE PASS — PM service observer + subsys_esoc0 trigger; `sdx50m_toggle_soft_reset` + `esoc_dev_ioctl` captured; GPIO 142 silent; next is V1199 MHI observation after IMG_XFER_DONE + mdm_helper SELinux context probe
+- **Active research cycle**: V1214 FAIL → V1215 host-only PASS → V1216 IN PROGRESS — V1215 disassembled libmdmdetect.so + cnss-daemon; found real root cause: `get_system_info()` finds SDX50M (type=0) from esoc bus scan AND "modem" (type=1) from msm_subsys scan; cnss-daemon's first pm_client_register call searches for type=1 → finds "modem" → peripheral='modem'. Fix: bind-mount a fake esoc_name="SDXPRAIRIE" over `/sys/bus/esoc/devices/esoc0/esoc_name` in private chroot → cnss-daemon second call (type=0, looking for "SDXPRAIRIE") matches → pm_client_register(peripheral='SDXPRAIRIE') → per_mgr opens subsys_esoc0.
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -633,6 +633,19 @@ path should be closed for this blocker.
 | v1195–v1196 | live FAIL: SAMPLE_COUNT!=0 → /proc/maps serial flood → timeout before child_summary; data lost |
 | v1197 | live FAIL: `--pm-observer-trigger-pcie-enumerate` writes to PCIe RC1 → kernel panic/reboot mid-run; tail -f fix needed |
 | v1198 | live PASS: PCIe flag removed, `tail -f "$CHILD_LOG"` streaming fix (v1106 collector); 10 status entries captured; `sdx50m_toggle_soft_reset` at t=0ms; mdm_helper thread in `esoc_dev_ioctl` at t=0ms then `SyS_nanosleep`; `mdm_helper_fds=none`; GPIO 142 count=0; mdm3 OFFLINING; next is MHI observation + mdm_helper SELinux context probe |
+| v1199–v1204 | PM service observer framework iterations: dep_flag timing via per_proxy pph+1-2s, pph+5s, pph+20s; all fail — pm-service always opens modem not esoc0 |
+| v1205 | live PASS: per_proxy at pph+20s (timing confirmed); pm-service opens subsys_modem not subsys_esoc0; per_mgr_esoc0_any=False; tracefs uprobes hit_count=0; cnss_vndbinder_any=False; root cause: dep+0x40 = mss state ONLINE before per_mgr |
+| v1206 | host/build: helper v244 adds `--pm-observer-defer-modem-holder-pph-ms`; Python script `native_wifi_pm_per_mgr_before_modem_holder_v1206.py` skips Python modem holder and defers to helper at pph+16s |
+| v1207 | host-only PASS: three-way dep+0x40 comparison closes mss/mdm3 state as dep source; dep decision is made BEFORE per_proxy; V1205/V1206 identical mss/mdm3 at per_proxy time yet different dep → dep set earlier |
+| v1208 | live PASS: helper v245 single 300ms pm_proxy_helper probe; pph alive=1 state=S wchan=SyS_nanosleep modem=1 esoc0=0; pph opens subsys_modem only (fd=3); ESOC GET_LINK_ID hypothesis closed |
+| v1209 | live PASS: helper v246 multi-sample pph probe (300ms/1s/3s/5s); pph stays SyS_nanosleep modem=1 esoc0=0 across all samples; pph is pure subsys_modem pre-holder; dep+0x40 is internal to per_mgr, not delegated to pph |
+| v1210 | live PASS: V1106 tracefs uprobes capture cnss-daemon pm_client_register peripheral='modem' (not 'SDX50M'); per_mgr opens only subsys_modem; subsys_esoc0/MDM never triggered; next: why cnss-daemon uses 'modem' not 'SDX50M' |
+| v1211 | live PASS: libmdmdetect.so esoc_framework_supported() checks /dev/esoc* existence; /dev/esoc-0 absent in native (major=484 minor=0) → peripheral='modem'; /sys/bus/esoc/devices/esoc0/esoc_name=SDX50M confirmed; next: mknod /dev/esoc-0 c 484 0 before cnss-daemon → verify peripheral='SDX50M' |
+| v1212 | live FAIL: /dev/esoc-0 already present in private namespace (EEXIST, pre-created by materialize_peripheral_manager_node_parity); cnss-daemon still uses peripheral='modem'; root cause: libmdmdetect esoc_framework_supported() checks /sys/class/esoc-dev/ not /dev/esoc-0 existence; /sys/class/esoc-dev/ absent from private chroot (not bind-mounted in PM observer mode) |
+| v1213 | helper v248: bind-mount /sys/class/esoc-dev/ in materialize_rmt_modem_detect_surface(); deploy and verify peripheral='SDX50M' |
+| v1214 | live FAIL: /sys/class/esoc-dev/ bound + /dev/esoc-0 chmod 0666; cnss-daemon still peripheral='modem'; esoc_framework_supported() check is not the real gate; V1215: disassemble libmdmdetect + cnss-daemon to find actual pm_client_register match logic |
+| v1215 | host-only PASS: full disassembly of libmdmdetect.so + cnss-daemon; get_system_info() two-phase scan: esoc bus (SDX50M type=0) + msm_subsys "modem" (type=1); cnss-daemon first pm_client_register(type=1) -> modem; second call(type=0+"SDXPRAIRIE") -> SDX50M!=SDXPRAIRIE no match; fix: fake esoc_name="SDXPRAIRIE" bind mount |
+| v1216 | helper v250: materialize_fake_esoc_name_sdxprairie() bind-mounts fake esoc_name="SDXPRAIRIE" over {mdm3}/esoc0/esoc_name in private chroot; deploy script + experiment runner written; live run pending |
 
 ### Safety additions (Wi-Fi research)
 
@@ -641,24 +654,25 @@ path should be closed for this blocker.
 - No `wlan.ko` load/unload without explicit approval
 - `firmware_class.path` rollback value: `/vendor/firmware_mnt/image`
 - `sda29` mount must be read-only in all proof windows
-- Current Wi-Fi gate after V1198: PM service observer (`wifi-companion-pm-service-trigger-observer`,
-  helper v237, v1106 collector with `tail -f` streaming) now executes full sequence:
-  per_mgr (`u:r:vendor_per_mgr:s0`), per_proxy, pm_proxy_helper, vndservice gate,
-  mdm_helper early spawn before CNSS, subsys_esoc0 power-on trigger.
-  V1198 LIVE PASS captured 10 status entries via tail -f streaming (V1197 PCIe
-  panic fixed). Key findings: (1) subsys_esoc0 open immediately triggers
-  `sdx50m_toggle_soft_reset` (SDX50M hardware reset); (2) mdm_helper thread is
-  in `esoc_dev_ioctl` at t=0ms then `SyS_nanosleep` by t=10ms — received
-  ESOC_REQ_IMG but did not complete image response; (3) `mdm_helper_fds=none`
-  throughout — no MHI fd, no firmware fd; (4) GPIO 142 `mdm status` IRQ count
-  stays 0 across 100s; (5) mdm3 stays OFFLINING; subsys_esoc0 child blocks in
-  `mdm_subsys_powerup`. RELATED restart level triggers device reboot after hold.
-  Next V1199: two parallel information probes — (A) mdm_helper SELinux context
-  repair (`kernel→vendor_mdm_helper` + `vendor_mdm_helper→vendor_ks` policy
-  transitions via private policy loader, observe if ks spawns and opens MHI pipe);
-  (B) native ESOC_IMG_XFER_DONE + MHI device appearance poll (extend V891, observe
-  if MDM creates `/dev/mhi_*` after IMG_XFER_DONE without actual firmware).
-  Results combined before committing to one path.
+- Current Wi-Fi gate after V1215: fake `esoc_name=SDXPRAIRIE` bind mount.
+  V1215 host-only PASS disassembled libmdmdetect.so + cnss-daemon and found:
+  `get_system_info()` finds SDX50M (type=0) from esoc bus scan AND "modem" (type=1)
+  from msm_subsys scan (`/sys/bus/msm_subsys/devices/subsys0/name="modem"` →
+  `get_subsystem_info` fills esoc slot with type=1 name="modem"). cnss-daemon first
+  `pm_client_register` call looks for type=1 → finds "modem" → peripheral='modem' →
+  per_mgr opens subsys_modem. Second call looks for type=0 + strcmp with "SDXPRAIRIE"
+  (hardcoded in cnss-daemon binary) → never matches SDX50M. Fix: bind-mount a fake
+  esoc_name file containing "SDXPRAIRIE" over `/sys/bus/esoc/devices/esoc0/esoc_name`
+  in the private chroot → get_soc_name("esoc0") returns "SDXPRAIRIE" → esoc_entry[0]
+  type=0 name="SDXPRAIRIE" → cnss-daemon second call matches → pm_client_register
+  peripheral='SDXPRAIRIE' → per_mgr opens subsys_esoc0 → MDM/WLFW/wlan0 (hypothesis).
+  V1216 gate: helper v250 adds fake esoc_name="SDXPRAIRIE" bind mount; verify tracefs
+  captures peripheral='SDXPRAIRIE' AND per_mgr opens subsys_esoc0.
+  Scripts: `native_wifi_pm_dep_post_cnss_per_mgr_wchan_v1210.py` (V1210 run),
+  `native_wifi_cnss_daemon_peripheral_name_v1211.py` (V1211 run).
+  Key V1198 findings: (1) subsys_esoc0 open triggers `sdx50m_toggle_soft_reset`;
+  (2) mdm_helper in `esoc_dev_ioctl` at t=0ms (ESOC_REQ_IMG received); (3) GPIO 142
+  stays 0; (4) mdm3 OFFLINING; subsys_esoc0 child blocks in `mdm_subsys_powerup`.
   Native can materialize and clean up Android-equivalent `/dev/esoc-0`,
   `/dev/subsys_esoc0`, and `/dev/subsys_modem` nodes, and can start
   service-manager trio plus `pm-service`/`pm-proxy` under that node parity.
