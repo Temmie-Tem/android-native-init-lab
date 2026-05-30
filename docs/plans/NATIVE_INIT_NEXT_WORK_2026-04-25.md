@@ -4992,3 +4992,14 @@ Samsung bootloader
 - current blocker: eSoC subsystem power-up starts but does not complete; `mdm3` remains `OFFLINING`, WLFW service 69/BDF/FW-ready/`wlan0` are still absent.
 - safety: no Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, boot image write, or vendor partition write. `cnss-daemon` start was intentional for this gate.
 - next: V1222 should focus on the post-`subsys_esoc0` power-up boundary: MDM down/crash markers, `mdm3` transitions, WLFW service 69, BDF, and `wlan0`. Keep Wi-Fi HAL and connect/ping gates blocked until lower readiness is proven.
+
+## V1222 Post-eSoC Power Boundary Live Gate (2026-05-31)
+
+- runner: `scripts/revalidation/native_wifi_post_esoc_power_boundary_v1222.py`
+- evidence: `tmp/wifi/v1222-post-esoc-power-boundary-live/manifest.json`
+- report: `docs/reports/NATIVE_INIT_V1222_POST_ESOC_POWER_BOUNDARY_2026-05-31.md`
+- result: `v1222-esoc-powerup-crash-before-wlfw`, pass `true`.
+- finding: V1221's private CNSS `SDX50M` path still reaches `/dev/subsys_esoc0`; V1222 held the observer open for 46 post-hold samples and confirmed `pm-service` stays in `mdm_subsys_powerup`, `mdm3` remains `OFFLINING`, modem-down/crash marker count rises to `4`, and WLFW/BDF/`wlan0` markers remain `0`.
+- current blocker: the lower SDX50M power-up/firmware/MHI handoff fails before WLFW publication. CNSS selection and PM eSoC routing are no longer the primary blocker.
+- safety: no Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, boot image write, or vendor partition write. `cnss-daemon` start was intentional for this gate.
+- next: V1223 should classify why Android's post-`subsys_esoc0` path reaches `mdm_helper` `/dev/esoc-0`, `ks`, MHI pipe, WLFW/BDF/`wlan0`, while native V1222 crashes/stalls before WLFW. Keep Wi-Fi HAL and connect/ping gates blocked until lower readiness is proven.
