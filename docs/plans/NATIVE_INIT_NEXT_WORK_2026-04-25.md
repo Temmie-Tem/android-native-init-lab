@@ -25,19 +25,20 @@
 
 ## 현재 Wi-Fi Gate
 
-- 최신 기준: V1217 LIVE PASS — helper v252 readback-only proof가 같은
-  private chroot 안에서 fake `esoc_name=SDXPRAIRIE` bind의 실제 read path를
-  증명했다.
-  V1217 결과: direct platform path
-  `/sys/devices/platform/soc/soc:qcom,mdm3/esoc0/esoc_name=SDXPRAIRIE`,
-  bus alias `/sys/bus/esoc/devices/esoc0/esoc_name=SDXPRAIRIE`,
-  `/sys/class/esoc-dev` `opendir_rc=0`, `count=1`.
-  helper control marker 기준 daemon/service-manager/Wi-Fi HAL/scan-connect/
-  credentials/DHCP/routes/external ping은 모두 0이다.
-  다음 게이트 V1218: helper v252로 bounded PM/CNSS observer를 재실행하고
-  tracefs에서 `cnss-daemon`이 `peripheral='SDXPRAIRIE'`를 등록하는지,
-  `per_mgr`가 `/dev/subsys_esoc0`를 여는지 검증한다. Wi-Fi HAL, scan/connect,
-  credentials, DHCP/routes, external ping은 계속 블록한다.
+- 최신 기준: V1218 LIVE FAIL — helper v252 bounded PM/CNSS observer에서
+  fake `esoc_name=SDXPRAIRIE` bind의 direct platform path와
+  `/sys/bus/esoc/devices/esoc0/esoc_name` readback은 모두 `SDXPRAIRIE`였지만,
+  `cnss-daemon`은 여전히 `peripheral='modem'`만 등록했다.
+  `SDXPRAIRIE` PM client registration은 관측되지 않았고,
+  `per_mgr_esoc0_any=false`, `wlan0_up=false`, `pm_client_register_ret=0`
+  for modem path 상태다. Post-run dmesg에는 cleanup 중
+  `subsystem_put(esoc0) count:0` reference mismatch warning이 남았으나
+  postflight `selftest fail=0`으로 복구됐다.
+  다음 게이트 V1219: bind-path 재시도보다 `cnss-daemon` /
+  `libmdmdetect.so`가 positive readback 이후에도 second type-0
+  `SDXPRAIRIE` registration을 내지 않는 이유를 추적한다. Wi-Fi HAL,
+  scan/connect, credentials, DHCP/routes, external ping, boot image write,
+  partition write는 계속 블록한다.
 - V1198 배경: V1197 root cause 분석 완료: 세 가지 레이어 문제가 중첩됨.
   V1197 root cause 분석 완료: 세 가지 레이어 문제가 중첩됨.
   (1) V1194/V1195/V1196: SAMPLE_COUNT!=0 → serial 홍수 (pm_proxy/pm-service /proc/maps 덤프
