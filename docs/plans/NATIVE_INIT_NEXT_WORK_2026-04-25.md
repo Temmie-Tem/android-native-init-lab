@@ -25,20 +25,19 @@
 
 ## 현재 Wi-Fi Gate
 
-- 최신 기준: V1219 LIVE FAIL — `cnss-daemon` / `libmdmdetect.so` trace가
-  selection gap을 직접 좁혔다. `cnss-daemon`은 second vote
-  `vote_type=0x0 vote_name="SDXPRAIRIE"`를 실제 호출하지만,
-  `libmdmdetect::get_system_info()` 결과 배열에는 type-0 eSoC entry가 없고
-  `request_type=0x0` 검색 중 `entry_type=0x1 entry_name="modem"`만 보인다.
-  따라서 `strcmp("SDXPRAIRIE", candidate)` 경로와
-  `peripheral="SDXPRAIRIE"` PM client registration은 발생하지 않는다.
-  해석: fake `esoc_name=SDXPRAIRIE` bind는 readback은 되지만
-  `libmdmdetect`의 supported-eSoC 필터에서 type-0 entry를 제거한다.
-  다음 게이트 V1220: host/build-only로 private patched `cnss-daemon` 후보를
-  검토한다. 방향은 vendor partition write 없이 runtime selection literal
-  `SDXPRAIRIE`를 실제 supported eSoC name `SDX50M`으로 맞추는 것.
-  Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, boot image
-  write, partition write는 계속 블록한다.
+- 최신 기준: V1220 HOST PASS — V1219 trace로 확인된 selection gap에 대해
+  private `cnss-daemon` artifact 후보를 생성했다. 단일 `SDXPRAIRIE\0`
+  literal at `0x6cd4`를 `SDX50M\0` C string으로 바꾸며, 파일 크기
+  `95112` 유지, byte delta `4`, output SHA256
+  `784fd7bd9b602d8e1f94c9ceef977845909f452611025c40fda589d0e57de5fd`.
+  산출물은 `tmp/wifi/v1220-cnss-daemon-sdx50m-patch/artifacts/cnss-daemon.sdx50m`.
+  다음 게이트 V1221: helper live gate에서 vendor partition write 없이
+  private namespace 안에서만 patched `cnss-daemon`을 사용한다. 성공 기준은
+  `libmdmdetect`가 real `SDX50M` eSoC entry를 유지하고, `cnss-daemon`이
+  type-0 PM client registration을 내며, 그 다음 `per_mgr`가
+  `/dev/subsys_esoc0`로 전진하는지 보는 것이다. Wi-Fi HAL, scan/connect,
+  credentials, DHCP/routes, external ping, boot image write, partition write는
+  계속 블록한다.
 - V1198 배경: V1197 root cause 분석 완료: 세 가지 레이어 문제가 중첩됨.
   V1197 root cause 분석 완료: 세 가지 레이어 문제가 중첩됨.
   (1) V1194/V1195/V1196: SAMPLE_COUNT!=0 → serial 홍수 (pm_proxy/pm-service /proc/maps 덤프
