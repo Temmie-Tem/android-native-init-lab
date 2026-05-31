@@ -5668,3 +5668,59 @@ Samsung bootloader
   bounded reboot-safe RC power experiment. No PMIC/GPIO/GDSC writes, no Wi-Fi
   HAL/scan/connect/DHCP/routes/external ping until read-only work justifies a
   specific bounded action.
+
+### Post-V1352 routing correction
+
+- V1351/V1352 evidence is retained, but it is no longer the best next branch:
+  `cnss-daemon` reaches `cld80211` and stops before `wlfw_start`, while the
+  lower SDX50M still never asserts MDM2AP/GPIO142. Per the 2026-06-01 host
+  analysis, that makes the CNSS-WLFW branch downstream evidence, not the next
+  active blocker.
+- Do not spend the next cycle on PM register/connect return tracing, CNSS-WLFW
+  retry, `ESOC_REQ_IMG`, `ESOC_NOTIFY`, `BOOT_DONE`, `ks`, or MHI pipe
+  expansion unless a read-only pcie1/PON classifier first proves MDM2AP can
+  plausibly advance.
+- Current active blocker statement:
+  `mdm_subsys_powerup -> mdm4x_do_first_power_on -> sdx50m_toggle_soft_reset`
+  is already reached on native; AP2MDM/TLMM135 and PM8150L GPIO9 are observed
+  moving in prior evidence; MDM2AP/TLMM142 remains low; pcie1 RC power was
+  previously observed at 0mV. Therefore the next unknown is whether the RC-side
+  PCIe prerequisites or PON timing/parity are missing at the moment SDX50M is
+  asked to boot.
+
+### Next read-only cycle candidates
+
+1. **V1353 pcie1 RC static contract classifier (host-only).**
+   - Inputs: `sm8150-pcie.dtsi`, `sm8150-mhi.dtsi`, `sm8150-sdx50m.dtsi`,
+     r3q overlay, V1306 GDSC evidence, and the host analysis report.
+   - Output: pcie1 (`qcom,pcie@1c08000`) contract table for GDSC, GCC clocks,
+     PERST/reset GPIO, refclk, wake GPIO, power-domains, pinctrl, and any
+     runtime sysfs/debugfs paths expected to exist in native.
+   - No device command, no live probing, no writes.
+2. **V1354 pcie1 RC live read-only power observer.**
+   - Run only after V1353 defines the expected surfaces.
+   - Observe pcie1 GDSC/regulator/debugfs clock summaries, link state,
+     runtime PM state, PERST/refclk-visible pinctrl/debugfs lines, PCI/MHI bus
+     entries, and dmesg pcie1 markers before/during a bounded existing
+     current-route power-up window.
+   - Must not write sysfs/debugfs, request GPIO lines, trigger pcie enumerate,
+     change GDSC/regulator state, call eSoC notify/BOOT_DONE, start Wi-Fi HAL,
+     scan/connect, use credentials, DHCP/routes, external ping, flash, boot
+     image write, or partition write.
+3. **V1355 PM8150L GPIO9 PON parity classifier.**
+   - Compare provider `sdx50m_toggle_soft_reset` / `mdm4x_do_first_power_on`
+     strings/DTS timing (`reset-time-ms`) with native read-only evidence for
+     PM8150L GPIO9/PON level and transition timing.
+   - If live is needed, it must be a read-only sampler of pinctrl/debugfs/gpio
+     text plus timestamped dmesg, not a GPIO request or PMIC write.
+
+### Required decision before any new mutation
+
+- If V1354 proves pcie1 RC never powers/refclks while provider/PON toggles are
+  correct, the first bounded mutation candidate is a reboot-safe pcie1 RC
+  enable experiment, not CNSS/WLFW retry.
+- If V1355 proves PON timing/parity is wrong, the first bounded mutation
+  candidate is a narrowly scoped PM8150L GPIO9/PON sequencing experiment.
+- If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
+  never asserts, then re-open the lower eSoC/MHI/ks branch with the new
+  evidence. Until then, keep V1337-V1352 upper tracks parked.
