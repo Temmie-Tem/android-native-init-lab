@@ -5412,3 +5412,29 @@ Samsung bootloader
   request-return / `ks` observer that preserves the V1228 non-ptrace path and
   samples `/vendor/bin/ks` plus `/dev/mhi_0305_01.01.00_pipe_10` before any
   `ESOC_NOTIFY`, `ESOC_BOOT_DONE`, or Wi-Fi HAL expansion.
+
+## V1323 Provider Wait-cause Classifier (2026-05-31)
+
+- runner: `scripts/revalidation/native_wifi_provider_wait_cause_classifier_v1323.py`
+- evidence: `tmp/wifi/v1323-provider-wait-cause-classifier/manifest.json`
+- report: `docs/reports/NATIVE_INIT_V1323_PROVIDER_WAIT_CAUSE_CLASSIFIER_2026-05-31.md`
+- result: `v1323-provider-wait-cause-is-proprietary-powerup-response`, pass `true`.
+- finding: public Samsung OSRC `subsystem_restart.c` places the board provider
+  `powerup()` before `wait_for_err_ready()`, and the staged OSRC tree does not
+  contain the proprietary `mdm_subsys_powerup` body. V849/V918/V963 place the
+  live native block inside that proprietary ext-mdm path with stacks including
+  `sdx50m_toggle_soft_reset`, `mdm4x_do_first_power_on`, `mdm_cmd_exe`, and
+  `mdm_subsys_powerup`.
+- interpretation: the blocker is not public `wait_for_err_ready()` and not the
+  earlier image-link/PM actor delivery gate. It is the proprietary provider
+  response path after SDX50M soft-reset/AP2MDM activity and before GPIO142,
+  PCIe RC1/MHI, WLFW/BDF, or `wlan0` response. Android-positive evidence proves
+  those downstream responses are possible under Android.
+- safety: host-only classifier; no device command, PM actor start, `mdm_helper`
+  start, tracefs write, live eSoC ioctl/notify, PMIC write, GPIO line request,
+  direct GDSC/eSoC write, Wi-Fi HAL start, scan/connect, credentials,
+  DHCP/routes, external ping, flash, boot image write, or partition write.
+- next: V1324 should classify Android-vs-native provider response deltas around
+  GPIO142, errfatal, soft-reset, and PCIe timing from host/source evidence
+  first. Only after that should a bounded read-only or reboot-bounded live
+  sampler be designed.
