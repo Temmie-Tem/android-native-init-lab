@@ -210,11 +210,13 @@
   확인했다. V1299는 bounded compact dense live sampler를 실행했고 full dense window를
   확보했다: mode `late-per-proxy-dense-compact-pinctrl-irq-pcie`, sample count `42`,
   `response_sampler.end=1`, helper stdout `truncated=0 bytes=778235`. GPIO142/PCIe/MHI/WLFW/
-  `ks`/`wlan0`는 여전히 absent이고 `mdm3=OFFLINING`이지만, 이번에는 V1295와 달리
-  `pm-service`의 `/dev/subsys_esoc0` open attempt가 관측되지 않았다. late `per_proxy`는
-  시작됐고 `per_mgr`는 `/dev/subsys_modem`을 유지했으므로 다음 V1300은 host-only로
-  V1295/V1299 transcript를 비교해 late `per_proxy` → PM-service Binder/request delivery와
-  compact-vs-verbose side effect를 분류한다.
+  `ks`/`wlan0`는 여전히 absent이고 `mdm3=OFFLINING`이다. V1300은 host-only로 V1295/V1299
+  transcript를 비교했고 V1299의 `/dev/subsys_esoc0` 미재현 manifest 해석을 false
+  negative로 정정했다: transcript에는 `path.value=/dev/subsys_esoc0` 2회와
+  `wchan=mdm_subsys_powerup` 13회가 남아 있다. 원인은 compact mode가 repeated
+  syscall/kmsg probe를 제거했고, blocked open은 visible fd를 만들지 않아 fd-only
+  classifier가 실패한 것이다. 다음 V1301은 source/build-only로 compact powerup-thread/path
+  marker를 추가해 stdout cap 없이 `/dev/subsys_esoc0` reachability를 기록한다.
   GPIO line request, PMIC GPIO9 hold, PMIC write, direct eSoC ioctl, new
   PM/CNSS/HAL start, scan/connect, credentials, DHCP/routes, external ping, flash,
   boot image write, partition write는 별도 gate 전까지 계속 블록한다.
