@@ -1180,3 +1180,10 @@ Update after V1354/V1355:
   remain empty, and no RC1-safe userspace enumerate surface is proven. The next
   gate is V1358 temporary-debugfs mount/cleanup read-only verification before
   deciding whether `cnss/dev_boot enumerate` is truly unavailable.
+- V1358 temporary-debugfs verifier (`v1358-icnss-debugfs-only-no-cnss-dev-boot`)
+  mounted debugfs, read the live Wi-Fi debugfs surface, and cleaned up. The
+  live kernel exposes `/sys/kernel/debug/icnss/stats` only, not CNSS2
+  `/sys/kernel/debug/cnss/dev_boot`; ICNSS stats are `State: 0x80(SSR
+  REGISTERED)` with `SERVER_ARRIVE=0`, `FW_READY=0`, `REGISTER_DRIVER=0`.
+  `cnss/dev_boot enumerate` is unavailable; next gate is host-only ICNSS/
+  `pci-msm` userspace entry classification.

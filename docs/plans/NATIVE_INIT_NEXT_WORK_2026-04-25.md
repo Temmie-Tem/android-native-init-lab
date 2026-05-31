@@ -5792,6 +5792,24 @@ Samsung bootloader
      write, platform bind/unbind, PCI rescan, PMIC/GPIO/GDSC write, eSoC
      notify/`BOOT_DONE`, Wi-Fi HAL, scan/connect, DHCP/routes, external ping,
      flash, boot image write, and partition write excluded.
+   - Status: PASS. See
+     `docs/reports/NATIVE_INIT_V1358_PCIE1_RC_DEBUGFS_SURFACE_VERIFIER_LIVE_2026-06-01.md`.
+     Decision: `v1358-icnss-debugfs-only-no-cnss-dev-boot`. V1358 mounted
+     debugfs temporarily, verified cleanup (`mounted_before=false`,
+     `mounted_during=true`, `mounted_after=false`), and found `icnss/stats`
+     but no `cnss` directory and no `cnss/dev_boot`. ICNSS state is
+     `0x80(SSR REGISTERED)` with `SERVER_ARRIVE=0`, `FW_READY=0`, and
+     `REGISTER_DRIVER=0`; pcie1 GDSC/clock/GPIO surfaces are visible but
+     PCI/MHI devices remain absent. Therefore `cnss/dev_boot enumerate` is not
+     available on this live kernel.
+7. **V1359 ICNSS/pci-msm userspace entry classifier (host-only first).**
+   - Reclassify the remaining safe entry options after V1358: the active
+     debugfs surface is ICNSS `stats` only, while pcie1 is a bound `pci-msm`
+     platform device. Determine whether any read/write sysfs/debugfs surface
+     can invoke `msm_pcie_enumerate(1)` narrowly, or whether a custom kernel
+     module/source patch is the only remaining direct path.
+   - Do not attempt platform bind/unbind, PCI rescan, direct MMIO, PMIC/GPIO/
+     GDSC writes, eSoC notify/`BOOT_DONE`, or Wi-Fi HAL/scan/connect in V1359.
 
 ### Required decision before any new mutation
 
@@ -5802,9 +5820,10 @@ Samsung bootloader
 - Because debugfs was not mounted in V1357, V1358 may perform a temporary
   debugfs mount/cleanup read-only verifier before declaring `cnss/dev_boot`
   unavailable.
-- If V1357 proves `cnss/dev_boot enumerate` is present and RC1-safe, a later
-  bounded mutation may consider only `enumerate` first, not `powerup`.
-- If V1357 only finds platform bind/probe or global PCI rescan, stop for a new
+- V1358 proved `cnss/dev_boot` unavailable even with debugfs mounted; the
+  remaining path is an ICNSS/pci-msm userspace entry analysis, not CNSS2
+  `dev_boot` usage.
+- If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
   never asserts, then re-open the lower eSoC/MHI/ks branch with the new
