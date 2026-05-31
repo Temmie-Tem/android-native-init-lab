@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V1236 HOST-ONLY PASS → V1237 bounded live late-per_proxy gate planned — Android positive path correlates `vendor.per_proxy` start (`8.824458s`) before `pm-service` Binder `__subsystem_get(esoc0)`/`mdm_subsys_powerup` (`9.491382s`), with `ks`/MHI, GPIO142, WLFW/BDF/`wlan0` present. Native V1235 proves `mdm_helper` WAIT return alone does not exec `ks` (`execve=0`) or create MHI. Next live gate should preserve the V1235 branch snapshot and add only late `per_proxy` after `mdm_helper` holds `/dev/esoc-0`; still no Wi-Fi HAL/scan/connect, credentials, DHCP/routes, external ping, flash, boot image write, or partition write.
+- **Active research cycle**: V1237 LIVE PASS → V1238 late-per_proxy-only gate planned — V1237 proved the late `per_proxy` request was injected, but the V1235-derived direct `/dev/subsys_esoc0` trigger preempted the late actor block, so `pm_service_trigger_observer.late_per_proxy.begin=1` never appeared. V1238 must remove `--pm-observer-open-subsys-esoc0-after-mdm-helper-esoc` and test only the Android-positive late `per_proxy` → `pm-service` actor path after `mdm_helper` holds `/dev/esoc-0`; still no Wi-Fi HAL/scan/connect, credentials, DHCP/routes, external ping, flash, boot image write, or partition write.
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -934,3 +934,8 @@ V1235 added `scripts/revalidation/native_wifi_mdm_helper_post_wait_req_branch_sn
 ## Latest native Wi-Fi state: V1236 (2026-05-31)
 
 V1236 added `scripts/revalidation/native_wifi_android_ks_runtime_contract_classifier_v1236.py` and classified existing Android/native evidence host-only. Result: `v1236-ks-contract-is-pm-proxy-pm-service-trigger-not-mdm-helper-exec` PASS. Android evidence proves `mdm3=ONLINE`, WLFW/BDF/`wlan0`, GPIO142 IRQ `1`, `mdm_helper` `/dev/esoc-0`, `ks` `/dev/esoc-0`, `ks` MHI pipe, and `per_mgr` `/dev/subsys_esoc0`; timeline shows `per_proxy=8.824458s` before `pm_service_esoc0_get=9.491382s`. Native V1235 proves `mdm_helper` leaves `ESOC_WAIT_FOR_REQ` but `execve=0`, `ks=0`, MHI pipe/fd `0`, GPIO142 `0`, and direct child remains in `mdm_subsys_powerup`. No device command or mutation occurred. Next is V1237: bounded live gate with late `per_proxy` after `mdm_helper` holds `/dev/esoc-0`, retaining branch snapshot and no Wi-Fi HAL/connect/network actions.
+
+
+## Latest native Wi-Fi state: V1237 (2026-05-31)
+
+V1237 added `scripts/revalidation/native_wifi_late_per_proxy_branch_snapshot_live_v1237.py` and ran the bounded branch snapshot with the late `per_proxy` flag injected. Result: `v1237-direct-subsys-trigger-preempted-late-per-proxy` PASS. The helper output showed `late_per_proxy_after_mdm_helper_esoc_fd_requested=1`, `post_wait_req.transition_detected=1` at sample `4`, branch phases `36`, `execve=0`, `ks=0`, MHI pipe/fd `0`, and no Wi-Fi progress. The late actor block did not begin because the V1235-derived direct `/dev/subsys_esoc0` trigger path completed first. This closes the combined-trigger design: V1238 should split to a late-`per_proxy`-only live gate without the direct subsystem trigger, then observe `pm-service` `/dev/subsys_esoc0`, `ks`, MHI, GPIO142, PCIe RC1, WLFW service 69, BDF, and `wlan0`.
