@@ -5438,3 +5438,22 @@ Samsung bootloader
   GPIO142, errfatal, soft-reset, and PCIe timing from host/source evidence
   first. Only after that should a bounded read-only or reboot-bounded live
   sampler be designed.
+
+## V1324 Provider Response Delta Classifier Plan (2026-05-31)
+
+- plan: `docs/plans/NATIVE_INIT_V1324_PROVIDER_RESPONSE_DELTA_PLAN_2026-05-31.md`
+- type: host/source-only classifier plan
+- status: plan ready; implementation not yet run
+- objective: compare Android-positive and native-negative evidence inside the
+  V1323 proprietary ext-mdm provider response window, specifically after
+  GPIO1270/GPIO135/AP2MDM activity and before GPIO142/MDM2AP, PCIe RC1, MHI/ks,
+  WLFW/BDF, and `wlan0` response.
+- required inputs: V1323, V1318, V1319, V1239, V1240, V1291, V852, V896, and the
+  staged MDM3/eSoC research/source files.
+- expected output: `scripts/revalidation/native_wifi_provider_response_delta_classifier_v1324.py`,
+  `tmp/wifi/v1324-provider-response-delta-classifier/manifest.json`, and
+  `docs/reports/NATIVE_INIT_V1324_PROVIDER_RESPONSE_DELTA_CLASSIFIER_2026-05-31.md`.
+- safety: no device command, helper deploy, PM actor start, `mdm_helper`,
+  tracefs write, eSoC ioctl/notify/BOOT_DONE, PMIC/GPIO/GDSC write, Wi-Fi HAL,
+  scan/connect, credentials, DHCP/routes, external ping, flash, boot image write,
+  or partition write.
