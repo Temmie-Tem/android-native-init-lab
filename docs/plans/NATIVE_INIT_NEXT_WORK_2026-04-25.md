@@ -5753,14 +5753,36 @@ Samsung bootloader
    - Keep Wi-Fi HAL, scan/connect, credential use, DHCP/routes, external ping,
      eSoC notify/`BOOT_DONE`, flash, boot image write, and partition write out
      of the first pcie1 RC experiment.
+   - Status: PASS. See
+     `docs/reports/NATIVE_INIT_V1356_PCIE1_RC_ENABLE_DESIGN_2026-06-01.md`.
+     Decision: `v1356-pcie1-rc-enable-design-ready-readonly-surface-next`.
+     V1356 identifies `msm_pcie_enumerate(1)` as the correct kernel semantic
+     operation, but no safe userspace entry is proven yet. `cnss/dev_boot
+     enumerate` is a possible surface only if V1357 proves it exists and maps
+     to pcie1 rather than generic RC0; platform driver bind/probe and broad
+     PCI rescan remain too broad for the first mutation.
+5. **V1357 pcie1 RC control-surface verifier (live read-only).**
+   - Collect only read-only evidence for `/sys/devices/platform/soc/*1c08000*`,
+     `/sys/bus/platform/devices/*1c08000*`, platform driver symlinks,
+     `/sys/kernel/debug/cnss/dev_boot` usage text if present, live devicetree
+     `qcom,wlan-rc-num` / `qcom,pcie-parent` mappings, pcie1 GDSC/refclk/pipe
+     clocks, GPIO102/PERST, GPIO103/CLKREQ, GPIO104/WAKE, `/proc/interrupts`,
+     and focused pcie1/LTSSM/MHI dmesg.
+   - Do not write sysfs/debugfs, do not bind/unbind platform drivers, do not
+     write `cnss/dev_boot`, do not rescan PCI, and do not touch PMIC/GPIO/GDSC
+     control. The output should decide whether a later V1358-style bounded
+     `enumerate` experiment is valid or whether no safe live surface exists.
 
 ### Required decision before any new mutation
 
-- If V1354 proves pcie1 RC never powers/refclks while provider/PON toggles are
-  correct, the first bounded mutation candidate is a reboot-safe pcie1 RC
-  enable experiment, not CNSS/WLFW retry.
-- If V1355 proves PON timing/parity is wrong, the first bounded mutation
-  candidate is a narrowly scoped PM8150L GPIO9/PON sequencing experiment.
+- V1354 proved pcie1 RC never powers/refclks while the lower provider route is
+  reached, and V1355 closed PON parity as the shortest blocker. Therefore the
+  next step is not a mutation yet; it is V1357 live read-only control-surface
+  verification.
+- If V1357 proves `cnss/dev_boot enumerate` is present and RC1-safe, a later
+  bounded mutation may consider only `enumerate` first, not `powerup`.
+- If V1357 only finds platform bind/probe or global PCI rescan, stop for a new
+  design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
   never asserts, then re-open the lower eSoC/MHI/ks branch with the new
   evidence. Until then, keep V1337-V1352 upper tracks parked.

@@ -1167,3 +1167,10 @@ Update after V1354/V1355:
   native GPIO1270 low/high pulse before GPIO135/AP2MDM. Next active design gate
   is a host-only bounded pcie1 RC enable plan, not PMIC GPIO9 write/hold or
   upper CNSS/WLFW retry.
+- V1356 host-only design (`v1356-pcie1-rc-enable-design-ready-readonly-surface-next`)
+  identifies `msm_pcie_enumerate(1)` as the correct kernel semantic operation,
+  but no safe userspace entry is proven. `cnss/dev_boot enumerate` is only a
+  candidate if a live read-only verifier proves it exists and maps to pcie1/RC1
+  rather than generic RC0. The next cycle is V1357 live read-only surface
+  verification; do not write `cnss/dev_boot`, bind platform drivers, rescan PCI,
+  touch PMIC/GPIO/GDSC, start HAL, scan/connect, DHCP/routes, or external ping.
