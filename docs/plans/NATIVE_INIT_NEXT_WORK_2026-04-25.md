@@ -6183,6 +6183,15 @@ Samsung bootloader
     - Hard stop: deploy/preflight only. No Wi-Fi HAL, scan/connect/credentials,
       DHCP/routes, external ping, PMIC/GPIO/GDSC writes, eSoC notify/
       `BOOT_DONE`, flash, boot image write, or partition write.
+    - Result:
+      `docs/reports/NATIVE_INIT_V1375_EXECNS_HELPER_V282_DEPLOY_2026-06-01.md`.
+      Decision: `execns-helper-v282-deploy-pass`. Helper v282 was installed to
+      `/cache/bin/a90_android_execns_probe`; post-deploy SHA matched
+      `c1f4670536c37b068dd2f8ac807c0eb5416eb3f248857791002156c1f0195418`,
+      helper usage exposed `a90_android_execns_probe v282` and
+      `--pm-observer-late-per-proxy-corrected-rc1-enumerate`, and post selftest
+      stayed clean. NCM was inactive, so `auto` transfer used serial fallback;
+      the safe successful chunk size was `1800`.
 
 24. **V1376 bounded Android participant + corrected RC1 enumerate live gate.**
     - Goal: start the lower Android participant parity path
@@ -6281,6 +6290,10 @@ Samsung bootloader
 - V1374 implements the source/build-only support for that path in helper v282.
   V1375 must deploy/preflight the helper before V1376 live. Do not run V1376
   until v282 marker/SHA/usage/selftest are proven on-device.
+- V1375 proves helper v282 is on-device and healthy. V1376 may now run the
+  bounded Android participant parity + corrected RC1 enumerate gate, still
+  below Wi-Fi HAL/scan/connect/network and with reboot cleanup/recovery
+  evidence required.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still

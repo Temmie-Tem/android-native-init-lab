@@ -1322,3 +1322,14 @@ Update after V1354/V1355:
   credentials, DHCP/routes, external ping, PMIC/GPIO/GDSC writes, eSoC
   notify/`BOOT_DONE`, flash, boot image writes, and partition writes remain
   excluded.
+- V1375 deploy-only preflight (`execns-helper-v282-deploy-pass`) installed
+  helper v282 to `/cache/bin/a90_android_execns_probe`. NCM was inactive, so
+  the wrapper used serial fallback; the first 3000-byte chunk attempt was
+  rejected before transfer by line-safety checks, and the successful run used
+  1800-byte chunks (`1061` chunks, max cmdv1 line `3786` <= safe limit `3968`).
+  Post-deploy SHA matched
+  `c1f4670536c37b068dd2f8ac807c0eb5416eb3f248857791002156c1f0195418`, helper
+  usage showed `a90_android_execns_probe v282` and the corrected RC1 flag, and
+  post selftest remained clean. No daemon start, Wi-Fi HAL, scan/connect,
+  credentials, DHCP/routes, external ping, flash, boot image write, or
+  partition write occurred. Next is V1376 bounded live.
