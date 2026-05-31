@@ -25,8 +25,8 @@
 
 ## 현재 Wi-Fi Gate
 
-- 최신 기준: V1256 READ-ONLY LIVE PASS —
-  `v1256-gpiochip-temporary-devnode-feasible`.
+- 최신 기준: V1257 SOURCE/BUILD PASS —
+  `v1257-gpiochip-devnode-open-helper-build-pass`.
   V1239는 Android/V1238 증거를 비교해 blocker를 `pm-service`
   `/dev/subsys_esoc0` / `mdm_subsys_powerup` 이후로 낮췄고, V1240은
   SDX50M/eSoC response surface와 GPIO142 `mdm status` IRQ count `0`을
@@ -64,11 +64,18 @@
   devnode feasibility를 분류해 `/proc/devices` `254 gpiochip`,
   `/sys/bus/gpio/devices/gpiochip2/dev=254:2`, `/sys/class/gpio/gpiochip1263`
   label `c440000.qcom,spmi:qcom,pm8150l@4:pinctrl@c000`, `ngpio=11`을 확인했다.
-  다음 V1257은 helper v262 source/build-only로 temporary `/dev/gpiochip2`
-  materialization + read-only `GPIO_GET_CHIPINFO_IOCTL` support를 추가한다.
-  mknod live 실행, GPIO line request, PMIC GPIO9 hold, `/dev/subsys_esoc0` open,
-  PM/CNSS/HAL start, scan/connect, credentials, DHCP/routes, external ping,
-  flash, boot image write, partition write는 별도 gate 전까지 계속 블록한다.
+  V1257은 helper `a90_android_execns_probe v262` source/build-only로
+  `wifi-companion-pmic-gpiochip-devnode-open-preflight` mode와
+  `--allow-pmic-gpiochip-devnode-open-preflight` gate를 추가했다. 이 helper는
+  V1256 sysfs contract(`/sys/bus/gpio/devices/gpiochip2/dev=254:2`,
+  `gpiochip1263` base `1263`, `ngpio=11`, PM8150L label)를 fail-closed로 확인한
+  뒤, 별도 live gate에서만 임시 `/dev/gpiochip2` char node를 만들고 read-only
+  `GPIO_GET_CHIPINFO_IOCTL`을 실행하도록 준비됐다. V1257은 build-only라 deploy,
+  device command, live mknod/open을 실행하지 않았다. 다음 V1258은 v262 deploy-only,
+  V1259는 bounded live devnode-open proof다. GPIO line request, PMIC GPIO9 hold,
+  `/dev/subsys_esoc0` open, PM/CNSS/HAL start, scan/connect, credentials,
+  DHCP/routes, external ping, flash, boot image write, partition write는 별도 gate
+  전까지 계속 블록한다.
 - V1198 배경: V1197 root cause 분석 완료: 세 가지 레이어 문제가 중첩됨.
   V1197 root cause 분석 완료: 세 가지 레이어 문제가 중첩됨.
   (1) V1194/V1195/V1196: SAMPLE_COUNT!=0 → serial 홍수 (pm_proxy/pm-service /proc/maps 덤프
