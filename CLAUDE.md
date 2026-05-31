@@ -1155,3 +1155,15 @@ provider's `reset-time-ms`. Only then consider a bounded reboot-safe RC power
 experiment. Keep all prior hard exclusions (no PMIC/GPIO/GDSC writes, no Wi-Fi
 HAL/scan/connect/DHCP/routes/external ping) until the read-only classification
 justifies a specific bounded action.
+
+Update after V1354/V1355:
+- V1354 live observer (`v1354-current-route-pcie1-rc-stayed-off`) reached
+  `mdm_subsys_powerup`, but `pcie_1_gdsc` stayed `0mV`, pcie1 clkref/pipe stayed
+  disabled, GPIO102/PERST stayed low, and no GPIO142/PCI/MHI/WLFW/wlan0
+  transition appeared.
+- V1355 host classifier (`v1355-pon-parity-closed-pcie1-rc-next`) closed PM8150L
+  GPIO9/PON as the shortest blocker: DTS maps it to ext-sdx50m soft-reset,
+  V1276 shows native/Android steady-state `out/high`, and V1318 captured a
+  native GPIO1270 low/high pulse before GPIO135/AP2MDM. Next active design gate
+  is a host-only bounded pcie1 RC enable plan, not PMIC GPIO9 write/hold or
+  upper CNSS/WLFW retry.

@@ -5735,6 +5735,24 @@ Samsung bootloader
      PM8150L GPIO9/PON level and transition timing.
    - If live is needed, it must be a read-only sampler of pinctrl/debugfs/gpio
      text plus timestamped dmesg, not a GPIO request or PMIC write.
+   - Status: PASS. See
+     `docs/reports/NATIVE_INIT_V1355_PMIC_GPIO9_PON_PARITY_CLASSIFIER_2026-06-01.md`.
+     Decision: `v1355-pon-parity-closed-pcie1-rc-next`. PM8150L GPIO9/PON maps
+     to the expected ext-sdx50m soft-reset line, V1276 proves native and
+     Android steady-state polarity both `out/high`, and V1318 captured the
+     native provider's GPIO1270 low/high pulse before GPIO135/AP2MDM. Public
+     DTS/OSRC does not expose the proprietary `reset-time-ms`, but PON parity is
+     closed enough to reject blind PMIC GPIO9 write/hold as the next step.
+4. **V1356 pcie1 RC bounded enable design (host-only first).**
+   - Design, but do not yet execute, a reboot-safe pcie1 RC enable experiment
+     using the V1353 static contract and V1354 live proof that `pcie_1_gdsc`,
+     pcie1 clkref/pipe, GPIO102/PERST, PCI, and MHI remain off in native.
+   - Required design gates: exact kernel/userland control surface, preflight
+     readback, timeout, cleanup/reboot behavior, negative safety exclusions, and
+     stop conditions if GDSC/refclk/PERST does not become healthy.
+   - Keep Wi-Fi HAL, scan/connect, credential use, DHCP/routes, external ping,
+     eSoC notify/`BOOT_DONE`, flash, boot image write, and partition write out
+     of the first pcie1 RC experiment.
 
 ### Required decision before any new mutation
 
