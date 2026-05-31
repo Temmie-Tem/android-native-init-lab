@@ -257,8 +257,11 @@
   `eb96072631ca38c3296f5da1756a93765e198e8fdd4dc010d087bc4b3b5fc180`이다. V1308은
   helper `v274` deploy-only로 PASS했고 remote `/cache/bin/a90_android_execns_probe`
   sha256도 동일했다. NCM은 inactive라 serial fallback으로 배포했으며 daemon start나
-  Wi-Fi bring-up은 없었다. 다음 V1309는 bounded no-write PMIC/GDSC transition
-  sampler live다.
+  Wi-Fi bring-up은 없었다. V1309는 bounded no-write PMIC/GDSC transition sampler
+  live로 PASS했다. Helper stdout이 기존 `1MiB` cap에 닿아 full end marker는
+  없었지만 `76` focused samples에서 `/dev/subsys_esoc0` → `mdm_subsys_powerup`
+  경계와 PMIC/GDSC no-transition을 확인했다. 다음 V1310은 exact safe lower
+  prerequisite host-only 분류 또는 stdout-reduced sampler support다.
   GPIO line request, PMIC GPIO9 hold, PMIC write, direct eSoC ioctl, new
   PM/CNSS/HAL start, scan/connect, credentials, DHCP/routes, external ping, flash,
   boot image write, partition write는 별도 gate 전까지 계속 블록한다.
