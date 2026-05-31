@@ -1174,3 +1174,9 @@ Update after V1354/V1355:
   rather than generic RC0. The next cycle is V1357 live read-only surface
   verification; do not write `cnss/dev_boot`, bind platform drivers, rescan PCI,
   touch PMIC/GPIO/GDSC, start HAL, scan/connect, DHCP/routes, or external ping.
+- V1357 live read-only verifier (`v1357-pcie1-platform-surface-only`) proves the
+  pcie1 platform node exists and is bound to `pci-msm`, but debugfs is not
+  mounted, `/sys/kernel/debug/cnss/dev_boot` is absent in that state, PCI/MHI
+  remain empty, and no RC1-safe userspace enumerate surface is proven. The next
+  gate is V1358 temporary-debugfs mount/cleanup read-only verification before
+  deciding whether `cnss/dev_boot enumerate` is truly unavailable.

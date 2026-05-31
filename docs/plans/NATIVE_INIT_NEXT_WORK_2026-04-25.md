@@ -5772,13 +5772,36 @@ Samsung bootloader
      write `cnss/dev_boot`, do not rescan PCI, and do not touch PMIC/GPIO/GDSC
      control. The output should decide whether a later V1358-style bounded
      `enumerate` experiment is valid or whether no safe live surface exists.
+   - Status: PASS. See
+     `docs/reports/NATIVE_INIT_V1357_PCIE1_RC_CONTROL_SURFACE_VERIFIER_LIVE_2026-06-01.md`.
+     Decision: `v1357-pcie1-platform-surface-only`. Live native exposes
+     pcie1 as `/sys/bus/platform/drivers/pci-msm/1c08000.qcom,pcie`; the
+     driver is bound and runtime power reports `unsupported`/`auto`. However
+     debugfs is not mounted, `/sys/kernel/debug/cnss/dev_boot` is absent in
+     that state, no PCI/MHI devices exist, and live DT only shows generic
+     `qcom,wlan-rc-num` value `0` for the inactive cnss2 node plus a separate
+     `qcom,pcie-parent` phandle. V1357 does not prove any RC1-safe userspace
+     enumerate surface.
+6. **V1358 temporary-debugfs pcie1 RC control-surface verifier.**
+   - Use the existing V1255-style temporary debugfs mount/cleanup pattern, but
+     only to read `/sys/kernel/debug/cnss/dev_boot`, cnss debug files,
+     regulator/clock/gpio summaries, and pcie1/PERST/CLKREQ/WAKE state. This
+     is still not an RC enable experiment.
+   - Required cleanup: if V1358 mounts debugfs, unmount it before exit and
+     verify `/proc/mounts` returns to the pre-run state. Keep `cnss/dev_boot`
+     write, platform bind/unbind, PCI rescan, PMIC/GPIO/GDSC write, eSoC
+     notify/`BOOT_DONE`, Wi-Fi HAL, scan/connect, DHCP/routes, external ping,
+     flash, boot image write, and partition write excluded.
 
 ### Required decision before any new mutation
 
 - V1354 proved pcie1 RC never powers/refclks while the lower provider route is
   reached, and V1355 closed PON parity as the shortest blocker. Therefore the
-  next step is not a mutation yet; it is V1357 live read-only control-surface
-  verification.
+  next step is not a mutation yet; V1357 live read-only control-surface
+  verification found only the bound `pci-msm` platform surface.
+- Because debugfs was not mounted in V1357, V1358 may perform a temporary
+  debugfs mount/cleanup read-only verifier before declaring `cnss/dev_boot`
+  unavailable.
 - If V1357 proves `cnss/dev_boot enumerate` is present and RC1-safe, a later
   bounded mutation may consider only `enumerate` first, not `powerup`.
 - If V1357 only finds platform bind/probe or global PCI rescan, stop for a new
