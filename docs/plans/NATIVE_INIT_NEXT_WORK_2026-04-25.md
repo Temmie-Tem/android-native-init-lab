@@ -25,23 +25,21 @@
 
 ## 현재 Wi-Fi Gate
 
-- 최신 기준: V1235 LIVE PASS — helper `a90_android_execns_probe v257`의
-  `post_wait_branch.*` observer가 V1232의 `ESOC_WAIT_FOR_REQ` 반환 지점을
-  더 촘촘히 관찰했다. 결과는 `v1235-branch-snapshot-no-exec-no-ks-mhi`:
-  transition sample은 `4`, branch phase는 `36`, burst sample은 `20`,
-  `execve`/`execveat` count는 `0`, `/vendor/bin/ks`,
-  `/dev/mhi_0305_01.01.00_pipe_10`, MHI fd는 모두 `0`이었다. dominant
-  syscall/wchan은 `nanosleep`/`SyS_nanosleep`이며, private transcript에서는
-  subsystem trigger child가 `mdm_subsys_powerup`에 block되고 `mdm_helper`는
-  `/dev/esoc-0`만 잡은 채 sleep 상태로 남는다. 따라서 blocker는
-  "mdm_helper가 WAIT 반환 후 직접 `ks`를 exec하는가"가 아니라 Android에서
-  `ks`/MHI image-link 또는 MDM3 power-up progress를 만들게 하는
-  runtime contract(property/env/service/init/binder/peripheral-manager path)가
-  native에 빠진 것이다. 다음 게이트 V1236은 host-only로 Android `ks`
-  parent/cmdline/SELinux context와 `pm-service`/peripheral-manager 계약을
-  분류한 뒤 최소 live gate를 정한다. Wi-Fi HAL, scan/connect, credentials,
-  DHCP/routes, external ping, flash, boot image write, partition write는 계속
-  블록한다.
+- 최신 기준: V1236 HOST-ONLY PASS — `v1236-ks-contract-is-pm-proxy-pm-service-trigger-not-mdm-helper-exec`.
+  Android positive path는 `vendor.per_proxy`가 `8.824458s`에 시작된 뒤
+  `pm-service` Binder thread가 `9.491382s`에 `__subsystem_get(esoc0)` /
+  `mdm_subsys_powerup`으로 들어가고, 이후 `ks`/MHI, GPIO142 IRQ,
+  WLFW/BDF/`wlan0`까지 도달한다. 반대로 native V1235는 `mdm_helper`가
+  `/dev/esoc-0`을 잡고 `ESOC_WAIT_FOR_REQ`에서 반환해도 `execve=0`,
+  `ks=0`, MHI pipe/fd `0`, GPIO142 `0`이며 direct child는
+  `mdm_subsys_powerup`에 머문다. 따라서 blocker는 `mdm_helper` 직접 exec가
+  아니라 late `per_proxy`가 `pm-service` Binder eSoC trigger를 만드는
+  Android runtime contract다. 다음 게이트 V1237은 V1235 branch snapshot을
+  유지하면서 `mdm_helper`가 `/dev/esoc-0`을 잡은 뒤에만 late `per_proxy`를
+  시작하고, `pm-service` Binder wchan/fd, `/dev/subsys_esoc0`, `ks`, MHI,
+  GPIO142, service69, `mdm3` state를 관찰한다. Wi-Fi HAL, scan/connect,
+  credentials, DHCP/routes, external ping, flash, boot image write, partition
+  write는 계속 블록한다.
 - V1198 배경: V1197 root cause 분석 완료: 세 가지 레이어 문제가 중첩됨.
   V1197 root cause 분석 완료: 세 가지 레이어 문제가 중첩됨.
   (1) V1194/V1195/V1196: SAMPLE_COUNT!=0 → serial 홍수 (pm_proxy/pm-service /proc/maps 덤프
