@@ -6022,6 +6022,33 @@ Samsung bootloader
       bind/unbind, no generic PCI rescan, no PMIC/GPIO/GDSC direct write, no
       eSoC notify/`BOOT_DONE`, no Wi-Fi HAL, scan/connect, DHCP/routes,
       external ping, flash, boot image write, or partition write.
+    - Result:
+      `docs/reports/NATIVE_INIT_V1369_PCIE1_ENUMERATE_DECISION_2026-06-01.md`.
+      Decision: `v1369-select-corrected-debugfs-rc1-enumerate-design`. The
+      corrected debugfs path is narrower than a new kernel shim for the next
+      proof: V1368 proved `rc_sel=2` reaches RC1 cleanly, and pci-msm source
+      shows `case=11` calls `msm_pcie_enumerate(dev->rc_idx)`, which performs
+      `msm_pcie_enable(PM_ALL)` followed by PCI root-bus scan/add.
+
+18. **V1370 corrected-RC1 enumerate proof (bounded live).**
+    - Candidate writes only:
+      `printf '2\n' > /sys/kernel/debug/pci-msm/rc_sel`, then
+      `printf '11\n' > /sys/kernel/debug/pci-msm/case`.
+    - Preflight: native version/status/selftest `fail=0`, V1368 status path
+      already clean, debugfs mount state captured, PCI/MHI devices absent
+      before enumerate, and pcie1 regulator/clock/gpio/dmesg snapshots
+      captured.
+    - Success signals: command returns without transport loss, dmesg includes
+      RC1 enumerate attempt, pcie1 GDSC/clock/PERST/link or PCI/MHI state
+      changes are captured, debugfs cleanup completes, and post-selftest
+      remains `fail=0`.
+    - Failure signals: transport loss/reboot, post-selftest failure,
+      unexpected non-RC1 PCI changes, or debugfs cleanup failure. Failure is
+      still evidence; do not retry blindly.
+    - Hard stop: no Wi-Fi HAL, scan/connect/credentials, DHCP/routes/external
+      ping, PERST assert/deassert cases, MMIO write cases, boot option write,
+      platform bind/unbind, generic PCI rescan, PMIC/GPIO/GDSC direct write,
+      eSoC notify/`BOOT_DONE`, flash, boot image write, or partition write.
 
 ### Required decision before any new mutation
 
@@ -6072,6 +6099,9 @@ Samsung bootloader
   returns RC1 PERST/WAKE status with no PCI/MHI/link transition. The next
   decision is not Wi-Fi bring-up yet; V1369 must choose an enumerate strategy
   versus kernel shim with explicit rollback/recovery criteria.
+- V1369 selects corrected debugfs RC1 enumerate as the next live proof because
+  it is the existing source-proven caller of `msm_pcie_enumerate(RC1)` and is
+  narrower than a new shim. V1370 still excludes Wi-Fi HAL/network bring-up.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still

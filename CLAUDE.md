@@ -1263,3 +1263,12 @@ Update after V1354/V1355:
   WAKE gpio104 value `0`. This proves the corrected selector is usable for
   readout, but still does not execute or approve `case=11` enumerate. Next
   gate is V1369 host-only enumerate-vs-shim decision.
+- V1369 host-only decision (`v1369-select-corrected-debugfs-rc1-enumerate-design`)
+  selects corrected debugfs `case=11` over a new kernel shim for the next
+  bounded live proof. Rationale: V1368 proves `rc_sel=2` reaches RC1 cleanly,
+  and pci-msm source shows `case=11` calls `msm_pcie_enumerate(dev->rc_idx)`,
+  which performs `msm_pcie_enable(PM_ALL)` followed by PCI root-bus scan/add.
+  V1370 may attempt only `rc_sel=2` then `case=11`, with no Wi-Fi HAL,
+  scan/connect, credentials, DHCP/routes, external ping, PERST assert/deassert,
+  PMIC/GPIO/GDSC direct writes, eSoC notify/`BOOT_DONE`, flash, boot image
+  write, or partition write.
