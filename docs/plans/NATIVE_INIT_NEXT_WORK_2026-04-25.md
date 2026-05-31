@@ -167,6 +167,13 @@
   build를 통과했다. sha256은
   `dbb1f67652913ffe94b1f083a082d8f221820040b9f28e08b226eb1e0a50fc83`다. 다음 gate는
   V1285 deploy-only, 이후 V1286 bounded live PCIe/GDSC/klogctl response sampler다.
+  V1285는 serial fallback으로 helper v269을 `/cache/bin/a90_android_execns_probe`에
+  배포했고 remote SHA와 post-deploy selftest `fail=0`을 확인했다. V1286은
+  `syslog-read-all` klog fallback을 실제 live에서 통과시켰다. 그러나 PM-service가
+  `/dev/subsys_esoc0`까지 도달해도 GPIO142 IRQ는 `0`, PCI/MHI/MHI-pipe/`wlan0`는
+  absent, PCIe/MHI/WLFW kmsg counts는 `0`, `pcie_1_gdsc`/`pcie_0_gdsc`는 `0mV`로
+  유지된다. post-reboot selftest는 `fail=0`이다. 다음 V1287은 host-only로 V1286과
+  Android positive evidence를 비교해 SDX50M power/GPIO prerequisite를 분류한다.
   GPIO line request, PMIC GPIO9 hold, PMIC write, direct eSoC ioctl, new
   PM/CNSS/HAL start, scan/connect, credentials, DHCP/routes, external ping, flash,
   boot image write, partition write는 별도 gate 전까지 계속 블록한다.
