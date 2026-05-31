@@ -249,6 +249,14 @@
   MDM status/MHI/WLFW/`ks`/`wlan0` absent인 반면 Android-positive evidence에는 PMIC
   GPIO9 configured와 PCIe RC1 progress가 있다. 다음 V1307은 focused no-write
   PMIC/GDSC transition sampler support 또는 exact safe init prerequisite 분류다.
+  V1307은 helper `v274` source/build-only support를 추가했고
+  `v1307-pmic-gdsc-transition-sampler-build-pass`로 PASS했다. 새 flag는
+  `--pm-observer-late-per-proxy-pmic-gdsc-transition-sampler`, mode는
+  `late-per-proxy-focused-pmic-gdsc-transition`, intended cadence는 `80` samples at
+  `50ms`다. 빌드된 static aarch64 helper sha256은
+  `eb96072631ca38c3296f5da1756a93765e198e8fdd4dc010d087bc4b3b5fc180`이다. 다음 V1308은
+  helper `v274` deploy-only, V1309는 bounded no-write PMIC/GDSC transition sampler
+  live다.
   GPIO line request, PMIC GPIO9 hold, PMIC write, direct eSoC ioctl, new
   PM/CNSS/HAL start, scan/connect, credentials, DHCP/routes, external ping, flash,
   boot image write, partition write는 별도 gate 전까지 계속 블록한다.
