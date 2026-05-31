@@ -6321,6 +6321,31 @@ Samsung bootloader
       `rc_sel`/`case` write, PMIC/GPIO/GDSC write, eSoC notify/`BOOT_DONE`,
       Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, flash,
       boot image write, or partition write.
+    - Result:
+      `docs/reports/NATIVE_INIT_V1380_RC1_LTSSM_PARTICIPANT_GAP_CLASSIFIER_2026-06-01.md`.
+      Decision: `v1380-v1379-rc1-action-too-late-for-android-window`. V1379
+      fixed the v283 gate and executed `rc_sel=2`/`case=11`, but the action
+      occurred about `4.123s` after `__subsystem_get(esoc0)`. Android's
+      reference path asserts RC1 about `0.255s` after `esoc0` and reaches L0
+      about `0.017s` after reset release. V1379 still failed before L0 with no
+      GPIO142, PCI/MHI, WLFW, or `wlan0`, so the next implementation should
+      move the corrected RC1 write earlier, before expensive snapshots/samplers.
+29. **V1381 immediate corrected RC1 gate support (source/build-only).**
+    - Goal: bump helper to v284 and add a mode/flag path that writes corrected
+      `rc_sel=2` + `case=11` immediately when
+      `pm_service_powerup_thread_count > 0`, then samples the post-enumerate
+      MDM2AP/PCI/MHI/WLFW/`wlan0` window.
+    - Rationale: V1380 shows V1379's current helper ordering runs the RC1
+      action far outside the Android esoc0-to-RC1 timing window. V1381 must
+      change ordering only; no live execution yet.
+    - Success criteria: source/build checks prove helper v284 exposes the new
+      immediate flag/marker, performs the corrected RC1 write before the
+      post-enumerate sampler, reports the gate time and write time, preserves
+      existing v283 behavior for old flags, and remains static aarch64.
+    - Hard stop: source/build-only. No device command, debugfs/sysfs write,
+      `rc_sel`/`case` live write, PMIC/GPIO/GDSC write, eSoC notify/`BOOT_DONE`,
+      Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, flash,
+      boot image write, or partition write.
 
 ### Required decision before any new mutation
 
@@ -6413,6 +6438,11 @@ Samsung bootloader
   participant window, but it still does not reach MDM2AP/GPIO142, PCI/MHI,
   WLFW, or `wlan0`. V1380 must be host-only classification; do not run another
   live mutation until that classifier chooses a narrower next action.
+- V1380 proves the current v283 ordering is too late relative to Android's
+  esoc0-to-RC1 window. V1381 should be source/build-only helper v284 support
+  for immediate corrected RC1 action before any post-window sampler; do not
+  run another live mutation until v284 is built, verified, and deployed in a
+  separate gate.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still

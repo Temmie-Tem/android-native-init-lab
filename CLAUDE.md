@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V1379 bounded live PASS triggered corrected RC1 enumerate inside the Android participant window using helper v283's `pm-service` `mdm_subsys_powerup` gate. RC1 transitioned, but GPIO142/MDM2AP, PCI/MHI, WLFW, and `wlan0` still stayed absent. Next is host-only LTSSM/participant-gap classification before any new live mutation. Preserve hard exclusions: no PMIC/GPIO/GDSC direct write, blind eSoC notify/BOOT_DONE spoof, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, flash outside approved Android handoff/rollback, boot image write outside approved rollback, or partition write.
+- **Active research cycle**: V1380 host-only PASS shows V1379's corrected RC1 action ran too late: `case=11` occurred about `4.123s` after `esoc0`, versus Android's `0.255s` esoc0-to-RC1 reference. Next is V1381 source/build-only helper v284 support to trigger corrected RC1 immediately when the powerup-thread gate becomes positive, then sample after the write. Preserve hard exclusions: no PMIC/GPIO/GDSC direct write, blind eSoC notify/BOOT_DONE spoof, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, flash outside approved Android handoff/rollback, boot image write outside approved rollback, or partition write.
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -1377,3 +1377,13 @@ Update after V1354/V1355:
   completed, and post selftest stayed `fail=0`; netservice stayed disabled.
   Next is a host-only LTSSM/Android-participant gap classifier before any new
   live mutation or Wi-Fi HAL/network action.
+- V1380 host-only classifier
+  (`v1380-v1379-rc1-action-too-late-for-android-window`) compared V1379 dmesg
+  timing against V1371 Android RC1 L0 timing. V1379 executed `case=11` about
+  `4.123s` after `__subsystem_get(esoc0)`, while Android asserts RC1 about
+  `0.255s` after `esoc0` and reaches L0 about `0.017s` after reset release.
+  V1379 still reached PHY-ready and LTSSM poll/compliance, then failed before
+  L0 with no GPIO142/PCI/MHI/WLFW/`wlan0`. The next change should be
+  source/build-only helper v284 support: trigger corrected RC1 immediately
+  when the powerup-thread gate becomes positive, then sample the post-enumerate
+  window. No new live mutation is selected by V1380.
