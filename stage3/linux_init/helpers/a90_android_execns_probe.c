@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v279"
+#define EXECNS_VERSION "a90_android_execns_probe v280"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -267,6 +267,7 @@ struct config {
     bool pm_observer_late_per_proxy_pmic_gdsc_transition_sampler; /* v274 */
     bool pm_observer_late_per_proxy_lower_sequence_summary_sampler; /* v275 */
     bool pm_observer_late_per_proxy_mdm2ap_errfatal_pcie_timing_sampler; /* v276 */
+    bool pm_observer_current_route_cnss_wlfw_precondition_summary; /* v280 */
     bool allow_android_wifi_service_window;
     bool allow_android_wifi_service_window_subsys_trigger_capture;
     bool require_android_selinux_exec_match;
@@ -475,6 +476,7 @@ static void usage(FILE *out) {
             "[--pm-observer-late-per-proxy-pmic-gdsc-transition-sampler] "
             "[--pm-observer-late-per-proxy-lower-sequence-summary-sampler] "
             "[--pm-observer-late-per-proxy-mdm2ap-errfatal-pcie-timing-sampler] "
+            "[--pm-observer-current-route-cnss-wlfw-precondition-summary] "
             "[--allow-android-wifi-service-window] "
             "[--allow-android-wifi-service-window-subsys-trigger-capture] "
             "[--pm-observer-continue-after-provider] "
@@ -1329,6 +1331,10 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             cfg->pm_observer_late_per_proxy_mdm2ap_errfatal_pcie_timing_sampler = true;
             continue;
         }
+        if (strcmp(argv[i], "--pm-observer-current-route-cnss-wlfw-precondition-summary") == 0) {
+            cfg->pm_observer_current_route_cnss_wlfw_precondition_summary = true;
+            continue;
+        }
         if (strcmp(argv[i], "--pm-observer-continue-after-provider") == 0) {
             cfg->pm_observer_continue_after_provider = true;
             continue;
@@ -1997,6 +2003,11 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
     if (cfg->pm_observer_late_per_proxy_mdm2ap_errfatal_pcie_timing_sampler &&
         !cfg->pm_observer_late_per_proxy_response_sampler) {
         fprintf(stderr, "--pm-observer-late-per-proxy-mdm2ap-errfatal-pcie-timing-sampler requires --pm-observer-late-per-proxy-response-sampler\n");
+        return 2;
+    }
+    if (cfg->pm_observer_current_route_cnss_wlfw_precondition_summary &&
+        !cfg->pm_observer_late_per_proxy_mdm2ap_errfatal_pcie_timing_sampler) {
+        fprintf(stderr, "--pm-observer-current-route-cnss-wlfw-precondition-summary requires --pm-observer-late-per-proxy-mdm2ap-errfatal-pcie-timing-sampler\n");
         return 2;
     }
     if (cfg->pm_observer_continue_after_provider &&
@@ -12275,6 +12286,12 @@ struct response_kmsg_markers {
     int sdx50m_count;
     int icnss_count;
     int wlfw_count;
+    int cld80211_count;
+    int wlfw_start_count;
+    int wlfw_service_request_count;
+    int icnss_qmi_count;
+    int bdf_count;
+    int fw_ready_count;
     int subsys_count;
     bool open_ok;
 };
@@ -12316,6 +12333,44 @@ static bool kmsg_line_interesting(const char *line, struct response_kmsg_markers
     }
     if (strstr(line, "wlfw") != NULL || strstr(line, "WLFW") != NULL) {
         markers->wlfw_count++;
+        matched = true;
+    }
+    if (strstr(line, "cld80211") != NULL ||
+        strstr(line, "CLD80211") != NULL ||
+        strstr(line, "wlan: Loading driver") != NULL ||
+        strstr(line, "wlan: driver") != NULL) {
+        markers->cld80211_count++;
+        matched = true;
+    }
+    if (strstr(line, "wlfw_start") != NULL ||
+        strstr(line, "WLFW start") != NULL ||
+        strstr(line, "wlfw start") != NULL) {
+        markers->wlfw_start_count++;
+        matched = true;
+    }
+    if (strstr(line, "wlfw_service_request") != NULL ||
+        strstr(line, "WLFW service request") != NULL) {
+        markers->wlfw_service_request_count++;
+        matched = true;
+    }
+    if (strstr(line, "icnss_qmi") != NULL ||
+        strstr(line, "ICNSS QMI") != NULL ||
+        strstr(line, "icnss qmi") != NULL) {
+        markers->icnss_qmi_count++;
+        matched = true;
+    }
+    if (strstr(line, "BDF") != NULL ||
+        strstr(line, "bdf") != NULL ||
+        strstr(line, "bdwlan") != NULL ||
+        strstr(line, "regdb") != NULL) {
+        markers->bdf_count++;
+        matched = true;
+    }
+    if (strstr(line, "FW ready") != NULL ||
+        strstr(line, "fw ready") != NULL ||
+        strstr(line, "WLAN FW is ready") != NULL ||
+        strstr(line, "FW_READY") != NULL) {
+        markers->fw_ready_count++;
         matched = true;
     }
     if (strstr(line, "subsys") != NULL || strstr(line, "subsystem") != NULL) {
@@ -12474,6 +12529,12 @@ static struct response_kmsg_markers collect_response_kmsg_markers(void) {
     markers.sdx50m_count = 0;
     markers.icnss_count = 0;
     markers.wlfw_count = 0;
+    markers.cld80211_count = 0;
+    markers.wlfw_start_count = 0;
+    markers.wlfw_service_request_count = 0;
+    markers.icnss_qmi_count = 0;
+    markers.bdf_count = 0;
+    markers.fw_ready_count = 0;
     markers.subsys_count = 0;
     if (collect_response_syslog_markers(&markers)) {
         return markers;
@@ -17875,6 +17936,14 @@ struct mdm2ap_timing_summary {
     int pcie_kmsg_max;
     int mhi_kmsg_max;
     int wlfw_kmsg_max;
+    int cnss_daemon_process_max;
+    int cnss_diag_process_max;
+    int cld80211_kmsg_max;
+    int wlfw_start_kmsg_max;
+    int wlfw_service_request_kmsg_max;
+    int icnss_qmi_kmsg_max;
+    int bdf_kmsg_max;
+    int fw_ready_kmsg_max;
     char pcie_current_link_state_initial[64];
     char pcie_current_link_state_last[64];
     char pcie_link_state_initial[64];
@@ -17899,6 +17968,14 @@ static void mdm2ap_timing_summary_init(struct mdm2ap_timing_summary *summary) {
     summary->pcie_kmsg_max = -1;
     summary->mhi_kmsg_max = -1;
     summary->wlfw_kmsg_max = -1;
+    summary->cnss_daemon_process_max = -1;
+    summary->cnss_diag_process_max = -1;
+    summary->cld80211_kmsg_max = -1;
+    summary->wlfw_start_kmsg_max = -1;
+    summary->wlfw_service_request_kmsg_max = -1;
+    summary->icnss_qmi_kmsg_max = -1;
+    summary->bdf_kmsg_max = -1;
+    summary->fw_ready_kmsg_max = -1;
 }
 
 static void mdm2ap_update_int_max(int *dst, int value) {
@@ -17926,6 +18003,8 @@ static void mdm2ap_timing_summary_sample(struct mdm2ap_timing_summary *summary) 
     int mhi_pipe_fd_count = count_all_proc_fd_target_matches("/dev/mhi_0305_01.01.00_pipe_10");
     int mhi_pipe_cmdline_count = count_process_cmdline_or_comm_matches("/dev/mhi_0305_01.01.00_pipe_10", NULL);
     int ks_process_count = count_process_cmdline_or_comm_matches("/vendor/bin/ks", "ks");
+    int cnss_daemon_count = count_process_cmdline_or_comm_matches("cnss-daemon", "cnss-daemon");
+    int cnss_diag_count = count_process_cmdline_or_comm_matches("cnss_diag", "cnss_diag");
     bool matched = false;
     bool transition_seen = false;
 
@@ -18001,6 +18080,14 @@ static void mdm2ap_timing_summary_sample(struct mdm2ap_timing_summary *summary) 
     mdm2ap_update_int_max(&summary->pcie_kmsg_max, kmsg.pcie_count);
     mdm2ap_update_int_max(&summary->mhi_kmsg_max, kmsg.mhi_count);
     mdm2ap_update_int_max(&summary->wlfw_kmsg_max, kmsg.wlfw_count);
+    mdm2ap_update_int_max(&summary->cnss_daemon_process_max, cnss_daemon_count);
+    mdm2ap_update_int_max(&summary->cnss_diag_process_max, cnss_diag_count);
+    mdm2ap_update_int_max(&summary->cld80211_kmsg_max, kmsg.cld80211_count);
+    mdm2ap_update_int_max(&summary->wlfw_start_kmsg_max, kmsg.wlfw_start_count);
+    mdm2ap_update_int_max(&summary->wlfw_service_request_kmsg_max, kmsg.wlfw_service_request_count);
+    mdm2ap_update_int_max(&summary->icnss_qmi_kmsg_max, kmsg.icnss_qmi_count);
+    mdm2ap_update_int_max(&summary->bdf_kmsg_max, kmsg.bdf_count);
+    mdm2ap_update_int_max(&summary->fw_ready_kmsg_max, kmsg.fw_ready_count);
     snprintf(summary->pcie_current_link_state_last,
              sizeof(summary->pcie_current_link_state_last),
              "%s",
@@ -18113,6 +18200,107 @@ static int append_mdm2ap_timing_summary(struct buffer *buf,
                          summary->mhi_kmsg_max,
                          summary->wlfw_kmsg_max,
                          summary->wlan0_seen);
+}
+
+static const char *cnss_wlfw_pre_checkpoint(const struct mdm2ap_timing_summary *summary) {
+    const bool cnss_daemon_started = summary->cnss_daemon_process_max > 0;
+    const bool cld80211_seen = summary->cld80211_kmsg_max > 0;
+    const bool wlfw_started =
+        summary->wlfw_start_kmsg_max > 0 ||
+        summary->wlfw_service_request_kmsg_max > 0;
+    const bool icnss_qmi_seen = summary->icnss_qmi_kmsg_max > 0;
+    const bool bdf_seen = summary->bdf_kmsg_max > 0;
+    const bool fw_ready_seen = summary->fw_ready_kmsg_max > 0;
+
+    if (!cnss_daemon_started) {
+        return "cnss-not-started";
+    }
+    if (!cld80211_seen || !wlfw_started) {
+        return "cnss-netlink-only";
+    }
+    if (!icnss_qmi_seen) {
+        return "wlfw-start-no-qmi";
+    }
+    if (!bdf_seen) {
+        return "qmi-no-bdf";
+    }
+    if (!fw_ready_seen) {
+        return "bdf-no-fw-ready";
+    }
+    if (!summary->wlan0_seen) {
+        return "fw-ready-no-wlan0";
+    }
+    return "wlan0-present";
+}
+
+static int append_cnss_wlfw_precondition_summary(struct buffer *buf,
+                                                 const struct mdm2ap_timing_summary *summary) {
+    const bool cnss_daemon_started = summary->cnss_daemon_process_max > 0;
+    const bool cnss_diag_started = summary->cnss_diag_process_max > 0;
+    const bool cld80211_seen = summary->cld80211_kmsg_max > 0;
+    const bool wlfw_start_seen =
+        summary->wlfw_start_kmsg_max > 0;
+    const bool wlfw_service_request_seen = summary->wlfw_service_request_kmsg_max > 0;
+    const bool icnss_qmi_seen = summary->icnss_qmi_kmsg_max > 0;
+    const bool bdf_seen = summary->bdf_kmsg_max > 0;
+    const bool fw_ready_seen = summary->fw_ready_kmsg_max > 0;
+
+    return append_format(buf,
+                         "cnss_wlfw_pre.begin=1\n"
+                         "cnss_wlfw_pre.mode=current-route-cnss-wlfw-precondition\n"
+                         "cnss_wlfw_pre.sample_interval_ms=%d\n"
+                         "cnss_wlfw_pre.sample_count=%d\n"
+                         "cnss_wlfw_pre.cnss_daemon_started=%d\n"
+                         "cnss_wlfw_pre.cnss_daemon_process_max=%d\n"
+                         "cnss_wlfw_pre.cnss_diag_started=%d\n"
+                         "cnss_wlfw_pre.cnss_diag_process_max=%d\n"
+                         "cnss_wlfw_pre.cld80211_seen=%d\n"
+                         "cnss_wlfw_pre.cld80211_kmsg_max=%d\n"
+                         "cnss_wlfw_pre.pm_register_ret=not-observed\n"
+                         "cnss_wlfw_pre.pm_register_ret_observed=0\n"
+                         "cnss_wlfw_pre.pm_connect_ret=not-observed\n"
+                         "cnss_wlfw_pre.pm_connect_ret_observed=0\n"
+                         "cnss_wlfw_pre.wlfw_start_seen=%d\n"
+                         "cnss_wlfw_pre.wlfw_start_kmsg_max=%d\n"
+                         "cnss_wlfw_pre.wlfw_service_request_seen=%d\n"
+                         "cnss_wlfw_pre.wlfw_service_request_kmsg_max=%d\n"
+                         "cnss_wlfw_pre.icnss_qmi_seen=%d\n"
+                         "cnss_wlfw_pre.icnss_qmi_kmsg_max=%d\n"
+                         "cnss_wlfw_pre.bdf_seen=%d\n"
+                         "cnss_wlfw_pre.bdf_kmsg_max=%d\n"
+                         "cnss_wlfw_pre.fw_ready_seen=%d\n"
+                         "cnss_wlfw_pre.fw_ready_kmsg_max=%d\n"
+                         "cnss_wlfw_pre.wlan0_seen=%d\n"
+                         "cnss_wlfw_pre.last_checkpoint=%s\n"
+                         "cnss_wlfw_pre.safety_wifi_hal_start=0\n"
+                         "cnss_wlfw_pre.safety_scan_connect=0\n"
+                         "cnss_wlfw_pre.safety_credentials=0\n"
+                         "cnss_wlfw_pre.safety_dhcp_route=0\n"
+                         "cnss_wlfw_pre.safety_external_ping=0\n"
+                         "cnss_wlfw_pre.safety_pmic_write=0\n"
+                         "cnss_wlfw_pre.safety_gpio_request=0\n"
+                         "cnss_wlfw_pre.safety_direct_esoc_ioctl=0\n"
+                         "cnss_wlfw_pre.end=1\n",
+                         summary->sample_interval_ms,
+                         summary->sample_count,
+                         cnss_daemon_started ? 1 : 0,
+                         summary->cnss_daemon_process_max,
+                         cnss_diag_started ? 1 : 0,
+                         summary->cnss_diag_process_max,
+                         cld80211_seen ? 1 : 0,
+                         summary->cld80211_kmsg_max,
+                         wlfw_start_seen ? 1 : 0,
+                         summary->wlfw_start_kmsg_max,
+                         wlfw_service_request_seen ? 1 : 0,
+                         summary->wlfw_service_request_kmsg_max,
+                         icnss_qmi_seen ? 1 : 0,
+                         summary->icnss_qmi_kmsg_max,
+                         bdf_seen ? 1 : 0,
+                         summary->bdf_kmsg_max,
+                         fw_ready_seen ? 1 : 0,
+                         summary->fw_ready_kmsg_max,
+                         summary->wlan0_seen,
+                         cnss_wlfw_pre_checkpoint(summary));
 }
 
 struct fd_poll_summary {
@@ -34278,6 +34466,8 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
         cfg->pm_observer_late_per_proxy_lower_sequence_summary_sampler;
     const bool late_per_proxy_mdm2ap_timing_sampler =
         cfg->pm_observer_late_per_proxy_mdm2ap_errfatal_pcie_timing_sampler;
+    const bool current_route_cnss_wlfw_precondition_summary =
+        cfg->pm_observer_current_route_cnss_wlfw_precondition_summary;
     const bool late_per_proxy_compact_response_sampler =
         cfg->pm_observer_late_per_proxy_compact_response_sampler ||
         late_per_proxy_pmic_gdsc_transition_sampler;
@@ -35884,7 +36074,10 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                     }
                     if (cfg->pm_observer_late_per_proxy_response_sampler) {
                         if ((late_per_proxy_mdm2ap_timing_sampler
-                                 ? append_mdm2ap_timing_summary(stdout_buf, &mdm2ap_timing_summary)
+                                 ? (append_mdm2ap_timing_summary(stdout_buf, &mdm2ap_timing_summary) < 0 ||
+                                    (current_route_cnss_wlfw_precondition_summary &&
+                                     append_cnss_wlfw_precondition_summary(stdout_buf, &mdm2ap_timing_summary) < 0)
+                                        ? -1 : 0)
                                  : (late_per_proxy_lower_sequence_summary_sampler
                                  ? append_lower_sequence_summary(stdout_buf, &lower_summary)
                                  : (late_per_proxy_pmic_gdsc_transition_sampler

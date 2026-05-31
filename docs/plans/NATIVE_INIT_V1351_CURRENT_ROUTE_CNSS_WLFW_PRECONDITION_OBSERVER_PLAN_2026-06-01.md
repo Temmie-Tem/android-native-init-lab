@@ -4,7 +4,7 @@
 - Cycle: `V1351` (project axis; source/build-only first)
 - Native build: `A90 Linux init 0.9.68 (v724)` (unchanged)
 - Type: helper observer design plan
-- Status: PLAN
+- Status: SOURCE/BUILD IMPLEMENTED
 
 ## Goal
 
@@ -117,3 +117,11 @@ git diff --check
 ```
 
 No live execution should be bundled into the source/build commit.
+
+## Source/build Result
+
+Implemented as helper `a90_android_execns_probe v280` plus the host wrapper
+`scripts/revalidation/native_wifi_current_route_cnss_wlfw_precondition_observer_live_v1351.py`.
+The source/build result is documented in:
+
+- `docs/reports/NATIVE_INIT_V1351_CURRENT_ROUTE_CNSS_WLFW_PRECONDITION_OBSERVER_SOURCE_BUILD_2026-06-01.md`
