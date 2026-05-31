@@ -195,3 +195,12 @@ v40–v116까지 완료된 native init 안정화 로드맵 체크리스트는 RE
 이 저장소에는 실제 플래시 대상 바이너리와 Samsung 전용 이미지가 포함될 수 있습니다.
 실험 전에는 항상 현재 boot/recovery/vbmeta 상태와 복구 가능한 known-good 이미지를
 확인한 뒤 진행합니다.
+
+## License
+
+이 저장소의 **문서와 스크립트**는 MIT License를 따른다 (루트 `LICENSE` 참고).
+
+단, **Samsung 전용 펌웨어·커널 소스·patched AP/TWRP 이미지 등 proprietary 구성요소는
+MIT 적용 대상이 아니며**, 각자의 라이선스를 따르고 정당한 권한 없이 재배포하지 않는다
+(`LICENSE`의 NOTICE 절). `firmware/`, `backups/`, `stage3/boot_linux_*.img` 등에 포함된
+벤더 바이너리는 저장소 소유자가 소유·관리하는 로컬 기기 복구/연구 용도로만 보관한다.
