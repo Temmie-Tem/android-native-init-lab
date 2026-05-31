@@ -129,8 +129,13 @@
   V1273은 static aarch64 helper v266 build를 통과했고 SHA256은
   `3bf4105d685f023ccdeb75ae28d7d104ca005fc9f70870dc6f402a9ea4038ed4`다. V1274는
   serial fallback으로 helper v266을 `/cache/bin/a90_android_execns_probe`에 배포했고,
-  remote SHA 직접 검증과 post-deploy selftest `fail=0`을 통과했다. 다음 V1275는
-  bounded block sampler live gate다.
+  remote SHA 직접 검증과 post-deploy selftest `fail=0`을 통과했다. V1275 bounded
+  block sampler는 같은 PM-service `/dev/subsys_esoc0` response window에서 PMIC
+  GPIO1270 debugfs block을 14개 샘플 모두 캡처했고, PMIC GPIO9 line은
+  `out ... high ...`로 보였다. 하지만 GPIO142 IRQ count `0`, `mdm3=OFFLINING`,
+  PCI/MHI/MHI-pipe/`wlan0` absent, PCIe GDSC `0mV`는 유지됐다. cleanup reboot 후
+  version `0.9.68 (v724)`, selftest `fail=0`, transient mount cleanup도 확인했다.
+  다음 V1276은 PMIC GPIO9 polarity/value를 Android/DTS 기준으로 host-only 분류한다.
   GPIO line request, PMIC GPIO9 hold, PMIC write, direct eSoC ioctl, new
   PM/CNSS/HAL start, scan/connect, credentials, DHCP/routes, external ping, flash,
   boot image write, partition write는 별도 gate 전까지 계속 블록한다.
