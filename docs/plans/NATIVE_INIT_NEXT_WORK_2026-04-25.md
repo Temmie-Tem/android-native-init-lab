@@ -25,18 +25,23 @@
 
 ## 현재 Wi-Fi Gate
 
-- 최신 기준: V1233 SOURCE/BUILD PASS — helper `a90_android_execns_probe v257`
-  (`66c3bc5a9cc0daa9a9a04fe7b98ebe2d7aa974798ed131adf82e5b314b2753e5`)
-  가 V1232의 `ESOC_WAIT_FOR_REQ` 이탈 지점을 더 촘촘히 보기 위한
-  `post_wait_branch.*` non-ptrace snapshot을 추가했다. V1232는 sample `4`에서
-  wait thread count가 `1 → 0`으로 변하고 이후 `80`개 post-transition samples
-  동안 `/vendor/bin/ks`, `/dev/mhi_0305_01.01.00_pipe_10`, MHI fd가 모두 `0`임을
-  확인했다. V1233은 반환 직후 thread `wchan`, `/proc/<tid>/syscall`, selected
-  syscall names/args/path strings, `/dev/esoc-0`/MHI fd counts, 20-sample 10ms
-  transition burst를 수집하는 관측성을 준비했다. 다음 게이트 V1234는 deploy-only,
-  V1235는 bounded live branch snapshot이다. Wi-Fi HAL, scan/connect,
-  credentials, DHCP/routes, external ping, `ESOC_NOTIFY`, `ESOC_BOOT_DONE`,
-  boot image write, partition write는 계속 블록한다.
+- 최신 기준: V1235 LIVE PASS — helper `a90_android_execns_probe v257`의
+  `post_wait_branch.*` observer가 V1232의 `ESOC_WAIT_FOR_REQ` 반환 지점을
+  더 촘촘히 관찰했다. 결과는 `v1235-branch-snapshot-no-exec-no-ks-mhi`:
+  transition sample은 `4`, branch phase는 `36`, burst sample은 `20`,
+  `execve`/`execveat` count는 `0`, `/vendor/bin/ks`,
+  `/dev/mhi_0305_01.01.00_pipe_10`, MHI fd는 모두 `0`이었다. dominant
+  syscall/wchan은 `nanosleep`/`SyS_nanosleep`이며, private transcript에서는
+  subsystem trigger child가 `mdm_subsys_powerup`에 block되고 `mdm_helper`는
+  `/dev/esoc-0`만 잡은 채 sleep 상태로 남는다. 따라서 blocker는
+  "mdm_helper가 WAIT 반환 후 직접 `ks`를 exec하는가"가 아니라 Android에서
+  `ks`/MHI image-link 또는 MDM3 power-up progress를 만들게 하는
+  runtime contract(property/env/service/init/binder/peripheral-manager path)가
+  native에 빠진 것이다. 다음 게이트 V1236은 host-only로 Android `ks`
+  parent/cmdline/SELinux context와 `pm-service`/peripheral-manager 계약을
+  분류한 뒤 최소 live gate를 정한다. Wi-Fi HAL, scan/connect, credentials,
+  DHCP/routes, external ping, flash, boot image write, partition write는 계속
+  블록한다.
 - V1198 배경: V1197 root cause 분석 완료: 세 가지 레이어 문제가 중첩됨.
   V1197 root cause 분석 완료: 세 가지 레이어 문제가 중첩됨.
   (1) V1194/V1195/V1196: SAMPLE_COUNT!=0 → serial 홍수 (pm_proxy/pm-service /proc/maps 덤프
