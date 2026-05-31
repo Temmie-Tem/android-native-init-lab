@@ -308,7 +308,15 @@
   absent이고, Android reference는 `mdm_helper` FD, `ks` FD, `/dev/mhi_0305_01.01.00_pipe_10`,
   GPIO142 IRQ, PCIe RC1, WLFW, `wlan0`를 모두 가진다. 다음 V1321은 direct
   GPIO/PMIC/GDSC/eSoC mutation 전에 Android `mdm_helper`/`ks`/MHI image-link contract를
-  observe 또는 reproduce하는 fail-closed source/build gate로 제한한다.
+  observe 또는 reproduce하는 fail-closed source/build gate로 제한한다. V1321은 host-only
+  reconciliation으로 PASS했고, V1236-V1239가 이미 그 image-link branch를 covered한다고
+  정리했다. V1236은 Android `ks`/MHI가 `per_proxy -> pm-service Binder -> /dev/subsys_esoc0`
+  경로와 상관된다고 분류했고, V1238은 native late `per_proxy`가 `pm-service` /
+  `mdm_subsys_powerup`에 도달함을 증명했으며, V1239는 남은 gap이 그 이후
+  GPIO142/PCIe/MHI/WLFW/`wlan0` response 전이라고 분류했다. 따라서 다음 V1322는
+  image-link 재시도가 아니라 SDX50M response input classifier로 잡는다: read-only
+  PCIe RC1, GPIO142 IRQ/state, regulator/pinctrl/GDSC, MHI surface, cleanup-safe reboot
+  boundary를 분류한다.
   GPIO line request, PMIC GPIO9 hold, PMIC write, direct eSoC ioctl, new
   PM/CNSS/HAL start, scan/connect, credentials, DHCP/routes, external ping, flash,
   boot image write, partition write는 별도 gate 전까지 계속 블록한다.
