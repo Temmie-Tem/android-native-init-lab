@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V1314 PASS → V1315 targeted tracefs-event preflight — V1314 selected provider-internal first-power-on event visibility as the next safe dynamic prerequisite. V1313 already proved the full lower window: `81` samples, no stdout truncation, `mdm_subsys_powerup` seen, PCIe GDSC/PCI/MHI/MHI pipe/`ks`/`wlan0` all absent, PCIe0/PCIe1 GDSCs at `0mV`, static PMIC/TLMM surfaces closed. Preserve hard exclusions: no PMIC write, userspace GPIO line request/hold, direct eSoC ioctl, direct GDSC write, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, flash, boot image write, or partition write.
+- **Active research cycle**: V1315 PASS → V1316 bounded tracefs lower-event collector — V1315 proved target tracefs lower event groups are available and format-readable: regulator `4/4`, gpio `2/2`, irq `2/2`, clk `4/4`, power `3/3`, msm_pil_event `3/3`; `available_events=1250`; tracefs cleanup left it unmounted; post selftest passed. Preserve hard exclusions: no PMIC write, userspace GPIO line request/hold, direct eSoC ioctl, direct GDSC write, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, flash, boot image write, or partition write.
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -1029,3 +1029,7 @@ V1313 added `scripts/revalidation/native_wifi_lower_sequence_summary_sampler_liv
 ## Latest native Wi-Fi state: V1314 (2026-05-31)
 
 V1314 added `scripts/revalidation/native_wifi_dynamic_gdsc_esoc_prereq_classifier_v1314.py` and classified the exact safe dynamic prerequisite host-only. Result: `v1314-provider-internal-first-power-on-trace-gate-selected` PASS. V1314 confirms V1313's full-window no-transition result, keeps static PMIC/TLMM shape closed via V1276/V1291/V1310, and rejects direct PMIC/GPIO/GDSC/eSoC mutation. The selected next proof is provider-internal first-power-on event visibility using targeted tracefs static events for regulator/gpio/irq/clk/power/PIL. Next V1315 should preflight target tracefs event availability and formats; V1316 can then run the bounded event collector around the same late `per_proxy` PM-service path, still without Wi-Fi HAL/connect or lower writes.
+
+## Latest native Wi-Fi state: V1315 (2026-05-31)
+
+V1315 added `scripts/revalidation/native_wifi_tracefs_lower_event_preflight_v1315.py` and ran a bounded tracefs lower-event preflight. Result: `v1315-tracefs-lower-event-preflight-pass` PASS. Tracefs was mounted temporarily and unmounted during cleanup; `available_events` was readable with `1250` events. Target lower event groups all had readable formats: regulator `4/4`, gpio `2/2`, irq `2/2`, clk `4/4`, power `3/3`, and `msm_pil_event` `3/3`. No tracefs control write, PM-service trigger, PMIC/GPIO/GDSC/eSoC mutation, Wi-Fi HAL/connect, credential use, DHCP/routes, external ping, flash, boot image write, or partition write occurred. Post selftest passed. Next V1316 should run a bounded tracefs event collector around the existing late `per_proxy` PM-service path.

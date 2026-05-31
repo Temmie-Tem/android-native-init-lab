@@ -281,7 +281,11 @@
   PASS했고 `v1314-provider-internal-first-power-on-trace-gate-selected`를 냈다. 직접
   PMIC/GPIO/GDSC/eSoC mutation은 계속 배제하고, 다음 안전 prerequisite는 tracefs static
   events로 provider-internal first-power-on event visibility를 증명하는 것이다. 다음
-  V1315는 regulator/gpio/irq/clk/power/msm_pil_event availability/format preflight다.
+  V1315는 regulator/gpio/irq/clk/power/msm_pil_event availability/format preflight로
+  PASS했다. `available_events=1250`, target formats는 regulator `4/4`, gpio `2/2`,
+  irq `2/2`, clk `4/4`, power `3/3`, `msm_pil_event` `3/3`이고 tracefs cleanup과 post
+  selftest도 통과했다. 다음 V1316은 같은 late `per_proxy` PM-service path 주변에 bounded
+  tracefs lower-event collector를 붙인다.
   GPIO line request, PMIC GPIO9 hold, PMIC write, direct eSoC ioctl, new
   PM/CNSS/HAL start, scan/connect, credentials, DHCP/routes, external ping, flash,
   boot image write, partition write는 별도 gate 전까지 계속 블록한다.
