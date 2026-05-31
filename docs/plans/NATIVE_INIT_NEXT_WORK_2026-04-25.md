@@ -173,7 +173,12 @@
   `/dev/subsys_esoc0`까지 도달해도 GPIO142 IRQ는 `0`, PCI/MHI/MHI-pipe/`wlan0`는
   absent, PCIe/MHI/WLFW kmsg counts는 `0`, `pcie_1_gdsc`/`pcie_0_gdsc`는 `0mV`로
   유지된다. post-reboot selftest는 `fail=0`이다. 다음 V1287은 host-only로 V1286과
-  Android positive evidence를 비교해 SDX50M power/GPIO prerequisite를 분류한다.
+  Android positive evidence를 비교해 SDX50M power/GPIO prerequisite를 분류한다. V1287은
+  klogctl collector가 유효함을 확인하고 PM8150L gpio9 shape를 최단 blocker에서 내렸다:
+  native gpio9은 Android의 `out/high` PMIC shape와 이미 일치하지만 PCIe GDSC는 `0mV`,
+  GPIO142/PCIe/MHI/WLFW/SDX50M response는 absent다. 다음 V1288은 source/build-only로
+  untruncated GPIO135/GPIO142, PMIC9, PCIe GDSC delta를 기록하는 no-write observer를
+  추가한다.
   GPIO line request, PMIC GPIO9 hold, PMIC write, direct eSoC ioctl, new
   PM/CNSS/HAL start, scan/connect, credentials, DHCP/routes, external ping, flash,
   boot image write, partition write는 별도 gate 전까지 계속 블록한다.
