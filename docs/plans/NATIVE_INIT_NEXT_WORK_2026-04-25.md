@@ -193,8 +193,11 @@
   `50 ms` 간격, `40` samples, 첫 `2s` window. V1293은 helper `v271` source/build를
   통과했고 sha256은 `335b875516e76419933f2e0ab6e21cd7ee4d1d217b32f378f1925adc30010a24`다.
   V1294는 helper `v271`을 serial fallback으로 `/cache/bin/a90_android_execns_probe`에
-  배포했고 remote sha/marker/usage를 확인했다. 다음 V1295는 bounded dense no-write
-  live sampler다.
+  배포했고 remote sha/marker/usage를 확인했다. V1295는 bounded dense no-write live
+  sampler를 실행해 dense metadata(`50 ms`, intended `40` samples)가 active였음을 확인했지만,
+  parsed sample은 `14`개에서 멈췄고 GPIO142/PCIe/MHI/WLFW/SDX50M kmsg, MHI pipe,
+  `wlan0`는 여전히 absent였다. postflight native health는 `pass=11 warn=1 fail=0`이다.
+  다음 V1296은 host-only로 V1295 dense-window early exit 원인을 분류한다.
   GPIO line request, PMIC GPIO9 hold, PMIC write, direct eSoC ioctl, new
   PM/CNSS/HAL start, scan/connect, credentials, DHCP/routes, external ping, flash,
   boot image write, partition write는 별도 gate 전까지 계속 블록한다.
