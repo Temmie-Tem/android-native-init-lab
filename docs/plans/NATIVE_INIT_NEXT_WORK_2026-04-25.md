@@ -274,7 +274,11 @@
   V1312는 helper `v275` deploy-only, V1313은 bounded lower-sequence summary sampler
   live다. V1312는 helper `v275` deploy-only로 PASS했고 remote
   `/cache/bin/a90_android_execns_probe` sha256도 동일했다. NCM은 inactive라 serial
-  fallback으로 배포했으며 daemon start나 Wi-Fi bring-up은 없었다.
+  fallback으로 배포했으며 daemon start나 Wi-Fi bring-up은 없었다. V1313은 bounded
+  lower-sequence summary sampler live로 PASS했다. Helper stdout truncation 없이
+  `81` samples와 `response_summary.end=1`을 확보했고, `mdm_subsys_powerup`은 보이나
+  PCIe GDSC/MHI/`ks`/`wlan0` transition은 없었다. 다음 V1314는 exact safe dynamic
+  GDSC/eSoC prerequisite 분류다.
   GPIO line request, PMIC GPIO9 hold, PMIC write, direct eSoC ioctl, new
   PM/CNSS/HAL start, scan/connect, credentials, DHCP/routes, external ping, flash,
   boot image write, partition write는 별도 gate 전까지 계속 블록한다.
