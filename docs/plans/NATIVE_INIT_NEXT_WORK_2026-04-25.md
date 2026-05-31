@@ -5810,6 +5810,24 @@ Samsung bootloader
      module/source patch is the only remaining direct path.
    - Do not attempt platform bind/unbind, PCI rescan, direct MMIO, PMIC/GPIO/
      GDSC writes, eSoC notify/`BOOT_DONE`, or Wi-Fi HAL/scan/connect in V1359.
+   - Status: PASS. See
+     `docs/reports/NATIVE_INIT_V1359_ICNSS_PCI_ENTRY_CLASSIFIER_2026-06-01.md`.
+     Decision: `v1359-no-safe-userspace-msm-pcie-enumerate-entry`. ICNSS
+     source exposes debugfs `stats` only, has zero `dev_boot`/`boot_wlan`
+     mentions, and has no `msm_pcie_enumerate`, `qcom,wlan-rc-num`, or
+     `qcom,pcie-parent` driven path. CNSS2 `dev_boot` exists only on the wrong
+     branch (`qcom,cnss-qca6390` with `qcom,wlan-rc-num=<0>`), while the
+     live pcie1 platform node is only the already-bound `pci-msm` device.
+8. **V1360 MHI platform surface verifier (live read-only).**
+   - Collect read-only live surfaces for `mhi_dev@1c0b000`, `mhi_0/qcom,mhi@0`,
+     `/sys/bus/platform/devices/*mhi*`, `/sys/bus/platform/drivers/*mhi*`,
+     `/sys/bus/mhi/devices`, `/dev/mhi*`, MHI debugfs directories, and
+     pcie1/MHI dmesg markers. The goal is to determine whether an MHI platform
+     driver is present, bound, unbound, or absent before even considering any
+     `pci-msm` bind/rescan mutation.
+   - Keep the same exclusions: no platform bind/unbind, no PCI rescan, no
+     debugfs/sysfs writes, no PMIC/GPIO/GDSC write, no eSoC notify/`BOOT_DONE`,
+     no Wi-Fi HAL/scan/connect/DHCP/routes/external ping.
 
 ### Required decision before any new mutation
 
@@ -5823,6 +5841,9 @@ Samsung bootloader
 - V1358 proved `cnss/dev_boot` unavailable even with debugfs mounted; the
   remaining path is an ICNSS/pci-msm userspace entry analysis, not CNSS2
   `dev_boot` usage.
+- V1359 found no safe userspace `msm_pcie_enumerate(1)` entry in ICNSS/pci-msm
+  surfaces. Before any broad `pci-msm` bind/rescan idea, V1360 must inspect
+  MHI platform live surfaces read-only.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still

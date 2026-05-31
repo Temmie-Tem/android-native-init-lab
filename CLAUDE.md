@@ -1187,3 +1187,9 @@ Update after V1354/V1355:
   REGISTERED)` with `SERVER_ARRIVE=0`, `FW_READY=0`, `REGISTER_DRIVER=0`.
   `cnss/dev_boot enumerate` is unavailable; next gate is host-only ICNSS/
   `pci-msm` userspace entry classification.
+- V1359 host-only classifier (`v1359-no-safe-userspace-msm-pcie-enumerate-entry`)
+  closes that branch: ICNSS source has only debugfs `stats`, no `dev_boot` or
+  `boot_wlan`, and no `msm_pcie_enumerate`/`qcom,wlan-rc-num`/`qcom,pcie-parent`
+  control path. CNSS2 `dev_boot` belongs to the wrong rc-num=0 branch, and the
+  only live surface is already-bound `pci-msm`. Next gate is V1360 live
+  read-only MHI platform surface verifier before any bind/rescan mutation.
