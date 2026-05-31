@@ -205,8 +205,9 @@
   새 opt-in flag는 `--pm-observer-late-per-proxy-compact-response-sampler`이며,
   `late-per-proxy-dense-compact-pinctrl-irq-pcie` 모드에서 verbose fd/source/range/kmsg
   블록을 생략하고 no-write 핵심 카운터만 남겨 동일 live path의 full 40-sample 관측을
-  가능하게 한다. 다음 gate는 V1298 deploy-only, 이후 V1299 bounded compact dense live
-  sampler다.
+  가능하게 한다. V1298은 helper `v272`를 `/cache/bin/a90_android_execns_probe`에
+  serial fallback으로 배포했고 remote sha/marker/compact flag와 selftest `fail=0`을
+  확인했다. 다음 gate는 V1299 bounded compact dense live sampler다.
   GPIO line request, PMIC GPIO9 hold, PMIC write, direct eSoC ioctl, new
   PM/CNSS/HAL start, scan/connect, credentials, DHCP/routes, external ping, flash,
   boot image write, partition write는 별도 gate 전까지 계속 블록한다.
