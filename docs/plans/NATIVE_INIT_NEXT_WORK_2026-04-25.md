@@ -25,19 +25,19 @@
 
 ## 현재 Wi-Fi Gate
 
-- 최신 기준: V1237 LIVE PASS — `v1237-direct-subsys-trigger-preempted-late-per-proxy`.
-  V1236은 Android positive path가 `vendor.per_proxy` → `pm-service` Binder
-  `__subsystem_get(esoc0)` / `mdm_subsys_powerup` → `ks`/MHI → GPIO142 →
-  WLFW/BDF/`wlan0`로 이어진다는 것을 host-only로 분류했다. V1237은 그 가설을
-  live로 시도했지만, V1235에서 상속된 direct
-  `--pm-observer-open-subsys-esoc0-after-mdm-helper-esoc` 경로가 먼저 실행되어
-  late `per_proxy` actor block을 가렸다. 따라서 V1237의 결론은 Wi-Fi 진행
-  실패가 아니라 설계 충돌 분류다. 다음 게이트 V1238은 direct subsystem trigger를
-  제거하고, `mdm_helper`가 `/dev/esoc-0`을 잡은 뒤 late `per_proxy`만 시작해
-  `pm-service` `/dev/subsys_esoc0`, `ks`, MHI pipe, GPIO142, PCIe RC1,
-  service69, `mdm3` state를 관찰한다. Wi-Fi HAL, scan/connect, credentials,
-  DHCP/routes, external ping, flash, boot image write, partition write는 계속
-  블록한다.
+- 최신 기준: V1238 LIVE PASS — `v1238-late-per-proxy-reached-pm-service-esoc0-reboot-required`.
+  V1238은 V1237의 direct subsystem trigger 충돌을 제거했다. late `per_proxy`는
+  `mdm_helper`가 `/dev/esoc-0`을 잡은 뒤 정상 시작했고, `pm-service` Binder
+  thread가 `openat("/dev/subsys_esoc0")`로 `mdm_subsys_powerup`에 들어갔다.
+  즉 Android-positive `per_proxy` → `pm-service` 전달 경로는 native에서도
+  성립한다. 그러나 MHI pipe, `ks`, WLFW/BDF, `wlan0`은 나타나지 않았고
+  `mdm3`는 `OFFLINING`에 머물렀으며 cleanup은 reboot-required였다. 따라서
+  blocker는 더 이상 `per_proxy`/Binder request 전달이 아니라
+  `mdm_subsys_powerup` 이후 SDX50M/MDM3 하드웨어 응답 갭이다. 다음 V1239는
+  host-only로 Android와 native의 `/dev/subsys_esoc0` open 이후 GPIO142,
+  PCIe RC1, MHI/`ks`, WLFW 전환 차이를 분류한다. Wi-Fi HAL, scan/connect,
+  credentials, DHCP/routes, external ping, flash, boot image write, partition
+  write는 계속 블록한다.
 - V1198 배경: V1197 root cause 분석 완료: 세 가지 레이어 문제가 중첩됨.
   V1197 root cause 분석 완료: 세 가지 레이어 문제가 중첩됨.
   (1) V1194/V1195/V1196: SAMPLE_COUNT!=0 → serial 홍수 (pm_proxy/pm-service /proc/maps 덤프
