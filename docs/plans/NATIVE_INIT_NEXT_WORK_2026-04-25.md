@@ -5457,3 +5457,26 @@ Samsung bootloader
   tracefs write, eSoC ioctl/notify/BOOT_DONE, PMIC/GPIO/GDSC write, Wi-Fi HAL,
   scan/connect, credentials, DHCP/routes, external ping, flash, boot image write,
   or partition write.
+
+## V1324 Provider Response Delta Classifier (2026-05-31)
+
+- runner: `scripts/revalidation/native_wifi_provider_response_delta_classifier_v1324.py`
+- evidence: `tmp/wifi/v1324-provider-response-delta-classifier/manifest.json`
+- report: `docs/reports/NATIVE_INIT_V1324_PROVIDER_RESPONSE_DELTA_CLASSIFIER_2026-05-31.md`
+- result: `v1324-delta-is-post-ap2mdm-mdm2ap-response-gap`, pass `true`.
+- finding: existing evidence proves native reaches AP-side provider activity:
+  GPIO1270 PMIC soft-reset lines, GPIO135/AP2MDM high, and GPIO141
+  AP2MDM_ERRFATAL-side activity. Native still has GPIO142/MDM2AP IRQ `0`, MDM
+  errfatal IRQ `0`, PCI/MHI/MHI pipe absent, WLFW/BDF absent, and `wlan0`
+  absent. Android-positive V852/V896/V1239 evidence has GPIO142 IRQ, PCIe
+  RC1/L0, MHI/ks, WLFW/BDF, and `wlan0`.
+- interpretation: the remaining delta is a post-AP2MDM MDM2AP/PCIe response
+  gap, not public `wait_for_err_ready()`, not image-link delivery, and not static
+  GPIO135/GPIO142 shape.
+- safety: host/source-only classifier; no device command, helper deploy, PM actor
+  start, `mdm_helper`, tracefs write, live eSoC ioctl/notify, PMIC/GPIO/GDSC
+  write, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping,
+  flash, boot image write, or partition write.
+- next: V1325 should design a small bounded read-only or reboot-bounded observer
+  for GPIO142/MDM errfatal/PCIe timing, or choose Android read-only timing
+  recapture if exact Android phase ordering is still required.

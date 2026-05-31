@@ -4,7 +4,7 @@
 - Cycle: `V1324` (project axis; no device flash implied)
 - Native build: `A90 Linux init 0.9.68 (v724)` (unchanged)
 - Type: host/source-only classifier plan
-- Status: PLAN
+- Status: IMPLEMENTED — see `docs/reports/NATIVE_INIT_V1324_PROVIDER_RESPONSE_DELTA_CLASSIFIER_2026-05-31.md`
 
 ## Goal
 
