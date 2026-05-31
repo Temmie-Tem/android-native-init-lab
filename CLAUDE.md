@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V1238 LIVE PASS → V1239 host-only lower powerup classifier planned — V1238 removed the direct helper `/dev/subsys_esoc0` trigger and proved late `per_proxy` can drive `pm-service` Binder into `openat("/dev/subsys_esoc0")` / `mdm_subsys_powerup`. No MHI/`ks`/WLFW/`wlan0` appeared and cleanup was reboot-required, so the remaining blocker is the SDX50M/MDM3 hardware response after `mdm_subsys_powerup`, not `per_proxy` delivery. Still no Wi-Fi HAL/scan/connect, credentials, DHCP/routes, external ping, flash, boot image write, or partition write.
+- **Active research cycle**: V1239 HOST-ONLY PASS → V1240 cleanup-safe SDX50M response classifier planned — V1239 proves the remaining gap is after `pm-service` Binder enters `/dev/subsys_esoc0` / `mdm_subsys_powerup` and before Android's downstream GPIO142/PCIe RC1/SSCTL/MHI/WLFW response. Userspace `per_proxy` delivery is no longer the blocker. Still no Wi-Fi HAL/scan/connect, credentials, DHCP/routes, external ping, flash, boot image write, or partition write.
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -944,3 +944,8 @@ V1237 added `scripts/revalidation/native_wifi_late_per_proxy_branch_snapshot_liv
 ## Latest native Wi-Fi state: V1238 (2026-05-31)
 
 V1238 added `scripts/revalidation/native_wifi_late_per_proxy_only_live_v1238.py` and ran the bounded late-`per_proxy`-only live gate. Result: `v1238-late-per-proxy-reached-pm-service-esoc0-reboot-required` PASS. Direct helper trigger and post-wait observer were absent. Late `per_proxy` started after `mdm_helper` held `/dev/esoc-0`; `pm-service` Binder then entered `openat("/dev/subsys_esoc0")` with `wchan=mdm_subsys_powerup`. No MHI pipe, `ks`, WLFW, BDF, or `wlan0` appeared and `mdm3` stayed `OFFLINING`; cleanup was not proven safe and the device returned cleanly to native init after reboot. Next is V1239 host-only classification of the lower `mdm_subsys_powerup` hardware response gap before any Wi-Fi HAL/connect attempt.
+
+
+## Latest native Wi-Fi state: V1239 (2026-05-31)
+
+V1239 added `scripts/revalidation/native_wifi_post_esoc0_powerup_gap_classifier_v1239.py` and classified Android/V1238 evidence host-only. Result: `v1239-gap-is-after-pm-service-esoc0-before-gpio142-pcie-wlfw` PASS. Android and native both reach the `pm-service` `/dev/subsys_esoc0` / `mdm_subsys_powerup` entry, but only Android receives GPIO142 IRQ, PCIe RC1 L0, sysmon esoc0 SSCTL, MHI/`ks`, WLFW/BDF, and `wlan0`. Native V1238 remains `mdm3=OFFLINING`, WLFW `0`, `wlan0=false`, and reboot-required. Next V1240 should be a cleanup-safe SDX50M response-input classifier around GPIO142/AP2MDM/MDM2AP/PCIe RC1/PMIC/pinctrl; still no Wi-Fi HAL/connect.

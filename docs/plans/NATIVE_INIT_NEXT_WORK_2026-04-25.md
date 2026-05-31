@@ -25,19 +25,18 @@
 
 ## 현재 Wi-Fi Gate
 
-- 최신 기준: V1238 LIVE PASS — `v1238-late-per-proxy-reached-pm-service-esoc0-reboot-required`.
-  V1238은 V1237의 direct subsystem trigger 충돌을 제거했다. late `per_proxy`는
-  `mdm_helper`가 `/dev/esoc-0`을 잡은 뒤 정상 시작했고, `pm-service` Binder
-  thread가 `openat("/dev/subsys_esoc0")`로 `mdm_subsys_powerup`에 들어갔다.
-  즉 Android-positive `per_proxy` → `pm-service` 전달 경로는 native에서도
-  성립한다. 그러나 MHI pipe, `ks`, WLFW/BDF, `wlan0`은 나타나지 않았고
-  `mdm3`는 `OFFLINING`에 머물렀으며 cleanup은 reboot-required였다. 따라서
-  blocker는 더 이상 `per_proxy`/Binder request 전달이 아니라
-  `mdm_subsys_powerup` 이후 SDX50M/MDM3 하드웨어 응답 갭이다. 다음 V1239는
-  host-only로 Android와 native의 `/dev/subsys_esoc0` open 이후 GPIO142,
-  PCIe RC1, MHI/`ks`, WLFW 전환 차이를 분류한다. Wi-Fi HAL, scan/connect,
-  credentials, DHCP/routes, external ping, flash, boot image write, partition
-  write는 계속 블록한다.
+- 최신 기준: V1239 HOST-ONLY PASS — `v1239-gap-is-after-pm-service-esoc0-before-gpio142-pcie-wlfw`.
+  V1239는 Android/V1238 증거를 비교해 blocker를 더 낮췄다. Android와 native
+  모두 `pm-service` Binder가 `/dev/subsys_esoc0` / `mdm_subsys_powerup`에
+  진입한다. 차이는 그 이후다. Android는 GPIO142 IRQ, PCIe RC1 L0, sysmon
+  esoc0 SSCTL, MHI/`ks`, WLFW/BDF, `wlan0`까지 이어지지만, native V1238은
+  `mdm3=OFFLINING`, WLFW `0`, `wlan0=false`, cleanup reboot-required에 머문다.
+  따라서 다음 V1240은 live action을 넓히기 전에 cleanup-safe
+  SDX50M response-input classifier를 설계해야 한다: GPIO142/AP2MDM/MDM2AP
+  pin state, PCIe RC1 state, PMIC/pinctrl, `mdm_subsys_powerup` 이후 reboot
+  boundary를 읽기 중심으로 분류한다. Wi-Fi HAL, scan/connect, credentials,
+  DHCP/routes, external ping, flash, boot image write, partition write는 계속
+  블록한다.
 - V1198 배경: V1197 root cause 분석 완료: 세 가지 레이어 문제가 중첩됨.
   V1197 root cause 분석 완료: 세 가지 레이어 문제가 중첩됨.
   (1) V1194/V1195/V1196: SAMPLE_COUNT!=0 → serial 홍수 (pm_proxy/pm-service /proc/maps 덤프
