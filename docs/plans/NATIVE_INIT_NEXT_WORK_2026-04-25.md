@@ -6240,6 +6240,54 @@ Samsung bootloader
     - Hard stop: source/build-only. No device command, Wi-Fi HAL, scan/connect,
       DHCP/routes, external ping, PMIC/GPIO/GDSC direct write, eSoC notify/
       `BOOT_DONE`, flash, boot image write, or partition write.
+    - Result:
+      `docs/reports/NATIVE_INIT_V1377_CORRECTED_RC1_POWERUP_GATE_SUPPORT_2026-06-01.md`.
+      Decision: `v1377-helper-v283-powerup-gate-ready`. Helper
+      `a90_android_execns_probe v283` (SHA256
+      `985eba4834b3b0324d886df39cecff9811ae183ea800119fdaea2d6ef8431a18`)
+      preserves the fd gate but also accepts a positive
+      `pm_service_powerup_thread_count`, emits
+      `gate_pm_service_powerup_thread_count`, and updates the non-trigger
+      skip reason to `pm_service_powerup_not_observed`. Source/build checks
+      passed without device commands. V1378 must deploy/preflight v283 before
+      the live rerun.
+26. **V1378 helper v283 deploy preflight (deploy-only).**
+    - Goal: deploy helper v283 to `/cache/bin/a90_android_execns_probe` and
+      prove marker/SHA/usage/selftest before any corrected RC1 live retry.
+    - Required checks: native version/status/selftest `fail=0`, helper SHA256
+      equals
+      `985eba4834b3b0324d886df39cecff9811ae183ea800119fdaea2d6ef8431a18`,
+      helper usage exposes `a90_android_execns_probe v283`, the corrected RC1
+      flag is present, and evidence confirms the new
+      `gate_pm_service_powerup_thread_count` marker.
+    - Transfer note: NCM may be inactive; if serial fallback is used, keep the
+      safe chunk size from V1375 (`1800`) unless a current preflight proves a
+      larger line size is safe.
+    - Hard stop: deploy/preflight only. No daemon start, Wi-Fi HAL,
+      scan/connect, credentials, DHCP/routes, external ping, PMIC/GPIO/GDSC
+      writes, eSoC notify/`BOOT_DONE`, flash, boot image write, or partition
+      write.
+27. **V1379 bounded Android participant + corrected RC1 live rerun.**
+    - Goal: rerun the V1376 lower Android participant parity path with helper
+      v283 so corrected RC1 enumerate triggers when `pm-service` is observed
+      blocked in `mdm_subsys_powerup`, even before a `/dev/subsys_esoc0` fd is
+      visible.
+    - Required preflight: V1378 helper v283 deploy PASS, native selftest
+      `fail=0`, debugfs mount state captured, PCI/MHI/WLFW/`wlan0` absent
+      before the run, and the same late-`per_proxy`/MDM2AP timing sampler
+      flags used by V1376.
+    - Success signals: `corrected_rc1_enumerate.triggered=1`,
+      `gate_pm_service_powerup_thread_count > 0`, `rc_sel_rc=0`, `case_rc=0`,
+      and then either RC1 reaches L0/GPIO142/PCI/MHI/WLFW/`wlan0`, or a
+      strictly stronger lower-boundary failure is captured with postflight
+      selftest `fail=0`.
+    - Failure signals: no powerup-thread gate, `rc_sel`/`case` write failure,
+      transport loss without recovery evidence, debugfs cleanup failure,
+      postflight selftest failure, non-RC1 PCI side effects, or any unintended
+      HAL/network activity.
+    - Hard stop: still below Wi-Fi bring-up. No Wi-Fi HAL, scan/connect,
+      credentials, DHCP/routes, external ping, direct PMIC/GPIO/GDSC writes,
+      eSoC notify/`BOOT_DONE`, flash, boot image write, or partition write.
 
 ### Required decision before any new mutation
 
@@ -6320,6 +6368,11 @@ Samsung bootloader
 - V1376 proves the corrected RC1 trigger gate must use the observed
   `mdm_subsys_powerup` thread, not `/dev/subsys_esoc0` fd ownership. V1377
   should patch helper v283 before any V1378 retry.
+- V1377 implements that helper-side fix in v283 and keeps it source/build-only.
+  V1378 is deploy/preflight only; V1379 is the first allowed live rerun of the
+  Android participant + corrected RC1 gate, and it must remain below Wi-Fi HAL,
+  scan/connect, credentials, DHCP/routes, external ping, PMIC/GPIO/GDSC writes,
+  and eSoC notify/`BOOT_DONE` spoofing.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still

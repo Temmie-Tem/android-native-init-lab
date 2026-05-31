@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V1336 pre-CNSS provider order classifier PASS → V1337 Android-order pre-CNSS provider observe-only gate — Android reaches `wlfw_start` before captured `__subsystem_get(esoc0)`, while native starts `cnss_daemon` before the eSoC gate yet records no WLFW/BDF/MHI/ks/`wlan0`. V1336 ranked the missing input as Android's pre-CNSS PM/provider chain: `pm_proxy_helper`, QRTR/RFS/pd-mapper companions, `per_mgr`, `per_proxy`, and `cnss_diag` before `cnss-daemon`. Preserve hard exclusions: no PMIC write, userspace GPIO line request/hold, direct eSoC ioctl, direct GDSC write, blind eSoC notify/BOOT_DONE, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, flash outside approved Android handoff/rollback, boot image write outside approved rollback, or partition write.
+- **Active research cycle**: V1377 source/build-only PASS patched helper v283 so corrected RC1 enumerate can gate on the observed `pm-service` `mdm_subsys_powerup` thread instead of requiring an already-open `/dev/subsys_esoc0` fd. Next is V1378 helper v283 deploy/preflight, then V1379 bounded Android participant + corrected RC1 live rerun. Preserve hard exclusions: no PMIC/GPIO/GDSC direct write, blind eSoC notify/BOOT_DONE spoof, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, flash outside approved Android handoff/rollback, boot image write outside approved rollback, or partition write.
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -1344,3 +1344,14 @@ Update after V1354/V1355:
   `mdm_subsys_powerup`, so no fd exists yet. Next is a helper fix that gates
   corrected RC1 enumerate on `mdm_subsys_powerup`/powerup-thread observation,
   not fd ownership.
+- V1377 source/build-only support (`v1377-helper-v283-powerup-gate-ready`)
+  implements that fix in helper `a90_android_execns_probe v283` (SHA256
+  `985eba4834b3b0324d886df39cecff9811ae183ea800119fdaea2d6ef8431a18`). The
+  corrected RC1 trigger now accepts either the legacy fd gate or a positive
+  `pm_service_powerup_thread_count`, and emits
+  `gate_pm_service_powerup_thread_count` for evidence. Source/build checks
+  passed without device commands. Next is V1378 deploy/preflight of helper
+  v283, then V1379 bounded live rerun of the Android participant + corrected
+  RC1 gate. Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping,
+  PMIC/GPIO/GDSC direct writes, eSoC notify/`BOOT_DONE`, flash, boot image
+  write, and partition write remain excluded.

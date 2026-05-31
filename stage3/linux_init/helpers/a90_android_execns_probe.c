@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v282"
+#define EXECNS_VERSION "a90_android_execns_probe v283"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -6665,7 +6665,8 @@ static int write_text_once_errno(const char *path, const char *text) {
 
 static int append_late_per_proxy_corrected_rc1_enumerate(struct buffer *stdout_buf,
                                                          const char *phase,
-                                                         int per_mgr_subsys_esoc0_count) {
+                                                         int per_mgr_subsys_esoc0_count,
+                                                         int pm_service_powerup_thread_count) {
     const char *rc_sel_path = "/sys/kernel/debug/pci-msm/rc_sel";
     const char *case_path = "/sys/kernel/debug/pci-msm/case";
     int rc_sel_rc;
@@ -6683,6 +6684,7 @@ static int append_late_per_proxy_corrected_rc1_enumerate(struct buffer *stdout_b
                          "pm_service_trigger_observer.corrected_rc1_enumerate.triggered=1\n"
                          "pm_service_trigger_observer.corrected_rc1_enumerate.phase=%s\n"
                          "pm_service_trigger_observer.corrected_rc1_enumerate.gate_per_mgr_subsys_esoc0_count=%d\n"
+                         "pm_service_trigger_observer.corrected_rc1_enumerate.gate_pm_service_powerup_thread_count=%d\n"
                          "pm_service_trigger_observer.corrected_rc1_enumerate.rc_sel_path=%s\n"
                          "pm_service_trigger_observer.corrected_rc1_enumerate.case_path=%s\n"
                          "pm_service_trigger_observer.corrected_rc1_enumerate.rc_sel_attempted=1\n"
@@ -6694,6 +6696,7 @@ static int append_late_per_proxy_corrected_rc1_enumerate(struct buffer *stdout_b
                          "pm_service_trigger_observer.corrected_rc1_enumerate.end=1\n",
                          phase,
                          per_mgr_subsys_esoc0_count,
+                         pm_service_powerup_thread_count,
                          rc_sel_path,
                          case_path,
                          rc_sel_rc,
@@ -36234,6 +36237,7 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                         char phase[64];
                         int per_mgr_subsys_modem_count = -1;
                         int per_mgr_subsys_esoc0_count = -1;
+                        int pm_service_powerup_thread_count = -1;
                         int pm_proxy_helper_subsys_modem_count = -1;
                         bool per_proxy_alive;
 
@@ -36256,6 +36260,7 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                                           kill(per_proxy->pid, 0) == 0;
                         per_mgr_subsys_esoc0_count = composite_child_alive_for_snapshot(per_mgr)
                             ? count_proc_fd_target_matches(per_mgr->pid, "/dev/subsys_esoc0") : -1;
+                        pm_service_powerup_thread_count = count_pm_service_powerup_threads();
                         if (!late_per_proxy_lower_sequence_summary_sampler &&
                             !late_per_proxy_mdm2ap_timing_sampler) {
                             if (append_format(stdout_buf,
@@ -36370,10 +36375,12 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                         }
                         if (late_per_proxy_corrected_rc1_enumerate &&
                             !late_per_proxy_corrected_rc1_enumerate_done &&
-                            per_mgr_subsys_esoc0_count > 0) {
+                            (per_mgr_subsys_esoc0_count > 0 ||
+                             pm_service_powerup_thread_count > 0)) {
                             if (append_late_per_proxy_corrected_rc1_enumerate(stdout_buf,
                                                                               phase,
-                                                                              per_mgr_subsys_esoc0_count) < 0) {
+                                                                              per_mgr_subsys_esoc0_count,
+                                                                              pm_service_powerup_thread_count) < 0) {
                                 composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
                                 stop_property_service_shim(&property_shim, paths, stdout_buf);
                                 return -1;
@@ -36394,7 +36401,7 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                             append_literal(stdout_buf,
                                            "pm_service_trigger_observer.corrected_rc1_enumerate.begin=1\n"
                                            "pm_service_trigger_observer.corrected_rc1_enumerate.triggered=0\n"
-                                           "pm_service_trigger_observer.corrected_rc1_enumerate.skip_reason=per_mgr_subsys_esoc0_not_observed\n"
+                                           "pm_service_trigger_observer.corrected_rc1_enumerate.skip_reason=pm_service_powerup_not_observed\n"
                                            "pm_service_trigger_observer.corrected_rc1_enumerate.debugfs_control_write_executed=0\n"
                                            "pm_service_trigger_observer.response_sampler.debugfs_control_write_executed=0\n"
                                            "pm_service_trigger_observer.corrected_rc1_enumerate.end=1\n") < 0) {
