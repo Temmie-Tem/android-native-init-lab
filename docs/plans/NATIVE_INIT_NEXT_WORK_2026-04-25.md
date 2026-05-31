@@ -96,7 +96,9 @@
   source/build-only helper `a90_android_execns_probe v264`로 late `per_proxy`
   response sampler에 read-only PMIC GPIO9 `GPIO_GET_LINEINFO_IOCTL` snapshots를
   before/during/after phase에 추가했고, static aarch64 build와 marker 검증을
-  통과했다. 다음 V1266은 helper v264 deploy-only이며, V1267은 bounded live
+  통과했다. V1266은 serial fallback으로 helper v264를 `/cache/bin/a90_android_execns_probe`에
+  배포했고 SHA256 `a06ff29245023c265c69e58e2ae3f32a4facbc291bcb63a4450f39efd9515dc5`
+  직접 검증과 post-deploy selftest `fail=0`을 통과했다. 다음 V1267은 bounded live
   ext-mdm/AP2MDM observer다. 관찰 대상은 kernel-owned line state, GPIO142 IRQ
   count, PCIe RC1/MHI surface, `mdm_subsys_powerup` timing이며, GPIO line request,
   PMIC GPIO9 hold, PMIC write, direct eSoC ioctl, new PM/CNSS/HAL start,
