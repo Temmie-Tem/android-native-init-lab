@@ -124,7 +124,7 @@
 - 현재 소스 루트: `stage3/linux_init/init_v724.c` + 모듈 `stage3/linux_init/a90_*.c/h` + 헬퍼 `stage3/linux_init/helpers/`
 - 공식 숫자 버전: `0.9.68`
 - 박힌 빌드 태그: `v724`
-- 현재 진행 사이클: `V1291 HOST PASS → V1292 dynamic PCIe/GDSC/eSoC sequencing plan` (native Wi-Fi bring-up; 디바이스 재flash 없음 — `CLAUDE.md` 기준)
+- 현재 진행 사이클: `V1292 HOST PASS → V1293 dense dynamic response sampler build` (native Wi-Fi bring-up; 디바이스 재flash 없음 — `CLAUDE.md` 기준)
 - 직전 rollback: `stage3/boot_linux_v261.img` (0.9.60)
 - creator: `made by temmie0214`
 - known-good fallback: `stage3/boot_linux_v48.img` (`A90 Linux init v48`)
@@ -434,8 +434,8 @@ ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v79까지 반복 안
 연구 사이클만 진행). 상세는 `CLAUDE.md`와
 `docs/plans/NATIVE_INIT_NEXT_WORK_2026-04-25.md`를 기준으로 한다.
 
-1. **V1292** — dynamic PCIe/GDSC/eSoC sequencing plan
-   (V1291 closed static GPIO135/GPIO142 and PMIC9 shape as the shortest blocker)
+1. **V1293** — dense dynamic response sampler build
+   (V1292 selected 50ms dense sampling because Android PCIe RC1 appears within the first sub-second window)
 2. **SDX50M eSoC power-up gate** — `pm-service`가 `/dev/subsys_esoc0`를 열어
    `mdm_subsys_powerup`까지 진입하지만 MDM3가 `OFFLINING`에 머무는 원인(위 PMIC 전원
    레일 / GPIO142 / PCIe RC1) 규명
