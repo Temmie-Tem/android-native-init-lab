@@ -124,7 +124,7 @@
 - 현재 소스 루트: `stage3/linux_init/init_v724.c` + 모듈 `stage3/linux_init/a90_*.c/h` + 헬퍼 `stage3/linux_init/helpers/`
 - 공식 숫자 버전: `0.9.68`
 - 박힌 빌드 태그: `v724`
-- 현재 진행 사이클: `V1335 early-CNSS WLFW parity observer PASS → classify Android-only early WLFW provider/input` (native Wi-Fi bring-up; 디바이스 재flash 없음 — `CLAUDE.md` 기준)
+- 현재 진행 사이클: `V1336 pre-CNSS provider order classifier PASS → V1337 Android-order pre-CNSS provider observe-only gate` (native Wi-Fi bring-up; 디바이스 재flash 없음 — `CLAUDE.md` 기준)
 - 직전 rollback: `stage3/boot_linux_v261.img` (0.9.60)
 - creator: `made by temmie0214`
 - known-good fallback: `stage3/boot_linux_v48.img` (`A90 Linux init v48`)
@@ -434,9 +434,9 @@ ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v79까지 반복 안
 연구 사이클만 진행). 상세는 `CLAUDE.md`와
 `docs/plans/NATIVE_INIT_NEXT_WORK_2026-04-25.md`를 기준으로 한다.
 
-1. **V1336** — Android-only early WLFW provider/input classifier
-   (V1335에서 `/dev/subsys_esoc0`를 닫아둔 상태에서도 native `cnss-daemon`이 early WLFW state에 못 들어갔으므로, Android `wlfw_start` 전 property/runtime/service-manager/provider 차이를 host-only 또는 read-only로 분류)
-2. **SDX50M eSoC response prerequisite gate** — V1336 결과에 따라 CNSS/provider state 보강 또는 eSoC trigger 재시도 범위를 결정
+1. **V1337** — Android-order pre-CNSS provider observe-only gate
+   (`pm_proxy_helper`, QRTR/RFS/pd-mapper companions, `per_mgr`, `per_proxy`, `cnss_diag`를 `cnss-daemon` 전에 맞춘 뒤 `/dev/subsys_esoc0`는 닫아두고 WLFW precondition 여부만 관찰)
+2. **SDX50M eSoC response prerequisite gate** — V1337 결과에 따라 CNSS/provider state 보강 또는 eSoC trigger 재시도 범위를 결정
 
 **복구**: `backups/baseline_a_20260423_030309/boot.img` dd 복구 가능
 
