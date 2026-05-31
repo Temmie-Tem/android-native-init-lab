@@ -261,7 +261,11 @@
   live로 PASS했다. Helper stdout이 기존 `1MiB` cap에 닿아 full end marker는
   없었지만 `76` focused samples에서 `/dev/subsys_esoc0` → `mdm_subsys_powerup`
   경계와 PMIC/GDSC no-transition을 확인했다. 다음 V1310은 exact safe lower
-  prerequisite host-only 분류 또는 stdout-reduced sampler support다.
+  prerequisite host-only 분류 또는 stdout-reduced sampler support다. V1310은
+  host-only classifier로 PASS했고 static PMIC GPIO9/TLMM GPIO135/GPIO142 shape를
+  닫았다. Active blocker는 `mdm_subsys_powerup` 이후 dynamic PCIe/GDSC/eSoC lower
+  power sequencing이다. 다음 V1311은 stdout-reduced full-window lower-sequence
+  sampler support가 우선이다.
   GPIO line request, PMIC GPIO9 hold, PMIC write, direct eSoC ioctl, new
   PM/CNSS/HAL start, scan/connect, credentials, DHCP/routes, external ping, flash,
   boot image write, partition write는 별도 gate 전까지 계속 블록한다.
