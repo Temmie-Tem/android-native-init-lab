@@ -242,7 +242,13 @@
   absent라서 단순 sampler-cadence blind spot 가능성은 낮다. 다음 V1306은 visible
   AP2MDM assertion이 안 나오는 lower branch를 분류한다: PM8150L soft-reset pinctrl,
   PCIe GDSC/runtime power prerequisite, 또는 proprietary `mdm_subsys_powerup` 내부
-  branch-before-`mdm_do_first_power_on`.
+  branch-before-`mdm_do_first_power_on`. V1306은 V1305 native lower-window evidence와
+  V1244 Android-positive PMIC/PCIe reference를 host-only로 비교했고
+  `v1306-pmic-gdsc-prereq-gap-classified`로 PASS했다. Native window에서는 PM8150L
+  soft-reset이 `MUX UNCLAIMED`, PCIe0/PCIe1 GDSC가 `0mV`, AP2MDM/MDM2AP low,
+  MDM status/MHI/WLFW/`ks`/`wlan0` absent인 반면 Android-positive evidence에는 PMIC
+  GPIO9 configured와 PCIe RC1 progress가 있다. 다음 V1307은 focused no-write
+  PMIC/GDSC transition sampler support 또는 exact safe init prerequisite 분류다.
   GPIO line request, PMIC GPIO9 hold, PMIC write, direct eSoC ioctl, new
   PM/CNSS/HAL start, scan/connect, credentials, DHCP/routes, external ping, flash,
   boot image write, partition write는 별도 gate 전까지 계속 블록한다.
