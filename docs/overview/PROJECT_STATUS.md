@@ -124,7 +124,7 @@
 - 현재 소스 루트: `stage3/linux_init/init_v724.c` + 모듈 `stage3/linux_init/a90_*.c/h` + 헬퍼 `stage3/linux_init/helpers/`
 - 공식 숫자 버전: `0.9.68`
 - 박힌 빌드 태그: `v724`
-- 현재 진행 사이클: `V1330 focused Android read-only timing recapture plan PASS → V1331 Android read-only collector/handoff implementation` (native Wi-Fi bring-up; 디바이스 재flash 없음 — `CLAUDE.md` 기준)
+- 현재 진행 사이클: `V1331 Android read-only collector/handoff PASS → V1332 host-only WLFW-before-eSoC ordering classifier` (native Wi-Fi bring-up; 디바이스 재flash 없음 — `CLAUDE.md` 기준)
 - 직전 rollback: `stage3/boot_linux_v261.img` (0.9.60)
 - creator: `made by temmie0214`
 - known-good fallback: `stage3/boot_linux_v48.img` (`A90 Linux init v48`)
@@ -434,9 +434,9 @@ ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v79까지 반복 안
 연구 사이클만 진행). 상세는 `CLAUDE.md`와
 `docs/plans/NATIVE_INIT_NEXT_WORK_2026-04-25.md`를 기준으로 한다.
 
-1. **V1331** — Android read-only timing collector/handoff implementation
-   (V622 패턴을 확장해 `__subsystem_get(esoc0)`, GPIO142, PCIe RC1/L0, MHI, `ks`, WLFW/BDF, `wlan0`를 Android dmesg monotonic timeline으로 재캡처)
-2. **SDX50M eSoC response prerequisite gate** — V1331 ordering 결과에 따라 native가 Android-only response prerequisite을 재현하지 못하는 지점을 좁힘
+1. **V1332** — WLFW-before-eSoC ordering classifier
+   (V1331 Android `wlfw_start < __subsystem_get(esoc0) < BDF < wlan0` evidence와 V1328 native no-response window를 host-only로 비교)
+2. **SDX50M eSoC response prerequisite gate** — V1332 결과에 따라 native가 Android-only CNSS/provider state를 재현하지 못하는 지점을 좁힘
 
 **복구**: `backups/baseline_a_20260423_030309/boot.img` dd 복구 가능
 

@@ -5598,3 +5598,25 @@ Samsung bootloader
   rollback, or partition write.
 - next: V1331 should implement the collector/handoff and run only after the
   script exposes plan/preflight gates with the V1330 guardrails.
+
+## V1331 Android SDX50M Timing Handoff (2026-05-31)
+
+- runner: `scripts/revalidation/android_sdx50m_timing_handoff_v1331.py`
+- collector: `scripts/revalidation/native_wifi_android_sdx50m_timing_recapture_v1331.py`
+- evidence: `tmp/wifi/v1331-android-sdx50m-timing-handoff/manifest.json`
+- report: `docs/reports/NATIVE_INIT_V1331_ANDROID_SDX50M_TIMING_HANDOFF_2026-05-31.md`
+- result: `v1331-android-wlfw-before-subsys-esoc0`, pass `true`.
+- finding: Android-positive recapture captured `wlfw_start=8.396410s`,
+  `__subsystem_get(esoc0)=8.449943s`, `BDF=9.513055s`, and
+  `wlan0=14.772258s`. PCIe RC1/L0 and MHI pipe dmesg markers were not present
+  in this run, so the runner did not claim PCIe-vs-eSoC ordering.
+- rollback: restored `stage3/boot_linux_v724.img`; post-run native version was
+  `A90 Linux init 0.9.68 (v724)` and selftest remained
+  `pass=11 warn=1 fail=0`.
+- safety: no Wi-Fi HAL start, scan/connect, credential use, DHCP/routes,
+  external ping, native PMIC/GPIO/GDSC/eSoC write, direct eSoC ioctl/notify,
+  blind `BOOT_DONE`, or partition write outside the bounded Android
+  handoff/rollback path.
+- next: V1332 should host-only classify whether native is missing an earlier
+  Android `cnss-daemon` WLFW request/provider state before `pm-service` enters
+  `mdm_subsys_powerup`.

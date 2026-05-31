@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V1330 focused Android read-only timing recapture plan PASS → V1331 Android read-only collector/handoff implementation — native reaches `mdm_subsys_powerup` and holds a full no-transition window, while Android evidence has GPIO142/PCIe/MHI/ks/WLFW/`wlan0` and may show PCIe L0 before the captured `pm-service` eSoC timestamp. Preserve hard exclusions: no PMIC write, userspace GPIO line request/hold, direct eSoC ioctl, direct GDSC write, blind eSoC notify/BOOT_DONE, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, flash outside approved Android handoff/rollback, boot image write outside approved rollback, or partition write.
+- **Active research cycle**: V1331 Android read-only collector/handoff PASS → V1332 host-only WLFW-before-eSoC ordering classifier — Android recapture captured `wlfw_start` before captured `__subsystem_get(esoc0)`, then BDF and `wlan0`; native still reaches `mdm_subsys_powerup` with no response. Preserve hard exclusions: no PMIC write, userspace GPIO line request/hold, direct eSoC ioctl, direct GDSC write, blind eSoC notify/BOOT_DONE, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, flash outside approved Android handoff/rollback, boot image write outside approved rollback, or partition write.
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -1096,3 +1096,7 @@ V1329 added `scripts/revalidation/native_wifi_android_only_sdx50m_prereq_classif
 ## Latest native Wi-Fi state: V1330 (2026-05-31)
 
 V1330 added `docs/reports/NATIVE_INIT_V1330_ANDROID_TIMING_RECAPTURE_PLAN_2026-05-31.md`. Result: `v1330-focused-android-readonly-timing-recapture-plan-ready` PASS. The next unit is V1331: extend the V622 Android handoff/collector pattern to recapture Android dmesg monotonic timestamps for `__subsystem_get(esoc0)`, GPIO142, PCIe RC1/L0, MHI, `ks`, WLFW/BDF, and `wlan0`, while keeping init property boottimes as a separately labelled clock source unless comparability is verified. The collector remains read-only; Android boot handoff is allowed only inside an explicit rollback wrapper. No Wi-Fi HAL/scan/connect, credentials, DHCP/routes, external ping, or lower native mutation.
+
+## Latest native Wi-Fi state: V1331 (2026-05-31)
+
+V1331 added `scripts/revalidation/native_wifi_android_sdx50m_timing_recapture_v1331.py` and `scripts/revalidation/android_sdx50m_timing_handoff_v1331.py`, then ran a bounded Android handoff with rollback to `stage3/boot_linux_v724.img`. Result: `v1331-android-wlfw-before-subsys-esoc0` PASS. The collector captured Android `wlfw_start` at `8.396410s`, captured `__subsystem_get(esoc0)` at `8.449943s`, BDF download at `9.513055s`, and `wlan0` at `14.772258s`; PCIe RC1/L0 and MHI pipe dmesg markers were not present in this run. Native rollback verified `A90 Linux init 0.9.68 (v724)` and selftest `pass=11 warn=1 fail=0`. Next V1332 should classify whether native is missing an earlier Android `cnss-daemon` WLFW request/provider state before the eSoC powerup path.
