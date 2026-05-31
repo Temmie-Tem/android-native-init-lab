@@ -199,9 +199,14 @@
   `wlan0`는 여전히 absent였다. postflight native health는 `pass=11 warn=1 fail=0`이다.
   V1296은 host-only로 V1295 dense-window shortfall이 runtime stop이 아니라 helper stdout
   `1048576` byte cap truncation임을 확인했다: truncation은 `late_per_proxy_poll_13` 중
-  발생했고 `response_sampler.end`는 absent다. 다음 V1297은 source/build-only로 compact
-  dense sampler 또는 file-backed evidence path를 추가해 동일 live path의 full 40-sample
-  관측을 가능하게 한다.
+  발생했고 `response_sampler.end`는 absent다. V1297은 source/build-only로 helper `v272`
+  compact dense sampler를 추가했고 sha256은
+  `1344b4ac101aa0cde56a46f1274b2d01f25d11b424158d822bff71234a1e7885`다.
+  새 opt-in flag는 `--pm-observer-late-per-proxy-compact-response-sampler`이며,
+  `late-per-proxy-dense-compact-pinctrl-irq-pcie` 모드에서 verbose fd/source/range/kmsg
+  블록을 생략하고 no-write 핵심 카운터만 남겨 동일 live path의 full 40-sample 관측을
+  가능하게 한다. 다음 gate는 V1298 deploy-only, 이후 V1299 bounded compact dense live
+  sampler다.
   GPIO line request, PMIC GPIO9 hold, PMIC write, direct eSoC ioctl, new
   PM/CNSS/HAL start, scan/connect, credentials, DHCP/routes, external ping, flash,
   boot image write, partition write는 별도 gate 전까지 계속 블록한다.
