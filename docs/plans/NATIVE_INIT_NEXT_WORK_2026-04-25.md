@@ -6161,6 +6161,53 @@ Samsung bootloader
       preflight is implemented. No Wi-Fi HAL, scan/connect/credentials,
       DHCP/routes, external ping, direct PMIC/GPIO/GDSC writes, eSoC notify/
       `BOOT_DONE` spoof, flash, boot image write, or partition write.
+    - Result:
+      `docs/reports/NATIVE_INIT_V1374_ANDROID_PARTICIPANT_RC1_SUPPORT_2026-06-01.md`.
+      Decision: `v1374-helper-v282-support-ready`. Helper
+      `a90_android_execns_probe v282` adds
+      `--pm-observer-late-per-proxy-corrected-rc1-enumerate`; it is only valid
+      with the late-`per_proxy` response sampler and MDM2AP timing sampler,
+      waits until `pm-service` is observed with `/dev/subsys_esoc0`, then writes
+      corrected `rc_sel=2` + `case=11` from inside the same helper process.
+      Source/build checks passed with static aarch64 helper SHA256
+      `c1f4670536c37b068dd2f8ac807c0eb5416eb3f248857791002156c1f0195418`.
+
+23. **V1375 helper v282 deploy preflight (deploy-only).**
+    - Goal: deploy helper v282 and prove the device-side helper marker, SHA256,
+      mode parsing, and selftest are clean before any live RC1 enumerate action.
+    - Required checks: native version/status/selftest `fail=0`, helper SHA256
+      equals `c1f4670536c37b068dd2f8ac807c0eb5416eb3f248857791002156c1f0195418`,
+      `strings`/version output contains `a90_android_execns_probe v282`, new
+      flag appears in usage, debugfs mount state is observed, and no live
+      `case=11` write is executed.
+    - Hard stop: deploy/preflight only. No Wi-Fi HAL, scan/connect/credentials,
+      DHCP/routes, external ping, PMIC/GPIO/GDSC writes, eSoC notify/
+      `BOOT_DONE`, flash, boot image write, or partition write.
+
+24. **V1376 bounded Android participant + corrected RC1 enumerate live gate.**
+    - Goal: start the lower Android participant parity path
+      (`mdm_helper` CMD_ENG/WAIT_FOR_REQ plus late `per_proxy`/`pm-service`
+      `/dev/subsys_esoc0`) and trigger corrected RC1 enumerate only after that
+      gate is observed in the same helper process.
+    - Required flags: `--allow-post-pm-mdm-helper-esoc-observer`,
+      `--allow-post-pm-mdm-helper-lower-trace`,
+      `--pm-observer-start-mdm-helper-after-cnss`,
+      `--pm-observer-start-cnss-after-provider`,
+      `--pm-observer-start-cnss-before-per-proxy`,
+      `--pm-observer-start-per-proxy-after-mdm-helper-esoc-fd`,
+      `--pm-observer-late-per-proxy-response-sampler`,
+      `--pm-observer-late-per-proxy-mdm2ap-errfatal-pcie-timing-sampler`, and
+      `--pm-observer-late-per-proxy-corrected-rc1-enumerate`.
+    - Success signals: `corrected_rc1_enumerate.triggered=1`, `rc_sel_rc=0`,
+      `case_rc=0`, and then either RC1 reaches L0/GPIO142/PCI/MHI/WLFW/`wlan0`
+      or a stricter lower-boundary failure is captured with postflight
+      selftest `fail=0`.
+    - Failure signals: `per_mgr_subsys_esoc0_count` never becomes positive,
+      `rc_sel`/`case` write failure, transport loss without recovery evidence,
+      postflight selftest failure, or any unintended HAL/network activity.
+    - Hard stop: still below Wi-Fi bring-up. No Wi-Fi HAL, scan/connect/
+      credentials, DHCP/routes, external ping, direct PMIC/GPIO/GDSC writes,
+      eSoC notify/`BOOT_DONE`, flash, boot image write, or partition write.
 
 ### Required decision before any new mutation
 
@@ -6231,6 +6278,9 @@ Samsung bootloader
   RC1 enumerate. The untested narrow path is Android participant parity plus
   corrected RC1 enumerate; V1374 should design that runner first, still below
   Wi-Fi HAL/scan/connect/network.
+- V1374 implements the source/build-only support for that path in helper v282.
+  V1375 must deploy/preflight the helper before V1376 live. Do not run V1376
+  until v282 marker/SHA/usage/selftest are proven on-device.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still

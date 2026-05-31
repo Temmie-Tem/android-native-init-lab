@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v281"
+#define EXECNS_VERSION "a90_android_execns_probe v282"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -267,6 +267,7 @@ struct config {
     bool pm_observer_late_per_proxy_pmic_gdsc_transition_sampler; /* v274 */
     bool pm_observer_late_per_proxy_lower_sequence_summary_sampler; /* v275 */
     bool pm_observer_late_per_proxy_mdm2ap_errfatal_pcie_timing_sampler; /* v276 */
+    bool pm_observer_late_per_proxy_corrected_rc1_enumerate; /* v282 */
     bool pm_observer_current_route_cnss_wlfw_precondition_summary; /* v280 */
     bool allow_android_wifi_service_window;
     bool allow_android_wifi_service_window_subsys_trigger_capture;
@@ -476,6 +477,7 @@ static void usage(FILE *out) {
             "[--pm-observer-late-per-proxy-pmic-gdsc-transition-sampler] "
             "[--pm-observer-late-per-proxy-lower-sequence-summary-sampler] "
             "[--pm-observer-late-per-proxy-mdm2ap-errfatal-pcie-timing-sampler] "
+            "[--pm-observer-late-per-proxy-corrected-rc1-enumerate] "
             "[--pm-observer-current-route-cnss-wlfw-precondition-summary] "
             "[--allow-android-wifi-service-window] "
             "[--allow-android-wifi-service-window-subsys-trigger-capture] "
@@ -1331,6 +1333,10 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             cfg->pm_observer_late_per_proxy_mdm2ap_errfatal_pcie_timing_sampler = true;
             continue;
         }
+        if (strcmp(argv[i], "--pm-observer-late-per-proxy-corrected-rc1-enumerate") == 0) {
+            cfg->pm_observer_late_per_proxy_corrected_rc1_enumerate = true;
+            continue;
+        }
         if (strcmp(argv[i], "--pm-observer-current-route-cnss-wlfw-precondition-summary") == 0) {
             cfg->pm_observer_current_route_cnss_wlfw_precondition_summary = true;
             continue;
@@ -2003,6 +2009,16 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
     if (cfg->pm_observer_late_per_proxy_mdm2ap_errfatal_pcie_timing_sampler &&
         !cfg->pm_observer_late_per_proxy_response_sampler) {
         fprintf(stderr, "--pm-observer-late-per-proxy-mdm2ap-errfatal-pcie-timing-sampler requires --pm-observer-late-per-proxy-response-sampler\n");
+        return 2;
+    }
+    if (cfg->pm_observer_late_per_proxy_corrected_rc1_enumerate &&
+        !cfg->pm_observer_late_per_proxy_response_sampler) {
+        fprintf(stderr, "--pm-observer-late-per-proxy-corrected-rc1-enumerate requires --pm-observer-late-per-proxy-response-sampler\n");
+        return 2;
+    }
+    if (cfg->pm_observer_late_per_proxy_corrected_rc1_enumerate &&
+        !cfg->pm_observer_late_per_proxy_mdm2ap_errfatal_pcie_timing_sampler) {
+        fprintf(stderr, "--pm-observer-late-per-proxy-corrected-rc1-enumerate requires --pm-observer-late-per-proxy-mdm2ap-errfatal-pcie-timing-sampler\n");
         return 2;
     }
     if (cfg->pm_observer_current_route_cnss_wlfw_precondition_summary &&
@@ -6627,6 +6643,64 @@ static int append_format(struct buffer *buf, const char *fmt, ...) {
     rc = buffer_append(buf, dynamic_buf, (size_t)rc);
     free(dynamic_buf);
     return rc;
+}
+
+static int write_text_once_errno(const char *path, const char *text) {
+    int fd = open(path, O_WRONLY | O_CLOEXEC);
+    int saved_errno;
+
+    if (fd < 0) {
+        return -errno;
+    }
+    if (write_all_fd(fd, text, strlen(text)) < 0) {
+        saved_errno = errno;
+        close(fd);
+        return -saved_errno;
+    }
+    if (close(fd) < 0) {
+        return -errno;
+    }
+    return 0;
+}
+
+static int append_late_per_proxy_corrected_rc1_enumerate(struct buffer *stdout_buf,
+                                                         const char *phase,
+                                                         int per_mgr_subsys_esoc0_count) {
+    const char *rc_sel_path = "/sys/kernel/debug/pci-msm/rc_sel";
+    const char *case_path = "/sys/kernel/debug/pci-msm/case";
+    int rc_sel_rc;
+    int case_rc = 0;
+    int case_attempted = 0;
+
+    rc_sel_rc = write_text_once_errno(rc_sel_path, "2\n");
+    if (rc_sel_rc == 0) {
+        case_attempted = 1;
+        case_rc = write_text_once_errno(case_path, "11\n");
+    }
+
+    return append_format(stdout_buf,
+                         "pm_service_trigger_observer.corrected_rc1_enumerate.begin=1\n"
+                         "pm_service_trigger_observer.corrected_rc1_enumerate.triggered=1\n"
+                         "pm_service_trigger_observer.corrected_rc1_enumerate.phase=%s\n"
+                         "pm_service_trigger_observer.corrected_rc1_enumerate.gate_per_mgr_subsys_esoc0_count=%d\n"
+                         "pm_service_trigger_observer.corrected_rc1_enumerate.rc_sel_path=%s\n"
+                         "pm_service_trigger_observer.corrected_rc1_enumerate.case_path=%s\n"
+                         "pm_service_trigger_observer.corrected_rc1_enumerate.rc_sel_attempted=1\n"
+                         "pm_service_trigger_observer.corrected_rc1_enumerate.rc_sel_rc=%d\n"
+                         "pm_service_trigger_observer.corrected_rc1_enumerate.case_attempted=%d\n"
+                         "pm_service_trigger_observer.corrected_rc1_enumerate.case_rc=%d\n"
+                         "pm_service_trigger_observer.corrected_rc1_enumerate.debugfs_control_write_executed=%d\n"
+                         "pm_service_trigger_observer.response_sampler.debugfs_control_write_executed=%d\n"
+                         "pm_service_trigger_observer.corrected_rc1_enumerate.end=1\n",
+                         phase,
+                         per_mgr_subsys_esoc0_count,
+                         rc_sel_path,
+                         case_path,
+                         rc_sel_rc,
+                         case_attempted,
+                         case_attempted ? case_rc : 0,
+                         (rc_sel_rc == 0 && case_attempted && case_rc == 0) ? 1 : 0,
+                         (rc_sel_rc == 0 && case_attempted && case_rc == 0) ? 1 : 0);
 }
 
 struct sepolicy_inventory_path {
@@ -34686,6 +34760,9 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
         cfg->pm_observer_late_per_proxy_lower_sequence_summary_sampler;
     const bool late_per_proxy_mdm2ap_timing_sampler =
         cfg->pm_observer_late_per_proxy_mdm2ap_errfatal_pcie_timing_sampler;
+    const bool late_per_proxy_corrected_rc1_enumerate =
+        cfg->pm_observer_late_per_proxy_corrected_rc1_enumerate;
+    bool late_per_proxy_corrected_rc1_enumerate_done = false;
     const bool current_route_cnss_wlfw_precondition_summary =
         cfg->pm_observer_current_route_cnss_wlfw_precondition_summary;
     const bool late_per_proxy_compact_response_sampler =
@@ -34850,6 +34927,7 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                           "post_pm_mdm_helper_esoc_observer.late_per_proxy_pmic_gdsc_transition_sampler=%d\n"
                           "post_pm_mdm_helper_esoc_observer.late_per_proxy_lower_sequence_summary_sampler=%d\n"
                           "post_pm_mdm_helper_esoc_observer.late_per_proxy_mdm2ap_errfatal_pcie_timing_sampler=%d\n"
+                          "post_pm_mdm_helper_esoc_observer.late_per_proxy_corrected_rc1_enumerate=%d\n"
                           "post_pm_mdm_helper_esoc_observer.late_per_proxy_after_mdm_helper_esoc_fd_requested=%d\n",
                           post_pm_mdm_helper_allowed ? 1 : 0,
                           post_pm_mdm_helper_start ? 1 : 0,
@@ -34862,6 +34940,7 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                           cfg->pm_observer_late_per_proxy_pmic_gdsc_transition_sampler ? 1 : 0,
                           cfg->pm_observer_late_per_proxy_lower_sequence_summary_sampler ? 1 : 0,
                           cfg->pm_observer_late_per_proxy_mdm2ap_errfatal_pcie_timing_sampler ? 1 : 0,
+                          late_per_proxy_corrected_rc1_enumerate ? 1 : 0,
                           late_per_proxy_requested ? 1 : 0) < 0) {
             return -1;
         }
@@ -36063,9 +36142,11 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                                           "pm_service_trigger_observer.response_sampler.pmic_gdsc_transition_enabled=%d\n"
                                           "pm_service_trigger_observer.response_sampler.lower_sequence_summary_enabled=%d\n"
                                           "pm_service_trigger_observer.response_sampler.mdm2ap_errfatal_pcie_timing_enabled=%d\n"
+                                          "pm_service_trigger_observer.response_sampler.corrected_rc1_enumerate_enabled=%d\n"
                                           "pm_service_trigger_observer.response_sampler.dense_sample_interval_ms=%d\n"
                                           "pm_service_trigger_observer.response_sampler.dense_sample_count=%d\n"
                                           "pm_service_trigger_observer.response_sampler.dense_window_ms=%d\n"
+                                          "pm_service_trigger_observer.response_sampler.debugfs_control_write_requested=%d\n"
                                           "pm_service_trigger_observer.response_sampler.gpio_sysfs_write_executed=0\n"
                                           "pm_service_trigger_observer.response_sampler.debugfs_control_write_executed=0\n"
                                           "pm_service_trigger_observer.response_sampler.subsys_esoc0_direct_open_executed=0\n",
@@ -36089,6 +36170,7 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                                           late_per_proxy_pmic_gdsc_transition_sampler ? 1 : 0,
                                           late_per_proxy_lower_sequence_summary_sampler ? 1 : 0,
                                           late_per_proxy_mdm2ap_timing_sampler ? 1 : 0,
+                                          late_per_proxy_corrected_rc1_enumerate ? 1 : 0,
                                           (late_per_proxy_dense_response_sampler ||
                                            late_per_proxy_pmic_gdsc_transition_sampler ||
                                            late_per_proxy_lower_sequence_summary_sampler ||
@@ -36103,7 +36185,8 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                                            late_per_proxy_pmic_gdsc_transition_sampler ||
                                            late_per_proxy_lower_sequence_summary_sampler ||
                                            late_per_proxy_mdm2ap_timing_sampler)
-                                              ? late_per_proxy_poll_interval_ms * late_per_proxy_poll_max : 0) < 0 ||
+                                              ? late_per_proxy_poll_interval_ms * late_per_proxy_poll_max : 0,
+                                          late_per_proxy_corrected_rc1_enumerate ? 1 : 0) < 0 ||
                             (late_per_proxy_mdm2ap_timing_sampler
                                  ? 0
                                  : (late_per_proxy_lower_sequence_summary_sampler
@@ -36150,6 +36233,7 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                     for (int poll = 0; poll < late_per_proxy_poll_max; poll++) {
                         char phase[64];
                         int per_mgr_subsys_modem_count = -1;
+                        int per_mgr_subsys_esoc0_count = -1;
                         int pm_proxy_helper_subsys_modem_count = -1;
                         bool per_proxy_alive;
 
@@ -36170,6 +36254,8 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                         per_proxy_alive = !per_proxy->child_done &&
                                           per_proxy->pid > 0 &&
                                           kill(per_proxy->pid, 0) == 0;
+                        per_mgr_subsys_esoc0_count = composite_child_alive_for_snapshot(per_mgr)
+                            ? count_proc_fd_target_matches(per_mgr->pid, "/dev/subsys_esoc0") : -1;
                         if (!late_per_proxy_lower_sequence_summary_sampler &&
                             !late_per_proxy_mdm2ap_timing_sampler) {
                             if (append_format(stdout_buf,
@@ -36218,8 +36304,6 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                                 ? count_proc_fd_target_matches(pm_proxy_helper->pid, "/dev/subsys_modem") : -1;
                             mdm2ap_timing_summary_sample(&mdm2ap_timing_summary);
                         } else if (late_per_proxy_compact_response_sampler) {
-                            int per_mgr_subsys_esoc0_count = composite_child_alive_for_snapshot(per_mgr)
-                                ? count_proc_fd_target_matches(per_mgr->pid, "/dev/subsys_esoc0") : -1;
                             int mdm_helper_esoc0_count = composite_child_alive_for_snapshot(mdm_helper)
                                 ? count_proc_fd_target_matches(mdm_helper->pid, "/dev/esoc-0") : -1;
                             int mdm_helper_mhi_pipe_count = composite_child_alive_for_snapshot(mdm_helper)
@@ -36284,6 +36368,18 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                             stop_property_service_shim(&property_shim, paths, stdout_buf);
                             return -1;
                         }
+                        if (late_per_proxy_corrected_rc1_enumerate &&
+                            !late_per_proxy_corrected_rc1_enumerate_done &&
+                            per_mgr_subsys_esoc0_count > 0) {
+                            if (append_late_per_proxy_corrected_rc1_enumerate(stdout_buf,
+                                                                              phase,
+                                                                              per_mgr_subsys_esoc0_count) < 0) {
+                                composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+                                stop_property_service_shim(&property_shim, paths, stdout_buf);
+                                return -1;
+                            }
+                            late_per_proxy_corrected_rc1_enumerate_done = true;
+                        }
                         if (per_mgr_subsys_modem_count > 0) {
                             per_mgr_subsys_modem_seen = true;
                         }
@@ -36293,6 +36389,19 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                         late_per_proxy_poll_count++;
                     }
                     if (cfg->pm_observer_late_per_proxy_response_sampler) {
+                        if (late_per_proxy_corrected_rc1_enumerate &&
+                            !late_per_proxy_corrected_rc1_enumerate_done &&
+                            append_literal(stdout_buf,
+                                           "pm_service_trigger_observer.corrected_rc1_enumerate.begin=1\n"
+                                           "pm_service_trigger_observer.corrected_rc1_enumerate.triggered=0\n"
+                                           "pm_service_trigger_observer.corrected_rc1_enumerate.skip_reason=per_mgr_subsys_esoc0_not_observed\n"
+                                           "pm_service_trigger_observer.corrected_rc1_enumerate.debugfs_control_write_executed=0\n"
+                                           "pm_service_trigger_observer.response_sampler.debugfs_control_write_executed=0\n"
+                                           "pm_service_trigger_observer.corrected_rc1_enumerate.end=1\n") < 0) {
+                            composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+                            stop_property_service_shim(&property_shim, paths, stdout_buf);
+                            return -1;
+                        }
                         if ((late_per_proxy_mdm2ap_timing_sampler
                                  ? (append_mdm2ap_timing_summary(stdout_buf, &mdm2ap_timing_summary) < 0 ||
                                     (current_route_cnss_wlfw_precondition_summary &&

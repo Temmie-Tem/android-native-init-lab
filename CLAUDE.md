@@ -1310,3 +1310,15 @@ Update after V1354/V1355:
   remaining narrow untested combination is Android participant parity
   (`mdm_helper` CMD_ENG/WAIT_FOR_REQ plus `pm-service` `/dev/subsys_esoc0`) with
   corrected `rc_sel=2` + `case=11`, still below Wi-Fi HAL/scan/connect/network.
+- V1374 source/build-only support (`v1374-helper-v282-support-ready`) adds
+  helper-side support for that narrow combination in `a90_android_execns_probe
+  v282` (SHA256 `c1f4670536c37b068dd2f8ac807c0eb5416eb3f248857791002156c1f0195418`).
+  The new `--pm-observer-late-per-proxy-corrected-rc1-enumerate` flag is gated
+  by the late-`per_proxy` response sampler and MDM2AP timing sampler, waits
+  until `pm-service` is observed with `/dev/subsys_esoc0`, then writes
+  corrected `/sys/kernel/debug/pci-msm/rc_sel=2` and `case=11` from inside the
+  same helper process. V1374 runs no device command. Next is V1375 deploy-only
+  helper v282 preflight, then V1376 bounded live; Wi-Fi HAL, scan/connect,
+  credentials, DHCP/routes, external ping, PMIC/GPIO/GDSC writes, eSoC
+  notify/`BOOT_DONE`, flash, boot image writes, and partition writes remain
+  excluded.
