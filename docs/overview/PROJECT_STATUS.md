@@ -124,7 +124,7 @@
 - 현재 소스 루트: `stage3/linux_init/init_v724.c` + 모듈 `stage3/linux_init/a90_*.c/h` + 헬퍼 `stage3/linux_init/helpers/`
 - 공식 숫자 버전: `0.9.68`
 - 박힌 빌드 태그: `v724`
-- 현재 진행 사이클: `V1281 SOURCE/BUILD PASS → V1282 deploy-only` (native Wi-Fi bring-up; 디바이스 재flash 없음 — `CLAUDE.md` 기준)
+- 현재 진행 사이클: `V1282 DEPLOY PASS → V1283 bounded live` (native Wi-Fi bring-up; 디바이스 재flash 없음 — `CLAUDE.md` 기준)
 - 직전 rollback: `stage3/boot_linux_v261.img` (0.9.60)
 - creator: `made by temmie0214`
 - known-good fallback: `stage3/boot_linux_v48.img` (`A90 Linux init v48`)
@@ -434,11 +434,9 @@ ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v79까지 반복 안
 연구 사이클만 진행). 상세는 `CLAUDE.md`와
 `docs/plans/NATIVE_INIT_NEXT_WORK_2026-04-25.md`를 기준으로 한다.
 
-1. **V1282** — deploy-only helper v268 PCIe/GDSC/kmsg sampler
-   (V1281에서 static aarch64 helper build pass; sha256
-   `e86db44aad14e54572d88d77c1ea2019ea28b1f91c01f7a9af9e6eabc690a3ba`)
-2. **V1283** — bounded live PCIe/GDSC/kmsg response sampler
-3. **SDX50M eSoC power-up gate** — `pm-service`가 `/dev/subsys_esoc0`를 열어
+1. **V1283** — bounded live PCIe/GDSC/kmsg response sampler
+   (V1282에서 helper v268 배포 및 remote SHA 확인 완료)
+2. **SDX50M eSoC power-up gate** — `pm-service`가 `/dev/subsys_esoc0`를 열어
    `mdm_subsys_powerup`까지 진입하지만 MDM3가 `OFFLINING`에 머무는 원인(위 PMIC 전원
    레일 / GPIO142 / PCIe RC1) 규명
 
