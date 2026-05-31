@@ -98,7 +98,7 @@
 #define IOPRIO_PRIO_VALUE(class_value, data) (((class_value) << IOPRIO_CLASS_SHIFT) | (data))
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v264"
+#define EXECNS_VERSION "a90_android_execns_probe v265"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -12087,6 +12087,64 @@ static bool read_regulator_line(const char *needle,
                                             source_size);
 }
 
+static bool read_debugfs_gpio_line(const char *needle_a,
+                                   const char *needle_b,
+                                   const char *needle_c,
+                                   char *out,
+                                   size_t out_size,
+                                   char *source,
+                                   size_t source_size) {
+    return read_first_matching_line_with_source("/sys/kernel/debug/gpio",
+                                                needle_a,
+                                                needle_b,
+                                                needle_c,
+                                                out,
+                                                out_size,
+                                                source,
+                                                source_size);
+}
+
+static bool read_tlmm_pinconf_line(const char *needle_a,
+                                   const char *needle_b,
+                                   const char *needle_c,
+                                   char *out,
+                                   size_t out_size,
+                                   char *source,
+                                   size_t source_size) {
+    static const char * const pinconf_files[] = {
+        "/sys/kernel/debug/pinctrl/3000000.pinctrl/pinconf-pins",
+        NULL,
+    };
+
+    return read_line_from_files_with_source(pinconf_files,
+                                            needle_a,
+                                            needle_b,
+                                            needle_c,
+                                            out,
+                                            out_size,
+                                            source,
+                                            source_size);
+}
+
+static bool read_pmic_pinconf_line(char *out,
+                                   size_t out_size,
+                                   char *source,
+                                   size_t source_size) {
+    static const char * const pinconf_files[] = {
+        "/sys/kernel/debug/pinctrl/c440000.qcom,spmi:qcom,pm8150l@4:pinctrl@c000/pinconf-pins",
+        NULL,
+    };
+
+    return read_line_from_files_with_source(pinconf_files,
+                                            "gpio9",
+                                            "pin 7",
+                                            "pin 9",
+                                            out,
+                                            out_size,
+                                            source,
+                                            source_size);
+}
+
 struct pmic_gpiochip_lineinfo_sample {
     char sysfs_dev[64];
     char sysfs_label[256];
@@ -12258,10 +12316,23 @@ static int append_pm_esoc_response_sample(struct buffer *buf, const char *phase)
     char pcie1_gdsc_source[MAX_PATH_LEN];
     char pcie0_gdsc_line[512];
     char pcie0_gdsc_source[MAX_PATH_LEN];
+    char pmic_gpio1270_debugfs_line[512];
+    char pmic_gpio1270_debugfs_source[MAX_PATH_LEN];
+    char tlmm_gpio135_debugfs_line[512];
+    char tlmm_gpio135_debugfs_source[MAX_PATH_LEN];
+    char tlmm_gpio142_debugfs_line[512];
+    char tlmm_gpio142_debugfs_source[MAX_PATH_LEN];
+    char pmic9_pinconf_line[512];
+    char pmic9_pinconf_source[MAX_PATH_LEN];
+    char pin135_pinconf_line[512];
+    char pin135_pinconf_source[MAX_PATH_LEN];
+    char pin142_pinconf_line[512];
+    char pin142_pinconf_source[MAX_PATH_LEN];
     int pci_dev_count = -1;
     int mhi_bus_count = -1;
     bool matched = false;
     bool debugfs_pinctrl_present = lstat("/sys/kernel/debug/pinctrl", &st) == 0;
+    bool debugfs_gpio_present = lstat("/sys/kernel/debug/gpio", &st) == 0;
     bool debugfs_regulator_present =
         lstat("/sys/kernel/debug/regulator/regulator_summary", &st) == 0 ||
         lstat("/sys/kernel/debug/regulator_summary", &st) == 0;
@@ -12271,6 +12342,12 @@ static int append_pm_esoc_response_sample(struct buffer *buf, const char *phase)
     bool pmic_soft_reset_seen;
     bool pcie1_gdsc_seen;
     bool pcie0_gdsc_seen;
+    bool pmic_gpio1270_debugfs_seen;
+    bool tlmm_gpio135_debugfs_seen;
+    bool tlmm_gpio142_debugfs_seen;
+    bool pmic9_pinconf_seen;
+    bool pin135_pinconf_seen;
+    bool pin142_pinconf_seen;
     bool mhi_pipe_exists = lstat("/dev/mhi_0305_01.01.00_pipe_10", &st) == 0;
     bool wlan0_exists = lstat("/sys/class/net/wlan0", &st) == 0;
 
@@ -12321,6 +12398,48 @@ static int append_pm_esoc_response_sample(struct buffer *buf, const char *phase)
                                           sizeof(pcie0_gdsc_line),
                                           pcie0_gdsc_source,
                                           sizeof(pcie0_gdsc_source));
+    pmic_gpio1270_debugfs_seen =
+        read_debugfs_gpio_line("gpio-1270",
+                               "AP2MDM_SOFT_RESET",
+                               "ap2mdm",
+                               pmic_gpio1270_debugfs_line,
+                               sizeof(pmic_gpio1270_debugfs_line),
+                               pmic_gpio1270_debugfs_source,
+                               sizeof(pmic_gpio1270_debugfs_source));
+    tlmm_gpio135_debugfs_seen =
+        read_debugfs_gpio_line("gpio-135",
+                               "GPIO_135",
+                               "ap2mdm",
+                               tlmm_gpio135_debugfs_line,
+                               sizeof(tlmm_gpio135_debugfs_line),
+                               tlmm_gpio135_debugfs_source,
+                               sizeof(tlmm_gpio135_debugfs_source));
+    tlmm_gpio142_debugfs_seen =
+        read_debugfs_gpio_line("gpio-142",
+                               "GPIO_142",
+                               "mdm status",
+                               tlmm_gpio142_debugfs_line,
+                               sizeof(tlmm_gpio142_debugfs_line),
+                               tlmm_gpio142_debugfs_source,
+                               sizeof(tlmm_gpio142_debugfs_source));
+    pmic9_pinconf_seen = read_pmic_pinconf_line(pmic9_pinconf_line,
+                                                sizeof(pmic9_pinconf_line),
+                                                pmic9_pinconf_source,
+                                                sizeof(pmic9_pinconf_source));
+    pin135_pinconf_seen = read_tlmm_pinconf_line("pin 135",
+                                                 "GPIO_135",
+                                                 "pinctrl:135",
+                                                 pin135_pinconf_line,
+                                                 sizeof(pin135_pinconf_line),
+                                                 pin135_pinconf_source,
+                                                 sizeof(pin135_pinconf_source));
+    pin142_pinconf_seen = read_tlmm_pinconf_line("pin 142",
+                                                 "GPIO_142",
+                                                 "pinctrl:142",
+                                                 pin142_pinconf_line,
+                                                 sizeof(pin142_pinconf_line),
+                                                 pin142_pinconf_source,
+                                                 sizeof(pin142_pinconf_source));
     if (!pin135_seen) pin135_line[0] = '\0';
     if (!pin135_seen) pin135_source[0] = '\0';
     if (!pin142_seen) pin142_line[0] = '\0';
@@ -12333,6 +12452,18 @@ static int append_pm_esoc_response_sample(struct buffer *buf, const char *phase)
     if (!pcie1_gdsc_seen) pcie1_gdsc_source[0] = '\0';
     if (!pcie0_gdsc_seen) pcie0_gdsc_line[0] = '\0';
     if (!pcie0_gdsc_seen) pcie0_gdsc_source[0] = '\0';
+    if (!pmic_gpio1270_debugfs_seen) pmic_gpio1270_debugfs_line[0] = '\0';
+    if (!pmic_gpio1270_debugfs_seen) pmic_gpio1270_debugfs_source[0] = '\0';
+    if (!tlmm_gpio135_debugfs_seen) tlmm_gpio135_debugfs_line[0] = '\0';
+    if (!tlmm_gpio135_debugfs_seen) tlmm_gpio135_debugfs_source[0] = '\0';
+    if (!tlmm_gpio142_debugfs_seen) tlmm_gpio142_debugfs_line[0] = '\0';
+    if (!tlmm_gpio142_debugfs_seen) tlmm_gpio142_debugfs_source[0] = '\0';
+    if (!pmic9_pinconf_seen) pmic9_pinconf_line[0] = '\0';
+    if (!pmic9_pinconf_seen) pmic9_pinconf_source[0] = '\0';
+    if (!pin135_pinconf_seen) pin135_pinconf_line[0] = '\0';
+    if (!pin135_pinconf_seen) pin135_pinconf_source[0] = '\0';
+    if (!pin142_pinconf_seen) pin142_pinconf_line[0] = '\0';
+    if (!pin142_pinconf_seen) pin142_pinconf_source[0] = '\0';
 
     if (append_format(buf,
                       "pm_service_trigger_observer.response_sample.%s.begin=1\n"
@@ -12344,6 +12475,7 @@ static int append_pm_esoc_response_sample(struct buffer *buf, const char *phase)
                          "pm_service_trigger_observer.response_sample.%s.mdm3_state=%s\n"
                          "pm_service_trigger_observer.response_sample.%s.mdm3_crash_count=%s\n"
                          "pm_service_trigger_observer.response_sample.%s.debugfs_pinctrl_present=%d\n"
+                         "pm_service_trigger_observer.response_sample.%s.debugfs_gpio_present=%d\n"
                          "pm_service_trigger_observer.response_sample.%s.debugfs_regulator_present=%d\n"
                          "pm_service_trigger_observer.response_sample.%s.pin135_seen=%d\n"
                          "pm_service_trigger_observer.response_sample.%s.pin135_source=%s\n"
@@ -12363,6 +12495,24 @@ static int append_pm_esoc_response_sample(struct buffer *buf, const char *phase)
                          "pm_service_trigger_observer.response_sample.%s.pcie0_gdsc_seen=%d\n"
                          "pm_service_trigger_observer.response_sample.%s.pcie0_gdsc_source=%s\n"
                          "pm_service_trigger_observer.response_sample.%s.pcie0_gdsc_line=%s\n"
+                         "pm_service_trigger_observer.response_sample.%s.pmic_gpio1270_debugfs_seen=%d\n"
+                         "pm_service_trigger_observer.response_sample.%s.pmic_gpio1270_debugfs_source=%s\n"
+                         "pm_service_trigger_observer.response_sample.%s.pmic_gpio1270_debugfs_line=%s\n"
+                         "pm_service_trigger_observer.response_sample.%s.tlmm_gpio135_debugfs_seen=%d\n"
+                         "pm_service_trigger_observer.response_sample.%s.tlmm_gpio135_debugfs_source=%s\n"
+                         "pm_service_trigger_observer.response_sample.%s.tlmm_gpio135_debugfs_line=%s\n"
+                         "pm_service_trigger_observer.response_sample.%s.tlmm_gpio142_debugfs_seen=%d\n"
+                         "pm_service_trigger_observer.response_sample.%s.tlmm_gpio142_debugfs_source=%s\n"
+                         "pm_service_trigger_observer.response_sample.%s.tlmm_gpio142_debugfs_line=%s\n"
+                         "pm_service_trigger_observer.response_sample.%s.pmic9_pinconf_seen=%d\n"
+                         "pm_service_trigger_observer.response_sample.%s.pmic9_pinconf_source=%s\n"
+                         "pm_service_trigger_observer.response_sample.%s.pmic9_pinconf_line=%s\n"
+                         "pm_service_trigger_observer.response_sample.%s.pin135_pinconf_seen=%d\n"
+                         "pm_service_trigger_observer.response_sample.%s.pin135_pinconf_source=%s\n"
+                         "pm_service_trigger_observer.response_sample.%s.pin135_pinconf_line=%s\n"
+                         "pm_service_trigger_observer.response_sample.%s.pin142_pinconf_seen=%d\n"
+                         "pm_service_trigger_observer.response_sample.%s.pin142_pinconf_source=%s\n"
+                         "pm_service_trigger_observer.response_sample.%s.pin142_pinconf_line=%s\n"
                          "pm_service_trigger_observer.response_sample.%s.pcie_current_link_state=%s\n"
                          "pm_service_trigger_observer.response_sample.%s.pcie_link_state=%s\n"
                          "pm_service_trigger_observer.response_sample.%s.pcie_runtime_status=%s\n"
@@ -12380,6 +12530,7 @@ static int append_pm_esoc_response_sample(struct buffer *buf, const char *phase)
                       phase, mdm3_state,
                       phase, mdm3_crash_count,
                       phase, debugfs_pinctrl_present ? 1 : 0,
+                      phase, debugfs_gpio_present ? 1 : 0,
                       phase, debugfs_regulator_present ? 1 : 0,
                       phase, pin135_seen ? 1 : 0,
                       phase, pin135_source,
@@ -12399,6 +12550,24 @@ static int append_pm_esoc_response_sample(struct buffer *buf, const char *phase)
                       phase, pcie0_gdsc_seen ? 1 : 0,
                       phase, pcie0_gdsc_source,
                       phase, pcie0_gdsc_line,
+                      phase, pmic_gpio1270_debugfs_seen ? 1 : 0,
+                      phase, pmic_gpio1270_debugfs_source,
+                      phase, pmic_gpio1270_debugfs_line,
+                      phase, tlmm_gpio135_debugfs_seen ? 1 : 0,
+                      phase, tlmm_gpio135_debugfs_source,
+                      phase, tlmm_gpio135_debugfs_line,
+                      phase, tlmm_gpio142_debugfs_seen ? 1 : 0,
+                      phase, tlmm_gpio142_debugfs_source,
+                      phase, tlmm_gpio142_debugfs_line,
+                      phase, pmic9_pinconf_seen ? 1 : 0,
+                      phase, pmic9_pinconf_source,
+                      phase, pmic9_pinconf_line,
+                      phase, pin135_pinconf_seen ? 1 : 0,
+                      phase, pin135_pinconf_source,
+                      phase, pin135_pinconf_line,
+                      phase, pin142_pinconf_seen ? 1 : 0,
+                      phase, pin142_pinconf_source,
+                      phase, pin142_pinconf_line,
                       phase, pcie_current_link_state,
                       phase, pcie_link_state,
                       phase, pcie_runtime_status,

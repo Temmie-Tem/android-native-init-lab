@@ -109,10 +109,12 @@
   read-only observer 대상을 분류했고, V1269 source/build-only helper v265를
   선택했다. V1269는 같은 PM-service window에서 PMIC GPIO9 value(debugfs gpio 가능 시),
   PMIC GPIO9 pinconf, TLMM GPIO135/142 value/pinconf, PCIe GDSC/regulator state를
-  추가로 샘플링해야 한다. GPIO line request, PMIC GPIO9 hold, PMIC write, direct
-  eSoC ioctl, new PM/CNSS/HAL start, scan/connect, credentials, DHCP/routes,
-  external ping, flash, boot image write, partition write는 별도 gate 전까지 계속
-  블록한다.
+  추가로 샘플링하도록 helper v265를 빌드했다. build SHA256은
+  `97ffa91a1aa7b8f4ab2c3a74716ae5664c703e98fe19a322351b1277fbd282b2`다. 다음 V1270은
+  helper v265 deploy-only, V1271은 bounded value/power observer다. GPIO line
+  request, PMIC GPIO9 hold, PMIC write, direct eSoC ioctl, new PM/CNSS/HAL start,
+  scan/connect, credentials, DHCP/routes, external ping, flash, boot image write,
+  partition write는 별도 gate 전까지 계속 블록한다.
 - V1198 배경: V1197 root cause 분석 완료: 세 가지 레이어 문제가 중첩됨.
   V1197 root cause 분석 완료: 세 가지 레이어 문제가 중첩됨.
   (1) V1194/V1195/V1196: SAMPLE_COUNT!=0 → serial 홍수 (pm_proxy/pm-service /proc/maps 덤프

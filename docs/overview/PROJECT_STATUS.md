@@ -434,10 +434,13 @@ ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v79까지 반복 안
 연구 사이클만 진행). 상세는 `CLAUDE.md`와
 `docs/plans/NATIVE_INIT_NEXT_WORK_2026-04-25.md`를 기준으로 한다.
 
-1. **V1269** — source/build-only helper `a90_android_execns_probe v265`
-   (V1268 결과에 따라 V1267 response sampler에 PMIC GPIO9/TLMM GPIO135/142
-   debugfs gpio value/pinconf 및 PCIe GDSC/regulator read-only snapshots 추가)
-2. **SDX50M eSoC power-up gate** — `pm-service`가 `/dev/subsys_esoc0`를 열어
+1. **V1270** — deploy-only helper `a90_android_execns_probe v265`
+   (SHA256 `97ffa91a1aa7b8f4ab2c3a74716ae5664c703e98fe19a322351b1277fbd282b2`;
+   no daemon start, no Wi-Fi bring-up)
+2. **V1271** — bounded value/power observer
+   (V1269 helper로 PMIC GPIO9/TLMM GPIO135/142 debugfs gpio value/pinconf 및
+   PCIe GDSC/regulator read-only snapshots를 같은 `/dev/subsys_esoc0` window에서 확인)
+3. **SDX50M eSoC power-up gate** — `pm-service`가 `/dev/subsys_esoc0`를 열어
    `mdm_subsys_powerup`까지 진입하지만 MDM3가 `OFFLINING`에 머무는 원인(위 PMIC 전원
    레일 / GPIO142 / PCIe RC1) 규명
 
