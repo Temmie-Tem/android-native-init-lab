@@ -142,7 +142,9 @@
   PCIe RC1/GDSC read-only snapshots를 추가했다. V1277 결과 helper
   `a90_android_execns_probe v267`는 정적 aarch64로 빌드됐고, sha256은
   `eccd9ca475927c2a37551304fedcc6740d19aeb048ebd137f966a18c269f0337`다. 다음 gate는
-  V1278 deploy-only, 이후 V1279 bounded live TLMM range sampler다.
+  V1278 deploy-only, 이후 V1279 bounded live TLMM range sampler다. V1278은 serial
+  fallback으로 helper v267을 `/cache/bin/a90_android_execns_probe`에 배포했고, remote
+  SHA와 post-deploy selftest `fail=0`을 확인했다. 따라서 다음은 V1279 live sampler다.
   GPIO line request, PMIC GPIO9 hold, PMIC write, direct eSoC ioctl, new
   PM/CNSS/HAL start, scan/connect, credentials, DHCP/routes, external ping, flash,
   boot image write, partition write는 별도 gate 전까지 계속 블록한다.
