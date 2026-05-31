@@ -5620,3 +5620,26 @@ Samsung bootloader
 - next: V1332 should host-only classify whether native is missing an earlier
   Android `cnss-daemon` WLFW request/provider state before `pm-service` enters
   `mdm_subsys_powerup`.
+
+## V1332 WLFW-before-eSoC Classifier (2026-05-31)
+
+- runner: `scripts/revalidation/native_wifi_wlfw_before_esoc_classifier_v1332.py`
+- evidence: `tmp/wifi/v1332-wlfw-before-esoc-classifier/manifest.json`
+- report: `docs/reports/NATIVE_INIT_V1332_WLFW_BEFORE_ESOC_CLASSIFIER_2026-05-31.md`
+- result: `v1332-native-missing-early-wlfw-provider-state`, pass `true`.
+- finding: Android V1331 recorded `wlfw_start=8.396410s` before captured
+  `__subsystem_get(esoc0)=8.449943s`, then BDF at `9.513055s` and `wlan0` at
+  `14.772258s`. Native V1328 starts `cnss_daemon` before `mdm_helper`/late
+  `per_proxy` and reaches `mdm_subsys_powerup`, but records no WLFW/BDF/MHI/ks
+  or `wlan0`.
+- interpretation: the next useful native gate is not a longer wait after
+  `mdm_subsys_powerup`. It should prove whether native `cnss-daemon` can reach
+  the same early WLFW userspace state that Android reaches before the captured
+  eSoC trigger.
+- safety: host-only classifier. No device command, helper deploy, actor start,
+  tracefs write, live eSoC ioctl/notify, PMIC/GPIO write, Wi-Fi HAL start,
+  scan/connect, credential use, DHCP/routes, external ping, flash, boot image
+  write, or partition write occurred.
+- next: V1333 should run a bounded native early-CNSS WLFW parity observer before
+  `per_proxy`/eSoC trigger, capturing `cnss-daemon` stdout/stderr, properties,
+  fds, and kmsg WLFW markers without Wi-Fi HAL/scan/connect.

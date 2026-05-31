@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V1331 Android read-only collector/handoff PASS → V1332 host-only WLFW-before-eSoC ordering classifier — Android recapture captured `wlfw_start` before captured `__subsystem_get(esoc0)`, then BDF and `wlan0`; native still reaches `mdm_subsys_powerup` with no response. Preserve hard exclusions: no PMIC write, userspace GPIO line request/hold, direct eSoC ioctl, direct GDSC write, blind eSoC notify/BOOT_DONE, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, flash outside approved Android handoff/rollback, boot image write outside approved rollback, or partition write.
+- **Active research cycle**: V1332 WLFW-before-eSoC host classifier PASS → V1333 bounded native early-CNSS WLFW parity observer — Android reaches `wlfw_start` before captured `__subsystem_get(esoc0)`, while native starts `cnss_daemon` before the eSoC gate yet records no WLFW/BDF/MHI/ks/`wlan0`. Preserve hard exclusions: no PMIC write, userspace GPIO line request/hold, direct eSoC ioctl, direct GDSC write, blind eSoC notify/BOOT_DONE, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, flash outside approved Android handoff/rollback, boot image write outside approved rollback, or partition write.
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -1100,3 +1100,7 @@ V1330 added `docs/reports/NATIVE_INIT_V1330_ANDROID_TIMING_RECAPTURE_PLAN_2026-0
 ## Latest native Wi-Fi state: V1331 (2026-05-31)
 
 V1331 added `scripts/revalidation/native_wifi_android_sdx50m_timing_recapture_v1331.py` and `scripts/revalidation/android_sdx50m_timing_handoff_v1331.py`, then ran a bounded Android handoff with rollback to `stage3/boot_linux_v724.img`. Result: `v1331-android-wlfw-before-subsys-esoc0` PASS. The collector captured Android `wlfw_start` at `8.396410s`, captured `__subsystem_get(esoc0)` at `8.449943s`, BDF download at `9.513055s`, and `wlan0` at `14.772258s`; PCIe RC1/L0 and MHI pipe dmesg markers were not present in this run. Native rollback verified `A90 Linux init 0.9.68 (v724)` and selftest `pass=11 warn=1 fail=0`. Next V1332 should classify whether native is missing an earlier Android `cnss-daemon` WLFW request/provider state before the eSoC powerup path.
+
+## Latest native Wi-Fi state: V1332 (2026-05-31)
+
+V1332 added `scripts/revalidation/native_wifi_wlfw_before_esoc_classifier_v1332.py` and classified the Android-vs-native WLFW/eSoC ordering host-only. Result: `v1332-native-missing-early-wlfw-provider-state` PASS. Android V1331 has `wlfw_start=8.396410s`, `__subsystem_get(esoc0)=8.449943s`, `BDF=9.513055s`, and `wlan0=14.772258s`. Native V1328 starts `cnss_daemon` before `mdm_helper`/late `per_proxy` and reaches `mdm_subsys_powerup`, but records `timing_wlfw_kmsg_max=0`, `timing_mhi_bus_max=0`, `timing_ks_process_max=0`, and `wlan0=false`. Next V1333 should run a bounded native early-CNSS WLFW parity observer before per_proxy/eSoC trigger, capturing `cnss-daemon` stdout/stderr, properties, fds, and kmsg WLFW markers without Wi-Fi HAL/scan/connect.
