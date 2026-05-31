@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v278"
+#define EXECNS_VERSION "a90_android_execns_probe v279"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -30258,7 +30258,7 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
                              COMPOSITE_ID_MDM_HELPER);
     }
     if (android_order_pre_cnss_provider_observer) {
-        order = "servicemanager,hwservicemanager,vndservicemanager,per_proxy_helper,qrtr_ns,rmt_storage,tftp_server,pd_mapper,per_mgr,per_proxy,mdm_helper,cnss_diag,cnss_daemon";
+        order = "servicemanager,hwservicemanager,vndservicemanager,vndservice_ready_query,per_proxy_helper,qrtr_ns,rmt_storage,tftp_server,pd_mapper,per_mgr,vndservice_query,per_proxy,vndservice_query,mdm_helper,cnss_diag,cnss_daemon";
     } else if (post_sysmon_observer) {
         order = android_order_post_sysmon_observer
                     ? "qrtr_ns,pd_mapper,rmt_storage,tftp_server"
@@ -30385,7 +30385,8 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
                       service74_gated_registry_capture ? 1 : 0) < 0 ||
         append_format(stdout_buf,
                       "wifi_companion_start.vndservice_query.enabled=%d\n",
-                      service74_gated_peripheral_manager_vndservice_query ? 1 : 0) < 0 ||
+                      (service74_gated_peripheral_manager_vndservice_query ||
+                       android_order_pre_cnss_provider_observer) ? 1 : 0) < 0 ||
         append_format(stdout_buf, "wifi_companion_start.wifi_hal=%d\n",
                       service74_gated_android_userspace_retry ? 2 : 0) < 0 ||
         append_format(stdout_buf, "wifi_companion_start.wificond=%d\n",
@@ -30512,7 +30513,35 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
             return -1;
         }
         if (android_order_pre_cnss_provider_observer) {
-            if (streq(children[i].name, "per_proxy_helper")) {
+            if (streq(children[i].name, "vndservicemanager")) {
+                bool provider_seen = false;
+
+                usleep(A90_VNDSERVICEMANAGER_READY_SETTLE_MS * 1000L);
+                composite_capture_observable_children(&children[i], 1, stdout_buf);
+                if (append_format(stdout_buf,
+                                  "wifi_companion_start.android_pre_cnss_provider.vndservicemanager.observable=%d\n"
+                                  "wifi_companion_start.android_pre_cnss_provider.vndservicemanager.fd_summary_captured=%d\n"
+                                  "wifi_companion_start.android_pre_cnss_provider.vndservicemanager.ready=%d\n",
+                                  children[i].observable ? 1 : 0,
+                                  children[i].fd_summary_captured ? 1 : 0,
+                                  (children[i].observable &&
+                                   !children[i].child_done &&
+                                   children[i].fd_summary_captured) ? 1 : 0) < 0 ||
+                    append_vndservice_query(stdout_buf,
+                                            stderr_buf,
+                                            cfg,
+                                            paths,
+                                            "android_pre_cnss_provider_vndservicemanager_ready",
+                                            3000,
+                                            &provider_seen) < 0 ||
+                    append_format(stdout_buf,
+                                  "wifi_companion_start.android_pre_cnss_provider.vndservicemanager.ready_query_provider_seen=%d\n",
+                                  provider_seen ? 1 : 0) < 0) {
+                    composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+                    stop_property_service_shim(&property_shim, paths, stdout_buf);
+                    return -1;
+                }
+            } else if (streq(children[i].name, "per_proxy_helper")) {
                 usleep(500000);
                 composite_capture_observable_children(&children[i], 1, stdout_buf);
                 if (append_format(stdout_buf,
@@ -30530,6 +30559,8 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
                     return -1;
                 }
             } else if (streq(children[i].name, "per_mgr")) {
+                bool provider_seen = false;
+
                 usleep(1000000);
                 composite_capture_observable_children(&children[i], 1, stdout_buf);
                 if (append_format(stdout_buf,
@@ -30540,12 +30571,24 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
                                   children[i].fd_summary_captured ? 1 : 0,
                                   (children[i].observable &&
                                    !children[i].child_done &&
-                                   children[i].fd_summary_captured) ? 1 : 0) < 0) {
+                                   children[i].fd_summary_captured) ? 1 : 0) < 0 ||
+                    append_vndservice_query(stdout_buf,
+                                            stderr_buf,
+                                            cfg,
+                                            paths,
+                                            "android_pre_cnss_provider_after_per_mgr",
+                                            3000,
+                                            &provider_seen) < 0 ||
+                    append_format(stdout_buf,
+                                  "wifi_companion_start.android_pre_cnss_provider.per_mgr.provider_seen=%d\n",
+                                  provider_seen ? 1 : 0) < 0) {
                     composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
                     stop_property_service_shim(&property_shim, paths, stdout_buf);
                     return -1;
                 }
             } else if (streq(children[i].name, "per_proxy")) {
+                bool provider_seen = false;
+
                 usleep(1000000);
                 composite_capture_observable_children(&children[i], 1, stdout_buf);
                 if (append_format(stdout_buf,
@@ -30556,7 +30599,17 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
                                   children[i].fd_summary_captured ? 1 : 0,
                                   (children[i].observable &&
                                    !children[i].child_done &&
-                                   children[i].fd_summary_captured) ? 1 : 0) < 0) {
+                                   children[i].fd_summary_captured) ? 1 : 0) < 0 ||
+                    append_vndservice_query(stdout_buf,
+                                            stderr_buf,
+                                            cfg,
+                                            paths,
+                                            "android_pre_cnss_provider_after_per_proxy",
+                                            3000,
+                                            &provider_seen) < 0 ||
+                    append_format(stdout_buf,
+                                  "wifi_companion_start.android_pre_cnss_provider.per_proxy.provider_seen=%d\n",
+                                  provider_seen ? 1 : 0) < 0) {
                     composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
                     stop_property_service_shim(&property_shim, paths, stdout_buf);
                     return -1;
