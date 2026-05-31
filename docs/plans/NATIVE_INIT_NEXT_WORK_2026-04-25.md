@@ -5102,3 +5102,25 @@ Samsung bootloader
   fail0 and netservice was stopped.
 - next: V1229 should classify the `ESOC_WAIT_FOR_REQ` request/result contract
   and why native does not transition into Android's `ks`/MHI transfer path.
+
+## V1229 ESOC WAIT_FOR_REQ / ks-MHI Contract Classifier (2026-05-31)
+
+- runner: `scripts/revalidation/native_wifi_esoc_wait_req_ks_mhi_contract_v1229.py`
+- evidence: `tmp/wifi/v1229-esoc-wait-req-ks-mhi-contract/manifest.json`
+- report: `docs/reports/NATIVE_INIT_V1229_ESOC_WAIT_REQ_KS_MHI_CONTRACT_2026-05-31.md`
+- result: `v1229-esoc-wait-req-ks-mhi-contract-classified`, pass `true`.
+- finding: V1228 proves the natural native path reaches `mdm_helper` blocked
+  in `ESOC_WAIT_FOR_REQ` while `pm-service` attempts `/dev/subsys_esoc0`;
+  V891/V1199 prove bare `ESOC_REQ_IMG` plus `ESOC_IMG_XFER_DONE` does not create
+  MHI readiness; V896 proves Android readiness includes the `mdm_helper` /
+  `ks` / `/dev/mhi_0305_01.01.00_pipe_10` image-link contract.
+- interpretation: the active blocker is the request/image-link handoff around
+  `ks`/MHI, not eSoC request existence, bare notify response, service-manager
+  expansion, or Wi-Fi HAL.
+- safety: host-only classifier; no device command, live eSoC ioctl/notify,
+  actor start, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping,
+  boot image write, flash, or partition write.
+- next: V1230 should add source/build-only support for a bounded `mdm_helper`
+  request-return / `ks` observer that preserves the V1228 non-ptrace path and
+  samples `/vendor/bin/ks` plus `/dev/mhi_0305_01.01.00_pipe_10` before any
+  `ESOC_NOTIFY`, `ESOC_BOOT_DONE`, or Wi-Fi HAL expansion.
