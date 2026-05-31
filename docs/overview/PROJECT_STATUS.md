@@ -124,7 +124,7 @@
 - 현재 소스 루트: `stage3/linux_init/init_v724.c` + 모듈 `stage3/linux_init/a90_*.c/h` + 헬퍼 `stage3/linux_init/helpers/`
 - 공식 숫자 버전: `0.9.68`
 - 박힌 빌드 태그: `v724`
-- 현재 진행 사이클: `V1303 PASS → V1304 AP2MDM/MDM2AP response classifier` (native Wi-Fi bring-up; 디바이스 재flash 없음 — `CLAUDE.md` 기준)
+- 현재 진행 사이클: `V1304 PASS → V1305 AP2MDM/MDM2AP transition timing or ext-mdm PMIC/pinctrl classifier` (native Wi-Fi bring-up; 디바이스 재flash 없음 — `CLAUDE.md` 기준)
 - 직전 rollback: `stage3/boot_linux_v261.img` (0.9.60)
 - creator: `made by temmie0214`
 - known-good fallback: `stage3/boot_linux_v48.img` (`A90 Linux init v48`)
@@ -434,8 +434,8 @@ ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v79까지 반복 안
 연구 사이클만 진행). 상세는 `CLAUDE.md`와
 `docs/plans/NATIVE_INIT_NEXT_WORK_2026-04-25.md`를 기준으로 한다.
 
-1. **V1304** — AP2MDM/MDM2AP response boundary classifier
-   (V1303에서 `/dev/subsys_esoc0`/`mdm_subsys_powerup` 도달은 marker로 증명됨)
+1. **V1305** — AP2MDM/MDM2AP transition timing or ext-mdm PMIC/pinctrl classifier
+   (V1304에서 V1303 증거를 host-only 재분류해 AP2MDM assertion/visibility gap으로 정리함)
 2. **SDX50M eSoC power-up gate** — `pm-service`가 `/dev/subsys_esoc0`를 열어
    `mdm_subsys_powerup`까지 진입하지만 GPIO142/PCIe RC1/MHI/WLFW/`wlan0`가 absent인 원인 규명
 

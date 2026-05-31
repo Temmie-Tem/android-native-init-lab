@@ -230,9 +230,13 @@
   확인됐지만 `max_mdm_status_count_total=0`, `max_mhi_bus_count=0`, `mhi_pipe_seen=false`,
   `wlan0_seen=false`다. GPIO snapshot은 `gpio135 : out 0 16mA no pull`,
   `gpio142 : in  0 8mA no pull`이고 lineinfo는 AP2MDM consumer/kernel-owned를
-  확인했다. 다음 V1304는 Android-positive 증거와 V1303을 비교해 AP2MDM GPIO assertion,
-  MDM2AP status response, 또는 ext-mdm power/PMIC prerequisite 중 어느 경계가 실제
-  blocker인지 분류한다.
+  확인했다. V1304는 Android-positive 증거와 V1303을 host-only로 비교했고
+  `v1304-ap2mdm-assertion-visibility-gap-classified`로 PASS했다. ext-sdx50m contract는
+  AP2MDM GPIO135 high 이후 MDM2AP/PCIe progress를 기대하지만, V1303 powerup window의
+  모든 phase에서 GPIO135/GPIO142가 low였고 MDM status/MHI/WLFW/`wlan0`는 absent였다.
+  단 Android post-boot snapshot도 low GPIO를 보일 수 있으므로 root cause 단정이 아니라
+  assertion/visibility boundary로 취급한다. 다음 V1305는 더 촘촘한 read-only
+  AP2MDM/MDM2AP transition timing 또는 ext-mdm PMIC/pinctrl branch를 분류한다.
   GPIO line request, PMIC GPIO9 hold, PMIC write, direct eSoC ioctl, new
   PM/CNSS/HAL start, scan/connect, credentials, DHCP/routes, external ping, flash,
   boot image write, partition write는 별도 gate 전까지 계속 블록한다.
