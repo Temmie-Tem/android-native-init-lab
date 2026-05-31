@@ -5480,3 +5480,20 @@ Samsung bootloader
 - next: V1325 should design a small bounded read-only or reboot-bounded observer
   for GPIO142/MDM errfatal/PCIe timing, or choose Android read-only timing
   recapture if exact Android phase ordering is still required.
+
+## V1325 GPIO142 / Errfatal / PCIe Timing Observer Plan (2026-05-31)
+
+- plan: `docs/plans/NATIVE_INIT_V1325_GPIO142_ERRFATAL_PCIE_TIMING_OBSERVER_PLAN_2026-05-31.md`
+- type: source/build design plan
+- status: plan ready; implementation not yet run
+- finding: V1324 closed the host/source classification as a post-AP2MDM
+  MDM2AP/PCIe response gap. Existing helper v275 lower-sequence summary is close
+  but does not provide compact MDM errfatal IRQ delta and first-transition timing
+  fields.
+- next implementation: V1326 should add helper `v276` mode
+  `--pm-observer-late-per-proxy-mdm2ap-errfatal-pcie-timing-sampler` with compact
+  `mdm2ap_timing.*` output fields for GPIO142 IRQ delta, MDM errfatal IRQ delta,
+  PCIe RC1 transition, MHI bus/pipe, `ks`, WLFW, `wlan0`, and safety zeros.
+- safety: V1325 is documentation-only; no device command, helper deploy, PM actor
+  start, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping,
+  PMIC/GPIO/GDSC/eSoC write, flash, boot image write, or partition write.
