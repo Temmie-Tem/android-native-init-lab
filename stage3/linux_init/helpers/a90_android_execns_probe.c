@@ -33,6 +33,7 @@
 #include <linux/capability.h>
 #include <linux/android/binder.h>
 #include <linux/genetlink.h>
+#include <linux/gpio.h>
 #include <linux/netlink.h>
 #include <linux/nl80211.h>
 #include <linux/qrtr.h>
@@ -97,7 +98,7 @@
 #define IOPRIO_PRIO_VALUE(class_value, data) (((class_value) << IOPRIO_CLASS_SHIFT) | (data))
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v260"
+#define EXECNS_VERSION "a90_android_execns_probe v261"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -249,6 +250,7 @@ struct config {
     bool allow_pm_observer_defer_modem_holder; /* v244 */
     bool allow_pmic_soft_reset_preflight; /* v260 */
     bool allow_pmic_soft_reset_write; /* v260: intentionally rejected */
+    bool allow_pmic_power_write_gate_preflight; /* v261 */
     bool allow_post_pm_mdm_helper_esoc_observer;
     bool allow_post_pm_mdm_helper_lower_trace;
     bool pm_observer_mdm_helper_only_syscall_trace; /* v254 */
@@ -449,6 +451,7 @@ static void usage(FILE *out) {
             "[--allow-pm-observer-modem-pre-holder] "
             "[--allow-pmic-soft-reset-preflight] "
             "[--allow-pmic-soft-reset-write] "
+            "[--allow-pmic-power-write-gate-preflight] "
             "[--allow-post-pm-mdm-helper-esoc-observer] "
             "[--allow-post-pm-mdm-helper-lower-trace] "
             "[--pm-observer-mdm-helper-only-syscall-trace] "
@@ -484,7 +487,7 @@ static void usage(FILE *out) {
             "[--cnss-surface-mode full|compact] "
             "[--service-manager-order none|before-cnss|after-cnss|after-mdm-helper-esoc-fd|after-mdm-helper-esoc-fd-with-pm-proxy|after-mdm-helper-esoc-fd-with-pm-full-contract|after-mdm-helper-esoc-fd-with-pm-full-contract-with-modem-holder|after-mdm-helper-esoc-fd-with-wifi-surface|after-mdm-helper-esoc-fd-with-wifi-surface-subsys-window] "
             "[--subsys-trigger-gate wlfw-precondition|post-provider-no-wlfw|post-upper-surface-no-wlfw] "
-            "--mode linker-list|identity-probe|sepolicy-inventory|sepolicy-compile-proof|sepolicy-load-proof|selinux-domain-proof|cnss-start-only|cnss-userspace-readiness|wifi-companion-start-only|wifi-companion-post-sysmon-observer-start-only|wifi-companion-android-order-post-sysmon-observer-start-only|wifi-companion-service-manager-start-only|wifi-companion-vnd-service-manager-start-only|wifi-companion-qrtr-first-vnd-service-manager-start-only|wifi-companion-cnss-first-delayed-vnd-service-manager-start-only|wifi-companion-service74-gated-vnd-service-manager-start-only|wifi-companion-service74-gated-vnd-service-manager-readiness-start-only|wifi-companion-service74-gated-vnd-service-manager-cnss-retry-start-only|wifi-companion-peripheral-manager-node-parity-start-only|wifi-companion-peripheral-manager-property-contract-start-only|wifi-companion-peripheral-manager-init-contract-start-only|wifi-companion-pm-service-trigger-observer|wifi-companion-post-pm-mdm-helper-esoc-observer|wifi-companion-esoc-control-preflight|wifi-companion-esoc-engine-register-preflight|wifi-companion-esoc-req-registered-subsys-hold-preflight|wifi-companion-esoc-conditional-response-preflight|wifi-companion-esoc-img-xfer-mhi-observe|wifi-companion-pmic-soft-reset-preflight|wifi-companion-mdm-helper-ks-image-contract-preflight|wifi-companion-mdm-helper-only-deep-capture|wifi-companion-mdm-helper-runtime-contract-capture|wifi-companion-mdm-helper-runtime-subsys-trigger-capture|wifi-companion-mdm-helper-cnss-before-subsys-trigger-capture|wifi-companion-mdm-helper-cnss-service-manager-matrix|wifi-companion-android-wifi-service-window-start-only|wifi-companion-android-wifi-service-window-subsys-trigger-capture|wifi-companion-service74-gated-peripheral-manager-cnss-retry-start-only|wifi-companion-service74-gated-peripheral-manager-cnss-retry-registry-snapshot-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-cnss-retry-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-provider-first-cnss-start-only|wifi-companion-service74-gated-android-userspace-cnss-retry-start-only|wifi-companion-service74-gated-android-userspace-cnss-retry-registry-snapshot-start-only|wifi-companion-service74-gated-vnd-service-manager-registry-snapshot-start-only|wifi-companion-service74-gated-mdm-helper-start-only|wifi-companion-service180-gated-mdm-helper-start-only|wifi-companion-sysmon-gated-mdm-helper-start-only|wifi-companion-hal-order-start-only|wifi-companion-hal-wificond-order-start-only|wifi-companion-hal-wificond-lshal-wait-samsung|wifi-companion-hal-wificond-lshal-wait-iwifi|wifi-companion-dual-hal-wificond-lshal-wait-iwifi|wifi-companion-dual-hal-wificond-iwifi-start|wifi-companion-dual-hal-wificond-lshal-then-iwifi-start|rmt-storage-start-only|property-lookup|service-manager-start-only|private-selinux-proof|wifi-hal-lshal-vintf-status-list|wifi-hal-composite-start-only|wifi-hal-composite-lshal-list|wifi-hal-composite-lshal-binderized-list|wifi-hal-composite-lshal-wait-target|wifi-surface-composite-lshal-wait-iwifi|wifi-surface-composite-lshal-wait-samsung|wifi-surface-composite-lshal-wait-samsung-ptrace|wifi-hal-composite-lshal-status-list|wifi-hal-composite-lshal-binderized-status-list|wifi-surface-composite-start-only|wifi-dual-hal-lshal-wait-iwifi|wifi-dual-hal-iwifi-start-surface|wifi-iwifi-start-surface|wifi-active-session-surface|wifi-active-session-scan-only|wifi-active-session-connect-ping|wifi-connect-tool-surface|subsys-hold-open-proof|service-notifier-listener-only "
+            "--mode linker-list|identity-probe|sepolicy-inventory|sepolicy-compile-proof|sepolicy-load-proof|selinux-domain-proof|cnss-start-only|cnss-userspace-readiness|wifi-companion-start-only|wifi-companion-post-sysmon-observer-start-only|wifi-companion-android-order-post-sysmon-observer-start-only|wifi-companion-service-manager-start-only|wifi-companion-vnd-service-manager-start-only|wifi-companion-qrtr-first-vnd-service-manager-start-only|wifi-companion-cnss-first-delayed-vnd-service-manager-start-only|wifi-companion-service74-gated-vnd-service-manager-start-only|wifi-companion-service74-gated-vnd-service-manager-readiness-start-only|wifi-companion-service74-gated-vnd-service-manager-cnss-retry-start-only|wifi-companion-peripheral-manager-node-parity-start-only|wifi-companion-peripheral-manager-property-contract-start-only|wifi-companion-peripheral-manager-init-contract-start-only|wifi-companion-pm-service-trigger-observer|wifi-companion-post-pm-mdm-helper-esoc-observer|wifi-companion-esoc-control-preflight|wifi-companion-esoc-engine-register-preflight|wifi-companion-esoc-req-registered-subsys-hold-preflight|wifi-companion-esoc-conditional-response-preflight|wifi-companion-esoc-img-xfer-mhi-observe|wifi-companion-pmic-soft-reset-preflight|wifi-companion-pmic-power-surface-write-gate-preflight|wifi-companion-mdm-helper-ks-image-contract-preflight|wifi-companion-mdm-helper-only-deep-capture|wifi-companion-mdm-helper-runtime-contract-capture|wifi-companion-mdm-helper-runtime-subsys-trigger-capture|wifi-companion-mdm-helper-cnss-before-subsys-trigger-capture|wifi-companion-mdm-helper-cnss-service-manager-matrix|wifi-companion-android-wifi-service-window-start-only|wifi-companion-android-wifi-service-window-subsys-trigger-capture|wifi-companion-service74-gated-peripheral-manager-cnss-retry-start-only|wifi-companion-service74-gated-peripheral-manager-cnss-retry-registry-snapshot-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-cnss-retry-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-provider-first-cnss-start-only|wifi-companion-service74-gated-android-userspace-cnss-retry-start-only|wifi-companion-service74-gated-android-userspace-cnss-retry-registry-snapshot-start-only|wifi-companion-service74-gated-vnd-service-manager-registry-snapshot-start-only|wifi-companion-service74-gated-mdm-helper-start-only|wifi-companion-service180-gated-mdm-helper-start-only|wifi-companion-sysmon-gated-mdm-helper-start-only|wifi-companion-hal-order-start-only|wifi-companion-hal-wificond-order-start-only|wifi-companion-hal-wificond-lshal-wait-samsung|wifi-companion-hal-wificond-lshal-wait-iwifi|wifi-companion-dual-hal-wificond-lshal-wait-iwifi|wifi-companion-dual-hal-wificond-iwifi-start|wifi-companion-dual-hal-wificond-lshal-then-iwifi-start|rmt-storage-start-only|property-lookup|service-manager-start-only|private-selinux-proof|wifi-hal-lshal-vintf-status-list|wifi-hal-composite-start-only|wifi-hal-composite-lshal-list|wifi-hal-composite-lshal-binderized-list|wifi-hal-composite-lshal-wait-target|wifi-surface-composite-lshal-wait-iwifi|wifi-surface-composite-lshal-wait-samsung|wifi-surface-composite-lshal-wait-samsung-ptrace|wifi-hal-composite-lshal-status-list|wifi-hal-composite-lshal-binderized-status-list|wifi-surface-composite-start-only|wifi-dual-hal-lshal-wait-iwifi|wifi-dual-hal-iwifi-start-surface|wifi-iwifi-start-surface|wifi-active-session-surface|wifi-active-session-scan-only|wifi-active-session-connect-ping|wifi-connect-tool-surface|subsys-hold-open-proof|service-notifier-listener-only "
             "[v27 binderized query runs: /system/bin/lshal list --types=binderized --neat] "
             "[v28 target query runs: /system/bin/lshal wait <fqinstance>] "
             "[v29 status query runs: /system/bin/lshal list --types=binderized,vintf --neat -V -S -i -p -e -c] "
@@ -648,6 +651,10 @@ static bool is_wifi_companion_pm_observer_any_mode(const char *mode) {
 
 static bool is_wifi_companion_pmic_soft_reset_preflight_mode(const char *mode) {
     return streq(mode, "wifi-companion-pmic-soft-reset-preflight");
+}
+
+static bool is_wifi_companion_pmic_power_write_gate_preflight_mode(const char *mode) {
+    return streq(mode, "wifi-companion-pmic-power-surface-write-gate-preflight");
 }
 
 static bool is_wifi_companion_esoc_control_preflight_mode(const char *mode) {
@@ -1235,6 +1242,10 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             cfg->allow_pmic_soft_reset_write = true;
             continue;
         }
+        if (strcmp(argv[i], "--allow-pmic-power-write-gate-preflight") == 0) {
+            cfg->allow_pmic_power_write_gate_preflight = true;
+            continue;
+        }
         if (strcmp(argv[i], "--allow-post-pm-mdm-helper-esoc-observer") == 0) {
             cfg->allow_post_pm_mdm_helper_esoc_observer = true;
             continue;
@@ -1604,6 +1615,7 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
           is_wifi_companion_esoc_conditional_response_preflight_mode(cfg->mode) ||
           is_wifi_companion_esoc_img_xfer_mhi_observe_mode(cfg->mode) ||
           is_wifi_companion_pmic_soft_reset_preflight_mode(cfg->mode) ||
+          is_wifi_companion_pmic_power_write_gate_preflight_mode(cfg->mode) ||
           is_wifi_companion_mdm_helper_ks_image_contract_preflight_mode(cfg->mode) ||
           is_wifi_companion_mdm_helper_only_deep_capture_mode(cfg->mode) ||
           is_wifi_companion_mdm_helper_runtime_any_mode(cfg->mode) ||
@@ -1782,9 +1794,19 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
         fprintf(stderr, "--allow-pmic-soft-reset-write is only valid with wifi-companion-pmic-soft-reset-preflight mode\n");
         return 2;
     }
+    if (cfg->allow_pmic_power_write_gate_preflight &&
+        !is_wifi_companion_pmic_power_write_gate_preflight_mode(cfg->mode)) {
+        fprintf(stderr, "--allow-pmic-power-write-gate-preflight is only valid with wifi-companion-pmic-power-surface-write-gate-preflight mode\n");
+        return 2;
+    }
     if (is_wifi_companion_pmic_soft_reset_preflight_mode(cfg->mode) &&
         !cfg->allow_pmic_soft_reset_preflight) {
         fprintf(stderr, "wifi-companion-pmic-soft-reset-preflight requires --allow-pmic-soft-reset-preflight\n");
+        return 2;
+    }
+    if (is_wifi_companion_pmic_power_write_gate_preflight_mode(cfg->mode) &&
+        !cfg->allow_pmic_power_write_gate_preflight) {
+        fprintf(stderr, "wifi-companion-pmic-power-surface-write-gate-preflight requires --allow-pmic-power-write-gate-preflight\n");
         return 2;
     }
     if (cfg->allow_pmic_soft_reset_write) {
@@ -12355,9 +12377,391 @@ static int append_pmic_soft_reset_preflight(struct buffer *buf, const struct con
                          result);
 }
 
+struct pmic_gpiochip_candidate {
+    int scan_count;
+    int chip_index;
+    int open_errno;
+    int ioctl_errno;
+    int lines;
+    int global_base;
+    int global_end;
+    int expected_global_line;
+    int expected_offset;
+    bool dev_seen;
+    bool chipinfo_ok;
+    bool debugfs_line_seen;
+    bool identity_match;
+    bool offset_match;
+    bool mapping_ready;
+    char dev_path[64];
+    char name[GPIO_MAX_NAME_SIZE];
+    char label[GPIO_MAX_NAME_SIZE];
+    char debugfs_line[512];
+    char debugfs_source[MAX_PATH_LEN];
+};
+
+static bool line_contains_all3(const char *line,
+                               const char *needle_a,
+                               const char *needle_b,
+                               const char *needle_c) {
+    return (needle_a == NULL || strstr(line, needle_a) != NULL) &&
+           (needle_b == NULL || strstr(line, needle_b) != NULL) &&
+           (needle_c == NULL || strstr(line, needle_c) != NULL);
+}
+
+static bool read_first_matching_line_all_with_source(const char *path,
+                                                     const char *needle_a,
+                                                     const char *needle_b,
+                                                     const char *needle_c,
+                                                     char *out,
+                                                     size_t out_size,
+                                                     char *source,
+                                                     size_t source_size) {
+    FILE *file;
+    char line[512];
+
+    if (out_size == 0) {
+        return false;
+    }
+    out[0] = '\0';
+    if (source_size > 0) {
+        source[0] = '\0';
+    }
+    file = fopen(path, "re");
+    if (file == NULL) {
+        return false;
+    }
+    while (fgets(line, sizeof(line), file) != NULL) {
+        if (!line_contains_all3(line, needle_a, needle_b, needle_c)) {
+            continue;
+        }
+        snprintf(out, out_size, "%s", line);
+        sanitize_one_line(out);
+        if (source_size > 0) {
+            snprintf(source, source_size, "%s", path);
+            sanitize_one_line(source);
+        }
+        fclose(file);
+        return true;
+    }
+    fclose(file);
+    return false;
+}
+
+static bool parse_debugfs_gpio_range(const char *line, int *base, int *end) {
+    const char *cursor = strstr(line, "GPIOs ");
+
+    if (cursor == NULL) {
+        return false;
+    }
+    return sscanf(cursor, "GPIOs %d-%d", base, end) == 2;
+}
+
+static bool gpiochip_identity_matches(const char *name, const char *label, const char *debugfs_line) {
+    return strstr(name, "pm8150l") != NULL ||
+           strstr(name, "c440000") != NULL ||
+           strstr(label, "pm8150l") != NULL ||
+           strstr(label, "c440000") != NULL ||
+           strstr(debugfs_line, "pm8150l") != NULL ||
+           strstr(debugfs_line, "c440000") != NULL ||
+           strstr(debugfs_line, "GPIOs 1263-1273") != NULL;
+}
+
+static struct pmic_gpiochip_candidate collect_pmic_gpiochip_candidate(void) {
+    struct pmic_gpiochip_candidate selected;
+    const int expected_global_line = 1270;
+    int scan_count = 0;
+
+    memset(&selected, 0, sizeof(selected));
+    selected.chip_index = -1;
+    selected.open_errno = 0;
+    selected.ioctl_errno = 0;
+    selected.lines = -1;
+    selected.global_base = -1;
+    selected.global_end = -1;
+    selected.expected_global_line = expected_global_line;
+    selected.expected_offset = -1;
+    for (int index = 0; index < 32; index++) {
+        struct pmic_gpiochip_candidate current;
+        struct gpiochip_info info;
+        struct stat st;
+        char needle[32];
+        int fd;
+
+        memset(&current, 0, sizeof(current));
+        current.chip_index = index;
+        current.open_errno = 0;
+        current.ioctl_errno = 0;
+        current.lines = -1;
+        current.global_base = -1;
+        current.global_end = -1;
+        current.expected_global_line = expected_global_line;
+        current.expected_offset = -1;
+        snprintf(current.dev_path, sizeof(current.dev_path), "/dev/gpiochip%d", index);
+        snprintf(needle, sizeof(needle), "gpiochip%d:", index);
+        current.debugfs_line_seen =
+            read_first_matching_line_all_with_source("/sys/kernel/debug/gpio",
+                                                     needle,
+                                                     "GPIOs ",
+                                                     NULL,
+                                                     current.debugfs_line,
+                                                     sizeof(current.debugfs_line),
+                                                     current.debugfs_source,
+                                                     sizeof(current.debugfs_source));
+        if (current.debugfs_line_seen) {
+            if (!parse_debugfs_gpio_range(current.debugfs_line,
+                                          &current.global_base,
+                                          &current.global_end)) {
+                current.global_base = -1;
+                current.global_end = -1;
+            }
+        }
+        if (lstat(current.dev_path, &st) == 0) {
+            scan_count++;
+            current.dev_seen = true;
+            fd = open(current.dev_path, O_RDONLY | O_CLOEXEC);
+            if (fd < 0) {
+                current.open_errno = errno;
+            } else {
+                memset(&info, 0, sizeof(info));
+                if (ioctl(fd, GPIO_GET_CHIPINFO_IOCTL, &info) == 0) {
+                    current.chipinfo_ok = true;
+                    current.lines = (int)info.lines;
+                    snprintf(current.name, sizeof(current.name), "%s", info.name);
+                    sanitize_one_line(current.name);
+                    snprintf(current.label, sizeof(current.label), "%s", info.label);
+                    sanitize_one_line(current.label);
+                } else {
+                    current.ioctl_errno = errno;
+                }
+                close(fd);
+            }
+        }
+        if (current.global_base >= 0 &&
+            current.global_end >= current.global_base &&
+            expected_global_line >= current.global_base &&
+            expected_global_line <= current.global_end) {
+            current.expected_offset = expected_global_line - current.global_base;
+        }
+        current.identity_match =
+            gpiochip_identity_matches(current.name, current.label, current.debugfs_line);
+        current.offset_match = current.expected_offset == 7;
+        current.mapping_ready =
+            current.dev_seen &&
+            current.chipinfo_ok &&
+            current.identity_match &&
+            current.offset_match;
+        if (current.mapping_ready ||
+            (!selected.dev_seen && (current.identity_match || current.offset_match || current.debugfs_line_seen))) {
+            selected = current;
+            selected.scan_count = scan_count;
+            if (current.mapping_ready) {
+                break;
+            }
+        }
+    }
+    selected.scan_count = scan_count;
+    return selected;
+}
+
+static int append_pmic_power_write_gate_preflight(struct buffer *buf, const struct config *cfg) {
+    struct mdm_status_irq_snapshot irq = collect_mdm_status_irq_snapshot();
+    struct pmic_gpiochip_candidate candidate = collect_pmic_gpiochip_candidate();
+    struct stat st;
+    char mdm3_state[64];
+    char mdm3_crash_count[64];
+    char pmic_soft_reset_line[512];
+    char pmic_soft_reset_source[MAX_PATH_LEN];
+    char pcie1_gdsc_line[512];
+    char pcie1_gdsc_source[MAX_PATH_LEN];
+    char pcie0_gdsc_line[512];
+    char pcie0_gdsc_source[MAX_PATH_LEN];
+    bool gpio9_class_exists = lstat("/sys/class/gpio/gpio9", &st) == 0;
+    bool gpio135_class_exists = lstat("/sys/class/gpio/gpio135", &st) == 0;
+    bool gpio142_class_exists = lstat("/sys/class/gpio/gpio142", &st) == 0;
+    bool debugfs_pinctrl_present = lstat("/sys/kernel/debug/pinctrl", &st) == 0;
+    bool debugfs_regulator_present =
+        lstat("/sys/kernel/debug/regulator/regulator_summary", &st) == 0 ||
+        lstat("/sys/kernel/debug/regulator_summary", &st) == 0;
+    bool pmic_soft_reset_seen;
+    bool pcie1_gdsc_seen;
+    bool pcie0_gdsc_seen;
+    bool pmic_soft_reset_mux_unclaimed;
+    bool pcie1_gdsc_zero;
+    bool pcie0_gdsc_zero;
+    bool read_contract_ready;
+    bool native_reproduction_candidate;
+    bool mapping_preflight_ready;
+    const char *result;
+
+    read_state_or_error("/sys/bus/msm_subsys/devices/subsys9/state",
+                        mdm3_state,
+                        sizeof(mdm3_state));
+    read_state_or_error("/sys/bus/msm_subsys/devices/subsys9/crash_count",
+                        mdm3_crash_count,
+                        sizeof(mdm3_crash_count));
+    pmic_soft_reset_seen = read_pmic_soft_reset_line(pmic_soft_reset_line,
+                                                     sizeof(pmic_soft_reset_line),
+                                                     pmic_soft_reset_source,
+                                                     sizeof(pmic_soft_reset_source));
+    pcie1_gdsc_seen = read_regulator_line("pcie_1_gdsc",
+                                          pcie1_gdsc_line,
+                                          sizeof(pcie1_gdsc_line),
+                                          pcie1_gdsc_source,
+                                          sizeof(pcie1_gdsc_source));
+    pcie0_gdsc_seen = read_regulator_line("pcie_0_gdsc",
+                                          pcie0_gdsc_line,
+                                          sizeof(pcie0_gdsc_line),
+                                          pcie0_gdsc_source,
+                                          sizeof(pcie0_gdsc_source));
+    if (!pmic_soft_reset_seen) {
+        pmic_soft_reset_line[0] = '\0';
+        pmic_soft_reset_source[0] = '\0';
+    }
+    if (!pcie1_gdsc_seen) {
+        pcie1_gdsc_line[0] = '\0';
+        pcie1_gdsc_source[0] = '\0';
+    }
+    if (!pcie0_gdsc_seen) {
+        pcie0_gdsc_line[0] = '\0';
+        pcie0_gdsc_source[0] = '\0';
+    }
+    pmic_soft_reset_mux_unclaimed =
+        pmic_soft_reset_seen && strstr(pmic_soft_reset_line, "MUX UNCLAIMED") != NULL;
+    pcie1_gdsc_zero = pcie1_gdsc_seen && strstr(pcie1_gdsc_line, "0mV") != NULL;
+    pcie0_gdsc_zero = pcie0_gdsc_seen && strstr(pcie0_gdsc_line, "0mV") != NULL;
+    read_contract_ready =
+        debugfs_pinctrl_present &&
+        debugfs_regulator_present &&
+        pmic_soft_reset_seen &&
+        pcie1_gdsc_seen &&
+        pcie0_gdsc_seen &&
+        !gpio9_class_exists &&
+        !gpio135_class_exists &&
+        !gpio142_class_exists;
+    native_reproduction_candidate =
+        read_contract_ready &&
+        pmic_soft_reset_mux_unclaimed &&
+        pcie1_gdsc_zero &&
+        pcie0_gdsc_zero &&
+        strcmp(mdm3_state, "OFFLINING") == 0 &&
+        irq.count_total == 0;
+    mapping_preflight_ready =
+        native_reproduction_candidate &&
+        candidate.mapping_ready;
+    if (mapping_preflight_ready) {
+        result = "mapping-ready-no-write";
+    } else if (native_reproduction_candidate) {
+        result = "native-candidate-mapping-incomplete";
+    } else {
+        result = "read-contract-incomplete";
+    }
+
+    return append_format(buf,
+                         "pmic_power_write_gate_preflight.begin=1\n"
+                         "pmic_power_write_gate_preflight.helper_version=%s\n"
+                         "pmic_power_write_gate_preflight.mode=read-only-fail-closed\n"
+                         "pmic_power_write_gate_preflight.allow_preflight=%d\n"
+                         "pmic_power_write_gate_preflight.write_gate_implemented=0\n"
+                         "pmic_power_write_gate_preflight.mutation_attempted=0\n"
+                         "pmic_power_write_gate_preflight.gpio_line_request_executed=0\n"
+                         "pmic_power_write_gate_preflight.esoc_ioctl_executed=0\n"
+                         "pmic_power_write_gate_preflight.pm_actor_executed=0\n"
+                         "pmic_power_write_gate_preflight.cnss_daemon_start_executed=0\n"
+                         "pmic_power_write_gate_preflight.wifi_hal_start_executed=0\n"
+                         "pmic_power_write_gate_preflight.scan_connect_linkup=0\n"
+                         "pmic_power_write_gate_preflight.credentials=0\n"
+                         "pmic_power_write_gate_preflight.dhcp_routing=0\n"
+                         "pmic_power_write_gate_preflight.external_ping=0\n"
+                         "pmic_power_write_gate_preflight.expected_dts_compatible=qcom,ext-sdx50m\n"
+                         "pmic_power_write_gate_preflight.expected_global_line=1270\n"
+                         "pmic_power_write_gate_preflight.expected_chip_range=1263-1273\n"
+                         "pmic_power_write_gate_preflight.expected_offset=7\n"
+                         "pmic_power_write_gate_preflight.gpio_class.gpio9_exists=%d\n"
+                         "pmic_power_write_gate_preflight.gpio_class.gpio135_exists=%d\n"
+                         "pmic_power_write_gate_preflight.gpio_class.gpio142_exists=%d\n"
+                         "pmic_power_write_gate_preflight.debugfs_pinctrl_present=%d\n"
+                         "pmic_power_write_gate_preflight.debugfs_regulator_present=%d\n"
+                         "pmic_power_write_gate_preflight.pmic_soft_reset_seen=%d\n"
+                         "pmic_power_write_gate_preflight.pmic_soft_reset_source=%s\n"
+                         "pmic_power_write_gate_preflight.pmic_soft_reset_line=%s\n"
+                         "pmic_power_write_gate_preflight.pmic_soft_reset_mux_unclaimed=%d\n"
+                         "pmic_power_write_gate_preflight.pcie1_gdsc_seen=%d\n"
+                         "pmic_power_write_gate_preflight.pcie1_gdsc_line=%s\n"
+                         "pmic_power_write_gate_preflight.pcie1_gdsc_zero=%d\n"
+                         "pmic_power_write_gate_preflight.pcie0_gdsc_seen=%d\n"
+                         "pmic_power_write_gate_preflight.pcie0_gdsc_line=%s\n"
+                         "pmic_power_write_gate_preflight.pcie0_gdsc_zero=%d\n"
+                         "pmic_power_write_gate_preflight.mdm3_state=%s\n"
+                         "pmic_power_write_gate_preflight.mdm3_crash_count=%s\n"
+                         "pmic_power_write_gate_preflight.mdm_status_count_total=%lu\n"
+                         "pmic_power_write_gate_preflight.gpiochip_scan_count=%d\n"
+                         "pmic_power_write_gate_preflight.gpiochip_candidate_seen=%d\n"
+                         "pmic_power_write_gate_preflight.gpiochip_candidate_path=%s\n"
+                         "pmic_power_write_gate_preflight.gpiochip_candidate_name=%s\n"
+                         "pmic_power_write_gate_preflight.gpiochip_candidate_label=%s\n"
+                         "pmic_power_write_gate_preflight.gpiochip_candidate_lines=%d\n"
+                         "pmic_power_write_gate_preflight.gpiochip_debugfs_line_seen=%d\n"
+                         "pmic_power_write_gate_preflight.gpiochip_debugfs_line=%s\n"
+                         "pmic_power_write_gate_preflight.gpiochip_global_base=%d\n"
+                         "pmic_power_write_gate_preflight.gpiochip_global_end=%d\n"
+                         "pmic_power_write_gate_preflight.gpiochip_expected_offset=%d\n"
+                         "pmic_power_write_gate_preflight.gpiochip_identity_match=%d\n"
+                         "pmic_power_write_gate_preflight.gpiochip_offset_match=%d\n"
+                         "pmic_power_write_gate_preflight.gpiochip_mapping_ready=%d\n"
+                         "pmic_power_write_gate_preflight.read_contract_ready=%d\n"
+                         "pmic_power_write_gate_preflight.native_reproduction_candidate=%d\n"
+                         "pmic_power_write_gate_preflight.mapping_preflight_ready=%d\n"
+                         "pmic_power_write_gate_preflight.result=%s\n"
+                         "pmic_power_write_gate_preflight.end=1\n",
+                         EXECNS_VERSION,
+                         cfg->allow_pmic_power_write_gate_preflight ? 1 : 0,
+                         gpio9_class_exists ? 1 : 0,
+                         gpio135_class_exists ? 1 : 0,
+                         gpio142_class_exists ? 1 : 0,
+                         debugfs_pinctrl_present ? 1 : 0,
+                         debugfs_regulator_present ? 1 : 0,
+                         pmic_soft_reset_seen ? 1 : 0,
+                         pmic_soft_reset_source,
+                         pmic_soft_reset_line,
+                         pmic_soft_reset_mux_unclaimed ? 1 : 0,
+                         pcie1_gdsc_seen ? 1 : 0,
+                         pcie1_gdsc_line,
+                         pcie1_gdsc_zero ? 1 : 0,
+                         pcie0_gdsc_seen ? 1 : 0,
+                         pcie0_gdsc_line,
+                         pcie0_gdsc_zero ? 1 : 0,
+                         mdm3_state,
+                         mdm3_crash_count,
+                         irq.count_total,
+                         candidate.scan_count,
+                         candidate.dev_seen ? 1 : 0,
+                         candidate.dev_path,
+                         candidate.name,
+                         candidate.label,
+                         candidate.lines,
+                         candidate.debugfs_line_seen ? 1 : 0,
+                         candidate.debugfs_line,
+                         candidate.global_base,
+                         candidate.global_end,
+                         candidate.expected_offset,
+                         candidate.identity_match ? 1 : 0,
+                         candidate.offset_match ? 1 : 0,
+                         candidate.mapping_ready ? 1 : 0,
+                         read_contract_ready ? 1 : 0,
+                         native_reproduction_candidate ? 1 : 0,
+                         mapping_preflight_ready ? 1 : 0,
+                         result);
+}
+
 static int run_pmic_soft_reset_preflight_guarded(const struct config *cfg,
                                                  struct buffer *stdout_buf) {
     return append_pmic_soft_reset_preflight(stdout_buf, cfg);
+}
+
+static int run_pmic_power_write_gate_preflight_guarded(const struct config *cfg,
+                                                       struct buffer *stdout_buf) {
+    return append_pmic_power_write_gate_preflight(stdout_buf, cfg);
 }
 
 static void write_mdm_status_irq_snapshot_fd(int out_fd, const char *phase) {
@@ -34956,6 +35360,8 @@ int main(int argc, char **argv) {
            cfg.allow_pmic_soft_reset_preflight ? 1 : 0);
     printf("allow_pmic_soft_reset_write=%d\n",
            cfg.allow_pmic_soft_reset_write ? 1 : 0);
+    printf("allow_pmic_power_write_gate_preflight=%d\n",
+           cfg.allow_pmic_power_write_gate_preflight ? 1 : 0);
     printf("allow_android_wifi_service_window=%d\n",
            cfg.allow_android_wifi_service_window ? 1 : 0);
     printf("allow_android_wifi_service_window_subsys_trigger_capture=%d\n",
@@ -34978,6 +35384,25 @@ int main(int argc, char **argv) {
     if (is_wifi_companion_pmic_soft_reset_preflight_mode(cfg.mode)) {
         printf("helper_status=namespace-skipped\n");
         run_rc = run_pmic_soft_reset_preflight_guarded(&cfg, &stdout_buf);
+        child_exit_code = run_rc == 0 ? 0 : 20;
+        child_signal = 0;
+        timed_out = false;
+        printf("probe_run_rc=%d\n", run_rc);
+        printf("child_exit_code=%d\n", child_exit_code);
+        printf("child_signal=%d\n", child_signal);
+        printf("timed_out=%d\n", timed_out ? 1 : 0);
+        print_section("STDOUT", &stdout_buf);
+        print_section("STDERR", &stderr_buf);
+        printf("cleanup_status=not-required\n");
+        printf("A90_EXECNS_END rc=0\n");
+        buffer_free(&stdout_buf);
+        buffer_free(&stderr_buf);
+        return 0;
+    }
+
+    if (is_wifi_companion_pmic_power_write_gate_preflight_mode(cfg.mode)) {
+        printf("helper_status=namespace-skipped\n");
+        run_rc = run_pmic_power_write_gate_preflight_guarded(&cfg, &stdout_buf);
         child_exit_code = run_rc == 0 ? 0 : 20;
         child_signal = 0;
         timed_out = false;

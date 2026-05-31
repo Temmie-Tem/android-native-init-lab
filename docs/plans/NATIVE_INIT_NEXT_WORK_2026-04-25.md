@@ -25,8 +25,8 @@
 
 ## 현재 Wi-Fi Gate
 
-- 최신 기준: V1252 HOST-ONLY PASS —
-  `v1252-bounded-pmic-power-write-gate-plan-ready`.
+- 최신 기준: V1253 SOURCE/BUILD PASS —
+  `v1253-pmic-power-write-gate-helper-build-pass`.
   V1239는 Android/V1238 증거를 비교해 blocker를 `pm-service`
   `/dev/subsys_esoc0` / `mdm_subsys_powerup` 이후로 낮췄고, V1240은
   SDX50M/eSoC response surface와 GPIO142 `mdm status` IRQ count `0`을
@@ -50,14 +50,16 @@
   PM8150L soft-reset GPIO line `pin 7 (gpio9): (MUX UNCLAIMED)`, PCIe GDSC
   lines `0mV`, `mdm3=OFFLINING`, GPIO142 IRQ count `0`, `read_contract_ready=1`,
   `native_reproduction_candidate=1`, postflight selftest `fail=0`이다. V1252는
-  host-only로 해당 증거를 검증하고 다음 단위를 helper v261 source/build-only로
-  선택했다. 다음 V1253은 `wifi-companion-pmic-power-surface-write-gate-preflight`
-  mode를 추가해 V1251 read contract 재검증, PM8150L `gpiochip` 후보 탐지,
-  PMIC GPIO9 global line `1270` / offset `7` mapping 검증을 수행하되 live write는
-  하지 않는다. 첫 later live proof도 PMIC GPIO9 bounded line-hold만 허용하고,
-  `/dev/subsys_esoc0` open, PM/CNSS/HAL start, scan/connect, credentials,
-  DHCP/routes, external ping, flash, boot image write, partition write는 별도
-  gate 전까지 계속 블록한다.
+  host-only로 해당 증거를 검증하고 helper v261 source/build-only를 선택했다.
+  V1253은 `a90_android_execns_probe v261`을 빌드했고 새 mode
+  `wifi-companion-pmic-power-surface-write-gate-preflight`를 추가했다. 이 mode는
+  V1251 read contract를 재검증하고, `/dev/gpiochip*`의 chipinfo와 debugfs gpio
+  range를 읽어 PM8150L GPIO9 global line `1270` / offset `7` mapping을
+  fail-closed로 분류한다. V1253 자체는 deploy/device contact/live write가 없다.
+  다음 V1254는 deploy-only로 remote SHA/marker/mode/selftest를 확인한다. 첫 later
+  live proof도 PMIC GPIO9 bounded line-hold만 허용하고, `/dev/subsys_esoc0` open,
+  PM/CNSS/HAL start, scan/connect, credentials, DHCP/routes, external ping,
+  flash, boot image write, partition write는 별도 gate 전까지 계속 블록한다.
 - V1198 배경: V1197 root cause 분석 완료: 세 가지 레이어 문제가 중첩됨.
   V1197 root cause 분석 완료: 세 가지 레이어 문제가 중첩됨.
   (1) V1194/V1195/V1196: SAMPLE_COUNT!=0 → serial 홍수 (pm_proxy/pm-service /proc/maps 덤프
