@@ -25,6 +25,7 @@ LATEST_POINTER = Path("tmp/wifi/latest-v1321-image-link-reconciliation-classifie
 REPORT_PATH = Path("docs/reports/NATIVE_INIT_V1321_IMAGE_LINK_RECONCILIATION_CLASSIFIER_2026-05-31.md")
 DEFAULT_V1320_MANIFEST = Path("tmp/wifi/v1320-mdm-helper-ks-mhi-contract-classifier/manifest.json")
 DEFAULT_V1236_MANIFEST = Path("tmp/wifi/v1236-android-ks-runtime-contract-classifier/manifest.json")
+DEFAULT_V1237_MANIFEST = Path("tmp/wifi/v1237-late-per-proxy-branch-snapshot-live/manifest.json")
 DEFAULT_V1238_MANIFEST = Path("tmp/wifi/v1238-late-per-proxy-only-live/manifest.json")
 DEFAULT_V1239_MANIFEST = Path("tmp/wifi/v1239-post-esoc0-powerup-gap-classifier/manifest.json")
 DEFAULT_V1319_MANIFEST = Path("tmp/wifi/v1319-gpio135-response-gap-classifier/manifest.json")
@@ -113,6 +114,29 @@ def summarize_v1236(manifest: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def summarize_v1237(manifest: dict[str, Any]) -> dict[str, Any]:
+    late = manifest.get("late_per_proxy") or {}
+    post_wait = manifest.get("mdm_helper_post_wait_req") or {}
+    branch = manifest.get("mdm_helper_post_wait_branch") or {}
+    return {
+        "decision": manifest.get("decision", ""),
+        "pass": bool_value(manifest.get("pass")),
+        "forbidden_clear": all_forbidden_clear(manifest),
+        "late_per_proxy_requested": bool_value(late.get("requested")),
+        "late_per_proxy_begin": bool_value(late.get("begin")),
+        "post_wait_completed_before_late": bool_value(late.get("post_wait_completed_before_late")),
+        "post_wait_emitted": bool_value(post_wait.get("emitted")),
+        "post_wait_transition_detected": bool_value((post_wait.get("summary") or {}).get("transition_detected")),
+        "post_wait_transition_sample": int_value((post_wait.get("summary") or {}).get("transition_sample"), -1),
+        "post_wait_ks_count": int_value((post_wait.get("sample_max") or {}).get("ks_process_count")),
+        "post_wait_mhi_pipe_exists": bool_value((post_wait.get("sample_max") or {}).get("mhi_pipe_exists")),
+        "branch_emitted": bool_value(branch.get("emitted")),
+        "branch_execve_count": int_value(branch.get("execve_count")),
+        "branch_mhi_pipe_fd_count": int_value(branch.get("max_fd_mhi_pipe_count")),
+        "next_step": manifest.get("next_step", ""),
+    }
+
+
 def summarize_v1238(manifest: dict[str, Any]) -> dict[str, Any]:
     late = manifest.get("late_per_proxy") or {}
     pm_observer = manifest.get("pm_service_trigger_observer") or {}
@@ -184,6 +208,7 @@ def check(name: str, passed: bool, detail: str) -> dict[str, Any]:
 def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
     v1320 = summarize_v1320(load_json(args.v1320_manifest))
     v1236 = summarize_v1236(load_json(args.v1236_manifest))
+    v1237 = summarize_v1237(load_json(args.v1237_manifest))
     v1238 = summarize_v1238(load_json(args.v1238_manifest))
     v1239 = summarize_v1239(load_json(args.v1239_manifest))
     v1319 = summarize_v1319(load_json(args.v1319_manifest))
@@ -203,6 +228,17 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
         and v1236["actor_ks_mhi_pipe"]
         and v1236["native_wait_returned"]
         and v1236["native_execve_count"] == 0
+    )
+    v1237_ordering_conflict_classified = (
+        v1237["pass"]
+        and v1237["decision"] == "v1237-direct-subsys-trigger-preempted-late-per-proxy"
+        and v1237["late_per_proxy_requested"]
+        and not v1237["late_per_proxy_begin"]
+        and v1237["post_wait_completed_before_late"]
+        and v1237["post_wait_emitted"]
+        and v1237["post_wait_transition_detected"]
+        and v1237["post_wait_ks_count"] == 0
+        and not v1237["post_wait_mhi_pipe_exists"]
     )
     v1238_native_pm_reached = (
         v1238["pass"]
@@ -233,7 +269,7 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
     )
     guardrails_clear = all(
         item["forbidden_clear"]
-        for item in (v1320, v1236, v1238, v1239, v1319)
+        for item in (v1320, v1236, v1237, v1238, v1239, v1319)
     )
 
     checks = [
@@ -246,6 +282,11 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
             "v1236-pm-contract-classified",
             v1236_pm_contract_classified,
             f"per_proxy_before_esoc0={v1236['per_proxy_before_esoc0']} pm_powerup={v1236['pm_service_binder_mdm_subsys_powerup']} native_execve={v1236['native_execve_count']}",
+        ),
+        check(
+            "v1237-ordering-conflict-classified",
+            v1237_ordering_conflict_classified,
+            f"late_requested={v1237['late_per_proxy_requested']} late_begin={v1237['late_per_proxy_begin']} post_wait_first={v1237['post_wait_completed_before_late']} ks={v1237['post_wait_ks_count']} mhi={v1237['post_wait_mhi_pipe_exists']}",
         ),
         check(
             "v1238-native-pm-reached",
@@ -273,14 +314,16 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
     if passed:
         decision = "v1321-image-link-gate-covered-next-sdx50m-response-inputs"
         reason = (
-            "V1320's image-link gate is already covered by V1236-V1239: late per_proxy reaches "
-            "pm-service /dev/subsys_esoc0 mdm_subsys_powerup, so the remaining gap is lower "
+            "V1320's image-link gate is reconciled by V1236-V1239: V1237 identifies the "
+            "direct-trigger ordering conflict, V1238 removes it and reaches pm-service "
+            "/dev/subsys_esoc0 mdm_subsys_powerup, and V1239 leaves the remaining gap as lower "
             "SDX50M response after GPIO135 before GPIO142/PCIe/MHI/WLFW"
         )
         next_step = (
             "V1322 should target SDX50M response inputs around mdm_subsys_powerup/GPIO135: "
-            "read-only PCIe RC1, GPIO142 IRQ/state, regulator/pinctrl/GDSC, and cleanup-safe "
-            "reboot boundary classification; do not repeat image-link gate or start Wi-Fi HAL/connect"
+            "read-only PCIe RC1, GPIO142 IRQ/state, regulator/pinctrl/GDSC, MHI surface, and "
+            "explicit cleanup-safe or reboot-bounded handling; do not repeat image-link gate or "
+            "start Wi-Fi HAL/connect"
         )
     else:
         decision = "v1321-reconciliation-evidence-incomplete"
@@ -295,12 +338,14 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
         "inputs": {
             "v1320_manifest": str(repo_path(args.v1320_manifest)),
             "v1236_manifest": str(repo_path(args.v1236_manifest)),
+            "v1237_manifest": str(repo_path(args.v1237_manifest)),
             "v1238_manifest": str(repo_path(args.v1238_manifest)),
             "v1239_manifest": str(repo_path(args.v1239_manifest)),
             "v1319_manifest": str(repo_path(args.v1319_manifest)),
         },
         "v1320": v1320,
         "v1236": v1236,
+        "v1237": v1237,
         "v1238": v1238,
         "v1239": v1239,
         "v1319": v1319,
@@ -332,6 +377,7 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
 
 def render_summary(manifest: dict[str, Any]) -> str:
     rows = [[item["name"], item["pass"], item["detail"]] for item in manifest["checks"]]
+    v1237 = manifest["v1237"]
     v1238 = manifest["v1238"]
     v1239 = manifest["v1239"]
     v1319 = manifest["v1319"]
@@ -373,6 +419,7 @@ def render_summary(manifest: dict[str, Any]) -> str:
         "",
         markdown_table(["surface", "native", "Android / prior proof"], [
             ["image-link actor path", f"late_per_proxy={v1238['late_per_proxy_started']} pm_esoc0={v1238['pm_service_actor_esoc0_attempt']} mdm_subsys_powerup={v1238['mdm_subsys_powerup']}", "V1236 maps Android ks/MHI to per_proxy -> pm-service Binder -> esoc0"],
+            ["ordering control", f"V1237 late_begin={v1237['late_per_proxy_begin']} post_wait_first={v1237['post_wait_completed_before_late']} ks={v1237['post_wait_ks_count']} mhi={v1237['post_wait_mhi_pipe_exists']}", "V1238 removes the direct-trigger ordering conflict and reaches pm-service esoc0"],
             ["post-powerup response", f"GPIO142={v1319['gpio142_line_count']} MHI=False wlan0={v1239['native_wlan0_seen']}", f"GPIO142={v1239['android_gpio142_irq_count']} PCIe_RC1={v1239['android_pcie_rc1_lines']} wlan0={v1239['android_wlan0_present']}"],
             ["cleanup boundary", f"v1238_all_postflight_safe={v1238['all_postflight_safe']} reboot={v1238['reboot_executed']}", "future live gate must be cleanup-safe or explicitly reboot-bounded"],
         ]),
@@ -401,19 +448,22 @@ def render_report(manifest: dict[str, Any]) -> str:
         "",
         "V1321 reconciles V1320 with the already-existing V1236-V1239 evidence.",
         "V1320 correctly identified the Android `mdm_helper`/`ks`/MHI image-link",
-        "contract as relevant, but V1236-V1239 already prove the native late",
-        "`per_proxy` path reaches `pm-service` and `/dev/subsys_esoc0` /",
-        "`mdm_subsys_powerup`. The remaining blocker is therefore below the PM",
-        "userspace actor path: SDX50M does not produce GPIO142, PCIe RC1/MHI, WLFW,",
-        "BDF, or `wlan0` after native reaches GPIO135/AP2MDM activity inside",
-        "`mdm_subsys_powerup`.",
+        "contract as relevant. V1237 shows the first late-`per_proxy` attempt was",
+        "masked by the direct subsystem trigger, and V1238 removes that ordering",
+        "conflict. V1238-V1239 then prove the native late `per_proxy` path reaches",
+        "`pm-service` and `/dev/subsys_esoc0` / `mdm_subsys_powerup`. The remaining",
+        "blocker is therefore below the PM userspace actor path: SDX50M does not",
+        "produce GPIO142, PCIe RC1/MHI, WLFW, BDF, or `wlan0` after native reaches",
+        "GPIO135/AP2MDM activity inside `mdm_subsys_powerup`.",
         "",
         "## Decision",
         "",
         "Do not repeat the image-link gate as the next primary branch. The next unit",
         "should target SDX50M response inputs around `mdm_subsys_powerup` and GPIO135:",
-        "read-only GPIO142 IRQ/state, PCIe RC1, regulator/pinctrl/GDSC, MHI surface,",
-        "and reboot-bounded cleanup behavior. Wi-Fi HAL, scan/connect, credentials,",
+        "read-only GPIO142 IRQ/state, PCIe RC1, regulator/pinctrl/GDSC, and MHI",
+        "surface. V1238's cleanup was not proven safe, so any live follow-up must",
+        "be cleanup-safe by construction or explicitly reboot-bounded. Wi-Fi HAL,",
+        "scan/connect, credentials,",
         "DHCP/routes, external ping, flash, boot image write, and partition write",
         "remain blocked.",
         "",
@@ -442,6 +492,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--out-dir", type=Path, default=DEFAULT_OUT_DIR)
     parser.add_argument("--v1320-manifest", type=Path, default=DEFAULT_V1320_MANIFEST)
     parser.add_argument("--v1236-manifest", type=Path, default=DEFAULT_V1236_MANIFEST)
+    parser.add_argument("--v1237-manifest", type=Path, default=DEFAULT_V1237_MANIFEST)
     parser.add_argument("--v1238-manifest", type=Path, default=DEFAULT_V1238_MANIFEST)
     parser.add_argument("--v1239-manifest", type=Path, default=DEFAULT_V1239_MANIFEST)
     parser.add_argument("--v1319-manifest", type=Path, default=DEFAULT_V1319_MANIFEST)
