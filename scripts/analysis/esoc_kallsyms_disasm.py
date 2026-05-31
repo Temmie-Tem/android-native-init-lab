@@ -48,7 +48,7 @@ def u64(b, o): return struct.unpack_from("<Q", b, o)[0]
 def s32(b, o): return struct.unpack_from("<i", b, o)[0]
 def u16(b, o): return struct.unpack_from("<H", b, o)[0]
 
-def find_token_table(img):
+def find_token_table(img, hint=None):
     """token_table = 256 consecutive NUL-terminated strings; token_index = 256
     u16 right after, aligned. Scan for a run of 256 short NUL-terminated tokens."""
     # Heuristic: token strings are short (<=~30) printable-ish. Scan windows.
@@ -85,15 +85,17 @@ def find_token_table(img):
                 if ok:
                     return (start, tt_end, ti)
         return None
+    # fast path: verify caller-supplied hint offset first
+    if hint is not None:
+        r = try_at(hint)
+        if r: return r
     # coarse then fine: tokens often start right after a NUL run. Scan whole back half.
-    step = 1
     start_scan = n // 3
     i = start_scan
     while i < n - 2048:
-        # quick reject: token_table starts with a 0-length or tiny token frequently
         r = try_at(i)
         if r: return r
-        i += step
+        i += 1
     return None
 
 def load_token_strings(img, tt_start, tt_end):
@@ -131,11 +133,29 @@ def decode_names(img, names_start, count, token_index, tt_start, toks):
         names.append(bytes(s))
     return names, o
 
+def frame_count(img, start, tt_start):
+    """Count well-framed kallsyms records from `start` until we reach/pass
+    tt_start or hit an invalid record. Framing only (no token resolution) for
+    speed. Returns (count, end_offset)."""
+    o = start; cnt = 0
+    n = len(img)
+    while o < tt_start:
+        ln = img[o]; o += 1
+        if ln & 0x80:
+            if o >= n: return cnt, o
+            ln = (ln & 0x7f) | (img[o] << 7); o += 1
+        if ln == 0: return cnt, o-1
+        o += ln
+        cnt += 1
+        if cnt > 800000: break
+    return cnt, o
+
 def parse_kallsyms(img):
     n = len(img)
-    tt = find_token_table(img)
+    tt = find_token_table(img, hint=0x1948bf0)
     if not tt: raise RuntimeError("token_table not found")
     tt_start, tt_end, ti_off = tt
+    log("  tt_start=0x%x tt_end=0x%x ti_off=0x%x" % (tt_start, tt_end, ti_off))
     token_index = [u16(img, ti_off + 2*k) for k in range(256)]
     toks = load_token_strings(img, tt_start, tt_end)
 
@@ -147,24 +167,21 @@ def parse_kallsyms(img):
     while pos < tt_start - 16:
         N = u64(img, pos)
         if 30000 <= N <= 600000:
-            # names start candidates: right after num_syms u64
-            for ns in (pos+8, (pos+8+7)&~7, (pos+16)):
-                names, end = decode_names(img, ns, N, token_index, tt_start, toks)
-                if names is None: continue
-                if end > tt_start: continue
+            ns = pos + 8  # names directly follow num_syms (u64) in 4.14 layout
+            cnt, end = frame_count(img, ns, tt_start)
+            if cnt == N:
                 gap = tt_start - end
                 markers_max = (((N+255)>>8)+1)*8 + 64
                 if 0 <= gap <= markers_max:
-                    # final sanity: a known provider symbol present
-                    if any(nm.endswith(b"mdm_subsys_powerup") or nm[1:]==b"mdm_subsys_powerup" for nm in names) \
-                       or any(b"mdm_subsys_powerup" in nm for nm in names):
-                        best = (pos, N, ns, names, end)
+                    names, end2 = decode_names(img, ns, N, token_index, tt_start, toks)
+                    if names is not None and any(b"mdm_subsys_powerup" in nm for nm in names):
+                        best = (pos, N, ns, names, end2)
                         break
-            if best: break
-        pos += 4
+        pos += 8
     if not best:
         raise RuntimeError("num_syms/names anchor not found")
     num_pos, N, names_start, names, names_end = best
+    log("  num_pos=0x%x N=%d names_start=0x%x names_end=0x%x" % (num_pos, N, names_start, names_end))
 
     # addresses: base-relative layout. offsets[N] (s32) then relative_base(u64)
     # then num_syms(u64 at num_pos). So relative_base at num_pos-8.
@@ -209,11 +226,21 @@ def parse_kallsyms(img):
         "names_start": names_start, "layout": layout,
     }
 
+LOG = None
+def log(s):
+    if LOG: LOG.write(s + "\n"); LOG.flush()
+
 def main():
+    global LOG
     img_path = sys.argv[1]
     out = sys.argv[2] if len(sys.argv) > 2 else "esoc_disasm_report.md"
+    LOG = open(out + ".log", "w", buffering=1)
+    log("STAGE read-image")
     img = open(img_path, "rb").read()
+    log("STAGE read-ok len=%d" % len(img))
+    log("STAGE parse-kallsyms")
     ks = parse_kallsyms(img)
+    log("STAGE parse-ok N=%d layout=%s" % (ks["N"], ks["layout"]))
     N = ks["N"]; names = ks["names"]; addrs = ks["addrs"]
 
     # strip leading type char from names; build name->addr (skip mapping syms)
@@ -284,21 +311,42 @@ def main():
                 callees.append((m.group(1), nm))
         return callees
 
-    # BFS transitive closure from roots
-    seen = set(); edges = []
+    def categorized(s):
+        return any(rgx.search(s) for rgx in CAT.values())
+    GENERIC = re.compile(r"^(printk|memcpy|memset|memmove|strn?cmp|strn?cpy|strlen|"
+                         r"_raw_spin|spin_|mutex_|__stack_chk|panic|dump_stack|"
+                         r"kmalloc|kfree|kmem_|kzalloc|vmalloc|vfree|__warn|warn_|"
+                         r"snprintf|sprintf|vsnprintf|seq_|simple_|__const_udelay|"
+                         r"preempt_|rcu_|down_|up_|wake_up|__might_sleep|might_fault|"
+                         r"_cond_resched|copy_to_user|copy_from_user|__memcpy|memchr|"
+                         r"kstrtoull|kstrtoint|of_|fwnode_|device_property|dev_err|"
+                         r"dev_warn|dev_info|dev_dbg|_dev_info|sysfs_|kobject_)")
+
+    # BFS: only RECURSE into provider-private (uncategorized, non-generic) symbols.
+    # Categorized callees (pcie/mhi/gpio/regulator/...) are recorded as touchpoints
+    # but not expanded -- we only care THAT the provider reaches them.
+    seen = set(); reached = set(); edges = []
     q = collections.deque()
     present_roots = [r for r in ROOTS if r in name2addr]
     for r in present_roots: q.append(r)
-    MAXN = 4000
-    while q and len(seen) < MAXN:
+    MAXN = 2500
+    nproc = 0
+    while q and nproc < MAXN:
         f = q.popleft()
         if f in seen: continue
-        seen.add(f)
+        seen.add(f); nproc += 1
+        if nproc % 100 == 0: log("  bfs nproc=%d q=%d reached=%d" % (nproc, len(q), len(reached)))
         cs = disasm_calls(f) or []
         for kind, callee in cs:
+            reached.add(callee)
             edges.append((f, kind, callee))
-            if callee not in seen:
-                q.append(callee)
+            if callee in seen: continue
+            if categorized(callee): continue          # touchpoint: don't expand
+            if GENERIC.search(callee): continue        # generic helper: don't expand
+            if callee not in name2addr: continue
+            q.append(callee)
+    log("  bfs done nproc=%d reached=%d" % (nproc, len(reached)))
+    seen = reached | seen
 
     # categorize all reached symbols
     catcount = {k: [] for k in CAT}
