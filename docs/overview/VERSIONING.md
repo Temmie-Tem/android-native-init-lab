@@ -1,117 +1,84 @@
 # Native Init Versioning
 
-Date: `2026-05-04`
+Updated: `2026-05-31`
 
-## Current Version
+두 개의 독립된 버전 축을 쓴다. 자세한 규칙은
+`docs/operations/VERSIONING_POLICY.md`를 따른다.
 
-- latest verified official version: `0.9.16`
-- latest verified build tag: `v116`
-- latest verified display name: `A90 Linux init 0.9.16 (v116)`
+| 축 | 형식 | 올리는 시점 |
+|---|---|---|
+| 숫자 버전 | `MAJOR.MINOR.PATCH` (예: `0.9.68`) | 실제 boot image가 디바이스에 flash될 때 |
+| 사이클 태그 | `vNNN` (예: `v724`, `V1250`) | host 도구·커밋·계획/리포트 등 모든 진행 단계 |
+
+- 숫자 버전은 **boot image 정체성**이다. flash가 없으면 올리지 않는다.
+- `vNNN`은 **진행 추적용**이다. host-only 작업·리포트·실험 게이트마다 자유롭게 증가한다.
+- boot image를 빌드할 때, 그 시점의 **최신 `vNNN`을 이미지에 박아** 표기한다 →
+  `A90 Linux init 0.9.68 (v724)`. 이후 사이클이 올라가도 재flash 전까지 박힌 태그는 유지된다.
+
+## Current
+
+- 현재 디바이스 빌드(flash): `A90 Linux init 0.9.68 (v724)`
+- 공식 숫자 버전: `0.9.68`
+- 박힌 빌드 태그: `v724`
+- boot image: `stage3/boot_linux_v724.img`
+- known-good fallback: `stage3/boot_linux_v48.img`
+- 직전 rollback: `stage3/boot_linux_v261.img` (0.9.60)
+- 현재 진행 사이클: **V1250** (native Wi-Fi bring-up; SDX50M eSoC power-up gate)
+- 소스 루트: `stage3/linux_init/init_v724.c` + 모듈 `stage3/linux_init/a90_*.c/h`
 - creator: `made by temmie0214`
-- latest verified source: `stage3/linux_init/init_v116.c` + `stage3/linux_init/v116/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/helpers/a90_rshell.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h` + `stage3/linux_init/a90_shell.c/h` + `stage3/linux_init/a90_controller.c/h` + `stage3/linux_init/a90_storage.c/h` + `stage3/linux_init/a90_selftest.c/h` + `stage3/linux_init/a90_usb_gadget.c/h` + `stage3/linux_init/a90_netservice.c/h` + `stage3/linux_init/a90_runtime.c/h` + `stage3/linux_init/a90_helper.c/h` + `stage3/linux_init/a90_userland.c/h` + `stage3/linux_init/a90_diag.c/h` + `stage3/linux_init/a90_wifiinv.c/h` + `stage3/linux_init/a90_wififeas.c/h` + `stage3/linux_init/a90_app_about.c/h` + `stage3/linux_init/a90_app_displaytest.c/h` + `stage3/linux_init/a90_app_inputmon.c/h`
-- latest verified boot image: `stage3/boot_linux_v116.img`
-- latest local/pending build: none
-- previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
 
-## Local Artifact Retention
-
-- 보존: latest verified `v116`, 직전 rollback `v115`, known-good fallback `v48`
-- 정리 대상: ignored `stage3/boot_linux_v*.img`, `stage3/ramdisk_v*`, compiled `stage3/linux_init/init_v*` 중 보존 태그가 아닌 파일
-- 정리 도구: `python3 scripts/revalidation/cleanup_stage3_artifacts.py --execute`
-- 보고서의 artifact hash와 tracked source는 유지하므로, 오래된 local binary output은 필요 시 재생성한다.
+`v724`(0.9.68) 이후 V725–V1250 사이클은 모두 host-only 연구이며 디바이스를 재flash하지
+않았다. 그래서 디바이스 표기는 여전히 `0.9.68 (v724)`이고 연구 사이클만 V1250까지 진행됐다.
 
 ## Version Format
 
-공식 버전은 `MAJOR.MINOR.PATCH`를 사용하고, 실험/플래시 추적용 build tag는 `vNN`을 유지한다.
-
 ```text
-A90 Linux init 0.9.16 (v116)
+A90 Linux init 0.9.68 (v724)
+                ^^^^^^  ^^^^
+                숫자    박힌 사이클 태그(빌드 시점 최신)
 ```
 
 ## Rules
 
-- `MAJOR`: 구조가 크게 바뀌거나 호환성이 깨지는 업데이트
-  - 예: rootfs/service manager 구조 변경, command 호환성 깨짐, 부팅/저장소 전략 대규모 변경
-- `MINOR`: 기능/능력이 추가되는 업데이트
-  - 예: USB NCM, TCP control, netservice, app menu, storage manager, SSH/dropbear
-- `PATCH`: 작은 수정, 안정화, 화면/문구 조정
-  - 예: splash 잘림, 색상, 글자 크기, footer 위치, 작은 버그픽스
-- `vNN`: boot image와 실기 검증을 추적하는 build 번호
-  - 새 boot image를 만들고 flash 검증할 때마다 증가시킨다.
+- `MAJOR`: 구조/호환성이 크게 바뀌는 업데이트 (rootfs/service 구조, command 호환성, 부팅/저장소 전략)
+- `MINOR`: 기능/능력 추가 (USB NCM, TCP control, netservice, app menu, storage manager 등)
+- `PATCH`: 작은 수정·안정화·화면/문구 조정
+- `vNNN`: 진행 사이클. boot image flash가 동반되면 그 사이클 태그를 숫자 버전에 박는다.
 
-## Current Mapping
+## Two-axis history
 
-| official | build | summary |
-|---|---|---|
-| `0.9.16` | `v116` | diagnostics bundle 2 for runtime/helper/service/net/rshell evidence |
-| `0.9.15` | `v115` | remote shell audit and invalid-token hardening |
-| `0.9.14` | `v114` | helper manifest and deploy plan visibility |
-| `0.9.13` | `v113` | runtime package layout and helper manifest path contract |
-| `0.9.12` | `v112` | USB/NCM service soak and ACM rollback baseline |
-| `0.9.11` | `v111` | extended soak release-candidate baseline |
-| `0.9.10` | `v110` | app controller auto-menu IPC cleanup |
-| `0.9.9` | `v109` | post-v108 structure audit and cleanup boundary |
-| `0.9.8` | `v108` | input monitor/layout UI app module extraction |
-| `0.9.7` | `v107` | displaytest/cutoutcal UI app module extraction |
-| `0.9.6` | `v106` | ABOUT/changelog UI app module extraction |
-| `0.9.5` | `v105` | soak/recovery release candidate and host quick-soak validator |
-| `0.9.4` | `v104` | Wi-Fi feasibility gate from read-only inventory evidence |
-| `0.9.3` | `v103` | Wi-Fi read-only inventory command and host collector |
-| `0.9.2` | `v102` | diagnostics/log bundle command and host collector |
-| `0.9.1` | `v101` | minimal service manager command/view |
-| `0.9.0` | `v100` | custom token TCP remote shell over USB NCM |
-| `0.8.30` | `v99` | BusyBox static userland evaluation |
-| `0.8.29` | `v98` | helper deployment / package manifest |
-| `0.8.28` | `v97` | SD runtime root promotion |
-| `0.8.27` | `v96` | structure audit / refactor debt cleanup |
-| `0.8.26` | `v95` | netservice/USB gadget true `.c/.h` API extraction |
-| `0.8.25` | `v94` | boot selftest non-destructive module smoke test API |
-| `0.8.24` | `v93` | storage state, SD probe, cache fallback API extraction |
-| `0.8.23` | `v92` | shell/controller metadata and busy policy API extraction |
-| `0.8.22` | `v91` | CPU stress external helper process separation |
-| `0.8.21` | `v90` | metrics true `.c/.h` API module extraction |
-| `0.8.20` | `v89` | menu control true `.c/.h` API module extraction + nonblocking `screenmenu` |
-| `0.8.19` | `v88` | HUD true `.c/.h` API module extraction |
-| `0.8.18` | `v87` | input true `.c/.h` API module extraction |
-| `0.8.17` | `v86` | KMS/draw true `.c/.h` API module extraction |
-| `0.8.16` | `v85` | run/service process lifecycle true `.c/.h` API module extraction |
-| `0.8.15` | `v84` | cmdproto `cmdv1/cmdv1x` frame/decode true `.c/.h` API module extraction |
-| `0.8.14` | `v83` | console fd/attach/readline/cancel true `.c/.h` API module extraction |
-| `0.8.13` | `v82` | log/timeline true `.c/.h` API module extraction |
-| `0.8.12` | `v81` | config/util true `.c/.h` base module extraction |
-| `0.8.11` | `v80` | source layout split into include modules |
-| `0.8.10` | `v79` | boot-time SD health check and cache fallback |
-| `0.8.9` | `v78` | ext4 SD workspace and mountsd storage manager |
-| `0.8.8` | `v77` | display test multi-page app + cutout calibration |
-| `0.8.7` | `v76` | short AT serial fragment filter |
-| `0.8.6` | `v75` | quiet idle serial reattach success logs |
-| `0.8.5` | `v74` | cmdv1x length-prefixed argument encoding |
-| `0.8.4` | `v73` | cmdv1/A90P1 shell protocol and a90ctl host wrapper |
-| `0.8.3` | `v72` | display test screen and XBGR8888 color fix |
-| `0.8.2` | `v71` | live log tail panel for HUD/menu spare area |
-| `0.8.1` | `v70` | input monitor app and raw/gesture trace |
-| `0.8.0` | `v69` | physical-button input gesture layout and debug command |
-| `0.7.5` | `v68` | HUD log tail and expanded changelog history |
-| `0.7.4` | `v67` | compact ABOUT typography and per-version changelog detail screens |
-| `0.7.3` | `v66` | ABOUT app, versioning, changelog, creator display |
-| `0.7.2` | `v65` | boot splash safe layout |
-| `0.7.1` | `v64` | custom boot splash |
-| `0.7.0` | `v63` | hierarchical app menu and CPU stress screen app |
-| `0.6.0` | `v62` | CPU stress gauge and `/dev/null`/`/dev/zero` guard |
-| `0.5.0` | `v60` | opt-in netservice and reconnect validation |
-| `0.4.0` | `v55` | NCM operations and TCP control foundation |
-| `0.3.0` | `v53` | screen menu polish and busy gate |
-| `0.2.0` | `v40`~`v45` | shell/log/timeline/HUD/cancel stabilization |
-| `0.1.0` | early native init | PID 1 native init, serial shell, KMS/input probes |
+`v81`(0.8.12)–`v159`(0.9.59) 구간은 사이클과 flash가 사실상 **1:1**로 움직였다(매
+사이클이 곧 boot image 릴리스). `v159` 이후 native Wi-Fi 연구기에 들어서며 두 축이
+**분리**됐다: 숫자 버전은 실제 flash에서만 올랐고, 사이클은 독립적으로 진행됐다.
+
+분리기 실제 flash 릴리스:
+
+| 숫자 | 박힌 태그 | date | 요약 |
+|---|---|---|---|
+| `0.9.68` | `v724` | 2026-05-24 | qrtr-ns boot hook; service-locator ~4.4s (현재 디바이스 빌드) |
+| `0.9.67` | `v641` | 2026-05-23 | firmware-backed boot-window proof |
+| `0.9.66` | `v631` | 2026-05-23 | per-node SSCTL boot proof |
+| `0.9.65` | `v630` | 2026-05-23 | sibling SSCTL boot proof |
+| `0.9.61` | `v319` | 2026-05-19 | native serial transfer append |
+| `0.9.60` | `v261` | 2026-05-19 | PID1 orphan/zombie reaper |
+
+`0.9.0`–`0.9.59`(1:1 안정화기)와 `0.8.x` 이하 전체 per-release 이력은 `CHANGELOG.md`를
+정식 기준으로 한다. `vNNN` 진행 사이클(특히 V160 이후 Wi-Fi 연구)은 `CLAUDE.md`와
+`docs/plans/`, `docs/reports/`를 기준으로 한다.
+
+## Local Artifact Retention
+
+- 보존: 현재 `v724`, 직전 rollback `v261`, known-good fallback `v48`
+- 정리 대상: 그 외 ignored `stage3/boot_linux_v*.img`, `stage3/ramdisk_v*`, compiled `stage3/linux_init/init_v*`
+- 정리 도구: `python3 scripts/revalidation/cleanup_stage3_artifacts.py --execute`
+- 리포트의 artifact hash와 tracked source는 유지되므로 오래된 local binary는 필요 시 재생성한다.
 
 ## 1.0.0 Criteria
 
-`1.0.0`은 아직 아껴 둔다.
+`1.0.0`은 아직 아껴 둔다. 권장 기준:
 
-권장 기준:
-
-- serial/NCM/TCP 제어 경로가 장시간 안정화됨
+- serial/NCM/TCP 제어 경로 장기 안정화
 - 화면/버튼만으로 recovery/poweroff/status 확인 가능
-- safe storage 정책과 복구 경로가 문서화됨
-- `/cache/bin` 도구와 runtime service 운용 정책이 정리됨
-- known-good fallback이 유지됨
+- safe storage 정책과 복구 경로 문서화
+- `/cache/bin` 도구와 runtime service 운용 정책 정리
+- known-good fallback 유지

@@ -120,11 +120,12 @@
 ## 현재 폰 상태
 
 - patched AP (Magisk 30.7) + **TWRP recovery 사용 가능**
-- 최신 verified build: `stage3/boot_linux_v120.img` (`A90 Linux init 0.9.20 (v120)`)
-- 최신 verified source: `stage3/linux_init/init_v120.c` + `stage3/linux_init/v120/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/helpers/a90_rshell.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h` + `stage3/linux_init/a90_shell.c/h` + `stage3/linux_init/a90_controller.c/h` + `stage3/linux_init/a90_storage.c/h` + `stage3/linux_init/a90_selftest.c/h` + `stage3/linux_init/a90_usb_gadget.c/h` + `stage3/linux_init/a90_netservice.c/h` + `stage3/linux_init/a90_runtime.c/h` + `stage3/linux_init/a90_helper.c/h` + `stage3/linux_init/a90_userland.c/h` + `stage3/linux_init/a90_diag.c/h` + `stage3/linux_init/a90_wifiinv.c/h` + `stage3/linux_init/a90_wififeas.c/h` + `stage3/linux_init/a90_app_about.c/h` + `stage3/linux_init/a90_app_displaytest.c/h` + `stage3/linux_init/a90_app_inputmon.c/h`
-- previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
-- 공식 버전: `0.9.20`
-- build tag: `v120`
+- 현재 디바이스 빌드(flash): `stage3/boot_linux_v724.img` (`A90 Linux init 0.9.68 (v724)`)
+- 현재 소스 루트: `stage3/linux_init/init_v724.c` + 모듈 `stage3/linux_init/a90_*.c/h` + 헬퍼 `stage3/linux_init/helpers/`
+- 공식 숫자 버전: `0.9.68`
+- 박힌 빌드 태그: `v724`
+- 현재 진행 사이클: `V1250` (native Wi-Fi bring-up; 디바이스 재flash 없음 — `CLAUDE.md` 기준)
+- 직전 rollback: `stage3/boot_linux_v261.img` (0.9.60)
 - creator: `made by temmie0214`
 - known-good fallback: `stage3/boot_linux_v48.img` (`A90 Linux init v48`)
 - 격리 상태: `stage3/boot_linux_v49.img`는 boot partition prefix readback은 일치했지만
@@ -133,7 +134,7 @@
 - 로그 상태: SD 정상 시 `/mnt/sdext/a90/logs/native-init.log`, fallback 시 `/cache/native-init.log`에 boot/command/result 기록
 - blocking 상태: `waitkey`, `readinput`, `watchhud`, `blindmenu` q/Ctrl-C 취소 확인
 - boot timeline: `timeline` 명령과 current native log replay 확인
-- boot selftest 상태: v120 boot selftest `pass=11 warn=0 fail=0`, `selftest verbose` 확인
+- boot selftest 상태: v724 boot selftest `pass=11 warn=1 fail=0`, `selftest verbose` 확인
 - HUD 상태: `BOOT OK shell` summary 표시와 `statushud` draw 확인
 - run 상태: `/bin/a90sleep` helper로 `run` q 취소 확인
 - log 보존: native init → recovery → native init 왕복 후 v44/v45/v47 log append 확인
@@ -280,7 +281,7 @@
 
 ### 3-2. USB ACM serial console + 인터랙티브 셸 (v8~v116)
 
-**현재 버전**: `init_v120` (`stage3/boot_linux_v120.img`) / `0.9.20 (v120)`
+**현재 버전**: `init_v724` (`stage3/boot_linux_v724.img`) / `0.9.68 (v724)`
 
 ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v79까지 반복 안정화:
 
@@ -429,10 +430,15 @@ ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v79까지 반복 안
 
 ## 다음 후보 작업
 
-우선순위 순 (v116 verified build 이후):
+현재 활성 작업은 native Wi-Fi bring-up이다 (디바이스는 `0.9.68 (v724)` 고정,
+연구 사이클만 진행). 상세는 `CLAUDE.md`와
+`docs/plans/NATIVE_INIT_NEXT_WORK_2026-04-25.md`를 기준으로 한다.
 
-1. **v117 planning** — 다음 개발 사이클 주제와 guardrail 확정
-2. **next cycle roadmap** — v117 이후 버전별 목표/검증 기준 작성
+1. **V1251** — debugfs를 read-only로 임시 마운트해 PMIC soft-reset preflight 재실행,
+   unmount/cleanup 후 selftest 검증 (V1250 read-only-incomplete 후속)
+2. **SDX50M eSoC power-up gate** — `pm-service`가 `/dev/subsys_esoc0`를 열어
+   `mdm_subsys_powerup`까지 진입하지만 MDM3가 `OFFLINING`에 머무는 원인(PMIC 전원
+   레일 / GPIO142 / PCIe RC1) 규명
 
 **복구**: `backups/baseline_a_20260423_030309/boot.img` dd 복구 가능
 

@@ -1,6 +1,6 @@
 # A90 Native Init Versioning Policy
 
-Date: `2026-05-11`
+Date: `2026-05-11` (refreshed `2026-05-31`)
 
 This project uses two separate version axes.
 
@@ -10,8 +10,8 @@ The numeric version is the canonical version for the native init boot artifact.
 
 Examples:
 
-- `A90 Linux init 0.9.61`
-- `0.9.61`
+- `A90 Linux init 0.9.68`
+- `0.9.68`
 
 Increase this version only when the device boot artifact changes:
 
@@ -27,14 +27,16 @@ cycles that run on an unchanged device image.
 Current canonical native build:
 
 ```text
-Native build: A90 Linux init 0.9.61
-Device build tag: v319
-Boot image: stage3/boot_linux_v319.img
+Native build: A90 Linux init 0.9.68
+Device build tag: v724
+Boot image: stage3/boot_linux_v724.img
 ```
 
-The embedded `v319` tag is the current native build tag for the verified
-boot image. It does not mean every later `v###` cycle is a flashed
-device build.
+When a boot image is built, the **latest `v###` cycle at build time is embedded
+into the image** and shown in the banner as `0.9.68 (v724)`. The embedded tag
+stays fixed until the next flash, even as later `v###` cycles advance. So the
+embedded `v724` does not mean every later cycle (the project is at V1250) is a
+flashed device build — it only marks which cycle produced the image now running.
 
 ## 2. Project Cycle: `v###`
 
@@ -54,18 +56,18 @@ Therefore a `v###` cycle may or may not flash the device.
 Every `v###` plan or report must state:
 
 ```text
-Cycle label: v184
-Native build: A90 Linux init 0.9.61
+Cycle label: V1250
+Native build: A90 Linux init 0.9.68 (v724)
 Device flash: none
 Host commit: <git-sha>
 ```
 
-If a cycle does flash the device, it must state:
+If a cycle does flash the device, it must state (and bump the numeric version):
 
 ```text
-Cycle label: v185
-Native build: A90 Linux init 0.9.61
-Device flash: stage3/boot_linux_0.9.61.img
+Cycle label: v724
+Native build: A90 Linux init 0.9.68 (v724)
+Device flash: stage3/boot_linux_v724.img
 Boot image SHA256: <sha256>
 Host commit: <git-sha>
 ```
@@ -90,22 +92,25 @@ The artifact hash is the final identity for reproduced deployment or validation.
 Read versions in this order:
 
 ```text
-0.9.61 = what is running on the phone
-v184   = what project/test cycle is being executed
+0.9.68 = what is running on the phone (boot image identity)
+V1250  = what project/test cycle is being executed now
 commit = what host/tooling source produced the evidence
 hash   = exact binary/evidence artifact identity
 ```
 
 ## Current Example
 
-The v319 serial transfer append cycle is a native boot image release because it
-changes PID 1 command handling and the ramdisk `/init` binary.
-
-It is:
+The current device build `v724` was a native boot image release because it
+changed PID 1 boot behavior (qrtr-ns boot hook). It is:
 
 ```text
-Native build: A90 Linux init 0.9.61 (device running v319 build tag)
-Cycle label: v319 Serial Transfer Append
-Device flash: stage3/boot_linux_v319.img
-Purpose: provide scoped appendfile and larger cmdv1x buffers for ACM transfer staging
+Native build: A90 Linux init 0.9.68 (device running v724 build tag)
+Cycle label: v724 QRTR service-locator boot proof
+Device flash: stage3/boot_linux_v724.img
+Purpose: qrtr-ns boot hook so service-locator connects ~4.4s from boot
 ```
+
+By contrast, a host-only research cycle such as `V1250` runs against this same
+unchanged `0.9.68 (v724)` image, so it states `Device flash: none`. See the
+per-release numeric history in `CHANGELOG.md` and the cycle history in
+`CLAUDE.md`.

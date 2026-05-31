@@ -1,5 +1,105 @@
 # Changelog
 
+> 숫자 버전(`0.9.x`)은 실제 boot image flash마다 올린다. 괄호 안 `vNNN`은 그
+> 이미지를 빌드한 시점의 프로젝트 사이클 태그다. 두 축 규칙은
+> `docs/operations/VERSIONING_POLICY.md`를 따른다.
+>
+> `v159`(`0.9.59`) 이후 native Wi-Fi 연구기에 들어서며 두 축이 분리됐다: 숫자
+> 버전은 실제 flash에서만 오르고(아래 sparse), 사이클 `vNNN`은 독립적으로 진행한다
+> (현재 연구 사이클 V1250, 디바이스는 여전히 `0.9.68 (v724)`).
+
+## `0.9.68` (`v724`) - 2026-05-24
+
+- qrtr-ns boot hook 추가; service-locator가 부팅 후 약 4.4s에 연결. **현재 디바이스에 flash된 빌드.**
+- 이후 V725–V1250 Wi-Fi 연구 사이클은 이 이미지를 재flash하지 않는다.
+
+## `0.9.67` (`v641`) - 2026-05-23
+
+- firmware-backed boot-window proof (sibling SSCTL clean-DSP 창).
+
+## `0.9.66` (`v631`) - 2026-05-23
+
+- per-node SSCTL boot proof.
+
+## `0.9.65` (`v630`) - 2026-05-23
+
+- sibling SSCTL boot proof. (0.9.62–0.9.64는 별도 flash 릴리스 기록이 ledger에 없음.)
+
+## `0.9.61` (`v319`) - 2026-05-19
+
+- native serial transfer append(`appendfile`)과 4096-byte cmdv1x 버퍼로 ACM 전송 staging 지원.
+
+## `0.9.60` (`v261`) - 2026-05-19
+
+- PID1 generic orphan/zombie reaper 추가 (init 0.9.60).
+
+### Condensed: 0.9.0–0.9.59 stabilization era (`v100`–`v159`)
+
+이 구간은 사이클과 flash가 사실상 1:1로 움직인 native init 안정화기다. 요약은 git
+커밋 제목 기준이며 상세는 git log와 `docs/reports/`를 참고한다.
+
+| version | tag | date | summary |
+|---|---|---|---|
+| `0.9.59` | `v159` | 2026-05-08 | v159 tracefs feasibility |
+| `0.9.58` | `v158` | 2026-05-08 | v158 watchdog feasibility |
+| `0.9.57` | `v157` | 2026-05-08 | v157 pstore feasibility |
+| `0.9.56` | `v156` | 2026-05-08 | v156 thermal power sensor map |
+| `0.9.55` | `v155` | 2026-05-08 | v155 kernel diagnostics bundle |
+| `0.9.54` | `v154` | 2026-05-08 | v154 kernel capability inventory |
+| `0.9.53` | `v153` | 2026-05-08 | v153 longsoak security hardening |
+| `0.9.52` | `v152` | 2026-05-08 | v152 power thermal trend |
+| `0.9.51` | `v151` | 2026-05-08 | v151 long soak bundle |
+| `0.9.50` | `v150` | 2026-05-08 | v150 host disconnect classifier |
+| `0.9.49` | `v149` | 2026-05-08 | v149 long soak supervisor |
+| `0.9.48` | `v148` | 2026-05-08 | v148 long soak correlation |
+| `0.9.47` | `v147` | 2026-05-08 | v147 long soak status |
+| `0.9.46` | `v146` | 2026-05-08 | v146 long soak foundation |
+| `0.9.45` | `v145` | 2026-05-08 | v145 input cancel validation |
+| `0.9.44` | `v144` | 2026-05-08 | v144 inputmonitor app API |
+| `0.9.43` | `v143` | 2026-05-08 | v143 input command API |
+| `0.9.42` | `v142` | 2026-05-08 | v142 cutout app API |
+| `0.9.41` | `v141` | 2026-05-08 | v141 log network app modules |
+| `0.9.40` | `v140` | 2026-05-08 | v140 cpustress app module |
+| `0.9.39` | `v139` | 2026-05-08 | v139 autohud controller cleanup |
+| `0.9.38` | `v138` | 2026-05-08 | v138 extended soak |
+| `0.9.37` | `v137` | 2026-05-07 | v137 validation matrix |
+| `0.9.36` | `v136` | 2026-05-07 | v136 structure audit |
+| `0.9.35` | `v135` | 2026-05-07 | v135 policy matrix |
+| `0.9.34` | `v134` | 2026-05-07 | v134 exposure guardrail |
+| `0.9.33` | `v133` | 2026-05-07 | v133 changelog series navigation |
+| `0.9.32` | `v132` | 2026-05-07 | v132 changelog cleanup |
+| `0.9.31` | `v131` | 2026-05-07 | v131 menu hold timer |
+| `0.9.30` | `v130` | 2026-05-07 | v130 menu hold back |
+| `0.9.29` | `v129` | 2026-05-07 | v129 changelog paging |
+| `0.9.28` | `v128` | 2026-05-07 | v128 menu subcommand policy |
+| `0.9.27` | `v127` | 2026-05-07 | hardening: v127 menu busy gate |
+| `0.9.26` | `v126` | 2026-05-06 | hardening: security batch 6 retained reliability |
+| `0.9.25` | `v125` | 2026-05-06 | hardening: security batch 4 diagnostics privacy |
+| `0.9.24` | `v124` | 2026-05-06 | hardening: security batches 1 through 3 |
+| `0.9.22` | `v122` | 2026-05-05 | v122 Wi-Fi refresh |
+| `0.9.21` | `v121` | 2026-05-05 | v121 PID1 guard |
+| `0.9.20` | `v120` | 2026-05-05 | v120 command group API |
+| `0.9.19` | `v119` | 2026-05-05 | v119 menu route API |
+| `0.9.18` | `v118` | 2026-05-05 | v118 shell metadata API |
+| `0.9.17` | `v117` | 2026-05-05 | v117 PID1 slim roadmap baseline |
+| `0.9.16` | `v116` | 2026-05-04 | v116 diagnostics bundle |
+| `0.9.15` | `v115` | 2026-05-04 | v115 remote shell hardening |
+| `0.9.14` | `v114` | 2026-05-04 | v114 helper deploy visibility |
+| `0.9.13` | `v113` | 2026-05-04 | v113 runtime package layout |
+| `0.9.12` | `v112` | 2026-05-04 | v112 USB service soak |
+| `0.9.11` | `v111` | 2026-05-04 | v111 extended soak RC |
+| `0.9.10` | `v110` | 2026-05-04 | v110 app controller cleanup |
+| `0.9.9` | `v109` | 2026-05-04 | v109 structure audit baseline |
+| `0.9.8` | `v108` | 2026-05-04 | v108 input monitor app module |
+| `0.9.7` | `v107` | 2026-05-04 | v107 displaytest app module |
+| `0.9.6` | `v106` | 2026-05-04 | v106 about app module |
+| `0.9.5` | `v105` | 2026-05-04 | v105 soak release candidate |
+| `0.9.4` | `v104` | 2026-05-04 | v104 wifi feasibility gate |
+| `0.9.3` | `v103` | 2026-05-04 | v103 wifi inventory |
+| `0.9.2` | `v102` | 2026-05-04 | v102 diagnostics bundle |
+| `0.9.1` | `v101` | 2026-05-03 | v101 service manager view |
+| `0.9.0` | `v100` | 2026-05-03 | v100 remote shell prototype |
+
 ## `0.8.30` (`v99`) - 2026-05-03
 
 - Added `a90_userland.c/h` for BusyBox/toybox inventory, selected runtime path reporting, and optional userland readiness checks.
