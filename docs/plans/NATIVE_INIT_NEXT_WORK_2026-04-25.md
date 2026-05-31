@@ -25,18 +25,18 @@
 
 ## 현재 Wi-Fi Gate
 
-- 최신 기준: V1239 HOST-ONLY PASS — `v1239-gap-is-after-pm-service-esoc0-before-gpio142-pcie-wlfw`.
-  V1239는 Android/V1238 증거를 비교해 blocker를 더 낮췄다. Android와 native
-  모두 `pm-service` Binder가 `/dev/subsys_esoc0` / `mdm_subsys_powerup`에
-  진입한다. 차이는 그 이후다. Android는 GPIO142 IRQ, PCIe RC1 L0, sysmon
-  esoc0 SSCTL, MHI/`ks`, WLFW/BDF, `wlan0`까지 이어지지만, native V1238은
-  `mdm3=OFFLINING`, WLFW `0`, `wlan0=false`, cleanup reboot-required에 머문다.
-  따라서 다음 V1240은 live action을 넓히기 전에 cleanup-safe
-  SDX50M response-input classifier를 설계해야 한다: GPIO142/AP2MDM/MDM2AP
-  pin state, PCIe RC1 state, PMIC/pinctrl, `mdm_subsys_powerup` 이후 reboot
-  boundary를 읽기 중심으로 분류한다. Wi-Fi HAL, scan/connect, credentials,
-  DHCP/routes, external ping, flash, boot image write, partition write는 계속
-  블록한다.
+- 최신 기준: V1240 LIVE READ-ONLY PASS — `v1240-response-inputs-visible-mdm2ap-silent`.
+  V1239는 Android/V1238 증거를 비교해 blocker를 `pm-service`
+  `/dev/subsys_esoc0` / `mdm_subsys_powerup` 이후로 낮췄고, V1240은 live
+  action을 넓히지 않은 read-only classifier로 SDX50M/eSoC response surface를
+  확인했다. Native init에서 `esoc_name=SDX50M`, `esoc_link=PCIe`,
+  `esoc_link_info=0305_01.01.00`, MDM status IRQ line
+  `msmgpio-dc 142 Edge mdm status`는 보이지만 IRQ count는 `0`이고
+  `mdm3=OFFLINING`, WLFW `0`, `wlan0=false`에 머문다. 따라서 다음 V1241은
+  `pm-service` esoc0 retry가 아니라 AP2MDM assertion observability, MDM2AP
+  response, PMIC/regulator readiness, PCIe RC1 prerequisites, cleanup boundary를
+  먼저 분류해야 한다. Wi-Fi HAL, scan/connect, credentials, DHCP/routes,
+  external ping, flash, boot image write, partition write는 계속 블록한다.
 - V1198 배경: V1197 root cause 분석 완료: 세 가지 레이어 문제가 중첩됨.
   V1197 root cause 분석 완료: 세 가지 레이어 문제가 중첩됨.
   (1) V1194/V1195/V1196: SAMPLE_COUNT!=0 → serial 홍수 (pm_proxy/pm-service /proc/maps 덤프
