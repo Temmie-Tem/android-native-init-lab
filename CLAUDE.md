@@ -1116,3 +1116,42 @@ V1334 deployed helper `a90_android_execns_probe v277` (`3a61125bd3e2bad9cda8dcac
 ## Latest native Wi-Fi state: V1336 (2026-05-31)
 
 V1336 added `scripts/revalidation/native_wifi_android_pre_cnss_provider_classifier_v1336.py` and reconciled V1331, V1328, and V1335 host-only. Result: `v1336-pre-cnss-provider-order-gap` PASS. Android V1331 starts `pm_proxy_helper` at `5.813594s`, QRTR/RFS/pd-mapper companions by `7.064970s`, `per_mgr` at `6.987725s`, `per_proxy` at `7.848075s`, and `cnss_diag` at `7.975236s`, all before `cnss-daemon` at `8.222635s` and `wlfw_start` at `8.396410s`. V1335 observe-only omitted `pm_proxy_helper` and `per_proxy`; V1328 proved late `per_proxy` after CNSS/eSoC observation still leaves WLFW/BDF/MHI/ks/`wlan0` absent. Next V1337 should add a bounded Android-order pre-CNSS provider observe-only gate that starts the provider/companion chain before CNSS while keeping `/dev/subsys_esoc0` closed and forbidding Wi-Fi HAL/scan/connect.
+
+## Latest native Wi-Fi state: HOST-ANALYSIS 2026-06-01 (out-of-band, not a vNNN cycle — READ THIS, it redirects the eSoC track)
+
+A host-only static analysis of the stock kernel + DTS (full writeup:
+`docs/reports/ESOC_PROVIDER_STATIC_ANALYSIS_2026-06-01.md`) reframes the eSoC
+blocker. Key facts:
+
+- The ext-sdx50m eSoC **provider is built into the kernel** (driver strings in the
+  image; functions are static so absent from core kallsyms — clean decode of
+  131,833 syms gives pcie=109, esoc=20, **mhi=0, sdx=0**). It is **only a thin
+  GPIO/ioctl handshake**: `mdm_subsys_powerup` → `mdm4x_do_first_power_on` →
+  `sdx50m_toggle_soft_reset`, sets AP2MDM_STATUS=1, toggles AP2MDM_SOFT_RESET,
+  reads MDM_PMIC_PWR_STATUS, queues ESOC_REQ_IMG, waits MDM2AP_STATUS. The
+  ESOC_REG_REQ_ENG/WAIT_FOR_REQ/NOTIFY ioctls the project has driven == this
+  driver's `esoc_dev_ioctl`. **Zero PCIe/MHI/GDSC/regulator** references in the
+  provider.
+- DTS (`sdx5xm-external-soc.dtsi`/`sm8150-sdx50m.dtsi`/`sm8150-mhi.dtsi`/r3q r03):
+  `mdm3 = qcom,ext-sdx50m`; GPIOs ap2mdm-status=TLMM135, mdm2ap-status=TLMM142,
+  errfatal TLMM141/53, **ap2mdm-soft-reset/PON = PM8150L GPIO9** ("MDM PON
+  control", 1.8V). **No regulator-supply in mdm3** → AP's only modem-power lever
+  is PM8150L GPIO9. `mhi_0` (`qcom,mhi@0`) has `esoc-0=<&mdm3>` and rides on
+  **`pcie1` (`qcom,pcie@1c08000`)** with `pcie1_sdx50m_wake` → **SDX50M is the
+  PCIe endpoint on RC `pcie1`.**
+
+VERDICT: the gap is **FINITE / multi-subsystem, not an Android re-implementation**.
+The provider already runs on native (mdm_subsys_powerup D-state, GPIO135 +
+PM8150L GPIO9 toggled per V1276/V1318) yet MDM2AP (GPIO142) never asserts → the
+**modem itself is not completing power-on**. Because SDX50M is a PCIe endpoint,
+its boot needs the **`pcie1` RC powered/clocked (refclk + PERST)**; V1306 shows
+`pcie1` GDSC at 0mV, and the provider does NOT power the RC (that's `msm_pcie`).
+
+PIVOT: pause the upper eSoC-ioctl / ESOC_REQ_IMG / `ks` / MHI / CNSS-WLFW work
+(V1337–V1352 track) — it is all **downstream of MDM2AP**. Next read-only targets:
+(1) classify `pcie1` RC power (GDSC/clocks/PERST/refclk; does native ever enable
+it vs V1306 0mV), and (2) verify PM8150L GPIO9 PON sequence/timing parity vs the
+provider's `reset-time-ms`. Only then consider a bounded reboot-safe RC power
+experiment. Keep all prior hard exclusions (no PMIC/GPIO/GDSC writes, no Wi-Fi
+HAL/scan/connect/DHCP/routes/external ping) until the read-only classification
+justifies a specific bounded action.

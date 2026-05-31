@@ -5643,3 +5643,28 @@ Samsung bootloader
 - next: V1333 should run a bounded native early-CNSS WLFW parity observer before
   `per_proxy`/eSoC trigger, capturing `cnss-daemon` stdout/stderr, properties,
   fds, and kmsg WLFW markers without Wi-Fi HAL/scan/connect.
+
+## OUT-OF-BAND HOST ANALYSIS — 2026-06-01 (eSoC track pivot; not a vNNN cycle)
+
+- result: host-only kernel/DTS static analysis. Full writeup
+  `docs/reports/ESOC_PROVIDER_STATIC_ANALYSIS_2026-06-01.md`.
+- finding: ext-sdx50m eSoC provider is BUILT-IN and is only a GPIO/ioctl
+  handshake (mdm_subsys_powerup -> mdm4x_do_first_power_on ->
+  sdx50m_toggle_soft_reset). It does NOT power PCIe/MHI and has NO regulator.
+  Clean kallsyms decode: 131833 syms, pcie=109, esoc=20, mhi=0, sdx=0; provider
+  funcs are static (printk/__func__ strings present in image). The
+  ESOC_REG_REQ_ENG/WAIT_FOR_REQ/NOTIFY ioctls == esoc_dev_ioctl.
+- DTS: mdm3=qcom,ext-sdx50m; ap2mdm-status=TLMM135, mdm2ap-status=TLMM142,
+  ap2mdm-soft-reset/PON=PM8150L GPIO9 (no regulator-supply); mhi_0 esoc-0=<&mdm3>
+  on pcie1 (qcom,pcie@1c08000) -> SDX50M is a PCIe endpoint on RC pcie1.
+- verdict: FINITE / multi-subsystem (not infinite). Provider already runs on
+  native (D-state, GPIO135 + PM8150L GPIO9 toggled) but MDM2AP/GPIO142 never
+  asserts -> modem not powering on. SDX50M is a PCIe EP needing pcie1 RC
+  refclk/PERST; V1306 shows pcie1 GDSC 0mV.
+- PIVOT: pause upper eSoC-ioctl / ESOC_REQ_IMG / ks / MHI / CNSS-WLFW track
+  (V1337-V1352) — downstream of MDM2AP. next read-only: (1) classify pcie1 RC
+  power (GDSC/clocks/PERST/refclk; native enable vs V1306 0mV); (2) verify
+  PM8150L GPIO9 PON sequence/timing parity vs provider reset-time-ms. Then a
+  bounded reboot-safe RC power experiment. No PMIC/GPIO/GDSC writes, no Wi-Fi
+  HAL/scan/connect/DHCP/routes/external ping until read-only work justifies a
+  specific bounded action.
