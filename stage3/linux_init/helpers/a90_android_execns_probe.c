@@ -98,7 +98,7 @@
 #define IOPRIO_PRIO_VALUE(class_value, data) (((class_value) << IOPRIO_CLASS_SHIFT) | (data))
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v263"
+#define EXECNS_VERSION "a90_android_execns_probe v264"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -12087,8 +12087,158 @@ static bool read_regulator_line(const char *needle,
                                             source_size);
 }
 
+struct pmic_gpiochip_lineinfo_sample {
+    char sysfs_dev[64];
+    char sysfs_label[256];
+    char sysfs_base[64];
+    char sysfs_ngpio[64];
+    char node_path[128];
+    char line_name[GPIO_MAX_NAME_SIZE];
+    char line_consumer[GPIO_MAX_NAME_SIZE];
+    int major_value;
+    int minor_value;
+    int mknod_errno;
+    int open_errno;
+    int lineinfo_errno;
+    int unlink_errno;
+    unsigned int line_offset;
+    unsigned int line_flags;
+    bool sysfs_dev_ok;
+    bool sysfs_label_ok;
+    bool sysfs_base_ok;
+    bool sysfs_ngpio_ok;
+    bool expected_dev;
+    bool expected_label;
+    bool expected_base;
+    bool expected_ngpio;
+    bool mknod_attempted;
+    bool mknod_ok;
+    bool open_attempted;
+    bool open_ok;
+    bool lineinfo_executed;
+    bool lineinfo_ok;
+    bool cleanup_attempted;
+    bool cleanup_ok;
+    bool ready;
+};
+
+static bool parse_major_minor_inline(const char *value, int *major_out, int *minor_out) {
+    unsigned int major_value;
+    unsigned int minor_value;
+
+    if (sscanf(value, "%u:%u", &major_value, &minor_value) != 2) {
+        return false;
+    }
+    if (major_value > INT32_MAX || minor_value > INT32_MAX) {
+        return false;
+    }
+    *major_out = (int)major_value;
+    *minor_out = (int)minor_value;
+    return true;
+}
+
+static struct pmic_gpiochip_lineinfo_sample collect_pmic_gpiochip_lineinfo_sample(void) {
+    struct pmic_gpiochip_lineinfo_sample result;
+    struct gpioline_info lineinfo;
+    struct stat st;
+    dev_t devno;
+    int fd = -1;
+
+    memset(&result, 0, sizeof(result));
+    result.major_value = -1;
+    result.minor_value = -1;
+    result.line_offset = 7U;
+    snprintf(result.node_path,
+             sizeof(result.node_path),
+             "/tmp/a90-gpiochip2-lineinfo-sample.%ld.%ld",
+             (long)getpid(),
+             monotonic_ms());
+
+    result.sysfs_dev_ok = read_small_file_trim("/sys/bus/gpio/devices/gpiochip2/dev",
+                                               result.sysfs_dev,
+                                               sizeof(result.sysfs_dev)) == 0;
+    result.sysfs_label_ok = read_small_file_trim("/sys/class/gpio/gpiochip1263/label",
+                                                 result.sysfs_label,
+                                                 sizeof(result.sysfs_label)) == 0;
+    result.sysfs_base_ok = read_small_file_trim("/sys/class/gpio/gpiochip1263/base",
+                                                result.sysfs_base,
+                                                sizeof(result.sysfs_base)) == 0;
+    result.sysfs_ngpio_ok = read_small_file_trim("/sys/class/gpio/gpiochip1263/ngpio",
+                                                 result.sysfs_ngpio,
+                                                 sizeof(result.sysfs_ngpio)) == 0;
+    sanitize_one_line(result.sysfs_dev);
+    sanitize_one_line(result.sysfs_label);
+    sanitize_one_line(result.sysfs_base);
+    sanitize_one_line(result.sysfs_ngpio);
+    result.expected_dev =
+        result.sysfs_dev_ok &&
+        parse_major_minor_inline(result.sysfs_dev, &result.major_value, &result.minor_value) &&
+        result.major_value == 254 &&
+        result.minor_value == 2;
+    result.expected_label =
+        result.sysfs_label_ok &&
+        strstr(result.sysfs_label, "pm8150l@4:pinctrl@c000") != NULL;
+    result.expected_base =
+        result.sysfs_base_ok &&
+        strcmp(result.sysfs_base, "1263") == 0;
+    result.expected_ngpio =
+        result.sysfs_ngpio_ok &&
+        strcmp(result.sysfs_ngpio, "11") == 0;
+    if (!result.expected_dev ||
+        !result.expected_label ||
+        !result.expected_base ||
+        !result.expected_ngpio) {
+        return result;
+    }
+    if (lstat(result.node_path, &st) == 0) {
+        result.mknod_errno = EEXIST;
+        return result;
+    }
+    devno = makedev((unsigned int)result.major_value, (unsigned int)result.minor_value);
+    result.mknod_attempted = true;
+    if (mknod(result.node_path, S_IFCHR | 0600, devno) < 0) {
+        result.mknod_errno = errno;
+        return result;
+    }
+    result.mknod_ok = true;
+    result.open_attempted = true;
+    fd = open(result.node_path, O_RDONLY | O_CLOEXEC);
+    if (fd < 0) {
+        result.open_errno = errno;
+    } else {
+        result.open_ok = true;
+        memset(&lineinfo, 0, sizeof(lineinfo));
+        lineinfo.line_offset = result.line_offset;
+        result.lineinfo_executed = true;
+        if (ioctl(fd, GPIO_GET_LINEINFO_IOCTL, &lineinfo) == 0) {
+            result.lineinfo_ok = true;
+            result.line_flags = lineinfo.flags;
+            snprintf(result.line_name, sizeof(result.line_name), "%s", lineinfo.name);
+            sanitize_one_line(result.line_name);
+            snprintf(result.line_consumer, sizeof(result.line_consumer), "%s", lineinfo.consumer);
+            sanitize_one_line(result.line_consumer);
+        } else {
+            result.lineinfo_errno = errno;
+        }
+        close(fd);
+    }
+    result.cleanup_attempted = true;
+    if (unlink(result.node_path) == 0) {
+        result.cleanup_ok = lstat(result.node_path, &st) < 0 && errno == ENOENT;
+    } else {
+        result.unlink_errno = errno;
+    }
+    result.ready =
+        result.mknod_ok &&
+        result.open_ok &&
+        result.lineinfo_ok &&
+        result.cleanup_ok;
+    return result;
+}
+
 static int append_pm_esoc_response_sample(struct buffer *buf, const char *phase) {
     struct mdm_status_irq_snapshot irq = collect_mdm_status_irq_snapshot();
+    struct pmic_gpiochip_lineinfo_sample gpiochip_line = collect_pmic_gpiochip_lineinfo_sample();
     struct stat st;
     char mdm3_state[64];
     char mdm3_crash_count[64];
@@ -12184,8 +12334,8 @@ static int append_pm_esoc_response_sample(struct buffer *buf, const char *phase)
     if (!pcie0_gdsc_seen) pcie0_gdsc_line[0] = '\0';
     if (!pcie0_gdsc_seen) pcie0_gdsc_source[0] = '\0';
 
-    return append_format(buf,
-                         "pm_service_trigger_observer.response_sample.%s.begin=1\n"
+    if (append_format(buf,
+                      "pm_service_trigger_observer.response_sample.%s.begin=1\n"
                          "pm_service_trigger_observer.response_sample.%s.monotonic_ms=%ld\n"
                          "pm_service_trigger_observer.response_sample.%s.mdm_status_irq_present=%d\n"
                          "pm_service_trigger_observer.response_sample.%s.mdm_status_irq_parsed=%d\n"
@@ -12220,44 +12370,83 @@ static int append_pm_esoc_response_sample(struct buffer *buf, const char *phase)
                          "pm_service_trigger_observer.response_sample.%s.pci_dev_count=%d\n"
                          "pm_service_trigger_observer.response_sample.%s.mhi_bus_count=%d\n"
                          "pm_service_trigger_observer.response_sample.%s.mhi_pipe_exists=%d\n"
-                         "pm_service_trigger_observer.response_sample.%s.wlan0_exists=%d\n"
+                         "pm_service_trigger_observer.response_sample.%s.wlan0_exists=%d\n",
+                      phase,
+                      phase, monotonic_ms(),
+                      phase, irq.present ? 1 : 0,
+                      phase, irq.parsed ? 1 : 0,
+                      phase, irq.gpio,
+                      phase, irq.count_total,
+                      phase, mdm3_state,
+                      phase, mdm3_crash_count,
+                      phase, debugfs_pinctrl_present ? 1 : 0,
+                      phase, debugfs_regulator_present ? 1 : 0,
+                      phase, pin135_seen ? 1 : 0,
+                      phase, pin135_source,
+                      phase, pin135_line,
+                      phase, pin142_seen ? 1 : 0,
+                      phase, pin142_source,
+                      phase, pin142_line,
+                      phase, pmic9_seen ? 1 : 0,
+                      phase, pmic9_source,
+                      phase, pmic9_line,
+                      phase, pmic_soft_reset_seen ? 1 : 0,
+                      phase, pmic_soft_reset_source,
+                      phase, pmic_soft_reset_line,
+                      phase, pcie1_gdsc_seen ? 1 : 0,
+                      phase, pcie1_gdsc_source,
+                      phase, pcie1_gdsc_line,
+                      phase, pcie0_gdsc_seen ? 1 : 0,
+                      phase, pcie0_gdsc_source,
+                      phase, pcie0_gdsc_line,
+                      phase, pcie_current_link_state,
+                      phase, pcie_link_state,
+                      phase, pcie_runtime_status,
+                      phase, pcie_l23_timeout,
+                      phase, pci_dev_count,
+                      phase, mhi_bus_count,
+                      phase, mhi_pipe_exists ? 1 : 0,
+                      phase, wlan0_exists ? 1 : 0) < 0) {
+        return -1;
+    }
+    return append_format(buf,
+                         "pm_service_trigger_observer.response_sample.%s.gpiochip_lineinfo_attempted=%d\n"
+                         "pm_service_trigger_observer.response_sample.%s.gpiochip_lineinfo_expected_dev=%d\n"
+                         "pm_service_trigger_observer.response_sample.%s.gpiochip_lineinfo_expected_label=%d\n"
+                         "pm_service_trigger_observer.response_sample.%s.gpiochip_lineinfo_expected_base=%d\n"
+                         "pm_service_trigger_observer.response_sample.%s.gpiochip_lineinfo_expected_ngpio=%d\n"
+                         "pm_service_trigger_observer.response_sample.%s.gpiochip_lineinfo_mknod_ok=%d\n"
+                         "pm_service_trigger_observer.response_sample.%s.gpiochip_lineinfo_open_ok=%d\n"
+                         "pm_service_trigger_observer.response_sample.%s.gpiochip_lineinfo_ok=%d\n"
+                         "pm_service_trigger_observer.response_sample.%s.gpiochip_lineinfo_cleanup_ok=%d\n"
+                         "pm_service_trigger_observer.response_sample.%s.gpiochip_lineinfo_line_offset=%u\n"
+                         "pm_service_trigger_observer.response_sample.%s.gpiochip_lineinfo_line_flags=0x%x\n"
+                         "pm_service_trigger_observer.response_sample.%s.gpiochip_lineinfo_flag_kernel=%d\n"
+                         "pm_service_trigger_observer.response_sample.%s.gpiochip_lineinfo_flag_is_out=%d\n"
+                         "pm_service_trigger_observer.response_sample.%s.gpiochip_lineinfo_line_name=%s\n"
+                         "pm_service_trigger_observer.response_sample.%s.gpiochip_lineinfo_line_consumer=%s\n"
+                         "pm_service_trigger_observer.response_sample.%s.gpiochip_line_request_executed=0\n"
+                         "pm_service_trigger_observer.response_sample.%s.pmic_write_executed=0\n"
+                         "pm_service_trigger_observer.response_sample.%s.esoc_ioctl_executed=0\n"
                          "pm_service_trigger_observer.response_sample.%s.end=1\n",
+                         phase, gpiochip_line.lineinfo_executed ? 1 : 0,
+                         phase, gpiochip_line.expected_dev ? 1 : 0,
+                         phase, gpiochip_line.expected_label ? 1 : 0,
+                         phase, gpiochip_line.expected_base ? 1 : 0,
+                         phase, gpiochip_line.expected_ngpio ? 1 : 0,
+                         phase, gpiochip_line.mknod_ok ? 1 : 0,
+                         phase, gpiochip_line.open_ok ? 1 : 0,
+                         phase, gpiochip_line.lineinfo_ok ? 1 : 0,
+                         phase, gpiochip_line.cleanup_ok ? 1 : 0,
+                         phase, gpiochip_line.line_offset,
+                         phase, gpiochip_line.line_flags,
+                         phase, (gpiochip_line.line_flags & GPIOLINE_FLAG_KERNEL) ? 1 : 0,
+                         phase, (gpiochip_line.line_flags & GPIOLINE_FLAG_IS_OUT) ? 1 : 0,
+                         phase, gpiochip_line.line_name,
+                         phase, gpiochip_line.line_consumer,
                          phase,
-                         phase, monotonic_ms(),
-                         phase, irq.present ? 1 : 0,
-                         phase, irq.parsed ? 1 : 0,
-                         phase, irq.gpio,
-                         phase, irq.count_total,
-                         phase, mdm3_state,
-                         phase, mdm3_crash_count,
-                         phase, debugfs_pinctrl_present ? 1 : 0,
-                         phase, debugfs_regulator_present ? 1 : 0,
-                         phase, pin135_seen ? 1 : 0,
-                         phase, pin135_source,
-                         phase, pin135_line,
-                         phase, pin142_seen ? 1 : 0,
-                         phase, pin142_source,
-                         phase, pin142_line,
-                         phase, pmic9_seen ? 1 : 0,
-                         phase, pmic9_source,
-                         phase, pmic9_line,
-                         phase, pmic_soft_reset_seen ? 1 : 0,
-                         phase, pmic_soft_reset_source,
-                         phase, pmic_soft_reset_line,
-                         phase, pcie1_gdsc_seen ? 1 : 0,
-                         phase, pcie1_gdsc_source,
-                         phase, pcie1_gdsc_line,
-                         phase, pcie0_gdsc_seen ? 1 : 0,
-                         phase, pcie0_gdsc_source,
-                         phase, pcie0_gdsc_line,
-                         phase, pcie_current_link_state,
-                         phase, pcie_link_state,
-                         phase, pcie_runtime_status,
-                         phase, pcie_l23_timeout,
-                         phase, pci_dev_count,
-                         phase, mhi_bus_count,
-                         phase, mhi_pipe_exists ? 1 : 0,
-                         phase, wlan0_exists ? 1 : 0,
+                         phase,
+                         phase,
                          phase);
 }
 

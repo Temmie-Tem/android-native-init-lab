@@ -434,10 +434,10 @@ ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v79까지 반복 안
 연구 사이클만 진행). 상세는 `CLAUDE.md`와
 `docs/plans/NATIVE_INIT_NEXT_WORK_2026-04-25.md`를 기준으로 한다.
 
-1. **V1265** — source/build-only helper `a90_android_execns_probe v264`
-   (late `per_proxy` / PM-service response sampler에 read-only PMIC GPIO9
-   `GPIO_GET_LINEINFO_IOCTL` snapshots 추가; no userspace GPIO line request/hold)
-2. **V1266** — bounded live ext-mdm/AP2MDM observer
+1. **V1266** — deploy-only helper `a90_android_execns_probe v264`
+   (SHA256 `a06ff29245023c265c69e58e2ae3f32a4facbc291bcb63a4450f39efd9515dc5`;
+   no daemon start, no Wi-Fi bring-up)
+2. **V1267** — bounded live ext-mdm/AP2MDM observer
    (kernel-owned `AP2MDM_SOFT_RESET` line state + GPIO142 IRQ + PCIe RC1/MHI +
    `mdm_subsys_powerup` timing을 같은 `/dev/subsys_esoc0` window에서 확인)
 3. **SDX50M eSoC power-up gate** — `pm-service`가 `/dev/subsys_esoc0`를 열어

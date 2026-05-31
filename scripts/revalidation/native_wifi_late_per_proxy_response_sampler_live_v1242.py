@@ -268,6 +268,24 @@ def _collect_response_samples(text: str) -> dict[str, Any]:
             "mhi_bus_count": _int_value(sample.get("mhi_bus_count"), -1),
             "mhi_pipe_exists": _int_value(sample.get("mhi_pipe_exists"), -1),
             "wlan0_exists": _int_value(sample.get("wlan0_exists"), -1),
+            "gpiochip_lineinfo_attempted": _int_value(sample.get("gpiochip_lineinfo_attempted"), -1),
+            "gpiochip_lineinfo_expected_dev": _int_value(sample.get("gpiochip_lineinfo_expected_dev"), -1),
+            "gpiochip_lineinfo_expected_label": _int_value(sample.get("gpiochip_lineinfo_expected_label"), -1),
+            "gpiochip_lineinfo_expected_base": _int_value(sample.get("gpiochip_lineinfo_expected_base"), -1),
+            "gpiochip_lineinfo_expected_ngpio": _int_value(sample.get("gpiochip_lineinfo_expected_ngpio"), -1),
+            "gpiochip_lineinfo_mknod_ok": _int_value(sample.get("gpiochip_lineinfo_mknod_ok"), -1),
+            "gpiochip_lineinfo_open_ok": _int_value(sample.get("gpiochip_lineinfo_open_ok"), -1),
+            "gpiochip_lineinfo_ok": _int_value(sample.get("gpiochip_lineinfo_ok"), -1),
+            "gpiochip_lineinfo_cleanup_ok": _int_value(sample.get("gpiochip_lineinfo_cleanup_ok"), -1),
+            "gpiochip_lineinfo_line_offset": _int_value(sample.get("gpiochip_lineinfo_line_offset"), -1),
+            "gpiochip_lineinfo_line_flags": sample.get("gpiochip_lineinfo_line_flags", ""),
+            "gpiochip_lineinfo_flag_kernel": _int_value(sample.get("gpiochip_lineinfo_flag_kernel"), -1),
+            "gpiochip_lineinfo_flag_is_out": _int_value(sample.get("gpiochip_lineinfo_flag_is_out"), -1),
+            "gpiochip_lineinfo_line_name": sample.get("gpiochip_lineinfo_line_name", ""),
+            "gpiochip_lineinfo_line_consumer": sample.get("gpiochip_lineinfo_line_consumer", ""),
+            "gpiochip_line_request_executed": _int_value(sample.get("gpiochip_line_request_executed"), -1),
+            "pmic_write_executed": _int_value(sample.get("pmic_write_executed"), -1),
+            "esoc_ioctl_executed": _int_value(sample.get("esoc_ioctl_executed"), -1),
         })
     phase_rows.sort(key=lambda row: (row["monotonic_ms"] < 0, row["monotonic_ms"], row["phase"]))
 
@@ -290,6 +308,15 @@ def _collect_response_samples(text: str) -> dict[str, Any]:
         "pmic_soft_reset_seen": any(row["pmic_soft_reset_seen"] > 0 for row in phase_rows),
         "pcie1_gdsc_seen": any(row["pcie1_gdsc_seen"] > 0 for row in phase_rows),
         "pcie0_gdsc_seen": any(row["pcie0_gdsc_seen"] > 0 for row in phase_rows),
+        "gpiochip_lineinfo_seen": any(row["gpiochip_lineinfo_ok"] > 0 for row in phase_rows),
+        "gpiochip_lineinfo_kernel_owned_seen": any(row["gpiochip_lineinfo_flag_kernel"] > 0 for row in phase_rows),
+        "gpiochip_lineinfo_ap2mdm_consumer_seen": any(row["gpiochip_lineinfo_line_consumer"] == "AP2MDM_SOFT_RESET" for row in phase_rows),
+        "gpiochip_lineinfo_zero_action_ok": all(
+            row["gpiochip_line_request_executed"] in {-1, 0} and
+            row["pmic_write_executed"] in {-1, 0} and
+            row["esoc_ioctl_executed"] in {-1, 0}
+            for row in phase_rows
+        ),
         "samples": phase_rows,
     }
 
