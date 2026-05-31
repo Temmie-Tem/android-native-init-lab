@@ -8,12 +8,18 @@
 
 상단 `docs/`는 이제 다음 흐름에 필요한 문서를 유지합니다.
 
-1. native init 0.9.16 / v116 verified 기준 상태 고정
+1. native init 0.9.68 / v724 verified 기준 상태 고정 (연구 사이클 V1253)
 2. shell/HUD/log/menu 운영 안정화
 3. 필요한 하드웨어/커널 경로만 역추적
 4. BusyBox/network/SSH 같은 서버형 확장 가능성 검토
 
 ## 최신 Wi-Fi bring-up 조사 기준
+
+> **현재(V1253) 기준 Wi-Fi 연구 상태는 `CLAUDE.md`가 정식 기준이다.** 아래 목록은
+> 약 V1124까지의 과거 스냅샷이며 V1125 이후(~V1253)는 갱신되지 않았다. 최신 사이클
+> 상태·블로커·안전 경계는 `CLAUDE.md`와 `docs/plans/NATIVE_INIT_NEXT_WORK_2026-04-25.md`를
+> 참조한다. (요약: V1221에서 patched cnss-daemon으로 `pm-service`가 `/dev/subsys_esoc0`
+> 진입까지 도달했고, 현재 블로커는 SDX50M PMIC 전원 레일/GPIO9 미claim — V1251 재현 후보 입증.)
 
 - 2026-05-27 기준 V1071 exit-255/BPF 방향은 `docs/reports/NATIVE_INIT_V1087_PM_ADDSERVICE_HOST_CLASSIFIER_2026-05-27.md`에서 obsolete로 닫혔습니다.
 - 최신 post-policy CNSS PM blocker는 `docs/reports/NATIVE_INIT_V1128_POST_POLICY_PRIVATE_FIRMWARE_CNSS_PM_2026-05-27.md`와 `docs/reports/NATIVE_INIT_V1129_POST_POLICY_GLOBAL_FIRMWARE_MOUNT_ONLY_2026-05-27.md`입니다.
@@ -141,13 +147,14 @@
 - 빌드: `A908NKSU5EWA3`
 - kernel: Samsung stock Android kernel `Linux 4.14.190`
 - recovery: TWRP 사용 가능
-- latest verified build: `A90 Linux init 0.9.16 (v116)`
-- official version: `0.9.16`
-- build tag: `v116`
-- creator: `made by Temmie`
-- latest verified source: `stage3/linux_init/init_v116.c` + `stage3/linux_init/v116/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/helpers/a90_rshell.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h` + `stage3/linux_init/a90_shell.c/h` + `stage3/linux_init/a90_controller.c/h` + `stage3/linux_init/a90_storage.c/h` + `stage3/linux_init/a90_selftest.c/h` + `stage3/linux_init/a90_usb_gadget.c/h` + `stage3/linux_init/a90_netservice.c/h` + `stage3/linux_init/a90_runtime.c/h` + `stage3/linux_init/a90_helper.c/h` + `stage3/linux_init/a90_userland.c/h` + `stage3/linux_init/a90_diag.c/h` + `stage3/linux_init/a90_wifiinv.c/h` + `stage3/linux_init/a90_wififeas.c/h` + `stage3/linux_init/a90_app_about.c/h` + `stage3/linux_init/a90_app_displaytest.c/h` + `stage3/linux_init/a90_app_inputmon.c/h`
-- latest verified boot image: `stage3/boot_linux_v116.img`
-- previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
+- latest verified build: `A90 Linux init 0.9.68 (v724)`
+- official version: `0.9.68`
+- build tag: `v724`
+- 현재 진행 사이클: `V1253` (native Wi-Fi bring-up; 디바이스 재flash 없음 — `CLAUDE.md` 기준)
+- creator: `made by temmie0214`
+- latest verified source: `stage3/linux_init/init_v724.c` + 모듈 `stage3/linux_init/a90_*.c/h` + 헬퍼 `stage3/linux_init/helpers/`
+- latest verified boot image: `stage3/boot_linux_v724.img`
+- previous verified boot image: `stage3/boot_linux_v261.img` (`0.9.60 (v261)`)
 - known-good fallback: `stage3/boot_linux_v48.img`
 - control channel: USB CDC ACM serial bridge
 - display: custom boot splash 후 상태 HUD/menu 자동 전환

@@ -35,7 +35,7 @@ Boot image: stage3/boot_linux_v724.img
 When a boot image is built, the **latest `v###` cycle at build time is embedded
 into the image** and shown in the banner as `0.9.68 (v724)`. The embedded tag
 stays fixed until the next flash, even as later `v###` cycles advance. So the
-embedded `v724` does not mean every later cycle (the project is at V1250) is a
+embedded `v724` does not mean every later cycle (the project is at V1253) is a
 flashed device build — it only marks which cycle produced the image now running.
 
 ## 2. Project Cycle: `v###`
@@ -56,7 +56,7 @@ Therefore a `v###` cycle may or may not flash the device.
 Every `v###` plan or report must state:
 
 ```text
-Cycle label: V1250
+Cycle label: V1253
 Native build: A90 Linux init 0.9.68 (v724)
 Device flash: none
 Host commit: <git-sha>
@@ -93,7 +93,7 @@ Read versions in this order:
 
 ```text
 0.9.68 = what is running on the phone (boot image identity)
-V1250  = what project/test cycle is being executed now
+V1253  = what project/test cycle is being executed now
 commit = what host/tooling source produced the evidence
 hash   = exact binary/evidence artifact identity
 ```
@@ -110,7 +110,7 @@ Device flash: stage3/boot_linux_v724.img
 Purpose: qrtr-ns boot hook so service-locator connects ~4.4s from boot
 ```
 
-By contrast, a host-only research cycle such as `V1250` runs against this same
+By contrast, a host-only research cycle such as `V1253` runs against this same
 unchanged `0.9.68 (v724)` image, so it states `Device flash: none`. See the
 per-release numeric history in `CHANGELOG.md` and the cycle history in
 `CLAUDE.md`.

@@ -8,7 +8,7 @@ Updated: `2026-05-31`
 | 축 | 형식 | 올리는 시점 |
 |---|---|---|
 | 숫자 버전 | `MAJOR.MINOR.PATCH` (예: `0.9.68`) | 실제 boot image가 디바이스에 flash될 때 |
-| 사이클 태그 | `vNNN` (예: `v724`, `V1250`) | host 도구·커밋·계획/리포트 등 모든 진행 단계 |
+| 사이클 태그 | `vNNN` (예: `v724`, `V1253`) | host 도구·커밋·계획/리포트 등 모든 진행 단계 |
 
 - 숫자 버전은 **boot image 정체성**이다. flash가 없으면 올리지 않는다.
 - `vNNN`은 **진행 추적용**이다. host-only 작업·리포트·실험 게이트마다 자유롭게 증가한다.
@@ -23,12 +23,12 @@ Updated: `2026-05-31`
 - boot image: `stage3/boot_linux_v724.img`
 - known-good fallback: `stage3/boot_linux_v48.img`
 - 직전 rollback: `stage3/boot_linux_v261.img` (0.9.60)
-- 현재 진행 사이클: **V1250** (native Wi-Fi bring-up; SDX50M eSoC power-up gate)
+- 현재 진행 사이클: **V1253** (native Wi-Fi bring-up; PMIC power-surface write-gate)
 - 소스 루트: `stage3/linux_init/init_v724.c` + 모듈 `stage3/linux_init/a90_*.c/h`
 - creator: `made by temmie0214`
 
-`v724`(0.9.68) 이후 V725–V1250 사이클은 모두 host-only 연구이며 디바이스를 재flash하지
-않았다. 그래서 디바이스 표기는 여전히 `0.9.68 (v724)`이고 연구 사이클만 V1250까지 진행됐다.
+`v724`(0.9.68) 이후 V725–V1253 사이클은 모두 host-only 연구이며 디바이스를 재flash하지
+않았다. 그래서 디바이스 표기는 여전히 `0.9.68 (v724)`이고 연구 사이클만 V1253까지 진행됐다.
 
 ## Version Format
 
