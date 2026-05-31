@@ -5536,3 +5536,22 @@ Samsung bootloader
   scan/connect, credentials, DHCP/routes, external ping, PMIC/GPIO/GDSC/eSoC
   write, flash, boot image write, or partition write.
 - next: V1328 should run the bounded no-write `mdm2ap_timing` live sampler.
+
+## V1328 MDM2AP Timing Sampler Live (2026-05-31)
+
+- runner: `scripts/revalidation/native_wifi_mdm2ap_timing_sampler_live_v1328.py`
+- evidence: `tmp/wifi/v1328-mdm2ap-timing-sampler-live/manifest.json`
+- report: `docs/reports/NATIVE_INIT_V1328_MDM2AP_TIMING_SAMPLER_LIVE_2026-05-31.md`
+- result: `v1328-mdm2ap-timing-full-window-no-transition`, pass `true`.
+- finding: full `120 x 50ms` timing window saw `pm-service` enter
+  `mdm_subsys_powerup` (`timing_pm_service_powerup_seen=true`,
+  max powerup thread count `1`) but still recorded GPIO142 IRQ delta `0`, MDM
+  errfatal IRQ delta `0`, no PCIe RC1 transition, PCI/MHI max `0`, no MHI pipe,
+  `ks` max `0`, WLFW kmsg max `0`, and `wlan0=false`.
+- safety: all `mdm2ap_timing.safety_*` fields were zero. No Wi-Fi HAL,
+  scan/connect, credentials, DHCP/routes, external ping, PMIC/GPIO/GDSC/eSoC
+  write, flash, boot image write, or partition write. Cleanup reboot was
+  requested because a PM process was not proven stopped; post-run selftest
+  remained `pass=11 warn=1 fail=0`.
+- next: V1329 should classify the Android-only SDX50M response prerequisite
+  before any PMIC/GPIO/eSoC mutation.

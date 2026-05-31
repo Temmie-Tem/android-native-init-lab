@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V1327 deploy-only PASS → V1328 bounded `mdm2ap_timing` live sampler — helper `a90_android_execns_probe v276` is deployed to `/cache/bin/a90_android_execns_probe`. V1328 should classify GPIO142/MDM status, GPIO53/MDM errfatal, PCIe RC1, MHI/ks, WLFW/BDF, and `wlan0` timing after late `per_proxy` starts. Preserve hard exclusions: no PMIC write, userspace GPIO line request/hold, direct eSoC ioctl, direct GDSC write, blind eSoC notify/BOOT_DONE, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, flash, boot image write, or partition write.
+- **Active research cycle**: V1328 bounded `mdm2ap_timing` live sampler PASS → V1329 Android-only SDX50M response-prerequisite classifier — native reaches `mdm_subsys_powerup` but a full timing window still has GPIO142/MDM status delta `0`, MDM errfatal delta `0`, no PCIe RC1, no MHI/ks, no WLFW/BDF, and no `wlan0`. Preserve hard exclusions: no PMIC write, userspace GPIO line request/hold, direct eSoC ioctl, direct GDSC write, blind eSoC notify/BOOT_DONE, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, flash, boot image write, or partition write.
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -1084,3 +1084,7 @@ V1326 updated `stage3/linux_init/helpers/a90_android_execns_probe.c` to `a90_and
 ## Latest native Wi-Fi state: V1327 (2026-05-31)
 
 V1327 added `scripts/revalidation/wifi_execns_helper_v276_deploy_preflight_v1327.py` and deployed helper `a90_android_execns_probe v276` to `/cache/bin/a90_android_execns_probe`. Result: `execns-helper-v276-deploy-pass` PASS. NCM was inactive, so deploy used serial fallback. Manual post-deploy verification confirmed remote SHA256 `dad57e135d3b4f0db2f1f95ee04022a3f5610fdbd0ecc6b69c243883689ca66f`, helper marker `a90_android_execns_probe v276`, and the new `--pm-observer-late-per-proxy-mdm2ap-errfatal-pcie-timing-sampler` flag. Native selftest remained `pass=11 warn=1 fail=0`; netservice remained disabled. No daemon start or Wi-Fi bring-up occurred. Next V1328 should run the bounded no-write `mdm2ap_timing` live sampler.
+
+## Latest native Wi-Fi state: V1328 (2026-05-31)
+
+V1328 added `scripts/revalidation/native_wifi_mdm2ap_timing_sampler_live_v1328.py` and ran the bounded no-write `mdm2ap_timing` sampler with helper v276. Result: `v1328-mdm2ap-timing-full-window-no-transition` PASS. The full `120 x 50ms` timing window saw `pm-service` enter `mdm_subsys_powerup` (`timing_pm_service_powerup_seen=true`, max powerup thread count `1`) but still showed GPIO142 IRQ delta `0`, MDM errfatal IRQ delta `0`, no PCIe RC1 transition, PCI/MHI max `0`, no MHI pipe, `ks` max `0`, WLFW kmsg max `0`, and `wlan0=false`. All timing safety markers were zero; post-run selftest remained `pass=11 warn=1 fail=0`. Next V1329 should classify the Android-only SDX50M response prerequisite before any PMIC/GPIO/eSoC mutation.
