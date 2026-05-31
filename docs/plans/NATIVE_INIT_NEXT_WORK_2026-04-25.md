@@ -25,8 +25,8 @@
 
 ## 현재 Wi-Fi Gate
 
-- 최신 기준: V1250 READ-ONLY LIVE PASS —
-  `v1250-pmic-soft-reset-readonly-classified-no-candidate`.
+- 최신 기준: V1251 READ-ONLY LIVE PASS —
+  `v1251-pmic-debugfs-native-reproduction-candidate`.
   V1239는 Android/V1238 증거를 비교해 blocker를 `pm-service`
   `/dev/subsys_esoc0` / `mdm_subsys_powerup` 이후로 낮췄고, V1240은
   SDX50M/eSoC response surface와 GPIO142 `mdm status` IRQ count `0`을
@@ -43,14 +43,17 @@
   write와 blind `/dev/subsys_esoc0` retry를 reject하고 fail-closed PMIC
   preflight helper를 선택했다. V1248은 helper `a90_android_execns_probe v260`을
   빌드했고, V1249는 `/cache/bin/a90_android_execns_probe`에 배포했다. V1250은
-  read-only preflight를 실행해 zero-action markers를 확인했지만 global
-  namespace에서 `debugfs_pinctrl_present=0`, `debugfs_regulator_present=0`이라
-  PMIC/GDSC line을 읽지 못해 `read-only-incomplete`로 분류됐다. 따라서 다음
-  V1251은 V1241 패턴처럼 debugfs를 임시 mount하여 read-only 관찰 표면만 열고,
-  helper v260 preflight를 다시 실행한 뒤 unmount/cleanup/selftest를 검증해야 한다.
-  PMIC/GPIO/debugfs/regulator write, eSoC ioctl, Wi-Fi HAL, scan/connect,
-  credentials, DHCP/routes, external ping, flash, boot image write, partition
-  write는 계속 블록한다.
+  global namespace에서 `debugfs_pinctrl_present=0`, `debugfs_regulator_present=0`라
+  `read-only-incomplete`로 분류됐고, V1251은 V1241 패턴처럼 debugfs를 임시
+  mount하여 같은 helper v260 preflight를 재실행했다. V1251 결과는
+  `read-only-pass`: `debugfs_pinctrl_present=1`, `debugfs_regulator_present=1`,
+  PM8150L soft-reset GPIO line `pin 7 (gpio9): (MUX UNCLAIMED)`, PCIe GDSC
+  lines `0mV`, `mdm3=OFFLINING`, GPIO142 IRQ count `0`, `read_contract_ready=1`,
+  `native_reproduction_candidate=1`, postflight selftest `fail=0`이다. 따라서
+  다음 V1252는 source/plan-only로 bounded PMIC/power-surface write gate를
+  설계해야 한다. PMIC/GPIO/debugfs/regulator write, eSoC ioctl, Wi-Fi HAL,
+  scan/connect, credentials, DHCP/routes, external ping, flash, boot image
+  write, partition write는 explicit write-gate 전까지 계속 블록한다.
 - V1198 배경: V1197 root cause 분석 완료: 세 가지 레이어 문제가 중첩됨.
   V1197 root cause 분석 완료: 세 가지 레이어 문제가 중첩됨.
   (1) V1194/V1195/V1196: SAMPLE_COUNT!=0 → serial 홍수 (pm_proxy/pm-service /proc/maps 덤프
