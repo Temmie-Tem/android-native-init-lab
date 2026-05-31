@@ -139,7 +139,10 @@
   native PMIC GPIO9이 Android와 같은 `out/high` 상태임을 확인했다. 따라서 PMIC GPIO9
   write/hold와 direct eSoC ioctl retry는 계속 reject한다. 다음 V1277은 source/build-only
   helper v267로 TLMM GPIO135/GPIO142 range-slice, AP2MDM/MDM2AP pinmux/pinconf,
-  PCIe RC1/GDSC read-only snapshots를 추가한다.
+  PCIe RC1/GDSC read-only snapshots를 추가했다. V1277 결과 helper
+  `a90_android_execns_probe v267`는 정적 aarch64로 빌드됐고, sha256은
+  `eccd9ca475927c2a37551304fedcc6740d19aeb048ebd137f966a18c269f0337`다. 다음 gate는
+  V1278 deploy-only, 이후 V1279 bounded live TLMM range sampler다.
   GPIO line request, PMIC GPIO9 hold, PMIC write, direct eSoC ioctl, new
   PM/CNSS/HAL start, scan/connect, credentials, DHCP/routes, external ping, flash,
   boot image write, partition write는 별도 gate 전까지 계속 블록한다.

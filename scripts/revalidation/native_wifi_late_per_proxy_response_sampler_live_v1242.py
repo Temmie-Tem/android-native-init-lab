@@ -279,6 +279,16 @@ def _collect_response_samples(text: str) -> dict[str, Any]:
             "tlmm_gpio142_debugfs_block_seen": _int_value(sample.get("tlmm_gpio142_debugfs_block_seen"), -1),
             "tlmm_gpio142_debugfs_block": sample.get("tlmm_gpio142_debugfs_block", ""),
             "tlmm_gpio142_debugfs_block_source": sample.get("tlmm_gpio142_debugfs_block_source", ""),
+            "tlmm_gpio135_debugfs_range_block_seen": _int_value(sample.get("tlmm_gpio135_debugfs_range_block_seen"), -1),
+            "tlmm_gpio135_debugfs_range_block": sample.get("tlmm_gpio135_debugfs_range_block", ""),
+            "tlmm_gpio135_debugfs_range_block_source": sample.get("tlmm_gpio135_debugfs_range_block_source", ""),
+            "tlmm_gpio135_debugfs_range_start": _int_value(sample.get("tlmm_gpio135_debugfs_range_start"), -1),
+            "tlmm_gpio135_debugfs_range_end": _int_value(sample.get("tlmm_gpio135_debugfs_range_end"), -1),
+            "tlmm_gpio142_debugfs_range_block_seen": _int_value(sample.get("tlmm_gpio142_debugfs_range_block_seen"), -1),
+            "tlmm_gpio142_debugfs_range_block": sample.get("tlmm_gpio142_debugfs_range_block", ""),
+            "tlmm_gpio142_debugfs_range_block_source": sample.get("tlmm_gpio142_debugfs_range_block_source", ""),
+            "tlmm_gpio142_debugfs_range_start": _int_value(sample.get("tlmm_gpio142_debugfs_range_start"), -1),
+            "tlmm_gpio142_debugfs_range_end": _int_value(sample.get("tlmm_gpio142_debugfs_range_end"), -1),
             "pmic9_pinconf_seen": _int_value(sample.get("pmic9_pinconf_seen"), -1),
             "pmic9_pinconf_line": sample.get("pmic9_pinconf_line", ""),
             "pmic9_pinconf_source": sample.get("pmic9_pinconf_source", ""),
@@ -352,6 +362,18 @@ def _collect_response_samples(text: str) -> dict[str, Any]:
         "pmic_gpio1270_debugfs_block_seen": any(row["pmic_gpio1270_debugfs_block_seen"] > 0 for row in phase_rows),
         "tlmm_gpio135_debugfs_block_seen": any(row["tlmm_gpio135_debugfs_block_seen"] > 0 for row in phase_rows),
         "tlmm_gpio142_debugfs_block_seen": any(row["tlmm_gpio142_debugfs_block_seen"] > 0 for row in phase_rows),
+        "tlmm_gpio135_debugfs_range_block_seen": any(row["tlmm_gpio135_debugfs_range_block_seen"] > 0 for row in phase_rows),
+        "tlmm_gpio142_debugfs_range_block_seen": any(row["tlmm_gpio142_debugfs_range_block_seen"] > 0 for row in phase_rows),
+        "tlmm_gpio135_debugfs_range_windows": sorted({
+            f"{row['tlmm_gpio135_debugfs_range_start']}-{row['tlmm_gpio135_debugfs_range_end']}"
+            for row in phase_rows
+            if row["tlmm_gpio135_debugfs_range_start"] >= 0 and row["tlmm_gpio135_debugfs_range_end"] >= 0
+        }),
+        "tlmm_gpio142_debugfs_range_windows": sorted({
+            f"{row['tlmm_gpio142_debugfs_range_start']}-{row['tlmm_gpio142_debugfs_range_end']}"
+            for row in phase_rows
+            if row["tlmm_gpio142_debugfs_range_start"] >= 0 and row["tlmm_gpio142_debugfs_range_end"] >= 0
+        }),
         "pmic9_pinconf_seen": any(row["pmic9_pinconf_seen"] > 0 for row in phase_rows),
         "pin135_pinconf_seen": any(row["pin135_pinconf_seen"] > 0 for row in phase_rows),
         "pin142_pinconf_seen": any(row["pin142_pinconf_seen"] > 0 for row in phase_rows),
@@ -487,6 +509,10 @@ def _sample_rows(manifest: dict[str, Any]) -> list[list[Any]]:
         ["pmic_gpio1270_debugfs_block_seen", sampler.get("pmic_gpio1270_debugfs_block_seen")],
         ["tlmm_gpio135_debugfs_block_seen", sampler.get("tlmm_gpio135_debugfs_block_seen")],
         ["tlmm_gpio142_debugfs_block_seen", sampler.get("tlmm_gpio142_debugfs_block_seen")],
+        ["tlmm_gpio135_debugfs_range_block_seen", sampler.get("tlmm_gpio135_debugfs_range_block_seen")],
+        ["tlmm_gpio135_debugfs_range_windows", ", ".join(sampler.get("tlmm_gpio135_debugfs_range_windows") or [])],
+        ["tlmm_gpio142_debugfs_range_block_seen", sampler.get("tlmm_gpio142_debugfs_range_block_seen")],
+        ["tlmm_gpio142_debugfs_range_windows", ", ".join(sampler.get("tlmm_gpio142_debugfs_range_windows") or [])],
         ["pmic9_pinconf_seen", sampler.get("pmic9_pinconf_seen")],
         ["pin135_pinconf_seen", sampler.get("pin135_pinconf_seen")],
         ["pin142_pinconf_seen", sampler.get("pin142_pinconf_seen")],
@@ -576,6 +602,8 @@ def _print_result(manifest: dict[str, Any]) -> None:
     print(f"debugfs_gpio_seen:        {sampler.get('debugfs_gpio_seen')}")
     print(f"pmic_gpio1270_seen:       {sampler.get('pmic_gpio1270_debugfs_seen')}")
     print(f"pmic_gpio1270_block_seen: {sampler.get('pmic_gpio1270_debugfs_block_seen')}")
+    print(f"tlmm135_range_block_seen: {sampler.get('tlmm_gpio135_debugfs_range_block_seen')}")
+    print(f"tlmm142_range_block_seen: {sampler.get('tlmm_gpio142_debugfs_range_block_seen')}")
     print(f"pmic9_pinconf_seen:       {sampler.get('pmic9_pinconf_seen')}")
     print(f"pmic9_pinconf_block_seen: {sampler.get('pmic9_pinconf_block_seen')}")
     print(f"gpiochip_lineinfo_seen:   {sampler.get('gpiochip_lineinfo_seen')}")
