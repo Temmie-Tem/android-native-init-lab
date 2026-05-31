@@ -1235,3 +1235,23 @@ Update after V1354/V1355:
   wedge the RC/control path. Do not attempt `case=11` enumerate from this
   evidence. Next gate is V1366 host-only pci-msm case-path classification; no
   live debugfs `case` write is selected.
+- V1366 host-only classifier
+  (`v1366-pci-msm-case-path-corrected-rc-selector-no-live-write`) corrects the
+  `rc_sel` model: pci-msm source proves `rc_sel` is a bitmask, not an ordinal
+  RC index. V1365 wrote `rc_sel=1`, which selects `BIT(0)`/RC0, not pcie1/RC1;
+  pcie1 requires `rc_sel=2`. The same source shows `case=26` is intended as
+  PERST/WAKE `gpio_get_value` readout, while `case=11` calls
+  `msm_pcie_enumerate(dev->rc_idx)`. Because V1365 still lost transport, no
+  corrected `rc_sel=2` live retry is approved yet. Next gate is V1367
+  host-only corrected-RC1/reboot-safe design versus a kernel-side
+  `msm_pcie_enumerate(1)` shim path.
+- V1367 host-only design (`v1367-corrected-rc1-status-read-design-ready`)
+  selects the narrowest next live gate: one corrected RC1 status-read proof,
+  `rc_sel=2` then `case=26`, treated as reboot-risky and bounded. It still
+  excludes `case=11` enumerate, PERST assert/deassert, MMIO write, boot option
+  write, platform bind/unbind, PCI rescan, PMIC/GPIO/GDSC direct writes, eSoC
+  notify/`BOOT_DONE`, Wi-Fi HAL, scan/connect, DHCP/routes, external ping,
+  flash, boot image write, and partition write. Success requires no transport
+  loss, completed after-captures, no PCI/MHI/link-up transition, debugfs mount
+  cleanup, and post-selftest `fail=0`; transport loss is a failure/recovery
+  classification, not a pass.

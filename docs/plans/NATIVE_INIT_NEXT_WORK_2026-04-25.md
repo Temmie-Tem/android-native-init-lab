@@ -5943,6 +5943,62 @@ Samsung bootloader
       assert/deassert, no PCI rescan, no platform bind/unbind, no PMIC/GPIO/
       GDSC write, no eSoC notify/`BOOT_DONE`, no Wi-Fi HAL, scan/connect,
       DHCP/routes, external ping, flash, boot image write, or partition write.
+    - Result:
+      `docs/reports/NATIVE_INIT_V1366_PCI_MSM_CASE_PATH_CLASSIFIER_2026-06-01.md`.
+      Decision: `v1366-pci-msm-case-path-corrected-rc-selector-no-live-write`.
+      Reference pci-msm source proves `rc_sel` is a bitmask, not an ordinal RC
+      index. V1365 wrote `rc_sel=1`, selecting `BIT(0)`/RC0; pcie1/RC1 has
+      `cell-index=<1>` and would require `rc_sel=2`. Source also shows
+      `case=26` is intended as PERST/WAKE `gpio_get_value` readout, while
+      `case=11` calls `msm_pcie_enumerate(dev->rc_idx)`. Because V1365 still
+      caused transport loss, corrected `rc_sel=2` live retry is not approved
+      until a new reboot-safe design exists.
+
+15. **V1367 corrected-RC1 action design (host-only).**
+    - Inputs: V1366 corrected selector model, V1365 transport-loss evidence,
+      pci-msm source, pcie1 static contract, and native recovery constraints.
+    - Required output: choose one next action path:
+      (A) a reboot-safe `rc_sel=2` + `case=26` status read with explicit
+      pre/post health, expected output, transport-loss handling, and no
+      enumerate; (B) a kernel-side `msm_pcie_enumerate(1)` shim/patch design
+      that avoids broad debugfs `case` semantics; or (C) stop pci-msm live
+      writes and gather Android reference RC1 debugfs output first.
+    - Keep host-only until the chosen design has exact commands, timeout,
+      cleanup/reboot behavior, stop conditions, and secret-safe evidence paths.
+      No debugfs/sysfs writes, no `case=11`, no PERST assert/deassert, no PCI
+      rescan, no platform bind/unbind, no PMIC/GPIO/GDSC write, no eSoC
+      notify/`BOOT_DONE`, no Wi-Fi HAL, scan/connect, DHCP/routes, external
+      ping, flash, boot image write, or partition write.
+    - Result:
+      `docs/reports/NATIVE_INIT_V1367_PCI_MSM_CORRECTED_RC1_DESIGN_2026-06-01.md`.
+      Decision: `v1367-corrected-rc1-status-read-design-ready`. The selected
+      next path is one corrected RC1 status-read proof, `rc_sel=2` then
+      `case=26`, treated as reboot-risky and bounded. `case=11` enumerate,
+      PERST assert/deassert, MMIO write, boot option write, platform
+      bind/unbind, PCI rescan, PMIC/GPIO/GDSC direct write, eSoC notify/
+      `BOOT_DONE`, Wi-Fi HAL, scan/connect, DHCP/routes, external ping, flash,
+      boot image write, and partition write remain excluded.
+
+16. **V1368 corrected-RC1 status-read proof (bounded live).**
+    - Candidate writes only:
+      `printf '2\n' > /sys/kernel/debug/pci-msm/rc_sel`, then
+      `printf '26\n' > /sys/kernel/debug/pci-msm/case`.
+    - Preflight: native version/status/selftest `fail=0`, debugfs mount state
+      captured, `pci-msm/case` listing matches V1363/V1366, PCI/MHI devices
+      absent before proof, and focused pcie1 regulator/clock/gpio/dmesg
+      snapshots captured.
+    - Success: write returns without transport loss, after-captures complete,
+      no PCI/MHI/link-up transition, debugfs mount state restored, and
+      post-selftest `fail=0`.
+    - Failure: cmdv1 transport loss/reboot, PCI/MHI/link transition, cleanup
+      failure, or post-selftest failure. Transport loss is classified as
+      reboot-risk failure; wait for recovery and record separate out-of-window
+      status/selftest only.
+    - Hard stop: no `case=11`, no PERST assert/deassert cases, no MMIO write
+      cases, no boot option write, no platform bind/unbind, no PCI rescan, no
+      PMIC/GPIO/GDSC direct write, no eSoC notify/`BOOT_DONE`, no Wi-Fi HAL,
+      scan/connect/DHCP/routes/external ping, flash, boot image write, or
+      partition write.
 
 ### Required decision before any new mutation
 
@@ -5982,6 +6038,13 @@ Samsung bootloader
   stone: the write caused command transport loss and prevented after-captures.
   Treat the whole pci-msm `case` debugfs path as unsafe until the proprietary
   call path is proven. Do not attempt `case=11` enumerate from V1365 evidence.
+- V1366 corrects the selector model: V1365 targeted RC0, not pcie1. The correct
+  pcie1 bitmask would be `rc_sel=2`, but the prior transport loss still blocks
+  blind retry. V1367 must be a host-only design choice between corrected RC1
+  status-read, kernel-side shim, or Android reference capture.
+- V1367 selects the corrected RC1 status-read as the next bounded live gate,
+  not enumerate. V1368 may only write `rc_sel=2` and `case=26`, with
+  reboot-risk handling and no Wi-Fi bring-up side effects.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
