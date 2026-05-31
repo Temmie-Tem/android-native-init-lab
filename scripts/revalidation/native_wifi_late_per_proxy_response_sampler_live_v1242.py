@@ -315,6 +315,20 @@ def _collect_response_samples(text: str) -> dict[str, Any]:
             "mhi_bus_count": _int_value(sample.get("mhi_bus_count"), -1),
             "mhi_pipe_exists": _int_value(sample.get("mhi_pipe_exists"), -1),
             "wlan0_exists": _int_value(sample.get("wlan0_exists"), -1),
+            "kmsg_open_ok": _int_value(sample.get("kmsg_open_ok"), -1),
+            "kmsg_open_errno": _int_value(sample.get("kmsg_open_errno"), -1),
+            "kmsg_lines_read": _int_value(sample.get("kmsg_lines_read"), -1),
+            "kmsg_filtered_count": _int_value(sample.get("kmsg_filtered_count"), -1),
+            "kmsg_pcie_count": _int_value(sample.get("kmsg_pcie_count"), -1),
+            "kmsg_gdsc_count": _int_value(sample.get("kmsg_gdsc_count"), -1),
+            "kmsg_mhi_count": _int_value(sample.get("kmsg_mhi_count"), -1),
+            "kmsg_esoc_count": _int_value(sample.get("kmsg_esoc_count"), -1),
+            "kmsg_mdm_count": _int_value(sample.get("kmsg_mdm_count"), -1),
+            "kmsg_sdx50m_count": _int_value(sample.get("kmsg_sdx50m_count"), -1),
+            "kmsg_icnss_count": _int_value(sample.get("kmsg_icnss_count"), -1),
+            "kmsg_wlfw_count": _int_value(sample.get("kmsg_wlfw_count"), -1),
+            "kmsg_subsys_count": _int_value(sample.get("kmsg_subsys_count"), -1),
+            "kmsg_filtered_block": sample.get("kmsg_filtered_block", ""),
             "gpiochip_lineinfo_attempted": _int_value(sample.get("gpiochip_lineinfo_attempted"), -1),
             "gpiochip_lineinfo_expected_dev": _int_value(sample.get("gpiochip_lineinfo_expected_dev"), -1),
             "gpiochip_lineinfo_expected_label": _int_value(sample.get("gpiochip_lineinfo_expected_label"), -1),
@@ -348,6 +362,18 @@ def _collect_response_samples(text: str) -> dict[str, Any]:
         "max_pci_dev_count": max((row["pci_dev_count"] for row in phase_rows), default=-1),
         "mhi_pipe_seen": any(row["mhi_pipe_exists"] > 0 for row in phase_rows),
         "wlan0_seen": any(row["wlan0_exists"] > 0 for row in phase_rows),
+        "kmsg_open_seen": any(row["kmsg_open_ok"] > 0 for row in phase_rows),
+        "max_kmsg_lines_read": max((row["kmsg_lines_read"] for row in phase_rows), default=-1),
+        "max_kmsg_filtered_count": max((row["kmsg_filtered_count"] for row in phase_rows), default=-1),
+        "max_kmsg_pcie_count": max((row["kmsg_pcie_count"] for row in phase_rows), default=-1),
+        "max_kmsg_gdsc_count": max((row["kmsg_gdsc_count"] for row in phase_rows), default=-1),
+        "max_kmsg_mhi_count": max((row["kmsg_mhi_count"] for row in phase_rows), default=-1),
+        "max_kmsg_esoc_count": max((row["kmsg_esoc_count"] for row in phase_rows), default=-1),
+        "max_kmsg_mdm_count": max((row["kmsg_mdm_count"] for row in phase_rows), default=-1),
+        "max_kmsg_sdx50m_count": max((row["kmsg_sdx50m_count"] for row in phase_rows), default=-1),
+        "max_kmsg_icnss_count": max((row["kmsg_icnss_count"] for row in phase_rows), default=-1),
+        "max_kmsg_wlfw_count": max((row["kmsg_wlfw_count"] for row in phase_rows), default=-1),
+        "max_kmsg_subsys_count": max((row["kmsg_subsys_count"] for row in phase_rows), default=-1),
         "pin135_seen": any(row["pin135_seen"] > 0 for row in phase_rows),
         "pin142_seen": any(row["pin142_seen"] > 0 for row in phase_rows),
         "debugfs_pinctrl_seen": any(row["debugfs_pinctrl_present"] > 0 for row in phase_rows),
@@ -495,6 +521,17 @@ def _sample_rows(manifest: dict[str, Any]) -> list[list[Any]]:
         ["max_mhi_bus_count", sampler.get("max_mhi_bus_count")],
         ["mhi_pipe_seen", sampler.get("mhi_pipe_seen")],
         ["wlan0_seen", sampler.get("wlan0_seen")],
+        ["kmsg_open_seen", sampler.get("kmsg_open_seen")],
+        ["max_kmsg_filtered_count", sampler.get("max_kmsg_filtered_count")],
+        ["max_kmsg_pcie_count", sampler.get("max_kmsg_pcie_count")],
+        ["max_kmsg_gdsc_count", sampler.get("max_kmsg_gdsc_count")],
+        ["max_kmsg_mhi_count", sampler.get("max_kmsg_mhi_count")],
+        ["max_kmsg_esoc_count", sampler.get("max_kmsg_esoc_count")],
+        ["max_kmsg_mdm_count", sampler.get("max_kmsg_mdm_count")],
+        ["max_kmsg_sdx50m_count", sampler.get("max_kmsg_sdx50m_count")],
+        ["max_kmsg_icnss_count", sampler.get("max_kmsg_icnss_count")],
+        ["max_kmsg_wlfw_count", sampler.get("max_kmsg_wlfw_count")],
+        ["max_kmsg_subsys_count", sampler.get("max_kmsg_subsys_count")],
         ["debugfs_pinctrl_seen", sampler.get("debugfs_pinctrl_seen")],
         ["debugfs_gpio_seen", sampler.get("debugfs_gpio_seen")],
         ["debugfs_regulator_seen", sampler.get("debugfs_regulator_seen")],
@@ -598,6 +635,10 @@ def _print_result(manifest: dict[str, Any]) -> None:
     print(f"max_mhi_bus_count:        {sampler.get('max_mhi_bus_count')}")
     print(f"mhi_pipe_seen:            {sampler.get('mhi_pipe_seen')}")
     print(f"wlan0_seen:               {sampler.get('wlan0_seen')}")
+    print(f"kmsg_open_seen:           {sampler.get('kmsg_open_seen')}")
+    print(f"max_kmsg_pcie_count:      {sampler.get('max_kmsg_pcie_count')}")
+    print(f"max_kmsg_mhi_count:       {sampler.get('max_kmsg_mhi_count')}")
+    print(f"max_kmsg_wlfw_count:      {sampler.get('max_kmsg_wlfw_count')}")
     print(f"debugfs_pinctrl_seen:     {sampler.get('debugfs_pinctrl_seen')}")
     print(f"debugfs_gpio_seen:        {sampler.get('debugfs_gpio_seen')}")
     print(f"pmic_gpio1270_seen:       {sampler.get('pmic_gpio1270_debugfs_seen')}")

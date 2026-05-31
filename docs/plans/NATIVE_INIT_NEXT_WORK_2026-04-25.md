@@ -153,7 +153,10 @@
   게이트가 최단 경로인지 분류한다. V1280은 host-only로 이 비교를 끝냈고,
   line-level GPIO 값을 다음 hard gate에서 제외했다. 다음 V1281은 source/build-only로
   기존 bounded PM-service response path에 PCIe RC1/GDSC/regulator, MHI, SDX50M/ext-mdm
-  dmesg marker를 더 촘촘히 기록하는 read-only sampler 지원을 추가한다.
+  dmesg marker를 더 촘촘히 기록하는 read-only sampler 지원을 추가한다. V1281은
+  helper v268 static aarch64 build를 통과했고, sha256은
+  `e86db44aad14e54572d88d77c1ea2019ea28b1f91c01f7a9af9e6eabc690a3ba`다. 다음 gate는
+  V1282 deploy-only, 이후 V1283 bounded live PCIe/GDSC/kmsg response sampler다.
   GPIO line request, PMIC GPIO9 hold, PMIC write, direct eSoC ioctl, new
   PM/CNSS/HAL start, scan/connect, credentials, DHCP/routes, external ping, flash,
   boot image write, partition write는 별도 gate 전까지 계속 블록한다.

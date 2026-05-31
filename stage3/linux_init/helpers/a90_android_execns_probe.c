@@ -98,7 +98,7 @@
 #define IOPRIO_PRIO_VALUE(class_value, data) (((class_value) << IOPRIO_CLASS_SHIFT) | (data))
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v267"
+#define EXECNS_VERSION "a90_android_execns_probe v268"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -12189,6 +12189,135 @@ static bool read_regulator_line(const char *needle,
                                             source_size);
 }
 
+struct response_kmsg_markers {
+    char block[2048];
+    int open_errno;
+    int lines_read;
+    int filtered_count;
+    int pcie_count;
+    int gdsc_count;
+    int mhi_count;
+    int esoc_count;
+    int mdm_count;
+    int sdx50m_count;
+    int icnss_count;
+    int wlfw_count;
+    int subsys_count;
+    bool open_ok;
+};
+
+static bool line_contains_ci_pair(const char *line, const char *lower, const char *upper) {
+    return strstr(line, lower) != NULL || strstr(line, upper) != NULL;
+}
+
+static bool kmsg_line_interesting(const char *line, struct response_kmsg_markers *markers) {
+    bool matched = false;
+
+    if (strstr(line, "pcie") != NULL || strstr(line, "PCIe") != NULL || strstr(line, "msm_pcie") != NULL || strstr(line, "LTSSM") != NULL) {
+        markers->pcie_count++;
+        matched = true;
+    }
+    if (line_contains_ci_pair(line, "gdsc", "GDSC")) {
+        markers->gdsc_count++;
+        matched = true;
+    }
+    if (line_contains_ci_pair(line, "mhi", "MHI")) {
+        markers->mhi_count++;
+        matched = true;
+    }
+    if (strstr(line, "esoc") != NULL || strstr(line, "ESOC") != NULL || strstr(line, "ext-mdm") != NULL) {
+        markers->esoc_count++;
+        matched = true;
+    }
+    if (strstr(line, "mdm") != NULL || strstr(line, "MDM") != NULL || strstr(line, "modem") != NULL) {
+        markers->mdm_count++;
+        matched = true;
+    }
+    if (strstr(line, "SDX50M") != NULL || strstr(line, "sdx50m") != NULL || strstr(line, "SDXPRAIRIE") != NULL) {
+        markers->sdx50m_count++;
+        matched = true;
+    }
+    if (strstr(line, "icnss") != NULL || strstr(line, "ICNSS") != NULL) {
+        markers->icnss_count++;
+        matched = true;
+    }
+    if (strstr(line, "wlfw") != NULL || strstr(line, "WLFW") != NULL) {
+        markers->wlfw_count++;
+        matched = true;
+    }
+    if (strstr(line, "subsys") != NULL || strstr(line, "subsystem") != NULL) {
+        markers->subsys_count++;
+        matched = true;
+    }
+    return matched;
+}
+
+static struct response_kmsg_markers collect_response_kmsg_markers(void) {
+    struct response_kmsg_markers markers;
+    char line[1024];
+    size_t line_used = 0;
+    size_t block_used = 0;
+    ssize_t nread;
+    int fd;
+
+    memset(&markers, 0, sizeof(markers));
+    fd = open("/dev/kmsg", O_RDONLY | O_NONBLOCK | O_CLOEXEC);
+    if (fd < 0) {
+        markers.open_errno = errno;
+        return markers;
+    }
+    markers.open_ok = true;
+    while ((nread = read(fd, line + line_used, sizeof(line) - 1U - line_used)) > 0) {
+        size_t start = 0;
+        size_t total;
+
+        line_used += (size_t)nread;
+        line[line_used] = '\0';
+        total = line_used;
+        for (size_t idx = 0; idx < total; idx++) {
+            if (line[idx] != '\n') {
+                continue;
+            }
+            line[idx] = '\0';
+            markers.lines_read++;
+            if (kmsg_line_interesting(line + start, &markers)) {
+                markers.filtered_count++;
+                append_sanitized_block_line(markers.block,
+                                            sizeof(markers.block),
+                                            &block_used,
+                                            line + start);
+            }
+            start = idx + 1U;
+        }
+        if (start > 0) {
+            memmove(line, line + start, total - start);
+            line_used = total - start;
+        }
+        if (markers.lines_read >= 2048 || markers.filtered_count >= 96) {
+            break;
+        }
+        if (line_used >= sizeof(line) - 1U) {
+            line_used = 0;
+        }
+    }
+    if (line_used > 0) {
+        line[line_used] = '\0';
+        markers.lines_read++;
+        if (kmsg_line_interesting(line, &markers)) {
+            markers.filtered_count++;
+            append_sanitized_block_line(markers.block,
+                                        sizeof(markers.block),
+                                        &block_used,
+                                        line);
+        }
+    }
+    if (nread < 0 && errno != EAGAIN && errno != EWOULDBLOCK) {
+        markers.open_errno = errno;
+    }
+    close(fd);
+    return markers;
+}
+
 static bool read_debugfs_gpio_line(const char *needle_a,
                                    const char *needle_b,
                                    const char *needle_c,
@@ -12555,6 +12684,7 @@ static struct pmic_gpiochip_lineinfo_sample collect_pmic_gpiochip_lineinfo_sampl
 static int append_pm_esoc_response_sample(struct buffer *buf, const char *phase) {
     struct mdm_status_irq_snapshot irq = collect_mdm_status_irq_snapshot();
     struct pmic_gpiochip_lineinfo_sample gpiochip_line = collect_pmic_gpiochip_lineinfo_sample();
+    struct response_kmsg_markers kmsg = collect_response_kmsg_markers();
     struct stat st;
     char mdm3_state[64];
     char mdm3_crash_count[64];
@@ -12913,7 +13043,21 @@ static int append_pm_esoc_response_sample(struct buffer *buf, const char *phase)
                          "pm_service_trigger_observer.response_sample.%s.pci_dev_count=%d\n"
                          "pm_service_trigger_observer.response_sample.%s.mhi_bus_count=%d\n"
                          "pm_service_trigger_observer.response_sample.%s.mhi_pipe_exists=%d\n"
-                         "pm_service_trigger_observer.response_sample.%s.wlan0_exists=%d\n",
+                         "pm_service_trigger_observer.response_sample.%s.wlan0_exists=%d\n"
+                         "pm_service_trigger_observer.response_sample.%s.kmsg_open_ok=%d\n"
+                         "pm_service_trigger_observer.response_sample.%s.kmsg_open_errno=%d\n"
+                         "pm_service_trigger_observer.response_sample.%s.kmsg_lines_read=%d\n"
+                         "pm_service_trigger_observer.response_sample.%s.kmsg_filtered_count=%d\n"
+                         "pm_service_trigger_observer.response_sample.%s.kmsg_pcie_count=%d\n"
+                         "pm_service_trigger_observer.response_sample.%s.kmsg_gdsc_count=%d\n"
+                         "pm_service_trigger_observer.response_sample.%s.kmsg_mhi_count=%d\n"
+                         "pm_service_trigger_observer.response_sample.%s.kmsg_esoc_count=%d\n"
+                         "pm_service_trigger_observer.response_sample.%s.kmsg_mdm_count=%d\n"
+                         "pm_service_trigger_observer.response_sample.%s.kmsg_sdx50m_count=%d\n"
+                         "pm_service_trigger_observer.response_sample.%s.kmsg_icnss_count=%d\n"
+                         "pm_service_trigger_observer.response_sample.%s.kmsg_wlfw_count=%d\n"
+                         "pm_service_trigger_observer.response_sample.%s.kmsg_subsys_count=%d\n"
+                         "pm_service_trigger_observer.response_sample.%s.kmsg_filtered_block=%s\n",
                       phase,
                       phase, monotonic_ms(),
                       phase, irq.present ? 1 : 0,
@@ -12996,7 +13140,21 @@ static int append_pm_esoc_response_sample(struct buffer *buf, const char *phase)
                       phase, pci_dev_count,
                       phase, mhi_bus_count,
                       phase, mhi_pipe_exists ? 1 : 0,
-                      phase, wlan0_exists ? 1 : 0) < 0) {
+                      phase, wlan0_exists ? 1 : 0,
+                      phase, kmsg.open_ok ? 1 : 0,
+                      phase, kmsg.open_errno,
+                      phase, kmsg.lines_read,
+                      phase, kmsg.filtered_count,
+                      phase, kmsg.pcie_count,
+                      phase, kmsg.gdsc_count,
+                      phase, kmsg.mhi_count,
+                      phase, kmsg.esoc_count,
+                      phase, kmsg.mdm_count,
+                      phase, kmsg.sdx50m_count,
+                      phase, kmsg.icnss_count,
+                      phase, kmsg.wlfw_count,
+                      phase, kmsg.subsys_count,
+                      phase, kmsg.block) < 0) {
         return -1;
     }
     return append_format(buf,
