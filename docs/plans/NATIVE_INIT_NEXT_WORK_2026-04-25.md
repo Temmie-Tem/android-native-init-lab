@@ -197,7 +197,11 @@
   sampler를 실행해 dense metadata(`50 ms`, intended `40` samples)가 active였음을 확인했지만,
   parsed sample은 `14`개에서 멈췄고 GPIO142/PCIe/MHI/WLFW/SDX50M kmsg, MHI pipe,
   `wlan0`는 여전히 absent였다. postflight native health는 `pass=11 warn=1 fail=0`이다.
-  다음 V1296은 host-only로 V1295 dense-window early exit 원인을 분류한다.
+  V1296은 host-only로 V1295 dense-window shortfall이 runtime stop이 아니라 helper stdout
+  `1048576` byte cap truncation임을 확인했다: truncation은 `late_per_proxy_poll_13` 중
+  발생했고 `response_sampler.end`는 absent다. 다음 V1297은 source/build-only로 compact
+  dense sampler 또는 file-backed evidence path를 추가해 동일 live path의 full 40-sample
+  관측을 가능하게 한다.
   GPIO line request, PMIC GPIO9 hold, PMIC write, direct eSoC ioctl, new
   PM/CNSS/HAL start, scan/connect, credentials, DHCP/routes, external ping, flash,
   boot image write, partition write는 별도 gate 전까지 계속 블록한다.
