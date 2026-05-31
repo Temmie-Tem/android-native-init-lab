@@ -5697,6 +5697,10 @@ Samsung bootloader
      PERST/reset GPIO, refclk, wake GPIO, power-domains, pinctrl, and any
      runtime sysfs/debugfs paths expected to exist in native.
    - No device command, no live probing, no writes.
+   - Status: PASS. See
+     `docs/reports/NATIVE_INIT_V1353_PCIE1_RC_STATIC_CONTRACT_CLASSIFIER_2026-06-01.md`.
+     Decision: `v1353-pcie1-rc-static-contract-ready`. V1354 can now use the
+     generated read-only surface contract.
 2. **V1354 pcie1 RC live read-only power observer.**
    - Run only after V1353 defines the expected surfaces.
    - Observe pcie1 GDSC/regulator/debugfs clock summaries, link state,
