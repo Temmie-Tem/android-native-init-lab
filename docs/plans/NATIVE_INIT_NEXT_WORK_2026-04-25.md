@@ -25,8 +25,8 @@
 
 ## 현재 Wi-Fi Gate
 
-- 최신 기준: V1247 HOST-ONLY PASS —
-  `v1247-select-fail-closed-pmic-preflight-before-write`.
+- 최신 기준: V1248 SOURCE/BUILD-ONLY PASS —
+  `v1248-pmic-soft-reset-preflight-build-pass`.
   V1239는 Android/V1238 증거를 비교해 blocker를 `pm-service`
   `/dev/subsys_esoc0` / `mdm_subsys_powerup` 이후로 낮췄고, V1240은
   SDX50M/eSoC response surface와 GPIO142 `mdm status` IRQ count `0`을
@@ -54,7 +54,15 @@
   retry를 모두 reject하고, 다음 경로를 fail-closed PMIC preflight helper로
   선택했다. 따라서 V1248은 source/build-only로 DTS/PMIC/native-state invariant를
   검증하고 별도 명시 write gate 없이는 mutation을 거부하는 helper skeleton을
-  추가해야 한다.
+  추가해야 한다. V1248은 helper `a90_android_execns_probe v260`에
+  `wifi-companion-pmic-soft-reset-preflight` 모드를 추가했고, static aarch64
+  binary `stage3/linux_init/helpers/a90_android_execns_probe_v260`
+  (`0313d613d95c56af5681871062b7fceb47ede3c3ef8fcff534d0eea3338eaa2f`)를
+  빌드했다. 이 모드는 read-only preflight만 수행하고
+  `write_gate_implemented=0`, `mutation_attempted=0`, `esoc_ioctl_executed=0`을
+  출력하며, reserved `--allow-pmic-soft-reset-write`는 v260에서 의도적으로
+  reject한다. 따라서 다음 V1249는 helper v260 deploy-only, V1250은 read-only
+  PMIC soft-reset preflight live gate이다.
   Wi-Fi HAL, scan/connect, credentials,
   DHCP/routes, external ping, flash, boot image write, partition write는 계속
   블록한다.
