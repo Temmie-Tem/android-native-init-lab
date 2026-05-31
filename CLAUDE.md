@@ -1211,3 +1211,10 @@ Update after V1354/V1355:
   `pci-msm` remove/probe lifecycle without timeout/rollback proof; generic
   `drivers_probe` and PCI rescan are not RC1-specific. Next gate is V1363
   host-only feasibility for a kernel-side `msm_pcie_enumerate(1)` shim.
+- V1363 live read-only verifier (`v1363-pci-msm-debugfs-rc-control-candidate`)
+  supersedes the shim-next branch. The live kernel exposes
+  `/sys/kernel/debug/pci-msm/case` and `rc_sel`; reading `case` lists `11:
+  ENUMERATE`, `26: OUTPUT PERST AND WAKE GPIO STATUS`, and PERST assert/deassert
+  debug cases. No write was performed and debugfs was cleaned up. Next gate is
+  V1364 host-only contract classification for `rc_sel` + `case=11` before any
+  debugfs write.

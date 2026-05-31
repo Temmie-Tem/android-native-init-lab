@@ -5873,16 +5873,32 @@ Samsung bootloader
       and global PCI rescan are not RC1-specific. No live userspace mutation is
       selected.
 
-11. **V1363 kernel-side `msm_pcie_enumerate(1)` shim feasibility (host-only).**
-    - Classify whether a loadable-module or existing-symbol shim can call the
-      exact kernel semantic operation `msm_pcie_enumerate(1)` without replacing
-      the boot image or reflashing a custom kernel.
-    - Required checks: stock module loading support, module signature policy,
-      exported symbol/kallsyms visibility for `msm_pcie_enumerate`, build
-      compatibility against the stock config, and rollback/cleanup model.
-    - Keep this host-only first. No module build/deploy/load, boot image write,
-      flash, platform bind/unbind, PCI rescan, PMIC/GPIO/GDSC write, eSoC
-      notify/`BOOT_DONE`, Wi-Fi HAL/scan/connect/DHCP/routes/external ping.
+11. **V1363 pci-msm debugfs surface verifier (live read-only).**
+    - V1362 initially pointed at a kernel-side shim, but V1360 evidence showed
+      `/sys/kernel/debug/pci-msm`. Before any shim work, classify that existing
+      userspace surface read-only.
+    - Collect only directory/file names and small read outputs from
+      `/sys/kernel/debug/pci-msm`, with temporary debugfs mount/cleanup if
+      needed. No debugfs writes.
+    - Result:
+      `docs/reports/NATIVE_INIT_V1363_PCI_MSM_DEBUGFS_SURFACE_VERIFIER_LIVE_2026-06-01.md`.
+      Decision: `v1363-pci-msm-debugfs-rc-control-candidate`. The live kernel
+      exposes `case` and `rc_sel`; read-only `case` lists option `11:
+      ENUMERATE`, `26: OUTPUT PERST AND WAKE GPIO STATUS`, and PERST assert/
+      deassert options. This is now the shortest candidate, but still requires
+      a host-only contract before any write.
+
+12. **V1364 pci-msm debugfs RC1 contract classifier (host-only).**
+    - Use V1363 live evidence plus kallsyms/source evidence to prove what
+      `rc_sel` and `case=11` do, whether `rc_sel=1` maps to pcie1, and whether
+      the write sequence can be bounded and observed without touching PMIC/GPIO
+      directly.
+    - Required answer: exact write contract candidate, if any, for a later live
+      test. At minimum classify `rc_sel`, `case`, `boot_option`, and whether
+      `case=11` calls `msm_pcie_enumerate(selected_rc)`.
+    - Keep this host-only: no debugfs/sysfs writes, no PCI rescan, no platform
+      bind/unbind, no PMIC/GPIO/GDSC write, no eSoC notify/`BOOT_DONE`, no
+      Wi-Fi HAL/scan/connect/DHCP/routes/external ping.
 
 ### Required decision before any new mutation
 
@@ -5910,6 +5926,10 @@ Samsung bootloader
   unbind/bind is still a proprietary `pci-msm` lifecycle without rollback
   proof, and `drivers_probe`/global PCI rescan are not RC1-specific. Next is
   V1363 host-only feasibility for a kernel-side `msm_pcie_enumerate(1)` shim.
+- V1363 supersedes that next step: live read-only debugfs verification found
+  `/sys/kernel/debug/pci-msm/case` and `/sys/kernel/debug/pci-msm/rc_sel`, with
+  `case` listing `11: ENUMERATE`. Before any write, V1364 must prove the exact
+  RC1 contract and observation/cleanup model.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
