@@ -190,7 +190,9 @@
   Android-positive PCIe RC1이 `subsys_esoc0_get` 후 `519 ms`에 나타나는 반면 V1290
   sampler cadence는 `1000 ms`임을 확인했다. 다음 V1293은 source/build-only로
   `append_pm_esoc_response_sample()`를 재사용하는 opt-in dense sampler를 추가한다:
-  `50 ms` 간격, `40` samples, 첫 `2s` window.
+  `50 ms` 간격, `40` samples, 첫 `2s` window. V1293은 helper `v271` source/build를
+  통과했고 sha256은 `335b875516e76419933f2e0ab6e21cd7ee4d1d217b32f378f1925adc30010a24`다.
+  다음 V1294는 deploy-only, V1295는 bounded dense no-write live sampler다.
   GPIO line request, PMIC GPIO9 hold, PMIC write, direct eSoC ioctl, new
   PM/CNSS/HAL start, scan/connect, credentials, DHCP/routes, external ping, flash,
   boot image write, partition write는 별도 gate 전까지 계속 블록한다.
