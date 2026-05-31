@@ -112,7 +112,18 @@
   추가로 샘플링하도록 helper v265를 빌드했다. build SHA256은
   `97ffa91a1aa7b8f4ab2c3a74716ae5664c703e98fe19a322351b1277fbd282b2`다. V1270은
   serial fallback으로 helper v265를 배포했고 remote SHA 직접 검증과 post-deploy
-  selftest `fail=0`을 통과했다. 다음 V1271은 bounded value/power observer다.
+  selftest `fail=0`을 통과했다. V1271 bounded value/power observer는 같은
+  PM-service `/dev/subsys_esoc0` response window에서 14개 샘플 모두 PMIC GPIO9
+  line-info flags `0x3`(`GPIOLINE_FLAG_KERNEL` + `GPIOLINE_FLAG_IS_OUT`)와 consumer
+  `AP2MDM_SOFT_RESET`를 유지함을 재확인했다. `debugfs` GPIO/pinctrl/regulator
+  surface는 읽혔고 PMIC GPIO9/TLMM GPIO135/GPIO142 pinctrl headers와 PCIe GDSC
+  lines는 확인됐지만, exact debugfs-gpio value lines for global GPIO1270 / TLMM
+  GPIO135 / TLMM GPIO142는 발견되지 않았다. GPIO142 IRQ count `0`, `mdm3=OFFLINING`,
+  PCI device count `0`, MHI bus count `0`, MHI pipe absent, `wlan0` absent가 유지됐다.
+  cleanup은 reboot-required로 분류됐고 reboot 후 version `0.9.68 (v724)`,
+  selftest `fail=0`, transient debugfs/vendor/system mount cleanup을 확인했다. 다음
+  V1272는 host-only로 broader read-only debugfs GPIO/pinconf block sampler 범위를
+  확정한다.
   GPIO line request, PMIC GPIO9 hold, PMIC write, direct eSoC ioctl, new
   PM/CNSS/HAL start, scan/connect, credentials, DHCP/routes, external ping, flash,
   boot image write, partition write는 별도 gate 전까지 계속 블록한다.
