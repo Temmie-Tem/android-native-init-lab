@@ -1272,3 +1272,12 @@ Update after V1354/V1355:
   scan/connect, credentials, DHCP/routes, external ping, PERST assert/deassert,
   PMIC/GPIO/GDSC direct writes, eSoC notify/`BOOT_DONE`, flash, boot image
   write, or partition write.
+- V1370 bounded live proof (`v1370-corrected-rc1-link-training-no-l0-clean`)
+  executed corrected `rc_sel=2` then `case=11`. The kernel reached RC1
+  enumerate and transient pcie1 enable/link training: reset asserted/released,
+  RC1 PHY ready, LTSSM poll active/compliance observed, then RC1 link
+  initialization failed before L0. No PCI/MHI device appeared, steady regulator
+  and clock snapshots returned unchanged, debugfs cleanup restored the original
+  mount state, and post-selftest stayed `fail=0`. This parks Wi-Fi HAL/network
+  work again; next gate is V1371 host-only classification of why RC1 stops in
+  LTSSM poll/compliance versus Android's RC1 L0 path.

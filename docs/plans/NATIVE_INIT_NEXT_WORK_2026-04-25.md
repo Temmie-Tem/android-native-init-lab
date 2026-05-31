@@ -6049,6 +6049,31 @@ Samsung bootloader
       ping, PERST assert/deassert cases, MMIO write cases, boot option write,
       platform bind/unbind, generic PCI rescan, PMIC/GPIO/GDSC direct write,
       eSoC notify/`BOOT_DONE`, flash, boot image write, or partition write.
+    - Result:
+      `docs/reports/NATIVE_INIT_V1370_PCI_MSM_CORRECTED_RC1_ENUMERATE_LIVE_2026-06-01.md`.
+      Decision: `v1370-corrected-rc1-link-training-no-l0-clean`. Corrected
+      `rc_sel=2` + `case=11` reached RC1 enumerate and transient pcie1
+      enable/link training: endpoint reset asserted/released, RC1 PHY ready,
+      LTSSM poll active/compliance observed, then RC1 link initialization
+      failed before L0. No PCI/MHI device appeared, steady regulator/clock
+      snapshots returned unchanged, debugfs cleanup restored the original mount
+      state, and post-selftest remained `fail=0`.
+
+19. **V1371 RC1 LTSSM failure classifier (host-only).**
+    - Inputs: V1370 native dmesg showing RC1 PHY ready but no L0, Android V852
+      RC1 sequence that reaches L0, pci-msm source around `msm_pcie_enable()`,
+      and DTS for pcie1/esoc0/reset/refclk wiring.
+    - Goal: decide whether the remaining gap is endpoint-side SDX50M power/PON
+      readiness, PERST/refclk timing, RC1 clock/GDSC ownership, or a required
+      Android-only precondition before pcie1 enumeration.
+    - Required output: timestamp/order comparison of Android versus native RC1
+      LTSSM states, source-level map of `msm_pcie_enable(PM_ALL)` reset/refclk
+      handling, and a narrowed next live candidate or an explicit no-mutation
+      stop.
+    - Hard stop: host-only. No new debugfs `case` write, no PERST
+      assert/deassert, no PMIC/GPIO/GDSC direct write, no eSoC notify/`BOOT_DONE`,
+      no Wi-Fi HAL, scan/connect/credentials, DHCP/routes, external ping, flash,
+      boot image write, or partition write.
 
 ### Required decision before any new mutation
 
@@ -6102,6 +6127,10 @@ Samsung bootloader
 - V1369 selects corrected debugfs RC1 enumerate as the next live proof because
   it is the existing source-proven caller of `msm_pcie_enumerate(RC1)` and is
   narrower than a new shim. V1370 still excludes Wi-Fi HAL/network bring-up.
+- V1370 proves the corrected enumerate path can reach RC1 PHY/LTSSM training
+  without transport loss, but RC1 does not reach L0 and creates no PCI/MHI
+  device. The next step is V1371 host-only Android-vs-native LTSSM/source
+  classification, not Wi-Fi HAL or another blind live mutation.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
