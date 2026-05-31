@@ -97,7 +97,7 @@
 #define IOPRIO_PRIO_VALUE(class_value, data) (((class_value) << IOPRIO_CLASS_SHIFT) | (data))
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v258"
+#define EXECNS_VERSION "a90_android_execns_probe v259"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -11841,12 +11841,30 @@ static bool line_contains_any(const char *line,
            (needle_c != NULL && strstr(line, needle_c) != NULL);
 }
 
-static bool read_first_matching_line(const char *path,
-                                     const char *needle_a,
-                                     const char *needle_b,
-                                     const char *needle_c,
-                                     char *out,
-                                     size_t out_size) {
+static bool read_first_matching_line_with_source(const char *path,
+                                                 const char *needle_a,
+                                                 const char *needle_b,
+                                                 const char *needle_c,
+                                                 char *out,
+                                                 size_t out_size,
+                                                 char *source,
+                                                 size_t source_size);
+static bool read_pinctrl_line_with_source(const char *needle_a,
+                                          const char *needle_b,
+                                          const char *needle_c,
+                                          char *out,
+                                          size_t out_size,
+                                          char *source,
+                                          size_t source_size);
+
+static bool read_first_matching_line_with_source(const char *path,
+                                                 const char *needle_a,
+                                                 const char *needle_b,
+                                                 const char *needle_c,
+                                                 char *out,
+                                                 size_t out_size,
+                                                 char *source,
+                                                 size_t source_size) {
     FILE *file;
     char line[512];
 
@@ -11854,6 +11872,9 @@ static bool read_first_matching_line(const char *path,
         return false;
     }
     out[0] = '\0';
+    if (source_size > 0) {
+        source[0] = '\0';
+    }
     file = fopen(path, "re");
     if (file == NULL) {
         return false;
@@ -11864,6 +11885,10 @@ static bool read_first_matching_line(const char *path,
         }
         snprintf(out, out_size, "%s", line);
         sanitize_one_line(out);
+        if (source_size > 0) {
+            snprintf(source, source_size, "%s", path);
+            sanitize_one_line(source);
+        }
         fclose(file);
         return true;
     }
@@ -11871,11 +11896,36 @@ static bool read_first_matching_line(const char *path,
     return false;
 }
 
-static bool read_pinctrl_line(const char *needle_a,
-                              const char *needle_b,
-                              const char *needle_c,
-                              char *out,
-                              size_t out_size) {
+static bool read_line_from_files_with_source(const char * const *files,
+                                             const char *needle_a,
+                                             const char *needle_b,
+                                             const char *needle_c,
+                                             char *out,
+                                             size_t out_size,
+                                             char *source,
+                                             size_t source_size) {
+    for (size_t i = 0; files[i] != NULL; i++) {
+        if (read_first_matching_line_with_source(files[i],
+                                                 needle_a,
+                                                 needle_b,
+                                                 needle_c,
+                                                 out,
+                                                 out_size,
+                                                 source,
+                                                 source_size)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static bool read_pinctrl_line_with_source(const char *needle_a,
+                                          const char *needle_b,
+                                          const char *needle_c,
+                                          char *out,
+                                          size_t out_size,
+                                          char *source,
+                                          size_t source_size) {
     static const char * const pinctrl_files[] = {
         "/sys/kernel/debug/pinctrl/3000000.pinctrl/pinmux-pins",
         "/sys/kernel/debug/pinctrl/3000000.pinctrl/pins",
@@ -11885,17 +11935,56 @@ static bool read_pinctrl_line(const char *needle_a,
         NULL,
     };
 
-    for (size_t i = 0; pinctrl_files[i] != NULL; i++) {
-        if (read_first_matching_line(pinctrl_files[i],
-                                     needle_a,
-                                     needle_b,
-                                     needle_c,
-                                     out,
-                                     out_size)) {
-            return true;
-        }
-    }
-    return false;
+    return read_line_from_files_with_source(pinctrl_files,
+                                            needle_a,
+                                            needle_b,
+                                            needle_c,
+                                            out,
+                                            out_size,
+                                            source,
+                                            source_size);
+}
+
+static bool read_pmic_soft_reset_line(char *out,
+                                      size_t out_size,
+                                      char *source,
+                                      size_t source_size) {
+    static const char * const pmic_files[] = {
+        "/sys/kernel/debug/pinctrl/c440000.qcom,spmi:qcom,pm8150l@4:pinctrl@c000/pinmux-pins",
+        "/sys/kernel/debug/pinctrl/c440000.qcom,spmi:qcom,pm8150l@4:pinctrl@c000/pins",
+        "/sys/kernel/debug/pinctrl/c440000.qcom,spmi:qcom,pm8150l@4:pinctrl@c000/pinconf-pins",
+        NULL,
+    };
+
+    return read_line_from_files_with_source(pmic_files,
+                                            "gpio9",
+                                            "pin 7",
+                                            "pin 9",
+                                            out,
+                                            out_size,
+                                            source,
+                                            source_size);
+}
+
+static bool read_regulator_line(const char *needle,
+                                char *out,
+                                size_t out_size,
+                                char *source,
+                                size_t source_size) {
+    static const char * const regulator_files[] = {
+        "/sys/kernel/debug/regulator/regulator_summary",
+        "/sys/kernel/debug/regulator_summary",
+        NULL,
+    };
+
+    return read_line_from_files_with_source(regulator_files,
+                                            needle,
+                                            NULL,
+                                            NULL,
+                                            out,
+                                            out_size,
+                                            source,
+                                            source_size);
 }
 
 static int append_pm_esoc_response_sample(struct buffer *buf, const char *phase) {
@@ -11908,15 +11997,30 @@ static int append_pm_esoc_response_sample(struct buffer *buf, const char *phase)
     char pcie_runtime_status[64];
     char pcie_l23_timeout[64];
     char pin135_line[512];
+    char pin135_source[MAX_PATH_LEN];
     char pin142_line[512];
+    char pin142_source[MAX_PATH_LEN];
     char pmic9_line[512];
+    char pmic9_source[MAX_PATH_LEN];
+    char pmic_soft_reset_line[512];
+    char pmic_soft_reset_source[MAX_PATH_LEN];
+    char pcie1_gdsc_line[512];
+    char pcie1_gdsc_source[MAX_PATH_LEN];
+    char pcie0_gdsc_line[512];
+    char pcie0_gdsc_source[MAX_PATH_LEN];
     int pci_dev_count = -1;
     int mhi_bus_count = -1;
     bool matched = false;
     bool debugfs_pinctrl_present = lstat("/sys/kernel/debug/pinctrl", &st) == 0;
+    bool debugfs_regulator_present =
+        lstat("/sys/kernel/debug/regulator/regulator_summary", &st) == 0 ||
+        lstat("/sys/kernel/debug/regulator_summary", &st) == 0;
     bool pin135_seen;
     bool pin142_seen;
     bool pmic9_seen;
+    bool pmic_soft_reset_seen;
+    bool pcie1_gdsc_seen;
+    bool pcie0_gdsc_seen;
     bool mhi_pipe_exists = lstat("/dev/mhi_0305_01.01.00_pipe_10", &st) == 0;
     bool wlan0_exists = lstat("/sys/class/net/wlan0", &st) == 0;
 
@@ -11944,15 +12048,41 @@ static int append_pm_esoc_response_sample(struct buffer *buf, const char *phase)
     if (count_dir_entries_matching("/sys/bus/mhi/devices", NULL, &mhi_bus_count, &matched) < 0) {
         mhi_bus_count = -1;
     }
-    pin135_seen = read_pinctrl_line("pin 135", "GPIO_135", "pinctrl:135",
-                                    pin135_line, sizeof(pin135_line));
-    pin142_seen = read_pinctrl_line("pin 142", "GPIO_142", "pinctrl:142",
-                                    pin142_line, sizeof(pin142_line));
-    pmic9_seen = read_pinctrl_line("pin 9", "GPIO_9", "gpio9",
-                                   pmic9_line, sizeof(pmic9_line));
+    pin135_seen = read_pinctrl_line_with_source("pin 135", "GPIO_135", "pinctrl:135",
+                                                pin135_line, sizeof(pin135_line),
+                                                pin135_source, sizeof(pin135_source));
+    pin142_seen = read_pinctrl_line_with_source("pin 142", "GPIO_142", "pinctrl:142",
+                                                pin142_line, sizeof(pin142_line),
+                                                pin142_source, sizeof(pin142_source));
+    pmic9_seen = read_pinctrl_line_with_source("pin 9", "GPIO_9", "gpio9",
+                                               pmic9_line, sizeof(pmic9_line),
+                                               pmic9_source, sizeof(pmic9_source));
+    pmic_soft_reset_seen = read_pmic_soft_reset_line(pmic_soft_reset_line,
+                                                     sizeof(pmic_soft_reset_line),
+                                                     pmic_soft_reset_source,
+                                                     sizeof(pmic_soft_reset_source));
+    pcie1_gdsc_seen = read_regulator_line("pcie_1_gdsc",
+                                          pcie1_gdsc_line,
+                                          sizeof(pcie1_gdsc_line),
+                                          pcie1_gdsc_source,
+                                          sizeof(pcie1_gdsc_source));
+    pcie0_gdsc_seen = read_regulator_line("pcie_0_gdsc",
+                                          pcie0_gdsc_line,
+                                          sizeof(pcie0_gdsc_line),
+                                          pcie0_gdsc_source,
+                                          sizeof(pcie0_gdsc_source));
     if (!pin135_seen) pin135_line[0] = '\0';
+    if (!pin135_seen) pin135_source[0] = '\0';
     if (!pin142_seen) pin142_line[0] = '\0';
+    if (!pin142_seen) pin142_source[0] = '\0';
     if (!pmic9_seen) pmic9_line[0] = '\0';
+    if (!pmic9_seen) pmic9_source[0] = '\0';
+    if (!pmic_soft_reset_seen) pmic_soft_reset_line[0] = '\0';
+    if (!pmic_soft_reset_seen) pmic_soft_reset_source[0] = '\0';
+    if (!pcie1_gdsc_seen) pcie1_gdsc_line[0] = '\0';
+    if (!pcie1_gdsc_seen) pcie1_gdsc_source[0] = '\0';
+    if (!pcie0_gdsc_seen) pcie0_gdsc_line[0] = '\0';
+    if (!pcie0_gdsc_seen) pcie0_gdsc_source[0] = '\0';
 
     return append_format(buf,
                          "pm_service_trigger_observer.response_sample.%s.begin=1\n"
@@ -11964,12 +12094,25 @@ static int append_pm_esoc_response_sample(struct buffer *buf, const char *phase)
                          "pm_service_trigger_observer.response_sample.%s.mdm3_state=%s\n"
                          "pm_service_trigger_observer.response_sample.%s.mdm3_crash_count=%s\n"
                          "pm_service_trigger_observer.response_sample.%s.debugfs_pinctrl_present=%d\n"
+                         "pm_service_trigger_observer.response_sample.%s.debugfs_regulator_present=%d\n"
                          "pm_service_trigger_observer.response_sample.%s.pin135_seen=%d\n"
+                         "pm_service_trigger_observer.response_sample.%s.pin135_source=%s\n"
                          "pm_service_trigger_observer.response_sample.%s.pin135_line=%s\n"
                          "pm_service_trigger_observer.response_sample.%s.pin142_seen=%d\n"
+                         "pm_service_trigger_observer.response_sample.%s.pin142_source=%s\n"
                          "pm_service_trigger_observer.response_sample.%s.pin142_line=%s\n"
                          "pm_service_trigger_observer.response_sample.%s.pmic9_seen=%d\n"
+                         "pm_service_trigger_observer.response_sample.%s.pmic9_source=%s\n"
                          "pm_service_trigger_observer.response_sample.%s.pmic9_line=%s\n"
+                         "pm_service_trigger_observer.response_sample.%s.pmic_soft_reset_seen=%d\n"
+                         "pm_service_trigger_observer.response_sample.%s.pmic_soft_reset_source=%s\n"
+                         "pm_service_trigger_observer.response_sample.%s.pmic_soft_reset_line=%s\n"
+                         "pm_service_trigger_observer.response_sample.%s.pcie1_gdsc_seen=%d\n"
+                         "pm_service_trigger_observer.response_sample.%s.pcie1_gdsc_source=%s\n"
+                         "pm_service_trigger_observer.response_sample.%s.pcie1_gdsc_line=%s\n"
+                         "pm_service_trigger_observer.response_sample.%s.pcie0_gdsc_seen=%d\n"
+                         "pm_service_trigger_observer.response_sample.%s.pcie0_gdsc_source=%s\n"
+                         "pm_service_trigger_observer.response_sample.%s.pcie0_gdsc_line=%s\n"
                          "pm_service_trigger_observer.response_sample.%s.pcie_current_link_state=%s\n"
                          "pm_service_trigger_observer.response_sample.%s.pcie_link_state=%s\n"
                          "pm_service_trigger_observer.response_sample.%s.pcie_runtime_status=%s\n"
@@ -11988,12 +12131,25 @@ static int append_pm_esoc_response_sample(struct buffer *buf, const char *phase)
                          phase, mdm3_state,
                          phase, mdm3_crash_count,
                          phase, debugfs_pinctrl_present ? 1 : 0,
+                         phase, debugfs_regulator_present ? 1 : 0,
                          phase, pin135_seen ? 1 : 0,
+                         phase, pin135_source,
                          phase, pin135_line,
                          phase, pin142_seen ? 1 : 0,
+                         phase, pin142_source,
                          phase, pin142_line,
                          phase, pmic9_seen ? 1 : 0,
+                         phase, pmic9_source,
                          phase, pmic9_line,
+                         phase, pmic_soft_reset_seen ? 1 : 0,
+                         phase, pmic_soft_reset_source,
+                         phase, pmic_soft_reset_line,
+                         phase, pcie1_gdsc_seen ? 1 : 0,
+                         phase, pcie1_gdsc_source,
+                         phase, pcie1_gdsc_line,
+                         phase, pcie0_gdsc_seen ? 1 : 0,
+                         phase, pcie0_gdsc_source,
+                         phase, pcie0_gdsc_line,
                          phase, pcie_current_link_state,
                          phase, pcie_link_state,
                          phase, pcie_runtime_status,

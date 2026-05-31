@@ -37,6 +37,10 @@ HELPER_MARKER = "a90_android_execns_probe v258"
 HELPER_SHA256 = "dd9bee9e2c0750c51be2151dd4b192d0612dd9269419c1641b9395d7336b6119"
 RESPONSE_SAMPLER_FLAG = "--pm-observer-late-per-proxy-response-sampler"
 DEBUGFS_ROOT = "/sys/kernel/debug"
+CYCLE_LABEL = "v1242"
+CYCLE_NAME = "V1242"
+SUMMARY_HEADING = "V1242 Late per_proxy Response Sampler"
+EVIDENCE_FILE_PREFIX = "v1242"
 
 SAMPLE_PREFIX = "pm_service_trigger_observer.response_sample."
 SAMPLER_PREFIX = "pm_service_trigger_observer.response_sampler."
@@ -61,6 +65,10 @@ def _parse_keys(text: str) -> dict[str, str]:
         if match:
             keys[match.group(1)] = match.group(2).strip()
     return keys
+
+
+def _decision(suffix: str) -> str:
+    return f"{CYCLE_LABEL}-{suffix}"
 
 
 def _force_response_sampler_child_command(original):
@@ -105,7 +113,7 @@ def _device_step(
         hide_payload = strip_cmdv1_text(hide_capture.text) if hide_capture.text else hide_capture.error + "\n"
         hide_item = capture_to_manifest(hide_capture)
         hide_item["payload"] = hide_payload
-        hide_item["file"] = f"native/v1242-{name}-hide-on-busy.txt"
+        hide_item["file"] = f"native/{EVIDENCE_FILE_PREFIX}-{name}-hide-on-busy.txt"
         hide_item["ok"] = hide_capture.ok
         hide_item["raw_ok"] = hide_capture.ok
         store.write_text(hide_item["file"], hide_payload.rstrip() + "\n")
@@ -115,7 +123,7 @@ def _device_step(
     item["payload"] = payload
     item["ok"] = bool(capture.ok or allow_error)
     item["raw_ok"] = bool(capture.ok)
-    item["file"] = f"native/v1242-{name}.txt"
+    item["file"] = f"native/{EVIDENCE_FILE_PREFIX}-{name}.txt"
     if hide_item is not None:
         item["hide_on_busy"] = hide_item
     store.write_text(item["file"], payload.rstrip() + "\n")
@@ -143,7 +151,7 @@ def prepare_debugfs(args: Any, store: EvidenceStore) -> dict[str, Any]:
         allow_error=True,
     )
     mounted_before = _debugfs_mounted(before.get("payload", ""))
-    mounted_by_v1242 = False
+    mounted_by_cycle = False
     if not mounted_before:
         mount = _device_step(
             args,
@@ -154,7 +162,7 @@ def prepare_debugfs(args: Any, store: EvidenceStore) -> dict[str, Any]:
             timeout=20.0,
             allow_error=False,
         )
-        mounted_by_v1242 = bool(mount.get("raw_ok"))
+        mounted_by_cycle = bool(mount.get("raw_ok"))
     during = _device_step(
         args,
         store,
@@ -167,7 +175,7 @@ def prepare_debugfs(args: Any, store: EvidenceStore) -> dict[str, Any]:
     return {
         "steps": steps,
         "mounted_before": mounted_before,
-        "mounted_by_v1242": mounted_by_v1242,
+        "mounted_by_cycle": mounted_by_cycle,
         "mounted_during": _debugfs_mounted(during.get("payload", "")),
         "cleanup_attempted": False,
         "mounted_after": None,
@@ -176,7 +184,7 @@ def prepare_debugfs(args: Any, store: EvidenceStore) -> dict[str, Any]:
 
 def cleanup_debugfs(args: Any, store: EvidenceStore, debugfs: dict[str, Any]) -> None:
     steps = debugfs.setdefault("steps", [])
-    if debugfs.get("mounted_by_v1242"):
+    if debugfs.get("mounted_by_cycle", debugfs.get("mounted_by_v1242")):
         debugfs["cleanup_attempted"] = True
         _device_step(
             args,
@@ -234,11 +242,24 @@ def _collect_response_samples(text: str) -> dict[str, Any]:
             "mdm3_crash_count": sample.get("mdm3_crash_count", ""),
             "debugfs_pinctrl_present": _int_value(sample.get("debugfs_pinctrl_present"), -1),
             "pin135_seen": _int_value(sample.get("pin135_seen"), -1),
+            "pin135_source": sample.get("pin135_source", ""),
             "pin135_line": sample.get("pin135_line", ""),
             "pin142_seen": _int_value(sample.get("pin142_seen"), -1),
+            "pin142_source": sample.get("pin142_source", ""),
             "pin142_line": sample.get("pin142_line", ""),
             "pmic9_seen": _int_value(sample.get("pmic9_seen"), -1),
             "pmic9_line": sample.get("pmic9_line", ""),
+            "pmic9_source": sample.get("pmic9_source", ""),
+            "pmic_soft_reset_seen": _int_value(sample.get("pmic_soft_reset_seen"), -1),
+            "pmic_soft_reset_line": sample.get("pmic_soft_reset_line", ""),
+            "pmic_soft_reset_source": sample.get("pmic_soft_reset_source", ""),
+            "debugfs_regulator_present": _int_value(sample.get("debugfs_regulator_present"), -1),
+            "pcie1_gdsc_seen": _int_value(sample.get("pcie1_gdsc_seen"), -1),
+            "pcie1_gdsc_line": sample.get("pcie1_gdsc_line", ""),
+            "pcie1_gdsc_source": sample.get("pcie1_gdsc_source", ""),
+            "pcie0_gdsc_seen": _int_value(sample.get("pcie0_gdsc_seen"), -1),
+            "pcie0_gdsc_line": sample.get("pcie0_gdsc_line", ""),
+            "pcie0_gdsc_source": sample.get("pcie0_gdsc_source", ""),
             "pcie_current_link_state": sample.get("pcie_current_link_state", ""),
             "pcie_link_state": sample.get("pcie_link_state", ""),
             "pcie_runtime_status": sample.get("pcie_runtime_status", ""),
@@ -265,6 +286,10 @@ def _collect_response_samples(text: str) -> dict[str, Any]:
         "pin135_seen": any(row["pin135_seen"] > 0 for row in phase_rows),
         "pin142_seen": any(row["pin142_seen"] > 0 for row in phase_rows),
         "debugfs_pinctrl_seen": any(row["debugfs_pinctrl_present"] > 0 for row in phase_rows),
+        "debugfs_regulator_seen": any(row["debugfs_regulator_present"] > 0 for row in phase_rows),
+        "pmic_soft_reset_seen": any(row["pmic_soft_reset_seen"] > 0 for row in phase_rows),
+        "pcie1_gdsc_seen": any(row["pcie1_gdsc_seen"] > 0 for row in phase_rows),
+        "pcie0_gdsc_seen": any(row["pcie0_gdsc_seen"] > 0 for row in phase_rows),
         "samples": phase_rows,
     }
 
@@ -272,10 +297,10 @@ def _collect_response_samples(text: str) -> dict[str, Any]:
 def decide_v1242(manifest: dict[str, Any]) -> tuple[str, bool, str, str]:
     if manifest.get("command") == "plan":
         return (
-            "v1242-response-sampler-plan-ready",
+            _decision("response-sampler-plan-ready"),
             True,
             "plan-only; no device mutation or live actor executed",
-            "deploy helper v258, then run V1242 bounded response sampler",
+            f"deploy {HELPER_MARKER}, then run {CYCLE_NAME} bounded response sampler",
         )
 
     pm = manifest.get("pm_service_trigger_observer") or {}
@@ -285,17 +310,17 @@ def decide_v1242(manifest: dict[str, Any]) -> tuple[str, bool, str, str]:
 
     if not sampler.get("emitted") or sampler.get("sample_count", 0) <= 0:
         return (
-            "v1242-response-sampler-missing",
+            _decision("response-sampler-missing"),
             False,
             "v258 response sampler did not emit samples",
             "verify helper v258 deploy and command flag injection",
         )
     if not debugfs.get("mounted_during"):
         return (
-            "v1242-debugfs-not-mounted",
+            _decision("debugfs-not-mounted"),
             False,
             "debugfs was not mounted during the response sampler window",
-            "restore cleanup-safe debugfs mount path before retrying V1242",
+            f"restore cleanup-safe debugfs mount path before retrying {CYCLE_NAME}",
         )
 
     progress = (
@@ -306,7 +331,7 @@ def decide_v1242(manifest: dict[str, Any]) -> tuple[str, bool, str, str]:
     )
     if progress:
         return (
-            "v1242-pm-esoc0-trigger-response-progress",
+            _decision("pm-esoc0-trigger-response-progress"),
             True,
             "late per_proxy response sampler observed GPIO142/MHI/wlan0 progress",
             "preserve evidence and classify which response surface advanced before any Wi-Fi HAL/connect",
@@ -315,20 +340,20 @@ def decide_v1242(manifest: dict[str, Any]) -> tuple[str, bool, str, str]:
     if pm.get("pm_service_actor_esoc0_attempt"):
         if all_postflight_safe <= 0:
             return (
-                "v1242-pm-esoc0-trigger-sampled-mdm2ap-silent-reboot-required",
+                _decision("pm-esoc0-trigger-sampled-mdm2ap-silent-reboot-required"),
                 True,
                 "pm-service reached /dev/subsys_esoc0 and sampler saw no GPIO142/MHI/wlan0 response; cleanup was not proven safe",
                 "reboot/health-check, then classify SDX50M power/GPIO prerequisites",
             )
         return (
-            "v1242-pm-esoc0-trigger-sampled-mdm2ap-silent",
+            _decision("pm-esoc0-trigger-sampled-mdm2ap-silent"),
             True,
             "pm-service reached /dev/subsys_esoc0 and sampler saw no GPIO142/MHI/wlan0 response",
             "classify SDX50M power/GPIO prerequisites before another trigger",
         )
 
     return (
-        "v1242-response-sampled-no-esoc0-trigger",
+        _decision("response-sampled-no-esoc0-trigger"),
         True,
         "response sampler ran, but pm-service /dev/subsys_esoc0 attempt was not observed",
         "inspect late per_proxy and pm-service Binder delivery before retrying response sampling",
@@ -337,7 +362,7 @@ def decide_v1242(manifest: dict[str, Any]) -> tuple[str, bool, str, str]:
 
 def _reanalyze_manifest(manifest: dict[str, Any]) -> dict[str, Any]:
     manifest["_run_dir"] = manifest.get("_run_dir") or str(repo_path(DEFAULT_OUT_DIR))
-    manifest["cycle"] = "v1242"
+    manifest["cycle"] = CYCLE_LABEL
     manifest["reclassified_at"] = _now_iso()
     manifest["helper_version"] = HELPER_MARKER
     manifest["helper_sha256"] = HELPER_SHA256
@@ -345,7 +370,7 @@ def _reanalyze_manifest(manifest: dict[str, Any]) -> dict[str, Any]:
     manifest["response_sampler_flag"] = RESPONSE_SAMPLER_FLAG
 
     base_manifest = v1238._reanalyze_manifest(manifest)
-    base_manifest["cycle"] = "v1242"
+    base_manifest["cycle"] = CYCLE_LABEL
     base_manifest["helper_version"] = HELPER_MARKER
     base_manifest["helper_sha256"] = HELPER_SHA256
     base_manifest["based_on_cycle"] = "v1238"
@@ -372,8 +397,12 @@ def _sample_rows(manifest: dict[str, Any]) -> list[list[Any]]:
         ["mhi_pipe_seen", sampler.get("mhi_pipe_seen")],
         ["wlan0_seen", sampler.get("wlan0_seen")],
         ["debugfs_pinctrl_seen", sampler.get("debugfs_pinctrl_seen")],
+        ["debugfs_regulator_seen", sampler.get("debugfs_regulator_seen")],
         ["pin135_seen", sampler.get("pin135_seen")],
         ["pin142_seen", sampler.get("pin142_seen")],
+        ["pmic_soft_reset_seen", sampler.get("pmic_soft_reset_seen")],
+        ["pcie1_gdsc_seen", sampler.get("pcie1_gdsc_seen")],
+        ["pcie0_gdsc_seen", sampler.get("pcie0_gdsc_seen")],
     ]
 
 
@@ -381,7 +410,7 @@ def _debugfs_rows(manifest: dict[str, Any]) -> list[list[Any]]:
     debugfs = manifest.get("debugfs_observer") or {}
     return [
         ["mounted_before", debugfs.get("mounted_before")],
-        ["mounted_by_v1242", debugfs.get("mounted_by_v1242")],
+        ["mounted_by_cycle", debugfs.get("mounted_by_cycle", debugfs.get("mounted_by_v1242"))],
         ["mounted_during", debugfs.get("mounted_during")],
         ["cleanup_attempted", debugfs.get("cleanup_attempted")],
         ["mounted_after", debugfs.get("mounted_after")],
@@ -401,7 +430,7 @@ def _render_summary(manifest: dict[str, Any]) -> str:
         ["partition_write_executed", manifest.get("partition_write_executed")],
     ]
     return "\n".join([
-        "# V1242 Late per_proxy Response Sampler",
+        f"# {SUMMARY_HEADING}",
         "",
         f"- generated: `{manifest.get('generated_at', '')}`",
         f"- decision: `{manifest.get('decision', '')}`",
@@ -460,7 +489,7 @@ def _print_result(manifest: dict[str, Any]) -> None:
 def reclassify_existing() -> int:
     manifest_path = repo_path(DEFAULT_OUT_DIR / "manifest.json")
     if not manifest_path.exists():
-        print(f"error: missing existing V1242 manifest: {manifest_path}", file=sys.stderr)
+        print(f"error: missing existing {CYCLE_NAME} manifest: {manifest_path}", file=sys.stderr)
         return 2
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     if not isinstance(manifest, dict):
@@ -503,7 +532,7 @@ def main() -> int:
     debugfs: dict[str, Any] = {
         "steps": [],
         "mounted_before": None,
-        "mounted_by_v1242": False,
+        "mounted_by_cycle": False,
         "mounted_during": None,
         "cleanup_attempted": False,
         "mounted_after": None,
@@ -518,7 +547,7 @@ def main() -> int:
             cleanup_debugfs(args, store, debugfs)
 
     manifest["command"] = args.command
-    manifest["cycle"] = "v1242"
+    manifest["cycle"] = CYCLE_LABEL
     manifest["generated_at"] = _now_iso()
     manifest["_run_dir"] = str(store.run_dir)
     manifest["debugfs_observer"] = debugfs
