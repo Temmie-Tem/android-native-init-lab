@@ -97,7 +97,7 @@
 #define IOPRIO_PRIO_VALUE(class_value, data) (((class_value) << IOPRIO_CLASS_SHIFT) | (data))
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v257"
+#define EXECNS_VERSION "a90_android_execns_probe v258"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -252,6 +252,7 @@ struct config {
     bool pm_observer_mdm_helper_only_syscall_trace; /* v254 */
     bool pm_observer_mdm_helper_post_wait_req_ks_observer; /* v256 */
     bool pm_observer_mdm_helper_post_wait_req_branch_snapshot; /* v257 */
+    bool pm_observer_late_per_proxy_response_sampler; /* v258 */
     bool allow_android_wifi_service_window;
     bool allow_android_wifi_service_window_subsys_trigger_capture;
     bool require_android_selinux_exec_match;
@@ -449,6 +450,7 @@ static void usage(FILE *out) {
             "[--pm-observer-mdm-helper-only-syscall-trace] "
             "[--pm-observer-mdm-helper-post-wait-req-ks-observer] "
             "[--pm-observer-mdm-helper-post-wait-req-branch-snapshot] "
+            "[--pm-observer-late-per-proxy-response-sampler] "
             "[--allow-android-wifi-service-window] "
             "[--allow-android-wifi-service-window-subsys-trigger-capture] "
             "[--pm-observer-continue-after-provider] "
@@ -1237,6 +1239,10 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             cfg->pm_observer_mdm_helper_post_wait_req_branch_snapshot = true;
             continue;
         }
+        if (strcmp(argv[i], "--pm-observer-late-per-proxy-response-sampler") == 0) {
+            cfg->pm_observer_late_per_proxy_response_sampler = true;
+            continue;
+        }
         if (strcmp(argv[i], "--pm-observer-continue-after-provider") == 0) {
             cfg->pm_observer_continue_after_provider = true;
             continue;
@@ -1822,6 +1828,11 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
     if (cfg->pm_observer_mdm_helper_post_wait_req_branch_snapshot &&
         !cfg->pm_observer_mdm_helper_post_wait_req_ks_observer) {
         fprintf(stderr, "--pm-observer-mdm-helper-post-wait-req-branch-snapshot requires --pm-observer-mdm-helper-post-wait-req-ks-observer\n");
+        return 2;
+    }
+    if (cfg->pm_observer_late_per_proxy_response_sampler &&
+        !cfg->pm_observer_start_per_proxy_after_mdm_helper_esoc_fd) {
+        fprintf(stderr, "--pm-observer-late-per-proxy-response-sampler requires --pm-observer-start-per-proxy-after-mdm-helper-esoc-fd\n");
         return 2;
     }
     if (cfg->pm_observer_continue_after_provider &&
@@ -11819,6 +11830,179 @@ static struct mdm_status_irq_snapshot collect_mdm_status_irq_snapshot(void) {
     }
     fclose(file);
     return snapshot;
+}
+
+static bool line_contains_any(const char *line,
+                              const char *needle_a,
+                              const char *needle_b,
+                              const char *needle_c) {
+    return (needle_a != NULL && strstr(line, needle_a) != NULL) ||
+           (needle_b != NULL && strstr(line, needle_b) != NULL) ||
+           (needle_c != NULL && strstr(line, needle_c) != NULL);
+}
+
+static bool read_first_matching_line(const char *path,
+                                     const char *needle_a,
+                                     const char *needle_b,
+                                     const char *needle_c,
+                                     char *out,
+                                     size_t out_size) {
+    FILE *file;
+    char line[512];
+
+    if (out_size == 0) {
+        return false;
+    }
+    out[0] = '\0';
+    file = fopen(path, "re");
+    if (file == NULL) {
+        return false;
+    }
+    while (fgets(line, sizeof(line), file) != NULL) {
+        if (!line_contains_any(line, needle_a, needle_b, needle_c)) {
+            continue;
+        }
+        snprintf(out, out_size, "%s", line);
+        sanitize_one_line(out);
+        fclose(file);
+        return true;
+    }
+    fclose(file);
+    return false;
+}
+
+static bool read_pinctrl_line(const char *needle_a,
+                              const char *needle_b,
+                              const char *needle_c,
+                              char *out,
+                              size_t out_size) {
+    static const char * const pinctrl_files[] = {
+        "/sys/kernel/debug/pinctrl/3000000.pinctrl/pinmux-pins",
+        "/sys/kernel/debug/pinctrl/3000000.pinctrl/pins",
+        "/sys/kernel/debug/pinctrl/3000000.pinctrl/pinconf-pins",
+        "/sys/kernel/debug/pinctrl/c440000.qcom,spmi:qcom,pm8150l@4:pinctrl@c000/pinmux-pins",
+        "/sys/kernel/debug/pinctrl/c440000.qcom,spmi:qcom,pm8150l@4:pinctrl@c000/pins",
+        NULL,
+    };
+
+    for (size_t i = 0; pinctrl_files[i] != NULL; i++) {
+        if (read_first_matching_line(pinctrl_files[i],
+                                     needle_a,
+                                     needle_b,
+                                     needle_c,
+                                     out,
+                                     out_size)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static int append_pm_esoc_response_sample(struct buffer *buf, const char *phase) {
+    struct mdm_status_irq_snapshot irq = collect_mdm_status_irq_snapshot();
+    struct stat st;
+    char mdm3_state[64];
+    char mdm3_crash_count[64];
+    char pcie_current_link_state[64];
+    char pcie_link_state[64];
+    char pcie_runtime_status[64];
+    char pcie_l23_timeout[64];
+    char pin135_line[512];
+    char pin142_line[512];
+    char pmic9_line[512];
+    int pci_dev_count = -1;
+    int mhi_bus_count = -1;
+    bool matched = false;
+    bool debugfs_pinctrl_present = lstat("/sys/kernel/debug/pinctrl", &st) == 0;
+    bool pin135_seen;
+    bool pin142_seen;
+    bool pmic9_seen;
+    bool mhi_pipe_exists = lstat("/dev/mhi_0305_01.01.00_pipe_10", &st) == 0;
+    bool wlan0_exists = lstat("/sys/class/net/wlan0", &st) == 0;
+
+    read_state_or_error("/sys/bus/msm_subsys/devices/subsys9/state",
+                        mdm3_state,
+                        sizeof(mdm3_state));
+    read_state_or_error("/sys/bus/msm_subsys/devices/subsys9/crash_count",
+                        mdm3_crash_count,
+                        sizeof(mdm3_crash_count));
+    read_state_or_error("/sys/devices/platform/soc/1c08000.qcom,pcie/current_link_state",
+                        pcie_current_link_state,
+                        sizeof(pcie_current_link_state));
+    read_state_or_error("/sys/devices/platform/soc/1c08000.qcom,pcie/link_state",
+                        pcie_link_state,
+                        sizeof(pcie_link_state));
+    read_state_or_error("/sys/devices/platform/soc/1c08000.qcom,pcie/power/runtime_status",
+                        pcie_runtime_status,
+                        sizeof(pcie_runtime_status));
+    read_state_or_error("/sys/devices/platform/soc/1c08000.qcom,pcie/debug/l23_rdy_poll_timeout",
+                        pcie_l23_timeout,
+                        sizeof(pcie_l23_timeout));
+    if (count_dir_entries_matching("/sys/bus/pci/devices", NULL, &pci_dev_count, &matched) < 0) {
+        pci_dev_count = -1;
+    }
+    if (count_dir_entries_matching("/sys/bus/mhi/devices", NULL, &mhi_bus_count, &matched) < 0) {
+        mhi_bus_count = -1;
+    }
+    pin135_seen = read_pinctrl_line("pin 135", "GPIO_135", "pinctrl:135",
+                                    pin135_line, sizeof(pin135_line));
+    pin142_seen = read_pinctrl_line("pin 142", "GPIO_142", "pinctrl:142",
+                                    pin142_line, sizeof(pin142_line));
+    pmic9_seen = read_pinctrl_line("pin 9", "GPIO_9", "gpio9",
+                                   pmic9_line, sizeof(pmic9_line));
+    if (!pin135_seen) pin135_line[0] = '\0';
+    if (!pin142_seen) pin142_line[0] = '\0';
+    if (!pmic9_seen) pmic9_line[0] = '\0';
+
+    return append_format(buf,
+                         "pm_service_trigger_observer.response_sample.%s.begin=1\n"
+                         "pm_service_trigger_observer.response_sample.%s.monotonic_ms=%ld\n"
+                         "pm_service_trigger_observer.response_sample.%s.mdm_status_irq_present=%d\n"
+                         "pm_service_trigger_observer.response_sample.%s.mdm_status_irq_parsed=%d\n"
+                         "pm_service_trigger_observer.response_sample.%s.mdm_status_gpio=%d\n"
+                         "pm_service_trigger_observer.response_sample.%s.mdm_status_count_total=%lu\n"
+                         "pm_service_trigger_observer.response_sample.%s.mdm3_state=%s\n"
+                         "pm_service_trigger_observer.response_sample.%s.mdm3_crash_count=%s\n"
+                         "pm_service_trigger_observer.response_sample.%s.debugfs_pinctrl_present=%d\n"
+                         "pm_service_trigger_observer.response_sample.%s.pin135_seen=%d\n"
+                         "pm_service_trigger_observer.response_sample.%s.pin135_line=%s\n"
+                         "pm_service_trigger_observer.response_sample.%s.pin142_seen=%d\n"
+                         "pm_service_trigger_observer.response_sample.%s.pin142_line=%s\n"
+                         "pm_service_trigger_observer.response_sample.%s.pmic9_seen=%d\n"
+                         "pm_service_trigger_observer.response_sample.%s.pmic9_line=%s\n"
+                         "pm_service_trigger_observer.response_sample.%s.pcie_current_link_state=%s\n"
+                         "pm_service_trigger_observer.response_sample.%s.pcie_link_state=%s\n"
+                         "pm_service_trigger_observer.response_sample.%s.pcie_runtime_status=%s\n"
+                         "pm_service_trigger_observer.response_sample.%s.pcie_l23_rdy_poll_timeout=%s\n"
+                         "pm_service_trigger_observer.response_sample.%s.pci_dev_count=%d\n"
+                         "pm_service_trigger_observer.response_sample.%s.mhi_bus_count=%d\n"
+                         "pm_service_trigger_observer.response_sample.%s.mhi_pipe_exists=%d\n"
+                         "pm_service_trigger_observer.response_sample.%s.wlan0_exists=%d\n"
+                         "pm_service_trigger_observer.response_sample.%s.end=1\n",
+                         phase,
+                         phase, monotonic_ms(),
+                         phase, irq.present ? 1 : 0,
+                         phase, irq.parsed ? 1 : 0,
+                         phase, irq.gpio,
+                         phase, irq.count_total,
+                         phase, mdm3_state,
+                         phase, mdm3_crash_count,
+                         phase, debugfs_pinctrl_present ? 1 : 0,
+                         phase, pin135_seen ? 1 : 0,
+                         phase, pin135_line,
+                         phase, pin142_seen ? 1 : 0,
+                         phase, pin142_line,
+                         phase, pmic9_seen ? 1 : 0,
+                         phase, pmic9_line,
+                         phase, pcie_current_link_state,
+                         phase, pcie_link_state,
+                         phase, pcie_runtime_status,
+                         phase, pcie_l23_timeout,
+                         phase, pci_dev_count,
+                         phase, mhi_bus_count,
+                         phase, mhi_pipe_exists ? 1 : 0,
+                         phase, wlan0_exists ? 1 : 0,
+                         phase);
 }
 
 static void write_mdm_status_irq_snapshot_fd(int out_fd, const char *phase) {
@@ -30361,12 +30545,14 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                           "post_pm_mdm_helper_esoc_observer.lower_trace_allowed=%d\n"
                           "post_pm_mdm_helper_esoc_observer.post_wait_req_ks_observer=%d\n"
                           "post_pm_mdm_helper_esoc_observer.post_wait_req_branch_snapshot=%d\n"
+                          "post_pm_mdm_helper_esoc_observer.late_per_proxy_response_sampler=%d\n"
                           "post_pm_mdm_helper_esoc_observer.late_per_proxy_after_mdm_helper_esoc_fd_requested=%d\n",
                           post_pm_mdm_helper_allowed ? 1 : 0,
                           post_pm_mdm_helper_start ? 1 : 0,
                           post_pm_mdm_helper_lower_trace ? 1 : 0,
                           cfg->pm_observer_mdm_helper_post_wait_req_ks_observer ? 1 : 0,
                           cfg->pm_observer_mdm_helper_post_wait_req_branch_snapshot ? 1 : 0,
+                          cfg->pm_observer_late_per_proxy_response_sampler ? 1 : 0,
                           late_per_proxy_requested ? 1 : 0) < 0) {
             return -1;
         }
@@ -31557,6 +31743,20 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                                          "per_proxy",
                                          "/vendor/bin/pm-proxy",
                                          COMPOSITE_ID_PER_PROXY);
+                    if (cfg->pm_observer_late_per_proxy_response_sampler) {
+                        if (append_literal(stdout_buf,
+                                           "pm_service_trigger_observer.response_sampler.begin=1\n"
+                                           "pm_service_trigger_observer.response_sampler.mode=late-per-proxy-pinctrl-irq-pcie\n"
+                                           "pm_service_trigger_observer.response_sampler.sample_interval_ms=1000\n"
+                                           "pm_service_trigger_observer.response_sampler.gpio_sysfs_write_executed=0\n"
+                                           "pm_service_trigger_observer.response_sampler.debugfs_control_write_executed=0\n"
+                                           "pm_service_trigger_observer.response_sampler.subsys_esoc0_direct_open_executed=0\n") < 0 ||
+                            append_pm_esoc_response_sample(stdout_buf, "pre_late_per_proxy") < 0) {
+                            composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+                            stop_property_service_shim(&property_shim, paths, stdout_buf);
+                            return -1;
+                        }
+                    }
                     if (append_literal(stdout_buf,
                                        "pm_service_trigger_observer.late_per_proxy.start_attempted=1\n"
                                        "post_pm_mdm_helper_esoc_observer.late_per_proxy.start_attempted=1\n") < 0 ||
@@ -31646,7 +31846,9 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                             append_mdm_helper_queue_timing_snapshot(stdout_buf,
                                                                     phase,
                                                                     per_mgr,
-                                                                    mdm_helper) < 0) {
+                                                                    mdm_helper) < 0 ||
+                            (cfg->pm_observer_late_per_proxy_response_sampler &&
+                             append_pm_esoc_response_sample(stdout_buf, phase) < 0)) {
                             composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
                             stop_property_service_shim(&property_shim, paths, stdout_buf);
                             return -1;
@@ -31658,6 +31860,15 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                             pm_proxy_helper_subsys_modem_seen = true;
                         }
                         late_per_proxy_poll_count++;
+                    }
+                    if (cfg->pm_observer_late_per_proxy_response_sampler) {
+                        if (append_pm_esoc_response_sample(stdout_buf, "post_late_per_proxy") < 0 ||
+                            append_literal(stdout_buf,
+                                           "pm_service_trigger_observer.response_sampler.end=1\n") < 0) {
+                            composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+                            stop_property_service_shim(&property_shim, paths, stdout_buf);
+                            return -1;
+                        }
                     }
                     if (append_subsys_hold_snapshot(stdout_buf, "late_per_proxy_window") < 0 ||
                         append_wifi_cnss2_focus_capture(stdout_buf, "late_per_proxy_window") < 0 ||

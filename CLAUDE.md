@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V1241 LIVE PASS → V1242 bounded esoc0 trigger sampler planned — V1241 proves temporary debugfs mount/cleanup works and exposes pinctrl ownership for AP2MDM GPIO135 and MDM2AP GPIO142, but no direct high/low GPIO line values. The remaining gap is still after `pm-service` enters `/dev/subsys_esoc0` / `mdm_subsys_powerup` and before Android's GPIO142/PCIe RC1/SSCTL/MHI/WLFW response. V1242 should sample pinctrl/IRQ/PCIe around a bounded trigger; still no Wi-Fi HAL/scan/connect, credentials, DHCP/routes, external ping, flash, boot image write, or partition write.
+- **Active research cycle**: V1242 LIVE PASS → V1243 SDX50M power/GPIO prerequisite classification planned — V1242 deployed helper `a90_android_execns_probe v258` and sampled pinctrl/IRQ/PCIe/MHI around the bounded late `per_proxy` trigger. `pm-service` reached `/dev/subsys_esoc0`, but GPIO142 `mdm status` IRQ stayed `0`, PCI/MHI stayed absent, `mdm3` stayed `OFFLINING`, and `wlan0` never appeared. The remaining gap is below Binder/peripheral-manager delivery and inside/after `mdm_subsys_powerup`, before Android's GPIO142/PCIe RC1/SSCTL/MHI/WLFW response. V1243 should classify SDX50M power/GPIO prerequisites; still no Wi-Fi HAL/scan/connect, credentials, DHCP/routes, external ping, flash, boot image write, or partition write.
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules

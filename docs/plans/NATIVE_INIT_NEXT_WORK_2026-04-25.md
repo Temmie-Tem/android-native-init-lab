@@ -25,18 +25,23 @@
 
 ## 현재 Wi-Fi Gate
 
-- 최신 기준: V1241 LIVE PASS — `v1241-pinctrl-observer-ready-no-line-level`.
+- 최신 기준: V1242 LIVE PASS —
+  `v1242-pm-esoc0-trigger-sampled-mdm2ap-silent-reboot-required`.
   V1239는 Android/V1238 증거를 비교해 blocker를 `pm-service`
   `/dev/subsys_esoc0` / `mdm_subsys_powerup` 이후로 낮췄고, V1240은
   SDX50M/eSoC response surface와 GPIO142 `mdm status` IRQ count `0`을
-  확인했다. V1241은 임시 debugfs mount/cleanup이 가능하고, pinctrl에서
-  AP2MDM GPIO135 및 MDM2AP GPIO142 ownership이 보인다는 점을 확인했다.
-  단, high/low GPIO line level은 직접 노출되지 않는다. 따라서 다음 V1242는
-  line-level에 의존하지 말고 bounded `pm-service` esoc0 trigger 중
-  GPIO142 IRQ count, pinctrl ownership/configuration, PCIe RC1 debug/sysfs,
-  dmesg MHI/SSCTL/WLFW/BDF/`wlan0`, cleanup state를 샘플링해야 한다.
-  Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, flash,
-  boot image write, partition write는 계속 블록한다.
+  확인했다. V1241은 임시 debugfs mount/cleanup과 GPIO135/GPIO142 pinctrl
+  ownership 관찰을 검증했다. V1242는 helper `a90_android_execns_probe v258`
+  response sampler로 bounded late `per_proxy` trigger 중 `pm-service`가
+  `/dev/subsys_esoc0`에 도달함을 확인했지만, 14개 샘플 전체에서 GPIO142 IRQ
+  count `0`, PCI device count `0`, MHI bus count `0`, MHI pipe absent,
+  `wlan0` absent, `mdm3=OFFLINING`이 유지됐다.
+  따라서 다음 V1243는 blind retry가 아니라 SDX50M power/GPIO prerequisite
+  classifier여야 한다. 후보 범위는 Android 정상 dmesg/OSRC DTS/V1242
+  evidence를 기준으로 AP2MDM GPIO135, MDM2AP GPIO142, soft-reset/PMIC GPIO,
+  regulator/PCIe RC1 prerequisite을 host-only 또는 read-only live로 분류하는
+  것이다. Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping,
+  flash, boot image write, partition write는 계속 블록한다.
 - V1198 배경: V1197 root cause 분석 완료: 세 가지 레이어 문제가 중첩됨.
   V1197 root cause 분석 완료: 세 가지 레이어 문제가 중첩됨.
   (1) V1194/V1195/V1196: SAMPLE_COUNT!=0 → serial 홍수 (pm_proxy/pm-service /proc/maps 덤프
