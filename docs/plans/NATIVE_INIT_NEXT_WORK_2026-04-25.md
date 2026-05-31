@@ -135,7 +135,11 @@
   `out ... high ...`로 보였다. 하지만 GPIO142 IRQ count `0`, `mdm3=OFFLINING`,
   PCI/MHI/MHI-pipe/`wlan0` absent, PCIe GDSC `0mV`는 유지됐다. cleanup reboot 후
   version `0.9.68 (v724)`, selftest `fail=0`, transient mount cleanup도 확인했다.
-  다음 V1276은 PMIC GPIO9 polarity/value를 Android/DTS 기준으로 host-only 분류한다.
+  V1276은 PMIC GPIO9 polarity/value를 Android/reference 기준으로 host-only 분류했고,
+  native PMIC GPIO9이 Android와 같은 `out/high` 상태임을 확인했다. 따라서 PMIC GPIO9
+  write/hold와 direct eSoC ioctl retry는 계속 reject한다. 다음 V1277은 source/build-only
+  helper v267로 TLMM GPIO135/GPIO142 range-slice, AP2MDM/MDM2AP pinmux/pinconf,
+  PCIe RC1/GDSC read-only snapshots를 추가한다.
   GPIO line request, PMIC GPIO9 hold, PMIC write, direct eSoC ioctl, new
   PM/CNSS/HAL start, scan/connect, credentials, DHCP/routes, external ping, flash,
   boot image write, partition write는 별도 gate 전까지 계속 블록한다.
