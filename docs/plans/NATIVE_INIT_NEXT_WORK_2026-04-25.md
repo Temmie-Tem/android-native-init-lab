@@ -207,7 +207,14 @@
   블록을 생략하고 no-write 핵심 카운터만 남겨 동일 live path의 full 40-sample 관측을
   가능하게 한다. V1298은 helper `v272`를 `/cache/bin/a90_android_execns_probe`에
   serial fallback으로 배포했고 remote sha/marker/compact flag와 selftest `fail=0`을
-  확인했다. 다음 gate는 V1299 bounded compact dense live sampler다.
+  확인했다. V1299는 bounded compact dense live sampler를 실행했고 full dense window를
+  확보했다: mode `late-per-proxy-dense-compact-pinctrl-irq-pcie`, sample count `42`,
+  `response_sampler.end=1`, helper stdout `truncated=0 bytes=778235`. GPIO142/PCIe/MHI/WLFW/
+  `ks`/`wlan0`는 여전히 absent이고 `mdm3=OFFLINING`이지만, 이번에는 V1295와 달리
+  `pm-service`의 `/dev/subsys_esoc0` open attempt가 관측되지 않았다. late `per_proxy`는
+  시작됐고 `per_mgr`는 `/dev/subsys_modem`을 유지했으므로 다음 V1300은 host-only로
+  V1295/V1299 transcript를 비교해 late `per_proxy` → PM-service Binder/request delivery와
+  compact-vs-verbose side effect를 분류한다.
   GPIO line request, PMIC GPIO9 hold, PMIC write, direct eSoC ioctl, new
   PM/CNSS/HAL start, scan/connect, credentials, DHCP/routes, external ping, flash,
   boot image write, partition write는 별도 gate 전까지 계속 블록한다.
