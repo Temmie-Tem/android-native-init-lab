@@ -25,8 +25,8 @@
 
 ## 현재 Wi-Fi Gate
 
-- 최신 기준: V1259 LIVE PASS —
-  `v1259-gpiochip-devnode-open-pass`.
+- 최신 기준: V1260 SOURCE/BUILD PASS —
+  `v1260-gpiochip-line-info-helper-build-pass`.
   V1239는 Android/V1238 증거를 비교해 blocker를 `pm-service`
   `/dev/subsys_esoc0` / `mdm_subsys_powerup` 이후로 낮췄고, V1240은
   SDX50M/eSoC response surface와 GPIO142 `mdm status` IRQ count `0`을
@@ -78,11 +78,16 @@
   V1259는 bounded live devnode-open proof를 실행했다. 결과는 sysfs contract match,
   temp `mknod` 성공, read-only open 성공, `GPIO_GET_CHIPINFO_IOCTL` 성공
   (`chip_name=gpiochip2`, `chip_lines=11`), cleanup unlink 성공, postflight selftest
-  `fail=0`, forbidden zero-action markers all-ok다. 다음 V1260은 PMIC GPIO9 offset
-  `7`의 read-only `GPIO_GET_LINEINFO_IOCTL` gate가 우선이다. GPIO line request,
-  PMIC GPIO9 hold, `/dev/subsys_esoc0` open, PM/CNSS/HAL start, scan/connect,
-  credentials, DHCP/routes, external ping, flash, boot image write, partition write는
-  별도 gate 전까지 계속 블록한다.
+  `fail=0`, forbidden zero-action markers all-ok다. V1260은 helper
+  `a90_android_execns_probe v263` source/build-only로
+  `wifi-companion-pmic-gpiochip-line-info-preflight` mode와
+  `--allow-pmic-gpiochip-line-info-preflight` gate를 추가했다. 이 mode는 PMIC GPIO9
+  offset `7`에 대해 read-only `GPIO_GET_LINEINFO_IOCTL`만 수행하고 line flags,
+  name, consumer를 출력하도록 준비됐다. 다음 V1261은 v263 deploy-only, V1262는
+  bounded live line-info proof다. GPIO line request, PMIC GPIO9 hold,
+  `/dev/subsys_esoc0` open, PM/CNSS/HAL start, scan/connect, credentials,
+  DHCP/routes, external ping, flash, boot image write, partition write는 별도 gate
+  전까지 계속 블록한다.
 - V1198 배경: V1197 root cause 분석 완료: 세 가지 레이어 문제가 중첩됨.
   V1197 root cause 분석 완료: 세 가지 레이어 문제가 중첩됨.
   (1) V1194/V1195/V1196: SAMPLE_COUNT!=0 → serial 홍수 (pm_proxy/pm-service /proc/maps 덤프

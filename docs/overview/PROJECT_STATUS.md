@@ -434,13 +434,14 @@ ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v79까지 반복 안
 연구 사이클만 진행). 상세는 `CLAUDE.md`와
 `docs/plans/NATIVE_INIT_NEXT_WORK_2026-04-25.md`를 기준으로 한다.
 
-1. **V1260** — PMIC GPIO9 read-only line-info gate
+1. **V1261** — helper `v263` deploy-only (remote SHA/marker/mode/selftest 확인)
+2. **V1262** — PMIC GPIO9 read-only line-info live proof
    (`GPIO_GET_LINEINFO_IOCTL` on offset `7`; no GPIO line request or PMIC write)
-2. **PMIC power-surface write-gate** — V1251이 native 재현 후보를 입증함: PM8150L
+3. **PMIC power-surface write-gate** — V1251이 native 재현 후보를 입증함: PM8150L
    soft-reset GPIO9 line이 `MUX UNCLAIMED`, PCIe GDSC line이 `0mV`로 유지돼 SDX50M
    전원/pinctrl이 native에서 claim되지 않음. 첫 live proof는 bounded PMIC GPIO9
    line-hold만 허용하고 `/dev/subsys_esoc0` open·PM/CNSS/HAL·scan/connect는 계속 블록
-3. **SDX50M eSoC power-up gate** — `pm-service`가 `/dev/subsys_esoc0`를 열어
+4. **SDX50M eSoC power-up gate** — `pm-service`가 `/dev/subsys_esoc0`를 열어
    `mdm_subsys_powerup`까지 진입하지만 MDM3가 `OFFLINING`에 머무는 원인(위 PMIC 전원
    레일 / GPIO142 / PCIe RC1) 규명
 
