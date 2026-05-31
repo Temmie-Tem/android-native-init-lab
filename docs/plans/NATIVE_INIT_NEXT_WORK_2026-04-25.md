@@ -5078,3 +5078,27 @@ Samsung bootloader
 - next: V1228 should avoid pre-gate ptrace. Use delayed attach after
   `/dev/esoc-0` appears, or compact non-ptrace helper-side event capture around
   `mdm_helper` eSoC request/response state.
+
+## V1228 mdm_helper Early Compact Trace Live Gate (2026-05-31)
+
+- helper: `a90_android_execns_probe v255`
+- helper source: `stage3/linux_init/helpers/a90_android_execns_probe.c`
+- deploy wrapper: `scripts/revalidation/wifi_execns_helper_v255_deploy_preflight_v1228.py`
+- live runner: `scripts/revalidation/native_wifi_mdm_helper_early_compact_trace_live_v1228.py`
+- evidence: `tmp/wifi/v1228-mdm-helper-early-compact-trace-live/manifest.json`
+- report: `docs/reports/NATIVE_INIT_V1228_MDM_HELPER_EARLY_COMPACT_TRACE_LIVE_2026-05-31.md`
+- result: `v1228-early-wait-for-req-observed-no-ks-mhi`, pass `true`.
+- finding: v255 avoids pre-gate ptrace and samples the existing V1224 path via
+  read-only `/proc` inspection. The early compact trace proves `mdm_helper`
+  owns `/dev/esoc-0` and is blocked in `ioctl(ESOC_WAIT_FOR_REQ)` with
+  `wchan=esoc_dev_ioctl`; `pm-service` still attempts `/dev/subsys_esoc0`, but
+  `ks`, `/dev/mhi_0305_01.01.00_pipe_10`, WLFW/BDF/FW-ready, and `wlan0` remain
+  absent before modem-down/crash markers.
+- interpretation: the active blocker is now the ESOC request/image-link handoff
+  after `ESOC_WAIT_FOR_REQ`, not `mdm_helper` launch, `/dev/esoc-0` ownership,
+  or ptrace observability.
+- safety: no Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping,
+  boot image write, flash, or partition write. Postflight selftest remained
+  fail0 and netservice was stopped.
+- next: V1229 should classify the `ESOC_WAIT_FOR_REQ` request/result contract
+  and why native does not transition into Android's `ks`/MHI transfer path.
