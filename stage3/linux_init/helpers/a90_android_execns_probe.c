@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v275"
+#define EXECNS_VERSION "a90_android_execns_probe v276"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -266,6 +266,7 @@ struct config {
     bool pm_observer_late_per_proxy_compact_response_sampler; /* v272 */
     bool pm_observer_late_per_proxy_pmic_gdsc_transition_sampler; /* v274 */
     bool pm_observer_late_per_proxy_lower_sequence_summary_sampler; /* v275 */
+    bool pm_observer_late_per_proxy_mdm2ap_errfatal_pcie_timing_sampler; /* v276 */
     bool allow_android_wifi_service_window;
     bool allow_android_wifi_service_window_subsys_trigger_capture;
     bool require_android_selinux_exec_match;
@@ -473,6 +474,7 @@ static void usage(FILE *out) {
             "[--pm-observer-late-per-proxy-compact-response-sampler] "
             "[--pm-observer-late-per-proxy-pmic-gdsc-transition-sampler] "
             "[--pm-observer-late-per-proxy-lower-sequence-summary-sampler] "
+            "[--pm-observer-late-per-proxy-mdm2ap-errfatal-pcie-timing-sampler] "
             "[--allow-android-wifi-service-window] "
             "[--allow-android-wifi-service-window-subsys-trigger-capture] "
             "[--pm-observer-continue-after-provider] "
@@ -1317,6 +1319,10 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             cfg->pm_observer_late_per_proxy_lower_sequence_summary_sampler = true;
             continue;
         }
+        if (strcmp(argv[i], "--pm-observer-late-per-proxy-mdm2ap-errfatal-pcie-timing-sampler") == 0) {
+            cfg->pm_observer_late_per_proxy_mdm2ap_errfatal_pcie_timing_sampler = true;
+            continue;
+        }
         if (strcmp(argv[i], "--pm-observer-continue-after-provider") == 0) {
             cfg->pm_observer_continue_after_provider = true;
             continue;
@@ -1980,6 +1986,11 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
     if (cfg->pm_observer_late_per_proxy_lower_sequence_summary_sampler &&
         !cfg->pm_observer_late_per_proxy_response_sampler) {
         fprintf(stderr, "--pm-observer-late-per-proxy-lower-sequence-summary-sampler requires --pm-observer-late-per-proxy-response-sampler\n");
+        return 2;
+    }
+    if (cfg->pm_observer_late_per_proxy_mdm2ap_errfatal_pcie_timing_sampler &&
+        !cfg->pm_observer_late_per_proxy_response_sampler) {
+        fprintf(stderr, "--pm-observer-late-per-proxy-mdm2ap-errfatal-pcie-timing-sampler requires --pm-observer-late-per-proxy-response-sampler\n");
         return 2;
     }
     if (cfg->pm_observer_continue_after_provider &&
@@ -11952,7 +11963,7 @@ static bool parse_mdm_status_irq_line(const char *line, struct mdm_status_irq_sn
     return true;
 }
 
-static struct mdm_status_irq_snapshot collect_mdm_status_irq_snapshot(void) {
+static struct mdm_status_irq_snapshot collect_mdm_irq_snapshot_by_name(const char *needle) {
     struct mdm_status_irq_snapshot snapshot;
     FILE *file;
     char line[512];
@@ -11966,7 +11977,7 @@ static struct mdm_status_irq_snapshot collect_mdm_status_irq_snapshot(void) {
         return snapshot;
     }
     while (fgets(line, sizeof(line), file) != NULL) {
-        if (strstr(line, "mdm status") == NULL) {
+        if (needle == NULL || strstr(line, needle) == NULL) {
             continue;
         }
         snapshot.present = true;
@@ -11977,6 +11988,14 @@ static struct mdm_status_irq_snapshot collect_mdm_status_irq_snapshot(void) {
     }
     fclose(file);
     return snapshot;
+}
+
+static struct mdm_status_irq_snapshot collect_mdm_status_irq_snapshot(void) {
+    return collect_mdm_irq_snapshot_by_name("mdm status");
+}
+
+static struct mdm_status_irq_snapshot collect_mdm_errfatal_irq_snapshot(void) {
+    return collect_mdm_irq_snapshot_by_name("mdm errfatal");
 }
 
 static bool line_contains_any(const char *line,
@@ -17822,6 +17841,272 @@ static int append_lower_sequence_summary(struct buffer *buf,
                          summary->gpio_line_request_executed,
                          summary->pmic_write_executed,
                          summary->esoc_ioctl_executed);
+}
+
+struct mdm2ap_timing_summary {
+    bool initialized;
+    int sample_interval_ms;
+    int sample_count;
+    int pm_service_powerup_seen;
+    int max_powerup_thread_count;
+    unsigned long gpio142_irq_initial;
+    unsigned long gpio142_irq_max;
+    int gpio142_first_delta_sample;
+    unsigned long errfatal_irq_initial;
+    unsigned long errfatal_irq_max;
+    int errfatal_first_delta_sample;
+    int pcie_rc1_transition_seen;
+    int pcie_rc1_first_transition_sample;
+    int pci_dev_initial;
+    int pci_dev_max;
+    int mhi_bus_max;
+    int mhi_pipe_seen;
+    int mhi_pipe_fd_max;
+    int mhi_pipe_cmdline_max;
+    int ks_process_max;
+    int wlan0_seen;
+    int pcie_kmsg_initial;
+    int pcie_kmsg_max;
+    int mhi_kmsg_max;
+    int wlfw_kmsg_max;
+    char pcie_current_link_state_initial[64];
+    char pcie_current_link_state_last[64];
+    char pcie_link_state_initial[64];
+    char pcie_link_state_last[64];
+    char pcie_runtime_status_initial[64];
+    char pcie_runtime_status_last[64];
+};
+
+static void mdm2ap_timing_summary_init(struct mdm2ap_timing_summary *summary) {
+    memset(summary, 0, sizeof(*summary));
+    summary->sample_interval_ms = 50;
+    summary->gpio142_first_delta_sample = -1;
+    summary->errfatal_first_delta_sample = -1;
+    summary->pcie_rc1_first_transition_sample = -1;
+    summary->pci_dev_initial = -1;
+    summary->pci_dev_max = -1;
+    summary->mhi_bus_max = -1;
+    summary->mhi_pipe_fd_max = -1;
+    summary->mhi_pipe_cmdline_max = -1;
+    summary->ks_process_max = -1;
+    summary->pcie_kmsg_initial = -1;
+    summary->pcie_kmsg_max = -1;
+    summary->mhi_kmsg_max = -1;
+    summary->wlfw_kmsg_max = -1;
+}
+
+static void mdm2ap_update_int_max(int *dst, int value) {
+    if (value > *dst) {
+        *dst = value;
+    }
+}
+
+static bool mdm2ap_string_changed(const char *initial, const char *current) {
+    return initial[0] != '\0' && current[0] != '\0' && strcmp(initial, current) != 0;
+}
+
+static void mdm2ap_timing_summary_sample(struct mdm2ap_timing_summary *summary) {
+    struct mdm_status_irq_snapshot gpio142_irq = collect_mdm_status_irq_snapshot();
+    struct mdm_status_irq_snapshot errfatal_irq = collect_mdm_errfatal_irq_snapshot();
+    struct response_kmsg_markers kmsg = collect_response_kmsg_markers();
+    struct stat st;
+    char pcie_current_link_state[64];
+    char pcie_link_state[64];
+    char pcie_runtime_status[64];
+    int sample_index = summary->sample_count;
+    int powerup_threads = count_pm_service_powerup_threads();
+    int pci_dev_count = -1;
+    int mhi_bus_count = -1;
+    int mhi_pipe_fd_count = count_all_proc_fd_target_matches("/dev/mhi_0305_01.01.00_pipe_10");
+    int mhi_pipe_cmdline_count = count_process_cmdline_or_comm_matches("/dev/mhi_0305_01.01.00_pipe_10", NULL);
+    int ks_process_count = count_process_cmdline_or_comm_matches("/vendor/bin/ks", "ks");
+    bool matched = false;
+    bool transition_seen = false;
+
+    read_state_or_error("/sys/devices/platform/soc/1c08000.qcom,pcie/current_link_state",
+                        pcie_current_link_state,
+                        sizeof(pcie_current_link_state));
+    read_state_or_error("/sys/devices/platform/soc/1c08000.qcom,pcie/link_state",
+                        pcie_link_state,
+                        sizeof(pcie_link_state));
+    read_state_or_error("/sys/devices/platform/soc/1c08000.qcom,pcie/power/runtime_status",
+                        pcie_runtime_status,
+                        sizeof(pcie_runtime_status));
+    if (count_dir_entries_matching("/sys/bus/pci/devices", NULL, &pci_dev_count, &matched) < 0) {
+        pci_dev_count = -1;
+    }
+    if (count_dir_entries_matching("/sys/bus/mhi/devices", NULL, &mhi_bus_count, &matched) < 0) {
+        mhi_bus_count = -1;
+    }
+
+    if (!summary->initialized) {
+        summary->initialized = true;
+        summary->gpio142_irq_initial = gpio142_irq.count_total;
+        summary->gpio142_irq_max = gpio142_irq.count_total;
+        summary->errfatal_irq_initial = errfatal_irq.count_total;
+        summary->errfatal_irq_max = errfatal_irq.count_total;
+        summary->pci_dev_initial = pci_dev_count;
+        summary->pcie_kmsg_initial = kmsg.pcie_count;
+        summary->pcie_kmsg_max = kmsg.pcie_count;
+        snprintf(summary->pcie_current_link_state_initial,
+                 sizeof(summary->pcie_current_link_state_initial),
+                 "%s",
+                 pcie_current_link_state);
+        snprintf(summary->pcie_link_state_initial,
+                 sizeof(summary->pcie_link_state_initial),
+                 "%s",
+                 pcie_link_state);
+        snprintf(summary->pcie_runtime_status_initial,
+                 sizeof(summary->pcie_runtime_status_initial),
+                 "%s",
+                 pcie_runtime_status);
+    }
+
+    summary->sample_count++;
+    if (powerup_threads > 0) {
+        summary->pm_service_powerup_seen = 1;
+    }
+    mdm2ap_update_int_max(&summary->max_powerup_thread_count, powerup_threads);
+    if (gpio142_irq.count_total > summary->gpio142_irq_max) {
+        summary->gpio142_irq_max = gpio142_irq.count_total;
+    }
+    if (gpio142_irq.count_total > summary->gpio142_irq_initial &&
+        summary->gpio142_first_delta_sample < 0) {
+        summary->gpio142_first_delta_sample = sample_index;
+    }
+    if (errfatal_irq.count_total > summary->errfatal_irq_max) {
+        summary->errfatal_irq_max = errfatal_irq.count_total;
+    }
+    if (errfatal_irq.count_total > summary->errfatal_irq_initial &&
+        summary->errfatal_first_delta_sample < 0) {
+        summary->errfatal_first_delta_sample = sample_index;
+    }
+    mdm2ap_update_int_max(&summary->pci_dev_max, pci_dev_count);
+    mdm2ap_update_int_max(&summary->mhi_bus_max, mhi_bus_count);
+    if (lstat("/dev/mhi_0305_01.01.00_pipe_10", &st) == 0) {
+        summary->mhi_pipe_seen = 1;
+    }
+    mdm2ap_update_int_max(&summary->mhi_pipe_fd_max, mhi_pipe_fd_count);
+    mdm2ap_update_int_max(&summary->mhi_pipe_cmdline_max, mhi_pipe_cmdline_count);
+    mdm2ap_update_int_max(&summary->ks_process_max, ks_process_count);
+    if (lstat("/sys/class/net/wlan0", &st) == 0) {
+        summary->wlan0_seen = 1;
+    }
+    mdm2ap_update_int_max(&summary->pcie_kmsg_max, kmsg.pcie_count);
+    mdm2ap_update_int_max(&summary->mhi_kmsg_max, kmsg.mhi_count);
+    mdm2ap_update_int_max(&summary->wlfw_kmsg_max, kmsg.wlfw_count);
+    snprintf(summary->pcie_current_link_state_last,
+             sizeof(summary->pcie_current_link_state_last),
+             "%s",
+             pcie_current_link_state);
+    snprintf(summary->pcie_link_state_last,
+             sizeof(summary->pcie_link_state_last),
+             "%s",
+             pcie_link_state);
+    snprintf(summary->pcie_runtime_status_last,
+             sizeof(summary->pcie_runtime_status_last),
+             "%s",
+             pcie_runtime_status);
+
+    transition_seen =
+        mdm2ap_string_changed(summary->pcie_current_link_state_initial, pcie_current_link_state) ||
+        mdm2ap_string_changed(summary->pcie_link_state_initial, pcie_link_state) ||
+        mdm2ap_string_changed(summary->pcie_runtime_status_initial, pcie_runtime_status) ||
+        (summary->pci_dev_initial >= 0 && pci_dev_count > summary->pci_dev_initial) ||
+        (summary->pcie_kmsg_initial >= 0 && kmsg.pcie_count > summary->pcie_kmsg_initial);
+    if (transition_seen && summary->pcie_rc1_first_transition_sample < 0) {
+        summary->pcie_rc1_transition_seen = 1;
+        summary->pcie_rc1_first_transition_sample = sample_index;
+    }
+}
+
+static int append_mdm2ap_timing_summary(struct buffer *buf,
+                                        const struct mdm2ap_timing_summary *summary) {
+    unsigned long gpio142_delta =
+        summary->gpio142_irq_max > summary->gpio142_irq_initial
+            ? summary->gpio142_irq_max - summary->gpio142_irq_initial
+            : 0;
+    unsigned long errfatal_delta =
+        summary->errfatal_irq_max > summary->errfatal_irq_initial
+            ? summary->errfatal_irq_max - summary->errfatal_irq_initial
+            : 0;
+
+    return append_format(buf,
+                         "mdm2ap_timing.begin=1\n"
+                         "mdm2ap_timing.mode=late-per-proxy-mdm2ap-errfatal-pcie-timing\n"
+                         "mdm2ap_timing.sample_interval_ms=%d\n"
+                         "mdm2ap_timing.sample_count=%d\n"
+                         "mdm2ap_timing.pm_service_powerup_seen=%d\n"
+                         "mdm2ap_timing.max_powerup_thread_count=%d\n"
+                         "mdm2ap_timing.gpio142_irq_initial=%lu\n"
+                         "mdm2ap_timing.gpio142_irq_max=%lu\n"
+                         "mdm2ap_timing.gpio142_irq_delta=%lu\n"
+                         "mdm2ap_timing.gpio142_first_delta_sample=%d\n"
+                         "mdm2ap_timing.errfatal_irq_initial=%lu\n"
+                         "mdm2ap_timing.errfatal_irq_max=%lu\n"
+                         "mdm2ap_timing.errfatal_irq_delta=%lu\n"
+                         "mdm2ap_timing.errfatal_first_delta_sample=%d\n"
+                         "mdm2ap_timing.pcie_rc1_transition_seen=%d\n"
+                         "mdm2ap_timing.pcie_rc1_first_transition_sample=%d\n"
+                         "mdm2ap_timing.pcie_current_link_state_initial=%s\n"
+                         "mdm2ap_timing.pcie_current_link_state_last=%s\n"
+                         "mdm2ap_timing.pcie_link_state_initial=%s\n"
+                         "mdm2ap_timing.pcie_link_state_last=%s\n"
+                         "mdm2ap_timing.pcie_runtime_status_initial=%s\n"
+                         "mdm2ap_timing.pcie_runtime_status_last=%s\n"
+                         "mdm2ap_timing.pci_dev_initial=%d\n"
+                         "mdm2ap_timing.pci_dev_max=%d\n"
+                         "mdm2ap_timing.mhi_bus_max=%d\n"
+                         "mdm2ap_timing.mhi_pipe_seen=%d\n"
+                         "mdm2ap_timing.mhi_pipe_fd_max=%d\n"
+                         "mdm2ap_timing.mhi_pipe_cmdline_max=%d\n"
+                         "mdm2ap_timing.ks_process_max=%d\n"
+                         "mdm2ap_timing.pcie_kmsg_initial=%d\n"
+                         "mdm2ap_timing.pcie_kmsg_max=%d\n"
+                         "mdm2ap_timing.mhi_kmsg_max=%d\n"
+                         "mdm2ap_timing.wlfw_kmsg_max=%d\n"
+                         "mdm2ap_timing.wlan0_seen=%d\n"
+                         "mdm2ap_timing.safety_wifi_hal_start=0\n"
+                         "mdm2ap_timing.safety_scan_connect=0\n"
+                         "mdm2ap_timing.safety_credentials=0\n"
+                         "mdm2ap_timing.safety_dhcp_route=0\n"
+                         "mdm2ap_timing.safety_external_ping=0\n"
+                         "mdm2ap_timing.safety_pmic_write=0\n"
+                         "mdm2ap_timing.safety_gpio_request=0\n"
+                         "mdm2ap_timing.safety_direct_esoc_ioctl=0\n"
+                         "mdm2ap_timing.end=1\n",
+                         summary->sample_interval_ms,
+                         summary->sample_count,
+                         summary->pm_service_powerup_seen,
+                         summary->max_powerup_thread_count,
+                         summary->gpio142_irq_initial,
+                         summary->gpio142_irq_max,
+                         gpio142_delta,
+                         summary->gpio142_first_delta_sample,
+                         summary->errfatal_irq_initial,
+                         summary->errfatal_irq_max,
+                         errfatal_delta,
+                         summary->errfatal_first_delta_sample,
+                         summary->pcie_rc1_transition_seen,
+                         summary->pcie_rc1_first_transition_sample,
+                         summary->pcie_current_link_state_initial,
+                         summary->pcie_current_link_state_last,
+                         summary->pcie_link_state_initial,
+                         summary->pcie_link_state_last,
+                         summary->pcie_runtime_status_initial,
+                         summary->pcie_runtime_status_last,
+                         summary->pci_dev_initial,
+                         summary->pci_dev_max,
+                         summary->mhi_bus_max,
+                         summary->mhi_pipe_seen,
+                         summary->mhi_pipe_fd_max,
+                         summary->mhi_pipe_cmdline_max,
+                         summary->ks_process_max,
+                         summary->pcie_kmsg_initial,
+                         summary->pcie_kmsg_max,
+                         summary->mhi_kmsg_max,
+                         summary->wlfw_kmsg_max,
+                         summary->wlan0_seen);
 }
 
 struct fd_poll_summary {
@@ -33775,19 +34060,25 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
         cfg->pm_observer_late_per_proxy_pmic_gdsc_transition_sampler;
     const bool late_per_proxy_lower_sequence_summary_sampler =
         cfg->pm_observer_late_per_proxy_lower_sequence_summary_sampler;
+    const bool late_per_proxy_mdm2ap_timing_sampler =
+        cfg->pm_observer_late_per_proxy_mdm2ap_errfatal_pcie_timing_sampler;
     const bool late_per_proxy_compact_response_sampler =
         cfg->pm_observer_late_per_proxy_compact_response_sampler ||
         late_per_proxy_pmic_gdsc_transition_sampler;
     const int late_per_proxy_poll_max =
-        (late_per_proxy_pmic_gdsc_transition_sampler || late_per_proxy_lower_sequence_summary_sampler)
+        late_per_proxy_mdm2ap_timing_sampler
+            ? 120
+            : (late_per_proxy_pmic_gdsc_transition_sampler || late_per_proxy_lower_sequence_summary_sampler)
             ? 80
             : (late_per_proxy_dense_response_sampler ? 40 : 12);
     const int late_per_proxy_poll_interval_ms =
         (late_per_proxy_dense_response_sampler ||
          late_per_proxy_pmic_gdsc_transition_sampler ||
-         late_per_proxy_lower_sequence_summary_sampler) ? 50 : 1000;
+         late_per_proxy_lower_sequence_summary_sampler ||
+         late_per_proxy_mdm2ap_timing_sampler) ? 50 : 1000;
     int late_per_proxy_poll_count = 0;
     struct lower_sequence_summary lower_summary;
+    struct mdm2ap_timing_summary mdm2ap_timing_summary;
     bool mdm_helper_spawned_early = false; /* v226 */
     bool mdm_helper_observable = false;
     bool mdm_helper_window_snapshot_captured = false;
@@ -33806,6 +34097,7 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
 
     memset(children, 0, sizeof(children));
     lower_sequence_summary_init(&lower_summary);
+    mdm2ap_timing_summary_init(&mdm2ap_timing_summary);
     *child_exit_code = -1;
     *child_signal = 0;
     *timed_out = false;
@@ -33931,6 +34223,7 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                           "post_pm_mdm_helper_esoc_observer.late_per_proxy_compact_response_sampler=%d\n"
                           "post_pm_mdm_helper_esoc_observer.late_per_proxy_pmic_gdsc_transition_sampler=%d\n"
                           "post_pm_mdm_helper_esoc_observer.late_per_proxy_lower_sequence_summary_sampler=%d\n"
+                          "post_pm_mdm_helper_esoc_observer.late_per_proxy_mdm2ap_errfatal_pcie_timing_sampler=%d\n"
                           "post_pm_mdm_helper_esoc_observer.late_per_proxy_after_mdm_helper_esoc_fd_requested=%d\n",
                           post_pm_mdm_helper_allowed ? 1 : 0,
                           post_pm_mdm_helper_start ? 1 : 0,
@@ -33942,6 +34235,7 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                           cfg->pm_observer_late_per_proxy_compact_response_sampler ? 1 : 0,
                           cfg->pm_observer_late_per_proxy_pmic_gdsc_transition_sampler ? 1 : 0,
                           cfg->pm_observer_late_per_proxy_lower_sequence_summary_sampler ? 1 : 0,
+                          cfg->pm_observer_late_per_proxy_mdm2ap_errfatal_pcie_timing_sampler ? 1 : 0,
                           late_per_proxy_requested ? 1 : 0) < 0) {
             return -1;
         }
@@ -35142,13 +35436,16 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                                           "pm_service_trigger_observer.response_sampler.compact_enabled=%d\n"
                                           "pm_service_trigger_observer.response_sampler.pmic_gdsc_transition_enabled=%d\n"
                                           "pm_service_trigger_observer.response_sampler.lower_sequence_summary_enabled=%d\n"
+                                          "pm_service_trigger_observer.response_sampler.mdm2ap_errfatal_pcie_timing_enabled=%d\n"
                                           "pm_service_trigger_observer.response_sampler.dense_sample_interval_ms=%d\n"
                                           "pm_service_trigger_observer.response_sampler.dense_sample_count=%d\n"
                                           "pm_service_trigger_observer.response_sampler.dense_window_ms=%d\n"
                                           "pm_service_trigger_observer.response_sampler.gpio_sysfs_write_executed=0\n"
                                           "pm_service_trigger_observer.response_sampler.debugfs_control_write_executed=0\n"
                                           "pm_service_trigger_observer.response_sampler.subsys_esoc0_direct_open_executed=0\n",
-                                          late_per_proxy_lower_sequence_summary_sampler
+                                          late_per_proxy_mdm2ap_timing_sampler
+                                              ? "late-per-proxy-mdm2ap-errfatal-pcie-timing"
+                                              : (late_per_proxy_lower_sequence_summary_sampler
                                               ? "late-per-proxy-lower-sequence-summary"
                                               : (late_per_proxy_pmic_gdsc_transition_sampler
                                               ? "late-per-proxy-focused-pmic-gdsc-transition"
@@ -35158,32 +35455,38 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                                                      : "late-per-proxy-compact-pinctrl-irq-pcie")
                                               : (late_per_proxy_dense_response_sampler
                                                      ? "late-per-proxy-dense-pinctrl-irq-pcie"
-                                                     : "late-per-proxy-pinctrl-irq-pcie"))),
+                                                     : "late-per-proxy-pinctrl-irq-pcie")))),
                                           late_per_proxy_poll_interval_ms,
                                           late_per_proxy_poll_max,
                                           late_per_proxy_dense_response_sampler ? 1 : 0,
                                           late_per_proxy_compact_response_sampler ? 1 : 0,
                                           late_per_proxy_pmic_gdsc_transition_sampler ? 1 : 0,
                                           late_per_proxy_lower_sequence_summary_sampler ? 1 : 0,
+                                          late_per_proxy_mdm2ap_timing_sampler ? 1 : 0,
                                           (late_per_proxy_dense_response_sampler ||
                                            late_per_proxy_pmic_gdsc_transition_sampler ||
-                                           late_per_proxy_lower_sequence_summary_sampler)
+                                           late_per_proxy_lower_sequence_summary_sampler ||
+                                           late_per_proxy_mdm2ap_timing_sampler)
                                               ? late_per_proxy_poll_interval_ms : 0,
                                           (late_per_proxy_dense_response_sampler ||
                                            late_per_proxy_pmic_gdsc_transition_sampler ||
-                                           late_per_proxy_lower_sequence_summary_sampler)
+                                           late_per_proxy_lower_sequence_summary_sampler ||
+                                           late_per_proxy_mdm2ap_timing_sampler)
                                               ? late_per_proxy_poll_max : 0,
                                           (late_per_proxy_dense_response_sampler ||
                                            late_per_proxy_pmic_gdsc_transition_sampler ||
-                                           late_per_proxy_lower_sequence_summary_sampler)
+                                           late_per_proxy_lower_sequence_summary_sampler ||
+                                           late_per_proxy_mdm2ap_timing_sampler)
                                               ? late_per_proxy_poll_interval_ms * late_per_proxy_poll_max : 0) < 0 ||
-                            (late_per_proxy_lower_sequence_summary_sampler
+                            (late_per_proxy_mdm2ap_timing_sampler
+                                 ? 0
+                                 : (late_per_proxy_lower_sequence_summary_sampler
                                  ? (lower_sequence_summary_sample(&lower_summary), 0)
                                  : (late_per_proxy_pmic_gdsc_transition_sampler
                                  ? append_pm_esoc_pmic_gdsc_transition_sample(stdout_buf, "pre_late_per_proxy")
                                  : (late_per_proxy_compact_response_sampler
                                  ? append_pm_esoc_response_sample_compact(stdout_buf, "pre_late_per_proxy")
-                                 : append_pm_esoc_response_sample(stdout_buf, "pre_late_per_proxy")))) < 0) {
+                                 : append_pm_esoc_response_sample(stdout_buf, "pre_late_per_proxy"))))) < 0) {
                             composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
                             stop_property_service_shim(&property_shim, paths, stdout_buf);
                             return -1;
@@ -35241,7 +35544,8 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                         per_proxy_alive = !per_proxy->child_done &&
                                           per_proxy->pid > 0 &&
                                           kill(per_proxy->pid, 0) == 0;
-                        if (!late_per_proxy_lower_sequence_summary_sampler) {
+                        if (!late_per_proxy_lower_sequence_summary_sampler &&
+                            !late_per_proxy_mdm2ap_timing_sampler) {
                             if (append_format(stdout_buf,
                                               "pm_service_trigger_observer.%s.per_proxy_alive=%d\n"
                                               "pm_service_trigger_observer.%s.per_proxy_child_done=%d\n"
@@ -35281,6 +35585,12 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                             pm_proxy_helper_subsys_modem_count = composite_child_alive_for_snapshot(pm_proxy_helper)
                                 ? count_proc_fd_target_matches(pm_proxy_helper->pid, "/dev/subsys_modem") : -1;
                             lower_sequence_summary_sample(&lower_summary);
+                        } else if (late_per_proxy_mdm2ap_timing_sampler) {
+                            per_mgr_subsys_modem_count = composite_child_alive_for_snapshot(per_mgr)
+                                ? count_proc_fd_target_matches(per_mgr->pid, "/dev/subsys_modem") : -1;
+                            pm_proxy_helper_subsys_modem_count = composite_child_alive_for_snapshot(pm_proxy_helper)
+                                ? count_proc_fd_target_matches(pm_proxy_helper->pid, "/dev/subsys_modem") : -1;
+                            mdm2ap_timing_summary_sample(&mdm2ap_timing_summary);
                         } else if (late_per_proxy_compact_response_sampler) {
                             int per_mgr_subsys_esoc0_count = composite_child_alive_for_snapshot(per_mgr)
                                 ? count_proc_fd_target_matches(per_mgr->pid, "/dev/subsys_esoc0") : -1;
@@ -35357,13 +35667,15 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                         late_per_proxy_poll_count++;
                     }
                     if (cfg->pm_observer_late_per_proxy_response_sampler) {
-                        if ((late_per_proxy_lower_sequence_summary_sampler
+                        if ((late_per_proxy_mdm2ap_timing_sampler
+                                 ? append_mdm2ap_timing_summary(stdout_buf, &mdm2ap_timing_summary)
+                                 : (late_per_proxy_lower_sequence_summary_sampler
                                  ? append_lower_sequence_summary(stdout_buf, &lower_summary)
                                  : (late_per_proxy_pmic_gdsc_transition_sampler
                                  ? append_pm_esoc_pmic_gdsc_transition_sample(stdout_buf, "post_late_per_proxy")
                                  : (late_per_proxy_compact_response_sampler
                                  ? append_pm_esoc_response_sample_compact(stdout_buf, "post_late_per_proxy")
-                                 : append_pm_esoc_response_sample(stdout_buf, "post_late_per_proxy")))) < 0 ||
+                                 : append_pm_esoc_response_sample(stdout_buf, "post_late_per_proxy"))))) < 0 ||
                             append_literal(stdout_buf,
                                            "pm_service_trigger_observer.response_sampler.end=1\n") < 0) {
                             composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);

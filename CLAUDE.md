@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V1325 plan ready → V1326 source/build timing sampler support — V1325 defines the next compact observer for GPIO142/MDM status, GPIO53/MDM errfatal, PCIe RC1, MHI/ks, WLFW/BDF, and `wlan0` timing after GPIO135/AP2MDM activity. Preserve hard exclusions: no PMIC write, userspace GPIO line request/hold, direct eSoC ioctl, direct GDSC write, blind eSoC notify/BOOT_DONE, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, flash, boot image write, or partition write.
+- **Active research cycle**: V1326 source/build timing sampler support PASS → V1327 deploy-only for helper `v276` — V1326 added the compact `mdm2ap_timing.*` observer for GPIO142/MDM status, GPIO53/MDM errfatal, PCIe RC1, MHI/ks, WLFW/BDF, and `wlan0` timing after late `per_proxy` starts. Preserve hard exclusions: no PMIC write, userspace GPIO line request/hold, direct eSoC ioctl, direct GDSC write, blind eSoC notify/BOOT_DONE, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, flash, boot image write, or partition write.
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -1076,3 +1076,7 @@ V1324 added `scripts/revalidation/native_wifi_provider_response_delta_classifier
 ## Latest native Wi-Fi state: V1325 (2026-05-31)
 
 V1325 added `docs/plans/NATIVE_INIT_V1325_GPIO142_ERRFATAL_PCIE_TIMING_OBSERVER_PLAN_2026-05-31.md`. The plan keeps the final Wi-Fi goal intact but chooses the next concrete unit as source/build-only helper support for a compact `mdm2ap_timing` sampler. The intended helper mode is `--pm-observer-late-per-proxy-mdm2ap-errfatal-pcie-timing-sampler`, built on the existing late-`per_proxy` PM observer path, with compact fields for GPIO142 IRQ delta, MDM errfatal IRQ delta, PCIe RC1 transition, MHI bus/pipe, `ks`, WLFW, and `wlan0`. V1325 itself is documentation-only: no device command, helper deploy, PM actor start, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, PMIC/GPIO/GDSC/eSoC write, flash, or partition write. Next is V1326 source/build support for helper `v276`.
+
+## Latest native Wi-Fi state: V1326 (2026-05-31)
+
+V1326 updated `stage3/linux_init/helpers/a90_android_execns_probe.c` to `a90_android_execns_probe v276` and added `scripts/revalidation/native_wifi_mdm2ap_timing_sampler_support_v1326.py`. Result: `v1326-mdm2ap-timing-sampler-build-pass` PASS. New opt-in flag: `--pm-observer-late-per-proxy-mdm2ap-errfatal-pcie-timing-sampler`; response mode: `late-per-proxy-mdm2ap-errfatal-pcie-timing`; intended window: `120` samples at `50ms`. The compact output emits aggregate `mdm2ap_timing.*` keys for GPIO142 IRQ delta, MDM errfatal IRQ delta, PCIe RC1 transition, MHI bus/pipe, `ks`, WLFW kmsg count, `wlan0`, and safety zeros. Built static aarch64 helper `stage3/linux_init/helpers/a90_android_execns_probe_v276` has sha256 `dad57e135d3b4f0db2f1f95ee04022a3f5610fdbd0ecc6b69c243883689ca66f` and no dynamic section. No deploy or device command occurred. Next V1327 should deploy helper v276 only.

@@ -5497,3 +5497,24 @@ Samsung bootloader
 - safety: V1325 is documentation-only; no device command, helper deploy, PM actor
   start, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping,
   PMIC/GPIO/GDSC/eSoC write, flash, boot image write, or partition write.
+
+## V1326 MDM2AP Timing Sampler Support (2026-05-31)
+
+- runner: `scripts/revalidation/native_wifi_mdm2ap_timing_sampler_support_v1326.py`
+- evidence: `tmp/wifi/v1326-mdm2ap-timing-sampler-support/manifest.json`
+- report: `docs/reports/NATIVE_INIT_V1326_MDM2AP_TIMING_SAMPLER_SUPPORT_2026-05-31.md`
+- helper: `stage3/linux_init/helpers/a90_android_execns_probe_v276`
+- result: `v1326-mdm2ap-timing-sampler-build-pass`, pass `true`.
+- finding: helper `a90_android_execns_probe v276` adds opt-in flag
+  `--pm-observer-late-per-proxy-mdm2ap-errfatal-pcie-timing-sampler`.
+  The new mode emits compact aggregate `mdm2ap_timing.*` fields for GPIO142 IRQ
+  delta, MDM errfatal IRQ delta, PCIe RC1 transition, MHI bus/pipe, `ks`, WLFW
+  kmsg count, `wlan0`, and safety zeros.
+- build: static aarch64 helper sha256
+  `dad57e135d3b4f0db2f1f95ee04022a3f5610fdbd0ecc6b69c243883689ca66f`;
+  `readelf` confirms no interpreter and no dynamic section.
+- safety: source/build-only; no device command, helper deploy, PM actor start,
+  Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping,
+  PMIC/GPIO/GDSC/eSoC write, flash, boot image write, or partition write.
+- next: V1327 should deploy helper `v276` only, then V1328 should run the
+  bounded `mdm2ap_timing` sampler live.
