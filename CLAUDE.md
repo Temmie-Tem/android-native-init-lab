@@ -1218,3 +1218,11 @@ Update after V1354/V1355:
   debug cases. No write was performed and debugfs was cleaned up. Next gate is
   V1364 host-only contract classification for `rc_sel` + `case=11` before any
   debugfs write.
+- V1364 host-only classifier
+  (`v1364-pci-msm-debugfs-contract-candidate-not-approved`) keeps enumerate
+  blocked but identifies the first bounded live write candidate: `rc_sel=1`
+  followed by `case=26` (`OUTPUT PERST AND WAKE GPIO STATUS`). This should only
+  emit status and validate RC selection/observability; `case=11` enumerate,
+  PERST assert/deassert cases, boot option, MMIO write cases, platform
+  bind/unbind, PCI rescan, PMIC/GPIO/GDSC writes, and Wi-Fi bring-up remain
+  excluded.

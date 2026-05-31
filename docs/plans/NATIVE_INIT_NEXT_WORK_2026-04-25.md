@@ -5899,6 +5899,26 @@ Samsung bootloader
     - Keep this host-only: no debugfs/sysfs writes, no PCI rescan, no platform
       bind/unbind, no PMIC/GPIO/GDSC write, no eSoC notify/`BOOT_DONE`, no
       Wi-Fi HAL/scan/connect/DHCP/routes/external ping.
+    - Result:
+      `docs/reports/NATIVE_INIT_V1364_PCI_MSM_DEBUGFS_CONTRACT_CLASSIFIER_2026-06-01.md`.
+      Decision: `v1364-pci-msm-debugfs-contract-candidate-not-approved`.
+      `rc_sel=<RC>` plus `case=<testcase>` is the likely contract. `case=11`
+      is `ENUMERATE`, but enumerate is not approved yet because proprietary
+      call-path proof is incomplete. `case=26` is status-only `OUTPUT PERST AND
+      WAKE GPIO STATUS`, making it the first bounded live write candidate.
+
+13. **V1365 pci-msm debugfs status-only proof (bounded live).**
+    - Candidate writes only:
+      `echo 1 > /sys/kernel/debug/pci-msm/rc_sel`, then
+      `echo 26 > /sys/kernel/debug/pci-msm/case`.
+    - Scope: prove `rc_sel=1` selects a valid RC and `case=26` emits pcie1
+      PERST/WAKE status without changing link state. Collect before/after
+      pcie1 GDSC/refclk/PERST/LTSSM/PCI/MHI/GPIO142 and dmesg. Cleanup by
+      restoring debugfs mount state; reboot only if health changes.
+    - Hard stop: no `case=11`, no PERST assert/deassert cases, no boot option
+      write, no MMIO write cases, no platform bind/unbind, no PCI rescan, no
+      PMIC/GPIO/GDSC direct write, no eSoC notify/`BOOT_DONE`, no Wi-Fi HAL,
+      scan/connect/DHCP/routes/external ping.
 
 ### Required decision before any new mutation
 
@@ -5930,6 +5950,10 @@ Samsung bootloader
   `/sys/kernel/debug/pci-msm/case` and `/sys/kernel/debug/pci-msm/rc_sel`, with
   `case` listing `11: ENUMERATE`. Before any write, V1364 must prove the exact
   RC1 contract and observation/cleanup model.
+- V1364 proves a likely pci-msm debugfs contract but does not approve
+  enumerate. The next live gate is status-only: `rc_sel=1` then `case=26`
+  (`OUTPUT PERST AND WAKE GPIO STATUS`) to validate selection/observability
+  before considering any enumerate.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
