@@ -301,7 +301,14 @@
   도달하지만 GPIO142/PCIe/MHI/WLFW response가 없고, Android-positive reference에는
   GPIO142 IRQ `1`, PCIe RC1 `18` lines, Android `ks`/MHI pipe, WLFW/BDF/`wlan0`가 있다.
   다음 V1320은 Android `mdm_helper`/`ks`/MHI image-transfer response contract를
-  post-GPIO135 prerequisite로 분류한다.
+  post-GPIO135 prerequisite로 분류한다. V1320은 host-only로 PASS했고, native의
+  post-GPIO135 response gap이 Android `mdm_helper`/`ks`/MHI image-link contract와
+  직접 연결된다고 결론냈다. Native current actor surface는 `mdm_helper`와 PM-service
+  eSoC trigger visibility는 있지만 `ks_count_window=0`, MHI pipe absent, GPIO142/PCIe/MHI/WLFW
+  absent이고, Android reference는 `mdm_helper` FD, `ks` FD, `/dev/mhi_0305_01.01.00_pipe_10`,
+  GPIO142 IRQ, PCIe RC1, WLFW, `wlan0`를 모두 가진다. 다음 V1321은 direct
+  GPIO/PMIC/GDSC/eSoC mutation 전에 Android `mdm_helper`/`ks`/MHI image-link contract를
+  observe 또는 reproduce하는 fail-closed source/build gate로 제한한다.
   GPIO line request, PMIC GPIO9 hold, PMIC write, direct eSoC ioctl, new
   PM/CNSS/HAL start, scan/connect, credentials, DHCP/routes, external ping, flash,
   boot image write, partition write는 별도 gate 전까지 계속 블록한다.
