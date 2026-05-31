@@ -1193,3 +1193,9 @@ Update after V1354/V1355:
   control path. CNSS2 `dev_boot` belongs to the wrong rc-num=0 branch, and the
   only live surface is already-bound `pci-msm`. Next gate is V1360 live
   read-only MHI platform surface verifier before any bind/rescan mutation.
+- V1360 live read-only verifier (`v1360-mhi-surface-present-no-live-device`)
+  found MHI topology in live DT, including `1c0b000` and `esoc-0`, plus MHI bus
+  client drivers and pcie1 bound to `pci-msm`. It found no live MHI bus devices,
+  no `/dev/mhi*`, and no PCIe link-up markers. Next gate is V1361 host-only MHI
+  ownership/downstream classification; do not bind MHI client drivers, rescan
+  PCI, or touch PMIC/GPIO/GDSC/eSoC notify paths from this evidence alone.
