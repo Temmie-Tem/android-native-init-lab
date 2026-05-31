@@ -5518,3 +5518,21 @@ Samsung bootloader
   PMIC/GPIO/GDSC/eSoC write, flash, boot image write, or partition write.
 - next: V1327 should deploy helper `v276` only, then V1328 should run the
   bounded `mdm2ap_timing` sampler live.
+
+## V1327 Execns Helper v276 Deploy (2026-05-31)
+
+- runner: `scripts/revalidation/wifi_execns_helper_v276_deploy_preflight_v1327.py`
+- evidence: `tmp/wifi/v1327-execns-helper-v276-deploy/manifest.json`
+- report: `docs/reports/NATIVE_INIT_V1327_EXECNS_HELPER_V276_DEPLOY_2026-05-31.md`
+- result: `execns-helper-v276-deploy-pass`, pass `true`.
+- finding: helper `a90_android_execns_probe v276` is deployed to
+  `/cache/bin/a90_android_execns_probe`. Manual post-deploy verification
+  confirmed remote SHA256
+  `dad57e135d3b4f0db2f1f95ee04022a3f5610fdbd0ecc6b69c243883689ca66f`, the
+  helper marker, and the new
+  `--pm-observer-late-per-proxy-mdm2ap-errfatal-pcie-timing-sampler` flag.
+- transfer: NCM was inactive, so deploy used serial fallback.
+- safety: deploy-only; no daemon start, service-manager start, Wi-Fi HAL,
+  scan/connect, credentials, DHCP/routes, external ping, PMIC/GPIO/GDSC/eSoC
+  write, flash, boot image write, or partition write.
+- next: V1328 should run the bounded no-write `mdm2ap_timing` live sampler.
