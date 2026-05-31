@@ -235,8 +235,14 @@
   AP2MDM GPIO135 high 이후 MDM2AP/PCIe progress를 기대하지만, V1303 powerup window의
   모든 phase에서 GPIO135/GPIO142가 low였고 MDM status/MHI/WLFW/`wlan0`는 absent였다.
   단 Android post-boot snapshot도 low GPIO를 보일 수 있으므로 root cause 단정이 아니라
-  assertion/visibility boundary로 취급한다. 다음 V1305는 더 촘촘한 read-only
-  AP2MDM/MDM2AP transition timing 또는 ext-mdm PMIC/pinctrl branch를 분류한다.
+  assertion/visibility boundary로 취급한다. V1305는 V1303 transcript의 monotonic
+  timeline을 host-only로 재분석했고 `v1305-ap2mdm-low-through-extended-powerup-window`로
+  PASS했다. `mdm_subsys_powerup` 관측창은 `5013ms`였고 `42` powerup samples 전체에서
+  GPIO135는 `out 0`, GPIO142는 `in 0`으로 유지됐다. MDM status/MHI/`ks`/`wlan0`도
+  absent라서 단순 sampler-cadence blind spot 가능성은 낮다. 다음 V1306은 visible
+  AP2MDM assertion이 안 나오는 lower branch를 분류한다: PM8150L soft-reset pinctrl,
+  PCIe GDSC/runtime power prerequisite, 또는 proprietary `mdm_subsys_powerup` 내부
+  branch-before-`mdm_do_first_power_on`.
   GPIO line request, PMIC GPIO9 hold, PMIC write, direct eSoC ioctl, new
   PM/CNSS/HAL start, scan/connect, credentials, DHCP/routes, external ping, flash,
   boot image write, partition write는 별도 gate 전까지 계속 블록한다.
