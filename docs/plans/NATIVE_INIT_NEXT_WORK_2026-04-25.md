@@ -25,8 +25,8 @@
 
 ## 현재 Wi-Fi Gate
 
-- 최신 기준: V1255 READ-ONLY LIVE PASS —
-  `v1255-pmic-gpio-mapping-incomplete`.
+- 최신 기준: V1256 READ-ONLY LIVE PASS —
+  `v1256-gpiochip-temporary-devnode-feasible`.
   V1239는 Android/V1238 증거를 비교해 blocker를 `pm-service`
   `/dev/subsys_esoc0` / `mdm_subsys_powerup` 이후로 낮췄고, V1240은
   SDX50M/eSoC response surface와 GPIO142 `mdm status` IRQ count `0`을
@@ -58,15 +58,17 @@
   fail-closed로 분류한다. V1254는 serial fallback으로 v261을
   `/cache/bin/a90_android_execns_probe`에 배포했고 remote SHA가
   `37947e378f4743a6661a03ee36dfc95ddf5ce9cd79acec0862a28a4564573a7c`로 일치했다.
-  V1255는 temporary-debugfs read-only mapping preflight를 실행했다. 결과는 PMIC
-  debugfs에서 `gpiochip2` range `1263-1273`, PMIC GPIO9 global line `1270`,
-  offset `7`, identity/offset match true를 확인했지만, native `/dev/gpiochip*`
-  scan count가 `0`이라 chardev mapping은 fail-closed로 incomplete다. 다음 V1256은
-  read-only로 `/sys/class/gpio` 등 kernel-provided metadata에서 safe temporary
-  `/dev/gpiochip2` node feasibility를 분류해야 한다. mknod, GPIO line request,
-  PMIC GPIO9 hold, `/dev/subsys_esoc0` open, PM/CNSS/HAL start, scan/connect,
-  credentials, DHCP/routes, external ping, flash, boot image write, partition
-  write는 별도 gate 전까지 계속 블록한다.
+  V1255는 PMIC debugfs에서 `gpiochip2` range `1263-1273`, PMIC GPIO9 global line
+  `1270`, offset `7`, identity/offset match true를 확인했지만 native
+  `/dev/gpiochip*`가 없어 chardev mapping은 incomplete였다. V1256은 read-only로
+  devnode feasibility를 분류해 `/proc/devices` `254 gpiochip`,
+  `/sys/bus/gpio/devices/gpiochip2/dev=254:2`, `/sys/class/gpio/gpiochip1263`
+  label `c440000.qcom,spmi:qcom,pm8150l@4:pinctrl@c000`, `ngpio=11`을 확인했다.
+  다음 V1257은 helper v262 source/build-only로 temporary `/dev/gpiochip2`
+  materialization + read-only `GPIO_GET_CHIPINFO_IOCTL` support를 추가한다.
+  mknod live 실행, GPIO line request, PMIC GPIO9 hold, `/dev/subsys_esoc0` open,
+  PM/CNSS/HAL start, scan/connect, credentials, DHCP/routes, external ping,
+  flash, boot image write, partition write는 별도 gate 전까지 계속 블록한다.
 - V1198 배경: V1197 root cause 분석 완료: 세 가지 레이어 문제가 중첩됨.
   V1197 root cause 분석 완료: 세 가지 레이어 문제가 중첩됨.
   (1) V1194/V1195/V1196: SAMPLE_COUNT!=0 → serial 홍수 (pm_proxy/pm-service /proc/maps 덤프
