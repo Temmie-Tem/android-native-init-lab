@@ -5577,3 +5577,24 @@ Samsung bootloader
 - next: V1330 should design a focused Android read-only timing recapture around
   earliest `per_mgr`/`per_proxy`, `mdm_helper`, GPIO142, PCIe RC1, and `ks`/MHI
   on one monotonic timeline before any native PMIC/GPIO/eSoC mutation.
+
+## V1330 Android Timing Recapture Plan (2026-05-31)
+
+- report: `docs/reports/NATIVE_INIT_V1330_ANDROID_TIMING_RECAPTURE_PLAN_2026-05-31.md`
+- result: `v1330-focused-android-readonly-timing-recapture-plan-ready`, pass `true`.
+- objective: implement V1331 as an Android read-only collector/handoff that
+  places first `__subsystem_get(esoc0)`, GPIO142, PCIe RC1/L0, MHI, `ks`,
+  WLFW/BDF, and `wlan0` on one coherent timeline.
+- key correction: do not compare post-boot fd snapshot timing against kernel
+  dmesg timestamps as if they are the same source. Use dmesg monotonic
+  timestamps for kernel events, and keep `ro.boottime.*` init service times
+  separately labelled unless the runner verifies clock-source comparability.
+- reuse: extend the V622 Android handoff/collector pattern, but replace its
+  marker set with the V1330 SDX50M/eSoC/PCIe/MHI marker contract.
+- safety: collector read-only. Android boot handoff is allowed only in an
+  explicit rollback wrapper. No Wi-Fi HAL start, scan/connect, credential use,
+  DHCP/routes, external ping, PMIC/GPIO/GDSC/eSoC write, blind eSoC notify,
+  flash outside the handoff/rollback wrapper, boot image write outside approved
+  rollback, or partition write.
+- next: V1331 should implement the collector/handoff and run only after the
+  script exposes plan/preflight gates with the V1330 guardrails.
