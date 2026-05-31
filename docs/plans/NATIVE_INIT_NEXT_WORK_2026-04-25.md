@@ -224,8 +224,15 @@
   helper `v273`을 `/cache/bin/a90_android_execns_probe`에 배포했고 PASS했다. NCM이
   inactive여서 serial fallback을 사용했으며 chunk size `1800`, chunks `1010`,
   encoded bytes `1817918`, max cmdv1 line `3788`/safe `3968`이다. Post-deploy sha와
-  helper marker가 `v273`으로 확인됐고 selftest는 `fail=0`이다. 다음 V1303은 bounded
-  compact dense live rerun이며 새 `powerup_marker` key 존재를 gate로 삼는다.
+  helper marker가 `v273`으로 확인됐고 selftest는 `fail=0`이다. V1303은 bounded
+  compact dense live rerun을 실행했고 `powerup_marker`가 42/42 phases를 덮었다.
+  `pm-service`가 `/dev/subsys_esoc0`를 `openat`하고 `mdm_subsys_powerup`에 블록됨이
+  확인됐지만 `max_mdm_status_count_total=0`, `max_mhi_bus_count=0`, `mhi_pipe_seen=false`,
+  `wlan0_seen=false`다. GPIO snapshot은 `gpio135 : out 0 16mA no pull`,
+  `gpio142 : in  0 8mA no pull`이고 lineinfo는 AP2MDM consumer/kernel-owned를
+  확인했다. 다음 V1304는 Android-positive 증거와 V1303을 비교해 AP2MDM GPIO assertion,
+  MDM2AP status response, 또는 ext-mdm power/PMIC prerequisite 중 어느 경계가 실제
+  blocker인지 분류한다.
   GPIO line request, PMIC GPIO9 hold, PMIC write, direct eSoC ioctl, new
   PM/CNSS/HAL start, scan/connect, credentials, DHCP/routes, external ping, flash,
   boot image write, partition write는 별도 gate 전까지 계속 블록한다.
