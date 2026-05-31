@@ -215,8 +215,13 @@
   negative로 정정했다: transcript에는 `path.value=/dev/subsys_esoc0` 2회와
   `wchan=mdm_subsys_powerup` 13회가 남아 있다. 원인은 compact mode가 repeated
   syscall/kmsg probe를 제거했고, blocked open은 visible fd를 만들지 않아 fd-only
-  classifier가 실패한 것이다. 다음 V1301은 source/build-only로 compact powerup-thread/path
-  marker를 추가해 stdout cap 없이 `/dev/subsys_esoc0` reachability를 기록한다.
+  classifier가 실패한 것이다. V1301은 source/build-only로 helper `v273` compact
+  `powerup_marker`를 추가했고 PASS했다. 새 marker는 per-sample `pm-service`
+  process/thread count, `mdm_subsys_powerup` thread count, inferred `/dev/subsys_esoc0`
+  reachability, first blocked thread metadata, and best-effort syscall path capture를
+  기록한다. Built helper sha256은
+  `dd1d15a5ef01189526720814c50b007f6dc9a0f25e9239caf0e9da34c65b6b46`이다. 다음 V1302는
+  helper `v273` deploy-only, V1303은 bounded compact dense live rerun이다.
   GPIO line request, PMIC GPIO9 hold, PMIC write, direct eSoC ioctl, new
   PM/CNSS/HAL start, scan/connect, credentials, DHCP/routes, external ping, flash,
   boot image write, partition write는 별도 gate 전까지 계속 블록한다.

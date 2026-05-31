@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v272"
+#define EXECNS_VERSION "a90_android_execns_probe v273"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -17113,6 +17113,9 @@ static int count_process_cmdline_or_comm_matches(const char *cmdline_needle,
     return count;
 }
 
+static int append_pm_service_trigger_observer_powerup_marker_compact(struct buffer *buf,
+                                                                     const char *phase);
+
 static int append_pm_esoc_response_sample_compact(struct buffer *buf, const char *phase) {
     struct mdm_status_irq_snapshot irq = collect_mdm_status_irq_snapshot();
     struct pmic_gpiochip_lineinfo_sample gpiochip_line = collect_pmic_gpiochip_lineinfo_sample();
@@ -17222,6 +17225,9 @@ static int append_pm_esoc_response_sample_compact(struct buffer *buf, const char
     if (!pcie0_gdsc_seen) {
         pcie0_gdsc_line[0] = '\0';
         pcie0_gdsc_source[0] = '\0';
+    }
+    if (append_pm_service_trigger_observer_powerup_marker_compact(buf, phase) < 0) {
+        return -1;
     }
     return append_format(buf,
                          "pm_service_trigger_observer.response_sample.%s.begin=1\n"
@@ -31000,6 +31006,179 @@ static bool parse_proc_syscall_line(const char *line,
                   &args[3],
                   &args[4],
                   &args[5]) == 7;
+}
+
+static int append_pm_service_trigger_observer_powerup_marker_compact(struct buffer *buf,
+                                                                     const char *phase) {
+    DIR *proc_dir;
+    struct dirent *proc_entry;
+    int process_count = 0;
+    int thread_count = 0;
+    int powerup_thread_count = 0;
+    pid_t first_pid = -1;
+    pid_t first_tid = -1;
+    char first_state = '-';
+    char first_comm[128] = "";
+    char first_wchan[128] = "";
+    char first_syscall_line[512] = "";
+    long first_syscall_nr = -1;
+    int first_path_arg_index = -1;
+    unsigned long long first_path_arg = 0;
+    bool first_syscall_parsed = false;
+    char path_prefix[192];
+
+    proc_dir = opendir("/proc");
+    if (proc_dir == NULL) {
+        return append_format(buf,
+                             "pm_service_trigger_observer.response_sample.%s.powerup_marker.begin=1\n"
+                             "pm_service_trigger_observer.response_sample.%s.powerup_marker.error=%s\n"
+                             "pm_service_trigger_observer.response_sample.%s.powerup_marker.end=1\n",
+                             phase,
+                             phase,
+                             strerror(errno),
+                             phase);
+    }
+    while ((proc_entry = readdir(proc_dir)) != NULL) {
+        pid_t pid;
+        char cmdline[512];
+        char comm[128];
+        char task_path[MAX_PATH_LEN];
+        DIR *task_dir;
+        struct dirent *task_entry;
+        bool matched = false;
+
+        if (!parse_pid_name(proc_entry->d_name, &pid)) {
+            continue;
+        }
+        if (read_proc_cmdline_compact(pid, cmdline, sizeof(cmdline)) &&
+            strstr(cmdline, "/vendor/bin/pm-service") != NULL) {
+            matched = true;
+        }
+        if (!matched) {
+            read_proc_comm(pid, comm, sizeof(comm));
+            if (strcmp(comm, "pm-service") == 0) {
+                matched = true;
+            }
+        }
+        if (!matched) {
+            continue;
+        }
+        process_count++;
+        if (snprintf(task_path, sizeof(task_path), "/proc/%ld/task", (long)pid) >= (int)sizeof(task_path)) {
+            continue;
+        }
+        task_dir = opendir(task_path);
+        if (task_dir == NULL) {
+            continue;
+        }
+        while ((task_entry = readdir(task_dir)) != NULL) {
+            char wchan_path[MAX_PATH_LEN];
+            char comm_path[MAX_PATH_LEN];
+            char syscall_path[MAX_PATH_LEN];
+            char wchan[128];
+            pid_t tid;
+
+            if (!decimal_name(task_entry->d_name)) {
+                continue;
+            }
+            thread_count++;
+            if (snprintf(wchan_path, sizeof(wchan_path), "%s/%s/wchan", task_path, task_entry->d_name) >= (int)sizeof(wchan_path)) {
+                continue;
+            }
+            read_first_line_path(wchan_path, wchan, sizeof(wchan));
+            if (strstr(wchan, "mdm_subsys_powerup") == NULL) {
+                continue;
+            }
+            powerup_thread_count++;
+            if (first_tid >= 0) {
+                continue;
+            }
+            tid = (pid_t)strtol(task_entry->d_name, NULL, 10);
+            first_pid = pid;
+            first_tid = tid;
+            first_state = read_proc_state(tid);
+            snprintf(first_wchan, sizeof(first_wchan), "%s", wchan);
+            if (snprintf(comm_path, sizeof(comm_path), "%s/%s/comm", task_path, task_entry->d_name) < (int)sizeof(comm_path)) {
+                read_first_line_path(comm_path, first_comm, sizeof(first_comm));
+            }
+            if (snprintf(syscall_path, sizeof(syscall_path), "%s/%s/syscall", task_path, task_entry->d_name) < (int)sizeof(syscall_path)) {
+                unsigned long long args[6] = {0};
+
+                read_first_line_path(syscall_path, first_syscall_line, sizeof(first_syscall_line));
+                first_syscall_parsed = parse_proc_syscall_line(first_syscall_line, &first_syscall_nr, args);
+                if (first_syscall_parsed) {
+                    first_path_arg_index = a90_syscall_path_arg_index(first_syscall_nr);
+                    if (first_path_arg_index >= 0) {
+                        first_path_arg = args[first_path_arg_index];
+                    }
+                }
+            }
+        }
+        closedir(task_dir);
+    }
+    closedir(proc_dir);
+    if (append_format(buf,
+                      "pm_service_trigger_observer.response_sample.%s.powerup_marker.begin=1\n"
+                      "pm_service_trigger_observer.response_sample.%s.powerup_marker.per_mgr_process_count=%d\n"
+                      "pm_service_trigger_observer.response_sample.%s.powerup_marker.per_mgr_thread_count=%d\n"
+                      "pm_service_trigger_observer.response_sample.%s.powerup_marker.powerup_thread_count=%d\n"
+                      "pm_service_trigger_observer.response_sample.%s.powerup_marker.subsys_esoc0_open_inferred=%d\n"
+                      "pm_service_trigger_observer.response_sample.%s.powerup_marker.first_pid=%ld\n"
+                      "pm_service_trigger_observer.response_sample.%s.powerup_marker.first_tid=%ld\n"
+                      "pm_service_trigger_observer.response_sample.%s.powerup_marker.first_state=%c\n"
+                      "pm_service_trigger_observer.response_sample.%s.powerup_marker.first_comm=%s\n"
+                      "pm_service_trigger_observer.response_sample.%s.powerup_marker.first_wchan=%s\n"
+                      "pm_service_trigger_observer.response_sample.%s.powerup_marker.first_syscall_parsed=%d\n"
+                      "pm_service_trigger_observer.response_sample.%s.powerup_marker.first_syscall_nr=%ld\n"
+                      "pm_service_trigger_observer.response_sample.%s.powerup_marker.first_syscall_name=%s\n"
+                      "pm_service_trigger_observer.response_sample.%s.powerup_marker.first_syscall.path_arg_index=%d\n",
+                      phase,
+                      phase, process_count,
+                      phase, thread_count,
+                      phase, powerup_thread_count,
+                      phase, powerup_thread_count > 0 ? 1 : 0,
+                      phase, (long)first_pid,
+                      phase, (long)first_tid,
+                      phase, first_state,
+                      phase, first_comm[0] ? first_comm : "none",
+                      phase, first_wchan[0] ? first_wchan : "none",
+                      phase, first_syscall_parsed ? 1 : 0,
+                      phase, first_syscall_nr,
+                      phase, first_syscall_parsed ? a90_syscall_name(first_syscall_nr) : "none",
+                      phase, first_path_arg_index) < 0) {
+        return -1;
+    }
+    if (snprintf(path_prefix,
+                 sizeof(path_prefix),
+                 "pm_service_trigger_observer.response_sample.%s.powerup_marker.first_syscall",
+                 phase) >= (int)sizeof(path_prefix)) {
+        return append_format(buf,
+                             "pm_service_trigger_observer.response_sample.%s.powerup_marker.first_syscall.path.valid=0\n"
+                             "pm_service_trigger_observer.response_sample.%s.powerup_marker.first_syscall.path.reason=prefix-too-long\n"
+                             "pm_service_trigger_observer.response_sample.%s.powerup_marker.end=1\n",
+                             phase,
+                             phase,
+                             phase);
+    }
+    if (first_pid > 0 && first_path_arg_index >= 0) {
+        if (append_process_vm_c_string_field(buf,
+                                             first_pid,
+                                             path_prefix,
+                                             "path",
+                                             first_path_arg,
+                                             192) < 0) {
+            return -1;
+        }
+    } else if (append_format(buf,
+                             "pm_service_trigger_observer.response_sample.%s.powerup_marker.first_syscall.path.valid=0\n"
+                             "pm_service_trigger_observer.response_sample.%s.powerup_marker.first_syscall.path.reason=no-path-arg\n",
+                             phase,
+                             phase) < 0) {
+        return -1;
+    }
+    return append_format(buf,
+                         "pm_service_trigger_observer.response_sample.%s.powerup_marker.end=1\n",
+                         phase);
 }
 
 static const char *esoc_ioctl_request_name(unsigned long long request) {
