@@ -6104,6 +6104,34 @@ Samsung bootloader
       ping, PERST assert/deassert debug cases, PMIC/GPIO/GDSC direct writes,
       eSoC notify/`BOOT_DONE` spoof, flash, boot image write, or partition
       write.
+    - Result:
+      `docs/reports/NATIVE_INIT_V1372_PROVIDER_HELD_PCIE1_ENUMERATE_LIVE_2026-06-01.md`.
+      Decision: `v1372-provider-held-still-no-l0-clean`. The ext-sdx50m
+      provider path was opened via `/dev/subsys_esoc0` and the holder was
+      observed in `mdm_subsys_powerup` before corrected `rc_sel=2` + `case=11`.
+      RC1 reached PHY-ready and LTSSM poll active/compliance, then failed before
+      L0 again. No GPIO142/MDM2AP, PCI, MHI, WLFW, or `wlan0` appeared, and
+      reboot cleanup restored native health with selftest `fail=0`.
+
+21. **V1373 provider-path parity classifier (host-only).**
+    - Inputs: V1372 native provider-held evidence, V1370 native corrected
+      enumerate evidence, Android V852 RC1-L0 timeline, V1157/V1158
+      `mdm_helper` strace evidence, V1228 compact trace, and the ext-sdx50m/
+      pci-msm source/DTS analysis.
+    - Goal: decide why Android reaches endpoint readiness while raw native
+      provider-hold plus corrected RC1 enumerate does not. The classifier must
+      separate timing-only hypotheses from missing Android-only participants
+      such as `mdm_helper` command-engine registration, `pm-service`/peripheral
+      manager ordering, PM QoS/client votes, or other provider-adjacent
+      prerequisites.
+    - Required output: ordered Android-vs-native table for `mdm_helper`,
+      `pm-service`/`__subsystem_get(esoc0)`, AP2MDM/PON, GPIO142/MDM2AP, RC1
+      PERST release, LTSSM states, PCI/MHI creation, and a single next live
+      candidate or an explicit no-mutation stop.
+    - Hard stop: host-only. No new device command, debugfs case write, PERST
+      assert/deassert, PMIC/GPIO/GDSC direct write, eSoC notify/`BOOT_DONE`,
+      Wi-Fi HAL, scan/connect/credentials, DHCP/routes, external ping, flash,
+      boot image write, or partition write.
 
 ### Required decision before any new mutation
 
@@ -6165,6 +6193,11 @@ Samsung bootloader
   the RC side is no longer missing an enumerate entry. V1372 should combine the
   already-known provider/eSoC hold path with the corrected RC1 enumerate timing;
   it must not start Wi-Fi HAL/network bring-up.
+- V1372 proves raw provider-hold plus corrected RC1 enumerate is still not
+  enough: the holder reaches `mdm_subsys_powerup`, but RC1 remains below L0 and
+  GPIO142/MDM2AP never asserts. V1373 must compare Android's full
+  `mdm_helper`/`pm-service` provider path against this raw-holder path before
+  any new live mutation.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still

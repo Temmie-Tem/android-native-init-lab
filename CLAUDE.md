@@ -1292,3 +1292,12 @@ Update after V1354/V1355:
   Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, direct
   PMIC/GPIO/GDSC writes, eSoC notify/`BOOT_DONE` spoof, flash, boot image write,
   or partition write.
+- V1372 bounded live proof
+  (`v1372-provider-held-still-no-l0-clean`) opened the ext-sdx50m provider path
+  via `/dev/subsys_esoc0`, confirmed the holder in `mdm_subsys_powerup`, waited
+  the Android-derived delay, then ran corrected `rc_sel=2` + `case=11`. RC1
+  again reached PHY-ready and LTSSM poll active/compliance, then failed before
+  L0. No GPIO142/MDM2AP assertion, PCI device, MHI node, WLFW marker, or `wlan0`
+  appeared, and reboot cleanup returned native selftest `fail=0`. The next gate
+  is V1373 host-only parity classification of why Android's provider/pm-service
+  path makes the endpoint ready but raw provider-hold + RC1 enumerate does not.
