@@ -272,7 +272,9 @@
   `response_summary.*` keys다. 빌드된 static aarch64 helper sha256은
   `66e52e7507dd07bcb4071afd04bc60e51d1c6bb7b9cb7363205f1eb4f44d4677`이다. 다음
   V1312는 helper `v275` deploy-only, V1313은 bounded lower-sequence summary sampler
-  live다.
+  live다. V1312는 helper `v275` deploy-only로 PASS했고 remote
+  `/cache/bin/a90_android_execns_probe` sha256도 동일했다. NCM은 inactive라 serial
+  fallback으로 배포했으며 daemon start나 Wi-Fi bring-up은 없었다.
   GPIO line request, PMIC GPIO9 hold, PMIC write, direct eSoC ioctl, new
   PM/CNSS/HAL start, scan/connect, credentials, DHCP/routes, external ping, flash,
   boot image write, partition write는 별도 gate 전까지 계속 블록한다.
