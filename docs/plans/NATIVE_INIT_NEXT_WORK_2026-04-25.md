@@ -5999,6 +5999,29 @@ Samsung bootloader
       PMIC/GPIO/GDSC direct write, no eSoC notify/`BOOT_DONE`, no Wi-Fi HAL,
       scan/connect/DHCP/routes/external ping, flash, boot image write, or
       partition write.
+    - Result:
+      `docs/reports/NATIVE_INIT_V1368_PCI_MSM_CORRECTED_RC1_STATUS_LIVE_2026-06-01.md`.
+      Decision: `v1368-corrected-rc1-status-proof-clean`. `rc_sel=2` followed
+      by `case=26` emitted RC1 PERST/WAKE status without transport loss, PCI/
+      MHI/link transition, or health regression. Debugfs mount state was
+      restored and post-selftest stayed `fail=0`. Observed RC1 values:
+      PERST gpio102=`0`, WAKE gpio104=`0`.
+
+17. **V1369 pcie1 enumerate-vs-shim decision (host-only).**
+    - Inputs: V1368 clean corrected-RC1 status proof, pci-msm source showing
+      `case=11` calls `msm_pcie_enumerate(dev->rc_idx)`, V1354 proof that
+      pcie1 stays off in the current route, and V1362 rejection of broad
+      bind/rescan paths.
+    - Required output: choose whether the next mutation should be a bounded
+      debugfs `rc_sel=2` + `case=11` enumerate attempt, or a kernel-side
+      `msm_pcie_enumerate(1)` shim/patch. The decision must include exact
+      preflight, timeout, dmesg/PCI/MHI/GPIO142 success criteria, cleanup/
+      recovery behavior, and stop conditions.
+    - Keep host-only until the design is explicit. No live `case=11`, no PERST
+      assert/deassert, no MMIO write cases, no boot option write, no platform
+      bind/unbind, no generic PCI rescan, no PMIC/GPIO/GDSC direct write, no
+      eSoC notify/`BOOT_DONE`, no Wi-Fi HAL, scan/connect, DHCP/routes,
+      external ping, flash, boot image write, or partition write.
 
 ### Required decision before any new mutation
 
@@ -6045,6 +6068,10 @@ Samsung bootloader
 - V1367 selects the corrected RC1 status-read as the next bounded live gate,
   not enumerate. V1368 may only write `rc_sel=2` and `case=26`, with
   reboot-risk handling and no Wi-Fi bring-up side effects.
+- V1368 proves corrected RC1 status-read is clean: `rc_sel=2` + `case=26`
+  returns RC1 PERST/WAKE status with no PCI/MHI/link transition. The next
+  decision is not Wi-Fi bring-up yet; V1369 must choose an enumerate strategy
+  versus kernel shim with explicit rollback/recovery criteria.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still

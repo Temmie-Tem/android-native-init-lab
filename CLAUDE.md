@@ -1255,3 +1255,11 @@ Update after V1354/V1355:
   loss, completed after-captures, no PCI/MHI/link-up transition, debugfs mount
   cleanup, and post-selftest `fail=0`; transport loss is a failure/recovery
   classification, not a pass.
+- V1368 bounded live proof (`v1368-corrected-rc1-status-proof-clean`) validates
+  the corrected RC1 debugfs status path. `rc_sel=2` then `case=26` emitted
+  RC1 status without transport loss, PCI/MHI/link transition, or health
+  regression; debugfs cleanup restored the original mount state and post
+  selftest stayed `fail=0`. Dmesg reported RC1 PERST gpio102 value `0` and
+  WAKE gpio104 value `0`. This proves the corrected selector is usable for
+  readout, but still does not execute or approve `case=11` enumerate. Next
+  gate is V1369 host-only enumerate-vs-shim decision.
