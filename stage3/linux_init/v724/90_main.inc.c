@@ -206,7 +206,19 @@ static void selftest_boot_draw_frame(void *ctx) {
 #endif
 #define A90_V1393_WIFI_TEST_HELPER "/bin/a90_android_execns_probe"
 #define A90_V1393_WIFI_TEST_TIMEOUT_SEC "30"
+#ifndef A90_WIFI_TEST_BOOT_ANDROID_SERVICE_WINDOW
+#define A90_WIFI_TEST_BOOT_ANDROID_SERVICE_WINDOW 0
+#endif
+#ifndef A90_WIFI_TEST_BOOT_ANDROID_SERVICE_WINDOW_SUBSYS_TRIGGER_CAPTURE
+#define A90_WIFI_TEST_BOOT_ANDROID_SERVICE_WINDOW_SUBSYS_TRIGGER_CAPTURE 0
+#endif
+#if A90_WIFI_TEST_BOOT_ANDROID_SERVICE_WINDOW_SUBSYS_TRIGGER_CAPTURE
+#define A90_V1393_WIFI_TEST_MODE "wifi-companion-android-wifi-service-window-subsys-trigger-capture"
+#elif A90_WIFI_TEST_BOOT_ANDROID_SERVICE_WINDOW
+#define A90_V1393_WIFI_TEST_MODE "wifi-companion-android-wifi-service-window-start-only"
+#else
 #define A90_V1393_WIFI_TEST_MODE "wifi-companion-post-pm-mdm-helper-esoc-observer"
+#endif
 #define A90_V1393_WIFI_TEST_PROPERTY_ROOT "/mnt/sdext/a90/private-property-v317/v535/dev/__properties__"
 #define A90_V1393_WIFI_TEST_REAL_LD_CONFIG "/cache/bin/a90_real_ld.config.txt"
 #define A90_V1393_WIFI_TEST_REAL_APEX_LIBRARIES "/cache/bin/a90_real_apex.libraries.config.txt"
@@ -3237,7 +3249,6 @@ static int v1393_spawn_wifi_test_boot_helper(pid_t *pid_out) {
         "ext4",
         "--mode",
         A90_V1393_WIFI_TEST_MODE,
-        "--allow-pm-service-trigger-observer",
         "--timeout-sec",
         A90_V1393_WIFI_TEST_TIMEOUT_SEC,
         "--property-root",
@@ -3254,6 +3265,13 @@ static int v1393_spawn_wifi_test_boot_helper(pid_t *pid_out) {
         A90_V1393_WIFI_TEST_REAL_APEX_LIBRARIES,
         "--vndk-apex-alias-mode",
         "v30-to-system-ext-v30",
+#if A90_WIFI_TEST_BOOT_ANDROID_SERVICE_WINDOW
+        "--allow-android-wifi-service-window",
+#if A90_WIFI_TEST_BOOT_ANDROID_SERVICE_WINDOW_SUBSYS_TRIGGER_CAPTURE
+        "--allow-android-wifi-service-window-subsys-trigger-capture",
+#endif
+#else
+        "--allow-pm-service-trigger-observer",
         "--pm-observer-continue-after-provider",
         "--pm-observer-start-cnss-after-provider",
         "--allow-post-pm-mdm-helper-esoc-observer",
@@ -3281,6 +3299,7 @@ static int v1393_spawn_wifi_test_boot_helper(pid_t *pid_out) {
 #endif
 #if !A90_WIFI_TEST_BOOT_PID1_RC1_WATCHER && !A90_WIFI_TEST_BOOT_AUTO_READINESS_SUPERVISOR
         "--pm-observer-early-powerup-corrected-rc1-enumerate",
+#endif
 #endif
         NULL
     };

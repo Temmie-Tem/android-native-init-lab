@@ -45,6 +45,7 @@ DEFAULT_WIFI_TEST_PID = "/cache/native-init-wifi-test-boot-v1393.pid"
 DEFAULT_WIFI_TEST_WATCHER_PID = "/cache/native-init-wifi-test-boot-v1393-watcher.pid"
 DEFAULT_WIFI_TEST_WATCH_SEC = 35
 DEFAULT_WIFI_TEST_SUPERVISOR_TIMEOUT_SEC = 40
+DEFAULT_WIFI_TEST_HELPER_MODE = "post-pm-observer"
 EXPECTED_HELPER_MARKER = "a90_android_execns_probe v287"
 EXPECTED_HELPER_SHA256 = "660d88fc9e0ebdf6c95e495d9dd659c09321feb407fe6a7f77213f3b5c2bb411"
 REPRODUCIBLE_MTIME = 0
@@ -87,6 +88,21 @@ def pid1_sources() -> list[Path]:
 
 def shell_define(name: str, value: str) -> str:
     return f'-D{name}="{value}"'
+
+
+def helper_runtime_mode(args: argparse.Namespace) -> str:
+    if args.wifi_test_helper_mode == "android-service-window-start-only":
+        return "wifi-companion-android-wifi-service-window-start-only"
+    if args.wifi_test_helper_mode == "android-service-window-subsys-trigger-capture":
+        return "wifi-companion-android-wifi-service-window-subsys-trigger-capture"
+    return "wifi-companion-post-pm-mdm-helper-esoc-observer"
+
+
+def uses_android_service_window(args: argparse.Namespace) -> bool:
+    return args.wifi_test_helper_mode in {
+        "android-service-window-start-only",
+        "android-service-window-subsys-trigger-capture",
+    }
 
 
 def build_helper(args: argparse.Namespace) -> None:
@@ -223,6 +239,11 @@ def build_init(args: argparse.Namespace) -> None:
         if args.wifi_test_auto_readiness_supervisor
         else []
     )
+    service_window_flags: list[str] = []
+    if uses_android_service_window(args):
+        service_window_flags.append("-DA90_WIFI_TEST_BOOT_ANDROID_SERVICE_WINDOW=1")
+    if args.wifi_test_helper_mode == "android-service-window-subsys-trigger-capture":
+        service_window_flags.append("-DA90_WIFI_TEST_BOOT_ANDROID_SERVICE_WINDOW_SUBSYS_TRIGGER_CAPTURE=1")
     rc1_retry_flags = []
     if args.wifi_test_rc1_retry_count > 0:
         rc1_retry_flags = [
@@ -271,6 +292,7 @@ def build_init(args: argparse.Namespace) -> None:
         *provider_trigger_effective_level_flags,
         *provider_trigger_ap2mdm_hold_flags,
         *auto_readiness_flags,
+        *service_window_flags,
         *rc1_retry_flags,
         "-o",
         args.init_binary,
@@ -365,6 +387,48 @@ def verify_static(path: Path) -> None:
         raise RuntimeError(f"INTERP segment found in {path}")
 
 
+def verify_init_route_contract(args: argparse.Namespace) -> None:
+    strings = run(["strings", args.init_binary], capture=True).stdout
+    expected = [
+        helper_runtime_mode(args),
+    ]
+    forbidden: list[str] = []
+    if uses_android_service_window(args):
+        expected.extend([
+            "--allow-android-wifi-service-window",
+        ])
+        if args.wifi_test_helper_mode == "android-service-window-subsys-trigger-capture":
+            expected.append("--allow-android-wifi-service-window-subsys-trigger-capture")
+        forbidden.extend([
+            "--allow-pm-service-trigger-observer",
+            "--allow-post-pm-mdm-helper-esoc-observer",
+            "--allow-post-pm-mdm-helper-lower-trace",
+            "--pm-observer-continue-after-provider",
+            "--pm-observer-start-cnss-after-provider",
+            "--pm-observer-start-mdm-helper-after-cnss",
+            "--pm-observer-start-mdm-helper-before-cnss",
+            "--pm-observer-early-powerup-corrected-rc1-enumerate",
+            "--pm-observer-private-cnss-daemon-sdx50m",
+            "--private-cnss-daemon-path",
+        ])
+    else:
+        expected.extend([
+            "--allow-pm-service-trigger-observer",
+            "--allow-post-pm-mdm-helper-esoc-observer",
+            "--pm-observer-current-route-cnss-wlfw-precondition-summary",
+        ])
+        forbidden.extend([
+            "--allow-android-wifi-service-window",
+            "--allow-android-wifi-service-window-subsys-trigger-capture",
+        ])
+    missing = [marker for marker in expected if marker not in strings]
+    if missing:
+        raise RuntimeError("missing init route markers: " + ", ".join(missing))
+    present_forbidden = [marker for marker in forbidden if marker in strings]
+    if present_forbidden:
+        raise RuntimeError("forbidden init route markers present: " + ", ".join(present_forbidden))
+
+
 def verify_ramdisk(args: argparse.Namespace) -> None:
     listing = run(["bash", "-lc", f"cpio -it < {shlex.quote(str(args.ramdisk_cpio))}"], capture=True).stdout
     required = {
@@ -391,7 +455,14 @@ def verify_markers(args: argparse.Namespace) -> None:
         args.wifi_test_watcher_pid,
         "wifi-v1393-test-boot",
         "/bin/a90_android_execns_probe",
+        helper_runtime_mode(args),
     ]
+    if uses_android_service_window(args):
+        expected.append("--allow-android-wifi-service-window")
+        if args.wifi_test_helper_mode == "android-service-window-subsys-trigger-capture":
+            expected.append("--allow-android-wifi-service-window-subsys-trigger-capture")
+    else:
+        expected.append("--allow-post-pm-mdm-helper-esoc-observer")
     if args.wifi_test_mount_debugfs:
         expected.extend([
             "debugfs_mount_requested",
@@ -785,6 +856,10 @@ def write_manifest(args: argparse.Namespace) -> None:
             "summary_watcher": True,
             "supervise_helper": args.wifi_test_supervise_helper,
             "supervisor_timeout_sec": args.wifi_test_supervisor_timeout_sec,
+            "helper_mode": args.wifi_test_helper_mode,
+            "helper_runtime_mode": helper_runtime_mode(args),
+            "android_service_window": uses_android_service_window(args),
+            "scan_connect_credentials": False,
             "mount_debugfs": args.wifi_test_mount_debugfs,
             "pid1_rc1_watcher": args.wifi_test_pid1_rc1_watcher,
             "rc1_watcher_timeout_sec": args.wifi_test_rc1_watcher_timeout_sec,
@@ -827,6 +902,7 @@ def write_manifest(args: argparse.Namespace) -> None:
             "flash": False,
             "partition_write": False,
             "wifi_scan_connect": False,
+            "credentials": False,
             "dhcp_routes_external_ping": False,
         },
     }
@@ -843,6 +919,38 @@ def resolve_args(args: argparse.Namespace) -> argparse.Namespace:
     args.ramdisk_cpio = args.ramdisk_cpio.resolve()
     args.boot_image = args.boot_image.resolve()
     args.manifest = args.manifest.resolve()
+    if uses_android_service_window(args):
+        incompatible = {
+            "wifi_test_mount_debugfs": args.wifi_test_mount_debugfs,
+            "wifi_test_pid1_rc1_watcher": args.wifi_test_pid1_rc1_watcher,
+            "wifi_test_rc1_window_sampler": args.wifi_test_rc1_window_sampler,
+            "wifi_test_rc1_endpoint_sampler": args.wifi_test_rc1_endpoint_sampler,
+            "wifi_test_rc1_focused_endpoint_sampler": args.wifi_test_rc1_focused_endpoint_sampler,
+            "wifi_test_rc1_immediate_endpoint_sampler": args.wifi_test_rc1_immediate_endpoint_sampler,
+            "wifi_test_rc1_micro_endpoint_sampler": args.wifi_test_rc1_micro_endpoint_sampler,
+            "wifi_test_rc1_micro_focused_endpoint_sampler": args.wifi_test_rc1_micro_focused_endpoint_sampler,
+            "wifi_test_rc1_micro_batched_focused_endpoint_sampler": args.wifi_test_rc1_micro_batched_focused_endpoint_sampler,
+            "wifi_test_rc1_micro_source_timestamped_sampler": args.wifi_test_rc1_micro_source_timestamped_sampler,
+            "wifi_test_rc1_micro_critical_fast_endpoint_sampler": args.wifi_test_rc1_micro_critical_fast_endpoint_sampler,
+            "wifi_test_rc1_case_aligned_micro_endpoint_sampler": args.wifi_test_rc1_case_aligned_micro_endpoint_sampler,
+            "wifi_test_rc1_sysfs_client_enumerate": args.wifi_test_rc1_sysfs_client_enumerate,
+            "wifi_test_provider_trigger_micro_endpoint_sampler": args.wifi_test_provider_trigger_micro_endpoint_sampler,
+            "wifi_test_provider_trigger_exact_line": args.wifi_test_provider_trigger_exact_line,
+            "wifi_test_provider_trigger_long_window": args.wifi_test_provider_trigger_long_window,
+            "wifi_test_provider_trigger_thread_state": args.wifi_test_provider_trigger_thread_state,
+            "wifi_test_provider_trigger_tracepoint_sampler": args.wifi_test_provider_trigger_tracepoint_sampler,
+            "wifi_test_provider_trigger_pil_tracepoint_sampler": args.wifi_test_provider_trigger_pil_tracepoint_sampler,
+            "wifi_test_provider_trigger_effective_level_sampler": args.wifi_test_provider_trigger_effective_level_sampler,
+            "wifi_test_provider_trigger_ap2mdm_hold": args.wifi_test_provider_trigger_ap2mdm_hold,
+            "wifi_test_auto_readiness_supervisor": args.wifi_test_auto_readiness_supervisor,
+            "wifi_test_rc1_retry_count": args.wifi_test_rc1_retry_count > 0,
+        }
+        enabled = [key for key, value in incompatible.items() if value]
+        if enabled:
+            raise RuntimeError(
+                "Android service-window route must not combine RC1/provider/auto-readiness options: "
+                + ", ".join(enabled)
+            )
     return args
 
 
@@ -867,6 +975,15 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--wifi-test-watch-sec", type=int, default=DEFAULT_WIFI_TEST_WATCH_SEC)
     parser.add_argument("--wifi-test-supervise-helper", action="store_true")
     parser.add_argument("--wifi-test-supervisor-timeout-sec", type=int, default=DEFAULT_WIFI_TEST_SUPERVISOR_TIMEOUT_SEC)
+    parser.add_argument(
+        "--wifi-test-helper-mode",
+        choices=[
+            "post-pm-observer",
+            "android-service-window-start-only",
+            "android-service-window-subsys-trigger-capture",
+        ],
+        default=DEFAULT_WIFI_TEST_HELPER_MODE,
+    )
     parser.add_argument("--wifi-test-mount-debugfs", action="store_true")
     parser.add_argument("--wifi-test-pid1-rc1-watcher", action="store_true")
     parser.add_argument("--wifi-test-rc1-watcher-timeout-sec", type=int, default=45)
@@ -926,6 +1043,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     build_init(args)
     verify_static(args.init_binary)
     verify_static(args.helper_binary)
+    verify_init_route_contract(args)
     build_ramdisk(args)
     verify_ramdisk(args)
     build_boot_image(args)

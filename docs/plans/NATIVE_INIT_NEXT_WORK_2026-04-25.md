@@ -8845,6 +8845,24 @@ Samsung bootloader
   scan/connect, credentials, DHCP/routes, external ping, PMIC/GPIO/GDSC writes,
   blind eSoC notify, global PCI rescan, or platform bind/unbind. Report:
   `docs/reports/NATIVE_INIT_V1561_WLFW_CONTRACT_REBASE_CLASSIFIER_2026-06-02.md`.
+- V1562 source/build-only route selector passes with
+  `v1562-android-wifi-service-window-test-boot-source-build-pass`. It updates
+  `stage3/linux_init/v724/90_main.inc.c` and
+  `scripts/revalidation/build_native_init_wifi_test_boot_v1393.py` so the v1393
+  Wi-Fi test boot can select `android-service-window-start-only` at build time.
+  The generated artifact launches
+  `wifi-companion-android-wifi-service-window-start-only` with
+  `--allow-android-wifi-service-window` and excludes the post-PM observer route
+  flags from the PID1 argv. Artifact:
+  `tmp/wifi/v1562-android-wifi-service-window-test-boot/boot_linux_v1393_wifi_test.img`,
+  boot sha256
+  `3b927f60b81caaf60f01ea5fcf23cccc56d68cbc58edaf5db6e7993f5cad262d`.
+  Backcompat source-build smoke for the default post-PM observer branch also
+  passes. Next gate: V1563 rollbackable live handoff should only check for
+  `cnss-daemon wlfw_start`/`wlfw_service_request` under service-window mode; no
+  credentials, scan/connect, DHCP/routes, external ping, PMIC/GPIO/GDSC writes,
+  blind eSoC notify, global PCI rescan, or platform bind/unbind. Report:
+  `docs/reports/NATIVE_INIT_V1562_ANDROID_WIFI_SERVICE_WINDOW_TEST_BOOT_SOURCE_BUILD_2026-06-02.md`.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still

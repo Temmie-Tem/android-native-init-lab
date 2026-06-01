@@ -2979,3 +2979,29 @@ Success means the artifact contains the service-window mode plus
 DHCP/route, external-ping, PMIC/GPIO/GDSC write, blind eSoC notify, global PCI
 rescan, or platform bind/unbind path. The live follow-up should first look for
 `wlfw_start`/`wlfw_service_request`, not credentials or external connectivity.
+
+## Latest native Wi-Fi state: V1562 (2026-06-02)
+
+V1562 updates `stage3/linux_init/v724/90_main.inc.c` and
+`scripts/revalidation/build_native_init_wifi_test_boot_v1393.py` so the v1393
+Wi-Fi test boot helper route is selectable at build time. The default remains
+`wifi-companion-post-pm-mdm-helper-esoc-observer`; the new
+`--wifi-test-helper-mode android-service-window-start-only` build route compiles
+PID1 to launch `wifi-companion-android-wifi-service-window-start-only` with
+`--allow-android-wifi-service-window`.
+
+Source/build validation passes with
+`v1562-android-wifi-service-window-test-boot-source-build-pass`. Artifact:
+`tmp/wifi/v1562-android-wifi-service-window-test-boot/boot_linux_v1393_wifi_test.img`
+with boot sha256
+`3b927f60b81caaf60f01ea5fcf23cccc56d68cbc58edaf5db6e7993f5cad262d`.
+The service-window PID1 binary contains the service-window mode and allow flag,
+does not contain the post-PM observer route flags, and rejects service-window
+combinations with RC1/provider/auto-readiness options. A backcompat source-build
+smoke also passes for the default post-PM observer branch.
+
+Next gate: V1563 can be a rollbackable live handoff using the V1562 artifact.
+The only target is `cnss-daemon wlfw_start`/`wlfw_service_request` evidence under
+the Android service-window route. Still do not use credentials, scan/connect,
+DHCP/routes, external ping, PMIC/GPIO/GDSC writes, blind eSoC notify, global PCI
+rescan, or platform bind/unbind.
