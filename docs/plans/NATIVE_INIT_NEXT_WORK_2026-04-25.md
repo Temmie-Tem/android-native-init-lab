@@ -8455,6 +8455,25 @@ Samsung bootloader
   native mutation.
   Report:
   `docs/reports/NATIVE_INIT_V1530_ANDROID_TRACEFS_NATIVE_NO_L0_CLASSIFIER_2026-06-02.md`.
+- V1531 host-only targeted trace/source classifier passes with
+  `v1531-targeted-trace-source-classifies-visible-signals-not-trigger`. It adds
+  `scripts/revalidation/native_wifi_targeted_trace_source_classifier_v1531.py`
+  and maps V1529/V1530 evidence against local ICNSS source, pm-service binary
+  strings, and local `pci-msm.c`. Source confirms `icnss_driver_event_work` is
+  only a shared dispatcher for SERVER_ARRIVE, FW_READY, REGISTER_DRIVER, and
+  other ICNSS events, so V1529's `workqueue_execute_start` line cannot identify
+  the event type by itself. pm-service is the proprietary
+  `vendor.qcom.PeripheralManager` Binder/QMI voter actor and V1529 sees the
+  Android sequence `pm-service exec -> Binder subsystem_get(modem) -> WLFW
+  start -> Binder subsystem_get(esoc0) -> QMI server -> BDF -> FW-ready ->
+  wlan0`. pci-msm TEST:11, wake IRQ work, sysfs enumerate, and probe paths all
+  converge on `msm_pcie_enumerate`, while native still reaches enable/LTSSM and
+  fails before L0. Next gate: V1532 should design or run a targeted Android
+  tracefs capture with `workqueue_queue_work` plus execute pairing and
+  pm-service Binder subsystem timing, still avoiding broad IRQ tracing and all
+  Wi-Fi connect/credential/network paths.
+  Report:
+  `docs/reports/NATIVE_INIT_V1531_TARGETED_TRACE_SOURCE_CLASSIFIER_2026-06-02.md`.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still

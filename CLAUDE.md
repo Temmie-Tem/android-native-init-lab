@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V1530 host-only Android tracefs vs native no-L0 classifier PASS (`v1530-android-tracefs-confirms-opaque-initial-rc1-trigger`). V1529 rollbackable Android tracefs handoff reached WLFW/BDF/FW-ready/`wlan0` and native v724 rollback verified. It captured modem PIL notifications, `icnss_driver_event_work=40.836714s`, `pm-service` exec at `41.922287s`, `wlfw_start=43.208627s`, `subsys_esoc0=43.367958s`, BDF at `44.452551s`, FW-ready at `49.369675s`, and `wlan0=49.864980s`. IRQ trace events are now removed, no eSoC/SDX50M `pil_notif` or RC1/LTSSM text appears, and native V1496/V1517 remain fixed at `rc1-ltssm-link-failed-no-l0`. Next gate is V1531: targeted Android/source classifier mapping `icnss_driver_event_work`, `pm-service` Binder `subsystem_get`, and pci-msm initial enumerate callsites before any new native mutation. Do not proceed to firmware/MHI deep dive/WLFW/scan/connect until native RC1 L0 and PCI enumeration exist. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, Wi-Fi HAL start, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
+- **Active research cycle**: V1531 host-only targeted trace/source classifier PASS (`v1531-targeted-trace-source-classifies-visible-signals-not-trigger`). V1531 maps V1529/V1530 evidence against ICNSS, pm-service, and pci-msm source: `icnss_driver_event_work` is a shared dispatcher for SERVER_ARRIVE/FW_READY/REGISTER_DRIVER/etc., so workqueue trace alone cannot identify the event type; `pm-service` is the proprietary `vendor.qcom.PeripheralManager` Binder/QMI voter actor and V1529 sees it exec then Binder `subsystem_get(modem)`, WLFW start, Binder `subsystem_get(esoc0)`, QMI server, BDF, FW-ready, and `wlan0`; pci-msm TEST:11, wake IRQ work, sysfs enumerate, and probe paths all converge on `msm_pcie_enumerate`, while native still reaches enable/LTSSM and fails before L0. Next gate is V1532: targeted Android tracefs design/capture for `workqueue_queue_work` + execute pairing and pm-service Binder `subsystem_get` timing, without broad IRQ tracing. Do not proceed to firmware/MHI deep dive/WLFW/scan/connect until native RC1 L0 and PCI enumeration exist. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, Wi-Fi HAL start, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -2518,3 +2518,19 @@ Update after V1354/V1355:
   native mutation.
   Report:
   `docs/reports/NATIVE_INIT_V1530_ANDROID_TRACEFS_NATIVE_NO_L0_CLASSIFIER_2026-06-02.md`.
+- V1531 host-only targeted trace/source classifier passes with
+  `v1531-targeted-trace-source-classifies-visible-signals-not-trigger`. It adds
+  `scripts/revalidation/native_wifi_targeted_trace_source_classifier_v1531.py`
+  and maps V1529/V1530 evidence against local ICNSS source, pm-service binary
+  strings, and the available pci-msm source copy. ICNSS source confirms
+  `icnss_driver_event_work` is a shared dispatcher for SERVER_ARRIVE, FW_READY,
+  REGISTER_DRIVER, and other events, so the existing workqueue execute trace
+  cannot identify the event type by itself. pm-service is confirmed as the
+  proprietary `vendor.qcom.PeripheralManager` Binder/QMI voter actor, and
+  pci-msm TEST:11, wake IRQ work, sysfs enumerate, and probe paths all converge
+  on `msm_pcie_enumerate`; native still reaches enable/LTSSM and fails before
+  L0. Next gate: V1532 should design/capture a bounded Android tracefs reference
+  with `workqueue_queue_work` + execute pairing and pm-service Binder
+  `subsystem_get` timing, without broad IRQ tracing or any Wi-Fi connect path.
+  Report:
+  `docs/reports/NATIVE_INIT_V1531_TARGETED_TRACE_SOURCE_CLASSIFIER_2026-06-02.md`.
