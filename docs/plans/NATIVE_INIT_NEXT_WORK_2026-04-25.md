@@ -7517,6 +7517,29 @@ Samsung bootloader
   watcher result, exact-line provider long-window result, expanded dmesg
   markers, and `wlan0` state, then rolling back to
   `stage3/boot_linux_v724.img` and verifying selftest fail=0.
+- V1456 rollbackable live handoff passes with
+  `v1456-test-boot-provider-trigger-no-downstream-rollback-pass`. The V1454
+  test image booted as `A90 Linux init 0.9.84 (v1454-wifitest)`, collected the
+  exact-line provider long-window evidence, then rolled back to
+  `A90 Linux init 0.9.68 (v724)` with selftest fail=0. No Wi-Fi bring-up
+  progress occurred: `wlan0=absent`, no RC1/MHI/WLFW/BDF/FW-ready marker
+  appeared, and the runner stayed below scan/connect, credentials, DHCP/routes,
+  external ping, PMIC/GPIO/GDSC writes, eSoC notify/`BOOT_DONE`, global PCI
+  rescan, and platform bind/unbind.
+- V1457 host-only classifier passes with
+  `v1457-exact-provider-long-window-low-no-downstream`. It closes the prior
+  kmsg chunk ambiguity: the watcher line is the exact
+  `__subsystem_get: esoc0` provider line, `exact_provider_line=1`, and
+  `long_provider_window=1`. Thirteen micro samples cover `0ms`, `1ms`, `2ms`,
+  `5ms`, `10ms`, `20ms`, `50ms`, `100ms`, `150ms`, `250ms`, `300ms`,
+  `500ms`, and `1000ms`, followed by a `1200ms` context sample. GPIO135 stayed
+  `out 0`, GPIO142 stayed `in 0`, MDM status and PCIe wake IRQs stayed zero,
+  pcie1 GDSC stayed `0mV`, pcie1 clocks stayed zero-enabled, and no
+  RC1/MHI/WLFW/BDF/FW-ready/`wlan0` progress appeared. The next useful
+  question is no longer trigger timing; V1458 should be source/build-only and
+  add a provider-trigger thread-state sampler that captures the triggering
+  Binder PID/TID, `/proc/<pid>/task/*/wchan`, state, and compact process
+  metadata around exact provider trigger time.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
