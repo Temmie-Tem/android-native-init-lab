@@ -7080,6 +7080,16 @@ Samsung bootloader
   `delay_ms`. V1415 should independently sanity-check the exact V1414
   manifest/image before any rollbackable live handoff. Keep scan/connect,
   credentials, DHCP/routes, and external ping blocked.
+- V1415 local-only artifact sanity passes for the exact V1414 manifest/image:
+  manifest decision, static PID1/helper, ramdisk entries, boot markers,
+  delayed-RC1 contract (`rc1_watcher_delay_ms=250`), v724 header/kernel parity,
+  forbidden credential-like byte absence, and private modes all pass. A V1416
+  rollbackable live handoff may flash only
+  `tmp/wifi/v1414-wifi-test-boot-delayed-rc1/boot_linux_v1414_wifi_test.img`,
+  expect `A90 Linux init 0.9.75 (v1414-wifitest)`, collect the V1414 log,
+  summary, RC1 watcher result, dmesg, and `wlan0` state, then roll back to
+  `stage3/boot_linux_v724.img`. Keep scan/connect, credentials, DHCP/routes,
+  and external ping blocked.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
