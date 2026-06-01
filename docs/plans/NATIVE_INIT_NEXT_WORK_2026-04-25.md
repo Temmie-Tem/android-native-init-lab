@@ -7591,6 +7591,19 @@ Samsung bootloader
   scan/connect, credential handling, DHCP/routes, external ping,
   PMIC/GPIO/GDSC direct writes, blind eSoC notify/`BOOT_DONE`, global PCI
   rescan, and platform bind/unbind.
+- V1462 source/build-only passes with
+  `v1462-wifi-test-boot-exact-provider-tracepoint-source-build-pass`. It
+  generated
+  `tmp/wifi/v1462-wifi-test-boot-exact-provider-tracepoint-sampler/boot_linux_v1462_wifi_test.img`
+  with native init `0.9.86 (v1462-wifitest)`. The test boot keeps the exact
+  provider trigger, V1458 thread-state sampler, no explicit RC1 debugfs
+  `rc_sel`/`case` write, and the long endpoint window through `1000ms` plus
+  `1200ms` context. It additionally arms `gpio_value` and `gpio_direction`
+  tracepoints before helper start, then samples trace output for GPIO1270,
+  GPIO135, GPIO142, and GPIO141 at each provider micro sample. V1463 should be
+  local-only artifact sanity over the exact V1462 manifest, static binaries,
+  marker contract, v724 header/kernel parity, private modes, and forbidden
+  credential-like byte absence before any live flash/handoff.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
