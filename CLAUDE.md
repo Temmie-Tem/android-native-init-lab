@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V1404 source/build-only PASS (`v1404-wifi-test-boot-debugfs-source-build-pass`). V1404 stages a new rollbackable Wi-Fi test boot artifact at `tmp/wifi/v1404-wifi-test-boot-debugfs/boot_linux_v1404_wifi_test.img` (`A90 Linux init 0.9.72 (v1404-wifitest)`) with `A90_WIFI_TEST_BOOT_MOUNT_DEBUGFS=1`. PID1 now prepares `/sys/kernel/debug` before spawning the supervised helper so the existing corrected RC1 debugfs enumerate path can reach `/sys/kernel/debug/pci-msm/rc_sel` and `case`; the supervisor attempts cleanup after helper exit. V1404 is local-only; no flash/reboot/device command occurred. Next is V1405 independent artifact sanity, then a rollbackable V1406 handoff if sanity passes. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, PMIC/GPIO/GDSC direct write, blind eSoC notify/BOOT_DONE spoof, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
+- **Active research cycle**: V1405 local artifact sanity PASS (`v1405-wifi-test-boot-debugfs-artifact-sanity-pass`). V1405 independently verified the exact V1404 debugfs-prepared test boot image at `tmp/wifi/v1404-wifi-test-boot-debugfs/boot_linux_v1404_wifi_test.img` (`A90 Linux init 0.9.72 (v1404-wifitest)`, SHA256 `3b61ffd507479941729cf20a86c662d6dd75ee4d60148cde442b244d79c2c2c9`). Checks passed for static init/helper, ramdisk entries, boot markers, v724 header/kernel parity, `mount_debugfs=true` contract, private artifact modes, and forbidden credential-like byte absence. Next is V1406 rollbackable live handoff: flash only the V1404 image, collect V1404 log/summary/dmesg with strict progress classification, then roll back to `stage3/boot_linux_v724.img`. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, PMIC/GPIO/GDSC direct write, blind eSoC notify/BOOT_DONE spoof, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -1663,3 +1663,14 @@ Update after V1354/V1355:
   Wi-Fi scan/connect, DHCP/routes, external ping, PMIC/GPIO/GDSC direct write,
   or eSoC notify/`BOOT_DONE` spoof. V1405 should independently sanity-check
   the exact artifact before any V1406 handoff.
+- V1405 local-only artifact sanity (`v1405-wifi-test-boot-debugfs-artifact-sanity-pass`)
+  adds `scripts/revalidation/native_wifi_test_boot_artifact_sanity_v1405.py`
+  and verifies the exact V1404 artifact. Checks passed for V1404 manifest
+  decision, static init/helper, ramdisk entries, boot markers, debugfs test-boot
+  contract (`mount_debugfs=true`), v724 header/kernel parity, private modes,
+  and forbidden credential-like byte absence. Report:
+  `docs/reports/NATIVE_INIT_V1405_WIFI_TEST_BOOT_DEBUGFS_ARTIFACT_SANITY_2026-06-01.md`.
+  No device command, flash, reboot, credential handling, Wi-Fi scan/connect,
+  DHCP/routes, external ping, PMIC/GPIO/GDSC direct write, or eSoC
+  notify/`BOOT_DONE` spoof occurred. V1406 may run the rollbackable handoff of
+  only `tmp/wifi/v1404-wifi-test-boot-debugfs/boot_linux_v1404_wifi_test.img`.

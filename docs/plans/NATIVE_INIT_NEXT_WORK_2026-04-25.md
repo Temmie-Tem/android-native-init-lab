@@ -6998,6 +6998,14 @@ Samsung bootloader
   should collect V1404 log/summary/dmesg and classify whether `TEST: 11`,
   RC1/LTSSM, MHI/WLFW, or `wlan0` appears; it must still stop before
   scan/connect, credentials, DHCP/routes, or external ping.
+- V1405 independently verifies the exact V1404 artifact and passes. The next
+  action may be V1406 rollbackable live handoff: flash only
+  `tmp/wifi/v1404-wifi-test-boot-debugfs/boot_linux_v1404_wifi_test.img`, expect
+  `A90 Linux init 0.9.72 (v1404-wifitest)`, collect the V1404 log, summary,
+  dmesg, and `wlan0` state, then roll back to `stage3/boot_linux_v724.img`.
+  V1406 should classify `debugfs_pci_msm_case_present`, corrected RC1 write
+  execution, `TEST: 11`, RC1/LTSSM, MHI/WLFW/BDF, and `wlan0`. No scan/connect,
+  credentials, DHCP/routes, or external ping until `wlan0` progress is proven.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
