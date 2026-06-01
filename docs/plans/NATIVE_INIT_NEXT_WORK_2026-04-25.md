@@ -8705,6 +8705,21 @@ Samsung bootloader
   after confirmed RC1 power-domain enable; keep firmware/MHI/WLFW/connect work
   parked until native RC1 L0 and PCI enumeration exist. Report:
   `docs/reports/NATIVE_INIT_V1551_PCIE1_TRACEFS_ENUMERATE_LIVE_2026-06-02.md`.
+- V1552 bounded live RC1 endpoint-response tracefs observer passes with
+  `v1552-ap-side-power-refclk-perst-confirmed-endpoint-silent-no-l0`. It adds
+  `scripts/revalidation/native_wifi_rc1_endpoint_response_tracefs_v1552.py`
+  and extends V1551 with `irq_handler_entry/exit` tracefs events plus
+  before/after interrupt snapshots for `msm_pcie_wake`, `mdm status`, and
+  `mdm errfatal`. The same bounded sysfs-client enumerate window now proves
+  AP-side RC1 prerequisites are active: `pcie_1_gdsc` enable/disable,
+  PM8150L voltage requests, pcie1 refclk/pipe-clock enable/disable, and
+  GPIO102/PERST assert-release-assert timing. The endpoint remains silent:
+  GPIO104/WAKE, GPIO142/MDM2AP, and MDM errfatal trace/delta all stay zero,
+  and RC1 still fails before L0 with no MHI/WLFW/BDF/FW-ready/`wlan0`. Next
+  gate: classify why SDX50M does not respond after PERST release despite
+  confirmed AP-side power/refclk/PERST; keep firmware/MHI/WLFW/connect work
+  parked until native RC1 L0 and PCI enumeration exist. Report:
+  `docs/reports/NATIVE_INIT_V1552_RC1_ENDPOINT_RESPONSE_TRACEFS_LIVE_2026-06-02.md`.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still

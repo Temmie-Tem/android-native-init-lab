@@ -2772,3 +2772,24 @@ GPIO135/AP2MDM, and GPIO142/MDM2AP do not appear in the target trace window.
 Next gate: classify PERST/refclk/endpoint response after confirmed RC1
 power-domain enable. Do not move to firmware/MHI/WLFW/connect work until
 native RC1 L0 and PCI enumeration exist.
+
+## Latest native Wi-Fi state: V1552 (2026-06-02)
+
+V1552 adds
+`scripts/revalidation/native_wifi_rc1_endpoint_response_tracefs_v1552.py` and
+passes with `v1552-ap-side-power-refclk-perst-confirmed-endpoint-silent-no-l0`.
+It extends V1551 with `irq_handler_entry/exit` tracefs events and before/after
+`/proc/interrupts` snapshots for `msm_pcie_wake`, `mdm status`, and
+`mdm errfatal`, while keeping the same bounded pcie1 sysfs-client enumerate
+trigger and the same no-HAL/no-connect/no-direct-write guardrails.
+
+The result confirms the active blocker below the AP-side RC1 enable sequence.
+During the failed RC1 attempt, tracefs captures `pcie_1_gdsc` enable/disable,
+PM8150L voltage requests, pcie1 refclk and pipe-clock enable/disable, and
+GPIO102/PERST assert-release-assert timing. The endpoint stays silent: no
+GPIO104/WAKE, GPIO142/MDM2AP, or MDM errfatal trace line appears, and the
+corresponding IRQ deltas remain zero. RC1 still fails before L0 with no MHI,
+WLFW/BDF/FW-ready, or `wlan0`. Next gate: classify why SDX50M remains silent
+after PERST release despite confirmed AP-side RC1 power/refclk/PERST activity;
+firmware/MHI/WLFW/connect work remains parked until native RC1 L0 and PCI
+enumeration exist.
