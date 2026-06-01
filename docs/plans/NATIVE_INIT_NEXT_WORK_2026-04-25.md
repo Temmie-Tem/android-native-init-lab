@@ -8307,6 +8307,36 @@ Samsung bootloader
   only to `/data/local/tmp` or a bounded evidence path, and is removed before
   rollback. Report:
   `docs/reports/NATIVE_INIT_V1520_ANDROID_RC1_EARLY_CRITICAL_SOURCE_HANDOFF_2026-06-01.md`.
+- V1521 rollbackable Android Magisk post-fs-data handoff passes with
+  `v1521-magisk-postfs-pre-lower-window-rollback-pass`. It adds
+  `scripts/revalidation/android_rc1_magisk_postfs_sampler_handoff_v1521.py`,
+  installs a temporary read-only Magisk module from Android `su`, collects early
+  Android-good post-fs-data samples, captures host dmesg before cleanup, removes
+  the module/evidence, reboots recovery, and restores `stage3/boot_linux_v724.img`.
+  The sampler starts at uptime `5.72s`, brackets the first lower Wi-Fi marker
+  with samples before/after WLFW `8.585121s`, and records BDF at `9.673077s` and
+  `wlan0` at `14.843021s`; rollback verifies native v724 and selftest remains
+  `fail=0`. The important interpretation is negative: Android-good pre/post
+  lower samples still report GPIO135/GPIO142 low, GPIO142 IRQ count `0`, and
+  `pcie_1_gdsc` `0mV`, so those debugfs/interrupt/regulator snapshots alone are
+  not discriminating. V1522 should compare V1521 Android-good samples directly
+  against V1518/V1517 native pre-fail samples, then move to `msm_pcie` TEST:11
+  vs normal-path static/callgraph analysis if the source comparison does not
+  explain why native TEST:11 reaches `POLL_COMPLIANCE` but no L0. Report:
+  `docs/reports/NATIVE_INIT_V1521_ANDROID_RC1_MAGISK_POSTFS_HANDOFF_2026-06-01.md`.
+- V1522 host-only Android/native RC1 source parity classifier passes with
+  `v1522-sampled-sources-nondiscriminating-msm-pcie-static-needed`. It adds
+  `scripts/revalidation/native_wifi_android_native_rc1_source_parity_classifier_v1522.py`
+  and compares V1521 Android-good pre/post lower samples against V1518/V1517
+  native pre-fail samples. V1521 proves Android-good WLFW/BDF/`wlan0`, while
+  V1518/V1517 prove native `rc1-ltssm-link-failed-no-l0`; nevertheless the
+  sampled GPIO/debugfs/interrupt/regulator fields overlap: GPIO135/GPIO142 low,
+  GPIO142 IRQ count `0`, and `pcie_1_gdsc` `0mV` are visible in Android-good and
+  native-fail windows. This closes those sampled sources as root-cause evidence.
+  V1523 should classify `msm_pcie` corrected TEST:11 vs Android normal-path
+  static/callgraph semantics and list operations TEST:11 lacks before any new
+  native mutation. Report:
+  `docs/reports/NATIVE_INIT_V1522_ANDROID_NATIVE_RC1_SOURCE_PARITY_CLASSIFIER_2026-06-01.md`.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still

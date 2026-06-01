@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V1520 rollbackable Android handoff PASS (`v1520-handoff-adb-sampler-missed-pre-l0-rollback-pass`). V1517/V1518 preserved the native blocker as `rc1-ltssm-link-failed-no-l0`: RC1 reaches PHY/LTSSM and link failure, but L0, PCI enumeration, MHI, WLFW, BDF, FW-ready, and `wlan0` remain absent. V1519 corrected the GPIO interpretation: GPIO135/GPIO142 low readback is not independently discriminating because Android-good static snapshots also show low readback while Android reaches GPIO142 IRQ, PCIe L0, WLFW/BDF, and `wlan0`. V1520 then proved a plain early-ADB Android sampler starts too late for the RC1 pre-L0 window: first sample uptime was `13.85s`, after WLFW `8.433089s` and BDF `9.561577s`; Android still reached `wlan0` at `15.214683s`, and rollback to v724 selftest stayed `fail=0`. Next gate should be V1521 earlier Android boot hook, likely a temporary Magisk `post-fs-data` read-only sampler, before any new native mutation. Do not proceed to firmware/MHI/WLFW/scan/connect until RC1 L0 and PCI enumeration exist. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, Wi-Fi HAL start, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
+- **Active research cycle**: V1522 host-only Android/native RC1 source parity classifier PASS (`v1522-sampled-sources-nondiscriminating-msm-pcie-static-needed`). V1517/V1518 preserve the native blocker as `rc1-ltssm-link-failed-no-l0`: corrected TEST:11 reaches RC1 PHY/LTSSM and link failure, but L0, PCI enumeration, MHI, WLFW, BDF, FW-ready, and `wlan0` remain absent. V1521 captured Android-good pre/post lower samples via a temporary Magisk `post-fs-data` hook and host dmesg proves WLFW `8.585121s`, BDF `9.673077s`, FW-ready, and `wlan0` `14.843021s`. V1522 then proves the sampled debugfs/interrupt/regulator sources are nondiscriminating: Android-good and native-fail can both show GPIO135/GPIO142 low, GPIO142 IRQ count `0`, and `pcie_1_gdsc` `0mV`. Next gate should be V1523 `msm_pcie` TEST:11 vs Android normal-path static/callgraph classifier. Do not proceed to firmware/MHI/WLFW/scan/connect until native RC1 L0 and PCI enumeration exist. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, Wi-Fi HAL start, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -2370,3 +2370,33 @@ Update after V1354/V1355:
   earlier Android boot hook, likely a temporary Magisk `post-fs-data` read-only
   sampler, before any native mutation. Report:
   `docs/reports/NATIVE_INIT_V1520_ANDROID_RC1_EARLY_CRITICAL_SOURCE_HANDOFF_2026-06-01.md`.
+- V1521 rollbackable Android Magisk post-fs-data handoff passes with
+  `v1521-magisk-postfs-pre-lower-window-rollback-pass`. It adds
+  `scripts/revalidation/android_rc1_magisk_postfs_sampler_handoff_v1521.py`,
+  installs a temporary read-only Magisk module from Android `su`, collects early
+  Android-good post-fs-data samples, captures host dmesg before cleanup, removes
+  the module/evidence, reboots recovery, and restores `stage3/boot_linux_v724.img`.
+  The sampler starts at uptime `5.72s`, brackets the first lower Wi-Fi marker
+  with samples before/after WLFW `8.585121s`, and records BDF at `9.673077s` and
+  `wlan0` at `14.843021s`; rollback verifies native v724 and selftest remains
+  `fail=0`. The important interpretation is negative: Android-good pre/post
+  lower samples still report GPIO135/GPIO142 low, GPIO142 IRQ count `0`, and
+  `pcie_1_gdsc` `0mV`, so those debugfs/interrupt/regulator snapshots alone are
+  not discriminating. V1522 should compare V1521 Android-good samples directly
+  against V1518/V1517 native pre-fail samples, then move to `msm_pcie` TEST:11
+  vs normal-path static/callgraph analysis if the source comparison does not
+  explain why native TEST:11 reaches `POLL_COMPLIANCE` but no L0. Report:
+  `docs/reports/NATIVE_INIT_V1521_ANDROID_RC1_MAGISK_POSTFS_HANDOFF_2026-06-01.md`.
+- V1522 host-only Android/native RC1 source parity classifier passes with
+  `v1522-sampled-sources-nondiscriminating-msm-pcie-static-needed`. It adds
+  `scripts/revalidation/native_wifi_android_native_rc1_source_parity_classifier_v1522.py`
+  and compares V1521 Android-good pre/post lower samples against V1518/V1517
+  native pre-fail samples. V1521 proves Android-good WLFW/BDF/`wlan0`, while
+  V1518/V1517 prove native `rc1-ltssm-link-failed-no-l0`; nevertheless the
+  sampled GPIO/debugfs/interrupt/regulator fields overlap: GPIO135/GPIO142 low,
+  GPIO142 IRQ count `0`, and `pcie_1_gdsc` `0mV` are visible in Android-good and
+  native-fail windows. This closes those sampled sources as root-cause evidence.
+  V1523 should classify `msm_pcie` corrected TEST:11 vs Android normal-path
+  static/callgraph semantics and list operations TEST:11 lacks before any new
+  native mutation. Report:
+  `docs/reports/NATIVE_INIT_V1522_ANDROID_NATIVE_RC1_SOURCE_PARITY_CLASSIFIER_2026-06-01.md`.
