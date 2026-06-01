@@ -103,6 +103,9 @@ static void selftest_boot_draw_frame(void *ctx) {
 #ifndef A90_WIFI_TEST_BOOT_RC1_MICRO_BATCHED_FOCUSED_ENDPOINT_SAMPLER
 #define A90_WIFI_TEST_BOOT_RC1_MICRO_BATCHED_FOCUSED_ENDPOINT_SAMPLER 0
 #endif
+#ifndef A90_WIFI_TEST_BOOT_RC1_MICRO_SOURCE_TIMESTAMPED_SAMPLER
+#define A90_WIFI_TEST_BOOT_RC1_MICRO_SOURCE_TIMESTAMPED_SAMPLER 0
+#endif
 #ifndef A90_WIFI_TEST_BOOT_RC1_CASE_ALIGNED_MICRO_ENDPOINT_SAMPLER
 #define A90_WIFI_TEST_BOOT_RC1_CASE_ALIGNED_MICRO_ENDPOINT_SAMPLER 0
 #endif
@@ -993,6 +996,127 @@ static void v1393_rc1_window_append_exact_matches(int out_fd,
     }
 }
 #endif
+
+#if A90_WIFI_TEST_BOOT_RC1_MICRO_SOURCE_TIMESTAMPED_SAMPLER
+static long v1511_elapsed_since_or_neg(long now_ms, long base_ms) {
+    return now_ms >= base_ms ? now_ms - base_ms : -1;
+}
+
+static void v1511_rc1_window_append_source_timing(int out_fd,
+                                                  const char *sample,
+                                                  const char *source_name,
+                                                  const char *path,
+                                                  const char *phase,
+                                                  long stamp_ms,
+                                                  long start_ms,
+                                                  long micro_start_ms,
+                                                  long duration_ms) {
+    dprintf(out_fd,
+            "sample=%s source=%s source_timing=%s elapsed_ms=%ld micro_elapsed_ms=%ld source_duration_ms=%ld path=%s\n",
+            sample,
+            source_name,
+            phase,
+            v1511_elapsed_since_or_neg(stamp_ms, start_ms),
+            v1511_elapsed_since_or_neg(stamp_ms, micro_start_ms),
+            duration_ms,
+            path);
+}
+
+static void v1511_rc1_window_append_matching_lines_timed(int out_fd,
+                                                         const char *sample,
+                                                         const char *source_name,
+                                                         const char *path,
+                                                         const char *const *needles,
+                                                         long start_ms,
+                                                         long micro_start_ms) {
+    long begin_ms = monotonic_millis();
+    long end_ms;
+
+    v1511_rc1_window_append_source_timing(out_fd,
+                                          sample,
+                                          source_name,
+                                          path,
+                                          "begin",
+                                          begin_ms,
+                                          start_ms,
+                                          micro_start_ms,
+                                          -1);
+    v1393_rc1_window_append_matching_lines(out_fd, sample, source_name, path, needles);
+    end_ms = monotonic_millis();
+    v1511_rc1_window_append_source_timing(out_fd,
+                                          sample,
+                                          source_name,
+                                          path,
+                                          "end",
+                                          end_ms,
+                                          start_ms,
+                                          micro_start_ms,
+                                          end_ms >= begin_ms ? end_ms - begin_ms : -1);
+}
+
+static void v1511_rc1_window_append_trimmed_file_timed(int out_fd,
+                                                       const char *sample,
+                                                       const char *source_name,
+                                                       const char *path,
+                                                       long start_ms,
+                                                       long micro_start_ms) {
+    long begin_ms = monotonic_millis();
+    long end_ms;
+
+    v1511_rc1_window_append_source_timing(out_fd,
+                                          sample,
+                                          source_name,
+                                          path,
+                                          "begin",
+                                          begin_ms,
+                                          start_ms,
+                                          micro_start_ms,
+                                          -1);
+    v1393_rc1_window_append_trimmed_file(out_fd, sample, source_name, path);
+    end_ms = monotonic_millis();
+    v1511_rc1_window_append_source_timing(out_fd,
+                                          sample,
+                                          source_name,
+                                          path,
+                                          "end",
+                                          end_ms,
+                                          start_ms,
+                                          micro_start_ms,
+                                          end_ms >= begin_ms ? end_ms - begin_ms : -1);
+}
+
+static void v1511_rc1_window_append_exact_matches_timed(int out_fd,
+                                                        const char *sample,
+                                                        const char *source_name,
+                                                        const char *path,
+                                                        const char *const *needles,
+                                                        long start_ms,
+                                                        long micro_start_ms) {
+    long begin_ms = monotonic_millis();
+    long end_ms;
+
+    v1511_rc1_window_append_source_timing(out_fd,
+                                          sample,
+                                          source_name,
+                                          path,
+                                          "begin",
+                                          begin_ms,
+                                          start_ms,
+                                          micro_start_ms,
+                                          -1);
+    v1393_rc1_window_append_exact_matches(out_fd, sample, source_name, path, needles);
+    end_ms = monotonic_millis();
+    v1511_rc1_window_append_source_timing(out_fd,
+                                          sample,
+                                          source_name,
+                                          path,
+                                          "end",
+                                          end_ms,
+                                          start_ms,
+                                          micro_start_ms,
+                                          end_ms >= begin_ms ? end_ms - begin_ms : -1);
+}
+#endif
 #endif
 
 static void v1393_rc1_window_sample(const char *sample, long start_ms, long detect_ms, long child_start_ms) {
@@ -1432,6 +1556,25 @@ static void v1393_rc1_micro_endpoint_sample(const char *sample,
 #if A90_WIFI_TEST_BOOT_RC1_ENDPOINT_SAMPLER && A90_WIFI_TEST_BOOT_RC1_MICRO_BATCHED_FOCUSED_ENDPOINT_SAMPLER
     dprintf(out_fd, "sample=%s micro_batched_focused_endpoint_sampler=1\n", sample);
 #endif
+#if A90_WIFI_TEST_BOOT_RC1_ENDPOINT_SAMPLER && A90_WIFI_TEST_BOOT_RC1_MICRO_SOURCE_TIMESTAMPED_SAMPLER
+    dprintf(out_fd, "sample=%s micro_source_timestamped_sampler=1\n", sample);
+#endif
+#if A90_WIFI_TEST_BOOT_RC1_ENDPOINT_SAMPLER && A90_WIFI_TEST_BOOT_RC1_MICRO_SOURCE_TIMESTAMPED_SAMPLER
+    v1511_rc1_window_append_matching_lines_timed(out_fd,
+                                                 sample,
+                                                 "micro_interrupts",
+                                                 "/proc/interrupts",
+                                                 micro_interrupt_needles,
+                                                 start_ms,
+                                                 micro_start_ms);
+    v1511_rc1_window_append_exact_matches_timed(out_fd,
+                                                sample,
+                                                "micro_debug_gpio",
+                                                "/sys/kernel/debug/gpio",
+                                                micro_gpio_needles,
+                                                start_ms,
+                                                micro_start_ms);
+#else
     v1393_rc1_window_append_matching_lines(out_fd,
                                            sample,
                                            "micro_interrupts",
@@ -1442,7 +1585,22 @@ static void v1393_rc1_micro_endpoint_sample(const char *sample,
                                           "micro_debug_gpio",
                                           "/sys/kernel/debug/gpio",
                                           micro_gpio_needles);
+#endif
 #if A90_WIFI_TEST_BOOT_RC1_ENDPOINT_SAMPLER
+#if A90_WIFI_TEST_BOOT_RC1_MICRO_SOURCE_TIMESTAMPED_SAMPLER
+    v1511_rc1_window_append_trimmed_file_timed(out_fd,
+                                               sample,
+                                               "micro_pcie1_current_link_state",
+                                               "/sys/devices/platform/soc/1c08000.qcom,pcie/current_link_state",
+                                               start_ms,
+                                               micro_start_ms);
+    v1511_rc1_window_append_trimmed_file_timed(out_fd,
+                                               sample,
+                                               "micro_pcie1_link_state",
+                                               "/sys/devices/platform/soc/1c08000.qcom,pcie/link_state",
+                                               start_ms,
+                                               micro_start_ms);
+#else
     v1393_rc1_window_append_trimmed_file(out_fd,
                                          sample,
                                          "micro_pcie1_current_link_state",
@@ -1451,7 +1609,45 @@ static void v1393_rc1_micro_endpoint_sample(const char *sample,
                                          sample,
                                          "micro_pcie1_link_state",
                                          "/sys/devices/platform/soc/1c08000.qcom,pcie/link_state");
+#endif
 #if A90_WIFI_TEST_BOOT_RC1_MICRO_FOCUSED_ENDPOINT_SAMPLER
+#if A90_WIFI_TEST_BOOT_RC1_MICRO_SOURCE_TIMESTAMPED_SAMPLER
+    v1511_rc1_window_append_exact_matches_timed(out_fd,
+                                                sample,
+                                                "micro_focused_regulator",
+                                                "/sys/kernel/debug/regulator/regulator_summary",
+                                                micro_exact_regulator_needles,
+                                                start_ms,
+                                                micro_start_ms);
+    v1511_rc1_window_append_exact_matches_timed(out_fd,
+                                                sample,
+                                                "micro_focused_clk",
+                                                "/sys/kernel/debug/clk/clk_summary",
+                                                micro_exact_clk_needles,
+                                                start_ms,
+                                                micro_start_ms);
+    v1511_rc1_window_append_exact_matches_timed(out_fd,
+                                                sample,
+                                                "micro_focused_debug_gpio",
+                                                "/sys/kernel/debug/gpio",
+                                                micro_exact_gpio_needles,
+                                                start_ms,
+                                                micro_start_ms);
+    v1511_rc1_window_append_exact_matches_timed(out_fd,
+                                                sample,
+                                                "micro_focused_pinmux",
+                                                "/sys/kernel/debug/pinctrl/3000000.pinctrl/pinmux-pins",
+                                                micro_exact_gpio_needles,
+                                                start_ms,
+                                                micro_start_ms);
+    v1511_rc1_window_append_exact_matches_timed(out_fd,
+                                                sample,
+                                                "micro_focused_pinconf",
+                                                "/sys/kernel/debug/pinctrl/3000000.pinctrl/pinconf-pins",
+                                                micro_exact_gpio_needles,
+                                                start_ms,
+                                                micro_start_ms);
+#else
     v1393_rc1_window_append_exact_matches(out_fd,
                                           sample,
                                           "micro_focused_regulator",
@@ -1478,7 +1674,45 @@ static void v1393_rc1_micro_endpoint_sample(const char *sample,
                                           "/sys/kernel/debug/pinctrl/3000000.pinctrl/pinconf-pins",
                                           micro_exact_gpio_needles);
 #endif
+#endif
 #if A90_WIFI_TEST_BOOT_RC1_MICRO_BATCHED_FOCUSED_ENDPOINT_SAMPLER
+#if A90_WIFI_TEST_BOOT_RC1_MICRO_SOURCE_TIMESTAMPED_SAMPLER
+    v1511_rc1_window_append_matching_lines_timed(out_fd,
+                                                 sample,
+                                                 "micro_batched_regulator",
+                                                 "/sys/kernel/debug/regulator/regulator_summary",
+                                                 micro_batched_regulator_needles,
+                                                 start_ms,
+                                                 micro_start_ms);
+    v1511_rc1_window_append_matching_lines_timed(out_fd,
+                                                 sample,
+                                                 "micro_batched_clk",
+                                                 "/sys/kernel/debug/clk/clk_summary",
+                                                 micro_batched_clk_needles,
+                                                 start_ms,
+                                                 micro_start_ms);
+    v1511_rc1_window_append_matching_lines_timed(out_fd,
+                                                 sample,
+                                                 "micro_batched_debug_gpio",
+                                                 "/sys/kernel/debug/gpio",
+                                                 micro_batched_gpio_needles,
+                                                 start_ms,
+                                                 micro_start_ms);
+    v1511_rc1_window_append_matching_lines_timed(out_fd,
+                                                 sample,
+                                                 "micro_batched_pinmux",
+                                                 "/sys/kernel/debug/pinctrl/3000000.pinctrl/pinmux-pins",
+                                                 micro_batched_gpio_needles,
+                                                 start_ms,
+                                                 micro_start_ms);
+    v1511_rc1_window_append_matching_lines_timed(out_fd,
+                                                 sample,
+                                                 "micro_batched_pinconf",
+                                                 "/sys/kernel/debug/pinctrl/3000000.pinctrl/pinconf-pins",
+                                                 micro_batched_gpio_needles,
+                                                 start_ms,
+                                                 micro_start_ms);
+#else
     v1393_rc1_window_append_matching_lines(out_fd,
                                            sample,
                                            "micro_batched_regulator",
@@ -1504,6 +1738,7 @@ static void v1393_rc1_micro_endpoint_sample(const char *sample,
                                            "micro_batched_pinconf",
                                            "/sys/kernel/debug/pinctrl/3000000.pinctrl/pinconf-pins",
                                            micro_batched_gpio_needles);
+#endif
 #endif
 #endif
     close(out_fd);
@@ -2682,6 +2917,9 @@ static void v1393_write_wifi_test_summary(pid_t helper_pid, long spawn_ms) {
     dprintf(fd,
             "rc1_micro_batched_focused_endpoint_sampler_requested=%d\n",
             A90_WIFI_TEST_BOOT_RC1_MICRO_BATCHED_FOCUSED_ENDPOINT_SAMPLER);
+    dprintf(fd,
+            "rc1_micro_source_timestamped_sampler_requested=%d\n",
+            A90_WIFI_TEST_BOOT_RC1_MICRO_SOURCE_TIMESTAMPED_SAMPLER);
     dprintf(fd,
             "rc1_case_aligned_micro_endpoint_sampler_requested=%d\n",
             A90_WIFI_TEST_BOOT_RC1_CASE_ALIGNED_MICRO_ENDPOINT_SAMPLER);

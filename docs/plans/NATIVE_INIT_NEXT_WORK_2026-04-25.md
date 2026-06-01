@@ -8205,6 +8205,42 @@ Samsung bootloader
   begin/end timestamps to the batched sampler or narrow capture to critical
   files only. Report:
   `docs/reports/NATIVE_INIT_V1510_WIFI_BATCHED_PRE_L0_PARITY_CLASSIFIER_2026-06-01.md`.
+- V1511 source/build-only source-timestamped pre-L0 test boot passes with
+  `v1511-wifi-source-timestamped-pre-l0-test-boot-source-build-pass`. It
+  extends the shared V1393 builder/C hook with
+  `A90_WIFI_TEST_BOOT_RC1_MICRO_SOURCE_TIMESTAMPED_SAMPLER` and adds
+  `scripts/revalidation/build_native_init_wifi_test_boot_v1511.py`. The image
+  is
+  `tmp/wifi/v1511-wifi-source-timestamped-pre-l0-test-boot/boot_linux_v1511_wifi_test.img`
+  (`sha256=9a3ff92c488f41f77ce4fdb1fee403229ea12e408fb5b86773c945623d074e57`),
+  native init `0.9.96 (v1511-wifitest)`. It keeps V1507 batched reads and adds
+  `source_timing=begin/end` plus `source_duration_ms` around each micro source
+  read. Report:
+  `docs/reports/NATIVE_INIT_V1511_WIFI_SOURCE_TIMESTAMPED_PRE_L0_SOURCE_BUILD_2026-06-01.md`.
+- V1512 local-only artifact sanity passes with
+  `v1512-wifi-source-timestamped-pre-l0-artifact-sanity-pass`. It adds
+  `scripts/revalidation/native_wifi_test_boot_artifact_sanity_v1512.py` and
+  verifies the exact V1511 image, manifest decision, static init/helper,
+  ramdisk entries, source-timestamped pre-L0 contract, v724 header/kernel
+  parity, private modes, and forbidden credential-like byte absence. Report:
+  `docs/reports/NATIVE_INIT_V1512_WIFI_SOURCE_TIMESTAMPED_PRE_L0_ARTIFACT_SANITY_2026-06-01.md`.
+- V1513 rollbackable live handoff passes with
+  `v1513-test-boot-downstream-progress-rollback-pass`. It adds
+  `scripts/revalidation/native_wifi_test_boot_handoff_v1513.py`, boots only the
+  V1511 source-timestamped image, collects V1511 log/summary/RC1 watcher/source
+  timing result/focused dmesg/`wlan0`, rolls back to v724 from native, and
+  verifies selftest `fail=0`. Progress remains `rc1-ltssm-link-failed-no-l0`.
+  Report:
+  `docs/reports/NATIVE_INIT_V1513_WIFI_SOURCE_TIMESTAMPED_PRE_L0_HANDOFF_2026-06-01.md`.
+- V1514 host-only V1513 evidence classifier passes with
+  `v1514-source-timing-identifies-clk-summary-overrun`. It adds
+  `scripts/revalidation/native_wifi_source_timing_classifier_v1514.py`. The
+  first sample begins at case+0ms and fast sources finish before link failure,
+  but full `clk_summary` spans about `35ms` to `149ms`, crossing the
+  ~`114.9ms` RC1 link-fail marker. V1515 should be source/build-only and add a
+  critical-source pre-L0 sampler that avoids full `clk_summary` during the
+  first link-fail window. Report:
+  `docs/reports/NATIVE_INIT_V1514_WIFI_SOURCE_TIMING_CLASSIFIER_2026-06-01.md`.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still

@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V1510 host-only PASS (`v1510-batched-pre-l0-improves-sampling-but-source-timestamps-needed`). V1509 rollbackable live handoff for the V1507 batched test image preserved the blocker as `rc1-ltssm-link-failed-no-l0`: RC1 reaches PHY/LTSSM and link failure, but L0, PCI enumeration, MHI, WLFW, BDF, FW-ready, and `wlan0` remain absent. V1510 proves the batched sampler is faster than V1505 exact matching, but source-level begin/end timestamps are still missing and the second nominal micro sample starts after the ~114.8ms link-fail marker. Next gate should be V1511 source/build-only source-timestamped batched sampler or a narrower critical-source sampler. Do not proceed to firmware/MHI/WLFW/scan/connect until RC1 L0 and PCI enumeration exist. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, Wi-Fi HAL start, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
+- **Active research cycle**: V1514 host-only PASS (`v1514-source-timing-identifies-clk-summary-overrun`). V1513 rollbackable live handoff for the V1511 source-timestamped test image preserved the blocker as `rc1-ltssm-link-failed-no-l0`: RC1 reaches PHY/LTSSM and link failure, but L0, PCI enumeration, MHI, WLFW, BDF, FW-ready, and `wlan0` remain absent. V1514 proves first-sample fast sources are captured before the ~114.9ms link-fail marker, but the full `/sys/kernel/debug/clk/clk_summary` read spans about 114ms and crosses the link-fail marker, making later source reads post-failure. Next gate should be V1515 source/build-only critical-source pre-L0 sampler that avoids full `clk_summary` during the first link-fail window. Do not proceed to firmware/MHI/WLFW/scan/connect until RC1 L0 and PCI enumeration exist. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, Wi-Fi HAL start, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -2278,3 +2278,40 @@ Update after V1354/V1355:
   source-timestamped batched sampler or a narrower critical-source sampler.
   Report:
   `docs/reports/NATIVE_INIT_V1510_WIFI_BATCHED_PRE_L0_PARITY_CLASSIFIER_2026-06-01.md`.
+- V1511 source/build-only source-timestamped pre-L0 test boot
+  (`v1511-wifi-source-timestamped-pre-l0-test-boot-source-build-pass`) adds
+  `scripts/revalidation/build_native_init_wifi_test_boot_v1511.py` and extends
+  the shared V1393 builder/C hook with
+  `--wifi-test-rc1-micro-source-timestamped-sampler` /
+  `A90_WIFI_TEST_BOOT_RC1_MICRO_SOURCE_TIMESTAMPED_SAMPLER`. The image
+  `tmp/wifi/v1511-wifi-source-timestamped-pre-l0-test-boot/boot_linux_v1511_wifi_test.img`
+  (`sha256=9a3ff92c488f41f77ce4fdb1fee403229ea12e408fb5b86773c945623d074e57`)
+  uses `A90 Linux init 0.9.96 (v1511-wifitest)`, keeps corrected RC1 enumerate
+  and V1507 batched reads, and emits `source_timing=begin/end` plus
+  `source_duration_ms` around each micro source read. V1511 performed no live
+  device command. Report:
+  `docs/reports/NATIVE_INIT_V1511_WIFI_SOURCE_TIMESTAMPED_PRE_L0_SOURCE_BUILD_2026-06-01.md`.
+- V1512 local-only artifact sanity passes with
+  `v1512-wifi-source-timestamped-pre-l0-artifact-sanity-pass`. It adds
+  `scripts/revalidation/native_wifi_test_boot_artifact_sanity_v1512.py` and
+  verifies the exact V1511 image, static init/helper, ramdisk entries, source
+  timestamp contract, v724 header/kernel parity, private modes, and forbidden
+  credential-like byte absence. Report:
+  `docs/reports/NATIVE_INIT_V1512_WIFI_SOURCE_TIMESTAMPED_PRE_L0_ARTIFACT_SANITY_2026-06-01.md`.
+- V1513 rollbackable live handoff passes with
+  `v1513-test-boot-downstream-progress-rollback-pass`. It adds
+  `scripts/revalidation/native_wifi_test_boot_handoff_v1513.py`, boots only the
+  V1511 source-timestamped image, collects V1511 log/summary/RC1 watcher/source
+  timing result/focused dmesg/`wlan0`, then rolls back to v724 from native.
+  Rollback succeeded and v724 selftest stayed `fail=0`. Progress remains
+  `rc1-ltssm-link-failed-no-l0`. Report:
+  `docs/reports/NATIVE_INIT_V1513_WIFI_SOURCE_TIMESTAMPED_PRE_L0_HANDOFF_2026-06-01.md`.
+- V1514 host-only V1513 evidence classifier passes with
+  `v1514-source-timing-identifies-clk-summary-overrun`. It adds
+  `scripts/revalidation/native_wifi_source_timing_classifier_v1514.py`.
+  The first sample starts at case+0ms and fast sources finish before link fail,
+  but full `clk_summary` spans roughly `35ms` to `149ms`, crossing the
+  ~`114.9ms` link-fail marker. Next gate: V1515 source/build-only
+  critical-source pre-L0 sampler that avoids full `clk_summary` in the first
+  link-fail window. Report:
+  `docs/reports/NATIVE_INIT_V1514_WIFI_SOURCE_TIMING_CLASSIFIER_2026-06-01.md`.
