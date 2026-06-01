@@ -7071,6 +7071,15 @@ Samsung bootloader
   after the first `esoc0`/powerup marker, initially `250ms`, then rebuild and
   sanity-check before any live handoff. Keep scan/connect, credentials,
   DHCP/routes, and external ping blocked.
+- V1414 source/build-only passes and stages
+  `tmp/wifi/v1414-wifi-test-boot-delayed-rc1/boot_linux_v1414_wifi_test.img`.
+  The V1414 artifact is `A90 Linux init 0.9.75 (v1414-wifitest)` and keeps the
+  `/proc/kmsg` PID1 RC1 watcher, but now waits `250ms` after detecting the
+  first `esoc0`/powerup marker before issuing corrected RC1 enumerate. The
+  watcher result records `detect_elapsed_ms`, `write_elapsed_ms`, and
+  `delay_ms`. V1415 should independently sanity-check the exact V1414
+  manifest/image before any rollbackable live handoff. Keep scan/connect,
+  credentials, DHCP/routes, and external ping blocked.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still

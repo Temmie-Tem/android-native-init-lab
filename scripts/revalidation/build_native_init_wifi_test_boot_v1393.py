@@ -110,6 +110,7 @@ def build_init(args: argparse.Namespace) -> None:
         [
             "-DA90_WIFI_TEST_BOOT_PID1_RC1_WATCHER=1",
             f"-DA90_WIFI_TEST_BOOT_RC1_WATCHER_TIMEOUT_SEC={args.wifi_test_rc1_watcher_timeout_sec}",
+            f"-DA90_WIFI_TEST_BOOT_RC1_WATCHER_DELAY_MS={args.wifi_test_rc1_watcher_delay_ms}",
             shell_define("A90_WIFI_TEST_BOOT_RC1_WATCHER_RESULT", args.wifi_test_rc1_watcher_result),
         ]
         if args.wifi_test_pid1_rc1_watcher
@@ -268,6 +269,7 @@ def verify_markers(args: argparse.Namespace) -> None:
             "pid1_rc1_watcher_requested",
             "pid1 rc1 watcher",
             args.wifi_test_rc1_watcher_result,
+            "delay_ms=%d",
             "/dev/kmsg",
             "/proc/kmsg",
             "/sys/kernel/debug/pci-msm/rc_sel",
@@ -310,6 +312,7 @@ def write_manifest(args: argparse.Namespace) -> None:
             "mount_debugfs": args.wifi_test_mount_debugfs,
             "pid1_rc1_watcher": args.wifi_test_pid1_rc1_watcher,
             "rc1_watcher_timeout_sec": args.wifi_test_rc1_watcher_timeout_sec,
+            "rc1_watcher_delay_ms": args.wifi_test_rc1_watcher_delay_ms,
             "rc1_watcher_result": args.wifi_test_rc1_watcher_result,
         },
         "init_binary": str(args.init_binary.relative_to(REPO_ROOT)),
@@ -366,6 +369,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--wifi-test-mount-debugfs", action="store_true")
     parser.add_argument("--wifi-test-pid1-rc1-watcher", action="store_true")
     parser.add_argument("--wifi-test-rc1-watcher-timeout-sec", type=int, default=45)
+    parser.add_argument("--wifi-test-rc1-watcher-delay-ms", type=int, default=0)
     parser.add_argument(
         "--wifi-test-rc1-watcher-result",
         default="/cache/native-init-wifi-test-boot-v1393-rc1-watcher.result",

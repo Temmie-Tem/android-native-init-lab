@@ -73,6 +73,9 @@ static void selftest_boot_draw_frame(void *ctx) {
 #ifndef A90_WIFI_TEST_BOOT_RC1_WATCHER_TIMEOUT_SEC
 #define A90_WIFI_TEST_BOOT_RC1_WATCHER_TIMEOUT_SEC 45
 #endif
+#ifndef A90_WIFI_TEST_BOOT_RC1_WATCHER_DELAY_MS
+#define A90_WIFI_TEST_BOOT_RC1_WATCHER_DELAY_MS 0
+#endif
 #ifndef A90_WIFI_TEST_BOOT_RC1_WATCHER_RESULT
 #define A90_WIFI_TEST_BOOT_RC1_WATCHER_RESULT "/cache/native-init-wifi-test-boot-v1393-rc1-watcher.result"
 #endif
@@ -503,7 +506,7 @@ static void v1393_pid1_rc1_watcher_child(void) {
     int fd;
     int dev_kmsg_errno = 0;
     const char *source = "/dev/kmsg";
-    char result[256];
+    char result[512];
 
     fd = open("/dev/kmsg", O_RDONLY | O_NONBLOCK | O_CLOEXEC);
     if (fd < 0) {
@@ -556,24 +559,36 @@ static void v1393_pid1_rc1_watcher_child(void) {
         if (rd > 0) {
             line[rd] = '\0';
             if (v1393_pid1_rc1_trigger_line(line)) {
-                long trigger_ms = monotonic_millis();
-                int write_rc = v1393_pid1_rc1_write_corrected_enumerate();
-                int saved_errno = write_rc < 0 ? -write_rc : 0;
+                long detect_ms = monotonic_millis();
+                int write_rc;
+                long write_ms;
+                int saved_errno;
+
+                if (A90_WIFI_TEST_BOOT_RC1_WATCHER_DELAY_MS > 0) {
+                    usleep((useconds_t)A90_WIFI_TEST_BOOT_RC1_WATCHER_DELAY_MS * 1000U);
+                }
+                write_rc = v1393_pid1_rc1_write_corrected_enumerate();
+                saved_errno = write_rc < 0 ? -write_rc : 0;
+                write_ms = monotonic_millis();
 
                 snprintf(result,
                          sizeof(result),
-                         "state=triggered source=%s write_rc=%d errno=%d elapsed_ms=%ld line=%.*s\n",
+                         "state=triggered source=%s write_rc=%d errno=%d detect_elapsed_ms=%ld write_elapsed_ms=%ld delay_ms=%d line=%.*s\n",
                          source,
                          write_rc,
                          saved_errno,
-                         trigger_ms >= start_ms ? trigger_ms - start_ms : -1,
+                         detect_ms >= start_ms ? detect_ms - start_ms : -1,
+                         write_ms >= start_ms ? write_ms - start_ms : -1,
+                         A90_WIFI_TEST_BOOT_RC1_WATCHER_DELAY_MS,
                          120,
                          line);
                 (void)v724_write_private_file(A90_V1393_WIFI_TEST_RC1_WATCHER_RESULT, result);
-                (void)v1393_append_wifi_test_log("pid1 rc1 watcher triggered source=%s write_rc=%d elapsed_ms=%ld\n",
+                (void)v1393_append_wifi_test_log("pid1 rc1 watcher triggered source=%s write_rc=%d detect_elapsed_ms=%ld write_elapsed_ms=%ld delay_ms=%d\n",
                                                 source,
                                                 write_rc,
-                                                trigger_ms >= start_ms ? trigger_ms - start_ms : -1);
+                                                detect_ms >= start_ms ? detect_ms - start_ms : -1,
+                                                write_ms >= start_ms ? write_ms - start_ms : -1,
+                                                A90_WIFI_TEST_BOOT_RC1_WATCHER_DELAY_MS);
                 close(fd);
                 _exit(write_rc == 0 ? 0 : 3);
             }
