@@ -7388,6 +7388,21 @@ Samsung bootloader
   after confirmed case completion. V1446 should be local-only artifact sanity
   over this exact manifest, marker contract, v724 header/kernel parity, private
   modes, and forbidden credential-like byte absence before any live handoff.
+- V1446 local-only artifact sanity passes with
+  `v1446-wifi-test-boot-case-aligned-micro-endpoint-artifact-sanity-pass`. It
+  verifies the exact V1445 manifest, boot image, static init/helper binaries,
+  ramdisk entries, case-aligned micro endpoint marker contract,
+  retry/immediate/V1441 marker absence, v724 header/kernel parity, forbidden
+  credential-like byte absence, private modes, and the V1445 contract
+  (`rc1_case_aligned_micro_endpoint_sampler=true`,
+  `rc1_micro_endpoint_sampler=true`, `rc1_endpoint_sampler=true`,
+  `rc1_immediate_endpoint_sampler=false`, `rc1_focused_endpoint_sampler=false`,
+  `250ms` watcher delay, retry count `0`). V1447 may be a rollbackable live
+  handoff for only the V1445 image, expecting
+  `A90 Linux init 0.9.82 (v1445-wifitest)`, collecting the V1445 log, summary,
+  RC1 watcher result, case-aligned micro endpoint window result, dmesg markers,
+  and `wlan0` state, then rolling back to `stage3/boot_linux_v724.img` and
+  verifying selftest fail=0.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
