@@ -6535,6 +6535,18 @@ Samsung bootloader
       write, no eSoC notify/`BOOT_DONE`, no Wi-Fi HAL, no scan/connect, no
       credentials, no DHCP/routes, no external ping, no flash, no boot image
       write, and no partition write.
+    - Result:
+      `docs/reports/NATIVE_INIT_V1390_EXECNS_HELPER_V286_DEPLOY_2026-06-01.md`.
+      Decision: `execns-helper-v286-deploy-pass`. Remote helper
+      `/cache/bin/a90_android_execns_probe` now matches v286 sha256
+      `e5fc81a5becb2c6e6efd2ca026800560ed9e0e72a692f0fbb07861cf26d5380f`,
+      and usage prints both `a90_android_execns_probe v286` and
+      `--pm-observer-early-powerup-corrected-rc1-enumerate`. NCM was not
+      reachable, so `auto` used serial appendfile + uudecode fallback
+      (`1061` chunks, max cmdv1 line `3788` bytes below safe limit `3968`).
+      Post-deploy selftest stayed `pass=11 warn=1 fail=0`. No daemon start,
+      Wi-Fi bring-up/network action, flash, boot image write, or partition
+      write occurred.
 39. **V1391 early-observer corrected RC1 live gate (bounded live).**
     - Goal: run the Android-participant parity window with helper v286 and fire
       corrected RC1 from the early observer phase where `pm-service`
@@ -6658,6 +6670,11 @@ Samsung bootloader
   live actions blocked. V1390 may only deploy/preflight the exact v286 helper;
   V1391 is the first bounded live gate that may exercise the early-observer
   corrected RC1 trigger.
+- V1390 proves the exact v286 helper is deployed and healthy on-device. V1391
+  is now the next gate and may exercise only the bounded early-observer
+  corrected RC1 trigger; it must remain below Wi-Fi HAL, scan/connect,
+  credentials, DHCP/routes, external ping, PMIC/GPIO/GDSC direct writes, blind
+  eSoC notify/`BOOT_DONE`, flash, boot image write, and partition write.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still

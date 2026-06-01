@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V1389 source/build-only helper v286 support PASS (`v1389-helper-v286-early-powerup-corrected-rc1-ready`). Helper v286 adds `--pm-observer-early-powerup-corrected-rc1-enumerate`, which fail-closed moves the corrected RC1 trigger into the early observer phase where the `pm-service` `mdm_subsys_powerup` thread is already visible. Next is V1390 deploy/preflight only, then V1391 bounded early-observer corrected RC1 live gate. Preserve hard exclusions: no PMIC/GPIO/GDSC direct write, blind eSoC notify/BOOT_DONE spoof, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, flash outside approved Android handoff/rollback, boot image write outside approved rollback, or partition write.
+- **Active research cycle**: V1390 deploy/preflight PASS (`execns-helper-v286-deploy-pass`). `/cache/bin/a90_android_execns_probe` now matches helper v286 sha256 `e5fc81a5becb2c6e6efd2ca026800560ed9e0e72a692f0fbb07861cf26d5380f` and exposes `--pm-observer-early-powerup-corrected-rc1-enumerate`. Next is V1391 bounded early-observer corrected RC1 live gate. Preserve hard exclusions: no PMIC/GPIO/GDSC direct write, blind eSoC notify/BOOT_DONE spoof, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, flash outside approved Android handoff/rollback, boot image write outside approved rollback, or partition write.
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -1480,3 +1480,13 @@ Update after V1354/V1355:
   No device command, deploy, live write, Wi-Fi bring-up/network action, flash,
   boot image write, or partition write occurred. Next is V1390 deploy/preflight
   helper v286, then V1391 bounded early-observer corrected RC1 live gate.
+- V1390 deploy/preflight (`execns-helper-v286-deploy-pass`) installed helper
+  v286 to `/cache/bin/a90_android_execns_probe` via serial appendfile +
+  uudecode fallback. Remote sha256 matches
+  `e5fc81a5becb2c6e6efd2ca026800560ed9e0e72a692f0fbb07861cf26d5380f`, usage
+  prints the v286 marker and early-observer flag, native version remains
+  `A90 Linux init 0.9.68 (v724)`, and post-deploy selftest remains
+  `pass=11 warn=1 fail=0`. Device mutation was limited to replacing the helper
+  under `/cache/bin`; no daemon start, Wi-Fi HAL, scan/connect, credentials,
+  DHCP/routes, external ping, flash, boot image write, or partition write
+  occurred. Next is V1391 bounded early-observer corrected RC1 live gate.
