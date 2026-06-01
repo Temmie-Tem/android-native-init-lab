@@ -9292,3 +9292,36 @@ Samsung bootloader
   writes, blind eSoC notify/`BOOT_DONE`, global PCI rescan, platform
   bind/unbind, or unbounded boot-image/partition writes.  Report:
   `docs/reports/NATIVE_INIT_V1596_PM_FIRST_LOWER_MARKER_HANDOFF_2026-06-02.md`.
+
+- V1597/V1598 PM-first late-per-proxy lower-marker source/build loop is
+  complete.  Helper `a90_android_execns_probe` is bumped to v296 and adds
+  `--allow-android-wifi-service-window-pm-first-late-per-proxy-route`.  V1597
+  keeps V1591 firmware mount parity, private devnodes, and the helper private
+  vendor namespace, but changes the stripped route to match the V1238/V1303
+  positive boundary more closely:
+  `servicemanager,hwservicemanager,vndservicemanager,pm_proxy_helper,per_mgr,
+  cnss_daemon,mdm_helper,pm_proxy_late,pm-first-late-per-proxy-lower-marker-no-direct-trigger-no-wifi-hal`.
+  Wi-Fi HAL and `wificond` are not started.  The direct scoped
+  `/dev/subsys_esoc0` trigger remains disabled.  The helper classifies the PM
+  boundary as `pm-service-owned-powerup-observed` or
+  `pm-service-owned-powerup-missing`.
+
+  V1597 source build passes as
+  `v1597-pm-first-late-per-proxy-lower-marker-test-boot-source-build-pass`;
+  boot image:
+  `tmp/wifi/v1597-pm-first-late-per-proxy-lower-marker-test-boot/boot_linux_v1597_wifi_test.img`,
+  sha256 `68f25e21cb09a7420a9e7876b05e1455d25eaeec3d6ac8c37a3d7e649cf425f3`.
+  V1598 artifact sanity passes as
+  `v1598-pm-first-late-per-proxy-lower-marker-artifact-sanity-pass`; it
+  verifies static binaries, boot/header/kernel parity, ramdisk entries,
+  PM-first late-per-proxy route strings, firmware mounts, helper v296, private
+  modes, and forbidden credential-like byte absence.  Next gate: V1599
+  rollbackable live handoff of only the V1597 image, collect helper
+  result/lower markers/dmesg/`wlan0`, then roll back to v724 and verify
+  selftest `fail=0`.  Still no credentials, scan/connect, DHCP/routes,
+  external ping, PMIC/GPIO/GDSC direct writes, blind eSoC notify/`BOOT_DONE`,
+  global PCI rescan, platform bind/unbind, or unbounded boot-image/partition
+  writes.  Reports:
+  `docs/reports/NATIVE_INIT_V1597_PM_FIRST_LATE_PER_PROXY_LOWER_MARKER_SOURCE_BUILD_2026-06-02.md`
+  and
+  `docs/reports/NATIVE_INIT_V1598_PM_FIRST_LATE_PER_PROXY_LOWER_MARKER_ARTIFACT_SANITY_2026-06-02.md`.

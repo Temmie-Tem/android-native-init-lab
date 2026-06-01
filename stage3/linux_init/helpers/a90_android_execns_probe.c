@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v295"
+#define EXECNS_VERSION "a90_android_execns_probe v296"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -279,6 +279,7 @@ struct config {
     bool allow_android_wifi_service_window_pm_proxy_contract;
     bool allow_android_wifi_service_window_late_per_proxy_only;
     bool allow_android_wifi_service_window_pm_first_route;
+    bool allow_android_wifi_service_window_pm_first_late_per_proxy_route;
     bool require_android_selinux_exec_match;
     bool pm_observer_zero_delay_per_mgr_probe;
     bool pm_observer_continue_after_provider;
@@ -496,6 +497,7 @@ static void usage(FILE *out) {
             "[--allow-android-wifi-service-window-pm-proxy-contract] "
             "[--allow-android-wifi-service-window-late-per-proxy-only] "
             "[--allow-android-wifi-service-window-pm-first-route] "
+            "[--allow-android-wifi-service-window-pm-first-late-per-proxy-route] "
             "[--result-output-path <path>] "
             "[--pm-observer-continue-after-provider] "
             "[--pm-observer-start-cnss-after-provider] "
@@ -1491,6 +1493,10 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             cfg->allow_android_wifi_service_window_pm_first_route = true;
             continue;
         }
+        if (strcmp(argv[i], "--allow-android-wifi-service-window-pm-first-late-per-proxy-route") == 0) {
+            cfg->allow_android_wifi_service_window_pm_first_late_per_proxy_route = true;
+            continue;
+        }
         if (strcmp(argv[i], "--require-android-selinux-exec-match") == 0) {
             cfg->require_android_selinux_exec_match = true;
             continue;
@@ -2317,6 +2323,16 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
     if (cfg->allow_android_wifi_service_window_pm_first_route &&
         !cfg->allow_android_wifi_service_window_late_per_proxy_only) {
         fprintf(stderr, "--allow-android-wifi-service-window-pm-first-route requires --allow-android-wifi-service-window-late-per-proxy-only\n");
+        return 2;
+    }
+    if (cfg->allow_android_wifi_service_window_pm_first_late_per_proxy_route &&
+        !cfg->allow_android_wifi_service_window_late_per_proxy_only) {
+        fprintf(stderr, "--allow-android-wifi-service-window-pm-first-late-per-proxy-route requires --allow-android-wifi-service-window-late-per-proxy-only\n");
+        return 2;
+    }
+    if (cfg->allow_android_wifi_service_window_pm_first_route &&
+        cfg->allow_android_wifi_service_window_pm_first_late_per_proxy_route) {
+        fprintf(stderr, "--allow-android-wifi-service-window-pm-first-route is mutually exclusive with --allow-android-wifi-service-window-pm-first-late-per-proxy-route\n");
         return 2;
     }
     if (!is_cnss_service_manager_matrix_order(cfg->service_manager_order)) {
@@ -39246,10 +39262,13 @@ static int run_wifi_companion_android_wifi_service_window_guarded(const struct c
     const bool pm_proxy_contract = cfg->allow_android_wifi_service_window_pm_proxy_contract;
     const bool late_per_proxy_only = cfg->allow_android_wifi_service_window_late_per_proxy_only;
     const bool pm_first_route = cfg->allow_android_wifi_service_window_pm_first_route;
+    const bool pm_first_late_per_proxy_route =
+        cfg->allow_android_wifi_service_window_pm_first_late_per_proxy_route;
+    const bool stripped_no_hal_route = pm_first_route || pm_first_late_per_proxy_route;
     const bool direct_subsys_trigger =
         is_wifi_companion_android_wifi_service_window_subsys_trigger_capture_mode(cfg->mode) &&
         !late_per_proxy_only &&
-        !pm_first_route;
+        !stripped_no_hal_route;
     size_t child_count = 0;
     int per_mgr_index = -1;
     int pm_proxy_helper_index = -1;
@@ -39314,7 +39333,7 @@ static int run_wifi_companion_android_wifi_service_window_guarded(const struct c
                              "/vendor/bin/pm_proxy_helper",
                              COMPOSITE_ID_PER_PROXY_HELPER);
     }
-    if (!pm_first_route) {
+    if (!stripped_no_hal_route) {
         composite_child_init(&children[child_count++],
                              "qrtr_ns",
                              "/vendor/bin/qrtr-ns",
@@ -39352,7 +39371,7 @@ static int run_wifi_companion_android_wifi_service_window_guarded(const struct c
                              "/vendor/bin/pm-proxy",
                              COMPOSITE_ID_PER_PROXY);
     }
-    if (!pm_first_route) {
+    if (!stripped_no_hal_route) {
         cnss_diag_index = (int)child_count;
         composite_child_init(&children[child_count++],
                              "cnss_diag",
@@ -39364,16 +39383,29 @@ static int run_wifi_companion_android_wifi_service_window_guarded(const struct c
                              "/system/bin/wificond",
                              COMPOSITE_ID_WIFICOND);
     }
-    mdm_helper_index = (int)child_count;
-    composite_child_init(&children[child_count++],
-                         "mdm_helper",
-                         "/vendor/bin/mdm_helper",
-                         COMPOSITE_ID_MDM_HELPER);
-    cnss_daemon_index = (int)child_count;
-    composite_child_init(&children[child_count++],
-                         "cnss_daemon",
-                         "/vendor/bin/cnss-daemon",
-                         COMPOSITE_ID_CNSS);
+    if (pm_first_late_per_proxy_route) {
+        cnss_daemon_index = (int)child_count;
+        composite_child_init(&children[child_count++],
+                             "cnss_daemon",
+                             "/vendor/bin/cnss-daemon",
+                             COMPOSITE_ID_CNSS);
+        mdm_helper_index = (int)child_count;
+        composite_child_init(&children[child_count++],
+                             "mdm_helper",
+                             "/vendor/bin/mdm_helper",
+                             COMPOSITE_ID_MDM_HELPER);
+    } else {
+        mdm_helper_index = (int)child_count;
+        composite_child_init(&children[child_count++],
+                             "mdm_helper",
+                             "/vendor/bin/mdm_helper",
+                             COMPOSITE_ID_MDM_HELPER);
+        cnss_daemon_index = (int)child_count;
+        composite_child_init(&children[child_count++],
+                             "cnss_daemon",
+                             "/vendor/bin/cnss-daemon",
+                             COMPOSITE_ID_CNSS);
+    }
     if (pm_proxy_contract && late_per_proxy_only && !pm_first_route) {
         pm_proxy_index = (int)child_count;
         composite_child_init(&children[child_count++],
@@ -39388,19 +39420,22 @@ static int run_wifi_companion_android_wifi_service_window_guarded(const struct c
                       "android_wifi_service_window.mode=%s\n",
                           subsys_trigger_capture
                               ? (pm_proxy_contract
-                                 ? (pm_first_route ? "guarded-pm-proxy-contract-pm-first-lower-marker"
+                                 ? (pm_first_late_per_proxy_route ? "guarded-pm-proxy-contract-pm-first-late-per-proxy-lower-marker"
+                                    : (pm_first_route ? "guarded-pm-proxy-contract-pm-first-lower-marker"
                                                     : (late_per_proxy_only ? "guarded-pm-proxy-contract-late-per-proxy-lower-marker"
-                                                        : "guarded-pm-proxy-contract-subsys-trigger-capture"))
+                                                        : "guarded-pm-proxy-contract-subsys-trigger-capture")))
                                  : "guarded-subsys-trigger-capture")
                           : "guarded") < 0 ||
         append_format(stdout_buf,
                       "android_wifi_service_window.order=%s\n",
                       pm_proxy_contract
-                          ? (pm_first_route
+                          ? (pm_first_late_per_proxy_route
+                                 ? "servicemanager,hwservicemanager,vndservicemanager,pm_proxy_helper,per_mgr,cnss_daemon,mdm_helper,pm_proxy_late,pm-first-late-per-proxy-lower-marker-no-direct-trigger-no-wifi-hal"
+                                 : (pm_first_route
                                  ? "servicemanager,hwservicemanager,vndservicemanager,pm_proxy_helper,per_mgr,pm_proxy,mdm_helper,cnss_daemon,pm-first-lower-marker-no-direct-trigger-no-wifi-hal"
                                  : (late_per_proxy_only
                                  ? "servicemanager,hwservicemanager,vndservicemanager,pm_proxy_helper,qrtr_ns,rmt_storage,tftp_server,pd_mapper,wifi_hal_legacy,wifi_hal_ext,per_mgr,cnss_diag,wificond,mdm_helper,cnss_daemon,pm_proxy_late,lower-marker-no-direct-trigger"
-                                 : "servicemanager,hwservicemanager,vndservicemanager,pm_proxy_helper,qrtr_ns,rmt_storage,tftp_server,pd_mapper,wifi_hal_legacy,wifi_hal_ext,per_mgr,pm_proxy,cnss_diag,wificond,mdm_helper,cnss_daemon,mdm-helper-esoc-fd-gate,subsys_esoc0-open-child"))
+                                 : "servicemanager,hwservicemanager,vndservicemanager,pm_proxy_helper,qrtr_ns,rmt_storage,tftp_server,pd_mapper,wifi_hal_legacy,wifi_hal_ext,per_mgr,pm_proxy,cnss_diag,wificond,mdm_helper,cnss_daemon,mdm-helper-esoc-fd-gate,subsys_esoc0-open-child")))
                           : (subsys_trigger_capture
                                  ? "servicemanager,hwservicemanager,vndservicemanager,qrtr_ns,rmt_storage,tftp_server,pd_mapper,wifi_hal_legacy,wifi_hal_ext,per_mgr,cnss_diag,wificond,mdm_helper,cnss_daemon,mdm-helper-esoc-fd-gate,subsys_esoc0-open-child"
                                  : "servicemanager,hwservicemanager,vndservicemanager,qrtr_ns,rmt_storage,tftp_server,pd_mapper,wifi_hal_legacy,wifi_hal_ext,per_mgr,cnss_diag,wificond,mdm_helper,cnss_daemon")) < 0 ||
@@ -39408,8 +39443,8 @@ static int run_wifi_companion_android_wifi_service_window_guarded(const struct c
         append_format(stdout_buf,
                       "android_wifi_service_window.wifi_hal_start_planned=%d\n"
                       "android_wifi_service_window.wificond_start_planned=%d\n",
-                      pm_first_route ? 0 : 1,
-                      pm_first_route ? 0 : 1) < 0 ||
+                      stripped_no_hal_route ? 0 : 1,
+                      stripped_no_hal_route ? 0 : 1) < 0 ||
         append_format(stdout_buf,
                       "android_wifi_service_window.pm_proxy_contract_planned=%d\n"
                       "android_wifi_service_window.pm_proxy_helper_start_planned=%d\n"
@@ -39422,6 +39457,9 @@ static int run_wifi_companion_android_wifi_service_window_guarded(const struct c
         append_format(stdout_buf,
                       "android_wifi_service_window.pm_first_route=%d\n",
                       pm_first_route ? 1 : 0) < 0 ||
+        append_format(stdout_buf,
+                      "android_wifi_service_window.pm_first_late_per_proxy_route=%d\n",
+                      pm_first_late_per_proxy_route ? 1 : 0) < 0 ||
         append_literal(stdout_buf, "android_wifi_service_window.mdm_helper_start_planned=1\n") < 0 ||
         append_literal(stdout_buf, "android_wifi_service_window.cnss_daemon_start_planned=1\n") < 0 ||
         append_literal(stdout_buf, "android_wifi_service_window.qcwlanstate_write=0\n") < 0 ||
@@ -39473,8 +39511,8 @@ static int run_wifi_companion_android_wifi_service_window_guarded(const struct c
                       "android_wifi_service_window.wificond_start_executed=%d\n"
                       "android_wifi_service_window.mdm_helper_start_executed=1\n"
                       "android_wifi_service_window.cnss_daemon_start_executed=1\n",
-                      pm_first_route ? 0 : 1,
-                      pm_first_route ? 0 : 1) < 0 ||
+                      stripped_no_hal_route ? 0 : 1,
+                      stripped_no_hal_route ? 0 : 1) < 0 ||
         append_qipcrtr_protocol_summary(stdout_buf, "android_wifi_service_window.net_before") < 0 ||
         append_wifi_window_surface_capture(stdout_buf, "android_wifi_service_window.surface_before") < 0 ||
         append_wifi_cnss2_focus_capture(stdout_buf, "android_wifi_service_window.cnss_before") < 0 ||
@@ -39982,6 +40020,14 @@ static int run_wifi_companion_android_wifi_service_window_guarded(const struct c
         append_literal(stdout_buf,
                        "android_wifi_service_window.result=start-only-reboot-required\n"
                        "android_wifi_service_window.reason=process-not-proven-stopped\n");
+    } else if (pm_first_late_per_proxy_route && lower_marker_summary.timing.pm_service_powerup_seen) {
+        append_literal(stdout_buf,
+                       "android_wifi_service_window.result=pm-service-owned-powerup-observed\n"
+                       "android_wifi_service_window.reason=pm-first-late-per-proxy-route-reached-dev-subsys-esoc0-mdm-subsys-powerup\n");
+    } else if (pm_first_late_per_proxy_route) {
+        append_literal(stdout_buf,
+                       "android_wifi_service_window.result=pm-service-owned-powerup-missing\n"
+                       "android_wifi_service_window.reason=pm-first-late-per-proxy-route-did-not-reach-dev-subsys-esoc0-mdm-subsys-powerup\n");
     } else if (pm_first_route && lower_marker_summary.timing.pm_service_powerup_seen) {
         append_literal(stdout_buf,
                        "android_wifi_service_window.result=pm-service-owned-powerup-observed\n"
@@ -40025,6 +40071,7 @@ static int run_wifi_companion_android_wifi_service_window_guarded(const struct c
                   "android_wifi_service_window.pm_proxy_contract=%d\n"
                   "android_wifi_service_window.late_per_proxy_only=%d\n"
                   "android_wifi_service_window.pm_first_route=%d\n"
+                  "android_wifi_service_window.pm_first_late_per_proxy_route=%d\n"
                   "android_wifi_service_window.pm_proxy_helper_subsys_modem_fd_count=%d\n"
                   "android_wifi_service_window.per_mgr_subsys_modem_fd_count=%d\n"
                   "android_wifi_service_window.pm_full_contract_seen=%d\n"
@@ -40039,6 +40086,7 @@ static int run_wifi_companion_android_wifi_service_window_guarded(const struct c
                   pm_proxy_contract ? 1 : 0,
                   late_per_proxy_only ? 1 : 0,
                   pm_first_route ? 1 : 0,
+                  pm_first_late_per_proxy_route ? 1 : 0,
                   pm_proxy_helper_subsys_modem_fd_count,
                   per_mgr_subsys_modem_fd_count,
                   (pm_proxy_contract &&
@@ -40388,6 +40436,8 @@ int main(int argc, char **argv) {
            cfg.allow_android_wifi_service_window_late_per_proxy_only ? 1 : 0);
     printf("allow_android_wifi_service_window_pm_first_route=%d\n",
            cfg.allow_android_wifi_service_window_pm_first_route ? 1 : 0);
+    printf("allow_android_wifi_service_window_pm_first_late_per_proxy_route=%d\n",
+           cfg.allow_android_wifi_service_window_pm_first_late_per_proxy_route ? 1 : 0);
     printf("connect_config=%s\n", cfg.connect_config != NULL ? cfg.connect_config : "<none>");
     printf("connect_iface=%s\n", cfg.connect_iface != NULL ? cfg.connect_iface : "<none>");
     printf("ping_target=%s\n", cfg.ping_target != NULL ? cfg.ping_target : "<none>");

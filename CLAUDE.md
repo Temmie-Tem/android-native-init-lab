@@ -3644,3 +3644,49 @@ credentials, scan/connect, DHCP/routes, external ping, PMIC/GPIO/GDSC direct
 writes, blind eSoC notify/`BOOT_DONE`, global PCI rescan, platform bind/unbind,
 or unbounded boot-image/partition writes.  Report:
 `docs/reports/NATIVE_INIT_V1596_PM_FIRST_LOWER_MARKER_HANDOFF_2026-06-02.md`.
+
+## Latest native Wi-Fi state: V1597/V1598 (2026-06-02)
+
+V1597 implements the V1596-selected source/build route.  Helper
+`a90_android_execns_probe` is bumped to v296 and adds
+`--allow-android-wifi-service-window-pm-first-late-per-proxy-route`.  The new
+test boot keeps V1591 firmware mount parity, private devnodes, and the helper
+private vendor namespace, but changes the stripped service-window order to
+match the V1238/V1303 positive boundary more closely:
+
+`servicemanager,hwservicemanager,vndservicemanager,pm_proxy_helper,per_mgr,cnss_daemon,mdm_helper,pm_proxy_late,pm-first-late-per-proxy-lower-marker-no-direct-trigger-no-wifi-hal`
+
+This route intentionally does not start Wi-Fi HAL or `wificond`, keeps the
+direct scoped `/dev/subsys_esoc0` trigger disabled, starts `pm-proxy` only in a
+late/deferred position after CNSS/`mdm_helper` setup, and classifies the PM
+boundary as either `pm-service-owned-powerup-observed` or
+`pm-service-owned-powerup-missing`.
+
+V1597 source build passes as
+`v1597-pm-first-late-per-proxy-lower-marker-test-boot-source-build-pass`:
+
+- boot image:
+  `tmp/wifi/v1597-pm-first-late-per-proxy-lower-marker-test-boot/boot_linux_v1597_wifi_test.img`
+- boot sha256:
+  `68f25e21cb09a7420a9e7876b05e1455d25eaeec3d6ac8c37a3d7e649cf425f3`
+- init: `A90 Linux init 0.9.104 (v1597-pm-first-late-per-proxy-lower-marker)`
+- helper marker: `a90_android_execns_probe v296`
+- helper sha256:
+  `36e964fc3d160de9cca8c105c4e36a16d47569800b478dba8d4ca2a176d4f850`
+
+V1598 artifact sanity passes as
+`v1598-pm-first-late-per-proxy-lower-marker-artifact-sanity-pass`.  It
+verifies static init/helper binaries, boot/header/kernel parity, ramdisk
+entries, PM-first late-per-proxy route strings, service-window PM proxy
+contract, firmware mounts, helper v296, lower-marker strings, private file
+modes, and forbidden credential-like byte absence.
+
+Next work: V1599 rollbackable live handoff of only the V1597 image, collect
+log/summary/helper result/dmesg/`wlan0`, then roll back to v724 and verify
+selftest `fail=0`.  Still no credentials, scan/connect, DHCP/routes, external
+ping, PMIC/GPIO/GDSC direct writes, blind eSoC notify/`BOOT_DONE`, global PCI
+rescan, platform bind/unbind, or unbounded boot-image/partition writes.
+Reports:
+`docs/reports/NATIVE_INIT_V1597_PM_FIRST_LATE_PER_PROXY_LOWER_MARKER_SOURCE_BUILD_2026-06-02.md`
+and
+`docs/reports/NATIVE_INIT_V1598_PM_FIRST_LATE_PER_PROXY_LOWER_MARKER_ARTIFACT_SANITY_2026-06-02.md`.
