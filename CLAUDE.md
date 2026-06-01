@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V1514 host-only PASS (`v1514-source-timing-identifies-clk-summary-overrun`). V1513 rollbackable live handoff for the V1511 source-timestamped test image preserved the blocker as `rc1-ltssm-link-failed-no-l0`: RC1 reaches PHY/LTSSM and link failure, but L0, PCI enumeration, MHI, WLFW, BDF, FW-ready, and `wlan0` remain absent. V1514 proves first-sample fast sources are captured before the ~114.9ms link-fail marker, but the full `/sys/kernel/debug/clk/clk_summary` read spans about 114ms and crosses the link-fail marker, making later source reads post-failure. Next gate should be V1515 source/build-only critical-source pre-L0 sampler that avoids full `clk_summary` during the first link-fail window. Do not proceed to firmware/MHI/WLFW/scan/connect until RC1 L0 and PCI enumeration exist. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, Wi-Fi HAL start, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
+- **Active research cycle**: V1518 host-only PASS (`v1518-critical-source-first-window-pre-fail-confirmed`). V1517 rollbackable live handoff for the V1515 critical-source test image preserved the blocker as `rc1-ltssm-link-failed-no-l0`: RC1 reaches PHY/LTSSM and link failure, but L0, PCI enumeration, MHI, WLFW, BDF, FW-ready, and `wlan0` remain absent. V1518 proves selected first-window sources finish before the ~115ms link-fail marker: GPIO135 remains low, GPIO142 remains low, `pcie_1_gdsc` remains 0mV, and pcie1/MDM pinmux ownership is visible by about 30ms after `case=11`. Next gate should be V1519 Android-good vs native-fail critical source comparison before any new mutation. Do not proceed to firmware/MHI/WLFW/scan/connect until RC1 L0 and PCI enumeration exist. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, Wi-Fi HAL start, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -2315,3 +2315,38 @@ Update after V1354/V1355:
   critical-source pre-L0 sampler that avoids full `clk_summary` in the first
   link-fail window. Report:
   `docs/reports/NATIVE_INIT_V1514_WIFI_SOURCE_TIMING_CLASSIFIER_2026-06-01.md`.
+- V1515 source/build-only critical-source pre-L0 test boot
+  (`v1515-wifi-critical-source-pre-l0-test-boot-source-build-pass`) adds
+  `scripts/revalidation/build_native_init_wifi_test_boot_v1515.py` and extends
+  the shared V1393 builder/C hook with
+  `--wifi-test-rc1-micro-critical-fast-endpoint-sampler` /
+  `A90_WIFI_TEST_BOOT_RC1_MICRO_CRITICAL_FAST_ENDPOINT_SAMPLER`. The image
+  `tmp/wifi/v1515-wifi-critical-source-pre-l0-test-boot/boot_linux_v1515_wifi_test.img`
+  (`sha256=b2578c7bec6565ae051d7101e8e6074890f8151b99767ed4ac27f2aa69df9b78`)
+  uses `A90 Linux init 0.9.97 (v1515-wifitest)`, keeps corrected RC1 enumerate
+  and source timing, skips full `clk_summary`, and emits
+  `micro_critical_regulator` / `micro_critical_pinmux`. Report:
+  `docs/reports/NATIVE_INIT_V1515_WIFI_CRITICAL_SOURCE_PRE_L0_SOURCE_BUILD_2026-06-01.md`.
+- V1516 local-only artifact sanity passes with
+  `v1516-wifi-critical-source-pre-l0-artifact-sanity-pass`. It adds
+  `scripts/revalidation/native_wifi_test_boot_artifact_sanity_v1516.py` and
+  verifies the exact V1515 image, critical-source contract, private modes, and
+  forbidden credential-like byte absence. Report:
+  `docs/reports/NATIVE_INIT_V1516_WIFI_CRITICAL_SOURCE_PRE_L0_ARTIFACT_SANITY_2026-06-01.md`.
+- V1517 rollbackable live handoff passes with
+  `v1517-test-boot-downstream-progress-rollback-pass`. It adds
+  `scripts/revalidation/native_wifi_test_boot_handoff_v1517.py`, boots only the
+  V1515 critical-source image, collects V1515 log/summary/RC1 watcher/critical
+  timing result/focused dmesg/`wlan0`, then rolls back to v724 from native.
+  Rollback succeeded and v724 selftest stayed `fail=0`. Progress remains
+  `rc1-ltssm-link-failed-no-l0`. Report:
+  `docs/reports/NATIVE_INIT_V1517_WIFI_CRITICAL_SOURCE_PRE_L0_HANDOFF_2026-06-01.md`.
+- V1518 host-only V1517 evidence classifier passes with
+  `v1518-critical-source-first-window-pre-fail-confirmed`. It adds
+  `scripts/revalidation/native_wifi_critical_source_timing_classifier_v1518.py`.
+  Selected first-window sources complete by about `30ms` after `case=11`,
+  before the ~`114.9ms` link-fail marker; GPIO135/GPIO142 remain low,
+  `pcie_1_gdsc` remains `0mV`, and no L0/MHI/WLFW/BDF/FW-ready/`wlan0`
+  appears. Next gate: V1519 Android-good vs native-fail critical source
+  comparison before any new mutation. Report:
+  `docs/reports/NATIVE_INIT_V1518_WIFI_CRITICAL_SOURCE_TIMING_CLASSIFIER_2026-06-01.md`.

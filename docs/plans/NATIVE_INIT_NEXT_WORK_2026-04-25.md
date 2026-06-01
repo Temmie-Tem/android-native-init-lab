@@ -8241,6 +8241,43 @@ Samsung bootloader
   critical-source pre-L0 sampler that avoids full `clk_summary` during the
   first link-fail window. Report:
   `docs/reports/NATIVE_INIT_V1514_WIFI_SOURCE_TIMING_CLASSIFIER_2026-06-01.md`.
+- V1515 source/build-only critical-source pre-L0 test boot passes with
+  `v1515-wifi-critical-source-pre-l0-test-boot-source-build-pass`. It extends
+  the shared V1393 builder/C hook with
+  `A90_WIFI_TEST_BOOT_RC1_MICRO_CRITICAL_FAST_ENDPOINT_SAMPLER` and adds
+  `scripts/revalidation/build_native_init_wifi_test_boot_v1515.py`. The image
+  is
+  `tmp/wifi/v1515-wifi-critical-source-pre-l0-test-boot/boot_linux_v1515_wifi_test.img`
+  (`sha256=b2578c7bec6565ae051d7101e8e6074890f8151b99767ed4ac27f2aa69df9b78`),
+  native init `0.9.97 (v1515-wifitest)`. It keeps source timing but skips full
+  `clk_summary` during the first link-fail window, emitting fast
+  `micro_critical_regulator` and `micro_critical_pinmux` instead. Report:
+  `docs/reports/NATIVE_INIT_V1515_WIFI_CRITICAL_SOURCE_PRE_L0_SOURCE_BUILD_2026-06-01.md`.
+- V1516 local-only artifact sanity passes with
+  `v1516-wifi-critical-source-pre-l0-artifact-sanity-pass`. It adds
+  `scripts/revalidation/native_wifi_test_boot_artifact_sanity_v1516.py` and
+  verifies the exact V1515 image, manifest decision, static init/helper,
+  ramdisk entries, critical-source contract, v724 header/kernel parity,
+  private modes, and forbidden credential-like byte absence. Report:
+  `docs/reports/NATIVE_INIT_V1516_WIFI_CRITICAL_SOURCE_PRE_L0_ARTIFACT_SANITY_2026-06-01.md`.
+- V1517 rollbackable live handoff passes with
+  `v1517-test-boot-downstream-progress-rollback-pass`. It adds
+  `scripts/revalidation/native_wifi_test_boot_handoff_v1517.py`, boots only the
+  V1515 critical-source image, collects V1515 log/summary/RC1 watcher/critical
+  timing result/focused dmesg/`wlan0`, rolls back to v724 from native, and
+  verifies selftest `fail=0`. Progress remains `rc1-ltssm-link-failed-no-l0`.
+  Report:
+  `docs/reports/NATIVE_INIT_V1517_WIFI_CRITICAL_SOURCE_PRE_L0_HANDOFF_2026-06-01.md`.
+- V1518 host-only V1517 evidence classifier passes with
+  `v1518-critical-source-first-window-pre-fail-confirmed`. It adds
+  `scripts/revalidation/native_wifi_critical_source_timing_classifier_v1518.py`.
+  Selected first-window sources finish by about `30ms` after `case=11`, before
+  the ~`114.9ms` RC1 link-fail marker. In that source-exact pre-fail window,
+  GPIO135/GPIO142 remain low, `pcie_1_gdsc` remains `0mV`, pinmux ownership is
+  visible, and no L0/MHI/WLFW/BDF/FW-ready/`wlan0` appears. V1519 should
+  compare Android-good and native-fail critical source timing/order before any
+  new live mutation. Report:
+  `docs/reports/NATIVE_INIT_V1518_WIFI_CRITICAL_SOURCE_TIMING_CLASSIFIER_2026-06-01.md`.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still

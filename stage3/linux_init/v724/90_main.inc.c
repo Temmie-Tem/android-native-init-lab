@@ -106,6 +106,9 @@ static void selftest_boot_draw_frame(void *ctx) {
 #ifndef A90_WIFI_TEST_BOOT_RC1_MICRO_SOURCE_TIMESTAMPED_SAMPLER
 #define A90_WIFI_TEST_BOOT_RC1_MICRO_SOURCE_TIMESTAMPED_SAMPLER 0
 #endif
+#ifndef A90_WIFI_TEST_BOOT_RC1_MICRO_CRITICAL_FAST_ENDPOINT_SAMPLER
+#define A90_WIFI_TEST_BOOT_RC1_MICRO_CRITICAL_FAST_ENDPOINT_SAMPLER 0
+#endif
 #ifndef A90_WIFI_TEST_BOOT_RC1_CASE_ALIGNED_MICRO_ENDPOINT_SAMPLER
 #define A90_WIFI_TEST_BOOT_RC1_CASE_ALIGNED_MICRO_ENDPOINT_SAMPLER 0
 #endif
@@ -1534,6 +1537,23 @@ static void v1393_rc1_micro_endpoint_sample(const char *sample,
         NULL,
     };
 #endif
+#if A90_WIFI_TEST_BOOT_RC1_ENDPOINT_SAMPLER && A90_WIFI_TEST_BOOT_RC1_MICRO_CRITICAL_FAST_ENDPOINT_SAMPLER
+    static const char *const micro_critical_regulator_needles[] = {
+        "pcie_1_gdsc",
+        "pcie_0_gdsc",
+        "pm8150l_l3",
+        "pm8150_l5",
+        NULL,
+    };
+    static const char *const micro_critical_pinmux_needles[] = {
+        "GPIO_102",
+        "GPIO_103",
+        "GPIO_104",
+        "GPIO_135",
+        "GPIO_142",
+        NULL,
+    };
+#endif
     int out_fd;
     long now_ms = monotonic_millis();
 
@@ -1559,6 +1579,9 @@ static void v1393_rc1_micro_endpoint_sample(const char *sample,
 #if A90_WIFI_TEST_BOOT_RC1_ENDPOINT_SAMPLER && A90_WIFI_TEST_BOOT_RC1_MICRO_SOURCE_TIMESTAMPED_SAMPLER
     dprintf(out_fd, "sample=%s micro_source_timestamped_sampler=1\n", sample);
 #endif
+#if A90_WIFI_TEST_BOOT_RC1_ENDPOINT_SAMPLER && A90_WIFI_TEST_BOOT_RC1_MICRO_CRITICAL_FAST_ENDPOINT_SAMPLER
+    dprintf(out_fd, "sample=%s micro_critical_fast_endpoint_sampler=1\n", sample);
+#endif
 #if A90_WIFI_TEST_BOOT_RC1_ENDPOINT_SAMPLER && A90_WIFI_TEST_BOOT_RC1_MICRO_SOURCE_TIMESTAMPED_SAMPLER
     v1511_rc1_window_append_matching_lines_timed(out_fd,
                                                  sample,
@@ -1567,6 +1590,15 @@ static void v1393_rc1_micro_endpoint_sample(const char *sample,
                                                  micro_interrupt_needles,
                                                  start_ms,
                                                  micro_start_ms);
+#if A90_WIFI_TEST_BOOT_RC1_MICRO_CRITICAL_FAST_ENDPOINT_SAMPLER
+    v1511_rc1_window_append_matching_lines_timed(out_fd,
+                                                 sample,
+                                                 "micro_debug_gpio",
+                                                 "/sys/kernel/debug/gpio",
+                                                 micro_gpio_needles,
+                                                 start_ms,
+                                                 micro_start_ms);
+#else
     v1511_rc1_window_append_exact_matches_timed(out_fd,
                                                 sample,
                                                 "micro_debug_gpio",
@@ -1574,17 +1606,26 @@ static void v1393_rc1_micro_endpoint_sample(const char *sample,
                                                 micro_gpio_needles,
                                                 start_ms,
                                                 micro_start_ms);
+#endif
 #else
     v1393_rc1_window_append_matching_lines(out_fd,
                                            sample,
                                            "micro_interrupts",
                                            "/proc/interrupts",
                                            micro_interrupt_needles);
+#if A90_WIFI_TEST_BOOT_RC1_ENDPOINT_SAMPLER && A90_WIFI_TEST_BOOT_RC1_MICRO_CRITICAL_FAST_ENDPOINT_SAMPLER
+    v1393_rc1_window_append_matching_lines(out_fd,
+                                           sample,
+                                           "micro_debug_gpio",
+                                           "/sys/kernel/debug/gpio",
+                                           micro_gpio_needles);
+#else
     v1393_rc1_window_append_exact_matches(out_fd,
                                           sample,
                                           "micro_debug_gpio",
                                           "/sys/kernel/debug/gpio",
                                           micro_gpio_needles);
+#endif
 #endif
 #if A90_WIFI_TEST_BOOT_RC1_ENDPOINT_SAMPLER
 #if A90_WIFI_TEST_BOOT_RC1_MICRO_SOURCE_TIMESTAMPED_SAMPLER
@@ -1609,6 +1650,38 @@ static void v1393_rc1_micro_endpoint_sample(const char *sample,
                                          sample,
                                          "micro_pcie1_link_state",
                                          "/sys/devices/platform/soc/1c08000.qcom,pcie/link_state");
+#endif
+#if A90_WIFI_TEST_BOOT_RC1_MICRO_CRITICAL_FAST_ENDPOINT_SAMPLER
+#if A90_WIFI_TEST_BOOT_RC1_MICRO_SOURCE_TIMESTAMPED_SAMPLER
+    v1511_rc1_window_append_matching_lines_timed(out_fd,
+                                                 sample,
+                                                 "micro_critical_regulator",
+                                                 "/sys/kernel/debug/regulator/regulator_summary",
+                                                 micro_critical_regulator_needles,
+                                                 start_ms,
+                                                 micro_start_ms);
+    v1511_rc1_window_append_matching_lines_timed(out_fd,
+                                                 sample,
+                                                 "micro_critical_pinmux",
+                                                 "/sys/kernel/debug/pinctrl/3000000.pinctrl/pinmux-pins",
+                                                 micro_critical_pinmux_needles,
+                                                 start_ms,
+                                                 micro_start_ms);
+#else
+    v1393_rc1_window_append_matching_lines(out_fd,
+                                           sample,
+                                           "micro_critical_regulator",
+                                           "/sys/kernel/debug/regulator/regulator_summary",
+                                           micro_critical_regulator_needles);
+    v1393_rc1_window_append_matching_lines(out_fd,
+                                           sample,
+                                           "micro_critical_pinmux",
+                                           "/sys/kernel/debug/pinctrl/3000000.pinctrl/pinmux-pins",
+                                           micro_critical_pinmux_needles);
+#endif
+    dprintf(out_fd,
+            "sample=%s micro_critical_clk_summary_skipped=1 reason=clk_summary-too-slow-for-pre-l0-window\n",
+            sample);
 #endif
 #if A90_WIFI_TEST_BOOT_RC1_MICRO_FOCUSED_ENDPOINT_SAMPLER
 #if A90_WIFI_TEST_BOOT_RC1_MICRO_SOURCE_TIMESTAMPED_SAMPLER
@@ -2920,6 +2993,9 @@ static void v1393_write_wifi_test_summary(pid_t helper_pid, long spawn_ms) {
     dprintf(fd,
             "rc1_micro_source_timestamped_sampler_requested=%d\n",
             A90_WIFI_TEST_BOOT_RC1_MICRO_SOURCE_TIMESTAMPED_SAMPLER);
+    dprintf(fd,
+            "rc1_micro_critical_fast_endpoint_sampler_requested=%d\n",
+            A90_WIFI_TEST_BOOT_RC1_MICRO_CRITICAL_FAST_ENDPOINT_SAMPLER);
     dprintf(fd,
             "rc1_case_aligned_micro_endpoint_sampler_requested=%d\n",
             A90_WIFI_TEST_BOOT_RC1_CASE_ALIGNED_MICRO_ENDPOINT_SAMPLER);

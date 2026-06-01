@@ -159,6 +159,11 @@ def build_init(args: argparse.Namespace) -> None:
         if args.wifi_test_rc1_micro_source_timestamped_sampler
         else []
     )
+    rc1_micro_critical_fast_endpoint_flags = (
+        ["-DA90_WIFI_TEST_BOOT_RC1_MICRO_CRITICAL_FAST_ENDPOINT_SAMPLER=1"]
+        if args.wifi_test_rc1_micro_critical_fast_endpoint_sampler
+        else []
+    )
     rc1_case_aligned_micro_endpoint_flags = (
         ["-DA90_WIFI_TEST_BOOT_RC1_CASE_ALIGNED_MICRO_ENDPOINT_SAMPLER=1"]
         if args.wifi_test_rc1_case_aligned_micro_endpoint_sampler
@@ -249,6 +254,7 @@ def build_init(args: argparse.Namespace) -> None:
         *rc1_micro_focused_endpoint_flags,
         *rc1_micro_batched_focused_endpoint_flags,
         *rc1_micro_source_timestamped_flags,
+        *rc1_micro_critical_fast_endpoint_flags,
         *rc1_case_aligned_micro_endpoint_flags,
         *provider_trigger_micro_endpoint_flags,
         *provider_trigger_exact_line_flags,
@@ -576,6 +582,15 @@ def verify_markers(args: argparse.Namespace) -> None:
             "source_timing=%s",
             "source_duration_ms=%ld",
         ])
+    if args.wifi_test_rc1_micro_critical_fast_endpoint_sampler:
+        expected.extend([
+            "rc1_micro_critical_fast_endpoint_sampler_requested",
+            "micro_critical_fast_endpoint_sampler=1",
+            "micro_critical_regulator",
+            "micro_critical_pinmux",
+            "micro_critical_clk_summary_skipped=1",
+            "clk_summary-too-slow-for-pre-l0-window",
+        ])
     if args.wifi_test_rc1_case_aligned_micro_endpoint_sampler:
         expected.extend([
             "rc1_case_aligned_micro_endpoint_sampler_requested",
@@ -768,6 +783,7 @@ def write_manifest(args: argparse.Namespace) -> None:
             "rc1_micro_focused_endpoint_sampler": args.wifi_test_rc1_micro_focused_endpoint_sampler,
             "rc1_micro_batched_focused_endpoint_sampler": args.wifi_test_rc1_micro_batched_focused_endpoint_sampler,
             "rc1_micro_source_timestamped_sampler": args.wifi_test_rc1_micro_source_timestamped_sampler,
+            "rc1_micro_critical_fast_endpoint_sampler": args.wifi_test_rc1_micro_critical_fast_endpoint_sampler,
             "rc1_case_aligned_micro_endpoint_sampler": args.wifi_test_rc1_case_aligned_micro_endpoint_sampler,
             "provider_trigger_micro_endpoint_sampler": args.wifi_test_provider_trigger_micro_endpoint_sampler,
             "provider_trigger_exact_line": args.wifi_test_provider_trigger_exact_line,
@@ -854,6 +870,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--wifi-test-rc1-micro-focused-endpoint-sampler", action="store_true")
     parser.add_argument("--wifi-test-rc1-micro-batched-focused-endpoint-sampler", action="store_true")
     parser.add_argument("--wifi-test-rc1-micro-source-timestamped-sampler", action="store_true")
+    parser.add_argument("--wifi-test-rc1-micro-critical-fast-endpoint-sampler", action="store_true")
     parser.add_argument("--wifi-test-rc1-case-aligned-micro-endpoint-sampler", action="store_true")
     parser.add_argument("--wifi-test-provider-trigger-micro-endpoint-sampler", action="store_true")
     parser.add_argument("--wifi-test-provider-trigger-exact-line", action="store_true")
