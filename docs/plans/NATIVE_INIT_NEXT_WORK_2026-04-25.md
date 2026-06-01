@@ -8086,6 +8086,20 @@ Samsung bootloader
   live action. V1500 should run local artifact sanity over the exact V1499
   manifest before any rollbackable live handoff. Report:
   `docs/reports/NATIVE_INIT_V1499_WIFI_AUTO_READINESS_PRE_L0_PARITY_SOURCE_BUILD_2026-06-01.md`.
+- V1500 local-only artifact sanity passes with
+  `v1500-wifi-auto-readiness-pre-l0-parity-artifact-sanity-pass`. It adds
+  `scripts/revalidation/native_wifi_test_boot_artifact_sanity_v1500.py` and
+  verifies the exact V1499 artifact. Checks passed for manifest decision, base
+  boot existence, init/helper sha and static linkage, ramdisk entries, boot
+  markers, AP2MDM-hold marker absence, pre-L0 parity contract, v724
+  header/kernel parity, forbidden credential-like byte absence, and private
+  output modes. V1500 performed no device command or live action. V1501 may
+  perform a rollbackable live handoff for only the V1499 image, expecting
+  `A90 Linux init 0.9.93 (v1499-wifitest)`, collecting the V1499 log, summary,
+  RC1 watcher result, pre-L0 parity result, focused dmesg, and `wlan0` state,
+  then rolling back to `stage3/boot_linux_v724.img` and verifying selftest
+  `fail=0`. Report:
+  `docs/reports/NATIVE_INIT_V1500_WIFI_AUTO_READINESS_PRE_L0_PARITY_ARTIFACT_SANITY_2026-06-01.md`.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still

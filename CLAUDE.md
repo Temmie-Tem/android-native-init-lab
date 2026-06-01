@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V1499 source/build-only pre-L0 endpoint parity test boot PASS (`v1499-wifi-auto-readiness-pre-l0-parity-test-boot-source-build-pass`). V1499 builds `A90 Linux init 0.9.93 (v1499-wifitest)` as a rollbackable, credential-free test image that keeps the V1493/V1496 provider-triggered corrected RC1 enumerate path but adds focused pre-L0 evidence: case-aligned micro samples after `case=11`, `pcie_1_gdsc`, PCIe1 clocks/refclk, GPIO102/PERST, GPIO103/CLKREQ, GPIO104/WAKE, GPIO135/AP2MDM, GPIO142/MDM2AP, pinmux/pinconf, interrupts, and RC1 link-state files. Next gate is V1500 local artifact sanity over the exact V1499 manifest before any live handoff. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, Wi-Fi HAL start, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
+- **Active research cycle**: V1500 local artifact sanity PASS (`v1500-wifi-auto-readiness-pre-l0-parity-artifact-sanity-pass`) over the exact V1499 image. V1500 verifies static init/helper, ramdisk entries, boot markers, v724 header/kernel parity, private modes, forbidden credential-like byte absence, and the V1499 pre-L0 parity contract. Next gate may be V1501 rollbackable live handoff for only `tmp/wifi/v1499-wifi-auto-readiness-pre-l0-parity-test-boot/boot_linux_v1499_wifi_test.img`, expecting `A90 Linux init 0.9.93 (v1499-wifitest)`, collecting V1499 log/summary/watcher/pre-L0 parity/focused dmesg/`wlan0`, then rolling back to v724 and verifying selftest. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, Wi-Fi HAL start, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -2156,3 +2156,15 @@ Update after V1354/V1355:
   live action. Next gate: V1500 local artifact sanity over the exact V1499
   manifest before any rollbackable live handoff. Report:
   `docs/reports/NATIVE_INIT_V1499_WIFI_AUTO_READINESS_PRE_L0_PARITY_SOURCE_BUILD_2026-06-01.md`.
+- V1500 local-only artifact sanity
+  (`v1500-wifi-auto-readiness-pre-l0-parity-artifact-sanity-pass`) adds
+  `scripts/revalidation/native_wifi_test_boot_artifact_sanity_v1500.py` and
+  verifies the exact V1499 manifest/image. Checks passed for manifest decision,
+  v724 base boot presence, init/helper sha and static linkage, ramdisk entries,
+  boot markers, AP2MDM-hold marker absence, pre-L0 parity contract, v724
+  header/kernel parity, forbidden credential-like byte absence, and private
+  output modes. V1500 performed no device command or live action. Next gate:
+  V1501 rollbackable live handoff for only the V1499 image, collecting V1499
+  log, summary, RC1 watcher result, pre-L0 parity result, focused dmesg, and
+  `wlan0` state, then rolling back to v724 and verifying selftest. Report:
+  `docs/reports/NATIVE_INIT_V1500_WIFI_AUTO_READINESS_PRE_L0_PARITY_ARTIFACT_SANITY_2026-06-01.md`.
