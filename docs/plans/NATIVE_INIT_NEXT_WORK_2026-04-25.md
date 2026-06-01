@@ -8353,6 +8353,23 @@ Samsung bootloader
   sysfs/client caller, or vendor client request before another native mutation.
   Report:
   `docs/reports/NATIVE_INIT_V1523_MSM_PCIE_TEST11_VS_NORMAL_PATH_CLASSIFIER_2026-06-02.md`.
+- V1524 host-only endpoint-trigger attribution classifier passes with
+  `v1524-trigger-attribution-pivots-to-esoc-mhi-pm-resume`. It adds
+  `scripts/revalidation/native_wifi_endpoint_trigger_attribution_classifier_v1524.py`
+  and compares V852 Android-good RC1 evidence, V1521 Android-good sampled
+  IRQ/dmesg evidence, V1517 native TEST:11 failure evidence, local
+  `mhi_arch_qcom.c`, and public `pci-msm.c`. Android-good initial RC1 is not
+  observed as debugfs TEST:11, while native V1517 is explicitly TEST:11 and
+  fails before L0. Existing Android-good GPIO104 wake IRQ evidence is
+  contradictory enough that endpoint wake cannot be treated as the proven
+  initial trigger. The new source-supported candidate is eSoC/MHI PM-resume:
+  `mhi_arch_esoc_ops_power_on()` calls
+  `msm_pcie_pm_control(MSM_PCIE_RESUME, ...)`, which dispatches to
+  `msm_pcie_pm_resume()` and reaches `msm_pcie_enable(PM_PIPE_CLK | PM_CLK |
+  PM_VREG)` before `mhi_pci_probe()`. V1525 should compare the MHI/eSoC
+  PM-resume path against TEST:11 `PM_ALL` semantics before any new live
+  mutation. Report:
+  `docs/reports/NATIVE_INIT_V1524_ENDPOINT_TRIGGER_ATTRIBUTION_CLASSIFIER_2026-06-02.md`.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still

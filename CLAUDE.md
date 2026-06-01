@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V1523 host-only `msm_pcie` TEST:11 vs normal-path static/callgraph classifier PASS (`v1523-test11-shares-enable-normal-trigger-readiness-gap`). V1517/V1518 preserve the native blocker as `rc1-ltssm-link-failed-no-l0`: corrected TEST:11 reaches RC1 PHY/LTSSM and link failure, but L0, PCI enumeration, MHI, WLFW, BDF, FW-ready, and `wlan0` remain absent. V1521 captured Android-good WLFW/BDF/FW-ready/`wlan0`, and V1522 proves sampled GPIO/debugfs/interrupt/regulator sources are nondiscriminating. V1523 proves TEST:11 is not missing the core AP-side enable path: debugfs TEST:11, sysfs/client enumeration, endpoint-wake work, and non-deferred probe all converge on `msm_pcie_enumerate() -> msm_pcie_enable(PM_ALL)`. pcie1 probe enumeration is intentionally deferred by `qcom,boot-option=<0x1>`. Next gate should be V1524 endpoint-readiness trigger classifier: identify which Android-good normal trigger/readiness condition exists before `msm_pcie_enumerate()` and is absent from native TEST:11. Do not proceed to firmware/MHI/WLFW/scan/connect until native RC1 L0 and PCI enumeration exist. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, Wi-Fi HAL start, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
+- **Active research cycle**: V1524 host-only endpoint-trigger attribution classifier PASS (`v1524-trigger-attribution-pivots-to-esoc-mhi-pm-resume`). V1517/V1518 preserve the native blocker as `rc1-ltssm-link-failed-no-l0`: corrected TEST:11 reaches RC1 PHY/LTSSM and link failure, but L0, PCI enumeration, MHI, WLFW, BDF, FW-ready, and `wlan0` remain absent. V1521 captured Android-good WLFW/BDF/FW-ready/`wlan0`, V1522 proves sampled GPIO/debugfs/interrupt/regulator sources are nondiscriminating, and V1523 proves TEST:11 reaches the common AP-side enable path. V1524 tightens the model: Android-good initial RC1 is not observed as debugfs TEST:11, endpoint wake GPIO104 is not consistently attributable, and local source shows an eSoC/MHI `MSM_PCIE_RESUME` path into `msm_pcie_enable(PM_PIPE_CLK | PM_CLK | PM_VREG)` before `mhi_pci_probe()`. Next gate should be V1525 eSoC/MHI PM-resume vs TEST:11 path classifier. Do not proceed to firmware/MHI deep dive/WLFW/scan/connect until native RC1 L0 and PCI enumeration exist. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, Wi-Fi HAL start, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -2416,3 +2416,20 @@ Update after V1354/V1355:
   sysfs/client caller, or vendor client request before another native mutation.
   Report:
   `docs/reports/NATIVE_INIT_V1523_MSM_PCIE_TEST11_VS_NORMAL_PATH_CLASSIFIER_2026-06-02.md`.
+- V1524 host-only endpoint-trigger attribution classifier passes with
+  `v1524-trigger-attribution-pivots-to-esoc-mhi-pm-resume`. It adds
+  `scripts/revalidation/native_wifi_endpoint_trigger_attribution_classifier_v1524.py`
+  and compares V852 Android-good RC1 evidence, V1521 Android-good sampled
+  IRQ/dmesg evidence, V1517 native TEST:11 failure evidence, local
+  `mhi_arch_qcom.c`, and public `pci-msm.c`. Android-good initial RC1 is not
+  observed as debugfs TEST:11, while native V1517 is explicitly TEST:11 and
+  fails before L0. Existing Android-good GPIO104 wake IRQ evidence is
+  contradictory enough that endpoint wake cannot be treated as the proven
+  initial trigger. The new source-supported candidate is eSoC/MHI PM-resume:
+  `mhi_arch_esoc_ops_power_on()` calls
+  `msm_pcie_pm_control(MSM_PCIE_RESUME, ...)`, which dispatches to
+  `msm_pcie_pm_resume()` and reaches `msm_pcie_enable(PM_PIPE_CLK | PM_CLK |
+  PM_VREG)` before `mhi_pci_probe()`. V1525 should compare the MHI/eSoC
+  PM-resume path against TEST:11 `PM_ALL` semantics before any new live
+  mutation. Report:
+  `docs/reports/NATIVE_INIT_V1524_ENDPOINT_TRIGGER_ATTRIBUTION_CLASSIFIER_2026-06-02.md`.
