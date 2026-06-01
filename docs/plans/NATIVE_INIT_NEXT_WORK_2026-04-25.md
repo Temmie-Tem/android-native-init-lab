@@ -7360,6 +7360,22 @@ Samsung bootloader
   summary, RC1 watcher result, micro endpoint window result, dmesg markers, and
   `wlan0` state, then rolling back to `stage3/boot_linux_v724.img` and
   verifying selftest fail=0.
+- V1443 rollbackable live handoff passes with
+  `v1443-test-boot-downstream-progress-rollback-pass`, then rolls back to v724
+  with selftest fail=0. The V1441 image still reaches corrected RC1/LTSSM but
+  fails before L0; MHI/WLFW/BDF/FW-ready/`wlan0` remain absent. The micro
+  sampler emitted nine `rc1_micro_sample` entries and a successful bounded
+  writer summary, but the writer's actual `case=11` completion occurred after
+  most parent samples.
+- V1444 host-only classifier passes with
+  `v1444-micro-sampler-case-write-late-no-l0`. It proves the V1441 micro
+  reader started before the actual corrected RC1 `case=11` write returned:
+  writer case elapsed `7790ms`, micro start elapsed `7675ms`, case-after-micro
+  offset `115ms`, and only `micro_after_case_150ms` landed after the real case
+  write. GPIO135 remained `out 0` and GPIO142 remained `in 0` across micro
+  samples, while RC1 still failed in LTSSM before L0. V1445 should be
+  source/build-only and realign the parent sampling origin to the writer's
+  post-`case=11` completion signal before any further live handoff.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
