@@ -121,6 +121,15 @@ static void selftest_boot_draw_frame(void *ctx) {
 #ifndef A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_EFFECTIVE_LEVEL_SAMPLER
 #define A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_EFFECTIVE_LEVEL_SAMPLER 0
 #endif
+#ifndef A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_AP2MDM_HOLD
+#define A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_AP2MDM_HOLD 0
+#endif
+#ifndef A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_AP2MDM_HOLD_AFTER_MS
+#define A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_AP2MDM_HOLD_AFTER_MS 320
+#endif
+#ifndef A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_AP2MDM_HOLD_MS
+#define A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_AP2MDM_HOLD_MS 500
+#endif
 #ifndef A90_WIFI_TEST_BOOT_RC1_RETRY_COUNT
 #define A90_WIFI_TEST_BOOT_RC1_RETRY_COUNT 0
 #endif
@@ -134,7 +143,9 @@ static void selftest_boot_draw_frame(void *ctx) {
 #define A90_V1393_WIFI_TEST_WATCHER_PID A90_WIFI_TEST_BOOT_WATCHER_PID
 #define A90_V1393_WIFI_TEST_RC1_WATCHER_RESULT A90_WIFI_TEST_BOOT_RC1_WATCHER_RESULT
 #define A90_V1393_WIFI_TEST_RC1_WINDOW_RESULT A90_WIFI_TEST_BOOT_RC1_WINDOW_RESULT
-#if A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_MICRO_ENDPOINT_SAMPLER && A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_EXACT_LINE && A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_LONG_WINDOW && A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_THREAD_STATE && A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_TRACEPOINT_SAMPLER && A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_PIL_TRACEPOINT_SAMPLER && A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_EFFECTIVE_LEVEL_SAMPLER
+#if A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_MICRO_ENDPOINT_SAMPLER && A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_EXACT_LINE && A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_LONG_WINDOW && A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_THREAD_STATE && A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_TRACEPOINT_SAMPLER && A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_PIL_TRACEPOINT_SAMPLER && A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_EFFECTIVE_LEVEL_SAMPLER && A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_AP2MDM_HOLD
+#define A90_V1393_WIFI_TEST_RC1_WINDOW_SAMPLER_NAME "bounded-v1477-ap2mdm-hold-test"
+#elif A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_MICRO_ENDPOINT_SAMPLER && A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_EXACT_LINE && A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_LONG_WINDOW && A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_THREAD_STATE && A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_TRACEPOINT_SAMPLER && A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_PIL_TRACEPOINT_SAMPLER && A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_EFFECTIVE_LEVEL_SAMPLER
 #define A90_V1393_WIFI_TEST_RC1_WINDOW_SAMPLER_NAME "read-only-v1472-exact-provider-effective-level"
 #elif A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_MICRO_ENDPOINT_SAMPLER && A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_EXACT_LINE && A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_LONG_WINDOW && A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_THREAD_STATE && A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_TRACEPOINT_SAMPLER && A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_PIL_TRACEPOINT_SAMPLER
 #define A90_V1393_WIFI_TEST_RC1_WINDOW_SAMPLER_NAME "read-only-v1467-exact-provider-pil-gpio-tracepoint"
@@ -536,6 +547,71 @@ static int v1393_cleanup_wifi_test_debugfs(void) {
         return -errno;
     }
     v1393_wifi_test_debugfs_mounted_by_pid1 = 0;
+    return 0;
+}
+#endif
+
+#if A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_AP2MDM_HOLD
+static int v1477_write_wifi_test_sysfs_string(const char *path, const char *value) {
+    int fd;
+    int rc;
+
+    fd = open(path, O_WRONLY | O_CLOEXEC | O_NOFOLLOW);
+    if (fd < 0) {
+        return -errno;
+    }
+    rc = write_all_checked(fd, value, strlen(value));
+    if (close(fd) < 0 && rc == 0) {
+        return -errno;
+    }
+    return rc < 0 ? negative_errno_or(EIO) : 0;
+}
+
+static int v1477_text_file_contains_line(const char *path, const char *needle) {
+    int fd;
+    char chunk[512];
+    char line[512];
+    size_t line_len = 0;
+
+    fd = open(path, O_RDONLY | O_CLOEXEC);
+    if (fd < 0) {
+        return -errno;
+    }
+    for (;;) {
+        ssize_t rd = read(fd, chunk, sizeof(chunk));
+        ssize_t offset;
+
+        if (rd == 0) {
+            break;
+        }
+        if (rd < 0) {
+            int saved_errno = errno != 0 ? errno : EIO;
+            close(fd);
+            return -saved_errno;
+        }
+        for (offset = 0; offset < rd; offset++) {
+            char ch = chunk[offset];
+
+            if (ch == '\n' || line_len + 1 >= sizeof(line)) {
+                line[line_len] = '\0';
+                if (strstr(line, needle) != NULL) {
+                    close(fd);
+                    return 1;
+                }
+                line_len = 0;
+                continue;
+            }
+            line[line_len++] = ch;
+        }
+    }
+    if (line_len > 0) {
+        line[line_len] = '\0';
+        if (strstr(line, needle) != NULL) {
+            close(fd);
+            return 1;
+        }
+    }
+    close(fd);
     return 0;
 }
 #endif
@@ -1291,6 +1367,112 @@ static void v1393_rc1_micro_endpoint_sample(const char *sample,
     close(out_fd);
 }
 
+#if A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_AP2MDM_HOLD
+static void v1393_provider_tracepoint_sample(const char *sample,
+                                             long start_ms,
+                                             long detect_ms,
+                                             long trace_start_ms);
+
+static void v1477_append_ap2mdm_hold_line(const char *fmt, ...) {
+    int fd;
+    va_list ap;
+
+    fd = open(A90_V1393_WIFI_TEST_RC1_WINDOW_RESULT,
+              O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC | O_NOFOLLOW,
+              0600);
+    if (fd < 0) {
+        return;
+    }
+    va_start(ap, fmt);
+    (void)vdprintf(fd, fmt, ap);
+    va_end(ap);
+    close(fd);
+}
+
+static int v1477_provider_trigger_ap2mdm_hold(long start_ms,
+                                              long detect_ms,
+                                              long micro_start_ms,
+                                              const char *gate_sample) {
+    long action_ms = monotonic_millis();
+    int trace_set_high;
+    int debug_low;
+    int export_rc;
+    int direction_rc = -ECANCELED;
+    int release_rc = 0;
+    int unexport_rc = 0;
+    int exported = 0;
+
+    trace_set_high = v1477_text_file_contains_line("/sys/kernel/debug/tracing/trace",
+                                                   "gpio_value: 135 set 1");
+    debug_low = v1477_text_file_contains_line("/sys/kernel/debug/gpio",
+                                              "gpio135 : out 0");
+    v1477_append_ap2mdm_hold_line(
+        "ap2mdm_hold gate_sample=%s elapsed_ms=%ld hold_after_ms=%d hold_ms=%d trace_set_high=%d debug_gpio135_low=%d\n",
+        gate_sample != NULL ? gate_sample : "unknown",
+        action_ms >= start_ms ? action_ms - start_ms : -1,
+        A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_AP2MDM_HOLD_AFTER_MS,
+        A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_AP2MDM_HOLD_MS,
+        trace_set_high,
+        debug_low);
+
+    if (trace_set_high != 1 || debug_low != 1) {
+        v1477_append_ap2mdm_hold_line(
+            "ap2mdm_hold skipped reason=gate-not-satisfied trace_set_high=%d debug_gpio135_low=%d\n",
+            trace_set_high,
+            debug_low);
+        return -EAGAIN;
+    }
+
+    export_rc = v1477_write_wifi_test_sysfs_string("/sys/class/gpio/export", "135\n");
+    if (export_rc == 0) {
+        exported = 1;
+        direction_rc = v1477_write_wifi_test_sysfs_string("/sys/class/gpio/gpio135/direction", "high\n");
+    }
+    v1477_append_ap2mdm_hold_line(
+        "ap2mdm_hold attempt export_rc=%d exported=%d direction_high_rc=%d\n",
+        export_rc,
+        exported,
+        direction_rc);
+
+    if (direction_rc == 0) {
+        v1393_rc1_micro_endpoint_sample("ap2mdm_hold_after_high_0ms",
+                                        start_ms,
+                                        detect_ms,
+                                        micro_start_ms);
+#if A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_TRACEPOINT_SAMPLER
+        v1393_provider_tracepoint_sample("ap2mdm_hold_after_high_0ms",
+                                         start_ms,
+                                         detect_ms,
+                                         micro_start_ms);
+#endif
+        usleep(20000);
+        v1393_rc1_micro_endpoint_sample("ap2mdm_hold_after_high_20ms",
+                                        start_ms,
+                                        detect_ms,
+                                        micro_start_ms);
+        usleep((useconds_t)A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_AP2MDM_HOLD_MS * 1000U);
+        v1393_rc1_micro_endpoint_sample("ap2mdm_hold_before_release",
+                                        start_ms,
+                                        detect_ms,
+                                        micro_start_ms);
+        release_rc = v1477_write_wifi_test_sysfs_string("/sys/class/gpio/gpio135/value", "0\n");
+    }
+    if (exported) {
+        unexport_rc = v1477_write_wifi_test_sysfs_string("/sys/class/gpio/unexport", "135\n");
+    }
+    v1393_rc1_micro_endpoint_sample("ap2mdm_hold_after_release",
+                                    start_ms,
+                                    detect_ms,
+                                    micro_start_ms);
+    v1477_append_ap2mdm_hold_line(
+        "ap2mdm_hold cleanup release_rc=%d unexport_rc=%d result_rc=%d\n",
+        release_rc,
+        unexport_rc,
+        direction_rc == 0 ? 0 : (export_rc < 0 ? export_rc : direction_rc));
+    return direction_rc == 0 ? 0 : (export_rc < 0 ? export_rc : direction_rc);
+}
+#endif
+
 #if A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_THREAD_STATE
 static void v1393_provider_thread_state_sample(const char *sample,
                                                long start_ms,
@@ -1746,6 +1928,10 @@ static int v1393_pid1_provider_trigger_micro_endpoint_sample(long start_ms,
 #endif
     long micro_start_ms = monotonic_millis();
     size_t index;
+#if A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_AP2MDM_HOLD
+    int ap2mdm_hold_attempted = 0;
+    int ap2mdm_hold_rc = -EAGAIN;
+#endif
 
     for (index = 0; index < sizeof(targets_ms) / sizeof(targets_ms[0]); index++) {
         char sample[64];
@@ -1764,6 +1950,16 @@ static int v1393_pid1_provider_trigger_micro_endpoint_sample(long start_ms,
             v1393_rc1_window_sample(sample, start_ms, detect_ms, micro_start_ms);
         }
 #endif
+#if A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_AP2MDM_HOLD
+        if (!ap2mdm_hold_attempted &&
+            targets_ms[index] >= A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_AP2MDM_HOLD_AFTER_MS) {
+            ap2mdm_hold_attempted = 1;
+            ap2mdm_hold_rc = v1477_provider_trigger_ap2mdm_hold(start_ms,
+                                                                detect_ms,
+                                                                micro_start_ms,
+                                                                sample);
+        }
+#endif
     }
 
 #if A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_LONG_WINDOW
@@ -1776,6 +1972,11 @@ static int v1393_pid1_provider_trigger_micro_endpoint_sample(long start_ms,
                             start_ms,
                             detect_ms,
                             micro_start_ms);
+#endif
+#if A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_AP2MDM_HOLD
+    v1477_append_ap2mdm_hold_line("ap2mdm_hold summary attempted=%d rc=%d\n",
+                                  ap2mdm_hold_attempted,
+                                  ap2mdm_hold_rc);
 #endif
     return 0;
 }
@@ -2184,6 +2385,15 @@ static void v1393_write_wifi_test_summary(pid_t helper_pid, long spawn_ms) {
     dprintf(fd,
             "provider_trigger_effective_level_sampler_requested=%d\n",
             A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_EFFECTIVE_LEVEL_SAMPLER);
+    dprintf(fd,
+            "provider_trigger_ap2mdm_hold_requested=%d\n",
+            A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_AP2MDM_HOLD);
+    dprintf(fd,
+            "provider_trigger_ap2mdm_hold_after_ms=%d\n",
+            A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_AP2MDM_HOLD_AFTER_MS);
+    dprintf(fd,
+            "provider_trigger_ap2mdm_hold_ms=%d\n",
+            A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_AP2MDM_HOLD_MS);
     dprintf(fd, "rc1_retry_count=%d\n", A90_WIFI_TEST_BOOT_RC1_RETRY_COUNT);
     dprintf(fd, "rc1_retry_delay_ms=%d\n", A90_WIFI_TEST_BOOT_RC1_RETRY_DELAY_MS);
 #if A90_WIFI_TEST_BOOT_RC1_WINDOW_SAMPLER

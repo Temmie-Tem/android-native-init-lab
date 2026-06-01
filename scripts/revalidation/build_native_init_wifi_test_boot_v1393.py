@@ -184,6 +184,15 @@ def build_init(args: argparse.Namespace) -> None:
         if args.wifi_test_provider_trigger_effective_level_sampler
         else []
     )
+    provider_trigger_ap2mdm_hold_flags = (
+        [
+            "-DA90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_AP2MDM_HOLD=1",
+            f"-DA90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_AP2MDM_HOLD_AFTER_MS={args.wifi_test_provider_trigger_ap2mdm_hold_after_ms}",
+            f"-DA90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_AP2MDM_HOLD_MS={args.wifi_test_provider_trigger_ap2mdm_hold_ms}",
+        ]
+        if args.wifi_test_provider_trigger_ap2mdm_hold
+        else []
+    )
     rc1_retry_flags = []
     if args.wifi_test_rc1_retry_count > 0:
         rc1_retry_flags = [
@@ -225,6 +234,7 @@ def build_init(args: argparse.Namespace) -> None:
         *provider_trigger_tracepoint_flags,
         *provider_trigger_pil_tracepoint_flags,
         *provider_trigger_effective_level_flags,
+        *provider_trigger_ap2mdm_hold_flags,
         *rc1_retry_flags,
         "-o",
         args.init_binary,
@@ -364,6 +374,18 @@ def verify_markers(args: argparse.Namespace) -> None:
         ])
     if args.wifi_test_rc1_window_sampler:
         sampler_marker = (
+            "bounded-v1477-ap2mdm-hold-test"
+            if (
+                args.wifi_test_provider_trigger_micro_endpoint_sampler
+                and args.wifi_test_provider_trigger_exact_line
+                and args.wifi_test_provider_trigger_long_window
+                and args.wifi_test_provider_trigger_thread_state
+                and args.wifi_test_provider_trigger_tracepoint_sampler
+                and args.wifi_test_provider_trigger_pil_tracepoint_sampler
+                and args.wifi_test_provider_trigger_effective_level_sampler
+                and args.wifi_test_provider_trigger_ap2mdm_hold
+            )
+            else
             "read-only-v1472-exact-provider-effective-level"
             if (
                 args.wifi_test_provider_trigger_micro_endpoint_sampler
@@ -511,6 +533,17 @@ def verify_markers(args: argparse.Namespace) -> None:
                 and not args.wifi_test_provider_trigger_thread_state
             )
             else
+            "bounded-v1477-ap2mdm-hold-test"
+            if (
+                args.wifi_test_provider_trigger_exact_line
+                and args.wifi_test_provider_trigger_long_window
+                and args.wifi_test_provider_trigger_thread_state
+                and args.wifi_test_provider_trigger_tracepoint_sampler
+                and args.wifi_test_provider_trigger_pil_tracepoint_sampler
+                and args.wifi_test_provider_trigger_effective_level_sampler
+                and args.wifi_test_provider_trigger_ap2mdm_hold
+            )
+            else
             "read-only-v1472-exact-provider-effective-level"
             if (
                 args.wifi_test_provider_trigger_exact_line
@@ -587,10 +620,26 @@ def verify_markers(args: argparse.Namespace) -> None:
             else:
                 expected.append("provider_gpio_trace")
         if args.wifi_test_provider_trigger_effective_level_sampler:
-            expected.extend([
-                "provider_trigger_effective_level_sampler_requested",
-                "read-only-v1472-exact-provider-effective-level",
-            ])
+            expected.append("provider_trigger_effective_level_sampler_requested")
+            if not args.wifi_test_provider_trigger_ap2mdm_hold:
+                expected.append("read-only-v1472-exact-provider-effective-level")
+    if args.wifi_test_provider_trigger_ap2mdm_hold:
+        expected.extend([
+            "bounded-v1477-ap2mdm-hold-test",
+            "provider_trigger_ap2mdm_hold_requested",
+            "provider_trigger_ap2mdm_hold_after_ms",
+            "provider_trigger_ap2mdm_hold_ms",
+            "ap2mdm_hold gate_sample=%s",
+            "ap2mdm_hold attempt export_rc=%d",
+            "ap2mdm_hold cleanup release_rc=%d",
+            "ap2mdm_hold summary attempted=%d",
+            "/sys/class/gpio/export",
+            "/sys/class/gpio/gpio135/direction",
+            "/sys/class/gpio/gpio135/value",
+            "/sys/class/gpio/unexport",
+            "ap2mdm_hold_after_high_0ms",
+            "ap2mdm_hold_after_release",
+        ])
     if args.wifi_test_rc1_retry_count > 0:
         expected.extend([
             "retry_count=%d",
@@ -652,6 +701,9 @@ def write_manifest(args: argparse.Namespace) -> None:
             "provider_trigger_tracepoint_sampler": args.wifi_test_provider_trigger_tracepoint_sampler,
             "provider_trigger_pil_tracepoint_sampler": args.wifi_test_provider_trigger_pil_tracepoint_sampler,
             "provider_trigger_effective_level_sampler": args.wifi_test_provider_trigger_effective_level_sampler,
+            "provider_trigger_ap2mdm_hold": args.wifi_test_provider_trigger_ap2mdm_hold,
+            "provider_trigger_ap2mdm_hold_after_ms": args.wifi_test_provider_trigger_ap2mdm_hold_after_ms,
+            "provider_trigger_ap2mdm_hold_ms": args.wifi_test_provider_trigger_ap2mdm_hold_ms,
             "rc1_retry_count": args.wifi_test_rc1_retry_count,
             "rc1_retry_delay_ms": args.wifi_test_rc1_retry_delay_ms,
         },
@@ -731,6 +783,9 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--wifi-test-provider-trigger-tracepoint-sampler", action="store_true")
     parser.add_argument("--wifi-test-provider-trigger-pil-tracepoint-sampler", action="store_true")
     parser.add_argument("--wifi-test-provider-trigger-effective-level-sampler", action="store_true")
+    parser.add_argument("--wifi-test-provider-trigger-ap2mdm-hold", action="store_true")
+    parser.add_argument("--wifi-test-provider-trigger-ap2mdm-hold-after-ms", type=int, default=320)
+    parser.add_argument("--wifi-test-provider-trigger-ap2mdm-hold-ms", type=int, default=500)
     parser.add_argument("--wifi-test-rc1-retry-count", type=int, default=0)
     parser.add_argument("--wifi-test-rc1-retry-delay-ms", type=int, default=0)
     parser.add_argument("--init-binary", type=Path)

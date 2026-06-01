@@ -1842,3 +1842,19 @@ Update after V1354/V1355:
   external ping, PMIC/GDSC write, eSoC notify, global PCI rescan, platform
   bind/unbind, boot image write, or partition write. Plan:
   `docs/plans/NATIVE_INIT_V1476_LOWER_INTERVENTION_DESIGN_2026-06-01.md`.
+- V1477 source/build-only test boot
+  (`v1477-wifi-test-boot-ap2mdm-hold-source-build-pass`) adds a compile-time
+  gated AP2MDM bounded-hold mode to the rollbackable PID1 Wi-Fi test-boot path.
+  Built image:
+  `tmp/wifi/v1477-wifi-test-boot-ap2mdm-hold/boot_linux_v1477_wifi_test.img`
+  (`sha256=8fc89079ce7301a801d73153aee0ad7c7dd70cec55b9270b5ea48a64127bd577`),
+  native init `0.9.89 (v1477-wifitest)`, init sha256
+  `d48a6214a2de8f9799fbb3dad41717380f90e6b28cbcd1fb5e3fc50bf4c866e9`. The
+  marker is `bounded-v1477-ap2mdm-hold-test`; it waits for the provider/AP2MDM
+  set-high trace, confirms GPIO135 still reads low, attempts GPIO135 hold only
+  through `/sys/class/gpio` if permitted, samples GPIO135/GPIO142/pcie1/LTSSM
+  /MHI/WLFW/`wlan0`, then releases and unexports if exported. V1477 issued no
+  device command, flash, reboot, Wi-Fi HAL, scan/connect, credentials,
+  DHCP/routes, external ping, or partition write. Next V1478 should be
+  local-only artifact sanity before any rollbackable live handoff. Report:
+  `docs/reports/NATIVE_INIT_V1477_WIFI_TEST_BOOT_AP2MDM_HOLD_SOURCE_BUILD_2026-06-01.md`.

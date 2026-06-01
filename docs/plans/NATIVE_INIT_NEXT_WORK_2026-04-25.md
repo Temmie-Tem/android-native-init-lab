@@ -7761,6 +7761,18 @@ Samsung bootloader
   and records cleanup. V1478 should be local artifact sanity; V1479 may be a
   rollbackable live handoff only after those pass. Plan:
   `docs/plans/NATIVE_INIT_V1476_LOWER_INTERVENTION_DESIGN_2026-06-01.md`.
+- V1477 source/build-only passes with
+  `v1477-wifi-test-boot-ap2mdm-hold-source-build-pass`. It adds the
+  compile-time marker `bounded-v1477-ap2mdm-hold-test` and builds
+  `tmp/wifi/v1477-wifi-test-boot-ap2mdm-hold/boot_linux_v1477_wifi_test.img`
+  with native init `0.9.89 (v1477-wifitest)`. The test boot waits for the
+  provider/AP2MDM set-high trace, confirms GPIO135 still reads low, attempts a
+  bounded GPIO135 hold only through `/sys/class/gpio` if export/direction is
+  permitted, samples GPIO135/GPIO142/pcie1/LTSSM/MHI/WLFW/`wlan0`, releases the
+  line, and records cleanup. V1477 is source/build-only; no device command,
+  flash, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, or
+  partition write occurred. V1478 should be local-only artifact sanity over the
+  exact V1477 manifest before any rollbackable live handoff.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
