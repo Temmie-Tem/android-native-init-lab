@@ -7191,6 +7191,16 @@ Samsung bootloader
   parity, forbidden credential-like byte, private mode, and retry contract
   checks. V1427 may now be a rollbackable live handoff for this image, with
   mandatory evidence collection and rollback to v724/selftest.
+- V1427 rollbackable live handoff passes with
+  `v1427-test-boot-downstream-progress-rollback-pass`, then rolls back to v724
+  with selftest fail=0. The V1425 image executed three corrected-RC1 attempts
+  total: initial plus two `500ms` retries. All three reached the same
+  reset/release/LTSSM path and failed before L0: `TEST: 11` count `3`, link
+  failure count `3`, L0 count `0`, no MHI/WLFW/BDF/FW-ready/`wlan0`. V1428
+  should stop widening retry count and return to lower endpoint prerequisites:
+  RC1 power/refclk/PERST/PMIC state or a narrowly justified pre-RC1 prerequisite
+  test. Keep connect-side work blocked until at least L0/MHI/WLFW/`wlan0`
+  appears.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
