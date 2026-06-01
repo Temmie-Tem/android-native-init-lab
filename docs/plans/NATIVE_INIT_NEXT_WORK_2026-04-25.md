@@ -7232,6 +7232,17 @@ Samsung bootloader
   RC1 watcher result, endpoint window result, expanded dmesg markers, and
   `wlan0` state, then rolling back to `stage3/boot_linux_v724.img` and verifying
   selftest fail=0.
+- V1431 rollbackable live handoff passes with
+  `v1431-test-boot-downstream-progress-rollback-pass`; rollback returned to
+  v724 and selftest fail=0. The test boot still ends at
+  `rc1-ltssm-link-failed-no-l0`: RC1/LTSSM progresses, L0 remains false, and
+  MHI/WLFW/BDF/FW-ready/`wlan0` remain absent. The new endpoint sampler did
+  collect five samples with `read-only-v1429-endpoint-prereq`: GPIO103/CLKREQ
+  stayed high/pull-up, `pcie_1_gdsc` and pcie1 clocks briefly enabled around
+  `pre_rc1`, then returned off after link failure. V1432 should classify this
+  endpoint evidence before any new live mutation; likely next branches are a
+  focused sampler refinement or Android-side pcie1 clock/GDSC/CLKREQ parity
+  capture.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
