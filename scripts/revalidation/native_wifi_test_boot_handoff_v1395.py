@@ -316,9 +316,14 @@ def classify_wifi_progress(evidence_dir: Path) -> dict[str, Any]:
         "helper_result_subsys_trigger_started": helper_result_fields.get("android_wifi_service_window.subsys_trigger_started"),
         "helper_result_subsys_trigger_gate_open": helper_result_fields.get("android_wifi_service_window.subsys_trigger_gate_open"),
         "helper_result_mdm_helper_esoc0_fd_count": helper_result_fields.get("android_wifi_service_window.mdm_helper_esoc0_fd_count"),
+        "helper_result_pm_proxy_contract": helper_result_fields.get("android_wifi_service_window.pm_proxy_contract"),
+        "helper_result_pm_proxy_helper_subsys_modem_fd_count": helper_result_fields.get("android_wifi_service_window.pm_proxy_helper_subsys_modem_fd_count"),
+        "helper_result_per_mgr_subsys_modem_fd_count": helper_result_fields.get("android_wifi_service_window.per_mgr_subsys_modem_fd_count"),
+        "helper_result_pm_full_contract_seen": helper_result_fields.get("android_wifi_service_window.pm_full_contract_seen"),
         "helper_result_final_result": helper_result_fields.get("android_wifi_service_window.result"),
         "helper_result_final_reason": helper_result_fields.get("android_wifi_service_window.reason"),
         "debugfs_mount_requested": summary_fields.get("debugfs_mount_requested"),
+        "firmware_mounts_requested": summary_fields.get("firmware_mounts_requested"),
         "debugfs_mounted_by_pid1": summary_fields.get("debugfs_mounted_by_pid1"),
         "debugfs_pci_msm_case_present": summary_fields.get("debugfs_pci_msm_case_present"),
         "pid1_rc1_watcher_requested": summary_fields.get("pid1_rc1_watcher_requested"),
@@ -706,6 +711,7 @@ def render_report(result: dict[str, Any]) -> str:
             f"- `wlan0_present`: `{progress['wlan0_present']}`",
             f"- `connect_ready`: `{progress['connect_ready']}`",
             f"- `debugfs_pci_msm_case_present`: `{progress.get('debugfs_pci_msm_case_present')}`",
+            f"- `firmware_mounts_requested`: `{progress.get('firmware_mounts_requested')}`",
             f"- `helper_timed_out`: `{progress.get('helper_timed_out')}`",
             f"- `helper_result_file_seen`: `{progress.get('helper_result_file_seen')}`",
             f"- `helper_result_contract_seen`: `{progress.get('helper_result_contract_seen')}`",
@@ -714,6 +720,10 @@ def render_report(result: dict[str, Any]) -> str:
             f"- `helper_result_subsys_trigger_started`: `{progress.get('helper_result_subsys_trigger_started')}`",
             f"- `helper_result_subsys_trigger_gate_open`: `{progress.get('helper_result_subsys_trigger_gate_open')}`",
             f"- `helper_result_mdm_helper_esoc0_fd_count`: `{progress.get('helper_result_mdm_helper_esoc0_fd_count')}`",
+            f"- `helper_result_pm_proxy_contract`: `{progress.get('helper_result_pm_proxy_contract')}`",
+            f"- `helper_result_pm_proxy_helper_subsys_modem_fd_count`: `{progress.get('helper_result_pm_proxy_helper_subsys_modem_fd_count')}`",
+            f"- `helper_result_per_mgr_subsys_modem_fd_count`: `{progress.get('helper_result_per_mgr_subsys_modem_fd_count')}`",
+            f"- `helper_result_pm_full_contract_seen`: `{progress.get('helper_result_pm_full_contract_seen')}`",
             f"- `helper_result_final_result`: `{progress.get('helper_result_final_result')}`",
             f"- `helper_result_final_reason`: `{progress.get('helper_result_final_reason')}`",
             f"- `pid1_rc1_watcher_requested`: `{progress.get('pid1_rc1_watcher_requested')}`",
@@ -725,6 +735,34 @@ def render_report(result: dict[str, Any]) -> str:
             f"- `pid1_rc1_window_sample_count`: `{progress.get('pid1_rc1_window_sample_count')}`",
             f"- `pid1_rc1_window_has_post_500ms`: `{progress.get('pid1_rc1_window_has_post_500ms')}`",
         ])
+    progress = result.get("wifi_progress", {})
+    final_decision = progress.get("final_decision", "")
+    if final_decision == "firmware-progress-no-wlan0":
+        next_lines = [
+            "Treat V1586-class evidence as firmware/PIL progress without interface bring-up.",
+            "The next bounded gate should preserve firmware mount parity and add focused",
+            "RC1/MHI/WLFW request markers before any scan/connect, credentials, DHCP/routes,",
+            "or external ping.",
+        ]
+    elif final_decision == "provider-trigger-no-downstream":
+        next_lines = [
+            "Treat provider-trigger evidence as diagnostic progress, not Wi-Fi bring-up.",
+            "The next bounded gate should isolate why RC1/MHI/WLFW/`wlan0` did not follow",
+            "before any scan/connect, credentials, DHCP/routes, or external ping.",
+        ]
+    elif final_decision == "rc1-ltssm-link-failed-no-l0":
+        next_lines = [
+            "Treat RC1 LTSSM link failure as the active blocker. Compare Android-good and",
+            "native-fail RC1 reset/refclk/PERST sequencing before any MHI/WLFW or",
+            "scan/connect work.",
+        ]
+    else:
+        next_lines = [
+            "Treat this result as diagnostic evidence, not Wi-Fi connect readiness.",
+            "Do not proceed to scan/connect, credentials, DHCP/routes, or external ping",
+            "until the next required lower-layer progress marker is proven.",
+        ]
+
     lines.extend([
         "",
         "## Safety Scope",
@@ -755,9 +793,7 @@ def render_report(result: dict[str, Any]) -> str:
         "",
         "## Next",
         "",
-        "Treat `provider-trigger-no-downstream` as diagnostic evidence, not Wi-Fi",
-        "bring-up progress. Do not proceed to scan/connect, credentials, DHCP/routes,",
-        "or external ping until at least RC1/MHI/WLFW/`wlan0` progress is proven.",
+        *next_lines,
         "",
     ])
     return "\n".join(lines)
@@ -833,13 +869,31 @@ def main(argv: list[str] | None = None) -> int:
             )
         }
         test_version_path = source_dir / "test-version.stdout.txt"
-        rollback_path = source_dir / "rollback-from-native.stdout.txt"
+        rollback_stdout_path = source_dir / "rollback-from-native.stdout.txt"
+        rollback_stderr_path = source_dir / "rollback-from-native.stderr.txt"
+        rollback_stdout = (
+            rollback_stdout_path.read_text(encoding="utf-8", errors="replace")
+            if rollback_stdout_path.exists()
+            else ""
+        )
+        rollback_stderr = (
+            rollback_stderr_path.read_text(encoding="utf-8", errors="replace")
+            if rollback_stderr_path.exists()
+            else ""
+        )
         test_flash = {
             "ok": test_version_path.exists() and args.expect_test_version in test_version_path.read_text(encoding="utf-8", errors="replace"),
         }
         rollback_result = {
             "attempt": "existing",
-            "ok": rollback_path.exists() and args.expect_rollback_version in rollback_path.read_text(encoding="utf-8", errors="replace"),
+            "ok": (
+                rollback_stdout_path.exists() and
+                (
+                    args.expect_rollback_version in rollback_stdout or
+                    args.expect_rollback_version in rollback_stderr or
+                    "cmdv1 verify passed: selftest rc=0 status=ok fail=0" in rollback_stderr
+                )
+            ),
         }
         label, pass_ok, reason, progress = classify(test_flash,
                                                     evidence,

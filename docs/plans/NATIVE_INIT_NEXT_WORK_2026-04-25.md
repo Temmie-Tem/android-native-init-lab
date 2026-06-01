@@ -9065,3 +9065,29 @@ Samsung bootloader
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
   never asserts, then re-open the lower eSoC/MHI/ks branch with the new
   evidence. Until then, keep V1337-V1352 upper tracks parked.
+
+- V1575-V1586 service-window PM proxy contract and firmware overlay loop is now
+  closed.  V1576 selected the PM proxy contract route but still lacked private
+  `/dev/esoc-0`/`/dev/subsys_*` nodes.  V1578 fixed service-window private
+  devnode materialization: `mdm_helper_esoc0_fd_count=1`,
+  `subsys_trigger_gate_open=1`, and `subsys_trigger_started=1`, moving the
+  active blocker to modem firmware visibility.  V1580/V1582 then proved the
+  first firmware mount attempt was structurally wrong because `/vendor` resolves
+  into read-only `/mnt/system/vendor`.  V1585 changes PID1's firmware path prep
+  to use a firmware-only global `/vendor` overlay while leaving vendor daemon
+  execution to the helper private `sda29` vendor namespace.  V1586 rollbackable
+  live handoff passes with
+  `v1586-test-boot-downstream-progress-rollback-pass`: firmware mounts prepare
+  with `rc=0`, the helper result is fresh (`758102` bytes), modem PIL is
+  brought out of reset, `subsys_esoc0` is attempted, and `icnss_qmi` evidence is
+  present.  `wlan0`, BDF/regdb, FW-ready, MHI, and RC1/L0 markers are still
+  absent; final progress decision is `firmware-progress-no-wlan0`.  Next gate:
+  keep V1586 firmware mount parity and add focused RC1/MHI/WLFW request/state
+  markers.  Do not proceed to credentials, scan/connect, DHCP/routes, external
+  ping, blind eSoC notify/`BOOT_DONE`, PMIC/GPIO/GDSC direct writes, global PCI
+  rescan, or platform bind/unbind.  Reports:
+  `docs/reports/NATIVE_INIT_V1578_SERVICE_WINDOW_PM_PROXY_CONTRACT_DEVNODE_HANDOFF_2026-06-02.md`,
+  `docs/reports/NATIVE_INIT_V1580_SERVICE_WINDOW_PM_PROXY_CONTRACT_DEVNODE_FW_HANDOFF_2026-06-02.md`,
+  `docs/reports/NATIVE_INIT_V1584_SERVICE_WINDOW_PM_PROXY_CONTRACT_DEVNODE_FWOVERLAY_HANDOFF_2026-06-02.md`,
+  and
+  `docs/reports/NATIVE_INIT_V1586_SERVICE_WINDOW_PM_PROXY_CONTRACT_DEVNODE_FWOVERLAY_HANDOFF_2026-06-02.md`.

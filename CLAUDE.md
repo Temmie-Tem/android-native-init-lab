@@ -3296,3 +3296,51 @@ DHCP/routes, or external ping.  The next bounded step should either add the
 missing `pm_proxy`/`pm_proxy_helper` launch contract in source/build-only form
 or write a host-only contract diff proving which `pm-service` Binder request is
 required to make `mdm_helper` hold `/dev/esoc-0`.
+
+## Latest native Wi-Fi state: V1575-V1586 (2026-06-02)
+
+V1575-V1586 closes the service-window PM proxy contract and firmware mount
+prerequisite loop.  The helper is now `a90_android_execns_probe v292` with
+sha256 `922654100570c2f7c898c11053775418c0c4881e714e5fdb22e9a274acbbde8c`.
+
+Key progression:
+
+- V1576 proved the PM proxy contract route was selected, but the helper private
+  namespace lacked `/dev/esoc-0`, `/dev/subsys_esoc0`, and `/dev/subsys_modem`,
+  so `subsys-trigger-not-attempted-no-mdm-helper-esoc-fd` remained correct.
+- V1578 fixed private devnode materialization for service-window modes.  The
+  helper observed `/dev/esoc-0` and `/dev/subsys_esoc0`, `mdm_helper` held
+  `/dev/esoc-0`, and the scoped `/dev/subsys_esoc0` trigger started.  This
+  moved the blocker from devnode/fd parity to modem firmware visibility.
+- V1580 and V1582 showed the first firmware-mount implementation failed before
+  helper launch because `/vendor` is a symlink and the attempted mount targets
+  resolved into read-only `/mnt/system/vendor` paths.
+- V1584 showed a hybrid vendor overlay must not require `/vendor/bin`,
+  `/vendor/lib64`, or `/vendor/etc` in the global namespace; those paths are
+  provided by the helper's private `sda29` vendor namespace, not by PID1's
+  global `/vendor`.
+- V1586 passes as `v1586-test-boot-downstream-progress-rollback-pass`.  The
+  test boot mounts firmware read-only through a firmware-only global `/vendor`
+  overlay, launches the service-window PM proxy contract, collects a fresh
+  helper result (`758102` bytes), and rolls back cleanly to v724.
+
+Important V1586 evidence:
+
+- `firmware mounts prepare rc=0` and `firmware_mounts_requested=1`.
+- `provider_trigger=True`, `modem_trigger=True`,
+  `helper_result_subsys_open_attempted=1`,
+  `helper_result_subsys_trigger_started=1`,
+  `helper_result_mdm_helper_esoc0_fd_count=1`.
+- Dmesg shows `pm_proxy_helper` opening `subsys_modem`, modem PIL loading, and
+  `subsys-pil-tz ... modem: Brought out of reset`.
+- `cnss_diag` and `cnss-daemon` reach cld80211/netlink; the classifier records
+  `wlfw_progress=True` via `icnss_qmi` markers.
+- Still absent: RC1/L0 markers, MHI markers, BDF/regdb, FW-ready, and `wlan0`.
+  The final progress decision is `firmware-progress-no-wlan0`.
+
+Current conclusion: the active route has advanced past the old global firmware
+mount and devnode/fd blockers.  It is not connect-ready.  The next bounded gate
+should preserve V1586 firmware mount parity and add focused lower markers for
+RC1/MHI/WLFW request/state transitions, without credentials, scan/connect,
+DHCP/routes, external ping, blind eSoC notify/`BOOT_DONE`, PMIC/GPIO/GDSC direct
+writes, global PCI rescan, or platform bind/unbind.

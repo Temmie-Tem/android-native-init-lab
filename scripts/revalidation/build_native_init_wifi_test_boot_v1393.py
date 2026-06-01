@@ -47,8 +47,8 @@ DEFAULT_WIFI_TEST_WATCHER_PID = "/cache/native-init-wifi-test-boot-v1393-watcher
 DEFAULT_WIFI_TEST_WATCH_SEC = 35
 DEFAULT_WIFI_TEST_SUPERVISOR_TIMEOUT_SEC = 40
 DEFAULT_WIFI_TEST_HELPER_MODE = "post-pm-observer"
-EXPECTED_HELPER_MARKER = "a90_android_execns_probe v290"
-EXPECTED_HELPER_SHA256 = "ecc9b3ad1fd5a3644e8fed1a54e57befb92641c33ff1f2c2c6d77a4087109518"
+EXPECTED_HELPER_MARKER = "a90_android_execns_probe v292"
+EXPECTED_HELPER_SHA256 = "922654100570c2f7c898c11053775418c0c4881e714e5fdb22e9a274acbbde8c"
 REPRODUCIBLE_MTIME = 0
 
 FORBIDDEN_BYTES = (
@@ -96,6 +96,8 @@ def helper_runtime_mode(args: argparse.Namespace) -> str:
         return "wifi-companion-android-wifi-service-window-start-only"
     if args.wifi_test_helper_mode == "android-service-window-subsys-trigger-capture":
         return "wifi-companion-android-wifi-service-window-subsys-trigger-capture"
+    if args.wifi_test_helper_mode == "android-service-window-pm-proxy-contract-subsys-trigger-capture":
+        return "wifi-companion-android-wifi-service-window-subsys-trigger-capture"
     return "wifi-companion-post-pm-mdm-helper-esoc-observer"
 
 
@@ -103,6 +105,7 @@ def uses_android_service_window(args: argparse.Namespace) -> bool:
     return args.wifi_test_helper_mode in {
         "android-service-window-start-only",
         "android-service-window-subsys-trigger-capture",
+        "android-service-window-pm-proxy-contract-subsys-trigger-capture",
     }
 
 
@@ -240,11 +243,21 @@ def build_init(args: argparse.Namespace) -> None:
         if args.wifi_test_auto_readiness_supervisor
         else []
     )
+    firmware_mount_flags = (
+        ["-DA90_WIFI_TEST_BOOT_FIRMWARE_MOUNTS=1"]
+        if args.wifi_test_firmware_mounts
+        else []
+    )
     service_window_flags: list[str] = []
     if uses_android_service_window(args):
         service_window_flags.append("-DA90_WIFI_TEST_BOOT_ANDROID_SERVICE_WINDOW=1")
     if args.wifi_test_helper_mode == "android-service-window-subsys-trigger-capture":
         service_window_flags.append("-DA90_WIFI_TEST_BOOT_ANDROID_SERVICE_WINDOW_SUBSYS_TRIGGER_CAPTURE=1")
+    if args.wifi_test_helper_mode == "android-service-window-pm-proxy-contract-subsys-trigger-capture":
+        service_window_flags.extend([
+            "-DA90_WIFI_TEST_BOOT_ANDROID_SERVICE_WINDOW_SUBSYS_TRIGGER_CAPTURE=1",
+            "-DA90_WIFI_TEST_BOOT_ANDROID_SERVICE_WINDOW_PM_PROXY_CONTRACT=1",
+        ])
     rc1_retry_flags = []
     if args.wifi_test_rc1_retry_count > 0:
         rc1_retry_flags = [
@@ -294,6 +307,7 @@ def build_init(args: argparse.Namespace) -> None:
         *provider_trigger_effective_level_flags,
         *provider_trigger_ap2mdm_hold_flags,
         *auto_readiness_flags,
+        *firmware_mount_flags,
         *service_window_flags,
         *rc1_retry_flags,
         "-o",
@@ -401,6 +415,11 @@ def verify_init_route_contract(args: argparse.Namespace) -> None:
         ])
         if args.wifi_test_helper_mode == "android-service-window-subsys-trigger-capture":
             expected.append("--allow-android-wifi-service-window-subsys-trigger-capture")
+        if args.wifi_test_helper_mode == "android-service-window-pm-proxy-contract-subsys-trigger-capture":
+            expected.extend([
+                "--allow-android-wifi-service-window-subsys-trigger-capture",
+                "--allow-android-wifi-service-window-pm-proxy-contract",
+            ])
         forbidden.extend([
             "--allow-pm-service-trigger-observer",
             "--allow-post-pm-mdm-helper-esoc-observer",
@@ -463,6 +482,11 @@ def verify_markers(args: argparse.Namespace) -> None:
         expected.append("--allow-android-wifi-service-window")
         if args.wifi_test_helper_mode == "android-service-window-subsys-trigger-capture":
             expected.append("--allow-android-wifi-service-window-subsys-trigger-capture")
+        if args.wifi_test_helper_mode == "android-service-window-pm-proxy-contract-subsys-trigger-capture":
+            expected.extend([
+                "--allow-android-wifi-service-window-subsys-trigger-capture",
+                "--allow-android-wifi-service-window-pm-proxy-contract",
+            ])
     else:
         expected.append("--allow-post-pm-mdm-helper-esoc-observer")
     if args.wifi_test_mount_debugfs:
@@ -472,6 +496,14 @@ def verify_markers(args: argparse.Namespace) -> None:
         ])
         if not args.wifi_test_rc1_sysfs_client_enumerate:
             expected.append("/sys/kernel/debug/pci-msm/case")
+    if args.wifi_test_firmware_mounts:
+        expected.extend([
+            "firmware_mounts_requested",
+            "firmware mounts prepare rc=",
+            "A90v641: firmware mounts ready",
+            "/vendor/firmware_mnt",
+            "/vendor/firmware-modem",
+        ])
     if args.wifi_test_pid1_rc1_watcher:
         expected.extend([
             "pid1_rc1_watcher_requested",
@@ -864,6 +896,7 @@ def write_manifest(args: argparse.Namespace) -> None:
             "android_service_window": uses_android_service_window(args),
             "scan_connect_credentials": False,
             "mount_debugfs": args.wifi_test_mount_debugfs,
+            "firmware_mounts": args.wifi_test_firmware_mounts,
             "pid1_rc1_watcher": args.wifi_test_pid1_rc1_watcher,
             "rc1_watcher_timeout_sec": args.wifi_test_rc1_watcher_timeout_sec,
             "rc1_watcher_delay_ms": args.wifi_test_rc1_watcher_delay_ms,
@@ -985,10 +1018,12 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
             "post-pm-observer",
             "android-service-window-start-only",
             "android-service-window-subsys-trigger-capture",
+            "android-service-window-pm-proxy-contract-subsys-trigger-capture",
         ],
         default=DEFAULT_WIFI_TEST_HELPER_MODE,
     )
     parser.add_argument("--wifi-test-mount-debugfs", action="store_true")
+    parser.add_argument("--wifi-test-firmware-mounts", action="store_true")
     parser.add_argument("--wifi-test-pid1-rc1-watcher", action="store_true")
     parser.add_argument("--wifi-test-rc1-watcher-timeout-sec", type=int, default=45)
     parser.add_argument("--wifi-test-rc1-watcher-delay-ms", type=int, default=0)
@@ -1033,7 +1068,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     args = parser.parse_args(argv)
 
     args.init_binary = args.init_binary or args.out_dir / "init_v1393_wifi_test"
-    args.helper_binary = args.helper_binary or args.out_dir / "a90_android_execns_probe_v290"
+    args.helper_binary = args.helper_binary or args.out_dir / "a90_android_execns_probe_v292"
     args.ramdisk_dir = args.ramdisk_dir or args.out_dir / "ramdisk"
     args.ramdisk_cpio = args.ramdisk_cpio or args.out_dir / "ramdisk_v1393_wifi_test.cpio"
     args.boot_image = args.boot_image or args.out_dir / "boot_linux_v1393_wifi_test.img"

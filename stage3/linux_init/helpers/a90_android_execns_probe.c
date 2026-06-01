@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v290"
+#define EXECNS_VERSION "a90_android_execns_probe v292"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -156,7 +156,7 @@
 #define A90_AID_NOBODY 9999
 #define A90_WIFI_HAL_COMPOSITE_CHILD_COUNT 3
 #define A90_WIFI_SURFACE_COMPOSITE_CHILD_COUNT 5
-#define A90_COMPOSITE_CHILD_MAX 14
+#define A90_COMPOSITE_CHILD_MAX 16
 #define A90_WIFI_HAL_WAIT_TARGET_COUNT 3
 #define A90_HWBINDER_DATA_MAX 2048
 #define A90_HWBINDER_OBJECT_MAX 16
@@ -276,6 +276,7 @@ struct config {
     bool pm_observer_auto_readiness_summary; /* v287 */
     bool allow_android_wifi_service_window;
     bool allow_android_wifi_service_window_subsys_trigger_capture;
+    bool allow_android_wifi_service_window_pm_proxy_contract;
     bool require_android_selinux_exec_match;
     bool pm_observer_zero_delay_per_mgr_probe;
     bool pm_observer_continue_after_provider;
@@ -490,6 +491,7 @@ static void usage(FILE *out) {
             "[--pm-observer-auto-readiness-summary] "
             "[--allow-android-wifi-service-window] "
             "[--allow-android-wifi-service-window-subsys-trigger-capture] "
+            "[--allow-android-wifi-service-window-pm-proxy-contract] "
             "[--result-output-path <path>] "
             "[--pm-observer-continue-after-provider] "
             "[--pm-observer-start-cnss-after-provider] "
@@ -791,6 +793,7 @@ static bool is_wifi_companion_peripheral_manager_service_node_materialization_mo
 
 static bool is_wifi_companion_peripheral_manager_node_materialization_mode(const char *mode) {
     return is_wifi_companion_peripheral_manager_service_node_materialization_mode(mode) ||
+           is_wifi_companion_android_wifi_service_window_any_mode(mode) ||
            is_wifi_companion_pm_observer_any_mode(mode) ||
            is_wifi_companion_esoc_control_preflight_mode(mode) ||
            is_wifi_companion_esoc_engine_register_preflight_mode(mode) ||
@@ -1470,6 +1473,10 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
         }
         if (strcmp(argv[i], "--allow-android-wifi-service-window-subsys-trigger-capture") == 0) {
             cfg->allow_android_wifi_service_window_subsys_trigger_capture = true;
+            continue;
+        }
+        if (strcmp(argv[i], "--allow-android-wifi-service-window-pm-proxy-contract") == 0) {
+            cfg->allow_android_wifi_service_window_pm_proxy_contract = true;
             continue;
         }
         if (strcmp(argv[i], "--require-android-selinux-exec-match") == 0) {
@@ -2278,6 +2285,16 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
     if (cfg->allow_android_wifi_service_window_subsys_trigger_capture &&
         !is_wifi_companion_android_wifi_service_window_subsys_trigger_capture_mode(cfg->mode)) {
         fprintf(stderr, "--allow-android-wifi-service-window-subsys-trigger-capture is only valid with wifi-companion-android-wifi-service-window-subsys-trigger-capture mode\n");
+        return 2;
+    }
+    if (cfg->allow_android_wifi_service_window_pm_proxy_contract &&
+        !is_wifi_companion_android_wifi_service_window_subsys_trigger_capture_mode(cfg->mode)) {
+        fprintf(stderr, "--allow-android-wifi-service-window-pm-proxy-contract is only valid with wifi-companion-android-wifi-service-window-subsys-trigger-capture mode\n");
+        return 2;
+    }
+    if (cfg->allow_android_wifi_service_window_pm_proxy_contract &&
+        !cfg->allow_android_wifi_service_window_subsys_trigger_capture) {
+        fprintf(stderr, "--allow-android-wifi-service-window-pm-proxy-contract requires --allow-android-wifi-service-window-subsys-trigger-capture\n");
         return 2;
     }
     if (!is_cnss_service_manager_matrix_order(cfg->service_manager_order)) {
@@ -18877,6 +18894,7 @@ static int append_service_window_mdm_helper_launch_contract(struct buffer *buf,
         !streq(cfg->android_selinux_context_mode, "none") && target_context != NULL;
     const bool current_context_planned = cfg->pm_observer_set_mdm_helper_selinux_context;
     const bool property_socket_planned = cfg->property_root != NULL;
+    const bool pm_proxy_contract_planned = cfg->allow_android_wifi_service_window_pm_proxy_contract;
     char path_prefix[160];
     int esoc0_fd_count = -1;
     int subsys_esoc0_fd_count = -1;
@@ -18967,11 +18985,13 @@ static int append_service_window_mdm_helper_launch_contract(struct buffer *buf,
                       phase,
                       property_socket_planned ? 1 : 0) < 0 ||
         append_format(buf,
-                      "android_wifi_service_window.mdm_helper_launch_contract.%s.pm_proxy_helper_start_planned=0\n",
-                      phase) < 0 ||
+                      "android_wifi_service_window.mdm_helper_launch_contract.%s.pm_proxy_helper_start_planned=%d\n",
+                      phase,
+                      pm_proxy_contract_planned ? 1 : 0) < 0 ||
         append_format(buf,
-                      "android_wifi_service_window.mdm_helper_launch_contract.%s.pm_proxy_start_planned=0\n",
-                      phase) < 0 ||
+                      "android_wifi_service_window.mdm_helper_launch_contract.%s.pm_proxy_start_planned=%d\n",
+                      phase,
+                      pm_proxy_contract_planned ? 1 : 0) < 0 ||
         append_format(buf,
                       "android_wifi_service_window.mdm_helper_launch_contract.%s.cnss_daemon_start_after_mdm_helper=1\n",
                       phase) < 0 ||
@@ -19087,14 +19107,21 @@ static int append_service_window_mdm_helper_launch_contract(struct buffer *buf,
                       phase,
                       current_context_planned ? 0 : 1) < 0 ||
         append_format(buf,
-                      "android_wifi_service_window.mdm_helper_launch_contract.%s.compare.pm_proxy_absent_delta=1\n",
-                      phase) < 0 ||
+                      "android_wifi_service_window.mdm_helper_launch_contract.%s.compare.pm_proxy_absent_delta=%d\n",
+                      phase,
+                      pm_proxy_contract_planned ? 0 : 1) < 0 ||
+        append_format(buf,
+                      "android_wifi_service_window.mdm_helper_launch_contract.%s.compare.pm_proxy_contract_planned=%d\n",
+                      phase,
+                      pm_proxy_contract_planned ? 1 : 0) < 0 ||
         append_format(buf,
                       "android_wifi_service_window.mdm_helper_launch_contract.%s.compare.result=%s\n",
                       phase,
                       (exec_context_planned &&
                        streq(target, "/vendor/bin/mdm_helper"))
-                          ? "launch-contract-recorded-with-pm-proxy-delta"
+                          ? (pm_proxy_contract_planned
+                                 ? "launch-contract-recorded-with-pm-proxy-contract"
+                                 : "launch-contract-recorded-with-pm-proxy-delta")
                           : "launch-contract-incomplete") < 0 ||
         append_format(buf,
                       "android_wifi_service_window.mdm_helper_launch_contract.%s.end=1\n",
@@ -38925,7 +38952,13 @@ static int run_wifi_companion_android_wifi_service_window_guarded(const struct c
                                                                  bool *timed_out) {
     struct composite_child children[A90_COMPOSITE_CHILD_MAX];
     struct property_service_shim property_shim;
-    const size_t child_count = A90_COMPOSITE_CHILD_MAX;
+    const bool pm_proxy_contract = cfg->allow_android_wifi_service_window_pm_proxy_contract;
+    size_t child_count = 0;
+    int per_mgr_index = -1;
+    int pm_proxy_helper_index = -1;
+    int pm_proxy_index = -1;
+    int mdm_helper_index = -1;
+    int cnss_daemon_index = -1;
     bool all_postflight_safe = true;
     bool any_runtime_gap = false;
     bool all_observable_at_timeout = true;
@@ -38944,6 +38977,8 @@ static int run_wifi_companion_android_wifi_service_window_guarded(const struct c
     int trigger_exit_code = -1;
     int trigger_signal = 0;
     int mdm_helper_esoc0_fd_count = -1;
+    int pm_proxy_helper_subsys_modem_fd_count = -1;
+    int per_mgr_subsys_modem_fd_count = -1;
     struct fd_poll_summary mdm_helper_fd_poll_after_mdm;
     struct fd_poll_summary mdm_helper_fd_poll_after_cnss;
     pid_t trigger_pid = -1;
@@ -38958,59 +38993,76 @@ static int run_wifi_companion_android_wifi_service_window_guarded(const struct c
     fd_poll_summary_init(&mdm_helper_fd_poll_after_cnss);
     memset(children, 0, sizeof(children));
 
-    composite_child_init(&children[0],
+    composite_child_init(&children[child_count++],
                          "servicemanager",
                          "/system/bin/servicemanager",
                          COMPOSITE_ID_SERVICE_MANAGER);
-    composite_child_init(&children[1],
+    composite_child_init(&children[child_count++],
                          "hwservicemanager",
                          "/system/bin/hwservicemanager",
                          COMPOSITE_ID_SERVICE_MANAGER);
-    composite_child_init(&children[2],
+    composite_child_init(&children[child_count++],
                          "vndservicemanager",
                          "/vendor/bin/vndservicemanager",
                          COMPOSITE_ID_VND_SERVICE_MANAGER);
-    composite_child_init(&children[3],
+    if (pm_proxy_contract) {
+        pm_proxy_helper_index = (int)child_count;
+        composite_child_init(&children[child_count++],
+                             "pm_proxy_helper",
+                             "/vendor/bin/pm_proxy_helper",
+                             COMPOSITE_ID_PER_PROXY_HELPER);
+    }
+    composite_child_init(&children[child_count++],
                          "qrtr_ns",
                          "/vendor/bin/qrtr-ns",
                          COMPOSITE_ID_QRTR_NS);
-    composite_child_init(&children[4],
+    composite_child_init(&children[child_count++],
                          "rmt_storage",
                          "/vendor/bin/rmt_storage",
                          COMPOSITE_ID_RMT_STORAGE);
-    composite_child_init(&children[5],
+    composite_child_init(&children[child_count++],
                          "tftp_server",
                          "/vendor/bin/tftp_server",
                          COMPOSITE_ID_TFTP_SERVER);
-    composite_child_init(&children[6],
+    composite_child_init(&children[child_count++],
                          "pd_mapper",
                          "/vendor/bin/pd-mapper",
                          COMPOSITE_ID_PD_MAPPER);
-    composite_child_init(&children[7],
+    composite_child_init(&children[child_count++],
                          "wifi_hal_legacy",
                          "/vendor/bin/hw/android.hardware.wifi@1.0-service",
                          COMPOSITE_ID_WIFI_HAL);
-    composite_child_init(&children[8],
+    composite_child_init(&children[child_count++],
                          "wifi_hal_ext",
                          "/vendor/bin/hw/vendor.samsung.hardware.wifi@2.0-service",
                          COMPOSITE_ID_WIFI_HAL);
-    composite_child_init(&children[9],
+    per_mgr_index = (int)child_count;
+    composite_child_init(&children[child_count++],
                          "per_mgr",
                          "/vendor/bin/pm-service",
                          COMPOSITE_ID_PER_MGR);
-    composite_child_init(&children[10],
+    if (pm_proxy_contract) {
+        pm_proxy_index = (int)child_count;
+        composite_child_init(&children[child_count++],
+                             "pm_proxy",
+                             "/vendor/bin/pm-proxy",
+                             COMPOSITE_ID_PER_PROXY);
+    }
+    composite_child_init(&children[child_count++],
                          "cnss_diag",
                          "/vendor/bin/cnss_diag",
                          COMPOSITE_ID_CNSS_DIAG);
-    composite_child_init(&children[11],
+    composite_child_init(&children[child_count++],
                          "wificond",
                          "/system/bin/wificond",
                          COMPOSITE_ID_WIFICOND);
-    composite_child_init(&children[12],
+    mdm_helper_index = (int)child_count;
+    composite_child_init(&children[child_count++],
                          "mdm_helper",
                          "/vendor/bin/mdm_helper",
                          COMPOSITE_ID_MDM_HELPER);
-    composite_child_init(&children[13],
+    cnss_daemon_index = (int)child_count;
+    composite_child_init(&children[child_count++],
                          "cnss_daemon",
                          "/vendor/bin/cnss-daemon",
                          COMPOSITE_ID_CNSS);
@@ -39019,15 +39071,27 @@ static int run_wifi_companion_android_wifi_service_window_guarded(const struct c
         append_format(stdout_buf, "android_wifi_service_window.helper_version=%s\n", EXECNS_VERSION) < 0 ||
         append_format(stdout_buf,
                       "android_wifi_service_window.mode=%s\n",
-                      subsys_trigger_capture ? "guarded-subsys-trigger-capture" : "guarded") < 0 ||
+                      subsys_trigger_capture
+                          ? (pm_proxy_contract ? "guarded-pm-proxy-contract-subsys-trigger-capture"
+                                               : "guarded-subsys-trigger-capture")
+                          : "guarded") < 0 ||
         append_format(stdout_buf,
                       "android_wifi_service_window.order=%s\n",
-                      subsys_trigger_capture
-                          ? "servicemanager,hwservicemanager,vndservicemanager,qrtr_ns,rmt_storage,tftp_server,pd_mapper,wifi_hal_legacy,wifi_hal_ext,per_mgr,cnss_diag,wificond,mdm_helper,cnss_daemon,mdm-helper-esoc-fd-gate,subsys_esoc0-open-child"
-                          : "servicemanager,hwservicemanager,vndservicemanager,qrtr_ns,rmt_storage,tftp_server,pd_mapper,wifi_hal_legacy,wifi_hal_ext,per_mgr,cnss_diag,wificond,mdm_helper,cnss_daemon") < 0 ||
+                      pm_proxy_contract
+                          ? "servicemanager,hwservicemanager,vndservicemanager,pm_proxy_helper,qrtr_ns,rmt_storage,tftp_server,pd_mapper,wifi_hal_legacy,wifi_hal_ext,per_mgr,pm_proxy,cnss_diag,wificond,mdm_helper,cnss_daemon,mdm-helper-esoc-fd-gate,subsys_esoc0-open-child"
+                          : (subsys_trigger_capture
+                                 ? "servicemanager,hwservicemanager,vndservicemanager,qrtr_ns,rmt_storage,tftp_server,pd_mapper,wifi_hal_legacy,wifi_hal_ext,per_mgr,cnss_diag,wificond,mdm_helper,cnss_daemon,mdm-helper-esoc-fd-gate,subsys_esoc0-open-child"
+                                 : "servicemanager,hwservicemanager,vndservicemanager,qrtr_ns,rmt_storage,tftp_server,pd_mapper,wifi_hal_legacy,wifi_hal_ext,per_mgr,cnss_diag,wificond,mdm_helper,cnss_daemon")) < 0 ||
         append_literal(stdout_buf, "android_wifi_service_window.service_manager_start_planned=1\n") < 0 ||
         append_literal(stdout_buf, "android_wifi_service_window.wifi_hal_start_planned=1\n") < 0 ||
         append_literal(stdout_buf, "android_wifi_service_window.wificond_start_planned=1\n") < 0 ||
+        append_format(stdout_buf,
+                      "android_wifi_service_window.pm_proxy_contract_planned=%d\n"
+                      "android_wifi_service_window.pm_proxy_helper_start_planned=%d\n"
+                      "android_wifi_service_window.pm_proxy_start_planned=%d\n",
+                      pm_proxy_contract ? 1 : 0,
+                      pm_proxy_contract ? 1 : 0,
+                      pm_proxy_contract ? 1 : 0) < 0 ||
         append_literal(stdout_buf, "android_wifi_service_window.mdm_helper_start_planned=1\n") < 0 ||
         append_literal(stdout_buf, "android_wifi_service_window.cnss_daemon_start_planned=1\n") < 0 ||
         append_literal(stdout_buf, "android_wifi_service_window.qcwlanstate_write=0\n") < 0 ||
@@ -39046,9 +39110,9 @@ static int run_wifi_companion_android_wifi_service_window_guarded(const struct c
         append_service_window_mdm_helper_launch_contract(stdout_buf,
                                                          cfg,
                                                          paths,
-                                                         children[12].name,
-                                                         children[12].target,
-                                                         children[12].pid,
+                                                         children[mdm_helper_index].name,
+                                                         children[mdm_helper_index].target,
+                                                         children[mdm_helper_index].pid,
                                                          "planned") < 0) {
         return -1;
     }
@@ -39115,20 +39179,90 @@ static int run_wifi_companion_android_wifi_service_window_guarded(const struct c
             stop_property_service_shim(&property_shim, paths, stdout_buf);
             return -1;
         }
-        if (subsys_trigger_capture && i == 12) {
+        if (pm_proxy_contract && (int)i == pm_proxy_helper_index) {
+            long settle_deadline = monotonic_ms() + 300L;
+
+            while (monotonic_ms() < settle_deadline) {
+                if (composite_child_drain_wait_once(&children[i], stdout_buf, stderr_buf) < 0 ||
+                    drain_property_service_shim_records(&property_shim, stdout_buf) < 0) {
+                    composite_cleanup_children(children, i + 1U, stdout_buf, stderr_buf);
+                    stop_property_service_shim(&property_shim, paths, stdout_buf);
+                    return -1;
+                }
+                usleep(50000);
+            }
+            composite_capture_observable_children(&children[i], 1, stdout_buf);
+            if (append_proc_fd_target_match_scan(stdout_buf,
+                                                 children[i].pid,
+                                                 "android_wifi_service_window",
+                                                 "pm_proxy_helper_subsys_modem_initial",
+                                                 "/dev/subsys_modem",
+                                                 &pm_proxy_helper_subsys_modem_fd_count) < 0 ||
+                append_format(stdout_buf,
+                              "android_wifi_service_window.pm_proxy_helper_subsys_modem_initial_count=%d\n",
+                              pm_proxy_helper_subsys_modem_fd_count) < 0) {
+                composite_cleanup_children(children, i + 1U, stdout_buf, stderr_buf);
+                stop_property_service_shim(&property_shim, paths, stdout_buf);
+                return -1;
+            }
+        } else if (pm_proxy_contract && (int)i == per_mgr_index) {
+            long settle_deadline = monotonic_ms() + 700L;
+
+            while (monotonic_ms() < settle_deadline) {
+                if (composite_child_drain_wait_once(&children[i], stdout_buf, stderr_buf) < 0 ||
+                    (pm_proxy_helper_index >= 0 &&
+                     composite_child_drain_wait_once(&children[pm_proxy_helper_index], stdout_buf, stderr_buf) < 0) ||
+                    drain_property_service_shim_records(&property_shim, stdout_buf) < 0) {
+                    composite_cleanup_children(children, i + 1U, stdout_buf, stderr_buf);
+                    stop_property_service_shim(&property_shim, paths, stdout_buf);
+                    return -1;
+                }
+                usleep(50000);
+            }
+            composite_capture_observable_children(&children[i], 1, stdout_buf);
+            if (append_proc_fd_target_match_scan(stdout_buf,
+                                                 children[i].pid,
+                                                 "android_wifi_service_window",
+                                                 "per_mgr_subsys_modem_initial",
+                                                 "/dev/subsys_modem",
+                                                 &per_mgr_subsys_modem_fd_count) < 0 ||
+                append_format(stdout_buf,
+                              "android_wifi_service_window.per_mgr_subsys_modem_initial_count=%d\n",
+                              per_mgr_subsys_modem_fd_count) < 0) {
+                composite_cleanup_children(children, i + 1U, stdout_buf, stderr_buf);
+                stop_property_service_shim(&property_shim, paths, stdout_buf);
+                return -1;
+            }
+        } else if (pm_proxy_contract && (int)i == pm_proxy_index) {
+            long settle_deadline = monotonic_ms() + 300L;
+
+            while (monotonic_ms() < settle_deadline) {
+                if (composite_child_drain_wait_once(&children[i], stdout_buf, stderr_buf) < 0 ||
+                    composite_child_drain_wait_once(&children[per_mgr_index], stdout_buf, stderr_buf) < 0 ||
+                    (pm_proxy_helper_index >= 0 &&
+                     composite_child_drain_wait_once(&children[pm_proxy_helper_index], stdout_buf, stderr_buf) < 0) ||
+                    drain_property_service_shim_records(&property_shim, stdout_buf) < 0) {
+                    composite_cleanup_children(children, i + 1U, stdout_buf, stderr_buf);
+                    stop_property_service_shim(&property_shim, paths, stdout_buf);
+                    return -1;
+                }
+                usleep(50000);
+            }
+            composite_capture_observable_children(&children[i], 1, stdout_buf);
+        } else if (subsys_trigger_capture && (int)i == mdm_helper_index) {
             if (append_service_window_mdm_helper_launch_contract(stdout_buf,
                                                                  cfg,
                                                                  paths,
-                                                                 children[12].name,
-                                                                 children[12].target,
-                                                                 children[12].pid,
+                                                                 children[mdm_helper_index].name,
+                                                                 children[mdm_helper_index].target,
+                                                                 children[mdm_helper_index].pid,
                                                                  "after_mdm_helper_spawn") < 0) {
                 composite_cleanup_children(children, i + 1U, stdout_buf, stderr_buf);
                 stop_property_service_shim(&property_shim, paths, stdout_buf);
                 return -1;
             }
             if (append_service_window_mdm_helper_fd_poll(stdout_buf,
-                                                        children[12].pid,
+                                                        children[mdm_helper_index].pid,
                                                         "after_mdm_helper_spawn",
                                                         60,
                                                         30,
@@ -39138,9 +39272,9 @@ static int run_wifi_companion_android_wifi_service_window_guarded(const struct c
                 return -1;
             }
             usleep(10000);
-        } else if (subsys_trigger_capture && i == 13) {
+        } else if (subsys_trigger_capture && (int)i == cnss_daemon_index) {
             if (append_service_window_mdm_helper_fd_poll(stdout_buf,
-                                                        children[12].pid,
+                                                        children[mdm_helper_index].pid,
                                                         "after_cnss_daemon_spawn",
                                                         700,
                                                         50,
@@ -39150,7 +39284,12 @@ static int run_wifi_companion_android_wifi_service_window_guarded(const struct c
                 return -1;
             }
             usleep(100000);
-        } else if (i == 2 || i == 6 || i == 8 || i == 9 || i == 11 || i == 12) {
+        } else if (children[i].identity == COMPOSITE_ID_VND_SERVICE_MANAGER ||
+                   children[i].identity == COMPOSITE_ID_PD_MAPPER ||
+                   children[i].identity == COMPOSITE_ID_WIFI_HAL ||
+                   children[i].identity == COMPOSITE_ID_PER_MGR ||
+                   children[i].identity == COMPOSITE_ID_WIFICOND ||
+                   children[i].identity == COMPOSITE_ID_MDM_HELPER) {
             usleep(300000);
         } else {
             usleep(100000);
@@ -39184,7 +39323,7 @@ static int run_wifi_companion_android_wifi_service_window_guarded(const struct c
             return -1;
         }
         if (append_proc_fd_target_match_scan(stdout_buf,
-                                             children[12].pid,
+                                             children[mdm_helper_index].pid,
                                              "android_wifi_service_window",
                                              "mdm_helper_esoc0_gate",
                                              "/dev/esoc-0",
@@ -39476,6 +39615,10 @@ static int run_wifi_companion_android_wifi_service_window_guarded(const struct c
     append_format(stdout_buf,
                   "android_wifi_service_window.qcwlanstate_write=0\n"
                   "android_wifi_service_window.iwifi_start=0\n"
+                  "android_wifi_service_window.pm_proxy_contract=%d\n"
+                  "android_wifi_service_window.pm_proxy_helper_subsys_modem_fd_count=%d\n"
+                  "android_wifi_service_window.per_mgr_subsys_modem_fd_count=%d\n"
+                  "android_wifi_service_window.pm_full_contract_seen=%d\n"
                   "android_wifi_service_window.subsys_esoc0_open_attempted=%d\n"
                   "android_wifi_service_window.esoc_ioctl_attempted=0\n"
                   "android_wifi_service_window.scan_connect_linkup=0\n"
@@ -39483,6 +39626,12 @@ static int run_wifi_companion_android_wifi_service_window_guarded(const struct c
                   "android_wifi_service_window.dhcp_routing=0\n"
                   "android_wifi_service_window.external_ping=0\n"
                   "android_wifi_service_window.end=1\n",
+                  pm_proxy_contract ? 1 : 0,
+                  pm_proxy_helper_subsys_modem_fd_count,
+                  per_mgr_subsys_modem_fd_count,
+                  (pm_proxy_contract &&
+                   pm_proxy_helper_subsys_modem_fd_count > 0 &&
+                   per_mgr_subsys_modem_fd_count > 0) ? 1 : 0,
                   trigger_started ? 1 : 0);
     return 0;
 }

@@ -27,6 +27,8 @@ static void selftest_boot_draw_frame(void *ctx) {
 #define A90_V641_VENDOR_DIR "/vendor"
 #define A90_V641_FW_MNT_DIR "/vendor/firmware_mnt"
 #define A90_V641_FW_MODEM_DIR "/vendor/firmware-modem"
+#define A90_V641_SYSTEM_VENDOR_DIR "/mnt/system/vendor"
+static int v641_prepare_firmware_mounts(void);
 #define A90_V724_QRTR_BOOT_FLAG "/cache/native-init-qrtr-servloc-boot-v724"
 #define A90_V724_QRTR_BOOT_LOG "/cache/native-init-qrtr-servloc-boot-v724.log"
 #define A90_V724_QRTR_BOOT_PID "/cache/native-init-qrtr-servloc-boot-v724.pid"
@@ -69,6 +71,9 @@ static void selftest_boot_draw_frame(void *ctx) {
 #endif
 #ifndef A90_WIFI_TEST_BOOT_MOUNT_DEBUGFS
 #define A90_WIFI_TEST_BOOT_MOUNT_DEBUGFS 0
+#endif
+#ifndef A90_WIFI_TEST_BOOT_FIRMWARE_MOUNTS
+#define A90_WIFI_TEST_BOOT_FIRMWARE_MOUNTS 0
 #endif
 #ifndef A90_WIFI_TEST_BOOT_PID1_RC1_WATCHER
 #define A90_WIFI_TEST_BOOT_PID1_RC1_WATCHER 0
@@ -215,6 +220,9 @@ static void selftest_boot_draw_frame(void *ctx) {
 #endif
 #ifndef A90_WIFI_TEST_BOOT_ANDROID_SERVICE_WINDOW_SUBSYS_TRIGGER_CAPTURE
 #define A90_WIFI_TEST_BOOT_ANDROID_SERVICE_WINDOW_SUBSYS_TRIGGER_CAPTURE 0
+#endif
+#ifndef A90_WIFI_TEST_BOOT_ANDROID_SERVICE_WINDOW_PM_PROXY_CONTRACT
+#define A90_WIFI_TEST_BOOT_ANDROID_SERVICE_WINDOW_PM_PROXY_CONTRACT 0
 #endif
 #if A90_WIFI_TEST_BOOT_ANDROID_SERVICE_WINDOW_SUBSYS_TRIGGER_CAPTURE
 #define A90_V1393_WIFI_TEST_MODE "wifi-companion-android-wifi-service-window-subsys-trigger-capture"
@@ -3033,6 +3041,7 @@ static void v1393_write_wifi_test_summary(pid_t helper_pid, long spawn_ms) {
     dprintf(fd, "helper_status=%s\n", status);
     dprintf(fd, "wlan0_present=%d\n", wlan0_present);
     dprintf(fd, "debugfs_mount_requested=%d\n", A90_WIFI_TEST_BOOT_MOUNT_DEBUGFS);
+    dprintf(fd, "firmware_mounts_requested=%d\n", A90_WIFI_TEST_BOOT_FIRMWARE_MOUNTS);
 #if A90_WIFI_TEST_BOOT_MOUNT_DEBUGFS
     dprintf(fd, "debugfs_mounted_by_pid1=%d\n", v1393_wifi_test_debugfs_mounted_by_pid1);
     dprintf(fd,
@@ -3282,6 +3291,9 @@ static int v1393_spawn_wifi_test_boot_helper(pid_t *pid_out) {
         "--allow-android-wifi-service-window",
 #if A90_WIFI_TEST_BOOT_ANDROID_SERVICE_WINDOW_SUBSYS_TRIGGER_CAPTURE
         "--allow-android-wifi-service-window-subsys-trigger-capture",
+#if A90_WIFI_TEST_BOOT_ANDROID_SERVICE_WINDOW_PM_PROXY_CONTRACT
+        "--allow-android-wifi-service-window-pm-proxy-contract",
+#endif
 #endif
 #else
         "--allow-pm-service-trigger-observer",
@@ -3505,6 +3517,31 @@ static void v1393_run_wifi_test_boot_once(void) {
                                         strerror(saved_errno));
         return;
     }
+
+#if A90_WIFI_TEST_BOOT_FIRMWARE_MOUNTS
+    rc = v641_prepare_firmware_mounts();
+    (void)v1393_append_wifi_test_log("firmware mounts prepare rc=%d\n", rc);
+    if (rc < 0) {
+        int saved_errno = -rc;
+
+        if (saved_errno <= 0) {
+            saved_errno = EIO;
+        }
+        a90_logf("wifi-v1393", "firmware mounts failed rc=%d errno=%d error=%s",
+                 rc,
+                 saved_errno,
+                 strerror(saved_errno));
+        a90_timeline_record(rc, saved_errno, "wifi-v1393-test-boot", "firmware mounts failed");
+        klogf("<6>%s: wifi test boot firmware mounts failed rc=%d\n",
+              A90_WIFI_TEST_BOOT_KLOG_PREFIX,
+              rc);
+        (void)v1393_append_wifi_test_log("firmware mounts failed rc=%d errno=%d error=%s\n",
+                                        rc,
+                                        saved_errno,
+                                        strerror(saved_errno));
+        return;
+    }
+#endif
 
 #if A90_WIFI_TEST_BOOT_MOUNT_DEBUGFS
     rc = v1393_prepare_wifi_test_debugfs();
@@ -3832,6 +3869,132 @@ static int v641_prepare_firmware_mount_one(const char *label,
     return 0;
 }
 
+static bool v641_vendor_is_system_vendor_symlink(void) {
+    struct stat st;
+
+    return lstat(A90_V641_VENDOR_DIR, &st) == 0 &&
+           S_ISLNK(st.st_mode) &&
+           path_exists(A90_V641_SYSTEM_VENDOR_DIR);
+}
+
+static bool v641_is_reserved_vendor_entry(const char *name) {
+    return strcmp(name, ".") == 0 ||
+           strcmp(name, "..") == 0 ||
+           strcmp(name, "firmware_mnt") == 0 ||
+           strcmp(name, "firmware-modem") == 0;
+}
+
+static int v641_symlink_vendor_entry(const char *source_path, const char *target_path) {
+    if (symlink(source_path, target_path) == 0 || errno == EEXIST) {
+        return 0;
+    }
+    return -errno;
+}
+
+static int v641_materialize_vendor_overlay_entry(const char *name) {
+    char source_path[PATH_MAX];
+    char target_path[PATH_MAX];
+    struct stat st;
+
+    if (snprintf(source_path, sizeof(source_path), "%s/%s",
+                 A90_V641_SYSTEM_VENDOR_DIR, name) >= (int)sizeof(source_path) ||
+        snprintf(target_path, sizeof(target_path), "%s/%s",
+                 A90_V641_VENDOR_DIR, name) >= (int)sizeof(target_path)) {
+        return -ENAMETOOLONG;
+    }
+
+    if (lstat(source_path, &st) < 0) {
+        return -errno;
+    }
+
+    if (S_ISDIR(st.st_mode) && !S_ISLNK(st.st_mode)) {
+        if (ensure_dir(target_path, 0755) < 0) {
+            return -errno;
+        }
+        if (bind_mount_dir(source_path, target_path) < 0) {
+            return -errno;
+        }
+        return 0;
+    }
+
+    return v641_symlink_vendor_entry(source_path, target_path);
+}
+
+static int v641_prepare_system_vendor_overlay(void) {
+    DIR *dir;
+    struct dirent *entry;
+    int failures = 0;
+
+    if (!v641_vendor_is_system_vendor_symlink()) {
+        return 0;
+    }
+
+    if (unlink(A90_V641_VENDOR_DIR) < 0 && errno != ENOENT) {
+        int saved_errno = errno != 0 ? errno : EIO;
+
+        (void)v641_append_ssctl_log("vendor overlay unlink failed path=%s errno=%d error=%s\n",
+                                   A90_V641_VENDOR_DIR,
+                                   saved_errno,
+                                   strerror(saved_errno));
+        return -saved_errno;
+    }
+
+    if (ensure_dir(A90_V641_VENDOR_DIR, 0755) < 0) {
+        int saved_errno = errno != 0 ? errno : EIO;
+
+        (void)v641_append_ssctl_log("vendor overlay dir failed path=%s errno=%d error=%s\n",
+                                   A90_V641_VENDOR_DIR,
+                                   saved_errno,
+                                   strerror(saved_errno));
+        return -saved_errno;
+    }
+
+    dir = opendir(A90_V641_SYSTEM_VENDOR_DIR);
+    if (dir == NULL) {
+        int saved_errno = errno != 0 ? errno : EIO;
+
+        (void)v641_append_ssctl_log("vendor overlay opendir failed path=%s errno=%d error=%s\n",
+                                   A90_V641_SYSTEM_VENDOR_DIR,
+                                   saved_errno,
+                                   strerror(saved_errno));
+        return -saved_errno;
+    }
+
+    while ((entry = readdir(dir)) != NULL) {
+        int rc;
+
+        if (v641_is_reserved_vendor_entry(entry->d_name)) {
+            continue;
+        }
+
+        rc = v641_materialize_vendor_overlay_entry(entry->d_name);
+        if (rc < 0) {
+            ++failures;
+            (void)v641_append_ssctl_log("vendor overlay entry failed name=%s rc=%d errno=%d\n",
+                                       entry->d_name,
+                                       rc,
+                                       -rc);
+        }
+    }
+
+    closedir(dir);
+
+    if (failures > 0) {
+        a90_logf("wifi-v641", "vendor overlay entry failures=%d", failures);
+    }
+
+    (void)v641_append_ssctl_log("vendor overlay ready source=%s target=%s failures=%d bin=%d lib64=%d etc=%d\n",
+                               A90_V641_SYSTEM_VENDOR_DIR,
+                               A90_V641_VENDOR_DIR,
+                               failures,
+                               path_exists("/vendor/bin") ? 1 : 0,
+                               path_exists("/vendor/lib64") ? 1 : 0,
+                               path_exists("/vendor/etc") ? 1 : 0);
+    a90_logf("wifi-v641", "vendor overlay ready failures=%d", failures);
+    klogf("<6>A90v641: vendor overlay ready failures=%d\n", failures);
+    return 0;
+}
+
 static void v641_stat_optional(const char *label, const char *path) {
     struct stat st;
 
@@ -3859,6 +4022,10 @@ static void v641_stat_optional(const char *label, const char *path) {
 
 static int v641_prepare_firmware_mounts(void) {
     int saved_errno;
+
+    if (v641_prepare_system_vendor_overlay() < 0) {
+        return -EIO;
+    }
 
     if (ensure_dir(A90_V641_VENDOR_DIR, 0755) < 0 ||
         ensure_dir(A90_V641_FW_MNT_DIR, 0755) < 0 ||
