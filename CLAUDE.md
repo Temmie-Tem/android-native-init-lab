@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V1465 provider tracepoint classifier PASS (`v1465-pon-toggles-ap2mdm-absent-no-downstream`). V1464 flashed the rollbackable V1462 `0.9.86 (v1462-wifitest)` exact-provider tracepoint test boot, collected tracepoint/window evidence, then rolled back to `stage3/boot_linux_v724.img` with selftest fail=0. V1465 proves the provider toggles GPIO1270/PON low-high and GPIO141 low, but no GPIO135/AP2MDM or GPIO142/MDM2AP trace event appears; endpoint samples keep GPIO135/GPIO142 low, pcie1 GDSC remains `0mV`, pcie1 clocks remain zero-enabled, and no RC1/MHI/WLFW/BDF/FW-ready/`wlan0` progress appears. Next is V1466 host-only provider AP2MDM branch/source classification before any new live mutation. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, Wi-Fi HAL start, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
+- **Active research cycle**: V1466 provider AP2MDM branch classifier PASS (`v1466-ap2mdm-branch-divergence-needs-pil-parity-test-boot`). V1466 reconciles V1464/V1465 with V1318 and static provider research: the V1462 test boot proves PON/errfatal-side provider activity but no GPIO135/AP2MDM event, while V1318 proves an earlier native PM path emitted `fw=esoc0` PIL notifications and then GPIO135/AP2MDM high. The current PID1 tracepoint sampler only arms GPIO events, so the next safe gate is V1467 source/build-only: add `msm_pil_event:pil_notif` parity to the exact-provider GPIO tracepoint test boot before any new live mutation. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, Wi-Fi HAL start, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -1705,3 +1705,13 @@ Update after V1354/V1355:
   Report: `docs/reports/NATIVE_INIT_V1465_PROVIDER_TRACEPOINT_CLASSIFIER_2026-06-01.md`.
   Next V1466 is host-only provider AP2MDM branch/source classification before
   any new live mutation.
+- V1466 host-only classifier (`v1466-ap2mdm-branch-divergence-needs-pil-parity-test-boot`)
+  reconciles V1464/V1465 with V1318 and source/static provider evidence. V1464
+  proves the test boot reaches the PON side (`GPIO1270` low-high, about
+  `180.115ms`) but records zero GPIO135/AP2MDM and zero GPIO142/MDM2AP events.
+  V1318 proves an earlier native PM path captured `fw=esoc0` PIL notifications,
+  PON trace, and GPIO135/AP2MDM high while still missing GPIO142. The current
+  PID1 sampler lacks `msm_pil_event:pil_notif` parity, so V1467 should be
+  source/build-only and add PIL notification tracepoint sampling to the
+  exact-provider GPIO tracepoint test boot before any new live mutation.
+  Report: `docs/reports/NATIVE_INIT_V1466_PROVIDER_AP2MDM_BRANCH_CLASSIFIER_2026-06-01.md`.

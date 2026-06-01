@@ -7639,6 +7639,16 @@ Samsung bootloader
   zero-enabled. No RC1/MHI/WLFW/BDF/FW-ready/`wlan0` progress appears. V1466
   should be host-only provider AP2MDM branch/source classification before any
   new live mutation.
+- V1466 host-only classifier passes with
+  `v1466-ap2mdm-branch-divergence-needs-pil-parity-test-boot`. It reconciles
+  V1464/V1465 with V1318 and source/static provider evidence. V1464 proves the
+  test boot reaches the PON side (`GPIO1270` low-high, about `180.115ms`) but
+  records zero GPIO135/AP2MDM and zero GPIO142/MDM2AP events. V1318 proves an
+  earlier native PM path captured `fw=esoc0` PIL notifications, PON trace, and
+  GPIO135/AP2MDM high while still missing GPIO142. The current PID1 sampler
+  lacks `msm_pil_event:pil_notif` parity, so V1467 should be source/build-only
+  and add PIL notification tracepoint sampling to the exact-provider GPIO
+  tracepoint test boot before any new live mutation.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
