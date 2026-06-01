@@ -8413,6 +8413,15 @@ Samsung bootloader
   execution remains a separate explicit gate and must keep the hard exclusions:
   no Wi-Fi HAL start, scan/connect, credentials, DHCP/routes, external ping,
   PMIC/GPIO/GDSC writes, blind eSoC notify, PCI rescan, or platform bind/unbind.
+- V1528 host-only V1527 evidence escalation classifier passes with
+  `v1528-route-to-android-tracefs-event-capture`. V1527 live evidence proves
+  Android-good WLFW/BDF/`wlan0` and native rollback, but raw kmsg contains zero
+  RC1/LTSSM lines, GPIO104/GPIO142 IRQ totals remain zero, and GPIO135/GPIO142
+  debugfs levels remain low during the successful lower Wi-Fi window. Treat
+  those sources as nondiscriminating for this blocker. Next gate: V1529 should
+  reuse the rollbackable Android handoff and capture bounded tracefs events
+  around the `pm-service`/`subsys_esoc0` window. Report:
+  `docs/reports/NATIVE_INIT_V1528_V1527_EVIDENCE_TRACEFS_ESCALATION_2026-06-02.md`.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still

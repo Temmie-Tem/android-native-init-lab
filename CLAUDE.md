@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V1527 rollbackable Android initial RC1 trigger handoff source/plan PASS (`v1527-handoff-plan-ready`); live Android handoff has not been run in this cycle. V1517/V1518 preserve the native blocker as `rc1-ltssm-link-failed-no-l0`: corrected TEST:11 reaches RC1 PHY/LTSSM and link failure, but L0, PCI enumeration, MHI, WLFW, BDF, FW-ready, and `wlan0` remain absent. V1521 captured Android-good WLFW/BDF/FW-ready/`wlan0`, V1522 proves sampled GPIO/debugfs/interrupt/regulator sources are nondiscriminating, V1523 proves TEST:11 reaches the common AP-side enable path, V1525 proves MHI PM-resume is post-enumeration and not the first-L0 trigger, and V1526 defined the V1527 capture contract. V1527 reuses the rollbackable V1521 temporary Magisk post-fs-data handoff but swaps in raw `/dev/kmsg`/`dmesg -w` capture plus high-cadence GPIO104/GPIO142 IRQ/GPIO samples before Android first RC1 assert (~8.796s in V852). Next live gate is V1527 `run` with explicit Android boot flash/rollback flags. Do not proceed to firmware/MHI deep dive/WLFW/scan/connect until native RC1 L0 and PCI enumeration exist. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, Wi-Fi HAL start, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
+- **Active research cycle**: V1528 host-only V1527 evidence escalation classifier PASS (`v1528-route-to-android-tracefs-event-capture`). V1527 live Android handoff PASS captured Android-good WLFW/BDF/`wlan0` and native rollback, but raw `/dev/kmsg` had zero RC1/LTSSM lines, GPIO104/GPIO142 IRQ totals stayed zero, and GPIO135/GPIO142 debugfs levels stayed low through the successful lower Wi-Fi window. Therefore those kmsg/GPIO/IRQ sources are nondiscriminating and must not be treated as hard Android/native parity requirements. Next gate is V1529: rollbackable Android tracefs event capture around the `pm-service`/`subsys_esoc0` window. Do not proceed to firmware/MHI deep dive/WLFW/scan/connect until native RC1 L0 and PCI enumeration exist. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, Wi-Fi HAL start, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -2476,3 +2476,12 @@ Update after V1354/V1355:
   execution remains a separate explicit gate and must keep the hard exclusions:
   no Wi-Fi HAL start, scan/connect, credentials, DHCP/routes, external ping,
   PMIC/GPIO/GDSC writes, blind eSoC notify, PCI rescan, or platform bind/unbind.
+- V1528 host-only V1527 evidence escalation classifier passes with
+  `v1528-route-to-android-tracefs-event-capture`. V1527 live evidence proves
+  Android-good WLFW/BDF/`wlan0` and native rollback, but raw kmsg contains zero
+  RC1/LTSSM lines, GPIO104/GPIO142 IRQ totals remain zero, and GPIO135/GPIO142
+  debugfs levels remain low during the successful lower Wi-Fi window. Treat
+  those sources as nondiscriminating for this blocker. Next gate: V1529 should
+  reuse the rollbackable Android handoff and capture bounded tracefs events
+  around the `pm-service`/`subsys_esoc0` window. Report:
+  `docs/reports/NATIVE_INIT_V1528_V1527_EVIDENCE_TRACEFS_ESCALATION_2026-06-02.md`.

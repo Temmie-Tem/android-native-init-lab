@@ -1,64 +1,64 @@
 # V1527 Android Initial RC1 Trigger Handoff
 
-- generated: `2026-06-01T15:42:44.044327+00:00`
-- command: `plan`
-- decision: `v1527-handoff-plan-ready`
+- generated: `2026-06-01T15:48:57.673168+00:00`
+- command: `run`
+- decision: `v1527-trigger-capture-rollback-pass`
 - pass: `True`
-- reason: plan-only handoff; no device command executed
-- base_decision: `v1521-handoff-plan-ready`
+- reason: Android trigger capture evidence was pulled and native rollback completed
+- base_decision: `v1521-magisk-postfs-pre-lower-window-rollback-pass`
 - evidence: `/home/temmie/dev/A90_5G_rooting/tmp/wifi/v1527-android-initial-rc1-trigger-handoff`
 
 ## Analysis
 
 | field | value |
 | --- | --- |
-| sample_count | None |
-| sample_first_uptime | None |
-| sample_last_uptime | None |
-| pcie_l0/wlfw/bdf/wlan0 | None/None/None/None |
-| decision_hint | None |
-| files | {} |
+| sample_count | 320 |
+| sample_first_uptime | 5.79 |
+| sample_last_uptime | 70.76 |
+| pcie_l0/wlfw/bdf/wlan0 | None/43.645747/44.602709/49.649299 |
+| decision_hint | kernel-caller-still-opaque-tracefs-needed |
+| files | {"dmesg": true, "done": true, "host_dmesg": true, "kmsg": true, "module_dmesg": true, "props": true, "samples": true, "status": true} |
 
 ## Trigger Evidence
 
 | signal | value |
 | --- | --- |
-| kmsg | null |
-| gpio104_irq | null |
-| gpio142_irq | null |
-| android_lower_ok | None |
+| kmsg | {"first_assert_line": "", "has_process_context": false, "line_count": 9344, "rc1_line_count": 0, "rc1_lines": [], "stream_unavailable": false} |
+| gpio104_irq | {"excerpt": [{"line": "252:          0          0          0          0          0          0          0          0  msmgpio-dc 104 Edge      msm_pcie_wake", "sample": 0, "total": 0, "uptime": 5.79}, {"line": "252:          0          0          0          0          0          0          0          0  msmgpio-dc 104 Edge      msm_pcie_wake", "sample": 1, "total": 0, "uptime": 6.73}, {"line": "252:          0          0          0          0          0          0          0          0  msmgpio-dc 104 Edge      msm_pcie_wake", "sample": 2, "total": 0, "uptime": 6.79}, {"line": "252:          0          0          0          0          0          0          0          0  msmgpio-dc 104 Edge      msm_pcie_wake", "sample": 317, "total": 0, "uptime": 70.48}, {"line": "252:          0          0          0          0          0          0          0          0  msmgpio-dc 104 Edge      msm_pcie_wake", "sample": 318, "total": 0, "uptime": 70.61}, {"line": "252:          0          0          0          0          0          0          0          0  msmgpio-dc 104 Edge      msm_pcie_wake", "sample": 319, "total": 0, "uptime": 70.76}], "first_nonzero": null, "last": 0, "max": 0, "min": 0, "sample_count": 320} |
+| gpio142_irq | {"excerpt": [{"line": "290:          0          0          0          0          0          0          0          0  msmgpio-dc 142 Edge      mdm status", "sample": 0, "total": 0, "uptime": 5.79}, {"line": "290:          0          0          0          0          0          0          0          0  msmgpio-dc 142 Edge      mdm status", "sample": 1, "total": 0, "uptime": 6.73}, {"line": "290:          0          0          0          0          0          0          0          0  msmgpio-dc 142 Edge      mdm status", "sample": 2, "total": 0, "uptime": 6.79}, {"line": "290:          0          0          0          0          0          0          0          0  msmgpio-dc 142 Edge      mdm status", "sample": 317, "total": 0, "uptime": 70.48}, {"line": "290:          0          0          0          0          0          0          0          0  msmgpio-dc 142 Edge      mdm status", "sample": 318, "total": 0, "uptime": 70.61}, {"line": "290:          0          0          0          0          0          0          0          0  msmgpio-dc 142 Edge      mdm status", "sample": 319, "total": 0, "uptime": 70.76}], "first_nonzero": null, "last": 0, "max": 0, "min": 0, "sample_count": 320} |
+| android_lower_ok | True |
 
 ## Steps
 
 | step | status | rc | duration | file |
 | --- | --- | --- | --- | --- |
-| prepare-magisk-module | skip | 0 | 0.000s | steps/prepare-magisk-module.txt |
-| native-version | skip | 0 | 0.000s | steps/native-version.txt |
-| native-status | skip | 0 | 0.000s | steps/native-status.txt |
-| hide-menu | skip | 0 | 0.000s | steps/hide-menu.txt |
-| native-recovery | skip | 0 | 0.000s | steps/native-recovery.txt |
-| wait-recovery | skip | 0 | 0.000s | steps/wait-recovery.txt |
-| push-android-boot | skip | 0 | 0.000s | steps/push-android-boot.txt |
-| remote-android-sha | skip | 0 | 0.000s | steps/remote-android-sha.txt |
-| flash-android-boot | skip | 0 | 0.000s | steps/flash-android-boot.txt |
-| readback-android-boot | skip | 0 | 0.000s | steps/readback-android-boot.txt |
-| reboot-android | skip | 0 | 0.000s | steps/reboot-android.txt |
-| wait-android | skip | 0 | 0.000s | steps/wait-android.txt |
-| wait-android-boot-complete-for-install | skip | 0 | 0.000s | steps/wait-android-boot-complete-for-install.txt |
-| wait-android-ready-for-module-push | skip | 0 | 0.000s | steps/wait-android-ready-for-module-push.txt |
-| push-v1521-module-prop-android | skip | 0 | 0.000s | steps/push-v1521-module-prop-android.txt |
-| push-v1521-post-fs-data-android | skip | 0 | 0.000s | steps/push-v1521-post-fs-data-android.txt |
-| install-v1521-module-android-su | skip | 0 | 0.000s | steps/install-v1521-module-android-su.txt |
-| reboot-android-with-v1521-module | skip | 0 | 0.000s | steps/reboot-android-with-v1521-module.txt |
-| wait-android-second | skip | 0 | 0.000s | steps/wait-android-second.txt |
-| wait-v1521-sampler-done | skip | 0 | 0.000s | steps/wait-v1521-sampler-done.txt |
-| capture-android-dmesg-filtered | skip | 0 | 0.000s | steps/capture-android-dmesg-filtered.txt |
-| pull-v1521-sampler-evidence | skip | 0 | 0.000s | steps/pull-v1521-sampler-evidence.txt |
-| cleanup-v1521-module-android | skip | 0 | 0.000s | steps/cleanup-v1521-module-android.txt |
-| reboot-recovery-for-rollback | skip | 0 | 0.000s | steps/reboot-recovery-for-rollback.txt |
-| wait-rollback-recovery | skip | 0 | 0.000s | steps/wait-rollback-recovery.txt |
-| cleanup-v1521-module-recovery-best-effort | skip | 0 | 0.000s | steps/cleanup-v1521-module-recovery-best-effort.txt |
-| restore-native | skip | 0 | 0.000s | steps/restore-native.txt |
+| prepare-magisk-module | ok | 0 | 0.000s | steps/prepare-magisk-module.txt |
+| native-version | ok | 0 | 0.439s | steps/native-version.txt |
+| native-status | ok | 0 | 0.472s | steps/native-status.txt |
+| hide-menu | ok | 0 | 0.002s | steps/hide-menu.txt |
+| native-recovery | ok | 0 | 0.101s | steps/native-recovery.txt |
+| wait-recovery | ok | 0 | 28.133s | steps/wait-recovery.txt |
+| push-android-boot | ok | 0 | 0.654s | steps/push-android-boot.txt |
+| remote-android-sha | ok | 0 | 0.111s | steps/remote-android-sha.txt |
+| flash-android-boot | ok | 0 | 0.486s | steps/flash-android-boot.txt |
+| readback-android-boot | ok | 0 | 0.360s | steps/readback-android-boot.txt |
+| reboot-android | ok | 0 | 0.881s | steps/reboot-android.txt |
+| wait-android | ok | 0 | 33.145s | steps/wait-android.txt |
+| wait-android-boot-complete-for-install | ok | 0 | 1.666s | steps/wait-android-boot-complete-for-install.txt |
+| wait-android-ready-for-module-push | ok | 0 | 1.010s | steps/wait-android-ready-for-module-push.txt |
+| push-v1521-module-prop-android | ok | 0 | 0.043s | steps/push-v1521-module-prop-android.txt |
+| push-v1521-post-fs-data-android | ok | 0 | 0.013s | steps/push-v1521-post-fs-data-android.txt |
+| install-v1521-module-android-su | ok | 0 | 0.372s | steps/install-v1521-module-android-su.txt |
+| reboot-android-with-v1521-module | ok | 0 | 4.007s | steps/reboot-android-with-v1521-module.txt |
+| wait-android-second | ok | 0 | 90.405s | steps/wait-android-second.txt |
+| wait-v1521-sampler-done | ok | 0 | 25.135s | steps/wait-v1521-sampler-done.txt |
+| capture-android-dmesg-filtered | ok | 0 | 0.272s | steps/capture-android-dmesg-filtered.txt |
+| pull-v1521-sampler-evidence | ok | 0 | 0.066s | steps/pull-v1521-sampler-evidence.txt |
+| cleanup-v1521-module-android | ok | 0 | 0.103s | steps/cleanup-v1521-module-android.txt |
+| reboot-recovery-for-rollback | ok | 0 | 4.000s | steps/reboot-recovery-for-rollback.txt |
+| wait-rollback-recovery | ok | 0 | 50.225s | steps/wait-rollback-recovery.txt |
+| cleanup-v1521-module-recovery-best-effort | ok | 0 | 0.096s | steps/cleanup-v1521-module-recovery-best-effort.txt |
+| restore-native | ok | 0 | 36.358s | steps/restore-native.txt |
 
 ## Safety
 
