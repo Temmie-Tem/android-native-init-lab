@@ -2812,3 +2812,23 @@ native sysfs/debugfs enumerate retry is not the next move. Next gate: V1554
 should capture an Android-good bounded tracefs reference for regulator, clk,
 gpio, and irq events around the successful first-L0/lower-Wi-Fi window, then
 compare it against V1552 before any new native mutation.
+
+## Latest native Wi-Fi state: V1554 (2026-06-02)
+
+V1554 adds
+`scripts/revalidation/android_good_power_trace_reference_handoff_v1554.py`
+and runs a rollbackable Android-good tracefs reference attempt using a
+temporary Magisk post-fs-data module.  Native rollback completed and v724
+selftest remained healthy.  The persisted run is classified as
+`v1554-target-trace-captured-lower-missing-review`, not as an Android-good
+reference pass.
+
+The useful result is a negative boundary.  The module captured bounded target
+tracefs evidence, including AP2MDM/GPIO135 set-high and repeated `refgen`
+regulator activity, but Android did not reach BDF, FW-ready, or `wlan0` before
+rollback.  Only `cnss-daemon wlfw_start` appeared.  Therefore this run must
+not be compared against V1552 as a successful Android-good lower path.  Next
+gate: reduce the Android-good observer to console/dmesg plus minimal GPIO/IRQ
+trace and a longer hold, then reintroduce regulator/clk tracefs only after the
+good lower path is preserved.  Firmware/MHI/WLFW/connect work remains parked
+until native RC1 L0 and PCI enumeration exist.

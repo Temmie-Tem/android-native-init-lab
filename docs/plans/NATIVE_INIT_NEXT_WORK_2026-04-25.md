@@ -8733,6 +8733,19 @@ Samsung bootloader
   lower-Wi-Fi window, then compare against V1552 before any new native
   mutation. Report:
   `docs/reports/NATIVE_INIT_V1553_ENDPOINT_SILENCE_NEXT_GATE_CLASSIFIER_2026-06-02.md`.
+- V1554 rollbackable Android-good tracefs reference attempt completes native
+  rollback and preserves v724 selftest, but it is classified as
+  `v1554-target-trace-captured-lower-missing-review` rather than a successful
+  Android-good reference. It adds
+  `scripts/revalidation/android_good_power_trace_reference_handoff_v1554.py`.
+  The persisted run captures target tracefs evidence, including
+  AP2MDM/GPIO135 set-high and repeated `refgen` regulator activity, but Android
+  does not reach BDF, FW-ready, or `wlan0` before rollback. Next gate: V1555
+  should lower observer impact to console/dmesg plus minimal GPIO/IRQ trace and
+  a longer hold; only after Android reaches BDF/FW-ready/`wlan0` under that
+  observer should regulator/clk tracefs be reintroduced or compared against
+  V1552. Report:
+  `docs/reports/NATIVE_INIT_V1554_ANDROID_GOOD_POWER_TRACE_REFERENCE_2026-06-02.md`.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
