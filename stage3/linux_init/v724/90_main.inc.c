@@ -109,6 +109,9 @@ static void selftest_boot_draw_frame(void *ctx) {
 #ifndef A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_LONG_WINDOW
 #define A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_LONG_WINDOW 0
 #endif
+#ifndef A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_THREAD_STATE
+#define A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_THREAD_STATE 0
+#endif
 #ifndef A90_WIFI_TEST_BOOT_RC1_RETRY_COUNT
 #define A90_WIFI_TEST_BOOT_RC1_RETRY_COUNT 0
 #endif
@@ -122,7 +125,9 @@ static void selftest_boot_draw_frame(void *ctx) {
 #define A90_V1393_WIFI_TEST_WATCHER_PID A90_WIFI_TEST_BOOT_WATCHER_PID
 #define A90_V1393_WIFI_TEST_RC1_WATCHER_RESULT A90_WIFI_TEST_BOOT_RC1_WATCHER_RESULT
 #define A90_V1393_WIFI_TEST_RC1_WINDOW_RESULT A90_WIFI_TEST_BOOT_RC1_WINDOW_RESULT
-#if A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_MICRO_ENDPOINT_SAMPLER && A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_EXACT_LINE && A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_LONG_WINDOW
+#if A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_MICRO_ENDPOINT_SAMPLER && A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_EXACT_LINE && A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_LONG_WINDOW && A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_THREAD_STATE
+#define A90_V1393_WIFI_TEST_RC1_WINDOW_SAMPLER_NAME "read-only-v1458-exact-provider-thread-state"
+#elif A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_MICRO_ENDPOINT_SAMPLER && A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_EXACT_LINE && A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_LONG_WINDOW
 #define A90_V1393_WIFI_TEST_RC1_WINDOW_SAMPLER_NAME "read-only-v1454-exact-provider-long-endpoint"
 #elif A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_MICRO_ENDPOINT_SAMPLER
 #define A90_V1393_WIFI_TEST_RC1_WINDOW_SAMPLER_NAME "read-only-v1450-provider-trigger-micro-endpoint"
@@ -559,6 +564,50 @@ static bool v1393_pid1_rc1_trigger_line(const char *line) {
 }
 
 #if A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_EXACT_LINE
+static int v1393_pid1_rc1_extract_trigger_pid(const char *line) {
+    const char *first;
+    const char *second;
+    const char *end;
+    const char *cursor;
+    const char *start;
+    long value = 0;
+
+    if (line == NULL) {
+        return -1;
+    }
+    first = strchr(line, '[');
+    if (first == NULL) {
+        return -1;
+    }
+    second = strchr(first + 1, '[');
+    if (second == NULL) {
+        return -1;
+    }
+    end = strchr(second + 1, ']');
+    if (end == NULL) {
+        return -1;
+    }
+    cursor = end;
+    while (cursor > second && (*(cursor - 1) == ' ' || *(cursor - 1) == '\t')) {
+        cursor--;
+    }
+    start = cursor;
+    while (start > second && *(start - 1) >= '0' && *(start - 1) <= '9') {
+        start--;
+    }
+    if (start == cursor) {
+        return -1;
+    }
+    while (start < cursor) {
+        value = value * 10 + (*start - '0');
+        if (value > 4194304) {
+            return -1;
+        }
+        start++;
+    }
+    return (int)value;
+}
+
 static bool v1393_pid1_rc1_extract_trigger_line(const char *chunk, char *out, size_t out_size) {
     const char *cursor;
 
@@ -1227,6 +1276,63 @@ static void v1393_rc1_micro_endpoint_sample(const char *sample,
     close(out_fd);
 }
 
+#if A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_THREAD_STATE
+static void v1393_provider_thread_state_sample(const char *sample,
+                                               long start_ms,
+                                               long detect_ms,
+                                               long thread_start_ms,
+                                               int trigger_pid) {
+    static const char *const status_needles[] = {
+        "Name:",
+        "State:",
+        "Tgid:",
+        "Pid:",
+        "PPid:",
+        "TracerPid:",
+        "Threads:",
+        "voluntary_ctxt_switches:",
+        "nonvoluntary_ctxt_switches:",
+        NULL,
+    };
+    char path[96];
+    int out_fd;
+    long now_ms = monotonic_millis();
+
+    out_fd = open(A90_V1393_WIFI_TEST_RC1_WINDOW_RESULT,
+                  O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC | O_NOFOLLOW,
+                  0600);
+    if (out_fd < 0) {
+        return;
+    }
+    dprintf(out_fd,
+            "provider_thread_state label=%s elapsed_ms=%ld detect_elapsed_ms=%ld thread_elapsed_ms=%ld trigger_pid=%d\n",
+            sample,
+            now_ms >= start_ms ? now_ms - start_ms : -1,
+            detect_ms >= start_ms ? detect_ms - start_ms : -1,
+            now_ms >= thread_start_ms ? now_ms - thread_start_ms : -1,
+            trigger_pid);
+    dprintf(out_fd, "sample=%s provider_thread_state=1 trigger_pid=%d\n", sample, trigger_pid);
+    if (trigger_pid <= 0) {
+        dprintf(out_fd, "sample=%s source=provider_thread_state trigger_pid_invalid=1\n", sample);
+        close(out_fd);
+        return;
+    }
+    snprintf(path, sizeof(path), "/proc/%d/comm", trigger_pid);
+    v1393_rc1_window_append_trimmed_file(out_fd, sample, "provider_thread_comm", path);
+    snprintf(path, sizeof(path), "/proc/%d/wchan", trigger_pid);
+    v1393_rc1_window_append_trimmed_file(out_fd, sample, "provider_thread_wchan", path);
+    snprintf(path, sizeof(path), "/proc/%d/stat", trigger_pid);
+    v1393_rc1_window_append_trimmed_file(out_fd, sample, "provider_thread_stat", path);
+    snprintf(path, sizeof(path), "/proc/%d/status", trigger_pid);
+    v1393_rc1_window_append_matching_lines(out_fd,
+                                           sample,
+                                           "provider_thread_status",
+                                           path,
+                                           status_needles);
+    close(out_fd);
+}
+#endif
+
 #if !A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_MICRO_ENDPOINT_SAMPLER
 static void v1393_rc1_micro_writer_child(int pipe_fd, long start_ms) {
     int rc;
@@ -1479,7 +1585,9 @@ static int v1393_pid1_rc1_case_aligned_micro_endpoint_sample_with_writer(long st
 #endif
 #endif
 
-static int v1393_pid1_provider_trigger_micro_endpoint_sample(long start_ms, long detect_ms) {
+static int v1393_pid1_provider_trigger_micro_endpoint_sample(long start_ms,
+                                                             long detect_ms,
+                                                             int trigger_pid) {
 #if A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_LONG_WINDOW
     static const int targets_ms[] = {0, 1, 2, 5, 10, 20, 50, 100, 150, 250, 300, 500, 1000};
 #else
@@ -1494,6 +1602,9 @@ static int v1393_pid1_provider_trigger_micro_endpoint_sample(long start_ms, long
         v1393_rc1_micro_sleep_until(micro_start_ms, targets_ms[index]);
         snprintf(sample, sizeof(sample), "provider_micro_after_trigger_%dms", targets_ms[index]);
         v1393_rc1_micro_endpoint_sample(sample, start_ms, detect_ms, micro_start_ms);
+#if A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_THREAD_STATE
+        v1393_provider_thread_state_sample(sample, start_ms, detect_ms, micro_start_ms, trigger_pid);
+#endif
     }
 
 #if A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_LONG_WINDOW
@@ -1664,10 +1775,15 @@ static void v1393_pid1_rc1_watcher_child(void) {
 #endif
             if (v1393_pid1_rc1_trigger_line(line)) {
                 long detect_ms = monotonic_millis();
+                int trigger_pid = -1;
                 int write_rc;
                 long write_ms;
                 int saved_errno;
                 char retry_result[320] = "";
+
+#if A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_EXACT_LINE
+                trigger_pid = v1393_pid1_rc1_extract_trigger_pid(line);
+#endif
 
 #if A90_WIFI_TEST_BOOT_RC1_WINDOW_SAMPLER
                 v1393_rc1_window_prepare(start_ms, detect_ms, line);
@@ -1684,7 +1800,8 @@ static void v1393_pid1_rc1_watcher_child(void) {
 #endif
 #if A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_MICRO_ENDPOINT_SAMPLER
                 write_rc = v1393_pid1_provider_trigger_micro_endpoint_sample(start_ms,
-                                                                             detect_ms);
+                                                                             detect_ms,
+                                                                             trigger_pid);
 #elif A90_WIFI_TEST_BOOT_RC1_CASE_ALIGNED_MICRO_ENDPOINT_SAMPLER
                 write_rc = v1393_pid1_rc1_case_aligned_micro_endpoint_sample_with_writer(start_ms,
                                                                                          detect_ms);

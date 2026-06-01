@@ -7540,6 +7540,19 @@ Samsung bootloader
   add a provider-trigger thread-state sampler that captures the triggering
   Binder PID/TID, `/proc/<pid>/task/*/wchan`, state, and compact process
   metadata around exact provider trigger time.
+- V1458 source/build-only passes with
+  `v1458-wifi-test-boot-exact-provider-thread-state-source-build-pass`. It
+  generated
+  `tmp/wifi/v1458-wifi-test-boot-exact-provider-thread-state-sampler/boot_linux_v1458_wifi_test.img`
+  with native init `0.9.85 (v1458-wifitest)`. The test boot keeps the exact
+  provider trigger, no explicit RC1 debugfs `rc_sel`/`case` write, and the
+  long endpoint window through `1000ms` plus `1200ms` context. It additionally
+  parses the triggering provider thread PID from the exact kmsg line and
+  samples `/proc/<pid>/comm`, `/proc/<pid>/wchan`, `/proc/<pid>/stat`, and
+  selected `/proc/<pid>/status` fields at each micro sample. V1459 should be
+  local-only artifact sanity over the exact V1458 manifest, static binaries,
+  marker contract, v724 header/kernel parity, private modes, and forbidden
+  credential-like byte absence before any live flash/handoff.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still

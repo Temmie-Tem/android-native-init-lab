@@ -164,6 +164,11 @@ def build_init(args: argparse.Namespace) -> None:
         if args.wifi_test_provider_trigger_long_window
         else []
     )
+    provider_trigger_thread_state_flags = (
+        ["-DA90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_THREAD_STATE=1"]
+        if args.wifi_test_provider_trigger_thread_state
+        else []
+    )
     rc1_retry_flags = []
     if args.wifi_test_rc1_retry_count > 0:
         rc1_retry_flags = [
@@ -201,6 +206,7 @@ def build_init(args: argparse.Namespace) -> None:
         *provider_trigger_micro_endpoint_flags,
         *provider_trigger_exact_line_flags,
         *provider_trigger_long_window_flags,
+        *provider_trigger_thread_state_flags,
         *rc1_retry_flags,
         "-o",
         args.init_binary,
@@ -340,6 +346,14 @@ def verify_markers(args: argparse.Namespace) -> None:
         ])
     if args.wifi_test_rc1_window_sampler:
         sampler_marker = (
+            "read-only-v1458-exact-provider-thread-state"
+            if (
+                args.wifi_test_provider_trigger_micro_endpoint_sampler
+                and args.wifi_test_provider_trigger_exact_line
+                and args.wifi_test_provider_trigger_long_window
+                and args.wifi_test_provider_trigger_thread_state
+            )
+            else
             "read-only-v1454-exact-provider-long-endpoint"
             if (
                 args.wifi_test_provider_trigger_micro_endpoint_sampler
@@ -443,7 +457,18 @@ def verify_markers(args: argparse.Namespace) -> None:
         expected.extend([
             "provider_trigger_micro_endpoint_sampler_requested",
             "read-only-v1454-exact-provider-long-endpoint"
-            if args.wifi_test_provider_trigger_exact_line and args.wifi_test_provider_trigger_long_window
+            if (
+                args.wifi_test_provider_trigger_exact_line
+                and args.wifi_test_provider_trigger_long_window
+                and not args.wifi_test_provider_trigger_thread_state
+            )
+            else
+            "read-only-v1458-exact-provider-thread-state"
+            if (
+                args.wifi_test_provider_trigger_exact_line
+                and args.wifi_test_provider_trigger_long_window
+                and args.wifi_test_provider_trigger_thread_state
+            )
             else "read-only-v1450-provider-trigger-micro-endpoint",
             "provider_micro_after_trigger_%dms",
             "exact_provider_line=%d",
@@ -452,6 +477,15 @@ def verify_markers(args: argparse.Namespace) -> None:
             if args.wifi_test_provider_trigger_long_window
             else "post_provider_micro_200ms",
         ])
+        if args.wifi_test_provider_trigger_thread_state:
+            expected.extend([
+                "provider_thread_state label=%s",
+                "provider_thread_state=1",
+                "provider_thread_comm",
+                "provider_thread_wchan",
+                "provider_thread_status",
+                "/proc/%d/wchan",
+            ])
     if args.wifi_test_rc1_retry_count > 0:
         expected.extend([
             "retry_count=%d",
@@ -509,6 +543,7 @@ def write_manifest(args: argparse.Namespace) -> None:
             "provider_trigger_micro_endpoint_sampler": args.wifi_test_provider_trigger_micro_endpoint_sampler,
             "provider_trigger_exact_line": args.wifi_test_provider_trigger_exact_line,
             "provider_trigger_long_window": args.wifi_test_provider_trigger_long_window,
+            "provider_trigger_thread_state": args.wifi_test_provider_trigger_thread_state,
             "rc1_retry_count": args.wifi_test_rc1_retry_count,
             "rc1_retry_delay_ms": args.wifi_test_rc1_retry_delay_ms,
         },
@@ -584,6 +619,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--wifi-test-provider-trigger-micro-endpoint-sampler", action="store_true")
     parser.add_argument("--wifi-test-provider-trigger-exact-line", action="store_true")
     parser.add_argument("--wifi-test-provider-trigger-long-window", action="store_true")
+    parser.add_argument("--wifi-test-provider-trigger-thread-state", action="store_true")
     parser.add_argument("--wifi-test-rc1-retry-count", type=int, default=0)
     parser.add_argument("--wifi-test-rc1-retry-delay-ms", type=int, default=0)
     parser.add_argument("--init-binary", type=Path)
