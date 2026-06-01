@@ -3005,3 +3005,28 @@ The only target is `cnss-daemon wlfw_start`/`wlfw_service_request` evidence unde
 the Android service-window route. Still do not use credentials, scan/connect,
 DHCP/routes, external ping, PMIC/GPIO/GDSC writes, blind eSoC notify, global PCI
 rescan, or platform bind/unbind.
+
+## Latest native Wi-Fi state: V1563 (2026-06-02)
+
+V1563 adds
+`scripts/revalidation/native_wifi_test_boot_artifact_sanity_v1563.py` and passes
+local-only artifact sanity with
+`v1563-android-wifi-service-window-artifact-sanity-pass`. It verifies the V1562
+service-window test boot artifact, header/kernel parity, static ELF properties,
+ramdisk entries, private output modes, credential-byte absence, service-window
+boot markers, and PID1 route contract.
+
+The verified artifact is still
+`tmp/wifi/v1562-android-wifi-service-window-test-boot/boot_linux_v1393_wifi_test.img`
+with boot sha256
+`3b927f60b81caaf60f01ea5fcf23cccc56d68cbc58edaf5db6e7993f5cad262d`.
+The sanity manifest is
+`tmp/wifi/v1563-android-wifi-service-window-artifact-sanity/manifest.json` and
+contains `pass=true`, making it suitable for the shared rollbackable handoff
+runner preflight.
+
+Next gate: V1564 should perform the rollbackable live handoff of only this
+artifact, expect `A90 Linux init 0.9.69 (v1562-service-window)`, collect the
+service-window log/summary/dmesg/`wlan0` state, roll back to v724, and classify
+only `wlfw_start`/`wlfw_service_request` progress. Do not use credentials,
+scan/connect, DHCP/routes, or external ping.

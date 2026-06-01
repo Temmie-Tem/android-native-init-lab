@@ -8863,6 +8863,21 @@ Samsung bootloader
   credentials, scan/connect, DHCP/routes, external ping, PMIC/GPIO/GDSC writes,
   blind eSoC notify, global PCI rescan, or platform bind/unbind. Report:
   `docs/reports/NATIVE_INIT_V1562_ANDROID_WIFI_SERVICE_WINDOW_TEST_BOOT_SOURCE_BUILD_2026-06-02.md`.
+- V1563 local-only artifact sanity passes with
+  `v1563-android-wifi-service-window-artifact-sanity-pass`. It adds
+  `scripts/revalidation/native_wifi_test_boot_artifact_sanity_v1563.py` and
+  verifies the V1562 service-window artifact, header/kernel parity, static ELF
+  properties, ramdisk entries, private output modes, credential-byte absence,
+  service-window boot markers, and PID1 route contract. Sanity manifest:
+  `tmp/wifi/v1563-android-wifi-service-window-artifact-sanity/manifest.json`;
+  verified boot sha256
+  `3b927f60b81caaf60f01ea5fcf23cccc56d68cbc58edaf5db6e7993f5cad262d`.
+  Next gate: V1564 rollbackable live handoff for only the V1562 artifact,
+  expecting `A90 Linux init 0.9.69 (v1562-service-window)`, collecting
+  service-window log/summary/dmesg/`wlan0` state, rolling back to v724, and
+  classifying only `wlfw_start`/`wlfw_service_request` progress. No credentials,
+  scan/connect, DHCP/routes, or external ping. Report:
+  `docs/reports/NATIVE_INIT_V1563_ANDROID_WIFI_SERVICE_WINDOW_ARTIFACT_SANITY_2026-06-02.md`.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
