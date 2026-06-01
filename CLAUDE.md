@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V1388 host-only classifier PASS (`v1388-prepoll-gate-works-but-helper-enters-it-too-late`). V1387's pre-poll writer works, but it starts about `3.556s` after `__subsystem_get(esoc0)` and only improves V1383 by `0.106s`; observer evidence already saw a `pm-service` `mdm_subsys_powerup` thread before the late-`per_proxy` response sampler. Next is V1389 source/build-only helper v286 early-observer corrected RC1 trigger support. Preserve hard exclusions: no PMIC/GPIO/GDSC direct write, blind eSoC notify/BOOT_DONE spoof, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, flash outside approved Android handoff/rollback, boot image write outside approved rollback, or partition write.
+- **Active research cycle**: V1389 source/build-only helper v286 support PASS (`v1389-helper-v286-early-powerup-corrected-rc1-ready`). Helper v286 adds `--pm-observer-early-powerup-corrected-rc1-enumerate`, which fail-closed moves the corrected RC1 trigger into the early observer phase where the `pm-service` `mdm_subsys_powerup` thread is already visible. Next is V1390 deploy/preflight only, then V1391 bounded early-observer corrected RC1 live gate. Preserve hard exclusions: no PMIC/GPIO/GDSC direct write, blind eSoC notify/BOOT_DONE spoof, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, flash outside approved Android handoff/rollback, boot image write outside approved rollback, or partition write.
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -1468,3 +1468,15 @@ Update after V1354/V1355:
   move corrected RC1 into that earlier observer phase. V1389 should be
   source/build-only helper v286 support; do not run another same-shape live
   RC1 mutation first.
+- V1389 source/build-only support (`v1389-helper-v286-early-powerup-corrected-rc1-ready`)
+  bumps `a90_android_execns_probe` to v286 and adds the opt-in
+  `--pm-observer-early-powerup-corrected-rc1-enumerate` flag. The new path
+  fires from the early observer phase on the first visible `pm-service`
+  `mdm_subsys_powerup` gate, records early phase/timing/write-state markers,
+  preserves legacy late/immediate/pre-poll paths unless explicitly selected,
+  and fail-closes without falling back to a later RC1 write if the early gate is
+  missing. Built helper sha256:
+  `e5fc81a5becb2c6e6efd2ca026800560ed9e0e72a692f0fbb07861cf26d5380f`.
+  No device command, deploy, live write, Wi-Fi bring-up/network action, flash,
+  boot image write, or partition write occurred. Next is V1390 deploy/preflight
+  helper v286, then V1391 bounded early-observer corrected RC1 live gate.

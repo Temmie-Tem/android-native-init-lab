@@ -6510,6 +6510,47 @@ Samsung bootloader
       PMIC/GPIO/GDSC direct write, eSoC notify/`BOOT_DONE`, Wi-Fi HAL,
       scan/connect, credentials, DHCP/routes, external ping, flash, boot image
       write, or partition write.
+    - Result:
+      `docs/reports/NATIVE_INIT_V1389_EARLY_POWERUP_CORRECTED_RC1_SUPPORT_2026-06-01.md`.
+      Decision: `v1389-helper-v286-early-powerup-corrected-rc1-ready`.
+      Helper v286 built as static aarch64 with sha256
+      `e5fc81a5becb2c6e6efd2ca026800560ed9e0e72a692f0fbb07861cf26d5380f`.
+      The new `--pm-observer-early-powerup-corrected-rc1-enumerate` path is
+      opt-in, requires the existing response/timing samplers, rejects ambiguous
+      combinations with late/immediate/pre-poll RC1 modes, reports early
+      phase/timing/write-state markers, and fail-closes without falling back to
+      later RC1 writes when the early powerup gate is absent. No device command,
+      helper deploy, live write, Wi-Fi bring-up/network action, flash, boot
+      image write, or partition write occurred.
+38. **V1390 deploy helper v286 (deploy/preflight-only).**
+    - Goal: put the exact V1389 helper v286 on-device and verify marker,
+      sha256, usage, and selftest before any live RC1 action.
+    - Required output: deployed helper reports `a90_android_execns_probe v286`,
+      sha256 matches
+      `e5fc81a5becb2c6e6efd2ca026800560ed9e0e72a692f0fbb07861cf26d5380f`,
+      new early-observer flag appears in usage, and post-deploy selftest has no
+      new failures.
+    - Hard stop: deploy/preflight only. No daemon start, no debugfs/sysfs live
+      write, no `rc_sel`/`case` write, no PCI rescan, no PMIC/GPIO/GDSC direct
+      write, no eSoC notify/`BOOT_DONE`, no Wi-Fi HAL, no scan/connect, no
+      credentials, no DHCP/routes, no external ping, no flash, no boot image
+      write, and no partition write.
+39. **V1391 early-observer corrected RC1 live gate (bounded live).**
+    - Goal: run the Android-participant parity window with helper v286 and fire
+      corrected RC1 from the early observer phase where `pm-service`
+      `mdm_subsys_powerup` is first visible, not from the later response
+      sampler.
+    - Required output: confirm
+      `pm_service_trigger_observer.early_powerup_corrected_rc1.triggered=1`,
+      phase `early_powerup_observer`, `rc_sel_rc=0`, `case_rc=0`, and
+      `response_sampler.debugfs_control_write_executed=1` or an explicit
+      fail-closed skip reason. Compare `__subsystem_get(esoc0)` to RC1 assert
+      timing against Android, and capture GPIO142, PCI/MHI, MHI pipe/`ks`,
+      WLFW, and `wlan0` counts.
+    - Hard stop: bounded corrected RC1 live gate only. No PMIC/GPIO/GDSC direct
+      write, no blind eSoC notify/`BOOT_DONE` spoof, no Wi-Fi HAL, no
+      scan/connect, no credentials, no DHCP/routes, no external ping, no flash,
+      no boot image write, and no partition write.
 
 ### Required decision before any new mutation
 
@@ -6613,6 +6654,10 @@ Samsung bootloader
   from the early observer phase where `mdm_subsys_powerup` is already visible,
   before the response sampler and expensive snapshots. V1389 is source/build
   only; V1390 deploy and V1391 live are separate gates.
+- V1389 implements that helper v286 support source/build-only and keeps all
+  live actions blocked. V1390 may only deploy/preflight the exact v286 helper;
+  V1391 is the first bounded live gate that may exercise the early-observer
+  corrected RC1 trigger.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
