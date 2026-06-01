@@ -2014,3 +2014,17 @@ Update after V1354/V1355:
   V1488 log/summary/focused dmesg/`wlan0`, then roll back to v724 and verify
   selftest `fail=0`. Report:
   `docs/reports/NATIVE_INIT_V1489_WIFI_AUTO_READINESS_TIMEOUT_SAFE_ARTIFACT_SANITY_2026-06-01.md`.
+- V1490 rollbackable live handoff
+  (`v1490-timeout-safe-provider-trigger-no-downstream-manual-rollback-pass`)
+  proved the V1488 timeout-safe PID1 summary works: syslog read succeeded,
+  modem/provider trigger were seen, primary checkpoint was `provider-trigger`,
+  and PCIe RC1, MHI, WLFW, ICNSS/QMI, BDF, FW-ready, and `wlan0` were all
+  absent. The generic TWRP rollback path failed because recovery ADB never
+  appeared after the native `recovery` command. Manual native rollback then
+  succeeded by downloading the v724 image over NCM HTTP to
+  `/cache/boot_linux_v724.img`, creating `/dev/block/sda24` for the boot
+  partition (`259:8`), writing it, verifying the boot prefix sha256, rebooting,
+  and confirming `A90 Linux init 0.9.68 (v724)` plus selftest `fail=0`. Next
+  gate: V1491 should add an explicit native direct rollback fallback for future
+  handoff runners before more test-boot flashes. Report:
+  `docs/reports/NATIVE_INIT_V1490_WIFI_AUTO_READINESS_TIMEOUT_SAFE_HANDOFF_2026-06-01.md`.

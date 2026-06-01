@@ -7930,6 +7930,23 @@ Samsung bootloader
   summary, focused dmesg, and `wlan0` state, then rolling back to
   `stage3/boot_linux_v724.img` and verifying selftest `fail=0`. Report:
   `docs/reports/NATIVE_INIT_V1489_WIFI_AUTO_READINESS_TIMEOUT_SAFE_ARTIFACT_SANITY_2026-06-01.md`.
+- V1490 rollbackable live handoff reached
+  `v1490-timeout-safe-provider-trigger-no-downstream-manual-rollback-pass`.
+  The V1488 test boot produced the intended timeout-safe PID1 summary:
+  `auto_readiness_pid1.syslog_ok=1`, modem/provider trigger seen, primary
+  checkpoint `provider-trigger`, and no PCIe RC1, MHI, WLFW, ICNSS/QMI, BDF,
+  FW-ready, or `wlan0`. The generic TWRP rollback path failed because recovery
+  ADB never appeared, so rollback was corrected manually from native init:
+  NCM HTTP downloaded `stage3/boot_linux_v724.img` to
+  `/cache/boot_linux_v724.img`, sha256 matched
+  `ae01fa106391756dae12fc9a6c9f57d4111b2180c82cdcfe3691ee31f7542adc`, sysfs
+  identified `boot` as `sda24` (`259:8`), `/dev/block/sda24` was written and
+  read back with the same sha256 prefix, then reboot verified
+  `A90 Linux init 0.9.68 (v724)` and selftest `fail=0`. Before another live
+  handoff, V1491 should add an explicit native direct rollback fallback using a
+  pre-staged `/cache/boot_linux_v724.img` when recovery ADB is unavailable.
+  Report:
+  `docs/reports/NATIVE_INIT_V1490_WIFI_AUTO_READINESS_TIMEOUT_SAFE_HANDOFF_2026-06-01.md`.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
