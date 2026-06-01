@@ -7039,6 +7039,15 @@ Samsung bootloader
   RC1 watcher result, dmesg, and `wlan0` state, then roll back to
   `stage3/boot_linux_v724.img`. Keep scan/connect, credentials, DHCP/routes,
   and external ping blocked.
+- V1410 rollbackable live handoff booted the V1408 test image and rollback was
+  healthy, but strict Wi-Fi progress remained blocked:
+  `v1410-test-boot-provider-trigger-no-downstream-wifi-progress-blocked`.
+  The PID1 RC1 watcher failed before watching because `/dev/kmsg` is absent
+  (`state=open-kmsg-failed rc=-2 errno=2`), while a read-only follow-up confirms
+  `/proc/kmsg` is present. V1411 should be source/build-only: add `/proc/kmsg`
+  fallback with an initial drain-to-current step before watching future
+  `esoc0`/powerup markers. Keep scan/connect, credentials, DHCP/routes, and
+  external ping blocked.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still

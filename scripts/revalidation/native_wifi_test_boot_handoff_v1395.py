@@ -163,9 +163,18 @@ def matching_markers(text: str, markers: tuple[str, ...]) -> list[str]:
     return [marker for marker in markers if marker in text]
 
 
+def first_state_line(text: str) -> str:
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if line.startswith("state="):
+            return line
+    return " ".join(text.split())[:240]
+
+
 def classify_wifi_progress(evidence_dir: Path) -> dict[str, Any]:
     dmesg = read_evidence_text(evidence_dir, "test-v1393-dmesg.stdout.txt")
     summary = read_evidence_text(evidence_dir, "test-v1393-summary.stdout.txt")
+    rc1_watcher_result = read_evidence_text(evidence_dir, "test-v1393-rc1-watcher-result.stdout.txt")
     wlan0_stdout = read_evidence_text(evidence_dir, "test-wlan0.stdout.txt")
     summary_fields = parse_key_value_lines(summary)
 
@@ -272,6 +281,9 @@ def classify_wifi_progress(evidence_dir: Path) -> dict[str, Any]:
         "debugfs_mount_requested": summary_fields.get("debugfs_mount_requested"),
         "debugfs_mounted_by_pid1": summary_fields.get("debugfs_mounted_by_pid1"),
         "debugfs_pci_msm_case_present": summary_fields.get("debugfs_pci_msm_case_present"),
+        "pid1_rc1_watcher_requested": summary_fields.get("pid1_rc1_watcher_requested"),
+        "pid1_rc1_watcher_result_summary": summary_fields.get("pid1_rc1_watcher_result"),
+        "pid1_rc1_watcher_result_file": first_state_line(rc1_watcher_result),
     }
 
 
@@ -323,6 +335,13 @@ def collect_test_boot_evidence(args: argparse.Namespace,
             "test -e /sys/class/net/wlan0 && echo wlan0=present || echo wlan0=absent",
         ]),
     }
+    if args.test_rc1_watcher_result_path:
+        commands["test-v1393-rc1-watcher-result"] = a90ctl_command([
+            "run",
+            "/cache/bin/toybox",
+            "cat",
+            args.test_rc1_watcher_result_path,
+        ])
     evidence: dict[str, Any] = {}
     for name, command in commands.items():
         result = run_a90ctl_step(store, steps, name, command, args.collect_timeout_sec)
@@ -484,6 +503,9 @@ def render_report(result: dict[str, Any]) -> str:
             f"- `connect_ready`: `{progress['connect_ready']}`",
             f"- `debugfs_pci_msm_case_present`: `{progress.get('debugfs_pci_msm_case_present')}`",
             f"- `helper_timed_out`: `{progress.get('helper_timed_out')}`",
+            f"- `pid1_rc1_watcher_requested`: `{progress.get('pid1_rc1_watcher_requested')}`",
+            f"- `pid1_rc1_watcher_result_summary`: `{progress.get('pid1_rc1_watcher_result_summary')}`",
+            f"- `pid1_rc1_watcher_result_file`: `{progress.get('pid1_rc1_watcher_result_file')}`",
         ])
     lines.extend([
         "",
@@ -533,6 +555,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--expect-rollback-version", default=ROLLBACK_EXPECT_VERSION)
     parser.add_argument("--test-log-path", default=DEFAULT_TEST_LOG_PATH)
     parser.add_argument("--test-summary-path", default=DEFAULT_TEST_SUMMARY_PATH)
+    parser.add_argument("--test-rc1-watcher-result-path", default="")
     parser.add_argument("--dmesg-grep-pattern", default=DEFAULT_DMESG_PATTERN)
     parser.add_argument("--flash-timeout-sec", type=float, default=720.0)
     parser.add_argument("--collect-timeout-sec", type=float, default=120.0)
