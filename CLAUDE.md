@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V1497 host-only RC1 failure classifier PASS (`v1497-auto-readiness-rc1-fail-reconciled-existing-endpoint-gap`). V1497 reconciles V1496 with the existing lower endpoint-readiness evidence: the rollbackable test boot can execute bounded corrected RC1 enumerate (`rc_sel=2` + `case=11`) and collect evidence, but it still fails before L0 with no MHI, WLFW, BDF, FW-ready, or `wlan0`. Repeating GPIO135 sysfs hold or corrected RC1-only experiments is not useful. Next work should continue from the V1482/V1496 endpoint-readiness branch with a source/build-only pre-L0 endpoint parity observer. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, Wi-Fi HAL start, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
+- **Active research cycle**: V1498 host-only `msm_pcie` TEST:11 static analysis PASS (`v1498-msm-pcie-test11-enumerate-path-confirmed-endpoint-response-gap`). V1498 confirms the public `pci-msm.c` reference maps TEST:11 to `MSM_PCIE_ENUMERATION`, which calls `msm_pcie_enumerate()` and then `msm_pcie_enable(dev, PM_ALL)`. Local DTS binds RC1 to PERST GPIO102, WAKE GPIO104, `pcie_1` clocks/resets, and SDX50M/MHI. Therefore V1496 exercised the intended RC1 enumerate/link-training path, but the endpoint still failed before L0. Next work should be V1499 source/build-only pre-L0 endpoint parity observation: PERST/refclk/clock/GDSC/GPIO102/GPIO103/GPIO104/GPIO135/GPIO142 plus LTSSM timing around provider-trigger + corrected RC1 enumerate. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, Wi-Fi HAL start, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -2123,3 +2123,18 @@ Update after V1354/V1355:
   endpoint-readiness branch for the next source/build-only pre-L0 endpoint
   parity observer. Report:
   `docs/reports/NATIVE_INIT_V1497_AUTO_READINESS_RC1_FAILURE_CLASSIFIER_2026-06-01.md`.
+- V1498 host-only `msm_pcie` TEST:11 static analysis
+  (`v1498-msm-pcie-test11-enumerate-path-confirmed-endpoint-response-gap`)
+  adds `scripts/revalidation/native_wifi_msm_pcie_test11_static_analysis_v1498.py`
+  and parses V1496 evidence, local `sm8150-pcie.dtsi`/`sm8150-mhi.dtsi`/
+  `sm8150-sdx50m.dtsi`, and public `pci-msm.c` reference source. The source
+  maps TEST:11 to `MSM_PCIE_ENUMERATION`; that case calls
+  `msm_pcie_enumerate()`, which calls `msm_pcie_enable(dev, PM_ALL)`. The local
+  DTS contract binds RC1 to PERST GPIO102, WAKE GPIO104, `pcie_1` clocks/resets,
+  RC bridge `17cb:0108`, MHI IDs `17cb:0305`..`17cb:0308`, and SDX50M
+  `0305_01.01.00`. V1496 therefore reached the intended RC1 enable/link
+  training path, and the remaining blocker is endpoint response before L0, not
+  the debugfs case number or post-L0 firmware/MHI/WLFW. Next gate: V1499
+  source/build-only pre-L0 endpoint parity observer for PERST/refclk/clock/GDSC
+  and GPIO102/GPIO103/GPIO104/GPIO135/GPIO142 plus LTSSM timing. Report:
+  `docs/reports/NATIVE_INIT_V1498_MSM_PCIE_TEST11_STATIC_ANALYSIS_2026-06-01.md`.

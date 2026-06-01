@@ -8048,6 +8048,24 @@ Samsung bootloader
   DHCP/routes, and external ping blocked until `wlan0` exists.
   Report:
   `docs/reports/NATIVE_INIT_V1497_AUTO_READINESS_RC1_FAILURE_CLASSIFIER_2026-06-01.md`.
+- V1498 host-only `msm_pcie` TEST:11 static analysis passes with
+  `v1498-msm-pcie-test11-enumerate-path-confirmed-endpoint-response-gap`. It
+  adds
+  `scripts/revalidation/native_wifi_msm_pcie_test11_static_analysis_v1498.py`
+  and parses V1496 evidence, local DTS, and public `pci-msm.c` reference source.
+  TEST:11 maps to `MSM_PCIE_ENUMERATION`, the case calls
+  `msm_pcie_enumerate()`, and enumeration calls `msm_pcie_enable(dev, PM_ALL)`.
+  Local DTS confirms the RC1/SDX50M contract: PERST GPIO102, WAKE GPIO104,
+  `pcie_1` clock/reset names, RC bridge `17cb:0108`, MHI IDs
+  `17cb:0305`..`17cb:0308`, and SDX50M link-info `0305_01.01.00`. Therefore
+  V1496 exercised the intended RC1 enumerate/link-training path; the remaining
+  gap is pre-L0 endpoint response / PERST-refclk-power-sequence parity. V1499
+  should be source/build-only and add a pre-L0 endpoint parity observer for
+  PERST/refclk/clock/GDSC/GPIO102/GPIO103/GPIO104/GPIO135/GPIO142 plus LTSSM
+  timing around provider-trigger and corrected RC1 enumerate. Keep Wi-Fi HAL,
+  credentials, scan/connect, DHCP/routes, external ping, PMIC/GPIO/GDSC direct
+  writes, global PCI rescan, and platform bind/unbind blocked. Report:
+  `docs/reports/NATIVE_INIT_V1498_MSM_PCIE_TEST11_STATIC_ANALYSIS_2026-06-01.md`.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
