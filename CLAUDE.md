@@ -1973,3 +1973,17 @@ Update after V1354/V1355:
   log/summary/focused dmesg/`wlan0`, then roll back to
   `stage3/boot_linux_v724.img` and verify selftest `fail=0`. Report:
   `docs/reports/NATIVE_INIT_V1486_WIFI_AUTO_READINESS_ARTIFACT_SANITY_2026-06-01.md`.
+- V1487 rollbackable live handoff
+  (`v1487-test-boot-provider-trigger-no-downstream-wifi-progress-blocked`)
+  flashed only the V1485 auto-readiness test image, collected evidence, and
+  rolled back to v724 successfully. The test boot reached
+  `__subsystem_get: modem` and `__subsystem_get: esoc0`, but no PCIe RC1/LTSSM,
+  MHI, WLFW, BDF, FW-ready, or `wlan0` marker appeared; `wlan0=absent`. PID1
+  summary confirmed `auto_readiness_supervisor_requested=1` and
+  `auto-v1485-wifi-readiness-test`, but the helper timed out
+  (`helper_wait_rc=-110`, `helper_timed_out=1`) before buffered
+  `auto_readiness.*` output was emitted. Next gate: V1488 should make the
+  readiness result timeout-safe, either by sidecar persistence before helper
+  cleanup can block or by PID1 synthesized readiness from focused dmesg/`wlan0`
+  after the bounded helper timeout. Report:
+  `docs/reports/NATIVE_INIT_V1487_WIFI_AUTO_READINESS_HANDOFF_2026-06-01.md`.

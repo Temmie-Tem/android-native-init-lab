@@ -7885,6 +7885,21 @@ Samsung bootloader
   summary, focused dmesg, and `wlan0` state, then rolling back to
   `stage3/boot_linux_v724.img` and verifying selftest `fail=0`. Report:
   `docs/reports/NATIVE_INIT_V1486_WIFI_AUTO_READINESS_ARTIFACT_SANITY_2026-06-01.md`.
+- V1487 rollbackable live handoff completed with
+  `v1487-test-boot-provider-trigger-no-downstream-wifi-progress-blocked`.
+  Handoff and rollback passed: V1485 test boot verified, evidence was collected,
+  then v724 rollback verified. The test boot reached the established provider
+  path (`__subsystem_get: modem` then `__subsystem_get: esoc0`) but produced no
+  PCIe RC1/LTSSM, MHI, WLFW, BDF, FW-ready, or `wlan0` marker; `wlan0=absent`.
+  PID1 summary confirmed `auto_readiness_supervisor_requested=1`, but the helper
+  timed out (`helper_wait_rc=-110`, `helper_timed_out=1`) before its buffered
+  `auto_readiness.*` stdout summary was emitted. V1488 should make
+  auto-readiness timeout-safe: either persist a sidecar result before helper
+  cleanup can block, or have PID1 synthesize readiness from focused dmesg and
+  `wlan0` after the bounded helper timeout. Do not proceed to scan/connect,
+  credentials, DHCP/routes, or external ping until RC1/MHI/WLFW/`wlan0`
+  progress is proven. Report:
+  `docs/reports/NATIVE_INIT_V1487_WIFI_AUTO_READINESS_HANDOFF_2026-06-01.md`.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
