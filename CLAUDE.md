@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V1528 host-only V1527 evidence escalation classifier PASS (`v1528-route-to-android-tracefs-event-capture`). V1527 live Android handoff PASS captured Android-good WLFW/BDF/`wlan0` and native rollback, but raw `/dev/kmsg` had zero RC1/LTSSM lines, GPIO104/GPIO142 IRQ totals stayed zero, and GPIO135/GPIO142 debugfs levels stayed low through the successful lower Wi-Fi window. Therefore those kmsg/GPIO/IRQ sources are nondiscriminating and must not be treated as hard Android/native parity requirements. Next gate is V1529: rollbackable Android tracefs event capture around the `pm-service`/`subsys_esoc0` window. Do not proceed to firmware/MHI deep dive/WLFW/scan/connect until native RC1 L0 and PCI enumeration exist. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, Wi-Fi HAL start, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
+- **Active research cycle**: V1530 host-only Android tracefs vs native no-L0 classifier PASS (`v1530-android-tracefs-confirms-opaque-initial-rc1-trigger`). V1529 rollbackable Android tracefs handoff reached WLFW/BDF/FW-ready/`wlan0` and native v724 rollback verified. It captured modem PIL notifications, `icnss_driver_event_work=40.836714s`, `pm-service` exec at `41.922287s`, `wlfw_start=43.208627s`, `subsys_esoc0=43.367958s`, BDF at `44.452551s`, FW-ready at `49.369675s`, and `wlan0=49.864980s`. IRQ trace events are now removed, no eSoC/SDX50M `pil_notif` or RC1/LTSSM text appears, and native V1496/V1517 remain fixed at `rc1-ltssm-link-failed-no-l0`. Next gate is V1531: targeted Android/source classifier mapping `icnss_driver_event_work`, `pm-service` Binder `subsystem_get`, and pci-msm initial enumerate callsites before any new native mutation. Do not proceed to firmware/MHI deep dive/WLFW/scan/connect until native RC1 L0 and PCI enumeration exist. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, Wi-Fi HAL start, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -2485,3 +2485,36 @@ Update after V1354/V1355:
   reuse the rollbackable Android handoff and capture bounded tracefs events
   around the `pm-service`/`subsys_esoc0` window. Report:
   `docs/reports/NATIVE_INIT_V1528_V1527_EVIDENCE_TRACEFS_ESCALATION_2026-06-02.md`.
+- V1529 rollbackable Android tracefs RC1 event handoff passes with partial
+  evidence and native rollback: `v1529-tracefs-event-partial-rollback-pass`.
+  It adds `scripts/revalidation/android_tracefs_rc1_event_handoff_v1529.py`
+  and captures bounded tracefs events under the V1521/V1527 Android
+  boot/Magisk/native-rollback harness. Android-good lower markers recur:
+  `wlfw_start=43.208627s`, `subsys_esoc0=43.367958s`, BDF at `44.452551s`,
+  FW-ready at `49.369675s`, and `wlan0=49.864980s`. Tracefs adds modem PIL
+  notifications at `40.820s..41.328s`, `icnss_driver_event_work=40.836714s`,
+  and `pm-service` exec at `41.922287s`; no eSoC/SDX50M PIL notification
+  appears. IRQ trace events were removed from the final runner after the first
+  broad run proved too noisy. The run remains partial because the module `done`
+  marker was not observed before pull, but rollback passed and the evidence is
+  usable. Next gate: V1530 should classify this trace against native no-L0 and
+  design a narrower targeted observer rather than rerunning broad workqueue
+  capture.
+  Report:
+  `docs/reports/NATIVE_INIT_V1529_ANDROID_TRACEFS_RC1_EVENT_HANDOFF_2026-06-02.md`.
+- V1530 host-only Android tracefs vs native no-L0 classifier passes with
+  `v1530-android-tracefs-confirms-opaque-initial-rc1-trigger`. It adds
+  `scripts/revalidation/native_wifi_android_tracefs_native_no_l0_classifier_v1530.py`
+  and reconciles V1529 Android tracefs evidence against V1496/V1517 native
+  no-L0 references plus V1523/V1525 source classifiers. V1529 proves
+  Android-good lower progress and captures modem PIL notifications,
+  `icnss_driver_event_work`, `pm-service` exec, WLFW/BDF/FW-ready, and `wlan0`,
+  while still exposing no eSoC/SDX50M `pil_notif` and no RC1/LTSSM text. Native
+  V1496/V1517 stay fixed at `rc1-ltssm-link-failed-no-l0`, and V1523/V1525
+  already rule out missing TEST:11 AP-side enable semantics and MHI PM-resume
+  as first-L0 triggers. Next gate: V1531 should be a targeted Android/source
+  classifier for `icnss_driver_event_work`, `pm-service` Binder
+  `subsystem_get`, and pci-msm initial enumerate callsites before any new
+  native mutation.
+  Report:
+  `docs/reports/NATIVE_INIT_V1530_ANDROID_TRACEFS_NATIVE_NO_L0_CLASSIFIER_2026-06-02.md`.

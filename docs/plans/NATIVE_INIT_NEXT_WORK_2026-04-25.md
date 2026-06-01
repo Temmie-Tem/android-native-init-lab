@@ -8422,6 +8422,39 @@ Samsung bootloader
   reuse the rollbackable Android handoff and capture bounded tracefs events
   around the `pm-service`/`subsys_esoc0` window. Report:
   `docs/reports/NATIVE_INIT_V1528_V1527_EVIDENCE_TRACEFS_ESCALATION_2026-06-02.md`.
+- V1529 rollbackable Android tracefs RC1 event handoff passes with partial
+  evidence and native rollback: `v1529-tracefs-event-partial-rollback-pass`.
+  It adds `scripts/revalidation/android_tracefs_rc1_event_handoff_v1529.py`
+  and captures bounded tracefs events under the V1521/V1527 Android
+  boot/Magisk/native-rollback harness. Android-good lower markers recur:
+  `wlfw_start=43.208627s`, `subsys_esoc0=43.367958s`, BDF at `44.452551s`,
+  FW-ready at `49.369675s`, and `wlan0=49.864980s`. Tracefs adds modem PIL
+  notifications at `40.820s..41.328s`, `icnss_driver_event_work=40.836714s`,
+  and `pm-service` exec at `41.922287s`; no eSoC/SDX50M PIL notification
+  appears. IRQ trace events were removed from the final runner after the first
+  broad run proved too noisy. The run remains partial because the module `done`
+  marker was not observed before pull, but rollback passed and the evidence is
+  usable. Next gate: V1530 should classify this trace against native no-L0 and
+  design a narrower targeted observer rather than rerunning broad workqueue
+  capture.
+  Report:
+  `docs/reports/NATIVE_INIT_V1529_ANDROID_TRACEFS_RC1_EVENT_HANDOFF_2026-06-02.md`.
+- V1530 host-only Android tracefs vs native no-L0 classifier passes with
+  `v1530-android-tracefs-confirms-opaque-initial-rc1-trigger`. It adds
+  `scripts/revalidation/native_wifi_android_tracefs_native_no_l0_classifier_v1530.py`
+  and reconciles V1529 Android tracefs evidence against V1496/V1517 native
+  no-L0 references plus V1523/V1525 source classifiers. V1529 proves
+  Android-good lower progress and captures modem PIL notifications,
+  `icnss_driver_event_work`, `pm-service` exec, WLFW/BDF/FW-ready, and `wlan0`,
+  while still exposing no eSoC/SDX50M `pil_notif` and no RC1/LTSSM text. Native
+  V1496/V1517 stay fixed at `rc1-ltssm-link-failed-no-l0`, and V1523/V1525
+  already rule out missing TEST:11 AP-side enable semantics and MHI PM-resume
+  as first-L0 triggers. Next gate: V1531 should be a targeted Android/source
+  classifier for `icnss_driver_event_work`, `pm-service` Binder
+  `subsystem_get`, and pci-msm initial enumerate callsites before any new
+  native mutation.
+  Report:
+  `docs/reports/NATIVE_INIT_V1530_ANDROID_TRACEFS_NATIVE_NO_L0_CLASSIFIER_2026-06-02.md`.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
