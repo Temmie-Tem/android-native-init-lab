@@ -7570,6 +7570,27 @@ Samsung bootloader
   watcher result, exact-line provider thread-state result, expanded dmesg
   markers, and `wlan0` state, then rolling back to
   `stage3/boot_linux_v724.img` and verifying selftest fail=0.
+- V1460 rollbackable live handoff passes with
+  `v1460-test-boot-provider-trigger-no-downstream-rollback-pass`. The V1458
+  test image booted as `A90 Linux init 0.9.85 (v1458-wifitest)`, collected the
+  exact provider thread-state window, and rolled back to
+  `A90 Linux init 0.9.68 (v724)`. This is diagnostic evidence, not Wi-Fi
+  bring-up progress: `wlan0=absent`, and no RC1/MHI/WLFW/BDF/FW-ready marker
+  appeared.
+- V1461 host-only classifier passes with
+  `v1461-provider-thread-state-powerup-block-no-downstream`. It confirms the
+  exact provider Binder thread is sampled in D-state through all 13 provider
+  micro samples: `sdx50m_toggle_soft_reset` from `0ms` through `100ms`,
+  `msleep` at `150ms` and `250ms`, then `mdm_subsys_powerup` at `300ms`,
+  `500ms`, and `1000ms`. GPIO135 stayed `out 0`, GPIO142 stayed `in 0`, MDM
+  status and PCIe wake IRQs stayed zero, pcie1 GDSC stayed `0mV`, pcie1 clocks
+  stayed zero-enabled, and no RC1/MHI/WLFW/BDF/FW-ready/`wlan0` progress
+  appeared. V1462 should be source/build-only and add an exact-provider
+  tracepoint test boot for GPIO1270/GPIO135/GPIO142 plus pcie1 clock/GDSC
+  timing around these provider thread phases. Keep it below Wi-Fi HAL,
+  scan/connect, credential handling, DHCP/routes, external ping,
+  PMIC/GPIO/GDSC direct writes, blind eSoC notify/`BOOT_DONE`, global PCI
+  rescan, and platform bind/unbind.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
