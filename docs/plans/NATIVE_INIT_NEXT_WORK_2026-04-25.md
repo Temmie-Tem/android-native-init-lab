@@ -7167,6 +7167,16 @@ Samsung bootloader
   should either perform host-only Android-vs-V1422 timing classification or
   build a higher-frequency read-only RC1/interrupt sampler. Keep connect-side
   work blocked until at least L0/MHI/WLFW/`wlan0` progress appears.
+- V1424 host-only/read-only classifier passes with
+  `v1424-rc1-timing-precondition-parity-but-endpoint-no-l0`. Android V852
+  reaches RC1 assert `254.929ms` after `esoc0`; native V1422 reaches corrected
+  RC1 assert `287.384ms` after `esoc0`, a `32.455ms` gap. Reset/release and RC1
+  INT mask parity are present. Native diverges after PERST release: Android
+  reaches L0 in `16.666ms`, while native fails before L0 after `109.086ms`, with
+  no MHI/WLFW/BDF/FW-ready/`wlan0`. V1425 should focus on post-release endpoint
+  response, not credential/scan/connect work: either build a higher-resolution
+  read-only sampler or design a narrowly justified rollbackable RC1 retry/timing
+  experiment.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
