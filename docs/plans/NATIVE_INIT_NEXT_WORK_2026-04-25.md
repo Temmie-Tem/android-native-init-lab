@@ -8912,6 +8912,27 @@ Samsung bootloader
   using `android-service-window-subsys-trigger-capture`, not another start-only
   retry and not a credentialed connect attempt. Report:
   `docs/reports/NATIVE_INIT_V1565_SERVICE_WINDOW_GAP_CLASSIFIER_2026-06-02.md`.
+- V1566 source/build plus local artifact sanity passes with
+  `v1566-service-window-subsys-trigger-artifact-sanity-pass`. It adds
+  `scripts/revalidation/native_wifi_test_boot_artifact_sanity_v1566.py` and
+  builds
+  `tmp/wifi/v1566-android-wifi-service-window-subsys-trigger-test-boot/boot_linux_v1393_wifi_test.img`
+  using `android-service-window-subsys-trigger-capture`. The artifact reports
+  boot sha256
+  `4b2cd6b0fe07c5826c0c3865b5fd60fff37a3d3a9437f5998312b7103cc11a65`,
+  helper runtime mode
+  `wifi-companion-android-wifi-service-window-subsys-trigger-capture`, both
+  Android service-window allow flags, supervised helper timeout `75s`, header
+  and kernel parity with v724, static init/helper binaries, private output
+  modes, and no credential/scan/connect/DHCP/route/external-ping action in the
+  build manifest. Next gate: V1567 rollbackable live handoff of only this
+  V1566 image, expecting
+  `A90 Linux init 0.9.69 (v1566-service-window-subsys-trigger)`, collecting
+  helper log/summary, focused dmesg, trigger-window fields, and `wlan0` state,
+  then rolling back to v724. Still no credentials, scan/connect, DHCP/routes,
+  external ping, blind eSoC notify/`BOOT_DONE`, global PCI rescan, or platform
+  bind/unbind. Report:
+  `docs/reports/NATIVE_INIT_V1566_SERVICE_WINDOW_SUBSYS_TRIGGER_ARTIFACT_SANITY_2026-06-02.md`.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still

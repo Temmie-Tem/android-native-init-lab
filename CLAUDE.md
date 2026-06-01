@@ -3081,3 +3081,30 @@ contains both Android service-window allow flags, and verify the artifact still
 excludes credentials, scan/connect, DHCP/routes, external ping, blind
 notify/BOOT_DONE, global PCI rescan, and platform bind/unbind. Do not rerun
 start-only and do not attempt credentialed Wi-Fi connect yet.
+
+## Latest native Wi-Fi state: V1566 (2026-06-02)
+
+V1566 builds the next Wi-Fi test boot artifact and adds
+`scripts/revalidation/native_wifi_test_boot_artifact_sanity_v1566.py`.
+Source/build plus local artifact sanity pass with
+`v1566-service-window-subsys-trigger-artifact-sanity-pass`.
+
+The generated artifact is
+`tmp/wifi/v1566-android-wifi-service-window-subsys-trigger-test-boot/boot_linux_v1393_wifi_test.img`
+with boot sha256
+`4b2cd6b0fe07c5826c0c3865b5fd60fff37a3d3a9437f5998312b7103cc11a65`.
+It boots `A90 Linux init 0.9.69 (v1566-service-window-subsys-trigger)` and
+selects `wifi-companion-android-wifi-service-window-subsys-trigger-capture`.
+The sanity verifier confirms both Android service-window allow flags are in the
+PID1 argv, the start-only/post-PM observer/forced-RC1/private-CNSS/connect
+flags are absent from the PID1 route, static init/helper binaries are present,
+boot header/kernel parity with v724 is preserved, and no credential,
+scan/connect, DHCP/route, external-ping, flash, or partition-write action is
+recorded by the source/build manifest.
+
+Next gate: V1567 can perform a rollbackable live handoff of only this V1566
+image, collect helper log/summary, focused dmesg, trigger-window fields, and
+`wlan0` state, then roll back to v724. The target is WLFW/BDF/FW-ready/`wlan0`
+progress and trigger-window classification. Do not use credentials,
+scan/connect, DHCP/routes, external ping, blind eSoC notify/`BOOT_DONE`, global
+PCI rescan, or platform bind/unbind.
