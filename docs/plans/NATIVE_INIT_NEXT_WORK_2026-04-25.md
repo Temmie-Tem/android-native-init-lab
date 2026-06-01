@@ -6755,6 +6755,24 @@ Samsung bootloader
       `tmp/wifi/v1400-wifi-test-boot/boot_linux_v1400_wifi_test.img`
       (`sha256=461d69cdf9d0680421dea9f77b3f444f028bb4c188a964bd6d7fd98142cdd27c`),
       built as `A90 Linux init 0.9.71 (v1400-wifitest)`.
+49. **V1401 Wi-Fi test boot artifact sanity (local-only).**
+    - Goal: independently verify the exact V1400 supervised test boot artifact
+      before any live flash/handoff.
+    - Required output: manifest decision/SHA checks, base boot availability,
+      static PID1/helper verification, ramdisk helper inclusion, expected boot
+      markers, supervised-helper contract, v724 header/kernel parity, private
+      modes, and forbidden credential-like byte absence.
+    - Hard stop: local-only artifact verifier. No device command, no flash, no
+      reboot, no boot partition write, no partition write, no Wi-Fi HAL, no
+      scan/connect, no credentials, no DHCP/routes, no external ping, no
+      PMIC/GPIO/GDSC direct write, and no blind eSoC notify/`BOOT_DONE` spoof.
+    - Result:
+      `docs/reports/NATIVE_INIT_V1401_WIFI_TEST_BOOT_ARTIFACT_SANITY_2026-06-01.md`.
+      Decision: `v1401-wifi-test-boot-artifact-sanity-pass`. The exact V1400
+      artifact passed local sanity checks for manifest decision, SHA values,
+      static PID1/helper, ramdisk entries, boot markers, supervised-helper
+      contract, v724 header/kernel parity, private modes, and forbidden
+      credential-like byte absence.
 
 ### Required decision before any new mutation
 
@@ -6928,6 +6946,13 @@ Samsung bootloader
   `tmp/wifi/v1400-wifi-test-boot/boot_linux_v1400_wifi_test.img`, expect
   `A90 Linux init 0.9.71 (v1400-wifitest)`, collect the V1400 log and summary,
   then roll back to `stage3/boot_linux_v724.img`.
+- V1401 passes local artifact sanity. The next live gate may flash only
+  `tmp/wifi/v1400-wifi-test-boot/boot_linux_v1400_wifi_test.img`, expect
+  `A90 Linux init 0.9.71 (v1400-wifitest)`, hold long enough for the `40s`
+  supervisor timeout, collect `/cache/native-init-wifi-test-boot-v1400.log` and
+  `/cache/native-init-wifi-test-boot-v1400.summary`, then roll back to
+  `stage3/boot_linux_v724.img`. It still must not perform Wi-Fi scan/connect,
+  credential handling, DHCP/routes, or external ping.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
