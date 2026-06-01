@@ -528,10 +528,11 @@ def verify_markers(args: argparse.Namespace) -> None:
     if args.wifi_test_rc1_case_aligned_micro_endpoint_sampler:
         expected.extend([
             "rc1_case_aligned_micro_endpoint_sampler_requested",
-            "read-only-v1445-case-aligned-micro-endpoint",
             "case_aligned_micro_after_case_%dms",
             "post_case_aligned_micro_200ms",
         ])
+        if not args.wifi_test_auto_readiness_supervisor:
+            expected.append("read-only-v1445-case-aligned-micro-endpoint")
     if args.wifi_test_provider_trigger_micro_endpoint_sampler:
         expected.extend([
             "provider_trigger_micro_endpoint_sampler_requested",

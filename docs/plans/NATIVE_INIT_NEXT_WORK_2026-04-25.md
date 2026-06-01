@@ -8066,6 +8066,26 @@ Samsung bootloader
   credentials, scan/connect, DHCP/routes, external ping, PMIC/GPIO/GDSC direct
   writes, global PCI rescan, and platform bind/unbind blocked. Report:
   `docs/reports/NATIVE_INIT_V1498_MSM_PCIE_TEST11_STATIC_ANALYSIS_2026-06-01.md`.
+- V1499 source/build-only pre-L0 endpoint parity test boot passes with
+  `v1499-wifi-auto-readiness-pre-l0-parity-test-boot-source-build-pass`. It
+  adds `scripts/revalidation/build_native_init_wifi_test_boot_v1499.py` and
+  builds a rollbackable credential-free image:
+  `tmp/wifi/v1499-wifi-auto-readiness-pre-l0-parity-test-boot/boot_linux_v1499_wifi_test.img`
+  (`sha256=cd974b855816c3debc9a9505b4d96dee44ba86b48665e35c2ca3376822fa43d8`),
+  native init `0.9.93 (v1499-wifitest)`, init sha256
+  `2bbca1bf624dae729b244a553921af306f595fb0ba74660a6581f5405295dbe0`, helper
+  sha256 `660d88fc9e0ebdf6c95e495d9dd659c09321feb407fe6a7f77213f3b5c2bb411`.
+  It keeps the V1493/V1496 PID1 provider-triggered corrected RC1 enumerate
+  (`rc_sel=2` + `case=11`) and adds micro + case-aligned micro samples at
+  0/1/2/5/10/20/50/100/150ms after the case write, with focused endpoint
+  sampling for `pcie_1_gdsc`, PCIe1 clocks/refclk, GPIO102/PERST,
+  GPIO103/CLKREQ, GPIO104/WAKE, GPIO135/AP2MDM, GPIO142/MDM2AP, pinmux/pinconf,
+  interrupts, and RC1 link-state files. The shared marker verifier now accepts
+  auto-readiness + case-aligned micro sampler combinations without requiring
+  the older read-only sampler-name string. V1499 performed no device command or
+  live action. V1500 should run local artifact sanity over the exact V1499
+  manifest before any rollbackable live handoff. Report:
+  `docs/reports/NATIVE_INIT_V1499_WIFI_AUTO_READINESS_PRE_L0_PARITY_SOURCE_BUILD_2026-06-01.md`.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still

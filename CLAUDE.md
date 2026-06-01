@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V1498 host-only `msm_pcie` TEST:11 static analysis PASS (`v1498-msm-pcie-test11-enumerate-path-confirmed-endpoint-response-gap`). V1498 confirms the public `pci-msm.c` reference maps TEST:11 to `MSM_PCIE_ENUMERATION`, which calls `msm_pcie_enumerate()` and then `msm_pcie_enable(dev, PM_ALL)`. Local DTS binds RC1 to PERST GPIO102, WAKE GPIO104, `pcie_1` clocks/resets, and SDX50M/MHI. Therefore V1496 exercised the intended RC1 enumerate/link-training path, but the endpoint still failed before L0. Next work should be V1499 source/build-only pre-L0 endpoint parity observation: PERST/refclk/clock/GDSC/GPIO102/GPIO103/GPIO104/GPIO135/GPIO142 plus LTSSM timing around provider-trigger + corrected RC1 enumerate. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, Wi-Fi HAL start, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
+- **Active research cycle**: V1499 source/build-only pre-L0 endpoint parity test boot PASS (`v1499-wifi-auto-readiness-pre-l0-parity-test-boot-source-build-pass`). V1499 builds `A90 Linux init 0.9.93 (v1499-wifitest)` as a rollbackable, credential-free test image that keeps the V1493/V1496 provider-triggered corrected RC1 enumerate path but adds focused pre-L0 evidence: case-aligned micro samples after `case=11`, `pcie_1_gdsc`, PCIe1 clocks/refclk, GPIO102/PERST, GPIO103/CLKREQ, GPIO104/WAKE, GPIO135/AP2MDM, GPIO142/MDM2AP, pinmux/pinconf, interrupts, and RC1 link-state files. Next gate is V1500 local artifact sanity over the exact V1499 manifest before any live handoff. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, Wi-Fi HAL start, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -2138,3 +2138,21 @@ Update after V1354/V1355:
   source/build-only pre-L0 endpoint parity observer for PERST/refclk/clock/GDSC
   and GPIO102/GPIO103/GPIO104/GPIO135/GPIO142 plus LTSSM timing. Report:
   `docs/reports/NATIVE_INIT_V1498_MSM_PCIE_TEST11_STATIC_ANALYSIS_2026-06-01.md`.
+- V1499 source/build-only pre-L0 endpoint parity test boot
+  (`v1499-wifi-auto-readiness-pre-l0-parity-test-boot-source-build-pass`) adds
+  `scripts/revalidation/build_native_init_wifi_test_boot_v1499.py` and builds
+  `A90 Linux init 0.9.93 (v1499-wifitest)` as a rollbackable credential-free
+  image:
+  `tmp/wifi/v1499-wifi-auto-readiness-pre-l0-parity-test-boot/boot_linux_v1499_wifi_test.img`
+  (`sha256=cd974b855816c3debc9a9505b4d96dee44ba86b48665e35c2ca3376822fa43d8`).
+  It keeps the V1493/V1496 PID1 provider-triggered corrected RC1 enumerate
+  path (`rc_sel=2` + `case=11`) and enables micro + case-aligned micro endpoint
+  sampling at 0/1/2/5/10/20/50/100/150ms after the case write, plus focused
+  endpoint sampling for `pcie_1_gdsc`, PCIe1 clocks/refclk, GPIO102/PERST,
+  GPIO103/CLKREQ, GPIO104/WAKE, GPIO135/AP2MDM, GPIO142/MDM2AP, pinmux/pinconf,
+  interrupts, and RC1 link-state files. It also fixes the shared marker verifier
+  so auto-readiness + case-aligned micro sampler combinations do not require
+  the older read-only sampler-name string. V1499 performed no device command or
+  live action. Next gate: V1500 local artifact sanity over the exact V1499
+  manifest before any rollbackable live handoff. Report:
+  `docs/reports/NATIVE_INIT_V1499_WIFI_AUTO_READINESS_PRE_L0_PARITY_SOURCE_BUILD_2026-06-01.md`.
