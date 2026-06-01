@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V1502 host-only classifier PASS (`v1502-pre-l0-parity-confirms-rc1-link-fail-with-endpoint-lines-low`) over V1501 live handoff evidence. V1501 booted the V1499 test image, collected pre-L0 endpoint parity evidence, and rolled back to v724. V1502 confirms corrected RC1 enumerate reaches PHY/LTSSM (`DETECT_QUIET` → `POLL_ACTIVE` → `POLL_COMPLIANCE`) and then fails before L0; GPIO102/PERST stays `out 0`, GPIO103/CLKREQ stays `in 1`, GPIO104/WAKE stays `in 0`, GPIO135/AP2MDM stays `out 0`, GPIO142/MDM2AP stays `in 0`, GPIO104/GPIO142 IRQ counts stay zero, and no MHI/WLFW/BDF/FW-ready/`wlan0` appears. Next gate should add dense focused regulator/clock/GDSC sampling inside the 0/1/2/5/10/20/50/100/150ms window or capture an Android-good RC1 parity reference. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, Wi-Fi HAL start, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
+- **Active research cycle**: V1504 local artifact sanity PASS (`v1504-wifi-dense-pre-l0-parity-artifact-sanity-pass`) over the V1503 dense pre-L0 parity image. V1503 builds `A90 Linux init 0.9.94 (v1503-wifitest)` at `tmp/wifi/v1503-wifi-dense-pre-l0-parity-test-boot/boot_linux_v1503_wifi_test.img` (`sha256=dbb0ee6feb6fa2640797d6bd9b1901b4e7c20af8cea1e0af4c7eaee8bc68d522`). It keeps corrected RC1 enumerate after provider trigger and adds `micro_focused_*` regulator/clock/GDSC/GPIO/pinmux/pinconf reads inside every 0/1/2/5/10/20/50/100/150ms case-aligned micro sample. Next gate may be V1505 rollbackable live handoff for only the V1503 image, then rollback to v724 and verify selftest. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, Wi-Fi HAL start, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -2194,3 +2194,24 @@ Update after V1354/V1355:
   sample or capture an Android-good RC1 parity reference with the same fields.
   Report:
   `docs/reports/NATIVE_INIT_V1502_WIFI_PRE_L0_PARITY_CLASSIFIER_2026-06-01.md`.
+- V1503 source/build-only dense pre-L0 parity test boot
+  (`v1503-wifi-dense-pre-l0-parity-test-boot-source-build-pass`) adds
+  `scripts/revalidation/build_native_init_wifi_test_boot_v1503.py` and builds
+  `A90 Linux init 0.9.94 (v1503-wifitest)`:
+  `tmp/wifi/v1503-wifi-dense-pre-l0-parity-test-boot/boot_linux_v1503_wifi_test.img`
+  (`sha256=dbb0ee6feb6fa2640797d6bd9b1901b4e7c20af8cea1e0af4c7eaee8bc68d522`).
+  It keeps the V1499 corrected RC1 enumerate path and adds
+  `micro_focused_regulator`, `micro_focused_clk`, `micro_focused_debug_gpio`,
+  `micro_focused_pinmux`, and `micro_focused_pinconf` reads to each
+  case-aligned micro sample. Report:
+  `docs/reports/NATIVE_INIT_V1503_WIFI_DENSE_PRE_L0_PARITY_SOURCE_BUILD_2026-06-01.md`.
+- V1504 local-only artifact sanity
+  (`v1504-wifi-dense-pre-l0-parity-artifact-sanity-pass`) adds
+  `scripts/revalidation/native_wifi_test_boot_artifact_sanity_v1504.py` and
+  verifies the exact V1503 image. Checks passed for manifest decision, static
+  init/helper, ramdisk entries, boot markers, dense pre-L0 contract, v724
+  header/kernel parity, forbidden credential-like byte absence, private modes,
+  and AP2MDM-hold marker absence. Next gate: V1505 rollbackable live handoff
+  for only the V1503 image, collect dense pre-L0 parity evidence, roll back to
+  v724, and verify selftest `fail=0`. Report:
+  `docs/reports/NATIVE_INIT_V1504_WIFI_DENSE_PRE_L0_PARITY_ARTIFACT_SANITY_2026-06-01.md`.

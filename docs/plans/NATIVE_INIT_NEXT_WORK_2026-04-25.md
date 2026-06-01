@@ -8123,6 +8123,27 @@ Samsung bootloader
   an Android-good RC1 parity reference before returning to firmware/MHI/WLFW
   work. Report:
   `docs/reports/NATIVE_INIT_V1502_WIFI_PRE_L0_PARITY_CLASSIFIER_2026-06-01.md`.
+- V1503 source/build-only dense pre-L0 parity test boot passes with
+  `v1503-wifi-dense-pre-l0-parity-test-boot-source-build-pass`. It adds
+  `scripts/revalidation/build_native_init_wifi_test_boot_v1503.py` and builds
+  `A90 Linux init 0.9.94 (v1503-wifitest)` at
+  `tmp/wifi/v1503-wifi-dense-pre-l0-parity-test-boot/boot_linux_v1503_wifi_test.img`
+  (`sha256=dbb0ee6feb6fa2640797d6bd9b1901b4e7c20af8cea1e0af4c7eaee8bc68d522`).
+  The image keeps the corrected RC1 enumerate path and adds
+  `micro_focused_*` regulator/clock/GDSC/GPIO/pinmux/pinconf reads to every
+  0/1/2/5/10/20/50/100/150ms case-aligned micro sample after `case=11`.
+  Report:
+  `docs/reports/NATIVE_INIT_V1503_WIFI_DENSE_PRE_L0_PARITY_SOURCE_BUILD_2026-06-01.md`.
+- V1504 local-only artifact sanity passes with
+  `v1504-wifi-dense-pre-l0-parity-artifact-sanity-pass`. It adds
+  `scripts/revalidation/native_wifi_test_boot_artifact_sanity_v1504.py` and
+  verifies the exact V1503 artifact: manifest decision, static init/helper,
+  ramdisk entries, boot markers, dense pre-L0 parity contract, v724
+  header/kernel parity, forbidden credential-like byte absence, private modes,
+  and AP2MDM-hold marker absence. V1505 may perform a rollbackable live handoff
+  for only the V1503 image, collect dense pre-L0 parity result and focused
+  dmesg, then roll back to v724 and verify selftest `fail=0`. Report:
+  `docs/reports/NATIVE_INIT_V1504_WIFI_DENSE_PRE_L0_PARITY_ARTIFACT_SANITY_2026-06-01.md`.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still

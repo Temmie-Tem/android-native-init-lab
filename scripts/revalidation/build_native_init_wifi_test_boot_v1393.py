@@ -144,6 +144,11 @@ def build_init(args: argparse.Namespace) -> None:
         if args.wifi_test_rc1_micro_endpoint_sampler
         else []
     )
+    rc1_micro_focused_endpoint_flags = (
+        ["-DA90_WIFI_TEST_BOOT_RC1_MICRO_FOCUSED_ENDPOINT_SAMPLER=1"]
+        if args.wifi_test_rc1_micro_focused_endpoint_sampler
+        else []
+    )
     rc1_case_aligned_micro_endpoint_flags = (
         ["-DA90_WIFI_TEST_BOOT_RC1_CASE_ALIGNED_MICRO_ENDPOINT_SAMPLER=1"]
         if args.wifi_test_rc1_case_aligned_micro_endpoint_sampler
@@ -231,6 +236,7 @@ def build_init(args: argparse.Namespace) -> None:
         *rc1_focused_endpoint_flags,
         *rc1_immediate_endpoint_flags,
         *rc1_micro_endpoint_flags,
+        *rc1_micro_focused_endpoint_flags,
         *rc1_case_aligned_micro_endpoint_flags,
         *provider_trigger_micro_endpoint_flags,
         *provider_trigger_exact_line_flags,
@@ -525,6 +531,19 @@ def verify_markers(args: argparse.Namespace) -> None:
                 "micro_after_case_%dms",
                 "post_micro_200ms",
             ])
+    if args.wifi_test_rc1_micro_focused_endpoint_sampler:
+        expected.extend([
+            "rc1_micro_focused_endpoint_sampler_requested",
+            "micro_focused_endpoint_sampler=1",
+            "micro_focused_regulator",
+            "micro_focused_clk",
+            "micro_focused_debug_gpio",
+            "micro_focused_pinmux",
+            "micro_focused_pinconf",
+            "gcc_pcie_1_pipe_clk",
+            "pcie_1_gdsc",
+            "gpio135",
+        ])
     if args.wifi_test_rc1_case_aligned_micro_endpoint_sampler:
         expected.extend([
             "rc1_case_aligned_micro_endpoint_sampler_requested",
@@ -714,6 +733,7 @@ def write_manifest(args: argparse.Namespace) -> None:
             "rc1_focused_endpoint_sampler": args.wifi_test_rc1_focused_endpoint_sampler,
             "rc1_immediate_endpoint_sampler": args.wifi_test_rc1_immediate_endpoint_sampler,
             "rc1_micro_endpoint_sampler": args.wifi_test_rc1_micro_endpoint_sampler,
+            "rc1_micro_focused_endpoint_sampler": args.wifi_test_rc1_micro_focused_endpoint_sampler,
             "rc1_case_aligned_micro_endpoint_sampler": args.wifi_test_rc1_case_aligned_micro_endpoint_sampler,
             "provider_trigger_micro_endpoint_sampler": args.wifi_test_provider_trigger_micro_endpoint_sampler,
             "provider_trigger_exact_line": args.wifi_test_provider_trigger_exact_line,
@@ -797,6 +817,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--wifi-test-rc1-focused-endpoint-sampler", action="store_true")
     parser.add_argument("--wifi-test-rc1-immediate-endpoint-sampler", action="store_true")
     parser.add_argument("--wifi-test-rc1-micro-endpoint-sampler", action="store_true")
+    parser.add_argument("--wifi-test-rc1-micro-focused-endpoint-sampler", action="store_true")
     parser.add_argument("--wifi-test-rc1-case-aligned-micro-endpoint-sampler", action="store_true")
     parser.add_argument("--wifi-test-provider-trigger-micro-endpoint-sampler", action="store_true")
     parser.add_argument("--wifi-test-provider-trigger-exact-line", action="store_true")
