@@ -142,12 +142,12 @@ def load_json(path: Path) -> dict[str, Any]:
 def preflight(args: argparse.Namespace) -> dict[str, Any]:
     v1394 = load_json(args.v1394_manifest)
     return {
-        "v1394_manifest": str(args.v1394_manifest.relative_to(REPO_ROOT)),
+        "v1394_manifest": display_path(args.v1394_manifest),
         "v1394_decision": v1394.get("decision", ""),
         "v1394_pass": bool(v1394.get("pass")),
-        "test_image": str(args.test_image.relative_to(REPO_ROOT)),
+        "test_image": display_path(args.test_image),
         "test_image_exists": args.test_image.exists(),
-        "rollback_image": str(args.rollback_image.relative_to(REPO_ROOT)),
+        "rollback_image": display_path(args.rollback_image),
         "rollback_image_exists": args.rollback_image.exists(),
     }
 

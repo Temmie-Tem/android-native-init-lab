@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V1398 local artifact sanity PASS (`v1398-wifi-test-boot-artifact-sanity-pass`). The rollbackable Wi-Fi test boot artifact `tmp/wifi/v1397-wifi-test-boot/boot_linux_v1397_wifi_test.img` (`A90 Linux init 0.9.70 (v1397-wifitest)`) passed manifest/SHA/static/ramdisk/header/kernel/no-secret/private-mode checks. Next live gate may flash only that image, collect `/cache/native-init-wifi-test-boot-v1397.log` and `/cache/native-init-wifi-test-boot-v1397.summary`, then roll back to v724. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, PMIC/GPIO/GDSC direct write, blind eSoC notify/BOOT_DONE spoof, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
+- **Active research cycle**: V1399 bounded live handoff PASS (`v1399-test-boot-provider-trigger-no-downstream-rollback-pass`). The V1397 test boot flashed, booted, collected fresh log/summary evidence, reached `subsys_modem` and `__subsystem_get: esoc0`, then rolled back to v724. No RC1 L0/MHI/WLFW/BDF/`wlan0` appeared. New key fact: the PID1-launched helper was already `State: Z (zombie)` at the `35s` watcher sample, so next is V1400 source/build-only supervised helper wait/exit-status capture. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, PMIC/GPIO/GDSC direct write, blind eSoC notify/BOOT_DONE spoof, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -1585,3 +1585,16 @@ Update after V1354/V1355:
   `tmp/wifi/v1397-wifi-test-boot/boot_linux_v1397_wifi_test.img`, expect
   `A90 Linux init 0.9.70 (v1397-wifitest)`, collect the V1397 log and summary,
   then roll back to `stage3/boot_linux_v724.img`.
+- V1399 bounded live handoff (`v1399-test-boot-provider-trigger-no-downstream-rollback-pass`)
+  flashed the V1397 test boot, held `45s`, collected the V1397 fresh log and
+  summary, then rolled back to healthy v724:
+  `docs/reports/NATIVE_INIT_V1399_WIFI_TEST_BOOT_LOGGING_HANDOFF_2026-06-01.md`.
+  The fresh log starts with `log_reset` and has one spawn sequence; the summary
+  watcher sampled after `35001ms` and found helper pid `545` still present but
+  `State: Z (zombie)`. Dmesg still reached `subsys_modem` and
+  `__subsystem_get: esoc0`, but no `PCIe RC1`, `LTSSM`, MHI, WLFW/BDF, or
+  `wlan0` appeared; `wlan0` stayed absent. V1399 did not scan/connect, use
+  credentials, run DHCP/routes, or external ping. Next V1400 should be
+  source/build-only: run the helper under a non-blocking supervisor child that
+  waits for helper exit and records exit status/duration/timeout/log summary
+  without blocking PID1 long term.

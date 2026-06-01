@@ -6713,6 +6713,27 @@ Samsung bootloader
       static PID1/helper, ramdisk entries, boot markers, Wi-Fi test logging
       contract, v724 header/kernel parity, private modes, and forbidden
       credential-like byte absence.
+47. **V1399 Wi-Fi test boot logging handoff (bounded live with rollback).**
+    - Goal: flash the V1397 logging test boot, hold long enough for the `35s`
+      summary watcher, collect fresh log/summary/dmesg/`wlan0` evidence, and
+      roll back to v724.
+    - Required output: V1397 flash/readback/verify evidence, V1397 version and
+      boot status, post-boot hold evidence, V1397 fresh log, V1397 summary,
+      dmesg grep for provider/RC1/MHI/WLFW markers, `wlan0` presence check, and
+      rollback verification.
+    - Hard stop: test boot flash plus rollback only. No Wi-Fi HAL, no
+      scan/connect, no credentials, no DHCP/routes, no external ping, no
+      PMIC/GPIO/GDSC direct write, and no blind eSoC notify/`BOOT_DONE` spoof.
+    - Result:
+      `docs/reports/NATIVE_INIT_V1399_WIFI_TEST_BOOT_LOGGING_HANDOFF_2026-06-01.md`.
+      Decision: `v1399-test-boot-provider-trigger-no-downstream-rollback-pass`.
+      The V1397 test boot verified `A90 Linux init 0.9.70 (v1397-wifitest)`,
+      wrote a fresh V1397 log/summary, reached `subsys_modem` and
+      `__subsystem_get: esoc0`, and rolled back to healthy
+      `A90 Linux init 0.9.68 (v724)`. The summary watcher sampled after
+      `35001ms` and found the helper process in `State: Z (zombie)`. No `PCIe
+      RC1`, `LTSSM`, MHI, WLFW/BDF, or `wlan0` marker appeared; `wlan0` stayed
+      absent.
 
 ### Required decision before any new mutation
 
@@ -6874,6 +6895,12 @@ Samsung bootloader
   `/cache/native-init-wifi-test-boot-v1397.summary`, then roll back to
   `stage3/boot_linux_v724.img`. It still must not perform Wi-Fi scan/connect,
   credential handling, DHCP/routes, or external ping.
+- V1399 proves the V1397 logging handoff works and rollback is safe, but also
+  proves the helper has already exited into zombie state by the `35s` summary
+  sample. The next cycle should not be another same-shape live handoff. V1400
+  should be source/build-only: add a non-blocking supervisor child that spawns
+  the helper, waits with a bounded timeout, records exit status/duration/log
+  size/`wlan0` state, and leaves PID1 responsive.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
