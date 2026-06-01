@@ -8629,6 +8629,30 @@ Samsung bootloader
   firmware/MHI/WLFW/connect-side work until native RC1 L0 and PCI enumeration
   exist. Report:
   `docs/reports/NATIVE_INIT_V1544_ENDPOINT_ELECTRICAL_RESULT_CLASSIFIER_2026-06-02.md`.
+- V1545 host-only low-overhead observer design classifier passes with
+  `v1545-low-overhead-observer-design-ready`. It adds
+  `scripts/revalidation/native_wifi_low_overhead_observer_design_v1545.py` and
+  fixes the next observer contract: keep sysfs/client enumerate and
+  case-aligned micro sampling, but remove `micro_focused_endpoint_sampler` from
+  the critical loop because full `clk_summary` is too slow for the sub-120ms
+  no-L0 window. The existing critical-fast sampler records interrupts, debug
+  GPIO, link-state files, regulator summary, and pinmux while emitting
+  `micro_critical_clk_summary_skipped=1`. Report:
+  `docs/reports/NATIVE_INIT_V1545_LOW_OVERHEAD_ENDPOINT_OBSERVER_DESIGN_2026-06-02.md`.
+- V1546/V1547 low-overhead endpoint observer preparation passes. V1546 adds
+  `scripts/revalidation/build_native_init_wifi_test_boot_v1546.py` and builds
+  `tmp/wifi/v1546-low-overhead-endpoint-observer-test-boot/boot_linux_v1546_wifi_test.img`
+  with init `A90 Linux init 0.9.100 (v1546-wifitest)` and the targeted
+  sysfs/client enumerate writer. V1547 adds
+  `scripts/revalidation/native_wifi_low_overhead_artifact_sanity_v1547.py` and
+  passes with `v1547-low-overhead-artifact-sanity-pass`, verifying that
+  `micro_focused_clk` and batched clock markers are absent from the boot image
+  while `micro_critical_clk_summary_skipped=1` is present. Next gate: V1548
+  rollbackable live handoff for only the V1546 image, then classify whether
+  fast source reads finish before link failure and whether GPIO/GDSC/link-state
+  observations differ from V1543. Reports:
+  `docs/reports/NATIVE_INIT_V1546_LOW_OVERHEAD_ENDPOINT_OBSERVER_SOURCE_BUILD_2026-06-02.md`,
+  `docs/reports/NATIVE_INIT_V1547_LOW_OVERHEAD_ARTIFACT_SANITY_2026-06-02.md`.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still

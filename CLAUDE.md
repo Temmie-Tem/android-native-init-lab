@@ -2674,3 +2674,30 @@ classifier or test-boot design for a low-overhead pre-fail endpoint-state
 observer that avoids full `clk_summary` reads in the critical RC1 window. Do
 not repeat enumerate-only experiments or move to firmware/MHI/WLFW/connect-side
 work until native RC1 L0 and PCI enumeration exist.
+
+## Latest native Wi-Fi state: V1545-V1547 (2026-06-02)
+
+V1545 adds
+`scripts/revalidation/native_wifi_low_overhead_observer_design_v1545.py` and
+passes with `v1545-low-overhead-observer-design-ready`. It classifies V1544
+against the PID1 source and existing build wrappers. The key decision is that
+the next observer should reuse the sysfs/client enumerate route while removing
+`micro_focused_endpoint_sampler` from the critical case-aligned micro loop,
+because `micro_focused_clk` reads full `clk_summary` and is too slow for the
+sub-120ms no-L0 window. The existing critical-fast sampler already emits
+`micro_critical_clk_summary_skipped=1` and reads only interrupts, debug GPIO,
+link-state files, regulator summary, and pinmux in the micro loop.
+
+V1546 adds `scripts/revalidation/build_native_init_wifi_test_boot_v1546.py`
+and builds
+`tmp/wifi/v1546-low-overhead-endpoint-observer-test-boot/boot_linux_v1546_wifi_test.img`
+with init `A90 Linux init 0.9.100 (v1546-wifitest)`. V1547 adds
+`scripts/revalidation/native_wifi_low_overhead_artifact_sanity_v1547.py` and
+passes with `v1547-low-overhead-artifact-sanity-pass`. The V1546 image keeps
+sysfs/client enumerate, case-aligned micro sampling, source timestamps, and
+`micro_critical_fast_endpoint_sampler`; it removes micro-focused and batched
+clock readers from the critical loop. Next gate: V1548 rollbackable live
+handoff for only the V1546 image, then classify whether fast sources finish
+before the RC1 link-fail marker and whether GPIO/GDSC/link-state evidence
+changes relative to V1543. Keep all connect-side and direct PMIC/GPIO/GDSC
+write exclusions until native RC1 L0 and PCI enumeration exist.
