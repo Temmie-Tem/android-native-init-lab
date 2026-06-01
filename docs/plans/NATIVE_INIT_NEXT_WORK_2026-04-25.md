@@ -6390,6 +6390,28 @@ Samsung bootloader
       scan/connect, credentials, DHCP/routes, external ping, PMIC/GPIO/GDSC
       direct write, eSoC notify/`BOOT_DONE`, flash, boot image write, or
       partition write.
+    - Result:
+      `docs/reports/NATIVE_INIT_V1383_ANDROID_PARTICIPANT_IMMEDIATE_CORRECTED_RC1_LIVE_2026-06-01.md`.
+      Decision: `v1383-corrected-rc1-ltssm-no-downstream-clean`. The immediate
+      flag fired at `late_per_proxy_poll_00` with
+      `gate_pm_service_powerup_thread_count=1`, `rc_sel_rc=0`, and `case_rc=0`.
+      Dmesg shows RC1 LTSSM activity and link failure before L0, but
+      `__subsystem_get(esoc0)` to RC1 assert was still about `3.666s` versus
+      Android's about `0.255s`; GPIO142, PCI/MHI, MHI pipe/`ks`, WLFW, and
+      `wlan0` stayed absent. Safety markers remained clear and no Wi-Fi
+      bring-up/network action occurred.
+32. **V1384 V1383 timing/gap classifier (host-only).**
+    - Goal: classify why V1383 still asserts RC1 about `3.666s` after
+      `__subsystem_get(esoc0)` despite the immediate flag, and compare LTSSM
+      phase/timing against V1379 and Android V852/V1371.
+    - Required output: determine whether the remaining gap is helper polling
+      latency, delayed `per_proxy`/Binder participant startup, debugfs write
+      latency, endpoint non-readiness despite earlier write, or an Android-only
+      participant that must occur before RC1 enumerate.
+    - Hard stop: host-only. No device command, debugfs/sysfs write,
+      `rc_sel`/`case` write, PMIC/GPIO/GDSC direct write, eSoC notify/`BOOT_DONE`,
+      Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, flash,
+      boot image write, or partition write.
 
 ### Required decision before any new mutation
 
@@ -6482,11 +6504,10 @@ Samsung bootloader
   participant window, but it still does not reach MDM2AP/GPIO142, PCI/MHI,
   WLFW, or `wlan0`. V1380 must be host-only classification; do not run another
   live mutation until that classifier chooses a narrower next action.
-- V1382 proves helper v284 is deployed and healthy. V1383 is the first
-  bounded live gate allowed to exercise the immediate path, still below Wi-Fi
-  HAL, scan/connect, credentials, DHCP/routes, external ping, PMIC/GPIO/GDSC
-  direct write, eSoC notify/`BOOT_DONE`, flash, boot image write, and partition
-  write.
+- V1383 proves the immediate flag fires and RC1 still reaches LTSSM, but
+  esoc0-to-RC1 assert is still about `3.666s`, not Android's about `0.255s`,
+  and there is still no GPIO142/PCI/MHI/WLFW/`wlan0`. V1384 must be host-only
+  timing/gap classification before any new live mutation.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still

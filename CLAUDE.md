@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V1382 deploy-only PASS installed helper `a90_android_execns_probe v284` (SHA256 `da1f8b65cbc3872f7ec31a368bd382720a399d3a785e50ae383c800632047b9f`) to `/cache/bin/a90_android_execns_probe`. Next is V1383 bounded live gate to test whether moving `case=11` into the powerup-thread poll window closes the Android timing gap. Preserve hard exclusions: no PMIC/GPIO/GDSC direct write, blind eSoC notify/BOOT_DONE spoof, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, flash outside approved Android handoff/rollback, boot image write outside approved rollback, or partition write.
+- **Active research cycle**: V1383 bounded live PASS with helper `a90_android_execns_probe v284`: immediate corrected RC1 fired at `late_per_proxy_poll_00`, but dmesg still shows RC1 assert about `3.666s` after `__subsystem_get(esoc0)`, then LTSSM poll/compliance and link failure before L0. GPIO142, PCI/MHI, WLFW, and `wlan0` remained absent. Next is V1384 host-only timing/gap classifier before any new mutation. Preserve hard exclusions: no PMIC/GPIO/GDSC direct write, blind eSoC notify/BOOT_DONE spoof, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, flash outside approved Android handoff/rollback, boot image write outside approved rollback, or partition write.
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -1407,3 +1407,13 @@ Update after V1354/V1355:
   clean. No daemon start, Wi-Fi HAL, scan/connect, credentials, DHCP/routes,
   external ping, flash, boot image write, or partition write occurred. Next is
   V1383 bounded immediate corrected RC1 live gate.
+- V1383 bounded live (`v1383-corrected-rc1-ltssm-no-downstream-clean`)
+  ran helper v284 with the immediate corrected RC1 flag. The block triggered at
+  `late_per_proxy_poll_00` with `gate_pm_service_powerup_thread_count=1`,
+  `rc_sel_rc=0`, and `case_rc=0`. Dmesg shows RC1 TEST 11, reset assert, PHY
+  ready, reset release, LTSSM poll/compliance, and link initialization failure
+  before L0; `__subsystem_get(esoc0)` to RC1 assert was about `3.666s`, still
+  much slower than Android's about `0.255s`. GPIO142 IRQ delta, PCI/MHI counts,
+  MHI pipe/`ks`, WLFW, and `wlan0` all stayed absent. Safety markers remained
+  clear, cleanup completed, and no Wi-Fi bring-up/network action occurred. Next
+  is V1384 host-only timing/gap classification before another live mutation.
