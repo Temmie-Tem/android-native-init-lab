@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V1471 AP2MDM effective-level classifier PASS (`v1471-ap2mdm-active-pinctrl-present-effective-output-low`). V1469/V1470 prove the exact provider reaches `fw=esoc0`, toggles PON, and calls GPIO135/AP2MDM set-high; V1471 adds OSRC DTS/tracepoint source evidence and shows AP2MDM ownership plus active pinctrl are present, while live readback still stays `gpio135 : out 0 16mA no pull`, GPIO142/MDM2AP and PCIe wake IRQs stay zero, and no RC1/MHI/WLFW/BDF/FW-ready/`wlan0` progress appears. Next gate: V1472 source/build-only extended AP2MDM effective-level sampler. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, Wi-Fi HAL start, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
+- **Active research cycle**: V1472 effective-level test-boot source build PASS (`v1472-wifi-test-boot-effective-level-source-build-pass`). V1472 builds `A90 Linux init 0.9.88 (v1472-wifitest)` as a rollbackable test boot that preserves the exact provider/PIL/GPIO tracepoint path, extends provider-trigger samples through `3000ms`, and adds full read-only endpoint/pinctrl/regulator/clock snapshots from `250ms` onward. Boot image: `tmp/wifi/v1472-wifi-test-boot-exact-provider-effective-level-sampler/boot_linux_v1472_wifi_test.img` (`sha256=2835568c31f9a9a25dac6e7830cdb51d666bdd050bf16646fa1518b8d7ed1e02`). Next gate: V1473 local-only artifact sanity before any V1474 rollbackable live handoff. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, Wi-Fi HAL start, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -1775,3 +1775,18 @@ Update after V1354/V1355:
   /FW-ready/`wlan0` appears. Next gate: V1472 source/build-only extended AP2MDM
   effective-level sampler. Report:
   `docs/reports/NATIVE_INIT_V1471_AP2MDM_EFFECTIVE_LEVEL_CLASSIFIER_2026-06-01.md`.
+- V1472 source/build-only test boot
+  (`v1472-wifi-test-boot-effective-level-source-build-pass`) adds
+  `A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_EFFECTIVE_LEVEL_SAMPLER` to the
+  rollbackable PID1 Wi-Fi test-boot path. The artifact keeps exact provider
+  triggering, thread-state sampling, GPIO tracepoints, and PIL notification
+  tracepoints, then extends provider-trigger samples through `3000ms` with
+  dense points around the AP2MDM set-high window. It also emits full read-only
+  endpoint/pinctrl/regulator/clock snapshots for provider samples at and after
+  `250ms`. Built boot image:
+  `tmp/wifi/v1472-wifi-test-boot-exact-provider-effective-level-sampler/boot_linux_v1472_wifi_test.img`
+  (`sha256=2835568c31f9a9a25dac6e7830cdb51d666bdd050bf16646fa1518b8d7ed1e02`),
+  native init `0.9.88 (v1472-wifitest)`. V1473 should be local-only artifact
+  sanity over the exact V1472 manifest before any rollbackable live handoff.
+  Report:
+  `docs/reports/NATIVE_INIT_V1472_WIFI_TEST_BOOT_EFFECTIVE_LEVEL_SOURCE_BUILD_2026-06-01.md`.

@@ -7708,6 +7708,17 @@ Samsung bootloader
   source/build-only and extend the test boot sampler around the AP2MDM set-high
   point with more effective-level/pinctrl/debugfs readback, still with no
   writes or upper Wi-Fi actions.
+- V1472 source/build-only passes with
+  `v1472-wifi-test-boot-effective-level-source-build-pass`. It adds
+  `A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_EFFECTIVE_LEVEL_SAMPLER` to the
+  rollbackable PID1 test-boot path, preserves the exact provider trigger,
+  thread-state, GPIO tracepoint, and PIL tracepoint contract, extends samples
+  through `3000ms`, and adds full read-only endpoint/pinctrl/regulator/clock
+  snapshots at provider samples from `250ms` onward. Built boot image:
+  `tmp/wifi/v1472-wifi-test-boot-exact-provider-effective-level-sampler/boot_linux_v1472_wifi_test.img`
+  (`sha256=2835568c31f9a9a25dac6e7830cdb51d666bdd050bf16646fa1518b8d7ed1e02`),
+  native init `0.9.88 (v1472-wifitest)`. V1473 should be local-only artifact
+  sanity over the exact V1472 manifest before any rollbackable live handoff.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
