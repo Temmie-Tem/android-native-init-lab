@@ -7032,6 +7032,13 @@ Samsung bootloader
   corrected-RC1 flag. V1409 should independently sanity-check the exact V1408
   manifest/image before any live flash. Keep scan/connect, credentials,
   DHCP/routes, and external ping blocked.
+- V1409 local artifact sanity passes for the exact V1408 manifest/image:
+  static/header/kernel/ramdisk/marker/forbidden-byte/private-mode checks all
+  pass. A V1410 rollbackable live handoff may flash only the V1408 test image,
+  expect `A90 Linux init 0.9.73 (v1408-wifitest)`, collect V1408 log, summary,
+  RC1 watcher result, dmesg, and `wlan0` state, then roll back to
+  `stage3/boot_linux_v724.img`. Keep scan/connect, credentials, DHCP/routes,
+  and external ping blocked.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
