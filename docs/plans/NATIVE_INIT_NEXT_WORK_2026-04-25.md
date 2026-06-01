@@ -7090,6 +7090,15 @@ Samsung bootloader
   summary, RC1 watcher result, dmesg, and `wlan0` state, then roll back to
   `stage3/boot_linux_v724.img`. Keep scan/connect, credentials, DHCP/routes,
   and external ping blocked.
+- V1416 rollbackable live handoff passes for procedure and downstream RC1
+  evidence. The V1414 test boot triggered corrected RC1 with the `250ms` delay:
+  `esoc0_to_test11` is about `0.275s`, close to Android's about `0.255s`
+  reference, but RC1 still fails in `LTSSM_POLL_COMPLIANCE` before L0 with no
+  MHI/WLFW/BDF/`wlan0`. Rollback to v724 and selftest fail=0 were verified.
+  V1417 should be host-only: compare V1416, V1413, and Android traces to
+  classify whether the remaining gap is delay tuning, debugfs `TEST: 11`
+  trigger semantics, or endpoint reset/refclk/PERST readiness. Keep
+  scan/connect, credentials, DHCP/routes, and external ping blocked.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
