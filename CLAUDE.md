@@ -2053,3 +2053,18 @@ Update after V1354/V1355:
   attempt scan/connect yet; add a narrower rollbackable test boot that captures
   RC1/MHI prerequisites during the same boot-time auto path. Report:
   `docs/reports/NATIVE_INIT_V1492_WIFI_AUTO_READINESS_NATIVE_ROLLBACK_HANDOFF_2026-06-01.md`.
+- V1493 source/build-only
+  (`v1493-wifi-auto-readiness-rc1-window-test-boot-source-build-pass`) adds
+  `scripts/revalidation/build_native_init_wifi_test_boot_v1493.py` and builds a
+  credential-free rollbackable test boot that keeps the V1488 timeout-safe
+  auto-readiness path while enabling PID1 RC1 watcher and RC1 window sampler.
+  Built image:
+  `tmp/wifi/v1493-wifi-auto-readiness-rc1-window-test-boot/boot_linux_v1493_wifi_test.img`
+  (`sha256=bc1a6484eb8786323b2a534b099839db32ad627d7688395265c63b647ed56c8e`),
+  native init `0.9.92 (v1493-wifitest)`, init sha256
+  `8dce5a6515fa427bb3bd2b89bceda518c989c9978b3bd42049e2ba9eb96d3347`, helper
+  sha256 `660d88fc9e0ebdf6c95e495d9dd659c09321feb407fe6a7f77213f3b5c2bb411`.
+  V1493 ran no device command or live action. Next gate: V1494 local artifact
+  sanity over the exact V1493 manifest before another rollbackable live
+  handoff. Report:
+  `docs/reports/NATIVE_INIT_V1493_WIFI_AUTO_READINESS_RC1_WINDOW_SOURCE_BUILD_2026-06-01.md`.

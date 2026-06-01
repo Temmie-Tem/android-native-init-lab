@@ -7971,6 +7971,21 @@ Samsung bootloader
   narrower rollbackable test boot that preserves the auto path but adds focused
   RC1/MHI prerequisite capture around the boot-time provider trigger. Report:
   `docs/reports/NATIVE_INIT_V1492_WIFI_AUTO_READINESS_NATIVE_ROLLBACK_HANDOFF_2026-06-01.md`.
+- V1493 source/build-only passes with
+  `v1493-wifi-auto-readiness-rc1-window-test-boot-source-build-pass`. It adds
+  `scripts/revalidation/build_native_init_wifi_test_boot_v1493.py` and builds a
+  rollbackable credential-free test boot that keeps the V1488 timeout-safe
+  `auto_readiness_pid1.*` summary while enabling PID1 RC1 watcher and RC1
+  window sampler. Built image:
+  `tmp/wifi/v1493-wifi-auto-readiness-rc1-window-test-boot/boot_linux_v1493_wifi_test.img`
+  (`sha256=bc1a6484eb8786323b2a534b099839db32ad627d7688395265c63b647ed56c8e`),
+  native init `0.9.92 (v1493-wifitest)`, init sha256
+  `8dce5a6515fa427bb3bd2b89bceda518c989c9978b3bd42049e2ba9eb96d3347`, helper
+  sha256 `660d88fc9e0ebdf6c95e495d9dd659c09321feb407fe6a7f77213f3b5c2bb411`.
+  V1493 performed no device command or live action. V1494 should run local
+  artifact sanity over the exact V1493 manifest before any rollbackable live
+  handoff. Report:
+  `docs/reports/NATIVE_INIT_V1493_WIFI_AUTO_READINESS_RC1_WINDOW_SOURCE_BUILD_2026-06-01.md`.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
