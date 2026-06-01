@@ -6773,6 +6773,26 @@ Samsung bootloader
       static PID1/helper, ramdisk entries, boot markers, supervised-helper
       contract, v724 header/kernel parity, private modes, and forbidden
       credential-like byte absence.
+50. **V1402 Wi-Fi test boot supervisor handoff (bounded live with rollback).**
+    - Goal: flash the V1400 supervised test boot, hold long enough for the
+      `40s` supervisor timeout, collect helper exit-status summary plus
+      dmesg/`wlan0` evidence, and roll back to v724.
+    - Required output: V1400 flash/readback/verify evidence, V1400 version and
+      boot status, post-boot hold evidence, V1400 fresh log, V1400 supervised
+      summary, dmesg grep for provider/RC1/MHI/WLFW markers, `wlan0` presence
+      check, and rollback verification.
+    - Hard stop: test boot flash plus rollback only. No Wi-Fi HAL, no
+      scan/connect, no credentials, no DHCP/routes, no external ping, no
+      PMIC/GPIO/GDSC direct write, and no blind eSoC notify/`BOOT_DONE` spoof.
+    - Result:
+      `docs/reports/NATIVE_INIT_V1402_WIFI_TEST_BOOT_SUPERVISOR_HANDOFF_2026-06-01.md`.
+      Decision: `v1402-test-boot-provider-trigger-no-downstream-rollback-pass`.
+      The V1400 test boot verified `A90 Linux init 0.9.71 (v1400-wifitest)`,
+      reached `subsys_modem` and `__subsystem_get: esoc0`, recorded
+      `helper_wait_rc=0`, `helper_timed_out=0`, `helper_status_raw=0`, and
+      `helper_exit_code=0`, then rolled back to healthy
+      `A90 Linux init 0.9.68 (v724)`. No `PCIe RC1`, `LTSSM`, MHI, WLFW/BDF, or
+      `wlan0` marker appeared; `wlan0` stayed absent.
 
 ### Required decision before any new mutation
 
@@ -6953,6 +6973,13 @@ Samsung bootloader
   `/cache/native-init-wifi-test-boot-v1400.summary`, then roll back to
   `stage3/boot_linux_v724.img`. It still must not perform Wi-Fi scan/connect,
   credential handling, DHCP/routes, or external ping.
+- V1402 proves the supervisor path works and the helper exits cleanly with code
+  `0`, but still without RC1/MHI/WLFW/`wlan0` progress. The next cycle should
+  not be another same-shape live handoff. V1403 should be source/build-only:
+  make the helper/test-boot summary emit explicit `provider_trigger`,
+  `rc1_progress`, `wlfw_progress`, `wlan0_present`, and `final_decision` keys,
+  and classify provider-trigger/no-downstream as non-progress for the Wi-Fi
+  objective.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
