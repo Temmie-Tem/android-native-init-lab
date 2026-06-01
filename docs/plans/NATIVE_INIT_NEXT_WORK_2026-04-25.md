@@ -7014,6 +7014,15 @@ Samsung bootloader
   endpoint-readiness delta at PERST/LTSSM, then select the narrowest next
   below-connect action. Keep scan/connect, credentials, DHCP/routes, and
   external ping blocked.
+- V1407 host-only comparison passes and classifies V1406 as
+  `v1407-test-boot-rc1-trigger-still-late-no-l0`: test-boot debugfs availability
+  is fixed, but the corrected RC1 trigger still fires about `3.598s` after
+  `esoc0`, matching V1391's late class and far slower than Android's `0.255s`
+  reference. V1408 should be source/build-only: split corrected RC1 into a tiny
+  PID1-started parallel watcher that performs no service snapshots and writes
+  debugfs immediately after the first `esoc0`/powerup condition. Verify that
+  artifact locally before any rollbackable live handoff. Keep scan/connect,
+  credentials, DHCP/routes, and external ping blocked.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
