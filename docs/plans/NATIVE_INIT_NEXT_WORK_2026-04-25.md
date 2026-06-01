@@ -7185,6 +7185,12 @@ Samsung bootloader
   `500ms` after the first write. V1426 should perform local artifact sanity over
   this exact manifest and marker contract. V1427 may live-test only after V1426
   passes, and must roll back to v724/selftest afterward.
+- V1426 local-only artifact sanity passes with
+  `v1426-wifi-test-boot-rc1-retry-artifact-sanity-pass`. The exact V1425 image
+  passed manifest, SHA, static binary, ramdisk, boot marker, header/kernel
+  parity, forbidden credential-like byte, private mode, and retry contract
+  checks. V1427 may now be a rollbackable live handoff for this image, with
+  mandatory evidence collection and rollback to v724/selftest.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
