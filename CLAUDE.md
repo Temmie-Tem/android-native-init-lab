@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V1587 host-only lower-marker next-gate classifier PASS (`v1587-v1586-current-lower-marker-gate-required`). V1496/V1535 already classify the forced-RC1/LTSSM failure and `msm_pcie` static path; V1560 adds the Android-good ordering caveat (`wlfw_start` before BDF/FW-ready/`wlan0`, while native forced-RC1 lacks `wlfw_start`). V1586 is the freshest active route: firmware-only global `/vendor` overlay, helper private vendor namespace, `pm_proxy_helper` modem PIL, `mdm_helper` `/dev/esoc-0`, and scoped `/dev/subsys_esoc0` trigger are proven, but RC1/L0, runtime MHI, BDF/regdb, FW-ready, and `wlan0` remain absent. Next gate is V1588 source/build-only focused lower-marker sampler design preserving V1586 parity and sampling process lifetimes/fd counts, subsystem states, RC1/LTSSM, MHI bus/pipe, QRTR/WLFW, BDF, FW-ready, and `wlan0` in one bounded window. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
+- **Active research cycle**: V1589 rollbackable lower-marker handoff PASS (`v1589-test-boot-downstream-progress-rollback-pass`) with rollback verified to v724/selftest `fail=0`. V1588 built helper `a90_android_execns_probe v293` and a V1586-parity service-window test boot with compact `android_wifi_service_window.lower_marker` sampling. V1589 proves `pm_proxy_helper` holds `/dev/subsys_modem`, `pm_proxy`/`mdm_helper`/CNSS actors are alive, `mdm_helper` holds `/dev/esoc-0`, and the scoped trigger child reaches `mdm_subsys_powerup`; however `pm-service` is not alive in the lower-marker window, no `/dev/subsys_esoc0` fd returns, and RC1/LTSSM/runtime MHI/`ks`/WLFW start/BDF/FW-ready/`wlan0` remain absent. Next gate should classify `pm-service` lifetime/exit and the Android-good PM-service-owned powerup contract before any credentials, scan/connect, DHCP/routes, external ping, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, or unbounded boot image/partition write.
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -3364,3 +3364,51 @@ subsystem states, RC1/LTSSM, runtime MHI, QRTR/WLFW, BDF, FW-ready, and
 ping, blind eSoC notify/`BOOT_DONE`, PMIC/GPIO/GDSC direct writes, global PCI
 rescan, or platform bind/unbind.  Report:
 `docs/reports/NATIVE_INIT_V1587_LOWER_MARKER_NEXT_GATE_CLASSIFIER_2026-06-02.md`.
+
+## Latest native Wi-Fi state: V1588-V1589 (2026-06-02)
+
+V1588 updates `a90_android_execns_probe` to v293 and adds compact
+`android_wifi_service_window.lower_marker` sampling to the V1586 service-window
+route.  The sampler records process liveness/fd maxima, subsystem state,
+RC1/LTSSM transition state, runtime MHI bus/pipe, `ks`, CNSS/WLFW request
+markers, BDF, FW-ready, and `wlan0` without per-sample verbose dumps.  The
+source/build artifact passes with
+`v1588-service-window-lower-marker-test-boot-source-build-pass`; boot image:
+`tmp/wifi/v1588-service-window-lower-marker-test-boot/boot_linux_v1588_wifi_test.img`
+with sha256 `f85761a2dfe6e4b08b3f7b3cde6a9e4bdaef9f02f2f6383aaa659cbf4d52f0d5`.
+Artifact sanity passes as
+`v1588-service-window-lower-marker-artifact-sanity-pass`.
+
+V1589 flashes only that V1588 image, collects the log/summary/helper
+result/dmesg/`wlan0` state, and rolls back from native to v724.  Post-rollback
+`version` reports `A90 Linux init 0.9.68 (v724)` and `selftest` reports
+`fail=0`.  V1589 passes as
+`v1589-test-boot-downstream-progress-rollback-pass`, but final progress remains
+`firmware-progress-no-wlan0`.
+
+Important V1589 lower-marker facts:
+
+- `pm_proxy_helper_alive_seen=1`, `pm_proxy_helper_subsys_modem_fd_max=1`.
+- `per_mgr_alive_seen=0`, `per_mgr_subsys_modem_fd_max=-1`.
+- `pm_proxy_alive_seen=1`, `mdm_helper_alive_seen=1`,
+  `mdm_helper_esoc0_fd_max=1`.
+- scoped trigger child is alive and later captured in `mdm_subsys_powerup`, but
+  `trigger_child_subsys_esoc0_fd_max=0` and `global_subsys_esoc0_fd_max=0`.
+- `pcie_rc1_transition_seen=0`, `mhi_bus_max=0`, `mhi_pipe_seen=0`,
+  `ks_process_max=0`, `wlfw_start_kmsg_max=0`,
+  `wlfw_service_request_kmsg_max=0`, `bdf_kmsg_max=0`,
+  `fw_ready_kmsg_max=0`, `wlan0_seen=0`.
+- lower-marker checkpoint is `cnss-netlink-only`.
+
+Current blocker: the project has progressed past firmware mount, private
+devnode, PM proxy helper, `mdm_helper` `/dev/esoc-0`, and scoped
+`/dev/subsys_esoc0` trigger start.  The remaining active gap is that
+`pm-service` is not alive in the lower-marker window and the explicit trigger
+child, not Android's PM-service Binder thread, is the process stuck in
+`mdm_subsys_powerup`.  Next work should classify `pm-service` exit/lifetime and
+the missing PM-service-owned powerup contract, not credentials/connect.
+Reports:
+`docs/reports/NATIVE_INIT_V1588_SERVICE_WINDOW_LOWER_MARKER_SOURCE_BUILD_2026-06-02.md`,
+`docs/reports/NATIVE_INIT_V1588_SERVICE_WINDOW_LOWER_MARKER_ARTIFACT_SANITY_2026-06-02.md`,
+and
+`docs/reports/NATIVE_INIT_V1589_SERVICE_WINDOW_LOWER_MARKER_HANDOFF_2026-06-02.md`.

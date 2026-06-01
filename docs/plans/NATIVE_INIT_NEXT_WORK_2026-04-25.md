@@ -9108,3 +9108,31 @@ Samsung bootloader
   PMIC/GPIO/GDSC direct writes, global PCI rescan, and platform bind/unbind
   blocked.  Report:
   `docs/reports/NATIVE_INIT_V1587_LOWER_MARKER_NEXT_GATE_CLASSIFIER_2026-06-02.md`.
+
+- V1588-V1589 lower-marker loop is complete.  V1588 updates
+  `a90_android_execns_probe` to v293 and builds a V1586-parity service-window
+  test boot with compact `android_wifi_service_window.lower_marker` sampling.
+  Source build passes with
+  `v1588-service-window-lower-marker-test-boot-source-build-pass`; artifact
+  sanity passes with `v1588-service-window-lower-marker-artifact-sanity-pass`.
+  V1589 rollbackable live handoff flashes only the V1588 image, collects
+  lower-marker evidence, and rolls back from native to v724; post-rollback
+  `version` is `0.9.68 (v724)` and `selftest fail=0`.  V1589 passes as
+  `v1589-test-boot-downstream-progress-rollback-pass`, but final progress is
+  still `firmware-progress-no-wlan0`.
+
+  V1589 lower-marker outcome: `pm_proxy_helper` is alive and holds
+  `/dev/subsys_modem`, `pm_proxy` is alive, `mdm_helper` is alive and holds
+  `/dev/esoc-0`, CNSS actors are alive, and the scoped trigger child reaches
+  `mdm_subsys_powerup`.  However `pm-service` is not alive
+  (`per_mgr_alive_seen=0`), no process obtains a returned `/dev/subsys_esoc0`
+  fd (`global_subsys_esoc0_fd_max=0`), and RC1/LTSSM, runtime MHI, `ks`,
+  `wlfw_start`, BDF, FW-ready, and `wlan0` all remain absent.  Next gate:
+  classify `pm-service` exit/lifetime and the missing Android-good
+  PM-service-owned powerup contract.  Do not proceed to credentials,
+  scan/connect, DHCP/routes, external ping, PMIC/GPIO/GDSC direct writes, blind
+  eSoC notify/`BOOT_DONE`, global PCI rescan, or platform bind/unbind. Reports:
+  `docs/reports/NATIVE_INIT_V1588_SERVICE_WINDOW_LOWER_MARKER_SOURCE_BUILD_2026-06-02.md`,
+  `docs/reports/NATIVE_INIT_V1588_SERVICE_WINDOW_LOWER_MARKER_ARTIFACT_SANITY_2026-06-02.md`,
+  and
+  `docs/reports/NATIVE_INIT_V1589_SERVICE_WINDOW_LOWER_MARKER_HANDOFF_2026-06-02.md`.

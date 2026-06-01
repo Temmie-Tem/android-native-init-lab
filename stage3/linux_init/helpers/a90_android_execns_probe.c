@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v292"
+#define EXECNS_VERSION "a90_android_execns_probe v293"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -24782,6 +24782,275 @@ static int composite_child_drain_wait_once(struct composite_child *child,
     return 0;
 }
 
+struct service_window_lower_marker_summary {
+    struct mdm2ap_timing_summary timing;
+    int pm_proxy_helper_alive_seen;
+    int pm_proxy_helper_subsys_modem_fd_max;
+    int per_mgr_alive_seen;
+    int per_mgr_subsys_modem_fd_max;
+    int pm_proxy_alive_seen;
+    int mdm_helper_alive_seen;
+    int mdm_helper_esoc0_fd_max;
+    int cnss_diag_alive_seen;
+    int cnss_daemon_alive_seen;
+    int wificond_alive_seen;
+    int trigger_child_alive_seen;
+    int trigger_child_subsys_esoc0_fd_max;
+    int global_subsys_modem_fd_max;
+    int global_dev_esoc0_fd_max;
+    int global_subsys_esoc0_fd_max;
+};
+
+static void service_window_lower_marker_summary_init(struct service_window_lower_marker_summary *summary) {
+    memset(summary, 0, sizeof(*summary));
+    mdm2ap_timing_summary_init(&summary->timing);
+    summary->pm_proxy_helper_subsys_modem_fd_max = -1;
+    summary->per_mgr_subsys_modem_fd_max = -1;
+    summary->mdm_helper_esoc0_fd_max = -1;
+    summary->trigger_child_subsys_esoc0_fd_max = -1;
+    summary->global_subsys_modem_fd_max = -1;
+    summary->global_dev_esoc0_fd_max = -1;
+    summary->global_subsys_esoc0_fd_max = -1;
+}
+
+static void service_window_update_fd_max(int *dst, int value) {
+    if (value > *dst) {
+        *dst = value;
+    }
+}
+
+static void service_window_sample_child_fd(const struct composite_child *child,
+                                           const char *needle,
+                                           int *alive_seen,
+                                           int *fd_max) {
+    int count;
+
+    if (child == NULL || child->pid <= 0 || !composite_child_alive_for_snapshot(child)) {
+        return;
+    }
+    *alive_seen = 1;
+    if (needle == NULL || fd_max == NULL) {
+        return;
+    }
+    count = count_proc_fd_target_matches(child->pid, needle);
+    if (count >= 0) {
+        service_window_update_fd_max(fd_max, count);
+    }
+}
+
+static void service_window_sample_trigger_child(pid_t trigger_pid,
+                                                struct service_window_lower_marker_summary *summary) {
+    int count;
+
+    if (trigger_pid <= 0 || kill(trigger_pid, 0) != 0) {
+        return;
+    }
+    summary->trigger_child_alive_seen = 1;
+    count = count_proc_fd_target_matches(trigger_pid, "/dev/subsys_esoc0");
+    if (count >= 0) {
+        service_window_update_fd_max(&summary->trigger_child_subsys_esoc0_fd_max, count);
+    }
+}
+
+static void service_window_lower_marker_summary_sample(struct service_window_lower_marker_summary *summary,
+                                                       struct composite_child *children,
+                                                       int pm_proxy_helper_index,
+                                                       int per_mgr_index,
+                                                       int pm_proxy_index,
+                                                       int mdm_helper_index,
+                                                       int cnss_diag_index,
+                                                       int cnss_daemon_index,
+                                                       int wificond_index,
+                                                       pid_t trigger_pid) {
+    int count;
+
+    mdm2ap_timing_summary_sample(&summary->timing);
+    if (pm_proxy_helper_index >= 0) {
+        service_window_sample_child_fd(&children[pm_proxy_helper_index],
+                                       "/dev/subsys_modem",
+                                       &summary->pm_proxy_helper_alive_seen,
+                                       &summary->pm_proxy_helper_subsys_modem_fd_max);
+    }
+    if (per_mgr_index >= 0) {
+        service_window_sample_child_fd(&children[per_mgr_index],
+                                       "/dev/subsys_modem",
+                                       &summary->per_mgr_alive_seen,
+                                       &summary->per_mgr_subsys_modem_fd_max);
+    }
+    if (pm_proxy_index >= 0) {
+        service_window_sample_child_fd(&children[pm_proxy_index],
+                                       NULL,
+                                       &summary->pm_proxy_alive_seen,
+                                       NULL);
+    }
+    if (mdm_helper_index >= 0) {
+        service_window_sample_child_fd(&children[mdm_helper_index],
+                                       "/dev/esoc-0",
+                                       &summary->mdm_helper_alive_seen,
+                                       &summary->mdm_helper_esoc0_fd_max);
+    }
+    if (cnss_diag_index >= 0) {
+        service_window_sample_child_fd(&children[cnss_diag_index],
+                                       NULL,
+                                       &summary->cnss_diag_alive_seen,
+                                       NULL);
+    }
+    if (cnss_daemon_index >= 0) {
+        service_window_sample_child_fd(&children[cnss_daemon_index],
+                                       NULL,
+                                       &summary->cnss_daemon_alive_seen,
+                                       NULL);
+    }
+    if (wificond_index >= 0) {
+        service_window_sample_child_fd(&children[wificond_index],
+                                       NULL,
+                                       &summary->wificond_alive_seen,
+                                       NULL);
+    }
+    service_window_sample_trigger_child(trigger_pid, summary);
+    count = count_all_proc_fd_target_matches("/dev/subsys_modem");
+    if (count >= 0) {
+        service_window_update_fd_max(&summary->global_subsys_modem_fd_max, count);
+    }
+    count = count_all_proc_fd_target_matches("/dev/esoc-0");
+    if (count >= 0) {
+        service_window_update_fd_max(&summary->global_dev_esoc0_fd_max, count);
+    }
+    count = count_all_proc_fd_target_matches("/dev/subsys_esoc0");
+    if (count >= 0) {
+        service_window_update_fd_max(&summary->global_subsys_esoc0_fd_max, count);
+    }
+}
+
+static int append_service_window_lower_marker_summary(struct buffer *buf,
+                                                      const struct service_window_lower_marker_summary *summary) {
+    const struct mdm2ap_timing_summary *timing = &summary->timing;
+    const unsigned long gpio142_delta =
+        timing->gpio142_irq_max > timing->gpio142_irq_initial
+            ? timing->gpio142_irq_max - timing->gpio142_irq_initial
+            : 0;
+
+    return append_format(buf,
+                         "android_wifi_service_window.lower_marker.begin=1\n"
+                         "android_wifi_service_window.lower_marker.mode=service-window-pm-proxy-contract-lower-marker\n"
+                         "android_wifi_service_window.lower_marker.sample_interval_ms=%d\n"
+                         "android_wifi_service_window.lower_marker.sample_count=%d\n"
+                         "android_wifi_service_window.lower_marker.pm_proxy_helper_alive_seen=%d\n"
+                         "android_wifi_service_window.lower_marker.pm_proxy_helper_subsys_modem_fd_max=%d\n"
+                         "android_wifi_service_window.lower_marker.per_mgr_alive_seen=%d\n"
+                         "android_wifi_service_window.lower_marker.per_mgr_subsys_modem_fd_max=%d\n"
+                         "android_wifi_service_window.lower_marker.pm_proxy_alive_seen=%d\n"
+                         "android_wifi_service_window.lower_marker.mdm_helper_alive_seen=%d\n"
+                         "android_wifi_service_window.lower_marker.mdm_helper_esoc0_fd_max=%d\n"
+                         "android_wifi_service_window.lower_marker.cnss_diag_alive_seen=%d\n"
+                         "android_wifi_service_window.lower_marker.cnss_daemon_alive_seen=%d\n"
+                         "android_wifi_service_window.lower_marker.wificond_alive_seen=%d\n"
+                         "android_wifi_service_window.lower_marker.trigger_child_alive_seen=%d\n"
+                         "android_wifi_service_window.lower_marker.trigger_child_subsys_esoc0_fd_max=%d\n"
+                         "android_wifi_service_window.lower_marker.global_subsys_modem_fd_max=%d\n"
+                         "android_wifi_service_window.lower_marker.global_dev_esoc0_fd_max=%d\n"
+                         "android_wifi_service_window.lower_marker.global_subsys_esoc0_fd_max=%d\n"
+                         "android_wifi_service_window.lower_marker.pm_service_powerup_seen=%d\n"
+                         "android_wifi_service_window.lower_marker.max_powerup_thread_count=%d\n"
+                         "android_wifi_service_window.lower_marker.gpio142_irq_delta=%lu\n"
+                         "android_wifi_service_window.lower_marker.gpio142_first_delta_sample=%d\n"
+                         "android_wifi_service_window.lower_marker.errfatal_first_delta_sample=%d\n"
+                         "android_wifi_service_window.lower_marker.pcie_rc1_transition_seen=%d\n"
+                         "android_wifi_service_window.lower_marker.pcie_rc1_first_transition_sample=%d\n"
+                         "android_wifi_service_window.lower_marker.pcie_current_link_state_initial=%s\n"
+                         "android_wifi_service_window.lower_marker.pcie_current_link_state_last=%s\n"
+                         "android_wifi_service_window.lower_marker.pcie_link_state_initial=%s\n"
+                         "android_wifi_service_window.lower_marker.pcie_link_state_last=%s\n"
+                         "android_wifi_service_window.lower_marker.pcie_runtime_status_initial=%s\n"
+                         "android_wifi_service_window.lower_marker.pcie_runtime_status_last=%s\n"
+                         "android_wifi_service_window.lower_marker.pcie1_gdsc_seen=%d\n"
+                         "android_wifi_service_window.lower_marker.pcie1_gdsc_nonzero_seen=%d\n"
+                         "android_wifi_service_window.lower_marker.pcie1_gdsc_initial=%s\n"
+                         "android_wifi_service_window.lower_marker.pcie1_gdsc_last=%s\n"
+                         "android_wifi_service_window.lower_marker.pcie1_pipe_clk_seen=%d\n"
+                         "android_wifi_service_window.lower_marker.pcie1_pipe_clk_initial=%s\n"
+                         "android_wifi_service_window.lower_marker.pcie1_pipe_clk_last=%s\n"
+                         "android_wifi_service_window.lower_marker.pci_dev_initial=%d\n"
+                         "android_wifi_service_window.lower_marker.pci_dev_max=%d\n"
+                         "android_wifi_service_window.lower_marker.mhi_bus_max=%d\n"
+                         "android_wifi_service_window.lower_marker.mhi_pipe_seen=%d\n"
+                         "android_wifi_service_window.lower_marker.mhi_pipe_fd_max=%d\n"
+                         "android_wifi_service_window.lower_marker.mhi_pipe_cmdline_max=%d\n"
+                         "android_wifi_service_window.lower_marker.ks_process_max=%d\n"
+                         "android_wifi_service_window.lower_marker.cnss_diag_process_max=%d\n"
+                         "android_wifi_service_window.lower_marker.cnss_daemon_process_max=%d\n"
+                         "android_wifi_service_window.lower_marker.cld80211_kmsg_max=%d\n"
+                         "android_wifi_service_window.lower_marker.wlfw_start_kmsg_max=%d\n"
+                         "android_wifi_service_window.lower_marker.wlfw_service_request_kmsg_max=%d\n"
+                         "android_wifi_service_window.lower_marker.icnss_qmi_kmsg_max=%d\n"
+                         "android_wifi_service_window.lower_marker.bdf_kmsg_max=%d\n"
+                         "android_wifi_service_window.lower_marker.fw_ready_kmsg_max=%d\n"
+                         "android_wifi_service_window.lower_marker.wlan0_seen=%d\n"
+                         "android_wifi_service_window.lower_marker.checkpoint=%s\n"
+                         "android_wifi_service_window.lower_marker.scan_connect=0\n"
+                         "android_wifi_service_window.lower_marker.credentials=0\n"
+                         "android_wifi_service_window.lower_marker.dhcp_route=0\n"
+                         "android_wifi_service_window.lower_marker.external_ping=0\n"
+                         "android_wifi_service_window.lower_marker.pmic_write=0\n"
+                         "android_wifi_service_window.lower_marker.gpio_request=0\n"
+                         "android_wifi_service_window.lower_marker.direct_esoc_ioctl=0\n"
+                         "android_wifi_service_window.lower_marker.end=1\n",
+                         timing->sample_interval_ms,
+                         timing->sample_count,
+                         summary->pm_proxy_helper_alive_seen,
+                         summary->pm_proxy_helper_subsys_modem_fd_max,
+                         summary->per_mgr_alive_seen,
+                         summary->per_mgr_subsys_modem_fd_max,
+                         summary->pm_proxy_alive_seen,
+                         summary->mdm_helper_alive_seen,
+                         summary->mdm_helper_esoc0_fd_max,
+                         summary->cnss_diag_alive_seen,
+                         summary->cnss_daemon_alive_seen,
+                         summary->wificond_alive_seen,
+                         summary->trigger_child_alive_seen,
+                         summary->trigger_child_subsys_esoc0_fd_max,
+                         summary->global_subsys_modem_fd_max,
+                         summary->global_dev_esoc0_fd_max,
+                         summary->global_subsys_esoc0_fd_max,
+                         timing->pm_service_powerup_seen,
+                         timing->max_powerup_thread_count,
+                         gpio142_delta,
+                         timing->gpio142_first_delta_sample,
+                         timing->errfatal_first_delta_sample,
+                         timing->pcie_rc1_transition_seen,
+                         timing->pcie_rc1_first_transition_sample,
+                         timing->pcie_current_link_state_initial,
+                         timing->pcie_current_link_state_last,
+                         timing->pcie_link_state_initial,
+                         timing->pcie_link_state_last,
+                         timing->pcie_runtime_status_initial,
+                         timing->pcie_runtime_status_last,
+                         timing->pcie1_gdsc_seen,
+                         timing->pcie1_gdsc_nonzero_seen,
+                         timing->pcie1_gdsc_initial,
+                         timing->pcie1_gdsc_last,
+                         timing->pcie1_pipe_clk_seen,
+                         timing->pcie1_pipe_clk_initial,
+                         timing->pcie1_pipe_clk_last,
+                         timing->pci_dev_initial,
+                         timing->pci_dev_max,
+                         timing->mhi_bus_max,
+                         timing->mhi_pipe_seen,
+                         timing->mhi_pipe_fd_max,
+                         timing->mhi_pipe_cmdline_max,
+                         timing->ks_process_max,
+                         timing->cnss_diag_process_max,
+                         timing->cnss_daemon_process_max,
+                         timing->cld80211_kmsg_max,
+                         timing->wlfw_start_kmsg_max,
+                         timing->wlfw_service_request_kmsg_max,
+                         timing->icnss_qmi_kmsg_max,
+                         timing->bdf_kmsg_max,
+                         timing->fw_ready_kmsg_max,
+                         timing->wlan0_seen,
+                         cnss_wlfw_pre_checkpoint(timing));
+}
+
 struct property_service_shim {
     pid_t pid;
     int record_fd;
@@ -38958,11 +39227,14 @@ static int run_wifi_companion_android_wifi_service_window_guarded(const struct c
     int pm_proxy_helper_index = -1;
     int pm_proxy_index = -1;
     int mdm_helper_index = -1;
+    int cnss_diag_index = -1;
     int cnss_daemon_index = -1;
+    int wificond_index = -1;
     bool all_postflight_safe = true;
     bool any_runtime_gap = false;
     bool all_observable_at_timeout = true;
     bool wlfw_observed = false;
+    bool lower_marker_sampled = false;
     const bool subsys_trigger_capture =
         is_wifi_companion_android_wifi_service_window_subsys_trigger_capture_mode(cfg->mode);
     int trigger_pipe[2] = {-1, -1};
@@ -38981,6 +39253,7 @@ static int run_wifi_companion_android_wifi_service_window_guarded(const struct c
     int per_mgr_subsys_modem_fd_count = -1;
     struct fd_poll_summary mdm_helper_fd_poll_after_mdm;
     struct fd_poll_summary mdm_helper_fd_poll_after_cnss;
+    struct service_window_lower_marker_summary lower_marker_summary;
     pid_t trigger_pid = -1;
     pid_t trigger_pgid = -1;
     long deadline;
@@ -38991,6 +39264,7 @@ static int run_wifi_companion_android_wifi_service_window_guarded(const struct c
     property_service_shim_init(&property_shim);
     fd_poll_summary_init(&mdm_helper_fd_poll_after_mdm);
     fd_poll_summary_init(&mdm_helper_fd_poll_after_cnss);
+    service_window_lower_marker_summary_init(&lower_marker_summary);
     memset(children, 0, sizeof(children));
 
     composite_child_init(&children[child_count++],
@@ -39048,10 +39322,12 @@ static int run_wifi_companion_android_wifi_service_window_guarded(const struct c
                              "/vendor/bin/pm-proxy",
                              COMPOSITE_ID_PER_PROXY);
     }
+    cnss_diag_index = (int)child_count;
     composite_child_init(&children[child_count++],
                          "cnss_diag",
                          "/vendor/bin/cnss_diag",
                          COMPOSITE_ID_CNSS_DIAG);
+    wificond_index = (int)child_count;
     composite_child_init(&children[child_count++],
                          "wificond",
                          "/system/bin/wificond",
@@ -39375,6 +39651,70 @@ static int run_wifi_companion_android_wifi_service_window_guarded(const struct c
             return -1;
         }
     }
+    if (pm_proxy_contract && subsys_trigger_capture) {
+        long lower_marker_deadline = monotonic_ms() + 5000L;
+        long lower_marker_next = monotonic_ms();
+
+        if (append_literal(stdout_buf,
+                           "android_wifi_service_window.lower_marker_sampler.begin=1\n"
+                           "android_wifi_service_window.lower_marker_sampler.interval_ms=250\n"
+                           "android_wifi_service_window.lower_marker_sampler.duration_ms=5000\n") < 0) {
+            if (trigger_pipe[0] >= 0) close(trigger_pipe[0]);
+            if (trigger_pipe[1] >= 0) close(trigger_pipe[1]);
+            composite_cleanup_children(children, child_count, stdout_buf, stderr_buf);
+            stop_property_service_shim(&property_shim, paths, stdout_buf);
+            return -1;
+        }
+        while (monotonic_ms() < lower_marker_deadline) {
+            for (size_t sample_child = 0; sample_child < child_count; sample_child++) {
+                if (composite_child_drain_wait_once(&children[sample_child], stdout_buf, stderr_buf) < 0) {
+                    if (trigger_pipe[0] >= 0) close(trigger_pipe[0]);
+                    if (trigger_pipe[1] >= 0) close(trigger_pipe[1]);
+                    composite_cleanup_children(children, child_count, stdout_buf, stderr_buf);
+                    stop_property_service_shim(&property_shim, paths, stdout_buf);
+                    return -1;
+                }
+            }
+            if (drain_property_service_shim_records(&property_shim, stdout_buf) < 0) {
+                if (trigger_pipe[0] >= 0) close(trigger_pipe[0]);
+                if (trigger_pipe[1] >= 0) close(trigger_pipe[1]);
+                composite_cleanup_children(children, child_count, stdout_buf, stderr_buf);
+                stop_property_service_shim(&property_shim, paths, stdout_buf);
+                return -1;
+            }
+            if (trigger_stdout_open && trigger_pipe[0] >= 0 &&
+                drain_fd(trigger_pipe[0], stdout_buf, &trigger_stdout_open) < 0) {
+                if (trigger_pipe[0] >= 0) close(trigger_pipe[0]);
+                if (trigger_pipe[1] >= 0) close(trigger_pipe[1]);
+                composite_cleanup_children(children, child_count, stdout_buf, stderr_buf);
+                stop_property_service_shim(&property_shim, paths, stdout_buf);
+                return -1;
+            }
+            service_window_lower_marker_summary_sample(&lower_marker_summary,
+                                                       children,
+                                                       pm_proxy_helper_index,
+                                                       per_mgr_index,
+                                                       pm_proxy_index,
+                                                       mdm_helper_index,
+                                                       cnss_diag_index,
+                                                       cnss_daemon_index,
+                                                       wificond_index,
+                                                       trigger_pid);
+            lower_marker_sampled = true;
+            lower_marker_next += 250L;
+            while (monotonic_ms() < lower_marker_next && monotonic_ms() < lower_marker_deadline) {
+                usleep(20000);
+            }
+        }
+        if (append_service_window_lower_marker_summary(stdout_buf, &lower_marker_summary) < 0 ||
+            append_literal(stdout_buf, "android_wifi_service_window.lower_marker_sampler.end=1\n") < 0) {
+            if (trigger_pipe[0] >= 0) close(trigger_pipe[0]);
+            if (trigger_pipe[1] >= 0) close(trigger_pipe[1]);
+            composite_cleanup_children(children, child_count, stdout_buf, stderr_buf);
+            stop_property_service_shim(&property_shim, paths, stdout_buf);
+            return -1;
+        }
+    }
     deadline = monotonic_ms() + cfg->timeout_sec * 1000L;
     if (composite_poll_children(children, child_count, stdout_buf, stderr_buf, deadline, timed_out) < 0) {
         if (trigger_pipe[0] >= 0) close(trigger_pipe[0]);
@@ -39619,6 +39959,7 @@ static int run_wifi_companion_android_wifi_service_window_guarded(const struct c
                   "android_wifi_service_window.pm_proxy_helper_subsys_modem_fd_count=%d\n"
                   "android_wifi_service_window.per_mgr_subsys_modem_fd_count=%d\n"
                   "android_wifi_service_window.pm_full_contract_seen=%d\n"
+                  "android_wifi_service_window.lower_marker_sampled=%d\n"
                   "android_wifi_service_window.subsys_esoc0_open_attempted=%d\n"
                   "android_wifi_service_window.esoc_ioctl_attempted=0\n"
                   "android_wifi_service_window.scan_connect_linkup=0\n"
@@ -39632,6 +39973,7 @@ static int run_wifi_companion_android_wifi_service_window_guarded(const struct c
                   (pm_proxy_contract &&
                    pm_proxy_helper_subsys_modem_fd_count > 0 &&
                    per_mgr_subsys_modem_fd_count > 0) ? 1 : 0,
+                  lower_marker_sampled ? 1 : 0,
                   trigger_started ? 1 : 0);
     return 0;
 }

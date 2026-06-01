@@ -47,8 +47,8 @@ DEFAULT_WIFI_TEST_WATCHER_PID = "/cache/native-init-wifi-test-boot-v1393-watcher
 DEFAULT_WIFI_TEST_WATCH_SEC = 35
 DEFAULT_WIFI_TEST_SUPERVISOR_TIMEOUT_SEC = 40
 DEFAULT_WIFI_TEST_HELPER_MODE = "post-pm-observer"
-EXPECTED_HELPER_MARKER = "a90_android_execns_probe v292"
-EXPECTED_HELPER_SHA256 = "922654100570c2f7c898c11053775418c0c4881e714e5fdb22e9a274acbbde8c"
+EXPECTED_HELPER_MARKER = "a90_android_execns_probe v293"
+EXPECTED_HELPER_SHA256 = "cb4d47f3b6b4f5052dd9aa7fb1b444e0ab0a1fc330b2386d5d78c7784863822c"
 REPRODUCIBLE_MTIME = 0
 
 FORBIDDEN_BYTES = (
@@ -486,6 +486,9 @@ def verify_markers(args: argparse.Namespace) -> None:
             expected.extend([
                 "--allow-android-wifi-service-window-subsys-trigger-capture",
                 "--allow-android-wifi-service-window-pm-proxy-contract",
+                "android_wifi_service_window.lower_marker.begin=1",
+                "android_wifi_service_window.lower_marker.mode=service-window-pm-proxy-contract-lower-marker",
+                "android_wifi_service_window.lower_marker_sampled=%d",
             ])
     else:
         expected.append("--allow-post-pm-mdm-helper-esoc-observer")
@@ -1068,7 +1071,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     args = parser.parse_args(argv)
 
     args.init_binary = args.init_binary or args.out_dir / "init_v1393_wifi_test"
-    args.helper_binary = args.helper_binary or args.out_dir / "a90_android_execns_probe_v292"
+    args.helper_binary = args.helper_binary or args.out_dir / "a90_android_execns_probe_v293"
     args.ramdisk_dir = args.ramdisk_dir or args.out_dir / "ramdisk"
     args.ramdisk_cpio = args.ramdisk_cpio or args.out_dir / "ramdisk_v1393_wifi_test.cpio"
     args.boot_image = args.boot_image or args.out_dir / "boot_linux_v1393_wifi_test.img"
