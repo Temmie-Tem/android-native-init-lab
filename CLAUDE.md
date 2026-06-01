@@ -1933,3 +1933,16 @@ Update after V1354/V1355:
   OSRC kernel flash blocked. Next gate: V1484 source/build-only helper support
   for the compact readiness summary. Plan:
   `docs/plans/NATIVE_INIT_V1483_WIFI_AUTO_READINESS_TEST_BOOT_PLAN_2026-06-01.md`.
+- V1484 source/build-only
+  (`v1484-auto-readiness-helper-build-pass`) updates
+  `a90_android_execns_probe` to v287 and adds
+  `--pm-observer-auto-readiness-summary`. The flag requires the existing
+  bounded mdm2ap timing sampler and emits `auto_readiness.*` keys for CNSS
+  daemon/diag start, WLFW start/request, ICNSS/QMI, BDF, FW-ready, `wlan0`,
+  GPIO142 IRQ delta, pcie1 state, MHI/pipe/`ks`, and safety zeros. Built helper:
+  `stage3/linux_init/helpers/a90_android_execns_probe_v287`, sha256
+  `660d88fc9e0ebdf6c95e495d9dd659c09321feb407fe6a7f77213f3b5c2bb411`, static
+  aarch64 with no dynamic section. V1484 ran no device command or live action.
+  Next gate: V1485 source/build-only PID1 test-boot wrapper that bundles helper
+  v287 and passes the readiness summary flag. Report:
+  `docs/reports/NATIVE_INIT_V1484_AUTO_READINESS_HELPER_SOURCE_BUILD_2026-06-01.md`.

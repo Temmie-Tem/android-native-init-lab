@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v286"
+#define EXECNS_VERSION "a90_android_execns_probe v287"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -272,6 +272,7 @@ struct config {
     bool pm_observer_late_per_proxy_prepoll_corrected_rc1_enumerate; /* v285 */
     bool pm_observer_early_powerup_corrected_rc1_enumerate; /* v286 */
     bool pm_observer_current_route_cnss_wlfw_precondition_summary; /* v280 */
+    bool pm_observer_auto_readiness_summary; /* v287 */
     bool allow_android_wifi_service_window;
     bool allow_android_wifi_service_window_subsys_trigger_capture;
     bool require_android_selinux_exec_match;
@@ -485,6 +486,7 @@ static void usage(FILE *out) {
             "[--pm-observer-late-per-proxy-prepoll-corrected-rc1-enumerate] "
             "[--pm-observer-early-powerup-corrected-rc1-enumerate] "
             "[--pm-observer-current-route-cnss-wlfw-precondition-summary] "
+            "[--pm-observer-auto-readiness-summary] "
             "[--allow-android-wifi-service-window] "
             "[--allow-android-wifi-service-window-subsys-trigger-capture] "
             "[--pm-observer-continue-after-provider] "
@@ -1359,6 +1361,10 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             cfg->pm_observer_current_route_cnss_wlfw_precondition_summary = true;
             continue;
         }
+        if (strcmp(argv[i], "--pm-observer-auto-readiness-summary") == 0) {
+            cfg->pm_observer_auto_readiness_summary = true;
+            continue;
+        }
         if (strcmp(argv[i], "--pm-observer-continue-after-provider") == 0) {
             cfg->pm_observer_continue_after_provider = true;
             continue;
@@ -2079,6 +2085,11 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
     if (cfg->pm_observer_current_route_cnss_wlfw_precondition_summary &&
         !cfg->pm_observer_late_per_proxy_mdm2ap_errfatal_pcie_timing_sampler) {
         fprintf(stderr, "--pm-observer-current-route-cnss-wlfw-precondition-summary requires --pm-observer-late-per-proxy-mdm2ap-errfatal-pcie-timing-sampler\n");
+        return 2;
+    }
+    if (cfg->pm_observer_auto_readiness_summary &&
+        !cfg->pm_observer_late_per_proxy_mdm2ap_errfatal_pcie_timing_sampler) {
+        fprintf(stderr, "--pm-observer-auto-readiness-summary requires --pm-observer-late-per-proxy-mdm2ap-errfatal-pcie-timing-sampler\n");
         return 2;
     }
     if (cfg->pm_observer_continue_after_provider &&
@@ -18663,6 +18674,78 @@ static int append_cnss_wlfw_precondition_summary(struct buffer *buf,
                          cnss_wlfw_pre_checkpoint(summary));
 }
 
+static int append_auto_readiness_summary(struct buffer *buf,
+                                         const struct mdm2ap_timing_summary *summary) {
+    const bool cnss_daemon_started = summary->cnss_daemon_process_max > 0;
+    const bool cnss_diag_started = summary->cnss_diag_process_max > 0;
+    const bool wlfw_start_seen = summary->wlfw_start_kmsg_max > 0;
+    const bool wlfw_service_request_seen = summary->wlfw_service_request_kmsg_max > 0;
+    const bool icnss_qmi_seen = summary->icnss_qmi_kmsg_max > 0;
+    const bool bdf_seen = summary->bdf_kmsg_max > 0;
+    const bool fw_ready_seen = summary->fw_ready_kmsg_max > 0;
+    const unsigned long gpio142_delta =
+        summary->gpio142_irq_max > summary->gpio142_irq_initial
+            ? summary->gpio142_irq_max - summary->gpio142_irq_initial
+            : 0;
+
+    return append_format(buf,
+                         "auto_readiness.begin=1\n"
+                         "auto_readiness.mode=current-route-boot-readiness\n"
+                         "auto_readiness.sample_interval_ms=%d\n"
+                         "auto_readiness.sample_count=%d\n"
+                         "auto_readiness.cnss_daemon_started=%d\n"
+                         "auto_readiness.cnss_diag_started=%d\n"
+                         "auto_readiness.wlfw_start_seen=%d\n"
+                         "auto_readiness.wlfw_service_request_seen=%d\n"
+                         "auto_readiness.icnss_qmi_seen=%d\n"
+                         "auto_readiness.bdf_seen=%d\n"
+                         "auto_readiness.fw_ready_seen=%d\n"
+                         "auto_readiness.wlan0_seen=%d\n"
+                         "auto_readiness.primary_checkpoint=%s\n"
+                         "auto_readiness.gpio142_irq_delta=%lu\n"
+                         "auto_readiness.pcie_rc1_transition_seen=%d\n"
+                         "auto_readiness.pcie_current_link_state_last=%s\n"
+                         "auto_readiness.pcie_link_state_last=%s\n"
+                         "auto_readiness.pcie_runtime_status_last=%s\n"
+                         "auto_readiness.pcie1_gdsc_last=%s\n"
+                         "auto_readiness.pcie1_pipe_clk_last=%s\n"
+                         "auto_readiness.mhi_bus_max=%d\n"
+                         "auto_readiness.mhi_pipe_seen=%d\n"
+                         "auto_readiness.mhi_pipe_fd_max=%d\n"
+                         "auto_readiness.ks_process_max=%d\n"
+                         "auto_readiness.safety_wifi_hal_start=0\n"
+                         "auto_readiness.safety_scan_connect=0\n"
+                         "auto_readiness.safety_credentials=0\n"
+                         "auto_readiness.safety_dhcp_route=0\n"
+                         "auto_readiness.safety_external_ping=0\n"
+                         "auto_readiness.safety_pmic_write=0\n"
+                         "auto_readiness.safety_gpio_request=0\n"
+                         "auto_readiness.safety_direct_esoc_ioctl=0\n"
+                         "auto_readiness.end=1\n",
+                         summary->sample_interval_ms,
+                         summary->sample_count,
+                         cnss_daemon_started ? 1 : 0,
+                         cnss_diag_started ? 1 : 0,
+                         wlfw_start_seen ? 1 : 0,
+                         wlfw_service_request_seen ? 1 : 0,
+                         icnss_qmi_seen ? 1 : 0,
+                         bdf_seen ? 1 : 0,
+                         fw_ready_seen ? 1 : 0,
+                         summary->wlan0_seen,
+                         cnss_wlfw_pre_checkpoint(summary),
+                         gpio142_delta,
+                         summary->pcie_rc1_transition_seen,
+                         summary->pcie_current_link_state_last,
+                         summary->pcie_link_state_last,
+                         summary->pcie_runtime_status_last,
+                         summary->pcie1_gdsc_last,
+                         summary->pcie1_pipe_clk_last,
+                         summary->mhi_bus_max,
+                         summary->mhi_pipe_seen,
+                         summary->mhi_pipe_fd_max,
+                         summary->ks_process_max);
+}
+
 struct fd_poll_summary {
     int polls;
     int seen;
@@ -34841,6 +34924,8 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
     bool late_per_proxy_corrected_rc1_enumerate_write_executed = false;
     const bool current_route_cnss_wlfw_precondition_summary =
         cfg->pm_observer_current_route_cnss_wlfw_precondition_summary;
+    const bool auto_readiness_summary =
+        cfg->pm_observer_auto_readiness_summary;
     const bool late_per_proxy_compact_response_sampler =
         cfg->pm_observer_late_per_proxy_compact_response_sampler ||
         late_per_proxy_pmic_gdsc_transition_sampler;
@@ -36645,7 +36730,9 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                         if ((late_per_proxy_mdm2ap_timing_sampler
                                  ? (append_mdm2ap_timing_summary(stdout_buf, &mdm2ap_timing_summary) < 0 ||
                                     (current_route_cnss_wlfw_precondition_summary &&
-                                     append_cnss_wlfw_precondition_summary(stdout_buf, &mdm2ap_timing_summary) < 0)
+                                     append_cnss_wlfw_precondition_summary(stdout_buf, &mdm2ap_timing_summary) < 0) ||
+                                    (auto_readiness_summary &&
+                                     append_auto_readiness_summary(stdout_buf, &mdm2ap_timing_summary) < 0)
                                         ? -1 : 0)
                                  : (late_per_proxy_lower_sequence_summary_sampler
                                  ? append_lower_sequence_summary(stdout_buf, &lower_summary)

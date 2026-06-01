@@ -7841,6 +7841,20 @@ Samsung bootloader
   blocked. V1484 should be source/build-only helper support for the compact
   readiness summary. Plan:
   `docs/plans/NATIVE_INIT_V1483_WIFI_AUTO_READINESS_TEST_BOOT_PLAN_2026-06-01.md`.
+- V1484 source/build-only passes with
+  `v1484-auto-readiness-helper-build-pass`. Helper
+  `a90_android_execns_probe v287` adds `--pm-observer-auto-readiness-summary`,
+  requiring the existing bounded
+  `--pm-observer-late-per-proxy-mdm2ap-errfatal-pcie-timing-sampler` window.
+  It emits `auto_readiness.*` keys for CNSS daemon/diag start, WLFW start or
+  request, ICNSS/QMI, BDF, FW-ready, `wlan0`, GPIO142 IRQ delta, pcie1 state,
+  MHI/pipe/`ks`, and safety zeros. Built static aarch64 helper:
+  `stage3/linux_init/helpers/a90_android_execns_probe_v287`, sha256
+  `660d88fc9e0ebdf6c95e495d9dd659c09321feb407fe6a7f77213f3b5c2bb411`.
+  V1484 performed no device command or live action. V1485 should be
+  source/build-only and add the rollbackable PID1 test-boot wrapper that bundles
+  helper v287 and passes the new readiness summary flag. Report:
+  `docs/reports/NATIVE_INIT_V1484_AUTO_READINESS_HELPER_SOURCE_BUILD_2026-06-01.md`.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
