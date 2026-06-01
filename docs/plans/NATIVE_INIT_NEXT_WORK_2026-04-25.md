@@ -7418,6 +7418,17 @@ Samsung bootloader
   compare provider-trigger timing against RC1 debugfs case timing before any
   further live mutation; do not repeat RC1 case sampling until the
   provider-level AP2MDM/MDM2AP timing question is sharper.
+- V1449 host-only timing classifier passes with
+  `v1449-provider-precedes-rc1-case-no-l0`. It shows the provider-level
+  `__subsystem_get: esoc0` transition occurred at `9.243453s`, while explicit
+  RC1 debugfs `TEST: 11` occurred later at `9.520422s`, and RC1 link failed at
+  `9.635246s`. The gap between esoc0 and the RC1 case was about `276.969ms`.
+  Therefore V1447 proves post-RC1-case GPIO135/GPIO142 stayed low, but it does
+  not yet sample the provider transition itself. V1450 should be
+  source/build-only and add a provider-trigger micro sampler that watches
+  PID1 kmsg for `__subsystem_get: esoc0`/`mdm_subsys_powerup`, then samples
+  GPIO135/GPIO142/RC1 status immediately around that provider event without
+  Wi-Fi scan/connect or credential handling.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
