@@ -8775,6 +8775,20 @@ Samsung bootloader
   positive signals, or first capture a dmesg-only Android timing clarifier if
   first-L0 ordering is required. Report:
   `docs/reports/NATIVE_INIT_V1556_V1555_VS_V1552_ENDPOINT_SIGNAL_COMPARATOR_2026-06-02.md`.
+- V1557 rollbackable native endpoint long-hold handoff passes with
+  `v1557-native-long-hold-endpoint-still-silent-no-l0-rollback-pass`. It adds
+  `scripts/revalidation/native_wifi_endpoint_long_hold_handoff_v1557.py`,
+  reuses the V1493 Wi-Fi test boot image, holds the native provider/RC1 path
+  for 280 seconds, collects below-connect evidence, and rolls back to native
+  v724 with selftest healthy. The delayed-endpoint-response hypothesis is now
+  rejected for this route: provider/modem triggers are present and RC1 progress
+  reaches link-failed/no-L0, but MHI/WLFW/BDF/FW-ready/`wlan0` remain absent,
+  IRQ252/IRQ290/errfatal totals stay zero, and GPIO104/GPIO142/GPIO135 never
+  show high. Next gate: stop same-path long-hold retries and compare the
+  Android-good pre-endpoint/pre-IRQ sequence against the native
+  provider-driven path to explain why Android produces wake/status endpoint
+  signals while native remains endpoint-silent. Report:
+  `docs/reports/NATIVE_INIT_V1557_NATIVE_ENDPOINT_LONG_HOLD_HANDOFF_2026-06-02.md`.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still

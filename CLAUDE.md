@@ -2876,3 +2876,23 @@ gate should act on stable signal presence/absence rather than claim first-L0
 ordering.  Next gate: V1557 should either run a native provider+minimal
 endpoint hold aligned to V1555's positive signals, or first capture a dmesg-only
 Android timing clarifier if first-L0 ordering is required.
+
+## Latest native Wi-Fi state: V1557 (2026-06-02)
+
+V1557 adds
+`scripts/revalidation/native_wifi_endpoint_long_hold_handoff_v1557.py` and
+passes rollbackable live test boot with
+`v1557-native-long-hold-endpoint-still-silent-no-l0-rollback-pass`. It reuses
+the V1493 Wi-Fi test boot artifact, holds the native provider/RC1 path for
+280 seconds, collects bounded below-connect evidence, and rolls back to native
+v724. The post-run selftest remains healthy.
+
+The result removes the "delayed endpoint response" hypothesis for this route:
+provider and modem triggers are present and RC1 progresses far enough to hit
+the known link-failed/no-L0 state, but MHI/WLFW/BDF/FW-ready/`wlan0` remain
+absent and endpoint-positive signals stay zero (`msm_pcie_wake`, `mdm status`,
+`mdm errfatal`, GPIO104, GPIO142, and GPIO135 high all absent). Do not run
+more long-hold retries on the same V1493/V1496 path. Next gate: compare the
+Android-good pre-endpoint/pre-IRQ sequence against the native provider-driven
+path, focusing on why Android produces GPIO104/GPIO142/IRQ252/IRQ290 while the
+native AP-side power/refclk/PERST path remains endpoint-silent.
