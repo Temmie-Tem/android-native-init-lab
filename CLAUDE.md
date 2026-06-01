@@ -2749,3 +2749,26 @@ sysfs-client-enumerate window, using V1315-proven event availability, and
 still avoid direct PMIC/GPIO/GDSC writes, global PCI rescan, platform
 bind/unbind, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, and external
 ping until native RC1 L0 and PCI enumeration exist.
+
+## Latest native Wi-Fi state: V1551 (2026-06-02)
+
+V1551 adds
+`scripts/revalidation/native_wifi_pcie1_tracefs_enumerate_live_v1551.py` and
+passes with `v1551-pcie1-gdsc-enable-captured-no-l0`. It is a bounded live
+tracefs observer around the already-proven pcie1 sysfs-client enumerate path:
+it enables only selected regulator/clk/gpio static tracefs events, writes once
+to the pcie1 enumerate endpoint, disables the events, captures filtered trace
+lines and dmesg, then verifies post selftest. It does not start Wi-Fi HAL,
+scan/connect, use credentials, configure DHCP/routes, external-ping, directly
+write PMIC/GPIO/GDSC, issue eSoC notify/BOOT_DONE spoof, global PCI rescan,
+platform bind/unbind, flash, or partition-write.
+
+The result closes the V1550 timing gap. Tracefs captures `pcie_1_gdsc`
+`regulator_enable` and `regulator_enable_complete`, later matching disable
+events, plus pcie1 clock/refgen/pipe clock enable activity and GPIO102
+PERST-style toggles during the RC1 attempt. The RC1 path still fails before
+L0: no MHI, WLFW/BDF/FW-ready, or `wlan0` marker appears. GPIO104/WAKE,
+GPIO135/AP2MDM, and GPIO142/MDM2AP do not appear in the target trace window.
+Next gate: classify PERST/refclk/endpoint response after confirmed RC1
+power-domain enable. Do not move to firmware/MHI/WLFW/connect work until
+native RC1 L0 and PCI enumeration exist.

@@ -8691,6 +8691,20 @@ Samsung bootloader
   global PCI rescan, platform bind/unbind, Wi-Fi HAL, scan/connect,
   credentials, DHCP/routes, or external ping. Report:
   `docs/reports/NATIVE_INIT_V1550_PCIE1_POWER_DOMAIN_SEMANTICS_CLASSIFIER_2026-06-02.md`.
+- V1551 bounded live pcie1 tracefs enumerate observer passes with
+  `v1551-pcie1-gdsc-enable-captured-no-l0`. It adds
+  `scripts/revalidation/native_wifi_pcie1_tracefs_enumerate_live_v1551.py`,
+  enables only selected regulator/clk/gpio static tracefs events, writes once
+  to the already-proven pcie1 sysfs-client enumerate endpoint, disables the
+  events, captures filtered trace lines and dmesg, and verifies post selftest.
+  It captures `pcie_1_gdsc` enable/enable-complete and disable/disable-complete
+  events, pcie1 clock/refgen/pipe clock activity, and GPIO102 toggles. The
+  result still has no RC1 L0, MHI, WLFW/BDF/FW-ready, or `wlan0`, and the
+  target trace window does not show GPIO104/WAKE, GPIO135/AP2MDM, or
+  GPIO142/MDM2AP activity. Next gate: classify PERST/refclk/endpoint response
+  after confirmed RC1 power-domain enable; keep firmware/MHI/WLFW/connect work
+  parked until native RC1 L0 and PCI enumeration exist. Report:
+  `docs/reports/NATIVE_INIT_V1551_PCIE1_TRACEFS_ENUMERATE_LIVE_2026-06-02.md`.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
