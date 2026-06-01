@@ -2932,3 +2932,22 @@ they prove Android can produce endpoint-positive signals, but they must not be
 used as first-L0 ordering proof. Next gate: V1560 should focus on the AP2MDM
 assertion/effective-level gap before BDF and explain why native provider/RC1
 does not assert GPIO135/AP2MDM despite AP-side pcie1 readiness.
+
+## Latest native Wi-Fi state: V1560 (2026-06-02)
+
+V1560 adds
+`scripts/revalidation/native_wifi_android_order_vs_native_route_classifier_v1560.py`
+and passes host-only with
+`v1560-android-wlfw-before-ap2mdm-native-route-lacks-wlfw`. It compares the
+ordered Android-good lower sequence against the current native V1496/V1557
+auto-readiness route.
+
+This refines V1559: Android-good reaches `cnss-daemon wlfw_start` and
+`wlfw_service_request` before `esoc0`, AP2MDM/BDF, FW-ready, and `wlan0`.
+Native V1496/V1557 sees `cnss-daemon` generic netlink traffic and reaches
+`esoc0`, then the forced RC1 enumerate diagnostic fails before L0, but native
+never emits `wlfw_start`, BDF, FW-ready, or `wlan0`. The next unit should
+therefore compare Android vs native `cnss-daemon` WLFW start/request contracts
+(invocation, properties, sockets, service-manager context) before any new live
+connect-side action. Keep forced RC1 enumerate diagnostic-only until the WLFW
+start/request contract is reproduced.

@@ -8816,6 +8816,20 @@ Samsung bootloader
   provider/RC1 does not assert GPIO135/AP2MDM despite AP-side pcie1 readiness.
   Report:
   `docs/reports/NATIVE_INIT_V1559_ANDROID_PRE_ENDPOINT_ORDER_CLASSIFIER_2026-06-02.md`.
+- V1560 host-only Android-order vs native-route classifier passes with
+  `v1560-android-wlfw-before-ap2mdm-native-route-lacks-wlfw`. It adds
+  `scripts/revalidation/native_wifi_android_order_vs_native_route_classifier_v1560.py`
+  and compares Android-good lower ordering against native V1496/V1557. This
+  refines the V1559 AP2MDM finding: Android first reaches
+  `cnss-daemon wlfw_start` and `wlfw_service_request`, then `esoc0`, BDF,
+  FW-ready, and `wlan0`. Native sees `cnss-daemon` generic netlink and reaches
+  `esoc0`, then forced RC1 enumerate fails before L0, but native never emits
+  `wlfw_start`, BDF, FW-ready, or `wlan0`. Next gate: V1561 should compare the
+  Android vs native `cnss-daemon` WLFW start/request contract (invocation,
+  properties, sockets, service-manager context) before any live connect-side
+  action. Keep forced RC1 enumerate diagnostic-only until native reproduces the
+  WLFW start/request contract. Report:
+  `docs/reports/NATIVE_INIT_V1560_ANDROID_ORDER_VS_NATIVE_ROUTE_CLASSIFIER_2026-06-02.md`.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
