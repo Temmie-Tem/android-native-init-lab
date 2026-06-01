@@ -7797,6 +7797,22 @@ Samsung bootloader
   retry this exact userspace hold. V1481 should be host-only kernel-provider
   feasibility review or another lower-prerequisite hypothesis that does not
   fight the kernel-owned GPIO line.
+- V1481 host-only classifier passes with
+  `v1481-userspace-hold-closed-kernel-provider-not-live-feasible`. Samsung OSRC
+  GPIO source explains V1480's `/sys/class/gpio/export` `-16` result:
+  `export_store()` first calls `gpiod_request(desc, "sysfs")`, and
+  `__gpiod_request()` returns `-EBUSY` when `FLAG_REQUESTED` is already set.
+  The DTS maps GPIO135 directly to `qcom,ap2mdm-status-gpio` for `mdm3`, so
+  AP2MDM is kernel/eSoC-provider-owned and cannot be held from userspace sysfs.
+  Kernel-provider patching is the direct layer but is not currently selected
+  for live work because the Samsung OSRC custom-kernel boot path remains
+  incompatible from V771/V774/V775. Direct MMIO/pinctrl/GPIO writes and blind
+  RC1 retries remain rejected. V1482 should be a host-only Android AP2MDM
+  effective-level reference classifier before building another Wi-Fi auto-start
+  test boot: determine whether Android-positive evidence ever shows GPIO135
+  high, or whether GPIO135 readback can be low even when SDX50M/Wi-Fi succeeds.
+  Report:
+  `docs/reports/NATIVE_INIT_V1481_AP2MDM_PROVIDER_FEASIBILITY_2026-06-01.md`.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still

@@ -1889,3 +1889,18 @@ Update after V1354/V1355:
   another lower-prerequisite hypothesis that does not fight the kernel-owned
   GPIO line. Report:
   `docs/reports/NATIVE_INIT_V1480_AP2MDM_HOLD_LIVE_CLASSIFIER_2026-06-01.md`.
+- V1481 host-only classifier
+  (`v1481-userspace-hold-closed-kernel-provider-not-live-feasible`) reconciles
+  V1480 with Samsung OSRC GPIO source and DTS. The sysfs export path calls
+  `gpiod_request(desc, "sysfs")`; `__gpiod_request()` returns `-EBUSY` if the
+  GPIO descriptor already has `FLAG_REQUESTED`. The DTS assigns GPIO135 to
+  `qcom,ap2mdm-status-gpio` under `mdm3`, so V1480's `export_rc=-16` is the
+  expected kernel-owned-line result. Retrying userspace GPIO hold is closed.
+  Kernel-provider patching is the direct layer for changing AP2MDM behavior,
+  but not currently live-feasible because the local Samsung OSRC custom-kernel
+  route remains boot-incompatible from V771/V774/V775. Direct MMIO/pinctrl/GPIO
+  writes and blind RC1 retries remain rejected. Next gate: V1482 host-only
+  Android AP2MDM effective-level reference classifier before building another
+  Wi-Fi auto-start test boot; decide whether GPIO135 readback is misleading or
+  a real native-only response failure. Report:
+  `docs/reports/NATIVE_INIT_V1481_AP2MDM_PROVIDER_FEASIBILITY_2026-06-01.md`.
