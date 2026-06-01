@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V1393 source/build-only PASS (`v1393-wifi-test-boot-source-build-pass`). Built a separate V1393 Wi-Fi test boot artifact under `tmp/wifi/v1393-wifi-test-boot/` using v724 header/kernel metadata, `A90 Linux init 0.9.69 (v1393-wifitest)`, and ramdisk-bundled helper `a90_android_execns_probe v286`. No device command or flash occurred. Next is V1394 local artifact sanity verification; V1395 is the first possible live flash/handoff gate and must name rollback to `stage3/boot_linux_v724.img`. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, PMIC/GPIO/GDSC direct write, blind eSoC notify/BOOT_DONE spoof, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
+- **Active research cycle**: V1394 local artifact sanity PASS (`v1394-wifi-test-boot-artifact-sanity-pass`). The staged V1393 boot artifact passed local checks for manifest SHA, static PID1/helper, ramdisk helper inclusion, expected markers, v724 header/kernel parity, private modes, and forbidden credential-like byte absence. No device command or flash occurred. V1395 is now the first possible live flash/handoff gate and must name test image `tmp/wifi/v1393-wifi-test-boot/boot_linux_v1393_wifi_test.img` plus rollback to `stage3/boot_linux_v724.img`. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, PMIC/GPIO/GDSC direct write, blind eSoC notify/BOOT_DONE spoof, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -1523,3 +1523,14 @@ Update after V1354/V1355:
   write, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, or external ping
   occurred. Next is V1394 local artifact sanity verification before any V1395
   live handoff.
+- V1394 local-only artifact sanity (`v1394-wifi-test-boot-artifact-sanity-pass`)
+  added `scripts/revalidation/native_wifi_test_boot_artifact_sanity_v1394.py`
+  and verified the exact V1393 staged artifact. Checks passed for manifest
+  decision/SHA, base boot availability, static PID1/helper, ramdisk entries,
+  boot markers, v724 header parity, kernel SHA parity, private artifact modes,
+  and forbidden credential-like byte absence. No device command, flash, reboot,
+  partition write, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, or
+  external ping occurred. V1395 may now be planned as the first bounded live
+  handoff, naming test image
+  `tmp/wifi/v1393-wifi-test-boot/boot_linux_v1393_wifi_test.img` and rollback
+  `stage3/boot_linux_v724.img`.

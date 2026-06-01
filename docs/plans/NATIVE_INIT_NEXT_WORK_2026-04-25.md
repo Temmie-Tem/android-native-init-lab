@@ -6617,6 +6617,23 @@ Samsung bootloader
       `a90_android_execns_probe v286`. The build verified static binaries,
       required ramdisk entries, expected boot markers, private artifact modes,
       and forbidden credential-like byte patterns.
+42. **V1394 Wi-Fi test boot artifact sanity (local-only).**
+    - Goal: independently verify the exact V1393 staged boot artifact before
+      any live flash/handoff.
+    - Required output: manifest decision/SHA checks, base boot availability,
+      static PID1/helper verification, ramdisk helper inclusion, expected boot
+      markers, v724 header/kernel parity, private modes, and forbidden
+      credential-like byte absence.
+    - Hard stop: local-only artifact verifier. No device command, no flash, no
+      reboot, no boot partition write, no partition write, no Wi-Fi HAL, no
+      scan/connect, no credentials, no DHCP/routes, no external ping, no
+      PMIC/GPIO/GDSC direct write, and no blind eSoC notify/`BOOT_DONE` spoof.
+    - Result:
+      `docs/reports/NATIVE_INIT_V1394_WIFI_TEST_BOOT_ARTIFACT_SANITY_2026-06-01.md`.
+      Decision: `v1394-wifi-test-boot-artifact-sanity-pass`. The exact V1393
+      staged artifact passed local sanity checks. The boot image remains
+      `tmp/wifi/v1393-wifi-test-boot/boot_linux_v1393_wifi_test.img`
+      (`sha256=ebb4097db71dee77cdf7a26b671a1535a8e0afe1e53b4a23400af518d4d63048`).
 
 ### Required decision before any new mutation
 
@@ -6747,6 +6764,12 @@ Samsung bootloader
   and boot image. It must re-check marker identity, ramdisk helper inclusion,
   rollback image availability, private modes, boot header parity, and no-secret
   output before V1395 is allowed to flash.
+- V1394 passes local artifact sanity. V1395 is the first possible bounded live
+  handoff: flash only
+  `tmp/wifi/v1393-wifi-test-boot/boot_linux_v1393_wifi_test.img`, capture the
+  V1393 boot evidence, and rollback to `stage3/boot_linux_v724.img` unless a
+  later explicit decision keeps the test boot. V1395 still must not perform
+  Wi-Fi scan/connect, credential handling, DHCP/routes, or external ping.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
