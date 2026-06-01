@@ -49,6 +49,9 @@ static void selftest_boot_draw_frame(void *ctx) {
 #ifndef A90_WIFI_TEST_BOOT_SUMMARY
 #define A90_WIFI_TEST_BOOT_SUMMARY "/cache/native-init-wifi-test-boot-v1393.summary"
 #endif
+#ifndef A90_WIFI_TEST_BOOT_HELPER_RESULT
+#define A90_WIFI_TEST_BOOT_HELPER_RESULT "/cache/native-init-wifi-test-boot-v1393-helper.result"
+#endif
 #ifndef A90_WIFI_TEST_BOOT_PID
 #define A90_WIFI_TEST_BOOT_PID "/cache/native-init-wifi-test-boot-v1393.pid"
 #endif
@@ -169,6 +172,7 @@ static void selftest_boot_draw_frame(void *ctx) {
 #define A90_V1393_WIFI_TEST_DISABLE A90_WIFI_TEST_BOOT_DISABLE
 #define A90_V1393_WIFI_TEST_LOG A90_WIFI_TEST_BOOT_LOG
 #define A90_V1393_WIFI_TEST_SUMMARY A90_WIFI_TEST_BOOT_SUMMARY
+#define A90_V1393_WIFI_TEST_HELPER_RESULT A90_WIFI_TEST_BOOT_HELPER_RESULT
 #define A90_V1393_WIFI_TEST_PID A90_WIFI_TEST_BOOT_PID
 #define A90_V1393_WIFI_TEST_WATCHER_PID A90_WIFI_TEST_BOOT_WATCHER_PID
 #define A90_V1393_WIFI_TEST_RC1_WATCHER_RESULT A90_WIFI_TEST_BOOT_RC1_WATCHER_RESULT
@@ -3123,6 +3127,12 @@ static void v1393_write_wifi_test_summary(pid_t helper_pid, long spawn_ms) {
         dprintf(fd, "log_size_errno=%d\n", errno != 0 ? errno : EIO);
     }
     dprintf(fd, "log_path=%s\n", A90_V1393_WIFI_TEST_LOG);
+    if (lstat(A90_V1393_WIFI_TEST_HELPER_RESULT, &st) == 0) {
+        dprintf(fd, "helper_result_size=%lld\n", (long long)st.st_size);
+    } else {
+        dprintf(fd, "helper_result_size_errno=%d\n", errno != 0 ? errno : EIO);
+    }
+    dprintf(fd, "helper_result_path=%s\n", A90_V1393_WIFI_TEST_HELPER_RESULT);
     close(fd);
 }
 
@@ -3249,6 +3259,8 @@ static int v1393_spawn_wifi_test_boot_helper(pid_t *pid_out) {
         "ext4",
         "--mode",
         A90_V1393_WIFI_TEST_MODE,
+        "--result-output-path",
+        A90_V1393_WIFI_TEST_HELPER_RESULT,
         "--timeout-sec",
         A90_V1393_WIFI_TEST_TIMEOUT_SEC,
         "--property-root",

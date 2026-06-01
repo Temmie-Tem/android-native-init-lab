@@ -8951,6 +8951,25 @@ Samsung bootloader
   rerun. Still no credentials, scan/connect, DHCP/routes, external ping, blind
   eSoC notify/`BOOT_DONE`, global PCI rescan, or platform bind/unbind. Report:
   `docs/reports/NATIVE_INIT_V1567_SERVICE_WINDOW_SUBSYS_TRIGGER_HANDOFF_2026-06-02.md`.
+- V1568 source/build repairs the service-window evidence path and passes local
+  artifact sanity with
+  `v1568-service-window-subsys-trigger-result-artifact-sanity-pass`. The helper
+  is bumped to `a90_android_execns_probe v288` and adds
+  `--result-output-path`, writing final helper `STDOUT`/`STDERR` buffers to a
+  private result file. The V1393 PID1 test-boot path passes
+  `/cache/native-init-wifi-test-boot-v1393-helper.result` and records its path
+  and size in the summary. The generated artifact is
+  `tmp/wifi/v1568-service-window-subsys-trigger-result-test-boot/boot_linux_v1393_wifi_test.img`
+  with boot sha256
+  `0bf402cf31ce53e4e6a8d365d4b105cb31ec8e58b484c9a681872c62c87279a4`.
+  Next gate: V1569 rollbackable live handoff of only this V1568 image, collect
+  normal log, summary, focused dmesg, `wlan0`, and the new helper result file,
+  then roll back to v724. The live target is classifying whether
+  `/dev/subsys_esoc0` was attempted, predicate-skipped, or attempted without
+  RC1/MHI/WLFW/`wlan0` progress. Still no credentials, scan/connect,
+  DHCP/routes, external ping, blind eSoC notify/`BOOT_DONE`, global PCI rescan,
+  or platform bind/unbind. Report:
+  `docs/reports/NATIVE_INIT_V1568_SERVICE_WINDOW_SUBSYS_TRIGGER_RESULT_ARTIFACT_SANITY_2026-06-02.md`.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still

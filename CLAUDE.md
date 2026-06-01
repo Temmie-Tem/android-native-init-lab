@@ -3138,3 +3138,35 @@ private result artifact or equivalent PID1-captured stdout/stderr log, then
 sanity-check the artifact before any live rerun.  Still do not use credentials,
 scan/connect, DHCP/routes, external ping, blind eSoC notify/`BOOT_DONE`, global
 PCI rescan, or platform bind/unbind.
+
+## Latest native Wi-Fi state: V1568 (2026-06-02)
+
+V1568 repairs the service-window evidence path and builds the next rollbackable
+test-boot artifact.  `a90_android_execns_probe` is bumped to v288 and accepts
+`--result-output-path`, writing the final helper `STDOUT`/`STDERR` buffers to a
+private `0600`/`O_NOFOLLOW` result file.  The V1393 PID1 test-boot path now
+passes `/cache/native-init-wifi-test-boot-v1393-helper.result` and records that
+path and size in the test summary.
+
+The source/build artifact passes local sanity with
+`v1568-service-window-subsys-trigger-result-artifact-sanity-pass`.  It uses
+`wifi-companion-android-wifi-service-window-subsys-trigger-capture`, includes
+both Android service-window allow flags plus `--result-output-path`, preserves
+boot header/kernel parity with v724, uses static init/helper binaries, and
+keeps credentials, scan/connect, DHCP/routes, external ping, blind
+eSoC notify/`BOOT_DONE`, global PCI rescan, and platform bind/unbind out of
+scope.
+
+Artifact:
+`tmp/wifi/v1568-service-window-subsys-trigger-result-test-boot/boot_linux_v1393_wifi_test.img`
+with boot sha256
+`0bf402cf31ce53e4e6a8d365d4b105cb31ec8e58b484c9a681872c62c87279a4`.
+Helper v288 sha256 is
+`ecc889253d8de7b8afdc09721ca780ea28d839fec00b5cb16380c6b7fd419c5b`.
+
+Next gate: V1569 can perform a rollbackable live handoff of only this V1568
+image, collect the normal log, summary, focused dmesg, `wlan0`, and the new
+helper result file, then roll back to v724.  The primary target is not
+credentialed Wi-Fi connect yet; it is classifying whether `/dev/subsys_esoc0`
+was attempted, predicate-skipped, or attempted without RC1/MHI/WLFW/`wlan0`
+progress.

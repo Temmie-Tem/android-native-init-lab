@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v287"
+#define EXECNS_VERSION "a90_android_execns_probe v288"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -218,6 +218,7 @@ struct config {
     const char *service_manager_order;
     const char *subsys_trigger_gate;
     const char *private_cnss_daemon_path;
+    const char *result_output_path;
     int timeout_sec;
     bool cnss_surface_mode_explicit;
     bool service_manager_order_explicit;
@@ -489,6 +490,7 @@ static void usage(FILE *out) {
             "[--pm-observer-auto-readiness-summary] "
             "[--allow-android-wifi-service-window] "
             "[--allow-android-wifi-service-window-subsys-trigger-capture] "
+            "[--result-output-path <path>] "
             "[--pm-observer-continue-after-provider] "
             "[--pm-observer-start-cnss-after-provider] "
             "[--pm-observer-start-cnss-before-per-proxy] "
@@ -1538,6 +1540,8 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             cfg->subsys_trigger_gate_explicit = true;
         } else if (strcmp(argv[i], "--private-cnss-daemon-path") == 0) {
             cfg->private_cnss_daemon_path = argv[++i];
+        } else if (strcmp(argv[i], "--result-output-path") == 0) {
+            cfg->result_output_path = argv[++i];
         } else if (strcmp(argv[i], "--timeout-sec") == 0) {
             if (!parse_int_range(argv[++i], 1, 30, &cfg->timeout_sec)) {
                 fprintf(stderr, "invalid --timeout-sec\n");
@@ -39375,6 +39379,78 @@ static void print_section(const char *name, const struct buffer *buf) {
     printf("A90_EXECNS_%s_END truncated=%d bytes=%zu\n", name, buf->truncated ? 1 : 0, buf->len);
 }
 
+static int write_result_output_file(const char *path,
+                                    int run_rc,
+                                    int child_exit_code,
+                                    int child_signal,
+                                    bool timed_out,
+                                    const struct buffer *stdout_buf,
+                                    const struct buffer *stderr_buf) {
+    int fd;
+    int rc = 0;
+
+    if (path == NULL || path[0] == '\0') {
+        return 0;
+    }
+    fd = open(path, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC | O_NOFOLLOW, 0600);
+    if (fd < 0) {
+        return -errno;
+    }
+    if (dprintf(fd,
+                "A90_EXECNS_RESULT_FILE_BEGIN\n"
+                "result_file_version=%s\n"
+                "probe_run_rc=%d\n"
+                "child_exit_code=%d\n"
+                "child_signal=%d\n"
+                "timed_out=%d\n"
+                "A90_EXECNS_STDOUT_BEGIN\n",
+                EXECNS_VERSION,
+                run_rc,
+                child_exit_code,
+                child_signal,
+                timed_out ? 1 : 0) < 0) {
+        rc = -errno;
+    }
+    if (rc == 0 && stdout_buf != NULL && stdout_buf->data != NULL && stdout_buf->len > 0) {
+        if (write_all_fd(fd, stdout_buf->data, stdout_buf->len) < 0) {
+            rc = -errno;
+        }
+        if (rc == 0 && stdout_buf->data[stdout_buf->len - 1] != '\n' &&
+            write_all_fd(fd, "\n", 1) < 0) {
+            rc = -errno;
+        }
+    }
+    if (rc == 0 &&
+        dprintf(fd,
+                "A90_EXECNS_STDOUT_END truncated=%d bytes=%zu\n"
+                "A90_EXECNS_STDERR_BEGIN\n",
+                stdout_buf != NULL && stdout_buf->truncated ? 1 : 0,
+                stdout_buf != NULL ? stdout_buf->len : 0) < 0) {
+        rc = -errno;
+    }
+    if (rc == 0 && stderr_buf != NULL && stderr_buf->data != NULL && stderr_buf->len > 0) {
+        if (write_all_fd(fd, stderr_buf->data, stderr_buf->len) < 0) {
+            rc = -errno;
+        }
+        if (rc == 0 && stderr_buf->data[stderr_buf->len - 1] != '\n' &&
+            write_all_fd(fd, "\n", 1) < 0) {
+            rc = -errno;
+        }
+    }
+    if (rc == 0 &&
+        dprintf(fd,
+                "A90_EXECNS_STDERR_END truncated=%d bytes=%zu\n"
+                "A90_EXECNS_RESULT_FILE_END\n",
+                stderr_buf != NULL && stderr_buf->truncated ? 1 : 0,
+                stderr_buf != NULL ? stderr_buf->len : 0) < 0) {
+        rc = -errno;
+    }
+    if (close(fd) < 0 && rc == 0) {
+        rc = -errno;
+    }
+    return rc;
+}
+
 int main(int argc, char **argv) {
     struct config cfg;
     struct paths paths;
@@ -39499,6 +39575,8 @@ int main(int argc, char **argv) {
     printf("subsys_trigger_gate=%s\n", cfg.subsys_trigger_gate);
     printf("private_cnss_daemon_path=%s\n",
            cfg.private_cnss_daemon_path != NULL ? cfg.private_cnss_daemon_path : "<none>");
+    printf("result_output_path=%s\n",
+           cfg.result_output_path != NULL ? cfg.result_output_path : "<none>");
     printf("pm_observer_private_cnss_daemon_sdx50m=%d\n",
            cfg.pm_observer_private_cnss_daemon_sdx50m ? 1 : 0);
     printf("pm_observer_mdm_helper_only_syscall_trace=%d\n",
@@ -39912,6 +39990,18 @@ int main(int argc, char **argv) {
     printf("child_exit_code=%d\n", child_exit_code);
     printf("child_signal=%d\n", child_signal);
     printf("timed_out=%d\n", timed_out ? 1 : 0);
+    if (cfg.result_output_path != NULL && cfg.result_output_path[0] != '\0') {
+        int result_output_rc = write_result_output_file(cfg.result_output_path,
+                                                        run_rc,
+                                                        child_exit_code,
+                                                        child_signal,
+                                                        timed_out,
+                                                        &stdout_buf,
+                                                        &stderr_buf);
+        printf("result_output_write_rc=%d\n", result_output_rc);
+    } else {
+        printf("result_output_write_rc=0\n");
+    }
     print_section("STDOUT", &stdout_buf);
     print_section("STDERR", &stderr_buf);
     cleanup_paths(&paths);
