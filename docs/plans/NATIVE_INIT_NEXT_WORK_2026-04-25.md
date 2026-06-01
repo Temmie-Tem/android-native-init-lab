@@ -6989,6 +6989,15 @@ Samsung bootloader
   after `__subsystem_get: esoc0`; do not advance to scan/connect, credentials,
   DHCP/routes, or external ping until at least RC1/MHI/WLFW/`wlan0` progress is
   proven.
+- V1404 stages a narrower test-boot artifact for that missing downstream
+  transition: PID1 mounts debugfs before the supervised helper so the existing
+  corrected RC1 enumerate path can reach `/sys/kernel/debug/pci-msm/rc_sel` and
+  `case` during boot. Local sanity passed for the source/build artifact, but no
+  device command or flash occurred. V1405 should independently verify the exact
+  V1404 manifest/image before any V1406 rollbackable handoff. V1406, if allowed,
+  should collect V1404 log/summary/dmesg and classify whether `TEST: 11`,
+  RC1/LTSSM, MHI/WLFW, or `wlan0` appears; it must still stop before
+  scan/connect, credentials, DHCP/routes, or external ping.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still

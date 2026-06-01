@@ -64,6 +64,9 @@ static void selftest_boot_draw_frame(void *ctx) {
 #ifndef A90_WIFI_TEST_BOOT_SUPERVISOR_TIMEOUT_SEC
 #define A90_WIFI_TEST_BOOT_SUPERVISOR_TIMEOUT_SEC 40
 #endif
+#ifndef A90_WIFI_TEST_BOOT_MOUNT_DEBUGFS
+#define A90_WIFI_TEST_BOOT_MOUNT_DEBUGFS 0
+#endif
 #define A90_V1393_WIFI_TEST_DISABLE A90_WIFI_TEST_BOOT_DISABLE
 #define A90_V1393_WIFI_TEST_LOG A90_WIFI_TEST_BOOT_LOG
 #define A90_V1393_WIFI_TEST_SUMMARY A90_WIFI_TEST_BOOT_SUMMARY
@@ -76,6 +79,9 @@ static void selftest_boot_draw_frame(void *ctx) {
 #define A90_V1393_WIFI_TEST_REAL_LD_CONFIG "/cache/bin/a90_real_ld.config.txt"
 #define A90_V1393_WIFI_TEST_REAL_APEX_LIBRARIES "/cache/bin/a90_real_apex.libraries.config.txt"
 #define A90_V1393_WIFI_TEST_PRIVATE_CNSS "/cache/bin/cnss-daemon.sdx50m"
+#if A90_WIFI_TEST_BOOT_MOUNT_DEBUGFS
+static int v1393_wifi_test_debugfs_mounted_by_pid1;
+#endif
 #endif
 
 static int v641_append_ssctl_log(const char *fmt, ...) {
@@ -409,6 +415,44 @@ static int v1393_reset_wifi_test_log(void) {
     return rc < 0 ? negative_errno_or(EIO) : 0;
 }
 
+#if A90_WIFI_TEST_BOOT_MOUNT_DEBUGFS
+static int v1393_prepare_wifi_test_debugfs(void) {
+    struct stat st;
+
+    if (lstat("/sys/kernel/debug/pci-msm/case", &st) == 0) {
+        v1393_wifi_test_debugfs_mounted_by_pid1 = 0;
+        return 0;
+    }
+    if (mkdir("/sys/kernel/debug", 0755) < 0 && errno != EEXIST) {
+        return -errno;
+    }
+    if (mount("debugfs",
+              "/sys/kernel/debug",
+              "debugfs",
+              MS_NOSUID | MS_NODEV | MS_NOEXEC,
+              NULL) < 0) {
+        if (errno == EBUSY) {
+            v1393_wifi_test_debugfs_mounted_by_pid1 = 0;
+            return 0;
+        }
+        return -errno;
+    }
+    v1393_wifi_test_debugfs_mounted_by_pid1 = 1;
+    return 0;
+}
+
+static int v1393_cleanup_wifi_test_debugfs(void) {
+    if (!v1393_wifi_test_debugfs_mounted_by_pid1) {
+        return 0;
+    }
+    if (umount("/sys/kernel/debug") < 0) {
+        return -errno;
+    }
+    v1393_wifi_test_debugfs_mounted_by_pid1 = 0;
+    return 0;
+}
+#endif
+
 static void v1393_write_wifi_test_summary(pid_t helper_pid, long spawn_ms) {
     char wchan_path[64];
     char status_path[64];
@@ -455,6 +499,13 @@ static void v1393_write_wifi_test_summary(pid_t helper_pid, long spawn_ms) {
     dprintf(fd, "helper_wchan=%s\n", wchan);
     dprintf(fd, "helper_status=%s\n", status);
     dprintf(fd, "wlan0_present=%d\n", wlan0_present);
+    dprintf(fd, "debugfs_mount_requested=%d\n", A90_WIFI_TEST_BOOT_MOUNT_DEBUGFS);
+#if A90_WIFI_TEST_BOOT_MOUNT_DEBUGFS
+    dprintf(fd, "debugfs_mounted_by_pid1=%d\n", v1393_wifi_test_debugfs_mounted_by_pid1);
+    dprintf(fd,
+            "debugfs_pci_msm_case_present=%d\n",
+            lstat("/sys/kernel/debug/pci-msm/case", &st) == 0 ? 1 : 0);
+#endif
     if (lstat(A90_V1393_WIFI_TEST_LOG, &st) == 0) {
         dprintf(fd, "log_size=%lld\n", (long long)st.st_size);
     } else {
@@ -656,10 +707,17 @@ static void v1393_wifi_test_supervisor_child(void) {
 
     rc = v1393_spawn_wifi_test_boot_helper(&helper_pid);
     if (rc < 0) {
+#if A90_WIFI_TEST_BOOT_MOUNT_DEBUGFS
+        int debugfs_cleanup_rc = v1393_cleanup_wifi_test_debugfs();
+#endif
         (void)v1393_append_wifi_test_log("supervisor helper spawn failed rc=%d errno=%d error=%s\n",
                                         rc,
                                         -rc,
                                         strerror(-rc));
+#if A90_WIFI_TEST_BOOT_MOUNT_DEBUGFS
+        (void)v1393_append_wifi_test_log("supervisor debugfs cleanup after spawn failure rc=%d\n",
+                                        debugfs_cleanup_rc);
+#endif
         v1393_write_wifi_test_supervised_summary(helper_pid, spawn_ms, rc, status, 0);
         _exit(1);
     }
@@ -678,6 +736,13 @@ static void v1393_wifi_test_supervisor_child(void) {
                                     status,
                                     timed_out);
     v1393_write_wifi_test_supervised_summary(helper_pid, spawn_ms, rc, status, timed_out);
+#if A90_WIFI_TEST_BOOT_MOUNT_DEBUGFS
+    {
+        int debugfs_cleanup_rc = v1393_cleanup_wifi_test_debugfs();
+        (void)v1393_append_wifi_test_log("supervisor debugfs cleanup rc=%d\n",
+                                        debugfs_cleanup_rc);
+    }
+#endif
     _exit(rc == 0 ? 0 : 1);
 }
 
@@ -799,6 +864,29 @@ static void v1393_run_wifi_test_boot_once(void) {
         return;
     }
 
+#if A90_WIFI_TEST_BOOT_MOUNT_DEBUGFS
+    rc = v1393_prepare_wifi_test_debugfs();
+    (void)v1393_append_wifi_test_log("debugfs prepare rc=%d mounted_by_pid1=%d\n",
+                                    rc,
+                                    v1393_wifi_test_debugfs_mounted_by_pid1);
+    if (rc < 0) {
+        int saved_errno = -rc;
+
+        if (saved_errno <= 0) {
+            saved_errno = EIO;
+        }
+        a90_logf("wifi-v1393", "debugfs prepare failed rc=%d errno=%d error=%s",
+                 rc,
+                 saved_errno,
+                 strerror(saved_errno));
+        a90_timeline_record(rc, saved_errno, "wifi-v1393-test-boot", "debugfs prepare failed");
+        klogf("<6>%s: wifi test boot debugfs prepare failed rc=%d\n",
+              A90_WIFI_TEST_BOOT_KLOG_PREFIX,
+              rc);
+        return;
+    }
+#endif
+
 #if A90_WIFI_TEST_BOOT_SUPERVISE_HELPER
     rc = v1393_spawn_wifi_test_supervisor(&pid);
     if (rc < 0) {
@@ -819,6 +907,13 @@ static void v1393_run_wifi_test_boot_once(void) {
                                         rc,
                                         saved_errno,
                                         strerror(saved_errno));
+#if A90_WIFI_TEST_BOOT_MOUNT_DEBUGFS
+        {
+            int debugfs_cleanup_rc = v1393_cleanup_wifi_test_debugfs();
+            (void)v1393_append_wifi_test_log("debugfs cleanup after supervisor spawn failure rc=%d\n",
+                                            debugfs_cleanup_rc);
+        }
+#endif
         return;
     }
 

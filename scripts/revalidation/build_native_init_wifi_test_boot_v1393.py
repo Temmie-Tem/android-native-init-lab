@@ -105,6 +105,7 @@ def build_helper(args: argparse.Namespace) -> None:
 def build_init(args: argparse.Namespace) -> None:
     args.out_dir.mkdir(parents=True, exist_ok=True)
     supervisor_flags = ["-DA90_WIFI_TEST_BOOT_SUPERVISE_HELPER=1"] if args.wifi_test_supervise_helper else []
+    debugfs_flags = ["-DA90_WIFI_TEST_BOOT_MOUNT_DEBUGFS=1"] if args.wifi_test_mount_debugfs else []
     command = [
         args.cross_gcc,
         "-static",
@@ -125,6 +126,7 @@ def build_init(args: argparse.Namespace) -> None:
         f"-DA90_WIFI_TEST_BOOT_WATCH_SEC={args.wifi_test_watch_sec}",
         f"-DA90_WIFI_TEST_BOOT_SUPERVISOR_TIMEOUT_SEC={args.wifi_test_supervisor_timeout_sec}",
         *supervisor_flags,
+        *debugfs_flags,
         "-o",
         args.init_binary,
         *pid1_sources(),
@@ -245,6 +247,12 @@ def verify_markers(args: argparse.Namespace) -> None:
         "wifi-v1393-test-boot",
         "/bin/a90_android_execns_probe",
     ]
+    if args.wifi_test_mount_debugfs:
+        expected.extend([
+            "debugfs_mount_requested",
+            "debugfs prepare rc=",
+            "/sys/kernel/debug/pci-msm/case",
+        ])
     missing = [marker for marker in expected if marker not in strings]
     if missing:
         raise RuntimeError("missing boot image markers: " + ", ".join(missing))
@@ -280,6 +288,7 @@ def write_manifest(args: argparse.Namespace) -> None:
             "summary_watcher": True,
             "supervise_helper": args.wifi_test_supervise_helper,
             "supervisor_timeout_sec": args.wifi_test_supervisor_timeout_sec,
+            "mount_debugfs": args.wifi_test_mount_debugfs,
         },
         "init_binary": str(args.init_binary.relative_to(REPO_ROOT)),
         "init_sha256": sha256(args.init_binary),
@@ -332,6 +341,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--wifi-test-watch-sec", type=int, default=DEFAULT_WIFI_TEST_WATCH_SEC)
     parser.add_argument("--wifi-test-supervise-helper", action="store_true")
     parser.add_argument("--wifi-test-supervisor-timeout-sec", type=int, default=DEFAULT_WIFI_TEST_SUPERVISOR_TIMEOUT_SEC)
+    parser.add_argument("--wifi-test-mount-debugfs", action="store_true")
     parser.add_argument("--init-binary", type=Path)
     parser.add_argument("--helper-binary", type=Path)
     parser.add_argument("--ramdisk-dir", type=Path)

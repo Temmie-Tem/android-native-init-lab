@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V1403 host-only strict classifier BLOCKED (`v1403-test-boot-provider-trigger-no-downstream-wifi-progress-blocked`). V1403 reclassified the V1402 supervised test-boot evidence with strict Wi-Fi-progress criteria: rollback/handoff stayed valid, `subsys_modem` and `__subsystem_get: esoc0` were present, helper supervision showed `helper_exit_code=0`, but `rc1_progress=0`, `mhi_progress=0`, `wlfw_progress=0`, `bdf_progress=0`, `fw_ready_progress=0`, and `wlan0_present=0`. This closes the misleading diagnostic-pass gap: provider trigger alone is no longer counted as Wi-Fi progress. Next work must target the missing RC1/MHI/WLFW downstream transition, not scan/connect. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, PMIC/GPIO/GDSC direct write, blind eSoC notify/BOOT_DONE spoof, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
+- **Active research cycle**: V1404 source/build-only PASS (`v1404-wifi-test-boot-debugfs-source-build-pass`). V1404 stages a new rollbackable Wi-Fi test boot artifact at `tmp/wifi/v1404-wifi-test-boot-debugfs/boot_linux_v1404_wifi_test.img` (`A90 Linux init 0.9.72 (v1404-wifitest)`) with `A90_WIFI_TEST_BOOT_MOUNT_DEBUGFS=1`. PID1 now prepares `/sys/kernel/debug` before spawning the supervised helper so the existing corrected RC1 debugfs enumerate path can reach `/sys/kernel/debug/pci-msm/rc_sel` and `case`; the supervisor attempts cleanup after helper exit. V1404 is local-only; no flash/reboot/device command occurred. Next is V1405 independent artifact sanity, then a rollbackable V1406 handoff if sanity passes. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, PMIC/GPIO/GDSC direct write, blind eSoC notify/BOOT_DONE spoof, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -1649,3 +1649,17 @@ Update after V1354/V1355:
   DHCP/routes, external ping, PMIC/GPIO/GDSC write, or eSoC notify/`BOOT_DONE`
   spoof was performed in V1403. Next work should target why the supervised
   provider trigger creates no RC1/MHI/WLFW downstream marker.
+- V1404 source/build-only (`v1404-wifi-test-boot-debugfs-source-build-pass`)
+  adds an opt-in `A90_WIFI_TEST_BOOT_MOUNT_DEBUGFS=1` path to the rollbackable
+  Wi-Fi test boot and stages
+  `tmp/wifi/v1404-wifi-test-boot-debugfs/boot_linux_v1404_wifi_test.img`.
+  This artifact keeps the supervised helper but prepares `/sys/kernel/debug`
+  before spawn so the helper's existing corrected RC1 enumerate path can open
+  `/sys/kernel/debug/pci-msm/rc_sel` and `case`. Local sanity passed for static
+  init/helper, ramdisk entries, boot markers, v724 header/kernel parity,
+  manifest contract, and forbidden credential-like byte absence. Report:
+  `docs/reports/NATIVE_INIT_V1404_WIFI_TEST_BOOT_DEBUGFS_SOURCE_BUILD_2026-06-01.md`.
+  V1404 issued no device command, flash, reboot, credential handling,
+  Wi-Fi scan/connect, DHCP/routes, external ping, PMIC/GPIO/GDSC direct write,
+  or eSoC notify/`BOOT_DONE` spoof. V1405 should independently sanity-check
+  the exact artifact before any V1406 handoff.
