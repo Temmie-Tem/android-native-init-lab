@@ -2854,3 +2854,25 @@ first lower-Wi-Fi markers, so the next gate should compare stable signal
 deltas rather than assume that late L0 is the first enabling L0.  Next gate:
 V1556 host-only comparator between V1555 Android-good minimal trace and V1552
 native endpoint-silent evidence.
+
+## Latest native Wi-Fi state: V1556 (2026-06-02)
+
+V1556 adds
+`scripts/revalidation/native_wifi_v1555_vs_v1552_endpoint_signal_comparator_v1556.py`
+and passes host-only with
+`v1556-stable-gap-android-endpoint-signals-native-zero`.  It compares existing
+V1552 native endpoint-silent evidence with the V1555 Android-good minimal
+trace reference and performs no device command or mutation.
+
+The stable delta is now fixed.  Native V1552 already proves AP-side pcie1
+power/refclk/pipe-clock/PERST activity, but endpoint response is zero:
+GPIO104/pcie wake is absent, GPIO142/MDM2AP is absent, IRQ252 and IRQ290 deltas
+stay zero, and no L0 appears.  Android-good V1555, under the lower-impact
+observer, preserves lower Wi-Fi and shows the missing positive endpoint
+signals: GPIO135/AP2MDM activity, GPIO102/PERST activity, IRQ252
+`msm_pcie_wake`, IRQ290 `mdm status`, and GPIO142 high after mdm status.  The
+late retained RC1 L0/MHI excerpts in V1555 remain a timing caveat, so the next
+gate should act on stable signal presence/absence rather than claim first-L0
+ordering.  Next gate: V1557 should either run a native provider+minimal
+endpoint hold aligned to V1555's positive signals, or first capture a dmesg-only
+Android timing clarifier if first-L0 ordering is required.

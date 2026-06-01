@@ -8761,6 +8761,20 @@ Samsung bootloader
   so the next gate is V1556 host-only stable-signal comparator against V1552,
   not a direct first-L0 timestamp claim. Report:
   `docs/reports/NATIVE_INIT_V1555_ANDROID_GOOD_MINIMAL_TRACE_REFERENCE_2026-06-02.md`.
+- V1556 host-only endpoint signal comparator passes with
+  `v1556-stable-gap-android-endpoint-signals-native-zero`. It adds
+  `scripts/revalidation/native_wifi_v1555_vs_v1552_endpoint_signal_comparator_v1556.py`
+  and compares V1552 native endpoint-silent evidence with the V1555
+  Android-good minimal trace reference. The fixed delta: native V1552 has
+  AP-side pcie1 power/refclk/pipe-clock/PERST activity but zero endpoint
+  response (`GPIO104/pcie wake`, `GPIO142/MDM2AP`, IRQ252, IRQ290 all absent);
+  Android-good V1555 has the missing positive endpoint signals and reaches
+  BDF/FW-ready/`wlan0`. Timing caveat remains because retained V1555 RC1 L0/MHI
+  excerpts are late relative to first lower-Wi-Fi markers. Next gate: V1557
+  should either run a native provider+minimal endpoint hold aligned to V1555's
+  positive signals, or first capture a dmesg-only Android timing clarifier if
+  first-L0 ordering is required. Report:
+  `docs/reports/NATIVE_INIT_V1556_V1555_VS_V1552_ENDPOINT_SIGNAL_COMPARATOR_2026-06-02.md`.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
