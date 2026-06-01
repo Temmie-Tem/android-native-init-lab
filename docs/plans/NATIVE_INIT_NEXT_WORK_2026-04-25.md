@@ -7120,6 +7120,17 @@ Samsung bootloader
   read-only GPIO142/interrupt sampler around the RC1 window plus Android V852
   timing comparison. Keep scan/connect, credentials, DHCP/routes, and external
   ping blocked.
+- V1419 host/source-only design passes with
+  `v1419-endpoint-readiness-sampler-design-ready`. V1420 should build a new
+  rollbackable test boot that preserves the V1414 `250ms` delayed-RC1 path but
+  adds a read-only PID1 RC1-window sampler. Required snapshots:
+  pre-delay, pre-RC1, +50ms, +150ms, and +500ms after RC1 write. Required
+  read-only sources: `/proc/interrupts` for GPIO142/`mdm status`/PCIe/MHI,
+  debugfs/pinctrl excerpts for GPIO 102/104/135/142 when readable, and ordinary
+  read-only PCIe status if available. Do not write pci-msm `case=26` or any
+  other `case` in this sampler. Keep scan/connect, credentials, DHCP/routes,
+  external ping, PMIC/GPIO/GDSC direct write, eSoC notify/`BOOT_DONE`, global
+  PCI rescan, and platform bind/unbind blocked.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
