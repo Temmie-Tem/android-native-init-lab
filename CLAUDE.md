@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V1467 exact-provider PIL+GPIO tracepoint test boot source/build PASS (`v1467-wifi-test-boot-exact-provider-pil-gpio-tracepoint-source-build-pass`). V1467 adds an opt-in PID1 test-boot flag for `msm_pil_event:pil_notif` tracepoint sampling alongside existing GPIO tracepoints, builds rollbackable `A90 Linux init 0.9.87 (v1467-wifitest)`, and stages `tmp/wifi/v1467-wifi-test-boot-exact-provider-pil-gpio-tracepoint-sampler/boot_linux_v1467_wifi_test.img` (`sha256=e9fd747a483f9d5d22126ddda0f99c0a4b5b4b5343f20094d1d5d8cf3adb359e`). No device command or flash occurred. Next is V1468 local artifact sanity over the exact V1467 manifest before any rollbackable live handoff. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, Wi-Fi HAL start, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
+- **Active research cycle**: V1468 exact-provider PIL+GPIO tracepoint artifact sanity PASS (`v1468-wifi-test-boot-exact-provider-pil-gpio-tracepoint-artifact-sanity-pass`). V1468 verifies the exact V1467 manifest, static init/helper, ramdisk entries, marker contract, absent retry/legacy/case-writer markers, v724 header/kernel parity, private modes, and forbidden credential-like byte absence. The rollbackable V1467 test boot is now ready for V1469 live handoff only: flash `tmp/wifi/v1467-wifi-test-boot-exact-provider-pil-gpio-tracepoint-sampler/boot_linux_v1467_wifi_test.img`, expect `A90 Linux init 0.9.87 (v1467-wifitest)`, collect V1467 log/summary/watcher/window/dmesg/`wlan0`, then roll back to `stage3/boot_linux_v724.img` and verify selftest fail=0. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, Wi-Fi HAL start, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -1731,3 +1731,19 @@ Update after V1354/V1355:
   write. Report:
   `docs/reports/NATIVE_INIT_V1467_WIFI_TEST_BOOT_EXACT_PROVIDER_PIL_GPIO_TRACEPOINT_SOURCE_BUILD_2026-06-01.md`.
   V1468 should be local-only artifact sanity over the exact V1467 manifest.
+- V1468 local-only artifact sanity (`v1468-wifi-test-boot-exact-provider-pil-gpio-tracepoint-artifact-sanity-pass`)
+  verifies the exact V1467 manifest, boot image, static PID1/helper binaries,
+  ramdisk entries, exact-provider PIL+GPIO tracepoint marker contract, absent
+  retry/legacy/case-writer markers, v724 header/kernel parity, forbidden
+  credential-like byte absence, private modes, and the V1467 contract
+  (`provider_trigger_tracepoint_sampler=true`,
+  `provider_trigger_pil_tracepoint_sampler=true`,
+  `provider_trigger_thread_state=true`, `provider_trigger_exact_line=true`,
+  `provider_trigger_long_window=true`, `rc1_watcher_delay_ms=0`,
+  `rc1_retry_count=0`). V1469 may be a rollbackable live handoff for only the
+  V1467 image, expecting `A90 Linux init 0.9.87 (v1467-wifitest)`, collecting
+  the V1467 log, summary, RC1 watcher result, exact-provider PIL+GPIO
+  tracepoint window result, expanded dmesg markers, and `wlan0` state, then
+  rolling back to `stage3/boot_linux_v724.img` and verifying selftest fail=0.
+  Report:
+  `docs/reports/NATIVE_INIT_V1468_WIFI_TEST_BOOT_EXACT_PROVIDER_PIL_GPIO_TRACEPOINT_ARTIFACT_SANITY_2026-06-01.md`.
