@@ -2039,3 +2039,17 @@ Update after V1354/V1355:
   a bounded live handoff with this fallback after pre-staging the v724 rollback
   image on-device. Report:
   `docs/reports/NATIVE_INIT_V1491_NATIVE_DIRECT_ROLLBACK_FALLBACK_SOURCE_2026-06-01.md`.
+- V1492 rollbackable live handoff
+  (`v1492-test-boot-provider-trigger-no-downstream-wifi-progress-blocked`) adds
+  `scripts/revalidation/native_wifi_test_boot_handoff_v1492.py` and reruns the
+  V1488 timeout-safe auto-readiness test boot with
+  `--native-direct-rollback-fallback` enabled. The on-device rollback image at
+  `/cache/boot_linux_v724.img` matched the expected v724 sha256 before the run.
+  Handoff and rollback passed through the generic from-native route, and the
+  device returned to `A90 Linux init 0.9.68 (v724)` with selftest `fail=0`.
+  The test boot again reached modem/provider trigger but produced no PCIe
+  RC1/LTSSM, MHI, WLFW, ICNSS/QMI, BDF, FW-ready, or `wlan0`; strict Wi-Fi
+  progress remains blocked. Next gate: do not materialize credentials or
+  attempt scan/connect yet; add a narrower rollbackable test boot that captures
+  RC1/MHI prerequisites during the same boot-time auto path. Report:
+  `docs/reports/NATIVE_INIT_V1492_WIFI_AUTO_READINESS_NATIVE_ROLLBACK_HANDOFF_2026-06-01.md`.

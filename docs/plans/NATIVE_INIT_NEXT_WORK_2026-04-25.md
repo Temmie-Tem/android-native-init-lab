@@ -7957,6 +7957,20 @@ Samsung bootloader
   live handoff, but only after the rollback image is pre-staged on-device with
   the expected v724 sha256. Report:
   `docs/reports/NATIVE_INIT_V1491_NATIVE_DIRECT_ROLLBACK_FALLBACK_SOURCE_2026-06-01.md`.
+- V1492 rollbackable live handoff completed with
+  `v1492-test-boot-provider-trigger-no-downstream-wifi-progress-blocked`.
+  Added `scripts/revalidation/native_wifi_test_boot_handoff_v1492.py` so the
+  V1488 timeout-safe Wi-Fi test boot can be rerun with
+  `--native-direct-rollback-fallback` enabled. The `/cache/boot_linux_v724.img`
+  rollback image was present with the expected sha256 before live execution.
+  Handoff and rollback passed through the generic from-native route; post-run
+  validation confirmed v724 and selftest `fail=0`. The test boot still stopped
+  at `provider-trigger-no-downstream`: no PCIe RC1/LTSSM, MHI, WLFW,
+  ICNSS/QMI, BDF, FW-ready, or `wlan0` marker appeared. Next gate: keep
+  credentials, scan/connect, DHCP/routes, and external ping blocked; build a
+  narrower rollbackable test boot that preserves the auto path but adds focused
+  RC1/MHI prerequisite capture around the boot-time provider trigger. Report:
+  `docs/reports/NATIVE_INIT_V1492_WIFI_AUTO_READINESS_NATIVE_ROLLBACK_HANDOFF_2026-06-01.md`.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
