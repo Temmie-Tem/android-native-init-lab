@@ -9182,3 +9182,26 @@ Samsung bootloader
   `docs/reports/NATIVE_INIT_V1591_LATE_PER_PROXY_LOWER_MARKER_SOURCE_BUILD_2026-06-02.md`
   and
   `docs/reports/NATIVE_INIT_V1591_LATE_PER_PROXY_LOWER_MARKER_ARTIFACT_SANITY_2026-06-02.md`.
+
+- V1592 rollbackable live handoff and strict reclassification are complete.
+  The V1591 image booted, evidence was collected, rollback from native restored
+  v724, and post-rollback selftest remained `fail=0`.  The initial live
+  handoff classified as downstream progress because the old classifier treated
+  any `icnss_qmi` line as WLFW progress.  V1592 hardens that classifier:
+  `icnss_qmi: Fail to send Shutdown req` is now shutdown/error evidence, while
+  only `icnss_qmi: QMI Server Connected` counts as ICNSS QMI progress.
+
+  With strict reclassification, V1592 is blocked as
+  `v1592-test-boot-no-downstream-wifi-progress-blocked`.  Evidence shows
+  `modem_trigger=True` but `provider_trigger=False`, no RC1/LTSSM, MHI, WLFW,
+  BDF, FW-ready, or `wlan0`; helper mode is
+  `guarded-pm-proxy-contract-late-per-proxy-lower-marker`; direct
+  `/dev/subsys_esoc0` triggering is disabled; `mdm_helper` holds `/dev/esoc-0`;
+  `pm_proxy` exits `1`; `per_mgr` exits `0`; and `pm_full_contract_seen=0`.
+  Next gate: host-only/source-only classification of the `pm_proxy` exit path
+  and `per_mgr` lifetime against V1238/V1303 positive late-`per_proxy`
+  evidence before any new lower-layer live mutation.  Still no credentials,
+  scan/connect, DHCP/routes, external ping, PMIC/GPIO/GDSC direct writes, blind
+  eSoC notify/`BOOT_DONE`, global PCI rescan, platform bind/unbind, or
+  unbounded boot-image/partition writes.  Report:
+  `docs/reports/NATIVE_INIT_V1592_LATE_PER_PROXY_LOWER_MARKER_HANDOFF_2026-06-02.md`.

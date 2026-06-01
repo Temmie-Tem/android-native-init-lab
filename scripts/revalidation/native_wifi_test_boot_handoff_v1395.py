@@ -188,6 +188,10 @@ def matching_markers(text: str, markers: tuple[str, ...]) -> list[str]:
     return [marker for marker in markers if marker in text]
 
 
+def has_icnss_qmi_connected(text: str) -> bool:
+    return "icnss_qmi: QMI Server Connected" in text
+
+
 def first_state_line(text: str) -> str:
     for raw_line in text.splitlines():
         line = raw_line.strip()
@@ -242,7 +246,10 @@ def classify_wifi_progress(evidence_dir: Path) -> dict[str, Any]:
             "MHI control",
         ),
     )
-    wlfw_markers = matching_markers(dmesg, ("wlfw", "WLFW", "icnss_qmi"))
+    wlfw_markers = matching_markers(dmesg, ("wlfw", "WLFW"))
+    icnss_qmi_connected = has_icnss_qmi_connected(dmesg)
+    if icnss_qmi_connected:
+        wlfw_markers.append("icnss_qmi: QMI Server Connected")
     bdf_markers = matching_markers(dmesg, ("BDF", "bdwlan", "regdb"))
     fw_ready_markers = matching_markers(dmesg, ("FW ready", "fw_ready", "FW_READY"))
 
@@ -278,6 +285,8 @@ def classify_wifi_progress(evidence_dir: Path) -> dict[str, Any]:
         final_decision = "rc1-or-mhi-progress-only"
     elif provider_trigger:
         final_decision = "provider-trigger-no-downstream"
+    elif modem_trigger:
+        final_decision = "modem-trigger-no-downstream"
     else:
         final_decision = "no-provider-no-downstream"
 
@@ -294,6 +303,7 @@ def classify_wifi_progress(evidence_dir: Path) -> dict[str, Any]:
         "mhi_markers": mhi_markers,
         "wlfw_progress": wlfw_progress,
         "wlfw_markers": wlfw_markers,
+        "icnss_qmi_connected": icnss_qmi_connected,
         "bdf_progress": bdf_progress,
         "bdf_markers": bdf_markers,
         "fw_ready_progress": fw_ready_progress,
@@ -312,6 +322,7 @@ def classify_wifi_progress(evidence_dir: Path) -> dict[str, Any]:
         "helper_result_file_seen": "A90_EXECNS_RESULT_FILE_BEGIN" in helper_result,
         "helper_result_contract_seen": "android_wifi_service_window.begin=1" in helper_result,
         "helper_result_mode": helper_result_fields.get("android_wifi_service_window.mode"),
+        "helper_result_late_per_proxy_only": helper_result_fields.get("android_wifi_service_window.late_per_proxy_only"),
         "helper_result_subsys_open_attempted": helper_result_fields.get("android_wifi_service_window.subsys_esoc0_open_attempted"),
         "helper_result_subsys_trigger_started": helper_result_fields.get("android_wifi_service_window.subsys_trigger_started"),
         "helper_result_subsys_trigger_gate_open": helper_result_fields.get("android_wifi_service_window.subsys_trigger_gate_open"),
@@ -320,6 +331,8 @@ def classify_wifi_progress(evidence_dir: Path) -> dict[str, Any]:
         "helper_result_pm_proxy_helper_subsys_modem_fd_count": helper_result_fields.get("android_wifi_service_window.pm_proxy_helper_subsys_modem_fd_count"),
         "helper_result_per_mgr_subsys_modem_fd_count": helper_result_fields.get("android_wifi_service_window.per_mgr_subsys_modem_fd_count"),
         "helper_result_pm_full_contract_seen": helper_result_fields.get("android_wifi_service_window.pm_full_contract_seen"),
+        "helper_result_child_per_mgr_exit_code": helper_result_fields.get("android_wifi_service_window.child.per_mgr.exit_code"),
+        "helper_result_child_pm_proxy_exit_code": helper_result_fields.get("android_wifi_service_window.child.pm_proxy.exit_code"),
         "helper_result_final_result": helper_result_fields.get("android_wifi_service_window.result"),
         "helper_result_final_reason": helper_result_fields.get("android_wifi_service_window.reason"),
         "debugfs_mount_requested": summary_fields.get("debugfs_mount_requested"),
@@ -706,6 +719,7 @@ def render_report(result: dict[str, Any]) -> str:
             f"- `rc1_link_failed`: `{progress.get('rc1_link_failed')}`",
             f"- `mhi_progress`: `{progress['mhi_progress']}`",
             f"- `wlfw_progress`: `{progress['wlfw_progress']}`",
+            f"- `icnss_qmi_connected`: `{progress.get('icnss_qmi_connected')}`",
             f"- `bdf_progress`: `{progress['bdf_progress']}`",
             f"- `fw_ready_progress`: `{progress['fw_ready_progress']}`",
             f"- `wlan0_present`: `{progress['wlan0_present']}`",
@@ -716,6 +730,7 @@ def render_report(result: dict[str, Any]) -> str:
             f"- `helper_result_file_seen`: `{progress.get('helper_result_file_seen')}`",
             f"- `helper_result_contract_seen`: `{progress.get('helper_result_contract_seen')}`",
             f"- `helper_result_size`: `{progress.get('helper_result_size')}`",
+            f"- `helper_result_late_per_proxy_only`: `{progress.get('helper_result_late_per_proxy_only')}`",
             f"- `helper_result_subsys_open_attempted`: `{progress.get('helper_result_subsys_open_attempted')}`",
             f"- `helper_result_subsys_trigger_started`: `{progress.get('helper_result_subsys_trigger_started')}`",
             f"- `helper_result_subsys_trigger_gate_open`: `{progress.get('helper_result_subsys_trigger_gate_open')}`",
@@ -724,6 +739,8 @@ def render_report(result: dict[str, Any]) -> str:
             f"- `helper_result_pm_proxy_helper_subsys_modem_fd_count`: `{progress.get('helper_result_pm_proxy_helper_subsys_modem_fd_count')}`",
             f"- `helper_result_per_mgr_subsys_modem_fd_count`: `{progress.get('helper_result_per_mgr_subsys_modem_fd_count')}`",
             f"- `helper_result_pm_full_contract_seen`: `{progress.get('helper_result_pm_full_contract_seen')}`",
+            f"- `helper_result_child_per_mgr_exit_code`: `{progress.get('helper_result_child_per_mgr_exit_code')}`",
+            f"- `helper_result_child_pm_proxy_exit_code`: `{progress.get('helper_result_child_pm_proxy_exit_code')}`",
             f"- `helper_result_final_result`: `{progress.get('helper_result_final_result')}`",
             f"- `helper_result_final_reason`: `{progress.get('helper_result_final_reason')}`",
             f"- `pid1_rc1_watcher_requested`: `{progress.get('pid1_rc1_watcher_requested')}`",

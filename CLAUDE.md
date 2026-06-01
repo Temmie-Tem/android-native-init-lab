@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V1591 source/build + artifact sanity PASS. Helper `a90_android_execns_probe v294` adds Android service-window late-`per_proxy` support: `pm-proxy` is started after the mdm_helper/CNSS window, the direct scoped `/dev/subsys_esoc0` trigger child is disabled, and compact lower-marker sampling remains enabled. Built rollbackable test boot `A90 Linux init 0.9.102 (v1591-late-per-proxy-lower-marker)` at `tmp/wifi/v1591-late-per-proxy-lower-marker-test-boot/boot_linux_v1591_wifi_test.img` with boot sha256 `ef917e0f6dc65530b93ecd808598098c8b8cf94897cc5b518eca026829823466`; artifact sanity passed as `v1591-late-per-proxy-lower-marker-artifact-sanity-pass`. Next gate: V1592 rollbackable live handoff of only this image, collect helper result/lower markers/dmesg/`wlan0`, then roll back to v724 and verify selftest `fail=0`. Keep credentials, scan/connect, DHCP/routes, external ping, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, or unbounded boot image/partition write blocked.
+- **Active research cycle**: V1592 rollbackable live handoff + strict reclassification complete. The V1591 late-`per_proxy` test image flashed, booted, collected evidence, and rolled back to v724 successfully, but strict Wi-Fi progress is still blocked: `provider_trigger=False`, `modem_trigger=True`, no RC1/MHI/WLFW/BDF/FW-ready/`wlan0`, `pm_proxy` exits `1`, and `per_mgr` exits `0` before a PM-service-owned `/dev/subsys_esoc0` powerup is observed. The handoff classifier was hardened so `icnss_qmi: Fail to send Shutdown req` is not counted as WLFW progress; only `icnss_qmi: QMI Server Connected` counts. Next gate: classify why the late `pm_proxy` child exits `1` and why `per_mgr` lifetime is insufficient in the full service-window route before any new lower-layer mutation. Keep credentials, scan/connect, DHCP/routes, external ping, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, or unbounded boot image/partition write blocked.
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -3482,3 +3482,42 @@ selftest `fail=0`.  Reports:
 `docs/reports/NATIVE_INIT_V1591_LATE_PER_PROXY_LOWER_MARKER_SOURCE_BUILD_2026-06-02.md`
 and
 `docs/reports/NATIVE_INIT_V1591_LATE_PER_PROXY_LOWER_MARKER_ARTIFACT_SANITY_2026-06-02.md`.
+
+## Latest native Wi-Fi state: V1592 (2026-06-02)
+
+V1592 adds `scripts/revalidation/native_wifi_test_boot_handoff_v1592.py` and
+runs the rollbackable live handoff for the V1591 late-`per_proxy` image.  The
+live handoff itself succeeds: the test image boots as
+`A90 Linux init 0.9.102 (v1591-late-per-proxy-lower-marker)`, evidence is
+collected from `/cache/native-init-wifi-test-boot-v1591.*`, rollback from
+native succeeds, post-rollback version is v724, and selftest remains
+`fail=0`.
+
+Strict reclassification hardens the old handoff classifier: an
+`icnss_qmi: Fail to send Shutdown req` line is shutdown/error evidence, not
+WLFW progress.  Only `icnss_qmi: QMI Server Connected` is counted as an ICNSS
+QMI connection marker.  With that correction, V1592 is blocked as
+`v1592-test-boot-no-downstream-wifi-progress-blocked` even though
+handoff/rollback passed.
+
+V1592 evidence summary:
+
+- `modem_trigger=True`, but `provider_trigger=False`.
+- No RC1/LTSSM, MHI, WLFW, BDF, FW-ready, or `wlan0` marker is present.
+- Helper mode is `guarded-pm-proxy-contract-late-per-proxy-lower-marker`.
+- `late_per_proxy_only=1`, direct `/dev/subsys_esoc0` trigger is disabled, and
+  `mdm_helper` holds `/dev/esoc-0`.
+- `pm_proxy` exits `1`; `per_mgr` exits `0`; `pm_full_contract_seen=0`.
+- Helper result is `subsys-trigger-start-failed` with reason
+  `service-window-gate-opened-but-trigger-child-did-not-start`.
+
+Next work: classify the late `pm_proxy` exit path and `per_mgr` lifetime in
+the full service-window route.  The next useful cycle should be host-only or
+source/build-only first: parse V1592 helper output for `pm_proxy`/`per_mgr`
+failure context, compare with V1238/V1303 positive late-`per_proxy` evidence,
+and only then design a bounded live gate that preserves the PM-service-owned
+`/dev/subsys_esoc0` route.  Do not proceed to credentials, scan/connect,
+DHCP/routes, external ping, PMIC/GPIO/GDSC direct writes, blind eSoC
+notify/`BOOT_DONE`, global PCI rescan, platform bind/unbind, or unbounded
+boot-image/partition writes.  Report:
+`docs/reports/NATIVE_INIT_V1592_LATE_PER_PROXY_LOWER_MARKER_HANDOFF_2026-06-02.md`.
