@@ -79,12 +79,19 @@ static void selftest_boot_draw_frame(void *ctx) {
 #ifndef A90_WIFI_TEST_BOOT_RC1_WATCHER_RESULT
 #define A90_WIFI_TEST_BOOT_RC1_WATCHER_RESULT "/cache/native-init-wifi-test-boot-v1393-rc1-watcher.result"
 #endif
+#ifndef A90_WIFI_TEST_BOOT_RC1_WINDOW_SAMPLER
+#define A90_WIFI_TEST_BOOT_RC1_WINDOW_SAMPLER 0
+#endif
+#ifndef A90_WIFI_TEST_BOOT_RC1_WINDOW_RESULT
+#define A90_WIFI_TEST_BOOT_RC1_WINDOW_RESULT "/cache/native-init-wifi-test-boot-v1393-rc1-window.result"
+#endif
 #define A90_V1393_WIFI_TEST_DISABLE A90_WIFI_TEST_BOOT_DISABLE
 #define A90_V1393_WIFI_TEST_LOG A90_WIFI_TEST_BOOT_LOG
 #define A90_V1393_WIFI_TEST_SUMMARY A90_WIFI_TEST_BOOT_SUMMARY
 #define A90_V1393_WIFI_TEST_PID A90_WIFI_TEST_BOOT_PID
 #define A90_V1393_WIFI_TEST_WATCHER_PID A90_WIFI_TEST_BOOT_WATCHER_PID
 #define A90_V1393_WIFI_TEST_RC1_WATCHER_RESULT A90_WIFI_TEST_BOOT_RC1_WATCHER_RESULT
+#define A90_V1393_WIFI_TEST_RC1_WINDOW_RESULT A90_WIFI_TEST_BOOT_RC1_WINDOW_RESULT
 #define A90_V1393_WIFI_TEST_HELPER "/bin/a90_android_execns_probe"
 #define A90_V1393_WIFI_TEST_TIMEOUT_SEC "30"
 #define A90_V1393_WIFI_TEST_MODE "wifi-companion-post-pm-mdm-helper-esoc-observer"
@@ -500,6 +507,238 @@ static bool v1393_pid1_rc1_trigger_line(const char *line) {
            strstr(line, "mdm_subsys_powerup") != NULL;
 }
 
+#if A90_WIFI_TEST_BOOT_RC1_WINDOW_SAMPLER
+static bool v1393_rc1_window_line_matches(const char *line, const char *const *needles) {
+    size_t index;
+
+    if (line == NULL || needles == NULL) {
+        return false;
+    }
+    for (index = 0; needles[index] != NULL; index++) {
+        if (strstr(line, needles[index]) != NULL) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static void v1393_rc1_window_append_matching_lines(int out_fd,
+                                                   const char *sample,
+                                                   const char *source_name,
+                                                   const char *path,
+                                                   const char *const *needles) {
+    int in_fd;
+    char chunk[512];
+    char line[512];
+    size_t line_len = 0;
+    int matches = 0;
+    int truncated = 0;
+
+    in_fd = open(path, O_RDONLY | O_CLOEXEC);
+    if (in_fd < 0) {
+        dprintf(out_fd,
+                "sample=%s source=%s path=%s unreadable_errno=%d\n",
+                sample,
+                source_name,
+                path,
+                errno != 0 ? errno : EIO);
+        return;
+    }
+
+    for (;;) {
+        ssize_t rd = read(in_fd, chunk, sizeof(chunk));
+        ssize_t offset;
+
+        if (rd == 0) {
+            break;
+        }
+        if (rd < 0) {
+            dprintf(out_fd,
+                    "sample=%s source=%s path=%s read_errno=%d matches=%d truncated=%d\n",
+                    sample,
+                    source_name,
+                    path,
+                    errno != 0 ? errno : EIO,
+                    matches,
+                    truncated);
+            close(in_fd);
+            return;
+        }
+
+        for (offset = 0; offset < rd; offset++) {
+            char ch = chunk[offset];
+
+            if (ch == '\n' || line_len + 1 >= sizeof(line)) {
+                line[line_len] = '\0';
+                if (v1393_rc1_window_line_matches(line, needles)) {
+                    flatten_inline_text(line);
+                    dprintf(out_fd,
+                            "sample=%s source=%s match_%02d=%s\n",
+                            sample,
+                            source_name,
+                            matches,
+                            line);
+                    matches++;
+                    if (matches >= 16) {
+                        close(in_fd);
+                        dprintf(out_fd,
+                                "sample=%s source=%s matches=%d truncated=1\n",
+                                sample,
+                                source_name,
+                                matches);
+                        return;
+                    }
+                }
+                if (line_len + 1 >= sizeof(line) && ch != '\n') {
+                    truncated = 1;
+                }
+                line_len = 0;
+                continue;
+            }
+            line[line_len++] = ch;
+        }
+    }
+
+    if (line_len > 0) {
+        line[line_len] = '\0';
+        if (v1393_rc1_window_line_matches(line, needles)) {
+            flatten_inline_text(line);
+            dprintf(out_fd,
+                    "sample=%s source=%s match_%02d=%s\n",
+                    sample,
+                    source_name,
+                    matches,
+                    line);
+            matches++;
+        }
+    }
+    dprintf(out_fd,
+            "sample=%s source=%s matches=%d truncated=%d\n",
+            sample,
+            source_name,
+            matches,
+            truncated);
+    close(in_fd);
+}
+
+static void v1393_rc1_window_sample(const char *sample, long start_ms, long detect_ms, long child_start_ms) {
+    static const char *const interrupts_needles[] = {
+        "mdm status",
+        "gpio",
+        "142",
+        "pcie",
+        "PCIe",
+        "mhi",
+        "MHI",
+        NULL,
+    };
+    static const char *const gpio_needles[] = {
+        "gpio102",
+        "gpio104",
+        "gpio135",
+        "gpio142",
+        "gpio-102",
+        "gpio-104",
+        "gpio-135",
+        "gpio-142",
+        "GPIO_102",
+        "GPIO_104",
+        "GPIO_135",
+        "GPIO_142",
+        " 102",
+        " 104",
+        " 135",
+        " 142",
+        NULL,
+    };
+    int out_fd;
+    long now_ms = monotonic_millis();
+
+    out_fd = open(A90_V1393_WIFI_TEST_RC1_WINDOW_RESULT,
+                  O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC | O_NOFOLLOW,
+                  0600);
+    if (out_fd < 0) {
+        return;
+    }
+    dprintf(out_fd,
+            "rc1_window_sample label=%s elapsed_ms=%ld detect_elapsed_ms=%ld child_elapsed_ms=%ld\n",
+            sample,
+            now_ms >= start_ms ? now_ms - start_ms : -1,
+            detect_ms >= start_ms ? detect_ms - start_ms : -1,
+            now_ms >= child_start_ms ? now_ms - child_start_ms : -1);
+    v1393_rc1_window_append_matching_lines(out_fd,
+                                           sample,
+                                           "interrupts",
+                                           "/proc/interrupts",
+                                           interrupts_needles);
+    v1393_rc1_window_append_matching_lines(out_fd,
+                                           sample,
+                                           "debug_gpio",
+                                           "/sys/kernel/debug/gpio",
+                                           gpio_needles);
+    v1393_rc1_window_append_matching_lines(out_fd,
+                                           sample,
+                                           "pinctrl_pins",
+                                           "/sys/kernel/debug/pinctrl/3000000.pinctrl/pins",
+                                           gpio_needles);
+    v1393_rc1_window_append_matching_lines(out_fd,
+                                           sample,
+                                           "pinctrl_pinmux",
+                                           "/sys/kernel/debug/pinctrl/3000000.pinctrl/pinmux-pins",
+                                           gpio_needles);
+    v1393_rc1_window_append_matching_lines(out_fd,
+                                           sample,
+                                           "pinctrl_pinconf",
+                                           "/sys/kernel/debug/pinctrl/3000000.pinctrl/pinconf-pins",
+                                           gpio_needles);
+    close(out_fd);
+}
+
+static void v1393_rc1_window_prepare(long start_ms, long detect_ms, const char *line) {
+    char header[512];
+
+    snprintf(header,
+             sizeof(header),
+             "state=armed sampler=read-only-v1420 detect_elapsed_ms=%ld delay_ms=%d line=%.*s\n",
+             detect_ms >= start_ms ? detect_ms - start_ms : -1,
+             A90_WIFI_TEST_BOOT_RC1_WATCHER_DELAY_MS,
+             160,
+             line != NULL ? line : "");
+    flatten_inline_text(header);
+    strncat(header, "\n", sizeof(header) - strlen(header) - 1);
+    (void)v724_write_private_file(A90_V1393_WIFI_TEST_RC1_WINDOW_RESULT, header);
+}
+
+static void v1393_rc1_window_sampler_child(long start_ms, long detect_ms) {
+    long child_start_ms = monotonic_millis();
+
+    v1393_rc1_window_sample("pre_rc1", start_ms, detect_ms, child_start_ms);
+    usleep(50000);
+    v1393_rc1_window_sample("post_rc1_50ms", start_ms, detect_ms, child_start_ms);
+    usleep(100000);
+    v1393_rc1_window_sample("post_rc1_150ms", start_ms, detect_ms, child_start_ms);
+    usleep(350000);
+    v1393_rc1_window_sample("post_rc1_500ms", start_ms, detect_ms, child_start_ms);
+    _exit(0);
+}
+
+static int v1393_spawn_rc1_window_sampler(long start_ms, long detect_ms) {
+    pid_t pid = fork();
+
+    if (pid < 0) {
+        return -errno;
+    }
+    if (pid == 0) {
+        signal(SIGHUP, SIG_IGN);
+        signal(SIGPIPE, SIG_IGN);
+        setsid();
+        v1393_rc1_window_sampler_child(start_ms, detect_ms);
+        _exit(1);
+    }
+    return 0;
+}
+#endif
+
 static void v1393_pid1_rc1_watcher_child(void) {
     long start_ms = monotonic_millis();
     long deadline_ms = start_ms + (long)A90_WIFI_TEST_BOOT_RC1_WATCHER_TIMEOUT_SEC * 1000L;
@@ -564,9 +803,16 @@ static void v1393_pid1_rc1_watcher_child(void) {
                 long write_ms;
                 int saved_errno;
 
+#if A90_WIFI_TEST_BOOT_RC1_WINDOW_SAMPLER
+                v1393_rc1_window_prepare(start_ms, detect_ms, line);
+                v1393_rc1_window_sample("pre_delay", start_ms, detect_ms, detect_ms);
+#endif
                 if (A90_WIFI_TEST_BOOT_RC1_WATCHER_DELAY_MS > 0) {
                     usleep((useconds_t)A90_WIFI_TEST_BOOT_RC1_WATCHER_DELAY_MS * 1000U);
                 }
+#if A90_WIFI_TEST_BOOT_RC1_WINDOW_SAMPLER
+                (void)v1393_spawn_rc1_window_sampler(start_ms, detect_ms);
+#endif
                 write_rc = v1393_pid1_rc1_write_corrected_enumerate();
                 saved_errno = write_rc < 0 ? -write_rc : 0;
                 write_ms = monotonic_millis();
@@ -706,6 +952,21 @@ static void v1393_write_wifi_test_summary(pid_t helper_pid, long spawn_ms) {
         flatten_inline_text(watcher_result);
         dprintf(fd, "pid1_rc1_watcher_result=%s\n", watcher_result);
         dprintf(fd, "pid1_rc1_watcher_result_path=%s\n", A90_V1393_WIFI_TEST_RC1_WATCHER_RESULT);
+    }
+#endif
+    dprintf(fd, "rc1_window_sampler_requested=%d\n", A90_WIFI_TEST_BOOT_RC1_WINDOW_SAMPLER);
+#if A90_WIFI_TEST_BOOT_RC1_WINDOW_SAMPLER
+    {
+        char window_result[384] = "missing";
+
+        if (read_trimmed_text_file(A90_V1393_WIFI_TEST_RC1_WINDOW_RESULT,
+                                   window_result,
+                                   sizeof(window_result)) < 0) {
+            snprintf(window_result, sizeof(window_result), "errno=%d", errno != 0 ? errno : EIO);
+        }
+        flatten_inline_text(window_result);
+        dprintf(fd, "rc1_window_result_head=%s\n", window_result);
+        dprintf(fd, "rc1_window_result_path=%s\n", A90_V1393_WIFI_TEST_RC1_WINDOW_RESULT);
     }
 #endif
     if (lstat(A90_V1393_WIFI_TEST_LOG, &st) == 0) {

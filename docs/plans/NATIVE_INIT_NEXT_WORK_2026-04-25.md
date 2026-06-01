@@ -7131,6 +7131,16 @@ Samsung bootloader
   other `case` in this sampler. Keep scan/connect, credentials, DHCP/routes,
   external ping, PMIC/GPIO/GDSC direct write, eSoC notify/`BOOT_DONE`, global
   PCI rescan, and platform bind/unbind blocked.
+- V1420 source/build-only passes with
+  `v1420-wifi-test-boot-rc1-window-sampler-source-build-pass`. The generated
+  artifact is
+  `tmp/wifi/v1420-wifi-test-boot-rc1-window-sampler/boot_linux_v1420_wifi_test.img`
+  and carries native init `0.9.76 (v1420-wifitest)`. The artifact preserves the
+  V1414 `250ms` delayed corrected-RC1 path and adds a read-only PID1
+  RC1-window sampler with private output at
+  `/cache/native-init-wifi-test-boot-v1420-rc1-window.result`. V1421 should
+  perform host-only artifact sanity against this exact manifest and marker
+  contract. V1422 may run a rollbackable live handoff only after V1421 passes.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still

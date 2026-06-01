@@ -116,6 +116,14 @@ def build_init(args: argparse.Namespace) -> None:
         if args.wifi_test_pid1_rc1_watcher
         else []
     )
+    rc1_window_flags = (
+        [
+            "-DA90_WIFI_TEST_BOOT_RC1_WINDOW_SAMPLER=1",
+            shell_define("A90_WIFI_TEST_BOOT_RC1_WINDOW_RESULT", args.wifi_test_rc1_window_result),
+        ]
+        if args.wifi_test_rc1_window_sampler
+        else []
+    )
     command = [
         args.cross_gcc,
         "-static",
@@ -138,6 +146,7 @@ def build_init(args: argparse.Namespace) -> None:
         *supervisor_flags,
         *debugfs_flags,
         *rc1_watcher_flags,
+        *rc1_window_flags,
         "-o",
         args.init_binary,
         *pid1_sources(),
@@ -274,6 +283,16 @@ def verify_markers(args: argparse.Namespace) -> None:
             "/proc/kmsg",
             "/sys/kernel/debug/pci-msm/rc_sel",
         ])
+    if args.wifi_test_rc1_window_sampler:
+        expected.extend([
+            "rc1_window_sampler_requested",
+            "rc1_window_sample label=%s",
+            "read-only-v1420",
+            args.wifi_test_rc1_window_result,
+            "/proc/interrupts",
+            "/sys/kernel/debug/gpio",
+            "/sys/kernel/debug/pinctrl/3000000.pinctrl/pinmux-pins",
+        ])
     missing = [marker for marker in expected if marker not in strings]
     if missing:
         raise RuntimeError("missing boot image markers: " + ", ".join(missing))
@@ -314,6 +333,8 @@ def write_manifest(args: argparse.Namespace) -> None:
             "rc1_watcher_timeout_sec": args.wifi_test_rc1_watcher_timeout_sec,
             "rc1_watcher_delay_ms": args.wifi_test_rc1_watcher_delay_ms,
             "rc1_watcher_result": args.wifi_test_rc1_watcher_result,
+            "rc1_window_sampler": args.wifi_test_rc1_window_sampler,
+            "rc1_window_result": args.wifi_test_rc1_window_result,
         },
         "init_binary": str(args.init_binary.relative_to(REPO_ROOT)),
         "init_sha256": sha256(args.init_binary),
@@ -373,6 +394,11 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--wifi-test-rc1-watcher-result",
         default="/cache/native-init-wifi-test-boot-v1393-rc1-watcher.result",
+    )
+    parser.add_argument("--wifi-test-rc1-window-sampler", action="store_true")
+    parser.add_argument(
+        "--wifi-test-rc1-window-result",
+        default="/cache/native-init-wifi-test-boot-v1393-rc1-window.result",
     )
     parser.add_argument("--init-binary", type=Path)
     parser.add_argument("--helper-binary", type=Path)
