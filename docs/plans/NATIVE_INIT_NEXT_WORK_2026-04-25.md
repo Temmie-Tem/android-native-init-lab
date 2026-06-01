@@ -7109,6 +7109,17 @@ Samsung bootloader
   including endpoint reset/release and `PCIE20_PARF_INT` markers before changing
   timing or trigger design. Keep scan/connect, credentials, DHCP/routes, and
   external ping blocked.
+- V1418 rollbackable live handoff passes for procedure and downstream RC1
+  evidence with expanded dmesg capture. The V1414 test boot now proves the
+  corrected RC1 path executes assert reset, `PCIE20_PARF_INT_ALL_MASK`, PHY
+  ready, release reset, and LTSSM. Timing is still close to Android:
+  `esoc0_to_assert` about `0.277s` vs Android about `0.255s`. RC1 still fails
+  in `LTSSM_POLL_COMPLIANCE` before L0, with no MHI/WLFW/BDF/`wlan0`. Rollback
+  to v724 and selftest fail=0 were verified. V1419 should be host/source-only:
+  design a below-connect endpoint-readiness probe after PERST release, likely a
+  read-only GPIO142/interrupt sampler around the RC1 window plus Android V852
+  timing comparison. Keep scan/connect, credentials, DHCP/routes, and external
+  ping blocked.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
