@@ -103,6 +103,12 @@ static void selftest_boot_draw_frame(void *ctx) {
 #ifndef A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_MICRO_ENDPOINT_SAMPLER
 #define A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_MICRO_ENDPOINT_SAMPLER 0
 #endif
+#ifndef A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_EXACT_LINE
+#define A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_EXACT_LINE 0
+#endif
+#ifndef A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_LONG_WINDOW
+#define A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_LONG_WINDOW 0
+#endif
 #ifndef A90_WIFI_TEST_BOOT_RC1_RETRY_COUNT
 #define A90_WIFI_TEST_BOOT_RC1_RETRY_COUNT 0
 #endif
@@ -116,7 +122,9 @@ static void selftest_boot_draw_frame(void *ctx) {
 #define A90_V1393_WIFI_TEST_WATCHER_PID A90_WIFI_TEST_BOOT_WATCHER_PID
 #define A90_V1393_WIFI_TEST_RC1_WATCHER_RESULT A90_WIFI_TEST_BOOT_RC1_WATCHER_RESULT
 #define A90_V1393_WIFI_TEST_RC1_WINDOW_RESULT A90_WIFI_TEST_BOOT_RC1_WINDOW_RESULT
-#if A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_MICRO_ENDPOINT_SAMPLER
+#if A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_MICRO_ENDPOINT_SAMPLER && A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_EXACT_LINE && A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_LONG_WINDOW
+#define A90_V1393_WIFI_TEST_RC1_WINDOW_SAMPLER_NAME "read-only-v1454-exact-provider-long-endpoint"
+#elif A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_MICRO_ENDPOINT_SAMPLER
 #define A90_V1393_WIFI_TEST_RC1_WINDOW_SAMPLER_NAME "read-only-v1450-provider-trigger-micro-endpoint"
 #elif A90_WIFI_TEST_BOOT_RC1_CASE_ALIGNED_MICRO_ENDPOINT_SAMPLER
 #define A90_V1393_WIFI_TEST_RC1_WINDOW_SAMPLER_NAME "read-only-v1445-case-aligned-micro-endpoint"
@@ -549,6 +557,42 @@ static bool v1393_pid1_rc1_trigger_line(const char *line) {
     return strstr(line, "__subsystem_get: esoc0 count") != NULL ||
            strstr(line, "mdm_subsys_powerup") != NULL;
 }
+
+#if A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_EXACT_LINE
+static bool v1393_pid1_rc1_extract_trigger_line(const char *chunk, char *out, size_t out_size) {
+    const char *cursor;
+
+    if (chunk == NULL || out == NULL || out_size == 0) {
+        return false;
+    }
+    cursor = chunk;
+    while (*cursor != '\0') {
+        const char *end = strchr(cursor, '\n');
+        size_t len = end != NULL ? (size_t)(end - cursor) : strlen(cursor);
+
+        if (len > 0 && len < out_size) {
+            memmove(out, cursor, len);
+            out[len] = '\0';
+            if (v1393_pid1_rc1_trigger_line(out)) {
+                return true;
+            }
+        } else if (len >= out_size) {
+            size_t copy_len = out_size - 1;
+
+            memmove(out, cursor, copy_len);
+            out[copy_len] = '\0';
+            if (v1393_pid1_rc1_trigger_line(out)) {
+                return true;
+            }
+        }
+        if (end == NULL) {
+            break;
+        }
+        cursor = end + 1;
+    }
+    return false;
+}
+#endif
 
 #if A90_WIFI_TEST_BOOT_RC1_WINDOW_SAMPLER
 static bool v1393_rc1_window_line_matches(const char *line, const char *const *needles) {
@@ -1436,7 +1480,11 @@ static int v1393_pid1_rc1_case_aligned_micro_endpoint_sample_with_writer(long st
 #endif
 
 static int v1393_pid1_provider_trigger_micro_endpoint_sample(long start_ms, long detect_ms) {
+#if A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_LONG_WINDOW
+    static const int targets_ms[] = {0, 1, 2, 5, 10, 20, 50, 100, 150, 250, 300, 500, 1000};
+#else
     static const int targets_ms[] = {0, 1, 2, 5, 10, 20, 50, 100, 150};
+#endif
     long micro_start_ms = monotonic_millis();
     size_t index;
 
@@ -1448,10 +1496,17 @@ static int v1393_pid1_provider_trigger_micro_endpoint_sample(long start_ms, long
         v1393_rc1_micro_endpoint_sample(sample, start_ms, detect_ms, micro_start_ms);
     }
 
+#if A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_LONG_WINDOW
+    v1393_rc1_window_sample("post_provider_micro_1200ms",
+                            start_ms,
+                            detect_ms,
+                            micro_start_ms);
+#else
     v1393_rc1_window_sample("post_provider_micro_200ms",
                             start_ms,
                             detect_ms,
                             micro_start_ms);
+#endif
     return 0;
 }
 #endif
@@ -1461,10 +1516,12 @@ static void v1393_rc1_window_prepare(long start_ms, long detect_ms, const char *
 
     snprintf(header,
              sizeof(header),
-             "state=armed sampler=%s detect_elapsed_ms=%ld delay_ms=%d line=%.*s\n",
+             "state=armed sampler=%s detect_elapsed_ms=%ld delay_ms=%d exact_provider_line=%d long_provider_window=%d line=%.*s\n",
              A90_V1393_WIFI_TEST_RC1_WINDOW_SAMPLER_NAME,
              detect_ms >= start_ms ? detect_ms - start_ms : -1,
              A90_WIFI_TEST_BOOT_RC1_WATCHER_DELAY_MS,
+             A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_EXACT_LINE,
+             A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_LONG_WINDOW,
              160,
              line != NULL ? line : "");
     flatten_inline_text(header);
@@ -1600,6 +1657,11 @@ static void v1393_pid1_rc1_watcher_child(void) {
 
         if (rd > 0) {
             line[rd] = '\0';
+#if A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_EXACT_LINE
+            if (!v1393_pid1_rc1_extract_trigger_line(line, line, sizeof(line))) {
+                continue;
+            }
+#endif
             if (v1393_pid1_rc1_trigger_line(line)) {
                 long detect_ms = monotonic_millis();
                 int write_rc;

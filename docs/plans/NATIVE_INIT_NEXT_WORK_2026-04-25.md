@@ -7485,6 +7485,21 @@ Samsung bootloader
   `mdm_subsys_powerup`, keep the run read-only, and extend endpoint samples to
   at least `250ms`, `300ms`, `500ms`, and `1000ms` after the exact provider
   trigger.
+- V1454 source/build-only passes with
+  `v1454-wifi-test-boot-exact-provider-long-endpoint-source-build-pass`. It
+  generated
+  `tmp/wifi/v1454-wifi-test-boot-exact-provider-long-endpoint-sampler/boot_linux_v1454_wifi_test.img`
+  with native init `0.9.84 (v1454-wifitest)`. The test boot keeps the
+  rollbackable V1450 strategy but fixes the measurement weakness: PID1 now
+  splits kmsg chunks into individual lines before matching, triggers only on
+  the exact `__subsystem_get: esoc0` or `mdm_subsys_powerup` provider line,
+  performs no explicit RC1 debugfs `rc_sel`/`case` write, samples endpoint
+  state at `0ms`, `1ms`, `2ms`, `5ms`, `10ms`, `20ms`, `50ms`, `100ms`,
+  `150ms`, `250ms`, `300ms`, `500ms`, and `1000ms`, then adds a `1200ms`
+  context sample. V1455 should be local-only artifact sanity over the exact
+  V1454 manifest, static binaries, marker contract, v724 header/kernel parity,
+  private modes, and forbidden credential-like byte absence before any live
+  flash/handoff.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
