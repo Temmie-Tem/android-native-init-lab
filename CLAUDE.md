@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V1518 host-only PASS (`v1518-critical-source-first-window-pre-fail-confirmed`). V1517 rollbackable live handoff for the V1515 critical-source test image preserved the blocker as `rc1-ltssm-link-failed-no-l0`: RC1 reaches PHY/LTSSM and link failure, but L0, PCI enumeration, MHI, WLFW, BDF, FW-ready, and `wlan0` remain absent. V1518 proves selected first-window sources finish before the ~115ms link-fail marker: GPIO135 remains low, GPIO142 remains low, `pcie_1_gdsc` remains 0mV, and pcie1/MDM pinmux ownership is visible by about 30ms after `case=11`. Next gate should be V1519 Android-good vs native-fail critical source comparison before any new mutation. Do not proceed to firmware/MHI/WLFW/scan/connect until RC1 L0 and PCI enumeration exist. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, Wi-Fi HAL start, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
+- **Active research cycle**: V1519 host-only PASS (`v1519-android-good-native-fail-compared-matched-rc1-source-capture-needed`). V1517/V1518 preserved the native blocker as `rc1-ltssm-link-failed-no-l0`: RC1 reaches PHY/LTSSM and link failure, but L0, PCI enumeration, MHI, WLFW, BDF, FW-ready, and `wlan0` remain absent. V1519 compares the source-exact native failure with Android-good evidence and corrects the interpretation: GPIO135/GPIO142 low readback is not independently discriminating because Android-good static snapshots also show low readback while Android reaches GPIO142 IRQ, PCIe L0, WLFW/BDF, and `wlan0`. Next gate should be V1520 Android-good matched critical-source RC1 timeline capture/classifier for pcie1 GDSC/clock/refclk/PERST/reset and the exact normal RC1 path before any new native mutation. Do not proceed to firmware/MHI/WLFW/scan/connect until RC1 L0 and PCI enumeration exist. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, Wi-Fi HAL start, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -2347,6 +2347,15 @@ Update after V1354/V1355:
   Selected first-window sources complete by about `30ms` after `case=11`,
   before the ~`114.9ms` link-fail marker; GPIO135/GPIO142 remain low,
   `pcie_1_gdsc` remains `0mV`, and no L0/MHI/WLFW/BDF/FW-ready/`wlan0`
-  appears. Next gate: V1519 Android-good vs native-fail critical source
-  comparison before any new mutation. Report:
+  appears. Report:
   `docs/reports/NATIVE_INIT_V1518_WIFI_CRITICAL_SOURCE_TIMING_CLASSIFIER_2026-06-01.md`.
+- V1519 host-only Android-good/native-fail comparator passes with
+  `v1519-android-good-native-fail-compared-matched-rc1-source-capture-needed`.
+  It adds
+  `scripts/revalidation/native_wifi_android_good_native_fail_critical_comparison_v1519.py`.
+  Existing Android-good evidence proves GPIO142 IRQ, PCIe L0, WLFW/BDF, and
+  `wlan0`, but GPIO135/GPIO142 low readback is not discriminating because the
+  Android-good static snapshot also shows those lines low. Next gate: V1520
+  Android-good matched critical-source RC1 timeline for pcie1 GDSC/clock,
+  refclk, PERST/reset, and normal RC1 path before any native mutation. Report:
+  `docs/reports/NATIVE_INIT_V1519_ANDROID_GOOD_NATIVE_FAIL_CRITICAL_SOURCE_COMPARISON_2026-06-01.md`.

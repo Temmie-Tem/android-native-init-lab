@@ -8278,6 +8278,20 @@ Samsung bootloader
   compare Android-good and native-fail critical source timing/order before any
   new live mutation. Report:
   `docs/reports/NATIVE_INIT_V1518_WIFI_CRITICAL_SOURCE_TIMING_CLASSIFIER_2026-06-01.md`.
+- V1519 host-only Android-good/native-fail comparator passes with
+  `v1519-android-good-native-fail-compared-matched-rc1-source-capture-needed`.
+  It adds
+  `scripts/revalidation/native_wifi_android_good_native_fail_critical_comparison_v1519.py`
+  and compares V1518/V1517 native source-exact failure evidence against V852,
+  V896, V1239, and V1331 Android-good references. The result keeps the blocker
+  at `rc1-ltssm-link-failed-no-l0`, but corrects the GPIO interpretation:
+  GPIO135/GPIO142 low readback is not independently discriminating because
+  Android-good static snapshots also show low readback while Android reaches
+  GPIO142 IRQ, PCIe L0, WLFW/BDF, and `wlan0`. V1520 should capture or classify
+  a matched Android-good critical-source RC1 timeline for pcie1 GDSC/clock,
+  refclk, PERST/reset, and the exact normal RC1 path before another native
+  mutation. Report:
+  `docs/reports/NATIVE_INIT_V1519_ANDROID_GOOD_NATIVE_FAIL_CRITICAL_SOURCE_COMPARISON_2026-06-01.md`.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
