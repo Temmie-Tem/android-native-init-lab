@@ -106,6 +106,15 @@ def build_init(args: argparse.Namespace) -> None:
     args.out_dir.mkdir(parents=True, exist_ok=True)
     supervisor_flags = ["-DA90_WIFI_TEST_BOOT_SUPERVISE_HELPER=1"] if args.wifi_test_supervise_helper else []
     debugfs_flags = ["-DA90_WIFI_TEST_BOOT_MOUNT_DEBUGFS=1"] if args.wifi_test_mount_debugfs else []
+    rc1_watcher_flags = (
+        [
+            "-DA90_WIFI_TEST_BOOT_PID1_RC1_WATCHER=1",
+            f"-DA90_WIFI_TEST_BOOT_RC1_WATCHER_TIMEOUT_SEC={args.wifi_test_rc1_watcher_timeout_sec}",
+            shell_define("A90_WIFI_TEST_BOOT_RC1_WATCHER_RESULT", args.wifi_test_rc1_watcher_result),
+        ]
+        if args.wifi_test_pid1_rc1_watcher
+        else []
+    )
     command = [
         args.cross_gcc,
         "-static",
@@ -127,6 +136,7 @@ def build_init(args: argparse.Namespace) -> None:
         f"-DA90_WIFI_TEST_BOOT_SUPERVISOR_TIMEOUT_SEC={args.wifi_test_supervisor_timeout_sec}",
         *supervisor_flags,
         *debugfs_flags,
+        *rc1_watcher_flags,
         "-o",
         args.init_binary,
         *pid1_sources(),
@@ -253,6 +263,14 @@ def verify_markers(args: argparse.Namespace) -> None:
             "debugfs prepare rc=",
             "/sys/kernel/debug/pci-msm/case",
         ])
+    if args.wifi_test_pid1_rc1_watcher:
+        expected.extend([
+            "pid1_rc1_watcher_requested",
+            "pid1 rc1 watcher",
+            args.wifi_test_rc1_watcher_result,
+            "/dev/kmsg",
+            "/sys/kernel/debug/pci-msm/rc_sel",
+        ])
     missing = [marker for marker in expected if marker not in strings]
     if missing:
         raise RuntimeError("missing boot image markers: " + ", ".join(missing))
@@ -289,6 +307,9 @@ def write_manifest(args: argparse.Namespace) -> None:
             "supervise_helper": args.wifi_test_supervise_helper,
             "supervisor_timeout_sec": args.wifi_test_supervisor_timeout_sec,
             "mount_debugfs": args.wifi_test_mount_debugfs,
+            "pid1_rc1_watcher": args.wifi_test_pid1_rc1_watcher,
+            "rc1_watcher_timeout_sec": args.wifi_test_rc1_watcher_timeout_sec,
+            "rc1_watcher_result": args.wifi_test_rc1_watcher_result,
         },
         "init_binary": str(args.init_binary.relative_to(REPO_ROOT)),
         "init_sha256": sha256(args.init_binary),
@@ -342,6 +363,12 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--wifi-test-supervise-helper", action="store_true")
     parser.add_argument("--wifi-test-supervisor-timeout-sec", type=int, default=DEFAULT_WIFI_TEST_SUPERVISOR_TIMEOUT_SEC)
     parser.add_argument("--wifi-test-mount-debugfs", action="store_true")
+    parser.add_argument("--wifi-test-pid1-rc1-watcher", action="store_true")
+    parser.add_argument("--wifi-test-rc1-watcher-timeout-sec", type=int, default=45)
+    parser.add_argument(
+        "--wifi-test-rc1-watcher-result",
+        default="/cache/native-init-wifi-test-boot-v1393-rc1-watcher.result",
+    )
     parser.add_argument("--init-binary", type=Path)
     parser.add_argument("--helper-binary", type=Path)
     parser.add_argument("--ramdisk-dir", type=Path)

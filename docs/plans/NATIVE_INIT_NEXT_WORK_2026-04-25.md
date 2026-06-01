@@ -7023,6 +7023,15 @@ Samsung bootloader
   debugfs immediately after the first `esoc0`/powerup condition. Verify that
   artifact locally before any rollbackable live handoff. Keep scan/connect,
   credentials, DHCP/routes, and external ping blocked.
+- V1408 source/build passes and stages
+  `tmp/wifi/v1408-wifi-test-boot-pid1-rc1-watcher/boot_linux_v1408_wifi_test.img`.
+  The test boot has `A90 Linux init 0.9.73 (v1408-wifitest)` and enables a
+  PID1-started parallel RC1 watcher. The watcher reads future `/dev/kmsg`
+  records, triggers corrected RC1 on the first `esoc0`/powerup marker, records
+  `pid1_rc1_watcher_result`, and disables the helper's duplicate
+  corrected-RC1 flag. V1409 should independently sanity-check the exact V1408
+  manifest/image before any live flash. Keep scan/connect, credentials,
+  DHCP/routes, and external ping blocked.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
