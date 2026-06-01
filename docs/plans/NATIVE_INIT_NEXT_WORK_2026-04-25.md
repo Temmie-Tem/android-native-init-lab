@@ -7729,6 +7729,25 @@ Samsung bootloader
   log/summary, RC1 watcher result, effective-level window result, expanded
   dmesg markers, and `wlan0` state, then rolling back to
   `stage3/boot_linux_v724.img` and verifying selftest fail=0.
+- V1474 rollbackable live handoff passes with
+  `v1474-test-boot-provider-trigger-no-downstream-rollback-pass`. It flashed
+  only the V1472 effective-level test image, verified the test boot, collected
+  the V1472 log/summary, effective-level window, dmesg markers, and `wlan0`
+  state, then rolled back to healthy v724 with selftest fail=0. The handoff
+  reached the modem and esoc0 provider triggers, but no RC1/MHI/WLFW/BDF
+  /FW-ready/`wlan0` progress appeared.
+- V1475 host-only classifier passes with
+  `v1475-effective-level-low-pcie1-off-through-extended-window`. V1474's
+  extended full snapshots cover the provider trigger through a long effective
+  wall-clock window caused by slow read-only debugfs snapshots; the last full
+  sample reports `56754ms` child elapsed. GPIO135 remains low despite the
+  AP2MDM set-high trace and mdm3 pinmux ownership, GPIO142 remains low, pcie1
+  GDSC remains `0mV`, pcie1 pipe clock remains zero-enabled, and downstream
+  RC1/MHI/WLFW/BDF/FW-ready/`wlan0` markers remain absent. V1476 should be a
+  host-only lower-intervention design review before any write-based experiment.
+  Keep Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, direct
+  PMIC/GPIO/GDSC writes, blind eSoC notify/`BOOT_DONE`, global PCI rescan, and
+  platform bind/unbind prohibited from this state.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still

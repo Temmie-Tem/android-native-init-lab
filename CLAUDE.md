@@ -1801,3 +1801,28 @@ Update after V1354/V1355:
   result, expanded dmesg markers, and `wlan0` state, then rolling back to
   `stage3/boot_linux_v724.img` and verifying selftest fail=0. Report:
   `docs/reports/NATIVE_INIT_V1473_WIFI_TEST_BOOT_EFFECTIVE_LEVEL_ARTIFACT_SANITY_2026-06-01.md`.
+- V1474 rollbackable live handoff
+  (`v1474-test-boot-provider-trigger-no-downstream-rollback-pass`) flashed only
+  the V1472 effective-level test image, verified
+  `A90 Linux init 0.9.88 (v1472-wifitest)`, collected the V1472 log/summary,
+  effective-level window, expanded dmesg markers, and `wlan0` state, then
+  rolled back from native to healthy `A90 Linux init 0.9.68 (v724)` with
+  selftest fail=0. The run reached the modem and esoc0 provider triggers and
+  emitted the V1472 marker, but no RC1/MHI/WLFW/BDF/FW-ready/`wlan0` progress
+  appeared. Report:
+  `docs/reports/NATIVE_INIT_V1474_WIFI_TEST_BOOT_EFFECTIVE_LEVEL_HANDOFF_2026-06-01.md`.
+- V1475 host-only classifier
+  (`v1475-effective-level-low-pcie1-off-through-extended-window`) classifies
+  V1474 evidence. The extended sampler closes the short-window explanation:
+  full snapshots covered provider samples at `250ms`, `300ms`, `320ms`,
+  `350ms`, `400ms`, and `500ms`, with the last full snapshot completing at
+  `56754ms` child elapsed because read-only debugfs snapshots are slow. Despite
+  the AP2MDM set-high trace and mdm3 pinmux ownership, GPIO135 stayed sampled
+  low, GPIO142 stayed low, pcie1 GDSC stayed `0mV`, pcie1 pipe clock stayed
+  zero-enabled, and RC1/MHI/WLFW/BDF/FW-ready/`wlan0` stayed absent. Next gate:
+  V1476 host-only lower-intervention design review before any write-based
+  experiment. Do not proceed to Wi-Fi HAL, scan/connect, credentials,
+  DHCP/routes, external ping, direct PMIC/GPIO/GDSC writes, blind eSoC
+  notify/`BOOT_DONE`, global PCI rescan, or platform bind/unbind from this
+  state. Report:
+  `docs/reports/NATIVE_INIT_V1475_EFFECTIVE_LEVEL_LIVE_CLASSIFIER_2026-06-01.md`.
