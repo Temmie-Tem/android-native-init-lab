@@ -7872,6 +7872,19 @@ Samsung bootloader
   local-only artifact sanity over the exact V1485 manifest before any
   rollbackable live handoff. Report:
   `docs/reports/NATIVE_INIT_V1485_WIFI_AUTO_READINESS_TEST_BOOT_SOURCE_BUILD_2026-06-01.md`.
+- V1486 local-only artifact sanity passes with
+  `v1486-wifi-auto-readiness-artifact-sanity-pass`. It verifies the exact V1485
+  manifest, v724 base boot presence, static init/helper binaries, ramdisk
+  entries, boot markers, AP2MDM hold marker absence, auto-readiness contract,
+  v724 header/kernel parity, forbidden credential-like byte absence, and private
+  artifact modes. Verified boot image remains
+  `tmp/wifi/v1485-wifi-auto-readiness-test-boot/boot_linux_v1485_wifi_test.img`
+  with sha256 `7d3a59fe5fe4cd683bd830491c5ccf7e5b3aea1271558b320f6fe7e76ad1ac23`.
+  V1487 may perform a rollbackable live handoff for only the V1485 image,
+  expecting `A90 Linux init 0.9.90 (v1485-wifitest)`, collecting the V1485 log,
+  summary, focused dmesg, and `wlan0` state, then rolling back to
+  `stage3/boot_linux_v724.img` and verifying selftest `fail=0`. Report:
+  `docs/reports/NATIVE_INIT_V1486_WIFI_AUTO_READINESS_ARTIFACT_SANITY_2026-06-01.md`.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still

@@ -1961,3 +1961,15 @@ Update after V1354/V1355:
   sanity over the exact manifest before any V1487 rollbackable live handoff.
   Report:
   `docs/reports/NATIVE_INIT_V1485_WIFI_AUTO_READINESS_TEST_BOOT_SOURCE_BUILD_2026-06-01.md`.
+- V1486 local-only artifact sanity
+  (`v1486-wifi-auto-readiness-artifact-sanity-pass`) verifies the exact V1485
+  manifest and image. Checks passed for static init/helper binaries, ramdisk
+  entries, boot markers, AP2MDM hold marker absence, auto-readiness contract,
+  v724 header/kernel parity, forbidden credential-like byte absence, and private
+  modes. Verified image:
+  `tmp/wifi/v1485-wifi-auto-readiness-test-boot/boot_linux_v1485_wifi_test.img`
+  (`sha256=7d3a59fe5fe4cd683bd830491c5ccf7e5b3aea1271558b320f6fe7e76ad1ac23`).
+  Next gate: V1487 rollbackable live handoff for only the V1485 image, collect
+  log/summary/focused dmesg/`wlan0`, then roll back to
+  `stage3/boot_linux_v724.img` and verify selftest `fail=0`. Report:
+  `docs/reports/NATIVE_INIT_V1486_WIFI_AUTO_READINESS_ARTIFACT_SANITY_2026-06-01.md`.
