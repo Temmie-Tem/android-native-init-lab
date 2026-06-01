@@ -8897,6 +8897,21 @@ Samsung bootloader
   writes, blind eSoC notify, global PCI rescan, or platform bind/unbind.
   Report:
   `docs/reports/NATIVE_INIT_V1564_ANDROID_WIFI_SERVICE_WINDOW_HANDOFF_2026-06-02.md`.
+- V1565 host-only service-window gap classifier passes with
+  `v1565-select-service-window-subsys-trigger-capture-build`. It adds
+  `scripts/revalidation/native_wifi_service_window_gap_classifier_v1565.py` and
+  reconciles V1564 with V998/V1001. V1564 proves the start-only service-window
+  test boot and rollback path but no WLFW/downstream progress; V998 proves the
+  repaired full actor window still had no WLFW when `/dev/subsys_esoc0` was not
+  attempted; V1001 already selected a scoped service-window subsystem trigger
+  as the next useful route. Current sources support
+  `android-service-window-subsys-trigger-capture` at build time with
+  `--allow-android-wifi-service-window-subsys-trigger-capture` and explicit
+  connect/credential/DHCP/external-ping guardrails. Next gate: V1566 should be
+  source/build-only, generating and sanity-checking a Wi-Fi test boot artifact
+  using `android-service-window-subsys-trigger-capture`, not another start-only
+  retry and not a credentialed connect attempt. Report:
+  `docs/reports/NATIVE_INIT_V1565_SERVICE_WINDOW_GAP_CLASSIFIER_2026-06-02.md`.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still

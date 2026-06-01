@@ -3056,3 +3056,28 @@ service-manager context, properties, sockets, and process environment against
 Android-good service-window evidence. Do not proceed to credentials,
 scan/connect, DHCP/routes, external ping, PMIC/GPIO/GDSC writes, blind eSoC
 notify, global PCI rescan, or platform bind/unbind.
+
+## Latest native Wi-Fi state: V1565 (2026-06-02)
+
+V1565 adds
+`scripts/revalidation/native_wifi_service_window_gap_classifier_v1565.py` and
+passes host-only with
+`v1565-select-service-window-subsys-trigger-capture-build`. It reconciles V1564
+with the older V998/V1001 service-window chain.
+
+The fixed conclusion is: V1564 was a valid rollbackable proof of the
+`android-service-window-start-only` test boot route, but that route produced no
+WLFW/downstream progress. V998 already showed that a repaired full
+service-window actor set could be clean and still have no WLFW when
+`/dev/subsys_esoc0` was not attempted. V1001 selected the scoped
+service-window subsystem trigger as the next useful route. Current sources now
+support that route at build time via
+`android-service-window-subsys-trigger-capture` and
+`--allow-android-wifi-service-window-subsys-trigger-capture`.
+
+Next gate: V1566 should be source/build-only. Build a Wi-Fi test boot artifact
+using `android-service-window-subsys-trigger-capture`, verify the PID1 argv
+contains both Android service-window allow flags, and verify the artifact still
+excludes credentials, scan/connect, DHCP/routes, external ping, blind
+notify/BOOT_DONE, global PCI rescan, and platform bind/unbind. Do not rerun
+start-only and do not attempt credentialed Wi-Fi connect yet.
