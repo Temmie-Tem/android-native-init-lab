@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V1391 bounded live PASS (`v1391-corrected-rc1-ltssm-no-downstream-clean`). Helper v286 fired corrected RC1 from the early observer gate (`phase=early_powerup_observer`, `rc_sel_rc=0`, `case_rc=0`), but RC1 assert still occurred about `3.605s` after `__subsystem_get(esoc0)`, link failed before L0, and GPIO142/PCI/MHI/WLFW/`wlan0` stayed absent. Next is V1392 test-boot design to move the experiment into PID1/boot timing rather than another external helper retry. Preserve hard exclusions until that design is explicit: no credential use, Wi-Fi scan/connect/DHCP/external ping, PMIC/GPIO/GDSC direct write, blind eSoC notify/BOOT_DONE spoof, flash outside approved test-boot/rollback, boot image write outside approved test-boot/rollback, or partition write.
+- **Active research cycle**: V1392 host/source plan PASS (`v1392-plan-wifi-test-boot-pid1-timing-path`). V1391 proved another same-shape external helper retry is low value because corrected RC1 still asserted about `3.605s` after `__subsystem_get(esoc0)`. V1392 selects a separate rollbackable Wi-Fi test boot image with the verified helper bundled in ramdisk and invoked from PID1/boot flow. Next is V1393 source/build-only; do not flash during V1393. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, PMIC/GPIO/GDSC direct write, blind eSoC notify/BOOT_DONE spoof, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -1503,3 +1503,11 @@ Update after V1354/V1355:
   write occurred. This makes another external-helper RC1 timing retry low-value;
   next is V1392 test-boot design to move the timing-critical experiment into
   PID1/boot flow with a separate rollbackable boot image.
+- V1392 host/source plan (`v1392-plan-wifi-test-boot-pid1-timing-path`) records
+  the pivot to a separate Wi-Fi test boot image:
+  `docs/plans/NATIVE_INIT_V1392_WIFI_TEST_BOOT_PLAN_2026-06-01.md`. The selected
+  implementation path is to bundle the verified `a90_android_execns_probe`
+  helper into the test ramdisk as `/bin/a90_android_execns_probe` and invoke it
+  from PID1/boot flow, initially stopping at MDM2AP/RC1/MHI/WLFW/`wlan0`
+  evidence before any credentialed scan/connect, DHCP/routes, or external ping.
+  V1393 is source/build-only and must not flash.

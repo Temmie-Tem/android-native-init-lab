@@ -6575,6 +6575,26 @@ Samsung bootloader
       remained absent. Safety markers stayed clear and no Wi-Fi HAL,
       scan/connect, credentials, DHCP/routes, external ping, flash, boot image
       write, or partition write occurred.
+40. **V1392 Wi-Fi test boot design (host/source plan).**
+    - Goal: stop spending cycles on same-shape external helper timing retries
+      and define a separate rollbackable native-init Wi-Fi test boot image that
+      moves the timing-critical observer/trigger sequence into PID1/boot flow.
+    - Required output: document the selected architecture, artifact boundaries,
+      safety scope, rollback rules, and the V1393/V1394/V1395 gate sequence.
+    - Hard stop: planning/source-audit only. No generated test image flash, no
+      boot partition write, no partition write, no Wi-Fi HAL, no scan/connect,
+      no credentials, no DHCP/routes, no external ping, no PMIC/GPIO/GDSC
+      direct write, and no blind eSoC notify/`BOOT_DONE` spoof.
+    - Result:
+      `docs/plans/NATIVE_INIT_V1392_WIFI_TEST_BOOT_PLAN_2026-06-01.md`.
+      Decision: `v1392-plan-wifi-test-boot-pid1-timing-path`. V1392 selects a
+      dedicated test boot image, keeps `stage3/boot_linux_v724.img` as the
+      rollback target, and chooses a ramdisk-bundled
+      `/bin/a90_android_execns_probe` helper invoked from PID1/boot flow as the
+      V1393 source/build-only path. The first test-boot objective is
+      MDM2AP/GPIO142, RC1 L0, MHI, WLFW service `69`, or `wlan0` evidence only;
+      credentialed scan/connect and external ping stay deferred until `wlan0`
+      is stable.
 
 ### Required decision before any new mutation
 
@@ -6694,6 +6714,12 @@ Samsung bootloader
   rollbackable Wi-Fi test boot image that moves the timing-critical observer/
   trigger sequence into PID1/boot flow, initially stopping at MDM2AP/WLFW/`wlan0`
   evidence before any credentialed scan/connect or external ping.
+- V1392 completes that design and selects the ramdisk-bundled helper test-boot
+  path. V1393 may be source/build-only: add the separate test boot source and
+  builder path, stage a local artifact, verify markers/static helper/no-secret
+  output, and do not flash. V1394 should be local artifact sanity verification;
+  V1395 is the first possible flash/handoff gate and must name rollback to
+  `stage3/boot_linux_v724.img`.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
