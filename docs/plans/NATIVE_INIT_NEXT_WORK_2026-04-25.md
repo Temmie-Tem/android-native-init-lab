@@ -8720,6 +8720,19 @@ Samsung bootloader
   confirmed AP-side power/refclk/PERST; keep firmware/MHI/WLFW/connect work
   parked until native RC1 L0 and PCI enumeration exist. Report:
   `docs/reports/NATIVE_INIT_V1552_RC1_ENDPOINT_RESPONSE_TRACEFS_LIVE_2026-06-02.md`.
+- V1553 host-only endpoint-silence next-gate classifier passes with
+  `v1553-next-gate-android-good-power-trace-reference`. It adds
+  `scripts/revalidation/native_wifi_endpoint_silence_next_gate_v1553.py` and
+  reconciles V1552 against the prior PM/eSoC, sysfs-enumerate, Android-good,
+  and MHI-position classifiers without running any device command. The fixed
+  point is: native AP-side RC1 power/refclk/PERST is proven, endpoint IRQs
+  stay silent, V1496 already showed provider+RC1 still no L0, and MHI
+  PM-resume remains downstream of first PCI enumeration. Another blind native
+  enumerate retry is not next. Next gate: V1554 Android-good bounded tracefs
+  reference for regulator/clk/gpio/irq events around the successful first-L0
+  lower-Wi-Fi window, then compare against V1552 before any new native
+  mutation. Report:
+  `docs/reports/NATIVE_INIT_V1553_ENDPOINT_SILENCE_NEXT_GATE_CLASSIFIER_2026-06-02.md`.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still

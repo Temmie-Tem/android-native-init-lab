@@ -2793,3 +2793,22 @@ WLFW/BDF/FW-ready, or `wlan0`. Next gate: classify why SDX50M remains silent
 after PERST release despite confirmed AP-side RC1 power/refclk/PERST activity;
 firmware/MHI/WLFW/connect work remains parked until native RC1 L0 and PCI
 enumeration exist.
+
+## Latest native Wi-Fi state: V1553 (2026-06-02)
+
+V1553 adds
+`scripts/revalidation/native_wifi_endpoint_silence_next_gate_v1553.py` and
+passes with `v1553-next-gate-android-good-power-trace-reference`. It is
+host-only and reconciles V1552 with the prior PM/eSoC route, sysfs-enumerate,
+Android-good tracefs, and MHI-position classifiers. It performs no device
+command, tracefs/sysfs/debugfs write, Wi-Fi HAL, scan/connect, credential use,
+DHCP/routes, external ping, PMIC/GPIO/GDSC write, flash, or partition write.
+
+The fixed point is now explicit: native AP-side RC1 power/refclk/PERST is
+proven, endpoint IRQs stay silent, V1496 already showed provider+RC1 still no
+L0, V1530/V1534/V1540 keep Android-good and PM-route context intact, and MHI
+PM-resume remains downstream of first PCI enumeration. Therefore another blind
+native sysfs/debugfs enumerate retry is not the next move. Next gate: V1554
+should capture an Android-good bounded tracefs reference for regulator, clk,
+gpio, and irq events around the successful first-L0/lower-Wi-Fi window, then
+compare it against V1552 before any new native mutation.
