@@ -2092,3 +2092,17 @@ Update after V1354/V1355:
   a PID1-persisted sidecar before attempting another long post-hold capture.
   Report:
   `docs/reports/NATIVE_INIT_V1495_WIFI_AUTO_READINESS_RC1_WINDOW_HANDOFF_2026-06-01.md`.
+- V1496 rollbackable live handoff
+  (`v1496-test-boot-downstream-progress-rollback-pass`) reran the same V1493
+  RC1-window test image with a 10s hold. Evidence collection succeeded and
+  rollback verified v724/selftest `fail=0`. The lower path advanced beyond the
+  previous provider-only blocker: `__subsystem_get: esoc0` was followed by
+  `msm_pcie_enable: PCIe RC1 PHY is ready`, then LTSSM moved through
+  `DETECT_QUIET` and `POLL_ACTIVE` but stalled at `LTSSM_POLL_COMPLIANCE`;
+  `PCIe RC1 link initialization failed (LTSSM_STATE:0x3)`. No L0, MHI, WLFW,
+  BDF, FW-ready, or `wlan0` appeared. GPIO142/MDM status IRQ stayed at `0`;
+  focused samples showed GPIO102 out low, GPIO103 high/unclaimed `pci_e1`,
+  GPIO104 low, GPIO135 low, and GPIO142 low through post-500ms. Next gate:
+  V1497 should be host-only classification of this RC1 link failure against
+  Android-good RC1 evidence before any bounded write experiment. Report:
+  `docs/reports/NATIVE_INIT_V1496_WIFI_RC1_WINDOW_SHORT_HOLD_HANDOFF_2026-06-01.md`.

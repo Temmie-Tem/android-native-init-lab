@@ -8010,6 +8010,21 @@ Samsung bootloader
   PID1-persisted sidecar; keep credentials, scan/connect, DHCP/routes, and
   external ping blocked until `wlan0` exists. Report:
   `docs/reports/NATIVE_INIT_V1495_WIFI_AUTO_READINESS_RC1_WINDOW_HANDOFF_2026-06-01.md`.
+- V1496 rollbackable live handoff passes with
+  `v1496-test-boot-downstream-progress-rollback-pass`. It reused the V1493
+  RC1-window test image but shortened the hold to 10s, proving the V1495
+  post-hold failure was a long-window communication-loss issue rather than an
+  immediate RC1-window wedge. Evidence collection succeeded and rollback
+  verified v724/selftest `fail=0`. The critical new blocker is no longer
+  provider-only: RC1 PHY became ready and LTSSM entered polling, but link
+  training stopped at `LTSSM_POLL_COMPLIANCE` with
+  `PCIe RC1 link initialization failed (LTSSM_STATE:0x3)`. No L0, MHI, WLFW,
+  BDF, FW-ready, or `wlan0` appeared; GPIO142/MDM status stayed low/IRQ count
+  `0`. Focused samples show GPIO102 low, GPIO103 high/unclaimed `pci_e1`,
+  GPIO104 low, GPIO135 low, and GPIO142 low through post-500ms. V1497 should
+  classify this RC1 link failure host-only against Android-good RC1 timing and
+  DTS pin/power contracts before any bounded write experiment. Report:
+  `docs/reports/NATIVE_INIT_V1496_WIFI_RC1_WINDOW_SHORT_HOLD_HANDOFF_2026-06-01.md`.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
