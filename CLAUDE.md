@@ -1987,3 +1987,18 @@ Update after V1354/V1355:
   cleanup can block or by PID1 synthesized readiness from focused dmesg/`wlan0`
   after the bounded helper timeout. Report:
   `docs/reports/NATIVE_INIT_V1487_WIFI_AUTO_READINESS_HANDOFF_2026-06-01.md`.
+- V1488 source/build-only
+  (`v1488-wifi-auto-readiness-timeout-safe-test-boot-source-build-pass`) adds
+  PID1-synthesized `auto_readiness_pid1.*` keys so the V1485-style readiness
+  evidence remains observable even when the helper times out before flushing
+  buffered stdout. PID1 uses `SYSLOG_ACTION_READ_ALL` and `wlan0` sysfs state to
+  classify modem/provider trigger, PCIe RC1/LTSSM, MHI, WLFW, ICNSS/QMI, BDF,
+  FW-ready, and `wlan0`, while keeping Wi-Fi HAL, scan/connect, credentials,
+  DHCP/routes, external ping, PMIC/GPIO/GDSC writes, and direct eSoC ioctl
+  blocked. Built image:
+  `tmp/wifi/v1488-wifi-auto-readiness-timeout-safe-test-boot/boot_linux_v1488_wifi_test.img`
+  (`sha256=3d18c340e69f5f448be27fca370479e06b19bccb3a903a797ca3f5b0181eac32`),
+  native init `0.9.91 (v1488-wifitest)`, init sha256
+  `290b59d23fd29ca862a716992f34e3c753fdceb36fa69781531178003dc209ce`. Next
+  gate: V1489 local artifact sanity over the exact V1488 manifest. Report:
+  `docs/reports/NATIVE_INIT_V1488_WIFI_AUTO_READINESS_TIMEOUT_SAFE_SOURCE_BUILD_2026-06-01.md`.

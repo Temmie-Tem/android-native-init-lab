@@ -133,6 +133,9 @@ static void selftest_boot_draw_frame(void *ctx) {
 #ifndef A90_WIFI_TEST_BOOT_AUTO_READINESS_SUPERVISOR
 #define A90_WIFI_TEST_BOOT_AUTO_READINESS_SUPERVISOR 0
 #endif
+#ifndef SYSLOG_ACTION_READ_ALL
+#define SYSLOG_ACTION_READ_ALL 3
+#endif
 #ifndef A90_WIFI_TEST_BOOT_RC1_RETRY_COUNT
 #define A90_WIFI_TEST_BOOT_RC1_RETRY_COUNT 0
 #endif
@@ -2300,6 +2303,170 @@ static int v1393_spawn_pid1_rc1_watcher(pid_t *pid_out) {
 }
 #endif
 
+#if A90_WIFI_TEST_BOOT_AUTO_READINESS_SUPERVISOR
+static int v1488_text_has_any(const char *text, const char *const *needles, size_t needle_count) {
+    size_t i;
+
+    if (text == NULL) {
+        return 0;
+    }
+    for (i = 0; i < needle_count; i++) {
+        if (needles[i] != NULL && strstr(text, needles[i]) != NULL) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+static const char *v1488_pid1_primary_checkpoint(int wlan0_seen,
+                                                 int fw_ready_seen,
+                                                 int bdf_seen,
+                                                 int wlfw_seen,
+                                                 int icnss_qmi_seen,
+                                                 int mhi_seen,
+                                                 int pcie_rc1_seen,
+                                                 int provider_trigger_seen,
+                                                 int modem_trigger_seen) {
+    if (wlan0_seen) {
+        return "wlan0";
+    }
+    if (fw_ready_seen) {
+        return "fw-ready";
+    }
+    if (bdf_seen) {
+        return "bdf";
+    }
+    if (wlfw_seen || icnss_qmi_seen) {
+        return "wlfw-or-icnss-qmi";
+    }
+    if (mhi_seen) {
+        return "mhi";
+    }
+    if (pcie_rc1_seen) {
+        return "pcie-rc1";
+    }
+    if (provider_trigger_seen) {
+        return "provider-trigger";
+    }
+    if (modem_trigger_seen) {
+        return "modem-trigger";
+    }
+    return "none";
+}
+
+static void v1488_append_pid1_auto_readiness_summary(int fd, int wlan0_present) {
+    static char log_buf[262144];
+    static const char *const modem_needles[] = {
+        "__subsystem_get: modem",
+    };
+    static const char *const provider_needles[] = {
+        "__subsystem_get: esoc0",
+    };
+    static const char *const pcie_needles[] = {
+        "PCIe RC1",
+        "LTSSM_STATE",
+        "msm_pcie_enable: PCIe",
+    };
+    static const char *const mhi_needles[] = {
+        "mhi_arch_esoc_ops_power_on",
+        "mhi_pci_probe",
+        "mhi_0305",
+        "/dev/mhi_",
+        "MHI control",
+    };
+    static const char *const wlfw_needles[] = {
+        "wlfw",
+        "WLFW",
+        "wlan/fw",
+    };
+    static const char *const icnss_qmi_needles[] = {
+        "icnss_qmi",
+    };
+    static const char *const bdf_needles[] = {
+        "BDF",
+        "bdwlan",
+        "regdb",
+    };
+    static const char *const fw_ready_needles[] = {
+        "FW ready",
+        "fw_ready",
+        "FW_READY",
+    };
+    ssize_t syslog_len;
+    int syslog_errno = 0;
+    int syslog_ok;
+    int modem_trigger_seen = 0;
+    int provider_trigger_seen = 0;
+    int pcie_rc1_seen = 0;
+    int mhi_seen = 0;
+    int wlfw_seen = 0;
+    int icnss_qmi_seen = 0;
+    int bdf_seen = 0;
+    int fw_ready_seen = 0;
+    const char *checkpoint;
+
+    syslog_len = syscall(SYS_syslog,
+                         SYSLOG_ACTION_READ_ALL,
+                         log_buf,
+                         (int)sizeof(log_buf) - 1);
+    if (syslog_len < 0) {
+        syslog_errno = errno != 0 ? errno : EIO;
+        syslog_len = 0;
+        log_buf[0] = '\0';
+        syslog_ok = 0;
+    } else {
+        if ((size_t)syslog_len >= sizeof(log_buf)) {
+            syslog_len = (ssize_t)sizeof(log_buf) - 1;
+        }
+        log_buf[syslog_len] = '\0';
+        syslog_ok = 1;
+        modem_trigger_seen = v1488_text_has_any(log_buf, modem_needles, sizeof(modem_needles) / sizeof(modem_needles[0]));
+        provider_trigger_seen = v1488_text_has_any(log_buf, provider_needles, sizeof(provider_needles) / sizeof(provider_needles[0]));
+        pcie_rc1_seen = v1488_text_has_any(log_buf, pcie_needles, sizeof(pcie_needles) / sizeof(pcie_needles[0]));
+        mhi_seen = v1488_text_has_any(log_buf, mhi_needles, sizeof(mhi_needles) / sizeof(mhi_needles[0]));
+        wlfw_seen = v1488_text_has_any(log_buf, wlfw_needles, sizeof(wlfw_needles) / sizeof(wlfw_needles[0]));
+        icnss_qmi_seen = v1488_text_has_any(log_buf, icnss_qmi_needles, sizeof(icnss_qmi_needles) / sizeof(icnss_qmi_needles[0]));
+        bdf_seen = v1488_text_has_any(log_buf, bdf_needles, sizeof(bdf_needles) / sizeof(bdf_needles[0]));
+        fw_ready_seen = v1488_text_has_any(log_buf, fw_ready_needles, sizeof(fw_ready_needles) / sizeof(fw_ready_needles[0]));
+    }
+    checkpoint = v1488_pid1_primary_checkpoint(wlan0_present,
+                                               fw_ready_seen,
+                                               bdf_seen,
+                                               wlfw_seen,
+                                               icnss_qmi_seen,
+                                               mhi_seen,
+                                               pcie_rc1_seen,
+                                               provider_trigger_seen,
+                                               modem_trigger_seen);
+    dprintf(fd, "auto_readiness_pid1.begin=1\n");
+    dprintf(fd, "auto_readiness_pid1.mode=timeout-safe-summary\n");
+    dprintf(fd, "auto_readiness_pid1.source=syslog-read-all\n");
+    dprintf(fd, "auto_readiness_pid1.syslog_ok=%d\n", syslog_ok);
+    dprintf(fd, "auto_readiness_pid1.syslog_errno=%d\n", syslog_errno);
+    dprintf(fd, "auto_readiness_pid1.syslog_len=%ld\n", (long)syslog_len);
+    dprintf(fd, "auto_readiness_pid1.syslog_truncated=%d\n", (size_t)syslog_len >= sizeof(log_buf) - 1 ? 1 : 0);
+    dprintf(fd, "auto_readiness_pid1.modem_trigger_seen=%d\n", modem_trigger_seen);
+    dprintf(fd, "auto_readiness_pid1.provider_trigger_seen=%d\n", provider_trigger_seen);
+    dprintf(fd, "auto_readiness_pid1.pcie_rc1_seen=%d\n", pcie_rc1_seen);
+    dprintf(fd, "auto_readiness_pid1.mhi_seen=%d\n", mhi_seen);
+    dprintf(fd, "auto_readiness_pid1.wlfw_seen=%d\n", wlfw_seen);
+    dprintf(fd, "auto_readiness_pid1.icnss_qmi_seen=%d\n", icnss_qmi_seen);
+    dprintf(fd, "auto_readiness_pid1.bdf_seen=%d\n", bdf_seen);
+    dprintf(fd, "auto_readiness_pid1.fw_ready_seen=%d\n", fw_ready_seen);
+    dprintf(fd, "auto_readiness_pid1.wlan0_seen=%d\n", wlan0_present);
+    dprintf(fd, "auto_readiness_pid1.primary_checkpoint=%s\n", checkpoint);
+    dprintf(fd, "auto_readiness_pid1.safety_wifi_hal_start=0\n");
+    dprintf(fd, "auto_readiness_pid1.safety_scan_connect=0\n");
+    dprintf(fd, "auto_readiness_pid1.safety_credentials=0\n");
+    dprintf(fd, "auto_readiness_pid1.safety_dhcp_route=0\n");
+    dprintf(fd, "auto_readiness_pid1.safety_external_ping=0\n");
+    dprintf(fd, "auto_readiness_pid1.safety_pmic_write=0\n");
+    dprintf(fd, "auto_readiness_pid1.safety_gpio_request=0\n");
+    dprintf(fd, "auto_readiness_pid1.safety_direct_esoc_ioctl=0\n");
+    dprintf(fd, "auto_readiness_pid1.end=1\n");
+}
+#endif
+
 static void v1393_write_wifi_test_summary(pid_t helper_pid, long spawn_ms) {
     char wchan_path[64];
     char status_path[64];
@@ -2400,6 +2567,7 @@ static void v1393_write_wifi_test_summary(pid_t helper_pid, long spawn_ms) {
     dprintf(fd,
             "auto_readiness_marker=%s\n",
             A90_V1393_WIFI_TEST_RC1_WINDOW_SAMPLER_NAME);
+    v1488_append_pid1_auto_readiness_summary(fd, wlan0_present);
 #endif
     dprintf(fd,
             "provider_trigger_ap2mdm_hold_after_ms=%d\n",

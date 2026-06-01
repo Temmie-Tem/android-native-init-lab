@@ -7900,6 +7900,22 @@ Samsung bootloader
   credentials, DHCP/routes, or external ping until RC1/MHI/WLFW/`wlan0`
   progress is proven. Report:
   `docs/reports/NATIVE_INIT_V1487_WIFI_AUTO_READINESS_HANDOFF_2026-06-01.md`.
+- V1488 source/build-only passes with
+  `v1488-wifi-auto-readiness-timeout-safe-test-boot-source-build-pass`. It adds
+  PID1-synthesized `auto_readiness_pid1.*` summary keys so readiness evidence is
+  still emitted after a bounded helper timeout. The summary uses
+  `SYSLOG_ACTION_READ_ALL` plus `wlan0` sysfs state to classify modem/provider
+  trigger, PCIe RC1/LTSSM, MHI, WLFW, ICNSS/QMI, BDF, FW-ready, and `wlan0`.
+  Built image:
+  `tmp/wifi/v1488-wifi-auto-readiness-timeout-safe-test-boot/boot_linux_v1488_wifi_test.img`
+  (`sha256=3d18c340e69f5f448be27fca370479e06b19bccb3a903a797ca3f5b0181eac32`),
+  native init `0.9.91 (v1488-wifitest)`, init sha256
+  `290b59d23fd29ca862a716992f34e3c753fdceb36fa69781531178003dc209ce`, helper
+  sha256 `660d88fc9e0ebdf6c95e495d9dd659c09321feb407fe6a7f77213f3b5c2bb411`.
+  V1488 ran no device command or live action. V1489 should run local artifact
+  sanity over the exact V1488 manifest before any rollbackable live handoff.
+  Report:
+  `docs/reports/NATIVE_INIT_V1488_WIFI_AUTO_READINESS_TIMEOUT_SAFE_SOURCE_BUILD_2026-06-01.md`.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still

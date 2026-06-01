@@ -653,6 +653,8 @@ def verify_markers(args: argparse.Namespace) -> None:
         expected.extend([
             "auto-v1485-wifi-readiness-test",
             "auto_readiness_supervisor_requested",
+            "auto_readiness_pid1.begin=1",
+            "auto_readiness_pid1.primary_checkpoint=%s",
             "--pm-observer-auto-readiness-summary",
             "auto_readiness.begin=1",
             "auto_readiness.primary_checkpoint=%s",
