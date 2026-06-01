@@ -7283,6 +7283,19 @@ Samsung bootloader
   mutation, with the likely next branch being a tighter in-PID1 immediate
   around-write sampler or Android reference capture. Keep connect-side work
   blocked until at least L0/MHI/WLFW/`wlan0` progress appears.
+- V1436 host-only classifier passes with
+  `v1436-focused-window-race-endpoint-no-l0`. It validates the V1435 evidence
+  without issuing device commands: focused sampler output is present for all
+  five samples, GPIO103/CLKREQ remains high, GPIO142/MDM2AP remains low,
+  GPIO102/PERST is owned by RC1, and dmesg still shows link failure without
+  L0/MHI/WLFW/BDF/FW-ready/`wlan0`. It also explains the apparent V1435
+  `pre_rc1` contradiction as sampling-window timing sensitivity, not a stable
+  pcie1 GDSC/clock state: broad reads saw enable activity, later focused exact
+  reads in the same logical sample saw them off. V1437 should be source/build
+  only and tighten the test-boot instrumentation so exact pcie1 GDSC/clocks,
+  PERST/CLKREQ/WAKE/MDM2AP, and LTSSM are sampled immediately around the
+  `case=11` write inside PID1, or else capture an Android positive reference
+  for the same exact fields before any new live mutation.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
