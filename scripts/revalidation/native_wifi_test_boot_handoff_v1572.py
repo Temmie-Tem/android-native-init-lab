@@ -1,0 +1,67 @@
+#!/usr/bin/env python3
+"""V1572 rollbackable live handoff for the V1571 mdm_helper launch-contract test boot."""
+
+from __future__ import annotations
+
+import sys
+
+import native_wifi_test_boot_handoff_v1395 as base
+
+
+DEFAULT_ARGS = [
+    "--cycle",
+    "V1572",
+    "--out-dir",
+    str(base.REPO_ROOT / "tmp" / "wifi" / "v1572-mdm-helper-launch-contract-handoff"),
+    "--report-path",
+    str(
+        base.REPO_ROOT
+        / "docs"
+        / "reports"
+        / "NATIVE_INIT_V1572_MDM_HELPER_LAUNCH_CONTRACT_HANDOFF_2026-06-02.md"
+    ),
+    "--v1394-manifest",
+    str(
+        base.REPO_ROOT
+        / "tmp"
+        / "wifi"
+        / "v1571-mdm-helper-launch-contract-artifact-sanity"
+        / "manifest.json"
+    ),
+    "--test-image",
+    str(
+        base.REPO_ROOT
+        / "tmp"
+        / "wifi"
+        / "v1571-mdm-helper-launch-contract-test-boot"
+        / "boot_linux_v1393_wifi_test.img"
+    ),
+    "--expect-test-version",
+    "A90 Linux init 0.9.69 (v1571-mdm-helper-launch-contract)",
+    "--test-log-path",
+    "/cache/native-init-wifi-test-boot-v1393.log",
+    "--test-summary-path",
+    "/cache/native-init-wifi-test-boot-v1393.summary",
+    "--test-helper-result-path",
+    "/cache/native-init-wifi-test-boot-v1393-helper.result",
+    "--dmesg-grep-pattern",
+    (
+        "A90v1571|android_wifi_service_window|mdm_helper_launch_contract|"
+        "subsys_esoc0|/dev/esoc-0|wifi_hal|wificond|wlfw|WLFW|"
+        "wlfw_start|wlfw_service_request|icnss_qmi|BDF|bdwlan|regdb|"
+        "FW ready|fw_ready|wlan0|subsystem_get|mdm_subsys_powerup|"
+        "sdx50m_toggle_soft_reset|PCIe RC1|LTSSM|mhi|MHI|ks|cnss|CNSS"
+    ),
+    "--post-boot-hold-sec",
+    "105",
+    "--native-direct-rollback-fallback",
+    "--strict-wifi-progress",
+]
+
+
+def main() -> int:
+    return base.main([*DEFAULT_ARGS, *sys.argv[1:]])
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

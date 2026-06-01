@@ -9023,6 +9023,43 @@ Samsung bootloader
   dive, or RC1 retry until the mdm-helper `/dev/esoc-0` fd predicate is
   satisfied or deliberately replaced by a reviewed bounded gate. Report:
   `docs/reports/NATIVE_INIT_V1571_MDM_HELPER_LAUNCH_CONTRACT_ARTIFACT_SANITY_2026-06-02.md`.
+- V1572 rollbackable live handoff of the V1571 image rolled back cleanly, but
+  the result is a test-artifact defect: the helper exited by signal 11 and the
+  collected helper result was stale (`result_file_version=a90_android_execns_probe v288`).
+  Treat V1572 as crash/stale-result evidence, not a service-window conclusion.
+  Report:
+  `docs/reports/NATIVE_INIT_V1572_MDM_HELPER_LAUNCH_CONTRACT_HANDOFF_2026-06-02.md`.
+- V1573 source/build-only crashfix unlinks the stale helper result file at test
+  boot start, bumps the helper to `a90_android_execns_probe v290`, and splits
+  the launch-contract formatter into bounded append calls. Artifact sanity
+  passes with
+  `v1573-mdm-helper-launch-contract-crashfix-artifact-sanity-pass`; test image:
+  `tmp/wifi/v1573-mdm-helper-launch-contract-crashfix-test-boot/boot_linux_v1393_wifi_test.img`
+  with boot sha256
+  `ea028a2c0c96241a9e1a558cfa39af631924ee428672004f410218b8e15c893a`.
+  Report:
+  `docs/reports/NATIVE_INIT_V1573_MDM_HELPER_LAUNCH_CONTRACT_CRASHFIX_ARTIFACT_SANITY_2026-06-02.md`.
+- V1574 rollbackable live handoff of the V1573 image rolls back to v724
+  successfully and collects a fresh v290 result. The helper no longer crashes:
+  `helper_status_raw=0`, `helper_exited=1`, `helper_exit_code=0`,
+  `helper_signaled=0`. The active service-window delta is confirmed:
+  `planned.compare.pm_proxy_absent_delta=1`,
+  `after_mdm_helper_spawn.compare.pm_proxy_absent_delta=1`,
+  `after_mdm_helper_spawn.fd.esoc0=0`,
+  `after_mdm_helper_spawn.fd.subsys_esoc0=0`,
+  `after_mdm_helper_spawn.fd.subsys_modem=0`,
+  `mdm_helper_esoc0_fd_count=0`, `subsys_trigger_gate_open=0`,
+  `subsys_trigger.started=0`, final result
+  `subsys-trigger-not-attempted-no-mdm-helper-esoc-fd`. This blocks before the
+  RC1/LTSSM track: service-window `mdm_helper` is launched without the
+  Android-good `pm_proxy`/`pm_proxy_helper` contract and never obtains
+  `/dev/esoc-0`. Next gate: source/build-only addition of the missing
+  `pm_proxy`/`pm_proxy_helper` launch contract, or host-only proof of the exact
+  `pm-service` Binder request needed to make `mdm_helper` hold `/dev/esoc-0`.
+  Still no credentials/connect, DHCP/routes, external ping, firmware/MHI deep
+  dive, or RC1 retry until this fd predicate is satisfied or replaced by a
+  reviewed bounded gate. Report:
+  `docs/reports/NATIVE_INIT_V1574_MDM_HELPER_LAUNCH_CONTRACT_CRASHFIX_HANDOFF_2026-06-02.md`.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still

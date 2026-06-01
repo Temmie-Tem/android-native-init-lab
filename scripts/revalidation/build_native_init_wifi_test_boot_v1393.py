@@ -47,8 +47,8 @@ DEFAULT_WIFI_TEST_WATCHER_PID = "/cache/native-init-wifi-test-boot-v1393-watcher
 DEFAULT_WIFI_TEST_WATCH_SEC = 35
 DEFAULT_WIFI_TEST_SUPERVISOR_TIMEOUT_SEC = 40
 DEFAULT_WIFI_TEST_HELPER_MODE = "post-pm-observer"
-EXPECTED_HELPER_MARKER = "a90_android_execns_probe v289"
-EXPECTED_HELPER_SHA256 = "264d3ba7215330ea08a080ade27f0b19c3b888e74ee783dda08a5a22a2aa463a"
+EXPECTED_HELPER_MARKER = "a90_android_execns_probe v290"
+EXPECTED_HELPER_SHA256 = "ecc9b3ad1fd5a3644e8fed1a54e57befb92641c33ff1f2c2c6d77a4087109518"
 REPRODUCIBLE_MTIME = 0
 
 FORBIDDEN_BYTES = (
@@ -1033,7 +1033,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     args = parser.parse_args(argv)
 
     args.init_binary = args.init_binary or args.out_dir / "init_v1393_wifi_test"
-    args.helper_binary = args.helper_binary or args.out_dir / "a90_android_execns_probe_v289"
+    args.helper_binary = args.helper_binary or args.out_dir / "a90_android_execns_probe_v290"
     args.ramdisk_dir = args.ramdisk_dir or args.out_dir / "ramdisk"
     args.ramdisk_cpio = args.ramdisk_cpio or args.out_dir / "ramdisk_v1393_wifi_test.cpio"
     args.boot_image = args.boot_image or args.out_dir / "boot_linux_v1393_wifi_test.img"

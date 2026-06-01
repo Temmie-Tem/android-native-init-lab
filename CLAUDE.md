@@ -3253,3 +3253,46 @@ fd, and roll back to v724.  Still do not move to credentials/connect,
 DHCP/routes, external ping, firmware/MHI deep dive, or RC1 retry until the
 mdm-helper `/dev/esoc-0` fd predicate is satisfied or a new reviewed bounded
 gate replaces that predicate.
+
+## Latest native Wi-Fi state: V1572-V1574 (2026-06-02)
+
+V1572 performed the rollbackable V1571 live handoff and rolled back cleanly,
+but exposed a test-artifact defect rather than a new Wi-Fi result: the v289
+helper exited by signal 11 and PID1 collected a stale helper result file whose
+`result_file_version` was still `a90_android_execns_probe v288`.  Treat V1572
+as crash/stale-result evidence only.
+
+V1573 fixes that evidence path.  PID1 now unlinks the stale
+`/cache/native-init-wifi-test-boot-v1393-helper.result` before each test boot,
+and the helper is bumped to `a90_android_execns_probe v290`; the large
+service-window launch-contract formatter is split into bounded append calls.
+The V1573 artifact passes local sanity with
+`v1573-mdm-helper-launch-contract-crashfix-artifact-sanity-pass`.  Artifact:
+`tmp/wifi/v1573-mdm-helper-launch-contract-crashfix-test-boot/boot_linux_v1393_wifi_test.img`
+with boot sha256
+`ea028a2c0c96241a9e1a558cfa39af631924ee428672004f410218b8e15c893a`;
+helper v290 sha256 is
+`ecc9b3ad1fd5a3644e8fed1a54e57befb92641c33ff1f2c2c6d77a4087109518`.
+
+V1574 then performs the rollbackable V1573 live handoff and rolls back to v724
+successfully.  The helper no longer crashes (`helper_status_raw=0`,
+`helper_exited=1`, `helper_exit_code=0`, `helper_signaled=0`) and the collected
+result is fresh (`result_file_version=a90_android_execns_probe v290`).  The
+launch-contract classifier confirms the active service-window delta:
+`planned.compare.pm_proxy_absent_delta=1`,
+`after_mdm_helper_spawn.compare.pm_proxy_absent_delta=1`,
+`after_mdm_helper_spawn.fd.esoc0=0`,
+`after_mdm_helper_spawn.fd.subsys_esoc0=0`,
+`after_mdm_helper_spawn.fd.subsys_modem=0`,
+`mdm_helper_esoc0_fd_count=0`, `subsys_trigger_gate_open=0`,
+`subsys_trigger.started=0`, final result
+`subsys-trigger-not-attempted-no-mdm-helper-esoc-fd`.
+
+Current conclusion: the active Wi-Fi test boot is blocked before the prior RC1
+path because service-window `mdm_helper` is started without the Android-good
+`pm_proxy`/`pm_proxy_helper` launch contract and never acquires `/dev/esoc-0`.
+Next gate should not retry RC1, firmware/MHI, credentials/connect,
+DHCP/routes, or external ping.  The next bounded step should either add the
+missing `pm_proxy`/`pm_proxy_helper` launch contract in source/build-only form
+or write a host-only contract diff proving which `pm-service` Binder request is
+required to make `mdm_helper` hold `/dev/esoc-0`.

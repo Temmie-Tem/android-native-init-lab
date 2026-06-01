@@ -545,6 +545,7 @@ static int v1393_reset_wifi_test_log(void) {
     int fd;
     int rc;
 
+    (void)unlink(A90_V1393_WIFI_TEST_HELPER_RESULT);
     fd = open(A90_V1393_WIFI_TEST_LOG,
               O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC | O_NOFOLLOW,
               0600);
