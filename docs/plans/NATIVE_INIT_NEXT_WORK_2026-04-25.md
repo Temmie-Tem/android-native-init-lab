@@ -6346,6 +6346,40 @@ Samsung bootloader
       `rc_sel`/`case` live write, PMIC/GPIO/GDSC write, eSoC notify/`BOOT_DONE`,
       Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, flash,
       boot image write, or partition write.
+    - Result:
+      `docs/reports/NATIVE_INIT_V1381_IMMEDIATE_CORRECTED_RC1_SUPPORT_2026-06-01.md`.
+      Decision: `v1381-helper-v284-immediate-corrected-rc1-ready`. Helper
+      `a90_android_execns_probe v284` (SHA256
+      `da1f8b65cbc3872f7ec31a368bd382720a399d3a785e50ae383c800632047b9f`)
+      exposes the new immediate flag, validates required samplers, writes
+      corrected RC1 before the sampler branch, emits a monotonic write timestamp,
+      and preserves the legacy delayed path for old flags. No device command was
+      run.
+30. **V1382 execns helper v284 deploy/preflight.**
+    - Goal: deploy `a90_android_execns_probe v284` to `/cache/bin/` and prove
+      on-device SHA/version/usage markers before any immediate-RC1 live run.
+    - Required checks: local SHA matches V1381, deployed SHA matches, helper
+      usage exposes `a90_android_execns_probe v284`, the immediate corrected RC1
+      flag, `response_sampler.immediate_corrected_rc1_enumerate_enabled`, and
+      `gate_pm_service_powerup_thread_count`; post selftest remains `fail=0`.
+    - Hard stop: deploy/preflight only. No daemon start, no `rc_sel`/`case`
+      write, no PMIC/GPIO/GDSC direct write, no eSoC notify/`BOOT_DONE`, no
+      Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, flash,
+      boot image write, or partition write.
+31. **V1383 bounded immediate corrected RC1 live gate.**
+    - Goal: rerun the Android participant path with helper v284 and
+      `--pm-observer-late-per-proxy-immediate-corrected-rc1-enumerate`, so
+      corrected RC1 enumerate fires in the first poll where the powerup-thread
+      gate is positive, before expensive response/timing sampling.
+    - Success criteria: capture `__subsystem_get(esoc0)` to corrected-RC1
+      action delta, compare it against the Android reference (`~0.255s`), and
+      record GPIO142, PCI, MHI, MHI pipe/`ks`, WLFW, and `wlan0` transitions. A
+      clean failure before L0 is still useful if timing is now near Android and
+      cleanup/selftest remain clean.
+    - Hard stop: bounded live only below Wi-Fi bring-up. No Wi-Fi HAL,
+      scan/connect, credentials, DHCP/routes, external ping, PMIC/GPIO/GDSC
+      direct write, eSoC notify/`BOOT_DONE`, flash, boot image write, or
+      partition write.
 
 ### Required decision before any new mutation
 
@@ -6438,11 +6472,12 @@ Samsung bootloader
   participant window, but it still does not reach MDM2AP/GPIO142, PCI/MHI,
   WLFW, or `wlan0`. V1380 must be host-only classification; do not run another
   live mutation until that classifier chooses a narrower next action.
-- V1380 proves the current v283 ordering is too late relative to Android's
-  esoc0-to-RC1 window. V1381 should be source/build-only helper v284 support
-  for immediate corrected RC1 action before any post-window sampler; do not
-  run another live mutation until v284 is built, verified, and deployed in a
-  separate gate.
+- V1381 proves helper v284 can move corrected RC1 action before the
+  post-window sampler. V1382 must be deploy/preflight only; V1383 is the first
+  bounded live gate allowed to exercise the immediate path, still below Wi-Fi
+  HAL, scan/connect, credentials, DHCP/routes, external ping, PMIC/GPIO/GDSC
+  direct write, eSoC notify/`BOOT_DONE`, flash, boot image write, and partition
+  write.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
