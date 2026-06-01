@@ -3605,3 +3605,42 @@ Reports:
 `docs/reports/NATIVE_INIT_V1594_PM_FIRST_LOWER_MARKER_SOURCE_BUILD_2026-06-02.md`
 and
 `docs/reports/NATIVE_INIT_V1595_PM_FIRST_LOWER_MARKER_ARTIFACT_SANITY_2026-06-02.md`.
+
+## Latest native Wi-Fi state: V1596 (2026-06-02)
+
+V1596 adds `scripts/revalidation/native_wifi_test_boot_handoff_v1596.py` and
+runs the rollbackable live handoff for the V1594 PM-first lower-marker image.
+The handoff/rollback path is clean: the V1594 image boots, evidence is
+collected from `/cache/native-init-wifi-test-boot-v1594.*`, rollback from
+native restores v724, and post-rollback selftest remains `fail=0`.
+
+Strict Wi-Fi progress remains blocked as
+`v1596-test-boot-no-downstream-wifi-progress-blocked`.  The key result is that
+the stripped PM-first route still does not reproduce the Android-good
+PM-service-owned `/dev/subsys_esoc0` path:
+
+- `modem_trigger=True`, but `provider_trigger=False`.
+- No RC1/LTSSM, MHI, WLFW, BDF, FW-ready, or `wlan0` marker is present.
+- Helper mode is `guarded-pm-proxy-contract-pm-first-lower-marker`.
+- `pm_first_route=1`, `late_per_proxy_only=1`, and the direct scoped
+  `/dev/subsys_esoc0` trigger remains disabled.
+- `pm_proxy_helper` is alive during lower-marker sampling and holds
+  `/dev/subsys_modem`; `mdm_helper` is alive and holds `/dev/esoc-0`.
+- `pm-service`/`per_mgr` exits `0` before it is observable in the lower-marker
+  window; `pm-proxy` exits `1`; `pm_full_contract_seen=0`.
+- Helper result is `pm-service-owned-powerup-missing` with reason
+  `pm-first-route-did-not-reach-dev-subsys-esoc0-mdm-subsys-powerup`.
+
+This keeps the active blocker above SDX50M/eSoC/RC1 hardware.  V1596 did not
+reach the provider powerup boundary, so RC1/PERST/refclk, MHI, WLFW, BDF, and
+`wlan0` analysis remains downstream of the current failure.
+
+Next work: V1597 should be source/build-only and reproduce the V1238/V1303
+positive route more exactly: keep the stripped no-HAL/no-wificond service
+window, but move `pm-proxy` back to the late/deferred position after the CNSS
+and `mdm_helper` setup, preserve `pm_proxy_helper` and `per_mgr`, and add
+focused `pm-proxy`/`pm-service` exit/lifetime diagnostics.  Do not proceed to
+credentials, scan/connect, DHCP/routes, external ping, PMIC/GPIO/GDSC direct
+writes, blind eSoC notify/`BOOT_DONE`, global PCI rescan, platform bind/unbind,
+or unbounded boot-image/partition writes.  Report:
+`docs/reports/NATIVE_INIT_V1596_PM_FIRST_LOWER_MARKER_HANDOFF_2026-06-02.md`.

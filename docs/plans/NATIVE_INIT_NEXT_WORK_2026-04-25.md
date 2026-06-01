@@ -9261,3 +9261,34 @@ Samsung bootloader
   `docs/reports/NATIVE_INIT_V1594_PM_FIRST_LOWER_MARKER_SOURCE_BUILD_2026-06-02.md`
   and
   `docs/reports/NATIVE_INIT_V1595_PM_FIRST_LOWER_MARKER_ARTIFACT_SANITY_2026-06-02.md`.
+
+- V1596 rollbackable live handoff is complete.  The V1594 PM-first
+  lower-marker image booted, evidence was collected, rollback from native
+  restored v724, and post-rollback selftest remained `fail=0`.  The handoff
+  itself is safe/clean, but strict Wi-Fi progress is blocked as
+  `v1596-test-boot-no-downstream-wifi-progress-blocked`.
+
+  V1596 proves the stripped PM-first route still does not reach the
+  Android-good PM-service-owned `/dev/subsys_esoc0` boundary.  Evidence shows
+  `modem_trigger=True`, `provider_trigger=False`, no RC1/LTSSM, MHI, WLFW,
+  BDF, FW-ready, or `wlan0`; helper mode
+  `guarded-pm-proxy-contract-pm-first-lower-marker`; `pm_first_route=1`;
+  direct scoped `/dev/subsys_esoc0` triggering disabled; `pm_proxy_helper`
+  alive with `/dev/subsys_modem`; `mdm_helper` alive with `/dev/esoc-0`;
+  `per_mgr` exits `0` before lower-marker observation; `pm_proxy` exits `1`;
+  and `pm_full_contract_seen=0`.  Helper result:
+  `pm-service-owned-powerup-missing`, reason
+  `pm-first-route-did-not-reach-dev-subsys-esoc0-mdm-subsys-powerup`.
+
+  Current blocker remains above SDX50M/eSoC/RC1 hardware.  V1596 did not reach
+  provider powerup, so RC1/PERST/refclk, MHI, WLFW, BDF, and `wlan0` remain
+  downstream and should not be expanded yet.  Next gate: V1597
+  source/build-only should reproduce the V1238/V1303 positive route more
+  exactly: stripped no-HAL/no-wificond service window, `pm_proxy_helper` and
+  `per_mgr` preserved, CNSS/`mdm_helper` setup before a late/deferred
+  `pm-proxy`, direct helper `/dev/subsys_esoc0` trigger still disabled, and
+  focused `pm-proxy`/`pm-service` exit/lifetime diagnostics.  Still no
+  credentials, scan/connect, DHCP/routes, external ping, PMIC/GPIO/GDSC direct
+  writes, blind eSoC notify/`BOOT_DONE`, global PCI rescan, platform
+  bind/unbind, or unbounded boot-image/partition writes.  Report:
+  `docs/reports/NATIVE_INIT_V1596_PM_FIRST_LOWER_MARKER_HANDOFF_2026-06-02.md`.
