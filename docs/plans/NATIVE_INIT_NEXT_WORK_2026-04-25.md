@@ -8163,6 +8163,20 @@ Samsung bootloader
   source/build-only and replace per-needle exact-match scanning with a batched
   per-file sampler that reads each debugfs file at most once per sample. Report:
   `docs/reports/NATIVE_INIT_V1506_WIFI_DENSE_PRE_L0_PARITY_CLASSIFIER_2026-06-01.md`.
+- V1507 source/build-only batched pre-L0 parity test boot passes with
+  `v1507-wifi-batched-pre-l0-parity-test-boot-source-build-pass`. It extends
+  the shared V1393 builder/C hook with
+  `A90_WIFI_TEST_BOOT_RC1_MICRO_BATCHED_FOCUSED_ENDPOINT_SAMPLER` and adds
+  `scripts/revalidation/build_native_init_wifi_test_boot_v1507.py`. The
+  generated image is
+  `tmp/wifi/v1507-wifi-batched-pre-l0-parity-test-boot/boot_linux_v1507_wifi_test.img`
+  (`sha256=d3e92460ff1d68a80a99c8b7dbb5b0997ea88c53e120b8e507671e16d5bee8b4`),
+  native init `0.9.95 (v1507-wifitest)`. The batched sampler emits
+  `micro_batched_regulator`, `micro_batched_clk`, `micro_batched_debug_gpio`,
+  `micro_batched_pinmux`, and `micro_batched_pinconf`, scanning each debugfs
+  file at most once per micro sample. V1508 should run local artifact sanity
+  over this exact manifest before any rollbackable live handoff. Report:
+  `docs/reports/NATIVE_INIT_V1507_WIFI_BATCHED_PRE_L0_PARITY_SOURCE_BUILD_2026-06-01.md`.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still

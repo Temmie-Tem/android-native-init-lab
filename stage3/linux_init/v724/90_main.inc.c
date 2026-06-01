@@ -100,6 +100,9 @@ static void selftest_boot_draw_frame(void *ctx) {
 #ifndef A90_WIFI_TEST_BOOT_RC1_MICRO_FOCUSED_ENDPOINT_SAMPLER
 #define A90_WIFI_TEST_BOOT_RC1_MICRO_FOCUSED_ENDPOINT_SAMPLER 0
 #endif
+#ifndef A90_WIFI_TEST_BOOT_RC1_MICRO_BATCHED_FOCUSED_ENDPOINT_SAMPLER
+#define A90_WIFI_TEST_BOOT_RC1_MICRO_BATCHED_FOCUSED_ENDPOINT_SAMPLER 0
+#endif
 #ifndef A90_WIFI_TEST_BOOT_RC1_CASE_ALIGNED_MICRO_ENDPOINT_SAMPLER
 #define A90_WIFI_TEST_BOOT_RC1_CASE_ALIGNED_MICRO_ENDPOINT_SAMPLER 0
 #endif
@@ -1373,6 +1376,40 @@ static void v1393_rc1_micro_endpoint_sample(const char *sample,
         NULL,
     };
 #endif
+#if A90_WIFI_TEST_BOOT_RC1_ENDPOINT_SAMPLER && A90_WIFI_TEST_BOOT_RC1_MICRO_BATCHED_FOCUSED_ENDPOINT_SAMPLER
+    static const char *const micro_batched_regulator_needles[] = {
+        "pcie_1_gdsc",
+        "pcie_0_gdsc",
+        "pm8150l_l3",
+        "pm8150_l5",
+        "VDD_CX_LEVEL",
+        NULL,
+    };
+    static const char *const micro_batched_clk_needles[] = {
+        "gcc_pcie_1_slv_q2a_axi_clk",
+        "gcc_pcie_1_slv_axi_clk",
+        "gcc_pcie_1_pipe_clk",
+        "gcc_pcie_1_mstr_axi_clk",
+        "gcc_pcie_1_clkref_clk",
+        "gcc_pcie_1_cfg_ahb_clk",
+        "gcc_pcie1_phy_refgen_clk",
+        "gcc_pcie_phy_refgen_clk_src",
+        NULL,
+    };
+    static const char *const micro_batched_gpio_needles[] = {
+        "gpio102",
+        "gpio103",
+        "gpio104",
+        "gpio135",
+        "gpio142",
+        "GPIO_102",
+        "GPIO_103",
+        "GPIO_104",
+        "GPIO_135",
+        "GPIO_142",
+        NULL,
+    };
+#endif
     int out_fd;
     long now_ms = monotonic_millis();
 
@@ -1391,6 +1428,9 @@ static void v1393_rc1_micro_endpoint_sample(const char *sample,
     dprintf(out_fd, "sample=%s micro_endpoint_sampler=1\n", sample);
 #if A90_WIFI_TEST_BOOT_RC1_ENDPOINT_SAMPLER && A90_WIFI_TEST_BOOT_RC1_MICRO_FOCUSED_ENDPOINT_SAMPLER
     dprintf(out_fd, "sample=%s micro_focused_endpoint_sampler=1\n", sample);
+#endif
+#if A90_WIFI_TEST_BOOT_RC1_ENDPOINT_SAMPLER && A90_WIFI_TEST_BOOT_RC1_MICRO_BATCHED_FOCUSED_ENDPOINT_SAMPLER
+    dprintf(out_fd, "sample=%s micro_batched_focused_endpoint_sampler=1\n", sample);
 #endif
     v1393_rc1_window_append_matching_lines(out_fd,
                                            sample,
@@ -1437,6 +1477,33 @@ static void v1393_rc1_micro_endpoint_sample(const char *sample,
                                           "micro_focused_pinconf",
                                           "/sys/kernel/debug/pinctrl/3000000.pinctrl/pinconf-pins",
                                           micro_exact_gpio_needles);
+#endif
+#if A90_WIFI_TEST_BOOT_RC1_MICRO_BATCHED_FOCUSED_ENDPOINT_SAMPLER
+    v1393_rc1_window_append_matching_lines(out_fd,
+                                           sample,
+                                           "micro_batched_regulator",
+                                           "/sys/kernel/debug/regulator/regulator_summary",
+                                           micro_batched_regulator_needles);
+    v1393_rc1_window_append_matching_lines(out_fd,
+                                           sample,
+                                           "micro_batched_clk",
+                                           "/sys/kernel/debug/clk/clk_summary",
+                                           micro_batched_clk_needles);
+    v1393_rc1_window_append_matching_lines(out_fd,
+                                           sample,
+                                           "micro_batched_debug_gpio",
+                                           "/sys/kernel/debug/gpio",
+                                           micro_batched_gpio_needles);
+    v1393_rc1_window_append_matching_lines(out_fd,
+                                           sample,
+                                           "micro_batched_pinmux",
+                                           "/sys/kernel/debug/pinctrl/3000000.pinctrl/pinmux-pins",
+                                           micro_batched_gpio_needles);
+    v1393_rc1_window_append_matching_lines(out_fd,
+                                           sample,
+                                           "micro_batched_pinconf",
+                                           "/sys/kernel/debug/pinctrl/3000000.pinctrl/pinconf-pins",
+                                           micro_batched_gpio_needles);
 #endif
 #endif
     close(out_fd);
@@ -2612,6 +2679,9 @@ static void v1393_write_wifi_test_summary(pid_t helper_pid, long spawn_ms) {
     dprintf(fd,
             "rc1_micro_focused_endpoint_sampler_requested=%d\n",
             A90_WIFI_TEST_BOOT_RC1_MICRO_FOCUSED_ENDPOINT_SAMPLER);
+    dprintf(fd,
+            "rc1_micro_batched_focused_endpoint_sampler_requested=%d\n",
+            A90_WIFI_TEST_BOOT_RC1_MICRO_BATCHED_FOCUSED_ENDPOINT_SAMPLER);
     dprintf(fd,
             "rc1_case_aligned_micro_endpoint_sampler_requested=%d\n",
             A90_WIFI_TEST_BOOT_RC1_CASE_ALIGNED_MICRO_ENDPOINT_SAMPLER);

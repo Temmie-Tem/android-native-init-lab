@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V1506 host-only classifier PASS (`v1506-dense-pre-l0-captures-off-state-but-overruns-micro-window`) over V1505 live handoff evidence. V1505 booted the V1503 dense image and rolled back to v724 successfully. It again proves `rc1-ltssm-link-failed-no-l0`: RC1 reaches `DETECT_QUIET` → `POLL_ACTIVE` → `POLL_COMPLIANCE`, link fails before L0, and no MHI/WLFW/BDF/FW-ready/`wlan0` appears. Dense focused reads show `pcie_1_gdsc` and PCIe1 clocks off, refgen available, GPIO102/103/104/135/142 in expected states, and GPIO142 IRQ zero, but exact-match sampling is too slow: nominal `1ms` sample starts around `1007ms`, max sample around `12564ms`. Next gate should be V1507 source/build-only batched per-file micro sampler; do not proceed to firmware/MHI/WLFW/scan/connect until RC1 L0 and PCI enumeration exist. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, Wi-Fi HAL start, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
+- **Active research cycle**: V1507 source/build-only PASS (`v1507-wifi-batched-pre-l0-parity-test-boot-source-build-pass`). V1507 builds `A90 Linux init 0.9.95 (v1507-wifitest)` at `tmp/wifi/v1507-wifi-batched-pre-l0-parity-test-boot/boot_linux_v1507_wifi_test.img` (`sha256=d3e92460ff1d68a80a99c8b7dbb5b0997ea88c53e120b8e507671e16d5bee8b4`). It keeps corrected RC1 enumerate after provider trigger and replaces V1503 per-needle exact-match dense reads with batched per-file micro reads: `micro_batched_regulator`, `micro_batched_clk`, `micro_batched_debug_gpio`, `micro_batched_pinmux`, and `micro_batched_pinconf`. Next gate should be V1508 local artifact sanity, then V1509 rollbackable live handoff if V1508 passes. Do not proceed to firmware/MHI/WLFW/scan/connect until RC1 L0 and PCI enumeration exist. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, Wi-Fi HAL start, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -2235,3 +2235,17 @@ Update after V1354/V1355:
   `12564ms`. Next gate: V1507 source/build-only batched per-file micro sampler
   so each debugfs file is scanned at most once per sample. Report:
   `docs/reports/NATIVE_INIT_V1506_WIFI_DENSE_PRE_L0_PARITY_CLASSIFIER_2026-06-01.md`.
+- V1507 source/build-only batched pre-L0 parity test boot
+  (`v1507-wifi-batched-pre-l0-parity-test-boot-source-build-pass`) adds
+  `scripts/revalidation/build_native_init_wifi_test_boot_v1507.py` and extends
+  the shared V1393 builder/C hook with
+  `--wifi-test-rc1-micro-batched-focused-endpoint-sampler` /
+  `A90_WIFI_TEST_BOOT_RC1_MICRO_BATCHED_FOCUSED_ENDPOINT_SAMPLER`. The image
+  `tmp/wifi/v1507-wifi-batched-pre-l0-parity-test-boot/boot_linux_v1507_wifi_test.img`
+  (`sha256=d3e92460ff1d68a80a99c8b7dbb5b0997ea88c53e120b8e507671e16d5bee8b4`)
+  uses `A90 Linux init 0.9.95 (v1507-wifitest)`, keeps corrected RC1 enumerate,
+  and scans each debugfs file at most once per micro sample for focused
+  regulator/clock/GPIO/pinmux/pinconf needles. V1507 performed no device
+  command or live action. Next gate: V1508 local artifact sanity over the exact
+  V1507 manifest. Report:
+  `docs/reports/NATIVE_INIT_V1507_WIFI_BATCHED_PRE_L0_PARITY_SOURCE_BUILD_2026-06-01.md`.
