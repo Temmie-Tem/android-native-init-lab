@@ -118,9 +118,25 @@ def build_manifest() -> dict[str, Any]:
         v1416_trigger_error is not None
         and abs(v1416_trigger_error) <= 0.050
     )
-    test_path_lacks_reset_markers = (
+    dmesg_filter = ""
+    for step in v1416.get("steps", []):
+        command = step.get("command", [])
+        joined = " ".join(str(item) for item in command)
+        if "dmesg" in joined and "grep" in joined:
+            dmesg_filter = joined
+            break
+    filter_includes_reset_markers = (
+        "Assert the reset" in dmesg_filter
+        or "Release the reset" in dmesg_filter
+        or "endpoint of RC1" in dmesg_filter
+    )
+    reset_markers_absent_in_filtered_evidence = (
         "assert_reset" not in v1416_events
         and "release_reset" not in v1416_events
+    )
+    reset_marker_absence_proven = (
+        filter_includes_reset_markers
+        and reset_markers_absent_in_filtered_evidence
     )
     link_failed_no_l0 = (
         "link_failed" in v1416_events
@@ -128,7 +144,19 @@ def build_manifest() -> dict[str, Any]:
         and not bool(v1416.get("wifi_progress", {}).get("wlan0_present"))
     )
 
-    if timing_aligned and test_path_lacks_reset_markers and link_failed_no_l0:
+    if timing_aligned and link_failed_no_l0 and not filter_includes_reset_markers:
+        decision = "v1417-delayed-rc1-timing-aligned-filtered-dmesg-recapture-needed"
+        reason = (
+            "V1416 aligns corrected RC1 timing with Android within 50ms and still "
+            "fails before L0, but the V1416 dmesg grep pattern omitted endpoint "
+            "reset/release markers; their absence is therefore not proven."
+        )
+        next_step = (
+            "V1418 should rerun the same V1414 test image with an expanded dmesg "
+            "pattern that includes endpoint reset/release and PCIE20_PARF_INT "
+            "markers before changing timing or trigger design."
+        )
+    elif timing_aligned and reset_marker_absence_proven and link_failed_no_l0:
         decision = "v1417-delayed-rc1-timing-aligned-test11-semantics-gap"
         reason = (
             "V1416 aligns corrected RC1 timing with Android within 50ms, but the "
@@ -206,7 +234,10 @@ def build_manifest() -> dict[str, Any]:
             "test11_to_link_failed_sec": v1416_test11_to_fail,
             "trigger_error_vs_android_sec": v1416_trigger_error,
             "timing_aligned_with_android_50ms": timing_aligned,
-            "test_path_lacks_reset_markers": test_path_lacks_reset_markers,
+            "dmesg_filter": dmesg_filter,
+            "dmesg_filter_includes_reset_markers": filter_includes_reset_markers,
+            "reset_markers_absent_in_filtered_evidence": reset_markers_absent_in_filtered_evidence,
+            "reset_marker_absence_proven": reset_marker_absence_proven,
             "link_failed_no_l0": link_failed_no_l0,
         },
         "safety": {
@@ -254,7 +285,7 @@ def render_report(manifest: dict[str, Any]) -> str:
         ),
         (
             f"| V1416 delayed kmsg watcher | {fmt_seconds(v1416['esoc0_to_test11_sec'])} | "
-            f"{'absent' if v1416['test_path_lacks_reset_markers'] else 'present'} | "
+            f"{'unproven-filtered' if not v1416['dmesg_filter_includes_reset_markers'] else ('absent' if v1416['reset_markers_absent_in_filtered_evidence'] else 'present')} | "
             f"{'no' if v1416['link_failed_no_l0'] else 'unknown'} | "
             f"{'yes' if v1416['link_failed_no_l0'] else 'unknown'} |"
         ),
@@ -263,16 +294,19 @@ def render_report(manifest: dict[str, Any]) -> str:
         "",
         f"- `v1416_trigger_error_vs_android_sec`: `{v1416['trigger_error_vs_android_sec']}`",
         f"- `v1416_timing_aligned_with_android_50ms`: `{v1416['timing_aligned_with_android_50ms']}`",
-        f"- `v1416_test_path_lacks_reset_markers`: `{v1416['test_path_lacks_reset_markers']}`",
+        f"- `v1416_dmesg_filter_includes_reset_markers`: `{v1416['dmesg_filter_includes_reset_markers']}`",
+        f"- `v1416_reset_markers_absent_in_filtered_evidence`: `{v1416['reset_markers_absent_in_filtered_evidence']}`",
+        f"- `v1416_reset_marker_absence_proven`: `{v1416['reset_marker_absence_proven']}`",
         f"- `v1416_link_failed_no_l0`: `{v1416['link_failed_no_l0']}`",
         f"- `v1416_test11_to_phy_ready_sec`: `{v1416['test11_to_phy_ready_sec']}`",
         f"- `v1416_test11_to_link_failed_sec`: `{v1416['test11_to_link_failed_sec']}`",
         "",
         "V1416 removes the major timing objection from V1413: the corrected RC1",
         "action now lands close to the Android reference window. The remaining",
-        "difference is that Android's normal path contains explicit endpoint",
-        "reset/release markers and reaches L0/GEN2, while the test-boot debugfs",
-        "`TEST: 11` path reaches PHY/LTSSM but stalls in poll-compliance.",
+        "difference that remains proven is link behavior: V1416 reaches",
+        "PHY/LTSSM but stalls in poll-compliance. Reset/release marker absence",
+        "is not proven because the V1416 dmesg capture was filtered without those",
+        "patterns.",
         "",
         "## Safety Scope",
         "",

@@ -7100,15 +7100,15 @@ Samsung bootloader
   trigger semantics, or endpoint reset/refclk/PERST readiness. Keep
   scan/connect, credentials, DHCP/routes, and external ping blocked.
 - V1417 host-only classifier passes with
-  `v1417-delayed-rc1-timing-aligned-test11-semantics-gap`. V1416 now aligns
-  with Android timing within about `20ms`, so the large early/late timing error
-  is no longer the leading explanation. The remaining gap is semantic:
-  Android's normal RC1 path has explicit endpoint reset/release markers and
-  reaches L0/GEN2, while test-boot debugfs `TEST: 11` reaches PHY/LTSSM but
-  stalls in `LTSSM_POLL_COMPLIANCE`. V1418 should be source/host-only: inspect
-  the stock `msm_pcie` debugfs `TEST: 11` implementation versus Android's
-  normal RC1 bring-up path before designing another test boot. Keep
-  scan/connect, credentials, DHCP/routes, and external ping blocked.
+  `v1417-delayed-rc1-timing-aligned-filtered-dmesg-recapture-needed`. V1416 now
+  aligns with Android timing within about `20ms`, so the large early/late timing
+  error is no longer the leading explanation. It still fails in
+  `LTSSM_POLL_COMPLIANCE` before L0, but the V1416 dmesg grep pattern omitted
+  endpoint reset/release strings, so reset/release marker absence is not proven.
+  V1418 should rerun the same V1414 test image with an expanded dmesg pattern
+  including endpoint reset/release and `PCIE20_PARF_INT` markers before changing
+  timing or trigger design. Keep scan/connect, credentials, DHCP/routes, and
+  external ping blocked.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
