@@ -7201,6 +7201,16 @@ Samsung bootloader
   RC1 power/refclk/PERST/PMIC state or a narrowly justified pre-RC1 prerequisite
   test. Keep connect-side work blocked until at least L0/MHI/WLFW/`wlan0`
   appears.
+- V1428 host-only classifier passes with
+  `v1428-rc1-retry-closed-pre-rc1-endpoint-prereq-next`. It closes retry
+  widening, GPIO135, PON, provider-held ordering, corrected-RC1 entry, and
+  timing as shortest next branches. The next useful gate is V1429 source/build
+  only: a read-only Wi-Fi test-boot endpoint-prerequisite sampler around PERST
+  release for GPIO102/PERST, GPIO103/CLKREQ, GPIO104/WAKE, `pcie_1_gdsc`,
+  refclk/pipe clocks, GPIO142/MDM2AP IRQ, and LTSSM terminal state. Keep it
+  below Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping,
+  PMIC/GPIO/GDSC direct writes, eSoC notify/`BOOT_DONE`, global PCI rescan,
+  platform bind/unbind, flash, boot image write, and partition write.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
