@@ -7141,6 +7141,14 @@ Samsung bootloader
   `/cache/native-init-wifi-test-boot-v1420-rc1-window.result`. V1421 should
   perform host-only artifact sanity against this exact manifest and marker
   contract. V1422 may run a rollbackable live handoff only after V1421 passes.
+- V1421 local-only artifact sanity passes with
+  `v1421-wifi-test-boot-rc1-window-sampler-artifact-sanity-pass`. The exact
+  V1420 artifact passed manifest decision, SHA, static binary, ramdisk entry,
+  boot marker, header/kernel parity, forbidden credential-like byte, private
+  mode, and RC1-window contract checks. V1422 may now be a rollbackable live
+  handoff for this exact image, with mandatory collection of the V1420 log,
+  summary, RC1 watcher result, RC1-window result, expanded dmesg markers, and
+  `wlan0` state, followed by rollback to v724 and selftest verification.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
