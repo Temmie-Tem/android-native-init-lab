@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V1525 host-only MHI PM-resume position classifier PASS (`v1525-mhi-pm-resume-is-post-enumeration-not-first-l0-trigger`). V1517/V1518 preserve the native blocker as `rc1-ltssm-link-failed-no-l0`: corrected TEST:11 reaches RC1 PHY/LTSSM and link failure, but L0, PCI enumeration, MHI, WLFW, BDF, FW-ready, and `wlan0` remain absent. V1521 captured Android-good WLFW/BDF/FW-ready/`wlan0`, V1522 proves sampled GPIO/debugfs/interrupt/regulator sources are nondiscriminating, V1523 proves TEST:11 reaches the common AP-side enable path, and V1524 raised eSoC/MHI PM-resume as a candidate. V1525 corrects that candidate: MHI PM-resume requires an existing `pci_dev` and its eSoC hook is registered after MHI PCI probe, so it explains later Android link resumes but cannot create first L0/first PCI device. Next gate should be V1526 Android initial RC1 trigger capture/design: identify the Android-only first-L0 trigger below Wi-Fi connect (endpoint wake IRQ timing, pci-msm sysfs/client enumerate, or another kernel caller) before another native mutation. Do not proceed to firmware/MHI deep dive/WLFW/scan/connect until native RC1 L0 and PCI enumeration exist. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, Wi-Fi HAL start, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
+- **Active research cycle**: V1526 host-only Android initial RC1 trigger capture design PASS (`v1526-android-initial-rc1-trigger-capture-design-ready`). V1517/V1518 preserve the native blocker as `rc1-ltssm-link-failed-no-l0`: corrected TEST:11 reaches RC1 PHY/LTSSM and link failure, but L0, PCI enumeration, MHI, WLFW, BDF, FW-ready, and `wlan0` remain absent. V1521 captured Android-good WLFW/BDF/FW-ready/`wlan0`, V1522 proves sampled GPIO/debugfs/interrupt/regulator sources are nondiscriminating, V1523 proves TEST:11 reaches the common AP-side enable path, and V1525 proves MHI PM-resume is post-enumeration and not the first-L0 trigger. V1526 defines V1527: reuse the rollbackable V1521 temporary Magisk post-fs-data handoff, but capture raw `/dev/kmsg`/`dmesg -w` plus high-cadence GPIO104/GPIO142 IRQ/GPIO samples before Android first RC1 assert (~8.796s in V852). Do not proceed to firmware/MHI deep dive/WLFW/scan/connect until native RC1 L0 and PCI enumeration exist. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, Wi-Fi HAL start, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -2449,3 +2449,17 @@ Update after V1354/V1355:
   connect: endpoint wake IRQ timing, pci-msm sysfs/client enumerate, or another
   kernel caller. Report:
   `docs/reports/NATIVE_INIT_V1525_MHI_PM_RESUME_POSITION_CLASSIFIER_2026-06-02.md`.
+- V1526 host-only Android initial RC1 trigger capture design passes with
+  `v1526-android-initial-rc1-trigger-capture-design-ready`. It adds
+  `scripts/revalidation/android_initial_rc1_trigger_capture_design_v1526.py`
+  and defines the V1527 capture contract. Fixed points: Android V852 has
+  `esoc0` at `8.541440s`, first RC1 assert at `8.796369s`, and first L0 at
+  `8.820231s` without a debugfs TEST marker; native V1517 uses explicit
+  TEST:11 and fails before L0; V1525 closes MHI PM-resume as first-L0 trigger.
+  V1521's temporary Magisk post-fs-data handoff starts early enough
+  (`5.72s`) but its IRQ snapshots stayed zero, so V1527 should extend that
+  rollbackable Android-good handoff with raw `/dev/kmsg` or `dmesg -w` capture
+  plus high-cadence GPIO104/GPIO142 `/proc/interrupts` and debug GPIO samples.
+  Success labels: raw kmsg caller found, endpoint wake before L0, mdm status
+  before/during L0, or opaque kernel caller requiring tracefs. Report:
+  `docs/reports/NATIVE_INIT_V1526_ANDROID_INITIAL_RC1_TRIGGER_CAPTURE_DESIGN_2026-06-02.md`.

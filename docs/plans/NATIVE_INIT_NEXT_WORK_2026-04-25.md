@@ -8386,6 +8386,20 @@ Samsung bootloader
   connect: endpoint wake IRQ timing, pci-msm sysfs/client enumerate, or another
   kernel caller. Report:
   `docs/reports/NATIVE_INIT_V1525_MHI_PM_RESUME_POSITION_CLASSIFIER_2026-06-02.md`.
+- V1526 host-only Android initial RC1 trigger capture design passes with
+  `v1526-android-initial-rc1-trigger-capture-design-ready`. It adds
+  `scripts/revalidation/android_initial_rc1_trigger_capture_design_v1526.py`
+  and defines the V1527 capture contract. Fixed points: Android V852 has
+  `esoc0` at `8.541440s`, first RC1 assert at `8.796369s`, and first L0 at
+  `8.820231s` without a debugfs TEST marker; native V1517 uses explicit
+  TEST:11 and fails before L0; V1525 closes MHI PM-resume as first-L0 trigger.
+  V1521's temporary Magisk post-fs-data handoff starts early enough
+  (`5.72s`) but its IRQ snapshots stayed zero, so V1527 should extend that
+  rollbackable Android-good handoff with raw `/dev/kmsg` or `dmesg -w` capture
+  plus high-cadence GPIO104/GPIO142 `/proc/interrupts` and debug GPIO samples.
+  Success labels: raw kmsg caller found, endpoint wake before L0, mdm status
+  before/during L0, or opaque kernel caller requiring tracefs. Report:
+  `docs/reports/NATIVE_INIT_V1526_ANDROID_INITIAL_RC1_TRIGGER_CAPTURE_DESIGN_2026-06-02.md`.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
