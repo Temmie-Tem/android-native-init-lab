@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v293"
+#define EXECNS_VERSION "a90_android_execns_probe v294"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -277,6 +277,7 @@ struct config {
     bool allow_android_wifi_service_window;
     bool allow_android_wifi_service_window_subsys_trigger_capture;
     bool allow_android_wifi_service_window_pm_proxy_contract;
+    bool allow_android_wifi_service_window_late_per_proxy_only;
     bool require_android_selinux_exec_match;
     bool pm_observer_zero_delay_per_mgr_probe;
     bool pm_observer_continue_after_provider;
@@ -492,6 +493,7 @@ static void usage(FILE *out) {
             "[--allow-android-wifi-service-window] "
             "[--allow-android-wifi-service-window-subsys-trigger-capture] "
             "[--allow-android-wifi-service-window-pm-proxy-contract] "
+            "[--allow-android-wifi-service-window-late-per-proxy-only] "
             "[--result-output-path <path>] "
             "[--pm-observer-continue-after-provider] "
             "[--pm-observer-start-cnss-after-provider] "
@@ -1479,6 +1481,10 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             cfg->allow_android_wifi_service_window_pm_proxy_contract = true;
             continue;
         }
+        if (strcmp(argv[i], "--allow-android-wifi-service-window-late-per-proxy-only") == 0) {
+            cfg->allow_android_wifi_service_window_late_per_proxy_only = true;
+            continue;
+        }
         if (strcmp(argv[i], "--require-android-selinux-exec-match") == 0) {
             cfg->require_android_selinux_exec_match = true;
             continue;
@@ -2295,6 +2301,11 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
     if (cfg->allow_android_wifi_service_window_pm_proxy_contract &&
         !cfg->allow_android_wifi_service_window_subsys_trigger_capture) {
         fprintf(stderr, "--allow-android-wifi-service-window-pm-proxy-contract requires --allow-android-wifi-service-window-subsys-trigger-capture\n");
+        return 2;
+    }
+    if (cfg->allow_android_wifi_service_window_late_per_proxy_only &&
+        !cfg->allow_android_wifi_service_window_pm_proxy_contract) {
+        fprintf(stderr, "--allow-android-wifi-service-window-late-per-proxy-only requires --allow-android-wifi-service-window-pm-proxy-contract\n");
         return 2;
     }
     if (!is_cnss_service_manager_matrix_order(cfg->service_manager_order)) {
@@ -39222,6 +39233,10 @@ static int run_wifi_companion_android_wifi_service_window_guarded(const struct c
     struct composite_child children[A90_COMPOSITE_CHILD_MAX];
     struct property_service_shim property_shim;
     const bool pm_proxy_contract = cfg->allow_android_wifi_service_window_pm_proxy_contract;
+    const bool late_per_proxy_only = cfg->allow_android_wifi_service_window_late_per_proxy_only;
+    const bool direct_subsys_trigger =
+        is_wifi_companion_android_wifi_service_window_subsys_trigger_capture_mode(cfg->mode) &&
+        !late_per_proxy_only;
     size_t child_count = 0;
     int per_mgr_index = -1;
     int pm_proxy_helper_index = -1;
@@ -39315,7 +39330,7 @@ static int run_wifi_companion_android_wifi_service_window_guarded(const struct c
                          "per_mgr",
                          "/vendor/bin/pm-service",
                          COMPOSITE_ID_PER_MGR);
-    if (pm_proxy_contract) {
+    if (pm_proxy_contract && !late_per_proxy_only) {
         pm_proxy_index = (int)child_count;
         composite_child_init(&children[child_count++],
                              "pm_proxy",
@@ -39342,19 +39357,30 @@ static int run_wifi_companion_android_wifi_service_window_guarded(const struct c
                          "cnss_daemon",
                          "/vendor/bin/cnss-daemon",
                          COMPOSITE_ID_CNSS);
+    if (pm_proxy_contract && late_per_proxy_only) {
+        pm_proxy_index = (int)child_count;
+        composite_child_init(&children[child_count++],
+                             "pm_proxy",
+                             "/vendor/bin/pm-proxy",
+                             COMPOSITE_ID_PER_PROXY);
+    }
 
     if (append_literal(stdout_buf, "android_wifi_service_window.begin=1\n") < 0 ||
         append_format(stdout_buf, "android_wifi_service_window.helper_version=%s\n", EXECNS_VERSION) < 0 ||
         append_format(stdout_buf,
                       "android_wifi_service_window.mode=%s\n",
                       subsys_trigger_capture
-                          ? (pm_proxy_contract ? "guarded-pm-proxy-contract-subsys-trigger-capture"
-                                               : "guarded-subsys-trigger-capture")
+                          ? (pm_proxy_contract
+                                 ? (late_per_proxy_only ? "guarded-pm-proxy-contract-late-per-proxy-lower-marker"
+                                                        : "guarded-pm-proxy-contract-subsys-trigger-capture")
+                                 : "guarded-subsys-trigger-capture")
                           : "guarded") < 0 ||
         append_format(stdout_buf,
                       "android_wifi_service_window.order=%s\n",
                       pm_proxy_contract
-                          ? "servicemanager,hwservicemanager,vndservicemanager,pm_proxy_helper,qrtr_ns,rmt_storage,tftp_server,pd_mapper,wifi_hal_legacy,wifi_hal_ext,per_mgr,pm_proxy,cnss_diag,wificond,mdm_helper,cnss_daemon,mdm-helper-esoc-fd-gate,subsys_esoc0-open-child"
+                          ? (late_per_proxy_only
+                                 ? "servicemanager,hwservicemanager,vndservicemanager,pm_proxy_helper,qrtr_ns,rmt_storage,tftp_server,pd_mapper,wifi_hal_legacy,wifi_hal_ext,per_mgr,cnss_diag,wificond,mdm_helper,cnss_daemon,pm_proxy_late,lower-marker-no-direct-trigger"
+                                 : "servicemanager,hwservicemanager,vndservicemanager,pm_proxy_helper,qrtr_ns,rmt_storage,tftp_server,pd_mapper,wifi_hal_legacy,wifi_hal_ext,per_mgr,pm_proxy,cnss_diag,wificond,mdm_helper,cnss_daemon,mdm-helper-esoc-fd-gate,subsys_esoc0-open-child")
                           : (subsys_trigger_capture
                                  ? "servicemanager,hwservicemanager,vndservicemanager,qrtr_ns,rmt_storage,tftp_server,pd_mapper,wifi_hal_legacy,wifi_hal_ext,per_mgr,cnss_diag,wificond,mdm_helper,cnss_daemon,mdm-helper-esoc-fd-gate,subsys_esoc0-open-child"
                                  : "servicemanager,hwservicemanager,vndservicemanager,qrtr_ns,rmt_storage,tftp_server,pd_mapper,wifi_hal_legacy,wifi_hal_ext,per_mgr,cnss_diag,wificond,mdm_helper,cnss_daemon")) < 0 ||
@@ -39364,17 +39390,19 @@ static int run_wifi_companion_android_wifi_service_window_guarded(const struct c
         append_format(stdout_buf,
                       "android_wifi_service_window.pm_proxy_contract_planned=%d\n"
                       "android_wifi_service_window.pm_proxy_helper_start_planned=%d\n"
-                      "android_wifi_service_window.pm_proxy_start_planned=%d\n",
+                      "android_wifi_service_window.pm_proxy_start_planned=%d\n"
+                      "android_wifi_service_window.late_per_proxy_only=%d\n",
                       pm_proxy_contract ? 1 : 0,
                       pm_proxy_contract ? 1 : 0,
-                      pm_proxy_contract ? 1 : 0) < 0 ||
+                      pm_proxy_contract ? 1 : 0,
+                      late_per_proxy_only ? 1 : 0) < 0 ||
         append_literal(stdout_buf, "android_wifi_service_window.mdm_helper_start_planned=1\n") < 0 ||
         append_literal(stdout_buf, "android_wifi_service_window.cnss_daemon_start_planned=1\n") < 0 ||
         append_literal(stdout_buf, "android_wifi_service_window.qcwlanstate_write=0\n") < 0 ||
         append_literal(stdout_buf, "android_wifi_service_window.iwifi_start=0\n") < 0 ||
         append_format(stdout_buf,
                       "android_wifi_service_window.subsys_esoc0_open_planned=%d\n",
-                      subsys_trigger_capture ? 1 : 0) < 0 ||
+                      direct_subsys_trigger ? 1 : 0) < 0 ||
         append_literal(stdout_buf, "android_wifi_service_window.subsys_esoc0_open_attempted=0\n") < 0 ||
         append_literal(stdout_buf, "android_wifi_service_window.esoc_ioctl_attempted=0\n") < 0 ||
         append_literal(stdout_buf, "android_wifi_service_window.scan_connect_linkup=0\n") < 0 ||
@@ -39614,7 +39642,7 @@ static int run_wifi_companion_android_wifi_service_window_guarded(const struct c
             stop_property_service_shim(&property_shim, paths, stdout_buf);
             return -1;
         }
-        if (mdm_helper_esoc0_fd_count > 0) {
+        if (mdm_helper_esoc0_fd_count > 0 && direct_subsys_trigger) {
             if (start_mdm_helper_subsys_trigger_child(cfg,
                                                       paths,
                                                       stdout_buf,
@@ -39643,9 +39671,11 @@ static int run_wifi_companion_android_wifi_service_window_guarded(const struct c
                 stop_property_service_shim(&property_shim, paths, stdout_buf);
                 return -1;
             }
-        } else if (append_literal(stdout_buf,
+        } else if (append_format(stdout_buf,
                                   "android_wifi_service_window.subsys_trigger_start_attempted=0\n"
-                                  "android_wifi_service_window.subsys_trigger_started=0\n") < 0) {
+                                  "android_wifi_service_window.subsys_trigger_started=0\n"
+                                  "android_wifi_service_window.subsys_trigger_skip_reason=%s\n",
+                                  late_per_proxy_only ? "late-per-proxy-only-no-direct-trigger" : "no-mdm-helper-esoc-fd") < 0) {
             composite_cleanup_children(children, child_count, stdout_buf, stderr_buf);
             stop_property_service_shim(&property_shim, paths, stdout_buf);
             return -1;
@@ -39956,6 +39986,7 @@ static int run_wifi_companion_android_wifi_service_window_guarded(const struct c
                   "android_wifi_service_window.qcwlanstate_write=0\n"
                   "android_wifi_service_window.iwifi_start=0\n"
                   "android_wifi_service_window.pm_proxy_contract=%d\n"
+                  "android_wifi_service_window.late_per_proxy_only=%d\n"
                   "android_wifi_service_window.pm_proxy_helper_subsys_modem_fd_count=%d\n"
                   "android_wifi_service_window.per_mgr_subsys_modem_fd_count=%d\n"
                   "android_wifi_service_window.pm_full_contract_seen=%d\n"
@@ -39968,6 +39999,7 @@ static int run_wifi_companion_android_wifi_service_window_guarded(const struct c
                   "android_wifi_service_window.external_ping=0\n"
                   "android_wifi_service_window.end=1\n",
                   pm_proxy_contract ? 1 : 0,
+                  late_per_proxy_only ? 1 : 0,
                   pm_proxy_helper_subsys_modem_fd_count,
                   per_mgr_subsys_modem_fd_count,
                   (pm_proxy_contract &&
@@ -40313,6 +40345,8 @@ int main(int argc, char **argv) {
            cfg.allow_android_wifi_service_window ? 1 : 0);
     printf("allow_android_wifi_service_window_subsys_trigger_capture=%d\n",
            cfg.allow_android_wifi_service_window_subsys_trigger_capture ? 1 : 0);
+    printf("allow_android_wifi_service_window_late_per_proxy_only=%d\n",
+           cfg.allow_android_wifi_service_window_late_per_proxy_only ? 1 : 0);
     printf("connect_config=%s\n", cfg.connect_config != NULL ? cfg.connect_config : "<none>");
     printf("connect_iface=%s\n", cfg.connect_iface != NULL ? cfg.connect_iface : "<none>");
     printf("ping_target=%s\n", cfg.ping_target != NULL ? cfg.ping_target : "<none>");

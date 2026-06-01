@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V1590 host-only PM-service lifetime route classifier PASS (`v1590-route-current-service-window-loses-pm-service-owned-powerup`). V1589 lower-marker handoff remains valid and rollback verified to v724/selftest `fail=0`, but it also proves the current V1588 service-window route loses the Android-good PM-service-owned powerup path: `per_mgr` exits `0`, `pm_proxy` exits `1`, `pm-service` is absent from the lower-marker window, and no PM-service-owned `/dev/subsys_esoc0`/`mdm_subsys_powerup` marker appears. V1238/V1303 remain the positive route references because late `pm-proxy` made PM-service reach `/dev/subsys_esoc0` and `mdm_subsys_powerup`. Next gate should be V1591 source/build-only: firmware-mount-preserving late-`per_proxy`-only service-window test boot with lower-marker sampling, no direct scoped trigger, and explicit PM-service lifetime/exit markers. Keep credentials, scan/connect, DHCP/routes, external ping, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, or unbounded boot image/partition write blocked.
+- **Active research cycle**: V1591 source/build + artifact sanity PASS. Helper `a90_android_execns_probe v294` adds Android service-window late-`per_proxy` support: `pm-proxy` is started after the mdm_helper/CNSS window, the direct scoped `/dev/subsys_esoc0` trigger child is disabled, and compact lower-marker sampling remains enabled. Built rollbackable test boot `A90 Linux init 0.9.102 (v1591-late-per-proxy-lower-marker)` at `tmp/wifi/v1591-late-per-proxy-lower-marker-test-boot/boot_linux_v1591_wifi_test.img` with boot sha256 `ef917e0f6dc65530b93ecd808598098c8b8cf94897cc5b518eca026829823466`; artifact sanity passed as `v1591-late-per-proxy-lower-marker-artifact-sanity-pass`. Next gate: V1592 rollbackable live handoff of only this image, collect helper result/lower markers/dmesg/`wlan0`, then roll back to v724 and verify selftest `fail=0`. Keep credentials, scan/connect, DHCP/routes, external ping, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, or unbounded boot image/partition write blocked.
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -3445,3 +3445,40 @@ lifetime/exit markers.  Do not proceed to credentials, scan/connect,
 DHCP/routes, external ping, PMIC/GPIO/GDSC direct writes, blind eSoC
 notify/`BOOT_DONE`, global PCI rescan, or platform bind/unbind.  Report:
 `docs/reports/NATIVE_INIT_V1590_PM_SERVICE_LIFETIME_ROUTE_CLASSIFIER_2026-06-02.md`.
+
+## Latest native Wi-Fi state: V1591 (2026-06-02)
+
+V1591 implements the V1590-selected route as source/build-only tooling.
+`a90_android_execns_probe` is bumped to v294 and adds
+`--allow-android-wifi-service-window-late-per-proxy-only`.  In Android
+service-window mode this keeps the PM proxy contract and lower-marker sampler,
+but moves `pm-proxy` after the mdm_helper/CNSS window and disables the direct
+scoped helper `/dev/subsys_esoc0` trigger child.
+
+Source build passes as
+`v1591-late-per-proxy-lower-marker-test-boot-source-build-pass`:
+
+- boot image:
+  `tmp/wifi/v1591-late-per-proxy-lower-marker-test-boot/boot_linux_v1591_wifi_test.img`
+- boot sha256:
+  `ef917e0f6dc65530b93ecd808598098c8b8cf94897cc5b518eca026829823466`
+- init: `A90 Linux init 0.9.102 (v1591-late-per-proxy-lower-marker)`
+- helper marker: `a90_android_execns_probe v294`
+- helper sha256:
+  `01b059f894b62a3b4eef3f01065dbad62dcc20f443feb0509c883a37608dbbc7`
+
+Artifact sanity passes as
+`v1591-late-per-proxy-lower-marker-artifact-sanity-pass`.  The verifier checks
+static init/helper binaries, boot/header/kernel parity, ramdisk entries, helper
+v294/late-`per_proxy` markers, lower-marker strings, private file modes, and
+forbidden credential-like byte absence.  No device command, flash, reboot,
+scan/connect, credentials, DHCP/routes, external ping, PMIC/GPIO/GDSC write,
+blind eSoC notify/`BOOT_DONE`, global PCI rescan, platform bind/unbind, or
+partition write occurred.
+
+Next work: V1592 rollbackable live handoff of only the V1591 image, collect
+log/summary/helper result/dmesg/`wlan0`, then roll back to v724 and verify
+selftest `fail=0`.  Reports:
+`docs/reports/NATIVE_INIT_V1591_LATE_PER_PROXY_LOWER_MARKER_SOURCE_BUILD_2026-06-02.md`
+and
+`docs/reports/NATIVE_INIT_V1591_LATE_PER_PROXY_LOWER_MARKER_ARTIFACT_SANITY_2026-06-02.md`.

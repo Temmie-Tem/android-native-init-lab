@@ -47,8 +47,8 @@ DEFAULT_WIFI_TEST_WATCHER_PID = "/cache/native-init-wifi-test-boot-v1393-watcher
 DEFAULT_WIFI_TEST_WATCH_SEC = 35
 DEFAULT_WIFI_TEST_SUPERVISOR_TIMEOUT_SEC = 40
 DEFAULT_WIFI_TEST_HELPER_MODE = "post-pm-observer"
-EXPECTED_HELPER_MARKER = "a90_android_execns_probe v293"
-EXPECTED_HELPER_SHA256 = "cb4d47f3b6b4f5052dd9aa7fb1b444e0ab0a1fc330b2386d5d78c7784863822c"
+EXPECTED_HELPER_MARKER = "a90_android_execns_probe v294"
+EXPECTED_HELPER_SHA256 = "01b059f894b62a3b4eef3f01065dbad62dcc20f443feb0509c883a37608dbbc7"
 REPRODUCIBLE_MTIME = 0
 
 FORBIDDEN_BYTES = (
@@ -98,6 +98,8 @@ def helper_runtime_mode(args: argparse.Namespace) -> str:
         return "wifi-companion-android-wifi-service-window-subsys-trigger-capture"
     if args.wifi_test_helper_mode == "android-service-window-pm-proxy-contract-subsys-trigger-capture":
         return "wifi-companion-android-wifi-service-window-subsys-trigger-capture"
+    if args.wifi_test_helper_mode == "android-service-window-pm-proxy-contract-late-per-proxy-lower-marker":
+        return "wifi-companion-android-wifi-service-window-subsys-trigger-capture"
     return "wifi-companion-post-pm-mdm-helper-esoc-observer"
 
 
@@ -106,6 +108,7 @@ def uses_android_service_window(args: argparse.Namespace) -> bool:
         "android-service-window-start-only",
         "android-service-window-subsys-trigger-capture",
         "android-service-window-pm-proxy-contract-subsys-trigger-capture",
+        "android-service-window-pm-proxy-contract-late-per-proxy-lower-marker",
     }
 
 
@@ -257,6 +260,12 @@ def build_init(args: argparse.Namespace) -> None:
         service_window_flags.extend([
             "-DA90_WIFI_TEST_BOOT_ANDROID_SERVICE_WINDOW_SUBSYS_TRIGGER_CAPTURE=1",
             "-DA90_WIFI_TEST_BOOT_ANDROID_SERVICE_WINDOW_PM_PROXY_CONTRACT=1",
+        ])
+    if args.wifi_test_helper_mode == "android-service-window-pm-proxy-contract-late-per-proxy-lower-marker":
+        service_window_flags.extend([
+            "-DA90_WIFI_TEST_BOOT_ANDROID_SERVICE_WINDOW_SUBSYS_TRIGGER_CAPTURE=1",
+            "-DA90_WIFI_TEST_BOOT_ANDROID_SERVICE_WINDOW_PM_PROXY_CONTRACT=1",
+            "-DA90_WIFI_TEST_BOOT_ANDROID_SERVICE_WINDOW_LATE_PER_PROXY_ONLY=1",
         ])
     rc1_retry_flags = []
     if args.wifi_test_rc1_retry_count > 0:
@@ -420,6 +429,12 @@ def verify_init_route_contract(args: argparse.Namespace) -> None:
                 "--allow-android-wifi-service-window-subsys-trigger-capture",
                 "--allow-android-wifi-service-window-pm-proxy-contract",
             ])
+        if args.wifi_test_helper_mode == "android-service-window-pm-proxy-contract-late-per-proxy-lower-marker":
+            expected.extend([
+                "--allow-android-wifi-service-window-subsys-trigger-capture",
+                "--allow-android-wifi-service-window-pm-proxy-contract",
+                "--allow-android-wifi-service-window-late-per-proxy-only",
+            ])
         forbidden.extend([
             "--allow-pm-service-trigger-observer",
             "--allow-post-pm-mdm-helper-esoc-observer",
@@ -486,6 +501,16 @@ def verify_markers(args: argparse.Namespace) -> None:
             expected.extend([
                 "--allow-android-wifi-service-window-subsys-trigger-capture",
                 "--allow-android-wifi-service-window-pm-proxy-contract",
+                "android_wifi_service_window.lower_marker.begin=1",
+                "android_wifi_service_window.lower_marker.mode=service-window-pm-proxy-contract-lower-marker",
+                "android_wifi_service_window.lower_marker_sampled=%d",
+            ])
+        if args.wifi_test_helper_mode == "android-service-window-pm-proxy-contract-late-per-proxy-lower-marker":
+            expected.extend([
+                "--allow-android-wifi-service-window-subsys-trigger-capture",
+                "--allow-android-wifi-service-window-pm-proxy-contract",
+                "--allow-android-wifi-service-window-late-per-proxy-only",
+                "guarded-pm-proxy-contract-late-per-proxy-lower-marker",
                 "android_wifi_service_window.lower_marker.begin=1",
                 "android_wifi_service_window.lower_marker.mode=service-window-pm-proxy-contract-lower-marker",
                 "android_wifi_service_window.lower_marker_sampled=%d",
@@ -1022,6 +1047,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
             "android-service-window-start-only",
             "android-service-window-subsys-trigger-capture",
             "android-service-window-pm-proxy-contract-subsys-trigger-capture",
+            "android-service-window-pm-proxy-contract-late-per-proxy-lower-marker",
         ],
         default=DEFAULT_WIFI_TEST_HELPER_MODE,
     )

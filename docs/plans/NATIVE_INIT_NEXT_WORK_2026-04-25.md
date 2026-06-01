@@ -9157,3 +9157,28 @@ Samsung bootloader
   writes, blind eSoC notify/`BOOT_DONE`, global PCI rescan, and platform
   bind/unbind blocked.  Report:
   `docs/reports/NATIVE_INIT_V1590_PM_SERVICE_LIFETIME_ROUTE_CLASSIFIER_2026-06-02.md`.
+
+- V1591 source/build and artifact sanity are complete.  Helper
+  `a90_android_execns_probe` is bumped to v294 and adds
+  `--allow-android-wifi-service-window-late-per-proxy-only`.  The new route
+  preserves firmware mount parity, private devnodes, and lower-marker sampling,
+  but starts `pm-proxy` after the mdm_helper/CNSS window and disables the direct
+  scoped helper `/dev/subsys_esoc0` trigger child.  This targets the V1590
+  finding that the current route lost PM-service-owned powerup while V1238/V1303
+  proved late `pm-proxy` can make PM-service reach `/dev/subsys_esoc0`.
+
+  V1591 build passes with
+  `v1591-late-per-proxy-lower-marker-test-boot-source-build-pass`; boot image:
+  `tmp/wifi/v1591-late-per-proxy-lower-marker-test-boot/boot_linux_v1591_wifi_test.img`,
+  sha256
+  `ef917e0f6dc65530b93ecd808598098c8b8cf94897cc5b518eca026829823466`.
+  Artifact sanity passes as
+  `v1591-late-per-proxy-lower-marker-artifact-sanity-pass`.  Next gate: V1592
+  rollbackable live handoff of only this V1591 image, collect helper
+  lower-marker result/dmesg/`wlan0`, then roll back to v724 and verify selftest
+  `fail=0`.  Still no credentials, scan/connect, DHCP/routes, external ping,
+  PMIC/GPIO/GDSC direct writes, blind eSoC notify/`BOOT_DONE`, global PCI
+  rescan, or platform bind/unbind.  Reports:
+  `docs/reports/NATIVE_INIT_V1591_LATE_PER_PROXY_LOWER_MARKER_SOURCE_BUILD_2026-06-02.md`
+  and
+  `docs/reports/NATIVE_INIT_V1591_LATE_PER_PROXY_LOWER_MARKER_ARTIFACT_SANITY_2026-06-02.md`.
