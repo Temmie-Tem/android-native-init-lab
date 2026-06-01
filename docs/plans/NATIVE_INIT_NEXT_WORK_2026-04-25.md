@@ -7604,6 +7604,25 @@ Samsung bootloader
   local-only artifact sanity over the exact V1462 manifest, static binaries,
   marker contract, v724 header/kernel parity, private modes, and forbidden
   credential-like byte absence before any live flash/handoff.
+- V1463 local-only artifact sanity passes with
+  `v1463-wifi-test-boot-exact-provider-tracepoint-artifact-sanity-pass`. It
+  verifies the exact V1462 manifest, boot image, static init/helper binaries,
+  ramdisk entries, exact-provider tracepoint marker contract, absent
+  retry/legacy/case-writer markers, v724 header/kernel parity, forbidden
+  credential-like byte absence, private modes, and the V1462 contract
+  (`provider_trigger_micro_endpoint_sampler=true`,
+  `provider_trigger_exact_line=true`, `provider_trigger_long_window=true`,
+  `provider_trigger_thread_state=true`,
+  `provider_trigger_tracepoint_sampler=true`,
+  `rc1_micro_endpoint_sampler=true`, `rc1_endpoint_sampler=true`,
+  `rc1_case_aligned_micro_endpoint_sampler=false`,
+  `rc1_immediate_endpoint_sampler=false`, `rc1_focused_endpoint_sampler=false`,
+  `0ms` watcher delay, retry count `0`). V1464 may be a rollbackable live
+  handoff for only the V1462 image, expecting
+  `A90 Linux init 0.9.86 (v1462-wifitest)`, collecting V1462 log, summary,
+  watcher result, exact-provider tracepoint window result, expanded dmesg
+  markers, and `wlan0` state, then rolling back to
+  `stage3/boot_linux_v724.img` and verifying selftest fail=0.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
