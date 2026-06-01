@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V1593 host-only PM proxy / `per_mgr` lifetime classifier PASS. V1592 did not reach the lower eSoC/RC1 boundary: the late `pm-proxy` child spawned with successful preexec/SELinux setup but exited `1`, while `pm-service` (`per_mgr`) exited `0` before the PM full contract or PM-service-owned `/dev/subsys_esoc0` powerup appeared. V1238/V1303 remain positive references proving a stripped PM-first late-`per_proxy` route can reach PM-service-owned `/dev/subsys_esoc0` and `mdm_subsys_powerup`. Next gate: V1594 source/build-only should preserve V1591 firmware mounts but switch the test-boot route to V1238-style PM-first ordering, with no Wi-Fi HAL/wificond before PM-service-owned powerup observation and explicit `pm-proxy`/`per_mgr` exit diagnostics. Keep credentials, scan/connect, DHCP/routes, external ping, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, or unbounded boot image/partition write blocked.
+- **Active research cycle**: V1594/V1595 source-build + artifact sanity PASS. Helper `a90_android_execns_probe v295` adds `--allow-android-wifi-service-window-pm-first-route`; the V1594 test boot preserves V1591 firmware mounts but switches to PM-first ordering (`pm_proxy_helper`, `per_mgr`, `pm-proxy`, `mdm_helper`, `cnss-daemon`) with no Wi-Fi HAL/wificond before PM-service-owned `/dev/subsys_esoc0` observation, direct scoped trigger still disabled, and explicit `pm-service-owned-powerup-observed` / `pm-service-owned-powerup-missing` classification. Boot image `tmp/wifi/v1594-pm-first-lower-marker-test-boot/boot_linux_v1594_wifi_test.img` has sha256 `86ec9d6fbce5ac56e70815cac7aa1dc1a45aee1d5dd8a0fb53f81dc7c4d44417`; V1595 artifact sanity passed. Next gate: V1596 rollbackable live handoff of only this V1594 image, then rollback to v724/selftest. Keep credentials, scan/connect, DHCP/routes, external ping, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, or unbounded boot image/partition write blocked.
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -3560,3 +3560,48 @@ DHCP/routes, external ping, PMIC/GPIO/GDSC direct writes, blind eSoC
 notify/`BOOT_DONE`, global PCI rescan, platform bind/unbind, or unbounded
 boot-image/partition writes.  Report:
 `docs/reports/NATIVE_INIT_V1593_PM_PROXY_PER_MGR_LIFETIME_CLASSIFIER_2026-06-02.md`.
+
+## Latest native Wi-Fi state: V1594/V1595 (2026-06-02)
+
+V1594 implements the V1593-selected source/build route.  Helper
+`a90_android_execns_probe` is bumped to v295 and adds
+`--allow-android-wifi-service-window-pm-first-route`.  The new test boot keeps
+V1591 firmware mount parity and the private vendor namespace, but changes the
+service-window child order to PM-first:
+
+`servicemanager,hwservicemanager,vndservicemanager,pm_proxy_helper,per_mgr,pm_proxy,mdm_helper,cnss_daemon,pm-first-lower-marker-no-direct-trigger-no-wifi-hal`
+
+This route intentionally does not start Wi-Fi HAL or `wificond` before
+PM-service-owned `/dev/subsys_esoc0` observation, keeps the direct scoped
+`/dev/subsys_esoc0` trigger disabled, and classifies the PM boundary as either
+`pm-service-owned-powerup-observed` or
+`pm-service-owned-powerup-missing`.
+
+V1594 source build passes as
+`v1594-pm-first-lower-marker-test-boot-source-build-pass`:
+
+- boot image:
+  `tmp/wifi/v1594-pm-first-lower-marker-test-boot/boot_linux_v1594_wifi_test.img`
+- boot sha256:
+  `86ec9d6fbce5ac56e70815cac7aa1dc1a45aee1d5dd8a0fb53f81dc7c4d44417`
+- init: `A90 Linux init 0.9.103 (v1594-pm-first-lower-marker)`
+- helper marker: `a90_android_execns_probe v295`
+- helper sha256:
+  `8c26d83b1055bdf50f50086d3518a04ecbaea1195d0c01ed265f619d742c8f1d`
+
+V1595 artifact sanity passes as
+`v1595-pm-first-lower-marker-artifact-sanity-pass`.  It verifies static
+init/helper binaries, boot/header/kernel parity, ramdisk entries, PM-first
+route strings, service-window PM proxy contract, firmware mounts, helper v295,
+lower-marker strings, private file modes, and forbidden credential-like byte
+absence.
+
+Next work: V1596 rollbackable live handoff of only the V1594 image, collect
+log/summary/helper result/dmesg/`wlan0`, then roll back to v724 and verify
+selftest `fail=0`.  Still no credentials, scan/connect, DHCP/routes, external
+ping, PMIC/GPIO/GDSC direct writes, blind eSoC notify/`BOOT_DONE`, global PCI
+rescan, platform bind/unbind, or unbounded boot-image/partition writes.
+Reports:
+`docs/reports/NATIVE_INIT_V1594_PM_FIRST_LOWER_MARKER_SOURCE_BUILD_2026-06-02.md`
+and
+`docs/reports/NATIVE_INIT_V1595_PM_FIRST_LOWER_MARKER_ARTIFACT_SANITY_2026-06-02.md`.

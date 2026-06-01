@@ -9231,3 +9231,33 @@ Samsung bootloader
   writes, blind eSoC notify/`BOOT_DONE`, global PCI rescan, platform
   bind/unbind, or unbounded boot-image/partition writes.  Report:
   `docs/reports/NATIVE_INIT_V1593_PM_PROXY_PER_MGR_LIFETIME_CLASSIFIER_2026-06-02.md`.
+
+- V1594/V1595 PM-first lower-marker source/build loop is complete.  Helper
+  `a90_android_execns_probe` is bumped to v295 and adds
+  `--allow-android-wifi-service-window-pm-first-route`.  V1594 keeps V1591
+  firmware mount parity but switches the test-boot service-window to the
+  V1238/V1303-inspired PM-first route:
+  `servicemanager,hwservicemanager,vndservicemanager,pm_proxy_helper,per_mgr,
+  pm_proxy,mdm_helper,cnss_daemon,pm-first-lower-marker-no-direct-trigger-no-wifi-hal`.
+  Wi-Fi HAL and `wificond` are not started before PM-service-owned
+  `/dev/subsys_esoc0` observation.  The direct scoped `/dev/subsys_esoc0`
+  trigger remains disabled.  The helper now classifies the PM boundary as
+  `pm-service-owned-powerup-observed` or `pm-service-owned-powerup-missing`.
+
+  V1594 source build passes as
+  `v1594-pm-first-lower-marker-test-boot-source-build-pass`; boot image:
+  `tmp/wifi/v1594-pm-first-lower-marker-test-boot/boot_linux_v1594_wifi_test.img`,
+  sha256 `86ec9d6fbce5ac56e70815cac7aa1dc1a45aee1d5dd8a0fb53f81dc7c4d44417`.
+  V1595 artifact sanity passes as
+  `v1595-pm-first-lower-marker-artifact-sanity-pass`; it verifies static
+  binaries, boot/header/kernel parity, ramdisk entries, PM-first route strings,
+  firmware mounts, helper v295, private modes, and forbidden credential-like
+  byte absence.  Next gate: V1596 rollbackable live handoff of only the V1594
+  image, collect helper result/lower markers/dmesg/`wlan0`, then roll back to
+  v724 and verify selftest `fail=0`.  Still no credentials, scan/connect,
+  DHCP/routes, external ping, PMIC/GPIO/GDSC direct writes, blind eSoC
+  notify/`BOOT_DONE`, global PCI rescan, platform bind/unbind, or unbounded
+  boot-image/partition writes.  Reports:
+  `docs/reports/NATIVE_INIT_V1594_PM_FIRST_LOWER_MARKER_SOURCE_BUILD_2026-06-02.md`
+  and
+  `docs/reports/NATIVE_INIT_V1595_PM_FIRST_LOWER_MARKER_ARTIFACT_SANITY_2026-06-02.md`.
