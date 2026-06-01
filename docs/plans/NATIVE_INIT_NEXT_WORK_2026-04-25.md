@@ -9005,6 +9005,24 @@ Samsung bootloader
   until the mdm-helper `/dev/esoc-0` fd predicate is satisfied or a new reviewed
   bounded gate replaces that predicate. Report:
   `docs/reports/NATIVE_INIT_V1570_MDM_HELPER_FD_GATE_CLASSIFIER_2026-06-02.md`.
+- V1571 source/build-only service-window `mdm_helper` launch-contract
+  comparator passes with
+  `v1571-mdm-helper-launch-contract-artifact-sanity-pass`. The helper is bumped
+  to `a90_android_execns_probe v289` and the V1393 test boot artifact is rebuilt
+  as
+  `tmp/wifi/v1571-mdm-helper-launch-contract-test-boot/boot_linux_v1393_wifi_test.img`
+  with boot sha256
+  `d5fc21430720868d3836f6bb6b7b811348cfadb3596bdc3274a7aef84f0b6392`. The new
+  `android_wifi_service_window.mdm_helper_launch_contract` diagnostics record
+  planned and post-spawn target/argv/env/identity/SELinux/dev-node/fd state and
+  the known `pm_proxy`/`pm_proxy_helper` absence delta without changing actor
+  order or performing any lower eSoC/PCIe action. Next gate: V1572 rollbackable
+  live handoff of only this V1571 image, collect the helper result file, compare
+  launch-contract output against V1158/V1228 positives, and roll back to v724.
+  Still no credentials/connect, DHCP/routes, external ping, firmware/MHI deep
+  dive, or RC1 retry until the mdm-helper `/dev/esoc-0` fd predicate is
+  satisfied or deliberately replaced by a reviewed bounded gate. Report:
+  `docs/reports/NATIVE_INIT_V1571_MDM_HELPER_LAUNCH_CONTRACT_ARTIFACT_SANITY_2026-06-02.md`.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still

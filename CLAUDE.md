@@ -3225,3 +3225,31 @@ against the known positive mdm-helper modes.  Do not retry RC1, firmware/MHI,
 credentials/connect, DHCP/routes, or external ping until the mdm-helper
 `/dev/esoc-0` fd predicate is satisfied or a new reviewed bounded gate replaces
 that predicate.
+
+## Latest native Wi-Fi state: V1571 (2026-06-02)
+
+V1571 completes the source/build-only service-window `mdm_helper` launch
+contract comparator and passes local artifact sanity with
+`v1571-mdm-helper-launch-contract-artifact-sanity-pass`.
+
+The helper is bumped to `a90_android_execns_probe v289` and records
+`android_wifi_service_window.mdm_helper_launch_contract` snapshots in the
+service-window route.  The comparator captures planned and post-spawn
+`mdm_helper` target/argv/env/identity/SELinux/dev-node/fd state, records the
+known `pm_proxy`/`pm_proxy_helper` absence delta, and does not change the
+service-window actor order or any lower eSoC/PCIe action.
+
+Artifact:
+`tmp/wifi/v1571-mdm-helper-launch-contract-test-boot/boot_linux_v1393_wifi_test.img`
+with boot sha256
+`d5fc21430720868d3836f6bb6b7b811348cfadb3596bdc3274a7aef84f0b6392`.
+Helper v289 sha256 is
+`264d3ba7215330ea08a080ade27f0b19c3b888e74ee783dda08a5a22a2aa463a`.
+
+Next gate: V1572 can perform a rollbackable live handoff of only this V1571
+image, collect the private helper result file, classify whether the
+service-window `mdm_helper` launch contract explains the missing `/dev/esoc-0`
+fd, and roll back to v724.  Still do not move to credentials/connect,
+DHCP/routes, external ping, firmware/MHI deep dive, or RC1 retry until the
+mdm-helper `/dev/esoc-0` fd predicate is satisfied or a new reviewed bounded
+gate replaces that predicate.

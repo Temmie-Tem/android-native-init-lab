@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v288"
+#define EXECNS_VERSION "a90_android_execns_probe v289"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -18862,6 +18862,199 @@ static int append_service_window_mdm_helper_fd_poll(struct buffer *buf,
                          summary->last_count,
                          phase,
                          summary->first_seen_elapsed_ms,
+                         phase);
+}
+
+static int append_service_window_mdm_helper_launch_contract(struct buffer *buf,
+                                                           const struct config *cfg,
+                                                           const struct paths *paths,
+                                                           const char *child_name,
+                                                           const char *target,
+                                                           pid_t pid,
+                                                           const char *phase) {
+    const char *target_context = android_default_selinux_context_for_target("/vendor/bin/mdm_helper");
+    const bool exec_context_planned =
+        !streq(cfg->android_selinux_context_mode, "none") && target_context != NULL;
+    const bool current_context_planned = cfg->pm_observer_set_mdm_helper_selinux_context;
+    const bool property_socket_planned = cfg->property_root != NULL;
+    char path_prefix[160];
+    int esoc0_fd_count = -1;
+    int subsys_esoc0_fd_count = -1;
+    int subsys_modem_fd_count = -1;
+
+    if (snprintf(path_prefix,
+                 sizeof(path_prefix),
+                 "android_wifi_service_window.mdm_helper_launch_contract.%s",
+                 phase) >= (int)sizeof(path_prefix)) {
+        return append_format(buf,
+                             "android_wifi_service_window.mdm_helper_launch_contract.%s.error=phase-too-long\n",
+                             phase);
+    }
+    if (append_format(buf,
+                      "android_wifi_service_window.mdm_helper_launch_contract.%s.begin=1\n"
+                      "android_wifi_service_window.mdm_helper_launch_contract.%s.snapshot_only=1\n"
+                      "android_wifi_service_window.mdm_helper_launch_contract.%s.helper_version=%s\n"
+                      "android_wifi_service_window.mdm_helper_launch_contract.%s.child_name=%s\n"
+                      "android_wifi_service_window.mdm_helper_launch_contract.%s.target=%s\n"
+                      "android_wifi_service_window.mdm_helper_launch_contract.%s.identity=mdm_helper\n"
+                      "android_wifi_service_window.mdm_helper_launch_contract.%s.argv.argc=1\n"
+                      "android_wifi_service_window.mdm_helper_launch_contract.%s.argv.0=/vendor/bin/mdm_helper\n"
+                      "android_wifi_service_window.mdm_helper_launch_contract.%s.env.mode=%s\n"
+                      "android_wifi_service_window.mdm_helper_launch_contract.%s.env.PATH=/system/bin:/vendor/bin:/bin\n"
+                      "android_wifi_service_window.mdm_helper_launch_contract.%s.env.ANDROID_ROOT=/system\n"
+                      "android_wifi_service_window.mdm_helper_launch_contract.%s.env.ANDROID_DATA=/data\n"
+                      "android_wifi_service_window.mdm_helper_launch_contract.%s.expected.uid=0\n"
+                      "android_wifi_service_window.mdm_helper_launch_contract.%s.expected.gid=%d\n"
+                      "android_wifi_service_window.mdm_helper_launch_contract.%s.expected.groups=%d,%d,%d\n"
+                      "android_wifi_service_window.mdm_helper_launch_contract.%s.expected.capability_mode=none\n"
+                      "android_wifi_service_window.mdm_helper_launch_contract.%s.android_selinux_context_mode=%s\n"
+                      "android_wifi_service_window.mdm_helper_launch_contract.%s.exec_context_planned=%d\n"
+                      "android_wifi_service_window.mdm_helper_launch_contract.%s.exec_target_context=%s\n"
+                      "android_wifi_service_window.mdm_helper_launch_contract.%s.current_context_planned=%d\n"
+                      "android_wifi_service_window.mdm_helper_launch_contract.%s.property_service_shim_needed=%d\n"
+                      "android_wifi_service_window.mdm_helper_launch_contract.%s.pm_proxy_helper_start_planned=0\n"
+                      "android_wifi_service_window.mdm_helper_launch_contract.%s.pm_proxy_start_planned=0\n"
+                      "android_wifi_service_window.mdm_helper_launch_contract.%s.cnss_daemon_start_after_mdm_helper=1\n"
+                      "android_wifi_service_window.mdm_helper_launch_contract.%s.subsys_esoc0_controller_open_planned=0\n"
+                      "android_wifi_service_window.mdm_helper_launch_contract.%s.esoc_ioctl_attempted=0\n"
+                      "android_wifi_service_window.mdm_helper_launch_contract.%s.scan_connect_linkup=0\n"
+                      "android_wifi_service_window.mdm_helper_launch_contract.%s.credentials=0\n"
+                      "android_wifi_service_window.mdm_helper_launch_contract.%s.dhcp_routing=0\n"
+                      "android_wifi_service_window.mdm_helper_launch_contract.%s.external_ping=0\n",
+                      phase,
+                      phase,
+                      phase,
+                      EXECNS_VERSION,
+                      phase,
+                      child_name,
+                      phase,
+                      target,
+                      phase,
+                      phase,
+                      phase,
+                      cfg->env_mode,
+                      phase,
+                      phase,
+                      phase,
+                      phase,
+                      A90_AID_SYSTEM,
+                      phase,
+                      A90_AID_SYSTEM,
+                      A90_AID_WAKELOCK,
+                      A90_AID_SHELL,
+                      phase,
+                      phase,
+                      cfg->android_selinux_context_mode,
+                      phase,
+                      exec_context_planned ? 1 : 0,
+                      phase,
+                      target_context != NULL ? target_context : "none",
+                      phase,
+                      current_context_planned ? 1 : 0,
+                      phase,
+                      property_socket_planned ? 1 : 0,
+                      phase,
+                      phase,
+                      phase,
+                      phase,
+                      phase,
+                      phase,
+                      phase,
+                      phase,
+                      phase) < 0 ||
+        append_private_runtime_path_status(buf,
+                                           paths,
+                                           path_prefix,
+                                           "dev_esoc_0",
+                                           "/dev/esoc-0") < 0 ||
+        append_private_runtime_path_status(buf,
+                                           paths,
+                                           path_prefix,
+                                           "dev_subsys_esoc0",
+                                           "/dev/subsys_esoc0") < 0 ||
+        append_private_runtime_path_status(buf,
+                                           paths,
+                                           path_prefix,
+                                           "dev_subsys_modem",
+                                           "/dev/subsys_modem") < 0 ||
+        append_private_runtime_path_status(buf,
+                                           paths,
+                                           path_prefix,
+                                           "dev_socket_property_service",
+                                           "/dev/socket/property_service") < 0) {
+        return -1;
+    }
+    if (pid > 0) {
+        if (append_format(buf,
+                          "android_wifi_service_window.mdm_helper_launch_contract.%s.pid=%ld\n"
+                          "android_wifi_service_window.mdm_helper_launch_contract.%s.pid_observable=%d\n",
+                          phase,
+                          (long)pid,
+                          phase,
+                          kill(pid, 0) == 0 ? 1 : 0) < 0 ||
+            append_proc_fd_target_match_scan(buf,
+                                             pid,
+                                             "android_wifi_service_window",
+                                             "mdm_helper_launch_contract_esoc0",
+                                             "/dev/esoc-0",
+                                             &esoc0_fd_count) < 0 ||
+            append_proc_fd_target_match_scan(buf,
+                                             pid,
+                                             "android_wifi_service_window",
+                                             "mdm_helper_launch_contract_subsys_esoc0",
+                                             "/dev/subsys_esoc0",
+                                             &subsys_esoc0_fd_count) < 0 ||
+            append_proc_fd_target_match_scan(buf,
+                                             pid,
+                                             "android_wifi_service_window",
+                                             "mdm_helper_launch_contract_subsys_modem",
+                                             "/dev/subsys_modem",
+                                             &subsys_modem_fd_count) < 0) {
+            return -1;
+        }
+    } else if (append_format(buf,
+                             "android_wifi_service_window.mdm_helper_launch_contract.%s.pid=-1\n"
+                             "android_wifi_service_window.mdm_helper_launch_contract.%s.pid_observable=0\n",
+                             phase,
+                             phase) < 0) {
+        return -1;
+    }
+    return append_format(buf,
+                         "android_wifi_service_window.mdm_helper_launch_contract.%s.fd.esoc0=%d\n"
+                         "android_wifi_service_window.mdm_helper_launch_contract.%s.fd.subsys_esoc0=%d\n"
+                         "android_wifi_service_window.mdm_helper_launch_contract.%s.fd.subsys_modem=%d\n"
+                         "android_wifi_service_window.mdm_helper_launch_contract.%s.compare.reference.android_good_mdm_helper_target=/vendor/bin/mdm_helper\n"
+                         "android_wifi_service_window.mdm_helper_launch_contract.%s.compare.reference.reduced_native_positive_target=/vendor/bin/mdm_helper\n"
+                         "android_wifi_service_window.mdm_helper_launch_contract.%s.compare.target_match=%d\n"
+                         "android_wifi_service_window.mdm_helper_launch_contract.%s.compare.argv_match=1\n"
+                         "android_wifi_service_window.mdm_helper_launch_contract.%s.compare.identity_match=1\n"
+                         "android_wifi_service_window.mdm_helper_launch_contract.%s.compare.exec_context_match=%d\n"
+                         "android_wifi_service_window.mdm_helper_launch_contract.%s.compare.current_context_delta=%d\n"
+                         "android_wifi_service_window.mdm_helper_launch_contract.%s.compare.pm_proxy_absent_delta=1\n"
+                         "android_wifi_service_window.mdm_helper_launch_contract.%s.compare.result=%s\n"
+                         "android_wifi_service_window.mdm_helper_launch_contract.%s.end=1\n",
+                         phase,
+                         esoc0_fd_count,
+                         phase,
+                         subsys_esoc0_fd_count,
+                         phase,
+                         subsys_modem_fd_count,
+                         phase,
+                         phase,
+                         phase,
+                         streq(target, "/vendor/bin/mdm_helper") ? 1 : 0,
+                         phase,
+                         phase,
+                         phase,
+                         exec_context_planned ? 1 : 0,
+                         phase,
+                         current_context_planned ? 0 : 1,
+                         phase,
+                         phase,
+                         (exec_context_planned &&
+                          streq(target, "/vendor/bin/mdm_helper"))
+                             ? "launch-contract-recorded-with-pm-proxy-delta"
+                             : "launch-contract-incomplete",
                          phase);
 }
 
@@ -38803,7 +38996,14 @@ static int run_wifi_companion_android_wifi_service_window_guarded(const struct c
         append_literal(stdout_buf, "android_wifi_service_window.dhcp_routing=0\n") < 0 ||
         append_literal(stdout_buf, "android_wifi_service_window.external_ping=0\n") < 0 ||
         append_format(stdout_buf, "android_wifi_service_window.timeout_sec=%d\n", cfg->timeout_sec) < 0 ||
-        append_format(stdout_buf, "android_wifi_service_window.surface_mode=%s\n", cfg->cnss_surface_mode) < 0) {
+        append_format(stdout_buf, "android_wifi_service_window.surface_mode=%s\n", cfg->cnss_surface_mode) < 0 ||
+        append_service_window_mdm_helper_launch_contract(stdout_buf,
+                                                         cfg,
+                                                         paths,
+                                                         children[12].name,
+                                                         children[12].target,
+                                                         children[12].pid,
+                                                         "planned") < 0) {
         return -1;
     }
     if (!cfg->allow_android_wifi_service_window) {
@@ -38870,6 +39070,17 @@ static int run_wifi_companion_android_wifi_service_window_guarded(const struct c
             return -1;
         }
         if (subsys_trigger_capture && i == 12) {
+            if (append_service_window_mdm_helper_launch_contract(stdout_buf,
+                                                                 cfg,
+                                                                 paths,
+                                                                 children[12].name,
+                                                                 children[12].target,
+                                                                 children[12].pid,
+                                                                 "after_mdm_helper_spawn") < 0) {
+                composite_cleanup_children(children, i + 1U, stdout_buf, stderr_buf);
+                stop_property_service_shim(&property_shim, paths, stdout_buf);
+                return -1;
+            }
             if (append_service_window_mdm_helper_fd_poll(stdout_buf,
                                                         children[12].pid,
                                                         "after_mdm_helper_spawn",
