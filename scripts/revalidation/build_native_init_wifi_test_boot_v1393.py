@@ -23,6 +23,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 from typing import Any
+from collections.abc import Sequence
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -34,6 +35,15 @@ DEFAULT_OUT_DIR = REPO_ROOT / "tmp" / "wifi" / "v1393-wifi-test-boot"
 DEFAULT_INIT_VERSION = "0.9.69"
 DEFAULT_INIT_BUILD = "v1393-wifitest"
 DEFAULT_INIT_CREATOR = "made by device owner"
+DEFAULT_CYCLE = "V1393"
+DEFAULT_DECISION = "v1393-wifi-test-boot-source-build-pass"
+DEFAULT_WIFI_TEST_LABEL = "v1393"
+DEFAULT_WIFI_TEST_KLOG_PREFIX = "A90v1393"
+DEFAULT_WIFI_TEST_LOG = "/cache/native-init-wifi-test-boot-v1393.log"
+DEFAULT_WIFI_TEST_SUMMARY = "/cache/native-init-wifi-test-boot-v1393.summary"
+DEFAULT_WIFI_TEST_PID = "/cache/native-init-wifi-test-boot-v1393.pid"
+DEFAULT_WIFI_TEST_WATCHER_PID = "/cache/native-init-wifi-test-boot-v1393-watcher.pid"
+DEFAULT_WIFI_TEST_WATCH_SEC = 35
 EXPECTED_HELPER_MARKER = "a90_android_execns_probe v286"
 EXPECTED_HELPER_SHA256 = "e5fc81a5becb2c6e6efd2ca026800560ed9e0e72a692f0fbb07861cf26d5380f"
 REPRODUCIBLE_MTIME = 0
@@ -103,6 +113,14 @@ def build_init(args: argparse.Namespace) -> None:
         shell_define("INIT_VERSION", args.init_version),
         shell_define("INIT_BUILD", args.init_build),
         shell_define("INIT_CREATOR", args.init_creator),
+        shell_define("A90_WIFI_TEST_BOOT_LABEL", args.cycle_label),
+        shell_define("A90_WIFI_TEST_BOOT_KLOG_PREFIX", args.wifi_test_klog_prefix),
+        shell_define("A90_WIFI_TEST_BOOT_DISABLE", args.wifi_test_disable),
+        shell_define("A90_WIFI_TEST_BOOT_LOG", args.wifi_test_log),
+        shell_define("A90_WIFI_TEST_BOOT_SUMMARY", args.wifi_test_summary),
+        shell_define("A90_WIFI_TEST_BOOT_PID", args.wifi_test_pid),
+        shell_define("A90_WIFI_TEST_BOOT_WATCHER_PID", args.wifi_test_watcher_pid),
+        f"-DA90_WIFI_TEST_BOOT_WATCH_SEC={args.wifi_test_watch_sec}",
         "-o",
         args.init_binary,
         *pid1_sources(),
@@ -214,8 +232,12 @@ def verify_markers(args: argparse.Namespace) -> None:
     expected = [
         f"A90 Linux init {args.init_version} ({args.init_build})",
         EXPECTED_HELPER_MARKER,
-        "A90v1393: wifi test boot armed",
-        "native-init-wifi-test-boot-v1393",
+        args.wifi_test_klog_prefix,
+        "wifi test boot armed",
+        args.wifi_test_log,
+        args.wifi_test_summary,
+        args.wifi_test_pid,
+        args.wifi_test_watcher_pid,
         "wifi-v1393-test-boot",
         "/bin/a90_android_execns_probe",
     ]
@@ -236,13 +258,23 @@ def verify_no_forbidden(paths: list[Path]) -> None:
 
 def write_manifest(args: argparse.Namespace) -> None:
     manifest: dict[str, Any] = {
-        "cycle": "V1393",
-        "decision": "v1393-wifi-test-boot-source-build-pass",
+        "cycle": args.cycle,
+        "decision": args.decision,
         "base_boot": str(args.base_boot.relative_to(REPO_ROOT)),
         "init_version": args.init_version,
         "init_build": args.init_build,
         "helper_marker": EXPECTED_HELPER_MARKER,
         "helper_sha256": sha256(args.helper_binary),
+        "wifi_test": {
+            "label": args.cycle_label,
+            "log": args.wifi_test_log,
+            "summary": args.wifi_test_summary,
+            "pid": args.wifi_test_pid,
+            "watcher_pid": args.wifi_test_watcher_pid,
+            "watch_sec": args.wifi_test_watch_sec,
+            "fresh_log": True,
+            "summary_watcher": True,
+        },
         "init_binary": str(args.init_binary.relative_to(REPO_ROOT)),
         "init_sha256": sha256(args.init_binary),
         "ramdisk_cpio": str(args.ramdisk_cpio.relative_to(REPO_ROOT)),
@@ -273,22 +305,32 @@ def resolve_args(args: argparse.Namespace) -> argparse.Namespace:
     return args
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--cross-gcc", default="aarch64-linux-gnu-gcc")
     parser.add_argument("--strip", default="aarch64-linux-gnu-strip")
     parser.add_argument("--base-boot", type=Path, default=DEFAULT_BASE_BOOT)
     parser.add_argument("--out-dir", type=Path, default=DEFAULT_OUT_DIR)
+    parser.add_argument("--cycle", default=DEFAULT_CYCLE)
+    parser.add_argument("--decision", default=DEFAULT_DECISION)
+    parser.add_argument("--cycle-label", default=DEFAULT_WIFI_TEST_LABEL)
     parser.add_argument("--init-version", default=DEFAULT_INIT_VERSION)
     parser.add_argument("--init-build", default=DEFAULT_INIT_BUILD)
     parser.add_argument("--init-creator", default=DEFAULT_INIT_CREATOR)
+    parser.add_argument("--wifi-test-klog-prefix", default=DEFAULT_WIFI_TEST_KLOG_PREFIX)
+    parser.add_argument("--wifi-test-disable", default="/cache/native-init-wifi-test-boot-v1393.disable")
+    parser.add_argument("--wifi-test-log", default=DEFAULT_WIFI_TEST_LOG)
+    parser.add_argument("--wifi-test-summary", default=DEFAULT_WIFI_TEST_SUMMARY)
+    parser.add_argument("--wifi-test-pid", default=DEFAULT_WIFI_TEST_PID)
+    parser.add_argument("--wifi-test-watcher-pid", default=DEFAULT_WIFI_TEST_WATCHER_PID)
+    parser.add_argument("--wifi-test-watch-sec", type=int, default=DEFAULT_WIFI_TEST_WATCH_SEC)
     parser.add_argument("--init-binary", type=Path)
     parser.add_argument("--helper-binary", type=Path)
     parser.add_argument("--ramdisk-dir", type=Path)
     parser.add_argument("--ramdisk-cpio", type=Path)
     parser.add_argument("--boot-image", type=Path)
     parser.add_argument("--manifest", type=Path)
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     args.init_binary = args.init_binary or args.out_dir / "init_v1393_wifi_test"
     args.helper_binary = args.helper_binary or args.out_dir / "a90_android_execns_probe_v286"
@@ -299,8 +341,8 @@ def parse_args() -> argparse.Namespace:
     return resolve_args(args)
 
 
-def main() -> int:
-    args = parse_args()
+def main(argv: Sequence[str] | None = None) -> int:
+    args = parse_args(argv)
     build_helper(args)
     build_init(args)
     verify_static(args.init_binary)

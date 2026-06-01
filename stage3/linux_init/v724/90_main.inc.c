@@ -34,9 +34,35 @@ static void selftest_boot_draw_frame(void *ctx) {
 #define A90_V724_QRTR_TIMEOUT_SEC "8"
 #define A90_V724_QRTR_MODE "wifi-companion-android-order-post-sysmon-observer-start-only"
 #ifdef A90_WIFI_TEST_BOOT
-#define A90_V1393_WIFI_TEST_DISABLE "/cache/native-init-wifi-test-boot-v1393.disable"
-#define A90_V1393_WIFI_TEST_LOG "/cache/native-init-wifi-test-boot-v1393.log"
-#define A90_V1393_WIFI_TEST_PID "/cache/native-init-wifi-test-boot-v1393.pid"
+#ifndef A90_WIFI_TEST_BOOT_LABEL
+#define A90_WIFI_TEST_BOOT_LABEL "v1393"
+#endif
+#ifndef A90_WIFI_TEST_BOOT_KLOG_PREFIX
+#define A90_WIFI_TEST_BOOT_KLOG_PREFIX "A90v1393"
+#endif
+#ifndef A90_WIFI_TEST_BOOT_DISABLE
+#define A90_WIFI_TEST_BOOT_DISABLE "/cache/native-init-wifi-test-boot-v1393.disable"
+#endif
+#ifndef A90_WIFI_TEST_BOOT_LOG
+#define A90_WIFI_TEST_BOOT_LOG "/cache/native-init-wifi-test-boot-v1393.log"
+#endif
+#ifndef A90_WIFI_TEST_BOOT_SUMMARY
+#define A90_WIFI_TEST_BOOT_SUMMARY "/cache/native-init-wifi-test-boot-v1393.summary"
+#endif
+#ifndef A90_WIFI_TEST_BOOT_PID
+#define A90_WIFI_TEST_BOOT_PID "/cache/native-init-wifi-test-boot-v1393.pid"
+#endif
+#ifndef A90_WIFI_TEST_BOOT_WATCHER_PID
+#define A90_WIFI_TEST_BOOT_WATCHER_PID "/cache/native-init-wifi-test-boot-v1393-watcher.pid"
+#endif
+#ifndef A90_WIFI_TEST_BOOT_WATCH_SEC
+#define A90_WIFI_TEST_BOOT_WATCH_SEC 35
+#endif
+#define A90_V1393_WIFI_TEST_DISABLE A90_WIFI_TEST_BOOT_DISABLE
+#define A90_V1393_WIFI_TEST_LOG A90_WIFI_TEST_BOOT_LOG
+#define A90_V1393_WIFI_TEST_SUMMARY A90_WIFI_TEST_BOOT_SUMMARY
+#define A90_V1393_WIFI_TEST_PID A90_WIFI_TEST_BOOT_PID
+#define A90_V1393_WIFI_TEST_WATCHER_PID A90_WIFI_TEST_BOOT_WATCHER_PID
 #define A90_V1393_WIFI_TEST_HELPER "/bin/a90_android_execns_probe"
 #define A90_V1393_WIFI_TEST_TIMEOUT_SEC "30"
 #define A90_V1393_WIFI_TEST_MODE "wifi-companion-post-pm-mdm-helper-esoc-observer"
@@ -355,6 +381,99 @@ static int v1393_append_wifi_test_log(const char *fmt, ...) {
     return rc < 0 ? -1 : 0;
 }
 
+static int v1393_reset_wifi_test_log(void) {
+    int fd;
+    int rc;
+
+    fd = open(A90_V1393_WIFI_TEST_LOG,
+              O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC | O_NOFOLLOW,
+              0600);
+    if (fd < 0) {
+        return -errno;
+    }
+    rc = dprintf(fd,
+                 "log_reset ms=%ld label=%s log=%s summary=%s\n",
+                 monotonic_millis(),
+                 A90_WIFI_TEST_BOOT_LABEL,
+                 A90_V1393_WIFI_TEST_LOG,
+                 A90_V1393_WIFI_TEST_SUMMARY);
+    if (close(fd) < 0 && rc >= 0) {
+        return -errno;
+    }
+    return rc < 0 ? negative_errno_or(EIO) : 0;
+}
+
+static void v1393_write_wifi_test_summary(pid_t helper_pid, long spawn_ms) {
+    char wchan_path[64];
+    char status_path[64];
+    char wchan[96] = "unreadable";
+    char status[384] = "unreadable";
+    struct stat st;
+    long now_ms = monotonic_millis();
+    int helper_alive;
+    int wlan0_present;
+    int fd;
+
+    snprintf(wchan_path, sizeof(wchan_path), "/proc/%ld/wchan", (long)helper_pid);
+    snprintf(status_path, sizeof(status_path), "/proc/%ld/status", (long)helper_pid);
+    if (read_trimmed_text_file(wchan_path, wchan, sizeof(wchan)) < 0) {
+        snprintf(wchan, sizeof(wchan), "errno=%d", errno != 0 ? errno : EIO);
+    }
+    if (read_trimmed_text_file(status_path, status, sizeof(status)) < 0) {
+        snprintf(status, sizeof(status), "errno=%d", errno != 0 ? errno : EIO);
+    }
+    flatten_inline_text(status);
+
+    errno = 0;
+    helper_alive = (kill(helper_pid, 0) == 0 || errno == EPERM) ? 1 : 0;
+    wlan0_present = (lstat("/sys/class/net/wlan0", &st) == 0) ? 1 : 0;
+
+    fd = open(A90_V1393_WIFI_TEST_SUMMARY,
+              O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC | O_NOFOLLOW,
+              0600);
+    if (fd < 0) {
+        return;
+    }
+    dprintf(fd, "label=%s\n", A90_WIFI_TEST_BOOT_LABEL);
+    dprintf(fd, "watch_sec=%d\n", A90_WIFI_TEST_BOOT_WATCH_SEC);
+    dprintf(fd, "spawn_ms=%ld\n", spawn_ms);
+    dprintf(fd, "sample_ms=%ld\n", now_ms);
+    dprintf(fd, "elapsed_since_spawn_ms=%ld\n", now_ms >= spawn_ms ? now_ms - spawn_ms : -1);
+    dprintf(fd, "helper_pid=%ld\n", (long)helper_pid);
+    dprintf(fd, "helper_alive=%d\n", helper_alive);
+    dprintf(fd, "helper_wchan=%s\n", wchan);
+    dprintf(fd, "helper_status=%s\n", status);
+    dprintf(fd, "wlan0_present=%d\n", wlan0_present);
+    if (lstat(A90_V1393_WIFI_TEST_LOG, &st) == 0) {
+        dprintf(fd, "log_size=%lld\n", (long long)st.st_size);
+    } else {
+        dprintf(fd, "log_size_errno=%d\n", errno != 0 ? errno : EIO);
+    }
+    dprintf(fd, "log_path=%s\n", A90_V1393_WIFI_TEST_LOG);
+    close(fd);
+}
+
+static int v1393_spawn_wifi_test_summary_watcher(pid_t helper_pid, long spawn_ms, pid_t *watcher_out) {
+    pid_t pid;
+
+    pid = fork();
+    if (pid < 0) {
+        return -errno;
+    }
+    if (pid == 0) {
+        signal(SIGHUP, SIG_IGN);
+        signal(SIGPIPE, SIG_IGN);
+        setsid();
+        sleep(A90_WIFI_TEST_BOOT_WATCH_SEC);
+        v1393_write_wifi_test_summary(helper_pid, spawn_ms);
+        _exit(0);
+    }
+    if (watcher_out != NULL) {
+        *watcher_out = pid;
+    }
+    return 0;
+}
+
 static int v1393_spawn_wifi_test_boot_helper(pid_t *pid_out) {
     static char *const envp[] = {
         "PATH=/bin:/cache/bin:/system/bin:/vendor/bin",
@@ -434,8 +553,10 @@ static int v1393_spawn_wifi_test_boot_helper(pid_t *pid_out) {
 static void v1393_run_wifi_test_boot_once(void) {
     struct stat st;
     pid_t pid = -1;
+    pid_t watcher_pid = -1;
     int rc;
     char pid_text[32];
+    long spawn_ms;
 
     if (stat(A90_V1393_WIFI_TEST_DISABLE, &st) == 0) {
         a90_logf("wifi-v1393", "test boot disabled by %s", A90_V1393_WIFI_TEST_DISABLE);
@@ -444,15 +565,28 @@ static void v1393_run_wifi_test_boot_once(void) {
         return;
     }
 
-    boot_splash_set_line(5, "[ WIFI   ] V1393 TEST BOOT");
+    rc = v1393_reset_wifi_test_log();
+    if (rc < 0) {
+        a90_logf("wifi-v1393", "log reset failed rc=%d errno=%d error=%s",
+                 rc,
+                 -rc,
+                 strerror(-rc));
+        klogf("<6>%s: wifi test boot log reset failed rc=%d\n",
+              A90_WIFI_TEST_BOOT_KLOG_PREFIX,
+              rc);
+    }
+    (void)v724_write_private_file(A90_V1393_WIFI_TEST_SUMMARY, "state=armed\n");
+
+    boot_splash_set_line(5, "[ WIFI   ] %s TEST BOOT", A90_WIFI_TEST_BOOT_LABEL);
     boot_auto_frame();
     a90_logf("wifi-v1393", "test boot armed helper=%s timeout_sec=%s",
              A90_V1393_WIFI_TEST_HELPER,
              A90_V1393_WIFI_TEST_TIMEOUT_SEC);
     a90_timeline_record(0, 0, "wifi-v1393-test-boot", "armed");
-    klogf("<6>A90v1393: wifi test boot armed\n");
-    (void)v1393_append_wifi_test_log("armed ms=%ld mode=%s timeout_sec=%s\n",
+    klogf("<6>%s: wifi test boot armed\n", A90_WIFI_TEST_BOOT_KLOG_PREFIX);
+    (void)v1393_append_wifi_test_log("armed ms=%ld label=%s mode=%s timeout_sec=%s\n",
                                     monotonic_millis(),
+                                    A90_WIFI_TEST_BOOT_LABEL,
                                     A90_V1393_WIFI_TEST_MODE,
                                     A90_V1393_WIFI_TEST_TIMEOUT_SEC);
 
@@ -464,7 +598,7 @@ static void v1393_run_wifi_test_boot_once(void) {
                  saved_errno,
                  strerror(saved_errno));
         a90_timeline_record(-saved_errno, saved_errno, "wifi-v1393-test-boot", "helper missing");
-        klogf("<6>A90v1393: wifi test boot helper missing\n");
+        klogf("<6>%s: wifi test boot helper missing\n", A90_WIFI_TEST_BOOT_KLOG_PREFIX);
         (void)v1393_append_wifi_test_log("helper missing path=%s errno=%d error=%s\n",
                                         A90_V1393_WIFI_TEST_HELPER,
                                         saved_errno,
@@ -479,7 +613,9 @@ static void v1393_run_wifi_test_boot_once(void) {
                  saved_errno,
                  strerror(saved_errno));
         a90_timeline_record(-saved_errno, saved_errno, "wifi-v1393-test-boot", "android layout failed");
-        klogf("<6>A90v1393: wifi test boot android layout failed rc=-%d\n", saved_errno);
+        klogf("<6>%s: wifi test boot android layout failed rc=-%d\n",
+              A90_WIFI_TEST_BOOT_KLOG_PREFIX,
+              saved_errno);
         (void)v1393_append_wifi_test_log("android layout failed errno=%d error=%s\n",
                                         saved_errno,
                                         strerror(saved_errno));
@@ -498,7 +634,9 @@ static void v1393_run_wifi_test_boot_once(void) {
                  saved_errno,
                  strerror(saved_errno));
         a90_timeline_record(rc, saved_errno, "wifi-v1393-test-boot", "selinuxfs failed");
-        klogf("<6>A90v1393: wifi test boot selinuxfs failed rc=%d\n", rc);
+        klogf("<6>%s: wifi test boot selinuxfs failed rc=%d\n",
+              A90_WIFI_TEST_BOOT_KLOG_PREFIX,
+              rc);
         (void)v1393_append_wifi_test_log("selinuxfs failed rc=%d errno=%d error=%s\n",
                                         rc,
                                         saved_errno,
@@ -506,6 +644,7 @@ static void v1393_run_wifi_test_boot_once(void) {
         return;
     }
 
+    spawn_ms = monotonic_millis();
     rc = v1393_spawn_wifi_test_boot_helper(&pid);
     if (rc < 0) {
         int saved_errno = -rc;
@@ -518,7 +657,9 @@ static void v1393_run_wifi_test_boot_once(void) {
                  saved_errno,
                  strerror(saved_errno));
         a90_timeline_record(rc, saved_errno, "wifi-v1393-test-boot", "spawn failed");
-        klogf("<6>A90v1393: wifi test boot helper spawn failed rc=%d\n", rc);
+        klogf("<6>%s: wifi test boot helper spawn failed rc=%d\n",
+              A90_WIFI_TEST_BOOT_KLOG_PREFIX,
+              rc);
         (void)v1393_append_wifi_test_log("spawn failed rc=%d errno=%d error=%s\n",
                                         rc,
                                         saved_errno,
@@ -536,10 +677,28 @@ static void v1393_run_wifi_test_boot_once(void) {
                         "wifi-v1393-test-boot",
                         "helper spawned pid=%ld",
                         (long)pid);
-    klogf("<6>A90v1393: wifi test boot helper spawned pid=%ld\n", (long)pid);
-    (void)v1393_append_wifi_test_log("spawned pid=%ld mode=%s\n",
+    klogf("<6>%s: wifi test boot helper spawned pid=%ld\n",
+          A90_WIFI_TEST_BOOT_KLOG_PREFIX,
+          (long)pid);
+    (void)v1393_append_wifi_test_log("spawned pid=%ld label=%s mode=%s\n",
                                     (long)pid,
+                                    A90_WIFI_TEST_BOOT_LABEL,
                                     A90_V1393_WIFI_TEST_MODE);
+
+    rc = v1393_spawn_wifi_test_summary_watcher(pid, spawn_ms, &watcher_pid);
+    if (rc == 0) {
+        snprintf(pid_text, sizeof(pid_text), "%ld\n", (long)watcher_pid);
+        (void)v724_write_private_file(A90_V1393_WIFI_TEST_WATCHER_PID, pid_text);
+        (void)v1393_append_wifi_test_log("watcher pid=%ld watch_sec=%d summary=%s\n",
+                                        (long)watcher_pid,
+                                        A90_WIFI_TEST_BOOT_WATCH_SEC,
+                                        A90_V1393_WIFI_TEST_SUMMARY);
+    } else {
+        (void)v1393_append_wifi_test_log("watcher spawn failed rc=%d errno=%d error=%s\n",
+                                        rc,
+                                        -rc,
+                                        strerror(-rc));
+    }
 }
 #endif
 

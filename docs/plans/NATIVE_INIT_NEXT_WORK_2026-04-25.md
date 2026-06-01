@@ -6673,6 +6673,28 @@ Samsung bootloader
       `wlan0` marker appeared after the hold; `wlan0` stayed absent. V1396
       closes the immediate-rollback explanation and moves the next useful work
       to test-boot logging/observability cleanup.
+45. **V1397 Wi-Fi test boot logging source/build (local-only).**
+    - Goal: improve the separate Wi-Fi test boot's per-boot observability before
+      another live handoff, so the PID1-launched helper produces a clean log and
+      summary instead of appending across old boots.
+    - Required output: source/build-only hook changes, V1397 boot artifact,
+      manifest SHA256 values, fresh log/summary paths, handoff runner parameter
+      support, and no-secret artifact checks.
+    - Hard stop: source/build/local artifact only. No device command, no flash,
+      no reboot, no boot partition write, no partition write, no Wi-Fi HAL, no
+      scan/connect, no credentials, no DHCP/routes, no external ping, no
+      PMIC/GPIO/GDSC direct write, and no blind eSoC notify/`BOOT_DONE` spoof.
+    - Result:
+      `docs/reports/NATIVE_INIT_V1397_WIFI_TEST_BOOT_LOGGING_SOURCE_BUILD_2026-06-01.md`.
+      Decision: `v1397-wifi-test-boot-logging-source-build-pass`. The PID1 hook
+      now truncates the per-boot log, initializes a summary file, and spawns a
+      non-blocking `35s` watcher that samples helper liveness, helper `wchan`,
+      helper `/proc` status, `wlan0` presence, and log size. The V1397 artifact
+      is `tmp/wifi/v1397-wifi-test-boot/boot_linux_v1397_wifi_test.img`
+      (`sha256=8bb427c1567b1e4d466b17d5db72db3184132e7087ba0c6d2e5682f00ddeb376`),
+      built as `A90 Linux init 0.9.70 (v1397-wifitest)`. The handoff runner now
+      accepts configurable expected-version/log/summary/dmesg parameters for a
+      later V1397 live gate.
 
 ### Required decision before any new mutation
 
@@ -6821,6 +6843,12 @@ Samsung bootloader
   source/build-only logging cleanup for the Wi-Fi test boot so the
   PID1-launched helper writes a fresh per-boot transcript/summary before any
   V1398/V1399 rebuild/live retry.
+- V1397 completes that source/build logging cleanup and stages a new test boot
+  artifact. V1398 should be local artifact sanity over the exact V1397 manifest
+  and boot image before any live flash. The first later live gate must flash
+  only `tmp/wifi/v1397-wifi-test-boot/boot_linux_v1397_wifi_test.img`, expect
+  `A90 Linux init 0.9.70 (v1397-wifitest)`, collect the V1397 log and summary,
+  then roll back to `stage3/boot_linux_v724.img`.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still

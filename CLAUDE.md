@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V1396 bounded live handoff PASS (`v1396-test-boot-provider-trigger-no-downstream-rollback-pass`). The V1393 test boot flashed, booted, held for `40s`, verified `A90 Linux init 0.9.69 (v1393-wifitest)`, reached `subsys_modem` and `__subsystem_get: esoc0`, then rolled back to healthy v724. No RC1 L0/MHI/WLFW/BDF/`wlan0` appeared; `wlan0` remained absent. Next is V1397 source/build-only test-boot logging cleanup so the PID1-launched helper writes a clean per-boot transcript/summary before another live handoff. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, PMIC/GPIO/GDSC direct write, blind eSoC notify/BOOT_DONE spoof, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
+- **Active research cycle**: V1397 source/build-only PASS (`v1397-wifi-test-boot-logging-source-build-pass`). The next rollbackable Wi-Fi test boot artifact is `tmp/wifi/v1397-wifi-test-boot/boot_linux_v1397_wifi_test.img` (`A90 Linux init 0.9.70 (v1397-wifitest)`) with fresh per-boot log `/cache/native-init-wifi-test-boot-v1397.log` and summary `/cache/native-init-wifi-test-boot-v1397.summary`. No device command or flash occurred in V1397. Next is V1398 local artifact sanity over the exact V1397 manifest before any live handoff. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, PMIC/GPIO/GDSC direct write, blind eSoC notify/BOOT_DONE spoof, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -1558,3 +1558,17 @@ Update after V1354/V1355:
   by truncating/rotating `/cache/native-init-wifi-test-boot-v1393.log` or writing
   a dedicated helper transcript/summary so another live handoff can compare the
   PID1-launched helper's own keys against external-helper runs.
+- V1397 source/build-only (`v1397-wifi-test-boot-logging-source-build-pass`)
+  implements that logging cleanup:
+  `docs/reports/NATIVE_INIT_V1397_WIFI_TEST_BOOT_LOGGING_SOURCE_BUILD_2026-06-01.md`.
+  The PID1 hook now truncates the per-boot log, initializes a summary file, and
+  spawns a non-blocking watcher that samples helper liveness, helper `wchan`,
+  helper `/proc` status, `wlan0` presence, and log size after `35s`. The V1397
+  artifact is `tmp/wifi/v1397-wifi-test-boot/boot_linux_v1397_wifi_test.img`
+  (`sha256=8bb427c1567b1e4d466b17d5db72db3184132e7087ba0c6d2e5682f00ddeb376`),
+  built as `A90 Linux init 0.9.70 (v1397-wifitest)`. The V1395 handoff runner
+  now accepts configurable expected version/log/summary/dmesg parameters for a
+  later V1397 live handoff. V1397 did not issue any device command, flash,
+  reboot, partition write, Wi-Fi scan/connect, credential handling,
+  DHCP/routes, or external ping. Next is V1398 local artifact sanity over the
+  exact V1397 manifest before any live handoff.

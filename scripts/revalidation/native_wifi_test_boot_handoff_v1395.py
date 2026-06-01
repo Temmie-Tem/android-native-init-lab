@@ -26,6 +26,9 @@ DEFAULT_TEST_IMAGE = REPO_ROOT / "tmp" / "wifi" / "v1393-wifi-test-boot" / "boot
 DEFAULT_ROLLBACK_IMAGE = REPO_ROOT / "stage3" / "boot_linux_v724.img"
 TEST_EXPECT_VERSION = "A90 Linux init 0.9.69 (v1393-wifitest)"
 ROLLBACK_EXPECT_VERSION = "A90 Linux init 0.9.68 (v724)"
+DEFAULT_TEST_LOG_PATH = "/cache/native-init-wifi-test-boot-v1393.log"
+DEFAULT_TEST_SUMMARY_PATH = "/cache/native-init-wifi-test-boot-v1393.summary"
+DEFAULT_DMESG_PATTERN = "A90v1393|A90v1397|subsystem_get|PCIe RC1|LTSSM|GPIO142|wlfw|FW ready|BDF|wlan0|mhi|ks"
 
 
 def now_iso() -> str:
@@ -161,14 +164,20 @@ def collect_test_boot_evidence(args: argparse.Namespace,
             "run",
             "/cache/bin/toybox",
             "cat",
-            "/cache/native-init-wifi-test-boot-v1393.log",
+            args.test_log_path,
+        ]),
+        "test-v1393-summary": a90ctl_command([
+            "run",
+            "/cache/bin/toybox",
+            "cat",
+            args.test_summary_path,
         ]),
         "test-v1393-dmesg": a90ctl_command([
             "run",
             "/cache/bin/busybox",
             "sh",
             "-c",
-            "dmesg | grep -Ei 'A90v1393|subsystem_get|PCIe RC1|LTSSM|GPIO142|wlfw|FW ready|BDF|wlan0|mhi|ks' | tail -240",
+            f"dmesg | grep -Ei {args.dmesg_grep_pattern!r} | tail -240",
         ]),
         "test-wlan0": a90ctl_command([
             "run",
@@ -195,7 +204,7 @@ def rollback(args: argparse.Namespace,
              store: EvidenceStore,
              steps: list[dict[str, Any]]) -> dict[str, Any]:
     first = run_command(
-        flash_command(args.rollback_image, ROLLBACK_EXPECT_VERSION, from_native=True),
+        flash_command(args.rollback_image, args.expect_rollback_version, from_native=True),
         timeout=args.flash_timeout_sec,
     )
     write_step(store, steps, "rollback-from-native", first)
@@ -203,7 +212,7 @@ def rollback(args: argparse.Namespace,
         return {"attempt": "from-native", "ok": True}
 
     second = run_command(
-        flash_command(args.rollback_image, ROLLBACK_EXPECT_VERSION, from_native=False),
+        flash_command(args.rollback_image, args.expect_rollback_version, from_native=False),
         timeout=args.flash_timeout_sec,
     )
     write_step(store, steps, "rollback-from-recovery", second)
@@ -230,7 +239,8 @@ def classify(test_flash: dict[str, Any],
              evidence: dict[str, Any],
              rollback_result: dict[str, Any],
              store: EvidenceStore,
-             cycle: str) -> tuple[str, bool, str]:
+             cycle: str,
+             expect_test_version: str) -> tuple[str, bool, str]:
     if not test_flash["ok"]:
         return (
             decision_label(cycle, "test-boot-flash-or-verify-failed"),
@@ -247,11 +257,11 @@ def classify(test_flash: dict[str, Any],
     firmware_progress = any(marker in dmesg for marker in ("FW ready", "BDF", "wlfw"))
     wlan0_present = "wlan0=present" in wlan0
     provider_trigger = "__subsystem_get: esoc0" in dmesg
-    if TEST_EXPECT_VERSION not in test_version:
+    if expect_test_version not in test_version:
         return (
             decision_label(cycle, "test-boot-version-missing"),
             False,
-            "test boot returned through bridge but expected V1393 version marker was missing",
+            "test boot returned through bridge but expected version marker was missing",
         )
     if not rollback_result.get("ok"):
         return (
@@ -297,7 +307,7 @@ def render_report(result: dict[str, Any]) -> str:
         "No Wi-Fi scan/connect, credential handling, DHCP/routes, external ping,",
         "PMIC/GPIO/GDSC direct write, or blind eSoC notify/`BOOT_DONE` spoof was",
         "performed by this runner. Device mutation was limited to flashing the",
-        "V1393 test boot image and rolling back to `stage3/boot_linux_v724.img`.",
+        "test boot image and rolling back to `stage3/boot_linux_v724.img`.",
         "",
         "## Images",
         "",
@@ -322,6 +332,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--rollback-image", type=Path, default=DEFAULT_ROLLBACK_IMAGE)
     parser.add_argument("--cycle", default="V1395")
     parser.add_argument("--post-boot-hold-sec", type=float, default=0.0)
+    parser.add_argument("--expect-test-version", default=TEST_EXPECT_VERSION)
+    parser.add_argument("--expect-rollback-version", default=ROLLBACK_EXPECT_VERSION)
+    parser.add_argument("--test-log-path", default=DEFAULT_TEST_LOG_PATH)
+    parser.add_argument("--test-summary-path", default=DEFAULT_TEST_SUMMARY_PATH)
+    parser.add_argument("--dmesg-grep-pattern", default=DEFAULT_DMESG_PATTERN)
     parser.add_argument("--flash-timeout-sec", type=float, default=720.0)
     parser.add_argument("--collect-timeout-sec", type=float, default=120.0)
     parser.add_argument("--classify-only", action="store_true")
@@ -358,6 +373,7 @@ def main() -> int:
                 "test-selftest",
                 "test-bootstatus",
                 "test-v1393-log",
+                "test-v1393-summary",
                 "test-v1393-dmesg",
                 "test-wlan0",
             )
@@ -365,13 +381,18 @@ def main() -> int:
         test_version_path = store.path("test-version.stdout.txt")
         rollback_path = store.path("rollback-from-native.stdout.txt")
         test_flash = {
-            "ok": test_version_path.exists() and TEST_EXPECT_VERSION in test_version_path.read_text(encoding="utf-8", errors="replace"),
+            "ok": test_version_path.exists() and args.expect_test_version in test_version_path.read_text(encoding="utf-8", errors="replace"),
         }
         rollback_result = {
             "attempt": "existing",
-            "ok": rollback_path.exists() and ROLLBACK_EXPECT_VERSION in rollback_path.read_text(encoding="utf-8", errors="replace"),
+            "ok": rollback_path.exists() and args.expect_rollback_version in rollback_path.read_text(encoding="utf-8", errors="replace"),
         }
-        label, pass_ok, reason = classify(test_flash, evidence, rollback_result, store, args.cycle)
+        label, pass_ok, reason = classify(test_flash,
+                                          evidence,
+                                          rollback_result,
+                                          store,
+                                          args.cycle,
+                                          args.expect_test_version)
         result = {
             "cycle": args.cycle,
             "decision": label,
@@ -392,7 +413,7 @@ def main() -> int:
         return 0 if pass_ok else 1
 
     test_flash = run_command(
-        flash_command(args.test_image, TEST_EXPECT_VERSION, from_native=True),
+        flash_command(args.test_image, args.expect_test_version, from_native=True),
         timeout=args.flash_timeout_sec,
     )
     write_step(store, steps, "test-flash-from-native", test_flash)
@@ -412,7 +433,12 @@ def main() -> int:
         evidence = collect_test_boot_evidence(args, store, steps)
 
     rollback_result = rollback(args, store, steps)
-    label, pass_ok, reason = classify(test_flash, evidence, rollback_result, store, args.cycle)
+    label, pass_ok, reason = classify(test_flash,
+                                      evidence,
+                                      rollback_result,
+                                      store,
+                                      args.cycle,
+                                      args.expect_test_version)
     result = {
         "cycle": args.cycle,
         "decision": label,
