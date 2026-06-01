@@ -1869,3 +1869,23 @@ Update after V1354/V1355:
   `wlan0` state, then rolling back to `stage3/boot_linux_v724.img` and
   verifying selftest fail=0. Report:
   `docs/reports/NATIVE_INIT_V1478_WIFI_TEST_BOOT_AP2MDM_HOLD_ARTIFACT_SANITY_2026-06-01.md`.
+- V1479 rollbackable live handoff
+  (`v1479-test-boot-provider-trigger-no-downstream-rollback-pass`) flashed only
+  the V1477 AP2MDM hold test boot, verified
+  `A90 Linux init 0.9.89 (v1477-wifitest)`, collected the V1477 log/summary,
+  RC1 watcher/window result, dmesg markers, and `wlan0` state, then rolled back
+  from native to healthy v724. The test reached the provider trigger and
+  AP2MDM hold gate but still produced no RC1/MHI/WLFW/BDF/FW-ready/`wlan0`
+  progress. Report:
+  `docs/reports/NATIVE_INIT_V1479_WIFI_TEST_BOOT_AP2MDM_HOLD_HANDOFF_2026-06-01.md`.
+- V1480 host-only classifier
+  (`v1480-ap2mdm-userspace-hold-refused-busy-no-downstream`) classifies V1479.
+  The AP2MDM hold gate saw the provider AP2MDM set-high trace and confirmed
+  GPIO135 low, but `/sys/class/gpio` export for GPIO135 returned `-16`
+  (`EBUSY`), so no userspace hold was applied (`exported=0`,
+  `direction_high_rc=-125`). GPIO135/GPIO142 stayed low, pcie1 GDSC stayed off,
+  and no downstream Wi-Fi markers appeared. Do not retry this exact userspace
+  GPIO hold. Next gate: V1481 host-only kernel-provider feasibility review or
+  another lower-prerequisite hypothesis that does not fight the kernel-owned
+  GPIO line. Report:
+  `docs/reports/NATIVE_INIT_V1480_AP2MDM_HOLD_LIVE_CLASSIFIER_2026-06-01.md`.

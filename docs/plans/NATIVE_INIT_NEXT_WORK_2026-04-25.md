@@ -7783,6 +7783,20 @@ Samsung bootloader
   summary, RC1 watcher result, AP2MDM hold window result, dmesg markers, and
   `wlan0` state, then rolling back to `stage3/boot_linux_v724.img` and
   verifying selftest fail=0.
+- V1479 rollbackable live handoff passes with
+  `v1479-test-boot-provider-trigger-no-downstream-rollback-pass`. It flashed
+  only the V1477 AP2MDM hold test image, collected the V1477 evidence, and
+  rolled back to healthy v724. The handoff reached the provider trigger and
+  AP2MDM hold gate, but no RC1/MHI/WLFW/BDF/FW-ready/`wlan0` progress appeared.
+- V1480 host-only classifier passes with
+  `v1480-ap2mdm-userspace-hold-refused-busy-no-downstream`. The AP2MDM hold
+  gate saw the provider set-high trace and confirmed GPIO135 low, but
+  `/sys/class/gpio` export for GPIO135 returned `-16` (`EBUSY`), so the line
+  was not exported and no userspace hold was applied. GPIO135/GPIO142 stayed
+  low, pcie1 stayed off, and downstream Wi-Fi markers remained absent. Do not
+  retry this exact userspace hold. V1481 should be host-only kernel-provider
+  feasibility review or another lower-prerequisite hypothesis that does not
+  fight the kernel-owned GPIO line.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
