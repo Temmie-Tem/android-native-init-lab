@@ -7458,6 +7458,19 @@ Samsung bootloader
   RC1 watcher result, provider-trigger micro endpoint window result, dmesg
   markers, and `wlan0` state, then rolling back to
   `stage3/boot_linux_v724.img` and verifying selftest fail=0.
+- V1452 rollbackable live handoff passes with
+  `v1452-test-boot-provider-trigger-no-downstream-rollback-pass`. The V1450
+  test image booted as `A90 Linux init 0.9.83 (v1450-wifitest)`, collected the
+  provider-trigger micro endpoint evidence, then rolled back to
+  `A90 Linux init 0.9.68 (v724)` with selftest fail=0. The live result is
+  diagnostic, not Wi-Fi bring-up progress: `wlan0=absent`, no RC1/MHI/WLFW/BDF
+  or FW-ready marker appeared, GPIO135 stayed `out 0`, GPIO142 stayed `in 0`
+  from the provider-trigger `0ms` through `150ms` samples, and pcie1 link-state
+  nodes remained unreadable. V1453 should be host-only evidence classification
+  over the V1452 files before another test boot is built. Keep all hard
+  exclusions: no Wi-Fi HAL, scan/connect, credential handling, DHCP/routes,
+  external ping, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE`
+  spoof, global PCI rescan, or platform bind/unbind.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
