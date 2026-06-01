@@ -8653,6 +8653,27 @@ Samsung bootloader
   observations differ from V1543. Reports:
   `docs/reports/NATIVE_INIT_V1546_LOW_OVERHEAD_ENDPOINT_OBSERVER_SOURCE_BUILD_2026-06-02.md`,
   `docs/reports/NATIVE_INIT_V1547_LOW_OVERHEAD_ARTIFACT_SANITY_2026-06-02.md`.
+- V1548 rollbackable low-overhead handoff passes with
+  `v1548-test-boot-downstream-progress-rollback-pass`. It adds
+  `scripts/revalidation/native_wifi_low_overhead_handoff_v1548.py`, flashes
+  only the V1546 image, collects the low-overhead endpoint window, and rolls
+  back to v724 with selftest verification. The outcome remains fixed at
+  `rc1-ltssm-link-failed-no-l0`: sysfs/client enumerate succeeds, RC1 reaches
+  PHY-ready and LTSSM poll active/compliance, then fails before L0 with no
+  MHI/WLFW/BDF/FW-ready/`wlan0`. Report:
+  `docs/reports/NATIVE_INIT_V1548_LOW_OVERHEAD_HANDOFF_2026-06-02.md`.
+- V1549 host-only low-overhead result classifier passes with
+  `v1549-low-overhead-confirms-pre-fail-gpio-gdsc-no-l0`. It adds
+  `scripts/revalidation/native_wifi_low_overhead_result_classifier_v1549.py`
+  and closes the V1543 slow-clock ambiguity. The critical micro loop contains
+  `micro_critical_clk_summary_skipped=1`, no `micro_focused_clk`, and captures
+  pre-fail interrupt/GPIO/link-state/regulator/pinmux sources. Before the
+  link-fail marker, GPIO104/WAKE and GPIO142/MDM2AP remain low with zero IRQ,
+  GPIO135/AP2MDM remains low in debug GPIO, and `pcie_1_gdsc` remains reported
+  as 0mV. Next gate: V1550 host/source classifier for pcie1 power-domain and
+  debugfs regulator semantics; no more enumerate retries and no firmware/MHI/
+  WLFW/connect work until that gap is classified. Report:
+  `docs/reports/NATIVE_INIT_V1549_LOW_OVERHEAD_RESULT_CLASSIFIER_2026-06-02.md`.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still

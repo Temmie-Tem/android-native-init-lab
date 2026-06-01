@@ -2701,3 +2701,27 @@ handoff for only the V1546 image, then classify whether fast sources finish
 before the RC1 link-fail marker and whether GPIO/GDSC/link-state evidence
 changes relative to V1543. Keep all connect-side and direct PMIC/GPIO/GDSC
 write exclusions until native RC1 L0 and PCI enumeration exist.
+
+## Latest native Wi-Fi state: V1548-V1549 (2026-06-02)
+
+V1548 adds `scripts/revalidation/native_wifi_low_overhead_handoff_v1548.py`
+and passes the rollbackable live handoff for the V1546 test image with
+`v1548-test-boot-downstream-progress-rollback-pass`. The progress decision is
+still `rc1-ltssm-link-failed-no-l0`: sysfs/client enumerate succeeds, RC1
+reaches PHY-ready and LTSSM poll active/compliance, then fails before L0; no
+MHI/WLFW/BDF/FW-ready/`wlan0` marker appears. Rollback to v724 verifies with
+selftest.
+
+V1549 adds
+`scripts/revalidation/native_wifi_low_overhead_result_classifier_v1549.py` and
+passes with `v1549-low-overhead-confirms-pre-fail-gpio-gdsc-no-l0`. This closes
+the V1543 slow-`clk_summary` ambiguity: the critical loop now emits
+`micro_critical_clk_summary_skipped=1`, has no `micro_focused_clk`, and still
+captures pre-fail interrupt/GPIO/link-state/regulator/pinmux sources. Before
+the RC1 link-fail timestamp, GPIO104/WAKE and GPIO142/MDM2AP remain low with
+zero IRQ, GPIO135/AP2MDM remains low in debug GPIO, and `pcie_1_gdsc` is still
+reported as 0mV. Next gate: V1550 should be host/source analysis of pcie1
+power-domain and debugfs regulator semantics, specifically why `msm_pcie`
+reaches PHY/LTSSM while `regulator_summary` still reports `pcie_1_gdsc` as
+0mV. Do not run another enumerate retry or move to firmware/MHI/WLFW/connect
+work until that semantics gap is classified.
