@@ -7318,6 +7318,21 @@ Samsung bootloader
   summary, RC1 watcher result, immediate endpoint window result, expanded dmesg
   markers, and `wlan0` state, then rolling back to `stage3/boot_linux_v724.img`
   and verifying selftest fail=0.
+- V1439 rollbackable live handoff passes with
+  `v1439-test-boot-downstream-progress-rollback-pass`, then rolls back to v724
+  with selftest fail=0. The V1437 image still reaches corrected RC1/LTSSM but
+  fails before L0, and MHI/WLFW/BDF/FW-ready/`wlan0` remain absent. The
+  immediate sampler emitted all requested labels, but all immediate pcie1
+  GDSC/clock reads were already off and GPIO142 stayed low.
+- V1440 host-only classifier passes with
+  `v1440-immediate-sampler-too-slow-no-l0`. It explains the V1439 immediate
+  evidence: exact debugfs regulator/clock scans are too slow to resolve the
+  active RC1 window (`after_case_1ms` landed at `2402ms`, `after_case_20ms` at
+  `8634ms`). V1441 should be source/build-only and replace active-window full
+  debugfs summary scans with a micro-sampler: a concurrent case writer plus a
+  minimal fast reader for the narrowest fields that can be sampled within the
+  sub-100ms RC1 window. Keep connect-side work blocked until at least
+  L0/MHI/WLFW/`wlan0` progress appears.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
