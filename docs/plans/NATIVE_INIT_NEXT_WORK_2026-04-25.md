@@ -6595,6 +6595,28 @@ Samsung bootloader
       MDM2AP/GPIO142, RC1 L0, MHI, WLFW service `69`, or `wlan0` evidence only;
       credentialed scan/connect and external ping stay deferred until `wlan0`
       is stable.
+41. **V1393 Wi-Fi test boot source/build (local-only).**
+    - Goal: implement the V1392 selected path without flashing by adding a
+      compile-time PID1 test hook, bundling the verified helper into the ramdisk,
+      and staging a separate boot artifact under `tmp`.
+    - Required output: static aarch64 PID1/helper builds, ramdisk entries,
+      marker checks, private staged artifact mode, no-secret artifact check, and
+      a manifest with SHA256 values.
+    - Hard stop: source/build-only. No device command, no flash, no reboot, no
+      boot partition write, no partition write, no Wi-Fi HAL, no scan/connect,
+      no credentials, no DHCP/routes, no external ping, no PMIC/GPIO/GDSC
+      direct write, and no blind eSoC notify/`BOOT_DONE` spoof.
+    - Result:
+      `docs/reports/NATIVE_INIT_V1393_WIFI_TEST_BOOT_SOURCE_BUILD_2026-06-01.md`.
+      Decision: `v1393-wifi-test-boot-source-build-pass`. The staged artifact is
+      `tmp/wifi/v1393-wifi-test-boot/boot_linux_v1393_wifi_test.img`
+      (`sha256=ebb4097db71dee77cdf7a26b671a1535a8e0afe1e53b4a23400af518d4d63048`),
+      built as `A90 Linux init 0.9.69 (v1393-wifitest)` from v724
+      header/kernel metadata. The ramdisk includes
+      `/bin/a90_android_execns_probe` with helper marker
+      `a90_android_execns_probe v286`. The build verified static binaries,
+      required ramdisk entries, expected boot markers, private artifact modes,
+      and forbidden credential-like byte patterns.
 
 ### Required decision before any new mutation
 
@@ -6720,6 +6742,11 @@ Samsung bootloader
   output, and do not flash. V1394 should be local artifact sanity verification;
   V1395 is the first possible flash/handoff gate and must name rollback to
   `stage3/boot_linux_v724.img`.
+- V1393 completes source/build-only and stages the test boot artifact. V1394
+  should be a local-only artifact sanity verifier over the exact staged manifest
+  and boot image. It must re-check marker identity, ramdisk helper inclusion,
+  rollback image availability, private modes, boot header parity, and no-secret
+  output before V1395 is allowed to flash.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still

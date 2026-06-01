@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V1392 host/source plan PASS (`v1392-plan-wifi-test-boot-pid1-timing-path`). V1391 proved another same-shape external helper retry is low value because corrected RC1 still asserted about `3.605s` after `__subsystem_get(esoc0)`. V1392 selects a separate rollbackable Wi-Fi test boot image with the verified helper bundled in ramdisk and invoked from PID1/boot flow. Next is V1393 source/build-only; do not flash during V1393. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, PMIC/GPIO/GDSC direct write, blind eSoC notify/BOOT_DONE spoof, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
+- **Active research cycle**: V1393 source/build-only PASS (`v1393-wifi-test-boot-source-build-pass`). Built a separate V1393 Wi-Fi test boot artifact under `tmp/wifi/v1393-wifi-test-boot/` using v724 header/kernel metadata, `A90 Linux init 0.9.69 (v1393-wifitest)`, and ramdisk-bundled helper `a90_android_execns_probe v286`. No device command or flash occurred. Next is V1394 local artifact sanity verification; V1395 is the first possible live flash/handoff gate and must name rollback to `stage3/boot_linux_v724.img`. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, PMIC/GPIO/GDSC direct write, blind eSoC notify/BOOT_DONE spoof, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -1511,3 +1511,15 @@ Update after V1354/V1355:
   from PID1/boot flow, initially stopping at MDM2AP/RC1/MHI/WLFW/`wlan0`
   evidence before any credentialed scan/connect, DHCP/routes, or external ping.
   V1393 is source/build-only and must not flash.
+- V1393 source/build-only (`v1393-wifi-test-boot-source-build-pass`) added
+  `scripts/revalidation/build_native_init_wifi_test_boot_v1393.py`, build-time
+  native identity overrides, and the compile-time `A90_WIFI_TEST_BOOT` PID1
+  hook. The local artifact is staged at
+  `tmp/wifi/v1393-wifi-test-boot/boot_linux_v1393_wifi_test.img` with manifest
+  `tmp/wifi/v1393-wifi-test-boot/manifest.json`; boot SHA256 is
+  `ebb4097db71dee77cdf7a26b671a1535a8e0afe1e53b4a23400af518d4d63048`. The
+  ramdisk bundles `a90_android_execns_probe v286` at
+  `/bin/a90_android_execns_probe`. No device command, flash, reboot, partition
+  write, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, or external ping
+  occurred. Next is V1394 local artifact sanity verification before any V1395
+  live handoff.

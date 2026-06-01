@@ -1,10 +1,18 @@
 #ifndef A90_CONFIG_H
 #define A90_CONFIG_H
 
+#ifndef INIT_VERSION
 #define INIT_VERSION "0.9.68"
+#endif
+#ifndef INIT_BUILD
 #define INIT_BUILD "v724"
+#endif
+#ifndef INIT_CREATOR
 #define INIT_CREATOR "made by device owner"
+#endif
+#ifndef INIT_BANNER
 #define INIT_BANNER "A90 Linux init " INIT_VERSION " (" INIT_BUILD ")"
+#endif
 #define BOOT_SPLASH_SECONDS 2
 #define BOOT_HUD_REFRESH_SECONDS 2
 #define NATIVE_LOG_PRIMARY "/cache/native-init.log"
