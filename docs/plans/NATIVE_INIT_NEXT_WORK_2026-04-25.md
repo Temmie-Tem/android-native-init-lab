@@ -7149,6 +7149,16 @@ Samsung bootloader
   handoff for this exact image, with mandatory collection of the V1420 log,
   summary, RC1 watcher result, RC1-window result, expanded dmesg markers, and
   `wlan0` state, followed by rollback to v724 and selftest verification.
+- V1422 rollbackable live handoff passes with
+  `v1422-test-boot-downstream-progress-rollback-pass`, then rolls back to v724
+  with selftest fail=0. The test boot collects all five RC1-window samples and
+  classifies the current blocker as `rc1-ltssm-link-failed-no-l0`: GPIO135
+  remains `out 0`, GPIO142 remains `in 0`, `mdm status` IRQ count remains `0`,
+  RC1 reaches PHY/LTSSM but fails before L0, and MHI/WLFW/BDF/FW-ready/`wlan0`
+  remain absent. V1423 should be host-only/read-only: compare this V1422 window
+  against Android positive evidence to determine whether GPIO135/AP2MDM is
+  active-low, pulsed too briefly, or not asserted in native at the comparable
+  point. Keep scan/connect, credentials, DHCP/routes, and external ping blocked.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
