@@ -7048,6 +7048,13 @@ Samsung bootloader
   fallback with an initial drain-to-current step before watching future
   `esoc0`/powerup markers. Keep scan/connect, credentials, DHCP/routes, and
   external ping blocked.
+- V1411 source/build passes and stages
+  `tmp/wifi/v1411-wifi-test-boot-kmsg-fallback/boot_linux_v1411_wifi_test.img`.
+  The PID1 RC1 watcher now falls back from absent `/dev/kmsg` to `/proc/kmsg`,
+  drains existing records, then watches future `esoc0`/powerup markers. V1412
+  should independently sanity-check the exact V1411 manifest/image before any
+  live flash. Keep scan/connect, credentials, DHCP/routes, and external ping
+  blocked.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still

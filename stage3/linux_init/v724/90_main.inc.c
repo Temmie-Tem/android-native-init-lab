@@ -501,21 +501,53 @@ static void v1393_pid1_rc1_watcher_child(void) {
     long start_ms = monotonic_millis();
     long deadline_ms = start_ms + (long)A90_WIFI_TEST_BOOT_RC1_WATCHER_TIMEOUT_SEC * 1000L;
     int fd;
+    int dev_kmsg_errno = 0;
+    const char *source = "/dev/kmsg";
     char result[256];
 
     fd = open("/dev/kmsg", O_RDONLY | O_NONBLOCK | O_CLOEXEC);
     if (fd < 0) {
-        int saved_errno = errno != 0 ? errno : EIO;
+        dev_kmsg_errno = errno != 0 ? errno : EIO;
+        source = "/proc/kmsg";
+        fd = open("/proc/kmsg", O_RDONLY | O_NONBLOCK | O_CLOEXEC);
+        if (fd < 0) {
+            int proc_kmsg_errno = errno != 0 ? errno : EIO;
 
-        snprintf(result,
-                 sizeof(result),
-                 "state=open-kmsg-failed rc=-%d errno=%d elapsed_ms=0\n",
-                 saved_errno,
-                 saved_errno);
-        (void)v724_write_private_file(A90_V1393_WIFI_TEST_RC1_WATCHER_RESULT, result);
-        _exit(2);
+            snprintf(result,
+                     sizeof(result),
+                     "state=open-kmsg-failed dev_errno=%d proc_errno=%d elapsed_ms=0\n",
+                     dev_kmsg_errno,
+                     proc_kmsg_errno);
+            (void)v724_write_private_file(A90_V1393_WIFI_TEST_RC1_WATCHER_RESULT, result);
+            _exit(2);
+        }
+        for (;;) {
+            char drain[768];
+            ssize_t rd = read(fd, drain, sizeof(drain) - 1);
+
+            if (rd > 0) {
+                continue;
+            }
+            if (rd == 0 || errno == EAGAIN || errno == EWOULDBLOCK) {
+                break;
+            }
+            {
+                int saved_errno = errno != 0 ? errno : EIO;
+
+                snprintf(result,
+                         sizeof(result),
+                         "state=drain-kmsg-failed source=%s errno=%d elapsed_ms=%ld\n",
+                         source,
+                         saved_errno,
+                         monotonic_millis() - start_ms);
+                (void)v724_write_private_file(A90_V1393_WIFI_TEST_RC1_WATCHER_RESULT, result);
+                close(fd);
+                _exit(2);
+            }
+        }
+    } else {
+        (void)lseek(fd, 0, SEEK_END);
     }
-    (void)lseek(fd, 0, SEEK_END);
 
     while (monotonic_millis() < deadline_ms) {
         char line[768];
@@ -530,14 +562,16 @@ static void v1393_pid1_rc1_watcher_child(void) {
 
                 snprintf(result,
                          sizeof(result),
-                         "state=triggered write_rc=%d errno=%d elapsed_ms=%ld line=%.*s\n",
+                         "state=triggered source=%s write_rc=%d errno=%d elapsed_ms=%ld line=%.*s\n",
+                         source,
                          write_rc,
                          saved_errno,
                          trigger_ms >= start_ms ? trigger_ms - start_ms : -1,
                          120,
                          line);
                 (void)v724_write_private_file(A90_V1393_WIFI_TEST_RC1_WATCHER_RESULT, result);
-                (void)v1393_append_wifi_test_log("pid1 rc1 watcher triggered write_rc=%d elapsed_ms=%ld\n",
+                (void)v1393_append_wifi_test_log("pid1 rc1 watcher triggered source=%s write_rc=%d elapsed_ms=%ld\n",
+                                                source,
                                                 write_rc,
                                                 trigger_ms >= start_ms ? trigger_ms - start_ms : -1);
                 close(fd);
@@ -561,7 +595,8 @@ static void v1393_pid1_rc1_watcher_child(void) {
 
     snprintf(result,
              sizeof(result),
-             "state=timeout elapsed_ms=%ld timeout_sec=%d\n",
+             "state=timeout source=%s elapsed_ms=%ld timeout_sec=%d\n",
+             source,
              monotonic_millis() - start_ms,
              A90_WIFI_TEST_BOOT_RC1_WATCHER_TIMEOUT_SEC);
     (void)v724_write_private_file(A90_V1393_WIFI_TEST_RC1_WATCHER_RESULT, result);

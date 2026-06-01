@@ -269,6 +269,7 @@ def verify_markers(args: argparse.Namespace) -> None:
             "pid1 rc1 watcher",
             args.wifi_test_rc1_watcher_result,
             "/dev/kmsg",
+            "/proc/kmsg",
             "/sys/kernel/debug/pci-msm/rc_sel",
         ])
     missing = [marker for marker in expected if marker not in strings]
