@@ -8337,6 +8337,22 @@ Samsung bootloader
   static/callgraph semantics and list operations TEST:11 lacks before any new
   native mutation. Report:
   `docs/reports/NATIVE_INIT_V1522_ANDROID_NATIVE_RC1_SOURCE_PARITY_CLASSIFIER_2026-06-01.md`.
+- V1523 host-only `msm_pcie` TEST:11 vs normal-path static/callgraph classifier
+  passes with `v1523-test11-shares-enable-normal-trigger-readiness-gap`. It
+  adds
+  `scripts/revalidation/native_wifi_msm_pcie_test11_vs_normal_path_classifier_v1523.py`
+  and compares corrected TEST:11 with the public `pci-msm.c` normal entry
+  points plus local SM8150 PCIe DTS. TEST:11 is not missing the common AP-side
+  enable sequence: debugfs TEST:11, sysfs/client enumeration, endpoint-wake
+  work, and non-deferred probe all converge on
+  `msm_pcie_enumerate() -> msm_pcie_enable(PM_ALL)`. Local pcie1 has
+  `qcom,boot-option=<0x1>`, so probe-time enumeration is intentionally skipped.
+  The blocker therefore moves to pre-enumerate endpoint readiness/trigger
+  semantics that Android satisfies and native TEST:11 does not. V1524 should
+  classify Android-good and native-fail evidence for endpoint wake IRQ/GPIO104,
+  sysfs/client caller, or vendor client request before another native mutation.
+  Report:
+  `docs/reports/NATIVE_INIT_V1523_MSM_PCIE_TEST11_VS_NORMAL_PATH_CLASSIFIER_2026-06-02.md`.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still

@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V1522 host-only Android/native RC1 source parity classifier PASS (`v1522-sampled-sources-nondiscriminating-msm-pcie-static-needed`). V1517/V1518 preserve the native blocker as `rc1-ltssm-link-failed-no-l0`: corrected TEST:11 reaches RC1 PHY/LTSSM and link failure, but L0, PCI enumeration, MHI, WLFW, BDF, FW-ready, and `wlan0` remain absent. V1521 captured Android-good pre/post lower samples via a temporary Magisk `post-fs-data` hook and host dmesg proves WLFW `8.585121s`, BDF `9.673077s`, FW-ready, and `wlan0` `14.843021s`. V1522 then proves the sampled debugfs/interrupt/regulator sources are nondiscriminating: Android-good and native-fail can both show GPIO135/GPIO142 low, GPIO142 IRQ count `0`, and `pcie_1_gdsc` `0mV`. Next gate should be V1523 `msm_pcie` TEST:11 vs Android normal-path static/callgraph classifier. Do not proceed to firmware/MHI/WLFW/scan/connect until native RC1 L0 and PCI enumeration exist. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, Wi-Fi HAL start, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
+- **Active research cycle**: V1523 host-only `msm_pcie` TEST:11 vs normal-path static/callgraph classifier PASS (`v1523-test11-shares-enable-normal-trigger-readiness-gap`). V1517/V1518 preserve the native blocker as `rc1-ltssm-link-failed-no-l0`: corrected TEST:11 reaches RC1 PHY/LTSSM and link failure, but L0, PCI enumeration, MHI, WLFW, BDF, FW-ready, and `wlan0` remain absent. V1521 captured Android-good WLFW/BDF/FW-ready/`wlan0`, and V1522 proves sampled GPIO/debugfs/interrupt/regulator sources are nondiscriminating. V1523 proves TEST:11 is not missing the core AP-side enable path: debugfs TEST:11, sysfs/client enumeration, endpoint-wake work, and non-deferred probe all converge on `msm_pcie_enumerate() -> msm_pcie_enable(PM_ALL)`. pcie1 probe enumeration is intentionally deferred by `qcom,boot-option=<0x1>`. Next gate should be V1524 endpoint-readiness trigger classifier: identify which Android-good normal trigger/readiness condition exists before `msm_pcie_enumerate()` and is absent from native TEST:11. Do not proceed to firmware/MHI/WLFW/scan/connect until native RC1 L0 and PCI enumeration exist. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, Wi-Fi HAL start, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -2400,3 +2400,19 @@ Update after V1354/V1355:
   static/callgraph semantics and list operations TEST:11 lacks before any new
   native mutation. Report:
   `docs/reports/NATIVE_INIT_V1522_ANDROID_NATIVE_RC1_SOURCE_PARITY_CLASSIFIER_2026-06-01.md`.
+- V1523 host-only `msm_pcie` TEST:11 vs normal-path static/callgraph classifier
+  passes with `v1523-test11-shares-enable-normal-trigger-readiness-gap`. It
+  adds
+  `scripts/revalidation/native_wifi_msm_pcie_test11_vs_normal_path_classifier_v1523.py`
+  and compares the corrected TEST:11 path with the public `pci-msm.c` normal
+  entry points and local SM8150 PCIe DTS. TEST:11 is not missing the common
+  AP-side enable sequence: debugfs TEST:11, sysfs/client enumeration,
+  endpoint-wake work, and non-deferred probe all converge on
+  `msm_pcie_enumerate() -> msm_pcie_enable(PM_ALL)`. Local pcie1 has
+  `qcom,boot-option=<0x1>`, so probe-time enumeration is intentionally skipped.
+  The blocker therefore moves to pre-enumerate endpoint readiness/trigger
+  semantics that Android satisfies and native TEST:11 does not. V1524 should
+  classify Android-good and native-fail evidence for endpoint wake IRQ/GPIO104,
+  sysfs/client caller, or vendor client request before another native mutation.
+  Report:
+  `docs/reports/NATIVE_INIT_V1523_MSM_PCIE_TEST11_VS_NORMAL_PATH_CLASSIFIER_2026-06-02.md`.
