@@ -6487,6 +6487,29 @@ Samsung bootloader
       `rc_sel`/`case` write, PMIC/GPIO/GDSC direct write, eSoC notify/
       `BOOT_DONE`, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external
       ping, flash, boot image write, or partition write.
+    - Result:
+      `docs/reports/NATIVE_INIT_V1388_V1387_TIMING_PARTICIPANT_CLASSIFIER_2026-06-01.md`.
+      Decision: `v1388-prepoll-gate-works-but-helper-enters-it-too-late`.
+      V1387 proves the v285 pre-poll code path works, but it starts about
+      `3.556s` after `__subsystem_get(esoc0)` and only improves V1383 by
+      `0.106s`. The observer already saw a `pm-service`
+      `mdm_subsys_powerup` thread at `thread_sample index=1` before
+      `late_per_proxy.begin`, so the next correction must move the RC1 write
+      into that earlier observer phase.
+37. **V1389 early-observer corrected RC1 trigger support (source/build-only).**
+    - Goal: bump helper to v286 and add an opt-in early-observer corrected RC1
+      trigger that fires on the first `pm_service_powerup_thread` observation
+      before response-sampler/proc-map/CNSS snapshots and before the late
+      `per_proxy` response-sampler block.
+    - Required output: new fail-closed flag/markers, static aarch64 helper,
+      source checks proving old v285 paths remain unchanged unless the new flag
+      is set, and marker fields for early gate time, phase, `rc_sel_rc`,
+      `case_rc`, and whether debugfs control writes executed.
+    - Hard stop: source/build-only. No device command, helper deploy,
+      debugfs/sysfs live write, `rc_sel`/`case` live write,
+      PMIC/GPIO/GDSC direct write, eSoC notify/`BOOT_DONE`, Wi-Fi HAL,
+      scan/connect, credentials, DHCP/routes, external ping, flash, boot image
+      write, or partition write.
 
 ### Required decision before any new mutation
 
@@ -6586,6 +6609,10 @@ Samsung bootloader
   from Android's about `0.255s`). Do not run another RC1 live mutation until
   V1388 host-only classification explains the late participant/Binder ordering
   and selects a narrower next design.
+- V1388 selects the narrower next design: helper v286 should fire corrected RC1
+  from the early observer phase where `mdm_subsys_powerup` is already visible,
+  before the response sampler and expensive snapshots. V1389 is source/build
+  only; V1390 deploy and V1391 live are separate gates.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still

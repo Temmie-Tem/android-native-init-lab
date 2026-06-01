@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V1387 bounded pre-poll corrected RC1 live PASS (`v1387-corrected-rc1-ltssm-no-downstream-clean`). Helper v285 fired from `late_per_proxy_prepoll_000`, wrote `rc_sel=2`/`case=11` successfully, and dmesg showed RC1 LTSSM activity, but `__subsystem_get(esoc0)` to RC1 assert was still about `3.561s` versus Android's about `0.255s`; GPIO142/PCI/MHI/ks/WLFW/`wlan0` stayed absent. Next is V1388 host-only timing/participant classifier before any new mutation. Preserve hard exclusions: no PMIC/GPIO/GDSC direct write, blind eSoC notify/BOOT_DONE spoof, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, flash outside approved Android handoff/rollback, boot image write outside approved rollback, or partition write.
+- **Active research cycle**: V1388 host-only classifier PASS (`v1388-prepoll-gate-works-but-helper-enters-it-too-late`). V1387's pre-poll writer works, but it starts about `3.556s` after `__subsystem_get(esoc0)` and only improves V1383 by `0.106s`; observer evidence already saw a `pm-service` `mdm_subsys_powerup` thread before the late-`per_proxy` response sampler. Next is V1389 source/build-only helper v286 early-observer corrected RC1 trigger support. Preserve hard exclusions: no PMIC/GPIO/GDSC direct write, blind eSoC notify/BOOT_DONE spoof, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, flash outside approved Android handoff/rollback, boot image write outside approved rollback, or partition write.
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -1458,3 +1458,13 @@ Update after V1354/V1355:
   WLFW, and `wlan0` all stayed absent. Safety markers remained clear and no
   Wi-Fi bring-up/network action occurred. Next is V1388 host-only timing and
   Android-participant classifier before any new live mutation.
+- V1388 host-only classifier (`v1388-prepoll-gate-works-but-helper-enters-it-too-late`)
+  reconciled V1387 with V1384, V1379/V1383, and Android V1371 timing. V1387
+  proves the v285 pre-poll writer works (`late_per_proxy_prepoll_000`,
+  `poll_count=0`, `rc_sel_rc=0`, `case_rc=0`), but it starts about `3.556s`
+  after `__subsystem_get(esoc0)` and only improves V1383 by `0.106s`. The
+  observer already saw `thread_sample index=1 ... wchan=mdm_subsys_powerup`
+  before the late-`per_proxy` response-sampler block, so the next change must
+  move corrected RC1 into that earlier observer phase. V1389 should be
+  source/build-only helper v286 support; do not run another same-shape live
+  RC1 mutation first.
