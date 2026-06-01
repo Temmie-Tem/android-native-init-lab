@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V1468 exact-provider PIL+GPIO tracepoint artifact sanity PASS (`v1468-wifi-test-boot-exact-provider-pil-gpio-tracepoint-artifact-sanity-pass`). V1468 verifies the exact V1467 manifest, static init/helper, ramdisk entries, marker contract, absent retry/legacy/case-writer markers, v724 header/kernel parity, private modes, and forbidden credential-like byte absence. The rollbackable V1467 test boot is now ready for V1469 live handoff only: flash `tmp/wifi/v1467-wifi-test-boot-exact-provider-pil-gpio-tracepoint-sampler/boot_linux_v1467_wifi_test.img`, expect `A90 Linux init 0.9.87 (v1467-wifitest)`, collect V1467 log/summary/watcher/window/dmesg/`wlan0`, then roll back to `stage3/boot_linux_v724.img` and verify selftest fail=0. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, Wi-Fi HAL start, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
+- **Active research cycle**: V1471 AP2MDM effective-level classifier PASS (`v1471-ap2mdm-active-pinctrl-present-effective-output-low`). V1469/V1470 prove the exact provider reaches `fw=esoc0`, toggles PON, and calls GPIO135/AP2MDM set-high; V1471 adds OSRC DTS/tracepoint source evidence and shows AP2MDM ownership plus active pinctrl are present, while live readback still stays `gpio135 : out 0 16mA no pull`, GPIO142/MDM2AP and PCIe wake IRQs stay zero, and no RC1/MHI/WLFW/BDF/FW-ready/`wlan0` progress appears. Next gate: V1472 source/build-only extended AP2MDM effective-level sampler. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, Wi-Fi HAL start, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -1747,3 +1747,31 @@ Update after V1354/V1355:
   rolling back to `stage3/boot_linux_v724.img` and verifying selftest fail=0.
   Report:
   `docs/reports/NATIVE_INIT_V1468_WIFI_TEST_BOOT_EXACT_PROVIDER_PIL_GPIO_TRACEPOINT_ARTIFACT_SANITY_2026-06-01.md`.
+- V1469 rollbackable live handoff
+  (`v1469-test-boot-provider-trigger-no-downstream-rollback-pass`) flashed only
+  the V1467 exact-provider PIL+GPIO tracepoint test boot, collected the V1467
+  log, summary, RC1 watcher/window results, dmesg markers, and `wlan0` state,
+  then rolled back from native to `stage3/boot_linux_v724.img`; post-rollback
+  selftest stayed healthy. The test boot reached both modem and esoc0 provider
+  triggers, but no RC1/MHI/WLFW/BDF/FW-ready/`wlan0` progress appeared. Report:
+  `docs/reports/NATIVE_INIT_V1469_WIFI_TEST_BOOT_EXACT_PROVIDER_PIL_GPIO_TRACEPOINT_HANDOFF_2026-06-01.md`.
+- V1470 host-only classifier
+  (`v1470-ap2mdm-set-called-but-not-effective-no-mdm2ap-no-rc1`) classifies the
+  V1469 evidence. It proves `fw=esoc0` PIL notification parity, PON low-high,
+  and a GPIO135/AP2MDM set-high call about `306.356ms` after the esoc0 PIL
+  start. The live readback samples still show zero GPIO135 high samples, zero
+  GPIO142 high samples, zero MDM status IRQ increments, zero PCIe wake IRQ
+  increments, and no RC1/MHI/WLFW/BDF/FW-ready/`wlan0`. Next gate: V1471
+  host-only AP2MDM effective-level and pinctrl ownership classifier. Report:
+  `docs/reports/NATIVE_INIT_V1470_PROVIDER_PIL_GPIO_CLASSIFIER_2026-06-01.md`.
+- V1471 host-only classifier
+  (`v1471-ap2mdm-active-pinctrl-present-effective-output-low`) reconciles V1470
+  with OSRC DTS and tracepoint source. `gpio_direction: ... out (0)` is the
+  tracepoint's error code, while `gpio_value: 135 set 1` is the actual AP2MDM
+  set-high call. DTS maps GPIO135 to AP2MDM and includes active pinctrl
+  (`gpio`, 16mA, bias disabled); V1469 live readback also shows that active
+  config. The remaining gap is effective output/readback: GPIO135 stays sampled
+  low, GPIO142/MDM2AP stays low, IRQs stay zero, and no RC1/MHI/WLFW/BDF
+  /FW-ready/`wlan0` appears. Next gate: V1472 source/build-only extended AP2MDM
+  effective-level sampler. Report:
+  `docs/reports/NATIVE_INIT_V1471_AP2MDM_EFFECTIVE_LEVEL_CLASSIFIER_2026-06-01.md`.

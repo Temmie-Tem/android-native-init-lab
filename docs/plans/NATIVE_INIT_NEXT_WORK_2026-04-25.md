@@ -7678,6 +7678,36 @@ Samsung bootloader
   the V1467 log, summary, RC1 watcher result, exact-provider PIL+GPIO
   tracepoint window result, expanded dmesg markers, and `wlan0` state, then
   rolling back to `stage3/boot_linux_v724.img` and verifying selftest fail=0.
+- V1469 rollbackable live handoff passes with
+  `v1469-test-boot-provider-trigger-no-downstream-rollback-pass`. It flashed
+  only the V1467 exact-provider PIL+GPIO tracepoint test image, verified the
+  test boot, collected the V1467 log/summary, RC1 watcher/window results, dmesg
+  markers, and `wlan0` state, then rolled back to healthy v724 with selftest
+  fail=0. The handoff reached the modem and esoc0 provider triggers, but no
+  RC1/MHI/WLFW/BDF/FW-ready/`wlan0` progress appeared.
+- V1470 host-only classifier passes with
+  `v1470-ap2mdm-set-called-but-not-effective-no-mdm2ap-no-rc1`. It classifies
+  V1469's exact-provider PIL+GPIO tracepoint evidence: `fw=esoc0` PIL parity is
+  present, GPIO1270/PON toggles low-high, and GPIO135/AP2MDM set-high is called
+  about `306.356ms` after esoc0 PIL start. However, live readback still shows
+  zero GPIO135 high samples, zero GPIO142 high samples, zero MDM status IRQ
+  increments, zero PCIe wake IRQ increments, and no RC1/MHI/WLFW/BDF/FW-ready
+  /`wlan0` progress. V1471 should be host-only AP2MDM effective-level and
+  pinctrl ownership classification before any write-based workaround or upper
+  Wi-Fi work.
+- V1471 host-only classifier passes with
+  `v1471-ap2mdm-active-pinctrl-present-effective-output-low`. It verifies the
+  GPIO tracepoint semantics (`gpio_direction ... out (0)` is error code 0, not
+  output-low), confirms `gpio_value: 135 set 1` is a real AP2MDM set-high call,
+  and reconciles source ownership: SDX5XM DTS maps GPIO135 to AP2MDM, uses
+  `ap2mdm_active`, and SM8150 pinctrl config sets GPIO function, 16mA drive,
+  and bias disabled. V1469's live readback shows that active pinctrl config, so
+  simple missing ownership/pinctrl is closed. The open gap is effective level:
+  GPIO135 still samples low, GPIO142/MDM2AP and PCIe wake IRQs stay zero, and
+  no RC1/MHI/WLFW/BDF/FW-ready/`wlan0` progress appears. V1472 should be
+  source/build-only and extend the test boot sampler around the AP2MDM set-high
+  point with more effective-level/pinctrl/debugfs readback, still with no
+  writes or upper Wi-Fi actions.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
