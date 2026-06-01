@@ -8746,6 +8746,21 @@ Samsung bootloader
   observer should regulator/clk tracefs be reintroduced or compared against
   V1552. Report:
   `docs/reports/NATIVE_INIT_V1554_ANDROID_GOOD_POWER_TRACE_REFERENCE_2026-06-02.md`.
+- V1555 rollbackable Android-good minimal trace reference passes with
+  `v1555-android-good-minimal-trace-reference-pass`. It adds
+  `scripts/revalidation/android_good_minimal_trace_reference_handoff_v1555.py`
+  and updates the shared V1521 handoff engine so transient `adb shell` closure
+  during Android boot-complete wait is retried instead of aborting before
+  module installation. The successful run uses only GPIO/IRQ tracefs plus
+  filtered dmesg, preserves Android lower Wi-Fi progress, and rolls back to
+  native v724 with selftest passing. It captures WLFW start, BDF downloads,
+  FW-ready, and `wlan0`, plus endpoint-response signals absent in V1552:
+  GPIO135/AP2MDM set-high, GPIO102/PERST activity, IRQ252 `msm_pcie_wake`,
+  IRQ290 `mdm status`, and GPIO142 high after mdm status. Timing caveat:
+  retained RC1 L0/MHI excerpts are late relative to first lower-Wi-Fi markers,
+  so the next gate is V1556 host-only stable-signal comparator against V1552,
+  not a direct first-L0 timestamp claim. Report:
+  `docs/reports/NATIVE_INIT_V1555_ANDROID_GOOD_MINIMAL_TRACE_REFERENCE_2026-06-02.md`.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still

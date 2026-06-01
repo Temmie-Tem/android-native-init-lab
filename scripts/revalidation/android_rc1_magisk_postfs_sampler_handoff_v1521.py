@@ -665,6 +665,16 @@ def execute_plan(args: argparse.Namespace, store: EvidenceStore, execute: bool) 
             step = wait_for_adb_state(args, {"recovery"}, timeout, execute, store, name)
         elif name in {"wait-android", "wait-android-second", "wait-android-ready-for-module-push"}:
             step = wait_for_adb_state(args, {"device"}, timeout, execute, store, name)
+        elif name == "wait-android-boot-complete-for-install":
+            step = execute_host_retry_step(
+                store,
+                name,
+                command if isinstance(command, list) else [command],
+                timeout,
+                execute,
+                attempts=6,
+                sleep_sec=3.0,
+            )
         elif name == "wait-v1521-sampler-done":
             step = wait_sampler_done_step(args, store, execute)
             sampler_done_ok = step.ok

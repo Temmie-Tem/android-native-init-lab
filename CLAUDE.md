@@ -2832,3 +2832,25 @@ gate: reduce the Android-good observer to console/dmesg plus minimal GPIO/IRQ
 trace and a longer hold, then reintroduce regulator/clk tracefs only after the
 good lower path is preserved.  Firmware/MHI/WLFW/connect work remains parked
 until native RC1 L0 and PCI enumeration exist.
+
+## Latest native Wi-Fi state: V1555 (2026-06-02)
+
+V1555 adds
+`scripts/revalidation/android_good_minimal_trace_reference_handoff_v1555.py`
+and updates the shared V1521 handoff engine to retry transient
+`adb shell` closure while waiting for Android boot-complete before installing
+the temporary module.  The live run passes with
+`v1555-android-good-minimal-trace-reference-pass`; native rollback completes
+and v724 selftest remains healthy.
+
+This is the Android-good reference V1554 did not preserve.  With only
+GPIO/IRQ tracefs plus filtered dmesg, Android reaches WLFW start, BDF downloads
+for `regdb.bin` and `bdwlan.bin`, FW-ready, and `wlan0`.  The captured
+GPIO/IRQ target also shows the positive endpoint-response signals missing from
+native V1552: GPIO135/AP2MDM set-high, GPIO102/PERST activity, IRQ252
+`msm_pcie_wake`, IRQ290 `mdm status`, and GPIO142 becoming high after mdm
+status.  Timing caveat: retained RC1 L0/MHI excerpts are late relative to the
+first lower-Wi-Fi markers, so the next gate should compare stable signal
+deltas rather than assume that late L0 is the first enabling L0.  Next gate:
+V1556 host-only comparator between V1555 Android-good minimal trace and V1552
+native endpoint-silent evidence.
