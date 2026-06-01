@@ -9091,3 +9091,20 @@ Samsung bootloader
   `docs/reports/NATIVE_INIT_V1584_SERVICE_WINDOW_PM_PROXY_CONTRACT_DEVNODE_FWOVERLAY_HANDOFF_2026-06-02.md`,
   and
   `docs/reports/NATIVE_INIT_V1586_SERVICE_WINDOW_PM_PROXY_CONTRACT_DEVNODE_FWOVERLAY_HANDOFF_2026-06-02.md`.
+
+- V1587 host-only lower-marker next-gate classifier passes with
+  `v1587-v1586-current-lower-marker-gate-required`.  This reconciles the older
+  V1496 RC1 framing with the current V1586 route.  V1496 remains a valid
+  forced-RC1 `no L0` result, but V1535 already completed the `msm_pcie`
+  static/first-L0 candidate classification and V1560 already showed that
+  Android-good reaches `cnss-daemon wlfw_start` while the native forced-RC1
+  route does not.  Therefore the next useful unit is not another V1496 dossier
+  and not credentialed scan/connect.  Next gate: V1588 source/build-only
+  focused lower-marker sampler preserving V1586 firmware mount parity and the
+  helper private vendor namespace, then compactly sampling process lifetimes,
+  fd counts, subsystem states, RC1/LTSSM, runtime MHI bus/pipe, QRTR/WLFW,
+  BDF, FW-ready, and `wlan0` in one bounded window.  Keep credentials,
+  scan/connect, DHCP/routes, external ping, blind eSoC notify/`BOOT_DONE`,
+  PMIC/GPIO/GDSC direct writes, global PCI rescan, and platform bind/unbind
+  blocked.  Report:
+  `docs/reports/NATIVE_INIT_V1587_LOWER_MARKER_NEXT_GATE_CLASSIFIER_2026-06-02.md`.

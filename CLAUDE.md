@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V1540 host-only endpoint-readiness classifier PASS (`v1540-endpoint-readiness-gap-after-sysfs-enumerate`). V1538/V1539 closed AP-side enumerate caller semantics: targeted sysfs/client enumerate writes successfully reach RC1 assert/release, PHY ready, and LTSSM poll active/compliance, then fail before L0 (`PCIe RC1 link initialization failed`, `LTSSM_STATE:0x3`). V1540 ties the remaining blocker to the SDX50M endpoint readiness/electrical boundary: RC1 software enable is partially healthy, Android-good reaches L0/current GEN/WLFW/BDF/`wlan0`, but native has no L0, GPIO142 IRQ/level, MHI, WLFW, BDF, FW-ready, or `wlan0`. Next gate is V1541 source/build-only endpoint electrical observer design around GPIO102/PERST, pcie_1 GDSC/clocks/refclk/refgen, GPIO103/CLKREQ, GPIO104/WAKE, GPIO135/AP2MDM, and GPIO142/MDM2AP in the exact RC1 link-training window. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, Wi-Fi HAL start, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
+- **Active research cycle**: V1587 host-only lower-marker next-gate classifier PASS (`v1587-v1586-current-lower-marker-gate-required`). V1496/V1535 already classify the forced-RC1/LTSSM failure and `msm_pcie` static path; V1560 adds the Android-good ordering caveat (`wlfw_start` before BDF/FW-ready/`wlan0`, while native forced-RC1 lacks `wlfw_start`). V1586 is the freshest active route: firmware-only global `/vendor` overlay, helper private vendor namespace, `pm_proxy_helper` modem PIL, `mdm_helper` `/dev/esoc-0`, and scoped `/dev/subsys_esoc0` trigger are proven, but RC1/L0, runtime MHI, BDF/regdb, FW-ready, and `wlan0` remain absent. Next gate is V1588 source/build-only focused lower-marker sampler design preserving V1586 parity and sampling process lifetimes/fd counts, subsystem states, RC1/LTSSM, MHI bus/pipe, QRTR/WLFW, BDF, FW-ready, and `wlan0` in one bounded window. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -3344,3 +3344,23 @@ should preserve V1586 firmware mount parity and add focused lower markers for
 RC1/MHI/WLFW request/state transitions, without credentials, scan/connect,
 DHCP/routes, external ping, blind eSoC notify/`BOOT_DONE`, PMIC/GPIO/GDSC direct
 writes, global PCI rescan, or platform bind/unbind.
+
+## Latest native Wi-Fi state: V1587 (2026-06-02)
+
+V1587 adds
+`scripts/revalidation/native_wifi_lower_marker_next_gate_classifier_v1587.py`
+and passes host-only as `v1587-v1586-current-lower-marker-gate-required`.
+It reconciles the user's V1496 RC1 framing with the current repo state:
+V1496 remains a valid forced-RC1 `no L0` failure, but V1535 already completed
+the `msm_pcie` static/first-L0 candidate classification and V1560 already
+showed Android's lower route reaches `wlfw_start` while native forced-RC1 does
+not.  V1586 is therefore the active route to preserve.
+
+V1587 reclassifies the next unit as a source/build-only focused lower-marker
+sampler.  It must keep the V1586 firmware overlay and helper private vendor
+namespace intact while compactly sampling process lifetimes, fd counts,
+subsystem states, RC1/LTSSM, runtime MHI, QRTR/WLFW, BDF, FW-ready, and
+`wlan0`.  Do not proceed to credentials, scan/connect, DHCP/routes, external
+ping, blind eSoC notify/`BOOT_DONE`, PMIC/GPIO/GDSC direct writes, global PCI
+rescan, or platform bind/unbind.  Report:
+`docs/reports/NATIVE_INIT_V1587_LOWER_MARKER_NEXT_GATE_CLASSIFIER_2026-06-02.md`.
