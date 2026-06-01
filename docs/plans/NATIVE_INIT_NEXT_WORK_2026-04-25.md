@@ -7260,6 +7260,16 @@ Samsung bootloader
   for pcie1 regulators, clocks, GPIO102/PERST, GPIO103/CLKREQ, GPIO104/WAKE,
   GPIO142/MDM2AP, pinmux, and pinconf. V1434 should perform local-only artifact
   sanity over this exact focused marker contract before any live handoff.
+- V1434 local-only artifact sanity passes with
+  `v1434-wifi-test-boot-focused-endpoint-artifact-sanity-pass`. It verifies the
+  V1433 manifest decision, static init/helper binaries, ramdisk entries, boot
+  markers, absence of retry-loop markers, header/kernel parity, forbidden
+  credential-like byte absence, private modes, and focused endpoint sampler
+  contract. V1435 may be a rollbackable live handoff for only the V1433 image,
+  expecting `A90 Linux init 0.9.79 (v1433-wifitest)`, collecting the V1433 log,
+  summary, RC1 watcher result, focused endpoint window result, expanded dmesg
+  markers, and `wlan0` state, then rolling back to `stage3/boot_linux_v724.img`
+  and verifying selftest fail=0.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
