@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V1524 host-only endpoint-trigger attribution classifier PASS (`v1524-trigger-attribution-pivots-to-esoc-mhi-pm-resume`). V1517/V1518 preserve the native blocker as `rc1-ltssm-link-failed-no-l0`: corrected TEST:11 reaches RC1 PHY/LTSSM and link failure, but L0, PCI enumeration, MHI, WLFW, BDF, FW-ready, and `wlan0` remain absent. V1521 captured Android-good WLFW/BDF/FW-ready/`wlan0`, V1522 proves sampled GPIO/debugfs/interrupt/regulator sources are nondiscriminating, and V1523 proves TEST:11 reaches the common AP-side enable path. V1524 tightens the model: Android-good initial RC1 is not observed as debugfs TEST:11, endpoint wake GPIO104 is not consistently attributable, and local source shows an eSoC/MHI `MSM_PCIE_RESUME` path into `msm_pcie_enable(PM_PIPE_CLK | PM_CLK | PM_VREG)` before `mhi_pci_probe()`. Next gate should be V1525 eSoC/MHI PM-resume vs TEST:11 path classifier. Do not proceed to firmware/MHI deep dive/WLFW/scan/connect until native RC1 L0 and PCI enumeration exist. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, Wi-Fi HAL start, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
+- **Active research cycle**: V1525 host-only MHI PM-resume position classifier PASS (`v1525-mhi-pm-resume-is-post-enumeration-not-first-l0-trigger`). V1517/V1518 preserve the native blocker as `rc1-ltssm-link-failed-no-l0`: corrected TEST:11 reaches RC1 PHY/LTSSM and link failure, but L0, PCI enumeration, MHI, WLFW, BDF, FW-ready, and `wlan0` remain absent. V1521 captured Android-good WLFW/BDF/FW-ready/`wlan0`, V1522 proves sampled GPIO/debugfs/interrupt/regulator sources are nondiscriminating, V1523 proves TEST:11 reaches the common AP-side enable path, and V1524 raised eSoC/MHI PM-resume as a candidate. V1525 corrects that candidate: MHI PM-resume requires an existing `pci_dev` and its eSoC hook is registered after MHI PCI probe, so it explains later Android link resumes but cannot create first L0/first PCI device. Next gate should be V1526 Android initial RC1 trigger capture/design: identify the Android-only first-L0 trigger below Wi-Fi connect (endpoint wake IRQ timing, pci-msm sysfs/client enumerate, or another kernel caller) before another native mutation. Do not proceed to firmware/MHI deep dive/WLFW/scan/connect until native RC1 L0 and PCI enumeration exist. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, Wi-Fi HAL start, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -2433,3 +2433,19 @@ Update after V1354/V1355:
   PM-resume path against TEST:11 `PM_ALL` semantics before any new live
   mutation. Report:
   `docs/reports/NATIVE_INIT_V1524_ENDPOINT_TRIGGER_ATTRIBUTION_CLASSIFIER_2026-06-02.md`.
+- V1525 host-only MHI PM-resume position classifier passes with
+  `v1525-mhi-pm-resume-is-post-enumeration-not-first-l0-trigger`. It adds
+  `scripts/revalidation/native_wifi_mhi_pm_resume_position_classifier_v1525.py`
+  and validates the V1524 eSoC/MHI PM-resume candidate against local
+  `mhi_arch_qcom.c`, local `mhi_qcom.c`, public `pci-msm.c`, V852 Android-good
+  dmesg, and V1517 native TEST:11 failure evidence. The MHI/eSoC
+  `MSM_PCIE_RESUME` path is real, but it requires an existing `pci_dev`:
+  `mhi_arch_esoc_ops_power_on()` reads `mhi_dev->pci_dev`, pci-msm casts the
+  caller to `struct pci_dev`, and pci-msm validates it against `pcidev_table`.
+  The eSoC hook is registered from MHI PCI init/probe, so it cannot be the
+  operation that creates the first PCI device or first L0. It explains later
+  Android RC1 resume cycles, not the missing native first-L0 transition. V1526
+  should capture or classify the Android-only first-L0 trigger below Wi-Fi
+  connect: endpoint wake IRQ timing, pci-msm sysfs/client enumerate, or another
+  kernel caller. Report:
+  `docs/reports/NATIVE_INIT_V1525_MHI_PM_RESUME_POSITION_CLASSIFIER_2026-06-02.md`.

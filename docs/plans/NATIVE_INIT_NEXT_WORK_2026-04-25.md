@@ -8370,6 +8370,22 @@ Samsung bootloader
   PM-resume path against TEST:11 `PM_ALL` semantics before any new live
   mutation. Report:
   `docs/reports/NATIVE_INIT_V1524_ENDPOINT_TRIGGER_ATTRIBUTION_CLASSIFIER_2026-06-02.md`.
+- V1525 host-only MHI PM-resume position classifier passes with
+  `v1525-mhi-pm-resume-is-post-enumeration-not-first-l0-trigger`. It adds
+  `scripts/revalidation/native_wifi_mhi_pm_resume_position_classifier_v1525.py`
+  and validates the V1524 eSoC/MHI PM-resume candidate against local
+  `mhi_arch_qcom.c`, local `mhi_qcom.c`, public `pci-msm.c`, V852 Android-good
+  dmesg, and V1517 native TEST:11 failure evidence. The MHI/eSoC
+  `MSM_PCIE_RESUME` path is real, but it requires an existing `pci_dev`:
+  `mhi_arch_esoc_ops_power_on()` reads `mhi_dev->pci_dev`, pci-msm casts the
+  caller to `struct pci_dev`, and pci-msm validates it against `pcidev_table`.
+  The eSoC hook is registered from MHI PCI init/probe, so it cannot be the
+  operation that creates the first PCI device or first L0. It explains later
+  Android RC1 resume cycles, not the missing native first-L0 transition. V1526
+  should capture or classify the Android-only first-L0 trigger below Wi-Fi
+  connect: endpoint wake IRQ timing, pci-msm sysfs/client enumerate, or another
+  kernel caller. Report:
+  `docs/reports/NATIVE_INIT_V1525_MHI_PM_RESUME_POSITION_CLASSIFIER_2026-06-02.md`.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
