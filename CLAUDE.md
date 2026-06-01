@@ -3690,3 +3690,47 @@ Reports:
 `docs/reports/NATIVE_INIT_V1597_PM_FIRST_LATE_PER_PROXY_LOWER_MARKER_SOURCE_BUILD_2026-06-02.md`
 and
 `docs/reports/NATIVE_INIT_V1598_PM_FIRST_LATE_PER_PROXY_LOWER_MARKER_ARTIFACT_SANITY_2026-06-02.md`.
+
+## Latest native Wi-Fi state: V1599 (2026-06-02)
+
+V1599 adds `scripts/revalidation/native_wifi_test_boot_handoff_v1599.py` and
+runs the rollbackable live handoff for the V1597 PM-first late-`pm-proxy`
+lower-marker image.  The handoff/rollback path is clean: the V1597 image boots,
+evidence is collected from `/cache/native-init-wifi-test-boot-v1597.*`, rollback
+from native restores v724, and post-rollback selftest remains `fail=0`.
+
+Strict Wi-Fi progress remains blocked as
+`v1599-test-boot-no-downstream-wifi-progress-blocked`.  The V1238/V1303-inspired
+late route still does not reach PM-service-owned `/dev/subsys_esoc0`:
+
+- `modem_trigger=True`, but `provider_trigger=False`.
+- No RC1/LTSSM, MHI, WLFW, BDF, FW-ready, or `wlan0` marker is present.
+- Helper mode is `guarded-pm-proxy-contract-pm-first-late-per-proxy-lower-marker`.
+- Order is `pm_proxy_helper,per_mgr,cnss_daemon,mdm_helper,pm_proxy_late` after
+  service managers; Wi-Fi HAL/`wificond` and the direct scoped
+  `/dev/subsys_esoc0` trigger are disabled.
+- `pm_proxy_helper_subsys_modem_initial_count=0`, but lower-marker sampling later
+  sees `pm_proxy_helper_subsys_modem_fd_max=1`.
+- `per_mgr` exits `0` before it is observable; `pm-proxy` exits `1`;
+  `pm_full_contract_seen=0`.
+- `mdm_helper` holds `/dev/esoc-0`; `cnss-daemon` reaches cld80211 netlink only.
+- Helper result is `pm-service-owned-powerup-missing` with reason
+  `pm-first-late-per-proxy-route-did-not-reach-dev-subsys-esoc0-mdm-subsys-powerup`.
+
+New interpretation: route ordering alone is not enough.  The next likely race is
+that `per_mgr` starts before `pm_proxy_helper` has actually obtained
+`/dev/subsys_modem`; the fixed 300 ms post-PPH settle window records count `0`,
+while the later lower-marker window records count `1`.  Starting `per_mgr` too
+early can explain why it exits before PM full contract and before `pm-proxy`
+can drive PM-service-owned `/dev/subsys_esoc0`.
+
+Next work: V1600 should be source/build-only and add a bounded
+`pm_proxy_helper` fd gate before spawning `per_mgr`: poll for
+`/dev/subsys_modem` on `pm_proxy_helper` with a short timeout, record first-seen
+time/sample count, and only then continue `per_mgr`, CNSS/`mdm_helper`, and late
+`pm-proxy`.  If the gate times out, classify as `pm-proxy-helper-modem-fd-missing`
+instead of racing into `per_mgr`.  Still no credentials, scan/connect,
+DHCP/routes, external ping, PMIC/GPIO/GDSC direct writes, blind eSoC
+notify/`BOOT_DONE`, global PCI rescan, platform bind/unbind, or unbounded
+boot-image/partition writes.  Report:
+`docs/reports/NATIVE_INIT_V1599_PM_FIRST_LATE_PER_PROXY_LOWER_MARKER_HANDOFF_2026-06-02.md`.

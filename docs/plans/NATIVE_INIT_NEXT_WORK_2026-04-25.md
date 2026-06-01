@@ -9325,3 +9325,26 @@ Samsung bootloader
   `docs/reports/NATIVE_INIT_V1597_PM_FIRST_LATE_PER_PROXY_LOWER_MARKER_SOURCE_BUILD_2026-06-02.md`
   and
   `docs/reports/NATIVE_INIT_V1598_PM_FIRST_LATE_PER_PROXY_LOWER_MARKER_ARTIFACT_SANITY_2026-06-02.md`.
+
+- V1599 rollbackable live handoff is complete.  The V1597 image booted,
+  evidence was collected, rollback from native restored v724, and post-rollback
+  selftest remained `fail=0`.  Strict Wi-Fi progress is blocked as
+  `v1599-test-boot-no-downstream-wifi-progress-blocked`: `modem_trigger=True`,
+  `provider_trigger=False`, and no RC1/LTSSM, MHI, WLFW, BDF, FW-ready, or
+  `wlan0` marker appears.  The stripped late route also fails to reach
+  PM-service-owned `/dev/subsys_esoc0`; `per_mgr` exits `0`, `pm-proxy` exits
+  `1`, `pm_full_contract_seen=0`, and helper result is
+  `pm-service-owned-powerup-missing` with reason
+  `pm-first-late-per-proxy-route-did-not-reach-dev-subsys-esoc0-mdm-subsys-powerup`.
+
+  New blocker selection: `pm_proxy_helper_subsys_modem_initial_count=0` at the
+  fixed post-PPH settle point, but lower-marker sampling later sees
+  `pm_proxy_helper_subsys_modem_fd_max=1`.  That means `per_mgr` is likely being
+  spawned before `pm_proxy_helper` actually holds `/dev/subsys_modem`.  Next
+  gate: V1600 source/build-only should add a bounded PPH fd gate before
+  spawning `per_mgr`, recording first-seen timing and classifying timeout as
+  `pm-proxy-helper-modem-fd-missing`.  Still no credentials, scan/connect,
+  DHCP/routes, external ping, PMIC/GPIO/GDSC direct writes, blind eSoC
+  notify/`BOOT_DONE`, global PCI rescan, platform bind/unbind, or unbounded
+  boot-image/partition writes.  Report:
+  `docs/reports/NATIVE_INIT_V1599_PM_FIRST_LATE_PER_PROXY_LOWER_MARKER_HANDOFF_2026-06-02.md`.
