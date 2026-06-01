@@ -8553,6 +8553,29 @@ Samsung bootloader
   selftest `fail=0`. Reports:
   `docs/reports/NATIVE_INIT_V1536_WIFI_SYSFS_CLIENT_ENUMERATE_SOURCE_BUILD_2026-06-02.md`,
   `docs/reports/NATIVE_INIT_V1537_WIFI_SYSFS_CLIENT_ENUMERATE_ARTIFACT_SANITY_2026-06-02.md`.
+- V1538 rollbackable sysfs/client enumerate test-boot handoff passes with
+  `v1538-test-boot-downstream-progress-rollback-pass`. The test image wrote
+  `/sys/devices/platform/soc/1c08000.qcom,pcie/debug/enumerate` through the
+  PID1 `sysfs_client_enumerate` writer, recorded `write_rc=0` / `sysfs_rc=0`,
+  collected RC1 watcher/window/dmesg evidence, and rolled back to native v724
+  with selftest verification. The result remains `rc1-ltssm-link-failed-no-l0`:
+  RC1 assert/release, PHY ready, and LTSSM poll active/compliance are present,
+  followed by `PCIe RC1 link initialization failed (LTSSM_STATE:0x3)`. There is
+  no L0, MHI, WLFW, BDF, FW-ready, `wlan0`, scan/connect, DHCP/routes, or
+  external ping. Report:
+  `docs/reports/NATIVE_INIT_V1538_WIFI_SYSFS_CLIENT_ENUMERATE_HANDOFF_2026-06-02.md`.
+- V1539 host-only sysfs enumerate result classifier passes with
+  `v1539-sysfs-client-enumerate-closes-ap-side-trigger-no-l0`. It adds
+  `scripts/revalidation/native_wifi_sysfs_enumerate_result_classifier_v1539.py`
+  and classifies V1538 against V1535/V1523. The targeted sysfs/client enumerate
+  path is now empirically closed as the remaining AP-side caller question: it
+  succeeds as a writer and reaches the same no-L0 RC1 link failure. The active
+  blocker moves fully to endpoint readiness/electrical/reset/refclk/PERST
+  response around SDX50M and RC1. Next gate: V1540 host-only endpoint-readiness
+  classifier; do not repeat enumerate retries or move to firmware/MHI/WLFW/
+  Wi-Fi HAL/scan/connect/credentials/DHCP/routes/external ping until native
+  RC1 L0 and PCI enumeration exist. Report:
+  `docs/reports/NATIVE_INIT_V1539_SYSFS_ENUMERATE_RESULT_CLASSIFIER_2026-06-02.md`.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still

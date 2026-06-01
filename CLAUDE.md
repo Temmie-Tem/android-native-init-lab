@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V1534 host-only PM route first-L0 focus classifier PASS (`v1534-current-pm-route-supersedes-old-gap-first-l0-focus`). V1534 reconciles the older PM dependency/actionability branch with the current lower route: V1343 proves SDX50M registration and `per_mgr_esoc0`, V1345 proves the current route reaches `mdm_subsys_powerup` but gets no GPIO142/PCIe/MHI/WLFW/`wlan0`, V1496/V1517 prove native can drive RC1 LTSSM but fails before L0, V1523 proves TEST:11 and normal pci-msm callers share the core enumerate/enable path, and V1533 closes the visible ICNSS workqueue line as a first-L0 lead. The active blocker is PCIe RC1 endpoint readiness/link training (`LTSSM_POLL_COMPLIANCE`/no L0), not PM registration, ICNSS workqueue, firmware/MHI, or Wi-Fi HAL. Next gate is V1535: bounded first-L0 trigger/readiness observer or test-boot focused on endpoint wake/sysfs/client enumerate/vendor request semantics around `msm_pcie_enumerate`, with rollback and no scan/connect path. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, Wi-Fi HAL start, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
+- **Active research cycle**: V1539 host-only sysfs/client enumerate result classifier PASS (`v1539-sysfs-client-enumerate-closes-ap-side-trigger-no-l0`). V1538 flashed the V1536 rollbackable test image, successfully wrote `/sys/devices/platform/soc/1c08000.qcom,pcie/debug/enumerate`, collected RC1 evidence, and rolled back to v724 with selftest verification. The targeted sysfs/client enumerate path reaches RC1 assert/release, PHY ready, and LTSSM poll active/compliance, then fails before L0 (`PCIe RC1 link initialization failed`, `LTSSM_STATE:0x3`). No MHI, WLFW, BDF, FW-ready, `wlan0`, scan/connect, DHCP/routes, or external ping occurred. The active blocker is now below AP-side caller semantics: SDX50M endpoint readiness/electrical/reset/refclk/PERST response before PCIe RC1 L0. Next gate is V1540 host-only endpoint-readiness/electrical classification; preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, Wi-Fi HAL start, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -2602,3 +2602,26 @@ Update after V1354/V1355:
   `wlan0`, then roll back to v724 and verify selftest `fail=0`. Reports:
   `docs/reports/NATIVE_INIT_V1536_WIFI_SYSFS_CLIENT_ENUMERATE_SOURCE_BUILD_2026-06-02.md`,
   `docs/reports/NATIVE_INIT_V1537_WIFI_SYSFS_CLIENT_ENUMERATE_ARTIFACT_SANITY_2026-06-02.md`.
+
+## Latest native Wi-Fi state: V1538/V1539 (2026-06-02)
+
+V1538 ran the rollbackable V1536 sysfs/client enumerate test boot and passed
+with `v1538-test-boot-downstream-progress-rollback-pass`. The PID1 writer used
+`trigger_mode=sysfs_client_enumerate`, wrote
+`/sys/devices/platform/soc/1c08000.qcom,pcie/debug/enumerate` with `sysfs_rc=0`,
+collected focused RC1/window/dmesg evidence, and rolled back to native v724
+with selftest verification. The evidence shows RC1 assert/release, PHY ready,
+LTSSM poll active/compliance, and `PCIe RC1 link initialization failed
+(LTSSM_STATE:0x3)`, with no L0, MHI, WLFW, BDF, FW-ready, `wlan0`, or connect
+readiness.
+
+V1539 added
+`scripts/revalidation/native_wifi_sysfs_enumerate_result_classifier_v1539.py`
+and classified V1538 host-only. Result:
+`v1539-sysfs-client-enumerate-closes-ap-side-trigger-no-l0` PASS. This closes
+the remaining AP-side caller semantics branch from V1535: targeted
+sysfs/client enumerate reaches the same fixed native failure as prior RC1
+enumerate paths. Next gate is V1540 host-only endpoint-readiness/electrical
+classification around PERST/refclk/GDSC/reset/GPIO135/GPIO142/SDX50M response.
+Do not return to firmware/MHI/WLFW/Wi-Fi HAL/scan/connect/credentials/DHCP/
+routes/external ping until native RC1 L0 and PCI enumeration exist.
