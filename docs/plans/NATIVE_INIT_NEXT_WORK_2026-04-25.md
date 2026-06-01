@@ -7159,6 +7159,14 @@ Samsung bootloader
   against Android positive evidence to determine whether GPIO135/AP2MDM is
   active-low, pulsed too briefly, or not asserted in native at the comparable
   point. Keep scan/connect, credentials, DHCP/routes, and external ping blocked.
+- V1423 host-only/read-only classifier passes with
+  `v1423-gpio135-low-is-not-actionable-by-itself`. Android-positive steady-state
+  captures also show GPIO135/AP2MDM low, so V1422's GPIO135 low is not enough to
+  justify a direct GPIO/PMIC mutation. The actionable delta remains missing
+  GPIO142/MDM2AP IRQ, PCIe L0, MHI, WLFW/BDF/FW-ready, and `wlan0`. V1424
+  should either perform host-only Android-vs-V1422 timing classification or
+  build a higher-frequency read-only RC1/interrupt sampler. Keep connect-side
+  work blocked until at least L0/MHI/WLFW/`wlan0` progress appears.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
