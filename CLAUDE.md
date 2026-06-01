@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V1519 host-only PASS (`v1519-android-good-native-fail-compared-matched-rc1-source-capture-needed`). V1517/V1518 preserved the native blocker as `rc1-ltssm-link-failed-no-l0`: RC1 reaches PHY/LTSSM and link failure, but L0, PCI enumeration, MHI, WLFW, BDF, FW-ready, and `wlan0` remain absent. V1519 compares the source-exact native failure with Android-good evidence and corrects the interpretation: GPIO135/GPIO142 low readback is not independently discriminating because Android-good static snapshots also show low readback while Android reaches GPIO142 IRQ, PCIe L0, WLFW/BDF, and `wlan0`. Next gate should be V1520 Android-good matched critical-source RC1 timeline capture/classifier for pcie1 GDSC/clock/refclk/PERST/reset and the exact normal RC1 path before any new native mutation. Do not proceed to firmware/MHI/WLFW/scan/connect until RC1 L0 and PCI enumeration exist. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, Wi-Fi HAL start, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
+- **Active research cycle**: V1520 rollbackable Android handoff PASS (`v1520-handoff-adb-sampler-missed-pre-l0-rollback-pass`). V1517/V1518 preserved the native blocker as `rc1-ltssm-link-failed-no-l0`: RC1 reaches PHY/LTSSM and link failure, but L0, PCI enumeration, MHI, WLFW, BDF, FW-ready, and `wlan0` remain absent. V1519 corrected the GPIO interpretation: GPIO135/GPIO142 low readback is not independently discriminating because Android-good static snapshots also show low readback while Android reaches GPIO142 IRQ, PCIe L0, WLFW/BDF, and `wlan0`. V1520 then proved a plain early-ADB Android sampler starts too late for the RC1 pre-L0 window: first sample uptime was `13.85s`, after WLFW `8.433089s` and BDF `9.561577s`; Android still reached `wlan0` at `15.214683s`, and rollback to v724 selftest stayed `fail=0`. Next gate should be V1521 earlier Android boot hook, likely a temporary Magisk `post-fs-data` read-only sampler, before any new native mutation. Do not proceed to firmware/MHI/WLFW/scan/connect until RC1 L0 and PCI enumeration exist. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, Wi-Fi HAL start, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -2359,3 +2359,14 @@ Update after V1354/V1355:
   Android-good matched critical-source RC1 timeline for pcie1 GDSC/clock,
   refclk, PERST/reset, and normal RC1 path before any native mutation. Report:
   `docs/reports/NATIVE_INIT_V1519_ANDROID_GOOD_NATIVE_FAIL_CRITICAL_SOURCE_COMPARISON_2026-06-01.md`.
+- V1520 rollbackable Android handoff passes with
+  `v1520-handoff-adb-sampler-missed-pre-l0-rollback-pass`. It adds
+  `scripts/revalidation/native_wifi_android_rc1_early_critical_source_sample_v1520.py`
+  and `scripts/revalidation/android_rc1_early_critical_source_handoff_v1520.py`.
+  Android reached WLFW/BDF/`wlan0`, but the earliest plain ADB sampler sample
+  began at uptime `13.85s`, after WLFW `8.433089s` and BDF `9.561577s`, so
+  early ADB cannot capture the RC1 pre-L0 critical-source window. Rollback to
+  native v724 completed and selftest remained `fail=0`. Next gate: V1521
+  earlier Android boot hook, likely a temporary Magisk `post-fs-data` read-only
+  sampler, before any native mutation. Report:
+  `docs/reports/NATIVE_INIT_V1520_ANDROID_RC1_EARLY_CRITICAL_SOURCE_HANDOFF_2026-06-01.md`.

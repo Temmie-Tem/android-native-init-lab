@@ -8292,6 +8292,21 @@ Samsung bootloader
   refclk, PERST/reset, and the exact normal RC1 path before another native
   mutation. Report:
   `docs/reports/NATIVE_INIT_V1519_ANDROID_GOOD_NATIVE_FAIL_CRITICAL_SOURCE_COMPARISON_2026-06-01.md`.
+- V1520 rollbackable Android handoff passes with
+  `v1520-handoff-adb-sampler-missed-pre-l0-rollback-pass`. It adds
+  `scripts/revalidation/native_wifi_android_rc1_early_critical_source_sample_v1520.py`
+  and `scripts/revalidation/android_rc1_early_critical_source_handoff_v1520.py`.
+  The plain early-ADB sampler does not start early enough for the RC1 pre-L0
+  source window: the first sample is at uptime `13.85s`, after Android WLFW
+  `8.433089s` and BDF `9.561577s`; Android reaches `wlan0` at `15.214683s`.
+  This closes the plain-ADB capture path and makes V1521 an earlier Android
+  boot-hook problem, not another native RC1 mutation. The preferred next gate is
+  a temporary Magisk `post-fs-data` read-only sampler or equivalent earlier
+  Android boot hook that starts before WLFW/BDF, captures the same
+  GPIO/interrupt/pinctrl/pcie1 regulator/clock/refclk/PERST sources, writes
+  only to `/data/local/tmp` or a bounded evidence path, and is removed before
+  rollback. Report:
+  `docs/reports/NATIVE_INIT_V1520_ANDROID_RC1_EARLY_CRITICAL_SOURCE_HANDOFF_2026-06-01.md`.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
