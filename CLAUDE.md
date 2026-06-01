@@ -1858,3 +1858,14 @@ Update after V1354/V1355:
   DHCP/routes, external ping, or partition write. Next V1478 should be
   local-only artifact sanity before any rollbackable live handoff. Report:
   `docs/reports/NATIVE_INIT_V1477_WIFI_TEST_BOOT_AP2MDM_HOLD_SOURCE_BUILD_2026-06-01.md`.
+- V1478 local-only artifact sanity
+  (`v1478-wifi-test-boot-ap2mdm-hold-artifact-sanity-pass`) verifies the exact
+  V1477 manifest, base boot, static init/helper binaries, ramdisk entries, boot
+  markers, legacy marker absence, v724 header/kernel parity, forbidden
+  credential-like byte absence, private modes, and AP2MDM hold contract. V1479
+  may be a rollbackable live handoff for only the V1477 image, expecting
+  `A90 Linux init 0.9.89 (v1477-wifitest)`, collecting V1477 log, summary, RC1
+  watcher result, AP2MDM hold window result, expanded dmesg markers, and
+  `wlan0` state, then rolling back to `stage3/boot_linux_v724.img` and
+  verifying selftest fail=0. Report:
+  `docs/reports/NATIVE_INIT_V1478_WIFI_TEST_BOOT_AP2MDM_HOLD_ARTIFACT_SANITY_2026-06-01.md`.
