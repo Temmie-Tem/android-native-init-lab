@@ -2725,3 +2725,27 @@ power-domain and debugfs regulator semantics, specifically why `msm_pcie`
 reaches PHY/LTSSM while `regulator_summary` still reports `pcie_1_gdsc` as
 0mV. Do not run another enumerate retry or move to firmware/MHI/WLFW/connect
 work until that semantics gap is classified.
+
+## Latest native Wi-Fi state: V1550 (2026-06-02)
+
+V1550 adds
+`scripts/revalidation/native_wifi_pcie1_power_domain_semantics_classifier_v1550.py`
+and passes with
+`v1550-pcie1-gdsc-summary-is-not-power-proof-tracefs-needed`. It is host-only:
+no device command, tracefs write, reboot, flash, partition write, Wi-Fi HAL,
+scan/connect, credential handling, DHCP/routes, external ping, PMIC/GPIO/GDSC
+write, global PCI rescan, or platform bind/unbind occurred. V1550 reconciles
+V1549 against `pci-msm.c`, `regulator/core.c`, `gdsc-regulator.c`, and SM8150
+DTS. Source shows `msm_pcie_enumerate()` calls `msm_pcie_enable(PM_ALL)` and
+the path requests `regulator_enable(dev->gdsc)` for `gdsc-vdd =
+<&pcie_1_gdsc>` before PHY/LTSSM. `regulator_summary` prints use/open/bypass
+plus `_regulator_get_voltage()/1000`; the qcom GDSC regulator exposes
+enable/disable/is_enabled but no voltage getter/list operation, so
+`pcie_1_gdsc ... 0mV` is not a physical-voltage proof. The leading `0`
+use-count remains a real timing question because source should enable GDSC and
+link-fail cleanup should disable it. Next gate: V1551 should capture bounded
+targeted tracefs regulator/clk/gpio events around the existing
+sysfs-client-enumerate window, using V1315-proven event availability, and
+still avoid direct PMIC/GPIO/GDSC writes, global PCI rescan, platform
+bind/unbind, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, and external
+ping until native RC1 L0 and PCI enumeration exist.

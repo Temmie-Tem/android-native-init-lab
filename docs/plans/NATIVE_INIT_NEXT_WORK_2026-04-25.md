@@ -8674,6 +8674,23 @@ Samsung bootloader
   debugfs regulator semantics; no more enumerate retries and no firmware/MHI/
   WLFW/connect work until that gap is classified. Report:
   `docs/reports/NATIVE_INIT_V1549_LOW_OVERHEAD_RESULT_CLASSIFIER_2026-06-02.md`.
+- V1550 host-only pcie1 power-domain semantics classifier passes with
+  `v1550-pcie1-gdsc-summary-is-not-power-proof-tracefs-needed`. It adds
+  `scripts/revalidation/native_wifi_pcie1_power_domain_semantics_classifier_v1550.py`
+  and reconciles V1549 with `pci-msm.c`, `regulator/core.c`,
+  `gdsc-regulator.c`, and SM8150 DTS. Source confirms the normal
+  sysfs-client enumerate route calls `msm_pcie_enable(PM_ALL)` and requests
+  `regulator_enable(dev->gdsc)` for `gdsc-vdd = <&pcie_1_gdsc>` before
+  PHY/LTSSM. The `regulator_summary` `0mV` field is not physical-voltage proof:
+  the GDSC regulator has enable/disable/is_enabled ops but no voltage getter or
+  list operation, while the debugfs table still prints
+  `_regulator_get_voltage()/1000`. The remaining question is event timing for
+  GDSC use-count and cleanup. Next gate: V1551 bounded targeted tracefs
+  regulator/clk/gpio observer around the existing sysfs-client-enumerate
+  window, using V1315-proven events, with no direct PMIC/GPIO/GDSC writes,
+  global PCI rescan, platform bind/unbind, Wi-Fi HAL, scan/connect,
+  credentials, DHCP/routes, or external ping. Report:
+  `docs/reports/NATIVE_INIT_V1550_PCIE1_POWER_DOMAIN_SEMANTICS_CLASSIFIER_2026-06-02.md`.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
