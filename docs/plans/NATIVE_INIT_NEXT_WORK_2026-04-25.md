@@ -7376,6 +7376,18 @@ Samsung bootloader
   samples, while RC1 still failed in LTSSM before L0. V1445 should be
   source/build-only and realign the parent sampling origin to the writer's
   post-`case=11` completion signal before any further live handoff.
+- V1445 source/build-only passes with
+  `v1445-wifi-test-boot-case-aligned-micro-endpoint-source-build-pass`. It
+  generated
+  `tmp/wifi/v1445-wifi-test-boot-case-aligned-micro-endpoint-sampler/boot_linux_v1445_wifi_test.img`
+  with native init `0.9.82 (v1445-wifitest)` and adds
+  `read-only-v1445-case-aligned-micro-endpoint`. The writer still performs
+  corrected `rc_sel=2` and `case=11`, but the parent now waits for the writer
+  to return, records `rc1_micro_writer_summary`, then starts micro samples at
+  `0ms`, `1ms`, `2ms`, `5ms`, `10ms`, `20ms`, `50ms`, `100ms`, and `150ms`
+  after confirmed case completion. V1446 should be local-only artifact sanity
+  over this exact manifest, marker contract, v724 header/kernel parity, private
+  modes, and forbidden credential-like byte absence before any live handoff.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still

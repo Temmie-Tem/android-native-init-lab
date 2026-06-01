@@ -97,6 +97,9 @@ static void selftest_boot_draw_frame(void *ctx) {
 #ifndef A90_WIFI_TEST_BOOT_RC1_MICRO_ENDPOINT_SAMPLER
 #define A90_WIFI_TEST_BOOT_RC1_MICRO_ENDPOINT_SAMPLER 0
 #endif
+#ifndef A90_WIFI_TEST_BOOT_RC1_CASE_ALIGNED_MICRO_ENDPOINT_SAMPLER
+#define A90_WIFI_TEST_BOOT_RC1_CASE_ALIGNED_MICRO_ENDPOINT_SAMPLER 0
+#endif
 #ifndef A90_WIFI_TEST_BOOT_RC1_RETRY_COUNT
 #define A90_WIFI_TEST_BOOT_RC1_RETRY_COUNT 0
 #endif
@@ -110,7 +113,9 @@ static void selftest_boot_draw_frame(void *ctx) {
 #define A90_V1393_WIFI_TEST_WATCHER_PID A90_WIFI_TEST_BOOT_WATCHER_PID
 #define A90_V1393_WIFI_TEST_RC1_WATCHER_RESULT A90_WIFI_TEST_BOOT_RC1_WATCHER_RESULT
 #define A90_V1393_WIFI_TEST_RC1_WINDOW_RESULT A90_WIFI_TEST_BOOT_RC1_WINDOW_RESULT
-#if A90_WIFI_TEST_BOOT_RC1_MICRO_ENDPOINT_SAMPLER
+#if A90_WIFI_TEST_BOOT_RC1_CASE_ALIGNED_MICRO_ENDPOINT_SAMPLER
+#define A90_V1393_WIFI_TEST_RC1_WINDOW_SAMPLER_NAME "read-only-v1445-case-aligned-micro-endpoint"
+#elif A90_WIFI_TEST_BOOT_RC1_MICRO_ENDPOINT_SAMPLER
 #define A90_V1393_WIFI_TEST_RC1_WINDOW_SAMPLER_NAME "read-only-v1441-micro-endpoint"
 #elif A90_WIFI_TEST_BOOT_RC1_IMMEDIATE_ENDPOINT_SAMPLER
 #define A90_V1393_WIFI_TEST_RC1_WINDOW_SAMPLER_NAME "read-only-v1437-immediate-endpoint"
@@ -1211,7 +1216,7 @@ static int v1393_wait_rc1_micro_writer(pid_t pid, int timeout_ms, int *status_ou
         if (rc < 0) {
             return -errno;
         }
-        usleep(10000);
+        usleep(1000);
     }
 
     (void)kill(pid, SIGKILL);
@@ -1228,11 +1233,79 @@ static int v1393_wait_rc1_micro_writer(pid_t pid, int timeout_ms, int *status_ou
         if (rc < 0) {
             return -errno;
         }
-        usleep(10000);
+        usleep(1000);
     }
     return -ETIMEDOUT;
 }
 
+static int v1393_rc1_micro_read_writer_result(int read_fd,
+                                               pid_t writer_pid,
+                                               int *status_out,
+                                               int *writer_wait_rc_out,
+                                               char *writer_result,
+                                               size_t writer_result_size) {
+    ssize_t rd;
+    int status = 0xffff;
+    int writer_wait_rc;
+
+    if (writer_result_size > 0) {
+        writer_result[0] = '\0';
+    }
+    (void)fcntl(read_fd, F_SETFL, fcntl(read_fd, F_GETFL, 0) | O_NONBLOCK);
+    writer_wait_rc = v1393_wait_rc1_micro_writer(writer_pid, 2000, &status);
+    rd = read(read_fd, writer_result, writer_result_size > 0 ? writer_result_size - 1 : 0);
+    if (rd > 0 && writer_result_size > 0) {
+        writer_result[rd] = '\0';
+        flatten_inline_text(writer_result);
+    } else if (writer_result_size > 0) {
+        snprintf(writer_result, writer_result_size, "micro_writer pipe_read_rc=%zd", rd);
+    }
+    if (status_out != NULL) {
+        *status_out = status;
+    }
+    if (writer_wait_rc_out != NULL) {
+        *writer_wait_rc_out = writer_wait_rc;
+    }
+    return writer_wait_rc;
+}
+
+static void v1393_rc1_micro_append_writer_summary(pid_t writer_pid,
+                                                  int writer_wait_rc,
+                                                  int status,
+                                                  const char *writer_result) {
+    int out_fd;
+
+    out_fd = open(A90_V1393_WIFI_TEST_RC1_WINDOW_RESULT,
+                  O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC | O_NOFOLLOW,
+                  0600);
+    if (out_fd >= 0) {
+        dprintf(out_fd,
+                "rc1_micro_writer_summary pid=%d writer_wait_rc=%d status=0x%x %s\n",
+                writer_pid,
+                writer_wait_rc,
+                status,
+                writer_result != NULL ? writer_result : "");
+        close(out_fd);
+    }
+}
+
+static int v1393_rc1_micro_writer_status_to_rc(int writer_wait_rc, int status) {
+    if (writer_wait_rc < 0) {
+        return writer_wait_rc;
+    }
+    if (WIFEXITED(status) && WEXITSTATUS(status) == 0) {
+        return 0;
+    }
+    if (WIFEXITED(status)) {
+        return -EIO;
+    }
+    if (WIFSIGNALED(status)) {
+        return -EINTR;
+    }
+    return -EIO;
+}
+
+#if !A90_WIFI_TEST_BOOT_RC1_CASE_ALIGNED_MICRO_ENDPOINT_SAMPLER
 static int v1393_pid1_rc1_micro_endpoint_sample_with_writer(long start_ms, long detect_ms) {
     static const int targets_ms[] = {0, 1, 2, 5, 10, 20, 50, 100, 150};
     int pipe_fds[2];
@@ -1242,8 +1315,6 @@ static int v1393_pid1_rc1_micro_endpoint_sample_with_writer(long start_ms, long 
     int status = 0xffff;
     int writer_wait_rc;
     char writer_result[192] = "";
-    ssize_t rd;
-    int out_fd;
 
     if (pipe(pipe_fds) < 0) {
         return -errno;
@@ -1275,41 +1346,82 @@ static int v1393_pid1_rc1_micro_endpoint_sample_with_writer(long start_ms, long 
 
     v1393_rc1_window_sample("post_micro_200ms", start_ms, detect_ms, micro_start_ms);
 
-    (void)fcntl(pipe_fds[0], F_SETFL, fcntl(pipe_fds[0], F_GETFL, 0) | O_NONBLOCK);
-    writer_wait_rc = v1393_wait_rc1_micro_writer(writer_pid, 2000, &status);
-    rd = read(pipe_fds[0], writer_result, sizeof(writer_result) - 1);
+    (void)v1393_rc1_micro_read_writer_result(pipe_fds[0],
+                                             writer_pid,
+                                             &status,
+                                             &writer_wait_rc,
+                                             writer_result,
+                                             sizeof(writer_result));
     close(pipe_fds[0]);
-    if (rd > 0) {
-        writer_result[rd] = '\0';
-        flatten_inline_text(writer_result);
-    } else {
-        snprintf(writer_result, sizeof(writer_result), "micro_writer pipe_read_rc=%zd", rd);
+    v1393_rc1_micro_append_writer_summary(writer_pid,
+                                          writer_wait_rc,
+                                          status,
+                                          writer_result);
+    return v1393_rc1_micro_writer_status_to_rc(writer_wait_rc, status);
+}
+#endif
+
+static int v1393_pid1_rc1_case_aligned_micro_endpoint_sample_with_writer(long start_ms,
+                                                                         long detect_ms) {
+    static const int targets_ms[] = {0, 1, 2, 5, 10, 20, 50, 100, 150};
+    int pipe_fds[2];
+    pid_t writer_pid;
+    long micro_start_ms;
+    size_t index;
+    int status = 0xffff;
+    int writer_wait_rc;
+    char writer_result[192] = "";
+    int writer_status_rc;
+
+    if (pipe(pipe_fds) < 0) {
+        return -errno;
     }
-    out_fd = open(A90_V1393_WIFI_TEST_RC1_WINDOW_RESULT,
-                  O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC | O_NOFOLLOW,
-                  0600);
-    if (out_fd >= 0) {
-        dprintf(out_fd,
-                "rc1_micro_writer_summary pid=%d writer_wait_rc=%d status=0x%x %s\n",
-                writer_pid,
-                writer_wait_rc,
-                status,
-                writer_result);
-        close(out_fd);
+    writer_pid = fork();
+    if (writer_pid < 0) {
+        int saved_errno = errno != 0 ? errno : EIO;
+
+        close(pipe_fds[0]);
+        close(pipe_fds[1]);
+        return -saved_errno;
     }
-    if (writer_wait_rc < 0) {
-        return writer_wait_rc;
+    if (writer_pid == 0) {
+        close(pipe_fds[0]);
+        signal(SIGHUP, SIG_IGN);
+        signal(SIGPIPE, SIG_IGN);
+        v1393_rc1_micro_writer_child(pipe_fds[1], start_ms);
     }
-    if (WIFEXITED(status) && WEXITSTATUS(status) == 0) {
-        return 0;
+
+    close(pipe_fds[1]);
+    (void)v1393_rc1_micro_read_writer_result(pipe_fds[0],
+                                             writer_pid,
+                                             &status,
+                                             &writer_wait_rc,
+                                             writer_result,
+                                             sizeof(writer_result));
+    close(pipe_fds[0]);
+    v1393_rc1_micro_append_writer_summary(writer_pid,
+                                          writer_wait_rc,
+                                          status,
+                                          writer_result);
+    writer_status_rc = v1393_rc1_micro_writer_status_to_rc(writer_wait_rc, status);
+    if (writer_status_rc != 0) {
+        return writer_status_rc;
     }
-    if (WIFEXITED(status)) {
-        return -EIO;
+
+    micro_start_ms = monotonic_millis();
+    for (index = 0; index < sizeof(targets_ms) / sizeof(targets_ms[0]); index++) {
+        char sample[64];
+
+        v1393_rc1_micro_sleep_until(micro_start_ms, targets_ms[index]);
+        snprintf(sample, sizeof(sample), "case_aligned_micro_after_case_%dms", targets_ms[index]);
+        v1393_rc1_micro_endpoint_sample(sample, start_ms, detect_ms, micro_start_ms);
     }
-    if (WIFSIGNALED(status)) {
-        return -EINTR;
-    }
-    return -EIO;
+
+    v1393_rc1_window_sample("post_case_aligned_micro_200ms",
+                            start_ms,
+                            detect_ms,
+                            micro_start_ms);
+    return 0;
 }
 #endif
 
@@ -1476,7 +1588,10 @@ static void v1393_pid1_rc1_watcher_child(void) {
 #if A90_WIFI_TEST_BOOT_RC1_WINDOW_SAMPLER && !A90_WIFI_TEST_BOOT_RC1_MICRO_ENDPOINT_SAMPLER
                 (void)v1393_spawn_rc1_window_sampler(start_ms, detect_ms);
 #endif
-#if A90_WIFI_TEST_BOOT_RC1_MICRO_ENDPOINT_SAMPLER
+#if A90_WIFI_TEST_BOOT_RC1_CASE_ALIGNED_MICRO_ENDPOINT_SAMPLER
+                write_rc = v1393_pid1_rc1_case_aligned_micro_endpoint_sample_with_writer(start_ms,
+                                                                                         detect_ms);
+#elif A90_WIFI_TEST_BOOT_RC1_MICRO_ENDPOINT_SAMPLER
                 write_rc = v1393_pid1_rc1_micro_endpoint_sample_with_writer(start_ms,
                                                                             detect_ms);
 #elif A90_WIFI_TEST_BOOT_RC1_IMMEDIATE_ENDPOINT_SAMPLER
@@ -1679,6 +1794,9 @@ static void v1393_write_wifi_test_summary(pid_t helper_pid, long spawn_ms) {
     dprintf(fd,
             "rc1_micro_endpoint_sampler_requested=%d\n",
             A90_WIFI_TEST_BOOT_RC1_MICRO_ENDPOINT_SAMPLER);
+    dprintf(fd,
+            "rc1_case_aligned_micro_endpoint_sampler_requested=%d\n",
+            A90_WIFI_TEST_BOOT_RC1_CASE_ALIGNED_MICRO_ENDPOINT_SAMPLER);
     dprintf(fd, "rc1_retry_count=%d\n", A90_WIFI_TEST_BOOT_RC1_RETRY_COUNT);
     dprintf(fd, "rc1_retry_delay_ms=%d\n", A90_WIFI_TEST_BOOT_RC1_RETRY_DELAY_MS);
 #if A90_WIFI_TEST_BOOT_RC1_WINDOW_SAMPLER
