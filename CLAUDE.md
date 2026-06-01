@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V1384 host-only PASS classifies V1383 as still too late: immediate v284 fired in first poll, but RC1 assert was still `3.666s` after `__subsystem_get(esoc0)` versus Android `0.255s` and only `0.456s` faster than V1379. Debugfs write latency is not primary (`TEST 11` to assert about `20us`); the gap is late poll/per_proxy ordering. Next is V1385 source/build-only to move the RC1 trigger earlier than the late_per_proxy poll loop or add tighter instrumentation around per_proxy start/powerup-thread first observation. Preserve hard exclusions: no PMIC/GPIO/GDSC direct write, blind eSoC notify/BOOT_DONE spoof, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, flash outside approved Android handoff/rollback, boot image write outside approved rollback, or partition write.
+- **Active research cycle**: V1385 source/build-only PASS produced helper `a90_android_execns_probe v285` (SHA256 `09827b6f0301f077cd0beb4ed2ae9d48a63662d0ca34eff38245704f2f724cf4`) with `--pm-observer-late-per-proxy-prepoll-corrected-rc1-enumerate`. It checks the fd/powerup-thread gate every 1ms immediately after late `per_proxy` spawn, before the main 50ms sampler loop. Next is V1386 deploy/preflight, then V1387 bounded pre-poll corrected RC1 live gate. Preserve hard exclusions: no PMIC/GPIO/GDSC direct write, blind eSoC notify/BOOT_DONE spoof, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, flash outside approved Android handoff/rollback, boot image write outside approved rollback, or partition write.
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -1426,3 +1426,13 @@ Update after V1354/V1355:
   per_proxy/Binder/powerup-thread ordering. Another live retry without
   reordering is low value. Next is V1385 source/build-only support for an
   earlier trigger or tighter first-observation instrumentation.
+- V1385 source/build-only support (`v1385-helper-v285-prepoll-corrected-rc1-ready`)
+  bumps `a90_android_execns_probe` to v285 (SHA256
+  `09827b6f0301f077cd0beb4ed2ae9d48a63662d0ca34eff38245704f2f724cf4`). It adds
+  `--pm-observer-late-per-proxy-prepoll-corrected-rc1-enumerate`, requires the
+  response and MDM2AP/PCIe timing samplers, reports the new mode in observer
+  headers, and adds a pre-poll loop after late `per_proxy` spawn. The pre-poll
+  loop checks `/dev/subsys_esoc0` fd ownership or `pm_service_powerup_thread`
+  every `1000us` for up to `500` iterations before the main sampler loop, then
+  uses the existing corrected RC1 writer. No device command was run in V1385.
+  Next is V1386 deploy/preflight, then V1387 bounded live timing test.

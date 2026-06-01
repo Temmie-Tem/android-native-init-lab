@@ -6432,6 +6432,28 @@ Samsung bootloader
       `rc_sel`/`case` live write, PMIC/GPIO/GDSC direct write, eSoC
       notify/`BOOT_DONE`, Wi-Fi HAL, scan/connect, credentials, DHCP/routes,
       external ping, flash, boot image write, or partition write.
+    - Result:
+      `docs/reports/NATIVE_INIT_V1385_PREPOLL_CORRECTED_RC1_SUPPORT_2026-06-01.md`.
+      Decision: `v1385-helper-v285-prepoll-corrected-rc1-ready`. Helper v285
+      exposes the pre-poll corrected RC1 flag, validates required samplers,
+      reports pre-poll mode markers, and adds a 1ms gate loop immediately after
+      late `per_proxy` spawn and before the main sampler loop. No device command
+      was run.
+34. **V1386 execns helper v285 deploy/preflight.**
+    - Goal: deploy `a90_android_execns_probe v285` to `/cache/bin/` and prove
+      SHA/version/usage markers before any pre-poll RC1 live run.
+    - Hard stop: deploy/preflight only. No daemon start, no `rc_sel`/`case`
+      write, no PMIC/GPIO/GDSC direct write, no eSoC notify/`BOOT_DONE`, no
+      Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, flash,
+      boot image write, or partition write.
+35. **V1387 bounded pre-poll corrected RC1 live gate.**
+    - Goal: rerun the Android participant path with helper v285 and
+      `--pm-observer-late-per-proxy-prepoll-corrected-rc1-enumerate`, then
+      compare `__subsystem_get(esoc0)` to RC1 assert timing against Android.
+    - Hard stop: bounded live only below Wi-Fi bring-up. No Wi-Fi HAL,
+      scan/connect, credentials, DHCP/routes, external ping, PMIC/GPIO/GDSC
+      direct write, eSoC notify/`BOOT_DONE`, flash, boot image write, or
+      partition write.
 
 ### Required decision before any new mutation
 
@@ -6524,11 +6546,9 @@ Samsung bootloader
   participant window, but it still does not reach MDM2AP/GPIO142, PCI/MHI,
   WLFW, or `wlan0`. V1380 must be host-only classification; do not run another
   live mutation until that classifier chooses a narrower next action.
-- V1384 proves the remaining V1383 gap is still pre-write ordering/poll
-  latency, not debugfs write latency. V1385 should be source/build-only support
-  for an earlier trigger or tighter first-observation timestamps; do not run
-  another live mutation until that helper support is built and separately
-  deployed.
+- V1385 proves helper v285 can test a pre-poll corrected RC1 trigger before
+  the main sampler loop. V1386 must deploy/preflight v285 first; V1387 is the
+  first bounded live gate allowed to exercise the pre-poll path.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
