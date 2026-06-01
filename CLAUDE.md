@@ -1946,3 +1946,18 @@ Update after V1354/V1355:
   Next gate: V1485 source/build-only PID1 test-boot wrapper that bundles helper
   v287 and passes the readiness summary flag. Report:
   `docs/reports/NATIVE_INIT_V1484_AUTO_READINESS_HELPER_SOURCE_BUILD_2026-06-01.md`.
+- V1485 source/build-only
+  (`v1485-wifi-auto-readiness-test-boot-source-build-pass`) builds the
+  rollbackable credential-free auto-readiness test boot. The v1393 builder now
+  expects helper v287 and supports
+  `A90_WIFI_TEST_BOOT_AUTO_READINESS_SUPERVISOR`; the PID1 test image passes
+  `--pm-observer-auto-readiness-summary` and emits marker
+  `auto-v1485-wifi-readiness-test`. Built image:
+  `tmp/wifi/v1485-wifi-auto-readiness-test-boot/boot_linux_v1485_wifi_test.img`
+  (`sha256=7d3a59fe5fe4cd683bd830491c5ccf7e5b3aea1271558b320f6fe7e76ad1ac23`),
+  native init `0.9.90 (v1485-wifitest)`, init sha256
+  `9eb11472596e316f4c993428b32cde263aa6a7baa29fdabff0f56c261efbee54`. V1485
+  ran no device command or live action. Next gate: V1486 local-only artifact
+  sanity over the exact manifest before any V1487 rollbackable live handoff.
+  Report:
+  `docs/reports/NATIVE_INIT_V1485_WIFI_AUTO_READINESS_TEST_BOOT_SOURCE_BUILD_2026-06-01.md`.

@@ -45,8 +45,8 @@ DEFAULT_WIFI_TEST_PID = "/cache/native-init-wifi-test-boot-v1393.pid"
 DEFAULT_WIFI_TEST_WATCHER_PID = "/cache/native-init-wifi-test-boot-v1393-watcher.pid"
 DEFAULT_WIFI_TEST_WATCH_SEC = 35
 DEFAULT_WIFI_TEST_SUPERVISOR_TIMEOUT_SEC = 40
-EXPECTED_HELPER_MARKER = "a90_android_execns_probe v286"
-EXPECTED_HELPER_SHA256 = "e5fc81a5becb2c6e6efd2ca026800560ed9e0e72a692f0fbb07861cf26d5380f"
+EXPECTED_HELPER_MARKER = "a90_android_execns_probe v287"
+EXPECTED_HELPER_SHA256 = "660d88fc9e0ebdf6c95e495d9dd659c09321feb407fe6a7f77213f3b5c2bb411"
 REPRODUCIBLE_MTIME = 0
 
 FORBIDDEN_BYTES = (
@@ -193,6 +193,11 @@ def build_init(args: argparse.Namespace) -> None:
         if args.wifi_test_provider_trigger_ap2mdm_hold
         else []
     )
+    auto_readiness_flags = (
+        ["-DA90_WIFI_TEST_BOOT_AUTO_READINESS_SUPERVISOR=1"]
+        if args.wifi_test_auto_readiness_supervisor
+        else []
+    )
     rc1_retry_flags = []
     if args.wifi_test_rc1_retry_count > 0:
         rc1_retry_flags = [
@@ -235,6 +240,7 @@ def build_init(args: argparse.Namespace) -> None:
         *provider_trigger_pil_tracepoint_flags,
         *provider_trigger_effective_level_flags,
         *provider_trigger_ap2mdm_hold_flags,
+        *auto_readiness_flags,
         *rc1_retry_flags,
         "-o",
         args.init_binary,
@@ -374,6 +380,9 @@ def verify_markers(args: argparse.Namespace) -> None:
         ])
     if args.wifi_test_rc1_window_sampler:
         sampler_marker = (
+            "auto-v1485-wifi-readiness-test"
+            if args.wifi_test_auto_readiness_supervisor
+            else
             "bounded-v1477-ap2mdm-hold-test"
             if (
                 args.wifi_test_provider_trigger_micro_endpoint_sampler
@@ -640,6 +649,15 @@ def verify_markers(args: argparse.Namespace) -> None:
             "ap2mdm_hold_after_high_0ms",
             "ap2mdm_hold_after_release",
         ])
+    if args.wifi_test_auto_readiness_supervisor:
+        expected.extend([
+            "auto-v1485-wifi-readiness-test",
+            "auto_readiness_supervisor_requested",
+            "--pm-observer-auto-readiness-summary",
+            "auto_readiness.begin=1",
+            "auto_readiness.primary_checkpoint=%s",
+            "auto_readiness.safety_credentials=0",
+        ])
     if args.wifi_test_rc1_retry_count > 0:
         expected.extend([
             "retry_count=%d",
@@ -704,6 +722,7 @@ def write_manifest(args: argparse.Namespace) -> None:
             "provider_trigger_ap2mdm_hold": args.wifi_test_provider_trigger_ap2mdm_hold,
             "provider_trigger_ap2mdm_hold_after_ms": args.wifi_test_provider_trigger_ap2mdm_hold_after_ms,
             "provider_trigger_ap2mdm_hold_ms": args.wifi_test_provider_trigger_ap2mdm_hold_ms,
+            "auto_readiness_supervisor": args.wifi_test_auto_readiness_supervisor,
             "rc1_retry_count": args.wifi_test_rc1_retry_count,
             "rc1_retry_delay_ms": args.wifi_test_rc1_retry_delay_ms,
         },
@@ -786,6 +805,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--wifi-test-provider-trigger-ap2mdm-hold", action="store_true")
     parser.add_argument("--wifi-test-provider-trigger-ap2mdm-hold-after-ms", type=int, default=320)
     parser.add_argument("--wifi-test-provider-trigger-ap2mdm-hold-ms", type=int, default=500)
+    parser.add_argument("--wifi-test-auto-readiness-supervisor", action="store_true")
     parser.add_argument("--wifi-test-rc1-retry-count", type=int, default=0)
     parser.add_argument("--wifi-test-rc1-retry-delay-ms", type=int, default=0)
     parser.add_argument("--init-binary", type=Path)
@@ -797,7 +817,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     args = parser.parse_args(argv)
 
     args.init_binary = args.init_binary or args.out_dir / "init_v1393_wifi_test"
-    args.helper_binary = args.helper_binary or args.out_dir / "a90_android_execns_probe_v286"
+    args.helper_binary = args.helper_binary or args.out_dir / "a90_android_execns_probe_v287"
     args.ramdisk_dir = args.ramdisk_dir or args.out_dir / "ramdisk"
     args.ramdisk_cpio = args.ramdisk_cpio or args.out_dir / "ramdisk_v1393_wifi_test.cpio"
     args.boot_image = args.boot_image or args.out_dir / "boot_linux_v1393_wifi_test.img"

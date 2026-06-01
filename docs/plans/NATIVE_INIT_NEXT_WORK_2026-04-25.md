@@ -7855,6 +7855,23 @@ Samsung bootloader
   source/build-only and add the rollbackable PID1 test-boot wrapper that bundles
   helper v287 and passes the new readiness summary flag. Report:
   `docs/reports/NATIVE_INIT_V1484_AUTO_READINESS_HELPER_SOURCE_BUILD_2026-06-01.md`.
+- V1485 source/build-only passes with
+  `v1485-wifi-auto-readiness-test-boot-source-build-pass`. It extends the v1393
+  rollbackable test-boot builder for helper v287 and adds the compile-time
+  `A90_WIFI_TEST_BOOT_AUTO_READINESS_SUPERVISOR` path. Built image:
+  `tmp/wifi/v1485-wifi-auto-readiness-test-boot/boot_linux_v1485_wifi_test.img`
+  (`sha256=7d3a59fe5fe4cd683bd830491c5ccf7e5b3aea1271558b320f6fe7e76ad1ac23`),
+  native init `0.9.90 (v1485-wifitest)`, init sha256
+  `9eb11472596e316f4c993428b32cde263aa6a7baa29fdabff0f56c261efbee54`, helper
+  sha256 `660d88fc9e0ebdf6c95e495d9dd659c09321feb407fe6a7f77213f3b5c2bb411`.
+  The test boot bundles `/bin/a90_android_execns_probe`, passes
+  `--pm-observer-auto-readiness-summary`, emits marker
+  `auto-v1485-wifi-readiness-test`, and keeps Wi-Fi HAL, scan/connect,
+  credentials, DHCP/routes, external ping, direct PMIC/GPIO/GDSC writes, blind
+  eSoC notify/`BOOT_DONE`, and device flashing blocked. V1486 should be
+  local-only artifact sanity over the exact V1485 manifest before any
+  rollbackable live handoff. Report:
+  `docs/reports/NATIVE_INIT_V1485_WIFI_AUTO_READINESS_TEST_BOOT_SOURCE_BUILD_2026-06-01.md`.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
