@@ -7243,6 +7243,15 @@ Samsung bootloader
   endpoint evidence before any new live mutation; likely next branches are a
   focused sampler refinement or Android-side pcie1 clock/GDSC/CLKREQ parity
   capture.
+- V1432 host-only classifier passes with
+  `v1432-ap-rc1-prereqs-toggle-but-endpoint-no-l0`. It narrows the blocker:
+  the corrected-RC1 path briefly enables AP-side pcie1 GDSC/clocks in the test
+  window (`pcie_1_gdsc` enable 0 -> 1 -> 0, pcie1 clocks enabled at `pre_rc1`,
+  GPIO103/CLKREQ high/pull-up), but the endpoint still never reaches L0 and
+  MHI/WLFW/BDF/FW-ready/`wlan0` remain absent. V1433 should remain host/source
+  only first: either refine native sampler output to avoid clock-summary
+  truncation and emit exact pcie1 clock/GDSC/PERST/CLKREQ fields, or capture an
+  Android-side pcie1 clock/GDSC/CLKREQ reference for the known-good L0 path.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
