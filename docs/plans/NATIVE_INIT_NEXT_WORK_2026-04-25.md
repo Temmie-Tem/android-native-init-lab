@@ -8177,6 +8177,34 @@ Samsung bootloader
   file at most once per micro sample. V1508 should run local artifact sanity
   over this exact manifest before any rollbackable live handoff. Report:
   `docs/reports/NATIVE_INIT_V1507_WIFI_BATCHED_PRE_L0_PARITY_SOURCE_BUILD_2026-06-01.md`.
+- V1508 local-only artifact sanity passes with
+  `v1508-wifi-batched-pre-l0-parity-artifact-sanity-pass`. It adds
+  `scripts/revalidation/native_wifi_test_boot_artifact_sanity_v1508.py` and
+  verifies the exact V1507 image, manifest decision, static init/helper,
+  ramdisk entries, batched pre-L0 contract, v724 header/kernel parity,
+  private modes, and forbidden credential-like byte absence. Report:
+  `docs/reports/NATIVE_INIT_V1508_WIFI_BATCHED_PRE_L0_PARITY_ARTIFACT_SANITY_2026-06-01.md`.
+- V1509 rollbackable live handoff passes with
+  `v1509-test-boot-downstream-progress-rollback-pass`. It adds
+  `scripts/revalidation/native_wifi_test_boot_handoff_v1509.py`, boots only the
+  V1507 batched pre-L0 image, collects V1507 log/summary/RC1 watcher/batched
+  result/focused dmesg/`wlan0`, rolls back to v724 from native, and verifies
+  selftest `fail=0`. Progress remains `rc1-ltssm-link-failed-no-l0`: RC1
+  reaches PHY/LTSSM and link failure, but no L0/MHI/WLFW/BDF/FW-ready/`wlan0`
+  appears. Report:
+  `docs/reports/NATIVE_INIT_V1509_WIFI_BATCHED_PRE_L0_PARITY_HANDOFF_2026-06-01.md`.
+- V1510 host-only V1509 evidence classifier passes with
+  `v1510-batched-pre-l0-improves-sampling-but-source-timestamps-needed`. It
+  adds `scripts/revalidation/native_wifi_batched_pre_l0_parity_classifier_v1510.py`.
+  Batched reads confirm `pcie_1_gdsc` and PCIe1 clocks are off, refgen is
+  available, GPIO102/103/104/135/142 are in expected states, GPIO142 IRQ stays
+  zero, and no L0/MHI/WLFW/BDF/FW-ready/`wlan0` appears. The sampler improves
+  over V1505, but still lacks per-source begin/end timing; first sample starts
+  at case+0ms and the second starts around `148ms`, after the ~`114.8ms`
+  link-fail marker. V1511 should be source/build-only and add source
+  begin/end timestamps to the batched sampler or narrow capture to critical
+  files only. Report:
+  `docs/reports/NATIVE_INIT_V1510_WIFI_BATCHED_PRE_L0_PARITY_CLASSIFIER_2026-06-01.md`.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still

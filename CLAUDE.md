@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V1507 source/build-only PASS (`v1507-wifi-batched-pre-l0-parity-test-boot-source-build-pass`). V1507 builds `A90 Linux init 0.9.95 (v1507-wifitest)` at `tmp/wifi/v1507-wifi-batched-pre-l0-parity-test-boot/boot_linux_v1507_wifi_test.img` (`sha256=d3e92460ff1d68a80a99c8b7dbb5b0997ea88c53e120b8e507671e16d5bee8b4`). It keeps corrected RC1 enumerate after provider trigger and replaces V1503 per-needle exact-match dense reads with batched per-file micro reads: `micro_batched_regulator`, `micro_batched_clk`, `micro_batched_debug_gpio`, `micro_batched_pinmux`, and `micro_batched_pinconf`. Next gate should be V1508 local artifact sanity, then V1509 rollbackable live handoff if V1508 passes. Do not proceed to firmware/MHI/WLFW/scan/connect until RC1 L0 and PCI enumeration exist. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, Wi-Fi HAL start, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
+- **Active research cycle**: V1510 host-only PASS (`v1510-batched-pre-l0-improves-sampling-but-source-timestamps-needed`). V1509 rollbackable live handoff for the V1507 batched test image preserved the blocker as `rc1-ltssm-link-failed-no-l0`: RC1 reaches PHY/LTSSM and link failure, but L0, PCI enumeration, MHI, WLFW, BDF, FW-ready, and `wlan0` remain absent. V1510 proves the batched sampler is faster than V1505 exact matching, but source-level begin/end timestamps are still missing and the second nominal micro sample starts after the ~114.8ms link-fail marker. Next gate should be V1511 source/build-only source-timestamped batched sampler or a narrower critical-source sampler. Do not proceed to firmware/MHI/WLFW/scan/connect until RC1 L0 and PCI enumeration exist. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, Wi-Fi HAL start, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -2249,3 +2249,32 @@ Update after V1354/V1355:
   command or live action. Next gate: V1508 local artifact sanity over the exact
   V1507 manifest. Report:
   `docs/reports/NATIVE_INIT_V1507_WIFI_BATCHED_PRE_L0_PARITY_SOURCE_BUILD_2026-06-01.md`.
+- V1508 local-only artifact sanity passes with
+  `v1508-wifi-batched-pre-l0-parity-artifact-sanity-pass`. It adds
+  `scripts/revalidation/native_wifi_test_boot_artifact_sanity_v1508.py` and
+  verifies the exact V1507 test image, native-init marker, helper marker,
+  ramdisk entries, batched pre-L0 contract, private modes, v724 header/kernel
+  parity, and forbidden credential-like byte absence. V1508 performed no
+  device command or live action. Report:
+  `docs/reports/NATIVE_INIT_V1508_WIFI_BATCHED_PRE_L0_PARITY_ARTIFACT_SANITY_2026-06-01.md`.
+- V1509 rollbackable live handoff passes with
+  `v1509-test-boot-downstream-progress-rollback-pass`. It adds
+  `scripts/revalidation/native_wifi_test_boot_handoff_v1509.py`, boots only the
+  V1507 batched pre-L0 image, collects the V1507 log/summary/RC1 watcher/
+  batched pre-L0 parity result/focused dmesg/`wlan0`, then rolls back to v724
+  from native. Rollback succeeded and v724 selftest stayed `fail=0`. Progress
+  remains `rc1-ltssm-link-failed-no-l0`: RC1 reaches PHY/LTSSM and link
+  failure, but L0/MHI/WLFW/BDF/FW-ready/`wlan0` remain absent. Report:
+  `docs/reports/NATIVE_INIT_V1509_WIFI_BATCHED_PRE_L0_PARITY_HANDOFF_2026-06-01.md`.
+- V1510 host-only V1509 evidence classifier passes with
+  `v1510-batched-pre-l0-improves-sampling-but-source-timestamps-needed`. It
+  adds `scripts/revalidation/native_wifi_batched_pre_l0_parity_classifier_v1510.py`.
+  The batched reads preserve the blocked pre-L0 state: `pcie_1_gdsc` off,
+  PCIe1 clocks off, refgen available, GPIO102/103/104/135/142 expected,
+  GPIO142 IRQ zero, and no L0/MHI/WLFW/BDF/FW-ready/`wlan0`. Timing improved
+  over V1505, but source begin/end timestamps are missing; the first sample
+  starts at case+0ms while the second starts at about `148ms`, after the
+  ~`114.8ms` link-fail marker. Next gate: V1511 source/build-only
+  source-timestamped batched sampler or a narrower critical-source sampler.
+  Report:
+  `docs/reports/NATIVE_INIT_V1510_WIFI_BATCHED_PRE_L0_PARITY_CLASSIFIER_2026-06-01.md`.
