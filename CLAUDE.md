@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V1526 host-only Android initial RC1 trigger capture design PASS (`v1526-android-initial-rc1-trigger-capture-design-ready`). V1517/V1518 preserve the native blocker as `rc1-ltssm-link-failed-no-l0`: corrected TEST:11 reaches RC1 PHY/LTSSM and link failure, but L0, PCI enumeration, MHI, WLFW, BDF, FW-ready, and `wlan0` remain absent. V1521 captured Android-good WLFW/BDF/FW-ready/`wlan0`, V1522 proves sampled GPIO/debugfs/interrupt/regulator sources are nondiscriminating, V1523 proves TEST:11 reaches the common AP-side enable path, and V1525 proves MHI PM-resume is post-enumeration and not the first-L0 trigger. V1526 defines V1527: reuse the rollbackable V1521 temporary Magisk post-fs-data handoff, but capture raw `/dev/kmsg`/`dmesg -w` plus high-cadence GPIO104/GPIO142 IRQ/GPIO samples before Android first RC1 assert (~8.796s in V852). Do not proceed to firmware/MHI deep dive/WLFW/scan/connect until native RC1 L0 and PCI enumeration exist. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, Wi-Fi HAL start, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
+- **Active research cycle**: V1527 rollbackable Android initial RC1 trigger handoff source/plan PASS (`v1527-handoff-plan-ready`); live Android handoff has not been run in this cycle. V1517/V1518 preserve the native blocker as `rc1-ltssm-link-failed-no-l0`: corrected TEST:11 reaches RC1 PHY/LTSSM and link failure, but L0, PCI enumeration, MHI, WLFW, BDF, FW-ready, and `wlan0` remain absent. V1521 captured Android-good WLFW/BDF/FW-ready/`wlan0`, V1522 proves sampled GPIO/debugfs/interrupt/regulator sources are nondiscriminating, V1523 proves TEST:11 reaches the common AP-side enable path, V1525 proves MHI PM-resume is post-enumeration and not the first-L0 trigger, and V1526 defined the V1527 capture contract. V1527 reuses the rollbackable V1521 temporary Magisk post-fs-data handoff but swaps in raw `/dev/kmsg`/`dmesg -w` capture plus high-cadence GPIO104/GPIO142 IRQ/GPIO samples before Android first RC1 assert (~8.796s in V852). Next live gate is V1527 `run` with explicit Android boot flash/rollback flags. Do not proceed to firmware/MHI deep dive/WLFW/scan/connect until native RC1 L0 and PCI enumeration exist. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, Wi-Fi HAL start, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -2463,3 +2463,16 @@ Update after V1354/V1355:
   Success labels: raw kmsg caller found, endpoint wake before L0, mdm status
   before/during L0, or opaque kernel caller requiring tracefs. Report:
   `docs/reports/NATIVE_INIT_V1526_ANDROID_INITIAL_RC1_TRIGGER_CAPTURE_DESIGN_2026-06-02.md`.
+- V1527 rollbackable Android initial RC1 trigger handoff source/plan passes with
+  `v1527-handoff-plan-ready`. It adds
+  `scripts/revalidation/android_initial_rc1_trigger_handoff_v1527.py` and
+  generates
+  `docs/reports/NATIVE_INIT_V1527_ANDROID_INITIAL_RC1_TRIGGER_HANDOFF_2026-06-02.md`.
+  The runner reuses the proven V1521 Magisk/rollback handoff engine, but
+  installs a V1527 temporary post-fs-data sampler that captures raw
+  `/dev/kmsg` or `dmesg -w` plus high-cadence GPIO104/GPIO142 interrupt,
+  debug GPIO, and pcie1 state samples. Plan mode verified the full
+  Android-boot handoff/rollback step list without mutating the device. Live
+  execution remains a separate explicit gate and must keep the hard exclusions:
+  no Wi-Fi HAL start, scan/connect, credentials, DHCP/routes, external ping,
+  PMIC/GPIO/GDSC writes, blind eSoC notify, PCI rescan, or platform bind/unbind.

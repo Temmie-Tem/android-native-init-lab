@@ -8400,6 +8400,19 @@ Samsung bootloader
   Success labels: raw kmsg caller found, endpoint wake before L0, mdm status
   before/during L0, or opaque kernel caller requiring tracefs. Report:
   `docs/reports/NATIVE_INIT_V1526_ANDROID_INITIAL_RC1_TRIGGER_CAPTURE_DESIGN_2026-06-02.md`.
+- V1527 rollbackable Android initial RC1 trigger handoff source/plan passes with
+  `v1527-handoff-plan-ready`. It adds
+  `scripts/revalidation/android_initial_rc1_trigger_handoff_v1527.py` and
+  generates
+  `docs/reports/NATIVE_INIT_V1527_ANDROID_INITIAL_RC1_TRIGGER_HANDOFF_2026-06-02.md`.
+  The runner reuses the proven V1521 Magisk/rollback handoff engine, but
+  installs a V1527 temporary post-fs-data sampler that captures raw
+  `/dev/kmsg` or `dmesg -w` plus high-cadence GPIO104/GPIO142 interrupt,
+  debug GPIO, and pcie1 state samples. Plan mode verified the full
+  Android-boot handoff/rollback step list without mutating the device. Live
+  execution remains a separate explicit gate and must keep the hard exclusions:
+  no Wi-Fi HAL start, scan/connect, credentials, DHCP/routes, external ping,
+  PMIC/GPIO/GDSC writes, blind eSoC notify, PCI rescan, or platform bind/unbind.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
