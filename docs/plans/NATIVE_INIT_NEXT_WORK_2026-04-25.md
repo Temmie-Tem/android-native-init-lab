@@ -7748,6 +7748,19 @@ Samsung bootloader
   Keep Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, direct
   PMIC/GPIO/GDSC writes, blind eSoC notify/`BOOT_DONE`, global PCI rescan, and
   platform bind/unbind prohibited from this state.
+- V1476 host-only design gate passes with
+  `v1476-select-ap2mdm-bounded-hold-test-boot-design`. It rejects upper Wi-Fi
+  work because `wlan0` is absent, rejects repeating only corrected RC1
+  `rc_sel=2` + `case=11` because prior gates already reached LTSSM without L0,
+  rejects direct PON and unspecific pcie1 GDSC/clock writes, and selects the
+  narrowest next test-boot direction: source/build-only AP2MDM bounded-hold
+  support. V1477 should add a compile-time-gated wifitest mode that waits for
+  the provider/AP2MDM set-high trace, verifies GPIO135 still reads low, then
+  attempts a bounded GPIO135 hold only if the userspace GPIO interface permits
+  it, samples GPIO135/GPIO142/pcie1/LTSSM/MHI/WLFW/`wlan0`, releases the line,
+  and records cleanup. V1478 should be local artifact sanity; V1479 may be a
+  rollbackable live handoff only after those pass. Plan:
+  `docs/plans/NATIVE_INIT_V1476_LOWER_INTERVENTION_DESIGN_2026-06-01.md`.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still

@@ -1826,3 +1826,19 @@ Update after V1354/V1355:
   notify/`BOOT_DONE`, global PCI rescan, or platform bind/unbind from this
   state. Report:
   `docs/reports/NATIVE_INIT_V1475_EFFECTIVE_LEVEL_LIVE_CLASSIFIER_2026-06-01.md`.
+- V1476 host-only design gate
+  (`v1476-select-ap2mdm-bounded-hold-test-boot-design`) selects the next
+  rollbackable test-boot direction. Upper Wi-Fi actions are rejected because
+  `wlan0` is absent. Repeating only corrected RC1 `rc_sel=2` + `case=11` is
+  rejected as the next step because V1370/V1372/V1391/V1447 already reached
+  LTSSM without L0 when MDM2AP stayed silent. Direct PON and unspecific
+  GDSC/clock writes are also rejected. The selected path is V1477
+  source/build-only support for an explicit AP2MDM bounded-hold test-boot mode:
+  after the provider trigger and AP2MDM set-high trace, confirm GPIO135 still
+  reads low, then attempt only a narrow bounded GPIO135 hold if the userspace
+  line interface permits it, sample GPIO135/GPIO142/pcie1/LTSSM/MHI/WLFW
+  /`wlan0`, release, and later use rollback handoff. V1476 itself ran no device
+  command, build, flash, Wi-Fi HAL, scan/connect, credentials, DHCP/routes,
+  external ping, PMIC/GDSC write, eSoC notify, global PCI rescan, platform
+  bind/unbind, boot image write, or partition write. Plan:
+  `docs/plans/NATIVE_INIT_V1476_LOWER_INTERVENTION_DESIGN_2026-06-01.md`.
