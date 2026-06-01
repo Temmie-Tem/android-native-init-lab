@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V1402 bounded live handoff PASS (`v1402-test-boot-provider-trigger-no-downstream-rollback-pass`). The V1400 supervised test boot flashed, booted, collected helper exit status, reached `subsys_modem` and `__subsystem_get: esoc0`, then rolled back to v724. Helper exited cleanly (`helper_wait_rc=0`, `helper_exit_code=0`) before any RC1 L0/MHI/WLFW/BDF/`wlan0` appeared. Next is V1403 source/build-only stricter downstream-progress decision/output because the current helper diagnostic success criteria are weaker than the Wi-Fi objective. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, PMIC/GPIO/GDSC direct write, blind eSoC notify/BOOT_DONE spoof, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
+- **Active research cycle**: V1403 host-only strict classifier BLOCKED (`v1403-test-boot-provider-trigger-no-downstream-wifi-progress-blocked`). V1403 reclassified the V1402 supervised test-boot evidence with strict Wi-Fi-progress criteria: rollback/handoff stayed valid, `subsys_modem` and `__subsystem_get: esoc0` were present, helper supervision showed `helper_exit_code=0`, but `rc1_progress=0`, `mhi_progress=0`, `wlfw_progress=0`, `bdf_progress=0`, `fw_ready_progress=0`, and `wlan0_present=0`. This closes the misleading diagnostic-pass gap: provider trigger alone is no longer counted as Wi-Fi progress. Next work must target the missing RC1/MHI/WLFW downstream transition, not scan/connect. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, PMIC/GPIO/GDSC direct write, blind eSoC notify/BOOT_DONE spoof, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -1636,3 +1636,16 @@ Update after V1354/V1355:
   external ping. Next V1403 should be source/build-only: make the helper/test
   boot summary emit a strict downstream-progress decision so provider-trigger
   diagnostics are not mistaken for Wi-Fi progress.
+- V1403 host-only strict classifier (`v1403-test-boot-provider-trigger-no-downstream-wifi-progress-blocked`)
+  updated `scripts/revalidation/native_wifi_test_boot_handoff_v1395.py` so
+  test-boot handoff evidence now emits explicit Wi-Fi progress fields:
+  `provider_trigger`, `rc1_progress`, `mhi_progress`, `wlfw_progress`,
+  `bdf_progress`, `fw_ready_progress`, `wlan0_present`, `connect_ready`, and
+  `final_decision`. It then reclassified the V1402 evidence in strict mode:
+  `handoff_pass=true` but `wifi_progress_pass=false`, with final decision
+  `provider-trigger-no-downstream`. Report:
+  `docs/reports/NATIVE_INIT_V1403_STRICT_WIFI_PROGRESS_CLASSIFIER_2026-06-01.md`.
+  No device command, flash, reboot, credential handling, Wi-Fi scan/connect,
+  DHCP/routes, external ping, PMIC/GPIO/GDSC write, or eSoC notify/`BOOT_DONE`
+  spoof was performed in V1403. Next work should target why the supervised
+  provider trigger creates no RC1/MHI/WLFW downstream marker.

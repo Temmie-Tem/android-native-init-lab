@@ -6980,6 +6980,15 @@ Samsung bootloader
   `rc1_progress`, `wlfw_progress`, `wlan0_present`, and `final_decision` keys,
   and classify provider-trigger/no-downstream as non-progress for the Wi-Fi
   objective.
+- V1403 completes the strict host-only reclassification layer. Existing V1402
+  evidence now produces `handoff_pass=true` but `wifi_progress_pass=false` and
+  `final_decision=provider-trigger-no-downstream`. The runner exposes explicit
+  `provider_trigger`, `rc1_progress`, `mhi_progress`, `wlfw_progress`,
+  `bdf_progress`, `fw_ready_progress`, `wlan0_present`, and `connect_ready`
+  fields. The next cycle should target the first missing downstream transition
+  after `__subsystem_get: esoc0`; do not advance to scan/connect, credentials,
+  DHCP/routes, or external ping until at least RC1/MHI/WLFW/`wlan0` progress is
+  proven.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still

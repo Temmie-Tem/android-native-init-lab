@@ -139,6 +139,114 @@ def load_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def read_evidence_text(evidence_dir: Path, file_name: str) -> str:
+    path = evidence_dir / file_name
+    if not path.exists():
+        return ""
+    return path.read_text(encoding="utf-8", errors="replace")
+
+
+def parse_key_value_lines(text: str) -> dict[str, str]:
+    values: dict[str, str] = {}
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("[") or line.startswith("A90P1 "):
+            continue
+        if "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        values[key.strip()] = value.strip()
+    return values
+
+
+def matching_markers(text: str, markers: tuple[str, ...]) -> list[str]:
+    return [marker for marker in markers if marker in text]
+
+
+def classify_wifi_progress(evidence_dir: Path) -> dict[str, Any]:
+    dmesg = read_evidence_text(evidence_dir, "test-v1393-dmesg.stdout.txt")
+    summary = read_evidence_text(evidence_dir, "test-v1393-summary.stdout.txt")
+    wlan0_stdout = read_evidence_text(evidence_dir, "test-wlan0.stdout.txt")
+    summary_fields = parse_key_value_lines(summary)
+
+    rc1_markers = matching_markers(
+        dmesg,
+        (
+            "PCIe RC1 PHY is ready",
+            "LTSSM_STATE",
+            "PCIe RC1 Current",
+            "msm_pcie_enable: PCIe",
+        ),
+    )
+    mhi_markers = matching_markers(
+        dmesg,
+        (
+            "mhi_arch_esoc_ops_power_on",
+            "mhi_pci_probe",
+            "mhi_0305",
+            "/dev/mhi_",
+            "MHI control",
+        ),
+    )
+    wlfw_markers = matching_markers(dmesg, ("wlfw", "WLFW", "icnss_qmi"))
+    bdf_markers = matching_markers(dmesg, ("BDF", "bdwlan", "regdb"))
+    fw_ready_markers = matching_markers(dmesg, ("FW ready", "fw_ready", "FW_READY"))
+
+    provider_trigger = "__subsystem_get: esoc0" in dmesg
+    modem_trigger = "__subsystem_get: modem" in dmesg
+    wlan0_present = (
+        "wlan0=present" in wlan0_stdout
+        or summary_fields.get("wlan0_present") == "1"
+    )
+    rc1_progress = bool(rc1_markers)
+    mhi_progress = bool(mhi_markers)
+    wlfw_progress = bool(wlfw_markers)
+    bdf_progress = bool(bdf_markers)
+    fw_ready_progress = bool(fw_ready_markers)
+    downstream_progress = any((
+        rc1_progress,
+        mhi_progress,
+        wlfw_progress,
+        bdf_progress,
+        fw_ready_progress,
+        wlan0_present,
+    ))
+
+    if wlan0_present:
+        final_decision = "wlan0-present"
+    elif wlfw_progress or bdf_progress or fw_ready_progress:
+        final_decision = "firmware-progress-no-wlan0"
+    elif rc1_progress or mhi_progress:
+        final_decision = "rc1-or-mhi-progress-only"
+    elif provider_trigger:
+        final_decision = "provider-trigger-no-downstream"
+    else:
+        final_decision = "no-provider-no-downstream"
+
+    return {
+        "provider_trigger": provider_trigger,
+        "modem_trigger": modem_trigger,
+        "rc1_progress": rc1_progress,
+        "rc1_markers": rc1_markers,
+        "mhi_progress": mhi_progress,
+        "mhi_markers": mhi_markers,
+        "wlfw_progress": wlfw_progress,
+        "wlfw_markers": wlfw_markers,
+        "bdf_progress": bdf_progress,
+        "bdf_markers": bdf_markers,
+        "fw_ready_progress": fw_ready_progress,
+        "fw_ready_markers": fw_ready_markers,
+        "wlan0_present": wlan0_present,
+        "downstream_progress": downstream_progress,
+        "wifi_progress_pass": downstream_progress,
+        "connect_ready": wlan0_present,
+        "final_decision": final_decision,
+        "helper_supervised": summary_fields.get("supervised"),
+        "helper_exit_code": summary_fields.get("helper_exit_code"),
+        "helper_timed_out": summary_fields.get("helper_timed_out"),
+    }
+
+
 def preflight(args: argparse.Namespace) -> dict[str, Any]:
     v1394 = load_json(args.v1394_manifest)
     return {
@@ -238,76 +346,132 @@ def display_path(path: Path) -> str:
 def classify(test_flash: dict[str, Any],
              evidence: dict[str, Any],
              rollback_result: dict[str, Any],
-             store: EvidenceStore,
+             evidence_dir: Path,
              cycle: str,
-             expect_test_version: str) -> tuple[str, bool, str]:
+             expect_test_version: str,
+             strict_wifi_progress: bool) -> tuple[str, bool, str, dict[str, Any]]:
+    progress = classify_wifi_progress(evidence_dir)
     if not test_flash["ok"]:
         return (
             decision_label(cycle, "test-boot-flash-or-verify-failed"),
             False,
             "test boot flash/verify did not complete; inspect rollback evidence before retry",
+            progress,
         )
-    test_version = store.path("test-version.stdout.txt").read_text(encoding="utf-8", errors="replace")
-    dmesg = store.path("test-v1393-dmesg.stdout.txt").read_text(encoding="utf-8", errors="replace")
-    wlan0 = store.path("test-wlan0.stdout.txt").read_text(encoding="utf-8", errors="replace")
-    rc1_progress = any(
-        marker in dmesg
-        for marker in ("PCIe RC1 PHY is ready", "LTSSM_STATE", "PCIe RC1 Current")
-    )
-    firmware_progress = any(marker in dmesg for marker in ("FW ready", "BDF", "wlfw"))
-    wlan0_present = "wlan0=present" in wlan0
-    provider_trigger = "__subsystem_get: esoc0" in dmesg
+    test_version = read_evidence_text(evidence_dir, "test-version.stdout.txt")
     if expect_test_version not in test_version:
         return (
             decision_label(cycle, "test-boot-version-missing"),
             False,
             "test boot returned through bridge but expected version marker was missing",
+            progress,
         )
     if not rollback_result.get("ok"):
         return (
             decision_label(cycle, "test-boot-rollback-failed"),
             False,
             "test boot evidence collected but rollback did not verify",
+            progress,
         )
-    if rc1_progress or firmware_progress or wlan0_present:
+    if progress["downstream_progress"]:
         return (
             decision_label(cycle, "test-boot-downstream-progress-rollback-pass"),
             True,
             "test boot produced downstream Wi-Fi/PCIe evidence and rollback verified",
+            progress,
         )
-    if provider_trigger:
+    if progress["provider_trigger"]:
+        if strict_wifi_progress:
+            return (
+                decision_label(cycle, "test-boot-provider-trigger-no-downstream-wifi-progress-blocked"),
+                False,
+                "test boot reached the esoc0 provider trigger and rollback verified, but strict Wi-Fi progress markers were absent",
+                progress,
+            )
         return (
             decision_label(cycle, "test-boot-provider-trigger-no-downstream-rollback-pass"),
             True,
             "test boot reached the esoc0 provider trigger and rollback verified, but no RC1/MHI/WLFW/wlan0 progress marker appeared",
+            progress,
+        )
+    if strict_wifi_progress:
+        return (
+            decision_label(cycle, "test-boot-no-downstream-wifi-progress-blocked"),
+            False,
+            "test boot ran and rollback verified, but strict Wi-Fi progress markers were absent",
+            progress,
         )
     return (
         decision_label(cycle, "test-boot-no-downstream-progress-rollback-pass"),
         True,
         "test boot ran and rollback verified, but no MDM2AP/PCIe/MHI/WLFW/wlan0 progress marker appeared",
+        progress,
     )
 
 
 def render_report(result: dict[str, Any]) -> str:
     cycle = str(result["cycle"])
-    return "\n".join([
-        f"# Native Init {cycle} Wi-Fi Test Boot Handoff",
+    classify_only = bool(result.get("classify_only"))
+    title = "Wi-Fi Test Boot Strict Classifier" if classify_only else "Wi-Fi Test Boot Handoff"
+    run_type = (
+        "host-only strict reclassification of existing test-boot evidence"
+        if classify_only
+        else "bounded live test-boot handoff with rollback"
+    )
+    lines = [
+        f"# Native Init {cycle} {title}",
         "",
         "## Summary",
         "",
         f"- Cycle: `{cycle}`",
-        "- Type: bounded live test-boot handoff with rollback",
+        f"- Type: {run_type}",
         f"- Decision: `{result['decision']}`",
         f"- Result: {'PASS' if result['pass'] else 'BLOCKED'}",
         f"- Reason: {result['reason']}",
         f"- Evidence: `{result['out_dir']}`",
+    ]
+    if "source_out_dir" in result:
+        lines.append(f"- Source evidence: `{result['source_out_dir']}`")
+    if "handoff_pass" in result:
+        lines.append(f"- Handoff/rollback pass: `{result['handoff_pass']}`")
+    if "strict_wifi_progress" in result:
+        lines.append(f"- Strict Wi-Fi progress mode: `{result['strict_wifi_progress']}`")
+    if "wifi_progress" in result:
+        progress = result["wifi_progress"]
+        lines.extend([
+            f"- Wi-Fi progress pass: `{progress['wifi_progress_pass']}`",
+            f"- Progress decision: `{progress['final_decision']}`",
+            "",
+            "## Progress Classification",
+            "",
+            f"- `provider_trigger`: `{progress['provider_trigger']}`",
+            f"- `rc1_progress`: `{progress['rc1_progress']}`",
+            f"- `mhi_progress`: `{progress['mhi_progress']}`",
+            f"- `wlfw_progress`: `{progress['wlfw_progress']}`",
+            f"- `bdf_progress`: `{progress['bdf_progress']}`",
+            f"- `fw_ready_progress`: `{progress['fw_ready_progress']}`",
+            f"- `wlan0_present`: `{progress['wlan0_present']}`",
+            f"- `connect_ready`: `{progress['connect_ready']}`",
+        ])
+    lines.extend([
         "",
         "## Safety Scope",
         "",
         "No Wi-Fi scan/connect, credential handling, DHCP/routes, external ping,",
         "PMIC/GPIO/GDSC direct write, or blind eSoC notify/`BOOT_DONE` spoof was",
-        "performed by this runner. Device mutation was limited to flashing the",
-        "test boot image and rolling back to `stage3/boot_linux_v724.img`.",
+        "performed by this runner.",
+    ])
+    if classify_only:
+        lines.extend([
+            "This run was host-only and reclassified existing test-boot evidence;",
+            "it did not flash, reboot, or mutate the device.",
+        ])
+    else:
+        lines.extend([
+            "Device mutation was limited to flashing the test boot image and",
+            "rolling back to `stage3/boot_linux_v724.img`.",
+        ])
+    lines.extend([
         "",
         "## Images",
         "",
@@ -316,11 +480,12 @@ def render_report(result: dict[str, Any]) -> str:
         "",
         "## Next",
         "",
-        "Inspect the collected V1393 boot log and dmesg evidence before deciding",
-        "whether to keep refining PID1 timing or proceed toward a later explicit",
-        "Wi-Fi scan/connect gate.",
+        "Treat `provider-trigger-no-downstream` as diagnostic evidence, not Wi-Fi",
+        "bring-up progress. Do not proceed to scan/connect, credentials, DHCP/routes,",
+        "or external ping until at least RC1/MHI/WLFW/`wlan0` progress is proven.",
         "",
     ])
+    return "\n".join(lines)
 
 
 def parse_args() -> argparse.Namespace:
@@ -340,6 +505,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--flash-timeout-sec", type=float, default=720.0)
     parser.add_argument("--collect-timeout-sec", type=float, default=120.0)
     parser.add_argument("--classify-only", action="store_true")
+    parser.add_argument("--classify-input-dir", type=Path)
+    parser.add_argument("--strict-wifi-progress", action="store_true")
     return parser.parse_args()
 
 
@@ -365,6 +532,7 @@ def main() -> int:
         return 1
 
     if args.classify_only:
+        source_dir = args.classify_input_dir or args.out_dir
         evidence = {
             name: {"stdout_file": f"{name}.stdout.txt"}
             for name in (
@@ -378,8 +546,8 @@ def main() -> int:
                 "test-wlan0",
             )
         }
-        test_version_path = store.path("test-version.stdout.txt")
-        rollback_path = store.path("rollback-from-native.stdout.txt")
+        test_version_path = source_dir / "test-version.stdout.txt"
+        rollback_path = source_dir / "rollback-from-native.stdout.txt"
         test_flash = {
             "ok": test_version_path.exists() and args.expect_test_version in test_version_path.read_text(encoding="utf-8", errors="replace"),
         }
@@ -387,12 +555,14 @@ def main() -> int:
             "attempt": "existing",
             "ok": rollback_path.exists() and args.expect_rollback_version in rollback_path.read_text(encoding="utf-8", errors="replace"),
         }
-        label, pass_ok, reason = classify(test_flash,
-                                          evidence,
-                                          rollback_result,
-                                          store,
-                                          args.cycle,
-                                          args.expect_test_version)
+        label, pass_ok, reason, progress = classify(test_flash,
+                                                    evidence,
+                                                    rollback_result,
+                                                    source_dir,
+                                                    args.cycle,
+                                                    args.expect_test_version,
+                                                    args.strict_wifi_progress)
+        handoff_pass = bool(test_flash["ok"] and rollback_result.get("ok"))
         result = {
             "cycle": args.cycle,
             "decision": label,
@@ -402,14 +572,24 @@ def main() -> int:
             "test_flash_ok": bool(test_flash["ok"]),
             "evidence": evidence,
             "rollback": rollback_result,
+            "handoff_pass": handoff_pass,
+            "strict_wifi_progress": bool(args.strict_wifi_progress),
+            "wifi_progress": progress,
             "steps": [],
             "out_dir": display_path(args.out_dir),
+            "source_out_dir": display_path(source_dir),
             "classify_only": True,
         }
         store.write_json("manifest.json", result)
         store.write_text("summary.md", render_report(result))
         args.report_path.write_text(render_report(result), encoding="utf-8")
-        print(json.dumps({"decision": label, "pass": pass_ok, "rollback": rollback_result}, indent=2))
+        print(json.dumps({
+            "decision": label,
+            "pass": pass_ok,
+            "handoff_pass": handoff_pass,
+            "wifi_progress": progress,
+            "rollback": rollback_result,
+        }, indent=2))
         return 0 if pass_ok else 1
 
     test_flash = run_command(
@@ -433,12 +613,14 @@ def main() -> int:
         evidence = collect_test_boot_evidence(args, store, steps)
 
     rollback_result = rollback(args, store, steps)
-    label, pass_ok, reason = classify(test_flash,
-                                      evidence,
-                                      rollback_result,
-                                      store,
-                                      args.cycle,
-                                      args.expect_test_version)
+    label, pass_ok, reason, progress = classify(test_flash,
+                                                evidence,
+                                                rollback_result,
+                                                args.out_dir,
+                                                args.cycle,
+                                                args.expect_test_version,
+                                                args.strict_wifi_progress)
+    handoff_pass = bool(test_flash["ok"] and rollback_result.get("ok"))
     result = {
         "cycle": args.cycle,
         "decision": label,
@@ -448,6 +630,9 @@ def main() -> int:
         "test_flash_ok": bool(test_flash["ok"]),
         "evidence": evidence,
         "rollback": rollback_result,
+        "handoff_pass": handoff_pass,
+        "strict_wifi_progress": bool(args.strict_wifi_progress),
+        "wifi_progress": progress,
         "steps": steps,
         "out_dir": display_path(args.out_dir),
     }
