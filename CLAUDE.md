@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V1390 deploy/preflight PASS (`execns-helper-v286-deploy-pass`). `/cache/bin/a90_android_execns_probe` now matches helper v286 sha256 `e5fc81a5becb2c6e6efd2ca026800560ed9e0e72a692f0fbb07861cf26d5380f` and exposes `--pm-observer-early-powerup-corrected-rc1-enumerate`. Next is V1391 bounded early-observer corrected RC1 live gate. Preserve hard exclusions: no PMIC/GPIO/GDSC direct write, blind eSoC notify/BOOT_DONE spoof, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, flash outside approved Android handoff/rollback, boot image write outside approved rollback, or partition write.
+- **Active research cycle**: V1391 bounded live PASS (`v1391-corrected-rc1-ltssm-no-downstream-clean`). Helper v286 fired corrected RC1 from the early observer gate (`phase=early_powerup_observer`, `rc_sel_rc=0`, `case_rc=0`), but RC1 assert still occurred about `3.605s` after `__subsystem_get(esoc0)`, link failed before L0, and GPIO142/PCI/MHI/WLFW/`wlan0` stayed absent. Next is V1392 test-boot design to move the experiment into PID1/boot timing rather than another external helper retry. Preserve hard exclusions until that design is explicit: no credential use, Wi-Fi scan/connect/DHCP/external ping, PMIC/GPIO/GDSC direct write, blind eSoC notify/BOOT_DONE spoof, flash outside approved test-boot/rollback, boot image write outside approved test-boot/rollback, or partition write.
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -1490,3 +1490,16 @@ Update after V1354/V1355:
   under `/cache/bin`; no daemon start, Wi-Fi HAL, scan/connect, credentials,
   DHCP/routes, external ping, flash, boot image write, or partition write
   occurred. Next is V1391 bounded early-observer corrected RC1 live gate.
+- V1391 bounded live (`v1391-corrected-rc1-ltssm-no-downstream-clean`) ran the
+  Android participant parity window with helper v286 and the early-observer
+  corrected RC1 flag. The new gate fired (`corrected_phase=early_powerup_observer`,
+  `early_triggered=True`, `gate_pm_service_powerup_thread_count=1`,
+  `rc_sel_rc=0`, `case_rc=0`), but dmesg still shows `__subsystem_get(esoc0)` at
+  `2283.617115s` and RC1 assert at `2287.221685s` (`3.605s` delta), then PHY
+  ready, reset release, poll-compliance, and link failure before L0. GPIO142
+  IRQ delta, PCI/MHI counts, MHI pipe/`ks`, WLFW, and `wlan0` all remained
+  absent. Safety markers remained clear and no Wi-Fi HAL, scan/connect,
+  credentials, DHCP/routes, external ping, flash, boot image write, or partition
+  write occurred. This makes another external-helper RC1 timing retry low-value;
+  next is V1392 test-boot design to move the timing-critical experiment into
+  PID1/boot flow with a separate rollbackable boot image.

@@ -6563,6 +6563,18 @@ Samsung bootloader
       write, no blind eSoC notify/`BOOT_DONE` spoof, no Wi-Fi HAL, no
       scan/connect, no credentials, no DHCP/routes, no external ping, no flash,
       no boot image write, and no partition write.
+    - Result:
+      `docs/reports/NATIVE_INIT_V1391_ANDROID_PARTICIPANT_EARLY_POWERUP_CORRECTED_RC1_LIVE_2026-06-01.md`.
+      Decision: `v1391-corrected-rc1-ltssm-no-downstream-clean`. The helper
+      v286 early gate fired (`corrected_phase=early_powerup_observer`,
+      `early_triggered=True`, `gate_pm_service_powerup_thread_count=1`,
+      `rc_sel_rc=0`, `case_rc=0`), but RC1 assert still followed
+      `__subsystem_get(esoc0)` by about `3.605s`. Dmesg saw RC1 TEST 11,
+      reset assert/release, PHY ready, poll-compliance, and link failure before
+      L0; GPIO142 IRQ delta, PCI/MHI counts, MHI pipe/`ks`, WLFW, and `wlan0`
+      remained absent. Safety markers stayed clear and no Wi-Fi HAL,
+      scan/connect, credentials, DHCP/routes, external ping, flash, boot image
+      write, or partition write occurred.
 
 ### Required decision before any new mutation
 
@@ -6675,6 +6687,13 @@ Samsung bootloader
   corrected RC1 trigger; it must remain below Wi-Fi HAL, scan/connect,
   credentials, DHCP/routes, external ping, PMIC/GPIO/GDSC direct writes, blind
   eSoC notify/`BOOT_DONE`, flash, boot image write, and partition write.
+- V1391 proves the early-observer helper gate itself works but still reaches
+  RC1 too late (`~3.605s` after `__subsystem_get(esoc0)`) and creates no
+  downstream MDM2AP/PCI/MHI/WLFW/`wlan0` progress. Do not spend the next cycle
+  on another same-shape external helper retry. V1392 should design a separate,
+  rollbackable Wi-Fi test boot image that moves the timing-critical observer/
+  trigger sequence into PID1/boot flow, initially stopping at MDM2AP/WLFW/`wlan0`
+  evidence before any credentialed scan/connect or external ping.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
