@@ -7623,6 +7623,22 @@ Samsung bootloader
   watcher result, exact-provider tracepoint window result, expanded dmesg
   markers, and `wlan0` state, then rolling back to
   `stage3/boot_linux_v724.img` and verifying selftest fail=0.
+- V1464 rollbackable live handoff passes with
+  `v1464-test-boot-provider-trigger-no-downstream-rollback-pass`. It flashed
+  only the V1462 exact-provider tracepoint test image, verified the test boot,
+  collected the V1462 log/summary, exact-provider tracepoint window, dmesg
+  markers, and `wlan0` state, then rolled back to healthy v724 with selftest
+  fail=0. The handoff reached the exact `__subsystem_get: esoc0` provider
+  trigger, but no RC1/MHI/WLFW/BDF/FW-ready/`wlan0` progress appeared.
+- V1465 host-only classifier passes with
+  `v1465-pon-toggles-ap2mdm-absent-no-downstream`. It classifies V1464's
+  exact-provider GPIO tracepoint evidence: GPIO1270/PON toggles low-high and
+  GPIO141 goes low, but GPIO135/AP2MDM and GPIO142/MDM2AP have no tracepoint
+  events. Endpoint state keeps GPIO135 `out 0`, GPIO142 `in 0`, MDM status IRQ
+  and PCIe wake IRQ counts at zero, pcie1 GDSC at `0mV`, and pcie1 clocks
+  zero-enabled. No RC1/MHI/WLFW/BDF/FW-ready/`wlan0` progress appears. V1466
+  should be host-only provider AP2MDM branch/source classification before any
+  new live mutation.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still

@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V1463 exact provider tracepoint artifact sanity PASS (`v1463-wifi-test-boot-exact-provider-tracepoint-artifact-sanity-pass`). V1463 verifies the V1462 manifest, static init/helper, ramdisk entries, marker contract, absent retry/legacy/case-writer markers, v724 header/kernel parity, private modes, and forbidden credential-like byte absence. V1462 rollbackable `0.9.86 (v1462-wifitest)` test boot is ready for V1464 live handoff only: flash `tmp/wifi/v1462-wifi-test-boot-exact-provider-tracepoint-sampler/boot_linux_v1462_wifi_test.img`, collect log/summary/watcher/window/dmesg/`wlan0`, then roll back to `stage3/boot_linux_v724.img` and verify selftest fail=0. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, Wi-Fi HAL start, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
+- **Active research cycle**: V1465 provider tracepoint classifier PASS (`v1465-pon-toggles-ap2mdm-absent-no-downstream`). V1464 flashed the rollbackable V1462 `0.9.86 (v1462-wifitest)` exact-provider tracepoint test boot, collected tracepoint/window evidence, then rolled back to `stage3/boot_linux_v724.img` with selftest fail=0. V1465 proves the provider toggles GPIO1270/PON low-high and GPIO141 low, but no GPIO135/AP2MDM or GPIO142/MDM2AP trace event appears; endpoint samples keep GPIO135/GPIO142 low, pcie1 GDSC remains `0mV`, pcie1 clocks remain zero-enabled, and no RC1/MHI/WLFW/BDF/FW-ready/`wlan0` progress appears. Next is V1466 host-only provider AP2MDM branch/source classification before any new live mutation. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, Wi-Fi HAL start, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -1687,3 +1687,21 @@ Update after V1354/V1355:
   The device was verified back on `A90 Linux init 0.9.68 (v724)` with selftest
   fail=0. Next V1407 should be host-only endpoint-readiness classification; do
   not scan/connect or use credentials.
+- V1464 rollbackable live handoff (`v1464-test-boot-provider-trigger-no-downstream-rollback-pass`)
+  flashed only the V1462 exact-provider tracepoint test boot, verified
+  `A90 Linux init 0.9.86 (v1462-wifitest)`, collected the V1462 log/summary,
+  exact-provider tracepoint window, dmesg markers, and `wlan0` state, then
+  rolled back to healthy `A90 Linux init 0.9.68 (v724)` with selftest fail=0.
+  The handoff reached the exact `__subsystem_get: esoc0` provider trigger but
+  no RC1/MHI/WLFW/BDF/FW-ready/`wlan0` progress appeared. Report:
+  `docs/reports/NATIVE_INIT_V1464_WIFI_TEST_BOOT_EXACT_PROVIDER_TRACEPOINT_HANDOFF_2026-06-01.md`.
+- V1465 host-only classifier (`v1465-pon-toggles-ap2mdm-absent-no-downstream`)
+  classifies the V1464 exact-provider GPIO tracepoint evidence. Tracepoints
+  prove GPIO1270/PON toggles low-high and GPIO141 goes low, while GPIO135/AP2MDM
+  and GPIO142/MDM2AP never emit trace events. Endpoint snapshots keep GPIO135
+  `out 0`, GPIO142 `in 0`, MDM status and PCIe wake IRQs at zero, pcie1 GDSC
+  at `0mV`, and pcie1 clocks zero-enabled. No RC1/MHI/WLFW/BDF/FW-ready/`wlan0`
+  progress appears, so this remains below Wi-Fi HAL/scan/connect readiness.
+  Report: `docs/reports/NATIVE_INIT_V1465_PROVIDER_TRACEPOINT_CLASSIFIER_2026-06-01.md`.
+  Next V1466 is host-only provider AP2MDM branch/source classification before
+  any new live mutation.
