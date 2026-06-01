@@ -8878,6 +8878,25 @@ Samsung bootloader
   classifying only `wlfw_start`/`wlfw_service_request` progress. No credentials,
   scan/connect, DHCP/routes, or external ping. Report:
   `docs/reports/NATIVE_INIT_V1563_ANDROID_WIFI_SERVICE_WINDOW_ARTIFACT_SANITY_2026-06-02.md`.
+- V1564 rollbackable live handoff completes and rolls back cleanly, but strict
+  Wi-Fi progress is blocked with
+  `v1564-test-boot-no-downstream-wifi-progress-blocked`. It adds
+  `scripts/revalidation/native_wifi_test_boot_handoff_v1564.py` and runs only
+  the V1562 Android Wi-Fi service-window test boot artifact. The device enters
+  `A90 Linux init 0.9.69 (v1562-service-window)`, the PID1 supervisor launches
+  `wifi-companion-android-wifi-service-window-start-only`, the helper exits
+  normally, and rollback to v724 selftest passes. Focused dmesg shows
+  `cnss_diag`, `cnss-daemon`, and `wificond` netlink/binder activity, but no
+  `wlfw_start`, `wlfw_service_request`, ICNSS-QMI, BDF/regdb, FW-ready, MHI,
+  RC1, or `wlan0` marker appears; explicit `wlan0` check reports absent. This
+  removes the "service-window route alone is enough" candidate. Next gate:
+  classify why the service-window helper exits cleanly without the Android-good
+  WLFW request contract by comparing helper output, service-manager context,
+  properties, sockets, and environment against Android-good evidence. Do not
+  move to credentials, scan/connect, DHCP/routes, external ping, PMIC/GPIO/GDSC
+  writes, blind eSoC notify, global PCI rescan, or platform bind/unbind.
+  Report:
+  `docs/reports/NATIVE_INIT_V1564_ANDROID_WIFI_SERVICE_WINDOW_HANDOFF_2026-06-02.md`.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still

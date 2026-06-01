@@ -3030,3 +3030,29 @@ artifact, expect `A90 Linux init 0.9.69 (v1562-service-window)`, collect the
 service-window log/summary/dmesg/`wlan0` state, roll back to v724, and classify
 only `wlfw_start`/`wlfw_service_request` progress. Do not use credentials,
 scan/connect, DHCP/routes, or external ping.
+
+## Latest native Wi-Fi state: V1564 (2026-06-02)
+
+V1564 adds
+`scripts/revalidation/native_wifi_test_boot_handoff_v1564.py` and performs a
+rollbackable live handoff of the V1562 Android Wi-Fi service-window test boot.
+The handoff itself is healthy: the device boots
+`A90 Linux init 0.9.69 (v1562-service-window)`, the PID1 supervisor launches
+`wifi-companion-android-wifi-service-window-start-only`, the helper exits with
+code 0, rollback to `stage3/boot_linux_v724.img` succeeds, and post-rollback
+selftest passes.
+
+Strict Wi-Fi progress is still blocked with
+`v1564-test-boot-no-downstream-wifi-progress-blocked`. Focused dmesg captures
+`cnss_diag`, `cnss-daemon`, and `wificond` generic netlink/binder activity, but
+there is no `wlfw_start`, `wlfw_service_request`, ICNSS-QMI, BDF/regdb,
+FW-ready, MHI, RC1, or `wlan0` marker; the explicit `wlan0` check reports
+absent. This removes the candidate that simply switching PID1 from the post-PM
+observer route to Android Wi-Fi service-window start-only is sufficient.
+
+Next gate: classify why the service-window helper exits cleanly without
+producing the Android-good WLFW request contract. Compare helper output,
+service-manager context, properties, sockets, and process environment against
+Android-good service-window evidence. Do not proceed to credentials,
+scan/connect, DHCP/routes, external ping, PMIC/GPIO/GDSC writes, blind eSoC
+notify, global PCI rescan, or platform bind/unbind.
