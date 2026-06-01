@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V1592 rollbackable live handoff + strict reclassification complete. The V1591 late-`per_proxy` test image flashed, booted, collected evidence, and rolled back to v724 successfully, but strict Wi-Fi progress is still blocked: `provider_trigger=False`, `modem_trigger=True`, no RC1/MHI/WLFW/BDF/FW-ready/`wlan0`, `pm_proxy` exits `1`, and `per_mgr` exits `0` before a PM-service-owned `/dev/subsys_esoc0` powerup is observed. The handoff classifier was hardened so `icnss_qmi: Fail to send Shutdown req` is not counted as WLFW progress; only `icnss_qmi: QMI Server Connected` counts. Next gate: classify why the late `pm_proxy` child exits `1` and why `per_mgr` lifetime is insufficient in the full service-window route before any new lower-layer mutation. Keep credentials, scan/connect, DHCP/routes, external ping, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, or unbounded boot image/partition write blocked.
+- **Active research cycle**: V1593 host-only PM proxy / `per_mgr` lifetime classifier PASS. V1592 did not reach the lower eSoC/RC1 boundary: the late `pm-proxy` child spawned with successful preexec/SELinux setup but exited `1`, while `pm-service` (`per_mgr`) exited `0` before the PM full contract or PM-service-owned `/dev/subsys_esoc0` powerup appeared. V1238/V1303 remain positive references proving a stripped PM-first late-`per_proxy` route can reach PM-service-owned `/dev/subsys_esoc0` and `mdm_subsys_powerup`. Next gate: V1594 source/build-only should preserve V1591 firmware mounts but switch the test-boot route to V1238-style PM-first ordering, with no Wi-Fi HAL/wificond before PM-service-owned powerup observation and explicit `pm-proxy`/`per_mgr` exit diagnostics. Keep credentials, scan/connect, DHCP/routes, external ping, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, or unbounded boot image/partition write blocked.
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -3521,3 +3521,42 @@ DHCP/routes, external ping, PMIC/GPIO/GDSC direct writes, blind eSoC
 notify/`BOOT_DONE`, global PCI rescan, platform bind/unbind, or unbounded
 boot-image/partition writes.  Report:
 `docs/reports/NATIVE_INIT_V1592_LATE_PER_PROXY_LOWER_MARKER_HANDOFF_2026-06-02.md`.
+
+## Latest native Wi-Fi state: V1593 (2026-06-02)
+
+V1593 adds
+`scripts/revalidation/native_wifi_pm_proxy_per_mgr_lifetime_classifier_v1593.py`
+and classifies the V1592 failure host-only against V1238/V1303.  It passes as
+`v1593-late-per-proxy-regressed-before-pm-service-owned-powerup`.
+
+V1593 current-route finding:
+
+- V1592 handoff/rollback is clean, but strict Wi-Fi progress is blocked before
+  lower hardware: `modem_trigger=True`, `provider_trigger=False`, and no
+  RC1/MHI/WLFW/BDF/FW-ready/`wlan0`.
+- `pm-proxy` starts as `/vendor/bin/pm-proxy`, preexec passes, SELinux exec and
+  current-context setup report `ok=1`, then the child exits `1`.
+- `pm-service` starts as `/vendor/bin/pm-service`, but the first fd match for
+  `/dev/subsys_modem` already fails with `No such file or directory`; final
+  `per_mgr` observable is `0`, exit code is `0`, and `pm_full_contract_seen=0`.
+- The V1592 order is the full service-window order:
+  `... wifi_hal_legacy,wifi_hal_ext,per_mgr,cnss_diag,wificond,mdm_helper,cnss_daemon,pm_proxy_late ...`.
+
+Positive-route references:
+
+- V1238 order is stripped and PM-first:
+  `... pm_proxy_helper,per_mgr,vndservice_query,per_proxy_deferred,cnss_daemon,mdm_helper,late_per_proxy ...`,
+  with no Wi-Fi HAL/wificond before the PM-service-owned route.
+- V1238 reaches PM-service `/dev/subsys_esoc0`; V1303 confirms
+  `/dev/subsys_esoc0` + `mdm_subsys_powerup` through compact powerup markers.
+
+Next work: V1594 should be source/build-only and make the test-boot route
+match the V1238/V1303 PM-service-owned boundary before any new lower-layer
+mutation.  Keep V1591 firmware mount parity, keep direct scoped
+`/dev/subsys_esoc0` trigger disabled, do not start Wi-Fi HAL/wificond before
+the PM-service powerup observation, and add explicit `pm-proxy`/`per_mgr`
+stderr/exit/lifetime diagnostics.  Still no credentials, scan/connect,
+DHCP/routes, external ping, PMIC/GPIO/GDSC direct writes, blind eSoC
+notify/`BOOT_DONE`, global PCI rescan, platform bind/unbind, or unbounded
+boot-image/partition writes.  Report:
+`docs/reports/NATIVE_INIT_V1593_PM_PROXY_PER_MGR_LIFETIME_CLASSIFIER_2026-06-02.md`.

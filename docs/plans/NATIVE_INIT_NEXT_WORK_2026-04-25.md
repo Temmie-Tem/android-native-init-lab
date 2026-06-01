@@ -9205,3 +9205,29 @@ Samsung bootloader
   eSoC notify/`BOOT_DONE`, global PCI rescan, platform bind/unbind, or
   unbounded boot-image/partition writes.  Report:
   `docs/reports/NATIVE_INIT_V1592_LATE_PER_PROXY_LOWER_MARKER_HANDOFF_2026-06-02.md`.
+
+- V1593 PM proxy / `per_mgr` lifetime classifier is complete.  It passes as
+  `v1593-late-per-proxy-regressed-before-pm-service-owned-powerup` and fixes
+  the next blocker selection after V1592.  V1592 is not a lower
+  SDX50M/eSoC/RC1 failure: it never reaches that boundary.  `pm-proxy` is
+  spawned with successful preexec/SELinux setup and then exits `1`;
+  `pm-service` (`per_mgr`) starts but is already gone when fd matching tries to
+  inspect `/dev/subsys_modem`, exits `0`, and `pm_full_contract_seen=0`.
+
+  The regression is route/order related.  V1592 uses the full service-window
+  order with Wi-Fi HAL/wificond before the late actor:
+  `... wifi_hal_legacy,wifi_hal_ext,per_mgr,cnss_diag,wificond,mdm_helper,cnss_daemon,pm_proxy_late ...`.
+  V1238/V1303 remain the positive route references: stripped PM-first order
+  with `pm_proxy_helper,per_mgr,vndservice_query,per_proxy_deferred,
+  cnss_daemon,mdm_helper,late_per_proxy` reaches PM-service-owned
+  `/dev/subsys_esoc0` and `mdm_subsys_powerup`.
+
+  Next gate: V1594 source/build-only should preserve V1591 firmware mount
+  parity but switch the test-boot route to the V1238/V1303 PM-first boundary:
+  no Wi-Fi HAL/wificond before PM-service-owned powerup observation, direct
+  scoped `/dev/subsys_esoc0` trigger still disabled, and explicit
+  `pm-proxy`/`per_mgr` stderr/exit/lifetime diagnostics added.  Still no
+  credentials, scan/connect, DHCP/routes, external ping, PMIC/GPIO/GDSC direct
+  writes, blind eSoC notify/`BOOT_DONE`, global PCI rescan, platform
+  bind/unbind, or unbounded boot-image/partition writes.  Report:
+  `docs/reports/NATIVE_INIT_V1593_PM_PROXY_PER_MGR_LIFETIME_CLASSIFIER_2026-06-02.md`.
