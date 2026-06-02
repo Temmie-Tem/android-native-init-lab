@@ -14482,3 +14482,56 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
   - do not autonomously patch served paths, add PM/QCACLD/eSoC actors, issue
     restart-PD, start Wi-Fi HAL, scan/connect, use credentials, configure
     DHCP/routes, or external ping.
+
+## V1754 WLAN-PD trigger-gap host classifier (2026-06-03)
+
+- V1754 advances the post-V1753 blocker without device contact.
+
+  Host-only classifier:
+
+  - script: `scripts/revalidation/native_wifi_wlan_pd_trigger_gap_classifier_v1754.py`;
+  - decision: `v1754-android-good-permgr-vote-before-wlanmdsp-native-pm-absent-host-pass`;
+  - label: `peripheral-manager-vote-delta-before-firmware-request`;
+  - evidence: `tmp/wifi/v1754-wlan-pd-trigger-gap-classifier`;
+  - report:
+    `docs/reports/NATIVE_INIT_V1754_WLAN_PD_TRIGGER_GAP_CLASSIFIER_2026-06-03.md`.
+
+  Android-good timing relative to the first `wlanmdsp.mbn` request:
+
+  - `wlfw_start`: `-0.693s`;
+  - `PerMgrSrv`/`PerMgrLib` cnss-daemon register/vote: `-0.692s`;
+  - `wlfw_service_request`: `-0.624s`;
+  - first `wlanmdsp.mbn` request: `+0.000s`.
+
+  Native V1736 SM-route contrast:
+
+  - `wlfw_start`, `wlfw_service_request`, and worker creation all remain proven;
+  - `tftp_server` is running;
+  - `requested_wlanmdsp=0` and firmware label remains `firmware-not-requested`;
+  - `wifi_companion_start.peripheral_manager.enabled=0`;
+  - native PM register/vote text is absent.
+
+  Interpretation:
+
+  - the latest concrete Android-only pre-request delta is cnss-daemon's
+    peripheral-manager registration/vote for the internal modem;
+  - this does not reopen the old broad PM-actor march.  Earlier PM attempts
+    remain a known dead-end when they chase `pm-service -22`, eSoC/RC1, or
+    Wi-Fi HAL side effects;
+  - the next useful unit must be narrow: prove or repair only the native
+    `cnss-daemon` -> peripheral-manager register/vote contract on the internal
+    modem route, while keeping eSoC/RC1, `boot_wlan`, Wi-Fi HAL, scan/connect,
+    credentials, DHCP/routes, and external ping blocked until WLAN-PD/WLFW
+    progress exists.
+
+  Next candidate:
+
+  - V1755 should be source/host-only first: compare Android-good
+    `PerMgrSrv`/`PerMgrLib` register/vote strings, init rc service contract,
+    properties, binder/vndbinder context, and native V1686/V1736 PM evidence to
+    design a minimal non-eSoC PM vote contract gate;
+  - success criterion for a later live gate would be PM register/vote observed
+    plus a `wlanmdsp.mbn` request, not merely `pm-service` process start;
+  - do not start Wi-Fi HAL, scan/connect, use credentials, configure
+    DHCP/routes, run external ping, force RC1, spoof ONLINE, issue restart-PD,
+    or open `/dev/subsys_esoc0` in this branch.
