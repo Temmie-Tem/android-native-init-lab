@@ -72,3 +72,52 @@ that actually powers the modem, and it is exactly the one that D-state-blocks.
 - esoc-mdm-4x.c:207 ESOC_PWR_ON, :577 mdm_status_change, :958 auto_boot parse
 - A90 DTS: no qcom,mdm-auto-boot; ap2mdm-soft-reset-gpio=<pm8150l_gpios 9>;
   no qcom,mdm2ap-pblrdy-gpio
+
+## Host follow-up (2026-06-02): probe/setup + polarity + regulator — RESOLVED
+
+The "host-resolvable, not yet done" item above is now done. Read
+`esoc-mdm-pon.c` parse/setup, `esoc-mdm-4x.c` gpio table, and the A90 DTS.
+
+### GPIO9 PON polarity — CONFIRMED CORRECT on native (no defect)
+- `mdm4x_pon_dt_init` (esoc-mdm-pon.c:263) reads
+  `qcom,ap2mdm-soft-reset-gpio` flags; `OF_GPIO_ACTIVE_LOW` -> `soft_reset_inverted=1`.
+- A90 DTS: `qcom,ap2mdm-soft-reset-gpio = <&pm8150l_gpios 9 0>`, and
+  `pm8150l_gpios` has `#gpio-cells = <2>`, so the 3rd cell `0` is the flags =>
+  NOT active-low => **`soft_reset_inverted = 0`**.
+- With inverted=0, `sdx50m_toggle_soft_reset` (esoc-mdm-pon.c:45):
+  **assert = 0 (drive LOW), de-assert = 1 (drive HIGH)**. Sequence = pulse LOW
+  for the `usleep_range(120000,180000)` window, then HIGH; idle = HIGH.
+- LIVE cross-check matches exactly: V1276 found native PMIC GPIO9 steady-state
+  `out/high` (== de-asserted idle), identical to Android V919; V1318 captured a
+  native GPIO1270 (PMIC GPIO9) **low->high pulse** before GPIO135. So native
+  drives the PON line with the correct polarity, level, and idle state.
+  => Do NOT spend live cycles "fixing" GPIO9 polarity/pinctrl. It is right.
+
+### Provider has ZERO power/regulator code — CONFIRMED
+- `grep -rn regulator|vreg|supply` across all of `drivers/esoc/*.c|h` = **none**.
+- The only "power" symbols are GPIOs the provider reads/asserts, not rails:
+  - `MDM_PMIC_PWR_STATUS` (esoc-mdm.h:67): an INPUT the AP reads
+    (`gpio_direction_input`, esoc-mdm-pon.c:299) — and A90 DTS does NOT populate
+    `qcom,mdm-pmic-pwr-status`, so it is invalid/skipped.
+  - `AP2MDM_PMIC_PWR_EN` (esoc-mdm-4x.c:51): an output to enable a modem PMIC —
+    A90 DTS does NOT populate `qcom,ap2mdm-pmic-pwr-en-gpio`, so it is never
+    driven.
+- Therefore the eSoC provider, by construction, drives **no modem main rail**.
+  Its entire AP-side power lever is the GPIO9 PON pulse, which native does
+  correctly. If the SDX50M main VDD is off, nothing in this driver turns it on.
+
+### Who powers the SDX50M main rail — NOT on disk
+- No XBL/ABL/sbl/NON-HLOS/modem partition dump exists in the repo
+  (`find ... -iname '*xbl*' / '*abl*' / '*NON-HLOS*' / '*modem*.img'` = none).
+- So the cold-boot agent that brings up the SDX50M main rail (bootloader/PMIC
+  HW default) is genuinely not present in any on-disk artifact.
+
+### Net host conclusion (firmly grounded this time)
+The **entire AP/software side is host-verified complete and correct**: right PON
+polarity (source + 2 live captures agree), GPIO135 assert, ESOC_REQ_IMG queued,
+auto_boot=false full path. The provider provably cannot and does not power the
+modem rail. The single remaining unknown — is the SDX50M main rail actually
+powered when native's PON pulse lands — is **not on disk** and is hardware/
+bootloader-level. The only way to advance is a bounded read-only LIVE observation
+of the natural `__subsystem_get(esoc0)` -> `mdm_subsys_powerup` window watching
+the MDM2AP/GPIO142 IRQ count (NOT forced RC1, NOT fake-ONLINE, no PMIC/GPIO write).
