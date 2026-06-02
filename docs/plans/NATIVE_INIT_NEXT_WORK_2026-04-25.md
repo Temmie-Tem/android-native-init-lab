@@ -9844,3 +9844,37 @@ Samsung bootloader
   `docs/reports/NATIVE_INIT_V1625_PM_SERVICE_SHUTDOWN_LIST_SOURCE_BUILD_2026-06-02.md`
   and
   `docs/reports/NATIVE_INIT_V1626_PM_SERVICE_SHUTDOWN_LIST_ARTIFACT_SANITY_2026-06-02.md`.
+
+- V1627 rollbackable live handoff is complete.  It flashes the V1625
+  shutdown-list test image, collects service-window evidence, rolls back from
+  native, and verifies v724 selftest after rollback.  Handoff/rollback passes,
+  but strict Wi-Fi progress remains absent; the decision is
+  `v1627-test-boot-no-downstream-wifi-progress-blocked`.
+
+  V1628 host-only classifier passes as
+  `v1628-shutdown-list-accepted-pm-service-still-exits-before-ipc`.
+
+  Important boundary movement:
+
+  - `allow_peripheral_shutdown_list=1` is proven in the property shim.
+  - `vendor.peripheral.shutdown_critical_list` writes for `SDX50M ` and
+    `SDX50M modem ` now return success.
+  - `/dev/__properties__` remains materialized.
+  - `pm-service` still exits naturally before binder/socket/subsystem fd
+    ownership.
+  - no RC1, MHI, WLFW, BDF, FW-ready, or `wlan0` progress appears.
+
+  Branch correction: the immediate blockers are no longer property-root
+  materialization or shutdown-critical-list allowlisting.  The next work should
+  be host-only and should classify the remaining `pm-service` early-exit
+  dependency against Android-good lifecycle evidence and prior V857-V860
+  property-contract results.
+
+  Next gate: V1629 host-only `pm-service` early-exit dependency classifier.
+  Decide whether the next minimal experiment should be private read-only
+  system-info parity modelling, init-property lifecycle modelling, or another
+  missing IPC/service-manager surface.  Do not add any new live lower-layer
+  retry until that dependency is narrowed.  Reports:
+  `docs/reports/NATIVE_INIT_V1627_PM_SERVICE_SHUTDOWN_LIST_HANDOFF_2026-06-02.md`
+  and
+  `docs/reports/NATIVE_INIT_V1628_PM_SERVICE_SHUTDOWN_LIST_CLASSIFIER_2026-06-02.md`.

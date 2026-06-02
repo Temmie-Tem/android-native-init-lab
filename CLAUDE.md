@@ -4405,3 +4405,45 @@ ownership, roll back to `stage3/boot_linux_v724.img`, and verify selftest
 `docs/reports/NATIVE_INIT_V1625_PM_SERVICE_SHUTDOWN_LIST_SOURCE_BUILD_2026-06-02.md`
 and
 `docs/reports/NATIVE_INIT_V1626_PM_SERVICE_SHUTDOWN_LIST_ARTIFACT_SANITY_2026-06-02.md`.
+
+## Latest native Wi-Fi state: V1627/V1628 (2026-06-02)
+
+V1627 rollbackable live handoff flashed the V1625 shutdown-list test image,
+collected service-window evidence, rolled back from native, and verified v724
+selftest after rollback.  Handoff/rollback passes, but strict Wi-Fi progress
+remains absent; the decision is
+`v1627-test-boot-no-downstream-wifi-progress-blocked`.
+
+V1628 host-only classification passes as
+`v1628-shutdown-list-accepted-pm-service-still-exits-before-ipc`.
+
+New evidence:
+
+- property shim starts with `allow_peripheral_shutdown_list=1`.
+- `vendor.peripheral.shutdown_critical_list` writes for `SDX50M ` and
+  `SDX50M modem ` are accepted with success results.
+- `/dev/__properties__` remains materialized and captured in the private
+  namespace.
+- `subsys0=modem ONLINE`, `subsys9=esoc0 OFFLINING`, and `esoc0=SDX50M`
+  remain the system-info surface visible before `pm-service` startup.
+- `pm-service` still exits naturally with code `0`, signal `0`, before opening
+  binder, sockets, `/dev/subsys_modem`, or `/dev/subsys_esoc0`.
+- no downstream RC1, MHI, WLFW, BDF, FW-ready, or `wlan0` progress appears.
+
+Branch correction: property-root materialization and shutdown-critical-list
+allowlisting are now closed as immediate blockers.  The next useful work is not
+a lower-layer retry; it is a host-only dependency classifier for the remaining
+`pm-service` early-exit branch, using the accepted property sequence, captured
+runtime surface, Android-good `vendor.per_mgr` lifecycle, and older V857-V860
+property-contract results.
+
+Next gate: V1629 host-only `pm-service` early-exit dependency classifier.  It
+should determine whether the next minimal experiment is private read-only
+system-info parity modelling, init-property lifecycle modelling, or a different
+missing IPC/service-manager surface.  Keep blocked: Wi-Fi HAL start,
+scan/connect, credentials, DHCP/routes, external ping, PMIC/GPIO/GDSC writes,
+blind eSoC notify/`BOOT_DONE`, global PCI rescan, platform bind/unbind, and
+direct scoped `/dev/subsys_esoc0` actor opens.  Reports:
+`docs/reports/NATIVE_INIT_V1627_PM_SERVICE_SHUTDOWN_LIST_HANDOFF_2026-06-02.md`
+and
+`docs/reports/NATIVE_INIT_V1628_PM_SERVICE_SHUTDOWN_LIST_CLASSIFIER_2026-06-02.md`.
