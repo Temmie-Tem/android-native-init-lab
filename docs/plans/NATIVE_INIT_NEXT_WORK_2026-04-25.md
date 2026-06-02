@@ -14735,3 +14735,42 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
     `boot_wlan`, restart-PD, Wi-Fi HAL, scan/connect, credentials,
     DHCP/routes, and external ping until `wlanmdsp.mbn` request or WLFW service
     69 appears.
+
+## V1759 WLAN-PD route-minimization stop / V1753 redirect label reinstated (2026-06-03)
+
+- V1759 stops the post-V1758 provider-composition direction for the immediate
+  `wlan0` goal.
+
+  Host-only reclassification:
+
+  - report:
+    `docs/reports/NATIVE_INIT_V1759_WLAN_PD_ROUTE_MINIMIZATION_STOP_2026-06-03.md`;
+  - decision:
+    `v1759-route-minimization-superseded-by-v1753-firmware-request-diff`;
+  - active label: `firmware-not-requested`;
+  - primary evidence:
+    `docs/reports/NATIVE_INIT_V1753_WLAN_PD_FIRMWARE_REQUEST_DIFF_2026-06-03.md`;
+  - validation rerun:
+    `python3 scripts/revalidation/native_wifi_wlan_pd_firmware_request_diff_v1753.py`
+    returned PASS with label `firmware-not-requested`.
+
+  Reclassification:
+
+  - V1736 already reaches `wlfw_start`, `wlfw_service_request`, and WLFW worker
+    creation on the SM route;
+  - Android-good V1753 captures `tftp_server` requests for `wlanmdsp.mbn`;
+  - native V1736 has `tftp_server` running but `requested_wlanmdsp=0`;
+  - therefore the decisive blocker is not route minimization, PM actor
+    expansion, provider visibility, QCACLD registration, eSoC, RC1, or Wi-Fi HAL;
+  - the active blocker is that the internal modem never starts
+    `msm/modem/wlan_pd` and never requests `wlanmdsp.mbn`.
+
+  Stop conditions:
+
+  - do not continue V1759 provider-positive composition for the current WLAN-PD
+    gate;
+  - do not add PM/service-window actors, `boot_wlan`, restart-PD request,
+    `/dev/subsys_esoc0`, forced RC1, fake-ONLINE, PMIC/GPIO/GDSC writes,
+    Wi-Fi HAL, scan/connect, credentials, DHCP/routes, or external ping;
+  - hand back after the fixed label.  The next cycle must be a separately
+    scoped modem-side WLAN-PD autoload/request-trigger analysis.
