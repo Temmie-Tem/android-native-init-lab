@@ -4050,3 +4050,66 @@ global PCI rescan, or platform bind/unbind.  Reports:
 `docs/reports/NATIVE_INIT_V1610_PER_MGR_EARLY_EXIT_TRACE_HANDOFF_2026-06-02.md`
 and
 `docs/reports/NATIVE_INIT_V1611_PER_MGR_EARLY_EXIT_TRACE_CLASSIFIER_2026-06-02.md`.
+
+## Latest native Wi-Fi state: V1612-V1615 (2026-06-02)
+
+V1612 implements the V1611 branch correction: retire `pm-service`
+`ptrace-lite` and keep the same PM-first late `per_proxy` PPH-gated route with
+non-stopping context capture.  The helper is bumped to
+`a90_android_execns_probe v300`; the added flag is
+`--allow-android-wifi-service-window-per-mgr-nonstop-context-trace`.
+
+V1612 source build passes as
+`v1612-per-mgr-nonstop-context-test-boot-source-build-pass`:
+
+- boot image:
+  `tmp/wifi/v1612-per-mgr-nonstop-context-test-boot/boot_linux_v1612_wifi_test.img`
+- boot sha256:
+  `0c2d70855faeb841d9622e4dd87df0f4b13b532abc4cf83047f2a988ec73ece8`
+- init: `A90 Linux init 0.9.108 (v1612-per-mgr-nonstop-context)`
+- helper marker: `a90_android_execns_probe v300`
+- helper sha256:
+  `f6915085d26e8505d4407c810e4e0cc7729e435cf42c132091d5dd8ca8826373`
+
+V1613 artifact sanity passes as
+`v1613-per-mgr-nonstop-context-artifact-sanity-pass`.  V1614 then runs the
+rollbackable live handoff for the V1612 image.  The handoff/rollback path is
+clean: V1612 boots, evidence is collected, rollback from native restores v724,
+and post-rollback selftest remains `fail=0`.  Strict Wi-Fi progress remains
+blocked as `v1614-test-boot-no-downstream-wifi-progress-blocked`.
+
+V1615 classifies V1614 evidence and passes as
+`v1615-natural-pm-service-exit-after-offline-property-writes`.  This is the
+current blocker:
+
+- `pm-service` is not ptraced: `child.per_mgr.traced=0`.
+- Natural early exit is reproduced: state `D` at `0ms`, state `Z` at `20ms`,
+  reaped/gone by `41ms`, exit code `0`.
+- No PM contract fd appears: `/dev/subsys_modem=0`, `/dev/subsys_esoc0=0`,
+  `pm_full_contract_seen=0`, `subsys_esoc0_open_attempted=0`.
+- Property shim sees exactly three requests:
+  `hwservicemanager.ready=true`, `vendor.peripheral.SDX50M.state=OFFLINE`, and
+  `vendor.peripheral.modem.state=OFFLINE`.
+- Lower Wi-Fi remains absent: no provider trigger, RC1, MHI, WLFW, BDF,
+  FW-ready, or `wlan0`.
+
+Interpretation: this branch is no longer an RC1/MHI/WLFW problem.  The active
+blocker is the peripheral-manager launch/property contract that makes
+`/vendor/bin/pm-service` exit cleanly after publishing SDX50M/modem OFFLINE and
+before opening binder or `/dev/subsys_modem`.
+
+Next work: V1616 should be host-only plus source/build-only
+`pm-service` dependency/launch-contract classification.  Focus on
+`/vendor/bin/pm-service` strings/readelf/needed-libs, Android vendor init
+service stanza, user/group/seclabel/capabilities/environment, and Android-good
+property values consumed by peripheral manager.  If needed, build a bounded
+property-contract variant that exposes initial peripheral properties without
+ptrace.  Still no `pm-service` syscall ptrace, `mdm_helper` ptrace, direct
+scoped `/dev/subsys_esoc0`, Wi-Fi HAL start, scan/connect, credentials,
+DHCP/routes, external ping, PMIC/GPIO/GDSC direct writes, blind eSoC
+notify/`BOOT_DONE`, global PCI rescan, or platform bind/unbind.  Reports:
+`docs/reports/NATIVE_INIT_V1612_PER_MGR_NONSTOP_CONTEXT_SOURCE_BUILD_2026-06-02.md`,
+`docs/reports/NATIVE_INIT_V1613_PER_MGR_NONSTOP_CONTEXT_ARTIFACT_SANITY_2026-06-02.md`,
+`docs/reports/NATIVE_INIT_V1614_PER_MGR_NONSTOP_CONTEXT_HANDOFF_2026-06-02.md`,
+and
+`docs/reports/NATIVE_INIT_V1615_PER_MGR_NONSTOP_CONTEXT_CLASSIFIER_2026-06-02.md`.

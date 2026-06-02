@@ -9567,3 +9567,49 @@ Samsung bootloader
   `docs/reports/NATIVE_INIT_V1610_PER_MGR_EARLY_EXIT_TRACE_HANDOFF_2026-06-02.md`
   and
   `docs/reports/NATIVE_INIT_V1611_PER_MGR_EARLY_EXIT_TRACE_CLASSIFIER_2026-06-02.md`.
+
+- V1612-V1615 non-stopping `pm-service` loop is complete.  V1612 bumps
+  `a90_android_execns_probe` to v300, preserves the PM-first late-per-proxy
+  PPH-gated lower-marker route, removes ptrace-lite from the `pm-service`
+  branch, and adds
+  `--allow-android-wifi-service-window-per-mgr-nonstop-context-trace`.
+  V1613 artifact sanity passes, and V1614 rollbackable live handoff boots the
+  V1612 image, collects evidence, rolls back from native to v724, and verifies
+  selftest `fail=0`.
+
+  V1615 passes as
+  `v1615-natural-pm-service-exit-after-offline-property-writes`.  This fixes
+  the current blocker more precisely: without ptrace perturbation,
+  `/vendor/bin/pm-service` naturally exits cleanly before any PM contract fd.
+  The startup trace sees state `D` at `0ms`, state `Z` at `20ms`,
+  `first_child_done_ms=21`, `first_gone_ms=41`, and `exit_code=0`.  It never
+  opens `/dev/subsys_modem`, `/dev/subsys_esoc0`, binder nodes, sockets, or a
+  PM full contract.
+
+  The property shim records exactly three requests in that window:
+  `hwservicemanager.ready=true`, `vendor.peripheral.SDX50M.state=OFFLINE`, and
+  `vendor.peripheral.modem.state=OFFLINE`.  Lower Wi-Fi remains absent: no
+  provider trigger, RC1, MHI, WLFW, BDF, FW-ready, or `wlan0`.
+
+  Current branch correction: do not retry lower SDX50M/eSoC/RC1 from this
+  state, and do not reintroduce `pm-service` syscall ptrace.  The active
+  blocker is the peripheral-manager launch/property contract that makes
+  `pm-service` publish SDX50M/modem OFFLINE and exit before opening binder or
+  `/dev/subsys_modem`.
+
+  Next gate: V1616 host-only plus source/build-only `pm-service`
+  dependency/launch-contract classifier.  Check `/vendor/bin/pm-service`
+  strings/readelf/needed-libs, Android vendor init service stanza, user/group,
+  seclabel, capabilities, environment, and Android-good property values
+  consumed by peripheral manager.  If justified, build a bounded
+  property-contract variant that exposes initial peripheral properties without
+  ptrace.  Still no `pm-service` syscall ptrace, `mdm_helper` ptrace, direct
+  scoped `/dev/subsys_esoc0`, credentials, scan/connect, DHCP/routes, external
+  ping, PMIC/GPIO/GDSC direct writes, blind eSoC notify/`BOOT_DONE`, global PCI
+  rescan, platform bind/unbind, or unbounded boot-image/partition writes.
+  Reports:
+  `docs/reports/NATIVE_INIT_V1612_PER_MGR_NONSTOP_CONTEXT_SOURCE_BUILD_2026-06-02.md`,
+  `docs/reports/NATIVE_INIT_V1613_PER_MGR_NONSTOP_CONTEXT_ARTIFACT_SANITY_2026-06-02.md`,
+  `docs/reports/NATIVE_INIT_V1614_PER_MGR_NONSTOP_CONTEXT_HANDOFF_2026-06-02.md`,
+  and
+  `docs/reports/NATIVE_INIT_V1615_PER_MGR_NONSTOP_CONTEXT_CLASSIFIER_2026-06-02.md`.

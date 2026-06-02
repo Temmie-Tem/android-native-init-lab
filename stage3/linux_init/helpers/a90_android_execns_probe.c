@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v299"
+#define EXECNS_VERSION "a90_android_execns_probe v300"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -283,6 +283,7 @@ struct config {
     bool allow_android_wifi_service_window_pph_modem_fd_gate;
     bool allow_android_wifi_service_window_per_mgr_startup_trace;
     bool allow_android_wifi_service_window_per_mgr_early_exit_trace; /* v299 */
+    bool allow_android_wifi_service_window_per_mgr_nonstop_context_trace; /* v300 */
     bool require_android_selinux_exec_match;
     bool pm_observer_zero_delay_per_mgr_probe;
     bool pm_observer_continue_after_provider;
@@ -1513,6 +1514,10 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             cfg->allow_android_wifi_service_window_per_mgr_early_exit_trace = true;
             continue;
         }
+        if (strcmp(argv[i], "--allow-android-wifi-service-window-per-mgr-nonstop-context-trace") == 0) {
+            cfg->allow_android_wifi_service_window_per_mgr_nonstop_context_trace = true;
+            continue;
+        }
         if (strcmp(argv[i], "--require-android-selinux-exec-match") == 0) {
             cfg->require_android_selinux_exec_match = true;
             continue;
@@ -2364,6 +2369,21 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
     if (cfg->allow_android_wifi_service_window_per_mgr_early_exit_trace &&
         !streq(cfg->capture_mode, "ptrace-lite")) {
         fprintf(stderr, "--allow-android-wifi-service-window-per-mgr-early-exit-trace requires --capture-mode ptrace-lite\n");
+        return 2;
+    }
+    if (cfg->allow_android_wifi_service_window_per_mgr_nonstop_context_trace &&
+        !cfg->allow_android_wifi_service_window_per_mgr_startup_trace) {
+        fprintf(stderr, "--allow-android-wifi-service-window-per-mgr-nonstop-context-trace requires --allow-android-wifi-service-window-per-mgr-startup-trace\n");
+        return 2;
+    }
+    if (cfg->allow_android_wifi_service_window_per_mgr_nonstop_context_trace &&
+        cfg->allow_android_wifi_service_window_per_mgr_early_exit_trace) {
+        fprintf(stderr, "--allow-android-wifi-service-window-per-mgr-nonstop-context-trace is mutually exclusive with --allow-android-wifi-service-window-per-mgr-early-exit-trace\n");
+        return 2;
+    }
+    if (cfg->allow_android_wifi_service_window_per_mgr_nonstop_context_trace &&
+        !streq(cfg->capture_mode, "none")) {
+        fprintf(stderr, "--allow-android-wifi-service-window-per-mgr-nonstop-context-trace requires --capture-mode none\n");
         return 2;
     }
     if (!is_cnss_service_manager_matrix_order(cfg->service_manager_order)) {
@@ -39595,6 +39615,8 @@ static int run_wifi_companion_android_wifi_service_window_guarded(const struct c
     const bool pph_modem_fd_gate = cfg->allow_android_wifi_service_window_pph_modem_fd_gate;
     const bool per_mgr_startup_trace =
         cfg->allow_android_wifi_service_window_per_mgr_startup_trace;
+    const bool per_mgr_nonstop_context_trace =
+        cfg->allow_android_wifi_service_window_per_mgr_nonstop_context_trace;
     const bool stripped_no_hal_route = pm_first_route || pm_first_late_per_proxy_route;
     const bool direct_subsys_trigger =
         is_wifi_companion_android_wifi_service_window_subsys_trigger_capture_mode(cfg->mode) &&
@@ -39813,6 +39835,9 @@ static int run_wifi_companion_android_wifi_service_window_guarded(const struct c
         append_format(stdout_buf,
                       "android_wifi_service_window.per_mgr_early_exit_trace=%d\n",
                       cfg->allow_android_wifi_service_window_per_mgr_early_exit_trace ? 1 : 0) < 0 ||
+        append_format(stdout_buf,
+                      "android_wifi_service_window.per_mgr_nonstop_context_trace=%d\n",
+                      per_mgr_nonstop_context_trace ? 1 : 0) < 0 ||
         append_literal(stdout_buf, "android_wifi_service_window.mdm_helper_start_planned=1\n") < 0 ||
         append_literal(stdout_buf, "android_wifi_service_window.cnss_daemon_start_planned=1\n") < 0 ||
         append_literal(stdout_buf, "android_wifi_service_window.qcwlanstate_write=0\n") < 0 ||
@@ -39991,11 +40016,37 @@ static int run_wifi_companion_android_wifi_service_window_guarded(const struct c
             long settle_deadline = monotonic_ms() + 700L;
 
             if (per_mgr_startup_trace) {
+                if (per_mgr_nonstop_context_trace &&
+                    (append_wifi_registry_context_snapshot(stdout_buf,
+                                                           "per_mgr_pre_startup_trace",
+                                                           paths,
+                                                           children,
+                                                           i + 1U) < 0 ||
+                     append_wifi_runtime_surface_snapshot(stdout_buf,
+                                                          paths,
+                                                          "android_wifi_service_window.runtime_per_mgr_pre_startup_trace") < 0)) {
+                    composite_cleanup_children(children, i + 1U, stdout_buf, stderr_buf);
+                    stop_property_service_shim(&property_shim, paths, stdout_buf);
+                    return -1;
+                }
                 if (append_per_mgr_startup_trace(stdout_buf,
                                                  stderr_buf,
                                                  &children[i],
                                                  pm_proxy_helper_index >= 0 ? &children[pm_proxy_helper_index] : NULL,
                                                  &property_shim) < 0) {
+                    composite_cleanup_children(children, i + 1U, stdout_buf, stderr_buf);
+                    stop_property_service_shim(&property_shim, paths, stdout_buf);
+                    return -1;
+                }
+                if (per_mgr_nonstop_context_trace &&
+                    (append_wifi_registry_context_snapshot(stdout_buf,
+                                                           "per_mgr_post_startup_trace",
+                                                           paths,
+                                                           children,
+                                                           i + 1U) < 0 ||
+                     append_wifi_runtime_surface_snapshot(stdout_buf,
+                                                          paths,
+                                                          "android_wifi_service_window.runtime_per_mgr_post_startup_trace") < 0)) {
                     composite_cleanup_children(children, i + 1U, stdout_buf, stderr_buf);
                     stop_property_service_shim(&property_shim, paths, stdout_buf);
                     return -1;
@@ -40530,6 +40581,7 @@ static int run_wifi_companion_android_wifi_service_window_guarded(const struct c
                   "android_wifi_service_window.pm_first_late_per_proxy_route=%d\n"
                   "android_wifi_service_window.pph_modem_fd_gate=%d\n"
                   "android_wifi_service_window.per_mgr_early_exit_trace=%d\n"
+                  "android_wifi_service_window.per_mgr_nonstop_context_trace=%d\n"
                   "android_wifi_service_window.pph_modem_fd_gate_seen=%d\n"
                   "android_wifi_service_window.pph_modem_fd_gate_samples=%d\n"
                   "android_wifi_service_window.pph_modem_fd_gate_first_seen_ms=%d\n"
@@ -40551,6 +40603,7 @@ static int run_wifi_companion_android_wifi_service_window_guarded(const struct c
                   pm_first_late_per_proxy_route ? 1 : 0,
                   pph_modem_fd_gate ? 1 : 0,
                   cfg->allow_android_wifi_service_window_per_mgr_early_exit_trace ? 1 : 0,
+                  per_mgr_nonstop_context_trace ? 1 : 0,
                   pph_modem_fd_gate_seen,
                   pph_modem_fd_gate_samples,
                   pph_modem_fd_gate_first_seen_ms,
@@ -40912,6 +40965,8 @@ int main(int argc, char **argv) {
            cfg.allow_android_wifi_service_window_per_mgr_startup_trace ? 1 : 0);
     printf("allow_android_wifi_service_window_per_mgr_early_exit_trace=%d\n",
            cfg.allow_android_wifi_service_window_per_mgr_early_exit_trace ? 1 : 0);
+    printf("allow_android_wifi_service_window_per_mgr_nonstop_context_trace=%d\n",
+           cfg.allow_android_wifi_service_window_per_mgr_nonstop_context_trace ? 1 : 0);
     printf("connect_config=%s\n", cfg.connect_config != NULL ? cfg.connect_config : "<none>");
     printf("connect_iface=%s\n", cfg.connect_iface != NULL ? cfg.connect_iface : "<none>");
     printf("ping_target=%s\n", cfg.ping_target != NULL ? cfg.ping_target : "<none>");
