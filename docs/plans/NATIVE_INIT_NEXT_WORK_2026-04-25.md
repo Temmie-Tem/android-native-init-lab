@@ -15307,3 +15307,46 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
   - compare V1772 child stdout/stderr and `vndservice list` output with the
     retained provider-positive V1101/V1761 evidence before any further live PM
     gate.
+
+## V1773 WLAN-PD service-object route gap classifier (2026-06-03)
+
+- V1773 reconciles V1772 with the retained provider-positive V1092 control and
+  the V1761/V1767 PM contract.
+
+  Host-only classifier:
+
+  - script:
+    `scripts/revalidation/native_wifi_wlan_pd_service_object_route_gap_classifier_v1773.py`;
+  - report:
+    `docs/reports/NATIVE_INIT_V1773_WLAN_PD_SERVICE_OBJECT_ROUTE_GAP_CLASSIFIER_2026-06-03.md`;
+  - decision:
+    `v1773-provider-not-registered-after-per-mgr-clean-exit-host-pass`;
+  - label:
+    `provider-not-registered-after-per-mgr-clean-exit`;
+  - evidence:
+    `tmp/wifi/v1773-wlan-pd-service-object-route-gap-classifier`.
+
+  Classification:
+
+  - V1772 is not proof that a non-null PeripheralManager object failed to cause
+    a PM vote; the object never became visible.
+  - V1772 `vndservice list` was executable and exited zero, but both the
+    `vndservicemanager_ready` query and the after-`per_mgr` query returned
+    `Found 0 services:`.
+  - V1772 showed `pm_proxy_helper_ready=1` and `per_mgr_ready=1`, but both
+    `pm_proxy_helper` and `pm-service` later exited cleanly with exit code `0`;
+    neither process was running at the final summary point.
+  - V1092 is the positive control: with the retained PM observer route,
+    `vendor.qcom.PeripheralManager` appeared after `per_mgr` and before
+    `per_proxy`.
+  - Therefore the immediate gap is route/helper provider registration or
+    provider lifetime, not a downstream modem/WLAN-PD decision.
+
+  Current next candidate:
+
+  - host/source-only diff of V1772 vs V1092 PM route setup:
+    property shim allowlist, `vendor.peripheral.shutdown_critical_list`,
+    `pm-service` argv/lifetime, service namespace, and post-start wait
+    semantics;
+  - do not run another live PM gate until that diff identifies a specific
+    route repair target and a new explicit approval opens it.
