@@ -10969,3 +10969,37 @@ concrete rail/register owner (V1655). Rail inventory (V1641): SDX50M main rail
 
   Report:
   `docs/reports/NATIVE_INIT_V1662_ANDROID_NATIVE_POWER_DIFF_CLASSIFIER_2026-06-02.md`.
+
+## V1663 pcie1 Vote Gate Plan (2026-06-02)
+
+- V1663 host-only gate plan passed as
+  `v1663-pcie1-clock-vote-gate-plan-ready`.
+
+  Rationale:
+
+  - V1662 already fixed the next label as `power-vote-gap`;
+  - Android-good enables `pcie_1_gdsc` and ten target pcie1/refgen clocks while
+    native natural path keeps them at zero;
+  - `clock-debug.c` provides a narrow debugfs leaf write surface for clock
+    `rate` and `enable`;
+  - no safe direct `pcie_1_gdsc`/regulator write surface is proven yet;
+  - `pci-msm` debug `case` writes remain too broad for the first write gate and
+    are excluded from this unit.
+
+  Next fixed gate:
+
+  - V1664 source/build-only test boot support;
+  - V1665 one rollbackable bounded live run;
+  - writes limited to targeted
+    `/sys/kernel/debug/clk/<target>/{rate,enable}` leaves;
+  - disable only clocks successfully enabled by the test boot before rollback;
+  - classify as `clock-vote-surface-pass-no-gdsc`,
+    `clock-vote-surface-pass-gdsc-moved`, or `clock-vote-surface-failed`.
+
+  Hard stops remain unchanged: no regulator/GDSC direct write, no
+  `/sys/kernel/debug/pci-msm/case`, no forced RC1 enumerate, no PMIC/GPIO/PERST
+  write, no eSoC notify/`BOOT_DONE`, no PCI rescan, no platform bind/unbind, no
+  Wi-Fi HAL, scan/connect, credentials, DHCP/routes, or external ping.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1663_PCIE1_VOTE_GATE_PLAN_2026-06-02.md`.
