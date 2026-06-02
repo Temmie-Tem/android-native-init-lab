@@ -16115,3 +16115,70 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
   - only after V1789 names the exact missing field should a rollbackable live
     repair be considered, likely private read-only sysfs discovery parity in
     the vendor exec namespace rather than another actor start.
+
+## V1789 PM add-peripheral init-fail classifier (2026-06-03)
+
+- V1789 completed the host-only static classifier for the add-peripheral
+  init-fail branch observed in V1788.
+
+  Evidence:
+
+  - script:
+    `scripts/revalidation/native_wifi_pm_add_peripheral_init_fail_classifier_v1789.py`;
+  - report:
+    `docs/reports/NATIVE_INIT_V1789_PM_ADD_PERIPHERAL_INIT_FAIL_CLASSIFIER_2026-06-03.md`;
+  - evidence directory:
+    `tmp/wifi/v1789-pm-add-peripheral-init-fail-static`;
+  - decision:
+    `v1789-pm-add-peripheral-devnode-access-gap-host-pass`;
+  - label:
+    `pm-add-peripheral-devnode-access-gap`.
+
+  Key evidence:
+
+  - V1788 reached `get_system_info` once with no immediate failure;
+  - the first add-peripheral path ran twice and reached the known-name
+    checkpoint twice, but both attempts hit init-fail and no supported-list
+    commit occurred;
+  - static control flow shows the add-peripheral path constructs the PM
+    peripheral object, then calls an init/access helper before committing the
+    object into the supported-list;
+  - the init/access helper calls `access(<record+0x44 devnode>, F_OK)` and logs
+    `%s can not access device file %s: %s` on failure;
+  - `libmdmdetect` fills record `+0x44` using `/dev/subsys_%s` from discovered
+    sysfs entries;
+  - the static PM table still includes the expected enabled names: `modem`,
+    `SDX50M`, `SDX55M`, and `SDXPRAIRIE`.
+
+  Interpretation:
+
+  - V1788 is not a service-object-null or CNSS client TX problem: provider,
+    `asInterface`, and register/vote TX were all present;
+  - V1788 is not a simple candidate-name mismatch: both add-peripheral attempts
+    reached the known-name checkpoint;
+  - the current blocker is private devnode discovery/parity for the discovered
+    PM-service candidates, because PM-service refuses to commit candidates whose
+    discovered `/dev/subsys_*` path does not pass `access(F_OK)`;
+  - this evidence does not justify blind `/dev/subsys_esoc0` opens, eSoC/RC1
+    retries, additional PM actors, `boot_wlan`, restart-PD, Wi-Fi HAL,
+    scan/connect, DHCP/routes, or external ping.
+
+  Safety:
+
+  - host-only. No live device command, flash, reboot, Wi-Fi HAL, scan/connect,
+    credentials, DHCP/routes, external ping, PM actor start, eSoC/RC1 action,
+    restart-PD request, firmware write, partition write, PMIC/GPIO/GDSC write,
+    PCI rescan, platform bind/unbind, BPF attach, or tracefs write.
+
+  Next candidate:
+
+  - V1790 should stay source/build-only first: add a bounded PM-service
+    discovery argument/string observer or private namespace preflight that
+    records the exact discovered candidate names and `/dev/subsys_*` devnode
+    strings before any repair;
+  - if the exact missing devnode is confirmed, the next rollbackable live unit
+    can be a narrowly scoped private devnode parity repair for PM-service
+    discovery only;
+  - any live repair must retain the existing hard stops and must not open
+    `/dev/subsys_esoc0`, trigger forced RC1, spoof ONLINE, or start Wi-Fi
+    scan/connect paths.
