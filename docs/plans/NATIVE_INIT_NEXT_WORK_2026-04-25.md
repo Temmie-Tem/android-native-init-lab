@@ -14371,3 +14371,62 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
 
   Report:
   `docs/reports/NATIVE_INIT_V1751_WLAN_PD_TRACEFS_MOUNT_RESTORE_HANDOFF_2026-06-03.md`.
+
+## V1752 WLAN-PD downstream classifier (2026-06-03)
+
+- V1752 host-only downstream route reconciliation classifier completed.
+
+  Result:
+
+  - decision:
+    `v1752-pure-route-default-sm-blocker-reconciled-service-route-downstream-pass`;
+  - evidence: `tmp/wifi/v1752-wlan-pd-downstream-classifier`;
+  - report:
+    `docs/reports/NATIVE_INIT_V1752_WLAN_PD_DOWNSTREAM_CLASSIFIER_2026-06-03.md`;
+  - no device contact, flash, reboot, live service start, Wi-Fi HAL,
+    scan/connect, credentials, DHCP/routes, or external ping was performed.
+
+  Evidence used:
+
+  - V1751/V1719 pure no-service-manager route reaches `wlfw_start` but blocks
+    before `wlfw_service_request`;
+  - V1719 shows optional PM init call hit `1` but return hit `0`;
+  - V1719 shows `pm_client_register` call hit `1` but retcheck hit `0`;
+  - V1719 shows `defaultServiceManager()` hit `1`, but
+    `String16("vendor.qcom.PeripheralManager")` and service-manager get hit
+    `0`;
+  - static disassembly confirms `wlfw_start` enters the optional PM init path
+    before later QMI setup, and `libperipheral_client.so` calls
+    `defaultServiceManager()` before constructing the concrete
+    `vendor.qcom.PeripheralManager` service name;
+  - V1727/V1736 service-manager bootstrap route reaches `wlfw_service_request`
+    and WLFW worker creation;
+  - V1736 still shows WLFW service 69 `0`, WLFW indication/capability QMI
+    hits `0`/`0`, requested `wlanmdsp` `0`, and firmware label
+    `firmware-not-requested`.
+
+  Interpretation:
+
+  - the pure route defaultServiceManager blocker is real, but it is already
+    bypassed by the previously proven service-manager bootstrap route;
+  - service-manager is a CNSS entry/request enabler, not proof that WLAN-PD or
+    WLFW publication is triggered;
+  - the active downstream blocker remains modem-side WLAN-PD autoload: no WLFW
+    service 69, no WLFW indication/capability QMI, no `wlanmdsp` request, and
+    no `wlan0`;
+  - do not debug `pm-service -22`, add PM trio actors, add `boot_wlan`, or
+    return to eSoC/RC1 for the WLAN-PD goal.
+
+  Next candidate:
+
+  - V1753 should be host-only/source-only: compare Android-good firmware
+    request/serve evidence for `wlanmdsp.mbn` around WLAN-PD UP against the
+    V1736 native service-manager baseline;
+  - discriminator: whether Android-good `tftp_server` or `rmt_storage`
+    observes a WLAN-PD image request before WLAN-PD UP and which served path
+    satisfies it;
+  - do not rebuild or rerun the service-manager bootstrap unless a concrete
+    stale-evidence gap appears in V1727/V1736 artifacts;
+  - keep blocked: PM trio, `vendor.qcom.PeripheralManager` actor,
+    `pm-service -22` debugging, `boot_wlan`, eSoC/RC1, restart-PD request,
+    Wi-Fi HAL, scan/connect, credentials, DHCP/routes, and external ping.
