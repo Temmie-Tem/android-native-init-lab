@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v318"
+#define EXECNS_VERSION "a90_android_execns_probe v319"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -11821,7 +11821,7 @@ struct cnss_nonlog_maps_summary {
 };
 
 #define A90_CNSS_WLFW_UPROBE_TARGET_COUNT 3
-#define A90_CNSS_WLFW_UPROBE_EVENT_COUNT 31
+#define A90_CNSS_WLFW_UPROBE_EVENT_COUNT 45
 
 struct cnss_wlfw_uprobe_event_spec {
     const char *name;
@@ -11861,6 +11861,20 @@ static const struct cnss_wlfw_uprobe_event_spec cnss_wlfw_uprobe_events[A90_CNSS
     { "wlfw_worker_pthread_create_call", "wlfw_worker_pthread_create_call", 0xecf0ULL },
     { "wlfw_worker_pthread_create_failure", "wlfw_worker_pthread_create_failure", 0xecf8ULL },
     { "wlfw_worker_pthread_create_success", "wlfw_worker_pthread_create_success", 0xeda0ULL },
+    { "pm_init_entry", "pm_init_entry", 0xc39cULL },
+    { "pm_init_entry_log_call", "pm_init_entry_log_call", 0xc400ULL },
+    { "pm_init_type_check", "pm_init_type_check", 0xc404ULL },
+    { "pm_init_get_system_info_call", "pm_init_get_system_info_call", 0xc444ULL },
+    { "pm_init_system_info_ok", "pm_init_system_info_ok", 0xc470ULL },
+    { "pm_init_null_peripheral_branch", "pm_init_null_peripheral_branch", 0xc49cULL },
+    { "pm_init_null_peripheral_loop_entry", "pm_init_null_peripheral_loop_entry", 0xc58cULL },
+    { "pm_init_null_loop_type_check", "pm_init_null_loop_type_check", 0xc5e0ULL },
+    { "pm_init_pm_client_register_call", "pm_init_pm_client_register_call", 0xc624ULL },
+    { "pm_init_pm_client_register_retcheck", "pm_init_pm_client_register_retcheck", 0xc628ULL },
+    { "pm_init_handle_load", "pm_init_handle_load", 0xc62cULL },
+    { "pm_init_pm_client_connect_call", "pm_init_pm_client_connect_call", 0xc650ULL },
+    { "pm_init_pm_client_connect_retcheck", "pm_init_pm_client_connect_retcheck", 0xc654ULL },
+    { "pm_init_return_path", "pm_init_return_path", 0xc554ULL },
 };
 
 enum cnss_wlfw_uprobe_event_index {
@@ -11895,6 +11909,20 @@ enum cnss_wlfw_uprobe_event_index {
     CNSS_WLFW_UPROBE_WLFW_WORKER_PTHREAD_CREATE_CALL = 28,
     CNSS_WLFW_UPROBE_WLFW_WORKER_PTHREAD_CREATE_FAILURE = 29,
     CNSS_WLFW_UPROBE_WLFW_WORKER_PTHREAD_CREATE_SUCCESS = 30,
+    CNSS_WLFW_UPROBE_PM_INIT_ENTRY = 31,
+    CNSS_WLFW_UPROBE_PM_INIT_ENTRY_LOG_CALL = 32,
+    CNSS_WLFW_UPROBE_PM_INIT_TYPE_CHECK = 33,
+    CNSS_WLFW_UPROBE_PM_INIT_GET_SYSTEM_INFO_CALL = 34,
+    CNSS_WLFW_UPROBE_PM_INIT_SYSTEM_INFO_OK = 35,
+    CNSS_WLFW_UPROBE_PM_INIT_NULL_PERIPHERAL_BRANCH = 36,
+    CNSS_WLFW_UPROBE_PM_INIT_NULL_PERIPHERAL_LOOP_ENTRY = 37,
+    CNSS_WLFW_UPROBE_PM_INIT_NULL_LOOP_TYPE_CHECK = 38,
+    CNSS_WLFW_UPROBE_PM_INIT_PM_CLIENT_REGISTER_CALL = 39,
+    CNSS_WLFW_UPROBE_PM_INIT_PM_CLIENT_REGISTER_RETCHECK = 40,
+    CNSS_WLFW_UPROBE_PM_INIT_HANDLE_LOAD = 41,
+    CNSS_WLFW_UPROBE_PM_INIT_PM_CLIENT_CONNECT_CALL = 42,
+    CNSS_WLFW_UPROBE_PM_INIT_PM_CLIENT_CONNECT_RETCHECK = 43,
+    CNSS_WLFW_UPROBE_PM_INIT_RETURN_PATH = 44,
 };
 
 struct cnss_wlfw_uprobe_target_probe {
@@ -12424,6 +12452,34 @@ static int append_wlan_pd_cnss_nonlog_control_flow_summary(struct buffer *stdout
         label = "wlfw-start-common-path-no-cal-mutex-arg";
     } else if (uprobe->events[CNSS_WLFW_UPROBE_WLFW_OPTIONAL_PM_INIT2_CALL].hit_count > 0) {
         label = "wlfw-start-optional-pm-init2-call-no-return";
+    } else if (uprobe->events[CNSS_WLFW_UPROBE_PM_INIT_RETURN_PATH].hit_count > 0) {
+        label = "pm-init-returned";
+    } else if (uprobe->events[CNSS_WLFW_UPROBE_PM_INIT_PM_CLIENT_CONNECT_RETCHECK].hit_count > 0) {
+        label = "pm-init-connect-returned";
+    } else if (uprobe->events[CNSS_WLFW_UPROBE_PM_INIT_PM_CLIENT_CONNECT_CALL].hit_count > 0) {
+        label = "pm-init-connect-call-no-return";
+    } else if (uprobe->events[CNSS_WLFW_UPROBE_PM_INIT_HANDLE_LOAD].hit_count > 0) {
+        label = "pm-init-handle-load-no-connect";
+    } else if (uprobe->events[CNSS_WLFW_UPROBE_PM_INIT_PM_CLIENT_REGISTER_RETCHECK].hit_count > 0) {
+        label = "pm-init-register-returned-no-connect";
+    } else if (uprobe->events[CNSS_WLFW_UPROBE_PM_INIT_PM_CLIENT_REGISTER_CALL].hit_count > 0) {
+        label = "pm-init-register-call-no-return";
+    } else if (uprobe->events[CNSS_WLFW_UPROBE_PM_INIT_NULL_LOOP_TYPE_CHECK].hit_count > 0) {
+        label = "pm-init-null-loop-no-register";
+    } else if (uprobe->events[CNSS_WLFW_UPROBE_PM_INIT_NULL_PERIPHERAL_LOOP_ENTRY].hit_count > 0) {
+        label = "pm-init-null-loop-entry-no-type-check";
+    } else if (uprobe->events[CNSS_WLFW_UPROBE_PM_INIT_NULL_PERIPHERAL_BRANCH].hit_count > 0) {
+        label = "pm-init-null-loop-not-reached";
+    } else if (uprobe->events[CNSS_WLFW_UPROBE_PM_INIT_SYSTEM_INFO_OK].hit_count > 0) {
+        label = "pm-init-system-info-ok-no-null-branch";
+    } else if (uprobe->events[CNSS_WLFW_UPROBE_PM_INIT_GET_SYSTEM_INFO_CALL].hit_count > 0) {
+        label = "pm-init-get-system-info-call-no-return";
+    } else if (uprobe->events[CNSS_WLFW_UPROBE_PM_INIT_TYPE_CHECK].hit_count > 0) {
+        label = "pm-init-type-check-no-system-info";
+    } else if (uprobe->events[CNSS_WLFW_UPROBE_PM_INIT_ENTRY_LOG_CALL].hit_count > 0) {
+        label = "pm-init-entry-log-call-no-return";
+    } else if (uprobe->events[CNSS_WLFW_UPROBE_PM_INIT_ENTRY].hit_count > 0) {
+        label = "pm-init-entry-no-log-call";
     } else if (uprobe->events[CNSS_WLFW_UPROBE_WLFW_OPTIONAL_PM_INIT1_RETURN].hit_count > 0) {
         label = "wlfw-start-optional-pm-init1-return-no-init2";
     } else if (uprobe->events[CNSS_WLFW_UPROBE_WLFW_OPTIONAL_PM_INIT1_CALL].hit_count > 0) {

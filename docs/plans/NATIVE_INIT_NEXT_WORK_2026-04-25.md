@@ -13034,3 +13034,44 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
 
   Report:
   `docs/reports/NATIVE_INIT_V1714_CNSS_PM_INIT_STATIC_2026-06-02.md`.
+
+## V1715/V1716 CNSS pm_init uprobe gate (2026-06-02)
+
+- V1715 source/build-only test boot artifact completed.
+
+  Result:
+
+  - decision: `v1715-cnss-pm-init-uprobe-source-build-pass`;
+  - init: `A90 Linux init 0.9.133 (v1715-cnss-pm-init-uprobe)`;
+  - helper: `a90_android_execns_probe v319`;
+  - helper SHA256:
+    `491d99b13722569dc8a08b059c580739fbd1884d3f18bc55e0a5809f499fd5d3`;
+  - boot image:
+    `tmp/wifi/v1715-cnss-pm-init-uprobe-test-boot/boot_linux_v1715_cnss_pm_init_uprobe.img`;
+  - boot SHA256:
+    `c5c03ff05f5e99cfbd0ded6b9e49fe83221a3a189431dad1e3c42b99977b5eda`.
+
+  Added non-log trace targets:
+
+  - `pm_init_entry@0xc39c`;
+  - `pm_init_get_system_info_call@0xc444` and
+    `pm_init_system_info_ok@0xc470`;
+  - null-peripheral path targets at `0xc49c`, `0xc58c`, and `0xc5e0`;
+  - `pm_client_register` edge at `0xc624` / `0xc628`;
+  - `pm_client_connect` edge at `0xc650` / `0xc654`;
+  - `pm_init_return_path@0xc554`.
+
+  Next gate:
+
+  - V1716 one-run rollbackable live handoff, reusing the V1713 internal-modem
+    firmware-serve route only;
+  - labels include `pm-init-get-system-info-call-no-return`,
+    `pm-init-register-call-no-return`, `pm-init-connect-call-no-return`,
+    `pm-init-connect-returned`, and `pm-init-returned`;
+  - no PM/service-window actors, `boot_wlan`, `/dev/subsys_esoc0`, forced RC1,
+    fake-ONLINE, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external
+    ping, PMIC/GPIO/GDSC writes, eSoC notify/`BOOT_DONE`, PCI rescan, or
+    platform bind/unbind.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1715_CNSS_PM_INIT_UPROBE_SOURCE_BUILD_2026-06-02.md`.
