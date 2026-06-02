@@ -12925,3 +12925,68 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
 
   Report:
   `docs/reports/NATIVE_INIT_V1711_CNSS_WLFW_START_PROLOGUE_STATIC_2026-06-02.md`.
+
+## V1712/V1713 CNSS WLFW prologue adjacent uprobe gate (2026-06-02)
+
+- V1712 source/build-only test boot artifact completed.
+
+  Result:
+
+  - decision: `v1712-cnss-wlfw-prologue-adjacent-uprobe-source-build-pass`;
+  - init: `A90 Linux init 0.9.132 (v1712-cnss-wlfw-prologue-adjacent-uprobe)`;
+  - helper: `a90_android_execns_probe v318`;
+  - helper SHA256: `57d2944b8a04c1d4b1db175a1c904498a2a0ed385998dbe63027222821b6a845`;
+  - boot image:
+    `tmp/wifi/v1712-cnss-wlfw-prologue-adjacent-uprobe-test-boot/boot_linux_v1712_cnss_wlfw_prologue_adjacent_uprobe.img`;
+  - boot SHA256:
+    `e654cf3ebb56cf54cd992af2d38c09084e538c80598e56df17a5386f251d26be`.
+
+- V1713 one-run rollbackable live handoff completed.
+
+  Result:
+
+  - decision: `v1713-wlfw-start-optional-pm-init1-call-no-return-rollback-pass`;
+  - rollback: `from-native`, PASS;
+  - post-rollback version: `A90 Linux init 0.9.68 (v724)`;
+  - post-rollback selftest: `fail=0`;
+  - non-log label: `wlfw-start-optional-pm-init1-call-no-return`;
+  - hits: `wlfw_start@0xec00=1`, `log_arg@0xec20=1`,
+    `log_call@0xec24=1`, `post_log@0xec28=1`,
+    `optional_pm_init1_call@0xec34=1`;
+  - misses: `optional_pm_init1_return@0xec38=0`,
+    `optional_pm_init2_call@0xec44=0`, `common_state_base@0xec48=0`,
+    `cal_mutex_arg@0xec50=0`, `cal_mutex_call@0xec58=0`;
+  - legacy firmware-serve label: `firmware-not-requested`;
+  - MHI pipe fd count / `ks` process count: `0` / `0`.
+
+  Safety:
+
+  - no service-manager, PM/service-window actors, `boot_wlan`,
+    `/dev/subsys_esoc0`, forced RC1, fake-ONLINE, Wi-Fi HAL, scan/connect,
+    credentials, DHCP/routes, or external ping were used;
+  - no PMIC/GPIO/GDSC writes, eSoC notify/`BOOT_DONE`, PCI rescan, platform
+    bind/unbind, firmware write, or partition write beyond the rollbackable test
+    boot handoff were used.
+
+  Interpretation:
+
+  - `wlfw_start` returns from the unconditional log wrapper, then takes the
+    zero-argument optional setup path and blocks inside the first
+    `pm_init@0xc39c` call;
+  - the blocker is now inside `pm_init`, not in WLFW QMI, BDF, MSA, Wi-Fi HAL,
+    scan/connect, credentials, DHCP/routes, or external ping;
+  - do not add PM/service actors yet. First classify `pm_init@0xc39c`
+    host-only, then use one bounded live internal probe only if the static map
+    identifies safe discriminators.
+
+  Next candidate:
+
+  - V1714 host-only static map of `pm_init@0xc39c`, including entry, blocking
+    calls, return checks, and any Binder/property/socket interactions;
+  - V1715 live only if V1714 identifies a narrow target that can distinguish
+    blocking Binder/service lookup from expected local initialization.
+
+  Reports:
+
+  - `docs/reports/NATIVE_INIT_V1712_CNSS_WLFW_PROLOGUE_ADJACENT_UPROBE_SOURCE_BUILD_2026-06-02.md`
+  - `docs/reports/NATIVE_INIT_V1713_CNSS_WLFW_PROLOGUE_ADJACENT_UPROBE_HANDOFF_2026-06-02.md`.
