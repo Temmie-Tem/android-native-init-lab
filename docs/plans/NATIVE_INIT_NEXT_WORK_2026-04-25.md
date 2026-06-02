@@ -11205,3 +11205,28 @@ concrete rail/register owner (V1655). Rail inventory (V1641): SDX50M main rail
 
   Report:
   `docs/reports/NATIVE_INIT_V1668_PCIE1_CLOCK_VOTE_WAIT_REPAIR_SOURCE_BUILD_2026-06-02.md`.
+
+---
+
+## ★ TRACK PIVOT (2026-06-02) — wlan0 is on the INTERNAL modem WLAN PD, NOT esoc0/RC1
+
+**Read `docs/reports/WLAN_PD_REDIRECT_AND_FIRMWARE_SERVE_GATE_2026-06-02.md` before
+the next cycle. It supersedes the esoc0/MDM2AP/RC1/pcie1 track (V1370–V1669) for
+the wlan0 goal.**
+
+The pcie1-clock / RC1 / MDM2AP work (through V1668/V1669) is on the **external
+SDX50M 5G modem (subsys9/esoc0)** — a separate subsystem. wlan0 = ICNSS = the
+`msm/modem/wlan_pd` protection domain on the **internal modem (subsys0/mss)**, with
+firmware `wlanmdsp.mbn` sideloaded onto the modem DSP via tqftpserv. Triple-confirmed:
+project timing (V620 wlan_pd 2153 ms before esoc0; V1331 wlfw_start 53 ms before
+esoc0), mainline ath10k/WCN3990 + postmarketOS architecture, and ICNSS QMI/MSA
+source. V844's esoc0 pivot was correlation-not-causation.
+
+**Corrected goal path:** mss ONLINE (✓ V1586) → tqftpserv serves wlanmdsp.mbn →
+modem starts WLAN PD → WLFW service 69 → ICNSS QMI/MSA → fw_ready → BDF → wlan0.
+The stall is at "modem starts WLAN PD" (wlan_pd UNINIT; WLFW 69 never publishes).
+
+**Next gate (read-only, ONE run):** reuse the V1586 internal-modem route; observe
+whether native tqftpserv is asked for `wlanmdsp.mbn` and whether the file is present
+at the served path. Labels + hard stops fixed in the contract. Do NOT touch
+esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
