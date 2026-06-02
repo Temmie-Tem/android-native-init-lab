@@ -10132,3 +10132,32 @@ above (rejected as inverted causality).
   `docs/reports/NATIVE_INIT_V1637_NATURAL_PATH_MDM2AP_IRQ_SUMMARY_ARTIFACT_SANITY_2026-06-02.md`,
   and
   `docs/reports/NATIVE_INIT_V1638_NATURAL_PATH_MDM2AP_IRQ_SUMMARY_HANDOFF_2026-06-02.md`.
+
+## V1639-V1640 PON-high Reconciliation and Modem-rail Gate Plan (2026-06-02)
+
+- V1639 host-only reconciliation passed as
+  `v1639-pon-high-inferred-not-promoted`.
+
+  It confirms the V1638 strict label remains `natural-path-observation-incomplete`
+  because GPIO1270/PON high was not explicitly traced.  However, source order in
+  `mdm4x_do_first_power_on()` makes GPIO135/AP2MDM high downstream of the PON
+  de-assert path; V1638 observed PON low at `9.142510`, AP2MDM high at `9.480079`,
+  and zero GPIO142/errfatal IRQ deltas over 120 samples.  This is useful evidence
+  but intentionally not promoted to `mdm2ap-silent-natural-path`.
+
+- V1640 host-only plan passed as
+  `v1640-modem-rail-pmic-gate-plan-ready`.
+
+  The next Wi-Fi-relevant blocker is below the natural eSoC provider path, but
+  the next step is not a live write.  V1641 should first inventory plausible
+  SDX50M power prerequisites and classify each as closed, observe-only,
+  candidate, or rejected.  PM8150L GPIO9/PON and GPIO135/AP2MDM remain rejected
+  as direct userspace write targets because they are kernel-owned and already
+  parity-correct.  Forced RC1 enumerate, fake ONLINE, eSoC notify/`BOOT_DONE`,
+  Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, and blind
+  PMIC/GPIO/GDSC writes remain blocked.
+
+  Reports:
+  `docs/reports/NATIVE_INIT_V1639_PON_HIGH_EVIDENCE_RECONCILIATION_2026-06-02.md`
+  and
+  `docs/reports/NATIVE_INIT_V1640_MODEM_RAIL_PMIC_GATE_PLAN_2026-06-02.md`.
