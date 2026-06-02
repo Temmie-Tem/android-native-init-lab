@@ -14312,3 +14312,62 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
 
   Report:
   `docs/reports/NATIVE_INIT_V1750_WLAN_PD_TRACEFS_MOUNT_RESTORE_ARTIFACT_SANITY_2026-06-03.md`.
+
+## V1751 WLAN-PD tracefs mount restore live handoff (2026-06-03)
+
+- V1751 one-run rollbackable live handoff completed using only the exact V1749
+  image.
+
+  Result:
+
+  - decision: `v1751-wlfw-start-reached-downstream-block-rollback-pass`;
+  - evidence: `tmp/wifi/v1751-wlan-pd-tracefs-mount-restore-handoff`;
+  - rollback: `from-native`, `ok=true`;
+  - post-rollback selftest: `fail=0`;
+  - V1751 fixed label: `wlfw-start-reached-downstream-block`.
+
+  Key evidence:
+
+  - property lookup contract matched:
+    `persist.vendor.cnss-daemon.kmsg_logging=1` and
+    `persist.vendor.cnss-daemon.debug_level=4`;
+  - corrected output label remained `cnss-output-still-invisible`, confirming
+    native cnss-daemon Android-log output is still not a reliable dmesg/stdout
+    indicator;
+  - private tracefs was available:
+    `/tmp/a90-v231-546/root/sys/kernel/debug/tracing`;
+  - uProbe registered and hit once:
+    attempted `1`, register rc `0`, enabled `1`, hit count `1`;
+  - non-log label:
+    `peripheral-default-service-manager-call-no-return`;
+  - route safety stayed clean: no service-manager, PM trio, `boot_wlan`,
+    `/dev/subsys_esoc0`, forced RC1, fake-ONLINE, Wi-Fi HAL, scan/connect,
+    credentials, DHCP/routes, or external ping;
+  - legacy firmware-serve label remained `firmware-not-requested`, so WLFW
+    service 69, BDF, FW-ready, and `wlan0` are still downstream blockers.
+
+  Interpretation:
+
+  - the missing native `wlfw_start` dmesg/stdout signal was a measurement gap,
+    not proof that stock `cnss-daemon` failed to enter the WLFW path;
+  - the active blocker is now downstream of cnss-daemon WLFW entry: the modem
+    still does not publish WLFW service 69 / start WLAN-PD enough to request
+    `wlanmdsp.mbn`;
+  - do not revive PM-service expansion, `boot_wlan`, eSoC/RC1, fake-ONLINE, or
+    service-window actor addition as a `wlfw_start` trigger.
+
+  Next candidate:
+
+  - V1752 should be host-only first: classify the non-log
+    `peripheral-default-service-manager-call-no-return` path against the
+    cnss-daemon disassembly and existing V170x uProbe labels;
+  - decide whether the next bounded live gate should observe WLFW QMI wait /
+    service-locator interactions, or whether the peripheral manager default
+    service-manager call is a real downstream prerequisite;
+  - keep the pure internal-modem route and all existing hard stops: no
+    service-manager/PM actor expansion, no `boot_wlan`, no eSoC/RC1,
+    no Wi-Fi HAL, no scan/connect, no credentials, no DHCP/routes, and no
+    external ping.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1751_WLAN_PD_TRACEFS_MOUNT_RESTORE_HANDOFF_2026-06-03.md`.
