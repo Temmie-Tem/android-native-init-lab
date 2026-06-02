@@ -10568,3 +10568,35 @@ above (rejected as inverted causality).
 
   Report:
   `docs/reports/NATIVE_INIT_V1652_XBL_PRIVATE_CONTEXT_CONTRACT_2026-06-02.md`.
+
+## V1653 XBL Context Probe Build (2026-06-02)
+
+- V1653 source/build-only helper gate passed as
+  `v1653-xbl-context-probe-build-pass`.
+
+  Built helper:
+
+  - source: `stage3/linux_init/helpers/a90_xbl_context_probe.c`;
+  - artifact: `tmp/wifi/v1653-xbl-context-probe-build/a90_xbl_context_probe_v1653`;
+  - SHA256:
+    `e7a143550d99e89aa5dfd3f25daa5c05118e4530cdafe4d1f615cc98daf32f53`;
+  - size: `663456`;
+  - static checks: no `INTERP`, no dynamic section, statically linked.
+
+  Helper contract:
+
+  - input: `--path PATH --artifact LABEL --range START:END`;
+  - reads only bounded ranges;
+  - emits tracked-safe `record` lines with artifact/range/offset/length/
+    truncated/`string_sha256`/tokens/class;
+  - emits no raw string text in tracked output;
+  - binary artifact remains under ignored private `tmp/` evidence and is not
+    committed.
+
+  V1654 may deploy/run this helper against temporary XBL devnodes and only the
+  V1652 ranges.  Tracked reports must include only redacted records.  No
+  partition write, PMIC/GPIO/GDSC write, eSoC notify/`BOOT_DONE`, PCI rescan,
+  Wi-Fi HAL, scan/connect, credentials, DHCP/routes, or external ping.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1653_XBL_CONTEXT_PROBE_BUILD_2026-06-02.md`.
