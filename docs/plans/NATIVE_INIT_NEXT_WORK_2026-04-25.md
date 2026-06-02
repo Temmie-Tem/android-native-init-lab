@@ -12143,3 +12143,60 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
 
   Report:
   `docs/reports/NATIVE_INIT_V1693_WLAN_PD_CNSS_NONLOG_CONTROL_FLOW_SOURCE_BUILD_2026-06-02.md`.
+
+## V1695 WLAN-PD CNSS Output Visibility Handoff (2026-06-02)
+
+- V1695 one-run rollbackable live handoff completed after the cnss-daemon
+  disassembly correction that missing native `wlfw_start` logs may be a
+  measurement artifact.
+
+  Result:
+
+  - decision: `v1695-cnss-output-still-invisible-rollback-pass`;
+  - rollback: `from-native`, PASS;
+  - post-rollback version: `A90 Linux init 0.9.68 (v724)`;
+  - post-rollback selftest: `fail=0`;
+  - route: V1680/V1691 internal-modem firmware-serve only:
+    `qrtr-ns`, `pd-mapper`, `rmt_storage`, `tftp_server`,
+    `/dev/subsys_modem` holder, `cnss_diag`, stock `cnss-daemon`;
+  - property lookup evidence: `all_match=1`,
+    `persist.vendor.cnss-daemon.kmsg_logging=1`,
+    `persist.vendor.cnss-daemon.debug_level=4`;
+  - output label: `cnss-output-still-invisible`;
+  - `wlfw_start_seen=0`, pre-wlfw failure slug `none`,
+    syslog available `1`, syslog filtered count `0`;
+  - stock `cnss-daemon` remained running, had `10` socket fds, and had
+    `/dev/kmsg` fd count `0`;
+  - legacy firmware-serve label stayed `firmware-not-requested`;
+  - supplemental non-log label:
+    `cnss-uprobe-unavailable-fallback-needed`, computed
+    `wlfw_start` PC `0x5584f16c00`.
+
+  Safety:
+
+  - no PM/service-window actors, `boot_wlan`, `/dev/subsys_esoc0`, forced RC1,
+    fake-ONLINE, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, or external
+    ping were used;
+  - no PMIC/GPIO/GDSC writes, eSoC notify/`BOOT_DONE`, PCI rescan, platform
+    bind/unbind, firmware write, or partition write beyond the test boot
+    handoff and rollback.
+
+  Interpretation:
+
+  - the latest output-visibility run still cannot prove whether
+    `cnss-daemon+0xec00` (`wlfw_start`) was entered;
+  - the private property runtime is visible, but `cnss-daemon` does not hold a
+    `/dev/kmsg` fd in this window, so the kmsg logging path is not confirmed;
+  - do not add PM/service-window actors or `boot_wlan` from this label.
+
+  Next candidate:
+
+  - host-only classify the stock `cnss-daemon` kmsg/logging path around the
+    logging helper and `/dev/kmsg` open/write condition, then decide whether a
+    separate bounded non-log execution probe is justified;
+  - keep the V1680 internal-modem route as the only live route until a real
+    `wlfw_start`, pre-wlfw failure, firmware request, WLFW service 69, or
+    direct non-log entry proof appears.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1695_WLAN_PD_CNSS_OUTPUT_VISIBILITY_HANDOFF_2026-06-02.md`.
