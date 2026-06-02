@@ -10782,3 +10782,68 @@ above (rejected as inverted causality).
 
   Report:
   `docs/reports/NATIVE_INIT_V1658_POST_MDM2AP_SILENCE_NEXT_GATE_2026-06-02.md`.
+
+## V1659 Android-good Rail Reference Plan (2026-06-02)
+
+- V1659 source/build-only plan passed as
+  `v1659-android-good-rail-reference-plan-ready`.
+
+  Rationale:
+
+  - V1657 fixed the native lower blocker at clean natural-path
+    `mdm2ap-silent-natural-path`;
+  - V1658 selected Android-good rail/reference capture as the next
+    non-mutating gate;
+  - V1555 proves Android can reach BDF, FW-ready, and `wlan0` under a
+    lower-impact GPIO/IRQ observer;
+  - V1554 showed regulator/clk tracefs event capture was too intrusive or too
+    short for preserving the lower Wi-Fi path.
+
+  V1660 should implement the temporary Android-good read-only rail snapshot
+  handoff using the V1555 Android/Magisk/native-rollback engine.  Enable only
+  GPIO/IRQ tracefs events, and collect regulator/clock evidence as bounded
+  read-only snapshots from debugfs summaries.  Rejected in this gate:
+  regulator/clk tracefs events, PMIC/GPIO/GDSC writes, PCI rescan,
+  platform bind/unbind, eSoC notify/`BOOT_DONE`, credential handling,
+  explicit scan/connect, DHCP/routes, and external ping.
+
+  Success criteria:
+
+  - Android reaches BDF/FW-ready/`wlan0` under the observer;
+  - at least one pre-esoc0 and one post-`wlan0` regulator/clk/gpio/IRQ snapshot
+    exists;
+  - GPIO142/MDM status positive response is captured or classified;
+  - rollback restores `stage3/boot_linux_v724.img` and selftest `fail=0`;
+  - tracked evidence contains no SSID/PSK/passphrase/raw credential values.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1659_ANDROID_GOOD_RAIL_REFERENCE_PLAN_2026-06-02.md`.
+
+---
+
+## NEXT GATE after V1657 (2026-06-02) — Android vs native POWER/SEQUENCE diff (read-only)
+
+V1657 confirmed `mdm2ap-silent-natural-path` (PON low→high fired, GPIO135 assert,
+GPIO142/errfatal IRQ = 0 on the clean natural path). XBL track (V1643–V1656) was
+read-only and hit the forecast dead-end: SDX/PON/PMIC context tokens but NO
+concrete rail/register owner (V1655). Rail inventory (V1641): SDX50M main rail
+"not identified on disk." ⇒ a write gate has no target yet.
+
+**Next gate is fixed by contract**:
+`docs/reports/ESOC_ANDROID_NATIVE_POWER_DIFF_CONTRACT_2026-06-02.md`.
+- Last AP-side read-only check before any write is justified.
+- Capture SAME observables on Android-good (V1521/V1555 Magisk post-fs-data
+  handoff) AND native (V1657 natural PM-first route), SAME powerup window
+  (esoc0 get → past mdm_subsys_powerup), then host-only diff.
+- Observables: regulator_summary full + targeted named clocks (NOT full
+  clk_summary — V1514 overrun) + subsys0/subsys9 bring-up sequence + GPIO/IRQ.
+- Labels: `power-vote-gap` (found a rail/clock Android has, native lacks → STOP,
+  hand back for separately-authorized targeted write) / `sequence-gap` (route fix)
+  / `full-power-parity-hardware-wall` (terminal PASS — AP-side fully at parity,
+  cause is modem-side PMIC below AP control; STOP, no write, Wi-Fi via Android
+  only).
+- Honest limit: SDX50M's own modem-side rail is NOT in the AP regulator tree, so
+  if that's the blocker this diff reads `full-power-parity`. Both outcomes are
+  decision-useful.
+- ONE Android + ONE native + ONE diff sets the label. NO timing/window variants.
+  NO autonomous write gate from any label.
