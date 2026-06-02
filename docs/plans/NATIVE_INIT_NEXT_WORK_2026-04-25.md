@@ -13115,3 +13115,49 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
 
   Report:
   `docs/reports/NATIVE_INIT_V1716_CNSS_PM_INIT_UPROBE_HANDOFF_2026-06-02.md`.
+
+## V1717 CNSS pm_client_register static classifier (2026-06-02)
+
+- V1717 host-only static classifier completed.
+
+  Result:
+
+  - decision: `v1717-cnss-pm-client-register-static-pass`;
+  - evidence: `tmp/wifi/v1717-cnss-pm-client-register-static`;
+  - `cnss-daemon` imports `pm_client_register`, `pm_client_connect`, and
+    `get_system_info`;
+  - `pm_client_register` is exported by `libperipheral_client.so`;
+  - `libperipheral_client.so` depends on `libbinder.so` and contains both
+    `/dev/vndbinder` and `vendor.qcom.PeripheralManager`.
+
+  Static model:
+
+  - `pm_client_register@0x6ec8` constructs a `PeripheralManagerClient` and
+    callback object;
+  - it calls internal `pm_register_connect@0x612c` from `0x7034`;
+  - `pm_register_connect` initializes Binder with
+    `ProcessState::initWithDriver('/dev/vndbinder')` at `0x6168`;
+  - it obtains the default service manager at `0x6190`, constructs
+    `String16('vendor.qcom.PeripheralManager')` at `0x61a8`, then performs the
+    service-manager virtual lookup at `0x61c4`;
+  - if the service is available, it calls `IPeripheralManager::asInterface` at
+    `0x6218` and the manager register transaction at `0x6274`.
+
+  Interpretation:
+
+  - V1716's blocker is a vendor Binder PeripheralManager registration path;
+  - this still does not justify adding service-manager or PM actors yet;
+  - the next safe discriminator is a bounded live uprobe on
+    `libperipheral_client.so`, not more pre-CNSS actor startup.
+
+  Next candidate:
+
+  - V1718 source/build-only helper expansion with a second uprobe target for
+    `libperipheral_client.so`;
+  - V1719 one-run live classifier to determine whether the block is at
+    `/dev/vndbinder` init, default service-manager lookup,
+    `vendor.qcom.PeripheralManager` lookup, or the manager register
+    transaction.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1717_CNSS_PM_CLIENT_REGISTER_STATIC_2026-06-02.md`.
