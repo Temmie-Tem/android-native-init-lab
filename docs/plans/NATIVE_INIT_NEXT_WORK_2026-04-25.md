@@ -11126,3 +11126,46 @@ concrete rail/register owner (V1655). Rail inventory (V1641): SDX50M main rail
 
   Report:
   `docs/reports/NATIVE_INIT_V1666_PCIE1_CLOCK_VOTE_REPAIR_SOURCE_BUILD_2026-06-02.md`.
+
+## V1667 pcie1 Clock Vote Retry Handoff (2026-06-02)
+
+- V1667 rollbackable live retry completed with rollback/selftest pass, but the
+  clock-vote surface still classified as `v1667-clock-vote-surface-failed`.
+
+  Result:
+
+  - V1666 test boot flashed and booted as
+    `A90 Linux init 0.9.117 (v1666-pcie1-clock-vote)`;
+  - separate clock-vote result collection worked:
+    `/cache/native-init-wifi-test-boot-v1666-pcie1-clock-vote.result` was
+    collected as `test-extra-pcie1-clock-vote.stdout.txt`;
+  - rollback restored `stage3/boot_linux_v724.img`;
+  - native `selftest` returned `fail=0`;
+  - no Wi-Fi HAL, scan/connect, credentials, DHCP/routes, or external ping was
+    performed;
+  - no regulator/GDSC direct write, pci-msm `case` write, PMIC/GPIO/PERST write,
+    eSoC notify/`BOOT_DONE`, PCI rescan, or platform bind/unbind was performed.
+
+  Failure classification:
+
+  - async clock-vote child started and wrote the separate result file;
+  - `wait_ready_count=0`, `wait_sample_count=399`, `wait_elapsed_ms=20026`;
+  - `async_begin_rc=-2`, so the vote never reached the `pcie1_clock_vote.begin`
+    block or safety-key block;
+  - cleanup completed with `cleanup_failure_count=0` because no clocks were
+    enabled;
+  - post-cleanup snapshots show target clock read leaves later exist with
+    enable/prepare read rc `0`, so this is still a vote timing/surface problem,
+    not a pcie1 hardware movement result.
+
+  Next unit:
+
+  - V1668 source/build-only harness repair;
+  - move the bounded vote trigger later, or extend the readiness window enough
+    to cover the observed clock-debug leaf availability boundary;
+  - keep the separate result file and extra-result collection path;
+  - do not broaden to regulator/GDSC writes, forced RC1, Wi-Fi HAL, scan/connect,
+    credentials, DHCP/routes, or external ping.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1667_PCIE1_CLOCK_VOTE_RETRY_HANDOFF_2026-06-02.md`.

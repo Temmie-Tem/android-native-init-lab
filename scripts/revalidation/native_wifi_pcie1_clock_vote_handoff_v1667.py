@@ -88,6 +88,28 @@ def int_field(fields: dict[str, str], key: str, default: int = 0) -> int:
         return default
 
 
+def inline_int(text: str, prefix: str, key: str, default: int = -1) -> int:
+    pattern = re.compile(rf"^{re.escape(prefix)}=.*\b{re.escape(key)}=(-?\d+)\b", re.MULTILINE)
+    match = pattern.search(text)
+    if not match:
+        return default
+    try:
+        return int(match.group(1))
+    except ValueError:
+        return default
+
+
+def line_value_int(text: str, key: str, default: int = -1) -> int:
+    pattern = re.compile(rf"^{re.escape(key)}=(-?\d+)\b", re.MULTILINE)
+    match = pattern.search(text)
+    if not match:
+        return default
+    try:
+        return int(match.group(1))
+    except ValueError:
+        return default
+
+
 def max_regulator_use(text: str, name: str) -> int:
     max_use = 0
     pattern = re.compile(rf"^\s*{re.escape(name)}\s+(-?\d+)\s+", re.MULTILINE)
@@ -143,6 +165,10 @@ def classify_clock_vote(out_dir: Path, handoff: dict[str, Any]) -> dict[str, Any
     rate_success_count = int_field(fields, "pcie1_clock_vote.rate_success_count", 0)
     cleanup_success_count = int_field(fields, "pcie1_clock_vote.cleanup_success_count", 0)
     cleanup_failure_count = int_field(fields, "pcie1_clock_vote.cleanup_failure_count", -1)
+    wait_ready_count = inline_int(vote_source, "pcie1_clock_vote.wait_end", "ready_count")
+    wait_sample_count = inline_int(vote_source, "pcie1_clock_vote.wait_end", "sample_count")
+    wait_elapsed_ms = inline_int(vote_source, "pcie1_clock_vote.wait_end", "elapsed_ms")
+    async_begin_rc = line_value_int(vote_source, "pcie1_clock_vote.async_begin_rc")
     pcie1_gdsc_max_use = max_regulator_use(combined, "pcie_1_gdsc")
     mdm2ap_delta = int_field(fields, "mdm2ap_timing.gpio142_irq_delta", 0)
     errfatal_delta = int_field(fields, "mdm2ap_timing.errfatal_irq_delta", 0)
@@ -180,7 +206,8 @@ def classify_clock_vote(out_dir: Path, handoff: dict[str, Any]) -> dict[str, Any
         if handoff_pass and fields.get("pcie1_clock_vote.cleanup_end") == "1" and success_count == 0:
             reason = (
                 "rollback and cleanup succeeded, but no clock enable write succeeded; "
-                "recorded target enable paths did not become writable in the bounded wait window"
+                f"target enable leaves were not observed before the bounded wait expired "
+                f"(ready_count={wait_ready_count}, wait_elapsed_ms={wait_elapsed_ms}, async_begin_rc={async_begin_rc})"
             )
         else:
             reason = "clock vote evidence, cleanup, safety, or rollback was incomplete"
@@ -195,6 +222,11 @@ def classify_clock_vote(out_dir: Path, handoff: dict[str, Any]) -> dict[str, Any
         "pass": evidence_ok,
         "reason": reason,
         "begin": fields.get("pcie1_clock_vote.begin") == "1",
+        "wait_begin": fields.get("pcie1_clock_vote.wait_begin") is not None,
+        "wait_ready_count": wait_ready_count,
+        "wait_sample_count": wait_sample_count,
+        "wait_elapsed_ms": wait_elapsed_ms,
+        "async_begin_rc": async_begin_rc,
         "cleanup_end": fields.get("pcie1_clock_vote.cleanup_end") == "1",
         "success_count": success_count,
         "failure_count": failure_count,
@@ -235,6 +267,11 @@ def render_report(result: dict[str, Any]) -> str:
         "## Clock Vote Classification",
         "",
         f"- `begin`: `{vote['begin']}`",
+        f"- `wait_begin`: `{vote['wait_begin']}`",
+        f"- `wait_ready_count`: `{vote['wait_ready_count']}`",
+        f"- `wait_sample_count`: `{vote['wait_sample_count']}`",
+        f"- `wait_elapsed_ms`: `{vote['wait_elapsed_ms']}`",
+        f"- `async_begin_rc`: `{vote['async_begin_rc']}`",
         f"- `success_count`: `{vote['success_count']}`",
         f"- `failure_count`: `{vote['failure_count']}`",
         f"- `rate_success_count`: `{vote['rate_success_count']}`",
@@ -283,7 +320,15 @@ def render_report(result: dict[str, Any]) -> str:
             "driver PM path, still without scan/connect or credentials.",
         ])
     else:
-        lines.append("Repair the clock-vote harness before any further live mutation.")
+        if vote["wait_ready_count"] == 0 and vote["cleanup_failure_count"] == 0:
+            lines.extend([
+                "The separate result file was collected and rollback passed, but the async",
+                "vote child timed out before the target clock debugfs leaves became visible.",
+                "The next source/build unit should move the vote trigger later or extend the",
+                "bounded readiness window before interpreting hardware behavior.",
+            ])
+        else:
+            lines.append("Repair the clock-vote harness before any further live mutation.")
     lines.append("")
     return "\n".join(lines)
 
