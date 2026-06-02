@@ -15113,3 +15113,56 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
     service-object gap;
   - any live service-object-visible discriminator requires a new explicit scope
     that reopens that narrow gate.
+
+## V1767 WLAN-PD PM contract extraction (2026-06-03)
+
+- V1767 extracts the narrow PeripheralManager contract from retained evidence
+  without opening a live PM/helper gate.
+
+  Host-only classifier:
+
+  - script:
+    `scripts/revalidation/native_wifi_wlan_pd_pm_contract_extraction_v1767.py`;
+  - report:
+    `docs/reports/NATIVE_INIT_V1767_WLAN_PD_PM_CONTRACT_EXTRACTION_2026-06-03.md`;
+  - decision:
+    `v1767-pm-contract-extracted-live-suspended-host-pass`;
+  - label:
+    `pm-contract-extracted-live-suspended`;
+  - evidence:
+    `tmp/wifi/v1767-wlan-pd-pm-contract-extraction`.
+
+  Extracted contract:
+
+  1. current-boot SELinux/policy-load and service-manager namespace are valid
+     for `vendor_per_mgr`;
+  2. `vndservicemanager` is started and explicitly ready;
+  3. `/vendor/bin/pm-service` registers `vendor.qcom.PeripheralManager`;
+  4. `/vendor/bin/vndservice list` sees `vendor.qcom.PeripheralManager` in the
+     same namespace used by `cnss-daemon`;
+  5. `cnss-daemon` `libperipheral_client.so` lookup returns a non-null service
+     object;
+  6. `IPeripheralManager::asInterface` and manager-register transaction are
+     reached;
+  7. PM register/vote returns or reaches server-side post-entry checkpoints;
+  8. only then measure `requested_wlanmdsp`, WLFW service 69, and `wlan0`.
+
+  Interpretation:
+
+  - `provider_seen` alone is insufficient; V1095/V1101 show provider-positive
+    windows can still leave `wlanmdsp.mbn` unrequested;
+  - the decisive pre-request milestones are non-null service object,
+    `asInterface`, manager-register TX/return, and PM vote/register success;
+  - any future live discriminator should distinguish:
+    `provider-not-visible`, `service-object-null`, `register-tx-no-return`,
+    `register-return-still-no-request`, and `request-progress`.
+
+  Boundary:
+
+  - live service-object/register discriminator remains suspended by the current
+    stop directive;
+  - if the stop remains active, continue only host/source-only analysis of the
+    PM register server-side branch after entry;
+  - do not proceed to Wi-Fi HAL, scan/connect, credentials, DHCP/routes, or
+    external ping until `wlan0` exists and the active connection gate is
+    explicitly opened.
