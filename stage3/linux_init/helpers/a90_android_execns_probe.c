@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v324"
+#define EXECNS_VERSION "a90_android_execns_probe v325"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -33660,6 +33660,417 @@ static int append_companion_service_notifier_late_endpoint_probe(struct buffer *
                          endpoint.found ? "endpoint-found" : "no-endpoint");
 }
 
+static int append_companion_service_notifier_late_listener_probe(struct buffer *buf,
+                                                                const struct config *cfg) {
+    static const char *prefix = "wifi_companion_service_notifier_late_listener";
+    struct qrtr_service_endpoint endpoint;
+    uint8_t register_request[96];
+    size_t register_request_len = 0;
+    int fd;
+    struct sockaddr_qrtr dest;
+    ssize_t sent;
+    long deadline;
+    unsigned int packets = 0;
+    bool response_seen = false;
+    bool response_success = false;
+    bool response_state_valid = false;
+    uint32_t response_state = 0;
+    bool indication_seen = false;
+    bool indication_valid = false;
+    uint16_t indication_txn = 0;
+    uint32_t indication_state = 0;
+    bool ack_sent = false;
+    bool ack_success = false;
+    bool response_poll_timeout = false;
+    const long listener_begin_ms = monotonic_ms();
+    long send_before_ms = 0;
+    long send_after_ms = 0;
+    long first_response_ms = 0;
+    long first_indication_ms = 0;
+    long close_ms = 0;
+
+    build_servnotif_register_request(register_request,
+                                     &register_request_len,
+                                     A90_SERVNOTIF_TXN_ID,
+                                     1U);
+    if (append_format(buf,
+                      "%s.begin=1\n"
+                      "%s.allowed=%d\n"
+                      "%s.service=%u\n"
+                      "%s.instance=%u\n"
+                      "%s.service_name=%s\n"
+                      "%s.phase=late-post-window-before-cleanup\n"
+                      "%s.qmi_payload=%d\n"
+                      "%s.wifi_hal=0\n"
+                      "%s.scan_connect_linkup=0\n"
+                      "%s.credentials=0\n"
+                      "%s.dhcp_routing=0\n"
+                      "%s.external_ping=0\n",
+                      prefix,
+                      prefix,
+                      cfg->allow_service_notifier_listener_probe ? 1 : 0,
+                      prefix,
+                      A90_SERVNOTIF_SERVICE,
+                      prefix,
+                      A90_SERVNOTIF_INSTANCE_ENCODED,
+                      prefix,
+                      A90_WLAN_PD_SERVICE_NAME,
+                      prefix,
+                      prefix,
+                      cfg->allow_service_notifier_listener_probe ? 1 : 0,
+                      prefix,
+                      prefix,
+                      prefix,
+                      prefix,
+                      prefix) < 0 ||
+        append_hex_bytes(buf,
+                         "wifi_companion_service_notifier_late_listener.register_request_hex",
+                         register_request,
+                         register_request_len) < 0) {
+        return -1;
+    }
+    if (!cfg->allow_service_notifier_listener_probe) {
+        return append_format(buf,
+                             "%s.send_attempted=0\n"
+                             "%s.result=blocked\n"
+                             "%s.reason=missing-allow-service-notifier-listener-probe\n"
+                             "%s.end=1\n",
+                             prefix,
+                             prefix,
+                             prefix,
+                             prefix);
+    }
+    if (servnotif_find_endpoint_with_retries(buf,
+                                             "wifi_companion_service_notifier_late_listener.endpoint",
+                                             &endpoint,
+                                             false) < 0) {
+        return -1;
+    }
+    if (!endpoint.found) {
+        return append_format(buf,
+                             "%s.send_attempted=0\n"
+                             "%s.result=no-endpoint\n"
+                             "%s.end=1\n",
+                             prefix,
+                             prefix,
+                             prefix);
+    }
+    fd = open_qrtr_dgram_socket();
+    if (fd < 0) {
+        int saved_errno = errno;
+
+        return append_format(buf,
+                             "%s.socket.rc=-1\n"
+                             "%s.socket.errno=%d\n"
+                             "%s.socket.error=%s\n"
+                             "%s.send_attempted=0\n"
+                             "%s.result=socket-failed\n"
+                             "%s.end=1\n",
+                             prefix,
+                             prefix,
+                             saved_errno,
+                             prefix,
+                             strerror(saved_errno),
+                             prefix,
+                             prefix,
+                             prefix);
+    }
+    memset(&dest, 0, sizeof(dest));
+    dest.sq_family = AF_QIPCRTR;
+    dest.sq_node = endpoint.node;
+    dest.sq_port = endpoint.port;
+    send_before_ms = monotonic_ms();
+    sent = sendto(fd, register_request, register_request_len, 0, (const struct sockaddr *)&dest, sizeof(dest));
+    send_after_ms = monotonic_ms();
+    if (sent < 0) {
+        int saved_errno = errno;
+
+        close(fd);
+        return append_format(buf,
+                             "%s.socket.rc=0\n"
+                             "%s.send_attempted=1\n"
+                             "%s.register_send.rc=-1\n"
+                             "%s.register_send.errno=%d\n"
+                             "%s.register_send.error=%s\n"
+                             "%s.result=send-failed\n"
+                             "%s.end=1\n",
+                             prefix,
+                             prefix,
+                             prefix,
+                             prefix,
+                             saved_errno,
+                             prefix,
+                             strerror(saved_errno),
+                             prefix,
+                             prefix);
+    }
+    if (append_format(buf,
+                      "%s.socket.rc=0\n"
+                      "%s.send_attempted=1\n"
+                      "%s.register_send.rc=0\n"
+                      "%s.register_send.bytes=%zd\n"
+                      "%s.register_send.node=%u\n"
+                      "%s.register_send.port=%u\n"
+                      "%s.timing.begin_ms=%ld\n"
+                      "%s.timing.send_before_ms=%ld\n"
+                      "%s.timing.send_after_ms=%ld\n"
+                      "%s.timing.target_hold_ms=%u\n",
+                      prefix,
+                      prefix,
+                      prefix,
+                      prefix,
+                      sent,
+                      prefix,
+                      endpoint.node,
+                      prefix,
+                      endpoint.port,
+                      prefix,
+                      listener_begin_ms,
+                      prefix,
+                      send_before_ms,
+                      prefix,
+                      send_after_ms,
+                      prefix,
+                      A90_SERVNOTIF_RESPONSE_MS) < 0) {
+        close(fd);
+        return -1;
+    }
+    deadline = send_after_ms + (long)A90_SERVNOTIF_RESPONSE_MS;
+    while (packets < 12U) {
+        struct pollfd pfd;
+        struct sockaddr_qrtr from;
+        socklen_t from_len = sizeof(from);
+        uint8_t packet[4096];
+        long now = monotonic_ms();
+        int poll_rc;
+        ssize_t received;
+        uint8_t packet_type = 0;
+        uint16_t packet_txn = 0;
+        uint16_t packet_msg = 0;
+
+        if (now >= deadline) {
+            response_poll_timeout = true;
+            break;
+        }
+        pfd.fd = fd;
+        pfd.events = POLLIN;
+        pfd.revents = 0;
+        poll_rc = poll(&pfd, 1, (int)(deadline - now));
+        if (poll_rc == 0) {
+            response_poll_timeout = true;
+            break;
+        }
+        if (poll_rc < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            close(fd);
+            return append_format(buf,
+                                 "%s.recv.errno=%d\n"
+                                 "%s.recv.error=%s\n"
+                                 "%s.result=response-poll-failed\n"
+                                 "%s.end=1\n",
+                                 prefix,
+                                 errno,
+                                 prefix,
+                                 strerror(errno),
+                                 prefix,
+                                 prefix);
+        }
+        memset(&from, 0, sizeof(from));
+        received = recvfrom(fd, packet, sizeof(packet), 0, (struct sockaddr *)&from, &from_len);
+        if (received < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            close(fd);
+            return append_format(buf,
+                                 "%s.recv.errno=%d\n"
+                                 "%s.recv.error=%s\n"
+                                 "%s.result=response-recv-failed\n"
+                                 "%s.end=1\n",
+                                 prefix,
+                                 errno,
+                                 prefix,
+                                 strerror(errno),
+                                 prefix,
+                                 prefix);
+        }
+        if (received >= 7) {
+            packet_type = packet[0];
+            packet_txn = read_le16_bytes(packet + 1);
+            packet_msg = read_le16_bytes(packet + 3);
+        }
+        now = monotonic_ms();
+        if (append_format(buf,
+                          "%s.packet.%u.bytes=%zd\n"
+                          "%s.packet.%u.from.node=%u\n"
+                          "%s.packet.%u.from.port=%u\n"
+                          "%s.packet.%u.type=%u\n"
+                          "%s.packet.%u.txn_id=%u\n"
+                          "%s.packet.%u.msg_id=%u\n"
+                          "%s.packet.%u.recv_ms=%ld\n",
+                          prefix,
+                          packets,
+                          received,
+                          prefix,
+                          packets,
+                          from.sq_node,
+                          prefix,
+                          packets,
+                          from.sq_port,
+                          prefix,
+                          packets,
+                          (unsigned int)packet_type,
+                          prefix,
+                          packets,
+                          (unsigned int)packet_txn,
+                          prefix,
+                          packets,
+                          (unsigned int)packet_msg,
+                          prefix,
+                          packets,
+                          now) < 0) {
+            close(fd);
+            return -1;
+        }
+        if (packet_type == 2U &&
+            packet_txn == A90_SERVNOTIF_TXN_ID &&
+            packet_msg == A90_SERVNOTIF_REGISTER_LISTENER_MSG_ID) {
+            response_seen = true;
+            if (first_response_ms == 0) {
+                first_response_ms = now;
+            }
+            if (parse_servnotif_register_response(buf,
+                                                  prefix,
+                                                  packet,
+                                                  (size_t)received,
+                                                  &response_success,
+                                                  &response_state_valid,
+                                                  &response_state) < 0) {
+                close(fd);
+                return -1;
+            }
+        } else if (packet_type == 4U &&
+                   packet_msg == A90_SERVNOTIF_STATE_UPDATED_IND_MSG_ID) {
+            uint8_t ack_request[96];
+            size_t ack_request_len = 0;
+            ssize_t ack_sent_bytes;
+
+            indication_seen = true;
+            if (first_indication_ms == 0) {
+                first_indication_ms = now;
+            }
+            if (parse_servnotif_indication(buf,
+                                           prefix,
+                                           packet,
+                                           (size_t)received,
+                                           &indication_valid,
+                                           &indication_txn,
+                                           &indication_state) < 0) {
+                close(fd);
+                return -1;
+            }
+            if (indication_valid) {
+                build_servnotif_ack_request(ack_request,
+                                            &ack_request_len,
+                                            A90_SERVNOTIF_ACK_TXN_ID,
+                                            indication_txn);
+                if (append_hex_bytes(buf,
+                                     "wifi_companion_service_notifier_late_listener.ack_request_hex",
+                                     ack_request,
+                                     ack_request_len) < 0) {
+                    close(fd);
+                    return -1;
+                }
+                ack_sent_bytes = sendto(fd, ack_request, ack_request_len, 0, (const struct sockaddr *)&dest, sizeof(dest));
+                ack_sent = ack_sent_bytes == (ssize_t)ack_request_len;
+                if (append_format(buf,
+                                  "%s.ack_send.rc=%d\n"
+                                  "%s.ack_send.bytes=%zd\n",
+                                  prefix,
+                                  ack_sent ? 0 : -1,
+                                  prefix,
+                                  ack_sent_bytes) < 0) {
+                    close(fd);
+                    return -1;
+                }
+            }
+        } else if (packet_type == 2U &&
+                   packet_txn == A90_SERVNOTIF_ACK_TXN_ID &&
+                   packet_msg == A90_SERVNOTIF_ACK_MSG_ID) {
+            if (parse_servnotif_ack_response(buf,
+                                             prefix,
+                                             packet,
+                                             (size_t)received,
+                                             &ack_success) < 0) {
+                close(fd);
+                return -1;
+            }
+        }
+        packets++;
+        if (indication_seen && (!indication_valid || ack_success)) {
+            break;
+        }
+    }
+    close_ms = monotonic_ms();
+    close(fd);
+    return append_format(buf,
+                         "%s.response_seen=%u\n"
+                         "%s.response_success=%u\n"
+                         "%s.response_curr_state_valid=%u\n"
+                         "%s.response_curr_state=0x%08x\n"
+                         "%s.response_curr_state_name=%s\n"
+                         "%s.indication_seen=%u\n"
+                         "%s.indication_valid=%u\n"
+                         "%s.indication_curr_state=0x%08x\n"
+                         "%s.indication_curr_state_name=%s\n"
+                         "%s.ack_sent=%u\n"
+                         "%s.ack_success=%u\n"
+                         "%s.timing.first_response_ms=%ld\n"
+                         "%s.timing.first_indication_ms=%ld\n"
+                         "%s.timing.close_ms=%ld\n"
+                         "%s.timing.hold_ms=%ld\n"
+                         "%s.timing.poll_timeout=%u\n"
+                         "%s.result=%s\n"
+                         "%s.end=1\n",
+                         prefix,
+                         response_seen ? 1U : 0U,
+                         prefix,
+                         response_success ? 1U : 0U,
+                         prefix,
+                         response_state_valid ? 1U : 0U,
+                         prefix,
+                         response_state,
+                         prefix,
+                         servnotif_state_name(response_state),
+                         prefix,
+                         indication_seen ? 1U : 0U,
+                         prefix,
+                         indication_valid ? 1U : 0U,
+                         prefix,
+                         indication_state,
+                         prefix,
+                         servnotif_state_name(indication_state),
+                         prefix,
+                         ack_sent ? 1U : 0U,
+                         prefix,
+                         ack_success ? 1U : 0U,
+                         prefix,
+                         first_response_ms,
+                         prefix,
+                         first_indication_ms,
+                         prefix,
+                         close_ms,
+                         prefix,
+                         send_after_ms > 0 && close_ms >= send_after_ms ? close_ms - send_after_ms : 0,
+                         prefix,
+                         response_poll_timeout ? 1U : 0U,
+                         prefix,
+                         response_seen ? (response_success ? "listener-response-success" : "listener-response-error") : "no-response",
+                         prefix);
+}
+
 struct service74_klog_state {
     unsigned int sysmon_qmi_count;
     unsigned int service180_count;
@@ -35142,6 +35553,14 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
     if (wlan_pd_service_window_trigger &&
         cfg->allow_service_notifier_listener_probe &&
         append_companion_service_notifier_late_endpoint_probe(stdout_buf, cfg) < 0) {
+        stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
+        composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+        stop_property_service_shim(&property_shim, paths, stdout_buf);
+        return -1;
+    }
+    if (wlan_pd_service_window_trigger &&
+        cfg->allow_service_notifier_listener_probe &&
+        append_companion_service_notifier_late_listener_probe(stdout_buf, cfg) < 0) {
         stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
         composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
         stop_property_service_shim(&property_shim, paths, stdout_buf);

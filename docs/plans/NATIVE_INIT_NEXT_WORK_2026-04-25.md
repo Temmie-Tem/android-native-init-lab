@@ -13522,3 +13522,73 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
 
   - `docs/reports/NATIVE_INIT_V1728_WLAN_PD_SERVNOTIF_LATE_ENDPOINT_SOURCE_BUILD_2026-06-03.md`;
   - `docs/reports/NATIVE_INIT_V1729_WLAN_PD_SERVNOTIF_LATE_ENDPOINT_HANDOFF_2026-06-03.md`.
+
+## V1730/V1731 service-notifier late listener gate (2026-06-03)
+
+- V1730 source/build and V1731 one-run live handoff completed.
+
+  Rationale:
+
+  - V1729 proved the service-notifier endpoint appears late after the CNSS
+    service window;
+  - V1730/V1731 reused that exact window and sent only the bounded
+    service-notifier register-listener request;
+  - this gate still did not add PM trio, `vendor.qcom.PeripheralManager`,
+    `boot_wlan`, `/dev/subsys_esoc0`, forced RC1, fake-ONLINE, Wi-Fi HAL,
+    scan/connect, credentials, DHCP/routes, or external ping.
+
+  V1730 source/build result:
+
+  - decision:
+    `v1730-wlan-pd-servnotif-late-listener-source-build-pass`;
+  - helper: `a90_android_execns_probe v325`;
+  - helper SHA256:
+    `c04884091fc725d8e5c1768750d16ea2a08e625bae276342b4251bf161b8895f`;
+  - boot image:
+    `tmp/wifi/v1730-wlan-pd-servnotif-late-listener-test-boot/boot_linux_v1730_wlan_pd_servnotif_late_listener.img`;
+  - boot SHA256:
+    `8a3e6e1ee01668d5ef656a21aeb33f247638a62c1c671fa7f17f1cb95e86bd21`.
+
+  V1731 live result:
+
+  - decision: `v1731-late-listener-uninit-no-indication-rollback-pass`;
+  - rollback: `from-native`, PASS;
+  - post-rollback selftest: `fail=0`;
+  - late endpoint result: `endpoint-found`;
+  - late listener endpoint: node `0`, port `2`;
+  - late listener send attempted: `1`;
+  - response seen/success: `1` / `1`;
+  - response current state: `0x7fffffff` / `uninit`;
+  - indication seen: `0`;
+  - bounded hold: `15015 ms`, poll timeout `1`;
+  - service-window label: `wlfw-start-reached`;
+  - non-log label: `wlfw-worker-thread-started-waiting-for-qmi-service`;
+  - `wlfw_start`, `wlfw_service_request`, and worker-create-success hit
+    counts: `1` / `1` / `1`;
+  - WLFW indication-register/capability QMI hit counts: `0` / `0`;
+  - WLFW service 69 seen: `0`;
+  - requested `wlanmdsp`: `0`.
+
+  Interpretation:
+
+  - service-notifier endpoint timing is no longer the blocker;
+  - the endpoint is reachable and answers the listener request, but it reports
+    WLAN-PD as `UNINIT` and does not emit a state-up indication in the bounded
+    window;
+  - repeating timing/window variants is now low value. The blocker is the
+    missing modem-side WLAN-PD state-up trigger / image-load request path.
+
+  Next candidate:
+
+  - V1732 host-only/current-evidence classifier: compare Android-good
+    WLAN-PD state-up timing with V1731 native `UNINIT`, focusing on what
+    precedes Android's service-notifier UP indication and first
+    `wlanmdsp`/WLFW service 69 marker;
+  - V1733 should only be planned after V1732 identifies a concrete missing
+    trigger surface. Do not add PM trio, `boot_wlan`, eSoC/RC1, Wi-Fi HAL,
+    scan/connect, credentials, DHCP/routes, or external ping from V1731.
+
+  Reports:
+
+  - `docs/reports/NATIVE_INIT_V1730_WLAN_PD_SERVNOTIF_LATE_LISTENER_SOURCE_BUILD_2026-06-03.md`;
+  - `docs/reports/NATIVE_INIT_V1731_WLAN_PD_SERVNOTIF_LATE_LISTENER_HANDOFF_2026-06-03.md`.
