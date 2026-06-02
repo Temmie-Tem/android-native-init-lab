@@ -4324,3 +4324,42 @@ verify selftest `fail=0`.  Reports:
 `docs/reports/NATIVE_INIT_V1621_PM_SERVICE_PROPERTY_ROOT_SOURCE_BUILD_2026-06-02.md`
 and
 `docs/reports/NATIVE_INIT_V1622_PM_SERVICE_PROPERTY_ROOT_ARTIFACT_SANITY_2026-06-02.md`.
+
+## Latest native Wi-Fi state: V1623/V1624 (2026-06-02)
+
+V1623 rollbackable live handoff flashed the V1621 property-root test image,
+collected service-window evidence, rolled back from native, and verified v724
+selftest after rollback.  Handoff/rollback passes, but strict Wi-Fi progress
+remains absent; the decision is
+`v1623-test-boot-no-downstream-wifi-progress-blocked`.
+
+V1624 host-only classification passes as
+`v1624-property-root-materialized-shutdown-critical-list-blocked`.
+
+New evidence:
+
+- `/dev/__properties__` is now visible and captured in the private namespace,
+  proving the V1621 property-root materialization repair worked.
+- `subsys0=modem ONLINE`, `subsys9=esoc0 OFFLINING`, and `esoc0=SDX50M`
+  remain visible before `pm-service` startup.
+- `pm-service` exits naturally with code `0`, signal `0`, still before opening
+  binder, sockets, `/dev/subsys_modem`, or `/dev/subsys_esoc0`.
+- property requests now include denied
+  `vendor.peripheral.shutdown_critical_list` writes for `SDX50M ` and
+  `SDX50M modem `, while OFFLINE state writes are allowed.
+- no downstream RC1, MHI, WLFW, BDF, FW-ready, or `wlan0` progress appears.
+
+Branch correction: missing `/dev/__properties__` is no longer the immediate
+blocker.  The next direct fix is to enable the already-supported
+`vendor.peripheral.shutdown_critical_list` values for android service-window
+mode only, then rebuild and retest whether `pm-service` advances to IPC or PM
+fd ownership.
+
+Next gate: V1625 source/build-only property-shim allowlist repair for
+`wifi-companion-android-wifi-service-window-*` modes.  Keep blocked: Wi-Fi HAL
+start, scan/connect, credentials, DHCP/routes, external ping, PMIC/GPIO/GDSC
+writes, blind eSoC notify/`BOOT_DONE`, global PCI rescan, platform
+bind/unbind, and direct scoped `/dev/subsys_esoc0` actor opens.  Reports:
+`docs/reports/NATIVE_INIT_V1623_PM_SERVICE_PROPERTY_ROOT_HANDOFF_2026-06-02.md`
+and
+`docs/reports/NATIVE_INIT_V1624_PM_SERVICE_PROPERTY_ROOT_CLASSIFIER_2026-06-02.md`.

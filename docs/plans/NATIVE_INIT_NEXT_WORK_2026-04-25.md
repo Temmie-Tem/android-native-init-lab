@@ -9785,3 +9785,32 @@ Samsung bootloader
   `docs/reports/NATIVE_INIT_V1621_PM_SERVICE_PROPERTY_ROOT_SOURCE_BUILD_2026-06-02.md`
   and
   `docs/reports/NATIVE_INIT_V1622_PM_SERVICE_PROPERTY_ROOT_ARTIFACT_SANITY_2026-06-02.md`.
+
+- V1623 rollbackable live handoff is complete.  It flashes the V1621
+  property-root test image, collects service-window evidence, rolls back from
+  native, and verifies v724 selftest after rollback.  Handoff/rollback passes,
+  but strict Wi-Fi progress remains absent; the decision is
+  `v1623-test-boot-no-downstream-wifi-progress-blocked`.
+
+  V1624 host-only classifier passes as
+  `v1624-property-root-materialized-shutdown-critical-list-blocked`.
+
+  Important boundary movement:
+
+  - `/dev/__properties__` is now visible and captured inside the private
+    namespace, so V1621 repaired the property-root materialization gap.
+  - `pm-service` still exits naturally with code `0`, signal `0`, before
+    binder/socket/subsystem fd ownership.
+  - the newly visible property path exposes a narrower blocker:
+    `vendor.peripheral.shutdown_critical_list` writes for `SDX50M ` and
+    `SDX50M modem ` are denied by the shim.
+  - no RC1, MHI, WLFW, BDF, FW-ready, or `wlan0` progress appears.
+
+  Next gate: V1625 source/build-only property-shim allowlist repair.  Enable
+  the already-supported shutdown-critical-list values only for
+  `wifi-companion-android-wifi-service-window-*` modes with
+  `--allow-android-wifi-service-window`, then rebuild and locally sanity-check
+  the test boot artifact before any new rollbackable live handoff.  Reports:
+  `docs/reports/NATIVE_INIT_V1623_PM_SERVICE_PROPERTY_ROOT_HANDOFF_2026-06-02.md`
+  and
+  `docs/reports/NATIVE_INIT_V1624_PM_SERVICE_PROPERTY_ROOT_CLASSIFIER_2026-06-02.md`.
