@@ -14632,3 +14632,53 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
   - keep blocked: eSoC/RC1, `/dev/subsys_esoc0`, `boot_wlan`, restart-PD,
     Wi-Fi HAL, scan/connect, credentials, DHCP/routes, and external ping until
     `wlanmdsp.mbn` request or WLFW service 69 appears.
+
+## V1757 WLAN-PD PeripheralManager service-object branch classifier (2026-06-03)
+
+- V1757 narrowed the V1756 `interface-conversion-gap` to a concrete null
+  service-object branch in `libperipheral_client.so`.
+
+  Host/source-only classifier:
+
+  - script:
+    `scripts/revalidation/native_wifi_wlan_pd_peripheral_interface_branch_classifier_v1757.py`;
+  - decision: `v1757-peripheral-manager-service-get-null-host-pass`;
+  - label: `peripheral-manager-service-object-null`;
+  - evidence: `tmp/wifi/v1757-wlan-pd-peripheral-interface-branch-classifier`;
+  - report:
+    `docs/reports/NATIVE_INIT_V1757_WLAN_PD_PERIPHERAL_INTERFACE_BRANCH_CLASSIFIER_2026-06-03.md`.
+
+  Static branch evidence:
+
+  - `0x61c4` performs the service-manager lookup for
+    `vendor.qcom.PeripheralManager`;
+  - `0x6208` loads the returned binder strong pointer;
+  - `0x620c` is `cbz x8, 0x629c`;
+  - `0x6218` is `IPeripheralManager::asInterface(...)`;
+  - `0x629c` enters the `%s get service fail` log path.
+
+  Interpretation:
+
+  - V1736 reaches the returned-binder check but never reaches `asInterface`;
+  - because the only branch that skips `asInterface` is `cbz x8`, native
+    `getService("vendor.qcom.PeripheralManager")` returns a null service
+    object in this context;
+  - the blocker is no longer an unspecified interface-conversion issue.  It is
+    service-object registration/visibility for `vendor.qcom.PeripheralManager`;
+  - this still does not justify a broad PM actor march.  The next unit should
+    classify the exact `/vendor/bin/pm-service` registration contract and why
+    prior native PM-trio attempts did not expose the service object to
+    `libperipheral_client.so`.
+
+  Next candidate:
+
+  - V1758 should remain host/source-only first: classify how `pm-service`
+    registers `vendor.qcom.PeripheralManager`, which Binder service-manager
+    context it targets, and what minimum service-object visibility condition is
+    required before a live gate;
+  - only after that classification should a narrow live gate attempt to repair
+    service-object visibility and measure PM vote plus `wlanmdsp.mbn` request;
+  - keep blocked: broad PM actor march, eSoC/RC1, `/dev/subsys_esoc0`,
+    `boot_wlan`, restart-PD, Wi-Fi HAL, scan/connect, credentials,
+    DHCP/routes, and external ping until `wlanmdsp.mbn` request or WLFW service
+    69 appears.
