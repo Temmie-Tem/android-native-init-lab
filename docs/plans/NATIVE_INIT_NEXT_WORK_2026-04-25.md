@@ -11704,3 +11704,43 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
 
   Report:
   `docs/reports/NATIVE_INIT_V1684_WLAN_PD_PM_SURFACE_CLASSIFIER_2026-06-02.md`.
+
+## V1685 WLAN-PD PM-trio Source Build (2026-06-02)
+
+- V1685 source/build completed.
+
+  Result:
+
+  - decision: `v1685-wlan-pd-pm-trio-source-build-pass`;
+  - helper marker: `a90_android_execns_probe v308`;
+  - helper SHA256:
+    `63cd24cf0fb99c3cf294149809bc2dedfb90b70f70f0269b250e3c61e885663c`;
+  - boot artifact:
+    `tmp/wifi/v1685-wlan-pd-pm-trio-source-build/boot_linux_v1393_wifi_test.img`;
+  - boot SHA256:
+    `4b59d0b89ce2ecf590ccfa6c99b54f66ea27b5f6ea35bfbe0ef5ab60046dfa41`;
+  - artifacts verified static/private; exact credential bytes absent;
+  - no live execution or flash occurred.
+
+  Implemented source/build route:
+
+  - `wifi-companion-wlan-pd-pm-service-window-trigger-start-only`;
+  - V1683 internal-modem WLAN-PD firmware-serve route and `/dev/subsys_modem`
+    holder;
+  - `pm_proxy_helper`, `per_mgr`, and `per_proxy` before `cnss-daemon`;
+  - explicit `wlan_pd_pm_service_window_trigger.*` label summary;
+  - no `mdm_helper`, `/dev/subsys_esoc0`, raw eSoC ioctl, forced RC1,
+    fake-ONLINE, Wi-Fi HAL, `wificond`, scan/connect, credentials,
+    DHCP/routes, or external ping.
+
+  Next live gate:
+
+  - one rollbackable handoff only;
+  - collect `wlan_pd_pm_service_window_trigger.label`;
+  - rollback to `stage3/boot_linux_v724.img`;
+  - verify `selftest fail=0`;
+  - stop after one label and do not proceed to MSA/BDF or scan/connect unless
+    `wlfw-start-reached` or WLFW service 69 appears.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1685_WLAN_PD_PM_TRIO_SOURCE_BUILD_2026-06-02.md`.
