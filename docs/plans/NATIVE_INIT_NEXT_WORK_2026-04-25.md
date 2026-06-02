@@ -14682,3 +14682,56 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
     `boot_wlan`, restart-PD, Wi-Fi HAL, scan/connect, credentials,
     DHCP/routes, and external ping until `wlanmdsp.mbn` request or WLFW service
     69 appears.
+
+## V1758 WLAN-PD Provider Visibility Contract Classifier (2026-06-03)
+
+- V1758 fixed the post-V1757 interpretation: the null
+  `vendor.qcom.PeripheralManager` object in V1736 is a missing provider
+  visibility contract, not an unresolved `libperipheral_client.so` branch.
+
+  Host-only classifier:
+
+  - script:
+    `scripts/revalidation/native_wifi_wlan_pd_provider_visibility_contract_classifier_v1758.py`;
+  - decision:
+    `v1758-provider-positive-contract-not-composed-with-wlfw-route-host-pass`;
+  - label: `compose-provider-positive-vndservice-gate-before-cnss-pm-register`;
+  - evidence: `tmp/wifi/v1758-wlan-pd-provider-visibility-contract-classifier`;
+  - report:
+    `docs/reports/NATIVE_INIT_V1758_WLAN_PD_PROVIDER_VISIBILITY_CONTRACT_CLASSIFIER_2026-06-03.md`.
+
+  Evidence split:
+
+  - V1757: V1736 hits `getService("vendor.qcom.PeripheralManager")` null
+    service-object branch;
+  - V1092/V1087: provider registration requires V490 policy-load plus explicit
+    `vndservicemanager_ready` and `vndservice list` query gating;
+  - V1101: in a provider-positive namespace, CNSS PM register traffic can reach
+    `pm-service`;
+  - V1736: reaches `wlfw_start` and `wlfw_service_request`, but has
+    `peripheral_manager.enabled=0`, `vndservice_query.enabled=0`, and
+    `vndservicemanager_readiness.enabled=0`;
+  - V1686: merely adding PM actors regresses the WLFW worker and still produces
+    no `wlanmdsp.mbn` request.
+
+  Interpretation:
+
+  - the next useful unit is not another broad PM/service-window actor march;
+  - the next unit should compose the V1092 provider-positive contract into the
+    V1736 internal-modem/WLFW route, then observe whether CNSS PM register sees
+    a non-null service object and whether `wlanmdsp.mbn` is requested;
+  - success must be measured by PM register/transaction progress and firmware
+    request movement, not just actor presence.
+
+  Next candidate:
+
+  - V1759 should be source/build-only first: add or select a bounded helper
+    order that performs service managers -> explicit `vndservicemanager_ready`
+    -> `pm_proxy_helper`/`per_mgr` -> `vndservice list` provider proof ->
+    internal modem firmware/tftp/CNSS route -> PM/WLFW observer;
+  - the later live gate must still be one rollbackable run with cleanup and
+    label selection;
+  - keep blocked: broad PM actor march, eSoC/RC1, `/dev/subsys_esoc0`,
+    `boot_wlan`, restart-PD, Wi-Fi HAL, scan/connect, credentials,
+    DHCP/routes, and external ping until `wlanmdsp.mbn` request or WLFW service
+    69 appears.
