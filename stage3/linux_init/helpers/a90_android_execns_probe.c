@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v326"
+#define EXECNS_VERSION "a90_android_execns_probe v327"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -11395,6 +11395,23 @@ static bool a90_buffer_contains_ci(const struct buffer *buf, const char *needle)
     return strcasestr(buf->data, needle) != NULL;
 }
 
+static int a90_buffer_count_ci(const struct buffer *buf, const char *needle) {
+    const char *cursor;
+    size_t needle_len;
+    int count = 0;
+
+    if (buf == NULL || buf->data == NULL || needle == NULL || *needle == '\0') {
+        return 0;
+    }
+    needle_len = strlen(needle);
+    cursor = buf->data;
+    while ((cursor = strcasestr(cursor, needle)) != NULL) {
+        count++;
+        cursor += needle_len;
+    }
+    return count;
+}
+
 static bool a90_buffer_key_has_nonzero_uint(const struct buffer *buf, const char *key) {
     const char *cursor;
     size_t key_len;
@@ -13171,13 +13188,28 @@ static int append_wlan_pd_cnss_output_visibility_summary(struct buffer *stdout_b
                                                         bool cnss_daemon_running) {
     struct cnss_output_visibility_markers markers;
     const char *failure_slug;
+    const char *wlfw_start_source = "none";
     char label[96];
-    const bool wlfw_start_seen =
-        a90_buffer_contains_ci(stdout_buf, "wlfw_start: Starting") ||
-        a90_buffer_contains_ci(stderr_buf, "wlfw_start: Starting");
+    int stdout_failure_counts[8] = {0};
+    int stderr_failure_counts[8] = {0};
+    const int stdout_wlfw_start_count = a90_buffer_count_ci(stdout_buf, "wlfw_start: Starting");
+    const int stderr_wlfw_start_count = a90_buffer_count_ci(stderr_buf, "wlfw_start: Starting");
+    const bool wlfw_start_seen = stdout_wlfw_start_count > 0 || stderr_wlfw_start_count > 0;
+
+    for (size_t i = 0; i < sizeof(cnss_output_failure_patterns) / sizeof(cnss_output_failure_patterns[0]); i++) {
+        stdout_failure_counts[i] = a90_buffer_count_ci(stdout_buf, cnss_output_failure_patterns[i].phrase);
+        stderr_failure_counts[i] = a90_buffer_count_ci(stderr_buf, cnss_output_failure_patterns[i].phrase);
+    }
 
     if (collect_cnss_output_visibility_markers(&markers) < 0) {
         return -1;
+    }
+    if (markers.wlfw_start_count > 0) {
+        wlfw_start_source = "kmsg";
+    } else if (stdout_wlfw_start_count > 0) {
+        wlfw_start_source = "stdout";
+    } else if (stderr_wlfw_start_count > 0) {
+        wlfw_start_source = "stderr";
     }
     failure_slug = first_cnss_failure_slug_from_buffers(stdout_buf, stderr_buf, &markers);
     if (wlfw_start_seen || markers.wlfw_start_count > 0) {
@@ -13204,6 +13236,8 @@ static int append_wlan_pd_cnss_output_visibility_summary(struct buffer *stdout_b
                        "wlan_pd_cnss_output_visibility.expected_property.persist.vendor.cnss-daemon.kmsg_logging=1\n"
                        "wlan_pd_cnss_output_visibility.expected_property.persist.vendor.cnss-daemon.debug_level=4\n") < 0 ||
         append_format(stdout_buf,
+                      "wlan_pd_cnss_output_visibility.stdout_bytes=%zu\n"
+                      "wlan_pd_cnss_output_visibility.stderr_bytes=%zu\n"
                       "wlan_pd_cnss_output_visibility.tftp_child_present=%d\n"
                       "wlan_pd_cnss_output_visibility.tftp_observable=%d\n"
                       "wlan_pd_cnss_output_visibility.tftp_running=%d\n"
@@ -13215,16 +13249,46 @@ static int append_wlan_pd_cnss_output_visibility_summary(struct buffer *stdout_b
                       "wlan_pd_cnss_output_visibility.syslog_lines_read=%d\n"
                       "wlan_pd_cnss_output_visibility.syslog_filtered_count=%d\n"
                       "wlan_pd_cnss_output_visibility.wlfw_start_seen=%d\n"
+                      "wlan_pd_cnss_output_visibility.wlfw_start.source=%s\n"
+                      "wlan_pd_cnss_output_visibility.wlfw_start.stdout_count=%d\n"
+                      "wlan_pd_cnss_output_visibility.wlfw_start.stderr_count=%d\n"
+                      "wlan_pd_cnss_output_visibility.wlfw_start.kmsg_count=%d\n"
                       "wlan_pd_cnss_output_visibility.failure.nl_loop=%d\n"
+                      "wlan_pd_cnss_output_visibility.failure.nl_loop.stdout_count=%d\n"
+                      "wlan_pd_cnss_output_visibility.failure.nl_loop.stderr_count=%d\n"
+                      "wlan_pd_cnss_output_visibility.failure.nl_loop.kmsg_count=%d\n"
                       "wlan_pd_cnss_output_visibility.failure.netlink_common=%d\n"
+                      "wlan_pd_cnss_output_visibility.failure.netlink_common.stdout_count=%d\n"
+                      "wlan_pd_cnss_output_visibility.failure.netlink_common.stderr_count=%d\n"
+                      "wlan_pd_cnss_output_visibility.failure.netlink_common.kmsg_count=%d\n"
                       "wlan_pd_cnss_output_visibility.failure.interop_issues_ap=%d\n"
+                      "wlan_pd_cnss_output_visibility.failure.interop_issues_ap.stdout_count=%d\n"
+                      "wlan_pd_cnss_output_visibility.failure.interop_issues_ap.stderr_count=%d\n"
+                      "wlan_pd_cnss_output_visibility.failure.interop_issues_ap.kmsg_count=%d\n"
                       "wlan_pd_cnss_output_visibility.failure.hang_issues_ap=%d\n"
+                      "wlan_pd_cnss_output_visibility.failure.hang_issues_ap.stdout_count=%d\n"
+                      "wlan_pd_cnss_output_visibility.failure.hang_issues_ap.stderr_count=%d\n"
+                      "wlan_pd_cnss_output_visibility.failure.hang_issues_ap.kmsg_count=%d\n"
                       "wlan_pd_cnss_output_visibility.failure.gw_update_loop=%d\n"
+                      "wlan_pd_cnss_output_visibility.failure.gw_update_loop.stdout_count=%d\n"
+                      "wlan_pd_cnss_output_visibility.failure.gw_update_loop.stderr_count=%d\n"
+                      "wlan_pd_cnss_output_visibility.failure.gw_update_loop.kmsg_count=%d\n"
                       "wlan_pd_cnss_output_visibility.failure.user_interface=%d\n"
+                      "wlan_pd_cnss_output_visibility.failure.user_interface.stdout_count=%d\n"
+                      "wlan_pd_cnss_output_visibility.failure.user_interface.stderr_count=%d\n"
+                      "wlan_pd_cnss_output_visibility.failure.user_interface.kmsg_count=%d\n"
                       "wlan_pd_cnss_output_visibility.failure.wlan_service=%d\n"
+                      "wlan_pd_cnss_output_visibility.failure.wlan_service.stdout_count=%d\n"
+                      "wlan_pd_cnss_output_visibility.failure.wlan_service.stderr_count=%d\n"
+                      "wlan_pd_cnss_output_visibility.failure.wlan_service.kmsg_count=%d\n"
                       "wlan_pd_cnss_output_visibility.failure.wlan_datapath_service=%d\n"
+                      "wlan_pd_cnss_output_visibility.failure.wlan_datapath_service.stdout_count=%d\n"
+                      "wlan_pd_cnss_output_visibility.failure.wlan_datapath_service.stderr_count=%d\n"
+                      "wlan_pd_cnss_output_visibility.failure.wlan_datapath_service.kmsg_count=%d\n"
                       "wlan_pd_cnss_output_visibility.first_failure_slug=%s\n"
                       "wlan_pd_cnss_output_visibility.label=%s\n",
+                      stdout_buf != NULL ? stdout_buf->len : 0U,
+                      stderr_buf != NULL ? stderr_buf->len : 0U,
                       tftp_child_present ? 1 : 0,
                       tftp_observable ? 1 : 0,
                       tftp_running ? 1 : 0,
@@ -13236,13 +13300,41 @@ static int append_wlan_pd_cnss_output_visibility_summary(struct buffer *stdout_b
                       markers.lines_read,
                       markers.filtered_count,
                       (wlfw_start_seen || markers.wlfw_start_count > 0) ? 1 : 0,
+                      wlfw_start_source,
+                      stdout_wlfw_start_count,
+                      stderr_wlfw_start_count,
+                      markers.wlfw_start_count,
+                      markers.failure_counts[0],
+                      stdout_failure_counts[0],
+                      stderr_failure_counts[0],
                       markers.failure_counts[0],
                       markers.failure_counts[1],
+                      stdout_failure_counts[1],
+                      stderr_failure_counts[1],
+                      markers.failure_counts[1],
+                      markers.failure_counts[2],
+                      stdout_failure_counts[2],
+                      stderr_failure_counts[2],
                       markers.failure_counts[2],
                       markers.failure_counts[3],
+                      stdout_failure_counts[3],
+                      stderr_failure_counts[3],
+                      markers.failure_counts[3],
+                      markers.failure_counts[4],
+                      stdout_failure_counts[4],
+                      stderr_failure_counts[4],
                       markers.failure_counts[4],
                       markers.failure_counts[5],
+                      stdout_failure_counts[5],
+                      stderr_failure_counts[5],
+                      markers.failure_counts[5],
                       markers.failure_counts[6],
+                      stdout_failure_counts[6],
+                      stderr_failure_counts[6],
+                      markers.failure_counts[6],
+                      markers.failure_counts[7],
+                      stdout_failure_counts[7],
+                      stderr_failure_counts[7],
                       markers.failure_counts[7],
                       failure_slug != NULL ? failure_slug : "none",
                       label) < 0 ||

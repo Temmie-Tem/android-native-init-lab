@@ -13813,3 +13813,61 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
 
   Report:
   `docs/reports/NATIVE_INIT_V1738_WLAN_PD_TRIGGER_SURFACE_CLASSIFIER_2026-06-03.md`.
+
+## V1739 WLAN-PD cnss-daemon output-source source build (2026-06-03)
+
+- V1739 source/build-only unit completed after the cnss-daemon logging correction.
+
+  Correction:
+
+  - retract using QCACLD/`boot_wlan` as a WLFW trigger; ICNSS driver
+    registration waits for FW-ready and is not the source of WLFW service 69;
+  - treat missing native `wlfw_start` dmesg as a possible measurement artifact,
+    because stock `cnss-daemon` logs through Android logcat unless
+    `persist.vendor.cnss-daemon.kmsg_logging=1` is consumed;
+  - stop PM/service-window actor expansion and keep the V1680 internal-modem
+    firmware-serve route only.
+
+  Result:
+
+  - decision: `v1739-wlan-pd-cnss-output-source-source-build-pass`;
+  - boot image:
+    `tmp/wifi/v1739-wlan-pd-cnss-output-source-test-boot/boot_linux_v1739_wlan_pd_cnss_output_source.img`;
+  - boot SHA256:
+    `2b31e64ab017436938142b778081b0e7eb62a39e5ff15c18e09a320e5548c4f1`;
+  - init: `A90 Linux init 0.9.140 (v1739-wlan-pd-cnss-output-source)`;
+  - helper marker: `a90_android_execns_probe v327`;
+  - helper SHA256:
+    `47c9afbddb97736b16345956f34d89e213f4cec16ba94c2f7c107e52da540713`;
+  - property runtime carries
+    `persist.vendor.cnss-daemon.kmsg_logging=1` and
+    `persist.vendor.cnss-daemon.debug_level=4`.
+
+  Route:
+
+  - actors: `qrtr-ns`, `pd-mapper`, `rmt_storage`, `tftp_server`,
+    `/dev/subsys_modem` holder, `cnss_diag`, stock `cnss-daemon`;
+  - no service-manager, PM trio, `boot_wlan`, restart-PD request,
+    `/dev/subsys_esoc0`, forced RC1, fake-ONLINE, Wi-Fi HAL, scan/connect,
+    credentials, DHCP/routes, or external ping.
+
+  Added evidence fields:
+
+  - `wlan_pd_cnss_output_visibility.stdout_bytes`;
+  - `wlan_pd_cnss_output_visibility.stderr_bytes`;
+  - `wlan_pd_cnss_output_visibility.wlfw_start.source`;
+  - `wlan_pd_cnss_output_visibility.wlfw_start.{stdout_count,stderr_count,kmsg_count}`;
+  - per-failure stdout/stderr/kmsg counts for all eight pre-WLFW init failure
+    strings.
+
+  Next candidate:
+
+  - V1740 one-run rollbackable live handoff of the V1739 artifact;
+  - labels: `wlfw-start-reached-downstream-block`,
+    `cnss-init-step-failed-<name>`, `cnss-output-still-invisible`;
+  - one run sets one label, then stop and hand back;
+  - do not add PM actors, `boot_wlan`, restart-PD, eSoC/RC1, Wi-Fi HAL, or
+    connection actions in this gate.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1739_WLAN_PD_CNSS_OUTPUT_SOURCE_SOURCE_BUILD_2026-06-03.md`.
