@@ -3824,3 +3824,36 @@ scan/connect, DHCP/routes, external ping, PMIC/GPIO/GDSC direct writes, blind
 eSoC notify/`BOOT_DONE`, global PCI rescan, platform bind/unbind, or unbounded
 boot-image/partition writes.  Report:
 `docs/reports/NATIVE_INIT_V1602_PM_FIRST_LATE_PER_PROXY_PPH_GATE_LOWER_MARKER_HANDOFF_2026-06-02.md`.
+
+## Latest native Wi-Fi state: V1603 (2026-06-02)
+
+V1603 adds
+`scripts/revalidation/native_wifi_pm_service_exit_classifier_v1603.py` and
+performs the host-only classification requested by the V1602 handoff.  It
+passes as `v1603-pph-gate-passed-per-mgr-exit-before-contract`.
+
+The classification fixes the current boundary:
+
+- V1602 handoff evidence is present and rollback-safe.
+- The PPH fd gate is closed: `pph_modem_fd_gate_seen=1`,
+  first seen at `301ms`, final count `1`, and
+  `pm_proxy_helper_subsys_modem_fd_count=1`.
+- `/vendor/bin/pm-service` still exits `0` before it is observable in the
+  sampling window; it never holds `/dev/subsys_modem`.
+- `pm-proxy` exits `1`.
+- `pm_full_contract_seen=0`, `subsys_esoc0_open_attempted=0`, and
+  `mdm_subsys_powerup` is absent.
+- RC1, MHI, WLFW, BDF, FW-ready, and `wlan0` remain downstream and absent.
+
+Interpretation: the blocker is not the PPH race and not currently
+RC1/PERST/refclk or firmware/MHI/WLFW.  The immediate missing contract is
+`per_mgr`/`pm-service` startup survival after a proven `pm_proxy_helper`
+`/dev/subsys_modem` fd.  V1604 should be source/build-only and add a tight
+`per_mgr` startup sampler: 10-20ms cadence from spawn until exit or one second,
+record first observable time, exit time, exit code, signal, cwd, cmdline, wchan,
+fd links, `/dev/subsys_modem`, `/dev/vndbinder`, `/dev/hwbinder`, binder/socket
+surface, and stderr/stdout diagnostics.  The existing PPH gate and all
+scan/connect/credential/DHCP/external-ping guardrails remain required.
+
+Report:
+`docs/reports/NATIVE_INIT_V1603_PM_SERVICE_EXIT_CLASSIFIER_2026-06-02.md`.

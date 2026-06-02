@@ -9396,3 +9396,29 @@ Samsung bootloader
   notify/`BOOT_DONE`, global PCI rescan, platform bind/unbind, or unbounded
   boot-image/partition writes.  Report:
   `docs/reports/NATIVE_INIT_V1602_PM_FIRST_LATE_PER_PROXY_PPH_GATE_LOWER_MARKER_HANDOFF_2026-06-02.md`.
+
+- V1603 host-only PM-service exit classifier is complete and passes as
+  `v1603-pph-gate-passed-per-mgr-exit-before-contract`.  It reads the V1602
+  handoff manifest, summary, helper result, dmesg, and helper source without
+  contacting the device.
+
+  Final boundary: PPH modem-fd gate is proven (`pph_modem_fd_gate_seen=1`,
+  first seen at `301ms`, final count `1`, and
+  `pm_proxy_helper_subsys_modem_fd_count=1`), but `/vendor/bin/pm-service`
+  exits `0` before observation and before holding `/dev/subsys_modem`.
+  `pm-proxy` exits `1`, `pm_full_contract_seen=0`,
+  `subsys_esoc0_open_attempted=0`, and no PM-service-owned
+  `mdm_subsys_powerup`, RC1, MHI, WLFW, BDF, FW-ready, or `wlan0` marker is
+  present.
+
+  This keeps RC1/PERST/refclk and firmware/MHI/WLFW work parked for the current
+  branch.  Next gate: V1604 source/build-only focused `per_mgr` startup
+  diagnostic in `a90_android_execns_probe`: after the proven PPH fd gate,
+  sample `per_mgr` at 10-20ms cadence from spawn until exit or one second;
+  record first observable time, exit timing, exit code/signal, cwd, cmdline,
+  wchan, fd links, `/dev/subsys_modem`, `/dev/vndbinder`, `/dev/hwbinder`,
+  binder/socket surface, and stdout/stderr byte counts/diagnostic tails.  Still
+  no credentials, scan/connect, DHCP/routes, external ping, PMIC/GPIO/GDSC
+  direct writes, blind eSoC notify/`BOOT_DONE`, global PCI rescan, platform
+  bind/unbind, or unbounded boot-image/partition writes.  Report:
+  `docs/reports/NATIVE_INIT_V1603_PM_SERVICE_EXIT_CLASSIFIER_2026-06-02.md`.
