@@ -16396,3 +16396,72 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
     `pm-register-list-commit-progress`;
   - do not repair private devnodes, chase WLAN-PD cascade, start Wi-Fi HAL,
     scan/connect, configure DHCP/routes, or external ping in V1793.
+
+## V1793 PM register request string live handoff (2026-06-03)
+
+- V1793 ran one rollbackable live discriminator using the V1792 PM register
+  request string observer.
+
+  Evidence:
+
+  - handoff:
+    `scripts/revalidation/native_wifi_wlan_pd_pm_register_request_string_handoff_v1793.py`;
+  - report:
+    `docs/reports/NATIVE_INIT_V1793_PM_REGISTER_REQUEST_STRING_HANDOFF_2026-06-03.md`;
+  - evidence directory:
+    `tmp/wifi/v1793-pm-register-request-string-handoff`;
+  - decision:
+    `v1793-pm-register-request-modem-or-other-rollback-pass`;
+  - label:
+    `pm-register-request-modem-or-other`;
+  - rollback:
+    `from-native`, verified `ok=true`;
+  - post-rollback:
+    `A90 Linux init 0.9.68 (v724)`, selftest `fail=0`.
+
+  Key evidence:
+
+  - PM register entry hit once, but entry-pointer string fetchargs were not
+    reliable at that offset;
+  - the reliable no-peripheral branch at `0x6148` captured
+    `peripheral="modem"`;
+  - PM-service discovery still only attempted `SDX50M` at
+    `/dev/subsys_esoc0`, failed `init_peripheral`, and never committed a
+    supported-list node;
+  - `pm_server_register_loop_node`, `strcmp`, `match`, `permission`,
+    `add-client`, and `success` stayed `0`;
+  - provider visibility and CNSS register/vote TX still occurred, but requested
+    `wlanmdsp`, WLFW service 69, and `wlan0` remained absent.
+
+  Interpretation:
+
+  - the next useful repair is not private `/dev/subsys_esoc0` parity for the
+    first discovered `SDX50M` record;
+  - CNSS is registering/voting for the `modem` peripheral, while PM-service's
+    supported list is empty because no usable `modem` record is populated;
+  - the current blocker is a PM-service supported-peripheral population mismatch:
+    native records `SDX50M` discovery failure, then serves an empty list to the
+    `modem` registration request.
+
+  Safety:
+
+  - live mutation scope was private property runtime staging on `/mnt/sdext`,
+    one test boot flash, evidence collection, and rollback to
+    `stage3/boot_linux_v724.img`;
+  - no `/dev/subsys_esoc0` open, forced RC1/case write, fake-ONLINE,
+    PMIC/GPIO/GDSC write, eSoC notify/BOOT_DONE, PCI rescan,
+    platform bind/unbind, restart-PD request, full `pm-proxy`, `boot_wlan`,
+    Wi-Fi HAL, scan/connect, credentials, DHCP/routes, or external ping was
+    used.
+
+  Next candidate:
+
+  - V1794 should stay host/source-only first: classify PM-service supported-list
+    population for the `modem` request, especially why the second count/load
+    path runs but no second add-peripheral call/list commit occurs;
+  - useful outputs: static offsets for first/second count values, source of the
+    `modem` peripheral record, Android-good vs native list inputs, and a
+    minimal observer or repair target;
+  - do not repair `/dev/subsys_esoc0`, synthesize a modem record, start Wi-Fi
+    HAL, scan/connect, configure DHCP/routes, or external ping until V1794 names
+    the exact `modem` list population contract.
