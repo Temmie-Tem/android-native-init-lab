@@ -15166,3 +15166,44 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
   - do not proceed to Wi-Fi HAL, scan/connect, credentials, DHCP/routes, or
     external ping until `wlan0` exists and the active connection gate is
     explicitly opened.
+
+## V1768 WLAN-PD PM server branch classifier (2026-06-03)
+
+- V1768 narrows the retained V1101 PeripheralManager server-side register
+  evidence without opening any live PM/helper gate.
+
+  Host-only classifier:
+
+  - script:
+    `scripts/revalidation/native_wifi_wlan_pd_pm_server_branch_classifier_v1768.py`;
+  - report:
+    `docs/reports/NATIVE_INIT_V1768_WLAN_PD_PM_SERVER_BRANCH_CLASSIFIER_2026-06-03.md`;
+  - decision:
+    `v1768-pm-server-register-entry-only-before-match-host-pass`;
+  - label:
+    `pm-server-register-entry-only-before-match`;
+  - evidence:
+    `tmp/wifi/v1768-wlan-pd-pm-server-branch-classifier`.
+
+  Branch boundary:
+
+  - V1101 positive-control `pm-proxy` path reaches `pm-service` register entry,
+    supported-peripheral match, permission/state/add-client checkpoints,
+    success return, and function return;
+  - CNSS reaches the same `pm-service` register entry at `0x6048`;
+  - CNSS does not reach the retained supported-peripheral match checkpoint at
+    `0x60cc`;
+  - CNSS has no permission/state/add-client/success-return/function-return
+    checkpoint;
+  - therefore the current pre-request blocker is specifically before the
+    `pm-service+0x60cc` match checkpoint, not merely "provider visible" or
+    "service manager missing".
+
+  Current next candidate:
+
+  - continue host/source-only disassembly of `pm-service+0x6048..0x60cc`;
+  - inspect String argument access/conversion, supported peripheral list
+    iteration setup, early Binder caller/process checks, and any mutex/blocking
+    call taken only by the CNSS Binder server thread before `0x60cc`;
+  - live service-object/register discriminator remains suspended until a new
+    directive explicitly reopens that narrow gate.
