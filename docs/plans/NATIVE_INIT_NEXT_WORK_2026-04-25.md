@@ -10358,3 +10358,43 @@ above (rejected as inverted causality).
 
   Report:
   `docs/reports/NATIVE_INIT_V1646_PRIVATE_DEVNODE_PREFLIGHT_2026-06-02.md`.
+
+## V1647 Private Devnode SHA256 Gate (2026-06-02)
+
+- V1647 temporary-devnode SHA256 gate passed as
+  `v1647-private-devnode-sha256-captured`.
+
+  This gate created temporary filesystem-only devnodes under `/dev`, computed
+  SHA256 for the selected small candidates, removed each node, then removed the
+  temporary directory.  Final cleanup was verified by `ls -ld
+  /dev/a90_v1647_devnodes` returning `No such file or directory`.
+
+  Hashes:
+
+  - `xbl_a` (`sdb1`, `8:17`, size `4194304`):
+    `e73a07a0b5e3eb9e8db9199eda125ee29b218765f050f85dd934a556549ebe37`.
+  - `xbl_b` (`sdc1`, `8:33`, size `4194304`):
+    `ae1191b5d70e6de9fd67c6d629bc93aa567296605d30b5c9196ff58fcc26cb50`.
+  - `aop` (`sdd7`, `8:55`, size `524288`):
+    `eadd6c78daca52221e1e3419f34a53eac7c1e2c2bb46c9b663325df1998b9c7c`.
+  - `devcfg` (`sdd22`, `259:9`, size `131072`):
+    `0399578253dd293dfc961c6a1077f660834df3ae5e1d65555f4225e327a03d14`.
+  - `abl` (`sdd8`, `8:56`, size `4194304`):
+    `1db19d11a5ce6865e3fbcabadfbdaa9045e75f144b8bc8593a58338c20a3120c`.
+
+  Duplicate groups: none.  The two `xbl` slots differ, so any future offline
+  analysis must treat them as distinct copies or versions rather than assuming a
+  mirrored pair.
+
+  V1647 did not dump raw partition bytes, commit proprietary binaries, write
+  partitions, write PMIC/GPIO/GDSC state, issue eSoC notify/`BOOT_DONE`, rescan
+  PCI, start Wi-Fi HAL, scan/connect, use credentials, run DHCP/routes, or
+  external ping.
+
+  V1648 should stay host-only first: interpret the hashes and decide whether a
+  bounded strings-only or external offline analysis gate is justified.  Do not
+  proceed to modem-rail writes or Wi-Fi HAL until an actual SDX50M power-owner
+  hypothesis is supported.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1647_PRIVATE_DEVNODE_HASH_GATE_2026-06-02.md`.
