@@ -13657,3 +13657,25 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
 
   Report:
   `docs/reports/NATIVE_INIT_V1733_CNSS_OUTPUT_GATE_SUPERSEDES_RESTART_PD_2026-06-03.md`.
+
+## V1734 WLAN-PD UP delta classifier (2026-06-03)
+
+- V1734 host-only Android-good/native delta classifier completed.
+
+  Result:
+
+  - decision: `v1734-wlan-pd-up-delta-modem-pd-start-gap-pass`;
+  - label: `modem-side-wlan-pd-start-gap`;
+  - next gate: `V1735 source-build timestamped internal-modem WLAN-PD observer; V1736 one-run read-only live`;
+  - Android-good reaches WLAN-PD UP shortly after `wlfw_service_request`, then ICNSS QMI, BDF, and `wlan0`;
+  - native V1731 reaches `wlfw_start` / `wlfw_service_request` and internal modem reset/QRTR, but WLAN-PD remains `UNINIT`, with no indication, no WLFW service 69, and no `wlanmdsp` request;
+  - V1680/V1731 firmware-serve evidence still labels the path `firmware-not-requested`; the next unit must observe the exact modem-side PD-start sequence rather than add actors.
+
+  Next candidate:
+
+  - V1735 source/build-only timestamped internal-modem WLAN-PD observer reusing the V1731 route;
+  - V1736 one rollbackable read-only live run only after V1735 sanity;
+  - forbidden: PM trio, `vendor.qcom.PeripheralManager`, `boot_wlan`, restart-PD request, `/dev/subsys_esoc0`, forced RC1, fake-ONLINE, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1734_WLAN_PD_UP_DELTA_CLASSIFIER_2026-06-03.md`.
