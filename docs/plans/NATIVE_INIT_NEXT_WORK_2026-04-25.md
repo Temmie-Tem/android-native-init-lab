@@ -10087,3 +10087,48 @@ above (rejected as inverted causality).
 
   Report:
   `docs/reports/NATIVE_INIT_V1633_NATURAL_PATH_MDM2AP_IRQ_SUMMARY_SOURCE_BUILD_2026-06-02.md`.
+
+## V1634-V1638 Natural-path MDM2AP IRQ Summary Handoff (2026-06-02)
+
+- V1634 local artifact sanity for V1633 passed, but V1635 live reclassification
+  was corrected to `v1635-natural-path-observation-incomplete`: rollback was
+  successful, natural provider/PON/AP2MDM evidence was present, and the short
+  window stayed silent, but the PID1 IRQ parser had not collected the required
+  parsed IRQ-delta contract fields.
+
+- V1636 repaired the PID1 IRQ parser by streaming `/proc/interrupts` line-by-line
+  instead of depending on one bounded read buffer.  V1637 local artifact sanity
+  passed for the V1636 image:
+  `tmp/wifi/v1636-natural-path-mdm2ap-irq-summary-test-boot/boot_linux_v1636_natural_mdm2ap_irq_summary.img`.
+
+- V1638 executed one rollbackable natural-path live handoff with the V1636 image
+  and rolled back successfully to `stage3/boot_linux_v724.img`; post-rollback
+  verification showed the v724 baseline and selftest `fail=0`.
+
+  Reclassification result: `v1638-natural-path-observation-incomplete`.
+
+  Evidence captured:
+
+  - natural provider trigger observed: `__subsystem_get(esoc0)` / esoc0 PIL.
+  - GPIO1270/PON low/assert observed.
+  - GPIO135/AP2MDM asserted.
+  - GPIO142/MDM2AP IRQ initial parsed and delta collected: delta `0`.
+  - mdm errfatal IRQ initial parsed and delta collected: delta `0`.
+  - sample count `120`; safety markers all zero.
+  - no RC1 transition, MHI, WLFW, BDF, FW-ready, or `wlan0`.
+
+  Strict label remains incomplete because the window did not capture an explicit
+  GPIO1270/PON high/de-assert trace marker.  The evidence strongly suggests
+  MDM2AP stayed silent on the clean natural path, but the report deliberately
+  does not promote this to `mdm2ap-silent-natural-path` without the full PON
+  low->high trace required by the 2026-06-02 contract.
+
+  Stop here for handoff.  Do not spin timing/window variants or enter bounded
+  modem-rail/PMIC write gates from V1638 without a separate decision.
+
+  Reports:
+  `docs/reports/NATIVE_INIT_V1635_NATURAL_PATH_MDM2AP_IRQ_SUMMARY_HANDOFF_2026-06-02.md`,
+  `docs/reports/NATIVE_INIT_V1636_NATURAL_PATH_MDM2AP_IRQ_SUMMARY_SOURCE_BUILD_2026-06-02.md`,
+  `docs/reports/NATIVE_INIT_V1637_NATURAL_PATH_MDM2AP_IRQ_SUMMARY_ARTIFACT_SANITY_2026-06-02.md`,
+  and
+  `docs/reports/NATIVE_INIT_V1638_NATURAL_PATH_MDM2AP_IRQ_SUMMARY_HANDOFF_2026-06-02.md`.
