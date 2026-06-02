@@ -10465,3 +10465,36 @@ above (rejected as inverted causality).
 
   Report:
   `docs/reports/NATIVE_INIT_V1649_BOUNDED_TOKEN_SCAN_GATE_2026-06-02.md`.
+
+## V1650 Token Owner Hypothesis (2026-06-02)
+
+- V1650 host-only interpretation passed as
+  `v1650-xbl-first-private-analysis-hypothesis`.
+
+  Ranked artifact scores:
+
+  - `xbl_a`: matches `413`, power score `328`, SDX score `85`, specific score
+    `554`.
+  - `xbl_b`: matches `333`, power score `247`, SDX score `86`, specific score
+    `452`.
+  - `aop`: matches `13`, power score `13`, SDX score `0`, specific score `2`.
+  - `devcfg`: matches `3`, power score `3`, SDX score `0`, specific score `2`.
+  - `abl`: matches `2`, power score `1`, SDX score `1`, specific score `2`.
+
+  Hypothesis: the next private offline analysis target should be `xbl_a` /
+  `xbl_b`.  They contain dense PMIC/VDD/PON/PS_HOLD/RPMh/SDX/PCIe vocabulary.
+  `aop` and `devcfg` remain secondary context; `abl` is low-yield for this
+  blocker.
+
+  This does not prove a concrete PMIC write target.  It only narrows the next
+  analysis target to XBL.  PMIC/GPIO/GDSC mutation remains unjustified.
+
+  V1651 should be a host-only/private-evidence plan for bounded XBL
+  string-context extraction around offsets already observed in V1649.  Raw
+  proprietary content must remain under ignored private storage; tracked output
+  should summarize only non-sensitive token contexts and hypotheses.  No Wi-Fi
+  HAL, scan/connect, credentials, DHCP/routes, external ping, partition write,
+  PMIC/GPIO/GDSC write, eSoC notify/`BOOT_DONE`, or PCI rescan.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1650_TOKEN_OWNER_HYPOTHESIS_2026-06-02.md`.
