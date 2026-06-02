@@ -14535,3 +14535,53 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
   - do not start Wi-Fi HAL, scan/connect, use credentials, configure
     DHCP/routes, run external ping, force RC1, spoof ONLINE, issue restart-PD,
     or open `/dev/subsys_esoc0` in this branch.
+
+## V1755 WLAN-PD PM vote contract split classifier (2026-06-03)
+
+- V1755 keeps the V1754 finding but prevents a regression into broad PM actor
+  retries.
+
+  Host/source-only classifier:
+
+  - script: `scripts/revalidation/native_wifi_wlan_pd_pm_vote_contract_classifier_v1755.py`;
+  - decision: `v1755-pm-vote-contract-split-gate-source-host-pass`;
+  - label: `pm-vote-contract-split-gate-needed`;
+  - evidence: `tmp/wifi/v1755-wlan-pd-pm-vote-contract-classifier`;
+  - report:
+    `docs/reports/NATIVE_INIT_V1755_WLAN_PD_PM_VOTE_CONTRACT_CLASSIFIER_2026-06-03.md`.
+
+  Inputs reconciled:
+
+  - Android-good V1753: `cnss-daemon` PM register/vote is present before the
+    first `wlanmdsp.mbn` request;
+  - V1717 static: `cnss-daemon` imports `pm_client_connect` and
+    `pm_client_register`; `libperipheral_client.so` depends on `/dev/vndbinder`
+    and `vendor.qcom.PeripheralManager`;
+  - native V1736: CNSS service-manager route reaches `wlfw_service_request` and
+    WLFW worker creation, but PM is disabled and `requested_wlanmdsp=0`;
+  - native V1686: broad PM-trio route starts PM actors but hits repeated Binder
+    `-22`, has no PM vote text, regresses `wlfw_service_request=0`, and still
+    has `requested_wlanmdsp=0`.
+
+  Interpretation:
+
+  - the current blocker is split: one route proves CNSS worker progress without
+    PM vote, while another route proves broad PM actors without a working
+    register/vote contract;
+  - the next useful gate is not to add more actors.  It is to repair or prove
+    only the minimal `cnss-daemon` -> `vendor.qcom.PeripheralManager`
+    register/vote contract in the V1736 internal-modem route;
+  - success must be measured by observable PM vote followed by a
+    `wlanmdsp.mbn` request.  Process start, Binder spam, or `pm-service -22`
+    alone is not success.
+
+  Next candidate:
+
+  - V1756 should be source/build-only: extend the existing helper route to add
+    a narrow PM-vote observer/contract mode that keeps the V1736 actor order and
+    captures `pm_client_register`/`pm_client_connect` return evidence or
+    equivalent `PerMgrLib`/`PerMgrSrv` vote text;
+  - the live gate after V1756 must still block eSoC/RC1, `/dev/subsys_esoc0`,
+    `boot_wlan`, restart-PD, Wi-Fi HAL, scan/connect, credentials,
+    DHCP/routes, and external ping until `wlanmdsp.mbn` request or WLFW service
+    69 appears.
