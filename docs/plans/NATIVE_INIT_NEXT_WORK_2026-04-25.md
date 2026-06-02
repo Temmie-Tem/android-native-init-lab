@@ -9935,3 +9935,41 @@ Samsung bootloader
   retry, PMIC/GPIO/GDSC direct writes, eSoC notify/`BOOT_DONE` spoof, Wi-Fi HAL
   start, scan/connect, credentials, DHCP/routes, and external ping.  Report:
   `docs/reports/NATIVE_INIT_V1629_PM_SERVICE_CAUSALITY_RECONCILIATION_2026-06-02.md`.
+
+---
+
+## OUT-OF-BAND HOST CLOSURE + LIVE CONTRACT (2026-06-02) — READ THIS, it sets the next live gate
+
+A host-only deep-dive (no device writes) closed the entire static/config layer as
+the Android-vs-native differentiator. All three are at parity:
+- bootloader: non-differential (only boot partition is flashed).
+- eSoC provider source (`docs/reports/ESOC_PON_SOURCE_ANALYSIS_2026-06-02.md`):
+  full esoc-mdm C source found on disk (V766 tree). PON polarity CORRECT on native
+  (`soft_reset_inverted=0`, assert LOW 120ms → de-assert HIGH; matches V1276 idle +
+  V1318 pulse). Provider has ZERO regulator code — it cannot power the modem rail.
+- DTB (`docs/reports/ESOC_DTB_PARITY_2026-06-02.md`): non-differential — appended
+  SoC dtb matches source; mdm3/esoc board layer from shared dtb/dtbo partitions,
+  live-proven correct on native (GPIO135/142/9 claim + polarity).
+
+⇒ AP/software side is correct. The only remaining unknown is HARDWARE: does the
+SDX50M power up and answer MDM2AP/GPIO142 when native's correct PON lands.
+
+**Next live gate is fixed by the contract**:
+`docs/reports/ESOC_NATURAL_PATH_MDM2AP_OBSERVATION_CONTRACT_2026-06-02.md`.
+- Trigger: NATURAL `__subsystem_get(esoc0)` → `mdm_subsys_powerup` ONLY
+  (PM-first / mdm_helper route, V1238/V1303/V1586). NO forced RC1 / case writes,
+  NO fake-ONLINE.
+- Observe (one long read-only window): esoc0 PIL, GPIO9 PON pulse, GPIO135 assert,
+  **GPIO142/MDM2AP IRQ delta** + **errfatal IRQ delta** (discriminator). Reuse
+  V1467 exact-provider PIL+GPIO tracepoint (rc1 writer OFF) + V1326 mdm2ap_timing
+  sampler.
+- Labels: `mdm2ap-responds` (new progress) / `mdm2ap-silent-natural-path` (PASS as
+  classification — clean-path confirmation, removes V1552 forced-RC1 caveat) /
+  `provider-did-not-trigger` (route regression).
+- ONE run sets the label. Do NOT spin timing/window variants (that is the
+  V1370–V1559 failure mode). After `mdm2ap-silent-natural-path`, STOP and hand
+  back — the next move is a SEPARATELY user-authorized bounded modem-rail/PMIC
+  experiment (V1250–V1255 direction), NOT autonomous.
+
+This supersedes the V1630 "fake ONLINE / pm-service property chasing" direction
+above (rejected as inverted causality).
