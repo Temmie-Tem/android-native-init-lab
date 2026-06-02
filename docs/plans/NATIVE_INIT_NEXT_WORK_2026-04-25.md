@@ -12649,3 +12649,62 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
 
   Report:
   `docs/reports/NATIVE_INIT_V1703_CNSS_WLFW_DOWNSTREAM_STATIC_2026-06-02.md`.
+
+## V1704/V1705 CNSS WLFW downstream uprobe gate (2026-06-02)
+
+- V1704 source/build-only test boot artifact completed.
+
+  Result:
+
+  - decision: `v1704-cnss-wlfw-downstream-uprobe-source-build-pass`;
+  - init: `A90 Linux init 0.9.129 (v1704-cnss-wlfw-downstream-uprobe)`;
+  - helper: `a90_android_execns_probe v315`;
+  - helper SHA256: `757c3c217d0c4df95a446ce0519940bb6f782fe73515172796dc32e041ebb58f`;
+  - boot image: `tmp/wifi/v1704-cnss-wlfw-downstream-uprobe-test-boot/boot_linux_v1704_cnss_wlfw_downstream_uprobe.img`;
+  - boot SHA256: `0db8664b0ef3f4f92cad9c80c55400599ac2af01ab2b73a4b2c83dc5ada86775`.
+
+- V1705 one-run rollbackable live handoff completed after restoring host NCM IP
+  for the current A90 NCM MAC through NetworkManager.
+
+  Result:
+
+  - decision: `v1705-wlfw-worker-thread-missing-after-wlfw-start-rollback-pass`;
+  - rollback: `from-native`, PASS;
+  - post-rollback version: `A90 Linux init 0.9.68 (v724)`;
+  - post-rollback selftest: `fail=0`;
+  - output label remains `cnss-output-still-invisible`, confirming the logcat/kmsg
+    visibility gap still exists;
+  - downstream non-log label:
+    `wlfw-worker-thread-missing-after-wlfw-start`;
+  - `wlfw_start@0xec00`: registered/enabled `1` / `1`, hit count `1`;
+  - `wlfw_service_request@0xd9fc`: registered/enabled `1` / `1`, hit count `0`;
+  - `wlfw_ind_register_qmi@0xf32c`: registered/enabled `1` / `1`, hit count `0`;
+  - `wlfw_cap_qmi@0xf460`: registered/enabled `1` / `1`, hit count `0`;
+  - `dms_service_request@0xe808`: registered/enabled `1` / `1`, hit count `0`;
+  - legacy firmware-serve label: `firmware-not-requested`;
+  - MHI pipe fd count / `ks` process count: `0` / `0`.
+
+  Safety:
+
+  - no service-manager, PM/service-window actors, `boot_wlan`,
+    `/dev/subsys_esoc0`, forced RC1, fake-ONLINE, Wi-Fi HAL, scan/connect,
+    credentials, DHCP/routes, or external ping were used;
+  - no PMIC/GPIO/GDSC writes, eSoC notify/`BOOT_DONE`, PCI rescan, platform
+    bind/unbind, firmware write, or partition write beyond the rollbackable test
+    boot handoff were used.
+
+  Interpretation:
+
+  - `cnss-daemon` enters `wlfw_start`, but the `wlfw_service_request` worker
+    entry does not run in the bounded window;
+  - do not chase WLFW QMI/BDF yet, because the first worker entry itself is
+    missing;
+  - next candidate: host/source-only branch map of `wlfw_start@0xec00`, focused
+    on the `pthread_create@0xecf0` call site, return-code handling, and any
+    pre-worker failure branch; then a bounded live uprobe can target the
+    call-site/return path if needed.
+
+  Reports:
+
+  - `docs/reports/NATIVE_INIT_V1704_CNSS_WLFW_DOWNSTREAM_UPROBE_SOURCE_BUILD_2026-06-02.md`
+  - `docs/reports/NATIVE_INIT_V1705_CNSS_WLFW_DOWNSTREAM_UPROBE_HANDOFF_2026-06-02.md`.

@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v314"
+#define EXECNS_VERSION "a90_android_execns_probe v315"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -11821,6 +11821,29 @@ struct cnss_nonlog_maps_summary {
 };
 
 #define A90_CNSS_WLFW_UPROBE_TARGET_COUNT 3
+#define A90_CNSS_WLFW_UPROBE_EVENT_COUNT 5
+
+struct cnss_wlfw_uprobe_event_spec {
+    const char *name;
+    const char *key;
+    unsigned long long offset;
+};
+
+static const struct cnss_wlfw_uprobe_event_spec cnss_wlfw_uprobe_events[A90_CNSS_WLFW_UPROBE_EVENT_COUNT] = {
+    { "wlfw_start", "wlfw_start", 0xec00ULL },
+    { "wlfw_service_request", "wlfw_service_request", 0xd9fcULL },
+    { "wlfw_ind_register_qmi", "wlfw_ind_register_qmi", 0xf32cULL },
+    { "wlfw_cap_qmi", "wlfw_cap_qmi", 0xf460ULL },
+    { "dms_service_request", "dms_service_request", 0xe808ULL },
+};
+
+enum cnss_wlfw_uprobe_event_index {
+    CNSS_WLFW_UPROBE_WLFW_START = 0,
+    CNSS_WLFW_UPROBE_WLFW_SERVICE_REQUEST = 1,
+    CNSS_WLFW_UPROBE_WLFW_IND_REGISTER_QMI = 2,
+    CNSS_WLFW_UPROBE_WLFW_CAP_QMI = 3,
+    CNSS_WLFW_UPROBE_DMS_SERVICE_REQUEST = 4,
+};
 
 struct cnss_wlfw_uprobe_target_probe {
     int access_rc;
@@ -11830,6 +11853,22 @@ struct cnss_wlfw_uprobe_target_probe {
     unsigned long long st_mode;
     unsigned long long st_size;
     char path[MAX_PATH_LEN];
+};
+
+struct cnss_wlfw_uprobe_event_state {
+    bool stale_cleanup_attempted;
+    bool register_attempted;
+    bool registered;
+    bool enable_attempted;
+    bool enabled;
+    int stale_cleanup_rc;
+    int register_rc;
+    int enable_rc;
+    int disable_rc;
+    int cleanup_rc;
+    int hit_count;
+    char enable_path[MAX_PATH_LEN];
+    char first_hit_line[512];
 };
 
 struct cnss_wlfw_uprobe_state {
@@ -11868,6 +11907,7 @@ struct cnss_wlfw_uprobe_state {
     char original_tracing_on[16];
     char first_hit_line[512];
     struct cnss_wlfw_uprobe_target_probe targets[A90_CNSS_WLFW_UPROBE_TARGET_COUNT];
+    struct cnss_wlfw_uprobe_event_state events[A90_CNSS_WLFW_UPROBE_EVENT_COUNT];
 };
 
 static struct cnss_wlfw_uprobe_state g_cnss_wlfw_uprobe_state;
@@ -11981,14 +12021,21 @@ static int cnss_wlfw_uprobe_build_paths(struct cnss_wlfw_uprobe_state *state) {
         errno = ENAMETOOLONG;
         return -1;
     }
-    needed = snprintf(state->enable_path,
-                      sizeof(state->enable_path),
-                      "%s/events/a90cnss/wlfw_start/enable",
-                      state->tracefs_path);
-    if (needed < 0 || needed >= (int)sizeof(state->enable_path)) {
-        errno = ENAMETOOLONG;
-        return -1;
+    for (size_t i = 0; i < A90_CNSS_WLFW_UPROBE_EVENT_COUNT; i++) {
+        needed = snprintf(state->events[i].enable_path,
+                          sizeof(state->events[i].enable_path),
+                          "%s/events/a90cnss/%s/enable",
+                          state->tracefs_path,
+                          cnss_wlfw_uprobe_events[i].name);
+        if (needed < 0 || needed >= (int)sizeof(state->events[i].enable_path)) {
+            errno = ENAMETOOLONG;
+            return -1;
+        }
     }
+    snprintf(state->enable_path,
+             sizeof(state->enable_path),
+             "%s",
+             state->events[CNSS_WLFW_UPROBE_WLFW_START].enable_path);
     needed = snprintf(state->tracing_on_path,
                       sizeof(state->tracing_on_path),
                       "%s/tracing_on",
@@ -11998,6 +12045,26 @@ static int cnss_wlfw_uprobe_build_paths(struct cnss_wlfw_uprobe_state *state) {
         return -1;
     }
     return 0;
+}
+
+static void cnss_wlfw_uprobe_sync_legacy_fields(struct cnss_wlfw_uprobe_state *state) {
+    struct cnss_wlfw_uprobe_event_state *event = &state->events[CNSS_WLFW_UPROBE_WLFW_START];
+
+    state->stale_cleanup_attempted = event->stale_cleanup_attempted;
+    state->stale_cleanup_rc = event->stale_cleanup_rc;
+    state->register_attempted = event->register_attempted;
+    state->register_rc = event->register_rc;
+    state->registered = event->registered;
+    state->enable_attempted = event->enable_attempted;
+    state->enable_rc = event->enable_rc;
+    state->enabled = event->enabled;
+    state->disable_rc = event->disable_rc;
+    state->cleanup_rc = event->cleanup_rc;
+    state->hit_count = event->hit_count;
+    snprintf(state->first_hit_line,
+             sizeof(state->first_hit_line),
+             "%s",
+             event->first_hit_line[0] != '\0' ? event->first_hit_line : "");
 }
 
 static void cnss_wlfw_uprobe_probe_target(struct cnss_wlfw_uprobe_target_probe *probe,
@@ -12080,11 +12147,20 @@ static void cnss_wlfw_uprobe_cleanup_state(struct cnss_wlfw_uprobe_state *state)
         return;
     }
     state->cleanup_attempted = true;
-    if (state->enabled && state->enable_path[0] != '\0') {
-        state->disable_rc = write_text_once_errno(state->enable_path, "0\n");
-    }
-    if (state->registered && state->uprobe_events_path[0] != '\0') {
-        state->cleanup_rc = write_text_once_errno(state->uprobe_events_path, "-:a90cnss/wlfw_start\n");
+    for (size_t i = 0; i < A90_CNSS_WLFW_UPROBE_EVENT_COUNT; i++) {
+        struct cnss_wlfw_uprobe_event_state *event = &state->events[i];
+        char cleanup_line[96];
+
+        if (event->enabled && event->enable_path[0] != '\0') {
+            event->disable_rc = write_text_once_errno(event->enable_path, "0\n");
+        }
+        if (event->registered && state->uprobe_events_path[0] != '\0') {
+            snprintf(cleanup_line,
+                     sizeof(cleanup_line),
+                     "-:a90cnss/%s\n",
+                     cnss_wlfw_uprobe_events[i].name);
+            event->cleanup_rc = write_text_once_errno(state->uprobe_events_path, cleanup_line);
+        }
     }
     if (state->original_tracing_on_seen && state->tracing_on_path[0] != '\0') {
         char restore[32];
@@ -12092,6 +12168,7 @@ static void cnss_wlfw_uprobe_cleanup_state(struct cnss_wlfw_uprobe_state *state)
         snprintf(restore, sizeof(restore), "%s\n", state->original_tracing_on);
         state->restore_tracing_on_rc = write_text_once_errno(state->tracing_on_path, restore);
     }
+    cnss_wlfw_uprobe_sync_legacy_fields(state);
     state->cleanup_done = true;
 }
 
@@ -12101,7 +12178,6 @@ static void cnss_wlfw_uprobe_cleanup_atexit(void) {
 
 static void cnss_wlfw_uprobe_arm_global(const struct paths *paths) {
     struct cnss_wlfw_uprobe_state *state = &g_cnss_wlfw_uprobe_state;
-    char register_line[MAX_PATH_LEN + 64];
 
     memset(state, 0, sizeof(*state));
     state->arm_attempted = true;
@@ -12137,33 +12213,45 @@ static void cnss_wlfw_uprobe_arm_global(const struct paths *paths) {
     }
     state->clear_trace_attempted = true;
     state->clear_trace_rc = truncate_text_once_errno(state->trace_path);
-    state->stale_cleanup_attempted = true;
-    state->stale_cleanup_rc = write_text_once_errno(state->uprobe_events_path, "-:a90cnss/wlfw_start\n");
 
-    state->register_attempted = true;
-    if (state->selected_target_path[0] == '\0') {
-        state->register_rc = -ENOENT;
-        return;
-    }
-    if (snprintf(register_line,
-                 sizeof(register_line),
-                 "p:a90cnss/wlfw_start %s:0xec00\n",
-                 state->selected_target_path) >= (int)sizeof(register_line)) {
-        state->register_rc = -ENAMETOOLONG;
-        return;
-    }
-    state->register_rc = write_text_once_errno(state->uprobe_events_path, register_line);
-    if (state->register_rc != 0) {
-        return;
-    }
-    state->registered = true;
+    for (size_t i = 0; i < A90_CNSS_WLFW_UPROBE_EVENT_COUNT; i++) {
+        struct cnss_wlfw_uprobe_event_state *event = &state->events[i];
+        char cleanup_line[96];
+        char register_line[MAX_PATH_LEN + 96];
 
-    state->enable_attempted = true;
-    state->enable_rc = write_text_once_errno(state->enable_path, "1\n");
-    if (state->enable_rc != 0) {
-        return;
+        snprintf(cleanup_line,
+                 sizeof(cleanup_line),
+                 "-:a90cnss/%s\n",
+                 cnss_wlfw_uprobe_events[i].name);
+        event->stale_cleanup_attempted = true;
+        event->stale_cleanup_rc = write_text_once_errno(state->uprobe_events_path, cleanup_line);
+        event->register_attempted = true;
+        if (state->selected_target_path[0] == '\0') {
+            event->register_rc = -ENOENT;
+            continue;
+        }
+        if (snprintf(register_line,
+                     sizeof(register_line),
+                     "p:a90cnss/%s %s:0x%llx\n",
+                     cnss_wlfw_uprobe_events[i].name,
+                     state->selected_target_path,
+                     cnss_wlfw_uprobe_events[i].offset) >= (int)sizeof(register_line)) {
+            event->register_rc = -ENAMETOOLONG;
+            continue;
+        }
+        event->register_rc = write_text_once_errno(state->uprobe_events_path, register_line);
+        if (event->register_rc != 0) {
+            continue;
+        }
+        event->registered = true;
+        event->enable_attempted = true;
+        event->enable_rc = write_text_once_errno(event->enable_path, "1\n");
+        if (event->enable_rc != 0) {
+            continue;
+        }
+        event->enabled = true;
     }
-    state->enabled = true;
+    cnss_wlfw_uprobe_sync_legacy_fields(state);
 
     state->tracing_on_attempted = true;
     state->tracing_on_rc = write_text_once_errno(state->tracing_on_path, "1\n");
@@ -12186,20 +12274,30 @@ static void cnss_wlfw_uprobe_collect_trace(struct cnss_wlfw_uprobe_state *state)
     state->trace_read_ok = true;
     while (lines < 4096 && fgets(line, sizeof(line), file) != NULL) {
         lines++;
-        if (strstr(line, "a90cnss:wlfw_start") == NULL &&
-            strstr(line, "wlfw_start") == NULL) {
-            continue;
-        }
-        state->hit_count++;
-        if (state->first_hit_line[0] == '\0') {
-            size_t copy_len = strnlen(line, sizeof(state->first_hit_line) - 1U);
+        for (size_t i = 0; i < A90_CNSS_WLFW_UPROBE_EVENT_COUNT; i++) {
+            struct cnss_wlfw_uprobe_event_state *event = &state->events[i];
+            char event_needle[96];
 
-            memcpy(state->first_hit_line, line, copy_len);
-            state->first_hit_line[copy_len] = '\0';
-            sanitize_one_line(state->first_hit_line);
+            snprintf(event_needle,
+                     sizeof(event_needle),
+                     "a90cnss:%s",
+                     cnss_wlfw_uprobe_events[i].name);
+            if (strstr(line, event_needle) == NULL &&
+                strstr(line, cnss_wlfw_uprobe_events[i].name) == NULL) {
+                continue;
+            }
+            event->hit_count++;
+            if (event->first_hit_line[0] == '\0') {
+                size_t copy_len = strnlen(line, sizeof(event->first_hit_line) - 1U);
+
+                memcpy(event->first_hit_line, line, copy_len);
+                event->first_hit_line[copy_len] = '\0';
+                sanitize_one_line(event->first_hit_line);
+            }
         }
     }
     fclose(file);
+    cnss_wlfw_uprobe_sync_legacy_fields(state);
 }
 
 static int append_wlan_pd_cnss_nonlog_control_flow_summary(struct buffer *stdout_buf,
@@ -12226,14 +12324,19 @@ static int append_wlan_pd_cnss_nonlog_control_flow_summary(struct buffer *stdout
         cnss_vndbinder_fd_count = count_proc_fd_target_matches(cnss_daemon_pid, "/dev/vndbinder");
         cnss_kmsg_fd_count = count_proc_fd_target_matches(cnss_daemon_pid, "/dev/kmsg");
     }
-    if (uprobe->hit_count > 0) {
-        label = "cnss-wlfw-entry-hit-downstream-wait";
-    } else if (!cnss_daemon_present || !cnss_daemon_running) {
-        label = "cnss-process-exited-before-wlfw";
-    } else if (uprobe->arm_attempted && uprobe->registered && uprobe->enabled) {
-        label = "cnss-wlfw-entry-not-hit-init-stall";
+    if (uprobe->events[CNSS_WLFW_UPROBE_WLFW_SERVICE_REQUEST].hit_count > 0 &&
+        uprobe->events[CNSS_WLFW_UPROBE_WLFW_IND_REGISTER_QMI].hit_count > 0 &&
+        uprobe->events[CNSS_WLFW_UPROBE_WLFW_CAP_QMI].hit_count > 0) {
+        label = "wlfw-worker-thread-started-qmi-cap-sent";
+    } else if (uprobe->events[CNSS_WLFW_UPROBE_WLFW_SERVICE_REQUEST].hit_count > 0 &&
+               uprobe->events[CNSS_WLFW_UPROBE_WLFW_IND_REGISTER_QMI].hit_count > 0) {
+        label = "wlfw-worker-thread-started-qmi-ind-register-sent";
+    } else if (uprobe->events[CNSS_WLFW_UPROBE_WLFW_SERVICE_REQUEST].hit_count > 0) {
+        label = "wlfw-worker-thread-started-waiting-for-qmi-service";
+    } else if (uprobe->events[CNSS_WLFW_UPROBE_WLFW_START].hit_count > 0) {
+        label = "wlfw-worker-thread-missing-after-wlfw-start";
     } else {
-        label = "cnss-uprobe-unavailable-fallback-needed";
+        label = "cnss-target-unavailable";
     }
 
     if (append_literal(stdout_buf,
@@ -12387,6 +12490,55 @@ static int append_wlan_pd_cnss_nonlog_control_flow_summary(struct buffer *stdout
                       ks_process_count,
                       label) < 0) {
         return -1;
+    }
+    for (size_t i = 0; i < A90_CNSS_WLFW_UPROBE_EVENT_COUNT; i++) {
+        const struct cnss_wlfw_uprobe_event_state *event = &uprobe->events[i];
+
+        if (append_format(stdout_buf,
+                          "wlan_pd_cnss_nonlog_control_flow.uprobe.%s.name=%s\n"
+                          "wlan_pd_cnss_nonlog_control_flow.uprobe.%s.offset=0x%llx\n"
+                          "wlan_pd_cnss_nonlog_control_flow.uprobe.%s.stale_cleanup_attempted=%d\n"
+                          "wlan_pd_cnss_nonlog_control_flow.uprobe.%s.stale_cleanup_rc=%d\n"
+                          "wlan_pd_cnss_nonlog_control_flow.uprobe.%s.register_attempted=%d\n"
+                          "wlan_pd_cnss_nonlog_control_flow.uprobe.%s.register_rc=%d\n"
+                          "wlan_pd_cnss_nonlog_control_flow.uprobe.%s.registered=%d\n"
+                          "wlan_pd_cnss_nonlog_control_flow.uprobe.%s.enable_attempted=%d\n"
+                          "wlan_pd_cnss_nonlog_control_flow.uprobe.%s.enable_rc=%d\n"
+                          "wlan_pd_cnss_nonlog_control_flow.uprobe.%s.enabled=%d\n"
+                          "wlan_pd_cnss_nonlog_control_flow.uprobe.%s.disable_rc=%d\n"
+                          "wlan_pd_cnss_nonlog_control_flow.uprobe.%s.cleanup_rc=%d\n"
+                          "wlan_pd_cnss_nonlog_control_flow.uprobe.%s.hit_count=%d\n"
+                          "wlan_pd_cnss_nonlog_control_flow.uprobe.%s.first_hit_line=%s\n",
+                          cnss_wlfw_uprobe_events[i].key,
+                          cnss_wlfw_uprobe_events[i].name,
+                          cnss_wlfw_uprobe_events[i].key,
+                          cnss_wlfw_uprobe_events[i].offset,
+                          cnss_wlfw_uprobe_events[i].key,
+                          event->stale_cleanup_attempted ? 1 : 0,
+                          cnss_wlfw_uprobe_events[i].key,
+                          event->stale_cleanup_rc,
+                          cnss_wlfw_uprobe_events[i].key,
+                          event->register_attempted ? 1 : 0,
+                          cnss_wlfw_uprobe_events[i].key,
+                          event->register_rc,
+                          cnss_wlfw_uprobe_events[i].key,
+                          event->registered ? 1 : 0,
+                          cnss_wlfw_uprobe_events[i].key,
+                          event->enable_attempted ? 1 : 0,
+                          cnss_wlfw_uprobe_events[i].key,
+                          event->enable_rc,
+                          cnss_wlfw_uprobe_events[i].key,
+                          event->enabled ? 1 : 0,
+                          cnss_wlfw_uprobe_events[i].key,
+                          event->disable_rc,
+                          cnss_wlfw_uprobe_events[i].key,
+                          event->cleanup_rc,
+                          cnss_wlfw_uprobe_events[i].key,
+                          event->hit_count,
+                          cnss_wlfw_uprobe_events[i].key,
+                          event->first_hit_line[0] != '\0' ? event->first_hit_line : "none") < 0) {
+            return -1;
+        }
     }
     if (cnss_daemon_pid > 0 && cnss_daemon_running) {
         if (append_proc_fd_links_compact(stdout_buf, cnss_daemon_pid, "wlan_pd_cnss_nonlog_cnss_daemon") < 0 ||
