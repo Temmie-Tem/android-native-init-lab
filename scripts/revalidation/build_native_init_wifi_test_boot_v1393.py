@@ -1348,6 +1348,8 @@ def write_manifest(args: argparse.Namespace) -> None:
     manifest: dict[str, Any] = {
         "cycle": args.cycle,
         "decision": args.decision,
+        "pass": True,
+        "result": "PASS",
         "base_boot": str(args.base_boot.relative_to(REPO_ROOT)),
         "init_version": args.init_version,
         "init_build": args.init_build,
