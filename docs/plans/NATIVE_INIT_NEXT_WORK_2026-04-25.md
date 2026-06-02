@@ -14827,3 +14827,59 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
   - a later live gate is justified only if it observes or repairs one
     identified trigger condition and still measures `requested_wlanmdsp`, WLFW
     service 69, and `wlan0` before any connection attempt.
+
+## V1761 WLAN-PD autoload trigger contract classifier (2026-06-03)
+
+- V1761 narrows the V1760 request-generation blocker without contacting the
+  device or adding actors.
+
+  Host-only classifier:
+
+  - script:
+    `scripts/revalidation/native_wifi_wlan_pd_autoload_trigger_contract_classifier_v1761.py`;
+  - decision:
+    `v1761-cnss-pm-service-object-gap-before-wlanmdsp-host-pass`;
+  - label: `pm-service-object-gap-before-wlanmdsp-request`;
+  - evidence: `tmp/wifi/v1761-wlan-pd-autoload-trigger-contract-classifier`;
+  - report:
+    `docs/reports/NATIVE_INIT_V1761_WLAN_PD_AUTOLOAD_TRIGGER_CONTRACT_CLASSIFIER_2026-06-03.md`.
+
+  Android-good contract:
+
+  - `wlfw_start` occurs `0.693s` before the first `wlanmdsp.mbn` request;
+  - PeripheralManager register/vote occurs `0.692s` before the request;
+  - `wlfw_service_request` occurs `0.624s` before the request;
+  - WLAN-PD UP and ICNSS QMI connection occur after the request window.
+
+  Native V1736 contract:
+
+  - WLFW start/request are reached;
+  - `requested_wlanmdsp=0` remains fixed;
+  - CNSS PM init reaches `pm_init_system_info_ok`;
+  - `libperipheral_client.so` reaches service-manager get and binder-object
+    check;
+  - the null PeripheralManager branch is hit;
+  - `asInterface`, manager register TX, and success path are not hit.
+
+  Interpretation:
+
+  - the request-generation gap is now classified as a service-object
+    visibility/PM-contract gap before firmware request generation;
+  - this is not firmware serving, eSoC/RC1, QCACLD registration, Wi-Fi HAL,
+    scan/connect, credential, DHCP/route, or external-ping work;
+  - this is also not authorization to repeat the broad PM actor march that
+    regressed WLFW in V1686.
+
+  Next candidate:
+
+  - V1762 should be source/build-only first: define a bounded helper contract
+    that preserves the V1736 SM route and proves the PeripheralManager service
+    object can become non-null before `wlfw_service_request` observation;
+  - a later live run, if separately justified, must be one rollbackable
+    discriminator with labels: service-object non-null plus PM register/vote ->
+    `requested_wlanmdsp=1`, or service-object non-null plus PM register/vote ->
+    still no request;
+  - keep blocked: broad PM/service-window actor expansion, `boot_wlan`,
+    restart-PD, `/dev/subsys_esoc0`, forced RC1, fake-ONLINE,
+    PMIC/GPIO/GDSC writes, Wi-Fi HAL, scan/connect, credentials, DHCP/routes,
+    external ping, firmware writes, partition writes.
