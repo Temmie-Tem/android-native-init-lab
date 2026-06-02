@@ -12474,3 +12474,61 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
 
   Report:
   `docs/reports/NATIVE_INIT_V1700_WLAN_PD_CNSS_TRACEFS_UPROBE_HANDOFF_2026-06-02.md`.
+
+## V1701 WLAN-PD CNSS tracefs target-path Source Build (2026-06-02)
+
+- V1701 source/build-only unit completed to repair the V1700 uprobe target
+  contract before any second live run.
+
+  Result:
+
+  - decision:
+    `v1701-wlan-pd-cnss-tracefs-target-path-source-build-pass`;
+  - init: `A90 Linux init 0.9.128 (v1701-wlan-pd-cnss-tracefs-target-path)`;
+  - helper: `a90_android_execns_probe v314`;
+  - helper SHA256:
+    `8317fcdf1d7ea879d084dead104bfb120c13470ec0473a338d5756a45ef587c6`;
+  - boot image:
+    `tmp/wifi/v1701-wlan-pd-cnss-tracefs-target-path-test-boot/boot_linux_v1701_wlan_pd_cnss_tracefs_target_path.img`;
+  - boot SHA256:
+    `42145b7a7bbe7ba55b887fea983767892bce8437d8f56f62e634649bb0241cf8`;
+  - private property runtime sets
+    `persist.vendor.cnss-daemon.kmsg_logging=4` and
+    `persist.vendor.cnss-daemon.debug_level=4`.
+
+  Target-path repair:
+
+  - V1700 attempted `/vendor/bin/cnss-daemon:0xec00` and got
+    `uprobe.register_rc=-2`;
+  - V1701 selects the uprobe target from the helper namespace vendor mount
+    first: `{temp_root}/vendor/bin/cnss-daemon`;
+  - it records candidate target `access/stat` evidence for private vendor,
+    `/mnt/vendor/bin/cnss-daemon`, and `/vendor/bin/cnss-daemon`;
+  - this mirrors earlier successful tracefs collectors that used globally
+    visible mounted paths such as `/mnt/vendor/bin/pm-service`, while avoiding
+    reliance on the chroot-visible `/vendor/bin/cnss-daemon` path.
+
+  Scope:
+
+  - reuses the V1680 internal-modem firmware-serve route only:
+    `qrtr-ns`, `pd-mapper`, `rmt_storage`, `tftp_server`,
+    `/dev/subsys_modem` holder, `cnss_diag`, stock `cnss-daemon`;
+  - keeps service-manager, PM/service-window actors, `boot_wlan`,
+    `/dev/subsys_esoc0`, forced RC1, fake-ONLINE, Wi-Fi HAL, scan/connect,
+    credentials, DHCP/routes, and external ping disabled.
+
+  Next gate:
+
+  - V1702 should run exactly one rollbackable live handoff with the V1701 test
+    boot;
+  - live labels remain:
+    `cnss-wlfw-entry-hit-downstream-wait`,
+    `cnss-wlfw-entry-not-hit-init-stall`,
+    `cnss-process-exited-before-wlfw`, or
+    `cnss-uprobe-unavailable-fallback-needed`;
+  - if `cnss-uprobe-unavailable-fallback-needed` repeats, use the new target
+    candidate evidence to decide whether the remaining problem is tracefs
+    target resolution or uprobe support, not a CNSS control-flow conclusion.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1701_WLAN_PD_CNSS_TRACEFS_TARGET_PATH_SOURCE_BUILD_2026-06-02.md`.
