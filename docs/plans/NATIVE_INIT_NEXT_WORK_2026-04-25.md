@@ -10706,3 +10706,43 @@ above (rejected as inverted causality).
 
   Report:
   `docs/reports/NATIVE_INIT_V1656_XBL_REFERENCE_RECONCILIATION_2026-06-02.md`.
+
+## V1657 Natural-path MDM2AP Observation Handoff (2026-06-02)
+
+- V1657 one-run rollbackable natural-path live observation passed as
+  `v1657-mdm2ap-silent-natural-path`.
+
+  Execution:
+
+  - test image:
+    `tmp/wifi/v1636-natural-path-mdm2ap-irq-summary-test-boot/boot_linux_v1636_natural_mdm2ap_irq_summary.img`;
+  - rollback image: `stage3/boot_linux_v724.img`;
+  - rollback result: `ok=True`;
+  - post-rollback baseline: `A90 Linux init 0.9.68 (v724)`, selftest `fail=0`.
+
+  Contract evidence:
+
+  - `provider_trigger_seen=True`;
+  - `pil_esoc_seen=True`;
+  - `pon_low_seen=True` and `pon_high_seen=True`;
+  - `ap2mdm_seen=True`;
+  - `gpio142_irq_initial_parsed=True` and `errfatal_irq_initial_parsed=True`;
+  - `gpio142_irq_delta=0`;
+  - `errfatal_irq_delta=0`;
+  - `timing_complete=True`, `sample_count=120`, `safety_zero=True`;
+  - downstream remains absent: `pcie_rc1_transition_seen=0`, `mhi_bus_max=0`,
+    `wlfw_kmsg_max=0`, `wlan0_seen=0`.
+
+  Interpretation: the clean natural provider/PON/AP2MDM path ran and the modem
+  stayed silent on MDM2AP/GPIO142 with complete IRQ-delta evidence.  This removes
+  the forced-RC1 contamination caveat and fixes the current lower blocker at
+  `mdm2ap-silent-natural-path`.
+
+  Stop condition: do not run more timing/window variants and do not autonomously
+  enter modem-rail/PMIC write gates.  The next step toward Wi-Fi bring-up is a
+  separate explicit bounded rail/PMIC hypothesis gate with concrete target,
+  rollback contract, and no Wi-Fi HAL/scan/connect/credentials/DHCP/routes/
+  external ping until lower readiness progresses.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1657_NATURAL_PATH_MDM2AP_OBSERVATION_HANDOFF_2026-06-02.md`.
