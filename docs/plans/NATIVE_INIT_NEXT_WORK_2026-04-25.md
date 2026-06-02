@@ -15245,3 +15245,65 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
     pre-CNSS `per_proxy` connect as a positive-control side effect;
   - if the narrow live gate is later reopened, the live route should avoid the
     pre-CNSS `per_proxy` path that can hold the modem record mutex.
+
+## V1771/V1772 WLAN-PD service-object visible discriminator (2026-06-03)
+
+- The V1765 "no PM actors" stop was lifted for one bounded discriminator only.
+  V1771 built the rollbackable test boot and V1772 ran exactly one live gate.
+
+  Source/build:
+
+  - script:
+    `scripts/revalidation/build_native_init_wifi_test_boot_v1771.py`;
+  - report:
+    `docs/reports/NATIVE_INIT_V1771_WLAN_PD_SERVICE_OBJECT_VISIBLE_SOURCE_BUILD_2026-06-03.md`;
+  - helper:
+    `a90_android_execns_probe v331`;
+  - boot image:
+    `tmp/wifi/v1771-wlan-pd-service-object-visible-test-boot/boot_linux_v1771_wlan_pd_service_object_visible.img`.
+
+  Live handoff:
+
+  - script:
+    `scripts/revalidation/native_wifi_wlan_pd_service_object_visible_handoff_v1772.py`;
+  - report:
+    `docs/reports/NATIVE_INIT_V1772_WLAN_PD_SERVICE_OBJECT_VISIBLE_HANDOFF_2026-06-03.md`;
+  - decision:
+    `v1772-service-object-still-null-rollback-pass`;
+  - evidence:
+    `tmp/wifi/v1772-wlan-pd-service-object-visible-handoff`;
+  - rollback:
+    `from-native` verified; post-rollback `bootstatus` reports selftest
+    `fail=0`.
+
+  Observed discriminator:
+
+  - `pm_proxy_helper_ready=1`, `per_mgr_ready=1`, and `tftp_running=1`;
+  - provider query remained negative: `provider_seen=0`;
+  - `cnss-daemon` did not remain running in the observation window;
+  - CNSS peripheral path did not reach `asInterface`, register/vote TX, or
+    success path;
+  - no `wlanmdsp` request, no WLFW service 69, and no `wlan0`;
+  - late WLAN-PD listener result was `no-endpoint`;
+  - safety fields stayed closed: no full `pm-proxy`, no `/dev/subsys_esoc0`,
+    no forced RC1, no fake-ONLINE, no Wi-Fi HAL, no scan/connect, no
+    credentials, no DHCP/routes, and no external ping.
+
+  Interpretation:
+
+  - This one run sets the fixed label `service-object-still-null`; it is not a
+    modem/WLAN-PD progress result.
+  - The immediate blocker is route/helper visibility: the bounded
+    `pm_proxy_helper` + `pm-service` surface did not make
+    `vendor.qcom.PeripheralManager` visible to the CNSS route.
+  - Stop here per the approval contract. Do not autonomously chain into
+    PM-service survival, PM forwarding, WLAN-PD cascade, Wi-Fi HAL,
+    scan/connect, DHCP/routes, or external ping.
+
+  Current next candidate:
+
+  - host-only route/helper classification for why V1772 reports
+    `provider_seen=0` despite `pm_proxy_helper_ready=1` and `per_mgr_ready=1`;
+  - compare V1772 child stdout/stderr and `vndservice list` output with the
+    retained provider-positive V1101/V1761 evidence before any further live PM
+    gate.
