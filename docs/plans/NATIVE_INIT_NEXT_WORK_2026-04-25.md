@@ -12254,3 +12254,50 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
 
   Report:
   `docs/reports/NATIVE_INIT_V1696_CNSS_KMSG_THRESHOLD_CLASSIFIER_2026-06-02.md`.
+
+## V1697 WLAN-PD CNSS kmsg4 Source Build (2026-06-02)
+
+- V1697 source/build-only test boot artifact completed.
+
+  Result:
+
+  - decision: `v1697-wlan-pd-cnss-kmsg4-source-build-pass`;
+  - init: `A90 Linux init 0.9.126 (v1697-wlan-pd-cnss-kmsg4-output-visibility)`;
+  - helper: `a90_android_execns_probe v312`;
+  - helper SHA256:
+    `93e7d24ef99f0877cfe55e283359ddd056bbf89f22961341a9932056282c331a`;
+  - boot image:
+    `tmp/wifi/v1697-wlan-pd-cnss-kmsg4-output-visibility-test-boot/boot_linux_v1697_wlan_pd_cnss_kmsg4_output_visibility.img`;
+  - boot SHA256:
+    `d0c3e12bdc2101c830e2da2bbe7923b85ced95ab134ea1bb6f7a9d67d8603f5b`;
+  - private property runtime:
+    `/mnt/sdext/a90/private-property-v317/v1697/dev/__properties__`;
+  - property checks:
+    `persist.vendor.cnss-daemon.kmsg_logging=4`,
+    `persist.vendor.cnss-daemon.debug_level=4`.
+
+  Scope:
+
+  - preserves the V1680 internal-modem firmware-serve route:
+    `qrtr-ns`, `pd-mapper`, `rmt_storage`, `tftp_server`,
+    `/dev/subsys_modem` holder, `cnss_diag`, stock `cnss-daemon`;
+  - raises only the CNSS kmsg visibility threshold so severity-2
+    `wlfw_start: Starting` can become kmsg-visible;
+  - does not add PM/service-window actors, `boot_wlan`,
+    `/dev/subsys_esoc0`, forced RC1, fake-ONLINE, Wi-Fi HAL, scan/connect,
+    credentials, DHCP/routes, or external ping;
+  - performed no device command, flash, reboot, firmware write, partition
+    write, PMIC/GPIO/GDSC write, eSoC notify/`BOOT_DONE`, PCI rescan, or
+    platform bind/unbind.
+
+  Next gate:
+
+  - V1698 should run exactly one rollbackable live handoff with the V1697 test
+    boot and classify the real stock `cnss-daemon` output as one of:
+    `wlfw-start-reached-downstream-block`,
+    `cnss-init-step-failed-<name>`, or
+    `cnss-output-still-invisible`;
+  - one run sets one label. Do not add actors or spin timing variants.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1697_WLAN_PD_CNSS_KMSG4_SOURCE_BUILD_2026-06-02.md`.

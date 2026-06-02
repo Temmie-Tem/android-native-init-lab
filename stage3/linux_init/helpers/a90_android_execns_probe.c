@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v311"
+#define EXECNS_VERSION "a90_android_execns_probe v312"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -12009,7 +12009,7 @@ static int append_wlan_pd_cnss_output_visibility_summary(struct buffer *stdout_b
                        "wlan_pd_cnss_output_visibility.no_credentials=1\n"
                        "wlan_pd_cnss_output_visibility.no_dhcp_routes=1\n"
                        "wlan_pd_cnss_output_visibility.no_external_ping=1\n"
-                       "wlan_pd_cnss_output_visibility.expected_property.persist.vendor.cnss-daemon.kmsg_logging=1\n"
+                       "wlan_pd_cnss_output_visibility.expected_property.persist.vendor.cnss-daemon.kmsg_logging=4\n"
                        "wlan_pd_cnss_output_visibility.expected_property.persist.vendor.cnss-daemon.debug_level=4\n") < 0 ||
         append_format(stdout_buf,
                       "wlan_pd_cnss_output_visibility.tftp_child_present=%d\n"
@@ -12169,7 +12169,7 @@ static int append_wlan_pd_cnss_output_visibility_property_lookups(const struct c
                                                                   stdout_buf,
                                                                   "kmsg_logging",
                                                                   "persist.vendor.cnss-daemon.kmsg_logging",
-                                                                  "1",
+                                                                  "4",
                                                                   &kmsg_logging_match) < 0 ||
         append_wlan_pd_cnss_output_visibility_property_lookup_one(cfg,
                                                                   paths,
