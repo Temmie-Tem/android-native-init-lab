@@ -14256,3 +14256,59 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
 
   Report:
   `docs/reports/NATIVE_INIT_V1749_WLAN_PD_TRACEFS_MOUNT_RESTORE_SOURCE_BUILD_2026-06-03.md`.
+
+## V1750 WLAN-PD tracefs mount restore artifact sanity (2026-06-03)
+
+- V1750 local-only artifact sanity completed for the exact V1749 image.
+
+  Result:
+
+  - decision:
+    `v1750-wlan-pd-tracefs-mount-restore-artifact-sanity-pass`;
+  - evidence:
+    `tmp/wifi/v1750-wlan-pd-tracefs-mount-restore-artifact-sanity`;
+  - boot image:
+    `tmp/wifi/v1749-wlan-pd-tracefs-mount-restore-test-boot/boot_linux_v1749_wlan_pd_tracefs_mount_restore.img`;
+  - boot SHA256:
+    `eedc25769b696f95be9693667e9ff56723d0e8959f7595b1ef71302d9a7f46c9`;
+  - helper marker: `a90_android_execns_probe v329`.
+
+  Verified contract:
+
+  - V1749 manifest decision matches
+    `v1749-wlan-pd-tracefs-mount-restore-source-build-pass`;
+  - init/helper are static aarch64 ELFs with no interpreter and no dynamic
+    section;
+  - ramdisk includes `init`, `bin/a90_android_execns_probe`, `bin/a90_tcpctl`,
+    and `bin/a90_rshell`;
+  - boot markers include the V1749 init version, helper v329 marker,
+    private tracefs binding marker, and non-log CNSS result fields;
+  - header and kernel parity match `stage3/boot_linux_v724.img`;
+  - route contract keeps `mount_debugfs=true`, firmware mounts, the pure
+    internal-modem companion stack, and CNSS output visibility;
+  - property runtime contract sets
+    `persist.vendor.cnss-daemon.kmsg_logging=1` and
+    `persist.vendor.cnss-daemon.debug_level=4`;
+  - no credential-like forbidden bytes were found in the local artifacts.
+
+  Safety scope:
+
+  - no device command, flash, reboot, boot partition write, partition write,
+    Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping,
+    PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE`, global PCI
+    rescan, or platform bind/unbind was performed by V1750;
+  - the V1680 pure internal-modem route remains the active Wi-Fi diagnostic
+    path; do not return to PM-service expansion, `boot_wlan`, eSoC/RC1, or
+    fake-ONLINE as a `wlfw_start` trigger.
+
+  Next candidate:
+
+  - V1751 may run one rollbackable live handoff of only the V1749 image;
+  - collect tracefs availability, uProbe target status, `wlfw_start` evidence
+    if visible, CNSS init failure strings if visible, and WLAN-PD/WLFW service
+    state;
+  - rollback to `stage3/boot_linux_v724.img` and verify selftest `fail=0`;
+  - one run sets the label, then stop for handoff.  No timing/window variants.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1750_WLAN_PD_TRACEFS_MOUNT_RESTORE_ARTIFACT_SANITY_2026-06-03.md`.
