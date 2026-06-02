@@ -419,6 +419,19 @@ def collect_test_boot_evidence(args: argparse.Namespace,
             "cat",
             args.test_rc1_window_result_path,
         ])
+    for spec in args.test_extra_result_path:
+        if "=" not in spec:
+            continue
+        name, path = spec.split("=", 1)
+        safe_name = re.sub(r"[^A-Za-z0-9_.-]+", "-", name.strip()).strip("-")
+        if not safe_name or not path:
+            continue
+        commands[f"test-extra-{safe_name}"] = a90ctl_command([
+            "run",
+            "/cache/bin/toybox",
+            "cat",
+            path,
+        ])
     evidence: dict[str, Any] = {}
     for name, command in commands.items():
         result = run_a90ctl_step(store, steps, name, command, args.collect_timeout_sec)
@@ -832,6 +845,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--test-helper-result-path", default=DEFAULT_TEST_HELPER_RESULT_PATH)
     parser.add_argument("--test-rc1-watcher-result-path", default="")
     parser.add_argument("--test-rc1-window-result-path", default="")
+    parser.add_argument("--test-extra-result-path", action="append", default=[])
     parser.add_argument("--dmesg-grep-pattern", default=DEFAULT_DMESG_PATTERN)
     parser.add_argument("--flash-timeout-sec", type=float, default=720.0)
     parser.add_argument("--collect-timeout-sec", type=float, default=120.0)

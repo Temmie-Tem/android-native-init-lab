@@ -11084,3 +11084,45 @@ concrete rail/register owner (V1655). Rail inventory (V1641): SDX50M main rail
 
   Report:
   `docs/reports/NATIVE_INIT_V1665_PCIE1_CLOCK_VOTE_HANDOFF_2026-06-02.md`.
+
+## V1666 pcie1 Clock Vote Harness Repair Source Build (2026-06-02)
+
+- V1666 source/build-only harness repair passed as
+  `v1666-pcie1-clock-vote-repair-source-build-pass`.
+
+  Repair:
+
+  - moves `pcie1_clock_vote.*` evidence to a separate result file:
+    `/cache/native-init-wifi-test-boot-v1666-pcie1-clock-vote.result`;
+  - adds a bounded async clock-vote child so the vote can wait while the
+    natural provider/helper route runs;
+  - waits up to `20000ms` for target clock debugfs `enable` leaves before
+    writing;
+  - holds successful clock votes for `30000ms`;
+  - disables only clocks successfully enabled by the child;
+  - extends the handoff base with optional extra-result collection so V1667 can
+    collect both the normal RC1 window and the separate vote result before
+    rollback.
+
+  Artifact:
+
+  - init: `A90 Linux init 0.9.117 (v1666-pcie1-clock-vote)`;
+  - boot image:
+    `tmp/wifi/v1666-pcie1-clock-vote-repair-test-boot/boot_linux_v1666_pcie1_clock_vote.img`;
+  - boot SHA256:
+    `efbc3f66f8af9b3bc4ffe35eb097d855fc25ac7affd8a77ae7dbc5773a221f28`.
+
+  Hard stops remain unchanged: no regulator/GDSC direct write, no pci-msm
+  `case` write, no forced RC1 enumerate, no PMIC/GPIO/PERST write, no eSoC
+  notify/`BOOT_DONE`, no PCI rescan, no platform bind/unbind, no Wi-Fi HAL,
+  scan/connect, credentials, DHCP/routes, or external ping.
+
+  Next unit:
+
+  - V1667 one rollbackable live retry using the separate clock-vote result
+    collection path;
+  - restore `stage3/boot_linux_v724.img`;
+  - verify native `selftest fail=0`.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1666_PCIE1_CLOCK_VOTE_REPAIR_SOURCE_BUILD_2026-06-02.md`.
