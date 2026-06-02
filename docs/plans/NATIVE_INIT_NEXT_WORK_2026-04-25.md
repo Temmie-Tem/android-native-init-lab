@@ -11673,3 +11673,34 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
 
   Report:
   `docs/reports/NATIVE_INIT_V1683_WLAN_PD_SERVICE_WINDOW_HANDOFF_2026-06-02.md`.
+
+
+## V1684 WLAN-PD PM Surface Classifier (2026-06-02)
+
+- V1684 completed a host-only classifier after V1683.
+
+  Result:
+
+  - decision: `v1684-select-wlan-pd-pm-trio-source-build`;
+  - V1683 service-manager + internal-modem route remained valid but did not
+    reach `wlfw_start`, `wlfw_service_request`, WLFW service 69, or
+    `wlanmdsp.mbn` request;
+  - Android-good evidence has `pm_proxy_helper`, `per_mgr`, and `per_proxy`
+    before `cnss-daemon`;
+  - V1683 did not start `pm_proxy_helper`, `per_mgr`, or `per_proxy`;
+  - no `mdm_helper`, `/dev/subsys_esoc0`, forced RC1, Wi-Fi HAL, `wificond`,
+    scan/connect, credentials, DHCP/routes, or external ping appeared in V1683.
+
+  Next work:
+
+  - V1685 should be source/build-only first;
+  - preserve the V1683 WLAN-PD internal-modem route and `/dev/subsys_modem`
+    holder;
+  - add only `pm_proxy_helper`, `per_mgr`, and `per_proxy` before
+    `cnss-daemon`;
+  - keep `mdm_helper`, `/dev/subsys_esoc0`, raw eSoC ioctl, forced RC1,
+    fake-ONLINE, Wi-Fi HAL, `wificond`, scan/connect, credentials, DHCP/routes,
+    and external ping disabled.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1684_WLAN_PD_PM_SURFACE_CLASSIFIER_2026-06-02.md`.
