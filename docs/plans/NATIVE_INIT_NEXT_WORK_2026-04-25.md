@@ -14209,3 +14209,50 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
 
   Report:
   `docs/reports/NATIVE_INIT_V1748_WLAN_PD_TRACEFS_DELTA_CLASSIFIER_2026-06-03.md`.
+
+## V1749 WLAN-PD tracefs mount restore source build (2026-06-03)
+
+- V1749 source/build-only unit completed.
+
+  Result:
+
+  - decision: `v1749-wlan-pd-tracefs-mount-restore-source-build-pass`;
+  - boot image:
+    `tmp/wifi/v1749-wlan-pd-tracefs-mount-restore-test-boot/boot_linux_v1749_wlan_pd_tracefs_mount_restore.img`;
+  - boot SHA256:
+    `eedc25769b696f95be9693667e9ff56723d0e8959f7595b1ef71302d9a7f46c9`;
+  - init: `A90 Linux init 0.9.143 (v1749-wlan-pd-tracefs-mount-restore)`;
+  - helper marker: `a90_android_execns_probe v329`;
+  - helper SHA256:
+    `c57f57aa1b285861655ce4a4cbcea65185c17862c4c2f5a5f6cde220f145fcbe`.
+
+  Source/build contract:
+
+  - restores `--wifi-test-mount-debugfs` on the V1745 private tracefs path
+    repair route;
+  - keeps the pure internal-modem route: `qrtr-ns`, `pd-mapper`,
+    `rmt_storage`, `tftp_server`, `/dev/subsys_modem` holder, `cnss_diag`,
+    stock `cnss-daemon`;
+  - no service-manager, PM trio, `boot_wlan`, `/dev/subsys_esoc0`, forced
+    RC1, fake-ONLINE, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, or
+    external ping.
+
+  Local verification:
+
+  - manifest `pass=true`;
+  - `wifi_test.mount_debugfs=true`;
+  - init/helper are static aarch64 ELFs with no dynamic section;
+  - ramdisk includes `init`, `bin/a90_android_execns_probe`, and
+    `bin/a90_tcpctl`;
+  - boot image contains the v1749 version and runtime path markers;
+  - no Wi-Fi credential-like strings were added to the tracked diff.
+
+  Next candidate:
+
+  - V1750 local artifact sanity over the exact V1749 image;
+  - after sanity passes, V1751 may run one rollbackable live handoff to test
+    whether tracefs becomes available and whether pure-route `wlfw_start`
+    appears.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1749_WLAN_PD_TRACEFS_MOUNT_RESTORE_SOURCE_BUILD_2026-06-03.md`.
