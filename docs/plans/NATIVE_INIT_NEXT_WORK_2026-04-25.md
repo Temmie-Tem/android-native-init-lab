@@ -16252,3 +16252,76 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
     `pm-devnode-fetcharg-unavailable`, or `pm-devnode-list-commit-progress`;
   - do not repair in the same run. If a missing private devnode is confirmed,
     scope the repair as a separate V1792 unit.
+
+## V1791 PM-service devnode string live handoff (2026-06-03)
+
+- V1791 ran the one rollbackable live discriminator using the V1790
+  PM-service devnode string observer.
+
+  Evidence:
+
+  - handoff:
+    `scripts/revalidation/native_wifi_wlan_pd_pm_service_devnode_string_handoff_v1791.py`;
+  - report:
+    `docs/reports/NATIVE_INIT_V1791_PM_SERVICE_DEVNODE_STRING_HANDOFF_2026-06-03.md`;
+  - evidence directory:
+    `tmp/wifi/v1791-pm-service-devnode-string-handoff`;
+  - decision:
+    `v1791-pm-devnode-missing-esoc-or-other-rollback-pass`;
+  - label:
+    `pm-devnode-missing-esoc-or-other`;
+  - rollback:
+    `from-native`, verified `ok=true`.
+
+  Key evidence:
+
+  - test boot reached
+    `A90 Linux init 0.9.146 (v1790-pm-service-devnode-string-observer)`;
+  - V1791 rollback restored `A90 Linux init 0.9.68 (v724)` and post-rollback
+    selftest stayed `fail=0`;
+  - `pm_service_add_peripheral_entry` hit twice and captured
+    `name="SDX50M" devnode="/dev/subsys_esoc0"`;
+  - `pm_service_add_peripheral_known_name` also captured
+    `name="SDX50M" devnode="/dev/subsys_esoc0"`;
+  - `pm_service_add_peripheral_init_fail` captured the same candidate and
+    devnode, while list commit stayed `0`;
+  - provider visibility and CNSS register/vote TX still occurred, but requested
+    `wlanmdsp`, WLFW service 69, and `wlan0` remained absent.
+
+  Interpretation:
+
+  - V1789's devnode-access hypothesis is confirmed live for the first
+    discovered PM-service candidate;
+  - the failing candidate is `SDX50M` and the failing path is
+    `/dev/subsys_esoc0`;
+  - this result does not by itself justify opening `/dev/subsys_esoc0`; the
+    next necessary question is whether CNSS is registering/voting for `SDX50M`
+    or for another peripheral name after the supported-list remains empty;
+  - if CNSS asks for `SDX50M`, the minimal repair candidate is private
+    existence parity for `/dev/subsys_esoc0` only, still without opening it in
+    the observer/repair phase;
+  - if CNSS asks for another name, repairing the SDX50M discovery path may be
+    irrelevant to WLAN-PD and the server register request path must be
+    reclassified.
+
+  Safety:
+
+  - live mutation scope was private property runtime staging on `/mnt/sdext`,
+    one test boot flash, evidence collection, and rollback to
+    `stage3/boot_linux_v724.img`;
+  - no `/dev/subsys_esoc0` open, forced RC1/case write, fake-ONLINE,
+    PMIC/GPIO/GDSC write, eSoC notify/BOOT_DONE, PCI rescan,
+    platform bind/unbind, restart-PD request, full `pm-proxy`, `boot_wlan`,
+    Wi-Fi HAL, scan/connect, credentials, DHCP/routes, or external ping was
+    used.
+
+  Next candidate:
+
+  - V1792 should stay source/build-only first: add tracefs fetchargs to the
+    PM-server register-entry/no-peripheral path to capture CNSS's requested
+    peripheral and client strings;
+  - fixed outcomes should stop after one label:
+    `pm-register-request-sdx50m`, `pm-register-request-modem-or-other`,
+    or `pm-register-fetcharg-unavailable`;
+  - do not start a devnode repair until V1792 proves the requested PM
+    peripheral name.
