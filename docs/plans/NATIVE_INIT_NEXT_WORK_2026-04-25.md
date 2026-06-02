@@ -10846,3 +10846,29 @@ concrete rail/register owner (V1655). Rail inventory (V1641): SDX50M main rail
   decision-useful.
 - ONE Android + ONE native + ONE diff sets the label. NO timing/window variants.
   NO autonomous write gate from any label.
+
+## V1660 Android-good Power Diff Reference (2026-06-02)
+
+- V1660 rollbackable Android-good handoff passed as
+  `v1660-android-good-power-diff-reference-trace-opaque-pass`.
+
+  Result:
+
+  - Android lower path reached BDF, FW-ready, and `wlan0`;
+  - native rollback restored `stage3/boot_linux_v724.img`;
+  - native `selftest` returned `fail=0`;
+  - captured 39 full `regulator_summary` snapshots;
+  - captured 39 targeted named-clock snapshots without reading full
+    `clk_summary`;
+  - captured 39 subsystem sequence snapshots;
+  - pre/post `esoc0` and pre/post `wlan0` power windows are present for
+    regulator, clock, and subsystem snapshots.
+
+  GPIO/IRQ tracefs targets were opaque in this Android-good run, but the lower
+  Android success path and read-only power/clock/subsystem snapshots were
+  captured.  Do not rerun timing/window variants.  The next required unit is
+  the matching V1661 native natural-path capture with the same observables,
+  then V1662 host-only diff.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1660_ANDROID_GOOD_POWER_DIFF_REFERENCE_2026-06-02.md`.
