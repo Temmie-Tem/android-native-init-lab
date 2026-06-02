@@ -165,6 +165,9 @@ static int v641_prepare_firmware_mounts(void);
 #ifndef A90_WIFI_TEST_BOOT_NATURAL_MDM2AP_IRQ_SUMMARY
 #define A90_WIFI_TEST_BOOT_NATURAL_MDM2AP_IRQ_SUMMARY 0
 #endif
+#ifndef A90_WIFI_TEST_BOOT_NATURAL_POWER_DIFF_SNAPSHOT
+#define A90_WIFI_TEST_BOOT_NATURAL_POWER_DIFF_SNAPSHOT 0
+#endif
 #ifndef A90_WIFI_TEST_BOOT_AUTO_READINESS_SUPERVISOR
 #define A90_WIFI_TEST_BOOT_AUTO_READINESS_SUPERVISOR 0
 #endif
@@ -1276,6 +1279,7 @@ static void v1393_rc1_window_sample(const char *sample, long start_ms, long dete
         "VDD_CX_LEVEL",
         NULL,
     };
+#if !A90_WIFI_TEST_BOOT_NATURAL_POWER_DIFF_SNAPSHOT
     static const char *const clk_needles[] = {
         "GCC_PCIE_1",
         "GCC_PCIE1",
@@ -1287,6 +1291,7 @@ static void v1393_rc1_window_sample(const char *sample, long start_ms, long dete
         "refgen",
         NULL,
     };
+#endif
 #if A90_WIFI_TEST_BOOT_RC1_FOCUSED_ENDPOINT_SAMPLER
     static const char *const exact_regulator_needles[] = {
         "pcie_1_gdsc",
@@ -1374,11 +1379,17 @@ static void v1393_rc1_window_sample(const char *sample, long start_ms, long dete
                                            "regulator_summary_alt",
                                            "/sys/kernel/debug/regulator_summary",
                                            regulator_needles);
+#if !A90_WIFI_TEST_BOOT_NATURAL_POWER_DIFF_SNAPSHOT
     v1393_rc1_window_append_matching_lines(out_fd,
                                            sample,
                                            "clk_summary",
                                            "/sys/kernel/debug/clk/clk_summary",
                                            clk_needles);
+#else
+    dprintf(out_fd,
+            "sample=%s clk_summary_skipped=1 reason=natural-power-diff-targeted-clocks-only\n",
+            sample);
+#endif
     v1393_rc1_window_append_trimmed_file(out_fd,
                                          sample,
                                          "pcie1_current_link_state",
@@ -1563,12 +1574,212 @@ static void v1633_natural_mdm2ap_irq_summary_sample(struct v1633_natural_mdm2ap_
     }
 }
 
+#if A90_WIFI_TEST_BOOT_NATURAL_POWER_DIFF_SNAPSHOT
+static void v1661_append_file_raw(int out_fd, const char *path) {
+    int file_fd = open(path, O_RDONLY | O_CLOEXEC);
+    char chunk[1024];
+
+    if (file_fd < 0) {
+        dprintf(out_fd, "A90_V1661_FILE_MISSING path=%s errno=%d\n", path, errno);
+        return;
+    }
+    for (;;) {
+        ssize_t bytes_read = read(file_fd, chunk, sizeof(chunk));
+
+        if (bytes_read == 0) {
+            break;
+        }
+        if (bytes_read < 0) {
+            dprintf(out_fd, "A90_V1661_FILE_READ_ERROR path=%s errno=%d\n", path, errno);
+            break;
+        }
+        if (write(out_fd, chunk, (size_t)bytes_read) < 0) {
+            dprintf(out_fd, "\nA90_V1661_FILE_WRITE_ERROR path=%s errno=%d\n", path, errno);
+            break;
+        }
+    }
+    close(file_fd);
+}
+
+static void v1661_append_trimmed_file_value(int out_fd, const char *path, const char *key) {
+    int file_fd = open(path, O_RDONLY | O_CLOEXEC);
+    char value[128];
+    ssize_t bytes_read;
+
+    if (file_fd < 0) {
+        return;
+    }
+    bytes_read = read(file_fd, value, sizeof(value) - 1);
+    close(file_fd);
+    if (bytes_read <= 0) {
+        return;
+    }
+    value[bytes_read] = '\0';
+    for (ssize_t index = 0; index < bytes_read; index++) {
+        if (value[index] == '\n' || value[index] == '\r') {
+            value[index] = '\0';
+            break;
+        }
+    }
+    dprintf(out_fd, " %s=%s", key, value);
+}
+
+static void v1661_append_clock_snapshot(int out_fd, const char *name) {
+    static const char *const keys[] = {
+        "clk_enable_count",
+        "clk_prepare_count",
+        "clk_rate",
+        NULL,
+    };
+    char base_path[192];
+    struct stat st;
+
+    snprintf(base_path, sizeof(base_path), "/sys/kernel/debug/clk/%s", name);
+    if (lstat(base_path, &st) < 0 || !S_ISDIR(st.st_mode)) {
+        dprintf(out_fd, "CLOCK %s missing\n", name);
+        return;
+    }
+    dprintf(out_fd, "CLOCK %s", name);
+    for (size_t index = 0; keys[index] != NULL; index++) {
+        char path[256];
+
+        snprintf(path, sizeof(path), "%s/%s", base_path, keys[index]);
+        v1661_append_trimmed_file_value(out_fd, path, keys[index]);
+    }
+    dprintf(out_fd, "\n");
+}
+
+static void v1661_append_subsys_snapshot(int out_fd) {
+    for (int index = 0; index < 32; index++) {
+        char dir[96];
+        char name_path[128];
+        char state_path[128];
+        char name[96] = "";
+        char state[96] = "";
+        int name_fd;
+        int state_fd;
+        ssize_t name_read;
+        ssize_t state_read;
+        struct stat st;
+
+        snprintf(dir, sizeof(dir), "/sys/bus/msm_subsys/devices/subsys%d", index);
+        if (lstat(dir, &st) < 0 || !S_ISDIR(st.st_mode)) {
+            continue;
+        }
+        snprintf(name_path, sizeof(name_path), "%s/name", dir);
+        snprintf(state_path, sizeof(state_path), "%s/state", dir);
+        name_fd = open(name_path, O_RDONLY | O_CLOEXEC);
+        if (name_fd >= 0) {
+            name_read = read(name_fd, name, sizeof(name) - 1);
+            close(name_fd);
+            if (name_read > 0) {
+                name[name_read] = '\0';
+            }
+        }
+        state_fd = open(state_path, O_RDONLY | O_CLOEXEC);
+        if (state_fd >= 0) {
+            state_read = read(state_fd, state, sizeof(state) - 1);
+            close(state_fd);
+            if (state_read > 0) {
+                state[state_read] = '\0';
+            }
+        }
+        for (size_t pos = 0; name[pos] != '\0'; pos++) {
+            if (name[pos] == '\n' || name[pos] == '\r') {
+                name[pos] = '\0';
+                break;
+            }
+        }
+        for (size_t pos = 0; state[pos] != '\0'; pos++) {
+            if (state[pos] == '\n' || state[pos] == '\r') {
+                state[pos] = '\0';
+                break;
+            }
+        }
+        dprintf(out_fd, "SUBSYS path=%s name=%s state=%s\n", dir, name, state);
+    }
+}
+
+static void v1661_append_natural_power_diff_snapshot(int out_fd,
+                                                     int sample_index,
+                                                     long start_ms,
+                                                     long micro_start_ms) {
+    static const char *const clocks[] = {
+        "gcc_pcie_1_aux_clk_src",
+        "gcc_pcie_1_aux_clk",
+        "gcc_pcie_1_cfg_ahb_clk",
+        "gcc_pcie_1_mstr_axi_clk",
+        "gcc_pcie_1_slv_axi_clk",
+        "gcc_pcie_1_clkref_clk",
+        "gcc_pcie_1_slv_q2a_axi_clk",
+        "gcc_pcie_phy_refgen_clk_src",
+        "gcc_pcie1_phy_refgen_clk",
+        "gcc_pcie_1_pipe_clk",
+        "pcie_1_pipe_clk",
+        NULL,
+    };
+    long now_ms = monotonic_millis();
+    const long elapsed_ms = now_ms >= start_ms ? now_ms - start_ms : -1;
+    const long micro_elapsed_ms = now_ms >= micro_start_ms ? now_ms - micro_start_ms : -1;
+
+    dprintf(out_fd,
+            "A90_V1661_REGULATOR_BEGIN index=%d elapsed_ms=%ld micro_elapsed_ms=%ld\n",
+            sample_index,
+            elapsed_ms,
+            micro_elapsed_ms);
+    v1661_append_file_raw(out_fd, "/sys/kernel/debug/regulator/regulator_summary");
+    dprintf(out_fd, "A90_V1661_REGULATOR_END index=%d elapsed_ms=%ld\n", sample_index, elapsed_ms);
+    dprintf(out_fd,
+            "A90_V1661_CLOCKS_BEGIN index=%d elapsed_ms=%ld micro_elapsed_ms=%ld\n",
+            sample_index,
+            elapsed_ms,
+            micro_elapsed_ms);
+    for (size_t index = 0; clocks[index] != NULL; index++) {
+        v1661_append_clock_snapshot(out_fd, clocks[index]);
+    }
+    dprintf(out_fd, "A90_V1661_CLOCKS_END index=%d elapsed_ms=%ld\n", sample_index, elapsed_ms);
+    dprintf(out_fd,
+            "A90_V1661_SUBSYS_BEGIN index=%d elapsed_ms=%ld micro_elapsed_ms=%ld\n",
+            sample_index,
+            elapsed_ms,
+            micro_elapsed_ms);
+    v1661_append_subsys_snapshot(out_fd);
+    dprintf(out_fd, "A90_V1661_SUBSYS_END index=%d elapsed_ms=%ld\n", sample_index, elapsed_ms);
+}
+
+static void v1661_append_natural_power_diff_summary(int out_fd, int snapshot_count) {
+    dprintf(out_fd,
+            "natural_power_diff.begin=1\n"
+            "natural_power_diff.mode=pid1-native-natural-provider-power-clock-sequence-snapshot\n"
+            "natural_power_diff.snapshot_count=%d\n"
+            "natural_power_diff.regulator_summary_full=1\n"
+            "natural_power_diff.targeted_named_clocks=1\n"
+            "natural_power_diff.full_clk_summary_read=0\n"
+            "natural_power_diff.subsystem_sequence=1\n"
+            "natural_power_diff.safety_wifi_hal_start=0\n"
+            "natural_power_diff.safety_scan_connect=0\n"
+            "natural_power_diff.safety_credentials=0\n"
+            "natural_power_diff.safety_dhcp_route=0\n"
+            "natural_power_diff.safety_external_ping=0\n"
+            "natural_power_diff.safety_pmic_write=0\n"
+            "natural_power_diff.safety_gpio_write=0\n"
+            "natural_power_diff.safety_gdsc_write=0\n"
+            "natural_power_diff.safety_regulator_write=0\n"
+            "natural_power_diff.safety_forced_rc1=0\n"
+            "natural_power_diff.safety_pci_rescan=0\n"
+            "natural_power_diff.safety_platform_bind=0\n"
+            "natural_power_diff.end=1\n",
+            snapshot_count);
+}
+#endif
+
 static void v1633_append_natural_mdm2ap_irq_summary(const struct v1633_natural_mdm2ap_irq_summary *summary,
                                                     long start_ms,
                                                     long detect_ms,
                                                     long micro_start_ms,
                                                     int sample_count,
-                                                    int sample_interval_ms) {
+                                                    int sample_interval_ms,
+                                                    int power_snapshot_count) {
     int out_fd = open(A90_V1393_WIFI_TEST_RC1_WINDOW_RESULT,
                       O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC | O_NOFOLLOW,
                       0600);
@@ -1593,6 +1804,7 @@ static void v1633_append_natural_mdm2ap_irq_summary(const struct v1633_natural_m
             "mdm2ap_timing.micro_elapsed_ms=%ld\n"
             "mdm2ap_timing.sample_interval_ms=%d\n"
             "mdm2ap_timing.sample_count=%d\n"
+            "mdm2ap_timing.power_snapshot_count=%d\n"
             "mdm2ap_timing.gpio142_irq_initial_parsed=%d\n"
             "mdm2ap_timing.gpio142_irq_initial=%lu\n"
             "mdm2ap_timing.gpio142_irq_max=%lu\n"
@@ -1623,6 +1835,7 @@ static void v1633_append_natural_mdm2ap_irq_summary(const struct v1633_natural_m
             now_ms >= micro_start_ms ? now_ms - micro_start_ms : -1,
             sample_interval_ms,
             sample_count,
+            power_snapshot_count,
             summary->gpio142_initial.parsed,
             summary->gpio142_initial.count_total,
             summary->gpio142_max,
@@ -1639,22 +1852,52 @@ static void v1633_append_natural_mdm2ap_irq_summary(const struct v1633_natural_m
 static void v1633_natural_mdm2ap_irq_summary_run(long start_ms,
                                                  long detect_ms,
                                                  long micro_start_ms,
-                                                 struct v1633_natural_mdm2ap_irq_summary *summary) {
+                                                struct v1633_natural_mdm2ap_irq_summary *summary) {
     enum {
         V1633_NATURAL_IRQ_SAMPLE_COUNT = 120,
         V1633_NATURAL_IRQ_SAMPLE_INTERVAL_MS = 50,
     };
+    int power_snapshot_count = 0;
 
     for (int sample_index = 0; sample_index < V1633_NATURAL_IRQ_SAMPLE_COUNT; sample_index++) {
         usleep(V1633_NATURAL_IRQ_SAMPLE_INTERVAL_MS * 1000U);
         v1633_natural_mdm2ap_irq_summary_sample(summary, sample_index);
+#if A90_WIFI_TEST_BOOT_NATURAL_POWER_DIFF_SNAPSHOT
+        if (sample_index == 0 || sample_index == 8 || sample_index == 24 ||
+            sample_index == 40 || sample_index == 64 || sample_index == 96 ||
+            sample_index == 119) {
+            int out_fd = open(A90_V1393_WIFI_TEST_RC1_WINDOW_RESULT,
+                              O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC | O_NOFOLLOW,
+                              0600);
+            if (out_fd >= 0) {
+                v1661_append_natural_power_diff_snapshot(out_fd,
+                                                         sample_index,
+                                                         start_ms,
+                                                         micro_start_ms);
+                close(out_fd);
+                power_snapshot_count++;
+            }
+        }
+#endif
     }
     v1633_append_natural_mdm2ap_irq_summary(summary,
                                             start_ms,
                                             detect_ms,
                                             micro_start_ms,
                                             V1633_NATURAL_IRQ_SAMPLE_COUNT,
-                                            V1633_NATURAL_IRQ_SAMPLE_INTERVAL_MS);
+                                            V1633_NATURAL_IRQ_SAMPLE_INTERVAL_MS,
+                                            power_snapshot_count);
+#if A90_WIFI_TEST_BOOT_NATURAL_POWER_DIFF_SNAPSHOT
+    {
+        int out_fd = open(A90_V1393_WIFI_TEST_RC1_WINDOW_RESULT,
+                          O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC | O_NOFOLLOW,
+                          0600);
+        if (out_fd >= 0) {
+            v1661_append_natural_power_diff_summary(out_fd, power_snapshot_count);
+            close(out_fd);
+        }
+    }
+#endif
 }
 #endif
 

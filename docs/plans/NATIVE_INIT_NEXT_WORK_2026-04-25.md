@@ -10872,3 +10872,37 @@ concrete rail/register owner (V1655). Rail inventory (V1641): SDX50M main rail
 
   Report:
   `docs/reports/NATIVE_INIT_V1660_ANDROID_GOOD_POWER_DIFF_REFERENCE_2026-06-02.md`.
+
+## V1661 Native Natural-path Power Diff Source Build (2026-06-02)
+
+- V1661 source/build-only native test boot passed as
+  `v1661-native-natural-power-diff-source-build-pass`.
+
+  Artifact:
+
+  - init: `A90 Linux init 0.9.115 (v1661-native-power-diff)`;
+  - boot image:
+    `tmp/wifi/v1661-native-natural-power-diff-test-boot/boot_linux_v1661_native_power_diff.img`;
+  - boot SHA256:
+    `420c1a25b6a338c3d8563299cb62208d77a14a32995db96266dcc747a102f18b`.
+
+  Capture contract:
+
+  - natural `__subsystem_get(esoc0)` → `mdm_subsys_powerup` route only;
+  - retains V1636 `mdm2ap_timing.*` GPIO142/errfatal IRQ-delta summary;
+  - adds full `regulator_summary` snapshots tagged with
+    `A90_V1661_REGULATOR_*`;
+  - adds targeted named-clock leaf reads tagged with `A90_V1661_CLOCKS_*`;
+  - adds subsystem sequence snapshots tagged with `A90_V1661_SUBSYS_*`;
+  - explicitly records `natural_power_diff.full_clk_summary_read=0`;
+  - skips legacy full `clk_summary` reads in this mode with
+    `clk_summary_skipped=1`.
+
+  Hard stops remain unchanged: no PMIC/GPIO/GDSC writes, forced RC1/case write,
+  fake ONLINE/system-info spoof, eSoC notify/`BOOT_DONE`, PCI rescan, platform
+  bind/unbind, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, or external
+  ping.  Next unit is one rollbackable V1661 live capture, then V1662
+  host-only diff.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1661_NATIVE_NATURAL_POWER_DIFF_SOURCE_BUILD_2026-06-02.md`.
