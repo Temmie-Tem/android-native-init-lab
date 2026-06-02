@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v330"
+#define EXECNS_VERSION "a90_android_execns_probe v331"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -35976,7 +35976,7 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
         stop_property_service_shim(&property_shim, paths, stdout_buf);
         return -1;
     }
-    if (wlan_pd_service_window_trigger &&
+    if ((wlan_pd_service_window_trigger || wlan_pd_service_object_visible_trigger) &&
         cfg->allow_service_notifier_listener_probe &&
         append_companion_service_notifier_late_endpoint_probe(stdout_buf, cfg) < 0) {
         stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
@@ -35984,7 +35984,7 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
         stop_property_service_shim(&property_shim, paths, stdout_buf);
         return -1;
     }
-    if (wlan_pd_service_window_trigger &&
+    if ((wlan_pd_service_window_trigger || wlan_pd_service_object_visible_trigger) &&
         cfg->allow_service_notifier_listener_probe &&
         append_companion_service_notifier_late_listener_probe(stdout_buf, cfg) < 0) {
         stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);

@@ -47,8 +47,8 @@ DEFAULT_WIFI_TEST_WATCHER_PID = "/cache/native-init-wifi-test-boot-v1393-watcher
 DEFAULT_WIFI_TEST_WATCH_SEC = 35
 DEFAULT_WIFI_TEST_SUPERVISOR_TIMEOUT_SEC = 40
 DEFAULT_WIFI_TEST_HELPER_MODE = "post-pm-observer"
-EXPECTED_HELPER_MARKER = "a90_android_execns_probe v329"
-EXPECTED_HELPER_SHA256 = "c57f57aa1b285861655ce4a4cbcea65185c17862c4c2f5a5f6cde220f145fcbe"
+EXPECTED_HELPER_MARKER = "a90_android_execns_probe v331"
+EXPECTED_HELPER_SHA256 = "0f2d69082088e021d5c42035154ad70de1264826b2df0c8708147ec415b9cfe3"
 REPRODUCIBLE_MTIME = 0
 
 FORBIDDEN_BYTES = (
@@ -96,6 +96,8 @@ def helper_runtime_mode(args: argparse.Namespace) -> str:
         return "wifi-companion-wlan-pd-cnss-output-visibility-start-only"
     if args.wifi_test_helper_mode == "wlan-pd-pm-service-window-trigger":
         return "wifi-companion-wlan-pd-pm-service-window-trigger-start-only"
+    if args.wifi_test_helper_mode == "wlan-pd-service-object-visible-trigger":
+        return "wifi-companion-wlan-pd-service-object-visible-trigger-start-only"
     if args.wifi_test_helper_mode == "wlan-pd-service-window-trigger":
         return "wifi-companion-wlan-pd-service-window-trigger-start-only"
     if args.wifi_test_helper_mode == "wlan-pd-timestamped-observer":
@@ -150,6 +152,7 @@ def uses_wlan_pd_firmware_serve_gate(args: argparse.Namespace) -> bool:
         "wlan-pd-service-window-trigger",
         "wlan-pd-timestamped-observer",
         "wlan-pd-pm-service-window-trigger",
+        "wlan-pd-service-object-visible-trigger",
     }
 
 
@@ -166,6 +169,10 @@ def uses_wlan_pd_service_window_trigger(args: argparse.Namespace) -> bool:
 
 def uses_wlan_pd_pm_service_window_trigger(args: argparse.Namespace) -> bool:
     return args.wifi_test_helper_mode == "wlan-pd-pm-service-window-trigger"
+
+
+def uses_wlan_pd_service_object_visible_trigger(args: argparse.Namespace) -> bool:
+    return args.wifi_test_helper_mode == "wlan-pd-service-object-visible-trigger"
 
 
 def build_helper(args: argparse.Namespace) -> None:
@@ -336,6 +343,8 @@ def build_init(args: argparse.Namespace) -> None:
         service_window_flags.append("-DA90_WIFI_TEST_BOOT_WLAN_PD_CNSS_OUTPUT_VISIBILITY=1")
     elif uses_wlan_pd_pm_service_window_trigger(args):
         service_window_flags.append("-DA90_WIFI_TEST_BOOT_WLAN_PD_PM_SERVICE_WINDOW_TRIGGER=1")
+    elif uses_wlan_pd_service_object_visible_trigger(args):
+        service_window_flags.append("-DA90_WIFI_TEST_BOOT_WLAN_PD_SERVICE_OBJECT_VISIBLE_TRIGGER=1")
     elif args.wifi_test_helper_mode == "wlan-pd-timestamped-observer":
         service_window_flags.append("-DA90_WIFI_TEST_BOOT_WLAN_PD_TIMESTAMPED_OBSERVER=1")
     elif uses_wlan_pd_service_window_trigger(args):
@@ -593,6 +602,11 @@ def verify_init_route_contract(args: argparse.Namespace) -> None:
                 "--allow-service-manager-start-only",
                 "--allow-wlan-pd-pm-service-window-trigger",
             ])
+        if uses_wlan_pd_service_object_visible_trigger(args):
+            expected.extend([
+                "--allow-service-manager-start-only",
+                "--allow-wlan-pd-service-object-visible-trigger",
+            ])
         if uses_wlan_pd_cnss_output_visibility(args):
             expected.append("--allow-wlan-pd-cnss-output-visibility")
             forbidden.append("--allow-service-manager-start-only")
@@ -820,6 +834,22 @@ def verify_markers(args: argparse.Namespace) -> None:
                 "wlan_pd_pm_service_window_trigger.wlfw_start_seen=%d",
                 "wlan_pd_pm_service_window_trigger.wlfw_service_request_seen=%d",
                 "wlan_pd_pm_service_window_trigger.wlfw_service69_seen=%d",
+            ])
+        if uses_wlan_pd_service_object_visible_trigger(args):
+            expected.extend([
+                "--allow-service-manager-start-only",
+                "--allow-wlan-pd-service-object-visible-trigger",
+                "wifi-companion-wlan-pd-service-object-visible-trigger-start-only",
+                "wlan_pd_service_object_visible_trigger.begin=1",
+                "wlan_pd_service_object_visible_trigger.label=%s",
+                "wlan_pd_service_object_visible_trigger.no_esoc0=1",
+                "wlan_pd_service_object_visible_trigger.no_forced_rc1=1",
+                "wlan_pd_service_object_visible_trigger.no_per_proxy=1",
+                "wlan_pd_service_object_visible_trigger.no_wifi_hal=1",
+                "wlan_pd_service_object_visible_trigger.no_scan_connect=1",
+                "wlan_pd_service_object_visible_trigger.provider_seen=%d",
+                "wlan_pd_service_object_visible_trigger.requested_wlanmdsp=%d",
+                "wlan_pd_service_object_visible_trigger.wlfw_service69_seen=%d",
             ])
     elif uses_android_service_window(args):
         expected.append("--allow-android-wifi-service-window")
@@ -1557,6 +1587,7 @@ def resolve_args(args: argparse.Namespace) -> argparse.Namespace:
                 and not (
                     uses_wlan_pd_cnss_output_visibility(args)
                     or uses_wlan_pd_service_window_trigger(args)
+                    or uses_wlan_pd_service_object_visible_trigger(args)
                 )
             ),
             "wifi_test_pid1_rc1_watcher": args.wifi_test_pid1_rc1_watcher,
@@ -1624,6 +1655,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         choices=[
             "wlan-pd-cnss-output-visibility",
             "wlan-pd-pm-service-window-trigger",
+            "wlan-pd-service-object-visible-trigger",
             "wlan-pd-service-window-trigger",
             "wlan-pd-timestamped-observer",
             "wlan-pd-firmware-serve-gate",

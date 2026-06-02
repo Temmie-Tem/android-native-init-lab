@@ -281,6 +281,9 @@ static int v641_prepare_firmware_mounts(void);
 #ifndef A90_WIFI_TEST_BOOT_WLAN_PD_PM_SERVICE_WINDOW_TRIGGER
 #define A90_WIFI_TEST_BOOT_WLAN_PD_PM_SERVICE_WINDOW_TRIGGER 0
 #endif
+#ifndef A90_WIFI_TEST_BOOT_WLAN_PD_SERVICE_OBJECT_VISIBLE_TRIGGER
+#define A90_WIFI_TEST_BOOT_WLAN_PD_SERVICE_OBJECT_VISIBLE_TRIGGER 0
+#endif
 #ifndef A90_WIFI_TEST_BOOT_WLAN_PD_CNSS_OUTPUT_VISIBILITY
 #define A90_WIFI_TEST_BOOT_WLAN_PD_CNSS_OUTPUT_VISIBILITY 0
 #endif
@@ -288,6 +291,8 @@ static int v641_prepare_firmware_mounts(void);
 #define A90_V1393_WIFI_TEST_MODE "wifi-companion-wlan-pd-cnss-output-visibility-start-only"
 #elif A90_WIFI_TEST_BOOT_WLAN_PD_PM_SERVICE_WINDOW_TRIGGER
 #define A90_V1393_WIFI_TEST_MODE "wifi-companion-wlan-pd-pm-service-window-trigger-start-only"
+#elif A90_WIFI_TEST_BOOT_WLAN_PD_SERVICE_OBJECT_VISIBLE_TRIGGER
+#define A90_V1393_WIFI_TEST_MODE "wifi-companion-wlan-pd-service-object-visible-trigger-start-only"
 #elif A90_WIFI_TEST_BOOT_WLAN_PD_TIMESTAMPED_OBSERVER
 #define A90_V1393_WIFI_TEST_MODE "wifi-companion-wlan-pd-timestamped-observer-start-only"
 #elif A90_WIFI_TEST_BOOT_WLAN_PD_SERVICE_WINDOW_TRIGGER
@@ -4230,6 +4235,16 @@ static int v1393_spawn_wifi_test_boot_helper(pid_t *pid_out) {
         "--allow-cnss-start-only",
         "--allow-service-manager-start-only",
         "--allow-wlan-pd-pm-service-window-trigger",
+        "--allow-qrtr-ns-readback",
+        "--allow-servloc-domain-list-probe",
+        "--allow-service-notifier-listener-probe",
+        "--qrtr-readback-matrix",
+        "wlfw:69:0,1",
+#elif A90_WIFI_TEST_BOOT_WLAN_PD_SERVICE_OBJECT_VISIBLE_TRIGGER
+        "--allow-wifi-companion-start-only",
+        "--allow-cnss-start-only",
+        "--allow-service-manager-start-only",
+        "--allow-wlan-pd-service-object-visible-trigger",
         "--allow-qrtr-ns-readback",
         "--allow-servloc-domain-list-probe",
         "--allow-service-notifier-listener-probe",
