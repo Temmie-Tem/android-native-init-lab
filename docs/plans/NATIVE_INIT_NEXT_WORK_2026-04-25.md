@@ -13592,3 +13592,24 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
 
   - `docs/reports/NATIVE_INIT_V1730_WLAN_PD_SERVNOTIF_LATE_LISTENER_SOURCE_BUILD_2026-06-03.md`;
   - `docs/reports/NATIVE_INIT_V1731_WLAN_PD_SERVNOTIF_LATE_LISTENER_HANDOFF_2026-06-03.md`.
+
+## V1732 CNSS output and WLAN-PD state-up correction (2026-06-03)
+
+- V1732 host-only correction/current-evidence classifier completed.
+
+  Result:
+
+  - decision: `v1732-cnss-output-artifact-wlan-pd-stateup-gap-pass`;
+  - fixed label: `wlfw-start-reached-wlan-pd-uninit-downstream-block`;
+  - missing surface: `modem-side-wlan-pd-state-up-and-wlfw-service69-publication`;
+  - latest correction accepted: QCACLD/`boot_wlan` is not a WLFW trigger, and native `wlfw_start` dmesg absence is a logging/output artifact;
+  - V1725 already ran the strict output-visibility branch and returned `cnss-output-still-invisible`; V1727/V1731 non-log evidence proves `wlfw_start`, `wlfw_service_request`, and worker creation anyway;
+  - V1731 late service-notifier listener reaches the endpoint but receives `UNINIT`, no indication, no WLFW service 69, and no `wlanmdsp` request.
+
+  Next candidate:
+
+  - V1733 host-only modem-side WLAN-PD state-up trigger classifier: compare Android-good WLAN-PD-UP timing against V1731 native `UNINIT` and identify a concrete non-mutating observation/trigger surface before any live retry;
+  - do not add PM trio, `vendor.qcom.PeripheralManager`, `boot_wlan`, `/dev/subsys_esoc0`, forced RC1, fake-ONLINE, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, or external ping.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1732_CNSS_OUTPUT_STATEUP_CORRECTION_2026-06-03.md`.
