@@ -14969,3 +14969,61 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
   - any later modem-side WLAN-PD autoload/request-trigger analysis must be
     separately scoped and explicitly reconciled with the V1753/V1763 fixed
     `firmware-not-requested` label first.
+
+## V1764 WLAN-PD service-object-visible helper build (2026-06-03)
+
+- V1764 implements the separately scoped source/build step needed after the
+  fixed V1763 `firmware-not-requested` label.
+
+  Source/build-only helper support:
+
+  - script:
+    `scripts/revalidation/native_wifi_wlan_pd_service_object_visible_helper_build_v1764.py`;
+  - decision:
+    `v1764-service-object-visible-helper-build-pass`;
+  - helper marker: `a90_android_execns_probe v330`;
+  - helper:
+    `stage3/linux_init/helpers/a90_android_execns_probe_v330`;
+  - helper SHA256:
+    `b24ba21c0f5d49b319942605eaa183cd233699ca1b6afcad9a99999daf69fc9f`;
+  - evidence:
+    `tmp/wifi/v1764-wlan-pd-service-object-visible-helper-build`;
+  - report:
+    `docs/reports/NATIVE_INIT_V1764_WLAN_PD_SERVICE_OBJECT_VISIBLE_HELPER_BUILD_2026-06-03.md`.
+
+  New bounded mode:
+
+  - mode:
+    `wifi-companion-wlan-pd-service-object-visible-trigger-start-only`;
+  - allow flag: `--allow-wlan-pd-service-object-visible-trigger`;
+  - preserves the V1736 service-manager WLAN-PD route;
+  - adds only `pm_proxy_helper`, `pm-service`, and `vndservice list` provider
+    visibility proof;
+  - intentionally excludes broad `pm-proxy`, Wi-Fi HAL, scan/connect,
+    credentials, DHCP/routes, external ping, `boot_wlan`, restart-PD,
+    `/dev/subsys_esoc0`, forced RC1, fake-ONLINE, PMIC/GPIO/GDSC writes, PCI
+    rescan, platform bind/unbind, firmware writes, and partition writes.
+
+  Required output keys:
+
+  - `wlan_pd_service_object_visible_trigger.provider_seen`;
+  - `wlan_pd_service_object_visible_trigger.requested_wlanmdsp`;
+  - `wlan_pd_service_object_visible_trigger.wlfw_service69_seen`;
+  - `wlan_pd_service_object_visible_trigger.wlan0_present`;
+  - `wlan_pd_cnss_nonlog_control_flow.peripheral_uprobe.*` for null branch,
+    `asInterface`, manager-register TX, and success-path evidence;
+  - explicit safety keys for no Wi-Fi HAL, no scan/connect, no credentials, no
+    DHCP/routes, no external ping, no eSoC/RC1, no `pm-proxy`, and no writes.
+
+  Next candidate:
+
+  - V1765 should be deploy/preflight-only for helper v330, verifying SHA,
+    marker, mode string, and selftest without starting the new live gate;
+  - V1766, only after V1765 passes, should be one rollbackable live
+    discriminator with labels:
+    `provider-not-visible`,
+    `provider-visible-still-no-request`,
+    `provider-visible-request-progress`, or
+    `provider-visible-wlfw-regressed`;
+  - V1766 must stop before Wi-Fi HAL, scan/connect, credentials, DHCP/routes,
+    or external ping even if `wlan0` appears.

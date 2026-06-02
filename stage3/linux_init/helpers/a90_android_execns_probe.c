@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v329"
+#define EXECNS_VERSION "a90_android_execns_probe v330"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -287,6 +287,7 @@ struct config {
     bool allow_android_wifi_service_window_per_mgr_system_info_surface; /* v301 */
     bool allow_wlan_pd_service_window_trigger; /* v307 */
     bool allow_wlan_pd_pm_service_window_trigger; /* v308 */
+    bool allow_wlan_pd_service_object_visible_trigger; /* v330 */
     bool allow_wlan_pd_cnss_output_visibility; /* v309 */
     bool require_android_selinux_exec_match;
     bool pm_observer_zero_delay_per_mgr_probe;
@@ -515,6 +516,7 @@ static void usage(FILE *out) {
             "[--allow-wlan-pd-cnss-output-visibility] "
             "[--allow-wlan-pd-service-window-trigger] "
             "[--allow-wlan-pd-pm-service-window-trigger] "
+            "[--allow-wlan-pd-service-object-visible-trigger] "
             "[--result-output-path <path>] "
             "[--pm-observer-continue-after-provider] "
             "[--pm-observer-start-cnss-after-provider] "
@@ -543,7 +545,7 @@ static void usage(FILE *out) {
             "[--cnss-surface-mode full|compact] "
             "[--service-manager-order none|before-cnss|after-cnss|after-mdm-helper-esoc-fd|after-mdm-helper-esoc-fd-with-pm-proxy|after-mdm-helper-esoc-fd-with-pm-full-contract|after-mdm-helper-esoc-fd-with-pm-full-contract-with-modem-holder|after-mdm-helper-esoc-fd-with-wifi-surface|after-mdm-helper-esoc-fd-with-wifi-surface-subsys-window] "
             "[--subsys-trigger-gate observe-only|wlfw-precondition|post-provider-no-wlfw|post-upper-surface-no-wlfw] "
-            "--mode linker-list|identity-probe|sepolicy-inventory|sepolicy-compile-proof|sepolicy-load-proof|selinux-domain-proof|cnss-start-only|cnss-userspace-readiness|wifi-companion-start-only|wifi-companion-post-sysmon-observer-start-only|wifi-companion-android-order-post-sysmon-observer-start-only|wifi-companion-wlan-pd-firmware-serve-gate-start-only|wifi-companion-wlan-pd-cnss-output-visibility-start-only|wifi-companion-wlan-pd-service-window-trigger-start-only|wifi-companion-wlan-pd-timestamped-observer-start-only|wifi-companion-wlan-pd-pm-service-window-trigger-start-only|wifi-companion-android-order-pre-cnss-provider-observe-only|wifi-companion-service-manager-start-only|wifi-companion-vnd-service-manager-start-only|wifi-companion-qrtr-first-vnd-service-manager-start-only|wifi-companion-cnss-first-delayed-vnd-service-manager-start-only|wifi-companion-service74-gated-vnd-service-manager-start-only|wifi-companion-service74-gated-vnd-service-manager-readiness-start-only|wifi-companion-service74-gated-vnd-service-manager-cnss-retry-start-only|wifi-companion-peripheral-manager-node-parity-start-only|wifi-companion-peripheral-manager-property-contract-start-only|wifi-companion-peripheral-manager-init-contract-start-only|wifi-companion-pm-service-trigger-observer|wifi-companion-post-pm-mdm-helper-esoc-observer|wifi-companion-esoc-control-preflight|wifi-companion-esoc-engine-register-preflight|wifi-companion-esoc-req-registered-subsys-hold-preflight|wifi-companion-esoc-conditional-response-preflight|wifi-companion-esoc-img-xfer-mhi-observe|wifi-companion-pmic-soft-reset-preflight|wifi-companion-pmic-power-surface-write-gate-preflight|wifi-companion-pmic-gpiochip-devnode-open-preflight|wifi-companion-pmic-gpiochip-line-info-preflight|wifi-companion-mdm-helper-ks-image-contract-preflight|wifi-companion-mdm-helper-only-deep-capture|wifi-companion-mdm-helper-runtime-contract-capture|wifi-companion-mdm-helper-runtime-subsys-trigger-capture|wifi-companion-mdm-helper-cnss-before-subsys-trigger-capture|wifi-companion-mdm-helper-cnss-service-manager-matrix|wifi-companion-android-wifi-service-window-start-only|wifi-companion-android-wifi-service-window-subsys-trigger-capture|wifi-companion-service74-gated-peripheral-manager-cnss-retry-start-only|wifi-companion-service74-gated-peripheral-manager-cnss-retry-registry-snapshot-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-cnss-retry-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-provider-first-cnss-start-only|wifi-companion-service74-gated-android-userspace-cnss-retry-start-only|wifi-companion-service74-gated-android-userspace-cnss-retry-registry-snapshot-start-only|wifi-companion-service74-gated-vnd-service-manager-registry-snapshot-start-only|wifi-companion-service74-gated-mdm-helper-start-only|wifi-companion-service180-gated-mdm-helper-start-only|wifi-companion-sysmon-gated-mdm-helper-start-only|wifi-companion-hal-order-start-only|wifi-companion-hal-wificond-order-start-only|wifi-companion-hal-wificond-lshal-wait-samsung|wifi-companion-hal-wificond-lshal-wait-iwifi|wifi-companion-dual-hal-wificond-lshal-wait-iwifi|wifi-companion-dual-hal-iwifi-start|wifi-companion-dual-hal-wificond-lshal-then-iwifi-start|rmt-storage-start-only|property-lookup|service-manager-start-only|private-selinux-proof|wifi-hal-lshal-vintf-status-list|wifi-hal-composite-start-only|wifi-hal-composite-lshal-list|wifi-hal-composite-lshal-binderized-list|wifi-hal-composite-lshal-wait-target|wifi-surface-composite-lshal-wait-iwifi|wifi-surface-composite-lshal-wait-samsung|wifi-surface-composite-lshal-wait-samsung-ptrace|wifi-hal-composite-lshal-status-list|wifi-hal-composite-lshal-binderized-status-list|wifi-surface-composite-start-only|wifi-dual-hal-lshal-wait-iwifi|wifi-dual-hal-iwifi-start-surface|wifi-iwifi-start-surface|wifi-active-session-surface|wifi-active-session-scan-only|wifi-active-session-connect-ping|wifi-connect-tool-surface|subsys-hold-open-proof|service-notifier-listener-only "
+            "--mode linker-list|identity-probe|sepolicy-inventory|sepolicy-compile-proof|sepolicy-load-proof|selinux-domain-proof|cnss-start-only|cnss-userspace-readiness|wifi-companion-start-only|wifi-companion-post-sysmon-observer-start-only|wifi-companion-android-order-post-sysmon-observer-start-only|wifi-companion-wlan-pd-firmware-serve-gate-start-only|wifi-companion-wlan-pd-cnss-output-visibility-start-only|wifi-companion-wlan-pd-service-window-trigger-start-only|wifi-companion-wlan-pd-timestamped-observer-start-only|wifi-companion-wlan-pd-pm-service-window-trigger-start-only|wifi-companion-wlan-pd-service-object-visible-trigger-start-only|wifi-companion-android-order-pre-cnss-provider-observe-only|wifi-companion-service-manager-start-only|wifi-companion-vnd-service-manager-start-only|wifi-companion-qrtr-first-vnd-service-manager-start-only|wifi-companion-cnss-first-delayed-vnd-service-manager-start-only|wifi-companion-service74-gated-vnd-service-manager-start-only|wifi-companion-service74-gated-vnd-service-manager-readiness-start-only|wifi-companion-service74-gated-vnd-service-manager-cnss-retry-start-only|wifi-companion-peripheral-manager-node-parity-start-only|wifi-companion-peripheral-manager-property-contract-start-only|wifi-companion-peripheral-manager-init-contract-start-only|wifi-companion-pm-service-trigger-observer|wifi-companion-post-pm-mdm-helper-esoc-observer|wifi-companion-esoc-control-preflight|wifi-companion-esoc-engine-register-preflight|wifi-companion-esoc-req-registered-subsys-hold-preflight|wifi-companion-esoc-conditional-response-preflight|wifi-companion-esoc-img-xfer-mhi-observe|wifi-companion-pmic-soft-reset-preflight|wifi-companion-pmic-power-surface-write-gate-preflight|wifi-companion-pmic-gpiochip-devnode-open-preflight|wifi-companion-pmic-gpiochip-line-info-preflight|wifi-companion-mdm-helper-ks-image-contract-preflight|wifi-companion-mdm-helper-only-deep-capture|wifi-companion-mdm-helper-runtime-contract-capture|wifi-companion-mdm-helper-runtime-subsys-trigger-capture|wifi-companion-mdm-helper-cnss-before-subsys-trigger-capture|wifi-companion-mdm-helper-cnss-service-manager-matrix|wifi-companion-android-wifi-service-window-start-only|wifi-companion-android-wifi-service-window-subsys-trigger-capture|wifi-companion-service74-gated-peripheral-manager-cnss-retry-start-only|wifi-companion-service74-gated-peripheral-manager-cnss-retry-registry-snapshot-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-cnss-retry-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-provider-first-cnss-start-only|wifi-companion-service74-gated-android-userspace-cnss-retry-start-only|wifi-companion-service74-gated-android-userspace-cnss-retry-registry-snapshot-start-only|wifi-companion-service74-gated-vnd-service-manager-registry-snapshot-start-only|wifi-companion-service74-gated-mdm-helper-start-only|wifi-companion-service180-gated-mdm-helper-start-only|wifi-companion-sysmon-gated-mdm-helper-start-only|wifi-companion-hal-order-start-only|wifi-companion-hal-wificond-order-start-only|wifi-companion-hal-wificond-lshal-wait-samsung|wifi-companion-hal-wificond-lshal-wait-iwifi|wifi-companion-dual-hal-wificond-lshal-wait-iwifi|wifi-companion-dual-hal-iwifi-start|wifi-companion-dual-hal-wificond-lshal-then-iwifi-start|rmt-storage-start-only|property-lookup|service-manager-start-only|private-selinux-proof|wifi-hal-lshal-vintf-status-list|wifi-hal-composite-start-only|wifi-hal-composite-lshal-list|wifi-hal-composite-lshal-binderized-list|wifi-hal-composite-lshal-wait-target|wifi-surface-composite-lshal-wait-iwifi|wifi-surface-composite-lshal-wait-samsung|wifi-surface-composite-lshal-wait-samsung-ptrace|wifi-hal-composite-lshal-status-list|wifi-hal-composite-lshal-binderized-status-list|wifi-surface-composite-start-only|wifi-dual-hal-lshal-wait-iwifi|wifi-dual-hal-iwifi-start-surface|wifi-iwifi-start-surface|wifi-active-session-surface|wifi-active-session-scan-only|wifi-active-session-connect-ping|wifi-connect-tool-surface|subsys-hold-open-proof|service-notifier-listener-only "
             "[v27 binderized query runs: /system/bin/lshal list --types=binderized --neat] "
             "[v28 target query runs: /system/bin/lshal wait <fqinstance>] "
             "[v29 status query runs: /system/bin/lshal list --types=binderized,vintf --neat -V -S -i -p -e -c] "
@@ -671,6 +673,10 @@ static bool is_wifi_companion_wlan_pd_service_window_trigger_mode(const char *mo
 
 static bool is_wifi_companion_wlan_pd_pm_service_window_trigger_mode(const char *mode) {
     return streq(mode, "wifi-companion-wlan-pd-pm-service-window-trigger-start-only");
+}
+
+static bool is_wifi_companion_wlan_pd_service_object_visible_trigger_mode(const char *mode) {
+    return streq(mode, "wifi-companion-wlan-pd-service-object-visible-trigger-start-only");
 }
 
 static bool is_wifi_companion_service_manager_start_only_mode(const char *mode) {
@@ -893,6 +899,7 @@ static bool is_wifi_companion_with_service_manager_start_only_mode(const char *m
     return is_wifi_companion_service_manager_start_only_mode(mode) ||
            is_wifi_companion_wlan_pd_service_window_trigger_mode(mode) ||
            is_wifi_companion_wlan_pd_pm_service_window_trigger_mode(mode) ||
+           is_wifi_companion_wlan_pd_service_object_visible_trigger_mode(mode) ||
            is_wifi_companion_android_order_pre_cnss_provider_observe_only_mode(mode) ||
            is_wifi_companion_vnd_service_manager_start_only_mode(mode) ||
            is_wifi_companion_qrtr_first_vnd_service_manager_start_only_mode(mode) ||
@@ -919,6 +926,7 @@ static bool is_wifi_companion_any_start_only_mode(const char *mode) {
            is_wifi_companion_wlan_pd_cnss_output_visibility_mode(mode) ||
            is_wifi_companion_wlan_pd_service_window_trigger_mode(mode) ||
            is_wifi_companion_wlan_pd_pm_service_window_trigger_mode(mode) ||
+           is_wifi_companion_wlan_pd_service_object_visible_trigger_mode(mode) ||
            is_wifi_companion_android_wifi_service_window_any_mode(mode) ||
            is_wifi_companion_service74_gated_mdm_helper_start_only_mode(mode) ||
            is_wifi_companion_service180_gated_mdm_helper_start_only_mode(mode) ||
@@ -1563,6 +1571,10 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
         }
         if (strcmp(argv[i], "--allow-wlan-pd-pm-service-window-trigger") == 0) {
             cfg->allow_wlan_pd_pm_service_window_trigger = true;
+            continue;
+        }
+        if (strcmp(argv[i], "--allow-wlan-pd-service-object-visible-trigger") == 0) {
+            cfg->allow_wlan_pd_service_object_visible_trigger = true;
             continue;
         }
         if (strcmp(argv[i], "--allow-wlan-pd-cnss-output-visibility") == 0) {
@@ -2983,6 +2995,11 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             fprintf(stderr, "wifi-companion-wlan-pd-pm-service-window-trigger-start-only requires --allow-wlan-pd-pm-service-window-trigger\n");
             return 2;
         }
+        if (is_wifi_companion_wlan_pd_service_object_visible_trigger_mode(cfg->mode) &&
+            !cfg->allow_wlan_pd_service_object_visible_trigger) {
+            fprintf(stderr, "wifi-companion-wlan-pd-service-object-visible-trigger-start-only requires --allow-wlan-pd-service-object-visible-trigger\n");
+            return 2;
+        }
         if (is_wifi_companion_wlan_pd_cnss_output_visibility_mode(cfg->mode) &&
             !cfg->allow_wlan_pd_cnss_output_visibility) {
             fprintf(stderr, "wifi-companion-wlan-pd-cnss-output-visibility-start-only requires --allow-wlan-pd-cnss-output-visibility\n");
@@ -2996,6 +3013,11 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
         if (!is_wifi_companion_wlan_pd_pm_service_window_trigger_mode(cfg->mode) &&
             cfg->allow_wlan_pd_pm_service_window_trigger) {
             fprintf(stderr, "--allow-wlan-pd-pm-service-window-trigger requires wifi-companion-wlan-pd-pm-service-window-trigger-start-only mode\n");
+            return 2;
+        }
+        if (!is_wifi_companion_wlan_pd_service_object_visible_trigger_mode(cfg->mode) &&
+            cfg->allow_wlan_pd_service_object_visible_trigger) {
+            fprintf(stderr, "--allow-wlan-pd-service-object-visible-trigger requires wifi-companion-wlan-pd-service-object-visible-trigger-start-only mode\n");
             return 2;
         }
         if (!is_wifi_companion_wlan_pd_cnss_output_visibility_mode(cfg->mode) &&
@@ -15322,6 +15344,133 @@ static int append_wlan_pd_pm_service_window_trigger_summary(struct buffer *stdou
                          wlfw_service_request_seen ? 1 : 0,
                          wlfw_service69_seen ? 1 : 0,
                          requested_wlanmdsp ? 1 : 0,
+                         kmsg.open_ok ? 1 : 0,
+                         kmsg.source,
+                         kmsg.wlfw_start_count,
+                         kmsg.wlfw_service_request_count,
+                         label);
+}
+
+static int append_wlan_pd_service_object_visible_trigger_summary(struct buffer *stdout_buf,
+                                                                 const struct buffer *stderr_buf,
+                                                                 bool tftp_child_present,
+                                                                 bool tftp_observable,
+                                                                 bool tftp_running,
+                                                                 bool cnss_daemon_present,
+                                                                 bool cnss_daemon_observable,
+                                                                 bool cnss_daemon_running,
+                                                                 bool pm_proxy_helper_present,
+                                                                 bool pm_proxy_helper_observable,
+                                                                 bool pm_proxy_helper_running,
+                                                                 bool per_mgr_present,
+                                                                 bool per_mgr_observable,
+                                                                 bool per_mgr_running,
+                                                                 bool vnd_ready,
+                                                                 bool pm_proxy_helper_ready,
+                                                                 bool per_mgr_ready,
+                                                                 bool provider_seen) {
+    struct response_kmsg_markers kmsg = collect_response_kmsg_markers();
+    const bool requested_wlanmdsp =
+        a90_buffer_contains_ci(stdout_buf, "wlanmdsp") ||
+        a90_buffer_contains_ci(stderr_buf, "wlanmdsp");
+    const bool wlfw_start_seen =
+        a90_buffer_contains_ci(stdout_buf, "wlfw_start") ||
+        a90_buffer_contains_ci(stderr_buf, "wlfw_start") ||
+        kmsg.wlfw_start_count > 0;
+    const bool wlfw_service_request_seen =
+        a90_buffer_contains_ci(stdout_buf, "wlfw_service_request") ||
+        a90_buffer_contains_ci(stderr_buf, "wlfw_service_request") ||
+        kmsg.wlfw_service_request_count > 0;
+    const bool wlfw_service69_seen =
+        a90_buffer_key_has_nonzero_uint(stdout_buf, "wifi_companion_qrtr_readback.case_0.readback.service_events") ||
+        a90_buffer_key_has_nonzero_uint(stdout_buf, "wifi_companion_qrtr_readback.case_1.readback.service_events");
+    const bool modem_holder_started =
+        a90_buffer_contains_ci(stdout_buf, "wlan_pd_modem_holder.start_attempted=1");
+    const bool modem_holder_opened =
+        a90_buffer_contains_ci(stdout_buf, "wlan_pd_modem_holder.opened=1");
+    const bool wlan0_present = access("/sys/class/net/wlan0", F_OK) == 0;
+    const char *label;
+
+    if (!vnd_ready || !pm_proxy_helper_ready || !per_mgr_ready) {
+        label = "service-object-child-failed";
+    } else if (!provider_seen) {
+        label = "provider-not-visible";
+    } else if (!modem_holder_started || !modem_holder_opened) {
+        label = "provider-visible-modem-holder-regression";
+    } else if (!tftp_running || !cnss_daemon_running) {
+        label = "provider-visible-service-window-child-failed";
+    } else if (requested_wlanmdsp || wlfw_service69_seen || wlan0_present) {
+        label = "provider-visible-request-progress";
+    } else if (wlfw_start_seen || wlfw_service_request_seen) {
+        label = "provider-visible-still-no-request";
+    } else {
+        label = "provider-visible-wlfw-regressed";
+    }
+
+    return append_format(stdout_buf,
+                         "wlan_pd_service_object_visible_trigger.begin=1\n"
+                         "wlan_pd_service_object_visible_trigger.mode=service-object-visible-plus-internal-modem-holder\n"
+                         "wlan_pd_service_object_visible_trigger.no_esoc0=1\n"
+                         "wlan_pd_service_object_visible_trigger.no_forced_rc1=1\n"
+                         "wlan_pd_service_object_visible_trigger.no_fake_online=1\n"
+                         "wlan_pd_service_object_visible_trigger.no_mdm_helper=1\n"
+                         "wlan_pd_service_object_visible_trigger.no_per_proxy=1\n"
+                         "wlan_pd_service_object_visible_trigger.no_wifi_hal=1\n"
+                         "wlan_pd_service_object_visible_trigger.no_wificond=1\n"
+                         "wlan_pd_service_object_visible_trigger.no_scan_connect=1\n"
+                         "wlan_pd_service_object_visible_trigger.no_credentials=1\n"
+                         "wlan_pd_service_object_visible_trigger.no_dhcp_routes=1\n"
+                         "wlan_pd_service_object_visible_trigger.no_external_ping=1\n"
+                         "wlan_pd_service_object_visible_trigger.vndservicemanager_ready=%d\n"
+                         "wlan_pd_service_object_visible_trigger.pm_proxy_helper_ready=%d\n"
+                         "wlan_pd_service_object_visible_trigger.per_mgr_ready=%d\n"
+                         "wlan_pd_service_object_visible_trigger.provider_seen=%d\n"
+                         "wlan_pd_service_object_visible_trigger.subsys_modem_holder_opened=%d\n"
+                         "wlan_pd_service_object_visible_trigger.pm_proxy_helper_present=%d\n"
+                         "wlan_pd_service_object_visible_trigger.pm_proxy_helper_observable=%d\n"
+                         "wlan_pd_service_object_visible_trigger.pm_proxy_helper_running=%d\n"
+                         "wlan_pd_service_object_visible_trigger.per_mgr_present=%d\n"
+                         "wlan_pd_service_object_visible_trigger.per_mgr_observable=%d\n"
+                         "wlan_pd_service_object_visible_trigger.per_mgr_running=%d\n"
+                         "wlan_pd_service_object_visible_trigger.tftp_child_present=%d\n"
+                         "wlan_pd_service_object_visible_trigger.tftp_observable=%d\n"
+                         "wlan_pd_service_object_visible_trigger.tftp_running=%d\n"
+                         "wlan_pd_service_object_visible_trigger.cnss_daemon_present=%d\n"
+                         "wlan_pd_service_object_visible_trigger.cnss_daemon_observable=%d\n"
+                         "wlan_pd_service_object_visible_trigger.cnss_daemon_running=%d\n"
+                         "wlan_pd_service_object_visible_trigger.wlfw_start_seen=%d\n"
+                         "wlan_pd_service_object_visible_trigger.wlfw_service_request_seen=%d\n"
+                         "wlan_pd_service_object_visible_trigger.wlfw_service69_seen=%d\n"
+                         "wlan_pd_service_object_visible_trigger.requested_wlanmdsp=%d\n"
+                         "wlan_pd_service_object_visible_trigger.wlan0_present=%d\n"
+                         "wlan_pd_service_object_visible_trigger.kmsg_open_ok=%d\n"
+                         "wlan_pd_service_object_visible_trigger.kmsg_source=%s\n"
+                         "wlan_pd_service_object_visible_trigger.kmsg_wlfw_start_count=%d\n"
+                         "wlan_pd_service_object_visible_trigger.kmsg_wlfw_service_request_count=%d\n"
+                         "wlan_pd_service_object_visible_trigger.label=%s\n"
+                         "wlan_pd_service_object_visible_trigger.end=1\n",
+                         vnd_ready ? 1 : 0,
+                         pm_proxy_helper_ready ? 1 : 0,
+                         per_mgr_ready ? 1 : 0,
+                         provider_seen ? 1 : 0,
+                         modem_holder_opened ? 1 : 0,
+                         pm_proxy_helper_present ? 1 : 0,
+                         pm_proxy_helper_observable ? 1 : 0,
+                         pm_proxy_helper_running ? 1 : 0,
+                         per_mgr_present ? 1 : 0,
+                         per_mgr_observable ? 1 : 0,
+                         per_mgr_running ? 1 : 0,
+                         tftp_child_present ? 1 : 0,
+                         tftp_observable ? 1 : 0,
+                         tftp_running ? 1 : 0,
+                         cnss_daemon_present ? 1 : 0,
+                         cnss_daemon_observable ? 1 : 0,
+                         cnss_daemon_running ? 1 : 0,
+                         wlfw_start_seen ? 1 : 0,
+                         wlfw_service_request_seen ? 1 : 0,
+                         wlfw_service69_seen ? 1 : 0,
+                         requested_wlanmdsp ? 1 : 0,
+                         wlan0_present ? 1 : 0,
                          kmsg.open_ok ? 1 : 0,
                          kmsg.source,
                          kmsg.wlfw_start_count,
@@ -34690,13 +34839,16 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
         is_wifi_companion_wlan_pd_service_window_trigger_mode(cfg->mode);
     const bool wlan_pd_pm_service_window_trigger =
         is_wifi_companion_wlan_pd_pm_service_window_trigger_mode(cfg->mode);
+    const bool wlan_pd_service_object_visible_trigger =
+        is_wifi_companion_wlan_pd_service_object_visible_trigger_mode(cfg->mode);
     const bool wlan_pd_cnss_output_visibility =
         is_wifi_companion_wlan_pd_cnss_output_visibility_mode(cfg->mode);
     const bool wlan_pd_firmware_serve_gate =
         is_wifi_companion_wlan_pd_firmware_serve_gate_mode(cfg->mode) ||
         wlan_pd_cnss_output_visibility ||
         wlan_pd_service_window_trigger ||
-        wlan_pd_pm_service_window_trigger;
+        wlan_pd_pm_service_window_trigger ||
+        wlan_pd_service_object_visible_trigger;
     const bool android_order_pre_cnss_provider_observer =
         is_wifi_companion_android_order_pre_cnss_provider_observe_only_mode(cfg->mode);
     const bool with_service_manager =
@@ -34717,6 +34869,10 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
     bool service74_gate_baseline_available = false;
     bool service74_gate_open = !service74_gate_required;
     bool service_manager_started = false;
+    bool wlan_pd_service_object_vnd_ready = false;
+    bool wlan_pd_service_object_pm_proxy_helper_ready = false;
+    bool wlan_pd_service_object_per_mgr_ready = false;
+    bool wlan_pd_service_object_provider_seen = false;
     unsigned int service74_gate_baseline_count = 0;
     size_t active_child_count = 0;
     int cnss_initial_index = -1;
@@ -34861,7 +35017,7 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
                                  "/vendor/bin/vndservicemanager",
                                  COMPOSITE_ID_VND_SERVICE_MANAGER);
         }
-        if (wlan_pd_service_window_trigger) {
+        if (wlan_pd_service_window_trigger || wlan_pd_service_object_visible_trigger) {
             composite_child_init(&children[child_count++],
                                  "servicemanager",
                                  "/system/bin/servicemanager",
@@ -34876,7 +35032,7 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
                                  "/vendor/bin/vndservicemanager",
                                  COMPOSITE_ID_VND_SERVICE_MANAGER);
         }
-        if (wlan_pd_pm_service_window_trigger) {
+        if (wlan_pd_pm_service_window_trigger || wlan_pd_service_object_visible_trigger) {
             composite_child_init(&children[child_count++],
                                  "pm_proxy_helper",
                                  "/vendor/bin/pm_proxy_helper",
@@ -34885,10 +35041,12 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
                                  "per_mgr",
                                  "/vendor/bin/pm-service",
                                  COMPOSITE_ID_PER_MGR);
-            composite_child_init(&children[child_count++],
-                                 "per_proxy",
-                                 "/vendor/bin/pm-proxy",
-                                 COMPOSITE_ID_PER_PROXY);
+            if (wlan_pd_pm_service_window_trigger) {
+                composite_child_init(&children[child_count++],
+                                     "per_proxy",
+                                     "/vendor/bin/pm-proxy",
+                                     COMPOSITE_ID_PER_PROXY);
+            }
         }
         if (!post_sysmon_observer) {
             composite_child_init(&children[child_count++],
@@ -34991,11 +35149,13 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
     } else if (wlan_pd_firmware_serve_gate) {
         order = wlan_pd_cnss_output_visibility
                     ? "qrtr_ns,pd_mapper,rmt_storage,tftp_server,subsys_modem_holder,cnss_diag,cnss_daemon,cnss-output-visibility-summary"
-                    : (wlan_pd_pm_service_window_trigger
+                    : (wlan_pd_service_object_visible_trigger
+                           ? "servicemanager,hwservicemanager,vndservicemanager,qrtr_ns,pd_mapper,rmt_storage,tftp_server,pm_proxy_helper,per_mgr,vndservice_query,subsys_modem_holder,cnss_diag,cnss_daemon,service-object-visible-summary"
+                           : (wlan_pd_pm_service_window_trigger
                            ? "servicemanager,hwservicemanager,vndservicemanager,qrtr_ns,pd_mapper,rmt_storage,tftp_server,pm_proxy_helper,per_mgr,per_proxy,subsys_modem_holder,cnss_diag,cnss_daemon,pm-service-window-trigger-summary"
                            : (wlan_pd_service_window_trigger
                                   ? "servicemanager,hwservicemanager,vndservicemanager,qrtr_ns,pd_mapper,rmt_storage,tftp_server,subsys_modem_holder,cnss_diag,cnss_daemon,service-window-trigger-summary"
-                                  : "qrtr_ns,pd_mapper,rmt_storage,tftp_server,subsys_modem_holder,cnss_diag,cnss_daemon"));
+                                  : "qrtr_ns,pd_mapper,rmt_storage,tftp_server,subsys_modem_holder,cnss_diag,cnss_daemon")));
     } else if (post_sysmon_observer) {
         order = android_order_post_sysmon_observer
                     ? "qrtr_ns,pd_mapper,rmt_storage,tftp_server"
@@ -35106,7 +35266,8 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
                        service74_gated_cnss_retry ||
                        service74_gated_peripheral_manager_any_retry ||
                        service74_gated_android_userspace_retry ||
-                       service74_gated_registry_snapshot) ? 1 : 0,
+                       service74_gated_registry_snapshot ||
+                       wlan_pd_service_object_visible_trigger) ? 1 : 0,
                       A90_VNDSERVICEMANAGER_READY_SETTLE_MS,
                       (service74_gated_cnss_retry ||
                        service74_gated_peripheral_manager_any_retry ||
@@ -35114,7 +35275,8 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
                       service74_gated_peripheral_manager_provider_first_cnss ? 1 : 0,
                       (service74_gated_peripheral_manager_any ||
                        android_order_pre_cnss_provider_observer ||
-                       peripheral_manager_node_parity) ? 1 : 0,
+                       peripheral_manager_node_parity ||
+                       wlan_pd_service_object_visible_trigger) ? 1 : 0,
                       peripheral_manager_property_contract ? 1 : 0,
                       peripheral_manager_init_contract ? 1 : 0,
                       peripheral_manager_init_contract ? 1 : 0,
@@ -35129,7 +35291,8 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
         append_format(stdout_buf,
                       "wifi_companion_start.vndservice_query.enabled=%d\n",
                       (service74_gated_peripheral_manager_vndservice_query ||
-                       android_order_pre_cnss_provider_observer) ? 1 : 0) < 0 ||
+                       android_order_pre_cnss_provider_observer ||
+                       wlan_pd_service_object_visible_trigger) ? 1 : 0) < 0 ||
         append_format(stdout_buf, "wifi_companion_start.wifi_hal=%d\n",
                       service74_gated_android_userspace_retry ? 2 : 0) < 0 ||
         append_format(stdout_buf, "wifi_companion_start.wificond=%d\n",
@@ -35232,7 +35395,8 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
         return -1;
     }
     if (wlan_pd_cnss_output_visibility ||
-        wlan_pd_service_window_trigger) {
+        wlan_pd_service_window_trigger ||
+        wlan_pd_service_object_visible_trigger) {
         cnss_wlfw_uprobe_arm_global(paths);
         cnss_peripheral_uprobe_arm_global(paths);
     }
@@ -35369,6 +35533,85 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
                 }
             } else {
                 usleep(i < 4 ? 50000 : 200000);
+            }
+        } else if (wlan_pd_service_object_visible_trigger && streq(children[i].name, "vndservicemanager")) {
+            bool provider_seen = false;
+
+            usleep(A90_VNDSERVICEMANAGER_READY_SETTLE_MS * 1000L);
+            composite_capture_observable_children(&children[i], 1, stdout_buf);
+            wlan_pd_service_object_vnd_ready = children[i].observable &&
+                                               !children[i].child_done &&
+                                               children[i].fd_summary_captured;
+            if (append_format(stdout_buf,
+                              "wlan_pd_service_object_visible.vndservicemanager.observable=%d\n"
+                              "wlan_pd_service_object_visible.vndservicemanager.fd_summary_captured=%d\n"
+                              "wlan_pd_service_object_visible.vndservicemanager.ready=%d\n",
+                              children[i].observable ? 1 : 0,
+                              children[i].fd_summary_captured ? 1 : 0,
+                              wlan_pd_service_object_vnd_ready ? 1 : 0) < 0 ||
+                append_vndservice_query(stdout_buf,
+                                        stderr_buf,
+                                        cfg,
+                                        paths,
+                                        "wlan_pd_service_object_visible_vndservicemanager_ready",
+                                        3000,
+                                        &provider_seen) < 0 ||
+                append_format(stdout_buf,
+                              "wlan_pd_service_object_visible.vndservicemanager.provider_seen=%d\n",
+                              provider_seen ? 1 : 0) < 0) {
+                composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+                stop_property_service_shim(&property_shim, paths, stdout_buf);
+                return -1;
+            }
+        } else if (wlan_pd_service_object_visible_trigger && streq(children[i].name, "pm_proxy_helper")) {
+            usleep(500000);
+            composite_capture_observable_children(&children[i], 1, stdout_buf);
+            wlan_pd_service_object_pm_proxy_helper_ready = children[i].observable &&
+                                                          !children[i].child_done &&
+                                                          children[i].fd_summary_captured;
+            if (append_format(stdout_buf,
+                              "wlan_pd_service_object_visible.pm_proxy_helper.observable=%d\n"
+                              "wlan_pd_service_object_visible.pm_proxy_helper.fd_summary_captured=%d\n"
+                              "wlan_pd_service_object_visible.pm_proxy_helper.ready=%d\n",
+                              children[i].observable ? 1 : 0,
+                              children[i].fd_summary_captured ? 1 : 0,
+                              wlan_pd_service_object_pm_proxy_helper_ready ? 1 : 0) < 0) {
+                composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+                stop_property_service_shim(&property_shim, paths, stdout_buf);
+                return -1;
+            }
+            if (!wlan_pd_service_object_pm_proxy_helper_ready) {
+                break;
+            }
+        } else if (wlan_pd_service_object_visible_trigger && streq(children[i].name, "per_mgr")) {
+            usleep(1000000);
+            composite_capture_observable_children(&children[i], 1, stdout_buf);
+            wlan_pd_service_object_per_mgr_ready = children[i].observable &&
+                                                  !children[i].child_done &&
+                                                  children[i].fd_summary_captured;
+            if (append_format(stdout_buf,
+                              "wlan_pd_service_object_visible.per_mgr.observable=%d\n"
+                              "wlan_pd_service_object_visible.per_mgr.fd_summary_captured=%d\n"
+                              "wlan_pd_service_object_visible.per_mgr.ready=%d\n",
+                              children[i].observable ? 1 : 0,
+                              children[i].fd_summary_captured ? 1 : 0,
+                              wlan_pd_service_object_per_mgr_ready ? 1 : 0) < 0 ||
+                append_vndservice_query(stdout_buf,
+                                        stderr_buf,
+                                        cfg,
+                                        paths,
+                                        "wlan_pd_service_object_visible_after_per_mgr",
+                                        3000,
+                                        &wlan_pd_service_object_provider_seen) < 0 ||
+                append_format(stdout_buf,
+                              "wlan_pd_service_object_visible.provider_seen=%d\n",
+                              wlan_pd_service_object_provider_seen ? 1 : 0) < 0) {
+                composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+                stop_property_service_shim(&property_shim, paths, stdout_buf);
+                return -1;
+            }
+            if (!wlan_pd_service_object_provider_seen) {
+                break;
             }
         } else if (android_order_post_sysmon_observer) {
             usleep(i < 3 ? 50000 : 200000);
@@ -35647,6 +35890,7 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
         return -1;
     }
     if (wlan_pd_firmware_serve_gate &&
+        (!wlan_pd_service_object_visible_trigger || wlan_pd_service_object_provider_seen) &&
         start_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder) < 0) {
         stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
         composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
@@ -35668,6 +35912,7 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
         return -1;
     }
     if (wlan_pd_firmware_serve_gate &&
+        wlan_pd_holder.pid > 0 &&
         drain_wlan_pd_modem_holder(&wlan_pd_holder, stdout_buf, 0) < 0) {
         stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
         composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
@@ -35748,6 +35993,7 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
         return -1;
     }
     if (wlan_pd_firmware_serve_gate &&
+        wlan_pd_holder.pid > 0 &&
         stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder) < 0) {
         composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
         stop_property_service_shim(&property_shim, paths, stdout_buf);
@@ -35807,7 +36053,7 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
             stop_property_service_shim(&property_shim, paths, stdout_buf);
             return -1;
         }
-        if (wlan_pd_service_window_trigger &&
+        if ((wlan_pd_service_window_trigger || wlan_pd_service_object_visible_trigger) &&
             append_wlan_pd_service_window_trigger_summary(stdout_buf,
                                                          stderr_buf,
                                                          tftp_child_present,
@@ -35821,7 +36067,7 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
             stop_property_service_shim(&property_shim, paths, stdout_buf);
             return -1;
         }
-        if (wlan_pd_service_window_trigger &&
+        if ((wlan_pd_service_window_trigger || wlan_pd_service_object_visible_trigger) &&
             append_wlan_pd_cnss_nonlog_control_flow_summary(stdout_buf,
                                                            cnss_daemon_pid,
                                                            cnss_daemon_present,
@@ -35851,6 +36097,30 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
                                                             per_proxy_present,
                                                             per_proxy_observable,
                                                             per_proxy_running) < 0) {
+            stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
+            composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+            stop_property_service_shim(&property_shim, paths, stdout_buf);
+            return -1;
+        }
+        if (wlan_pd_service_object_visible_trigger &&
+            append_wlan_pd_service_object_visible_trigger_summary(stdout_buf,
+                                                                 stderr_buf,
+                                                                 tftp_child_present,
+                                                                 tftp_observable,
+                                                                 tftp_running,
+                                                                 cnss_daemon_present,
+                                                                 cnss_daemon_observable,
+                                                                 cnss_daemon_running,
+                                                                 pm_proxy_helper_present,
+                                                                 pm_proxy_helper_observable,
+                                                                 pm_proxy_helper_running,
+                                                                 per_mgr_present,
+                                                                 per_mgr_observable,
+                                                                 per_mgr_running,
+                                                                 wlan_pd_service_object_vnd_ready,
+                                                                 wlan_pd_service_object_pm_proxy_helper_ready,
+                                                                 wlan_pd_service_object_per_mgr_ready,
+                                                                 wlan_pd_service_object_provider_seen) < 0) {
             stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
             composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
             stop_property_service_shim(&property_shim, paths, stdout_buf);
