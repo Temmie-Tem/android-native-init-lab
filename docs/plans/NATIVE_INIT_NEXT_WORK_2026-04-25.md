@@ -14091,3 +14091,41 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
 
   Report:
   `docs/reports/NATIVE_INIT_V1745_WLAN_PD_PRIVATE_TRACEFS_REPAIR_SOURCE_BUILD_2026-06-03.md`.
+
+## V1746 WLAN-PD private tracefs repair artifact sanity (2026-06-03)
+
+- V1746 local-only artifact sanity completed.
+
+  Result:
+
+  - decision: `v1746-wlan-pd-private-tracefs-repair-artifact-sanity-pass`;
+  - checked manifest:
+    `tmp/wifi/v1745-wlan-pd-private-tracefs-repair-test-boot/manifest.json`;
+  - checked boot image:
+    `tmp/wifi/v1745-wlan-pd-private-tracefs-repair-test-boot/boot_linux_v1745_wlan_pd_private_tracefs_repair.img`;
+  - all checks passed: manifest decision, base boot, init/helper static,
+    ramdisk entries, boot markers, route contract, property runtime, header
+    parity, kernel parity, forbidden credential-like byte absence, and private
+    modes.
+
+  Verified scope:
+
+  - V1745 image selects
+    `wifi-companion-wlan-pd-cnss-output-visibility-start-only`;
+  - V1745 image contains helper v329 and private tracefs/uProbe result fields;
+  - manifest route excludes service-manager, PM trio, `boot_wlan`,
+    eSoC/subsys_esoc0, forced RC1, fake-ONLINE, Wi-Fi HAL, scan/connect,
+    credentials, DHCP/routes, and external ping.
+
+  Next candidate:
+
+  - V1747 one-run rollbackable live handoff for only the V1745 image;
+  - expected test version:
+    `A90 Linux init 0.9.142 (v1745-wlan-pd-private-tracefs-repair)`;
+  - collect helper result, classify one label, then roll back to
+    `stage3/boot_linux_v724.img`;
+  - labels remain `pure-route-nonlog-no-wlfw-start`,
+    `pure-route-nonlog-wlfw-start`, or `tracefs-surface-unavailable`.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1746_WLAN_PD_PRIVATE_TRACEFS_REPAIR_ARTIFACT_SANITY_2026-06-03.md`.
