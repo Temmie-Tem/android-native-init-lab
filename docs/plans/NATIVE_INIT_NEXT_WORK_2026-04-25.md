@@ -12990,3 +12990,47 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
 
   - `docs/reports/NATIVE_INIT_V1712_CNSS_WLFW_PROLOGUE_ADJACENT_UPROBE_SOURCE_BUILD_2026-06-02.md`
   - `docs/reports/NATIVE_INIT_V1713_CNSS_WLFW_PROLOGUE_ADJACENT_UPROBE_HANDOFF_2026-06-02.md`.
+
+## V1714 CNSS pm_init static classifier (2026-06-02)
+
+- V1714 host-only static classifier completed.
+
+  Result:
+
+  - decision: `v1714-cnss-pm-init-static-map-pass`;
+  - basis: V1711 prologue map PASS and V1713 live label
+    `wlfw-start-optional-pm-init1-call-no-return`;
+  - V1713 hit counts: `optional_pm_init1_call@0xec34=1`,
+    `optional_pm_init1_return@0xec38=0`;
+  - binary SHA256 remains
+    `bced9853a77cfb02252571196584efa535be14f8f3fd9ce32712ddee224ba4bc`;
+  - all `pm_init@0xc39c` static patterns matched.
+
+  `pm_init` model:
+
+  - `0xc400`: entry log call;
+  - `0xc444`: `get_system_info@plt`;
+  - `0xc49c`: `x1 == NULL` branch to all-entry loop at `0xc58c`;
+  - `0xc624`: `pm_client_register@plt`;
+  - `0xc650`: `pm_client_connect@plt`;
+  - `0xc554`: common return path.
+
+  Interpretation:
+
+  - V1713 proves `wlfw_start` reaches `pm_init@0xc39c` and does not return;
+  - because the V1713 call uses the zero-argument path, the next live
+    discriminator is inside `pm_init`, especially whether it blocks in
+    `get_system_info`, `pm_client_register`, or `pm_client_connect`;
+  - do not add PM/service-window actors yet. First collect non-mutating
+    internal control-flow evidence for this function.
+
+  Next candidate:
+
+  - V1715 source/build-only helper expansion with `pm_init` uprobe targets:
+    `0xc400`, `0xc444`, `0xc470`, `0xc58c`, `0xc624`, `0xc628`, `0xc650`,
+    and `0xc654`;
+  - V1716 one-run rollbackable live handoff, reusing the V1713 internal-modem
+    firmware-serve route and preserving all current hard stops.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1714_CNSS_PM_INIT_STATIC_2026-06-02.md`.
