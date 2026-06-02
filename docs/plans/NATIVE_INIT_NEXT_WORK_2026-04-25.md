@@ -15065,3 +15065,51 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
   - the next valid question is upstream of the request: why the internal modem
     path reaches the WLFW worker but does not cause the modem to request
     `wlanmdsp.mbn`.
+
+## V1766 WLAN-PD request-trigger directive classifier (2026-06-03)
+
+- V1766 reconciles the fixed `firmware-not-requested` label with the older
+  request-trigger classifiers and the current stop directive.
+
+  Host-only classifier:
+
+  - script:
+    `scripts/revalidation/native_wifi_wlan_pd_request_trigger_directive_classifier_v1766.py`;
+  - report:
+    `docs/reports/NATIVE_INIT_V1766_WLAN_PD_REQUEST_TRIGGER_DIRECTIVE_CLASSIFIER_2026-06-03.md`;
+  - decision:
+    `v1766-request-trigger-gap-identified-live-gate-suspended-host-pass`;
+  - label:
+    `pm-service-object-gap-identified-live-suspended`;
+  - evidence:
+    `tmp/wifi/v1766-wlan-pd-request-trigger-directive-classifier`.
+
+  Facts:
+
+  - V1763 keeps the fixed redirect label at `firmware-not-requested`;
+  - V1760 classifies the active blocker as request generation before firmware
+    serving;
+  - V1761 shows Android-good reaches PM register/vote before the
+    `wlanmdsp.mbn` request;
+  - native V1736 reaches `wlfw_service_request` with `tftp_server` running but
+    stays at the PeripheralManager service-object/null branch before
+    `asInterface`, manager-register TX, PM success, WLFW service 69, or
+    `wlanmdsp.mbn` request;
+  - V1764's service-object-visible helper artifact exists, but remains dormant
+    under the active stop directive.
+
+  Boundary:
+
+  - do not deploy or live-run the V1764 helper while the current stop remains
+    active;
+  - do not rerun V1739/V1753 firmware-request capture;
+  - do not add PM/QCACLD/eSoC/RC1/restart-PD/Wi-Fi HAL/scan/connect/
+    credential/DHCP/route/external-ping actors in this unit.
+
+  Next candidate:
+
+  - with this stop directive, the only aligned next work is host/source-only
+    contract extraction around the already identified PeripheralManager
+    service-object gap;
+  - any live service-object-visible discriminator requires a new explicit scope
+    that reopens that narrow gate.
