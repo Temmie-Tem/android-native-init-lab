@@ -13769,3 +13769,25 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
 
   Report:
   `docs/reports/NATIVE_INIT_V1736_WLAN_PD_TIMESTAMPED_OBSERVER_HANDOFF_2026-06-03.md`.
+
+## V1737 WLAN-PD start trigger classifier (2026-06-03)
+
+- V1737 host-only classifier completed.
+
+  Result:
+
+  - decision: `v1737-modem-side-wlan-pd-start-trigger-gap-pass`;
+  - label: `modem-side-wlan-pd-start-trigger-gap`;
+  - V1736 proved native `wlfw_start` / `wlfw_service_request` / worker creation are reached;
+  - WLFW indication-register/capability QMI calls remain unhit because WLFW service 69 never appears;
+  - WLAN-PD listener still returns `UNINIT` after the hold window and no `wlanmdsp` request reaches the firmware-serve route;
+  - V829 domain mapping and V833 Android positive-control close the pd-mapper/listener-model hypotheses.
+
+  Next candidate:
+
+  - V1738 host-only/source-only modem-side WLAN-PD start trigger surface classifier;
+  - inspect Android-good evidence and ICNSS/CNSS source/disassembly for what moves `msm/modem/wlan_pd` from `UNINIT` to `UP`; identify a concrete read-only observation or mutation target before any live write;
+  - forbidden: PM/service-window actor expansion, `boot_wlan`, restart-PD request, `/dev/subsys_esoc0`, forced RC1, fake-ONLINE, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1737_WLAN_PD_START_TRIGGER_CLASSIFIER_2026-06-03.md`.
