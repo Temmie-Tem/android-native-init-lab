@@ -12596,3 +12596,56 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
 
   Report:
   `docs/reports/NATIVE_INIT_V1702_WLAN_PD_CNSS_TRACEFS_TARGET_PATH_HANDOFF_2026-06-02.md`.
+
+## V1703 CNSS WLFW downstream static classifier (2026-06-02)
+
+- V1703 host-only static classifier completed after the V1702 non-log
+  `wlfw_start` proof.
+
+  Result:
+
+  - decision: `v1703-cnss-wlfw-downstream-static-map-pass`;
+  - basis: V1702 decision
+    `v1702-cnss-wlfw-entry-hit-downstream-wait-rollback-pass`, rollback PASS,
+    `wlfw_start` uprobe hit count `1`;
+  - `cnss-daemon` SHA256:
+    `bced9853a77cfb02252571196584efa535be14f8f3fd9ce32712ddee224ba4bc`;
+  - `.gnu_debugdata`: available and used for symbol recovery.
+
+  Static map:
+
+  - `wlfw_start@0xec00` is already proven live by V1702;
+  - `pthread_initialize_dms@0xeb14` creates
+    `dms_service_request@0xe808` at `pthread_create@0xebb4`;
+  - `wlfw_start@0xec00` creates `wlfw_service_request@0xd9fc` at
+    `pthread_create@0xecf0`;
+  - `wlfw_service_request@0xd9fc` initializes the WLFW QMI client, resolves the
+    service instance, sends indication registration through
+    `wlfw_send_ind_register_req@0xf268`, waits on WLFW state, then sends
+    capability/BDF requests if the state advances;
+  - first relevant QMI sync targets:
+    `cnss-daemon+0xf32c` (`msg_id=0x20`, indication register),
+    `cnss-daemon+0xf460` (`msg_id=0x24`, capability request);
+  - BDF/REGDB transfer at `cnss-daemon+0xfc44` (`msg_id=0x25`) is downstream
+    and should not be chased until WLFW service/capability flow exists.
+
+  V1704 proposed gate:
+
+  - one rollbackable read-only tracefs uprobe classifier;
+  - reuse the V1702 internal-modem firmware-serve route only;
+  - primary targets:
+    `cnss-daemon+0xd9fc`, `cnss-daemon+0xf32c`, `cnss-daemon+0xf460`;
+  - optional secondary target: `cnss-daemon+0xe808`;
+  - labels:
+    `wlfw-worker-thread-started-waiting-for-qmi-service`,
+    `wlfw-worker-thread-started-qmi-ind-register-sent`,
+    `wlfw-worker-thread-started-qmi-cap-sent`,
+    `wlfw-worker-thread-missing-after-wlfw-start`,
+    `cnss-target-unavailable`;
+  - keep PM/service-window actors, `boot_wlan` as a WLFW trigger,
+    `/dev/subsys_esoc0`, forced RC1, fake-ONLINE, PMIC/GPIO/GDSC writes,
+    eSoC notify/`BOOT_DONE`, PCI rescan, platform bind/unbind, Wi-Fi HAL,
+    scan/connect, credentials, DHCP/routes, and external ping disabled.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1703_CNSS_WLFW_DOWNSTREAM_STATIC_2026-06-02.md`.
