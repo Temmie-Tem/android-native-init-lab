@@ -10186,3 +10186,32 @@ above (rejected as inverted causality).
 
   Report:
   `docs/reports/NATIVE_INIT_V1641_RAIL_CONTROL_INVENTORY_2026-06-02.md`.
+
+## V1642 SDX50M Power Owner Classifier (2026-06-02)
+
+- V1642 host-only classifier passed as
+  `v1642-sdx-main-rail-owner-outside-ap-source-pass`.
+
+  Findings:
+
+  - AP `qcom,mdm3` / `qcom,ext-sdx50m` node exposes GPIO handshake only; no
+    regulator/supply property appears in the mdm3 block.
+  - AP `sm8150-sdxprairie.dtsi` links `mhi_0` to `mdm3` and deletes the AP-side
+    `vdd_mss-supply`, so it does not expose a named AP main-rail control.
+  - AP `pcie1` supplies (`pcie_1_gdsc`, `pm8150l_l3`, `pm8150_l5`, `VDD_CX_LEVEL`)
+    are RC-side prerequisites and remain diagnostic, not a justified SDX main
+    rail write target.
+  - SDX-side source names `VDD_MODEM_LEVEL`, PMXPRAIRIE rails, and WLAN supplies,
+    but those belong to the SDX/PMXPRAIRIE domain and are not currently reachable
+    as a narrow AP-native write surface.
+  - Bounded search found no binary-like bootloader/PMIC artifacts in the current
+    repo scope.
+
+  Decision: no live PMIC/GPIO/GDSC write gate is justified.  V1643 should remain
+  non-mutating and either prepare a read-only partition/artifact acquisition plan
+  for bootloader/PMIC ownership evidence, or hand off this external artifact gap
+  explicitly.  Do not start Wi-Fi HAL, scan/connect, credentials, DHCP/routes, or
+  external ping until lower readiness progresses beyond MDM2AP/RC1/MHI/WLFW.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1642_SDX_POWER_OWNER_CLASSIFIER_2026-06-02.md`.
