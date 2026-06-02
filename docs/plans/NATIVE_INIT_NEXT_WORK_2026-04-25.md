@@ -15027,3 +15027,41 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
     `provider-visible-wlfw-regressed`;
   - V1766 must stop before Wi-Fi HAL, scan/connect, credentials, DHCP/routes,
     or external ping even if `wlan0` appears.
+
+## V1765 WLAN-PD firmware-request directive audit (2026-06-03)
+
+- V1765 applies the latest stop directive that says to stop route-minimization,
+  tracefs plumbing, PM actor expansion, QCACLD, eSoC/RC1, restart-PD, Wi-Fi HAL,
+  scan/connect, credentials, DHCP/routes, and external ping.
+
+  Host-only audit:
+
+  - report:
+    `docs/reports/NATIVE_INIT_V1765_WLAN_PD_FIRMWARE_REQUEST_DIRECTIVE_AUDIT_2026-06-03.md`;
+  - decision:
+    `v1765-firmware-request-gate-already-closed-no-rerun-pass`;
+  - label: `firmware-not-requested`;
+  - evidence:
+    `tmp/wifi/v1763-wlan-pd-firmware-request-gate-reconciliation`.
+
+  Reconciliation:
+
+  - the requested Android-good firmware-request capture and native V1736
+    SM-route observation were already run as V1753 and reconciled as V1763;
+  - Android-good requested `wlanmdsp.mbn` through `tftp_server`;
+  - native V1736 reached `wlfw_start`, `wlfw_service_request`, and WLFW worker
+    creation with service-manager and `tftp_server` running, but never requested
+    `wlanmdsp.mbn`;
+  - fixed label: `firmware-not-requested`;
+  - rerunning the same discriminator would violate the contract's
+    one-run/one-label rule.
+
+  Active stop:
+
+  - do not deploy or live-run the V1764 service-object-visible helper while this
+    stop directive is active;
+  - treat the V1764 helper as a dormant source/build artifact only, not the
+    active next gate;
+  - the next valid question is upstream of the request: why the internal modem
+    path reaches the WLFW worker but does not cause the modem to request
+    `wlanmdsp.mbn`.
