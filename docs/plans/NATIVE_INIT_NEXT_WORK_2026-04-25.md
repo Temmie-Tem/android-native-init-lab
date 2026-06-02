@@ -12047,3 +12047,52 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
 
   Report:
   `docs/reports/NATIVE_INIT_V1691_WLAN_PD_CNSS_PROPERTY_LOOKUP_HANDOFF_2026-06-02.md`.
+
+## V1692 CNSS Non-log Control-flow Classifier (2026-06-02)
+
+- V1692 host-only static classifier completed.
+
+  Result:
+
+  - decision: `v1692-cnss-nonlog-control-flow-map-pass`;
+  - input binary:
+    `tmp/wifi/v226-vendor-root-live-export/vendor-source/bin/cnss-daemon`;
+  - binary SHA256:
+    `bced9853a77cfb02252571196584efa535be14f8f3fd9ce32712ddee224ba4bc`;
+  - V1691 basis: `property_lookup.all_match=1`,
+    `cnss-output-still-invisible`, rollback PASS;
+  - static target: `wlfw_start` entry at `cnss-daemon+0xec00`;
+  - main init sequence calls `wlfw_start` at `cnss-daemon+0x9220`;
+  - main failure branch for `wlfw_start` is `cnss-daemon+0x9318`;
+  - logging helper candidate is `cnss-daemon+0xa21c`.
+
+  Interpretation:
+
+  - V1691 already closes the private property lookup gap: the same namespace
+    reads `persist.vendor.cnss-daemon.kmsg_logging=1` and
+    `persist.vendor.cnss-daemon.debug_level=4`;
+  - missing `wlfw_start` in native logs is therefore not explained by property
+    lookup failure;
+  - the next proof must avoid Android log output entirely and observe stock
+    `cnss-daemon` control-flow/liveness directly.
+
+  Next gate:
+
+  - V1693 should run exactly one rollbackable read-only non-log live classifier;
+  - reuse only the V1680/V1691 internal-modem firmware-serve route:
+    `qrtr-ns`, `pd-mapper`, `rmt_storage`, `tftp_server`,
+    `/dev/subsys_modem` holder, `cnss_diag`, stock `cnss-daemon`;
+  - target `cnss-daemon+0xec00` with tracefs uprobe if available, otherwise
+    fall back to bounded `/proc/<pid>/maps`, liveness, thread-state, fd/socket,
+    WLFW service 69, and firmware-request sampling;
+  - labels:
+    `cnss-wlfw-entry-hit-downstream-wait`,
+    `cnss-wlfw-entry-not-hit-init-stall`,
+    `cnss-process-exited-before-wlfw`,
+    `cnss-uprobe-unavailable-fallback-needed`;
+  - keep service-manager, PM trio, `boot_wlan` as a WLFW trigger,
+    `/dev/subsys_esoc0`, forced RC1, fake-ONLINE, Wi-Fi HAL, scan/connect,
+    credentials, DHCP/routes, and external ping disabled.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1692_CNSS_NONLOG_CONTROL_FLOW_2026-06-02.md`.
