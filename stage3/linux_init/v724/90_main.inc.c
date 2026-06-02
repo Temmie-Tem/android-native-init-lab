@@ -239,6 +239,9 @@ static int v641_prepare_firmware_mounts(void);
 #ifndef A90_WIFI_TEST_BOOT_ANDROID_SERVICE_WINDOW_PER_MGR_STARTUP_TRACE
 #define A90_WIFI_TEST_BOOT_ANDROID_SERVICE_WINDOW_PER_MGR_STARTUP_TRACE 0
 #endif
+#ifndef A90_WIFI_TEST_BOOT_ANDROID_SERVICE_WINDOW_PER_MGR_EARLY_EXIT_TRACE
+#define A90_WIFI_TEST_BOOT_ANDROID_SERVICE_WINDOW_PER_MGR_EARLY_EXIT_TRACE 0
+#endif
 #if A90_WIFI_TEST_BOOT_ANDROID_SERVICE_WINDOW_SUBSYS_TRIGGER_CAPTURE
 #define A90_V1393_WIFI_TEST_MODE "wifi-companion-android-wifi-service-window-subsys-trigger-capture"
 #elif A90_WIFI_TEST_BOOT_ANDROID_SERVICE_WINDOW
@@ -3284,6 +3287,10 @@ static int v1393_spawn_wifi_test_boot_helper(pid_t *pid_out) {
         "ext4",
         "--mode",
         A90_V1393_WIFI_TEST_MODE,
+#if A90_WIFI_TEST_BOOT_ANDROID_SERVICE_WINDOW_PER_MGR_EARLY_EXIT_TRACE
+        "--capture-mode",
+        "ptrace-lite",
+#endif
         "--result-output-path",
         A90_V1393_WIFI_TEST_HELPER_RESULT,
         "--timeout-sec",
@@ -3321,6 +3328,9 @@ static int v1393_spawn_wifi_test_boot_helper(pid_t *pid_out) {
 #endif
 #if A90_WIFI_TEST_BOOT_ANDROID_SERVICE_WINDOW_PER_MGR_STARTUP_TRACE
         "--allow-android-wifi-service-window-per-mgr-startup-trace",
+#if A90_WIFI_TEST_BOOT_ANDROID_SERVICE_WINDOW_PER_MGR_EARLY_EXIT_TRACE
+        "--allow-android-wifi-service-window-per-mgr-early-exit-trace",
+#endif
 #endif
 #endif
 #endif

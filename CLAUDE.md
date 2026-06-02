@@ -3947,3 +3947,53 @@ global PCI rescan, or platform bind/unbind.  Reports:
 `docs/reports/NATIVE_INIT_V1606_PER_MGR_STARTUP_TRACE_HANDOFF_2026-06-02.md`
 and
 `docs/reports/NATIVE_INIT_V1607_PER_MGR_STARTUP_TRACE_CLASSIFIER_2026-06-02.md`.
+
+## Latest native Wi-Fi state: V1608/V1609 (2026-06-02)
+
+V1608 implements the source/build-only next gate selected by V1607.  The helper
+is bumped to `a90_android_execns_probe v299` and the V1604 route is preserved:
+PM-first late `per_proxy`, PPH modem-fd gate, lower-marker capture, and no
+Android Wi-Fi HAL/scan/connect path.  The only added diagnostic is a bounded
+`per_mgr`-only early-exit tracer:
+
+- `--capture-mode ptrace-lite`
+- `--allow-android-wifi-service-window-per-mgr-early-exit-trace`
+- syscall/exit records under `pm_service_trigger_observer.syscall.per_mgr.*`
+- child trace summaries under `android_wifi_service_window.child.per_mgr.*`
+
+V1608 source build passes as
+`v1608-per-mgr-early-exit-trace-test-boot-source-build-pass`:
+
+- boot image:
+  `tmp/wifi/v1608-per-mgr-early-exit-trace-test-boot/boot_linux_v1608_wifi_test.img`
+- boot sha256:
+  `6eb8f218b2bc7a7cfdd7c2f27cba290643149e0de4631de89574c9ac255cf076`
+- init: `A90 Linux init 0.9.107 (v1608-per-mgr-early-exit-trace)`
+- helper marker: `a90_android_execns_probe v299`
+- helper sha256:
+  `c5ecbd41c06943f88c88f32fbdacdcd28d5d46c62fbcceb159de4f269619389b`
+
+V1609 local artifact sanity passes as
+`v1609-per-mgr-early-exit-trace-artifact-sanity-pass`.  It verifies static
+init/helper binaries, ramdisk entries, helper/init route markers, V1608
+ptrace-lite markers, boot/header/kernel parity, forbidden credential-like byte
+absence, and private modes.
+
+Interpretation: the active branch is still the V1607 pre-contract
+`/vendor/bin/pm-service` early-exit blocker, but the next live artifact is now
+ready to capture the selected syscall/exit cause instead of only process
+liveness/fd samples.  Lower SDX50M/eSoC/RC1, firmware/MHI/WLFW, and Wi-Fi HAL
+work remain downstream until `pm-service` stays alive long enough to open or
+register the expected PM surfaces.
+
+Next work: V1610 should be a rollbackable live handoff of only the V1608 image.
+Collect helper result, `pm_service_trigger_observer.syscall.per_mgr.*`,
+`android_wifi_service_window.child.per_mgr.*`, lower markers, dmesg, and
+`wlan0`; then roll back to `stage3/boot_linux_v724.img` and verify selftest
+`fail=0`.  Still no `mdm_helper` ptrace, direct scoped `/dev/subsys_esoc0`,
+Wi-Fi HAL start, scan/connect, credentials, DHCP/routes, external ping,
+PMIC/GPIO/GDSC direct writes, blind eSoC notify/`BOOT_DONE`, global PCI
+rescan, or platform bind/unbind.  Reports:
+`docs/reports/NATIVE_INIT_V1608_PER_MGR_EARLY_EXIT_TRACE_SOURCE_BUILD_2026-06-02.md`
+and
+`docs/reports/NATIVE_INIT_V1609_PER_MGR_EARLY_EXIT_TRACE_ARTIFACT_SANITY_2026-06-02.md`.

@@ -9490,3 +9490,46 @@ Samsung bootloader
   `docs/reports/NATIVE_INIT_V1606_PER_MGR_STARTUP_TRACE_HANDOFF_2026-06-02.md`
   and
   `docs/reports/NATIVE_INIT_V1607_PER_MGR_STARTUP_TRACE_CLASSIFIER_2026-06-02.md`.
+
+- V1608/V1609 source/build and local sanity loop is complete.  V1608 bumps
+  `a90_android_execns_probe` to v299 and preserves the V1604 PM-first
+  late-per-proxy PPH-gated lower-marker route, but adds a bounded
+  `per_mgr`-only early-exit tracer:
+  `--capture-mode ptrace-lite` plus
+  `--allow-android-wifi-service-window-per-mgr-early-exit-trace`.
+
+  The new tracer is scoped to `/vendor/bin/pm-service`; it does not ptrace
+  `mdm_helper`, directly open scoped `/dev/subsys_esoc0`, broaden the lower
+  eSoC/RC1 path, or start Wi-Fi HAL/scan/connect work.  It records selected
+  `openat`, stat/access/readlink, socket/bind/connect, ioctl, read/write,
+  futex, wait, and exit syscalls under
+  `pm_service_trigger_observer.syscall.per_mgr.*`, plus child trace summaries
+  under `android_wifi_service_window.child.per_mgr.*`.
+
+  V1608 source build passes as
+  `v1608-per-mgr-early-exit-trace-test-boot-source-build-pass`; boot image:
+  `tmp/wifi/v1608-per-mgr-early-exit-trace-test-boot/boot_linux_v1608_wifi_test.img`,
+  sha256 `6eb8f218b2bc7a7cfdd7c2f27cba290643149e0de4631de89574c9ac255cf076`.
+  Init is `A90 Linux init 0.9.107 (v1608-per-mgr-early-exit-trace)`.
+  Helper marker is `a90_android_execns_probe v299`, sha256
+  `c5ecbd41c06943f88c88f32fbdacdcd28d5d46c62fbcceb159de4f269619389b`.
+
+  V1609 artifact sanity passes as
+  `v1609-per-mgr-early-exit-trace-artifact-sanity-pass`; it verifies static
+  binaries, ramdisk entries, V1608 route and ptrace-lite markers, helper/init
+  route contract, boot/header/kernel parity, forbidden credential-like byte
+  absence, and private modes.
+
+  Next gate: V1610 rollbackable live handoff of only the V1608 image.  Collect
+  helper result, `pm_service_trigger_observer.syscall.per_mgr.*`,
+  `android_wifi_service_window.child.per_mgr.*`, lower markers, dmesg, and
+  `wlan0`; roll back to `stage3/boot_linux_v724.img`; verify native selftest
+  `fail=0`.  The target is to classify the V1607 blocker: a clean
+  pre-contract `/vendor/bin/pm-service` exit before any PM fd, binder, socket,
+  or eSoC trigger surface appears.  Still no `mdm_helper` ptrace,
+  credentials, scan/connect, DHCP/routes, external ping, PMIC/GPIO/GDSC direct
+  writes, blind eSoC notify/`BOOT_DONE`, global PCI rescan, platform
+  bind/unbind, or unbounded boot-image/partition writes.  Reports:
+  `docs/reports/NATIVE_INIT_V1608_PER_MGR_EARLY_EXIT_TRACE_SOURCE_BUILD_2026-06-02.md`
+  and
+  `docs/reports/NATIVE_INIT_V1609_PER_MGR_EARLY_EXIT_TRACE_ARTIFACT_SANITY_2026-06-02.md`.
