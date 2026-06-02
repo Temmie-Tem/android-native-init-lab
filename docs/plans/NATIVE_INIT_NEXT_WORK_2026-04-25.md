@@ -13613,3 +13613,47 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
 
   Report:
   `docs/reports/NATIVE_INIT_V1732_CNSS_OUTPUT_STATEUP_CORRECTION_2026-06-03.md`.
+
+## V1733 CNSS output gate supersedes restart-PD candidate (2026-06-03)
+
+- V1733 corrected the stale restart-PD direction before it was committed.
+
+  Corrections:
+
+  - QCACLD/`boot_wlan` registration is not a WLFW server trigger; ICNSS driver
+    registration waits for FW-ready;
+  - native `wlfw_start_seen=0` in dmesg is a measurement artifact unless non-log
+    control-flow evidence also misses `wlfw_start`;
+  - PM/service-window actor expansion remains stopped; V1683/V1686 did not
+    produce WLFW progress and PM-service Binder `-22` is a known dead end;
+  - the uncommitted restart-PD classifier was discarded because
+    `QMI_SERVREG_NOTIF_RESTART_PD_REQ_V01` is an active modem-PD request, not the
+    requested read-only CNSS-output gate.
+
+  Current fixed classification:
+
+  - V1725 already ran the requested output-visibility route with
+    `persist.vendor.cnss-daemon.kmsg_logging=1` and
+    `persist.vendor.cnss-daemon.debug_level=4`;
+  - V1725 label: `cnss-output-still-invisible`;
+  - V1727/V1731 non-log evidence proves `cnss-daemon` reaches `wlfw_start`,
+    starts `wlfw_service_request`, and creates the worker thread;
+  - V1731 late service-notifier listener reaches the endpoint but reports
+    WLAN-PD `UNINIT`, no indication, no WLFW service 69, and no `wlanmdsp`
+    request;
+  - fixed label:
+    `wlfw-start-reached-wlan-pd-uninit-downstream-block`.
+
+  Next candidate:
+
+  - do not repeat output-visibility, PM/service-window actors, `boot_wlan`,
+    restart-PD, eSoC/RC1, fake-ONLINE, Wi-Fi HAL, scan/connect, credentials,
+    DHCP/routes, or external ping from this result;
+  - if a refresh is needed, rerun the V1725-style CNSS-output gate exactly once
+    with the same read-only scope and labels;
+  - otherwise, use host-only Android-good versus native evidence to identify what
+    moves the internal modem `msm/modem/wlan_pd` state from `UNINIT` to `UP` and
+    publishes WLFW service 69.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1733_CNSS_OUTPUT_GATE_SUPERSEDES_RESTART_PD_2026-06-03.md`.
