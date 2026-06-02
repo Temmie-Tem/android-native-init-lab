@@ -11540,3 +11540,35 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
 
   Report:
   `docs/reports/NATIVE_INIT_V1680_WLAN_PD_FIRMWARE_SERVE_MODEM_HOLDER_HANDOFF_2026-06-02.md`.
+
+
+## V1681 WLAN-PD WLFW Trigger Delta Classifier (2026-06-02)
+
+- V1681 completed a host-only classifier after the valid V1680 corrected
+  firmware-serve gate.
+
+  Result:
+
+  - decision: `v1681-cnss-wlfw-start-trigger-surface-selected`;
+  - V1680 internal modem trigger remains valid: mss loading/reset and
+    `rmt_storage` modem EFS activity were present;
+  - V1680 `cnss-daemon` was alive/polling but had no `wlfw_start` or
+    `wlfw_service_request`;
+  - Android-good evidence has `cnss-daemon wlfw_start` before WLAN-PD, ICNSS QMI,
+    BDF, FW-ready, and `wlan0`;
+  - therefore `firmware-not-requested` is now interpreted as an upstream
+    `cnss-daemon` WLFW-start trigger-surface gap, not a tftp timing or MSA/BDF
+    problem.
+
+  Next work:
+
+  - V1682 should be source/build-only first;
+  - preserve the V1680 internal-modem WLAN-PD route;
+  - add only the minimum Android pre-CNSS service/provider surface needed to
+    classify `cnss-daemon wlfw_start`;
+  - keep `/dev/subsys_esoc0`, forced RC1, fake-ONLINE, PMIC/GPIO/GDSC writes,
+    eSoC notify, BOOT_DONE spoof, scan/connect, credentials, DHCP/routes, and
+    external ping disabled.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1681_WLAN_PD_WLFW_TRIGGER_DELTA_CLASSIFIER_2026-06-02.md`.
