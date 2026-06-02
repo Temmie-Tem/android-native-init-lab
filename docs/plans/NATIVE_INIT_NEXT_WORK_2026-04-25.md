@@ -12753,3 +12753,62 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
 
   Report:
   `docs/reports/NATIVE_INIT_V1706_CNSS_WLFW_START_BRANCH_STATIC_2026-06-02.md`.
+
+## V1707/V1708 CNSS WLFW start branch uprobe gate (2026-06-02)
+
+- V1707 source/build-only test boot artifact completed.
+
+  Result:
+
+  - decision: `v1707-cnss-wlfw-start-branch-uprobe-source-build-pass`;
+  - init: `A90 Linux init 0.9.130 (v1707-cnss-wlfw-start-branch-uprobe)`;
+  - helper: `a90_android_execns_probe v316`;
+  - helper SHA256: `7c2c3a2661896aa4c557eb08a0353b8ab6815862d63bbfc343d8aedab73fdab2`;
+  - boot image: `tmp/wifi/v1707-cnss-wlfw-start-branch-uprobe-test-boot/boot_linux_v1707_cnss_wlfw_start_branch_uprobe.img`;
+  - boot SHA256: `5ebb8629f9bd0b96ccea4c44b040739b18a18d4385c52da3855770922d124b89`.
+
+- V1708 one-run rollbackable live handoff completed.
+
+  Result:
+
+  - decision: `v1708-wlfw-start-pthread-create-not-reached-rollback-pass`;
+  - rollback: `from-native`, PASS;
+  - post-rollback version: `A90 Linux init 0.9.68 (v724)`;
+  - post-rollback selftest: `fail=0`;
+  - downstream label: `wlfw-start-pthread-create-not-reached`;
+  - `wlfw_start@0xec00`: hit count `1`;
+  - `wlfw_dms_initialize_call@0xecd4`: hit count `0`;
+  - `wlfw_dms_initialize_retcheck@0xecd8`: hit count `0`;
+  - `wlfw_worker_pthread_create_call@0xecf0`: hit count `0`;
+  - `wlfw_worker_pthread_create_failure@0xecf8`: hit count `0`;
+  - `wlfw_worker_pthread_create_success@0xeda0`: hit count `0`;
+  - pre-DMS failure branches at `0xec60`, `0xec80`, `0xeca4`, `0xecc4`:
+    all hit count `0`;
+  - legacy firmware-serve label: `firmware-not-requested`;
+  - MHI pipe fd count / `ks` process count: `0` / `0`.
+
+  Safety:
+
+  - no service-manager, PM/service-window actors, `boot_wlan`,
+    `/dev/subsys_esoc0`, forced RC1, fake-ONLINE, Wi-Fi HAL, scan/connect,
+    credentials, DHCP/routes, or external ping were used;
+  - no PMIC/GPIO/GDSC writes, eSoC notify/`BOOT_DONE`, PCI rescan, platform
+    bind/unbind, firmware write, or partition write beyond the rollbackable test
+    boot handoff were used.
+
+  Interpretation:
+
+  - V1708 pushes the blocker earlier than the DMS/pthread_create gate: the
+    function enters `wlfw_start` but does not reach `pthread_initialize_dms`;
+  - none of the currently traced pre-DMS failure branches fired, so the next
+    bounded unit must trace the pre-DMS init call/return sequence itself rather
+    than WLFW QMI, BDF, or worker logic;
+  - next candidate: helper v317 with call/retcheck targets around
+    `pthread_mutex_init` and `pthread_cond_init` inside `wlfw_start`, including
+    `0xec50`, `0xec5c`, `0xec70`, `0xec7c`, `0xec90`, `0xeca0`, `0xecb4`,
+    `0xecc0`, and `0xecd4`.
+
+  Reports:
+
+  - `docs/reports/NATIVE_INIT_V1707_CNSS_WLFW_START_BRANCH_UPROBE_SOURCE_BUILD_2026-06-02.md`
+  - `docs/reports/NATIVE_INIT_V1708_CNSS_WLFW_START_BRANCH_UPROBE_HANDOFF_2026-06-02.md`.

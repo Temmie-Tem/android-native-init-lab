@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v315"
+#define EXECNS_VERSION "a90_android_execns_probe v316"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -11821,7 +11821,7 @@ struct cnss_nonlog_maps_summary {
 };
 
 #define A90_CNSS_WLFW_UPROBE_TARGET_COUNT 3
-#define A90_CNSS_WLFW_UPROBE_EVENT_COUNT 5
+#define A90_CNSS_WLFW_UPROBE_EVENT_COUNT 14
 
 struct cnss_wlfw_uprobe_event_spec {
     const char *name;
@@ -11835,6 +11835,15 @@ static const struct cnss_wlfw_uprobe_event_spec cnss_wlfw_uprobe_events[A90_CNSS
     { "wlfw_ind_register_qmi", "wlfw_ind_register_qmi", 0xf32cULL },
     { "wlfw_cap_qmi", "wlfw_cap_qmi", 0xf460ULL },
     { "dms_service_request", "dms_service_request", 0xe808ULL },
+    { "wlfw_cal_mutex_fail", "wlfw_cal_mutex_fail", 0xec60ULL },
+    { "wlfw_mutex_fail", "wlfw_mutex_fail", 0xec80ULL },
+    { "wlfw_cond_fail", "wlfw_cond_fail", 0xeca4ULL },
+    { "wlfw_cond_rsp_fail", "wlfw_cond_rsp_fail", 0xecc4ULL },
+    { "wlfw_dms_initialize_call", "wlfw_dms_initialize_call", 0xecd4ULL },
+    { "wlfw_dms_initialize_retcheck", "wlfw_dms_initialize_retcheck", 0xecd8ULL },
+    { "wlfw_worker_pthread_create_call", "wlfw_worker_pthread_create_call", 0xecf0ULL },
+    { "wlfw_worker_pthread_create_failure", "wlfw_worker_pthread_create_failure", 0xecf8ULL },
+    { "wlfw_worker_pthread_create_success", "wlfw_worker_pthread_create_success", 0xeda0ULL },
 };
 
 enum cnss_wlfw_uprobe_event_index {
@@ -11843,6 +11852,15 @@ enum cnss_wlfw_uprobe_event_index {
     CNSS_WLFW_UPROBE_WLFW_IND_REGISTER_QMI = 2,
     CNSS_WLFW_UPROBE_WLFW_CAP_QMI = 3,
     CNSS_WLFW_UPROBE_DMS_SERVICE_REQUEST = 4,
+    CNSS_WLFW_UPROBE_WLFW_CAL_MUTEX_FAIL = 5,
+    CNSS_WLFW_UPROBE_WLFW_MUTEX_FAIL = 6,
+    CNSS_WLFW_UPROBE_WLFW_COND_FAIL = 7,
+    CNSS_WLFW_UPROBE_WLFW_COND_RSP_FAIL = 8,
+    CNSS_WLFW_UPROBE_WLFW_DMS_INITIALIZE_CALL = 9,
+    CNSS_WLFW_UPROBE_WLFW_DMS_INITIALIZE_RETCHECK = 10,
+    CNSS_WLFW_UPROBE_WLFW_WORKER_PTHREAD_CREATE_CALL = 11,
+    CNSS_WLFW_UPROBE_WLFW_WORKER_PTHREAD_CREATE_FAILURE = 12,
+    CNSS_WLFW_UPROBE_WLFW_WORKER_PTHREAD_CREATE_SUCCESS = 13,
 };
 
 struct cnss_wlfw_uprobe_target_probe {
@@ -12333,8 +12351,23 @@ static int append_wlan_pd_cnss_nonlog_control_flow_summary(struct buffer *stdout
         label = "wlfw-worker-thread-started-qmi-ind-register-sent";
     } else if (uprobe->events[CNSS_WLFW_UPROBE_WLFW_SERVICE_REQUEST].hit_count > 0) {
         label = "wlfw-worker-thread-started-waiting-for-qmi-service";
+    } else if (uprobe->events[CNSS_WLFW_UPROBE_WLFW_WORKER_PTHREAD_CREATE_SUCCESS].hit_count > 0) {
+        label = "wlfw-start-pthread-create-success-worker-missing";
+    } else if (uprobe->events[CNSS_WLFW_UPROBE_WLFW_WORKER_PTHREAD_CREATE_FAILURE].hit_count > 0) {
+        label = "wlfw-start-pthread-create-failed";
+    } else if (uprobe->events[CNSS_WLFW_UPROBE_WLFW_WORKER_PTHREAD_CREATE_CALL].hit_count > 0) {
+        label = "wlfw-start-pthread-create-call-no-return";
+    } else if (uprobe->events[CNSS_WLFW_UPROBE_WLFW_DMS_INITIALIZE_RETCHECK].hit_count > 0) {
+        label = "wlfw-start-dms-init-failed-before-worker";
+    } else if (uprobe->events[CNSS_WLFW_UPROBE_WLFW_DMS_INITIALIZE_CALL].hit_count > 0) {
+        label = "wlfw-start-dms-init-blocked-before-worker";
+    } else if (uprobe->events[CNSS_WLFW_UPROBE_WLFW_CAL_MUTEX_FAIL].hit_count > 0 ||
+               uprobe->events[CNSS_WLFW_UPROBE_WLFW_MUTEX_FAIL].hit_count > 0 ||
+               uprobe->events[CNSS_WLFW_UPROBE_WLFW_COND_FAIL].hit_count > 0 ||
+               uprobe->events[CNSS_WLFW_UPROBE_WLFW_COND_RSP_FAIL].hit_count > 0) {
+        label = "wlfw-start-pre-dms-init-failed-before-worker";
     } else if (uprobe->events[CNSS_WLFW_UPROBE_WLFW_START].hit_count > 0) {
-        label = "wlfw-worker-thread-missing-after-wlfw-start";
+        label = "wlfw-start-pthread-create-not-reached";
     } else {
         label = "cnss-target-unavailable";
     }
