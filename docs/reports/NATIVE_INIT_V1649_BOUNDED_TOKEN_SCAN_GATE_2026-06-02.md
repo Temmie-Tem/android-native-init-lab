@@ -1,0 +1,474 @@
+# Native Init V1649 Bounded Token Scan Gate
+
+## Summary
+
+- Cycle: `V1649`
+- Type: bounded token-only scan gate
+- Decision: `v1649-bounded-token-scan-captured`
+- Result: PASS
+- Evidence: `tmp/wifi/v1649-bounded-token-scan-gate`
+- Reason: identify which selected artifacts contain SDX/PMIC/PON vocabulary without raw strings or binary dumps.
+
+## Checks
+
+- `pre_selftest_fail_zero`: `True`
+- `post_selftest_fail_zero`: `True`
+- `initial_cleanup_ok`: `True`
+- `mkdir_ok`: `True`
+- `all_mknod_ok`: `True`
+- `all_grep_ok`: `True`
+- `all_cleanup_ok`: `True`
+- `cleanup_final_absent`: `True`
+- `token_only_output`: `True`
+- `forbidden_markers_absent`: `True`
+- `no_raw_dump_command`: `True`
+- `no_partition_write_command`: `True`
+- `no_wifi_or_pmic_gate`: `True`
+
+## Token Scan Summary
+
+| label | name | match count | token counts |
+|---|---|---:|---|
+| `xbl_a` | `xbl` | 413 | aop=112, gpio=21, mdm=9, pcie=72, pmic=61, pon=21, ps_hold=2, rpmh=85, sdx=4, vdd=26 |
+| `xbl_b` | `xbl` | 333 | aop=80, gpio=21, mdm=10, pcie=73, pmic=52, pon=20, ps_hold=2, rpmh=51, sdx=3, vdd=21 |
+| `aop` | `aop` | 13 | aop=11, gpio=1, pmic=1 |
+| `devcfg` | `devcfg` | 3 | gpio=2, pmic=1 |
+| `abl` | `abl` | 2 | aop=1, mdm=1 |
+
+## Offset Matches
+
+Only the first bounded set of parsed offsets is rendered per artifact. `grep -m`
+limits matching lines; with binary-like input and `-o`, the total token count can
+exceed that line limit while still remaining token-only output.
+
+### `xbl_a`
+- `20034:pmic`
+- `20048:vdd`
+- `20093:pmic`
+- `20107:vdd`
+- `20553:aop`
+- `21505:pon`
+- `21531:pon`
+- `21559:pon`
+- `21640:pon`
+- `21667:ps_hold`
+- `21676:pmic`
+- `21726:pon`
+- `21740:vdd`
+- `21754:vdd`
+- `21768:vdd`
+- `21850:pon`
+- `22112:pmic`
+- `23261:sdx`
+- `23267:sdx`
+- `23338:sdx`
+- `23863:pmic`
+- `23911:pmic`
+- `23953:pmic`
+- `23992:pmic`
+- `24041:pmic`
+- `25541:pmic`
+- `25574:pmic`
+- `25606:pmic`
+- `25947:pmic`
+- `26721:pmic`
+- `26733:pmic`
+- `29600:vdd`
+- `37951:pmic`
+- `37968:pmic`
+- `38025:pmic`
+- `46248:vdd`
+- `46254:vdd`
+- `46260:vdd`
+- `46271:vdd`
+- `46282:vdd`
+- `48028:vdd`
+- `48039:vdd`
+- `48050:vdd`
+- `48348:vdd`
+- `52352:pmic`
+- `52360:ps_hold`
+- `749409:pon`
+- `815762:aop`
+- `817818:aop`
+- `820984:rpmh`
+- `821078:rpmh`
+- `821736:pmic`
+- `823971:gpio`
+- `823997:gpio`
+- `824023:gpio`
+- `824049:gpio`
+- `824211:pcie`
+- `824220:pcie`
+- `824274:pcie`
+- `824482:pcie`
+- `954251:mdm`
+- `958720:sdx`
+- `1465723:vdd`
+- `2732923:vdd`
+- `3316361:pmic`
+- `3316858:pmic`
+- `3316902:pmic`
+- `3317096:pon`
+- `3319223:mdm`
+- `3319835:pmic`
+- `3319864:pmic`
+- `3324282:mdm`
+- `3340797:aop`
+- `3341040:aop`
+- `3341148:aop`
+- `3341232:aop`
+- `3341287:aop`
+- `3341359:aop`
+- `3341387:aop`
+- `3341497:aop`
+- `3341625:aop`
+- `3341750:aop`
+- `3341853:aop`
+- `3342237:aop`
+- `3342803:aop`
+- `3343159:aop`
+- `3343167:aop`
+- `3343217:aop`
+- `3343278:aop`
+- `3343299:aop`
+- `3343316:aop`
+- `3343438:pmic`
+- `3343477:pmic`
+- `3343697:vdd`
+- `3345416:pmic`
+- `3349408:aop`
+- `3353558:pmic`
+- `3353734:aop`
+- `3353741:aop`
+- `3353779:aop`
+- `3357272:pcie`
+- `3358022:rpmh`
+- `3358091:rpmh`
+- `3358160:rpmh`
+- `3358225:rpmh`
+- `3358299:rpmh`
+- `3358367:rpmh`
+- `3358444:rpmh`
+- `3358511:rpmh`
+- `3358587:rpmh`
+- `3358657:rpmh`
+- `3358736:rpmh`
+- `3358813:rpmh`
+- `3358899:rpmh`
+- `3358979:rpmh`
+- `3359068:rpmh`
+- `3359134:rpmh`
+- `3359202:rpmh`
+- `3359274:rpmh`
+- `3359349:rpmh`
+- `3359422:rpmh`
+- `3359494:rpmh`
+- `3359568:rpmh`
+- `3359639:rpmh`
+- `3359721:rpmh`
+- `3359795:rpmh`
+- `3359869:rpmh`
+- `3359952:rpmh`
+- `3360032:rpmh`
+- `3360112:rpmh`
+- `3360179:rpmh`
+- `3360260:rpmh`
+- `3360329:rpmh`
+- `3360405:rpmh`
+- `3360471:rpmh`
+- `3360551:rpmh`
+- `3360626:rpmh`
+- `3360697:rpmh`
+- `3360777:rpmh`
+- `3360844:rpmh`
+- `3360920:rpmh`
+- `3360991:rpmh`
+- `3361067:rpmh`
+- `3361131:rpmh`
+- `3361202:rpmh`
+- `3361274:rpmh`
+- `3361338:rpmh`
+- `3361406:rpmh`
+- `3361471:rpmh`
+- `3361538:rpmh`
+- `3362625:aop`
+- `3364871:aop`
+- `3365415:pmic`
+- `3365482:pmic`
+- `3365544:aop`
+- `3366363:aop`
+- `3366813:aop`
+- `3366895:aop`
+- `3366962:aop`
+- `3367025:aop`
+- `3367345:aop`
+- `3367575:rpmh`
+- `3367624:rpmh`
+- `3367674:rpmh`
+- `3367733:rpmh`
+- `3367757:rpmh`
+- `3367819:rpmh`
+- `3367846:rpmh`
+- `3367907:rpmh`
+- `3367977:rpmh`
+- `3368041:rpmh`
+- `3368114:rpmh`
+- `3368185:rpmh`
+- `3368265:rpmh`
+- `3368339:rpmh`
+- `3368422:rpmh`
+- `3368530:rpmh`
+- `3368555:rpmh`
+- `3368808:rpmh`
+- `3368870:rpmh`
+- `3368938:rpmh`
+- `3369111:rpmh`
+- `3369145:rpmh`
+- `3369215:rpmh`
+- `3369241:rpmh`
+- `3369294:rpmh`
+- `3369342:rpmh`
+- `3369367:rpmh`
+- `3369388:rpmh`
+- `3369418:rpmh`
+- `3369435:rpmh`
+- `3369462:rpmh`
+- `3369500:rpmh`
+- `3369718:rpmh`
+- `3369752:rpmh`
+- `3370132:vdd`
+- `3370541:aop`
+- `3371622:pmic`
+- `3371665:vdd`
+- `3372033:pon`
+### `xbl_b`
+- `20027:pmic`
+- `20041:vdd`
+- `20086:pmic`
+- `20100:vdd`
+- `20537:aop`
+- `21657:pon`
+- `21683:pon`
+- `21711:pon`
+- `21792:pon`
+- `21819:ps_hold`
+- `21828:pmic`
+- `21878:pon`
+- `21892:vdd`
+- `21906:vdd`
+- `21920:vdd`
+- `22002:pon`
+- `23237:sdx`
+- `23243:sdx`
+- `23314:sdx`
+- `24535:pmic`
+- `24583:pmic`
+- `24625:pmic`
+- `24664:pmic`
+- `24713:pmic`
+- `26213:pmic`
+- `26246:pmic`
+- `26278:pmic`
+- `26619:pmic`
+- `27393:pmic`
+- `27405:pmic`
+- `30656:vdd`
+- `30662:vdd`
+- `39583:pmic`
+- `39600:pmic`
+- `39657:pmic`
+- `47880:vdd`
+- `47886:vdd`
+- `47897:vdd`
+- `47908:vdd`
+- `49652:vdd`
+- `49663:vdd`
+- `49674:vdd`
+- `49964:vdd`
+- `54008:pmic`
+- `54016:ps_hold`
+- `754657:pon`
+- `821026:aop`
+- `823082:aop`
+- `826248:rpmh`
+- `826342:rpmh`
+- `827000:pmic`
+- `829235:gpio`
+- `829261:gpio`
+- `829287:gpio`
+- `829313:gpio`
+- `829475:pcie`
+- `829484:pcie`
+- `829538:pcie`
+- `829746:pcie`
+- `879604:pon`
+- `1789092:vdd`
+- `3311470:mdm`
+- `3312328:vdd`
+- `3312429:pmic`
+- `3313482:mdm`
+- `3313987:pmic`
+- `3314114:pon`
+- `3318089:aop`
+- `3318204:aop`
+- `3318816:aop`
+- `3320064:mdm`
+- `3320669:mdm`
+- `3321111:pcie`
+- `3336632:pon`
+- `3336958:aop`
+- `3336983:aop`
+- `3337331:aop`
+- `3338216:aop`
+- `3338231:aop`
+- `3338254:aop`
+- `3338276:aop`
+- `3338297:aop`
+- `3338328:aop`
+- `3338387:aop`
+- `3338514:aop`
+- `3338630:aop`
+- `3338656:aop`
+- `3338686:aop`
+- `3339219:pmic`
+- `3339237:pmic`
+- `3339289:pmic`
+- `3355345:aop`
+- `3355353:aop`
+- `3355403:aop`
+- `3355745:aop`
+- `3355918:pmic`
+- `3356438:rpmh`
+- `3356507:rpmh`
+- `3356576:rpmh`
+- `3356641:rpmh`
+- `3356715:rpmh`
+- `3356783:rpmh`
+- `3356860:rpmh`
+- `3356927:rpmh`
+- `3357003:rpmh`
+- `3357073:rpmh`
+- `3357152:rpmh`
+- `3357229:rpmh`
+- `3357315:rpmh`
+- `3357395:rpmh`
+- `3357484:rpmh`
+- `3357550:rpmh`
+- `3357618:rpmh`
+- `3357690:rpmh`
+- `3357765:rpmh`
+- `3357838:rpmh`
+- `3357910:rpmh`
+- `3357984:rpmh`
+- `3358055:rpmh`
+- `3358137:rpmh`
+- `3358211:rpmh`
+- `3358285:rpmh`
+- `3358368:rpmh`
+- `3358448:rpmh`
+- `3358528:rpmh`
+- `3358595:rpmh`
+- `3358676:rpmh`
+- `3358745:rpmh`
+- `3358821:rpmh`
+- `3358887:rpmh`
+- `3358967:rpmh`
+- `3359042:rpmh`
+- `3359113:rpmh`
+- `3359193:rpmh`
+- `3359260:rpmh`
+- `3359336:rpmh`
+- `3359407:rpmh`
+- `3359483:rpmh`
+- `3359547:rpmh`
+- `3359618:rpmh`
+- `3359690:rpmh`
+- `3359754:rpmh`
+- `3359822:rpmh`
+- `3359887:rpmh`
+- `3359954:rpmh`
+- `3361041:aop`
+- `3363219:aop`
+- `3363763:pmic`
+- `3363830:pmic`
+- `3363892:aop`
+- `3364711:aop`
+- `3365161:aop`
+- `3365243:aop`
+- `3365310:aop`
+- `3365373:aop`
+- `3365693:aop`
+- `3365734:aop`
+- `3365755:aop`
+- `3365772:aop`
+- `3372704:pmic`
+- `3377363:aop`
+- `3382213:pon`
+- `3385768:pcie`
+- `3388414:pon`
+- `3388532:aop`
+- `3388552:aop`
+- `3388561:aop`
+- `3388581:aop`
+- `3388590:aop`
+- `3388609:aop`
+- `3388618:aop`
+- `3388637:aop`
+- `3388646:aop`
+- `3388665:aop`
+- `3388674:aop`
+- `3388693:aop`
+- `3388702:aop`
+- `3388721:aop`
+- `3388730:aop`
+- `3388749:aop`
+- `3388758:aop`
+- `3388777:aop`
+- `3388786:aop`
+- `3388805:aop`
+- `3388814:aop`
+- `3388833:aop`
+- `3388842:aop`
+- `3388861:aop`
+- `3388870:aop`
+- `3388890:aop`
+- `3388900:aop`
+- `3388920:aop`
+- `3388930:aop`
+- `3388950:aop`
+- `3388960:aop`
+- `3388980:aop`
+- `3388990:aop`
+- `3389010:aop`
+- `3389020:aop`
+- `3389040:aop`
+### `aop`
+- `84514:aop`
+- `84528:aop`
+- `84542:aop`
+- `84551:aop`
+- `84565:aop`
+- `85098:pmic`
+- `86257:aop`
+- `86532:aop`
+- `86549:aop`
+- `86653:aop`
+- `88046:gpio`
+- `102974:aop`
+- `200956:aop`
+### `devcfg`
+- `28972:gpio`
+- `29074:gpio`
+- `37974:pmic`
+### `abl`
+- `443593:mdm`
+- `457925:aop`
+
+## Interpretation
+
+V1649 used temporary filesystem-only devnodes and `grep -a -i -b -o -m` to emit only `offset:matched-token` pairs. It did not run full `strings`, dump raw partition bytes, commit proprietary binaries, write partitions, write PMIC/GPIO/GDSC state, issue eSoC notify/`BOOT_DONE`, rescan PCI, start Wi-Fi HAL, scan/connect, use credentials, run DHCP/routes, or external ping.
+
+## Next
+
+V1650 should stay host-only first: interpret token presence by artifact and decide whether there is enough evidence for a narrower private offline analysis target. Do not proceed to modem-rail writes or Wi-Fi HAL until the SDX50M power-owner hypothesis is concrete.

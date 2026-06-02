@@ -10429,3 +10429,39 @@ above (rejected as inverted causality).
 
   Report:
   `docs/reports/NATIVE_INIT_V1648_HASH_INTERPRETATION_TOKEN_SCAN_PLAN_2026-06-02.md`.
+
+## V1649 Bounded Token Scan Gate (2026-06-02)
+
+- V1649 temporary-devnode token-only scan passed as
+  `v1649-bounded-token-scan-captured`.
+
+  This gate used the V1647-selected candidates and emitted only
+  `offset:matched-token` pairs via bounded `grep -a -i -b -o -m`; it did not run
+  full `strings`, dump raw partition bytes, commit proprietary binaries, write
+  partitions, write PMIC/GPIO/GDSC state, issue eSoC notify/`BOOT_DONE`, rescan
+  PCI, start Wi-Fi HAL, scan/connect, use credentials, run DHCP/routes, or
+  external ping.  Final cleanup verified `/dev/a90_v1649_devnodes` absent.
+
+  Token summary:
+
+  - `xbl_a`: 413 token hits; includes `pmic`, `vdd`, `aop`, `pon`, `ps_hold`,
+    `sdx`, `rpmh`, `gpio`, `pcie`, `mdm`.
+  - `xbl_b`: 333 token hits; includes the same relevant vocabulary family.
+  - `aop`: 13 token hits; mostly `aop`, plus `gpio` and `pmic`.
+  - `devcfg`: 3 token hits; `gpio` and `pmic`.
+  - `abl`: 2 token hits; `aop` and `mdm`.
+
+  Interpretation: `xbl_a` / `xbl_b` now have the strongest evidence as the
+  next artifact-analysis targets for SDX50M / PMIC / PON ownership.  `aop` and
+  `devcfg` remain secondary.  `abl` is low-yield for this specific blocker.
+
+  Note: `grep -m` limits matching lines; with binary-like input and `-o`, total
+  token counts can exceed the line limit while still remaining token-only output.
+
+  V1650 should stay host-only first: interpret token distribution and decide
+  whether a narrower private offline analysis target is justified.  Do not
+  proceed to modem-rail writes or Wi-Fi HAL until an actual SDX50M power-owner
+  hypothesis is supported.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1649_BOUNDED_TOKEN_SCAN_GATE_2026-06-02.md`.
