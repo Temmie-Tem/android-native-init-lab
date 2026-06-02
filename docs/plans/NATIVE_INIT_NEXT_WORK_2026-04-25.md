@@ -10534,3 +10534,37 @@ above (rejected as inverted causality).
 
   Report:
   `docs/reports/NATIVE_INIT_V1651_XBL_TOKEN_CLUSTER_CONTEXT_2026-06-02.md`.
+
+## V1652 XBL Private Context Contract (2026-06-02)
+
+- V1652 host-only extraction contract passed as
+  `v1652-xbl-private-context-contract-ready`.
+
+  Target clusters:
+
+  - `xbl_a` range `3340797..3377867`: `rpmh-aop-pmic-context`.
+  - `xbl_b` range `3355345..3400091`: `rpmh-aop-pmic-context`.
+  - `xbl_a` range `20034..29600`: `pon-pshold-pmic-context`.
+  - `xbl_b` range `20027..30662`: `pon-pshold-pmic-context`.
+
+  Tracked output allowlist for any later context extraction:
+
+  - artifact label, range start/end, string offset, string length;
+  - SHA256 of the private string;
+  - matched token list;
+  - redacted token-neighborhood class.
+
+  Tracked output and git must not include raw string text, raw binary bytes, full
+  `strings` output, partition dumps, SSID/passphrase values, PMIC/GPIO/GDSC
+  writes, eSoC notify/`BOOT_DONE`, PCI rescan, Wi-Fi HAL, or scan/connect
+  material.
+
+  V1653 should be source/build-only for a static helper named
+  `a90_xbl_context_probe`.  The helper contract: input a temporary private block
+  devnode path, artifact label, bounded ranges, and token regex; read only those
+  ranges; identify printable strings intersecting the ranges; emit tracked-safe
+  records only.  Raw string text may exist only in ignored private evidence if a
+  later gate explicitly needs it.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1652_XBL_PRIVATE_CONTEXT_CONTRACT_2026-06-02.md`.
