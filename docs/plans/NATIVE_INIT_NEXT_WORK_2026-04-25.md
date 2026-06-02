@@ -13203,3 +13203,49 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
 
   Report:
   `docs/reports/NATIVE_INIT_V1718_CNSS_PERIPHERAL_CLIENT_UPROBE_SOURCE_BUILD_2026-06-02.md`.
+
+- V1719 one-run rollbackable live handoff completed.
+
+  Result:
+
+  - decision:
+    `v1719-peripheral-default-service-manager-call-no-return-rollback-pass`;
+  - rollback: `from-native`, PASS;
+  - post-rollback version: `A90 Linux init 0.9.68 (v724)`;
+  - post-rollback selftest: `fail=0`;
+  - non-log label: `peripheral-default-service-manager-call-no-return`;
+  - legacy firmware-serve label: `firmware-not-requested`;
+  - peripheral target:
+    `/tmp/a90-v231-547/root/vendor/lib64/libperipheral_client.so`;
+  - peripheral hit count: `4`;
+  - hit: `pm_client_register_entry@0x6ec8=1`,
+    `pm_register_connect_entry@0x612c=1`,
+    `ProcessState::initWithDriver('/dev/vndbinder')@0x6168=1`,
+    `defaultServiceManager@0x6190=1`;
+  - miss: `String16('vendor.qcom.PeripheralManager')@0x61a8=0`,
+    service-manager get `0x61c4=0`, manager register transaction
+    `0x6274=0`;
+  - MHI pipe fd count / `ks` process count: `0` / `0`.
+
+  Interpretation:
+
+  - `cnss-daemon` reaches `wlfw_start`, `pm_init`, `pm_client_register`, and
+    `libperipheral_client.so`;
+  - `/dev/vndbinder` initialization returns far enough to call
+    `defaultServiceManager`;
+  - the live blocker is default vendor service-manager acquisition, before the
+    concrete `vendor.qcom.PeripheralManager` service name is constructed;
+  - this is now a minimal vendor Binder bootstrap problem, not a firmware
+    serving, WLAN-PD, WLFW service 69, MHI, Wi-Fi HAL, scan/connect, DHCP/routes,
+    or external ping problem.
+
+  Next candidate:
+
+  - V1720 host-only static classifier for the minimal `defaultServiceManager`
+    and vendor Binder bootstrap dependencies in the current namespace;
+  - decide whether the next bounded live gate should be a service-manager-only
+    proof or a non-mutating Binder availability probe. Do not start PM trio or
+    `vendor.qcom.PeripheralManager` yet.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1719_CNSS_PERIPHERAL_CLIENT_UPROBE_HANDOFF_2026-06-02.md`.
