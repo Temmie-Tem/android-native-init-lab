@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v309"
+#define EXECNS_VERSION "a90_android_execns_probe v310"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -11893,6 +11893,123 @@ static int append_wlan_pd_cnss_output_visibility_summary(struct buffer *stdout_b
                       "wlan_pd_cnss_output_visibility.end=1\n",
                       markers.block,
                       strlen(markers.block)) < 0) {
+        return -1;
+    }
+    return 0;
+}
+
+static void first_sanitized_line_from_buffer(const struct buffer *buf, char *out, size_t out_size) {
+    size_t copy_len;
+
+    if (out_size == 0) {
+        return;
+    }
+    out[0] = '\0';
+    if (buf == NULL || buf->data == NULL || buf->len == 0) {
+        return;
+    }
+    copy_len = buf->len;
+    if (copy_len >= out_size) {
+        copy_len = out_size - 1;
+    }
+    memcpy(out, buf->data, copy_len);
+    out[copy_len] = '\0';
+    sanitize_one_line(out);
+}
+
+static int append_wlan_pd_cnss_output_visibility_property_lookup_one(const struct config *cfg,
+                                                                    const struct paths *paths,
+                                                                    struct buffer *stdout_buf,
+                                                                    const char *label,
+                                                                    const char *key,
+                                                                    const char *expected,
+                                                                    bool *matched) {
+    struct config lookup_cfg = *cfg;
+    struct buffer lookup_stdout = {0};
+    struct buffer lookup_stderr = {0};
+    char value[256];
+    char stderr_line[256];
+    int child_exit_code = -1;
+    int child_signal = 0;
+    bool timed_out = false;
+    int rc;
+
+    *matched = false;
+    if (buffer_init(&lookup_stdout) < 0 || buffer_init(&lookup_stderr) < 0) {
+        buffer_free(&lookup_stdout);
+        buffer_free(&lookup_stderr);
+        return -1;
+    }
+    lookup_cfg.mode = "property-lookup";
+    lookup_cfg.property_key = key;
+    lookup_cfg.timeout_sec = cfg->timeout_sec > 5 ? 5 : cfg->timeout_sec;
+    if (lookup_cfg.timeout_sec <= 0) {
+        lookup_cfg.timeout_sec = 5;
+    }
+    rc = run_property_lookup(&lookup_cfg,
+                             paths,
+                             &lookup_stdout,
+                             &lookup_stderr,
+                             &child_exit_code,
+                             &child_signal,
+                             &timed_out);
+    first_sanitized_line_from_buffer(&lookup_stdout, value, sizeof(value));
+    first_sanitized_line_from_buffer(&lookup_stderr, stderr_line, sizeof(stderr_line));
+    *matched = rc == 0 &&
+               child_exit_code == 0 &&
+               child_signal == 0 &&
+               !timed_out &&
+               strcmp(value, expected) == 0;
+    rc = append_format(stdout_buf,
+                       "wlan_pd_cnss_output_visibility.property_lookup.%s.key=%s\n"
+                       "wlan_pd_cnss_output_visibility.property_lookup.%s.expected=%s\n"
+                       "wlan_pd_cnss_output_visibility.property_lookup.%s.value=%s\n"
+                       "wlan_pd_cnss_output_visibility.property_lookup.%s.rc=%d\n"
+                       "wlan_pd_cnss_output_visibility.property_lookup.%s.exit_code=%d\n"
+                       "wlan_pd_cnss_output_visibility.property_lookup.%s.signal=%d\n"
+                       "wlan_pd_cnss_output_visibility.property_lookup.%s.timed_out=%d\n"
+                       "wlan_pd_cnss_output_visibility.property_lookup.%s.match=%d\n"
+                       "wlan_pd_cnss_output_visibility.property_lookup.%s.stderr=%s\n",
+                       label, key,
+                       label, expected,
+                       label, value,
+                       label, rc,
+                       label, child_exit_code,
+                       label, child_signal,
+                       label, timed_out ? 1 : 0,
+                       label, *matched ? 1 : 0,
+                       label, stderr_line);
+    buffer_free(&lookup_stdout);
+    buffer_free(&lookup_stderr);
+    return rc;
+}
+
+static int append_wlan_pd_cnss_output_visibility_property_lookups(const struct config *cfg,
+                                                                 const struct paths *paths,
+                                                                 struct buffer *stdout_buf) {
+    bool kmsg_logging_match = false;
+    bool debug_level_match = false;
+
+    if (append_literal(stdout_buf,
+                       "wlan_pd_cnss_output_visibility.property_lookup.begin=1\n") < 0 ||
+        append_wlan_pd_cnss_output_visibility_property_lookup_one(cfg,
+                                                                  paths,
+                                                                  stdout_buf,
+                                                                  "kmsg_logging",
+                                                                  "persist.vendor.cnss-daemon.kmsg_logging",
+                                                                  "1",
+                                                                  &kmsg_logging_match) < 0 ||
+        append_wlan_pd_cnss_output_visibility_property_lookup_one(cfg,
+                                                                  paths,
+                                                                  stdout_buf,
+                                                                  "debug_level",
+                                                                  "persist.vendor.cnss-daemon.debug_level",
+                                                                  "4",
+                                                                  &debug_level_match) < 0 ||
+        append_format(stdout_buf,
+                      "wlan_pd_cnss_output_visibility.property_lookup.all_match=%d\n"
+                      "wlan_pd_cnss_output_visibility.property_lookup.end=1\n",
+                      (kmsg_logging_match && debug_level_match) ? 1 : 0) < 0) {
         return -1;
     }
     return 0;
@@ -33085,6 +33202,11 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
                        "wifi_companion_start.end=1\n");
         *child_exit_code = 124;
         return 0;
+    }
+    if (wlan_pd_cnss_output_visibility &&
+        append_wlan_pd_cnss_output_visibility_property_lookups(cfg, paths, stdout_buf) < 0) {
+        stop_property_service_shim(&property_shim, paths, stdout_buf);
+        return -1;
     }
     for (size_t i = 0; i < child_count; i++) {
         if (service74_gate_required &&

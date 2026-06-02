@@ -47,8 +47,8 @@ DEFAULT_WIFI_TEST_WATCHER_PID = "/cache/native-init-wifi-test-boot-v1393-watcher
 DEFAULT_WIFI_TEST_WATCH_SEC = 35
 DEFAULT_WIFI_TEST_SUPERVISOR_TIMEOUT_SEC = 40
 DEFAULT_WIFI_TEST_HELPER_MODE = "post-pm-observer"
-EXPECTED_HELPER_MARKER = "a90_android_execns_probe v309"
-EXPECTED_HELPER_SHA256 = "8a1b5ade562c0da6bcd14734e00cf722fe10673a5889148eacbdf98a0914dabc"
+EXPECTED_HELPER_MARKER = "a90_android_execns_probe v310"
+EXPECTED_HELPER_SHA256 = "2feb107fdc1fbeb0881d7b9eda63edcb029a00a8dee1f84109f8cd410accfb12"
 REPRODUCIBLE_MTIME = 0
 
 FORBIDDEN_BYTES = (
@@ -770,6 +770,8 @@ def verify_markers(args: argparse.Namespace) -> None:
                 "wlan_pd_cnss_output_visibility.label=%s",
                 "wlan_pd_cnss_output_visibility.expected_property.persist.vendor.cnss-daemon.kmsg_logging=1",
                 "wlan_pd_cnss_output_visibility.expected_property.persist.vendor.cnss-daemon.debug_level=4",
+                "wlan_pd_cnss_output_visibility.property_lookup.%s.value=%s",
+                "wlan_pd_cnss_output_visibility.property_lookup.all_match=%d",
                 "wlan_pd_cnss_output_visibility.no_esoc0=1",
                 "wlan_pd_cnss_output_visibility.no_forced_rc1=1",
                 "wlan_pd_cnss_output_visibility.no_service_manager=1",

@@ -11956,3 +11956,52 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
 
   Report:
   `docs/reports/NATIVE_INIT_V1689_CNSS_PROPERTY_VISIBILITY_GAP_2026-06-02.md`.
+
+## V1690 WLAN-PD CNSS Property Lookup Source Build (2026-06-02)
+
+- V1690 source/build completed.
+
+  Result:
+
+  - decision: `v1690-wlan-pd-cnss-property-lookup-source-build-pass`;
+  - init: `A90 Linux init 0.9.124 (v1690-wlan-pd-cnss-property-lookup)`;
+  - helper marker: `a90_android_execns_probe v310`;
+  - helper SHA256:
+    `2feb107fdc1fbeb0881d7b9eda63edcb029a00a8dee1f84109f8cd410accfb12`;
+  - boot artifact:
+    `tmp/wifi/v1690-wlan-pd-cnss-property-lookup-test-boot/boot_linux_v1690_wlan_pd_cnss_property_lookup.img`;
+  - boot SHA256:
+    `18f26a5fb44a14ece87911ac878ac472b385e2d45ed2632a7d6990ca4b1f36e7`;
+  - private property root:
+    `/mnt/sdext/a90/private-property-v317/v1690/dev/__properties__`.
+
+  Implementation:
+
+  - keeps the V1680 internal-modem firmware-serve route:
+    `qrtr-ns`, `pd-mapper`, `rmt_storage`, `tftp_server`,
+    `/dev/subsys_modem` holder, `cnss_diag`, stock `cnss-daemon`;
+  - before spawning the companion children, runs same-namespace
+    `/system/bin/getprop` lookups for:
+    `persist.vendor.cnss-daemon.kmsg_logging=1` and
+    `persist.vendor.cnss-daemon.debug_level=4`;
+  - emits:
+    `wlan_pd_cnss_output_visibility.property_lookup.kmsg_logging.*`,
+    `wlan_pd_cnss_output_visibility.property_lookup.debug_level.*`, and
+    `wlan_pd_cnss_output_visibility.property_lookup.all_match`;
+  - keeps PM/service-window actors, `boot_wlan` as a WLFW trigger,
+    `/dev/subsys_esoc0`, forced RC1, fake-ONLINE, MSA/BDF expansion, Wi-Fi HAL,
+    scan/connect, credentials, DHCP/routes, and external ping disabled.
+
+  Next live gate:
+
+  - deploy the V1690 private property root to the documented remote path;
+  - flash the V1690 test boot and run exactly one bounded observation window;
+  - if `property_lookup.all_match=0`, classify the result as property-runtime
+    visibility failure before interpreting cnss-daemon output;
+  - otherwise branch on the existing labels:
+    `wlfw-start-reached-downstream-block`,
+    `cnss-init-step-failed-<name>`, or `cnss-output-still-invisible`;
+  - roll back to `stage3/boot_linux_v724.img` and verify selftest `fail=0`.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1690_WLAN_PD_CNSS_PROPERTY_LOOKUP_SOURCE_BUILD_2026-06-02.md`.
