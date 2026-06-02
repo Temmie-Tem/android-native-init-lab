@@ -12532,3 +12532,67 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
 
   Report:
   `docs/reports/NATIVE_INIT_V1701_WLAN_PD_CNSS_TRACEFS_TARGET_PATH_SOURCE_BUILD_2026-06-02.md`.
+
+## V1702 WLAN-PD CNSS tracefs target-path Handoff (2026-06-02)
+
+- V1702 one-run rollbackable live handoff completed with the V1701 tracefs
+  target-path test boot.
+
+  Result:
+
+  - decision:
+    `v1702-cnss-wlfw-entry-hit-downstream-wait-rollback-pass`;
+  - rollback: `from-native`, PASS;
+  - post-rollback version: `A90 Linux init 0.9.68 (v724)`;
+  - post-rollback selftest: `fail=0`;
+  - output label: `cnss-output-still-invisible`;
+  - non-log label: `cnss-wlfw-entry-hit-downstream-wait`;
+  - property lookup:
+    `all_match=1`,
+    `persist.vendor.cnss-daemon.kmsg_logging=4`,
+    `persist.vendor.cnss-daemon.debug_level=4`;
+  - tracefs path: `/sys/kernel/debug/tracing`;
+  - uprobe register/enabled: `0` / `1`;
+  - uprobe hit count: `1`;
+  - first hit:
+    `cnss-daemon-561 [000] .... 3.572363: wlfw_start: (0x55798bac00)`;
+  - selected target:
+    `/tmp/a90-v231-546/root/vendor/bin/cnss-daemon`;
+  - selected target `access/stat`: `0` / `0`, mode `0100755`, size `95112`;
+  - `/mnt/vendor/bin/cnss-daemon` and `/vendor/bin/cnss-daemon` both returned
+    `access/stat=-2`, confirming V1700's target-path failure model;
+  - legacy firmware-serve label: `firmware-not-requested`;
+  - MHI pipe fd count / ks process count: `0` / `0`;
+  - `wlan0`: absent.
+
+  Safety:
+
+  - no service-manager, PM/service-window actors, `boot_wlan`,
+    `/dev/subsys_esoc0`, forced RC1, fake-ONLINE, Wi-Fi HAL, scan/connect,
+    credentials, DHCP/routes, or external ping were used;
+  - no PMIC/GPIO/GDSC writes, eSoC notify/`BOOT_DONE`, PCI rescan, platform
+    bind/unbind, firmware write, or partition write beyond the test boot
+    handoff and rollback were used.
+
+  Interpretation:
+
+  - stock `cnss-daemon` does reach `wlfw_start` under the internal-modem
+    firmware-serve route;
+  - V1681-V1700 missing `wlfw_start` dmesg evidence is reclassified as a
+    logging/measurement gap, not proof that `cnss-daemon` skipped
+    `wlfw_start`;
+  - the current blocker is downstream of `cnss-daemon` entry:
+    WLAN-PD/WLFW service publication is still absent, `wlanmdsp`/TFTP request
+    evidence is still absent, and `wlan0` is absent.
+
+  Next candidate:
+
+  - host/source-only first: disassemble/map the downstream `wlfw_start` wait
+    path and choose one or two non-log trace targets for `wlfw_service_request`
+    / WLFW QMI wait state;
+  - do not add PM/service-window actors, `boot_wlan`, eSoC/RC1 paths, Wi-Fi
+    HAL, scan/connect, credentials, DHCP/routes, or external ping from this
+    label.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1702_WLAN_PD_CNSS_TRACEFS_TARGET_PATH_HANDOFF_2026-06-02.md`.
