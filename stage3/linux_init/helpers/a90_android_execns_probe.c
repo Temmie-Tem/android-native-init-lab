@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v322"
+#define EXECNS_VERSION "a90_android_execns_probe v323"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -12699,7 +12699,8 @@ static int append_wlan_pd_cnss_nonlog_control_flow_summary(struct buffer *stdout
                                                            pid_t cnss_daemon_pid,
                                                            bool cnss_daemon_present,
                                                            bool cnss_daemon_observable,
-                                                           bool cnss_daemon_running) {
+                                                           bool cnss_daemon_running,
+                                                           bool service_manager_started) {
     struct cnss_nonlog_maps_summary maps;
     int cnss_process_count = count_process_cmdline_or_comm_matches("cnss-daemon", "cnss-daemon");
     int cnss_socket_fd_count = -1;
@@ -12839,10 +12840,10 @@ static int append_wlan_pd_cnss_nonlog_control_flow_summary(struct buffer *stdout
         label = "cnss-target-unavailable";
     }
 
-    if (append_literal(stdout_buf,
+    if (append_format(stdout_buf,
                        "wlan_pd_cnss_nonlog_control_flow.begin=1\n"
                        "wlan_pd_cnss_nonlog_control_flow.mode=tracefs-uprobe-or-proc-fallback\n"
-                       "wlan_pd_cnss_nonlog_control_flow.service_manager=0\n"
+                       "wlan_pd_cnss_nonlog_control_flow.service_manager=%d\n"
                        "wlan_pd_cnss_nonlog_control_flow.pm_trio=0\n"
                        "wlan_pd_cnss_nonlog_control_flow.boot_wlan=0\n"
                        "wlan_pd_cnss_nonlog_control_flow.subsys_esoc0=0\n"
@@ -12852,7 +12853,8 @@ static int append_wlan_pd_cnss_nonlog_control_flow_summary(struct buffer *stdout
                        "wlan_pd_cnss_nonlog_control_flow.scan_connect=0\n"
                        "wlan_pd_cnss_nonlog_control_flow.credentials=0\n"
                        "wlan_pd_cnss_nonlog_control_flow.dhcp_routes=0\n"
-                       "wlan_pd_cnss_nonlog_control_flow.external_ping=0\n") < 0 ||
+                       "wlan_pd_cnss_nonlog_control_flow.external_ping=0\n",
+                       service_manager_started ? 1 : 0) < 0 ||
         append_format(stdout_buf,
                       "wlan_pd_cnss_nonlog_control_flow.cnss_daemon_present=%d\n"
                       "wlan_pd_cnss_nonlog_control_flow.cnss_daemon_observable=%d\n"
@@ -13256,7 +13258,8 @@ static int append_wlan_pd_cnss_output_visibility_summary(struct buffer *stdout_b
                                                            cnss_daemon_pid,
                                                            cnss_daemon_present,
                                                            cnss_daemon_observable,
-                                                           cnss_daemon_running);
+                                                           cnss_daemon_running,
+                                                           false);
 }
 
 static void first_sanitized_line_from_buffer(const struct buffer *buf, char *out, size_t out_size) {
@@ -34217,6 +34220,21 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
                                  "/vendor/bin/vndservicemanager",
                                  COMPOSITE_ID_VND_SERVICE_MANAGER);
         }
+        if (wlan_pd_service_window_trigger) {
+            composite_child_init(&children[child_count++],
+                                 "servicemanager",
+                                 "/system/bin/servicemanager",
+                                 COMPOSITE_ID_SERVICE_MANAGER);
+            composite_child_init(&children[child_count++],
+                                 "hwservicemanager",
+                                 "/system/bin/hwservicemanager",
+                                 COMPOSITE_ID_SERVICE_MANAGER);
+            vndservicemanager_index = (int)child_count;
+            composite_child_init(&children[child_count++],
+                                 "vndservicemanager",
+                                 "/vendor/bin/vndservicemanager",
+                                 COMPOSITE_ID_VND_SERVICE_MANAGER);
+        }
         if (wlan_pd_pm_service_window_trigger) {
             composite_child_init(&children[child_count++],
                                  "pm_proxy_helper",
@@ -34572,7 +34590,8 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
         stop_property_service_shim(&property_shim, paths, stdout_buf);
         return -1;
     }
-    if (wlan_pd_cnss_output_visibility) {
+    if (wlan_pd_cnss_output_visibility ||
+        wlan_pd_service_window_trigger) {
         cnss_wlfw_uprobe_arm_global(paths);
         cnss_peripheral_uprobe_arm_global(paths);
     }
@@ -35140,6 +35159,18 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
                                                          cnss_daemon_present,
                                                          cnss_daemon_observable,
                                                          cnss_daemon_running) < 0) {
+            stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
+            composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+            stop_property_service_shim(&property_shim, paths, stdout_buf);
+            return -1;
+        }
+        if (wlan_pd_service_window_trigger &&
+            append_wlan_pd_cnss_nonlog_control_flow_summary(stdout_buf,
+                                                           cnss_daemon_pid,
+                                                           cnss_daemon_present,
+                                                           cnss_daemon_observable,
+                                                           cnss_daemon_running,
+                                                           true) < 0) {
             stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
             composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
             stop_property_service_shim(&property_shim, paths, stdout_buf);

@@ -13388,3 +13388,66 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
 
   - `docs/reports/NATIVE_INIT_V1724_CNSS_OUTPUT_VISIBLE_ROUTE_SOURCE_BUILD_2026-06-03.md`;
   - `docs/reports/NATIVE_INIT_V1725_CNSS_OUTPUT_VISIBLE_ROUTE_HANDOFF_2026-06-03.md`.
+
+## V1726/V1727 service-manager-only bootstrap gate (2026-06-03)
+
+- V1725 closed the corrected CNSS kmsg/stdout visibility route with
+  `cnss-output-still-invisible` even though the private property shim returned
+  the expected `persist.vendor.cnss-daemon.kmsg_logging=1` and debug level `4`.
+
+  Pivot:
+
+  - do not resume the PM-service/PM-trio actor march or `pm-service -22`
+    debugging;
+  - do not add `boot_wlan` as a WLFW trigger;
+  - use the prior non-log evidence from V1716/V1719/V1720 as the next bounded
+    discriminator: `cnss-daemon` reaches `wlfw_start`, enters the peripheral
+    client path, and blocks around vendor Binder default service-manager
+    acquisition.
+
+  V1726 source/build scope:
+
+  - helper: `a90_android_execns_probe v323`;
+  - helper SHA256:
+    `000551e2f6c7e6ee726298c85d9fc43cc3d584a5cfbb6bca5bf34e6ddd1825d1`;
+  - route: V1725 internal-modem firmware-serve path plus only
+    `servicemanager`, `hwservicemanager`, and VND service-manager fallback
+    (`/system/bin/servicemanager /dev/vndbinder`);
+  - evidence: `wlan_pd_service_window_trigger.*` plus
+    `wlan_pd_cnss_nonlog_control_flow.service_manager=1` and CNSS/WLFW/
+    peripheral uprobes with tracefs mounted by the test boot;
+  - excluded: PM trio, `vendor.qcom.PeripheralManager` actor, `boot_wlan`,
+    `/dev/subsys_esoc0`, forced RC1, fake-ONLINE, Wi-Fi HAL, scan/connect,
+    credentials, DHCP/routes, and external ping.
+
+  V1727 live gate:
+
+  - decision:
+    `v1727-wlfw-worker-thread-started-waiting-for-qmi-service-rollback-pass`;
+  - rollback: `from-native`, PASS;
+  - post-rollback selftest: `fail=0`;
+  - `wlan_pd_cnss_nonlog_control_flow.service_manager=1`;
+  - service-window label: `wlfw-start-reached`;
+  - non-log label: `wlfw-worker-thread-started-waiting-for-qmi-service`;
+  - `wlfw_start` hit count: `1`;
+  - `wlfw_service_request` hit count: `1`;
+  - worker create success hit count: `1`;
+  - WLFW indication-register/capability QMI hit counts: `0` / `0`;
+  - WLFW service 69 seen: `0`;
+  - requested `wlanmdsp`: `0`;
+  - interpretation: service-manager-only bootstrap moved past the old V1719
+    vendor Binder acquisition blocker, but the modem still does not publish
+    WLFW service 69 or request the WLAN-PD image.
+
+  Next candidate:
+
+  - return to WLAN-PD image request / modem-side WLFW service publication
+    evidence;
+  - do not add PM trio, `vendor.qcom.PeripheralManager` actors, `boot_wlan`,
+    eSoC/RC1, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, or external
+    ping from this result.
+
+  Reports:
+
+  - `docs/reports/NATIVE_INIT_V1726_WLAN_PD_SERVICE_MANAGER_BOOTSTRAP_SOURCE_BUILD_2026-06-03.md`;
+  - `docs/reports/NATIVE_INIT_V1727_WLAN_PD_SERVICE_MANAGER_BOOTSTRAP_HANDOFF_2026-06-03.md`.
