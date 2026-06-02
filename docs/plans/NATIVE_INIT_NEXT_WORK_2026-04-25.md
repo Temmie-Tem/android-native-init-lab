@@ -14883,3 +14883,50 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
     restart-PD, `/dev/subsys_esoc0`, forced RC1, fake-ONLINE,
     PMIC/GPIO/GDSC writes, Wi-Fi HAL, scan/connect, credentials, DHCP/routes,
     external ping, firmware writes, partition writes.
+
+## V1762 WLAN-PD helper contract-gap classifier (2026-06-03)
+
+- V1762 checks whether the current execns helper already has a narrow safe mode
+  for the V1761 service-object gap.
+
+  Source-only classifier:
+
+  - script:
+    `scripts/revalidation/native_wifi_wlan_pd_helper_contract_gap_classifier_v1762.py`;
+  - decision:
+    `v1762-helper-needs-new-narrow-service-object-mode-source-pass`;
+  - label: `new-narrow-service-object-mode-needed`;
+  - evidence: `tmp/wifi/v1762-wlan-pd-helper-contract-gap-classifier`;
+  - report:
+    `docs/reports/NATIVE_INIT_V1762_WLAN_PD_HELPER_CONTRACT_GAP_CLASSIFIER_2026-06-03.md`.
+
+  Findings:
+
+  - current helper marker is `a90_android_execns_probe v329`;
+  - the V1736 SM route mode exists and preserves the no-HAL/no-scan route;
+  - the peripheral uprobe markers already exist for null branch,
+    `asInterface`, manager register TX, and success-path observation;
+  - the only existing WLAN-PD PM service-window route is broad
+    `pm_proxy_helper,per_mgr,per_proxy` before CNSS;
+  - V1686 already falsified that broad PM route because WLFW/request progress
+    regressed and `requested_wlanmdsp=0` remained fixed;
+  - no narrow service-object-visible mode currently exists.
+
+  Interpretation:
+
+  - do not reuse `wifi-companion-wlan-pd-pm-service-window-trigger-start-only`
+    as-is for the next live gate;
+  - V1763 should add a new fail-closed helper mode first, source/build-only;
+  - the mode must preserve the V1736 SM route and add only the minimum bounded
+    service-object visibility/PM register-vote proof needed to test whether it
+    changes `requested_wlanmdsp`.
+
+  Required V1763 output keys:
+
+  - service object non-null / null branch;
+  - `asInterface` hit;
+  - manager register TX/return;
+  - PM register/vote text or equivalent non-log evidence;
+  - `requested_wlanmdsp`, WLFW service 69, and `wlan0`;
+  - explicit safety keys for no Wi-Fi HAL, no scan/connect, no credentials, no
+    DHCP/routes, no external ping, no eSoC/RC1, no restart-PD, and no writes.
