@@ -203,7 +203,18 @@ def classify_clock_vote(out_dir: Path, handoff: dict[str, Any]) -> dict[str, Any
     moved = bool(pcie1_gdsc_max_use > 0 or mdm2ap_delta > 0 or rc1_progress or mhi_progress or wlfw_progress or wlan0_present)
     if not evidence_ok:
         label = "clock-vote-surface-failed"
-        if handoff_pass and fields.get("pcie1_clock_vote.cleanup_end") == "1" and success_count == 0:
+        if (
+            handoff_pass
+            and fields.get("pcie1_clock_vote.begin") == "1"
+            and fields.get("pcie1_clock_vote.cleanup_end") == "1"
+            and success_count == 0
+            and failure_count > 0
+        ):
+            reason = (
+                f"bounded direct clock write attempts ran, but all enable writes failed "
+                f"(success_count={success_count}, failure_count={failure_count}, cleanup_failure_count={cleanup_failure_count})"
+            )
+        elif handoff_pass and fields.get("pcie1_clock_vote.cleanup_end") == "1" and success_count == 0:
             reason = (
                 "rollback and cleanup succeeded, but no clock enable write succeeded; "
                 f"target enable leaves were not observed before the bounded wait expired "
@@ -320,7 +331,16 @@ def render_report(result: dict[str, Any]) -> str:
             "driver PM path, still without scan/connect or credentials.",
         ])
     else:
-        if vote["wait_ready_count"] == 0 and vote["cleanup_failure_count"] == 0:
+        if vote["begin"] and vote["success_count"] == 0 and vote["failure_count"] > 0:
+            lines.extend([
+                "The bounded direct clock-debug write attempt executed and remained inside",
+                "the approved clock-only surface, but all target `enable` writes failed.",
+                "This closes the debugfs clock-vote surface as a practical pcie1 power-vote",
+                "mechanism. Do not keep repeating timing/readiness variants.",
+                "The next step is a new plan for a legitimate pcie1 driver PM path or a",
+                "separately approved, narrowly targeted pcie1 resource/GDSC gate.",
+            ])
+        elif vote["wait_ready_count"] == 0 and vote["cleanup_failure_count"] == 0:
             lines.extend([
                 "The separate result file was collected and rollback passed, but even the",
                 "open/read-based readiness predicate timed out. Post-cleanup `enable_read_rc=0`",

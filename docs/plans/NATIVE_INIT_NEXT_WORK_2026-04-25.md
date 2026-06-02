@@ -11370,3 +11370,39 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
 
   Report:
   `docs/reports/NATIVE_INIT_V1672_PCIE1_CLOCK_VOTE_DIRECT_ATTEMPT_SOURCE_BUILD_2026-06-02.md`.
+
+## V1673 pcie1 Clock Vote Direct Retry Handoff (2026-06-02)
+
+- V1673 rollbackable live handoff completed with rollback/selftest pass, but the
+  clock-debug vote surface classified as `v1673-clock-vote-surface-failed`.
+
+  Result:
+
+  - V1672 test boot flashed and booted as
+    `A90 Linux init 0.9.120 (v1672-pcie1-clock-vote-direct)`;
+  - rollback restored `stage3/boot_linux_v724.img`;
+  - native `selftest` returned `fail=0`;
+  - no Wi-Fi HAL, scan/connect, credentials, DHCP/routes, or external ping was
+    performed;
+  - no regulator/GDSC direct write, pci-msm `case` write, PMIC/GPIO/PERST write,
+    eSoC notify/`BOOT_DONE`, PCI rescan, or platform bind/unbind was performed.
+
+  Failure classification:
+
+  - bounded direct clock-debug write attempts executed;
+  - `pcie1_clock_vote.begin=1` and safety keys were all zero;
+  - `success_count=0`, `failure_count=10`, `cleanup_failure_count=0`;
+  - all target clock `enable` writes returned `-2` while pre/post snapshots could
+    read the target leaves;
+  - pcie1 GDSC, RC1, MHI, WLFW, BDF, FW-ready, and `wlan0` remained unmoved.
+
+  Conclusion:
+
+  - the debugfs clock-vote surface is not a viable pcie1 power-vote mechanism on
+    this stock kernel/runtime path;
+  - do not keep repeating readiness/timing variants;
+  - next work needs a new plan for a legitimate pcie1 driver PM path or a
+    separately approved, narrowly targeted pcie1 resource/GDSC gate.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1673_PCIE1_CLOCK_VOTE_DIRECT_RETRY_HANDOFF_2026-06-02.md`.
