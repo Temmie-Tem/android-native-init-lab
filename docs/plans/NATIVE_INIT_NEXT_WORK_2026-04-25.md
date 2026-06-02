@@ -14585,3 +14585,50 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
     `boot_wlan`, restart-PD, Wi-Fi HAL, scan/connect, credentials,
     DHCP/routes, and external ping until `wlanmdsp.mbn` request or WLFW service
     69 appears.
+
+## V1756 WLAN-PD PM register trace classifier (2026-06-03)
+
+- V1756 reclassified retained V1736 uprobe evidence and found a more precise
+  blocker than V1755's split-gate summary.
+
+  Host-only classifier:
+
+  - script: `scripts/revalidation/native_wifi_wlan_pd_pm_register_trace_classifier_v1756.py`;
+  - decision: `v1756-pm-register-stops-after-binder-object-check-host-pass`;
+  - label: `peripheral-manager-interface-conversion-gap`;
+  - evidence: `tmp/wifi/v1756-wlan-pd-pm-register-trace-classifier`;
+  - report:
+    `docs/reports/NATIVE_INIT_V1756_WLAN_PD_PM_REGISTER_TRACE_CLASSIFIER_2026-06-03.md`.
+
+  Key V1736 trace facts:
+
+  - `cnss-daemon` reaches `pm_client_register` call and retcheck;
+  - `libperipheral_client.so` reaches `pm_client_register`,
+    `pm_register_connect`, vndbinder init, default service-manager lookup,
+    service-manager get, and binder-object-present check;
+  - it does not reach `asInterface`, manager register transaction, success
+    path, CNSS PM handle load, `pm_client_connect`, or `wlanmdsp.mbn` request;
+  - V1736 still has `wlfw_service_request=1`, `requested_wlanmdsp=0`, and
+    firmware label `firmware-not-requested`.
+
+  Interpretation:
+
+  - the missing PM vote is not because CNSS skips PM registration;
+  - the native route fails at or immediately after the
+    `vendor.qcom.PeripheralManager` binder object compatibility/interface
+    conversion boundary;
+  - the next target is source/host-only disassembly/classification of
+    `libperipheral_client.so` between binder-object-present and `asInterface`,
+    not more actor ordering and not lower eSoC/RC1 work.
+
+  Next candidate:
+
+  - V1757 should disassemble and classify the exact branch between
+    `periph_binder_object_present_check` and `periph_as_interface_call` in
+    `tmp/wifi/v226-vendor-root-live-export/vendor-source/lib64/libperipheral_client.so`;
+  - if the branch proves interface descriptor/context mismatch, only then design
+    a narrow live gate that repairs that binder object/interface condition and
+    measures PM vote plus `wlanmdsp.mbn` request;
+  - keep blocked: eSoC/RC1, `/dev/subsys_esoc0`, `boot_wlan`, restart-PD,
+    Wi-Fi HAL, scan/connect, credentials, DHCP/routes, and external ping until
+    `wlanmdsp.mbn` request or WLFW service 69 appears.
