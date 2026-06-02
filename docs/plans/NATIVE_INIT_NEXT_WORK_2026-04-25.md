@@ -10330,3 +10330,31 @@ above (rejected as inverted causality).
 
   Report:
   `docs/reports/NATIVE_INIT_V1645_PARTITION_OWNER_INTERPRETATION_2026-06-02.md`.
+
+## V1646 Private Devnode Preflight (2026-06-02)
+
+- V1646 read-only preflight passed as
+  `v1646-private-devnode-preflight-ready`.
+
+  This gate did not create devnodes and did not read partition contents.  It only
+  confirmed selected high-priority candidates expose sysfs major/minor metadata
+  and that toybox has the helpers required for a later private SHA256-only gate
+  (`mknod`, `mkdir`, `rm`, `sha256sum`, `ls`, `cat`).
+
+  Selected candidates:
+
+  - `xbl_a`: `sdb1`, major:minor `8:17`, size `4194304`, `ro=1`.
+  - `xbl_b`: `sdc1`, major:minor `8:33`, size `4194304`, `ro=1`.
+  - `aop`: `sdd7`, major:minor `8:55`, size `524288`, `ro=1`.
+  - `devcfg`: `sdd22`, major:minor `259:9`, size `131072`, `ro=1`.
+  - `abl`: `sdd8`, major:minor `8:56`, size `4194304`, `ro=1`.
+
+  V1647 may create temporary private devnodes under ignored evidence storage,
+  compute SHA256 for these selected small candidates, remove the devnodes, and
+  document only hashes/metadata.  Raw proprietary binaries must remain out of
+  git.  V1647 must still avoid partition writes, PMIC/GPIO/GDSC writes, eSoC
+  notify/`BOOT_DONE`, PCI rescan, Wi-Fi HAL, scan/connect, credentials,
+  DHCP/routes, and external ping.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1646_PRIVATE_DEVNODE_PREFLIGHT_2026-06-02.md`.
