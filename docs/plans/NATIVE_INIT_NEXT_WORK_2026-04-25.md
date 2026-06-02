@@ -15697,3 +15697,55 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
     that comparison;
   - do not autonomously chain into PM forwarding live, WLAN-PD cascade, Wi-Fi
     HAL, scan/connect, DHCP/routes, or external ping.
+
+## V1782 PM forwarding delta classifier (2026-06-03)
+
+- V1782 performs the host-only comparison requested after V1781.
+
+  Host classifier:
+
+  - script:
+    `scripts/revalidation/native_wifi_wlan_pd_pm_forwarding_delta_classifier_v1782.py`;
+  - report:
+    `docs/reports/NATIVE_INIT_V1782_WLAN_PD_PM_FORWARDING_DELTA_CLASSIFIER_2026-06-03.md`;
+  - decision:
+    `v1782-cnss-pm-register-return-no-success-host-pass`;
+  - label:
+    `client-register-return-no-forwarding`;
+  - evidence:
+    `tmp/wifi/v1782-wlan-pd-pm-forwarding-delta-classifier`.
+
+  Result:
+
+  - V1781 closes the previous service-object-null gap:
+    `provider_seen=1`, `asInterface=1`, register/vote TX `1`;
+  - V1781 also reaches client-side register return checkpoints:
+    register TX retcheck, register-connect return, and client common return;
+  - V1781 does not reach the retained `periph_success_path`;
+  - `requested_wlanmdsp=0`, WLFW service 69 `0`, and late WLAN-PD listener
+    remains `uninit`;
+  - Android-good still proves PM register/vote before `wlanmdsp` request;
+  - retained V1768/V1769 evidence keeps the server-side boundary in
+    `pm-service` forwarding before supported-peripheral match / record-mutex
+    progress.
+
+  Classification:
+
+  - V1781 is not a service-object visibility failure anymore;
+  - it is also not a WLAN-PD cascade result because the PM client path returns
+    before success and no modem firmware request appears;
+  - the next aligned unit is source/build-only first: add a PM server
+    forwarding observer to the V1781 route, then use a separately approved
+    one-run live discriminator.
+
+  Current next candidate:
+
+  - build a V1783 rollbackable test artifact that preserves the V1781 route
+    but adds server-side `pm-service` register entry / supported-peripheral
+    match / add-client / return probes;
+  - keep client-side libperipheral probes, `requested_wlanmdsp`, WLFW service
+    69, and late WLAN-PD listener state;
+  - avoid `per_proxy` positive-control side effects unless a future gate
+    explicitly scopes them;
+  - still do not autonomously enter Wi-Fi HAL, scan/connect, credentials,
+    DHCP/routes, external ping, restart-PD, eSoC/RC1, or PMIC/GPIO/GDSC writes.
