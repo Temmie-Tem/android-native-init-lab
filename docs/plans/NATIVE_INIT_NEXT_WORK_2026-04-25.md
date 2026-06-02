@@ -13925,3 +13925,25 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
 
   Report:
   `docs/reports/NATIVE_INIT_V1740_WLAN_PD_CNSS_OUTPUT_SOURCE_HANDOFF_2026-06-03.md`.
+
+## V1741 WLAN-PD route-delta classifier (2026-06-03)
+
+- V1741 host-only route-delta classifier completed.
+
+  Result:
+
+  - decision: `v1741-service-manager-route-enables-cnss-wlfw-entry-not-wlan-pd-pass`;
+  - label: `service-manager-route-enables-cnss-wlfw-entry-not-wlan-pd`;
+  - V1740 pure internal-modem route remains `cnss-output-still-invisible` with no named pre-WLFW init failure string;
+  - V1736 service-manager route reaches `wlfw_start`, `wlfw_service_request`, and WLFW worker creation;
+  - both routes still end at `firmware-not-requested`, no WLFW service 69, no `wlanmdsp` request, and no `wlan0`;
+  - the service-manager/private-runtime surface is therefore a `cnss-daemon` entry enabler, not a WLAN-PD/WLFW publication trigger.
+
+  Next candidate:
+
+  - V1742 host-only/source-build minimization of the service-manager route;
+  - compare V1727/V1729/V1731/V1736 evidence and helper code for the minimal surface behind `wlfw_start` reachability;
+  - forbidden: PM actor expansion, `boot_wlan`, restart-PD request, `/dev/subsys_esoc0`, forced RC1, fake-ONLINE, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1741_WLAN_PD_ROUTE_DELTA_CLASSIFIER_2026-06-03.md`.
