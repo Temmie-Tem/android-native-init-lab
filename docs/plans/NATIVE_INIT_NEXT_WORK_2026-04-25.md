@@ -10398,3 +10398,34 @@ above (rejected as inverted causality).
 
   Report:
   `docs/reports/NATIVE_INIT_V1647_PRIVATE_DEVNODE_HASH_GATE_2026-06-02.md`.
+
+## V1648 Hash Interpretation / Token Scan Plan (2026-06-02)
+
+- V1648 host-only interpretation passed as
+  `v1648-bounded-token-scan-plan-ready`.
+
+  Hash interpretation:
+
+  - all five selected candidates have stable SHA256 evidence from V1647.
+  - duplicate hash groups: none.
+  - the two `xbl` slots differ, so they must be treated as separate copies or
+    versions until external comparison proves which slot is active.
+
+  V1649 should avoid raw `strings` dumps.  The next allowed content-read shape is
+  token-only bounded grep through temporary private devnodes:
+
+  ```sh
+  toybox grep -a -i -b -o -m 200 -E 'sdx|sdx50|sdxprairie|pmic|pm8150|pm8150l|pmxprairie|pon|ps_hold|mdm|mdm2ap|ap2mdm|vdd|rpmh|aop|gpio|pcie|mhi' <temporary-node>
+  ```
+
+  This emits only `offset:matched-token`, not full strings or raw binary lines.
+  Use it only to classify which artifact contains SDX/PMIC/PON vocabulary before
+  deciding whether private offline string extraction is justified.
+
+  Hard stops remain: no raw partition dump, no full `strings` output, no
+  proprietary binary commit, no partition write, no PMIC/GPIO/GDSC write, no
+  eSoC notify/`BOOT_DONE`, no PCI rescan, no Wi-Fi HAL, no scan/connect, no
+  credentials, no DHCP/routes, and no external ping.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1648_HASH_INTERPRETATION_TOKEN_SCAN_PLAN_2026-06-02.md`.
