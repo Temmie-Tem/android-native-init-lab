@@ -15439,3 +15439,54 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
   - if provider becomes visible, record CNSS milestones but stop after the
     agreed label: `asInterface`, register-TX, `wlanmdsp` request, WLFW service
     69, and `wlan0` remain evidence fields, not autonomous follow-up actions.
+
+## V1776 service-object property-contract handoff (2026-06-03)
+
+- V1776 runs the one approved rollbackable discriminator using the V1775 test
+  boot image and the dormant service-object route.
+
+  Live handoff:
+
+  - script:
+    `scripts/revalidation/native_wifi_wlan_pd_service_object_property_contract_handoff_v1776.py`;
+  - report:
+    `docs/reports/NATIVE_INIT_V1776_SERVICE_OBJECT_PROPERTY_CONTRACT_HANDOFF_2026-06-03.md`;
+  - decision:
+    `v1776-property-contract-not-materialized-rollback-pass`;
+  - evidence:
+    `tmp/wifi/v1776-service-object-property-contract-handoff`;
+  - rollback:
+    `from-native`, verified;
+  - post-rollback:
+    `selftest fail=0`.
+
+  Result:
+
+  - V1775 booted and rolled back successfully;
+  - helper contract, nonlog uprobe contract, late-listener contract, and hard
+    safety fields were present;
+  - `wifi_companion_start.peripheral_manager.property_contract=1`;
+  - `wifi_hal_composite_start.property_service_shim.allow_peripheral_shutdown_list=1`;
+  - actual `vendor.peripheral.shutdown_critical_list` values were empty;
+  - `vendor.qcom.PeripheralManager` remained hidden
+    (`provider_seen=0`, `asInterface=0`, register/vote TX `0`);
+  - `wlanmdsp` was not requested, WLFW service 69 did not appear, and `wlan0`
+    was absent.
+
+  Classification:
+
+  - this run did not reach the requested non-null service-object discriminator;
+  - the remaining gap is still route/helper property materialization, narrowly
+    the missing shutdown-critical-list values, not a modem or WLAN-PD response;
+  - do not infer anything from the absent `wlanmdsp` request in this run because
+    the PeripheralManager provider never became visible.
+
+  Current next candidate:
+
+  - host/source-only repair of the service-object route so the shim surfaces the
+    same `vendor.peripheral.shutdown_critical_list` values observed in the
+    V1092 provider-positive control (`SDX50M`, `SDX50M modem`);
+  - keep the next live retry as the same single-label discriminator after that
+    source fix;
+  - do not autonomously enter PM forwarding, WLAN-PD cascade, Wi-Fi HAL,
+    scan/connect, DHCP/routes, or external ping.
