@@ -11636,3 +11636,40 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
 
   Report:
   `docs/reports/NATIVE_INIT_V1682_WLAN_PD_SERVICE_WINDOW_MERGE_SOURCE_BUILD_2026-06-02.md`.
+
+## V1683 WLAN-PD Service-window Trigger Handoff (2026-06-02)
+
+- V1683 completed the single rollbackable live gate for the V1682 merged
+  service-window route.
+
+  Result:
+
+  - decision: `v1683-service-window-still-no-wlfw-rollback-pass`;
+  - label: `service-window-still-no-wlfw`;
+  - legacy firmware-serve label: `firmware-not-requested`;
+  - test boot flash/readback/verify: PASS;
+  - rollback to `stage3/boot_linux_v724.img`: PASS;
+  - post-rollback native verification: `A90 Linux init 0.9.68 (v724)`,
+    `selftest fail=0`;
+  - `tftp_server` running: `1`;
+  - `/dev/subsys_modem` holder opened: `1`;
+  - `cnss-daemon` started: `1`;
+  - `wlfw_start` seen: `0`;
+  - `wlfw_service_request` seen: `0`;
+  - WLFW service 69 seen: `0`;
+  - requested `wlanmdsp.mbn`: `0`;
+  - `wlan0`: absent.
+
+  Interpretation:
+
+  - the merged service-manager + internal-modem firmware-serve route did not
+    make `cnss-daemon` emit `wlfw_start` or `wlfw_service_request`;
+  - the blocker remains above WLAN-PD image request/serve: no `wlanmdsp.mbn`
+    request, no WLFW service 69, no MSA/BDF/FW-ready path;
+  - do not proceed to MSA/BDF, Wi-Fi HAL, scan/connect, DHCP/routes, credentials,
+    or external ping until WLFW service 69 or `wlfw-start-reached` appears;
+  - next work should stay host-only/read-only until a missing Android
+    property/binder/service input for `cnss-daemon wlfw_start` is identified.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1683_WLAN_PD_SERVICE_WINDOW_HANDOFF_2026-06-02.md`.
