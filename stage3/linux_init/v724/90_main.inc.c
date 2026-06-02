@@ -245,6 +245,9 @@ static int v641_prepare_firmware_mounts(void);
 #ifndef A90_WIFI_TEST_BOOT_ANDROID_SERVICE_WINDOW_PER_MGR_NONSTOP_CONTEXT_TRACE
 #define A90_WIFI_TEST_BOOT_ANDROID_SERVICE_WINDOW_PER_MGR_NONSTOP_CONTEXT_TRACE 0
 #endif
+#ifndef A90_WIFI_TEST_BOOT_ANDROID_SERVICE_WINDOW_PER_MGR_SYSTEM_INFO_SURFACE
+#define A90_WIFI_TEST_BOOT_ANDROID_SERVICE_WINDOW_PER_MGR_SYSTEM_INFO_SURFACE 0
+#endif
 #if A90_WIFI_TEST_BOOT_ANDROID_SERVICE_WINDOW_SUBSYS_TRIGGER_CAPTURE
 #define A90_V1393_WIFI_TEST_MODE "wifi-companion-android-wifi-service-window-subsys-trigger-capture"
 #elif A90_WIFI_TEST_BOOT_ANDROID_SERVICE_WINDOW
@@ -3336,6 +3339,9 @@ static int v1393_spawn_wifi_test_boot_helper(pid_t *pid_out) {
 #endif
 #if A90_WIFI_TEST_BOOT_ANDROID_SERVICE_WINDOW_PER_MGR_NONSTOP_CONTEXT_TRACE
         "--allow-android-wifi-service-window-per-mgr-nonstop-context-trace",
+#endif
+#if A90_WIFI_TEST_BOOT_ANDROID_SERVICE_WINDOW_PER_MGR_SYSTEM_INFO_SURFACE
+        "--allow-android-wifi-service-window-per-mgr-system-info-surface",
 #endif
 #endif
 #endif

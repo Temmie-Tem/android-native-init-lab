@@ -9655,3 +9655,38 @@ Samsung bootloader
   PMIC/GPIO/GDSC writes, blind eSoC notify/`BOOT_DONE`, global PCI rescan, or
   platform bind/unbind.  Report:
   `docs/reports/NATIVE_INIT_V1616_PM_SERVICE_LAUNCH_CONTRACT_CLASSIFIER_2026-06-02.md`.
+
+- V1617 source/build-only `pm-service` system-info surface test boot is
+  complete and passes as
+  `v1617-pm-service-system-info-surface-test-boot-source-build-pass`.
+
+  It bumps `a90_android_execns_probe` to v301 and builds
+  `A90 Linux init 0.9.109 (v1617-pm-service-system-info-surface)`.
+  The boot image is
+  `tmp/wifi/v1617-pm-service-system-info-surface-test-boot/boot_linux_v1617_wifi_test.img`
+  with SHA256
+  `7d9b60862a8eab04e0a0fe35b929ace255f0de669412a0cbe6262f6f0495419d`;
+  helper SHA256 is
+  `1b870e4244ba2794ee30bc113d6aa421f66dfea55a9c116139978b1b4b9e787e`.
+
+  The helper adds
+  `--allow-android-wifi-service-window-per-mgr-system-info-surface` and captures
+  read-only `pm_service_system_info_surface.*` snapshots around `per_mgr`
+  startup.  The intended classification target is exactly what
+  `libmdmdetect`/`get_system_info` can see in the private namespace:
+  `/sys/bus/msm_subsys/devices`, `/sys/bus/esoc/devices`,
+  `/sys/class/esoc-dev`, `/dev/subsys_*`, `/dev/esoc-*`, binder nodes, private
+  property root, and service-manager sockets.
+
+  This cycle performed no live execution, flash, reboot, Wi-Fi HAL start,
+  scan/connect, credentials, DHCP/routes, external ping, PMIC/GPIO/GDSC write,
+  blind eSoC notify/`BOOT_DONE`, global PCI rescan, platform bind/unbind, or
+  partition write.  It also does not reintroduce `pm-service` syscall ptrace,
+  `mdm_helper` ptrace, or direct scoped `/dev/subsys_esoc0` actor opens.
+
+  Next gate: V1618 local artifact sanity over
+  `tmp/wifi/v1617-pm-service-system-info-surface-test-boot/manifest.json`.
+  If V1618 passes, V1619 can be a rollbackable live handoff to collect the
+  `pm_service_system_info_surface.*` evidence and roll back to
+  `stage3/boot_linux_v724.img`.  Report:
+  `docs/reports/NATIVE_INIT_V1617_PM_SERVICE_SYSTEM_INFO_SURFACE_SOURCE_BUILD_2026-06-02.md`.

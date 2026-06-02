@@ -4164,3 +4164,47 @@ private property root, and service-manager sockets.  Do not reintroduce
 external ping, PMIC/GPIO/GDSC writes, blind eSoC notify/`BOOT_DONE`, global PCI
 rescan, or platform bind/unbind.  Report:
 `docs/reports/NATIVE_INIT_V1616_PM_SERVICE_LAUNCH_CONTRACT_CLASSIFIER_2026-06-02.md`.
+
+## Latest native Wi-Fi state: V1617 (2026-06-02)
+
+V1617 is source/build-only and passes as
+`v1617-pm-service-system-info-surface-test-boot-source-build-pass`.  It bumps
+`a90_android_execns_probe` to v301 and builds
+`A90 Linux init 0.9.109 (v1617-pm-service-system-info-surface)`.
+
+Artifact summary:
+
+- manifest:
+  `tmp/wifi/v1617-pm-service-system-info-surface-test-boot/manifest.json`
+- boot image:
+  `tmp/wifi/v1617-pm-service-system-info-surface-test-boot/boot_linux_v1617_wifi_test.img`
+- boot SHA256:
+  `7d9b60862a8eab04e0a0fe35b929ace255f0de669412a0cbe6262f6f0495419d`
+- init SHA256:
+  `1cd6967d597a73e6b99b762f32e67fcaba11436c0b2697c1be10a4626ff209f6`
+- helper marker: `a90_android_execns_probe v301`
+- helper SHA256:
+  `1b870e4244ba2794ee30bc113d6aa421f66dfea55a9c116139978b1b4b9e787e`
+
+Helper delta:
+
+- adds
+  `--allow-android-wifi-service-window-per-mgr-system-info-surface`.
+- preserves the PM-first late-per-proxy PPH-gated lower-marker route.
+- keeps the non-ptrace `per_mgr` startup/context branch.
+- captures read-only `pm_service_system_info_surface.*` snapshots before and
+  after `per_mgr` startup tracing.
+
+The captured surface is limited to private namespace visibility for
+`/sys/bus/msm_subsys/devices`, `/sys/bus/esoc/devices`,
+`/sys/class/esoc-dev`, `/dev/subsys_*`, `/dev/esoc-*`, binder nodes, private
+property root, and service-manager sockets.  It does not perform
+`pm-service` syscall ptrace, `mdm_helper` ptrace, direct scoped
+`/dev/subsys_esoc0` actor open, Wi-Fi HAL start, scan/connect, credentials,
+DHCP/routes, external ping, PMIC/GPIO/GDSC writes, blind eSoC
+notify/`BOOT_DONE`, global PCI rescan, platform bind/unbind, flash, reboot, or
+partition write.
+
+Next gate: V1618 local artifact sanity over the V1617 manifest, then V1619
+rollbackable live handoff if V1618 passes.  Report:
+`docs/reports/NATIVE_INIT_V1617_PM_SERVICE_SYSTEM_INFO_SURFACE_SOURCE_BUILD_2026-06-02.md`.

@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v300"
+#define EXECNS_VERSION "a90_android_execns_probe v301"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -284,6 +284,7 @@ struct config {
     bool allow_android_wifi_service_window_per_mgr_startup_trace;
     bool allow_android_wifi_service_window_per_mgr_early_exit_trace; /* v299 */
     bool allow_android_wifi_service_window_per_mgr_nonstop_context_trace; /* v300 */
+    bool allow_android_wifi_service_window_per_mgr_system_info_surface; /* v301 */
     bool require_android_selinux_exec_match;
     bool pm_observer_zero_delay_per_mgr_probe;
     bool pm_observer_continue_after_provider;
@@ -503,6 +504,7 @@ static void usage(FILE *out) {
             "[--allow-android-wifi-service-window-pm-first-route] "
             "[--allow-android-wifi-service-window-pm-first-late-per-proxy-route] "
             "[--allow-android-wifi-service-window-pph-modem-fd-gate] "
+            "[--allow-android-wifi-service-window-per-mgr-system-info-surface] "
             "[--result-output-path <path>] "
             "[--pm-observer-continue-after-provider] "
             "[--pm-observer-start-cnss-after-provider] "
@@ -1518,6 +1520,10 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             cfg->allow_android_wifi_service_window_per_mgr_nonstop_context_trace = true;
             continue;
         }
+        if (strcmp(argv[i], "--allow-android-wifi-service-window-per-mgr-system-info-surface") == 0) {
+            cfg->allow_android_wifi_service_window_per_mgr_system_info_surface = true;
+            continue;
+        }
         if (strcmp(argv[i], "--require-android-selinux-exec-match") == 0) {
             cfg->require_android_selinux_exec_match = true;
             continue;
@@ -2384,6 +2390,21 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
     if (cfg->allow_android_wifi_service_window_per_mgr_nonstop_context_trace &&
         !streq(cfg->capture_mode, "none")) {
         fprintf(stderr, "--allow-android-wifi-service-window-per-mgr-nonstop-context-trace requires --capture-mode none\n");
+        return 2;
+    }
+    if (cfg->allow_android_wifi_service_window_per_mgr_system_info_surface &&
+        !cfg->allow_android_wifi_service_window_per_mgr_startup_trace) {
+        fprintf(stderr, "--allow-android-wifi-service-window-per-mgr-system-info-surface requires --allow-android-wifi-service-window-per-mgr-startup-trace\n");
+        return 2;
+    }
+    if (cfg->allow_android_wifi_service_window_per_mgr_system_info_surface &&
+        cfg->allow_android_wifi_service_window_per_mgr_early_exit_trace) {
+        fprintf(stderr, "--allow-android-wifi-service-window-per-mgr-system-info-surface is mutually exclusive with --allow-android-wifi-service-window-per-mgr-early-exit-trace\n");
+        return 2;
+    }
+    if (cfg->allow_android_wifi_service_window_per_mgr_system_info_surface &&
+        !streq(cfg->capture_mode, "none")) {
+        fprintf(stderr, "--allow-android-wifi-service-window-per-mgr-system-info-surface requires --capture-mode none\n");
         return 2;
     }
     if (!is_cnss_service_manager_matrix_order(cfg->service_manager_order)) {
@@ -24831,6 +24852,143 @@ static int append_mdm_helper_provider_readiness_snapshot(struct buffer *buf,
                          phase);
 }
 
+static int append_pm_service_system_info_surface_file(struct buffer *buf,
+                                                      const char *phase,
+                                                      const char *label,
+                                                      const char *path) {
+    char capture_label[192];
+    bool captured = false;
+
+    if (snprintf(capture_label,
+                 sizeof(capture_label),
+                 "pm_service_system_info_%s_%s",
+                 phase,
+                 label) >= (int)sizeof(capture_label)) {
+        return -1;
+    }
+    if (append_path_file_capture_named(buf, path, capture_label, 4096, &captured) < 0) {
+        return -1;
+    }
+    return append_format(buf,
+                         "pm_service_system_info_surface.%s.file.%s.captured=%d\n",
+                         phase,
+                         label,
+                         captured ? 1 : 0);
+}
+
+static int append_pm_service_system_info_surface_dir(struct buffer *buf,
+                                                     const char *phase,
+                                                     const char *label,
+                                                     const char *path,
+                                                     bool filter_interesting,
+                                                     int max_entries) {
+    char capture_label[192];
+    bool captured = false;
+
+    if (snprintf(capture_label,
+                 sizeof(capture_label),
+                 "pm_service_system_info_%s_%s",
+                 phase,
+                 label) >= (int)sizeof(capture_label)) {
+        return -1;
+    }
+    if (append_dir_capture_named(buf,
+                                 path,
+                                 capture_label,
+                                 filter_interesting,
+                                 max_entries,
+                                 &captured) < 0) {
+        return -1;
+    }
+    return append_format(buf,
+                         "pm_service_system_info_surface.%s.dir.%s.captured=%d\n",
+                         phase,
+                         label,
+                         captured ? 1 : 0);
+}
+
+static int append_pm_service_system_info_surface_snapshot(struct buffer *buf,
+                                                          const struct paths *paths,
+                                                          const char *phase) {
+    char dev_subsys_modem[MAX_PATH_LEN];
+    char dev_subsys_esoc0[MAX_PATH_LEN];
+    char dev_esoc0[MAX_PATH_LEN];
+    char msm_subsys_subsys0[MAX_PATH_LEN];
+    char msm_subsys_subsys0_name[MAX_PATH_LEN];
+    char msm_subsys_subsys0_state[MAX_PATH_LEN];
+    char msm_subsys_subsys9[MAX_PATH_LEN];
+    char msm_subsys_subsys9_name[MAX_PATH_LEN];
+    char msm_subsys_subsys9_state[MAX_PATH_LEN];
+    char esoc0_dir[MAX_PATH_LEN];
+    char esoc0_name[MAX_PATH_LEN];
+    char esoc0_link[MAX_PATH_LEN];
+    char esoc0_link_info[MAX_PATH_LEN];
+
+    if (append_path(dev_subsys_modem, sizeof(dev_subsys_modem), paths->dev, "subsys_modem") < 0 ||
+        append_path(dev_subsys_esoc0, sizeof(dev_subsys_esoc0), paths->dev, "subsys_esoc0") < 0 ||
+        append_path(dev_esoc0, sizeof(dev_esoc0), paths->dev, "esoc-0") < 0 ||
+        append_path(msm_subsys_subsys0, sizeof(msm_subsys_subsys0), paths->sys_bus_msm_subsys, "devices/subsys0") < 0 ||
+        append_path(msm_subsys_subsys0_name, sizeof(msm_subsys_subsys0_name), msm_subsys_subsys0, "name") < 0 ||
+        append_path(msm_subsys_subsys0_state, sizeof(msm_subsys_subsys0_state), msm_subsys_subsys0, "state") < 0 ||
+        append_path(msm_subsys_subsys9, sizeof(msm_subsys_subsys9), paths->sys_bus_msm_subsys, "devices/subsys9") < 0 ||
+        append_path(msm_subsys_subsys9_name, sizeof(msm_subsys_subsys9_name), msm_subsys_subsys9, "name") < 0 ||
+        append_path(msm_subsys_subsys9_state, sizeof(msm_subsys_subsys9_state), msm_subsys_subsys9, "state") < 0 ||
+        append_path(esoc0_dir, sizeof(esoc0_dir), paths->sys_bus_esoc, "devices/esoc0") < 0 ||
+        append_path(esoc0_name, sizeof(esoc0_name), esoc0_dir, "esoc_name") < 0 ||
+        append_path(esoc0_link, sizeof(esoc0_link), esoc0_dir, "esoc_link") < 0 ||
+        append_path(esoc0_link_info, sizeof(esoc0_link_info), esoc0_dir, "esoc_link_info") < 0) {
+        return append_format(buf,
+                             "pm_service_system_info_surface.%s.error=path-too-long\n"
+                             "pm_service_system_info_surface.%s.end=1\n",
+                             phase,
+                             phase);
+    }
+    if (append_format(buf,
+                      "pm_service_system_info_surface.%s.begin=1\n"
+                      "pm_service_system_info_surface.%s.monotonic_ms=%ld\n"
+                      "pm_service_system_info_surface.%s.snapshot_only=1\n"
+                      "pm_service_system_info_surface.%s.no_ioctl=1\n"
+                      "pm_service_system_info_surface.%s.no_subsys_open=1\n",
+                      phase,
+                      phase,
+                      monotonic_ms(),
+                      phase,
+                      phase,
+                      phase) < 0 ||
+        append_mdm_helper_provider_path_status(buf, phase, "dev_subsys_modem", dev_subsys_modem) < 0 ||
+        append_mdm_helper_provider_path_status(buf, phase, "dev_subsys_esoc0", dev_subsys_esoc0) < 0 ||
+        append_mdm_helper_provider_path_status(buf, phase, "dev_esoc0", dev_esoc0) < 0 ||
+        append_mdm_helper_provider_path_status(buf, phase, "dev_vndbinder", paths->dev_vndbinder) < 0 ||
+        append_mdm_helper_provider_path_status(buf, phase, "dev_binder", paths->dev_binder) < 0 ||
+        append_mdm_helper_provider_path_status(buf, phase, "dev_hwbinder", paths->dev_hwbinder) < 0 ||
+        append_mdm_helper_provider_path_status(buf, phase, "property_service_socket", paths->property_service_socket) < 0 ||
+        append_mdm_helper_provider_path_status(buf, phase, "dev_properties", paths->dev_properties) < 0 ||
+        append_mdm_helper_provider_path_status(buf, phase, "sys_bus_msm_subsys_devices", paths->sys_bus_msm_subsys) < 0 ||
+        append_mdm_helper_provider_path_status(buf, phase, "sys_bus_esoc_devices", paths->sys_bus_esoc) < 0 ||
+        append_mdm_helper_provider_path_status(buf, phase, "sys_class_esoc_dev", paths->sys_class_esoc_dev) < 0 ||
+        append_mdm_helper_provider_path_status(buf, phase, "subsys0", msm_subsys_subsys0) < 0 ||
+        append_mdm_helper_provider_path_status(buf, phase, "subsys9", msm_subsys_subsys9) < 0 ||
+        append_mdm_helper_provider_path_status(buf, phase, "esoc0", esoc0_dir) < 0 ||
+        append_pm_service_system_info_surface_dir(buf, phase, "dev_filtered", paths->dev, true, 128) < 0 ||
+        append_pm_service_system_info_surface_dir(buf, phase, "dev_socket_filtered", paths->dev_socket, true, 128) < 0 ||
+        append_pm_service_system_info_surface_dir(buf, phase, "dev_properties", paths->dev_properties, false, 128) < 0 ||
+        append_pm_service_system_info_surface_dir(buf, phase, "msm_subsys_devices", paths->sys_bus_msm_subsys, false, 128) < 0 ||
+        append_pm_service_system_info_surface_dir(buf, phase, "esoc_devices", paths->sys_bus_esoc, false, 128) < 0 ||
+        append_pm_service_system_info_surface_dir(buf, phase, "esoc_class_dev", paths->sys_class_esoc_dev, false, 128) < 0 ||
+        append_pm_service_system_info_surface_file(buf, phase, "subsys0_name", msm_subsys_subsys0_name) < 0 ||
+        append_pm_service_system_info_surface_file(buf, phase, "subsys0_state", msm_subsys_subsys0_state) < 0 ||
+        append_pm_service_system_info_surface_file(buf, phase, "subsys9_name", msm_subsys_subsys9_name) < 0 ||
+        append_pm_service_system_info_surface_file(buf, phase, "subsys9_state", msm_subsys_subsys9_state) < 0 ||
+        append_pm_service_system_info_surface_file(buf, phase, "esoc0_name", esoc0_name) < 0 ||
+        append_pm_service_system_info_surface_file(buf, phase, "esoc0_link", esoc0_link) < 0 ||
+        append_pm_service_system_info_surface_file(buf, phase, "esoc0_link_info", esoc0_link_info) < 0) {
+        return -1;
+    }
+    return append_format(buf,
+                         "pm_service_system_info_surface.%s.end=1\n",
+                         phase);
+}
+
 
 static bool composite_child_runtime_gap(const struct composite_child *child, bool timed_out) {
     if (timed_out && child->observable && child->term_sent && !child->exited_before_timeout) {
@@ -39617,6 +39775,8 @@ static int run_wifi_companion_android_wifi_service_window_guarded(const struct c
         cfg->allow_android_wifi_service_window_per_mgr_startup_trace;
     const bool per_mgr_nonstop_context_trace =
         cfg->allow_android_wifi_service_window_per_mgr_nonstop_context_trace;
+    const bool per_mgr_system_info_surface =
+        cfg->allow_android_wifi_service_window_per_mgr_system_info_surface;
     const bool stripped_no_hal_route = pm_first_route || pm_first_late_per_proxy_route;
     const bool direct_subsys_trigger =
         is_wifi_companion_android_wifi_service_window_subsys_trigger_capture_mode(cfg->mode) &&
@@ -39838,6 +39998,9 @@ static int run_wifi_companion_android_wifi_service_window_guarded(const struct c
         append_format(stdout_buf,
                       "android_wifi_service_window.per_mgr_nonstop_context_trace=%d\n",
                       per_mgr_nonstop_context_trace ? 1 : 0) < 0 ||
+        append_format(stdout_buf,
+                      "android_wifi_service_window.per_mgr_system_info_surface=%d\n",
+                      per_mgr_system_info_surface ? 1 : 0) < 0 ||
         append_literal(stdout_buf, "android_wifi_service_window.mdm_helper_start_planned=1\n") < 0 ||
         append_literal(stdout_buf, "android_wifi_service_window.cnss_daemon_start_planned=1\n") < 0 ||
         append_literal(stdout_buf, "android_wifi_service_window.qcwlanstate_write=0\n") < 0 ||
@@ -40016,6 +40179,14 @@ static int run_wifi_companion_android_wifi_service_window_guarded(const struct c
             long settle_deadline = monotonic_ms() + 700L;
 
             if (per_mgr_startup_trace) {
+                if (per_mgr_system_info_surface &&
+                    append_pm_service_system_info_surface_snapshot(stdout_buf,
+                                                                   paths,
+                                                                   "per_mgr_pre_startup_trace") < 0) {
+                    composite_cleanup_children(children, i + 1U, stdout_buf, stderr_buf);
+                    stop_property_service_shim(&property_shim, paths, stdout_buf);
+                    return -1;
+                }
                 if (per_mgr_nonstop_context_trace &&
                     (append_wifi_registry_context_snapshot(stdout_buf,
                                                            "per_mgr_pre_startup_trace",
@@ -40047,6 +40218,14 @@ static int run_wifi_companion_android_wifi_service_window_guarded(const struct c
                      append_wifi_runtime_surface_snapshot(stdout_buf,
                                                           paths,
                                                           "android_wifi_service_window.runtime_per_mgr_post_startup_trace") < 0)) {
+                    composite_cleanup_children(children, i + 1U, stdout_buf, stderr_buf);
+                    stop_property_service_shim(&property_shim, paths, stdout_buf);
+                    return -1;
+                }
+                if (per_mgr_system_info_surface &&
+                    append_pm_service_system_info_surface_snapshot(stdout_buf,
+                                                                   paths,
+                                                                   "per_mgr_post_startup_trace") < 0) {
                     composite_cleanup_children(children, i + 1U, stdout_buf, stderr_buf);
                     stop_property_service_shim(&property_shim, paths, stdout_buf);
                     return -1;
@@ -40582,6 +40761,7 @@ static int run_wifi_companion_android_wifi_service_window_guarded(const struct c
                   "android_wifi_service_window.pph_modem_fd_gate=%d\n"
                   "android_wifi_service_window.per_mgr_early_exit_trace=%d\n"
                   "android_wifi_service_window.per_mgr_nonstop_context_trace=%d\n"
+                  "android_wifi_service_window.per_mgr_system_info_surface=%d\n"
                   "android_wifi_service_window.pph_modem_fd_gate_seen=%d\n"
                   "android_wifi_service_window.pph_modem_fd_gate_samples=%d\n"
                   "android_wifi_service_window.pph_modem_fd_gate_first_seen_ms=%d\n"
@@ -40604,6 +40784,7 @@ static int run_wifi_companion_android_wifi_service_window_guarded(const struct c
                   pph_modem_fd_gate ? 1 : 0,
                   cfg->allow_android_wifi_service_window_per_mgr_early_exit_trace ? 1 : 0,
                   per_mgr_nonstop_context_trace ? 1 : 0,
+                  per_mgr_system_info_surface ? 1 : 0,
                   pph_modem_fd_gate_seen,
                   pph_modem_fd_gate_samples,
                   pph_modem_fd_gate_first_seen_ms,
@@ -40967,6 +41148,8 @@ int main(int argc, char **argv) {
            cfg.allow_android_wifi_service_window_per_mgr_early_exit_trace ? 1 : 0);
     printf("allow_android_wifi_service_window_per_mgr_nonstop_context_trace=%d\n",
            cfg.allow_android_wifi_service_window_per_mgr_nonstop_context_trace ? 1 : 0);
+    printf("allow_android_wifi_service_window_per_mgr_system_info_surface=%d\n",
+           cfg.allow_android_wifi_service_window_per_mgr_system_info_surface ? 1 : 0);
     printf("connect_config=%s\n", cfg.connect_config != NULL ? cfg.connect_config : "<none>");
     printf("connect_iface=%s\n", cfg.connect_iface != NULL ? cfg.connect_iface : "<none>");
     printf("ping_target=%s\n", cfg.ping_target != NULL ? cfg.ping_target : "<none>");
