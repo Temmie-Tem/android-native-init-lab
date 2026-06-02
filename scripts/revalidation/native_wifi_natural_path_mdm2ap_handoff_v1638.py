@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""V1635 one-run natural-path MDM2AP IRQ-summary handoff.
+"""V1638 one-run natural-path MDM2AP IRQ-summary handoff.
 
-This flashes the V1633 test boot artifact, collects the PID1 window-level
+This flashes the V1636 test boot artifact, collects the PID1 window-level
 ``mdm2ap_timing.*`` IRQ summary, rolls back to v724, and classifies with the
 strict V1632 natural-path rules.
 """
@@ -18,35 +18,35 @@ from a90harness.evidence import write_private_text
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_OUT_DIR = REPO_ROOT / "tmp" / "wifi" / "v1635-natural-path-mdm2ap-irq-summary-handoff"
+DEFAULT_OUT_DIR = REPO_ROOT / "tmp" / "wifi" / "v1638-natural-path-mdm2ap-irq-summary-handoff"
 DEFAULT_REPORT_PATH = (
     REPO_ROOT
     / "docs"
     / "reports"
-    / "NATIVE_INIT_V1635_NATURAL_PATH_MDM2AP_IRQ_SUMMARY_HANDOFF_2026-06-02.md"
+    / "NATIVE_INIT_V1638_NATURAL_PATH_MDM2AP_IRQ_SUMMARY_HANDOFF_2026-06-02.md"
 )
-DEFAULT_V1634_MANIFEST = (
+DEFAULT_V1637_MANIFEST = (
     REPO_ROOT
     / "tmp"
     / "wifi"
-    / "v1634-natural-path-mdm2ap-irq-summary-artifact-sanity"
+    / "v1637-natural-path-mdm2ap-irq-summary-artifact-sanity"
     / "manifest.json"
 )
 DEFAULT_TEST_IMAGE = (
     REPO_ROOT
     / "tmp"
     / "wifi"
-    / "v1633-natural-path-mdm2ap-irq-summary-test-boot"
-    / "boot_linux_v1633_natural_mdm2ap_irq_summary.img"
+    / "v1636-natural-path-mdm2ap-irq-summary-test-boot"
+    / "boot_linux_v1636_natural_mdm2ap_irq_summary.img"
 )
-TEST_EXPECT_VERSION = "A90 Linux init 0.9.113 (v1633-natural-mdm2ap-irq-summary)"
-DEFAULT_TEST_LOG_PATH = "/cache/native-init-wifi-test-boot-v1633.log"
-DEFAULT_TEST_SUMMARY_PATH = "/cache/native-init-wifi-test-boot-v1633.summary"
-DEFAULT_TEST_HELPER_RESULT_PATH = "/cache/native-init-wifi-test-boot-v1633-helper.result"
-DEFAULT_TEST_WATCHER_PATH = "/cache/native-init-wifi-test-boot-v1633-natural-watcher.result"
-DEFAULT_TEST_WINDOW_PATH = "/cache/native-init-wifi-test-boot-v1633-natural-window.result"
+TEST_EXPECT_VERSION = "A90 Linux init 0.9.114 (v1636-natural-mdm2ap-irq-summary)"
+DEFAULT_TEST_LOG_PATH = "/cache/native-init-wifi-test-boot-v1636.log"
+DEFAULT_TEST_SUMMARY_PATH = "/cache/native-init-wifi-test-boot-v1636.summary"
+DEFAULT_TEST_HELPER_RESULT_PATH = "/cache/native-init-wifi-test-boot-v1636-helper.result"
+DEFAULT_TEST_WATCHER_PATH = "/cache/native-init-wifi-test-boot-v1636-natural-watcher.result"
+DEFAULT_TEST_WINDOW_PATH = "/cache/native-init-wifi-test-boot-v1636-natural-window.result"
 DEFAULT_DMESG_PATTERN = (
-    "A90v1633|subsystem_get|mdm_subsys_powerup|sdx50m_toggle_soft_reset|"
+    "A90v1636|subsystem_get|mdm_subsys_powerup|sdx50m_toggle_soft_reset|"
     "pil_notif|fw=esoc0|gpio_value|gpio_direction|GPIO142|mdm status|"
     "mdm errfatal|PCIe RC1|LTSSM|mhi|MHI|wlfw|WLFW|BDF|FW ready|wlan0|ks"
 )
@@ -77,11 +77,11 @@ def write_json(path: Path, value: dict) -> None:
 def render_report(result: dict) -> str:
     observation = result["natural_path_observation"]
     lines = [
-        "# Native Init V1635 Natural-path MDM2AP IRQ Summary Handoff",
+        "# Native Init V1638 Natural-path MDM2AP IRQ Summary Handoff",
         "",
         "## Summary",
         "",
-        "- Cycle: `V1635`",
+        "- Cycle: `V1638`",
         "- Type: one-run rollbackable natural-path live observation",
         f"- Decision: `{result['decision']}`",
         f"- Result: {'PASS' if result['pass'] else 'BLOCKED'}",
@@ -156,13 +156,13 @@ def render_report(result: dict) -> str:
 def build_base_argv(args: argparse.Namespace) -> list[str]:
     return [
         "--cycle",
-        "V1635",
+        "V1638",
         "--out-dir",
         str(args.out_dir),
         "--report-path",
         str(args.report_path),
         "--v1394-manifest",
-        str(args.v1634_manifest),
+        str(args.v1637_manifest),
         "--test-image",
         str(args.test_image),
         "--expect-test-version",
@@ -191,7 +191,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out-dir", type=Path, default=DEFAULT_OUT_DIR)
     parser.add_argument("--report-path", type=Path, default=DEFAULT_REPORT_PATH)
-    parser.add_argument("--v1634-manifest", type=Path, default=DEFAULT_V1634_MANIFEST)
+    parser.add_argument("--v1637-manifest", type=Path, default=DEFAULT_V1637_MANIFEST)
     parser.add_argument("--test-image", type=Path, default=DEFAULT_TEST_IMAGE)
     parser.add_argument("--post-boot-hold-sec", type=float, default=100.0)
     parser.add_argument("--collect-timeout-sec", type=float, default=180.0)
@@ -209,7 +209,7 @@ def main() -> int:
     handoff = read_json(manifest_path)
     if not handoff:
         print(json.dumps({
-            "decision": "v1635-natural-path-handoff-manifest-missing",
+            "decision": "v1638-natural-path-handoff-manifest-missing",
             "pass": False,
             "base_rc": base_rc,
         }, indent=2))
@@ -218,7 +218,7 @@ def main() -> int:
     observation = v1632.classify_natural_path(args.out_dir, handoff)
     result = dict(handoff)
     result.update({
-        "decision": f"v1635-{observation['label']}",
+        "decision": f"v1638-{observation['label']}",
         "pass": bool(observation["pass"]),
         "reason": observation["reason"],
         "natural_path_observation": observation,

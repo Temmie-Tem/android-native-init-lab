@@ -154,11 +154,19 @@ def classify_natural_path(out_dir: Path, handoff: dict[str, Any]) -> dict[str, A
 
     gpio142_irq_delta = int_field(fields, "mdm2ap_timing.gpio142_irq_delta")
     errfatal_irq_delta = int_field(fields, "mdm2ap_timing.errfatal_irq_delta")
+    gpio142_irq_initial_parsed = int_field(fields, "mdm2ap_timing.gpio142_irq_initial_parsed", 0) == 1
+    errfatal_irq_initial_parsed = int_field(fields, "mdm2ap_timing.errfatal_irq_initial_parsed", 0) == 1
     sample_count = int_field(fields, "mdm2ap_timing.sample_count", 0)
     timing_begin = fields.get("mdm2ap_timing.begin", "")
     timing_end = fields.get("mdm2ap_timing.end", "")
     timing_powerup_seen = fields.get("mdm2ap_timing.pm_service_powerup_seen") == "1"
-    timing_complete = bool(timing_begin and timing_end and sample_count >= 120)
+    timing_complete = bool(
+        timing_begin
+        and timing_end
+        and sample_count >= 120
+        and gpio142_irq_initial_parsed
+        and errfatal_irq_initial_parsed
+    )
     safety_values = {key: int_field(fields, key, 0) for key in SAFETY_ZERO_KEYS if key in fields}
     safety_zero = all(value == 0 for value in safety_values.values())
 
@@ -249,6 +257,8 @@ def classify_natural_path(out_dir: Path, handoff: dict[str, Any]) -> dict[str, A
         "gpio142_trace_seen": gpio142_trace_seen,
         "gpio142_irq_delta": gpio142_irq_delta,
         "errfatal_irq_delta": errfatal_irq_delta,
+        "gpio142_irq_initial_parsed": gpio142_irq_initial_parsed,
+        "errfatal_irq_initial_parsed": errfatal_irq_initial_parsed,
         "mdm_status_zero_sample_count": mdm_status_zero_sample_count,
         "errfatal_zero_sample_count": errfatal_zero_sample_count,
         "gpio142_low_sample_count": gpio142_low_sample_count,
@@ -299,6 +309,8 @@ def render_report(result: dict[str, Any]) -> str:
         f"- `gpio142_trace_seen`: `{observation['gpio142_trace_seen']}`",
         f"- `gpio142_irq_delta`: `{observation['gpio142_irq_delta']}`",
         f"- `errfatal_irq_delta`: `{observation['errfatal_irq_delta']}`",
+        f"- `gpio142_irq_initial_parsed`: `{observation['gpio142_irq_initial_parsed']}`",
+        f"- `errfatal_irq_initial_parsed`: `{observation['errfatal_irq_initial_parsed']}`",
         f"- `mdm_status_zero_sample_count`: `{observation['mdm_status_zero_sample_count']}`",
         f"- `errfatal_zero_sample_count`: `{observation['errfatal_zero_sample_count']}`",
         f"- `gpio142_low_sample_count`: `{observation['gpio142_low_sample_count']}`",

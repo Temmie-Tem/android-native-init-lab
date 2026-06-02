@@ -1479,36 +1479,52 @@ static unsigned long v1633_parse_irq_count_total(char *line) {
 }
 
 static struct v1633_natural_irq_snapshot v1633_collect_irq_snapshot(const char *needle) {
-    static char buffer[65536];
     struct v1633_natural_irq_snapshot snapshot = {0, 0};
     int file_fd = open("/proc/interrupts", O_RDONLY | O_CLOEXEC);
-    ssize_t bytes_read;
-    char *line;
+    char chunk[512];
+    char line[512];
+    size_t line_len = 0;
 
     if (file_fd < 0) {
         return snapshot;
     }
-    bytes_read = read(file_fd, buffer, sizeof(buffer) - 1);
-    close(file_fd);
-    if (bytes_read <= 0) {
-        return snapshot;
-    }
-    buffer[bytes_read] = '\0';
-    line = buffer;
-    while (line != NULL && *line != '\0') {
-        char *next_line = strchr(line, '\n');
 
-        if (next_line != NULL) {
-            *next_line = '\0';
-            next_line++;
+    for (;;) {
+        ssize_t bytes_read = read(file_fd, chunk, sizeof(chunk));
+        ssize_t offset;
+
+        if (bytes_read == 0) {
+            break;
         }
+        if (bytes_read < 0) {
+            close(file_fd);
+            return snapshot;
+        }
+        for (offset = 0; offset < bytes_read; offset++) {
+            char ch = chunk[offset];
+
+            if (ch == '\n' || line_len + 1 >= sizeof(line)) {
+                line[line_len] = '\0';
+                if (strstr(line, needle) != NULL) {
+                    snapshot.parsed = 1;
+                    snapshot.count_total = v1633_parse_irq_count_total(line);
+                    close(file_fd);
+                    return snapshot;
+                }
+                line_len = 0;
+                continue;
+            }
+            line[line_len++] = ch;
+        }
+    }
+    if (line_len > 0) {
+        line[line_len] = '\0';
         if (strstr(line, needle) != NULL) {
             snapshot.parsed = 1;
             snapshot.count_total = v1633_parse_irq_count_total(line);
-            return snapshot;
         }
-        line = next_line;
     }
+    close(file_fd);
     return snapshot;
 }
 
