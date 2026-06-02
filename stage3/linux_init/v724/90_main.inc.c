@@ -2110,11 +2110,10 @@ static int v1664_pcie1_clock_vote_begin(long start_ms) {
     int success_count = 0;
     int rate_success_count = 0;
     int failure_count = 0;
+    int wait_ready_rc;
 
     v1664_pcie1_clock_vote_start_ms = start_ms;
-    if (v1664_pcie1_clock_vote_wait_ready(start_ms) < 0) {
-        return -ENOENT;
-    }
+    wait_ready_rc = v1664_pcie1_clock_vote_wait_ready(start_ms);
     v1664_pcie1_clock_vote_snapshot("pre", start_ms);
     out_fd = v1664_pcie1_clock_vote_open_result();
     if (out_fd < 0) {
@@ -2122,6 +2121,7 @@ static int v1664_pcie1_clock_vote_begin(long start_ms) {
     }
     dprintf(out_fd,
             "pcie1_clock_vote.begin=1\n"
+            "pcie1_clock_vote.wait_ready_rc=%d\n"
             "pcie1_clock_vote.mode=bounded-clock-debug-vote-surface-proof\n"
             "pcie1_clock_vote.allowed_clock_debug_writes=1\n"
             "pcie1_clock_vote.safety_regulator_write=0\n"
@@ -2138,7 +2138,8 @@ static int v1664_pcie1_clock_vote_begin(long start_ms) {
             "pcie1_clock_vote.safety_scan_connect=0\n"
             "pcie1_clock_vote.safety_credentials=0\n"
             "pcie1_clock_vote.safety_dhcp_route=0\n"
-            "pcie1_clock_vote.safety_external_ping=0\n");
+            "pcie1_clock_vote.safety_external_ping=0\n",
+            wait_ready_rc);
     for (size_t index = 0;
          index < sizeof(v1664_pcie1_clock_vote_targets) / sizeof(v1664_pcie1_clock_vote_targets[0]);
          index++) {

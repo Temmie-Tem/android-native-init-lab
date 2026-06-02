@@ -11338,3 +11338,35 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
 
   Report:
   `docs/reports/NATIVE_INIT_V1671_PCIE1_CLOCK_VOTE_READINESS_RETRY_HANDOFF_2026-06-02.md`.
+
+## V1672 pcie1 Clock Vote Direct Attempt Source Build (2026-06-02)
+
+- V1672 source/build-only harness repair passed as
+  `v1672-pcie1-clock-vote-direct-attempt-source-build-pass`.
+
+  Repair:
+
+  - keeps bounded readiness logging, but no longer aborts the vote when
+    readiness count remains zero;
+  - records `pcie1_clock_vote.wait_ready_rc` and proceeds to targeted `rate` and
+    `enable` writes so the live evidence captures actual write rc values;
+  - cleanup still disables only clocks successfully enabled by the test boot;
+  - all previous hard stops remain unchanged.
+
+  Artifact:
+
+  - init: `A90 Linux init 0.9.120 (v1672-pcie1-clock-vote-direct)`;
+  - boot image:
+    `tmp/wifi/v1672-pcie1-clock-vote-direct-attempt-test-boot/boot_linux_v1672_pcie1_clock_vote_direct.img`;
+  - boot SHA256:
+    `63dbe92e64631cb9d493022cae5097e3979825b6f44f48e8341158de48c10571`.
+
+  Next unit:
+
+  - V1673 one rollbackable live handoff with V1672 image;
+  - collect normal RC1 window plus the V1672 separate clock-vote result;
+  - restore `stage3/boot_linux_v724.img`;
+  - verify native `selftest fail=0`.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1672_PCIE1_CLOCK_VOTE_DIRECT_ATTEMPT_SOURCE_BUILD_2026-06-02.md`.
