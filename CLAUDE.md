@@ -3734,3 +3734,52 @@ DHCP/routes, external ping, PMIC/GPIO/GDSC direct writes, blind eSoC
 notify/`BOOT_DONE`, global PCI rescan, platform bind/unbind, or unbounded
 boot-image/partition writes.  Report:
 `docs/reports/NATIVE_INIT_V1599_PM_FIRST_LATE_PER_PROXY_LOWER_MARKER_HANDOFF_2026-06-02.md`.
+
+## Latest native Wi-Fi state: V1600/V1601 (2026-06-02)
+
+V1600 implements the V1599-selected source/build route.  Helper
+`a90_android_execns_probe` is bumped to v297 and adds a bounded
+`--allow-android-wifi-service-window-pph-modem-fd-gate`.  The V1600 image keeps
+V1591 firmware mount parity, private devnodes, and the helper private vendor
+namespace, but waits for `pm_proxy_helper` to hold `/dev/subsys_modem` before
+spawning `per_mgr`:
+
+`servicemanager,hwservicemanager,vndservicemanager,pm_proxy_helper,pph-modem-fd-gate,per_mgr,cnss_daemon,mdm_helper,pm_proxy_late,pm-first-late-per-proxy-pph-gate-lower-marker-no-direct-trigger-no-wifi-hal`
+
+If the PPH fd gate times out, the helper classifies the run as
+`pm-proxy-helper-modem-fd-missing` before starting `per_mgr`.  If the gate
+passes, the route continues to the same PM-service-owned powerup classifier used
+by V1599.  Wi-Fi HAL/`wificond`, direct scoped `/dev/subsys_esoc0`, credentials,
+scan/connect, DHCP/routes, and external ping remain disabled.
+
+V1600 source build passes as
+`v1600-pm-first-late-per-proxy-pph-gate-lower-marker-test-boot-source-build-pass`:
+
+- boot image:
+  `tmp/wifi/v1600-pm-first-late-per-proxy-pph-gate-lower-marker-test-boot/boot_linux_v1600_wifi_test.img`
+- boot sha256:
+  `be60778022ce772194ad156eeecf4c3cffe81c4e25514559a4c3d2fb6a627504`
+- init: `A90 Linux init 0.9.105 (v1600-pm-first-late-per-proxy-pph-gate-lower-marker)`
+- helper marker: `a90_android_execns_probe v297`
+- helper sha256:
+  `230e502bbe8ee87e7dd9d53b587a35346b3a241d368922472caccf6ca2ff43dc`
+
+V1601 artifact sanity passes as
+`v1601-pm-first-late-per-proxy-pph-gate-lower-marker-artifact-sanity-pass`.  It
+verifies static init/helper binaries, boot/header/kernel parity, ramdisk
+entries, PPH-gated route strings, service-window PM proxy contract, firmware
+mounts, helper v297, lower-marker strings, private file modes, and forbidden
+credential-like byte absence.
+
+Next work: V1602 rollbackable live handoff of only the V1600 image, collect
+log/summary/helper result/dmesg/`wlan0`, then roll back to v724 and verify
+selftest `fail=0`.  The key live discriminator is whether
+`pph_modem_fd_gate_seen=1`; if not, the route is blocked before `per_mgr`.  If
+yes but PM-service-owned powerup is still missing, the next blocker is
+`per_mgr`/`pm-proxy` contract after a proven PPH modem fd.  Still no
+credentials, scan/connect, DHCP/routes, external ping, PMIC/GPIO/GDSC direct
+writes, blind eSoC notify/`BOOT_DONE`, global PCI rescan, platform bind/unbind,
+or unbounded boot-image/partition writes.  Reports:
+`docs/reports/NATIVE_INIT_V1600_PM_FIRST_LATE_PER_PROXY_PPH_GATE_LOWER_MARKER_SOURCE_BUILD_2026-06-02.md`
+and
+`docs/reports/NATIVE_INIT_V1601_PM_FIRST_LATE_PER_PROXY_PPH_GATE_LOWER_MARKER_ARTIFACT_SANITY_2026-06-02.md`.

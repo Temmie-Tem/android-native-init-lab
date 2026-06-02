@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v296"
+#define EXECNS_VERSION "a90_android_execns_probe v297"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -280,6 +280,7 @@ struct config {
     bool allow_android_wifi_service_window_late_per_proxy_only;
     bool allow_android_wifi_service_window_pm_first_route;
     bool allow_android_wifi_service_window_pm_first_late_per_proxy_route;
+    bool allow_android_wifi_service_window_pph_modem_fd_gate;
     bool require_android_selinux_exec_match;
     bool pm_observer_zero_delay_per_mgr_probe;
     bool pm_observer_continue_after_provider;
@@ -498,6 +499,7 @@ static void usage(FILE *out) {
             "[--allow-android-wifi-service-window-late-per-proxy-only] "
             "[--allow-android-wifi-service-window-pm-first-route] "
             "[--allow-android-wifi-service-window-pm-first-late-per-proxy-route] "
+            "[--allow-android-wifi-service-window-pph-modem-fd-gate] "
             "[--result-output-path <path>] "
             "[--pm-observer-continue-after-provider] "
             "[--pm-observer-start-cnss-after-provider] "
@@ -1497,6 +1499,10 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             cfg->allow_android_wifi_service_window_pm_first_late_per_proxy_route = true;
             continue;
         }
+        if (strcmp(argv[i], "--allow-android-wifi-service-window-pph-modem-fd-gate") == 0) {
+            cfg->allow_android_wifi_service_window_pph_modem_fd_gate = true;
+            continue;
+        }
         if (strcmp(argv[i], "--require-android-selinux-exec-match") == 0) {
             cfg->require_android_selinux_exec_match = true;
             continue;
@@ -2333,6 +2339,11 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
     if (cfg->allow_android_wifi_service_window_pm_first_route &&
         cfg->allow_android_wifi_service_window_pm_first_late_per_proxy_route) {
         fprintf(stderr, "--allow-android-wifi-service-window-pm-first-route is mutually exclusive with --allow-android-wifi-service-window-pm-first-late-per-proxy-route\n");
+        return 2;
+    }
+    if (cfg->allow_android_wifi_service_window_pph_modem_fd_gate &&
+        !cfg->allow_android_wifi_service_window_pm_proxy_contract) {
+        fprintf(stderr, "--allow-android-wifi-service-window-pph-modem-fd-gate requires --allow-android-wifi-service-window-pm-proxy-contract\n");
         return 2;
     }
     if (!is_cnss_service_manager_matrix_order(cfg->service_manager_order)) {
@@ -39264,6 +39275,7 @@ static int run_wifi_companion_android_wifi_service_window_guarded(const struct c
     const bool pm_first_route = cfg->allow_android_wifi_service_window_pm_first_route;
     const bool pm_first_late_per_proxy_route =
         cfg->allow_android_wifi_service_window_pm_first_late_per_proxy_route;
+    const bool pph_modem_fd_gate = cfg->allow_android_wifi_service_window_pph_modem_fd_gate;
     const bool stripped_no_hal_route = pm_first_route || pm_first_late_per_proxy_route;
     const bool direct_subsys_trigger =
         is_wifi_companion_android_wifi_service_window_subsys_trigger_capture_mode(cfg->mode) &&
@@ -39298,6 +39310,10 @@ static int run_wifi_companion_android_wifi_service_window_guarded(const struct c
     int mdm_helper_esoc0_fd_count = -1;
     int pm_proxy_helper_subsys_modem_fd_count = -1;
     int per_mgr_subsys_modem_fd_count = -1;
+    int pph_modem_fd_gate_seen = 0;
+    int pph_modem_fd_gate_samples = 0;
+    int pph_modem_fd_gate_first_seen_ms = -1;
+    int pph_modem_fd_gate_final_count = -1;
     struct fd_poll_summary mdm_helper_fd_poll_after_mdm;
     struct fd_poll_summary mdm_helper_fd_poll_after_cnss;
     struct service_window_lower_marker_summary lower_marker_summary;
@@ -39420,7 +39436,10 @@ static int run_wifi_companion_android_wifi_service_window_guarded(const struct c
                       "android_wifi_service_window.mode=%s\n",
                           subsys_trigger_capture
                               ? (pm_proxy_contract
-                                 ? (pm_first_late_per_proxy_route ? "guarded-pm-proxy-contract-pm-first-late-per-proxy-lower-marker"
+                                 ? (pm_first_late_per_proxy_route
+                                    ? (pph_modem_fd_gate
+                                           ? "guarded-pm-proxy-contract-pm-first-late-per-proxy-pph-gate-lower-marker"
+                                           : "guarded-pm-proxy-contract-pm-first-late-per-proxy-lower-marker")
                                     : (pm_first_route ? "guarded-pm-proxy-contract-pm-first-lower-marker"
                                                     : (late_per_proxy_only ? "guarded-pm-proxy-contract-late-per-proxy-lower-marker"
                                                         : "guarded-pm-proxy-contract-subsys-trigger-capture")))
@@ -39430,7 +39449,9 @@ static int run_wifi_companion_android_wifi_service_window_guarded(const struct c
                       "android_wifi_service_window.order=%s\n",
                       pm_proxy_contract
                           ? (pm_first_late_per_proxy_route
-                                 ? "servicemanager,hwservicemanager,vndservicemanager,pm_proxy_helper,per_mgr,cnss_daemon,mdm_helper,pm_proxy_late,pm-first-late-per-proxy-lower-marker-no-direct-trigger-no-wifi-hal"
+                                 ? (pph_modem_fd_gate
+                                        ? "servicemanager,hwservicemanager,vndservicemanager,pm_proxy_helper,pph-modem-fd-gate,per_mgr,cnss_daemon,mdm_helper,pm_proxy_late,pm-first-late-per-proxy-pph-gate-lower-marker-no-direct-trigger-no-wifi-hal"
+                                        : "servicemanager,hwservicemanager,vndservicemanager,pm_proxy_helper,per_mgr,cnss_daemon,mdm_helper,pm_proxy_late,pm-first-late-per-proxy-lower-marker-no-direct-trigger-no-wifi-hal")
                                  : (pm_first_route
                                  ? "servicemanager,hwservicemanager,vndservicemanager,pm_proxy_helper,per_mgr,pm_proxy,mdm_helper,cnss_daemon,pm-first-lower-marker-no-direct-trigger-no-wifi-hal"
                                  : (late_per_proxy_only
@@ -39460,6 +39481,9 @@ static int run_wifi_companion_android_wifi_service_window_guarded(const struct c
         append_format(stdout_buf,
                       "android_wifi_service_window.pm_first_late_per_proxy_route=%d\n",
                       pm_first_late_per_proxy_route ? 1 : 0) < 0 ||
+        append_format(stdout_buf,
+                      "android_wifi_service_window.pph_modem_fd_gate=%d\n",
+                      pph_modem_fd_gate ? 1 : 0) < 0 ||
         append_literal(stdout_buf, "android_wifi_service_window.mdm_helper_start_planned=1\n") < 0 ||
         append_literal(stdout_buf, "android_wifi_service_window.cnss_daemon_start_planned=1\n") < 0 ||
         append_literal(stdout_buf, "android_wifi_service_window.qcwlanstate_write=0\n") < 0 ||
@@ -39575,6 +39599,64 @@ static int run_wifi_companion_android_wifi_service_window_guarded(const struct c
                 composite_cleanup_children(children, i + 1U, stdout_buf, stderr_buf);
                 stop_property_service_shim(&property_shim, paths, stdout_buf);
                 return -1;
+            }
+            if (pph_modem_fd_gate) {
+                long gate_start = monotonic_ms();
+                long gate_deadline = gate_start + 2500L;
+
+                pph_modem_fd_gate_final_count = pm_proxy_helper_subsys_modem_fd_count;
+                if (pm_proxy_helper_subsys_modem_fd_count > 0) {
+                    pph_modem_fd_gate_seen = 1;
+                    pph_modem_fd_gate_first_seen_ms = 0;
+                }
+                while (!pph_modem_fd_gate_seen && monotonic_ms() < gate_deadline) {
+                    int count = -1;
+
+                    if (composite_child_drain_wait_once(&children[i], stdout_buf, stderr_buf) < 0 ||
+                        drain_property_service_shim_records(&property_shim, stdout_buf) < 0) {
+                        composite_cleanup_children(children, i + 1U, stdout_buf, stderr_buf);
+                        stop_property_service_shim(&property_shim, paths, stdout_buf);
+                        return -1;
+                    }
+                    if (children[i].pid > 0) {
+                        count = count_proc_fd_target_matches(children[i].pid, "/dev/subsys_modem");
+                    }
+                    pph_modem_fd_gate_samples++;
+                    pph_modem_fd_gate_final_count = count;
+                    if (count > 0) {
+                        pph_modem_fd_gate_seen = 1;
+                        pph_modem_fd_gate_first_seen_ms = (int)(monotonic_ms() - gate_start);
+                        pm_proxy_helper_subsys_modem_fd_count = count;
+                        break;
+                    }
+                    usleep(50000);
+                }
+                if (append_format(stdout_buf,
+                                  "android_wifi_service_window.pph_modem_fd_gate_seen=%d\n"
+                                  "android_wifi_service_window.pph_modem_fd_gate_samples=%d\n"
+                                  "android_wifi_service_window.pph_modem_fd_gate_first_seen_ms=%d\n"
+                                  "android_wifi_service_window.pph_modem_fd_gate_final_count=%d\n",
+                                  pph_modem_fd_gate_seen,
+                                  pph_modem_fd_gate_samples,
+                                  pph_modem_fd_gate_first_seen_ms,
+                                  pph_modem_fd_gate_final_count) < 0) {
+                    composite_cleanup_children(children, i + 1U, stdout_buf, stderr_buf);
+                    stop_property_service_shim(&property_shim, paths, stdout_buf);
+                    return -1;
+                }
+                if (!pph_modem_fd_gate_seen) {
+                    composite_cleanup_children(children, i + 1U, stdout_buf, stderr_buf);
+                    stop_property_service_shim(&property_shim, paths, stdout_buf);
+                    if (append_literal(stdout_buf,
+                                       "android_wifi_service_window.child_started=4\n"
+                                       "android_wifi_service_window.result=pm-proxy-helper-modem-fd-missing\n"
+                                       "android_wifi_service_window.reason=pph-modem-fd-gate-timeout-before-per-mgr\n"
+                                       "android_wifi_service_window.end=1\n") < 0) {
+                        return -1;
+                    }
+                    *child_exit_code = 0;
+                    return 0;
+                }
             }
         } else if (pm_proxy_contract && (int)i == per_mgr_index) {
             long settle_deadline = monotonic_ms() + 700L;
@@ -40072,6 +40154,11 @@ static int run_wifi_companion_android_wifi_service_window_guarded(const struct c
                   "android_wifi_service_window.late_per_proxy_only=%d\n"
                   "android_wifi_service_window.pm_first_route=%d\n"
                   "android_wifi_service_window.pm_first_late_per_proxy_route=%d\n"
+                  "android_wifi_service_window.pph_modem_fd_gate=%d\n"
+                  "android_wifi_service_window.pph_modem_fd_gate_seen=%d\n"
+                  "android_wifi_service_window.pph_modem_fd_gate_samples=%d\n"
+                  "android_wifi_service_window.pph_modem_fd_gate_first_seen_ms=%d\n"
+                  "android_wifi_service_window.pph_modem_fd_gate_final_count=%d\n"
                   "android_wifi_service_window.pm_proxy_helper_subsys_modem_fd_count=%d\n"
                   "android_wifi_service_window.per_mgr_subsys_modem_fd_count=%d\n"
                   "android_wifi_service_window.pm_full_contract_seen=%d\n"
@@ -40087,6 +40174,11 @@ static int run_wifi_companion_android_wifi_service_window_guarded(const struct c
                   late_per_proxy_only ? 1 : 0,
                   pm_first_route ? 1 : 0,
                   pm_first_late_per_proxy_route ? 1 : 0,
+                  pph_modem_fd_gate ? 1 : 0,
+                  pph_modem_fd_gate_seen,
+                  pph_modem_fd_gate_samples,
+                  pph_modem_fd_gate_first_seen_ms,
+                  pph_modem_fd_gate_final_count,
                   pm_proxy_helper_subsys_modem_fd_count,
                   per_mgr_subsys_modem_fd_count,
                   (pm_proxy_contract &&
@@ -40438,6 +40530,8 @@ int main(int argc, char **argv) {
            cfg.allow_android_wifi_service_window_pm_first_route ? 1 : 0);
     printf("allow_android_wifi_service_window_pm_first_late_per_proxy_route=%d\n",
            cfg.allow_android_wifi_service_window_pm_first_late_per_proxy_route ? 1 : 0);
+    printf("allow_android_wifi_service_window_pph_modem_fd_gate=%d\n",
+           cfg.allow_android_wifi_service_window_pph_modem_fd_gate ? 1 : 0);
     printf("connect_config=%s\n", cfg.connect_config != NULL ? cfg.connect_config : "<none>");
     printf("connect_iface=%s\n", cfg.connect_iface != NULL ? cfg.connect_iface : "<none>");
     printf("ping_target=%s\n", cfg.ping_target != NULL ? cfg.ping_target : "<none>");

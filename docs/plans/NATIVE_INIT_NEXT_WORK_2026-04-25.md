@@ -9348,3 +9348,30 @@ Samsung bootloader
   notify/`BOOT_DONE`, global PCI rescan, platform bind/unbind, or unbounded
   boot-image/partition writes.  Report:
   `docs/reports/NATIVE_INIT_V1599_PM_FIRST_LATE_PER_PROXY_LOWER_MARKER_HANDOFF_2026-06-02.md`.
+
+- V1600/V1601 PPH modem-fd gate source/build loop is complete.  Helper
+  `a90_android_execns_probe` is bumped to v297 and adds
+  `--allow-android-wifi-service-window-pph-modem-fd-gate`.  V1600 keeps V1591
+  firmware mount parity and the stripped late `pm-proxy` route, but inserts a
+  bounded gate after `pm_proxy_helper`: poll until `pm_proxy_helper` holds
+  `/dev/subsys_modem`, then start `per_mgr`; if the fd never appears, classify
+  as `pm-proxy-helper-modem-fd-missing` before starting `per_mgr`.
+
+  V1600 source build passes as
+  `v1600-pm-first-late-per-proxy-pph-gate-lower-marker-test-boot-source-build-pass`;
+  boot image:
+  `tmp/wifi/v1600-pm-first-late-per-proxy-pph-gate-lower-marker-test-boot/boot_linux_v1600_wifi_test.img`,
+  sha256 `be60778022ce772194ad156eeecf4c3cffe81c4e25514559a4c3d2fb6a627504`.
+  V1601 artifact sanity passes as
+  `v1601-pm-first-late-per-proxy-pph-gate-lower-marker-artifact-sanity-pass`;
+  it verifies static binaries, boot/header/kernel parity, ramdisk entries,
+  PPH-gated route strings, firmware mounts, helper v297, private modes, and
+  forbidden credential-like byte absence.  Next gate: V1602 rollbackable live
+  handoff of only the V1600 image, collect helper result/lower markers/dmesg/
+  `wlan0`, then roll back to v724 and verify selftest `fail=0`.  Still no
+  credentials, scan/connect, DHCP/routes, external ping, PMIC/GPIO/GDSC direct
+  writes, blind eSoC notify/`BOOT_DONE`, global PCI rescan, platform
+  bind/unbind, or unbounded boot-image/partition writes.  Reports:
+  `docs/reports/NATIVE_INIT_V1600_PM_FIRST_LATE_PER_PROXY_PPH_GATE_LOWER_MARKER_SOURCE_BUILD_2026-06-02.md`
+  and
+  `docs/reports/NATIVE_INIT_V1601_PM_FIRST_LATE_PER_PROXY_PPH_GATE_LOWER_MARKER_ARTIFACT_SANITY_2026-06-02.md`.

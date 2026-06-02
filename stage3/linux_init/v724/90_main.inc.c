@@ -233,6 +233,9 @@ static int v641_prepare_firmware_mounts(void);
 #ifndef A90_WIFI_TEST_BOOT_ANDROID_SERVICE_WINDOW_PM_FIRST_LATE_PER_PROXY_ROUTE
 #define A90_WIFI_TEST_BOOT_ANDROID_SERVICE_WINDOW_PM_FIRST_LATE_PER_PROXY_ROUTE 0
 #endif
+#ifndef A90_WIFI_TEST_BOOT_ANDROID_SERVICE_WINDOW_PPH_MODEM_FD_GATE
+#define A90_WIFI_TEST_BOOT_ANDROID_SERVICE_WINDOW_PPH_MODEM_FD_GATE 0
+#endif
 #if A90_WIFI_TEST_BOOT_ANDROID_SERVICE_WINDOW_SUBSYS_TRIGGER_CAPTURE
 #define A90_V1393_WIFI_TEST_MODE "wifi-companion-android-wifi-service-window-subsys-trigger-capture"
 #elif A90_WIFI_TEST_BOOT_ANDROID_SERVICE_WINDOW
@@ -3309,6 +3312,9 @@ static int v1393_spawn_wifi_test_boot_helper(pid_t *pid_out) {
 #endif
 #if A90_WIFI_TEST_BOOT_ANDROID_SERVICE_WINDOW_PM_FIRST_LATE_PER_PROXY_ROUTE
         "--allow-android-wifi-service-window-pm-first-late-per-proxy-route",
+#endif
+#if A90_WIFI_TEST_BOOT_ANDROID_SERVICE_WINDOW_PPH_MODEM_FD_GATE
+        "--allow-android-wifi-service-window-pph-modem-fd-gate",
 #endif
 #endif
 #endif
