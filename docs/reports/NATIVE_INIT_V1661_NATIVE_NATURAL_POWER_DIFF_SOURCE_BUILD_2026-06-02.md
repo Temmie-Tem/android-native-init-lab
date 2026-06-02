@@ -9,9 +9,9 @@
 - Reason: built a native natural-path observer that adds read-only power/clock/subsystem snapshots to the V1636 MDM2AP timing route
 - Manifest: `tmp/wifi/v1661-native-natural-power-diff-test-boot/manifest.json`
 - Boot image: `tmp/wifi/v1661-native-natural-power-diff-test-boot/boot_linux_v1661_native_power_diff.img`
-- Boot SHA256: `420c1a25b6a338c3d8563299cb62208d77a14a32995db96266dcc747a102f18b`
+- Boot SHA256: `420199f5c76439dd87c8bd88e0c745dbe3e2ec62b33b7e78a23ebbc007e5de0d`
 - Init: `A90 Linux init 0.9.115 (v1661-native-power-diff)`
-- Init SHA256: `81eecb7e89244a2f0da5540ff4d6cc0a817cf8c447c33edcf559e176de8fdeac`
+- Init SHA256: `cae2fb0696f4a338829c77809a9461803967c9f29a4d151b96a7b595b167ef6c`
 - Helper marker: `a90_android_execns_probe v303`
 - Helper SHA256: `d58f637ce53b12f16f7143b388b20007553fe8d47bd6ed06379bde96a69c8798`
 

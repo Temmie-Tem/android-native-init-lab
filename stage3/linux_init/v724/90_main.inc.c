@@ -1663,7 +1663,7 @@ static void v1661_append_subsys_snapshot(int out_fd) {
         struct stat st;
 
         snprintf(dir, sizeof(dir), "/sys/bus/msm_subsys/devices/subsys%d", index);
-        if (lstat(dir, &st) < 0 || !S_ISDIR(st.st_mode)) {
+        if (stat(dir, &st) < 0 || !S_ISDIR(st.st_mode)) {
             continue;
         }
         snprintf(name_path, sizeof(name_path), "%s/name", dir);

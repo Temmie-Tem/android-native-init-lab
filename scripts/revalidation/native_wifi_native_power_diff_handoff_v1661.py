@@ -163,6 +163,8 @@ def power_capture_ok(power: dict[str, Any]) -> bool:
         and power["regulator_snapshot_count"] >= 1
         and power["clock_snapshot_count"] >= 1
         and power["subsys_snapshot_count"] >= 1
+        and power["subsys_mss_lines"] >= 1
+        and power["subsys_esoc0_lines"] >= 1
         and power["full_clk_summary_read"] == 0
         and power["targeted_named_clocks"] == 1
         and power["regulator_summary_full"] == 1

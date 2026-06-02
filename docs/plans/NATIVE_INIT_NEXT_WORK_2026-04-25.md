@@ -10884,7 +10884,7 @@ concrete rail/register owner (V1655). Rail inventory (V1641): SDX50M main rail
   - boot image:
     `tmp/wifi/v1661-native-natural-power-diff-test-boot/boot_linux_v1661_native_power_diff.img`;
   - boot SHA256:
-    `420c1a25b6a338c3d8563299cb62208d77a14a32995db96266dcc747a102f18b`.
+    `420199f5c76439dd87c8bd88e0c745dbe3e2ec62b33b7e78a23ebbc007e5de0d`.
 
   Capture contract:
 
