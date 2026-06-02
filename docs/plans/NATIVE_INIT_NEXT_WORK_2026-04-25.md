@@ -13791,3 +13791,25 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
 
   Report:
   `docs/reports/NATIVE_INIT_V1737_WLAN_PD_START_TRIGGER_CLASSIFIER_2026-06-03.md`.
+
+## V1738 WLAN-PD trigger surface classifier (2026-06-03)
+
+- V1738 host-only/source-only classifier completed.
+
+  Result:
+
+  - decision: `v1738-pd-trigger-is-modem-autoload-missing-pass`;
+  - label: `pd-trigger-is-modem-autoload-missing`;
+  - ICNSS WLFW service lookup and service-notifier listener paths are passive for initial bring-up;
+  - QCACLD driver registration waits for FW-ready and is not a WLFW trigger;
+  - the only explicit PD mutation surface in the inspected source is restart-PD, but Android-good evidence does not show it and it remains excluded;
+  - native reaches the CNSS worker but still sees no WLAN-PD UP, no WLFW service 69, and no `wlanmdsp` request.
+
+  Next candidate:
+
+  - V1739 read-only Android-good firmware request capture plan/source-build first;
+  - determine whether Android-good `tftp_server` or `rmt_storage` observes a `wlanmdsp.mbn`/PD image request before WLAN-PD UP and which path serves it;
+  - no restart-PD, PM/service-window actor expansion, `/dev/subsys_esoc0`, forced RC1, fake-ONLINE, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, or external ping.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1738_WLAN_PD_TRIGGER_SURFACE_CLASSIFIER_2026-06-03.md`.
