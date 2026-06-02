@@ -14930,3 +14930,42 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
   - `requested_wlanmdsp`, WLFW service 69, and `wlan0`;
   - explicit safety keys for no Wi-Fi HAL, no scan/connect, no credentials, no
     DHCP/routes, no external ping, no eSoC/RC1, no restart-PD, and no writes.
+
+## V1763 WLAN-PD firmware-request gate reconciliation (2026-06-03)
+
+- V1763 applies the latest stop directive: do not continue route minimization,
+  tracefs plumbing, PM actor expansion, QCACLD, eSoC/RC1, restart-PD, Wi-Fi HAL,
+  scan/connect, credentials, DHCP/routes, or external ping in this unit.
+
+  Host-only reconciliation:
+
+  - script:
+    `scripts/revalidation/native_wifi_wlan_pd_firmware_request_gate_reconciliation_v1763.py`;
+  - decision:
+    `v1763-v1739-equivalent-firmware-request-gate-closed-host-pass`;
+  - label: `firmware-not-requested`;
+  - evidence:
+    `tmp/wifi/v1763-wlan-pd-firmware-request-gate-reconciliation`;
+  - report:
+    `docs/reports/NATIVE_INIT_V1763_WLAN_PD_FIRMWARE_REQUEST_GATE_RECONCILIATION_2026-06-03.md`.
+
+  Reconciliation:
+
+  - the requested Android-good firmware-request capture and native V1736
+    SM-route comparison were already completed by V1753;
+  - Android-good requested `wlanmdsp.mbn` through `tftp_server` and exposed
+    `/vendor/rfs/msm/mpss/readonly/vendor/...` paths;
+  - native V1736 reached `wlfw_start`, `wlfw_service_request`, and WLFW worker
+    creation with service-manager and `tftp_server` running, but
+    `requested_wlanmdsp=0` and WLFW service 69 stayed absent;
+  - therefore the fixed redirect label is `firmware-not-requested`;
+  - rerunning the same Android/native gate would violate the contract's
+    one-run/one-label discipline.
+
+  Supersession:
+
+  - the V1761/V1762 PM service-object helper direction is paused by this latest
+    directive and must not be implemented in this unit;
+  - any later modem-side WLAN-PD autoload/request-trigger analysis must be
+    separately scoped and explicitly reconciled with the V1753/V1763 fixed
+    `firmware-not-requested` label first.
