@@ -47,8 +47,8 @@ DEFAULT_WIFI_TEST_WATCHER_PID = "/cache/native-init-wifi-test-boot-v1393-watcher
 DEFAULT_WIFI_TEST_WATCH_SEC = 35
 DEFAULT_WIFI_TEST_SUPERVISOR_TIMEOUT_SEC = 40
 DEFAULT_WIFI_TEST_HELPER_MODE = "post-pm-observer"
-EXPECTED_HELPER_MARKER = "a90_android_execns_probe v306"
-EXPECTED_HELPER_SHA256 = "805d65929fe72ce0255c7bed7d84e4677dfb22816afb0fb475e81f760350d657"
+EXPECTED_HELPER_MARKER = "a90_android_execns_probe v307"
+EXPECTED_HELPER_SHA256 = "ac8f4904c72f1688ebd88510c883060d17e2439b1c514fe12cf9077b4ecca90a"
 REPRODUCIBLE_MTIME = 0
 
 FORBIDDEN_BYTES = (
@@ -92,6 +92,8 @@ def shell_define(name: str, value: str) -> str:
 
 
 def helper_runtime_mode(args: argparse.Namespace) -> str:
+    if args.wifi_test_helper_mode == "wlan-pd-service-window-trigger":
+        return "wifi-companion-wlan-pd-service-window-trigger-start-only"
     if args.wifi_test_helper_mode == "wlan-pd-firmware-serve-gate":
         return "wifi-companion-wlan-pd-firmware-serve-gate-start-only"
     if args.wifi_test_helper_mode == "android-service-window-start-only":
@@ -136,12 +138,20 @@ def uses_android_service_window(args: argparse.Namespace) -> bool:
 
 
 def uses_wlan_pd_firmware_serve_gate(args: argparse.Namespace) -> bool:
-    return args.wifi_test_helper_mode == "wlan-pd-firmware-serve-gate"
+    return args.wifi_test_helper_mode in {
+        "wlan-pd-firmware-serve-gate",
+        "wlan-pd-service-window-trigger",
+    }
+
+
+def uses_wlan_pd_service_window_trigger(args: argparse.Namespace) -> bool:
+    return args.wifi_test_helper_mode == "wlan-pd-service-window-trigger"
 
 
 def build_helper(args: argparse.Namespace) -> None:
     args.out_dir.mkdir(parents=True, exist_ok=True)
     run(["bash", HELPER_BUILD_SCRIPT, args.helper_binary])
+    args.helper_binary.chmod(0o600)
     helper_sha = sha256(args.helper_binary)
     if helper_sha != EXPECTED_HELPER_SHA256:
         raise RuntimeError(
@@ -302,7 +312,9 @@ def build_init(args: argparse.Namespace) -> None:
         else []
     )
     service_window_flags: list[str] = []
-    if uses_wlan_pd_firmware_serve_gate(args):
+    if uses_wlan_pd_service_window_trigger(args):
+        service_window_flags.append("-DA90_WIFI_TEST_BOOT_WLAN_PD_SERVICE_WINDOW_TRIGGER=1")
+    elif uses_wlan_pd_firmware_serve_gate(args):
         service_window_flags.append("-DA90_WIFI_TEST_BOOT_WLAN_PD_FIRMWARE_SERVE_GATE=1")
     if uses_android_service_window(args):
         service_window_flags.append("-DA90_WIFI_TEST_BOOT_ANDROID_SERVICE_WINDOW=1")
@@ -442,6 +454,7 @@ def build_init(args: argparse.Namespace) -> None:
     ]
     run(command)
     run([args.strip, args.init_binary])
+    args.init_binary.chmod(0o600)
     run(["file", args.init_binary])
 
 
@@ -543,6 +556,11 @@ def verify_init_route_contract(args: argparse.Namespace) -> None:
             "--allow-servloc-domain-list-probe",
             "--allow-service-notifier-listener-probe",
         ])
+        if uses_wlan_pd_service_window_trigger(args):
+            expected.extend([
+                "--allow-service-manager-start-only",
+                "--allow-wlan-pd-service-window-trigger",
+            ])
         forbidden.extend([
             "--allow-android-wifi-service-window",
             "--allow-android-wifi-service-window-subsys-trigger-capture",
@@ -704,7 +722,7 @@ def verify_markers(args: argparse.Namespace) -> None:
             "--allow-qrtr-ns-readback",
             "--allow-servloc-domain-list-probe",
             "--allow-service-notifier-listener-probe",
-            "wifi-companion-wlan-pd-firmware-serve-gate-start-only",
+            helper_runtime_mode(args),
             "wlan_pd_firmware_serve_gate.begin=1",
             "wlan_pd_firmware_serve_gate.label=%s",
             "wlan_pd_firmware_serve_gate.subsys_modem_holder_started=%d",
@@ -716,6 +734,19 @@ def verify_markers(args: argparse.Namespace) -> None:
             "wlan_pd_modem_holder.subsys_modem_open_attempted=1",
             "wlan_pd_modem_holder.subsys_esoc0_open_attempted=0",
         ])
+        if uses_wlan_pd_service_window_trigger(args):
+            expected.extend([
+                "--allow-service-manager-start-only",
+                "--allow-wlan-pd-service-window-trigger",
+                "wifi-companion-wlan-pd-service-window-trigger-start-only",
+                "wlan_pd_service_window_trigger.begin=1",
+                "wlan_pd_service_window_trigger.label=%s",
+                "wlan_pd_service_window_trigger.no_esoc0=1",
+                "wlan_pd_service_window_trigger.no_forced_rc1=1",
+                "wlan_pd_service_window_trigger.wlfw_start_seen=%d",
+                "wlan_pd_service_window_trigger.wlfw_service_request_seen=%d",
+                "wlan_pd_service_window_trigger.wlfw_service69_seen=%d",
+            ])
     elif uses_android_service_window(args):
         expected.append("--allow-android-wifi-service-window")
         if args.wifi_test_helper_mode == "android-service-window-subsys-trigger-capture":
@@ -1506,6 +1537,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--wifi-test-helper-mode",
         choices=[
+            "wlan-pd-service-window-trigger",
             "wlan-pd-firmware-serve-gate",
             "post-pm-observer",
             "android-service-window-start-only",

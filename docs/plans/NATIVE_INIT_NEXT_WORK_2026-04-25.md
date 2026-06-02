@@ -11599,3 +11599,40 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
 
   Plan:
   `docs/plans/NATIVE_INIT_V1682_WLAN_PD_SERVICE_WINDOW_MERGE_PLAN_2026-06-02.md`.
+
+## V1682 WLAN-PD Service-window Merge Source Build (2026-06-02)
+
+- V1682 source/build completed.
+
+  Result:
+
+  - decision: `v1682-wlan-pd-service-window-merge-source-build-pass`;
+  - helper marker: `a90_android_execns_probe v307`;
+  - helper SHA256:
+    `ac8f4904c72f1688ebd88510c883060d17e2439b1c514fe12cf9077b4ecca90a`;
+  - boot artifact:
+    `tmp/wifi/v1682-wlan-pd-service-window-merge-source-build/boot_linux_v1393_wifi_test.img`;
+  - boot SHA256:
+    `5b3a5d44dbcefb44f264c4404d449e2ce134129c2f12540f877e94417eb351d5`;
+  - artifacts verified static/private; no live execution or flash occurred.
+
+  Implemented source/build route:
+
+  - `wifi-companion-wlan-pd-service-window-trigger-start-only`;
+  - V1680 modem-only `/dev/subsys_modem` holder and firmware-serve summary;
+  - service-manager surface plus CNSS companion stack;
+  - explicit `wlan_pd_service_window_trigger.*` label summary;
+  - no `/dev/subsys_esoc0`, forced RC1, fake-ONLINE, PMIC/GPIO/GDSC writes,
+    scan/connect, credentials, DHCP/routes, or external ping.
+
+  Next live gate:
+
+  - one rollbackable handoff only;
+  - collect `wlan_pd_service_window_trigger.label`;
+  - rollback to `stage3/boot_linux_v724.img`;
+  - verify `selftest fail=0`;
+  - stop after one label and do not proceed to MSA/BDF or scan/connect unless
+    `wlfw-start-reached` or WLFW service 69 appears.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1682_WLAN_PD_SERVICE_WINDOW_MERGE_SOURCE_BUILD_2026-06-02.md`.
