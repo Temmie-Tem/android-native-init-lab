@@ -10253,3 +10253,47 @@ above (rejected as inverted causality).
 
   Report:
   `docs/reports/NATIVE_INIT_V1643_BOOTLOADER_PMIC_ARTIFACT_ACQUISITION_PLAN_2026-06-02.md`.
+
+## V1644 Read-only Partition Metadata Capture (2026-06-02)
+
+- V1644 live read-only metadata capture passed as
+  `v1644-read-only-partition-metadata-captured`.
+
+  The device remained on the v724 baseline and both pre/post selftest checks
+  reported `fail=0`.  No boot image write, partition write, Wi-Fi HAL,
+  scan/connect, credentials, DHCP/routes, external ping, PMIC/GPIO/GDSC write,
+  eSoC notify/`BOOT_DONE`, PCI rescan, or platform bind/unbind was performed.
+
+  Important runtime finding:
+
+  - `/dev/block/by-name` is absent in native v724.
+  - Candidate partition labels are still available through sysfs GPT metadata.
+  - Candidate `/dev/block/<devname>` nodes are not exposed for the captured
+    bootloader / firmware candidates, so V1644 records metadata but not raw
+    partition SHA256 values.
+
+  Candidate partition metadata captured:
+
+  - `modem`: `sda21`, size `204472320`.
+  - `dsp`: `sda22`, size `67108864`.
+  - `xbl`: `sdb1`, size `4194304`.
+  - `xbl`: `sdc1`, size `4194304`.
+  - `tz`: `sdd5`, size `4194304`.
+  - `aop`: `sdd7`, size `524288`.
+  - `abl`: `sdd8`, size `4194304`.
+  - `bluetooth`: `sdd10`, size `1048576`.
+  - `keymaster`: `sdd12`, size `524288`.
+  - `cmnlib`: `sdd13`, size `524288`.
+  - `cmnlib64`: `sdd14`, size `524288`.
+  - `devcfg`: `sdd22`, size `131072`.
+  - `qupfw`: `sdd25`, size `81920`.
+  - `hyp`: `sdd33`, size `1048576`.
+
+  V1645 should stay host-only first: interpret which of these candidate
+  partitions can plausibly contain SDX50M / PMIC / PON ownership evidence, then
+  define a separate private read-only artifact extraction gate if raw content is
+  actually required.  Any such extraction must keep proprietary binaries under
+  ignored private evidence storage and out of git.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1644_PARTITION_METADATA_CAPTURE_2026-06-02.md`.
