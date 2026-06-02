@@ -14006,3 +14006,48 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
 
   Report:
   `docs/reports/NATIVE_INIT_V1743_WLAN_PD_PURE_NONLOG_PARITY_SOURCE_BUILD_2026-06-03.md`.
+
+## V1744 WLAN-PD pure-route non-log parity handoff (2026-06-03)
+
+- V1744 one-run rollbackable live gate completed after restoring NCM/tcpctl
+  transport.
+
+  Result:
+
+  - decision: `v1744-tracefs-surface-unavailable-rollback-pass`;
+  - label: `tracefs-surface-unavailable`;
+  - evidence:
+    `tmp/wifi/v1744-wlan-pd-pure-nonlog-parity-handoff-retry1`;
+  - rollback: `from-native`, `ok=true`;
+  - post-rollback native: `stage3/boot_linux_v724.img` restored and
+    `selftest fail=0`.
+
+  Observed discriminator:
+
+  - output label: `cnss-output-still-invisible`;
+  - firmware-serve label: `firmware-not-requested`;
+  - non-log label: `cnss-target-unavailable`;
+  - property runtime was visible: `kmsg_logging=1`, `debug_level=4`;
+  - route safety was clean: no service-manager, PM trio, `boot_wlan`,
+    `/dev/subsys_esoc0`, forced RC1, fake-ONLINE, Wi-Fi HAL, scan/connect,
+    credentials, DHCP/routes, or external ping;
+  - tracefs remained unavailable to the non-log observer:
+    `tracefs.available=0`, `tracefs.errno=2`, `uprobe_attempted=0`.
+
+  Interpretation:
+
+  - V1744 did not prove pure-route `wlfw_start` absence; it proved the V1743
+    tracefs materialization is still not visible to the uprobe arming path;
+  - no actor expansion is justified from this result;
+  - the next unit should be source/build-only: make the CNSS uprobe arming path
+    search the private tracefs target or mount tracefs privately when the
+    global `/sys/kernel/*/tracing` roots are absent.
+
+  Next candidate:
+
+  - V1745 source/build-only private tracefs path repair;
+  - keep the same pure internal-modem route and the same exclusions;
+  - do not run another live handoff until V1745 artifact sanity passes.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1744_WLAN_PD_PURE_NONLOG_PARITY_HANDOFF_2026-06-03.md`.
