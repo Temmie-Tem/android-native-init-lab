@@ -10670,3 +10670,39 @@ above (rejected as inverted causality).
 
   Report:
   `docs/reports/NATIVE_INIT_V1655_XBL_CONTEXT_INTERPRETATION_2026-06-02.md`.
+
+## V1656 XBL Reference Reconciliation (2026-06-02)
+
+- V1656 host-only reconciliation passed as
+  `v1656-xbl-reference-reconciliation-pass`.
+
+  Input:
+
+  - `tmp/wifi/v1655-xbl-context-interpretation/manifest.json`;
+  - source decision: `v1655-xbl-context-interpretation-pass`;
+  - redacted XBL records: `326`;
+  - cross-slot duplicate groups: `96`.
+
+  Reconciliation:
+
+  - XBL is supported as an information source: it contains SDX/PON/PMIC/RPMh/AOP/
+    PCIe context and helps identify ownership/context around the SDX50M power
+    path.
+  - XBL is not currently a native-vs-Android differential or mutation target.
+    Existing reference reports keep bootloader/DTB/config parity closed; only the
+    boot partition changes between native and Android rollback flows.
+  - Provider/PON remains host-side closed: source and evidence show the natural
+    provider path reaches the correct PON/GPIO135 sequence, but host evidence
+    cannot prove whether the SDX50M main rail electrically responds.
+  - Connect-side Wi-Fi remains downstream. Native still lacks MDM2AP/GPIO142
+    response, RC1 L0, MHI, WLFW, BDF, FW-ready, and `wlan0`.
+
+  Decision: stop expanding XBL unless a concrete differential appears. The next
+  aligned live gate is V1657: one bounded natural-path MDM2AP observation run
+  using the existing contract, with GPIO142 IRQ delta and errfatal IRQ delta as
+  discriminators. No forced RC1 enumerate, fake-ONLINE/system-info spoof,
+  PMIC/GPIO/GDSC writes, eSoC notify/`BOOT_DONE`, Wi-Fi HAL, scan/connect,
+  credentials, DHCP/routes, or external ping.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1656_XBL_REFERENCE_RECONCILIATION_2026-06-02.md`.
