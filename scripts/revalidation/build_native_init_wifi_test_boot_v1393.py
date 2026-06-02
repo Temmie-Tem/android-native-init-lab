@@ -262,6 +262,11 @@ def build_init(args: argparse.Namespace) -> None:
         if args.wifi_test_provider_trigger_ap2mdm_hold
         else []
     )
+    natural_mdm2ap_irq_summary_flags = (
+        ["-DA90_WIFI_TEST_BOOT_NATURAL_MDM2AP_IRQ_SUMMARY=1"]
+        if args.wifi_test_natural_mdm2ap_irq_summary
+        else []
+    )
     auto_readiness_flags = (
         ["-DA90_WIFI_TEST_BOOT_AUTO_READINESS_SUPERVISOR=1"]
         if args.wifi_test_auto_readiness_supervisor
@@ -398,6 +403,7 @@ def build_init(args: argparse.Namespace) -> None:
         *provider_trigger_pil_tracepoint_flags,
         *provider_trigger_effective_level_flags,
         *provider_trigger_ap2mdm_hold_flags,
+        *natural_mdm2ap_irq_summary_flags,
         *auto_readiness_flags,
         *firmware_mount_flags,
         *service_window_flags,
@@ -1253,6 +1259,7 @@ def write_manifest(args: argparse.Namespace) -> None:
             "provider_trigger_ap2mdm_hold": args.wifi_test_provider_trigger_ap2mdm_hold,
             "provider_trigger_ap2mdm_hold_after_ms": args.wifi_test_provider_trigger_ap2mdm_hold_after_ms,
             "provider_trigger_ap2mdm_hold_ms": args.wifi_test_provider_trigger_ap2mdm_hold_ms,
+            "natural_mdm2ap_irq_summary": args.wifi_test_natural_mdm2ap_irq_summary,
             "auto_readiness_supervisor": args.wifi_test_auto_readiness_supervisor,
             "rc1_retry_count": args.wifi_test_rc1_retry_count,
             "rc1_retry_delay_ms": args.wifi_test_rc1_retry_delay_ms,
@@ -1308,6 +1315,7 @@ def resolve_args(args: argparse.Namespace) -> argparse.Namespace:
             "wifi_test_provider_trigger_pil_tracepoint_sampler": args.wifi_test_provider_trigger_pil_tracepoint_sampler,
             "wifi_test_provider_trigger_effective_level_sampler": args.wifi_test_provider_trigger_effective_level_sampler,
             "wifi_test_provider_trigger_ap2mdm_hold": args.wifi_test_provider_trigger_ap2mdm_hold,
+            "wifi_test_natural_mdm2ap_irq_summary": args.wifi_test_natural_mdm2ap_irq_summary,
             "wifi_test_auto_readiness_supervisor": args.wifi_test_auto_readiness_supervisor,
             "wifi_test_rc1_retry_count": args.wifi_test_rc1_retry_count > 0,
         }
@@ -1394,6 +1402,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--wifi-test-provider-trigger-ap2mdm-hold", action="store_true")
     parser.add_argument("--wifi-test-provider-trigger-ap2mdm-hold-after-ms", type=int, default=320)
     parser.add_argument("--wifi-test-provider-trigger-ap2mdm-hold-ms", type=int, default=500)
+    parser.add_argument("--wifi-test-natural-mdm2ap-irq-summary", action="store_true")
     parser.add_argument("--wifi-test-auto-readiness-supervisor", action="store_true")
     parser.add_argument("--wifi-test-rc1-retry-count", type=int, default=0)
     parser.add_argument("--wifi-test-rc1-retry-delay-ms", type=int, default=0)

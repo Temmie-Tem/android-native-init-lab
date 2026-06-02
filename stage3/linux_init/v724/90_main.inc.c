@@ -162,6 +162,9 @@ static int v641_prepare_firmware_mounts(void);
 #ifndef A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_AP2MDM_HOLD_MS
 #define A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_AP2MDM_HOLD_MS 500
 #endif
+#ifndef A90_WIFI_TEST_BOOT_NATURAL_MDM2AP_IRQ_SUMMARY
+#define A90_WIFI_TEST_BOOT_NATURAL_MDM2AP_IRQ_SUMMARY 0
+#endif
 #ifndef A90_WIFI_TEST_BOOT_AUTO_READINESS_SUPERVISOR
 #define A90_WIFI_TEST_BOOT_AUTO_READINESS_SUPERVISOR 0
 #endif
@@ -1431,6 +1434,214 @@ static void v1393_rc1_window_sample(const char *sample, long start_ms, long dete
     close(out_fd);
 }
 
+#if A90_WIFI_TEST_BOOT_NATURAL_MDM2AP_IRQ_SUMMARY
+struct v1633_natural_irq_snapshot {
+    int parsed;
+    unsigned long count_total;
+};
+
+struct v1633_natural_mdm2ap_irq_summary {
+    struct v1633_natural_irq_snapshot gpio142_initial;
+    struct v1633_natural_irq_snapshot errfatal_initial;
+    unsigned long gpio142_max;
+    unsigned long errfatal_max;
+    int gpio142_first_delta_sample;
+    int errfatal_first_delta_sample;
+};
+
+static unsigned long v1633_parse_irq_count_total(char *line) {
+    char *cursor = strchr(line, ':');
+    unsigned long total = 0;
+
+    if (cursor == NULL) {
+        return 0;
+    }
+    cursor++;
+    while (*cursor != '\0') {
+        char *end_ptr;
+        unsigned long value;
+
+        while (*cursor == ' ' || *cursor == '\t') {
+            cursor++;
+        }
+        if (*cursor < '0' || *cursor > '9') {
+            break;
+        }
+        errno = 0;
+        value = strtoul(cursor, &end_ptr, 10);
+        if (end_ptr == cursor || errno == ERANGE) {
+            break;
+        }
+        total += value;
+        cursor = end_ptr;
+    }
+    return total;
+}
+
+static struct v1633_natural_irq_snapshot v1633_collect_irq_snapshot(const char *needle) {
+    static char buffer[65536];
+    struct v1633_natural_irq_snapshot snapshot = {0, 0};
+    int file_fd = open("/proc/interrupts", O_RDONLY | O_CLOEXEC);
+    ssize_t bytes_read;
+    char *line;
+
+    if (file_fd < 0) {
+        return snapshot;
+    }
+    bytes_read = read(file_fd, buffer, sizeof(buffer) - 1);
+    close(file_fd);
+    if (bytes_read <= 0) {
+        return snapshot;
+    }
+    buffer[bytes_read] = '\0';
+    line = buffer;
+    while (line != NULL && *line != '\0') {
+        char *next_line = strchr(line, '\n');
+
+        if (next_line != NULL) {
+            *next_line = '\0';
+            next_line++;
+        }
+        if (strstr(line, needle) != NULL) {
+            snapshot.parsed = 1;
+            snapshot.count_total = v1633_parse_irq_count_total(line);
+            return snapshot;
+        }
+        line = next_line;
+    }
+    return snapshot;
+}
+
+static void v1633_natural_mdm2ap_irq_summary_init(struct v1633_natural_mdm2ap_irq_summary *summary) {
+    memset(summary, 0, sizeof(*summary));
+    summary->gpio142_initial = v1633_collect_irq_snapshot("mdm status");
+    summary->errfatal_initial = v1633_collect_irq_snapshot("mdm errfatal");
+    summary->gpio142_max = summary->gpio142_initial.count_total;
+    summary->errfatal_max = summary->errfatal_initial.count_total;
+    summary->gpio142_first_delta_sample = -1;
+    summary->errfatal_first_delta_sample = -1;
+}
+
+static void v1633_natural_mdm2ap_irq_summary_sample(struct v1633_natural_mdm2ap_irq_summary *summary,
+                                                    int sample_index) {
+    struct v1633_natural_irq_snapshot gpio142 = v1633_collect_irq_snapshot("mdm status");
+    struct v1633_natural_irq_snapshot errfatal = v1633_collect_irq_snapshot("mdm errfatal");
+
+    if (gpio142.parsed && gpio142.count_total > summary->gpio142_max) {
+        summary->gpio142_max = gpio142.count_total;
+    }
+    if (errfatal.parsed && errfatal.count_total > summary->errfatal_max) {
+        summary->errfatal_max = errfatal.count_total;
+    }
+    if (summary->gpio142_first_delta_sample < 0 &&
+        gpio142.parsed &&
+        summary->gpio142_initial.parsed &&
+        gpio142.count_total > summary->gpio142_initial.count_total) {
+        summary->gpio142_first_delta_sample = sample_index;
+    }
+    if (summary->errfatal_first_delta_sample < 0 &&
+        errfatal.parsed &&
+        summary->errfatal_initial.parsed &&
+        errfatal.count_total > summary->errfatal_initial.count_total) {
+        summary->errfatal_first_delta_sample = sample_index;
+    }
+}
+
+static void v1633_append_natural_mdm2ap_irq_summary(const struct v1633_natural_mdm2ap_irq_summary *summary,
+                                                    long start_ms,
+                                                    long detect_ms,
+                                                    long micro_start_ms,
+                                                    int sample_count,
+                                                    int sample_interval_ms) {
+    int out_fd = open(A90_V1393_WIFI_TEST_RC1_WINDOW_RESULT,
+                      O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC | O_NOFOLLOW,
+                      0600);
+    long now_ms = monotonic_millis();
+    unsigned long gpio142_delta = 0;
+    unsigned long errfatal_delta = 0;
+
+    if (out_fd < 0) {
+        return;
+    }
+    if (summary->gpio142_initial.parsed && summary->gpio142_max >= summary->gpio142_initial.count_total) {
+        gpio142_delta = summary->gpio142_max - summary->gpio142_initial.count_total;
+    }
+    if (summary->errfatal_initial.parsed && summary->errfatal_max >= summary->errfatal_initial.count_total) {
+        errfatal_delta = summary->errfatal_max - summary->errfatal_initial.count_total;
+    }
+    dprintf(out_fd,
+            "mdm2ap_timing.begin=1\n"
+            "mdm2ap_timing.mode=pid1-natural-provider-mdm2ap-irq-summary\n"
+            "mdm2ap_timing.elapsed_ms=%ld\n"
+            "mdm2ap_timing.detect_elapsed_ms=%ld\n"
+            "mdm2ap_timing.micro_elapsed_ms=%ld\n"
+            "mdm2ap_timing.sample_interval_ms=%d\n"
+            "mdm2ap_timing.sample_count=%d\n"
+            "mdm2ap_timing.gpio142_irq_initial_parsed=%d\n"
+            "mdm2ap_timing.gpio142_irq_initial=%lu\n"
+            "mdm2ap_timing.gpio142_irq_max=%lu\n"
+            "mdm2ap_timing.gpio142_irq_delta=%lu\n"
+            "mdm2ap_timing.gpio142_first_delta_sample=%d\n"
+            "mdm2ap_timing.errfatal_irq_initial_parsed=%d\n"
+            "mdm2ap_timing.errfatal_irq_initial=%lu\n"
+            "mdm2ap_timing.errfatal_irq_max=%lu\n"
+            "mdm2ap_timing.errfatal_irq_delta=%lu\n"
+            "mdm2ap_timing.errfatal_first_delta_sample=%d\n"
+            "mdm2ap_timing.safety_wifi_hal_start=0\n"
+            "mdm2ap_timing.safety_scan_connect=0\n"
+            "mdm2ap_timing.safety_credentials=0\n"
+            "mdm2ap_timing.safety_dhcp_route=0\n"
+            "mdm2ap_timing.safety_external_ping=0\n"
+            "mdm2ap_timing.safety_pmic_write=0\n"
+            "mdm2ap_timing.safety_gpio_request=0\n"
+            "mdm2ap_timing.safety_gpio_write=0\n"
+            "mdm2ap_timing.safety_gdsc_write=0\n"
+            "mdm2ap_timing.safety_regulator_write=0\n"
+            "mdm2ap_timing.safety_direct_esoc_ioctl=0\n"
+            "mdm2ap_timing.safety_boot_done_spoof=0\n"
+            "mdm2ap_timing.safety_pci_rescan=0\n"
+            "mdm2ap_timing.safety_platform_bind=0\n"
+            "mdm2ap_timing.end=1\n",
+            now_ms >= start_ms ? now_ms - start_ms : -1,
+            detect_ms >= start_ms ? detect_ms - start_ms : -1,
+            now_ms >= micro_start_ms ? now_ms - micro_start_ms : -1,
+            sample_interval_ms,
+            sample_count,
+            summary->gpio142_initial.parsed,
+            summary->gpio142_initial.count_total,
+            summary->gpio142_max,
+            gpio142_delta,
+            summary->gpio142_first_delta_sample,
+            summary->errfatal_initial.parsed,
+            summary->errfatal_initial.count_total,
+            summary->errfatal_max,
+            errfatal_delta,
+            summary->errfatal_first_delta_sample);
+    close(out_fd);
+}
+
+static void v1633_natural_mdm2ap_irq_summary_run(long start_ms,
+                                                 long detect_ms,
+                                                 long micro_start_ms,
+                                                 struct v1633_natural_mdm2ap_irq_summary *summary) {
+    enum {
+        V1633_NATURAL_IRQ_SAMPLE_COUNT = 120,
+        V1633_NATURAL_IRQ_SAMPLE_INTERVAL_MS = 50,
+    };
+
+    for (int sample_index = 0; sample_index < V1633_NATURAL_IRQ_SAMPLE_COUNT; sample_index++) {
+        usleep(V1633_NATURAL_IRQ_SAMPLE_INTERVAL_MS * 1000U);
+        v1633_natural_mdm2ap_irq_summary_sample(summary, sample_index);
+    }
+    v1633_append_natural_mdm2ap_irq_summary(summary,
+                                            start_ms,
+                                            detect_ms,
+                                            micro_start_ms,
+                                            V1633_NATURAL_IRQ_SAMPLE_COUNT,
+                                            V1633_NATURAL_IRQ_SAMPLE_INTERVAL_MS);
+}
+#endif
+
 #if A90_WIFI_TEST_BOOT_RC1_IMMEDIATE_ENDPOINT_SAMPLER
 static void v1393_rc1_immediate_endpoint_sample(const char *sample,
                                                 long start_ms,
@@ -2481,6 +2692,11 @@ static int v1393_pid1_provider_trigger_micro_endpoint_sample(long start_ms,
 #endif
     long micro_start_ms = monotonic_millis();
     size_t index;
+#if A90_WIFI_TEST_BOOT_NATURAL_MDM2AP_IRQ_SUMMARY
+    struct v1633_natural_mdm2ap_irq_summary natural_irq_summary;
+
+    v1633_natural_mdm2ap_irq_summary_init(&natural_irq_summary);
+#endif
 #if A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_AP2MDM_HOLD
     int ap2mdm_hold_attempted = 0;
     int ap2mdm_hold_rc = -EAGAIN;
@@ -2525,6 +2741,12 @@ static int v1393_pid1_provider_trigger_micro_endpoint_sample(long start_ms,
                             start_ms,
                             detect_ms,
                             micro_start_ms);
+#endif
+#if A90_WIFI_TEST_BOOT_NATURAL_MDM2AP_IRQ_SUMMARY
+    v1633_natural_mdm2ap_irq_summary_run(start_ms,
+                                         detect_ms,
+                                         micro_start_ms,
+                                         &natural_irq_summary);
 #endif
 #if A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_AP2MDM_HOLD
     v1477_append_ap2mdm_hold_line("ap2mdm_hold summary attempted=%d rc=%d\n",
@@ -3124,6 +3346,9 @@ static void v1393_write_wifi_test_summary(pid_t helper_pid, long spawn_ms) {
     dprintf(fd,
             "provider_trigger_ap2mdm_hold_requested=%d\n",
             A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_AP2MDM_HOLD);
+    dprintf(fd,
+            "natural_mdm2ap_irq_summary_requested=%d\n",
+            A90_WIFI_TEST_BOOT_NATURAL_MDM2AP_IRQ_SUMMARY);
     dprintf(fd,
             "auto_readiness_supervisor_requested=%d\n",
             A90_WIFI_TEST_BOOT_AUTO_READINESS_SUPERVISOR);

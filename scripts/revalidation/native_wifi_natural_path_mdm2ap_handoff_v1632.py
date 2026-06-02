@@ -145,6 +145,8 @@ def classify_natural_path(out_dir: Path, handoff: dict[str, Any]) -> dict[str, A
     window = read_text(out_dir / "test-rc1-window-result.stdout.txt")
     all_text = "\n".join([dmesg, summary, helper, watcher, window])
     fields = parse_key_values(helper)
+    window_fields = parse_key_values(window)
+    fields.update({key: value for key, value in window_fields.items() if key.startswith("mdm2ap_timing.")})
     summary_fields = parse_key_values(summary)
     handoff_pass = bool(handoff.get("handoff_pass"))
     rollback_ok = bool((handoff.get("rollback") or {}).get("ok"))

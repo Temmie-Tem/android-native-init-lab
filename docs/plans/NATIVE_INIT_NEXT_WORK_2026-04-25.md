@@ -10035,3 +10035,55 @@ above (rejected as inverted causality).
   `docs/reports/NATIVE_INIT_V1631_NATURAL_PATH_MDM2AP_OBSERVATION_ARTIFACT_SANITY_2026-06-02.md`,
   and
   `docs/reports/NATIVE_INIT_V1632_NATURAL_PATH_MDM2AP_OBSERVATION_HANDOFF_2026-06-02.md`.
+
+## V1633 Natural-path MDM2AP IRQ Summary Repair (2026-06-02)
+
+- V1633 source/build-only evidence-capture repair is complete and passes as
+  `v1633-natural-path-mdm2ap-irq-summary-source-build-pass`.
+
+  The V1632 live run proved the natural provider/PON/AP2MDM route can be
+  observed, but did not collect the required `mdm2ap_timing.*` IRQ-delta helper
+  output because the helper result file was absent and the supervised helper
+  timed out.  V1633 fixes that capture dependency without running a new live
+  gate: PID1 now writes the IRQ-delta summary directly into the provider window
+  result file.
+
+  V1633 artifact:
+
+  - init: `A90 Linux init 0.9.113 (v1633-natural-mdm2ap-irq-summary)`.
+  - boot image:
+    `tmp/wifi/v1633-natural-path-mdm2ap-irq-summary-test-boot/boot_linux_v1633_natural_mdm2ap_irq_summary.img`.
+  - boot SHA256:
+    `cec663be484b15245200e2409cdd863f7976b204e064613295546b8a9a316691`.
+  - helper remains `a90_android_execns_probe v303` with SHA256
+    `d58f637ce53b12f16f7143b388b20007553fe8d47bd6ed06379bde96a69c8798`.
+  - window result path:
+    `/cache/native-init-wifi-test-boot-v1633-natural-window.result`.
+
+  New capture behavior:
+
+  - initial GPIO142/MDM2AP and mdm errfatal IRQ counts are collected immediately
+    after natural provider detection.
+  - after the provider micro-window, PID1 samples `/proc/interrupts` read-only
+    for 120 samples at 50 ms and appends `mdm2ap_timing.gpio142_irq_delta`,
+    `mdm2ap_timing.errfatal_irq_delta`, first-delta sample indexes, and safety
+    zero markers into the window result.
+  - this removes the previous dependency on helper normal exit for the specific
+    MDM2AP discriminator required by the 2026-06-02 contract.
+
+  Static validation completed: `py_compile`, source/build, boot marker checks,
+  dangerous init argv marker absence, forbidden credential-like byte scan, and
+  `git diff --check` passed.  No device command, flash, reboot, partition write,
+  Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping,
+  PMIC/GPIO/GDSC write, eSoC notify/`BOOT_DONE`, PCI rescan, or platform
+  bind/unbind was performed for V1633.
+
+  Next gate: V1634 local artifact sanity for V1633.  After that, if a live gate
+  is selected, flash only the V1633 image, collect the V1633 window result, roll
+  back to `stage3/boot_linux_v724.img`, verify selftest `fail=0`, and classify
+  with the stricter V1632 logic that accepts `mdm2ap-responds` only on GPIO142
+  high or positive IRQ delta.  Do not start modem-rail/PMIC writes from V1633
+  automatically.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1633_NATURAL_PATH_MDM2AP_IRQ_SUMMARY_SOURCE_BUILD_2026-06-02.md`.

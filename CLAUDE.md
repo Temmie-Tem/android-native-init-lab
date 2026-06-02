@@ -4515,3 +4515,30 @@ a separately approved modem-rail/PMIC gate.
 
 Report:
 `docs/reports/NATIVE_INIT_V1632_NATURAL_PATH_MDM2AP_OBSERVATION_HANDOFF_2026-06-02.md`.
+
+## Latest native Wi-Fi state: V1633 MDM2AP IRQ summary capture repair (2026-06-02)
+
+V1633 source/build-only is complete:
+`v1633-natural-path-mdm2ap-irq-summary-source-build-pass`.
+
+Purpose: repair the V1632 evidence gap without another live run.  V1632 showed
+natural provider/PON/AP2MDM evidence, but helper timeout meant the required
+`mdm2ap_timing.*` IRQ-delta block was not written.  V1633 moves that specific
+MDM2AP discriminator into PID1's provider window result.
+
+Artifact:
+`tmp/wifi/v1633-natural-path-mdm2ap-irq-summary-test-boot/boot_linux_v1633_natural_mdm2ap_irq_summary.img`
+with boot SHA256
+`cec663be484b15245200e2409cdd863f7976b204e064613295546b8a9a316691`.
+Init marker: `A90 Linux init 0.9.113 (v1633-natural-mdm2ap-irq-summary)`.
+
+New behavior: after natural provider detection, PID1 collects initial MDM2AP
+GPIO142 and mdm errfatal IRQ counts, then samples `/proc/interrupts` read-only
+for 120 samples at 50 ms and appends `mdm2ap_timing.gpio142_irq_delta`,
+`mdm2ap_timing.errfatal_irq_delta`, first-delta sample indexes, and safety-zero
+markers directly into `/cache/native-init-wifi-test-boot-v1633-natural-window.result`.
+
+No live command or flash was performed for V1633.  Next safe unit is V1634 local
+artifact sanity.  A future live handoff should use only the V1633 image, roll
+back to v724, verify selftest `fail=0`, and classify with the strict V1632 logic.
+Do not proceed to modem-rail/PMIC writes automatically.
