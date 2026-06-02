@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v327"
+#define EXECNS_VERSION "a90_android_execns_probe v328"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -415,6 +415,10 @@ struct paths {
     char sys_fs_selinux_status[MAX_PATH_LEN];
     char sys_fs_selinux_enforce[MAX_PATH_LEN];
     char sys_fs_selinux_load[MAX_PATH_LEN];
+    char sys_kernel[MAX_PATH_LEN]; /* v328 */
+    char sys_kernel_debug[MAX_PATH_LEN]; /* v328 */
+    char sys_kernel_debug_tracing[MAX_PATH_LEN]; /* v328 */
+    char sys_kernel_tracing[MAX_PATH_LEN]; /* v328 */
     char data[MAX_PATH_LEN];
     char data_vendor[MAX_PATH_LEN];
     char data_vendor_wifi[MAX_PATH_LEN];
@@ -3563,6 +3567,19 @@ static int init_paths(struct paths *paths) {
                     sizeof(paths->sys_fs_selinux_load),
                     paths->sys_fs_selinux,
                     "load") < 0 ||
+        append_path(paths->sys_kernel, sizeof(paths->sys_kernel), paths->sys, "kernel") < 0 ||
+        append_path(paths->sys_kernel_debug,
+                    sizeof(paths->sys_kernel_debug),
+                    paths->sys_kernel,
+                    "debug") < 0 ||
+        append_path(paths->sys_kernel_debug_tracing,
+                    sizeof(paths->sys_kernel_debug_tracing),
+                    paths->sys_kernel_debug,
+                    "tracing") < 0 ||
+        append_path(paths->sys_kernel_tracing,
+                    sizeof(paths->sys_kernel_tracing),
+                    paths->sys_kernel,
+                    "tracing") < 0 ||
         append_path(paths->data, sizeof(paths->data), paths->root, "data") < 0 ||
         append_path(paths->data_vendor, sizeof(paths->data_vendor), paths->data, "vendor") < 0 ||
         append_path(paths->data_vendor_wifi,
@@ -4388,6 +4405,20 @@ static void cleanup_paths(const struct paths *paths) {
     }
     if (paths->sys_fs_selinux_null[0] != '\0') {
         unlink(paths->sys_fs_selinux_null);
+    }
+    if (paths->sys_kernel_debug_tracing[0] != '\0') {
+        umount2(paths->sys_kernel_debug_tracing, MNT_DETACH);
+        rmdir(paths->sys_kernel_debug_tracing);
+    }
+    if (paths->sys_kernel_tracing[0] != '\0') {
+        umount2(paths->sys_kernel_tracing, MNT_DETACH);
+        rmdir(paths->sys_kernel_tracing);
+    }
+    if (paths->sys_kernel_debug[0] != '\0') {
+        rmdir(paths->sys_kernel_debug);
+    }
+    if (paths->sys_kernel[0] != '\0') {
+        rmdir(paths->sys_kernel);
     }
     if (paths->dev_properties[0] != '\0') {
         umount2(paths->dev_properties, MNT_DETACH);
@@ -9755,6 +9786,44 @@ static int materialize_rmt_modem_detect_surface(const struct paths *paths,
                              "esoc-dev class sysfs",
                              error_buf,
                              error_size) < 0) {
+        return -1;
+    }
+    return 0;
+}
+
+static int materialize_wlan_pd_cnss_tracefs_surface(const struct config *cfg,
+                                                    const struct paths *paths,
+                                                    char *error_buf,
+                                                    size_t error_size) {
+    const char *source = "/sys/kernel/debug/tracing";
+    const char *target = paths->sys_kernel_debug_tracing;
+
+    if (!(is_wifi_companion_wlan_pd_cnss_output_visibility_mode(cfg->mode) &&
+          cfg->allow_wlan_pd_cnss_output_visibility)) {
+        return 0;
+    }
+    if (access(source, R_OK | W_OK | X_OK) < 0) {
+        source = "/sys/kernel/tracing";
+        target = paths->sys_kernel_tracing;
+    }
+    if (access(source, R_OK | W_OK | X_OK) < 0) {
+        return 0;
+    }
+    if (streq(source, "/sys/kernel/debug/tracing")) {
+        if (mkdir_p(paths->sys_kernel_debug, 0755) < 0) {
+            snprintf(error_buf, error_size, "mkdir private tracefs debug root: %s", strerror(errno));
+            return -1;
+        }
+    } else if (mkdir_p(paths->sys_kernel, 0755) < 0) {
+        snprintf(error_buf, error_size, "mkdir private tracefs kernel root: %s", strerror(errno));
+        return -1;
+    }
+    if (mkdir_p(target, 0755) < 0) {
+        snprintf(error_buf, error_size, "mkdir private tracefs: %s", strerror(errno));
+        return -1;
+    }
+    if (bind_rw(source, target) < 0) {
+        snprintf(error_buf, error_size, "bind private tracefs: %s", strerror(errno));
         return -1;
     }
     return 0;
@@ -44246,6 +44315,9 @@ static int setup_namespace(const struct config *cfg,
         return -1;
     }
     if (materialize_pm_service_modem_detect_surface(cfg, paths, error_buf, error_size) < 0) {
+        return -1;
+    }
+    if (materialize_wlan_pd_cnss_tracefs_surface(cfg, paths, error_buf, error_size) < 0) {
         return -1;
     }
     if (materialize_fake_esoc_name_sdxprairie(cfg, paths, error_buf, error_size) < 0) {

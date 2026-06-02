@@ -13969,3 +13969,40 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
 
   Report:
   `docs/reports/NATIVE_INIT_V1742_WLAN_PD_SERVICE_MANAGER_MINIMIZER_2026-06-03.md`.
+
+## V1743 WLAN-PD pure-route non-log parity source build (2026-06-03)
+
+- V1743 source/build-only unit completed.
+
+  Result:
+
+  - decision: `v1743-wlan-pd-pure-nonlog-parity-source-build-pass`;
+  - boot image:
+    `tmp/wifi/v1743-wlan-pd-pure-nonlog-parity-test-boot/boot_linux_v1743_wlan_pd_pure_nonlog_parity.img`;
+  - boot SHA256:
+    `f6beb03212533fca872252b27a509f29a84ead32243b57b9b6bfff26083d8d24`;
+  - init: `A90 Linux init 0.9.141 (v1743-wlan-pd-pure-nonlog-parity)`;
+  - helper marker: `a90_android_execns_probe v328`;
+  - helper SHA256:
+    `59396002cf8fd7b5886d8a04a2bd4c181797f9c0b8c768d59ac2fddd59c05a75`.
+
+  Source change:
+
+  - helper output-visibility mode now materializes a private tracefs bind before
+    CNSS uprobe arming;
+  - route still keeps service-manager disabled and uses only `qrtr-ns`,
+    `pd-mapper`, `rmt_storage`, `tftp_server`, `/dev/subsys_modem` holder,
+    `cnss_diag`, and stock `cnss-daemon`;
+  - no PM trio, `boot_wlan`, restart-PD request, `/dev/subsys_esoc0`,
+    forced RC1, fake-ONLINE, Wi-Fi HAL, scan/connect, credentials,
+    DHCP/routes, or external ping.
+
+  Next candidate:
+
+  - V1744 one-run rollbackable live handoff of the V1743 artifact;
+  - labels: `pure-route-nonlog-no-wlfw-start`, `pure-route-nonlog-wlfw-start`,
+    or `tracefs-surface-unavailable`;
+  - one run sets one label, then stop and classify before adding actors.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1743_WLAN_PD_PURE_NONLOG_PARITY_SOURCE_BUILD_2026-06-03.md`.
