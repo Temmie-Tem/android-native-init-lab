@@ -13161,3 +13161,45 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
 
   Report:
   `docs/reports/NATIVE_INIT_V1717_CNSS_PM_CLIENT_REGISTER_STATIC_2026-06-02.md`.
+
+## V1718/V1719 CNSS peripheral-client uprobe gate (2026-06-02)
+
+- V1718 source/build-only test boot artifact completed.
+
+  Result:
+
+  - decision: `v1718-cnss-peripheral-client-uprobe-source-build-pass`;
+  - init: `A90 Linux init 0.9.134 (v1718-cnss-peripheral-client-uprobe)`;
+  - helper: `a90_android_execns_probe v320`;
+  - helper SHA256:
+    `00611eeaa493285fe452074205784bcb84ecf43e7157335d57e781e130b8fe4f`;
+  - boot image:
+    `tmp/wifi/v1718-cnss-peripheral-client-uprobe-test-boot/boot_linux_v1718_cnss_peripheral_client_uprobe.img`;
+  - boot SHA256:
+    `a0222cd5459c831ccdb171a209edd2a7eb58e5a15355d077c2598dee45aea60a`.
+
+  Added second uprobe target:
+
+  - target binary: `libperipheral_client.so`;
+  - `periph_pm_client_register_entry@0x6ec8`;
+  - `periph_pm_register_connect_entry@0x612c`;
+  - `periph_vndbinder_init_call@0x6168`;
+  - `periph_default_service_manager_call@0x6190`;
+  - `periph_service_manager_get_call@0x61c4`;
+  - `periph_manager_register_tx_call@0x6274` and retcheck `0x6278`;
+  - return sentinels at `0x66dc` and `0x7184`.
+
+  Next gate:
+
+  - V1719 one-run rollbackable live handoff, reusing the V1716 internal-modem
+    firmware-serve route only;
+  - expected labels classify whether the block is at `/dev/vndbinder`
+    initialization, default service-manager lookup,
+    `vendor.qcom.PeripheralManager` lookup, or the manager register
+    transaction;
+  - still no service-manager, PM trio, `boot_wlan`, `/dev/subsys_esoc0`,
+    forced RC1, fake-ONLINE, Wi-Fi HAL, scan/connect, credentials,
+    DHCP/routes, or external ping.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1718_CNSS_PERIPHERAL_CLIENT_UPROBE_SOURCE_BUILD_2026-06-02.md`.

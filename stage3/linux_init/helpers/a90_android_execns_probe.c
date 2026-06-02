@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v319"
+#define EXECNS_VERSION "a90_android_execns_probe v320"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -11822,6 +11822,8 @@ struct cnss_nonlog_maps_summary {
 
 #define A90_CNSS_WLFW_UPROBE_TARGET_COUNT 3
 #define A90_CNSS_WLFW_UPROBE_EVENT_COUNT 45
+#define A90_CNSS_PERIPHERAL_UPROBE_TARGET_COUNT 3
+#define A90_CNSS_PERIPHERAL_UPROBE_EVENT_COUNT 13
 
 struct cnss_wlfw_uprobe_event_spec {
     const char *name;
@@ -11925,6 +11927,44 @@ enum cnss_wlfw_uprobe_event_index {
     CNSS_WLFW_UPROBE_PM_INIT_RETURN_PATH = 44,
 };
 
+struct cnss_peripheral_uprobe_event_spec {
+    const char *name;
+    const char *key;
+    unsigned long long offset;
+};
+
+static const struct cnss_peripheral_uprobe_event_spec cnss_peripheral_uprobe_events[A90_CNSS_PERIPHERAL_UPROBE_EVENT_COUNT] = {
+    { "periph_pm_client_register_entry", "periph_pm_client_register_entry", 0x6ec8ULL },
+    { "periph_pm_register_connect_entry", "periph_pm_register_connect_entry", 0x612cULL },
+    { "periph_vndbinder_init_call", "periph_vndbinder_init_call", 0x6168ULL },
+    { "periph_default_service_manager_call", "periph_default_service_manager_call", 0x6190ULL },
+    { "periph_manager_name_string16_call", "periph_manager_name_string16_call", 0x61a8ULL },
+    { "periph_service_manager_get_call", "periph_service_manager_get_call", 0x61c4ULL },
+    { "periph_binder_object_present_check", "periph_binder_object_present_check", 0x620cULL },
+    { "periph_as_interface_call", "periph_as_interface_call", 0x6218ULL },
+    { "periph_manager_register_tx_call", "periph_manager_register_tx_call", 0x6274ULL },
+    { "periph_manager_register_tx_retcheck", "periph_manager_register_tx_retcheck", 0x6278ULL },
+    { "periph_success_path", "periph_success_path", 0x6538ULL },
+    { "periph_pm_register_connect_return", "periph_pm_register_connect_return", 0x66dcULL },
+    { "periph_pm_client_register_common_return", "periph_pm_client_register_common_return", 0x7184ULL },
+};
+
+enum cnss_peripheral_uprobe_event_index {
+    CNSS_PERIPHERAL_UPROBE_PM_CLIENT_REGISTER_ENTRY = 0,
+    CNSS_PERIPHERAL_UPROBE_PM_REGISTER_CONNECT_ENTRY = 1,
+    CNSS_PERIPHERAL_UPROBE_VNDBINDER_INIT_CALL = 2,
+    CNSS_PERIPHERAL_UPROBE_DEFAULT_SERVICE_MANAGER_CALL = 3,
+    CNSS_PERIPHERAL_UPROBE_MANAGER_NAME_STRING16_CALL = 4,
+    CNSS_PERIPHERAL_UPROBE_SERVICE_MANAGER_GET_CALL = 5,
+    CNSS_PERIPHERAL_UPROBE_BINDER_OBJECT_PRESENT_CHECK = 6,
+    CNSS_PERIPHERAL_UPROBE_AS_INTERFACE_CALL = 7,
+    CNSS_PERIPHERAL_UPROBE_MANAGER_REGISTER_TX_CALL = 8,
+    CNSS_PERIPHERAL_UPROBE_MANAGER_REGISTER_TX_RETCHECK = 9,
+    CNSS_PERIPHERAL_UPROBE_SUCCESS_PATH = 10,
+    CNSS_PERIPHERAL_UPROBE_PM_REGISTER_CONNECT_RETURN = 11,
+    CNSS_PERIPHERAL_UPROBE_PM_CLIENT_REGISTER_COMMON_RETURN = 12,
+};
+
 struct cnss_wlfw_uprobe_target_probe {
     int access_rc;
     int access_errno;
@@ -11992,6 +12032,41 @@ struct cnss_wlfw_uprobe_state {
 
 static struct cnss_wlfw_uprobe_state g_cnss_wlfw_uprobe_state;
 static bool g_cnss_wlfw_uprobe_atexit_registered;
+
+struct cnss_peripheral_uprobe_state {
+    bool arm_attempted;
+    bool tracefs_available;
+    bool stale_cleanup_attempted;
+    bool clear_trace_attempted;
+    bool register_attempted;
+    bool registered;
+    bool enable_attempted;
+    bool enabled;
+    bool trace_read_attempted;
+    bool trace_read_ok;
+    bool cleanup_attempted;
+    bool cleanup_done;
+    int tracefs_errno;
+    int stale_cleanup_rc;
+    int clear_trace_rc;
+    int register_rc;
+    int enable_rc;
+    int trace_read_errno;
+    int disable_rc;
+    int cleanup_rc;
+    int hit_count;
+    int selected_target_index;
+    char tracefs_path[96];
+    char uprobe_events_path[MAX_PATH_LEN];
+    char trace_path[MAX_PATH_LEN];
+    char selected_target_path[MAX_PATH_LEN];
+    char first_hit_line[512];
+    struct cnss_wlfw_uprobe_target_probe targets[A90_CNSS_PERIPHERAL_UPROBE_TARGET_COUNT];
+    struct cnss_wlfw_uprobe_event_state events[A90_CNSS_PERIPHERAL_UPROBE_EVENT_COUNT];
+};
+
+static struct cnss_peripheral_uprobe_state g_cnss_peripheral_uprobe_state;
+static bool g_cnss_peripheral_uprobe_atexit_registered;
 
 static void cnss_nonlog_maps_summary_init(struct cnss_nonlog_maps_summary *summary) {
     memset(summary, 0, sizeof(*summary));
@@ -12256,6 +12331,236 @@ static void cnss_wlfw_uprobe_cleanup_atexit(void) {
     cnss_wlfw_uprobe_cleanup_state(&g_cnss_wlfw_uprobe_state);
 }
 
+static int cnss_peripheral_uprobe_find_tracefs(struct cnss_peripheral_uprobe_state *state) {
+    static const char *const roots[] = {
+        "/sys/kernel/tracing",
+        "/sys/kernel/debug/tracing",
+    };
+
+    for (size_t i = 0; i < sizeof(roots) / sizeof(roots[0]); i++) {
+        if (tracefs_root_has_uprobes(roots[i])) {
+            snprintf(state->tracefs_path, sizeof(state->tracefs_path), "%s", roots[i]);
+            return 0;
+        }
+    }
+    state->tracefs_errno = ENOENT;
+    return -1;
+}
+
+static int cnss_peripheral_uprobe_build_paths(struct cnss_peripheral_uprobe_state *state) {
+    int needed;
+
+    needed = snprintf(state->uprobe_events_path,
+                      sizeof(state->uprobe_events_path),
+                      "%s/uprobe_events",
+                      state->tracefs_path);
+    if (needed < 0 || needed >= (int)sizeof(state->uprobe_events_path)) {
+        errno = ENAMETOOLONG;
+        return -1;
+    }
+    needed = snprintf(state->trace_path,
+                      sizeof(state->trace_path),
+                      "%s/trace",
+                      state->tracefs_path);
+    if (needed < 0 || needed >= (int)sizeof(state->trace_path)) {
+        errno = ENAMETOOLONG;
+        return -1;
+    }
+    for (size_t i = 0; i < A90_CNSS_PERIPHERAL_UPROBE_EVENT_COUNT; i++) {
+        needed = snprintf(state->events[i].enable_path,
+                          sizeof(state->events[i].enable_path),
+                          "%s/events/a90periph/%s/enable",
+                          state->tracefs_path,
+                          cnss_peripheral_uprobe_events[i].name);
+        if (needed < 0 || needed >= (int)sizeof(state->events[i].enable_path)) {
+            errno = ENAMETOOLONG;
+            return -1;
+        }
+    }
+    return 0;
+}
+
+static void cnss_peripheral_uprobe_select_target(struct cnss_peripheral_uprobe_state *state,
+                                                 const struct paths *paths) {
+    char namespace_vendor_target[MAX_PATH_LEN] = {0};
+    static const char *const fallback_targets[] = {
+        "/mnt/vendor/lib64/libperipheral_client.so",
+        "/vendor/lib64/libperipheral_client.so",
+    };
+    const char *candidates[A90_CNSS_PERIPHERAL_UPROBE_TARGET_COUNT] = {0};
+
+    state->selected_target_index = -1;
+    if (paths != NULL && paths->vendor[0] != '\0') {
+        if (snprintf(namespace_vendor_target,
+                     sizeof(namespace_vendor_target),
+                     "%s/lib64/libperipheral_client.so",
+                     paths->vendor) >= (int)sizeof(namespace_vendor_target)) {
+            namespace_vendor_target[0] = '\0';
+        }
+    }
+    candidates[0] = namespace_vendor_target[0] != '\0' ? namespace_vendor_target : NULL;
+    candidates[1] = fallback_targets[0];
+    candidates[2] = fallback_targets[1];
+
+    for (int i = 0; i < A90_CNSS_PERIPHERAL_UPROBE_TARGET_COUNT; i++) {
+        cnss_wlfw_uprobe_probe_target(&state->targets[i], candidates[i]);
+        if (state->selected_target_index < 0 &&
+            state->targets[i].access_rc == 0 &&
+            state->targets[i].stat_rc == 0 &&
+            S_ISREG((mode_t)state->targets[i].st_mode)) {
+            state->selected_target_index = i;
+            snprintf(state->selected_target_path,
+                     sizeof(state->selected_target_path),
+                     "%s",
+                     state->targets[i].path);
+        }
+    }
+    if (state->selected_target_index < 0 && state->targets[0].path[0] != '\0') {
+        state->selected_target_index = 0;
+        snprintf(state->selected_target_path,
+                 sizeof(state->selected_target_path),
+                 "%s",
+                 state->targets[0].path);
+    }
+}
+
+static void cnss_peripheral_uprobe_cleanup_state(struct cnss_peripheral_uprobe_state *state) {
+    if (!state->arm_attempted || state->cleanup_done) {
+        return;
+    }
+    state->cleanup_attempted = true;
+    for (size_t i = 0; i < A90_CNSS_PERIPHERAL_UPROBE_EVENT_COUNT; i++) {
+        struct cnss_wlfw_uprobe_event_state *event = &state->events[i];
+        char cleanup_line[96];
+
+        if (event->enabled && event->enable_path[0] != '\0') {
+            event->disable_rc = write_text_once_errno(event->enable_path, "0\n");
+        }
+        if (event->registered && state->uprobe_events_path[0] != '\0') {
+            snprintf(cleanup_line,
+                     sizeof(cleanup_line),
+                     "-:a90periph/%s\n",
+                     cnss_peripheral_uprobe_events[i].name);
+            event->cleanup_rc = write_text_once_errno(state->uprobe_events_path, cleanup_line);
+        }
+    }
+    state->cleanup_done = true;
+}
+
+static void cnss_peripheral_uprobe_cleanup_atexit(void) {
+    cnss_peripheral_uprobe_cleanup_state(&g_cnss_peripheral_uprobe_state);
+}
+
+static void cnss_peripheral_uprobe_arm_global(const struct paths *paths) {
+    struct cnss_peripheral_uprobe_state *state = &g_cnss_peripheral_uprobe_state;
+
+    memset(state, 0, sizeof(*state));
+    state->arm_attempted = true;
+    state->tracefs_errno = 0;
+    state->stale_cleanup_rc = 0;
+    state->clear_trace_rc = 0;
+    state->register_rc = 0;
+    state->enable_rc = 0;
+    state->trace_read_errno = 0;
+    state->disable_rc = 0;
+    state->cleanup_rc = 0;
+
+    if (cnss_peripheral_uprobe_find_tracefs(state) < 0) {
+        return;
+    }
+    if (cnss_peripheral_uprobe_build_paths(state) < 0) {
+        state->tracefs_errno = errno;
+        return;
+    }
+    state->tracefs_available = true;
+    cnss_peripheral_uprobe_select_target(state, paths);
+    if (!g_cnss_peripheral_uprobe_atexit_registered) {
+        atexit(cnss_peripheral_uprobe_cleanup_atexit);
+        g_cnss_peripheral_uprobe_atexit_registered = true;
+    }
+    state->clear_trace_attempted = true;
+    state->clear_trace_rc = truncate_text_once_errno(state->trace_path);
+    if (state->selected_target_path[0] == '\0') {
+        return;
+    }
+    for (size_t i = 0; i < A90_CNSS_PERIPHERAL_UPROBE_EVENT_COUNT; i++) {
+        struct cnss_wlfw_uprobe_event_state *event = &state->events[i];
+        char cleanup_line[96];
+        char register_line[256];
+
+        event->stale_cleanup_attempted = true;
+        snprintf(cleanup_line,
+                 sizeof(cleanup_line),
+                 "-:a90periph/%s\n",
+                 cnss_peripheral_uprobe_events[i].name);
+        event->stale_cleanup_rc = write_text_once_errno(state->uprobe_events_path, cleanup_line);
+        state->stale_cleanup_attempted = true;
+        state->stale_cleanup_rc = event->stale_cleanup_rc;
+
+        event->register_attempted = true;
+        if (snprintf(register_line,
+                     sizeof(register_line),
+                     "p:a90periph/%s %s:0x%llx\n",
+                     cnss_peripheral_uprobe_events[i].name,
+                     state->selected_target_path,
+                     cnss_peripheral_uprobe_events[i].offset) >= (int)sizeof(register_line)) {
+            event->register_rc = -ENAMETOOLONG;
+            continue;
+        }
+        event->register_rc = write_text_once_errno(state->uprobe_events_path, register_line);
+        state->register_attempted = true;
+        state->register_rc = event->register_rc;
+        if (event->register_rc == 0) {
+            event->registered = true;
+            state->registered = true;
+        }
+        event->enable_attempted = true;
+        event->enable_rc = write_text_once_errno(event->enable_path, "1\n");
+        state->enable_attempted = true;
+        state->enable_rc = event->enable_rc;
+        if (event->enable_rc == 0) {
+            event->enabled = true;
+            state->enabled = true;
+        }
+    }
+}
+
+static void cnss_peripheral_uprobe_collect_trace(struct cnss_peripheral_uprobe_state *state) {
+    char line[1024];
+    FILE *file;
+
+    state->trace_read_attempted = true;
+    file = fopen(state->trace_path, "re");
+    if (file == NULL) {
+        state->trace_read_errno = errno;
+        return;
+    }
+    state->trace_read_ok = true;
+    while (fgets(line, sizeof(line), file) != NULL) {
+        for (size_t i = 0; i < A90_CNSS_PERIPHERAL_UPROBE_EVENT_COUNT; i++) {
+            struct cnss_wlfw_uprobe_event_state *event = &state->events[i];
+
+            if (strstr(line, ": ") == NULL ||
+                strstr(line, cnss_peripheral_uprobe_events[i].name) == NULL) {
+                continue;
+            }
+            event->hit_count++;
+            state->hit_count++;
+            if (event->first_hit_line[0] == '\0') {
+                size_t len = strlen(line);
+                while (len > 0 && (line[len - 1] == '\n' || line[len - 1] == '\r')) {
+                    line[--len] = '\0';
+                }
+                strlcpy(event->first_hit_line, line, sizeof(event->first_hit_line));
+            }
+            if (state->first_hit_line[0] == '\0') {
+                strlcpy(state->first_hit_line, event->first_hit_line, sizeof(state->first_hit_line));
+            }
+        }
+    }
+    fclose(file);
+}
+
 static void cnss_wlfw_uprobe_arm_global(const struct paths *paths) {
     struct cnss_wlfw_uprobe_state *state = &g_cnss_wlfw_uprobe_state;
 
@@ -12393,10 +12698,13 @@ static int append_wlan_pd_cnss_nonlog_control_flow_summary(struct buffer *stdout
     int global_mhi_fd_count = count_all_proc_fd_target_matches("/dev/mhi_0305_01.01.00_pipe_10");
     int ks_process_count = count_process_cmdline_or_comm_matches("/vendor/bin/ks", "ks");
     struct cnss_wlfw_uprobe_state *uprobe = &g_cnss_wlfw_uprobe_state;
+    struct cnss_peripheral_uprobe_state *peripheral = &g_cnss_peripheral_uprobe_state;
     const char *label;
 
     cnss_wlfw_uprobe_collect_trace(uprobe);
+    cnss_peripheral_uprobe_collect_trace(peripheral);
     cnss_wlfw_uprobe_cleanup_state(uprobe);
+    cnss_peripheral_uprobe_cleanup_state(peripheral);
     cnss_nonlog_maps_summary_init(&maps);
     if (cnss_daemon_pid > 0 && cnss_daemon_running) {
         collect_cnss_nonlog_maps_summary(cnss_daemon_pid, &maps);
@@ -12462,6 +12770,31 @@ static int append_wlan_pd_cnss_nonlog_control_flow_summary(struct buffer *stdout
         label = "pm-init-handle-load-no-connect";
     } else if (uprobe->events[CNSS_WLFW_UPROBE_PM_INIT_PM_CLIENT_REGISTER_RETCHECK].hit_count > 0) {
         label = "pm-init-register-returned-no-connect";
+    } else if (peripheral->events[CNSS_PERIPHERAL_UPROBE_PM_CLIENT_REGISTER_COMMON_RETURN].hit_count > 0 ||
+               peripheral->events[CNSS_PERIPHERAL_UPROBE_PM_REGISTER_CONNECT_RETURN].hit_count > 0) {
+        label = "peripheral-register-returned";
+    } else if (peripheral->events[CNSS_PERIPHERAL_UPROBE_SUCCESS_PATH].hit_count > 0) {
+        label = "peripheral-success-path-no-return";
+    } else if (peripheral->events[CNSS_PERIPHERAL_UPROBE_MANAGER_REGISTER_TX_RETCHECK].hit_count > 0) {
+        label = "peripheral-manager-register-transaction-returned";
+    } else if (peripheral->events[CNSS_PERIPHERAL_UPROBE_MANAGER_REGISTER_TX_CALL].hit_count > 0) {
+        label = "peripheral-manager-register-transaction-call-no-return";
+    } else if (peripheral->events[CNSS_PERIPHERAL_UPROBE_AS_INTERFACE_CALL].hit_count > 0) {
+        label = "peripheral-as-interface-no-register-transaction";
+    } else if (peripheral->events[CNSS_PERIPHERAL_UPROBE_BINDER_OBJECT_PRESENT_CHECK].hit_count > 0) {
+        label = "peripheral-service-lookup-returned-no-interface";
+    } else if (peripheral->events[CNSS_PERIPHERAL_UPROBE_SERVICE_MANAGER_GET_CALL].hit_count > 0) {
+        label = "peripheral-service-manager-get-call-no-return";
+    } else if (peripheral->events[CNSS_PERIPHERAL_UPROBE_MANAGER_NAME_STRING16_CALL].hit_count > 0) {
+        label = "peripheral-service-name-built-no-get";
+    } else if (peripheral->events[CNSS_PERIPHERAL_UPROBE_DEFAULT_SERVICE_MANAGER_CALL].hit_count > 0) {
+        label = "peripheral-default-service-manager-call-no-return";
+    } else if (peripheral->events[CNSS_PERIPHERAL_UPROBE_VNDBINDER_INIT_CALL].hit_count > 0) {
+        label = "peripheral-vndbinder-init-call-no-return";
+    } else if (peripheral->events[CNSS_PERIPHERAL_UPROBE_PM_REGISTER_CONNECT_ENTRY].hit_count > 0) {
+        label = "peripheral-register-connect-entry-no-vndbinder-init";
+    } else if (peripheral->events[CNSS_PERIPHERAL_UPROBE_PM_CLIENT_REGISTER_ENTRY].hit_count > 0) {
+        label = "peripheral-client-register-entry-no-connect-entry";
     } else if (uprobe->events[CNSS_WLFW_UPROBE_PM_INIT_PM_CLIENT_REGISTER_CALL].hit_count > 0) {
         label = "pm-init-register-call-no-return";
     } else if (uprobe->events[CNSS_WLFW_UPROBE_PM_INIT_NULL_LOOP_TYPE_CHECK].hit_count > 0) {
@@ -12693,6 +13026,114 @@ static int append_wlan_pd_cnss_nonlog_control_flow_summary(struct buffer *stdout
                           cnss_wlfw_uprobe_events[i].key,
                           event->hit_count,
                           cnss_wlfw_uprobe_events[i].key,
+                          event->first_hit_line[0] != '\0' ? event->first_hit_line : "none") < 0) {
+            return -1;
+        }
+    }
+    if (append_format(stdout_buf,
+                      "wlan_pd_cnss_nonlog_control_flow.peripheral_uprobe_attempted=%d\n"
+                      "wlan_pd_cnss_nonlog_control_flow.peripheral_uprobe.tracefs.available=%d\n"
+                      "wlan_pd_cnss_nonlog_control_flow.peripheral_uprobe.tracefs.path=%s\n"
+                      "wlan_pd_cnss_nonlog_control_flow.peripheral_uprobe.tracefs.errno=%d\n"
+                      "wlan_pd_cnss_nonlog_control_flow.peripheral_uprobe.target.selected_index=%d\n"
+                      "wlan_pd_cnss_nonlog_control_flow.peripheral_uprobe.target.selected_path=%s\n"
+                      "wlan_pd_cnss_nonlog_control_flow.peripheral_uprobe.target.0.path=%s\n"
+                      "wlan_pd_cnss_nonlog_control_flow.peripheral_uprobe.target.0.access_rc=%d\n"
+                      "wlan_pd_cnss_nonlog_control_flow.peripheral_uprobe.target.0.stat_rc=%d\n"
+                      "wlan_pd_cnss_nonlog_control_flow.peripheral_uprobe.target.0.mode=0%llo\n"
+                      "wlan_pd_cnss_nonlog_control_flow.peripheral_uprobe.target.0.size=%llu\n"
+                      "wlan_pd_cnss_nonlog_control_flow.peripheral_uprobe.target.1.path=%s\n"
+                      "wlan_pd_cnss_nonlog_control_flow.peripheral_uprobe.target.1.access_rc=%d\n"
+                      "wlan_pd_cnss_nonlog_control_flow.peripheral_uprobe.target.1.stat_rc=%d\n"
+                      "wlan_pd_cnss_nonlog_control_flow.peripheral_uprobe.target.1.mode=0%llo\n"
+                      "wlan_pd_cnss_nonlog_control_flow.peripheral_uprobe.target.1.size=%llu\n"
+                      "wlan_pd_cnss_nonlog_control_flow.peripheral_uprobe.target.2.path=%s\n"
+                      "wlan_pd_cnss_nonlog_control_flow.peripheral_uprobe.target.2.access_rc=%d\n"
+                      "wlan_pd_cnss_nonlog_control_flow.peripheral_uprobe.target.2.stat_rc=%d\n"
+                      "wlan_pd_cnss_nonlog_control_flow.peripheral_uprobe.target.2.mode=0%llo\n"
+                      "wlan_pd_cnss_nonlog_control_flow.peripheral_uprobe.target.2.size=%llu\n"
+                      "wlan_pd_cnss_nonlog_control_flow.peripheral_uprobe.register_attempted=%d\n"
+                      "wlan_pd_cnss_nonlog_control_flow.peripheral_uprobe.register_rc=%d\n"
+                      "wlan_pd_cnss_nonlog_control_flow.peripheral_uprobe.registered=%d\n"
+                      "wlan_pd_cnss_nonlog_control_flow.peripheral_uprobe.enable_attempted=%d\n"
+                      "wlan_pd_cnss_nonlog_control_flow.peripheral_uprobe.enable_rc=%d\n"
+                      "wlan_pd_cnss_nonlog_control_flow.peripheral_uprobe.enabled=%d\n"
+                      "wlan_pd_cnss_nonlog_control_flow.peripheral_uprobe.trace_read_attempted=%d\n"
+                      "wlan_pd_cnss_nonlog_control_flow.peripheral_uprobe.trace_read_ok=%d\n"
+                      "wlan_pd_cnss_nonlog_control_flow.peripheral_uprobe.trace_read_errno=%d\n"
+                      "wlan_pd_cnss_nonlog_control_flow.peripheral_uprobe.hit_count=%d\n"
+                      "wlan_pd_cnss_nonlog_control_flow.peripheral_uprobe.first_hit_line=%s\n"
+                      "wlan_pd_cnss_nonlog_control_flow.peripheral_uprobe.cleanup_attempted=%d\n"
+                      "wlan_pd_cnss_nonlog_control_flow.peripheral_uprobe.cleanup_done=%d\n",
+                      peripheral->arm_attempted ? 1 : 0,
+                      peripheral->tracefs_available ? 1 : 0,
+                      peripheral->tracefs_path[0] != '\0' ? peripheral->tracefs_path : "none",
+                      peripheral->tracefs_errno,
+                      peripheral->selected_target_index,
+                      peripheral->selected_target_path[0] != '\0' ? peripheral->selected_target_path : "none",
+                      peripheral->targets[0].path[0] != '\0' ? peripheral->targets[0].path : "none",
+                      peripheral->targets[0].access_rc,
+                      peripheral->targets[0].stat_rc,
+                      peripheral->targets[0].st_mode,
+                      peripheral->targets[0].st_size,
+                      peripheral->targets[1].path[0] != '\0' ? peripheral->targets[1].path : "none",
+                      peripheral->targets[1].access_rc,
+                      peripheral->targets[1].stat_rc,
+                      peripheral->targets[1].st_mode,
+                      peripheral->targets[1].st_size,
+                      peripheral->targets[2].path[0] != '\0' ? peripheral->targets[2].path : "none",
+                      peripheral->targets[2].access_rc,
+                      peripheral->targets[2].stat_rc,
+                      peripheral->targets[2].st_mode,
+                      peripheral->targets[2].st_size,
+                      peripheral->register_attempted ? 1 : 0,
+                      peripheral->register_rc,
+                      peripheral->registered ? 1 : 0,
+                      peripheral->enable_attempted ? 1 : 0,
+                      peripheral->enable_rc,
+                      peripheral->enabled ? 1 : 0,
+                      peripheral->trace_read_attempted ? 1 : 0,
+                      peripheral->trace_read_ok ? 1 : 0,
+                      peripheral->trace_read_errno,
+                      peripheral->hit_count,
+                      peripheral->first_hit_line[0] != '\0' ? peripheral->first_hit_line : "none",
+                      peripheral->cleanup_attempted ? 1 : 0,
+                      peripheral->cleanup_done ? 1 : 0) < 0) {
+        return -1;
+    }
+    for (size_t i = 0; i < A90_CNSS_PERIPHERAL_UPROBE_EVENT_COUNT; i++) {
+        const struct cnss_wlfw_uprobe_event_state *event = &peripheral->events[i];
+
+        if (append_format(stdout_buf,
+                          "wlan_pd_cnss_nonlog_control_flow.peripheral_uprobe.%s.name=%s\n"
+                          "wlan_pd_cnss_nonlog_control_flow.peripheral_uprobe.%s.offset=0x%llx\n"
+                          "wlan_pd_cnss_nonlog_control_flow.peripheral_uprobe.%s.register_rc=%d\n"
+                          "wlan_pd_cnss_nonlog_control_flow.peripheral_uprobe.%s.registered=%d\n"
+                          "wlan_pd_cnss_nonlog_control_flow.peripheral_uprobe.%s.enable_rc=%d\n"
+                          "wlan_pd_cnss_nonlog_control_flow.peripheral_uprobe.%s.enabled=%d\n"
+                          "wlan_pd_cnss_nonlog_control_flow.peripheral_uprobe.%s.disable_rc=%d\n"
+                          "wlan_pd_cnss_nonlog_control_flow.peripheral_uprobe.%s.cleanup_rc=%d\n"
+                          "wlan_pd_cnss_nonlog_control_flow.peripheral_uprobe.%s.hit_count=%d\n"
+                          "wlan_pd_cnss_nonlog_control_flow.peripheral_uprobe.%s.first_hit_line=%s\n",
+                          cnss_peripheral_uprobe_events[i].key,
+                          cnss_peripheral_uprobe_events[i].name,
+                          cnss_peripheral_uprobe_events[i].key,
+                          cnss_peripheral_uprobe_events[i].offset,
+                          cnss_peripheral_uprobe_events[i].key,
+                          event->register_rc,
+                          cnss_peripheral_uprobe_events[i].key,
+                          event->registered ? 1 : 0,
+                          cnss_peripheral_uprobe_events[i].key,
+                          event->enable_rc,
+                          cnss_peripheral_uprobe_events[i].key,
+                          event->enabled ? 1 : 0,
+                          cnss_peripheral_uprobe_events[i].key,
+                          event->disable_rc,
+                          cnss_peripheral_uprobe_events[i].key,
+                          event->cleanup_rc,
+                          cnss_peripheral_uprobe_events[i].key,
+                          event->hit_count,
+                          cnss_peripheral_uprobe_events[i].key,
                           event->first_hit_line[0] != '\0' ? event->first_hit_line : "none") < 0) {
             return -1;
         }
@@ -34120,6 +34561,7 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
     }
     if (wlan_pd_cnss_output_visibility) {
         cnss_wlfw_uprobe_arm_global(paths);
+        cnss_peripheral_uprobe_arm_global(paths);
     }
     for (size_t i = 0; i < child_count; i++) {
         if (service74_gate_required &&
