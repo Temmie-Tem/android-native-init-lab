@@ -13249,3 +13249,23 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
 
   Report:
   `docs/reports/NATIVE_INIT_V1719_CNSS_PERIPHERAL_CLIENT_UPROBE_HANDOFF_2026-06-02.md`.
+
+## V1720 CNSS output/Binder reconciliation (2026-06-02)
+
+- V1720 host-only reconciliation completed.
+
+  Result:
+
+  - decision: `v1720-cnss-output-binder-reconcile-pass`;
+  - the latest correction is accepted: native `wlfw_start_seen=0` was a logging visibility artifact;
+  - V1716/V1719 already prove the non-log path reaches `wlfw_start`, `pm_init(1, NULL)`, `pm_client_register`, `/dev/vndbinder` init, and then blocks in `defaultServiceManager()`;
+  - the current blocker is default vendor Binder service-manager acquisition before `String16('vendor.qcom.PeripheralManager')`, not QCACLD registration, not `boot_wlan`, not PM trio, and not yet WLFW QMI waiting;
+  - V659 proves historical `vndservicemanager` readiness in a different service-74-gated route, but current host artifacts do not yet provide a complete current vendor Binder staging set.
+
+  Next candidate:
+
+  - V1721 host-only vendor Binder bootstrap materialization/classifier: locate current `vndservicemanager`, `libbinder.so`, device nodes, property keys, and SELinux labels for `defaultServiceManager()`;
+  - no PM/service-window actors, `boot_wlan`, `/dev/subsys_esoc0`, forced RC1, fake-ONLINE, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, or external ping.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1720_CNSS_OUTPUT_BINDER_RECONCILE_2026-06-02.md`.
