@@ -3783,3 +3783,44 @@ or unbounded boot-image/partition writes.  Reports:
 `docs/reports/NATIVE_INIT_V1600_PM_FIRST_LATE_PER_PROXY_PPH_GATE_LOWER_MARKER_SOURCE_BUILD_2026-06-02.md`
 and
 `docs/reports/NATIVE_INIT_V1601_PM_FIRST_LATE_PER_PROXY_PPH_GATE_LOWER_MARKER_ARTIFACT_SANITY_2026-06-02.md`.
+
+## Latest native Wi-Fi state: V1602 (2026-06-02)
+
+V1602 adds `scripts/revalidation/native_wifi_test_boot_handoff_v1602.py` and
+runs the rollbackable live handoff for the V1600 PPH-gated image.  The
+handoff/rollback path is clean: the V1600 image boots, evidence is collected
+from `/cache/native-init-wifi-test-boot-v1600.*`, rollback from native restores
+v724, and post-rollback selftest remains `fail=0`.
+
+Strict Wi-Fi progress remains blocked as
+`v1602-test-boot-no-downstream-wifi-progress-blocked`.  The new PPH fd gate
+works, but PM-service-owned `/dev/subsys_esoc0` still does not occur:
+
+- `pph_modem_fd_gate=1`, `pph_modem_fd_gate_seen=1`.
+- `pph_modem_fd_gate_first_seen_ms=301`, `pph_modem_fd_gate_samples=7`, final
+  count is `1`.
+- After the proven PPH gate, `per_mgr` still exits `0` before observation;
+  `per_mgr_subsys_modem_initial_count=-1` and final
+  `per_mgr_subsys_modem_fd_count=-1`.
+- `pm-proxy` starts but exits `1`; `pm_full_contract_seen=0`.
+- `mdm_helper` holds `/dev/esoc-0`; `cnss-daemon` reaches cld80211 netlink only.
+- `modem_trigger=True`, `provider_trigger=False`; no RC1/LTSSM, MHI, WLFW, BDF,
+  FW-ready, or `wlan0` marker is present.
+- Helper result is `pm-service-owned-powerup-missing` with reason
+  `pm-first-late-per-proxy-route-did-not-reach-dev-subsys-esoc0-mdm-subsys-powerup`.
+
+New interpretation: the PPH race hypothesis is closed.  The blocker is now
+`per_mgr`/`pm-service` startup itself after a proven `pm_proxy_helper`
+`/dev/subsys_modem` fd.  `per_mgr` exits cleanly before it can hold
+`/dev/subsys_modem`; therefore RC1/PERST/refclk, MHI, WLFW, BDF, and `wlan0`
+remain downstream and should not be expanded yet.
+
+Next work: V1603 should be host/source-only first and classify why
+`/vendor/bin/pm-service` exits `0` immediately in the native service-window:
+collect or add focused `per_mgr` startup diagnostics around argv/env, working
+directory, required socket/property/service-manager dependencies, stdout/stderr,
+exit timing, and early fd/open attempts.  Do not proceed to credentials,
+scan/connect, DHCP/routes, external ping, PMIC/GPIO/GDSC direct writes, blind
+eSoC notify/`BOOT_DONE`, global PCI rescan, platform bind/unbind, or unbounded
+boot-image/partition writes.  Report:
+`docs/reports/NATIVE_INIT_V1602_PM_FIRST_LATE_PER_PROXY_PPH_GATE_LOWER_MARKER_HANDOFF_2026-06-02.md`.

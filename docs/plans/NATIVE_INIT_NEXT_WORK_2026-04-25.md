@@ -9375,3 +9375,24 @@ Samsung bootloader
   `docs/reports/NATIVE_INIT_V1600_PM_FIRST_LATE_PER_PROXY_PPH_GATE_LOWER_MARKER_SOURCE_BUILD_2026-06-02.md`
   and
   `docs/reports/NATIVE_INIT_V1601_PM_FIRST_LATE_PER_PROXY_PPH_GATE_LOWER_MARKER_ARTIFACT_SANITY_2026-06-02.md`.
+
+- V1602 rollbackable live handoff is complete.  The V1600 image booted,
+  evidence was collected, rollback from native restored v724, and post-rollback
+  selftest remained `fail=0`.  Strict Wi-Fi progress is blocked as
+  `v1602-test-boot-no-downstream-wifi-progress-blocked`, but the new PPH fd gate
+  passes: `pph_modem_fd_gate_seen=1`, `pph_modem_fd_gate_first_seen_ms=301`,
+  `pph_modem_fd_gate_samples=7`, and final count `1`.
+
+  This closes the PPH race hypothesis.  After a proven PPH `/dev/subsys_modem`
+  fd, `per_mgr` still exits `0` before observation, `per_mgr_subsys_modem_*=-1`,
+  `pm-proxy` exits `1`, `pm_full_contract_seen=0`, and PM-service-owned
+  `/dev/subsys_esoc0` never appears.  Current blocker is now `per_mgr`/
+  `pm-service` startup itself, above SDX50M/eSoC/RC1.  Next gate: V1603 should
+  be host/source-only first and classify why `/vendor/bin/pm-service` exits
+  cleanly in the native service-window: focused startup diagnostics for
+  argv/env, cwd, sockets/properties/service-manager dependencies, stdout/stderr,
+  exit timing, and early fd/open attempts.  Still no credentials, scan/connect,
+  DHCP/routes, external ping, PMIC/GPIO/GDSC direct writes, blind eSoC
+  notify/`BOOT_DONE`, global PCI rescan, platform bind/unbind, or unbounded
+  boot-image/partition writes.  Report:
+  `docs/reports/NATIVE_INIT_V1602_PM_FIRST_LATE_PER_PROXY_PPH_GATE_LOWER_MARKER_HANDOFF_2026-06-02.md`.
