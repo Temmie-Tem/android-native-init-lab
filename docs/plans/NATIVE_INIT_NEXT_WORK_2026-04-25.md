@@ -10906,3 +10906,66 @@ concrete rail/register owner (V1655). Rail inventory (V1641): SDX50M main rail
 
   Report:
   `docs/reports/NATIVE_INIT_V1661_NATIVE_NATURAL_POWER_DIFF_SOURCE_BUILD_2026-06-02.md`.
+
+## V1661 Native Natural-path Power Diff Handoff (2026-06-02)
+
+- V1661 rollbackable native natural-path handoff passed as
+  `v1661-native-natural-power-diff-capture-pass`.
+
+  Result:
+
+  - natural-path label remained `mdm2ap-silent-natural-path`;
+  - provider/PON/AP2MDM natural path was observed;
+  - GPIO142/MDM2AP and errfatal IRQ deltas stayed `0`;
+  - captured 7 full `regulator_summary` snapshots;
+  - captured 7 targeted named-clock snapshots without reading full
+    `clk_summary`;
+  - captured 7 subsystem sequence snapshots after fixing symlinked
+    `/sys/bus/msm_subsys/devices/subsys*` directory handling;
+  - native rollback restored `stage3/boot_linux_v724.img`;
+  - native `selftest` returned `fail=0`.
+
+  Power capture highlights:
+
+  - `pcie_1_gdsc` remained at max use `0`;
+  - target pcie1/refgen clocks remained at max enable `0`;
+  - `subsys0`/modem and `subsys9`/esoc0 remained `OFFLINING`.
+
+  Hard stops remained intact: no PMIC/GPIO/GDSC writes, forced RC1/case write,
+  fake ONLINE/system-info spoof, eSoC notify/`BOOT_DONE`, PCI rescan, platform
+  bind/unbind, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, or external
+  ping.  This closes the native half of the fixed Android-vs-native read-only
+  power diff contract.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1661_NATIVE_NATURAL_POWER_DIFF_HANDOFF_2026-06-02.md`.
+
+## V1662 Android-native Power Diff Classifier (2026-06-02)
+
+- V1662 host-only diff classifier passed as
+  `v1662-android-native-power-diff-power-vote-gap-pass`.
+
+  Fixed contract label: `power-vote-gap`.
+
+  Evidence:
+
+  - Android-good V1660 reached BDF, FW-ready, and `wlan0`;
+  - native V1661 remained `mdm2ap-silent-natural-path`;
+  - Android-good showed `pcie_1_gdsc` max use `1`, while native max use stayed
+    `0`;
+  - Android-good showed ten target pcie1/refgen clocks with max enable `1`,
+    while native max enable stayed `0`;
+  - Android-good also brought modem/esoc0 ONLINE while native did not, but the
+    power/clock vote gap takes precedence over the sequence gap by contract.
+
+  Stop condition:
+
+  - the read-only Android-vs-native diff loop is complete;
+  - do not rerun timing/window variants;
+  - do not autonomously enter a write gate;
+  - any next live mutation must be a separately approved bounded targeted
+    AP-side pcie1 power/clock vote gate with rollback and no Wi-Fi HAL,
+    scan/connect, credentials, DHCP/routes, or external ping.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1662_ANDROID_NATIVE_POWER_DIFF_CLASSIFIER_2026-06-02.md`.
