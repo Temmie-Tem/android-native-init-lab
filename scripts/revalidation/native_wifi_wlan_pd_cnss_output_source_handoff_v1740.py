@@ -169,6 +169,13 @@ def render_report(result: dict[str, Any]) -> str:
         f"- cnss running: `{gate.get('nonlog_cnss_running')}`",
         f"- cnss kmsg fd count: `{gate.get('nonlog_fd_kmsg_count')}`",
         "",
+        "## V1740 Interpretation",
+        "",
+        "- The corrected output-source measurement still does not expose hidden `wlfw_start` output on the pure V1680 internal-modem route.",
+        "- No pre-WLFW init failure string appears on stdout, stderr, or kmsg.",
+        "- This route remains `firmware-not-requested` with no WLFW service 69 or `wlan0`.",
+        "- Compare this pure route against V1736 as a route-delta classifier; do not add actors inside the V1740 branch.",
+        "",
     ])
     return ORIGINAL_RENDER_REPORT(result) + "\n" + extra
 

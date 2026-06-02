@@ -13871,3 +13871,57 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
 
   Report:
   `docs/reports/NATIVE_INIT_V1739_WLAN_PD_CNSS_OUTPUT_SOURCE_SOURCE_BUILD_2026-06-03.md`.
+
+## V1740 WLAN-PD cnss-daemon output-source live handoff (2026-06-03)
+
+- V1740 one-run rollbackable live handoff completed.
+
+  Result:
+
+  - decision: `v1740-cnss-output-still-invisible-rollback-pass`;
+  - rollback: `from-native`, verified back to
+    `A90 Linux init 0.9.68 (v724)`;
+  - current post-rollback status: selftest `fail=0`;
+  - property runtime deploy: `22` files, `2759988` bytes,
+    `property_info` and `vendor_default_prop` SHA verified;
+  - output label: `cnss-output-still-invisible`;
+  - legacy firmware-serve label: `firmware-not-requested`;
+  - `cnss-daemon` running: `1`;
+  - `tftp_server` running: `1`;
+  - stdout/stderr bytes captured: `270040` / `8653`;
+  - `wlfw_start` source: `none`;
+  - `wlfw_start` stdout/stderr/kmsg counts: `0` / `0` / `0`;
+  - all eight pre-WLFW init failure strings: stdout/stderr/kmsg counts all `0`;
+  - property lookup all_match: `1`;
+  - kmsg/debug properties observed as `1` / `4`;
+  - non-log supplemental label: `cnss-target-unavailable`;
+  - `wlan0`: absent.
+
+  Interpretation:
+
+  - the corrected output-visibility measurement does not recover a hidden
+    `wlfw_start` on the pure V1680 internal-modem route;
+  - no named pre-WLFW cnss-daemon init failure string appears on stdout,
+    stderr, or kmsg;
+  - V1740 therefore separates the routes cleanly:
+    pure internal-modem firmware-serve route remains at
+    `cnss-output-still-invisible`/`firmware-not-requested`, while the later
+    V1736 service-manager route reaches `wlfw_start`/worker creation but still
+    blocks downstream at missing WLAN-PD/WLFW publication;
+  - do not add PM/service-window actors inside this V1740 branch. Any future
+    comparison must be an explicit route-delta classifier, not another actor
+    expansion.
+
+  Next candidate:
+
+  - V1741 host-only route-delta classifier comparing V1740 pure route against
+    V1736 service-manager route;
+  - classify exactly which added service-manager/private runtime surface makes
+    `cnss-daemon` reach `wlfw_start` without treating that surface as a WLAN-PD
+    trigger;
+  - keep `boot_wlan`, restart-PD request, PM trio, `/dev/subsys_esoc0`,
+    forced RC1, fake-ONLINE, Wi-Fi HAL, scan/connect, credentials,
+    DHCP/routes, and external ping excluded.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1740_WLAN_PD_CNSS_OUTPUT_SOURCE_HANDOFF_2026-06-03.md`.
