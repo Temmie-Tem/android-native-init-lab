@@ -13679,3 +13679,44 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
 
   Report:
   `docs/reports/NATIVE_INIT_V1734_WLAN_PD_UP_DELTA_CLASSIFIER_2026-06-03.md`.
+
+## V1735 WLAN-PD timestamped observer source build (2026-06-03)
+
+- V1735 source/build-only rollbackable test-boot artifact completed.
+
+  Result:
+
+  - decision: `v1735-wlan-pd-timestamped-observer-source-build-pass`;
+  - boot image:
+    `tmp/wifi/v1735-wlan-pd-timestamped-observer-test-boot/boot_linux_v1735_wlan_pd_timestamped_observer.img`;
+  - boot SHA256:
+    `140cacf9b9359b601c6fe711218c3ab172dfade44f7d53eebb3dda6d28de5f64`;
+  - init: `A90 Linux init 0.9.139 (v1735-wlan-pd-timestamped-observer)`;
+  - helper marker: `a90_android_execns_probe v326`;
+  - helper SHA256:
+    `f1030703d18358e9f1eddb4e08d06090d9c54b95dc57feca23dd5e46a1d79cef`;
+  - helper runtime mode:
+    `wifi-companion-wlan-pd-timestamped-observer-start-only`.
+
+  Route:
+
+  - reuses the V1731 internal-modem WLAN-PD route with service managers,
+    `qrtr-ns`, `pd-mapper`, `rmt_storage`, `tftp_server`,
+    `/dev/subsys_modem` holder, `cnss_diag`, and stock `cnss-daemon`;
+  - carries CNSS property shim values
+    `persist.vendor.cnss-daemon.kmsg_logging=1` and
+    `persist.vendor.cnss-daemon.debug_level=4`;
+  - adds `wlan_pd_service_window_trigger.observer_monotonic_ms` and
+    `wlan_pd_service_window_trigger.timestamped_observer_compatible=1`
+    evidence fields.
+
+  Next candidate:
+
+  - V1736: one rollbackable read-only live run of the V1735 artifact;
+  - one run sets one label, then stop and hand back;
+  - forbidden: PM trio, `vendor.qcom.PeripheralManager`, `boot_wlan`,
+    restart-PD request, `/dev/subsys_esoc0`, forced RC1, fake-ONLINE,
+    Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1735_WLAN_PD_TIMESTAMPED_OBSERVER_SOURCE_BUILD_2026-06-03.md`.
