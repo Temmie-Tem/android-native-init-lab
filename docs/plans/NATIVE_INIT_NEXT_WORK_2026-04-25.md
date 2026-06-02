@@ -12708,3 +12708,48 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
 
   - `docs/reports/NATIVE_INIT_V1704_CNSS_WLFW_DOWNSTREAM_UPROBE_SOURCE_BUILD_2026-06-02.md`
   - `docs/reports/NATIVE_INIT_V1705_CNSS_WLFW_DOWNSTREAM_UPROBE_HANDOFF_2026-06-02.md`.
+
+## V1706 CNSS WLFW start branch static classifier (2026-06-02)
+
+- V1706 host-only branch classifier completed after V1705 proved
+  `wlfw_start` entry but no `wlfw_service_request` worker entry.
+
+  Result:
+
+  - decision: `v1706-wlfw-start-branch-static-map-pass`;
+  - basis: V1703 static map PASS and V1705 live label
+    `wlfw-worker-thread-missing-after-wlfw-start`;
+  - binary SHA256 remains
+    `bced9853a77cfb02252571196584efa535be14f8f3fd9ce32712ddee224ba4bc`;
+  - no branch pattern mismatches and no string offset mismatches.
+
+  Branch model:
+
+  - `wlfw_start@0xec00` logs `Starting` before meaningful initialization;
+  - pre-worker sequence is:
+    cal mutex init -> mutex init -> cond init -> cond_rsp init ->
+    `pthread_initialize_dms@0xeb14` -> `pthread_create@0xecf0`;
+  - worker target is `wlfw_service_request@0xd9fc`;
+  - `pthread_create@0xecf0` success branches to `0xeda0` and sets the start
+    done flag at `0xedc0`;
+  - failure path around `0xecf8` logs `Failed to create thread, ret %d` and
+    then enters cleanup at `0xed0c`.
+
+  Next live target set:
+
+  - `cnss-daemon+0xecd4`: DMS initialization call;
+  - `cnss-daemon+0xecd8`: DMS return-code branch;
+  - `cnss-daemon+0xecf0`: WLFW worker `pthread_create` call;
+  - `cnss-daemon+0xecf8`: WLFW worker `pthread_create` failure path;
+  - `cnss-daemon+0xeda0`: WLFW worker `pthread_create` success path.
+
+  Interpretation:
+
+  - do not chase WLFW QMI/BDF yet, because V1705 showed the worker entry itself
+    is missing;
+  - the next bounded live unit should classify whether the blocker is before
+    `pthread_create`, a nonzero `pthread_create` return, or a success path where
+    the expected worker entry is still absent.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1706_CNSS_WLFW_START_BRANCH_STATIC_2026-06-02.md`.
