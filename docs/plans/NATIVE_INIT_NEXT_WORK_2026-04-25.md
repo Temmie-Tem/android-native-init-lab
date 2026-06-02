@@ -15207,3 +15207,41 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
     call taken only by the CNSS Binder server thread before `0x60cc`;
   - live service-object/register discriminator remains suspended until a new
     directive explicitly reopens that narrow gate.
+
+## V1769 WLAN-PD PM server pre-match static classifier (2026-06-03)
+
+- V1769 disassembles the retained stock `pm-service` binary around
+  `0x6048..0x60cc` and reconciles it with V1107 mutex-owner evidence.
+
+  Host-only classifier:
+
+  - script:
+    `scripts/revalidation/native_wifi_wlan_pd_pm_server_prematch_static_v1769.py`;
+  - report:
+    `docs/reports/NATIVE_INIT_V1769_WLAN_PD_PM_SERVER_PREMATCH_STATIC_2026-06-03.md`;
+  - decision:
+    `v1769-pm-server-prematch-list-mutex-boundary-host-pass`;
+  - label:
+    `pm-server-prematch-list-mutex-boundary`;
+  - evidence:
+    `tmp/wifi/v1769-wlan-pd-pm-server-prematch-static`.
+
+  Static boundary:
+
+  - `0x6048..0x60cc` is supported-peripheral list traversal, not a
+    service-manager or permission branch;
+  - the first retained match checkpoint at `0x60cc` is reached only after
+    calling the per-record getter at `0x9538`, dereferencing the requested
+    peripheral string, and `strcmp`;
+  - caller UID / permission logic starts after `0x60cc`, so permission is not
+    the retained pre-match blocker;
+  - V1107 independently showed a pre-CNSS PM path holding the modem record mutex
+    while the CNSS Binder server thread waited in `futex_wait_queue_me`;
+  - the combined model is therefore a pre-match list/mutex boundary.
+
+  Current next candidate:
+
+  - draft a host-only CNSS-first PM register ordering contract that removes
+    pre-CNSS `per_proxy` connect as a positive-control side effect;
+  - if the narrow live gate is later reopened, the live route should avoid the
+    pre-CNSS `per_proxy` path that can hold the modem record mutex.
