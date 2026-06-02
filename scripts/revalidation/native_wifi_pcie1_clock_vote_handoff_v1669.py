@@ -323,9 +323,10 @@ def render_report(result: dict[str, Any]) -> str:
         if vote["wait_ready_count"] == 0 and vote["cleanup_failure_count"] == 0:
             lines.extend([
                 "The separate result file was collected and rollback passed, but the async",
-                "vote child timed out before the target clock debugfs leaves became visible.",
-                "The next source/build unit should move the vote trigger later or extend the",
-                "bounded readiness window before interpreting hardware behavior.",
+                "vote child timed out on the current readiness predicate. Post-cleanup",
+                "`enable_read_rc=0` lines show the target clock debugfs leaves were readable,",
+                "so the next source/build unit should replace the `lstat + S_ISREG` readiness",
+                "predicate with an open/read-based predicate before interpreting hardware behavior.",
             ])
         else:
             lines.append("Repair the clock-vote harness before any further live mutation.")

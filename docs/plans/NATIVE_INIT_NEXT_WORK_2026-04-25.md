@@ -11230,3 +11230,42 @@ The stall is at "modem starts WLAN PD" (wlan_pd UNINIT; WLFW 69 never publishes)
 whether native tqftpserv is asked for `wlanmdsp.mbn` and whether the file is present
 at the served path. Labels + hard stops fixed in the contract. Do NOT touch
 esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
+
+## V1669 pcie1 Clock Vote Wait Retry Handoff (2026-06-02)
+
+- V1669 rollbackable live handoff completed with rollback/selftest pass, but the
+  clock-vote surface still classified as `v1669-clock-vote-surface-failed`.
+
+  Result:
+
+  - V1668 test boot flashed and booted as
+    `A90 Linux init 0.9.118 (v1668-pcie1-clock-vote-wait)`;
+  - rollback restored `stage3/boot_linux_v724.img`;
+  - native `selftest` returned `fail=0`;
+  - separate result capture worked;
+  - no Wi-Fi HAL, scan/connect, credentials, DHCP/routes, or external ping was
+    performed;
+  - no regulator/GDSC direct write, pci-msm `case` write, PMIC/GPIO/PERST write,
+    eSoC notify/`BOOT_DONE`, PCI rescan, or platform bind/unbind was performed.
+
+  Failure classification:
+
+  - extending the readiness window to `45000ms` did not change readiness:
+    `wait_ready_count=0`, `wait_sample_count=897`, `wait_elapsed_ms=45020`;
+  - `async_begin_rc=-2`, so no clock vote was attempted;
+  - post-cleanup snapshots still show target clock debugfs leaves readable with
+    `enable_read_rc=0` and `prepare_read_rc=0`;
+  - therefore the blocker is not time. The current readiness predicate uses
+    `lstat + S_ISREG`, while the later snapshot proves `open/read` succeeds.
+
+  Next unit:
+
+  - V1670 source/build-only harness repair;
+  - replace the target clock readiness predicate with bounded open/read probing
+    for `/sys/kernel/debug/clk/<name>/enable`;
+  - retain separate result collection and rollback/selftest contract;
+  - do not broaden to regulator/GDSC writes, forced RC1, Wi-Fi HAL,
+    scan/connect, credentials, DHCP/routes, or external ping.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1669_PCIE1_CLOCK_VOTE_WAIT_RETRY_HANDOFF_2026-06-02.md`.
