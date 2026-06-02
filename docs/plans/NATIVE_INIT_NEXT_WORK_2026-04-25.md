@@ -11860,3 +11860,59 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
 
   Report:
   `docs/reports/NATIVE_INIT_V1687_WLAN_PD_CNSS_OUTPUT_VISIBILITY_SOURCE_BUILD_2026-06-02.md`.
+
+## V1688 WLAN-PD cnss-daemon Output Visibility Handoff (2026-06-02)
+
+- V1688 one-run rollbackable live handoff completed.
+
+  Result:
+
+  - decision: `v1688-cnss-output-still-invisible-rollback-pass`;
+  - rollback: `from-native`, PASS;
+  - post-rollback version: `A90 Linux init 0.9.68 (v724)`;
+  - post-rollback selftest: `fail=0`;
+  - emitted label: `cnss-output-still-invisible`;
+  - legacy firmware-serve label: `firmware-not-requested`.
+
+  Gate evidence:
+
+  - V1687 private property root deployed to:
+    `/mnt/sdext/a90/private-property-v317/v1687/dev/__properties__`;
+  - property runtime upload: `22` files, `2759988` bytes;
+  - `property_info` SHA verified: `true`;
+  - `vendor_default_prop` SHA verified: `true`;
+  - `cnss-daemon` running: `1`;
+  - `tftp_server` running: `1`;
+  - syslog available: `1`, errno `0`;
+  - syslog filtered count: `0`;
+  - `wlfw_start` seen: `0`;
+  - first init failure slug: `none`;
+  - helper contract confirms no service-manager, PM trio, `/dev/subsys_esoc0`,
+    forced RC1, fake-ONLINE, Wi-Fi HAL, scan/connect, credentials,
+    DHCP/routes, or external ping.
+
+  Interpretation:
+
+  - setting `persist.vendor.cnss-daemon.kmsg_logging=1` and
+    `persist.vendor.cnss-daemon.debug_level=4` did not surface
+    `wlfw_start: Starting` or any of the eight pre-wlfw init failure strings;
+  - V1681-V1686 are still reclassified as insufficient logging evidence, but
+    V1688 proves the kmsg visibility fix alone does not make cnss-daemon emit
+    those markers in this route;
+  - because the legacy firmware-serve label remains `firmware-not-requested`,
+    the active blocker remains before modem WLAN-PD image request/WLFW service
+    69 publication, not Wi-Fi HAL, scan/connect, or external networking.
+
+  Next work:
+
+  - stop after this one label;
+  - do not add PM/service-window actors or `boot_wlan` as a WLFW trigger;
+  - next candidate should classify why stock `cnss-daemon` produces no visible
+    wlfw entry/failure output even with kmsg logging enabled, or independently
+    prove whether it exits before `wlfw_start` through a non-log mechanism;
+  - keep MSA/BDF, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, and
+    external ping out of scope until WLFW service 69 or a real `wlfw_start`
+    marker appears.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1688_WLAN_PD_CNSS_OUTPUT_VISIBILITY_HANDOFF_2026-06-02.md`.
