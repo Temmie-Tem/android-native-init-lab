@@ -10600,3 +10600,38 @@ above (rejected as inverted causality).
 
   Report:
   `docs/reports/NATIVE_INIT_V1653_XBL_CONTEXT_PROBE_BUILD_2026-06-02.md`.
+
+## V1654 XBL Context Probe Live Gate (2026-06-02)
+
+- V1654 private live XBL redacted-context probe passed as
+  `v1654-xbl-context-probe-live-pass`.
+
+  Execution summary:
+
+  - helper: `/cache/bin/a90_xbl_context_probe_v1653`;
+  - helper SHA256:
+    `e7a143550d99e89aa5dfd3f25daa5c05118e4530cdafe4d1f615cc98daf32f53`;
+  - transfer: serial `appendfile` + `uudecode`, chunk size `1800`, chunks `508`;
+  - temporary devnodes: `/dev/a90_v1654_devnodes/xbl_a` and `xbl_b`;
+  - approved ranges only:
+    - `xbl_a`: `3340797:3377867`, `20034:29600`;
+    - `xbl_b`: `3355345:3400091`, `20027:30662`;
+  - redacted records: `326` total (`xbl_a=175`, `xbl_b=151`);
+  - cleanup: temporary devnode directory absent after the run;
+  - native health: pre/post `selftest fail=0`.
+
+  The tracked report includes only artifact/range/offset/length/truncation,
+  string SHA256, matched tokens, and redacted context class.  No raw strings,
+  raw partition bytes, proprietary binary dumps, partition writes,
+  PMIC/GPIO/GDSC writes, eSoC notify/`BOOT_DONE`, PCI rescan, Wi-Fi HAL,
+  scan/connect, credentials, DHCP/routes, or external ping were performed.
+
+  The context records strengthen XBL as the highest-value bootloader-side
+  artifact for PMIC/RPMh/AOP/PON/SDX vocabulary, but they still do not justify
+  any direct power-rail or GPIO write.  V1655 should remain host-only: reduce
+  the redacted context records into duplicate/hash groupings, class clusters,
+  and a concrete hypothesis list.  Bounded rail or PMIC mutation remains a
+  separate explicit gate.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1654_XBL_CONTEXT_PROBE_LIVE_2026-06-02.md`.

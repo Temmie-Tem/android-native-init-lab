@@ -1,0 +1,393 @@
+# Native Init V1654 XBL Context Probe Live Gate
+
+## Summary
+
+- Cycle: `V1654`
+- Type: private live XBL redacted context probe
+- Decision: `v1654-xbl-context-probe-live-pass`
+- Result: PASS
+- Evidence: `tmp/wifi/v1654-xbl-context-probe-live`
+- Helper SHA256: `e7a143550d99e89aa5dfd3f25daa5c05118e4530cdafe4d1f615cc98daf32f53`
+- Helper deploy skipped: `False`
+- Serial chunks written: `508`
+- Reason: extract tracked-safe string context records only inside the V1652-approved XBL ranges.
+
+## Checks
+
+- `pre_selftest_fail_zero`: `True`
+- `post_selftest_fail_zero`: `True`
+- `helper_deploy_or_current_ok`: `True`
+- `helper_sha256_ok`: `True`
+- `helper_selftest_ok`: `True`
+- `initial_cleanup_ok`: `True`
+- `mkdir_ok`: `True`
+- `all_mknod_ok`: `True`
+- `all_probe_ok`: `True`
+- `all_cleanup_ok`: `True`
+- `cleanup_final_absent`: `True`
+- `redacted_records_parse_ok`: `True`
+- `redacted_records_present`: `True`
+- `forbidden_tracked_markers_absent`: `True`
+- `no_partition_write_command`: `True`
+- `no_pmic_gpio_gdsc_write`: `True`
+- `no_esoc_notify_boot_done`: `True`
+- `no_pci_or_wifi_gate`: `True`
+
+## Target Summary
+
+| artifact | ranges | records | classes | tokens | cleanup |
+|---|---|---:|---|---|---|
+| `xbl_a` | `3340797:3377867`, `20034:29600` | 175 | generic-power-token-context=87, no-token-context=84, pcie-context=1, sdx-mdm-context=3 | aop=44, pcie=1, pmic=26, pon=11, ps_hold=1, rpmh=83, sdx=3, vdd=9 | `True` |
+| `xbl_b` | `3355345:3400091`, `20027:30662` | 151 | generic-power-token-context=90, no-token-context=57, pcie-context=1, sdx-mdm-context=3 | aop=54, gpio=7, pcie=1, pmic=22, pon=13, ps_hold=1, rpmh=49, sdx=3, vdd=6 | `True` |
+
+## Redacted Records
+
+Only helper-emitted redacted records are rendered. Raw string text and raw partition bytes are not included.
+
+### `xbl_a`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3342233` length=`21` truncated=`0` string_sha256=`34ba0869e760da0d6a5196035a23fd62df798b7103efc59ab2e40f22cfbf4ede` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3342803` length=`8` truncated=`0` string_sha256=`eda1fd342be9d38a932bd63c4bcfa978ea66621da43578ca3d101e025192aadf` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3343153` length=`13` truncated=`0` string_sha256=`3f2727f0eeb42e8e8d5b44dd7a5d6a82f61aceb30f2269b284f44c78fb005d24` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3343167` length=`48` truncated=`0` string_sha256=`25bdf51614ee374e62062a6d954d2e23a14e31e5726cb70aee5a3e8de1270fd0` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3343217` length=`47` truncated=`0` string_sha256=`757bbe97fd3166bac05d84594c620ff600a725a9402f65df5fc788a56534ceeb` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3343278` length=`11` truncated=`0` string_sha256=`95fcc0e2ccfc0cade63ca0060283a6e827f7217359797dfcf5f8204b43207731` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3343299` length=`16` truncated=`0` string_sha256=`271931788a918db7d52411f29dd9856195e928c676c7193dea20bacb21a6ca28` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3343316` length=`8` truncated=`0` string_sha256=`3628dda2c9ff140072a6331ed5259f9a6cfe8a435092c8a0ef60afb35b89ed59` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3343422` length=`36` truncated=`0` string_sha256=`f81977889cb910af3599eb607195f9da8b3d79f2acf62a43493955459086e694` tokens=`pmic` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3343460` length=`38` truncated=`0` string_sha256=`9b9a474daba4976abf47a31d81e57f3a0518c2e6ee5c5eedc763e839fa4fa237` tokens=`pmic` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3343697` length=`4` truncated=`0` string_sha256=`18029ffacc131cd970621fd0887ac327caf8f1f4de3a9fbb79935da72d7bf46f` tokens=`vdd` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3345416` length=`16` truncated=`0` string_sha256=`95947ca51813ef7ae34e783592e77705dc4d427c6ec8bbb7f8a9187465c5cbed` tokens=`pmic` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3349391` length=`26` truncated=`0` string_sha256=`ad5d8a94306c16e136c3626bb51d9476d86f6c05bb79d0c9053a144fafbf3b27` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3353558` length=`20` truncated=`0` string_sha256=`ea730ba16b3db031a97d20f129e0230671e6dff57795993eca17d1251ab0d1b9` tokens=`pmic` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3353717` length=`20` truncated=`0` string_sha256=`127a0ff78d2caeb1785426745777bdaf45f45ec824ee3883426eb88b988a02b9` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3353739` length=`15` truncated=`0` string_sha256=`db84f26cf3bf315743a816d9f98a32c632543c736abb6f63dfa5a7bd556a628e` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3353777` length=`17` truncated=`0` string_sha256=`1ba8ab6f97a8248ed5500e4246f8209fcc36802a7ae3f16ae83550d07d907285` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3357265` length=`15` truncated=`0` string_sha256=`2ebdcac135986a36f3f5af5d03e63e7517c33862baf2442f28eac9b650e78b03` tokens=`pcie` class=`pcie-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3358003` length=`68` truncated=`0` string_sha256=`3f9dd02184b8b1977fb4d94ec68584a22eb22554ea0bd99a6a1f8944512c98db` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3358072` length=`68` truncated=`0` string_sha256=`d28f094eb09687d7d1118a0bb351e4f4b7a7a8bb897feb68824416f79850890d` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3358141` length=`64` truncated=`0` string_sha256=`552c44e494f089bc0675b6e4997e2ce970063b96c87c8284574412e4a6d0f7cc` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3358206` length=`73` truncated=`0` string_sha256=`9dc0050c12368ff8f941507903e670a867979fb47c71393a216fcad145b17dd0` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3358280` length=`67` truncated=`0` string_sha256=`ccc7518a4efef904b0c13637a81a15300385712856a831f5e9abf57c5b50a714` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3358348` length=`76` truncated=`0` string_sha256=`fb4643a39e51baa2fcb2d8f5d64bb43227d327ca50e1f553048c3af6d777cc5a` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3358425` length=`66` truncated=`0` string_sha256=`c9ac33acdb40f240dec15a60fab16dd1b250c1812de8b135bf2af5f71f281041` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3358492` length=`75` truncated=`0` string_sha256=`d52713cb87ca6d49dbc9d2a49ea9c6ef3c75ed737b62aefbfd132ba2c664bad5` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3358568` length=`69` truncated=`0` string_sha256=`d0d46f5c77e3672ad53e98112816169a937ac7169b2416050e61d3d6cf7c5b75` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3358638` length=`78` truncated=`0` string_sha256=`f5846ddff5f66e3cacbbe65c85550e3e4c70b1a6e67622be4891b66121f66f6a` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3358717` length=`76` truncated=`0` string_sha256=`71b9d8f3d12770be1dbdc7d72874c2426def39d89c2fed02e8646a4fef2e52fa` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3358794` length=`85` truncated=`0` string_sha256=`0cf0ca48efe387a43cce57e5e65e0d0a5251b55840c4f03ff693ede8f92dc06f` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3358880` length=`79` truncated=`0` string_sha256=`ee70f133456ffea83bb2a5be7191e1fbcd03fc43df1de6ad003277b78a304539` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3358960` length=`88` truncated=`0` string_sha256=`b3ad6d6c5b72acfc0a3ec486efc9ff61a253da0839e8b01260fc4799c8ddea3e` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3359049` length=`65` truncated=`0` string_sha256=`57d0cd50ad9951cfa10760ef4ef01cd64220ef41dca8afb48b733e0d68d20b94` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3359115` length=`67` truncated=`0` string_sha256=`e8394accbd026c1f39a21f85d8221b5ed436fb5f68b4d3cb7e99cccc3ba5e01e` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3359183` length=`71` truncated=`0` string_sha256=`85496f334a48f25cc89423aff00940b0786655d0c16f5dffcd7c373c916971e4` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3359255` length=`74` truncated=`0` string_sha256=`15ad159461a10535357018e9a1982f88bd407c09935e1d0c05ddbb467eed6897` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3359330` length=`72` truncated=`0` string_sha256=`0a6d654815e988c10da522bc1f8d3b47335746480e7dc8afe3c0a5f2d0220ea8` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3359403` length=`71` truncated=`0` string_sha256=`84570c3c88d096886885e8b986f9fca4cd7f71988b96c50bb978164dc64a22fd` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3359475` length=`73` truncated=`0` string_sha256=`6b68db93e6bcad127af407cf157c0fe4224aa7bd6eb720995b6b9e76610150c7` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3359549` length=`70` truncated=`0` string_sha256=`9510a1a1601eb5d02dc6fa0d8214752cf32528854049517959b10ce1ea543fcb` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3359620` length=`81` truncated=`0` string_sha256=`61555a1cb26f31bd187be668142f6a500499c88f22fd031c55f56afd85ccdf4c` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3359702` length=`73` truncated=`0` string_sha256=`28aba3a00260b1a04487e0ec9d7a204fef928e304bb7bdd0c9afc683e67e9b50` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3359776` length=`73` truncated=`0` string_sha256=`ef7714df3413534af3fed9c465718a1a21de30f88835b197a12331f3ff75e116` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3359850` length=`82` truncated=`0` string_sha256=`0148dff0fb85ea05f95246e8142d1f5dab9fe58d1a0e1dcb83261b8cb5d4955a` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3359933` length=`79` truncated=`0` string_sha256=`4f72faa216ff85eeb09f46254f62a47b52535403db3e7c166385c7c8a03607b4` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3360013` length=`79` truncated=`0` string_sha256=`4c808aec79ddaeeaa1503ca45d9744cd29adc935b214df5a041b85dd767238b5` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3360093` length=`66` truncated=`0` string_sha256=`6cf4e5a4241b1ab7c59ea567fc70747560c497c59bcf46d589453353a73920d5` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3360160` length=`80` truncated=`0` string_sha256=`d76aeb2a2f34ace651dd032541b63f32039e7e511d8f28b1859bc342685fa616` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3360241` length=`68` truncated=`0` string_sha256=`ed76cf92c246284d94808291ccc4e4995156262f1b65de34fd7022ce6a8f872b` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3360310` length=`75` truncated=`0` string_sha256=`de5d5bcb79040ec41abb679862b81b60a59c91462ba95d817dddca1bfe90de1c` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3360386` length=`65` truncated=`0` string_sha256=`6861df8518f3b2222d8890975bb901f6139c91bda13750fc193aff5e3f8acc40` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3360452` length=`79` truncated=`0` string_sha256=`a2f2ff3da2861b5f13a787bbb8311f89341779bceb42523bf5883e3987d1434a` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3360532` length=`74` truncated=`0` string_sha256=`77d88cbc350c09572457f468b738bc4bfe0943343e8b030b6d5b18a6365f0666` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3360607` length=`70` truncated=`0` string_sha256=`aef2f53132fbf34ba266982fb6e11c6c3b1a43cc5ae61497569175e86e095fa9` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3360678` length=`79` truncated=`0` string_sha256=`fe8034607ac48847cdfe703272c3f8dbc116bcf8b00f35398df5cc7a008a87ac` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3360758` length=`66` truncated=`0` string_sha256=`62618801cce6fa5ecf8790367e066e83a2c7b59325d54a4d1ed2bff7c95085c9` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3360825` length=`75` truncated=`0` string_sha256=`effc528532d2bec6ec45d96d4eb7436bec3d3126874b5311ee31efd24050a450` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3360901` length=`70` truncated=`0` string_sha256=`bc637c25577905f7c19a3853d38f795b49bb062c7f10bdbec27e7691c25902df` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3360972` length=`75` truncated=`0` string_sha256=`03c672a9a537870fe487d9337b381bb8b226c9b0dc2317477ad247a0b522317a` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3361048` length=`63` truncated=`0` string_sha256=`ded41eefe4e9c98c14859e4cbef7d99a5f6da65e822471cb68ba91bb0c131b28` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3361112` length=`70` truncated=`0` string_sha256=`8ddbcbee6c08027936717f4b5be75ab9bf8983f9bb4b55bc5c0987957c856efb` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3361183` length=`71` truncated=`0` string_sha256=`c33853ef665375bdf340a2eaadc4862326a8903868f8eeaaa7fb0468cb61221a` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3361255` length=`63` truncated=`0` string_sha256=`222255e31500684b318d6b91a37f19da538e0eadf27425ecc695002c00497463` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3361319` length=`67` truncated=`0` string_sha256=`c10f0d47702b8dfefe562a56a39e6879c79a6c4eae6e913ff635852ed3d9885e` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3361387` length=`64` truncated=`0` string_sha256=`b98c59dc5f1b6836372d9c67e4646b2dffee63d675ef312c851a9f7fa24fe02a` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3361452` length=`66` truncated=`0` string_sha256=`ed92d32f98d6d10f62b850e6ccf5e501af1492c77a0a60ea2d790316e347e6fe` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3361519` length=`65` truncated=`0` string_sha256=`3612489fc9c98d62d3160e0db7f4a859dfbcb7ef31b69220195911e103ca6cab` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3362598` length=`63` truncated=`0` string_sha256=`6ea3879745e0de3d079465d2bce2af9e554bb2ce3ae44e80f4889942a07a3a49` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3364852` length=`72` truncated=`0` string_sha256=`481ae1ffe624fc8bd89b27e32772de7d388c530d92d5584630c548203129d2b7` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3365396` length=`66` truncated=`0` string_sha256=`8d29fd262ab019d519095aa49af7d828df3d0cfe2cb65bf6aa3542e2ff9d855e` tokens=`pmic` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3365463` length=`61` truncated=`0` string_sha256=`eaf127407c4aa556767051454146f57ab46c1ca01a076f0facc6e64f3b7ee614` tokens=`pmic` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3365525` length=`61` truncated=`0` string_sha256=`fe9504c1119951fdc6610cc586a201c1591f3c1a23ae3daabd8160869b736321` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3366344` length=`60` truncated=`0` string_sha256=`8888457d19652e94c451171915a3cc1b33b4fdf53766574ebaa44543ed6903a5` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3366794` length=`81` truncated=`0` string_sha256=`ac9d54145437cbab21174018d667e8f5e112183366a54768f12fc3b6be31fe30` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3366876` length=`66` truncated=`0` string_sha256=`a808551751f90cc8fd67397e3b08cd2fd79e62134659ac333efca8fbeb31596d` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3366943` length=`62` truncated=`0` string_sha256=`0400bafc6948dbe2899720b44f6c69a97c5ec6f5e50aeaf9b50fa56c8c8c4e89` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3367006` length=`57` truncated=`0` string_sha256=`95c36be4fe44e60ed84bd303aa7f996868cab633dba5a771906a945a88ba9322` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3367326` length=`59` truncated=`0` string_sha256=`f7c7766064700426b259de23528f2d55ce2077532e8f88007d75b1cb7bc73510` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3367575` length=`48` truncated=`0` string_sha256=`f3dd67a1e05e8ff42c24346d0bc898d18c72977daceedb96566a260f7277d38b` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3367624` length=`49` truncated=`0` string_sha256=`14e181ee5718899a024b0fa228dbf96f42ed23551ea074246d3d04efa1fe2cec` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3367674` length=`58` truncated=`0` string_sha256=`0ca950584c6f869b06c5308a0307b7f24dc081c0c9948e440f59476a39dc6f4c` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3367733` length=`23` truncated=`0` string_sha256=`7b59fa6b37fce790aaae39e02db5b2b2719f4f392f4697aa060d5415a41e29e4` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3367757` length=`61` truncated=`0` string_sha256=`5b96e40eba8ba3ce669a3232a1e19729a3737e7b2a15aa868b97222824c2a40d` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3367819` length=`26` truncated=`0` string_sha256=`f862deed230827ca00887550ee6574842c1de4614fea96c3f1db79f9fd2a9cf4` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3367846` length=`60` truncated=`0` string_sha256=`b49a8544b067994fe368818542b7cd9c60bf8103006ad256a185b7a100174802` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3367907` length=`69` truncated=`0` string_sha256=`62cb0a78f05a108a6bdc114d4dd9354a7b06a18e7c1c8e5bd108b62d4752540b` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3367977` length=`63` truncated=`0` string_sha256=`e75865dd804c27a4d946e8b9a356e573430535a8f7ebf698af0fd166c2d28a4a` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3368041` length=`72` truncated=`0` string_sha256=`f6d654cd2cf157546f78a467eaef4f3aca0215c435cfbc90ec814ac0de899023` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3368114` length=`70` truncated=`0` string_sha256=`bb5b91c8c2935ec78b3a97f6daaac57ebffc84239d5c390987f3aecf457cf7db` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3368185` length=`79` truncated=`0` string_sha256=`8ce291d1ba42c426a3f754785d120ffc7f15b59b8e4758f7904b1543ab1ae144` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3368265` length=`73` truncated=`0` string_sha256=`95d720460d90b1097981c6b81bbe4ff22a712a778ab974c5f99b5a7657af8c1d` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3368339` length=`82` truncated=`0` string_sha256=`396bb59902632f2d5bc2e2adc09efc099f99b2f8b10db5bd8722190e1abd7c67` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3368422` length=`49` truncated=`0` string_sha256=`c830b5a3c92a288aae1a8d857d4e3ee089a34f71ccc1fe88a027753fb523b428` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3368530` length=`24` truncated=`0` string_sha256=`62fb1ecc87d3092c1de1c568436be0f3588d2a8654b4d4e7d9980ec56328a871` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3368555` length=`74` truncated=`0` string_sha256=`de1968f90cf455b09edf59e5541eccbae7e5cc03c05a2956a220356258a4d151` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3368808` length=`61` truncated=`0` string_sha256=`e727f544b522dedf532708262d17ae70cdbe9ca9a11cb145a44b89972d822ba4` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3368870` length=`67` truncated=`0` string_sha256=`641adb440052a1847cbfbf3630409e5ae2a51dfb5ec999bd0ffaa9f576c5c75a` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3368938` length=`76` truncated=`0` string_sha256=`3b4f77e27a6af276a8f37faca8563138b0643335130356775bec6ce85d4e51b0` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3369111` length=`33` truncated=`0` string_sha256=`cf32ffaa1bba085a36e6c9c6df921ccb08e030a47fa6a7f8326740627fbcaf7b` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3369145` length=`48` truncated=`0` string_sha256=`35ec074bc715c1e1132e430ad7ae2d751d48dd896f7b078bae93db37b3490a6b` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3369215` length=`25` truncated=`0` string_sha256=`0868da8d22c9680634d8a1cac375ae868d6df6c66af679fdf18c46959aa49e24` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3369241` length=`52` truncated=`0` string_sha256=`8503345310ed70744ad8f566f0e19b23d5ebd9a767823b89ebf18bf03222f1db` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3369294` length=`47` truncated=`0` string_sha256=`c5912659f06133d2fdba1f88c05a16c29a63207800585ba234c1487dfba20e76` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3369342` length=`24` truncated=`0` string_sha256=`f34af4028b0a1a40db945b46657644e5c44cc744ed0be0809b22952ce02455f0` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3369367` length=`20` truncated=`0` string_sha256=`ece19ccfe9c487b39a78680acca530eaba10199483deb42ddaf9df475b0de31a` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3369388` length=`29` truncated=`0` string_sha256=`a99787de23845465c57a436e161688dada05f5a02746f14fc82c204df58a746a` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3369418` length=`16` truncated=`0` string_sha256=`e00399c07266ab376184dbee14cdfc4fc6149a516c0f57d9458a48f31df7b835` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3369435` length=`25` truncated=`0` string_sha256=`112e6a19b95ca1f1aa9a27ee34ee49d9a45eb56bec147e19fcd63410588cce64` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3369462` length=`36` truncated=`0` string_sha256=`8995eb21ba675bfb383c784aef39f3d3e10ea7ae22c5f80daec2ef19f9f3d62c` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3369500` length=`45` truncated=`0` string_sha256=`f035dd6282979e5ec9100b32c5fddfde25058f281ba28bd66e17844994a7fece` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3369718` length=`16` truncated=`0` string_sha256=`27b0e0126e186bb965e1877215e305df266516b26cee315f51ea0a092e7c6961` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3369735` length=`36` truncated=`0` string_sha256=`8b87ef8318e5680c536ccc0cdcfeb7aa31125f80be1ba4ab57c8c2e40171d680` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3370079` length=`67` truncated=`0` string_sha256=`405489a38f50f7d1e576926279e85d5603f49272d0ff94b8c887c52d31a561ba` tokens=`vdd` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3370537` length=`47` truncated=`0` string_sha256=`b1b2cc952bfda9291aabf9c8c03fb0d929f9740d37d609d3e360c9e4d1c6bf43` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3371596` length=`80` truncated=`0` string_sha256=`fee3e14b1d86743027f1e67a99dd6c7037e223b2d3fc0d27611fa2b8d1fe2cb4` tokens=`pmic,vdd` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3372017` length=`81` truncated=`0` string_sha256=`ce1895620f42ed87b55ebf5027fb2e4aed2a18afdabaddec2721223840d173e0` tokens=`pon` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3372099` length=`79` truncated=`0` string_sha256=`688b7a3257d6eda352dbd095736a175e13db1a27bd87c9f52835e5ee972dee70` tokens=`pon` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3372179` length=`75` truncated=`0` string_sha256=`3179db8b699412009098b499754f848e33dac4e62cd25a91b94232530561bfd2` tokens=`pon` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3372502` length=`74` truncated=`0` string_sha256=`23d46a46e5d2c2b67e3be4da0aabcec42ad2245ac855aa51fcb3c0ce689172c7` tokens=`pon` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3372577` length=`48` truncated=`0` string_sha256=`d8dafedcdafca0fb595bfb03bb5eb6abb52e65974685cb87600d337b014f3cb9` tokens=`vdd` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3372940` length=`70` truncated=`0` string_sha256=`c084958148ad494ad0b69d11a5cba99df76658e4f0bb54956e67f88fcf13e09f` tokens=`pmic` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3373011` length=`27` truncated=`0` string_sha256=`9b28fd7edbf321785dcbc82ee1e08490e6cc1027f57a5e673682dae78c2f2382` tokens=`pmic` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3373039` length=`15` truncated=`0` string_sha256=`070f543843bdc545aa0af18a286e78e5d903e6431c3ff34fc84e2ff57ee74a28` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3373512` length=`14` truncated=`0` string_sha256=`77b319110c5c595fefc8612b82d3bec2760ccb7c10a5afc61f492e238b8f1076` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3373728` length=`67` truncated=`0` string_sha256=`906417543de03ae66139a39f19ea5367763d90de257e372c6036ea9dcdbcbd70` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3373796` length=`76` truncated=`0` string_sha256=`f911f561b94f94592ad799c54e41464a69631c70d0d634d649b7b78d8b9cbed6` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3373873` length=`56` truncated=`0` string_sha256=`95b32175eb987219caf4d5654bf09c7c4e028deb46e7bcd7cebe864c0cc16fb3` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3373930` length=`47` truncated=`0` string_sha256=`9e8fae2d892366975f7756ae4815cc0deb51dc799ef51e74b31296a2ceb6fa70` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3374132` length=`43` truncated=`0` string_sha256=`776cbd300802055c3cb2f2c548cc6897d74b1789c36c45376b43fa8cd3eba9a3` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3375233` length=`27` truncated=`0` string_sha256=`417e8d36b63650bf00c87ccf6f7936210c6f8d31e8f504236c5daec524545a58` tokens=`pon` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3375563` length=`24` truncated=`0` string_sha256=`2e25c9007bee5c50f29b750baadcb7c1a8c492439c1e144e1e846213c105808d` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3375588` length=`26` truncated=`0` string_sha256=`9be9f51078e1d305ce3f905a74a9815729ef020492946ddac1fd754a6e110f90` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3375940` length=`26` truncated=`0` string_sha256=`8dceb491fc866261b125f4691b65f02e877df7edcc61c2cc28670e5adf73fdc1` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3376836` length=`14` truncated=`0` string_sha256=`85d828b3b817174a7c93653467f9b6716e20a4469858c20c5aa8a0b24d19cc2b` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3376851` length=`22` truncated=`0` string_sha256=`7f5930bc2fb07750347f61cbd278b37458b36eba7a2b9d2ff415b5a6918e6c5a` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3376874` length=`21` truncated=`0` string_sha256=`e6c9e255344f3e89bbea188085a53cf8c49cca016cdd73b1ff6d504b37007af9` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3376896` length=`20` truncated=`0` string_sha256=`2fde488d92ed6339181da1e6280f65cfc98bc8395d0e3a46487a56fc3d98ff07` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3376917` length=`30` truncated=`0` string_sha256=`df7fc9e16b57c2faf8d0249cbae59803fabbcdbb41a94ebd02ac60d6b234e9f9` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3376948` length=`12` truncated=`0` string_sha256=`b807e92dae0072fce2477d88716dd82634cf5662bf874152358bb47691943167` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3377007` length=`18` truncated=`0` string_sha256=`7cb38f421eed1a26faa01c8072dd82ba457a4a09b399ba04e15a45f5528e1beb` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3377134` length=`20` truncated=`0` string_sha256=`d715d44f578ff9e233111d0d08e8a9c5c5191647529b7eb9d0d84741a342a454` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3377250` length=`25` truncated=`0` string_sha256=`533ffcb24396b0ea5999ce9884f9ff492198c3f334b7d4e986c81b5e462bf2a5` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3377276` length=`29` truncated=`0` string_sha256=`ce09a87d7571f6f454e8a83d1da60638247da1f0a102bdc36792ac078e1dcaa5` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3377306` length=`16` truncated=`0` string_sha256=`72fe47d01240547934e5ea4e5d9e3cbdb853a92bfcadd583ee00d8fd08ae922c` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3377790` length=`17` truncated=`0` string_sha256=`69a16e716cc7e8dc2730687faebaec73cc2a163155c82b00be65c9f60ff49f42` tokens=`pmic` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`3340797:3377867` offset=`3377808` length=`20` truncated=`0` string_sha256=`89ac88af3a6c2d88a6b6b2f74494122afb0e2e9dc5a773c4b6273ae9f5a65eaf` tokens=`pmic` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`20034:29600` offset=`20034` length=`30` truncated=`0` string_sha256=`57c9a69e711d099584424579fde838449fceae942b5132414e987a33ac4f49b6` tokens=`pmic,vdd` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`20034:29600` offset=`20065` length=`58` truncated=`0` string_sha256=`3c120745b4a5eeb26b3b8f79e9ef113cafd6437880040be88040a175c06ac66f` tokens=`pmic,vdd` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`20034:29600` offset=`20545` length=`17` truncated=`0` string_sha256=`37191bc3492309fdf85606309a2decdb64fec6fb7cbf078953d6443667c6ceb6` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`20034:29600` offset=`21497` length=`27` truncated=`0` string_sha256=`b22f0a9b178bd6d67cf24eceec5bf90ce63e3315f105bc3897d970b312e14a1c` tokens=`pon` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`20034:29600` offset=`21525` length=`25` truncated=`0` string_sha256=`3357f29e21f1b2d48109d12cb439194172ee54e1113cca1c1dfd40768dd91d58` tokens=`pon` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`20034:29600` offset=`21551` length=`40` truncated=`0` string_sha256=`33690426312b336d171da5289190b6f06a9189c66171b345cccd865fb38ccd36` tokens=`pon` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`20034:29600` offset=`21640` length=`5` truncated=`0` string_sha256=`ee3d1cc981cb2c1e9ac9b385568f91e6de3e7598142b0f8e438bcf594957c4fe` tokens=`pon` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`20034:29600` offset=`21667` length=`8` truncated=`0` string_sha256=`19183f445bdadcf7c20d1ce6721baf866e78e16d9d2bb3d5af17f4499ab156e8` tokens=`ps_hold` class=`no-token-context`
+- artifact=`xbl_a` range=`20034:29600` offset=`21676` length=`8` truncated=`0` string_sha256=`87cf918f4e919fb367f7344949fd63c42db6a97d23fb749efb8e879d0807f95f` tokens=`pmic` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`20034:29600` offset=`21726` length=`8` truncated=`0` string_sha256=`f9b2829dd02090e55e90976b397fc293c136fd04104ff96df86efa41877f1586` tokens=`pon` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`20034:29600` offset=`21735` length=`13` truncated=`0` string_sha256=`61ab51c2f6e9f5119fc0965d38f48bb9dbf2b446f0dcfafeef320fd7945f53ff` tokens=`vdd` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`20034:29600` offset=`21749` length=`13` truncated=`0` string_sha256=`c36f2c6b864368ae1cca258808790f029fca185b4bfb3b54243017fabf3e8234` tokens=`vdd` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`20034:29600` offset=`21763` length=`12` truncated=`0` string_sha256=`03e63af0f070b060bc91ec03d6c658fd3bf9ca97edf9bb143b7b721cb9f6d38c` tokens=`vdd` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`20034:29600` offset=`21850` length=`8` truncated=`0` string_sha256=`040cbc3029e90a60e501a66130d1727c42ec1ca1d2b51f29f73de0ebbd9ab52a` tokens=`pon` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`20034:29600` offset=`22089` length=`39` truncated=`0` string_sha256=`496343622209b71fe82914e3e050966195b6f80b243608b8394324b888dd1540` tokens=`pmic` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`20034:29600` offset=`23261` length=`5` truncated=`0` string_sha256=`807223e082ae3d0526d455fdf5246730900c35303b70946aec51b236a0db810e` tokens=`sdx` class=`sdx-mdm-context`
+- artifact=`xbl_a` range=`20034:29600` offset=`23267` length=`6` truncated=`0` string_sha256=`909e443b1e5400dea23fcebd221d2a4ae1d8736b539e8b6de50e56b3a244e8c2` tokens=`sdx` class=`sdx-mdm-context`
+- artifact=`xbl_a` range=`20034:29600` offset=`23338` length=`5` truncated=`0` string_sha256=`8798bc4e53b7e0350f52a5b4da1e4de2719d0bd2ffc85aab4ffb371e3eecad32` tokens=`sdx` class=`sdx-mdm-context`
+- artifact=`xbl_a` range=`20034:29600` offset=`23856` length=`36` truncated=`0` string_sha256=`a6da58bbc71d1d8ddedc8a098176b8e7dbc352f8ec349086699d2d97476c421f` tokens=`pmic` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`20034:29600` offset=`23904` length=`41` truncated=`0` string_sha256=`3a2ca543a99ab632c856fb2a84f9c7fca54017807d0e6353d3794b6c79347e75` tokens=`pmic` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`20034:29600` offset=`23946` length=`38` truncated=`0` string_sha256=`f438a699d29c7b1d009b417b9f040e7f6988e524b2322926cbb208d4a25f1ba2` tokens=`pmic` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`20034:29600` offset=`23985` length=`48` truncated=`0` string_sha256=`93f684f039141531e7235fc42e2f15106d175151faa7cf31fa68406426e7a5c0` tokens=`pmic` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`20034:29600` offset=`24034` length=`34` truncated=`0` string_sha256=`b184969e5405bac767d177f69635bf886c79e09c6863f5b5c85fe195cfc603d0` tokens=`pmic` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`20034:29600` offset=`25528` length=`32` truncated=`0` string_sha256=`55fe6b4f2b824677ff47a1495a0b91aa003a7af99b3c4763209d5775a3bd12e1` tokens=`pmic` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`20034:29600` offset=`25561` length=`31` truncated=`0` string_sha256=`ed11dda691dbf694d9ad705a7f5743311443718503c587fa2ce3e199cc18413c` tokens=`pmic` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`20034:29600` offset=`25593` length=`31` truncated=`0` string_sha256=`88e267920d6af5805e0cc74cef7e099006b692382dc3dd66b675dce1825bfd01` tokens=`pmic` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`20034:29600` offset=`25936` length=`30` truncated=`0` string_sha256=`32486fe151f6485497b5b01d7ba6f05c581d826b5474485da92cf5b62c214911` tokens=`pmic` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`20034:29600` offset=`26720` length=`12` truncated=`0` string_sha256=`138af1e5803e5074c7fcfe48b5b5350375c9f05c1adb71e6ea2607d36a66e0dd` tokens=`pmic` class=`generic-power-token-context`
+- artifact=`xbl_a` range=`20034:29600` offset=`26733` length=`59` truncated=`0` string_sha256=`b764c8972741b8c860265d7e9871a04f4c1d33c0263835aaabe684d5c8fd2254` tokens=`pmic` class=`generic-power-token-context`
+### `xbl_b`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3355345` length=`7` truncated=`0` string_sha256=`086bce16ebf026d307fe8594797a3f6564ca9ec101e010041b53769f7cff3fe6` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3355353` length=`48` truncated=`0` string_sha256=`25bdf51614ee374e62062a6d954d2e23a14e31e5726cb70aee5a3e8de1270fd0` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3355403` length=`47` truncated=`0` string_sha256=`757bbe97fd3166bac05d84594c620ff600a725a9402f65df5fc788a56534ceeb` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3355739` length=`19` truncated=`0` string_sha256=`b671506ddc0de842c9fbc0440a9a9e13e19d142d05d54458e805a76f05113342` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3355880` length=`76` truncated=`0` string_sha256=`ee1181ba4de7ba4e7ca25ee0687bcebeecddff1f1db1a980b756e82e8e564aab` tokens=`pmic` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3356419` length=`68` truncated=`0` string_sha256=`3f9dd02184b8b1977fb4d94ec68584a22eb22554ea0bd99a6a1f8944512c98db` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3356488` length=`68` truncated=`0` string_sha256=`d28f094eb09687d7d1118a0bb351e4f4b7a7a8bb897feb68824416f79850890d` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3356557` length=`64` truncated=`0` string_sha256=`552c44e494f089bc0675b6e4997e2ce970063b96c87c8284574412e4a6d0f7cc` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3356622` length=`73` truncated=`0` string_sha256=`9dc0050c12368ff8f941507903e670a867979fb47c71393a216fcad145b17dd0` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3356696` length=`67` truncated=`0` string_sha256=`ccc7518a4efef904b0c13637a81a15300385712856a831f5e9abf57c5b50a714` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3356764` length=`76` truncated=`0` string_sha256=`fb4643a39e51baa2fcb2d8f5d64bb43227d327ca50e1f553048c3af6d777cc5a` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3356841` length=`66` truncated=`0` string_sha256=`c9ac33acdb40f240dec15a60fab16dd1b250c1812de8b135bf2af5f71f281041` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3356908` length=`75` truncated=`0` string_sha256=`d52713cb87ca6d49dbc9d2a49ea9c6ef3c75ed737b62aefbfd132ba2c664bad5` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3356984` length=`69` truncated=`0` string_sha256=`d0d46f5c77e3672ad53e98112816169a937ac7169b2416050e61d3d6cf7c5b75` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3357054` length=`78` truncated=`0` string_sha256=`f5846ddff5f66e3cacbbe65c85550e3e4c70b1a6e67622be4891b66121f66f6a` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3357133` length=`76` truncated=`0` string_sha256=`71b9d8f3d12770be1dbdc7d72874c2426def39d89c2fed02e8646a4fef2e52fa` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3357210` length=`85` truncated=`0` string_sha256=`0cf0ca48efe387a43cce57e5e65e0d0a5251b55840c4f03ff693ede8f92dc06f` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3357296` length=`79` truncated=`0` string_sha256=`ee70f133456ffea83bb2a5be7191e1fbcd03fc43df1de6ad003277b78a304539` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3357376` length=`88` truncated=`0` string_sha256=`b3ad6d6c5b72acfc0a3ec486efc9ff61a253da0839e8b01260fc4799c8ddea3e` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3357465` length=`65` truncated=`0` string_sha256=`57d0cd50ad9951cfa10760ef4ef01cd64220ef41dca8afb48b733e0d68d20b94` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3357531` length=`67` truncated=`0` string_sha256=`e8394accbd026c1f39a21f85d8221b5ed436fb5f68b4d3cb7e99cccc3ba5e01e` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3357599` length=`71` truncated=`0` string_sha256=`85496f334a48f25cc89423aff00940b0786655d0c16f5dffcd7c373c916971e4` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3357671` length=`74` truncated=`0` string_sha256=`15ad159461a10535357018e9a1982f88bd407c09935e1d0c05ddbb467eed6897` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3357746` length=`72` truncated=`0` string_sha256=`0a6d654815e988c10da522bc1f8d3b47335746480e7dc8afe3c0a5f2d0220ea8` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3357819` length=`71` truncated=`0` string_sha256=`84570c3c88d096886885e8b986f9fca4cd7f71988b96c50bb978164dc64a22fd` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3357891` length=`73` truncated=`0` string_sha256=`6b68db93e6bcad127af407cf157c0fe4224aa7bd6eb720995b6b9e76610150c7` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3357965` length=`70` truncated=`0` string_sha256=`9510a1a1601eb5d02dc6fa0d8214752cf32528854049517959b10ce1ea543fcb` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3358036` length=`81` truncated=`0` string_sha256=`61555a1cb26f31bd187be668142f6a500499c88f22fd031c55f56afd85ccdf4c` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3358118` length=`73` truncated=`0` string_sha256=`28aba3a00260b1a04487e0ec9d7a204fef928e304bb7bdd0c9afc683e67e9b50` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3358192` length=`73` truncated=`0` string_sha256=`ef7714df3413534af3fed9c465718a1a21de30f88835b197a12331f3ff75e116` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3358266` length=`82` truncated=`0` string_sha256=`0148dff0fb85ea05f95246e8142d1f5dab9fe58d1a0e1dcb83261b8cb5d4955a` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3358349` length=`79` truncated=`0` string_sha256=`4f72faa216ff85eeb09f46254f62a47b52535403db3e7c166385c7c8a03607b4` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3358429` length=`79` truncated=`0` string_sha256=`4c808aec79ddaeeaa1503ca45d9744cd29adc935b214df5a041b85dd767238b5` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3358509` length=`66` truncated=`0` string_sha256=`6cf4e5a4241b1ab7c59ea567fc70747560c497c59bcf46d589453353a73920d5` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3358576` length=`80` truncated=`0` string_sha256=`d76aeb2a2f34ace651dd032541b63f32039e7e511d8f28b1859bc342685fa616` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3358657` length=`68` truncated=`0` string_sha256=`ed76cf92c246284d94808291ccc4e4995156262f1b65de34fd7022ce6a8f872b` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3358726` length=`75` truncated=`0` string_sha256=`de5d5bcb79040ec41abb679862b81b60a59c91462ba95d817dddca1bfe90de1c` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3358802` length=`65` truncated=`0` string_sha256=`6861df8518f3b2222d8890975bb901f6139c91bda13750fc193aff5e3f8acc40` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3358868` length=`79` truncated=`0` string_sha256=`a2f2ff3da2861b5f13a787bbb8311f89341779bceb42523bf5883e3987d1434a` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3358948` length=`74` truncated=`0` string_sha256=`77d88cbc350c09572457f468b738bc4bfe0943343e8b030b6d5b18a6365f0666` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3359023` length=`70` truncated=`0` string_sha256=`aef2f53132fbf34ba266982fb6e11c6c3b1a43cc5ae61497569175e86e095fa9` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3359094` length=`79` truncated=`0` string_sha256=`fe8034607ac48847cdfe703272c3f8dbc116bcf8b00f35398df5cc7a008a87ac` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3359174` length=`66` truncated=`0` string_sha256=`62618801cce6fa5ecf8790367e066e83a2c7b59325d54a4d1ed2bff7c95085c9` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3359241` length=`75` truncated=`0` string_sha256=`effc528532d2bec6ec45d96d4eb7436bec3d3126874b5311ee31efd24050a450` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3359317` length=`70` truncated=`0` string_sha256=`bc637c25577905f7c19a3853d38f795b49bb062c7f10bdbec27e7691c25902df` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3359388` length=`75` truncated=`0` string_sha256=`03c672a9a537870fe487d9337b381bb8b226c9b0dc2317477ad247a0b522317a` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3359464` length=`63` truncated=`0` string_sha256=`ded41eefe4e9c98c14859e4cbef7d99a5f6da65e822471cb68ba91bb0c131b28` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3359528` length=`70` truncated=`0` string_sha256=`8ddbcbee6c08027936717f4b5be75ab9bf8983f9bb4b55bc5c0987957c856efb` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3359599` length=`71` truncated=`0` string_sha256=`c33853ef665375bdf340a2eaadc4862326a8903868f8eeaaa7fb0468cb61221a` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3359671` length=`63` truncated=`0` string_sha256=`222255e31500684b318d6b91a37f19da538e0eadf27425ecc695002c00497463` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3359735` length=`67` truncated=`0` string_sha256=`c10f0d47702b8dfefe562a56a39e6879c79a6c4eae6e913ff635852ed3d9885e` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3359803` length=`64` truncated=`0` string_sha256=`b98c59dc5f1b6836372d9c67e4646b2dffee63d675ef312c851a9f7fa24fe02a` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3359868` length=`66` truncated=`0` string_sha256=`ed92d32f98d6d10f62b850e6ccf5e501af1492c77a0a60ea2d790316e347e6fe` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3359935` length=`65` truncated=`0` string_sha256=`3612489fc9c98d62d3160e0db7f4a859dfbcb7ef31b69220195911e103ca6cab` tokens=`rpmh` class=`no-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3361014` length=`63` truncated=`0` string_sha256=`6ea3879745e0de3d079465d2bce2af9e554bb2ce3ae44e80f4889942a07a3a49` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3363200` length=`72` truncated=`0` string_sha256=`481ae1ffe624fc8bd89b27e32772de7d388c530d92d5584630c548203129d2b7` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3363744` length=`66` truncated=`0` string_sha256=`8d29fd262ab019d519095aa49af7d828df3d0cfe2cb65bf6aa3542e2ff9d855e` tokens=`pmic` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3363811` length=`61` truncated=`0` string_sha256=`eaf127407c4aa556767051454146f57ab46c1ca01a076f0facc6e64f3b7ee614` tokens=`pmic` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3363873` length=`61` truncated=`0` string_sha256=`fe9504c1119951fdc6610cc586a201c1591f3c1a23ae3daabd8160869b736321` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3364692` length=`60` truncated=`0` string_sha256=`8888457d19652e94c451171915a3cc1b33b4fdf53766574ebaa44543ed6903a5` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3365142` length=`81` truncated=`0` string_sha256=`ac9d54145437cbab21174018d667e8f5e112183366a54768f12fc3b6be31fe30` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3365224` length=`66` truncated=`0` string_sha256=`a808551751f90cc8fd67397e3b08cd2fd79e62134659ac333efca8fbeb31596d` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3365291` length=`62` truncated=`0` string_sha256=`0400bafc6948dbe2899720b44f6c69a97c5ec6f5e50aeaf9b50fa56c8c8c4e89` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3365354` length=`57` truncated=`0` string_sha256=`95c36be4fe44e60ed84bd303aa7f996868cab633dba5a771906a945a88ba9322` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3365674` length=`59` truncated=`0` string_sha256=`f7c7766064700426b259de23528f2d55ce2077532e8f88007d75b1cb7bc73510` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3365734` length=`11` truncated=`0` string_sha256=`95fcc0e2ccfc0cade63ca0060283a6e827f7217359797dfcf5f8204b43207731` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3365755` length=`16` truncated=`0` string_sha256=`271931788a918db7d52411f29dd9856195e928c676c7193dea20bacb21a6ca28` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3365772` length=`8` truncated=`0` string_sha256=`3628dda2c9ff140072a6331ed5259f9a6cfe8a435092c8a0ef60afb35b89ed59` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3372704` length=`16` truncated=`0` string_sha256=`95947ca51813ef7ae34e783592e77705dc4d427c6ec8bbb7f8a9187465c5cbed` tokens=`pmic` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3377346` length=`26` truncated=`0` string_sha256=`ad5d8a94306c16e136c3626bb51d9476d86f6c05bb79d0c9053a144fafbf3b27` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3382212` length=`23` truncated=`0` string_sha256=`17298a17b8ff33d03b5c103792e99eef2625be3eacb205900cfa1a2fa4d239df` tokens=`pon` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3385761` length=`15` truncated=`0` string_sha256=`2ebdcac135986a36f3f5af5d03e63e7517c33862baf2442f28eac9b650e78b03` tokens=`pcie` class=`pcie-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3388397` length=`31` truncated=`0` string_sha256=`e057d894aeb17ca6fbf65a89ea0b747fc9cb617280787046b2d737a1f6098116` tokens=`pon` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3388532` length=`19` truncated=`0` string_sha256=`33b751784ff82c2523edc68e40e407eda65295560c82c9fc74f235a754688af6` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3388552` length=`8` truncated=`0` string_sha256=`45a36d2daeeb43ee4f9712efff386398388e4e57fdfcd99c643fb9283ed3b9dc` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3388561` length=`19` truncated=`0` string_sha256=`3c83b717d13c3f57c15af5a3738eb0f627cb209439400b778cb0921c2dc87d4c` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3388581` length=`8` truncated=`0` string_sha256=`8194f45207e0ce0e598794ff4f52fac9102fae4a5d36e976c90a07a03b2fc014` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3388590` length=`18` truncated=`0` string_sha256=`cffe6be04a8136d5a9bf5afe83503ba2b760494b803e6b670ac7cc28a14ff4d0` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3388609` length=`8` truncated=`0` string_sha256=`62686767f36ad6206e352e565235ea6440d0677e900e5200575ddd67cc989f1a` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3388618` length=`18` truncated=`0` string_sha256=`79c0139c7eac5fd48ce1521173c8230c610a3635605ad459cf609b1787b8b463` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3388637` length=`8` truncated=`0` string_sha256=`313857ea3625573ece1dd024662cf963b581364c70746c5cb37e6591bb83d9a5` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3388646` length=`18` truncated=`0` string_sha256=`142526f0746febdb1e6b2ee88a3e5db5e2c65112ba737b339eb007c48611ea9e` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3388665` length=`8` truncated=`0` string_sha256=`c96ae018453907ecc7d4a62dd3c7f311d19cd3b5a59f97749831b3cb1e248f21` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3388674` length=`18` truncated=`0` string_sha256=`fe14d3f4fbf88382816f4fe79f3d18eb3009c246894931184146d71e51770305` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3388693` length=`8` truncated=`0` string_sha256=`81d1afe1647cc923b5af7958bdc5abbdf01f81b367dcfce9d43e5bf08e0b63ef` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3388702` length=`18` truncated=`0` string_sha256=`faf73e445ee683f9c23a3627319e0b374953c75134d5480b393acae66b1cf329` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3388721` length=`8` truncated=`0` string_sha256=`ec8f26b05e3e89f42410ce4cd5b561933d1d081fc86d9c50f8b43f974c59b4af` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3388730` length=`18` truncated=`0` string_sha256=`77b733382be10f306f11e409226310bee941e2f2f08a388b4ef9af7a5ccb90bd` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3388749` length=`8` truncated=`0` string_sha256=`f3307055d8378f9b6630b31895fb971ca005f694b2cb37a4d776bbcd355c81b2` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3388758` length=`18` truncated=`0` string_sha256=`fe9bda023a4ef0e524d7b46355b0a33a8582519dda277fd7205965a0e6054762` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3388777` length=`8` truncated=`0` string_sha256=`6c651208570fa36a47cd21b30525c1ccbb343959cd8458f66c53a7f604162e4d` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3388786` length=`18` truncated=`0` string_sha256=`4163d41d2bd9b88efacf365f704a26983c03458038370e51ef83e53827762acd` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3388805` length=`8` truncated=`0` string_sha256=`f055243c9226f4480f79f453aec537aa878ffde7cecb9ef4dfa13ba5fe0f9e2c` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3388814` length=`18` truncated=`0` string_sha256=`631b64125c6b74d947639ca38c1f311cd7a814adee87af97a4ca2eb7c075ccaf` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3388833` length=`8` truncated=`0` string_sha256=`efcda74add44cfe0512beec15241706b8002e584e85ceecf77b8fa189b9d7fe2` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3388842` length=`18` truncated=`0` string_sha256=`1a040989d8451093f5ff92d75bfb07740635ebe71ecab1816a3d54bb808a3953` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3388861` length=`8` truncated=`0` string_sha256=`70b2b4f67e8e9a13c4fbb4a06d8eb181095a738da6c426f99f540e5b6b92d71e` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3388870` length=`19` truncated=`0` string_sha256=`1c32bac1b3102894ad832c377f460b49400b7296b083546d002c166ba33f9356` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3388890` length=`9` truncated=`0` string_sha256=`d57d3e1705d5bcdbf5fd2d45e8aad59ee075fdfcb08bc48168d703ccba8f7bf2` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3388900` length=`19` truncated=`0` string_sha256=`01854ab88822db140520c712af9c9da4c5c76835aa11c1a3fc337ac3b97bd559` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3388920` length=`9` truncated=`0` string_sha256=`7dc68441aa95fedb13b41c543f297acee57a90e6ae283ea63e9eaad81f484bd3` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3388930` length=`19` truncated=`0` string_sha256=`0dd78f11d4790cb575b65b61df5e832d2fb7ecb2b2efe655fd316b53c956a0cf` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3388950` length=`9` truncated=`0` string_sha256=`e19bcfd212d9b92829bb86e596433eae4154eaa0d8fe39793761c6661ae21fa4` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3388960` length=`19` truncated=`0` string_sha256=`195fad16540fc9b3788c9cc3b0b4158307df36e3905455b64148bcc2447764f8` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3388980` length=`9` truncated=`0` string_sha256=`f9a9ae7c2b4ccfc8c233924b46e50f06f1e0eb9fba6f545b1db562f84ee1879a` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3388990` length=`19` truncated=`0` string_sha256=`38b08e3672660938f03770e178bbf55dad4cd2cc4cd64c0fbdd1f02b5db74a5b` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3389010` length=`9` truncated=`0` string_sha256=`d6c8667fa567a9542282b3df1c7c3b067779abf67b97bc4d7f61f72d3c237573` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3389020` length=`19` truncated=`0` string_sha256=`a7624d26c2fc00b5d5e55485d8d0f26dd81cd359bed7806f479121ad206adfaa` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3389040` length=`9` truncated=`0` string_sha256=`1870b7818020616dcb7f4f43dba8842bf1bb9ae0af0fff4db96f86f0ff601161` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3389557` length=`15` truncated=`0` string_sha256=`4c65186b6279901e8bf15983e94690ce2b0d9898271663ea1f7b881d8e64ac12` tokens=`pmic,pon` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3389589` length=`12` truncated=`0` string_sha256=`e7a1fede34683aac38e715f7038878628829216336fcee261cedbabfe13092d2` tokens=`pmic,pon` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3389615` length=`13` truncated=`0` string_sha256=`87ac80c1baf89c4be06a813147eeb2de83ea2f682c0abc16e21df46def0ea9a3` tokens=`pmic,pon` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3389629` length=`12` truncated=`0` string_sha256=`21d6a5681396d8eac15eb90544cc802c62fafcb2c1e56406b4cdcc8690294bee` tokens=`pon` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3394648` length=`11` truncated=`0` string_sha256=`6595baadeacdf219fe2c701512c3516727c05f585fc0a2655ecf6a20ea48bd65` tokens=`gpio` class=`no-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3394968` length=`13` truncated=`0` string_sha256=`027cb11438a5c7ecbd605e76fce3f942062e19df9b22bf9c71158d3ffe2e4456` tokens=`gpio` class=`no-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3398482` length=`21` truncated=`0` string_sha256=`c0d63a830b09139e8c4ded62ccb21bb045d68a011f25cbb6492c72166a4cee3b` tokens=`gpio` class=`no-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3398505` length=`44` truncated=`0` string_sha256=`21dc4a712fc713b74ce7e545776eb05ea12d9fea8571bde14bd66cf14a066aa1` tokens=`gpio` class=`no-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3398591` length=`42` truncated=`0` string_sha256=`2026e62594a97fea5fb13dbeaab3f834d86cfb72445c34a2d38913b9d6280d6d` tokens=`gpio` class=`no-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3398635` length=`35` truncated=`0` string_sha256=`600c0423627dde1891e19f02a905af41ba9368a7b2dcca2f538ccd589d2e8c77` tokens=`gpio` class=`no-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3398672` length=`33` truncated=`0` string_sha256=`e918f96d3a29df1a4b6bc9b3fa623512bdd843bd33781a3eadffbff04702a671` tokens=`gpio` class=`no-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3399319` length=`21` truncated=`0` string_sha256=`48817ca43c084a7f007f0202b95f18795d61d045f8669e533c852c7fee26d1a4` tokens=`pmic` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`3355345:3400091` offset=`3400051` length=`26` truncated=`0` string_sha256=`a9a2bbe1114ff7067d102ce11b517fe5295dfd1c08ccc90759777bca58d7365d` tokens=`pon` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`20027:30662` offset=`20027` length=`30` truncated=`0` string_sha256=`57c9a69e711d099584424579fde838449fceae942b5132414e987a33ac4f49b6` tokens=`pmic,vdd` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`20027:30662` offset=`20058` length=`58` truncated=`0` string_sha256=`3c120745b4a5eeb26b3b8f79e9ef113cafd6437880040be88040a175c06ac66f` tokens=`pmic,vdd` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`20027:30662` offset=`20529` length=`17` truncated=`0` string_sha256=`37191bc3492309fdf85606309a2decdb64fec6fb7cbf078953d6443667c6ceb6` tokens=`aop` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`20027:30662` offset=`21649` length=`27` truncated=`0` string_sha256=`b22f0a9b178bd6d67cf24eceec5bf90ce63e3315f105bc3897d970b312e14a1c` tokens=`pon` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`20027:30662` offset=`21677` length=`25` truncated=`0` string_sha256=`3357f29e21f1b2d48109d12cb439194172ee54e1113cca1c1dfd40768dd91d58` tokens=`pon` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`20027:30662` offset=`21703` length=`40` truncated=`0` string_sha256=`33690426312b336d171da5289190b6f06a9189c66171b345cccd865fb38ccd36` tokens=`pon` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`20027:30662` offset=`21792` length=`5` truncated=`0` string_sha256=`ee3d1cc981cb2c1e9ac9b385568f91e6de3e7598142b0f8e438bcf594957c4fe` tokens=`pon` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`20027:30662` offset=`21819` length=`8` truncated=`0` string_sha256=`19183f445bdadcf7c20d1ce6721baf866e78e16d9d2bb3d5af17f4499ab156e8` tokens=`ps_hold` class=`no-token-context`
+- artifact=`xbl_b` range=`20027:30662` offset=`21828` length=`8` truncated=`0` string_sha256=`87cf918f4e919fb367f7344949fd63c42db6a97d23fb749efb8e879d0807f95f` tokens=`pmic` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`20027:30662` offset=`21878` length=`8` truncated=`0` string_sha256=`f9b2829dd02090e55e90976b397fc293c136fd04104ff96df86efa41877f1586` tokens=`pon` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`20027:30662` offset=`21887` length=`13` truncated=`0` string_sha256=`61ab51c2f6e9f5119fc0965d38f48bb9dbf2b446f0dcfafeef320fd7945f53ff` tokens=`vdd` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`20027:30662` offset=`21901` length=`13` truncated=`0` string_sha256=`c36f2c6b864368ae1cca258808790f029fca185b4bfb3b54243017fabf3e8234` tokens=`vdd` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`20027:30662` offset=`21915` length=`12` truncated=`0` string_sha256=`03e63af0f070b060bc91ec03d6c658fd3bf9ca97edf9bb143b7b721cb9f6d38c` tokens=`vdd` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`20027:30662` offset=`22002` length=`8` truncated=`0` string_sha256=`040cbc3029e90a60e501a66130d1727c42ec1ca1d2b51f29f73de0ebbd9ab52a` tokens=`pon` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`20027:30662` offset=`23237` length=`5` truncated=`0` string_sha256=`807223e082ae3d0526d455fdf5246730900c35303b70946aec51b236a0db810e` tokens=`sdx` class=`sdx-mdm-context`
+- artifact=`xbl_b` range=`20027:30662` offset=`23243` length=`6` truncated=`0` string_sha256=`909e443b1e5400dea23fcebd221d2a4ae1d8736b539e8b6de50e56b3a244e8c2` tokens=`sdx` class=`sdx-mdm-context`
+- artifact=`xbl_b` range=`20027:30662` offset=`23314` length=`5` truncated=`0` string_sha256=`8798bc4e53b7e0350f52a5b4da1e4de2719d0bd2ffc85aab4ffb371e3eecad32` tokens=`sdx` class=`sdx-mdm-context`
+- artifact=`xbl_b` range=`20027:30662` offset=`24528` length=`36` truncated=`0` string_sha256=`a6da58bbc71d1d8ddedc8a098176b8e7dbc352f8ec349086699d2d97476c421f` tokens=`pmic` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`20027:30662` offset=`24576` length=`41` truncated=`0` string_sha256=`3a2ca543a99ab632c856fb2a84f9c7fca54017807d0e6353d3794b6c79347e75` tokens=`pmic` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`20027:30662` offset=`24618` length=`38` truncated=`0` string_sha256=`f438a699d29c7b1d009b417b9f040e7f6988e524b2322926cbb208d4a25f1ba2` tokens=`pmic` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`20027:30662` offset=`24657` length=`48` truncated=`0` string_sha256=`93f684f039141531e7235fc42e2f15106d175151faa7cf31fa68406426e7a5c0` tokens=`pmic` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`20027:30662` offset=`24706` length=`34` truncated=`0` string_sha256=`b184969e5405bac767d177f69635bf886c79e09c6863f5b5c85fe195cfc603d0` tokens=`pmic` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`20027:30662` offset=`26200` length=`32` truncated=`0` string_sha256=`55fe6b4f2b824677ff47a1495a0b91aa003a7af99b3c4763209d5775a3bd12e1` tokens=`pmic` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`20027:30662` offset=`26233` length=`31` truncated=`0` string_sha256=`ed11dda691dbf694d9ad705a7f5743311443718503c587fa2ce3e199cc18413c` tokens=`pmic` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`20027:30662` offset=`26265` length=`31` truncated=`0` string_sha256=`88e267920d6af5805e0cc74cef7e099006b692382dc3dd66b675dce1825bfd01` tokens=`pmic` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`20027:30662` offset=`26608` length=`30` truncated=`0` string_sha256=`32486fe151f6485497b5b01d7ba6f05c581d826b5474485da92cf5b62c214911` tokens=`pmic` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`20027:30662` offset=`27392` length=`12` truncated=`0` string_sha256=`138af1e5803e5074c7fcfe48b5b5350375c9f05c1adb71e6ea2607d36a66e0dd` tokens=`pmic` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`20027:30662` offset=`27405` length=`59` truncated=`0` string_sha256=`b764c8972741b8c860265d7e9871a04f4c1d33c0263835aaabe684d5c8fd2254` tokens=`pmic` class=`generic-power-token-context`
+- artifact=`xbl_b` range=`20027:30662` offset=`30656` length=`5` truncated=`0` string_sha256=`422a766fc80fbb56ff756f4555f8318d82c19d3cbfa2807a15f3494580b1bcea` tokens=`vdd` class=`generic-power-token-context`
+
+## Range Summaries
+
+### `xbl_a`
+- range=`3340797:3377867` records=`156`
+- range=`20034:29600` records=`29`
+### `xbl_b`
+- range=`3355345:3400091` records=`122`
+- range=`20027:30662` records=`29`
+
+## Interpretation
+
+V1654 used temporary filesystem-only XBL devnodes and the V1653 helper to read only the V1652-approved ranges. The tracked report contains offsets, lengths, string SHA256 values, matched token sets, and context classes only.
+
+It did not dump raw partition bytes, commit proprietary binaries, write partitions, write PMIC/GPIO/GDSC state, issue eSoC notify/`BOOT_DONE`, rescan PCI, start Wi-Fi HAL, scan/connect, use credentials, run DHCP/routes, or external ping.
+
+## Next
+
+V1655 should stay host-only: interpret the redacted XBL context classes and decide whether the evidence supports a concrete bootloader/PMIC owner hypothesis. Do not move to bounded rail or PMIC writes without a separate explicit gate.
