@@ -1996,13 +1996,13 @@ static int v1664_pcie1_clock_vote_count_enable_leaves(void) {
          index < sizeof(v1664_pcie1_clock_vote_targets) / sizeof(v1664_pcie1_clock_vote_targets[0]);
          index++) {
         char path[256];
-        struct stat st;
+        char value[64];
 
         snprintf(path,
                  sizeof(path),
                  "/sys/kernel/debug/clk/%s/enable",
                  v1664_pcie1_clock_vote_targets[index].name);
-        if (lstat(path, &st) == 0 && S_ISREG(st.st_mode)) {
+        if (v1664_pcie1_clock_vote_read_value(path, value, sizeof(value)) == 0) {
             ready_count++;
         }
     }

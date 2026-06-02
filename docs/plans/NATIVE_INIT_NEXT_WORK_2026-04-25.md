@@ -11269,3 +11269,35 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
 
   Report:
   `docs/reports/NATIVE_INIT_V1669_PCIE1_CLOCK_VOTE_WAIT_RETRY_HANDOFF_2026-06-02.md`.
+
+## V1670 pcie1 Clock Vote Readiness Repair Source Build (2026-06-02)
+
+- V1670 source/build-only harness repair passed as
+  `v1670-pcie1-clock-vote-readiness-repair-source-build-pass`.
+
+  Repair:
+
+  - changes the pcie1 clock-vote readiness predicate from `lstat + S_ISREG` to
+    bounded `open/read` probing of `/sys/kernel/debug/clk/<name>/enable`;
+  - keeps the V1668 `45000ms` readiness window and `30000ms` hold window;
+  - keeps the separate result file:
+    `/cache/native-init-wifi-test-boot-v1670-pcie1-clock-vote-readiness.result`;
+  - keeps the same rollback/selftest and safety contract.
+
+  Artifact:
+
+  - init: `A90 Linux init 0.9.119 (v1670-pcie1-clock-vote-readiness)`;
+  - boot image:
+    `tmp/wifi/v1670-pcie1-clock-vote-readiness-repair-test-boot/boot_linux_v1670_pcie1_clock_vote_readiness.img`;
+  - boot SHA256:
+    `c6872a7200f2aa4f19cb55d73a2e8be564c698d4737a91bf153f5805b0745d18`.
+
+  Next unit:
+
+  - V1671 one rollbackable live handoff with V1670 image;
+  - collect normal RC1 window plus the V1670 separate clock-vote result;
+  - restore `stage3/boot_linux_v724.img`;
+  - verify native `selftest fail=0`.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1670_PCIE1_CLOCK_VOTE_READINESS_REPAIR_SOURCE_BUILD_2026-06-02.md`.
