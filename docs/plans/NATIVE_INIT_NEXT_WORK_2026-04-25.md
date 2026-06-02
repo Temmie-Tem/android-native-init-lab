@@ -16047,3 +16047,71 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
     no Wi-Fi HAL/scan/connect, no credentials, no DHCP/routes, no external
     ping, no PMIC/GPIO/GDSC writes, no eSoC notify/BOOT_DONE, no PCI rescan,
     and no platform bind/unbind.
+
+## V1788 PM-service init-discovery live handoff (2026-06-03)
+
+- V1788 ran the one rollbackable live discriminator using the V1787
+  PM-service init-discovery observer.
+
+  Evidence:
+
+  - handoff:
+    `scripts/revalidation/native_wifi_wlan_pd_pm_service_init_discovery_handoff_v1788.py`;
+  - report:
+    `docs/reports/NATIVE_INIT_V1788_PM_SERVICE_INIT_DISCOVERY_HANDOFF_2026-06-03.md`;
+  - evidence directory:
+    `tmp/wifi/v1788-pm-service-init-discovery-handoff`;
+  - decision:
+    `v1788-pm-service-discovery-zero-list-commit-rollback-pass`;
+  - label:
+    `pm-service-discovery-zero-list-commit`;
+  - rollback:
+    `from-native`, verified `ok=true`.
+
+  Key evidence:
+
+  - test boot reached
+    `A90 Linux init 0.9.145 (v1787-pm-service-init-discovery-observer)`;
+  - V1788 rollback restored `A90 Linux init 0.9.68 (v724)` and post-rollback
+    selftest stayed `fail=0`;
+  - `vendor.qcom.PeripheralManager` became non-null for `cnss-daemon`:
+    provider seen `1`, `asInterface` hits `1`, register/vote TX hits `1`;
+  - `pm-service` init reached `get_system_info` once and did not take its
+    immediate fail branch;
+  - add-peripheral was entered twice and reached the known-name checkpoint
+    twice, but both entries hit add-peripheral init-fail and no list commit
+    occurred;
+  - supported-list commit hits stayed `0`, so the later CNSS register request
+    still hit `pm-server-no-peripheral`;
+  - requested `wlanmdsp`, WLFW service 69, and `wlan0` stayed absent.
+
+  Interpretation:
+
+  - the V1761-approved service-object/vote discriminator is now past the
+    client-side object-null branch: the object is visible and CNSS sends the
+    register/vote transaction;
+  - the current blocker is inside PM-service supported-peripheral discovery:
+    discovery returns candidate names, but `pm-service` refuses to commit them
+    into its supported-list before Binder registration;
+  - this is not a reason to add PM trio variants, `boot_wlan`, restart-PD,
+    eSoC, RC1, Wi-Fi HAL, scan/connect, DHCP/routes, or external ping.
+
+  Safety:
+
+  - the live run used private property runtime staging, one test boot flash,
+    evidence collection, and rollback to `stage3/boot_linux_v724.img`;
+  - no `/dev/subsys_esoc0`, forced RC1/case write, fake-ONLINE,
+    PMIC/GPIO/GDSC write, eSoC notify/BOOT_DONE, PCI rescan,
+    platform bind/unbind, restart-PD request, full `pm-proxy`, `boot_wlan`,
+    Wi-Fi HAL, scan/connect, credentials, DHCP/routes, or external ping was
+    used.
+
+  Next candidate:
+
+  - V1789 should stay host/source-only first: classify the add-peripheral
+    init-fail branch at `pm-service+0x668c` and identify what field from
+    `libmdmdetect:get_system_info` makes the discovered `modem` / `SDX50M`
+    candidates fail initialization;
+  - only after V1789 names the exact missing field should a rollbackable live
+    repair be considered, likely private read-only sysfs discovery parity in
+    the vendor exec namespace rather than another actor start.
