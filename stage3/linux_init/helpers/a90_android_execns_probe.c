@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v310"
+#define EXECNS_VERSION "a90_android_execns_probe v311"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -11801,11 +11801,179 @@ static const char *first_cnss_failure_slug_from_buffers(const struct buffer *std
     return NULL;
 }
 
+static int append_proc_fd_links_compact(struct buffer *buf, pid_t pid, const char *label);
+static int append_generic_stall_snapshot_capture(struct buffer *buf, pid_t pid, const char *label);
+static int count_proc_fd_target_matches(pid_t pid, const char *needle);
+static int count_all_proc_fd_target_matches(const char *needle);
+static int count_process_cmdline_or_comm_matches(const char *cmdline_needle,
+                                                 const char *comm_exact);
+
+struct cnss_nonlog_maps_summary {
+    bool open_ok;
+    bool path_seen;
+    bool text_seen;
+    unsigned long long load_bias;
+    unsigned long long text_start;
+    unsigned long long text_end;
+    unsigned long long text_offset;
+    unsigned long long wlfw_start_runtime_pc;
+    int line_count;
+};
+
+static void cnss_nonlog_maps_summary_init(struct cnss_nonlog_maps_summary *summary) {
+    memset(summary, 0, sizeof(*summary));
+}
+
+static int collect_cnss_nonlog_maps_summary(pid_t pid, struct cnss_nonlog_maps_summary *summary) {
+    char path[MAX_PATH_LEN];
+    char line[1024];
+    FILE *file;
+
+    cnss_nonlog_maps_summary_init(summary);
+    proc_path(path, sizeof(path), pid, "maps");
+    file = fopen(path, "re");
+    if (file == NULL) {
+        return -1;
+    }
+    summary->open_ok = true;
+    while (fgets(line, sizeof(line), file) != NULL) {
+        unsigned long long start = 0;
+        unsigned long long end = 0;
+        unsigned long long offset = 0;
+        char perms[8] = {0};
+        char mapped_path[512] = {0};
+        int parsed;
+
+        summary->line_count++;
+        parsed = sscanf(line, "%llx-%llx %7s %llx %*s %*s %511s",
+                        &start,
+                        &end,
+                        perms,
+                        &offset,
+                        mapped_path);
+        if (parsed < 5 || strstr(mapped_path, "/vendor/bin/cnss-daemon") == NULL) {
+            continue;
+        }
+        summary->path_seen = true;
+        if (strchr(perms, 'x') == NULL) {
+            continue;
+        }
+        summary->text_seen = true;
+        summary->text_start = start;
+        summary->text_end = end;
+        summary->text_offset = offset;
+        summary->load_bias = start >= offset ? start - offset : 0;
+        summary->wlfw_start_runtime_pc = summary->load_bias + 0xec00ULL;
+        break;
+    }
+    fclose(file);
+    return 0;
+}
+
+static int append_wlan_pd_cnss_nonlog_control_flow_summary(struct buffer *stdout_buf,
+                                                           pid_t cnss_daemon_pid,
+                                                           bool cnss_daemon_present,
+                                                           bool cnss_daemon_observable,
+                                                           bool cnss_daemon_running) {
+    struct cnss_nonlog_maps_summary maps;
+    int cnss_process_count = count_process_cmdline_or_comm_matches("cnss-daemon", "cnss-daemon");
+    int cnss_socket_fd_count = -1;
+    int cnss_vndbinder_fd_count = -1;
+    int cnss_kmsg_fd_count = -1;
+    int global_mhi_fd_count = count_all_proc_fd_target_matches("/dev/mhi_0305_01.01.00_pipe_10");
+    int ks_process_count = count_process_cmdline_or_comm_matches("/vendor/bin/ks", "ks");
+    const char *label;
+
+    cnss_nonlog_maps_summary_init(&maps);
+    if (cnss_daemon_pid > 0 && cnss_daemon_running) {
+        collect_cnss_nonlog_maps_summary(cnss_daemon_pid, &maps);
+        cnss_socket_fd_count = count_proc_fd_target_matches(cnss_daemon_pid, "socket:");
+        cnss_vndbinder_fd_count = count_proc_fd_target_matches(cnss_daemon_pid, "/dev/vndbinder");
+        cnss_kmsg_fd_count = count_proc_fd_target_matches(cnss_daemon_pid, "/dev/kmsg");
+    }
+    if (!cnss_daemon_present || !cnss_daemon_running) {
+        label = "cnss-process-exited-before-wlfw";
+    } else {
+        label = "cnss-uprobe-unavailable-fallback-needed";
+    }
+
+    if (append_literal(stdout_buf,
+                       "wlan_pd_cnss_nonlog_control_flow.begin=1\n"
+                       "wlan_pd_cnss_nonlog_control_flow.mode=read-only-proc-fallback\n"
+                       "wlan_pd_cnss_nonlog_control_flow.tracefs_write_attempted=0\n"
+                       "wlan_pd_cnss_nonlog_control_flow.uprobe_attempted=0\n"
+                       "wlan_pd_cnss_nonlog_control_flow.service_manager=0\n"
+                       "wlan_pd_cnss_nonlog_control_flow.pm_trio=0\n"
+                       "wlan_pd_cnss_nonlog_control_flow.boot_wlan=0\n"
+                       "wlan_pd_cnss_nonlog_control_flow.subsys_esoc0=0\n"
+                       "wlan_pd_cnss_nonlog_control_flow.forced_rc1=0\n"
+                       "wlan_pd_cnss_nonlog_control_flow.fake_online=0\n"
+                       "wlan_pd_cnss_nonlog_control_flow.wifi_hal=0\n"
+                       "wlan_pd_cnss_nonlog_control_flow.scan_connect=0\n"
+                       "wlan_pd_cnss_nonlog_control_flow.credentials=0\n"
+                       "wlan_pd_cnss_nonlog_control_flow.dhcp_routes=0\n"
+                       "wlan_pd_cnss_nonlog_control_flow.external_ping=0\n") < 0 ||
+        append_format(stdout_buf,
+                      "wlan_pd_cnss_nonlog_control_flow.cnss_daemon_present=%d\n"
+                      "wlan_pd_cnss_nonlog_control_flow.cnss_daemon_observable=%d\n"
+                      "wlan_pd_cnss_nonlog_control_flow.cnss_daemon_running=%d\n"
+                      "wlan_pd_cnss_nonlog_control_flow.cnss_pid=%ld\n"
+                      "wlan_pd_cnss_nonlog_control_flow.process_scan.cnss_daemon_count=%d\n"
+                      "wlan_pd_cnss_nonlog_control_flow.maps.open_ok=%d\n"
+                      "wlan_pd_cnss_nonlog_control_flow.maps.path_seen=%d\n"
+                      "wlan_pd_cnss_nonlog_control_flow.maps.text_seen=%d\n"
+                      "wlan_pd_cnss_nonlog_control_flow.maps.line_count=%d\n"
+                      "wlan_pd_cnss_nonlog_control_flow.maps.load_bias=0x%llx\n"
+                      "wlan_pd_cnss_nonlog_control_flow.maps.text_start=0x%llx\n"
+                      "wlan_pd_cnss_nonlog_control_flow.maps.text_end=0x%llx\n"
+                      "wlan_pd_cnss_nonlog_control_flow.maps.text_offset=0x%llx\n"
+                      "wlan_pd_cnss_nonlog_control_flow.static.wlfw_start_offset=0xec00\n"
+                      "wlan_pd_cnss_nonlog_control_flow.static.main_wlfw_start_call=0x9220\n"
+                      "wlan_pd_cnss_nonlog_control_flow.static.main_wlfw_start_failure=0x9318\n"
+                      "wlan_pd_cnss_nonlog_control_flow.runtime.wlfw_start_pc=0x%llx\n"
+                      "wlan_pd_cnss_nonlog_control_flow.fd.socket_count=%d\n"
+                      "wlan_pd_cnss_nonlog_control_flow.fd.vndbinder_count=%d\n"
+                      "wlan_pd_cnss_nonlog_control_flow.fd.kmsg_count=%d\n"
+                      "wlan_pd_cnss_nonlog_control_flow.global.mhi_pipe_fd_count=%d\n"
+                      "wlan_pd_cnss_nonlog_control_flow.global.ks_process_count=%d\n"
+                      "wlan_pd_cnss_nonlog_control_flow.label=%s\n",
+                      cnss_daemon_present ? 1 : 0,
+                      cnss_daemon_observable ? 1 : 0,
+                      cnss_daemon_running ? 1 : 0,
+                      (long)cnss_daemon_pid,
+                      cnss_process_count,
+                      maps.open_ok ? 1 : 0,
+                      maps.path_seen ? 1 : 0,
+                      maps.text_seen ? 1 : 0,
+                      maps.line_count,
+                      maps.load_bias,
+                      maps.text_start,
+                      maps.text_end,
+                      maps.text_offset,
+                      maps.wlfw_start_runtime_pc,
+                      cnss_socket_fd_count,
+                      cnss_vndbinder_fd_count,
+                      cnss_kmsg_fd_count,
+                      global_mhi_fd_count,
+                      ks_process_count,
+                      label) < 0) {
+        return -1;
+    }
+    if (cnss_daemon_pid > 0 && cnss_daemon_running) {
+        if (append_proc_fd_links_compact(stdout_buf, cnss_daemon_pid, "wlan_pd_cnss_nonlog_cnss_daemon") < 0 ||
+            append_generic_stall_snapshot_capture(stdout_buf, cnss_daemon_pid, "wlan_pd_cnss_nonlog_cnss_daemon") < 0) {
+            return -1;
+        }
+    }
+    return append_literal(stdout_buf, "wlan_pd_cnss_nonlog_control_flow.end=1\n");
+}
+
 static int append_wlan_pd_cnss_output_visibility_summary(struct buffer *stdout_buf,
                                                         const struct buffer *stderr_buf,
                                                         bool tftp_child_present,
                                                         bool tftp_observable,
                                                         bool tftp_running,
+                                                        pid_t cnss_daemon_pid,
                                                         bool cnss_daemon_present,
                                                         bool cnss_daemon_observable,
                                                         bool cnss_daemon_running) {
@@ -11895,7 +12063,11 @@ static int append_wlan_pd_cnss_output_visibility_summary(struct buffer *stdout_b
                       strlen(markers.block)) < 0) {
         return -1;
     }
-    return 0;
+    return append_wlan_pd_cnss_nonlog_control_flow_summary(stdout_buf,
+                                                           cnss_daemon_pid,
+                                                           cnss_daemon_present,
+                                                           cnss_daemon_observable,
+                                                           cnss_daemon_running);
 }
 
 static void first_sanitized_line_from_buffer(const struct buffer *buf, char *out, size_t out_size) {
@@ -33717,6 +33889,7 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
         bool cnss_daemon_present = false;
         bool cnss_daemon_observable = false;
         bool cnss_daemon_running = false;
+        pid_t cnss_daemon_pid = -1;
         bool pm_proxy_helper_present = false;
         bool pm_proxy_helper_observable = false;
         bool pm_proxy_helper_running = false;
@@ -33736,6 +33909,7 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
                 cnss_daemon_present = true;
                 cnss_daemon_observable = children[i].observable;
                 cnss_daemon_running = !children[i].child_done;
+                cnss_daemon_pid = children[i].pid;
             } else if (children[i].identity == COMPOSITE_ID_PER_PROXY_HELPER) {
                 pm_proxy_helper_present = true;
                 pm_proxy_helper_observable = children[i].observable;
@@ -33804,6 +33978,7 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
                                                          tftp_child_present,
                                                          tftp_observable,
                                                          tftp_running,
+                                                         cnss_daemon_pid,
                                                          cnss_daemon_present,
                                                          cnss_daemon_observable,
                                                          cnss_daemon_running) < 0) {

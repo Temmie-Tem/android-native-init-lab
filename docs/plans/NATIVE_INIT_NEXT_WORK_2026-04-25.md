@@ -12096,3 +12096,50 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
 
   Report:
   `docs/reports/NATIVE_INIT_V1692_CNSS_NONLOG_CONTROL_FLOW_2026-06-02.md`.
+
+## V1693 WLAN-PD CNSS Non-log Control-flow Source Build (2026-06-02)
+
+- V1693 source/build completed.
+
+  Result:
+
+  - decision: `v1693-wlan-pd-cnss-nonlog-control-flow-source-build-pass`;
+  - init: `A90 Linux init 0.9.125 (v1693-wlan-pd-cnss-nonlog-control-flow)`;
+  - helper marker: `a90_android_execns_probe v311`;
+  - helper SHA256:
+    `3c381ab934b0189bd3f775964a37823036ff50a93eb5338a28a5bb1e70454b89`;
+  - boot artifact:
+    `tmp/wifi/v1693-wlan-pd-cnss-nonlog-control-flow-test-boot/boot_linux_v1693_wlan_pd_cnss_nonlog_control_flow.img`;
+  - boot SHA256:
+    `e15442d7419fb7ced989eacab912aecf800847c1fdda1ffa9283361a8cfdb106`;
+  - private property root:
+    `/mnt/sdext/a90/private-property-v317/v1693/dev/__properties__`.
+
+  Implementation:
+
+  - preserves the V1680/V1691 internal-modem firmware-serve route:
+    `qrtr-ns`, `pd-mapper`, `rmt_storage`, `tftp_server`,
+    `/dev/subsys_modem` holder, `cnss_diag`, stock `cnss-daemon`;
+  - adds read-only `/proc` fallback evidence under
+    `wlan_pd_cnss_nonlog_control_flow.*`;
+  - records cnss PID/running state, maps load-bias, computed
+    `wlfw_start` runtime PC, fd/socket counts, task state, and MHI/ks absence;
+  - does not write tracefs and does not arm uprobes;
+  - keeps service-manager, PM trio, `boot_wlan`, `/dev/subsys_esoc0`, forced
+    RC1, fake-ONLINE, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, and
+    external ping disabled.
+
+  Next live gate:
+
+  - V1694 should deploy the V1693 private property root, flash the V1693 test
+    boot, collect one bounded window, roll back to `stage3/boot_linux_v724.img`,
+    and verify selftest `fail=0`;
+  - fixed labels:
+    `cnss-process-exited-before-wlfw` or
+    `cnss-uprobe-unavailable-fallback-needed`;
+  - if `cnss-uprobe-unavailable-fallback-needed`, treat it as valid
+    liveness/stall evidence only; it does not prove `cnss-daemon+0xec00` was
+    entered.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1693_WLAN_PD_CNSS_NONLOG_CONTROL_FLOW_SOURCE_BUILD_2026-06-02.md`.
