@@ -12301,3 +12301,64 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
 
   Report:
   `docs/reports/NATIVE_INIT_V1697_WLAN_PD_CNSS_KMSG4_SOURCE_BUILD_2026-06-02.md`.
+
+## V1698 WLAN-PD CNSS kmsg4 Handoff (2026-06-02)
+
+- V1698 one-run rollbackable live handoff completed with the V1697 kmsg4 test
+  boot.
+
+  Result:
+
+  - decision: `v1698-cnss-output-still-invisible-rollback-pass`;
+  - rollback: `from-native`, PASS;
+  - post-rollback version: `A90 Linux init 0.9.68 (v724)`;
+  - post-rollback selftest: `fail=0`;
+  - output label: `cnss-output-still-invisible`;
+  - `wlfw_start_seen=0`;
+  - first failure slug: `none`;
+  - syslog available/errno/filtered:
+    `1` / `0` / `0`;
+  - property lookup:
+    `all_match=1`,
+    `persist.vendor.cnss-daemon.kmsg_logging=4`,
+    `persist.vendor.cnss-daemon.debug_level=4`;
+  - stock `cnss-daemon` remained running;
+  - `tftp_server` remained running;
+  - legacy firmware-serve label: `firmware-not-requested`;
+  - supplemental non-log label:
+    `cnss-uprobe-unavailable-fallback-needed`;
+  - computed `wlfw_start` PC: `0x555adefc00`;
+  - socket/kmsg fd counts: `10` / `0`.
+
+  Safety:
+
+  - no PM/service-window actors, `boot_wlan`, `/dev/subsys_esoc0`, forced RC1,
+    fake-ONLINE, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, or external
+    ping were used;
+  - no PMIC/GPIO/GDSC writes, eSoC notify/`BOOT_DONE`, PCI rescan, platform
+    bind/unbind, firmware write, or partition write beyond the test boot
+    handoff and rollback were used.
+
+  Interpretation:
+
+  - V1696 threshold gap is closed: `wlfw_start` severity-2 output should have
+    been kmsg-visible under `kmsg_logging=4` and `debug_level=4`;
+  - the remaining label is still `cnss-output-still-invisible`, with no named
+    pre-wlfw init failure and no firmware request;
+  - do not add PM/service-window actors or `boot_wlan` from this result;
+  - the next justified unit is a bounded non-log proof of stock `cnss-daemon`
+    execution around `wlfw_start` or the preceding init calls.
+
+  Next candidate:
+
+  - source/build-only first: add a bounded non-log proof that does not rely on
+    Android logcat or kmsg shell output. Candidate approaches are ptrace-lite
+    PC sampling or another already-proven non-log mechanism around the computed
+    `wlfw_start` PC;
+  - keep the route limited to the V1680 internal-modem firmware-serve stack and
+    keep PM/service-window actors, `boot_wlan`, `/dev/subsys_esoc0`, forced RC1,
+    fake-ONLINE, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, and
+    external ping disabled.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1698_WLAN_PD_CNSS_KMSG4_HANDOFF_2026-06-02.md`.
