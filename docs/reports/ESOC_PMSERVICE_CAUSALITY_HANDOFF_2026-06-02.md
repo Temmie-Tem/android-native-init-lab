@@ -82,7 +82,57 @@ direct writes; no eSoC notify/BOOT_DONE spoof; no Wi-Fi HAL/scan/connect,
 credentials, DHCP/routes, external ping; no flash/boot-image/partition write.
 Keep everything read-only / source-build until the GPIO142 cause is classified.
 
+## Host follow-up analysis (2026-06-02, DTS + provider strings + Android dmesg)
+
+Done while the loop was paused, to push the redirect question as far as host data
+allows. Results — one hypothesis REJECTED, three facts CONFIRMED, and the host
+limit reached:
+
+### REJECTED hypothesis (do not pursue): "GPIO9 PON MUX UNCLAIMED is the defect"
+V1246 shows native PM8150L `gpio9` as `(MUX UNCLAIMED)`. This is NOT a native
+defect: the Android positive-control V852 shows the SAME
+`pin 7 (gpio9): (MUX UNCLAIMED)`. The PM8150L GPIO9 PON pad is not claimed by
+kernel pinctrl on either side (handled at PMIC/bootloader level). Native also
+claims the AP-side pins correctly — V1502/V1506 show
+`pin 135/142: soc:qcom,mdm3`, identical to Android. So the AP-side GPIO
+infrastructure is at parity; do not spend live cycles on GPIO9/pinctrl claim.
+
+### CONFIRMED facts
+1. On A90 (r3q overlay r03), the ONLY AP-controlled modem-power lever is
+   `qcom,ap2mdm-soft-reset-gpio = <pm8150l_gpios 9>` (PON). There is NO board
+   modem regulator-supply and NO `ap2mdm-pmic-pwr-en-gpio` populated (the
+   provider has that code branch, but this board does not wire it). DTS itself is
+   complete and correct; pinmux for GPIO135/141/142/53 is fully defined.
+2. Android modem-boot order (V852 dmesg, exact): `8.541 __subsystem_get esoc0`
+   → **+255 ms** → `8.796 PCIe Assert reset RC1` → `8.803 PHY ready / Release` →
+   `8.820 LTSSM_L0 / link initialized GEN2 x2` → `11.582 sysmon-qmi esoc0 SSCTL`.
+   The 255 ms window where the modem PON/PBL actually happens emits NO dmesg
+   (`mdm_subsys_powerup` / "Powering on modem" / "MDM2AP went LOW" never print —
+   it is hardware-level).
+3. The native and Android PCIe-enable code paths are identical; native reaches
+   PHY-ready + Release + LTSSM but stalls DETECT_QUIET→POLL_ACTIVE→
+   POLL_COMPLIANCE→fail, while Android goes DETECT_QUIET→L0. The only difference
+   is whether the endpoint (modem) is alive at PERST release.
+
+### New discriminator for the next gate
+Android does a NATURAL `__subsystem_get(esoc0)` at 8.541 s (subsystem framework
+requests the modem), THEN 255 ms later PCIe enumerates and links. Native forces
+RC1 enumerate directly without that preceding successful esoc0 powerup, so the
+endpoint is dead at PERST. The question is not "fake ONLINE" or "more RC1
+retries" but: **what makes Android's `__subsystem_get(esoc0)` actually power the
+modem in that 255 ms, and can native reproduce that specific powerup (provider
+`mdm_subsys_powerup` reaching a real modem PON) BEFORE attempting PCIe?**
+
+### Host limit reached
+Why the modem does not answer PON is hardware-level (PM8150L PON timing / PBL),
+not present in any on-disk artifact. Further progress needs LIVE evidence: a
+bounded native run that drives the provider's natural `__subsystem_get(esoc0)` /
+`mdm_subsys_powerup` path (not forced RC1 enumerate) and captures whether MDM2AP/
+GPIO142 ever responds — read-only/observational, still no PMIC/GPIO/GDSC write,
+no fake-ONLINE, no eSoC notify/BOOT_DONE.
+
 ## Cross-refs
 `ESOC_PROVIDER_STATIC_ANALYSIS_2026-06-01.md`, V1552/V1556/V1559 (endpoint
 silence), V1616 (causality), V857/V860 (property track already closed),
-V849/V1238 (mdm_subsys_powerup blocks on absent MDM2AP).
+V849/V1238 (mdm_subsys_powerup blocks on absent MDM2AP), V852 (Android modem-boot
+dmesg timeline), V1246/V1502/V1506 (GPIO9/135/142 claim parity).
