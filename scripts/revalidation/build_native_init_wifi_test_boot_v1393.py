@@ -272,6 +272,11 @@ def build_init(args: argparse.Namespace) -> None:
         if args.wifi_test_natural_power_diff_snapshot
         else []
     )
+    pcie1_clock_vote_proof_flags = (
+        ["-DA90_WIFI_TEST_BOOT_PCIE1_CLOCK_VOTE_PROOF=1"]
+        if args.wifi_test_pcie1_clock_vote_proof
+        else []
+    )
     auto_readiness_flags = (
         ["-DA90_WIFI_TEST_BOOT_AUTO_READINESS_SUPERVISOR=1"]
         if args.wifi_test_auto_readiness_supervisor
@@ -410,6 +415,7 @@ def build_init(args: argparse.Namespace) -> None:
         *provider_trigger_ap2mdm_hold_flags,
         *natural_mdm2ap_irq_summary_flags,
         *natural_power_diff_snapshot_flags,
+        *pcie1_clock_vote_proof_flags,
         *auto_readiness_flags,
         *firmware_mount_flags,
         *service_window_flags,
@@ -1208,6 +1214,21 @@ def verify_markers(args: argparse.Namespace) -> None:
             "gcc_pcie_1_pipe_clk",
             "pcie_1_pipe_clk",
         ])
+    if args.wifi_test_pcie1_clock_vote_proof:
+        expected.extend([
+            "pcie1_clock_vote.begin=1",
+            "pcie1_clock_vote.mode=bounded-clock-debug-vote-surface-proof",
+            "pcie1_clock_vote.allowed_clock_debug_writes=1",
+            "pcie1_clock_vote.safety_regulator_write=0",
+            "pcie1_clock_vote.safety_gdsc_write=0",
+            "pcie1_clock_vote.safety_pci_case_write=0",
+            "A90_V1664_CLOCK_VOTE_SNAPSHOT",
+            "/sys/kernel/debug/clk/%s/enable",
+            "/sys/kernel/debug/clk/%s/rate",
+            "gcc_pcie_phy_refgen_clk_src",
+            "gcc_pcie1_phy_refgen_clk",
+            "gcc_pcie_1_pipe_clk",
+        ])
     if args.wifi_test_rc1_retry_count > 0:
         expected.extend([
             "retry_count=%d",
@@ -1285,6 +1306,7 @@ def write_manifest(args: argparse.Namespace) -> None:
             "provider_trigger_ap2mdm_hold_ms": args.wifi_test_provider_trigger_ap2mdm_hold_ms,
             "natural_mdm2ap_irq_summary": args.wifi_test_natural_mdm2ap_irq_summary,
             "natural_power_diff_snapshot": args.wifi_test_natural_power_diff_snapshot,
+            "pcie1_clock_vote_proof": args.wifi_test_pcie1_clock_vote_proof,
             "auto_readiness_supervisor": args.wifi_test_auto_readiness_supervisor,
             "rc1_retry_count": args.wifi_test_rc1_retry_count,
             "rc1_retry_delay_ms": args.wifi_test_rc1_retry_delay_ms,
@@ -1342,6 +1364,7 @@ def resolve_args(args: argparse.Namespace) -> argparse.Namespace:
             "wifi_test_provider_trigger_ap2mdm_hold": args.wifi_test_provider_trigger_ap2mdm_hold,
             "wifi_test_natural_mdm2ap_irq_summary": args.wifi_test_natural_mdm2ap_irq_summary,
             "wifi_test_natural_power_diff_snapshot": args.wifi_test_natural_power_diff_snapshot,
+            "wifi_test_pcie1_clock_vote_proof": args.wifi_test_pcie1_clock_vote_proof,
             "wifi_test_auto_readiness_supervisor": args.wifi_test_auto_readiness_supervisor,
             "wifi_test_rc1_retry_count": args.wifi_test_rc1_retry_count > 0,
         }
@@ -1430,6 +1453,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--wifi-test-provider-trigger-ap2mdm-hold-ms", type=int, default=500)
     parser.add_argument("--wifi-test-natural-mdm2ap-irq-summary", action="store_true")
     parser.add_argument("--wifi-test-natural-power-diff-snapshot", action="store_true")
+    parser.add_argument("--wifi-test-pcie1-clock-vote-proof", action="store_true")
     parser.add_argument("--wifi-test-auto-readiness-supervisor", action="store_true")
     parser.add_argument("--wifi-test-rc1-retry-count", type=int, default=0)
     parser.add_argument("--wifi-test-rc1-retry-delay-ms", type=int, default=0)

@@ -11003,3 +11003,44 @@ concrete rail/register owner (V1655). Rail inventory (V1641): SDX50M main rail
 
   Report:
   `docs/reports/NATIVE_INIT_V1663_PCIE1_VOTE_GATE_PLAN_2026-06-02.md`.
+
+## V1664 pcie1 Clock Vote Source Build (2026-06-02)
+
+- V1664 source/build-only test boot passed as
+  `v1664-pcie1-clock-vote-source-build-pass`.
+
+  Artifact:
+
+  - init: `A90 Linux init 0.9.116 (v1664-pcie1-clock-vote)`;
+  - boot image:
+    `tmp/wifi/v1664-pcie1-clock-vote-test-boot/boot_linux_v1664_pcie1_clock_vote.img`;
+  - boot SHA256:
+    `6e45e9a31694d0c4bce8abd259c50c34a1e1b523585f41cfccdfec55772359b9`.
+
+  Gate implementation:
+
+  - keeps the existing natural provider route and avoids forced RC1 enumerate;
+  - mounts debugfs in PID1;
+  - writes only targeted clock debugfs `rate`/`enable` leaves;
+  - keeps successful clock enables through the supervised helper window;
+  - disables only clocks successfully enabled by the test boot before debugfs
+    cleanup;
+  - captures `pcie1_clock_vote.*`, existing natural MDM2AP IRQ summary, full
+    `regulator_summary`, targeted named-clock snapshots, subsystem sequence,
+    provider-thread state, GPIO tracepoint, and PIL tracepoint evidence.
+
+  Hard stops remain unchanged: no regulator/GDSC direct write, no
+  `/sys/kernel/debug/pci-msm/case`, no forced RC1 enumerate, no PMIC/GPIO/PERST
+  write, no eSoC notify/`BOOT_DONE`, no PCI rescan, no platform bind/unbind, no
+  Wi-Fi HAL, scan/connect, credentials, DHCP/routes, or external ping.
+
+  Next unit:
+
+  - V1665 one rollbackable live handoff;
+  - restore `stage3/boot_linux_v724.img`;
+  - verify native `selftest fail=0`;
+  - classify as `clock-vote-surface-pass-no-gdsc`,
+    `clock-vote-surface-pass-gdsc-moved`, or `clock-vote-surface-failed`.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1664_PCIE1_CLOCK_VOTE_SOURCE_BUILD_2026-06-02.md`.

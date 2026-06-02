@@ -168,6 +168,9 @@ static int v641_prepare_firmware_mounts(void);
 #ifndef A90_WIFI_TEST_BOOT_NATURAL_POWER_DIFF_SNAPSHOT
 #define A90_WIFI_TEST_BOOT_NATURAL_POWER_DIFF_SNAPSHOT 0
 #endif
+#ifndef A90_WIFI_TEST_BOOT_PCIE1_CLOCK_VOTE_PROOF
+#define A90_WIFI_TEST_BOOT_PCIE1_CLOCK_VOTE_PROOF 0
+#endif
 #ifndef A90_WIFI_TEST_BOOT_AUTO_READINESS_SUPERVISOR
 #define A90_WIFI_TEST_BOOT_AUTO_READINESS_SUPERVISOR 0
 #endif
@@ -1898,6 +1901,268 @@ static void v1633_natural_mdm2ap_irq_summary_run(long start_ms,
         }
     }
 #endif
+}
+#endif
+
+#if A90_WIFI_TEST_BOOT_PCIE1_CLOCK_VOTE_PROOF
+struct v1664_pcie1_clock_vote_target {
+    const char *name;
+    const char *rate_value;
+    int enable_rc;
+    int cleanup_rc;
+    int enabled_by_test;
+};
+
+static struct v1664_pcie1_clock_vote_target v1664_pcie1_clock_vote_targets[] = {
+    {"gcc_pcie_phy_refgen_clk_src", "100000000\n", -EAGAIN, -EAGAIN, 0},
+    {"gcc_pcie1_phy_refgen_clk", "100000000\n", -EAGAIN, -EAGAIN, 0},
+    {"gcc_pcie_1_aux_clk_src", NULL, -EAGAIN, -EAGAIN, 0},
+    {"gcc_pcie_1_aux_clk", NULL, -EAGAIN, -EAGAIN, 0},
+    {"gcc_pcie_1_cfg_ahb_clk", NULL, -EAGAIN, -EAGAIN, 0},
+    {"gcc_pcie_1_mstr_axi_clk", NULL, -EAGAIN, -EAGAIN, 0},
+    {"gcc_pcie_1_slv_axi_clk", NULL, -EAGAIN, -EAGAIN, 0},
+    {"gcc_pcie_1_clkref_clk", NULL, -EAGAIN, -EAGAIN, 0},
+    {"gcc_pcie_1_slv_q2a_axi_clk", NULL, -EAGAIN, -EAGAIN, 0},
+    {"gcc_pcie_1_pipe_clk", NULL, -EAGAIN, -EAGAIN, 0},
+};
+static long v1664_pcie1_clock_vote_start_ms;
+
+static int v1664_pcie1_clock_vote_write_string(const char *path, const char *value) {
+    int fd;
+    int rc;
+
+    fd = open(path, O_WRONLY | O_CLOEXEC | O_NOFOLLOW);
+    if (fd < 0) {
+        return -errno;
+    }
+    rc = write_all_checked(fd, value, strlen(value));
+    if (close(fd) < 0 && rc == 0) {
+        return -errno;
+    }
+    return rc < 0 ? negative_errno_or(EIO) : 0;
+}
+
+static int v1664_pcie1_clock_vote_read_value(const char *path, char *value, size_t value_size) {
+    int fd;
+    ssize_t bytes_read;
+
+    if (value_size == 0) {
+        return -EINVAL;
+    }
+    value[0] = '\0';
+    fd = open(path, O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
+    if (fd < 0) {
+        return -errno;
+    }
+    bytes_read = read(fd, value, value_size - 1);
+    if (close(fd) < 0 && bytes_read >= 0) {
+        return -errno;
+    }
+    if (bytes_read < 0) {
+        return -errno;
+    }
+    value[bytes_read] = '\0';
+    for (ssize_t index = 0; index < bytes_read; index++) {
+        if (value[index] == '\n' || value[index] == '\r') {
+            value[index] = '\0';
+            break;
+        }
+    }
+    return 0;
+}
+
+static void v1664_pcie1_clock_vote_append_clock_line(int out_fd,
+                                                     const char *phase,
+                                                     int index,
+                                                     const struct v1664_pcie1_clock_vote_target *target) {
+    char path[256];
+    char enable_value[64];
+    char prepare_value[64];
+    char rate_value[64];
+    int enable_read_rc;
+    int prepare_read_rc;
+    int rate_read_rc;
+
+    snprintf(path, sizeof(path), "/sys/kernel/debug/clk/%s/clk_enable_count", target->name);
+    enable_read_rc = v1664_pcie1_clock_vote_read_value(path, enable_value, sizeof(enable_value));
+    snprintf(path, sizeof(path), "/sys/kernel/debug/clk/%s/clk_prepare_count", target->name);
+    prepare_read_rc = v1664_pcie1_clock_vote_read_value(path, prepare_value, sizeof(prepare_value));
+    snprintf(path, sizeof(path), "/sys/kernel/debug/clk/%s/clk_rate", target->name);
+    rate_read_rc = v1664_pcie1_clock_vote_read_value(path, rate_value, sizeof(rate_value));
+    dprintf(out_fd,
+            "pcie1_clock_vote.clock_%02d.phase=%s name=%s enable_read_rc=%d enable=%s prepare_read_rc=%d prepare=%s rate_read_rc=%d rate=%s enabled_by_test=%d enable_rc=%d cleanup_rc=%d\n",
+            index,
+            phase,
+            target->name,
+            enable_read_rc,
+            enable_read_rc == 0 ? enable_value : "",
+            prepare_read_rc,
+            prepare_read_rc == 0 ? prepare_value : "",
+            rate_read_rc,
+            rate_read_rc == 0 ? rate_value : "",
+            target->enabled_by_test,
+            target->enable_rc,
+            target->cleanup_rc);
+}
+
+static void v1664_pcie1_clock_vote_snapshot(const char *phase, long start_ms) {
+    int out_fd;
+    long now_ms = monotonic_millis();
+
+    out_fd = open(A90_V1393_WIFI_TEST_RC1_WINDOW_RESULT,
+                  O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC | O_NOFOLLOW,
+                  0600);
+    if (out_fd < 0) {
+        return;
+    }
+    dprintf(out_fd,
+            "A90_V1664_CLOCK_VOTE_SNAPSHOT phase=%s elapsed_ms=%ld\n",
+            phase,
+            now_ms >= start_ms ? now_ms - start_ms : -1);
+    for (size_t index = 0;
+         index < sizeof(v1664_pcie1_clock_vote_targets) / sizeof(v1664_pcie1_clock_vote_targets[0]);
+         index++) {
+        v1664_pcie1_clock_vote_append_clock_line(out_fd,
+                                                 phase,
+                                                 (int)index,
+                                                 &v1664_pcie1_clock_vote_targets[index]);
+    }
+#if A90_WIFI_TEST_BOOT_NATURAL_POWER_DIFF_SNAPSHOT
+    v1661_append_natural_power_diff_snapshot(out_fd, -1, start_ms, start_ms);
+#endif
+    close(out_fd);
+}
+
+static int v1664_pcie1_clock_vote_begin(long start_ms) {
+    int out_fd;
+    int success_count = 0;
+    int rate_success_count = 0;
+    int failure_count = 0;
+
+    v1664_pcie1_clock_vote_start_ms = start_ms;
+    v1664_pcie1_clock_vote_snapshot("pre", start_ms);
+    out_fd = open(A90_V1393_WIFI_TEST_RC1_WINDOW_RESULT,
+                  O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC | O_NOFOLLOW,
+                  0600);
+    if (out_fd < 0) {
+        return -errno;
+    }
+    dprintf(out_fd,
+            "pcie1_clock_vote.begin=1\n"
+            "pcie1_clock_vote.mode=bounded-clock-debug-vote-surface-proof\n"
+            "pcie1_clock_vote.allowed_clock_debug_writes=1\n"
+            "pcie1_clock_vote.safety_regulator_write=0\n"
+            "pcie1_clock_vote.safety_gdsc_write=0\n"
+            "pcie1_clock_vote.safety_pci_case_write=0\n"
+            "pcie1_clock_vote.safety_forced_rc1=0\n"
+            "pcie1_clock_vote.safety_pmic_write=0\n"
+            "pcie1_clock_vote.safety_gpio_write=0\n"
+            "pcie1_clock_vote.safety_esoc_notify=0\n"
+            "pcie1_clock_vote.safety_boot_done_spoof=0\n"
+            "pcie1_clock_vote.safety_pci_rescan=0\n"
+            "pcie1_clock_vote.safety_platform_bind=0\n"
+            "pcie1_clock_vote.safety_wifi_hal_start=0\n"
+            "pcie1_clock_vote.safety_scan_connect=0\n"
+            "pcie1_clock_vote.safety_credentials=0\n"
+            "pcie1_clock_vote.safety_dhcp_route=0\n"
+            "pcie1_clock_vote.safety_external_ping=0\n");
+    for (size_t index = 0;
+         index < sizeof(v1664_pcie1_clock_vote_targets) / sizeof(v1664_pcie1_clock_vote_targets[0]);
+         index++) {
+        struct v1664_pcie1_clock_vote_target *target = &v1664_pcie1_clock_vote_targets[index];
+        char path[256];
+        int rate_rc = 0;
+        int enable_rc;
+
+        if (target->rate_value != NULL) {
+            snprintf(path, sizeof(path), "/sys/kernel/debug/clk/%s/rate", target->name);
+            rate_rc = v1664_pcie1_clock_vote_write_string(path, target->rate_value);
+            if (rate_rc == 0) {
+                rate_success_count++;
+            }
+        }
+        snprintf(path, sizeof(path), "/sys/kernel/debug/clk/%s/enable", target->name);
+        enable_rc = v1664_pcie1_clock_vote_write_string(path, "1\n");
+        target->enable_rc = enable_rc;
+        if (enable_rc == 0) {
+            target->enabled_by_test = 1;
+            success_count++;
+        } else {
+            failure_count++;
+        }
+        dprintf(out_fd,
+                "pcie1_clock_vote.action_%02zu name=%s rate_value=%s rate_rc=%d enable_rc=%d path=%s\n",
+                index,
+                target->name,
+                target->rate_value != NULL ? target->rate_value : "",
+                rate_rc,
+                enable_rc,
+                path);
+    }
+    dprintf(out_fd,
+            "pcie1_clock_vote.success_count=%d\n"
+            "pcie1_clock_vote.rate_success_count=%d\n"
+            "pcie1_clock_vote.failure_count=%d\n",
+            success_count,
+            rate_success_count,
+            failure_count);
+    close(out_fd);
+    v1664_pcie1_clock_vote_snapshot("post_enable", start_ms);
+    return success_count > 0 ? 0 : -EIO;
+}
+
+static int v1664_pcie1_clock_vote_cleanup(long start_ms) {
+    int out_fd;
+    int cleanup_success_count = 0;
+    int cleanup_failure_count = 0;
+
+    out_fd = open(A90_V1393_WIFI_TEST_RC1_WINDOW_RESULT,
+                  O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC | O_NOFOLLOW,
+                  0600);
+    if (out_fd < 0) {
+        return -errno;
+    }
+    dprintf(out_fd, "pcie1_clock_vote.cleanup_begin=1 elapsed_ms=%ld\n",
+            monotonic_millis() >= start_ms ? monotonic_millis() - start_ms : -1);
+    for (ssize_t index =
+             (ssize_t)(sizeof(v1664_pcie1_clock_vote_targets) /
+                       sizeof(v1664_pcie1_clock_vote_targets[0])) - 1;
+         index >= 0;
+         index--) {
+        struct v1664_pcie1_clock_vote_target *target = &v1664_pcie1_clock_vote_targets[index];
+        char path[256];
+
+        if (!target->enabled_by_test) {
+            dprintf(out_fd,
+                    "pcie1_clock_vote.cleanup_%02zd name=%s skipped=1 enable_rc=%d\n",
+                    index,
+                    target->name,
+                    target->enable_rc);
+            continue;
+        }
+        snprintf(path, sizeof(path), "/sys/kernel/debug/clk/%s/enable", target->name);
+        target->cleanup_rc = v1664_pcie1_clock_vote_write_string(path, "0\n");
+        if (target->cleanup_rc == 0) {
+            cleanup_success_count++;
+        } else {
+            cleanup_failure_count++;
+        }
+        dprintf(out_fd,
+                "pcie1_clock_vote.cleanup_%02zd name=%s cleanup_rc=%d path=%s\n",
+                index,
+                target->name,
+                target->cleanup_rc,
+                path);
+    }
+    dprintf(out_fd,
+            "pcie1_clock_vote.cleanup_success_count=%d\n"
+            "pcie1_clock_vote.cleanup_failure_count=%d\n"
+            "pcie1_clock_vote.cleanup_end=1\n",
+            cleanup_success_count,
+            cleanup_failure_count);
+    close(out_fd);
+    v1664_pcie1_clock_vote_snapshot("post_cleanup", start_ms);
+    return cleanup_failure_count == 0 ? 0 : -EIO;
 }
 #endif
 
@@ -3896,6 +4161,11 @@ static void v1393_wifi_test_supervisor_child(void) {
 #endif
 #if A90_WIFI_TEST_BOOT_MOUNT_DEBUGFS
         {
+#if A90_WIFI_TEST_BOOT_PCIE1_CLOCK_VOTE_PROOF
+            int clock_cleanup_rc = v1664_pcie1_clock_vote_cleanup(v1664_pcie1_clock_vote_start_ms);
+            (void)v1393_append_wifi_test_log("supervisor clock vote cleanup after spawn failure rc=%d\n",
+                                            clock_cleanup_rc);
+#endif
             int debugfs_cleanup_rc = v1393_cleanup_wifi_test_debugfs();
             (void)v1393_append_wifi_test_log("supervisor debugfs cleanup after spawn failure rc=%d\n",
                                             debugfs_cleanup_rc);
@@ -3928,6 +4198,11 @@ static void v1393_wifi_test_supervisor_child(void) {
 #endif
 #if A90_WIFI_TEST_BOOT_MOUNT_DEBUGFS
     {
+#if A90_WIFI_TEST_BOOT_PCIE1_CLOCK_VOTE_PROOF
+        int clock_cleanup_rc = v1664_pcie1_clock_vote_cleanup(v1664_pcie1_clock_vote_start_ms);
+        (void)v1393_append_wifi_test_log("supervisor clock vote cleanup rc=%d\n",
+                                        clock_cleanup_rc);
+#endif
         int debugfs_cleanup_rc = v1393_cleanup_wifi_test_debugfs();
         (void)v1393_append_wifi_test_log("supervisor debugfs cleanup rc=%d\n",
                                         debugfs_cleanup_rc);
@@ -4102,6 +4377,29 @@ static void v1393_run_wifi_test_boot_once(void) {
     }
 #endif
 
+#if A90_WIFI_TEST_BOOT_PCIE1_CLOCK_VOTE_PROOF
+    {
+        long vote_start_ms = monotonic_millis();
+
+        rc = v1664_pcie1_clock_vote_begin(vote_start_ms);
+        (void)v1393_append_wifi_test_log("pcie1 clock vote begin rc=%d\n", rc);
+        if (rc < 0) {
+            a90_logf("wifi-v1393", "pcie1 clock vote begin failed rc=%d errno=%d error=%s",
+                     rc,
+                     -rc,
+                     strerror(-rc));
+            a90_timeline_record(rc, -rc, "wifi-v1393-test-boot", "pcie1 clock vote begin failed");
+            klogf("<6>%s: pcie1 clock vote begin failed rc=%d\n",
+                  A90_WIFI_TEST_BOOT_KLOG_PREFIX,
+                  rc);
+        } else {
+            a90_logf("wifi-v1393", "pcie1 clock vote begin ok");
+            a90_timeline_record(0, 0, "wifi-v1393-test-boot", "pcie1 clock vote begin ok");
+            klogf("<6>%s: pcie1 clock vote begin ok\n", A90_WIFI_TEST_BOOT_KLOG_PREFIX);
+        }
+    }
+#endif
+
 #if A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_TRACEPOINT_SAMPLER
     v1393_provider_tracepoint_arm();
 #endif
@@ -4171,6 +4469,11 @@ static void v1393_run_wifi_test_boot_once(void) {
                                         strerror(saved_errno));
 #if A90_WIFI_TEST_BOOT_MOUNT_DEBUGFS
         {
+#if A90_WIFI_TEST_BOOT_PCIE1_CLOCK_VOTE_PROOF
+            int clock_cleanup_rc = v1664_pcie1_clock_vote_cleanup(v1664_pcie1_clock_vote_start_ms);
+            (void)v1393_append_wifi_test_log("clock vote cleanup after supervisor spawn failure rc=%d\n",
+                                            clock_cleanup_rc);
+#endif
             int debugfs_cleanup_rc = v1393_cleanup_wifi_test_debugfs();
             (void)v1393_append_wifi_test_log("debugfs cleanup after supervisor spawn failure rc=%d\n",
                                             debugfs_cleanup_rc);
