@@ -14051,3 +14051,43 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
 
   Report:
   `docs/reports/NATIVE_INIT_V1744_WLAN_PD_PURE_NONLOG_PARITY_HANDOFF_2026-06-03.md`.
+
+## V1745 WLAN-PD private tracefs repair source build (2026-06-03)
+
+- V1745 source/build-only unit completed.
+
+  Result:
+
+  - decision: `v1745-wlan-pd-private-tracefs-repair-source-build-pass`;
+  - boot image:
+    `tmp/wifi/v1745-wlan-pd-private-tracefs-repair-test-boot/boot_linux_v1745_wlan_pd_private_tracefs_repair.img`;
+  - boot SHA256:
+    `5b86d481d79d39351d1410501b729a2d46e8680277381a54e4b0d088612289dc`;
+  - init: `A90 Linux init 0.9.142 (v1745-wlan-pd-private-tracefs-repair)`;
+  - helper marker: `a90_android_execns_probe v329`;
+  - helper SHA256:
+    `c57f57aa1b285861655ce4a4cbcea65185c17862c4c2f5a5f6cde220f145fcbe`.
+
+  Source change:
+
+  - CNSS and peripheral uprobe tracefs finders now search the private
+    namespace tracefs targets (`paths->sys_kernel_debug_tracing`,
+    `paths->sys_kernel_tracing`) before global `/sys/kernel/*/tracing` roots;
+  - tracefs path buffers were widened to `MAX_PATH_LEN` so private
+    `/tmp/a90-*` namespace paths fit without truncation;
+  - route remains pure internal-modem only: `qrtr-ns`, `pd-mapper`,
+    `rmt_storage`, `tftp_server`, `/dev/subsys_modem` holder, `cnss_diag`,
+    stock `cnss-daemon`;
+  - no service-manager, PM trio, `boot_wlan`, restart-PD request,
+    `/dev/subsys_esoc0`, forced RC1, fake-ONLINE, Wi-Fi HAL, scan/connect,
+    credentials, DHCP/routes, or external ping.
+
+  Next candidate:
+
+  - V1746 artifact sanity over the exact V1745 image;
+  - after sanity passes, V1747 may run one rollbackable live handoff;
+  - live labels remain `pure-route-nonlog-no-wlfw-start`,
+    `pure-route-nonlog-wlfw-start`, or `tracefs-surface-unavailable`.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1745_WLAN_PD_PRIVATE_TRACEFS_REPAIR_SOURCE_BUILD_2026-06-03.md`.

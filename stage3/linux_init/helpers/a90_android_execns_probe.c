@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v328"
+#define EXECNS_VERSION "a90_android_execns_probe v329"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -12115,7 +12115,7 @@ struct cnss_wlfw_uprobe_state {
     int restore_tracing_on_rc;
     int hit_count;
     int selected_target_index;
-    char tracefs_path[96];
+    char tracefs_path[MAX_PATH_LEN];
     char uprobe_events_path[MAX_PATH_LEN];
     char trace_path[MAX_PATH_LEN];
     char enable_path[MAX_PATH_LEN];
@@ -12153,7 +12153,7 @@ struct cnss_peripheral_uprobe_state {
     int cleanup_rc;
     int hit_count;
     int selected_target_index;
-    char tracefs_path[96];
+    char tracefs_path[MAX_PATH_LEN];
     char uprobe_events_path[MAX_PATH_LEN];
     char trace_path[MAX_PATH_LEN];
     char selected_target_path[MAX_PATH_LEN];
@@ -12238,14 +12238,22 @@ static bool tracefs_root_has_uprobes(const char *root) {
     return access(path, F_OK) == 0;
 }
 
-static int cnss_wlfw_uprobe_find_tracefs(struct cnss_wlfw_uprobe_state *state) {
-    static const char *const roots[] = {
-        "/sys/kernel/debug/tracing",
-        "/sys/kernel/tracing",
-    };
+static int cnss_wlfw_uprobe_find_tracefs(struct cnss_wlfw_uprobe_state *state,
+                                         const struct paths *paths) {
+    const char *roots[4] = {0};
+    size_t root_count = 0;
 
-    for (size_t i = 0; i < sizeof(roots) / sizeof(roots[0]); i++) {
-        if (tracefs_root_has_uprobes(roots[i])) {
+    if (paths != NULL && paths->sys_kernel_debug_tracing[0] != '\0') {
+        roots[root_count++] = paths->sys_kernel_debug_tracing;
+    }
+    if (paths != NULL && paths->sys_kernel_tracing[0] != '\0') {
+        roots[root_count++] = paths->sys_kernel_tracing;
+    }
+    roots[root_count++] = "/sys/kernel/debug/tracing";
+    roots[root_count++] = "/sys/kernel/tracing";
+
+    for (size_t i = 0; i < root_count; i++) {
+        if (roots[i] != NULL && tracefs_root_has_uprobes(roots[i])) {
             snprintf(state->tracefs_path, sizeof(state->tracefs_path), "%s", roots[i]);
             return 0;
         }
@@ -12428,14 +12436,22 @@ static void cnss_wlfw_uprobe_cleanup_atexit(void) {
     cnss_wlfw_uprobe_cleanup_state(&g_cnss_wlfw_uprobe_state);
 }
 
-static int cnss_peripheral_uprobe_find_tracefs(struct cnss_peripheral_uprobe_state *state) {
-    static const char *const roots[] = {
-        "/sys/kernel/tracing",
-        "/sys/kernel/debug/tracing",
-    };
+static int cnss_peripheral_uprobe_find_tracefs(struct cnss_peripheral_uprobe_state *state,
+                                               const struct paths *paths) {
+    const char *roots[4] = {0};
+    size_t root_count = 0;
 
-    for (size_t i = 0; i < sizeof(roots) / sizeof(roots[0]); i++) {
-        if (tracefs_root_has_uprobes(roots[i])) {
+    if (paths != NULL && paths->sys_kernel_debug_tracing[0] != '\0') {
+        roots[root_count++] = paths->sys_kernel_debug_tracing;
+    }
+    if (paths != NULL && paths->sys_kernel_tracing[0] != '\0') {
+        roots[root_count++] = paths->sys_kernel_tracing;
+    }
+    roots[root_count++] = "/sys/kernel/tracing";
+    roots[root_count++] = "/sys/kernel/debug/tracing";
+
+    for (size_t i = 0; i < root_count; i++) {
+        if (roots[i] != NULL && tracefs_root_has_uprobes(roots[i])) {
             snprintf(state->tracefs_path, sizeof(state->tracefs_path), "%s", roots[i]);
             return 0;
         }
@@ -12562,7 +12578,7 @@ static void cnss_peripheral_uprobe_arm_global(const struct paths *paths) {
     state->disable_rc = 0;
     state->cleanup_rc = 0;
 
-    if (cnss_peripheral_uprobe_find_tracefs(state) < 0) {
+    if (cnss_peripheral_uprobe_find_tracefs(state, paths) < 0) {
         return;
     }
     if (cnss_peripheral_uprobe_build_paths(state) < 0) {
@@ -12674,7 +12690,7 @@ static void cnss_wlfw_uprobe_arm_global(const struct paths *paths) {
     state->cleanup_rc = 0;
     state->restore_tracing_on_rc = 0;
 
-    if (cnss_wlfw_uprobe_find_tracefs(state) < 0) {
+    if (cnss_wlfw_uprobe_find_tracefs(state, paths) < 0) {
         return;
     }
     if (cnss_wlfw_uprobe_build_paths(state) < 0) {
