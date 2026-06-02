@@ -12200,3 +12200,57 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
 
   Report:
   `docs/reports/NATIVE_INIT_V1695_WLAN_PD_CNSS_OUTPUT_VISIBILITY_HANDOFF_2026-06-02.md`.
+
+## V1696 CNSS kmsg Threshold Classifier (2026-06-02)
+
+- V1696 host-only classifier completed.
+
+  Result:
+
+  - decision: `v1696-cnss-kmsg-threshold-gap-classified`;
+  - binary:
+    `tmp/wifi/v226-vendor-root-live-export/vendor-source/bin/cnss-daemon`;
+  - binary SHA256:
+    `bced9853a77cfb02252571196584efa535be14f8f3fd9ce32712ddee224ba4bc`;
+  - V1695 basis:
+    `v1695-cnss-output-still-invisible-rollback-pass`,
+    property lookup `all_match=1`, `kmsg_logging=1`, `debug_level=4`,
+    `cnss-daemon` running, no pre-wlfw failure slug.
+
+  Static model:
+
+  - logging helper: `cnss-daemon+0xa21c`;
+  - `debug_level` gates all messages as `debug_level >= message_severity`;
+  - `/dev/kmsg` path is a transient
+    `system('echo ... > /dev/kmsg')` path gated by
+    `kmsg_logging >= message_severity`;
+  - `__android_log_print` still runs after the debug threshold passes, but
+    native init does not provide Android logcat visibility;
+  - `wlfw_start: Starting` is emitted at `cnss-daemon+0xec24` with severity
+    `2`;
+  - V1695 used `persist.vendor.cnss-daemon.kmsg_logging=1`, so
+    `wlfw_start` was statically not kmsg-visible in V1695;
+  - the eight named pre-`wlfw_start` failure strings are severity `1`, so
+    V1695 thresholds were sufficient for those specific failures. Their absence
+    remains evidence that no named pre-wlfw init failure was observed.
+
+  Interpretation:
+
+  - V1695 `cnss-output-still-invisible` is a measurement threshold gap for
+    `wlfw_start`, not proof that stock `cnss-daemon` skipped `wlfw_start`;
+  - V1695 `/dev/kmsg` fd count `0` is not decisive because the kmsg path is
+    transient and shell-owned, not a persistent daemon fd.
+
+  Next gate:
+
+  - V1697 should be source/build-only: produce a private property runtime with
+    `persist.vendor.cnss-daemon.kmsg_logging >= 2`, preferably `4`, while
+    keeping `debug_level=4`;
+  - V1698 should run exactly one rollbackable output-visibility live handoff on
+    the same internal-modem route and same exclusions;
+  - keep PM/service-window actors, `boot_wlan`, `/dev/subsys_esoc0`, forced
+    RC1, fake-ONLINE, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, and
+    external ping disabled.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1696_CNSS_KMSG_THRESHOLD_CLASSIFIER_2026-06-02.md`.
