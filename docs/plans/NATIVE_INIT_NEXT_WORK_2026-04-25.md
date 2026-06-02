@@ -15917,3 +15917,70 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
     smallest safe observation/repair point;
   - do not run another live PM forwarding gate until V1786 names a concrete
     minimal target.
+
+## V1786 PM server supported-list population classifier (2026-06-03)
+
+- V1786 performed the host-only static classifier for how `pm-service`
+  populates its supported-peripheral list.
+
+  Evidence:
+
+  - script:
+    `scripts/revalidation/native_wifi_pm_server_supported_list_population_classifier_v1786.py`;
+  - report:
+    `docs/reports/NATIVE_INIT_V1786_PM_SERVER_SUPPORTED_LIST_POPULATION_CLASSIFIER_2026-06-03.md`;
+  - evidence directory:
+    `tmp/wifi/v1786-pm-server-supported-list-population-static`;
+  - decision:
+    `v1786-pm-supported-list-sysfs-enumeration-gap-host-pass`;
+  - label:
+    `pm-supported-list-sysfs-enumeration-gap`.
+
+  Key evidence:
+
+  - `pm-service` initializes its supported-list sentinel at object `+0x20` and
+    calls the init helper at `pm-service+0x6b6c` before Binder service
+    registration;
+  - the init helper calls `get_system_info@plt` at `pm-service+0x6bc0`, loops
+    over the two returned counts, and calls the add-peripheral helper
+    `pm-service+0x65ec`;
+  - add-peripheral commits supported-list nodes at
+    `pm-service+0x6758..0x6788` only after validating the discovered peripheral
+    name against the known table;
+  - `libmdmdetect.so:get_system_info` reads sysfs under
+    `/sys/bus/esoc/devices` and `/sys/bus/msm_subsys/devices`, including
+    `.../<entry>/name`;
+  - the static supported table includes `modem`, `slpi`, `SDX50M`, `spss`,
+    `SDX55M`, and `SDXPRAIRIE`.
+
+  Interpretation:
+
+  - V1784 is not blocked by service-object visibility or CNSS register TX:
+    provider, `asInterface`, and register TX were all present;
+  - V1785 showed the server-side list was empty at CNSS registration time;
+  - V1786 fixes the population source: the list is populated only by
+    `libmdmdetect` sysfs discovery before `vendor.qcom.PeripheralManager` is
+    registered;
+  - the next useful target is therefore a narrow PM-service discovery
+    observer/repair, not additional PM actors, `boot_wlan`, eSoC, RC1, or Wi-Fi
+    HAL.
+
+  Safety:
+
+  - host-only. No live device command, flash, reboot, Wi-Fi HAL, scan/connect,
+    credentials, DHCP/routes, external ping, PM actor start, eSoC/RC1 action,
+    restart-PD request, firmware write, partition write, PMIC/GPIO/GDSC write,
+    PCI rescan, platform bind/unbind, BPF attach, or tracefs write.
+
+  Next candidate:
+
+  - V1787 source/build-only: add a PM-service init observer for
+    `get_system_info` return/counts and add-peripheral insertion hits before
+    Binder registration;
+  - if live evidence shows zero counts while the provider is visible, the
+    smallest repair candidate is private read-only sysfs discovery parity for
+    `/sys/bus/msm_subsys/devices` and, if needed, `/sys/bus/esoc/devices`
+    inside the vendor exec namespace;
+  - keep the existing hard stops: no full PM trio, no `boot_wlan`, no
+    restart-PD, no `/dev/subsys_esoc0`, no forced RC1/case writes, no Wi-Fi
+    HAL/scan/connect, no credentials, no DHCP/routes, and no external ping.
