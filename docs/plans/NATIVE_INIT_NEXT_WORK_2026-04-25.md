@@ -15861,3 +15861,59 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
   - the likely next live gate is not Wi-Fi HAL/scan/connect. It is a narrowly
     scoped functional PM forwarding/peripheral-table fix only after the
     server-side no-peripheral condition is understood.
+
+## V1785 PM server no-peripheral classifier (2026-06-03)
+
+- V1785 performed the host-only classifier for the V1784 `pm-server-no-peripheral`
+  boundary.
+
+  Evidence:
+
+  - script:
+    `scripts/revalidation/native_wifi_pm_server_no_peripheral_classifier_v1785.py`;
+  - report:
+    `docs/reports/NATIVE_INIT_V1785_PM_SERVER_NO_PERIPHERAL_CLASSIFIER_2026-06-03.md`;
+  - evidence directory:
+    `tmp/wifi/v1785-pm-server-no-peripheral-classifier`;
+  - decision:
+    `v1785-pm-server-supported-list-empty-host-pass`;
+  - label:
+    `pm-server-supported-list-empty`.
+
+  Key evidence:
+
+  - V1784 remains valid and rollback-verified:
+    `v1784-service-object-nonnull-vote-sent-no-request-rollback-pass`;
+  - PM server register entry hit `1` and no-peripheral return hit `1`;
+  - PM server loop node, record getter, `strcmp`, match, permission,
+    add-client, and success checkpoints all remained `0`;
+  - static control flow at `pm-service+0x6048..0x6148` shows the direct
+    no-peripheral path is the empty-list branch before record getter / `strcmp`;
+  - this supersedes the V1769 mutex/list-traversal model for the current V1784
+    route: the current server-side blocker is an empty supported-peripheral
+    list at CNSS registration time.
+
+  Interpretation:
+
+  - not service-object missing: provider, `asInterface`, and register TX are all
+    present;
+  - not permission: permission checks begin after the supported-peripheral match;
+  - not modem-record mutex wait: current evidence never reaches the record
+    getter or `strcmp` path;
+  - the next useful unit is host/source-only reconstruction of how `pm-service`
+    populates its supported peripheral list.
+
+  Safety:
+
+  - host-only. No device command, flash, reboot, Wi-Fi HAL, scan/connect,
+    credentials, DHCP/routes, external ping, PM actor start, eSoC/RC1 action,
+    restart-PD request, firmware write, partition write, PMIC/GPIO/GDSC write,
+    PCI rescan, platform bind/unbind, BPF attach, or tracefs write.
+
+  Next candidate:
+
+  - V1786 should statically classify supported-list population: peripheral init
+    strings/call graph, list insertion offsets, property/sysfs inputs, and the
+    smallest safe observation/repair point;
+  - do not run another live PM forwarding gate until V1786 names a concrete
+    minimal target.
