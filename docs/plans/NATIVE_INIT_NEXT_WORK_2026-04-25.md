@@ -10297,3 +10297,36 @@ above (rejected as inverted causality).
 
   Report:
   `docs/reports/NATIVE_INIT_V1644_PARTITION_METADATA_CAPTURE_2026-06-02.md`.
+
+## V1645 Partition Owner Interpretation (2026-06-02)
+
+- V1645 host-only interpretation passed as
+  `v1645-partition-owner-priority-classified`.
+
+  Priority classification:
+
+  - high: `xbl` (`sdb1`, `sdc1`) as earliest bootloader / PMIC policy candidate.
+  - high: `aop` (`sdd7`) as always-on power / RPMh-side firmware candidate.
+  - medium-high: `devcfg` (`sdd22`) as board hardware configuration candidate.
+  - medium: `abl` (`sdd8`) as late bootloader handoff context.
+  - medium/context: `tz`, `hyp`, `qupfw`, `cmnlib`, `cmnlib64`, `keymaster`.
+  - context-only: `modem`, `dsp`, `bluetooth`; do not pull the loop back into
+    MHI/WLFW or firmware-transfer analysis before MDM2AP responds.
+
+  Interpretation: the next evidence target is not a PMIC/GPIO/GDSC write and not
+  Wi-Fi HAL.  It is a private read-only artifact access preflight for the small
+  high-priority candidates (`xbl`, `aop`, `devcfg`, `abl`) because V1644 exposed
+  sysfs GPT metadata but no candidate `/dev/block/<devname>` nodes.
+
+  V1646 should choose one safe extraction path before touching raw content:
+
+  - temporary private devnodes derived from sysfs major/minor with cleanup; or
+  - TWRP/Android read-only pull.
+
+  Either path must keep proprietary binaries under ignored private evidence
+  storage and out of git.  It must not write partitions, force PMIC/GPIO/GDSC
+  state, issue eSoC notify/`BOOT_DONE`, rescan PCI, start Wi-Fi HAL, scan/connect,
+  use credentials, run DHCP/routes, or external ping.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1645_PARTITION_OWNER_INTERPRETATION_2026-06-02.md`.
