@@ -14774,3 +14774,56 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
     Wi-Fi HAL, scan/connect, credentials, DHCP/routes, or external ping;
   - hand back after the fixed label.  The next cycle must be a separately
     scoped modem-side WLAN-PD autoload/request-trigger analysis.
+
+## V1760 WLAN-PD request-trigger surface classifier (2026-06-03)
+
+- V1760 reclassified the retained V1753 Android-good request capture and V1736
+  native SM-route evidence after the V1759 stop.
+
+  Host-only classifier:
+
+  - script:
+    `scripts/revalidation/native_wifi_wlan_pd_request_trigger_surface_classifier_v1760.py`;
+  - decision:
+    `v1760-android-good-serves-wlanmdsp-native-never-requests-host-pass`;
+  - label: `request-generation-gap-before-firmware-serving`;
+  - evidence: `tmp/wifi/v1760-wlan-pd-request-trigger-surface-classifier`;
+  - report:
+    `docs/reports/NATIVE_INIT_V1760_WLAN_PD_REQUEST_TRIGGER_SURFACE_CLASSIFIER_2026-06-03.md`.
+
+  Android-good facts:
+
+  - `wlfw_start` at `-0.693s` relative to first `wlanmdsp.mbn` request;
+  - `per_mgr_register` / `per_mgr_vote` at `-0.692s`;
+  - `ro.baseband : [mdm]` at `-0.656s`;
+  - `wlfw_service_request` at `-0.624s`;
+  - first `wlanmdsp.mbn` request at `+0.000s`;
+  - first `/vendor/firmware_mnt/image/wlanmdsp.mbn` lookup can fail, but Android
+    falls back to `/vendor/firmware/wlanmdsp.mbn` and advertises size
+    `4251884`, so Android-good serving itself is proven.
+
+  Native V1736 facts:
+
+  - route:
+    `servicemanager,hwservicemanager,vndservicemanager,qrtr_ns,pd_mapper,rmt_storage,tftp_server,subsys_modem_holder,cnss_diag,cnss_daemon,service-window-trigger-summary`;
+  - service-manager and `tftp_server` are running;
+  - `wlfw_start` / `wlfw_service_request` / WLFW worker hits are `1 / 1 / 1`;
+  - `requested_wlanmdsp=0`, WLFW service 69 is absent, and WLAN-PD remains
+    `UNINIT`.
+
+  Interpretation:
+
+  - the immediate blocker is request generation/autoload trigger before firmware
+    serving, not served-path repair;
+  - a mount/path fix is not justified while native produces no request;
+  - do not add PM actors, QCACLD, eSoC/RC1, restart-PD, Wi-Fi HAL,
+    scan/connect, credentials, DHCP/routes, or external ping in this unit.
+
+  Next candidate:
+
+  - V1761 should remain host/source-only first: inspect the modem-side WLAN-PD
+    autoload trigger contract around Android-good
+    `wlfw_service_request -> wlanmdsp.mbn request`, with no new actors;
+  - a later live gate is justified only if it observes or repairs one
+    identified trigger condition and still measures `requested_wlanmdsp`, WLFW
+    service 69, and `wlan0` before any connection attempt.
