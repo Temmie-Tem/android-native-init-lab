@@ -9613,3 +9613,45 @@ Samsung bootloader
   `docs/reports/NATIVE_INIT_V1614_PER_MGR_NONSTOP_CONTEXT_HANDOFF_2026-06-02.md`,
   and
   `docs/reports/NATIVE_INIT_V1615_PER_MGR_NONSTOP_CONTEXT_CLASSIFIER_2026-06-02.md`.
+
+- V1616 host-only `pm-service` launch/dependency contract classifier is
+  complete and passes as
+  `v1616-pm-service-clean-exit-is-offline-system-info-contract-gap`.
+  It uses V1614/V1615 runtime evidence, V862 Android init contract data, V1073
+  extracted `pm-service` binary metadata, V1081 early-path analysis, and
+  Android-good property evidence.
+
+  The important branch correction is that older init-contract gaps are already
+  modelled in current source: `ioprio rt 4`, `per_proxy_helper`,
+  `init.svc.vendor.per_mgr=running`, shutdown-critical property allowlist, and
+  OFFLINE property allowlist.  Yet native `pm-service` still exits naturally
+  with code `0`, signal `0`, no `/dev/vndbinder`, socket, `/dev/subsys_modem`,
+  `/dev/subsys_esoc0`, or PM full-contract fd, after publishing only
+  `hwservicemanager.ready=true`,
+  `vendor.peripheral.SDX50M.state=OFFLINE`, and
+  `vendor.peripheral.modem.state=OFFLINE`.
+
+  Android-good evidence contrasts this with `vendor.per_mgr=running`,
+  `vendor.per_proxy=running`, `vendor.peripheral.SDX50M.state=ONLINE`,
+  `vendor.peripheral.modem.state=ONLINE`, and
+  `vendor.peripheral.shutdown_critical_list=SDX50M modem `.  Static binary
+  evidence proves `pm-service` still has the Binder/QMI persistent server path
+  available (`libbinder`, QMI CSI/CCI, `libmdmdetect`,
+  `libperipheral_client`, `get_system_info`, `property_set`,
+  `qmi_csi_register`, `vendor.qcom.PeripheralManager`).
+
+  Current blocker: `pm-service` is making an OFFLINE-only
+  `libmdmdetect`/`get_system_info` decision before Binder/QMI setup.  Do not
+  retry lower RC1/MHI/WLFW from this route until the system-info input surface
+  is classified.
+
+  Next gate: V1617 source/build-only non-ptrace `pm-service` system-info
+  surface capture.  Add bounded helper output around `pm-service` startup for
+  `/sys/bus/msm_subsys/devices`, `/sys/bus/esoc/devices`,
+  `/sys/class/esoc-dev`, `/dev/subsys_*`, `/dev/esoc-*`, `/dev/vndbinder`,
+  private property root, and service-manager sockets.  Still no `pm-service`
+  syscall ptrace, `mdm_helper` ptrace, direct scoped `/dev/subsys_esoc0`,
+  Wi-Fi HAL start, credentials, scan/connect, DHCP/routes, external ping,
+  PMIC/GPIO/GDSC writes, blind eSoC notify/`BOOT_DONE`, global PCI rescan, or
+  platform bind/unbind.  Report:
+  `docs/reports/NATIVE_INIT_V1616_PM_SERVICE_LAUNCH_CONTRACT_CLASSIFIER_2026-06-02.md`.

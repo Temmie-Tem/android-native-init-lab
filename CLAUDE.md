@@ -4113,3 +4113,54 @@ notify/`BOOT_DONE`, global PCI rescan, or platform bind/unbind.  Reports:
 `docs/reports/NATIVE_INIT_V1614_PER_MGR_NONSTOP_CONTEXT_HANDOFF_2026-06-02.md`,
 and
 `docs/reports/NATIVE_INIT_V1615_PER_MGR_NONSTOP_CONTEXT_CLASSIFIER_2026-06-02.md`.
+
+## Latest native Wi-Fi state: V1616 (2026-06-02)
+
+V1616 added
+`scripts/revalidation/native_wifi_pm_service_launch_contract_classifier_v1616.py`
+and passed host-only as
+`v1616-pm-service-clean-exit-is-offline-system-info-contract-gap`.
+
+The classifier combines V1614/V1615 runtime evidence with V862 Android init
+contract data, V1073 extracted `pm-service` binary metadata, V1081 stripped
+binary early-path analysis, and Android-good property evidence.  It fixes the
+current blocker more precisely:
+
+- native `pm-service` is not being killed by ptrace or cleanup; it exits
+  naturally with code `0`, signal `0`, alive only through `20ms`, gone by
+  `41ms`.
+- native `pm-service` never reaches persistent IPC or PM ownership:
+  `/dev/vndbinder=0`, socket fd `0`, `/dev/subsys_modem=0`,
+  `/dev/subsys_esoc0=0`, `pm_full_contract_seen=0`.
+- native `pm-service` only publishes
+  `hwservicemanager.ready=true`,
+  `vendor.peripheral.SDX50M.state=OFFLINE`, and
+  `vendor.peripheral.modem.state=OFFLINE`.
+- Android-good evidence keeps `vendor.per_mgr` and `vendor.per_proxy`
+  `running`, with `vendor.peripheral.SDX50M.state=ONLINE`,
+  `vendor.peripheral.modem.state=ONLINE`, and
+  `vendor.peripheral.shutdown_critical_list=SDX50M modem `.
+- static binary evidence proves `pm-service` has a persistent server path:
+  Binder, QMI CSI/CCI, `libmdmdetect`, `libperipheral_client`,
+  `get_system_info`, `property_set`, `qmi_csi_register`, and
+  `vendor.qcom.PeripheralManager` are present.
+- current helper source already models the older init-contract gaps: `ioprio rt
+  4`, `per_proxy_helper`, `init.svc.vendor.per_mgr=running`, shutdown-critical
+  property allowlist, and OFFLINE property allowlist.
+
+Interpretation: this is not a lower RC1/MHI/WLFW problem in the current route.
+`pm-service` is making an OFFLINE-only system-info/peripheral-state decision
+before it reaches Binder/QMI server setup.  The active blocker is the
+`libmdmdetect`/`get_system_info` input surface around `pm-service` startup.
+
+Next work: V1617 should be source/build-only and non-ptrace.  Add a bounded
+`pm-service` system-info surface capture around startup that records exactly
+what `libmdmdetect` can see in the private namespace:
+`/sys/bus/msm_subsys/devices`, `/sys/bus/esoc/devices`,
+`/sys/class/esoc-dev`, `/dev/subsys_*`, `/dev/esoc-*`, `/dev/vndbinder`,
+private property root, and service-manager sockets.  Do not reintroduce
+`pm-service` syscall ptrace, `mdm_helper` ptrace, direct scoped
+`/dev/subsys_esoc0`, Wi-Fi HAL start, scan/connect, credentials, DHCP/routes,
+external ping, PMIC/GPIO/GDSC writes, blind eSoC notify/`BOOT_DONE`, global PCI
+rescan, or platform bind/unbind.  Report:
+`docs/reports/NATIVE_INIT_V1616_PM_SERVICE_LAUNCH_CONTRACT_CLASSIFIER_2026-06-02.md`.
