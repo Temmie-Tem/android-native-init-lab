@@ -10498,3 +10498,39 @@ above (rejected as inverted causality).
 
   Report:
   `docs/reports/NATIVE_INIT_V1650_TOKEN_OWNER_HYPOTHESIS_2026-06-02.md`.
+
+## V1651 XBL Token Cluster Context (2026-06-02)
+
+- V1651 host-only XBL token clustering passed as
+  `v1651-xbl-cluster-context-ready`.
+
+  Method: group V1649 `offset:matched-token` evidence into XBL regions with an
+  `8192` byte gap.  No device command, live write, raw strings dump, binary dump,
+  or proprietary artifact commit was performed.
+
+  Top clusters:
+
+  - `xbl_a` region `3340797..3377867`: `rpmh-aop-pmic-context`, score `504`,
+    tokens `aop=54`, `rpmh=83`, `pmic=12`, `pon=5`, `vdd=4`, `pcie=1`.
+  - `xbl_b` region `3355345..3400091`: `rpmh-aop-pmic-context`, score `376`,
+    tokens `aop=53`, `rpmh=49`, `pmic=8`, `pon=7`, `vdd=1`, `pcie=1`,
+    `gpio=6`.
+  - both XBL copies also have early `pon-pshold-pmic-context` clusters around
+    offset `~20000..30662` containing `pmic`, `pon`, `ps_hold`, `sdx`, and `vdd`.
+  - both XBL copies have dense `pcie-context` clusters around `~3666k..3682k`.
+
+  Interpretation: XBL is no longer merely a high-level candidate.  The
+  token-only evidence identifies compact XBL regions combining RPMh/AOP/PMIC/PCIe
+  and PON/PS_HOLD/SDX vocabulary.  This is the strongest current artifact-level
+  path for explaining the native-vs-Android SDX50M power-state difference.
+
+  This still does not identify a concrete PMIC/GPIO/GDSC write target.  V1652
+  should plan a bounded private string-context extraction only around these top
+  XBL clusters.  Raw strings and proprietary binary content must remain under
+  ignored private evidence; tracked output should contain only redacted context
+  classes, token neighborhoods, hashes, and hypotheses.  No PMIC/GPIO/GDSC
+  write, partition write, eSoC notify/`BOOT_DONE`, PCI rescan, Wi-Fi HAL,
+  scan/connect, credentials, DHCP/routes, or external ping.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1651_XBL_TOKEN_CLUSTER_CONTEXT_2026-06-02.md`.
