@@ -4447,3 +4447,35 @@ direct scoped `/dev/subsys_esoc0` actor opens.  Reports:
 `docs/reports/NATIVE_INIT_V1627_PM_SERVICE_SHUTDOWN_LIST_HANDOFF_2026-06-02.md`
 and
 `docs/reports/NATIVE_INIT_V1628_PM_SERVICE_SHUTDOWN_LIST_CLASSIFIER_2026-06-02.md`.
+
+## Latest native Wi-Fi state: V1629 causality reconciliation (2026-06-02)
+
+V1629 host-only causality reconciliation passes as
+`v1629-pm-service-causality-reconciled-lower-sdx50m-gate`.
+
+This supersedes the V1628 next-gate wording above.  The out-of-band causality
+handoff is accepted: `pm-service` taking the OFFLINE system-info branch is an
+effect of the real `subsys9=esoc0=OFFLINING` hardware state, not the lower
+Wi-Fi blocker.  The fake-ONLINE/system-info branch is rejected because it would
+advance an upper layer on false state and then hit the already-proven
+`/dev/subsys_esoc0` → `mdm_subsys_powerup` → MDM2AP block.
+
+Fixed points kept by V1629:
+
+- V1496/V1497 fixed the low-level failure as
+  `rc1-ltssm-link-failed-no-l0`.
+- V1498/V1523 prove TEST:11 reaches the common RC1 enumerate/enable path; the
+  core AP-side PCIe enable sequence is not the missing operation.
+- V1552 proves AP-side pcie1 GDSC/refclk/pipe/PERST activity while the endpoint
+  remains silent: no GPIO104/WAKE, no GPIO142/MDM2AP, no MDM status IRQ, and no
+  L0.
+- V1621-V1628 repaired property-root and shutdown-critical-list handling, but
+  that track does not make the modem boot.
+
+Next gate: V1630 host-only lower-layer classifier/design.  Compare
+Android-good and native-fail evidence for AP2MDM, PM8150L GPIO9/PON,
+MDM2AP/GPIO142 IRQ, RC1 PHY/LTSSM/L0, MHI, WLFW/BDF/FW-ready, and `wlan0`.
+Reject fake ONLINE system-info, pm-service property chasing, blind TEST:11
+retry, PMIC/GPIO/GDSC direct writes, eSoC notify/`BOOT_DONE` spoof, Wi-Fi HAL
+start, scan/connect, credentials, DHCP/routes, and external ping.  Report:
+`docs/reports/NATIVE_INIT_V1629_PM_SERVICE_CAUSALITY_RECONCILIATION_2026-06-02.md`.

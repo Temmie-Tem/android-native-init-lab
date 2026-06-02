@@ -9908,3 +9908,30 @@ Samsung bootloader
   reset-time-ms parity vs Android). Revisit upper PM/WLFW only after that; V1586
   shows it follows once the modem is up. No PMIC/GPIO/GDSC write, no notify/
   BOOT_DONE spoof, no HAL/scan/connect.
+
+- V1629 host-only causality reconciliation is complete and passes as
+  `v1629-pm-service-causality-reconciled-lower-sdx50m-gate`.
+
+  V1629 accepts the handoff correction and closes the pm-service property /
+  system-info track for now:
+
+  - V1496/V1497 fixed the low-level failure as
+    `rc1-ltssm-link-failed-no-l0`.
+  - V1498/V1523 prove TEST:11 reaches the common RC1 enumerate/enable path, so
+    the core AP-side PCIe enable operation is not missing from that route.
+  - V1552 proves AP-side pcie1 GDSC/refclk/pipe/PERST activity can occur while
+    the endpoint remains electrically silent: no GPIO104/WAKE, no
+    GPIO142/MDM2AP, no MDM status IRQ, and no L0.
+  - V1621-V1628 repaired property-root and shutdown-critical-list behavior, but
+    `pm-service` still exits because `subsys9=esoc0=OFFLINING` is true.
+  - fake ONLINE system-info is rejected as state spoofing; it would only push an
+    upper layer into the already-proven `/dev/subsys_esoc0` /
+    `mdm_subsys_powerup` / MDM2AP block.
+
+  Next gate: V1630 host-only lower-layer classifier/design.  Compare
+  Android-good and native-fail evidence for AP2MDM, PM8150L GPIO9/PON,
+  MDM2AP/GPIO142 IRQ, RC1 PHY/LTSSM/L0, MHI, WLFW/BDF/FW-ready, and `wlan0`.
+  Reject fake ONLINE system-info, pm-service property chasing, blind TEST:11
+  retry, PMIC/GPIO/GDSC direct writes, eSoC notify/`BOOT_DONE` spoof, Wi-Fi HAL
+  start, scan/connect, credentials, DHCP/routes, and external ping.  Report:
+  `docs/reports/NATIVE_INIT_V1629_PM_SERVICE_CAUSALITY_RECONCILIATION_2026-06-02.md`.
