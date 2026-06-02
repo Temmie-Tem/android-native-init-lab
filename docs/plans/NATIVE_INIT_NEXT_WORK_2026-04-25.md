@@ -9878,3 +9878,33 @@ Samsung bootloader
   `docs/reports/NATIVE_INIT_V1627_PM_SERVICE_SHUTDOWN_LIST_HANDOFF_2026-06-02.md`
   and
   `docs/reports/NATIVE_INIT_V1628_PM_SERVICE_SHUTDOWN_LIST_CLASSIFIER_2026-06-02.md`.
+
+## OUT-OF-BAND CAUSALITY HANDOFF — 2026-06-02 (pm-service track redirect; not a vNNN cycle)
+
+- full writeup: docs/reports/ESOC_PMSERVICE_CAUSALITY_HANDOFF_2026-06-02.md
+- flag: V1616-V1630 pm-service "OFFLINE-exit / system-info" track has inverted
+  causality. subsys9=esoc0=OFFLINING is a TRUE fact (modem not powered), not a
+  pm-service bug. pm-service publishing OFFLINE then exiting is CORRECT. V1616
+  itself states Android keeps per_mgr/per_proxy alive BECAUSE SDX50M/modem are
+  ONLINE (ONLINE is cause, pm-service-alive is effect).
+- do NOT proceed with V1630 fake-ONLINE system-info bind: even if pm-service is
+  tricked forward, the real modem is dead, so the next step
+  (/dev/subsys_esoc0 -> mdm_subsys_powerup -> wait MDM2AP) blocks as V849/V1238/
+  V1552 already proved. It is also state-spoofing vs fact-based observation.
+- already-closed: V857/V860 closed "property cleanup alone does not make
+  pm-service hold subsystem nodes." V1621-V1628 re-derived the same result; 6
+  live boots (V1606/1610/1614/1619/1623/1627) all returned the identical
+  no-downstream BLOCKED.
+- real blocker (cross-confirmed by the loop's own V1552/V1556/V1559 + host static
+  analysis 2026-06-01): native AP-side pcie1 power/refclk/PERST all proven, but
+  the SDX50M endpoint is electrically silent -- GPIO104/WAKE=0, GPIO142/MDM2AP=0,
+  IRQ252/IRQ290=0, no L0. Android asserts GPIO135/AP2MDM after esoc0 and before
+  BDF; native never gets the GPIO142/MDM2AP answer. The modem never boots.
+- keep (genuine): V1586 firmware/PIL progress via the software route;
+  V1615/V1616 pm-service clean-exit mechanism; mdm_helper holds /dev/esoc-0.
+- redirect (read-only first, no fake-ONLINE): classify what asserts
+  GPIO142/MDM2AP -- i.e. what actually powers/boots SDX50M -- and why native's
+  AP2MDM(GPIO135)/PM8150L-GPIO9 PON assertion gets no answer (level/timing/
+  reset-time-ms parity vs Android). Revisit upper PM/WLFW only after that; V1586
+  shows it follows once the modem is up. No PMIC/GPIO/GDSC write, no notify/
+  BOOT_DONE spoof, no HAL/scan/connect.
