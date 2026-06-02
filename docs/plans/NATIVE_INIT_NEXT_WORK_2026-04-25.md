@@ -11301,3 +11301,40 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
 
   Report:
   `docs/reports/NATIVE_INIT_V1670_PCIE1_CLOCK_VOTE_READINESS_REPAIR_SOURCE_BUILD_2026-06-02.md`.
+
+## V1671 pcie1 Clock Vote Readiness Retry Handoff (2026-06-02)
+
+- V1671 rollbackable live handoff completed with rollback/selftest pass, but the
+  clock-vote surface still classified as `v1671-clock-vote-surface-failed`.
+
+  Result:
+
+  - V1670 test boot flashed and booted as
+    `A90 Linux init 0.9.119 (v1670-pcie1-clock-vote-readiness)`;
+  - rollback restored `stage3/boot_linux_v724.img`;
+  - native `selftest` returned `fail=0`;
+  - no Wi-Fi HAL, scan/connect, credentials, DHCP/routes, or external ping was
+    performed;
+  - no regulator/GDSC direct write, pci-msm `case` write, PMIC/GPIO/PERST write,
+    eSoC notify/`BOOT_DONE`, PCI rescan, or platform bind/unbind was performed.
+
+  Failure classification:
+
+  - open/read-based readiness still timed out:
+    `wait_ready_count=0`, `wait_sample_count=897`, `wait_elapsed_ms=45032`;
+  - `async_begin_rc=-2`, so no clock write attempt happened;
+  - post-cleanup snapshots still show the target `enable` leaves readable with
+    `enable_read_rc=0`;
+  - the next useful evidence is actual bounded clock write rc values, not another
+    readiness-only retry.
+
+  Next unit:
+
+  - V1672 source/build-only direct-attempt harness repair;
+  - keep bounded wait/logging, but proceed to targeted `rate`/`enable` writes
+    even if readiness count remains zero;
+  - record all write rc values and cleanup only clocks actually enabled;
+  - keep all prior hard stops.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1671_PCIE1_CLOCK_VOTE_READINESS_RETRY_HANDOFF_2026-06-02.md`.
