@@ -124,6 +124,12 @@ def module_prop() -> str:
 def sepolicy_rule() -> str:
     return """# Temporary V1970 diagnostic policy for read-only capture.
 allow magisk self capability sys_ptrace;
+allow magisk rild process ptrace;
+allow magisk rild process signal;
+allow magisk vendor_per_mgr process ptrace;
+allow magisk vendor_per_mgr process signal;
+allow magisk vendor_wcnss_service process ptrace;
+allow magisk vendor_wcnss_service process signal;
 allow magisk kernel system syslog_read;
 allow magisk proc_kmsg file { getattr open read };
 allow magisk vendor_file dir { getattr open read search };
@@ -155,6 +161,7 @@ QRTR_PIDS="$OUT/qrtr-pids.txt"
 PROC_SNAP="$OUT/proc-snapshots.txt"
 POLICY_LOG="$OUT/policy.log"
 QRTR_STARTED=0
+FAST_DELAY_SEC=0.020
 
 write_status() {{
   now="$(cat /proc/uptime 2>/dev/null | cut -d' ' -f1)"
@@ -170,9 +177,9 @@ event() {{
 find_pid_by_cmd() {{
   pattern="$1"
   for proc in /proc/[0-9]*; do
-    [ -r "$proc/cmdline" ] || continue
+    comm="$(cat "$proc/comm" 2>/dev/null)"
     cmd="$(tr '\\0' ' ' < "$proc/cmdline" 2>/dev/null)"
-    case "$cmd" in
+    case "$comm $cmd" in
       *"$pattern"*) basename "$proc"; return 0 ;;
     esac
   done
@@ -192,13 +199,7 @@ policy_allow_pid() {{
   label="$2"
   ctx="$(cat "/proc/$pid/attr/current" 2>/dev/null)"
   type="$(echo "$ctx" | sed -n 's/^u:r:\\([^:]*\\):s0.*/\\1/p')"
-  echo "label=$label pid=$pid ctx=$ctx type=$type" >> "$POLICY_LOG"
-  [ -n "$type" ] || return 0
-  if command -v magiskpolicy >/dev/null 2>&1; then
-    magiskpolicy --live "allow magisk $type process ptrace" >> "$POLICY_LOG" 2>&1 || true
-    magiskpolicy --live "allow magisk $type process signal" >> "$POLICY_LOG" 2>&1 || true
-    magiskpolicy --live "allow magisk $type file read" >> "$POLICY_LOG" 2>&1 || true
-  fi
+  echo "label=$label pid=$pid ctx=$ctx type=$type static_policy=1" >> "$POLICY_LOG"
 }}
 
 snapshot_proc() {{
@@ -226,11 +227,12 @@ attach_once() {{
   policy_allow_pid "$pid" "$label"
   snapshot_proc "$label" "$pid"
   if [ -x "$STRACE" ]; then
-    "$STRACE" -f -tt -s 9999 -xx -yy -e trace=sendmsg,recvmsg,sendto,recvfrom -p "$pid" -o "$out" >> "$OUT/strace-launch.log" 2>&1 &
+    "$STRACE" -f -tt -s 9999 -xx -e trace=sendmsg,recvmsg,sendto,recvfrom -p "$pid" -o "$out" >> "$OUT/strace-launch.log" 2>&1 &
     spid=$!
     echo "$label $pid $spid" >> "$PIDS"
     echo "attached label=$label pid=$pid strace_pid=$spid pattern=$pattern" > "$marker"
     event "attached label=$label pid=$pid strace_pid=$spid"
+    snapshot_proc "$label" "$pid" &
   else
     echo "missing strace binary: $STRACE" >> "$OUT/strace-launch.log"
   fi
@@ -325,7 +327,11 @@ while [ "$i" -lt "$SAMPLES" ]; do
       ;;
   esac
   i=$((i + 1))
-  sleep "$DELAY_SEC" 2>/dev/null || sleep 1
+  if all_required_attached; then
+    sleep "$DELAY_SEC" 2>/dev/null || sleep 1
+  else
+    sleep "$FAST_DELAY_SEC" 2>/dev/null || sleep 1
+  fi
 done
 
 write_status finalizing
