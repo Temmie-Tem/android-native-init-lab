@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v342"
+#define EXECNS_VERSION "a90_android_execns_probe v343"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -12013,55 +12013,64 @@ struct cnss_wlfw_uprobe_event_spec {
     const char *name;
     const char *key;
     unsigned long long offset;
+    const char *fetch_args;
 };
 
+#define CNSS_WLFW_UPROBE_EVENT(name_, key_, offset_) \
+    { name_, key_, offset_, NULL }
+#define CNSS_WLFW_UPROBE_EVENT_FETCH(name_, key_, offset_, fetch_args_) \
+    { name_, key_, offset_, fetch_args_ }
+
 static const struct cnss_wlfw_uprobe_event_spec cnss_wlfw_uprobe_events[A90_CNSS_WLFW_UPROBE_EVENT_COUNT] = {
-    { "wlfw_start", "wlfw_start", 0xec00ULL },
-    { "wlfw_service_request", "wlfw_service_request", 0xd9fcULL },
-    { "wlfw_ind_register_qmi", "wlfw_ind_register_qmi", 0xf32cULL },
-    { "wlfw_cap_qmi", "wlfw_cap_qmi", 0xf460ULL },
-    { "dms_service_request", "dms_service_request", 0xe808ULL },
-    { "wlfw_log_arg_severity", "wlfw_log_arg_severity", 0xec20ULL },
-    { "wlfw_log_call", "wlfw_log_call", 0xec24ULL },
-    { "wlfw_post_log_branch", "wlfw_post_log_branch", 0xec28ULL },
-    { "wlfw_optional_pm_init1_call", "wlfw_optional_pm_init1_call", 0xec34ULL },
-    { "wlfw_optional_pm_init1_return", "wlfw_optional_pm_init1_return", 0xec38ULL },
-    { "wlfw_optional_pm_init2_call", "wlfw_optional_pm_init2_call", 0xec44ULL },
-    { "wlfw_common_state_base", "wlfw_common_state_base", 0xec48ULL },
-    { "wlfw_cal_mutex_arg", "wlfw_cal_mutex_arg", 0xec50ULL },
-    { "wlfw_cal_mutex_null_attr", "wlfw_cal_mutex_null_attr", 0xec54ULL },
-    { "wlfw_cal_mutex_call", "wlfw_cal_mutex_call", 0xec58ULL },
-    { "wlfw_cal_mutex_retcheck", "wlfw_cal_mutex_retcheck", 0xec5cULL },
-    { "wlfw_cal_mutex_fail", "wlfw_cal_mutex_fail", 0xec60ULL },
-    { "wlfw_mutex_call", "wlfw_mutex_call", 0xec78ULL },
-    { "wlfw_mutex_retcheck", "wlfw_mutex_retcheck", 0xec7cULL },
-    { "wlfw_mutex_fail", "wlfw_mutex_fail", 0xec80ULL },
-    { "wlfw_cond_call", "wlfw_cond_call", 0xec9cULL },
-    { "wlfw_cond_retcheck", "wlfw_cond_retcheck", 0xeca0ULL },
-    { "wlfw_cond_fail", "wlfw_cond_fail", 0xeca4ULL },
-    { "wlfw_cond_rsp_call", "wlfw_cond_rsp_call", 0xecbcULL },
-    { "wlfw_cond_rsp_retcheck", "wlfw_cond_rsp_retcheck", 0xecc0ULL },
-    { "wlfw_cond_rsp_fail", "wlfw_cond_rsp_fail", 0xecc4ULL },
-    { "wlfw_dms_initialize_call", "wlfw_dms_initialize_call", 0xecd4ULL },
-    { "wlfw_dms_initialize_retcheck", "wlfw_dms_initialize_retcheck", 0xecd8ULL },
-    { "wlfw_worker_pthread_create_call", "wlfw_worker_pthread_create_call", 0xecf0ULL },
-    { "wlfw_worker_pthread_create_failure", "wlfw_worker_pthread_create_failure", 0xecf8ULL },
-    { "wlfw_worker_pthread_create_success", "wlfw_worker_pthread_create_success", 0xeda0ULL },
-    { "pm_init_entry", "pm_init_entry", 0xc39cULL },
-    { "pm_init_entry_log_call", "pm_init_entry_log_call", 0xc400ULL },
-    { "pm_init_type_check", "pm_init_type_check", 0xc404ULL },
-    { "pm_init_get_system_info_call", "pm_init_get_system_info_call", 0xc444ULL },
-    { "pm_init_system_info_ok", "pm_init_system_info_ok", 0xc470ULL },
-    { "pm_init_null_peripheral_branch", "pm_init_null_peripheral_branch", 0xc49cULL },
-    { "pm_init_null_peripheral_loop_entry", "pm_init_null_peripheral_loop_entry", 0xc58cULL },
-    { "pm_init_null_loop_type_check", "pm_init_null_loop_type_check", 0xc5e0ULL },
-    { "pm_init_pm_client_register_call", "pm_init_pm_client_register_call", 0xc624ULL },
-    { "pm_init_pm_client_register_retcheck", "pm_init_pm_client_register_retcheck", 0xc628ULL },
-    { "pm_init_handle_load", "pm_init_handle_load", 0xc62cULL },
-    { "pm_init_pm_client_connect_call", "pm_init_pm_client_connect_call", 0xc650ULL },
-    { "pm_init_pm_client_connect_retcheck", "pm_init_pm_client_connect_retcheck", 0xc654ULL },
-    { "pm_init_return_path", "pm_init_return_path", 0xc554ULL },
+    CNSS_WLFW_UPROBE_EVENT("wlfw_start", "wlfw_start", 0xec00ULL),
+    CNSS_WLFW_UPROBE_EVENT("wlfw_service_request", "wlfw_service_request", 0xd9fcULL),
+    CNSS_WLFW_UPROBE_EVENT("wlfw_ind_register_qmi", "wlfw_ind_register_qmi", 0xf32cULL),
+    CNSS_WLFW_UPROBE_EVENT("wlfw_cap_qmi", "wlfw_cap_qmi", 0xf460ULL),
+    CNSS_WLFW_UPROBE_EVENT("dms_service_request", "dms_service_request", 0xe808ULL),
+    CNSS_WLFW_UPROBE_EVENT("wlfw_log_arg_severity", "wlfw_log_arg_severity", 0xec20ULL),
+    CNSS_WLFW_UPROBE_EVENT("wlfw_log_call", "wlfw_log_call", 0xec24ULL),
+    CNSS_WLFW_UPROBE_EVENT("wlfw_post_log_branch", "wlfw_post_log_branch", 0xec28ULL),
+    CNSS_WLFW_UPROBE_EVENT("wlfw_optional_pm_init1_call", "wlfw_optional_pm_init1_call", 0xec34ULL),
+    CNSS_WLFW_UPROBE_EVENT("wlfw_optional_pm_init1_return", "wlfw_optional_pm_init1_return", 0xec38ULL),
+    CNSS_WLFW_UPROBE_EVENT("wlfw_optional_pm_init2_call", "wlfw_optional_pm_init2_call", 0xec44ULL),
+    CNSS_WLFW_UPROBE_EVENT("wlfw_common_state_base", "wlfw_common_state_base", 0xec48ULL),
+    CNSS_WLFW_UPROBE_EVENT("wlfw_cal_mutex_arg", "wlfw_cal_mutex_arg", 0xec50ULL),
+    CNSS_WLFW_UPROBE_EVENT("wlfw_cal_mutex_null_attr", "wlfw_cal_mutex_null_attr", 0xec54ULL),
+    CNSS_WLFW_UPROBE_EVENT("wlfw_cal_mutex_call", "wlfw_cal_mutex_call", 0xec58ULL),
+    CNSS_WLFW_UPROBE_EVENT("wlfw_cal_mutex_retcheck", "wlfw_cal_mutex_retcheck", 0xec5cULL),
+    CNSS_WLFW_UPROBE_EVENT("wlfw_cal_mutex_fail", "wlfw_cal_mutex_fail", 0xec60ULL),
+    CNSS_WLFW_UPROBE_EVENT("wlfw_mutex_call", "wlfw_mutex_call", 0xec78ULL),
+    CNSS_WLFW_UPROBE_EVENT("wlfw_mutex_retcheck", "wlfw_mutex_retcheck", 0xec7cULL),
+    CNSS_WLFW_UPROBE_EVENT("wlfw_mutex_fail", "wlfw_mutex_fail", 0xec80ULL),
+    CNSS_WLFW_UPROBE_EVENT("wlfw_cond_call", "wlfw_cond_call", 0xec9cULL),
+    CNSS_WLFW_UPROBE_EVENT("wlfw_cond_retcheck", "wlfw_cond_retcheck", 0xeca0ULL),
+    CNSS_WLFW_UPROBE_EVENT("wlfw_cond_fail", "wlfw_cond_fail", 0xeca4ULL),
+    CNSS_WLFW_UPROBE_EVENT("wlfw_cond_rsp_call", "wlfw_cond_rsp_call", 0xecbcULL),
+    CNSS_WLFW_UPROBE_EVENT("wlfw_cond_rsp_retcheck", "wlfw_cond_rsp_retcheck", 0xecc0ULL),
+    CNSS_WLFW_UPROBE_EVENT("wlfw_cond_rsp_fail", "wlfw_cond_rsp_fail", 0xecc4ULL),
+    CNSS_WLFW_UPROBE_EVENT("wlfw_dms_initialize_call", "wlfw_dms_initialize_call", 0xecd4ULL),
+    CNSS_WLFW_UPROBE_EVENT("wlfw_dms_initialize_retcheck", "wlfw_dms_initialize_retcheck", 0xecd8ULL),
+    CNSS_WLFW_UPROBE_EVENT("wlfw_worker_pthread_create_call", "wlfw_worker_pthread_create_call", 0xecf0ULL),
+    CNSS_WLFW_UPROBE_EVENT("wlfw_worker_pthread_create_failure", "wlfw_worker_pthread_create_failure", 0xecf8ULL),
+    CNSS_WLFW_UPROBE_EVENT("wlfw_worker_pthread_create_success", "wlfw_worker_pthread_create_success", 0xeda0ULL),
+    CNSS_WLFW_UPROBE_EVENT("pm_init_entry", "pm_init_entry", 0xc39cULL),
+    CNSS_WLFW_UPROBE_EVENT("pm_init_entry_log_call", "pm_init_entry_log_call", 0xc400ULL),
+    CNSS_WLFW_UPROBE_EVENT("pm_init_type_check", "pm_init_type_check", 0xc404ULL),
+    CNSS_WLFW_UPROBE_EVENT("pm_init_get_system_info_call", "pm_init_get_system_info_call", 0xc444ULL),
+    CNSS_WLFW_UPROBE_EVENT("pm_init_system_info_ok", "pm_init_system_info_ok", 0xc470ULL),
+    CNSS_WLFW_UPROBE_EVENT("pm_init_null_peripheral_branch", "pm_init_null_peripheral_branch", 0xc49cULL),
+    CNSS_WLFW_UPROBE_EVENT("pm_init_null_peripheral_loop_entry", "pm_init_null_peripheral_loop_entry", 0xc58cULL),
+    CNSS_WLFW_UPROBE_EVENT("pm_init_null_loop_type_check", "pm_init_null_loop_type_check", 0xc5e0ULL),
+    CNSS_WLFW_UPROBE_EVENT_FETCH("pm_init_pm_client_register_call", "pm_init_pm_client_register_call", 0xc624ULL, "arg0=%x0 arg1=%x1 arg2=%x2 arg3=%x3"),
+    CNSS_WLFW_UPROBE_EVENT_FETCH("pm_init_pm_client_register_retcheck", "pm_init_pm_client_register_retcheck", 0xc628ULL, "rc=%x0"),
+    CNSS_WLFW_UPROBE_EVENT("pm_init_handle_load", "pm_init_handle_load", 0xc62cULL),
+    CNSS_WLFW_UPROBE_EVENT_FETCH("pm_init_pm_client_connect_call", "pm_init_pm_client_connect_call", 0xc650ULL, "arg0=%x0 arg1=%x1 arg2=%x2 arg3=%x3"),
+    CNSS_WLFW_UPROBE_EVENT_FETCH("pm_init_pm_client_connect_retcheck", "pm_init_pm_client_connect_retcheck", 0xc654ULL, "rc=%x0"),
+    CNSS_WLFW_UPROBE_EVENT_FETCH("pm_init_return_path", "pm_init_return_path", 0xc554ULL, "rc=%x0"),
 };
+
+#undef CNSS_WLFW_UPROBE_EVENT_FETCH
+#undef CNSS_WLFW_UPROBE_EVENT
 
 enum cnss_wlfw_uprobe_event_index {
     CNSS_WLFW_UPROBE_WLFW_START = 0,
@@ -13175,12 +13184,23 @@ static void cnss_wlfw_uprobe_arm_global(const struct paths *paths) {
             event->register_rc = -ENOENT;
             continue;
         }
-        if (snprintf(register_line,
-                     sizeof(register_line),
-                     "p:a90cnss/%s %s:0x%llx\n",
-                     cnss_wlfw_uprobe_events[i].name,
-                     state->selected_target_path,
-                     cnss_wlfw_uprobe_events[i].offset) >= (int)sizeof(register_line)) {
+        if (cnss_wlfw_uprobe_events[i].fetch_args != NULL) {
+            if (snprintf(register_line,
+                         sizeof(register_line),
+                         "p:a90cnss/%s %s:0x%llx %s\n",
+                         cnss_wlfw_uprobe_events[i].name,
+                         state->selected_target_path,
+                         cnss_wlfw_uprobe_events[i].offset,
+                         cnss_wlfw_uprobe_events[i].fetch_args) >= (int)sizeof(register_line)) {
+                event->register_rc = -ENAMETOOLONG;
+                continue;
+            }
+        } else if (snprintf(register_line,
+                            sizeof(register_line),
+                            "p:a90cnss/%s %s:0x%llx\n",
+                            cnss_wlfw_uprobe_events[i].name,
+                            state->selected_target_path,
+                            cnss_wlfw_uprobe_events[i].offset) >= (int)sizeof(register_line)) {
             event->register_rc = -ENAMETOOLONG;
             continue;
         }
@@ -13579,6 +13599,7 @@ static int append_wlan_pd_cnss_nonlog_control_flow_summary(struct buffer *stdout
         if (append_format(stdout_buf,
                           "wlan_pd_cnss_nonlog_control_flow.uprobe.%s.name=%s\n"
                           "wlan_pd_cnss_nonlog_control_flow.uprobe.%s.offset=0x%llx\n"
+                          "wlan_pd_cnss_nonlog_control_flow.uprobe.%s.fetch_args=%s\n"
                           "wlan_pd_cnss_nonlog_control_flow.uprobe.%s.stale_cleanup_attempted=%d\n"
                           "wlan_pd_cnss_nonlog_control_flow.uprobe.%s.stale_cleanup_rc=%d\n"
                           "wlan_pd_cnss_nonlog_control_flow.uprobe.%s.register_attempted=%d\n"
@@ -13595,6 +13616,8 @@ static int append_wlan_pd_cnss_nonlog_control_flow_summary(struct buffer *stdout
                           cnss_wlfw_uprobe_events[i].name,
                           cnss_wlfw_uprobe_events[i].key,
                           cnss_wlfw_uprobe_events[i].offset,
+                          cnss_wlfw_uprobe_events[i].key,
+                          cnss_wlfw_uprobe_events[i].fetch_args != NULL ? cnss_wlfw_uprobe_events[i].fetch_args : "none",
                           cnss_wlfw_uprobe_events[i].key,
                           event->stale_cleanup_attempted ? 1 : 0,
                           cnss_wlfw_uprobe_events[i].key,

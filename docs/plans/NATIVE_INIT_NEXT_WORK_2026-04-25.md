@@ -17270,3 +17270,71 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
     fake-ONLINE, eSoC notify/BOOT_DONE, PCI rescan/bind, platform unbind,
     PMIC/GPIO/GDSC writes, `boot_wlan`, Wi-Fi HAL, scan/connect,
     DHCP/routes, and external ping.
+
+## V1807 PM-client return fetchargs source build (2026-06-03)
+
+- V1807 built a rollbackable test boot that keeps the V1805/V1806 lower-state
+  observer route and adds tracefs fetchargs for the `cnss-daemon` PM-client
+  register/connect boundary.
+
+  Evidence:
+
+  - build wrapper:
+    `scripts/revalidation/build_native_init_wifi_test_boot_v1807.py`;
+  - report:
+    `docs/reports/NATIVE_INIT_V1807_PM_CLIENT_RETURN_FETCHARGS_SOURCE_BUILD_2026-06-03.md`;
+  - manifest:
+    `tmp/wifi/v1807-pm-client-return-fetchargs-test-boot/manifest.json`;
+  - boot image:
+    `tmp/wifi/v1807-pm-client-return-fetchargs-test-boot/boot_linux_v1807_pm_client_return_fetchargs.img`;
+  - decision:
+    `v1807-pm-client-return-fetchargs-source-build-pass`;
+  - boot SHA256:
+    `8f7cb1b15bbea9335dc81c0de2e118e2c36c8ece4046c4cf44600feb962a2868`;
+  - helper marker/SHA256:
+    `a90_android_execns_probe v343` /
+    `7dd004f37a8ff3d2835a4590b66acd05469c9ac604de2a5eb5b62f449761a42f`;
+  - init:
+    `A90 Linux init 0.9.152 (v1807-pm-client-return-fetchargs)`.
+
+  Key changes:
+
+  - kept helper runtime mode
+    `wifi-companion-wlan-pd-post-pm-lower-state-observer-start-only`;
+  - retained service managers, firmware-serve stack, `pm_proxy_helper`,
+    `pm-service`, private `/dev` projection for only `subsys_esoc0` and
+    `subsys_modem`, `/dev/subsys_modem` holder, `cnss_diag`, stock
+    `cnss-daemon`, service-notifier listener, and compact lower-state samples;
+  - added `cnss-daemon` uprobe fetchargs:
+    `pm_init_pm_client_register_call` raw argument registers,
+    `pm_init_pm_client_register_retcheck rc=%x0`,
+    `pm_init_pm_client_connect_call` raw argument registers,
+    `pm_init_pm_client_connect_retcheck rc=%x0`, and
+    `pm_init_return_path rc=%x0`;
+  - added marker verification for
+    `wlan_pd_cnss_nonlog_control_flow.uprobe.%s.fetch_args=%s`,
+    `pm_init_pm_client_connect_retcheck`, and `rc=%x0`.
+
+  Interpretation:
+
+  - V1806 proved the lower stall persists after PM client connect, but did not
+    prove whether PM client register/connect returned success or an error;
+  - V1807 narrows the next live discriminator to PM-client return values plus
+    the same lower-state samples, without adding actors or write-side repairs.
+
+  Safety:
+
+  - host-side source/build only. No live device command, flash, reboot,
+    property staging on device, `/dev/subsys_esoc0` open, `boot_wlan`,
+    restart-PD request, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, or
+    external ping.
+
+  Next candidate:
+
+  - V1808 should run one rollbackable live gate with the V1807 artifact, then
+    roll back to `stage3/boot_linux_v724.img` and verify native v724 selftest
+    `fail=0`;
+  - classify only one of: `pm-client-return-success-still-offlining`,
+    `pm-client-return-error`, `lower-progress`, or safety regression;
+  - do not continue into Wi-Fi HAL/scan/connect, credentials, DHCP/routes, or
+    external ping from V1807 source-build output alone.

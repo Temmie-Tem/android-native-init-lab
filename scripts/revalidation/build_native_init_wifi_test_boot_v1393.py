@@ -47,8 +47,8 @@ DEFAULT_WIFI_TEST_WATCHER_PID = "/cache/native-init-wifi-test-boot-v1393-watcher
 DEFAULT_WIFI_TEST_WATCH_SEC = 35
 DEFAULT_WIFI_TEST_SUPERVISOR_TIMEOUT_SEC = 40
 DEFAULT_WIFI_TEST_HELPER_MODE = "post-pm-observer"
-EXPECTED_HELPER_MARKER = "a90_android_execns_probe v342"
-EXPECTED_HELPER_SHA256 = "387a7df01f5dd93bf2fe3e1dfc10fe93c5c3c0900c530bc3eaaa5a4dd471a995"
+EXPECTED_HELPER_MARKER = "a90_android_execns_probe v343"
+EXPECTED_HELPER_SHA256 = "7dd004f37a8ff3d2835a4590b66acd05469c9ac604de2a5eb5b62f449761a42f"
 REPRODUCIBLE_MTIME = 0
 
 FORBIDDEN_BYTES = (
@@ -871,6 +871,9 @@ def verify_markers(args: argparse.Namespace) -> None:
             if args.wifi_test_helper_mode == "wlan-pd-post-pm-lower-state-observer":
                 expected.extend([
                     "wifi-companion-wlan-pd-post-pm-lower-state-observer-start-only",
+                    "wlan_pd_cnss_nonlog_control_flow.uprobe.%s.fetch_args=%s",
+                    "pm_init_pm_client_connect_retcheck",
+                    "rc=%x0",
                     "wifi_companion_start.wlan_pd_post_pm_lower_state_observer.enabled=%d",
                     "wlan_pd_post_pm_lower_state_observer.%s.sample_count=%d",
                     "wlan_pd_post_pm_lower_state_observer.%s.interval_ms=%d",
