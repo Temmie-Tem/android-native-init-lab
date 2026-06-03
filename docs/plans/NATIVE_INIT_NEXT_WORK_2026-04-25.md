@@ -17671,6 +17671,78 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
     unbind, PMIC/GPIO/GDSC writes, Wi-Fi HAL, scan/connect, credentials,
     DHCP/routes, or external ping.
 
+## V1820 servloc domain gap classifier (2026-06-03)
+
+- V1820 stayed host-only and compared the V1819 native
+  `servloc-init-visible-domain-absent` shape against Android-positive
+  service-locator/wlan_pd baselines.
+
+  Evidence:
+
+  - classifier:
+    `scripts/revalidation/native_wifi_servloc_domain_gap_classifier_v1820.py`;
+  - source manifest:
+    `tmp/wifi/v1819-publication-text-handoff/manifest.json`;
+  - Android manifests:
+    `tmp/wifi/v739-mdm3-wlanpd-delta/manifest.json` and
+    `tmp/wifi/v852-android-ext-mdm-provider-surface-handoff/v852-android-ext-mdm-provider-surface-run/manifest.json`;
+  - evidence:
+    `tmp/wifi/v1820-servloc-domain-gap-classifier`;
+  - report:
+    `docs/reports/NATIVE_INIT_V1820_SERVLOC_DOMAIN_GAP_CLASSIFIER_2026-06-03.md`;
+  - manifest:
+    `tmp/wifi/v1820-servloc-domain-gap-classifier/manifest.json`;
+  - decision:
+    `v1820-qrtr-servloc-registry-snapshot-target-host-pass`.
+
+  Key findings:
+
+  - native V1819 is fixed as `servloc-init-visible-domain-absent`;
+  - native PM-client rc values remain `0/0/0`;
+  - native generic service-locator counts are `2,2,2`;
+  - native service-locator domain, wlan-fw, wlan-pd-domain, and
+    qmi-server-connected counts are all `0,0,0`;
+  - native service180/service74/wlan_pd counts remain `1,1,1` / `0,0,0` /
+    `0,0,0`;
+  - native lower preconditions remain pd-mapper `0,0,0`, subsys `9,10,10`,
+    pil `5,5,5`, qmi `7,7,7`, and broad wlfw text `30,30,30`;
+  - Android V622 has service-locator/SN180/SN74/wlan_pd/ack/qmi-server/WLFW/
+    wlan0 counts `1/1/1/2/1/1/1/3`;
+  - Android V622 timing has sysmon→service-locator `2.446 ms`,
+    sysmon→SN180 `30.43 ms`, SN180→SN74 `6.561 ms`,
+    SN180→wlan_pd `2427.362 ms`, and wlan_pd→qmi-server `2.509 ms`;
+  - Android V852 has mss/mdm3 `ONLINE/ONLINE` and wlan_pd/WLFW/wlan0 hints all
+    true.
+
+  Interpretation:
+
+  - native service-locator initialization is present, so the gap is below or
+    after generic servloc init, not the init itself;
+  - the missing surface is wlan-specific QRTR/service-locator registry/domain
+    state that should precede service74/wlan_pd/WLFW publication;
+  - the next source/build should remain read-only and capture bounded
+    QRTR/service-locator registry or state for wlan/fw and wlan_pd services.
+
+  Safety:
+
+  - host-only. No live device command, flash, reboot, property staging,
+    `/dev/subsys_esoc0` open, fake-ONLINE, eSoC notify/BOOT_DONE, PCI
+    rescan/bind, platform unbind, PMIC/GPIO/GDSC writes, `boot_wlan`,
+    restart-PD request, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, or
+    external ping was performed by V1820.
+
+  Next candidate:
+
+  - V1821 should be source/build-only and add a read-only QRTR/service-locator
+    registry/state snapshot for wlan/fw and wlan_pd publication surfaces;
+  - candidate evidence should include bounded `/sys/kernel/debug/qrtr` or
+    equivalent read-only service registry content when available, plus klog
+    correlation, with no service start or trigger actors;
+  - still do not add actors, `boot_wlan`, restart-PD, `/dev/subsys_esoc0`
+    open, fake-ONLINE, eSoC notify/BOOT_DONE, PCI rescan/bind, platform
+    unbind, PMIC/GPIO/GDSC writes, Wi-Fi HAL, scan/connect, credentials,
+    DHCP/routes, or external ping.
+
 ## V1818 WLAN-PD publication text source build (2026-06-03)
 
 - V1818 built a source/build-only rollbackable test-boot artifact that keeps
