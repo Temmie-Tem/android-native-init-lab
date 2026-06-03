@@ -18092,6 +18092,78 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
   - do not run a live gate from V1827 until the source/build artifact and
     non-action fields are reviewed.
 
+## V1827 QIPCRTR auto-bind source build (2026-06-03)
+
+- V1827 built a source/build-only rollbackable test-boot artifact that keeps
+  the bounded lower handoff observer, retains the V1824 unbound socket
+  snapshot, and adds one local auto-bind AF_QIPCRTR socket-state snapshot at
+  `net_window`.
+
+  Evidence:
+
+  - builder:
+    `scripts/revalidation/build_native_init_wifi_test_boot_v1827.py`;
+  - common builder update:
+    `scripts/revalidation/build_native_init_wifi_test_boot_v1393.py`;
+  - helper source:
+    `stage3/linux_init/helpers/a90_android_execns_probe.c`;
+  - report:
+    `docs/reports/NATIVE_INIT_V1827_QIPCRTR_AUTOBIND_SOURCE_BUILD_2026-06-03.md`;
+  - manifest:
+    `tmp/wifi/v1827-qipcrtr-autobind-test-boot/manifest.json`;
+  - boot image:
+    `tmp/wifi/v1827-qipcrtr-autobind-test-boot/boot_linux_v1827_qipcrtr_autobind.img`;
+  - boot SHA256:
+    `d33c717024f0337bd519878f776c76e56b817bcb339a92b431ff31b4461dd6f6`;
+  - init:
+    `A90 Linux init 0.9.159 (v1827-qipcrtr-autobind)`;
+  - helper:
+    `a90_android_execns_probe v350`,
+    SHA256 `3c081c9b1c83d910f42010c428cf0983b1e530a14eacb9e92f80e03d8672364a`;
+  - decision:
+    `v1827-qipcrtr-autobind-source-build-pass`.
+
+  Added observer fields:
+
+  - auto-bind prefix:
+    `wlan_pd_qipcrtr_autobind_state.net_window.*`;
+  - local auto-bind sequence:
+    protocol summary before open, AF_QIPCRTR/SOCK_DGRAM open,
+    `getsockname` before bind, `bind` with node/port `0/0`,
+    `getsockname` after bind, protocol summary while bound, close, and
+    protocol summary after close;
+  - explicit non-action fields:
+    `no_connect=1`, `no_send=1`, `no_qrtr_lookup_send=1`,
+    `no_qrtr_control_payload=1`, and `no_service_start=1`.
+
+  Interpretation:
+
+  - V1827 is source/build-only, so it does not change the live blocker
+    verdict;
+  - it prepares a bounded V1828 discriminator for whether local auto-bind
+    allocates a native QRTR client endpoint while still avoiding connect,
+    send, service lookup, service start, and QRTR control payloads;
+  - Wi-Fi HAL, scan/connect, credentials, DHCP/routes, and external ping remain
+    invalid until WLFW service 69 and `wlan0` exist.
+
+  Safety:
+
+  - host-only source/build. No live device command, flash, reboot, property
+    staging, `/dev/subsys_esoc0` open, fake-ONLINE, eSoC notify/BOOT_DONE, PCI
+    rescan/bind, platform unbind, PMIC/GPIO/GDSC writes, `boot_wlan`,
+    restart-PD request, QRTR connect/send, QRTR lookup/control packet, service
+    start, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, or external ping
+    was performed by V1827.
+
+  Next candidate:
+
+  - V1828 should run exactly one rollbackable live gate with the V1827 artifact
+    and classify `qipcrtr-autobind-gets-local-port-passive`,
+    `qipcrtr-autobind-fails`, `lower-publication-progress`, or
+    `safety-regression`;
+  - stop after the V1828 label and do not proceed to Wi-Fi HAL/scan/connect
+    unless WLFW service 69 and `wlan0` appear.
+
 ## V1820 servloc domain gap classifier (2026-06-03)
 
 - V1820 stayed host-only and compared the V1819 native
