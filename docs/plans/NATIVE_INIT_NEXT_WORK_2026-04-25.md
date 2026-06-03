@@ -17545,3 +17545,68 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
   - do not continue into Wi-Fi HAL/scan/connect from the V1811 result unless
     WLFW service 69 and `wlan0` are present and a separate connection gate is
     written.
+
+## V1811 post-PM lower-handoff klog handoff (2026-06-03)
+
+- V1811 ran exactly one rollbackable live gate with the V1810 artifact and
+  classified the post-PM lower-handoff klog surface below successful
+  PM-client connect.
+
+  Evidence:
+
+  - runner:
+    `scripts/revalidation/native_wifi_post_pm_lower_handoff_klog_handoff_v1811.py`;
+  - source manifest:
+    `tmp/wifi/v1810-post-pm-lower-handoff-klog-test-boot/manifest.json`;
+  - evidence:
+    `tmp/wifi/v1811-post-pm-lower-handoff-klog-handoff`;
+  - report:
+    `docs/reports/NATIVE_INIT_V1811_POST_PM_LOWER_HANDOFF_KLOG_HANDOFF_2026-06-03.md`;
+  - manifest:
+    `tmp/wifi/v1811-post-pm-lower-handoff-klog-handoff/manifest.json`;
+  - rollback:
+    `from-native`, `ok=True`;
+  - post-run native verification:
+    `A90 Linux init 0.9.68 (v724)`, selftest `pass=11 warn=1 fail=0`;
+  - decision:
+    `v1811-servnotif-klog-progress-still-uninit-rollback-pass`.
+
+  Key findings:
+
+  - PM-client register/connect/return-path rc values remained `0/0/0`;
+  - lower state remained stable: all `13` samples had `mdm3=OFFLINING`, MHI
+    count/pipe `0`, WLFW service 69 absent, and `wlan0` absent;
+  - post-PM lower-handoff klog samples were present and safe:
+    contract/safety `True/True`;
+  - klog counts were `sysmon_qmi=1,1,1`, service-notifier `180=1,1,1`, and
+    service-notifier `74=0,0,0`;
+  - service-notifier counts were already present at the first sample and did
+    not increase across the three klog sample points;
+  - early and late QRTR service-notifier listener responses remained
+    `uninit`, response success `1/1`, indication seen `0/0`;
+  - safety remained clean: no direct `/dev/subsys_esoc0` open, no fake-ONLINE,
+    no PMIC/GPIO/GDSC write, no Wi-Fi HAL, no scan/connect, no credentials,
+    no DHCP/routes, and no external ping.
+
+  Interpretation:
+
+  - V1811 narrows the blocker further: native reaches PM-client success,
+    sysmon_qmi connection, and service-notifier 180 klog publication, but does
+    not reach service-notifier 74/wlan_pd continuation and QRTR listener state
+    remains `uninit`;
+  - this is still below WLFW service 69 and `wlan0`, so Wi-Fi HAL and
+    scan/connect remain invalid.
+
+  Next candidate:
+
+  - V1812 should stay host-only/source-build-only first and compare Android
+    positive V622 service-notifier 180→74/wlan_pd timing against V1811's
+    native klog/listener evidence;
+  - candidate outputs: exact Android service-notifier 74 line semantics,
+    whether service 74 is tied to wlan_pd ACK/indication, and the smallest
+    read-only native observer needed to distinguish missing service 74
+    publication from missed parsing;
+  - keep hard stops: no PM actor expansion, no `boot_wlan`, no restart-PD,
+    no `/dev/subsys_esoc0` open, no fake-ONLINE, no eSoC notify/BOOT_DONE, no
+    PCI rescan/bind, no platform unbind, no PMIC/GPIO/GDSC writes, no Wi-Fi
+    HAL, no scan/connect, no credentials, no DHCP/routes, and no external ping.
