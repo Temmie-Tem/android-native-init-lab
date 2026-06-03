@@ -26,6 +26,14 @@
 #define A90_SERVLOC_TXN_ID 1U
 #define A90_SERVLOC_READBACK_MS 1500U
 #define A90_SERVLOC_RESPONSE_MS 2500U
+#define A90_SERVLOC_RETRY_SLEEP_MS 50U
+
+struct query_config {
+    unsigned int lookup_wait_ms;
+    unsigned int lookup_poll_ms;
+    unsigned int lookup_retry_ms;
+    unsigned int response_ms;
+};
 
 static long monotonic_ms(void) {
     struct timespec ts;
@@ -109,101 +117,154 @@ static int send_lookup(int fd, uint32_t cmd) {
     return 0;
 }
 
-static bool find_servloc_endpoint(uint32_t *node, uint32_t *port) {
-    int fd = open_qrtr_socket();
-    long deadline;
-    unsigned int events = 0;
+static unsigned int clamp_wait_ms(unsigned int value) {
+    if (value < 10U) {
+        return 10U;
+    }
+    if (value > 30000U) {
+        return 30000U;
+    }
+    return value;
+}
+
+static void sleep_ms(unsigned int ms) {
+    struct timespec ts;
+
+    ts.tv_sec = ms / 1000U;
+    ts.tv_nsec = (long)(ms % 1000U) * 1000000L;
+    while (nanosleep(&ts, &ts) != 0 && errno == EINTR) {
+    }
+}
+
+static bool find_servloc_endpoint(uint32_t *node, uint32_t *port, const struct query_config *config) {
+    long overall_deadline = monotonic_ms() + (long)config->lookup_wait_ms;
+    unsigned int attempt = 0;
+    unsigned int last_events = 0;
 
     *node = 0;
     *port = 0;
-    if (fd < 0) {
-        printf("a90_servloc_query.lookup_socket.rc=-1\n");
-        printf("a90_servloc_query.lookup_socket.errno=%d\n", errno);
-        printf("a90_servloc_query.lookup_socket.error=%s\n", strerror(errno));
-        return false;
-    }
-    printf("a90_servloc_query.lookup_socket.rc=0\n");
-    if (send_lookup(fd, QRTR_TYPE_NEW_LOOKUP) < 0) {
-        close(fd);
-        return false;
-    }
-    deadline = monotonic_ms() + A90_SERVLOC_READBACK_MS;
-    while (events < 8U) {
-        struct pollfd pfd = {.fd = fd, .events = POLLIN, .revents = 0};
-        struct qrtr_ctrl_pkt packet;
-        struct sockaddr_qrtr from;
-        socklen_t from_len = sizeof(from);
-        long now = monotonic_ms();
-        int poll_rc;
-        ssize_t received;
-        uint32_t cmd = 0, service = 0, instance = 0, event_node = 0, event_port = 0;
+    while (monotonic_ms() < overall_deadline && attempt < 64U) {
+        int fd = open_qrtr_socket();
+        long deadline;
+        unsigned int events = 0;
 
-        if (now >= deadline) {
+        printf("a90_servloc_query.lookup_attempt.%u.start_ms=%ld\n", attempt, monotonic_ms());
+        if (fd < 0) {
+            printf("a90_servloc_query.lookup_attempt.%u.socket.rc=-1\n", attempt);
+            printf("a90_servloc_query.lookup_attempt.%u.socket.errno=%d\n", attempt, errno);
+            printf("a90_servloc_query.lookup_attempt.%u.socket.error=%s\n", attempt, strerror(errno));
             break;
         }
-        poll_rc = poll(&pfd, 1, (int)(deadline - now));
-        if (poll_rc == 0) {
-            break;
-        }
-        if (poll_rc < 0) {
-            if (errno == EINTR) {
+        printf("a90_servloc_query.lookup_attempt.%u.socket.rc=0\n", attempt);
+        printf("a90_servloc_query.lookup_socket.rc=0\n");
+        if (send_lookup(fd, QRTR_TYPE_NEW_LOOKUP) < 0) {
+            close(fd);
+            attempt++;
+            if (config->lookup_retry_ms > 0U) {
+                sleep_ms(config->lookup_retry_ms);
                 continue;
             }
-            printf("a90_servloc_query.lookup_poll.rc=-1\n");
-            printf("a90_servloc_query.lookup_poll.errno=%d\n", errno);
             break;
         }
-        if ((pfd.revents & POLLIN) == 0) {
-            printf("a90_servloc_query.lookup_event.%u.revents=%d\n", events, pfd.revents);
-            if ((pfd.revents & (POLLERR | POLLHUP | POLLNVAL)) != 0) {
+        deadline = monotonic_ms() + (long)config->lookup_poll_ms;
+        if (deadline > overall_deadline) {
+            deadline = overall_deadline;
+        }
+        while (events < 8U) {
+            struct pollfd pfd = {.fd = fd, .events = POLLIN, .revents = 0};
+            struct qrtr_ctrl_pkt packet;
+            struct sockaddr_qrtr from;
+            socklen_t from_len = sizeof(from);
+            long now = monotonic_ms();
+            int poll_rc;
+            ssize_t received;
+            uint32_t cmd = 0, service = 0, instance = 0, event_node = 0, event_port = 0;
+
+            if (now >= deadline) {
                 break;
             }
-            continue;
-        }
-        memset(&packet, 0, sizeof(packet));
-        memset(&from, 0, sizeof(from));
-        received = recvfrom(fd, &packet, sizeof(packet), 0, (struct sockaddr *)&from, &from_len);
-        if (received < 0) {
-            if (errno == EINTR) {
+            poll_rc = poll(&pfd, 1, (int)(deadline - now));
+            if (poll_rc == 0) {
+                break;
+            }
+            if (poll_rc < 0) {
+                if (errno == EINTR) {
+                    continue;
+                }
+                printf("a90_servloc_query.lookup_poll.rc=-1\n");
+                printf("a90_servloc_query.lookup_poll.errno=%d\n", errno);
+                break;
+            }
+            if ((pfd.revents & POLLIN) == 0) {
+                printf("a90_servloc_query.lookup_event.%u.revents=%d\n", events, pfd.revents);
+                if ((pfd.revents & (POLLERR | POLLHUP | POLLNVAL)) != 0) {
+                    break;
+                }
                 continue;
             }
-            printf("a90_servloc_query.lookup_recv.rc=-1\n");
-            printf("a90_servloc_query.lookup_recv.errno=%d\n", errno);
+            memset(&packet, 0, sizeof(packet));
+            memset(&from, 0, sizeof(from));
+            received = recvfrom(fd, &packet, sizeof(packet), 0, (struct sockaddr *)&from, &from_len);
+            if (received < 0) {
+                if (errno == EINTR) {
+                    continue;
+                }
+                printf("a90_servloc_query.lookup_recv.rc=-1\n");
+                printf("a90_servloc_query.lookup_recv.errno=%d\n", errno);
+                break;
+            }
+            if (received >= (ssize_t)sizeof(uint32_t)) {
+                cmd = le32toh(packet.cmd);
+            }
+            if (received >= (ssize_t)sizeof(packet)) {
+                service = le32toh(packet.server.service);
+                instance = le32toh(packet.server.instance);
+                event_node = le32toh(packet.server.node);
+                event_port = le32toh(packet.server.port);
+            }
+            printf("a90_servloc_query.lookup_event.%u.bytes=%zd\n", events, received);
+            printf("a90_servloc_query.lookup_event.%u.cmd=%u\n", events, cmd);
+            printf("a90_servloc_query.lookup_event.%u.service=%u\n", events, service);
+            printf("a90_servloc_query.lookup_event.%u.instance=%u\n", events, instance);
+            printf("a90_servloc_query.lookup_event.%u.node=%u\n", events, event_node);
+            printf("a90_servloc_query.lookup_event.%u.port=%u\n", events, event_port);
+            events++;
+            if (cmd == QRTR_TYPE_NEW_SERVER && service == A90_SERVLOC_SERVICE &&
+                instance == A90_SERVLOC_INSTANCE_ENCODED && event_node != 0U && event_port != 0U) {
+                *node = event_node;
+                *port = event_port;
+                printf("a90_servloc_query.endpoint.found_ms=%ld\n", monotonic_ms());
+                break;
+            }
+            if (cmd == QRTR_TYPE_NEW_SERVER && service == 0U && instance == 0U && event_node == 0U && event_port == 0U) {
+                break;
+            }
+        }
+        (void)send_lookup(fd, QRTR_TYPE_DEL_LOOKUP);
+        close(fd);
+        last_events = events;
+        printf("a90_servloc_query.lookup_attempt.%u.events=%u\n", attempt, events);
+        printf("a90_servloc_query.lookup_attempt.%u.end_ms=%ld\n", attempt, monotonic_ms());
+        if (*node != 0U && *port != 0U) {
+            printf("a90_servloc_query.lookup_attempts=%u\n", attempt + 1U);
+            printf("a90_servloc_query.lookup.events=%u\n", events);
+            printf("a90_servloc_query.endpoint.found=1\n");
+            printf("a90_servloc_query.endpoint.node=%u\n", *node);
+            printf("a90_servloc_query.endpoint.port=%u\n", *port);
+            return true;
+        }
+        attempt++;
+        if (config->lookup_retry_ms == 0U) {
             break;
         }
-        if (received >= (ssize_t)sizeof(uint32_t)) {
-            cmd = le32toh(packet.cmd);
-        }
-        if (received >= (ssize_t)sizeof(packet)) {
-            service = le32toh(packet.server.service);
-            instance = le32toh(packet.server.instance);
-            event_node = le32toh(packet.server.node);
-            event_port = le32toh(packet.server.port);
-        }
-        printf("a90_servloc_query.lookup_event.%u.bytes=%zd\n", events, received);
-        printf("a90_servloc_query.lookup_event.%u.cmd=%u\n", events, cmd);
-        printf("a90_servloc_query.lookup_event.%u.service=%u\n", events, service);
-        printf("a90_servloc_query.lookup_event.%u.instance=%u\n", events, instance);
-        printf("a90_servloc_query.lookup_event.%u.node=%u\n", events, event_node);
-        printf("a90_servloc_query.lookup_event.%u.port=%u\n", events, event_port);
-        events++;
-        if (cmd == QRTR_TYPE_NEW_SERVER && service == A90_SERVLOC_SERVICE &&
-            instance == A90_SERVLOC_INSTANCE_ENCODED && event_node != 0U && event_port != 0U) {
-            *node = event_node;
-            *port = event_port;
-            break;
-        }
-        if (cmd == QRTR_TYPE_NEW_SERVER && service == 0U && instance == 0U && event_node == 0U && event_port == 0U) {
-            break;
-        }
+        sleep_ms(config->lookup_retry_ms);
     }
-    (void)send_lookup(fd, QRTR_TYPE_DEL_LOOKUP);
-    close(fd);
-    printf("a90_servloc_query.lookup.events=%u\n", events);
-    printf("a90_servloc_query.endpoint.found=%u\n", (*node != 0U && *port != 0U) ? 1U : 0U);
+    printf("a90_servloc_query.lookup_attempts=%u\n", attempt);
+    printf("a90_servloc_query.lookup.events=%u\n", last_events);
+    printf("a90_servloc_query.endpoint.found=0\n");
     printf("a90_servloc_query.endpoint.node=%u\n", *node);
     printf("a90_servloc_query.endpoint.port=%u\n", *port);
-    return *node != 0U && *port != 0U;
+    return false;
 }
 
 static int parse_domain_entry(unsigned int index, const uint8_t *data, size_t len, size_t *offset, unsigned int *wlan_like) {
@@ -355,7 +416,51 @@ static bool parse_response(const uint8_t *packet, size_t received, unsigned int 
     return message_type == 2U && msg_id == A90_SERVLOC_GET_DOMAIN_LIST_MSG_ID && txn_id == A90_SERVLOC_TXN_ID && result_valid && result == 0U;
 }
 
-int main(void) {
+static bool parse_uint_value(const char *text, unsigned int *value) {
+    char *end = NULL;
+    unsigned long parsed;
+
+    errno = 0;
+    parsed = strtoul(text, &end, 0);
+    if (errno != 0 || end == text || *end != '\0' || parsed > 60000UL) {
+        return false;
+    }
+    *value = (unsigned int)parsed;
+    return true;
+}
+
+static bool parse_args(int argc, char **argv, struct query_config *config) {
+    for (int i = 1; i < argc; i++) {
+        unsigned int value = 0;
+
+        if ((!strcmp(argv[i], "--lookup-wait-ms") ||
+             !strcmp(argv[i], "--lookup-poll-ms") ||
+             !strcmp(argv[i], "--lookup-retry-ms") ||
+             !strcmp(argv[i], "--response-ms")) &&
+            i + 1 < argc &&
+            parse_uint_value(argv[i + 1], &value)) {
+            if (!strcmp(argv[i], "--lookup-wait-ms")) {
+                config->lookup_wait_ms = clamp_wait_ms(value);
+            } else if (!strcmp(argv[i], "--lookup-poll-ms")) {
+                config->lookup_poll_ms = clamp_wait_ms(value);
+            } else if (!strcmp(argv[i], "--lookup-retry-ms")) {
+                config->lookup_retry_ms = value > 1000U ? 1000U : value;
+            } else {
+                config->response_ms = clamp_wait_ms(value);
+            }
+            i++;
+            continue;
+        }
+        printf("a90_servloc_query.arg_error=%s\n", argv[i]);
+        return false;
+    }
+    if (config->lookup_poll_ms > config->lookup_wait_ms) {
+        config->lookup_poll_ms = config->lookup_wait_ms;
+    }
+    return true;
+}
+
+int main(int argc, char **argv) {
     static const uint8_t request[] = {
         0x00, 0x01, 0x00, 0x21, 0x00, 0x11, 0x00,
         0x01, 0x07, 0x00, 0x77, 0x6c, 0x61, 0x6e, 0x2f, 0x66, 0x77,
@@ -371,11 +476,26 @@ int main(void) {
     bool response_success = false;
     unsigned int domain_count = 0;
     unsigned int wlan_like = 0;
+    struct query_config config = {
+        .lookup_wait_ms = A90_SERVLOC_READBACK_MS,
+        .lookup_poll_ms = A90_SERVLOC_READBACK_MS,
+        .lookup_retry_ms = 0U,
+        .response_ms = A90_SERVLOC_RESPONSE_MS,
+    };
 
     printf("a90_servloc_query.version=1\n");
+    if (!parse_args(argc, argv, &config)) {
+        printf("a90_servloc_query.result=arg-error\n");
+        return 64;
+    }
     printf("a90_servloc_query.service=64\n");
     printf("a90_servloc_query.instance=257\n");
     printf("a90_servloc_query.service_name=wlan/fw\n");
+    printf("a90_servloc_query.config.lookup_wait_ms=%u\n", config.lookup_wait_ms);
+    printf("a90_servloc_query.config.lookup_poll_ms=%u\n", config.lookup_poll_ms);
+    printf("a90_servloc_query.config.lookup_retry_ms=%u\n", config.lookup_retry_ms);
+    printf("a90_servloc_query.config.response_ms=%u\n", config.response_ms);
+    printf("a90_servloc_query.start_ms=%ld\n", monotonic_ms());
     printf("a90_servloc_query.wifi_hal=0\n");
     printf("a90_servloc_query.scan_connect_linkup=0\n");
     printf("a90_servloc_query.credentials=0\n");
@@ -383,7 +503,7 @@ int main(void) {
     printf("a90_servloc_query.external_ping=0\n");
     print_hex("a90_servloc_query.request_hex", request, sizeof(request));
 
-    if (!find_servloc_endpoint(&node, &port)) {
+    if (!find_servloc_endpoint(&node, &port, &config)) {
         printf("a90_servloc_query.send_attempted=0\n");
         printf("a90_servloc_query.result=no-endpoint\n");
         return 2;
@@ -416,8 +536,9 @@ int main(void) {
     printf("a90_servloc_query.send.bytes=%zd\n", sent);
     printf("a90_servloc_query.send.node=%u\n", node);
     printf("a90_servloc_query.send.port=%u\n", port);
+    printf("a90_servloc_query.send.ms=%ld\n", monotonic_ms());
 
-    deadline = monotonic_ms() + A90_SERVLOC_RESPONSE_MS;
+    deadline = monotonic_ms() + (long)config.response_ms;
     while (packets < 8U) {
         struct pollfd pfd = {.fd = fd, .events = POLLIN, .revents = 0};
         struct sockaddr_qrtr from;
@@ -482,6 +603,7 @@ int main(void) {
         print_hex(key, packet, (size_t)received);
         if (response_type == 2U && response_txn == A90_SERVLOC_TXN_ID && response_msg == A90_SERVLOC_GET_DOMAIN_LIST_MSG_ID) {
             response_seen = true;
+            printf("a90_servloc_query.response.ms=%ld\n", monotonic_ms());
             response_success = parse_response(packet, (size_t)received, &domain_count, &wlan_like);
             break;
         }
