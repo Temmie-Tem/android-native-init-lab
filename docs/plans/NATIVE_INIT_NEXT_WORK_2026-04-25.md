@@ -17865,3 +17865,80 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
     `safety-regression`;
   - do not continue into Wi-Fi HAL/scan/connect from V1816 unless WLFW service
     69 and `wlan0` appear and a separate connection gate is written.
+
+## V1816 lower-publication precondition handoff (2026-06-03)
+
+- V1816 ran exactly one rollbackable live gate with the V1815 artifact and
+  classified the lower publication gap after PM-client success, sysmon/QMI
+  context, and service-notifier 180 visibility.
+
+  Evidence:
+
+  - runner:
+    `scripts/revalidation/native_wifi_lower_publication_precondition_handoff_v1816.py`;
+  - source manifest:
+    `tmp/wifi/v1815-lower-publication-precondition-test-boot/manifest.json`;
+  - evidence:
+    `tmp/wifi/v1816-lower-publication-precondition-handoff`;
+  - report:
+    `docs/reports/NATIVE_INIT_V1816_LOWER_PUBLICATION_PRECONDITION_HANDOFF_2026-06-03.md`;
+  - manifest:
+    `tmp/wifi/v1816-lower-publication-precondition-handoff/manifest.json`;
+  - rollback:
+    `from-native`, `ok=True`;
+  - post-run native verification:
+    `A90 Linux init 0.9.68 (v724)`, selftest `pass=11 warn=1 fail=0`,
+    netservice disabled, `ncm0=absent`, `tcpctl=stopped`;
+  - decision:
+    `v1816-service74-raw-absent-preconditions-visible-rollback-pass`.
+
+  Key findings:
+
+  - lower publication label:
+    `service74-raw-absent-preconditions-visible`;
+  - service74 raw label remains `service74-raw-absent`;
+  - PM-client label remains `pm-client-return-success`;
+  - lower handoff label remains `servnotif-klog-progress-still-uninit`;
+  - lower-state label remains `stable-mdm3-offlining`;
+  - service180/service74/wlan_pd raw counts are `1,1,1` / `0,0,0` /
+    `0,0,0`;
+  - lower precondition counts are pd-mapper `0,0,0`, subsys `9,10,10`,
+    pil `5,5,5`, qmi `7,7,7`, and broad wlfw text `30,30,30`;
+  - broad wlfw text is not treated as WLFW progress because the last wlfw line
+    is a trace-uprobe missing-event diagnostic, while WLFW service 69 and
+    `wlan0` remain absent;
+  - last lower context shows modem get/put, MSS Power/Clock ready interrupt,
+    and sysmon-QMI SSCTL connection; `last_wlan_pd` and `last_pd_mapper`
+    remain missing;
+  - early/late service-notifier listener state remains `uninit`, indications
+    `0/0`;
+  - mdm3 remains `OFFLINING`, MHI absent, WLFW service 69 absent, and `wlan0`
+    absent;
+  - safety remained clean: no direct `/dev/subsys_esoc0` open, no fake-ONLINE,
+    no PMIC/GPIO/GDSC write, no Wi-Fi HAL, no scan/connect, no credentials,
+    no DHCP/routes, and no external ping.
+
+  Interpretation:
+
+  - native lower MSS/subsys/PIL/QMI context is visible, but wlan_pd and
+    service-notifier 74 publication are still absent;
+  - the blocker is now below the PM-client register/connect/return path and
+    below service-notifier 180 visibility;
+  - pd-mapper text absence and wlan_pd text absence are the next low-level
+    surfaces to discriminate before any Wi-Fi HAL work;
+  - Wi-Fi HAL, scan/connect, credentials, DHCP/routes, and external ping remain
+    invalid because WLFW service 69 and `wlan0` are absent.
+
+  Next candidate:
+
+  - V1817 should be host-only first: classify V1816 against Android positive
+    baselines and choose whether the next source/build target is pd-mapper
+    visibility, wlan_pd service locator/domain QMI visibility, or a narrower
+    publication-timing observer;
+  - if a source build follows, keep it read-only and bounded around
+    pd-mapper/wlan_pd service locator or domain-specific QMI publication
+    surfaces;
+  - still do not add actors, `boot_wlan`, restart-PD, `/dev/subsys_esoc0`
+    open, fake-ONLINE, eSoC notify/BOOT_DONE, PCI rescan/bind, platform
+    unbind, PMIC/GPIO/GDSC writes, Wi-Fi HAL, scan/connect, credentials,
+    DHCP/routes, or external ping.
