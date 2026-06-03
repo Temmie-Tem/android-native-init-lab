@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v359"
+#define EXECNS_VERSION "a90_android_execns_probe v360"
 
 #ifndef A90_EXECNS_ENABLE_DELAYED_LOWER_RESPONSE_WINDOW
 #define A90_EXECNS_ENABLE_DELAYED_LOWER_RESPONSE_WINDOW 0
@@ -12041,7 +12041,7 @@ struct cnss_nonlog_maps_summary {
 };
 
 #define A90_CNSS_WLFW_UPROBE_TARGET_COUNT 3
-#define A90_CNSS_WLFW_UPROBE_EVENT_COUNT 45
+#define A90_CNSS_WLFW_UPROBE_EVENT_COUNT 56
 #define A90_CNSS_PERIPHERAL_UPROBE_TARGET_COUNT 3
 #define A90_CNSS_PERIPHERAL_UPROBE_EVENT_COUNT 25
 #define A90_PM_SERVICE_UPROBE_TARGET_COUNT 3
@@ -12105,6 +12105,17 @@ static const struct cnss_wlfw_uprobe_event_spec cnss_wlfw_uprobe_events[A90_CNSS
     CNSS_WLFW_UPROBE_EVENT_FETCH("pm_init_pm_client_connect_call", "pm_init_pm_client_connect_call", 0xc650ULL, "arg0=%x0 arg1=%x1 arg2=%x2 arg3=%x3"),
     CNSS_WLFW_UPROBE_EVENT_FETCH("pm_init_pm_client_connect_retcheck", "pm_init_pm_client_connect_retcheck", 0xc654ULL, "rc=%x0"),
     CNSS_WLFW_UPROBE_EVENT_FETCH("pm_init_return_path", "pm_init_return_path", 0xc554ULL, "rc=%x0"),
+    CNSS_WLFW_UPROBE_EVENT_FETCH("wlfw_client_init_instance_call", "wlfw_client_init_instance_call", 0xdaa8ULL, "arg0=%x0 arg1=%x1 arg2=%x2 arg3=%x3"),
+    CNSS_WLFW_UPROBE_EVENT_FETCH("wlfw_client_init_instance_retcheck", "wlfw_client_init_instance_retcheck", 0xdaacULL, "rc=%x0"),
+    CNSS_WLFW_UPROBE_EVENT("wlfw_client_init_instance_fail_log", "wlfw_client_init_instance_fail_log", 0xdab0ULL),
+    CNSS_WLFW_UPROBE_EVENT_FETCH("wlfw_register_error_cb_call", "wlfw_register_error_cb_call", 0xdad4ULL, "arg0=%x0 arg1=%x1 arg2=%x2"),
+    CNSS_WLFW_UPROBE_EVENT_FETCH("wlfw_register_error_cb_retcheck", "wlfw_register_error_cb_retcheck", 0xdad8ULL, "rc=%x0"),
+    CNSS_WLFW_UPROBE_EVENT_FETCH("wlfw_get_service_instance_call", "wlfw_get_service_instance_call", 0xdb18ULL, "arg0=%x0 arg1=%x1 arg2=%x2"),
+    CNSS_WLFW_UPROBE_EVENT_FETCH("wlfw_get_service_instance_retcheck", "wlfw_get_service_instance_retcheck", 0xdb1cULL, "rc=%x0"),
+    CNSS_WLFW_UPROBE_EVENT_FETCH("wlfw_get_instance_id_call", "wlfw_get_instance_id_call", 0xdb34ULL, "arg0=%x0 arg1=%x1"),
+    CNSS_WLFW_UPROBE_EVENT_FETCH("wlfw_get_instance_id_retcheck", "wlfw_get_instance_id_retcheck", 0xdb38ULL, "rc=%x0"),
+    CNSS_WLFW_UPROBE_EVENT("wlfw_send_ind_register_entry", "wlfw_send_ind_register_entry", 0xf268ULL),
+    CNSS_WLFW_UPROBE_EVENT("wlfw_fw_mem_cond_wait", "wlfw_fw_mem_cond_wait", 0xdc18ULL),
 };
 
 #undef CNSS_WLFW_UPROBE_EVENT_FETCH
@@ -12156,6 +12167,17 @@ enum cnss_wlfw_uprobe_event_index {
     CNSS_WLFW_UPROBE_PM_INIT_PM_CLIENT_CONNECT_CALL = 42,
     CNSS_WLFW_UPROBE_PM_INIT_PM_CLIENT_CONNECT_RETCHECK = 43,
     CNSS_WLFW_UPROBE_PM_INIT_RETURN_PATH = 44,
+    CNSS_WLFW_UPROBE_WLFW_CLIENT_INIT_INSTANCE_CALL = 45,
+    CNSS_WLFW_UPROBE_WLFW_CLIENT_INIT_INSTANCE_RETCHECK = 46,
+    CNSS_WLFW_UPROBE_WLFW_CLIENT_INIT_INSTANCE_FAIL_LOG = 47,
+    CNSS_WLFW_UPROBE_WLFW_REGISTER_ERROR_CB_CALL = 48,
+    CNSS_WLFW_UPROBE_WLFW_REGISTER_ERROR_CB_RETCHECK = 49,
+    CNSS_WLFW_UPROBE_WLFW_GET_SERVICE_INSTANCE_CALL = 50,
+    CNSS_WLFW_UPROBE_WLFW_GET_SERVICE_INSTANCE_RETCHECK = 51,
+    CNSS_WLFW_UPROBE_WLFW_GET_INSTANCE_ID_CALL = 52,
+    CNSS_WLFW_UPROBE_WLFW_GET_INSTANCE_ID_RETCHECK = 53,
+    CNSS_WLFW_UPROBE_WLFW_SEND_IND_REGISTER_ENTRY = 54,
+    CNSS_WLFW_UPROBE_WLFW_FW_MEM_COND_WAIT = 55,
 };
 
 struct cnss_peripheral_uprobe_event_spec {
@@ -13403,7 +13425,30 @@ static int append_wlan_pd_cnss_nonlog_control_flow_summary(struct buffer *stdout
                uprobe->events[CNSS_WLFW_UPROBE_WLFW_IND_REGISTER_QMI].hit_count > 0) {
         label = "wlfw-worker-thread-started-qmi-ind-register-sent";
     } else if (uprobe->events[CNSS_WLFW_UPROBE_WLFW_SERVICE_REQUEST].hit_count > 0) {
-        label = "wlfw-worker-thread-started-waiting-for-qmi-service";
+        if (uprobe->events[CNSS_WLFW_UPROBE_WLFW_SEND_IND_REGISTER_ENTRY].hit_count > 0 &&
+            uprobe->events[CNSS_WLFW_UPROBE_WLFW_IND_REGISTER_QMI].hit_count == 0) {
+            label = "wlfw-worker-entered-ind-register-before-qmi-send";
+        } else if (uprobe->events[CNSS_WLFW_UPROBE_WLFW_GET_INSTANCE_ID_RETCHECK].hit_count > 0) {
+            label = "wlfw-worker-instance-id-returned-before-ind-register";
+        } else if (uprobe->events[CNSS_WLFW_UPROBE_WLFW_GET_INSTANCE_ID_CALL].hit_count > 0) {
+            label = "wlfw-worker-blocked-in-get-instance-id";
+        } else if (uprobe->events[CNSS_WLFW_UPROBE_WLFW_GET_SERVICE_INSTANCE_RETCHECK].hit_count > 0) {
+            label = "wlfw-worker-service-instance-returned-before-instance-id";
+        } else if (uprobe->events[CNSS_WLFW_UPROBE_WLFW_GET_SERVICE_INSTANCE_CALL].hit_count > 0) {
+            label = "wlfw-worker-blocked-in-get-service-instance";
+        } else if (uprobe->events[CNSS_WLFW_UPROBE_WLFW_REGISTER_ERROR_CB_RETCHECK].hit_count > 0) {
+            label = "wlfw-worker-error-cb-returned-before-service-instance";
+        } else if (uprobe->events[CNSS_WLFW_UPROBE_WLFW_REGISTER_ERROR_CB_CALL].hit_count > 0) {
+            label = "wlfw-worker-blocked-in-register-error-cb";
+        } else if (uprobe->events[CNSS_WLFW_UPROBE_WLFW_CLIENT_INIT_INSTANCE_FAIL_LOG].hit_count > 0) {
+            label = "wlfw-worker-qmi-client-init-instance-failed";
+        } else if (uprobe->events[CNSS_WLFW_UPROBE_WLFW_CLIENT_INIT_INSTANCE_RETCHECK].hit_count > 0) {
+            label = "wlfw-worker-client-init-returned-before-error-cb";
+        } else if (uprobe->events[CNSS_WLFW_UPROBE_WLFW_CLIENT_INIT_INSTANCE_CALL].hit_count > 0) {
+            label = "wlfw-worker-blocked-in-qmi-client-init-instance";
+        } else {
+            label = "wlfw-worker-thread-started-before-qmi-client-init";
+        }
     } else if (uprobe->events[CNSS_WLFW_UPROBE_WLFW_WORKER_PTHREAD_CREATE_SUCCESS].hit_count > 0) {
         label = "wlfw-start-pthread-create-success-worker-missing";
     } else if (uprobe->events[CNSS_WLFW_UPROBE_WLFW_WORKER_PTHREAD_CREATE_FAILURE].hit_count > 0) {
