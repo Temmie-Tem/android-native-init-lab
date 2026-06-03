@@ -47,8 +47,8 @@ DEFAULT_WIFI_TEST_WATCHER_PID = "/cache/native-init-wifi-test-boot-v1393-watcher
 DEFAULT_WIFI_TEST_WATCH_SEC = 35
 DEFAULT_WIFI_TEST_SUPERVISOR_TIMEOUT_SEC = 40
 DEFAULT_WIFI_TEST_HELPER_MODE = "post-pm-observer"
-EXPECTED_HELPER_MARKER = "a90_android_execns_probe v344"
-EXPECTED_HELPER_SHA256 = "8277eef5500f8384a268d9b77b7b784d080428842ab24168d27b6e4eec5d670d"
+EXPECTED_HELPER_MARKER = "a90_android_execns_probe v345"
+EXPECTED_HELPER_SHA256 = "7eb1f91db211f2cee7124e7fc7ce1b0695d75888884b28b9b479032d71feb39b"
 REPRODUCIBLE_MTIME = 0
 
 FORBIDDEN_BYTES = (
@@ -884,6 +884,9 @@ def verify_markers(args: argparse.Namespace) -> None:
                     "wlan_pd_post_pm_lower_handoff_klog.%s.count_sysmon_qmi=%u",
                     "wlan_pd_post_pm_lower_handoff_klog.%s.count_180=%u",
                     "wlan_pd_post_pm_lower_handoff_klog.%s.count_74=%u",
+                    "wlan_pd_post_pm_lower_handoff_klog.%s.raw_count_service_notifier_colon=%u",
+                    "wlan_pd_post_pm_lower_handoff_klog.%s.raw_count_74_service_text=%u",
+                    "wlan_pd_post_pm_lower_handoff_klog.%s.last_180=%s",
                     "wlan_pd_post_pm_lower_handoff_klog.%s.no_esoc0_open=1",
                 ])
     elif uses_android_service_window(args):

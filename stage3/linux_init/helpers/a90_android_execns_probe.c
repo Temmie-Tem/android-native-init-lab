@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v344"
+#define EXECNS_VERSION "a90_android_execns_probe v345"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -35297,10 +35297,18 @@ struct service74_klog_state {
     unsigned int sysmon_qmi_count;
     unsigned int service180_count;
     unsigned int service74_count;
+    unsigned int raw_service_notifier_colon_count;
+    unsigned int raw_service_notifier_new_server_count;
+    unsigned int raw_qmi_handle_count;
+    unsigned int raw_180_service_text_count;
+    unsigned int raw_74_service_text_count;
+    unsigned int raw_wlan_pd_text_count;
     int syslog_errno;
     bool syslog_available;
     char last_sysmon_qmi[192];
+    char last_service180[192];
     char last_service74[192];
+    char last_service_notifier_any[192];
 };
 
 static bool line_contains_service_notifier_instance(const char *line,
@@ -35374,8 +35382,32 @@ static int read_service74_klog_state(struct service74_klog_state *state) {
                             sizeof(state->last_sysmon_qmi),
                             line);
         }
+        if (strstr(line, "service-notifier:") != NULL) {
+            state->raw_service_notifier_colon_count++;
+            copy_klog_value(state->last_service_notifier_any,
+                            sizeof(state->last_service_notifier_any),
+                            line);
+        }
+        if (strstr(line, "service_notifier_new_server:") != NULL) {
+            state->raw_service_notifier_new_server_count++;
+        }
+        if (strstr(line, "QMI handle and") != NULL) {
+            state->raw_qmi_handle_count++;
+        }
+        if (strstr(line, "180 service") != NULL) {
+            state->raw_180_service_text_count++;
+        }
+        if (strstr(line, "74 service") != NULL) {
+            state->raw_74_service_text_count++;
+        }
+        if (strstr(line, "wlan_pd") != NULL || strstr(line, "wlan-pd") != NULL) {
+            state->raw_wlan_pd_text_count++;
+        }
         if (line_contains_service_notifier_instance(line, "180 service")) {
             state->service180_count++;
+            copy_klog_value(state->last_service180,
+                            sizeof(state->last_service180),
+                            line);
         }
         if (line_contains_service_notifier_instance(line, "74 service")) {
             state->service74_count++;
@@ -35398,7 +35430,14 @@ static int append_service74_gate_state(struct buffer *buf,
                          "wifi_companion_start.service74_gate.%s.count_sysmon_qmi=%u\n"
                          "wifi_companion_start.service74_gate.%s.count_180=%u\n"
                          "wifi_companion_start.service74_gate.%s.count_74=%u\n"
+                         "wifi_companion_start.service74_gate.%s.raw_count_service_notifier_colon=%u\n"
+                         "wifi_companion_start.service74_gate.%s.raw_count_service_notifier_new_server=%u\n"
+                         "wifi_companion_start.service74_gate.%s.raw_count_qmi_handle=%u\n"
+                         "wifi_companion_start.service74_gate.%s.raw_count_180_service_text=%u\n"
+                         "wifi_companion_start.service74_gate.%s.raw_count_74_service_text=%u\n"
+                         "wifi_companion_start.service74_gate.%s.raw_count_wlan_pd_text=%u\n"
                          "wifi_companion_start.service74_gate.%s.last_sysmon_qmi=%s\n"
+                         "wifi_companion_start.service74_gate.%s.last_180=%s\n"
                          "wifi_companion_start.service74_gate.%s.last_74=%s\n",
                          phase,
                          state->syslog_available ? 1 : 0,
@@ -35411,7 +35450,21 @@ static int append_service74_gate_state(struct buffer *buf,
                          phase,
                          state->service74_count,
                          phase,
+                         state->raw_service_notifier_colon_count,
+                         phase,
+                         state->raw_service_notifier_new_server_count,
+                         phase,
+                         state->raw_qmi_handle_count,
+                         phase,
+                         state->raw_180_service_text_count,
+                         phase,
+                         state->raw_74_service_text_count,
+                         phase,
+                         state->raw_wlan_pd_text_count,
+                         phase,
                          state->last_sysmon_qmi[0] != '\0' ? state->last_sysmon_qmi : "missing",
+                         phase,
+                         state->last_service180[0] != '\0' ? state->last_service180 : "missing",
                          phase,
                          state->last_service74[0] != '\0' ? state->last_service74 : "missing");
 }
@@ -35428,7 +35481,14 @@ static int append_wlan_pd_post_pm_lower_handoff_klog_sample(struct buffer *buf,
                          "wlan_pd_post_pm_lower_handoff_klog.%s.count_sysmon_qmi=%u\n"
                          "wlan_pd_post_pm_lower_handoff_klog.%s.count_180=%u\n"
                          "wlan_pd_post_pm_lower_handoff_klog.%s.count_74=%u\n"
+                         "wlan_pd_post_pm_lower_handoff_klog.%s.raw_count_service_notifier_colon=%u\n"
+                         "wlan_pd_post_pm_lower_handoff_klog.%s.raw_count_service_notifier_new_server=%u\n"
+                         "wlan_pd_post_pm_lower_handoff_klog.%s.raw_count_qmi_handle=%u\n"
+                         "wlan_pd_post_pm_lower_handoff_klog.%s.raw_count_180_service_text=%u\n"
+                         "wlan_pd_post_pm_lower_handoff_klog.%s.raw_count_74_service_text=%u\n"
+                         "wlan_pd_post_pm_lower_handoff_klog.%s.raw_count_wlan_pd_text=%u\n"
                          "wlan_pd_post_pm_lower_handoff_klog.%s.last_sysmon_qmi=%s\n"
+                         "wlan_pd_post_pm_lower_handoff_klog.%s.last_180=%s\n"
                          "wlan_pd_post_pm_lower_handoff_klog.%s.last_74=%s\n"
                          "wlan_pd_post_pm_lower_handoff_klog.%s.no_esoc0_open=1\n"
                          "wlan_pd_post_pm_lower_handoff_klog.%s.no_fake_online=1\n"
@@ -35446,7 +35506,21 @@ static int append_wlan_pd_post_pm_lower_handoff_klog_sample(struct buffer *buf,
                          phase,
                          state.service74_count,
                          phase,
+                         state.raw_service_notifier_colon_count,
+                         phase,
+                         state.raw_service_notifier_new_server_count,
+                         phase,
+                         state.raw_qmi_handle_count,
+                         phase,
+                         state.raw_180_service_text_count,
+                         phase,
+                         state.raw_74_service_text_count,
+                         phase,
+                         state.raw_wlan_pd_text_count,
+                         phase,
                          state.last_sysmon_qmi[0] != '\0' ? state.last_sysmon_qmi : "missing",
+                         phase,
+                         state.last_service180[0] != '\0' ? state.last_service180 : "missing",
                          phase,
                          state.last_service74[0] != '\0' ? state.last_service74 : "missing",
                          phase,

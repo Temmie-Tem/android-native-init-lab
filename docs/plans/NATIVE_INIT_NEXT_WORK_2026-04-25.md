@@ -17670,3 +17670,66 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
     open, fake-ONLINE, eSoC notify/BOOT_DONE, PCI rescan/bind, platform
     unbind, PMIC/GPIO/GDSC writes, Wi-Fi HAL, scan/connect, credentials,
     DHCP/routes, or external ping.
+
+## V1813 service-notifier 74 raw-klog source build (2026-06-03)
+
+- V1813 built a source/build-only rollbackable test-boot artifact that keeps
+  the V1810/V1811 post-PM lower handoff route and adds raw service-notifier
+  klog counters to separate true service 74 absence from parser miss.
+
+  Evidence:
+
+  - builder:
+    `scripts/revalidation/build_native_init_wifi_test_boot_v1813.py`;
+  - common builder update:
+    `scripts/revalidation/build_native_init_wifi_test_boot_v1393.py`;
+  - helper source:
+    `stage3/linux_init/helpers/a90_android_execns_probe.c`;
+  - report:
+    `docs/reports/NATIVE_INIT_V1813_SERVICE74_RAW_KLOG_SOURCE_BUILD_2026-06-03.md`;
+  - manifest:
+    `tmp/wifi/v1813-service74-raw-klog-test-boot/manifest.json`;
+  - boot image:
+    `tmp/wifi/v1813-service74-raw-klog-test-boot/boot_linux_v1813_service74_raw_klog.img`;
+  - boot SHA256:
+    `a6c60381ff35df57d53a0b2da1d5ccf26a15ba31edc359a9586d6f0c89bd921b`;
+  - init:
+    `A90 Linux init 0.9.154 (v1813-service74-raw-klog)`;
+  - helper:
+    `a90_android_execns_probe v345`,
+    SHA256 `7eb1f91db211f2cee7124e7fc7ce1b0695d75888884b28b9b479032d71feb39b`;
+  - decision:
+    `v1813-service74-raw-klog-source-build-pass`.
+
+  Added observer fields:
+
+  - `raw_count_service_notifier_colon`;
+  - `raw_count_service_notifier_new_server`;
+  - `raw_count_qmi_handle`;
+  - `raw_count_180_service_text`;
+  - `raw_count_74_service_text`;
+  - `raw_count_wlan_pd_text`;
+  - `last_180`, alongside existing `last_74`.
+
+  Interpretation:
+
+  - V1813 is source/build-only, so it does not change the live blocker verdict;
+  - it prepares the exact discriminator needed after V1812: if raw `74 service`
+    text remains zero, service 74 publication is actually absent; if raw text
+    appears while the exact count stays zero, the parser is too narrow.
+
+  Safety:
+
+  - host-only source/build. No live device command, flash, reboot, property
+    staging, `/dev/subsys_esoc0` open, fake-ONLINE, eSoC notify/BOOT_DONE, PCI
+    rescan/bind, platform unbind, PMIC/GPIO/GDSC writes, `boot_wlan`,
+    restart-PD request, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, or
+    external ping was performed by V1813.
+
+  Next candidate:
+
+  - V1814 should run exactly one rollbackable live gate with the V1813 artifact
+    and classify `service74-raw-absent`, `service74-parser-miss`,
+    `service74-progress`, or `safety-regression`;
+  - do not continue into Wi-Fi HAL/scan/connect from V1814 unless WLFW service
+    69 and `wlan0` appear and a separate connection gate is written.
