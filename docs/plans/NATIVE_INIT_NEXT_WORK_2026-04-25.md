@@ -17671,6 +17671,81 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
     unbind, PMIC/GPIO/GDSC writes, Wi-Fi HAL, scan/connect, credentials,
     DHCP/routes, or external ping.
 
+## V1817 lower-publication target classifier (2026-06-03)
+
+- V1817 stayed host-only and compared the V1816 native lower-publication gap
+  against Android-positive V739/V852 baselines.
+
+  Evidence:
+
+  - classifier:
+    `scripts/revalidation/native_wifi_lower_publication_target_classifier_v1817.py`;
+  - source manifest:
+    `tmp/wifi/v1816-lower-publication-precondition-handoff/manifest.json`;
+  - Android manifests:
+    `tmp/wifi/v739-mdm3-wlanpd-delta/manifest.json` and
+    `tmp/wifi/v852-android-ext-mdm-provider-surface-handoff/v852-android-ext-mdm-provider-surface-run/manifest.json`;
+  - evidence:
+    `tmp/wifi/v1817-lower-publication-target-classifier`;
+  - report:
+    `docs/reports/NATIVE_INIT_V1817_LOWER_PUBLICATION_TARGET_CLASSIFIER_2026-06-03.md`;
+  - manifest:
+    `tmp/wifi/v1817-lower-publication-target-classifier/manifest.json`;
+  - decision:
+    `v1817-wlan-pd-service-locator-visibility-target-host-pass`.
+
+  Key findings:
+
+  - V1816 native shape is fixed as
+    `service74-raw-absent-preconditions-visible`;
+  - native PM-client rc values remain `0/0/0`;
+  - native raw service180/service74/wlan_pd counts are `1,1,1` / `0,0,0` /
+    `0,0,0`;
+  - native lower precondition counts are pd-mapper `0,0,0`, subsys
+    `9,10,10`, pil `5,5,5`, qmi `7,7,7`, and broad wlfw text `30,30,30`;
+  - native service-notifier listener remains `uninit` with indications `0/0`;
+  - native mdm3 remains `OFFLINING`, MHI absent, WLFW service 69 absent, and
+    `wlan0` absent;
+  - Android V622 has service-locator/SN180/SN74/wlan_pd/ack/qmi-server/WLFW/
+    wlan0 counts `1/1/1/2/1/1/1/3`;
+  - Android V622 timing has sysmon→service-locator `2.446 ms`,
+    sysmon→SN180 `30.43 ms`, SN180→SN74 `6.561 ms`,
+    SN180→wlan_pd `2427.362 ms`, SN180→WLFW `1415.75 ms`, and
+    wlan_pd→qmi-server `2.509 ms`;
+  - Android V852 shows mss/mdm3 `ONLINE/ONLINE` and wlan_pd/WLFW/wlan0 hints
+    all true.
+
+  Interpretation:
+
+  - PM-client success, sysmon/QMI context, and service-notifier 180 are no
+    longer plausible blockers;
+  - native lower MSS/subsys/PIL/QMI context is visible, but the path into
+    pd-mapper/service-locator and wlan_pd/service-notifier 74 publication is
+    still absent;
+  - the next useful target is bounded read-only evidence for wlan_pd
+    service-locator/domain-QMI publication, not HAL/scan/connect.
+
+  Safety:
+
+  - host-only. No live device command, flash, reboot, property staging,
+    `/dev/subsys_esoc0` open, fake-ONLINE, eSoC notify/BOOT_DONE, PCI
+    rescan/bind, platform unbind, PMIC/GPIO/GDSC writes, `boot_wlan`,
+    restart-PD request, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, or
+    external ping was performed by V1817.
+
+  Next candidate:
+
+  - V1818 should be source/build-only and add a read-only observer for bounded
+    wlan_pd service-locator/domain-QMI publication evidence;
+  - candidate evidence should include service-locator text, wlan_pd domain
+    identifiers, QRTR/QMI server publication lines around sysmon/service180,
+    and last-line samples for why service74/wlan_pd publication does not
+    follow;
+  - still do not add actors, `boot_wlan`, restart-PD, `/dev/subsys_esoc0`
+    open, fake-ONLINE, eSoC notify/BOOT_DONE, PCI rescan/bind, platform
+    unbind, PMIC/GPIO/GDSC writes, Wi-Fi HAL, scan/connect, credentials,
+    DHCP/routes, or external ping.
+
 ## V1813 service-notifier 74 raw-klog source build (2026-06-03)
 
 - V1813 built a source/build-only rollbackable test-boot artifact that keeps
