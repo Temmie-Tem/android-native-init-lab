@@ -37,6 +37,8 @@ REPO_ROOT = repo_path(".")
 ANDROID_ROOT_PATTERNS = (
     "tmp/wifi/v1753-android-good-wlan-pd-firmware-request",
     "tmp/wifi/v1897-android-normal-pm-msg22-edge-handoff*",
+    "tmp/wifi/v1897-live*-v1888-*",
+    "tmp/wifi/v1897-live*-v1894-*",
     "tmp/wifi/v1899-android-cnss-qrtr-stateup*",
     "tmp/wifi/v1909-android-servloc-domain-handoff*",
 )

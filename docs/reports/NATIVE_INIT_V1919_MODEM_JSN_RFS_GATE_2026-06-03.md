@@ -13,7 +13,7 @@
 | area | value | detail |
 | --- | --- | --- |
 | label | android-modem-no-jsn-read | existing normal-Android tftp/rmtfs captures request wlanmdsp.mbn with zero pre-wlanmdsp .jsn/modemuw.jsn hits |
-| android_roots | 12 | tmp/wifi/v1753-android-good-wlan-pd-firmware-request, tmp/wifi/v1897-android-normal-pm-msg22-edge-handoff, tmp/wifi/v1897-android-normal-pm-msg22-edge-handoff-dryrun, tmp/wifi/v1897-android-normal-pm-msg22-edge-handoff-dryrun2, tmp/wifi/v1897-android-normal-pm-msg22-edge-handoff-dryrun3, tmp/wifi/v1897-android-normal-pm-msg22-edge-handoff-live-20260603-191801 |
+| android_roots | 16 | tmp/wifi/v1753-android-good-wlan-pd-firmware-request, tmp/wifi/v1897-android-normal-pm-msg22-edge-handoff, tmp/wifi/v1897-android-normal-pm-msg22-edge-handoff-dryrun, tmp/wifi/v1897-android-normal-pm-msg22-edge-handoff-dryrun2, tmp/wifi/v1897-android-normal-pm-msg22-edge-handoff-dryrun3, tmp/wifi/v1897-android-normal-pm-msg22-edge-handoff-live-20260603-191801 |
 | android_wlanmdsp | 130 | {'path': 'tmp/wifi/v1753-android-good-wlan-pd-firmware-request/android-postfs-evidence/a90-v1753-wlan-pd-fwreq/logcat-filtered.txt', 'line': 127, 'text': '06-03 04:17:31.380  1684  2518 I tftp_server: pid=1684 tid=2518 tftp-server : INF :[tftp_server_utils.c, 113] file [readonly/vendor/firmware_mnt/image/wlanmdsp.mbn] : [/vendor/rfs/msm/mpss/readonly/vendor'} |
 | android_pre_jsn | 0 | modemuw=0 all_jsn=0 |
 | native_mount | True | mounted=True leftover=False |
@@ -22,7 +22,7 @@
 
 ## Android Host Reparse
 
-- Roots scanned: `12`
+- Roots scanned: `16`
 - Trace-like files retained in manifest: `25`
 - `wlanmdsp.mbn` hits: `130`
 - Pre-`wlanmdsp.mbn` `.jsn` hits: `0`
@@ -45,7 +45,7 @@
 
 ## Native Wlanmdsp Paths
 
-- `/tmp/a90-v1919-20260603T155825Z/vendor/firmware/wlanmdsp.mbn`
+- `/tmp/a90-v1919-20260603T165348Z/vendor/firmware/wlanmdsp.mbn`
 
 ## Android Served Path Sample
 
