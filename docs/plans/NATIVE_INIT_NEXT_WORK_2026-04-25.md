@@ -17478,3 +17478,70 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
     fake-ONLINE, eSoC notify/BOOT_DONE, PCI rescan/bind, platform unbind,
     PMIC/GPIO/GDSC writes, `boot_wlan`, Wi-Fi HAL, scan/connect,
     DHCP/routes, credentials, or external ping.
+
+## V1810 post-PM lower-handoff klog observer source build (2026-06-03)
+
+- V1810 built a source/build-only rollbackable test-boot artifact that keeps
+  the V1807 PM-client return fetcharg and lower-state observer route, then adds
+  read-only service-notifier/sysmon klog samples at the post-PM lower handoff.
+
+  Evidence:
+
+  - builder:
+    `scripts/revalidation/build_native_init_wifi_test_boot_v1810.py`;
+  - common builder update:
+    `scripts/revalidation/build_native_init_wifi_test_boot_v1393.py`;
+  - helper source:
+    `stage3/linux_init/helpers/a90_android_execns_probe.c`;
+  - report:
+    `docs/reports/NATIVE_INIT_V1810_POST_PM_LOWER_HANDOFF_KLOG_SOURCE_BUILD_2026-06-03.md`;
+  - manifest:
+    `tmp/wifi/v1810-post-pm-lower-handoff-klog-test-boot/manifest.json`;
+  - boot image:
+    `tmp/wifi/v1810-post-pm-lower-handoff-klog-test-boot/boot_linux_v1810_post_pm_lower_handoff_klog.img`;
+  - boot SHA256:
+    `aea16b29c76985ce5ae571a663420d012c2760c925352fb546990df9f2cb9917`;
+  - init:
+    `A90 Linux init 0.9.153 (v1810-post-pm-lower-handoff-klog)`;
+  - helper:
+    `a90_android_execns_probe v344`,
+    SHA256 `8277eef5500f8384a268d9b77b7b784d080428842ab24168d27b6e4eec5d670d`;
+  - decision:
+    `v1810-post-pm-lower-handoff-klog-source-build-pass`.
+
+  Added observer fields:
+
+  - `wlan_pd_post_pm_lower_handoff_klog.after_holder_start.*`;
+  - `wlan_pd_post_pm_lower_handoff_klog.after_early_listener.*`;
+  - `wlan_pd_post_pm_lower_handoff_klog.after_post_listener_window.*`;
+  - each sample includes `syslog_available`, `syslog_errno`,
+    `count_sysmon_qmi`, `count_180`, `count_74`, last `sysmon_qmi`, last
+    service-notifier 74 line, and explicit no-direct-side-effect flags.
+
+  Interpretation:
+
+  - V1810 is source/build-only, so it does not change the live blocker verdict;
+  - the artifact is ready to distinguish whether the post-PM-client-success
+    lower stall has no service-notifier/sysmon klog movement, or whether klog
+    movement exists while QRTR service-notifier state remains `uninit`;
+  - Wi-Fi HAL, scan/connect, credentials, DHCP/routes, and external ping remain
+    invalid until WLFW service 69 and `wlan0` exist.
+
+  Safety:
+
+  - host-only source/build. No live device command, flash, reboot, property
+    staging, `/dev/subsys_esoc0` open, fake-ONLINE, eSoC notify/BOOT_DONE, PCI
+    rescan/bind, platform unbind, PMIC/GPIO/GDSC writes, `boot_wlan`,
+    restart-PD request, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, or
+    external ping was performed by V1810.
+
+  Next candidate:
+
+  - V1811 should run exactly one rollbackable live gate with the V1810 artifact
+    and classify service-notifier klog 180/74 progress versus absence below the
+    successful PM-client connect boundary;
+  - classify `servnotif-klog-absent`, `servnotif-klog-progress-still-uninit`,
+    `lower-progress`, or `safety-regression`;
+  - do not continue into Wi-Fi HAL/scan/connect from the V1811 result unless
+    WLFW service 69 and `wlan0` are present and a separate connection gate is
+    written.

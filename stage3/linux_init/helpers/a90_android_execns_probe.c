@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v343"
+#define EXECNS_VERSION "a90_android_execns_probe v344"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -35416,6 +35416,45 @@ static int append_service74_gate_state(struct buffer *buf,
                          state->last_service74[0] != '\0' ? state->last_service74 : "missing");
 }
 
+static int append_wlan_pd_post_pm_lower_handoff_klog_sample(struct buffer *buf,
+                                                            const char *phase) {
+    struct service74_klog_state state;
+
+    read_service74_klog_state(&state);
+    return append_format(buf,
+                         "wlan_pd_post_pm_lower_handoff_klog.%s.begin=1\n"
+                         "wlan_pd_post_pm_lower_handoff_klog.%s.syslog_available=%d\n"
+                         "wlan_pd_post_pm_lower_handoff_klog.%s.syslog_errno=%d\n"
+                         "wlan_pd_post_pm_lower_handoff_klog.%s.count_sysmon_qmi=%u\n"
+                         "wlan_pd_post_pm_lower_handoff_klog.%s.count_180=%u\n"
+                         "wlan_pd_post_pm_lower_handoff_klog.%s.count_74=%u\n"
+                         "wlan_pd_post_pm_lower_handoff_klog.%s.last_sysmon_qmi=%s\n"
+                         "wlan_pd_post_pm_lower_handoff_klog.%s.last_74=%s\n"
+                         "wlan_pd_post_pm_lower_handoff_klog.%s.no_esoc0_open=1\n"
+                         "wlan_pd_post_pm_lower_handoff_klog.%s.no_fake_online=1\n"
+                         "wlan_pd_post_pm_lower_handoff_klog.%s.no_pmic_gpio_gdsc_write=1\n"
+                         "wlan_pd_post_pm_lower_handoff_klog.%s.end=1\n",
+                         phase,
+                         phase,
+                         state.syslog_available ? 1 : 0,
+                         phase,
+                         state.syslog_errno,
+                         phase,
+                         state.sysmon_qmi_count,
+                         phase,
+                         state.service180_count,
+                         phase,
+                         state.service74_count,
+                         phase,
+                         state.last_sysmon_qmi[0] != '\0' ? state.last_sysmon_qmi : "missing",
+                         phase,
+                         state.last_service74[0] != '\0' ? state.last_service74 : "missing",
+                         phase,
+                         phase,
+                         phase,
+                         phase);
+}
+
 static int wait_for_service74_gate(struct buffer *buf,
                                    unsigned int baseline_count_74,
                                    bool baseline_available,
@@ -36835,8 +36874,24 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
         stop_property_service_shim(&property_shim, paths, stdout_buf);
         return -1;
     }
+    if (wlan_pd_post_pm_lower_state_observer &&
+        append_wlan_pd_post_pm_lower_handoff_klog_sample(stdout_buf,
+                                                         "after_holder_start") < 0) {
+        stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
+        composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+        stop_property_service_shim(&property_shim, paths, stdout_buf);
+        return -1;
+    }
     if (cfg->allow_service_notifier_listener_probe &&
         append_companion_service_notifier_listener_probe(stdout_buf, cfg) < 0) {
+        stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
+        composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+        stop_property_service_shim(&property_shim, paths, stdout_buf);
+        return -1;
+    }
+    if (wlan_pd_post_pm_lower_state_observer &&
+        append_wlan_pd_post_pm_lower_handoff_klog_sample(stdout_buf,
+                                                         "after_early_listener") < 0) {
         stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
         composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
         stop_property_service_shim(&property_shim, paths, stdout_buf);
@@ -36847,6 +36902,14 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
                                                     "post_listener_window",
                                                     12,
                                                     500) < 0) {
+        stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
+        composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+        stop_property_service_shim(&property_shim, paths, stdout_buf);
+        return -1;
+    }
+    if (wlan_pd_post_pm_lower_state_observer &&
+        append_wlan_pd_post_pm_lower_handoff_klog_sample(stdout_buf,
+                                                         "after_post_listener_window") < 0) {
         stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
         composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
         stop_property_service_shim(&property_shim, paths, stdout_buf);
