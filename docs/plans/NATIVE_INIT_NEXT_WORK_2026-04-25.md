@@ -16465,3 +16465,63 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
   - do not repair `/dev/subsys_esoc0`, synthesize a modem record, start Wi-Fi
     HAL, scan/connect, configure DHCP/routes, or external ping until V1794 names
     the exact `modem` list population contract.
+
+## V1794 PM-service modem list population classifier (2026-06-03)
+
+- V1794 stayed host-only and classified the V1793 supported-list population gap
+  for CNSS's `modem` PM register request.
+
+  Evidence:
+
+  - classifier:
+    `scripts/revalidation/native_wifi_pm_service_modem_list_population_classifier_v1794.py`;
+  - report:
+    `docs/reports/NATIVE_INIT_V1794_PM_SERVICE_MODEM_LIST_POPULATION_CLASSIFIER_2026-06-03.md`;
+  - evidence directory:
+    `tmp/wifi/v1794-pm-service-modem-list-population-classifier`;
+  - decision:
+    `v1794-pm-modem-primary-list-devnode-gate-host-pass`;
+  - label:
+    `pm-modem-primary-list-devnode-gate`.
+
+  Key findings:
+
+  - V1793 requested `modem` and hit the no-peripheral branch for `modem`;
+  - first-loop add-peripheral call/fail hits were `2` / `2`;
+  - second-loop add-peripheral call/fail hits were `0` / `0`;
+  - supported-list commit hits stayed `0`;
+  - `libmdmdetect` routes `/sys/bus/msm_subsys/devices` `name=modem` into
+    the first/primary count path, not the second/additional-subsystem path;
+  - V1793's live sysfs snapshot exposed `subsys0` as `modem` / `ONLINE` /
+    `modem`, while the first captured PM-service candidate was still `SDX50M`
+    at `/dev/subsys_esoc0`;
+  - static/sysfs reconstruction therefore makes the primary candidate set
+    `SDX50M, modem`, with both observed primary add-peripheral attempts failing
+    before list insertion.
+
+  Interpretation:
+
+  - the second count/load path is not the missing `modem` record source;
+  - the immediate blocker remains before `pm-service+0x6758..0x6788`
+    supported-list insertion;
+  - do not repair only `/dev/subsys_esoc0`: the next observer must capture the
+    second first-loop hit string and the actual count values before any private
+    devnode repair.
+
+  Safety:
+
+  - host-only. No live device command, flash, reboot, Wi-Fi HAL, scan/connect,
+    credentials, DHCP/routes, external ping, PM actor start, QCACLD/`boot_wlan`,
+    eSoC/RC1 action, restart-PD request, firmware write, partition write,
+    PMIC/GPIO/GDSC write, PCI rescan, platform bind/unbind, BPF attach, or
+    tracefs write.
+
+  Next candidate:
+
+  - V1795 should stay source/build-only first: add fetchargs or direct helper
+    logging for first/second count values and all add-peripheral hit strings;
+  - fixed outcomes should distinguish `modem-devnode-access-fail`,
+    `sdx50m-only-first-loop`, `count-fetcharg-unavailable`, and
+    `list-commit-progress`;
+  - do not repair `/dev/subsys_esoc0`, synthesize PM records, start Wi-Fi HAL,
+    scan/connect, configure DHCP/routes, or external ping in V1795.
