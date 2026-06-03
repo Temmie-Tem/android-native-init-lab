@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v351"
+#define EXECNS_VERSION "a90_android_execns_probe v352"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -36525,6 +36525,423 @@ static int append_wlan_pd_qipcrtr_local_node_bind_state_snapshot(struct buffer *
     return 0;
 }
 
+static int append_qipcrtr_bound_poll_recv_once(struct buffer *buf,
+                                               int fd,
+                                               const char *prefix,
+                                               unsigned int timeout_ms) {
+    char child_prefix[256];
+    struct pollfd pfd;
+    long deadline;
+    int poll_rc;
+
+    if (append_format(buf,
+                      "%s.attempted=1\n"
+                      "%s.timeout_ms=%u\n"
+                      "%s.max_recv_bytes=256\n",
+                      prefix,
+                      prefix,
+                      timeout_ms,
+                      prefix) < 0) {
+        return -1;
+    }
+    if (set_nonblock(fd) < 0) {
+        int saved_errno = errno;
+
+        return append_format(buf,
+                             "%s.set_nonblock.rc=-1\n"
+                             "%s.set_nonblock.errno=%d\n"
+                             "%s.set_nonblock.error=%s\n"
+                             "%s.poll.skipped=1\n"
+                             "%s.poll.skip_reason=set-nonblock-failed\n"
+                             "%s.recv.skipped=1\n"
+                             "%s.recv.skip_reason=set-nonblock-failed\n",
+                             prefix,
+                             prefix,
+                             saved_errno,
+                             prefix,
+                             strerror(saved_errno),
+                             prefix,
+                             prefix,
+                             prefix,
+                             prefix);
+    }
+    if (append_format(buf, "%s.set_nonblock.rc=0\n", prefix) < 0) {
+        return -1;
+    }
+
+    deadline = monotonic_ms() + (long)timeout_ms;
+    for (;;) {
+        long now = monotonic_ms();
+        int wait_ms;
+
+        if (now >= deadline) {
+            return append_format(buf,
+                                 "%s.poll.rc=0\n"
+                                 "%s.poll.timeout=1\n"
+                                 "%s.recv.skipped=1\n"
+                                 "%s.recv.skip_reason=poll-timeout\n",
+                                 prefix,
+                                 prefix,
+                                 prefix,
+                                 prefix);
+        }
+        wait_ms = (int)(deadline - now);
+        pfd.fd = fd;
+        pfd.events = POLLIN;
+        pfd.revents = 0;
+        poll_rc = poll(&pfd, 1, wait_ms);
+        if (poll_rc < 0 && errno == EINTR) {
+            continue;
+        }
+        break;
+    }
+    if (poll_rc < 0) {
+        int saved_errno = errno;
+
+        return append_format(buf,
+                             "%s.poll.rc=-1\n"
+                             "%s.poll.errno=%d\n"
+                             "%s.poll.error=%s\n"
+                             "%s.recv.skipped=1\n"
+                             "%s.recv.skip_reason=poll-error\n",
+                             prefix,
+                             prefix,
+                             saved_errno,
+                             prefix,
+                             strerror(saved_errno),
+                             prefix,
+                             prefix);
+    }
+    if (poll_rc == 0) {
+        return append_format(buf,
+                             "%s.poll.rc=0\n"
+                             "%s.poll.timeout=1\n"
+                             "%s.poll.revents=0\n"
+                             "%s.recv.skipped=1\n"
+                             "%s.recv.skip_reason=poll-timeout\n",
+                             prefix,
+                             prefix,
+                             prefix,
+                             prefix,
+                             prefix);
+    }
+    if (append_format(buf,
+                      "%s.poll.rc=%d\n"
+                      "%s.poll.revents=%d\n",
+                      prefix,
+                      poll_rc,
+                      prefix,
+                      pfd.revents) < 0) {
+        return -1;
+    }
+    if ((pfd.revents & POLLIN) == 0) {
+        return append_format(buf,
+                             "%s.recv.skipped=1\n"
+                             "%s.recv.skip_reason=no-pollin\n",
+                             prefix,
+                             prefix);
+    }
+    {
+        unsigned char packet[256];
+        struct sockaddr_qrtr from;
+        socklen_t from_len = sizeof(from);
+        ssize_t received;
+
+        memset(packet, 0, sizeof(packet));
+        memset(&from, 0, sizeof(from));
+        received = recvfrom(fd, packet, sizeof(packet), 0, (struct sockaddr *)&from, &from_len);
+        if (received < 0) {
+            int saved_errno = errno;
+
+            return append_format(buf,
+                                 "%s.recv.rc=-1\n"
+                                 "%s.recv.errno=%d\n"
+                                 "%s.recv.error=%s\n",
+                                 prefix,
+                                 prefix,
+                                 saved_errno,
+                                 prefix,
+                                 strerror(saved_errno));
+        }
+        if (append_format(buf,
+                          "%s.recv.rc=0\n"
+                          "%s.recv.bytes=%zd\n"
+                          "%s.recv.from_len=%u\n",
+                          prefix,
+                          prefix,
+                          received,
+                          prefix,
+                          (unsigned int)from_len) < 0) {
+            return -1;
+        }
+        if (snprintf(child_prefix,
+                     sizeof(child_prefix),
+                     "%s.recv.from",
+                     prefix) >= (int)sizeof(child_prefix) ||
+            append_qrtr_sockaddr(buf, child_prefix, &from) < 0) {
+            return -1;
+        }
+        if (received >= (ssize_t)sizeof(uint32_t)) {
+            uint32_t first_word;
+
+            memcpy(&first_word, packet, sizeof(first_word));
+            if (append_format(buf,
+                              "%s.recv.first_u32_le=%u\n",
+                              prefix,
+                              le32toh(first_word)) < 0) {
+                return -1;
+            }
+        }
+    }
+    return 0;
+}
+
+static int append_wlan_pd_qipcrtr_bound_recv_poll_state_snapshot(struct buffer *buf,
+                                                                 const char *phase) {
+    char prefix[184];
+    char child_prefix[256];
+    char poll_prefix[256];
+    struct sockaddr_qrtr before_bind_addr;
+    struct sockaddr_qrtr bind_addr;
+    int fd;
+    bool bind_ok = false;
+
+    if (snprintf(prefix,
+                 sizeof(prefix),
+                 "wlan_pd_qipcrtr_bound_recv_poll_state.%s",
+                 phase) >= (int)sizeof(prefix)) {
+        return append_literal(buf, "wlan_pd_qipcrtr_bound_recv_poll_state.error=phase-too-long\n");
+    }
+    if (append_format(buf,
+                      "%s.begin=1\n"
+                      "%s.mode=observed-local-node-bind-poll-recv-close\n"
+                      "%s.family=AF_QIPCRTR\n"
+                      "%s.type=SOCK_DGRAM\n"
+                      "%s.bind_attempted=1\n"
+                      "%s.bind_observed_local_node=1\n"
+                      "%s.no_connect=1\n"
+                      "%s.no_send=1\n"
+                      "%s.no_qrtr_lookup_send=1\n"
+                      "%s.no_qrtr_control_payload=1\n"
+                      "%s.no_service_start=1\n",
+                      prefix,
+                      prefix,
+                      prefix,
+                      prefix,
+                      prefix,
+                      prefix,
+                      prefix,
+                      prefix,
+                      prefix,
+                      prefix,
+                      prefix) < 0) {
+        return -1;
+    }
+    if (snprintf(child_prefix,
+                 sizeof(child_prefix),
+                 "%s.before_open",
+                 prefix) >= (int)sizeof(child_prefix) ||
+        append_qipcrtr_protocol_summary(buf, child_prefix) < 0) {
+        return -1;
+    }
+    fd = open_qrtr_dgram_socket();
+    if (fd < 0) {
+        int saved_errno = errno;
+
+        if (append_format(buf,
+                          "%s.open.rc=-1\n"
+                          "%s.open.errno=%d\n"
+                          "%s.open.error=%s\n"
+                          "%s.bind.skipped=1\n"
+                          "%s.getsockname_after_bind.skipped=1\n"
+                          "%s.while_bound_before_poll.skipped=1\n"
+                          "%s.poll_recv.skipped=1\n"
+                          "%s.poll_recv.skip_reason=open-failed\n"
+                          "%s.while_bound_after_poll.skipped=1\n"
+                          "%s.close.skipped=1\n",
+                          prefix,
+                          prefix,
+                          saved_errno,
+                          prefix,
+                          strerror(saved_errno),
+                          prefix,
+                          prefix,
+                          prefix,
+                          prefix,
+                          prefix,
+                          prefix,
+                          prefix) < 0) {
+            return -1;
+        }
+        if (snprintf(child_prefix,
+                     sizeof(child_prefix),
+                     "%s.after_close",
+                     prefix) >= (int)sizeof(child_prefix) ||
+            append_qipcrtr_protocol_summary(buf, child_prefix) < 0 ||
+            append_format(buf, "%s.end=1\n", prefix) < 0) {
+            return -1;
+        }
+        return 0;
+    }
+    if (append_format(buf,
+                      "%s.open.rc=0\n"
+                      "%s.open.fd_nonnegative=1\n",
+                      prefix,
+                      prefix) < 0) {
+        close(fd);
+        return -1;
+    }
+    if (snprintf(child_prefix,
+                 sizeof(child_prefix),
+                 "%s.getsockname_before_bind",
+                 prefix) >= (int)sizeof(child_prefix)) {
+        close(fd);
+        return -1;
+    }
+    if (append_qrtr_getname(buf, fd, child_prefix, &before_bind_addr) < 0) {
+        close(fd);
+        return -1;
+    }
+    if (before_bind_addr.sq_family != AF_QIPCRTR || before_bind_addr.sq_node == 0) {
+        if (append_format(buf,
+                          "%s.bind.skipped=1\n"
+                          "%s.bind.skip_reason=invalid-observed-local-node\n"
+                          "%s.getsockname_after_bind.skipped=1\n"
+                          "%s.while_bound_before_poll.skipped=1\n"
+                          "%s.poll_recv.skipped=1\n"
+                          "%s.poll_recv.skip_reason=invalid-observed-local-node\n"
+                          "%s.while_bound_after_poll.skipped=1\n",
+                          prefix,
+                          prefix,
+                          prefix,
+                          prefix,
+                          prefix,
+                          prefix,
+                          prefix) < 0) {
+            close(fd);
+            return -1;
+        }
+    } else {
+        memset(&bind_addr, 0, sizeof(bind_addr));
+        bind_addr.sq_family = AF_QIPCRTR;
+        bind_addr.sq_node = before_bind_addr.sq_node;
+        bind_addr.sq_port = 0;
+        if (snprintf(child_prefix,
+                     sizeof(child_prefix),
+                     "%s.bind.request",
+                     prefix) >= (int)sizeof(child_prefix) ||
+            append_qrtr_sockaddr(buf, child_prefix, &bind_addr) < 0) {
+            close(fd);
+            return -1;
+        }
+        if (bind(fd, (const struct sockaddr *)&bind_addr, sizeof(bind_addr)) < 0) {
+            int saved_errno = errno;
+
+            if (append_format(buf,
+                              "%s.bind.rc=-1\n"
+                              "%s.bind.errno=%d\n"
+                              "%s.bind.error=%s\n"
+                              "%s.getsockname_after_bind.skipped=1\n"
+                              "%s.while_bound_before_poll.skipped=1\n"
+                              "%s.poll_recv.skipped=1\n"
+                              "%s.poll_recv.skip_reason=bind-failed\n"
+                              "%s.while_bound_after_poll.skipped=1\n",
+                              prefix,
+                              prefix,
+                              saved_errno,
+                              prefix,
+                              strerror(saved_errno),
+                              prefix,
+                              prefix,
+                              prefix,
+                              prefix,
+                              prefix) < 0) {
+                close(fd);
+                return -1;
+            }
+        } else {
+            bind_ok = true;
+            if (append_format(buf, "%s.bind.rc=0\n", prefix) < 0) {
+                close(fd);
+                return -1;
+            }
+            if (snprintf(child_prefix,
+                         sizeof(child_prefix),
+                         "%s.getsockname_after_bind",
+                         prefix) >= (int)sizeof(child_prefix)) {
+                close(fd);
+                return -1;
+            }
+            {
+                struct sockaddr_qrtr after_bind_addr;
+
+                if (append_qrtr_getname(buf, fd, child_prefix, &after_bind_addr) < 0) {
+                    close(fd);
+                    return -1;
+                }
+            }
+            if (snprintf(child_prefix,
+                         sizeof(child_prefix),
+                         "%s.while_bound_before_poll",
+                         prefix) >= (int)sizeof(child_prefix) ||
+                append_qipcrtr_protocol_summary(buf, child_prefix) < 0 ||
+                snprintf(poll_prefix,
+                         sizeof(poll_prefix),
+                         "%s.poll_recv",
+                         prefix) >= (int)sizeof(poll_prefix) ||
+                append_qipcrtr_bound_poll_recv_once(buf, fd, poll_prefix, 250) < 0 ||
+                snprintf(child_prefix,
+                         sizeof(child_prefix),
+                         "%s.while_bound_after_poll",
+                         prefix) >= (int)sizeof(child_prefix) ||
+                append_qipcrtr_protocol_summary(buf, child_prefix) < 0) {
+                close(fd);
+                return -1;
+            }
+        }
+    }
+    if (close(fd) < 0) {
+        int saved_errno = errno;
+
+        if (append_format(buf,
+                          "%s.close.rc=-1\n"
+                          "%s.close.errno=%d\n"
+                          "%s.close.error=%s\n",
+                          prefix,
+                          prefix,
+                          saved_errno,
+                          prefix,
+                          strerror(saved_errno)) < 0) {
+            return -1;
+        }
+    } else if (append_format(buf, "%s.close.rc=0\n", prefix) < 0) {
+        return -1;
+    }
+    if (!bind_ok) {
+        if (snprintf(child_prefix,
+                     sizeof(child_prefix),
+                     "%s.while_bound_before_poll",
+                     prefix) >= (int)sizeof(child_prefix) ||
+            append_qipcrtr_protocol_summary(buf, child_prefix) < 0 ||
+            snprintf(child_prefix,
+                     sizeof(child_prefix),
+                     "%s.while_bound_after_poll",
+                     prefix) >= (int)sizeof(child_prefix) ||
+            append_qipcrtr_protocol_summary(buf, child_prefix) < 0) {
+            return -1;
+        }
+    }
+    if (snprintf(child_prefix,
+                 sizeof(child_prefix),
+                 "%s.after_close",
+                 prefix) >= (int)sizeof(child_prefix) ||
+        append_qipcrtr_protocol_summary(buf, child_prefix) < 0 ||
+        append_format(buf, "%s.end=1\n", prefix) < 0) {
+        return -1;
+    }
+    return 0;
+}
+
 static int wait_for_service74_gate(struct buffer *buf,
                                    unsigned int baseline_count_74,
                                    bool baseline_available,
@@ -38046,6 +38463,13 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
     }
     if (wlan_pd_post_pm_lower_state_observer &&
         append_wlan_pd_qipcrtr_local_node_bind_state_snapshot(stdout_buf, "net_window") < 0) {
+        stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
+        composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+        stop_property_service_shim(&property_shim, paths, stdout_buf);
+        return -1;
+    }
+    if (wlan_pd_post_pm_lower_state_observer &&
+        append_wlan_pd_qipcrtr_bound_recv_poll_state_snapshot(stdout_buf, "net_window") < 0) {
         stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
         composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
         stop_property_service_shim(&property_shim, paths, stdout_buf);
