@@ -17610,3 +17610,63 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
     no `/dev/subsys_esoc0` open, no fake-ONLINE, no eSoC notify/BOOT_DONE, no
     PCI rescan/bind, no platform unbind, no PMIC/GPIO/GDSC writes, no Wi-Fi
     HAL, no scan/connect, no credentials, no DHCP/routes, and no external ping.
+
+## V1812 service-notifier 74 gap classifier (2026-06-03)
+
+- V1812 ran host-only over V1811 klog handoff evidence and Android-positive
+  service-notifier baselines.
+
+  Evidence:
+
+  - classifier:
+    `scripts/revalidation/native_wifi_service74_gap_classifier_v1812.py`;
+  - report:
+    `docs/reports/NATIVE_INIT_V1812_SERVICE74_GAP_CLASSIFIER_2026-06-03.md`;
+  - manifest:
+    `tmp/wifi/v1812-service74-gap-classifier/manifest.json`;
+  - source evidence:
+    `tmp/wifi/v1811-post-pm-lower-handoff-klog-handoff/manifest.json`;
+  - Android baselines:
+    `tmp/wifi/v739-mdm3-wlanpd-delta/manifest.json`,
+    `tmp/wifi/v852-android-ext-mdm-provider-surface-handoff/v852-android-ext-mdm-provider-surface-run/manifest.json`;
+  - decision:
+    `v1812-native-service180-present-service74-absent-uninit-host-pass`.
+
+  Key findings:
+
+  - native V1811 labels are `servnotif-klog-progress-still-uninit`,
+    `pm-client-return-success`, and `stable-mdm3-offlining`;
+  - PM-client register/connect/return rc values remain `0/0/0`;
+  - native klog contract/safety are `True/True`;
+  - native klog counts are `sysmon_qmi=1,1,1`, service-notifier `180=1,1,1`,
+    and service-notifier `74=0,0,0`;
+  - native service-notifier state remains early/late `uninit` with indications
+    `0/0`;
+  - native remains `mdm3=OFFLINING`, MHI absent, WLFW service 69 absent, and
+    `wlan0` absent;
+  - Android V622 has service-notifier 180/74, wlan_pd, ACK, WLFW, and
+    qmi-server counts `1/1/2/1/1/1`, with SN180→wlan_pd `2427.362 ms` and
+    SN180→WLFW `1415.75 ms`.
+
+  Interpretation:
+
+  - the active native gap is no longer PM-client return, sysmon_qmi, or
+    service-notifier 180 publication;
+  - native lacks service-notifier 74/wlan_pd continuation and remains in QRTR
+    service-notifier `uninit`;
+  - Wi-Fi HAL, scan/connect, credentials, DHCP/routes, and external ping remain
+    invalid because WLFW service 69 and `wlan0` are still absent.
+
+  Next candidate:
+
+  - V1813 should be source/build-only first and add the smallest read-only
+    discriminator for service-notifier 74 absence versus parser/visibility
+    miss;
+  - candidate fields: raw bounded klog line capture for service-notifier 180/74
+    matches, parser pattern counters for each service-notifier spelling, and
+    QRTR service-notifier listener state/indication timing around the Android
+    SN180→wlan_pd 0-3s window;
+  - still do not add actors, `boot_wlan`, restart-PD, `/dev/subsys_esoc0`
+    open, fake-ONLINE, eSoC notify/BOOT_DONE, PCI rescan/bind, platform
+    unbind, PMIC/GPIO/GDSC writes, Wi-Fi HAL, scan/connect, credentials,
+    DHCP/routes, or external ping.
