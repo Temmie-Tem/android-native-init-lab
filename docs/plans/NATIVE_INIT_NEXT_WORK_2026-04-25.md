@@ -16773,3 +16773,66 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
     unreliable;
   - do not repair `/dev/subsys_esoc0`, synthesize PM records, start Wi-Fi HAL,
     scan/connect, configure DHCP/routes, or external ping from V1798 alone.
+
+## V1799 PM-service devnode access live handoff (2026-06-03)
+
+- V1799 ran one rollbackable live gate with the V1798 devnode access observer
+  and stopped at the fixed `both-devnodes-absent` label.
+
+  Evidence:
+
+  - runner:
+    `scripts/revalidation/native_wifi_pm_service_devnode_access_handoff_v1799.py`;
+  - report:
+    `docs/reports/NATIVE_INIT_V1799_PM_SERVICE_DEVNODE_ACCESS_HANDOFF_2026-06-03.md`;
+  - evidence directory:
+    `tmp/wifi/v1799-pm-service-devnode-access-handoff`;
+  - decision:
+    `v1799-both-devnodes-absent-rollback-pass`;
+  - rollback:
+    `from-native`, verified back to `stage3/boot_linux_v724.img` with
+    selftest `fail=0`.
+
+  Key findings:
+
+  - `subsys_esoc0`: `access_f_ok=0`, `access_errno=2`, `lstat_ok=0`,
+    `lstat_errno=2`, `char_device=0`;
+  - `subsys_modem`: `access_f_ok=0`, `access_errno=2`, `lstat_ok=0`,
+    `lstat_errno=2`, `char_device=0`;
+  - PM-service still discovered `SDX50M` and `modem` with first/second count
+    `2` / `0`;
+  - add-peripheral entry/init-fail/list-commit hits were `2` / `2` / `0`;
+  - PM register still requested `modem` and hit the no-peripheral branch;
+  - route health remained provider-visible with `pm_proxy_helper`, `pm-service`,
+    `tftp_server`, and `cnss-daemon` ready/running.
+
+  Interpretation:
+
+  - the PM-service blocker is now a private Android `/dev` projection gap for
+    both candidate records, not source-list discovery;
+  - repairing only `subsys_modem` is not sufficient, because PM-service first
+    loop attempts both `SDX50M` (`/dev/subsys_esoc0`) and `modem`
+    (`/dev/subsys_modem`);
+  - the next unit can be source/build-only: add scoped private-dev projection
+    for both PM-service candidate char nodes before `pm-service` starts, still
+    with no `/dev/subsys_esoc0` open and no Wi-Fi HAL escalation.
+
+  Safety:
+
+  - no `/dev/subsys_esoc0` open, no PM-service devnode repair in the live run,
+    no forced RC1, fake-ONLINE, PMIC/GPIO/GDSC write, eSoC notify, BOOT_DONE
+    spoof, PCI rescan, platform bind/unbind, restart-PD request, full
+    `pm-proxy`, `boot_wlan`, Wi-Fi HAL, scan/connect, credentials, DHCP/routes,
+    or external ping;
+  - mutation scope was serial private-property staging on `/mnt/sdext`, one test
+    boot flash, and rollback to `stage3/boot_linux_v724.img`.
+
+  Next candidate:
+
+  - V1800 should stay source/build-only: build a scoped private-dev projection
+    artifact for `subsys_esoc0` and `subsys_modem` plus the same no-open
+    observer fields;
+  - V1801 can then run one rollbackable live gate and stop at PM-service list
+    commit/progress vs new blocker;
+  - do not open `/dev/subsys_esoc0`, start Wi-Fi HAL, scan/connect, configure
+    DHCP/routes, or external ping from V1799 alone.
