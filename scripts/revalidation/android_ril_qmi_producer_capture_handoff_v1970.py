@@ -154,6 +154,7 @@ PIDS="$OUT/observer-pids.txt"
 QRTR_PIDS="$OUT/qrtr-pids.txt"
 PROC_SNAP="$OUT/proc-snapshots.txt"
 POLICY_LOG="$OUT/policy.log"
+QRTR_STARTED=0
 
 write_status() {{
   now="$(cat /proc/uptime 2>/dev/null | cut -d' ' -f1)"
@@ -258,6 +259,19 @@ run_qrtr_matrix() {{
   event "qrtr_matrix_end label=$label"
 }}
 
+all_required_attached() {{
+  [ -e "$OUT/rild.attached" ] && [ -e "$OUT/cnss_daemon.attached" ] && [ -e "$OUT/pm_service.attached" ]
+}}
+
+maybe_start_qrtr_matrix() {{
+  label="$1"
+  [ "$QRTR_STARTED" = "0" ] || return 0
+  QRTR_STARTED=1
+  run_qrtr_matrix "$label" &
+  echo "qrtr_matrix_$label 0 $!" >> "$QRTR_PIDS"
+  event "qrtr_matrix_background_started label=$label pid=$!"
+}}
+
 dump_props() {{
   for p in sys.boot_completed dev.bootcomplete init.svc.ril-daemon init.svc.vendor.ril-daemon init.svc.vendor.ril-daemon1 init.svc.vendor.ril-daemon2 init.svc.vendor.per_mgr init.svc.vendor.pm-service init.svc.cnss-daemon init.svc.vendor.rmt_storage init.svc.vendor.tftp_server ro.boottime.ril-daemon ro.boottime.vendor.ril-daemon ro.boottime.vendor.per_mgr ro.boottime.vendor.pm-service ro.boottime.cnss-daemon ro.boottime.vendor.rmt_storage ro.boottime.vendor.tftp_server; do
     echo "$p=$(getprop "$p" 2>/dev/null)"
@@ -302,10 +316,12 @@ while [ "$i" -lt "$SAMPLES" ]; do
   attach_once rild rild
   attach_once cnss_daemon cnss-daemon
   attach_once pm_service pm-service
+  if all_required_attached; then
+    maybe_start_qrtr_matrix "post-attach-$i"
+  fi
   case "$i" in
-    6|28|72)
-      run_qrtr_matrix "sample-$i" &
-      echo "qrtr_matrix_$i 0 $!" >> "$QRTR_PIDS"
+    160)
+      maybe_start_qrtr_matrix "fallback-$i"
       ;;
   esac
   i=$((i + 1))
@@ -486,6 +502,16 @@ def count_lines(text: str, pattern: str | re.Pattern[str]) -> int:
     return sum(1 for line in text.splitlines() if regex.search(line))
 
 
+def parse_attach_times(events: str) -> dict[str, float]:
+    attach_times: dict[str, float] = {}
+    regex = re.compile(r"A90_V1970_EVENT uptime=([0-9.]+) attached label=(\S+)")
+    for line in events.splitlines():
+        match = regex.search(line)
+        if match:
+            attach_times[match.group(2)] = float(match.group(1))
+    return attach_times
+
+
 def parse_qrtr_file(path: Path) -> dict[str, Any]:
     text = read_file(path, limit=1_000_000)
     values: dict[str, str] = {}
@@ -525,11 +551,17 @@ def analyze_pulled_evidence(store: EvidenceStore) -> dict[str, Any]:
     props = read_file(base / "props.txt")
     policy = read_file(base / "policy.log")
     launch = read_file(base / "strace-launch.log")
+    attach_times = parse_attach_times(events)
     combined_dmesg = "\n".join(part for part in (dmesg_full, dmesg_live, read_file(root / "host-dmesg-filtered.txt")) if part)
     wlanpd_up_time = first_dmesg_time(combined_dmesg, WLAN_PD_UP_RE)
     pcie_mhi_time = first_dmesg_time(combined_dmesg, PCIE_MHI_RE)
     normal_android_window = wlanpd_up_time is not None and wlanpd_up_time <= 90.0 and (
         pcie_mhi_time is None or pcie_mhi_time > wlanpd_up_time
+    )
+    required_labels = ("rild", "cnss_daemon", "pm_service")
+    producer_window_strace = bool(
+        wlanpd_up_time is not None
+        and all((attach_times.get(label) is not None and attach_times[label] <= wlanpd_up_time) for label in required_labels)
     )
     strace: dict[str, dict[str, Any]] = {}
     for label in ("rild", "cnss_daemon", "pm_service"):
@@ -580,10 +612,12 @@ def analyze_pulled_evidence(store: EvidenceStore) -> dict[str, Any]:
         "props_text": props.strip(),
         "policy_excerpt": policy[-8000:],
         "strace_launch_excerpt": launch[-8000:],
+        "attach_times": attach_times,
         "dmesg": {
             "wlanpd_up_time": wlanpd_up_time,
             "first_pcie_mhi_time": pcie_mhi_time,
             "normal_android_window": normal_android_window,
+            "producer_window_strace": producer_window_strace,
             "wlanpd_up_lines": count_lines(combined_dmesg, WLAN_PD_UP_RE),
             "wlfw_lines": count_lines(combined_dmesg + "\n" + logcat_dump, WLFW_RE),
             "bdf_lines": count_lines(combined_dmesg + "\n" + logcat_dump, r"BDF file|regdb\.bin|bdwlan\.bin"),
@@ -640,6 +674,13 @@ def classify_result(base_decision: str,
             "capture did not prove normal early wlan_pd UP before any PCIe/MHI path",
             "reject-degraded-window",
         )
+    if not dmesg.get("producer_window_strace"):
+        return (
+            "v1970-strace-attached-after-wlanpd-up-rollback-pass",
+            False,
+            "normal Android wlan_pd UP was anchored, but required straces attached after the producer window",
+            "producer-window-missed",
+        )
     strace = analysis.get("strace") or {}
     strace_complete = all((strace.get(label) or {}).get("present") for label in ("rild", "cnss_daemon", "pm_service"))
     qrtr_targeted = ((analysis.get("qrtr") or {}).get("targeted_service_events") or {})
@@ -691,6 +732,7 @@ def render_summary(manifest: dict[str, Any]) -> str:
     dmesg = analysis.get("dmesg") or {}
     strace = analysis.get("strace") or {}
     qrtr = analysis.get("qrtr") or {}
+    attach_times = analysis.get("attach_times") or {}
     strace_stats = {
         label: {
             key: value
@@ -720,8 +762,10 @@ def render_summary(manifest: dict[str, Any]) -> str:
                 ["field", "value"],
                 [
                     ["wlan_pd UP time", dmesg.get("wlanpd_up_time")],
+                    ["attach times", json.dumps(attach_times, sort_keys=True)],
                     ["first PCIe/MHI time", dmesg.get("first_pcie_mhi_time")],
                     ["normal Android window", dmesg.get("normal_android_window")],
+                    ["producer-window strace", dmesg.get("producer_window_strace")],
                     ["wlan_pd/WLFW/wlan0 lines", f"{dmesg.get('wlanpd_up_lines')}/{dmesg.get('wlfw_lines')}/{dmesg.get('wlan0_lines')}"],
                     ["strace rild", json.dumps(strace_stats.get("rild") or {}, sort_keys=True)],
                     ["strace cnss-daemon", json.dumps(strace_stats.get("cnss_daemon") or {}, sort_keys=True)],
@@ -741,8 +785,8 @@ def render_summary(manifest: dict[str, Any]) -> str:
             "",
             "## Next",
             "",
-            "- Decode the raw rild/cnss-daemon/pm-service QMI payloads offline; use Frida only if the strace payloads are fragmented or undecodable.",
-            "- Compare the decoded Android DMS/NAS/WDS sequence against native only after this new capture is established.",
+            "- Use V1971 for the decoded post-UP RIL DMS/NAS payloads from this capture.",
+            "- For a decisive producer-side trace, rerun with strace attached before the QRTR matrix so `rild`, `cnss-daemon`, and `pm-service` are attached before `wlan_pd` UP.",
             "",
             "## Steps",
             "",

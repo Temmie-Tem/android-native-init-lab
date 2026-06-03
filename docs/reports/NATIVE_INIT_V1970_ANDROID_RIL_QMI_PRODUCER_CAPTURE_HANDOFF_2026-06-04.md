@@ -1,11 +1,11 @@
 # V1970 Android RIL/QMI Producer Capture Handoff
 
-- generated: `2026-06-03T20:18:09.106547+00:00`
+- generated: `2026-06-03T20:25:50.490032+00:00`
 - command: `run`
-- decision: `v1970-android-ril-qmi-producer-capture-complete-rollback-pass`
-- label: `android-ril-qmi-producer-capture-complete`
-- pass: `True`
-- reason: normal Android wlan_pd UP anchored; rild/cnss/pm-service strace and WDS/DMS/NAS QRTR enumeration captured; native rollback selftest fail=0
+- decision: `v1970-strace-attached-after-wlanpd-up-rollback-pass`
+- label: `producer-window-missed`
+- pass: `False`
+- reason: normal Android wlan_pd UP was anchored, but required straces attached after the producer window
 - evidence: `/home/temmie/dev/A90_5G_rooting/tmp/wifi/v1970-android-ril-qmi-producer-capture-handoff`
 - native rollback selftest fail=0: `True`
 - base decision: `v1970-host-corrected-evidence-captured-rollback-pass`
@@ -16,8 +16,10 @@
 | field | value |
 | --- | --- |
 | wlan_pd UP time | 44.573169 |
+| attach times | {"cnss_daemon": 46.42, "pm_service": 47.44, "rild": 48.68} |
 | first PCIe/MHI time | None |
 | normal Android window | True |
+| producer-window strace | False |
 | wlan_pd/WLFW/wlan0 lines | 1/3/9 |
 | strace rild | {"lines": 207, "present": true, "qipcrtr_lines": 139, "recv_lines": 144, "send_lines": 59} |
 | strace cnss-daemon | {"lines": 30, "present": true, "qipcrtr_lines": 7, "recv_lines": 21, "send_lines": 5} |
@@ -35,8 +37,8 @@ No Wi-Fi HAL start, scan/connect, credentials, DHCP/routes, external ping, `/dev
 
 ## Next
 
-- Decode the raw rild/cnss-daemon/pm-service QMI payloads offline; use Frida only if the strace payloads are fragmented or undecodable.
-- Compare the decoded Android DMS/NAS/WDS sequence against native only after this new capture is established.
+- Use V1971 for the decoded post-UP RIL DMS/NAS payloads from this capture.
+- For a decisive producer-side trace, rerun with strace attached before the QRTR matrix so `rild`, `cnss-daemon`, and `pm-service` are attached before `wlan_pd` UP.
 
 ## Steps
 
