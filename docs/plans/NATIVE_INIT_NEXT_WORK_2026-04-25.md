@@ -17009,3 +17009,65 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
   - still do not start `boot_wlan`, issue restart-PD request, open
     `/dev/subsys_esoc0`, start Wi-Fi HAL, scan/connect, configure DHCP/routes,
     or external ping from V1802 alone.
+
+## V1803 WLFW QMI readiness host classifier (2026-06-03)
+
+- V1803 reclassified V1801's rollback-verified QRTR/service-notifier raw helper
+  output and fixed the QMI readiness label as
+  `wlan-pd-servnotif-uninit-wlfw-service69-absent`.
+
+  Evidence:
+
+  - classifier:
+    `scripts/revalidation/native_wifi_wlfw_qmi_readiness_classifier_v1803.py`;
+  - report:
+    `docs/reports/NATIVE_INIT_V1803_WLFW_QMI_READINESS_CLASSIFIER_2026-06-03.md`;
+  - manifest:
+    `tmp/wifi/v1803-wlfw-qmi-readiness-classifier/manifest.json`;
+  - source evidence:
+    `tmp/wifi/v1801-pm-service-devnode-projection-handoff`;
+  - source classifier:
+    `tmp/wifi/v1802-post-pm-success-wlfw-classifier/manifest.json`;
+  - decision:
+    `v1803-wlan-pd-servnotif-uninit-wlfw-service69-absent-host-pass`.
+
+  Key findings:
+
+  - V1801 PM-service projection and PM server labels remained
+    `list-commit-progress` and `pm-server-register-success-return`;
+  - V1802 established that WLFW worker reached `wlfw_service_request` but not
+    `wlfw_ind_register_qmi` or `wlfw_cap_qmi`;
+  - service-notifier endpoint for `msm/modem/wlan_pd` was found early and late
+    at QRTR node `0` port `2`;
+  - both early and late service-notifier register responses succeeded but
+    reported `uninit` (`0x7fffffff`) with no indication and no ack;
+  - QRTR WLFW service 69 readback for instances `0` and `1` returned
+    end-of-list with `0` service events and no timeout;
+  - `wlanmdsp.mbn` request, WLFW service 69 summary, and `wlan0` remained
+    absent.
+
+  Interpretation:
+
+  - PM-service list/register repair is complete enough for the current path;
+  - the current blocker is wlan_pd/service-notifier readiness: the endpoint
+    exists but stays `uninit`, so WLFW service 69 never appears and WLFW QMI
+    sends do not start;
+  - next evidence should identify the safe prerequisite that moves
+    `msm/modem/wlan_pd` out of service-notifier `uninit` without direct eSoC,
+    restart-PD, PMIC/GPIO/GDSC, or Wi-Fi HAL actions.
+
+  Safety:
+
+  - host-only. No live device command, flash, reboot, property staging,
+    `/dev/subsys_esoc0` open, `boot_wlan`, restart-PD request, Wi-Fi HAL,
+    scan/connect, credentials, DHCP/routes, or external ping.
+
+  Next candidate:
+
+  - V1804 should stay host-only/source-build-only and classify which already
+    observed Android-native prerequisite can safely advance wlan_pd
+    service-notifier state before WLFW service 69 appears;
+  - do not use full PM trio/actor expansion, `/dev/subsys_esoc0` open,
+    fake-ONLINE, eSoC notify/BOOT_DONE, PCI rescan/bind, platform unbind, PMIC,
+    GPIO, GDSC writes, `boot_wlan`, restart-PD, Wi-Fi HAL, scan/connect,
+    DHCP/routes, or external ping from V1803 alone.
