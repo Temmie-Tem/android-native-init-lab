@@ -18164,6 +18164,74 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
   - stop after the V1828 label and do not proceed to Wi-Fi HAL/scan/connect
     unless WLFW service 69 and `wlan0` appear.
 
+## V1828 QIPCRTR auto-bind handoff (2026-06-03)
+
+- V1828 ran exactly one rollbackable live gate with the V1827 artifact and
+  classified whether local auto-bind with node/port `0/0` allocates a native
+  QRTR client endpoint without lookup/control traffic.
+
+  Evidence:
+
+  - runner:
+    `scripts/revalidation/native_wifi_qipcrtr_autobind_handoff_v1828.py`;
+  - source manifest:
+    `tmp/wifi/v1827-qipcrtr-autobind-test-boot/manifest.json`;
+  - evidence:
+    `tmp/wifi/v1828-qipcrtr-autobind-handoff`;
+  - report:
+    `docs/reports/NATIVE_INIT_V1828_QIPCRTR_AUTOBIND_HANDOFF_2026-06-03.md`;
+  - manifest:
+    `tmp/wifi/v1828-qipcrtr-autobind-handoff/manifest.json`;
+  - rollback:
+    `from-native`, `ok=True`;
+  - post-run native verification:
+    `A90 Linux init 0.9.68 (v724)`, selftest `pass=11 warn=1 fail=0`;
+  - decision:
+    `v1828-qipcrtr-autobind-fails-rollback-pass`.
+
+  Key findings:
+
+  - QIPCRTR auto-bind label:
+    `qipcrtr-autobind-fails`;
+  - AF_QIPCRTR/SOCK_DGRAM open succeeded and before-bind `getsockname`
+    returned node/port `1/0`;
+  - bind request family/node/port was `42/0/0`;
+  - bind failed with rc/errno/error `-1/22/Invalid argument`;
+  - close rc was `0`;
+  - QIPCRTR protocol table stayed present with size `1416`, but socket counts
+    remained `0/0/0` before open, while the attempted bind snapshot ran, and
+    after close;
+  - explicit non-actions remained `no_connect=1`, `no_send=1`,
+    `no_qrtr_lookup_send=1`, `no_qrtr_control_payload=1`, and
+    `no_service_start=1`;
+  - QRTR registry files remained unreadable, service74/wlan_pd stayed absent,
+    mdm3 stayed `OFFLINING`, and WLFW service 69 plus `wlan0` stayed absent;
+  - safety remained clean: no connect, send, QRTR lookup/control packet,
+    service start, direct `/dev/subsys_esoc0` open, fake-ONLINE,
+    PMIC/GPIO/GDSC write, Wi-Fi HAL, scan/connect, credentials, DHCP/routes,
+    or external ping.
+
+  Interpretation:
+
+  - local auto-bind with node `0` is not accepted by this native kernel QRTR
+    implementation;
+  - the unbound socket already reports local node `1`, so the next question is
+    whether binding to the observed local node with port `0` is the required
+    bounded endpoint-allocation form;
+  - service74/wlan_pd/WLFW/wlan0 remain absent, so Wi-Fi HAL, scan/connect,
+    credentials, DHCP/routes, and external ping are still invalid.
+
+  Next candidate:
+
+  - V1829 should be host-only first: classify V1828 and decide whether the next
+    source/build target can try local-node auto-bind using observed local node
+    `1` with port `0`, still without connect, send, service lookup, service
+    start, or QRTR control payload;
+  - if local-node auto-bind is not justified, stop QRTR socket mutation work and
+    choose a different lower publication surface;
+  - do not continue into Wi-Fi HAL/scan/connect from V1829 unless WLFW service
+    69 and `wlan0` appear and a separate connection gate is written.
+
 ## V1820 servloc domain gap classifier (2026-06-03)
 
 - V1820 stayed host-only and compared the V1819 native
