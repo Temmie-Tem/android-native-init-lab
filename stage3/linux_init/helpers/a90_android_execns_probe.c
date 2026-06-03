@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v338"
+#define EXECNS_VERSION "a90_android_execns_probe v339"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -12111,11 +12111,11 @@ static const struct pm_service_uprobe_event_spec pm_service_uprobe_events[A90_PM
     { "pm_service_init_helper_entry", "pm_service_init_helper_entry", 0x6b6cULL, NULL },
     { "pm_service_init_get_system_info_call", "pm_service_init_get_system_info_call", 0x6bc0ULL, NULL },
     { "pm_service_init_get_system_info_fail", "pm_service_init_get_system_info_fail", 0x6bc8ULL, NULL },
-    { "pm_service_init_first_count_load", "pm_service_init_first_count_load", 0x6be8ULL, NULL },
-    { "pm_service_init_first_add_peripheral_call", "pm_service_init_first_add_peripheral_call", 0x6cb4ULL, NULL },
+    { "pm_service_init_first_count_load", "pm_service_init_first_count_load", 0x6bf4ULL, "first_count=%x8" },
+    { "pm_service_init_first_add_peripheral_call", "pm_service_init_first_add_peripheral_call", 0x6cb4ULL, "record=%x1 name=+4(%x1):string devnode=+68(%x1):string off_timeout=%x2 ack_timeout=%x3 flags=%x4" },
     { "pm_service_init_first_add_peripheral_fail_log", "pm_service_init_first_add_peripheral_fail_log", 0x6cbcULL, NULL },
-    { "pm_service_init_second_count_load", "pm_service_init_second_count_load", 0x6cd4ULL, NULL },
-    { "pm_service_init_second_add_peripheral_call", "pm_service_init_second_add_peripheral_call", 0x6d9cULL, NULL },
+    { "pm_service_init_second_count_load", "pm_service_init_second_count_load", 0x6cd8ULL, "second_count=%x8" },
+    { "pm_service_init_second_add_peripheral_call", "pm_service_init_second_add_peripheral_call", 0x6d9cULL, "record=%x1 name=+4(%x1):string devnode=+68(%x1):string off_timeout=%x2 ack_timeout=%x3 flags=%x4" },
     { "pm_service_init_second_add_peripheral_fail_log", "pm_service_init_second_add_peripheral_fail_log", 0x6da4ULL, NULL },
     { "pm_service_add_peripheral_entry", "pm_service_add_peripheral_entry", 0x65ecULL, "record=%x1 name=+4(%x1):string devnode=+68(%x1):string" },
     { "pm_service_add_peripheral_known_name", "pm_service_add_peripheral_known_name", 0x663cULL, "record=%x25 name=+0(%x21):string devnode=+68(%x25):string" },
@@ -12177,8 +12177,10 @@ struct cnss_wlfw_uprobe_event_state {
     int disable_rc;
     int cleanup_rc;
     int hit_count;
+    int sample_count;
     char enable_path[MAX_PATH_LEN];
     char first_hit_line[512];
+    char sample_lines[4][512];
 };
 
 struct cnss_wlfw_uprobe_state {
@@ -12919,19 +12921,24 @@ static void pm_service_uprobe_collect_trace(struct pm_service_uprobe_state *stat
     while (fgets(line, sizeof(line), file) != NULL) {
         for (size_t i = 0; i < A90_PM_SERVICE_UPROBE_EVENT_COUNT; i++) {
             struct cnss_wlfw_uprobe_event_state *event = &state->events[i];
+            char hit_line[512];
 
             if (strstr(line, ": ") == NULL ||
                 strstr(line, pm_service_uprobe_events[i].name) == NULL) {
                 continue;
             }
+            strlcpy(hit_line, line, sizeof(hit_line));
+            sanitize_one_line(hit_line);
             event->hit_count++;
             state->hit_count++;
             if (event->first_hit_line[0] == '\0') {
-                size_t len = strlen(line);
-                while (len > 0 && (line[len - 1] == '\n' || line[len - 1] == '\r')) {
-                    line[--len] = '\0';
-                }
-                strlcpy(event->first_hit_line, line, sizeof(event->first_hit_line));
+                strlcpy(event->first_hit_line, hit_line, sizeof(event->first_hit_line));
+            }
+            if (event->sample_count < 4) {
+                strlcpy(event->sample_lines[event->sample_count],
+                        hit_line,
+                        sizeof(event->sample_lines[event->sample_count]));
+                event->sample_count++;
             }
             if (state->first_hit_line[0] == '\0') {
                 strlcpy(state->first_hit_line, event->first_hit_line, sizeof(state->first_hit_line));
@@ -13747,7 +13754,12 @@ static int append_wlan_pd_cnss_nonlog_control_flow_summary(struct buffer *stdout
                           "wlan_pd_cnss_nonlog_control_flow.pm_server_uprobe.%s.disable_rc=%d\n"
                           "wlan_pd_cnss_nonlog_control_flow.pm_server_uprobe.%s.cleanup_rc=%d\n"
                           "wlan_pd_cnss_nonlog_control_flow.pm_server_uprobe.%s.hit_count=%d\n"
-                          "wlan_pd_cnss_nonlog_control_flow.pm_server_uprobe.%s.first_hit_line=%s\n",
+                          "wlan_pd_cnss_nonlog_control_flow.pm_server_uprobe.%s.first_hit_line=%s\n"
+                          "wlan_pd_cnss_nonlog_control_flow.pm_server_uprobe.%s.sample_count=%d\n"
+                          "wlan_pd_cnss_nonlog_control_flow.pm_server_uprobe.%s.sample_line_0=%s\n"
+                          "wlan_pd_cnss_nonlog_control_flow.pm_server_uprobe.%s.sample_line_1=%s\n"
+                          "wlan_pd_cnss_nonlog_control_flow.pm_server_uprobe.%s.sample_line_2=%s\n"
+                          "wlan_pd_cnss_nonlog_control_flow.pm_server_uprobe.%s.sample_line_3=%s\n",
                           pm_service_uprobe_events[i].key,
                           pm_service_uprobe_events[i].name,
                           pm_service_uprobe_events[i].key,
@@ -13769,7 +13781,17 @@ static int append_wlan_pd_cnss_nonlog_control_flow_summary(struct buffer *stdout
                           pm_service_uprobe_events[i].key,
                           event->hit_count,
                           pm_service_uprobe_events[i].key,
-                          event->first_hit_line[0] != '\0' ? event->first_hit_line : "none") < 0) {
+                          event->first_hit_line[0] != '\0' ? event->first_hit_line : "none",
+                          pm_service_uprobe_events[i].key,
+                          event->sample_count,
+                          pm_service_uprobe_events[i].key,
+                          event->sample_lines[0][0] != '\0' ? event->sample_lines[0] : "none",
+                          pm_service_uprobe_events[i].key,
+                          event->sample_lines[1][0] != '\0' ? event->sample_lines[1] : "none",
+                          pm_service_uprobe_events[i].key,
+                          event->sample_lines[2][0] != '\0' ? event->sample_lines[2] : "none",
+                          pm_service_uprobe_events[i].key,
+                          event->sample_lines[3][0] != '\0' ? event->sample_lines[3] : "none") < 0) {
             return -1;
         }
     }

@@ -16525,3 +16525,73 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
     `list-commit-progress`;
   - do not repair `/dev/subsys_esoc0`, synthesize PM records, start Wi-Fi HAL,
     scan/connect, configure DHCP/routes, or external ping in V1795.
+
+## V1795 PM-service count/sample observer source build (2026-06-03)
+
+- V1795 built a source/build-only rollbackable test boot that keeps the V1792
+  PM register/devnode observers and adds PM-service count/sample visibility.
+
+  Evidence:
+
+  - build script:
+    `scripts/revalidation/build_native_init_wifi_test_boot_v1795.py`;
+  - report:
+    `docs/reports/NATIVE_INIT_V1795_PM_SERVICE_COUNT_SAMPLE_OBSERVER_SOURCE_BUILD_2026-06-03.md`;
+  - manifest:
+    `tmp/wifi/v1795-pm-service-count-sample-observer-test-boot/manifest.json`;
+  - boot image:
+    `tmp/wifi/v1795-pm-service-count-sample-observer-test-boot/boot_linux_v1795_pm_service_count_sample_observer.img`;
+  - decision:
+    `v1795-pm-service-count-sample-observer-source-build-pass`;
+  - boot image SHA-256:
+    `770125e97e029b365bdb14f588b6643daf6ebe2c2255f203cd6b8b95ed93974a`;
+  - helper marker/SHA-256:
+    `a90_android_execns_probe v339` /
+    `f95e2b9a7763dd420b48ef26976b58333b8793348272703581cbd941c7021d8c`.
+
+  Added observer surface:
+
+  - `pm_service_init_first_count_load` moved to value-ready offset `0x6bf4`
+    with `first_count=%x8`;
+  - `pm_service_init_second_count_load` moved to value-ready offset `0x6cd8`
+    with `second_count=%x8`;
+  - `pm_service_init_first_add_peripheral_call` now records
+    `record=%x1 name=+4(%x1):string devnode=+68(%x1):string off_timeout=%x2 ack_timeout=%x3 flags=%x4`;
+  - `pm_service_init_second_add_peripheral_call` records the same record/name/
+    devnode/timeout/flag fetchargs;
+  - each PM-service uprobe event now emits `sample_count` and
+    `sample_line_0..3`, so a two-hit first-loop can expose both candidate
+    lines rather than only `first_hit_line`.
+
+  Retained observer surface:
+
+  - `pm_server_register_no_peripheral` still records
+    `peripheral=+0(%x26):string`;
+  - add-peripheral entry/known-name/init-fail fetchargs still record
+    discovered record/name/devnode strings;
+  - helper runtime mode remains
+    `wifi-companion-wlan-pd-service-object-visible-trigger-start-only`.
+
+  Interpretation:
+
+  - V1795 does not repair PM-service devnodes or synthesize records;
+  - it is the minimal next live discriminator for the V1794 model:
+    prove whether the second first-loop sample is `modem`, and capture
+    `first_count` / `second_count` values in the same run.
+
+  Safety:
+
+  - source/build-only. No live device command, flash, reboot, Wi-Fi HAL,
+    scan/connect, credentials, DHCP/routes, external ping, PM repair,
+    `/dev/subsys_esoc0` open, eSoC/RC1 action, restart-PD request, firmware
+    write, partition write, PMIC/GPIO/GDSC write, PCI rescan, platform
+    bind/unbind, BPF attach, or tracefs write.
+
+  Next candidate:
+
+  - V1796 should run one rollbackable live gate with this V1795 artifact;
+  - fixed outcomes should stop after one label:
+    `modem-devnode-access-fail`, `sdx50m-only-first-loop`,
+    `count-fetcharg-unavailable`, or `list-commit-progress`;
+  - do not repair `/dev/subsys_esoc0`, synthesize PM records, start Wi-Fi HAL,
+    scan/connect, configure DHCP/routes, or external ping in V1796.
