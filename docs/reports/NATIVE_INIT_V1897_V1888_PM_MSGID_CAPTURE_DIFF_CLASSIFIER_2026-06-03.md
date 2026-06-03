@@ -8,21 +8,21 @@
 - Label: `android-stateup-without-msg22-log-observability-gap`
 - Result: PASS
 - Reason: Android normal state-up is present but retained capture has zero pm-service msg22 observability; native post-open still lacks msg22/WLFW/wlanmdsp
-- Evidence: `tmp/wifi/v1897-live3-v1888-validate`
+- Evidence: `tmp/wifi/v1905-android-normal-pm-msg22-edge-handoff-live-20260603-205830/v1888-parser`
 
 ## Android Capture Parse
 
-- Evidence dir: `tmp/wifi/v1897-android-normal-pm-msg22-edge-handoff-live3-20260603-193411/android-postfs-evidence/a90-v1897-pm-edge`
-- logcat/dmesg/request lines: `373` / `149` / `522`
-- PM register/vote count/time: `2` / `2` / `19:36:22.756`
-- WLFW request count/time: `1` / `19:36:22.802`
-- wlan_pd indication/ack/time: `2` / `1` / `9.622854`
-- wlanmdsp count/time: `10` / `19:36:23.429`
-- wlan0 time and contamination counts: `14.881999` / PCIe-MHI `0` / esoc-boot-failed `0` / degraded257 `False`
+- Evidence dir: `tmp/wifi/v1905-android-normal-pm-msg22-edge-handoff-live-20260603-205830/android-postfs-evidence/a90-v1897-pm-edge`
+- logcat/dmesg/request lines: `374` / `135` / `509`
+- PM register/vote count/time: `2` / `2` / `21:00:41.785`
+- WLFW request count/time: `1` / `21:00:41.832`
+- wlan_pd indication/ack/time: `2` / `1` / `9.619173`
+- wlanmdsp count/time: `10` / `21:00:42.334`
+- wlan0 time and contamination counts: `15.001322` / PCIe-MHI `0` / esoc-boot-failed `0` / degraded257 `False`
 - pm msg20/msg21/msg22 hits: `0` / `0` / `0`
 - first msg22 line: ``
-- first wlan_pd line: `[    9.622854]  [4:  kworker/u16:3:  245] service-notifier: root_service_service_ind_cb: Indication received from msm/modem/wlan_pd, state: 0x1fffffff, trans-id: 1`
-- first wlanmdsp line: `06-03 19:36:23.429  1640  2480 I tftp_server: pid=1640 tid=2480 tftp-server : INF :[tftp_server_utils.c, 113] file [readonly/vendor/firmware_mnt/image/wlanmdsp.mbn] : [/vendor/rfs/msm/mpss/readonly/vendor`
+- first wlan_pd line: `[    9.619173]  [4:  kworker/u16:2:  242] service-notifier: root_service_service_ind_cb: Indication received from msm/modem/wlan_pd, state: 0x1fffffff, trans-id: 1`
+- first wlanmdsp line: `06-03 21:00:42.334  1622  2390 I tftp_server: pid=1622 tid=2390 tftp-server : INF :[tftp_server_utils.c, 113] file [readonly/vendor/firmware_mnt/image/wlanmdsp.mbn] : [/vendor/rfs/msm/mpss/readonly/vendor`
 
 ## Native Post-open Parse
 

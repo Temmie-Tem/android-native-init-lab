@@ -8,12 +8,12 @@
 - Label: `android-stateup-pending-client-observability-gap`
 - Result: PASS
 - Reason: Android normal state-up is present, but retained capture has zero pending-client/msg22 observability; native post-open still lacks msg22/WLFW/wlanmdsp
-- Evidence: `tmp/wifi/v1897-live3-v1894-validate`
+- Evidence: `tmp/wifi/v1905-android-normal-pm-msg22-edge-handoff-live-20260603-205830/v1894-parser`
 
 ## Android Parse
 
-- Android dir: `tmp/wifi/v1897-android-normal-pm-msg22-edge-handoff-live3-20260603-193411/android-postfs-evidence/a90-v1897-pm-edge`
-- PM vote/WLFW request/wlan_pd/wlanmdsp/wlan0: `2` / `2` / `2` / `10` / `14.881999`
+- Android dir: `tmp/wifi/v1905-android-normal-pm-msg22-edge-handoff-live-20260603-205830/android-postfs-evidence/a90-v1897-pm-edge`
+- PM vote/WLFW request/wlan_pd/wlanmdsp/wlan0: `2` / `2` / `2` / `10` / `15.001322`
 - contamination: PCIe-MHI `0` / esoc-boot-failed `0` / degraded257 `False`
 - pending-client/msg22 counts: QMI-client `0` / msg22 `0` / restart-ind `0`
 - first pending-client/msg22 lines: `` / `` / ``

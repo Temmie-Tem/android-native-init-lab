@@ -135,7 +135,7 @@ def count_dmesg_before(lines: list[str], pattern: str | re.Pattern[str], before_
 
 
 def key_order(times: dict[str, float | None]) -> bool:
-    ordered = [
+    required = [
         times["ssctl_modem"],
         times["service74"],
         times["service180"],
@@ -143,7 +143,21 @@ def key_order(times: dict[str, float | None]) -> bool:
         times["wlan_pd"],
         times["wlan0"],
     ]
-    return all(value is not None for value in ordered) and ordered == sorted(ordered)
+    if not all(value is not None for value in required):
+        return False
+    ssctl_modem = times["ssctl_modem"]
+    service74 = times["service74"]
+    service180 = times["service180"]
+    wlfw_request = times["wlfw_request"]
+    wlan_pd = times["wlan_pd"]
+    wlan0 = times["wlan0"]
+    assert ssctl_modem is not None
+    assert service74 is not None
+    assert service180 is not None
+    assert wlfw_request is not None
+    assert wlan_pd is not None
+    assert wlan0 is not None
+    return ssctl_modem <= min(service74, service180) <= max(service74, service180) <= wlfw_request <= wlan_pd <= wlan0
 
 
 def parse_uprobe_summary(text: str) -> dict[str, Any]:
@@ -347,7 +361,7 @@ def classify(android: dict[str, Any], native: dict[str, Any]) -> tuple[str, bool
         return (
             "v1898-android-stateup-window-incomplete",
             False,
-            "Android normal capture does not prove the ordered internal SSCTL/service-notifier/WLFW/wlan_pd/wlan0 sequence",
+            "Android normal capture does not prove the ordered internal SSCTL/service-notifier 74+180/WLFW/wlan_pd/wlan0 phase sequence",
             "android-stateup-window-incomplete",
         )
     if not msg22_absent:
@@ -393,7 +407,7 @@ def render_report(result: dict[str, Any]) -> str:
             "",
             f"- Evidence: `{android['android_dir']}`",
             f"- V1897 decision/label/pass/rollback fail=0: `{android['v1897_decision']}` / `{android['v1897_label']}` / `{android['v1897_pass']}` / `{android['v1897_rollback_selftest_fail0']}`",
-            f"- ordered SSCTL/service74/service180/WLFW request/wlan_pd/wlan0: `{android['ordered_internal_stateup']}`",
+            f"- ordered SSCTL/service-notifier 74+180/WLFW request/wlan_pd/wlan0 phase: `{android['ordered_internal_stateup']}`",
             f"- times seconds: `{json.dumps(android['times_s'], sort_keys=True)}`",
             f"- PM vote/WLFW request/service74/service180/wlan_pd/wlanmdsp counts: `{android['pm_vote_count']}` / `{android['wlfw_request_count']}` / `{android['service74_count']}` / `{android['service180_count']}` / `{android['wlan_pd_count']}` / `{android['wlanmdsp_count']}`",
             f"- contamination pre-wlan0 PCIe-MHI/eSoC/degraded257: `{android['pcie_mhi_before_wlan0']}` / `{android['esoc_boot_failed_before_wlan0']}` / `{android['degraded_257s_like']}`",
