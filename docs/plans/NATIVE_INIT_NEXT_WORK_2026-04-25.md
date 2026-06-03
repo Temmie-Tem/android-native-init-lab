@@ -17338,3 +17338,74 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
     `pm-client-return-error`, `lower-progress`, or safety regression;
   - do not continue into Wi-Fi HAL/scan/connect, credentials, DHCP/routes, or
     external ping from V1807 source-build output alone.
+
+## V1808 PM-client return fetchargs handoff (2026-06-03)
+
+- V1808 ran one rollbackable live gate with the V1807 artifact and classified
+  PM-client return values as success while lower-state sampling stayed stalled.
+
+  Evidence:
+
+  - live runner:
+    `scripts/revalidation/native_wifi_pm_client_return_fetchargs_handoff_v1808.py`;
+  - report:
+    `docs/reports/NATIVE_INIT_V1808_PM_CLIENT_RETURN_FETCHARGS_HANDOFF_2026-06-03.md`;
+  - manifest:
+    `tmp/wifi/v1808-pm-client-return-fetchargs-handoff/manifest.json`;
+  - source boot image:
+    `tmp/wifi/v1807-pm-client-return-fetchargs-test-boot/boot_linux_v1807_pm_client_return_fetchargs.img`;
+  - decision:
+    `v1808-pm-client-return-success-still-offlining-rollback-pass`;
+  - rollback:
+    `from-native`, verified back to
+    `A90 Linux init 0.9.68 (v724)`, selftest `fail=0`.
+
+  Key findings:
+
+  - PM-service list commit remained fixed: list commit hits `2`, PM server
+    register success hits `1`;
+  - PM-client fetchargs were present and parsed;
+  - `pm_init_pm_client_register_retcheck rc=0`;
+  - `pm_init_pm_client_connect_retcheck rc=0`;
+  - `pm_init_return_path rc=0`;
+  - compact lower-state sampling again captured `13` read-only samples, all
+    `mdm3=OFFLINING`;
+  - mdm status IRQ totals stayed `0`, MHI stayed absent, WLFW service 69 stayed
+    absent, `wlanmdsp` request stayed absent, and `wlan0` stayed absent.
+
+  Interpretation:
+
+  - PM-service list/register and `cnss-daemon` PM-client register/connect are
+    not returning an immediate error;
+  - the blocker is now below a successful PM-client connect return, in the
+    lower subsystem handoff that should move ext-sdx50m/mdm3 from `OFFLINING`
+    toward wlan_pd UP/WLFW service 69;
+  - Wi-Fi HAL, scan/connect, credentials, DHCP/routes, and external ping remain
+    invalid because there is still no WLFW service 69 or `wlan0`.
+
+  Safety:
+
+  - one test boot flash plus rollback only. No `/dev/subsys_esoc0` open,
+    fake-ONLINE, eSoC notify/BOOT_DONE, PCI rescan/bind, platform unbind,
+    PMIC/GPIO/GDSC writes, `boot_wlan`, restart-PD request, Wi-Fi HAL,
+    scan/connect, credentials, DHCP/routes, or external ping.
+
+  Note:
+
+  - the live run completed and rolled back successfully. The report was
+    regenerated from the same rollback-verified evidence after adding a derived
+    lower-state label; no second live flash was run for that report-only fix.
+
+  Next candidate:
+
+  - V1809 should stay host-only/source-build-only first and compare Android
+    positive lower handoff timing/surfaces against V1808 now that PM-client
+    return values are proven zero;
+  - candidate read-only surfaces: service-notifier state transition timing,
+    sysmon/subsys state files around ext-sdx50m/mdm3, QRTR service-notifier
+    indication paths, and PM-service/client state outputs that do not require
+    opening `/dev/subsys_esoc0`;
+  - continue to block direct `/dev/subsys_esoc0` open, restart-PD,
+    fake-ONLINE, eSoC notify/BOOT_DONE, PCI rescan/bind, platform unbind,
+    PMIC/GPIO/GDSC writes, `boot_wlan`, Wi-Fi HAL, scan/connect,
+    DHCP/routes, and external ping.
