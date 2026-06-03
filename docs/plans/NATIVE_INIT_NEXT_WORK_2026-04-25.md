@@ -17409,3 +17409,72 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
     fake-ONLINE, eSoC notify/BOOT_DONE, PCI rescan/bind, platform unbind,
     PMIC/GPIO/GDSC writes, `boot_wlan`, Wi-Fi HAL, scan/connect,
     DHCP/routes, and external ping.
+
+## V1809 PM-client-success lower-handoff classifier (2026-06-03)
+
+- V1809 ran a host-only classifier over V1808 PM-client return evidence and
+  Android-positive lower-handoff baselines.
+
+  Evidence:
+
+  - classifier:
+    `scripts/revalidation/native_wifi_pm_client_success_lower_handoff_classifier_v1809.py`;
+  - report:
+    `docs/reports/NATIVE_INIT_V1809_PM_CLIENT_SUCCESS_LOWER_HANDOFF_CLASSIFIER_2026-06-03.md`;
+  - manifest:
+    `tmp/wifi/v1809-pm-client-success-lower-handoff-classifier/manifest.json`;
+  - source evidence:
+    `tmp/wifi/v1808-pm-client-return-fetchargs-handoff/manifest.json`;
+  - Android-positive baselines:
+    `tmp/wifi/v739-mdm3-wlanpd-delta/manifest.json`,
+    `tmp/wifi/v852-android-ext-mdm-provider-surface-handoff/v852-android-ext-mdm-provider-surface-run/manifest.json`;
+  - decision:
+    `v1809-pm-client-success-servnotif-uninit-lower-handoff-missing-host-pass`.
+
+  Key findings:
+
+  - V1808 proves PM-service list commit `2`, PM server register success `1`,
+    and PM-client register/connect/return rc values `0/0/0`;
+  - native lower state remains `mss=ONLINE` and `mdm3=OFFLINING`;
+  - early and late wlan_pd service-notifier listener both find endpoint node
+    `0` port `2`, return success, report state `uninit` (`0x7fffffff`), and
+    produce no indication or ACK;
+  - QRTR readback for WLFW service 69 instances `0` and `1` returns zero
+    service events with end-of-list;
+  - native still has no MHI, no `wlanmdsp` request, no WLFW service 69, and no
+    `wlan0`;
+  - Android-positive V622 has service-notifier 180/74 counts `1/1`, wlan_pd
+    count `2`, wlan_pd ACK `1`, WLFW start `1`, and qmi-server-connected `1`;
+  - Android timing places service-notifier 180 about `30.43 ms` after sysmon
+    modem, wlan_pd about `2427.362 ms` after service-notifier 180, and qmi
+    server about `2.509 ms` after wlan_pd.
+
+  Interpretation:
+
+  - the active blocker is no longer PM-service list/register or PM-client
+    return values;
+  - the blocker is below successful PM-client connect: native does not move
+    wlan_pd service-notifier state out of `uninit`, so mdm3/ext-sdx50m never
+    reaches the Android-good wlan_pd/WLFW/`wlan0` continuation;
+  - Wi-Fi HAL, scan/connect, credentials, DHCP/routes, and external ping remain
+    invalid until WLFW service 69 and `wlan0` exist.
+
+  Safety:
+
+  - host-only. No live device command, flash, reboot, property staging,
+    `/dev/subsys_esoc0` open, `boot_wlan`, restart-PD request, Wi-Fi HAL,
+    scan/connect, credentials, DHCP/routes, or external ping.
+
+  Next candidate:
+
+  - V1810 should be source/build-only first: add a read-only post-PM-client
+    lower-handoff observer focused on service-notifier/sysmon/subsys state
+    transition surfaces after the proven rc `0` PM-client connect;
+  - candidate fields: service-notifier state samples for wlan_pd over the
+    Android-good 0-3s window, sysmon/subsys state deltas for modem/mdm3/esoc0,
+    QRTR service 66 indication timing, and debugfs service_notifier entries if
+    present;
+  - keep hard stops: no direct `/dev/subsys_esoc0` open, no restart-PD,
+    fake-ONLINE, eSoC notify/BOOT_DONE, PCI rescan/bind, platform unbind,
+    PMIC/GPIO/GDSC writes, `boot_wlan`, Wi-Fi HAL, scan/connect,
+    DHCP/routes, credentials, or external ping.
