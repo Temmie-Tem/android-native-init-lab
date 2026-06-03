@@ -16659,3 +16659,53 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
     `SDX50M` and `modem` init fail before list commit;
   - do not repair `/dev/subsys_esoc0` or synthesize PM records until that
     discriminator identifies the minimal safe parity gap.
+
+## V1797 PM-service dual-devnode access classifier (2026-06-03)
+
+- V1797 joined V1796 live evidence with the V1789 static add-peripheral model
+  and confirmed the fixed dual-devnode access-gate label.
+
+  Evidence:
+
+  - script:
+    `scripts/revalidation/native_wifi_pm_service_dual_devnode_access_classifier_v1797.py`;
+  - report:
+    `docs/reports/NATIVE_INIT_V1797_PM_SERVICE_DUAL_DEVNODE_ACCESS_CLASSIFIER_2026-06-03.md`;
+  - manifest:
+    `tmp/wifi/v1797-pm-service-dual-devnode-access-classifier/manifest.json`;
+  - decision:
+    `v1797-pm-dual-devnode-access-gate-host-pass`;
+  - label:
+    `pm-dual-devnode-access-gate`.
+
+  Key findings:
+
+  - V1796 live evidence showed `first_count=2`, `second_count=0`;
+  - first-loop and init-fail names were exactly `SDX50M,modem`;
+  - add-peripheral entry/init-fail/list-commit hits were `2` / `2` / `0`;
+  - V1789 static evidence maps add-peripheral failure to `access(F_OK)` on the
+    discovered record devnode at record offset `0x44`;
+  - both the static `SDX50M` row and static `modem` row are enabled.
+
+  Interpretation:
+
+  - both primary candidates fail at the same PM-service devnode access gate
+    before supported-list insertion;
+  - repairing only one candidate path is not justified;
+  - the next unit should derive a no-open access-parity observer or source plan
+    for both candidates before any devnode materialization or PM repair.
+
+  Safety:
+
+  - host-only. No live device command, flash, reboot, Wi-Fi HAL, scan/connect,
+    credentials, DHCP/routes, external ping, PM repair, devnode open,
+    eSoC/RC1 action, restart-PD request, firmware write, partition write,
+    PMIC/GPIO/GDSC write, PCI rescan, platform bind/unbind, BPF attach, or
+    tracefs write.
+
+  Next candidate:
+
+  - V1798 should stay source/build-only or host-only: define the minimal safe
+    read-only access-parity discriminator for `SDX50M` and `modem`;
+  - do not repair `/dev/subsys_esoc0`, synthesize PM records, start Wi-Fi HAL,
+    scan/connect, configure DHCP/routes, or external ping from V1797 alone.
