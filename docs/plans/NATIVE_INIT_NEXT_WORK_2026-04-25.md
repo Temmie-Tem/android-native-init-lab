@@ -17733,3 +17733,71 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
     `service74-progress`, or `safety-regression`;
   - do not continue into Wi-Fi HAL/scan/connect from V1814 unless WLFW service
     69 and `wlan0` appear and a separate connection gate is written.
+
+## V1814 service-notifier 74 raw-klog handoff (2026-06-03)
+
+- V1814 ran exactly one rollbackable live gate with the V1813 artifact and
+  classified whether service-notifier 74 was truly absent or only missed by
+  the exact parser.
+
+  Evidence:
+
+  - runner:
+    `scripts/revalidation/native_wifi_service74_raw_klog_handoff_v1814.py`;
+  - source manifest:
+    `tmp/wifi/v1813-service74-raw-klog-test-boot/manifest.json`;
+  - evidence:
+    `tmp/wifi/v1814-service74-raw-klog-handoff`;
+  - report:
+    `docs/reports/NATIVE_INIT_V1814_SERVICE74_RAW_KLOG_HANDOFF_2026-06-03.md`;
+  - manifest:
+    `tmp/wifi/v1814-service74-raw-klog-handoff/manifest.json`;
+  - rollback:
+    `from-native`, `ok=True`;
+  - post-run native verification:
+    `A90 Linux init 0.9.68 (v724)`, selftest `pass=11 warn=1 fail=0`;
+  - decision:
+    `v1814-service74-raw-absent-rollback-pass`.
+
+  Key findings:
+
+  - service74 raw klog label: `service74-raw-absent`;
+  - PM-client label remains `pm-client-return-success`;
+  - lower handoff label remains `servnotif-klog-progress-still-uninit`;
+  - lower-state label remains `stable-mdm3-offlining`;
+  - raw service-notifier/new-server/QMI-handle counts are `1,1,1` /
+    `1,1,1` / `2,2,2`;
+  - raw service180/service74/wlan_pd text counts are `1,1,1` / `0,0,0` /
+    `0,0,0`;
+  - exact service180/service74 counts are `1,1,1` / `0,0,0`;
+  - last service180 line confirms
+    `service_notifier_new_server: Connection established ... 180 service`;
+  - early/late service-notifier listener state remains `uninit`, indications
+    `0/0`;
+  - mdm3 remains `OFFLINING`, MHI absent, WLFW service 69 absent, and `wlan0`
+    absent;
+  - safety remained clean: no direct `/dev/subsys_esoc0` open, no fake-ONLINE,
+    no PMIC/GPIO/GDSC write, no Wi-Fi HAL, no scan/connect, no credentials,
+    no DHCP/routes, and no external ping.
+
+  Interpretation:
+
+  - service-notifier 74 is not a parser miss in the V1814 window; raw `74
+    service` text is also absent;
+  - the active blocker is now the missing wlan_pd/service-notifier 74
+    publication after sysmon_qmi and service-notifier 180 are already present;
+  - Wi-Fi HAL, scan/connect, credentials, DHCP/routes, and external ping remain
+    invalid because WLFW service 69 and `wlan0` are absent.
+
+  Next candidate:
+
+  - V1815 should stay source/build-only first and add a read-only lower
+    publication precondition observer for why wlan_pd/service-notifier 74 never
+    publishes;
+  - candidate fields: bounded raw klog counters/last lines for `wlan_pd`,
+    `pd-mapper`, `subsys`, `pil`, `qmi`, `wlfw`, and service-notifier around
+    the post-service180 0-3s window, plus existing QRTR listener timing;
+  - still do not add actors, `boot_wlan`, restart-PD, `/dev/subsys_esoc0`
+    open, fake-ONLINE, eSoC notify/BOOT_DONE, PCI rescan/bind, platform
+    unbind, PMIC/GPIO/GDSC writes, Wi-Fi HAL, scan/connect, credentials,
+    DHCP/routes, or external ping.
