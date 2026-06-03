@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v360"
+#define EXECNS_VERSION "a90_android_execns_probe v361"
 
 #ifndef A90_EXECNS_ENABLE_DELAYED_LOWER_RESPONSE_WINDOW
 #define A90_EXECNS_ENABLE_DELAYED_LOWER_RESPONSE_WINDOW 0
@@ -12046,6 +12046,8 @@ struct cnss_nonlog_maps_summary {
 #define A90_CNSS_PERIPHERAL_UPROBE_EVENT_COUNT 25
 #define A90_PM_SERVICE_UPROBE_TARGET_COUNT 3
 #define A90_PM_SERVICE_UPROBE_EVENT_COUNT 46
+#define A90_LIBQMI_CCI_UPROBE_TARGET_COUNT 4
+#define A90_LIBQMI_CCI_UPROBE_EVENT_COUNT 16
 
 struct cnss_wlfw_uprobe_event_spec {
     const char *name;
@@ -12347,6 +12349,44 @@ enum pm_service_uprobe_event_index {
     PM_SERVICE_UPROBE_POST_ACK_OPEN_SUCCESS_COUNTER = 45,
 };
 
+static const struct pm_service_uprobe_event_spec libqmi_cci_uprobe_events[A90_LIBQMI_CCI_UPROBE_EVENT_COUNT] = {
+    { "libqmi_client_init_instance_entry", "libqmi_client_init_instance_entry", 0x7824ULL, "svc=%x0 instance=%x1 ind_cb=%x2 ind_data=%x3 os_params=%x4 timeout=%x5 handle=%x6" },
+    { "libqmi_initial_get_service_instance_ret", "libqmi_initial_get_service_instance_ret", 0x78a0ULL, "rc=%x0" },
+    { "libqmi_initial_client_init_ret", "libqmi_initial_client_init_ret", 0x78c0ULL, "rc=%x0" },
+    { "libqmi_notifier_init_call", "libqmi_notifier_init_call", 0x78ecULL, "svc=%x0 signal=%x1 handle_out=%x2" },
+    { "libqmi_notifier_init_ret", "libqmi_notifier_init_ret", 0x78f0ULL, "rc=%x0" },
+    { "libqmi_wait_call", "libqmi_wait_call", 0x7904ULL, "signal=%x0 timeout=%x1" },
+    { "libqmi_wait_return", "libqmi_wait_return", 0x7908ULL, NULL },
+    { "libqmi_loop_get_service_instance_ret", "libqmi_loop_get_service_instance_ret", 0x7924ULL, "rc=%x0" },
+    { "libqmi_loop_client_init_ret", "libqmi_loop_client_init_ret", 0x7944ULL, "rc=%x0" },
+    { "libqmi_init_timeout_path", "libqmi_init_timeout_path", 0x7954ULL, NULL },
+    { "libqmi_init_return", "libqmi_init_return", 0x7970ULL, "rc=%x26" },
+    { "libqmi_signal_wait_entry", "libqmi_signal_wait_entry", 0x7e74ULL, "signal=%x0 timeout=%x1" },
+    { "libqmi_signal_wait_timedwait", "libqmi_signal_wait_timedwait", 0x7fb8ULL, NULL },
+    { "libqmi_signal_wait_timeout_store", "libqmi_signal_wait_timeout_store", 0x7fc8ULL, NULL },
+    { "libqmi_xport_new_server_entry", "libqmi_xport_new_server_entry", 0x48e8ULL, "xport=%x0" },
+    { "libqmi_xport_new_server_signal", "libqmi_xport_new_server_signal", 0x496cULL, NULL },
+};
+
+enum libqmi_cci_uprobe_event_index {
+    LIBQMI_CCI_UPROBE_CLIENT_INIT_INSTANCE_ENTRY = 0,
+    LIBQMI_CCI_UPROBE_INITIAL_GET_SERVICE_INSTANCE_RET = 1,
+    LIBQMI_CCI_UPROBE_INITIAL_CLIENT_INIT_RET = 2,
+    LIBQMI_CCI_UPROBE_NOTIFIER_INIT_CALL = 3,
+    LIBQMI_CCI_UPROBE_NOTIFIER_INIT_RET = 4,
+    LIBQMI_CCI_UPROBE_WAIT_CALL = 5,
+    LIBQMI_CCI_UPROBE_WAIT_RETURN = 6,
+    LIBQMI_CCI_UPROBE_LOOP_GET_SERVICE_INSTANCE_RET = 7,
+    LIBQMI_CCI_UPROBE_LOOP_CLIENT_INIT_RET = 8,
+    LIBQMI_CCI_UPROBE_INIT_TIMEOUT_PATH = 9,
+    LIBQMI_CCI_UPROBE_INIT_RETURN = 10,
+    LIBQMI_CCI_UPROBE_SIGNAL_WAIT_ENTRY = 11,
+    LIBQMI_CCI_UPROBE_SIGNAL_WAIT_TIMEDWAIT = 12,
+    LIBQMI_CCI_UPROBE_SIGNAL_WAIT_TIMEOUT_STORE = 13,
+    LIBQMI_CCI_UPROBE_XPORT_NEW_SERVER_ENTRY = 14,
+    LIBQMI_CCI_UPROBE_XPORT_NEW_SERVER_SIGNAL = 15,
+};
+
 struct cnss_wlfw_uprobe_target_probe {
     int access_rc;
     int access_errno;
@@ -12486,6 +12526,41 @@ struct pm_service_uprobe_state {
 
 static struct pm_service_uprobe_state g_pm_service_uprobe_state;
 static bool g_pm_service_uprobe_atexit_registered;
+
+struct libqmi_cci_uprobe_state {
+    bool arm_attempted;
+    bool tracefs_available;
+    bool stale_cleanup_attempted;
+    bool clear_trace_attempted;
+    bool register_attempted;
+    bool registered;
+    bool enable_attempted;
+    bool enabled;
+    bool trace_read_attempted;
+    bool trace_read_ok;
+    bool cleanup_attempted;
+    bool cleanup_done;
+    int tracefs_errno;
+    int stale_cleanup_rc;
+    int clear_trace_rc;
+    int register_rc;
+    int enable_rc;
+    int trace_read_errno;
+    int disable_rc;
+    int cleanup_rc;
+    int hit_count;
+    int selected_target_index;
+    char tracefs_path[MAX_PATH_LEN];
+    char uprobe_events_path[MAX_PATH_LEN];
+    char trace_path[MAX_PATH_LEN];
+    char selected_target_path[MAX_PATH_LEN];
+    char first_hit_line[512];
+    struct cnss_wlfw_uprobe_target_probe targets[A90_LIBQMI_CCI_UPROBE_TARGET_COUNT];
+    struct cnss_wlfw_uprobe_event_state events[A90_LIBQMI_CCI_UPROBE_EVENT_COUNT];
+};
+
+static struct libqmi_cci_uprobe_state g_libqmi_cci_uprobe_state;
+static bool g_libqmi_cci_uprobe_atexit_registered;
 
 static void cnss_nonlog_maps_summary_init(struct cnss_nonlog_maps_summary *summary) {
     memset(summary, 0, sizeof(*summary));
@@ -13140,6 +13215,449 @@ static void pm_service_uprobe_collect_trace(struct pm_service_uprobe_state *stat
     fclose(file);
 }
 
+static int libqmi_cci_uprobe_find_tracefs(struct libqmi_cci_uprobe_state *state,
+                                          const struct paths *paths) {
+    const char *roots[4] = {0};
+    size_t root_count = 0;
+
+    if (paths != NULL && paths->sys_kernel_debug_tracing[0] != '\0') {
+        roots[root_count++] = paths->sys_kernel_debug_tracing;
+    }
+    if (paths != NULL && paths->sys_kernel_tracing[0] != '\0') {
+        roots[root_count++] = paths->sys_kernel_tracing;
+    }
+    roots[root_count++] = "/sys/kernel/tracing";
+    roots[root_count++] = "/sys/kernel/debug/tracing";
+
+    for (size_t i = 0; i < root_count; i++) {
+        if (roots[i] != NULL && tracefs_root_has_uprobes(roots[i])) {
+            snprintf(state->tracefs_path, sizeof(state->tracefs_path), "%s", roots[i]);
+            return 0;
+        }
+    }
+    state->tracefs_errno = ENOENT;
+    return -1;
+}
+
+static int libqmi_cci_uprobe_build_paths(struct libqmi_cci_uprobe_state *state) {
+    int needed;
+
+    needed = snprintf(state->uprobe_events_path,
+                      sizeof(state->uprobe_events_path),
+                      "%s/uprobe_events",
+                      state->tracefs_path);
+    if (needed < 0 || needed >= (int)sizeof(state->uprobe_events_path)) {
+        errno = ENAMETOOLONG;
+        return -1;
+    }
+    needed = snprintf(state->trace_path,
+                      sizeof(state->trace_path),
+                      "%s/trace",
+                      state->tracefs_path);
+    if (needed < 0 || needed >= (int)sizeof(state->trace_path)) {
+        errno = ENAMETOOLONG;
+        return -1;
+    }
+    for (size_t i = 0; i < A90_LIBQMI_CCI_UPROBE_EVENT_COUNT; i++) {
+        needed = snprintf(state->events[i].enable_path,
+                          sizeof(state->events[i].enable_path),
+                          "%s/events/a90libqmi/%s/enable",
+                          state->tracefs_path,
+                          libqmi_cci_uprobe_events[i].name);
+        if (needed < 0 || needed >= (int)sizeof(state->events[i].enable_path)) {
+            errno = ENAMETOOLONG;
+            return -1;
+        }
+    }
+    return 0;
+}
+
+static void libqmi_cci_uprobe_select_target(struct libqmi_cci_uprobe_state *state,
+                                            const struct paths *paths) {
+    char namespace_vendor_target[MAX_PATH_LEN] = {0};
+    char namespace_system_target[MAX_PATH_LEN] = {0};
+    static const char *const fallback_targets[] = {
+        "/mnt/vendor/lib64/libqmi_cci.so",
+        "/vendor/lib64/libqmi_cci.so",
+    };
+    const char *candidates[A90_LIBQMI_CCI_UPROBE_TARGET_COUNT] = {0};
+
+    state->selected_target_index = -1;
+    if (paths != NULL && paths->vendor[0] != '\0') {
+        if (snprintf(namespace_vendor_target,
+                     sizeof(namespace_vendor_target),
+                     "%s/lib64/libqmi_cci.so",
+                     paths->vendor) >= (int)sizeof(namespace_vendor_target)) {
+            namespace_vendor_target[0] = '\0';
+        }
+    }
+    if (paths != NULL && paths->system[0] != '\0') {
+        if (snprintf(namespace_system_target,
+                     sizeof(namespace_system_target),
+                     "%s/vendor/lib64/libqmi_cci.so",
+                     paths->system) >= (int)sizeof(namespace_system_target)) {
+            namespace_system_target[0] = '\0';
+        }
+    }
+    candidates[0] = namespace_vendor_target[0] != '\0' ? namespace_vendor_target : NULL;
+    candidates[1] = namespace_system_target[0] != '\0' ? namespace_system_target : NULL;
+    candidates[2] = fallback_targets[0];
+    candidates[3] = fallback_targets[1];
+
+    for (int i = 0; i < A90_LIBQMI_CCI_UPROBE_TARGET_COUNT; i++) {
+        cnss_wlfw_uprobe_probe_target(&state->targets[i], candidates[i]);
+        if (state->selected_target_index < 0 &&
+            state->targets[i].access_rc == 0 &&
+            state->targets[i].stat_rc == 0 &&
+            S_ISREG((mode_t)state->targets[i].st_mode)) {
+            state->selected_target_index = i;
+            snprintf(state->selected_target_path,
+                     sizeof(state->selected_target_path),
+                     "%s",
+                     state->targets[i].path);
+        }
+    }
+    if (state->selected_target_index < 0 && state->targets[0].path[0] != '\0') {
+        state->selected_target_index = 0;
+        snprintf(state->selected_target_path,
+                 sizeof(state->selected_target_path),
+                 "%s",
+                 state->targets[0].path);
+    }
+}
+
+static void libqmi_cci_uprobe_cleanup_state(struct libqmi_cci_uprobe_state *state) {
+    if (!state->arm_attempted || state->cleanup_done) {
+        return;
+    }
+    state->cleanup_attempted = true;
+    for (size_t i = 0; i < A90_LIBQMI_CCI_UPROBE_EVENT_COUNT; i++) {
+        struct cnss_wlfw_uprobe_event_state *event = &state->events[i];
+        char cleanup_line[96];
+
+        if (event->enabled && event->enable_path[0] != '\0') {
+            event->disable_rc = write_text_once_errno(event->enable_path, "0\n");
+        }
+        if (event->registered && state->uprobe_events_path[0] != '\0') {
+            snprintf(cleanup_line,
+                     sizeof(cleanup_line),
+                     "-:a90libqmi/%s\n",
+                     libqmi_cci_uprobe_events[i].name);
+            event->cleanup_rc = write_text_once_errno(state->uprobe_events_path, cleanup_line);
+        }
+    }
+    state->cleanup_done = true;
+}
+
+static void libqmi_cci_uprobe_cleanup_atexit(void) {
+    libqmi_cci_uprobe_cleanup_state(&g_libqmi_cci_uprobe_state);
+}
+
+static void libqmi_cci_uprobe_arm_global(const struct paths *paths) {
+    struct libqmi_cci_uprobe_state *state = &g_libqmi_cci_uprobe_state;
+
+    memset(state, 0, sizeof(*state));
+    state->arm_attempted = true;
+    state->tracefs_errno = 0;
+    state->stale_cleanup_rc = 0;
+    state->clear_trace_rc = 0;
+    state->register_rc = 0;
+    state->enable_rc = 0;
+    state->trace_read_errno = 0;
+    state->disable_rc = 0;
+    state->cleanup_rc = 0;
+
+    if (libqmi_cci_uprobe_find_tracefs(state, paths) < 0) {
+        return;
+    }
+    if (libqmi_cci_uprobe_build_paths(state) < 0) {
+        state->tracefs_errno = errno;
+        return;
+    }
+    state->tracefs_available = true;
+    libqmi_cci_uprobe_select_target(state, paths);
+    if (!g_libqmi_cci_uprobe_atexit_registered) {
+        atexit(libqmi_cci_uprobe_cleanup_atexit);
+        g_libqmi_cci_uprobe_atexit_registered = true;
+    }
+    state->clear_trace_attempted = true;
+    state->clear_trace_rc = truncate_text_once_errno(state->trace_path);
+    if (state->selected_target_path[0] == '\0') {
+        return;
+    }
+    for (size_t i = 0; i < A90_LIBQMI_CCI_UPROBE_EVENT_COUNT; i++) {
+        struct cnss_wlfw_uprobe_event_state *event = &state->events[i];
+        char cleanup_line[96];
+        char register_line[512];
+
+        event->stale_cleanup_attempted = true;
+        snprintf(cleanup_line,
+                 sizeof(cleanup_line),
+                 "-:a90libqmi/%s\n",
+                 libqmi_cci_uprobe_events[i].name);
+        event->stale_cleanup_rc = write_text_once_errno(state->uprobe_events_path, cleanup_line);
+        state->stale_cleanup_attempted = true;
+        state->stale_cleanup_rc = event->stale_cleanup_rc;
+
+        event->register_attempted = true;
+        if (libqmi_cci_uprobe_events[i].fetch_args != NULL) {
+            if (snprintf(register_line,
+                         sizeof(register_line),
+                         "p:a90libqmi/%s %s:0x%llx %s\n",
+                         libqmi_cci_uprobe_events[i].name,
+                         state->selected_target_path,
+                         libqmi_cci_uprobe_events[i].offset,
+                         libqmi_cci_uprobe_events[i].fetch_args) >= (int)sizeof(register_line)) {
+                event->register_rc = -ENAMETOOLONG;
+                continue;
+            }
+        } else if (snprintf(register_line,
+                            sizeof(register_line),
+                            "p:a90libqmi/%s %s:0x%llx\n",
+                            libqmi_cci_uprobe_events[i].name,
+                            state->selected_target_path,
+                            libqmi_cci_uprobe_events[i].offset) >= (int)sizeof(register_line)) {
+            event->register_rc = -ENAMETOOLONG;
+            continue;
+        }
+        event->register_rc = write_text_once_errno(state->uprobe_events_path, register_line);
+        state->register_attempted = true;
+        state->register_rc = event->register_rc;
+        if (event->register_rc == 0) {
+            event->registered = true;
+            state->registered = true;
+        }
+        event->enable_attempted = true;
+        event->enable_rc = write_text_once_errno(event->enable_path, "1\n");
+        state->enable_attempted = true;
+        state->enable_rc = event->enable_rc;
+        if (event->enable_rc == 0) {
+            event->enabled = true;
+            state->enabled = true;
+        }
+    }
+}
+
+static void libqmi_cci_uprobe_collect_trace(struct libqmi_cci_uprobe_state *state) {
+    char line[1024];
+    FILE *file;
+
+    state->trace_read_attempted = true;
+    file = fopen(state->trace_path, "re");
+    if (file == NULL) {
+        state->trace_read_errno = errno;
+        return;
+    }
+    state->trace_read_ok = true;
+    while (fgets(line, sizeof(line), file) != NULL) {
+        for (size_t i = 0; i < A90_LIBQMI_CCI_UPROBE_EVENT_COUNT; i++) {
+            struct cnss_wlfw_uprobe_event_state *event = &state->events[i];
+            char hit_line[512];
+
+            if (strstr(line, ": ") == NULL ||
+                strstr(line, libqmi_cci_uprobe_events[i].name) == NULL) {
+                continue;
+            }
+            strlcpy(hit_line, line, sizeof(hit_line));
+            sanitize_one_line(hit_line);
+            event->hit_count++;
+            state->hit_count++;
+            if (event->first_hit_line[0] == '\0') {
+                strlcpy(event->first_hit_line, hit_line, sizeof(event->first_hit_line));
+            }
+            if (event->sample_count < 4) {
+                strlcpy(event->sample_lines[event->sample_count],
+                        hit_line,
+                        sizeof(event->sample_lines[event->sample_count]));
+                event->sample_count++;
+            }
+            if (state->first_hit_line[0] == '\0') {
+                strlcpy(state->first_hit_line, event->first_hit_line, sizeof(state->first_hit_line));
+            }
+        }
+    }
+    fclose(file);
+}
+
+static const char *libqmi_cci_uprobe_label(const struct libqmi_cci_uprobe_state *state) {
+    if (!state->arm_attempted) {
+        return "libqmi-uprobe-disabled";
+    }
+    if (!state->tracefs_available) {
+        return "libqmi-uprobe-tracefs-unavailable";
+    }
+    if (state->selected_target_path[0] == '\0') {
+        return "libqmi-uprobe-target-unavailable";
+    }
+    if (state->events[LIBQMI_CCI_UPROBE_INIT_TIMEOUT_PATH].hit_count > 0) {
+        return "qmi-client-init-instance-timeout";
+    }
+    if (state->events[LIBQMI_CCI_UPROBE_INIT_RETURN].hit_count > 0) {
+        return "qmi-client-init-instance-returned";
+    }
+    if (state->events[LIBQMI_CCI_UPROBE_LOOP_CLIENT_INIT_RET].hit_count > 0) {
+        return "qmi-client-init-instance-loop-client-init-returned";
+    }
+    if (state->events[LIBQMI_CCI_UPROBE_LOOP_GET_SERVICE_INSTANCE_RET].hit_count > 0) {
+        return "qmi-client-init-instance-service-lookup-looping";
+    }
+    if (state->events[LIBQMI_CCI_UPROBE_XPORT_NEW_SERVER_ENTRY].hit_count > 0 &&
+        state->events[LIBQMI_CCI_UPROBE_WAIT_CALL].hit_count > 0 &&
+        state->events[LIBQMI_CCI_UPROBE_WAIT_RETURN].hit_count == 0) {
+        return "qmi-client-init-instance-new-server-no-wake";
+    }
+    if (state->events[LIBQMI_CCI_UPROBE_SIGNAL_WAIT_TIMEOUT_STORE].hit_count > 0) {
+        return "qmi-client-init-instance-signal-wait-timeout-store";
+    }
+    if (state->events[LIBQMI_CCI_UPROBE_SIGNAL_WAIT_TIMEDWAIT].hit_count > 0 ||
+        state->events[LIBQMI_CCI_UPROBE_WAIT_CALL].hit_count > 0) {
+        if (state->events[LIBQMI_CCI_UPROBE_XPORT_NEW_SERVER_ENTRY].hit_count > 0) {
+            return "qmi-client-init-instance-waiting-after-new-server";
+        }
+        return "qmi-client-init-instance-waiting-no-new-server";
+    }
+    if (state->events[LIBQMI_CCI_UPROBE_NOTIFIER_INIT_RET].hit_count > 0) {
+        return "qmi-client-init-instance-notifier-returned-before-wait";
+    }
+    if (state->events[LIBQMI_CCI_UPROBE_NOTIFIER_INIT_CALL].hit_count > 0) {
+        return "qmi-client-init-instance-notifier-call-no-return";
+    }
+    if (state->events[LIBQMI_CCI_UPROBE_INITIAL_CLIENT_INIT_RET].hit_count > 0) {
+        return "qmi-client-init-instance-initial-client-init-returned";
+    }
+    if (state->events[LIBQMI_CCI_UPROBE_INITIAL_GET_SERVICE_INSTANCE_RET].hit_count > 0) {
+        return "qmi-client-init-instance-initial-service-lookup-returned";
+    }
+    if (state->events[LIBQMI_CCI_UPROBE_CLIENT_INIT_INSTANCE_ENTRY].hit_count > 0) {
+        return "qmi-client-init-instance-entry-no-internal-progress";
+    }
+    return "libqmi-uprobe-no-hit";
+}
+
+static int append_libqmi_cci_uprobe_summary(struct buffer *stdout_buf,
+                                            const struct libqmi_cci_uprobe_state *state,
+                                            const char *label) {
+    if (append_format(stdout_buf,
+                      "wlan_pd_cnss_nonlog_control_flow.libqmi_uprobe_attempted=%d\n"
+                      "wlan_pd_cnss_nonlog_control_flow.libqmi_uprobe.tracefs.available=%d\n"
+                      "wlan_pd_cnss_nonlog_control_flow.libqmi_uprobe.tracefs.path=%s\n"
+                      "wlan_pd_cnss_nonlog_control_flow.libqmi_uprobe.tracefs.errno=%d\n"
+                      "wlan_pd_cnss_nonlog_control_flow.libqmi_uprobe.target.selected_index=%d\n"
+                      "wlan_pd_cnss_nonlog_control_flow.libqmi_uprobe.target.selected_path=%s\n"
+                      "wlan_pd_cnss_nonlog_control_flow.libqmi_uprobe.register_attempted=%d\n"
+                      "wlan_pd_cnss_nonlog_control_flow.libqmi_uprobe.register_rc=%d\n"
+                      "wlan_pd_cnss_nonlog_control_flow.libqmi_uprobe.registered=%d\n"
+                      "wlan_pd_cnss_nonlog_control_flow.libqmi_uprobe.enable_attempted=%d\n"
+                      "wlan_pd_cnss_nonlog_control_flow.libqmi_uprobe.enable_rc=%d\n"
+                      "wlan_pd_cnss_nonlog_control_flow.libqmi_uprobe.enabled=%d\n"
+                      "wlan_pd_cnss_nonlog_control_flow.libqmi_uprobe.trace_read_attempted=%d\n"
+                      "wlan_pd_cnss_nonlog_control_flow.libqmi_uprobe.trace_read_ok=%d\n"
+                      "wlan_pd_cnss_nonlog_control_flow.libqmi_uprobe.trace_read_errno=%d\n"
+                      "wlan_pd_cnss_nonlog_control_flow.libqmi_uprobe.hit_count=%d\n"
+                      "wlan_pd_cnss_nonlog_control_flow.libqmi_uprobe.first_hit_line=%s\n"
+                      "wlan_pd_cnss_nonlog_control_flow.libqmi_uprobe.cleanup_attempted=%d\n"
+                      "wlan_pd_cnss_nonlog_control_flow.libqmi_uprobe.cleanup_done=%d\n"
+                      "wlan_pd_cnss_nonlog_control_flow.libqmi_uprobe.label=%s\n",
+                      state->arm_attempted ? 1 : 0,
+                      state->tracefs_available ? 1 : 0,
+                      state->tracefs_path[0] != '\0' ? state->tracefs_path : "none",
+                      state->tracefs_errno,
+                      state->selected_target_index,
+                      state->selected_target_path[0] != '\0' ? state->selected_target_path : "none",
+                      state->register_attempted ? 1 : 0,
+                      state->register_rc,
+                      state->registered ? 1 : 0,
+                      state->enable_attempted ? 1 : 0,
+                      state->enable_rc,
+                      state->enabled ? 1 : 0,
+                      state->trace_read_attempted ? 1 : 0,
+                      state->trace_read_ok ? 1 : 0,
+                      state->trace_read_errno,
+                      state->hit_count,
+                      state->first_hit_line[0] != '\0' ? state->first_hit_line : "none",
+                      state->cleanup_attempted ? 1 : 0,
+                      state->cleanup_done ? 1 : 0,
+                      label) < 0) {
+        return -1;
+    }
+    for (size_t i = 0; i < A90_LIBQMI_CCI_UPROBE_TARGET_COUNT; i++) {
+        if (append_format(stdout_buf,
+                          "wlan_pd_cnss_nonlog_control_flow.libqmi_uprobe.target.%zu.path=%s\n"
+                          "wlan_pd_cnss_nonlog_control_flow.libqmi_uprobe.target.%zu.access_rc=%d\n"
+                          "wlan_pd_cnss_nonlog_control_flow.libqmi_uprobe.target.%zu.stat_rc=%d\n"
+                          "wlan_pd_cnss_nonlog_control_flow.libqmi_uprobe.target.%zu.mode=0%llo\n"
+                          "wlan_pd_cnss_nonlog_control_flow.libqmi_uprobe.target.%zu.size=%llu\n",
+                          i,
+                          state->targets[i].path[0] != '\0' ? state->targets[i].path : "none",
+                          i,
+                          state->targets[i].access_rc,
+                          i,
+                          state->targets[i].stat_rc,
+                          i,
+                          state->targets[i].st_mode,
+                          i,
+                          state->targets[i].st_size) < 0) {
+            return -1;
+        }
+    }
+    for (size_t i = 0; i < A90_LIBQMI_CCI_UPROBE_EVENT_COUNT; i++) {
+        const struct cnss_wlfw_uprobe_event_state *event = &state->events[i];
+
+        if (append_format(stdout_buf,
+                          "wlan_pd_cnss_nonlog_control_flow.libqmi_uprobe.%s.name=%s\n"
+                          "wlan_pd_cnss_nonlog_control_flow.libqmi_uprobe.%s.offset=0x%llx\n"
+                          "wlan_pd_cnss_nonlog_control_flow.libqmi_uprobe.%s.fetch_args=%s\n"
+                          "wlan_pd_cnss_nonlog_control_flow.libqmi_uprobe.%s.register_rc=%d\n"
+                          "wlan_pd_cnss_nonlog_control_flow.libqmi_uprobe.%s.registered=%d\n"
+                          "wlan_pd_cnss_nonlog_control_flow.libqmi_uprobe.%s.enable_rc=%d\n"
+                          "wlan_pd_cnss_nonlog_control_flow.libqmi_uprobe.%s.enabled=%d\n"
+                          "wlan_pd_cnss_nonlog_control_flow.libqmi_uprobe.%s.disable_rc=%d\n"
+                          "wlan_pd_cnss_nonlog_control_flow.libqmi_uprobe.%s.cleanup_rc=%d\n"
+                          "wlan_pd_cnss_nonlog_control_flow.libqmi_uprobe.%s.hit_count=%d\n"
+                          "wlan_pd_cnss_nonlog_control_flow.libqmi_uprobe.%s.first_hit_line=%s\n"
+                          "wlan_pd_cnss_nonlog_control_flow.libqmi_uprobe.%s.sample_count=%d\n"
+                          "wlan_pd_cnss_nonlog_control_flow.libqmi_uprobe.%s.sample_line_0=%s\n"
+                          "wlan_pd_cnss_nonlog_control_flow.libqmi_uprobe.%s.sample_line_1=%s\n"
+                          "wlan_pd_cnss_nonlog_control_flow.libqmi_uprobe.%s.sample_line_2=%s\n"
+                          "wlan_pd_cnss_nonlog_control_flow.libqmi_uprobe.%s.sample_line_3=%s\n",
+                          libqmi_cci_uprobe_events[i].key,
+                          libqmi_cci_uprobe_events[i].name,
+                          libqmi_cci_uprobe_events[i].key,
+                          libqmi_cci_uprobe_events[i].offset,
+                          libqmi_cci_uprobe_events[i].key,
+                          libqmi_cci_uprobe_events[i].fetch_args != NULL ? libqmi_cci_uprobe_events[i].fetch_args : "none",
+                          libqmi_cci_uprobe_events[i].key,
+                          event->register_rc,
+                          libqmi_cci_uprobe_events[i].key,
+                          event->registered ? 1 : 0,
+                          libqmi_cci_uprobe_events[i].key,
+                          event->enable_rc,
+                          libqmi_cci_uprobe_events[i].key,
+                          event->enabled ? 1 : 0,
+                          libqmi_cci_uprobe_events[i].key,
+                          event->disable_rc,
+                          libqmi_cci_uprobe_events[i].key,
+                          event->cleanup_rc,
+                          libqmi_cci_uprobe_events[i].key,
+                          event->hit_count,
+                          libqmi_cci_uprobe_events[i].key,
+                          event->first_hit_line[0] != '\0' ? event->first_hit_line : "none",
+                          libqmi_cci_uprobe_events[i].key,
+                          event->sample_count,
+                          libqmi_cci_uprobe_events[i].key,
+                          event->sample_lines[0][0] != '\0' ? event->sample_lines[0] : "none",
+                          libqmi_cci_uprobe_events[i].key,
+                          event->sample_lines[1][0] != '\0' ? event->sample_lines[1] : "none",
+                          libqmi_cci_uprobe_events[i].key,
+                          event->sample_lines[2][0] != '\0' ? event->sample_lines[2] : "none",
+                          libqmi_cci_uprobe_events[i].key,
+                          event->sample_lines[3][0] != '\0' ? event->sample_lines[3] : "none") < 0) {
+            return -1;
+        }
+    }
+    return 0;
+}
+
 static void cnss_peripheral_uprobe_arm_global(const struct paths *paths) {
     struct cnss_peripheral_uprobe_state *state = &g_cnss_peripheral_uprobe_state;
 
@@ -13401,15 +13919,20 @@ static int append_wlan_pd_cnss_nonlog_control_flow_summary(struct buffer *stdout
     struct cnss_wlfw_uprobe_state *uprobe = &g_cnss_wlfw_uprobe_state;
     struct cnss_peripheral_uprobe_state *peripheral = &g_cnss_peripheral_uprobe_state;
     struct pm_service_uprobe_state *pm_server = &g_pm_service_uprobe_state;
+    struct libqmi_cci_uprobe_state *libqmi = &g_libqmi_cci_uprobe_state;
     const char *label;
     const char *pm_server_label;
+    const char *libqmi_label;
 
     cnss_wlfw_uprobe_collect_trace(uprobe);
     cnss_peripheral_uprobe_collect_trace(peripheral);
     pm_service_uprobe_collect_trace(pm_server);
+    libqmi_cci_uprobe_collect_trace(libqmi);
     cnss_wlfw_uprobe_cleanup_state(uprobe);
     cnss_peripheral_uprobe_cleanup_state(peripheral);
     pm_service_uprobe_cleanup_state(pm_server);
+    libqmi_cci_uprobe_cleanup_state(libqmi);
+    libqmi_label = libqmi_cci_uprobe_label(libqmi);
     cnss_nonlog_maps_summary_init(&maps);
     if (cnss_daemon_pid > 0 && cnss_daemon_running) {
         collect_cnss_nonlog_maps_summary(cnss_daemon_pid, &maps);
@@ -13445,7 +13968,11 @@ static int append_wlan_pd_cnss_nonlog_control_flow_summary(struct buffer *stdout
         } else if (uprobe->events[CNSS_WLFW_UPROBE_WLFW_CLIENT_INIT_INSTANCE_RETCHECK].hit_count > 0) {
             label = "wlfw-worker-client-init-returned-before-error-cb";
         } else if (uprobe->events[CNSS_WLFW_UPROBE_WLFW_CLIENT_INIT_INSTANCE_CALL].hit_count > 0) {
-            label = "wlfw-worker-blocked-in-qmi-client-init-instance";
+            if (strncmp(libqmi_label, "qmi-client-init-instance-", 25) == 0) {
+                label = libqmi_label;
+            } else {
+                label = "wlfw-worker-blocked-in-qmi-client-init-instance";
+            }
         } else {
             label = "wlfw-worker-thread-started-before-qmi-client-init";
         }
@@ -14023,6 +14550,9 @@ static int append_wlan_pd_cnss_nonlog_control_flow_summary(struct buffer *stdout
                           event->sample_lines[3][0] != '\0' ? event->sample_lines[3] : "none") < 0) {
             return -1;
         }
+    }
+    if (append_libqmi_cci_uprobe_summary(stdout_buf, libqmi, libqmi_label) < 0) {
+        return -1;
     }
     if (cnss_daemon_pid > 0 && cnss_daemon_running) {
         if (append_proc_fd_links_compact(stdout_buf, cnss_daemon_pid, "wlan_pd_cnss_nonlog_cnss_daemon") < 0 ||
@@ -38133,6 +38663,7 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
         if (wlan_pd_service_object_visible_trigger) {
             pm_service_uprobe_arm_global(paths);
         }
+        libqmi_cci_uprobe_arm_global(paths);
     }
     for (size_t i = 0; i < child_count; i++) {
         if (service74_gate_required &&
