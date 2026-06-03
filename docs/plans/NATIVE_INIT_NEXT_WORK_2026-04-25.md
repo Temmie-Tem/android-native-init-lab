@@ -17887,6 +17887,77 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
   - do not run a live gate from V1824 until the source/build artifact and
     non-action fields are reviewed.
 
+## V1824 QIPCRTR socket-state source build (2026-06-03)
+
+- V1824 built a source/build-only rollbackable test-boot artifact that keeps
+  the bounded lower handoff observer and adds one passive AF_QIPCRTR
+  socket-state snapshot at `net_window`.
+
+  Evidence:
+
+  - builder:
+    `scripts/revalidation/build_native_init_wifi_test_boot_v1824.py`;
+  - common builder update:
+    `scripts/revalidation/build_native_init_wifi_test_boot_v1393.py`;
+  - helper source:
+    `stage3/linux_init/helpers/a90_android_execns_probe.c`;
+  - report:
+    `docs/reports/NATIVE_INIT_V1824_QIPCRTR_SOCKET_STATE_SOURCE_BUILD_2026-06-03.md`;
+  - manifest:
+    `tmp/wifi/v1824-qipcrtr-socket-state-test-boot/manifest.json`;
+  - boot image:
+    `tmp/wifi/v1824-qipcrtr-socket-state-test-boot/boot_linux_v1824_qipcrtr_socket_state.img`;
+  - boot SHA256:
+    `3512feca5f5d8180123e64c0e3397b7528b3528e1db741dc447ba552f907758f`;
+  - init:
+    `A90 Linux init 0.9.158 (v1824-qipcrtr-socket-state)`;
+  - helper:
+    `a90_android_execns_probe v349`,
+    SHA256 `9b014cb3d9d919f7731a41a2a8029a71c6996cbc2477907653c6cb845eef4f16`;
+  - decision:
+    `v1824-qipcrtr-socket-state-source-build-pass`.
+
+  Added observer fields:
+
+  - socket-state prefix:
+    `wlan_pd_qipcrtr_socket_state.net_window.*`;
+  - passive sequence:
+    protocol summary before open, AF_QIPCRTR/SOCK_DGRAM open, `getsockname`,
+    protocol summary while open, close, and protocol summary after close;
+  - explicit non-action fields:
+    `no_bind=1`, `no_connect=1`, `no_send=1`,
+    `no_qrtr_lookup_send=1`, `no_qrtr_control_payload=1`, and
+    `no_service_start=1`.
+
+  Interpretation:
+
+  - V1824 is source/build-only, so it does not change the live blocker
+    verdict;
+  - it prepares the smallest passive discriminator for whether AF_QIPCRTR can
+    be opened and locally named on native-init without lookup/control traffic;
+  - it intentionally samples only `net_window` to avoid repeated socket
+    endpoint creation before the live behavior is known.
+
+  Safety:
+
+  - host-only source/build. No live device command, flash, reboot, property
+    staging, `/dev/subsys_esoc0` open, fake-ONLINE, eSoC notify/BOOT_DONE, PCI
+    rescan/bind, platform unbind, PMIC/GPIO/GDSC writes, `boot_wlan`,
+    restart-PD request, QRTR lookup packet, QRTR control payload, service
+    start, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, or external ping
+    was performed by V1824.
+
+  Next candidate:
+
+  - V1825 should run exactly one rollbackable live gate with the V1824 artifact
+    only if the passive socket-state snapshot is accepted as the next bounded
+    surface;
+  - classify `qipcrtr-socket-open-getname-close-passive`,
+    `qipcrtr-socket-open-fails`, `lower-publication-progress`, or
+    `safety-regression`;
+  - do not continue into Wi-Fi HAL/scan/connect from V1825 unless WLFW service
+    69 and `wlan0` appear and a separate connection gate is written.
+
 ## V1820 servloc domain gap classifier (2026-06-03)
 
 - V1820 stayed host-only and compared the V1819 native

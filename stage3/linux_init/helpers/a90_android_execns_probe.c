@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v348"
+#define EXECNS_VERSION "a90_android_execns_probe v349"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -35987,6 +35987,136 @@ static int append_wlan_pd_qrtr_registry_snapshot(struct buffer *buf,
                          phase);
 }
 
+static int append_wlan_pd_qipcrtr_socket_state_snapshot(struct buffer *buf,
+                                                        const char *phase) {
+    char prefix[160];
+    char child_prefix[224];
+    int fd;
+
+    if (snprintf(prefix,
+                 sizeof(prefix),
+                 "wlan_pd_qipcrtr_socket_state.%s",
+                 phase) >= (int)sizeof(prefix)) {
+        return append_literal(buf, "wlan_pd_qipcrtr_socket_state.error=phase-too-long\n");
+    }
+    if (append_format(buf,
+                      "%s.begin=1\n"
+                      "%s.mode=passive-open-getsockname-close\n"
+                      "%s.family=AF_QIPCRTR\n"
+                      "%s.type=SOCK_DGRAM\n"
+                      "%s.no_bind=1\n"
+                      "%s.no_connect=1\n"
+                      "%s.no_send=1\n"
+                      "%s.no_qrtr_lookup_send=1\n"
+                      "%s.no_qrtr_control_payload=1\n"
+                      "%s.no_service_start=1\n",
+                      prefix,
+                      prefix,
+                      prefix,
+                      prefix,
+                      prefix,
+                      prefix,
+                      prefix,
+                      prefix,
+                      prefix,
+                      prefix) < 0) {
+        return -1;
+    }
+    if (snprintf(child_prefix,
+                 sizeof(child_prefix),
+                 "%s.before_open",
+                 prefix) >= (int)sizeof(child_prefix) ||
+        append_qipcrtr_protocol_summary(buf, child_prefix) < 0) {
+        return -1;
+    }
+    fd = open_qrtr_dgram_socket();
+    if (fd < 0) {
+        int saved_errno = errno;
+
+        if (append_format(buf,
+                          "%s.open.rc=-1\n"
+                          "%s.open.errno=%d\n"
+                          "%s.open.error=%s\n"
+                          "%s.getsockname.skipped=1\n"
+                          "%s.close.skipped=1\n",
+                          prefix,
+                          prefix,
+                          saved_errno,
+                          prefix,
+                          strerror(saved_errno),
+                          prefix,
+                          prefix) < 0) {
+            return -1;
+        }
+        if (snprintf(child_prefix,
+                     sizeof(child_prefix),
+                     "%s.after_close",
+                     prefix) >= (int)sizeof(child_prefix) ||
+            append_qipcrtr_protocol_summary(buf, child_prefix) < 0 ||
+            append_format(buf, "%s.end=1\n", prefix) < 0) {
+            return -1;
+        }
+        return 0;
+    }
+    if (append_format(buf,
+                      "%s.open.rc=0\n"
+                      "%s.open.fd_nonnegative=1\n",
+                      prefix,
+                      prefix) < 0) {
+        close(fd);
+        return -1;
+    }
+    if (snprintf(child_prefix,
+                 sizeof(child_prefix),
+                 "%s.getsockname",
+                 prefix) >= (int)sizeof(child_prefix)) {
+        close(fd);
+        return -1;
+    }
+    {
+        struct sockaddr_qrtr local_addr;
+
+        if (append_qrtr_getname(buf, fd, child_prefix, &local_addr) < 0) {
+            close(fd);
+            return -1;
+        }
+    }
+    if (snprintf(child_prefix,
+                 sizeof(child_prefix),
+                 "%s.after_open",
+                 prefix) >= (int)sizeof(child_prefix) ||
+        append_qipcrtr_protocol_summary(buf, child_prefix) < 0) {
+        close(fd);
+        return -1;
+    }
+    if (close(fd) < 0) {
+        int saved_errno = errno;
+
+        if (append_format(buf,
+                          "%s.close.rc=-1\n"
+                          "%s.close.errno=%d\n"
+                          "%s.close.error=%s\n",
+                          prefix,
+                          prefix,
+                          saved_errno,
+                          prefix,
+                          strerror(saved_errno)) < 0) {
+            return -1;
+        }
+    } else if (append_format(buf, "%s.close.rc=0\n", prefix) < 0) {
+        return -1;
+    }
+    if (snprintf(child_prefix,
+                 sizeof(child_prefix),
+                 "%s.after_close",
+                 prefix) >= (int)sizeof(child_prefix) ||
+        append_qipcrtr_protocol_summary(buf, child_prefix) < 0 ||
+        append_format(buf, "%s.end=1\n", prefix) < 0) {
+        return -1;
+    }
+    return 0;
+}
+
 static int wait_for_service74_gate(struct buffer *buf,
                                    unsigned int baseline_count_74,
                                    bool baseline_available,
@@ -37487,6 +37617,13 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
         return -1;
     }
     if (append_qipcrtr_protocol_summary(stdout_buf, "wifi_companion_start.net_window") < 0) {
+        stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
+        composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+        stop_property_service_shim(&property_shim, paths, stdout_buf);
+        return -1;
+    }
+    if (wlan_pd_post_pm_lower_state_observer &&
+        append_wlan_pd_qipcrtr_socket_state_snapshot(stdout_buf, "net_window") < 0) {
         stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
         composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
         stop_property_service_shim(&property_shim, paths, stdout_buf);
