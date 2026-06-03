@@ -16893,3 +16893,65 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
     `projection-setup-failed`, or `safety-regression`;
   - stop before restart-PD request, Wi-Fi HAL, scan/connect, DHCP/routes, or
     external ping.
+
+## V1801 PM-service devnode projection live handoff (2026-06-03)
+
+- V1801 ran one rollbackable live gate with the V1800 private-dev projection
+  artifact and stopped at `list-commit-progress`.
+
+  Evidence:
+
+  - runner:
+    `scripts/revalidation/native_wifi_pm_service_devnode_projection_handoff_v1801.py`;
+  - report:
+    `docs/reports/NATIVE_INIT_V1801_PM_SERVICE_DEVNODE_PROJECTION_HANDOFF_2026-06-03.md`;
+  - evidence directory:
+    `tmp/wifi/v1801-pm-service-devnode-projection-handoff`;
+  - decision:
+    `v1801-list-commit-progress-rollback-pass`;
+  - rollback:
+    `from-native`, verified back to `stage3/boot_linux_v724.img` with
+    selftest `fail=0`.
+
+  Key findings:
+
+  - early `subsys_esoc0`: exists/char `1` / `1`, major:minor `236:9`, mode
+    `0640`, uid:gid `1000:1000`;
+  - early `subsys_modem`: exists/char `1` / `1`, major:minor `236:0`, mode
+    `0640`, uid:gid `1000:1000`;
+  - PM-service first/second count remained `2` / `0`;
+  - first-loop candidates remained `SDX50M,modem` with devnodes
+    `/dev/subsys_esoc0,/dev/subsys_modem`;
+  - add-peripheral entry/init-fail/list-commit hits changed from V1799's
+    `2` / `2` / `0` to `2` / `0` / `2`;
+  - PM server register path changed from no-peripheral to success:
+    loop/match/success/no-peripheral hits `2` / `1` / `1` / `0`;
+  - route still did not request `wlanmdsp`, did not see WLFW service 69, and
+    did not expose `wlan0`.
+
+  Interpretation:
+
+  - private-dev projection fixed the PM-service supported-list blocker;
+  - the next blocker is downstream of PM-service registration success and
+    upstream of WLFW request/service-69 progress;
+  - do not revisit PM-service candidate discovery unless a later run regresses
+    list commit or PM server success.
+
+  Safety:
+
+  - live route projected private char nodes but did not open `/dev/subsys_esoc0`;
+  - no forced RC1, fake-ONLINE, PMIC/GPIO/GDSC write, eSoC notify, BOOT_DONE
+    spoof, PCI rescan, platform bind/unbind, restart-PD request, full
+    `pm-proxy`, `boot_wlan`, Wi-Fi HAL, scan/connect, credentials, DHCP/routes,
+    or external ping;
+  - mutation scope was serial private-property staging on `/mnt/sdext`, one test
+    boot flash, and rollback to `stage3/boot_linux_v724.img`.
+
+  Next candidate:
+
+  - V1802 should stay source/build-only or no-new-mutation live-observer:
+    classify the post-PM-service-success gap between PM server register success
+    and any `wlanmdsp`/WLFW service-69 request;
+  - do not start `boot_wlan`, issue restart-PD request, open `/dev/subsys_esoc0`,
+    start Wi-Fi HAL, scan/connect, configure DHCP/routes, or external ping from
+    V1801 alone.
