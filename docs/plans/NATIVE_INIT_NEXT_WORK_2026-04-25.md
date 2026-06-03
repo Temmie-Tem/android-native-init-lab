@@ -17801,3 +17801,67 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
     open, fake-ONLINE, eSoC notify/BOOT_DONE, PCI rescan/bind, platform
     unbind, PMIC/GPIO/GDSC writes, Wi-Fi HAL, scan/connect, credentials,
     DHCP/routes, or external ping.
+
+## V1815 lower-publication precondition source build (2026-06-03)
+
+- V1815 built a source/build-only rollbackable test-boot artifact that keeps
+  the V1813/V1814 raw service-notifier route and adds read-only lower
+  publication precondition klog counters/last lines.
+
+  Evidence:
+
+  - builder:
+    `scripts/revalidation/build_native_init_wifi_test_boot_v1815.py`;
+  - common builder update:
+    `scripts/revalidation/build_native_init_wifi_test_boot_v1393.py`;
+  - helper source:
+    `stage3/linux_init/helpers/a90_android_execns_probe.c`;
+  - report:
+    `docs/reports/NATIVE_INIT_V1815_LOWER_PUBLICATION_PRECONDITION_SOURCE_BUILD_2026-06-03.md`;
+  - manifest:
+    `tmp/wifi/v1815-lower-publication-precondition-test-boot/manifest.json`;
+  - boot image:
+    `tmp/wifi/v1815-lower-publication-precondition-test-boot/boot_linux_v1815_lower_publication_precondition.img`;
+  - boot SHA256:
+    `b88a2b739463528938ac29720afa3a004f77be5951a2bd887724a202f2c85863`;
+  - init:
+    `A90 Linux init 0.9.155 (v1815-lower-publication-precondition)`;
+  - helper:
+    `a90_android_execns_probe v346`,
+    SHA256 `c43516582bec97ff3ea6a25277f2f9074ff507497a9900314701946bbfceb88c`;
+  - decision:
+    `v1815-lower-publication-precondition-source-build-pass`.
+
+  Added observer fields:
+
+  - `raw_count_pd_mapper_text`;
+  - `raw_count_subsys_text`;
+  - `raw_count_pil_text`;
+  - `raw_count_qmi_text`;
+  - `raw_count_wlfw_text`;
+  - `last_wlan_pd`, `last_pd_mapper`, `last_subsys`, `last_pil`,
+    `last_qmi`, and `last_wlfw`.
+
+  Interpretation:
+
+  - V1815 is source/build-only, so it does not change the live blocker verdict;
+  - it prepares a narrower V1816 discriminator for whether the native lower
+    path still has qmi/sysmon/subsys/pil/pd-mapper/wlfw context when service 74
+    and wlan_pd remain absent.
+
+  Safety:
+
+  - host-only source/build. No live device command, flash, reboot, property
+    staging, `/dev/subsys_esoc0` open, fake-ONLINE, eSoC notify/BOOT_DONE, PCI
+    rescan/bind, platform unbind, PMIC/GPIO/GDSC writes, `boot_wlan`,
+    restart-PD request, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, or
+    external ping was performed by V1815.
+
+  Next candidate:
+
+  - V1816 should run exactly one rollbackable live gate with the V1815 artifact
+    and classify `service74-raw-absent-preconditions-visible`,
+    `precondition-parser-gap`, `lower-publication-progress`, or
+    `safety-regression`;
+  - do not continue into Wi-Fi HAL/scan/connect from V1816 unless WLFW service
+    69 and `wlan0` appear and a separate connection gate is written.

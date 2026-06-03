@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v345"
+#define EXECNS_VERSION "a90_android_execns_probe v346"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -35303,12 +35303,23 @@ struct service74_klog_state {
     unsigned int raw_180_service_text_count;
     unsigned int raw_74_service_text_count;
     unsigned int raw_wlan_pd_text_count;
+    unsigned int raw_pd_mapper_text_count;
+    unsigned int raw_subsys_text_count;
+    unsigned int raw_pil_text_count;
+    unsigned int raw_qmi_text_count;
+    unsigned int raw_wlfw_text_count;
     int syslog_errno;
     bool syslog_available;
     char last_sysmon_qmi[192];
     char last_service180[192];
     char last_service74[192];
     char last_service_notifier_any[192];
+    char last_wlan_pd[192];
+    char last_pd_mapper[192];
+    char last_subsys[192];
+    char last_pil[192];
+    char last_qmi[192];
+    char last_wlfw[192];
 };
 
 static bool line_contains_service_notifier_instance(const char *line,
@@ -35402,6 +35413,39 @@ static int read_service74_klog_state(struct service74_klog_state *state) {
         }
         if (strstr(line, "wlan_pd") != NULL || strstr(line, "wlan-pd") != NULL) {
             state->raw_wlan_pd_text_count++;
+            copy_klog_value(state->last_wlan_pd,
+                            sizeof(state->last_wlan_pd),
+                            line);
+        }
+        if (strstr(line, "pd-mapper") != NULL || strstr(line, "pd_mapper") != NULL) {
+            state->raw_pd_mapper_text_count++;
+            copy_klog_value(state->last_pd_mapper,
+                            sizeof(state->last_pd_mapper),
+                            line);
+        }
+        if (strstr(line, "subsys") != NULL || strstr(line, "subsystem") != NULL) {
+            state->raw_subsys_text_count++;
+            copy_klog_value(state->last_subsys,
+                            sizeof(state->last_subsys),
+                            line);
+        }
+        if (strstr(line, "pil") != NULL || strstr(line, "q6v5") != NULL) {
+            state->raw_pil_text_count++;
+            copy_klog_value(state->last_pil,
+                            sizeof(state->last_pil),
+                            line);
+        }
+        if (strstr(line, "qmi") != NULL || strstr(line, "QMI") != NULL) {
+            state->raw_qmi_text_count++;
+            copy_klog_value(state->last_qmi,
+                            sizeof(state->last_qmi),
+                            line);
+        }
+        if (strstr(line, "wlfw") != NULL || strstr(line, "WLFW") != NULL) {
+            state->raw_wlfw_text_count++;
+            copy_klog_value(state->last_wlfw,
+                            sizeof(state->last_wlfw),
+                            line);
         }
         if (line_contains_service_notifier_instance(line, "180 service")) {
             state->service180_count++;
@@ -35436,6 +35480,11 @@ static int append_service74_gate_state(struct buffer *buf,
                          "wifi_companion_start.service74_gate.%s.raw_count_180_service_text=%u\n"
                          "wifi_companion_start.service74_gate.%s.raw_count_74_service_text=%u\n"
                          "wifi_companion_start.service74_gate.%s.raw_count_wlan_pd_text=%u\n"
+                         "wifi_companion_start.service74_gate.%s.raw_count_pd_mapper_text=%u\n"
+                         "wifi_companion_start.service74_gate.%s.raw_count_subsys_text=%u\n"
+                         "wifi_companion_start.service74_gate.%s.raw_count_pil_text=%u\n"
+                         "wifi_companion_start.service74_gate.%s.raw_count_qmi_text=%u\n"
+                         "wifi_companion_start.service74_gate.%s.raw_count_wlfw_text=%u\n"
                          "wifi_companion_start.service74_gate.%s.last_sysmon_qmi=%s\n"
                          "wifi_companion_start.service74_gate.%s.last_180=%s\n"
                          "wifi_companion_start.service74_gate.%s.last_74=%s\n",
@@ -35462,6 +35511,16 @@ static int append_service74_gate_state(struct buffer *buf,
                          phase,
                          state->raw_wlan_pd_text_count,
                          phase,
+                         state->raw_pd_mapper_text_count,
+                         phase,
+                         state->raw_subsys_text_count,
+                         phase,
+                         state->raw_pil_text_count,
+                         phase,
+                         state->raw_qmi_text_count,
+                         phase,
+                         state->raw_wlfw_text_count,
+                         phase,
                          state->last_sysmon_qmi[0] != '\0' ? state->last_sysmon_qmi : "missing",
                          phase,
                          state->last_service180[0] != '\0' ? state->last_service180 : "missing",
@@ -35487,9 +35546,20 @@ static int append_wlan_pd_post_pm_lower_handoff_klog_sample(struct buffer *buf,
                          "wlan_pd_post_pm_lower_handoff_klog.%s.raw_count_180_service_text=%u\n"
                          "wlan_pd_post_pm_lower_handoff_klog.%s.raw_count_74_service_text=%u\n"
                          "wlan_pd_post_pm_lower_handoff_klog.%s.raw_count_wlan_pd_text=%u\n"
+                         "wlan_pd_post_pm_lower_handoff_klog.%s.raw_count_pd_mapper_text=%u\n"
+                         "wlan_pd_post_pm_lower_handoff_klog.%s.raw_count_subsys_text=%u\n"
+                         "wlan_pd_post_pm_lower_handoff_klog.%s.raw_count_pil_text=%u\n"
+                         "wlan_pd_post_pm_lower_handoff_klog.%s.raw_count_qmi_text=%u\n"
+                         "wlan_pd_post_pm_lower_handoff_klog.%s.raw_count_wlfw_text=%u\n"
                          "wlan_pd_post_pm_lower_handoff_klog.%s.last_sysmon_qmi=%s\n"
                          "wlan_pd_post_pm_lower_handoff_klog.%s.last_180=%s\n"
                          "wlan_pd_post_pm_lower_handoff_klog.%s.last_74=%s\n"
+                         "wlan_pd_post_pm_lower_handoff_klog.%s.last_wlan_pd=%s\n"
+                         "wlan_pd_post_pm_lower_handoff_klog.%s.last_pd_mapper=%s\n"
+                         "wlan_pd_post_pm_lower_handoff_klog.%s.last_subsys=%s\n"
+                         "wlan_pd_post_pm_lower_handoff_klog.%s.last_pil=%s\n"
+                         "wlan_pd_post_pm_lower_handoff_klog.%s.last_qmi=%s\n"
+                         "wlan_pd_post_pm_lower_handoff_klog.%s.last_wlfw=%s\n"
                          "wlan_pd_post_pm_lower_handoff_klog.%s.no_esoc0_open=1\n"
                          "wlan_pd_post_pm_lower_handoff_klog.%s.no_fake_online=1\n"
                          "wlan_pd_post_pm_lower_handoff_klog.%s.no_pmic_gpio_gdsc_write=1\n"
@@ -35518,11 +35588,33 @@ static int append_wlan_pd_post_pm_lower_handoff_klog_sample(struct buffer *buf,
                          phase,
                          state.raw_wlan_pd_text_count,
                          phase,
+                         state.raw_pd_mapper_text_count,
+                         phase,
+                         state.raw_subsys_text_count,
+                         phase,
+                         state.raw_pil_text_count,
+                         phase,
+                         state.raw_qmi_text_count,
+                         phase,
+                         state.raw_wlfw_text_count,
+                         phase,
                          state.last_sysmon_qmi[0] != '\0' ? state.last_sysmon_qmi : "missing",
                          phase,
                          state.last_service180[0] != '\0' ? state.last_service180 : "missing",
                          phase,
                          state.last_service74[0] != '\0' ? state.last_service74 : "missing",
+                         phase,
+                         state.last_wlan_pd[0] != '\0' ? state.last_wlan_pd : "missing",
+                         phase,
+                         state.last_pd_mapper[0] != '\0' ? state.last_pd_mapper : "missing",
+                         phase,
+                         state.last_subsys[0] != '\0' ? state.last_subsys : "missing",
+                         phase,
+                         state.last_pil[0] != '\0' ? state.last_pil : "missing",
+                         phase,
+                         state.last_qmi[0] != '\0' ? state.last_qmi : "missing",
+                         phase,
+                         state.last_wlfw[0] != '\0' ? state.last_wlfw : "missing",
                          phase,
                          phase,
                          phase,
