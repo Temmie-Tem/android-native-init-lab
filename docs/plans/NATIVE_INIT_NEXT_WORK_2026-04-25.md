@@ -17819,6 +17819,74 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
     notify/BOOT_DONE, PCI rescan/bind, platform unbind, PMIC/GPIO/GDSC writes,
     Wi-Fi HAL, scan/connect, credentials, DHCP/routes, or external ping.
 
+## V1823 QIPCRTR protocol classifier (2026-06-03)
+
+- V1823 stayed host-only and classified the V1822 QRTR-registry handoff
+  against the helper's passive QIPCRTR protocol summaries.
+
+  Evidence:
+
+  - classifier:
+    `scripts/revalidation/native_wifi_qipcrtr_protocol_classifier_v1823.py`;
+  - source manifest:
+    `tmp/wifi/v1822-qrtr-registry-handoff/manifest.json`;
+  - helper stdout:
+    `tmp/wifi/v1822-qrtr-registry-handoff/test-v1393-helper-result.stdout.txt`;
+  - evidence:
+    `tmp/wifi/v1823-qipcrtr-protocol-classifier`;
+  - report:
+    `docs/reports/NATIVE_INIT_V1823_QIPCRTR_PROTOCOL_CLASSIFIER_2026-06-03.md`;
+  - manifest:
+    `tmp/wifi/v1823-qipcrtr-protocol-classifier/manifest.json`;
+  - decision:
+    `v1823-passive-qipcrtr-socket-state-target-host-pass`.
+
+  Key findings:
+
+  - V1822 remains fixed as
+    `qrtr-registry-unreadable-with-qmi-context`;
+  - `/proc/net/qrtr`, `/sys/kernel/debug/qrtr/nodes`,
+    `/sys/kernel/debug/qrtr/services`, and
+    `/sys/kernel/debug/msm_ipc_router/dump` were absent/unreadable with open
+    counts `0,0,0`;
+  - the route retained `no_qrtr_lookup_send=True` and
+    `no_service_start=True`;
+  - QIPCRTR protocol support was present in `net_before`, `net_after_spawn`,
+    `net_window`, and `net_after_cleanup`, with protocol table size `1416`;
+  - QRTR socket counts were zero in every sampled phase;
+  - `wifi_companion_start.net_window.protocols_captured=1` while
+    `wifi_companion_start.net_window.qrtr_captured=0`;
+  - service180/service74/wlan_pd raw counts remain `1,1,1` / `0,0,0` /
+    `0,0,0`;
+  - mdm3 remains `OFFLINING`, MHI absent, WLFW service 69 absent, and `wlan0`
+    absent.
+
+  Interpretation:
+
+  - registry-file observation is not the next viable surface because native
+    exposes QIPCRTR protocol support but not proc/debugfs QRTR registry files;
+  - zero QRTR sockets across the sampled window means native has not created a
+    QRTR endpoint in this route;
+  - the next source/build target can be a passive AF_QIPCRTR socket-state
+    observer, but it must remain no-send and avoid lookup/control payloads.
+
+  Safety:
+
+  - host-only. No live device command, flash, reboot, property staging,
+    `/dev/subsys_esoc0` open, fake-ONLINE, eSoC notify/BOOT_DONE, PCI
+    rescan/bind, platform unbind, PMIC/GPIO/GDSC writes, `boot_wlan`,
+    restart-PD request, QRTR lookup packet, service start, Wi-Fi HAL,
+    scan/connect, credentials, DHCP/routes, or external ping was performed by
+    V1823.
+
+  Next candidate:
+
+  - V1824 should be source/build-only and add a passive QIPCRTR socket-state
+    observer that opens/inspects/closes an AF_QIPCRTR socket without `bind`,
+    `connect`, `send`, service lookup, service start, or QRTR control payload;
+  - do not run a live gate from V1824 until the source/build artifact and
+    non-action fields are reviewed.
+
 ## V1820 servloc domain gap classifier (2026-06-03)
 
 - V1820 stayed host-only and compared the V1819 native
