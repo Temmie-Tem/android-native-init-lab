@@ -17202,3 +17202,71 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
   - stop at the first discriminator: lower progress, stable mdm3 OFFLINING, or
     safety regression. Do not continue into Wi-Fi HAL/scan/connect from the
     V1805 source-build result alone.
+
+## V1806 post-PM lower-state observer handoff (2026-06-03)
+
+- V1806 ran one rollbackable live gate with the V1805 artifact and classified
+  the lower-state window as `stable-mdm3-offlining`.
+
+  Evidence:
+
+  - live runner:
+    `scripts/revalidation/native_wifi_post_pm_lower_state_observer_handoff_v1806.py`;
+  - report:
+    `docs/reports/NATIVE_INIT_V1806_POST_PM_LOWER_STATE_OBSERVER_HANDOFF_2026-06-03.md`;
+  - manifest:
+    `tmp/wifi/v1806-post-pm-lower-state-observer-handoff/manifest.json`;
+  - source boot image:
+    `tmp/wifi/v1805-post-pm-lower-state-observer-test-boot/boot_linux_v1805_post_pm_lower_state_observer.img`;
+  - decision:
+    `v1806-stable-mdm3-offlining-rollback-pass`;
+  - rollback:
+    `from-native`, verified back to
+    `A90 Linux init 0.9.68 (v724)`, selftest `fail=0`.
+
+  Key findings:
+
+  - PM-service list commit remained fixed: list commit hits `2`, PM server
+    register success hits `1`;
+  - PM client boundary was reached: PM client register call/return and connect
+    call/return each hit `1`;
+  - compact lower-state sampling captured `13` read-only samples;
+  - all samples stayed `mdm3=OFFLINING`;
+  - mdm status IRQ totals stayed `0`, mdm errfatal IRQ totals stayed `0`;
+  - MHI device count and MHI pipe presence stayed `0`;
+  - WLFW service 69, `wlanmdsp`, and `wlan0` stayed absent.
+
+  Interpretation:
+
+  - the blocker is confirmed below the PM client connect/vote boundary;
+  - the current native route does not progress mdm3/ext-sdx50m out of
+    `OFFLINING` within the bounded post-listener window;
+  - Wi-Fi HAL, scan/connect, credentials, DHCP/routes, and external ping are
+    still premature because WLFW service 69 and `wlan0` remain absent.
+
+  Safety:
+
+  - one test boot flash plus rollback only. No `/dev/subsys_esoc0` open,
+    fake-ONLINE, eSoC notify/BOOT_DONE, PCI rescan/bind, platform unbind,
+    PMIC/GPIO/GDSC writes, `boot_wlan`, restart-PD request, Wi-Fi HAL,
+    scan/connect, credentials, DHCP/routes, or external ping.
+
+  Note:
+
+  - the first V1806 live run completed and rolled back successfully, but the
+    runner initially treated `after_holder_start` as needing phase-level
+    markers even though V1805 emits only sample-level markers for that one-shot
+    sample. The script was corrected and the same rollback-verified evidence
+    was reclassified without a second live flash.
+
+  Next candidate:
+
+  - V1807 should stay source/build-only or host-only first: identify a safe
+    read-only discriminator for the PM-service-owned lower continuation that
+    keeps mdm3/ext-sdx50m in `OFFLINING`;
+  - candidate surfaces are service-notifier state timing, PM client vote return
+    arguments/state values, and stock lower subsystem sysfs/state deltas only;
+  - continue to block direct `/dev/subsys_esoc0` open, restart-PD,
+    fake-ONLINE, eSoC notify/BOOT_DONE, PCI rescan/bind, platform unbind,
+    PMIC/GPIO/GDSC writes, `boot_wlan`, Wi-Fi HAL, scan/connect,
+    DHCP/routes, and external ping.
