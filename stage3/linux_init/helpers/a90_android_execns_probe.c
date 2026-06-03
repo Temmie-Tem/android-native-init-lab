@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v347"
+#define EXECNS_VERSION "a90_android_execns_probe v348"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -35722,6 +35722,271 @@ static int append_wlan_pd_post_pm_lower_handoff_klog_sample(struct buffer *buf,
                          phase);
 }
 
+static bool qrtr_registry_line_interesting(const char *line) {
+    return strcasestr(line, "wlan") != NULL ||
+           strcasestr(line, "servloc") != NULL ||
+           strcasestr(line, "service-locator") != NULL ||
+           strcasestr(line, "service locator") != NULL ||
+           strcasestr(line, "service_locator") != NULL ||
+           strcasestr(line, "wlan/fw") != NULL ||
+           strcasestr(line, "wlan_pd") != NULL ||
+           strcasestr(line, "wlan-pd") != NULL;
+}
+
+static int append_qrtr_registry_file_summary(struct buffer *buf,
+                                             const char *phase,
+                                             const char *label,
+                                             const char *path) {
+    enum { QRTR_REGISTRY_CAPTURE_LIMIT = 32768 };
+    char *text;
+    char *line;
+    char *saveptr = NULL;
+    ssize_t nread;
+    size_t total = 0;
+    unsigned int line_count = 0;
+    unsigned int interesting_lines = 0;
+    bool truncated = false;
+    bool wlan_text = false;
+    bool service_locator_text = false;
+    bool wlan_fw_text = false;
+    bool wlan_pd_text = false;
+    bool service74_text = false;
+    bool service180_text = false;
+    bool qmi_text = false;
+    char first_interesting[192] = "";
+    int fd;
+
+    if (append_format(buf,
+                      "wlan_pd_qrtr_registry.%s.%s.path=%s\n",
+                      phase,
+                      label,
+                      path) < 0) {
+        return -1;
+    }
+    fd = open(path, O_RDONLY | O_CLOEXEC);
+    if (fd < 0) {
+        return append_format(buf,
+                             "wlan_pd_qrtr_registry.%s.%s.open=0\n"
+                             "wlan_pd_qrtr_registry.%s.%s.errno=%d\n"
+                             "wlan_pd_qrtr_registry.%s.%s.error=%s\n"
+                             "wlan_pd_qrtr_registry.%s.%s.bytes=0\n"
+                             "wlan_pd_qrtr_registry.%s.%s.lines=0\n",
+                             phase,
+                             label,
+                             phase,
+                             label,
+                             errno,
+                             phase,
+                             label,
+                             strerror(errno),
+                             phase,
+                             label,
+                             phase,
+                             label);
+    }
+    text = calloc(1U, QRTR_REGISTRY_CAPTURE_LIMIT + 1U);
+    if (text == NULL) {
+        close(fd);
+        return append_format(buf,
+                             "wlan_pd_qrtr_registry.%s.%s.open=1\n"
+                             "wlan_pd_qrtr_registry.%s.%s.errno=%d\n"
+                             "wlan_pd_qrtr_registry.%s.%s.error=%s\n"
+                             "wlan_pd_qrtr_registry.%s.%s.bytes=0\n"
+                             "wlan_pd_qrtr_registry.%s.%s.lines=0\n",
+                             phase,
+                             label,
+                             phase,
+                             label,
+                             ENOMEM,
+                             phase,
+                             label,
+                             strerror(ENOMEM),
+                             phase,
+                             label,
+                             phase,
+                             label);
+    }
+    while (total < QRTR_REGISTRY_CAPTURE_LIMIT) {
+        nread = read(fd,
+                     text + total,
+                     QRTR_REGISTRY_CAPTURE_LIMIT - total);
+        if (nread < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            {
+                int saved_errno = errno;
+
+                close(fd);
+                free(text);
+                return append_format(buf,
+                                     "wlan_pd_qrtr_registry.%s.%s.open=1\n"
+                                     "wlan_pd_qrtr_registry.%s.%s.errno=%d\n"
+                                     "wlan_pd_qrtr_registry.%s.%s.error=%s\n"
+                                     "wlan_pd_qrtr_registry.%s.%s.bytes=%zu\n"
+                                     "wlan_pd_qrtr_registry.%s.%s.lines=0\n",
+                                     phase,
+                                     label,
+                                     phase,
+                                     label,
+                                     saved_errno,
+                                     phase,
+                                     label,
+                                     strerror(saved_errno),
+                                     phase,
+                                     label,
+                                     total,
+                                     phase,
+                                     label);
+            }
+        }
+        if (nread == 0) {
+            break;
+        }
+        total += (size_t)nread;
+    }
+    close(fd);
+    text[total] = '\0';
+    truncated = total >= QRTR_REGISTRY_CAPTURE_LIMIT;
+    wlan_text = strcasestr(text, "wlan") != NULL;
+    service_locator_text = strcasestr(text, "servloc") != NULL ||
+                           strcasestr(text, "service-locator") != NULL ||
+                           strcasestr(text, "service locator") != NULL ||
+                           strcasestr(text, "service_locator") != NULL;
+    wlan_fw_text = strcasestr(text, "wlan/fw") != NULL ||
+                   strcasestr(text, "wlan_fw") != NULL ||
+                   strcasestr(text, "wlan fw") != NULL;
+    wlan_pd_text = strcasestr(text, "wlan_pd") != NULL ||
+                   strcasestr(text, "wlan-pd") != NULL;
+    service74_text = strstr(text, "74") != NULL;
+    service180_text = strstr(text, "180") != NULL;
+    qmi_text = strcasestr(text, "qmi") != NULL;
+    for (line = strtok_r(text, "\n", &saveptr);
+         line != NULL;
+         line = strtok_r(NULL, "\n", &saveptr)) {
+        line_count++;
+        if (qrtr_registry_line_interesting(line)) {
+            interesting_lines++;
+            if (first_interesting[0] == '\0') {
+                copy_klog_value(first_interesting, sizeof(first_interesting), line);
+            }
+        }
+    }
+    if (append_format(buf,
+                      "wlan_pd_qrtr_registry.%s.%s.open=1\n"
+                      "wlan_pd_qrtr_registry.%s.%s.errno=0\n"
+                      "wlan_pd_qrtr_registry.%s.%s.error=none\n"
+                      "wlan_pd_qrtr_registry.%s.%s.bytes=%zu\n"
+                      "wlan_pd_qrtr_registry.%s.%s.truncated=%d\n"
+                      "wlan_pd_qrtr_registry.%s.%s.lines=%u\n"
+                      "wlan_pd_qrtr_registry.%s.%s.interesting_lines=%u\n"
+                      "wlan_pd_qrtr_registry.%s.%s.wlan_text=%d\n"
+                      "wlan_pd_qrtr_registry.%s.%s.service_locator_text=%d\n"
+                      "wlan_pd_qrtr_registry.%s.%s.wlan_fw_text=%d\n"
+                      "wlan_pd_qrtr_registry.%s.%s.wlan_pd_text=%d\n"
+                      "wlan_pd_qrtr_registry.%s.%s.service74_text=%d\n"
+                      "wlan_pd_qrtr_registry.%s.%s.service180_text=%d\n"
+                      "wlan_pd_qrtr_registry.%s.%s.qmi_text=%d\n"
+                      "wlan_pd_qrtr_registry.%s.%s.first_interesting=%s\n",
+                      phase,
+                      label,
+                      phase,
+                      label,
+                      phase,
+                      label,
+                      phase,
+                      label,
+                      total,
+                      phase,
+                      label,
+                      truncated ? 1 : 0,
+                      phase,
+                      label,
+                      line_count,
+                      phase,
+                      label,
+                      interesting_lines,
+                      phase,
+                      label,
+                      wlan_text ? 1 : 0,
+                      phase,
+                      label,
+                      service_locator_text ? 1 : 0,
+                      phase,
+                      label,
+                      wlan_fw_text ? 1 : 0,
+                      phase,
+                      label,
+                      wlan_pd_text ? 1 : 0,
+                      phase,
+                      label,
+                      service74_text ? 1 : 0,
+                      phase,
+                      label,
+                      service180_text ? 1 : 0,
+                      phase,
+                      label,
+                      qmi_text ? 1 : 0,
+                      phase,
+                      label,
+                      first_interesting[0] != '\0' ? first_interesting : "missing") < 0) {
+        free(text);
+        return -1;
+    }
+    free(text);
+    return 0;
+}
+
+static int append_wlan_pd_qrtr_registry_snapshot(struct buffer *buf,
+                                                 const char *phase) {
+    struct stat st;
+    int debug_qrtr_exists = lstat("/sys/kernel/debug/qrtr", &st) == 0 ? 1 : 0;
+    int debug_msm_ipc_router_exists = lstat("/sys/kernel/debug/msm_ipc_router", &st) == 0 ? 1 : 0;
+
+    if (append_format(buf,
+                      "wlan_pd_qrtr_registry.%s.begin=1\n"
+                      "wlan_pd_qrtr_registry.%s.mode=read-only-proc-debugfs-summary\n"
+                      "wlan_pd_qrtr_registry.%s.debug_qrtr_exists=%d\n"
+                      "wlan_pd_qrtr_registry.%s.debug_msm_ipc_router_exists=%d\n",
+                      phase,
+                      phase,
+                      phase,
+                      debug_qrtr_exists,
+                      phase,
+                      debug_msm_ipc_router_exists) < 0 ||
+        append_qrtr_registry_file_summary(buf,
+                                          phase,
+                                          "proc_net_qrtr",
+                                          "/proc/net/qrtr") < 0 ||
+        append_qrtr_registry_file_summary(buf,
+                                          phase,
+                                          "debug_qrtr_nodes",
+                                          "/sys/kernel/debug/qrtr/nodes") < 0 ||
+        append_qrtr_registry_file_summary(buf,
+                                          phase,
+                                          "debug_qrtr_services",
+                                          "/sys/kernel/debug/qrtr/services") < 0 ||
+        append_qrtr_registry_file_summary(buf,
+                                          phase,
+                                          "debug_msm_ipc_router_dump",
+                                          "/sys/kernel/debug/msm_ipc_router/dump") < 0) {
+        return -1;
+    }
+    return append_format(buf,
+                         "wlan_pd_qrtr_registry.%s.no_qrtr_lookup_send=1\n"
+                         "wlan_pd_qrtr_registry.%s.no_service_start=1\n"
+                         "wlan_pd_qrtr_registry.%s.no_esoc0_open=1\n"
+                         "wlan_pd_qrtr_registry.%s.no_fake_online=1\n"
+                         "wlan_pd_qrtr_registry.%s.no_pmic_gpio_gdsc_write=1\n"
+                         "wlan_pd_qrtr_registry.%s.end=1\n",
+                         phase,
+                         phase,
+                         phase,
+                         phase,
+                         phase,
+                         phase);
+}
+
 static int wait_for_service74_gate(struct buffer *buf,
                                    unsigned int baseline_count_74,
                                    bool baseline_available,
@@ -37149,6 +37414,14 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
         stop_property_service_shim(&property_shim, paths, stdout_buf);
         return -1;
     }
+    if (wlan_pd_post_pm_lower_state_observer &&
+        append_wlan_pd_qrtr_registry_snapshot(stdout_buf,
+                                              "after_holder_start") < 0) {
+        stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
+        composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+        stop_property_service_shim(&property_shim, paths, stdout_buf);
+        return -1;
+    }
     if (cfg->allow_service_notifier_listener_probe &&
         append_companion_service_notifier_listener_probe(stdout_buf, cfg) < 0) {
         stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
@@ -37159,6 +37432,14 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
     if (wlan_pd_post_pm_lower_state_observer &&
         append_wlan_pd_post_pm_lower_handoff_klog_sample(stdout_buf,
                                                          "after_early_listener") < 0) {
+        stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
+        composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+        stop_property_service_shim(&property_shim, paths, stdout_buf);
+        return -1;
+    }
+    if (wlan_pd_post_pm_lower_state_observer &&
+        append_wlan_pd_qrtr_registry_snapshot(stdout_buf,
+                                              "after_early_listener") < 0) {
         stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
         composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
         stop_property_service_shim(&property_shim, paths, stdout_buf);
@@ -37177,6 +37458,14 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
     if (wlan_pd_post_pm_lower_state_observer &&
         append_wlan_pd_post_pm_lower_handoff_klog_sample(stdout_buf,
                                                          "after_post_listener_window") < 0) {
+        stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
+        composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+        stop_property_service_shim(&property_shim, paths, stdout_buf);
+        return -1;
+    }
+    if (wlan_pd_post_pm_lower_state_observer &&
+        append_wlan_pd_qrtr_registry_snapshot(stdout_buf,
+                                              "after_post_listener_window") < 0) {
         stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
         composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
         stop_property_service_shim(&property_shim, paths, stdout_buf);

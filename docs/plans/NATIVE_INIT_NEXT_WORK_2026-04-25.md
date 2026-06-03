@@ -17671,6 +17671,80 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
     unbind, PMIC/GPIO/GDSC writes, Wi-Fi HAL, scan/connect, credentials,
     DHCP/routes, or external ping.
 
+## V1821 QRTR/servloc registry source build (2026-06-03)
+
+- V1821 built a source/build-only rollbackable test-boot artifact that keeps
+  the bounded lower publication route and adds read-only QRTR/service-locator
+  registry summary fields for wlan/fw and wlan_pd surfaces.
+
+  Evidence:
+
+  - builder:
+    `scripts/revalidation/build_native_init_wifi_test_boot_v1821.py`;
+  - common builder update:
+    `scripts/revalidation/build_native_init_wifi_test_boot_v1393.py`;
+  - helper source:
+    `stage3/linux_init/helpers/a90_android_execns_probe.c`;
+  - report:
+    `docs/reports/NATIVE_INIT_V1821_QRTR_SERVLOC_REGISTRY_SOURCE_BUILD_2026-06-03.md`;
+  - manifest:
+    `tmp/wifi/v1821-qrtr-servloc-registry-test-boot/manifest.json`;
+  - boot image:
+    `tmp/wifi/v1821-qrtr-servloc-registry-test-boot/boot_linux_v1821_qrtr_servloc_registry.img`;
+  - boot SHA256:
+    `dcc6a5eabc600f085c886b02d5f2f393a10e354293affd1ee7c50c1624b61818`;
+  - init:
+    `A90 Linux init 0.9.157 (v1821-qrtr-servloc-registry)`;
+  - helper:
+    `a90_android_execns_probe v348`,
+    SHA256 `e79a465e88bd1b061cd0441a942d198923d6e3fb50fc2d435fafa05f0af7d1d7`;
+  - decision:
+    `v1821-qrtr-servloc-registry-source-build-pass`.
+
+  Added observer fields:
+
+  - registry summary prefix:
+    `wlan_pd_qrtr_registry.<phase>.*`;
+  - phases:
+    `after_holder_start`, `after_early_listener`, and
+    `after_post_listener_window`;
+  - read-only sources:
+    `/proc/net/qrtr`, `/sys/kernel/debug/qrtr/nodes`,
+    `/sys/kernel/debug/qrtr/services`, and
+    `/sys/kernel/debug/msm_ipc_router/dump` when present;
+  - per-source summary fields:
+    open/error/bytes/lines/interesting-lines and text flags for `wlan`,
+    service-locator, `wlan/fw`, `wlan_pd`, service 74, service 180, and qmi;
+  - explicit non-action fields:
+    `no_qrtr_lookup_send=1`, `no_service_start=1`, `no_esoc0_open=1`,
+    `no_fake_online=1`, and `no_pmic_gpio_gdsc_write=1`.
+
+  Interpretation:
+
+  - V1821 is source/build-only, so it does not change the live blocker verdict;
+  - it prepares V1822 to distinguish a readable-but-empty native QRTR registry
+    from a registry that exposes wlan/fw or wlan_pd while still missing
+    service74/wlan_pd publication;
+  - it intentionally avoids QRTR lookup packets and service start/trigger
+    actors.
+
+  Safety:
+
+  - host-only source/build. No live device command, flash, reboot, property
+    staging, `/dev/subsys_esoc0` open, fake-ONLINE, eSoC notify/BOOT_DONE, PCI
+    rescan/bind, platform unbind, PMIC/GPIO/GDSC writes, `boot_wlan`,
+    restart-PD request, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, or
+    external ping was performed by V1821.
+
+  Next candidate:
+
+  - V1822 should run exactly one rollbackable live gate with the V1821 artifact
+    and classify `qrtr-registry-wlan-absent`,
+    `qrtr-registry-wlan-visible-still-no-service74`,
+    `lower-publication-progress`, or `safety-regression`;
+  - do not continue into Wi-Fi HAL/scan/connect from V1822 unless WLFW service
+    69 and `wlan0` appear and a separate connection gate is written.
+
 ## V1820 servloc domain gap classifier (2026-06-03)
 
 - V1820 stayed host-only and compared the V1819 native
