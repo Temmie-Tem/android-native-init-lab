@@ -101,7 +101,11 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v358"
+#define EXECNS_VERSION "a90_android_execns_probe v359"
+
+#ifndef A90_EXECNS_ENABLE_DELAYED_LOWER_RESPONSE_WINDOW
+#define A90_EXECNS_ENABLE_DELAYED_LOWER_RESPONSE_WINDOW 0
+#endif
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -21975,6 +21979,7 @@ static int append_wlan_pd_lower_response_input_contract_window(struct buffer *bu
                          phase);
 }
 
+#if A90_EXECNS_ENABLE_DELAYED_LOWER_RESPONSE_WINDOW
 static int append_wlan_pd_lower_response_delayed_contract_window(struct buffer *buf,
                                                                  const char *phase) {
     static const int offsets_ms[] = {
@@ -22027,6 +22032,7 @@ static int append_wlan_pd_lower_response_delayed_contract_window(struct buffer *
                          "wlan_pd_lower_response_input_contract.%s.end=1\n",
                          phase);
 }
+#endif
 
 struct lower_sequence_summary {
     int sample_count;
@@ -38654,6 +38660,7 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
         stop_property_service_shim(&property_shim, paths, stdout_buf);
         return -1;
     }
+#if A90_EXECNS_ENABLE_DELAYED_LOWER_RESPONSE_WINDOW
     if (wlan_pd_post_pm_lower_state_observer &&
         append_wlan_pd_lower_response_delayed_contract_window(stdout_buf,
                                                               "post_powerup_delayed") < 0) {
@@ -38662,6 +38669,7 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
         stop_property_service_shim(&property_shim, paths, stdout_buf);
         return -1;
     }
+#endif
     if (wlan_pd_post_pm_lower_state_observer &&
         append_wlan_pd_post_pm_lower_state_observer(stdout_buf,
                                                     "post_listener_window",
