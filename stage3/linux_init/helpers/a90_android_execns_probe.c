@@ -10261,6 +10261,38 @@ static int materialize_private_cnss_daemon_sdx50m(const struct config *cfg,
     return 0;
 }
 
+static int append_private_cnss_daemon_materialization_summary(struct buffer *buf,
+                                                             const struct config *cfg,
+                                                             const struct paths *paths) {
+    struct stat source_st;
+    struct stat target_st;
+    const char *source = cfg->private_cnss_daemon_path != NULL ? cfg->private_cnss_daemon_path : "";
+    const char *target = paths->private_cnss_daemon_target[0] != '\0'
+                             ? paths->private_cnss_daemon_target
+                             : "";
+    bool source_ok = source[0] != '\0' && stat(source, &source_st) == 0;
+    bool target_ok = target[0] != '\0' && stat(target, &target_st) == 0;
+
+    if (!cfg->pm_observer_private_cnss_daemon_sdx50m) {
+        return 0;
+    }
+    return append_format(buf,
+                         "private_cnss_daemon.requested=1\n"
+                         "private_cnss_daemon.mode=%s\n"
+                         "private_cnss_daemon.source=%s\n"
+                         "private_cnss_daemon.target=%s\n"
+                         "private_cnss_daemon.source_size=%lld\n"
+                         "private_cnss_daemon.target_size_after=%lld\n"
+                         "private_cnss_daemon.bind_rc=%d\n"
+                         "private_cnss_daemon.expected_c_string=SDX50M\n",
+                         cfg->mode,
+                         source[0] != '\0' ? source : "<none>",
+                         target[0] != '\0' ? target : "<none>",
+                         source_ok ? (long long)source_st.st_size : -1LL,
+                         target_ok ? (long long)target_st.st_size : -1LL,
+                         target_ok ? 0 : -1);
+}
+
 static int materialize_rmt_storage_runtime_surface(const struct config *cfg,
                                                    const struct paths *paths,
                                                    char *error_buf,
@@ -47748,6 +47780,11 @@ int main(int argc, char **argv) {
             run_rc = 0;
             child_exit_code = 0;
         }
+        child_signal = 0;
+        timed_out = false;
+    } else if (append_private_cnss_daemon_materialization_summary(&stdout_buf, &cfg, &paths) < 0) {
+        run_rc = -1;
+        child_exit_code = 20;
         child_signal = 0;
         timed_out = false;
     } else if (streq(cfg.mode, "identity-probe")) {

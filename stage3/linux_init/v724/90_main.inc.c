@@ -4278,6 +4278,11 @@ static int v1393_spawn_wifi_test_boot_helper(pid_t *pid_out) {
 #elif A90_WIFI_TEST_BOOT_WLAN_PD_FIRMWARE_SERVE_GATE
         "--allow-wifi-companion-start-only",
         "--allow-cnss-start-only",
+#if A90_WIFI_TEST_BOOT_PRIVATE_CNSS_SDX50M
+        "--pm-observer-private-cnss-daemon-sdx50m",
+        "--private-cnss-daemon-path",
+        A90_V1393_WIFI_TEST_PRIVATE_CNSS,
+#endif
         "--allow-qrtr-ns-readback",
         "--allow-servloc-domain-list-probe",
         "--allow-service-notifier-listener-probe",
@@ -4345,6 +4350,11 @@ static int v1393_spawn_wifi_test_boot_helper(pid_t *pid_out) {
 #if !A90_WIFI_TEST_BOOT_PID1_RC1_WATCHER && !A90_WIFI_TEST_BOOT_AUTO_READINESS_SUPERVISOR
         "--pm-observer-early-powerup-corrected-rc1-enumerate",
 #endif
+#endif
+#if A90_WIFI_TEST_BOOT_PRIVATE_CNSS_SDX50M
+        "--pm-observer-private-cnss-daemon-sdx50m",
+        "--private-cnss-daemon-path",
+        A90_V1393_WIFI_TEST_PRIVATE_CNSS,
 #endif
         NULL
     };
