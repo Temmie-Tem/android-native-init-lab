@@ -16955,3 +16955,57 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
   - do not start `boot_wlan`, issue restart-PD request, open `/dev/subsys_esoc0`,
     start Wi-Fi HAL, scan/connect, configure DHCP/routes, or external ping from
     V1801 alone.
+
+## V1802 post-PM-success WLFW host classifier (2026-06-03)
+
+- V1802 reclassified V1801's rollback-verified raw helper output and fixed the
+  post-PM-success label as `wlfw-worker-waiting-for-qmi-service`.
+
+  Evidence:
+
+  - classifier:
+    `scripts/revalidation/native_wifi_post_pm_success_wlfw_classifier_v1802.py`;
+  - report:
+    `docs/reports/NATIVE_INIT_V1802_POST_PM_SUCCESS_WLFW_CLASSIFIER_2026-06-03.md`;
+  - manifest:
+    `tmp/wifi/v1802-post-pm-success-wlfw-classifier/manifest.json`;
+  - source evidence:
+    `tmp/wifi/v1801-pm-service-devnode-projection-handoff`;
+  - decision:
+    `v1802-wlfw-worker-waiting-for-qmi-service-host-pass`.
+
+  Key findings:
+
+  - V1801 PM-service projection label was `list-commit-progress`;
+  - PM server label was `pm-server-register-success-return`;
+  - WLFW non-log label was
+    `wlfw-worker-thread-started-waiting-for-qmi-service`;
+  - `wlfw_start`, `wlfw_service_request`, and `dms_service_request` all hit
+    once;
+  - `pm_init_pm_client_register_*` and `pm_init_pm_client_connect_*` all hit;
+  - `wlfw_ind_register_qmi` and `wlfw_cap_qmi` stayed `0`;
+  - `wlanmdsp.mbn` request, WLFW service 69, and `wlan0` remained absent.
+
+  Interpretation:
+
+  - V1801 successfully moved past the previous PM-service object/list blocker;
+  - the current blocker is not PM-service registration but QMI service readiness
+    downstream of `wlfw_service_request` and before WLFW indication/capability
+    QMI sends;
+  - next evidence should focus on QRTR/service-notifier/service 69 readiness and
+    WLFW worker wait state, not PM-service candidate repair.
+
+  Safety:
+
+  - host-only. No live device command, flash, reboot, property staging,
+    `/dev/subsys_esoc0` open, `boot_wlan`, restart-PD request, Wi-Fi HAL,
+    scan/connect, credentials, DHCP/routes, or external ping.
+
+  Next candidate:
+
+  - V1803 should stay source/build-only or no-new-mutation live-observer:
+    add/collect a focused QRTR/service-notifier readiness snapshot for WLFW
+    service 69 while preserving the V1800 projection route;
+  - still do not start `boot_wlan`, issue restart-PD request, open
+    `/dev/subsys_esoc0`, start Wi-Fi HAL, scan/connect, configure DHCP/routes,
+    or external ping from V1802 alone.
