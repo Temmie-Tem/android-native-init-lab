@@ -149,6 +149,7 @@ def filter_summary(commands_path: Path) -> dict[str, Any]:
         "commands_path": rel(commands_path),
         "commands_present": bool(text),
         "covers_per_mgr_srv": "PerMgrSrv" in text,
+        "covers_qmi_client": "QMI client" in text,
         "covers_qmi_service": "QMI service" in text,
         "covers_peripheral_restart": "peripheral restart" in text,
         "covers_wlanmdsp": "wlanmdsp" in text,
@@ -223,6 +224,7 @@ def classify(android: dict[str, Any], v1893: dict[str, Any], capture_filter: dic
     filter_ready = (
         capture_filter["commands_present"]
         and capture_filter["covers_per_mgr_srv"]
+        and capture_filter["covers_qmi_client"]
         and capture_filter["covers_qmi_service"]
         and capture_filter["covers_peripheral_restart"]
         and capture_filter["covers_wlanmdsp"]
@@ -336,14 +338,14 @@ def render_report(result: dict[str, Any]) -> str:
             "## Capture Filter Coverage",
             "",
             f"- commands path: `{capture_filter['commands_path']}`",
-            f"- PerMgrSrv/QMI-service/peripheral-restart: `{capture_filter['covers_per_mgr_srv']}` / `{capture_filter['covers_qmi_service']}` / `{capture_filter['covers_peripheral_restart']}`",
+            f"- PerMgrSrv/QMI-client/QMI-service/peripheral-restart: `{capture_filter['covers_per_mgr_srv']}` / `{capture_filter['covers_qmi_client']}` / `{capture_filter['covers_qmi_service']}` / `{capture_filter['covers_peripheral_restart']}`",
             f"- wlanmdsp/wlan_pd/WLFW request/service-notifier: `{capture_filter['covers_wlanmdsp']}` / `{capture_filter['covers_wlan_pd']}` / `{capture_filter['covers_wlfw_service_request']}` / `{capture_filter['covers_service_notifier']}`",
             "",
             "## Selected Diff",
             "",
             f"- Label: `{result['label']}`.",
             "- The retained V1753 normal Android capture still proves the internal path to `wlanmdsp.mbn` and `wlan0`, but it lacks the V1893 pending-client/msg22 log edge.",
-            "- The V1890 capture filter is adequate for the narrowed edge because it includes `PerMgrSrv`, `QMI service`, and `peripheral restart` lines.",
+            "- The V1890 capture filter is adequate for the narrowed edge because it includes `PerMgrSrv`, `QMI client`, `QMI service`, and `peripheral restart` lines.",
             "- The next live evidence remains one normal Android ADB/root capture followed by this parser and V1888; reject degraded 257s or pre-wlan0 PCIe/MHI captures.",
             "",
             "## Safety Scope",

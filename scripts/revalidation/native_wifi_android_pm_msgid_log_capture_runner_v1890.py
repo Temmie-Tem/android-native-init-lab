@@ -26,7 +26,7 @@ DEFAULT_CONTRACT_MANIFEST = (
 DEFAULT_PARSER = REPO_ROOT / "scripts" / "revalidation" / "native_wifi_pm_msgid_capture_diff_classifier_v1888.py"
 
 FILTER = (
-    "PerMgrSrv|PerMgrLib|QMI service|peripheral restart|system restart|system shutdown|"
+    "PerMgrSrv|PerMgrLib|QMI service|QMI client|peripheral restart|system restart|system shutdown|"
     "cnss-daemon|wlfw_service_request|WLFW service connected|wlanmdsp|tftp_server|"
     "service-notifier|servloc|sysmon-qmi|icnss_qmi|icnss|wlan_pd|wlan0|PCIe|MHI|"
     "esoc0.*boot.*fail|boot_failed"
@@ -189,7 +189,7 @@ def write_shell_script(path: Path, commands: list[dict[str, Any]]) -> None:
             continue
         cmdline = " ".join(shlex.quote(part) for part in item["command"])
         lines.append(f"{cmdline} > \"$OUT/{item['outfile']}\" 2>&1 || true")
-    lines.append("cat \"$OUT/android/dmesg-filtered.txt\" \"$OUT/android/logcat-filtered.txt\" 2>/dev/null | grep -Ei 'QMI service|peripheral restart|wlanmdsp|wlan_pd|service-notifier|wlan0|PerMgr|wlfw' > \"$OUT/android/request-lines.txt\" || true")
+    lines.append("cat \"$OUT/android/dmesg-filtered.txt\" \"$OUT/android/logcat-filtered.txt\" 2>/dev/null | grep -Ei 'QMI service|QMI client|peripheral restart|wlanmdsp|wlan_pd|service-notifier|wlan0|PerMgr|wlfw' > \"$OUT/android/request-lines.txt\" || true")
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     path.chmod(0o755)
 
@@ -211,7 +211,7 @@ def execute_capture(store: EvidenceStore, commands: list[dict[str, Any]]) -> lis
                 line
                 for source in ("android/dmesg-filtered.txt", "android/logcat-filtered.txt")
                 for line in captured.get(source, "").splitlines()
-                if re.search(r"QMI service|peripheral restart|wlanmdsp|wlan_pd|service-notifier|wlan0|PerMgr|wlfw", line, re.IGNORECASE)
+                if re.search(r"QMI service|QMI client|peripheral restart|wlanmdsp|wlan_pd|service-notifier|wlan0|PerMgr|wlfw", line, re.IGNORECASE)
             )
             store.write_text(item["outfile"], text + ("\n" if text else ""))
             executed.append({"name": item["name"], "kind": item["kind"], "ok": True, "rc": 0, "outfile": item["outfile"]})
@@ -294,7 +294,7 @@ def render_report(result: dict[str, Any]) -> str:
             "## Command Targets",
             "",
             "- Captures read-only identity props, target processes, init service props, `/proc/net/qrtr`, filtered `dmesg`, filtered `logcat -b all`, and a composed `request-lines.txt`.",
-            "- Filters include `PerMgrSrv`, `PerMgrLib`, `QMI service`, `peripheral restart`, `cnss-daemon`, `service-notifier`, `servloc`, `sysmon-qmi`, `wlanmdsp`, `wlan_pd`, `wlan0`, PCIe/MHI contamination terms, and degraded-boot terms.",
+            "- Filters include `PerMgrSrv`, `PerMgrLib`, `QMI service`, `QMI client`, `peripheral restart`, `cnss-daemon`, `service-notifier`, `servloc`, `sysmon-qmi`, `wlanmdsp`, `wlan_pd`, `wlan0`, PCIe/MHI contamination terms, and degraded-boot terms.",
             "- Output names match V1888 parser inputs: `android/logcat-filtered.txt`, `android/dmesg-filtered.txt`, and `android/request-lines.txt`.",
             "",
             "## Selected Diff",

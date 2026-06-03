@@ -22,7 +22,7 @@
 ## Command Targets
 
 - Captures read-only identity props, target processes, init service props, `/proc/net/qrtr`, filtered `dmesg`, filtered `logcat -b all`, and a composed `request-lines.txt`.
-- Filters include `PerMgrSrv`, `PerMgrLib`, `QMI service`, `peripheral restart`, `cnss-daemon`, `service-notifier`, `servloc`, `sysmon-qmi`, `wlanmdsp`, `wlan_pd`, `wlan0`, PCIe/MHI contamination terms, and degraded-boot terms.
+- Filters include `PerMgrSrv`, `PerMgrLib`, `QMI service`, `QMI client`, `peripheral restart`, `cnss-daemon`, `service-notifier`, `servloc`, `sysmon-qmi`, `wlanmdsp`, `wlan_pd`, `wlan0`, PCIe/MHI contamination terms, and degraded-boot terms.
 - Output names match V1888 parser inputs: `android/logcat-filtered.txt`, `android/dmesg-filtered.txt`, and `android/request-lines.txt`.
 
 ## Selected Diff

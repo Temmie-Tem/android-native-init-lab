@@ -27,14 +27,14 @@
 ## Capture Filter Coverage
 
 - commands path: `tmp/wifi/v1890-android-pm-msgid-log-capture-runner/host/android-pm-msgid-log-capture-commands.json`
-- PerMgrSrv/QMI-service/peripheral-restart: `True` / `True` / `True`
+- PerMgrSrv/QMI-client/QMI-service/peripheral-restart: `True` / `True` / `True` / `True`
 - wlanmdsp/wlan_pd/WLFW request/service-notifier: `True` / `True` / `True` / `True`
 
 ## Selected Diff
 
 - Label: `android-stateup-pending-client-observability-gap`.
 - The retained V1753 normal Android capture still proves the internal path to `wlanmdsp.mbn` and `wlan0`, but it lacks the V1893 pending-client/msg22 log edge.
-- The V1890 capture filter is adequate for the narrowed edge because it includes `PerMgrSrv`, `QMI service`, and `peripheral restart` lines.
+- The V1890 capture filter is adequate for the narrowed edge because it includes `PerMgrSrv`, `QMI client`, `QMI service`, and `peripheral restart` lines.
 - The next live evidence remains one normal Android ADB/root capture followed by this parser and V1888; reject degraded 257s or pre-wlan0 PCIe/MHI captures.
 
 ## Safety Scope
