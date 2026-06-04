@@ -112,7 +112,13 @@
 #define A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK 0
 #endif
 
-#if A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
+#ifndef A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK
+#define A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK 0
+#endif
+
+#if A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
+#define EXECNS_VERSION "a90_android_execns_probe v385"
+#elif A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
 #define EXECNS_VERSION "a90_android_execns_probe v384"
 #elif A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK
 #define EXECNS_VERSION "a90_android_execns_probe v383"
@@ -437,6 +443,9 @@ struct paths {
     char vendor_rfs_msm_mpss_readonly[MAX_PATH_LEN];
     char vendor_rfs_msm_mpss_readwrite[MAX_PATH_LEN];
     char vendor_rfs_mpss_server_check[MAX_PATH_LEN];
+#if A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK
+    char vendor_rfs_mpss_mcfg_tmp[MAX_PATH_LEN];
+#endif
     char vendor_rfs_mpss_wlanmdsp[MAX_PATH_LEN];
     char vendor_rfs_mpss_wlanmdsp_fallback[MAX_PATH_LEN];
     char rfs_bridge_source[MAX_PATH_LEN];
@@ -3831,6 +3840,14 @@ static int init_paths(struct paths *paths) {
         append_path(paths->linkerconfig, sizeof(paths->linkerconfig), paths->root, "linkerconfig") < 0) {
         return -1;
     }
+#if A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK
+    if (append_path(paths->vendor_rfs_mpss_mcfg_tmp,
+                    sizeof(paths->vendor_rfs_mpss_mcfg_tmp),
+                    paths->vendor_rfs_msm_mpss_readwrite,
+                    "mcfg.tmp") < 0) {
+        return -1;
+    }
+#endif
     if (mkdir_p(paths->base, 0700) < 0 ||
         mkdir_p(paths->root, 0755) < 0 ||
         mkdir_p(paths->system, 0755) < 0 ||
@@ -25175,11 +25192,21 @@ static int append_escaped_ascii(struct buffer *buf, const unsigned char *data, s
 struct a90_tftp_logdw_sink {
     int fd;
     char socket_path[MAX_PATH_LEN];
+#if A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK
+    char mcfg_path[MAX_PATH_LEN];
+#endif
     bool start_attempted;
     bool active;
     bool reported;
+#if A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK
+    bool mcfg_seen;
+    bool mcfg_post_wrq_sampled;
+#endif
     unsigned int datagram_count;
     unsigned int stored_record_count;
+#if A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK
+    unsigned int mcfg_sample_count;
+#endif
     unsigned int truncated_record_count;
     unsigned int tftp_server_count;
     unsigned int server_check_count;
@@ -25256,6 +25283,12 @@ static int a90_tftp_logdw_sink_start(const struct paths *paths,
              sizeof(g_tftp_logdw_sink.socket_path),
              "%s",
              paths->logdw_socket);
+#if A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK
+    snprintf(g_tftp_logdw_sink.mcfg_path,
+             sizeof(g_tftp_logdw_sink.mcfg_path),
+             "%s",
+             paths->vendor_rfs_mpss_mcfg_tmp);
+#endif
     if (append_format(stdout_buf,
                       "tftp_logdw_sink.begin=1\n"
                       "tftp_logdw_sink.mode=passive-private-dev-socket-dgram\n"
@@ -25267,6 +25300,17 @@ static int a90_tftp_logdw_sink_start(const struct paths *paths,
                       g_tftp_logdw_sink.socket_path) < 0) {
         return -1;
     }
+#if A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK
+    if (append_format(stdout_buf,
+                      "tftp_mcfg_readback.begin=1\n"
+                      "tftp_mcfg_readback.mode=read-only-post-wrq-stat-open-read\n"
+                      "tftp_mcfg_readback.path=%s\n"
+                      "tftp_mcfg_readback.sda29_write=0\n"
+                      "tftp_mcfg_readback.rootfs_namespace_only=1\n",
+                      g_tftp_logdw_sink.mcfg_path) < 0) {
+        return -1;
+    }
+#endif
     if (mkdir_p(paths->dev_socket, 0755) < 0) {
         return append_format(stdout_buf,
                              "tftp_logdw_sink.started=0\n"
@@ -25329,11 +25373,93 @@ static int a90_tftp_logdw_sink_start(const struct paths *paths,
                           "tftp_logdw_sink.started=1\n");
 }
 
+#if A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK
+static int a90_tftp_mcfg_readback_sample(struct buffer *stdout_buf,
+                                         const char *phase) {
+    unsigned char data[32];
+    struct stat st;
+    unsigned int index;
+    int stat_errno = 0;
+    int open_errno = 0;
+    int read_errno = 0;
+    int fd = -1;
+    ssize_t nread = -1;
+    bool exists = false;
+    bool is_reg = false;
+
+    if (!g_tftp_logdw_sink.active || g_tftp_logdw_sink.mcfg_path[0] == '\0') {
+        return 0;
+    }
+    if (g_tftp_logdw_sink.mcfg_sample_count >= 12U) {
+        return 0;
+    }
+    memset(&st, 0, sizeof(st));
+    if (stat(g_tftp_logdw_sink.mcfg_path, &st) == 0) {
+        exists = true;
+        is_reg = S_ISREG(st.st_mode);
+    } else {
+        stat_errno = errno;
+    }
+    if (exists && is_reg) {
+        fd = open(g_tftp_logdw_sink.mcfg_path, O_RDONLY | O_CLOEXEC);
+        if (fd >= 0) {
+            nread = read(fd, data, sizeof(data));
+            if (nread < 0) {
+                read_errno = errno;
+            }
+            close(fd);
+        } else {
+            open_errno = errno;
+        }
+    }
+    index = g_tftp_logdw_sink.mcfg_sample_count++;
+    if (append_format(stdout_buf,
+                      "tftp_mcfg_readback.sample_%03u.phase=%s\n"
+                      "tftp_mcfg_readback.sample_%03u.path=%s\n"
+                      "tftp_mcfg_readback.sample_%03u.exists=%d\n"
+                      "tftp_mcfg_readback.sample_%03u.is_reg=%d\n"
+                      "tftp_mcfg_readback.sample_%03u.size=%lld\n"
+                      "tftp_mcfg_readback.sample_%03u.mode=%04o\n"
+                      "tftp_mcfg_readback.sample_%03u.stat_errno=%d\n"
+                      "tftp_mcfg_readback.sample_%03u.open_rc=%d\n"
+                      "tftp_mcfg_readback.sample_%03u.open_errno=%d\n"
+                      "tftp_mcfg_readback.sample_%03u.read_len=%lld\n"
+                      "tftp_mcfg_readback.sample_%03u.read_errno=%d\n"
+                      "tftp_mcfg_readback.sample_%03u.payload=",
+                      index, phase,
+                      index, g_tftp_logdw_sink.mcfg_path,
+                      index, exists ? 1 : 0,
+                      index, is_reg ? 1 : 0,
+                      index, exists ? (long long)st.st_size : 0LL,
+                      index, exists ? (unsigned int)(st.st_mode & 07777) : 0U,
+                      index, stat_errno,
+                      index, fd >= 0 ? 0 : -1,
+                      index, open_errno,
+                      index, nread >= 0 ? (long long)nread : -1LL,
+                      index, read_errno,
+                      index) < 0) {
+        return -1;
+    }
+    if (nread > 0) {
+        if (append_escaped_ascii(stdout_buf, data, (size_t)nread) < 0) {
+            return -1;
+        }
+    }
+    return append_literal(stdout_buf, "\n");
+}
+#endif
+
 static int a90_tftp_logdw_sink_record(struct buffer *stdout_buf,
                                       const unsigned char *data,
                                       size_t data_len) {
     bool token_tftp_server = a90_logdw_bytes_contains_token_ci(data, data_len, "tftp_server");
     bool token_server_check = a90_logdw_bytes_contains_token_ci(data, data_len, "server_check");
+#if A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK
+    bool token_mcfg = a90_logdw_bytes_contains_token_ci(data, data_len, "mcfg.tmp");
+    bool token_wrq_stats =
+        a90_logdw_bytes_contains_token_ci(data, data_len, "WRQ stats") ||
+        a90_logdw_bytes_contains_token_ci(data, data_len, "WRQ Total API");
+#endif
     bool token_wlanmdsp = a90_logdw_bytes_contains_token_ci(data, data_len, "wlanmdsp");
     bool token_firmware_mnt =
         a90_logdw_bytes_contains_token_ci(data, data_len, "firmware_mnt/image/wlanmdsp.mbn");
@@ -25368,6 +25494,9 @@ static int a90_tftp_logdw_sink_record(struct buffer *stdout_buf,
     g_tftp_logdw_sink.byte_count += (unsigned long long)data_len;
     if (token_tftp_server) g_tftp_logdw_sink.tftp_server_count++;
     if (token_server_check) g_tftp_logdw_sink.server_check_count++;
+#if A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK
+    if (token_mcfg) g_tftp_logdw_sink.mcfg_seen = true;
+#endif
     if (token_wlanmdsp) g_tftp_logdw_sink.wlanmdsp_count++;
     if (token_firmware_mnt) g_tftp_logdw_sink.firmware_mnt_wlanmdsp_count++;
     if (token_fallback) g_tftp_logdw_sink.fallback_wlanmdsp_count++;
@@ -25443,6 +25572,21 @@ static int a90_tftp_logdw_sink_record(struct buffer *stdout_buf,
             return -1;
         }
     }
+#if A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK
+    if (token_mcfg) {
+        if (a90_tftp_mcfg_readback_sample(stdout_buf, "mcfg-log") < 0) {
+            return -1;
+        }
+    }
+    if (token_wrq_stats &&
+        g_tftp_logdw_sink.mcfg_seen &&
+        !g_tftp_logdw_sink.mcfg_post_wrq_sampled) {
+        g_tftp_logdw_sink.mcfg_post_wrq_sampled = true;
+        if (a90_tftp_mcfg_readback_sample(stdout_buf, "post-wrq-stats") < 0) {
+            return -1;
+        }
+    }
+#endif
     return 0;
 }
 
@@ -25486,6 +25630,12 @@ static int a90_tftp_logdw_sink_stop(struct buffer *stdout_buf) {
     if (a90_tftp_logdw_sink_drain(stdout_buf) < 0) {
         return -1;
     }
+#if A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK
+    if (g_tftp_logdw_sink.mcfg_seen &&
+        a90_tftp_mcfg_readback_sample(stdout_buf, "final-stop") < 0) {
+        return -1;
+    }
+#endif
     if (g_tftp_logdw_sink.fd >= 0) {
         close(g_tftp_logdw_sink.fd);
         g_tftp_logdw_sink.fd = -1;
@@ -25495,45 +25645,58 @@ static int a90_tftp_logdw_sink_stop(struct buffer *stdout_buf) {
     }
     g_tftp_logdw_sink.active = false;
     g_tftp_logdw_sink.reported = true;
-    return append_format(stdout_buf,
-                         "tftp_logdw_sink.summary.datagrams=%u\n"
-                         "tftp_logdw_sink.summary.bytes=%llu\n"
-                         "tftp_logdw_sink.summary.stored_records=%u\n"
-                         "tftp_logdw_sink.summary.truncated_records=%u\n"
-                         "tftp_logdw_sink.summary.tftp_server=%u\n"
-                         "tftp_logdw_sink.summary.server_check=%u\n"
-                         "tftp_logdw_sink.summary.wlanmdsp=%u\n"
-                         "tftp_logdw_sink.summary.firmware_mnt_wlanmdsp=%u\n"
-                         "tftp_logdw_sink.summary.fallback_wlanmdsp=%u\n"
-                         "tftp_logdw_sink.summary.rrq=%u\n"
-                         "tftp_logdw_sink.summary.oack=%u\n"
-                         "tftp_logdw_sink.summary.data=%u\n"
-                         "tftp_logdw_sink.summary.ack=%u\n"
-                         "tftp_logdw_sink.summary.end_transfer=%u\n"
-                         "tftp_logdw_sink.summary.success=%u\n"
-                         "tftp_logdw_sink.summary.total_bytes=%u\n"
-                         "tftp_logdw_sink.summary.total_bytes_4251884=%u\n"
-                         "tftp_logdw_sink.summary.enoent=%u\n"
-                         "tftp_logdw_sink.stopped=1\n"
-                         "tftp_logdw_sink.end=1\n",
-                         g_tftp_logdw_sink.datagram_count,
-                         g_tftp_logdw_sink.byte_count,
-                         g_tftp_logdw_sink.stored_record_count,
-                         g_tftp_logdw_sink.truncated_record_count,
-                         g_tftp_logdw_sink.tftp_server_count,
-                         g_tftp_logdw_sink.server_check_count,
-                         g_tftp_logdw_sink.wlanmdsp_count,
-                         g_tftp_logdw_sink.firmware_mnt_wlanmdsp_count,
-                         g_tftp_logdw_sink.fallback_wlanmdsp_count,
-                         g_tftp_logdw_sink.rrq_count,
-                         g_tftp_logdw_sink.oack_count,
-                         g_tftp_logdw_sink.data_count,
-                         g_tftp_logdw_sink.ack_count,
-                         g_tftp_logdw_sink.end_transfer_count,
-                         g_tftp_logdw_sink.success_count,
-                         g_tftp_logdw_sink.total_bytes_count,
-                         g_tftp_logdw_sink.total_bytes_4251884_count,
-                         g_tftp_logdw_sink.enoent_count);
+    if (append_format(stdout_buf,
+                      "tftp_logdw_sink.summary.datagrams=%u\n"
+                      "tftp_logdw_sink.summary.bytes=%llu\n"
+                      "tftp_logdw_sink.summary.stored_records=%u\n"
+                      "tftp_logdw_sink.summary.truncated_records=%u\n"
+                      "tftp_logdw_sink.summary.tftp_server=%u\n"
+                      "tftp_logdw_sink.summary.server_check=%u\n"
+                      "tftp_logdw_sink.summary.wlanmdsp=%u\n"
+                      "tftp_logdw_sink.summary.firmware_mnt_wlanmdsp=%u\n"
+                      "tftp_logdw_sink.summary.fallback_wlanmdsp=%u\n"
+                      "tftp_logdw_sink.summary.rrq=%u\n"
+                      "tftp_logdw_sink.summary.oack=%u\n"
+                      "tftp_logdw_sink.summary.data=%u\n"
+                      "tftp_logdw_sink.summary.ack=%u\n"
+                      "tftp_logdw_sink.summary.end_transfer=%u\n"
+                      "tftp_logdw_sink.summary.success=%u\n"
+                      "tftp_logdw_sink.summary.total_bytes=%u\n"
+                      "tftp_logdw_sink.summary.total_bytes_4251884=%u\n"
+                      "tftp_logdw_sink.summary.enoent=%u\n",
+                      g_tftp_logdw_sink.datagram_count,
+                      g_tftp_logdw_sink.byte_count,
+                      g_tftp_logdw_sink.stored_record_count,
+                      g_tftp_logdw_sink.truncated_record_count,
+                      g_tftp_logdw_sink.tftp_server_count,
+                      g_tftp_logdw_sink.server_check_count,
+                      g_tftp_logdw_sink.wlanmdsp_count,
+                      g_tftp_logdw_sink.firmware_mnt_wlanmdsp_count,
+                      g_tftp_logdw_sink.fallback_wlanmdsp_count,
+                      g_tftp_logdw_sink.rrq_count,
+                      g_tftp_logdw_sink.oack_count,
+                      g_tftp_logdw_sink.data_count,
+                      g_tftp_logdw_sink.ack_count,
+                      g_tftp_logdw_sink.end_transfer_count,
+                      g_tftp_logdw_sink.success_count,
+                      g_tftp_logdw_sink.total_bytes_count,
+                      g_tftp_logdw_sink.total_bytes_4251884_count,
+                      g_tftp_logdw_sink.enoent_count) < 0) {
+        return -1;
+    }
+#if A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK
+    if (append_format(stdout_buf,
+                      "tftp_mcfg_readback.summary.samples=%u\n"
+                      "tftp_mcfg_readback.summary.post_wrq_sampled=%d\n"
+                      "tftp_mcfg_readback.end=1\n",
+                      g_tftp_logdw_sink.mcfg_sample_count,
+                      g_tftp_logdw_sink.mcfg_post_wrq_sampled ? 1 : 0) < 0) {
+        return -1;
+    }
+#endif
+    return append_literal(stdout_buf,
+                          "tftp_logdw_sink.stopped=1\n"
+                          "tftp_logdw_sink.end=1\n");
 }
 #endif
 
