@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v374"
+#define EXECNS_VERSION "a90_android_execns_probe v375"
 
 #ifndef A90_EXECNS_ENABLE_DELAYED_LOWER_RESPONSE_WINDOW
 #define A90_EXECNS_ENABLE_DELAYED_LOWER_RESPONSE_WINDOW 0
@@ -115,8 +115,15 @@
 #define PD_MAPPER_SYSCALL_RECORD_LIMIT 96U
 #define PD_MAPPER_SYSCALL_STOP_LIMIT 240U
 #define PD_MAPPER_QRTR_PAYLOAD_LIMIT 256U
+#ifndef TFTP_SERVER_SYSCALL_RECORD_LIMIT
 #define TFTP_SERVER_SYSCALL_RECORD_LIMIT 128U
+#endif
+#ifndef TFTP_SERVER_SYSCALL_STOP_LIMIT
 #define TFTP_SERVER_SYSCALL_STOP_LIMIT 320U
+#endif
+#ifndef TFTP_SERVER_SYSCALL_TRACE_TIMEOUT_MS
+#define TFTP_SERVER_SYSCALL_TRACE_TIMEOUT_MS 6000U
+#endif
 #define DEFAULT_QRTR_READBACK_MATRIX "wlfw:69:0,1"
 #define MAX_QRTR_READBACK_CASES 16
 #define MAX_QRTR_READBACK_LABEL 32
@@ -41584,7 +41591,7 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
         append_wlan_pd_tftp_server_late_syscall_trace(stdout_buf,
                                                       children,
                                                       active_child_count,
-                                                      6000) < 0) {
+                                                      TFTP_SERVER_SYSCALL_TRACE_TIMEOUT_MS) < 0) {
         stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
         composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
         stop_property_service_shim(&property_shim, paths, stdout_buf);
