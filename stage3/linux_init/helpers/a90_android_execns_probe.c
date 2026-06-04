@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v376"
+#define EXECNS_VERSION "a90_android_execns_probe v377"
 
 #ifndef A90_EXECNS_ENABLE_DELAYED_LOWER_RESPONSE_WINDOW
 #define A90_EXECNS_ENABLE_DELAYED_LOWER_RESPONSE_WINDOW 0
@@ -126,6 +126,9 @@
 #endif
 #ifndef TFTP_SERVER_SYSCALL_COMPACT_PAYLOAD_LIMIT
 #define TFTP_SERVER_SYSCALL_COMPACT_PAYLOAD_LIMIT PD_MAPPER_QRTR_PAYLOAD_LIMIT
+#endif
+#ifndef TFTP_SERVER_SYSCALL_COMPACT_PATH_LIMIT
+#define TFTP_SERVER_SYSCALL_COMPACT_PATH_LIMIT 192U
 #endif
 #define DEFAULT_QRTR_READBACK_MATRIX "wlfw:69:0,1"
 #define MAX_QRTR_READBACK_CASES 16
@@ -28016,17 +28019,138 @@ static bool a90_bytes_contains_ascii_token_ci(const unsigned char *data,
     return false;
 }
 
-static int append_composite_tftp_compact_syscall_record(struct composite_child *child,
-                                                        pid_t pid,
-                                                        unsigned long long ret_reg,
-                                                        struct buffer *stdout_buf) {
-    unsigned char payload[TFTP_SERVER_SYSCALL_COMPACT_PAYLOAD_LIMIT];
+static const char *a90_tftp_opcode_name(unsigned int opcode) {
+    switch (opcode) {
+    case 1U:
+        return "RRQ";
+    case 2U:
+        return "WRQ";
+    case 3U:
+        return "DATA";
+    case 4U:
+        return "ACK";
+    case 5U:
+        return "ERROR";
+    case 6U:
+        return "OACK";
+    default:
+        return "OTHER";
+    }
+}
+
+static int a90_compact_next_record_prefix(struct composite_child *child,
+                                          const char *kind,
+                                          char *prefix,
+                                          size_t prefix_size) {
+    const char *root = composite_syscall_trace_root(child);
+
+    if (child->syscall_record_count >= composite_syscall_record_limit(child)) {
+        child->syscall_trace_truncated = true;
+        return 1;
+    }
+    if (snprintf(prefix,
+                 prefix_size,
+                 "%s.%s.%s.record_%03u",
+                 root,
+                 kind,
+                 child->name,
+                 child->syscall_record_count) >= (int)prefix_size) {
+        return -1;
+    }
+    child->syscall_record_count++;
+    return 0;
+}
+
+static void a90_compact_tftp_read_sockaddr(pid_t pid,
+                                           unsigned long long addr,
+                                           unsigned long long len,
+                                           unsigned short *family_out,
+                                           unsigned int *qrtr_node_out,
+                                           unsigned int *qrtr_port_out) {
     unsigned char sockaddr_bytes[sizeof(struct sockaddr_storage)];
+    size_t sockaddr_read = 0;
+    unsigned short family = 0;
+    unsigned int qrtr_node = 0;
+    unsigned int qrtr_port = 0;
+
+    *family_out = 0;
+    *qrtr_node_out = 0;
+    *qrtr_port_out = 0;
+    if (addr == 0 || len == 0) {
+        return;
+    }
+    if (len > sizeof(sockaddr_bytes)) {
+        len = sizeof(sockaddr_bytes);
+    }
+    memset(sockaddr_bytes, 0, sizeof(sockaddr_bytes));
+    if (ptrace_read_bytes_best_effort(pid,
+                                      addr,
+                                      sockaddr_bytes,
+                                      (size_t)len,
+                                      &sockaddr_read) < 0 ||
+        sockaddr_read < sizeof(family)) {
+        return;
+    }
+    memcpy(&family, sockaddr_bytes, sizeof(family));
+#ifdef AF_QIPCRTR
+    if (family == AF_QIPCRTR && sockaddr_read >= sizeof(struct sockaddr_qrtr)) {
+        struct sockaddr_qrtr qrtr_addr;
+
+        memcpy(&qrtr_addr, sockaddr_bytes, sizeof(qrtr_addr));
+        qrtr_node = qrtr_addr.sq_node;
+        qrtr_port = qrtr_addr.sq_port;
+    }
+#endif
+    *family_out = family;
+    *qrtr_node_out = qrtr_node;
+    *qrtr_port_out = qrtr_port;
+}
+
+static int a90_ptrace_read_compact_c_string(pid_t pid,
+                                            unsigned long long addr,
+                                            unsigned char *out,
+                                            size_t out_size,
+                                            size_t *text_len_out) {
+    size_t bytes_read = 0;
+    size_t text_len = 0;
+
+    *text_len_out = 0;
+    if (out_size == 0) {
+        errno = EINVAL;
+        return -1;
+    }
+    memset(out, 0, out_size);
+    if (ptrace_read_bytes_best_effort(pid, addr, out, out_size - 1U, &bytes_read) < 0) {
+        return -1;
+    }
+    while (text_len < bytes_read && out[text_len] != '\0') {
+        text_len++;
+    }
+    *text_len_out = text_len;
+    return 0;
+}
+
+static bool a90_tftp_compact_path_focus(const unsigned char *path, size_t path_len) {
+    return a90_bytes_contains_ascii_token_ci(path, path_len, "readwrite") ||
+           a90_bytes_contains_ascii_token_ci(path, path_len, "readonly") ||
+           a90_bytes_contains_ascii_token_ci(path, path_len, "server_check") ||
+           a90_bytes_contains_ascii_token_ci(path, path_len, "ota_firewall") ||
+           a90_bytes_contains_ascii_token_ci(path, path_len, "ruleset") ||
+           a90_bytes_contains_ascii_token_ci(path, path_len, "mcfg") ||
+           a90_bytes_contains_ascii_token_ci(path, path_len, "mbn_hw") ||
+           a90_bytes_contains_ascii_token_ci(path, path_len, "wlanmdsp") ||
+           a90_bytes_contains_ascii_token_ci(path, path_len, "modem");
+}
+
+static int append_composite_tftp_compact_packet_record(struct composite_child *child,
+                                                       pid_t pid,
+                                                       long long ret,
+                                                       struct buffer *stdout_buf) {
+    unsigned char payload[TFTP_SERVER_SYSCALL_COMPACT_PAYLOAD_LIMIT];
     size_t payload_len;
     size_t payload_read = 0;
     size_t path_len = 0;
     size_t mode_len = 0;
-    size_t sockaddr_read = 0;
     socklen_t sockaddr_len = 0;
     unsigned short family = 0;
     unsigned int qrtr_node = 0;
@@ -28035,21 +28159,56 @@ static int append_composite_tftp_compact_syscall_record(struct composite_child *
     const unsigned char *path;
     const unsigned char *mode;
     const char *opcode_name;
-    const char *root = composite_syscall_trace_root(child);
+    const char *direction = NULL;
     char prefix[128];
     long nr = child->last_syscall_nr;
-    long long ret = (long long)ret_reg;
+    int prefix_rc;
 
 #ifdef SYS_recvfrom
-    if (nr != SYS_recvfrom || ret <= 0) {
+    if (nr == SYS_recvfrom && ret > 0) {
+        direction = "recvfrom";
+        payload_len = (size_t)ret;
+        if (child->last_syscall_args[4] != 0 && child->last_syscall_args[5] != 0) {
+            size_t socklen_read = 0;
+
+            if (ptrace_read_bytes_best_effort(pid,
+                                              child->last_syscall_args[5],
+                                              (unsigned char *)&sockaddr_len,
+                                              sizeof(sockaddr_len),
+                                              &socklen_read) < 0 ||
+                socklen_read < sizeof(sockaddr_len) ||
+                sockaddr_len == 0) {
+                sockaddr_len = sizeof(struct sockaddr_storage);
+            }
+            a90_compact_tftp_read_sockaddr(pid,
+                                           child->last_syscall_args[4],
+                                           sockaddr_len,
+                                           &family,
+                                           &qrtr_node,
+                                           &qrtr_port);
+        }
+    } else
+#endif
+#ifdef SYS_sendto
+    if (nr == SYS_sendto && ret > 0) {
+        direction = "sendto";
+        payload_len = (size_t)ret;
+        if (payload_len > (size_t)child->last_syscall_args[2]) {
+            payload_len = (size_t)child->last_syscall_args[2];
+        }
+        if (child->last_syscall_args[4] != 0 && child->last_syscall_args[5] != 0) {
+            a90_compact_tftp_read_sockaddr(pid,
+                                           child->last_syscall_args[4],
+                                           child->last_syscall_args[5],
+                                           &family,
+                                           &qrtr_node,
+                                           &qrtr_port);
+        }
+    } else
+#endif
+    {
         return 0;
     }
-#else
-    (void)pid;
-    (void)stdout_buf;
-    return 0;
-#endif
-    payload_len = (size_t)ret;
     if (payload_len > sizeof(payload)) {
         payload_len = sizeof(payload);
     }
@@ -28063,82 +28222,49 @@ static int append_composite_tftp_compact_syscall_record(struct composite_child *
         return 0;
     }
     opcode = ((unsigned int)payload[0] << 8) | (unsigned int)payload[1];
-    if (opcode != 1U && opcode != 2U) {
+    if (opcode < 1U || opcode > 6U) {
         return 0;
     }
     path = payload + 2;
-    while (2U + path_len < payload_read && path[path_len] != '\0') {
-        path_len++;
-    }
-    if (2U + path_len >= payload_read || path_len == 0) {
-        return 0;
-    }
-    mode = path + path_len + 1U;
-    while ((size_t)(mode - payload) + mode_len < payload_read && mode[mode_len] != '\0') {
-        mode_len++;
-    }
-
-    if (child->last_syscall_args[4] != 0 && child->last_syscall_args[5] != 0) {
-        size_t socklen_read = 0;
-
-        if (ptrace_read_bytes_best_effort(pid,
-                                          child->last_syscall_args[5],
-                                          (unsigned char *)&sockaddr_len,
-                                          sizeof(sockaddr_len),
-                                          &socklen_read) < 0 ||
-            socklen_read < sizeof(sockaddr_len) ||
-            sockaddr_len > sizeof(sockaddr_bytes)) {
-            sockaddr_len = sizeof(sockaddr_bytes);
+    if (opcode == 1U || opcode == 2U) {
+        while (2U + path_len < payload_read && path[path_len] != '\0') {
+            path_len++;
         }
-        memset(sockaddr_bytes, 0, sizeof(sockaddr_bytes));
-        if (ptrace_read_bytes_best_effort(pid,
-                                          child->last_syscall_args[4],
-                                          sockaddr_bytes,
-                                          sockaddr_len,
-                                          &sockaddr_read) == 0 &&
-            sockaddr_read >= sizeof(family)) {
-            memcpy(&family, sockaddr_bytes, sizeof(family));
-#ifdef AF_QIPCRTR
-            if (family == AF_QIPCRTR && sockaddr_read >= sizeof(struct sockaddr_qrtr)) {
-                struct sockaddr_qrtr qrtr_addr;
-
-                memcpy(&qrtr_addr, sockaddr_bytes, sizeof(qrtr_addr));
-                qrtr_node = qrtr_addr.sq_node;
-                qrtr_port = qrtr_addr.sq_port;
-            }
-#endif
+        if (2U + path_len >= payload_read || path_len == 0) {
+            return 0;
         }
+        mode = path + path_len + 1U;
+        while ((size_t)(mode - payload) + mode_len < payload_read && mode[mode_len] != '\0') {
+            mode_len++;
+        }
+    } else {
+        mode = (const unsigned char *)"";
     }
 
-    if (child->syscall_record_count >= composite_syscall_record_limit(child)) {
-        child->syscall_trace_truncated = true;
-        return 0;
+    prefix_rc = a90_compact_next_record_prefix(child, "compact", prefix, sizeof(prefix));
+    if (prefix_rc != 0) {
+        return prefix_rc < 0 ? -1 : 0;
     }
-    if (snprintf(prefix,
-                 sizeof(prefix),
-                 "%s.compact.%s.record_%03u",
-                 root,
-                 child->name,
-                 child->syscall_record_count) >= (int)sizeof(prefix)) {
-        return -1;
-    }
-    child->syscall_record_count++;
-    opcode_name = opcode == 1U ? "RRQ" : "WRQ";
+    opcode_name = a90_tftp_opcode_name(opcode);
     if (append_format(stdout_buf,
                       "%s.nr=%ld\n"
-                      "%s.name=recvfrom\n"
+                      "%s.name=%s\n"
+                      "%s.direction=%s\n"
                       "%s.ret=%lld\n"
                       "%s.fd=%llu\n"
                       "%s.family=%u\n"
                       "%s.family_name=%s\n"
                       "%s.qrtr.node=%u\n"
                       "%s.qrtr.port=%u\n"
+                      "%s.payload_len=%zu\n"
                       "%s.opcode=%u\n"
-                      "%s.op=%s\n"
-                      "%s.path=",
+                      "%s.op=%s\n",
                       prefix,
                       nr,
                       prefix,
+                      direction,
+                      prefix,
+                      direction,
                       prefix,
                       ret,
                       prefix,
@@ -28152,15 +28278,168 @@ static int append_composite_tftp_compact_syscall_record(struct composite_child *
                       prefix,
                       qrtr_port,
                       prefix,
+                      payload_read,
+                      prefix,
                       opcode,
                       prefix,
-                      opcode_name,
+                      opcode_name) < 0) {
+        return -1;
+    }
+    if (opcode == 1U || opcode == 2U) {
+        if (append_format(stdout_buf, "%s.path=", prefix) < 0 ||
+            append_escaped_ascii(stdout_buf, path, path_len) < 0 ||
+            append_format(stdout_buf, "\n%s.mode=", prefix) < 0 ||
+            append_escaped_ascii(stdout_buf, mode, mode_len) < 0 ||
+            append_format(stdout_buf,
+                          "\n%s.token.server_check=%d\n"
+                          "%s.token.ota_firewall=%d\n"
+                          "%s.token.mcfg=%d\n"
+                          "%s.token.mbn_hw=%d\n"
+                          "%s.token.wlanmdsp=%d\n"
+                          "%s.token.modem=%d\n",
+                          prefix,
+                          a90_bytes_contains_ascii_token_ci(path, path_len, "server_check") ? 1 : 0,
+                          prefix,
+                          (a90_bytes_contains_ascii_token_ci(path, path_len, "ota_firewall") ||
+                           a90_bytes_contains_ascii_token_ci(path, path_len, "ruleset")) ? 1 : 0,
+                          prefix,
+                          a90_bytes_contains_ascii_token_ci(path, path_len, "mcfg") ? 1 : 0,
+                          prefix,
+                          a90_bytes_contains_ascii_token_ci(path, path_len, "mbn_hw") ? 1 : 0,
+                          prefix,
+                          a90_bytes_contains_ascii_token_ci(path, path_len, "wlanmdsp") ? 1 : 0,
+                          prefix,
+                          a90_bytes_contains_ascii_token_ci(path, path_len, "modem") ? 1 : 0) < 0) {
+            return -1;
+        }
+    } else if (opcode == 3U || opcode == 4U) {
+        unsigned int block = ((unsigned int)payload[2] << 8) | (unsigned int)payload[3];
+        size_t data_len = opcode == 3U && payload_read > 4U ? payload_read - 4U : 0U;
+
+        if (append_format(stdout_buf,
+                          "%s.block=%u\n"
+                          "%s.data_len=%zu\n",
+                          prefix,
+                          block,
+                          prefix,
+                          data_len) < 0) {
+            return -1;
+        }
+    } else if (opcode == 5U) {
+        unsigned int error_code = ((unsigned int)payload[2] << 8) | (unsigned int)payload[3];
+        size_t message_len = 0;
+        const unsigned char *message = payload + 4;
+
+        while (4U + message_len < payload_read && message[message_len] != '\0') {
+            message_len++;
+        }
+        if (append_format(stdout_buf,
+                          "%s.error_code=%u\n"
+                          "%s.error_message=",
+                          prefix,
+                          error_code,
+                          prefix) < 0 ||
+            append_escaped_ascii(stdout_buf, message, message_len) < 0 ||
+            append_format(stdout_buf,
+                          "\n%s.token.server_check=%d\n"
+                          "%s.token.ota_firewall=%d\n"
+                          "%s.token.mcfg=%d\n"
+                          "%s.token.mbn_hw=%d\n"
+                          "%s.token.wlanmdsp=%d\n"
+                          "%s.token.modem=%d\n",
+                          prefix,
+                          a90_bytes_contains_ascii_token_ci(message, message_len, "server_check") ? 1 : 0,
+                          prefix,
+                          (a90_bytes_contains_ascii_token_ci(message, message_len, "ota_firewall") ||
+                           a90_bytes_contains_ascii_token_ci(message, message_len, "ruleset")) ? 1 : 0,
+                          prefix,
+                          a90_bytes_contains_ascii_token_ci(message, message_len, "mcfg") ? 1 : 0,
+                          prefix,
+                          a90_bytes_contains_ascii_token_ci(message, message_len, "mbn_hw") ? 1 : 0,
+                          prefix,
+                          a90_bytes_contains_ascii_token_ci(message, message_len, "wlanmdsp") ? 1 : 0,
+                          prefix,
+                          a90_bytes_contains_ascii_token_ci(message, message_len, "modem") ? 1 : 0) < 0) {
+            return -1;
+        }
+    }
+    return 0;
+}
+
+static int append_composite_tftp_compact_fs_record(struct composite_child *child,
+                                                   pid_t pid,
+                                                   long long ret,
+                                                   struct buffer *stdout_buf) {
+    unsigned char path[TFTP_SERVER_SYSCALL_COMPACT_PATH_LIMIT];
+    size_t path_len = 0;
+    unsigned long long path_addr;
+    long nr = child->last_syscall_nr;
+    const char *name = a90_syscall_name(nr);
+    bool is_error = a90_syscall_ret_is_error(ret);
+    int error_no = is_error ? (int)-ret : 0;
+    char prefix[128];
+    int prefix_rc;
+
+#ifdef SYS_openat
+    if (nr == SYS_openat) {
+        path_addr = child->last_syscall_args[1];
+    } else
+#endif
+#ifdef SYS_newfstatat
+    if (nr == SYS_newfstatat) {
+        path_addr = child->last_syscall_args[1];
+    } else
+#endif
+#ifdef SYS_faccessat
+    if (nr == SYS_faccessat) {
+        path_addr = child->last_syscall_args[1];
+    } else
+#endif
+#ifdef SYS_faccessat2
+    if (nr == SYS_faccessat2) {
+        path_addr = child->last_syscall_args[1];
+    } else
+#endif
+#ifdef SYS_readlinkat
+    if (nr == SYS_readlinkat) {
+        path_addr = child->last_syscall_args[1];
+    } else
+#endif
+#ifdef SYS_statx
+    if (nr == SYS_statx) {
+        path_addr = child->last_syscall_args[1];
+    } else
+#endif
+    {
+        return 0;
+    }
+    if (a90_ptrace_read_compact_c_string(pid, path_addr, path, sizeof(path), &path_len) < 0 ||
+        !a90_tftp_compact_path_focus(path, path_len)) {
+        return 0;
+    }
+    prefix_rc = a90_compact_next_record_prefix(child, "compactfs", prefix, sizeof(prefix));
+    if (prefix_rc != 0) {
+        return prefix_rc < 0 ? -1 : 0;
+    }
+    if (append_format(stdout_buf,
+                      "%s.nr=%ld\n"
+                      "%s.name=%s\n"
+                      "%s.ret=%lld\n"
+                      "%s.error=%d\n"
+                      "%s.error_name=%s\n"
+                      "%s.path=",
+                      prefix,
+                      nr,
+                      prefix,
+                      name,
+                      prefix,
+                      ret,
+                      prefix,
+                      error_no,
+                      prefix,
+                      error_no > 0 ? strerror(error_no) : "none",
                       prefix) < 0 ||
         append_escaped_ascii(stdout_buf, path, path_len) < 0 ||
-        append_format(stdout_buf,
-                      "\n%s.mode=",
-                      prefix) < 0 ||
-        append_escaped_ascii(stdout_buf, mode, mode_len) < 0 ||
         append_format(stdout_buf,
                       "\n%s.token.server_check=%d\n"
                       "%s.token.ota_firewall=%d\n"
@@ -28183,7 +28462,31 @@ static int append_composite_tftp_compact_syscall_record(struct composite_child *
                       a90_bytes_contains_ascii_token_ci(path, path_len, "modem") ? 1 : 0) < 0) {
         return -1;
     }
+#ifdef SYS_openat
+    if (nr == SYS_openat &&
+        append_format(stdout_buf,
+                      "%s.open_flags=0x%llx\n"
+                      "%s.open_mode=0%llo\n",
+                      prefix,
+                      child->last_syscall_args[2],
+                      prefix,
+                      child->last_syscall_args[3]) < 0) {
+        return -1;
+    }
+#endif
     return 0;
+}
+
+static int append_composite_tftp_compact_syscall_record(struct composite_child *child,
+                                                        pid_t pid,
+                                                        unsigned long long ret_reg,
+                                                        struct buffer *stdout_buf) {
+    long long ret = (long long)ret_reg;
+
+    if (append_composite_tftp_compact_packet_record(child, pid, ret, stdout_buf) < 0) {
+        return -1;
+    }
+    return append_composite_tftp_compact_fs_record(child, pid, ret, stdout_buf);
 }
 #endif
 
