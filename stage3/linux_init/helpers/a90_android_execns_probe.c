@@ -176,7 +176,13 @@
 #define A90_WIFI_TEST_BOOT_DIAG_REMOTE_DEV_QUERY_PROBE 0
 #endif
 
-#if A90_WIFI_TEST_BOOT_DIAG_REMOTE_DEV_QUERY_PROBE && A90_WIFI_TEST_BOOT_DIAG_WLAN_PD_MEMORY_SESSION_MASK_PROBE && A90_WIFI_TEST_BOOT_DIAG_WLAN_PD_MEMORY_DEVICE_PROBE && A90_WIFI_TEST_BOOT_DIAG_DCI_WLAN_TARGET_MASK_PROBE && A90_WIFI_TEST_BOOT_DIAG_DCI_REGISTER_READ_PROBE && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && !A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
+#ifndef A90_WIFI_TEST_BOOT_DIAG_REMOTE_DEV_POLL_PROBE
+#define A90_WIFI_TEST_BOOT_DIAG_REMOTE_DEV_POLL_PROBE 0
+#endif
+
+#if A90_WIFI_TEST_BOOT_DIAG_REMOTE_DEV_POLL_PROBE && A90_WIFI_TEST_BOOT_DIAG_WLAN_PD_MEMORY_SESSION_MASK_PROBE && A90_WIFI_TEST_BOOT_DIAG_WLAN_PD_MEMORY_DEVICE_PROBE && A90_WIFI_TEST_BOOT_DIAG_DCI_WLAN_TARGET_MASK_PROBE && A90_WIFI_TEST_BOOT_DIAG_DCI_REGISTER_READ_PROBE && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && !A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
+#define EXECNS_VERSION "a90_android_execns_probe v402"
+#elif A90_WIFI_TEST_BOOT_DIAG_REMOTE_DEV_QUERY_PROBE && A90_WIFI_TEST_BOOT_DIAG_WLAN_PD_MEMORY_SESSION_MASK_PROBE && A90_WIFI_TEST_BOOT_DIAG_WLAN_PD_MEMORY_DEVICE_PROBE && A90_WIFI_TEST_BOOT_DIAG_DCI_WLAN_TARGET_MASK_PROBE && A90_WIFI_TEST_BOOT_DIAG_DCI_REGISTER_READ_PROBE && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && !A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
 #define EXECNS_VERSION "a90_android_execns_probe v401"
 #elif A90_WIFI_TEST_BOOT_DIAG_WLAN_PD_MEMORY_SESSION_MASK_PROBE && A90_WIFI_TEST_BOOT_DIAG_WLAN_PD_MEMORY_DEVICE_PROBE && A90_WIFI_TEST_BOOT_DIAG_DCI_WLAN_TARGET_MASK_PROBE && A90_WIFI_TEST_BOOT_DIAG_DCI_REGISTER_READ_PROBE && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && !A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
 #define EXECNS_VERSION "a90_android_execns_probe v400"
@@ -27682,6 +27688,12 @@ static int a90_diag_pd_query_probe_stop(struct buffer *stdout_buf) {
 #ifndef A90_DIAGFWD_MDM
 #define A90_DIAGFWD_MDM 0
 #endif
+#ifndef A90_DIAG_REMOTE_DEV_POLL_INTERVAL_MS
+#define A90_DIAG_REMOTE_DEV_POLL_INTERVAL_MS 500L
+#endif
+#ifndef A90_DIAG_REMOTE_DEV_POLL_MAX_SAMPLES
+#define A90_DIAG_REMOTE_DEV_POLL_MAX_SAMPLES 64U
+#endif
 
 #define A90_DIAG_MSG_MASKS_TYPE 0x00000001U
 #define A90_DIAG_LOG_MASKS_TYPE 0x00000002U
@@ -27834,6 +27846,185 @@ static int a90_diag_remote_dev_query_probe_run(int fd, struct buffer *stdout_buf
                          g_diag_remote_dev_query_probe.saved_errno,
                          g_diag_remote_dev_query_probe.remote_dev_mask,
                          g_diag_remote_dev_query_probe.mdm_data_active ? 1 : 0);
+}
+#endif
+
+#if A90_WIFI_TEST_BOOT_DIAG_REMOTE_DEV_POLL_PROBE
+struct a90_diag_remote_dev_poll_probe {
+    bool started;
+    bool reported;
+    int fd;
+    long start_ms;
+    long last_query_ms;
+    long first_active_ms;
+    long last_active_ms;
+    unsigned int query_count;
+    unsigned int success_count;
+    unsigned int failure_count;
+    unsigned int active_count;
+    unsigned int sample_count;
+    int last_rc;
+    int last_errno;
+    unsigned int last_remote_dev_mask;
+};
+
+static struct a90_diag_remote_dev_poll_probe g_diag_remote_dev_poll_probe = {
+    .fd = -1,
+    .first_active_ms = -1,
+    .last_active_ms = -1,
+};
+
+static int a90_diag_remote_dev_poll_probe_query(struct buffer *stdout_buf, bool force) {
+    unsigned short remote_dev = 0;
+    unsigned int mdm_mask = 1U << A90_DIAGFWD_MDM;
+    long now_ms;
+    int rc;
+    int saved_errno;
+    bool active;
+
+    if (!g_diag_remote_dev_poll_probe.started ||
+        g_diag_remote_dev_poll_probe.reported ||
+        g_diag_remote_dev_poll_probe.fd < 0) {
+        return 0;
+    }
+    now_ms = monotonic_ms();
+    if (!force &&
+        g_diag_remote_dev_poll_probe.last_query_ms > 0 &&
+        now_ms - g_diag_remote_dev_poll_probe.last_query_ms <
+            A90_DIAG_REMOTE_DEV_POLL_INTERVAL_MS) {
+        return 0;
+    }
+    errno = 0;
+    rc = ioctl(g_diag_remote_dev_poll_probe.fd, A90_DIAG_IOCTL_REMOTE_DEV, &remote_dev);
+    saved_errno = errno;
+    active = rc >= 0 && ((remote_dev & mdm_mask) != 0U);
+    g_diag_remote_dev_poll_probe.last_query_ms = now_ms;
+    g_diag_remote_dev_poll_probe.query_count++;
+    g_diag_remote_dev_poll_probe.last_rc = rc;
+    g_diag_remote_dev_poll_probe.last_errno = saved_errno;
+    g_diag_remote_dev_poll_probe.last_remote_dev_mask = remote_dev;
+    if (rc >= 0) {
+        g_diag_remote_dev_poll_probe.success_count++;
+    } else {
+        g_diag_remote_dev_poll_probe.failure_count++;
+    }
+    if (active) {
+        g_diag_remote_dev_poll_probe.active_count++;
+        if (g_diag_remote_dev_poll_probe.first_active_ms < 0) {
+            g_diag_remote_dev_poll_probe.first_active_ms = now_ms;
+        }
+        g_diag_remote_dev_poll_probe.last_active_ms = now_ms;
+    }
+    if (g_diag_remote_dev_poll_probe.sample_count < A90_DIAG_REMOTE_DEV_POLL_MAX_SAMPLES) {
+        unsigned int sample_index = g_diag_remote_dev_poll_probe.sample_count++;
+
+        return append_format(stdout_buf,
+                             "diag_remote_dev_poll_probe.sample_%02u.delta_ms=%ld\n"
+                             "diag_remote_dev_poll_probe.sample_%02u.rc=%d\n"
+                             "diag_remote_dev_poll_probe.sample_%02u.errno=%d\n"
+                             "diag_remote_dev_poll_probe.sample_%02u.remote_dev_mask=0x%x\n"
+                             "diag_remote_dev_poll_probe.sample_%02u.mdm_data_active=%d\n",
+                             sample_index,
+                             now_ms - g_diag_remote_dev_poll_probe.start_ms,
+                             sample_index,
+                             rc,
+                             sample_index,
+                             saved_errno,
+                             sample_index,
+                             (unsigned int)remote_dev,
+                             sample_index,
+                             active ? 1 : 0);
+    }
+    return 0;
+}
+
+static int a90_diag_remote_dev_poll_probe_start(int fd, struct buffer *stdout_buf) {
+    if (g_diag_remote_dev_poll_probe.started) {
+        return append_literal(stdout_buf,
+                              "diag_remote_dev_poll_probe.start.retry_suppressed=1\n");
+    }
+    memset(&g_diag_remote_dev_poll_probe, 0, sizeof(g_diag_remote_dev_poll_probe));
+    g_diag_remote_dev_poll_probe.fd = fd;
+    g_diag_remote_dev_poll_probe.first_active_ms = -1;
+    g_diag_remote_dev_poll_probe.last_active_ms = -1;
+    g_diag_remote_dev_poll_probe.started = true;
+    g_diag_remote_dev_poll_probe.start_ms = monotonic_ms();
+    if (append_format(stdout_buf,
+                      "diag_remote_dev_poll_probe.begin=1\n"
+                      "diag_remote_dev_poll_probe.mode=borrowed-private-diag-fd-remote-dev-poll-query-only\n"
+                      "diag_remote_dev_poll_probe.rootfs_namespace_only=1\n"
+                      "diag_remote_dev_poll_probe.sda29_write=0\n"
+                      "diag_remote_dev_poll_probe.fd_borrowed=1\n"
+                      "diag_remote_dev_poll_probe.switch_logging_attempted=0\n"
+                      "diag_remote_dev_poll_probe.write_attempted=0\n"
+                      "diag_remote_dev_poll_probe.log_mask_write=0\n"
+                      "diag_remote_dev_poll_probe.event_mask_write=0\n"
+                      "diag_remote_dev_poll_probe.stream_config_attempted=0\n"
+                      "diag_remote_dev_poll_probe.qmi_send=0\n"
+                      "diag_remote_dev_poll_probe.ptraced=0\n"
+                      "diag_remote_dev_poll_probe.ioctl=DIAG_IOCTL_REMOTE_DEV\n"
+                      "diag_remote_dev_poll_probe.ioctl_number=%d\n"
+                      "diag_remote_dev_poll_probe.remote_slot_name=DIAGFWD_MDM\n"
+                      "diag_remote_dev_poll_probe.remote_slot=%d\n"
+                      "diag_remote_dev_poll_probe.remote_mdm_mask_bit=0x%x\n"
+                      "diag_remote_dev_poll_probe.poll_interval_ms=%ld\n"
+                      "diag_remote_dev_poll_probe.max_samples=%u\n"
+                      "diag_remote_dev_poll_probe.start_monotonic_ms=%ld\n",
+                      A90_DIAG_IOCTL_REMOTE_DEV,
+                      A90_DIAGFWD_MDM,
+                      1U << A90_DIAGFWD_MDM,
+                      A90_DIAG_REMOTE_DEV_POLL_INTERVAL_MS,
+                      A90_DIAG_REMOTE_DEV_POLL_MAX_SAMPLES,
+                      g_diag_remote_dev_poll_probe.start_ms) < 0) {
+        return -1;
+    }
+    return a90_diag_remote_dev_poll_probe_query(stdout_buf, true);
+}
+
+static int a90_diag_remote_dev_poll_probe_stop(struct buffer *stdout_buf) {
+    long first_active_delta = -1;
+    long last_active_delta = -1;
+
+    if (!g_diag_remote_dev_poll_probe.started || g_diag_remote_dev_poll_probe.reported) {
+        return 0;
+    }
+    if (a90_diag_remote_dev_poll_probe_query(stdout_buf, true) < 0) {
+        return -1;
+    }
+    if (g_diag_remote_dev_poll_probe.first_active_ms >= 0) {
+        first_active_delta =
+            g_diag_remote_dev_poll_probe.first_active_ms -
+            g_diag_remote_dev_poll_probe.start_ms;
+    }
+    if (g_diag_remote_dev_poll_probe.last_active_ms >= 0) {
+        last_active_delta =
+            g_diag_remote_dev_poll_probe.last_active_ms -
+            g_diag_remote_dev_poll_probe.start_ms;
+    }
+    g_diag_remote_dev_poll_probe.reported = true;
+    return append_format(stdout_buf,
+                         "diag_remote_dev_poll_probe.summary.started=1\n"
+                         "diag_remote_dev_poll_probe.summary.query_count=%u\n"
+                         "diag_remote_dev_poll_probe.summary.success_count=%u\n"
+                         "diag_remote_dev_poll_probe.summary.failure_count=%u\n"
+                         "diag_remote_dev_poll_probe.summary.active_count=%u\n"
+                         "diag_remote_dev_poll_probe.summary.sample_count=%u\n"
+                         "diag_remote_dev_poll_probe.summary.last_rc=%d\n"
+                         "diag_remote_dev_poll_probe.summary.last_errno=%d\n"
+                         "diag_remote_dev_poll_probe.summary.last_remote_dev_mask=0x%x\n"
+                         "diag_remote_dev_poll_probe.summary.first_active_delta_ms=%ld\n"
+                         "diag_remote_dev_poll_probe.summary.last_active_delta_ms=%ld\n"
+                         "diag_remote_dev_poll_probe.end=1\n",
+                         g_diag_remote_dev_poll_probe.query_count,
+                         g_diag_remote_dev_poll_probe.success_count,
+                         g_diag_remote_dev_poll_probe.failure_count,
+                         g_diag_remote_dev_poll_probe.active_count,
+                         g_diag_remote_dev_poll_probe.sample_count,
+                         g_diag_remote_dev_poll_probe.last_rc,
+                         g_diag_remote_dev_poll_probe.last_errno,
+                         g_diag_remote_dev_poll_probe.last_remote_dev_mask,
+                         first_active_delta,
+                         last_active_delta);
 }
 #endif
 
@@ -29988,6 +30179,12 @@ static int a90_diag_dci_register_read_start(const struct paths *paths,
         return -1;
     }
 #endif
+#if A90_WIFI_TEST_BOOT_DIAG_REMOTE_DEV_POLL_PROBE
+    if (a90_diag_remote_dev_poll_probe_start(g_diag_dci_register_read_probe.fd,
+                                             stdout_buf) < 0) {
+        return -1;
+    }
+#endif
     if (a90_diag_dci_register_read_query_support(stdout_buf) < 0) {
         return -1;
     }
@@ -30155,6 +30352,11 @@ static int a90_diag_dci_register_read_stop(struct buffer *stdout_buf) {
         g_diag_dci_register_read_probe.reported) {
         return 0;
     }
+#if A90_WIFI_TEST_BOOT_DIAG_REMOTE_DEV_POLL_PROBE
+    if (a90_diag_remote_dev_poll_probe_stop(stdout_buf) < 0) {
+        return -1;
+    }
+#endif
 #if A90_WIFI_TEST_BOOT_DIAG_WLAN_PD_MEMORY_DEVICE_PROBE
     if (a90_diag_wlan_pd_memory_device_stop(stdout_buf) < 0) {
         return -1;
@@ -34934,6 +35136,11 @@ static int composite_poll_children(struct composite_child *children,
             return -1;
         }
 #endif
+#if A90_WIFI_TEST_BOOT_DIAG_REMOTE_DEV_POLL_PROBE
+        if (a90_diag_remote_dev_poll_probe_query(stdout_buf, false) < 0) {
+            return -1;
+        }
+#endif
 #if A90_WIFI_TEST_BOOT_DIAG_DCI_REGISTER_READ_PROBE
         if (a90_diag_dci_register_read_drain(stdout_buf) < 0) {
             return -1;
@@ -34992,6 +35199,11 @@ static int composite_poll_children(struct composite_child *children,
 #if A90_WIFI_TEST_BOOT_DIAG_WLAN_PD_MEMORY_DEVICE_PROBE
             if (a90_diag_wlan_pd_memory_device_query(stdout_buf, true) < 0 ||
                 a90_diag_wlan_pd_memory_device_drain(stdout_buf) < 0) {
+                return -1;
+            }
+#endif
+#if A90_WIFI_TEST_BOOT_DIAG_REMOTE_DEV_POLL_PROBE
+            if (a90_diag_remote_dev_poll_probe_query(stdout_buf, true) < 0) {
                 return -1;
             }
 #endif
@@ -35080,6 +35292,11 @@ static int composite_poll_children(struct composite_child *children,
 #if A90_WIFI_TEST_BOOT_DIAG_WLAN_PD_MEMORY_DEVICE_PROBE
     if (a90_diag_wlan_pd_memory_device_query(stdout_buf, true) < 0 ||
         a90_diag_wlan_pd_memory_device_drain(stdout_buf) < 0) {
+        return -1;
+    }
+#endif
+#if A90_WIFI_TEST_BOOT_DIAG_REMOTE_DEV_POLL_PROBE
+    if (a90_diag_remote_dev_poll_probe_query(stdout_buf, true) < 0) {
         return -1;
     }
 #endif
