@@ -164,7 +164,13 @@
 #define A90_WIFI_TEST_BOOT_DIAG_PD_QUERY_PROBE 0
 #endif
 
-#if A90_WIFI_TEST_BOOT_DIAG_DCI_WLAN_TARGET_MASK_PROBE && A90_WIFI_TEST_BOOT_DIAG_DCI_REGISTER_READ_PROBE && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && !A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
+#ifndef A90_WIFI_TEST_BOOT_DIAG_WLAN_PD_MEMORY_DEVICE_PROBE
+#define A90_WIFI_TEST_BOOT_DIAG_WLAN_PD_MEMORY_DEVICE_PROBE 0
+#endif
+
+#if A90_WIFI_TEST_BOOT_DIAG_WLAN_PD_MEMORY_DEVICE_PROBE && A90_WIFI_TEST_BOOT_DIAG_DCI_WLAN_TARGET_MASK_PROBE && A90_WIFI_TEST_BOOT_DIAG_DCI_REGISTER_READ_PROBE && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && !A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
+#define EXECNS_VERSION "a90_android_execns_probe v399"
+#elif A90_WIFI_TEST_BOOT_DIAG_DCI_WLAN_TARGET_MASK_PROBE && A90_WIFI_TEST_BOOT_DIAG_DCI_REGISTER_READ_PROBE && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && !A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
 #define EXECNS_VERSION "a90_android_execns_probe v398"
 #elif A90_WIFI_TEST_BOOT_DIAG_PD_QUERY_PROBE && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && !A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
 #define EXECNS_VERSION "a90_android_execns_probe v397"
@@ -28712,6 +28718,567 @@ static int a90_diag_dci_wlan_target_mask_stop(struct buffer *stdout_buf) {
 }
 #endif
 
+#if A90_WIFI_TEST_BOOT_DIAG_WLAN_PD_MEMORY_DEVICE_PROBE
+#ifndef A90_DIAG_IOCTL_QUERY_PD_LOGGING
+#define A90_DIAG_IOCTL_QUERY_PD_LOGGING 39
+#endif
+#ifndef A90_DIAG_IOCTL_SWITCH_LOGGING
+#define A90_DIAG_IOCTL_SWITCH_LOGGING 7
+#endif
+#ifndef A90_DIAG_MEMORY_DEVICE_MODE
+#define A90_DIAG_MEMORY_DEVICE_MODE 2U
+#endif
+#ifndef A90_DIAG_CON_UPD_WLAN
+#define A90_DIAG_CON_UPD_WLAN 0x1000U
+#endif
+#ifndef A90_DIAG_MSM_MASK
+#define A90_DIAG_MSM_MASK 0x0001
+#endif
+#ifndef A90_DIAG_WLAN_PD_MEMORY_MAX_ATTEMPTS
+#define A90_DIAG_WLAN_PD_MEMORY_MAX_ATTEMPTS 96U
+#endif
+#ifndef A90_DIAG_WLAN_PD_MEMORY_MIN_INTERVAL_MS
+#define A90_DIAG_WLAN_PD_MEMORY_MIN_INTERVAL_MS 500L
+#endif
+#ifndef A90_DIAG_WLAN_PD_MEMORY_READ_SIZE
+#define A90_DIAG_WLAN_PD_MEMORY_READ_SIZE 8192U
+#endif
+#ifndef A90_DIAG_WLAN_PD_MEMORY_MAX_DRAIN_READS
+#define A90_DIAG_WLAN_PD_MEMORY_MAX_DRAIN_READS 4U
+#endif
+#ifndef A90_DIAG_WLAN_PD_MEMORY_MAX_SAMPLES
+#define A90_DIAG_WLAN_PD_MEMORY_MAX_SAMPLES 12U
+#endif
+
+struct a90_diag_wlan_pd_memory_logging_mode_param {
+    uint32_t req_mode;
+    uint32_t peripheral_mask;
+    uint32_t pd_mask;
+    uint8_t mode_param;
+    uint8_t diag_id;
+    uint8_t pd_val;
+    uint8_t reserved;
+    int peripheral;
+    int device_mask;
+} __attribute__((packed));
+
+struct a90_diag_wlan_pd_memory_device_probe {
+    int fd;
+    bool start_attempted;
+    bool reported;
+    bool fd_borrowed;
+    bool open_ok;
+    bool switch_attempted;
+    bool switched;
+    bool read_terminal_error;
+    char node_path[MAX_PATH_LEN];
+    long start_ms;
+    long last_query_ms;
+    long first_success_ms;
+    long switch_ms;
+    long first_read_ms;
+    unsigned int attempts;
+    unsigned int successes;
+    unsigned int failures;
+    unsigned int emitted_attempts;
+    int first_success_attempt;
+    int last_rc;
+    int last_errno;
+    int switch_rc;
+    int switch_errno;
+    unsigned int read_calls;
+    unsigned int read_records;
+    unsigned long long read_bytes;
+    unsigned int read_eagain;
+    unsigned int read_eintr;
+    unsigned int read_errors;
+    unsigned int poll_calls;
+    unsigned int poll_ready;
+    unsigned int poll_empty;
+    unsigned int poll_errors;
+    int last_poll_errno;
+    unsigned int last_read_errno;
+    unsigned int user_space_records;
+    unsigned int raw_user_space_records;
+    unsigned int other_records;
+    unsigned int sample_count;
+};
+
+static struct a90_diag_wlan_pd_memory_device_probe g_diag_wlan_pd_memory_device_probe = {
+    .fd = -1,
+    .first_success_ms = -1,
+    .switch_ms = -1,
+    .first_read_ms = -1,
+    .first_success_attempt = -1,
+};
+
+static int a90_diag_wlan_pd_memory_append_hex_prefix(struct buffer *stdout_buf,
+                                                     const unsigned char *data,
+                                                     size_t data_len) {
+    size_t prefix_len = data_len;
+
+    if (prefix_len > 48U) {
+        prefix_len = 48U;
+    }
+    for (size_t offset = 0; offset < prefix_len; offset++) {
+        if (append_format(stdout_buf, "%02x", data[offset]) < 0) {
+            return -1;
+        }
+    }
+    return 0;
+}
+
+static int a90_diag_wlan_pd_memory_device_start_borrowed(int fd,
+                                                         const char *node_path,
+                                                         struct buffer *stdout_buf) {
+    if (g_diag_wlan_pd_memory_device_probe.start_attempted) {
+        return append_literal(stdout_buf,
+                              "diag_wlan_pd_memory_device_probe.start.retry_suppressed=1\n");
+    }
+    memset(&g_diag_wlan_pd_memory_device_probe,
+           0,
+           sizeof(g_diag_wlan_pd_memory_device_probe));
+    g_diag_wlan_pd_memory_device_probe.fd = fd;
+    g_diag_wlan_pd_memory_device_probe.fd_borrowed = true;
+    g_diag_wlan_pd_memory_device_probe.open_ok = fd >= 0;
+    g_diag_wlan_pd_memory_device_probe.first_success_ms = -1;
+    g_diag_wlan_pd_memory_device_probe.switch_ms = -1;
+    g_diag_wlan_pd_memory_device_probe.first_read_ms = -1;
+    g_diag_wlan_pd_memory_device_probe.first_success_attempt = -1;
+    g_diag_wlan_pd_memory_device_probe.start_attempted = true;
+    g_diag_wlan_pd_memory_device_probe.start_ms = monotonic_ms();
+    snprintf(g_diag_wlan_pd_memory_device_probe.node_path,
+             sizeof(g_diag_wlan_pd_memory_device_probe.node_path),
+             "%s",
+             node_path != NULL ? node_path : "");
+    if (append_format(stdout_buf,
+                      "diag_wlan_pd_memory_device_probe.begin=1\n"
+                      "diag_wlan_pd_memory_device_probe.mode=query-gated-wlan-pd-memory-device-session-borrowed-dci-fd\n"
+                      "diag_wlan_pd_memory_device_probe.rootfs_namespace_only=1\n"
+                      "diag_wlan_pd_memory_device_probe.sda29_write=0\n"
+                      "diag_wlan_pd_memory_device_probe.fd_borrowed=1\n"
+                      "diag_wlan_pd_memory_device_probe.node_created=0\n"
+                      "diag_wlan_pd_memory_device_probe.switch_logging_scope=wlan-pd-memory-device-only\n"
+                      "diag_wlan_pd_memory_device_probe.global_transport_switch=0\n"
+                      "diag_wlan_pd_memory_device_probe.usb_pcie_switch=0\n"
+                      "diag_wlan_pd_memory_device_probe.broad_mask=0\n"
+                      "diag_wlan_pd_memory_device_probe.write_attempted=0\n"
+                      "diag_wlan_pd_memory_device_probe.log_mask_write=0\n"
+                      "diag_wlan_pd_memory_device_probe.event_mask_write=0\n"
+                      "diag_wlan_pd_memory_device_probe.stream_config_attempted=0\n"
+                      "diag_wlan_pd_memory_device_probe.qmi_send=0\n"
+                      "diag_wlan_pd_memory_device_probe.ptraced=0\n"
+                      "diag_wlan_pd_memory_device_probe.restore_ioctl_attempted=0\n"
+                      "diag_wlan_pd_memory_device_probe.ioctl_query=DIAG_IOCTL_QUERY_PD_LOGGING\n"
+                      "diag_wlan_pd_memory_device_probe.ioctl_query_number=%d\n"
+                      "diag_wlan_pd_memory_device_probe.ioctl_switch=DIAG_IOCTL_SWITCH_LOGGING\n"
+                      "diag_wlan_pd_memory_device_probe.ioctl_switch_number=%d\n"
+                      "diag_wlan_pd_memory_device_probe.req_mode=MEMORY_DEVICE_MODE\n"
+                      "diag_wlan_pd_memory_device_probe.req_mode_value=%u\n"
+                      "diag_wlan_pd_memory_device_probe.pd_mask_name=DIAG_CON_UPD_WLAN\n"
+                      "diag_wlan_pd_memory_device_probe.pd_mask=0x%x\n"
+                      "diag_wlan_pd_memory_device_probe.peripheral_mask=0x%x\n"
+                      "diag_wlan_pd_memory_device_probe.device_mask=0x%x\n"
+                      "diag_wlan_pd_memory_device_probe.max_attempts=%u\n"
+                      "diag_wlan_pd_memory_device_probe.min_interval_ms=%ld\n"
+                      "diag_wlan_pd_memory_device_probe.start_monotonic_ms=%ld\n"
+                      "diag_wlan_pd_memory_device_probe.node_path=%s\n",
+                      A90_DIAG_IOCTL_QUERY_PD_LOGGING,
+                      A90_DIAG_IOCTL_SWITCH_LOGGING,
+                      A90_DIAG_MEMORY_DEVICE_MODE,
+                      A90_DIAG_CON_UPD_WLAN,
+                      A90_DIAG_CON_UPD_WLAN,
+                      A90_DIAG_MSM_MASK,
+                      A90_DIAG_WLAN_PD_MEMORY_MAX_ATTEMPTS,
+                      A90_DIAG_WLAN_PD_MEMORY_MIN_INTERVAL_MS,
+                      g_diag_wlan_pd_memory_device_probe.start_ms,
+                      g_diag_wlan_pd_memory_device_probe.node_path) < 0) {
+        return -1;
+    }
+    if (fd < 0) {
+        return append_literal(stdout_buf,
+                              "diag_wlan_pd_memory_device_probe.started=0\n"
+                              "diag_wlan_pd_memory_device_probe.reason=dci-fd-unavailable\n");
+    }
+    return append_literal(stdout_buf,
+                          "diag_wlan_pd_memory_device_probe.open_ok=1\n"
+                          "diag_wlan_pd_memory_device_probe.started=1\n");
+}
+
+static int a90_diag_wlan_pd_memory_device_switch(struct buffer *stdout_buf) {
+    struct a90_diag_wlan_pd_memory_logging_mode_param param;
+    long now_ms;
+
+    if (g_diag_wlan_pd_memory_device_probe.switch_attempted ||
+        !g_diag_wlan_pd_memory_device_probe.open_ok ||
+        g_diag_wlan_pd_memory_device_probe.fd < 0) {
+        return 0;
+    }
+    memset(&param, 0, sizeof(param));
+    param.req_mode = A90_DIAG_MEMORY_DEVICE_MODE;
+    param.peripheral_mask = A90_DIAG_CON_UPD_WLAN;
+    param.pd_mask = A90_DIAG_CON_UPD_WLAN;
+    param.device_mask = A90_DIAG_MSM_MASK;
+    now_ms = monotonic_ms();
+    g_diag_wlan_pd_memory_device_probe.switch_attempted = true;
+    errno = 0;
+    g_diag_wlan_pd_memory_device_probe.switch_rc =
+        ioctl(g_diag_wlan_pd_memory_device_probe.fd,
+              A90_DIAG_IOCTL_SWITCH_LOGGING,
+              &param);
+    g_diag_wlan_pd_memory_device_probe.switch_errno = errno;
+    g_diag_wlan_pd_memory_device_probe.switched =
+        g_diag_wlan_pd_memory_device_probe.switch_rc == 0;
+    if (g_diag_wlan_pd_memory_device_probe.switched) {
+        g_diag_wlan_pd_memory_device_probe.switch_ms = now_ms;
+    }
+    return append_format(stdout_buf,
+                         "diag_wlan_pd_memory_device_probe.switch.attempted=1\n"
+                         "diag_wlan_pd_memory_device_probe.switch.rc=%d\n"
+                         "diag_wlan_pd_memory_device_probe.switch.errno=%d\n"
+                         "diag_wlan_pd_memory_device_probe.switch.success=%d\n"
+                         "diag_wlan_pd_memory_device_probe.switch.delta_ms=%ld\n"
+                         "diag_wlan_pd_memory_device_probe.switch.req_mode=%u\n"
+                         "diag_wlan_pd_memory_device_probe.switch.peripheral_mask=0x%x\n"
+                         "diag_wlan_pd_memory_device_probe.switch.pd_mask=0x%x\n"
+                         "diag_wlan_pd_memory_device_probe.switch.device_mask=0x%x\n",
+                         g_diag_wlan_pd_memory_device_probe.switch_rc,
+                         g_diag_wlan_pd_memory_device_probe.switch_errno,
+                         g_diag_wlan_pd_memory_device_probe.switched ? 1 : 0,
+                         now_ms - g_diag_wlan_pd_memory_device_probe.start_ms,
+                         A90_DIAG_MEMORY_DEVICE_MODE,
+                         A90_DIAG_CON_UPD_WLAN,
+                         A90_DIAG_CON_UPD_WLAN,
+                         A90_DIAG_MSM_MASK);
+}
+
+static int a90_diag_wlan_pd_memory_device_query(struct buffer *stdout_buf, bool force) {
+    struct a90_diag_wlan_pd_memory_logging_mode_param param;
+    long now_ms;
+    int rc;
+    int saved_errno;
+    bool first_attempt;
+    bool state_changed;
+    bool should_emit;
+
+    if (!g_diag_wlan_pd_memory_device_probe.open_ok ||
+        g_diag_wlan_pd_memory_device_probe.fd < 0 ||
+        g_diag_wlan_pd_memory_device_probe.switched ||
+        g_diag_wlan_pd_memory_device_probe.switch_attempted ||
+        g_diag_wlan_pd_memory_device_probe.attempts >= A90_DIAG_WLAN_PD_MEMORY_MAX_ATTEMPTS) {
+        return 0;
+    }
+    now_ms = monotonic_ms();
+    if (!force &&
+        g_diag_wlan_pd_memory_device_probe.last_query_ms > 0 &&
+        now_ms - g_diag_wlan_pd_memory_device_probe.last_query_ms <
+            A90_DIAG_WLAN_PD_MEMORY_MIN_INTERVAL_MS) {
+        return 0;
+    }
+    memset(&param, 0, sizeof(param));
+    param.pd_mask = A90_DIAG_CON_UPD_WLAN;
+    errno = 0;
+    rc = ioctl(g_diag_wlan_pd_memory_device_probe.fd,
+               A90_DIAG_IOCTL_QUERY_PD_LOGGING,
+               &param);
+    saved_errno = errno;
+    first_attempt = g_diag_wlan_pd_memory_device_probe.attempts == 0U;
+    state_changed = first_attempt ||
+        rc != g_diag_wlan_pd_memory_device_probe.last_rc ||
+        saved_errno != g_diag_wlan_pd_memory_device_probe.last_errno;
+    g_diag_wlan_pd_memory_device_probe.attempts++;
+    g_diag_wlan_pd_memory_device_probe.last_query_ms = now_ms;
+    g_diag_wlan_pd_memory_device_probe.last_rc = rc;
+    g_diag_wlan_pd_memory_device_probe.last_errno = saved_errno;
+    if (rc == 0) {
+        g_diag_wlan_pd_memory_device_probe.successes++;
+        if (g_diag_wlan_pd_memory_device_probe.first_success_attempt < 0) {
+            g_diag_wlan_pd_memory_device_probe.first_success_attempt =
+                (int)g_diag_wlan_pd_memory_device_probe.attempts;
+            g_diag_wlan_pd_memory_device_probe.first_success_ms = now_ms;
+        }
+    } else {
+        g_diag_wlan_pd_memory_device_probe.failures++;
+    }
+    should_emit = g_diag_wlan_pd_memory_device_probe.attempts <= 8U ||
+                  state_changed ||
+                  rc == 0 ||
+                  force;
+    if (should_emit) {
+        g_diag_wlan_pd_memory_device_probe.emitted_attempts++;
+        if (append_format(stdout_buf,
+                          "diag_wlan_pd_memory_device_probe.query_%02u.rc=%d\n"
+                          "diag_wlan_pd_memory_device_probe.query_%02u.errno=%d\n"
+                          "diag_wlan_pd_memory_device_probe.query_%02u.success=%d\n"
+                          "diag_wlan_pd_memory_device_probe.query_%02u.delta_ms=%ld\n"
+                          "diag_wlan_pd_memory_device_probe.query_%02u.pd_mask=0x%x\n",
+                          g_diag_wlan_pd_memory_device_probe.attempts,
+                          rc,
+                          g_diag_wlan_pd_memory_device_probe.attempts,
+                          saved_errno,
+                          g_diag_wlan_pd_memory_device_probe.attempts,
+                          rc == 0 ? 1 : 0,
+                          g_diag_wlan_pd_memory_device_probe.attempts,
+                          now_ms - g_diag_wlan_pd_memory_device_probe.start_ms,
+                          g_diag_wlan_pd_memory_device_probe.attempts,
+                          A90_DIAG_CON_UPD_WLAN) < 0) {
+            return -1;
+        }
+    }
+    if (rc == 0) {
+        return a90_diag_wlan_pd_memory_device_switch(stdout_buf);
+    }
+    return 0;
+}
+
+static int a90_diag_wlan_pd_memory_device_record(struct buffer *stdout_buf,
+                                                 const unsigned char *data,
+                                                 size_t data_len) {
+    unsigned int data_type = 0;
+    unsigned int num_data = 0;
+    int first_payload_len = -1;
+    unsigned int sample_index;
+
+    if (data_len >= sizeof(data_type)) {
+        memcpy(&data_type, data, sizeof(data_type));
+    }
+    if (data_len >= sizeof(data_type) + sizeof(num_data)) {
+        memcpy(&num_data, data + sizeof(data_type), sizeof(num_data));
+    }
+    if (data_len >= 12U) {
+        memcpy(&first_payload_len, data + 8U, sizeof(first_payload_len));
+    }
+    g_diag_wlan_pd_memory_device_probe.read_records++;
+    if (data_type == A90_DIAG_USER_SPACE_DATA_TYPE) {
+        g_diag_wlan_pd_memory_device_probe.user_space_records++;
+    } else if (data_type == A90_DIAG_USER_SPACE_RAW_DATA_TYPE) {
+        g_diag_wlan_pd_memory_device_probe.raw_user_space_records++;
+    } else {
+        g_diag_wlan_pd_memory_device_probe.other_records++;
+    }
+    if (g_diag_wlan_pd_memory_device_probe.sample_count >=
+        A90_DIAG_WLAN_PD_MEMORY_MAX_SAMPLES) {
+        return 0;
+    }
+    sample_index = g_diag_wlan_pd_memory_device_probe.sample_count++;
+    if (append_format(stdout_buf,
+                      "diag_wlan_pd_memory_device_probe.sample_%02u.bytes=%zu\n"
+                      "diag_wlan_pd_memory_device_probe.sample_%02u.data_type=0x%x\n"
+                      "diag_wlan_pd_memory_device_probe.sample_%02u.data_type_name=%s\n"
+                      "diag_wlan_pd_memory_device_probe.sample_%02u.num_data=%u\n"
+                      "diag_wlan_pd_memory_device_probe.sample_%02u.first_payload_len=%d\n"
+                      "diag_wlan_pd_memory_device_probe.sample_%02u.prefix_hex=",
+                      sample_index,
+                      data_len,
+                      sample_index,
+                      data_type,
+                      sample_index,
+                      a90_diag_dci_data_type_name(data_type),
+                      sample_index,
+                      num_data,
+                      sample_index,
+                      first_payload_len,
+                      sample_index) < 0 ||
+        a90_diag_wlan_pd_memory_append_hex_prefix(stdout_buf, data, data_len) < 0 ||
+        append_literal(stdout_buf, "\n") < 0) {
+        return -1;
+    }
+    return 0;
+}
+
+static int a90_diag_wlan_pd_memory_device_drain(struct buffer *stdout_buf) {
+    unsigned char packet[A90_DIAG_WLAN_PD_MEMORY_READ_SIZE];
+    unsigned int drain_reads = 0;
+
+    if (!g_diag_wlan_pd_memory_device_probe.switched ||
+        g_diag_wlan_pd_memory_device_probe.read_terminal_error ||
+        g_diag_wlan_pd_memory_device_probe.fd < 0) {
+        return 0;
+    }
+    while (drain_reads < A90_DIAG_WLAN_PD_MEMORY_MAX_DRAIN_READS) {
+        struct pollfd pfd;
+        int poll_rc;
+        ssize_t read_len;
+        long now_ms;
+
+        memset(&pfd, 0, sizeof(pfd));
+        pfd.fd = g_diag_wlan_pd_memory_device_probe.fd;
+        pfd.events = POLLIN | POLLERR | POLLHUP;
+        errno = 0;
+        poll_rc = poll(&pfd, 1, 0);
+        g_diag_wlan_pd_memory_device_probe.poll_calls++;
+        if (poll_rc < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            g_diag_wlan_pd_memory_device_probe.poll_errors++;
+            g_diag_wlan_pd_memory_device_probe.last_poll_errno = errno;
+            return append_format(stdout_buf,
+                                 "diag_wlan_pd_memory_device_probe.poll_error=%s\n",
+                                 strerror(errno));
+        }
+        if (poll_rc == 0 || (pfd.revents & (POLLIN | POLLERR | POLLHUP)) == 0) {
+            g_diag_wlan_pd_memory_device_probe.poll_empty++;
+            return 0;
+        }
+        g_diag_wlan_pd_memory_device_probe.poll_ready++;
+        read_len = read(g_diag_wlan_pd_memory_device_probe.fd,
+                        packet,
+                        sizeof(packet));
+        if (read_len > 0) {
+            drain_reads++;
+            now_ms = monotonic_ms();
+            g_diag_wlan_pd_memory_device_probe.read_calls++;
+            g_diag_wlan_pd_memory_device_probe.read_bytes += (unsigned long long)read_len;
+            if (g_diag_wlan_pd_memory_device_probe.first_read_ms < 0) {
+                g_diag_wlan_pd_memory_device_probe.first_read_ms = now_ms;
+            }
+            if (a90_diag_wlan_pd_memory_device_record(stdout_buf,
+                                                      packet,
+                                                      (size_t)read_len) < 0) {
+                return -1;
+            }
+            continue;
+        }
+        if (read_len == 0) {
+            return 0;
+        }
+        if (errno == EINTR) {
+            g_diag_wlan_pd_memory_device_probe.read_eintr++;
+            continue;
+        }
+        if (errno == EAGAIN || errno == EWOULDBLOCK) {
+            g_diag_wlan_pd_memory_device_probe.read_eagain++;
+            return 0;
+        }
+        g_diag_wlan_pd_memory_device_probe.read_errors++;
+        g_diag_wlan_pd_memory_device_probe.last_read_errno = (unsigned int)errno;
+        g_diag_wlan_pd_memory_device_probe.read_terminal_error = true;
+        return append_format(stdout_buf,
+                             "diag_wlan_pd_memory_device_probe.read_error=%s\n"
+                             "diag_wlan_pd_memory_device_probe.read_terminal_error=1\n",
+                             strerror(errno));
+    }
+    return 0;
+}
+
+static int a90_diag_wlan_pd_memory_device_stop(struct buffer *stdout_buf) {
+    long first_success_delta = -1;
+    long switch_delta = -1;
+    long first_read_delta = -1;
+
+    if (!g_diag_wlan_pd_memory_device_probe.start_attempted ||
+        g_diag_wlan_pd_memory_device_probe.reported) {
+        return 0;
+    }
+    if (a90_diag_wlan_pd_memory_device_query(stdout_buf, true) < 0 ||
+        a90_diag_wlan_pd_memory_device_drain(stdout_buf) < 0) {
+        return -1;
+    }
+    g_diag_wlan_pd_memory_device_probe.reported = true;
+    if (g_diag_wlan_pd_memory_device_probe.first_success_ms >= 0) {
+        first_success_delta =
+            g_diag_wlan_pd_memory_device_probe.first_success_ms -
+            g_diag_wlan_pd_memory_device_probe.start_ms;
+    }
+    if (g_diag_wlan_pd_memory_device_probe.switch_ms >= 0) {
+        switch_delta =
+            g_diag_wlan_pd_memory_device_probe.switch_ms -
+            g_diag_wlan_pd_memory_device_probe.start_ms;
+    }
+    if (g_diag_wlan_pd_memory_device_probe.first_read_ms >= 0) {
+        first_read_delta =
+            g_diag_wlan_pd_memory_device_probe.first_read_ms -
+            g_diag_wlan_pd_memory_device_probe.start_ms;
+    }
+    if (append_format(stdout_buf,
+                      "diag_wlan_pd_memory_device_probe.summary.started=%d\n"
+                      "diag_wlan_pd_memory_device_probe.summary.fd_borrowed=%d\n"
+                      "diag_wlan_pd_memory_device_probe.summary.node_created=0\n"
+                      "diag_wlan_pd_memory_device_probe.summary.open_ok=%d\n"
+                      "diag_wlan_pd_memory_device_probe.summary.query_attempts=%u\n"
+                      "diag_wlan_pd_memory_device_probe.summary.query_successes=%u\n"
+                      "diag_wlan_pd_memory_device_probe.summary.query_failures=%u\n"
+                      "diag_wlan_pd_memory_device_probe.summary.query_supported=%d\n"
+                      "diag_wlan_pd_memory_device_probe.summary.first_success_attempt=%d\n"
+                      "diag_wlan_pd_memory_device_probe.summary.first_success_delta_ms=%ld\n"
+                      "diag_wlan_pd_memory_device_probe.summary.switch_attempted=%d\n"
+                      "diag_wlan_pd_memory_device_probe.summary.switch_rc=%d\n"
+                      "diag_wlan_pd_memory_device_probe.summary.switch_errno=%d\n"
+                      "diag_wlan_pd_memory_device_probe.summary.switched=%d\n"
+                      "diag_wlan_pd_memory_device_probe.summary.switch_delta_ms=%ld\n"
+                      "diag_wlan_pd_memory_device_probe.summary.read_calls=%u\n"
+                      "diag_wlan_pd_memory_device_probe.summary.read_records=%u\n"
+                      "diag_wlan_pd_memory_device_probe.summary.read_bytes=%llu\n"
+                      "diag_wlan_pd_memory_device_probe.summary.first_read_delta_ms=%ld\n"
+                      "diag_wlan_pd_memory_device_probe.summary.user_space_records=%u\n"
+                      "diag_wlan_pd_memory_device_probe.summary.raw_user_space_records=%u\n"
+                      "diag_wlan_pd_memory_device_probe.summary.other_records=%u\n"
+                      "diag_wlan_pd_memory_device_probe.summary.payload_records=%u\n"
+                      "diag_wlan_pd_memory_device_probe.summary.poll_calls=%u\n"
+                      "diag_wlan_pd_memory_device_probe.summary.poll_ready=%u\n"
+                      "diag_wlan_pd_memory_device_probe.summary.poll_empty=%u\n"
+                      "diag_wlan_pd_memory_device_probe.summary.poll_errors=%u\n"
+                      "diag_wlan_pd_memory_device_probe.summary.read_eagain=%u\n"
+                      "diag_wlan_pd_memory_device_probe.summary.read_eintr=%u\n"
+                      "diag_wlan_pd_memory_device_probe.summary.read_errors=%u\n"
+                      "diag_wlan_pd_memory_device_probe.summary.read_terminal_error=%d\n"
+                      "diag_wlan_pd_memory_device_probe.summary.last_read_errno=%u\n"
+                      "diag_wlan_pd_memory_device_probe.summary.samples=%u\n"
+                      "diag_wlan_pd_memory_device_probe.summary.rootfs_namespace_only=1\n"
+                      "diag_wlan_pd_memory_device_probe.summary.sda29_write=0\n"
+                      "diag_wlan_pd_memory_device_probe.summary.switch_logging_scope=wlan-pd-memory-device-only\n"
+                      "diag_wlan_pd_memory_device_probe.summary.global_transport_switch=0\n"
+                      "diag_wlan_pd_memory_device_probe.summary.usb_pcie_switch=0\n"
+                      "diag_wlan_pd_memory_device_probe.summary.broad_mask=0\n"
+                      "diag_wlan_pd_memory_device_probe.summary.write_attempted=0\n"
+                      "diag_wlan_pd_memory_device_probe.summary.log_mask_write=0\n"
+                      "diag_wlan_pd_memory_device_probe.summary.event_mask_write=0\n"
+                      "diag_wlan_pd_memory_device_probe.summary.stream_config_attempted=0\n"
+                      "diag_wlan_pd_memory_device_probe.summary.qmi_send=0\n"
+                      "diag_wlan_pd_memory_device_probe.summary.ptraced=0\n"
+                      "diag_wlan_pd_memory_device_probe.summary.restore_ioctl_attempted=0\n",
+                      g_diag_wlan_pd_memory_device_probe.open_ok ? 1 : 0,
+                      g_diag_wlan_pd_memory_device_probe.fd_borrowed ? 1 : 0,
+                      g_diag_wlan_pd_memory_device_probe.open_ok ? 1 : 0,
+                      g_diag_wlan_pd_memory_device_probe.attempts,
+                      g_diag_wlan_pd_memory_device_probe.successes,
+                      g_diag_wlan_pd_memory_device_probe.failures,
+                      g_diag_wlan_pd_memory_device_probe.successes > 0U ? 1 : 0,
+                      g_diag_wlan_pd_memory_device_probe.first_success_attempt,
+                      first_success_delta,
+                      g_diag_wlan_pd_memory_device_probe.switch_attempted ? 1 : 0,
+                      g_diag_wlan_pd_memory_device_probe.switch_rc,
+                      g_diag_wlan_pd_memory_device_probe.switch_errno,
+                      g_diag_wlan_pd_memory_device_probe.switched ? 1 : 0,
+                      switch_delta,
+                      g_diag_wlan_pd_memory_device_probe.read_calls,
+                      g_diag_wlan_pd_memory_device_probe.read_records,
+                      g_diag_wlan_pd_memory_device_probe.read_bytes,
+                      first_read_delta,
+                      g_diag_wlan_pd_memory_device_probe.user_space_records,
+                      g_diag_wlan_pd_memory_device_probe.raw_user_space_records,
+                      g_diag_wlan_pd_memory_device_probe.other_records,
+                      g_diag_wlan_pd_memory_device_probe.user_space_records +
+                          g_diag_wlan_pd_memory_device_probe.raw_user_space_records,
+                      g_diag_wlan_pd_memory_device_probe.poll_calls,
+                      g_diag_wlan_pd_memory_device_probe.poll_ready,
+                      g_diag_wlan_pd_memory_device_probe.poll_empty,
+                      g_diag_wlan_pd_memory_device_probe.poll_errors,
+                      g_diag_wlan_pd_memory_device_probe.read_eagain,
+                      g_diag_wlan_pd_memory_device_probe.read_eintr,
+                      g_diag_wlan_pd_memory_device_probe.read_errors,
+                      g_diag_wlan_pd_memory_device_probe.read_terminal_error ? 1 : 0,
+                      g_diag_wlan_pd_memory_device_probe.last_read_errno,
+                      g_diag_wlan_pd_memory_device_probe.sample_count) < 0) {
+        return -1;
+    }
+    return append_literal(stdout_buf,
+                          "diag_wlan_pd_memory_device_probe.stopped=1\n"
+                          "diag_wlan_pd_memory_device_probe.end=1\n");
+}
+#endif
+
 static int a90_diag_dci_register_read_start(const struct paths *paths,
                                             struct buffer *stdout_buf) {
     char error_buf[256];
@@ -28897,6 +29464,14 @@ static int a90_diag_dci_register_read_start(const struct paths *paths,
         return -1;
     }
 #endif
+#if A90_WIFI_TEST_BOOT_DIAG_WLAN_PD_MEMORY_DEVICE_PROBE
+    if (a90_diag_wlan_pd_memory_device_start_borrowed(
+            g_diag_dci_register_read_probe.fd,
+            g_diag_dci_register_read_probe.node_path,
+            stdout_buf) < 0) {
+        return -1;
+    }
+#endif
     return 0;
 }
 
@@ -28997,6 +29572,11 @@ static int a90_diag_dci_register_read_stop(struct buffer *stdout_buf) {
         g_diag_dci_register_read_probe.reported) {
         return 0;
     }
+#if A90_WIFI_TEST_BOOT_DIAG_WLAN_PD_MEMORY_DEVICE_PROBE
+    if (a90_diag_wlan_pd_memory_device_stop(stdout_buf) < 0) {
+        return -1;
+    }
+#endif
     if (a90_diag_dci_register_read_drain(stdout_buf) < 0) {
         return -1;
     }
@@ -33765,6 +34345,12 @@ static int composite_poll_children(struct composite_child *children,
             return -1;
         }
 #endif
+#if A90_WIFI_TEST_BOOT_DIAG_WLAN_PD_MEMORY_DEVICE_PROBE
+        if (a90_diag_wlan_pd_memory_device_query(stdout_buf, false) < 0 ||
+            a90_diag_wlan_pd_memory_device_drain(stdout_buf) < 0) {
+            return -1;
+        }
+#endif
 #if A90_WIFI_TEST_BOOT_DIAG_DCI_REGISTER_READ_PROBE
         if (a90_diag_dci_register_read_drain(stdout_buf) < 0) {
             return -1;
@@ -33817,6 +34403,12 @@ static int composite_poll_children(struct composite_child *children,
 #endif
 #if A90_WIFI_TEST_BOOT_DIAG_PD_QUERY_PROBE
             if (a90_diag_pd_query_probe_query(stdout_buf, true) < 0) {
+                return -1;
+            }
+#endif
+#if A90_WIFI_TEST_BOOT_DIAG_WLAN_PD_MEMORY_DEVICE_PROBE
+            if (a90_diag_wlan_pd_memory_device_query(stdout_buf, true) < 0 ||
+                a90_diag_wlan_pd_memory_device_drain(stdout_buf) < 0) {
                 return -1;
             }
 #endif
@@ -33899,6 +34491,12 @@ static int composite_poll_children(struct composite_child *children,
 #endif
 #if A90_WIFI_TEST_BOOT_DIAG_PD_QUERY_PROBE
     if (a90_diag_pd_query_probe_query(stdout_buf, true) < 0) {
+        return -1;
+    }
+#endif
+#if A90_WIFI_TEST_BOOT_DIAG_WLAN_PD_MEMORY_DEVICE_PROBE
+    if (a90_diag_wlan_pd_memory_device_query(stdout_buf, true) < 0 ||
+        a90_diag_wlan_pd_memory_device_drain(stdout_buf) < 0) {
         return -1;
     }
 #endif
@@ -50211,6 +50809,12 @@ static int drain_pm_service_trigger_observer_children(struct composite_child *ch
             return -1;
         }
     }
+#if A90_WIFI_TEST_BOOT_DIAG_WLAN_PD_MEMORY_DEVICE_PROBE
+    if (a90_diag_wlan_pd_memory_device_query(stdout_buf, false) < 0 ||
+        a90_diag_wlan_pd_memory_device_drain(stdout_buf) < 0) {
+        return -1;
+    }
+#endif
 #if A90_WIFI_TEST_BOOT_DIAG_DCI_REGISTER_READ_PROBE
     if (a90_diag_dci_register_read_drain(stdout_buf) < 0) {
         return -1;
