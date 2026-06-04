@@ -156,6 +156,10 @@
 #define A90_WIFI_TEST_BOOT_MACLOADER_PRE_CNSS 0
 #endif
 
+#ifndef A90_WIFI_TEST_BOOT_MACLOADER_MAC_SOURCE_BRIDGE
+#define A90_WIFI_TEST_BOOT_MACLOADER_MAC_SOURCE_BRIDGE 0
+#endif
+
 #ifndef A90_WIFI_TEST_BOOT_DIAG_QUERY_ONLY_PROBE
 #define A90_WIFI_TEST_BOOT_DIAG_QUERY_ONLY_PROBE 0
 #endif
@@ -192,7 +196,9 @@
 #define A90_WIFI_TEST_BOOT_DIAG_REMOTE_DEV_POLL_PROBE 0
 #endif
 
-#if A90_WIFI_TEST_BOOT_MACLOADER_PRE_CNSS && A90_WIFI_TEST_BOOT_ICNSS_QCACLD_POST_BDF_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_LATE_MSG21_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && !A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
+#if A90_WIFI_TEST_BOOT_MACLOADER_MAC_SOURCE_BRIDGE && A90_WIFI_TEST_BOOT_MACLOADER_PRE_CNSS && A90_WIFI_TEST_BOOT_ICNSS_QCACLD_POST_BDF_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_LATE_MSG21_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && !A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
+#define EXECNS_VERSION "a90_android_execns_probe v406"
+#elif A90_WIFI_TEST_BOOT_MACLOADER_PRE_CNSS && A90_WIFI_TEST_BOOT_ICNSS_QCACLD_POST_BDF_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_LATE_MSG21_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && !A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
 #define EXECNS_VERSION "a90_android_execns_probe v405"
 #elif A90_WIFI_TEST_BOOT_ICNSS_QCACLD_POST_BDF_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_LATE_MSG21_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && !A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
 #define EXECNS_VERSION "a90_android_execns_probe v404"
@@ -587,6 +593,7 @@ struct paths {
     char rfs_bridge_source_readonly_vendor_firmware_wlanmdsp[MAX_PATH_LEN];
     char mnt[MAX_PATH_LEN];
     char mnt_vendor[MAX_PATH_LEN];
+    char mnt_vendor_efs[MAX_PATH_LEN];
     char mnt_vendor_persist[MAX_PATH_LEN];
     char mnt_vendor_persist_rfs[MAX_PATH_LEN];
     char mnt_vendor_persist_hlos_rfs[MAX_PATH_LEN];
@@ -594,6 +601,8 @@ struct paths {
     char mnt_vendor_persist_hlos_rfs_msm_mpss_readwrite[MAX_PATH_LEN];
     char firmware_mnt_source[MAX_PATH_LEN];
     char firmware_modem_source[MAX_PATH_LEN];
+    char efs_source[MAX_PATH_LEN];
+    char persist_source[MAX_PATH_LEN];
     char dev[MAX_PATH_LEN];
     char dev_null[MAX_PATH_LEN];
     char dev_wlan[MAX_PATH_LEN];
@@ -614,6 +623,7 @@ struct paths {
     char property_service_socket[MAX_PATH_LEN];
     char logdw_socket[MAX_PATH_LEN];
     char sys[MAX_PATH_LEN];
+    char sys_wifi[MAX_PATH_LEN];
     char sys_bus[MAX_PATH_LEN];
     char sys_bus_esoc[MAX_PATH_LEN];
     char sys_bus_msm_subsys[MAX_PATH_LEN];
@@ -637,6 +647,7 @@ struct paths {
     char sys_fs_selinux_enforce[MAX_PATH_LEN];
     char sys_fs_selinux_load[MAX_PATH_LEN];
     char sys_kernel[MAX_PATH_LEN]; /* v328 */
+    char sys_kernel_boot_wlan[MAX_PATH_LEN];
     char sys_kernel_debug[MAX_PATH_LEN]; /* v328 */
     char sys_kernel_debug_tracing[MAX_PATH_LEN]; /* v328 */
     char sys_kernel_tracing[MAX_PATH_LEN]; /* v328 */
@@ -644,6 +655,7 @@ struct paths {
     char data_vendor[MAX_PATH_LEN];
     char data_vendor_wifi[MAX_PATH_LEN];
     char data_vendor_wifi_sockets[MAX_PATH_LEN];
+    char persist[MAX_PATH_LEN];
     char proc[MAX_PATH_LEN];
     char apex[MAX_PATH_LEN];
     char linkerconfig[MAX_PATH_LEN];
@@ -3846,6 +3858,10 @@ static int init_paths(struct paths *paths) {
                     sizeof(paths->mnt_vendor),
                     paths->mnt,
                     "vendor") < 0 ||
+        append_path(paths->mnt_vendor_efs,
+                    sizeof(paths->mnt_vendor_efs),
+                    paths->mnt_vendor,
+                    "efs") < 0 ||
         append_path(paths->mnt_vendor_persist,
                     sizeof(paths->mnt_vendor_persist),
                     paths->mnt_vendor,
@@ -3874,6 +3890,14 @@ static int init_paths(struct paths *paths) {
                     sizeof(paths->firmware_modem_source),
                     paths->base,
                     "firmware-block-modem") < 0 ||
+        append_path(paths->efs_source,
+                    sizeof(paths->efs_source),
+                    paths->base,
+                    "block-efs") < 0 ||
+        append_path(paths->persist_source,
+                    sizeof(paths->persist_source),
+                    paths->base,
+                    "block-persist") < 0 ||
         append_path(paths->dev, sizeof(paths->dev), paths->root, "dev") < 0 ||
         append_path(paths->dev_null, sizeof(paths->dev_null), paths->dev, "null") < 0 ||
         append_path(paths->dev_wlan, sizeof(paths->dev_wlan), paths->dev, "wlan") < 0 ||
@@ -3912,6 +3936,7 @@ static int init_paths(struct paths *paths) {
                     paths->dev_socket,
                     "logdw") < 0 ||
         append_path(paths->sys, sizeof(paths->sys), paths->root, "sys") < 0 ||
+        append_path(paths->sys_wifi, sizeof(paths->sys_wifi), paths->sys, "wifi") < 0 ||
         append_path(paths->sys_bus, sizeof(paths->sys_bus), paths->sys, "bus") < 0 ||
         append_path(paths->sys_bus_esoc, sizeof(paths->sys_bus_esoc), paths->sys_bus, "esoc") < 0 ||
         append_path(paths->sys_bus_msm_subsys,
@@ -3969,6 +3994,10 @@ static int init_paths(struct paths *paths) {
                     paths->sys_fs_selinux,
                     "load") < 0 ||
         append_path(paths->sys_kernel, sizeof(paths->sys_kernel), paths->sys, "kernel") < 0 ||
+        append_path(paths->sys_kernel_boot_wlan,
+                    sizeof(paths->sys_kernel_boot_wlan),
+                    paths->sys_kernel,
+                    "boot_wlan") < 0 ||
         append_path(paths->sys_kernel_debug,
                     sizeof(paths->sys_kernel_debug),
                     paths->sys_kernel,
@@ -3991,6 +4020,7 @@ static int init_paths(struct paths *paths) {
                     sizeof(paths->data_vendor_wifi_sockets),
                     paths->data_vendor_wifi,
                     "sockets") < 0 ||
+        append_path(paths->persist, sizeof(paths->persist), paths->root, "persist") < 0 ||
         append_path(paths->proc, sizeof(paths->proc), paths->root, "proc") < 0 ||
         append_path(paths->apex, sizeof(paths->apex), paths->root, "apex") < 0 ||
         append_path(paths->linkerconfig, sizeof(paths->linkerconfig), paths->root, "linkerconfig") < 0) {
@@ -4797,6 +4827,8 @@ static void cleanup_paths(const struct paths *paths) {
     umount2(paths->vendor_rfs_msm_mpss_readonly, MNT_DETACH);
     umount2(paths->vendor_rfs_msm_mpss, MNT_DETACH);
     umount2(paths->vendor_rfs, MNT_DETACH);
+    umount2(paths->mnt_vendor_efs, MNT_DETACH);
+    umount2(paths->persist, MNT_DETACH);
     umount2(paths->vendor_firmware_modem, MNT_DETACH);
     umount2(paths->vendor_firmware_mnt, MNT_DETACH);
     umount2(paths->vendor, MNT_DETACH);
@@ -4847,6 +4879,10 @@ static void cleanup_paths(const struct paths *paths) {
     }
     if (paths->sys_kernel_debug[0] != '\0') {
         rmdir(paths->sys_kernel_debug);
+    }
+    if (paths->sys_kernel_boot_wlan[0] != '\0') {
+        umount2(paths->sys_kernel_boot_wlan, MNT_DETACH);
+        rmdir(paths->sys_kernel_boot_wlan);
     }
     if (paths->sys_kernel[0] != '\0') {
         rmdir(paths->sys_kernel);
@@ -4932,6 +4968,10 @@ static void cleanup_paths(const struct paths *paths) {
     if (paths->sys_class[0] != '\0') {
         rmdir(paths->sys_class);
     }
+    if (paths->sys_wifi[0] != '\0') {
+        umount2(paths->sys_wifi, MNT_DETACH);
+        rmdir(paths->sys_wifi);
+    }
     if (paths->sys_bus_esoc[0] != '\0') {
         rmdir(paths->sys_bus_esoc);
     }
@@ -4980,6 +5020,9 @@ static void cleanup_paths(const struct paths *paths) {
     if (paths->data[0] != '\0') {
         rmdir(paths->data);
     }
+    if (paths->persist[0] != '\0') {
+        rmdir(paths->persist);
+    }
     if (paths->apex[0] != '\0') {
         rmdir(paths->apex);
     }
@@ -4987,6 +5030,10 @@ static void cleanup_paths(const struct paths *paths) {
         rmdir(paths->linkerconfig);
     }
     rmdir(paths->proc);
+    rmdir(paths->mnt_vendor_efs);
+    rmdir(paths->mnt_vendor_persist);
+    rmdir(paths->mnt_vendor);
+    rmdir(paths->mnt);
     rmdir(paths->vendor);
     rmdir(paths->system);
     rmdir(paths->root);
@@ -5009,6 +5056,8 @@ static void cleanup_paths(const struct paths *paths) {
     rmdir(paths->rfs_bridge_source);
     unlink(paths->firmware_modem_source);
     unlink(paths->firmware_mnt_source);
+    unlink(paths->efs_source);
+    unlink(paths->persist_source);
     unlink(paths->vendor_source);
     rmdir(paths->base);
 }
@@ -10906,6 +10955,176 @@ static int append_wlan_pd_rfs_bridge_snapshot(struct buffer *buf,
                          prefix);
 }
 
+static int append_macloader_mac_source_path_snapshot(struct buffer *buf,
+                                                     const struct paths *paths,
+                                                     const char *prefix,
+                                                     const char *label,
+                                                     const char *absolute_path) {
+    char host_path[MAX_PATH_LEN];
+    struct stat st;
+    uint64_t hash = 0;
+    size_t bytes = 0;
+    int stat_errno = 0;
+    bool exists = false;
+    bool is_reg = false;
+    bool is_dir = false;
+    bool readable = false;
+    bool writable = false;
+    bool hashed = false;
+
+    if (path_in_root(host_path, sizeof(host_path), paths, absolute_path) < 0) {
+        return append_format(buf,
+                             "%s.%s.absolute=%s\n"
+                             "%s.%s.host_path=<path-too-long>\n"
+                             "%s.%s.exists=0\n"
+                             "%s.%s.errno=%d\n",
+                             prefix,
+                             label,
+                             absolute_path,
+                             prefix,
+                             label,
+                             prefix,
+                             label,
+                             prefix,
+                             label,
+                             errno);
+    }
+    if (stat(host_path, &st) == 0) {
+        exists = true;
+        is_reg = S_ISREG(st.st_mode);
+        is_dir = S_ISDIR(st.st_mode);
+        readable = access(host_path, R_OK) == 0;
+        writable = access(host_path, W_OK) == 0;
+        if (is_reg && readable && fnv1a64_file(host_path, &hash, &bytes) == 0) {
+            hashed = true;
+        }
+    } else {
+        stat_errno = errno;
+        memset(&st, 0, sizeof(st));
+    }
+    return append_format(buf,
+                         "%s.%s.absolute=%s\n"
+                         "%s.%s.host_path=%s\n"
+                         "%s.%s.exists=%d\n"
+                         "%s.%s.is_reg=%d\n"
+                         "%s.%s.is_dir=%d\n"
+                         "%s.%s.mode=%04o\n"
+                         "%s.%s.uid=%lld\n"
+                         "%s.%s.gid=%lld\n"
+                         "%s.%s.size=%lld\n"
+                         "%s.%s.readable=%d\n"
+                         "%s.%s.writable=%d\n"
+                         "%s.%s.hash_available=%d\n"
+                         "%s.%s.bytes=%zu\n"
+                         "%s.%s.hash=0x%016llx\n"
+                         "%s.%s.errno=%d\n",
+                         prefix,
+                         label,
+                         absolute_path,
+                         prefix,
+                         label,
+                         host_path,
+                         prefix,
+                         label,
+                         exists ? 1 : 0,
+                         prefix,
+                         label,
+                         is_reg ? 1 : 0,
+                         prefix,
+                         label,
+                         is_dir ? 1 : 0,
+                         prefix,
+                         label,
+                         exists ? (unsigned int)(st.st_mode & 07777) : 0U,
+                         prefix,
+                         label,
+                         exists ? (long long)st.st_uid : -1LL,
+                         prefix,
+                         label,
+                         exists ? (long long)st.st_gid : -1LL,
+                         prefix,
+                         label,
+                         exists ? (long long)st.st_size : 0LL,
+                         prefix,
+                         label,
+                         readable ? 1 : 0,
+                         prefix,
+                         label,
+                         writable ? 1 : 0,
+                         prefix,
+                         label,
+                         hashed ? 1 : 0,
+                         prefix,
+                         label,
+                         hashed ? bytes : 0U,
+                         prefix,
+                         label,
+                         (unsigned long long)(hashed ? hash : 0),
+                         prefix,
+                         label,
+                         stat_errno);
+}
+
+static int append_macloader_mac_source_bridge_snapshot(struct buffer *buf,
+                                                       const struct paths *paths,
+                                                       const char *prefix) {
+    if (append_format(buf,
+                      "%s.begin=1\n"
+                      "%s.enabled=%d\n"
+                      "%s.rootfs_namespace_only=1\n"
+                      "%s.efs_readonly=1\n"
+                      "%s.persist_readonly=1\n"
+                      "%s.sys_wifi_exposed_rw=1\n"
+                      "%s.boot_wlan_exposed_rw=1\n"
+                      "%s.efs_mount=/mnt/vendor/efs\n"
+                      "%s.persist_mount=/persist\n",
+                      prefix,
+                      prefix,
+                      A90_WIFI_TEST_BOOT_MACLOADER_MAC_SOURCE_BRIDGE ? 1 : 0,
+                      prefix,
+                      prefix,
+                      prefix,
+                      prefix,
+                      prefix,
+                      prefix,
+                      prefix,
+                      prefix) < 0 ||
+        append_macloader_mac_source_path_snapshot(buf,
+                                                  paths,
+                                                  prefix,
+                                                  "mac_info",
+                                                  "/mnt/vendor/efs/wifi/.mac.info") < 0 ||
+        append_macloader_mac_source_path_snapshot(buf,
+                                                  paths,
+                                                  prefix,
+                                                  "sys_wifi",
+                                                  "/sys/wifi") < 0 ||
+        append_macloader_mac_source_path_snapshot(buf,
+                                                  paths,
+                                                  prefix,
+                                                  "sys_wifi_mac_addr",
+                                                  "/sys/wifi/mac_addr") < 0 ||
+        append_macloader_mac_source_path_snapshot(buf,
+                                                  paths,
+                                                  prefix,
+                                                  "sys_wifi_qcwlanstate",
+                                                  "/sys/wifi/qcwlanstate") < 0 ||
+        append_macloader_mac_source_path_snapshot(buf,
+                                                  paths,
+                                                  prefix,
+                                                  "sys_kernel_boot_wlan",
+                                                  "/sys/kernel/boot_wlan") < 0 ||
+        append_macloader_mac_source_path_snapshot(buf,
+                                                  paths,
+                                                  prefix,
+                                                  "persist_nv",
+                                                  "/persist/WCNSS_qcom_wlan_nv.bin") < 0 ||
+        append_format(buf, "%s.end=1\n", prefix) < 0) {
+        return -1;
+    }
+    return 0;
+}
+
 static int materialize_rmt_uio_surface(const struct paths *paths,
                                        char *error_buf,
                                        size_t error_size) {
@@ -11007,6 +11226,112 @@ static int bind_optional_ro_dir(const char *source,
         snprintf(error_buf, error_size, "bind private %s: %s", label, strerror(errno));
         return -1;
     }
+    return 0;
+}
+
+static int bind_optional_rw_dir(const char *source,
+                                const char *target,
+                                const char *label,
+                                char *error_buf,
+                                size_t error_size) {
+    struct stat st;
+
+    if (stat(source, &st) < 0) {
+        if (errno == ENOENT || errno == ENOTDIR) {
+            return 0;
+        }
+        snprintf(error_buf, error_size, "stat %s: %s", label, strerror(errno));
+        return -1;
+    }
+    if (!S_ISDIR(st.st_mode)) {
+        snprintf(error_buf, error_size, "%s is not a directory", label);
+        errno = ENOTDIR;
+        return -1;
+    }
+    if (mkdir_p(target, 0755) < 0) {
+        snprintf(error_buf, error_size, "mkdir private %s: %s", label, strerror(errno));
+        return -1;
+    }
+    if (bind_rw(source, target) < 0) {
+        snprintf(error_buf, error_size, "bind private %s: %s", label, strerror(errno));
+        return -1;
+    }
+    return 0;
+}
+
+static int mount_partition_ro_best_effort(const char *partname,
+                                          const char *source,
+                                          const char *target,
+                                          char *error_buf,
+                                          size_t error_size) {
+    char devname[128];
+    unsigned int major_no = 0;
+    unsigned int minor_no = 0;
+
+    if (mkdir_p(target, 0755) < 0) {
+        snprintf(error_buf, error_size, "mkdir private %s: %s", partname, strerror(errno));
+        return -1;
+    }
+    if (find_block_partition(partname, devname, sizeof(devname), &major_no, &minor_no) < 0) {
+        return 0;
+    }
+    if (unlink(source) < 0 && errno != ENOENT) {
+        snprintf(error_buf, error_size, "unlink private %s block source: %s", partname, strerror(errno));
+        return -1;
+    }
+    if (mknod(source, S_IFBLK | 0600, makedev(major_no, minor_no)) < 0) {
+        snprintf(error_buf, error_size, "mknod private %s block source: %s", partname, strerror(errno));
+        return -1;
+    }
+    if (mount(source,
+              target,
+              "ext4",
+              MS_RDONLY | MS_NOSUID | MS_NODEV,
+              "noload") == 0) {
+        return 0;
+    }
+    if (mount(source,
+              target,
+              "f2fs",
+              MS_RDONLY | MS_NOSUID | MS_NODEV,
+              NULL) == 0) {
+        return 0;
+    }
+    return 0;
+}
+
+static int materialize_macloader_mac_source_bridge(const struct config *cfg,
+                                                   const struct paths *paths,
+                                                   char *error_buf,
+                                                   size_t error_size) {
+    (void)cfg;
+#if A90_WIFI_TEST_BOOT_MACLOADER_MAC_SOURCE_BRIDGE
+    if (!is_wifi_companion_any_start_only_mode(cfg->mode)) {
+        return 0;
+    }
+    if (mount_partition_ro_best_effort("efs",
+                                       paths->efs_source,
+                                       paths->mnt_vendor_efs,
+                                       error_buf,
+                                       error_size) < 0 ||
+        mount_partition_ro_best_effort("persist",
+                                       paths->persist_source,
+                                       paths->persist,
+                                       error_buf,
+                                       error_size) < 0 ||
+        bind_optional_rw_dir("/sys/wifi",
+                             paths->sys_wifi,
+                             "sys wifi",
+                             error_buf,
+                             error_size) < 0 ||
+        bind_optional_rw_dir("/sys/kernel/boot_wlan",
+                             paths->sys_kernel_boot_wlan,
+                             "sys kernel boot_wlan",
+                             error_buf,
+                             error_size) < 0) {
+        return -1;
+    }
+#endif
     return 0;
 }
 
@@ -47630,6 +47955,9 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
     const bool macloader_pre_cnss =
         wlan_pd_firmware_serve_gate &&
         A90_WIFI_TEST_BOOT_MACLOADER_PRE_CNSS;
+    const bool macloader_mac_source_bridge =
+        macloader_pre_cnss &&
+        A90_WIFI_TEST_BOOT_MACLOADER_MAC_SOURCE_BRIDGE;
     const bool android_order_pre_cnss_provider_observer =
         is_wifi_companion_android_order_pre_cnss_provider_observe_only_mode(cfg->mode);
     const bool with_service_manager =
@@ -48051,6 +48379,10 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
                       "wifi_companion_start.macloader_pre_cnss.active_driver_start=1\n"
                       "wifi_companion_start.macloader_pre_cnss.boot_wlan_write_expected=%d\n"
                       "wifi_companion_start.macloader_pre_cnss.qcwlanstate_write=0\n"
+                      "wifi_companion_start.macloader_mac_source_bridge.enabled=%d\n"
+                      "wifi_companion_start.macloader_mac_source_bridge.efs_readonly=1\n"
+                      "wifi_companion_start.macloader_mac_source_bridge.sys_wifi_exposed=1\n"
+                      "wifi_companion_start.macloader_mac_source_bridge.persist_readonly=1\n"
                       "wifi_companion_start.wlan_pd_firmware_serve_gate.enabled=%d\n"
                       "wifi_companion_start.wlan_pd_firmware_serve_gate.subsys_modem_holder_planned=%d\n"
                       "wifi_companion_start.wlan_pd_post_pm_lower_state_observer.enabled=%d\n"
@@ -48092,6 +48424,7 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
                       android_order_pre_cnss_provider_observer ? 1 : 0,
                       macloader_pre_cnss ? 1 : 0,
                       macloader_pre_cnss ? 1 : 0,
+                      macloader_mac_source_bridge ? 1 : 0,
                       wlan_pd_firmware_serve_gate ? 1 : 0,
                       wlan_pd_firmware_serve_gate ? 1 : 0,
                       wlan_pd_post_pm_lower_state_observer ? 1 : 0,
@@ -48175,6 +48508,12 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
     if (append_literal(stdout_buf,
                        "wifi_companion_start.allowed=1\n"
                        "wifi_companion_start.exec_attempted=1\n") < 0) {
+        return -1;
+    }
+    if (macloader_mac_source_bridge &&
+        append_macloader_mac_source_bridge_snapshot(stdout_buf,
+                                                    paths,
+                                                    "wifi_companion_start.macloader_mac_source_bridge.pre") < 0) {
         return -1;
     }
     if (wlan_pd_service_object_visible_trigger) {
@@ -48486,6 +48825,14 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
                               (children[i].observable &&
                                !children[i].child_done &&
                                children[i].fd_summary_captured) ? 1 : 0) < 0) {
+                composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+                stop_property_service_shim(&property_shim, paths, stdout_buf);
+                return -1;
+            }
+            if (macloader_mac_source_bridge &&
+                append_macloader_mac_source_bridge_snapshot(stdout_buf,
+                                                            paths,
+                                                            "wifi_companion_start.macloader_mac_source_bridge.post") < 0) {
                 composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
                 stop_property_service_shim(&property_shim, paths, stdout_buf);
                 return -1;
@@ -57790,6 +58137,9 @@ static int setup_namespace(const struct config *cfg,
         return -1;
     }
     if (materialize_wifi_firmware_mounts(cfg, paths, error_buf, error_size) < 0) {
+        return -1;
+    }
+    if (materialize_macloader_mac_source_bridge(cfg, paths, error_buf, error_size) < 0) {
         return -1;
     }
     if (mount("proc", paths->proc, "proc", MS_NOSUID | MS_NODEV | MS_NOEXEC, NULL) < 0) {
