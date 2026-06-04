@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v368"
+#define EXECNS_VERSION "a90_android_execns_probe v369"
 
 #ifndef A90_EXECNS_ENABLE_DELAYED_LOWER_RESPONSE_WINDOW
 #define A90_EXECNS_ENABLE_DELAYED_LOWER_RESPONSE_WINDOW 0
@@ -584,7 +584,7 @@ static void usage(FILE *out) {
             "[v29 status query runs: /system/bin/lshal list --types=binderized,vintf --neat -V -S -i -p -e -c] "
             "[v29 VINTF control runs: /system/bin/lshal list --types=vintf --neat -V -S -i] "
             "[v30 binderized status query runs: /system/bin/lshal list --types=binderized --neat -S] "
-            "--timeout-sec <1..30>\n");
+            "--timeout-sec <1..120>\n");
 }
 
 static bool streq(const char *a, const char *b) {
@@ -1695,7 +1695,7 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
         } else if (strcmp(argv[i], "--result-output-path") == 0) {
             cfg->result_output_path = argv[++i];
         } else if (strcmp(argv[i], "--timeout-sec") == 0) {
-            if (!parse_int_range(argv[++i], 1, 30, &cfg->timeout_sec)) {
+            if (!parse_int_range(argv[++i], 1, 120, &cfg->timeout_sec)) {
                 fprintf(stderr, "invalid --timeout-sec\n");
                 return 2;
             }

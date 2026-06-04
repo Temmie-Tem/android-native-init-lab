@@ -235,7 +235,9 @@ static int v641_prepare_firmware_mounts(void);
 #define A90_V1393_WIFI_TEST_RC1_WINDOW_SAMPLER_NAME "read-only-v1420"
 #endif
 #define A90_V1393_WIFI_TEST_HELPER "/bin/a90_android_execns_probe"
+#ifndef A90_V1393_WIFI_TEST_TIMEOUT_SEC
 #define A90_V1393_WIFI_TEST_TIMEOUT_SEC "30"
+#endif
 #ifndef A90_WIFI_TEST_BOOT_ANDROID_SERVICE_WINDOW
 #define A90_WIFI_TEST_BOOT_ANDROID_SERVICE_WINDOW 0
 #endif

@@ -491,6 +491,7 @@ def build_init(args: argparse.Namespace) -> None:
         shell_define("A90_WIFI_TEST_BOOT_PID", args.wifi_test_pid),
         shell_define("A90_WIFI_TEST_BOOT_WATCHER_PID", args.wifi_test_watcher_pid),
         shell_define("A90_V1393_WIFI_TEST_PROPERTY_ROOT", args.wifi_test_property_root),
+        shell_define("A90_V1393_WIFI_TEST_TIMEOUT_SEC", str(args.wifi_test_helper_timeout_sec)),
         f"-DA90_WIFI_TEST_BOOT_WATCH_SEC={args.wifi_test_watch_sec}",
         f"-DA90_WIFI_TEST_BOOT_SUPERVISOR_TIMEOUT_SEC={args.wifi_test_supervisor_timeout_sec}",
         *supervisor_flags,
@@ -1601,6 +1602,7 @@ def write_manifest(args: argparse.Namespace) -> None:
             "auto_readiness_supervisor": args.wifi_test_auto_readiness_supervisor,
             "rc1_retry_count": args.wifi_test_rc1_retry_count,
             "rc1_retry_delay_ms": args.wifi_test_rc1_retry_delay_ms,
+            "helper_timeout_sec": args.wifi_test_helper_timeout_sec,
             "light_firmware_trace": args.wifi_test_light_firmware_trace,
             "pd_mapper_syscall_trace": args.wifi_test_pd_mapper_syscall_trace,
             "tftp_server_syscall_trace": args.wifi_test_tftp_server_syscall_trace,
@@ -1633,6 +1635,8 @@ def resolve_args(args: argparse.Namespace) -> argparse.Namespace:
     args.ramdisk_cpio = args.ramdisk_cpio.resolve()
     args.boot_image = args.boot_image.resolve()
     args.manifest = args.manifest.resolve()
+    if not 1 <= args.wifi_test_helper_timeout_sec <= 120:
+        raise RuntimeError("--wifi-test-helper-timeout-sec must be between 1 and 120")
     if uses_android_service_window(args):
         incompatible = {
             "wifi_test_mount_debugfs": args.wifi_test_mount_debugfs,
@@ -1816,6 +1820,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--wifi-test-auto-readiness-supervisor", action="store_true")
     parser.add_argument("--wifi-test-rc1-retry-count", type=int, default=0)
     parser.add_argument("--wifi-test-rc1-retry-delay-ms", type=int, default=0)
+    parser.add_argument("--wifi-test-helper-timeout-sec", type=int, default=30)
     parser.add_argument("--init-binary", type=Path)
     parser.add_argument("--helper-binary", type=Path)
     parser.add_argument("--ramdisk-dir", type=Path)
