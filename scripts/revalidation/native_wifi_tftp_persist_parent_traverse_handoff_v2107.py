@@ -11,6 +11,7 @@ import socket
 import stat
 import subprocess
 import sys
+import time
 from pathlib import Path
 from typing import Any
 
@@ -40,6 +41,10 @@ EXPECTED_HELPER_VERSION = "a90_android_execns_probe v413"
 TTY_PATH = Path("/dev/ttyACM0")
 BRIDGE_HOST = "127.0.0.1"
 BRIDGE_PORT = 54321
+BRIDGE_CAPTURE = OUT_DIR / "host" / "v2107-autostart-bridge.log"
+BRIDGE_STDOUT = OUT_DIR / "host" / "v2107-autostart-bridge.stdout.txt"
+BRIDGE_STDERR = OUT_DIR / "host" / "v2107-autostart-bridge.stderr.txt"
+BRIDGE_PID = OUT_DIR / "host" / "v2107-autostart-bridge.pid"
 
 
 def rel(path: Path) -> str:
@@ -90,6 +95,56 @@ def bridge_listening() -> bool:
         return False
 
 
+def wait_for_bridge(timeout: float) -> bool:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if bridge_listening():
+            return True
+        time.sleep(0.1)
+    return False
+
+
+def start_bridge(tty: dict[str, Any], sudo_ok: bool) -> dict[str, Any]:
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    (OUT_DIR / "host").mkdir(parents=True, exist_ok=True)
+    if not tty.get("exists"):
+        return {"attempted": False, "ok": False, "reason": f"{TTY_PATH} is absent"}
+    if not tty.get("user_can_rw") and not sudo_ok:
+        return {"attempted": False, "ok": False, "reason": "no tty rw permission and sudo unavailable"}
+
+    base_cmd = [
+        sys.executable,
+        "./scripts/revalidation/serial_tcp_bridge.py",
+        "--port",
+        str(BRIDGE_PORT),
+        "--device",
+        str(TTY_PATH),
+        "--capture",
+        str(BRIDGE_CAPTURE),
+    ]
+    command = base_cmd if tty.get("user_can_rw") else ["sudo", "-n", *base_cmd]
+    with BRIDGE_STDOUT.open("ab") as stdout_fp, BRIDGE_STDERR.open("ab") as stderr_fp:
+        proc = subprocess.Popen(
+            command,
+            cwd=REPO_ROOT,
+            stdout=stdout_fp,
+            stderr=stderr_fp,
+            start_new_session=True,
+        )
+    BRIDGE_PID.write_text(f"{proc.pid}\n", encoding="utf-8")
+    ok = wait_for_bridge(8.0)
+    return {
+        "attempted": True,
+        "ok": ok,
+        "pid": proc.pid,
+        "command": command,
+        "capture": rel(BRIDGE_CAPTURE),
+        "stdout": rel(BRIDGE_STDOUT),
+        "stderr": rel(BRIDGE_STDERR),
+        "pid_file": rel(BRIDGE_PID),
+    }
+
+
 def tty_snapshot() -> dict[str, Any]:
     data: dict[str, Any] = {
         "path": str(TTY_PATH),
@@ -116,6 +171,16 @@ def transport_preflight() -> dict[str, Any]:
     sudo = run_host(["sudo", "-n", "true"], timeout=3.0)
     version: dict[str, Any] | None = None
     selftest: dict[str, Any] | None = None
+    can_start_bridge = bool(tty.get("user_can_rw")) or sudo["rc"] == 0
+    autostart = {
+        "attempted": False,
+        "ok": False,
+        "reason": "bridge already listening" if bridge else "not attempted: no tty rw permission or passwordless sudo",
+    }
+
+    if not bridge and can_start_bridge:
+        autostart = start_bridge(tty, sudo["rc"] == 0)
+        bridge = bridge_listening()
 
     if bridge:
         version = run_host(
@@ -134,7 +199,6 @@ def transport_preflight() -> dict[str, Any]:
         and "A90P1 END" in selftest["stdout"]
         and "fail=0" in selftest["stdout"]
     )
-    can_start_bridge = bool(tty.get("user_can_rw")) or sudo["rc"] == 0
     ok = bridge and version_ok and selftest_ok
     if ok:
         label = "transport-ready"
@@ -163,6 +227,7 @@ def transport_preflight() -> dict[str, Any]:
         "version_ok": version_ok,
         "selftest_ok": selftest_ok,
         "can_start_bridge": can_start_bridge,
+        "autostart": autostart,
     }
 
 
@@ -216,6 +281,7 @@ def write_transport_blocked(preflight: dict[str, Any]) -> None:
                 ["bridge", preflight["bridge_listening"], f"{BRIDGE_HOST}:{BRIDGE_PORT}"],
                 ["tty", preflight["tty"].get("exists"), f"mode={preflight['tty'].get('mode')} gid={preflight['tty'].get('gid_name')} user_can_rw={preflight['tty'].get('user_can_rw')}"],
                 ["sudo", preflight["sudo_rc"] == 0, preflight["sudo_stderr"]],
+                ["autostart", preflight["autostart"].get("attempted"), f"ok={preflight['autostart'].get('ok')} pid={preflight['autostart'].get('pid', '')}"],
                 ["version", preflight["version_ok"], "" if preflight["version"] is None else f"rc={preflight['version']['rc']}"],
                 ["selftest", preflight["selftest_ok"], "" if preflight["selftest"] is None else f"rc={preflight['selftest']['rc']}"],
             ],
@@ -237,7 +303,7 @@ def write_transport_blocked(preflight: dict[str, Any]) -> None:
         "",
         "## Next",
         "",
-        "- Start the patched V2110 serial bridge with an account that can open `/dev/ttyACM0`, then rerun V2107.",
+        "- Grant `/dev/ttyACM0` access or passwordless sudo, then rerun V2107; the runner will autostart the patched V2110 bridge and proceed only after clean `version` and `selftest` framing.",
         "",
     ])
     (OUT_DIR / "summary.md").write_text(report, encoding="utf-8")

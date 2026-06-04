@@ -16,6 +16,7 @@
 | bridge | False | 127.0.0.1:54321 |
 | tty | True | mode=crw-rw---- gid=dialout user_can_rw=False |
 | sudo | False | sudo: interactive authentication is required |
+| autostart | False | ok=False pid= |
 | version | False |  |
 | selftest | False |  |
 
@@ -35,4 +36,4 @@
 
 ## Next
 
-- Start the patched V2110 serial bridge with an account that can open `/dev/ttyACM0`, then rerun V2107.
+- Grant `/dev/ttyACM0` access or passwordless sudo, then rerun V2107; the runner will autostart the patched V2110 bridge and proceed only after clean `version` and `selftest` framing.
