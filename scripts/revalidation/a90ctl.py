@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import os
 import re
 import shlex
 import socket
@@ -14,6 +15,8 @@ DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 54321
 CMDV1_RETRY_INTERVAL_SEC = 0.5
 BRIDGE_SERIAL_MISSING_TEXT = "serial device is not connected"
+INPUT_MODE_ENV = "A90CTL_INPUT_MODE"
+INPUT_CHAR_DELAY_ENV = "A90CTL_INPUT_CHAR_DELAY_SEC"
 END_RE = re.compile(r"^A90P1 END (?P<fields>.+)$", re.MULTILINE)
 BEGIN_RE = re.compile(r"^A90P1 BEGIN (?P<fields>.+)$", re.MULTILINE)
 COMMAND_NAME_RE = re.compile(r"^[A-Za-z0-9_.+-]+$")
@@ -109,6 +112,19 @@ def encode_cmdv1_line(command: list[str]) -> str:
     return "cmdv1x " + " ".join(encode_cmdv1x_arg(arg) for arg in command)
 
 
+def double_input_line(line: str) -> str:
+    return "".join(ch * 2 for ch in line)
+
+
+def encode_wire_line(line: str, input_mode: str | None = None) -> str:
+    mode = input_mode or os.environ.get(INPUT_MODE_ENV, "normal")
+    if mode == "double":
+        return double_input_line(line)
+    if mode in {"", "normal", "slow"}:
+        return line
+    raise RuntimeError(f"unsupported {INPUT_MODE_ENV}={mode!r}")
+
+
 def has_prompt_after_last_end(data: bytearray) -> bool:
     end_index = data.rfind(b"A90P1 END ")
     if end_index < 0:
@@ -133,7 +149,7 @@ def read_until(sock: socket.socket,
             break
         data.extend(chunk)
         if any(marker in data for marker in markers):
-            if require_prompt_after_end and not has_prompt_after_last_end(data):
+            if require_prompt_after_end and b"A90P1 END " in data and not has_prompt_after_last_end(data):
                 continue
             time.sleep(0.15)
             try:
@@ -150,11 +166,22 @@ def bridge_exchange(host: str,
                     timeout_sec: float,
                     markers: tuple[bytes, ...],
                     *,
+                    input_mode: str | None = None,
                     require_prompt_after_end: bool = False) -> str:
     connect_timeout = min(3.0, max(0.1, timeout_sec))
+    wire_line = encode_wire_line(line, input_mode=input_mode)
+    mode = input_mode or os.environ.get(INPUT_MODE_ENV, "normal")
     with socket.create_connection((host, port), timeout=connect_timeout) as sock:
         sock.settimeout(0.25)
-        sock.sendall(("\n" + line + "\n").encode("utf-8"))
+        prefix = "" if mode in {"double", "slow"} else "\n"
+        payload = prefix + wire_line + "\n"
+        if mode == "slow":
+            delay = float(os.environ.get(INPUT_CHAR_DELAY_ENV, "0.02"))
+            for ch in payload:
+                sock.sendall(ch.encode("utf-8"))
+                time.sleep(delay)
+        else:
+            sock.sendall(payload.encode("utf-8"))
         data = read_until(
             sock,
             markers,
@@ -165,7 +192,11 @@ def bridge_exchange(host: str,
 
 
 def should_retry_cmdv1_exchange(text: str) -> bool:
-    return text.strip() == "" or BRIDGE_SERIAL_MISSING_TEXT in text
+    if text.strip() == "" or BRIDGE_SERIAL_MISSING_TEXT in text:
+        return True
+    if os.environ.get(INPUT_MODE_ENV) in {"double", "slow"} and "[err] unknown command:" in text:
+        return True
+    return False
 
 
 def sleep_before_retry(deadline: float) -> None:
@@ -197,6 +228,16 @@ def parse_protocol_output(text: str) -> ProtocolResult:
         end=end_fields,
         text=text,
     )
+
+
+def validate_protocol_command(result: ProtocolResult, command: list[str]) -> None:
+    expected = command[0] if command else ""
+    actual = result.end.get("cmd", "")
+    if expected and actual and actual != expected:
+        raise RuntimeError(
+            f"A90P1 command mismatch expected={expected!r} actual={actual!r}\n"
+            f"{result.text}"
+        )
 
 
 def command_allows_retry(command: list[str]) -> bool:
@@ -231,12 +272,15 @@ def run_cmdv1_command(host: str,
             break
 
         try:
+            markers = (b"A90P1 END ",)
+            if allow_retry and os.environ.get(INPUT_MODE_ENV) in {"double", "slow"}:
+                markers = (b"A90P1 END ", b"[err] unknown command:")
             text = bridge_exchange(
                 host,
                 port,
                 line,
                 remaining,
-                markers=(b"A90P1 END ",),
+                markers=markers,
                 require_prompt_after_end=True,
             )
         except OSError as exc:
@@ -247,7 +291,16 @@ def run_cmdv1_command(host: str,
             continue
 
         if END_RE.search(text) is not None:
-            return parse_protocol_output(text)
+            result = parse_protocol_output(text)
+            try:
+                validate_protocol_command(result, command)
+            except RuntimeError as exc:
+                if not allow_retry or os.environ.get(INPUT_MODE_ENV) not in {"double", "slow"}:
+                    raise
+                last_text = str(exc)
+                sleep_before_retry(deadline)
+                continue
+            return result
         if not allow_retry:
             return parse_protocol_output(text)
         if not should_retry_cmdv1_exchange(text):
@@ -271,6 +324,7 @@ def send_hide(args: argparse.Namespace) -> None:
         "hide",
         min(args.timeout, 8.0),
         markers=(b"[busy]", b"[done]", b"[err]"),
+        input_mode=args.input_mode,
     )
     if args.verbose:
         print(text, end="" if text.endswith("\n") else "\n", file=sys.stderr)
@@ -303,6 +357,12 @@ def main() -> int:
     parser.add_argument("--quiet", action="store_true")
     parser.add_argument("--verbose", action="store_true")
     parser.add_argument(
+        "--input-mode",
+        choices=("normal", "double", "slow"),
+        default=os.environ.get(INPUT_MODE_ENV, "normal"),
+        help="wire encoding for serial-input contention; 'double' sends each character twice",
+    )
+    parser.add_argument(
         "--retry-unsafe",
         action="store_true",
         help="allow reconnect retry for non-observation commands; default retries only read-only commands",
@@ -316,6 +376,7 @@ def main() -> int:
     if not command:
         parser.error("command is required, e.g. a90ctl.py status")
 
+    os.environ[INPUT_MODE_ENV] = args.input_mode
     result = run_cmdv1(args, command)
     if args.hide_on_busy and result.status == "busy":
         log("command was busy; sending hide and retrying once")

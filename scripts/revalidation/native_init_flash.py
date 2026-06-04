@@ -2,6 +2,7 @@
 
 import argparse
 import hashlib
+import os
 import shlex
 import socket
 import subprocess
@@ -16,6 +17,8 @@ DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 54321
 DEFAULT_REMOTE_IMAGE = "/tmp/native_init_boot.img"
 BOOT_READBACK_BLOCK_SIZE = 4096
+INPUT_MODE_ENV = "A90CTL_INPUT_MODE"
+INPUT_CHAR_DELAY_ENV = "A90CTL_INPUT_CHAR_DELAY_SEC"
 
 
 def log(message: str) -> None:
@@ -217,7 +220,20 @@ def bridge_command(host: str,
         try:
             with socket.create_connection((host, port), timeout=2.0) as sock:
                 sock.settimeout(0.25)
-                sock.sendall(("\n" + command + "\n").encode())
+                wire_command = command
+                input_mode = os.environ.get(INPUT_MODE_ENV)
+                double_input = input_mode == "double"
+                if double_input:
+                    wire_command = "".join(ch * 2 for ch in command)
+                prefix = "" if input_mode in {"double", "slow"} else "\n"
+                payload = prefix + wire_command + "\n"
+                if input_mode == "slow":
+                    delay = float(os.environ.get(INPUT_CHAR_DELAY_ENV, "0.02"))
+                    for ch in payload:
+                        sock.sendall(ch.encode())
+                        time.sleep(delay)
+                else:
+                    sock.sendall(payload.encode())
                 data = bytearray()
                 read_deadline = time.monotonic() + 5.0
                 while time.monotonic() < read_deadline:

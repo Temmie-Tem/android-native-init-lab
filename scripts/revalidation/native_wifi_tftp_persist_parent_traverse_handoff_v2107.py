@@ -59,11 +59,15 @@ def markdown_table(headers: list[str], rows: list[list[object]]) -> str:
     return prev2103.markdown_table(headers, rows)
 
 
-def run_host(command: list[str], timeout: float) -> dict[str, Any]:
+def run_host(command: list[str], timeout: float, env_delta: dict[str, str] | None = None) -> dict[str, Any]:
+    env = os.environ.copy()
+    if env_delta:
+        env.update(env_delta)
     try:
         proc = subprocess.run(
             command,
             cwd=REPO_ROOT,
+            env=env,
             text=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -182,23 +186,58 @@ def transport_preflight() -> dict[str, Any]:
         autostart = start_bridge(tty, sudo["rc"] == 0)
         bridge = bridge_listening()
 
+    input_mode = "normal"
+    input_mode_attempts: list[dict[str, Any]] = []
     if bridge:
-        version = run_host(
-            [sys.executable, "scripts/revalidation/a90ctl.py", "--timeout", "12", "--hide-on-busy", "version"],
-            timeout=15.0,
-        )
-        selftest = run_host(
-            [sys.executable, "scripts/revalidation/a90ctl.py", "--timeout", "12", "--hide-on-busy", "selftest"],
-            timeout=15.0,
-        )
-
-    version_ok = bool(version and version["rc"] == 0 and "A90P1 END" in version["stdout"])
-    selftest_ok = bool(
-        selftest
-        and selftest["rc"] == 0
-        and "A90P1 END" in selftest["stdout"]
-        and "fail=0" in selftest["stdout"]
-    )
+        for candidate_mode in ("normal", "double", "slow"):
+            env_delta = {"A90CTL_INPUT_MODE": candidate_mode}
+            mode_args = ["--input-mode", candidate_mode]
+            version = run_host(
+                [
+                    sys.executable,
+                    "scripts/revalidation/a90ctl.py",
+                    "--timeout",
+                    "12",
+                    "--hide-on-busy",
+                    *mode_args,
+                    "version",
+                ],
+                timeout=15.0,
+                env_delta=env_delta,
+            )
+            selftest = run_host(
+                [
+                    sys.executable,
+                    "scripts/revalidation/a90ctl.py",
+                    "--timeout",
+                    "12",
+                    "--hide-on-busy",
+                    *mode_args,
+                    "selftest",
+                ],
+                timeout=15.0,
+                env_delta=env_delta,
+            )
+            version_ok = bool(version and version["rc"] == 0 and "A90P1 END" in version["stdout"])
+            selftest_ok = bool(
+                selftest
+                and selftest["rc"] == 0
+                and "A90P1 END" in selftest["stdout"]
+                and "fail=0" in selftest["stdout"]
+            )
+            input_mode_attempts.append({
+                "mode": candidate_mode,
+                "version_ok": version_ok,
+                "selftest_ok": selftest_ok,
+                "version_rc": version["rc"] if version else None,
+                "selftest_rc": selftest["rc"] if selftest else None,
+            })
+            if version_ok and selftest_ok:
+                input_mode = candidate_mode
+                break
+    else:
+        version_ok = False
+        selftest_ok = False
     ok = bridge and version_ok and selftest_ok
     if ok:
         label = "transport-ready"
@@ -228,6 +267,8 @@ def transport_preflight() -> dict[str, Any]:
         "selftest_ok": selftest_ok,
         "can_start_bridge": can_start_bridge,
         "autostart": autostart,
+        "input_mode": input_mode,
+        "input_mode_attempts": input_mode_attempts,
     }
 
 
@@ -587,8 +628,9 @@ def main(argv: list[str] | None = None) -> int:
             write_transport_blocked(preflight)
             print(f"BLOCKED label={preflight['label']} out_dir={rel(OUT_DIR)}")
             return 1
+        os.environ["A90CTL_INPUT_MODE"] = str(preflight.get("input_mode") or "normal")
     configure_prev2081()
-    return prev2103.prev2101.prev2098.prev2096.prev2083.prev2081.prev2059.main(argv)
+    return prev2103.prev2101.prev2098.prev2096.prev2083.prev2081.prev2059.main(args)
 
 
 if __name__ == "__main__":

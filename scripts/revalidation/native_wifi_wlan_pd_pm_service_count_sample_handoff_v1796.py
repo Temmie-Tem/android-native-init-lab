@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import hashlib
 import io
+import os
 import re
 import tarfile
 import time
@@ -154,12 +155,22 @@ def run_serial_step(store: Any,
                     *,
                     timeout: float = 45.0,
                     allow_error: bool = False) -> dict[str, Any]:
+    input_mode = os.environ.get("A90CTL_INPUT_MODE", "normal")
+    char_delay = float(os.environ.get("A90CTL_INPUT_CHAR_DELAY_SEC", "0.02"))
+    host_timeout = timeout
+    if input_mode == "slow":
+        wire_chars = 20 + sum((len(arg.encode("utf-8")) * 2) + 8 for arg in argv)
+        host_timeout += wire_chars * char_delay + 15.0
     result = runner.fwbase.base.run_a90ctl_step(
         store,
         steps,
         name,
-        runner.fwbase.base.a90ctl_command(argv),
-        timeout,
+        runner.fwbase.base.a90ctl_command_timed(
+            argv,
+            timeout=timeout,
+            retry_unsafe=input_mode in {"double", "slow"},
+        ),
+        host_timeout,
     )
     if not result["ok"] and not allow_error:
         raise RuntimeError(
@@ -180,19 +191,22 @@ def deploy_property_root_serial(args: Any,
     tar_bytes = build_property_tar_gz()
     tar_sha = hashlib.sha256(tar_bytes).hexdigest()
     encoded = uuencode_bytes(tar_bytes, name=tar_name)
-    chunk_size = 1000
+    chunk_size = 500 if os.environ.get("A90CTL_INPUT_MODE") in {"double", "slow"} else 1000
     remote_files = [REMOTE_PROPERTY_ROOT + "/" + path.name for path in runner.local_property_files()]
+    toolbox = getattr(args, "toybox", "") or "/cache/bin/busybox"
+    if toolbox == "/cache/bin/toybox":
+        toolbox = "/cache/bin/busybox"
 
     run_serial_step(store, steps, "property-serial-hide", ["hide"], timeout=8.0, allow_error=True)
-    run_serial_step(store, steps, "property-serial-rm-root", ["run", args.toybox, "rm", "-rf", REMOTE_PROPERTY_ROOT])
-    run_serial_step(store, steps, "property-serial-mkdir-root", ["run", args.toybox, "mkdir", "-p", REMOTE_PROPERTY_ROOT])
+    run_serial_step(store, steps, "property-serial-rm-root", ["run", toolbox, "rm", "-rf", REMOTE_PROPERTY_ROOT])
+    run_serial_step(store, steps, "property-serial-mkdir-root", ["run", toolbox, "mkdir", "-p", REMOTE_PROPERTY_ROOT])
     run_serial_step(
         store,
         steps,
         "property-serial-chmod-parent",
         [
             "run",
-            args.toybox,
+            toolbox,
             "chmod",
             "755",
             str(Path(REMOTE_PROPERTY_ROOT).parent.parent),
@@ -200,7 +214,7 @@ def deploy_property_root_serial(args: Any,
             REMOTE_PROPERTY_ROOT,
         ],
     )
-    run_serial_step(store, steps, "property-serial-rm-staging", ["run", args.toybox, "rm", "-f", staging, tmp_tgz], allow_error=True)
+    run_serial_step(store, steps, "property-serial-rm-staging", ["run", toolbox, "rm", "-f", staging, tmp_tgz], allow_error=True)
     for offset in range(0, len(encoded), chunk_size):
         chunk_index = offset // chunk_size
         chunk = encoded[offset:offset + chunk_size]
@@ -209,10 +223,10 @@ def deploy_property_root_serial(args: Any,
             steps,
             f"property-serial-append-{chunk_index:03d}",
             ["appendfile", staging, chunk],
-            timeout=20.0,
+            timeout=45.0,
         )
-    run_serial_step(store, steps, "property-serial-uudecode", ["run", args.toybox, "uudecode", "-o", tmp_tgz, staging], timeout=60.0)
-    sha_result = run_serial_step(store, steps, "property-serial-tar-sha256", ["run", args.toybox, "sha256sum", tmp_tgz])
+    run_serial_step(store, steps, "property-serial-uudecode", ["run", toolbox, "uudecode", "-o", tmp_tgz, staging], timeout=60.0)
+    sha_result = run_serial_step(store, steps, "property-serial-tar-sha256", ["run", toolbox, "sha256sum", tmp_tgz])
     if tar_sha not in str(sha_result.get("stdout") or ""):
         raise RuntimeError("serial property tar sha256 mismatch")
     run_serial_step(
@@ -222,7 +236,7 @@ def deploy_property_root_serial(args: Any,
         ["run", "/cache/bin/busybox", "tar", "-xzf", tmp_tgz, "-C", REMOTE_PROPERTY_ROOT],
         timeout=90.0,
     )
-    run_serial_step(store, steps, "property-serial-chmod-files", ["run", args.toybox, "chmod", "444", *remote_files], timeout=45.0)
+    run_serial_step(store, steps, "property-serial-chmod-files", ["run", toolbox, "chmod", "444", *remote_files], timeout=45.0)
     property_info_sha = runner.sha256_file(runner.LOCAL_PROPERTY_ROOT / "property_info")
     vendor_default_sha = runner.sha256_file(
         runner.LOCAL_PROPERTY_ROOT / "u:object_r:vendor_default_prop:s0"
@@ -231,15 +245,15 @@ def deploy_property_root_serial(args: Any,
         store,
         steps,
         "property-serial-property-info-sha256",
-        ["run", args.toybox, "sha256sum", REMOTE_PROPERTY_ROOT + "/property_info"],
+        ["run", toolbox, "sha256sum", REMOTE_PROPERTY_ROOT + "/property_info"],
     )
     vendor_default = run_serial_step(
         store,
         steps,
         "property-serial-vendor-default-sha256",
-        ["run", args.toybox, "sha256sum", REMOTE_PROPERTY_ROOT + "/u:object_r:vendor_default_prop:s0"],
+        ["run", toolbox, "sha256sum", REMOTE_PROPERTY_ROOT + "/u:object_r:vendor_default_prop:s0"],
     )
-    run_serial_step(store, steps, "property-serial-cleanup", ["run", args.toybox, "rm", "-f", staging, tmp_tgz], allow_error=True)
+    run_serial_step(store, steps, "property-serial-cleanup", ["run", toolbox, "rm", "-f", staging, tmp_tgz], allow_error=True)
     return {
         "remote_property_root": REMOTE_PROPERTY_ROOT,
         "file_count": len(remote_files),

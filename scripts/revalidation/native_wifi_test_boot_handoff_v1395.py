@@ -367,23 +367,16 @@ def preflight(args: argparse.Namespace) -> dict[str, Any]:
 def collect_test_boot_evidence(args: argparse.Namespace,
                                store: EvidenceStore,
                                steps: list[dict[str, Any]]) -> dict[str, Any]:
+    def cat_command(path: str) -> list[str]:
+        return a90ctl_command(["run", "/cache/bin/busybox", "cat", path])
+
     commands = {
         "test-version": a90ctl_command(["version"]),
         "test-status": a90ctl_command(["status"]),
         "test-selftest": a90ctl_command(["selftest"]),
         "test-bootstatus": a90ctl_command(["bootstatus"]),
-        "test-v1393-log": a90ctl_command([
-            "run",
-            "/cache/bin/toybox",
-            "cat",
-            args.test_log_path,
-        ]),
-        "test-v1393-summary": a90ctl_command([
-            "run",
-            "/cache/bin/toybox",
-            "cat",
-            args.test_summary_path,
-        ]),
+        "test-v1393-log": cat_command(args.test_log_path),
+        "test-v1393-summary": cat_command(args.test_summary_path),
         "test-v1393-dmesg": a90ctl_command([
             "run",
             "/cache/bin/busybox",
@@ -400,26 +393,11 @@ def collect_test_boot_evidence(args: argparse.Namespace,
         ]),
     }
     if args.test_rc1_watcher_result_path:
-        commands["test-v1393-rc1-watcher-result"] = a90ctl_command([
-            "run",
-            "/cache/bin/toybox",
-            "cat",
-            args.test_rc1_watcher_result_path,
-        ])
+        commands["test-v1393-rc1-watcher-result"] = cat_command(args.test_rc1_watcher_result_path)
     if args.test_helper_result_path:
-        commands["test-v1393-helper-result"] = a90ctl_command([
-            "run",
-            "/cache/bin/toybox",
-            "cat",
-            args.test_helper_result_path,
-        ])
+        commands["test-v1393-helper-result"] = cat_command(args.test_helper_result_path)
     if args.test_rc1_window_result_path:
-        commands["test-rc1-window-result"] = a90ctl_command([
-            "run",
-            "/cache/bin/toybox",
-            "cat",
-            args.test_rc1_window_result_path,
-        ])
+        commands["test-rc1-window-result"] = cat_command(args.test_rc1_window_result_path)
     for spec in args.test_extra_result_path:
         if "=" not in spec:
             continue
@@ -427,12 +405,7 @@ def collect_test_boot_evidence(args: argparse.Namespace,
         safe_name = re.sub(r"[^A-Za-z0-9_.-]+", "-", name.strip()).strip("-")
         if not safe_name or not path:
             continue
-        commands[f"test-extra-{safe_name}"] = a90ctl_command([
-            "run",
-            "/cache/bin/toybox",
-            "cat",
-            path,
-        ])
+        commands[f"test-extra-{safe_name}"] = cat_command(path)
     evidence: dict[str, Any] = {}
     for name, command in commands.items():
         result = run_a90ctl_step(store, steps, name, command, args.collect_timeout_sec)
