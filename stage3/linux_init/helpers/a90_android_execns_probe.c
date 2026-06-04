@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v369"
+#define EXECNS_VERSION "a90_android_execns_probe v370"
 
 #ifndef A90_EXECNS_ENABLE_DELAYED_LOWER_RESPONSE_WINDOW
 #define A90_EXECNS_ENABLE_DELAYED_LOWER_RESPONSE_WINDOW 0
@@ -12583,7 +12583,7 @@ struct cnss_nonlog_maps_summary {
 };
 
 #define A90_CNSS_WLFW_UPROBE_TARGET_COUNT 3
-#define A90_CNSS_WLFW_UPROBE_EVENT_COUNT 56
+#define A90_CNSS_WLFW_UPROBE_EVENT_COUNT 63
 #define A90_CNSS_PERIPHERAL_UPROBE_TARGET_COUNT 3
 #define A90_CNSS_PERIPHERAL_UPROBE_EVENT_COUNT 25
 #define A90_PM_SERVICE_UPROBE_TARGET_COUNT 3
@@ -12660,6 +12660,13 @@ static const struct cnss_wlfw_uprobe_event_spec cnss_wlfw_uprobe_events[A90_CNSS
     CNSS_WLFW_UPROBE_EVENT_FETCH("wlfw_get_instance_id_retcheck", "wlfw_get_instance_id_retcheck", 0xdb38ULL, "rc=%x0"),
     CNSS_WLFW_UPROBE_EVENT("wlfw_send_ind_register_entry", "wlfw_send_ind_register_entry", 0xf268ULL),
     CNSS_WLFW_UPROBE_EVENT("wlfw_fw_mem_cond_wait", "wlfw_fw_mem_cond_wait", 0xdc18ULL),
+    CNSS_WLFW_UPROBE_EVENT("wlfw_fw_mem_wait_return", "wlfw_fw_mem_wait_return", 0xdc1cULL),
+    CNSS_WLFW_UPROBE_EVENT_FETCH("wlfw_cap_send_ret", "wlfw_cap_send_ret", 0xf464ULL, "send_rc=%x0"),
+    CNSS_WLFW_UPROBE_EVENT_FETCH("wlfw_cap_send_or_result_error_branch", "wlfw_cap_send_or_result_error_branch", 0xf470ULL, "send_rc=%x0"),
+    CNSS_WLFW_UPROBE_EVENT_FETCH("wlfw_cap_invalid_0x77_branch", "wlfw_cap_invalid_0x77_branch", 0xf49cULL, "reason_reg=%x8"),
+    CNSS_WLFW_UPROBE_EVENT("wlfw_cap_success_branch", "wlfw_cap_success_branch", 0xf4b4ULL),
+    CNSS_WLFW_UPROBE_EVENT_FETCH("wlfw_cap_rsp_result_error_branch", "wlfw_cap_rsp_result_error_branch", 0xf564ULL, "qmi_result=%x8"),
+    CNSS_WLFW_UPROBE_EVENT_FETCH("wlfw_cap_return", "wlfw_cap_return", 0xf580ULL, "rc=%x19"),
 };
 
 #undef CNSS_WLFW_UPROBE_EVENT_FETCH
@@ -12722,6 +12729,13 @@ enum cnss_wlfw_uprobe_event_index {
     CNSS_WLFW_UPROBE_WLFW_GET_INSTANCE_ID_RETCHECK = 53,
     CNSS_WLFW_UPROBE_WLFW_SEND_IND_REGISTER_ENTRY = 54,
     CNSS_WLFW_UPROBE_WLFW_FW_MEM_COND_WAIT = 55,
+    CNSS_WLFW_UPROBE_WLFW_FW_MEM_WAIT_RETURN = 56,
+    CNSS_WLFW_UPROBE_WLFW_CAP_SEND_RET = 57,
+    CNSS_WLFW_UPROBE_WLFW_CAP_SEND_OR_RESULT_ERROR_BRANCH = 58,
+    CNSS_WLFW_UPROBE_WLFW_CAP_INVALID_0X77_BRANCH = 59,
+    CNSS_WLFW_UPROBE_WLFW_CAP_SUCCESS_BRANCH = 60,
+    CNSS_WLFW_UPROBE_WLFW_CAP_RSP_RESULT_ERROR_BRANCH = 61,
+    CNSS_WLFW_UPROBE_WLFW_CAP_RETURN = 62,
 };
 
 struct cnss_peripheral_uprobe_event_spec {

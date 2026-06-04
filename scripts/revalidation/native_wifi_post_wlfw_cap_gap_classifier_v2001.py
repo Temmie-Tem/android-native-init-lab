@@ -78,7 +78,7 @@ NEXT_PROBES = (
     },
     {
         "name": "wlfw_cap_rsp_result_error_branch",
-        "offset": "0xf560",
+        "offset": "0xf564",
         "fetch": "qmi_result=%x8",
         "meaning": "capability response QMI result error branch",
     },

@@ -59,7 +59,7 @@
 | wlfw_cap_send_or_result_error_branch | 0xf470 | send_rc=%x0 | send rc or QMI result was nonzero after the capability request |
 | wlfw_cap_invalid_0x77_branch | 0xf49c | reason_reg=%x8 | capability response hit the 0x77 special failure branch |
 | wlfw_cap_success_branch | 0xf4b4 | none | send rc and QMI result were both zero |
-| wlfw_cap_rsp_result_error_branch | 0xf560 | qmi_result=%x8 | capability response QMI result error branch |
+| wlfw_cap_rsp_result_error_branch | 0xf564 | qmi_result=%x8 | capability response QMI result error branch |
 | wlfw_cap_return | 0xf580 | rc=%x19 | final return from the capability-request helper |
 
 ## Static Evidence
