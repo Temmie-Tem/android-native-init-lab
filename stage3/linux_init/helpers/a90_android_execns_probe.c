@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v365"
+#define EXECNS_VERSION "a90_android_execns_probe v366"
 
 #ifndef A90_EXECNS_ENABLE_DELAYED_LOWER_RESPONSE_WINDOW
 #define A90_EXECNS_ENABLE_DELAYED_LOWER_RESPONSE_WINDOW 0
@@ -29477,6 +29477,104 @@ static bool composite_child_alive_for_snapshot(const struct composite_child *chi
     return child != NULL && child->pid > 0 && !child->child_done && kill(child->pid, 0) == 0;
 }
 
+static int append_wlan_pd_producer_child_snapshots(struct buffer *buf,
+                                                   const char *phase,
+                                                   struct composite_child *children,
+                                                   size_t child_count) {
+    int target_count = 0;
+    int alive_count = 0;
+    int snapshot_count = 0;
+
+    if (append_format(buf,
+                      "wlan_pd_producer_child_snapshot.%s.begin=1\n"
+                      "wlan_pd_producer_child_snapshot.%s.mode=passive-proc-only\n"
+                      "wlan_pd_producer_child_snapshot.%s.no_qmi_send=1\n"
+                      "wlan_pd_producer_child_snapshot.%s.no_qrtr_readback=1\n"
+                      "wlan_pd_producer_child_snapshot.%s.no_ptrace=1\n",
+                      phase,
+                      phase,
+                      phase,
+                      phase,
+                      phase) < 0) {
+        return -1;
+    }
+
+    for (size_t i = 0; i < child_count; i++) {
+        struct composite_child *child = &children[i];
+        char label[128];
+        bool alive;
+        char state;
+
+        if (child->identity != COMPOSITE_ID_PD_MAPPER &&
+            child->identity != COMPOSITE_ID_TFTP_SERVER) {
+            continue;
+        }
+        target_count++;
+        alive = composite_child_alive_for_snapshot(child);
+        state = alive ? read_proc_state(child->pid) : '-';
+        if (append_format(buf,
+                          "wlan_pd_producer_child_snapshot.%s.%s.pid=%ld\n"
+                          "wlan_pd_producer_child_snapshot.%s.%s.alive=%d\n"
+                          "wlan_pd_producer_child_snapshot.%s.%s.child_done=%d\n"
+                          "wlan_pd_producer_child_snapshot.%s.%s.state=%c\n"
+                          "wlan_pd_producer_child_snapshot.%s.%s.exit_code=%d\n"
+                          "wlan_pd_producer_child_snapshot.%s.%s.signal=%d\n",
+                          phase,
+                          child->name,
+                          (long)child->pid,
+                          phase,
+                          child->name,
+                          alive ? 1 : 0,
+                          phase,
+                          child->name,
+                          child->child_done ? 1 : 0,
+                          phase,
+                          child->name,
+                          state,
+                          phase,
+                          child->name,
+                          child->exit_code,
+                          phase,
+                          child->name,
+                          child->signal) < 0) {
+            return -1;
+        }
+        if (!alive) {
+            continue;
+        }
+        alive_count++;
+        if (snprintf(label,
+                     sizeof(label),
+                     "wlan_pd_producer_%s_%s",
+                     phase,
+                     child->name) >= (int)sizeof(label)) {
+            return append_format(buf,
+                                 "wlan_pd_producer_child_snapshot.%s.%s.snapshot_error=label-too-long\n",
+                                 phase,
+                                 child->name);
+        }
+        if (append_proc_fd_links_compact(buf, child->pid, label) < 0 ||
+            append_generic_stall_snapshot_capture(buf, child->pid, label) < 0) {
+            return -1;
+        }
+        child->stall_snapshot_captured = true;
+        snapshot_count++;
+    }
+
+    return append_format(buf,
+                         "wlan_pd_producer_child_snapshot.%s.target_count=%d\n"
+                         "wlan_pd_producer_child_snapshot.%s.alive_count=%d\n"
+                         "wlan_pd_producer_child_snapshot.%s.snapshot_count=%d\n"
+                         "wlan_pd_producer_child_snapshot.%s.end=1\n",
+                         phase,
+                         target_count,
+                         phase,
+                         alive_count,
+                         phase,
+                         snapshot_count,
+                         phase);
+}
+
 static int append_mdm_helper_queue_timing_child(struct buffer *buf,
                                                 const char *phase,
                                                 const char *name,
@@ -40013,6 +40111,17 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
         stop_property_service_shim(&property_shim, paths, stdout_buf);
         return -1;
     }
+    if (wlan_pd_firmware_serve_gate &&
+        wlan_pd_post_pm_lower_state_observer &&
+        append_wlan_pd_producer_child_snapshots(stdout_buf,
+                                                "after_holder_start",
+                                                children,
+                                                active_child_count) < 0) {
+        stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
+        composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+        stop_property_service_shim(&property_shim, paths, stdout_buf);
+        return -1;
+    }
     if (cfg->allow_service_notifier_listener_probe &&
         append_companion_service_notifier_listener_probe(stdout_buf, cfg) < 0) {
         stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
@@ -40099,6 +40208,17 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
     if (wlan_pd_post_pm_lower_state_observer &&
         append_wlan_pd_icnss_ipc_snapshot(stdout_buf,
                                           "after_post_listener_window") < 0) {
+        stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
+        composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+        stop_property_service_shim(&property_shim, paths, stdout_buf);
+        return -1;
+    }
+    if (wlan_pd_firmware_serve_gate &&
+        wlan_pd_post_pm_lower_state_observer &&
+        append_wlan_pd_producer_child_snapshots(stdout_buf,
+                                                "after_post_listener_window",
+                                                children,
+                                                active_child_count) < 0) {
         stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
         composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
         stop_property_service_shim(&property_shim, paths, stdout_buf);
