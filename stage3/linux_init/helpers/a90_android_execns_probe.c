@@ -20,6 +20,7 @@
 #include <sys/sysmacros.h>
 #include <sys/types.h>
 #include <sys/uio.h>
+#include <sys/vfs.h>
 #include <sys/wait.h>
 #include <sys/prctl.h>
 #include <sys/syscall.h>
@@ -160,6 +161,10 @@
 #define A90_WIFI_TEST_BOOT_MACLOADER_MAC_SOURCE_BRIDGE 0
 #endif
 
+#ifndef A90_WIFI_TEST_BOOT_MACLOADER_SYSCALL_TRACE
+#define A90_WIFI_TEST_BOOT_MACLOADER_SYSCALL_TRACE 0
+#endif
+
 #ifndef A90_WIFI_TEST_BOOT_DIAG_QUERY_ONLY_PROBE
 #define A90_WIFI_TEST_BOOT_DIAG_QUERY_ONLY_PROBE 0
 #endif
@@ -196,7 +201,9 @@
 #define A90_WIFI_TEST_BOOT_DIAG_REMOTE_DEV_POLL_PROBE 0
 #endif
 
-#if A90_WIFI_TEST_BOOT_MACLOADER_MAC_SOURCE_BRIDGE && A90_WIFI_TEST_BOOT_MACLOADER_PRE_CNSS && A90_WIFI_TEST_BOOT_ICNSS_QCACLD_POST_BDF_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_LATE_MSG21_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && !A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
+#if A90_WIFI_TEST_BOOT_MACLOADER_SYSCALL_TRACE && A90_WIFI_TEST_BOOT_MACLOADER_MAC_SOURCE_BRIDGE && A90_WIFI_TEST_BOOT_MACLOADER_PRE_CNSS && A90_WIFI_TEST_BOOT_ICNSS_QCACLD_POST_BDF_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_LATE_MSG21_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && !A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
+#define EXECNS_VERSION "a90_android_execns_probe v407"
+#elif A90_WIFI_TEST_BOOT_MACLOADER_MAC_SOURCE_BRIDGE && A90_WIFI_TEST_BOOT_MACLOADER_PRE_CNSS && A90_WIFI_TEST_BOOT_ICNSS_QCACLD_POST_BDF_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_LATE_MSG21_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && !A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
 #define EXECNS_VERSION "a90_android_execns_probe v406"
 #elif A90_WIFI_TEST_BOOT_MACLOADER_PRE_CNSS && A90_WIFI_TEST_BOOT_ICNSS_QCACLD_POST_BDF_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_LATE_MSG21_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && !A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
 #define EXECNS_VERSION "a90_android_execns_probe v405"
@@ -268,6 +275,15 @@
 #define PD_MAPPER_SYSCALL_RECORD_LIMIT 96U
 #define PD_MAPPER_SYSCALL_STOP_LIMIT 240U
 #define PD_MAPPER_QRTR_PAYLOAD_LIMIT 256U
+#ifndef MACLOADER_SYSCALL_RECORD_LIMIT
+#define MACLOADER_SYSCALL_RECORD_LIMIT 96U
+#endif
+#ifndef MACLOADER_SYSCALL_STOP_LIMIT
+#define MACLOADER_SYSCALL_STOP_LIMIT 5000U
+#endif
+#ifndef MACLOADER_SYSCALL_PAYLOAD_LIMIT
+#define MACLOADER_SYSCALL_PAYLOAD_LIMIT 64U
+#endif
 #ifndef TFTP_SERVER_SYSCALL_RECORD_LIMIT
 #define TFTP_SERVER_SYSCALL_RECORD_LIMIT 128U
 #endif
@@ -653,6 +669,7 @@ struct paths {
     char sys_kernel_tracing[MAX_PATH_LEN]; /* v328 */
     char data[MAX_PATH_LEN];
     char data_vendor[MAX_PATH_LEN];
+    char data_vendor_conn[MAX_PATH_LEN];
     char data_vendor_wifi[MAX_PATH_LEN];
     char data_vendor_wifi_sockets[MAX_PATH_LEN];
     char persist[MAX_PATH_LEN];
@@ -4012,6 +4029,10 @@ static int init_paths(struct paths *paths) {
                     "tracing") < 0 ||
         append_path(paths->data, sizeof(paths->data), paths->root, "data") < 0 ||
         append_path(paths->data_vendor, sizeof(paths->data_vendor), paths->data, "vendor") < 0 ||
+        append_path(paths->data_vendor_conn,
+                    sizeof(paths->data_vendor_conn),
+                    paths->data_vendor,
+                    "conn") < 0 ||
         append_path(paths->data_vendor_wifi,
                     sizeof(paths->data_vendor_wifi),
                     paths->data_vendor,
@@ -5013,6 +5034,9 @@ static void cleanup_paths(const struct paths *paths) {
     }
     if (paths->data_vendor_wifi[0] != '\0') {
         rmdir(paths->data_vendor_wifi);
+    }
+    if (paths->data_vendor_conn[0] != '\0') {
+        rmdir(paths->data_vendor_conn);
     }
     if (paths->data_vendor[0] != '\0') {
         rmdir(paths->data_vendor);
@@ -10962,15 +10986,18 @@ static int append_macloader_mac_source_path_snapshot(struct buffer *buf,
                                                      const char *absolute_path) {
     char host_path[MAX_PATH_LEN];
     struct stat st;
+    struct statfs sfs;
     uint64_t hash = 0;
     size_t bytes = 0;
     int stat_errno = 0;
+    int statfs_errno = 0;
     bool exists = false;
     bool is_reg = false;
     bool is_dir = false;
     bool readable = false;
     bool writable = false;
     bool hashed = false;
+    bool statfs_ok = false;
 
     if (path_in_root(host_path, sizeof(host_path), paths, absolute_path) < 0) {
         return append_format(buf,
@@ -10995,12 +11022,19 @@ static int append_macloader_mac_source_path_snapshot(struct buffer *buf,
         is_dir = S_ISDIR(st.st_mode);
         readable = access(host_path, R_OK) == 0;
         writable = access(host_path, W_OK) == 0;
+        if (statfs(host_path, &sfs) == 0) {
+            statfs_ok = true;
+        } else {
+            statfs_errno = errno;
+            memset(&sfs, 0, sizeof(sfs));
+        }
         if (is_reg && readable && fnv1a64_file(host_path, &hash, &bytes) == 0) {
             hashed = true;
         }
     } else {
         stat_errno = errno;
         memset(&st, 0, sizeof(st));
+        memset(&sfs, 0, sizeof(sfs));
     }
     return append_format(buf,
                          "%s.%s.absolute=%s\n"
@@ -11014,6 +11048,10 @@ static int append_macloader_mac_source_path_snapshot(struct buffer *buf,
                          "%s.%s.size=%lld\n"
                          "%s.%s.readable=%d\n"
                          "%s.%s.writable=%d\n"
+                         "%s.%s.statfs_ok=%d\n"
+                         "%s.%s.fs_type=0x%016llx\n"
+                         "%s.%s.fs_bsize=%ld\n"
+                         "%s.%s.statfs_errno=%d\n"
                          "%s.%s.hash_available=%d\n"
                          "%s.%s.bytes=%zu\n"
                          "%s.%s.hash=0x%016llx\n"
@@ -11051,6 +11089,18 @@ static int append_macloader_mac_source_path_snapshot(struct buffer *buf,
                          prefix,
                          label,
                          writable ? 1 : 0,
+                         prefix,
+                         label,
+                         statfs_ok ? 1 : 0,
+                         prefix,
+                         label,
+                         (unsigned long long)sfs.f_type,
+                         prefix,
+                         label,
+                         (long)sfs.f_bsize,
+                         prefix,
+                         label,
+                         statfs_errno,
                          prefix,
                          label,
                          hashed ? 1 : 0,
@@ -11114,6 +11164,16 @@ static int append_macloader_mac_source_bridge_snapshot(struct buffer *buf,
                                                   prefix,
                                                   "sys_kernel_boot_wlan",
                                                   "/sys/kernel/boot_wlan") < 0 ||
+        append_macloader_mac_source_path_snapshot(buf,
+                                                  paths,
+                                                  prefix,
+                                                  "sys_kernel_boot_wlan_file",
+                                                  "/sys/kernel/boot_wlan/boot_wlan") < 0 ||
+        append_macloader_mac_source_path_snapshot(buf,
+                                                  paths,
+                                                  prefix,
+                                                  "data_vendor_conn",
+                                                  "/data/vendor/conn") < 0 ||
         append_macloader_mac_source_path_snapshot(buf,
                                                   paths,
                                                   prefix,
@@ -33430,6 +33490,31 @@ static int append_ptrace_fd_target_field(struct buffer *buf,
                          target);
 }
 
+static bool read_ptrace_fd_target(pid_t pid,
+                                  unsigned long long fd_value,
+                                  char *target,
+                                  size_t target_size) {
+    char fd_path[MAX_PATH_LEN];
+    char proc_fd_path[MAX_PATH_LEN];
+    ssize_t nread;
+
+    if (target_size == 0) {
+        return false;
+    }
+    target[0] = '\0';
+    if (fd_value > 4096ULL) {
+        return false;
+    }
+    snprintf(fd_path, sizeof(fd_path), "fd/%llu", fd_value);
+    proc_path(proc_fd_path, sizeof(proc_fd_path), pid, fd_path);
+    nread = readlink(proc_fd_path, target, target_size - 1);
+    if (nread < 0) {
+        return false;
+    }
+    target[nread] = '\0';
+    return true;
+}
+
 static const char *a90_syscall_name(long nr) {
     switch (nr) {
 #ifdef SYS_openat
@@ -34733,8 +34818,410 @@ static int append_composite_tftp_compact_syscall_record(struct composite_child *
 }
 #endif
 
+#if A90_WIFI_TEST_BOOT_MACLOADER_SYSCALL_TRACE
+static bool a90_ascii_contains_token_ci(const char *text, const char *token) {
+    size_t text_len;
+    size_t token_len;
+
+    if (text == NULL || token == NULL) {
+        return false;
+    }
+    text_len = strlen(text);
+    token_len = strlen(token);
+    if (token_len == 0 || text_len < token_len) {
+        return false;
+    }
+    for (size_t offset = 0; offset + token_len <= text_len; offset++) {
+        bool matched = true;
+
+        for (size_t index = 0; index < token_len; index++) {
+            unsigned char a = (unsigned char)text[offset + index];
+            unsigned char b = (unsigned char)token[index];
+
+            if (a >= 'A' && a <= 'Z') {
+                a = (unsigned char)(a - 'A' + 'a');
+            }
+            if (b >= 'A' && b <= 'Z') {
+                b = (unsigned char)(b - 'A' + 'a');
+            }
+            if (a != b) {
+                matched = false;
+                break;
+            }
+        }
+        if (matched) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static bool a90_macloader_path_focus_text(const char *text) {
+    return a90_ascii_contains_token_ci(text, "/mnt/vendor/efs/wifi") ||
+           a90_ascii_contains_token_ci(text, "/sys/wifi") ||
+           a90_ascii_contains_token_ci(text, "/sys/kernel/boot_wlan") ||
+           a90_ascii_contains_token_ci(text, "/data/vendor/conn") ||
+           a90_ascii_contains_token_ci(text, "/dev/socket/property_service") ||
+           a90_ascii_contains_token_ci(text, "/dev/__properties__") ||
+           a90_ascii_contains_token_ci(text, ".mac.info") ||
+           a90_ascii_contains_token_ci(text, ".mac.cob") ||
+           a90_ascii_contains_token_ci(text, "mac_addr") ||
+           a90_ascii_contains_token_ci(text, "qcwlanstate") ||
+           a90_ascii_contains_token_ci(text, "boot_wlan");
+}
+
+static bool a90_macloader_fd_focus_text(const char *text) {
+    return a90_macloader_path_focus_text(text) ||
+           a90_ascii_contains_token_ci(text, "socket:");
+}
+
+static int append_macloader_path_tokens(struct buffer *buf, const char *prefix, const char *text) {
+    return append_format(buf,
+                         "%s.token.efs_wifi=%d\n"
+                         "%s.token.sys_wifi=%d\n"
+                         "%s.token.mac_addr=%d\n"
+                         "%s.token.boot_wlan=%d\n"
+                         "%s.token.data_vendor_conn=%d\n"
+                         "%s.token.property_service=%d\n"
+                         "%s.token.qcwlanstate=%d\n",
+                         prefix,
+                         a90_ascii_contains_token_ci(text, "/mnt/vendor/efs/wifi") ? 1 : 0,
+                         prefix,
+                         a90_ascii_contains_token_ci(text, "/sys/wifi") ? 1 : 0,
+                         prefix,
+                         a90_ascii_contains_token_ci(text, "mac_addr") ? 1 : 0,
+                         prefix,
+                         a90_ascii_contains_token_ci(text, "boot_wlan") ? 1 : 0,
+                         prefix,
+                         a90_ascii_contains_token_ci(text, "/data/vendor/conn") ? 1 : 0,
+                         prefix,
+                         a90_ascii_contains_token_ci(text, "property_service") ? 1 : 0,
+                         prefix,
+                         a90_ascii_contains_token_ci(text, "qcwlanstate") ? 1 : 0);
+}
+
+static int append_macloader_payload_hash_field(struct buffer *buf,
+                                               pid_t pid,
+                                               const char *prefix,
+                                               const char *field,
+                                               unsigned long long addr,
+                                               size_t len) {
+    unsigned char bytes[MACLOADER_SYSCALL_PAYLOAD_LIMIT];
+    size_t want = len > sizeof(bytes) ? sizeof(bytes) : len;
+    size_t bytes_read = 0;
+    uint64_t hash = UINT64_C(1469598103934665603);
+    bool has_colon = false;
+    bool has_hex_digit = false;
+
+    if (append_format(buf,
+                      "%s.%s.addr=0x%016llx\n"
+                      "%s.%s.requested_len=%zu\n"
+                      "%s.%s.capture_len=%zu\n",
+                      prefix,
+                      field,
+                      addr,
+                      prefix,
+                      field,
+                      len,
+                      prefix,
+                      field,
+                      want) < 0) {
+        return -1;
+    }
+    if (want == 0) {
+        return append_format(buf,
+                             "%s.%s.valid=1\n"
+                             "%s.%s.bytes_read=0\n"
+                             "%s.%s.hash=0x%016llx\n"
+                             "%s.%s.contains_colon=0\n"
+                             "%s.%s.contains_hex_digit=0\n",
+                             prefix,
+                             field,
+                             prefix,
+                             field,
+                             prefix,
+                             field,
+                             (unsigned long long)hash,
+                             prefix,
+                             field,
+                             prefix,
+                             field);
+    }
+    if (!plausible_user_ptr(addr) ||
+        ptrace_read_bytes_best_effort(pid, addr, bytes, want, &bytes_read) < 0) {
+        return append_format(buf,
+                             "%s.%s.valid=0\n"
+                             "%s.%s.error=%s\n",
+                             prefix,
+                             field,
+                             prefix,
+                             field,
+                             plausible_user_ptr(addr) ? strerror(errno) : "not-plausible-user-pointer");
+    }
+    hash = fnv1a64_update(hash, bytes, bytes_read);
+    for (size_t index = 0; index < bytes_read; index++) {
+        unsigned char c = bytes[index];
+
+        if (c == ':') {
+            has_colon = true;
+        }
+        if ((c >= '0' && c <= '9') ||
+            (c >= 'a' && c <= 'f') ||
+            (c >= 'A' && c <= 'F')) {
+            has_hex_digit = true;
+        }
+    }
+    return append_format(buf,
+                         "%s.%s.valid=1\n"
+                         "%s.%s.bytes_read=%zu\n"
+                         "%s.%s.hash=0x%016llx\n"
+                         "%s.%s.contains_colon=%d\n"
+                         "%s.%s.contains_hex_digit=%d\n",
+                         prefix,
+                         field,
+                         prefix,
+                         field,
+                         bytes_read,
+                         prefix,
+                         field,
+                         (unsigned long long)hash,
+                         prefix,
+                         field,
+                         has_colon ? 1 : 0,
+                         prefix,
+                         field,
+                         has_hex_digit ? 1 : 0);
+}
+
+static int a90_macloader_read_compact_c_string(pid_t pid,
+                                               unsigned long long addr,
+                                               char *out,
+                                               size_t out_size,
+                                               size_t *text_len_out) {
+    size_t bytes_read = 0;
+    size_t text_len = 0;
+
+    *text_len_out = 0;
+    if (out_size == 0) {
+        errno = EINVAL;
+        return -1;
+    }
+    memset(out, 0, out_size);
+    if (ptrace_read_bytes_best_effort(pid, addr, (unsigned char *)out, out_size - 1U, &bytes_read) < 0) {
+        return -1;
+    }
+    while (text_len < bytes_read && out[text_len] != '\0') {
+        text_len++;
+    }
+    *text_len_out = text_len;
+    return 0;
+}
+
+static int append_composite_macloader_syscall_record(struct composite_child *child,
+                                                     pid_t pid,
+                                                     unsigned long long ret_reg,
+                                                     struct buffer *stdout_buf) {
+    char prefix[128];
+    char path[MACLOADER_SYSCALL_PAYLOAD_LIMIT * 4U];
+    char target[MAX_PATH_LEN];
+    size_t path_len = 0;
+    long nr = child->last_syscall_nr;
+    const char *name = a90_syscall_name(nr);
+    long long ret = (long long)ret_reg;
+    bool is_error = a90_syscall_ret_is_error(ret);
+    int error_no = is_error ? (int)-ret : 0;
+    int path_arg = a90_syscall_path_arg_index(nr);
+    bool record = false;
+    bool has_path = false;
+    bool has_fd_target = false;
+    unsigned long long fd_value = 0;
+
+    path[0] = '\0';
+    target[0] = '\0';
+    if (path_arg >= 0 &&
+        a90_macloader_read_compact_c_string(pid,
+                                            child->last_syscall_args[path_arg],
+                                            path,
+                                            sizeof(path),
+                                            &path_len) == 0) {
+        has_path = true;
+        record = a90_macloader_path_focus_text(path);
+    }
+#ifdef SYS_socket
+    if (nr == SYS_socket) {
+        record = true;
+    }
+#endif
+#ifdef SYS_connect
+    if (nr == SYS_connect) {
+        record = true;
+    }
+#endif
+#ifdef SYS_sendmsg
+    if (nr == SYS_sendmsg) {
+        record = true;
+    }
+#endif
+#ifdef SYS_recvmsg
+    if (nr == SYS_recvmsg) {
+        record = true;
+    }
+#endif
+#ifdef SYS_read
+    if (nr == SYS_read) {
+        fd_value = child->last_syscall_args[0];
+        has_fd_target = read_ptrace_fd_target(pid, fd_value, target, sizeof(target));
+        record = has_fd_target && a90_macloader_fd_focus_text(target);
+    }
+#endif
+#ifdef SYS_write
+    if (nr == SYS_write) {
+        fd_value = child->last_syscall_args[0];
+        has_fd_target = read_ptrace_fd_target(pid, fd_value, target, sizeof(target));
+        record = has_fd_target && a90_macloader_fd_focus_text(target);
+    }
+#endif
+#ifdef SYS_ioctl
+    if (nr == SYS_ioctl) {
+        fd_value = child->last_syscall_args[0];
+        has_fd_target = read_ptrace_fd_target(pid, fd_value, target, sizeof(target));
+        record = has_fd_target && a90_macloader_fd_focus_text(target);
+    }
+#endif
+    if (!record) {
+        return 0;
+    }
+    if (child->syscall_record_count >= composite_syscall_record_limit(child)) {
+        child->syscall_trace_truncated = true;
+        return 0;
+    }
+    if (is_error) {
+        child->syscall_error_count++;
+    }
+    if (snprintf(prefix,
+                 sizeof(prefix),
+                 "%s.syscall.%s.record_%03u",
+                 composite_syscall_trace_root(child),
+                 child->name,
+                 child->syscall_record_count) >= (int)sizeof(prefix)) {
+        return -1;
+    }
+    child->syscall_record_count++;
+    if (append_format(stdout_buf,
+                      "%s.nr=%ld\n"
+                      "%s.name=%s\n"
+                      "%s.ret=%lld\n"
+                      "%s.error=%d\n"
+                      "%s.error_name=%s\n",
+                      prefix,
+                      nr,
+                      prefix,
+                      name,
+                      prefix,
+                      ret,
+                      prefix,
+                      error_no,
+                      prefix,
+                      error_no > 0 ? strerror(error_no) : "none") < 0) {
+        return -1;
+    }
+    if (has_path) {
+        if (append_format(stdout_buf, "%s.path=", prefix) < 0 ||
+            append_escaped_ascii(stdout_buf, (const unsigned char *)path, strlen(path)) < 0 ||
+            append_literal(stdout_buf, "\n") < 0 ||
+            append_macloader_path_tokens(stdout_buf, prefix, path) < 0) {
+            return -1;
+        }
+    }
+    if (has_fd_target &&
+        (append_ptrace_fd_target_field(stdout_buf, pid, prefix, "fd", fd_value) < 0 ||
+         append_macloader_path_tokens(stdout_buf, prefix, target) < 0)) {
+        return -1;
+    }
+#ifdef SYS_openat
+    if (nr == SYS_openat) {
+        if (append_format(stdout_buf,
+                          "%s.open_flags=0x%llx\n"
+                          "%s.open_mode=0%llo\n",
+                          prefix,
+                          child->last_syscall_args[2],
+                          prefix,
+                          child->last_syscall_args[3]) < 0) {
+            return -1;
+        }
+        if (!is_error &&
+            append_ptrace_fd_target_field(stdout_buf, pid, prefix, "ret_fd", (unsigned long long)ret) < 0) {
+            return -1;
+        }
+    }
+#endif
+#ifdef SYS_socket
+    if (nr == SYS_socket &&
+        append_format(stdout_buf,
+                      "%s.socket.family=%llu\n"
+                      "%s.socket.family_name=%s\n"
+                      "%s.socket.type=0x%llx\n"
+                      "%s.socket.protocol=%llu\n",
+                      prefix,
+                      child->last_syscall_args[0],
+                      prefix,
+                      a90_socket_family_name(child->last_syscall_args[0]),
+                      prefix,
+                      child->last_syscall_args[1],
+                      prefix,
+                      child->last_syscall_args[2]) < 0) {
+        return -1;
+    }
+#endif
+#ifdef SYS_connect
+    if (nr == SYS_connect) {
+        if (append_ptrace_fd_target_field(stdout_buf, pid, prefix, "fd", child->last_syscall_args[0]) < 0 ||
+            append_ptrace_sockaddr_field(stdout_buf,
+                                         pid,
+                                         prefix,
+                                         "sockaddr",
+                                         child->last_syscall_args[1],
+                                         child->last_syscall_args[2]) < 0) {
+            return -1;
+        }
+    }
+#endif
+#ifdef SYS_read
+    if (nr == SYS_read) {
+        return append_macloader_payload_hash_field(stdout_buf,
+                                                   pid,
+                                                   prefix,
+                                                   "read_payload",
+                                                   child->last_syscall_args[1],
+                                                   ret > 0 ? (size_t)ret : 0U);
+    }
+#endif
+#ifdef SYS_write
+    if (nr == SYS_write) {
+        return append_macloader_payload_hash_field(stdout_buf,
+                                                   pid,
+                                                   prefix,
+                                                   "write_payload",
+                                                   child->last_syscall_args[1],
+                                                   (size_t)child->last_syscall_args[2]);
+    }
+#endif
+#ifdef SYS_ioctl
+    if (nr == SYS_ioctl) {
+        return append_format(stdout_buf, "%s.ioctl.request=0x%llx\n", prefix, child->last_syscall_args[1]);
+    }
+#endif
+    return 0;
+}
+#endif
+
 static unsigned int composite_syscall_record_limit(const struct composite_child *child) {
     (void)child;
+#if A90_WIFI_TEST_BOOT_MACLOADER_SYSCALL_TRACE
+    if (child != NULL && child->identity == COMPOSITE_ID_MACLOADER) {
+        return MACLOADER_SYSCALL_RECORD_LIMIT;
+    }
+#endif
 #ifdef A90_WIFI_TEST_BOOT_WLAN_PD_PRODUCER_PD_MAPPER_TRACE
     if (child != NULL && child->identity == COMPOSITE_ID_PD_MAPPER) {
         return PD_MAPPER_SYSCALL_RECORD_LIMIT;
@@ -34750,6 +35237,11 @@ static unsigned int composite_syscall_record_limit(const struct composite_child 
 
 static unsigned int composite_syscall_stop_limit(const struct composite_child *child) {
     (void)child;
+#if A90_WIFI_TEST_BOOT_MACLOADER_SYSCALL_TRACE
+    if (child != NULL && child->identity == COMPOSITE_ID_MACLOADER) {
+        return MACLOADER_SYSCALL_STOP_LIMIT;
+    }
+#endif
 #ifdef A90_WIFI_TEST_BOOT_WLAN_PD_PRODUCER_PD_MAPPER_TRACE
     if (child != NULL && child->identity == COMPOSITE_ID_PD_MAPPER) {
         return PD_MAPPER_SYSCALL_STOP_LIMIT;
@@ -34765,6 +35257,11 @@ static unsigned int composite_syscall_stop_limit(const struct composite_child *c
 
 static const char *composite_syscall_trace_root(const struct composite_child *child) {
     (void)child;
+#if A90_WIFI_TEST_BOOT_MACLOADER_SYSCALL_TRACE
+    if (child != NULL && child->identity == COMPOSITE_ID_MACLOADER) {
+        return "macloader_syscall_trace";
+    }
+#endif
 #ifdef A90_WIFI_TEST_BOOT_WLAN_PD_PRODUCER_PD_MAPPER_TRACE
     if (child != NULL && child->identity == COMPOSITE_ID_PD_MAPPER) {
         return "wlan_pd_pd_mapper_trace";
@@ -34793,6 +35290,11 @@ static int append_composite_pm_syscall_record(struct composite_child *child,
 #ifdef A90_WIFI_TEST_BOOT_WLAN_PD_PRODUCER_TFTP_SERVER_TRACE_COMPACT
     if (child != NULL && child->identity == COMPOSITE_ID_TFTP_SERVER) {
         return append_composite_tftp_compact_syscall_record(child, pid, ret_reg, stdout_buf);
+    }
+#endif
+#if A90_WIFI_TEST_BOOT_MACLOADER_SYSCALL_TRACE
+    if (child != NULL && child->identity == COMPOSITE_ID_MACLOADER) {
+        return append_composite_macloader_syscall_record(child, pid, ret_reg, stdout_buf);
     }
 #endif
     if (!a90_syscall_trace_selected(nr)) {
@@ -35111,6 +35613,12 @@ static bool composite_child_should_trace(const struct config *cfg,
         return cfg->allow_post_pm_mdm_helper_lower_trace &&
                child->identity == COMPOSITE_ID_MDM_HELPER;
     }
+#if A90_WIFI_TEST_BOOT_MACLOADER_SYSCALL_TRACE
+    if (is_wifi_companion_any_start_only_mode(cfg->mode) &&
+        child->identity == COMPOSITE_ID_MACLOADER) {
+        return true;
+    }
+#endif
     return (is_wifi_hal_composite_ptrace_mode(cfg->mode) &&
             child->identity == COMPOSITE_ID_WIFI_HAL) ||
            (is_wifi_companion_ptrace_capture(cfg) &&
@@ -35592,6 +36100,11 @@ static int composite_spawn_child(const struct config *cfg,
         child->identity == COMPOSITE_ID_PER_MGR) {
         child->trace_minimal = true;
     }
+#if A90_WIFI_TEST_BOOT_MACLOADER_SYSCALL_TRACE
+    if (child->identity == COMPOSITE_ID_MACLOADER) {
+        child->trace_minimal = true;
+    }
+#endif
     child->trace_syscalls =
         (child->trace_minimal &&
         (((!cfg->pm_observer_mdm_helper_only_syscall_trace ||
@@ -35599,6 +36112,11 @@ static int composite_spawn_child(const struct config *cfg,
           child->identity == COMPOSITE_ID_PER_MGR) ||
          (cfg->allow_post_pm_mdm_helper_lower_trace &&
           child->identity == COMPOSITE_ID_MDM_HELPER)));
+#if A90_WIFI_TEST_BOOT_MACLOADER_SYSCALL_TRACE
+    if (child->identity == COMPOSITE_ID_MACLOADER) {
+        child->trace_syscalls = child->traced;
+    }
+#endif
     child->syscall_trace_started = child->trace_syscalls;
     child->syscall_entry_next = true;
     set_nonblock(child->stdout_fd);
@@ -48383,6 +48901,10 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
                       "wifi_companion_start.macloader_mac_source_bridge.efs_readonly=1\n"
                       "wifi_companion_start.macloader_mac_source_bridge.sys_wifi_exposed=1\n"
                       "wifi_companion_start.macloader_mac_source_bridge.persist_readonly=1\n"
+                      "wifi_companion_start.macloader_syscall_trace.compiled=%d\n"
+                      "wifi_companion_start.macloader_syscall_trace.single_child=macloader\n"
+                      "wifi_companion_start.macloader_syscall_trace.no_cnss_ptrace=1\n"
+                      "wifi_companion_start.macloader_syscall_trace.raw_mac_payload=0\n"
                       "wifi_companion_start.wlan_pd_firmware_serve_gate.enabled=%d\n"
                       "wifi_companion_start.wlan_pd_firmware_serve_gate.subsys_modem_holder_planned=%d\n"
                       "wifi_companion_start.wlan_pd_post_pm_lower_state_observer.enabled=%d\n"
@@ -48425,6 +48947,11 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
                       macloader_pre_cnss ? 1 : 0,
                       macloader_pre_cnss ? 1 : 0,
                       macloader_mac_source_bridge ? 1 : 0,
+#if A90_WIFI_TEST_BOOT_MACLOADER_SYSCALL_TRACE
+                      1,
+#else
+                      0,
+#endif
                       wlan_pd_firmware_serve_gate ? 1 : 0,
                       wlan_pd_firmware_serve_gate ? 1 : 0,
                       wlan_pd_post_pm_lower_state_observer ? 1 : 0,
@@ -49812,6 +50339,36 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
                           safe ? 1 : 0) < 0) {
             return -1;
         }
+#if A90_WIFI_TEST_BOOT_MACLOADER_SYSCALL_TRACE
+        if (children[i].identity == COMPOSITE_ID_MACLOADER &&
+            append_format(stdout_buf,
+                          "macloader_syscall_trace.child.%s.traced=%d\n"
+                          "macloader_syscall_trace.child.%s.trace_syscalls=%d\n"
+                          "macloader_syscall_trace.child.%s.syscall_trace_started=%d\n"
+                          "macloader_syscall_trace.child.%s.syscall_stop_count=%u\n"
+                          "macloader_syscall_trace.child.%s.syscall_record_count=%u\n"
+                          "macloader_syscall_trace.child.%s.syscall_error_count=%u\n"
+                          "macloader_syscall_trace.child.%s.syscall_trace_truncated=%d\n"
+                          "macloader_syscall_trace.child.%s.syscall_trace_stop_limited=%d\n",
+                          children[i].name,
+                          children[i].traced ? 1 : 0,
+                          children[i].name,
+                          children[i].trace_syscalls ? 1 : 0,
+                          children[i].name,
+                          children[i].syscall_trace_started ? 1 : 0,
+                          children[i].name,
+                          children[i].syscall_stop_count,
+                          children[i].name,
+                          children[i].syscall_record_count,
+                          children[i].name,
+                          children[i].syscall_error_count,
+                          children[i].name,
+                          children[i].syscall_trace_truncated ? 1 : 0,
+                          children[i].name,
+                          children[i].syscall_trace_stop_limited ? 1 : 0) < 0) {
+            return -1;
+        }
+#endif
     }
     if (*child_exit_code < 0 && *child_signal == 0) {
         *child_exit_code = 0;
