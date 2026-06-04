@@ -125,6 +125,10 @@
 #define A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_AUTODIR_PARITY 0
 #endif
 
+#ifndef A90_WIFI_TEST_BOOT_TFTP_PROCESS_NAMESPACE_AUDIT
+#define A90_WIFI_TEST_BOOT_TFTP_PROCESS_NAMESPACE_AUDIT 0
+#endif
+
 #ifndef A90_WIFI_TEST_BOOT_TFTP_OTA_FIREWALL_RULESET_TMPFS
 #define A90_WIFI_TEST_BOOT_TFTP_OTA_FIREWALL_RULESET_TMPFS 0
 #endif
@@ -217,7 +221,9 @@
 #define A90_WIFI_TEST_BOOT_DIAG_REMOTE_DEV_POLL_PROBE 0
 #endif
 
-#if A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_AUTODIR_PARITY && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_VENDOR_RFS_PERMS && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_TMPFS && A90_WIFI_TEST_BOOT_ICNSS_QCACLD_POST_BDF_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_LATE_MSG21_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && !A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
+#if A90_WIFI_TEST_BOOT_TFTP_PROCESS_NAMESPACE_AUDIT && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_AUTODIR_PARITY && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_VENDOR_RFS_PERMS && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_TMPFS && A90_WIFI_TEST_BOOT_ICNSS_QCACLD_POST_BDF_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_LATE_MSG21_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && !A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
+#define EXECNS_VERSION "a90_android_execns_probe v412"
+#elif A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_AUTODIR_PARITY && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_VENDOR_RFS_PERMS && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_TMPFS && A90_WIFI_TEST_BOOT_ICNSS_QCACLD_POST_BDF_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_LATE_MSG21_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && !A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
 #define EXECNS_VERSION "a90_android_execns_probe v411"
 #elif A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_VENDOR_RFS_PERMS && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_TMPFS && A90_WIFI_TEST_BOOT_ICNSS_QCACLD_POST_BDF_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_LATE_MSG21_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && !A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
 #define EXECNS_VERSION "a90_android_execns_probe v410"
@@ -33630,6 +33636,286 @@ static void composite_child_init(struct composite_child *child,
     child->exit_code = -1;
 }
 
+#if A90_WIFI_TEST_BOOT_TFTP_PROCESS_NAMESPACE_AUDIT
+static int append_readlink_snapshot(struct buffer *buf,
+                                    const char *prefix,
+                                    const char *name,
+                                    const char *path) {
+    char target[MAX_PATH_LEN];
+    ssize_t nread = readlink(path, target, sizeof(target) - 1);
+
+    if (nread < 0) {
+        return append_format(buf,
+                             "%s.%s.path=%s\n"
+                             "%s.%s.readlink_ok=0\n"
+                             "%s.%s.errno=%d\n"
+                             "%s.%s.error=%s\n",
+                             prefix,
+                             name,
+                             path,
+                             prefix,
+                             name,
+                             prefix,
+                             name,
+                             errno,
+                             prefix,
+                             name,
+                             strerror(errno));
+    }
+    target[nread] = '\0';
+    return append_format(buf,
+                         "%s.%s.path=%s\n"
+                         "%s.%s.readlink_ok=1\n"
+                         "%s.%s.target=%s\n",
+                         prefix,
+                         name,
+                         path,
+                         prefix,
+                         name,
+                         prefix,
+                         name,
+                         target);
+}
+
+static int append_tftp_process_root_path_stat(struct buffer *buf,
+                                              pid_t pid,
+                                              const char *prefix,
+                                              const char *name,
+                                              const char *absolute_path) {
+    char proc_root_path[MAX_PATH_LEN];
+    struct stat st;
+    struct statfs sfs;
+    int stat_errno = 0;
+    int statfs_errno = 0;
+    bool exists = false;
+    bool is_dir = false;
+    bool statfs_ok = false;
+
+    if (snprintf(proc_root_path,
+                 sizeof(proc_root_path),
+                 "/proc/%ld/root%s",
+                 (long)pid,
+                 absolute_path) >= (int)sizeof(proc_root_path)) {
+        return append_format(buf,
+                             "%s.path.%s.absolute=%s\n"
+                             "%s.path.%s.proc_root_path=path-too-long\n"
+                             "%s.path.%s.exists=0\n"
+                             "%s.path.%s.errno=%d\n",
+                             prefix,
+                             name,
+                             absolute_path,
+                             prefix,
+                             name,
+                             prefix,
+                             name,
+                             prefix,
+                             name,
+                             ENAMETOOLONG);
+    }
+    if (stat(proc_root_path, &st) == 0) {
+        exists = true;
+        is_dir = S_ISDIR(st.st_mode);
+        if (statfs(proc_root_path, &sfs) == 0) {
+            statfs_ok = true;
+        } else {
+            statfs_errno = errno;
+            memset(&sfs, 0, sizeof(sfs));
+        }
+    } else {
+        stat_errno = errno;
+        memset(&st, 0, sizeof(st));
+        memset(&sfs, 0, sizeof(sfs));
+    }
+    return append_format(buf,
+                         "%s.path.%s.absolute=%s\n"
+                         "%s.path.%s.proc_root_path=%s\n"
+                         "%s.path.%s.exists=%d\n"
+                         "%s.path.%s.is_dir=%d\n"
+                         "%s.path.%s.mode=%04o\n"
+                         "%s.path.%s.uid=%lld\n"
+                         "%s.path.%s.gid=%lld\n"
+                         "%s.path.%s.statfs_ok=%d\n"
+                         "%s.path.%s.fs_type=0x%016llx\n"
+                         "%s.path.%s.statfs_errno=%d\n"
+                         "%s.path.%s.errno=%d\n"
+                         "%s.path.%s.error=%s\n",
+                         prefix,
+                         name,
+                         absolute_path,
+                         prefix,
+                         name,
+                         proc_root_path,
+                         prefix,
+                         name,
+                         exists ? 1 : 0,
+                         prefix,
+                         name,
+                         is_dir ? 1 : 0,
+                         prefix,
+                         name,
+                         exists ? (unsigned int)(st.st_mode & 07777) : 0U,
+                         prefix,
+                         name,
+                         exists ? (long long)st.st_uid : -1LL,
+                         prefix,
+                         name,
+                         exists ? (long long)st.st_gid : -1LL,
+                         prefix,
+                         name,
+                         statfs_ok ? 1 : 0,
+                         prefix,
+                         name,
+                         (unsigned long long)sfs.f_type,
+                         prefix,
+                         name,
+                         statfs_errno,
+                         prefix,
+                         name,
+                         stat_errno,
+                         prefix,
+                         name,
+                         stat_errno != 0 ? strerror(stat_errno) : "none");
+}
+
+static int append_tftp_process_mountinfo_filter(struct buffer *buf,
+                                                pid_t pid,
+                                                const char *prefix) {
+    char path[MAX_PATH_LEN];
+    FILE *file;
+    char line[1024];
+    int index = 0;
+    bool truncated = false;
+
+    proc_path(path, sizeof(path), pid, "mountinfo");
+    if (append_format(buf,
+                      "%s.mountinfo.begin=1\n"
+                      "%s.mountinfo.path=%s\n",
+                      prefix,
+                      prefix,
+                      path) < 0) {
+        return -1;
+    }
+    file = fopen(path, "re");
+    if (file == NULL) {
+        return append_format(buf,
+                             "%s.mountinfo.open_ok=0\n"
+                             "%s.mountinfo.error=%s\n"
+                             "%s.mountinfo.end=1\n",
+                             prefix,
+                             prefix,
+                             strerror(errno),
+                             prefix);
+    }
+    while (fgets(line, sizeof(line), file) != NULL) {
+        if (strstr(line, "/mnt/vendor/persist") == NULL &&
+            strstr(line, "/vendor/rfs") == NULL &&
+            strstr(line, "/data/vendor/tombstones") == NULL) {
+            continue;
+        }
+        sanitize_one_line(line);
+        if (index < 32) {
+            if (append_format(buf,
+                              "%s.mountinfo.line_%02d=%s\n",
+                              prefix,
+                              index,
+                              line) < 0) {
+                fclose(file);
+                return -1;
+            }
+        } else {
+            truncated = true;
+        }
+        index++;
+    }
+    fclose(file);
+    return append_format(buf,
+                         "%s.mountinfo.open_ok=1\n"
+                         "%s.mountinfo.match_count=%d\n"
+                         "%s.mountinfo.truncated=%d\n"
+                         "%s.mountinfo.end=1\n",
+                         prefix,
+                         prefix,
+                         index,
+                         prefix,
+                         truncated ? 1 : 0,
+                         prefix);
+}
+
+static int append_tftp_process_namespace_audit(struct buffer *buf,
+                                               const struct composite_child *child) {
+    const char *prefix = "tftp_process_namespace_audit";
+    char proc_link[MAX_PATH_LEN];
+    bool captured = false;
+
+    if (child == NULL || child->pid <= 0) {
+        return append_format(buf,
+                             "%s.begin=1\n"
+                             "%s.compiled=1\n"
+                             "%s.pid=-1\n"
+                             "%s.audit_ok=0\n"
+                             "%s.reason=no-tftp-pid\n"
+                             "%s.end=1\n",
+                             prefix,
+                             prefix,
+                             prefix,
+                             prefix,
+                             prefix,
+                             prefix);
+    }
+    if (append_format(buf,
+                      "%s.begin=1\n"
+                      "%s.compiled=1\n"
+                      "%s.pid=%ld\n"
+                      "%s.target=%s\n",
+                      prefix,
+                      prefix,
+                      prefix,
+                      (long)child->pid,
+                      prefix,
+                      child->target) < 0) {
+        return -1;
+    }
+    proc_path(proc_link, sizeof(proc_link), child->pid, "root");
+    if (append_readlink_snapshot(buf, prefix, "root", proc_link) < 0) {
+        return -1;
+    }
+    proc_path(proc_link, sizeof(proc_link), child->pid, "cwd");
+    if (append_readlink_snapshot(buf, prefix, "cwd", proc_link) < 0) {
+        return -1;
+    }
+    proc_path(proc_link, sizeof(proc_link), child->pid, "ns/mnt");
+    if (append_readlink_snapshot(buf, prefix, "ns_mnt", proc_link) < 0) {
+        return -1;
+    }
+    if (append_tftp_process_root_path_stat(buf, child->pid, prefix, "mnt", "/mnt") < 0 ||
+        append_tftp_process_root_path_stat(buf, child->pid, prefix, "mnt_vendor", "/mnt/vendor") < 0 ||
+        append_tftp_process_root_path_stat(buf, child->pid, prefix, "persist", "/mnt/vendor/persist") < 0 ||
+        append_tftp_process_root_path_stat(buf, child->pid, prefix, "persist_rfs", "/mnt/vendor/persist/rfs") < 0 ||
+        append_tftp_process_root_path_stat(buf, child->pid, prefix, "persist_rfs_shared", "/mnt/vendor/persist/rfs/shared") < 0 ||
+        append_tftp_process_root_path_stat(buf, child->pid, prefix, "persist_rfs_msm", "/mnt/vendor/persist/rfs/msm") < 0 ||
+        append_tftp_process_root_path_stat(buf, child->pid, prefix, "persist_rfs_msm_mpss", "/mnt/vendor/persist/rfs/msm/mpss") < 0 ||
+        append_tftp_process_root_path_stat(buf, child->pid, prefix, "persist_rfs_msm_adsp", "/mnt/vendor/persist/rfs/msm/adsp") < 0 ||
+        append_tftp_process_root_path_stat(buf, child->pid, prefix, "vendor_rfs_readwrite", "/vendor/rfs/msm/mpss/readwrite") < 0 ||
+        append_tftp_process_root_path_stat(buf, child->pid, prefix, "data_tombstones_rfs", "/data/vendor/tombstones/rfs") < 0 ||
+        append_proc_file_capture_named(buf, child->pid, "status", "tftp_process_namespace_status", 8192, &captured) < 0 ||
+        append_proc_file_capture_named(buf, child->pid, "attr/current", "tftp_process_namespace_attr_current", 4096, &captured) < 0 ||
+        append_tftp_process_mountinfo_filter(buf, child->pid, prefix) < 0) {
+        return -1;
+    }
+    return append_format(buf,
+                         "%s.audit_ok=1\n"
+                         "%s.no_ptrace=1\n"
+                         "%s.no_qmi_send=1\n"
+                         "%s.no_wifi_hal=1\n"
+                         "%s.end=1\n",
+                         prefix,
+                         prefix,
+                         prefix,
+                         prefix,
+                         prefix);
+}
+#endif
+
 static int ptrace_read_bytes_best_effort(pid_t pid,
                                          unsigned long long addr,
                                          unsigned char *out,
@@ -49205,6 +49491,7 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
                       "wifi_companion_start.tftp_tombstone_rfs_tmpfs.rootfs_namespace_only=1\n"
                       "wifi_companion_start.tftp_tombstone_rfs_tmpfs.ota_ruleset_created=0\n"
                       "wifi_companion_start.tftp_tombstone_rfs_tmpfs.vendor_rfs_perms=%d\n"
+                      "wifi_companion_start.tftp_process_namespace_audit.compiled=%d\n"
                       "wifi_companion_start.wlan_pd_firmware_serve_gate.enabled=%d\n"
                       "wifi_companion_start.wlan_pd_firmware_serve_gate.subsys_modem_holder_planned=%d\n"
                       "wifi_companion_start.wlan_pd_post_pm_lower_state_observer.enabled=%d\n"
@@ -49254,6 +49541,7 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
 #endif
                       A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_TMPFS ? 1 : 0,
                       A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_VENDOR_RFS_PERMS ? 1 : 0,
+                      A90_WIFI_TEST_BOOT_TFTP_PROCESS_NAMESPACE_AUDIT ? 1 : 0,
                       wlan_pd_firmware_serve_gate ? 1 : 0,
                       wlan_pd_firmware_serve_gate ? 1 : 0,
                       wlan_pd_post_pm_lower_state_observer ? 1 : 0,
@@ -49452,6 +49740,15 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
             stop_property_service_shim(&property_shim, paths, stdout_buf);
             return -1;
         }
+#if A90_WIFI_TEST_BOOT_TFTP_PROCESS_NAMESPACE_AUDIT
+        if (wlan_pd_post_pm_lower_state_observer &&
+            children[i].identity == COMPOSITE_ID_TFTP_SERVER &&
+            append_tftp_process_namespace_audit(stdout_buf, &children[i]) < 0) {
+            composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+            stop_property_service_shim(&property_shim, paths, stdout_buf);
+            return -1;
+        }
+#endif
 #endif
         if (android_order_pre_cnss_provider_observer) {
             if (streq(children[i].name, "vndservicemanager")) {
