@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v377"
+#define EXECNS_VERSION "a90_android_execns_probe v378"
 
 #ifndef A90_EXECNS_ENABLE_DELAYED_LOWER_RESPONSE_WINDOW
 #define A90_EXECNS_ENABLE_DELAYED_LOWER_RESPONSE_WINDOW 0
@@ -28142,11 +28142,65 @@ static bool a90_tftp_compact_path_focus(const unsigned char *path, size_t path_l
            a90_bytes_contains_ascii_token_ci(path, path_len, "modem");
 }
 
+static bool a90_compact_tftp_read_msghdr_payload(pid_t pid,
+                                                 unsigned long long msg_addr,
+                                                 size_t ret_len,
+                                                 unsigned long long *payload_addr_out,
+                                                 size_t *payload_len_out,
+                                                 unsigned short *family_out,
+                                                 unsigned int *qrtr_node_out,
+                                                 unsigned int *qrtr_port_out) {
+    struct msghdr msg;
+    struct iovec iov;
+    size_t bytes_read = 0;
+    size_t payload_len;
+
+    *payload_addr_out = 0;
+    *payload_len_out = 0;
+    if (ptrace_read_bytes_best_effort(pid,
+                                      msg_addr,
+                                      (unsigned char *)&msg,
+                                      sizeof(msg),
+                                      &bytes_read) < 0 ||
+        bytes_read < sizeof(msg) ||
+        msg.msg_iov == NULL ||
+        msg.msg_iovlen == 0) {
+        return false;
+    }
+    memset(&iov, 0, sizeof(iov));
+    if (ptrace_read_bytes_best_effort(pid,
+                                      (unsigned long long)(uintptr_t)msg.msg_iov,
+                                      (unsigned char *)&iov,
+                                      sizeof(iov),
+                                      &bytes_read) < 0 ||
+        bytes_read < sizeof(iov) ||
+        iov.iov_base == NULL ||
+        iov.iov_len == 0) {
+        return false;
+    }
+    payload_len = ret_len;
+    if (payload_len > iov.iov_len) {
+        payload_len = iov.iov_len;
+    }
+    *payload_addr_out = (unsigned long long)(uintptr_t)iov.iov_base;
+    *payload_len_out = payload_len;
+    if (msg.msg_name != NULL && msg.msg_namelen > 0) {
+        a90_compact_tftp_read_sockaddr(pid,
+                                       (unsigned long long)(uintptr_t)msg.msg_name,
+                                       msg.msg_namelen,
+                                       family_out,
+                                       qrtr_node_out,
+                                       qrtr_port_out);
+    }
+    return true;
+}
+
 static int append_composite_tftp_compact_packet_record(struct composite_child *child,
                                                        pid_t pid,
                                                        long long ret,
                                                        struct buffer *stdout_buf) {
     unsigned char payload[TFTP_SERVER_SYSCALL_COMPACT_PAYLOAD_LIMIT];
+    unsigned long long payload_addr = 0;
     size_t payload_len;
     size_t payload_read = 0;
     size_t path_len = 0;
@@ -28167,6 +28221,7 @@ static int append_composite_tftp_compact_packet_record(struct composite_child *c
 #ifdef SYS_recvfrom
     if (nr == SYS_recvfrom && ret > 0) {
         direction = "recvfrom";
+        payload_addr = child->last_syscall_args[1];
         payload_len = (size_t)ret;
         if (child->last_syscall_args[4] != 0 && child->last_syscall_args[5] != 0) {
             size_t socklen_read = 0;
@@ -28192,6 +28247,7 @@ static int append_composite_tftp_compact_packet_record(struct composite_child *c
 #ifdef SYS_sendto
     if (nr == SYS_sendto && ret > 0) {
         direction = "sendto";
+        payload_addr = child->last_syscall_args[1];
         payload_len = (size_t)ret;
         if (payload_len > (size_t)child->last_syscall_args[2]) {
             payload_len = (size_t)child->last_syscall_args[2];
@@ -28206,6 +28262,32 @@ static int append_composite_tftp_compact_packet_record(struct composite_child *c
         }
     } else
 #endif
+#ifdef SYS_recvmsg
+    if (nr == SYS_recvmsg && ret > 0 &&
+        a90_compact_tftp_read_msghdr_payload(pid,
+                                             child->last_syscall_args[1],
+                                             (size_t)ret,
+                                             &payload_addr,
+                                             &payload_len,
+                                             &family,
+                                             &qrtr_node,
+                                             &qrtr_port)) {
+        direction = "recvmsg";
+    } else
+#endif
+#ifdef SYS_sendmsg
+    if (nr == SYS_sendmsg && ret > 0 &&
+        a90_compact_tftp_read_msghdr_payload(pid,
+                                             child->last_syscall_args[1],
+                                             (size_t)ret,
+                                             &payload_addr,
+                                             &payload_len,
+                                             &family,
+                                             &qrtr_node,
+                                             &qrtr_port)) {
+        direction = "sendmsg";
+    } else
+#endif
     {
         return 0;
     }
@@ -28214,7 +28296,7 @@ static int append_composite_tftp_compact_packet_record(struct composite_child *c
     }
     memset(payload, 0, sizeof(payload));
     if (ptrace_read_bytes_best_effort(pid,
-                                      child->last_syscall_args[1],
+                                      payload_addr,
                                       payload,
                                       payload_len,
                                       &payload_read) < 0 ||
