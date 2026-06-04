@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v367"
+#define EXECNS_VERSION "a90_android_execns_probe v368"
 
 #ifndef A90_EXECNS_ENABLE_DELAYED_LOWER_RESPONSE_WINDOW
 #define A90_EXECNS_ENABLE_DELAYED_LOWER_RESPONSE_WINDOW 0
@@ -115,6 +115,8 @@
 #define PD_MAPPER_SYSCALL_RECORD_LIMIT 96U
 #define PD_MAPPER_SYSCALL_STOP_LIMIT 240U
 #define PD_MAPPER_QRTR_PAYLOAD_LIMIT 256U
+#define TFTP_SERVER_SYSCALL_RECORD_LIMIT 128U
+#define TFTP_SERVER_SYSCALL_STOP_LIMIT 320U
 #define DEFAULT_QRTR_READBACK_MATRIX "wlfw:69:0,1"
 #define MAX_QRTR_READBACK_CASES 16
 #define MAX_QRTR_READBACK_LABEL 32
@@ -389,16 +391,20 @@ struct paths {
     char vendor_rfs_msm[MAX_PATH_LEN];
     char vendor_rfs_msm_mpss[MAX_PATH_LEN];
     char vendor_rfs_msm_mpss_readonly[MAX_PATH_LEN];
+    char vendor_rfs_msm_mpss_readwrite[MAX_PATH_LEN];
+    char vendor_rfs_mpss_server_check[MAX_PATH_LEN];
     char vendor_rfs_mpss_wlanmdsp[MAX_PATH_LEN];
     char rfs_bridge_source[MAX_PATH_LEN];
     char rfs_bridge_source_msm[MAX_PATH_LEN];
     char rfs_bridge_source_msm_mpss[MAX_PATH_LEN];
     char rfs_bridge_source_msm_mpss_readonly[MAX_PATH_LEN];
+    char rfs_bridge_source_msm_mpss_readwrite[MAX_PATH_LEN];
     char rfs_bridge_source_msm_mpss_readonly_vendor[MAX_PATH_LEN];
     char rfs_bridge_source_msm_mpss_readonly_vendor_firmware_mnt[MAX_PATH_LEN];
     char rfs_bridge_source_msm_mpss_readonly_vendor_firmware_mnt_image[MAX_PATH_LEN];
     char rfs_bridge_source_msm_mpss_readonly_vendor_firmware_mnt_image_wlanmdsp[MAX_PATH_LEN];
     char rfs_bridge_source_readonly[MAX_PATH_LEN];
+    char rfs_bridge_source_readwrite[MAX_PATH_LEN];
     char rfs_bridge_source_readonly_vendor[MAX_PATH_LEN];
     char rfs_bridge_source_readonly_vendor_firmware_mnt[MAX_PATH_LEN];
     char rfs_bridge_source_readonly_vendor_firmware_mnt_image[MAX_PATH_LEN];
@@ -3556,6 +3562,14 @@ static int init_paths(struct paths *paths) {
                     sizeof(paths->vendor_rfs_msm_mpss_readonly),
                     paths->vendor_rfs_msm_mpss,
                     "readonly") < 0 ||
+        append_path(paths->vendor_rfs_msm_mpss_readwrite,
+                    sizeof(paths->vendor_rfs_msm_mpss_readwrite),
+                    paths->vendor_rfs_msm_mpss,
+                    "readwrite") < 0 ||
+        append_path(paths->vendor_rfs_mpss_server_check,
+                    sizeof(paths->vendor_rfs_mpss_server_check),
+                    paths->vendor_rfs_msm_mpss_readwrite,
+                    "server_check.txt") < 0 ||
         append_path(paths->vendor_rfs_mpss_wlanmdsp,
                     sizeof(paths->vendor_rfs_mpss_wlanmdsp),
                     paths->vendor_rfs_msm_mpss_readonly,
@@ -3576,6 +3590,10 @@ static int init_paths(struct paths *paths) {
                     sizeof(paths->rfs_bridge_source_msm_mpss_readonly),
                     paths->rfs_bridge_source_msm_mpss,
                     "readonly") < 0 ||
+        append_path(paths->rfs_bridge_source_msm_mpss_readwrite,
+                    sizeof(paths->rfs_bridge_source_msm_mpss_readwrite),
+                    paths->rfs_bridge_source_msm_mpss,
+                    "readwrite") < 0 ||
         append_path(paths->rfs_bridge_source_msm_mpss_readonly_vendor,
                     sizeof(paths->rfs_bridge_source_msm_mpss_readonly_vendor),
                     paths->rfs_bridge_source_msm_mpss_readonly,
@@ -3596,6 +3614,10 @@ static int init_paths(struct paths *paths) {
                     sizeof(paths->rfs_bridge_source_readonly),
                     paths->base,
                     "rfs-readonly-bridge") < 0 ||
+        append_path(paths->rfs_bridge_source_readwrite,
+                    sizeof(paths->rfs_bridge_source_readwrite),
+                    paths->base,
+                    "rfs-readwrite-bridge") < 0 ||
         append_path(paths->rfs_bridge_source_readonly_vendor,
                     sizeof(paths->rfs_bridge_source_readonly_vendor),
                     paths->rfs_bridge_source_readonly,
@@ -4506,6 +4528,9 @@ static void cleanup_paths(const struct paths *paths) {
         }
     }
     umount2(paths->proc, MNT_DETACH);
+    umount2(paths->vendor_rfs_msm_mpss_readwrite, MNT_DETACH);
+    umount2(paths->rfs_bridge_source_msm_mpss_readwrite, MNT_DETACH);
+    umount2(paths->rfs_bridge_source_readwrite, MNT_DETACH);
     umount2(paths->vendor_rfs_msm_mpss_readonly, MNT_DETACH);
     umount2(paths->vendor_rfs_msm_mpss, MNT_DETACH);
     umount2(paths->vendor_rfs, MNT_DETACH);
@@ -9894,16 +9919,42 @@ static int populate_rfs_readonly_wlanmdsp_bridge(const char *image_dir,
     return 0;
 }
 
+static int populate_rfs_readwrite_tmpfs_bridge(const char *readwrite_dir,
+                                               char *error_buf,
+                                               size_t error_size,
+                                               const char *label) {
+    if (mkdir_p(readwrite_dir, 0770) < 0) {
+        snprintf(error_buf, error_size, "mkdir rfs readwrite bridge %s: %s", label, strerror(errno));
+        return -1;
+    }
+    if (mount("tmpfs",
+              readwrite_dir,
+              "tmpfs",
+              MS_NOSUID | MS_NODEV,
+              "size=1m,mode=0770,uid=2903,gid=2903") < 0) {
+        snprintf(error_buf, error_size, "mount rfs readwrite tmpfs bridge %s: %s", label, strerror(errno));
+        return -1;
+    }
+    return 0;
+}
+
 static int materialize_wifi_firmware_rfs_bridge(const struct paths *paths,
                                                 char *error_buf,
                                                 size_t error_size) {
-    if (existing_dir(paths->vendor_rfs_msm_mpss_readonly)) {
+    if (existing_dir(paths->vendor_rfs_msm_mpss_readonly) &&
+        existing_dir(paths->vendor_rfs_msm_mpss_readwrite)) {
         if (populate_rfs_readonly_wlanmdsp_bridge(
                 paths->rfs_bridge_source_readonly_vendor_firmware_mnt_image,
                 paths->rfs_bridge_source_readonly_vendor_firmware_mnt_image_wlanmdsp,
                 error_buf,
                 error_size,
                 "readonly") < 0) {
+            return -1;
+        }
+        if (populate_rfs_readwrite_tmpfs_bridge(paths->vendor_rfs_msm_mpss_readwrite,
+                                                error_buf,
+                                                error_size,
+                                                "readwrite-existing") < 0) {
             return -1;
         }
         return bind_rfs_bridge_source(paths->rfs_bridge_source_readonly,
@@ -9921,6 +9972,12 @@ static int materialize_wifi_firmware_rfs_bridge(const struct paths *paths,
                 "mpss") < 0) {
             return -1;
         }
+        if (populate_rfs_readwrite_tmpfs_bridge(paths->rfs_bridge_source_msm_mpss_readwrite,
+                                                error_buf,
+                                                error_size,
+                                                "mpss") < 0) {
+            return -1;
+        }
         return bind_rfs_bridge_source(paths->rfs_bridge_source_msm_mpss,
                                       paths->vendor_rfs_msm_mpss,
                                       error_buf,
@@ -9934,6 +9991,12 @@ static int materialize_wifi_firmware_rfs_bridge(const struct paths *paths,
                 error_buf,
                 error_size,
                 "rfs") < 0) {
+            return -1;
+        }
+        if (populate_rfs_readwrite_tmpfs_bridge(paths->rfs_bridge_source_msm_mpss_readwrite,
+                                                error_buf,
+                                                error_size,
+                                                "rfs") < 0) {
             return -1;
         }
         return bind_rfs_bridge_source(paths->rfs_bridge_source,
@@ -9959,11 +10022,15 @@ static int append_wlan_pd_rfs_bridge_snapshot(struct buffer *buf,
     struct stat exact_st;
     struct stat asset_st;
     struct stat readonly_st;
+    struct stat readwrite_st;
+    struct stat server_check_st;
     struct stat vendor_st;
     ssize_t nreadlink;
     ssize_t vendor_nreadlink;
     int saved_errno = 0;
     int readonly_errno = 0;
+    int readwrite_errno = 0;
+    int server_check_errno = 0;
     int vendor_errno = 0;
     int open_rc;
     int open_errno = 0;
@@ -9974,6 +10041,11 @@ static int append_wlan_pd_rfs_bridge_snapshot(struct buffer *buf,
     bool readonly_exists = false;
     bool readonly_is_dir = false;
     bool readonly_is_symlink = false;
+    bool readwrite_exists = false;
+    bool readwrite_is_dir = false;
+    bool readwrite_is_symlink = false;
+    bool server_check_exists = false;
+    bool server_check_is_reg = false;
     bool vendor_exists = false;
     bool vendor_is_dir = false;
     bool vendor_is_symlink = false;
@@ -9988,6 +10060,21 @@ static int append_wlan_pd_rfs_bridge_snapshot(struct buffer *buf,
     } else {
         readonly_errno = errno;
         memset(&readonly_st, 0, sizeof(readonly_st));
+    }
+    if (lstat(paths->vendor_rfs_msm_mpss_readwrite, &readwrite_st) == 0) {
+        readwrite_exists = true;
+        readwrite_is_dir = S_ISDIR(readwrite_st.st_mode);
+        readwrite_is_symlink = S_ISLNK(readwrite_st.st_mode);
+    } else {
+        readwrite_errno = errno;
+        memset(&readwrite_st, 0, sizeof(readwrite_st));
+    }
+    if (stat(paths->vendor_rfs_mpss_server_check, &server_check_st) == 0) {
+        server_check_exists = true;
+        server_check_is_reg = S_ISREG(server_check_st.st_mode);
+    } else {
+        server_check_errno = errno;
+        memset(&server_check_st, 0, sizeof(server_check_st));
     }
     nreadlink = readlink(paths->vendor_rfs_msm_mpss_readonly,
                          readlink_buf,
@@ -10056,6 +10143,22 @@ static int append_wlan_pd_rfs_bridge_snapshot(struct buffer *buf,
                          "%s.readonly.is_symlink=%d\n"
                          "%s.readonly.errno=%d\n"
                          "%s.readonly.readlink=%s\n"
+                         "%s.readwrite.path=%s\n"
+                         "%s.readwrite.exists=%d\n"
+                         "%s.readwrite.is_dir=%d\n"
+                         "%s.readwrite.is_symlink=%d\n"
+                         "%s.readwrite.mode=%04o\n"
+                         "%s.readwrite.uid=%lld\n"
+                         "%s.readwrite.gid=%lld\n"
+                         "%s.readwrite.errno=%d\n"
+                         "%s.readwrite.tmpfs_requested=1\n"
+                         "%s.server_check.absolute=/vendor/rfs/msm/mpss/readwrite/server_check.txt\n"
+                         "%s.server_check.host_path=%s\n"
+                         "%s.server_check.exists=%d\n"
+                         "%s.server_check.is_reg=%d\n"
+                         "%s.server_check.size=%lld\n"
+                         "%s.server_check.stat_errno=%d\n"
+                         "%s.server_check.stat_error=%s\n"
                          "%s.readonly_vendor.exists=%d\n"
                          "%s.readonly_vendor.is_dir=%d\n"
                          "%s.readonly_vendor.is_symlink=%d\n"
@@ -10089,6 +10192,22 @@ static int append_wlan_pd_rfs_bridge_snapshot(struct buffer *buf,
                          prefix, readonly_is_symlink ? 1 : 0,
                          prefix, readonly_errno,
                          prefix, readlink_buf,
+                         prefix, paths->vendor_rfs_msm_mpss_readwrite,
+                         prefix, readwrite_exists ? 1 : 0,
+                         prefix, readwrite_is_dir ? 1 : 0,
+                         prefix, readwrite_is_symlink ? 1 : 0,
+                         prefix, readwrite_exists ? (unsigned int)(readwrite_st.st_mode & 07777) : 0U,
+                         prefix, readwrite_exists ? (long long)readwrite_st.st_uid : -1LL,
+                         prefix, readwrite_exists ? (long long)readwrite_st.st_gid : -1LL,
+                         prefix, readwrite_errno,
+                         prefix,
+                         prefix,
+                         prefix, paths->vendor_rfs_mpss_server_check,
+                         prefix, server_check_exists ? 1 : 0,
+                         prefix, server_check_is_reg ? 1 : 0,
+                         prefix, server_check_exists ? (long long)server_check_st.st_size : 0LL,
+                         prefix, server_check_errno,
+                         prefix, server_check_errno != 0 ? strerror(server_check_errno) : "none",
                          prefix, vendor_exists ? 1 : 0,
                          prefix, vendor_is_dir ? 1 : 0,
                          prefix, vendor_is_symlink ? 1 : 0,
@@ -12177,6 +12296,10 @@ static int append_wlan_pd_firmware_serve_gate_summary(struct buffer *stdout_buf,
     struct wlan_pd_firmware_snapshot snapshot = {0};
     bool requested_wlanmdsp;
     bool requested_modem;
+    bool requested_server_check;
+    bool requested_ota_firewall;
+    bool requested_mcfg;
+    bool requested_mbn_hw;
     bool requested_any;
     bool wlfw_service69_seen;
     bool wlan_pd_uninit;
@@ -12195,7 +12318,29 @@ static int append_wlan_pd_firmware_serve_gate_summary(struct buffer *stdout_buf,
         a90_buffer_contains_ci(stderr_buf, "modem.b00") ||
         a90_buffer_contains_ci(stdout_buf, "modem.mbn") ||
         a90_buffer_contains_ci(stderr_buf, "modem.mbn");
-    requested_any = requested_wlanmdsp || requested_modem;
+    requested_server_check =
+        a90_buffer_contains_ci(stdout_buf, "server_check.txt") ||
+        a90_buffer_contains_ci(stderr_buf, "server_check.txt") ||
+        a90_buffer_contains_ci(stdout_buf, "server_check") ||
+        a90_buffer_contains_ci(stderr_buf, "server_check");
+    requested_ota_firewall =
+        a90_buffer_contains_ci(stdout_buf, "ota_firewall") ||
+        a90_buffer_contains_ci(stderr_buf, "ota_firewall") ||
+        a90_buffer_contains_ci(stdout_buf, "ruleset") ||
+        a90_buffer_contains_ci(stderr_buf, "ruleset");
+    requested_mcfg =
+        a90_buffer_contains_ci(stdout_buf, "mcfg") ||
+        a90_buffer_contains_ci(stderr_buf, "mcfg");
+    requested_mbn_hw =
+        a90_buffer_contains_ci(stdout_buf, "mbn_hw") ||
+        a90_buffer_contains_ci(stderr_buf, "mbn_hw");
+    requested_any =
+        requested_wlanmdsp ||
+        requested_modem ||
+        requested_server_check ||
+        requested_ota_firewall ||
+        requested_mcfg ||
+        requested_mbn_hw;
     wlfw_service69_seen =
         a90_buffer_key_has_nonzero_uint(stdout_buf, "wifi_companion_qrtr_readback.case_0.readback.service_events") ||
         a90_buffer_key_has_nonzero_uint(stdout_buf, "wifi_companion_qrtr_readback.case_1.readback.service_events");
@@ -12273,6 +12418,10 @@ static int append_wlan_pd_firmware_serve_gate_summary(struct buffer *stdout_buf,
                          "wlan_pd_firmware_serve_gate.subsys_modem_holder_postflight_safe=%d\n"
                          "wlan_pd_firmware_serve_gate.requested_wlanmdsp=%d\n"
                          "wlan_pd_firmware_serve_gate.requested_modem=%d\n"
+                         "wlan_pd_firmware_serve_gate.requested_server_check=%d\n"
+                         "wlan_pd_firmware_serve_gate.requested_ota_firewall=%d\n"
+                         "wlan_pd_firmware_serve_gate.requested_mcfg=%d\n"
+                         "wlan_pd_firmware_serve_gate.requested_mbn_hw=%d\n"
                          "wlan_pd_firmware_serve_gate.requested_any=%d\n"
                          "wlan_pd_firmware_serve_gate.served_wlanmdsp_nonzero=%d\n"
                          "wlan_pd_firmware_serve_gate.served_modem_mdt_nonzero=%d\n"
@@ -12289,6 +12438,10 @@ static int append_wlan_pd_firmware_serve_gate_summary(struct buffer *stdout_buf,
                          modem_holder_postflight_safe ? 1 : 0,
                          requested_wlanmdsp ? 1 : 0,
                          requested_modem ? 1 : 0,
+                         requested_server_check ? 1 : 0,
+                         requested_ota_firewall ? 1 : 0,
+                         requested_mcfg ? 1 : 0,
+                         requested_mbn_hw ? 1 : 0,
                          requested_any ? 1 : 0,
                          snapshot.wlanmdsp_nonzero ? 1 : 0,
                          snapshot.modem_mdt_nonzero ? 1 : 0,
@@ -27632,6 +27785,11 @@ static unsigned int composite_syscall_record_limit(const struct composite_child 
         return PD_MAPPER_SYSCALL_RECORD_LIMIT;
     }
 #endif
+#ifdef A90_WIFI_TEST_BOOT_WLAN_PD_PRODUCER_TFTP_SERVER_TRACE
+    if (child != NULL && child->identity == COMPOSITE_ID_TFTP_SERVER) {
+        return TFTP_SERVER_SYSCALL_RECORD_LIMIT;
+    }
+#endif
     return PM_SYSCALL_RECORD_LIMIT;
 }
 
@@ -27642,6 +27800,11 @@ static unsigned int composite_syscall_stop_limit(const struct composite_child *c
         return PD_MAPPER_SYSCALL_STOP_LIMIT;
     }
 #endif
+#ifdef A90_WIFI_TEST_BOOT_WLAN_PD_PRODUCER_TFTP_SERVER_TRACE
+    if (child != NULL && child->identity == COMPOSITE_ID_TFTP_SERVER) {
+        return TFTP_SERVER_SYSCALL_STOP_LIMIT;
+    }
+#endif
     return PM_SYSCALL_STOP_LIMIT;
 }
 
@@ -27650,6 +27813,11 @@ static const char *composite_syscall_trace_root(const struct composite_child *ch
 #ifdef A90_WIFI_TEST_BOOT_WLAN_PD_PRODUCER_PD_MAPPER_TRACE
     if (child != NULL && child->identity == COMPOSITE_ID_PD_MAPPER) {
         return "wlan_pd_pd_mapper_trace";
+    }
+#endif
+#ifdef A90_WIFI_TEST_BOOT_WLAN_PD_PRODUCER_TFTP_SERVER_TRACE
+    if (child != NULL && child->identity == COMPOSITE_ID_TFTP_SERVER) {
+        return "wlan_pd_tftp_server_trace";
     }
 #endif
     return "pm_service_trigger_observer";
@@ -29955,7 +30123,7 @@ static int append_wlan_pd_producer_child_snapshots(struct buffer *buf,
                          phase);
 }
 
-#ifdef A90_WIFI_TEST_BOOT_WLAN_PD_PRODUCER_PD_MAPPER_TRACE
+#if defined(A90_WIFI_TEST_BOOT_WLAN_PD_PRODUCER_PD_MAPPER_TRACE) || defined(A90_WIFI_TEST_BOOT_WLAN_PD_PRODUCER_TFTP_SERVER_TRACE)
 static struct composite_child *find_composite_child_by_identity(struct composite_child *children,
                                                                 size_t child_count,
                                                                 enum composite_identity identity) {
@@ -29984,6 +30152,7 @@ static void restore_pd_mapper_trace_state(struct composite_child *child,
     child->syscall_entry_next = syscall_entry_next;
 }
 
+#ifdef A90_WIFI_TEST_BOOT_WLAN_PD_PRODUCER_PD_MAPPER_TRACE
 static int append_wlan_pd_pd_mapper_late_syscall_trace(struct buffer *stdout_buf,
                                                        struct composite_child *children,
                                                        size_t child_count,
@@ -30276,6 +30445,310 @@ static int append_wlan_pd_pd_mapper_late_syscall_trace(struct buffer *stdout_buf
                                   original_syscall_entry_next);
     return 0;
 }
+#endif
+
+#ifdef A90_WIFI_TEST_BOOT_WLAN_PD_PRODUCER_TFTP_SERVER_TRACE
+static int append_wlan_pd_tftp_server_late_syscall_trace(struct buffer *stdout_buf,
+                                                         struct composite_child *children,
+                                                         size_t child_count,
+                                                         unsigned int timeout_ms) {
+    struct composite_child *child = find_composite_child_by_identity(children,
+                                                                     child_count,
+                                                                     COMPOSITE_ID_TFTP_SERVER);
+    long start_ms = monotonic_ms();
+    long deadline = start_ms + (long)timeout_ms;
+    bool original_traced;
+    bool original_trace_minimal;
+    bool original_trace_initial_stop;
+    bool original_capture_exec;
+    bool original_trace_syscalls;
+    bool original_syscall_trace_started;
+    bool original_syscall_entry_next;
+    int attached = 0;
+    int initial_status = 0;
+
+    if (append_format(stdout_buf,
+                      "wlan_pd_tftp_server_trace.late_attach.begin=1\n"
+                      "wlan_pd_tftp_server_trace.late_attach.timeout_ms=%u\n"
+                      "wlan_pd_tftp_server_trace.late_attach.no_qrtr_send=1\n"
+                      "wlan_pd_tftp_server_trace.late_attach.no_qmi_payload_send=1\n",
+                      timeout_ms) < 0) {
+        return -1;
+    }
+    if (child == NULL || child->pid <= 0 || child->child_done) {
+        return append_format(stdout_buf,
+                             "wlan_pd_tftp_server_trace.late_attach.available=0\n"
+                             "wlan_pd_tftp_server_trace.late_attach.reason=%s\n"
+                             "wlan_pd_tftp_server_trace.late_attach.end=1\n",
+                             child == NULL ? "tftp-server-child-not-found" : "tftp-server-not-running");
+    }
+    if (append_format(stdout_buf,
+                      "wlan_pd_tftp_server_trace.late_attach.available=1\n"
+                      "wlan_pd_tftp_server_trace.late_attach.pid=%ld\n",
+                      (long)child->pid) < 0) {
+        return -1;
+    }
+
+    original_traced = child->traced;
+    original_trace_minimal = child->trace_minimal;
+    original_trace_initial_stop = child->trace_initial_stop;
+    original_capture_exec = child->capture_exec;
+    original_trace_syscalls = child->trace_syscalls;
+    original_syscall_trace_started = child->syscall_trace_started;
+    original_syscall_entry_next = child->syscall_entry_next;
+
+    child->traced = true;
+    child->trace_minimal = true;
+    child->trace_initial_stop = true;
+    child->capture_exec = true;
+    child->trace_syscalls = true;
+    child->syscall_trace_started = true;
+    child->syscall_entry_next = true;
+    child->syscall_trace_stop_limited = false;
+    child->syscall_trace_truncated = false;
+    child->syscall_stop_count = 0;
+    child->syscall_record_count = 0;
+    child->syscall_error_count = 0;
+
+    if (ptrace(PTRACE_ATTACH, child->pid, NULL, NULL) < 0) {
+        int saved_errno = errno;
+
+        restore_pd_mapper_trace_state(child,
+                                      original_traced,
+                                      original_trace_minimal,
+                                      original_trace_initial_stop,
+                                      original_capture_exec,
+                                      original_trace_syscalls,
+                                      original_syscall_trace_started,
+                                      original_syscall_entry_next);
+        return append_format(stdout_buf,
+                             "wlan_pd_tftp_server_trace.late_attach.attach_rc=-1\n"
+                             "wlan_pd_tftp_server_trace.late_attach.attach_errno=%d\n"
+                             "wlan_pd_tftp_server_trace.late_attach.attach_error=%s\n"
+                             "wlan_pd_tftp_server_trace.late_attach.end=1\n",
+                             saved_errno,
+                             strerror(saved_errno));
+    }
+    attached = 1;
+    if (append_literal(stdout_buf, "wlan_pd_tftp_server_trace.late_attach.attach_rc=0\n") < 0) {
+        return -1;
+    }
+    if (waitpid(child->pid, &initial_status, 0) != child->pid) {
+        int saved_errno = errno;
+
+        ptrace(PTRACE_DETACH, child->pid, NULL, NULL);
+        restore_pd_mapper_trace_state(child,
+                                      original_traced,
+                                      original_trace_minimal,
+                                      original_trace_initial_stop,
+                                      original_capture_exec,
+                                      original_trace_syscalls,
+                                      original_syscall_trace_started,
+                                      original_syscall_entry_next);
+        return append_format(stdout_buf,
+                             "wlan_pd_tftp_server_trace.late_attach.initial_wait_rc=-1\n"
+                             "wlan_pd_tftp_server_trace.late_attach.initial_wait_errno=%d\n"
+                             "wlan_pd_tftp_server_trace.late_attach.initial_wait_error=%s\n"
+                             "wlan_pd_tftp_server_trace.late_attach.end=1\n",
+                             saved_errno,
+                             strerror(saved_errno));
+    }
+    if (append_format(stdout_buf,
+                      "wlan_pd_tftp_server_trace.late_attach.initial_wait_rc=0\n"
+                      "wlan_pd_tftp_server_trace.late_attach.initial_status=0x%x\n",
+                      initial_status) < 0) {
+        return -1;
+    }
+    if (ptrace(PTRACE_SETOPTIONS,
+               child->pid,
+               NULL,
+               (void *)(long)PTRACE_O_TRACESYSGOOD) < 0) {
+        int saved_errno = errno;
+
+        ptrace(PTRACE_DETACH, child->pid, NULL, NULL);
+        restore_pd_mapper_trace_state(child,
+                                      original_traced,
+                                      original_trace_minimal,
+                                      original_trace_initial_stop,
+                                      original_capture_exec,
+                                      original_trace_syscalls,
+                                      original_syscall_trace_started,
+                                      original_syscall_entry_next);
+        return append_format(stdout_buf,
+                             "wlan_pd_tftp_server_trace.late_attach.setoptions_rc=-1\n"
+                             "wlan_pd_tftp_server_trace.late_attach.setoptions_errno=%d\n"
+                             "wlan_pd_tftp_server_trace.late_attach.setoptions_error=%s\n"
+                             "wlan_pd_tftp_server_trace.late_attach.end=1\n",
+                             saved_errno,
+                             strerror(saved_errno));
+    }
+    if (append_literal(stdout_buf, "wlan_pd_tftp_server_trace.late_attach.setoptions_rc=0\n") < 0) {
+        return -1;
+    }
+    if (ptrace(PTRACE_SYSCALL, child->pid, NULL, NULL) < 0) {
+        int saved_errno = errno;
+
+        ptrace(PTRACE_DETACH, child->pid, NULL, NULL);
+        restore_pd_mapper_trace_state(child,
+                                      original_traced,
+                                      original_trace_minimal,
+                                      original_trace_initial_stop,
+                                      original_capture_exec,
+                                      original_trace_syscalls,
+                                      original_syscall_trace_started,
+                                      original_syscall_entry_next);
+        return append_format(stdout_buf,
+                             "wlan_pd_tftp_server_trace.late_attach.first_continue_rc=-1\n"
+                             "wlan_pd_tftp_server_trace.late_attach.first_continue_errno=%d\n"
+                             "wlan_pd_tftp_server_trace.late_attach.first_continue_error=%s\n"
+                             "wlan_pd_tftp_server_trace.late_attach.end=1\n",
+                             saved_errno,
+                             strerror(saved_errno));
+    }
+
+    while (monotonic_ms() < deadline && child->trace_syscalls) {
+        int status = 0;
+        pid_t wait_rc = waitpid(child->pid, &status, WNOHANG);
+
+        if (wait_rc == 0) {
+            usleep(20000);
+            continue;
+        }
+        if (wait_rc < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            append_format(stdout_buf,
+                          "wlan_pd_tftp_server_trace.late_attach.wait_error=%s\n",
+                          strerror(errno));
+            break;
+        }
+        if (wait_rc != child->pid) {
+            continue;
+        }
+        if (WIFEXITED(status)) {
+            child->child_done = true;
+            child->reaped = true;
+            child->exit_code = WEXITSTATUS(status);
+            attached = 0;
+            append_format(stdout_buf,
+                          "wlan_pd_tftp_server_trace.late_attach.child_exited=1\n"
+                          "wlan_pd_tftp_server_trace.late_attach.child_exit_code=%d\n",
+                          child->exit_code);
+            break;
+        }
+        if (WIFSIGNALED(status)) {
+            child->child_done = true;
+            child->reaped = true;
+            child->signal = WTERMSIG(status);
+            attached = 0;
+            append_format(stdout_buf,
+                          "wlan_pd_tftp_server_trace.late_attach.child_signaled=1\n"
+                          "wlan_pd_tftp_server_trace.late_attach.child_signal=%d\n",
+                          child->signal);
+            break;
+        }
+        if (WIFSTOPPED(status)) {
+            int sig = WSTOPSIG(status);
+            int deliver_sig = 0;
+
+            if (sig == (SIGTRAP | 0x80)) {
+                if (composite_child_handle_syscall_stop(child, stdout_buf) < 0) {
+                    ptrace(PTRACE_DETACH, child->pid, NULL, NULL);
+                    restore_pd_mapper_trace_state(child,
+                                                  original_traced,
+                                                  original_trace_minimal,
+                                                  original_trace_initial_stop,
+                                                  original_capture_exec,
+                                                  original_trace_syscalls,
+                                                  original_syscall_trace_started,
+                                                  original_syscall_entry_next);
+                    return -1;
+                }
+            } else if (sig != SIGTRAP && sig != SIGSTOP) {
+                deliver_sig = sig;
+            }
+            if (monotonic_ms() >= deadline ||
+                child->syscall_stop_count >= composite_syscall_stop_limit(child) ||
+                child->syscall_record_count >= composite_syscall_record_limit(child) ||
+                !child->trace_syscalls) {
+                break;
+            }
+            if (ptrace(PTRACE_SYSCALL, child->pid, NULL, (void *)(long)deliver_sig) < 0) {
+                append_format(stdout_buf,
+                              "wlan_pd_tftp_server_trace.late_attach.continue_error=%s\n",
+                              strerror(errno));
+                break;
+            }
+        }
+    }
+    if (attached && !child->child_done) {
+        bool sent_detach_stop = false;
+
+        if (child->trace_syscalls) {
+            kill(child->pid, SIGSTOP);
+            sent_detach_stop = true;
+            for (int attempt = 0; attempt < 50; attempt++) {
+                int stop_status = 0;
+                pid_t stop_wait_rc = waitpid(child->pid, &stop_status, WNOHANG);
+
+                if (stop_wait_rc == child->pid) {
+                    break;
+                }
+                if (stop_wait_rc < 0 && errno != EINTR) {
+                    break;
+                }
+                usleep(20000);
+            }
+        }
+        if (ptrace(PTRACE_DETACH, child->pid, NULL, NULL) < 0) {
+            append_format(stdout_buf,
+                          "wlan_pd_tftp_server_trace.late_attach.detach_rc=-1\n"
+                          "wlan_pd_tftp_server_trace.late_attach.detach_errno=%d\n"
+                          "wlan_pd_tftp_server_trace.late_attach.detach_error=%s\n",
+                          errno,
+                          strerror(errno));
+        } else {
+            append_literal(stdout_buf,
+                           "wlan_pd_tftp_server_trace.late_attach.detach_rc=0\n");
+            if (sent_detach_stop && kill(child->pid, SIGCONT) == 0) {
+                append_literal(stdout_buf,
+                               "wlan_pd_tftp_server_trace.late_attach.resume_sigcont=1\n");
+            } else if (sent_detach_stop) {
+                append_format(stdout_buf,
+                              "wlan_pd_tftp_server_trace.late_attach.resume_sigcont=0\n"
+                              "wlan_pd_tftp_server_trace.late_attach.resume_errno=%d\n"
+                              "wlan_pd_tftp_server_trace.late_attach.resume_error=%s\n",
+                              errno,
+                              strerror(errno));
+            }
+        }
+    }
+    if (append_format(stdout_buf,
+                      "wlan_pd_tftp_server_trace.late_attach.duration_ms=%ld\n"
+                      "wlan_pd_tftp_server_trace.late_attach.syscall_stop_count=%u\n"
+                      "wlan_pd_tftp_server_trace.late_attach.syscall_record_count=%u\n"
+                      "wlan_pd_tftp_server_trace.late_attach.syscall_error_count=%u\n"
+                      "wlan_pd_tftp_server_trace.late_attach.syscall_trace_truncated=%d\n"
+                      "wlan_pd_tftp_server_trace.late_attach.end=1\n",
+                      monotonic_ms() - start_ms,
+                      child->syscall_stop_count,
+                      child->syscall_record_count,
+                      child->syscall_error_count,
+                      child->syscall_trace_truncated ? 1 : 0) < 0) {
+        return -1;
+    }
+    restore_pd_mapper_trace_state(child,
+                                  original_traced,
+                                  original_trace_minimal,
+                                  original_trace_initial_stop,
+                                  original_capture_exec,
+                                  original_trace_syscalls,
+                                  original_syscall_trace_started,
+                                  original_syscall_entry_next);
+    return 0;
+}
+#endif
 #endif
 
 static int append_mdm_helper_queue_timing_child(struct buffer *buf,
@@ -40111,6 +40584,11 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
                       "wifi_companion_start.wlan_pd_producer_pd_mapper_syscall_trace.late_attach=1\n"
                       "wifi_companion_start.wlan_pd_producer_pd_mapper_syscall_trace.no_qrtr_send=1\n"
                       "wifi_companion_start.wlan_pd_producer_pd_mapper_syscall_trace.no_qmi_payload_send=1\n"
+                      "wifi_companion_start.wlan_pd_producer_tftp_server_syscall_trace.compiled=%d\n"
+                      "wifi_companion_start.wlan_pd_producer_tftp_server_syscall_trace.single_child=tftp_server\n"
+                      "wifi_companion_start.wlan_pd_producer_tftp_server_syscall_trace.late_attach=1\n"
+                      "wifi_companion_start.wlan_pd_producer_tftp_server_syscall_trace.no_qrtr_send=1\n"
+                      "wifi_companion_start.wlan_pd_producer_tftp_server_syscall_trace.no_qmi_payload_send=1\n"
                       "wifi_companion_start.wlan_pd_cnss_output_visibility.enabled=%d\n"
                       "wifi_companion_start.subsys_esoc0_manual_open_attempted=0\n"
                       "wifi_companion_start.registry_snapshot.enabled=%d\n",
@@ -40140,6 +40618,11 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
                       wlan_pd_firmware_serve_gate ? 1 : 0,
                       wlan_pd_post_pm_lower_state_observer ? 1 : 0,
 #ifdef A90_WIFI_TEST_BOOT_WLAN_PD_PRODUCER_PD_MAPPER_TRACE
+                      1,
+#else
+                      0,
+#endif
+#ifdef A90_WIFI_TEST_BOOT_WLAN_PD_PRODUCER_TFTP_SERVER_TRACE
                       1,
 #else
                       0,
@@ -40880,6 +41363,18 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
                                                     children,
                                                     active_child_count,
                                                     6000) < 0) {
+        stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
+        composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+        stop_property_service_shim(&property_shim, paths, stdout_buf);
+        return -1;
+    }
+#endif
+#ifdef A90_WIFI_TEST_BOOT_WLAN_PD_PRODUCER_TFTP_SERVER_TRACE
+    if (wlan_pd_post_pm_lower_state_observer &&
+        append_wlan_pd_tftp_server_late_syscall_trace(stdout_buf,
+                                                      children,
+                                                      active_child_count,
+                                                      6000) < 0) {
         stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
         composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
         stop_property_service_shim(&property_shim, paths, stdout_buf);
