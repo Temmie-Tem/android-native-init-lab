@@ -461,7 +461,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.reparse_existing:
         existing = load_json(OUT_DIR / "manifest.json")
         handoff = load_json(HANDOFF_DIR / "manifest.json")
-        hook = existing.get("artifact_hook") if isinstance(existing.get("artifact_hook"), dict) else artifact_hook_check()
+        hook = artifact_hook_check()
         steps = existing.get("steps") if isinstance(existing.get("steps"), list) else []
         manifest = write_result(
             store,
