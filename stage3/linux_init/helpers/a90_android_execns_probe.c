@@ -172,7 +172,13 @@
 #define A90_WIFI_TEST_BOOT_DIAG_WLAN_PD_MEMORY_SESSION_MASK_PROBE 0
 #endif
 
-#if A90_WIFI_TEST_BOOT_DIAG_WLAN_PD_MEMORY_SESSION_MASK_PROBE && A90_WIFI_TEST_BOOT_DIAG_WLAN_PD_MEMORY_DEVICE_PROBE && A90_WIFI_TEST_BOOT_DIAG_DCI_WLAN_TARGET_MASK_PROBE && A90_WIFI_TEST_BOOT_DIAG_DCI_REGISTER_READ_PROBE && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && !A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
+#ifndef A90_WIFI_TEST_BOOT_DIAG_REMOTE_DEV_QUERY_PROBE
+#define A90_WIFI_TEST_BOOT_DIAG_REMOTE_DEV_QUERY_PROBE 0
+#endif
+
+#if A90_WIFI_TEST_BOOT_DIAG_REMOTE_DEV_QUERY_PROBE && A90_WIFI_TEST_BOOT_DIAG_WLAN_PD_MEMORY_SESSION_MASK_PROBE && A90_WIFI_TEST_BOOT_DIAG_WLAN_PD_MEMORY_DEVICE_PROBE && A90_WIFI_TEST_BOOT_DIAG_DCI_WLAN_TARGET_MASK_PROBE && A90_WIFI_TEST_BOOT_DIAG_DCI_REGISTER_READ_PROBE && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && !A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
+#define EXECNS_VERSION "a90_android_execns_probe v401"
+#elif A90_WIFI_TEST_BOOT_DIAG_WLAN_PD_MEMORY_SESSION_MASK_PROBE && A90_WIFI_TEST_BOOT_DIAG_WLAN_PD_MEMORY_DEVICE_PROBE && A90_WIFI_TEST_BOOT_DIAG_DCI_WLAN_TARGET_MASK_PROBE && A90_WIFI_TEST_BOOT_DIAG_DCI_REGISTER_READ_PROBE && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && !A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
 #define EXECNS_VERSION "a90_android_execns_probe v400"
 #elif A90_WIFI_TEST_BOOT_DIAG_WLAN_PD_MEMORY_DEVICE_PROBE && A90_WIFI_TEST_BOOT_DIAG_DCI_WLAN_TARGET_MASK_PROBE && A90_WIFI_TEST_BOOT_DIAG_DCI_REGISTER_READ_PROBE && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && !A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
 #define EXECNS_VERSION "a90_android_execns_probe v399"
@@ -27670,6 +27676,12 @@ static int a90_diag_pd_query_probe_stop(struct buffer *stdout_buf) {
 #ifndef A90_DIAG_DCI_MAX_DRAIN_READS
 #define A90_DIAG_DCI_MAX_DRAIN_READS 8
 #endif
+#ifndef A90_DIAG_IOCTL_REMOTE_DEV
+#define A90_DIAG_IOCTL_REMOTE_DEV 32
+#endif
+#ifndef A90_DIAGFWD_MDM
+#define A90_DIAGFWD_MDM 0
+#endif
 
 #define A90_DIAG_MSG_MASKS_TYPE 0x00000001U
 #define A90_DIAG_LOG_MASKS_TYPE 0x00000002U
@@ -27748,6 +27760,82 @@ struct a90_diag_dci_write_frame {
         struct a90_diag_dci_canary_event_request event_request;
     } body;
 } __attribute__((packed));
+
+#if A90_WIFI_TEST_BOOT_DIAG_REMOTE_DEV_QUERY_PROBE
+struct a90_diag_remote_dev_query_probe {
+    bool attempted;
+    bool success;
+    bool mdm_data_active;
+    int rc;
+    int saved_errno;
+    unsigned int remote_dev_mask;
+};
+
+static struct a90_diag_remote_dev_query_probe g_diag_remote_dev_query_probe;
+
+static int a90_diag_remote_dev_query_probe_run(int fd, struct buffer *stdout_buf) {
+    unsigned short remote_dev = 0;
+    unsigned int mdm_mask = 1U << A90_DIAGFWD_MDM;
+
+    if (g_diag_remote_dev_query_probe.attempted) {
+        return append_literal(stdout_buf,
+                              "diag_remote_dev_query_probe.retry_suppressed=1\n");
+    }
+    memset(&g_diag_remote_dev_query_probe, 0, sizeof(g_diag_remote_dev_query_probe));
+    g_diag_remote_dev_query_probe.attempted = true;
+    errno = 0;
+    g_diag_remote_dev_query_probe.rc =
+        ioctl(fd, A90_DIAG_IOCTL_REMOTE_DEV, &remote_dev);
+    g_diag_remote_dev_query_probe.saved_errno = errno;
+    g_diag_remote_dev_query_probe.remote_dev_mask = remote_dev;
+    g_diag_remote_dev_query_probe.success =
+        g_diag_remote_dev_query_probe.rc >= 0;
+    g_diag_remote_dev_query_probe.mdm_data_active =
+        g_diag_remote_dev_query_probe.success &&
+        ((g_diag_remote_dev_query_probe.remote_dev_mask & mdm_mask) != 0U);
+    return append_format(stdout_buf,
+                         "diag_remote_dev_query_probe.begin=1\n"
+                         "diag_remote_dev_query_probe.mode=borrowed-private-diag-fd-remote-dev-query-only\n"
+                         "diag_remote_dev_query_probe.rootfs_namespace_only=1\n"
+                         "diag_remote_dev_query_probe.sda29_write=0\n"
+                         "diag_remote_dev_query_probe.fd_borrowed=1\n"
+                         "diag_remote_dev_query_probe.switch_logging_attempted=0\n"
+                         "diag_remote_dev_query_probe.write_attempted=0\n"
+                         "diag_remote_dev_query_probe.log_mask_write=0\n"
+                         "diag_remote_dev_query_probe.event_mask_write=0\n"
+                         "diag_remote_dev_query_probe.stream_config_attempted=0\n"
+                         "diag_remote_dev_query_probe.qmi_send=0\n"
+                         "diag_remote_dev_query_probe.ptraced=0\n"
+                         "diag_remote_dev_query_probe.ioctl=DIAG_IOCTL_REMOTE_DEV\n"
+                         "diag_remote_dev_query_probe.ioctl_number=%d\n"
+                         "diag_remote_dev_query_probe.remote_slot_name=DIAGFWD_MDM\n"
+                         "diag_remote_dev_query_probe.remote_slot=%d\n"
+                         "diag_remote_dev_query_probe.remote_mdm_mask_bit=0x%x\n"
+                         "diag_remote_dev_query_probe.rc=%d\n"
+                         "diag_remote_dev_query_probe.errno=%d\n"
+                         "diag_remote_dev_query_probe.remote_dev_mask=0x%x\n"
+                         "diag_remote_dev_query_probe.success=%d\n"
+                         "diag_remote_dev_query_probe.mdm_data_active=%d\n"
+                         "diag_remote_dev_query_probe.summary.attempted=1\n"
+                         "diag_remote_dev_query_probe.summary.rc=%d\n"
+                         "diag_remote_dev_query_probe.summary.errno=%d\n"
+                         "diag_remote_dev_query_probe.summary.remote_dev_mask=0x%x\n"
+                         "diag_remote_dev_query_probe.summary.mdm_data_active=%d\n"
+                         "diag_remote_dev_query_probe.end=1\n",
+                         A90_DIAG_IOCTL_REMOTE_DEV,
+                         A90_DIAGFWD_MDM,
+                         mdm_mask,
+                         g_diag_remote_dev_query_probe.rc,
+                         g_diag_remote_dev_query_probe.saved_errno,
+                         g_diag_remote_dev_query_probe.remote_dev_mask,
+                         g_diag_remote_dev_query_probe.success ? 1 : 0,
+                         g_diag_remote_dev_query_probe.mdm_data_active ? 1 : 0,
+                         g_diag_remote_dev_query_probe.rc,
+                         g_diag_remote_dev_query_probe.saved_errno,
+                         g_diag_remote_dev_query_probe.remote_dev_mask,
+                         g_diag_remote_dev_query_probe.mdm_data_active ? 1 : 0);
+}
+#endif
 
 #if A90_WIFI_TEST_BOOT_DIAG_DCI_WLAN_TARGET_MASK_PROBE
 struct a90_diag_dci_wlan_log_target {
@@ -29891,8 +29979,16 @@ static int a90_diag_dci_register_read_start(const struct paths *paths,
     }
     g_diag_dci_register_read_probe.open_ok = true;
     if (append_literal(stdout_buf,
-                       "diag_dci_register_read_probe.started=1\n") < 0 ||
-        a90_diag_dci_register_read_query_support(stdout_buf) < 0) {
+                       "diag_dci_register_read_probe.started=1\n") < 0) {
+        return -1;
+    }
+#if A90_WIFI_TEST_BOOT_DIAG_REMOTE_DEV_QUERY_PROBE
+    if (a90_diag_remote_dev_query_probe_run(g_diag_dci_register_read_probe.fd,
+                                            stdout_buf) < 0) {
+        return -1;
+    }
+#endif
+    if (a90_diag_dci_register_read_query_support(stdout_buf) < 0) {
         return -1;
     }
     if (g_diag_dci_register_read_probe.selected_proc >= 0) {
