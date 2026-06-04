@@ -140,7 +140,13 @@
 #define A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER 0
 #endif
 
-#if A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && !A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
+#ifndef A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY
+#define A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY 0
+#endif
+
+#if A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && !A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
+#define EXECNS_VERSION "a90_android_execns_probe v393"
+#elif A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && !A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
 #define EXECNS_VERSION "a90_android_execns_probe v392"
 #elif A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && !A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
 #define EXECNS_VERSION "a90_android_execns_probe v391"
@@ -14463,6 +14469,131 @@ static void pm_service_uprobe_collect_trace(struct pm_service_uprobe_state *stat
     fclose(file);
 }
 
+#if A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY
+static bool a90_uprobe_event_rc_zero(const struct cnss_wlfw_uprobe_event_state *event) {
+    return event != NULL &&
+        event->hit_count > 0 &&
+        strstr(event->first_hit_line, "rc=0x0") != NULL;
+}
+
+static int append_permgr_vote_focused_summary(
+        struct buffer *stdout_buf,
+        const struct cnss_wlfw_uprobe_state *cnss,
+        const struct cnss_peripheral_uprobe_state *peripheral,
+        const struct pm_service_uprobe_state *pm_server) {
+    const struct cnss_wlfw_uprobe_event_state *cnss_register_ret =
+        &cnss->events[CNSS_WLFW_UPROBE_PM_INIT_PM_CLIENT_REGISTER_RETCHECK];
+    const struct cnss_wlfw_uprobe_event_state *cnss_connect_ret =
+        &cnss->events[CNSS_WLFW_UPROBE_PM_INIT_PM_CLIENT_CONNECT_RETCHECK];
+    const bool cnss_register_success = a90_uprobe_event_rc_zero(cnss_register_ret);
+    const bool cnss_connect_success = a90_uprobe_event_rc_zero(cnss_connect_ret);
+    const bool peripheral_register_success =
+        peripheral->events[CNSS_PERIPHERAL_UPROBE_MANAGER_REGISTER_TX_RETCHECK].hit_count > 0 &&
+        peripheral->events[CNSS_PERIPHERAL_UPROBE_SUCCESS_PATH].hit_count > 0 &&
+        peripheral->events[CNSS_PERIPHERAL_UPROBE_PM_REGISTER_CONNECT_RETURN].hit_count > 0 &&
+        peripheral->events[CNSS_PERIPHERAL_UPROBE_PM_CLIENT_REGISTER_COMMON_RETURN].hit_count > 0;
+    const bool pm_server_register_success =
+        pm_server->events[PM_SERVICE_UPROBE_REGISTER_ENTRY].hit_count > 0 &&
+        pm_server->events[PM_SERVICE_UPROBE_REGISTER_MATCH].hit_count > 0 &&
+        pm_server->events[PM_SERVICE_UPROBE_REGISTER_ADD_CLIENT_CALL].hit_count > 0 &&
+        pm_server->events[PM_SERVICE_UPROBE_REGISTER_SUCCESS_RETURN].hit_count > 0;
+    const bool pm_vote_ack_seen =
+        pm_server->events[PM_SERVICE_UPROBE_ACK_IMPL_ENTRY].hit_count > 0 ||
+        pm_server->events[PM_SERVICE_UPROBE_POST_ACK_ACTION_ENTRY].hit_count > 0 ||
+        peripheral->events[CNSS_PERIPHERAL_UPROBE_PM_CALLBACK_STUB_ENTRY].hit_count > 0;
+    const char *label = "per-mgr-vote-not-classified";
+
+    if (cnss_register_success && cnss_connect_success && peripheral_register_success && pm_server_register_success) {
+        label = "cnss-permgr-register-connect-server-accepted";
+    } else if (cnss_register_success && cnss_connect_success && peripheral_register_success) {
+        label = "cnss-permgr-client-success-server-unobserved";
+    } else if (cnss_register_success && peripheral_register_success &&
+               cnss->events[CNSS_WLFW_UPROBE_PM_INIT_PM_CLIENT_CONNECT_CALL].hit_count > 0) {
+        label = "cnss-permgr-register-success-connect-no-return";
+    } else if (cnss_register_success && peripheral_register_success) {
+        label = "cnss-permgr-register-success-connect-missing";
+    } else if (cnss->events[CNSS_WLFW_UPROBE_PM_INIT_PM_CLIENT_REGISTER_CALL].hit_count > 0) {
+        label = "cnss-permgr-register-started-no-success";
+    } else {
+        label = "cnss-permgr-register-not-started";
+    }
+
+    if (append_format(stdout_buf,
+                      "per_mgr_vote_focused.begin=1\n"
+                      "per_mgr_vote_focused.mode=cnss-pm-client-register-vote-uprobe-compact\n"
+                      "per_mgr_vote_focused.no_ptrace=1\n"
+                      "per_mgr_vote_focused.no_qrtr_send=1\n"
+                      "per_mgr_vote_focused.no_qmi_send=1\n"
+                      "per_mgr_vote_focused.no_wifi_hal=1\n"
+                      "per_mgr_vote_focused.cnss.pm_client_register_call.hit_count=%d\n"
+                      "per_mgr_vote_focused.cnss.pm_client_register_retcheck.hit_count=%d\n"
+                      "per_mgr_vote_focused.cnss.pm_client_register_retcheck.rc_zero=%d\n"
+                      "per_mgr_vote_focused.cnss.pm_client_register_retcheck.first_hit_line=%s\n"
+                      "per_mgr_vote_focused.cnss.pm_client_connect_call.hit_count=%d\n"
+                      "per_mgr_vote_focused.cnss.pm_client_connect_retcheck.hit_count=%d\n"
+                      "per_mgr_vote_focused.cnss.pm_client_connect_retcheck.rc_zero=%d\n"
+                      "per_mgr_vote_focused.cnss.pm_client_connect_retcheck.first_hit_line=%s\n"
+                      "per_mgr_vote_focused.peripheral.pm_client_register_entry.hit_count=%d\n"
+                      "per_mgr_vote_focused.peripheral.manager_register_tx_call.hit_count=%d\n"
+                      "per_mgr_vote_focused.peripheral.manager_register_tx_retcheck.hit_count=%d\n"
+                      "per_mgr_vote_focused.peripheral.success_path.hit_count=%d\n"
+                      "per_mgr_vote_focused.peripheral.pm_register_connect_return.hit_count=%d\n"
+                      "per_mgr_vote_focused.peripheral.pm_client_register_common_return.hit_count=%d\n"
+                      "per_mgr_vote_focused.peripheral.callback_stub_entry.hit_count=%d\n"
+                      "per_mgr_vote_focused.pm_server.target.selected_path=%s\n"
+                      "per_mgr_vote_focused.pm_server.register_entry.hit_count=%d\n"
+                      "per_mgr_vote_focused.pm_server.register_entry.first_hit_line=%s\n"
+                      "per_mgr_vote_focused.pm_server.register_match.hit_count=%d\n"
+                      "per_mgr_vote_focused.pm_server.register_add_client_call.hit_count=%d\n"
+                      "per_mgr_vote_focused.pm_server.register_success_return.hit_count=%d\n"
+                      "per_mgr_vote_focused.pm_server.no_peripheral.hit_count=%d\n"
+                      "per_mgr_vote_focused.pm_server.ack_impl_entry.hit_count=%d\n"
+                      "per_mgr_vote_focused.pm_server.post_ack_action_entry.hit_count=%d\n"
+                      "per_mgr_vote_focused.cnss_register_success=%d\n"
+                      "per_mgr_vote_focused.cnss_connect_success=%d\n"
+                      "per_mgr_vote_focused.peripheral_register_success=%d\n"
+                      "per_mgr_vote_focused.pm_server_register_success=%d\n"
+                      "per_mgr_vote_focused.pm_vote_ack_seen=%d\n"
+                      "per_mgr_vote_focused.label=%s\n"
+                      "per_mgr_vote_focused.end=1\n",
+                      cnss->events[CNSS_WLFW_UPROBE_PM_INIT_PM_CLIENT_REGISTER_CALL].hit_count,
+                      cnss_register_ret->hit_count,
+                      cnss_register_success ? 1 : 0,
+                      cnss_register_ret->first_hit_line[0] != '\0' ? cnss_register_ret->first_hit_line : "none",
+                      cnss->events[CNSS_WLFW_UPROBE_PM_INIT_PM_CLIENT_CONNECT_CALL].hit_count,
+                      cnss_connect_ret->hit_count,
+                      cnss_connect_success ? 1 : 0,
+                      cnss_connect_ret->first_hit_line[0] != '\0' ? cnss_connect_ret->first_hit_line : "none",
+                      peripheral->events[CNSS_PERIPHERAL_UPROBE_PM_CLIENT_REGISTER_ENTRY].hit_count,
+                      peripheral->events[CNSS_PERIPHERAL_UPROBE_MANAGER_REGISTER_TX_CALL].hit_count,
+                      peripheral->events[CNSS_PERIPHERAL_UPROBE_MANAGER_REGISTER_TX_RETCHECK].hit_count,
+                      peripheral->events[CNSS_PERIPHERAL_UPROBE_SUCCESS_PATH].hit_count,
+                      peripheral->events[CNSS_PERIPHERAL_UPROBE_PM_REGISTER_CONNECT_RETURN].hit_count,
+                      peripheral->events[CNSS_PERIPHERAL_UPROBE_PM_CLIENT_REGISTER_COMMON_RETURN].hit_count,
+                      peripheral->events[CNSS_PERIPHERAL_UPROBE_PM_CALLBACK_STUB_ENTRY].hit_count,
+                      pm_server->selected_target_path[0] != '\0' ? pm_server->selected_target_path : "none",
+                      pm_server->events[PM_SERVICE_UPROBE_REGISTER_ENTRY].hit_count,
+                      pm_server->events[PM_SERVICE_UPROBE_REGISTER_ENTRY].first_hit_line[0] != '\0'
+                          ? pm_server->events[PM_SERVICE_UPROBE_REGISTER_ENTRY].first_hit_line
+                          : "none",
+                      pm_server->events[PM_SERVICE_UPROBE_REGISTER_MATCH].hit_count,
+                      pm_server->events[PM_SERVICE_UPROBE_REGISTER_ADD_CLIENT_CALL].hit_count,
+                      pm_server->events[PM_SERVICE_UPROBE_REGISTER_SUCCESS_RETURN].hit_count,
+                      pm_server->events[PM_SERVICE_UPROBE_REGISTER_NO_PERIPHERAL].hit_count,
+                      pm_server->events[PM_SERVICE_UPROBE_ACK_IMPL_ENTRY].hit_count,
+                      pm_server->events[PM_SERVICE_UPROBE_POST_ACK_ACTION_ENTRY].hit_count,
+                      cnss_register_success ? 1 : 0,
+                      cnss_connect_success ? 1 : 0,
+                      peripheral_register_success ? 1 : 0,
+                      pm_server_register_success ? 1 : 0,
+                      pm_vote_ack_seen ? 1 : 0,
+                      label) < 0) {
+        return -1;
+    }
+    return 0;
+}
+#endif
+
 static int libqmi_cci_uprobe_find_tracefs(struct libqmi_cci_uprobe_state *state,
                                           const struct paths *paths) {
     const char *roots[4] = {0};
@@ -15180,6 +15311,11 @@ static int append_wlan_pd_cnss_nonlog_control_flow_summary(struct buffer *stdout
     cnss_peripheral_uprobe_cleanup_state(peripheral);
     pm_service_uprobe_cleanup_state(pm_server);
     libqmi_cci_uprobe_cleanup_state(libqmi);
+#if A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY
+    if (append_permgr_vote_focused_summary(stdout_buf, uprobe, peripheral, pm_server) < 0) {
+        return -1;
+    }
+#endif
     libqmi_label = libqmi_cci_uprobe_label(libqmi);
     cnss_nonlog_maps_summary_init(&maps);
     if (cnss_daemon_pid > 0 && cnss_daemon_running) {
@@ -44149,7 +44285,7 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
         wlan_pd_service_object_visible_trigger) {
         cnss_wlfw_uprobe_arm_global(paths);
         cnss_peripheral_uprobe_arm_global(paths);
-        if (wlan_pd_service_object_visible_trigger) {
+        if (wlan_pd_service_object_visible_trigger || A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY) {
             pm_service_uprobe_arm_global(paths);
         }
         libqmi_cci_uprobe_arm_global(paths);
