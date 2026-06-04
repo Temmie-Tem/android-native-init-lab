@@ -121,8 +121,20 @@
 #define A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS 0
 #endif
 
+#ifndef A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_AUTODIR_PARITY
+#define A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_AUTODIR_PARITY 0
+#endif
+
 #ifndef A90_WIFI_TEST_BOOT_TFTP_OTA_FIREWALL_RULESET_TMPFS
 #define A90_WIFI_TEST_BOOT_TFTP_OTA_FIREWALL_RULESET_TMPFS 0
+#endif
+
+#ifndef A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_TMPFS
+#define A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_TMPFS 0
+#endif
+
+#ifndef A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_VENDOR_RFS_PERMS
+#define A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_VENDOR_RFS_PERMS 0
 #endif
 
 #ifndef A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS
@@ -205,7 +217,13 @@
 #define A90_WIFI_TEST_BOOT_DIAG_REMOTE_DEV_POLL_PROBE 0
 #endif
 
-#if A90_WIFI_TEST_BOOT_MACLOADER_PROPERTY_SERVICE_ACK && A90_WIFI_TEST_BOOT_MACLOADER_SYSCALL_TRACE && A90_WIFI_TEST_BOOT_MACLOADER_MAC_SOURCE_BRIDGE && A90_WIFI_TEST_BOOT_MACLOADER_PRE_CNSS && A90_WIFI_TEST_BOOT_ICNSS_QCACLD_POST_BDF_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_LATE_MSG21_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && !A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
+#if A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_AUTODIR_PARITY && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_VENDOR_RFS_PERMS && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_TMPFS && A90_WIFI_TEST_BOOT_ICNSS_QCACLD_POST_BDF_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_LATE_MSG21_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && !A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
+#define EXECNS_VERSION "a90_android_execns_probe v411"
+#elif A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_VENDOR_RFS_PERMS && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_TMPFS && A90_WIFI_TEST_BOOT_ICNSS_QCACLD_POST_BDF_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_LATE_MSG21_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && !A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
+#define EXECNS_VERSION "a90_android_execns_probe v410"
+#elif A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_TMPFS && A90_WIFI_TEST_BOOT_ICNSS_QCACLD_POST_BDF_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_LATE_MSG21_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && !A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
+#define EXECNS_VERSION "a90_android_execns_probe v409"
+#elif A90_WIFI_TEST_BOOT_MACLOADER_PROPERTY_SERVICE_ACK && A90_WIFI_TEST_BOOT_MACLOADER_SYSCALL_TRACE && A90_WIFI_TEST_BOOT_MACLOADER_MAC_SOURCE_BRIDGE && A90_WIFI_TEST_BOOT_MACLOADER_PRE_CNSS && A90_WIFI_TEST_BOOT_ICNSS_QCACLD_POST_BDF_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_LATE_MSG21_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && !A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
 #define EXECNS_VERSION "a90_android_execns_probe v408"
 #elif A90_WIFI_TEST_BOOT_MACLOADER_SYSCALL_TRACE && A90_WIFI_TEST_BOOT_MACLOADER_MAC_SOURCE_BRIDGE && A90_WIFI_TEST_BOOT_MACLOADER_PRE_CNSS && A90_WIFI_TEST_BOOT_ICNSS_QCACLD_POST_BDF_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_LATE_MSG21_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && !A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
 #define EXECNS_VERSION "a90_android_execns_probe v407"
@@ -571,6 +589,8 @@ struct buffer {
     bool truncated;
 };
 
+static int append_format(struct buffer *buf, const char *fmt, ...);
+
 struct paths {
     char base[MAX_PATH_LEN];
     char root[MAX_PATH_LEN];
@@ -619,6 +639,10 @@ struct paths {
     char mnt_vendor_persist[MAX_PATH_LEN];
     char mnt_vendor_persist_rfs[MAX_PATH_LEN];
     char mnt_vendor_persist_hlos_rfs[MAX_PATH_LEN];
+    char mnt_vendor_persist_rfs_shared[MAX_PATH_LEN];
+    char mnt_vendor_persist_rfs_msm[MAX_PATH_LEN];
+    char mnt_vendor_persist_rfs_msm_mpss[MAX_PATH_LEN];
+    char mnt_vendor_persist_rfs_msm_adsp[MAX_PATH_LEN];
     char mnt_vendor_persist_rfs_msm_mpss_readwrite[MAX_PATH_LEN];
     char mnt_vendor_persist_hlos_rfs_msm_mpss_readwrite[MAX_PATH_LEN];
     char firmware_mnt_source[MAX_PATH_LEN];
@@ -676,6 +700,11 @@ struct paths {
     char data[MAX_PATH_LEN];
     char data_vendor[MAX_PATH_LEN];
     char data_vendor_conn[MAX_PATH_LEN];
+    char data_vendor_tombstones[MAX_PATH_LEN];
+    char data_vendor_tombstones_rfs[MAX_PATH_LEN];
+    char data_vendor_tombstones_rfs_modem[MAX_PATH_LEN];
+    char data_vendor_tombstones_rfs_lpass[MAX_PATH_LEN];
+    char data_vendor_tombstones_rfs_tn[MAX_PATH_LEN];
     char data_vendor_wifi[MAX_PATH_LEN];
     char data_vendor_wifi_sockets[MAX_PATH_LEN];
     char persist[MAX_PATH_LEN];
@@ -3897,6 +3926,22 @@ static int init_paths(struct paths *paths) {
                     sizeof(paths->mnt_vendor_persist_hlos_rfs),
                     paths->mnt_vendor_persist,
                     "hlos_rfs") < 0 ||
+        append_path(paths->mnt_vendor_persist_rfs_shared,
+                    sizeof(paths->mnt_vendor_persist_rfs_shared),
+                    paths->mnt_vendor_persist_rfs,
+                    "shared") < 0 ||
+        append_path(paths->mnt_vendor_persist_rfs_msm,
+                    sizeof(paths->mnt_vendor_persist_rfs_msm),
+                    paths->mnt_vendor_persist_rfs,
+                    "msm") < 0 ||
+        append_path(paths->mnt_vendor_persist_rfs_msm_mpss,
+                    sizeof(paths->mnt_vendor_persist_rfs_msm_mpss),
+                    paths->mnt_vendor_persist_rfs_msm,
+                    "mpss") < 0 ||
+        append_path(paths->mnt_vendor_persist_rfs_msm_adsp,
+                    sizeof(paths->mnt_vendor_persist_rfs_msm_adsp),
+                    paths->mnt_vendor_persist_rfs_msm,
+                    "adsp") < 0 ||
         append_path(paths->mnt_vendor_persist_rfs_msm_mpss_readwrite,
                     sizeof(paths->mnt_vendor_persist_rfs_msm_mpss_readwrite),
                     paths->mnt_vendor_persist_rfs,
@@ -4039,6 +4084,26 @@ static int init_paths(struct paths *paths) {
                     sizeof(paths->data_vendor_conn),
                     paths->data_vendor,
                     "conn") < 0 ||
+        append_path(paths->data_vendor_tombstones,
+                    sizeof(paths->data_vendor_tombstones),
+                    paths->data_vendor,
+                    "tombstones") < 0 ||
+        append_path(paths->data_vendor_tombstones_rfs,
+                    sizeof(paths->data_vendor_tombstones_rfs),
+                    paths->data_vendor_tombstones,
+                    "rfs") < 0 ||
+        append_path(paths->data_vendor_tombstones_rfs_modem,
+                    sizeof(paths->data_vendor_tombstones_rfs_modem),
+                    paths->data_vendor_tombstones_rfs,
+                    "modem") < 0 ||
+        append_path(paths->data_vendor_tombstones_rfs_lpass,
+                    sizeof(paths->data_vendor_tombstones_rfs_lpass),
+                    paths->data_vendor_tombstones_rfs,
+                    "lpass") < 0 ||
+        append_path(paths->data_vendor_tombstones_rfs_tn,
+                    sizeof(paths->data_vendor_tombstones_rfs_tn),
+                    paths->data_vendor_tombstones_rfs,
+                    "tn") < 0 ||
         append_path(paths->data_vendor_wifi,
                     sizeof(paths->data_vendor_wifi),
                     paths->data_vendor,
@@ -4648,6 +4713,167 @@ static int materialize_data_wifi(const struct config *cfg,
     }
     if (chown(paths->data_vendor_wifi_sockets, A90_AID_SYSTEM, A90_AID_WIFI) < 0) {
         snprintf(error_buf, error_size, "chown data vendor wifi sockets: %s", strerror(errno));
+        return -1;
+    }
+    return 0;
+}
+
+static int materialize_tftp_tombstone_rfs_tmpfs(const struct config *cfg,
+                                                const struct paths *paths,
+                                                char *error_buf,
+                                                size_t error_size) {
+    (void)cfg;
+#if A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_TMPFS
+    const uid_t owner = A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_VENDOR_RFS_PERMS ? A90_AID_VENDOR_RFS : 0;
+    const gid_t group = A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_VENDOR_RFS_PERMS ? A90_AID_VENDOR_RFS : 0;
+
+    if (mkdir_p(paths->data_vendor_tombstones_rfs_modem, 0770) < 0 ||
+        mkdir_p(paths->data_vendor_tombstones_rfs_lpass, 0770) < 0 ||
+        mkdir_p(paths->data_vendor_tombstones_rfs_tn, 0770) < 0) {
+        snprintf(error_buf, error_size, "mkdir data vendor tombstones rfs: %s", strerror(errno));
+        return -1;
+    }
+    (void)chmod(paths->data, 0771);
+    (void)chmod(paths->data_vendor, 0771);
+    (void)chmod(paths->data_vendor_tombstones, 0770);
+    (void)chmod(paths->data_vendor_tombstones_rfs, 0770);
+    (void)chmod(paths->data_vendor_tombstones_rfs_modem, 0770);
+    (void)chmod(paths->data_vendor_tombstones_rfs_lpass, 0770);
+    (void)chmod(paths->data_vendor_tombstones_rfs_tn, 0770);
+    if (chown(paths->data_vendor_tombstones, owner, group) < 0 ||
+        chown(paths->data_vendor_tombstones_rfs, owner, group) < 0 ||
+        chown(paths->data_vendor_tombstones_rfs_modem, owner, group) < 0 ||
+        chown(paths->data_vendor_tombstones_rfs_lpass, owner, group) < 0 ||
+        chown(paths->data_vendor_tombstones_rfs_tn, owner, group) < 0) {
+        snprintf(error_buf, error_size, "chown data vendor tombstones rfs: %s", strerror(errno));
+        return -1;
+    }
+#endif
+    return 0;
+}
+
+static int append_tftp_tombstone_rfs_path_snapshot(struct buffer *buf,
+                                                   const char *prefix,
+                                                   const char *label,
+                                                   const char *absolute_path,
+                                                   const char *host_path) {
+    struct stat st;
+    struct statfs sfs;
+    int stat_errno = 0;
+    int statfs_errno = 0;
+    bool exists = false;
+    bool is_dir = false;
+    bool statfs_ok = false;
+
+    if (stat(host_path, &st) == 0) {
+        exists = true;
+        is_dir = S_ISDIR(st.st_mode);
+        if (statfs(host_path, &sfs) == 0) {
+            statfs_ok = true;
+        } else {
+            statfs_errno = errno;
+            memset(&sfs, 0, sizeof(sfs));
+        }
+    } else {
+        stat_errno = errno;
+        memset(&st, 0, sizeof(st));
+        memset(&sfs, 0, sizeof(sfs));
+    }
+    return append_format(buf,
+                         "%s.%s.absolute=%s\n"
+                         "%s.%s.host_path=%s\n"
+                         "%s.%s.exists=%d\n"
+                         "%s.%s.is_dir=%d\n"
+                         "%s.%s.mode=%04o\n"
+                         "%s.%s.uid=%lld\n"
+                         "%s.%s.gid=%lld\n"
+                         "%s.%s.statfs_ok=%d\n"
+                         "%s.%s.fs_type=0x%016llx\n"
+                         "%s.%s.statfs_errno=%d\n"
+                         "%s.%s.errno=%d\n",
+                         prefix,
+                         label,
+                         absolute_path,
+                         prefix,
+                         label,
+                         host_path,
+                         prefix,
+                         label,
+                         exists ? 1 : 0,
+                         prefix,
+                         label,
+                         is_dir ? 1 : 0,
+                         prefix,
+                         label,
+                         exists ? (unsigned int)(st.st_mode & 07777) : 0U,
+                         prefix,
+                         label,
+                         exists ? (long long)st.st_uid : -1LL,
+                         prefix,
+                         label,
+                         exists ? (long long)st.st_gid : -1LL,
+                         prefix,
+                         label,
+                         statfs_ok ? 1 : 0,
+                         prefix,
+                         label,
+                         (unsigned long long)sfs.f_type,
+                         prefix,
+                         label,
+                         statfs_errno,
+                         prefix,
+                         label,
+                         stat_errno);
+}
+
+static int append_tftp_tombstone_rfs_tmpfs_snapshot(struct buffer *buf,
+                                                    const struct paths *paths,
+                                                    const char *prefix) {
+    if (append_format(buf,
+                      "%s.begin=1\n"
+                      "%s.enabled=%d\n"
+                      "%s.rootfs_namespace_only=1\n"
+                      "%s.sda29_write=0\n"
+                      "%s.ota_ruleset_created=0\n"
+                      "%s.vendor_rfs_perms=%d\n"
+                      "%s.no_wifi_hal=1\n"
+                      "%s.no_qmi_send=1\n",
+                      prefix,
+                      prefix,
+                      A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_TMPFS ? 1 : 0,
+                      prefix,
+                      prefix,
+                      prefix,
+                      prefix,
+                      A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_VENDOR_RFS_PERMS ? 1 : 0,
+                      prefix,
+                      prefix) < 0 ||
+        append_tftp_tombstone_rfs_path_snapshot(buf,
+                                                prefix,
+                                                "tombstones",
+                                                "/data/vendor/tombstones",
+                                                paths->data_vendor_tombstones) < 0 ||
+        append_tftp_tombstone_rfs_path_snapshot(buf,
+                                                prefix,
+                                                "rfs",
+                                                "/data/vendor/tombstones/rfs",
+                                                paths->data_vendor_tombstones_rfs) < 0 ||
+        append_tftp_tombstone_rfs_path_snapshot(buf,
+                                                prefix,
+                                                "modem",
+                                                "/data/vendor/tombstones/rfs/modem",
+                                                paths->data_vendor_tombstones_rfs_modem) < 0 ||
+        append_tftp_tombstone_rfs_path_snapshot(buf,
+                                                prefix,
+                                                "lpass",
+                                                "/data/vendor/tombstones/rfs/lpass",
+                                                paths->data_vendor_tombstones_rfs_lpass) < 0 ||
+        append_tftp_tombstone_rfs_path_snapshot(buf,
+                                                prefix,
+                                                "tn",
+                                                "/data/vendor/tombstones/rfs/tn",
+                                                paths->data_vendor_tombstones_rfs_tn) < 0 ||
+        append_format(buf, "%s.end=1\n", prefix) < 0) {
         return -1;
     }
     return 0;
@@ -10392,6 +10618,62 @@ static int bind_readwrite_tmpfs_mirror(const char *readwrite_dir,
     return 0;
 }
 
+#if A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_AUTODIR_PARITY
+static int mkdir_owned_dir(const char *path,
+                           uid_t uid,
+                           gid_t gid,
+                           mode_t mode,
+                           char *error_buf,
+                           size_t error_size,
+                           const char *label) {
+    if (mkdir_p(path, mode) < 0) {
+        snprintf(error_buf, error_size, "mkdir %s: %s", label, strerror(errno));
+        return -1;
+    }
+    if (chown(path, uid, gid) < 0 || chmod(path, mode) < 0) {
+        snprintf(error_buf, error_size, "own %s: %s", label, strerror(errno));
+        return -1;
+    }
+    return 0;
+}
+
+static int populate_tftp_persist_rfs_autodirs(const struct paths *paths,
+                                              char *error_buf,
+                                              size_t error_size) {
+    if (mkdir_owned_dir(paths->mnt_vendor_persist_rfs_shared,
+                        A90_AID_VENDOR_RFS,
+                        A90_AID_VENDOR_RFS_SHARED,
+                        0770,
+                        error_buf,
+                        error_size,
+                        "persist-rfs-shared") < 0 ||
+        mkdir_owned_dir(paths->mnt_vendor_persist_rfs_msm,
+                        A90_AID_VENDOR_RFS,
+                        A90_AID_VENDOR_RFS,
+                        0770,
+                        error_buf,
+                        error_size,
+                        "persist-rfs-msm") < 0 ||
+        mkdir_owned_dir(paths->mnt_vendor_persist_rfs_msm_mpss,
+                        A90_AID_VENDOR_RFS,
+                        A90_AID_VENDOR_RFS,
+                        0770,
+                        error_buf,
+                        error_size,
+                        "persist-rfs-msm-mpss") < 0 ||
+        mkdir_owned_dir(paths->mnt_vendor_persist_rfs_msm_adsp,
+                        A90_AID_VENDOR_RFS,
+                        A90_AID_VENDOR_RFS,
+                        0770,
+                        error_buf,
+                        error_size,
+                        "persist-rfs-msm-adsp") < 0) {
+        return -1;
+    }
+    return 0;
+}
+#endif
+
 static int populate_tftp_persist_rfs_tmpfs_bridge(const struct paths *paths,
                                                   const char *readwrite_dir,
                                                   char *error_buf,
@@ -10411,6 +10693,11 @@ static int populate_tftp_persist_rfs_tmpfs_bridge(const struct paths *paths,
                         "persist-hlos-rfs") < 0) {
         return -1;
     }
+#if A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_AUTODIR_PARITY
+    if (populate_tftp_persist_rfs_autodirs(paths, error_buf, error_size) < 0) {
+        return -1;
+    }
+#endif
     if (bind_readwrite_tmpfs_mirror(readwrite_dir,
                                     paths->mnt_vendor_persist_rfs_msm_mpss_readwrite,
                                     error_buf,
@@ -10785,6 +11072,7 @@ static int append_wlan_pd_rfs_bridge_snapshot(struct buffer *buf,
                          "%s.readwrite.tmpfs_requested=1\n"
 #if A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS
                          "%s.persist_rfs.tmpfs_requested=1\n"
+                         "%s.persist_rfs.autodir_parity=%d\n"
                          "%s.persist_rfs.path=/mnt/vendor/persist/rfs\n"
                          "%s.persist_rfs.host_path=%s\n"
                          "%s.persist_rfs.exists=%d\n"
@@ -10896,6 +11184,8 @@ static int append_wlan_pd_rfs_bridge_snapshot(struct buffer *buf,
                          prefix,
 #if A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS
                          prefix,
+                         prefix,
+                         A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_AUTODIR_PARITY ? 1 : 0,
                          prefix,
                          prefix, paths->mnt_vendor_persist_rfs,
                          prefix, persist_rfs_exists ? 1 : 0,
@@ -48911,6 +49201,10 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
                       "wifi_companion_start.macloader_syscall_trace.single_child=macloader\n"
                       "wifi_companion_start.macloader_syscall_trace.no_cnss_ptrace=1\n"
                       "wifi_companion_start.macloader_syscall_trace.raw_mac_payload=0\n"
+                      "wifi_companion_start.tftp_tombstone_rfs_tmpfs.enabled=%d\n"
+                      "wifi_companion_start.tftp_tombstone_rfs_tmpfs.rootfs_namespace_only=1\n"
+                      "wifi_companion_start.tftp_tombstone_rfs_tmpfs.ota_ruleset_created=0\n"
+                      "wifi_companion_start.tftp_tombstone_rfs_tmpfs.vendor_rfs_perms=%d\n"
                       "wifi_companion_start.wlan_pd_firmware_serve_gate.enabled=%d\n"
                       "wifi_companion_start.wlan_pd_firmware_serve_gate.subsys_modem_holder_planned=%d\n"
                       "wifi_companion_start.wlan_pd_post_pm_lower_state_observer.enabled=%d\n"
@@ -48958,6 +49252,8 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
 #else
                       0,
 #endif
+                      A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_TMPFS ? 1 : 0,
+                      A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_VENDOR_RFS_PERMS ? 1 : 0,
                       wlan_pd_firmware_serve_gate ? 1 : 0,
                       wlan_pd_firmware_serve_gate ? 1 : 0,
                       wlan_pd_post_pm_lower_state_observer ? 1 : 0,
@@ -49041,6 +49337,11 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
     if (append_literal(stdout_buf,
                        "wifi_companion_start.allowed=1\n"
                        "wifi_companion_start.exec_attempted=1\n") < 0) {
+        return -1;
+    }
+    if (append_tftp_tombstone_rfs_tmpfs_snapshot(stdout_buf,
+                                                paths,
+                                                "wifi_companion_start.tftp_tombstone_rfs_tmpfs.pre") < 0) {
         return -1;
     }
     if (macloader_mac_source_bridge &&
@@ -58667,6 +58968,9 @@ static int setup_namespace(const struct config *cfg,
         return -1;
     }
     if (materialize_data_wifi(cfg, paths, error_buf, error_size) < 0) {
+        return -1;
+    }
+    if (materialize_tftp_tombstone_rfs_tmpfs(cfg, paths, error_buf, error_size) < 0) {
         return -1;
     }
     if (access(cfg->vendor_block, F_OK) < 0) {
