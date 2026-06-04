@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v375"
+#define EXECNS_VERSION "a90_android_execns_probe v376"
 
 #ifndef A90_EXECNS_ENABLE_DELAYED_LOWER_RESPONSE_WINDOW
 #define A90_EXECNS_ENABLE_DELAYED_LOWER_RESPONSE_WINDOW 0
@@ -123,6 +123,9 @@
 #endif
 #ifndef TFTP_SERVER_SYSCALL_TRACE_TIMEOUT_MS
 #define TFTP_SERVER_SYSCALL_TRACE_TIMEOUT_MS 6000U
+#endif
+#ifndef TFTP_SERVER_SYSCALL_COMPACT_PAYLOAD_LIMIT
+#define TFTP_SERVER_SYSCALL_COMPACT_PAYLOAD_LIMIT PD_MAPPER_QRTR_PAYLOAD_LIMIT
 #endif
 #define DEFAULT_QRTR_READBACK_MATRIX "wlfw:69:0,1"
 #define MAX_QRTR_READBACK_CASES 16
@@ -27976,6 +27979,214 @@ static bool a90_syscall_ret_is_error(long long ret) {
     return ret < 0 && ret >= -4095LL;
 }
 
+static unsigned int composite_syscall_record_limit(const struct composite_child *child);
+static const char *composite_syscall_trace_root(const struct composite_child *child);
+
+#ifdef A90_WIFI_TEST_BOOT_WLAN_PD_PRODUCER_TFTP_SERVER_TRACE_COMPACT
+static bool a90_bytes_contains_ascii_token_ci(const unsigned char *data,
+                                              size_t data_len,
+                                              const char *token) {
+    size_t token_len = strlen(token);
+
+    if (token_len == 0 || data_len < token_len) {
+        return false;
+    }
+    for (size_t offset = 0; offset + token_len <= data_len; offset++) {
+        bool matched = true;
+
+        for (size_t index = 0; index < token_len; index++) {
+            unsigned char data_byte = data[offset + index];
+            unsigned char token_byte = (unsigned char)token[index];
+
+            if (data_byte >= 'A' && data_byte <= 'Z') {
+                data_byte = (unsigned char)(data_byte - 'A' + 'a');
+            }
+            if (token_byte >= 'A' && token_byte <= 'Z') {
+                token_byte = (unsigned char)(token_byte - 'A' + 'a');
+            }
+            if (data_byte != token_byte) {
+                matched = false;
+                break;
+            }
+        }
+        if (matched) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static int append_composite_tftp_compact_syscall_record(struct composite_child *child,
+                                                        pid_t pid,
+                                                        unsigned long long ret_reg,
+                                                        struct buffer *stdout_buf) {
+    unsigned char payload[TFTP_SERVER_SYSCALL_COMPACT_PAYLOAD_LIMIT];
+    unsigned char sockaddr_bytes[sizeof(struct sockaddr_storage)];
+    size_t payload_len;
+    size_t payload_read = 0;
+    size_t path_len = 0;
+    size_t mode_len = 0;
+    size_t sockaddr_read = 0;
+    socklen_t sockaddr_len = 0;
+    unsigned short family = 0;
+    unsigned int qrtr_node = 0;
+    unsigned int qrtr_port = 0;
+    unsigned int opcode;
+    const unsigned char *path;
+    const unsigned char *mode;
+    const char *opcode_name;
+    const char *root = composite_syscall_trace_root(child);
+    char prefix[128];
+    long nr = child->last_syscall_nr;
+    long long ret = (long long)ret_reg;
+
+#ifdef SYS_recvfrom
+    if (nr != SYS_recvfrom || ret <= 0) {
+        return 0;
+    }
+#else
+    (void)pid;
+    (void)stdout_buf;
+    return 0;
+#endif
+    payload_len = (size_t)ret;
+    if (payload_len > sizeof(payload)) {
+        payload_len = sizeof(payload);
+    }
+    memset(payload, 0, sizeof(payload));
+    if (ptrace_read_bytes_best_effort(pid,
+                                      child->last_syscall_args[1],
+                                      payload,
+                                      payload_len,
+                                      &payload_read) < 0 ||
+        payload_read < 4) {
+        return 0;
+    }
+    opcode = ((unsigned int)payload[0] << 8) | (unsigned int)payload[1];
+    if (opcode != 1U && opcode != 2U) {
+        return 0;
+    }
+    path = payload + 2;
+    while (2U + path_len < payload_read && path[path_len] != '\0') {
+        path_len++;
+    }
+    if (2U + path_len >= payload_read || path_len == 0) {
+        return 0;
+    }
+    mode = path + path_len + 1U;
+    while ((size_t)(mode - payload) + mode_len < payload_read && mode[mode_len] != '\0') {
+        mode_len++;
+    }
+
+    if (child->last_syscall_args[4] != 0 && child->last_syscall_args[5] != 0) {
+        size_t socklen_read = 0;
+
+        if (ptrace_read_bytes_best_effort(pid,
+                                          child->last_syscall_args[5],
+                                          (unsigned char *)&sockaddr_len,
+                                          sizeof(sockaddr_len),
+                                          &socklen_read) < 0 ||
+            socklen_read < sizeof(sockaddr_len) ||
+            sockaddr_len > sizeof(sockaddr_bytes)) {
+            sockaddr_len = sizeof(sockaddr_bytes);
+        }
+        memset(sockaddr_bytes, 0, sizeof(sockaddr_bytes));
+        if (ptrace_read_bytes_best_effort(pid,
+                                          child->last_syscall_args[4],
+                                          sockaddr_bytes,
+                                          sockaddr_len,
+                                          &sockaddr_read) == 0 &&
+            sockaddr_read >= sizeof(family)) {
+            memcpy(&family, sockaddr_bytes, sizeof(family));
+#ifdef AF_QIPCRTR
+            if (family == AF_QIPCRTR && sockaddr_read >= sizeof(struct sockaddr_qrtr)) {
+                struct sockaddr_qrtr qrtr_addr;
+
+                memcpy(&qrtr_addr, sockaddr_bytes, sizeof(qrtr_addr));
+                qrtr_node = qrtr_addr.sq_node;
+                qrtr_port = qrtr_addr.sq_port;
+            }
+#endif
+        }
+    }
+
+    if (child->syscall_record_count >= composite_syscall_record_limit(child)) {
+        child->syscall_trace_truncated = true;
+        return 0;
+    }
+    if (snprintf(prefix,
+                 sizeof(prefix),
+                 "%s.compact.%s.record_%03u",
+                 root,
+                 child->name,
+                 child->syscall_record_count) >= (int)sizeof(prefix)) {
+        return -1;
+    }
+    child->syscall_record_count++;
+    opcode_name = opcode == 1U ? "RRQ" : "WRQ";
+    if (append_format(stdout_buf,
+                      "%s.nr=%ld\n"
+                      "%s.name=recvfrom\n"
+                      "%s.ret=%lld\n"
+                      "%s.fd=%llu\n"
+                      "%s.family=%u\n"
+                      "%s.family_name=%s\n"
+                      "%s.qrtr.node=%u\n"
+                      "%s.qrtr.port=%u\n"
+                      "%s.opcode=%u\n"
+                      "%s.op=%s\n"
+                      "%s.path=",
+                      prefix,
+                      nr,
+                      prefix,
+                      prefix,
+                      ret,
+                      prefix,
+                      child->last_syscall_args[0],
+                      prefix,
+                      (unsigned int)family,
+                      prefix,
+                      a90_socket_family_name(family),
+                      prefix,
+                      qrtr_node,
+                      prefix,
+                      qrtr_port,
+                      prefix,
+                      opcode,
+                      prefix,
+                      opcode_name,
+                      prefix) < 0 ||
+        append_escaped_ascii(stdout_buf, path, path_len) < 0 ||
+        append_format(stdout_buf,
+                      "\n%s.mode=",
+                      prefix) < 0 ||
+        append_escaped_ascii(stdout_buf, mode, mode_len) < 0 ||
+        append_format(stdout_buf,
+                      "\n%s.token.server_check=%d\n"
+                      "%s.token.ota_firewall=%d\n"
+                      "%s.token.mcfg=%d\n"
+                      "%s.token.mbn_hw=%d\n"
+                      "%s.token.wlanmdsp=%d\n"
+                      "%s.token.modem=%d\n",
+                      prefix,
+                      a90_bytes_contains_ascii_token_ci(path, path_len, "server_check") ? 1 : 0,
+                      prefix,
+                      (a90_bytes_contains_ascii_token_ci(path, path_len, "ota_firewall") ||
+                       a90_bytes_contains_ascii_token_ci(path, path_len, "ruleset")) ? 1 : 0,
+                      prefix,
+                      a90_bytes_contains_ascii_token_ci(path, path_len, "mcfg") ? 1 : 0,
+                      prefix,
+                      a90_bytes_contains_ascii_token_ci(path, path_len, "mbn_hw") ? 1 : 0,
+                      prefix,
+                      a90_bytes_contains_ascii_token_ci(path, path_len, "wlanmdsp") ? 1 : 0,
+                      prefix,
+                      a90_bytes_contains_ascii_token_ci(path, path_len, "modem") ? 1 : 0) < 0) {
+        return -1;
+    }
+    return 0;
+}
+#endif
+
 static unsigned int composite_syscall_record_limit(const struct composite_child *child) {
     (void)child;
 #ifdef A90_WIFI_TEST_BOOT_WLAN_PD_PRODUCER_PD_MAPPER_TRACE
@@ -28033,6 +28244,11 @@ static int append_composite_pm_syscall_record(struct composite_child *child,
     bool is_error = a90_syscall_ret_is_error(ret);
     int error_no = is_error ? (int)-ret : 0;
 
+#ifdef A90_WIFI_TEST_BOOT_WLAN_PD_PRODUCER_TFTP_SERVER_TRACE_COMPACT
+    if (child != NULL && child->identity == COMPOSITE_ID_TFTP_SERVER) {
+        return append_composite_tftp_compact_syscall_record(child, pid, ret_reg, stdout_buf);
+    }
+#endif
     if (!a90_syscall_trace_selected(nr)) {
         return 0;
     }
