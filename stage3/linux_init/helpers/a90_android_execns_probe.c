@@ -104,7 +104,17 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
+#ifndef A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
+#define A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE 0
+#endif
+
+#if A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
+#define EXECNS_VERSION "a90_android_execns_probe v382"
+#define A90_RFS_BRIDGE_ANDROID_PARITY_LINE "%s.android_parity=firmware_mnt_probe_present_firmware_fallback_present\n"
+#else
 #define EXECNS_VERSION "a90_android_execns_probe v381"
+#define A90_RFS_BRIDGE_ANDROID_PARITY_LINE "%s.android_parity=firmware_mnt_probe_absent_firmware_fallback_present\n"
+#endif
 
 #ifndef A90_EXECNS_ENABLE_DELAYED_LOWER_RESPONSE_WINDOW
 #define A90_EXECNS_ENABLE_DELAYED_LOWER_RESPONSE_WINDOW 0
@@ -9965,6 +9975,12 @@ static int populate_rfs_readonly_wlanmdsp_bridge(const char *firmware_mnt_image_
         snprintf(error_buf, error_size, "unlink rfs wlanmdsp probe bridge %s: %s", label, strerror(errno));
         return -1;
     }
+#if A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
+    if (symlink("../../../../../../../firmware/wlanmdsp.mbn", firmware_mnt_wlanmdsp_link) < 0) {
+        snprintf(error_buf, error_size, "symlink rfs wlanmdsp probe bridge %s: %s", label, strerror(errno));
+        return -1;
+    }
+#endif
     if (mkdir_p(firmware_dir, 0755) < 0) {
         snprintf(error_buf, error_size, "mkdir rfs wlanmdsp fallback bridge %s: %s", label, strerror(errno));
         return -1;
@@ -10254,7 +10270,7 @@ static int append_wlan_pd_rfs_bridge_snapshot(struct buffer *buf,
                          "%s.readonly_vendor.is_symlink=%d\n"
                          "%s.readonly_vendor.errno=%d\n"
                          "%s.readonly_vendor.readlink=%s\n"
-                         "%s.android_parity=firmware_mnt_probe_absent_firmware_fallback_present\n"
+                         A90_RFS_BRIDGE_ANDROID_PARITY_LINE
                          "%s.probe.absolute=/vendor/rfs/msm/mpss/readonly/vendor/firmware_mnt/image/wlanmdsp.mbn\n"
                          "%s.probe.host_path=%s\n"
                          "%s.probe.exists=%d\n"
