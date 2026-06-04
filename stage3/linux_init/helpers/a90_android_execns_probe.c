@@ -132,7 +132,13 @@
 #define A90_WIFI_TEST_BOOT_PASSIVE_DIAG_SINK 0
 #endif
 
-#if A90_WIFI_TEST_BOOT_PASSIVE_DIAG_SINK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && !A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
+#ifndef A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE
+#define A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE 0
+#endif
+
+#if A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && !A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
+#define EXECNS_VERSION "a90_android_execns_probe v391"
+#elif A90_WIFI_TEST_BOOT_PASSIVE_DIAG_SINK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && !A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
 #define EXECNS_VERSION "a90_android_execns_probe v390"
 #elif A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && !A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
 #define EXECNS_VERSION "a90_android_execns_probe v389"
@@ -32234,6 +32240,111 @@ static void composite_capture_observable_children(struct composite_child *childr
     }
 }
 
+#if A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE
+static int append_tftp_ready_before_wlfw_vote_wait(struct buffer *stdout_buf,
+                                                   struct composite_child *child) {
+    const long wait_limit_ms = 3000;
+    const long min_settle_ms = 1400;
+    const long poll_interval_ms = 50;
+    long start_ms = monotonic_ms();
+    long elapsed_ms = 0;
+    unsigned int poll_count = 0;
+    bool alive = false;
+    bool ready = false;
+    bool gate_open = false;
+    char state = '?';
+    int socket_fd_count = -1;
+    int fd_count = -1;
+
+    if (append_format(stdout_buf,
+                      "tftp_ready_before_wlfw_vote.begin=1\n"
+                      "tftp_ready_before_wlfw_vote.mode=alive-socket-plus-android-order-settle\n"
+                      "tftp_ready_before_wlfw_vote.wait_limit_ms=%ld\n"
+                      "tftp_ready_before_wlfw_vote.min_settle_ms=%ld\n"
+                      "tftp_ready_before_wlfw_vote.poll_interval_ms=%ld\n"
+                      "tftp_ready_before_wlfw_vote.no_ptrace=1\n"
+                      "tftp_ready_before_wlfw_vote.no_qrtr_send=1\n"
+                      "tftp_ready_before_wlfw_vote.no_qmi_send=1\n"
+                      "tftp_ready_before_wlfw_vote.no_wifi_hal=1\n"
+                      "tftp_ready_before_wlfw_vote.child_pid=%ld\n",
+                      wait_limit_ms,
+                      min_settle_ms,
+                      poll_interval_ms,
+                      (long)child->pid) < 0) {
+        return -1;
+    }
+    while (elapsed_ms <= wait_limit_ms) {
+#if A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK
+        if (a90_tftp_logdw_sink_drain(stdout_buf) < 0) {
+            return -1;
+        }
+#endif
+        alive = child->pid > 0 && kill(child->pid, 0) == 0;
+        state = alive ? read_proc_state(child->pid) : '-';
+        socket_fd_count = alive ? count_proc_fd_target_matches(child->pid, "socket:") : -1;
+        fd_count = alive ? count_proc_fd_target_matches(child->pid, "") : -1;
+        ready = alive && state != 'Z' && socket_fd_count > 0;
+        elapsed_ms = monotonic_ms() - start_ms;
+        gate_open = ready && elapsed_ms >= min_settle_ms;
+        if (gate_open) {
+            break;
+        }
+        poll_count++;
+        usleep((useconds_t)(poll_interval_ms * 1000L));
+        elapsed_ms = monotonic_ms() - start_ms;
+    }
+#if A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK
+    if (a90_tftp_logdw_sink_drain(stdout_buf) < 0) {
+        return -1;
+    }
+#endif
+    if (child->pid > 0 && alive &&
+        append_proc_fd_links_compact(stdout_buf,
+                                     child->pid,
+                                     "tftp_ready_before_wlfw_vote_tftp_server") < 0) {
+        return -1;
+    }
+    return append_format(stdout_buf,
+                         "tftp_ready_before_wlfw_vote.polls=%u\n"
+                         "tftp_ready_before_wlfw_vote.elapsed_ms=%ld\n"
+                         "tftp_ready_before_wlfw_vote.alive=%d\n"
+                         "tftp_ready_before_wlfw_vote.state=%c\n"
+                         "tftp_ready_before_wlfw_vote.fd_count=%d\n"
+                         "tftp_ready_before_wlfw_vote.socket_fd_count=%d\n"
+#if A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK
+                         "tftp_ready_before_wlfw_vote.logdw.datagrams=%u\n"
+                         "tftp_ready_before_wlfw_vote.logdw.tftp_server=%u\n"
+                         "tftp_ready_before_wlfw_vote.logdw.server_check=%u\n"
+                         "tftp_ready_before_wlfw_vote.logdw.ota_firewall=%u\n"
+                         "tftp_ready_before_wlfw_vote.logdw.wlanmdsp=%u\n"
+                         "tftp_ready_before_wlfw_vote.logdw.mcfg_seen=%d\n"
+#endif
+                         "tftp_ready_before_wlfw_vote.ready=%d\n"
+                         "tftp_ready_before_wlfw_vote.gate_open=%d\n"
+                         "tftp_ready_before_wlfw_vote.end=1\n",
+                         poll_count,
+                         elapsed_ms,
+                         alive ? 1 : 0,
+                         state,
+                         fd_count,
+                         socket_fd_count,
+#if A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK
+                         g_tftp_logdw_sink.datagram_count,
+                         g_tftp_logdw_sink.tftp_server_count,
+                         g_tftp_logdw_sink.server_check_count,
+                         g_tftp_logdw_sink.ota_firewall_count,
+                         g_tftp_logdw_sink.wlanmdsp_count,
+#if A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK
+                         g_tftp_logdw_sink.mcfg_seen ? 1 : 0,
+#else
+                         0,
+#endif
+#endif
+                         ready ? 1 : 0,
+                         gate_open ? 1 : 0);
+}
+#endif
+
 static int composite_mark_observable_children_compact(struct composite_child *children,
                                                       size_t child_count,
                                                       struct buffer *stdout_buf,
@@ -43703,6 +43814,15 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
             stop_property_service_shim(&property_shim, paths, stdout_buf);
             return -1;
         }
+#if A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE
+        if (wlan_pd_post_pm_lower_state_observer &&
+            children[i].identity == COMPOSITE_ID_TFTP_SERVER &&
+            append_tftp_ready_before_wlfw_vote_wait(stdout_buf, &children[i]) < 0) {
+            composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+            stop_property_service_shim(&property_shim, paths, stdout_buf);
+            return -1;
+        }
+#endif
         if (android_order_pre_cnss_provider_observer) {
             if (streq(children[i].name, "vndservicemanager")) {
                 bool provider_seen = false;
