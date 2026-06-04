@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v371"
+#define EXECNS_VERSION "a90_android_execns_probe v372"
 
 #ifndef A90_EXECNS_ENABLE_DELAYED_LOWER_RESPONSE_WINDOW
 #define A90_EXECNS_ENABLE_DELAYED_LOWER_RESPONSE_WINDOW 0
@@ -12583,7 +12583,7 @@ struct cnss_nonlog_maps_summary {
 };
 
 #define A90_CNSS_WLFW_UPROBE_TARGET_COUNT 3
-#define A90_CNSS_WLFW_UPROBE_EVENT_COUNT 73
+#define A90_CNSS_WLFW_UPROBE_EVENT_COUNT 94
 #define A90_CNSS_PERIPHERAL_UPROBE_TARGET_COUNT 3
 #define A90_CNSS_PERIPHERAL_UPROBE_EVENT_COUNT 25
 #define A90_PM_SERVICE_UPROBE_TARGET_COUNT 3
@@ -12677,6 +12677,27 @@ static const struct cnss_wlfw_uprobe_event_spec cnss_wlfw_uprobe_events[A90_CNSS
     CNSS_WLFW_UPROBE_EVENT_FETCH("wlfw_bdf_send_error_branch", "wlfw_bdf_send_error_branch", 0xfd28ULL, "send_rc=%x0"),
     CNSS_WLFW_UPROBE_EVENT_FETCH("wlfw_bdf_result_log", "wlfw_bdf_result_log", 0xfd08ULL, "bdf_type=%x3 qmi_result=%x4 qmi_error=%x5"),
     CNSS_WLFW_UPROBE_EVENT_FETCH("wlfw_bdf_return", "wlfw_bdf_return", 0xfcd8ULL, "rc=%x20"),
+    CNSS_WLFW_UPROBE_EVENT("wlfw_cal_report_entry", "wlfw_cal_report_entry", 0xf5a0ULL),
+    CNSS_WLFW_UPROBE_EVENT_FETCH("wlfw_cal_report_send_ret", "wlfw_cal_report_send_ret", 0xf6dcULL, "send_rc=%x0 qmi_result=%x4 qmi_error=%x5"),
+    CNSS_WLFW_UPROBE_EVENT_FETCH("wlfw_cal_report_error_branch", "wlfw_cal_report_error_branch", 0xf6e8ULL, "send_rc=%x0"),
+    CNSS_WLFW_UPROBE_EVENT_FETCH("wlfw_cal_report_success_branch", "wlfw_cal_report_success_branch", 0xf71cULL, "qmi_result=%x4 qmi_error=%x5"),
+    CNSS_WLFW_UPROBE_EVENT_FETCH("wlfw_cal_report_return", "wlfw_cal_report_return", 0xf750ULL, "rc=%x19"),
+    CNSS_WLFW_UPROBE_EVENT("dms_get_wlan_address_entry", "dms_get_wlan_address_entry", 0xe544ULL),
+    CNSS_WLFW_UPROBE_EVENT_FETCH("dms_get_wlan_address_send_ret", "dms_get_wlan_address_send_ret", 0xe5a0ULL, "send_rc=%x0 qmi_result=%x3"),
+    CNSS_WLFW_UPROBE_EVENT("dms_get_wlan_address_valid_mac", "dms_get_wlan_address_valid_mac", 0xe608ULL),
+    CNSS_WLFW_UPROBE_EVENT_FETCH("dms_get_wlan_address_return", "dms_get_wlan_address_return", 0xe670ULL, "rc=%x19"),
+    CNSS_WLFW_UPROBE_EVENT_FETCH("dms_service_request_init_ret", "dms_service_request_init_ret", 0xe92cULL, "rc=%x0"),
+    CNSS_WLFW_UPROBE_EVENT("dms_service_request_cond_wait", "dms_service_request_cond_wait", 0xea10ULL),
+    CNSS_WLFW_UPROBE_EVENT_FETCH("dms_service_request_send_ret", "dms_service_request_send_ret", 0xea94ULL, "send_rc=%x0 qmi_result=%x3 qmi_error=%x4"),
+    CNSS_WLFW_UPROBE_EVENT_FETCH("dms_service_request_success_branch", "dms_service_request_success_branch", 0xeaecULL, "qmi_result=%x3 qmi_error=%x4"),
+    CNSS_WLFW_UPROBE_EVENT_FETCH("wlan_send_status_entry", "wlan_send_status_entry", 0xc9acULL, "is_on=%x0 cookie=%x1"),
+    CNSS_WLFW_UPROBE_EVENT_FETCH("wlan_send_status_send_ret", "wlan_send_status_send_ret", 0xcab0ULL, "send_rc=%x0 qmi_result=%x3"),
+    CNSS_WLFW_UPROBE_EVENT_FETCH("wlan_send_status_return", "wlan_send_status_return", 0xcb00ULL, "rc=%x19"),
+    CNSS_WLFW_UPROBE_EVENT("wlan_send_version_entry", "wlan_send_version_entry", 0xcb2cULL),
+    CNSS_WLFW_UPROBE_EVENT("wlan_send_version_open_success", "wlan_send_version_open_success", 0xcbc4ULL),
+    CNSS_WLFW_UPROBE_EVENT("wlan_send_version_not_found", "wlan_send_version_not_found", 0xcd74ULL),
+    CNSS_WLFW_UPROBE_EVENT_FETCH("wlan_send_version_send_ret", "wlan_send_version_send_ret", 0xccecULL, "send_rc=%x0 qmi_result=%x4"),
+    CNSS_WLFW_UPROBE_EVENT_FETCH("wlan_send_version_return", "wlan_send_version_return", 0xcdecULL, "rc=%x23"),
 };
 
 #undef CNSS_WLFW_UPROBE_EVENT_FETCH
@@ -12756,6 +12777,27 @@ enum cnss_wlfw_uprobe_event_index {
     CNSS_WLFW_UPROBE_WLFW_BDF_SEND_ERROR_BRANCH = 70,
     CNSS_WLFW_UPROBE_WLFW_BDF_RESULT_LOG = 71,
     CNSS_WLFW_UPROBE_WLFW_BDF_RETURN = 72,
+    CNSS_WLFW_UPROBE_WLFW_CAL_REPORT_ENTRY = 73,
+    CNSS_WLFW_UPROBE_WLFW_CAL_REPORT_SEND_RET = 74,
+    CNSS_WLFW_UPROBE_WLFW_CAL_REPORT_ERROR_BRANCH = 75,
+    CNSS_WLFW_UPROBE_WLFW_CAL_REPORT_SUCCESS_BRANCH = 76,
+    CNSS_WLFW_UPROBE_WLFW_CAL_REPORT_RETURN = 77,
+    CNSS_WLFW_UPROBE_DMS_GET_WLAN_ADDRESS_ENTRY = 78,
+    CNSS_WLFW_UPROBE_DMS_GET_WLAN_ADDRESS_SEND_RET = 79,
+    CNSS_WLFW_UPROBE_DMS_GET_WLAN_ADDRESS_VALID_MAC = 80,
+    CNSS_WLFW_UPROBE_DMS_GET_WLAN_ADDRESS_RETURN = 81,
+    CNSS_WLFW_UPROBE_DMS_SERVICE_REQUEST_INIT_RET = 82,
+    CNSS_WLFW_UPROBE_DMS_SERVICE_REQUEST_COND_WAIT = 83,
+    CNSS_WLFW_UPROBE_DMS_SERVICE_REQUEST_SEND_RET = 84,
+    CNSS_WLFW_UPROBE_DMS_SERVICE_REQUEST_SUCCESS_BRANCH = 85,
+    CNSS_WLFW_UPROBE_WLAN_SEND_STATUS_ENTRY = 86,
+    CNSS_WLFW_UPROBE_WLAN_SEND_STATUS_SEND_RET = 87,
+    CNSS_WLFW_UPROBE_WLAN_SEND_STATUS_RETURN = 88,
+    CNSS_WLFW_UPROBE_WLAN_SEND_VERSION_ENTRY = 89,
+    CNSS_WLFW_UPROBE_WLAN_SEND_VERSION_OPEN_SUCCESS = 90,
+    CNSS_WLFW_UPROBE_WLAN_SEND_VERSION_NOT_FOUND = 91,
+    CNSS_WLFW_UPROBE_WLAN_SEND_VERSION_SEND_RET = 92,
+    CNSS_WLFW_UPROBE_WLAN_SEND_VERSION_RETURN = 93,
 };
 
 struct cnss_peripheral_uprobe_event_spec {
