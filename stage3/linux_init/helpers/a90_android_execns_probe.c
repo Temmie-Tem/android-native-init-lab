@@ -148,6 +148,10 @@
 #define A90_WIFI_TEST_BOOT_WLFW_LATE_MSG21_FOCUSED_SUMMARY 0
 #endif
 
+#ifndef A90_WIFI_TEST_BOOT_ICNSS_QCACLD_POST_BDF_FOCUSED_SUMMARY
+#define A90_WIFI_TEST_BOOT_ICNSS_QCACLD_POST_BDF_FOCUSED_SUMMARY 0
+#endif
+
 #ifndef A90_WIFI_TEST_BOOT_DIAG_QUERY_ONLY_PROBE
 #define A90_WIFI_TEST_BOOT_DIAG_QUERY_ONLY_PROBE 0
 #endif
@@ -184,7 +188,9 @@
 #define A90_WIFI_TEST_BOOT_DIAG_REMOTE_DEV_POLL_PROBE 0
 #endif
 
-#if A90_WIFI_TEST_BOOT_WLFW_LATE_MSG21_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && !A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
+#if A90_WIFI_TEST_BOOT_ICNSS_QCACLD_POST_BDF_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_LATE_MSG21_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && !A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
+#define EXECNS_VERSION "a90_android_execns_probe v404"
+#elif A90_WIFI_TEST_BOOT_WLFW_LATE_MSG21_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && !A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
 #define EXECNS_VERSION "a90_android_execns_probe v403"
 #elif A90_WIFI_TEST_BOOT_DIAG_REMOTE_DEV_POLL_PROBE && A90_WIFI_TEST_BOOT_DIAG_WLAN_PD_MEMORY_SESSION_MASK_PROBE && A90_WIFI_TEST_BOOT_DIAG_WLAN_PD_MEMORY_DEVICE_PROBE && A90_WIFI_TEST_BOOT_DIAG_DCI_WLAN_TARGET_MASK_PROBE && A90_WIFI_TEST_BOOT_DIAG_DCI_REGISTER_READ_PROBE && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && !A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
 #define EXECNS_VERSION "a90_android_execns_probe v402"
@@ -15436,6 +15442,158 @@ static int append_wlfw_late_msg21_focused_summary(
 }
 #endif
 
+#if A90_WIFI_TEST_BOOT_ICNSS_QCACLD_POST_BDF_FOCUSED_SUMMARY
+static int append_read_small_status_line(struct buffer *stdout_buf,
+                                         const char *prefix,
+                                         const char *label,
+                                         const char *path) {
+    char value[512];
+    int rc;
+    int err_no = 0;
+
+    rc = read_small_file_trim(path, value, sizeof(value));
+    if (rc < 0) {
+        err_no = errno;
+        snprintf(value, sizeof(value), "missing");
+    }
+    sanitize_one_line(value);
+    return append_format(stdout_buf,
+                         "%s.read.%s.path=%s\n"
+                         "%s.read.%s.ok=%d\n"
+                         "%s.read.%s.errno=%d\n"
+                         "%s.read.%s.value=%s\n",
+                         prefix,
+                         label,
+                         path,
+                         prefix,
+                         label,
+                         rc == 0 ? 1 : 0,
+                         prefix,
+                         label,
+                         err_no,
+                         prefix,
+                         label,
+                         value);
+}
+
+static int append_icnss_qcacld_post_bdf_focused_summary(struct buffer *stdout_buf) {
+    static const char * const prefix = "icnss_qcacld_post_bdf_focused";
+    static const struct {
+        const char *label;
+        const char *path;
+    } paths[] = {
+        { "icnss_soc_device", "/sys/devices/platform/soc/18800000.qcom,icnss" },
+        { "icnss_bus_device", "/sys/bus/platform/devices/18800000.qcom,icnss" },
+        { "icnss_driver", "/sys/bus/platform/drivers/icnss" },
+        { "wlan_module", "/sys/module/wlan" },
+        { "wlan_module_parameters", "/sys/module/wlan/parameters" },
+        { "boot_wlan", "/sys/kernel/boot_wlan" },
+        { "shutdown_wlan", "/sys/kernel/shutdown_wlan" },
+        { "dev_qcwlanstate", "/dev/qcwlanstate" },
+        { "dev_wlan", "/dev/wlan" },
+        { "sys_class_net_wlan0", "/sys/class/net/wlan0" },
+        { "sys_class_ieee80211", "/sys/class/ieee80211" },
+        { "firmware_class_path", "/sys/module/firmware_class/parameters/path" },
+        { "proc_modules", "/proc/modules" },
+    };
+    struct stat st;
+    int wlan_module_loaded = lstat("/sys/module/wlan", &st) == 0 ? 1 : 0;
+    int wlan0_exists = lstat("/sys/class/net/wlan0", &st) == 0 ? 1 : 0;
+    int dev_wlan_exists = lstat("/dev/wlan", &st) == 0 ? 1 : 0;
+    int qcwlanstate_exists = lstat("/dev/qcwlanstate", &st) == 0 ? 1 : 0;
+    int boot_wlan_exists = lstat("/sys/kernel/boot_wlan", &st) == 0 ? 1 : 0;
+    int macloader_count = count_process_cmdline_or_comm_matches("macloader", "macloader");
+    int ks_count = count_process_cmdline_or_comm_matches("/vendor/bin/ks", "ks");
+    int cnss_daemon_count = count_process_cmdline_or_comm_matches("cnss-daemon", "cnss-daemon");
+    int cnss_diag_count = count_process_cmdline_or_comm_matches("cnss_diag", "cnss_diag");
+
+    if (append_format(stdout_buf,
+                      "%s.begin=1\n"
+                      "%s.mode=read-only-post-bdf-icnss-qcacld-surface\n"
+                      "%s.no_boot_wlan_write=1\n"
+                      "%s.no_qcwlanstate_write=1\n"
+                      "%s.no_module_load_unload=1\n"
+                      "%s.no_driver_bind_unbind=1\n"
+                      "%s.no_diag=1\n"
+                      "%s.no_strace=1\n"
+                      "%s.no_qrtr_matrix=1\n"
+                      "%s.no_wifi_hal=1\n"
+                      "%s.scan_connect=0\n"
+                      "%s.credentials=0\n"
+                      "%s.external_ping=0\n"
+                      "%s.wlan_module_loaded=%d\n"
+                      "%s.wlan0_exists=%d\n"
+                      "%s.dev_wlan_exists=%d\n"
+                      "%s.qcwlanstate_exists=%d\n"
+                      "%s.boot_wlan_exists=%d\n"
+                      "%s.macloader_process_count=%d\n"
+                      "%s.ks_process_count=%d\n"
+                      "%s.cnss_daemon_process_count=%d\n"
+                      "%s.cnss_diag_process_count=%d\n",
+                      prefix,
+                      prefix,
+                      prefix,
+                      prefix,
+                      prefix,
+                      prefix,
+                      prefix,
+                      prefix,
+                      prefix,
+                      prefix,
+                      prefix,
+                      prefix,
+                      prefix,
+                      prefix,
+                      wlan_module_loaded,
+                      prefix,
+                      wlan0_exists,
+                      prefix,
+                      dev_wlan_exists,
+                      prefix,
+                      qcwlanstate_exists,
+                      prefix,
+                      boot_wlan_exists,
+                      prefix,
+                      macloader_count,
+                      prefix,
+                      ks_count,
+                      prefix,
+                      cnss_daemon_count,
+                      prefix,
+                      cnss_diag_count) < 0) {
+        return -1;
+    }
+    if (append_wifi_surface_snapshot(stdout_buf, prefix) < 0) {
+        return -1;
+    }
+    for (size_t i = 0; i < sizeof(paths) / sizeof(paths[0]); i++) {
+        if (append_runtime_path_status(stdout_buf,
+                                       prefix,
+                                       "path",
+                                       paths[i].label,
+                                       paths[i].path) < 0) {
+            return -1;
+        }
+    }
+    if (append_read_small_status_line(stdout_buf,
+                                      prefix,
+                                      "icnss_uevent",
+                                      "/sys/devices/platform/soc/18800000.qcom,icnss/uevent") < 0 ||
+        append_read_small_status_line(stdout_buf,
+                                      prefix,
+                                      "firmware_class_path",
+                                      "/sys/module/firmware_class/parameters/path") < 0 ||
+        append_read_small_status_line(stdout_buf,
+                                      prefix,
+                                      "wlan0_operstate",
+                                      "/sys/class/net/wlan0/operstate") < 0 ||
+        append_format(stdout_buf, "%s.end=1\n", prefix) < 0) {
+        return -1;
+    }
+    return 0;
+}
+#endif
+
 static int append_wlan_pd_cnss_nonlog_control_flow_summary(struct buffer *stdout_buf,
                                                            pid_t cnss_daemon_pid,
                                                            bool cnss_daemon_present,
@@ -15472,6 +15630,11 @@ static int append_wlan_pd_cnss_nonlog_control_flow_summary(struct buffer *stdout
 #endif
 #if A90_WIFI_TEST_BOOT_WLFW_LATE_MSG21_FOCUSED_SUMMARY
     if (append_wlfw_late_msg21_focused_summary(stdout_buf, uprobe) < 0) {
+        return -1;
+    }
+#endif
+#if A90_WIFI_TEST_BOOT_ICNSS_QCACLD_POST_BDF_FOCUSED_SUMMARY
+    if (append_icnss_qcacld_post_bdf_focused_summary(stdout_buf) < 0) {
         return -1;
     }
 #endif
