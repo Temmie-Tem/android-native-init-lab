@@ -3,6 +3,13 @@
 
 from __future__ import annotations
 
+import datetime as dt
+import grp
+import json
+import os
+import socket
+import stat
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -30,6 +37,9 @@ TEST_LOG_PATH = "/cache/native-init-wifi-test-boot-v2106.log"
 TEST_SUMMARY_PATH = "/cache/native-init-wifi-test-boot-v2106.summary"
 TEST_HELPER_RESULT_PATH = "/cache/native-init-wifi-test-boot-v2106-helper.result"
 EXPECTED_HELPER_VERSION = "a90_android_execns_probe v413"
+TTY_PATH = Path("/dev/ttyACM0")
+BRIDGE_HOST = "127.0.0.1"
+BRIDGE_PORT = 54321
 
 
 def rel(path: Path) -> str:
@@ -42,6 +52,196 @@ def intish(value: object) -> int:
 
 def markdown_table(headers: list[str], rows: list[list[object]]) -> str:
     return prev2103.markdown_table(headers, rows)
+
+
+def run_host(command: list[str], timeout: float) -> dict[str, Any]:
+    try:
+        proc = subprocess.run(
+            command,
+            cwd=REPO_ROOT,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=timeout,
+            check=False,
+        )
+        return {
+            "command": command,
+            "rc": proc.returncode,
+            "stdout": proc.stdout,
+            "stderr": proc.stderr,
+            "timeout": False,
+        }
+    except subprocess.TimeoutExpired as exc:
+        return {
+            "command": command,
+            "rc": 124,
+            "stdout": exc.stdout or "",
+            "stderr": (exc.stderr or "") + f"\n[timeout after {timeout}s]\n",
+            "timeout": True,
+        }
+
+
+def bridge_listening() -> bool:
+    try:
+        with socket.create_connection((BRIDGE_HOST, BRIDGE_PORT), timeout=1.0):
+            return True
+    except OSError:
+        return False
+
+
+def tty_snapshot() -> dict[str, Any]:
+    data: dict[str, Any] = {
+        "path": str(TTY_PATH),
+        "exists": TTY_PATH.exists(),
+        "user_can_rw": os.access(TTY_PATH, os.R_OK | os.W_OK) if TTY_PATH.exists() else False,
+    }
+    if not TTY_PATH.exists():
+        return data
+
+    st = TTY_PATH.stat()
+    data.update({
+        "mode": stat.filemode(st.st_mode),
+        "mode_octal": f"{stat.S_IMODE(st.st_mode):04o}",
+        "uid": st.st_uid,
+        "gid": st.st_gid,
+        "gid_name": grp.getgrgid(st.st_gid).gr_name,
+    })
+    return data
+
+
+def transport_preflight() -> dict[str, Any]:
+    tty = tty_snapshot()
+    bridge = bridge_listening()
+    sudo = run_host(["sudo", "-n", "true"], timeout=3.0)
+    version: dict[str, Any] | None = None
+    selftest: dict[str, Any] | None = None
+
+    if bridge:
+        version = run_host(
+            [sys.executable, "scripts/revalidation/a90ctl.py", "--timeout", "12", "--hide-on-busy", "version"],
+            timeout=15.0,
+        )
+        selftest = run_host(
+            [sys.executable, "scripts/revalidation/a90ctl.py", "--timeout", "12", "--hide-on-busy", "selftest"],
+            timeout=15.0,
+        )
+
+    version_ok = bool(version and version["rc"] == 0 and "A90P1 END" in version["stdout"])
+    selftest_ok = bool(
+        selftest
+        and selftest["rc"] == 0
+        and "A90P1 END" in selftest["stdout"]
+        and "fail=0" in selftest["stdout"]
+    )
+    can_start_bridge = bool(tty.get("user_can_rw")) or sudo["rc"] == 0
+    ok = bridge and version_ok and selftest_ok
+    if ok:
+        label = "transport-ready"
+        reason = "bridge is listening and framed version/selftest parsed cleanly"
+    elif not bridge and not can_start_bridge:
+        label = "transport-no-bridge-no-tty-permission"
+        reason = "no bridge is listening, current user cannot open /dev/ttyACM0, and passwordless sudo is unavailable"
+    elif not bridge:
+        label = "transport-bridge-not-running"
+        reason = "no bridge is listening; start the patched serial bridge before running V2107"
+    else:
+        label = "transport-bridge-cmdv1-unhealthy"
+        reason = "bridge is listening but framed version/selftest did not parse cleanly"
+
+    return {
+        "ok": ok,
+        "label": label,
+        "reason": reason,
+        "bridge_listening": bridge,
+        "bridge": {"host": BRIDGE_HOST, "port": BRIDGE_PORT},
+        "tty": tty,
+        "sudo_rc": sudo["rc"],
+        "sudo_stderr": sudo["stderr"].strip(),
+        "version": version,
+        "selftest": selftest,
+        "version_ok": version_ok,
+        "selftest_ok": selftest_ok,
+        "can_start_bridge": can_start_bridge,
+    }
+
+
+def write_transport_blocked(preflight: dict[str, Any]) -> None:
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    (OUT_DIR / "host").mkdir(parents=True, exist_ok=True)
+    (OUT_DIR / "host" / "transport-preflight.json").write_text(
+        json.dumps(preflight, indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+    decision = f"v2107-{preflight['label']}-rollback-blocked"
+    manifest = {
+        "created": dt.datetime.now(dt.timezone.utc).isoformat(),
+        "cycle": CYCLE,
+        "out_dir": rel(OUT_DIR),
+        "decision": decision,
+        "label": preflight["label"],
+        "pass": False,
+        "reason": preflight["reason"],
+        "transport_preflight": preflight,
+        "steps": [
+            {
+                "name": "transport-preflight",
+                "ok": False,
+                "rc": 1,
+                "file": rel(OUT_DIR / "host" / "transport-preflight.json"),
+            }
+        ],
+    }
+    (OUT_DIR / "manifest.json").write_text(
+        json.dumps(manifest, indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+    report = "\n".join([
+        "# Native Init V2107 Transport Preflight",
+        "",
+        "## Summary",
+        "",
+        f"- Cycle: `{CYCLE}`",
+        f"- Decision: `{decision}`",
+        f"- Label: `{preflight['label']}`",
+        "- Pass: `False`",
+        f"- Reason: {preflight['reason']}",
+        f"- Evidence: `{rel(OUT_DIR)}`",
+        "",
+        "## Matrix",
+        "",
+        markdown_table(
+            ["area", "value", "detail"],
+            [
+                ["bridge", preflight["bridge_listening"], f"{BRIDGE_HOST}:{BRIDGE_PORT}"],
+                ["tty", preflight["tty"].get("exists"), f"mode={preflight['tty'].get('mode')} gid={preflight['tty'].get('gid_name')} user_can_rw={preflight['tty'].get('user_can_rw')}"],
+                ["sudo", preflight["sudo_rc"] == 0, preflight["sudo_stderr"]],
+                ["version", preflight["version_ok"], "" if preflight["version"] is None else f"rc={preflight['version']['rc']}"],
+                ["selftest", preflight["selftest_ok"], "" if preflight["selftest"] is None else f"rc={preflight['selftest']['rc']}"],
+            ],
+        ),
+        "",
+        "## Interpretation",
+        "",
+        "- V2107 did not enter the flash/test-boot path because command transport was not healthy enough to execute a rollbackable producer-window run.",
+        "- This is not WLAN evidence and must not be classified as a producer-side result.",
+        "",
+        "## Validation",
+        "",
+        "- `python3 -m py_compile scripts/revalidation/native_wifi_tftp_persist_parent_traverse_handoff_v2107.py`",
+        "- `git diff --check`",
+        "",
+        "## Safety",
+        "",
+        "- No flash, reboot, test boot, rollback, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, DIAG, AP QMI send, `tftp_server` ptrace, `/dev/subsys_esoc0`, eSoC notify/BOOT_DONE, PCI rescan, bind/unbind, PMIC/GPIO/GDSC/regulator write, or firmware/partition write was used.",
+        "",
+        "## Next",
+        "",
+        "- Start the patched V2110 serial bridge with an account that can open `/dev/ttyACM0`, then rerun V2107.",
+        "",
+    ])
+    (OUT_DIR / "summary.md").write_text(report, encoding="utf-8")
+    REPORT_PATH.write_text(report, encoding="utf-8")
 
 
 def artifact_hook_check() -> dict[str, Any]:
@@ -314,6 +514,13 @@ def configure_prev2081() -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
+    args = list(argv or [])
+    if "--reparse-existing" not in args:
+        preflight = transport_preflight()
+        if not preflight["ok"]:
+            write_transport_blocked(preflight)
+            print(f"BLOCKED label={preflight['label']} out_dir={rel(OUT_DIR)}")
+            return 1
     configure_prev2081()
     return prev2103.prev2101.prev2098.prev2096.prev2083.prev2081.prev2059.main(argv)
 
