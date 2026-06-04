@@ -104,7 +104,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v380"
+#define EXECNS_VERSION "a90_android_execns_probe v381"
 
 #ifndef A90_EXECNS_ENABLE_DELAYED_LOWER_RESPONSE_WINDOW
 #define A90_EXECNS_ENABLE_DELAYED_LOWER_RESPONSE_WINDOW 0
@@ -416,6 +416,7 @@ struct paths {
     char vendor_rfs_msm_mpss_readwrite[MAX_PATH_LEN];
     char vendor_rfs_mpss_server_check[MAX_PATH_LEN];
     char vendor_rfs_mpss_wlanmdsp[MAX_PATH_LEN];
+    char vendor_rfs_mpss_wlanmdsp_fallback[MAX_PATH_LEN];
     char rfs_bridge_source[MAX_PATH_LEN];
     char rfs_bridge_source_msm[MAX_PATH_LEN];
     char rfs_bridge_source_msm_mpss[MAX_PATH_LEN];
@@ -425,12 +426,16 @@ struct paths {
     char rfs_bridge_source_msm_mpss_readonly_vendor_firmware_mnt[MAX_PATH_LEN];
     char rfs_bridge_source_msm_mpss_readonly_vendor_firmware_mnt_image[MAX_PATH_LEN];
     char rfs_bridge_source_msm_mpss_readonly_vendor_firmware_mnt_image_wlanmdsp[MAX_PATH_LEN];
+    char rfs_bridge_source_msm_mpss_readonly_vendor_firmware[MAX_PATH_LEN];
+    char rfs_bridge_source_msm_mpss_readonly_vendor_firmware_wlanmdsp[MAX_PATH_LEN];
     char rfs_bridge_source_readonly[MAX_PATH_LEN];
     char rfs_bridge_source_readwrite[MAX_PATH_LEN];
     char rfs_bridge_source_readonly_vendor[MAX_PATH_LEN];
     char rfs_bridge_source_readonly_vendor_firmware_mnt[MAX_PATH_LEN];
     char rfs_bridge_source_readonly_vendor_firmware_mnt_image[MAX_PATH_LEN];
     char rfs_bridge_source_readonly_vendor_firmware_mnt_image_wlanmdsp[MAX_PATH_LEN];
+    char rfs_bridge_source_readonly_vendor_firmware[MAX_PATH_LEN];
+    char rfs_bridge_source_readonly_vendor_firmware_wlanmdsp[MAX_PATH_LEN];
     char firmware_mnt_source[MAX_PATH_LEN];
     char firmware_modem_source[MAX_PATH_LEN];
     char dev[MAX_PATH_LEN];
@@ -3596,6 +3601,10 @@ static int init_paths(struct paths *paths) {
                     sizeof(paths->vendor_rfs_mpss_wlanmdsp),
                     paths->vendor_rfs_msm_mpss_readonly,
                     "vendor/firmware_mnt/image/wlanmdsp.mbn") < 0 ||
+        append_path(paths->vendor_rfs_mpss_wlanmdsp_fallback,
+                    sizeof(paths->vendor_rfs_mpss_wlanmdsp_fallback),
+                    paths->vendor_rfs_msm_mpss_readonly,
+                    "vendor/firmware/wlanmdsp.mbn") < 0 ||
         append_path(paths->rfs_bridge_source,
                     sizeof(paths->rfs_bridge_source),
                     paths->base,
@@ -3632,6 +3641,14 @@ static int init_paths(struct paths *paths) {
                     sizeof(paths->rfs_bridge_source_msm_mpss_readonly_vendor_firmware_mnt_image_wlanmdsp),
                     paths->rfs_bridge_source_msm_mpss_readonly_vendor_firmware_mnt_image,
                     "wlanmdsp.mbn") < 0 ||
+        append_path(paths->rfs_bridge_source_msm_mpss_readonly_vendor_firmware,
+                    sizeof(paths->rfs_bridge_source_msm_mpss_readonly_vendor_firmware),
+                    paths->rfs_bridge_source_msm_mpss_readonly_vendor,
+                    "firmware") < 0 ||
+        append_path(paths->rfs_bridge_source_msm_mpss_readonly_vendor_firmware_wlanmdsp,
+                    sizeof(paths->rfs_bridge_source_msm_mpss_readonly_vendor_firmware_wlanmdsp),
+                    paths->rfs_bridge_source_msm_mpss_readonly_vendor_firmware,
+                    "wlanmdsp.mbn") < 0 ||
         append_path(paths->rfs_bridge_source_readonly,
                     sizeof(paths->rfs_bridge_source_readonly),
                     paths->base,
@@ -3655,6 +3672,14 @@ static int init_paths(struct paths *paths) {
         append_path(paths->rfs_bridge_source_readonly_vendor_firmware_mnt_image_wlanmdsp,
                     sizeof(paths->rfs_bridge_source_readonly_vendor_firmware_mnt_image_wlanmdsp),
                     paths->rfs_bridge_source_readonly_vendor_firmware_mnt_image,
+                    "wlanmdsp.mbn") < 0 ||
+        append_path(paths->rfs_bridge_source_readonly_vendor_firmware,
+                    sizeof(paths->rfs_bridge_source_readonly_vendor_firmware),
+                    paths->rfs_bridge_source_readonly_vendor,
+                    "firmware") < 0 ||
+        append_path(paths->rfs_bridge_source_readonly_vendor_firmware_wlanmdsp,
+                    sizeof(paths->rfs_bridge_source_readonly_vendor_firmware_wlanmdsp),
+                    paths->rfs_bridge_source_readonly_vendor_firmware,
                     "wlanmdsp.mbn") < 0 ||
         append_path(paths->firmware_mnt_source,
                     sizeof(paths->firmware_mnt_source),
@@ -4741,11 +4766,15 @@ static void cleanup_paths(const struct paths *paths) {
     rmdir(paths->vendor);
     rmdir(paths->system);
     rmdir(paths->root);
+    unlink(paths->rfs_bridge_source_readonly_vendor_firmware_wlanmdsp);
+    rmdir(paths->rfs_bridge_source_readonly_vendor_firmware);
     unlink(paths->rfs_bridge_source_readonly_vendor_firmware_mnt_image_wlanmdsp);
     rmdir(paths->rfs_bridge_source_readonly_vendor_firmware_mnt_image);
     rmdir(paths->rfs_bridge_source_readonly_vendor_firmware_mnt);
     rmdir(paths->rfs_bridge_source_readonly_vendor);
     rmdir(paths->rfs_bridge_source_readonly);
+    unlink(paths->rfs_bridge_source_msm_mpss_readonly_vendor_firmware_wlanmdsp);
+    rmdir(paths->rfs_bridge_source_msm_mpss_readonly_vendor_firmware);
     unlink(paths->rfs_bridge_source_msm_mpss_readonly_vendor_firmware_mnt_image_wlanmdsp);
     rmdir(paths->rfs_bridge_source_msm_mpss_readonly_vendor_firmware_mnt_image);
     rmdir(paths->rfs_bridge_source_msm_mpss_readonly_vendor_firmware_mnt);
@@ -9921,20 +9950,30 @@ static bool existing_dir(const char *path) {
     return stat(path, &st) == 0 && S_ISDIR(st.st_mode);
 }
 
-static int populate_rfs_readonly_wlanmdsp_bridge(const char *image_dir,
-                                                 const char *wlanmdsp_link,
+static int populate_rfs_readonly_wlanmdsp_bridge(const char *firmware_mnt_image_dir,
+                                                 const char *firmware_mnt_wlanmdsp_link,
+                                                 const char *firmware_dir,
+                                                 const char *firmware_wlanmdsp_link,
                                                  char *error_buf,
                                                  size_t error_size,
                                                  const char *label) {
-    if (mkdir_p(image_dir, 0755) < 0) {
-        snprintf(error_buf, error_size, "mkdir rfs wlanmdsp bridge %s: %s", label, strerror(errno));
+    if (mkdir_p(firmware_mnt_image_dir, 0755) < 0) {
+        snprintf(error_buf, error_size, "mkdir rfs wlanmdsp probe bridge %s: %s", label, strerror(errno));
         return -1;
     }
-    if (unlink(wlanmdsp_link) < 0 && errno != ENOENT) {
-        snprintf(error_buf, error_size, "unlink rfs wlanmdsp bridge %s: %s", label, strerror(errno));
+    if (unlink(firmware_mnt_wlanmdsp_link) < 0 && errno != ENOENT) {
+        snprintf(error_buf, error_size, "unlink rfs wlanmdsp probe bridge %s: %s", label, strerror(errno));
         return -1;
     }
-    if (symlink("../../../../../../../firmware/wlanmdsp.mbn", wlanmdsp_link) < 0) {
+    if (mkdir_p(firmware_dir, 0755) < 0) {
+        snprintf(error_buf, error_size, "mkdir rfs wlanmdsp fallback bridge %s: %s", label, strerror(errno));
+        return -1;
+    }
+    if (unlink(firmware_wlanmdsp_link) < 0 && errno != ENOENT) {
+        snprintf(error_buf, error_size, "unlink rfs wlanmdsp fallback bridge %s: %s", label, strerror(errno));
+        return -1;
+    }
+    if (symlink("../../../../../../firmware/wlanmdsp.mbn", firmware_wlanmdsp_link) < 0) {
         snprintf(error_buf, error_size, "symlink rfs wlanmdsp bridge %s: %s", label, strerror(errno));
         return -1;
     }
@@ -9968,6 +10007,8 @@ static int materialize_wifi_firmware_rfs_bridge(const struct paths *paths,
         if (populate_rfs_readonly_wlanmdsp_bridge(
                 paths->rfs_bridge_source_readonly_vendor_firmware_mnt_image,
                 paths->rfs_bridge_source_readonly_vendor_firmware_mnt_image_wlanmdsp,
+                paths->rfs_bridge_source_readonly_vendor_firmware,
+                paths->rfs_bridge_source_readonly_vendor_firmware_wlanmdsp,
                 error_buf,
                 error_size,
                 "readonly") < 0) {
@@ -9989,6 +10030,8 @@ static int materialize_wifi_firmware_rfs_bridge(const struct paths *paths,
         if (populate_rfs_readonly_wlanmdsp_bridge(
                 paths->rfs_bridge_source_msm_mpss_readonly_vendor_firmware_mnt_image,
                 paths->rfs_bridge_source_msm_mpss_readonly_vendor_firmware_mnt_image_wlanmdsp,
+                paths->rfs_bridge_source_msm_mpss_readonly_vendor_firmware,
+                paths->rfs_bridge_source_msm_mpss_readonly_vendor_firmware_wlanmdsp,
                 error_buf,
                 error_size,
                 "mpss") < 0) {
@@ -10010,6 +10053,8 @@ static int materialize_wifi_firmware_rfs_bridge(const struct paths *paths,
         if (populate_rfs_readonly_wlanmdsp_bridge(
                 paths->rfs_bridge_source_msm_mpss_readonly_vendor_firmware_mnt_image,
                 paths->rfs_bridge_source_msm_mpss_readonly_vendor_firmware_mnt_image_wlanmdsp,
+                paths->rfs_bridge_source_msm_mpss_readonly_vendor_firmware,
+                paths->rfs_bridge_source_msm_mpss_readonly_vendor_firmware_wlanmdsp,
                 error_buf,
                 error_size,
                 "rfs") < 0) {
@@ -10042,6 +10087,7 @@ static int append_wlan_pd_rfs_bridge_snapshot(struct buffer *buf,
     char vendor_path[MAX_PATH_LEN];
     char vendor_readlink_buf[MAX_PATH_LEN];
     struct stat exact_st;
+    struct stat fallback_st;
     struct stat asset_st;
     struct stat readonly_st;
     struct stat readwrite_st;
@@ -10050,16 +10096,22 @@ static int append_wlan_pd_rfs_bridge_snapshot(struct buffer *buf,
     ssize_t nreadlink;
     ssize_t vendor_nreadlink;
     int saved_errno = 0;
+    int fallback_errno = 0;
     int readonly_errno = 0;
     int readwrite_errno = 0;
     int server_check_errno = 0;
     int vendor_errno = 0;
     int open_rc;
     int open_errno = 0;
+    int fallback_open_rc;
+    int fallback_open_errno = 0;
     int fd;
     bool exact_exists = false;
     bool exact_is_reg = false;
     bool exact_nonzero = false;
+    bool fallback_exists = false;
+    bool fallback_is_reg = false;
+    bool fallback_nonzero = false;
     bool readonly_exists = false;
     bool readonly_is_dir = false;
     bool readonly_is_symlink = false;
@@ -10146,6 +10198,22 @@ static int append_wlan_pd_rfs_bridge_snapshot(struct buffer *buf,
         open_rc = -1;
         open_errno = errno;
     }
+    if (stat(paths->vendor_rfs_mpss_wlanmdsp_fallback, &fallback_st) == 0) {
+        fallback_exists = true;
+        fallback_is_reg = S_ISREG(fallback_st.st_mode);
+        fallback_nonzero = fallback_is_reg && fallback_st.st_size > 0;
+    } else {
+        fallback_errno = errno;
+        memset(&fallback_st, 0, sizeof(fallback_st));
+    }
+    fd = open(paths->vendor_rfs_mpss_wlanmdsp_fallback, O_RDONLY | O_CLOEXEC);
+    if (fd >= 0) {
+        fallback_open_rc = 0;
+        close(fd);
+    } else {
+        fallback_open_rc = -1;
+        fallback_open_errno = errno;
+    }
     if (stat(paths->vendor_firmware_wlanmdsp, &asset_st) == 0) {
         vendor_asset_exists = true;
         vendor_asset_is_reg = S_ISREG(asset_st.st_mode);
@@ -10186,7 +10254,30 @@ static int append_wlan_pd_rfs_bridge_snapshot(struct buffer *buf,
                          "%s.readonly_vendor.is_symlink=%d\n"
                          "%s.readonly_vendor.errno=%d\n"
                          "%s.readonly_vendor.readlink=%s\n"
-                         "%s.chroot_equivalent=readonly/vendor/firmware_mnt/image/wlanmdsp.mbn -> /vendor/firmware/wlanmdsp.mbn\n"
+                         "%s.android_parity=firmware_mnt_probe_absent_firmware_fallback_present\n"
+                         "%s.probe.absolute=/vendor/rfs/msm/mpss/readonly/vendor/firmware_mnt/image/wlanmdsp.mbn\n"
+                         "%s.probe.host_path=%s\n"
+                         "%s.probe.exists=%d\n"
+                         "%s.probe.is_reg=%d\n"
+                         "%s.probe.size=%lld\n"
+                         "%s.probe.nonzero=%d\n"
+                         "%s.probe.stat_errno=%d\n"
+                         "%s.probe.stat_error=%s\n"
+                         "%s.probe.open_rc=%d\n"
+                         "%s.probe.open_errno=%d\n"
+                         "%s.probe.open_error=%s\n"
+                         "%s.fallback.absolute=/vendor/rfs/msm/mpss/readonly/vendor/firmware/wlanmdsp.mbn\n"
+                         "%s.fallback.host_path=%s\n"
+                         "%s.fallback.exists=%d\n"
+                         "%s.fallback.is_reg=%d\n"
+                         "%s.fallback.size=%lld\n"
+                         "%s.fallback.nonzero=%d\n"
+                         "%s.fallback.stat_errno=%d\n"
+                         "%s.fallback.stat_error=%s\n"
+                         "%s.fallback.open_rc=%d\n"
+                         "%s.fallback.open_errno=%d\n"
+                         "%s.fallback.open_error=%s\n"
+                         "%s.chroot_equivalent=readonly/vendor/firmware/wlanmdsp.mbn -> /vendor/firmware/wlanmdsp.mbn\n"
                          "%s.exact.absolute=/vendor/rfs/msm/mpss/readonly/vendor/firmware_mnt/image/wlanmdsp.mbn\n"
                          "%s.exact.host_path=%s\n"
                          "%s.exact.exists=%d\n"
@@ -10235,6 +10326,29 @@ static int append_wlan_pd_rfs_bridge_snapshot(struct buffer *buf,
                          prefix, vendor_is_symlink ? 1 : 0,
                          prefix, vendor_errno,
                          prefix, vendor_readlink_buf,
+                         prefix,
+                         prefix,
+                         prefix, paths->vendor_rfs_mpss_wlanmdsp,
+                         prefix, exact_exists ? 1 : 0,
+                         prefix, exact_is_reg ? 1 : 0,
+                         prefix, exact_exists ? (long long)exact_st.st_size : 0LL,
+                         prefix, exact_nonzero ? 1 : 0,
+                         prefix, saved_errno,
+                         prefix, saved_errno != 0 ? strerror(saved_errno) : "none",
+                         prefix, open_rc,
+                         prefix, open_errno,
+                         prefix, open_errno != 0 ? strerror(open_errno) : "none",
+                         prefix,
+                         prefix, paths->vendor_rfs_mpss_wlanmdsp_fallback,
+                         prefix, fallback_exists ? 1 : 0,
+                         prefix, fallback_is_reg ? 1 : 0,
+                         prefix, fallback_exists ? (long long)fallback_st.st_size : 0LL,
+                         prefix, fallback_nonzero ? 1 : 0,
+                         prefix, fallback_errno,
+                         prefix, fallback_errno != 0 ? strerror(fallback_errno) : "none",
+                         prefix, fallback_open_rc,
+                         prefix, fallback_open_errno,
+                         prefix, fallback_open_errno != 0 ? strerror(fallback_open_errno) : "none",
                          prefix,
                          prefix,
                          prefix, paths->vendor_rfs_mpss_wlanmdsp,
