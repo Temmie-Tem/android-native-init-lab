@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v363"
+#define EXECNS_VERSION "a90_android_execns_probe v365"
 
 #ifndef A90_EXECNS_ENABLE_DELAYED_LOWER_RESPONSE_WINDOW
 #define A90_EXECNS_ENABLE_DELAYED_LOWER_RESPONSE_WINDOW 0
@@ -378,8 +378,28 @@ struct paths {
     char system[MAX_PATH_LEN];
     char vendor[MAX_PATH_LEN];
     char vendor_source[MAX_PATH_LEN];
+    char vendor_firmware[MAX_PATH_LEN];
+    char vendor_firmware_wlanmdsp[MAX_PATH_LEN];
     char vendor_firmware_mnt[MAX_PATH_LEN];
     char vendor_firmware_modem[MAX_PATH_LEN];
+    char vendor_rfs[MAX_PATH_LEN];
+    char vendor_rfs_msm[MAX_PATH_LEN];
+    char vendor_rfs_msm_mpss[MAX_PATH_LEN];
+    char vendor_rfs_msm_mpss_readonly[MAX_PATH_LEN];
+    char vendor_rfs_mpss_wlanmdsp[MAX_PATH_LEN];
+    char rfs_bridge_source[MAX_PATH_LEN];
+    char rfs_bridge_source_msm[MAX_PATH_LEN];
+    char rfs_bridge_source_msm_mpss[MAX_PATH_LEN];
+    char rfs_bridge_source_msm_mpss_readonly[MAX_PATH_LEN];
+    char rfs_bridge_source_msm_mpss_readonly_vendor[MAX_PATH_LEN];
+    char rfs_bridge_source_msm_mpss_readonly_vendor_firmware_mnt[MAX_PATH_LEN];
+    char rfs_bridge_source_msm_mpss_readonly_vendor_firmware_mnt_image[MAX_PATH_LEN];
+    char rfs_bridge_source_msm_mpss_readonly_vendor_firmware_mnt_image_wlanmdsp[MAX_PATH_LEN];
+    char rfs_bridge_source_readonly[MAX_PATH_LEN];
+    char rfs_bridge_source_readonly_vendor[MAX_PATH_LEN];
+    char rfs_bridge_source_readonly_vendor_firmware_mnt[MAX_PATH_LEN];
+    char rfs_bridge_source_readonly_vendor_firmware_mnt_image[MAX_PATH_LEN];
+    char rfs_bridge_source_readonly_vendor_firmware_mnt_image_wlanmdsp[MAX_PATH_LEN];
     char firmware_mnt_source[MAX_PATH_LEN];
     char firmware_modem_source[MAX_PATH_LEN];
     char dev[MAX_PATH_LEN];
@@ -3501,6 +3521,14 @@ static int init_paths(struct paths *paths) {
         append_path(paths->system, sizeof(paths->system), paths->root, "system") < 0 ||
         append_path(paths->vendor, sizeof(paths->vendor), paths->root, "vendor") < 0 ||
         append_path(paths->vendor_source, sizeof(paths->vendor_source), paths->base, "vendor-block-sda29") < 0 ||
+        append_path(paths->vendor_firmware,
+                    sizeof(paths->vendor_firmware),
+                    paths->vendor,
+                    "firmware") < 0 ||
+        append_path(paths->vendor_firmware_wlanmdsp,
+                    sizeof(paths->vendor_firmware_wlanmdsp),
+                    paths->vendor_firmware,
+                    "wlanmdsp.mbn") < 0 ||
         append_path(paths->vendor_firmware_mnt,
                     sizeof(paths->vendor_firmware_mnt),
                     paths->vendor,
@@ -3509,6 +3537,78 @@ static int init_paths(struct paths *paths) {
                     sizeof(paths->vendor_firmware_modem),
                     paths->vendor,
                     "firmware-modem") < 0 ||
+        append_path(paths->vendor_rfs,
+                    sizeof(paths->vendor_rfs),
+                    paths->vendor,
+                    "rfs") < 0 ||
+        append_path(paths->vendor_rfs_msm,
+                    sizeof(paths->vendor_rfs_msm),
+                    paths->vendor_rfs,
+                    "msm") < 0 ||
+        append_path(paths->vendor_rfs_msm_mpss,
+                    sizeof(paths->vendor_rfs_msm_mpss),
+                    paths->vendor_rfs_msm,
+                    "mpss") < 0 ||
+        append_path(paths->vendor_rfs_msm_mpss_readonly,
+                    sizeof(paths->vendor_rfs_msm_mpss_readonly),
+                    paths->vendor_rfs_msm_mpss,
+                    "readonly") < 0 ||
+        append_path(paths->vendor_rfs_mpss_wlanmdsp,
+                    sizeof(paths->vendor_rfs_mpss_wlanmdsp),
+                    paths->vendor_rfs_msm_mpss_readonly,
+                    "vendor/firmware_mnt/image/wlanmdsp.mbn") < 0 ||
+        append_path(paths->rfs_bridge_source,
+                    sizeof(paths->rfs_bridge_source),
+                    paths->base,
+                    "rfs-bridge") < 0 ||
+        append_path(paths->rfs_bridge_source_msm,
+                    sizeof(paths->rfs_bridge_source_msm),
+                    paths->rfs_bridge_source,
+                    "msm") < 0 ||
+        append_path(paths->rfs_bridge_source_msm_mpss,
+                    sizeof(paths->rfs_bridge_source_msm_mpss),
+                    paths->rfs_bridge_source_msm,
+                    "mpss") < 0 ||
+        append_path(paths->rfs_bridge_source_msm_mpss_readonly,
+                    sizeof(paths->rfs_bridge_source_msm_mpss_readonly),
+                    paths->rfs_bridge_source_msm_mpss,
+                    "readonly") < 0 ||
+        append_path(paths->rfs_bridge_source_msm_mpss_readonly_vendor,
+                    sizeof(paths->rfs_bridge_source_msm_mpss_readonly_vendor),
+                    paths->rfs_bridge_source_msm_mpss_readonly,
+                    "vendor") < 0 ||
+        append_path(paths->rfs_bridge_source_msm_mpss_readonly_vendor_firmware_mnt,
+                    sizeof(paths->rfs_bridge_source_msm_mpss_readonly_vendor_firmware_mnt),
+                    paths->rfs_bridge_source_msm_mpss_readonly_vendor,
+                    "firmware_mnt") < 0 ||
+        append_path(paths->rfs_bridge_source_msm_mpss_readonly_vendor_firmware_mnt_image,
+                    sizeof(paths->rfs_bridge_source_msm_mpss_readonly_vendor_firmware_mnt_image),
+                    paths->rfs_bridge_source_msm_mpss_readonly_vendor_firmware_mnt,
+                    "image") < 0 ||
+        append_path(paths->rfs_bridge_source_msm_mpss_readonly_vendor_firmware_mnt_image_wlanmdsp,
+                    sizeof(paths->rfs_bridge_source_msm_mpss_readonly_vendor_firmware_mnt_image_wlanmdsp),
+                    paths->rfs_bridge_source_msm_mpss_readonly_vendor_firmware_mnt_image,
+                    "wlanmdsp.mbn") < 0 ||
+        append_path(paths->rfs_bridge_source_readonly,
+                    sizeof(paths->rfs_bridge_source_readonly),
+                    paths->base,
+                    "rfs-readonly-bridge") < 0 ||
+        append_path(paths->rfs_bridge_source_readonly_vendor,
+                    sizeof(paths->rfs_bridge_source_readonly_vendor),
+                    paths->rfs_bridge_source_readonly,
+                    "vendor") < 0 ||
+        append_path(paths->rfs_bridge_source_readonly_vendor_firmware_mnt,
+                    sizeof(paths->rfs_bridge_source_readonly_vendor_firmware_mnt),
+                    paths->rfs_bridge_source_readonly_vendor,
+                    "firmware_mnt") < 0 ||
+        append_path(paths->rfs_bridge_source_readonly_vendor_firmware_mnt_image,
+                    sizeof(paths->rfs_bridge_source_readonly_vendor_firmware_mnt_image),
+                    paths->rfs_bridge_source_readonly_vendor_firmware_mnt,
+                    "image") < 0 ||
+        append_path(paths->rfs_bridge_source_readonly_vendor_firmware_mnt_image_wlanmdsp,
+                    sizeof(paths->rfs_bridge_source_readonly_vendor_firmware_mnt_image_wlanmdsp),
+                    paths->rfs_bridge_source_readonly_vendor_firmware_mnt_image,
+                    "wlanmdsp.mbn") < 0 ||
         append_path(paths->firmware_mnt_source,
                     sizeof(paths->firmware_mnt_source),
                     paths->base,
@@ -4403,6 +4503,9 @@ static void cleanup_paths(const struct paths *paths) {
         }
     }
     umount2(paths->proc, MNT_DETACH);
+    umount2(paths->vendor_rfs_msm_mpss_readonly, MNT_DETACH);
+    umount2(paths->vendor_rfs_msm_mpss, MNT_DETACH);
+    umount2(paths->vendor_rfs, MNT_DETACH);
     umount2(paths->vendor_firmware_modem, MNT_DETACH);
     umount2(paths->vendor_firmware_mnt, MNT_DETACH);
     umount2(paths->vendor, MNT_DETACH);
@@ -4588,6 +4691,19 @@ static void cleanup_paths(const struct paths *paths) {
     rmdir(paths->vendor);
     rmdir(paths->system);
     rmdir(paths->root);
+    unlink(paths->rfs_bridge_source_readonly_vendor_firmware_mnt_image_wlanmdsp);
+    rmdir(paths->rfs_bridge_source_readonly_vendor_firmware_mnt_image);
+    rmdir(paths->rfs_bridge_source_readonly_vendor_firmware_mnt);
+    rmdir(paths->rfs_bridge_source_readonly_vendor);
+    rmdir(paths->rfs_bridge_source_readonly);
+    unlink(paths->rfs_bridge_source_msm_mpss_readonly_vendor_firmware_mnt_image_wlanmdsp);
+    rmdir(paths->rfs_bridge_source_msm_mpss_readonly_vendor_firmware_mnt_image);
+    rmdir(paths->rfs_bridge_source_msm_mpss_readonly_vendor_firmware_mnt);
+    rmdir(paths->rfs_bridge_source_msm_mpss_readonly_vendor);
+    rmdir(paths->rfs_bridge_source_msm_mpss_readonly);
+    rmdir(paths->rfs_bridge_source_msm_mpss);
+    rmdir(paths->rfs_bridge_source_msm);
+    rmdir(paths->rfs_bridge_source);
     unlink(paths->firmware_modem_source);
     unlink(paths->firmware_mnt_source);
     unlink(paths->vendor_source);
@@ -9700,6 +9816,10 @@ static int mount_one_wifi_firmware_partition(const char *partname,
     return 0;
 }
 
+static int materialize_wifi_firmware_rfs_bridge(const struct paths *paths,
+                                                char *error_buf,
+                                                size_t error_size);
+
 static int materialize_wifi_firmware_mounts(const struct config *cfg,
                                             const struct paths *paths,
                                             char *error_buf,
@@ -9727,7 +9847,265 @@ static int materialize_wifi_firmware_mounts(const struct config *cfg,
                                           error_size) < 0) {
         return -1;
     }
+    if (materialize_wifi_firmware_rfs_bridge(paths, error_buf, error_size) < 0) {
+        return -1;
+    }
     return 0;
+}
+
+static int bind_rfs_bridge_source(const char *source,
+                                  const char *target,
+                                  char *error_buf,
+                                  size_t error_size,
+                                  const char *label) {
+    if (mount(source, target, NULL, MS_BIND | MS_REC, NULL) < 0) {
+        snprintf(error_buf, error_size, "bind rfs bridge %s: %s", label, strerror(errno));
+        return -1;
+    }
+    return 0;
+}
+
+static bool existing_dir(const char *path) {
+    struct stat st;
+
+    return stat(path, &st) == 0 && S_ISDIR(st.st_mode);
+}
+
+static int populate_rfs_readonly_wlanmdsp_bridge(const char *image_dir,
+                                                 const char *wlanmdsp_link,
+                                                 char *error_buf,
+                                                 size_t error_size,
+                                                 const char *label) {
+    if (mkdir_p(image_dir, 0755) < 0) {
+        snprintf(error_buf, error_size, "mkdir rfs wlanmdsp bridge %s: %s", label, strerror(errno));
+        return -1;
+    }
+    if (unlink(wlanmdsp_link) < 0 && errno != ENOENT) {
+        snprintf(error_buf, error_size, "unlink rfs wlanmdsp bridge %s: %s", label, strerror(errno));
+        return -1;
+    }
+    if (symlink("../../../../../../../firmware/wlanmdsp.mbn", wlanmdsp_link) < 0) {
+        snprintf(error_buf, error_size, "symlink rfs wlanmdsp bridge %s: %s", label, strerror(errno));
+        return -1;
+    }
+    return 0;
+}
+
+static int materialize_wifi_firmware_rfs_bridge(const struct paths *paths,
+                                                char *error_buf,
+                                                size_t error_size) {
+    if (existing_dir(paths->vendor_rfs_msm_mpss_readonly)) {
+        if (populate_rfs_readonly_wlanmdsp_bridge(
+                paths->rfs_bridge_source_readonly_vendor_firmware_mnt_image,
+                paths->rfs_bridge_source_readonly_vendor_firmware_mnt_image_wlanmdsp,
+                error_buf,
+                error_size,
+                "readonly") < 0) {
+            return -1;
+        }
+        return bind_rfs_bridge_source(paths->rfs_bridge_source_readonly,
+                                      paths->vendor_rfs_msm_mpss_readonly,
+                                      error_buf,
+                                      error_size,
+                                      "readonly");
+    }
+    if (existing_dir(paths->vendor_rfs_msm_mpss)) {
+        if (populate_rfs_readonly_wlanmdsp_bridge(
+                paths->rfs_bridge_source_msm_mpss_readonly_vendor_firmware_mnt_image,
+                paths->rfs_bridge_source_msm_mpss_readonly_vendor_firmware_mnt_image_wlanmdsp,
+                error_buf,
+                error_size,
+                "mpss") < 0) {
+            return -1;
+        }
+        return bind_rfs_bridge_source(paths->rfs_bridge_source_msm_mpss,
+                                      paths->vendor_rfs_msm_mpss,
+                                      error_buf,
+                                      error_size,
+                                      "mpss");
+    }
+    if (existing_dir(paths->vendor_rfs)) {
+        if (populate_rfs_readonly_wlanmdsp_bridge(
+                paths->rfs_bridge_source_msm_mpss_readonly_vendor_firmware_mnt_image,
+                paths->rfs_bridge_source_msm_mpss_readonly_vendor_firmware_mnt_image_wlanmdsp,
+                error_buf,
+                error_size,
+                "rfs") < 0) {
+            return -1;
+        }
+        return bind_rfs_bridge_source(paths->rfs_bridge_source,
+                                      paths->vendor_rfs,
+                                      error_buf,
+                                      error_size,
+                                      "rfs");
+    }
+    snprintf(error_buf,
+             error_size,
+             "rfs bridge target missing: %s",
+             paths->vendor_rfs);
+    errno = ENOENT;
+    return -1;
+}
+
+static int append_wlan_pd_rfs_bridge_snapshot(struct buffer *buf,
+                                              const struct paths *paths,
+                                              const char *prefix) {
+    char readlink_buf[MAX_PATH_LEN];
+    char vendor_path[MAX_PATH_LEN];
+    char vendor_readlink_buf[MAX_PATH_LEN];
+    struct stat exact_st;
+    struct stat asset_st;
+    struct stat readonly_st;
+    struct stat vendor_st;
+    ssize_t nreadlink;
+    ssize_t vendor_nreadlink;
+    int saved_errno = 0;
+    int readonly_errno = 0;
+    int vendor_errno = 0;
+    int open_rc;
+    int open_errno = 0;
+    int fd;
+    bool exact_exists = false;
+    bool exact_is_reg = false;
+    bool exact_nonzero = false;
+    bool readonly_exists = false;
+    bool readonly_is_dir = false;
+    bool readonly_is_symlink = false;
+    bool vendor_exists = false;
+    bool vendor_is_dir = false;
+    bool vendor_is_symlink = false;
+    bool vendor_asset_exists = false;
+    bool vendor_asset_is_reg = false;
+    bool vendor_asset_nonzero = false;
+
+    if (lstat(paths->vendor_rfs_msm_mpss_readonly, &readonly_st) == 0) {
+        readonly_exists = true;
+        readonly_is_dir = S_ISDIR(readonly_st.st_mode);
+        readonly_is_symlink = S_ISLNK(readonly_st.st_mode);
+    } else {
+        readonly_errno = errno;
+        memset(&readonly_st, 0, sizeof(readonly_st));
+    }
+    nreadlink = readlink(paths->vendor_rfs_msm_mpss_readonly,
+                         readlink_buf,
+                         sizeof(readlink_buf) - 1);
+    if (nreadlink >= 0) {
+        readlink_buf[nreadlink] = '\0';
+    } else {
+        snprintf(readlink_buf, sizeof(readlink_buf), "<not-symlink:%s>", strerror(errno));
+    }
+    if (append_path(vendor_path,
+                    sizeof(vendor_path),
+                    paths->vendor_rfs_msm_mpss_readonly,
+                    "vendor") == 0 &&
+        lstat(vendor_path, &vendor_st) == 0) {
+        vendor_exists = true;
+        vendor_is_dir = S_ISDIR(vendor_st.st_mode);
+        vendor_is_symlink = S_ISLNK(vendor_st.st_mode);
+    } else {
+        vendor_errno = errno;
+        memset(&vendor_st, 0, sizeof(vendor_st));
+    }
+    if (vendor_exists) {
+        vendor_nreadlink = readlink(vendor_path,
+                                    vendor_readlink_buf,
+                                    sizeof(vendor_readlink_buf) - 1);
+        if (vendor_nreadlink >= 0) {
+            vendor_readlink_buf[vendor_nreadlink] = '\0';
+        } else {
+            snprintf(vendor_readlink_buf, sizeof(vendor_readlink_buf), "<not-symlink:%s>", strerror(errno));
+        }
+    } else {
+        snprintf(vendor_readlink_buf, sizeof(vendor_readlink_buf), "<missing:%s>", strerror(vendor_errno));
+    }
+    if (stat(paths->vendor_rfs_mpss_wlanmdsp, &exact_st) == 0) {
+        exact_exists = true;
+        exact_is_reg = S_ISREG(exact_st.st_mode);
+        exact_nonzero = exact_is_reg && exact_st.st_size > 0;
+    } else {
+        saved_errno = errno;
+        memset(&exact_st, 0, sizeof(exact_st));
+    }
+    fd = open(paths->vendor_rfs_mpss_wlanmdsp, O_RDONLY | O_CLOEXEC);
+    if (fd >= 0) {
+        open_rc = 0;
+        close(fd);
+    } else {
+        open_rc = -1;
+        open_errno = errno;
+    }
+    if (stat(paths->vendor_firmware_wlanmdsp, &asset_st) == 0) {
+        vendor_asset_exists = true;
+        vendor_asset_is_reg = S_ISREG(asset_st.st_mode);
+        vendor_asset_nonzero = vendor_asset_is_reg && asset_st.st_size > 0;
+    }
+    return append_format(buf,
+                         "%s.begin=1\n"
+                         "%s.root=/vendor/rfs/msm/mpss\n"
+                         "%s.host_root=%s\n"
+                         "%s.source_asset=%s\n"
+                         "%s.source_asset.exists=%d\n"
+                         "%s.source_asset.is_reg=%d\n"
+                         "%s.source_asset.nonzero=%d\n"
+                         "%s.readonly.path=%s\n"
+                         "%s.readonly.exists=%d\n"
+                         "%s.readonly.is_dir=%d\n"
+                         "%s.readonly.is_symlink=%d\n"
+                         "%s.readonly.errno=%d\n"
+                         "%s.readonly.readlink=%s\n"
+                         "%s.readonly_vendor.exists=%d\n"
+                         "%s.readonly_vendor.is_dir=%d\n"
+                         "%s.readonly_vendor.is_symlink=%d\n"
+                         "%s.readonly_vendor.errno=%d\n"
+                         "%s.readonly_vendor.readlink=%s\n"
+                         "%s.chroot_equivalent=readonly/vendor/firmware_mnt/image/wlanmdsp.mbn -> /vendor/firmware/wlanmdsp.mbn\n"
+                         "%s.exact.absolute=/vendor/rfs/msm/mpss/readonly/vendor/firmware_mnt/image/wlanmdsp.mbn\n"
+                         "%s.exact.host_path=%s\n"
+                         "%s.exact.exists=%d\n"
+                         "%s.exact.is_reg=%d\n"
+                         "%s.exact.size=%lld\n"
+                         "%s.exact.nonzero=%d\n"
+                         "%s.exact.stat_errno=%d\n"
+                         "%s.exact.stat_error=%s\n"
+                         "%s.exact.open_rc=%d\n"
+                         "%s.exact.open_errno=%d\n"
+                         "%s.exact.open_error=%s\n"
+                         "%s.sda29_write=0\n"
+                         "%s.rootfs_namespace_only=1\n"
+                         "%s.end=1\n",
+                         prefix,
+                         prefix,
+                         prefix, paths->vendor_rfs_msm_mpss,
+                         prefix, paths->vendor_firmware_wlanmdsp,
+                         prefix, vendor_asset_exists ? 1 : 0,
+                         prefix, vendor_asset_is_reg ? 1 : 0,
+                         prefix, vendor_asset_nonzero ? 1 : 0,
+                         prefix, paths->vendor_rfs_msm_mpss_readonly,
+                         prefix, readonly_exists ? 1 : 0,
+                         prefix, readonly_is_dir ? 1 : 0,
+                         prefix, readonly_is_symlink ? 1 : 0,
+                         prefix, readonly_errno,
+                         prefix, readlink_buf,
+                         prefix, vendor_exists ? 1 : 0,
+                         prefix, vendor_is_dir ? 1 : 0,
+                         prefix, vendor_is_symlink ? 1 : 0,
+                         prefix, vendor_errno,
+                         prefix, vendor_readlink_buf,
+                         prefix,
+                         prefix,
+                         prefix, paths->vendor_rfs_mpss_wlanmdsp,
+                         prefix, exact_exists ? 1 : 0,
+                         prefix, exact_is_reg ? 1 : 0,
+                         prefix, exact_exists ? (long long)exact_st.st_size : 0LL,
+                         prefix, exact_nonzero ? 1 : 0,
+                         prefix, saved_errno,
+                         prefix, saved_errno != 0 ? strerror(saved_errno) : "none",
+                         prefix, open_rc,
+                         prefix, open_errno,
+                         prefix, open_errno != 0 ? strerror(open_errno) : "none",
+                         prefix,
+                         prefix,
+                         prefix);
 }
 
 static int materialize_rmt_uio_surface(const struct paths *paths,
@@ -11840,6 +12218,11 @@ static int append_wlan_pd_firmware_serve_gate_summary(struct buffer *stdout_buf,
                        "wlan_pd_firmware_serve_gate.no_dhcp_routes=1\n"
                        "wlan_pd_firmware_serve_gate.no_external_ping=1\n") < 0 ||
         append_wlan_pd_firmware_dir_snapshot(stdout_buf,
+                                             "wlan_pd_firmware_serve_gate.snapshot.vendor_firmware_root",
+                                             paths->vendor,
+                                             "firmware",
+                                             &snapshot) < 0 ||
+        append_wlan_pd_firmware_dir_snapshot(stdout_buf,
                                              "wlan_pd_firmware_serve_gate.snapshot.vendor_firmware_mnt_image",
                                              paths->vendor_firmware_mnt,
                                              "image",
@@ -11858,7 +12241,10 @@ static int append_wlan_pd_firmware_serve_gate_summary(struct buffer *stdout_buf,
                                              "wlan_pd_firmware_serve_gate.snapshot.vendor_firmware_modem_root",
                                              paths->vendor_firmware_modem,
                                              "",
-                                             &snapshot) < 0) {
+                                             &snapshot) < 0 ||
+        append_wlan_pd_rfs_bridge_snapshot(stdout_buf,
+                                           paths,
+                                           "wlan_pd_firmware_serve_gate.rfs_bridge") < 0) {
         return -1;
     }
 

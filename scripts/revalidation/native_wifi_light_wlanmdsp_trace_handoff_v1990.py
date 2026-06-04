@@ -122,6 +122,36 @@ def collect_wlanmdsp_trace(fields: dict[str, str]) -> dict[str, Any]:
         and light_observer["service_notifier_listener_probe"] == 0
         and light_observer["qrtr_readback_send_attempted"] == 0
     )
+    rfs_bridge = {
+        "root": fields.get("wlan_pd_firmware_serve_gate.rfs_bridge.root", ""),
+        "host_root": fields.get("wlan_pd_firmware_serve_gate.rfs_bridge.host_root", ""),
+        "source_asset": fields.get("wlan_pd_firmware_serve_gate.rfs_bridge.source_asset", ""),
+        "source_asset_exists": intish(fields.get("wlan_pd_firmware_serve_gate.rfs_bridge.source_asset.exists")),
+        "source_asset_is_reg": intish(fields.get("wlan_pd_firmware_serve_gate.rfs_bridge.source_asset.is_reg")),
+        "source_asset_nonzero": intish(fields.get("wlan_pd_firmware_serve_gate.rfs_bridge.source_asset.nonzero")),
+        "readonly_exists": intish(fields.get("wlan_pd_firmware_serve_gate.rfs_bridge.readonly.exists")),
+        "readonly_is_dir": intish(fields.get("wlan_pd_firmware_serve_gate.rfs_bridge.readonly.is_dir")),
+        "readonly_is_symlink": intish(fields.get("wlan_pd_firmware_serve_gate.rfs_bridge.readonly.is_symlink")),
+        "readonly_readlink": fields.get("wlan_pd_firmware_serve_gate.rfs_bridge.readonly.readlink", ""),
+        "readonly_vendor_exists": intish(fields.get("wlan_pd_firmware_serve_gate.rfs_bridge.readonly_vendor.exists")),
+        "readonly_vendor_is_dir": intish(fields.get("wlan_pd_firmware_serve_gate.rfs_bridge.readonly_vendor.is_dir")),
+        "readonly_vendor_is_symlink": intish(fields.get("wlan_pd_firmware_serve_gate.rfs_bridge.readonly_vendor.is_symlink")),
+        "readonly_vendor_readlink": fields.get("wlan_pd_firmware_serve_gate.rfs_bridge.readonly_vendor.readlink", ""),
+        "exact_path": fields.get("wlan_pd_firmware_serve_gate.rfs_bridge.exact.absolute", ""),
+        "exact_exists": intish(fields.get("wlan_pd_firmware_serve_gate.rfs_bridge.exact.exists")),
+        "exact_nonzero": intish(fields.get("wlan_pd_firmware_serve_gate.rfs_bridge.exact.nonzero")),
+        "exact_open_rc": fields.get("wlan_pd_firmware_serve_gate.rfs_bridge.exact.open_rc", ""),
+        "exact_open_errno": fields.get("wlan_pd_firmware_serve_gate.rfs_bridge.exact.open_errno", ""),
+        "rootfs_namespace_only": intish(fields.get("wlan_pd_firmware_serve_gate.rfs_bridge.rootfs_namespace_only")),
+        "sda29_write": intish(fields.get("wlan_pd_firmware_serve_gate.rfs_bridge.sda29_write")),
+    }
+    rfs_bridge["ok"] = (
+        rfs_bridge["exact_exists"] > 0
+        and rfs_bridge["exact_nonzero"] > 0
+        and str(rfs_bridge["exact_open_rc"]) == "0"
+        and rfs_bridge["rootfs_namespace_only"] == 1
+        and rfs_bridge["sda29_write"] == 0
+    )
     return {
         "requested_field": requested_field,
         "requested": requested,
@@ -139,6 +169,7 @@ def collect_wlanmdsp_trace(fields: dict[str, str]) -> dict[str, Any]:
         "wlan0_lines": wlan0_lines,
         "degraded_external_lines": degraded_external_lines,
         "light_observer": light_observer,
+        "rfs_bridge": rfs_bridge,
         "first_wlanmdsp_lines": grep_lines(evidence_paths, tftp_request_pattern, limit=6),
         "first_load_lines": grep_lines(dmesg_paths, r"root_service_service_ind_cb.*wlan_pd|wlan_pd.*0x1fffffff|(subsys-pil-tz|q6v5|pil|modem).*wlanmdsp|wlanmdsp.*(load|loaded|auth|pil)", limit=6),
         "first_degraded_external_lines": grep_lines(dmesg_paths, r"esoc0_boot_failed|pcie_initialized|mhi_enable|MHI.*(state|enabled|init)|LTSSM", limit=4),
@@ -306,10 +337,12 @@ def render_report(manifest: dict[str, Any]) -> str:
     classification = manifest["classification"]
     trace = details["wlanmdsp_trace"]
     light = trace["light_observer"]
+    rfs_bridge = trace["rfs_bridge"]
     android = details["android_v1982"]
     matrix_rows = [
         ["label", classification["label"], classification["reason"]],
         ["light_observer", classification["light_ok"], f"servloc={light['servloc_domain_list_probe']} servnotif={light['service_notifier_listener_probe']} qrtr_send={light['qrtr_readback_send_attempted']} result={light['qrtr_readback_result']}"],
+        ["rfs_bridge", rfs_bridge["ok"], f"exact_exists={rfs_bridge['exact_exists']} nonzero={rfs_bridge['exact_nonzero']} open_rc={rfs_bridge['exact_open_rc']} source_nonzero={rfs_bridge['source_asset_nonzero']} vendor_dir={rfs_bridge['readonly_vendor_is_dir']} vendor_link={rfs_bridge['readonly_vendor_readlink']}"],
         ["combined_prereq", classification["combined"], f"service74={details['service74']} service180={details['service180']} pm_open={details['pm_open_subsys_modem']} holder={details['holder_opened']}"],
         ["wlanmdsp_request", trace["requested"], f"field={trace['requested_field']} mbn_lines={trace['wlanmdsp_mbn_lines']} tftp_lines={trace['tftp_wlanmdsp_lines']} failures={trace['wlanmdsp_failure_lines']}"],
         ["wlanmdsp_serve_load", trace["served"], f"served_nonzero={trace['served_nonzero']} pil_load={trace['pil_load_lines']} wlan_pd_up={trace['wlan_pd_up_lines']} wlfw69={trace['wlfw69_lines']} wlan0={trace['wlan0_lines']}"],
