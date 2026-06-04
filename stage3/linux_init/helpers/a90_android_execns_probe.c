@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v370"
+#define EXECNS_VERSION "a90_android_execns_probe v371"
 
 #ifndef A90_EXECNS_ENABLE_DELAYED_LOWER_RESPONSE_WINDOW
 #define A90_EXECNS_ENABLE_DELAYED_LOWER_RESPONSE_WINDOW 0
@@ -12583,7 +12583,7 @@ struct cnss_nonlog_maps_summary {
 };
 
 #define A90_CNSS_WLFW_UPROBE_TARGET_COUNT 3
-#define A90_CNSS_WLFW_UPROBE_EVENT_COUNT 63
+#define A90_CNSS_WLFW_UPROBE_EVENT_COUNT 73
 #define A90_CNSS_PERIPHERAL_UPROBE_TARGET_COUNT 3
 #define A90_CNSS_PERIPHERAL_UPROBE_EVENT_COUNT 25
 #define A90_PM_SERVICE_UPROBE_TARGET_COUNT 3
@@ -12667,6 +12667,16 @@ static const struct cnss_wlfw_uprobe_event_spec cnss_wlfw_uprobe_events[A90_CNSS
     CNSS_WLFW_UPROBE_EVENT("wlfw_cap_success_branch", "wlfw_cap_success_branch", 0xf4b4ULL),
     CNSS_WLFW_UPROBE_EVENT_FETCH("wlfw_cap_rsp_result_error_branch", "wlfw_cap_rsp_result_error_branch", 0xf564ULL, "qmi_result=%x8"),
     CNSS_WLFW_UPROBE_EVENT_FETCH("wlfw_cap_return", "wlfw_cap_return", 0xf580ULL, "rc=%x19"),
+    CNSS_WLFW_UPROBE_EVENT_FETCH("wlfw_bdf_entry", "wlfw_bdf_entry", 0xf76cULL, "bdf_type=%x0"),
+    CNSS_WLFW_UPROBE_EVENT("wlfw_bdf_named_path_ready", "wlfw_bdf_named_path_ready", 0xfa34ULL),
+    CNSS_WLFW_UPROBE_EVENT("wlfw_bdf_open_success", "wlfw_bdf_open_success", 0xfb00ULL),
+    CNSS_WLFW_UPROBE_EVENT("wlfw_bdf_not_found", "wlfw_bdf_not_found", 0xfae0ULL),
+    CNSS_WLFW_UPROBE_EVENT("wlfw_bdf_read_complete", "wlfw_bdf_read_complete", 0xfb78ULL),
+    CNSS_WLFW_UPROBE_EVENT("wlfw_bdf_send_call", "wlfw_bdf_send_call", 0xfc44ULL),
+    CNSS_WLFW_UPROBE_EVENT_FETCH("wlfw_bdf_send_ret", "wlfw_bdf_send_ret", 0xfc48ULL, "send_rc=%x0"),
+    CNSS_WLFW_UPROBE_EVENT_FETCH("wlfw_bdf_send_error_branch", "wlfw_bdf_send_error_branch", 0xfd28ULL, "send_rc=%x0"),
+    CNSS_WLFW_UPROBE_EVENT_FETCH("wlfw_bdf_result_log", "wlfw_bdf_result_log", 0xfd08ULL, "bdf_type=%x3 qmi_result=%x4 qmi_error=%x5"),
+    CNSS_WLFW_UPROBE_EVENT_FETCH("wlfw_bdf_return", "wlfw_bdf_return", 0xfcd8ULL, "rc=%x20"),
 };
 
 #undef CNSS_WLFW_UPROBE_EVENT_FETCH
@@ -12736,6 +12746,16 @@ enum cnss_wlfw_uprobe_event_index {
     CNSS_WLFW_UPROBE_WLFW_CAP_SUCCESS_BRANCH = 60,
     CNSS_WLFW_UPROBE_WLFW_CAP_RSP_RESULT_ERROR_BRANCH = 61,
     CNSS_WLFW_UPROBE_WLFW_CAP_RETURN = 62,
+    CNSS_WLFW_UPROBE_WLFW_BDF_ENTRY = 63,
+    CNSS_WLFW_UPROBE_WLFW_BDF_NAMED_PATH_READY = 64,
+    CNSS_WLFW_UPROBE_WLFW_BDF_OPEN_SUCCESS = 65,
+    CNSS_WLFW_UPROBE_WLFW_BDF_NOT_FOUND = 66,
+    CNSS_WLFW_UPROBE_WLFW_BDF_READ_COMPLETE = 67,
+    CNSS_WLFW_UPROBE_WLFW_BDF_SEND_CALL = 68,
+    CNSS_WLFW_UPROBE_WLFW_BDF_SEND_RET = 69,
+    CNSS_WLFW_UPROBE_WLFW_BDF_SEND_ERROR_BRANCH = 70,
+    CNSS_WLFW_UPROBE_WLFW_BDF_RESULT_LOG = 71,
+    CNSS_WLFW_UPROBE_WLFW_BDF_RETURN = 72,
 };
 
 struct cnss_peripheral_uprobe_event_spec {
