@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v372"
+#define EXECNS_VERSION "a90_android_execns_probe v373"
 
 #ifndef A90_EXECNS_ENABLE_DELAYED_LOWER_RESPONSE_WINDOW
 #define A90_EXECNS_ENABLE_DELAYED_LOWER_RESPONSE_WINDOW 0
@@ -12583,7 +12583,7 @@ struct cnss_nonlog_maps_summary {
 };
 
 #define A90_CNSS_WLFW_UPROBE_TARGET_COUNT 3
-#define A90_CNSS_WLFW_UPROBE_EVENT_COUNT 94
+#define A90_CNSS_WLFW_UPROBE_EVENT_COUNT 114
 #define A90_CNSS_PERIPHERAL_UPROBE_TARGET_COUNT 3
 #define A90_CNSS_PERIPHERAL_UPROBE_EVENT_COUNT 25
 #define A90_PM_SERVICE_UPROBE_TARGET_COUNT 3
@@ -12698,6 +12698,26 @@ static const struct cnss_wlfw_uprobe_event_spec cnss_wlfw_uprobe_events[A90_CNSS
     CNSS_WLFW_UPROBE_EVENT("wlan_send_version_not_found", "wlan_send_version_not_found", 0xcd74ULL),
     CNSS_WLFW_UPROBE_EVENT_FETCH("wlan_send_version_send_ret", "wlan_send_version_send_ret", 0xccecULL, "send_rc=%x0 qmi_result=%x4"),
     CNSS_WLFW_UPROBE_EVENT_FETCH("wlan_send_version_return", "wlan_send_version_return", 0xcdecULL, "rc=%x23"),
+    CNSS_WLFW_UPROBE_EVENT_FETCH("wlfw_worker_second_bdf_branch", "wlfw_worker_second_bdf_branch", 0xdc98ULL, "bdf_rc=%x19"),
+    CNSS_WLFW_UPROBE_EVENT("wlfw_worker_cal_only_call", "wlfw_worker_cal_only_call", 0xdfe0ULL),
+    CNSS_WLFW_UPROBE_EVENT_FETCH("wlfw_worker_cal_only_retcheck", "wlfw_worker_cal_only_retcheck", 0xdfe4ULL, "rc=%x0"),
+    CNSS_WLFW_UPROBE_EVENT("wlfw_worker_done_signal", "wlfw_worker_done_signal", 0xdff8ULL),
+    CNSS_WLFW_UPROBE_EVENT("wlfw_worker_post_done_wait", "wlfw_worker_post_done_wait", 0xe070ULL),
+    CNSS_WLFW_UPROBE_EVENT("wlfw_worker_handle_ind_call", "wlfw_worker_handle_ind_call", 0xe0b4ULL),
+    CNSS_WLFW_UPROBE_EVENT_FETCH("wlfw_qmi_ind_cb_entry", "wlfw_qmi_ind_cb_entry", 0xe100ULL, "msg_id=%x1 payload_len=%x3"),
+    CNSS_WLFW_UPROBE_EVENT_FETCH("wlfw_qmi_ind_msg_unknown", "wlfw_qmi_ind_msg_unknown", 0xe2d0ULL, "msg_id=%x21"),
+    CNSS_WLFW_UPROBE_EVENT("wlfw_qmi_ind_decode_0x28_ok", "wlfw_qmi_ind_decode_0x28_ok", 0xe3d0ULL),
+    CNSS_WLFW_UPROBE_EVENT("wlfw_qmi_ind_decode_0x2a_ok", "wlfw_qmi_ind_decode_0x2a_ok", 0xe368ULL),
+    CNSS_WLFW_UPROBE_EVENT("wlfw_qmi_ind_decode_0x41_ok", "wlfw_qmi_ind_decode_0x41_ok", 0xe3a0ULL),
+    CNSS_WLFW_UPROBE_EVENT_FETCH("wlfw_qmi_ind_fw_mem_flag", "wlfw_qmi_ind_fw_mem_flag", 0xe2f0ULL, "msg_id=%x21"),
+    CNSS_WLFW_UPROBE_EVENT_FETCH("wlfw_qmi_ind_msa_flag", "wlfw_qmi_ind_msa_flag", 0xe328ULL, "msg_id=%x21"),
+    CNSS_WLFW_UPROBE_EVENT("wlfw_qmi_ind_queue_link", "wlfw_qmi_ind_queue_link", 0xe40cULL),
+    CNSS_WLFW_UPROBE_EVENT("wlfw_qmi_ind_cond_signal", "wlfw_qmi_ind_cond_signal", 0xe450ULL),
+    CNSS_WLFW_UPROBE_EVENT("wlfw_handle_ind_entry", "wlfw_handle_ind_entry", 0xce24ULL),
+    CNSS_WLFW_UPROBE_EVENT_FETCH("wlfw_handle_ind_type", "wlfw_handle_ind_type", 0xcee0ULL, "ind_type=%x3"),
+    CNSS_WLFW_UPROBE_EVENT_FETCH("wlfw_handle_ind_type_0x28", "wlfw_handle_ind_type_0x28", 0xcf08ULL, "fw_status=%x4"),
+    CNSS_WLFW_UPROBE_EVENT_FETCH("wlfw_handle_ind_type_0x2a", "wlfw_handle_ind_type_0x2a", 0xcf84ULL, "arg0=%x4 arg1=%x5"),
+    CNSS_WLFW_UPROBE_EVENT_FETCH("wlfw_handle_ind_type_0x41", "wlfw_handle_ind_type_0x41", 0xd00cULL, "arg0=%x4 arg1=%x5"),
 };
 
 #undef CNSS_WLFW_UPROBE_EVENT_FETCH
@@ -12798,6 +12818,26 @@ enum cnss_wlfw_uprobe_event_index {
     CNSS_WLFW_UPROBE_WLAN_SEND_VERSION_NOT_FOUND = 91,
     CNSS_WLFW_UPROBE_WLAN_SEND_VERSION_SEND_RET = 92,
     CNSS_WLFW_UPROBE_WLAN_SEND_VERSION_RETURN = 93,
+    CNSS_WLFW_UPROBE_WLFW_WORKER_SECOND_BDF_BRANCH = 94,
+    CNSS_WLFW_UPROBE_WLFW_WORKER_CAL_ONLY_CALL = 95,
+    CNSS_WLFW_UPROBE_WLFW_WORKER_CAL_ONLY_RETCHECK = 96,
+    CNSS_WLFW_UPROBE_WLFW_WORKER_DONE_SIGNAL = 97,
+    CNSS_WLFW_UPROBE_WLFW_WORKER_POST_DONE_WAIT = 98,
+    CNSS_WLFW_UPROBE_WLFW_WORKER_HANDLE_IND_CALL = 99,
+    CNSS_WLFW_UPROBE_WLFW_QMI_IND_CB_ENTRY = 100,
+    CNSS_WLFW_UPROBE_WLFW_QMI_IND_MSG_UNKNOWN = 101,
+    CNSS_WLFW_UPROBE_WLFW_QMI_IND_DECODE_0X28_OK = 102,
+    CNSS_WLFW_UPROBE_WLFW_QMI_IND_DECODE_0X2A_OK = 103,
+    CNSS_WLFW_UPROBE_WLFW_QMI_IND_DECODE_0X41_OK = 104,
+    CNSS_WLFW_UPROBE_WLFW_QMI_IND_FW_MEM_FLAG = 105,
+    CNSS_WLFW_UPROBE_WLFW_QMI_IND_MSA_FLAG = 106,
+    CNSS_WLFW_UPROBE_WLFW_QMI_IND_QUEUE_LINK = 107,
+    CNSS_WLFW_UPROBE_WLFW_QMI_IND_COND_SIGNAL = 108,
+    CNSS_WLFW_UPROBE_WLFW_HANDLE_IND_ENTRY = 109,
+    CNSS_WLFW_UPROBE_WLFW_HANDLE_IND_TYPE = 110,
+    CNSS_WLFW_UPROBE_WLFW_HANDLE_IND_TYPE_0X28 = 111,
+    CNSS_WLFW_UPROBE_WLFW_HANDLE_IND_TYPE_0X2A = 112,
+    CNSS_WLFW_UPROBE_WLFW_HANDLE_IND_TYPE_0X41 = 113,
 };
 
 struct cnss_peripheral_uprobe_event_spec {
