@@ -52,6 +52,9 @@
 #ifndef PTRACE_O_TRACESYSGOOD
 #define PTRACE_O_TRACESYSGOOD 0x00000001
 #endif
+#ifndef __WALL
+#define __WALL 0x40000000
+#endif
 #ifndef PTRACE_EVENT_EXIT
 #define PTRACE_EVENT_EXIT 6
 #endif
@@ -101,7 +104,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v378"
+#define EXECNS_VERSION "a90_android_execns_probe v379"
 
 #ifndef A90_EXECNS_ENABLE_DELAYED_LOWER_RESPONSE_WINDOW
 #define A90_EXECNS_ENABLE_DELAYED_LOWER_RESPONSE_WINDOW 0
@@ -129,6 +132,12 @@
 #endif
 #ifndef TFTP_SERVER_SYSCALL_COMPACT_PATH_LIMIT
 #define TFTP_SERVER_SYSCALL_COMPACT_PATH_LIMIT 192U
+#endif
+#ifndef TFTP_SERVER_SYSCALL_TRACE_MAX_TASKS
+#define TFTP_SERVER_SYSCALL_TRACE_MAX_TASKS 16U
+#endif
+#ifndef TFTP_SERVER_SYSCALL_TRACE_RESCAN_MS
+#define TFTP_SERVER_SYSCALL_TRACE_RESCAN_MS 250U
 #endif
 #define DEFAULT_QRTR_READBACK_MATRIX "wlfw:69:0,1"
 #define MAX_QRTR_READBACK_CASES 16
@@ -31266,6 +31275,534 @@ static int append_wlan_pd_pd_mapper_late_syscall_trace(struct buffer *stdout_buf
 #endif
 
 #ifdef A90_WIFI_TEST_BOOT_WLAN_PD_PRODUCER_TFTP_SERVER_TRACE
+#ifdef A90_WIFI_TEST_BOOT_WLAN_PD_PRODUCER_TFTP_SERVER_TRACE_ALL_TASKS
+struct a90_tftp_server_trace_task {
+    struct composite_child child;
+    char name[64];
+    pid_t tid;
+    bool present;
+    bool attached;
+    bool done;
+};
+
+static bool a90_pid_list_contains(const pid_t *items, size_t count, pid_t pid) {
+    for (size_t i = 0; i < count; i++) {
+        if (items[i] == pid) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static int collect_tftp_server_task_tids(pid_t pid,
+                                         pid_t *tids,
+                                         size_t max_tids,
+                                         size_t *count_out) {
+    char task_path[128];
+    DIR *dir;
+    struct dirent *entry;
+    size_t count = 0;
+
+    *count_out = 0;
+    if (max_tids == 0) {
+        return 0;
+    }
+    tids[count++] = pid;
+    if (snprintf(task_path, sizeof(task_path), "/proc/%ld/task", (long)pid) >= (int)sizeof(task_path)) {
+        *count_out = count;
+        return 0;
+    }
+    dir = opendir(task_path);
+    if (dir == NULL) {
+        *count_out = count;
+        return 0;
+    }
+    while ((entry = readdir(dir)) != NULL && count < max_tids) {
+        pid_t tid;
+
+        if (!parse_pid_name(entry->d_name, &tid) ||
+            tid <= 0 ||
+            a90_pid_list_contains(tids, count, tid)) {
+            continue;
+        }
+        tids[count++] = tid;
+    }
+    closedir(dir);
+    *count_out = count;
+    return 0;
+}
+
+static int find_tftp_trace_task_index(const struct a90_tftp_server_trace_task *tasks,
+                                      size_t task_count,
+                                      pid_t tid) {
+    for (size_t i = 0; i < task_count; i++) {
+        if (tasks[i].present && tasks[i].tid == tid) {
+            return (int)i;
+        }
+    }
+    return -1;
+}
+
+static int init_tftp_trace_task(struct a90_tftp_server_trace_task *task,
+                                const struct composite_child *source,
+                                pid_t tid) {
+    memset(task, 0, sizeof(*task));
+    if (snprintf(task->name, sizeof(task->name), "tftp_server_t%ld", (long)tid) >= (int)sizeof(task->name)) {
+        return -1;
+    }
+    composite_child_init(&task->child,
+                         task->name,
+                         source != NULL ? source->target : "tftp_server",
+                         COMPOSITE_ID_TFTP_SERVER);
+    task->tid = tid;
+    task->present = true;
+    task->attached = false;
+    task->done = false;
+    task->child.pid = tid;
+    task->child.traced = true;
+    task->child.trace_minimal = true;
+    task->child.trace_initial_stop = true;
+    task->child.capture_exec = true;
+    task->child.trace_syscalls = true;
+    task->child.syscall_trace_started = true;
+    task->child.syscall_entry_next = true;
+    task->child.syscall_trace_stop_limited = false;
+    task->child.syscall_trace_truncated = false;
+    task->child.syscall_stop_count = 0;
+    task->child.syscall_record_count = 0;
+    task->child.syscall_error_count = 0;
+    return 0;
+}
+
+static int append_tftp_trace_task_attach(struct buffer *stdout_buf,
+                                         struct a90_tftp_server_trace_task *task,
+                                         unsigned int task_index,
+                                         unsigned int *attached_count) {
+    int initial_status = 0;
+
+    if (append_format(stdout_buf,
+                      "wlan_pd_tftp_server_trace.late_attach.task_%u.tid=%ld\n"
+                      "wlan_pd_tftp_server_trace.late_attach.task_%u.name=%s\n",
+                      task_index,
+                      (long)task->tid,
+                      task_index,
+                      task->name) < 0) {
+        return -1;
+    }
+    if (ptrace(PTRACE_ATTACH, task->tid, NULL, NULL) < 0) {
+        int saved_errno = errno;
+
+        task->done = true;
+        return append_format(stdout_buf,
+                             "wlan_pd_tftp_server_trace.late_attach.task_%u.attach_rc=-1\n"
+                             "wlan_pd_tftp_server_trace.late_attach.task_%u.attach_errno=%d\n"
+                             "wlan_pd_tftp_server_trace.late_attach.task_%u.attach_error=%s\n",
+                             task_index,
+                             task_index,
+                             saved_errno,
+                             task_index,
+                             strerror(saved_errno));
+    }
+    task->attached = true;
+    (*attached_count)++;
+    if (append_format(stdout_buf,
+                      "wlan_pd_tftp_server_trace.late_attach.task_%u.attach_rc=0\n",
+                      task_index) < 0) {
+        return -1;
+    }
+    if (waitpid(task->tid, &initial_status, __WALL) != task->tid) {
+        int saved_errno = errno;
+
+        ptrace(PTRACE_DETACH, task->tid, NULL, NULL);
+        task->attached = false;
+        task->done = true;
+        return append_format(stdout_buf,
+                             "wlan_pd_tftp_server_trace.late_attach.task_%u.initial_wait_rc=-1\n"
+                             "wlan_pd_tftp_server_trace.late_attach.task_%u.initial_wait_errno=%d\n"
+                             "wlan_pd_tftp_server_trace.late_attach.task_%u.initial_wait_error=%s\n",
+                             task_index,
+                             task_index,
+                             saved_errno,
+                             task_index,
+                             strerror(saved_errno));
+    }
+    if (append_format(stdout_buf,
+                      "wlan_pd_tftp_server_trace.late_attach.task_%u.initial_wait_rc=0\n"
+                      "wlan_pd_tftp_server_trace.late_attach.task_%u.initial_status=0x%x\n",
+                      task_index,
+                      task_index,
+                      initial_status) < 0) {
+        return -1;
+    }
+    if (ptrace(PTRACE_SETOPTIONS,
+               task->tid,
+               NULL,
+               (void *)(long)PTRACE_O_TRACESYSGOOD) < 0) {
+        int saved_errno = errno;
+
+        ptrace(PTRACE_DETACH, task->tid, NULL, NULL);
+        task->attached = false;
+        task->done = true;
+        return append_format(stdout_buf,
+                             "wlan_pd_tftp_server_trace.late_attach.task_%u.setoptions_rc=-1\n"
+                             "wlan_pd_tftp_server_trace.late_attach.task_%u.setoptions_errno=%d\n"
+                             "wlan_pd_tftp_server_trace.late_attach.task_%u.setoptions_error=%s\n",
+                             task_index,
+                             task_index,
+                             saved_errno,
+                             task_index,
+                             strerror(saved_errno));
+    }
+    if (append_format(stdout_buf,
+                      "wlan_pd_tftp_server_trace.late_attach.task_%u.setoptions_rc=0\n",
+                      task_index) < 0) {
+        return -1;
+    }
+    if (ptrace(PTRACE_SYSCALL, task->tid, NULL, NULL) < 0) {
+        int saved_errno = errno;
+
+        ptrace(PTRACE_DETACH, task->tid, NULL, NULL);
+        task->attached = false;
+        task->done = true;
+        return append_format(stdout_buf,
+                             "wlan_pd_tftp_server_trace.late_attach.task_%u.first_continue_rc=-1\n"
+                             "wlan_pd_tftp_server_trace.late_attach.task_%u.first_continue_errno=%d\n"
+                             "wlan_pd_tftp_server_trace.late_attach.task_%u.first_continue_error=%s\n",
+                             task_index,
+                             task_index,
+                             saved_errno,
+                             task_index,
+                             strerror(saved_errno));
+    }
+    return append_format(stdout_buf,
+                         "wlan_pd_tftp_server_trace.late_attach.task_%u.first_continue_rc=0\n",
+                         task_index);
+}
+
+static int append_tftp_trace_attach_new_tasks(struct buffer *stdout_buf,
+                                              const struct composite_child *source,
+                                              struct a90_tftp_server_trace_task *tasks,
+                                              size_t *task_count,
+                                              pid_t *observed_tids,
+                                              size_t *observed_count,
+                                              unsigned int *attached_count,
+                                              unsigned int *scan_count) {
+    pid_t tids[TFTP_SERVER_SYSCALL_TRACE_MAX_TASKS];
+    size_t tid_count = 0;
+
+    (*scan_count)++;
+    if (collect_tftp_server_task_tids(source->pid,
+                                      tids,
+                                      TFTP_SERVER_SYSCALL_TRACE_MAX_TASKS,
+                                      &tid_count) < 0) {
+        return -1;
+    }
+    for (size_t i = 0; i < tid_count && *observed_count < TFTP_SERVER_SYSCALL_TRACE_MAX_TASKS; i++) {
+        if (!a90_pid_list_contains(observed_tids, *observed_count, tids[i])) {
+            observed_tids[(*observed_count)++] = tids[i];
+        }
+    }
+    for (size_t i = 0; i < tid_count && *task_count < TFTP_SERVER_SYSCALL_TRACE_MAX_TASKS; i++) {
+        unsigned int task_index;
+
+        if (find_tftp_trace_task_index(tasks, *task_count, tids[i]) >= 0) {
+            continue;
+        }
+        task_index = (unsigned int)*task_count;
+        if (init_tftp_trace_task(&tasks[*task_count], source, tids[i]) < 0) {
+            return -1;
+        }
+        (*task_count)++;
+        if (append_tftp_trace_task_attach(stdout_buf,
+                                          &tasks[task_index],
+                                          task_index,
+                                          attached_count) < 0) {
+            return -1;
+        }
+    }
+    return 0;
+}
+
+static unsigned int tftp_trace_total_stops(const struct a90_tftp_server_trace_task *tasks,
+                                           size_t task_count) {
+    unsigned int total = 0;
+
+    for (size_t i = 0; i < task_count; i++) {
+        total += tasks[i].child.syscall_stop_count;
+    }
+    return total;
+}
+
+static unsigned int tftp_trace_total_records(const struct a90_tftp_server_trace_task *tasks,
+                                             size_t task_count) {
+    unsigned int total = 0;
+
+    for (size_t i = 0; i < task_count; i++) {
+        total += tasks[i].child.syscall_record_count;
+    }
+    return total;
+}
+
+static unsigned int tftp_trace_total_errors(const struct a90_tftp_server_trace_task *tasks,
+                                            size_t task_count) {
+    unsigned int total = 0;
+
+    for (size_t i = 0; i < task_count; i++) {
+        total += tasks[i].child.syscall_error_count;
+    }
+    return total;
+}
+
+static bool tftp_trace_any_truncated(const struct a90_tftp_server_trace_task *tasks,
+                                     size_t task_count) {
+    for (size_t i = 0; i < task_count; i++) {
+        if (tasks[i].child.syscall_trace_truncated) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static unsigned int detach_tftp_trace_tasks(struct buffer *stdout_buf,
+                                            struct a90_tftp_server_trace_task *tasks,
+                                            size_t task_count) {
+    unsigned int detach_errors = 0;
+
+    for (size_t i = 0; i < task_count; i++) {
+        bool sent_detach_stop = false;
+
+        if (!tasks[i].present || !tasks[i].attached || tasks[i].done) {
+            continue;
+        }
+        if (tasks[i].child.trace_syscalls) {
+            kill(tasks[i].tid, SIGSTOP);
+            sent_detach_stop = true;
+            for (int attempt = 0; attempt < 50; attempt++) {
+                int stop_status = 0;
+                pid_t stop_wait_rc = waitpid(tasks[i].tid, &stop_status, __WALL | WNOHANG);
+
+                if (stop_wait_rc == tasks[i].tid) {
+                    break;
+                }
+                if (stop_wait_rc < 0 && errno != EINTR) {
+                    break;
+                }
+                usleep(20000);
+            }
+        }
+        if (ptrace(PTRACE_DETACH, tasks[i].tid, NULL, NULL) < 0) {
+            detach_errors++;
+            append_format(stdout_buf,
+                          "wlan_pd_tftp_server_trace.late_attach.task_%zu.detach_rc=-1\n"
+                          "wlan_pd_tftp_server_trace.late_attach.task_%zu.detach_errno=%d\n"
+                          "wlan_pd_tftp_server_trace.late_attach.task_%zu.detach_error=%s\n",
+                          i,
+                          i,
+                          errno,
+                          i,
+                          strerror(errno));
+        } else {
+            append_format(stdout_buf,
+                          "wlan_pd_tftp_server_trace.late_attach.task_%zu.detach_rc=0\n",
+                          i);
+            tasks[i].attached = false;
+            if (sent_detach_stop && kill(tasks[i].tid, SIGCONT) == 0) {
+                append_format(stdout_buf,
+                              "wlan_pd_tftp_server_trace.late_attach.task_%zu.resume_sigcont=1\n",
+                              i);
+            } else if (sent_detach_stop) {
+                append_format(stdout_buf,
+                              "wlan_pd_tftp_server_trace.late_attach.task_%zu.resume_sigcont=0\n"
+                              "wlan_pd_tftp_server_trace.late_attach.task_%zu.resume_errno=%d\n"
+                              "wlan_pd_tftp_server_trace.late_attach.task_%zu.resume_error=%s\n",
+                              i,
+                              i,
+                              errno,
+                              i,
+                          strerror(errno));
+            }
+        }
+    }
+    return detach_errors;
+}
+
+static int append_wlan_pd_tftp_server_all_task_syscall_trace(struct buffer *stdout_buf,
+                                                             struct composite_child *source,
+                                                             unsigned int timeout_ms) {
+    struct a90_tftp_server_trace_task tasks[TFTP_SERVER_SYSCALL_TRACE_MAX_TASKS];
+    pid_t observed_tids[TFTP_SERVER_SYSCALL_TRACE_MAX_TASKS];
+    size_t task_count = 0;
+    size_t observed_count = 0;
+    unsigned int attached_count = 0;
+    unsigned int scan_count = 0;
+    unsigned int global_stop_count = 0;
+    unsigned int global_record_count = 0;
+    unsigned int global_error_count = 0;
+    unsigned int detach_error_count;
+    long start_ms = monotonic_ms();
+    long deadline = start_ms + (long)timeout_ms;
+    long next_scan_ms = start_ms;
+    bool stop_limited = false;
+
+    memset(tasks, 0, sizeof(tasks));
+    memset(observed_tids, 0, sizeof(observed_tids));
+    if (append_format(stdout_buf,
+                      "wlan_pd_tftp_server_trace.late_attach.all_tasks=1\n"
+                      "wlan_pd_tftp_server_trace.late_attach.max_tasks=%u\n"
+                      "wlan_pd_tftp_server_trace.late_attach.rescan_ms=%u\n",
+                      TFTP_SERVER_SYSCALL_TRACE_MAX_TASKS,
+                      TFTP_SERVER_SYSCALL_TRACE_RESCAN_MS) < 0) {
+        return -1;
+    }
+    if (append_tftp_trace_attach_new_tasks(stdout_buf,
+                                           source,
+                                           tasks,
+                                           &task_count,
+                                           observed_tids,
+                                           &observed_count,
+                                           &attached_count,
+                                                   &scan_count) < 0) {
+        detach_tftp_trace_tasks(stdout_buf, tasks, task_count);
+        return -1;
+    }
+    while (monotonic_ms() < deadline && !stop_limited) {
+        bool saw_event = false;
+        long now = monotonic_ms();
+
+        if (now >= next_scan_ms) {
+            if (append_tftp_trace_attach_new_tasks(stdout_buf,
+                                                   source,
+                                                   tasks,
+                                                   &task_count,
+                                                   observed_tids,
+                                                   &observed_count,
+                                                   &attached_count,
+                                                   &scan_count) < 0) {
+                detach_tftp_trace_tasks(stdout_buf, tasks, task_count);
+                return -1;
+            }
+            next_scan_ms = now + (long)TFTP_SERVER_SYSCALL_TRACE_RESCAN_MS;
+        }
+        for (size_t i = 0; i < task_count && monotonic_ms() < deadline && !stop_limited; i++) {
+            struct a90_tftp_server_trace_task *task = &tasks[i];
+            int status = 0;
+            pid_t wait_rc;
+
+            if (!task->attached || task->done) {
+                continue;
+            }
+            wait_rc = waitpid(task->tid, &status, __WALL | WNOHANG);
+            if (wait_rc == 0) {
+                continue;
+            }
+            if (wait_rc < 0) {
+                if (errno == EINTR || errno == ECHILD) {
+                    continue;
+                }
+                append_format(stdout_buf,
+                              "wlan_pd_tftp_server_trace.late_attach.task_%zu.wait_error=%s\n",
+                              i,
+                              strerror(errno));
+                continue;
+            }
+            if (wait_rc != task->tid) {
+                continue;
+            }
+            saw_event = true;
+            if (WIFEXITED(status)) {
+                task->done = true;
+                task->attached = false;
+                task->child.child_done = true;
+                task->child.reaped = true;
+                task->child.exit_code = WEXITSTATUS(status);
+                append_format(stdout_buf,
+                              "wlan_pd_tftp_server_trace.late_attach.task_%zu.exited=1\n"
+                              "wlan_pd_tftp_server_trace.late_attach.task_%zu.exit_code=%d\n",
+                              i,
+                              i,
+                              task->child.exit_code);
+                continue;
+            }
+            if (WIFSIGNALED(status)) {
+                task->done = true;
+                task->attached = false;
+                task->child.child_done = true;
+                task->child.reaped = true;
+                task->child.signal = WTERMSIG(status);
+                append_format(stdout_buf,
+                              "wlan_pd_tftp_server_trace.late_attach.task_%zu.signaled=1\n"
+                              "wlan_pd_tftp_server_trace.late_attach.task_%zu.signal=%d\n",
+                              i,
+                              i,
+                              task->child.signal);
+                continue;
+            }
+            if (WIFSTOPPED(status)) {
+                int sig = WSTOPSIG(status);
+                int deliver_sig = 0;
+
+                if (sig == (SIGTRAP | 0x80)) {
+                    if (composite_child_handle_syscall_stop(&task->child, stdout_buf) < 0) {
+                        detach_tftp_trace_tasks(stdout_buf, tasks, task_count);
+                        return -1;
+                    }
+                    global_stop_count++;
+                    global_record_count = tftp_trace_total_records(tasks, task_count);
+                    global_error_count = tftp_trace_total_errors(tasks, task_count);
+                } else if (sig != SIGTRAP && sig != SIGSTOP) {
+                    deliver_sig = sig;
+                }
+                if (global_stop_count >= TFTP_SERVER_SYSCALL_STOP_LIMIT ||
+                    global_record_count >= TFTP_SERVER_SYSCALL_RECORD_LIMIT) {
+                    stop_limited = true;
+                    break;
+                }
+                if (ptrace(PTRACE_SYSCALL, task->tid, NULL, (void *)(long)deliver_sig) < 0) {
+                    append_format(stdout_buf,
+                                  "wlan_pd_tftp_server_trace.late_attach.task_%zu.continue_error=%s\n",
+                                  i,
+                                  strerror(errno));
+                    task->done = true;
+                    task->attached = false;
+                }
+            }
+        }
+        if (!saw_event) {
+            usleep(20000);
+        }
+    }
+    global_stop_count = tftp_trace_total_stops(tasks, task_count);
+    global_record_count = tftp_trace_total_records(tasks, task_count);
+    global_error_count = tftp_trace_total_errors(tasks, task_count);
+    detach_error_count = detach_tftp_trace_tasks(stdout_buf, tasks, task_count);
+    return append_format(stdout_buf,
+                         "wlan_pd_tftp_server_trace.late_attach.attach_rc=%d\n"
+                         "wlan_pd_tftp_server_trace.late_attach.detach_rc=%d\n"
+                         "wlan_pd_tftp_server_trace.late_attach.task_count=%zu\n"
+                         "wlan_pd_tftp_server_trace.late_attach.observed_task_count=%zu\n"
+                         "wlan_pd_tftp_server_trace.late_attach.attached_task_count=%u\n"
+                         "wlan_pd_tftp_server_trace.late_attach.detach_error_count=%u\n"
+                         "wlan_pd_tftp_server_trace.late_attach.scan_count=%u\n"
+                         "wlan_pd_tftp_server_trace.late_attach.duration_ms=%ld\n"
+                         "wlan_pd_tftp_server_trace.late_attach.syscall_stop_count=%u\n"
+                         "wlan_pd_tftp_server_trace.late_attach.syscall_record_count=%u\n"
+                         "wlan_pd_tftp_server_trace.late_attach.syscall_error_count=%u\n"
+                         "wlan_pd_tftp_server_trace.late_attach.syscall_trace_truncated=%d\n",
+                         attached_count > 0 ? 0 : -1,
+                         detach_error_count == 0 ? 0 : -1,
+                         task_count,
+                         observed_count,
+                         attached_count,
+                         detach_error_count,
+                         scan_count,
+                         monotonic_ms() - start_ms,
+                         global_stop_count,
+                         global_record_count,
+                         global_error_count,
+                         (stop_limited || tftp_trace_any_truncated(tasks, task_count)) ? 1 : 0);
+}
+#endif
+
 static int append_wlan_pd_tftp_server_late_syscall_trace(struct buffer *stdout_buf,
                                                          struct composite_child *children,
                                                          size_t child_count,
@@ -31306,6 +31843,14 @@ static int append_wlan_pd_tftp_server_late_syscall_trace(struct buffer *stdout_b
                       (long)child->pid) < 0) {
         return -1;
     }
+#ifdef A90_WIFI_TEST_BOOT_WLAN_PD_PRODUCER_TFTP_SERVER_TRACE_ALL_TASKS
+    if (append_wlan_pd_tftp_server_all_task_syscall_trace(stdout_buf,
+                                                          child,
+                                                          timeout_ms) < 0) {
+        return -1;
+    }
+    return append_literal(stdout_buf, "wlan_pd_tftp_server_trace.late_attach.end=1\n");
+#endif
 
     original_traced = child->traced;
     original_trace_minimal = child->trace_minimal;
