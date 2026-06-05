@@ -199,6 +199,10 @@
 #define A90_WIFI_TEST_BOOT_POST_FW_READY_BOOT_WLAN_TRIGGER 0
 #endif
 
+#ifndef A90_WIFI_TEST_BOOT_ICNSS_REGISTER_PROBE_STACK_SAMPLER
+#define A90_WIFI_TEST_BOOT_ICNSS_REGISTER_PROBE_STACK_SAMPLER 0
+#endif
+
 #ifndef A90_WIFI_TEST_BOOT_ICNSS_QCACLD_POST_BDF_FOCUSED_SUMMARY
 #define A90_WIFI_TEST_BOOT_ICNSS_QCACLD_POST_BDF_FOCUSED_SUMMARY 0
 #endif
@@ -267,7 +271,9 @@
 #define A90_WIFI_TEST_BOOT_ANDROID_TFTP_SERVER_IDENTITY A90_WIFI_TEST_BOOT_ANDROID_RMT_TFTP_IDENTITY
 #endif
 
-#if A90_WIFI_TEST_BOOT_POST_FW_READY_BOOT_WLAN_TRIGGER && A90_WIFI_TEST_BOOT_ICNSS_STATS_EVENT_SUMMARY && A90_WIFI_TEST_BOOT_ICNSS_STATS_NUMERIC_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_INDICATION_LABEL_FIX && A90_WIFI_TEST_BOOT_TFTP_SHARED_SERVER_INFO_TMPFS && !A90_WIFI_TEST_BOOT_ANDROID_RMT_STORAGE_IDENTITY && !A90_WIFI_TEST_BOOT_ANDROID_TFTP_SERVER_IDENTITY && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_LEAF_PRECREATE && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_PARENT_TRAVERSE_PARITY && A90_WIFI_TEST_BOOT_TFTP_PROCESS_NAMESPACE_AUDIT && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_AUTODIR_PARITY && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_VENDOR_RFS_PERMS && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_TMPFS && A90_WIFI_TEST_BOOT_ICNSS_QCACLD_POST_BDF_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_LATE_MSG21_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
+#if A90_WIFI_TEST_BOOT_ICNSS_REGISTER_PROBE_STACK_SAMPLER && A90_WIFI_TEST_BOOT_POST_FW_READY_BOOT_WLAN_TRIGGER && A90_WIFI_TEST_BOOT_ICNSS_STATS_EVENT_SUMMARY && A90_WIFI_TEST_BOOT_ICNSS_STATS_NUMERIC_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_INDICATION_LABEL_FIX && A90_WIFI_TEST_BOOT_TFTP_SHARED_SERVER_INFO_TMPFS && !A90_WIFI_TEST_BOOT_ANDROID_RMT_STORAGE_IDENTITY && !A90_WIFI_TEST_BOOT_ANDROID_TFTP_SERVER_IDENTITY && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_LEAF_PRECREATE && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_PARENT_TRAVERSE_PARITY && A90_WIFI_TEST_BOOT_TFTP_PROCESS_NAMESPACE_AUDIT && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_AUTODIR_PARITY && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_VENDOR_RFS_PERMS && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_TMPFS && A90_WIFI_TEST_BOOT_ICNSS_QCACLD_POST_BDF_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_LATE_MSG21_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
+#define EXECNS_VERSION "a90_android_execns_probe v424"
+#elif A90_WIFI_TEST_BOOT_POST_FW_READY_BOOT_WLAN_TRIGGER && A90_WIFI_TEST_BOOT_ICNSS_STATS_EVENT_SUMMARY && A90_WIFI_TEST_BOOT_ICNSS_STATS_NUMERIC_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_INDICATION_LABEL_FIX && A90_WIFI_TEST_BOOT_TFTP_SHARED_SERVER_INFO_TMPFS && !A90_WIFI_TEST_BOOT_ANDROID_RMT_STORAGE_IDENTITY && !A90_WIFI_TEST_BOOT_ANDROID_TFTP_SERVER_IDENTITY && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_LEAF_PRECREATE && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_PARENT_TRAVERSE_PARITY && A90_WIFI_TEST_BOOT_TFTP_PROCESS_NAMESPACE_AUDIT && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_AUTODIR_PARITY && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_VENDOR_RFS_PERMS && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_TMPFS && A90_WIFI_TEST_BOOT_ICNSS_QCACLD_POST_BDF_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_LATE_MSG21_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
 #define EXECNS_VERSION "a90_android_execns_probe v423"
 #elif A90_WIFI_TEST_BOOT_ICNSS_STATS_EVENT_SUMMARY && A90_WIFI_TEST_BOOT_ICNSS_STATS_NUMERIC_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_INDICATION_LABEL_FIX && A90_WIFI_TEST_BOOT_TFTP_SHARED_SERVER_INFO_TMPFS && !A90_WIFI_TEST_BOOT_ANDROID_RMT_STORAGE_IDENTITY && !A90_WIFI_TEST_BOOT_ANDROID_TFTP_SERVER_IDENTITY && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_LEAF_PRECREATE && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_PARENT_TRAVERSE_PARITY && A90_WIFI_TEST_BOOT_TFTP_PROCESS_NAMESPACE_AUDIT && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_AUTODIR_PARITY && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_VENDOR_RFS_PERMS && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_TMPFS && A90_WIFI_TEST_BOOT_ICNSS_QCACLD_POST_BDF_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_LATE_MSG21_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
 #define EXECNS_VERSION "a90_android_execns_probe v422"
@@ -48718,6 +48724,286 @@ static int append_post_fw_ready_boot_wlan_trigger(struct buffer *stdout_buf) {
 }
 #endif
 
+#if A90_WIFI_TEST_BOOT_ICNSS_REGISTER_PROBE_STACK_SAMPLER
+static bool a90_proc_name_is_pid(const char *name) {
+    if (name == NULL || *name == '\0') {
+        return false;
+    }
+    for (const char *cursor = name; *cursor != '\0'; cursor++) {
+        if (*cursor < '0' || *cursor > '9') {
+            return false;
+        }
+    }
+    return true;
+}
+
+static bool a90_text_has_icnss_probe_signal(const char *text) {
+    static const char * const needles[] = {
+        "icnss",
+        "pld",
+        "hdd",
+        "wlan",
+        "qdf",
+        "cfg80211",
+        "request_firmware",
+        "firmware",
+        "rtnl",
+        "mutex",
+        "completion",
+        "wait_for_completion",
+        "schedule_timeout",
+    };
+
+    if (text == NULL) {
+        return false;
+    }
+    for (size_t i = 0; i < sizeof(needles) / sizeof(needles[0]); i++) {
+        if (strstr(text, needles[i]) != NULL) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static void a90_preview_one_line(char *text) {
+    for (size_t i = 0; text[i] != '\0'; i++) {
+        unsigned char ch = (unsigned char)text[i];
+
+        if (ch == '\n' || ch == '\r' || ch == '\t') {
+            text[i] = '|';
+        } else if (ch < 0x20 || ch > 0x7e) {
+            text[i] = '?';
+        }
+    }
+}
+
+static bool a90_comm_is_stack_candidate(const char *comm) {
+    return comm != NULL &&
+           (strstr(comm, "kworker") != NULL ||
+            strstr(comm, "wlan") != NULL ||
+            strstr(comm, "cnss") != NULL ||
+            strstr(comm, "irq/") != NULL);
+}
+
+static int append_icnss_register_probe_stack_sampler(struct buffer *stdout_buf,
+                                                     const char *phase) {
+    enum {
+        MAX_PROC_SCAN = 320,
+        MAX_STACK_LINES = 8,
+        MAX_SAMPLES = 14,
+        MAX_FALLBACK_KWORKERS = 4,
+    };
+    static const char * const prefix = "icnss_register_probe_stack_sampler";
+    DIR *dir;
+    struct dirent *entry;
+    int proc_open_errno = 0;
+    int scanned = 0;
+    int candidates = 0;
+    int stack_open_ok = 0;
+    int stack_open_fail = 0;
+    int target_hits = 0;
+    int fallback_samples = 0;
+    int sample_index = 0;
+    char workqueue_preview[2048];
+    int workqueue_rc;
+    int workqueue_errno = 0;
+
+    workqueue_preview[0] = '\0';
+    workqueue_rc = read_small_file_trim("/sys/kernel/debug/workqueue/stats",
+                                        workqueue_preview,
+                                        sizeof(workqueue_preview));
+    if (workqueue_rc < 0) {
+        workqueue_errno = errno;
+        workqueue_preview[0] = '\0';
+    } else {
+        a90_preview_one_line(workqueue_preview);
+    }
+
+    if (append_format(stdout_buf,
+                      "%s.%s.begin=1\n"
+                      "%s.%s.mode=read-only-proc-stack-workqueue-sampler\n"
+                      "%s.%s.no_tracefs_write=1\n"
+                      "%s.%s.no_sysrq=1\n"
+                      "%s.%s.no_wifi_hal=1\n"
+                      "%s.%s.scan_connect=0\n"
+                      "%s.%s.credentials=0\n"
+                      "%s.%s.dhcp_routing=0\n"
+                      "%s.%s.external_ping=0\n"
+                      "%s.%s.workqueue_stats.rc=%d\n"
+                      "%s.%s.workqueue_stats.errno=%d\n"
+                      "%s.%s.workqueue_stats.has_icnss=%d\n"
+                      "%s.%s.workqueue_stats.preview=%s\n",
+                      prefix, phase,
+                      prefix, phase,
+                      prefix, phase,
+                      prefix, phase,
+                      prefix, phase,
+                      prefix, phase,
+                      prefix, phase,
+                      prefix, phase,
+                      prefix, phase,
+                      prefix, phase,
+                      workqueue_rc,
+                      prefix, phase,
+                      workqueue_errno,
+                      prefix, phase,
+                      a90_text_has_icnss_probe_signal(workqueue_preview) ? 1 : 0,
+                      prefix, phase,
+                      workqueue_preview[0] != '\0' ? workqueue_preview : "missing") < 0) {
+        return -1;
+    }
+
+    dir = opendir("/proc");
+    if (dir == NULL) {
+        proc_open_errno = errno;
+        return append_format(stdout_buf,
+                             "%s.%s.proc_open.rc=-1\n"
+                             "%s.%s.proc_open.errno=%d\n"
+                             "%s.%s.end=1\n",
+                             prefix, phase,
+                             prefix, phase,
+                             proc_open_errno,
+                             prefix, phase);
+    }
+
+    while ((entry = readdir(dir)) != NULL && scanned < MAX_PROC_SCAN) {
+        char comm_path[64];
+        char wchan_path[64];
+        char stack_path[64];
+        char comm[128];
+        char wchan[128];
+        char stack_lines[MAX_STACK_LINES][256];
+        int stack_line_count = 0;
+        int stack_errno = 0;
+        bool candidate;
+        bool target = false;
+        bool emit_sample = false;
+        long pid_long;
+        char *endptr = NULL;
+        FILE *stack_file;
+
+        if (!a90_proc_name_is_pid(entry->d_name)) {
+            continue;
+        }
+        scanned++;
+        errno = 0;
+        pid_long = strtol(entry->d_name, &endptr, 10);
+        if (errno != 0 || endptr == entry->d_name || pid_long <= 0) {
+            continue;
+        }
+
+        snprintf(comm_path, sizeof(comm_path), "/proc/%ld/comm", pid_long);
+        if (read_small_file_trim(comm_path, comm, sizeof(comm)) < 0) {
+            comm[0] = '\0';
+        }
+        sanitize_one_line(comm);
+        candidate = a90_comm_is_stack_candidate(comm);
+        if (candidate) {
+            candidates++;
+        }
+
+        snprintf(wchan_path, sizeof(wchan_path), "/proc/%ld/wchan", pid_long);
+        if (read_small_file_trim(wchan_path, wchan, sizeof(wchan)) < 0) {
+            wchan[0] = '\0';
+        }
+        sanitize_one_line(wchan);
+        if (a90_text_has_icnss_probe_signal(wchan)) {
+            target = true;
+        }
+
+        snprintf(stack_path, sizeof(stack_path), "/proc/%ld/stack", pid_long);
+        stack_file = fopen(stack_path, "re");
+        if (stack_file == NULL) {
+            stack_errno = errno;
+            stack_open_fail++;
+        } else {
+            stack_open_ok++;
+            while (stack_line_count < MAX_STACK_LINES &&
+                   fgets(stack_lines[stack_line_count],
+                         sizeof(stack_lines[stack_line_count]),
+                         stack_file) != NULL) {
+                sanitize_one_line(stack_lines[stack_line_count]);
+                if (a90_text_has_icnss_probe_signal(stack_lines[stack_line_count])) {
+                    target = true;
+                }
+                stack_line_count++;
+            }
+            fclose(stack_file);
+        }
+
+        if (target) {
+            target_hits++;
+            emit_sample = true;
+        } else if (candidate && fallback_samples < MAX_FALLBACK_KWORKERS) {
+            fallback_samples++;
+            emit_sample = true;
+        }
+        if (!emit_sample || sample_index >= MAX_SAMPLES) {
+            continue;
+        }
+        if (append_format(stdout_buf,
+                          "%s.%s.sample_%02d.pid=%ld\n"
+                          "%s.%s.sample_%02d.comm=%s\n"
+                          "%s.%s.sample_%02d.candidate=%d\n"
+                          "%s.%s.sample_%02d.target=%d\n"
+                          "%s.%s.sample_%02d.wchan=%s\n"
+                          "%s.%s.sample_%02d.stack_open=%d\n"
+                          "%s.%s.sample_%02d.stack_errno=%d\n"
+                          "%s.%s.sample_%02d.stack_line_count=%d\n",
+                          prefix, phase, sample_index, pid_long,
+                          prefix, phase, sample_index, comm[0] != '\0' ? comm : "missing",
+                          prefix, phase, sample_index, candidate ? 1 : 0,
+                          prefix, phase, sample_index, target ? 1 : 0,
+                          prefix, phase, sample_index, wchan[0] != '\0' ? wchan : "missing",
+                          prefix, phase, sample_index, stack_file != NULL ? 1 : (stack_errno == 0 ? 1 : 0),
+                          prefix, phase, sample_index, stack_errno,
+                          prefix, phase, sample_index, stack_line_count) < 0) {
+            closedir(dir);
+            return -1;
+        }
+        for (int line_index = 0; line_index < stack_line_count; line_index++) {
+            if (append_format(stdout_buf,
+                              "%s.%s.sample_%02d.stack_%02d=%s\n",
+                              prefix, phase, sample_index, line_index,
+                              stack_lines[line_index][0] != '\0' ?
+                                  stack_lines[line_index] : "empty") < 0) {
+                closedir(dir);
+                return -1;
+            }
+        }
+        sample_index++;
+    }
+    closedir(dir);
+
+    return append_format(stdout_buf,
+                         "%s.%s.proc_open.rc=0\n"
+                         "%s.%s.scanned=%d\n"
+                         "%s.%s.candidates=%d\n"
+                         "%s.%s.stack_open_ok=%d\n"
+                         "%s.%s.stack_open_fail=%d\n"
+                         "%s.%s.target_hits=%d\n"
+                         "%s.%s.fallback_samples=%d\n"
+                         "%s.%s.samples=%d\n"
+                         "%s.%s.end=1\n",
+                         prefix, phase,
+                         prefix, phase,
+                         scanned,
+                         prefix, phase,
+                         candidates,
+                         prefix, phase,
+                         stack_open_ok,
+                         prefix, phase,
+                         stack_open_fail,
+                         prefix, phase,
+                         target_hits,
+                         prefix, phase,
+                         fallback_samples,
+                         prefix, phase,
+                         sample_index,
+                         prefix, phase);
+}
+#endif
+
 static int append_wlan_pd_icnss_ipc_snapshot(struct buffer *buf,
                                              const char *phase) {
     struct stat st;
@@ -51479,33 +51765,56 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
             return -1;
         }
         usleep(8000000);
-        if (append_wlan_pd_post_pm_lower_handoff_klog_sample(stdout_buf,
-                                                             "after_boot_wlan_trigger") < 0 ||
-            append_wlan_pd_icnss_ipc_snapshot(stdout_buf,
-                                              "after_boot_wlan_trigger") < 0 ||
-            (wlan_pd_firmware_serve_gate &&
-             append_wlan_pd_producer_child_snapshots(stdout_buf,
-                                                     "after_boot_wlan_trigger",
-                                                     children,
-                                                     active_child_count) < 0)) {
-            stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
-            composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
-            stop_property_service_shim(&property_shim, paths, stdout_buf);
-            return -1;
-        }
-    }
+	        if (append_wlan_pd_post_pm_lower_handoff_klog_sample(stdout_buf,
+	                                                             "after_boot_wlan_trigger") < 0 ||
+	            append_wlan_pd_icnss_ipc_snapshot(stdout_buf,
+	                                              "after_boot_wlan_trigger") < 0 ||
+	            (wlan_pd_firmware_serve_gate &&
+	             append_wlan_pd_producer_child_snapshots(stdout_buf,
+	                                                     "after_boot_wlan_trigger",
+	                                                     children,
+	                                                     active_child_count) < 0)) {
+	            stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
+	            composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+	            stop_property_service_shim(&property_shim, paths, stdout_buf);
+	            return -1;
+	        }
+#if A90_WIFI_TEST_BOOT_ICNSS_REGISTER_PROBE_STACK_SAMPLER
+	        if (append_icnss_register_probe_stack_sampler(stdout_buf,
+	                                                      "after_boot_wlan_trigger") < 0) {
+	            stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
+	            composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+	            stop_property_service_shim(&property_shim, paths, stdout_buf);
+	            return -1;
+	        }
 #endif
-    deadline = monotonic_ms() + cfg->timeout_sec * 1000L;
-    if (composite_poll_children(children, active_child_count, stdout_buf, stderr_buf, deadline, timed_out) < 0) {
-        stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
+	    }
+#endif
+	    deadline = monotonic_ms() + cfg->timeout_sec * 1000L;
+	    if (composite_poll_children(children, active_child_count, stdout_buf, stderr_buf, deadline, timed_out) < 0) {
+	        stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
         composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
-        stop_property_service_shim(&property_shim, paths, stdout_buf);
-        return -1;
-    }
+	        stop_property_service_shim(&property_shim, paths, stdout_buf);
+	        return -1;
+	    }
+#if A90_WIFI_TEST_BOOT_ICNSS_REGISTER_PROBE_STACK_SAMPLER
+	    if (wlan_pd_post_pm_lower_state_observer &&
+	        (append_wlan_pd_post_pm_lower_handoff_klog_sample(stdout_buf,
+	                                                         "after_boot_wlan_long_window") < 0 ||
+	         append_wlan_pd_icnss_ipc_snapshot(stdout_buf,
+	                                           "after_boot_wlan_long_window") < 0 ||
+	         append_icnss_register_probe_stack_sampler(stdout_buf,
+	                                                   "after_boot_wlan_long_window") < 0)) {
+	        stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
+	        composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+	        stop_property_service_shim(&property_shim, paths, stdout_buf);
+	        return -1;
+	    }
+#endif
 #if A90_WIFI_TEST_BOOT_DIAG_PD_QUERY_PROBE
-    if (a90_diag_pd_query_probe_stop(stdout_buf) < 0) {
-        stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
-        composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+	    if (a90_diag_pd_query_probe_stop(stdout_buf) < 0) {
+	        stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
+	        composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
         stop_property_service_shim(&property_shim, paths, stdout_buf);
         return -1;
     }
