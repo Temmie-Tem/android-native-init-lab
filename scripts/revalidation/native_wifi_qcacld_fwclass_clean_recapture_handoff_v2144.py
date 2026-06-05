@@ -8,11 +8,14 @@ import hashlib
 import json
 import os
 import re
+import shlex
 import subprocess
+import tarfile
 import time
 from pathlib import Path
 from typing import Any, Callable
 
+import a90_ncm_transport as ncm_transport
 from a90harness.evidence import EvidenceStore
 
 
@@ -41,6 +44,19 @@ TEST_HELPER_RESULT_PATH = "/cache/native-init-wifi-test-boot-v2137-helper.result
 SIBLING_FLAG_PATH = "/cache/native-init-sibling-fwssctl-v641"
 DEFAULT_HELPER_WAIT_SEC = 260.0
 POLL_INTERVAL_SEC = 5.0
+FAST_EVIDENCE_DIR = "a90-v2144-evidence"
+FAST_EVIDENCE_STEPS = {
+    "test-v2137-log",
+    "test-v2137-summary",
+    "test-v2137-helper-result",
+    "test-dmesg-full",
+    "test-dmesg-wifi-filter",
+    "test-icnss-stats",
+    "test-icnss-debugfs-ls",
+    "test-wlan0-state",
+    "test-wlan0-ifconfig",
+    "test-sys-wifi-mac-node",
+}
 
 
 def now_iso() -> str:
@@ -272,6 +288,7 @@ def wait_for_helper_completion(store: EvidenceStore,
 
 
 def collect_test_evidence(store: EvidenceStore, steps: list[dict[str, Any]]) -> None:
+    collect_test_evidence_fast(store, steps)
     commands: dict[str, list[str]] = {
         "test-version": ["version"],
         "test-status": ["status"],
@@ -324,7 +341,172 @@ def collect_test_evidence(store: EvidenceStore, steps: list[dict[str, Any]]) -> 
         ],
     }
     for name, command in commands.items():
+        if (store.run_dir / f"{name}.stdout.txt").exists():
+            continue
         a90ctl_step(store, steps, name, command, timeout=120, bridge_timeout=90)
+
+
+def extract_fast_evidence_archive(store: EvidenceStore,
+                                  steps: list[dict[str, Any]],
+                                  archive_path: Path) -> dict[str, Any]:
+    extracted: list[str] = []
+    rejected: list[str] = []
+    try:
+        with tarfile.open(archive_path, "r:gz") as tar:
+            for member in tar.getmembers():
+                if not member.isfile():
+                    continue
+                name = Path(member.name).name
+                if not name.endswith(".stdout.txt"):
+                    rejected.append(member.name)
+                    continue
+                step_name = name.removesuffix(".stdout.txt")
+                if step_name not in FAST_EVIDENCE_STEPS:
+                    rejected.append(member.name)
+                    continue
+                file_obj = tar.extractfile(member)
+                if file_obj is None:
+                    rejected.append(member.name)
+                    continue
+                text = file_obj.read().decode("utf-8", errors="replace")
+                write_step(
+                    store,
+                    steps,
+                    step_name,
+                    {
+                        "command": ["fast-upload", "extract", step_name],
+                        "started": now_iso(),
+                        "ended": now_iso(),
+                        "timeout": False,
+                        "rc": 0,
+                        "ok": True,
+                        "stdout": text,
+                        "stderr": "",
+                    },
+                )
+                extracted.append(step_name)
+    except tarfile.TarError as exc:
+        return {"ok": False, "reason": f"tar-extract-failed:{exc}", "extracted": extracted, "rejected": rejected}
+    return {
+        "ok": bool(extracted),
+        "reason": "ok" if extracted else "no-fast-evidence-extracted",
+        "extracted": sorted(extracted),
+        "rejected": sorted(rejected),
+    }
+
+
+def collect_test_evidence_fast(store: EvidenceStore, steps: list[dict[str, Any]]) -> dict[str, Any]:
+    transfer = ncm_transport.FastTransferSession(store, steps, run_step=a90ctl_step)
+    started = time.monotonic()
+    if not transfer.ensure_device_reachable():
+        result = {
+            "ok": False,
+            "reason": transfer.reason,
+            "method": "ncm-targzip-nc",
+            "elapsed_sec": 0.0,
+            "extracted": [],
+        }
+        ncm_transport.write_compact_step(
+            store,
+            steps,
+            "test-fast-evidence-upload-skipped",
+            command=["fast-upload", "v2144-evidence"],
+            ok=False,
+            rc=1,
+            stdout=json.dumps(result, ensure_ascii=False, sort_keys=True) + "\n",
+        )
+        return result
+
+    archive_path = store.path("test-fast-evidence.tgz")
+    with ncm_transport.TcpArchiveReceiver(archive_path, timeout=90.0) as receiver:
+        remote_host = shlex.quote(transfer.host_link_local + "%" + transfer.device_ifname)
+        script = "\n".join([
+            "bb=/cache/bin/busybox",
+            "toy=/cache/bin/toybox",
+            "tmp=/cache/a90-fastupload-v2144-$$",
+            f"payload=$tmp/{FAST_EVIDENCE_DIR}",
+            "if [ ! -x \"$bb\" ]; then echo fast_evidence.reason=busybox-missing; exit 42; fi",
+            "$bb rm -rf \"$tmp\"",
+            "$bb mkdir -p \"$payload\"",
+            "copy_if() { src=\"$1\"; dst=\"$2\"; [ -f \"$src\" ] && $bb cp \"$src\" \"$payload/$dst\" || true; }",
+            f"copy_if {shlex.quote(TEST_LOG_PATH)} test-v2137-log.stdout.txt",
+            f"copy_if {shlex.quote(TEST_SUMMARY_PATH)} test-v2137-summary.stdout.txt",
+            f"copy_if {shlex.quote(TEST_HELPER_RESULT_PATH)} test-v2137-helper-result.stdout.txt",
+            "$bb dmesg > \"$payload/test-dmesg-full.stdout.txt\" 2>&1 || true",
+            (
+                "$bb dmesg | $bb grep -Ei "
+                "'A90v2137|wlan0|swlan0|set_features|Assigning MAC|icnss|FW ready|FW_READY|"
+                "wlfw|WLFW|BDF|bdwlan|regdb|firmware_class|request_firmware|qca|HDD|wlanmdsp' "
+                "> \"$payload/test-dmesg-wifi-filter.stdout.txt\" 2>&1 || true"
+            ),
+            "$bb cat /sys/kernel/debug/icnss/stats > \"$payload/test-icnss-stats.stdout.txt\" 2>&1 || true",
+            "$bb ls -la /sys/kernel/debug/icnss > \"$payload/test-icnss-debugfs-ls.stdout.txt\" 2>&1 || true",
+            (
+                "if [ -e /sys/class/net/wlan0 ]; then echo wlan0=present; "
+                "for f in address operstate carrier flags mtu type uevent; do "
+                "printf '%s=' \"$f\"; $bb cat /sys/class/net/wlan0/$f 2>/dev/null || echo unreadable; "
+                "done; else echo wlan0=absent; fi"
+            ) + " > \"$payload/test-wlan0-state.stdout.txt\" 2>&1 || true",
+            (
+                "if [ -x \"$toy\" ]; then $toy ip addr show wlan0; "
+                "else $bb ifconfig wlan0; fi"
+            ) + " > \"$payload/test-wlan0-ifconfig.stdout.txt\" 2>&1 || true",
+            "$bb ls -la /sys/wifi /sys/wifi/mac_addr > \"$payload/test-sys-wifi-mac-node.stdout.txt\" 2>&1 || true",
+            "$bb stat /sys/wifi/mac_addr >> \"$payload/test-sys-wifi-mac-node.stdout.txt\" 2>&1 || true",
+            f"(cd \"$tmp\" && $bb tar -cf - {FAST_EVIDENCE_DIR}) | $bb gzip -c | $bb nc -w 1 {remote_host} {receiver.port}",
+            "rc=$?",
+            "$bb rm -rf \"$tmp\"",
+            "echo fast_evidence.nc_rc=$rc",
+            "exit \"$rc\"",
+        ])
+        step = a90ctl_step(
+            store,
+            steps,
+            "test-fast-evidence-device-stream",
+            ["run", "/cache/bin/busybox", "sh", "-c", script],
+            timeout=120,
+            bridge_timeout=100,
+        )
+
+    output = "\n".join([str(step.get("stdout") or ""), str(step.get("stderr") or "")])
+    fields = parse_key_values(output)
+    validation = ncm_transport.validate_uploaded_archive(archive_path)
+    extraction = extract_fast_evidence_archive(store, steps, archive_path) if validation.get("ok") else {
+        "ok": False,
+        "reason": str(validation.get("reason") or "validation-failed"),
+        "extracted": [],
+        "rejected": [],
+    }
+    ok = (
+        bool(step.get("ok"))
+        and fields.get("fast_evidence.nc_rc") == "0"
+        and bool(receiver.result.get("ok"))
+        and bool(validation.get("ok"))
+        and bool(extraction.get("ok"))
+    )
+    result = {
+        "ok": ok,
+        "reason": "ok" if ok else "upload-validation-or-extract-failed",
+        "method": "ncm-targzip-nc",
+        "elapsed_sec": round(time.monotonic() - started, 3),
+        "device_nc_rc": fields.get("fast_evidence.nc_rc", ""),
+        "archive_path": rel(archive_path) if archive_path.exists() else "",
+        "receiver": receiver.result,
+        "validation": {key: value for key, value in validation.items() if key != "connect_result_text"},
+        "extraction": extraction,
+        "host_ifname": transfer.ifname,
+        "host_link_local": transfer.host_link_local,
+    }
+    ncm_transport.write_compact_step(
+        store,
+        steps,
+        "test-fast-evidence-upload-result",
+        command=["fast-upload-result", "v2144-evidence"],
+        ok=ok,
+        rc=0 if ok else 1,
+        stdout=json.dumps(result, ensure_ascii=False, sort_keys=True) + "\n",
+    )
+    return result
 
 
 def rollback(store: EvidenceStore, steps: list[dict[str, Any]]) -> dict[str, Any]:

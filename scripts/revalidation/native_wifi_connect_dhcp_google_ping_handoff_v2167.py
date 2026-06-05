@@ -12,9 +12,11 @@ import re
 import shlex
 import shutil
 import tarfile
+import time
 from pathlib import Path
 from typing import Any
 
+import a90_ncm_transport as ncm_transport
 import native_wifi_qcacld_fwclass_clean_recapture_handoff_v2144 as base
 import native_property_runtime_overlay_v471 as propbase
 import native_property_runtime_overlay_v535 as prop535
@@ -51,6 +53,14 @@ PROPERTY_REMOTE_TGZ = "/cache/a90-property-v2167.tgz"
 PROPERTY_REMOTE_B64 = f"{PROPERTY_REMOTE_TGZ}.b64"
 PING_TARGET = "google.com"
 CHUNK_SIZE = 1536
+FAST_TRANSFER_ENABLED = os.environ.get("A90_FAST_TRANSFER", "1").lower() not in {"0", "false", "no"}
+FAST_TRANSFER_IFNAME = "ncm0"
+FAST_TRANSFER_DEVICE_IP = "192.168.7.2"
+FAST_TRANSFER_NETMASK = "255.255.255.0"
+FAST_TRANSFER_NM_PROFILE = os.environ.get("A90_FAST_TRANSFER_NM_PROFILE", "a90-v725-ncm-bench")
+A90_USB_VENDOR_ID = "04e8"
+A90_USB_PRODUCT_ID = "6861"
+A90_USB_NCM_DRIVER = "cdc_ncm"
 RAW_SECRET_KEYS = ("A90_WIFI_SSID", "A90_WIFI_PSK")
 SUPPLICANT_PROPERTY_KEYS = (
     "debug.ld.app.wpa_supplicant",
@@ -138,6 +148,148 @@ def append_compact_step(store: base.EvidenceStore,
     base.write_step(store, steps, name, result)
 
 
+class FastTransferSession(ncm_transport.FastTransferSession):
+    def __init__(self, store: base.EvidenceStore, steps: list[dict[str, Any]]) -> None:
+        super().__init__(
+            store,
+            steps,
+            run_step=run_step,
+            enabled=FAST_TRANSFER_ENABLED,
+            device_ifname=FAST_TRANSFER_IFNAME,
+            device_ip=FAST_TRANSFER_DEVICE_IP,
+            device_netmask=FAST_TRANSFER_NETMASK,
+            nm_profile=FAST_TRANSFER_NM_PROFILE,
+        )
+
+
+def secret_byte_patterns() -> dict[str, bytes]:
+    patterns: dict[str, bytes] = {}
+    for key, value in secret_values().items():
+        if value:
+            patterns[key] = value.encode("utf-8")
+    return patterns
+
+
+def validate_uploaded_archive(archive_path: Path) -> dict[str, Any]:
+    return ncm_transport.validate_uploaded_archive(
+        archive_path,
+        secret_patterns=secret_byte_patterns(),
+        forbidden_patterns=(
+            "v2167.conf",
+            "connect_config",
+            "connect-config",
+            "sockets",
+            ".b64",
+            "wpa_supplicant.conf",
+            "env",
+        ),
+    )
+
+
+TcpArchiveReceiver = ncm_transport.TcpArchiveReceiver
+
+
+class FastUploadSession:
+    def __init__(self, transfer: FastTransferSession) -> None:
+        self.transfer = transfer
+
+    def upload_v2167_logs(self) -> dict[str, Any]:
+        started = time.monotonic()
+        if not self.transfer.ensure_device_reachable():
+            result = {
+                "ok": False,
+                "reason": self.transfer.reason,
+                "method": "ncm-targzip-nc",
+                "elapsed_sec": 0.0,
+                "archive": {},
+                "validation": {},
+            }
+            append_compact_step(
+                self.transfer.store,
+                self.transfer.steps,
+                "fast-upload-v2167-skipped",
+                command=["fast-upload", "v2167-logs"],
+                ok=False,
+                rc=1,
+                stdout=json.dumps(result, ensure_ascii=False, sort_keys=True) + "\n",
+            )
+            return result
+
+        archive_path = OUT_DIR / f"fast-upload-v2167-{int(time.time())}.tgz"
+        with TcpArchiveReceiver(archive_path, timeout=60.0) as receiver:
+            remote_host = shlex.quote(self.transfer.host_link_local + "%" + FAST_TRANSFER_IFNAME)
+            script = "\n".join([
+                "bb=/cache/bin/busybox",
+                "tmp=/cache/a90-fastupload-v2167-$$",
+                "payload=$tmp/a90-v2167-evidence",
+                "$bb rm -rf \"$tmp\"",
+                "$bb mkdir -p \"$payload\"",
+                "copy_if() { src=\"$1\"; dst=\"$2\"; [ -f \"$src\" ] && $bb cp \"$src\" \"$payload/$dst\"; }",
+                f"copy_if {shlex.quote(CONNECT_RESULT)} connect-result.txt",
+                f"copy_if {shlex.quote(CONNECT_DIR + '/a90_supplicant_execns.log')} supplicant-execns.log",
+                f"copy_if {shlex.quote(CONNECT_DIR + '/a90_supplicant_execns_stdio.log')} supplicant-execns-stdio.log",
+                "copy_if /cache/native-init.log native-init.log",
+                "copy_if /cache/native-init-netservice.log native-init-netservice.log",
+                "copy_if /cache/usbnet.log usbnet.log",
+                "if [ -x /cache/bin/a90_netservice ]; then /cache/bin/a90_netservice status > \"$payload/netservice-status.txt\" 2>&1; fi",
+                "$bb ifconfig ncm0 > \"$payload/ncm0-ifconfig.txt\" 2>&1 || true",
+                "$bb ip addr show ncm0 > \"$payload/ncm0-ip-addr.txt\" 2>&1 || true",
+                "$bb dmesg > \"$payload/dmesg.txt\" 2>&1 || true",
+                "if [ -f /sys/kernel/debug/icnss/stats ]; then $bb cat /sys/kernel/debug/icnss/stats > \"$payload/icnss-stats.txt\" 2>&1; fi",
+                "if [ -d /sys/class/net/wlan0 ]; then $bb cat /sys/class/net/wlan0/operstate > \"$payload/wlan0-operstate.txt\" 2>&1; fi",
+                "(cd \"$tmp\" && $bb tar -cf - a90-v2167-evidence) | $bb gzip -c | $bb nc -w 1 "
+                f"{remote_host} {receiver.port}",
+                "rc=$?",
+                "$bb rm -rf \"$tmp\"",
+                "echo fast_upload.nc_rc=$rc",
+                "exit \"$rc\"",
+            ])
+            step = run_step(
+                self.transfer.store,
+                self.transfer.steps,
+                "fast-upload-v2167-device-stream",
+                ["run", "/cache/bin/busybox", "sh", "-c", script],
+                timeout=90,
+                bridge_timeout=65,
+            )
+        upload_output = "\n".join([str(step.get("stdout") or ""), str(step.get("stderr") or "")])
+        fields = base.parse_key_values(upload_output)
+        validation = validate_uploaded_archive(archive_path)
+        ok = (
+            bool(step.get("ok"))
+            and fields.get("fast_upload.nc_rc") == "0"
+            and bool(receiver.result.get("ok"))
+            and bool(validation.get("ok"))
+        )
+        result = {
+            "ok": ok,
+            "reason": "ok" if ok else "upload-or-validation-failed",
+            "method": "ncm-targzip-nc",
+            "elapsed_sec": round(time.monotonic() - started, 3),
+            "device_nc_rc": fields.get("fast_upload.nc_rc", ""),
+            "archive_path": base.rel(archive_path) if archive_path.exists() else "",
+            "receiver": receiver.result,
+            "validation": {
+                key: value
+                for key, value in validation.items()
+                if key != "connect_result_text"
+            },
+            "host_ifname": self.transfer.ifname,
+            "host_link_local": self.transfer.host_link_local,
+        }
+        append_compact_step(
+            self.transfer.store,
+            self.transfer.steps,
+            "fast-upload-v2167-result",
+            command=["fast-upload-result", "v2167-logs"],
+            ok=ok,
+            rc=0 if ok else 1,
+            stdout=json.dumps(result, ensure_ascii=False, sort_keys=True) + "\n",
+        )
+        result["connect_result_text"] = str(validation.get("connect_result_text") or "")
+        return result
+
+
 def secret_values() -> dict[str, str]:
     return {key: os.environ.get(key, "") for key in RAW_SECRET_KEYS}
 
@@ -201,13 +353,15 @@ def build_helper(store: base.EvidenceStore, steps: list[dict[str, Any]]) -> dict
         "ok": True,
         "sha256": helper_sha,
         "gzip_len": len(gzip_bytes),
+        "gzip_sha256": hashlib.sha256(gzip_bytes).hexdigest(),
         "chunks": (len(base64.b64encode(gzip_bytes)) + CHUNK_SIZE - 1) // CHUNK_SIZE,
     }
 
 
 def stage_helper_binary(store: base.EvidenceStore,
                         steps: list[dict[str, Any]],
-                        helper_build: dict[str, Any]) -> dict[str, str]:
+                        helper_build: dict[str, Any],
+                        fast_transfer: FastTransferSession | None = None) -> dict[str, str]:
     fields: dict[str, str] = {
         "helper_stage.begin": "1",
         "helper_stage.remote": HELPER_REMOTE,
@@ -230,10 +384,10 @@ def stage_helper_binary(store: base.EvidenceStore,
             f"test -x {HELPER_REMOTE}; echo helper_existing.executable_rc=$?; "
             f"printf 'helper_existing.remote_sha256='; /cache/bin/busybox sha256sum {HELPER_REMOTE} 2>/dev/null | /cache/bin/busybox awk '{{print $1}}'",
         ],
-        timeout=60,
-        bridge_timeout=45,
+        timeout=30,
+        bridge_timeout=15,
     )
-    existing = base.parse_key_values(str(verify.get("stdout") or ""))
+    existing = base.parse_key_values("\n".join([str(verify.get("stdout") or ""), str(verify.get("stderr") or "")]))
     if existing.get("helper_existing.executable_rc") == "0" and existing.get("helper_existing.remote_sha256") == fields["helper_stage.local_sha256"]:
         fields["helper_stage.ok"] = "1"
         fields["helper_stage.reason"] = "already-present"
@@ -245,13 +399,53 @@ def stage_helper_binary(store: base.EvidenceStore,
         "execns-helper-stage-clean",
         ["run", "/cache/bin/busybox", "rm", "-f", HELPER_REMOTE, HELPER_REMOTE_B64, HELPER_REMOTE_GZ],
     )
+    gzip_bytes = gzip.compress(HELPER_LOCAL.read_bytes(), compresslevel=9)
+    gzip_path = HELPER_BUILD_DIR / "a90_android_execns_probe_v2167.gz"
+    gzip_path.write_bytes(gzip_bytes)
+    gzip_sha = hashlib.sha256(gzip_bytes).hexdigest()
+    fields["helper_stage.transfer_method"] = "serial-base64"
+    if fast_transfer is not None:
+        transfer = fast_transfer.transfer_file(
+            label="execns-helper",
+            local_path=gzip_path,
+            remote_path=HELPER_REMOTE_GZ,
+            expected_sha256=gzip_sha,
+            mode="600",
+        )
+        fields["helper_stage.fast_transfer_ok"] = "1" if transfer.get("ok") else "0"
+        fields["helper_stage.fast_transfer_reason"] = str(transfer.get("reason") or "")
+        fields["helper_stage.fast_transfer_elapsed_sec"] = str(transfer.get("elapsed_sec") or "")
+        if transfer.get("ok"):
+            fields["helper_stage.transfer_method"] = "ncm-wget"
+            decode_script = (
+                f"set -e; "
+                f"/cache/bin/busybox zcat {HELPER_REMOTE_GZ} > {HELPER_REMOTE}; "
+                f"/cache/bin/busybox chmod 700 {HELPER_REMOTE}; "
+                f"printf 'helper_stage.remote_sha256='; /cache/bin/busybox sha256sum {HELPER_REMOTE} | /cache/bin/busybox awk '{{print $1}}'; "
+                f"/cache/bin/busybox rm -f {HELPER_REMOTE_B64} {HELPER_REMOTE_GZ}; "
+                f"echo helper_stage.decode_ok=1"
+            )
+            decode = run_step(
+                store,
+                steps,
+                "execns-helper-stage-decode",
+                ["run", "/cache/bin/busybox", "sh", "-c", decode_script],
+                timeout=45,
+                bridge_timeout=20,
+            )
+            decode_output = "\n".join([str(decode.get("stdout") or ""), str(decode.get("stderr") or "")])
+            fields.update(base.parse_key_values(decode_output))
+            if not fields.get("helper_stage.remote_sha256") and fields["helper_stage.local_sha256"] in decode_output:
+                fields["helper_stage.remote_sha256"] = fields["helper_stage.local_sha256"]
+            fields["helper_stage.ok"] = "1" if fields.get("helper_stage.remote_sha256") == fields["helper_stage.local_sha256"] else "0"
+            fields["helper_stage.reason"] = "ok" if fields["helper_stage.ok"] == "1" else "decode-or-sha-mismatch"
+            return fields
     run_step(
         store,
         steps,
         "execns-helper-stage-touch",
         ["run", "/cache/bin/busybox", "touch", HELPER_REMOTE_B64],
     )
-    gzip_bytes = gzip.compress(HELPER_LOCAL.read_bytes(), compresslevel=9)
     encoded = base64.b64encode(gzip_bytes).decode("ascii")
     chunks = [encoded[index:index + CHUNK_SIZE] for index in range(0, len(encoded), CHUNK_SIZE)]
     chunk_log: list[str] = []
@@ -372,7 +566,8 @@ def build_property_archive(property_manifest: dict[str, Any]) -> dict[str, Any]:
 def stage_property_runtime(store: base.EvidenceStore,
                            steps: list[dict[str, Any]],
                            property_manifest: dict[str, Any],
-                           archive_info: dict[str, Any]) -> dict[str, str]:
+                           archive_info: dict[str, Any],
+                           fast_transfer: FastTransferSession | None = None) -> dict[str, str]:
     fields: dict[str, str] = {
         "property_stage.begin": "1",
         "property_stage.remote_root": PROPERTY_REMOTE_ROOT,
@@ -403,6 +598,48 @@ def stage_property_runtime(store: base.EvidenceStore,
         fields["property_stage.ok"] = "0"
         fields["property_stage.reason"] = "clean-or-mkdir-failed"
         return fields
+    fields["property_stage.transfer_method"] = "serial-base64"
+    if fast_transfer is not None:
+        transfer = fast_transfer.transfer_file(
+            label="property-runtime",
+            local_path=archive_path,
+            remote_path=PROPERTY_REMOTE_TGZ,
+            expected_sha256=str(archive_info.get("sha256") or ""),
+            mode="600",
+        )
+        fields["property_stage.fast_transfer_ok"] = "1" if transfer.get("ok") else "0"
+        fields["property_stage.fast_transfer_reason"] = str(transfer.get("reason") or "")
+        fields["property_stage.fast_transfer_elapsed_sec"] = str(transfer.get("elapsed_sec") or "")
+        if transfer.get("ok"):
+            fields["property_stage.transfer_method"] = "ncm-wget"
+            extract_script = (
+                f"set -e; "
+                f"/cache/bin/busybox tar -xzf {PROPERTY_REMOTE_TGZ} -C {PROPERTY_REMOTE_ROOT}; "
+                f"/cache/bin/busybox chmod 755 {PROPERTY_REMOTE_BASE} {PROPERTY_REMOTE_BASE}/dev {PROPERTY_REMOTE_ROOT}; "
+                f"/cache/bin/busybox chmod 644 {PROPERTY_REMOTE_ROOT}/*; "
+                f"printf 'property_stage.remote_sha256='; /cache/bin/busybox sha256sum {PROPERTY_REMOTE_TGZ} | /cache/bin/busybox awk '{{print $1}}'; "
+                f"printf 'property_stage.remote_file_count='; /cache/bin/busybox find {PROPERTY_REMOTE_ROOT} -type f | /cache/bin/busybox wc -l; "
+                f"printf 'property_stage.property_info_size='; /cache/bin/busybox stat -c '%s' {PROPERTY_REMOTE_ROOT}/property_info 2>/dev/null"
+            )
+            extract = run_step(
+                store,
+                steps,
+                "property-runtime-stage-extract",
+                ["run", "/cache/bin/busybox", "sh", "-c", extract_script],
+                timeout=45,
+                bridge_timeout=20,
+            )
+            extract_output = "\n".join([str(extract.get("stdout") or ""), str(extract.get("stderr") or "")])
+            fields.update(base.parse_key_values(extract_output))
+            if not fields.get("property_stage.remote_sha256") and fields["property_stage.archive_sha256"] in extract_output:
+                fields["property_stage.remote_sha256"] = fields["property_stage.archive_sha256"]
+            fields["property_stage.ok"] = (
+                "1"
+                if fields.get("property_stage.remote_sha256") == fields["property_stage.archive_sha256"]
+                else "0"
+            )
+            fields["property_stage.reason"] = "ok" if fields["property_stage.ok"] == "1" else "extract-or-sha-failed"
+            return fields
     run_step(
         store,
         steps,
@@ -750,15 +987,36 @@ def post_flash_connect(store: base.EvidenceStore,
 
 def collect_post_rollback_result(store: base.EvidenceStore,
                                  steps: list[dict[str, Any]]) -> dict[str, Any]:
-    result = base.a90ctl_step(
-        store,
-        steps,
-        "post-rollback-connect-ping-result",
-        ["cat", CONNECT_RESULT],
-        timeout=120,
-        bridge_timeout=90,
-    )
-    fields = parse_fields(str(result.get("stdout") or ""))
+    fast_transfer = FastTransferSession(store, steps)
+    fast_upload: dict[str, Any]
+    try:
+        fast_upload = FastUploadSession(fast_transfer).upload_v2167_logs()
+    finally:
+        fast_transfer.close()
+
+    result: dict[str, Any] | None = None
+    result_text = str(fast_upload.get("connect_result_text") or "") if fast_upload.get("ok") else ""
+    if not result_text:
+        result = base.a90ctl_step(
+            store,
+            steps,
+            "post-rollback-connect-ping-result",
+            ["cat", CONNECT_RESULT],
+            timeout=120,
+            bridge_timeout=90,
+        )
+        result_text = str(result.get("stdout") or "")
+    else:
+        append_compact_step(
+            store,
+            steps,
+            "post-rollback-connect-ping-result-fast-upload",
+            command=["fast-upload", "read", CONNECT_RESULT],
+            ok=True,
+            rc=0,
+            stdout=result_text,
+        )
+    fields = parse_fields(result_text)
     cleanup_script = " ".join([
         "/cache/bin/busybox rm -f",
         shlex.quote(CONNECT_SCRIPT),
@@ -784,8 +1042,14 @@ def collect_post_rollback_result(store: base.EvidenceStore,
         bridge_timeout=60,
     )
     return {
-        "ok": bool(result.get("ok")),
+        "ok": bool(fast_upload.get("ok")) or bool(result and result.get("ok")),
         "fields": fields,
+        "fast_upload": {
+            key: value
+            for key, value in fast_upload.items()
+            if key != "connect_result_text"
+        },
+        "result_source": "fast-upload" if fast_upload.get("ok") else "serial-cat",
         "cleanup_ok": bool(cleanup.get("ok")),
     }
 
@@ -794,6 +1058,17 @@ def collect_gate(manifest: dict[str, Any], result: dict[str, Any]) -> dict[str, 
     hook = manifest.get("post_flash_hook") if isinstance(manifest.get("post_flash_hook"), dict) else {}
     hook_fields = hook.get("fields") if isinstance(hook.get("fields"), dict) else {}
     fields = result.get("fields") if isinstance(result.get("fields"), dict) else {}
+    fast_upload = result.get("fast_upload") if isinstance(result.get("fast_upload"), dict) else {}
+    fast_upload_validation = (
+        fast_upload.get("validation")
+        if isinstance(fast_upload.get("validation"), dict)
+        else {}
+    )
+    fast_upload_receiver = (
+        fast_upload.get("receiver")
+        if isinstance(fast_upload.get("receiver"), dict)
+        else {}
+    )
     rollback_ok = bool((manifest.get("rollback") or {}).get("ok"))
     property_stage_ok = hook_fields.get("property_stage.ok") == "1"
     helper_stage_ok = hook_fields.get("helper_stage.ok") == "1"
@@ -1011,6 +1286,17 @@ def collect_gate(manifest: dict[str, Any], result: dict[str, Any]) -> dict[str, 
             if fields.get(f"wifi_connect_ping.supplicant_proc_after_carrier_wait.fd_sample_{index:02d}", "")
         ],
         "no_raw": no_raw,
+        "result_source": result.get("result_source", ""),
+        "fast_upload_ok": bool(fast_upload.get("ok")),
+        "fast_upload_reason": str(fast_upload.get("reason") or ""),
+        "fast_upload_elapsed_sec": fast_upload.get("elapsed_sec", ""),
+        "fast_upload_archive_path": str(fast_upload.get("archive_path") or ""),
+        "fast_upload_archive_bytes": intish(fast_upload_validation.get("bytes")),
+        "fast_upload_archive_sha256": str(fast_upload_validation.get("sha256") or ""),
+        "fast_upload_receiver_bytes": intish(fast_upload_receiver.get("bytes")),
+        "fast_upload_entry_count": len(fast_upload_validation.get("entries") or []),
+        "fast_upload_forbidden_entries": fast_upload_validation.get("forbidden_entries") or [],
+        "fast_upload_secret_hits": fast_upload_validation.get("secret_hits") or [],
         "cleanup_ok": bool(result.get("cleanup_ok")),
     }
 
@@ -1058,6 +1344,8 @@ def render_report(manifest: dict[str, Any]) -> str:
         f"- Pass: `{manifest['pass']}`",
         f"- Reason: {manifest['reason']}",
         f"- Evidence: `{manifest['out_dir']}`",
+        f"- Result source: `{gate['result_source']}` fast_upload_ok `{gate['fast_upload_ok']}` reason `{gate['fast_upload_reason']}` elapsed `{gate['fast_upload_elapsed_sec']}`",
+        f"- Fast upload archive: `{gate['fast_upload_archive_path']}` bytes `{gate['fast_upload_archive_bytes']}` receiver_bytes `{gate['fast_upload_receiver_bytes']}` entries `{gate['fast_upload_entry_count']}` secret_hits `{gate['fast_upload_secret_hits']}` forbidden_entries `{gate['fast_upload_forbidden_entries']}`",
         "",
         "## Gate Results",
         "",
@@ -1106,8 +1394,8 @@ def render_report(manifest: dict[str, Any]) -> str:
         "",
         "## Staging",
         "",
-        f"- `property_archive`: `{property_archive.get('path', '')}` bytes `{property_archive.get('bytes', 0)}` chunks `{property_archive.get('chunks', 0)}` staged `{property_stage.get('property_stage.ok', '')}`",
-        f"- `helper_sha256`: `{helper.get('sha256', '')}` gzip_len `{helper.get('gzip_len', 0)}` chunks `{helper.get('chunks', 0)}`",
+        f"- `property_archive`: `{property_archive.get('path', '')}` bytes `{property_archive.get('bytes', 0)}` chunks `{property_archive.get('chunks', 0)}` staged `{property_stage.get('property_stage.ok', '')}` method `{property_stage.get('property_stage.transfer_method', '')}` fast `{property_stage.get('property_stage.fast_transfer_ok', '')}` elapsed `{property_stage.get('property_stage.fast_transfer_elapsed_sec', '')}`",
+        f"- `helper_sha256`: `{helper.get('sha256', '')}` gzip_len `{helper.get('gzip_len', 0)}` chunks `{helper.get('chunks', 0)}` method `{manifest.get('helper_stage', {}).get('helper_stage.transfer_method', '')}` fast `{manifest.get('helper_stage', {}).get('helper_stage.fast_transfer_ok', '')}` elapsed `{manifest.get('helper_stage', {}).get('helper_stage.fast_transfer_elapsed_sec', '')}`",
         f"- `connect_config`: path `{CONNECT_CONFIG}` size `{config.get('connect_config.size', '')}` mode `{config.get('connect_config.mode', '')}` security `{config.get('connect_config.security_mode', '')}` disabled_initially `{config.get('connect_config.network_initially_disabled', '')}` raw_values_logged `0`",
         "",
         "## Scope",
@@ -1328,9 +1616,13 @@ def main() -> int:
     bootstrap_steps: list[dict[str, Any]] = []
     property_manifest = build_supplicant_property_runtime(store)
     property_archive = build_property_archive(property_manifest)
-    property_stage = stage_property_runtime(store, bootstrap_steps, property_manifest, property_archive)
-    helper_build = build_helper(store, bootstrap_steps)
-    helper_stage = stage_helper_binary(store, bootstrap_steps, helper_build)
+    fast_transfer = FastTransferSession(store, bootstrap_steps)
+    try:
+        property_stage = stage_property_runtime(store, bootstrap_steps, property_manifest, property_archive, fast_transfer)
+        helper_build = build_helper(store, bootstrap_steps)
+        helper_stage = stage_helper_binary(store, bootstrap_steps, helper_build, fast_transfer)
+    finally:
+        fast_transfer.close()
     config_stage = stage_connect_config(store, bootstrap_steps)
     if (
         property_stage.get("property_stage.ok") != "1"

@@ -49,6 +49,10 @@ class InterfaceInfo:
     usb_product: str
     usb_manufacturer: str
     usb_product_name: str
+    usb_serial: str
+    usb_interface_number: str
+    usb_interface_class: str
+    usb_interface_subclass: str
     ipv4: list[str]
     candidate: bool
     candidate_reason: str
@@ -97,6 +101,10 @@ def usb_attrs(iface: str) -> dict[str, str]:
         "idProduct": "",
         "manufacturer": "",
         "product": "",
+        "serial": "",
+        "bInterfaceNumber": "",
+        "bInterfaceClass": "",
+        "bInterfaceSubClass": "",
     }
     for parent in [current, *current.parents]:
         for key in list(attrs):
@@ -136,11 +144,13 @@ def classify_interface(iface: str, cidr: str, ipv4_by_iface: dict[str, list[str]
         reasons.append(f"driver={NCM_DRIVER}")
     if attrs["idVendor"].lower() == SAMSUNG_VENDOR_ID:
         reasons.append(f"idVendor={SAMSUNG_VENDOR_ID}")
+    if attrs["idProduct"]:
+        reasons.append(f"idProduct={attrs['idProduct']}")
+    if attrs["bInterfaceNumber"]:
+        reasons.append(f"ifnum={attrs['bInterfaceNumber']}")
     if iface.startswith("enx"):
         reasons.append("ifname=enx*")
-    candidate = driver == NCM_DRIVER or (
-        attrs["idVendor"].lower() == SAMSUNG_VENDOR_ID and iface.startswith("enx")
-    )
+    candidate = driver == NCM_DRIVER and attrs["idVendor"].lower() == SAMSUNG_VENDOR_ID
     return InterfaceInfo(
         name=iface,
         mac=read_text(base / "address"),
@@ -150,6 +160,10 @@ def classify_interface(iface: str, cidr: str, ipv4_by_iface: dict[str, list[str]
         usb_product=attrs["idProduct"],
         usb_manufacturer=attrs["manufacturer"],
         usb_product_name=attrs["product"],
+        usb_serial=attrs["serial"],
+        usb_interface_number=attrs["bInterfaceNumber"],
+        usb_interface_class=attrs["bInterfaceClass"],
+        usb_interface_subclass=attrs["bInterfaceSubClass"],
         ipv4=ipv4,
         candidate=candidate,
         candidate_reason=", ".join(reasons) if reasons else "",
@@ -211,7 +225,7 @@ def render_templates(host_ip: str, prefix: int) -> dict[str, str]:
             "# Uses systemd-run so udev does not block on network setup.",
             (
                 'ACTION=="add|change", SUBSYSTEM=="net", DRIVERS=="cdc_ncm", '
-                'ATTRS{idVendor}=="04e8", '
+                'ATTRS{idVendor}=="04e8", ATTRS{idProduct}=="6861", '
                 'RUN+="/usr/bin/systemd-run --no-block --property=Type=oneshot '
                 '/usr/local/sbin/a90-ncm-up %k"'
             ),
@@ -237,10 +251,15 @@ def render_templates(host_ip: str, prefix: int) -> dict[str, str]:
         "networkmanager-nmcli.txt": "\n".join([
             "# NetworkManager is active on Kubuntu by default. Prefer a dedicated profile",
             "# only if you can bind it to the A90 NCM interface without catching other USB NICs.",
-            "sudo nmcli connection add type ethernet con-name a90-ncm ifname '*' \\",
-            f"  ipv4.method manual ipv4.addresses {cidr} ipv6.method ignore connection.autoconnect yes",
-            "# Then restrict autoconnect to the current A90 NCM interface/MAC if needed:",
-            "# sudo nmcli connection modify a90-ncm 802-3-ethernet.mac-address <A90_NCM_HOST_MAC>",
+            "# Current v725 fasttransport runners use IPv6 link-local over NCM:",
+            "nmcli connection delete a90-v725-ncm-bench 2>/dev/null || true",
+            "nmcli connection add type ethernet con-name a90-v725-ncm-bench ifname <A90_NCM_IFACE> \\",
+            "  ipv4.method disabled ipv6.method link-local connection.autoconnect no",
+            "nmcli connection up a90-v725-ncm-bench",
+            "",
+            "# Legacy IPv4 NCM deploy path if a script explicitly needs 192.168.7.1/24:",
+            "sudo nmcli connection add type ethernet con-name a90-ncm ifname <A90_NCM_IFACE> \\",
+            f"  ipv4.method manual ipv4.addresses {cidr} ipv6.method ignore connection.autoconnect no",
             "",
         ]),
     }

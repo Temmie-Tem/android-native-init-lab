@@ -32,11 +32,21 @@
 #define HUD_LOG_TAIL_ENABLE_PATH "/tmp/a90-hud-log-tail-enabled"
 #define NETSERVICE_FLAG_PATH "/cache/native-init-netservice"
 #define NETSERVICE_LOG_PATH "/cache/native-init-netservice.log"
+#ifndef NETSERVICE_USB_HELPER
 #define NETSERVICE_USB_HELPER "/cache/bin/a90_usbnet"
+#endif
+#ifndef NETSERVICE_TCPCTL_HELPER
 #define NETSERVICE_TCPCTL_HELPER "/bin/a90_tcpctl"
+#endif
+#ifndef NETSERVICE_TOYBOX
 #define NETSERVICE_TOYBOX "/cache/bin/toybox"
+#endif
+#ifndef A90_BUSYBOX_HELPER
 #define A90_BUSYBOX_HELPER "/cache/bin/busybox"
+#endif
+#ifndef A90_BUSYBOX_RAMDISK_HELPER
 #define A90_BUSYBOX_RAMDISK_HELPER "/bin/busybox"
+#endif
 #define NETSERVICE_IFNAME "ncm0"
 #define NETSERVICE_DEVICE_IP "192.168.7.2"
 #define NETSERVICE_NETMASK "255.255.255.0"

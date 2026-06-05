@@ -260,6 +260,15 @@ bool a90_netservice_enabled(void) {
            strcmp(state, "tcpctl") == 0;
 }
 
+static bool netservice_tcpctl_requested(void) {
+    char state[64];
+
+    if (read_trimmed_text_file(NETSERVICE_FLAG_PATH, state, sizeof(state)) < 0) {
+        return true;
+    }
+    return strcmp(state, "ncm") != 0;
+}
+
 int a90_netservice_set_enabled(bool enabled) {
     int fd;
 
@@ -380,21 +389,27 @@ int a90_netservice_start(void) {
         NULL
     };
     int rc;
+    bool ncm_present;
 
     a90_logf("netservice", "start requested");
     if (access(NETSERVICE_USB_HELPER, X_OK) < 0 ||
-        access(NETSERVICE_TCPCTL_HELPER, X_OK) < 0 ||
-        access(NETSERVICE_TOYBOX, X_OK) < 0) {
+        access(NETSERVICE_TOYBOX, X_OK) < 0 ||
+        (netservice_tcpctl_requested() && access(NETSERVICE_TCPCTL_HELPER, X_OK) < 0)) {
         int saved_errno = errno;
         a90_logf("netservice", "required helper missing errno=%d error=%s",
                     saved_errno, strerror(saved_errno));
         return -ENOENT;
     }
 
-    rc = netservice_run_wait(usbnet_argv, "a90_usbnet ncm", 15000);
-    a90_console_reattach("netservice-ncm", false);
-    if (rc < 0) {
-        return rc;
+    ncm_present = access("/sys/class/net/" NETSERVICE_IFNAME, F_OK) == 0;
+    if (ncm_present) {
+        a90_logf("netservice", "ncm already present; skip usb gadget reconfigure");
+    } else {
+        rc = netservice_run_wait(usbnet_argv, "a90_usbnet ncm", 15000);
+        a90_console_reattach("netservice-ncm", false);
+        if (rc < 0) {
+            return rc;
+        }
     }
 
     rc = netservice_wait_for_ifname(NETSERVICE_IFNAME, 5000);
@@ -407,15 +422,22 @@ int a90_netservice_start(void) {
         return rc;
     }
 
-    rc = netservice_spawn_tcpctl();
-    if (rc < 0) {
-        return rc;
+    if (netservice_tcpctl_requested()) {
+        rc = netservice_spawn_tcpctl();
+        if (rc < 0) {
+            return rc;
+        }
+    } else {
+        a90_logf("netservice", "tcpctl skipped by ncm-only flag");
     }
 
     a90_timeline_record(0, 0, "netservice", "ncm=%s tcp=%s",
-                    NETSERVICE_IFNAME, NETSERVICE_TCP_PORT);
+                    NETSERVICE_IFNAME,
+                    netservice_tcpctl_requested() ? NETSERVICE_TCP_PORT : "disabled");
     a90_logf("netservice", "ready if=%s ip=%s port=%s",
-                NETSERVICE_IFNAME, NETSERVICE_DEVICE_IP, NETSERVICE_TCP_PORT);
+                NETSERVICE_IFNAME,
+                NETSERVICE_DEVICE_IP,
+                netservice_tcpctl_requested() ? NETSERVICE_TCP_PORT : "disabled");
     return 0;
 }
 
