@@ -207,6 +207,10 @@
 #define A90_WIFI_TEST_BOOT_FIRMWARE_CLASS_FALLBACK_SAMPLER 0
 #endif
 
+#ifndef A90_WIFI_TEST_BOOT_QCACLD_FIRMWARE_CLASS_FALLBACK_FEEDER
+#define A90_WIFI_TEST_BOOT_QCACLD_FIRMWARE_CLASS_FALLBACK_FEEDER 0
+#endif
+
 #ifndef A90_WIFI_TEST_BOOT_ICNSS_QCACLD_POST_BDF_FOCUSED_SUMMARY
 #define A90_WIFI_TEST_BOOT_ICNSS_QCACLD_POST_BDF_FOCUSED_SUMMARY 0
 #endif
@@ -275,7 +279,9 @@
 #define A90_WIFI_TEST_BOOT_ANDROID_TFTP_SERVER_IDENTITY A90_WIFI_TEST_BOOT_ANDROID_RMT_TFTP_IDENTITY
 #endif
 
-#if A90_WIFI_TEST_BOOT_FIRMWARE_CLASS_FALLBACK_SAMPLER && A90_WIFI_TEST_BOOT_ICNSS_REGISTER_PROBE_STACK_SAMPLER && A90_WIFI_TEST_BOOT_POST_FW_READY_BOOT_WLAN_TRIGGER && A90_WIFI_TEST_BOOT_ICNSS_STATS_EVENT_SUMMARY && A90_WIFI_TEST_BOOT_ICNSS_STATS_NUMERIC_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_INDICATION_LABEL_FIX && A90_WIFI_TEST_BOOT_TFTP_SHARED_SERVER_INFO_TMPFS && !A90_WIFI_TEST_BOOT_ANDROID_RMT_STORAGE_IDENTITY && !A90_WIFI_TEST_BOOT_ANDROID_TFTP_SERVER_IDENTITY && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_LEAF_PRECREATE && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_PARENT_TRAVERSE_PARITY && A90_WIFI_TEST_BOOT_TFTP_PROCESS_NAMESPACE_AUDIT && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_AUTODIR_PARITY && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_VENDOR_RFS_PERMS && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_TMPFS && A90_WIFI_TEST_BOOT_ICNSS_QCACLD_POST_BDF_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_LATE_MSG21_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
+#if A90_WIFI_TEST_BOOT_QCACLD_FIRMWARE_CLASS_FALLBACK_FEEDER && A90_WIFI_TEST_BOOT_FIRMWARE_CLASS_FALLBACK_SAMPLER && A90_WIFI_TEST_BOOT_ICNSS_REGISTER_PROBE_STACK_SAMPLER && A90_WIFI_TEST_BOOT_POST_FW_READY_BOOT_WLAN_TRIGGER && A90_WIFI_TEST_BOOT_ICNSS_STATS_EVENT_SUMMARY && A90_WIFI_TEST_BOOT_ICNSS_STATS_NUMERIC_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_INDICATION_LABEL_FIX && A90_WIFI_TEST_BOOT_TFTP_SHARED_SERVER_INFO_TMPFS && !A90_WIFI_TEST_BOOT_ANDROID_RMT_STORAGE_IDENTITY && !A90_WIFI_TEST_BOOT_ANDROID_TFTP_SERVER_IDENTITY && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_LEAF_PRECREATE && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_PARENT_TRAVERSE_PARITY && A90_WIFI_TEST_BOOT_TFTP_PROCESS_NAMESPACE_AUDIT && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_AUTODIR_PARITY && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_VENDOR_RFS_PERMS && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_TMPFS && A90_WIFI_TEST_BOOT_ICNSS_QCACLD_POST_BDF_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_LATE_MSG21_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
+#define EXECNS_VERSION "a90_android_execns_probe v426"
+#elif A90_WIFI_TEST_BOOT_FIRMWARE_CLASS_FALLBACK_SAMPLER && A90_WIFI_TEST_BOOT_ICNSS_REGISTER_PROBE_STACK_SAMPLER && A90_WIFI_TEST_BOOT_POST_FW_READY_BOOT_WLAN_TRIGGER && A90_WIFI_TEST_BOOT_ICNSS_STATS_EVENT_SUMMARY && A90_WIFI_TEST_BOOT_ICNSS_STATS_NUMERIC_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_INDICATION_LABEL_FIX && A90_WIFI_TEST_BOOT_TFTP_SHARED_SERVER_INFO_TMPFS && !A90_WIFI_TEST_BOOT_ANDROID_RMT_STORAGE_IDENTITY && !A90_WIFI_TEST_BOOT_ANDROID_TFTP_SERVER_IDENTITY && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_LEAF_PRECREATE && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_PARENT_TRAVERSE_PARITY && A90_WIFI_TEST_BOOT_TFTP_PROCESS_NAMESPACE_AUDIT && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_AUTODIR_PARITY && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_VENDOR_RFS_PERMS && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_TMPFS && A90_WIFI_TEST_BOOT_ICNSS_QCACLD_POST_BDF_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_LATE_MSG21_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
 #define EXECNS_VERSION "a90_android_execns_probe v425"
 #elif A90_WIFI_TEST_BOOT_ICNSS_REGISTER_PROBE_STACK_SAMPLER && A90_WIFI_TEST_BOOT_POST_FW_READY_BOOT_WLAN_TRIGGER && A90_WIFI_TEST_BOOT_ICNSS_STATS_EVENT_SUMMARY && A90_WIFI_TEST_BOOT_ICNSS_STATS_NUMERIC_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_INDICATION_LABEL_FIX && A90_WIFI_TEST_BOOT_TFTP_SHARED_SERVER_INFO_TMPFS && !A90_WIFI_TEST_BOOT_ANDROID_RMT_STORAGE_IDENTITY && !A90_WIFI_TEST_BOOT_ANDROID_TFTP_SERVER_IDENTITY && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_LEAF_PRECREATE && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_PARENT_TRAVERSE_PARITY && A90_WIFI_TEST_BOOT_TFTP_PROCESS_NAMESPACE_AUDIT && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_AUTODIR_PARITY && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_VENDOR_RFS_PERMS && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_TMPFS && A90_WIFI_TEST_BOOT_ICNSS_QCACLD_POST_BDF_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_LATE_MSG21_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
 #define EXECNS_VERSION "a90_android_execns_probe v424"
@@ -49409,6 +49415,454 @@ static int append_firmware_class_fallback_sampler(struct buffer *stdout_buf,
 }
 #endif
 
+#if A90_WIFI_TEST_BOOT_QCACLD_FIRMWARE_CLASS_FALLBACK_FEEDER
+struct a90_qcacld_fw_fallback_request {
+    const char *label;
+    const char *firmware_name;
+    const char *sysfs_name;
+    size_t max_size;
+};
+
+static const struct a90_qcacld_fw_fallback_request a90_qcacld_fw_requests[] = {
+    {
+        .label = "WCNSS_qcom_cfg_ini",
+        .firmware_name = "wlan/qca_cld/WCNSS_qcom_cfg.ini",
+        .sysfs_name = "wlan!qca_cld!WCNSS_qcom_cfg.ini",
+        .max_size = 128U * 1024U,
+    },
+    {
+        .label = "bdwlan_bin",
+        .firmware_name = "wlan/qca_cld/bdwlan.bin",
+        .sysfs_name = "wlan!qca_cld!bdwlan.bin",
+        .max_size = 256U * 1024U,
+    },
+    {
+        .label = "regdb_bin",
+        .firmware_name = "wlan/qca_cld/regdb.bin",
+        .sysfs_name = "wlan!qca_cld!regdb.bin",
+        .max_size = 256U * 1024U,
+    },
+};
+
+static int a90_qcacld_build_fw_source_path(char *path,
+                                           size_t path_size,
+                                           const char *root,
+                                           const char *firmware_name) {
+    int needed = snprintf(path, path_size, "%s/%s", root, firmware_name);
+
+    if (needed < 0 || (size_t)needed >= path_size) {
+        errno = ENAMETOOLONG;
+        return -1;
+    }
+    return 0;
+}
+
+static int a90_qcacld_build_fw_sysfs_path(char *path,
+                                          size_t path_size,
+                                          const char *sysfs_name,
+                                          const char *leaf) {
+    int needed = snprintf(path,
+                          path_size,
+                          "/sys/devices/virtual/firmware/%s/%s",
+                          sysfs_name,
+                          leaf);
+
+    if (needed < 0 || (size_t)needed >= path_size) {
+        errno = ENAMETOOLONG;
+        return -1;
+    }
+    return 0;
+}
+
+static int a90_qcacld_read_fw_source(const struct a90_qcacld_fw_fallback_request *request,
+                                     unsigned char **data_out,
+                                     size_t *data_len_out,
+                                     char *source_path_out,
+                                     size_t source_path_size,
+                                     int *source_errno_out) {
+    static const char * const source_roots[] = {
+        "/mnt/vendor/firmware",
+        "/proc/1/root/mnt/vendor/firmware",
+        "/vendor/firmware",
+        "/proc/1/root/vendor/firmware",
+    };
+    struct stat stat_buf;
+    unsigned char *data = NULL;
+    int source_fd = -1;
+    int saved_errno = ENOENT;
+    ssize_t nread;
+    size_t offset = 0;
+
+    *data_out = NULL;
+    *data_len_out = 0;
+    if (source_path_size > 0) {
+        source_path_out[0] = '\0';
+    }
+    if (source_errno_out != NULL) {
+        *source_errno_out = 0;
+    }
+
+    for (size_t source_index = 0;
+         source_index < sizeof(source_roots) / sizeof(source_roots[0]);
+         source_index++) {
+        char candidate[MAX_PATH_LEN];
+
+        if (a90_qcacld_build_fw_source_path(candidate,
+                                            sizeof(candidate),
+                                            source_roots[source_index],
+                                            request->firmware_name) < 0) {
+            saved_errno = errno;
+            continue;
+        }
+        source_fd = open(candidate, O_RDONLY | O_CLOEXEC);
+        if (source_fd < 0) {
+            saved_errno = errno;
+            continue;
+        }
+        if (fstat(source_fd, &stat_buf) < 0) {
+            saved_errno = errno;
+            close(source_fd);
+            source_fd = -1;
+            continue;
+        }
+        if (!S_ISREG(stat_buf.st_mode) || stat_buf.st_size <= 0 ||
+            (uint64_t)stat_buf.st_size > (uint64_t)request->max_size) {
+            saved_errno = S_ISREG(stat_buf.st_mode) ? EFBIG : EINVAL;
+            close(source_fd);
+            source_fd = -1;
+            continue;
+        }
+        data = malloc((size_t)stat_buf.st_size);
+        if (data == NULL) {
+            saved_errno = ENOMEM;
+            close(source_fd);
+            source_fd = -1;
+            break;
+        }
+        while (offset < (size_t)stat_buf.st_size) {
+            nread = read(source_fd,
+                         data + offset,
+                         (size_t)stat_buf.st_size - offset);
+            if (nread < 0) {
+                if (errno == EINTR) {
+                    continue;
+                }
+                saved_errno = errno;
+                free(data);
+                data = NULL;
+                close(source_fd);
+                source_fd = -1;
+                break;
+            }
+            if (nread == 0) {
+                saved_errno = EIO;
+                free(data);
+                data = NULL;
+                close(source_fd);
+                source_fd = -1;
+                break;
+            }
+            offset += (size_t)nread;
+        }
+        if (data == NULL) {
+            continue;
+        }
+        close(source_fd);
+        if (source_path_size > 0) {
+            snprintf(source_path_out, source_path_size, "%s", candidate);
+            sanitize_one_line(source_path_out);
+        }
+        *data_out = data;
+        *data_len_out = offset;
+        if (source_errno_out != NULL) {
+            *source_errno_out = 0;
+        }
+        return 0;
+    }
+
+    if (source_fd >= 0) {
+        close(source_fd);
+    }
+    if (source_errno_out != NULL) {
+        *source_errno_out = saved_errno;
+    }
+    errno = saved_errno;
+    return -1;
+}
+
+static int a90_qcacld_feed_one_fw_fallback(struct buffer *stdout_buf,
+                                           const char *phase,
+                                           int request_index,
+                                           const struct a90_qcacld_fw_fallback_request *request,
+                                           bool *fed_out) {
+    static const char * const prefix = "qcacld_firmware_class_fallback_feeder";
+    char request_dir[MAX_PATH_LEN];
+    char loading_path[MAX_PATH_LEN];
+    char data_path[MAX_PATH_LEN];
+    char source_path[MAX_PATH_LEN];
+    unsigned char *data = NULL;
+    size_t data_len = 0;
+    int source_errno = 0;
+    int source_rc;
+    int loading_start_rc = 0;
+    int loading_start_errno = 0;
+    int data_rc = 0;
+    int data_errno = 0;
+    int loading_done_rc = 0;
+    int loading_done_errno = 0;
+    int abort_rc = 0;
+    int abort_errno = 0;
+    int data_fd;
+    bool fed = false;
+
+    *fed_out = false;
+    if (a90_qcacld_build_fw_sysfs_path(loading_path,
+                                       sizeof(loading_path),
+                                       request->sysfs_name,
+                                       "loading") < 0 ||
+        a90_qcacld_build_fw_sysfs_path(data_path,
+                                       sizeof(data_path),
+                                       request->sysfs_name,
+                                       "data") < 0) {
+        return append_format(stdout_buf,
+                             "%s.%s.request_%d.label=%s\n"
+                             "%s.%s.request_%d.path_error=1\n",
+                             prefix, phase, request_index, request->label,
+                             prefix, phase, request_index);
+    }
+    if (snprintf(request_dir,
+                 sizeof(request_dir),
+                 "/sys/devices/virtual/firmware/%s",
+                 request->sysfs_name) >= (int)sizeof(request_dir)) {
+        return append_format(stdout_buf,
+                             "%s.%s.request_%d.label=%s\n"
+                             "%s.%s.request_%d.path_error=1\n",
+                             prefix, phase, request_index, request->label,
+                             prefix, phase, request_index);
+    }
+    if (access(request_dir, F_OK) < 0) {
+        return 0;
+    }
+
+    source_rc = a90_qcacld_read_fw_source(request,
+                                         &data,
+                                         &data_len,
+                                         source_path,
+                                         sizeof(source_path),
+                                         &source_errno);
+    if (source_rc < 0) {
+        return append_format(stdout_buf,
+                             "%s.%s.request_%d.label=%s\n"
+                             "%s.%s.request_%d.firmware=%s\n"
+                             "%s.%s.request_%d.sysfs_name=%s\n"
+                             "%s.%s.request_%d.seen=1\n"
+                             "%s.%s.request_%d.source_rc=-1\n"
+                             "%s.%s.request_%d.source_errno=%d\n"
+                             "%s.%s.request_%d.fed=0\n",
+                             prefix, phase, request_index, request->label,
+                             prefix, phase, request_index, request->firmware_name,
+                             prefix, phase, request_index, request->sysfs_name,
+                             prefix, phase, request_index,
+                             prefix, phase, request_index,
+                             prefix, phase, request_index, source_errno,
+                             prefix, phase, request_index);
+    }
+
+    loading_start_rc = write_text_once_errno(loading_path, "1\n");
+    if (loading_start_rc < 0) {
+        loading_start_errno = -loading_start_rc;
+    } else {
+        data_fd = open(data_path, O_WRONLY | O_CLOEXEC);
+        if (data_fd < 0) {
+            data_rc = -1;
+            data_errno = errno;
+        } else if (write_all_fd(data_fd, data, data_len) < 0) {
+            data_rc = -1;
+            data_errno = errno;
+        }
+        if (data_fd >= 0 && close(data_fd) < 0 && data_rc == 0) {
+            data_rc = -1;
+            data_errno = errno;
+        }
+        if (data_rc == 0) {
+            loading_done_rc = write_text_once_errno(loading_path, "0\n");
+            if (loading_done_rc < 0) {
+                loading_done_errno = -loading_done_rc;
+            }
+        } else {
+            abort_rc = write_text_once_errno(loading_path, "-1\n");
+            if (abort_rc < 0) {
+                abort_errno = -abort_rc;
+            }
+        }
+    }
+
+    fed = loading_start_rc == 0 && data_rc == 0 && loading_done_rc == 0;
+    *fed_out = fed;
+    if (append_format(stdout_buf,
+                      "%s.%s.request_%d.label=%s\n"
+                      "%s.%s.request_%d.firmware=%s\n"
+                      "%s.%s.request_%d.sysfs_name=%s\n"
+                      "%s.%s.request_%d.sysfs_dir=%s\n"
+                      "%s.%s.request_%d.seen=1\n"
+                      "%s.%s.request_%d.source_rc=0\n"
+                      "%s.%s.request_%d.source=%s\n"
+                      "%s.%s.request_%d.source_bytes=%zu\n"
+                      "%s.%s.request_%d.loading_start_rc=%d\n"
+                      "%s.%s.request_%d.loading_start_errno=%d\n"
+                      "%s.%s.request_%d.data_rc=%d\n"
+                      "%s.%s.request_%d.data_errno=%d\n"
+                      "%s.%s.request_%d.loading_done_rc=%d\n"
+                      "%s.%s.request_%d.loading_done_errno=%d\n"
+                      "%s.%s.request_%d.abort_rc=%d\n"
+                      "%s.%s.request_%d.abort_errno=%d\n"
+                      "%s.%s.request_%d.fed=%d\n",
+                      prefix, phase, request_index, request->label,
+                      prefix, phase, request_index, request->firmware_name,
+                      prefix, phase, request_index, request->sysfs_name,
+                      prefix, phase, request_index, request_dir,
+                      prefix, phase, request_index,
+                      prefix, phase, request_index,
+                      prefix, phase, request_index, source_path,
+                      prefix, phase, request_index, data_len,
+                      prefix, phase, request_index, loading_start_rc,
+                      prefix, phase, request_index, loading_start_errno,
+                      prefix, phase, request_index, data_rc,
+                      prefix, phase, request_index, data_errno,
+                      prefix, phase, request_index, loading_done_rc,
+                      prefix, phase, request_index, loading_done_errno,
+                      prefix, phase, request_index, abort_rc,
+                      prefix, phase, request_index, abort_errno,
+                      prefix, phase, request_index, fed ? 1 : 0) < 0) {
+        free(data);
+        return -1;
+    }
+    free(data);
+    return 0;
+}
+
+static int append_qcacld_firmware_class_fallback_feeder(struct buffer *stdout_buf,
+                                                        const char *phase,
+                                                        long wait_ms) {
+    static const char * const prefix = "qcacld_firmware_class_fallback_feeder";
+    bool fed[sizeof(a90_qcacld_fw_requests) / sizeof(a90_qcacld_fw_requests[0])] = { false };
+    bool seen[sizeof(a90_qcacld_fw_requests) / sizeof(a90_qcacld_fw_requests[0])] = { false };
+    long deadline_ms = monotonic_ms() + wait_ms;
+    int fed_count = 0;
+    int seen_count = 0;
+    int loop_count = 0;
+
+    if (append_format(stdout_buf,
+                      "%s.%s.begin=1\n"
+                      "%s.%s.mode=bounded-qcacld-firmware-class-fallback-feeder\n"
+                      "%s.%s.wait_ms=%ld\n"
+                      "%s.%s.request_count=%zu\n"
+                      "%s.%s.sysfs_data_write_scope=firmware_class_userspace_fallback_only\n"
+                      "%s.%s.no_partition_write=1\n"
+                      "%s.%s.no_firmware_file_write=1\n"
+                      "%s.%s.no_sda29_write=1\n"
+                      "%s.%s.no_tracefs_write=1\n"
+                      "%s.%s.no_wifi_hal=1\n"
+                      "%s.%s.scan_connect=0\n"
+                      "%s.%s.credentials=0\n"
+                      "%s.%s.dhcp_routing=0\n"
+                      "%s.%s.external_ping=0\n"
+                      "%s.%s.no_esoc0_open=1\n"
+                      "%s.%s.no_pcie_rescan=1\n",
+                      prefix, phase,
+                      prefix, phase,
+                      prefix, phase, wait_ms,
+                      prefix, phase,
+                      sizeof(a90_qcacld_fw_requests) / sizeof(a90_qcacld_fw_requests[0]),
+                      prefix, phase,
+                      prefix, phase,
+                      prefix, phase,
+                      prefix, phase,
+                      prefix, phase,
+                      prefix, phase,
+                      prefix, phase,
+                      prefix, phase,
+                      prefix, phase,
+                      prefix, phase,
+                      prefix, phase,
+                      prefix, phase,
+                      prefix, phase) < 0) {
+        return -1;
+    }
+
+    while (monotonic_ms() <= deadline_ms &&
+           fed_count < (int)(sizeof(a90_qcacld_fw_requests) / sizeof(a90_qcacld_fw_requests[0]))) {
+        bool progress = false;
+
+        loop_count++;
+        for (size_t request_index = 0;
+             request_index < sizeof(a90_qcacld_fw_requests) / sizeof(a90_qcacld_fw_requests[0]);
+             request_index++) {
+            char request_dir[MAX_PATH_LEN];
+            bool request_fed = false;
+
+            if (fed[request_index]) {
+                continue;
+            }
+            if (snprintf(request_dir,
+                         sizeof(request_dir),
+                         "/sys/devices/virtual/firmware/%s",
+                         a90_qcacld_fw_requests[request_index].sysfs_name) >= (int)sizeof(request_dir)) {
+                continue;
+            }
+            if (access(request_dir, F_OK) < 0) {
+                continue;
+            }
+            if (!seen[request_index]) {
+                seen[request_index] = true;
+                seen_count++;
+            }
+            if (a90_qcacld_feed_one_fw_fallback(stdout_buf,
+                                                phase,
+                                                (int)request_index,
+                                                &a90_qcacld_fw_requests[request_index],
+                                                &request_fed) < 0) {
+                return -1;
+            }
+            if (request_fed) {
+                fed[request_index] = true;
+                fed_count++;
+                progress = true;
+            }
+        }
+        if (fed_count >= (int)(sizeof(a90_qcacld_fw_requests) / sizeof(a90_qcacld_fw_requests[0]))) {
+            break;
+        }
+        usleep(progress ? 100000 : 250000);
+    }
+
+    return append_format(stdout_buf,
+                         "%s.%s.loops=%d\n"
+                         "%s.%s.seen_count=%d\n"
+                         "%s.%s.fed_count=%d\n"
+                         "%s.%s.timed_out=%d\n"
+                         "%s.%s.request_0.final_seen=%d\n"
+                         "%s.%s.request_0.final_fed=%d\n"
+                         "%s.%s.request_1.final_seen=%d\n"
+                         "%s.%s.request_1.final_fed=%d\n"
+                         "%s.%s.request_2.final_seen=%d\n"
+                         "%s.%s.request_2.final_fed=%d\n"
+                         "%s.%s.end=1\n",
+                         prefix, phase, loop_count,
+                         prefix, phase, seen_count,
+                         prefix, phase, fed_count,
+                         prefix, phase,
+                         fed_count < (int)(sizeof(a90_qcacld_fw_requests) / sizeof(a90_qcacld_fw_requests[0])) ? 1 : 0,
+                         prefix, phase, seen[0] ? 1 : 0,
+                         prefix, phase, fed[0] ? 1 : 0,
+                         prefix, phase, seen[1] ? 1 : 0,
+                         prefix, phase, fed[1] ? 1 : 0,
+                         prefix, phase, seen[2] ? 1 : 0,
+                         prefix, phase, fed[2] ? 1 : 0,
+                         prefix, phase);
+}
+#endif
+
 static int append_wlan_pd_icnss_ipc_snapshot(struct buffer *buf,
                                              const char *phase) {
     struct stat st;
@@ -52196,6 +52650,16 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
 #if A90_WIFI_TEST_BOOT_FIRMWARE_CLASS_FALLBACK_SAMPLER
 	        if (append_firmware_class_fallback_sampler(stdout_buf,
 	                                                   "after_boot_wlan_trigger") < 0) {
+	            stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
+	            composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+	            stop_property_service_shim(&property_shim, paths, stdout_buf);
+	            return -1;
+	        }
+#endif
+#if A90_WIFI_TEST_BOOT_QCACLD_FIRMWARE_CLASS_FALLBACK_FEEDER
+	        if (append_qcacld_firmware_class_fallback_feeder(stdout_buf,
+	                                                         "after_boot_wlan_trigger",
+	                                                         30000) < 0) {
 	            stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
 	            composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
 	            stop_property_service_shim(&property_shim, paths, stdout_buf);
