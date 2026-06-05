@@ -186,6 +186,15 @@
 #define A90_WIFI_TEST_BOOT_ICNSS_STATS_NUMERIC_SUMMARY 0
 #endif
 
+#ifndef A90_WIFI_TEST_BOOT_ICNSS_STATS_EVENT_SUMMARY
+#define A90_WIFI_TEST_BOOT_ICNSS_STATS_EVENT_SUMMARY 0
+#endif
+
+#if A90_WIFI_TEST_BOOT_ICNSS_STATS_EVENT_SUMMARY && !A90_WIFI_TEST_BOOT_ICNSS_STATS_NUMERIC_SUMMARY
+#undef A90_WIFI_TEST_BOOT_ICNSS_STATS_NUMERIC_SUMMARY
+#define A90_WIFI_TEST_BOOT_ICNSS_STATS_NUMERIC_SUMMARY 1
+#endif
+
 #ifndef A90_WIFI_TEST_BOOT_ICNSS_QCACLD_POST_BDF_FOCUSED_SUMMARY
 #define A90_WIFI_TEST_BOOT_ICNSS_QCACLD_POST_BDF_FOCUSED_SUMMARY 0
 #endif
@@ -254,7 +263,9 @@
 #define A90_WIFI_TEST_BOOT_ANDROID_TFTP_SERVER_IDENTITY A90_WIFI_TEST_BOOT_ANDROID_RMT_TFTP_IDENTITY
 #endif
 
-#if A90_WIFI_TEST_BOOT_ICNSS_STATS_NUMERIC_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_INDICATION_LABEL_FIX && A90_WIFI_TEST_BOOT_TFTP_SHARED_SERVER_INFO_TMPFS && !A90_WIFI_TEST_BOOT_ANDROID_RMT_STORAGE_IDENTITY && !A90_WIFI_TEST_BOOT_ANDROID_TFTP_SERVER_IDENTITY && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_LEAF_PRECREATE && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_PARENT_TRAVERSE_PARITY && A90_WIFI_TEST_BOOT_TFTP_PROCESS_NAMESPACE_AUDIT && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_AUTODIR_PARITY && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_VENDOR_RFS_PERMS && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_TMPFS && A90_WIFI_TEST_BOOT_ICNSS_QCACLD_POST_BDF_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_LATE_MSG21_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
+#if A90_WIFI_TEST_BOOT_ICNSS_STATS_EVENT_SUMMARY && A90_WIFI_TEST_BOOT_ICNSS_STATS_NUMERIC_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_INDICATION_LABEL_FIX && A90_WIFI_TEST_BOOT_TFTP_SHARED_SERVER_INFO_TMPFS && !A90_WIFI_TEST_BOOT_ANDROID_RMT_STORAGE_IDENTITY && !A90_WIFI_TEST_BOOT_ANDROID_TFTP_SERVER_IDENTITY && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_LEAF_PRECREATE && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_PARENT_TRAVERSE_PARITY && A90_WIFI_TEST_BOOT_TFTP_PROCESS_NAMESPACE_AUDIT && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_AUTODIR_PARITY && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_VENDOR_RFS_PERMS && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_TMPFS && A90_WIFI_TEST_BOOT_ICNSS_QCACLD_POST_BDF_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_LATE_MSG21_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
+#define EXECNS_VERSION "a90_android_execns_probe v422"
+#elif A90_WIFI_TEST_BOOT_ICNSS_STATS_NUMERIC_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_INDICATION_LABEL_FIX && A90_WIFI_TEST_BOOT_TFTP_SHARED_SERVER_INFO_TMPFS && !A90_WIFI_TEST_BOOT_ANDROID_RMT_STORAGE_IDENTITY && !A90_WIFI_TEST_BOOT_ANDROID_TFTP_SERVER_IDENTITY && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_LEAF_PRECREATE && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_PARENT_TRAVERSE_PARITY && A90_WIFI_TEST_BOOT_TFTP_PROCESS_NAMESPACE_AUDIT && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_AUTODIR_PARITY && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_VENDOR_RFS_PERMS && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_TMPFS && A90_WIFI_TEST_BOOT_ICNSS_QCACLD_POST_BDF_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_LATE_MSG21_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
 #define EXECNS_VERSION "a90_android_execns_probe v421"
 #elif A90_WIFI_TEST_BOOT_WLFW_INDICATION_LABEL_FIX && A90_WIFI_TEST_BOOT_TFTP_SHARED_SERVER_INFO_TMPFS && !A90_WIFI_TEST_BOOT_ANDROID_RMT_STORAGE_IDENTITY && !A90_WIFI_TEST_BOOT_ANDROID_TFTP_SERVER_IDENTITY && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_LEAF_PRECREATE && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_PARENT_TRAVERSE_PARITY && A90_WIFI_TEST_BOOT_TFTP_PROCESS_NAMESPACE_AUDIT && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_AUTODIR_PARITY && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_VENDOR_RFS_PERMS && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_TMPFS && A90_WIFI_TEST_BOOT_ICNSS_QCACLD_POST_BDF_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_LATE_MSG21_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
 #define EXECNS_VERSION "a90_android_execns_probe v420"
@@ -48022,6 +48033,17 @@ struct icnss_stats_numeric_summary {
     int ini_req;
     int ini_resp;
     int ini_req_err;
+#if A90_WIFI_TEST_BOOT_ICNSS_STATS_EVENT_SUMMARY
+    int server_arrive_posted;
+    int server_arrive_processed;
+    int fw_ready_posted;
+    int fw_ready_processed;
+    int register_driver_posted;
+    int register_driver_processed;
+    int state_seen;
+    char state_hex[32];
+    char state_line[256];
+#endif
 };
 
 static void init_icnss_stats_numeric_summary(struct icnss_stats_numeric_summary *stats) {
@@ -48048,6 +48070,17 @@ static void init_icnss_stats_numeric_summary(struct icnss_stats_numeric_summary 
     stats->ini_req = -1;
     stats->ini_resp = -1;
     stats->ini_req_err = -1;
+#if A90_WIFI_TEST_BOOT_ICNSS_STATS_EVENT_SUMMARY
+    stats->server_arrive_posted = -1;
+    stats->server_arrive_processed = -1;
+    stats->fw_ready_posted = -1;
+    stats->fw_ready_processed = -1;
+    stats->register_driver_posted = -1;
+    stats->register_driver_processed = -1;
+    stats->state_seen = 0;
+    stats->state_hex[0] = '\0';
+    stats->state_line[0] = '\0';
+#endif
 }
 
 static bool parse_icnss_stats_counter(const char *line,
@@ -48111,6 +48144,97 @@ static void update_icnss_stats_numeric_summary(struct icnss_stats_numeric_summar
     if (parse_icnss_stats_counter(line, "ini_resp", &stats->ini_resp)) return;
     (void)parse_icnss_stats_counter(line, "ini_req_err", &stats->ini_req_err);
 }
+
+#if A90_WIFI_TEST_BOOT_ICNSS_STATS_EVENT_SUMMARY
+static bool parse_icnss_stats_event_line(const char *line,
+                                         const char *name,
+                                         int *posted,
+                                         int *processed) {
+    const char *cursor = line;
+    char *endptr = NULL;
+    unsigned long posted_value;
+    unsigned long processed_value;
+    size_t name_len;
+
+    while (*cursor == ' ' || *cursor == '\t') {
+        cursor++;
+    }
+    name_len = strlen(name);
+    if (strncmp(cursor, name, name_len) != 0) {
+        return false;
+    }
+    cursor += name_len;
+    if (*cursor != ' ' && *cursor != '\t') {
+        return false;
+    }
+    while (*cursor == ' ' || *cursor == '\t') {
+        cursor++;
+    }
+    errno = 0;
+    posted_value = strtoul(cursor, &endptr, 10);
+    if (errno != 0 || endptr == cursor || posted_value > INT_MAX) {
+        return false;
+    }
+    cursor = endptr;
+    while (*cursor == ' ' || *cursor == '\t') {
+        cursor++;
+    }
+    errno = 0;
+    processed_value = strtoul(cursor, &endptr, 10);
+    if (errno != 0 || endptr == cursor || processed_value > INT_MAX) {
+        return false;
+    }
+    *posted = (int)posted_value;
+    *processed = (int)processed_value;
+    return true;
+}
+
+static void update_icnss_stats_event_summary(struct icnss_stats_numeric_summary *stats,
+                                             const char *line) {
+    const char *cursor = line;
+    const char *hex_start;
+    size_t copy_len;
+
+    if (parse_icnss_stats_event_line(line,
+                                     "SERVER_ARRIVE",
+                                     &stats->server_arrive_posted,
+                                     &stats->server_arrive_processed)) return;
+    if (parse_icnss_stats_event_line(line,
+                                     "FW_READY",
+                                     &stats->fw_ready_posted,
+                                     &stats->fw_ready_processed)) return;
+    if (parse_icnss_stats_event_line(line,
+                                     "REGISTER_DRIVER",
+                                     &stats->register_driver_posted,
+                                     &stats->register_driver_processed)) return;
+
+    while (*cursor == ' ' || *cursor == '\t') {
+        cursor++;
+    }
+    if (strncmp(cursor, "State:", strlen("State:")) != 0) {
+        return;
+    }
+    stats->state_seen = 1;
+    copy_len = strnlen(cursor, sizeof(stats->state_line) - 1U);
+    memcpy(stats->state_line, cursor, copy_len);
+    stats->state_line[copy_len] = '\0';
+    sanitize_one_line(stats->state_line);
+    hex_start = strstr(cursor, "0x");
+    if (hex_start != NULL) {
+        size_t hex_len = 0;
+
+        while (hex_start[hex_len] != '\0' &&
+               hex_start[hex_len] != ' ' &&
+               hex_start[hex_len] != '\t' &&
+               hex_start[hex_len] != '(' &&
+               hex_len + 1U < sizeof(stats->state_hex)) {
+            stats->state_hex[hex_len] = hex_start[hex_len];
+            hex_len++;
+        }
+        stats->state_hex[hex_len] = '\0';
+    }
+}
+#endif
 #endif
 
 static int append_icnss_stats_summary(struct buffer *buf,
@@ -48203,6 +48327,9 @@ static int append_icnss_stats_summary(struct buffer *buf,
 #if A90_WIFI_TEST_BOOT_ICNSS_STATS_NUMERIC_SUMMARY
         update_icnss_stats_numeric_summary(&stats, line);
 #endif
+#if A90_WIFI_TEST_BOOT_ICNSS_STATS_EVENT_SUMMARY
+        update_icnss_stats_event_summary(&stats, line);
+#endif
     }
     free(text);
     if (saved_errno != 0) {
@@ -48256,6 +48383,20 @@ static int append_icnss_stats_summary(struct buffer *buf,
                          "wlan_pd_icnss_ipc_snapshot.%s.icnss_stats.ini_req_err=%d\n"
 #else
                          "wlan_pd_icnss_ipc_snapshot.%s.icnss_stats.numeric=0\n"
+#endif
+#if A90_WIFI_TEST_BOOT_ICNSS_STATS_EVENT_SUMMARY
+                         "wlan_pd_icnss_ipc_snapshot.%s.icnss_stats.event_summary=1\n"
+                         "wlan_pd_icnss_ipc_snapshot.%s.icnss_stats.event.server_arrive.posted=%d\n"
+                         "wlan_pd_icnss_ipc_snapshot.%s.icnss_stats.event.server_arrive.processed=%d\n"
+                         "wlan_pd_icnss_ipc_snapshot.%s.icnss_stats.event.fw_ready.posted=%d\n"
+                         "wlan_pd_icnss_ipc_snapshot.%s.icnss_stats.event.fw_ready.processed=%d\n"
+                         "wlan_pd_icnss_ipc_snapshot.%s.icnss_stats.event.register_driver.posted=%d\n"
+                         "wlan_pd_icnss_ipc_snapshot.%s.icnss_stats.event.register_driver.processed=%d\n"
+                         "wlan_pd_icnss_ipc_snapshot.%s.icnss_stats.state.seen=%d\n"
+                         "wlan_pd_icnss_ipc_snapshot.%s.icnss_stats.state.hex=%s\n"
+                         "wlan_pd_icnss_ipc_snapshot.%s.icnss_stats.state.line=%s\n"
+#else
+                         "wlan_pd_icnss_ipc_snapshot.%s.icnss_stats.event_summary=0\n"
 #endif
                          "wlan_pd_icnss_ipc_snapshot.%s.icnss_stats.mode_text=%d\n",
                          phase,
@@ -48321,6 +48462,29 @@ static int append_icnss_stats_summary(struct buffer *buf,
                          stats.ini_resp,
                          phase,
                          stats.ini_req_err,
+#else
+                         phase,
+#endif
+#if A90_WIFI_TEST_BOOT_ICNSS_STATS_EVENT_SUMMARY
+                         phase,
+                         phase,
+                         stats.server_arrive_posted,
+                         phase,
+                         stats.server_arrive_processed,
+                         phase,
+                         stats.fw_ready_posted,
+                         phase,
+                         stats.fw_ready_processed,
+                         phase,
+                         stats.register_driver_posted,
+                         phase,
+                         stats.register_driver_processed,
+                         phase,
+                         stats.state_seen,
+                         phase,
+                         stats.state_hex[0] != '\0' ? stats.state_hex : "missing",
+                         phase,
+                         stats.state_line[0] != '\0' ? stats.state_line : "missing",
 #else
                          phase,
 #endif
