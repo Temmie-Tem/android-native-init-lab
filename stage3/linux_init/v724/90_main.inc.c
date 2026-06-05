@@ -28,6 +28,10 @@ static void selftest_boot_draw_frame(void *ctx) {
 #define A90_V641_FW_MNT_DIR "/vendor/firmware_mnt"
 #define A90_V641_FW_MODEM_DIR "/vendor/firmware-modem"
 #define A90_V641_SYSTEM_VENDOR_DIR "/mnt/system/vendor"
+static int v641_find_block_by_partname(const char *partname,
+                                       const char *fallback_block,
+                                       char *out,
+                                       size_t out_size);
 static int v641_prepare_firmware_mounts(void);
 #define A90_V724_QRTR_BOOT_FLAG "/cache/native-init-qrtr-servloc-boot-v724"
 #define A90_V724_QRTR_BOOT_LOG "/cache/native-init-qrtr-servloc-boot-v724.log"
@@ -74,6 +78,15 @@ static int v641_prepare_firmware_mounts(void);
 #endif
 #ifndef A90_WIFI_TEST_BOOT_FIRMWARE_MOUNTS
 #define A90_WIFI_TEST_BOOT_FIRMWARE_MOUNTS 0
+#endif
+#ifndef A90_WIFI_TEST_BOOT_FWCLASS_VENDOR_PATH
+#define A90_WIFI_TEST_BOOT_FWCLASS_VENDOR_PATH 0
+#endif
+#ifndef A90_WIFI_TEST_BOOT_FWCLASS_VENDOR_PATH_VALUE
+#define A90_WIFI_TEST_BOOT_FWCLASS_VENDOR_PATH_VALUE "/mnt/vendor/firmware"
+#endif
+#if A90_WIFI_TEST_BOOT_FWCLASS_VENDOR_PATH && !A90_WIFI_TEST_BOOT_SUPERVISE_HELPER
+#error A90_WIFI_TEST_BOOT_FWCLASS_VENDOR_PATH requires A90_WIFI_TEST_BOOT_SUPERVISE_HELPER
 #endif
 #ifndef A90_WIFI_TEST_BOOT_PID1_RC1_WATCHER
 #define A90_WIFI_TEST_BOOT_PID1_RC1_WATCHER 0
@@ -3936,6 +3949,234 @@ static void v1488_append_pid1_auto_readiness_summary(int fd, int wlan0_present) 
 }
 #endif
 
+#if A90_WIFI_TEST_BOOT_FWCLASS_VENDOR_PATH
+static char v2133_fwclass_original_path[PATH_MAX];
+static int v2133_fwclass_applied_by_pid1;
+static int v2133_vendor_mounted_by_pid1;
+
+static int v2133_read_fwclass_path(char *out, size_t out_size) {
+    if (out == NULL || out_size == 0) {
+        return -EINVAL;
+    }
+    if (read_trimmed_text_file("/sys/module/firmware_class/parameters/path",
+                               out,
+                               out_size) < 0) {
+        return -errno;
+    }
+    return 0;
+}
+
+static int v2133_write_fwclass_path(const char *value) {
+    char payload[PATH_MAX + 2];
+    int path_fd;
+    int payload_len;
+    int write_rc;
+    int close_rc;
+
+    if (value == NULL || value[0] == '\0') {
+        return -EINVAL;
+    }
+    payload_len = snprintf(payload, sizeof(payload), "%s\n", value);
+    if (payload_len < 0 || payload_len >= (int)sizeof(payload)) {
+        return -ENAMETOOLONG;
+    }
+
+    path_fd = open("/sys/module/firmware_class/parameters/path",
+                   O_WRONLY | O_CLOEXEC | O_NOFOLLOW);
+    if (path_fd < 0) {
+        return -errno;
+    }
+    write_rc = write_all_checked(path_fd, payload, (size_t)payload_len);
+    close_rc = close(path_fd);
+    if (write_rc < 0) {
+        return negative_errno_or(EIO);
+    }
+    if (close_rc < 0) {
+        return -errno;
+    }
+    return 0;
+}
+
+static int v2133_stat_fwclass_asset(const char *label, const char *path, int required) {
+    struct stat st;
+    int saved_errno;
+
+    if (lstat(path, &st) == 0) {
+        (void)v1393_append_wifi_test_log("fwclass_vendor_path asset label=%s path=%s mode=0%o size=%lld required=%d present=1\n",
+                                        label,
+                                        path,
+                                        (unsigned int)(st.st_mode & 07777),
+                                        (long long)st.st_size,
+                                        required);
+        return 0;
+    }
+
+    saved_errno = errno != 0 ? errno : EIO;
+    (void)v1393_append_wifi_test_log("fwclass_vendor_path asset label=%s path=%s required=%d present=0 errno=%d error=%s\n",
+                                    label,
+                                    path,
+                                    required,
+                                    saved_errno,
+                                    strerror(saved_errno));
+    return required ? -saved_errno : 0;
+}
+
+static void v2133_restore_fwclass_vendor_path(const char *phase) {
+    char readback[PATH_MAX] = "";
+    int restore_rc = 0;
+    int read_rc = 0;
+    int unmount_rc = 0;
+    int unmount_errno = 0;
+
+    (void)v1393_append_wifi_test_log("fwclass_vendor_path restore phase=%s begin=1 applied=%d mounted_by_pid1=%d original=%s\n",
+                                    phase != NULL ? phase : "unknown",
+                                    v2133_fwclass_applied_by_pid1,
+                                    v2133_vendor_mounted_by_pid1,
+                                    v2133_fwclass_original_path);
+    if (v2133_fwclass_applied_by_pid1) {
+        restore_rc = v2133_write_fwclass_path(v2133_fwclass_original_path);
+        read_rc = v2133_read_fwclass_path(readback, sizeof(readback));
+        (void)v1393_append_wifi_test_log("fwclass_vendor_path restore phase=%s write_rc=%d read_rc=%d readback=%s match=%d\n",
+                                        phase != NULL ? phase : "unknown",
+                                        restore_rc,
+                                        read_rc,
+                                        readback,
+                                        read_rc == 0 && strcmp(readback, v2133_fwclass_original_path) == 0 ? 1 : 0);
+        v2133_fwclass_applied_by_pid1 = 0;
+    }
+
+    if (v2133_vendor_mounted_by_pid1) {
+        unmount_rc = umount2("/mnt/vendor", MNT_DETACH);
+        if (unmount_rc < 0) {
+            unmount_errno = errno != 0 ? errno : EIO;
+        }
+        (void)v1393_append_wifi_test_log("fwclass_vendor_path restore phase=%s umount_rc=%d errno=%d error=%s\n",
+                                        phase != NULL ? phase : "unknown",
+                                        unmount_rc,
+                                        unmount_errno,
+                                        unmount_errno != 0 ? strerror(unmount_errno) : "none");
+        if (unmount_rc == 0) {
+            v2133_vendor_mounted_by_pid1 = 0;
+        }
+    }
+    (void)v1393_append_wifi_test_log("fwclass_vendor_path restore phase=%s end=1\n",
+                                    phase != NULL ? phase : "unknown");
+}
+
+static int v2133_prepare_fwclass_vendor_path(void) {
+    char block_path[PATH_MAX];
+    char readback[PATH_MAX] = "";
+    int saved_errno;
+    int read_rc;
+    int mount_rc;
+    int write_rc;
+
+    (void)v1393_append_wifi_test_log("fwclass_vendor_path begin=1 value=%s safety_sda29_ro_noload=1 no_sda29_write=1 no_icnss_bind_unbind=1 no_wifi_hal_scan_connect=1\n",
+                                    A90_WIFI_TEST_BOOT_FWCLASS_VENDOR_PATH_VALUE);
+
+    v2133_fwclass_original_path[0] = '\0';
+    v2133_fwclass_applied_by_pid1 = 0;
+    v2133_vendor_mounted_by_pid1 = 0;
+
+    read_rc = v2133_read_fwclass_path(v2133_fwclass_original_path, sizeof(v2133_fwclass_original_path));
+    if (read_rc < 0) {
+        (void)v1393_append_wifi_test_log("fwclass_vendor_path original_read_rc=%d errno=%d\n",
+                                        read_rc,
+                                        -read_rc);
+        return read_rc;
+    }
+    (void)v1393_append_wifi_test_log("fwclass_vendor_path original=%s\n",
+                                    v2133_fwclass_original_path);
+
+    if (ensure_dir("/mnt", 0755) < 0 && errno != EEXIST) {
+        saved_errno = errno != 0 ? errno : EIO;
+        (void)v1393_append_wifi_test_log("fwclass_vendor_path mkdir path=/mnt errno=%d error=%s\n",
+                                        saved_errno,
+                                        strerror(saved_errno));
+        return -saved_errno;
+    }
+    if (ensure_dir("/mnt/vendor", 0755) < 0 && errno != EEXIST) {
+        saved_errno = errno != 0 ? errno : EIO;
+        (void)v1393_append_wifi_test_log("fwclass_vendor_path mkdir path=/mnt/vendor errno=%d error=%s\n",
+                                        saved_errno,
+                                        strerror(saved_errno));
+        return -saved_errno;
+    }
+
+    if (v641_find_block_by_partname("vendor", "sda29", block_path, sizeof(block_path)) < 0) {
+        saved_errno = errno != 0 ? errno : EIO;
+        (void)v1393_append_wifi_test_log("fwclass_vendor_path block_resolve part=vendor fallback=sda29 errno=%d error=%s\n",
+                                        saved_errno,
+                                        strerror(saved_errno));
+        return -saved_errno;
+    }
+
+    mount_rc = mount(block_path,
+                     "/mnt/vendor",
+                     "ext4",
+                     MS_RDONLY | MS_NOSUID | MS_NODEV | MS_NOEXEC,
+                     "noload");
+    if (mount_rc < 0) {
+        saved_errno = errno != 0 ? errno : EIO;
+        if (saved_errno != EBUSY) {
+            (void)v1393_append_wifi_test_log("fwclass_vendor_path mount source=%s target=/mnt/vendor rc=-1 errno=%d error=%s\n",
+                                            block_path,
+                                            saved_errno,
+                                            strerror(saved_errno));
+            return -saved_errno;
+        }
+        (void)v1393_append_wifi_test_log("fwclass_vendor_path mount source=%s target=/mnt/vendor rc=-1 errno=%d error=%s mounted_by_pid1=0\n",
+                                        block_path,
+                                        saved_errno,
+                                        strerror(saved_errno));
+    } else {
+        v2133_vendor_mounted_by_pid1 = 1;
+        (void)v1393_append_wifi_test_log("fwclass_vendor_path mount source=%s target=/mnt/vendor rc=0 fstype=ext4 flags=ro,nosuid,nodev,noexec data=noload mounted_by_pid1=1\n",
+                                        block_path);
+    }
+
+    if (v2133_stat_fwclass_asset("WCNSS_qcom_cfg.ini",
+                                 "/mnt/vendor/firmware/wlan/qca_cld/WCNSS_qcom_cfg.ini",
+                                 1) < 0 ||
+        v2133_stat_fwclass_asset("bdwlan.bin",
+                                 "/mnt/vendor/firmware/wlan/qca_cld/bdwlan.bin",
+                                 1) < 0 ||
+        v2133_stat_fwclass_asset("regdb.bin",
+                                 "/mnt/vendor/firmware/wlan/qca_cld/regdb.bin",
+                                 1) < 0) {
+        v2133_restore_fwclass_vendor_path("prepare-asset-missing");
+        return -ENOENT;
+    }
+
+    write_rc = v2133_write_fwclass_path(A90_WIFI_TEST_BOOT_FWCLASS_VENDOR_PATH_VALUE);
+    if (write_rc < 0) {
+        (void)v1393_append_wifi_test_log("fwclass_vendor_path apply write_rc=%d errno=%d\n",
+                                        write_rc,
+                                        -write_rc);
+        v2133_restore_fwclass_vendor_path("prepare-write-failed");
+        return write_rc;
+    }
+    v2133_fwclass_applied_by_pid1 = 1;
+
+    read_rc = v2133_read_fwclass_path(readback, sizeof(readback));
+    (void)v1393_append_wifi_test_log("fwclass_vendor_path apply write_rc=%d read_rc=%d readback=%s match=%d\n",
+                                    write_rc,
+                                    read_rc,
+                                    readback,
+                                    read_rc == 0 && strcmp(readback, A90_WIFI_TEST_BOOT_FWCLASS_VENDOR_PATH_VALUE) == 0 ? 1 : 0);
+    if (read_rc < 0 || strcmp(readback, A90_WIFI_TEST_BOOT_FWCLASS_VENDOR_PATH_VALUE) != 0) {
+        v2133_restore_fwclass_vendor_path("prepare-readback-mismatch");
+        return read_rc < 0 ? read_rc : -EIO;
+    }
+
+    klogf("<6>%s: fwclass vendor path applied value=%s\n",
+          A90_WIFI_TEST_BOOT_KLOG_PREFIX,
+          A90_WIFI_TEST_BOOT_FWCLASS_VENDOR_PATH_VALUE);
+    (void)v1393_append_wifi_test_log("fwclass_vendor_path end=1 applied=1\n");
+    return 0;
+}
+#endif
+
 static void v1393_write_wifi_test_summary(pid_t helper_pid, long spawn_ms) {
     char wchan_path[64];
     char status_path[64];
@@ -3984,6 +4225,20 @@ static void v1393_write_wifi_test_summary(pid_t helper_pid, long spawn_ms) {
     dprintf(fd, "wlan0_present=%d\n", wlan0_present);
     dprintf(fd, "debugfs_mount_requested=%d\n", A90_WIFI_TEST_BOOT_MOUNT_DEBUGFS);
     dprintf(fd, "firmware_mounts_requested=%d\n", A90_WIFI_TEST_BOOT_FIRMWARE_MOUNTS);
+    dprintf(fd, "fwclass_vendor_path_requested=%d\n", A90_WIFI_TEST_BOOT_FWCLASS_VENDOR_PATH);
+#if A90_WIFI_TEST_BOOT_FWCLASS_VENDOR_PATH
+    {
+        char fwclass_current[PATH_MAX] = "";
+        int fwclass_read_rc = v2133_read_fwclass_path(fwclass_current, sizeof(fwclass_current));
+
+        dprintf(fd, "fwclass_vendor_path_value=%s\n", A90_WIFI_TEST_BOOT_FWCLASS_VENDOR_PATH_VALUE);
+        dprintf(fd, "fwclass_vendor_path_original=%s\n", v2133_fwclass_original_path);
+        dprintf(fd, "fwclass_vendor_path_current_read_rc=%d\n", fwclass_read_rc);
+        dprintf(fd, "fwclass_vendor_path_current=%s\n", fwclass_current);
+        dprintf(fd, "fwclass_vendor_path_applied_by_pid1=%d\n", v2133_fwclass_applied_by_pid1);
+        dprintf(fd, "fwclass_vendor_path_vendor_mounted_by_pid1=%d\n", v2133_vendor_mounted_by_pid1);
+    }
+#endif
 #if A90_WIFI_TEST_BOOT_MOUNT_DEBUGFS
     dprintf(fd, "debugfs_mounted_by_pid1=%d\n", v1393_wifi_test_debugfs_mounted_by_pid1);
     dprintf(fd,
@@ -4419,6 +4674,9 @@ static void v1393_wifi_test_supervisor_child(void) {
                                         rc,
                                         -rc,
                                         strerror(-rc));
+#if A90_WIFI_TEST_BOOT_FWCLASS_VENDOR_PATH
+        v2133_restore_fwclass_vendor_path("supervisor-helper-spawn-failure");
+#endif
         v1393_write_wifi_test_supervised_summary(helper_pid, spawn_ms, rc, status, 0);
         _exit(1);
     }
@@ -4436,7 +4694,6 @@ static void v1393_wifi_test_supervisor_child(void) {
                                     rc,
                                     status,
                                     timed_out);
-    v1393_write_wifi_test_supervised_summary(helper_pid, spawn_ms, rc, status, timed_out);
 #if A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_TRACEPOINT_SAMPLER
     v1393_provider_tracepoint_disarm();
 #endif
@@ -4452,6 +4709,10 @@ static void v1393_wifi_test_supervisor_child(void) {
                                         debugfs_cleanup_rc);
     }
 #endif
+#if A90_WIFI_TEST_BOOT_FWCLASS_VENDOR_PATH
+    v2133_restore_fwclass_vendor_path("supervisor-complete");
+#endif
+    v1393_write_wifi_test_supervised_summary(helper_pid, spawn_ms, rc, status, timed_out);
     _exit(rc == 0 ? 0 : 1);
 }
 
@@ -4598,6 +4859,27 @@ static void v1393_run_wifi_test_boot_once(void) {
     }
 #endif
 
+#if A90_WIFI_TEST_BOOT_FWCLASS_VENDOR_PATH
+    rc = v2133_prepare_fwclass_vendor_path();
+    (void)v1393_append_wifi_test_log("fwclass vendor path prepare rc=%d\n", rc);
+    if (rc < 0) {
+        int saved_errno = -rc;
+
+        if (saved_errno <= 0) {
+            saved_errno = EIO;
+        }
+        a90_logf("wifi-v1393", "fwclass vendor path failed rc=%d errno=%d error=%s",
+                 rc,
+                 saved_errno,
+                 strerror(saved_errno));
+        a90_timeline_record(rc, saved_errno, "wifi-v1393-test-boot", "fwclass vendor path failed");
+        klogf("<6>%s: wifi test boot fwclass vendor path failed rc=%d\n",
+              A90_WIFI_TEST_BOOT_KLOG_PREFIX,
+              rc);
+        return;
+    }
+#endif
+
 #if A90_WIFI_TEST_BOOT_MOUNT_DEBUGFS
     rc = v1393_prepare_wifi_test_debugfs();
     (void)v1393_append_wifi_test_log("debugfs prepare rc=%d mounted_by_pid1=%d\n",
@@ -4617,6 +4899,12 @@ static void v1393_run_wifi_test_boot_once(void) {
         klogf("<6>%s: wifi test boot debugfs prepare failed rc=%d\n",
               A90_WIFI_TEST_BOOT_KLOG_PREFIX,
               rc);
+#if A90_WIFI_TEST_BOOT_FWCLASS_VENDOR_PATH
+        v2133_restore_fwclass_vendor_path("debugfs-prepare-failure");
+#endif
+#if A90_WIFI_TEST_BOOT_FWCLASS_VENDOR_PATH
+        v2133_restore_fwclass_vendor_path("supervisor-spawn-failure");
+#endif
         return;
     }
 #endif

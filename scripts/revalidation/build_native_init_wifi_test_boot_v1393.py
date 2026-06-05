@@ -50,6 +50,7 @@ DEFAULT_WIFI_TEST_HELPER_MODE = "post-pm-observer"
 EXPECTED_HELPER_MARKER = "a90_android_execns_probe v356"
 EXPECTED_HELPER_SHA256 = "7474c92a530bda845396bd13eda1675db70292fc37ec36c8df7b3e2c1b4ca492"
 REPRODUCIBLE_MTIME = 0
+EXTRA_INIT_FLAGS: tuple[str, ...] = ()
 
 FORBIDDEN_BYTES = (
     bytes([116, 101, 109, 109, 105, 101, 48, 50, 49, 52]),
@@ -525,6 +526,7 @@ def build_init(args: argparse.Namespace) -> None:
         *service_window_flags,
         *private_cnss_flags,
         *rc1_retry_flags,
+        *EXTRA_INIT_FLAGS,
         "-o",
         args.init_binary,
         *pid1_sources(),
