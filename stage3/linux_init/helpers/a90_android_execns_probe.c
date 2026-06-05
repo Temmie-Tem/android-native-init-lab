@@ -195,6 +195,10 @@
 #define A90_WIFI_TEST_BOOT_ICNSS_STATS_NUMERIC_SUMMARY 1
 #endif
 
+#ifndef A90_WIFI_TEST_BOOT_POST_FW_READY_BOOT_WLAN_TRIGGER
+#define A90_WIFI_TEST_BOOT_POST_FW_READY_BOOT_WLAN_TRIGGER 0
+#endif
+
 #ifndef A90_WIFI_TEST_BOOT_ICNSS_QCACLD_POST_BDF_FOCUSED_SUMMARY
 #define A90_WIFI_TEST_BOOT_ICNSS_QCACLD_POST_BDF_FOCUSED_SUMMARY 0
 #endif
@@ -263,7 +267,9 @@
 #define A90_WIFI_TEST_BOOT_ANDROID_TFTP_SERVER_IDENTITY A90_WIFI_TEST_BOOT_ANDROID_RMT_TFTP_IDENTITY
 #endif
 
-#if A90_WIFI_TEST_BOOT_ICNSS_STATS_EVENT_SUMMARY && A90_WIFI_TEST_BOOT_ICNSS_STATS_NUMERIC_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_INDICATION_LABEL_FIX && A90_WIFI_TEST_BOOT_TFTP_SHARED_SERVER_INFO_TMPFS && !A90_WIFI_TEST_BOOT_ANDROID_RMT_STORAGE_IDENTITY && !A90_WIFI_TEST_BOOT_ANDROID_TFTP_SERVER_IDENTITY && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_LEAF_PRECREATE && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_PARENT_TRAVERSE_PARITY && A90_WIFI_TEST_BOOT_TFTP_PROCESS_NAMESPACE_AUDIT && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_AUTODIR_PARITY && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_VENDOR_RFS_PERMS && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_TMPFS && A90_WIFI_TEST_BOOT_ICNSS_QCACLD_POST_BDF_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_LATE_MSG21_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
+#if A90_WIFI_TEST_BOOT_POST_FW_READY_BOOT_WLAN_TRIGGER && A90_WIFI_TEST_BOOT_ICNSS_STATS_EVENT_SUMMARY && A90_WIFI_TEST_BOOT_ICNSS_STATS_NUMERIC_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_INDICATION_LABEL_FIX && A90_WIFI_TEST_BOOT_TFTP_SHARED_SERVER_INFO_TMPFS && !A90_WIFI_TEST_BOOT_ANDROID_RMT_STORAGE_IDENTITY && !A90_WIFI_TEST_BOOT_ANDROID_TFTP_SERVER_IDENTITY && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_LEAF_PRECREATE && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_PARENT_TRAVERSE_PARITY && A90_WIFI_TEST_BOOT_TFTP_PROCESS_NAMESPACE_AUDIT && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_AUTODIR_PARITY && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_VENDOR_RFS_PERMS && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_TMPFS && A90_WIFI_TEST_BOOT_ICNSS_QCACLD_POST_BDF_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_LATE_MSG21_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
+#define EXECNS_VERSION "a90_android_execns_probe v423"
+#elif A90_WIFI_TEST_BOOT_ICNSS_STATS_EVENT_SUMMARY && A90_WIFI_TEST_BOOT_ICNSS_STATS_NUMERIC_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_INDICATION_LABEL_FIX && A90_WIFI_TEST_BOOT_TFTP_SHARED_SERVER_INFO_TMPFS && !A90_WIFI_TEST_BOOT_ANDROID_RMT_STORAGE_IDENTITY && !A90_WIFI_TEST_BOOT_ANDROID_TFTP_SERVER_IDENTITY && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_LEAF_PRECREATE && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_PARENT_TRAVERSE_PARITY && A90_WIFI_TEST_BOOT_TFTP_PROCESS_NAMESPACE_AUDIT && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_AUTODIR_PARITY && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_VENDOR_RFS_PERMS && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_TMPFS && A90_WIFI_TEST_BOOT_ICNSS_QCACLD_POST_BDF_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_LATE_MSG21_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
 #define EXECNS_VERSION "a90_android_execns_probe v422"
 #elif A90_WIFI_TEST_BOOT_ICNSS_STATS_NUMERIC_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_INDICATION_LABEL_FIX && A90_WIFI_TEST_BOOT_TFTP_SHARED_SERVER_INFO_TMPFS && !A90_WIFI_TEST_BOOT_ANDROID_RMT_STORAGE_IDENTITY && !A90_WIFI_TEST_BOOT_ANDROID_TFTP_SERVER_IDENTITY && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_LEAF_PRECREATE && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_PARENT_TRAVERSE_PARITY && A90_WIFI_TEST_BOOT_TFTP_PROCESS_NAMESPACE_AUDIT && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_AUTODIR_PARITY && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_VENDOR_RFS_PERMS && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_TMPFS && A90_WIFI_TEST_BOOT_ICNSS_QCACLD_POST_BDF_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_LATE_MSG21_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
 #define EXECNS_VERSION "a90_android_execns_probe v421"
@@ -48235,6 +48241,58 @@ static void update_icnss_stats_event_summary(struct icnss_stats_numeric_summary 
     }
 }
 #endif
+
+static int load_icnss_stats_numeric_summary(struct icnss_stats_numeric_summary *stats) {
+    enum { ICNSS_STATS_CAPTURE_LIMIT = 16384 };
+    const char *path = "/sys/kernel/debug/icnss/stats";
+    char *text;
+    char *line;
+    char *saveptr = NULL;
+    ssize_t nread;
+    size_t total = 0;
+    int fd;
+
+    init_icnss_stats_numeric_summary(stats);
+    fd = open(path, O_RDONLY | O_CLOEXEC);
+    if (fd < 0) {
+        return -errno;
+    }
+    text = calloc(1U, ICNSS_STATS_CAPTURE_LIMIT + 1U);
+    if (text == NULL) {
+        close(fd);
+        return -ENOMEM;
+    }
+    while (total < ICNSS_STATS_CAPTURE_LIMIT) {
+        nread = read(fd, text + total, ICNSS_STATS_CAPTURE_LIMIT - total);
+        if (nread < 0) {
+            int saved_errno;
+
+            if (errno == EINTR) {
+                continue;
+            }
+            saved_errno = errno;
+            close(fd);
+            free(text);
+            return -saved_errno;
+        }
+        if (nread == 0) {
+            break;
+        }
+        total += (size_t)nread;
+    }
+    close(fd);
+    text[total] = '\0';
+    for (line = strtok_r(text, "\n", &saveptr);
+         line != NULL;
+         line = strtok_r(NULL, "\n", &saveptr)) {
+        update_icnss_stats_numeric_summary(stats, line);
+#if A90_WIFI_TEST_BOOT_ICNSS_STATS_EVENT_SUMMARY
+        update_icnss_stats_event_summary(stats, line);
+#endif
+    }
+    free(text);
+    return 0;
+}
 #endif
 
 static int append_icnss_stats_summary(struct buffer *buf,
@@ -48491,6 +48549,174 @@ static int append_icnss_stats_summary(struct buffer *buf,
                          phase,
                          mode_text ? 1 : 0);
 }
+
+#if A90_WIFI_TEST_BOOT_POST_FW_READY_BOOT_WLAN_TRIGGER
+static int append_post_fw_ready_boot_wlan_trigger(struct buffer *stdout_buf) {
+    static const char * const prefix = "post_fw_ready_boot_wlan_trigger";
+    static const char boot_value[] = "1";
+    static const char * const path = "/sys/kernel/boot_wlan/boot_wlan";
+    struct icnss_stats_numeric_summary stats;
+    struct stat st;
+    long started;
+    long duration;
+    int stats_rc;
+    int stats_errno = 0;
+    int path_errno = 0;
+    int open_errno = 0;
+    int write_errno = 0;
+    int close_errno = 0;
+    int fd = -1;
+    int write_rc = 1;
+    bool path_exists = false;
+    bool path_writable = false;
+    bool gate_ready = false;
+
+    stats_rc = load_icnss_stats_numeric_summary(&stats);
+    if (stats_rc < 0) {
+        stats_errno = -stats_rc;
+    }
+    if (stat(path, &st) == 0) {
+        path_exists = true;
+        path_writable = access(path, W_OK) == 0;
+    } else {
+        path_errno = errno;
+        memset(&st, 0, sizeof(st));
+    }
+#if A90_WIFI_TEST_BOOT_ICNSS_STATS_EVENT_SUMMARY
+    gate_ready = stats_rc == 0 && stats.fw_ready_processed > 0;
+#else
+    gate_ready = stats_rc == 0;
+#endif
+
+    if (append_format(stdout_buf,
+                      "%s.begin=1\n"
+                      "%s.allowed=1\n"
+                      "%s.active_driver_start=1\n"
+                      "%s.path=%s\n"
+                      "%s.no_wifi_hal=1\n"
+                      "%s.scan_connect=0\n"
+                      "%s.credentials=0\n"
+                      "%s.dhcp_routing=0\n"
+                      "%s.external_ping=0\n"
+                      "%s.no_module_load_unload=1\n"
+                      "%s.no_driver_bind_unbind=1\n"
+                      "%s.stats_read_rc=%d\n"
+                      "%s.stats_read_errno=%d\n"
+                      "%s.pre.fw_ready_processed=%d\n"
+                      "%s.pre.register_driver_posted=%d\n"
+                      "%s.pre.register_driver_processed=%d\n"
+                      "%s.path.exists=%d\n"
+                      "%s.path.writable=%d\n"
+                      "%s.path.mode=%04o\n"
+                      "%s.path.errno=%d\n"
+                      "%s.gate_ready=%d\n",
+                      prefix,
+                      prefix,
+                      prefix,
+                      prefix,
+                      path,
+                      prefix,
+                      prefix,
+                      prefix,
+                      prefix,
+                      prefix,
+                      prefix,
+                      prefix,
+                      prefix,
+                      stats_rc,
+                      prefix,
+                      stats_errno,
+                      prefix,
+#if A90_WIFI_TEST_BOOT_ICNSS_STATS_EVENT_SUMMARY
+                      stats.fw_ready_processed,
+#else
+                      -1,
+#endif
+                      prefix,
+#if A90_WIFI_TEST_BOOT_ICNSS_STATS_EVENT_SUMMARY
+                      stats.register_driver_posted,
+#else
+                      -1,
+#endif
+                      prefix,
+#if A90_WIFI_TEST_BOOT_ICNSS_STATS_EVENT_SUMMARY
+                      stats.register_driver_processed,
+#else
+                      -1,
+#endif
+                      prefix,
+                      path_exists ? 1 : 0,
+                      prefix,
+                      path_writable ? 1 : 0,
+                      prefix,
+                      path_exists ? (unsigned int)(st.st_mode & 07777) : 0U,
+                      prefix,
+                      path_errno,
+                      prefix,
+                      gate_ready ? 1 : 0) < 0) {
+        return -1;
+    }
+
+    if (!gate_ready || !path_exists || !path_writable) {
+        return append_format(stdout_buf,
+                             "%s.executed=0\n"
+                             "%s.write_rc=1\n"
+                             "%s.write_errno=%d\n"
+                             "%s.reason=%s\n"
+                             "%s.end=1\n",
+                             prefix,
+                             prefix,
+                             prefix,
+                             !gate_ready ? EAGAIN : (path_exists ? EACCES : path_errno),
+                             prefix,
+                             !gate_ready ? "fw-ready-not-processed" : (path_exists ? "boot-wlan-not-writable" : "boot-wlan-missing"),
+                             prefix);
+    }
+
+    started = monotonic_ms();
+    fd = open(path, O_WRONLY | O_CLOEXEC | O_NOFOLLOW);
+    if (fd < 0) {
+        open_errno = errno;
+        write_errno = errno;
+    } else if (write_all_fd(fd, boot_value, sizeof(boot_value) - 1U) < 0) {
+        write_errno = errno;
+    } else {
+        write_rc = 0;
+    }
+    if (fd >= 0 && close(fd) < 0 && write_rc == 0) {
+        close_errno = errno;
+        write_errno = errno;
+        write_rc = 1;
+    }
+    duration = monotonic_ms() - started;
+    return append_format(stdout_buf,
+                         "%s.executed=1\n"
+                         "%s.write_value_len=%zu\n"
+                         "%s.write_rc=%d\n"
+                         "%s.open_errno=%d\n"
+                         "%s.write_errno=%d\n"
+                         "%s.close_errno=%d\n"
+                         "%s.duration_ms=%ld\n"
+                         "%s.reason=%s\n"
+                         "%s.end=1\n",
+                         prefix,
+                         prefix,
+                         sizeof(boot_value) - 1U,
+                         prefix,
+                         write_rc,
+                         prefix,
+                         open_errno,
+                         prefix,
+                         write_errno,
+                         prefix,
+                         close_errno,
+                         prefix,
+                         duration,
+                         prefix,
+                         write_rc == 0 ? "boot-wlan-write-ok" : "boot-wlan-write-failed",
+                         prefix);
+}
+#endif
 
 static int append_wlan_pd_icnss_ipc_snapshot(struct buffer *buf,
                                              const char *phase) {
@@ -51244,6 +51470,31 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
         stop_property_service_shim(&property_shim, paths, stdout_buf);
         return -1;
     }
+#if A90_WIFI_TEST_BOOT_POST_FW_READY_BOOT_WLAN_TRIGGER
+    if (wlan_pd_post_pm_lower_state_observer) {
+        if (append_post_fw_ready_boot_wlan_trigger(stdout_buf) < 0) {
+            stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
+            composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+            stop_property_service_shim(&property_shim, paths, stdout_buf);
+            return -1;
+        }
+        usleep(8000000);
+        if (append_wlan_pd_post_pm_lower_handoff_klog_sample(stdout_buf,
+                                                             "after_boot_wlan_trigger") < 0 ||
+            append_wlan_pd_icnss_ipc_snapshot(stdout_buf,
+                                              "after_boot_wlan_trigger") < 0 ||
+            (wlan_pd_firmware_serve_gate &&
+             append_wlan_pd_producer_child_snapshots(stdout_buf,
+                                                     "after_boot_wlan_trigger",
+                                                     children,
+                                                     active_child_count) < 0)) {
+            stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
+            composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+            stop_property_service_shim(&property_shim, paths, stdout_buf);
+            return -1;
+        }
+    }
+#endif
     deadline = monotonic_ms() + cfg->timeout_sec * 1000L;
     if (composite_poll_children(children, active_child_count, stdout_buf, stderr_buf, deadline, timed_out) < 0) {
         stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
