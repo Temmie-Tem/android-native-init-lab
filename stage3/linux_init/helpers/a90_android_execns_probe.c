@@ -3,6 +3,7 @@
 #include <errno.h>
 #include <endian.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <poll.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -181,6 +182,10 @@
 #define A90_WIFI_TEST_BOOT_WLFW_INDICATION_LABEL_FIX 0
 #endif
 
+#ifndef A90_WIFI_TEST_BOOT_ICNSS_STATS_NUMERIC_SUMMARY
+#define A90_WIFI_TEST_BOOT_ICNSS_STATS_NUMERIC_SUMMARY 0
+#endif
+
 #ifndef A90_WIFI_TEST_BOOT_ICNSS_QCACLD_POST_BDF_FOCUSED_SUMMARY
 #define A90_WIFI_TEST_BOOT_ICNSS_QCACLD_POST_BDF_FOCUSED_SUMMARY 0
 #endif
@@ -249,7 +254,9 @@
 #define A90_WIFI_TEST_BOOT_ANDROID_TFTP_SERVER_IDENTITY A90_WIFI_TEST_BOOT_ANDROID_RMT_TFTP_IDENTITY
 #endif
 
-#if A90_WIFI_TEST_BOOT_WLFW_INDICATION_LABEL_FIX && A90_WIFI_TEST_BOOT_TFTP_SHARED_SERVER_INFO_TMPFS && !A90_WIFI_TEST_BOOT_ANDROID_RMT_STORAGE_IDENTITY && !A90_WIFI_TEST_BOOT_ANDROID_TFTP_SERVER_IDENTITY && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_LEAF_PRECREATE && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_PARENT_TRAVERSE_PARITY && A90_WIFI_TEST_BOOT_TFTP_PROCESS_NAMESPACE_AUDIT && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_AUTODIR_PARITY && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_VENDOR_RFS_PERMS && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_TMPFS && A90_WIFI_TEST_BOOT_ICNSS_QCACLD_POST_BDF_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_LATE_MSG21_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
+#if A90_WIFI_TEST_BOOT_ICNSS_STATS_NUMERIC_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_INDICATION_LABEL_FIX && A90_WIFI_TEST_BOOT_TFTP_SHARED_SERVER_INFO_TMPFS && !A90_WIFI_TEST_BOOT_ANDROID_RMT_STORAGE_IDENTITY && !A90_WIFI_TEST_BOOT_ANDROID_TFTP_SERVER_IDENTITY && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_LEAF_PRECREATE && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_PARENT_TRAVERSE_PARITY && A90_WIFI_TEST_BOOT_TFTP_PROCESS_NAMESPACE_AUDIT && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_AUTODIR_PARITY && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_VENDOR_RFS_PERMS && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_TMPFS && A90_WIFI_TEST_BOOT_ICNSS_QCACLD_POST_BDF_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_LATE_MSG21_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
+#define EXECNS_VERSION "a90_android_execns_probe v421"
+#elif A90_WIFI_TEST_BOOT_WLFW_INDICATION_LABEL_FIX && A90_WIFI_TEST_BOOT_TFTP_SHARED_SERVER_INFO_TMPFS && !A90_WIFI_TEST_BOOT_ANDROID_RMT_STORAGE_IDENTITY && !A90_WIFI_TEST_BOOT_ANDROID_TFTP_SERVER_IDENTITY && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_LEAF_PRECREATE && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_PARENT_TRAVERSE_PARITY && A90_WIFI_TEST_BOOT_TFTP_PROCESS_NAMESPACE_AUDIT && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_AUTODIR_PARITY && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_VENDOR_RFS_PERMS && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_TMPFS && A90_WIFI_TEST_BOOT_ICNSS_QCACLD_POST_BDF_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_LATE_MSG21_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
 #define EXECNS_VERSION "a90_android_execns_probe v420"
 #elif A90_WIFI_TEST_BOOT_TFTP_SHARED_SERVER_INFO_TMPFS && !A90_WIFI_TEST_BOOT_ANDROID_RMT_STORAGE_IDENTITY && !A90_WIFI_TEST_BOOT_ANDROID_TFTP_SERVER_IDENTITY && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_LEAF_PRECREATE && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_PARENT_TRAVERSE_PARITY && A90_WIFI_TEST_BOOT_TFTP_PROCESS_NAMESPACE_AUDIT && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_AUTODIR_PARITY && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_VENDOR_RFS_PERMS && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_TMPFS && A90_WIFI_TEST_BOOT_ICNSS_QCACLD_POST_BDF_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_LATE_MSG21_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
 #define EXECNS_VERSION "a90_android_execns_probe v419"
@@ -47990,6 +47997,122 @@ static int append_icnss_ipc_root_summary(struct buffer *buf,
                          counts.first_focus_line[0] != '\0' ? counts.first_focus_line : "missing");
 }
 
+#if A90_WIFI_TEST_BOOT_ICNSS_STATS_NUMERIC_SUMMARY
+struct icnss_stats_numeric_summary {
+    int ind_register_req;
+    int ind_register_resp;
+    int ind_register_err;
+    int msa_info_req;
+    int msa_info_resp;
+    int msa_info_err;
+    int msa_ready_req;
+    int msa_ready_resp;
+    int msa_ready_err;
+    int msa_ready_ind;
+    int cap_req;
+    int cap_resp;
+    int cap_err;
+    int pin_connect_result;
+    int cfg_req;
+    int cfg_resp;
+    int cfg_req_err;
+    int mode_req;
+    int mode_resp;
+    int mode_req_err;
+    int ini_req;
+    int ini_resp;
+    int ini_req_err;
+};
+
+static void init_icnss_stats_numeric_summary(struct icnss_stats_numeric_summary *stats) {
+    stats->ind_register_req = -1;
+    stats->ind_register_resp = -1;
+    stats->ind_register_err = -1;
+    stats->msa_info_req = -1;
+    stats->msa_info_resp = -1;
+    stats->msa_info_err = -1;
+    stats->msa_ready_req = -1;
+    stats->msa_ready_resp = -1;
+    stats->msa_ready_err = -1;
+    stats->msa_ready_ind = -1;
+    stats->cap_req = -1;
+    stats->cap_resp = -1;
+    stats->cap_err = -1;
+    stats->pin_connect_result = -1;
+    stats->cfg_req = -1;
+    stats->cfg_resp = -1;
+    stats->cfg_req_err = -1;
+    stats->mode_req = -1;
+    stats->mode_resp = -1;
+    stats->mode_req_err = -1;
+    stats->ini_req = -1;
+    stats->ini_resp = -1;
+    stats->ini_req_err = -1;
+}
+
+static bool parse_icnss_stats_counter(const char *line,
+                                      const char *name,
+                                      int *value) {
+    const char *cursor = line;
+    char *endptr = NULL;
+    unsigned long parsed;
+    size_t name_len;
+
+    while (*cursor == ' ' || *cursor == '\t') {
+        cursor++;
+    }
+    name_len = strlen(name);
+    if (strncmp(cursor, name, name_len) != 0) {
+        return false;
+    }
+    cursor += name_len;
+    while (*cursor == ' ' || *cursor == '\t') {
+        cursor++;
+    }
+    if (*cursor != ':') {
+        return false;
+    }
+    cursor++;
+    while (*cursor == ' ' || *cursor == '\t') {
+        cursor++;
+    }
+    errno = 0;
+    parsed = strtoul(cursor, &endptr, 10);
+    if (errno != 0 || endptr == cursor || parsed > INT_MAX) {
+        return false;
+    }
+    *value = (int)parsed;
+    return true;
+}
+
+static void update_icnss_stats_numeric_summary(struct icnss_stats_numeric_summary *stats,
+                                               const char *line) {
+    if (parse_icnss_stats_counter(line, "ind_register_req", &stats->ind_register_req)) return;
+    if (parse_icnss_stats_counter(line, "ind_register_resp", &stats->ind_register_resp)) return;
+    if (parse_icnss_stats_counter(line, "ind_register_err", &stats->ind_register_err)) return;
+    if (parse_icnss_stats_counter(line, "msa_info_req", &stats->msa_info_req)) return;
+    if (parse_icnss_stats_counter(line, "msa_info_resp", &stats->msa_info_resp)) return;
+    if (parse_icnss_stats_counter(line, "msa_info_err", &stats->msa_info_err)) return;
+    if (parse_icnss_stats_counter(line, "msa_ready_req", &stats->msa_ready_req)) return;
+    if (parse_icnss_stats_counter(line, "msa_ready_resp", &stats->msa_ready_resp)) return;
+    if (parse_icnss_stats_counter(line, "msa_ready_err", &stats->msa_ready_err)) return;
+    if (parse_icnss_stats_counter(line, "msa_ready_ind", &stats->msa_ready_ind)) return;
+    if (parse_icnss_stats_counter(line, "cap_req", &stats->cap_req)) return;
+    if (parse_icnss_stats_counter(line, "cap_resp", &stats->cap_resp)) return;
+    if (parse_icnss_stats_counter(line, "cap_err", &stats->cap_err)) return;
+    if (parse_icnss_stats_counter(line, "pin_connect_result", &stats->pin_connect_result)) return;
+    if (parse_icnss_stats_counter(line, "cfg_req", &stats->cfg_req)) return;
+    if (parse_icnss_stats_counter(line, "cfg_resp", &stats->cfg_resp)) return;
+    if (parse_icnss_stats_counter(line, "cfg_req_err", &stats->cfg_req_err)) return;
+    if (parse_icnss_stats_counter(line, "mode_req", &stats->mode_req)) return;
+    if (parse_icnss_stats_counter(line, "mode_resp", &stats->mode_resp)) return;
+    if (parse_icnss_stats_counter(line, "mode_req_err", &stats->mode_req_err)) return;
+    if (parse_icnss_stats_counter(line, "ini_req", &stats->ini_req)) return;
+    if (parse_icnss_stats_counter(line, "ini_resp", &stats->ini_resp)) return;
+    (void)parse_icnss_stats_counter(line, "ini_req_err", &stats->ini_req_err);
+}
+#endif
+
 static int append_icnss_stats_summary(struct buffer *buf,
                                       const char *phase) {
     enum { ICNSS_STATS_CAPTURE_LIMIT = 16384 };
@@ -48004,9 +48127,15 @@ static int append_icnss_stats_summary(struct buffer *buf,
     bool cap_text = false;
     bool msa_ready_text = false;
     bool mode_text = false;
+#if A90_WIFI_TEST_BOOT_ICNSS_STATS_NUMERIC_SUMMARY
+    struct icnss_stats_numeric_summary stats;
+#endif
     int saved_errno = 0;
     int fd;
 
+#if A90_WIFI_TEST_BOOT_ICNSS_STATS_NUMERIC_SUMMARY
+    init_icnss_stats_numeric_summary(&stats);
+#endif
     fd = open(path, O_RDONLY | O_CLOEXEC);
     if (fd < 0) {
         saved_errno = errno;
@@ -48071,6 +48200,9 @@ static int append_icnss_stats_summary(struct buffer *buf,
         if (strcasestr(line, "mode_") != NULL || strcasestr(line, "mode ") != NULL) {
             mode_text = true;
         }
+#if A90_WIFI_TEST_BOOT_ICNSS_STATS_NUMERIC_SUMMARY
+        update_icnss_stats_numeric_summary(&stats, line);
+#endif
     }
     free(text);
     if (saved_errno != 0) {
@@ -48097,6 +48229,34 @@ static int append_icnss_stats_summary(struct buffer *buf,
                          "wlan_pd_icnss_ipc_snapshot.%s.icnss_stats.ind_register_text=%d\n"
                          "wlan_pd_icnss_ipc_snapshot.%s.icnss_stats.cap_text=%d\n"
                          "wlan_pd_icnss_ipc_snapshot.%s.icnss_stats.msa_ready_text=%d\n"
+#if A90_WIFI_TEST_BOOT_ICNSS_STATS_NUMERIC_SUMMARY
+                         "wlan_pd_icnss_ipc_snapshot.%s.icnss_stats.numeric=1\n"
+                         "wlan_pd_icnss_ipc_snapshot.%s.icnss_stats.ind_register_req=%d\n"
+                         "wlan_pd_icnss_ipc_snapshot.%s.icnss_stats.ind_register_resp=%d\n"
+                         "wlan_pd_icnss_ipc_snapshot.%s.icnss_stats.ind_register_err=%d\n"
+                         "wlan_pd_icnss_ipc_snapshot.%s.icnss_stats.msa_info_req=%d\n"
+                         "wlan_pd_icnss_ipc_snapshot.%s.icnss_stats.msa_info_resp=%d\n"
+                         "wlan_pd_icnss_ipc_snapshot.%s.icnss_stats.msa_info_err=%d\n"
+                         "wlan_pd_icnss_ipc_snapshot.%s.icnss_stats.msa_ready_req=%d\n"
+                         "wlan_pd_icnss_ipc_snapshot.%s.icnss_stats.msa_ready_resp=%d\n"
+                         "wlan_pd_icnss_ipc_snapshot.%s.icnss_stats.msa_ready_err=%d\n"
+                         "wlan_pd_icnss_ipc_snapshot.%s.icnss_stats.msa_ready_ind=%d\n"
+                         "wlan_pd_icnss_ipc_snapshot.%s.icnss_stats.cap_req=%d\n"
+                         "wlan_pd_icnss_ipc_snapshot.%s.icnss_stats.cap_resp=%d\n"
+                         "wlan_pd_icnss_ipc_snapshot.%s.icnss_stats.cap_err=%d\n"
+                         "wlan_pd_icnss_ipc_snapshot.%s.icnss_stats.pin_connect_result=%d\n"
+                         "wlan_pd_icnss_ipc_snapshot.%s.icnss_stats.cfg_req=%d\n"
+                         "wlan_pd_icnss_ipc_snapshot.%s.icnss_stats.cfg_resp=%d\n"
+                         "wlan_pd_icnss_ipc_snapshot.%s.icnss_stats.cfg_req_err=%d\n"
+                         "wlan_pd_icnss_ipc_snapshot.%s.icnss_stats.mode_req=%d\n"
+                         "wlan_pd_icnss_ipc_snapshot.%s.icnss_stats.mode_resp=%d\n"
+                         "wlan_pd_icnss_ipc_snapshot.%s.icnss_stats.mode_req_err=%d\n"
+                         "wlan_pd_icnss_ipc_snapshot.%s.icnss_stats.ini_req=%d\n"
+                         "wlan_pd_icnss_ipc_snapshot.%s.icnss_stats.ini_resp=%d\n"
+                         "wlan_pd_icnss_ipc_snapshot.%s.icnss_stats.ini_req_err=%d\n"
+#else
+                         "wlan_pd_icnss_ipc_snapshot.%s.icnss_stats.numeric=0\n"
+#endif
                          "wlan_pd_icnss_ipc_snapshot.%s.icnss_stats.mode_text=%d\n",
                          phase,
                          path,
@@ -48113,6 +48273,57 @@ static int append_icnss_stats_summary(struct buffer *buf,
                          cap_text ? 1 : 0,
                          phase,
                          msa_ready_text ? 1 : 0,
+#if A90_WIFI_TEST_BOOT_ICNSS_STATS_NUMERIC_SUMMARY
+                         phase,
+                         phase,
+                         stats.ind_register_req,
+                         phase,
+                         stats.ind_register_resp,
+                         phase,
+                         stats.ind_register_err,
+                         phase,
+                         stats.msa_info_req,
+                         phase,
+                         stats.msa_info_resp,
+                         phase,
+                         stats.msa_info_err,
+                         phase,
+                         stats.msa_ready_req,
+                         phase,
+                         stats.msa_ready_resp,
+                         phase,
+                         stats.msa_ready_err,
+                         phase,
+                         stats.msa_ready_ind,
+                         phase,
+                         stats.cap_req,
+                         phase,
+                         stats.cap_resp,
+                         phase,
+                         stats.cap_err,
+                         phase,
+                         stats.pin_connect_result,
+                         phase,
+                         stats.cfg_req,
+                         phase,
+                         stats.cfg_resp,
+                         phase,
+                         stats.cfg_req_err,
+                         phase,
+                         stats.mode_req,
+                         phase,
+                         stats.mode_resp,
+                         phase,
+                         stats.mode_req_err,
+                         phase,
+                         stats.ini_req,
+                         phase,
+                         stats.ini_resp,
+                         phase,
+                         stats.ini_req_err,
+#else
+                         phase,
+#endif
                          phase,
                          mode_text ? 1 : 0);
 }
