@@ -29,6 +29,7 @@
 #include <time.h>
 #include <unistd.h>
 #include <sched.h>
+#include <net/if.h>
 #include <elf.h>
 #include <dirent.h>
 #include <grp.h>
@@ -77,6 +78,9 @@
 #endif
 #ifndef NLA_ALIGNTO
 #define NLA_ALIGNTO 4
+#endif
+#ifndef SIOCDEVPRIVATE
+#define SIOCDEVPRIVATE 0x89F0
 #endif
 #ifndef NLA_ALIGN
 #define NLA_ALIGN(len) (((len) + NLA_ALIGNTO - 1) & ~(NLA_ALIGNTO - 1))
@@ -769,6 +773,9 @@ struct paths {
     char sys_bus_esoc[MAX_PATH_LEN];
     char sys_bus_msm_subsys[MAX_PATH_LEN];
     char sys_class[MAX_PATH_LEN];
+    char sys_class_net[MAX_PATH_LEN];
+    char sys_class_ieee80211[MAX_PATH_LEN];
+    char sys_class_rfkill[MAX_PATH_LEN];
     char sys_class_uio[MAX_PATH_LEN];
     char sys_class_esoc_dev[MAX_PATH_LEN]; /* v248 */
     char fake_esoc_name_file[MAX_PATH_LEN]; /* v250 */
@@ -778,6 +785,7 @@ struct paths {
     char sys_devices_platform_soc[MAX_PATH_LEN];
     char sys_devices_platform_soc_mdm3[MAX_PATH_LEN];
     char sys_devices_platform_soc_mss[MAX_PATH_LEN];
+    char sys_devices_platform_soc_icnss[MAX_PATH_LEN];
     char sys_power[MAX_PATH_LEN];
     char sys_power_wake_lock[MAX_PATH_LEN];
     char sys_power_wake_unlock[MAX_PATH_LEN];
@@ -802,6 +810,8 @@ struct paths {
     char data_vendor_tombstones_rfs_tn[MAX_PATH_LEN];
     char data_vendor_wifi[MAX_PATH_LEN];
     char data_vendor_wifi_sockets[MAX_PATH_LEN];
+    char data_vendor_wifi_wpa[MAX_PATH_LEN];
+    char data_vendor_wifi_wpa_sockets[MAX_PATH_LEN];
     char persist[MAX_PATH_LEN];
     char proc[MAX_PATH_LEN];
     char apex[MAX_PATH_LEN];
@@ -1416,6 +1426,7 @@ static bool is_lshal_readonly_query_mode(const char *mode) {
 static bool selinux_context_allowed(const char *context) {
     return streq(context, "u:r:init:s0") ||
            streq(context, "u:r:hal_wifi_default:s0") ||
+           streq(context, "u:r:hal_wifi_supplicant_default:s0") ||
            streq(context, "u:r:hwservicemanager:s0") ||
            streq(context, "u:r:servicemanager:s0") ||
            streq(context, "u:r:wificond:s0") ||
@@ -1519,6 +1530,9 @@ static bool connect_iface_allowed(const char *ifname) {
 static bool ping_target_allowed(const char *target) {
     if (target == NULL || target[0] == '\0' || strlen(target) > 63U) {
         return false;
+    }
+    if (streq(target, "google.com")) {
+        return true;
     }
     for (size_t i = 0; target[i] != '\0'; i++) {
         char ch = target[i];
@@ -4119,6 +4133,15 @@ static int init_paths(struct paths *paths) {
                     paths->sys_bus,
                     "msm_subsys") < 0 ||
         append_path(paths->sys_class, sizeof(paths->sys_class), paths->sys, "class") < 0 ||
+        append_path(paths->sys_class_net, sizeof(paths->sys_class_net), paths->sys_class, "net") < 0 ||
+        append_path(paths->sys_class_ieee80211,
+                    sizeof(paths->sys_class_ieee80211),
+                    paths->sys_class,
+                    "ieee80211") < 0 ||
+        append_path(paths->sys_class_rfkill,
+                    sizeof(paths->sys_class_rfkill),
+                    paths->sys_class,
+                    "rfkill") < 0 ||
         append_path(paths->sys_class_uio, sizeof(paths->sys_class_uio), paths->sys_class, "uio") < 0 ||
         append_path(paths->sys_class_esoc_dev,
                     sizeof(paths->sys_class_esoc_dev),
@@ -4141,6 +4164,10 @@ static int init_paths(struct paths *paths) {
                     sizeof(paths->sys_devices_platform_soc_mss),
                     paths->sys_devices_platform_soc,
                     "4080000.qcom,mss") < 0 ||
+        append_path(paths->sys_devices_platform_soc_icnss,
+                    sizeof(paths->sys_devices_platform_soc_icnss),
+                    paths->sys_devices_platform_soc,
+                    "18800000.qcom,icnss") < 0 ||
         append_path(paths->sys_power, sizeof(paths->sys_power), paths->sys, "power") < 0 ||
         append_path(paths->sys_power_wake_lock,
                     sizeof(paths->sys_power_wake_lock),
@@ -4218,6 +4245,14 @@ static int init_paths(struct paths *paths) {
         append_path(paths->data_vendor_wifi_sockets,
                     sizeof(paths->data_vendor_wifi_sockets),
                     paths->data_vendor_wifi,
+                    "sockets") < 0 ||
+        append_path(paths->data_vendor_wifi_wpa,
+                    sizeof(paths->data_vendor_wifi_wpa),
+                    paths->data_vendor_wifi,
+                    "wpa") < 0 ||
+        append_path(paths->data_vendor_wifi_wpa_sockets,
+                    sizeof(paths->data_vendor_wifi_wpa_sockets),
+                    paths->data_vendor_wifi_wpa,
                     "sockets") < 0 ||
         append_path(paths->persist, sizeof(paths->persist), paths->root, "persist") < 0 ||
         append_path(paths->proc, sizeof(paths->proc), paths->root, "proc") < 0 ||
@@ -4806,7 +4841,8 @@ static int materialize_data_wifi(const struct config *cfg,
         errno = EINVAL;
         return -1;
     }
-    if (mkdir_p(paths->data_vendor_wifi_sockets, 0770) < 0) {
+    if (mkdir_p(paths->data_vendor_wifi_sockets, 0770) < 0 ||
+        mkdir_p(paths->data_vendor_wifi_wpa_sockets, 0770) < 0) {
         snprintf(error_buf, error_size, "mkdir data vendor wifi sockets: %s", strerror(errno));
         return -1;
     }
@@ -4814,11 +4850,15 @@ static int materialize_data_wifi(const struct config *cfg,
     (void)chmod(paths->data_vendor, 0771);
     (void)chmod(paths->data_vendor_wifi, 0770);
     (void)chmod(paths->data_vendor_wifi_sockets, 0770);
+    (void)chmod(paths->data_vendor_wifi_wpa, 0770);
+    (void)chmod(paths->data_vendor_wifi_wpa_sockets, 0770);
     if (chown(paths->data_vendor_wifi, A90_AID_SYSTEM, A90_AID_WIFI) < 0) {
         snprintf(error_buf, error_size, "chown data vendor wifi: %s", strerror(errno));
         return -1;
     }
-    if (chown(paths->data_vendor_wifi_sockets, A90_AID_SYSTEM, A90_AID_WIFI) < 0) {
+    if (chown(paths->data_vendor_wifi_sockets, A90_AID_SYSTEM, A90_AID_WIFI) < 0 ||
+        chown(paths->data_vendor_wifi_wpa, A90_AID_SYSTEM, A90_AID_WIFI) < 0 ||
+        chown(paths->data_vendor_wifi_wpa_sockets, A90_AID_SYSTEM, A90_AID_WIFI) < 0) {
         snprintf(error_buf, error_size, "chown data vendor wifi sockets: %s", strerror(errno));
         return -1;
     }
@@ -5204,6 +5244,15 @@ static void cleanup_paths(const struct paths *paths) {
     if (paths->sys_class_esoc_dev[0] != '\0') {
         umount2(paths->sys_class_esoc_dev, MNT_DETACH);
     }
+    if (paths->sys_class_rfkill[0] != '\0') {
+        umount2(paths->sys_class_rfkill, MNT_DETACH);
+    }
+    if (paths->sys_class_ieee80211[0] != '\0') {
+        umount2(paths->sys_class_ieee80211, MNT_DETACH);
+    }
+    if (paths->sys_class_net[0] != '\0') {
+        umount2(paths->sys_class_net, MNT_DETACH);
+    }
     if (paths->fake_esoc_name_file[0] != '\0') {
         char fake_target[MAX_PATH_LEN];
         if (append_path(fake_target, sizeof(fake_target),
@@ -5227,6 +5276,9 @@ static void cleanup_paths(const struct paths *paths) {
     }
     if (paths->sys_devices_platform_soc_mss[0] != '\0') {
         umount2(paths->sys_devices_platform_soc_mss, MNT_DETACH);
+    }
+    if (paths->sys_devices_platform_soc_icnss[0] != '\0') {
+        umount2(paths->sys_devices_platform_soc_icnss, MNT_DETACH);
     }
     if (paths->sys_fs_selinux_null[0] != '\0') {
         unlink(paths->sys_fs_selinux_null);
@@ -5327,6 +5379,15 @@ static void cleanup_paths(const struct paths *paths) {
         if (append_path(child, sizeof(child), paths->sys_class_uio, "uio0") == 0) rmdir(child);
         rmdir(paths->sys_class_uio);
     }
+    if (paths->sys_class_rfkill[0] != '\0') {
+        rmdir(paths->sys_class_rfkill);
+    }
+    if (paths->sys_class_ieee80211[0] != '\0') {
+        rmdir(paths->sys_class_ieee80211);
+    }
+    if (paths->sys_class_net[0] != '\0') {
+        rmdir(paths->sys_class_net);
+    }
     if (paths->sys_class[0] != '\0') {
         rmdir(paths->sys_class);
     }
@@ -5348,6 +5409,9 @@ static void cleanup_paths(const struct paths *paths) {
     }
     if (paths->sys_devices_platform_soc_mss[0] != '\0') {
         rmdir(paths->sys_devices_platform_soc_mss);
+    }
+    if (paths->sys_devices_platform_soc_icnss[0] != '\0') {
+        rmdir(paths->sys_devices_platform_soc_icnss);
     }
     if (paths->sys_devices_platform_soc[0] != '\0') {
         rmdir(paths->sys_devices_platform_soc);
@@ -5372,6 +5436,12 @@ static void cleanup_paths(const struct paths *paths) {
     }
     if (paths->data_vendor_wifi_sockets[0] != '\0') {
         rmdir(paths->data_vendor_wifi_sockets);
+    }
+    if (paths->data_vendor_wifi_wpa_sockets[0] != '\0') {
+        rmdir(paths->data_vendor_wifi_wpa_sockets);
+    }
+    if (paths->data_vendor_wifi_wpa[0] != '\0') {
+        rmdir(paths->data_vendor_wifi_wpa);
     }
     if (paths->data_vendor_wifi[0] != '\0') {
         rmdir(paths->data_vendor_wifi);
@@ -5909,6 +5979,10 @@ static const char *android_default_selinux_context_for_target(const char *target
     if (streq(target, "/vendor/bin/hw/vendor.samsung.hardware.wifi@2.0-service") ||
         streq(target, "/vendor/bin/hw/android.hardware.wifi@1.0-service")) {
         return "u:r:hal_wifi_default:s0";
+    }
+    if (streq(target, "/vendor/bin/hw/wpa_supplicant") ||
+        streq(target, "/vendor/bin/wpa_supplicant")) {
+        return "u:r:hal_wifi_supplicant_default:s0";
     }
     if (streq(target, "/vendor/bin/hw/macloader")) {
         return "u:r:macloader:s0";
@@ -8359,6 +8433,652 @@ static int run_wifi_connect_tool_surface(const struct config *cfg,
                           "wifi_connect_tool_surface.end=1\n");
 }
 
+static int copy_connect_config_into_private_wifi(const struct config *cfg,
+                                                 const struct paths *paths,
+                                                 char *chroot_path,
+                                                 size_t chroot_path_size,
+                                                 char *host_path,
+                                                 size_t host_path_size,
+                                                 struct buffer *stdout_buf) {
+    char buffer[4096];
+    struct stat st;
+    int src_fd = -1;
+    int dst_fd = -1;
+    int open_flags = O_RDONLY | O_CLOEXEC;
+    ssize_t nread;
+    size_t copied = 0;
+
+#ifdef O_NOFOLLOW
+    open_flags |= O_NOFOLLOW;
+#endif
+
+    if (snprintf(chroot_path,
+                 chroot_path_size,
+                 "/data/vendor/wifi/wpa/a90_connect_execns.conf") >= (int)chroot_path_size ||
+        append_path(host_path,
+                    host_path_size,
+                    paths->data_vendor_wifi_wpa,
+                    "a90_connect_execns.conf") < 0) {
+        errno = ENAMETOOLONG;
+        return -1;
+    }
+    src_fd = open(cfg->connect_config, open_flags);
+    if (src_fd < 0) {
+        return -1;
+    }
+    if (fstat(src_fd, &st) < 0 ||
+        !S_ISREG(st.st_mode) ||
+        (st.st_mode & 0077) != 0 ||
+        st.st_size <= 0 ||
+        st.st_size > 8192) {
+        if (errno == 0) {
+            errno = EINVAL;
+        }
+        close(src_fd);
+        return -1;
+    }
+    dst_fd = open(host_path, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0600);
+    if (dst_fd < 0) {
+        close(src_fd);
+        return -1;
+    }
+    while ((nread = read(src_fd, buffer, sizeof(buffer))) > 0) {
+        if (write_all_fd(dst_fd, buffer, (size_t)nread) < 0) {
+            close(src_fd);
+            close(dst_fd);
+            return -1;
+        }
+        copied += (size_t)nread;
+    }
+    if (nread < 0) {
+        close(src_fd);
+        close(dst_fd);
+        return -1;
+    }
+    if (fchown(dst_fd, A90_AID_WIFI, A90_AID_WIFI) < 0 ||
+        fchmod(dst_fd, 0600) < 0) {
+        close(src_fd);
+        close(dst_fd);
+        return -1;
+    }
+    if (close(dst_fd) < 0) {
+        close(src_fd);
+        return -1;
+    }
+    close(src_fd);
+    return append_format(stdout_buf,
+                         "wifi_connect_ping.connect_config.private_copy=1\n"
+                         "wifi_connect_ping.connect_config.private_chroot_path=%s\n"
+                         "wifi_connect_ping.connect_config.private_size=%zu\n",
+                         chroot_path,
+                         copied);
+}
+
+static int wait_child_quiet(pid_t pid,
+                            int timeout_ms,
+                            bool terminate_on_timeout,
+                            int *exit_code,
+                            int *signal_no,
+                            bool *timed_out) {
+    long deadline = monotonic_ms() + timeout_ms;
+    int status = 0;
+
+    *exit_code = -1;
+    *signal_no = 0;
+    *timed_out = false;
+    for (;;) {
+        pid_t wait_rc = waitpid(pid, &status, WNOHANG);
+
+        if (wait_rc == pid) {
+            if (WIFEXITED(status)) {
+                *exit_code = WEXITSTATUS(status);
+                return *exit_code;
+            }
+            if (WIFSIGNALED(status)) {
+                *signal_no = WTERMSIG(status);
+                return 128 + *signal_no;
+            }
+            return 125;
+        }
+        if (wait_rc < 0) {
+            return 126;
+        }
+        if (monotonic_ms() >= deadline) {
+            break;
+        }
+        usleep(100000);
+    }
+    *timed_out = true;
+    if (terminate_on_timeout) {
+        kill(pid, SIGTERM);
+        usleep(300000);
+        if (waitpid(pid, &status, WNOHANG) != pid) {
+            kill(pid, SIGKILL);
+            waitpid(pid, &status, 0);
+        }
+    }
+    return 124;
+}
+
+static int run_quiet_argv(char *const argv[],
+                          int timeout_ms,
+                          int *exit_code,
+                          int *signal_no,
+                          bool *timed_out) {
+    pid_t pid = fork();
+
+    if (pid < 0) {
+        return 126;
+    }
+    if (pid == 0) {
+        int devnull = open("/dev/null", O_RDWR | O_CLOEXEC);
+
+        if (devnull >= 0) {
+            dup2(devnull, STDIN_FILENO);
+            dup2(devnull, STDOUT_FILENO);
+            dup2(devnull, STDERR_FILENO);
+            if (devnull > STDERR_FILENO) {
+                close(devnull);
+            }
+        }
+        execv(argv[0], argv);
+        _exit(127);
+    }
+    return wait_child_quiet(pid, timeout_ms, true, exit_code, signal_no, timed_out);
+}
+
+static int start_supplicant_quiet(const struct config *cfg,
+                                  const struct paths *paths,
+                                  const char *supplicant_path,
+                                  const char *connect_config_path,
+                                  pid_t *pid_out) {
+    pid_t pid = fork();
+
+    *pid_out = -1;
+    if (pid < 0) {
+        return -1;
+    }
+    if (pid == 0) {
+        char *const supplicant_argv[] = {
+            (char *)supplicant_path,
+            (char *)"-i",
+            (char *)cfg->connect_iface,
+            (char *)"-D",
+            (char *)"nl80211",
+            (char *)"-c",
+            (char *)connect_config_path,
+            (char *)"-O",
+            (char *)"/data/vendor/wifi/wpa/sockets",
+            NULL,
+        };
+        int devnull = open("/dev/null", O_RDWR | O_CLOEXEC);
+
+        if (devnull >= 0) {
+            dup2(devnull, STDIN_FILENO);
+            dup2(devnull, STDOUT_FILENO);
+            dup2(devnull, STDERR_FILENO);
+            if (devnull > STDERR_FILENO) {
+                close(devnull);
+            }
+        }
+        if (setsid() < 0) {
+            _exit(123);
+        }
+        if (chroot(paths->root) < 0) {
+            _exit(120);
+        }
+        if (chdir("/") < 0) {
+            _exit(121);
+        }
+        apply_child_env(cfg);
+        if (apply_wificond_identity_contract("wifi_connect_ping.supplicant_identity") < 0) {
+            _exit(126);
+        }
+        if (apply_android_exec_selinux_context_if_requested(cfg,
+                                                            "wifi_connect_ping.supplicant",
+                                                            supplicant_path) < 0) {
+            _exit(126);
+        }
+        execv(supplicant_path, supplicant_argv);
+        _exit(127);
+    }
+    *pid_out = pid;
+    return 0;
+}
+
+static bool sysfs_file_equals(const char *path, const char *expected) {
+    char value[64];
+
+    if (read_small_file_trim(path, value, sizeof(value)) < 0) {
+        return false;
+    }
+    return streq(value, expected);
+}
+
+enum wpa_ctrl_surface {
+    WPA_CTRL_SURFACE_NONE = 0,
+    WPA_CTRL_SURFACE_INTERFACE = 1,
+    WPA_CTRL_SURFACE_GLOBAL = 2,
+};
+
+struct wpa_ctrl_endpoint {
+    enum wpa_ctrl_surface surface;
+    char interface_path[MAX_PATH_LEN];
+    int last_errno;
+    char last_reply[64];
+};
+
+static const char *wpa_ctrl_surface_name(enum wpa_ctrl_surface surface) {
+    switch (surface) {
+    case WPA_CTRL_SURFACE_INTERFACE:
+        return "interface";
+    case WPA_CTRL_SURFACE_GLOBAL:
+        return "global";
+    default:
+        return "none";
+    }
+}
+
+static const char *wpa_ctrl_reply_category(const char *reply) {
+    if (reply == NULL || reply[0] == '\0') {
+        return "empty";
+    }
+    if (strncmp(reply, "OK", 2) == 0) {
+        return "ok";
+    }
+    if (strncmp(reply, "FAIL", 4) == 0) {
+        return "fail";
+    }
+    if (strncmp(reply, "PONG", 4) == 0) {
+        return "pong";
+    }
+    if (strncmp(reply, "UNKNOWN", 7) == 0) {
+        return "unknown";
+    }
+    return "other";
+}
+
+static int wpa_ctrl_bind_local_abstract(int fd) {
+    struct sockaddr_un local;
+    char name[64];
+    size_t name_len;
+
+    memset(&local, 0, sizeof(local));
+    local.sun_family = AF_UNIX;
+    if (snprintf(name,
+                 sizeof(name),
+                 "a90-wpa-%ld-%ld",
+                 (long)getpid(),
+                 monotonic_ms()) >= (int)sizeof(name)) {
+        errno = ENAMETOOLONG;
+        return -1;
+    }
+    name_len = strlen(name);
+    local.sun_path[0] = '\0';
+    memcpy(local.sun_path + 1, name, name_len);
+    return bind(fd,
+                (const struct sockaddr *)&local,
+                (socklen_t)(offsetof(struct sockaddr_un, sun_path) + 1 + name_len));
+}
+
+static int wpa_ctrl_connect_remote(int fd, const char *remote, bool abstract) {
+    struct sockaddr_un addr;
+    size_t remote_len = strlen(remote);
+
+    if (remote_len == 0 || remote_len + (abstract ? 1U : 0U) >= sizeof(addr.sun_path)) {
+        errno = ENAMETOOLONG;
+        return -1;
+    }
+    memset(&addr, 0, sizeof(addr));
+    addr.sun_family = AF_UNIX;
+    if (abstract) {
+        addr.sun_path[0] = '\0';
+        memcpy(addr.sun_path + 1, remote, remote_len);
+        return connect(fd,
+                       (const struct sockaddr *)&addr,
+                       (socklen_t)(offsetof(struct sockaddr_un, sun_path) + 1 + remote_len));
+    }
+    memcpy(addr.sun_path, remote, remote_len + 1);
+    return connect(fd,
+                   (const struct sockaddr *)&addr,
+                   (socklen_t)(offsetof(struct sockaddr_un, sun_path) + remote_len + 1));
+}
+
+static int wpa_ctrl_request(const char *remote,
+                            bool abstract,
+                            const char *command,
+                            char *reply,
+                            size_t reply_size) {
+    struct pollfd pfd;
+    ssize_t received;
+    size_t command_len = strlen(command);
+    int fd;
+
+    if (reply_size == 0) {
+        errno = EINVAL;
+        return -1;
+    }
+    reply[0] = '\0';
+    fd = socket(AF_UNIX, SOCK_DGRAM | SOCK_CLOEXEC, 0);
+    if (fd < 0) {
+        return -1;
+    }
+    if (wpa_ctrl_bind_local_abstract(fd) < 0 ||
+        wpa_ctrl_connect_remote(fd, remote, abstract) < 0) {
+        int saved_errno = errno;
+
+        close(fd);
+        errno = saved_errno;
+        return -1;
+    }
+    if (send(fd, command, command_len, 0) != (ssize_t)command_len) {
+        int saved_errno = errno == 0 ? EIO : errno;
+
+        close(fd);
+        errno = saved_errno;
+        return -1;
+    }
+    memset(&pfd, 0, sizeof(pfd));
+    pfd.fd = fd;
+    pfd.events = POLLIN;
+    if (poll(&pfd, 1, 2500) <= 0) {
+        int saved_errno = errno == 0 ? ETIMEDOUT : errno;
+
+        close(fd);
+        errno = saved_errno;
+        return -1;
+    }
+    received = recv(fd, reply, reply_size - 1, 0);
+    if (received < 0) {
+        int saved_errno = errno;
+
+        close(fd);
+        errno = saved_errno;
+        return -1;
+    }
+    reply[received] = '\0';
+    while (received > 0 &&
+           (reply[received - 1] == '\n' || reply[received - 1] == '\r')) {
+        reply[received - 1] = '\0';
+        received--;
+    }
+    close(fd);
+    return 0;
+}
+
+static int wait_wpa_ctrl_endpoint(const struct paths *paths,
+                                  struct wpa_ctrl_endpoint *endpoint,
+                                  int timeout_ms) {
+    char reply[64];
+    long deadline = monotonic_ms() + timeout_ms;
+    struct stat st;
+
+    memset(endpoint, 0, sizeof(*endpoint));
+    endpoint->surface = WPA_CTRL_SURFACE_NONE;
+    endpoint->last_errno = 0;
+    if (append_path(endpoint->interface_path,
+                    sizeof(endpoint->interface_path),
+                    paths->data_vendor_wifi_wpa_sockets,
+                    "wlan0") < 0) {
+        endpoint->last_errno = errno;
+        return -1;
+    }
+    while (monotonic_ms() < deadline) {
+        if (lstat(endpoint->interface_path, &st) == 0) {
+            if (wpa_ctrl_request(endpoint->interface_path, false, "PING", reply, sizeof(reply)) == 0) {
+                endpoint->surface = WPA_CTRL_SURFACE_INTERFACE;
+                snprintf(endpoint->last_reply, sizeof(endpoint->last_reply), "%s", wpa_ctrl_reply_category(reply));
+                return 0;
+            }
+            endpoint->last_errno = errno;
+        } else {
+            endpoint->last_errno = errno;
+        }
+        if (wpa_ctrl_request("android:wpa_wlan0", true, "PING", reply, sizeof(reply)) == 0) {
+            endpoint->surface = WPA_CTRL_SURFACE_GLOBAL;
+            snprintf(endpoint->last_reply, sizeof(endpoint->last_reply), "%s", wpa_ctrl_reply_category(reply));
+            return 0;
+        }
+        endpoint->last_errno = errno;
+        usleep(250000);
+    }
+    if (endpoint->last_errno == 0) {
+        endpoint->last_errno = ETIMEDOUT;
+    }
+    return -1;
+}
+
+static int run_wpa_ctrl_command(const struct wpa_ctrl_endpoint *endpoint,
+                                const char *ifname,
+                                const char *command,
+                                char *reply,
+                                size_t reply_size) {
+    char global_command[192];
+
+    if (endpoint->surface == WPA_CTRL_SURFACE_INTERFACE) {
+        return wpa_ctrl_request(endpoint->interface_path, false, command, reply, reply_size);
+    }
+    if (endpoint->surface == WPA_CTRL_SURFACE_GLOBAL) {
+        if (snprintf(global_command,
+                     sizeof(global_command),
+                     "IFNAME=%s %s",
+                     ifname,
+                     command) >= (int)sizeof(global_command)) {
+            errno = ENAMETOOLONG;
+            return -1;
+        }
+        return wpa_ctrl_request("android:wpa_wlan0", true, global_command, reply, reply_size);
+    }
+    errno = ENOTCONN;
+    return -1;
+}
+
+static int append_wpa_ctrl_command_result(struct buffer *stdout_buf,
+                                          const struct wpa_ctrl_endpoint *endpoint,
+                                          const char *ifname,
+                                          const char *label,
+                                          const char *command) {
+    char reply[64];
+    int rc;
+    int saved_errno = 0;
+
+    rc = run_wpa_ctrl_command(endpoint, ifname, command, reply, sizeof(reply));
+    if (rc < 0) {
+        saved_errno = errno;
+    }
+    return append_format(stdout_buf,
+                         "wifi_connect_ping.wpa_ctrl.%s.rc=%d\n"
+                         "wifi_connect_ping.wpa_ctrl.%s.errno=%d\n"
+                         "wifi_connect_ping.wpa_ctrl.%s.reply=%s\n",
+                         label,
+                         rc,
+                         label,
+                         saved_errno,
+                         label,
+                         rc == 0 ? wpa_ctrl_reply_category(reply) : "error");
+}
+
+struct hdd_priv_ioctl_data {
+    char *buf;
+    int used_len;
+    int total_len;
+};
+
+static void hdd_country_readback_label(const char *reply, char *out, size_t out_size) {
+    const char *country;
+
+    if (out_size == 0) {
+        return;
+    }
+    if (reply == NULL || reply[0] == '\0') {
+        snprintf(out, out_size, "empty");
+        return;
+    }
+    if (strncmp(reply, "GETCOUNTRYREV ", 14) != 0) {
+        snprintf(out, out_size, "other");
+        return;
+    }
+    country = reply + 14;
+    if (((country[0] >= 'A' && country[0] <= 'Z') ||
+         (country[0] >= '0' && country[0] <= '9')) &&
+        ((country[1] >= 'A' && country[1] <= 'Z') ||
+         (country[1] >= '0' && country[1] <= '9')) &&
+        (country[2] == '\0' || country[2] == ' ' ||
+         country[2] == '\n' || country[2] == '\r')) {
+        snprintf(out, out_size, "%c%c", country[0], country[1]);
+        return;
+    }
+    snprintf(out, out_size, "other");
+}
+
+static int hdd_driver_ioctl_command(const char *ifname,
+                                    const char *command,
+                                    char *reply,
+                                    size_t reply_size) {
+    struct hdd_priv_ioctl_data priv_data;
+    struct ifreq ifr;
+    char command_buf[256];
+    size_t ifname_len;
+    size_t command_len;
+    int fd;
+    int rc;
+    int saved_errno;
+
+    if (reply != NULL && reply_size > 0) {
+        reply[0] = '\0';
+    }
+    if (ifname == NULL || command == NULL) {
+        errno = EINVAL;
+        return -1;
+    }
+    ifname_len = strlen(ifname);
+    command_len = strlen(command);
+    if (ifname_len == 0 || ifname_len >= IFNAMSIZ ||
+        command_len == 0 || command_len + 1 >= sizeof(command_buf)) {
+        errno = EINVAL;
+        return -1;
+    }
+    memset(command_buf, 0, sizeof(command_buf));
+    memcpy(command_buf, command, command_len);
+    memset(&priv_data, 0, sizeof(priv_data));
+    priv_data.buf = command_buf;
+    priv_data.used_len = 0;
+    priv_data.total_len = (int)sizeof(command_buf);
+    memset(&ifr, 0, sizeof(ifr));
+    memcpy(ifr.ifr_name, ifname, ifname_len);
+    ifr.ifr_data = (char *)&priv_data;
+    fd = socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC, 0);
+    if (fd < 0) {
+        return -1;
+    }
+    rc = ioctl(fd, SIOCDEVPRIVATE + 1, &ifr);
+    saved_errno = rc < 0 ? errno : 0;
+    close(fd);
+    if (rc < 0) {
+        errno = saved_errno;
+        return -1;
+    }
+    if (reply != NULL && reply_size > 0) {
+        snprintf(reply, reply_size, "%s", command_buf);
+    }
+    return 0;
+}
+
+static int append_hdd_country_ioctl_result(struct buffer *stdout_buf, const char *ifname) {
+    char readback[256];
+    char readback_label[32];
+    int country_rc;
+    int country_errno = 0;
+    int readback_rc;
+    int readback_errno = 0;
+
+    country_rc = hdd_driver_ioctl_command(ifname, "COUNTRY KR", NULL, 0);
+    if (country_rc < 0) {
+        country_errno = errno;
+    }
+    readback_rc = hdd_driver_ioctl_command(ifname, "GETCOUNTRYREV", readback, sizeof(readback));
+    if (readback_rc < 0) {
+        readback_errno = errno;
+        snprintf(readback_label, sizeof(readback_label), "error");
+    } else {
+        hdd_country_readback_label(readback, readback_label, sizeof(readback_label));
+    }
+    return append_format(stdout_buf,
+                         "wifi_connect_ping.country_code=KR\n"
+                         "wifi_connect_ping.driver_ioctl.country.command=COUNTRY\n"
+                         "wifi_connect_ping.driver_ioctl.country.rc=%d\n"
+                         "wifi_connect_ping.driver_ioctl.country.errno=%d\n"
+                         "wifi_connect_ping.driver_ioctl.getcountry.command=GETCOUNTRYREV\n"
+                         "wifi_connect_ping.driver_ioctl.getcountry.rc=%d\n"
+                         "wifi_connect_ping.driver_ioctl.getcountry.errno=%d\n"
+                         "wifi_connect_ping.driver_ioctl.getcountry.readback=%s\n",
+                         country_rc,
+                         country_errno,
+                         readback_rc,
+                         readback_errno,
+                         readback_label);
+}
+
+static int wait_wlan_carrier(const char *ifname, int timeout_ms) {
+    char carrier_path[128];
+    long deadline = monotonic_ms() + timeout_ms;
+
+    if (snprintf(carrier_path,
+                 sizeof(carrier_path),
+                 "/sys/class/net/%s/carrier",
+                 ifname) >= (int)sizeof(carrier_path)) {
+        errno = ENAMETOOLONG;
+        return -1;
+    }
+    while (monotonic_ms() < deadline) {
+        if (sysfs_file_equals(carrier_path, "1")) {
+            return 0;
+        }
+        usleep(250000);
+    }
+    errno = ETIMEDOUT;
+    return -1;
+}
+
+static int write_udhcpc_script(char *path, size_t path_size) {
+    static const char script[] =
+        "#!/cache/bin/busybox sh\n"
+        "case \"$1\" in\n"
+        "  bound|renew)\n"
+        "    /cache/bin/busybox ifconfig \"$interface\" \"$ip\" netmask \"$subnet\" ${broadcast:+broadcast \"$broadcast\"} >/dev/null 2>&1 || exit 1\n"
+        "    /cache/bin/busybox route del default dev \"$interface\" >/dev/null 2>&1 || true\n"
+        "    for router_one in $router; do /cache/bin/busybox route add default gw \"$router_one\" dev \"$interface\" >/dev/null 2>&1 || true; break; done\n"
+        "    if [ -n \"$dns\" ]; then : > /etc/resolv.conf 2>/dev/null || true; for dns_one in $dns; do echo \"nameserver $dns_one\" >> /etc/resolv.conf 2>/dev/null || true; done; fi\n"
+        "    ;;\n"
+        "  deconfig)\n"
+        "    /cache/bin/busybox ifconfig \"$interface\" 0.0.0.0 >/dev/null 2>&1 || true\n"
+        "    ;;\n"
+        "esac\n"
+        "exit 0\n";
+    int fd;
+
+    if (snprintf(path,
+                 path_size,
+                 "/tmp/a90-connect-udhcpc-%ld.script",
+                 (long)getpid()) >= (int)path_size) {
+        errno = ENAMETOOLONG;
+        return -1;
+    }
+    fd = open(path, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0700);
+    if (fd < 0) {
+        return -1;
+    }
+    if (write_all_fd(fd, script, strlen(script)) < 0) {
+        close(fd);
+        return -1;
+    }
+    if (fchmod(fd, 0700) < 0) {
+        close(fd);
+        return -1;
+    }
+    return close(fd);
+}
+
 static int run_wifi_connect_ping_scaffold(const struct config *cfg,
                                           const struct paths *paths,
                                           struct buffer *stdout_buf) {
@@ -8383,10 +9103,34 @@ static int run_wifi_connect_ping_scaffold(const struct config *cfg,
     bool supplicant_ready;
     bool dhcp_ready;
     bool ping_ready;
+    const char *supplicant_path = NULL;
+    char private_config_chroot[MAX_PATH_LEN];
+    char private_config_host[MAX_PATH_LEN];
+    char udhcpc_script[MAX_PATH_LEN];
+    pid_t supplicant_pid = -1;
+    int ip_exit = -1;
+    int ip_signal = 0;
+    bool ip_timeout = false;
+    int carrier_errno = 0;
+    int dhcp_exit = -1;
+    int dhcp_signal = 0;
+    bool dhcp_timeout = false;
+    int ping_exit = -1;
+    int ping_signal = 0;
+    bool ping_timeout = false;
+    int supplicant_cleanup_exit = -1;
+    int supplicant_cleanup_signal = 0;
+    bool supplicant_cleanup_timeout = false;
+    struct wpa_ctrl_endpoint wpa_ctrl;
+    int wpa_ctrl_ready_errno = 0;
+    bool pass = false;
 
 #ifdef O_NOFOLLOW
     config_flags |= O_NOFOLLOW;
 #endif
+    memset(private_config_chroot, 0, sizeof(private_config_chroot));
+    memset(private_config_host, 0, sizeof(private_config_host));
+    memset(udhcpc_script, 0, sizeof(udhcpc_script));
 
     memset(&config_st, 0, sizeof(config_st));
     if (lstat(cfg->connect_config, &config_st) < 0) {
@@ -8406,11 +9150,11 @@ static int run_wifi_connect_ping_scaffold(const struct config *cfg,
     if (append_format(stdout_buf,
                        "wifi_connect_ping.begin=1\n"
                        "wifi_connect_ping.helper_version=" EXECNS_VERSION "\n"
-                       "wifi_connect_ping.mode=v52-scaffold\n"
+                       "wifi_connect_ping.mode=v2152-bounded-executor\n"
                        "wifi_connect_ping.allowed=1\n"
-                       "wifi_connect_ping.credentials_read=0\n"
+                       "wifi_connect_ping.credentials_read=1\n"
                        "wifi_connect_ping.secret_values_logged=0\n"
-                       "wifi_connect_ping.exec_attempted=0\n"
+                       "wifi_connect_ping.exec_attempted=1\n"
                        "wifi_connect_ping.supplicant_started=0\n"
                        "wifi_connect_ping.dhcp_executed=0\n"
                        "wifi_connect_ping.external_ping_executed=0\n") < 0 ||
@@ -8499,17 +9243,246 @@ static int run_wifi_connect_ping_scaffold(const struct config *cfg,
     if (append_format(stdout_buf,
                       "wifi_connect_ping.supplicant_ready=%d\n"
                       "wifi_connect_ping.dhcp_ready=%d\n"
-                      "wifi_connect_ping.ping_ready=%d\n"
-                      "wifi_connect_ping.executor_implemented=0\n"
-                      "wifi_connect_ping.result=executor-scaffold-only\n"
-                      "wifi_connect_ping.reason=v52-contract-present-live-execution-deferred-to-v53\n"
-                      "wifi_connect_ping.end=1\n",
+                      "wifi_connect_ping.ping_ready=%d\n",
                       supplicant_ready ? 1 : 0,
                       dhcp_ready ? 1 : 0,
                       ping_ready ? 1 : 0) < 0) {
         return -1;
     }
-    return 40;
+    if (!supplicant_ready || !dhcp_ready || !ping_ready || config_errno != 0 ||
+        !S_ISREG(config_st.st_mode) || (config_st.st_mode & 0077) != 0 ||
+        config_st.st_size <= 0 || config_st.st_size > 8192) {
+        append_literal(stdout_buf,
+                       "wifi_connect_ping.executor_implemented=1\n"
+                       "wifi_connect_ping.result=preflight-failed\n"
+                       "wifi_connect_ping.reason=tool-or-private-config-preflight-failed\n"
+                       "wifi_connect_ping.end=1\n");
+        return 41;
+    }
+    supplicant_path = (vendor_wpa_hw_present && vendor_wpa_hw_executable)
+        ? "/vendor/bin/hw/wpa_supplicant"
+        : "/vendor/bin/wpa_supplicant";
+    if (copy_connect_config_into_private_wifi(cfg,
+                                              paths,
+                                              private_config_chroot,
+                                              sizeof(private_config_chroot),
+                                              private_config_host,
+                                              sizeof(private_config_host),
+                                              stdout_buf) < 0) {
+        append_format(stdout_buf,
+                      "wifi_connect_ping.connect_config.private_copy=0\n"
+                      "wifi_connect_ping.connect_config.copy_errno=%d\n"
+                      "wifi_connect_ping.executor_implemented=1\n"
+                      "wifi_connect_ping.result=config-copy-failed\n"
+                      "wifi_connect_ping.reason=private-config-copy-failed\n"
+                      "wifi_connect_ping.end=1\n",
+                      errno);
+        return 42;
+    }
+    {
+        char *const ip_argv[] = {
+            (char *)"/cache/bin/busybox",
+            (char *)"ip",
+            (char *)"link",
+            (char *)"set",
+            (char *)cfg->connect_iface,
+            (char *)"up",
+            NULL,
+        };
+
+        run_quiet_argv(ip_argv, 8000, &ip_exit, &ip_signal, &ip_timeout);
+    }
+    append_format(stdout_buf,
+                  "wifi_connect_ping.link_up_rc=%d\n"
+                  "wifi_connect_ping.link_up_signal=%d\n"
+                  "wifi_connect_ping.link_up_timeout=%d\n",
+                  ip_exit,
+                  ip_signal,
+                  ip_timeout ? 1 : 0);
+    if (ip_exit != 0) {
+        append_literal(stdout_buf,
+                       "wifi_connect_ping.executor_implemented=1\n"
+                       "wifi_connect_ping.result=link-up-failed\n"
+                       "wifi_connect_ping.reason=ip-link-set-up-failed\n"
+                       "wifi_connect_ping.end=1\n");
+        unlink(private_config_host);
+        return 43;
+    }
+    if (append_hdd_country_ioctl_result(stdout_buf, cfg->connect_iface) < 0) {
+        unlink(private_config_host);
+        return -1;
+    }
+    if (start_supplicant_quiet(cfg,
+                               paths,
+                               supplicant_path,
+                               private_config_chroot,
+                               &supplicant_pid) < 0) {
+        append_format(stdout_buf,
+                      "wifi_connect_ping.supplicant_start_errno=%d\n"
+                      "wifi_connect_ping.executor_implemented=1\n"
+                      "wifi_connect_ping.result=supplicant-start-failed\n"
+                      "wifi_connect_ping.reason=supplicant-fork-or-preexec-failed\n"
+                      "wifi_connect_ping.end=1\n",
+                      errno);
+        unlink(private_config_host);
+        return 44;
+    }
+    append_format(stdout_buf,
+                  "wifi_connect_ping.supplicant_started=1\n"
+                  "wifi_connect_ping.supplicant_path=%s\n"
+                  "wifi_connect_ping.supplicant_pid=%ld\n",
+                  supplicant_path,
+                  (long)supplicant_pid);
+    if (wait_wpa_ctrl_endpoint(paths, &wpa_ctrl, 10000) < 0) {
+        wpa_ctrl_ready_errno = wpa_ctrl.last_errno == 0 ? errno : wpa_ctrl.last_errno;
+    }
+    append_format(stdout_buf,
+                  "wifi_connect_ping.wpa_ctrl.ready=%d\n"
+                  "wifi_connect_ping.wpa_ctrl.surface=%s\n"
+                  "wifi_connect_ping.wpa_ctrl.ready_errno=%d\n"
+                  "wifi_connect_ping.wpa_ctrl.ping_reply=%s\n"
+                  "wifi_connect_ping.country_code=KR\n",
+                  wpa_ctrl_ready_errno == 0 ? 1 : 0,
+                  wpa_ctrl_surface_name(wpa_ctrl.surface),
+                  wpa_ctrl_ready_errno,
+                  wpa_ctrl.last_reply[0] != '\0' ? wpa_ctrl.last_reply : "none");
+    if (wpa_ctrl_ready_errno == 0) {
+        if (append_wpa_ctrl_command_result(stdout_buf,
+                                           &wpa_ctrl,
+                                           cfg->connect_iface,
+                                           "driver_country",
+                                           "DRIVER COUNTRY KR") < 0 ||
+            append_wpa_ctrl_command_result(stdout_buf,
+                                           &wpa_ctrl,
+                                           cfg->connect_iface,
+                                           "enable_network",
+                                           "ENABLE_NETWORK 0") < 0 ||
+            append_wpa_ctrl_command_result(stdout_buf,
+                                           &wpa_ctrl,
+                                           cfg->connect_iface,
+                                           "reassociate",
+                                           "REASSOCIATE") < 0) {
+            unlink(private_config_host);
+            return -1;
+        }
+    }
+    if (wait_wlan_carrier(cfg->connect_iface, 35000) < 0) {
+        carrier_errno = errno;
+    }
+    append_format(stdout_buf,
+                  "wifi_connect_ping.association_carrier=%d\n"
+                  "wifi_connect_ping.association_carrier_errno=%d\n",
+                  carrier_errno == 0 ? 1 : 0,
+                  carrier_errno);
+    if (carrier_errno == 0 && write_udhcpc_script(udhcpc_script, sizeof(udhcpc_script)) == 0) {
+        char *const dhcp_argv[] = {
+            (char *)"/cache/bin/busybox",
+            (char *)"udhcpc",
+            (char *)"-i",
+            (char *)cfg->connect_iface,
+            (char *)"-n",
+            (char *)"-q",
+            (char *)"-t",
+            (char *)"5",
+            (char *)"-T",
+            (char *)"3",
+            (char *)"-s",
+            udhcpc_script,
+            NULL,
+        };
+
+        append_literal(stdout_buf, "wifi_connect_ping.dhcp_executed=1\n");
+        run_quiet_argv(dhcp_argv, 25000, &dhcp_exit, &dhcp_signal, &dhcp_timeout);
+    } else if (carrier_errno == 0) {
+        append_format(stdout_buf,
+                      "wifi_connect_ping.dhcp_script_errno=%d\n",
+                      errno);
+    }
+    append_format(stdout_buf,
+                  "wifi_connect_ping.dhcp_rc=%d\n"
+                  "wifi_connect_ping.dhcp_signal=%d\n"
+                  "wifi_connect_ping.dhcp_timeout=%d\n",
+                  dhcp_exit,
+                  dhcp_signal,
+                  dhcp_timeout ? 1 : 0);
+    if (carrier_errno == 0 && dhcp_exit == 0) {
+        char *const ping_argv[] = {
+            (char *)"/cache/bin/busybox",
+            (char *)"ping",
+            (char *)"-I",
+            (char *)cfg->connect_iface,
+            (char *)"-c",
+            (char *)"3",
+            (char *)"-W",
+            (char *)"5",
+            (char *)cfg->ping_target,
+            NULL,
+        };
+
+        append_literal(stdout_buf, "wifi_connect_ping.external_ping_executed=1\n");
+        run_quiet_argv(ping_argv, 25000, &ping_exit, &ping_signal, &ping_timeout);
+    }
+    append_format(stdout_buf,
+                  "wifi_connect_ping.external_ping_target=%s\n"
+                  "wifi_connect_ping.external_ping_rc=%d\n"
+                  "wifi_connect_ping.external_ping_signal=%d\n"
+                  "wifi_connect_ping.external_ping_timeout=%d\n",
+                  cfg->ping_target,
+                  ping_exit,
+                  ping_signal,
+                  ping_timeout ? 1 : 0);
+    if (supplicant_pid > 0) {
+        kill(supplicant_pid, SIGTERM);
+        wait_child_quiet(supplicant_pid,
+                         3000,
+                         true,
+                         &supplicant_cleanup_exit,
+                         &supplicant_cleanup_signal,
+                         &supplicant_cleanup_timeout);
+    }
+    append_format(stdout_buf,
+                  "wifi_connect_ping.cleanup.supplicant_exit=%d\n"
+                  "wifi_connect_ping.cleanup.supplicant_signal=%d\n"
+                  "wifi_connect_ping.cleanup.supplicant_timeout=%d\n",
+                  supplicant_cleanup_exit,
+                  supplicant_cleanup_signal,
+                  supplicant_cleanup_timeout ? 1 : 0);
+    if (udhcpc_script[0] != '\0') {
+        unlink(udhcpc_script);
+    }
+    unlink(private_config_host);
+    {
+        char *const down_argv[] = {
+            (char *)"/cache/bin/busybox",
+            (char *)"ip",
+            (char *)"link",
+            (char *)"set",
+            (char *)cfg->connect_iface,
+            (char *)"down",
+            NULL,
+        };
+        int down_exit = -1;
+        int down_signal = 0;
+        bool down_timeout = false;
+
+        run_quiet_argv(down_argv, 8000, &down_exit, &down_signal, &down_timeout);
+        append_format(stdout_buf,
+                      "wifi_connect_ping.cleanup.link_down_rc=%d\n"
+                      "wifi_connect_ping.cleanup.link_down_signal=%d\n"
+                      "wifi_connect_ping.cleanup.link_down_timeout=%d\n",
+                      down_exit,
+                      down_signal,
+                      down_timeout ? 1 : 0);
+    }
+    pass = carrier_errno == 0 && dhcp_exit == 0 && ping_exit == 0;
+    append_format(stdout_buf,
+                  "wifi_connect_ping.executor_implemented=1\n"
+                  "wifi_connect_ping.result=%s\n"
+                  "wifi_connect_ping.reason=%s\n"
+                  "wifi_connect_ping.end=1\n",
+                  pass ? "connect-dhcp-ping-pass" : "connect-dhcp-ping-failed",
+                  pass ? "association-dhcp-google-ping-succeeded" : "association-dhcp-or-google-ping-failed");
+    return pass ? 0 : 45;
 }
 
 static int run_sepolicy_inventory(const struct config *cfg,
@@ -11997,6 +12970,43 @@ static int bind_optional_rw_dir(const char *source,
     return 0;
 }
 
+static int materialize_wifi_active_sysfs_surface(const struct config *cfg,
+                                                 const struct paths *paths,
+                                                 char *error_buf,
+                                                 size_t error_size) {
+    if (!is_wifi_active_session_scan_only_mode(cfg->mode) &&
+        !is_wifi_active_session_connect_ping_mode(cfg->mode)) {
+        return 0;
+    }
+    if (mkdir_p(paths->sys_class, 0755) < 0) {
+        snprintf(error_buf, error_size, "mkdir sys_class for active wifi: %s", strerror(errno));
+        return -1;
+    }
+    if (bind_optional_ro_dir("/sys/class/net",
+                             paths->sys_class_net,
+                             "net class sysfs",
+                             error_buf,
+                             error_size) < 0 ||
+        bind_optional_ro_dir("/sys/class/ieee80211",
+                             paths->sys_class_ieee80211,
+                             "ieee80211 class sysfs",
+                             error_buf,
+                             error_size) < 0 ||
+        bind_optional_ro_dir("/sys/class/rfkill",
+                             paths->sys_class_rfkill,
+                             "rfkill class sysfs",
+                             error_buf,
+                             error_size) < 0 ||
+        bind_optional_ro_dir("/sys/devices/platform/soc/18800000.qcom,icnss",
+                             paths->sys_devices_platform_soc_icnss,
+                             "icnss sysfs",
+                             error_buf,
+                             error_size) < 0) {
+        return -1;
+    }
+    return 0;
+}
+
 static int mount_partition_ro_best_effort(const char *partname,
                                           const char *source,
                                           const char *target,
@@ -12813,7 +13823,13 @@ static int append_wifi_runtime_surface_snapshot(struct buffer *buf,
         { "data_vendor_wifi", "/data/vendor/wifi" },
         { "data_vendor_wifi_sockets", "/data/vendor/wifi/sockets" },
         { "data_vendor_wifi_sockets_wlan0", "/data/vendor/wifi/sockets/wlan0" },
+        { "data_vendor_wifi_wpa", "/data/vendor/wifi/wpa" },
+        { "data_vendor_wifi_wpa_sockets", "/data/vendor/wifi/wpa/sockets" },
+        { "data_vendor_wifi_wpa_sockets_wlan0", "/data/vendor/wifi/wpa/sockets/wlan0" },
         { "sys_class_net_wlan0", "/sys/class/net/wlan0" },
+        { "sys_devices_icnss_wlan0", "/sys/devices/platform/soc/18800000.qcom,icnss/net/wlan0" },
+        { "sys_class_ieee80211", "/sys/class/ieee80211" },
+        { "sys_class_rfkill", "/sys/class/rfkill" },
     };
 
     if (append_format(buf,
@@ -61495,6 +62511,9 @@ static int setup_namespace(const struct config *cfg,
         return -1;
     }
     if (materialize_wifi_wlan_device(cfg, paths, error_buf, error_size) < 0) {
+        return -1;
+    }
+    if (materialize_wifi_active_sysfs_surface(cfg, paths, error_buf, error_size) < 0) {
         return -1;
     }
     if (materialize_rmt_storage_runtime_surface(cfg, paths, error_buf, error_size) < 0) {
