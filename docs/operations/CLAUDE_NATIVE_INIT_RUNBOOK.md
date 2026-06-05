@@ -12,11 +12,11 @@ Date: `2026-04-29`
 
 - device: `Samsung Galaxy A90 5G SM-A908N`
 - recovery: TWRP 사용 가능
-- latest verified build: `A90 Linux init 0.9.68 (v724)`
-- latest verified source: `stage3/linux_init/init_v724.c` + 모듈 `stage3/linux_init/a90_*.c/h` + 헬퍼 `stage3/linux_init/helpers/`
-- latest verified boot image: `stage3/boot_linux_v724.img`
-- latest verified boot image SHA256: `ae01fa106391756dae12fc9a6c9f57d4111b2180c82cdcfe3691ee31f7542adc`
-- 현재 진행 사이클: `V1253` (native Wi-Fi bring-up; 디바이스 재flash 없음 — `CLAUDE.md` 기준)
+- latest verified build: `A90 Linux init 0.9.244 (v725-fasttransport)`
+- latest verified source: `stage3/linux_init/init_v725_fasttransport.c` + 모듈 `stage3/linux_init/a90_*.c/h` + 헬퍼 `stage3/linux_init/helpers/`
+- latest verified boot image: `stage3/boot_linux_v725_fasttransport.img`
+- latest verified boot image SHA256: `b9afa0e3c1c677c55a764a0b8dbd7027089dd134318084332bfd52cdf008830f`
+- 현재 기준 사이클: `v725-fasttransport` transport baseline (native Wi-Fi bring-up은 이 이미지로 rollback/test)
 - previous verified boot image: `stage3/boot_linux_v261.img` (`A90 Linux init 0.9.60 (v261)`)
 - known-good fallback native init: `A90 Linux init v48`
 - known-good fallback boot image: `stage3/boot_linux_v48.img`

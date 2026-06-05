@@ -3,7 +3,7 @@
 
 Temporarily boots Android, waits for sys.boot_completed=1, reads RC files
 for mdm_helper, ks, per_mgr, per_proxy_helper, and lists all
-/vendor/etc/init/ files, then restores native v724 boot image.
+/vendor/etc/init/ files, then restores native v725-fasttransport boot image.
 
 No Wi-Fi enable/disable, scan/connect, credential/DHCP/routing changes.
 No eSoC/subsys open, GPIO write, or sysfs write.
@@ -48,8 +48,8 @@ from android_hwservice_settled_handoff_v425 import (
 
 
 DEFAULT_OUT_DIR = Path("tmp/wifi/v1046-android-vendor-init-rc-handoff")
-DEFAULT_NATIVE_IMAGE = Path("stage3/boot_linux_v724.img")
-DEFAULT_NATIVE_EXPECT_VERSION = "A90 Linux init 0.9.68 (v724)"
+DEFAULT_NATIVE_IMAGE = Path("stage3/boot_linux_v725_fasttransport.img")
+DEFAULT_NATIVE_EXPECT_VERSION = "A90 Linux init 0.9.244 (v725-fasttransport)"
 
 RC_TARGETS = [
     "pm_proxy_helper.rc",
@@ -284,7 +284,7 @@ def render_summary(manifest: dict[str, Any]) -> str:
         "",
         "- No Wi-Fi enable/scan/connect/link-up/credential/DHCP/routing changes.",
         "- No eSoC/subsys open, GPIO write, sysfs write, or module load.",
-        "- Live mode flashes Android boot, reads RC files read-only, then restores native v724.",
+        "- Live mode flashes Android boot, reads RC files read-only, then restores native v725-fasttransport.",
         "",
     ]
     return "\n".join(lines)

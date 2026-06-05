@@ -27,7 +27,7 @@ DEFAULT_PORT = 54321
 DEFAULT_TIMEOUT = 45.0
 DEFAULT_TOYBOX = "/cache/bin/toybox"
 DEFAULT_BUSYBOX = "/cache/bin/busybox"
-DEFAULT_EXPECT_VERSION = "A90 Linux init 0.9.68 (v724)"
+DEFAULT_EXPECT_VERSION = "A90 Linux init 0.9.244 (v725-fasttransport)"
 DEFAULT_HOLD_SEC = 8
 PROBE_PREFIX = "/tmp/a90-v729-"
 

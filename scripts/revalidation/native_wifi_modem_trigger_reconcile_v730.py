@@ -26,7 +26,7 @@ DEFAULT_OUT_DIR = Path("tmp/wifi/v730-modem-trigger-reconcile")
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 54321
 DEFAULT_TIMEOUT = 30.0
-DEFAULT_EXPECT_VERSION = "A90 Linux init 0.9.68 (v724)"
+DEFAULT_EXPECT_VERSION = "A90 Linux init 0.9.244 (v725-fasttransport)"
 
 DEFAULT_V729_MANIFEST = Path("tmp/wifi/v729-modem-only-hold/manifest.json")
 DEFAULT_V592_REPORT = Path("docs/reports/NATIVE_INIT_V592_SUBSYS_HOLD_OPEN_2026-05-22.md")

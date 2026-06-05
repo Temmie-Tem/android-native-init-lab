@@ -20,7 +20,7 @@ DEFAULT_OUT_DIR = Path("tmp/wifi/v802-provider-first-boot-wlan-observe-orchestra
 V802_SCRIPT = "scripts/revalidation/native_wifi_provider_first_boot_wlan_observe_v802.py"
 HELPER_SHA256 = "d44cbb538db11a280aa789ccafb008476ac541ec08bb96f549670ae28db7cec6"
 HELPER_MARKER = "a90_android_execns_probe v124"
-DEFAULT_EXPECT_VERSION = "A90 Linux init 0.9.68 (v724)"
+DEFAULT_EXPECT_VERSION = "A90 Linux init 0.9.244 (v725-fasttransport)"
 
 ALLOWED_LIVE_ACTIONS = (
     "V641 one-shot clean-DSP reboot",

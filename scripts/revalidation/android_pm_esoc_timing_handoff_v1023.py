@@ -45,8 +45,8 @@ from android_hwservice_settled_handoff_v425 import (
 
 
 DEFAULT_OUT_DIR = Path("tmp/wifi/v1023-android-pm-esoc-timing-handoff")
-DEFAULT_NATIVE_IMAGE = Path("stage3/boot_linux_v724.img")
-DEFAULT_NATIVE_EXPECT_VERSION = "A90 Linux init 0.9.68 (v724)"
+DEFAULT_NATIVE_IMAGE = Path("stage3/boot_linux_v725_fasttransport.img")
+DEFAULT_NATIVE_EXPECT_VERSION = "A90 Linux init 0.9.244 (v725-fasttransport)"
 DEFAULT_REMOTE_NATIVE_IMAGE = "/tmp/native_init_boot.img"
 DEFAULT_EARLY_SAMPLE_COUNT = 48
 DEFAULT_EARLY_SAMPLE_SLEEP = 0.25

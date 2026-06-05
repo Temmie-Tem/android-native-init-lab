@@ -17,10 +17,10 @@ Date: `2026-04-29`
 - known-good fallback source: `stage3/linux_init/init_v48.c`
 - known-good fallback boot image: `stage3/boot_linux_v48.img`
 - known-good fallback boot image SHA256: `1c87fa59712395027c5c2e489b15c4f6ddefabc3c50f78d3c235c4508a63e042`
-- latest verified build: `A90 Linux init 0.9.68 (v724)`
-- latest verified source: `stage3/linux_init/init_v724.c` + 모듈 `stage3/linux_init/a90_*.c/h` + 헬퍼 `stage3/linux_init/helpers/`
-- latest verified boot image: `stage3/boot_linux_v724.img`
-- latest verified boot image SHA256: `ae01fa106391756dae12fc9a6c9f57d4111b2180c82cdcfe3691ee31f7542adc`
+- latest verified build: `A90 Linux init 0.9.244 (v725-fasttransport)`
+- latest verified source: `stage3/linux_init/init_v725_fasttransport.c` + 모듈 `stage3/linux_init/a90_*.c/h` + 헬퍼 `stage3/linux_init/helpers/`
+- latest verified boot image: `stage3/boot_linux_v725_fasttransport.img`
+- latest verified boot image SHA256: `b9afa0e3c1c677c55a764a0b8dbd7027089dd134318084332bfd52cdf008830f`
 - previous verified boot image: `stage3/boot_linux_v261.img` (`A90 Linux init 0.9.60 (v261)`)
 - control channel: USB CDC ACM serial bridge
 - bridge endpoint: `127.0.0.1:54321`

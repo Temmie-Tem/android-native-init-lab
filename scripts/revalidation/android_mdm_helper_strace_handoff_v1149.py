@@ -3,7 +3,7 @@
 
 This runner temporarily boots Android, installs the V1147 Magisk module, reboots
 Android once so the wrapper can capture early mdm_helper execution, pulls
-`/data/local/tmp/a90-wifi/`, removes the module, and restores native v724. It
+`/data/local/tmp/a90-wifi/`, removes the module, and restores native v725-fasttransport. It
 does not enable Wi-Fi, scan/connect, use credentials, run DHCP/routes, external
 ping, retry native `/dev/subsys_esoc0`, or run native eSoC ioctls.
 """
@@ -51,8 +51,8 @@ from native_wifi_android_mdm_helper_strace_module_v1147 import MODULE_ID, TRACE_
 
 
 DEFAULT_OUT_DIR = Path("tmp/wifi/v1149-android-mdm-helper-strace-handoff")
-DEFAULT_NATIVE_IMAGE = Path("stage3/boot_linux_v724.img")
-DEFAULT_NATIVE_EXPECT_VERSION = "A90 Linux init 0.9.68 (v724)"
+DEFAULT_NATIVE_IMAGE = Path("stage3/boot_linux_v725_fasttransport.img")
+DEFAULT_NATIVE_EXPECT_VERSION = "A90 Linux init 0.9.244 (v725-fasttransport)"
 DEFAULT_REMOTE_NATIVE_IMAGE = "/tmp/native_init_boot.img"
 DEFAULT_MODULE_ROOT = Path("tmp/wifi/v1147-android-mdm-helper-strace-module/module")
 DEFAULT_REMOTE_MODULE_ZIP = "/data/local/tmp/a90_mdm_trace_v1149.zip"

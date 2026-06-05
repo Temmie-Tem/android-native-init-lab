@@ -44,8 +44,8 @@ from android_hwservice_settled_handoff_v425 import (
 
 
 DEFAULT_OUT_DIR = Path("tmp/wifi/v833-android-servnotif-positive-control-handoff")
-DEFAULT_NATIVE_IMAGE = Path("stage3/boot_linux_v724.img")
-DEFAULT_NATIVE_EXPECT_VERSION = "A90 Linux init 0.9.68 (v724)"
+DEFAULT_NATIVE_IMAGE = Path("stage3/boot_linux_v725_fasttransport.img")
+DEFAULT_NATIVE_EXPECT_VERSION = "A90 Linux init 0.9.244 (v725-fasttransport)"
 DEFAULT_LOCAL_HELPER = Path("tmp/wifi/v833-servnotif-helper-build/a90_servnotif_listener_probe")
 
 

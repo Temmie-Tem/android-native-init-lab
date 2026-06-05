@@ -21,7 +21,7 @@ REPORT_PATH = repo_path("docs/reports/NATIVE_INIT_V1933_NATIVE_KPROBE_FEAS_2026-
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 54321
 DEFAULT_TIMEOUT = 25.0
-EXPECTED_VERSION = "A90 Linux init 0.9.68 (v724)"
+EXPECTED_VERSION = "A90 Linux init 0.9.244 (v725-fasttransport)"
 BUSYBOX = "/mnt/sdext/a90/bin/busybox"
 
 CONFIG_PATTERN = (

@@ -32,7 +32,7 @@ DEFAULT_PORT = 54321
 DEFAULT_TIMEOUT = 45.0
 DEFAULT_TOYBOX = "/cache/bin/toybox"
 DEFAULT_HELPER = "/cache/bin/a90_android_execns_probe"
-DEFAULT_EXPECT_VERSION = "A90 Linux init 0.9.68 (v724)"
+DEFAULT_EXPECT_VERSION = "A90 Linux init 0.9.244 (v725-fasttransport)"
 DEFAULT_EXPECT_HELPER = "a90_android_execns_probe v121"
 PROBE_PREFIX = "/tmp/a90-v728-"
 

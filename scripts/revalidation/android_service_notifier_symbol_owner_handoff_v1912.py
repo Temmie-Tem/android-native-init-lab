@@ -4,7 +4,7 @@
 This runner reuses the proven V1521/V1753 rollbackable Android handoff pattern:
 flash Android, install a temporary Magisk post-fs-data module, collect read-only
 `/proc/kallsyms` and module ownership evidence for the service-notifier
-publication edge, remove the module, and restore native v724.
+publication edge, remove the module, and restore native v725-fasttransport.
 """
 
 from __future__ import annotations
@@ -27,8 +27,8 @@ import android_rc1_magisk_postfs_sampler_handoff_v1521 as v1521
 
 CYCLE = "V1912"
 DEFAULT_OUT_DIR = Path("tmp/wifi/v1912-android-service-notifier-symbol-owner-handoff")
-DEFAULT_NATIVE_IMAGE = Path("stage3/boot_linux_v724.img")
-DEFAULT_NATIVE_EXPECT_VERSION = "A90 Linux init 0.9.68 (v724)"
+DEFAULT_NATIVE_IMAGE = Path("stage3/boot_linux_v725_fasttransport.img")
+DEFAULT_NATIVE_EXPECT_VERSION = "A90 Linux init 0.9.244 (v725-fasttransport)"
 DEFAULT_REPORT_PATH = Path("docs/reports/NATIVE_INIT_V1912_ANDROID_SERVICE_NOTIFIER_SYMBOL_OWNER_HANDOFF_2026-06-03.md")
 LATEST_POINTER = Path("tmp/wifi/latest-v1912-android-service-notifier-symbol-owner-handoff.txt")
 

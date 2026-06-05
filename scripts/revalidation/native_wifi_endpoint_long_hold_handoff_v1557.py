@@ -85,7 +85,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--collect-timeout-sec", type=float, default=120.0)
     parser.add_argument("--bridge-verify-timeout-sec", type=float, default=240.0)
     parser.add_argument("--native-direct-rollback-fallback", action="store_true", default=True)
-    parser.add_argument("--native-direct-rollback-remote-image", default="/cache/boot_linux_v724.img")
+    parser.add_argument("--native-direct-rollback-remote-image", default="/cache/boot_linux_v725_fasttransport.img")
     parser.add_argument("--native-direct-rollback-boot-block", default="/dev/block/sda24")
     parser.add_argument("--native-direct-rollback-boot-major", type=int, default=259)
     parser.add_argument("--native-direct-rollback-boot-minor", type=int, default=8)

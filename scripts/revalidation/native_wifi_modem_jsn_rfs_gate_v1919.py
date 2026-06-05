@@ -26,7 +26,7 @@ from a90harness.evidence import EvidenceStore
 CYCLE = "V1919"
 DEFAULT_OUT_DIR = Path("tmp/wifi/v1919-modem-jsn-rfs-gate")
 DEFAULT_REPORT_PATH = Path("docs/reports/NATIVE_INIT_V1919_MODEM_JSN_RFS_GATE_2026-06-03.md")
-DEFAULT_EXPECT_VERSION = "A90 Linux init 0.9.68 (v724)"
+DEFAULT_EXPECT_VERSION = "A90 Linux init 0.9.244 (v725-fasttransport)"
 PROBE_PREFIX = "/tmp/a90-v1919-"
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 54321

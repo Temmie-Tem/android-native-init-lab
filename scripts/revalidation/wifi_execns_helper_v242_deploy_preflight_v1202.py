@@ -13,7 +13,7 @@ deploy.DEFAULT_LOCAL_HELPER = deploy.Path(
 deploy.DEFAULT_HELPER_SHA256 = (
     "affc335d580bbb016c651b19d44998ec755e9471fd2fff1ae7784c63861fe3fc"
 )
-deploy.DEFAULT_EXPECT_VERSION = "A90 Linux init 0.9.68 (v724)"
+deploy.DEFAULT_EXPECT_VERSION = "A90 Linux init 0.9.244 (v725-fasttransport)"
 deploy.DEFAULT_TRANSFER_METHOD = "auto"
 deploy.DEFAULT_SERIAL_CHUNK_SIZE = 1800
 deploy.HELPER_MARKER = "a90_android_execns_probe v242"

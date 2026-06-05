@@ -30,8 +30,8 @@ import android_wlan_pd_firmware_request_handoff_v1753 as v1753
 
 CYCLE = "V1909"
 DEFAULT_OUT_DIR = Path("tmp/wifi/v1909-android-servloc-domain-handoff")
-DEFAULT_NATIVE_IMAGE = Path("stage3/boot_linux_v724.img")
-DEFAULT_NATIVE_EXPECT_VERSION = "A90 Linux init 0.9.68 (v724)"
+DEFAULT_NATIVE_IMAGE = Path("stage3/boot_linux_v725_fasttransport.img")
+DEFAULT_NATIVE_EXPECT_VERSION = "A90 Linux init 0.9.244 (v725-fasttransport)"
 DEFAULT_REPORT_PATH = Path("docs/reports/NATIVE_INIT_V1909_ANDROID_SERVLOC_DOMAIN_HANDOFF_2026-06-03.md")
 LATEST_POINTER = Path("tmp/wifi/latest-v1909-android-servloc-domain-handoff.txt")
 MODULE_NAME = "a90_v1909_servloc_domain"

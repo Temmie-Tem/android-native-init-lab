@@ -294,6 +294,14 @@
 - Keep the baseline entry path as: flashed `stage3/boot_linux_v725_fasttransport.img`,
   `selftest fail=0`, `netservice start`, shared `a90_ncm_transport` readiness,
   and transport smoke with bounded retry.
+- Rollback/default audit: live Android handoff scripts, the shared
+  `native_wifi_test_boot_handoff_v1395.py` path, and current native
+  `DEFAULT_EXPECT_VERSION` assignments now default to
+  `A90 Linux init 0.9.244 (v725-fasttransport)`. Remaining v724 references are
+  historical evidence or explicit v724 artifact-build inputs.
+- Post-audit smoke:
+  `tmp/wifi/a90-ncm-transport-smoke-rollback-baseline-audit-20260606-073955/manifest.json`
+  passed 1MiB bidirectional NCM transfer with `download_attempts=1`.
 - Defer committing this as the long-term default only if a follow-up run shows
   repeated cold-boot transfer retries, NCM candidate misidentification, or
   NetworkManager repair failure. The current acceptance evidence is sufficient

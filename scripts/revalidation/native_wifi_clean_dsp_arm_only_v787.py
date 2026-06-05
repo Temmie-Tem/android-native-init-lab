@@ -32,7 +32,7 @@ LATEST_POINTER = Path("tmp/wifi/latest-v787-clean-dsp-arm-only.txt")
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 54321
 DEFAULT_TIMEOUT = 45.0
-DEFAULT_EXPECT_VERSION = "A90 Linux init 0.9.68 (v724)"
+DEFAULT_EXPECT_VERSION = "A90 Linux init 0.9.244 (v725-fasttransport)"
 DEFAULT_BUSYBOX = "/cache/bin/busybox"
 DEFAULT_V786_MANIFEST = Path("tmp/wifi/v786-clean-dsp-v724-gap/manifest.json")
 

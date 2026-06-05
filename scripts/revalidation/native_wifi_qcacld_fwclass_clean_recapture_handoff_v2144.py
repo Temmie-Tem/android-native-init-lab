@@ -35,9 +35,9 @@ TEST_IMAGE = (
     / "v2137-qcacld-fwclass-feeder-test-boot"
     / "boot_linux_v2137_qcacld_fwclass_feeder.img"
 )
-ROLLBACK_IMAGE = REPO_ROOT / "stage3" / "boot_linux_v724.img"
+ROLLBACK_IMAGE = REPO_ROOT / "stage3" / "boot_linux_v725_fasttransport.img"
 TEST_EXPECT_VERSION = "A90 Linux init 0.9.243 (v2137-qcacld-fwclass-feeder)"
-ROLLBACK_EXPECT_VERSION = "A90 Linux init 0.9.68 (v724)"
+ROLLBACK_EXPECT_VERSION = "A90 Linux init 0.9.244 (v725-fasttransport)"
 TEST_LOG_PATH = "/cache/native-init-wifi-test-boot-v2137.log"
 TEST_SUMMARY_PATH = "/cache/native-init-wifi-test-boot-v2137.summary"
 TEST_HELPER_RESULT_PATH = "/cache/native-init-wifi-test-boot-v2137-helper.result"
@@ -678,7 +678,7 @@ def render_report(manifest: dict[str, Any]) -> str:
         "",
         "- No Wi-Fi HAL, scan/connect, credentials, DHCP/routes, or external ping was used.",
         "- No `/dev/subsys_esoc0`, forced RC1/case, PMIC/GPIO/GDSC/regulator write, PCI rescan, bind/unbind, fake ONLINE, or eSoC notify/BOOT_DONE action was used.",
-        "- Mutation scope: `/cache` one-shot clean-DSP flag, V2137 rollbackable test boot, bounded firmware_class fallback sysfs writes from the V2137 contract, and rollback to `stage3/boot_linux_v724.img` with selftest verification.",
+        "- Mutation scope: `/cache` one-shot clean-DSP flag, V2137 rollbackable test boot, bounded firmware_class fallback sysfs writes from the V2137 contract, and rollback to `stage3/boot_linux_v725_fasttransport.img` with selftest verification.",
         "",
     ])
 

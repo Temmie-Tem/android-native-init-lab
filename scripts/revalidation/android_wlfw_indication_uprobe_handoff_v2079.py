@@ -29,8 +29,8 @@ import android_rc1_magisk_postfs_sampler_handoff_v1521 as v1521
 
 
 DEFAULT_OUT_DIR = Path("tmp/wifi/v2079-android-wlfw-indication-uprobe-handoff")
-DEFAULT_NATIVE_IMAGE = Path("stage3/boot_linux_v724.img")
-DEFAULT_NATIVE_EXPECT_VERSION = "A90 Linux init 0.9.68 (v724)"
+DEFAULT_NATIVE_IMAGE = Path("stage3/boot_linux_v725_fasttransport.img")
+DEFAULT_NATIVE_EXPECT_VERSION = "A90 Linux init 0.9.244 (v725-fasttransport)"
 DEFAULT_REPORT_PATH = Path(
     "docs/reports/NATIVE_INIT_V2079_ANDROID_WLFW_INDICATION_UPROBE_HANDOFF_2026-06-05.md"
 )

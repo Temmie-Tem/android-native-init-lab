@@ -12,7 +12,7 @@ from a90harness.evidence import EvidenceStore
 
 v700 = v712.v700
 
-v700.v673.DEFAULT_EXPECT_VERSION = "A90 Linux init 0.9.68 (v724)"
+v700.v673.DEFAULT_EXPECT_VERSION = "A90 Linux init 0.9.244 (v725-fasttransport)"
 v700.DEFAULT_OUT_DIR = v700.Path("tmp/wifi/v800-provider-first-icnss-edge-v124-orchestrated")
 v700.V700_SCRIPT = "scripts/revalidation/native_wifi_provider_first_icnss_edge_v800.py"
 v700.V700_APPROVAL = (

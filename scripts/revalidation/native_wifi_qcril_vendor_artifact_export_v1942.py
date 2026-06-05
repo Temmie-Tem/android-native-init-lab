@@ -24,7 +24,7 @@ from a90harness.evidence import EvidenceStore, ensure_private_dir, write_private
 
 
 CYCLE = "V1942"
-DEFAULT_EXPECT_VERSION = "A90 Linux init 0.9.68 (v724)"
+DEFAULT_EXPECT_VERSION = "A90 Linux init 0.9.244 (v725-fasttransport)"
 DEFAULT_OUT_DIR = repo_path("tmp/wifi/v1942-qcril-radio-vendor-artifact-export")
 REPORT_PATH = repo_path("docs/reports/NATIVE_INIT_V1942_QCRIL_RADIO_VENDOR_ARTIFACT_EXPORT_2026-06-04.md")
 PROBE_PREFIX = "/tmp/a90-v1942-"

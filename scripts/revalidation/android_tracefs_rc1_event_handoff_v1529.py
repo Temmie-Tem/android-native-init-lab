@@ -37,8 +37,8 @@ import android_rc1_magisk_postfs_sampler_handoff_v1521 as v1521
 
 
 DEFAULT_OUT_DIR = Path("tmp/wifi/v1529-android-tracefs-rc1-event-handoff")
-DEFAULT_NATIVE_IMAGE = Path("stage3/boot_linux_v724.img")
-DEFAULT_NATIVE_EXPECT_VERSION = "A90 Linux init 0.9.68 (v724)"
+DEFAULT_NATIVE_IMAGE = Path("stage3/boot_linux_v725_fasttransport.img")
+DEFAULT_NATIVE_EXPECT_VERSION = "A90 Linux init 0.9.244 (v725-fasttransport)"
 DEFAULT_REPORT_PATH = Path(
     "docs/reports/NATIVE_INIT_V1529_ANDROID_TRACEFS_RC1_EVENT_HANDOFF_2026-06-02.md"
 )

@@ -11,7 +11,7 @@ import wifi_execns_helper_v12_deploy_preflight as deploy
 deploy.DEFAULT_OUT_DIR = deploy.Path("tmp/wifi/v830-execns-helper-v127-deploy-preflight")
 deploy.DEFAULT_LOCAL_HELPER = deploy.Path("tmp/wifi/v830-execns-helper-v127-build/a90_android_execns_probe")
 deploy.DEFAULT_HELPER_SHA256 = "e2ba21fc7f00afc433fa23358d05780dcc0e5288bfc7db7d015e87c61d3e36d7"
-deploy.DEFAULT_EXPECT_VERSION = "A90 Linux init 0.9.68 (v724)"
+deploy.DEFAULT_EXPECT_VERSION = "A90 Linux init 0.9.244 (v725-fasttransport)"
 deploy.DEFAULT_TRANSFER_METHOD = "auto"
 deploy.DEFAULT_SERIAL_CHUNK_SIZE = 1850
 deploy.HELPER_MARKER = "a90_android_execns_probe v127"

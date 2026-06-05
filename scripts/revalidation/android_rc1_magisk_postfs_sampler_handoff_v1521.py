@@ -48,8 +48,8 @@ from android_hwservice_handoff_v424 import (
 
 
 DEFAULT_OUT_DIR = Path("tmp/wifi/v1521-android-rc1-magisk-postfs-handoff")
-DEFAULT_NATIVE_IMAGE = Path("stage3/boot_linux_v724.img")
-DEFAULT_NATIVE_EXPECT_VERSION = "A90 Linux init 0.9.68 (v724)"
+DEFAULT_NATIVE_IMAGE = Path("stage3/boot_linux_v725_fasttransport.img")
+DEFAULT_NATIVE_EXPECT_VERSION = "A90 Linux init 0.9.244 (v725-fasttransport)"
 DEFAULT_REPORT_PATH = Path("docs/reports/NATIVE_INIT_V1521_ANDROID_RC1_MAGISK_POSTFS_HANDOFF_2026-06-01.md")
 LATEST_POINTER = Path("tmp/wifi/latest-v1521-android-rc1-magisk-postfs-handoff.txt")
 MODULE_NAME = "a90_v1521_rc1_sampler"

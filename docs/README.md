@@ -8,7 +8,7 @@
 
 상단 `docs/`는 이제 다음 흐름에 필요한 문서를 유지합니다.
 
-1. native init 0.9.68 / v724 verified 기준 상태 고정 (연구 사이클 V1253)
+1. native init 0.9.244 / v725-fasttransport verified transport baseline 고정
 2. shell/HUD/log/menu 운영 안정화
 3. 필요한 하드웨어/커널 경로만 역추적
 4. BusyBox/network/SSH 같은 서버형 확장 가능성 검토
@@ -147,13 +147,13 @@
 - 빌드: `A908NKSU5EWA3`
 - kernel: Samsung stock Android kernel `Linux 4.14.190`
 - recovery: TWRP 사용 가능
-- latest verified build: `A90 Linux init 0.9.68 (v724)`
-- official version: `0.9.68`
-- build tag: `v724`
-- 현재 진행 사이클: `V1253` (native Wi-Fi bring-up; 디바이스 재flash 없음 — `CLAUDE.md` 기준)
+- latest verified build: `A90 Linux init 0.9.244 (v725-fasttransport)`
+- official version: `0.9.244`
+- build tag: `v725-fasttransport`
+- 현재 기준 사이클: `v725-fasttransport` transport baseline (native Wi-Fi bring-up rollback/test 기준)
 - creator: `made by temmie0214`
-- latest verified source: `stage3/linux_init/init_v724.c` + 모듈 `stage3/linux_init/a90_*.c/h` + 헬퍼 `stage3/linux_init/helpers/`
-- latest verified boot image: `stage3/boot_linux_v724.img`
+- latest verified source: `stage3/linux_init/init_v725_fasttransport.c` + 모듈 `stage3/linux_init/a90_*.c/h` + 헬퍼 `stage3/linux_init/helpers/`
+- latest verified boot image: `stage3/boot_linux_v725_fasttransport.img`
 - previous verified boot image: `stage3/boot_linux_v261.img` (`0.9.60 (v261)`)
 - known-good fallback: `stage3/boot_linux_v48.img`
 - control channel: USB CDC ACM serial bridge

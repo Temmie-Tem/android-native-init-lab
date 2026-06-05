@@ -31,7 +31,7 @@ DEFAULT_PORT = 54321
 DEFAULT_TIMEOUT = 60.0
 DEFAULT_BUSYBOX = "/cache/bin/busybox"
 DEFAULT_TOYBOX = "/cache/bin/toybox"
-DEFAULT_EXPECT_VERSION = "A90 Linux init 0.9.68 (v724)"
+DEFAULT_EXPECT_VERSION = "A90 Linux init 0.9.244 (v725-fasttransport)"
 EXPECTED_V846 = "v846-mdm3-esoc-char-open-contract-selected"
 NODE_PATH = "/dev/subsys_esoc0"
 

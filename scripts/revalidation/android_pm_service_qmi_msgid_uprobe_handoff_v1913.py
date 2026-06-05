@@ -21,8 +21,8 @@ import android_service_notifier_symbol_owner_handoff_v1912 as common
 
 CYCLE = "V1913"
 DEFAULT_OUT_DIR = Path("tmp/wifi/v1913-android-pm-service-qmi-msgid-uprobe-handoff")
-DEFAULT_NATIVE_IMAGE = Path("stage3/boot_linux_v724.img")
-DEFAULT_NATIVE_EXPECT_VERSION = "A90 Linux init 0.9.68 (v724)"
+DEFAULT_NATIVE_IMAGE = Path("stage3/boot_linux_v725_fasttransport.img")
+DEFAULT_NATIVE_EXPECT_VERSION = "A90 Linux init 0.9.244 (v725-fasttransport)"
 DEFAULT_REPORT_PATH = Path("docs/reports/NATIVE_INIT_V1913_ANDROID_PM_SERVICE_QMI_MSGID_UPROBE_HANDOFF_2026-06-03.md")
 LATEST_POINTER = Path("tmp/wifi/latest-v1913-android-pm-service-qmi-msgid-uprobe-handoff.txt")
 

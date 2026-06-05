@@ -19,7 +19,7 @@ import native_wifi_qcril_vendor_artifact_export_v1942 as base
 
 
 CYCLE = "V1945"
-DEFAULT_EXPECT_VERSION = "A90 Linux init 0.9.68 (v724)"
+DEFAULT_EXPECT_VERSION = "A90 Linux init 0.9.244 (v725-fasttransport)"
 DEFAULT_OUT_DIR = repo_path("tmp/wifi/v1945-ril-impl-export")
 REPORT_PATH = repo_path("docs/reports/NATIVE_INIT_V1945_RIL_IMPL_EXPORT_2026-06-04.md")
 PROBE_PREFIX = "/tmp/a90-v1945-"

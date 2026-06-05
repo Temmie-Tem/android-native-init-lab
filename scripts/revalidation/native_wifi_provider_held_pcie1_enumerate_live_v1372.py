@@ -27,7 +27,7 @@ DEBUGFS_ROOT = base.DEBUGFS_ROOT
 PCI_MSM_DEBUGFS = base.PCI_MSM_DEBUGFS
 SUBSYS_ESOC0 = "/dev/subsys_esoc0"
 BASE_PATH = "/tmp/a90-v1372-provider-pcie"
-DEFAULT_EXPECT_VERSION = "A90 Linux init 0.9.68 (v724)"
+DEFAULT_EXPECT_VERSION = "A90 Linux init 0.9.244 (v725-fasttransport)"
 
 
 def now_iso() -> str:

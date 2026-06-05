@@ -18,7 +18,7 @@ from a90harness.evidence import EvidenceStore
 DEFAULT_OUT_DIR = Path("tmp/wifi/v806-wlfw-service69-live-gate")
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 54321
-DEFAULT_EXPECT_VERSION = "A90 Linux init 0.9.68 (v724)"
+DEFAULT_EXPECT_VERSION = "A90 Linux init 0.9.244 (v725-fasttransport)"
 DEFAULT_V805_MANIFEST = Path("tmp/wifi/v805-icnss-fw-ready-wlfw-gate-classifier/manifest.json")
 V802_ORCHESTRATOR = "scripts/revalidation/native_wifi_provider_first_boot_wlan_observe_orchestrator_v802.py"
 A90CTL = "scripts/revalidation/a90ctl.py"

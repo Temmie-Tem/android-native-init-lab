@@ -46,8 +46,8 @@ from android_hwservice_settled_handoff_v425 import (
 
 
 DEFAULT_OUT_DIR = Path("tmp/wifi/v1347-android-earliest-response-handoff")
-DEFAULT_NATIVE_IMAGE = Path("stage3/boot_linux_v724.img")
-DEFAULT_NATIVE_EXPECT_VERSION = "A90 Linux init 0.9.68 (v724)"
+DEFAULT_NATIVE_IMAGE = Path("stage3/boot_linux_v725_fasttransport.img")
+DEFAULT_NATIVE_EXPECT_VERSION = "A90 Linux init 0.9.244 (v725-fasttransport)"
 
 
 def now_iso() -> str:

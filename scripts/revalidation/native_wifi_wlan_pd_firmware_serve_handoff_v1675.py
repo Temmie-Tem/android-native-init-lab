@@ -2,7 +2,7 @@
 """V1675 one-run WLAN-PD firmware-serve gate handoff.
 
 This flashes the V1674 read-only test boot, captures the single firmware-serve
-gate result, rolls back to v724, and stops on the gate label. It does not run
+gate result, rolls back to v725-fasttransport, and stops on the gate label. It does not run
 eSoC/RC1 triggers, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, or
 external ping.
 """
@@ -42,9 +42,9 @@ DEFAULT_TEST_IMAGE = (
     / "v1674-wlan-pd-firmware-serve-gate-test-boot"
     / "boot_linux_v1674_wlan_pd_firmware_serve_gate.img"
 )
-ROLLBACK_IMAGE = REPO_ROOT / "stage3" / "boot_linux_v724.img"
+ROLLBACK_IMAGE = REPO_ROOT / "stage3" / "boot_linux_v725_fasttransport.img"
 TEST_EXPECT_VERSION = "A90 Linux init 0.9.120 (v1674-wlan-pd-firmware-serve-gate)"
-ROLLBACK_EXPECT_VERSION = "A90 Linux init 0.9.68 (v724)"
+ROLLBACK_EXPECT_VERSION = "A90 Linux init 0.9.244 (v725-fasttransport)"
 TEST_LOG_PATH = "/cache/native-init-wifi-test-boot-v1674.log"
 TEST_SUMMARY_PATH = "/cache/native-init-wifi-test-boot-v1674.summary"
 TEST_HELPER_RESULT_PATH = "/cache/native-init-wifi-test-boot-v1674-helper.result"
@@ -130,7 +130,7 @@ def classify_gate(args: argparse.Namespace,
         return (
             f"{args.cycle.lower()}-rollback-failed",
             False,
-            "firmware-serve evidence may exist, but rollback to v724 did not verify",
+            "firmware-serve evidence may exist, but rollback to v725-fasttransport did not verify",
             details,
         )
     if not helper_contract_seen:
@@ -192,7 +192,7 @@ def render_report(result: dict[str, Any]) -> str:
         "",
         "- eSoC/subsys_esoc0, forced RC1, fake-ONLINE, PMIC/GPIO/GDSC writes, eSoC notify, and BOOT_DONE spoof were not used.",
         "- Wi-Fi HAL, scan/connect, credentials, DHCP/routes, and external ping were not used.",
-        "- Mutation scope was test boot flash followed by rollback to `stage3/boot_linux_v724.img`.",
+        "- Mutation scope was test boot flash followed by rollback to `stage3/boot_linux_v725_fasttransport.img`.",
         "",
         "## Next",
         "",
@@ -237,7 +237,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--collect-timeout-sec", type=float, default=150.0)
     parser.add_argument("--bridge-verify-timeout-sec", type=float, default=240.0)
     parser.add_argument("--native-direct-rollback-fallback", action="store_true")
-    parser.add_argument("--native-direct-rollback-remote-image", default="/cache/boot_linux_v724.img")
+    parser.add_argument("--native-direct-rollback-remote-image", default="/cache/boot_linux_v725_fasttransport.img")
     parser.add_argument("--native-direct-rollback-boot-block", default="/dev/block/sda24")
     parser.add_argument("--native-direct-rollback-boot-major", type=int, default=259)
     parser.add_argument("--native-direct-rollback-boot-minor", type=int, default=8)

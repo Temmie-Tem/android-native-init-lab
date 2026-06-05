@@ -36,8 +36,8 @@ import android_rc1_magisk_postfs_sampler_handoff_v1521 as v1521
 
 
 DEFAULT_OUT_DIR = Path("tmp/wifi/v1970-android-ril-qmi-producer-capture-handoff")
-DEFAULT_NATIVE_IMAGE = Path("stage3/boot_linux_v724.img")
-DEFAULT_NATIVE_EXPECT_VERSION = "A90 Linux init 0.9.68 (v724)"
+DEFAULT_NATIVE_IMAGE = Path("stage3/boot_linux_v725_fasttransport.img")
+DEFAULT_NATIVE_EXPECT_VERSION = "A90 Linux init 0.9.244 (v725-fasttransport)"
 DEFAULT_REPORT_PATH = Path(
     "docs/reports/NATIVE_INIT_V1970_ANDROID_RIL_QMI_PRODUCER_CAPTURE_HANDOFF_2026-06-04.md"
 )
@@ -787,7 +787,7 @@ def render_summary(manifest: dict[str, Any]) -> str:
             "",
             "## Safety",
             "",
-            "No Wi-Fi HAL start, scan/connect, credentials, DHCP/routes, external ping, `/dev/subsys_esoc0`, eSoC notify/BOOT_DONE, PCI rescan, platform bind/unbind, PMIC/GPIO/GDSC/regulator writes, fake ONLINE state, or sda29 remount-write is performed. The only partition writes are the declared Android boot handoff and rollback to `stage3/boot_linux_v724.img`.",
+            "No Wi-Fi HAL start, scan/connect, credentials, DHCP/routes, external ping, `/dev/subsys_esoc0`, eSoC notify/BOOT_DONE, PCI rescan, platform bind/unbind, PMIC/GPIO/GDSC/regulator writes, fake ONLINE state, or sda29 remount-write is performed. The only partition writes are the declared Android boot handoff and rollback to `stage3/boot_linux_v725_fasttransport.img`.",
             "",
             "## Next",
             "",

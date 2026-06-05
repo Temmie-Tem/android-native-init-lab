@@ -120,10 +120,10 @@
 ## 현재 폰 상태
 
 - patched AP (Magisk 30.7) + **TWRP recovery 사용 가능**
-- 현재 디바이스 빌드(flash): `stage3/boot_linux_v724.img` (`A90 Linux init 0.9.68 (v724)`)
-- 현재 소스 루트: `stage3/linux_init/init_v724.c` + 모듈 `stage3/linux_init/a90_*.c/h` + 헬퍼 `stage3/linux_init/helpers/`
-- 공식 숫자 버전: `0.9.68`
-- 박힌 빌드 태그: `v724`
+- 현재 디바이스 빌드(flash): `stage3/boot_linux_v725_fasttransport.img` (`A90 Linux init 0.9.244 (v725-fasttransport)`)
+- 현재 소스 루트: `stage3/linux_init/init_v725_fasttransport.c` + 모듈 `stage3/linux_init/a90_*.c/h` + 헬퍼 `stage3/linux_init/helpers/`
+- 공식 숫자 버전: `0.9.244`
+- 박힌 빌드 태그: `v725-fasttransport`
 - 현재 진행 사이클: `V1336 pre-CNSS provider order classifier PASS → V1337 Android-order pre-CNSS provider observe-only gate` (native Wi-Fi bring-up; 디바이스 재flash 없음 — `CLAUDE.md` 기준)
 - 직전 rollback: `stage3/boot_linux_v261.img` (0.9.60)
 - creator: `made by temmie0214`
@@ -134,7 +134,7 @@
 - 로그 상태: SD 정상 시 `/mnt/sdext/a90/logs/native-init.log`, fallback 시 `/cache/native-init.log`에 boot/command/result 기록
 - blocking 상태: `waitkey`, `readinput`, `watchhud`, `blindmenu` q/Ctrl-C 취소 확인
 - boot timeline: `timeline` 명령과 current native log replay 확인
-- boot selftest 상태: v724 boot selftest `pass=11 warn=1 fail=0`, `selftest verbose` 확인
+- boot selftest 상태: v725-fasttransport boot selftest `fail=0`, NCM transport baseline acceptance 확인
 - HUD 상태: `BOOT OK shell` summary 표시와 `statushud` draw 확인
 - run 상태: `/bin/a90sleep` helper로 `run` q 취소 확인
 - log 보존: native init → recovery → native init 왕복 후 v44/v45/v47 log append 확인
@@ -281,7 +281,7 @@
 
 ### 3-2. USB ACM serial console + 인터랙티브 셸 (v8~v116)
 
-**현재 버전**: `init_v724` (`stage3/boot_linux_v724.img`) / `0.9.68 (v724)`
+**현재 버전**: `init_v725_fasttransport` (`stage3/boot_linux_v725_fasttransport.img`) / `0.9.244 (v725-fasttransport)`
 
 ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v79까지 반복 안정화:
 
@@ -430,7 +430,7 @@ ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v79까지 반복 안
 
 ## 다음 후보 작업
 
-현재 활성 작업은 native Wi-Fi bring-up이다 (디바이스는 `0.9.68 (v724)` 고정,
+현재 활성 작업은 native Wi-Fi bring-up이다 (디바이스 rollback/test 기준은 `0.9.244 (v725-fasttransport)`,
 연구 사이클만 진행). 상세는 `CLAUDE.md`와
 `docs/plans/NATIVE_INIT_NEXT_WORK_2026-04-25.md`를 기준으로 한다.
 

@@ -1,6 +1,6 @@
 # Native Init Versioning
 
-Updated: `2026-05-31`
+Updated: `2026-06-06`
 
 두 개의 독립된 버전 축을 쓴다. 자세한 규칙은
 `docs/operations/VERSIONING_POLICY.md`를 따른다.
@@ -13,28 +13,27 @@ Updated: `2026-05-31`
 - 숫자 버전은 **boot image 정체성**이다. flash가 없으면 올리지 않는다.
 - `vNNN`은 **진행 추적용**이다. host-only 작업·리포트·실험 게이트마다 자유롭게 증가한다.
 - boot image를 빌드할 때, 그 시점의 **최신 `vNNN`을 이미지에 박아** 표기한다 →
-  `A90 Linux init 0.9.68 (v724)`. 이후 사이클이 올라가도 재flash 전까지 박힌 태그는 유지된다.
+  `A90 Linux init 0.9.244 (v725-fasttransport)`. 이후 사이클이 올라가도 재flash 전까지 박힌 태그는 유지된다.
 
 ## Current
 
-- 현재 디바이스 빌드(flash): `A90 Linux init 0.9.68 (v724)`
-- 공식 숫자 버전: `0.9.68`
-- 박힌 빌드 태그: `v724`
-- boot image: `stage3/boot_linux_v724.img`
+- 현재 디바이스 빌드(flash): `A90 Linux init 0.9.244 (v725-fasttransport)`
+- 공식 숫자 버전: `0.9.244`
+- 박힌 빌드 태그: `v725-fasttransport`
+- boot image: `stage3/boot_linux_v725_fasttransport.img`
 - known-good fallback: `stage3/boot_linux_v48.img`
 - 직전 rollback: `stage3/boot_linux_v261.img` (0.9.60)
-- 현재 진행 사이클: **V1253** (native Wi-Fi bring-up; PMIC power-surface write-gate)
-- 소스 루트: `stage3/linux_init/init_v724.c` + 모듈 `stage3/linux_init/a90_*.c/h`
+- 현재 기준 사이클: **v725-fasttransport** (transport/test baseline for native Wi-Fi bring-up)
+- 소스 루트: `stage3/linux_init/init_v725_fasttransport.c` + 모듈 `stage3/linux_init/a90_*.c/h`
 - creator: `made by temmie0214`
 
-`v724`(0.9.68) 이후 V725–V1253 사이클은 모두 host-only 연구이며 디바이스를 재flash하지
-않았다. 그래서 디바이스 표기는 여전히 `0.9.68 (v724)`이고 연구 사이클만 V1253까지 진행됐다.
+`v725-fasttransport`(0.9.244)는 v724 동작 경로 위에 transport baseline을 얹은 현재 rollback/test 기준이다. 이전 V725–V2167 사이클의 많은 분석은 host-only 또는 rollbackable test-boot였으며, 현재 디바이스 표기는 `0.9.244 (v725-fasttransport)`이다.
 
 ## Version Format
 
 ```text
-A90 Linux init 0.9.68 (v724)
-                ^^^^^^  ^^^^
+A90 Linux init 0.9.244 (v725-fasttransport)
+                ^^^^^^^  ^^^^^^^^^^^^^^^^^^
                 숫자    박힌 사이클 태그(빌드 시점 최신)
 ```
 
@@ -55,7 +54,8 @@ A90 Linux init 0.9.68 (v724)
 
 | 숫자 | 박힌 태그 | date | 요약 |
 |---|---|---|---|
-| `0.9.68` | `v724` | 2026-05-24 | qrtr-ns boot hook; service-locator ~4.4s (현재 디바이스 빌드) |
+| `0.9.244` | `v725-fasttransport` | 2026-06-06 | v724 Wi-Fi path plus NCM fasttransport baseline (현재 디바이스 빌드) |
+| `0.9.68` | `v724` | 2026-05-24 | qrtr-ns boot hook; service-locator ~4.4s (previous rollback baseline) |
 | `0.9.67` | `v641` | 2026-05-23 | firmware-backed boot-window proof |
 | `0.9.66` | `v631` | 2026-05-23 | per-node SSCTL boot proof |
 | `0.9.65` | `v630` | 2026-05-23 | sibling SSCTL boot proof |
@@ -68,7 +68,7 @@ A90 Linux init 0.9.68 (v724)
 
 ## Local Artifact Retention
 
-- 보존: 현재 `v724`, 직전 rollback `v261`, known-good fallback `v48`
+- 보존: 현재 `v725-fasttransport`, previous baseline `v724`, 직전 rollback `v261`, known-good fallback `v48`
 - 정리 대상: 그 외 ignored `stage3/boot_linux_v*.img`, `stage3/ramdisk_v*`, compiled `stage3/linux_init/init_v*`
 - 정리 도구: `python3 scripts/revalidation/cleanup_stage3_artifacts.py --execute`
 - 리포트의 artifact hash와 tracked source는 유지되므로 오래된 local binary는 필요 시 재생성한다.

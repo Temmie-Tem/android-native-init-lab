@@ -33,7 +33,7 @@ DEFAULT_REPORT_PATH = (
     / "NATIVE_INIT_V1688_WLAN_PD_CNSS_OUTPUT_VISIBILITY_HANDOFF_2026-06-02.md"
 )
 TEST_EXPECT_VERSION = "A90 Linux init 0.9.123 (v1687-wlan-pd-cnss-output-visibility)"
-ROLLBACK_EXPECT_VERSION = "A90 Linux init 0.9.68 (v724)"
+ROLLBACK_EXPECT_VERSION = "A90 Linux init 0.9.244 (v725-fasttransport)"
 TEST_LOG_PATH = "/cache/native-init-wifi-test-boot-v1687.log"
 TEST_SUMMARY_PATH = "/cache/native-init-wifi-test-boot-v1687.summary"
 TEST_HELPER_RESULT_PATH = "/cache/native-init-wifi-test-boot-v1687-helper.result"
@@ -270,7 +270,7 @@ def classify_gate(args: argparse.Namespace,
     if not version_ok:
         return f"{args.cycle.lower()}-test-boot-version-missing", False, "expected V1687 test boot version was not collected", details
     if not rollback_ok:
-        return f"{args.cycle.lower()}-rollback-failed", False, "rollback to v724 did not verify", details
+        return f"{args.cycle.lower()}-rollback-failed", False, "rollback to v725-fasttransport did not verify", details
     if not helper_contract_seen:
         return f"{args.cycle.lower()}-cnss-output-contract-missing", False, "helper result did not include cnss output visibility contract", details
     if not label_ok:
@@ -320,7 +320,7 @@ def render_report(result: dict[str, Any]) -> str:
         "",
         "- `/dev/subsys_esoc0`, forced RC1, fake-ONLINE, PMIC/GPIO/GDSC writes, eSoC notify, BOOT_DONE spoof, PCI rescan, and platform bind/unbind were not used.",
         "- service-manager, PM trio, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, and external ping were not used.",
-        "- Mutation scope was private property runtime staging on `/mnt/sdext`, test boot flash, and rollback to `stage3/boot_linux_v724.img`.",
+        "- Mutation scope was private property runtime staging on `/mnt/sdext`, test boot flash, and rollback to `stage3/boot_linux_v725_fasttransport.img`.",
         "",
         "## Next",
         "",
@@ -367,7 +367,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--collect-timeout-sec", type=float, default=150.0)
     parser.add_argument("--bridge-verify-timeout-sec", type=float, default=240.0)
     parser.add_argument("--native-direct-rollback-fallback", action="store_true", default=True)
-    parser.add_argument("--native-direct-rollback-remote-image", default="/cache/boot_linux_v724.img")
+    parser.add_argument("--native-direct-rollback-remote-image", default="/cache/boot_linux_v725_fasttransport.img")
     parser.add_argument("--native-direct-rollback-boot-block", default="/dev/block/sda24")
     parser.add_argument("--native-direct-rollback-boot-major", type=int, default=259)
     parser.add_argument("--native-direct-rollback-boot-minor", type=int, default=8)

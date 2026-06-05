@@ -2,7 +2,7 @@
 """V1395 bounded live handoff for the V1393 Wi-Fi test boot artifact.
 
 This runner flashes the V1393 test boot image, collects below-connect boot
-evidence, and rolls back to the known v724 native boot image. It does not run
+evidence, and rolls back to the v725-fasttransport native boot image. It does not run
 Wi-Fi scan/connect, use credentials, run DHCP/routes, or external ping.
 """
 
@@ -25,9 +25,9 @@ DEFAULT_OUT_DIR = REPO_ROOT / "tmp" / "wifi" / "v1395-wifi-test-boot-handoff"
 DEFAULT_REPORT_PATH = REPO_ROOT / "docs" / "reports" / "NATIVE_INIT_V1395_WIFI_TEST_BOOT_HANDOFF_2026-06-01.md"
 DEFAULT_V1394_MANIFEST = REPO_ROOT / "tmp" / "wifi" / "v1394-wifi-test-boot-artifact-sanity" / "manifest.json"
 DEFAULT_TEST_IMAGE = REPO_ROOT / "tmp" / "wifi" / "v1393-wifi-test-boot" / "boot_linux_v1393_wifi_test.img"
-DEFAULT_ROLLBACK_IMAGE = REPO_ROOT / "stage3" / "boot_linux_v724.img"
+DEFAULT_ROLLBACK_IMAGE = REPO_ROOT / "stage3" / "boot_linux_v725_fasttransport.img"
 TEST_EXPECT_VERSION = "A90 Linux init 0.9.69 (v1393-wifitest)"
-ROLLBACK_EXPECT_VERSION = "A90 Linux init 0.9.68 (v724)"
+ROLLBACK_EXPECT_VERSION = "A90 Linux init 0.9.244 (v725-fasttransport)"
 DEFAULT_TEST_LOG_PATH = "/cache/native-init-wifi-test-boot-v1393.log"
 DEFAULT_TEST_SUMMARY_PATH = "/cache/native-init-wifi-test-boot-v1393.summary"
 DEFAULT_TEST_HELPER_RESULT_PATH = ""
@@ -784,7 +784,7 @@ def render_report(result: dict[str, Any]) -> str:
         lines.extend([
             "Device mutation included flashing the test boot image, any bounded",
             "in-boot actions declared by that test image's artifact contract, and",
-            "rolling back to `stage3/boot_linux_v724.img`. If enabled, native direct",
+            "rolling back to `stage3/boot_linux_v725_fasttransport.img`. If enabled, native direct",
             "rollback may restore the boot partition from a pre-staged `/cache`",
             "rollback image when recovery ADB is unavailable.",
         ])
@@ -825,7 +825,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--collect-timeout-sec", type=float, default=120.0)
     parser.add_argument("--bridge-verify-timeout-sec", type=float, default=240.0)
     parser.add_argument("--native-direct-rollback-fallback", action="store_true")
-    parser.add_argument("--native-direct-rollback-remote-image", default="/cache/boot_linux_v724.img")
+    parser.add_argument("--native-direct-rollback-remote-image", default="/cache/boot_linux_v725_fasttransport.img")
     parser.add_argument("--native-direct-rollback-boot-block", default="/dev/block/sda24")
     parser.add_argument("--native-direct-rollback-boot-major", type=int, default=259)
     parser.add_argument("--native-direct-rollback-boot-minor", type=int, default=8)

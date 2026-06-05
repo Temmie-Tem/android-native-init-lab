@@ -19,7 +19,7 @@ v700 = v712.v700
 
 base.__doc__ = __doc__
 base.DEFAULT_OUT_DIR = base.Path("tmp/wifi/v800-provider-first-icnss-edge-v124")
-base.DEFAULT_EXPECT_VERSION = "A90 Linux init 0.9.68 (v724)"
+base.DEFAULT_EXPECT_VERSION = "A90 Linux init 0.9.244 (v725-fasttransport)"
 base.DEFAULT_HELPER_SHA256 = "d44cbb538db11a280aa789ccafb008476ac541ec08bb96f549670ae28db7cec6"
 base.DEFAULT_HELPER_MARKER = "a90_android_execns_probe v124"
 base.DEFAULT_V490_MANIFEST = base.Path("tmp/wifi/v800-v490-current-run/manifest.json")

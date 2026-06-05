@@ -33,7 +33,7 @@ REAL_APEX_LIBRARIES = "/cache/bin/a90_real_apex.libraries.config.txt"
 PROPERTY_ROOT = "/mnt/sdext/a90/private-property-v317/dev/__properties__"
 
 v752.DEFAULT_OUT_DIR = V802_OUT_DIR
-v752.DEFAULT_EXPECT_VERSION = "A90 Linux init 0.9.68 (v724)"
+v752.DEFAULT_EXPECT_VERSION = "A90 Linux init 0.9.244 (v725-fasttransport)"
 v752.DEFAULT_HELPER_SHA256 = "d44cbb538db11a280aa789ccafb008476ac541ec08bb96f549670ae28db7cec6"
 v752.DEFAULT_HELPER_MARKER = "a90_android_execns_probe v124"
 v752.MODE = V802_MODE

@@ -29,7 +29,7 @@ DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 54321
 DEFAULT_TIMEOUT = 60.0
 DEFAULT_BUSYBOX = "/cache/bin/busybox"
-DEFAULT_EXPECT_VERSION = "A90 Linux init 0.9.68 (v724)"
+DEFAULT_EXPECT_VERSION = "A90 Linux init 0.9.244 (v725-fasttransport)"
 EXPECTED_V1239 = "v1239-gap-is-after-pm-service-esoc0-before-gpio142-pcie-wlfw"
 FORBIDDEN_OUTPUT_ENV_KEYS = ("A90_WIFI_SSID", "A90_WIFI_PSK")
 

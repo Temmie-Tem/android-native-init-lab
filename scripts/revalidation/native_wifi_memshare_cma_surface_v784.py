@@ -28,7 +28,7 @@ DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 54321
 DEFAULT_TIMEOUT = 45.0
 DEFAULT_BUSYBOX = "/cache/bin/busybox"
-DEFAULT_EXPECT_VERSION = "A90 Linux init 0.9.68 (v724)"
+DEFAULT_EXPECT_VERSION = "A90 Linux init 0.9.244 (v725-fasttransport)"
 DEFAULT_V782_DMESG = Path("tmp/wifi/v782-bpf-counter-boot-wlan/native/dmesg-delta.txt")
 DEFAULT_V783_MANIFEST = Path("tmp/wifi/v783-android-native-pil-gap/manifest.json")
 
