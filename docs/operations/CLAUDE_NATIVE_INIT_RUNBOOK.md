@@ -15,7 +15,7 @@ Date: `2026-04-29`
 - latest verified build: `A90 Linux init 0.9.246 (v726-wifi-lifecycle)`
 - latest verified source: `stage3/linux_init/init_v724.c` + 모듈 `stage3/linux_init/v724/90_main.inc.c` + 헬퍼 `stage3/linux_init/helpers/` + 빌더 `scripts/revalidation/build_native_init_boot_v726_wifi_lifecycle.py`
 - latest verified boot image: `stage3/boot_linux_v726_wifi_lifecycle.img`
-- latest verified boot image SHA256: `2a8d3f946068d81b17882153058db06a6d795592a08ec2bd9057f0e6df2b501a`
+- latest verified boot image SHA256: `99e443f0418d0d72f83fedfd607c5dad673177d43923aa7caf812d55e484cc53`
 - 현재 기준 사이클: `v726-wifi-lifecycle` Wi-Fi lifecycle baseline (native Wi-Fi bring-up은 이 이미지로 rollback/test)
 - previous verified boot image: `stage3/boot_linux_v725_fasttransport.img` (`A90 Linux init 0.9.244 (v725-fasttransport)`)
 - older verified boot image: `stage3/boot_linux_v261.img` (`A90 Linux init 0.9.60 (v261)`)

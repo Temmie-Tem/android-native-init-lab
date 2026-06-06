@@ -7,7 +7,7 @@
 - Decision: `v726-wifi-lifecycle-baseline-promoted`
 - Result: PASS
 - Boot image: `stage3/boot_linux_v726_wifi_lifecycle.img`
-- Boot SHA256: `2a8d3f946068d81b17882153058db06a6d795592a08ec2bd9057f0e6df2b501a`
+- Boot SHA256: `99e443f0418d0d72f83fedfd607c5dad673177d43923aa7caf812d55e484cc53`
 - Init: `A90 Linux init 0.9.246 (v726-wifi-lifecycle)`
 
 ## Validation
@@ -17,6 +17,7 @@
 - Final SHA smoke evidence: `docs/reports/NATIVE_INIT_V2167_CONNECT_DHCP_GOOGLE_PING_HANDOFF_V726_FINAL_SHA_SMOKE_2026-06-05.md`
 - Current boot was flashed to V726 and verified by `status` + `selftest fail=0`.
 - Persistent boot summary now reports `wlan0_present=1`, `baseline_ready=1`, `helper_timeout_benign=1`, and `supervisor_result=wlan0-ready`.
+- HUD now shows Wi-Fi state (`WIFI WAIT`/`IFACE`/`READY`/`UP`) above the existing SD/storage line and consumes `/cache/native-init-wifi-runtime.summary` for runtime MAC/IP/RX/TX details.
 
 ## Final SHA Smoke
 

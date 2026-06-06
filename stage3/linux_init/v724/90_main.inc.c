@@ -1,5 +1,9 @@
 /* Included by stage3/linux_init/init_v724.c. Do not compile standalone. */
 
+#include <net/if.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
+
 static void storage_boot_set_line(void *ctx, int line, const char *text) {
     (void)ctx;
     boot_splash_set_line((size_t)line, "%s", text);
@@ -68,6 +72,18 @@ static int v641_prepare_firmware_mounts(void);
 #endif
 #ifndef A90_WIFI_TEST_BOOT_SUMMARY
 #define A90_WIFI_TEST_BOOT_SUMMARY "/cache/native-init-wifi-test-boot-v1393.summary"
+#endif
+#ifndef A90_WIFI_RUNTIME_SUMMARY
+#define A90_WIFI_RUNTIME_SUMMARY "/cache/native-init-wifi-runtime.summary"
+#endif
+#ifndef A90_WIFI_RUNTIME_SUMMARY_TMP
+#define A90_WIFI_RUNTIME_SUMMARY_TMP "/cache/native-init-wifi-runtime.summary.tmp"
+#endif
+#ifndef A90_WIFI_RUNTIME_PID
+#define A90_WIFI_RUNTIME_PID "/cache/native-init-wifi-runtime.pid"
+#endif
+#ifndef A90_WIFI_RUNTIME_OPTIONAL_INPUT
+#define A90_WIFI_RUNTIME_OPTIONAL_INPUT "/cache/native-init-wifi-runtime-input.summary"
 #endif
 #ifndef A90_WIFI_TEST_BOOT_HELPER_RESULT
 #define A90_WIFI_TEST_BOOT_HELPER_RESULT "/cache/native-init-wifi-test-boot-v1393-helper.result"
@@ -4607,6 +4623,239 @@ static void v1393_write_wifi_test_supervised_summary(pid_t helper_pid,
     }
 }
 
+static int v726_read_u64_file(const char *path, unsigned long long *out) {
+    char value[64];
+    char *end = NULL;
+    unsigned long long parsed;
+
+    if (out == NULL) {
+        return -EINVAL;
+    }
+    if (read_trimmed_text_file(path, value, sizeof(value)) < 0) {
+        return -(errno != 0 ? errno : EIO);
+    }
+    errno = 0;
+    parsed = strtoull(value, &end, 10);
+    if (errno != 0 || end == value) {
+        return -EINVAL;
+    }
+    *out = parsed;
+    return 0;
+}
+
+static void v726_read_wifi_runtime_key(const char *key, char *out, size_t out_size) {
+    FILE *fp;
+    char line[192];
+    size_t key_len;
+
+    if (out_size == 0) {
+        return;
+    }
+    out[0] = '\0';
+    fp = fopen(A90_WIFI_RUNTIME_OPTIONAL_INPUT, "r");
+    if (fp == NULL) {
+        return;
+    }
+    key_len = strlen(key);
+    while (fgets(line, sizeof(line), fp) != NULL) {
+        size_t len;
+
+        if (strncmp(line, key, key_len) != 0) {
+            continue;
+        }
+        len = strlen(line);
+        while (len > key_len && (line[len - 1] == '\n' || line[len - 1] == '\r')) {
+            line[--len] = '\0';
+        }
+        snprintf(out, out_size, "%s", line + key_len);
+        flatten_inline_text(out);
+        fclose(fp);
+        return;
+    }
+    fclose(fp);
+}
+
+static int v726_get_wlan0_ipv4_label(char *out, size_t out_size) {
+    int fd;
+    struct ifreq ifr;
+    struct sockaddr_in *addr;
+    const unsigned char *octets;
+
+    if (out_size == 0) {
+        return -EINVAL;
+    }
+    out[0] = '\0';
+    fd = socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC, 0);
+    if (fd < 0) {
+        return -(errno != 0 ? errno : EIO);
+    }
+    memset(&ifr, 0, sizeof(ifr));
+    snprintf(ifr.ifr_name, sizeof(ifr.ifr_name), "wlan0");
+    if (ioctl(fd, SIOCGIFADDR, &ifr) < 0) {
+        int saved_errno = errno != 0 ? errno : EIO;
+
+        close(fd);
+        return -saved_errno;
+    }
+    close(fd);
+    addr = (struct sockaddr_in *)&ifr.ifr_addr;
+    octets = (const unsigned char *)&addr->sin_addr.s_addr;
+    snprintf(out,
+             out_size,
+             "%u.%u.%u.x",
+             (unsigned int)octets[0],
+             (unsigned int)octets[1],
+             (unsigned int)octets[2]);
+    return 0;
+}
+
+static void v726_write_wifi_runtime_summary_once(unsigned long long *last_rx_bytes,
+                                                 unsigned long long *last_tx_bytes,
+                                                 long *last_sample_ms) {
+    struct stat st;
+    char operstate[32] = "missing";
+    char carrier[16] = "missing";
+    char mac[32] = "missing";
+    char mac_tail[32] = "missing";
+    char ip4_label[32] = "";
+    char ssid_label[64] = "";
+    char rssi_dbm[24] = "";
+    char linkspeed_mbps[24] = "";
+    unsigned long long rx_bytes = 0;
+    unsigned long long tx_bytes = 0;
+    unsigned long long rx_mbps_x10 = 0;
+    unsigned long long tx_mbps_x10 = 0;
+    long now_ms = monotonic_millis();
+    long elapsed_ms = 0;
+    int wlan0_present;
+    int fd;
+
+    wlan0_present = (lstat("/sys/class/net/wlan0", &st) == 0) ? 1 : 0;
+    if (wlan0_present != 0) {
+        if (read_trimmed_text_file("/sys/class/net/wlan0/operstate",
+                                   operstate,
+                                   sizeof(operstate)) < 0) {
+            snprintf(operstate, sizeof(operstate), "unknown");
+        }
+        if (read_trimmed_text_file("/sys/class/net/wlan0/carrier",
+                                   carrier,
+                                   sizeof(carrier)) < 0) {
+            snprintf(carrier, sizeof(carrier), "0");
+        }
+        if (read_trimmed_text_file("/sys/class/net/wlan0/address",
+                                   mac,
+                                   sizeof(mac)) < 0) {
+            snprintf(mac, sizeof(mac), "unknown");
+        }
+        if (strlen(mac) >= 5) {
+            snprintf(mac_tail, sizeof(mac_tail), "xx:%s", mac + strlen(mac) - 5);
+        } else {
+            snprintf(mac_tail, sizeof(mac_tail), "%s", mac);
+        }
+        (void)v726_read_u64_file("/sys/class/net/wlan0/statistics/rx_bytes", &rx_bytes);
+        (void)v726_read_u64_file("/sys/class/net/wlan0/statistics/tx_bytes", &tx_bytes);
+        (void)v726_get_wlan0_ipv4_label(ip4_label, sizeof(ip4_label));
+    }
+
+    v726_read_wifi_runtime_key("ssid_label=", ssid_label, sizeof(ssid_label));
+    v726_read_wifi_runtime_key("rssi_dbm=", rssi_dbm, sizeof(rssi_dbm));
+    v726_read_wifi_runtime_key("linkspeed_mbps=", linkspeed_mbps, sizeof(linkspeed_mbps));
+
+    if (last_sample_ms != NULL && *last_sample_ms > 0 && now_ms > *last_sample_ms) {
+        elapsed_ms = now_ms - *last_sample_ms;
+    }
+    if (elapsed_ms > 0 && last_rx_bytes != NULL && last_tx_bytes != NULL) {
+        if (rx_bytes >= *last_rx_bytes) {
+            rx_mbps_x10 = ((rx_bytes - *last_rx_bytes) * 80ULL) / ((unsigned long long)elapsed_ms * 1000ULL);
+        }
+        if (tx_bytes >= *last_tx_bytes) {
+            tx_mbps_x10 = ((tx_bytes - *last_tx_bytes) * 80ULL) / ((unsigned long long)elapsed_ms * 1000ULL);
+        }
+    }
+    if (last_rx_bytes != NULL) {
+        *last_rx_bytes = rx_bytes;
+    }
+    if (last_tx_bytes != NULL) {
+        *last_tx_bytes = tx_bytes;
+    }
+    if (last_sample_ms != NULL) {
+        *last_sample_ms = now_ms;
+    }
+
+    fd = open(A90_WIFI_RUNTIME_SUMMARY_TMP,
+              O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC | O_NOFOLLOW,
+              0600);
+    if (fd < 0) {
+        return;
+    }
+    dprintf(fd, "runtime_version=1\n");
+    dprintf(fd, "sample_ms=%ld\n", now_ms);
+    dprintf(fd, "wlan0_present=%d\n", wlan0_present);
+    dprintf(fd, "operstate=%s\n", operstate);
+    dprintf(fd, "carrier=%s\n", carrier);
+    dprintf(fd, "mac_label=%s\n", mac_tail);
+    dprintf(fd, "ip4_label=%s\n", ip4_label[0] != '\0' ? ip4_label : "none");
+    dprintf(fd, "ip4_masked=1\n");
+    dprintf(fd, "ssid_label=%s\n", ssid_label);
+    dprintf(fd, "rssi_dbm=%s\n", rssi_dbm);
+    dprintf(fd, "linkspeed_mbps=%s\n", linkspeed_mbps);
+    dprintf(fd, "rx_bytes=%llu\n", rx_bytes);
+    dprintf(fd, "tx_bytes=%llu\n", tx_bytes);
+    dprintf(fd, "rx_mb=%llu\n", rx_bytes / 1048576ULL);
+    dprintf(fd, "tx_mb=%llu\n", tx_bytes / 1048576ULL);
+    dprintf(fd, "rx_mbps=%llu.%llu\n", rx_mbps_x10 / 10ULL, rx_mbps_x10 % 10ULL);
+    dprintf(fd, "tx_mbps=%llu.%llu\n", tx_mbps_x10 / 10ULL, tx_mbps_x10 % 10ULL);
+    close(fd);
+    (void)rename(A90_WIFI_RUNTIME_SUMMARY_TMP, A90_WIFI_RUNTIME_SUMMARY);
+}
+
+static void v726_wifi_runtime_summary_child(void) {
+    unsigned long long last_rx_bytes = 0;
+    unsigned long long last_tx_bytes = 0;
+    long last_sample_ms = 0;
+    int i;
+
+    signal(SIGHUP, SIG_IGN);
+    signal(SIGPIPE, SIG_IGN);
+    setsid();
+    for (i = 0; i < 43200; ++i) {
+        v726_write_wifi_runtime_summary_once(&last_rx_bytes, &last_tx_bytes, &last_sample_ms);
+        sleep(2);
+    }
+    _exit(0);
+}
+
+static int v726_start_wifi_runtime_summary_once(void) {
+    static int started;
+    pid_t pid;
+    char pid_text[32];
+
+    if (started != 0) {
+        return 0;
+    }
+    started = 1;
+    pid = fork();
+    if (pid < 0) {
+        int saved_errno = errno != 0 ? errno : EIO;
+
+        a90_logf("wifi-v726", "runtime summary spawn failed errno=%d error=%s",
+                 saved_errno,
+                 strerror(saved_errno));
+        klogf("<6>A90v726: wifi runtime summary spawn failed errno=%d\n", saved_errno);
+        return -saved_errno;
+    }
+    if (pid == 0) {
+        v726_wifi_runtime_summary_child();
+    }
+    snprintf(pid_text, sizeof(pid_text), "%ld\n", (long)pid);
+    (void)v724_write_private_file(A90_WIFI_RUNTIME_PID, pid_text);
+    a90_logf("wifi-v726", "runtime summary spawned pid=%ld path=%s",
+             (long)pid,
+             A90_WIFI_RUNTIME_SUMMARY);
+    klogf("<6>A90v726: wifi runtime summary spawned pid=%ld\n", (long)pid);
+    return 0;
+}
+
 #if !A90_WIFI_TEST_BOOT_SUPERVISE_HELPER
 static int v1393_spawn_wifi_test_summary_watcher(pid_t helper_pid, long spawn_ms, pid_t *watcher_out) {
     pid_t pid;
@@ -6036,6 +6285,7 @@ int main(void) {
 
 #ifdef A90_WIFI_TEST_BOOT
     v1393_run_wifi_test_boot_once();
+    (void)v726_start_wifi_runtime_summary_once();
     boot_auto_frame();
 #endif
 

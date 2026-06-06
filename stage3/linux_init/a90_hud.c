@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "a90_config.h"
@@ -21,6 +22,210 @@
 #ifndef O_NOFOLLOW
 #define O_NOFOLLOW 0
 #endif
+
+static bool hud_read_key_value_file(const char *path,
+                                    const char *key,
+                                    char *out,
+                                    size_t out_size) {
+    FILE *fp;
+    char line[192];
+    size_t key_len;
+
+    if (out_size == 0) {
+        return false;
+    }
+    out[0] = '\0';
+    fp = fopen(path, "r");
+    if (fp == NULL) {
+        return false;
+    }
+    key_len = strlen(key);
+    while (fgets(line, sizeof(line), fp) != NULL) {
+        size_t len;
+
+        if (strncmp(line, key, key_len) != 0) {
+            continue;
+        }
+        len = strlen(line);
+        while (len > key_len && (line[len - 1] == '\n' || line[len - 1] == '\r')) {
+            line[--len] = '\0';
+        }
+        snprintf(out, out_size, "%s", line + key_len);
+        fclose(fp);
+        return true;
+    }
+    fclose(fp);
+    return false;
+}
+
+static void hud_append_wifi_token(char *out, size_t out_size, const char *fmt, ...) {
+    va_list ap;
+    size_t len;
+
+    if (out_size == 0) {
+        return;
+    }
+    len = strlen(out);
+    if (len >= out_size - 1) {
+        return;
+    }
+    va_start(ap, fmt);
+    (void)vsnprintf(out + len, out_size - len, fmt, ap);
+    va_end(ap);
+}
+
+static void hud_read_wifi_line(char *out, size_t out_size, uint32_t *color_out) {
+    static const char *summary_path = "/cache/native-init-wifi-test-boot-v726.summary";
+    static const char *runtime_path = "/cache/native-init-wifi-runtime.summary";
+    struct stat st;
+    char operstate[32] = "?";
+    char carrier[16] = "?";
+    char mac[32] = "?";
+    char runtime_present[16] = "";
+    char runtime_operstate[32] = "";
+    char runtime_carrier[16] = "";
+    char runtime_mac[32] = "";
+    char ssid_label[64] = "";
+    char rssi_dbm[24] = "";
+    char linkspeed_mbps[24] = "";
+    char ip4_label[32] = "";
+    char rx_mbps[24] = "";
+    char tx_mbps[24] = "";
+    char baseline_ready[16] = "0";
+    char supervisor_result[48] = "";
+    bool wlan0_present;
+    bool link_up;
+    bool ready;
+
+    if (out_size == 0) {
+        return;
+    }
+    out[0] = '\0';
+    if (color_out != NULL) {
+        *color_out = 0xffcc33;
+    }
+
+    wlan0_present = (lstat("/sys/class/net/wlan0", &st) == 0);
+    (void)hud_read_key_value_file(summary_path,
+                                  "baseline_ready=",
+                                  baseline_ready,
+                                  sizeof(baseline_ready));
+    (void)hud_read_key_value_file(summary_path,
+                                  "supervisor_result=",
+                                  supervisor_result,
+                                  sizeof(supervisor_result));
+    if (hud_read_key_value_file(runtime_path,
+                                "wlan0_present=",
+                                runtime_present,
+                                sizeof(runtime_present))) {
+        (void)hud_read_key_value_file(runtime_path,
+                                      "operstate=",
+                                      runtime_operstate,
+                                      sizeof(runtime_operstate));
+        (void)hud_read_key_value_file(runtime_path,
+                                      "carrier=",
+                                      runtime_carrier,
+                                      sizeof(runtime_carrier));
+        (void)hud_read_key_value_file(runtime_path,
+                                      "mac_label=",
+                                      runtime_mac,
+                                      sizeof(runtime_mac));
+        (void)hud_read_key_value_file(runtime_path,
+                                      "ssid_label=",
+                                      ssid_label,
+                                      sizeof(ssid_label));
+        (void)hud_read_key_value_file(runtime_path,
+                                      "rssi_dbm=",
+                                      rssi_dbm,
+                                      sizeof(rssi_dbm));
+        (void)hud_read_key_value_file(runtime_path,
+                                      "linkspeed_mbps=",
+                                      linkspeed_mbps,
+                                      sizeof(linkspeed_mbps));
+        (void)hud_read_key_value_file(runtime_path,
+                                      "ip4_label=",
+                                      ip4_label,
+                                      sizeof(ip4_label));
+        (void)hud_read_key_value_file(runtime_path,
+                                      "rx_mbps=",
+                                      rx_mbps,
+                                      sizeof(rx_mbps));
+        (void)hud_read_key_value_file(runtime_path,
+                                      "tx_mbps=",
+                                      tx_mbps,
+                                      sizeof(tx_mbps));
+    }
+
+    if (!wlan0_present) {
+        if (supervisor_result[0] != '\0') {
+            snprintf(out, out_size, "WIFI WAIT %.40s", supervisor_result);
+        } else {
+            snprintf(out, out_size, "WIFI WAIT wlan0 missing");
+        }
+        return;
+    }
+
+    if (read_trimmed_text_file("/sys/class/net/wlan0/operstate",
+                               operstate,
+                               sizeof(operstate)) < 0) {
+        snprintf(operstate, sizeof(operstate), "?");
+    }
+    if (read_trimmed_text_file("/sys/class/net/wlan0/carrier",
+                               carrier,
+                               sizeof(carrier)) < 0) {
+        snprintf(carrier, sizeof(carrier), "no-carrier");
+    }
+    if (read_trimmed_text_file("/sys/class/net/wlan0/address",
+                               mac,
+                               sizeof(mac)) < 0) {
+        snprintf(mac, sizeof(mac), "?");
+    }
+
+    if (runtime_operstate[0] != '\0') {
+        snprintf(operstate, sizeof(operstate), "%s", runtime_operstate);
+    }
+    if (runtime_carrier[0] != '\0') {
+        snprintf(carrier, sizeof(carrier), "%s", runtime_carrier);
+    }
+    if (runtime_mac[0] != '\0') {
+        snprintf(mac, sizeof(mac), "%s", runtime_mac);
+    }
+
+    link_up = strcmp(carrier, "1") == 0 || strcmp(operstate, "up") == 0;
+    ready = strcmp(baseline_ready, "1") == 0;
+    if (link_up) {
+        snprintf(out,
+                 out_size,
+                 "WIFI UP %.32s",
+                 ssid_label[0] != '\0' ? ssid_label : "wlan0");
+        if (rssi_dbm[0] != '\0') {
+            hud_append_wifi_token(out, out_size, " %sdBm", rssi_dbm);
+        }
+        if (linkspeed_mbps[0] != '\0') {
+            hud_append_wifi_token(out, out_size, " %sM", linkspeed_mbps);
+        }
+        if (ip4_label[0] != '\0' && strcmp(ip4_label, "none") != 0) {
+            hud_append_wifi_token(out, out_size, " %s", ip4_label);
+        }
+        if (rx_mbps[0] != '\0' && tx_mbps[0] != '\0' &&
+            (strcmp(rx_mbps, "0.0") != 0 || strcmp(tx_mbps, "0.0") != 0)) {
+            hud_append_wifi_token(out, out_size, " D%s/U%sM", rx_mbps, tx_mbps);
+        }
+        if (color_out != NULL) {
+            *color_out = 0x88ee88;
+        }
+    } else if (ready) {
+        snprintf(out, out_size, "WIFI READY wlan0 %s %.17s", operstate, mac);
+        if (color_out != NULL) {
+            *color_out = 0x88ee88;
+        }
+    } else {
+        snprintf(out, out_size, "WIFI IFACE wlan0 %s %.17s", operstate, mac);
+        if (color_out != NULL) {
+            *color_out = 0xffcc33;
+        }
+    }
+}
 
 static char boot_splash_lines[BOOT_SPLASH_LINE_COUNT][BOOT_SPLASH_LINE_MAX] = {
     "[ KERNEL ] STOCK LINUX 4.14",
@@ -136,8 +341,9 @@ void a90_hud_draw_status_overlay(struct a90_fb *fb,
     struct a90_metrics_snapshot snapshot;
     char boot_summary[64];
     char bat_tag[8];
-    char footer[32];
+    char footer[64];
     char storage_line[96];
+    char wifi_line[96];
     const char *warning = storage != NULL && storage->warning != NULL ? storage->warning : "";
     const char *backend = storage != NULL && storage->backend != NULL ? storage->backend : "?";
     const char *root = storage != NULL && storage->root != NULL ? storage->root : "?";
@@ -156,6 +362,7 @@ void a90_hud_draw_status_overlay(struct a90_fb *fb,
     uint32_t bat_color;
     uint32_t boot_color;
     uint32_t storage_color;
+    uint32_t wifi_color;
     uint32_t off;
     long bat_pct_val;
 
@@ -201,6 +408,7 @@ void a90_hud_draw_status_overlay(struct a90_fb *fb,
     a90_draw_rect(fb, x - scale, y + slot * 1 - scale, card_w, card_h, 0x202020);
     a90_draw_rect(fb, x - scale, y + slot * 2 - scale, card_w, card_h, 0x202020);
     a90_draw_rect(fb, x - scale, y + slot * 3 - scale, card_w, card_h, 0x202020);
+    a90_draw_rect(fb, x - scale, y + slot * 4 - scale, card_w, card_h, 0x202020);
 
     a90_draw_text(fb, x, y + slot * 0, "A90 INIT ", 0x909090, scale);
     a90_draw_text(fb, x + 9 * char_w, y + slot * 0, boot_summary, boot_color, scale);
@@ -237,6 +445,15 @@ void a90_hud_draw_status_overlay(struct a90_fb *fb,
     a90_draw_text(fb, x + off * char_w, y + slot * 3, "LOAD ", 0x909090, scale); off += 5;
     a90_draw_text(fb, x + off * char_w, y + slot * 3, snapshot.loadavg, 0xffffff, scale);
 
+    hud_read_wifi_line(wifi_line, sizeof(wifi_line), &wifi_color);
+    a90_draw_text_fit(fb,
+                      x,
+                      y + slot * 4,
+                      wifi_line,
+                      wifi_color,
+                      scale > 3 ? scale - 2 : scale,
+                      card_w - scale * 2);
+
     if (warning[0] != '\0') {
         snprintf(storage_line, sizeof(storage_line), "SD WARN %.70s", warning);
         storage_color = 0xffcc33;
@@ -245,7 +462,13 @@ void a90_hud_draw_status_overlay(struct a90_fb *fb,
         storage_color = 0x88ee88;
     }
     storage_line[sizeof(storage_line) - 1] = '\0';
-    a90_draw_text(fb, x, y + slot * 4, storage_line, storage_color, scale > 3 ? scale - 2 : scale);
+    a90_draw_text_fit(fb,
+                      x,
+                      y + slot * 5,
+                      storage_line,
+                      storage_color,
+                      scale > 3 ? scale - 2 : scale,
+                      card_w - scale * 2);
 
     a90_draw_text(fb, x, footer_text_y, footer, 0xbbbbbb, footer_scale);
 }
