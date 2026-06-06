@@ -121,8 +121,10 @@ def write_step(store: EvidenceStore,
                result: dict[str, Any]) -> None:
     stdout_file = f"{name}.stdout.txt"
     stderr_file = f"{name}.stderr.txt"
-    store.write_text(stdout_file, str(result.get("stdout") or ""))
-    store.write_text(stderr_file, str(result.get("stderr") or ""))
+    stdout_path = store.write_log("host", stdout_file, str(result.get("stdout") or ""))
+    stderr_path = store.write_log("host", stderr_file, str(result.get("stderr") or ""))
+    stdout_file = str(stdout_path.relative_to(store.run_dir))
+    stderr_file = str(stderr_path.relative_to(store.run_dir))
     steps.append({
         "name": name,
         "command": result["command"],
@@ -278,7 +280,8 @@ def wait_for_helper_completion(store: EvidenceStore,
 
     helper_done_without_result = (not summary_armed) and (helper_exited or helper_timed_out)
     completed = (result_exists and not summary_armed) or helper_done_without_result
-    store.write_text("test-helper-wait-polls.txt", "\n".join(polls) + "\n")
+    stdout_path = store.write_log("host", "test-helper-wait-polls.txt", "\n".join(polls) + "\n")
+    stdout_file = str(stdout_path.relative_to(store.run_dir))
     steps.append({
         "name": "test-helper-wait-polls",
         "command": ["poll", TEST_HELPER_RESULT_PATH, TEST_SUMMARY_PATH],
@@ -287,7 +290,7 @@ def wait_for_helper_completion(store: EvidenceStore,
         "timeout": not completed,
         "rc": 0 if completed else 1,
         "ok": completed,
-        "stdout_file": "test-helper-wait-polls.txt",
+        "stdout_file": stdout_file,
         "stderr_file": "",
     })
     return {

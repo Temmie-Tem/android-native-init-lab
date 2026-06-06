@@ -16,12 +16,13 @@ Date: `2026-04-29`
 
 현재 기준:
 
-- latest verified build: A90 Linux init 0.9.244 (v725-fasttransport)
-- latest verified source: stage3/linux_init/init_v725_fasttransport.c + 모듈 stage3/linux_init/a90_*.c/h + 헬퍼 stage3/linux_init/helpers/
-- latest verified boot image: stage3/boot_linux_v725_fasttransport.img
-- latest verified boot image SHA256: b9afa0e3c1c677c55a764a0b8dbd7027089dd134318084332bfd52cdf008830f
-- 현재 기준 사이클: v725-fasttransport transport baseline (native Wi-Fi bring-up rollback/test 기준)
-- previous verified boot image: stage3/boot_linux_v261.img (A90 Linux init 0.9.60 (v261))
+- latest verified build: A90 Linux init 0.9.246 (v726-wifi-lifecycle)
+- latest verified source: stage3/linux_init/init_v724.c + 모듈 stage3/linux_init/v724/90_main.inc.c + 헬퍼 stage3/linux_init/helpers/ + 빌더 scripts/revalidation/build_native_init_boot_v726_wifi_lifecycle.py
+- latest verified boot image: stage3/boot_linux_v726_wifi_lifecycle.img
+- latest verified boot image SHA256: 6b34aac93d4fa6d5b40355b9e13b2c1ae847c24a3685d84b0d1cd78751351d40
+- 현재 기준 사이클: v726-wifi-lifecycle Wi-Fi lifecycle baseline (native Wi-Fi bring-up rollback/test 기준)
+- version axes: v726은 boot/init baseline tag, a90_android_execns_probe helper-v427은 포함된 helper marker, V2167/V2168 등은 검증 run/report 번호다. 전체 규칙은 docs/operations/VERSIONING_POLICY.md를 따른다.
+- previous verified boot image: stage3/boot_linux_v725_fasttransport.img (A90 Linux init 0.9.244 (v725-fasttransport))
 - known-good fallback native init: A90 Linux init v48
 - known-good fallback source: stage3/linux_init/init_v48.c
 - known-good fallback boot image: stage3/boot_linux_v48.img

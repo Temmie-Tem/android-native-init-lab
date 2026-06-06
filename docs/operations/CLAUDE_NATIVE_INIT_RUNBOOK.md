@@ -15,8 +15,9 @@ Date: `2026-04-29`
 - latest verified build: `A90 Linux init 0.9.246 (v726-wifi-lifecycle)`
 - latest verified source: `stage3/linux_init/init_v724.c` + 모듈 `stage3/linux_init/v724/90_main.inc.c` + 헬퍼 `stage3/linux_init/helpers/` + 빌더 `scripts/revalidation/build_native_init_boot_v726_wifi_lifecycle.py`
 - latest verified boot image: `stage3/boot_linux_v726_wifi_lifecycle.img`
-- latest verified boot image SHA256: `99e443f0418d0d72f83fedfd607c5dad673177d43923aa7caf812d55e484cc53`
+- latest verified boot image SHA256: `6b34aac93d4fa6d5b40355b9e13b2c1ae847c24a3685d84b0d1cd78751351d40`
 - 현재 기준 사이클: `v726-wifi-lifecycle` Wi-Fi lifecycle baseline (native Wi-Fi bring-up은 이 이미지로 rollback/test)
+- version axes: `v726`은 boot/init baseline tag, `a90_android_execns_probe helper-v427`은 포함된 helper marker, `V2167`/`V2168` 등은 검증 run/report 번호다. 전체 규칙은 `docs/operations/VERSIONING_POLICY.md`를 따른다.
 - previous verified boot image: `stage3/boot_linux_v725_fasttransport.img` (`A90 Linux init 0.9.244 (v725-fasttransport)`)
 - older verified boot image: `stage3/boot_linux_v261.img` (`A90 Linux init 0.9.60 (v261)`)
 - known-good fallback native init: `A90 Linux init v48`

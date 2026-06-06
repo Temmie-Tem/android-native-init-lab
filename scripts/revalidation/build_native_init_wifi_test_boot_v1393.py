@@ -571,7 +571,7 @@ def build_ramdisk(args: argparse.Namespace) -> None:
 
     if args.ramdisk_cpio.exists():
         args.ramdisk_cpio.unlink()
-    command = "find . | LC_ALL=C sort | cpio -o -H newc > " + shlex.quote(str(args.ramdisk_cpio))
+    command = "find . | LC_ALL=C sort | cpio --reproducible -o -H newc > " + shlex.quote(str(args.ramdisk_cpio))
     run(["bash", "-lc", command], cwd=args.ramdisk_dir)
     args.ramdisk_cpio.chmod(0o600)
 

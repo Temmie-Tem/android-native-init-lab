@@ -4,13 +4,25 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import stat
+import time
 from pathlib import Path
 from typing import Any
 
 
 PRIVATE_DIR_MODE = 0o700
 PRIVATE_FILE_MODE = 0o600
+PUBLIC_DIR_MODE = 0o755
+PUBLIC_FILE_MODE = 0o644
+REPO_ROOT = Path(__file__).resolve().parents[3]
+TMP_ROOT = REPO_ROOT / "tmp"
+TMP_LOG_ROOT = TMP_ROOT / "logs"
+WIFI_TMP_ROOT = REPO_ROOT / "tmp" / "wifi"
+DOC_ARTIFACT_ROOT = REPO_ROOT / "docs" / "artifacts"
+WIFI_ARTIFACT_KINDS = frozenset({"runs", "builds", "cache", "bench", "scratch", "archive"})
+TMP_LOG_KINDS = frozenset({"bridge", "host", "device", "kernel", "supplicant", "net", "archive"})
+SAFE_ARTIFACT_RE = re.compile(r"[^A-Za-z0-9_.-]+")
 
 
 def nofollow_flag() -> int:
@@ -27,6 +39,14 @@ def ensure_private_dir(path: Path) -> None:
     if stat.S_ISLNK(info.st_mode) or not stat.S_ISDIR(info.st_mode):
         raise RuntimeError(f"refusing non-directory output path: {path}")
     path.chmod(PRIVATE_DIR_MODE)
+
+
+def ensure_public_dir(path: Path) -> None:
+    path.mkdir(parents=True, mode=PUBLIC_DIR_MODE, exist_ok=True)
+    info = path.lstat()
+    if stat.S_ISLNK(info.st_mode) or not stat.S_ISDIR(info.st_mode):
+        raise RuntimeError(f"refusing non-directory output path: {path}")
+    path.chmod(PUBLIC_DIR_MODE)
 
 
 def write_private_bytes(path: Path, data: bytes) -> None:
@@ -83,6 +103,82 @@ def write_private_json(path: Path, payload: dict[str, Any]) -> None:
     write_private_text(path, json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n")
 
 
+def write_public_bytes(path: Path, data: bytes) -> None:
+    ensure_public_dir(path.parent)
+    try:
+        info = path.lstat()
+    except FileNotFoundError:
+        pass
+    else:
+        if stat.S_ISLNK(info.st_mode):
+            raise RuntimeError(f"refusing symlink destination: {path}")
+    flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC | cloexec_flag() | nofollow_flag()
+    fd = os.open(path, flags, PUBLIC_FILE_MODE)
+    try:
+        with os.fdopen(fd, "wb") as file_obj:
+            fd = -1
+            file_obj.write(data)
+    finally:
+        if fd >= 0:
+            os.close(fd)
+    path.chmod(PUBLIC_FILE_MODE)
+
+
+def write_public_text(path: Path, text: str) -> None:
+    write_public_bytes(path, text.encode("utf-8"))
+
+
+def write_public_json(path: Path, payload: dict[str, Any]) -> None:
+    write_public_text(path, json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n")
+
+
+def artifact_timestamp() -> str:
+    return time.strftime("%Y%m%d-%H%M%S")
+
+
+def safe_artifact_label(raw: str, *, default: str = "default", max_len: int = 96) -> str:
+    label = SAFE_ARTIFACT_RE.sub("-", raw.strip()).strip(".-")
+    if not label:
+        label = default
+    return label[:max_len].strip(".-") or default
+
+
+def wifi_artifact_root(kind: str) -> Path:
+    if kind not in WIFI_ARTIFACT_KINDS:
+        raise ValueError(f"unknown wifi artifact kind: {kind}")
+    return WIFI_TMP_ROOT / kind
+
+
+def wifi_artifact_dir(kind: str, label: str, *, timestamp: bool = False) -> Path:
+    safe_label = safe_artifact_label(label)
+    if timestamp:
+        safe_label = f"{safe_label}-{artifact_timestamp()}"
+    return wifi_artifact_root(kind) / safe_label
+
+
+def tmp_log_root(kind: str) -> Path:
+    if kind not in TMP_LOG_KINDS:
+        raise ValueError(f"unknown tmp log kind: {kind}")
+    return TMP_LOG_ROOT / kind
+
+
+def tmp_log_dir(kind: str, label: str, *, timestamp: bool = False) -> Path:
+    safe_label = safe_artifact_label(label)
+    if timestamp:
+        safe_label = f"{safe_label}-{artifact_timestamp()}"
+    return tmp_log_root(kind) / safe_label
+
+
+def legacy_wifi_artifact_dir(label: str) -> Path:
+    return WIFI_TMP_ROOT / safe_artifact_label(label)
+
+
+def docs_artifact_path(label: str, *, suffix: str = ".json") -> Path:
+    safe_label = safe_artifact_label(label)
+    normalized_suffix = suffix if suffix.startswith(".") else f".{suffix}"
+    return DOC_ARTIFACT_ROOT / f"{safe_label}{normalized_suffix}"
+
+
 class EvidenceStore:
     """Run-scoped private evidence directory."""
 
@@ -94,6 +190,14 @@ class EvidenceStore:
     def path(self, *parts: str) -> Path:
         return self.run_dir.joinpath(*parts)
 
+    def log_relative_path(self, section: str, filename: str) -> str:
+        safe_section = safe_artifact_label(section, default="host", max_len=48)
+        safe_filename = safe_artifact_label(filename, default="log.txt", max_len=160)
+        return str(Path("logs") / safe_section / safe_filename)
+
+    def log_path(self, section: str, filename: str) -> Path:
+        return self.path(self.log_relative_path(section, filename))
+
     def mkdir(self, *parts: str) -> Path:
         path = self.path(*parts)
         ensure_private_dir(path)
@@ -101,6 +205,11 @@ class EvidenceStore:
 
     def write_text(self, relative_path: str, text: str) -> Path:
         path = self.path(relative_path)
+        write_private_text(path, text)
+        return path
+
+    def write_log(self, section: str, filename: str, text: str) -> Path:
+        path = self.log_path(section, filename)
         write_private_text(path, text)
         return path
 

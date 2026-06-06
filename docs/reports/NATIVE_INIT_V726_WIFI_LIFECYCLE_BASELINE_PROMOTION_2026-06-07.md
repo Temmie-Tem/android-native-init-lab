@@ -7,7 +7,7 @@
 - Decision: `v726-wifi-lifecycle-baseline-promoted`
 - Result: PASS
 - Boot image: `stage3/boot_linux_v726_wifi_lifecycle.img`
-- Boot SHA256: `99e443f0418d0d72f83fedfd607c5dad673177d43923aa7caf812d55e484cc53`
+- Boot SHA256: `6b34aac93d4fa6d5b40355b9e13b2c1ae847c24a3685d84b0d1cd78751351d40`
 - Init: `A90 Linux init 0.9.246 (v726-wifi-lifecycle)`
 
 ## Validation
@@ -17,7 +17,11 @@
 - Final SHA smoke evidence: `docs/reports/NATIVE_INIT_V2167_CONNECT_DHCP_GOOGLE_PING_HANDOFF_V726_FINAL_SHA_SMOKE_2026-06-05.md`
 - Autoconnect/config plan: `docs/reports/NATIVE_INIT_WIFI_AUTOCONNECT_CONFIG_PLAN_2026-06-07.md`
 - Current boot was flashed to V726 and verified by `status` + `selftest fail=0`.
+- Rebuilt reproducible V726 image was flashed from native via TWRP handoff; local, remote, and boot readback SHA256 all matched `6b34aac93d4fa6d5b40355b9e13b2c1ae847c24a3685d84b0d1cd78751351d40`.
+- Native flash timing: total `63.754s`, recovery wait `27.138s`, adb push `0.833s`, boot write `0.454s`, native verify `32.438s`.
+- Post-flash status: `A90 Linux init 0.9.246 (v726-wifi-lifecycle)`, `selftest: pass=11 warn=1 fail=0`, `ncm=present`, `tcpctl=stopped`, SD workspace mounted rw.
 - Persistent boot summary now reports `wlan0_present=1`, `baseline_ready=1`, `helper_timeout_benign=1`, and `supervisor_result=wlan0-ready`.
+- Runtime summary after post-flash boot reports `wlan0_present=1`, `operstate=down`, `mac_label=xx:7f:3a`, `ip4_label=none`, and `rx_mbps=0.0`/`tx_mbps=0.0` while idle.
 - HUD now shows Wi-Fi state (`WIFI WAIT`/`IFACE`/`READY`/`UP`) above the existing SD/storage line and consumes `/cache/native-init-wifi-runtime.summary` for runtime MAC/IP/RX/TX details.
 
 ## Final SHA Smoke

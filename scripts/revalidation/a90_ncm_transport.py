@@ -99,8 +99,16 @@ def write_compact_step(store: Any,
                        stderr: str = "") -> None:
     stdout_file = f"{name}.stdout.txt"
     stderr_file = f"{name}.stderr.txt"
-    store.write_text(stdout_file, stdout)
-    store.write_text(stderr_file, stderr)
+    if hasattr(store, "write_log"):
+        stdout_path = store.write_log("host", stdout_file, stdout)
+        stderr_path = store.write_log("host", stderr_file, stderr)
+        stdout_file = str(stdout_path.relative_to(store.run_dir))
+        stderr_file = str(stderr_path.relative_to(store.run_dir))
+    else:
+        stdout_file = f"logs/host/{stdout_file}"
+        stderr_file = f"logs/host/{stderr_file}"
+        store.write_text(stdout_file, stdout)
+        store.write_text(stderr_file, stderr)
     steps.append({
         "name": name,
         "command": [str(item) for item in command],

@@ -2,25 +2,27 @@
 
 ## Summary
 
-- Cycle: `V726`
+- Baseline tag: `v726-wifi-lifecycle`
 - Type: source/build-only baseline candidate.
 - Decision: `v726-wifi-lifecycle-source-build-pass`
 - Result: PASS
-- Reason: V726 combines the V2168 QCACLD firmware_class feeder path with a PID1-owned `/dev/subsys_modem` lifecycle holder, while preserving the V725 fasttransport ramdisk contract.
-- Manifest: `tmp/wifi/v726-wifi-lifecycle-test-boot/manifest.json`
+- Reason: the V726 boot/init baseline incorporates the validation-route V2168 QCACLD firmware_class feeder path with a PID1-owned `/dev/subsys_modem` lifecycle holder, while preserving the V725 fasttransport ramdisk contract.
+- Manifest: `tmp/wifi/builds/v726-wifi-lifecycle-test-boot/manifest.json`
 - Base boot: `stage3/boot_linux_v725_fasttransport.img`
 - Boot image: `stage3/boot_linux_v726_wifi_lifecycle.img`
-- Boot SHA256: `99e443f0418d0d72f83fedfd607c5dad673177d43923aa7caf812d55e484cc53`
+- Boot SHA256: `6b34aac93d4fa6d5b40355b9e13b2c1ae847c24a3685d84b0d1cd78751351d40`
+- Boot SHA verification: source/build output; flash/readback/selftest verification is recorded in the V726 baseline promotion report.
 - Init: `A90 Linux init 0.9.246 (v726-wifi-lifecycle)`
-- Helper marker: `a90_android_execns_probe v427`
+- Helper marker: `a90_android_execns_probe helper-v427` (binary marker string: `a90_android_execns_probe v427`)
 - Helper SHA256: `99bdd67f0cd2fcaf6557478a97f85d405a0de3d6b0858ea17b4d46d7ce162ca1`
+- Version axes: `v726-wifi-lifecycle` is the boot/init baseline tag; `helper-v427` is the helper binary marker; `V2167`/`V2168` are validation-route/report identifiers, not newer boot baselines.
 
 ## Included Route
 
 - Helper runtime mode: `wifi-companion-wlan-pd-post-pm-lower-state-observer-start-only`
 - Helper timeout: `75`
 - Property root: `/mnt/sdext/a90/private-property-v317/v726/dev/__properties__`
-- Kept from V2168: firmware mounts, `firmware_class.path` vendor path, RFS bridges, post-FW_READY `boot_wlan`, and bounded QCACLD firmware_class feeder.
+- Kept from validation route V2168: firmware mounts, `firmware_class.path` vendor path, RFS bridges, post-FW_READY `boot_wlan`, and bounded QCACLD firmware_class feeder.
 - Added: PID1 starts a persistent internal-modem lifecycle owner that opens only `/dev/subsys_modem` and records `/cache/native-init-wifi-lifecycle-modem-owner.*`.
 - Added: PID1 starts a lightweight Wi-Fi runtime summary sampler at `/cache/native-init-wifi-runtime.summary`; the HUD consumes it for Wi-Fi MAC/IP/RX/TX state and optional SSID/RSSI/link-speed labels.
 

@@ -1,0 +1,574 @@
+{
+  "generated_at": "2026-06-07 04:45:09 +0900",
+  "root": "tmp",
+  "summary": {
+    "categories": {
+      "root-benchmark": {
+        "bytes": 1048579,
+        "count": 1,
+        "mib": 1.0
+      },
+      "root-bridge-log": {
+        "bytes": 484,
+        "count": 7,
+        "mib": 0.0
+      },
+      "root-bridge-log-compressed": {
+        "bytes": 141169159,
+        "count": 1,
+        "mib": 134.629
+      },
+      "root-bridge-runtime": {
+        "bytes": 8,
+        "count": 1,
+        "mib": 0.0
+      },
+      "root-build-inspection": {
+        "bytes": 6337037,
+        "count": 2,
+        "mib": 6.043
+      },
+      "root-build-metadata": {
+        "bytes": 1248,
+        "count": 2,
+        "mib": 0.001
+      },
+      "root-flash-helper-evidence": {
+        "bytes": 8569,
+        "count": 7,
+        "mib": 0.008
+      },
+      "root-legacy-run-evidence": {
+        "bytes": 6048124,
+        "count": 218,
+        "mib": 5.768
+      },
+      "root-structured-log-root": {
+        "bytes": 1654439,
+        "count": 1,
+        "mib": 1.578
+      },
+      "root-tool-evidence": {
+        "bytes": 1681066,
+        "count": 20,
+        "mib": 1.603
+      },
+      "root-vendor-library-extract": {
+        "bytes": 10512,
+        "count": 1,
+        "mib": 0.01
+      },
+      "wifi-benchmark": {
+        "bytes": 1137325,
+        "count": 36,
+        "mib": 1.085
+      },
+      "wifi-build-cache": {
+        "bytes": 1536791307,
+        "count": 263,
+        "mib": 1465.598
+      },
+      "wifi-connect-evidence": {
+        "bytes": 989965426,
+        "count": 60,
+        "mib": 944.105
+      },
+      "wifi-host-analysis": {
+        "bytes": 3286386395,
+        "count": 881,
+        "mib": 3134.142
+      },
+      "wifi-legacy-marker": {
+        "bytes": 53238,
+        "count": 628,
+        "mib": 0.051
+      },
+      "wifi-private-local-config": {
+        "bytes": 216,
+        "count": 1,
+        "mib": 0.0
+      },
+      "wifi-probe-evidence": {
+        "bytes": 1189104,
+        "count": 9,
+        "mib": 1.134
+      },
+      "wifi-run-evidence": {
+        "bytes": 4393122193,
+        "count": 3126,
+        "mib": 4189.608
+      },
+      "wifi-static-analysis": {
+        "bytes": 3784880,
+        "count": 161,
+        "mib": 3.61
+      },
+      "wifi-structured-archive": {
+        "bytes": 340478,
+        "count": 1,
+        "mib": 0.325
+      },
+      "wifi-structured-bench": {
+        "bytes": 0,
+        "count": 1,
+        "mib": 0.0
+      },
+      "wifi-structured-builds": {
+        "bytes": 15456331,
+        "count": 1,
+        "mib": 14.74
+      },
+      "wifi-structured-cache": {
+        "bytes": 0,
+        "count": 1,
+        "mib": 0.0
+      },
+      "wifi-structured-runs": {
+        "bytes": 0,
+        "count": 1,
+        "mib": 0.0
+      },
+      "wifi-structured-scratch": {
+        "bytes": 0,
+        "count": 1,
+        "mib": 0.0
+      },
+      "wifi-test-boot-evidence": {
+        "bytes": 1583522125,
+        "count": 240,
+        "mib": 1510.164
+      },
+      "wifi-unpacked-build-product": {
+        "bytes": 54563101,
+        "count": 1,
+        "mib": 52.035
+      }
+    },
+    "recommended_actions": {
+      "compress-or-rotate": {
+        "bytes": 484,
+        "count": 7,
+        "mib": 0.0
+      },
+      "preserve": {
+        "bytes": 8840871378,
+        "count": 5122,
+        "mib": 8431.312
+      },
+      "prune-build-products": {
+        "bytes": 3183399482,
+        "count": 544,
+        "mib": 3035.926
+      }
+    }
+  },
+  "tmp_entries": 262,
+  "tmp_total_bytes": 12043809264,
+  "tmp_total_mib": 11485.872,
+  "top_review_entries": [],
+  "top_tmp_entries": [
+    {
+      "bytes": 11885850039,
+      "category": "wifi-artifact-root",
+      "children": 5412,
+      "mib": 11335.23,
+      "modified": "2026-06-07 04:42:04",
+      "path": "tmp/wifi",
+      "recommended_action": "preserve",
+      "type": "dir"
+    },
+    {
+      "bytes": 141169159,
+      "category": "root-bridge-log-compressed",
+      "children": 0,
+      "mib": 134.629,
+      "modified": "2026-06-07 04:12:07",
+      "path": "tmp/bridge-v1111-identity.log.gz",
+      "recommended_action": "preserve",
+      "type": "file"
+    },
+    {
+      "bytes": 6123296,
+      "category": "root-build-inspection",
+      "children": 2,
+      "mib": 5.84,
+      "modified": "2026-06-02 06:14:15",
+      "path": "tmp/inspect-v1571-ramdisk",
+      "recommended_action": "prune-build-products",
+      "type": "dir"
+    },
+    {
+      "bytes": 1654439,
+      "category": "root-structured-log-root",
+      "children": 7,
+      "mib": 1.578,
+      "modified": "2026-06-07 04:17:35",
+      "path": "tmp/logs",
+      "recommended_action": "preserve",
+      "type": "dir"
+    },
+    {
+      "bytes": 1332271,
+      "category": "root-legacy-run-evidence",
+      "children": 46,
+      "mib": 1.271,
+      "modified": "2026-05-08 06:02:33",
+      "path": "tmp/validation",
+      "recommended_action": "preserve",
+      "type": "dir"
+    },
+    {
+      "bytes": 1093564,
+      "category": "root-legacy-run-evidence",
+      "children": 0,
+      "mib": 1.043,
+      "modified": "2026-05-20 23:35:57",
+      "path": "tmp/current-native-dmesg-after-v464.txt",
+      "recommended_action": "preserve",
+      "type": "file"
+    },
+    {
+      "bytes": 1048579,
+      "category": "root-benchmark",
+      "children": 2,
+      "mib": 1.0,
+      "modified": "2026-06-06 04:31:11",
+      "path": "tmp/xfer-http-test",
+      "recommended_action": "prune-build-products",
+      "type": "dir"
+    },
+    {
+      "bytes": 925968,
+      "category": "root-legacy-run-evidence",
+      "children": 1,
+      "mib": 0.883,
+      "modified": "2026-05-21 11:28:18",
+      "path": "tmp/verify",
+      "recommended_action": "preserve",
+      "type": "dir"
+    },
+    {
+      "bytes": 678251,
+      "category": "root-tool-evidence",
+      "children": 2,
+      "mib": 0.647,
+      "modified": "2026-05-22 19:54:25",
+      "path": "tmp/worktree-cleanup",
+      "recommended_action": "preserve",
+      "type": "dir"
+    },
+    {
+      "bytes": 461371,
+      "category": "root-legacy-run-evidence",
+      "children": 0,
+      "mib": 0.44,
+      "modified": "2026-05-13 22:03:21",
+      "path": "tmp/v214-after-rebind-retry-dmesg.txt",
+      "recommended_action": "preserve",
+      "type": "file"
+    },
+    {
+      "bytes": 456456,
+      "category": "root-legacy-run-evidence",
+      "children": 0,
+      "mib": 0.435,
+      "modified": "2026-05-13 22:02:58",
+      "path": "tmp/v214-current-dmesg.txt",
+      "recommended_action": "preserve",
+      "type": "file"
+    },
+    {
+      "bytes": 377686,
+      "category": "root-tool-evidence",
+      "children": 2,
+      "mib": 0.36,
+      "modified": "2026-05-24 19:23:31",
+      "path": "tmp/source",
+      "recommended_action": "preserve",
+      "type": "dir"
+    },
+    {
+      "bytes": 213741,
+      "category": "root-build-inspection",
+      "children": 3,
+      "mib": 0.204,
+      "modified": "2026-06-04 21:47:47",
+      "path": "tmp/diag-src",
+      "recommended_action": "prune-build-products",
+      "type": "dir"
+    },
+    {
+      "bytes": 148231,
+      "category": "root-legacy-run-evidence",
+      "children": 8,
+      "mib": 0.141,
+      "modified": "2026-05-11 21:29:11",
+      "path": "tmp/a90-v190-live-20260511-212826",
+      "recommended_action": "preserve",
+      "type": "dir"
+    },
+    {
+      "bytes": 146449,
+      "category": "root-legacy-run-evidence",
+      "children": 8,
+      "mib": 0.14,
+      "modified": "2026-05-11 21:30:33",
+      "path": "tmp/a90-v190-live-fixed-20260511-212947",
+      "recommended_action": "preserve",
+      "type": "dir"
+    },
+    {
+      "bytes": 101240,
+      "category": "root-tool-evidence",
+      "children": 4,
+      "mib": 0.097,
+      "modified": "2026-05-04 23:45:49",
+      "path": "tmp/diag",
+      "recommended_action": "preserve",
+      "type": "dir"
+    },
+    {
+      "bytes": 88415,
+      "category": "root-tool-evidence",
+      "children": 8,
+      "mib": 0.084,
+      "modified": "2026-05-08 06:32:34",
+      "path": "tmp/kernelinv",
+      "recommended_action": "preserve",
+      "type": "dir"
+    },
+    {
+      "bytes": 85324,
+      "category": "root-tool-evidence",
+      "children": 3,
+      "mib": 0.081,
+      "modified": "2026-05-11 17:12:18",
+      "path": "tmp/security",
+      "recommended_action": "preserve",
+      "type": "dir"
+    },
+    {
+      "bytes": 82883,
+      "category": "root-legacy-run-evidence",
+      "children": 8,
+      "mib": 0.079,
+      "modified": "2026-05-12 05:52:10",
+      "path": "tmp/a90-h2-soak-suite-dry",
+      "recommended_action": "preserve",
+      "type": "dir"
+    },
+    {
+      "bytes": 81310,
+      "category": "root-legacy-run-evidence",
+      "children": 8,
+      "mib": 0.078,
+      "modified": "2026-05-12 05:52:57",
+      "path": "tmp/a90-h2-soak-suite-dry-2",
+      "recommended_action": "preserve",
+      "type": "dir"
+    }
+  ],
+  "top_wifi_entries": [
+    {
+      "bytes": 2982289594,
+      "category": "wifi-host-analysis",
+      "children": 3,
+      "mib": 2844.133,
+      "modified": "2026-05-27 03:02:41",
+      "path": "tmp/wifi/v1073-host-only",
+      "recommended_action": "preserve",
+      "type": "dir"
+    },
+    {
+      "bytes": 1260225703,
+      "category": "wifi-build-cache",
+      "children": 4,
+      "mib": 1201.845,
+      "modified": "2026-05-25 00:22:56",
+      "path": "tmp/wifi/v766-icnss-qcacld-patch-apply-build",
+      "recommended_action": "prune-build-products",
+      "type": "dir"
+    },
+    {
+      "bytes": 252375558,
+      "category": "wifi-run-evidence",
+      "children": 83,
+      "mib": 240.684,
+      "modified": "2026-06-02 11:41:05",
+      "path": "tmp/wifi/v1331-esoc-disasm",
+      "recommended_action": "preserve",
+      "type": "dir"
+    },
+    {
+      "bytes": 157781840,
+      "category": "wifi-run-evidence",
+      "children": 6,
+      "mib": 150.472,
+      "modified": "2026-06-07 03:59:39",
+      "path": "tmp/wifi/v773-stock-dtb-tail-repack",
+      "recommended_action": "preserve",
+      "type": "dir"
+    },
+    {
+      "bytes": 107958320,
+      "category": "wifi-run-evidence",
+      "children": 5,
+      "mib": 102.957,
+      "modified": "2026-05-25 02:16:19",
+      "path": "tmp/wifi/v775-boot-incompat-postmortem",
+      "recommended_action": "preserve",
+      "type": "dir"
+    },
+    {
+      "bytes": 107958252,
+      "category": "wifi-run-evidence",
+      "children": 5,
+      "mib": 102.957,
+      "modified": "2026-05-25 09:59:45",
+      "path": "tmp/wifi/v775-boot-incompat-postmortem-refresh",
+      "recommended_action": "preserve",
+      "type": "dir"
+    },
+    {
+      "bytes": 107333686,
+      "category": "wifi-run-evidence",
+      "children": 9,
+      "mib": 102.361,
+      "modified": "2026-06-07 03:59:39",
+      "path": "tmp/wifi/v770-instrumented-diagnostic-boot-staging",
+      "recommended_action": "preserve",
+      "type": "dir"
+    },
+    {
+      "bytes": 104850078,
+      "category": "wifi-run-evidence",
+      "children": 5,
+      "mib": 99.993,
+      "modified": "2026-06-03 22:44:00",
+      "path": "tmp/wifi/v1915-stock-kernel-service74-static-xref",
+      "recommended_action": "preserve",
+      "type": "dir"
+    },
+    {
+      "bytes": 104829546,
+      "category": "wifi-host-analysis",
+      "children": 6,
+      "mib": 99.973,
+      "modified": "2026-06-03 22:40:24",
+      "path": "tmp/wifi/v1915-kernel-static-preflight",
+      "recommended_action": "preserve",
+      "type": "dir"
+    },
+    {
+      "bytes": 54563101,
+      "category": "wifi-unpacked-build-product",
+      "children": 2,
+      "mib": 52.035,
+      "modified": "2026-06-01 10:56:09",
+      "path": "tmp/wifi/unpack-v724-test",
+      "recommended_action": "prune-build-products",
+      "type": "dir"
+    },
+    {
+      "bytes": 53965085,
+      "category": "wifi-run-evidence",
+      "children": 2,
+      "mib": 51.465,
+      "modified": "2026-05-25 01:30:58",
+      "path": "tmp/wifi/v770-probe-unpack",
+      "recommended_action": "preserve",
+      "type": "dir"
+    },
+    {
+      "bytes": 38849677,
+      "category": "wifi-connect-evidence",
+      "children": 210,
+      "mib": 37.05,
+      "modified": "2026-06-07 01:41:32",
+      "path": "tmp/wifi/v2167-connect-dhcp-google-ping-handoff-v726-5g-fwready-wait-5min-no-helper-holder",
+      "recommended_action": "preserve",
+      "type": "dir"
+    },
+    {
+      "bytes": 37088855,
+      "category": "wifi-connect-evidence",
+      "children": 193,
+      "mib": 35.371,
+      "modified": "2026-06-07 02:05:27",
+      "path": "tmp/wifi/v2167-connect-dhcp-google-ping-handoff-v726-final-sha-smoke",
+      "recommended_action": "preserve",
+      "type": "dir"
+    },
+    {
+      "bytes": 37080825,
+      "category": "wifi-connect-evidence",
+      "children": 197,
+      "mib": 35.363,
+      "modified": "2026-06-07 01:31:04",
+      "path": "tmp/wifi/v2167-connect-dhcp-google-ping-handoff-v726-5g-fwready-wait-smoke-no-helper-holder",
+      "recommended_action": "preserve",
+      "type": "dir"
+    },
+    {
+      "bytes": 36702760,
+      "category": "wifi-connect-evidence",
+      "children": 205,
+      "mib": 35.002,
+      "modified": "2026-06-07 00:25:00",
+      "path": "tmp/wifi/v2167-connect-dhcp-google-ping-handoff-hold-diag-v30-2g-modem-holder",
+      "recommended_action": "preserve",
+      "type": "dir"
+    },
+    {
+      "bytes": 36699839,
+      "category": "wifi-connect-evidence",
+      "children": 203,
+      "mib": 35.0,
+      "modified": "2026-06-06 23:49:48",
+      "path": "tmp/wifi/v2167-connect-dhcp-google-ping-handoff-hold-diag-v28-2g-power-on",
+      "recommended_action": "preserve",
+      "type": "dir"
+    },
+    {
+      "bytes": 36598084,
+      "category": "wifi-connect-evidence",
+      "children": 197,
+      "mib": 34.903,
+      "modified": "2026-06-07 00:41:50",
+      "path": "tmp/wifi/v2167-connect-dhcp-google-ping-handoff-hold-diag-v32-5g-lifecycle-owner",
+      "recommended_action": "preserve",
+      "type": "dir"
+    },
+    {
+      "bytes": 36547132,
+      "category": "wifi-connect-evidence",
+      "children": 200,
+      "mib": 34.854,
+      "modified": "2026-06-07 00:11:40",
+      "path": "tmp/wifi/v2167-connect-dhcp-google-ping-handoff-hold-diag-v29-2g-lifetime",
+      "recommended_action": "preserve",
+      "type": "dir"
+    },
+    {
+      "bytes": 36546625,
+      "category": "wifi-connect-evidence",
+      "children": 200,
+      "mib": 34.854,
+      "modified": "2026-06-06 23:32:29",
+      "path": "tmp/wifi/v2167-connect-dhcp-google-ping-handoff-hold-diag-v26-2g",
+      "recommended_action": "preserve",
+      "type": "dir"
+    },
+    {
+      "bytes": 36539974,
+      "category": "wifi-connect-evidence",
+      "children": 197,
+      "mib": 34.847,
+      "modified": "2026-06-06 15:16:06",
+      "path": "tmp/wifi/v2167-connect-dhcp-google-ping-handoff-standalone-wpa-v22",
+      "recommended_action": "preserve",
+      "type": "dir"
+    }
+  ],
+  "wifi_entries": 5412
+}

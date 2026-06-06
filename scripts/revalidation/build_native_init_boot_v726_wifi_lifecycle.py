@@ -10,10 +10,11 @@ from __future__ import annotations
 from pathlib import Path
 
 import build_native_init_wifi_test_boot_v2168 as v2168
+from a90harness.evidence import wifi_artifact_dir
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-OUT_DIR = REPO_ROOT / "tmp" / "wifi" / "v726-wifi-lifecycle-test-boot"
+OUT_DIR = wifi_artifact_dir("builds", "v726-wifi-lifecycle-test-boot")
 REPORT_PATH = (
     REPO_ROOT
     / "docs"
@@ -97,10 +98,11 @@ def render_report(manifest: dict[str, object]) -> str:
         f"- Decision: `{manifest['decision']}`",
         "- Result: PASS",
         "- Reason: V726 combines the V2168 QCACLD firmware_class feeder path with a PID1-owned `/dev/subsys_modem` lifecycle holder, while preserving the V725 fasttransport ramdisk contract.",
-        "- Manifest: `tmp/wifi/v726-wifi-lifecycle-test-boot/manifest.json`",
+        "- Manifest: `tmp/wifi/builds/v726-wifi-lifecycle-test-boot/manifest.json`",
         f"- Base boot: `{manifest['base_boot']}`",
         f"- Boot image: `{manifest['boot_image']}`",
         f"- Boot SHA256: `{manifest['boot_sha256']}`",
+        "- Boot SHA verification: source/build output; flash/readback/selftest verification is recorded in the V726 baseline promotion report.",
         f"- Init: `A90 Linux init {manifest['init_version']} ({manifest['init_build']})`",
         f"- Helper marker: `{manifest['helper_marker']}`",
         f"- Helper SHA256: `{manifest['helper_sha256']}`",
@@ -112,6 +114,7 @@ def render_report(manifest: dict[str, object]) -> str:
         f"- Property root: `{REMOTE_PROPERTY_ROOT}`",
         "- Kept from V2168: firmware mounts, `firmware_class.path` vendor path, RFS bridges, post-FW_READY `boot_wlan`, and bounded QCACLD firmware_class feeder.",
         "- Added: PID1 starts a persistent internal-modem lifecycle owner that opens only `/dev/subsys_modem` and records `/cache/native-init-wifi-lifecycle-modem-owner.*`.",
+        "- Added: PID1 starts a lightweight Wi-Fi runtime summary sampler at `/cache/native-init-wifi-runtime.summary`; the HUD consumes it for Wi-Fi MAC/IP/RX/TX state and optional SSID/RSSI/link-speed labels.",
         "",
         "## Safety Scope",
         "",

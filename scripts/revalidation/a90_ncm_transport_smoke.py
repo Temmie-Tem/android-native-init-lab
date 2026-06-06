@@ -18,15 +18,10 @@ from pathlib import Path
 from typing import Any
 
 import a90_ncm_transport as ncm
-from a90harness.evidence import EvidenceStore
+from a90harness.evidence import EvidenceStore, safe_artifact_label, wifi_artifact_dir
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_OUT_BASE = REPO_ROOT / "tmp" / "wifi"
-
-
-def now_label() -> str:
-    return time.strftime("%Y%m%d-%H%M%S")
 
 
 def run_command(command: list[object], *, timeout: float) -> dict[str, Any]:
@@ -70,8 +65,10 @@ def write_step(store: EvidenceStore,
                result: dict[str, Any]) -> None:
     stdout_file = f"{name}.stdout.txt"
     stderr_file = f"{name}.stderr.txt"
-    store.write_text(stdout_file, str(result.get("stdout") or ""))
-    store.write_text(stderr_file, str(result.get("stderr") or ""))
+    stdout_path = store.write_log("host", stdout_file, str(result.get("stdout") or ""))
+    stderr_path = store.write_log("host", stderr_file, str(result.get("stderr") or ""))
+    stdout_file = str(stdout_path.relative_to(store.run_dir))
+    stderr_file = str(stderr_path.relative_to(store.run_dir))
     steps.append({
         "name": name,
         "command": result["command"],
@@ -231,8 +228,8 @@ def main() -> int:
     parser.add_argument("--retry-sleep-sec", type=float, default=2.0)
     args = parser.parse_args()
 
-    safe_label = "".join(ch if ch.isalnum() or ch in "._-" else "-" for ch in args.label).strip(".-") or "default"
-    out_dir = args.out_dir or DEFAULT_OUT_BASE / f"a90-ncm-transport-smoke-{safe_label}-{now_label()}"
+    safe_label = safe_artifact_label(args.label)
+    out_dir = args.out_dir or wifi_artifact_dir("bench", f"a90-ncm-transport-smoke-{safe_label}", timestamp=True)
     store = EvidenceStore(out_dir)
     steps: list[dict[str, Any]] = []
     sizes = parse_sizes(args.sizes_mib)

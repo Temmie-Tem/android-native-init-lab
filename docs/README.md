@@ -15,11 +15,16 @@
 
 ## 최신 Wi-Fi bring-up 조사 기준
 
-> **현재(V1253) 기준 Wi-Fi 연구 상태는 `CLAUDE.md`가 정식 기준이다.** 아래 목록은
-> 약 V1124까지의 과거 스냅샷이며 V1125 이후(~V1253)는 갱신되지 않았다. 최신 사이클
-> 상태·블로커·안전 경계는 `CLAUDE.md`와 `docs/plans/NATIVE_INIT_NEXT_WORK_2026-04-25.md`를
-> 참조한다. (요약: V1221에서 patched cnss-daemon으로 `pm-service`가 `/dev/subsys_esoc0`
-> 진입까지 도달했고, 현재 블로커는 SDX50M PMIC 전원 레일/GPIO9 미claim — V1251 재현 후보 입증.)
+> 현재 기준은 `A90 Linux init 0.9.246 (v726-wifi-lifecycle)` verified Wi-Fi
+> lifecycle baseline이다. 번호 체계는 `docs/operations/VERSIONING_POLICY.md`를
+> 따른다: `V2167`/`V2168`은 검증 run/report, `v726-wifi-lifecycle`은 현재
+> boot/init baseline tag, `a90_android_execns_probe helper-v427`은 helper marker다.
+> 다음 baseline 승격은 `V2169` run ID / `0.9.247` native init /
+> `v2169-wifi-lifecycle-baseline` build tag로 분리한다.
+
+아래 초기 PM/CNSS 목록은 과거 스냅샷으로 보존한다. 현재 baseline 작업은 외부
+SDX50M/eSoC/PCIe/GDSC 경로가 아니라 internal-modem Wi-Fi lifecycle과 artifact
+hygiene를 기준으로 한다.
 
 - 2026-05-27 기준 V1071 exit-255/BPF 방향은 `docs/reports/NATIVE_INIT_V1087_PM_ADDSERVICE_HOST_CLASSIFIER_2026-05-27.md`에서 obsolete로 닫혔습니다.
 - 최신 post-policy CNSS PM blocker는 `docs/reports/NATIVE_INIT_V1128_POST_POLICY_PRIVATE_FIRMWARE_CNSS_PM_2026-05-27.md`와 `docs/reports/NATIVE_INIT_V1129_POST_POLICY_GLOBAL_FIRMWARE_MOUNT_ONLY_2026-05-27.md`입니다.
@@ -151,10 +156,11 @@
 - official version: `0.9.246`
 - build tag: `v726-wifi-lifecycle`
 - 현재 기준 사이클: `v726-wifi-lifecycle` Wi-Fi lifecycle baseline (native Wi-Fi bring-up rollback/test 기준)
+- version axes: `v726`은 boot/init baseline tag, `a90_android_execns_probe helper-v427`은 포함된 helper marker, `V2167`/`V2168` 등은 검증 run/report 번호다. 전체 규칙은 `docs/operations/VERSIONING_POLICY.md`를 따른다.
 - creator: `made by temmie0214`
 - latest verified source: `stage3/linux_init/init_v724.c` + 모듈 `stage3/linux_init/v724/90_main.inc.c` + 헬퍼 `stage3/linux_init/helpers/` + 빌더 `scripts/revalidation/build_native_init_boot_v726_wifi_lifecycle.py`
 - latest verified boot image: `stage3/boot_linux_v726_wifi_lifecycle.img`
-- latest verified boot image SHA256: `99e443f0418d0d72f83fedfd607c5dad673177d43923aa7caf812d55e484cc53`
+- latest verified boot image SHA256: `6b34aac93d4fa6d5b40355b9e13b2c1ae847c24a3685d84b0d1cd78751351d40`
 - previous verified boot image: `stage3/boot_linux_v725_fasttransport.img` (`0.9.244 (v725-fasttransport)`)
 - older verified boot image: `stage3/boot_linux_v261.img` (`0.9.60 (v261)`)
 - known-good fallback: `stage3/boot_linux_v48.img`
@@ -249,7 +255,7 @@
 
 - `overview/PROJECT_STATUS.md` – 현재 기준점, 성공/실패 조건, 다음 작업 링크
 - `overview/PROGRESS_LOG.md` – 날짜순 진행 로그
-- `overview/VERSIONING.md` – semantic version과 `vNN` build tag 규칙
+- `overview/VERSIONING.md` – Run ID, native init version, build tag, helper version, SHA 축 분리 규칙
 - `../CHANGELOG.md` – 공식 버전별 업데이트 로그
 
 ### 2. Operations
@@ -677,7 +683,8 @@
 ### 4. Current Native Init Reports
 
 - `reports/NATIVE_INIT_WIFI_AUTOCONNECT_CONFIG_PLAN_2026-06-07.md` – V726 이후 Wi-Fi SSID/PSK 저장, 명시적 autoconnect 옵션, generated supplicant config, HUD/runtime summary 연동, artifact hygiene를 정리한 계획
-- `reports/NATIVE_INIT_V726_WIFI_LIFECYCLE_BASELINE_PROMOTION_2026-06-07.md` – `0.9.246 (v726-wifi-lifecycle)`/SHA `99e443...`를 현재 baseline으로 승격하고, 현재 부팅 `status`/`selftest fail=0`, persistent `baseline_ready=1`, final SHA 60초 connect smoke를 묶은 결과
+- `reports/NATIVE_INIT_ARTIFACT_LAYOUT_CLEANUP_POLICY_2026-06-07.md` – `tmp/wifi`를 `runs/builds/cache/bench/scratch/archive`로 구조화하고 `docs/artifacts`에는 공개 가능한 redacted summary만 추적하는 cleanup/migration 기준
+- `reports/NATIVE_INIT_V726_WIFI_LIFECYCLE_BASELINE_PROMOTION_2026-06-07.md` – `0.9.246 (v726-wifi-lifecycle)`/SHA `6b34aac...`를 현재 baseline으로 승격하고, 현재 부팅 `status`/`selftest fail=0`, persistent `baseline_ready=1`, final SHA 60초 connect smoke를 묶은 결과
 - `reports/NATIVE_INIT_V2167_CONNECT_DHCP_GOOGLE_PING_HANDOFF_V726_FINAL_SHA_SMOKE_2026-06-05.md` – 최종 V726 SHA를 test/rollback 이미지로 사용해 connect→DHCP→google ping→60초 hold를 통과하고 v726 rollback/selftest를 검증한 결과
 - `reports/NATIVE_INIT_V2167_CONNECT_DHCP_GOOGLE_PING_HANDOFF_V726_5G_FWREADY_WAIT_5MIN_NO_HELPER_HOLDER_2026-06-05.md` – V726 Wi-Fi lifecycle route가 connect→DHCP→google ping 이후 5분 hold 동안 carrier/route/gateway/IP/host ping을 모두 유지하고 v725 rollback/selftest fail=0을 검증한 장시간 hold 결과
 - `reports/NATIVE_INIT_V726_WIFI_LIFECYCLE_SOURCE_BUILD_2026-06-07.md` – V726 source/build 결과 V2168 QCACLD firmware_class feeder, post-FW_READY `boot_wlan`, V725 fasttransport, PID1 `/dev/subsys_modem` lifecycle owner, Wi-Fi runtime summary HUD를 결합한 `0.9.246 (v726-wifi-lifecycle)` 이미지 생성 결과

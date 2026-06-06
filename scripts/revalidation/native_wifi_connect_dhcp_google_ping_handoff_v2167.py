@@ -24,6 +24,7 @@ import a90_ncm_transport as ncm_transport
 import native_wifi_qcacld_fwclass_clean_recapture_handoff_v2144 as base
 import native_property_runtime_overlay_v471 as propbase
 import native_property_runtime_overlay_v535 as prop535
+from a90harness.evidence import safe_artifact_label, wifi_artifact_dir
 
 
 def env_int(name: str, default: int, minimum: int, maximum: int) -> int:
@@ -100,10 +101,10 @@ LOCAL_ENV_FILE = REPO_ROOT / "tmp" / "wifi" / ".wifi-test.env"
 LOCAL_ENV_LOAD = load_local_env_file(LOCAL_ENV_FILE)
 CYCLE = "V2167"
 RAW_RUN_LABEL = os.environ.get("A90_WIFI_RUN_LABEL", "").strip().lower()
-RUN_LABEL = re.sub(r"[^a-z0-9_.-]+", "-", RAW_RUN_LABEL).strip(".-")[:48] or "default"
+RUN_LABEL = safe_artifact_label(RAW_RUN_LABEL, max_len=48)
 RUN_SUFFIX = "" if RUN_LABEL == "default" else f"-{RUN_LABEL}"
 REPORT_SUFFIX = "" if RUN_LABEL == "default" else f"_{RUN_LABEL.upper().replace('-', '_').replace('.', '_')}"
-OUT_DIR = REPO_ROOT / "tmp" / "wifi" / f"v2167-connect-dhcp-google-ping-handoff{RUN_SUFFIX}"
+OUT_DIR = wifi_artifact_dir("runs", f"v2167-connect-dhcp-google-ping-handoff{RUN_SUFFIX}")
 REPORT_PATH = (
     REPO_ROOT
     / "docs"
@@ -1783,7 +1784,8 @@ def wait_for_connect_result(store: base.EvidenceStore,
         if complete:
             break
         time.sleep(3.0)
-    store.write_text("connect-result-wait-polls.txt", "\n".join(polls) + "\n")
+    stdout_path = store.write_log("host", "connect-result-wait-polls.txt", "\n".join(polls) + "\n")
+    stdout_file = str(stdout_path.relative_to(store.run_dir))
     steps.append({
         "name": "connect-result-wait-polls",
         "command": ["poll", CONNECT_RESULT],
@@ -1792,7 +1794,7 @@ def wait_for_connect_result(store: base.EvidenceStore,
         "timeout": not complete,
         "rc": 0 if complete else 1,
         "ok": complete,
-        "stdout_file": "connect-result-wait-polls.txt",
+        "stdout_file": stdout_file,
         "stderr_file": "",
     })
     return {
