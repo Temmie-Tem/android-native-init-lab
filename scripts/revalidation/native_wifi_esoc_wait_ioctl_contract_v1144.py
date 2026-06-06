@@ -17,15 +17,15 @@ from pathlib import Path
 from typing import Any
 
 from a90_kernel_tools import collect_host_metadata, markdown_table, repo_path
-from a90harness.evidence import EvidenceStore, write_private_text
+from a90harness.evidence import EvidenceStore, write_private_text, workspace_private_input_path
 
 
 DEFAULT_OUT_DIR = Path("tmp/wifi/v1144-esoc-wait-ioctl-contract")
 LATEST_POINTER = Path("tmp/wifi/latest-v1144-esoc-wait-ioctl-contract.txt")
 DEFAULT_V1143 = Path("tmp/wifi/v1143-post-pm-lower-trace-live/manifest.json")
 
-UAPI_ESOC_CTRL = Path("kernel_build/SM-A908N_KOR_12_Opensource/Kernel/include/uapi/linux/esoc_ctrl.h")
-ESOC_CLIENT = Path("kernel_build/SM-A908N_KOR_12_Opensource/Kernel/include/linux/esoc_client.h")
+UAPI_ESOC_CTRL = workspace_private_input_path("kernel_source", 'SM-A908N_KOR_12_Opensource', 'Kernel', 'include', 'uapi', 'linux', 'esoc_ctrl.h')
+ESOC_CLIENT = workspace_private_input_path("kernel_source", 'SM-A908N_KOR_12_Opensource', 'Kernel', 'include', 'linux', 'esoc_client.h')
 ESOC_SOURCE_ROOT = Path("tmp/wifi/v766-icnss-qcacld-patch-apply-build/source/drivers/esoc")
 ESOC_DEV = ESOC_SOURCE_ROOT / "esoc_dev.c"
 ESOC_MDM_PON = ESOC_SOURCE_ROOT / "esoc-mdm-pon.c"

@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any
 
 from a90_kernel_tools import collect_host_metadata, markdown_table, repo_path
-from a90harness.evidence import EvidenceStore, write_private_text
+from a90harness.evidence import EvidenceStore, write_private_text, workspace_private_input_path
 
 
 DEFAULT_OUT_DIR = Path("tmp/wifi/v1247-pmic-pinctrl-repro-plan")
@@ -31,11 +31,19 @@ DEFAULT_ANDROID_GPIO = Path(
 )
 DEFAULT_V919_REPORT = Path("docs/reports/NATIVE_INIT_V919_SDX50M_SOFT_RESET_BLOCKER_CLASSIFIER_2026-05-26.md")
 DEFAULT_V1024_REPORT = Path("docs/reports/NATIVE_INIT_V1024_FAST_FD_CONTRACT_CLASSIFIER_2026-05-26.md")
-DEFAULT_DTS = Path(
-    "kernel_build/SM-A908N_KOR_12_Opensource/Kernel/"
-    "arch/arm64/boot/dts/samsung/renovation/sm8150-sec-r3q-kor-overlay-r00.dts"
+DEFAULT_DTS = workspace_private_input_path(
+    "kernel_source",
+    "SM-A908N_KOR_12_Opensource",
+    "Kernel",
+    "arch",
+    "arm64",
+    "boot",
+    "dts",
+    "samsung",
+    "renovation",
+    "sm8150-sec-r3q-kor-overlay-r00.dts",
 )
-DEFAULT_OSRC_ROOT = Path("kernel_build/SM-A908N_KOR_12_Opensource/Kernel")
+DEFAULT_OSRC_ROOT = workspace_private_input_path("kernel_source", 'SM-A908N_KOR_12_Opensource', 'Kernel')
 
 
 def now_iso() -> str:

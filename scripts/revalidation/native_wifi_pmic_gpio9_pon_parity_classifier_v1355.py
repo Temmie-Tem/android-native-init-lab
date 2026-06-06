@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from a90_kernel_tools import markdown_table, repo_path
-from a90harness.evidence import write_private_text
+from a90harness.evidence import write_private_text, workspace_private_input_path
 
 
 DEFAULT_OUT_DIR = Path("tmp/wifi/v1355-pmic-gpio9-pon-parity-classifier")
@@ -20,10 +20,18 @@ REPORT_PATH = Path("docs/reports/NATIVE_INIT_V1355_PMIC_GPIO9_PON_PARITY_CLASSIF
 V1276_REPORT = Path("docs/reports/NATIVE_INIT_V1276_PMIC_GPIO9_POLARITY_CLASSIFIER_2026-05-31.md")
 V1318_REPORT = Path("docs/reports/NATIVE_INIT_V1318_CRITICAL_LOWER_TRACE_COLLECTOR_2026-05-31.md")
 V1354_REPORT = Path("docs/reports/NATIVE_INIT_V1354_PCIE1_RC_POWER_OBSERVER_LIVE_2026-06-01.md")
-SDX50M_DTS = Path("kernel_build/SM-A908N_KOR_12_Opensource/Kernel/arch/arm64/boot/dts/qcom/sdx5xm-external-soc.dtsi")
-R3Q_OVERLAY = Path(
-    "kernel_build/SM-A908N_KOR_12_Opensource/Kernel/arch/arm64/boot/dts/samsung/renovation/"
-    "sm8150-sec-r3q-kor-overlay-r03.dts"
+SDX50M_DTS = workspace_private_input_path("kernel_source", 'SM-A908N_KOR_12_Opensource', 'Kernel', 'arch', 'arm64', 'boot', 'dts', 'qcom', 'sdx5xm-external-soc.dtsi')
+R3Q_OVERLAY = workspace_private_input_path(
+    "kernel_source",
+    "SM-A908N_KOR_12_Opensource",
+    "Kernel",
+    "arch",
+    "arm64",
+    "boot",
+    "dts",
+    "samsung",
+    "renovation",
+    "sm8150-sec-r3q-kor-overlay-r03.dts",
 )
 
 

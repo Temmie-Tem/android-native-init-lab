@@ -9,6 +9,8 @@ routes, or sending external packets.
 
 from __future__ import annotations
 
+from a90harness.evidence import workspace_private_input_path
+
 import wifi_execns_helper_v12_deploy_preflight as deploy
 
 
@@ -18,7 +20,9 @@ EXECNS_HELPER_SHA256 = "2a3b83f852e17f93cf82a9617f396457718024f28ac510fb915848e3
 
 deploy.__doc__ = __doc__
 deploy.DEFAULT_OUT_DIR = deploy.Path("tmp/wifi/v502-busybox-dhcp-tool-deploy-preflight")
-deploy.DEFAULT_LOCAL_HELPER = deploy.Path("external_tools/userland/bin/busybox-aarch64-static")
+deploy.DEFAULT_LOCAL_HELPER = workspace_private_input_path(
+    "external_tools", "userland", "bin", "busybox-aarch64-static"
+)
 deploy.DEFAULT_REMOTE_HELPER = "/cache/bin/busybox"
 deploy.DEFAULT_HELPER_SHA256 = BUSYBOX_SHA256
 deploy.HELPER_MARKER = "Usage: busybox"

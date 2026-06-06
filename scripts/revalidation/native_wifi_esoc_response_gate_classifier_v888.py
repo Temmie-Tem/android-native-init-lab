@@ -11,14 +11,15 @@ from pathlib import Path
 from typing import Any
 
 from a90_kernel_tools import collect_host_metadata, markdown_table, repo_path
-from a90harness.evidence import EvidenceStore, write_private_text
+from a90harness.evidence import EvidenceStore, workspace_private_input_path, write_private_text
 
 
 DEFAULT_OUT_DIR = Path("tmp/wifi/v888-esoc-response-gate-classifier")
 LATEST_POINTER = Path("tmp/wifi/latest-v888-esoc-response-gate-classifier.txt")
 V884_MANIFEST = Path("tmp/wifi/v884-esoc-req-registered-subsys-hold-live/manifest.json")
 V887_MANIFEST = Path("tmp/wifi/v887-execns-helper-v140-deploy-preflight-retry1850/manifest.json")
-UAPI = Path("kernel_build/SM-A908N_KOR_12_Opensource/Kernel/include/uapi/linux/esoc_ctrl.h")
+KERNEL_ROOT = workspace_private_input_path("kernel_source", "SM-A908N_KOR_12_Opensource", "Kernel")
+UAPI = KERNEL_ROOT / "include/uapi/linux/esoc_ctrl.h"
 ESOC_DEV = Path("tmp/wifi/v766-icnss-qcacld-patch-apply-build/source/drivers/esoc/esoc_dev.c")
 ESOC_PON = Path("tmp/wifi/v766-icnss-qcacld-patch-apply-build/source/drivers/esoc/esoc-mdm-pon.c")
 ESOC_MDM4X = Path("tmp/wifi/v766-icnss-qcacld-patch-apply-build/source/drivers/esoc/esoc-mdm-4x.c")

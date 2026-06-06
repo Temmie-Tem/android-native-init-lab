@@ -11,13 +11,13 @@ from pathlib import Path
 from typing import Any
 
 from a90_kernel_tools import collect_host_metadata, markdown_table, repo_path
-from a90harness.evidence import EvidenceStore, write_private_text
+from a90harness.evidence import EvidenceStore, write_private_text, workspace_private_input_path
 
 
 DEFAULT_OUT_DIR = Path("tmp/wifi/v885-esoc-req-img-response-classifier")
 LATEST_POINTER = Path("tmp/wifi/latest-v885-esoc-req-img-response-classifier.txt")
 DEFAULT_V884_MANIFEST = Path("tmp/wifi/v884-esoc-req-registered-subsys-hold-live/manifest.json")
-UAPI = Path("kernel_build/SM-A908N_KOR_12_Opensource/Kernel/include/uapi/linux/esoc_ctrl.h")
+UAPI = workspace_private_input_path("kernel_source", 'SM-A908N_KOR_12_Opensource', 'Kernel', 'include', 'uapi', 'linux', 'esoc_ctrl.h')
 ESOC_DEV = Path("tmp/wifi/v766-icnss-qcacld-patch-apply-build/source/drivers/esoc/esoc_dev.c")
 ESOC_PON = Path("tmp/wifi/v766-icnss-qcacld-patch-apply-build/source/drivers/esoc/esoc-mdm-pon.c")
 ESOC_MDM4X = Path("tmp/wifi/v766-icnss-qcacld-patch-apply-build/source/drivers/esoc/esoc-mdm-4x.c")

@@ -14,6 +14,7 @@ import time
 from pathlib import Path
 
 from a90ctl import ProtocolResult, run_cmdv1_command, shell_command_to_argv
+from a90harness.evidence import workspace_private_input_path
 
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
@@ -24,7 +25,9 @@ DEFAULT_TCP_PORT = 2325
 DEFAULT_TRANSFER_PORT = 18083
 DEFAULT_DEVICE_BINARY = "/bin/a90_tcpctl"
 DEFAULT_TOYBOX = "/cache/bin/toybox"
-DEFAULT_LOCAL_BINARY = ROOT_DIR / "external_tools/userland/bin/a90_tcpctl-aarch64-static"
+DEFAULT_LOCAL_BINARY = workspace_private_input_path(
+    "external_tools", "userland", "bin", "a90_tcpctl-aarch64-static"
+)
 DEFAULT_IDLE_TIMEOUT = 60
 DEFAULT_MAX_CLIENTS = 8
 DEFAULT_SOAK_MAX_CLIENTS = 0

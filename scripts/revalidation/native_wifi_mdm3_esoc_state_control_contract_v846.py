@@ -18,14 +18,14 @@ from pathlib import Path
 from typing import Any
 
 from a90_kernel_tools import collect_host_metadata, markdown_table, repo_path
-from a90harness.evidence import EvidenceStore, write_private_text
+from a90harness.evidence import EvidenceStore, write_private_text, workspace_private_input_path
 
 
 DEFAULT_OUT_DIR = Path("tmp/wifi/v846-mdm3-esoc-state-control-contract")
 LATEST_POINTER = Path("tmp/wifi/latest-v846-mdm3-esoc-state-control-contract.txt")
 DEFAULT_V844_MANIFEST = Path("tmp/wifi/v844-mdm3-ext-sdx50m-boot-interface-classifier/manifest.json")
 DEFAULT_V845_MANIFEST = Path("tmp/wifi/v845-mdm3-ext-sdx50m-surface-snapshot/manifest.json")
-DEFAULT_SOURCE_ROOT = Path("kernel_build/SM-A908N_KOR_12_Opensource/Kernel")
+DEFAULT_SOURCE_ROOT = workspace_private_input_path("kernel_source", 'SM-A908N_KOR_12_Opensource', 'Kernel')
 
 SUBSYSTEM_RESTART = Path("drivers/soc/qcom/subsystem_restart.c")
 ESOC_HEADER = Path("include/linux/esoc_client.h")

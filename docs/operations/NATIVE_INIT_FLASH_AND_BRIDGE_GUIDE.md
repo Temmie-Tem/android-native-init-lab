@@ -15,14 +15,14 @@ Date: `2026-04-29`
 - recovery: TWRP 사용 가능
 - known-good fallback native init: `A90 Linux init v48`
 - known-good fallback source: `stage3/linux_init/init_v48.c`
-- known-good fallback boot image: `stage3/boot_linux_v48.img`
+- known-good fallback boot image: `workspace/private/inputs/boot_images/boot_linux_v48.img`
 - known-good fallback boot image SHA256: `1c87fa59712395027c5c2e489b15c4f6ddefabc3c50f78d3c235c4508a63e042`
 - latest verified build: `A90 Linux init 0.9.246 (v726-wifi-lifecycle)`
-- latest verified source: `stage3/linux_init/init_v724.c` + 모듈 `stage3/linux_init/v724/90_main.inc.c` + 헬퍼 `stage3/linux_init/helpers/` + 빌더 `scripts/revalidation/build_native_init_boot_v726_wifi_lifecycle.py`
-- latest verified boot image: `stage3/boot_linux_v726_wifi_lifecycle.img`
+- latest verified source: `stage3/linux_init/init_v724.c` + 모듈 `stage3/linux_init/v724/90_main.inc.c` + 헬퍼 `stage3/linux_init/helpers/` + 빌더 `workspace/public/src/scripts/revalidation/build_native_init_boot_v726_wifi_lifecycle.py`
+- latest verified boot image: `workspace/private/inputs/boot_images/boot_linux_v726_wifi_lifecycle.img`
 - latest verified boot image SHA256: `6b34aac93d4fa6d5b40355b9e13b2c1ae847c24a3685d84b0d1cd78751351d40`
 - version axes: `v726`은 boot/init baseline tag, `a90_android_execns_probe helper-v427`은 포함된 helper marker, `V2167`/`V2168` 등은 검증 run/report 번호다. 전체 규칙은 `docs/operations/VERSIONING_POLICY.md`를 따른다.
-- previous verified boot image: `stage3/boot_linux_v725_fasttransport.img` (`A90 Linux init 0.9.244 (v725-fasttransport)`)
+- previous verified boot image: `workspace/private/inputs/boot_images/boot_linux_v725_fasttransport.img` (`A90 Linux init 0.9.244 (v725-fasttransport)`)
 - control channel: USB CDC ACM serial bridge
 - bridge endpoint: `127.0.0.1:54321`
 - bridge script: `scripts/revalidation/serial_tcp_bridge.py`

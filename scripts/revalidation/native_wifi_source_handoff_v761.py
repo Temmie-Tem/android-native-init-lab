@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Any
 
 from a90_kernel_tools import collect_host_metadata, markdown_table, repo_path
-from a90harness.evidence import EvidenceStore, write_private_text
+from a90harness.evidence import EvidenceStore, workspace_private_input_path, write_private_text
 
 
 DEFAULT_OUT_DIR = Path("tmp/wifi/v761-source-download-handoff")
@@ -28,6 +28,7 @@ DEFAULT_V759_MANIFEST = Path("tmp/wifi/v759-source-acquisition/manifest.json")
 DEFAULT_V760_MANIFEST = Path("tmp/wifi/v760-source-staging/manifest.json")
 EXPECTED_FILENAME = "SM-A908N_KOR_12_Opensource.zip"
 OSRC_URL = "https://opensource.samsung.com/uploadSearch?searchValue=A908NKSU5EWA3"
+KERNEL_SOURCE_INPUT = workspace_private_input_path("kernel_source", legacy_fallback=False)
 
 
 @dataclass(frozen=True)
@@ -80,9 +81,10 @@ umask 077
 REPO_ROOT={shell_quote(repo_root)}
 EXPECTED={shell_quote(EXPECTED_FILENAME)}
 OSRC_URL={shell_quote(OSRC_URL)}
+KERNEL_SOURCE_INPUT={shell_quote(KERNEL_SOURCE_INPUT)}
 
 cd "$REPO_ROOT"
-mkdir -p kernel_build/source kernel_build/downloads
+mkdir -p "$KERNEL_SOURCE_INPUT/source" "$KERNEL_SOURCE_INPUT/downloads"
 
 cat <<MSG
 V761 source download handoff
@@ -92,8 +94,8 @@ V761 source download handoff
 2. Complete the browser human-verification flow.
 3. Download: $EXPECTED
 4. Put it in one of:
-   - $REPO_ROOT/kernel_build/$EXPECTED
-   - $REPO_ROOT/kernel_build/downloads/$EXPECTED
+   - $KERNEL_SOURCE_INPUT/$EXPECTED
+   - $KERNEL_SOURCE_INPUT/downloads/$EXPECTED
    - $HOME/Downloads/$EXPECTED
 
 Set V761_OPEN_BROWSER=1 when running this script if you want it to call xdg-open.
@@ -107,10 +109,10 @@ if [[ "${{V761_OPEN_BROWSER:-0}}" == "1" ]]; then
   fi
 fi
 
-target="kernel_build/$EXPECTED"
+target="$KERNEL_SOURCE_INPUT/$EXPECTED"
 candidates=(
   "$target"
-  "kernel_build/downloads/$EXPECTED"
+  "$KERNEL_SOURCE_INPUT/downloads/$EXPECTED"
   "$HOME/Downloads/$EXPECTED"
   "$REPO_ROOT/$EXPECTED"
 )

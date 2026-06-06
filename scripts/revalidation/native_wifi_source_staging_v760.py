@@ -20,14 +20,18 @@ from pathlib import Path
 from typing import Any
 
 from a90_kernel_tools import collect_host_metadata, markdown_table, repo_path
-from a90harness.evidence import EvidenceStore, write_private_text
+from a90harness.evidence import EvidenceStore, workspace_private_input_path, write_private_text
 
 
 DEFAULT_OUT_DIR = Path("tmp/wifi/v760-source-staging")
 DEFAULT_V759_MANIFEST = Path("tmp/wifi/v759-source-acquisition/manifest.json")
 EXPECTED_FILENAME = "SM-A908N_KOR_12_Opensource.zip"
+KERNEL_SOURCE_INPUT = workspace_private_input_path("kernel_source", legacy_fallback=False)
 
 ARCHIVE_CANDIDATES = (
+    KERNEL_SOURCE_INPUT / EXPECTED_FILENAME,
+    KERNEL_SOURCE_INPUT / "source" / EXPECTED_FILENAME,
+    KERNEL_SOURCE_INPUT / "downloads" / EXPECTED_FILENAME,
     Path("kernel_build") / EXPECTED_FILENAME,
     Path("kernel_build/source") / EXPECTED_FILENAME,
     Path("kernel_build/downloads") / EXPECTED_FILENAME,
@@ -37,6 +41,9 @@ ARCHIVE_CANDIDATES = (
 )
 
 SOURCE_ROOT_CANDIDATES = (
+    KERNEL_SOURCE_INPUT / "source" / "SM-A908N_KOR_12_Opensource",
+    KERNEL_SOURCE_INPUT / "SM-A908N_KOR_12_Opensource",
+    KERNEL_SOURCE_INPUT / "source",
     Path("kernel_build/source/SM-A908N_KOR_12_Opensource"),
     Path("kernel_build/SM-A908N_KOR_12_Opensource"),
     Path("kernel_build/source"),

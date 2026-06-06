@@ -237,7 +237,7 @@ def render_report(manifest: dict[str, Any], decoded: list[dict[str, Any]], resul
         "",
         "## Source Basis",
         "",
-        "- Local kernel ABI header defines `MSG_MASKS_TYPE=0x1`, `LOG_MASKS_TYPE=0x2`, `EVENT_MASKS_TYPE=0x4`, `USER_SPACE_DATA_TYPE=0x20`, `DCI_DATA_TYPE=0x40`, `DCI_LOG_MASKS_TYPE=0x100`, `DCI_EVENT_MASKS_TYPE=0x200`, and `DCI_PKT_TYPE=0x400` in `kernel_build/SM-A908N_KOR_12_Opensource/Kernel/include/linux/diagchar.h`.",
+        "- Local kernel ABI header defines `MSG_MASKS_TYPE=0x1`, `LOG_MASKS_TYPE=0x2`, `EVENT_MASKS_TYPE=0x4`, `USER_SPACE_DATA_TYPE=0x20`, `DCI_DATA_TYPE=0x40`, `DCI_LOG_MASKS_TYPE=0x100`, `DCI_EVENT_MASKS_TYPE=0x200`, and `DCI_PKT_TYPE=0x400` in the workspace/legacy OSRC kernel source at `SM-A908N_KOR_12_Opensource/Kernel/include/linux/diagchar.h`.",
         "- Android MSM `diagchar_open()` initializes a new client with mask-ready bits, and `diagchar_read()` emits those mask types before real `USER_SPACE_DATA_TYPE`/DCI data. This matches the V2051 sample sequence.",
         "",
         "## Next Gate",

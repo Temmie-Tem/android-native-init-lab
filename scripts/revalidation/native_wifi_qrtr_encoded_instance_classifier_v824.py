@@ -17,13 +17,13 @@ from pathlib import Path
 from typing import Any
 
 from a90_kernel_tools import collect_host_metadata, markdown_table, repo_path
-from a90harness.evidence import EvidenceStore, write_private_text
+from a90harness.evidence import EvidenceStore, write_private_text, workspace_private_input_path
 
 
 DEFAULT_OUT_DIR = Path("tmp/wifi/v824-qrtr-encoded-instance-classifier")
 LATEST_POINTER = Path("tmp/wifi/latest-v824-qrtr-encoded-instance-classifier.txt")
 DEFAULT_V823_MANIFEST = Path("tmp/wifi/v823-ssctl-nameservice-matrix/manifest.json")
-OSRC_ROOT = Path("kernel_build/SM-A908N_KOR_12_Opensource/Kernel")
+OSRC_ROOT = workspace_private_input_path("kernel_source", 'SM-A908N_KOR_12_Opensource', 'Kernel')
 QMI_INTERFACE = OSRC_ROOT / "drivers/soc/qcom/qmi_interface.c"
 
 SOURCE_SERVICES = [

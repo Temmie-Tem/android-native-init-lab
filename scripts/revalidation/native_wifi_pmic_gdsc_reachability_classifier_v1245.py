@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import Any
 
 from a90_kernel_tools import collect_host_metadata, markdown_table, repo_path
-from a90harness.evidence import EvidenceStore, write_private_text
+from a90harness.evidence import EvidenceStore, workspace_private_input_path, write_private_text
 
 
 DEFAULT_OUT_DIR = Path("tmp/wifi/v1245-pmic-gdsc-reachability-classifier")
@@ -29,9 +29,17 @@ LATEST_POINTER = Path("tmp/wifi/latest-v1245-pmic-gdsc-reachability-classifier.t
 DEFAULT_V918_REPORT = Path("docs/reports/NATIVE_INIT_V918_MDM_HELPER_SUBSYS_TRIGGER_WAIT_LIVE_2026-05-26.md")
 DEFAULT_V1243_MANIFEST = Path("tmp/wifi/v1243-sdx50m-power-prereq-response-live/manifest.json")
 DEFAULT_V1244_MANIFEST = Path("tmp/wifi/v1244-android-power-surface-classifier/manifest.json")
-DEFAULT_DTS = Path(
-    "kernel_build/SM-A908N_KOR_12_Opensource/Kernel/"
-    "arch/arm64/boot/dts/samsung/renovation/sm8150-sec-r3q-kor-overlay-r00.dts"
+DEFAULT_DTS = workspace_private_input_path(
+    "kernel_source",
+    "SM-A908N_KOR_12_Opensource",
+    "Kernel",
+    "arch",
+    "arm64",
+    "boot",
+    "dts",
+    "samsung",
+    "renovation",
+    "sm8150-sec-r3q-kor-overlay-r00.dts",
 )
 
 

@@ -1,5 +1,9 @@
 # Revalidation Scripts
 
+이 디렉토리는 legacy/historical revalidation tree입니다. 현재 baseline에서
+승격된 entrypoint는 `workspace/public/src/scripts/revalidation/` 아래에 두고,
+여기에는 기존 명령 호환 wrapper와 아직 마이그레이션하지 않은 의존 모듈을 남깁니다.
+
 현재 디렉토리는 rooted baseline과
 `native Linux rechallenge` 전단계인 부트체인 재검증에 직접 필요한 스크립트만 두는 자리입니다.
 
@@ -86,12 +90,12 @@
 - `build_static_toybox.sh`
   - 공식 `toybox-0.8.13` tarball을 해시 검증 후 다운로드
   - `aarch64-linux-gnu-gcc`로 static ARM64 toybox를 빌드
-  - 산출물은 gitignore된 `external_tools/userland/bin/toybox-aarch64-static-0.8.13`
+  - 산출물은 gitignore된 `workspace/private/inputs/external_tools/userland/bin/toybox-aarch64-static-0.8.13`
   - native init 실기 검증 시 `/cache/bin/toybox`로 올려 `run /cache/bin/toybox ...` 형태로 사용
 - `build_static_busybox.sh`
   - `busybox-1.36.1` tarball을 해시 검증 후 다운로드
   - `aarch64-linux-gnu-gcc`로 static ARM64 BusyBox를 빌드
-  - 산출물은 gitignore된 `external_tools/userland/bin/busybox-aarch64-static-1.36.1`
+  - 산출물은 gitignore된 `workspace/private/inputs/external_tools/userland/bin/busybox-aarch64-static-1.36.1`
   - v99 검증 시 SD runtime root의 `/mnt/sdext/a90/bin/busybox` 후보로 사용
   - Batch 3 이후 dynamic-section 검사 임시 파일은 `mktemp`로 생성하고 종료 시 삭제
 - `busybox_userland.py`
@@ -127,7 +131,7 @@
   - `start`/`stop`처럼 NCM 재열거로 framed END가 끊길 수 있는 동작은 raw-control-like로 처리한 뒤 status를 재확인
 - `build_usbnet_helper.sh`
   - `stage3/linux_init/a90_usbnet.c`를 static ARM64 helper로 빌드
-  - 산출물은 gitignore된 `external_tools/userland/bin/a90_usbnet-aarch64-static`
+  - 산출물은 gitignore된 `workspace/private/inputs/external_tools/userland/bin/a90_usbnet-aarch64-static`
   - TWRP ADB로 `/cache/bin/a90_usbnet`에 배치해 USB ACM/NCM/RNDIS probe에 사용
 - `ncm_host_setup.py`
   - native init bridge를 통해 `/cache/bin/a90_usbnet ncm`을 실행하고 device `ncm0` IP를 설정
@@ -139,11 +143,11 @@
   - host `192.168.7.1/24`, device `192.168.7.2/24` ping 검증과 `off` rollback 제공
 - `build_nettest_helper.sh`
   - `stage3/linux_init/a90_nettest.c`를 static ARM64 TCP 검증 helper로 빌드
-  - 산출물은 gitignore된 `external_tools/userland/bin/a90_nettest-aarch64-static`
+  - 산출물은 gitignore된 `workspace/private/inputs/external_tools/userland/bin/a90_nettest-aarch64-static`
   - `/cache/bin/a90_nettest listen|send`로 USB NCM 양방향 TCP payload를 검증
 - `build_tcpctl_helper.sh`
   - `stage3/linux_init/a90_tcpctl.c`를 static ARM64 TCP command helper로 빌드
-  - 산출물은 gitignore된 `external_tools/userland/bin/a90_tcpctl-aarch64-static`
+  - 산출물은 gitignore된 `workspace/private/inputs/external_tools/userland/bin/a90_tcpctl-aarch64-static`
   - v123 이후 ramdisk `/bin/a90_tcpctl listen <bind_addr> <port> <idle_timeout_sec> [max_clients] [token_path]`로 NCM 위의 작은 명령/응답 채널을 검증
 - `tcpctl_host.py`
   - host에서 `/bin/a90_tcpctl`을 start/call/run/stop/smoke/soak 형태로 다루는 wrapper

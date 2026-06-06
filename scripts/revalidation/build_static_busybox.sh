@@ -6,7 +6,7 @@ BUSYBOX_SHA256="${BUSYBOX_SHA256:-b8cc24c9574d809e7279c3be349795c5d5ceb6fdf19ca7
 BUSYBOX_URL="${BUSYBOX_URL:-https://busybox.net/downloads/busybox-${BUSYBOX_VERSION}.tar.bz2}"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-WORK_DIR="${WORK_DIR:-${ROOT_DIR}/external_tools/userland}"
+WORK_DIR="${WORK_DIR:-${A90_EXTERNAL_TOOLS_ROOT:-${ROOT_DIR}/workspace/private/inputs/external_tools}/userland}"
 DOWNLOAD_DIR="${WORK_DIR}/downloads"
 SRC_DIR="${WORK_DIR}/src"
 BIN_DIR="${WORK_DIR}/bin"

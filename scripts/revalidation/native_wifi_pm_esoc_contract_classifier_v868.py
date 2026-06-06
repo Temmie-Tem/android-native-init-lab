@@ -17,12 +17,12 @@ from pathlib import Path
 from typing import Any
 
 from a90_kernel_tools import collect_host_metadata, markdown_table, repo_path
-from a90harness.evidence import EvidenceStore, write_private_text
+from a90harness.evidence import EvidenceStore, write_private_text, workspace_private_input_path
 
 
 DEFAULT_OUT_DIR = Path("tmp/wifi/v868-pm-esoc-contract-classifier")
 LATEST_POINTER = Path("tmp/wifi/latest-v868-pm-esoc-contract-classifier.txt")
-DEFAULT_SOURCE_ROOT = Path("kernel_build/SM-A908N_KOR_12_Opensource/Kernel")
+DEFAULT_SOURCE_ROOT = workspace_private_input_path("kernel_source", 'SM-A908N_KOR_12_Opensource', 'Kernel')
 DEFAULT_ESOC_DOC = Path("docs/overview/ESOC_PERIPHERAL_MANAGER_BRINGUP_RESEARCH_2026-05-25.md")
 DEFAULT_V867_MANIFEST = Path("tmp/wifi/v867-pm-init-contract-live-r3/manifest.json")
 DEFAULT_V867_REPORT = Path("docs/reports/NATIVE_INIT_V867_PM_INIT_CONTRACT_START_ONLY_2026-05-25.md")

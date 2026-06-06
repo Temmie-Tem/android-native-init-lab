@@ -29,7 +29,12 @@ from pathlib import Path
 from typing import Any
 
 from a90_kernel_tools import collect_host_metadata, markdown_table, repo_path
-from a90harness.evidence import EvidenceStore, ensure_private_dir, write_private_text
+from a90harness.evidence import (
+    EvidenceStore,
+    ensure_private_dir,
+    workspace_private_input_path,
+    write_private_text,
+)
 
 import android_rc1_magisk_postfs_sampler_handoff_v1521 as v1521
 import android_wlan_pd_firmware_request_handoff_v1753 as v1753
@@ -54,7 +59,7 @@ MODULE_NAME = "a90_v1897_pm_edge"
 REMOTE_MODULE_DIR = f"/data/adb/modules/{MODULE_NAME}"
 REMOTE_EVIDENCE_DIR = "/data/local/tmp/a90-v1897-pm-edge"
 REMOTE_STAGE_PREFIX = "/data/local/tmp/a90_v1897_pm_edge"
-STRACE_SOURCE = Path("external_tools/userland/bin/strace-aarch64-static")
+STRACE_SOURCE = workspace_private_input_path("external_tools", "userland", "bin", "strace-aarch64-static")
 TRACEFS_GROUP = "a90pm1897"
 
 REDACT_CMD = "sed -E 's/temmie[[:alnum:]_@.-]*/[REDACTED]/g'"

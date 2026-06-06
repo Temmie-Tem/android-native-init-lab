@@ -3,6 +3,7 @@
 # =================================
 
 # Android NDK / Toolchains (5.1GB)
+toolchains
 toolchains/
 android-ndk-*.zip
 
@@ -19,6 +20,7 @@ kernel_build/*
 # =================================
 
 # 모든 백업 디렉토리
+backups
 backups/
 backups_*/
 efs_backup/
@@ -87,6 +89,7 @@ stage3/linux_init/helpers/a90_qrtr_probe
 # identity tracked via SHA256 in reports/CLAUDE.md; do not bloat git with them
 stage3/linux_init/helpers/*_v[0-9]*
 !stage3/linux_init/helpers/*.c
+stage3/ramdisk_v*
 stage3/ramdisk_v*/
 stage3/ramdisk_v*.cpio
 
@@ -94,6 +97,7 @@ stage3/ramdisk_v*.cpio
 aosp_source
 aosp_source/
 build_artifacts/
+external_tools
 external_tools/
 out/
 

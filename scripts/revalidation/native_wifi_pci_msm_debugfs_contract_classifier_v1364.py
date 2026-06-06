@@ -10,12 +10,12 @@ from pathlib import Path
 from typing import Any
 
 from a90_kernel_tools import markdown_table, repo_path
-from a90harness.evidence import write_private_text
+from a90harness.evidence import write_private_text, workspace_private_input_path
 
 
 DEFAULT_OUT_DIR = Path("tmp/wifi/v1364-pci-msm-debugfs-contract-classifier")
 REPORT_PATH = Path("docs/reports/NATIVE_INIT_V1364_PCI_MSM_DEBUGFS_CONTRACT_CLASSIFIER_2026-06-01.md")
-SOURCE_ROOT = Path("kernel_build/SM-A908N_KOR_12_Opensource/Kernel")
+SOURCE_ROOT = workspace_private_input_path("kernel_source", 'SM-A908N_KOR_12_Opensource', 'Kernel')
 
 INPUTS = {
     "v1363_manifest": Path("tmp/wifi/v1363-pci-msm-debugfs-surface-verifier-live/manifest.json"),

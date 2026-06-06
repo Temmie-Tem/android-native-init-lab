@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any
 
 from a90_kernel_tools import collect_host_metadata, markdown_table, repo_path
-from a90harness.evidence import EvidenceStore, write_private_text
+from a90harness.evidence import EvidenceStore, write_private_text, workspace_private_input_path
 
 
 DEFAULT_OUT_DIR = Path("tmp/wifi/v844-mdm3-ext-sdx50m-boot-interface-classifier")
@@ -27,7 +27,7 @@ DEFAULT_V843_MANIFEST = Path("tmp/wifi/v843-current-window-cnss-stall-classifier
 DEFAULT_V819_MANIFEST = Path("tmp/wifi/v819-mdm3-esoc-registration-catalogue/manifest.json")
 DEFAULT_V823_MANIFEST = Path("tmp/wifi/v823-ssctl-nameservice-matrix/manifest.json")
 DEFAULT_V840_MANIFEST = Path("tmp/wifi/v840-provider-first-prearmed-listener-live/manifest.json")
-DEFAULT_SOURCE_ROOT = Path("kernel_build/SM-A908N_KOR_12_Opensource/Kernel")
+DEFAULT_SOURCE_ROOT = workspace_private_input_path("kernel_source", 'SM-A908N_KOR_12_Opensource', 'Kernel')
 
 DTS_PATH = Path("arch/arm64/boot/dts/samsung/renovation/sm8150-sec-r3q-kor-overlay-r02.dts")
 ICNSS_PATH = Path("drivers/soc/qcom/icnss.c")

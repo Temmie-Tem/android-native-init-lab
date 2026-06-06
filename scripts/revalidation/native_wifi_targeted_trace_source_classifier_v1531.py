@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from a90_kernel_tools import collect_host_metadata, markdown_table, repo_path
-from a90harness.evidence import EvidenceStore, write_private_text
+from a90harness.evidence import EvidenceStore, workspace_private_input_path, write_private_text
 
 import native_wifi_msm_pcie_test11_static_analysis_v1498 as v1498
 
@@ -27,9 +27,10 @@ V1529_EVIDENCE = Path(
     "tmp/wifi/v1529-android-tracefs-rc1-event-handoff/"
     "android-postfs-evidence/a90-v1529-tracefs-rc1-sampler"
 )
-ICNSS_C = Path("kernel_build/SM-A908N_KOR_12_Opensource/Kernel/drivers/soc/qcom/icnss.c")
-ICNSS_QMI_C = Path("kernel_build/SM-A908N_KOR_12_Opensource/Kernel/drivers/soc/qcom/icnss_qmi.c")
-ICNSS_PRIVATE_H = Path("kernel_build/SM-A908N_KOR_12_Opensource/Kernel/drivers/soc/qcom/icnss_private.h")
+KERNEL_ROOT = workspace_private_input_path("kernel_source", "SM-A908N_KOR_12_Opensource", "Kernel")
+ICNSS_C = KERNEL_ROOT / "drivers/soc/qcom/icnss.c"
+ICNSS_QMI_C = KERNEL_ROOT / "drivers/soc/qcom/icnss_qmi.c"
+ICNSS_PRIVATE_H = KERNEL_ROOT / "drivers/soc/qcom/icnss_private.h"
 LOCAL_PCI_MSM_C = Path("tmp/wifi/v766-icnss-qcacld-patch-apply-build/source/drivers/pci/host/pci-msm.c")
 PM_SERVICE = Path("tmp/wifi/v1073-host-only/vendor-extract/files/pm-service")
 PM_SERVICE_STRINGS_FILTER = Path("tmp/wifi/v1081-pm-service-early-path-classifier/analysis/pm-service-strings-filter.txt")

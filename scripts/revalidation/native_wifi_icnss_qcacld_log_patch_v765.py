@@ -21,11 +21,11 @@ from pathlib import Path
 from typing import Any
 
 from a90_kernel_tools import collect_host_metadata, markdown_table, repo_path
-from a90harness.evidence import EvidenceStore, write_private_text
+from a90harness.evidence import EvidenceStore, write_private_text, workspace_private_input_path
 
 
 DEFAULT_OUT_DIR = Path("tmp/wifi/v765-icnss-qcacld-log-patch")
-DEFAULT_SOURCE_ARCHIVE = Path("kernel_build/SM-A908N_KOR_12_Opensource/Kernel.tar.gz")
+DEFAULT_SOURCE_ARCHIVE = workspace_private_input_path("kernel_source", 'SM-A908N_KOR_12_Opensource', 'Kernel.tar.gz')
 DEFAULT_V760_MANIFEST = Path("tmp/wifi/v760-source-staging/manifest.json")
 DEFAULT_V763_REPORT = Path("docs/reports/NATIVE_INIT_V763_ICNSS_ARCH_REBASE_2026-05-24.md")
 DEFAULT_V764_MANIFEST = Path("tmp/wifi/v764-mdm-helper-service180-retry/manifest.json")

@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any
 
 from a90_kernel_tools import collect_host_metadata, markdown_table, repo_path
-from a90harness.evidence import EvidenceStore, write_private_text
+from a90harness.evidence import EvidenceStore, workspace_private_input_path, write_private_text
 
 
 DEFAULT_OUT_DIR = Path("tmp/wifi/v1045-pm-pil-prerequisite-delta")
@@ -25,11 +25,23 @@ DEFAULT_V1043_MANIFEST = Path("tmp/wifi/v1043-pm-full-contract-v177-after-v1042-
 DEFAULT_V1044_SUMMARY = Path("tmp/wifi/v1044-pm-pil-android-gpio-esoc-classifier/summary.md")
 DEFAULT_V1024_MANIFEST = Path("tmp/wifi/v1024-fast-fd-contract-classifier/manifest.json")
 V724_MAIN_SHARD = Path("stage3/linux_init/v724/90_main.inc.c")
-PIL_SOURCE = Path(
-    "kernel_build/SM-A908N_KOR_12_Opensource/Kernel/drivers/soc/qcom/peripheral-loader.c"
+PIL_SOURCE = workspace_private_input_path(
+    "kernel_source",
+    "SM-A908N_KOR_12_Opensource",
+    "Kernel",
+    "drivers",
+    "soc",
+    "qcom",
+    "peripheral-loader.c",
 )
-SUBSYS_RESTART_SOURCE = Path(
-    "kernel_build/SM-A908N_KOR_12_Opensource/Kernel/drivers/soc/qcom/subsys-restart.c"
+SUBSYS_RESTART_SOURCE = workspace_private_input_path(
+    "kernel_source",
+    "SM-A908N_KOR_12_Opensource",
+    "Kernel",
+    "drivers",
+    "soc",
+    "qcom",
+    "subsys-restart.c",
 )
 
 

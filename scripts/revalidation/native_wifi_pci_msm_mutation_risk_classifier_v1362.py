@@ -10,12 +10,12 @@ from pathlib import Path
 from typing import Any
 
 from a90_kernel_tools import markdown_table, repo_path
-from a90harness.evidence import write_private_text
+from a90harness.evidence import workspace_private_input_path, write_private_text
 
 
 DEFAULT_OUT_DIR = Path("tmp/wifi/v1362-pci-msm-mutation-risk-classifier")
 REPORT_PATH = Path("docs/reports/NATIVE_INIT_V1362_PCI_MSM_MUTATION_RISK_CLASSIFIER_2026-06-01.md")
-SOURCE_ROOT = Path("kernel_build/SM-A908N_KOR_12_Opensource/Kernel")
+SOURCE_ROOT = workspace_private_input_path("kernel_source", "SM-A908N_KOR_12_Opensource", "Kernel")
 
 INPUTS = {
     "v1359_report": Path("docs/reports/NATIVE_INIT_V1359_ICNSS_PCI_ENTRY_CLASSIFIER_2026-06-01.md"),

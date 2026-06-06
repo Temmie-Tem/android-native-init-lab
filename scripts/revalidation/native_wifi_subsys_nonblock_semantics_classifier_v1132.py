@@ -11,12 +11,12 @@ from pathlib import Path
 from typing import Any
 
 from a90_kernel_tools import collect_host_metadata, markdown_table, repo_path
-from a90harness.evidence import EvidenceStore, write_private_text
+from a90harness.evidence import EvidenceStore, write_private_text, workspace_private_input_path
 
 
 DEFAULT_OUT_DIR = Path("tmp/wifi/v1132-subsys-nonblock-semantics-classifier")
 LATEST_POINTER = Path("tmp/wifi/latest-v1132-subsys-nonblock-semantics-classifier.txt")
-DEFAULT_SOURCE = Path("kernel_build/SM-A908N_KOR_12_Opensource/Kernel/drivers/soc/qcom/subsystem_restart.c")
+DEFAULT_SOURCE = workspace_private_input_path("kernel_source", 'SM-A908N_KOR_12_Opensource', 'Kernel', 'drivers', 'soc', 'qcom', 'subsystem_restart.c')
 DEFAULT_V1131_CLASSIFIER = Path("tmp/wifi/v1131-post-policy-global-firmware-modem-holder-classifier/manifest.json")
 DEFAULT_V1131_LIVE = Path("tmp/wifi/v1131-post-policy-global-firmware-modem-holder-cnss-pm-live/manifest.json")
 

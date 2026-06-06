@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any
 
 from a90_kernel_tools import collect_host_metadata, markdown_table, repo_path
-from a90harness.evidence import EvidenceStore, write_private_text
+from a90harness.evidence import EvidenceStore, write_private_text, workspace_private_input_path
 
 
 DEFAULT_OUT_DIR = Path("tmp/wifi/v1314-dynamic-gdsc-esoc-prereq-classifier")
@@ -28,12 +28,12 @@ DEFAULT_V776_MANIFEST = Path("tmp/wifi/v776-tracepoint-inventory/manifest.json")
 DEFAULT_MDM3_RESEARCH = Path("docs/overview/MDM3_ESOC_SDX50M_BRINGUP_RESEARCH_2026-05-25.md")
 DEFAULT_ESOC_RESEARCH = Path("docs/overview/ESOC_PERIPHERAL_MANAGER_BRINGUP_RESEARCH_2026-05-25.md")
 DEFAULT_TRACE_SOURCES = [
-    Path("kernel_build/SM-A908N_KOR_12_Opensource/Kernel/include/trace/events/regulator.h"),
-    Path("kernel_build/SM-A908N_KOR_12_Opensource/Kernel/include/trace/events/gpio.h"),
-    Path("kernel_build/SM-A908N_KOR_12_Opensource/Kernel/include/trace/events/irq.h"),
-    Path("kernel_build/SM-A908N_KOR_12_Opensource/Kernel/include/trace/events/clk.h"),
-    Path("kernel_build/SM-A908N_KOR_12_Opensource/Kernel/include/trace/events/power.h"),
-    Path("kernel_build/SM-A908N_KOR_12_Opensource/Kernel/include/trace/events/trace_msm_pil_event.h"),
+    workspace_private_input_path("kernel_source", 'SM-A908N_KOR_12_Opensource', 'Kernel', 'include', 'trace', 'events', 'regulator.h'),
+    workspace_private_input_path("kernel_source", 'SM-A908N_KOR_12_Opensource', 'Kernel', 'include', 'trace', 'events', 'gpio.h'),
+    workspace_private_input_path("kernel_source", 'SM-A908N_KOR_12_Opensource', 'Kernel', 'include', 'trace', 'events', 'irq.h'),
+    workspace_private_input_path("kernel_source", 'SM-A908N_KOR_12_Opensource', 'Kernel', 'include', 'trace', 'events', 'clk.h'),
+    workspace_private_input_path("kernel_source", 'SM-A908N_KOR_12_Opensource', 'Kernel', 'include', 'trace', 'events', 'power.h'),
+    workspace_private_input_path("kernel_source", 'SM-A908N_KOR_12_Opensource', 'Kernel', 'include', 'trace', 'events', 'trace_msm_pil_event.h'),
 ]
 
 

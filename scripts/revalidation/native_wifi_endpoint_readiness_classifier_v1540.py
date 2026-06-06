@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from a90_kernel_tools import collect_host_metadata, markdown_table, repo_path
-from a90harness.evidence import EvidenceStore, write_private_text
+from a90harness.evidence import EvidenceStore, write_private_text, workspace_private_input_path
 
 
 DEFAULT_OUT_DIR = Path("tmp/wifi/v1540-endpoint-readiness-classifier")
@@ -32,7 +32,7 @@ V852_INTERRUPTS = Path(
     "v852-android-ext-mdm-provider-surface-run/android/commands/interrupts-focus.txt"
 )
 
-SOURCE_ROOT = Path("kernel_build/SM-A908N_KOR_12_Opensource/Kernel")
+SOURCE_ROOT = workspace_private_input_path("kernel_source", 'SM-A908N_KOR_12_Opensource', 'Kernel')
 PCIE_DTSI = SOURCE_ROOT / "arch/arm64/boot/dts/qcom/sm8150-pcie.dtsi"
 SDX50M_DTSI = SOURCE_ROOT / "arch/arm64/boot/dts/qcom/sm8150-sdx50m.dtsi"
 EXT_SOC_DTSI = SOURCE_ROOT / "arch/arm64/boot/dts/qcom/sdx5xm-external-soc.dtsi"

@@ -109,7 +109,7 @@ Run ID: V2169
 Native init: A90 Linux init 0.9.247
 Build tag: v2169-wifi-lifecycle-baseline
 Helper: a90_android_execns_probe helper-v427
-Boot image: stage3/boot_linux_v2169_wifi_lifecycle_baseline.img
+Boot image: workspace/private/inputs/boot_images/boot_linux_v2169_wifi_lifecycle_baseline.img
 Boot SHA256: <sha256>
 Device flash: yes|no
 Host commit: <git-sha-or-uncommitted>
@@ -146,7 +146,7 @@ Current verified Wi-Fi lifecycle evidence is based on:
 Native init: A90 Linux init 0.9.246 (v726-wifi-lifecycle)
 Build tag: v726-wifi-lifecycle
 Helper: a90_android_execns_probe helper-v427
-Boot image: stage3/boot_linux_v726_wifi_lifecycle.img
+Boot image: workspace/private/inputs/boot_images/boot_linux_v726_wifi_lifecycle.img
 Boot SHA256: 6b34aac93d4fa6d5b40355b9e13b2c1ae847c24a3685d84b0d1cd78751351d40
 Evidence: V2167, V2168, and v726 baseline source/build/promotion reports
 ```
@@ -158,6 +158,6 @@ run stream, the clean promotion should use a new run/build identity such as:
 Run ID: V2169
 Native init: A90 Linux init 0.9.247
 Build tag: v2169-wifi-lifecycle-baseline
-Boot image: stage3/boot_linux_v2169_wifi_lifecycle_baseline.img
+Boot image: workspace/private/inputs/boot_images/boot_linux_v2169_wifi_lifecycle_baseline.img
 Helper: a90_android_execns_probe helper-v427
 ```

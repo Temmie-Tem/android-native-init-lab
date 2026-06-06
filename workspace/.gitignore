@@ -1,0 +1,70 @@
+# Private/local workspace payloads. Keep only the scaffold README files tracked
+# so a fresh clone preserves the recovery map, but never commit restored
+# contents or nested payload README files.
+/private/**
+!/private/
+!/private/README.md
+!/private/archives/
+!/private/archives/README.md
+!/private/backups/
+!/private/backups/README.md
+!/private/builds/
+!/private/builds/README.md
+!/private/builds/boot_images/
+!/private/builds/boot_images/README.md
+!/private/builds/helpers/
+!/private/builds/helpers/README.md
+!/private/builds/ramdisks/
+!/private/builds/ramdisks/README.md
+!/private/builds/native-init/
+!/private/builds/native-init/README.md
+!/private/builds/wifi/
+!/private/builds/wifi/README.md
+!/private/device-dumps/
+!/private/device-dumps/README.md
+!/private/inputs/
+!/private/inputs/README.md
+!/private/inputs/boot_images/
+!/private/inputs/boot_images/README.md
+!/private/inputs/external_tools/
+!/private/inputs/external_tools/README.md
+!/private/inputs/firmware/
+!/private/inputs/firmware/README.md
+!/private/inputs/kernel_source/
+!/private/inputs/kernel_source/README.md
+!/private/inputs/toolchains/
+!/private/inputs/toolchains/README.md
+!/private/raw-logs/
+!/private/raw-logs/README.md
+!/private/scratch/
+!/private/scratch/README.md
+!/private/secrets/
+!/private/secrets/README.md
+
+# Public workspace guardrails. Public files are tracked by default, but these
+# extensions/patterns are treated as raw, private, or oversized unless manually
+# reviewed and renamed/redacted.
+/public/**/*.img
+/public/**/*.mbn
+/public/**/*.bin
+/public/**/*.cpio
+/public/**/*.dtb
+/public/**/*.dtbo
+/public/**/*.ko
+/public/**/*.o
+/public/**/*.a
+/public/**/*.so
+/public/**/*.log
+/public/**/*.raw
+/public/**/*.pcap
+/public/**/*.cap
+/public/**/*.zip
+/public/**/*.tgz
+/public/**/*.tar
+/public/**/*.tar.gz
+/public/**/*.zst
+/public/**/*secret*
+/public/**/*private*
+/public/**/*credential*
+/public/**/*supplicant*
+/public/**/*lease*

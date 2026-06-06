@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Any
 
 from a90_kernel_tools import collect_host_metadata, markdown_table, repo_path
-from a90harness.evidence import EvidenceStore, write_private_text
+from a90harness.evidence import EvidenceStore, write_private_text, workspace_private_input_path
 
 
 DEFAULT_OUT_DIR = Path("tmp/wifi/v1550-pcie1-power-domain-semantics-classifier")
@@ -33,7 +33,7 @@ DEFAULT_REPORT_PATH = Path(
 LATEST_POINTER = Path("tmp/wifi/latest-v1550-pcie1-power-domain-semantics-classifier.txt")
 
 SOURCE_ROOT = Path("tmp/wifi/v766-icnss-qcacld-patch-apply-build/source")
-OSRC_DTS_ROOT = Path("kernel_build/SM-A908N_KOR_12_Opensource/Kernel/arch/arm64/boot/dts/qcom")
+OSRC_DTS_ROOT = workspace_private_input_path("kernel_source", 'SM-A908N_KOR_12_Opensource', 'Kernel', 'arch', 'arm64', 'boot', 'dts', 'qcom')
 
 PATHS = {
     "v1549_manifest": Path("tmp/wifi/v1549-low-overhead-result-classifier/manifest.json"),

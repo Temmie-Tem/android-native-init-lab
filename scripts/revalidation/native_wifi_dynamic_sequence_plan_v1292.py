@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Any
 
 from a90_kernel_tools import collect_host_metadata, markdown_table, repo_path
-from a90harness.evidence import EvidenceStore, write_private_text
+from a90harness.evidence import EvidenceStore, workspace_private_input_path, write_private_text
 
 
 DEFAULT_OUT_DIR = Path("tmp/wifi/v1292-dynamic-sequence-plan")
@@ -29,14 +29,15 @@ DEFAULT_V1291_MANIFEST = Path("tmp/wifi/v1291-static-gpio-parity-classifier/mani
 DEFAULT_V1290_MANIFEST = Path("tmp/wifi/v1290-tlmm-pcie-sampler-live/manifest.json")
 DEFAULT_V1244_MANIFEST = Path("tmp/wifi/v1244-android-power-surface-classifier/manifest.json")
 DEFAULT_HELPER_SOURCE = Path("stage3/linux_init/helpers/a90_android_execns_probe.c")
-DEFAULT_MHI_SOURCE = Path("kernel_build/SM-A908N_KOR_12_Opensource/Kernel/drivers/bus/mhi/controllers/mhi_arch_qcom.c")
+KERNEL_ROOT = workspace_private_input_path("kernel_source", "SM-A908N_KOR_12_Opensource", "Kernel")
+DEFAULT_MHI_SOURCE = KERNEL_ROOT / "drivers/bus/mhi/controllers/mhi_arch_qcom.c"
 DEFAULT_TRACE_SOURCES = [
-    Path("kernel_build/SM-A908N_KOR_12_Opensource/Kernel/include/trace/events/regulator.h"),
-    Path("kernel_build/SM-A908N_KOR_12_Opensource/Kernel/include/trace/events/gpio.h"),
-    Path("kernel_build/SM-A908N_KOR_12_Opensource/Kernel/include/trace/events/irq.h"),
-    Path("kernel_build/SM-A908N_KOR_12_Opensource/Kernel/include/trace/events/clk.h"),
-    Path("kernel_build/SM-A908N_KOR_12_Opensource/Kernel/include/trace/events/power.h"),
-    Path("kernel_build/SM-A908N_KOR_12_Opensource/Kernel/include/trace/events/trace_msm_pil_event.h"),
+    KERNEL_ROOT / "include/trace/events/regulator.h",
+    KERNEL_ROOT / "include/trace/events/gpio.h",
+    KERNEL_ROOT / "include/trace/events/irq.h",
+    KERNEL_ROOT / "include/trace/events/clk.h",
+    KERNEL_ROOT / "include/trace/events/power.h",
+    KERNEL_ROOT / "include/trace/events/trace_msm_pil_event.h",
 ]
 DEFAULT_V776_MANIFEST = Path("tmp/wifi/v776-tracepoint-inventory/manifest.json")
 

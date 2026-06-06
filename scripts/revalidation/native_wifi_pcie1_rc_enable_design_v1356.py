@@ -10,12 +10,12 @@ from pathlib import Path
 from typing import Any
 
 from a90_kernel_tools import markdown_table, repo_path
-from a90harness.evidence import write_private_text
+from a90harness.evidence import write_private_text, workspace_private_input_path
 
 
 DEFAULT_OUT_DIR = Path("tmp/wifi/v1356-pcie1-rc-enable-design")
 REPORT_PATH = Path("docs/reports/NATIVE_INIT_V1356_PCIE1_RC_ENABLE_DESIGN_2026-06-01.md")
-SOURCE_ROOT = Path("kernel_build/SM-A908N_KOR_12_Opensource/Kernel")
+SOURCE_ROOT = workspace_private_input_path("kernel_source", 'SM-A908N_KOR_12_Opensource', 'Kernel')
 
 INPUTS = {
     "esoc_static_analysis": Path("docs/reports/ESOC_PROVIDER_STATIC_ANALYSIS_2026-06-01.md"),

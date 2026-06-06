@@ -25,13 +25,15 @@ from pathlib import Path
 from typing import Any
 from collections.abc import Sequence
 
+from a90harness.evidence import workspace_private_build_path, workspace_private_input_path
+
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 LINUX_INIT = REPO_ROOT / "stage3" / "linux_init"
 HELPER_BUILD_SCRIPT = REPO_ROOT / "scripts" / "revalidation" / "build_android_execns_probe_helper.sh"
-DEFAULT_BASE_BOOT = REPO_ROOT / "stage3" / "boot_linux_v724.img"
+DEFAULT_BASE_BOOT = workspace_private_input_path("boot_images", "boot_linux_v724.img")
 DEFAULT_INIT_SOURCE = LINUX_INIT / "init_v724.c"
-DEFAULT_OUT_DIR = REPO_ROOT / "tmp" / "wifi" / "v1393-wifi-test-boot"
+DEFAULT_OUT_DIR = workspace_private_build_path("native-init", "v1393-wifi-test-boot")
 DEFAULT_INIT_VERSION = "0.9.69"
 DEFAULT_INIT_BUILD = "v1393-wifitest"
 DEFAULT_INIT_CREATOR = "made by device owner"
@@ -544,7 +546,7 @@ def ramdisk_helpers(args: argparse.Namespace) -> dict[str, Path]:
         "bin/a90_longsoak": LINUX_INIT / "helpers" / "a90_longsoak",
         "bin/a90_rshell": LINUX_INIT / "helpers" / "a90_rshell",
         "bin/a90_tcpctl": (
-            REPO_ROOT / "external_tools" / "userland" / "bin" / "a90_tcpctl-aarch64-static"
+            workspace_private_input_path("external_tools", "userland", "bin", "a90_tcpctl-aarch64-static")
         ),
         "bin/a90_android_execns_probe": args.helper_binary,
     }

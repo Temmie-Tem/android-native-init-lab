@@ -21,11 +21,11 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 from a90_kernel_tools import collect_host_metadata, markdown_table, repo_path
-from a90harness.evidence import EvidenceStore, write_private_text
+from a90harness.evidence import EvidenceStore, write_private_text, workspace_private_input_path
 
 
 DEFAULT_OUT_DIR = Path("tmp/wifi/v766-icnss-qcacld-patch-apply-build")
-DEFAULT_SOURCE_ARCHIVE = Path("kernel_build/SM-A908N_KOR_12_Opensource/Kernel.tar.gz")
+DEFAULT_SOURCE_ARCHIVE = workspace_private_input_path("kernel_source", 'SM-A908N_KOR_12_Opensource', 'Kernel.tar.gz')
 DEFAULT_PATCH_FILE = Path("tmp/wifi/v765-icnss-qcacld-log-patch/a90-v765-icnss-qcacld-log.patch")
 DEFAULT_V765_MANIFEST = Path("tmp/wifi/v765-icnss-qcacld-log-patch/manifest.json")
 PATCH_PREFIX = "A90V765"

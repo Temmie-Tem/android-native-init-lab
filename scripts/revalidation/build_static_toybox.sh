@@ -6,7 +6,7 @@ TOYBOX_SHA256="${TOYBOX_SHA256:-9d4c124d7d731a2db399f6278baa2b42c2e3511f610c6ad3
 TOYBOX_URL="${TOYBOX_URL:-https://landley.net/toybox/downloads/toybox-${TOYBOX_VERSION}.tar.gz}"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-WORK_DIR="${WORK_DIR:-${ROOT_DIR}/external_tools/userland}"
+WORK_DIR="${WORK_DIR:-${A90_EXTERNAL_TOOLS_ROOT:-${ROOT_DIR}/workspace/private/inputs/external_tools}/userland}"
 DOWNLOAD_DIR="${WORK_DIR}/downloads"
 SRC_DIR="${WORK_DIR}/src"
 BIN_DIR="${WORK_DIR}/bin"

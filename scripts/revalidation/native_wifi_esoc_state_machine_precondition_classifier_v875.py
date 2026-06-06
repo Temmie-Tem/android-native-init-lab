@@ -16,12 +16,12 @@ from pathlib import Path
 from typing import Any
 
 from a90_kernel_tools import collect_host_metadata, markdown_table, repo_path
-from a90harness.evidence import EvidenceStore, write_private_text
+from a90harness.evidence import EvidenceStore, write_private_text, workspace_private_input_path
 
 
 DEFAULT_OUT_DIR = Path("tmp/wifi/v875-esoc-state-machine-precondition-classifier")
 LATEST_POINTER = Path("tmp/wifi/latest-v875-esoc-state-machine-precondition-classifier.txt")
-KERNEL_ROOT = Path("kernel_build/SM-A908N_KOR_12_Opensource/Kernel")
+KERNEL_ROOT = workspace_private_input_path("kernel_source", 'SM-A908N_KOR_12_Opensource', 'Kernel')
 ESOC_CTRL = KERNEL_ROOT / "include/uapi/linux/esoc_ctrl.h"
 ESOC_CLIENT = KERNEL_ROOT / "include/linux/esoc_client.h"
 SSR_C = KERNEL_ROOT / "drivers/soc/qcom/subsystem_restart.c"

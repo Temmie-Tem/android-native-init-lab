@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SRC="${ROOT_DIR}/stage3/linux_init/helpers/a90_mdm_helper_strace_wrapper.c"
-BIN_DIR="${ROOT_DIR}/external_tools/userland/bin"
+BIN_DIR="${A90_EXTERNAL_TOOLS_ROOT:-${ROOT_DIR}/workspace/private/inputs/external_tools}/userland/bin"
 OUT="${1:-${BIN_DIR}/a90_mdm_helper_strace_wrapper-aarch64-static}"
 CHECK_FILE="$(mktemp -t a90_mdm_wrapper_dynamic_check.XXXXXX)"
 trap 'rm -f "${CHECK_FILE}"' EXIT

@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from a90_kernel_tools import collect_host_metadata, markdown_table, repo_path
-from a90harness.evidence import write_private_text
+from a90harness.evidence import write_private_text, workspace_private_input_path
 
 
 DEFAULT_OUT_DIR = Path("tmp/wifi/v1371-rc1-ltssm-failure-classifier")
@@ -24,11 +24,19 @@ ANDROID_DMESG = Path(
     "v852-android-ext-mdm-provider-surface-run/android/commands/dmesg-focus.txt"
 )
 PCI_MSM_SOURCE = Path("tmp/wifi/v766-icnss-qcacld-patch-apply-build/source/drivers/pci/host/pci-msm.c")
-PCIE_DTS = Path("kernel_build/SM-A908N_KOR_12_Opensource/Kernel/arch/arm64/boot/dts/qcom/sm8150-pcie.dtsi")
-MHI_DTS = Path("kernel_build/SM-A908N_KOR_12_Opensource/Kernel/arch/arm64/boot/dts/qcom/sm8150-mhi.dtsi")
-R3Q_OVERLAY = Path(
-    "kernel_build/SM-A908N_KOR_12_Opensource/Kernel/arch/arm64/boot/dts/"
-    "samsung/renovation/sm8150-sec-r3q-kor-overlay-r00.dts"
+PCIE_DTS = workspace_private_input_path("kernel_source", 'SM-A908N_KOR_12_Opensource', 'Kernel', 'arch', 'arm64', 'boot', 'dts', 'qcom', 'sm8150-pcie.dtsi')
+MHI_DTS = workspace_private_input_path("kernel_source", 'SM-A908N_KOR_12_Opensource', 'Kernel', 'arch', 'arm64', 'boot', 'dts', 'qcom', 'sm8150-mhi.dtsi')
+R3Q_OVERLAY = workspace_private_input_path(
+    "kernel_source",
+    "SM-A908N_KOR_12_Opensource",
+    "Kernel",
+    "arch",
+    "arm64",
+    "boot",
+    "dts",
+    "samsung",
+    "renovation",
+    "sm8150-sec-r3q-kor-overlay-r00.dts",
 )
 HOST_ANALYSIS = Path("docs/reports/ESOC_PROVIDER_STATIC_ANALYSIS_2026-06-01.md")
 

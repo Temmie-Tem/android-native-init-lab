@@ -158,12 +158,12 @@ hygiene를 기준으로 한다.
 - 현재 기준 사이클: `v726-wifi-lifecycle` Wi-Fi lifecycle baseline (native Wi-Fi bring-up rollback/test 기준)
 - version axes: `v726`은 boot/init baseline tag, `a90_android_execns_probe helper-v427`은 포함된 helper marker, `V2167`/`V2168` 등은 검증 run/report 번호다. 전체 규칙은 `docs/operations/VERSIONING_POLICY.md`를 따른다.
 - creator: `made by temmie0214`
-- latest verified source: `stage3/linux_init/init_v724.c` + 모듈 `stage3/linux_init/v724/90_main.inc.c` + 헬퍼 `stage3/linux_init/helpers/` + 빌더 `scripts/revalidation/build_native_init_boot_v726_wifi_lifecycle.py`
-- latest verified boot image: `stage3/boot_linux_v726_wifi_lifecycle.img`
+- latest verified source: `stage3/linux_init/init_v724.c` + 모듈 `stage3/linux_init/v724/90_main.inc.c` + 헬퍼 `stage3/linux_init/helpers/` + 빌더 `workspace/public/src/scripts/revalidation/build_native_init_boot_v726_wifi_lifecycle.py`
+- latest verified boot image: `workspace/private/inputs/boot_images/boot_linux_v726_wifi_lifecycle.img`
 - latest verified boot image SHA256: `6b34aac93d4fa6d5b40355b9e13b2c1ae847c24a3685d84b0d1cd78751351d40`
-- previous verified boot image: `stage3/boot_linux_v725_fasttransport.img` (`0.9.244 (v725-fasttransport)`)
-- older verified boot image: `stage3/boot_linux_v261.img` (`0.9.60 (v261)`)
-- known-good fallback: `stage3/boot_linux_v48.img`
+- previous verified boot image: `workspace/private/inputs/boot_images/boot_linux_v725_fasttransport.img` (`0.9.244 (v725-fasttransport)`)
+- older verified boot image: `workspace/private/inputs/boot_images/boot_linux_v261.img` (`0.9.60 (v261)`)
+- known-good fallback: `workspace/private/inputs/boot_images/boot_linux_v48.img`
 - control channel: USB CDC ACM serial bridge
 - display: custom boot splash 후 상태 HUD/menu 자동 전환
 - input: VOL+/VOL-/POWER 단일/더블/롱/조합 입력 layout과 input monitor 확인
@@ -682,6 +682,7 @@ hygiene를 기준으로 한다.
 
 ### 4. Current Native Init Reports
 
+- `operations/WORKSPACE_STRUCTURE_AND_BOOTSTRAP.md` – 새 GitHub clone/new workspace에서 tracked source, ignored local inputs, structured `tmp` layout, boot image rebuild order, private Wi-Fi env, host NCM setup, seal check를 복구하는 기준
 - `reports/NATIVE_INIT_WIFI_AUTOCONNECT_CONFIG_PLAN_2026-06-07.md` – V726 이후 Wi-Fi SSID/PSK 저장, 명시적 autoconnect 옵션, generated supplicant config, HUD/runtime summary 연동, artifact hygiene를 정리한 계획
 - `reports/NATIVE_INIT_ARTIFACT_LAYOUT_CLEANUP_POLICY_2026-06-07.md` – `tmp/wifi`를 `runs/builds/cache/bench/scratch/archive`로 구조화하고 `docs/artifacts`에는 공개 가능한 redacted summary만 추적하는 cleanup/migration 기준
 - `reports/NATIVE_INIT_V726_WIFI_LIFECYCLE_BASELINE_PROMOTION_2026-06-07.md` – `0.9.246 (v726-wifi-lifecycle)`/SHA `6b34aac...`를 현재 baseline으로 승격하고, 현재 부팅 `status`/`selftest fail=0`, persistent `baseline_ready=1`, final SHA 60초 connect smoke를 묶은 결과

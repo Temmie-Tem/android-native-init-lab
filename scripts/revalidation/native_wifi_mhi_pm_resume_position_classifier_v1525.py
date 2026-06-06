@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from a90_kernel_tools import collect_host_metadata, markdown_table, repo_path
-from a90harness.evidence import EvidenceStore, write_private_text
+from a90harness.evidence import EvidenceStore, workspace_private_input_path, write_private_text
 
 import native_wifi_msm_pcie_test11_static_analysis_v1498 as v1498
 
@@ -30,13 +30,9 @@ V852_DMESG = Path(
 V1517_NATIVE_DMESG = Path(
     "tmp/wifi/v1517-wifi-critical-source-pre-l0-handoff/test-v1393-dmesg.stdout.txt"
 )
-MHI_ARCH_SOURCE = Path(
-    "kernel_build/SM-A908N_KOR_12_Opensource/Kernel/drivers/bus/mhi/controllers/mhi_arch_qcom.c"
-)
-MHI_QCOM_SOURCE = Path(
-    "kernel_build/SM-A908N_KOR_12_Opensource/Kernel/drivers/bus/mhi/controllers/mhi_qcom.c"
-)
-KERNEL_ROOT = Path("kernel_build/SM-A908N_KOR_12_Opensource/Kernel")
+KERNEL_ROOT = workspace_private_input_path("kernel_source", "SM-A908N_KOR_12_Opensource", "Kernel")
+MHI_ARCH_SOURCE = KERNEL_ROOT / "drivers/bus/mhi/controllers/mhi_arch_qcom.c"
+MHI_QCOM_SOURCE = KERNEL_ROOT / "drivers/bus/mhi/controllers/mhi_qcom.c"
 
 
 def now_iso() -> str:

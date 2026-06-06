@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any
 
 from a90_kernel_tools import collect_host_metadata, markdown_table, repo_path
-from a90harness.evidence import EvidenceStore, write_private_text
+from a90harness.evidence import EvidenceStore, write_private_text, workspace_private_input_path
 
 
 DEFAULT_OUT_DIR = Path("tmp/wifi/v848-subsys-esoc0-open-block-classifier")
@@ -26,7 +26,7 @@ LATEST_POINTER = Path("tmp/wifi/latest-v848-subsys-esoc0-open-block-classifier.t
 DEFAULT_V846_MANIFEST = Path("tmp/wifi/v846-mdm3-esoc-state-control-contract/manifest.json")
 DEFAULT_V847_MANIFEST = Path("tmp/wifi/v847-subsys-esoc0-char-open-smoke/manifest.json")
 DEFAULT_V847_EVIDENCE = Path("tmp/wifi/v847-subsys-esoc0-char-open-smoke")
-DEFAULT_SOURCE_ROOT = Path("kernel_build/SM-A908N_KOR_12_Opensource/Kernel")
+DEFAULT_SOURCE_ROOT = workspace_private_input_path("kernel_source", 'SM-A908N_KOR_12_Opensource', 'Kernel')
 
 SUBSYSTEM_RESTART = Path("drivers/soc/qcom/subsystem_restart.c")
 ESOC_CLIENT = Path("include/linux/esoc_client.h")

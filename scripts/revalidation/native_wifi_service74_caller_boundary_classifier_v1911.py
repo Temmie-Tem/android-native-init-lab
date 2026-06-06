@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from a90_kernel_tools import markdown_table, repo_path
-from a90harness.evidence import EvidenceStore, write_private_text
+from a90harness.evidence import EvidenceStore, write_private_text, workspace_private_input_path
 
 
 CYCLE = "V1911"
@@ -18,7 +18,7 @@ DEFAULT_OUT_DIR = Path("tmp/wifi/v1911-service74-caller-boundary-classifier")
 DEFAULT_REPORT = Path("docs/reports/NATIVE_INIT_V1911_SERVICE74_CALLER_BOUNDARY_CLASSIFIER_2026-06-03.md")
 DEFAULT_V1910 = Path("tmp/wifi/v1910-android-early-servloc-domain-handoff-live-20260603-214749/manifest.json")
 DEFAULT_V1908 = Path("tmp/wifi/v1908-servloc-domain-list-live-handoff/manifest.json")
-KERNEL_ROOT = Path("kernel_build/SM-A908N_KOR_12_Opensource/Kernel")
+KERNEL_ROOT = workspace_private_input_path("kernel_source", 'SM-A908N_KOR_12_Opensource', 'Kernel')
 ICNSS = KERNEL_ROOT / "drivers/soc/qcom/icnss.c"
 SERVICE_NOTIFIER = KERNEL_ROOT / "drivers/soc/qcom/service-notifier.c"
 SERVICE_NOTIFIER_H = KERNEL_ROOT / "include/soc/qcom/service-notifier.h"

@@ -13,15 +13,15 @@ Date: `2026-04-29`
 - device: `Samsung Galaxy A90 5G SM-A908N`
 - recovery: TWRP 사용 가능
 - latest verified build: `A90 Linux init 0.9.246 (v726-wifi-lifecycle)`
-- latest verified source: `stage3/linux_init/init_v724.c` + 모듈 `stage3/linux_init/v724/90_main.inc.c` + 헬퍼 `stage3/linux_init/helpers/` + 빌더 `scripts/revalidation/build_native_init_boot_v726_wifi_lifecycle.py`
-- latest verified boot image: `stage3/boot_linux_v726_wifi_lifecycle.img`
+- latest verified source: `stage3/linux_init/init_v724.c` + 모듈 `stage3/linux_init/v724/90_main.inc.c` + 헬퍼 `stage3/linux_init/helpers/` + 빌더 `workspace/public/src/scripts/revalidation/build_native_init_boot_v726_wifi_lifecycle.py`
+- latest verified boot image: `workspace/private/inputs/boot_images/boot_linux_v726_wifi_lifecycle.img`
 - latest verified boot image SHA256: `6b34aac93d4fa6d5b40355b9e13b2c1ae847c24a3685d84b0d1cd78751351d40`
 - 현재 기준 사이클: `v726-wifi-lifecycle` Wi-Fi lifecycle baseline (native Wi-Fi bring-up은 이 이미지로 rollback/test)
 - version axes: `v726`은 boot/init baseline tag, `a90_android_execns_probe helper-v427`은 포함된 helper marker, `V2167`/`V2168` 등은 검증 run/report 번호다. 전체 규칙은 `docs/operations/VERSIONING_POLICY.md`를 따른다.
-- previous verified boot image: `stage3/boot_linux_v725_fasttransport.img` (`A90 Linux init 0.9.244 (v725-fasttransport)`)
-- older verified boot image: `stage3/boot_linux_v261.img` (`A90 Linux init 0.9.60 (v261)`)
+- previous verified boot image: `workspace/private/inputs/boot_images/boot_linux_v725_fasttransport.img` (`A90 Linux init 0.9.244 (v725-fasttransport)`)
+- older verified boot image: `workspace/private/inputs/boot_images/boot_linux_v261.img` (`A90 Linux init 0.9.60 (v261)`)
 - known-good fallback native init: `A90 Linux init v48`
-- known-good fallback boot image: `stage3/boot_linux_v48.img`
+- known-good fallback boot image: `workspace/private/inputs/boot_images/boot_linux_v48.img`
 - primary control channel: USB CDC ACM serial
 - host bridge: `127.0.0.1:54321`
 - bridge script: `scripts/revalidation/serial_tcp_bridge.py`
@@ -429,7 +429,7 @@ TWRP에서 배치:
 
 ```bash
 adb -s RFCM90CFWXA shell 'mkdir -p /cache/bin && chmod 755 /cache/bin'
-adb -s RFCM90CFWXA push external_tools/userland/bin/toybox-aarch64-static-0.8.13 /cache/bin/toybox
+adb -s RFCM90CFWXA push workspace/private/inputs/external_tools/userland/bin/toybox-aarch64-static-0.8.13 /cache/bin/toybox
 adb -s RFCM90CFWXA shell 'chmod 755 /cache/bin/toybox && sync && sha256sum /cache/bin/toybox'
 ```
 
@@ -458,7 +458,7 @@ printf 'run /cache/bin/toybox ps -A\n' | nc -w 8 127.0.0.1 54321
 TWRP에서 배치:
 
 ```bash
-adb -s RFCM90CFWXA push external_tools/userland/bin/a90_usbnet-aarch64-static /cache/bin/a90_usbnet
+adb -s RFCM90CFWXA push workspace/private/inputs/external_tools/userland/bin/a90_usbnet-aarch64-static /cache/bin/a90_usbnet
 adb -s RFCM90CFWXA shell 'chmod 755 /cache/bin/a90_usbnet && sync && sha256sum /cache/bin/a90_usbnet'
 ```
 

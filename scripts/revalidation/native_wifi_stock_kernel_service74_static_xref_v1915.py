@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from a90_kernel_tools import markdown_table, repo_path
-from a90harness.evidence import EvidenceStore, write_private_text
+from a90harness.evidence import EvidenceStore, write_private_text, workspace_private_input_path
 
 
 CYCLE = "V1915"
@@ -23,7 +23,7 @@ DEFAULT_REPORT = Path("docs/reports/NATIVE_INIT_V1915_STOCK_KERNEL_SERVICE74_STA
 DEFAULT_STOCK_BOOT = Path("backups/baseline_a_20260423_030309/boot.img")
 DEFAULT_NATIVE_BOOT = Path("stage3/boot_linux_v724.img")
 UNPACK_BOOTIMG = Path("mkbootimg/unpack_bootimg.py")
-KERNEL_ROOT = Path("kernel_build/SM-A908N_KOR_12_Opensource/Kernel")
+KERNEL_ROOT = workspace_private_input_path("kernel_source", 'SM-A908N_KOR_12_Opensource', 'Kernel')
 SOURCE_ROOTS = [
     KERNEL_ROOT / "drivers/soc/qcom",
     KERNEL_ROOT / "include/soc/qcom",
@@ -216,7 +216,7 @@ def source_summary() -> dict[str, Any]:
 
 
 def local_symbol_artifact_summary() -> dict[str, Any]:
-    root = repo_path("kernel_build/SM-A908N_KOR_12_Opensource")
+    root = workspace_private_input_path("kernel_source", "SM-A908N_KOR_12_Opensource")
     artifacts = []
     if root.exists():
         for pattern in ("vmlinux", "System.map*", "*.o", "*.ko", "Module.symvers"):

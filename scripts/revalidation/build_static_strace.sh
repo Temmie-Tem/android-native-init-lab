@@ -6,7 +6,7 @@ STRACE_SHA256="${STRACE_SHA256:-6c92419be3f2ec560b31728a4652217c59864c8642ba7b1b
 STRACE_URL="${STRACE_URL:-https://github.com/strace/strace/releases/download/v${STRACE_VERSION}/strace-${STRACE_VERSION}.tar.xz}"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-WORK_DIR="${WORK_DIR:-${ROOT_DIR}/external_tools/userland}"
+WORK_DIR="${WORK_DIR:-${A90_EXTERNAL_TOOLS_ROOT:-${ROOT_DIR}/workspace/private/inputs/external_tools}/userland}"
 DOWNLOAD_DIR="${WORK_DIR}/downloads"
 SRC_DIR="${WORK_DIR}/src"
 BIN_DIR="${WORK_DIR}/bin"

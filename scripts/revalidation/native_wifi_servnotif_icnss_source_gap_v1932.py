@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from a90_kernel_tools import collect_host_metadata, markdown_table, repo_path
-from a90harness.evidence import EvidenceStore
+from a90harness.evidence import EvidenceStore, workspace_private_input_path
 
 
 CYCLE = "V1932"
@@ -21,7 +21,7 @@ V1916_MANIFEST = repo_path("tmp/wifi/v1916-android-broad-kallsyms-tracefs-handof
 V1923_MANIFEST = repo_path("tmp/wifi/v1923-post-wlfw-qmi-service-delta/manifest.json")
 V1931_MANIFEST = repo_path("tmp/wifi/v1931-android-servnotif-native-libqmi69-diff/manifest.json")
 
-SOURCE_ROOT = repo_path("kernel_build/SM-A908N_KOR_12_Opensource/Kernel")
+SOURCE_ROOT = workspace_private_input_path("kernel_source", "SM-A908N_KOR_12_Opensource", "Kernel")
 ICNSS_SOURCE = SOURCE_ROOT / "drivers/soc/qcom/icnss.c"
 SERVICE_NOTIFIER_SOURCE = SOURCE_ROOT / "drivers/soc/qcom/service-notifier.c"
 SERVICE_NOTIFIER_PRIVATE = SOURCE_ROOT / "drivers/soc/qcom/service-notifier-private.h"

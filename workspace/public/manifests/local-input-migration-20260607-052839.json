@@ -1,0 +1,48 @@
+{
+  "action": "workspace-private-local-input-migration",
+  "generated_at": "2026-06-07 05:28:40 +0900",
+  "note": "Public summary contains only top-level counts/bytes and compatibility mode; full private move list is ignored under workspace/private/archives.",
+  "records": [
+    {
+      "bytes": 165377727,
+      "dest": "workspace/private/inputs/external_tools",
+      "entry_count": 1,
+      "mode": "replace-root-with-symlink",
+      "name": "external_tools",
+      "source": "external_tools"
+    },
+    {
+      "bytes": 2406226778,
+      "dest": "workspace/private/inputs/toolchains",
+      "entry_count": 7,
+      "mode": "replace-root-with-symlink",
+      "name": "toolchains",
+      "source": "toolchains"
+    },
+    {
+      "bytes": 13755585985,
+      "dest": "workspace/private/inputs/firmware",
+      "entry_count": 3,
+      "mode": "preserve-root-readme-create-child-symlinks",
+      "name": "firmware",
+      "source": "firmware"
+    },
+    {
+      "bytes": 857472111,
+      "dest": "workspace/private/inputs/kernel_source",
+      "entry_count": 1,
+      "mode": "preserve-root-readme-create-child-symlinks",
+      "name": "kernel_build",
+      "source": "kernel_build"
+    },
+    {
+      "bytes": 255295014,
+      "dest": "workspace/private/backups",
+      "entry_count": 3,
+      "mode": "replace-root-with-symlink",
+      "name": "backups",
+      "source": "backups"
+    }
+  ],
+  "total_bytes": 17439957615
+}

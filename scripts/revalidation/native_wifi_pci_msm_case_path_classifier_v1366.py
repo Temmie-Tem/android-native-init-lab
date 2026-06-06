@@ -11,13 +11,13 @@ from pathlib import Path
 from typing import Any
 
 from a90_kernel_tools import markdown_table, repo_path
-from a90harness.evidence import write_private_text
+from a90harness.evidence import write_private_text, workspace_private_input_path
 
 
 DEFAULT_OUT_DIR = Path("tmp/wifi/v1366-pci-msm-case-path-classifier")
 REPORT_PATH = Path("docs/reports/NATIVE_INIT_V1366_PCI_MSM_CASE_PATH_CLASSIFIER_2026-06-01.md")
 SOURCE_ROOT = Path("tmp/wifi/v766-icnss-qcacld-patch-apply-build/source")
-KERNEL_DTS_ROOT = Path("kernel_build/SM-A908N_KOR_12_Opensource/Kernel/arch/arm64/boot/dts/qcom")
+KERNEL_DTS_ROOT = workspace_private_input_path("kernel_source", 'SM-A908N_KOR_12_Opensource', 'Kernel', 'arch', 'arm64', 'boot', 'dts', 'qcom')
 
 INPUTS = {
     "pci_msm_source": SOURCE_ROOT / "drivers/pci/host/pci-msm.c",

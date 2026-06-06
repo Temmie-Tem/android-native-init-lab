@@ -16,6 +16,32 @@ PRIVATE_FILE_MODE = 0o600
 PUBLIC_DIR_MODE = 0o755
 PUBLIC_FILE_MODE = 0o644
 REPO_ROOT = Path(__file__).resolve().parents[3]
+WORKSPACE_ROOT = REPO_ROOT / "workspace"
+WORKSPACE_PRIVATE_ROOT = WORKSPACE_ROOT / "private"
+WORKSPACE_PUBLIC_ROOT = WORKSPACE_ROOT / "public"
+WORKSPACE_PRIVATE_INPUT_ROOT = WORKSPACE_PRIVATE_ROOT / "inputs"
+WORKSPACE_PRIVATE_BUILD_ROOT = WORKSPACE_PRIVATE_ROOT / "builds"
+WORKSPACE_PRIVATE_INPUT_KINDS = frozenset(
+    {"firmware", "boot_images", "toolchains", "external_tools", "kernel_source"}
+)
+WORKSPACE_PRIVATE_BUILD_KINDS = frozenset(
+    {"native-init", "boot_images", "ramdisks", "helpers", "wifi"}
+)
+WORKSPACE_INPUT_ENV = {
+    "firmware": "A90_FIRMWARE_ROOT",
+    "boot_images": "A90_BOOT_IMAGE_ROOT",
+    "toolchains": "A90_TOOLCHAIN_ROOT",
+    "external_tools": "A90_EXTERNAL_TOOLS_ROOT",
+    "kernel_source": "A90_KERNEL_SOURCE_ROOT",
+}
+WORKSPACE_BUILD_ENV = "A90_BUILD_ROOT"
+LEGACY_INPUT_ROOTS = {
+    "firmware": REPO_ROOT / "firmware",
+    "boot_images": REPO_ROOT / "stage3",
+    "toolchains": REPO_ROOT / "toolchains",
+    "external_tools": REPO_ROOT / "external_tools",
+    "kernel_source": REPO_ROOT / "kernel_build",
+}
 TMP_ROOT = REPO_ROOT / "tmp"
 TMP_LOG_ROOT = TMP_ROOT / "logs"
 WIFI_TMP_ROOT = REPO_ROOT / "tmp" / "wifi"
@@ -177,6 +203,45 @@ def docs_artifact_path(label: str, *, suffix: str = ".json") -> Path:
     safe_label = safe_artifact_label(label)
     normalized_suffix = suffix if suffix.startswith(".") else f".{suffix}"
     return DOC_ARTIFACT_ROOT / f"{safe_label}{normalized_suffix}"
+
+
+def workspace_private_input_root(kind: str) -> Path:
+    if kind not in WORKSPACE_PRIVATE_INPUT_KINDS:
+        raise ValueError(f"unknown workspace private input kind: {kind}")
+    override = os.environ.get(WORKSPACE_INPUT_ENV[kind], "").strip()
+    if override:
+        return Path(override).expanduser()
+    return WORKSPACE_PRIVATE_INPUT_ROOT / kind
+
+
+def workspace_private_input_path(kind: str, *parts: str, legacy_fallback: bool = True) -> Path:
+    primary = workspace_private_input_root(kind).joinpath(*parts)
+    if primary.exists() or not legacy_fallback:
+        return primary
+    legacy = LEGACY_INPUT_ROOTS[kind].joinpath(*parts)
+    if legacy.exists():
+        return legacy
+    return primary
+
+
+def workspace_private_build_root(kind: str) -> Path:
+    if kind not in WORKSPACE_PRIVATE_BUILD_KINDS:
+        raise ValueError(f"unknown workspace private build kind: {kind}")
+    override = os.environ.get(WORKSPACE_BUILD_ENV, "").strip()
+    if override:
+        return Path(override).expanduser() / kind
+    return WORKSPACE_PRIVATE_BUILD_ROOT / kind
+
+
+def workspace_private_build_path(kind: str, *parts: str) -> Path:
+    return workspace_private_build_root(kind).joinpath(*parts)
+
+
+def workspace_public_path(kind: str, label: str, *, suffix: str = ".json") -> Path:
+    safe_kind = safe_artifact_label(kind, default="manifests", max_len=48)
+    safe_label = safe_artifact_label(label)
+    normalized_suffix = suffix if suffix.startswith(".") else f".{suffix}"
+    return WORKSPACE_PUBLIC_ROOT / safe_kind / f"{safe_label}{normalized_suffix}"
 
 
 class EvidenceStore:
