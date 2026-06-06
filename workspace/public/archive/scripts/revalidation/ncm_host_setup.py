@@ -1,0 +1,1 @@
+../../../src/scripts/revalidation/ncm_host_setup.py

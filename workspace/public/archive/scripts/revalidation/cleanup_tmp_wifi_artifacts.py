@@ -1,0 +1,1 @@
+../../../src/scripts/revalidation/cleanup_tmp_wifi_artifacts.py

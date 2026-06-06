@@ -1,0 +1,1 @@
+../../../src/scripts/revalidation/build_static_toybox.sh

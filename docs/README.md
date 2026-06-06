@@ -21,6 +21,7 @@
 > boot/init baseline tag, `a90_android_execns_probe helper-v427`은 helper marker다.
 > 다음 baseline 승격은 `V2169` run ID / `0.9.247` native init /
 > `v2169-wifi-lifecycle-baseline` build tag로 분리한다.
+> 작업 위치와 커밋 경계는 `docs/operations/WORKING_RULES.md`를 우선 확인한다.
 
 아래 초기 PM/CNSS 목록은 과거 스냅샷으로 보존한다. 현재 baseline 작업은 외부
 SDX50M/eSoC/PCIe/GDSC 경로가 아니라 internal-modem Wi-Fi lifecycle과 artifact
@@ -158,7 +159,7 @@ hygiene를 기준으로 한다.
 - 현재 기준 사이클: `v726-wifi-lifecycle` Wi-Fi lifecycle baseline (native Wi-Fi bring-up rollback/test 기준)
 - version axes: `v726`은 boot/init baseline tag, `a90_android_execns_probe helper-v427`은 포함된 helper marker, `V2167`/`V2168` 등은 검증 run/report 번호다. 전체 규칙은 `docs/operations/VERSIONING_POLICY.md`를 따른다.
 - creator: `made by temmie0214`
-- latest verified source: `stage3/linux_init/init_v724.c` + 모듈 `stage3/linux_init/v724/90_main.inc.c` + 헬퍼 `stage3/linux_init/helpers/` + 빌더 `workspace/public/src/scripts/revalidation/build_native_init_boot_v726_wifi_lifecycle.py`
+- latest verified source: `workspace/public/src/native-init/init_v724.c` + 모듈 `workspace/public/src/native-init/v724/90_main.inc.c` + 헬퍼 `workspace/public/src/native-init/helpers/` + 빌더 `workspace/public/src/scripts/revalidation/build_native_init_boot_v726_wifi_lifecycle.py`
 - latest verified boot image: `workspace/private/inputs/boot_images/boot_linux_v726_wifi_lifecycle.img`
 - latest verified boot image SHA256: `6b34aac93d4fa6d5b40355b9e13b2c1ae847c24a3685d84b0d1cd78751351d40`
 - previous verified boot image: `workspace/private/inputs/boot_images/boot_linux_v725_fasttransport.img` (`0.9.244 (v725-fasttransport)`)

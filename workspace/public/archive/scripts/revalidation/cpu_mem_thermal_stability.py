@@ -1,0 +1,1 @@
+../../../src/scripts/revalidation/cpu_mem_thermal_stability.py

@@ -5,6 +5,9 @@ Date: `2026-05-11` (refreshed `2026-06-07`)
 This project uses separate version axes. Do not collapse them into one `vNNN`
 number.
 
+For the combined day-to-day rulebook covering version axes, workspace paths, and
+commit boundaries, read `docs/operations/WORKING_RULES.md` first.
+
 ## 1. Run ID: `VNNNN`
 
 The run ID is the global project execution number.
@@ -47,7 +50,7 @@ Increase this version when the flashed boot artifact changes:
 - ramdisk helper binaries or ramdisk layout change
 - boot image, kernel command line, or boot packaging changes
 - device-visible UI, shell, storage, network, service, or runtime behavior changes
-- a fix requires flashing a new `stage3/boot_linux_*.img`
+- a fix requires flashing a new `workspace/private/inputs/boot_images/boot_linux_*.img`
 
 Do not increase this version for host-only tooling, reports, plans, or validation
 runs against an unchanged device image.

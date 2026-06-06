@@ -7,6 +7,8 @@ V31/V32 modem-holder finding into one fasttransport-based boot candidate.
 
 from __future__ import annotations
 
+import json
+
 from _workspace_bootstrap import add_legacy_revalidation_path, repo_root
 
 REPO_ROOT = repo_root()
@@ -97,26 +99,27 @@ def render_report(manifest: dict[str, object]) -> str:
         "",
         "## Summary",
         "",
-        "- Cycle: `V726`",
+        "- Baseline tag: `v726-wifi-lifecycle`",
         "- Type: source/build-only baseline candidate.",
         f"- Decision: `{manifest['decision']}`",
         "- Result: PASS",
-        "- Reason: V726 combines the V2168 QCACLD firmware_class feeder path with a PID1-owned `/dev/subsys_modem` lifecycle holder, while preserving the V725 fasttransport ramdisk contract.",
+        "- Reason: the V726 boot/init baseline incorporates the validation-route V2168 QCACLD firmware_class feeder path with a PID1-owned `/dev/subsys_modem` lifecycle holder, while preserving the V725 fasttransport ramdisk contract.",
         "- Manifest: `workspace/private/builds/native-init/v726-wifi-lifecycle-test-boot/manifest.json`",
         f"- Base boot: `{manifest['base_boot']}`",
         f"- Boot image: `{manifest['boot_image']}`",
         f"- Boot SHA256: `{manifest['boot_sha256']}`",
         "- Boot SHA verification: source/build output; flash/readback/selftest verification is recorded in the V726 baseline promotion report.",
         f"- Init: `A90 Linux init {manifest['init_version']} ({manifest['init_build']})`",
-        f"- Helper marker: `{manifest['helper_marker']}`",
+        f"- Helper marker: `a90_android_execns_probe helper-v427` (binary marker string: `{manifest['helper_marker']}`)",
         f"- Helper SHA256: `{manifest['helper_sha256']}`",
+        "- Version axes: `v726-wifi-lifecycle` is the boot/init baseline tag; `helper-v427` is the helper binary marker; `V2167`/`V2168` are validation-route/report identifiers, not newer boot baselines.",
         "",
         "## Included Route",
         "",
         f"- Helper runtime mode: `{wifi['helper_runtime_mode']}`",
         f"- Helper timeout: `{wifi['helper_timeout_sec']}`",
         f"- Property root: `{REMOTE_PROPERTY_ROOT}`",
-        "- Kept from V2168: firmware mounts, `firmware_class.path` vendor path, RFS bridges, post-FW_READY `boot_wlan`, and bounded QCACLD firmware_class feeder.",
+        "- Kept from validation route V2168: firmware mounts, `firmware_class.path` vendor path, RFS bridges, post-FW_READY `boot_wlan`, and bounded QCACLD firmware_class feeder.",
         "- Added: PID1 starts a persistent internal-modem lifecycle owner that opens only `/dev/subsys_modem` and records `/cache/native-init-wifi-lifecycle-modem-owner.*`.",
         "- Added: PID1 starts a lightweight Wi-Fi runtime summary sampler at `/cache/native-init-wifi-runtime.summary`; the HUD consumes it for Wi-Fi MAC/IP/RX/TX state and optional SSID/RSSI/link-speed labels.",
         "",
@@ -126,6 +129,22 @@ def render_report(manifest: dict[str, object]) -> str:
         "- The live validation remains credential-redacted and rollbackable to `workspace/private/inputs/boot_images/boot_linux_v725_fasttransport.img`.",
         "",
     ])
+
+
+def normalize_manifest_axes() -> None:
+    manifest_path = OUT_DIR / "manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    if manifest.get("cycle") == "V726":
+        manifest["legacy_cycle_field"] = "V726"
+        manifest["cycle"] = None
+    manifest["baseline_tag"] = "v726-wifi-lifecycle"
+    manifest["version_axes"] = {
+        "baseline_tag": "v726-wifi-lifecycle",
+        "helper_version": "helper-v427",
+        "supporting_run_ids": ["V2167", "V2168"],
+        "note": "V726 is a boot/init baseline tag, not a global run ID.",
+    }
+    manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
 
 
 def main() -> int:
@@ -138,7 +157,10 @@ def main() -> int:
     )
     helper_builder.patch_helper_builder(base)
     base.render_report = render_report
-    return base.main()
+    rc = base.main()
+    if rc == 0:
+        normalize_manifest_axes()
+    return rc
 
 
 if __name__ == "__main__":

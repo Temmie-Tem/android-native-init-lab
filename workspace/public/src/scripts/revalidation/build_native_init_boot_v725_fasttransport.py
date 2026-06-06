@@ -26,7 +26,8 @@ add_legacy_revalidation_path(REPO_ROOT)
 from a90harness.evidence import workspace_private_build_path, workspace_private_input_path
 
 
-LINUX_INIT = REPO_ROOT / "stage3" / "linux_init"
+LINUX_INIT = REPO_ROOT / "workspace" / "public" / "src" / "native-init"
+NATIVE_INIT_HELPERS = workspace_private_build_path("native-init", "helpers")
 USERLAND_BIN = workspace_private_input_path("external_tools", "userland", "bin")
 DEFAULT_BASE_BOOT = workspace_private_input_path("boot_images", "boot_linux_v724.img")
 DEFAULT_INIT_SOURCE = LINUX_INIT / "init_v725_fasttransport.c"
@@ -38,10 +39,10 @@ DEFAULT_BOOT_IMAGE = workspace_private_input_path(
 )
 
 RAMDISK_HELPERS = {
-    "bin/a90sleep": LINUX_INIT / "a90_sleep",
-    "bin/a90_cpustress": LINUX_INIT / "helpers" / "a90_cpustress",
-    "bin/a90_longsoak": LINUX_INIT / "helpers" / "a90_longsoak",
-    "bin/a90_rshell": LINUX_INIT / "helpers" / "a90_rshell",
+    "bin/a90sleep": NATIVE_INIT_HELPERS / "a90_sleep",
+    "bin/a90_cpustress": NATIVE_INIT_HELPERS / "a90_cpustress",
+    "bin/a90_longsoak": NATIVE_INIT_HELPERS / "a90_longsoak",
+    "bin/a90_rshell": NATIVE_INIT_HELPERS / "a90_rshell",
     "bin/a90_tcpctl": USERLAND_BIN / "a90_tcpctl-aarch64-static",
     "bin/a90_usbnet": USERLAND_BIN / "a90_usbnet-aarch64-static",
     "bin/busybox": USERLAND_BIN / "busybox-aarch64-static-1.36.1",

@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "${SCRIPT_DIR}" && while [ "${PWD}" != "/" ]; do if [ -d .git ]; then pwd; exit 0; fi; cd ..; done; exit 1)"
+SRC="${A90_NATIVE_INIT_SOURCE_ROOT:-${ROOT_DIR}/workspace/public/src/native-init}/helpers/a90_android_execns_probe.c"
+OUT="${1:-${A90_NATIVE_INIT_BUILD_ROOT:-${ROOT_DIR}/workspace/private/builds/native-init/helpers}/a90_android_execns_probe}"
+CHECK_FILE="$(mktemp)"
+trap 'rm -f "${CHECK_FILE}"' EXIT
+EXTRA_CFLAGS=()
+if [[ -n "${A90_EXECNS_PROBE_CFLAGS:-}" ]]; then
+  # shellcheck disable=SC2206
+  EXTRA_CFLAGS=(${A90_EXECNS_PROBE_CFLAGS})
+fi
+
+need_cmd() {
+  if ! command -v "$1" >/dev/null 2>&1; then
+    echo "missing required command: $1" >&2
+    exit 1
+  fi
+}
+
+need_cmd aarch64-linux-gnu-gcc
+need_cmd aarch64-linux-gnu-strip
+need_cmd aarch64-linux-gnu-readelf
+need_cmd sha256sum
+need_cmd file
+
+mkdir -p "$(dirname "${OUT}")"
+
+aarch64-linux-gnu-gcc \
+  -static \
+  -Os \
+  -Wall \
+  -Wextra \
+  "${EXTRA_CFLAGS[@]}" \
+  -o "${OUT}" \
+  "${SRC}"
+
+aarch64-linux-gnu-strip "${OUT}"
+
+echo
+echo "artifact: ${OUT}"
+ls -lh "${OUT}"
+file "${OUT}"
+sha256sum "${OUT}"
+
+if aarch64-linux-gnu-readelf -l "${OUT}" | grep -q INTERP; then
+  echo "warning: INTERP segment found; binary may not be static" >&2
+  exit 1
+fi
+
+aarch64-linux-gnu-readelf -d "${OUT}" >"${CHECK_FILE}" 2>&1 || true
+cat "${CHECK_FILE}"
+if ! grep -q "There is no dynamic section" "${CHECK_FILE}"; then
+  echo "warning: dynamic section found; binary may not be static" >&2
+  exit 1
+fi

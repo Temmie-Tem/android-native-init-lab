@@ -68,3 +68,33 @@
 /public/**/*credential*
 /public/**/*supplicant*
 /public/**/*lease*
+
+# Generated native-init outputs inside the public current-source tree. Source
+# files stay tracked; rebuilt binaries must stay ignored/private.
+/public/src/native-init/a90_sleep
+/public/src/native-init/init_v*
+!/public/src/native-init/init_v*.c
+/public/src/native-init/helpers/a90_android_execns_probe
+/public/src/native-init/helpers/a90_cpustress
+/public/src/native-init/helpers/a90_fwpathctl
+/public/src/native-init/helpers/a90_icnssctl
+/public/src/native-init/helpers/a90_longsoak
+/public/src/native-init/helpers/a90_qrtr_probe
+/public/src/native-init/helpers/a90_rshell
+/public/src/native-init/helpers/*_v[0-9]*
+!/public/src/native-init/helpers/*.c
+
+# Historical stage3 archive keeps source and compatibility symlinks, not copied
+# generated ELF payloads. Build outputs belong under workspace/private/builds/.
+/public/archive/stage3/linux_init/init
+/public/archive/stage3/linux_init/init_v*
+!/public/archive/stage3/linux_init/init_v*.c
+/public/archive/stage3/linux_init/a90_sleep
+/public/archive/stage3/linux_init/helpers/a90_android_execns_probe*
+!/public/archive/stage3/linux_init/helpers/a90_android_execns_probe.c
+/public/archive/stage3/linux_init/helpers/a90_cpustress
+/public/archive/stage3/linux_init/helpers/a90_fwpathctl
+/public/archive/stage3/linux_init/helpers/a90_icnssctl
+/public/archive/stage3/linux_init/helpers/a90_longsoak
+/public/archive/stage3/linux_init/helpers/a90_qrtr_probe
+/public/archive/stage3/linux_init/helpers/a90_rshell

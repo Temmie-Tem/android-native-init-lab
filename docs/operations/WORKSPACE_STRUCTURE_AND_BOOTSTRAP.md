@@ -6,16 +6,19 @@ The repository should be useful after a fresh GitHub clone without carrying raw
 private state. The tracked `workspace/` scaffold preserves the working map; local
 private payloads are restored into ignored subdirectories when needed.
 
+For the combined day-to-day rulebook covering version axes, workspace paths, and
+commit boundaries, read `docs/operations/WORKING_RULES.md` first.
+
 ## Workspace Layers
 
 | Layer | Paths | Git policy | Notes |
 | --- | --- | --- | --- |
-| Tracked source/control | `README.md`, `docs/`, `scripts/`, `stage3/linux_init/*.c`, small README/index files | commit | Portable project state. |
+| Tracked source/control | `README.md`, `docs/`, `workspace/public/src/native-init/`, `workspace/public/src/scripts/revalidation/`, `workspace/public/src/harness/`, small README/index files | commit | Portable current project state. |
 | Public project artifacts | `docs/artifacts/`, selected `docs/reports/` | commit redacted metadata | Final public summaries and reports. |
 | Public workspace state | `workspace/public/` | commit after review | Recovery manifests, inventories, redacted summaries, config templates, and runbooks. |
 | Private workspace state | `workspace/private/` | scaffold tracked, payload ignored | Default local working area for raw/private/large inputs, generated builds, and evidence. |
 | Private build outputs | `workspace/private/builds/`, `workspace/private/inputs/boot_images/` | ignored payload | Current generated ramdisks/init/helper binaries and local boot images. |
-| Legacy local artifacts | `tmp/`, `stage3/boot_linux*.img`, `stage3/ramdisk_v*`, compiled `init_v*`, helper binaries | ignored | Historical generated outputs; migrate active writers before deleting. |
+| Legacy local artifacts | `tmp/`, restored root `stage3/boot_linux*.img`, restored root `stage3/ramdisk_v*`, compiled `init_v*`, helper binaries | ignored | Historical generated outputs only; active writers must use workspace private paths. |
 | Runtime device scratch | `/tmp/a90-*`, `/cache/*`, `/mnt/sdext/a90/*` | not repo artifacts | Runtime paths mentioned in reports only. |
 
 ## Tracked Workspace Scaffold
@@ -49,8 +52,13 @@ workspace/
   public/
     README.md
     src/
+      native-init/
+      harness/
       scripts/
         revalidation/
+    archive/
+      scripts/
+      stage3/
     manifests/
     summaries/
     inventories/
@@ -69,7 +77,7 @@ Default workflow:
 ## Local Artifact Layout
 
 New harness output should use structured roots. Existing `tmp/wifi/v...` paths
-and ignored generated files under `stage3/` are legacy provenance paths and
+and any restored root `stage3/` generated files are legacy provenance paths and
 should not receive new active writers.
 
 | Path | Use |
@@ -84,7 +92,8 @@ should not receive new active writers.
 | `tmp/wifi/archive/` | Local-only compressed evidence bundles and delete manifests. |
 | `tmp/logs/{bridge,host,device,kernel,supplicant,net,archive}/` | Cross-run logs not tied to a single evidence directory. |
 
-Use `scripts/revalidation/a90harness/evidence.py` helpers from new scripts:
+Use `workspace/public/src/harness/a90harness/evidence.py` helpers from new
+scripts:
 
 ```python
 wifi_artifact_dir("runs", label)
@@ -113,8 +122,7 @@ Expected: clean worktree before restoring local-only inputs.
 ### 2. Initialize Generated Artifact Layout
 
 ```bash
-PYTHONPATH=scripts/revalidation \
-python3 scripts/revalidation/cleanup_tmp_wifi_artifacts.py --init-layout
+python3 workspace/public/src/scripts/revalidation/cleanup_tmp_wifi_artifacts.py --init-layout
 ```
 
 The tracked `workspace/` scaffold already exists after clone. The command above
@@ -151,25 +159,30 @@ Migrated harness defaults resolve these legacy local roots through
 | Legacy root | Workspace root | Override env |
 | --- | --- | --- |
 | `firmware/` | `workspace/private/inputs/firmware/` | `A90_FIRMWARE_ROOT` |
-| `stage3/boot_linux*.img` | `workspace/private/inputs/boot_images/` | `A90_BOOT_IMAGE_ROOT` |
+| restored root `stage3/boot_linux*.img` | `workspace/private/inputs/boot_images/` | `A90_BOOT_IMAGE_ROOT` |
 | `toolchains/` | `workspace/private/inputs/toolchains/` | `A90_TOOLCHAIN_ROOT` |
 | `external_tools/` | `workspace/private/inputs/external_tools/` | `A90_EXTERNAL_TOOLS_ROOT` |
 | `kernel_build/` | `workspace/private/inputs/kernel_source/` | `A90_KERNEL_SOURCE_ROOT` |
 | active build outputs | `workspace/private/builds/` | `A90_BUILD_ROOT` |
 
-Current source/script entrypoints should migrate into `workspace/public/src/`.
-Legacy source/script paths stay in the tracked repository tree as compatibility
-wrappers or historical modules. Private payloads, toolchains, restored firmware,
+Current source/script entrypoints live under `workspace/public/src/`. Historical
+source/script paths stay under `workspace/public/archive/` as provenance files
+or compatibility symlinks. Private payloads, toolchains, restored firmware,
 downloaded source archives, and static helper binaries belong under the
 workspace private roots above.
 
-`stage3/` remains the tracked source tree for native init C/H files. Generated
-boot images, ramdisks, cpio files, compiled init binaries, and generated helper
-binaries should not be written there by active builders.
+`workspace/public/src/native-init/` is the canonical source root for the current
+native-init baseline. Only the latest/current source closure is migrated there;
+historical `init_v*` files remain under
+`workspace/public/archive/stage3/linux_init/` as provenance.
+Generated boot images, ramdisks, cpio files, compiled init binaries, and
+generated helper binaries should not be written to tracked source directories by
+active builders.
 
 Current revalidation script entrypoints live under
-`workspace/public/src/scripts/revalidation/`. The legacy `scripts/revalidation/`
-paths for migrated entrypoints are wrappers.
+`workspace/public/src/scripts/revalidation/`. Historical revalidation scripts
+and compatibility symlinks live under
+`workspace/public/archive/scripts/revalidation/`.
 
 ### 4. Rebuild Ignored Boot Images
 
@@ -233,24 +246,21 @@ state into repository files.
 ### 7. Seal Check
 
 ```bash
-PYTHONPATH=scripts/revalidation \
-python3 scripts/revalidation/inventory_tmp_artifacts.py --write-public --write-full-private
+python3 workspace/public/src/scripts/revalidation/inventory_tmp_artifacts.py --write-public --write-full-private
 
-PYTHONPATH=scripts/revalidation \
-python3 scripts/revalidation/cleanup_tmp_wifi_artifacts.py \
+python3 workspace/public/src/scripts/revalidation/cleanup_tmp_wifi_artifacts.py \
   --legacy-build-products-only \
   --legacy-build-product-days 0 \
   --json
 
-PYTHONPATH=scripts/revalidation \
-python3 scripts/revalidation/cleanup_tmp_classified_artifacts.py --all-safe --json
+python3 workspace/public/src/scripts/revalidation/cleanup_tmp_classified_artifacts.py --all-safe --json
 
-python3 scripts/revalidation/cleanup_stage3_artifacts.py
+python3 workspace/public/src/scripts/revalidation/cleanup_stage3_artifacts.py
 ```
 
 Expected after a clean bootstrap: no unexpected flat `tmp/wifi/v...` writers, no
-review bucket, and only known generated `stage3` candidates unless explicitly
-kept.
+review bucket, and no root `stage3/` scratch tree unless explicitly restored for
+legacy inspection.
 
 ## Legacy Evidence Policy
 

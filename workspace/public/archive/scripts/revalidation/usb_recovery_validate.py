@@ -1,0 +1,1 @@
+../../../src/scripts/revalidation/usb_recovery_validate.py

@@ -13,7 +13,7 @@ Date: `2026-04-29`
 - device: `Samsung Galaxy A90 5G SM-A908N`
 - recovery: TWRP 사용 가능
 - latest verified build: `A90 Linux init 0.9.246 (v726-wifi-lifecycle)`
-- latest verified source: `stage3/linux_init/init_v724.c` + 모듈 `stage3/linux_init/v724/90_main.inc.c` + 헬퍼 `stage3/linux_init/helpers/` + 빌더 `workspace/public/src/scripts/revalidation/build_native_init_boot_v726_wifi_lifecycle.py`
+- latest verified source: `workspace/public/src/native-init/init_v724.c` + 모듈 `workspace/public/src/native-init/v724/90_main.inc.c` + 헬퍼 `workspace/public/src/native-init/helpers/` + 빌더 `workspace/public/src/scripts/revalidation/build_native_init_boot_v726_wifi_lifecycle.py`
 - latest verified boot image: `workspace/private/inputs/boot_images/boot_linux_v726_wifi_lifecycle.img`
 - latest verified boot image SHA256: `6b34aac93d4fa6d5b40355b9e13b2c1ae847c24a3685d84b0d1cd78751351d40`
 - 현재 기준 사이클: `v726-wifi-lifecycle` Wi-Fi lifecycle baseline (native Wi-Fi bring-up은 이 이미지로 rollback/test)
@@ -24,7 +24,7 @@ Date: `2026-04-29`
 - known-good fallback boot image: `workspace/private/inputs/boot_images/boot_linux_v48.img`
 - primary control channel: USB CDC ACM serial
 - host bridge: `127.0.0.1:54321`
-- bridge script: `scripts/revalidation/serial_tcp_bridge.py`
+- bridge script: `workspace/public/src/workspace/public/src/scripts/revalidation/serial_tcp_bridge.py`
 - safe persistent area: `/cache`
 - toybox on device: `/cache/bin/toybox`
 - USB helper on device: `/cache/bin/a90_usbnet`
@@ -118,14 +118,14 @@ Date: `2026-04-29`
 - v77에서는 `TOOLS / DISPLAY TEST`가 4페이지로 분리되고 `displaytest colors/font/safe/layout`, `cutoutcal [x y size]`, `TOOLS > CUTOUT CAL`을 지원한다.
 - v78에서는 SD가 `ext4` label `A90_NATIVE`로 준비되어 있고, `mountsd [status|ro|rw|off|init]`로 `/mnt/sdext/a90` workspace를 제어한다.
 - v79에서는 boot-time SD health check가 expected UUID/RW probe를 통과한 SD만 main storage로 쓰고, 실패하면 `/cache` fallback warning을 HUD에 표시한다.
-- 자동 검증은 가능하면 raw `nc`보다 `python3 scripts/revalidation/a90ctl.py status`처럼 rc/status를 파싱한다.
+- 자동 검증은 가능하면 raw `nc`보다 `python3 workspace/public/src/scripts/revalidation/a90ctl.py status`처럼 rc/status를 파싱한다.
 - auto menu busy gate는 POWER 메뉴에서 가장 엄격하고, 일반 메뉴에서는 위험/입력충돌 명령만 막는다.
 - `screenmenu`/`blindmenu`가 gesture action을 사용한다.
 - `POWER long`은 reserved/ignored로 유지한다.
 
 v49 주의:
 
-- `stage3/boot_linux_v49.img`는 local marker와 boot partition prefix readback은 맞았지만
+- `workspace/private/inputs/boot_images/boot_linux_v49.img`는 local marker와 boot partition prefix readback은 맞았지만
   system boot 후 Android `/system/bin/init second_stage`로 진입했다.
 - 현재 v49는 격리된 실패 실험이다.
 - 새 실험 버전은 latest verified source에서 최소 diff로 시작하되, 번호는 v50 이상을 사용한다.
@@ -155,14 +155,14 @@ v49 주의:
 브릿지는 사용자가 보통 sudo로 실행한다.
 
 ```bash
-sudo python3 ./scripts/revalidation/serial_tcp_bridge.py --port 54321
+sudo python3 workspace/public/src/workspace/public/src/scripts/revalidation/serial_tcp_bridge.py --port 54321
 ```
 
 에이전트가 sudo를 직접 못 쓰는 환경이면 사용자에게 재시작을 요청한다.
 
 ```bash
 sudo pkill -f serial_tcp_bridge.py
-sudo python3 ./scripts/revalidation/serial_tcp_bridge.py --port 54321
+sudo python3 workspace/public/src/workspace/public/src/scripts/revalidation/serial_tcp_bridge.py --port 54321
 ```
 
 기본 확인:
@@ -271,7 +271,7 @@ adb -s RFCM90CFWXA shell 'twrp reboot'
 그 후 bridge로 확인:
 
 ```bash
-python3 ./scripts/revalidation/native_init_flash.py \
+python3 workspace/public/src/workspace/public/src/scripts/revalidation/native_init_flash.py \
   --verify-only \
   --expect-version "A90 Linux init 0.8.17 (v86)" \
   --verify-protocol auto \
@@ -291,8 +291,8 @@ python3 ./scripts/revalidation/native_init_flash.py \
 새 버전 예시가 v87이라면:
 
 ```bash
-cp -r stage3/linux_init/v86 stage3/linux_init/v87
-cp stage3/linux_init/init_v86.c stage3/linux_init/init_v87.c
+cp -r workspace/public/archive/stage3/linux_init/v86 workspace/public/archive/stage3/linux_init/v87
+cp workspace/public/archive/stage3/linux_init/init_v86.c workspace/public/archive/stage3/linux_init/init_v87.c
 ```
 
 반드시 바꿀 것:
@@ -307,28 +307,28 @@ cp stage3/linux_init/init_v86.c stage3/linux_init/init_v87.c
 검색:
 
 ```bash
-rg -n 'v86|A90v86|init_v86|boot_linux_v86|ramdisk_v86' stage3/linux_init/init_v87.c stage3/linux_init/v87
+rg -n 'v86|A90v86|init_v86|boot_linux_v86|ramdisk_v86' workspace/public/archive/stage3/linux_init/init_v87.c workspace/public/archive/stage3/linux_init/v87
 ```
 
 빌드:
 
 ```bash
 aarch64-linux-gnu-gcc -static -Os -Wall -Wextra \
-  -o stage3/linux_init/init_v87 \
-  stage3/linux_init/init_v87.c \
-  stage3/linux_init/a90_util.c \
-  stage3/linux_init/a90_log.c \
-  stage3/linux_init/a90_timeline.c \
-  stage3/linux_init/a90_console.c \
-  stage3/linux_init/a90_cmdproto.c \
-  stage3/linux_init/a90_run.c \
-  stage3/linux_init/a90_service.c \
-  stage3/linux_init/a90_kms.c \
-  stage3/linux_init/a90_draw.c
-aarch64-linux-gnu-strip stage3/linux_init/init_v87
-file stage3/linux_init/init_v87
-sha256sum stage3/linux_init/init_v87
-strings stage3/linux_init/init_v87 | rg 'A90 Linux init .*\(v87\)|A90v87'
+  -o workspace/public/archive/stage3/linux_init/init_v87 \
+  workspace/public/archive/stage3/linux_init/init_v87.c \
+  workspace/public/archive/stage3/linux_init/a90_util.c \
+  workspace/public/archive/stage3/linux_init/a90_log.c \
+  workspace/public/archive/stage3/linux_init/a90_timeline.c \
+  workspace/public/archive/stage3/linux_init/a90_console.c \
+  workspace/public/archive/stage3/linux_init/a90_cmdproto.c \
+  workspace/public/archive/stage3/linux_init/a90_run.c \
+  workspace/public/archive/stage3/linux_init/a90_service.c \
+  workspace/public/archive/stage3/linux_init/a90_kms.c \
+  workspace/public/archive/stage3/linux_init/a90_draw.c
+aarch64-linux-gnu-strip workspace/public/archive/stage3/linux_init/init_v87
+file workspace/public/archive/stage3/linux_init/init_v87
+sha256sum workspace/public/archive/stage3/linux_init/init_v87
+strings workspace/public/archive/stage3/linux_init/init_v87 | rg 'A90 Linux init .*\(v87\)|A90v87'
 ```
 
 컴파일 경고를 무시하지 말 것.
@@ -341,7 +341,7 @@ strings stage3/linux_init/init_v87 | rg 'A90 Linux init .*\(v87\)|A90v87'
 rm -rf /tmp/a90_boot_v87_unpack
 mkdir -p /tmp/a90_boot_v87_unpack
 python3 mkbootimg/unpack_bootimg.py \
-  --boot_img stage3/boot_linux_v86.img \
+  --boot_img workspace/private/inputs/boot_images/boot_linux_v86.img \
   --out /tmp/a90_boot_v87_unpack \
   --format=mkbootimg \
   > /tmp/a90_boot_v87_mkbootimg_args.txt
@@ -350,13 +350,13 @@ python3 mkbootimg/unpack_bootimg.py \
 ramdisk 생성:
 
 ```bash
-rm -rf stage3/ramdisk_v87
-mkdir -p stage3/ramdisk_v87/bin
-cp stage3/linux_init/init_v87 stage3/ramdisk_v87/init
-cp stage3/linux_init/a90_sleep stage3/ramdisk_v87/bin/a90sleep
-chmod 755 stage3/ramdisk_v87/init stage3/ramdisk_v87/bin/a90sleep
+rm -rf workspace/private/builds/native-init/legacy/ramdisk_v87
+mkdir -p workspace/private/builds/native-init/legacy/ramdisk_v87/bin
+cp workspace/public/archive/stage3/linux_init/init_v87 workspace/private/builds/native-init/legacy/ramdisk_v87/init
+cp workspace/public/archive/stage3/linux_init/a90_sleep workspace/private/builds/native-init/legacy/ramdisk_v87/bin/a90sleep
+chmod 755 workspace/private/builds/native-init/legacy/ramdisk_v87/init workspace/private/builds/native-init/legacy/ramdisk_v87/bin/a90sleep
 (
-  cd stage3/ramdisk_v87
+  cd workspace/private/builds/native-init/legacy/ramdisk_v87
   find . | LC_ALL=C sort | cpio -o -H newc > ../ramdisk_v87.cpio
 )
 ```
@@ -372,12 +372,12 @@ import subprocess
 args = shlex.split(Path('/tmp/a90_boot_v87_mkbootimg_args.txt').read_text())
 for i, item in enumerate(args):
     if item == '--ramdisk':
-        args[i + 1] = 'stage3/ramdisk_v87.cpio'
+        args[i + 1] = 'workspace/private/builds/native-init/legacy/ramdisk_v87.cpio'
         break
 else:
     raise SystemExit('missing --ramdisk')
 
-cmd = ['python3', 'mkbootimg/mkbootimg.py', *args, '--output', 'stage3/boot_linux_v87.img']
+cmd = ['python3', 'mkbootimg/mkbootimg.py', *args, '--output', 'workspace/private/inputs/boot_images/boot_linux_v87.img']
 print(shlex.join(cmd))
 subprocess.run(cmd, check=True)
 PYBOOT
@@ -386,9 +386,9 @@ PYBOOT
 검증:
 
 ```bash
-ls -lh stage3/ramdisk_v87.cpio stage3/boot_linux_v87.img
-sha256sum stage3/linux_init/init_v87 stage3/ramdisk_v87.cpio stage3/boot_linux_v87.img
-strings stage3/boot_linux_v87.img | rg 'A90 Linux init .*\(v87\)|A90v87'
+ls -lh workspace/private/builds/native-init/legacy/ramdisk_v87.cpio workspace/private/inputs/boot_images/boot_linux_v87.img
+sha256sum workspace/public/archive/stage3/linux_init/init_v87 workspace/private/builds/native-init/legacy/ramdisk_v87.cpio workspace/private/inputs/boot_images/boot_linux_v87.img
+strings workspace/private/inputs/boot_images/boot_linux_v87.img | rg 'A90 Linux init .*\(v87\)|A90v87'
 ```
 
 ## 7. Boot image 플래시
@@ -402,8 +402,8 @@ adb devices
 `recovery` 확인 후:
 
 ```bash
-python3 ./scripts/revalidation/native_init_flash.py \
-  stage3/boot_linux_v87.img \
+python3 workspace/public/src/workspace/public/src/scripts/revalidation/native_init_flash.py \
+  workspace/private/inputs/boot_images/boot_linux_v87.img \
   --expect-version "A90 Linux init 0.8.18 (v87)" \
   --bridge-timeout 240 \
   --recovery-timeout 180
@@ -422,7 +422,7 @@ python3 ./scripts/revalidation/native_init_flash.py \
 빌드:
 
 ```bash
-./scripts/revalidation/build_static_toybox.sh
+workspace/public/src/workspace/public/src/scripts/revalidation/build_static_toybox.sh
 ```
 
 TWRP에서 배치:
@@ -452,7 +452,7 @@ printf 'run /cache/bin/toybox ps -A\n' | nc -w 8 127.0.0.1 54321
 빌드:
 
 ```bash
-./scripts/revalidation/build_usbnet_helper.sh
+workspace/public/src/workspace/public/src/scripts/revalidation/build_usbnet_helper.sh
 ```
 
 TWRP에서 배치:
@@ -559,9 +559,9 @@ v60부터 NCM/tcpctl은 native init 안의 opt-in service로도 시작할 수 �
 ```bash
 printf 'netservice status\n' | nc -w 5 127.0.0.1 54321
 printf 'netservice enable\n' | nc -w 20 127.0.0.1 54321
-python3 scripts/revalidation/ncm_host_setup.py setup
-python3 scripts/revalidation/tcpctl_host.py ping
-python3 scripts/revalidation/tcpctl_host.py status
+python3 workspace/public/src/workspace/public/src/scripts/revalidation/ncm_host_setup.py setup
+python3 workspace/public/src/scripts/revalidation/tcpctl_host.py ping
+python3 workspace/public/src/scripts/revalidation/tcpctl_host.py status
 printf 'netservice disable\n' | nc -w 20 127.0.0.1 54321
 ```
 
@@ -577,8 +577,8 @@ printf 'netservice disable\n' | nc -w 20 127.0.0.1 54321
 software UDC 재열거 이후 ACM/NCM/tcpctl 복구를 확인할 때:
 
 ```bash
-python3 scripts/revalidation/netservice_reconnect_soak.py status
-python3 scripts/revalidation/netservice_reconnect_soak.py once --manual-host-config
+python3 workspace/public/src/workspace/public/src/scripts/revalidation/netservice_reconnect_soak.py status
+python3 workspace/public/src/workspace/public/src/scripts/revalidation/netservice_reconnect_soak.py once --manual-host-config
 ```
 
 `--manual-host-config`는 sudo가 불가능한 에이전트 환경에서 현재 새로 생긴 `enx...`에 맞는
@@ -642,12 +642,12 @@ adb -s RFCM90CFWXA shell 'tail -160 /cache/native-init-netservice.log 2>/dev/nul
 ```bash
 git status --short
 git diff --check
-python3 -m py_compile scripts/revalidation/serial_tcp_bridge.py scripts/revalidation/native_init_flash.py scripts/revalidation/ncm_host_setup.py scripts/revalidation/netservice_reconnect_soak.py
-bash -n scripts/revalidation/build_static_toybox.sh scripts/revalidation/build_usbnet_helper.sh
-aarch64-linux-gnu-gcc -static -Os -Wall -Wextra -o /tmp/a90_init_check stage3/linux_init/init_v62.c
+python3 -m py_compile workspace/public/src/scripts/revalidation/serial_tcp_bridge.py workspace/public/src/scripts/revalidation/native_init_flash.py workspace/public/src/scripts/revalidation/ncm_host_setup.py workspace/public/src/scripts/revalidation/netservice_reconnect_soak.py
+bash -n workspace/public/src/scripts/revalidation/build_static_toybox.sh workspace/public/src/scripts/revalidation/build_usbnet_helper.sh
+aarch64-linux-gnu-gcc -static -Os -Wall -Wextra -o /tmp/a90_init_check workspace/public/archive/stage3/linux_init/init_v62.c
 ```
 
-`stage3/boot_linux_v*.img`, `stage3/ramdisk_v*.cpio`, compiled binaries는 `.gitignore` 대상이다.
+`workspace/private/inputs/boot_images/boot_linux_v*.img`, `workspace/private/builds/native-init/legacy/ramdisk_v*.cpio`, compiled binaries는 `.gitignore` 대상이다.
 커밋에는 보통 source, script, docs만 넣는다.
 
 ## 16. 자주 틀리는 지점

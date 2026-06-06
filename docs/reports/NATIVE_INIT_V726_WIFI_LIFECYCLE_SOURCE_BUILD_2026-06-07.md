@@ -7,9 +7,9 @@
 - Decision: `v726-wifi-lifecycle-source-build-pass`
 - Result: PASS
 - Reason: the V726 boot/init baseline incorporates the validation-route V2168 QCACLD firmware_class feeder path with a PID1-owned `/dev/subsys_modem` lifecycle holder, while preserving the V725 fasttransport ramdisk contract.
-- Manifest: `tmp/wifi/builds/v726-wifi-lifecycle-test-boot/manifest.json`
-- Base boot: `stage3/boot_linux_v725_fasttransport.img`
-- Boot image: `stage3/boot_linux_v726_wifi_lifecycle.img`
+- Manifest: `workspace/private/builds/native-init/v726-wifi-lifecycle-test-boot/manifest.json`
+- Base boot: `workspace/private/inputs/boot_images/boot_linux_v725_fasttransport.img`
+- Boot image: `workspace/private/inputs/boot_images/boot_linux_v726_wifi_lifecycle.img`
 - Boot SHA256: `6b34aac93d4fa6d5b40355b9e13b2c1ae847c24a3685d84b0d1cd78751351d40`
 - Boot SHA verification: source/build output; flash/readback/selftest verification is recorded in the V726 baseline promotion report.
 - Init: `A90 Linux init 0.9.246 (v726-wifi-lifecycle)`
@@ -29,4 +29,4 @@
 ## Safety Scope
 
 - No `/dev/subsys_esoc0`, forced RC1/case, PMIC/GPIO/GDSC/regulator write, PCI rescan, platform bind/unbind, fake ONLINE, or eSoC notify/BOOT_DONE path is included.
-- The live validation remains credential-redacted and rollbackable to `stage3/boot_linux_v725_fasttransport.img`.
+- The live validation remains credential-redacted and rollbackable to `workspace/private/inputs/boot_images/boot_linux_v725_fasttransport.img`.

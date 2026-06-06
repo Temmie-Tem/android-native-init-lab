@@ -713,7 +713,7 @@ def build_wpa_config() -> tuple[bytes, dict[str, Any]]:
 def build_helper(store: base.EvidenceStore, steps: list[dict[str, Any]]) -> dict[str, Any]:
     HELPER_BUILD_DIR.mkdir(parents=True, exist_ok=True)
     command = [
-        "scripts/revalidation/build_android_execns_probe_helper.sh",
+        "workspace/public/archive/scripts/revalidation/build_android_execns_probe_helper.sh",
         str(HELPER_LOCAL),
     ]
     result = base.run_command(command, timeout=180)

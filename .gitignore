@@ -140,6 +140,7 @@ boot_*.log
 *.temp
 tmp/
 __pycache__/
+*.py[cod]
 
 # =================================
 # 개인 설정 / 민감 정보
@@ -189,3 +190,5 @@ archive/
 !docs/archive/**
 !scripts/archive/
 !scripts/archive/**
+!workspace/public/archive/
+!workspace/public/archive/**

@@ -1,0 +1,1 @@
+../../../src/scripts/revalidation/inventory_tmp_artifacts.py

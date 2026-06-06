@@ -8,7 +8,7 @@ Date: `2026-05-21`
 
 - device NCM IP: `192.168.7.2`
 - host NCM IP: `192.168.7.1/24`
-- repo deploy 기본값: `scripts/revalidation/wifi_execns_helper_v12_deploy_preflight.py`는 `--transfer-method ncm`이 기본이다.
+- repo deploy 기본값: `workspace/public/archive/scripts/revalidation/wifi_execns_helper_v12_deploy_preflight.py`는 `--transfer-method ncm`이 기본이다.
 - 전송 원리: HTTP가 아니라 device `toybox netcat` listener와 host TCP socket send를 이용한 NCM bulk transfer다.
 - 안전 범위: host IP 자동 설정만 다루며, Wi-Fi scan/connect/link-up/external ping과 무관하다.
 - `v725-fasttransport` 계열은 IPv4 고정 주소 대신 USB NCM IPv6 link-local
@@ -19,7 +19,7 @@ Date: `2026-05-21`
 ## 현재 상태 확인
 
 ```bash
-python3 scripts/revalidation/a90_ncm_host_preflight.py run
+python3 workspace/public/src/scripts/revalidation/a90_ncm_host_preflight.py run
 ```
 
 판정 기준:
@@ -39,7 +39,7 @@ python3 scripts/revalidation/a90_ncm_host_preflight.py run
 Kubuntu host는 보통 `NetworkManager`가 active이고 `systemd-networkd`가 inactive다. 이 경우 `systemd-networkd`를 새로 켜기보다 udev가 작은 root-owned helper를 호출하게 하는 방식이 충돌이 적다.
 
 ```bash
-python3 scripts/revalidation/a90_ncm_host_preflight.py run
+python3 workspace/public/src/scripts/revalidation/a90_ncm_host_preflight.py run
 
 sudo install -m 0755 \
   tmp/host/a90-ncm-host-preflight/templates/a90-ncm-up.sh \
@@ -145,7 +145,7 @@ sudo visudo -cf /etc/sudoers.d/a90-ncm
 NCM이 ready면 helper deploy는 명시적으로 NCM을 사용한다.
 
 ```bash
-python3 scripts/revalidation/wifi_execns_helper_v66_deploy_preflight.py \
+python3 workspace/public/archive/scripts/revalidation/wifi_execns_helper_v66_deploy_preflight.py \
   --transfer-method ncm \
   preflight
 ```
@@ -153,7 +153,7 @@ python3 scripts/revalidation/wifi_execns_helper_v66_deploy_preflight.py \
 NCM이 ready가 아니면 preflight evidence에 `a90_ncm_host_preflight.py` 판정이 같이 남는다. 느린 serial fallback은 의도적으로 필요할 때만 쓴다.
 
 ```bash
-python3 scripts/revalidation/wifi_execns_helper_v66_deploy_preflight.py \
+python3 workspace/public/archive/scripts/revalidation/wifi_execns_helper_v66_deploy_preflight.py \
   --transfer-method serial \
   preflight
 ```

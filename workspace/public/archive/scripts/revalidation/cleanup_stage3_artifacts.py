@@ -1,0 +1,1 @@
+../../../src/scripts/revalidation/cleanup_stage3_artifacts.py

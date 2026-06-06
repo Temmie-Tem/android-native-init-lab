@@ -16,6 +16,8 @@ locally without being committed.
 Work in `workspace/private/` first. Promote only redacted, small, reproducible, or
 metadata-only results into `workspace/public/` or `docs/artifacts/`.
 
+The full working rulebook is `docs/operations/WORKING_RULES.md`.
+
 ## Restore Flow
 
 1. Clone the repository.

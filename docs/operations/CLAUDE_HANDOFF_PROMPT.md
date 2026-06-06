@@ -17,14 +17,14 @@ Date: `2026-04-29`
 현재 기준:
 
 - latest verified build: A90 Linux init 0.9.246 (v726-wifi-lifecycle)
-- latest verified source: stage3/linux_init/init_v724.c + 모듈 stage3/linux_init/v724/90_main.inc.c + 헬퍼 stage3/linux_init/helpers/ + 빌더 workspace/public/src/scripts/revalidation/build_native_init_boot_v726_wifi_lifecycle.py
+- latest verified source: workspace/public/src/native-init/init_v724.c + 모듈 workspace/public/src/native-init/v724/90_main.inc.c + 헬퍼 workspace/public/src/native-init/helpers/ + 빌더 workspace/public/src/scripts/revalidation/build_native_init_boot_v726_wifi_lifecycle.py
 - latest verified boot image: workspace/private/inputs/boot_images/boot_linux_v726_wifi_lifecycle.img
 - latest verified boot image SHA256: 6b34aac93d4fa6d5b40355b9e13b2c1ae847c24a3685d84b0d1cd78751351d40
 - 현재 기준 사이클: v726-wifi-lifecycle Wi-Fi lifecycle baseline (native Wi-Fi bring-up rollback/test 기준)
 - version axes: v726은 boot/init baseline tag, a90_android_execns_probe helper-v427은 포함된 helper marker, V2167/V2168 등은 검증 run/report 번호다. 전체 규칙은 docs/operations/VERSIONING_POLICY.md를 따른다.
 - previous verified boot image: workspace/private/inputs/boot_images/boot_linux_v725_fasttransport.img (A90 Linux init 0.9.244 (v725-fasttransport))
 - known-good fallback native init: A90 Linux init v48
-- known-good fallback source: stage3/linux_init/init_v48.c
+- known-good fallback source: workspace/public/archive/stage3/linux_init/init_v48.c
 - known-good fallback boot image: workspace/private/inputs/boot_images/boot_linux_v48.img
 - known-good fallback boot image SHA256:
   1c87fa59712395027c5c2e489b15c4f6ddefabc3c50f78d3c235c4508a63e042
@@ -33,8 +33,8 @@ Date: `2026-04-29`
 
 절대 하지 말 것:
 
-- stage3/boot_linux_v49.img를 stable처럼 flash하지 마라.
-- stage3/linux_init/init_v49.c를 다음 기준으로 삼지 마라.
+- workspace/private/inputs/boot_images/boot_linux_v49.img를 stable처럼 flash하지 마라.
+- workspace/public/archive/stage3/linux_init/init_v49.c를 다음 기준으로 삼지 마라.
 - 수동 adb shell dd로 boot/recovery/vbmeta/efs/sec_efs/modem/persist/key 계열 partition을 쓰지 마라.
 - twrp reboot system을 쓰지 마라. 이 기기에서는 no-op처럼 TWRP에 머물 수 있다.
 - adb reboot 또는 adb shell reboot를 TWRP system exit로 신뢰하지 마라. recovery로 되돌아올 수 있다.
@@ -81,7 +81,7 @@ lsusb | rg 'Samsung|04e8' || true
 ls -l /dev/ttyACM* /dev/serial/by-id 2>/dev/null || true
 adb devices -l || true
 printf 'version\n' | nc -w 5 127.0.0.1 54321 || true
-python3 scripts/revalidation/a90ctl.py --json status || true
+python3 workspace/public/src/scripts/revalidation/a90ctl.py --json status || true
 
 판단:
 
@@ -93,8 +93,8 @@ python3 scripts/revalidation/a90ctl.py --json status || true
 
 latest v86 flash가 정말 필요할 때만 이 스크립트를 사용:
 
-python3 ./scripts/revalidation/native_init_flash.py \
-  stage3/boot_linux_v86.img \
+python3 workspace/public/src/scripts/revalidation/native_init_flash.py \
+  workspace/private/inputs/boot_images/boot_linux_v86.img \
   --from-native \
   --expect-version "A90 Linux init 0.8.17 (v86)" \
   --verify-protocol auto \
@@ -108,8 +108,8 @@ bridge version 검증을 수행한다. v53+ 메뉴가 떠 있어 `recovery`가 `
 
 known-good v48로 되돌릴 때만:
 
-python3 ./scripts/revalidation/native_init_flash.py \
-  stage3/boot_linux_v48.img \
+python3 workspace/public/src/scripts/revalidation/native_init_flash.py \
+  workspace/private/inputs/boot_images/boot_linux_v48.img \
   --expect-version "A90 Linux init v48" \
   --bridge-timeout 240 \
   --recovery-timeout 180

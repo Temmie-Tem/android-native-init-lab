@@ -2,13 +2,14 @@
 
 ## Summary
 
-- Cycle: `V726`
+- Baseline tag: `v726-wifi-lifecycle`
 - Type: baseline promotion.
 - Decision: `v726-wifi-lifecycle-baseline-promoted`
 - Result: PASS
-- Boot image: `stage3/boot_linux_v726_wifi_lifecycle.img`
+- Boot image: `workspace/private/inputs/boot_images/boot_linux_v726_wifi_lifecycle.img`
 - Boot SHA256: `6b34aac93d4fa6d5b40355b9e13b2c1ae847c24a3685d84b0d1cd78751351d40`
 - Init: `A90 Linux init 0.9.246 (v726-wifi-lifecycle)`
+- Version axes: `v726-wifi-lifecycle` is the boot/init baseline tag; `helper-v427` is the embedded helper marker; `V2167`/`V2168` are the validation-route/report identifiers that support this artifact.
 
 ## Validation
 
@@ -26,8 +27,8 @@
 
 ## Final SHA Smoke
 
-- Test image: `stage3/boot_linux_v726_wifi_lifecycle.img`
-- Rollback image: `stage3/boot_linux_v726_wifi_lifecycle.img`
+- Test image: `workspace/private/inputs/boot_images/boot_linux_v726_wifi_lifecycle.img`
+- Rollback image: `workspace/private/inputs/boot_images/boot_linux_v726_wifi_lifecycle.img`
 - Connect result: `connect-dhcp-google-ping-hold-pass`
 - Hold: `60s`, `2/2` carrier samples, `2/2` gateway pings, `2/2` IP pings, `2/2` host pings.
 - Link: 5 GHz, `5745 MHz`, `780-866 Mbps` sampled linkspeed.

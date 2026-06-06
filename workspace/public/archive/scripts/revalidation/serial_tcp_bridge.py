@@ -1,0 +1,1 @@
+../../../src/scripts/revalidation/serial_tcp_bridge.py

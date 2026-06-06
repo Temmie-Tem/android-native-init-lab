@@ -1,0 +1,1 @@
+../../../src/scripts/revalidation/native_init_flash.py

@@ -35,7 +35,7 @@ Host validation must be scoped to the evidence question.
 - `tmp/`
 - `firmware/`
 - `backups/`
-- `stage3/*.img`
+- `workspace/private/inputs/boot_images/*.img`
 - `*.tar`
 - `*.tar.md5`
 - `*.img`
