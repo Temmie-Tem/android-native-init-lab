@@ -39,6 +39,20 @@ static int v641_prepare_firmware_mounts(void);
 #define A90_V724_QRTR_HELPER "/cache/bin/a90_android_execns_probe"
 #define A90_V724_QRTR_TIMEOUT_SEC "8"
 #define A90_V724_QRTR_MODE "wifi-companion-android-order-post-sysmon-observer-start-only"
+#ifdef A90_WIFI_LIFECYCLE_MODEM_OWNER
+#ifndef A90_WIFI_LIFECYCLE_MODEM_OWNER_LOG
+#define A90_WIFI_LIFECYCLE_MODEM_OWNER_LOG "/cache/native-init-wifi-lifecycle-modem-owner.log"
+#endif
+#ifndef A90_WIFI_LIFECYCLE_MODEM_OWNER_PID
+#define A90_WIFI_LIFECYCLE_MODEM_OWNER_PID "/cache/native-init-wifi-lifecycle-modem-owner.pid"
+#endif
+#ifndef A90_WIFI_LIFECYCLE_MODEM_OWNER_DEVNODE
+#define A90_WIFI_LIFECYCLE_MODEM_OWNER_DEVNODE "/dev/subsys_modem"
+#endif
+#ifndef A90_WIFI_LIFECYCLE_MODEM_OWNER_SYSDEV
+#define A90_WIFI_LIFECYCLE_MODEM_OWNER_SYSDEV "/sys/class/subsys/subsys_modem/dev"
+#endif
+#endif
 #ifdef A90_WIFI_TEST_BOOT
 #ifndef A90_WIFI_TEST_BOOT_LABEL
 #define A90_WIFI_TEST_BOOT_LABEL "v1393"
@@ -397,6 +411,205 @@ static int v724_write_private_file(const char *path, const char *text) {
     }
     return rc < 0 ? negative_errno_or(EIO) : 0;
 }
+
+#ifdef A90_WIFI_LIFECYCLE_MODEM_OWNER
+static int v726_append_wifi_lifecycle_owner_log(const char *fmt, ...) {
+    int fd;
+    int rc;
+    va_list ap;
+
+    fd = open(A90_WIFI_LIFECYCLE_MODEM_OWNER_LOG,
+              O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC | O_NOFOLLOW,
+              0600);
+    if (fd < 0) {
+        return -1;
+    }
+
+    va_start(ap, fmt);
+    rc = vdprintf(fd, fmt, ap);
+    va_end(ap);
+    close(fd);
+    return rc < 0 ? -1 : 0;
+}
+
+static int v726_parse_subsys_modem_dev(unsigned int *major_num,
+                                       unsigned int *minor_num) {
+    char devbuf[64];
+    char *colon;
+    char *endptr;
+    unsigned long major_value;
+    unsigned long minor_value;
+
+    if (major_num == NULL || minor_num == NULL) {
+        return -EINVAL;
+    }
+    if (read_text_file(A90_WIFI_LIFECYCLE_MODEM_OWNER_SYSDEV,
+                       devbuf,
+                       sizeof(devbuf)) < 0) {
+        return -errno;
+    }
+    trim_newline(devbuf);
+    colon = strchr(devbuf, ':');
+    if (colon == NULL) {
+        return -EINVAL;
+    }
+    *colon = '\0';
+    errno = 0;
+    major_value = strtoul(devbuf, &endptr, 10);
+    if (errno != 0 || endptr == devbuf || *endptr != '\0' ||
+        major_value > UINT_MAX) {
+        return -EINVAL;
+    }
+    errno = 0;
+    minor_value = strtoul(colon + 1, &endptr, 10);
+    if (errno != 0 || endptr == colon + 1 || *endptr != '\0' ||
+        minor_value > UINT_MAX) {
+        return -EINVAL;
+    }
+    *major_num = (unsigned int)major_value;
+    *minor_num = (unsigned int)minor_value;
+    return 0;
+}
+
+static int v726_materialize_subsys_modem_devnode(void) {
+    unsigned int major_num = 0;
+    unsigned int minor_num = 0;
+    dev_t wanted;
+    struct stat st;
+    int rc;
+
+    rc = v726_parse_subsys_modem_dev(&major_num, &minor_num);
+    if (rc < 0) {
+        return rc;
+    }
+    wanted = makedev(major_num, minor_num);
+    if (lstat(A90_WIFI_LIFECYCLE_MODEM_OWNER_DEVNODE, &st) == 0) {
+        if (S_ISCHR(st.st_mode) && st.st_rdev == wanted) {
+            return 0;
+        }
+        return -EEXIST;
+    }
+    if (errno != ENOENT) {
+        return -errno;
+    }
+    if (mknod(A90_WIFI_LIFECYCLE_MODEM_OWNER_DEVNODE,
+              S_IFCHR | 0600,
+              wanted) < 0 &&
+        errno != EEXIST) {
+        return -errno;
+    }
+    return 0;
+}
+
+static void v726_wifi_lifecycle_modem_owner_child(void) {
+    int attempt;
+    int fd = -1;
+
+    (void)setsid();
+    (void)v726_append_wifi_lifecycle_owner_log("child pid=%ld start\n",
+                                               (long)getpid());
+    for (attempt = 1; attempt <= 90; ++attempt) {
+        int rc = v726_materialize_subsys_modem_devnode();
+
+        if (rc < 0) {
+            (void)v726_append_wifi_lifecycle_owner_log(
+                    "attempt=%d materialize_rc=%d errno=%d error=%s\n",
+                    attempt,
+                    rc,
+                    -rc,
+                    strerror(-rc));
+        } else {
+            fd = open(A90_WIFI_LIFECYCLE_MODEM_OWNER_DEVNODE,
+                      O_RDONLY | O_CLOEXEC);
+            if (fd >= 0) {
+                (void)v726_append_wifi_lifecycle_owner_log(
+                        "opened fd=%d attempt=%d dev=%s\n",
+                        fd,
+                        attempt,
+                        A90_WIFI_LIFECYCLE_MODEM_OWNER_DEVNODE);
+                klogf("<6>A90v726: wifi lifecycle modem owner opened /dev/subsys_modem fd=%d\n",
+                      fd);
+                for (;;) {
+                    pause();
+                }
+            }
+            (void)v726_append_wifi_lifecycle_owner_log(
+                    "attempt=%d open_errno=%d error=%s\n",
+                    attempt,
+                    errno,
+                    strerror(errno));
+        }
+        sleep(1);
+    }
+    (void)v726_append_wifi_lifecycle_owner_log("exhausted attempts exit\n");
+    _exit(0);
+}
+
+static void v726_start_wifi_lifecycle_modem_owner_once(void) {
+    pid_t pid;
+    char pid_text[64];
+    int rc;
+
+    rc = v726_materialize_subsys_modem_devnode();
+    if (rc < 0) {
+        int saved_errno = -rc;
+
+        if (saved_errno <= 0) {
+            saved_errno = EIO;
+        }
+        a90_logf("wifi-v726",
+                 "lifecycle modem owner devnode not ready rc=%d errno=%d error=%s",
+                 rc,
+                 saved_errno,
+                 strerror(saved_errno));
+        klogf("<6>A90v726: wifi lifecycle modem owner devnode not ready rc=%d\n",
+              rc);
+        (void)v726_append_wifi_lifecycle_owner_log(
+                "parent devnode_not_ready rc=%d errno=%d error=%s\n",
+                rc,
+                saved_errno,
+                strerror(saved_errno));
+        return;
+    }
+
+    pid = fork();
+    if (pid < 0) {
+        int saved_errno = errno;
+
+        a90_logf("wifi-v726",
+                 "lifecycle modem owner fork failed errno=%d error=%s",
+                 saved_errno,
+                 strerror(saved_errno));
+        klogf("<6>A90v726: wifi lifecycle modem owner fork failed errno=%d\n",
+              saved_errno);
+        (void)v726_append_wifi_lifecycle_owner_log(
+                "parent fork_failed errno=%d error=%s\n",
+                saved_errno,
+                strerror(saved_errno));
+        return;
+    }
+    if (pid == 0) {
+        v726_wifi_lifecycle_modem_owner_child();
+    }
+
+    snprintf(pid_text, sizeof(pid_text), "%ld\n", (long)pid);
+    (void)v724_write_private_file(A90_WIFI_LIFECYCLE_MODEM_OWNER_PID, pid_text);
+    a90_logf("wifi-v726",
+             "lifecycle modem owner spawned pid=%ld dev=%s",
+             (long)pid,
+             A90_WIFI_LIFECYCLE_MODEM_OWNER_DEVNODE);
+    a90_timeline_record(0,
+                        0,
+                        "wifi-v726-lifecycle-owner",
+                        "modem owner pid=%ld",
+                        (long)pid);
+    klogf("<6>A90v726: wifi lifecycle modem owner spawned pid=%ld\n",
+          (long)pid);
+    (void)v726_append_wifi_lifecycle_owner_log("parent spawned pid=%ld dev=%s\n",
+                                               (long)pid,
+                                               A90_WIFI_LIFECYCLE_MODEM_OWNER_DEVNODE);
+}
+#endif
 
 static int v724_read_qrtr_boot_flag(char *state, size_t state_size) {
     int fd;
@@ -4177,6 +4390,12 @@ static int v2133_prepare_fwclass_vendor_path(void) {
 }
 #endif
 
+static int v1393_wifi_test_wlan0_present(void) {
+    struct stat st;
+
+    return (lstat("/sys/class/net/wlan0", &st) == 0) ? 1 : 0;
+}
+
 static void v1393_write_wifi_test_summary(pid_t helper_pid, long spawn_ms) {
     char wchan_path[64];
     char status_path[64];
@@ -4205,7 +4424,7 @@ static void v1393_write_wifi_test_summary(pid_t helper_pid, long spawn_ms) {
 
     errno = 0;
     helper_alive = (helper_pid > 0 && (kill(helper_pid, 0) == 0 || errno == EPERM)) ? 1 : 0;
-    wlan0_present = (lstat("/sys/class/net/wlan0", &st) == 0) ? 1 : 0;
+    wlan0_present = v1393_wifi_test_wlan0_present();
 
     fd = open(A90_V1393_WIFI_TEST_SUMMARY,
               O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC | O_NOFOLLOW,
@@ -4353,6 +4572,7 @@ static void v1393_write_wifi_test_supervised_summary(pid_t helper_pid,
                                                      int timed_out) {
     v1393_write_wifi_test_summary(helper_pid, spawn_ms);
     {
+        int wlan0_present = v1393_wifi_test_wlan0_present();
         int fd = open(A90_V1393_WIFI_TEST_SUMMARY,
                       O_WRONLY | O_APPEND | O_CLOEXEC | O_NOFOLLOW,
                       0600);
@@ -4364,6 +4584,13 @@ static void v1393_write_wifi_test_supervised_summary(pid_t helper_pid,
         dprintf(fd, "helper_wait_rc=%d\n", wait_rc);
         dprintf(fd, "helper_timed_out=%d\n", timed_out);
         dprintf(fd, "helper_status_raw=%d\n", status);
+        dprintf(fd, "baseline_ready=%d\n", wlan0_present);
+        dprintf(fd,
+                "helper_timeout_benign=%d\n",
+                (timed_out != 0 && wlan0_present != 0) ? 1 : 0);
+        dprintf(fd,
+                "supervisor_result=%s\n",
+                wlan0_present != 0 ? "wlan0-ready" : (timed_out != 0 ? "timeout-no-wlan0" : "helper-complete-no-wlan0"));
         if (wait_rc == 0 && WIFEXITED(status)) {
             dprintf(fd, "helper_exited=1\n");
             dprintf(fd, "helper_exit_code=%d\n", WEXITSTATUS(status));
@@ -5801,6 +6028,11 @@ int main(void) {
         klogf("<6>A90v724: userland inventory warning %s\n", userland_summary);
     }
     boot_auto_frame();
+
+#ifdef A90_WIFI_LIFECYCLE_MODEM_OWNER
+    v726_start_wifi_lifecycle_modem_owner_once();
+    boot_auto_frame();
+#endif
 
 #ifdef A90_WIFI_TEST_BOOT
     v1393_run_wifi_test_boot_once();

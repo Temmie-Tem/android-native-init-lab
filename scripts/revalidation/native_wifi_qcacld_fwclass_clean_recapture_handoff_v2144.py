@@ -41,14 +41,15 @@ ROLLBACK_EXPECT_VERSION = "A90 Linux init 0.9.244 (v725-fasttransport)"
 TEST_LOG_PATH = "/cache/native-init-wifi-test-boot-v2168.log"
 TEST_SUMMARY_PATH = "/cache/native-init-wifi-test-boot-v2168.summary"
 TEST_HELPER_RESULT_PATH = "/cache/native-init-wifi-test-boot-v2168-helper.result"
+TEST_EVIDENCE_LABEL = os.environ.get("A90_WIFI_TEST_EVIDENCE_LABEL", "v2168")
 SIBLING_FLAG_PATH = "/cache/native-init-sibling-fwssctl-v641"
 DEFAULT_HELPER_WAIT_SEC = 260.0
 POLL_INTERVAL_SEC = 5.0
 FAST_EVIDENCE_DIR = "a90-v2144-evidence"
 FAST_EVIDENCE_STEPS = {
-    "test-v2168-log",
-    "test-v2168-summary",
-    "test-v2168-helper-result",
+    f"test-{TEST_EVIDENCE_LABEL}-log",
+    f"test-{TEST_EVIDENCE_LABEL}-summary",
+    f"test-{TEST_EVIDENCE_LABEL}-helper-result",
     "test-dmesg-full",
     "test-dmesg-wifi-filter",
     "test-icnss-stats",
@@ -309,9 +310,9 @@ def collect_test_evidence(store: EvidenceStore, steps: list[dict[str, Any]]) -> 
         "test-status": ["status"],
         "test-selftest": ["selftest"],
         "test-bootstatus": ["bootstatus"],
-        "test-v2168-log": ["run", "/cache/bin/busybox", "cat", TEST_LOG_PATH],
-        "test-v2168-summary": ["run", "/cache/bin/busybox", "cat", TEST_SUMMARY_PATH],
-        "test-v2168-helper-result": ["run", "/cache/bin/busybox", "cat", TEST_HELPER_RESULT_PATH],
+        f"test-{TEST_EVIDENCE_LABEL}-log": ["run", "/cache/bin/busybox", "cat", TEST_LOG_PATH],
+        f"test-{TEST_EVIDENCE_LABEL}-summary": ["run", "/cache/bin/busybox", "cat", TEST_SUMMARY_PATH],
+        f"test-{TEST_EVIDENCE_LABEL}-helper-result": ["run", "/cache/bin/busybox", "cat", TEST_HELPER_RESULT_PATH],
         "test-dmesg-full": ["run", "/cache/bin/busybox", "dmesg"],
         "test-dmesg-wifi-filter": [
             "run",
@@ -446,9 +447,9 @@ def collect_test_evidence_fast(store: EvidenceStore, steps: list[dict[str, Any]]
         "$bb rm -rf \"$tmp\"",
         "$bb mkdir -p \"$payload\"",
         "copy_if() { src=\"$1\"; dst=\"$2\"; [ -f \"$src\" ] && $bb cp \"$src\" \"$payload/$dst\" || true; }",
-        f"copy_if {shlex.quote(TEST_LOG_PATH)} test-v2168-log.stdout.txt",
-        f"copy_if {shlex.quote(TEST_SUMMARY_PATH)} test-v2168-summary.stdout.txt",
-        f"copy_if {shlex.quote(TEST_HELPER_RESULT_PATH)} test-v2168-helper-result.stdout.txt",
+        f"copy_if {shlex.quote(TEST_LOG_PATH)} test-{TEST_EVIDENCE_LABEL}-log.stdout.txt",
+        f"copy_if {shlex.quote(TEST_SUMMARY_PATH)} test-{TEST_EVIDENCE_LABEL}-summary.stdout.txt",
+        f"copy_if {shlex.quote(TEST_HELPER_RESULT_PATH)} test-{TEST_EVIDENCE_LABEL}-helper-result.stdout.txt",
         "$bb dmesg > \"$payload/test-dmesg-full.stdout.txt\" 2>&1 || true",
         (
             "$bb dmesg | $bb grep -Ei "
@@ -566,14 +567,18 @@ def collect_test_evidence_fast(store: EvidenceStore, steps: list[dict[str, Any]]
     return result
 
 
-def rollback(store: EvidenceStore, steps: list[dict[str, Any]]) -> dict[str, Any]:
-    first = run_command(flash_command(ROLLBACK_IMAGE, ROLLBACK_EXPECT_VERSION, from_native=True), timeout=720)
+def rollback(store: EvidenceStore,
+             steps: list[dict[str, Any]],
+             *,
+             rollback_image: Path = ROLLBACK_IMAGE,
+             rollback_expect_version: str = ROLLBACK_EXPECT_VERSION) -> dict[str, Any]:
+    first = run_command(flash_command(rollback_image, rollback_expect_version, from_native=True), timeout=720)
     write_step(store, steps, "rollback-from-native", first)
     if first["ok"]:
         ok = True
         attempt = "from-native"
     else:
-        second = run_command(flash_command(ROLLBACK_IMAGE, ROLLBACK_EXPECT_VERSION, from_native=False), timeout=720)
+        second = run_command(flash_command(rollback_image, rollback_expect_version, from_native=False), timeout=720)
         write_step(store, steps, "rollback-from-recovery", second)
         ok = bool(second["ok"])
         attempt = "from-recovery"
@@ -746,6 +751,8 @@ def run_handoff(*,
                 report_path: Path = REPORT_PATH,
                 test_image: Path = TEST_IMAGE,
                 test_expect_version: str = TEST_EXPECT_VERSION,
+                rollback_image: Path = ROLLBACK_IMAGE,
+                rollback_expect_version: str = ROLLBACK_EXPECT_VERSION,
                 helper_wait_sec: float = DEFAULT_HELPER_WAIT_SEC,
                 post_flash_hook: Callable[[EvidenceStore, list[dict[str, Any]]], dict[str, Any]] | None = None) -> dict[str, Any]:
     store = EvidenceStore(out_dir)
@@ -755,9 +762,9 @@ def run_handoff(*,
         "test_image": rel(test_image),
         "test_image_exists": test_image.exists(),
         "test_image_sha256": sha256(test_image) if test_image.exists() else "",
-        "rollback_image": rel(ROLLBACK_IMAGE),
-        "rollback_image_exists": ROLLBACK_IMAGE.exists(),
-        "rollback_image_sha256": sha256(ROLLBACK_IMAGE) if ROLLBACK_IMAGE.exists() else "",
+        "rollback_image": rel(rollback_image),
+        "rollback_image_exists": rollback_image.exists(),
+        "rollback_image_sha256": sha256(rollback_image) if rollback_image.exists() else "",
     }
     store.write_json("preflight.json", preflight)
     if not preflight["test_image_exists"] or not preflight["rollback_image_exists"]:
@@ -801,7 +808,12 @@ def run_handoff(*,
         helper_wait = wait_for_helper_completion(store, steps, max_wait_sec=helper_wait_sec)
         collect_test_evidence(store, steps)
 
-    rollback_result = rollback(store, steps)
+    rollback_result = rollback(
+        store,
+        steps,
+        rollback_image=rollback_image,
+        rollback_expect_version=rollback_expect_version,
+    )
     classification = classify(store, test_flash, helper_wait, rollback_result)
     manifest = {
         "cycle": cycle,

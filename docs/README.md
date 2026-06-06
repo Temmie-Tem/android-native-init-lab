@@ -8,7 +8,7 @@
 
 상단 `docs/`는 이제 다음 흐름에 필요한 문서를 유지합니다.
 
-1. native init 0.9.244 / v725-fasttransport verified transport baseline 고정
+1. native init 0.9.246 / v726-wifi-lifecycle verified Wi-Fi lifecycle baseline 고정
 2. shell/HUD/log/menu 운영 안정화
 3. 필요한 하드웨어/커널 경로만 역추적
 4. BusyBox/network/SSH 같은 서버형 확장 가능성 검토
@@ -147,14 +147,16 @@
 - 빌드: `A908NKSU5EWA3`
 - kernel: Samsung stock Android kernel `Linux 4.14.190`
 - recovery: TWRP 사용 가능
-- latest verified build: `A90 Linux init 0.9.244 (v725-fasttransport)`
-- official version: `0.9.244`
-- build tag: `v725-fasttransport`
-- 현재 기준 사이클: `v725-fasttransport` transport baseline (native Wi-Fi bring-up rollback/test 기준)
+- latest verified build: `A90 Linux init 0.9.246 (v726-wifi-lifecycle)`
+- official version: `0.9.246`
+- build tag: `v726-wifi-lifecycle`
+- 현재 기준 사이클: `v726-wifi-lifecycle` Wi-Fi lifecycle baseline (native Wi-Fi bring-up rollback/test 기준)
 - creator: `made by temmie0214`
-- latest verified source: `stage3/linux_init/init_v725_fasttransport.c` + 모듈 `stage3/linux_init/a90_*.c/h` + 헬퍼 `stage3/linux_init/helpers/`
-- latest verified boot image: `stage3/boot_linux_v725_fasttransport.img`
-- previous verified boot image: `stage3/boot_linux_v261.img` (`0.9.60 (v261)`)
+- latest verified source: `stage3/linux_init/init_v724.c` + 모듈 `stage3/linux_init/v724/90_main.inc.c` + 헬퍼 `stage3/linux_init/helpers/` + 빌더 `scripts/revalidation/build_native_init_boot_v726_wifi_lifecycle.py`
+- latest verified boot image: `stage3/boot_linux_v726_wifi_lifecycle.img`
+- latest verified boot image SHA256: `2a8d3f946068d81b17882153058db06a6d795592a08ec2bd9057f0e6df2b501a`
+- previous verified boot image: `stage3/boot_linux_v725_fasttransport.img` (`0.9.244 (v725-fasttransport)`)
+- older verified boot image: `stage3/boot_linux_v261.img` (`0.9.60 (v261)`)
 - known-good fallback: `stage3/boot_linux_v48.img`
 - control channel: USB CDC ACM serial bridge
 - display: custom boot splash 후 상태 HUD/menu 자동 전환
@@ -673,6 +675,10 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V726_WIFI_LIFECYCLE_BASELINE_PROMOTION_2026-06-07.md` – `0.9.246 (v726-wifi-lifecycle)`/SHA `2a8d3f...`를 현재 baseline으로 승격하고, 현재 부팅 `status`/`selftest fail=0`, persistent `baseline_ready=1`, final SHA 60초 connect smoke를 묶은 결과
+- `reports/NATIVE_INIT_V2167_CONNECT_DHCP_GOOGLE_PING_HANDOFF_V726_FINAL_SHA_SMOKE_2026-06-05.md` – 최종 V726 SHA를 test/rollback 이미지로 사용해 connect→DHCP→google ping→60초 hold를 통과하고 v726 rollback/selftest를 검증한 결과
+- `reports/NATIVE_INIT_V2167_CONNECT_DHCP_GOOGLE_PING_HANDOFF_V726_5G_FWREADY_WAIT_5MIN_NO_HELPER_HOLDER_2026-06-05.md` – V726 Wi-Fi lifecycle route가 connect→DHCP→google ping 이후 5분 hold 동안 carrier/route/gateway/IP/host ping을 모두 유지하고 v725 rollback/selftest fail=0을 검증한 장시간 hold 결과
+- `reports/NATIVE_INIT_V726_WIFI_LIFECYCLE_SOURCE_BUILD_2026-06-07.md` – V726 source/build 결과 V2168 QCACLD firmware_class feeder, post-FW_READY `boot_wlan`, V725 fasttransport, PID1 `/dev/subsys_modem` lifecycle owner를 결합한 `0.9.246 (v726-wifi-lifecycle)` 이미지 생성 결과
 - `reports/NATIVE_INIT_V1005_V1004_FD_GAP_CLASSIFIER_2026-05-26.md` – V1000 Android lower timing, V911 native `mdm_helper` fd positive, V1004 service-window fd-gate miss를 host-only로 비교해 helper `v171` fd-poll support를 다음으로 선택한 V1005 결과
 - `reports/NATIVE_INIT_V1006_SERVICE_WINDOW_FD_POLL_SUPPORT_2026-05-26.md` – helper `v171`에 Android service-window `mdm_helper` `/dev/esoc-0` repeated fd-poll markers와 Android-like mdm-helper→cnss timing support를 source/build-only로 추가한 V1006 결과
 - `reports/NATIVE_INIT_V1007_HELPER_V171_DEPLOY_2026-05-26.md` – helper `v171`을 `/cache/bin/a90_android_execns_probe`로 deploy-only 설치하고 remote sha/contract parity 및 no-Wi-Fi guard를 확인한 V1007 결과

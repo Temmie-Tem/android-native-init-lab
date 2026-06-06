@@ -39,7 +39,65 @@ def env_int(name: str, default: int, minimum: int, maximum: int) -> int:
     return value
 
 
+def load_local_env_file(path: Path) -> dict[str, Any]:
+    allowed_keys = {
+        "A90_WIFI_SSID",
+        "A90_WIFI_PSK",
+        "A90_WIFI_RUN_LABEL",
+        "A90_WIFI_QA_HOLD_SEC",
+        "A90_WIFI_QA_HOLD_INTERVAL_SEC",
+        "A90_WIFI_QA_RECONNECT_ON_DROP",
+        "A90_WIFI_FORCE_POWER_ON",
+        "A90_WIFI_CONNECT_HOLD_SUBSYS_MODEM",
+        "A90_FAST_TRANSFER",
+        "A90_FAST_TRANSFER_NM_PROFILE",
+        "A90_WIFI_TEST_BOOT_IMAGE",
+        "A90_WIFI_TEST_EXPECT_VERSION",
+        "A90_WIFI_ROLLBACK_IMAGE",
+        "A90_WIFI_ROLLBACK_EXPECT_VERSION",
+        "A90_WIFI_HELPER_WAIT_SEC",
+        "A90_WIFI_BOOT_PROPERTY_REMOTE_BASE",
+        "A90_WIFI_TEST_LOG_PATH",
+        "A90_WIFI_TEST_SUMMARY_PATH",
+        "A90_WIFI_TEST_HELPER_RESULT_PATH",
+        "A90_STANDALONE_WPA",
+        "A90_STANDALONE_WPA_SUITE",
+        "A90_STANDALONE_WPA_BASE_URL",
+    }
+    loaded_keys: list[str] = []
+    if not path.exists():
+        return {"path": str(path), "present": False, "loaded_keys": loaded_keys}
+    mode = path.stat().st_mode & 0o777
+    if mode & 0o077:
+        raise ValueError(f"{path} must not be group/world readable; run: chmod 600 {path}")
+    for line_no, raw_line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        try:
+            parts = shlex.split(line, comments=True, posix=True)
+        except ValueError as exc:
+            raise ValueError(f"{path}:{line_no}: invalid env syntax") from exc
+        if len(parts) == 2 and parts[0] == "export":
+            assignment = parts[1]
+        elif len(parts) == 1:
+            assignment = parts[0]
+        else:
+            raise ValueError(f"{path}:{line_no}: expected KEY=value or export KEY=value")
+        if "=" not in assignment:
+            raise ValueError(f"{path}:{line_no}: missing '='")
+        key, value = assignment.split("=", 1)
+        if key not in allowed_keys:
+            raise ValueError(f"{path}:{line_no}: unsupported key {key}")
+        if key not in os.environ:
+            os.environ[key] = value
+            loaded_keys.append(key)
+    return {"path": str(path), "present": True, "loaded_keys": loaded_keys}
+
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
+LOCAL_ENV_FILE = REPO_ROOT / "tmp" / "wifi" / ".wifi-test.env"
+LOCAL_ENV_LOAD = load_local_env_file(LOCAL_ENV_FILE)
 CYCLE = "V2167"
 RAW_RUN_LABEL = os.environ.get("A90_WIFI_RUN_LABEL", "").strip().lower()
 RUN_LABEL = re.sub(r"[^a-z0-9_.-]+", "-", RAW_RUN_LABEL).strip(".-")[:48] or "default"
@@ -77,14 +135,36 @@ PROPERTY_LAYOUT_DIR = OUT_DIR / "layout"
 PROPERTY_ROOT = PROPERTY_LAYOUT_DIR / "dev" / "__properties__"
 PROPERTY_REMOTE_BASE = "/cache/a90-wifi-property-v2167"
 PROPERTY_REMOTE_ROOT = f"{PROPERTY_REMOTE_BASE}/dev/__properties__"
-BOOT_PROPERTY_REMOTE_BASE = "/mnt/sdext/a90/private-property-v317/v2168"
+BOOT_PROPERTY_REMOTE_BASE = os.environ.get(
+    "A90_WIFI_BOOT_PROPERTY_REMOTE_BASE",
+    "/mnt/sdext/a90/private-property-v317/v726",
+)
 BOOT_PROPERTY_REMOTE_ROOT = f"{BOOT_PROPERTY_REMOTE_BASE}/dev/__properties__"
 PROPERTY_REMOTE_TGZ = "/cache/a90-property-v2167.tgz"
 PROPERTY_REMOTE_B64 = f"{PROPERTY_REMOTE_TGZ}.b64"
 PING_TARGET = "google.com"
+DEFAULT_BASELINE_BOOT_IMAGE = REPO_ROOT / "stage3" / "boot_linux_v726_wifi_lifecycle.img"
+DEFAULT_BASELINE_EXPECT_VERSION = "A90 Linux init 0.9.246 (v726-wifi-lifecycle)"
+DEFAULT_TEST_LOG_PATH = "/cache/native-init-wifi-test-boot-v726.log"
+DEFAULT_TEST_SUMMARY_PATH = "/cache/native-init-wifi-test-boot-v726.summary"
+DEFAULT_TEST_HELPER_RESULT_PATH = "/cache/native-init-wifi-test-boot-v726-helper.result"
+TEST_BOOT_IMAGE = Path(os.environ.get("A90_WIFI_TEST_BOOT_IMAGE", str(DEFAULT_BASELINE_BOOT_IMAGE))).expanduser()
+TEST_EXPECT_VERSION = os.environ.get("A90_WIFI_TEST_EXPECT_VERSION", DEFAULT_BASELINE_EXPECT_VERSION)
+ROLLBACK_BOOT_IMAGE = Path(os.environ.get("A90_WIFI_ROLLBACK_IMAGE", str(DEFAULT_BASELINE_BOOT_IMAGE))).expanduser()
+ROLLBACK_EXPECT_VERSION = os.environ.get("A90_WIFI_ROLLBACK_EXPECT_VERSION", DEFAULT_BASELINE_EXPECT_VERSION)
+TEST_LOG_PATH = os.environ.get("A90_WIFI_TEST_LOG_PATH", DEFAULT_TEST_LOG_PATH)
+TEST_SUMMARY_PATH = os.environ.get("A90_WIFI_TEST_SUMMARY_PATH", DEFAULT_TEST_SUMMARY_PATH)
+TEST_HELPER_RESULT_PATH = os.environ.get("A90_WIFI_TEST_HELPER_RESULT_PATH", DEFAULT_TEST_HELPER_RESULT_PATH)
+base.TEST_LOG_PATH = TEST_LOG_PATH
+base.TEST_SUMMARY_PATH = TEST_SUMMARY_PATH
+base.TEST_HELPER_RESULT_PATH = TEST_HELPER_RESULT_PATH
+base.TEST_EVIDENCE_LABEL = os.environ.get("A90_WIFI_TEST_EVIDENCE_LABEL", "v726")
 QA_HOLD_SEC = env_int("A90_WIFI_QA_HOLD_SEC", 0, 0, 900)
 QA_HOLD_INTERVAL_SEC = env_int("A90_WIFI_QA_HOLD_INTERVAL_SEC", 20, 1, 120)
 QA_RECONNECT_ON_DROP = os.environ.get("A90_WIFI_QA_RECONNECT_ON_DROP", "1").lower() not in {"0", "false", "no"}
+FORCE_POWER_ON = os.environ.get("A90_WIFI_FORCE_POWER_ON", "0").lower() not in {"0", "false", "no"}
+CONNECT_HOLD_SUBSYS_MODEM = os.environ.get("A90_WIFI_CONNECT_HOLD_SUBSYS_MODEM", "1").lower() not in {"0", "false", "no"}
+HELPER_WAIT_SEC = env_int("A90_WIFI_HELPER_WAIT_SEC", 280 + QA_HOLD_SEC, 0, 1200)
 CHUNK_SIZE = 1536
 FAST_TRANSFER_ENABLED = os.environ.get("A90_FAST_TRANSFER", "1").lower() not in {"0", "false", "no"}
 FAST_TRANSFER_IFNAME = "ncm0"
@@ -319,6 +399,75 @@ def field_or_embedded_sample(fields: dict[str, str], key: str, default: str = ""
         if sample_value.startswith(marker):
             return sample_value.split("=", 1)[1]
     return default
+
+
+def collect_hold_sample_details(fields: dict[str, str]) -> list[dict[str, Any]]:
+    details: list[dict[str, Any]] = []
+    for index in range(16):
+        prefix = f"wifi_connect_ping.hold.sample_{index:02d}"
+        if f"{prefix}.carrier" not in fields:
+            continue
+        details.append({
+            "index": index,
+            "elapsed_ms": intish(fields.get(f"{prefix}.elapsed_ms")),
+            "carrier": fields.get(f"{prefix}.carrier") == "1",
+            "route_default": fields.get(f"{prefix}.route_default_present") == "1",
+            "route_gateway": fields.get(f"{prefix}.route_gateway_present") == "1",
+            "route_flags_up": fields.get(f"{prefix}.route_flags_up") == "1",
+            "route_flags_gateway": fields.get(f"{prefix}.route_flags_gateway") == "1",
+            "route_errno": intish(fields.get(f"{prefix}.route_errno")),
+            "arp_before_present": fields.get(f"{prefix}.arp_before_present") == "1",
+            "arp_before_complete": fields.get(f"{prefix}.arp_before_complete") == "1",
+            "arp_before_errno": intish(fields.get(f"{prefix}.arp_before_errno")),
+            "arp_after_present": fields.get(f"{prefix}.arp_after_present") == "1",
+            "arp_after_complete": fields.get(f"{prefix}.arp_after_complete") == "1",
+            "arp_after_errno": intish(fields.get(f"{prefix}.arp_after_errno")),
+            "stats_before_ok": fields.get(f"{prefix}.stats_before_ok") == "1",
+            "stats_after_ok": fields.get(f"{prefix}.stats_after_ok") == "1",
+            "rx_packets_delta": intish(fields.get(f"{prefix}.rx_packets_delta")),
+            "tx_packets_delta": intish(fields.get(f"{prefix}.tx_packets_delta")),
+            "rx_errors_delta": intish(fields.get(f"{prefix}.rx_errors_delta")),
+            "tx_errors_delta": intish(fields.get(f"{prefix}.tx_errors_delta")),
+            "rx_dropped_delta": intish(fields.get(f"{prefix}.rx_dropped_delta")),
+            "tx_dropped_delta": intish(fields.get(f"{prefix}.tx_dropped_delta")),
+            "gateway_ping_available": fields.get(f"{prefix}.gateway_ping_available") == "1",
+            "gateway_ping_ok": fields.get(f"{prefix}.gateway_ping_ok") == "1",
+            "gateway_ping_classifier": fields.get(f"{prefix}.gateway_ping_classifier", ""),
+            "ip_ping_ok": fields.get(f"{prefix}.ip_ping_ok") == "1",
+            "ip_ping_classifier": fields.get(f"{prefix}.ip_ping_classifier", ""),
+            "host_ping_ok": fields.get(f"{prefix}.host_ping_ok") == "1",
+            "host_ping_classifier": fields.get(f"{prefix}.host_ping_classifier", ""),
+            "wpa_status_rc": intish(fields.get(f"{prefix}.wpa_status_rc")),
+            "wpa_state": fields.get(f"{prefix}.wpa_state", ""),
+            "wpa_freq_mhz": intish(fields.get(f"{prefix}.wpa_freq_mhz")),
+            "wpa_ip_present": fields.get(f"{prefix}.wpa_ip_present") == "1",
+            "wpa_bssid_present": fields.get(f"{prefix}.wpa_bssid_present") == "1",
+            "signal_poll_rc": intish(fields.get(f"{prefix}.signal_poll_rc")),
+            "signal_rssi_dbm": intish(fields.get(f"{prefix}.signal_rssi_dbm")),
+            "signal_linkspeed_mbps": intish(fields.get(f"{prefix}.signal_linkspeed_mbps")),
+            "signal_frequency_mhz": intish(fields.get(f"{prefix}.signal_frequency_mhz")),
+            "power_class": fields.get(f"{prefix}.power_class", ""),
+            "power_device": fields.get(f"{prefix}.power_device", ""),
+            "driver_power_state": fields.get(f"{prefix}.driver_power_state", ""),
+            "cnss_daemon_count": intish(fields.get(f"{prefix}.owner.cnss_daemon_count")),
+            "pm_service_count": intish(fields.get(f"{prefix}.owner.pm_service_count")),
+            "per_mgr_count": intish(fields.get(f"{prefix}.owner.per_mgr_count")),
+            "wifi_hal_count": intish(fields.get(f"{prefix}.owner.wifi_hal_count")),
+            "supplicant_count": intish(fields.get(f"{prefix}.owner.supplicant_count")),
+            "ipacm_count": intish(fields.get(f"{prefix}.owner.ipacm_count")),
+            "fd_dev_ipa_count": intish(fields.get(f"{prefix}.owner.fd_dev_ipa_count")),
+            "fd_subsys_modem_count": intish(fields.get(f"{prefix}.owner.fd_subsys_modem_count")),
+            "dev_ipa_exists": fields.get(f"{prefix}.owner.dev_ipa_exists") == "1",
+            "icnss_runtime_status": fields.get(f"{prefix}.icnss.runtime_status", ""),
+            "wlan0_device_runtime_status": fields.get(f"{prefix}.icnss.wlan0_device_runtime_status", ""),
+            "wlan_pd_seen": fields.get(f"{prefix}.subsys.wlan_seen") == "1",
+            "wlan_pd_name": fields.get(f"{prefix}.subsys.wlan_name", ""),
+            "wlan_pd_state": fields.get(f"{prefix}.subsys.wlan_state", ""),
+            "wlan_pd_crash_count": fields.get(f"{prefix}.subsys.wlan_crash_count", ""),
+            "modem_seen": fields.get(f"{prefix}.subsys.modem_seen") == "1",
+            "modem_state": fields.get(f"{prefix}.subsys.modem_state", ""),
+        })
+    return details
 
 
 def run_step(store: base.EvidenceStore,
@@ -1442,6 +1591,8 @@ def stage_connect_script(store: base.EvidenceStore,
         "connect_script.qa_hold_sec": str(QA_HOLD_SEC),
         "connect_script.qa_hold_interval_sec": str(QA_HOLD_INTERVAL_SEC),
         "connect_script.qa_reconnect_on_drop": "1" if QA_RECONNECT_ON_DROP else "0",
+        "connect_script.force_power_on": "1" if FORCE_POWER_ON else "0",
+        "connect_script.hold_subsys_modem": "1" if CONNECT_HOLD_SUBSYS_MODEM else "0",
     }
     helper_args = [
         HELPER_REMOTE,
@@ -1493,6 +1644,10 @@ def stage_connect_script(store: base.EvidenceStore,
         ])
         if QA_RECONNECT_ON_DROP:
             helper_args.append("--connect-reconnect-on-drop")
+    if FORCE_POWER_ON:
+        helper_args.append("--connect-force-power-on")
+    if CONNECT_HOLD_SUBSYS_MODEM:
+        helper_args.append("--connect-hold-subsys-modem")
     helper_command = " ".join(shlex.quote(part) for part in helper_args)
     run_step(store, steps, "connect-script-clean", ["run", "/cache/bin/busybox", "rm", "-f", CONNECT_SCRIPT, CONNECT_RESULT])
     run_step(store, steps, "connect-script-touch", ["run", "/cache/bin/busybox", "touch", CONNECT_SCRIPT])
@@ -1508,6 +1663,7 @@ def stage_connect_script(store: base.EvidenceStore,
         f"echo v2167.qa_hold_sec={QA_HOLD_SEC} >> \"$out\"",
         f"echo v2167.qa_hold_interval_sec={QA_HOLD_INTERVAL_SEC} >> \"$out\"",
         f"echo v2167.qa_reconnect_on_drop={1 if QA_RECONNECT_ON_DROP else 0} >> \"$out\"",
+        f"echo v2167.connect_hold_subsys_modem={1 if CONNECT_HOLD_SUBSYS_MODEM else 0} >> \"$out\"",
         "loop=0",
         "while [ \"$loop\" -lt 1200 ]; do",
         "if [ -e /sys/class/net/wlan0 ]; then echo v2167.wlan0_seen=1 >> \"$out\"; break; fi",
@@ -1925,6 +2081,15 @@ def collect_gate(manifest: dict[str, Any], result: dict[str, Any]) -> dict[str, 
         "hold_ip_ping_attempt_count": intish(fields.get("wifi_connect_ping.hold.ip_ping_attempt_count")),
         "hold_ip_ping_success_count": intish(fields.get("wifi_connect_ping.hold.ip_ping_success_count")),
         "hold_ip_ping_fail_count": intish(fields.get("wifi_connect_ping.hold.ip_ping_fail_count")),
+        "hold_gateway_ping_attempt_count": intish(fields.get("wifi_connect_ping.hold.gateway_ping_attempt_count")),
+        "hold_gateway_ping_success_count": intish(fields.get("wifi_connect_ping.hold.gateway_ping_success_count")),
+        "hold_gateway_ping_fail_count": intish(fields.get("wifi_connect_ping.hold.gateway_ping_fail_count")),
+        "hold_route_default_present_count": intish(fields.get("wifi_connect_ping.hold.route_default_present_count")),
+        "hold_route_gateway_present_count": intish(fields.get("wifi_connect_ping.hold.route_gateway_present_count")),
+        "hold_arp_before_entry_count": intish(fields.get("wifi_connect_ping.hold.arp_before_entry_count")),
+        "hold_arp_before_complete_count": intish(fields.get("wifi_connect_ping.hold.arp_before_complete_count")),
+        "hold_arp_after_entry_count": intish(fields.get("wifi_connect_ping.hold.arp_after_entry_count")),
+        "hold_arp_after_complete_count": intish(fields.get("wifi_connect_ping.hold.arp_after_complete_count")),
         "hold_reconnect_attempt_count": intish(fields.get("wifi_connect_ping.hold.reconnect_attempt_count")),
         "hold_reconnect_success_count": intish(fields.get("wifi_connect_ping.hold.reconnect_success_count")),
         "hold_first_fail_sample": intish(fields.get("wifi_connect_ping.hold.first_fail_sample")),
@@ -1932,6 +2097,31 @@ def collect_gate(manifest: dict[str, Any], result: dict[str, Any]) -> dict[str, 
         "hold_first_fail_ping_rc": intish(fields.get("wifi_connect_ping.hold.first_fail_ping_rc")),
         "hold_pass": hold_pass,
         "hold_reason": fields.get("wifi_connect_ping.hold.reason", ""),
+        "hold_sample_details": collect_hold_sample_details(fields),
+        "force_power_on_enabled": fields.get("wifi_connect_ping.force_power_on.enabled") == "1",
+        "force_power_on_executed": fields.get("wifi_connect_ping.force_power_on.executed") == "1",
+        "force_power_on_reason": fields.get("wifi_connect_ping.force_power_on.reason", ""),
+        "force_power_on_class_before": fields.get("wifi_connect_ping.force_power_on.class_before", ""),
+        "force_power_on_class_write_rc": intish(fields.get("wifi_connect_ping.force_power_on.class_write_rc")),
+        "force_power_on_class_write_errno": intish(fields.get("wifi_connect_ping.force_power_on.class_write_errno")),
+        "force_power_on_class_after": fields.get("wifi_connect_ping.force_power_on.class_after", ""),
+        "force_power_on_device_before": fields.get("wifi_connect_ping.force_power_on.device_before", ""),
+        "force_power_on_device_write_rc": intish(fields.get("wifi_connect_ping.force_power_on.device_write_rc")),
+        "force_power_on_device_write_errno": intish(fields.get("wifi_connect_ping.force_power_on.device_write_errno")),
+        "force_power_on_device_after": fields.get("wifi_connect_ping.force_power_on.device_after", ""),
+        "connect_hold_subsys_modem_requested": fields.get("v2167.connect_hold_subsys_modem") == "1",
+        "modem_holder_enabled": fields.get("wifi_connect_ping.modem_holder.enabled") == "1",
+        "modem_holder_started": fields.get("wifi_connect_ping.modem_holder.started") == "1",
+        "modem_holder_start_attempted": fields.get("wlan_pd_modem_holder.start_attempted") == "1",
+        "modem_holder_opened": fields.get("wlan_pd_modem_holder.opened") == "1",
+        "modem_holder_open_errno": intish(fields.get("wlan_pd_modem_holder.open_errno")),
+        "modem_holder_pid": intish(fields.get("wlan_pd_modem_holder.pid")),
+        "modem_holder_stop_attempted": fields.get("wlan_pd_modem_holder.stop_attempted") == "1",
+        "modem_holder_reaped": fields.get("wlan_pd_modem_holder.reaped") == "1",
+        "modem_holder_postflight_safe": fields.get("wlan_pd_modem_holder.postflight_safe") == "1",
+        "modem_holder_subsys_esoc0_open_attempted": fields.get("wlan_pd_modem_holder.subsys_esoc0_open_attempted") == "1",
+        "modem_holder_esoc_open_attempted": fields.get("wlan_pd_modem_holder.esoc_open_attempted") == "1",
+        "modem_holder_forced_rc1_attempted": fields.get("wlan_pd_modem_holder.forced_rc1_attempted") == "1",
         "secret_values_logged": fields.get("wifi_connect_ping.secret_values_logged", ""),
         "country_code": fields.get("wifi_connect_ping.country_code", ""),
         "driver_ioctl_country_rc": intish(fields.get("wifi_connect_ping.driver_ioctl.country.rc")),
@@ -2245,6 +2435,26 @@ def render_report(manifest: dict[str, Any]) -> str:
         f"- `logdw_sample_{index:02d}`: `{sample}`"
         for index, sample in enumerate(gate.get("logdw_sink_samples", []))
     ]
+    hold_sample_lines = [
+        (
+            f"- `hold_sample_{sample['index']:02d}` t_ms `{sample['elapsed_ms']}` "
+            f"carrier `{sample['carrier']}` route `{sample['route_default']}/{sample['route_gateway']}` err `{sample['route_errno']}` "
+            f"arp `{sample['arp_before_present']}:{sample['arp_before_complete']}->{sample['arp_after_present']}:{sample['arp_after_complete']}` "
+            f"gw `{sample['gateway_ping_classifier']}` ip `{sample['ip_ping_classifier']}` host `{sample['host_ping_classifier']}` "
+            f"stats `{sample['stats_before_ok']}/{sample['stats_after_ok']}` "
+            f"pkt_delta rx/tx `{sample['rx_packets_delta']}/{sample['tx_packets_delta']}` "
+            f"err_drop `{sample['rx_errors_delta']}/{sample['tx_errors_delta']}/{sample['rx_dropped_delta']}/{sample['tx_dropped_delta']}` "
+            f"wpa `{sample['wpa_state']}` rc `{sample['wpa_status_rc']}` freq `{sample['wpa_freq_mhz']}` "
+            f"sig `{sample['signal_rssi_dbm']}/{sample['signal_linkspeed_mbps']}` rc `{sample['signal_poll_rc']}` "
+            f"power `{sample['power_class']}/{sample['power_device']}/{sample['driver_power_state']}` "
+            f"owners cnss/pm/per/wifi/ipacm `{sample['cnss_daemon_count']}/{sample['pm_service_count']}/{sample['per_mgr_count']}/{sample['wifi_hal_count']}/{sample['ipacm_count']}` "
+            f"fds ipa/subsys_modem `{sample['fd_dev_ipa_count']}/{sample['fd_subsys_modem_count']}` "
+            f"icnss `{sample['icnss_runtime_status']}/{sample['wlan0_device_runtime_status']}` "
+            f"wlanpd `{sample['wlan_pd_seen']}:{sample['wlan_pd_state']}:{sample['wlan_pd_crash_count']}` "
+            f"modem `{sample['modem_seen']}:{sample['modem_state']}`"
+        )
+        for sample in gate.get("hold_sample_details", [])
+    ]
     phase_timer_lines = [
         f"- `{item.get('name', '')}` elapsed `{item.get('elapsed_sec', 0)}` ok `{item.get('ok', False)}` detail `{item.get('detail', '')}`"
         for item in manifest.get("phase_timers", [])
@@ -2299,7 +2509,7 @@ def render_report(manifest: dict[str, Any]) -> str:
         f"- Pass: `{manifest['pass']}`",
         f"- Reason: {manifest['reason']}",
         f"- Evidence: `{manifest['out_dir']}`",
-        f"- QA hold config: sec `{manifest.get('qa_hold_config', {}).get('hold_sec', 0)}` interval `{manifest.get('qa_hold_config', {}).get('hold_interval_sec', 0)}` reconnect_on_drop `{manifest.get('qa_hold_config', {}).get('reconnect_on_drop', False)}`",
+        f"- QA hold config: sec `{manifest.get('qa_hold_config', {}).get('hold_sec', 0)}` interval `{manifest.get('qa_hold_config', {}).get('hold_interval_sec', 0)}` reconnect_on_drop `{manifest.get('qa_hold_config', {}).get('reconnect_on_drop', False)}` force_power_on `{manifest.get('qa_hold_config', {}).get('force_power_on', False)}`",
         f"- Result source: `{gate['result_source']}` serial_attempts `{gate['serial_attempt_count']}` result_left_on_device `{gate['result_left_on_device']}`",
         f"- Fast upload: ok `{gate['fast_upload_ok']}` reason `{gate['fast_upload_reason']}` elapsed `{gate['fast_upload_elapsed_sec']}`",
         f"- Fast upload archive: `{gate['fast_upload_archive_path']}` bytes `{gate['fast_upload_archive_bytes']}` receiver_bytes `{gate['fast_upload_receiver_bytes']}` entries `{gate['fast_upload_entry_count']}` secret_hits `{gate['fast_upload_secret_hits']}` forbidden_entries `{gate['fast_upload_forbidden_entries']}`",
@@ -2347,7 +2557,18 @@ def render_report(manifest: dict[str, Any]) -> str:
         f"- `kmsg_stream`: started `{gate['kmsg_stream_started']}` start_errno `{gate['kmsg_stream_start_errno']}` present `{gate['kmsg_stream_present']}` size `{gate['kmsg_stream_size']}` lines `{gate['kmsg_stream_lines']}` permission `{gate['kmsg_stream_permission']}` avc `{gate['kmsg_stream_avc']}` nl80211 `{gate['kmsg_stream_nl80211']}` auth `{gate['kmsg_stream_auth']}` assoc `{gate['kmsg_stream_assoc']}` fail `{gate['kmsg_stream_fail']}` sensitive_skipped `{gate['kmsg_stream_sensitive_sample_skipped']}` cleanup_exit `{gate['kmsg_stream_cleanup_exit']}` signal `{gate['kmsg_stream_cleanup_signal']}` timeout `{gate['kmsg_stream_cleanup_timeout']}`",
         f"- `dhcp_executed`: `{gate['dhcp_executed']}` dhcp_rc `{gate['dhcp_rc']}` resolv_present `{gate['resolv_conf_present']}` resolv_errno `{gate['resolv_conf_errno']}` resolv_size `{gate['resolv_conf_size']}` nameservers `{gate['resolv_conf_nameserver_count']}`",
         f"- `external_ping_executed`: `{gate['external_ping_executed']}` target `{gate['external_ping_target']}` rc `{gate['external_ping_rc']}` classifier `{gate['external_ping_output_classifier']}` output_present `{gate['external_ping_output_present']}` output_errno `{gate['external_ping_output_errno']}` bytes_from `{gate['external_ping_output_bytes_from']}` bad_address `{gate['external_ping_output_bad_address']}` unknown_host `{gate['external_ping_output_unknown_host']}` net_unreach `{gate['external_ping_output_network_unreachable']}` sendto `{gate['external_ping_output_sendto_error']}` zero_recv `{gate['external_ping_output_zero_received']}` loss100 `{gate['external_ping_output_packet_loss_100']}`",
+        f"- `force_power_on`: enabled `{gate['force_power_on_enabled']}` executed `{gate['force_power_on_executed']}` reason `{gate['force_power_on_reason']}` class `{gate['force_power_on_class_before']}->{gate['force_power_on_class_after']}` class_rc `{gate['force_power_on_class_write_rc']}` class_errno `{gate['force_power_on_class_write_errno']}` device `{gate['force_power_on_device_before']}->{gate['force_power_on_device_after']}` device_rc `{gate['force_power_on_device_write_rc']}` device_errno `{gate['force_power_on_device_write_errno']}`",
+        f"- `modem_holder`: requested `{gate['connect_hold_subsys_modem_requested']}` enabled `{gate['modem_holder_enabled']}` started `{gate['modem_holder_started']}` start_attempted `{gate['modem_holder_start_attempted']}` opened `{gate['modem_holder_opened']}` open_errno `{gate['modem_holder_open_errno']}` pid `{gate['modem_holder_pid']}` stop_attempted `{gate['modem_holder_stop_attempted']}` reaped `{gate['modem_holder_reaped']}` postflight_safe `{gate['modem_holder_postflight_safe']}` esoc0_attempt `{gate['modem_holder_subsys_esoc0_open_attempted']}` esoc_attempt `{gate['modem_holder_esoc_open_attempted']}` forced_rc1 `{gate['modem_holder_forced_rc1_attempted']}`",
         f"- `hold`: enabled `{gate['hold_enabled']}` executed `{gate['hold_executed']}` requested_sec `{gate['hold_requested_sec']}` interval_sec `{gate['hold_interval_sec']}` pass `{gate['hold_pass']}` reason `{gate['hold_reason']}` samples `{gate['hold_samples']}` carrier_up `{gate['hold_carrier_up_count']}` carrier_down `{gate['hold_carrier_down_count']}` host_ping_success `{gate['hold_ping_success_count']}` host_ping_fail `{gate['hold_ping_fail_count']}` ip_ping_success `{gate['hold_ip_ping_success_count']}` ip_ping_fail `{gate['hold_ip_ping_fail_count']}` reconnect_on_drop `{gate['hold_reconnect_on_drop']}` reconnect_attempts `{gate['hold_reconnect_attempt_count']}` reconnect_success `{gate['hold_reconnect_success_count']}` first_fail_sample `{gate['hold_first_fail_sample']}` first_fail_errno `{gate['hold_first_fail_errno']}` first_fail_ping_rc `{gate['hold_first_fail_ping_rc']}`",
+        f"- `hold_path_diag`: gateway_ping `{gate['hold_gateway_ping_success_count']}/{gate['hold_gateway_ping_attempt_count']}` gateway_fail `{gate['hold_gateway_ping_fail_count']}` route_default `{gate['hold_route_default_present_count']}` route_gateway `{gate['hold_route_gateway_present_count']}` arp_before `{gate['hold_arp_before_complete_count']}/{gate['hold_arp_before_entry_count']}` arp_after `{gate['hold_arp_after_complete_count']}/{gate['hold_arp_after_entry_count']}`",
+        "",
+        "## Hold Sample Diagnostics",
+        "",
+        *hold_sample_lines,
+        *([] if hold_sample_lines else ["- `hold_samples`: `none`"]),
+        "",
+        "## Interface State",
+        "",
         f"- `pre_state`: operstate `{gate['pre_operstate']}` carrier `{gate['pre_carrier']}` flags `{gate['pre_flags']}`",
         f"- `post_state`: operstate `{gate['post_operstate']}` carrier `{gate['post_carrier']}` flags `{gate['post_flags']}`",
         f"- `staging`: property `{gate['property_stage_ok']}` helper `{gate['helper_stage_ok']}` standalone_wpa `{gate['standalone_wpa_stage_ok']}` config `{gate['config_ok']}` script `{gate['script_ok']}` wait_complete `{gate['wait_complete']}`",
@@ -2403,7 +2624,7 @@ def render_report(manifest: dict[str, Any]) -> str:
         "## Scope",
         "",
         f"- This V2167 unit stages a generated private property root at `{PROPERTY_REMOTE_ROOT}` with the wpa_supplicant loader/log lookup keys, adds private `/dev/random` and `/dev/urandom`, creates `/dev/socket/logdw`, launches `wpa_supplicant` direct as `-dd -i wlan0 -D nl80211 -c <config> -O /cache/a90-wifi/sockets -t`, and observes carrier/DHCP/ping. It records redacted supplicant/logdw/kmsg samples plus `/proc` fd/netlink/syscall counters. This target supplicant does not support `-f`, so stdout/stderr plus logdw are the diagnostic logs.",
-        "- Allowed actions: start private Wi-Fi active-session surface, start `wpa_supplicant`, run DHCP, set temporary route/DNS, and ping `google.com`.",
+        "- Allowed actions: start private Wi-Fi active-session surface, start `wpa_supplicant`, run DHCP, set temporary route/DNS, and run bounded gateway/IP/hostname ping probes.",
         "- Outputs are redacted: no SSID, PSK, BSSID, raw MAC, assigned IP, route, DNS, DHCP lease, or ping transcript is recorded in the report.",
         "- Cleanup removes staged config/result/script artifacts and rollback returns to `v725-fasttransport`.",
         "",
@@ -2500,6 +2721,61 @@ def write_preflight_manifest(store: base.EvidenceStore,
         "external_ping_executed": False,
         "external_ping_target": "",
         "external_ping_rc": 0,
+        "hold_enabled": QA_HOLD_SEC > 0,
+        "hold_executed": False,
+        "hold_requested_sec": QA_HOLD_SEC,
+        "hold_interval_sec": QA_HOLD_INTERVAL_SEC,
+        "hold_reconnect_on_drop": QA_RECONNECT_ON_DROP,
+        "hold_samples": 0,
+        "hold_carrier_up_count": 0,
+        "hold_carrier_down_count": 0,
+        "hold_ping_attempt_count": 0,
+        "hold_ping_success_count": 0,
+        "hold_ping_fail_count": 0,
+        "hold_ip_ping_attempt_count": 0,
+        "hold_ip_ping_success_count": 0,
+        "hold_ip_ping_fail_count": 0,
+        "hold_gateway_ping_attempt_count": 0,
+        "hold_gateway_ping_success_count": 0,
+        "hold_gateway_ping_fail_count": 0,
+        "hold_route_default_present_count": 0,
+        "hold_route_gateway_present_count": 0,
+        "hold_arp_before_entry_count": 0,
+        "hold_arp_before_complete_count": 0,
+        "hold_arp_after_entry_count": 0,
+        "hold_arp_after_complete_count": 0,
+        "hold_reconnect_attempt_count": 0,
+        "hold_reconnect_success_count": 0,
+        "hold_first_fail_sample": 0,
+        "hold_first_fail_errno": 0,
+        "hold_first_fail_ping_rc": 0,
+        "hold_pass": True,
+        "hold_reason": "not-run",
+        "hold_sample_details": [],
+        "force_power_on_enabled": FORCE_POWER_ON,
+        "force_power_on_executed": False,
+        "force_power_on_reason": "not-run",
+        "force_power_on_class_before": "",
+        "force_power_on_class_write_rc": 0,
+        "force_power_on_class_write_errno": 0,
+        "force_power_on_class_after": "",
+        "force_power_on_device_before": "",
+        "force_power_on_device_write_rc": 0,
+        "force_power_on_device_write_errno": 0,
+        "force_power_on_device_after": "",
+        "connect_hold_subsys_modem_requested": CONNECT_HOLD_SUBSYS_MODEM,
+        "modem_holder_enabled": False,
+        "modem_holder_started": False,
+        "modem_holder_start_attempted": False,
+        "modem_holder_opened": False,
+        "modem_holder_open_errno": 0,
+        "modem_holder_pid": -1,
+        "modem_holder_stop_attempted": False,
+        "modem_holder_reaped": False,
+        "modem_holder_postflight_safe": False,
+        "modem_holder_subsys_esoc0_open_attempted": False,
+        "modem_holder_esoc_open_attempted": False,
+        "modem_holder_forced_rc1_attempted": False,
         "country_code": "",
         "driver_ioctl_country_rc": 0,
         "driver_ioctl_country_errno": 0,
@@ -2793,8 +3069,12 @@ def main() -> int:
             cycle=CYCLE,
             out_dir=OUT_DIR,
             report_path=REPORT_PATH,
+            test_image=TEST_BOOT_IMAGE,
+            test_expect_version=TEST_EXPECT_VERSION,
+            rollback_image=ROLLBACK_BOOT_IMAGE,
+            rollback_expect_version=ROLLBACK_EXPECT_VERSION,
             post_flash_hook=hook,
-            helper_wait_sec=280.0 + float(QA_HOLD_SEC),
+            helper_wait_sec=float(HELPER_WAIT_SEC),
         )
     store = base.EvidenceStore(OUT_DIR)
     steps = manifest["steps"]
@@ -2828,6 +3108,7 @@ def main() -> int:
             "hold_sec": QA_HOLD_SEC,
             "hold_interval_sec": QA_HOLD_INTERVAL_SEC,
             "reconnect_on_drop": QA_RECONNECT_ON_DROP,
+            "force_power_on": FORCE_POWER_ON,
         },
     }
     attach_timing_manifest(store, manifest, phase_timer)

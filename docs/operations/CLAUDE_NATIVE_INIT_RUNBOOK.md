@@ -12,12 +12,13 @@ Date: `2026-04-29`
 
 - device: `Samsung Galaxy A90 5G SM-A908N`
 - recovery: TWRP 사용 가능
-- latest verified build: `A90 Linux init 0.9.244 (v725-fasttransport)`
-- latest verified source: `stage3/linux_init/init_v725_fasttransport.c` + 모듈 `stage3/linux_init/a90_*.c/h` + 헬퍼 `stage3/linux_init/helpers/`
-- latest verified boot image: `stage3/boot_linux_v725_fasttransport.img`
-- latest verified boot image SHA256: `b9afa0e3c1c677c55a764a0b8dbd7027089dd134318084332bfd52cdf008830f`
-- 현재 기준 사이클: `v725-fasttransport` transport baseline (native Wi-Fi bring-up은 이 이미지로 rollback/test)
-- previous verified boot image: `stage3/boot_linux_v261.img` (`A90 Linux init 0.9.60 (v261)`)
+- latest verified build: `A90 Linux init 0.9.246 (v726-wifi-lifecycle)`
+- latest verified source: `stage3/linux_init/init_v724.c` + 모듈 `stage3/linux_init/v724/90_main.inc.c` + 헬퍼 `stage3/linux_init/helpers/` + 빌더 `scripts/revalidation/build_native_init_boot_v726_wifi_lifecycle.py`
+- latest verified boot image: `stage3/boot_linux_v726_wifi_lifecycle.img`
+- latest verified boot image SHA256: `2a8d3f946068d81b17882153058db06a6d795592a08ec2bd9057f0e6df2b501a`
+- 현재 기준 사이클: `v726-wifi-lifecycle` Wi-Fi lifecycle baseline (native Wi-Fi bring-up은 이 이미지로 rollback/test)
+- previous verified boot image: `stage3/boot_linux_v725_fasttransport.img` (`A90 Linux init 0.9.244 (v725-fasttransport)`)
+- older verified boot image: `stage3/boot_linux_v261.img` (`A90 Linux init 0.9.60 (v261)`)
 - known-good fallback native init: `A90 Linux init v48`
 - known-good fallback boot image: `stage3/boot_linux_v48.img`
 - primary control channel: USB CDC ACM serial

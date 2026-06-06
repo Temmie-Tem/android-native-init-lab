@@ -1,6 +1,7 @@
 #define _GNU_SOURCE
 
 #include <errno.h>
+#include <ctype.h>
 #include <endian.h>
 #include <fcntl.h>
 #include <limits.h>
@@ -539,6 +540,8 @@ struct config {
     int timeout_sec;
     int connect_hold_sec;
     int connect_hold_interval_sec;
+    bool connect_force_power_on;
+    bool connect_hold_subsys_modem;
     bool cnss_surface_mode_explicit;
     bool service_manager_order_explicit;
     bool subsys_trigger_gate_explicit;
@@ -955,6 +958,8 @@ static void usage(FILE *out) {
             "[--connect-hold-sec 0..900] "
             "[--connect-hold-interval-sec 1..120] "
             "[--connect-reconnect-on-drop] "
+            "[--connect-force-power-on] "
+            "[--connect-hold-subsys-modem] "
             "[--cnss-surface-mode full|compact] "
             "[--service-manager-order none|before-cnss|after-cnss|after-mdm-helper-esoc-fd|after-mdm-helper-esoc-fd-with-pm-proxy|after-mdm-helper-esoc-fd-with-pm-full-contract|after-mdm-helper-esoc-fd-with-pm-full-contract-with-modem-holder|after-mdm-helper-esoc-fd-with-wifi-surface|after-mdm-helper-esoc-fd-with-wifi-surface-subsys-window] "
             "[--subsys-trigger-gate observe-only|wlfw-precondition|post-provider-no-wlfw|post-upper-surface-no-wlfw] "
@@ -1708,6 +1713,14 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
         }
         if (strcmp(argv[i], "--connect-reconnect-on-drop") == 0) {
             cfg->connect_reconnect_on_drop = true;
+            continue;
+        }
+        if (strcmp(argv[i], "--connect-force-power-on") == 0) {
+            cfg->connect_force_power_on = true;
+            continue;
+        }
+        if (strcmp(argv[i], "--connect-hold-subsys-modem") == 0) {
+            cfg->connect_hold_subsys_modem = true;
             continue;
         }
         if (strcmp(argv[i], "--allow-policy-load-proof") == 0) {
@@ -3750,9 +3763,12 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
         fprintf(stderr, "--allow-connect-dhcp-ping is only valid with wifi-active-session-connect-ping mode\n");
         return 2;
     }
-    if ((cfg->connect_hold_sec > 0 || cfg->connect_reconnect_on_drop) &&
+    if ((cfg->connect_hold_sec > 0 ||
+         cfg->connect_reconnect_on_drop ||
+         cfg->connect_force_power_on ||
+         cfg->connect_hold_subsys_modem) &&
         !is_wifi_active_session_connect_ping_mode(cfg->mode)) {
-        fprintf(stderr, "connect hold/reconnect options are only valid with wifi-active-session-connect-ping mode\n");
+        fprintf(stderr, "connect hold/reconnect/power/modem-holder options are only valid with wifi-active-session-connect-ping mode\n");
         return 2;
     }
     if (is_wifi_active_session_connect_ping_mode(cfg->mode)) {
@@ -11378,6 +11394,10 @@ static int append_process_runtime_snapshot(struct buffer *stdout_buf,
     return 0;
 }
 
+static int count_all_proc_fd_target_matches(const char *needle);
+static int count_process_cmdline_or_comm_matches(const char *cmdline_needle,
+                                                 const char *comm_exact);
+
 static int wait_wlan_carrier(const char *ifname, int timeout_ms) {
     char carrier_path[128];
     long deadline = monotonic_ms() + timeout_ms;
@@ -11397,6 +11417,892 @@ static int wait_wlan_carrier(const char *ifname, int timeout_ms) {
     }
     errno = ETIMEDOUT;
     return -1;
+}
+
+struct hold_netdev_stats {
+    bool ok;
+    int err_no;
+    unsigned long long rx_packets;
+    unsigned long long tx_packets;
+    unsigned long long rx_errors;
+    unsigned long long tx_errors;
+    unsigned long long rx_dropped;
+    unsigned long long tx_dropped;
+};
+
+struct hold_default_route {
+    int err_no;
+    bool present;
+    bool gateway_present;
+    bool flags_up;
+    bool flags_gateway;
+    unsigned int flags;
+    unsigned int metric;
+    char gateway[32];
+};
+
+struct hold_arp_state {
+    bool checked;
+    int err_no;
+    bool entry_present;
+    bool complete;
+    unsigned int flags;
+};
+
+struct hold_subsys_state {
+    bool seen;
+    int err_no;
+    char device[64];
+    char name[128];
+    char state[64];
+    char crash_count[64];
+};
+
+struct hold_lifetime_snapshot {
+    int cnss_daemon_count;
+    int pm_service_count;
+    int per_mgr_count;
+    int wifi_hal_count;
+    int supplicant_count;
+    int ipacm_count;
+    int netmgrd_count;
+    int rild_count;
+    int fd_dev_ipa_count;
+    int fd_dev_wlan_count;
+    int fd_dev_qcwlanstate_count;
+    int fd_subsys_modem_count;
+    int fd_subsys_wlan_count;
+    bool dev_ipa_exists;
+    bool dev_wlan_exists;
+    bool dev_qcwlanstate_exists;
+    char icnss_runtime_status[64];
+    char icnss_runtime_active_time[64];
+    char icnss_runtime_suspended_time[64];
+    char wlan0_runtime_status[64];
+    char wlan0_device_runtime_status[64];
+    char boot_wlan_present[16];
+    char shutdown_wlan_present[16];
+    struct hold_subsys_state wlan_pd;
+    struct hold_subsys_state modem_root;
+};
+
+static bool hold_parse_u64(const char *text, unsigned long long *value_out) {
+    char *end = NULL;
+    unsigned long long value;
+
+    if (text == NULL || text[0] == '\0') {
+        errno = EINVAL;
+        return false;
+    }
+    errno = 0;
+    value = strtoull(text, &end, 10);
+    if (errno != 0 || end == text) {
+        if (errno == 0) {
+            errno = EINVAL;
+        }
+        return false;
+    }
+    while (end != NULL && (*end == ' ' || *end == '\t' || *end == '\r' || *end == '\n')) {
+        end++;
+    }
+    if (end != NULL && *end != '\0') {
+        errno = EINVAL;
+        return false;
+    }
+    *value_out = value;
+    return true;
+}
+
+static bool hold_read_netdev_stat_one(const char *ifname,
+                                      const char *name,
+                                      unsigned long long *value_out,
+                                      int *err_out) {
+    char path[192];
+    char text[64];
+
+    if (snprintf(path,
+                 sizeof(path),
+                 "/sys/class/net/%s/statistics/%s",
+                 ifname,
+                 name) >= (int)sizeof(path)) {
+        if (err_out != NULL) {
+            *err_out = ENAMETOOLONG;
+        }
+        errno = ENAMETOOLONG;
+        return false;
+    }
+    if (read_small_file_trim(path, text, sizeof(text)) < 0 ||
+        !hold_parse_u64(text, value_out)) {
+        if (err_out != NULL) {
+            *err_out = errno == 0 ? EINVAL : errno;
+        }
+        return false;
+    }
+    if (err_out != NULL) {
+        *err_out = 0;
+    }
+    return true;
+}
+
+static bool hold_read_netdev_stats(const char *ifname, struct hold_netdev_stats *stats) {
+    int err_no = 0;
+
+    memset(stats, 0, sizeof(*stats));
+    if (!hold_read_netdev_stat_one(ifname, "rx_packets", &stats->rx_packets, &err_no) ||
+        !hold_read_netdev_stat_one(ifname, "tx_packets", &stats->tx_packets, &err_no) ||
+        !hold_read_netdev_stat_one(ifname, "rx_errors", &stats->rx_errors, &err_no) ||
+        !hold_read_netdev_stat_one(ifname, "tx_errors", &stats->tx_errors, &err_no) ||
+        !hold_read_netdev_stat_one(ifname, "rx_dropped", &stats->rx_dropped, &err_no) ||
+        !hold_read_netdev_stat_one(ifname, "tx_dropped", &stats->tx_dropped, &err_no)) {
+        stats->err_no = err_no == 0 ? EIO : err_no;
+        stats->ok = false;
+        return false;
+    }
+    stats->err_no = 0;
+    stats->ok = true;
+    return true;
+}
+
+static unsigned long long hold_stat_delta(unsigned long long after,
+                                          unsigned long long before) {
+    return after >= before ? after - before : 0ULL;
+}
+
+static void hold_gateway_hex_to_ipv4(unsigned long gateway_hex,
+                                     char *out,
+                                     size_t out_size) {
+    snprintf(out,
+             out_size,
+             "%lu.%lu.%lu.%lu",
+             gateway_hex & 0xffUL,
+             (gateway_hex >> 8) & 0xffUL,
+             (gateway_hex >> 16) & 0xffUL,
+             (gateway_hex >> 24) & 0xffUL);
+}
+
+static bool hold_read_default_route(const char *ifname, struct hold_default_route *route) {
+    FILE *file;
+    char line[256];
+
+    memset(route, 0, sizeof(*route));
+    file = fopen("/proc/net/route", "re");
+    if (file == NULL) {
+        route->err_no = errno == 0 ? ENOENT : errno;
+        return false;
+    }
+    if (fgets(line, sizeof(line), file) == NULL) {
+        fclose(file);
+        route->err_no = EIO;
+        return false;
+    }
+    while (fgets(line, sizeof(line), file) != NULL) {
+        char current_ifname[IFNAMSIZ];
+        unsigned long destination = 0;
+        unsigned long gateway = 0;
+        unsigned long flags = 0;
+        unsigned long metric = 0;
+        unsigned long mask = 0;
+
+        memset(current_ifname, 0, sizeof(current_ifname));
+        if (sscanf(line,
+                   "%15s %lx %lx %lx %*u %*u %lu %lx",
+                   current_ifname,
+                   &destination,
+                   &gateway,
+                   &flags,
+                   &metric,
+                   &mask) < 6) {
+            continue;
+        }
+        if (strcmp(current_ifname, ifname) != 0 || destination != 0UL) {
+            continue;
+        }
+        route->present = true;
+        route->gateway_present = gateway != 0UL;
+        route->flags = (unsigned int)flags;
+        route->metric = (unsigned int)metric;
+        route->flags_up = (flags & 0x1UL) != 0;
+        route->flags_gateway = (flags & 0x2UL) != 0;
+        if (route->gateway_present) {
+            hold_gateway_hex_to_ipv4(gateway, route->gateway, sizeof(route->gateway));
+        }
+        fclose(file);
+        return true;
+    }
+    fclose(file);
+    route->err_no = 0;
+    return false;
+}
+
+static bool hold_read_arp_state(const char *ifname,
+                                const char *gateway,
+                                struct hold_arp_state *state) {
+    FILE *file;
+    char line[256];
+
+    memset(state, 0, sizeof(*state));
+    if (gateway == NULL || gateway[0] == '\0') {
+        state->err_no = ENODATA;
+        return false;
+    }
+    state->checked = true;
+    file = fopen("/proc/net/arp", "re");
+    if (file == NULL) {
+        state->err_no = errno == 0 ? ENOENT : errno;
+        return false;
+    }
+    if (fgets(line, sizeof(line), file) == NULL) {
+        fclose(file);
+        state->err_no = EIO;
+        return false;
+    }
+    while (fgets(line, sizeof(line), file) != NULL) {
+        char ip_addr[64];
+        char hw_type[32];
+        char flags_text[32];
+        char hw_addr[64];
+        char mask[32];
+        char device[IFNAMSIZ];
+        unsigned long flags = 0;
+
+        memset(ip_addr, 0, sizeof(ip_addr));
+        memset(device, 0, sizeof(device));
+        if (sscanf(line,
+                   "%63s %31s %31s %63s %31s %15s",
+                   ip_addr,
+                   hw_type,
+                   flags_text,
+                   hw_addr,
+                   mask,
+                   device) != 6) {
+            continue;
+        }
+        if (strcmp(ip_addr, gateway) != 0 || strcmp(device, ifname) != 0) {
+            continue;
+        }
+        flags = strtoul(flags_text, NULL, 0);
+        state->entry_present = true;
+        state->flags = (unsigned int)flags;
+        state->complete = (flags & 0x2UL) != 0;
+        fclose(file);
+        return true;
+    }
+    fclose(file);
+    state->err_no = 0;
+    return false;
+}
+
+static bool hold_safe_token_char(char value) {
+    return (value >= 'A' && value <= 'Z') ||
+           (value >= 'a' && value <= 'z') ||
+           (value >= '0' && value <= '9') ||
+           value == '_' ||
+           value == '-' ||
+           value == '.' ||
+           value == '+' ||
+           value == '/';
+}
+
+static void hold_copy_safe_token(const char *in, char *out, size_t out_size) {
+    size_t used = 0;
+
+    if (out_size == 0) {
+        return;
+    }
+    if (in == NULL || in[0] == '\0') {
+        snprintf(out, out_size, "missing");
+        return;
+    }
+    while (in[used] != '\0' && used + 1U < out_size) {
+        out[used] = hold_safe_token_char(in[used]) ? in[used] : '_';
+        used++;
+    }
+    out[used] = '\0';
+}
+
+static void hold_read_small_label(const char *path, char *out, size_t out_size) {
+    char value[256];
+
+    if (read_small_file_trim(path, value, sizeof(value)) < 0) {
+        snprintf(out,
+                 out_size,
+                 "%s",
+                 errno == ENOENT || errno == ENOTDIR ? "missing" : "error");
+        return;
+    }
+    sanitize_one_line(value);
+    hold_copy_safe_token(value, out, out_size);
+}
+
+static void hold_read_path_present_label(const char *path, char *out, size_t out_size) {
+    struct stat st;
+
+    snprintf(out, out_size, "%s", lstat(path, &st) == 0 ? "present" : "missing");
+}
+
+static void hold_subsys_state_init(struct hold_subsys_state *state) {
+    memset(state, 0, sizeof(*state));
+    snprintf(state->device, sizeof(state->device), "missing");
+    snprintf(state->name, sizeof(state->name), "missing");
+    snprintf(state->state, sizeof(state->state), "missing");
+    snprintf(state->crash_count, sizeof(state->crash_count), "missing");
+}
+
+static bool hold_text_contains_ci(const char *text, const char *needle) {
+    size_t needle_len;
+
+    if (text == NULL || needle == NULL) {
+        return false;
+    }
+    needle_len = strlen(needle);
+    if (needle_len == 0) {
+        return true;
+    }
+    for (const char *cursor = text; *cursor != '\0'; cursor++) {
+        size_t i;
+
+        for (i = 0; i < needle_len; i++) {
+            unsigned char a = (unsigned char)cursor[i];
+            unsigned char b = (unsigned char)needle[i];
+
+            if (a == '\0' || tolower(a) != tolower(b)) {
+                break;
+            }
+        }
+        if (i == needle_len) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static void hold_read_subsys_state_by_name(const char *needle,
+                                           bool reject_wlan,
+                                           struct hold_subsys_state *out) {
+    DIR *dir;
+    struct dirent *entry;
+
+    hold_subsys_state_init(out);
+    dir = opendir("/sys/bus/msm_subsys/devices");
+    if (dir == NULL) {
+        out->err_no = errno == 0 ? ENOENT : errno;
+        return;
+    }
+    while ((entry = readdir(dir)) != NULL) {
+        char base_path[256];
+        char name_path[320];
+        char state_path[320];
+        char crash_path[320];
+        char raw_name[128];
+
+        if (entry->d_name[0] == '.') {
+            continue;
+        }
+        if (snprintf(base_path,
+                     sizeof(base_path),
+                     "/sys/bus/msm_subsys/devices/%s",
+                     entry->d_name) >= (int)sizeof(base_path) ||
+            snprintf(name_path, sizeof(name_path), "%s/name", base_path) >= (int)sizeof(name_path) ||
+            snprintf(state_path, sizeof(state_path), "%s/state", base_path) >= (int)sizeof(state_path) ||
+            snprintf(crash_path, sizeof(crash_path), "%s/crash_count", base_path) >= (int)sizeof(crash_path)) {
+            continue;
+        }
+        if (read_small_file_trim(name_path, raw_name, sizeof(raw_name)) < 0) {
+            continue;
+        }
+        sanitize_one_line(raw_name);
+        if (!hold_text_contains_ci(raw_name, needle) ||
+            (reject_wlan && hold_text_contains_ci(raw_name, "wlan"))) {
+            continue;
+        }
+        hold_copy_safe_token(entry->d_name, out->device, sizeof(out->device));
+        hold_copy_safe_token(raw_name, out->name, sizeof(out->name));
+        hold_read_small_label(state_path, out->state, sizeof(out->state));
+        hold_read_small_label(crash_path, out->crash_count, sizeof(out->crash_count));
+        out->seen = true;
+        out->err_no = 0;
+        closedir(dir);
+        return;
+    }
+    closedir(dir);
+    out->err_no = 0;
+}
+
+static void hold_collect_lifetime_snapshot(const char *ifname,
+                                           struct hold_lifetime_snapshot *snapshot) {
+    char wlan0_runtime_path[192];
+    char wlan0_device_runtime_path[192];
+    struct stat st;
+
+    memset(snapshot, 0, sizeof(*snapshot));
+    snapshot->cnss_daemon_count = count_process_cmdline_or_comm_matches("cnss-daemon", "cnss-daemon");
+    snapshot->pm_service_count = count_process_cmdline_or_comm_matches("pm-service", "pm-service");
+    snapshot->per_mgr_count = count_process_cmdline_or_comm_matches("per_mgr", "per_mgr");
+    snapshot->wifi_hal_count =
+        count_process_cmdline_or_comm_matches("vendor.samsung.hardware.wifi", NULL);
+    snapshot->supplicant_count = count_process_cmdline_or_comm_matches("wpa_supplicant", NULL);
+    snapshot->ipacm_count = count_process_cmdline_or_comm_matches("ipacm", "ipacm");
+    snapshot->netmgrd_count = count_process_cmdline_or_comm_matches("netmgrd", "netmgrd");
+    snapshot->rild_count = count_process_cmdline_or_comm_matches("rild", "rild");
+    snapshot->fd_dev_ipa_count = count_all_proc_fd_target_matches("/dev/ipa");
+    snapshot->fd_dev_wlan_count = count_all_proc_fd_target_matches("/dev/wlan");
+    snapshot->fd_dev_qcwlanstate_count = count_all_proc_fd_target_matches("/dev/qcwlanstate");
+    snapshot->fd_subsys_modem_count = count_all_proc_fd_target_matches("/dev/subsys_modem");
+    snapshot->fd_subsys_wlan_count = count_all_proc_fd_target_matches("/dev/subsys_wlan");
+    snapshot->dev_ipa_exists = lstat("/dev/ipa", &st) == 0;
+    snapshot->dev_wlan_exists = lstat("/dev/wlan", &st) == 0;
+    snapshot->dev_qcwlanstate_exists = lstat("/dev/qcwlanstate", &st) == 0;
+    hold_read_small_label("/sys/devices/platform/soc/18800000.qcom,icnss/power/runtime_status",
+                          snapshot->icnss_runtime_status,
+                          sizeof(snapshot->icnss_runtime_status));
+    hold_read_small_label("/sys/devices/platform/soc/18800000.qcom,icnss/power/runtime_active_time",
+                          snapshot->icnss_runtime_active_time,
+                          sizeof(snapshot->icnss_runtime_active_time));
+    hold_read_small_label("/sys/devices/platform/soc/18800000.qcom,icnss/power/runtime_suspended_time",
+                          snapshot->icnss_runtime_suspended_time,
+                          sizeof(snapshot->icnss_runtime_suspended_time));
+    if (snprintf(wlan0_runtime_path,
+                 sizeof(wlan0_runtime_path),
+                 "/sys/class/net/%s/power/runtime_status",
+                 ifname) >= (int)sizeof(wlan0_runtime_path)) {
+        snprintf(snapshot->wlan0_runtime_status, sizeof(snapshot->wlan0_runtime_status), "toolong");
+    } else {
+        hold_read_small_label(wlan0_runtime_path,
+                              snapshot->wlan0_runtime_status,
+                              sizeof(snapshot->wlan0_runtime_status));
+    }
+    if (snprintf(wlan0_device_runtime_path,
+                 sizeof(wlan0_device_runtime_path),
+                 "/sys/class/net/%s/device/power/runtime_status",
+                 ifname) >= (int)sizeof(wlan0_device_runtime_path)) {
+        snprintf(snapshot->wlan0_device_runtime_status,
+                 sizeof(snapshot->wlan0_device_runtime_status),
+                 "toolong");
+    } else {
+        hold_read_small_label(wlan0_device_runtime_path,
+                              snapshot->wlan0_device_runtime_status,
+                              sizeof(snapshot->wlan0_device_runtime_status));
+    }
+    hold_read_path_present_label("/sys/kernel/boot_wlan",
+                                 snapshot->boot_wlan_present,
+                                 sizeof(snapshot->boot_wlan_present));
+    hold_read_path_present_label("/sys/kernel/shutdown_wlan",
+                                 snapshot->shutdown_wlan_present,
+                                 sizeof(snapshot->shutdown_wlan_present));
+    hold_read_subsys_state_by_name("wlan", false, &snapshot->wlan_pd);
+    hold_read_subsys_state_by_name("modem", true, &snapshot->modem_root);
+}
+
+static int append_hold_lifetime_snapshot(struct buffer *stdout_buf,
+                                         const char *ifname,
+                                         int sample_index) {
+    struct hold_lifetime_snapshot snapshot;
+
+    hold_collect_lifetime_snapshot(ifname, &snapshot);
+    return append_format(stdout_buf,
+                         "wifi_connect_ping.hold.sample_%02d.owner.cnss_daemon_count=%d\n"
+                         "wifi_connect_ping.hold.sample_%02d.owner.pm_service_count=%d\n"
+                         "wifi_connect_ping.hold.sample_%02d.owner.per_mgr_count=%d\n"
+                         "wifi_connect_ping.hold.sample_%02d.owner.wifi_hal_count=%d\n"
+                         "wifi_connect_ping.hold.sample_%02d.owner.supplicant_count=%d\n"
+                         "wifi_connect_ping.hold.sample_%02d.owner.ipacm_count=%d\n"
+                         "wifi_connect_ping.hold.sample_%02d.owner.netmgrd_count=%d\n"
+                         "wifi_connect_ping.hold.sample_%02d.owner.rild_count=%d\n"
+                         "wifi_connect_ping.hold.sample_%02d.owner.fd_dev_ipa_count=%d\n"
+                         "wifi_connect_ping.hold.sample_%02d.owner.fd_dev_wlan_count=%d\n"
+                         "wifi_connect_ping.hold.sample_%02d.owner.fd_dev_qcwlanstate_count=%d\n"
+                         "wifi_connect_ping.hold.sample_%02d.owner.fd_subsys_modem_count=%d\n"
+                         "wifi_connect_ping.hold.sample_%02d.owner.fd_subsys_wlan_count=%d\n"
+                         "wifi_connect_ping.hold.sample_%02d.owner.dev_ipa_exists=%d\n"
+                         "wifi_connect_ping.hold.sample_%02d.owner.dev_wlan_exists=%d\n"
+                         "wifi_connect_ping.hold.sample_%02d.owner.dev_qcwlanstate_exists=%d\n"
+                         "wifi_connect_ping.hold.sample_%02d.icnss.runtime_status=%s\n"
+                         "wifi_connect_ping.hold.sample_%02d.icnss.runtime_active_time=%s\n"
+                         "wifi_connect_ping.hold.sample_%02d.icnss.runtime_suspended_time=%s\n"
+                         "wifi_connect_ping.hold.sample_%02d.icnss.wlan0_runtime_status=%s\n"
+                         "wifi_connect_ping.hold.sample_%02d.icnss.wlan0_device_runtime_status=%s\n"
+                         "wifi_connect_ping.hold.sample_%02d.icnss.boot_wlan=%s\n"
+                         "wifi_connect_ping.hold.sample_%02d.icnss.shutdown_wlan=%s\n"
+                         "wifi_connect_ping.hold.sample_%02d.subsys.wlan_seen=%d\n"
+                         "wifi_connect_ping.hold.sample_%02d.subsys.wlan_device=%s\n"
+                         "wifi_connect_ping.hold.sample_%02d.subsys.wlan_name=%s\n"
+                         "wifi_connect_ping.hold.sample_%02d.subsys.wlan_state=%s\n"
+                         "wifi_connect_ping.hold.sample_%02d.subsys.wlan_crash_count=%s\n"
+                         "wifi_connect_ping.hold.sample_%02d.subsys.modem_seen=%d\n"
+                         "wifi_connect_ping.hold.sample_%02d.subsys.modem_device=%s\n"
+                         "wifi_connect_ping.hold.sample_%02d.subsys.modem_name=%s\n"
+                         "wifi_connect_ping.hold.sample_%02d.subsys.modem_state=%s\n"
+                         "wifi_connect_ping.hold.sample_%02d.subsys.modem_crash_count=%s\n",
+                         sample_index, snapshot.cnss_daemon_count,
+                         sample_index, snapshot.pm_service_count,
+                         sample_index, snapshot.per_mgr_count,
+                         sample_index, snapshot.wifi_hal_count,
+                         sample_index, snapshot.supplicant_count,
+                         sample_index, snapshot.ipacm_count,
+                         sample_index, snapshot.netmgrd_count,
+                         sample_index, snapshot.rild_count,
+                         sample_index, snapshot.fd_dev_ipa_count,
+                         sample_index, snapshot.fd_dev_wlan_count,
+                         sample_index, snapshot.fd_dev_qcwlanstate_count,
+                         sample_index, snapshot.fd_subsys_modem_count,
+                         sample_index, snapshot.fd_subsys_wlan_count,
+                         sample_index, snapshot.dev_ipa_exists ? 1 : 0,
+                         sample_index, snapshot.dev_wlan_exists ? 1 : 0,
+                         sample_index, snapshot.dev_qcwlanstate_exists ? 1 : 0,
+                         sample_index, snapshot.icnss_runtime_status,
+                         sample_index, snapshot.icnss_runtime_active_time,
+                         sample_index, snapshot.icnss_runtime_suspended_time,
+                         sample_index, snapshot.wlan0_runtime_status,
+                         sample_index, snapshot.wlan0_device_runtime_status,
+                         sample_index, snapshot.boot_wlan_present,
+                         sample_index, snapshot.shutdown_wlan_present,
+                         sample_index, snapshot.wlan_pd.seen ? 1 : 0,
+                         sample_index, snapshot.wlan_pd.device,
+                         sample_index, snapshot.wlan_pd.name,
+                         sample_index, snapshot.wlan_pd.state,
+                         sample_index, snapshot.wlan_pd.crash_count,
+                         sample_index, snapshot.modem_root.seen ? 1 : 0,
+                         sample_index, snapshot.modem_root.device,
+                         sample_index, snapshot.modem_root.name,
+                         sample_index, snapshot.modem_root.state,
+                         sample_index, snapshot.modem_root.crash_count);
+}
+
+static bool hold_reply_extract_value(const char *reply,
+                                     const char *key,
+                                     char *out,
+                                     size_t out_size) {
+    const char *line;
+    size_t key_len;
+
+    if (out_size == 0) {
+        errno = EINVAL;
+        return false;
+    }
+    out[0] = '\0';
+    if (reply == NULL || key == NULL) {
+        errno = EINVAL;
+        return false;
+    }
+    key_len = strlen(key);
+    line = reply;
+    while (*line != '\0') {
+        const char *line_end = strchr(line, '\n');
+        size_t line_len = line_end != NULL ? (size_t)(line_end - line) : strlen(line);
+
+        if (line_len > key_len &&
+            memcmp(line, key, key_len) == 0 &&
+            line[key_len] == '=') {
+            size_t value_len = line_len - key_len - 1U;
+
+            if (value_len >= out_size) {
+                value_len = out_size - 1U;
+            }
+            memcpy(out, line + key_len + 1U, value_len);
+            out[value_len] = '\0';
+            return true;
+        }
+        if (line_end == NULL) {
+            break;
+        }
+        line = line_end + 1;
+    }
+    errno = ENOENT;
+    return false;
+}
+
+static bool hold_reply_has_key(const char *reply, const char *key) {
+    char value[8];
+
+    return hold_reply_extract_value(reply, key, value, sizeof(value));
+}
+
+static int hold_reply_extract_int(const char *reply, const char *key, int default_value) {
+    char value[48];
+    char *end = NULL;
+    long parsed;
+
+    if (!hold_reply_extract_value(reply, key, value, sizeof(value))) {
+        return default_value;
+    }
+    errno = 0;
+    parsed = strtol(value, &end, 10);
+    if (errno != 0 || end == value) {
+        return default_value;
+    }
+    return (int)parsed;
+}
+
+static const char *hold_power_label_from_reply(const char *reply) {
+    if (reply == NULL || reply[0] == '\0') {
+        return "empty";
+    }
+    if (strncmp(reply, "FAIL", 4) == 0) {
+        return "fail";
+    }
+    if (strncmp(reply, "UNKNOWN", 7) == 0) {
+        return "unsupported";
+    }
+    if (strstr(reply, "off") != NULL || strstr(reply, "OFF") != NULL ||
+        strstr(reply, "disable") != NULL || strstr(reply, "DISABLE") != NULL) {
+        return "off";
+    }
+    if (strstr(reply, "on") != NULL || strstr(reply, "ON") != NULL ||
+        strstr(reply, "enable") != NULL || strstr(reply, "ENABLE") != NULL) {
+        return "on";
+    }
+    if (strncmp(reply, "OK", 2) == 0) {
+        return "ok";
+    }
+    return "other";
+}
+
+static void hold_read_power_control_label(const char *path, char *out, size_t out_size) {
+    char value[64];
+
+    if (read_small_file_trim(path, value, sizeof(value)) < 0) {
+        snprintf(out,
+                 out_size,
+                 "%s",
+                 errno == ENOENT || errno == ENOTDIR ? "missing" : "error");
+        return;
+    }
+    if (strcmp(value, "on") == 0) {
+        snprintf(out, out_size, "on");
+    } else if (strcmp(value, "auto") == 0) {
+        snprintf(out, out_size, "auto");
+    } else if (strcmp(value, "suspended") == 0) {
+        snprintf(out, out_size, "suspended");
+    } else if (strcmp(value, "active") == 0) {
+        snprintf(out, out_size, "active");
+    } else {
+        snprintf(out, out_size, "other");
+    }
+}
+
+static int append_hold_wpa_snapshot(struct buffer *stdout_buf,
+                                    const struct wpa_ctrl_endpoint *wpa_ctrl,
+                                    const char *ifname,
+                                    int sample_index) {
+    char status_reply[2048];
+    char signal_reply[512];
+    char raw_value[128];
+    char wpa_state[64];
+    char key_mgmt[64];
+    char pairwise_cipher[64];
+    char group_cipher[64];
+    int status_rc;
+    int status_errno = 0;
+    int signal_rc;
+    int signal_errno = 0;
+
+    status_rc = run_wpa_ctrl_command(wpa_ctrl, ifname, "STATUS", status_reply, sizeof(status_reply));
+    if (status_rc < 0) {
+        status_errno = errno == 0 ? EIO : errno;
+        status_reply[0] = '\0';
+    }
+    if (hold_reply_extract_value(status_reply, "wpa_state", raw_value, sizeof(raw_value))) {
+        hold_copy_safe_token(raw_value, wpa_state, sizeof(wpa_state));
+    } else {
+        snprintf(wpa_state, sizeof(wpa_state), "missing");
+    }
+    if (hold_reply_extract_value(status_reply, "key_mgmt", raw_value, sizeof(raw_value))) {
+        hold_copy_safe_token(raw_value, key_mgmt, sizeof(key_mgmt));
+    } else {
+        snprintf(key_mgmt, sizeof(key_mgmt), "missing");
+    }
+    if (hold_reply_extract_value(status_reply, "pairwise_cipher", raw_value, sizeof(raw_value))) {
+        hold_copy_safe_token(raw_value, pairwise_cipher, sizeof(pairwise_cipher));
+    } else {
+        snprintf(pairwise_cipher, sizeof(pairwise_cipher), "missing");
+    }
+    if (hold_reply_extract_value(status_reply, "group_cipher", raw_value, sizeof(raw_value))) {
+        hold_copy_safe_token(raw_value, group_cipher, sizeof(group_cipher));
+    } else {
+        snprintf(group_cipher, sizeof(group_cipher), "missing");
+    }
+
+    signal_rc = run_wpa_ctrl_command(wpa_ctrl, ifname, "SIGNAL_POLL", signal_reply, sizeof(signal_reply));
+    if (signal_rc < 0) {
+        signal_errno = errno == 0 ? EIO : errno;
+        signal_reply[0] = '\0';
+    }
+    return append_format(stdout_buf,
+                         "wifi_connect_ping.hold.sample_%02d.wpa_status_rc=%d\n"
+                         "wifi_connect_ping.hold.sample_%02d.wpa_status_errno=%d\n"
+                         "wifi_connect_ping.hold.sample_%02d.wpa_state=%s\n"
+                         "wifi_connect_ping.hold.sample_%02d.wpa_freq_mhz=%d\n"
+                         "wifi_connect_ping.hold.sample_%02d.wpa_key_mgmt=%s\n"
+                         "wifi_connect_ping.hold.sample_%02d.wpa_pairwise=%s\n"
+                         "wifi_connect_ping.hold.sample_%02d.wpa_group=%s\n"
+                         "wifi_connect_ping.hold.sample_%02d.wpa_ip_present=%d\n"
+                         "wifi_connect_ping.hold.sample_%02d.wpa_bssid_present=%d\n"
+                         "wifi_connect_ping.hold.sample_%02d.wpa_address_present=%d\n"
+                         "wifi_connect_ping.hold.sample_%02d.wpa_ssid_present=%d\n"
+                         "wifi_connect_ping.hold.sample_%02d.signal_poll_rc=%d\n"
+                         "wifi_connect_ping.hold.sample_%02d.signal_poll_errno=%d\n"
+                         "wifi_connect_ping.hold.sample_%02d.signal_rssi_dbm=%d\n"
+                         "wifi_connect_ping.hold.sample_%02d.signal_linkspeed_mbps=%d\n"
+                         "wifi_connect_ping.hold.sample_%02d.signal_frequency_mhz=%d\n"
+                         "wifi_connect_ping.hold.sample_%02d.signal_noise_dbm=%d\n"
+                         "wifi_connect_ping.hold.sample_%02d.signal_category=%s\n",
+                         sample_index,
+                         status_rc,
+                         sample_index,
+                         status_errno,
+                         sample_index,
+                         wpa_state,
+                         sample_index,
+                         hold_reply_extract_int(status_reply, "freq", -1),
+                         sample_index,
+                         key_mgmt,
+                         sample_index,
+                         pairwise_cipher,
+                         sample_index,
+                         group_cipher,
+                         sample_index,
+                         hold_reply_has_key(status_reply, "ip_address") ? 1 : 0,
+                         sample_index,
+                         hold_reply_has_key(status_reply, "bssid") ? 1 : 0,
+                         sample_index,
+                         hold_reply_has_key(status_reply, "address") ? 1 : 0,
+                         sample_index,
+                         hold_reply_has_key(status_reply, "ssid") ? 1 : 0,
+                         sample_index,
+                         signal_rc,
+                         sample_index,
+                         signal_errno,
+                         sample_index,
+                         hold_reply_extract_int(signal_reply, "RSSI", -9999),
+                         sample_index,
+                         hold_reply_extract_int(signal_reply, "LINKSPEED", -1),
+                         sample_index,
+                         hold_reply_extract_int(signal_reply, "FREQUENCY", -1),
+                         sample_index,
+                         hold_reply_extract_int(signal_reply, "NOISE", -9999),
+                         sample_index,
+                         signal_rc == 0 ? wpa_ctrl_reply_category(signal_reply) : "error");
+}
+
+static int append_hold_power_snapshot(struct buffer *stdout_buf,
+                                      const struct wpa_ctrl_endpoint *wpa_ctrl,
+                                      const char *ifname,
+                                      bool wpa_ctrl_ready,
+                                      int sample_index) {
+    char class_power_path[192];
+    char device_power_path[192];
+    char class_power[32];
+    char device_power[32];
+    char driver_reply[256];
+    int driver_rc = -1;
+    int driver_errno = 0;
+
+    if (snprintf(class_power_path,
+                 sizeof(class_power_path),
+                 "/sys/class/net/%s/power/control",
+                 ifname) >= (int)sizeof(class_power_path) ||
+        snprintf(device_power_path,
+                 sizeof(device_power_path),
+                 "/sys/class/net/%s/device/power/control",
+                 ifname) >= (int)sizeof(device_power_path)) {
+        snprintf(class_power, sizeof(class_power), "path-too-long");
+        snprintf(device_power, sizeof(device_power), "path-too-long");
+    } else {
+        hold_read_power_control_label(class_power_path, class_power, sizeof(class_power));
+        hold_read_power_control_label(device_power_path, device_power, sizeof(device_power));
+    }
+    if (wpa_ctrl_ready) {
+        driver_rc = run_wpa_ctrl_command(wpa_ctrl, ifname, "DRIVER GETPOWER", driver_reply, sizeof(driver_reply));
+        if (driver_rc < 0) {
+            driver_errno = errno == 0 ? EIO : errno;
+            driver_reply[0] = '\0';
+        }
+    } else {
+        driver_errno = ENOTCONN;
+        driver_reply[0] = '\0';
+    }
+    return append_format(stdout_buf,
+                         "wifi_connect_ping.hold.sample_%02d.power_class=%s\n"
+                         "wifi_connect_ping.hold.sample_%02d.power_device=%s\n"
+                         "wifi_connect_ping.hold.sample_%02d.driver_power_rc=%d\n"
+                         "wifi_connect_ping.hold.sample_%02d.driver_power_errno=%d\n"
+                         "wifi_connect_ping.hold.sample_%02d.driver_power_state=%s\n",
+                         sample_index,
+                         class_power,
+                         sample_index,
+                         device_power,
+                         sample_index,
+                         driver_rc,
+                         sample_index,
+                         driver_errno,
+                         sample_index,
+                         driver_rc == 0 ? hold_power_label_from_reply(driver_reply) : "error");
+}
+
+static int append_connect_force_power_on_result(struct buffer *stdout_buf,
+                                                const struct config *cfg) {
+    char class_power_path[192];
+    char device_power_path[192];
+    char class_before[32];
+    char class_after[32];
+    char device_before[32];
+    char device_after[32];
+    int class_rc = 0;
+    int device_rc = 0;
+    int class_errno = 0;
+    int device_errno = 0;
+
+    if (append_format(stdout_buf,
+                      "wifi_connect_ping.force_power_on.enabled=%d\n",
+                      cfg->connect_force_power_on ? 1 : 0) < 0) {
+        return -1;
+    }
+    if (!cfg->connect_force_power_on) {
+        return append_literal(stdout_buf,
+                              "wifi_connect_ping.force_power_on.executed=0\n"
+                              "wifi_connect_ping.force_power_on.reason=disabled\n");
+    }
+    if (snprintf(class_power_path,
+                 sizeof(class_power_path),
+                 "/sys/class/net/%s/power/control",
+                 cfg->connect_iface) >= (int)sizeof(class_power_path) ||
+        snprintf(device_power_path,
+                 sizeof(device_power_path),
+                 "/sys/class/net/%s/device/power/control",
+                 cfg->connect_iface) >= (int)sizeof(device_power_path)) {
+        errno = ENAMETOOLONG;
+        return -1;
+    }
+    hold_read_power_control_label(class_power_path, class_before, sizeof(class_before));
+    hold_read_power_control_label(device_power_path, device_before, sizeof(device_before));
+    class_rc = write_text_once_errno(class_power_path, "on\n");
+    if (class_rc < 0) {
+        class_errno = -class_rc;
+    }
+    device_rc = write_text_once_errno(device_power_path, "on\n");
+    if (device_rc < 0) {
+        device_errno = -device_rc;
+    }
+    hold_read_power_control_label(class_power_path, class_after, sizeof(class_after));
+    hold_read_power_control_label(device_power_path, device_after, sizeof(device_after));
+    return append_format(stdout_buf,
+                         "wifi_connect_ping.force_power_on.executed=1\n"
+                         "wifi_connect_ping.force_power_on.class_before=%s\n"
+                         "wifi_connect_ping.force_power_on.class_write_rc=%d\n"
+                         "wifi_connect_ping.force_power_on.class_write_errno=%d\n"
+                         "wifi_connect_ping.force_power_on.class_after=%s\n"
+                         "wifi_connect_ping.force_power_on.device_before=%s\n"
+                         "wifi_connect_ping.force_power_on.device_write_rc=%d\n"
+                         "wifi_connect_ping.force_power_on.device_write_errno=%d\n"
+                         "wifi_connect_ping.force_power_on.device_after=%s\n",
+                         class_before,
+                         class_rc,
+                         class_errno,
+                         class_after,
+                         device_before,
+                         device_rc,
+                         device_errno,
+                         device_after);
 }
 
 static bool run_hold_ping_once(const char *ifname,
@@ -11491,12 +12397,22 @@ static int append_connect_hold_summary(struct buffer *stdout_buf,
     int ip_ping_attempt_count = 0;
     int ip_ping_success_count = 0;
     int ip_ping_fail_count = 0;
+    int gateway_ping_attempt_count = 0;
+    int gateway_ping_success_count = 0;
+    int gateway_ping_fail_count = 0;
+    int route_default_present_count = 0;
+    int route_gateway_present_count = 0;
+    int arp_before_entry_count = 0;
+    int arp_before_complete_count = 0;
+    int arp_after_entry_count = 0;
+    int arp_after_complete_count = 0;
     int reconnect_attempt_count = 0;
     int reconnect_success_count = 0;
     int first_fail_sample = -1;
     int first_fail_errno = 0;
     int first_fail_ping_rc = 0;
     const char *first_fail_reason = "none";
+    long hold_start_ms;
     bool pass = true;
 
     if (append_format(stdout_buf,
@@ -11528,11 +12444,22 @@ static int append_connect_hold_summary(struct buffer *stdout_buf,
     }
 
     append_literal(stdout_buf, "wifi_connect_ping.hold.executed=1\n");
-    deadline = monotonic_ms() + (long)hold_sec * 1000L;
+    hold_start_ms = monotonic_ms();
+    deadline = hold_start_ms + (long)hold_sec * 1000L;
     while (monotonic_ms() < deadline) {
         int sleep_sec = interval_sec;
         long remaining_ms = deadline - monotonic_ms();
+        long sample_elapsed_ms;
         bool carrier_up;
+        struct hold_default_route default_route;
+        struct hold_arp_state arp_before;
+        struct hold_arp_state arp_after;
+        struct hold_netdev_stats stats_before;
+        struct hold_netdev_stats stats_after;
+        int gateway_ping_exit = -1;
+        int gateway_ping_signal = 0;
+        bool gateway_ping_timeout = false;
+        bool gateway_ping_ok = false;
         int host_ping_exit = -1;
         int host_ping_signal = 0;
         bool host_ping_timeout = false;
@@ -11543,6 +12470,7 @@ static int append_connect_hold_summary(struct buffer *stdout_buf,
         bool ip_ping_ok = false;
         const char *host_ping_classifier = "not-run";
         const char *ip_ping_classifier = "not-run";
+        const char *gateway_ping_classifier = "not-run";
 
         if (remaining_ms <= 0) {
             break;
@@ -11554,7 +12482,44 @@ static int append_connect_hold_summary(struct buffer *stdout_buf,
             }
         }
         sleep((unsigned int)sleep_sec);
+        sample_elapsed_ms = monotonic_ms() - hold_start_ms;
         carrier_up = sysfs_file_equals(carrier_path, "1");
+        hold_read_default_route(cfg->connect_iface, &default_route);
+        if (default_route.present) {
+            route_default_present_count++;
+        }
+        if (default_route.gateway_present) {
+            route_gateway_present_count++;
+        }
+        hold_read_arp_state(cfg->connect_iface, default_route.gateway, &arp_before);
+        if (arp_before.entry_present) {
+            arp_before_entry_count++;
+        }
+        if (arp_before.complete) {
+            arp_before_complete_count++;
+        }
+        hold_read_netdev_stats(cfg->connect_iface, &stats_before);
+        if (samples < 16) {
+            if (wpa_ctrl_ready &&
+                append_hold_wpa_snapshot(stdout_buf,
+                                         wpa_ctrl,
+                                         cfg->connect_iface,
+                                         samples) < 0) {
+                return -1;
+            }
+            if (append_hold_power_snapshot(stdout_buf,
+                                           wpa_ctrl,
+                                           cfg->connect_iface,
+                                           wpa_ctrl_ready,
+                                           samples) < 0) {
+                return -1;
+            }
+            if (append_hold_lifetime_snapshot(stdout_buf,
+                                              cfg->connect_iface,
+                                              samples) < 0) {
+                return -1;
+            }
+        }
         if (!carrier_up &&
             cfg->connect_reconnect_on_drop &&
             reconnect_attempt_count == 0 &&
@@ -11574,6 +12539,21 @@ static int append_connect_hold_summary(struct buffer *stdout_buf,
         }
         if (carrier_up) {
             carrier_up_count++;
+            if (default_route.present && default_route.gateway_present) {
+                gateway_ping_attempt_count++;
+                gateway_ping_ok = run_hold_ping_once(cfg->connect_iface,
+                                                     default_route.gateway,
+                                                     ping_capture_path,
+                                                     &gateway_ping_exit,
+                                                     &gateway_ping_signal,
+                                                     &gateway_ping_timeout,
+                                                     &gateway_ping_classifier);
+                if (gateway_ping_ok) {
+                    gateway_ping_success_count++;
+                } else {
+                    gateway_ping_fail_count++;
+                }
+            }
             ip_ping_attempt_count++;
             ip_ping_ok = run_hold_ping_once(cfg->connect_iface,
                                             "1.1.1.1",
@@ -11625,11 +12605,22 @@ static int append_connect_hold_summary(struct buffer *stdout_buf,
                 first_fail_errno = saved_errno;
             }
         }
+        hold_read_netdev_stats(cfg->connect_iface, &stats_after);
+        hold_read_arp_state(cfg->connect_iface, default_route.gateway, &arp_after);
+        if (arp_after.entry_present) {
+            arp_after_entry_count++;
+        }
+        if (arp_after.complete) {
+            arp_after_complete_count++;
+        }
         if (samples < 16) {
             if (append_format(stdout_buf,
+                              "wifi_connect_ping.hold.sample_%02d.elapsed_ms=%ld\n"
                               "wifi_connect_ping.hold.sample_%02d.carrier=%d\n"
                               "wifi_connect_ping.hold.sample_%02d.ping_rc=%d\n"
                               "wifi_connect_ping.hold.sample_%02d.ping_ok=%d\n",
+                              samples,
+                              sample_elapsed_ms,
                               samples,
                               carrier_up ? 1 : 0,
                               samples,
@@ -11637,6 +12628,107 @@ static int append_connect_hold_summary(struct buffer *stdout_buf,
                               samples,
                               host_ping_ok ? 1 : 0) < 0 ||
                 append_format(stdout_buf,
+                              "wifi_connect_ping.hold.sample_%02d.route_default_present=%d\n"
+                              "wifi_connect_ping.hold.sample_%02d.route_gateway_present=%d\n"
+                              "wifi_connect_ping.hold.sample_%02d.route_flags_up=%d\n"
+                              "wifi_connect_ping.hold.sample_%02d.route_flags_gateway=%d\n"
+                              "wifi_connect_ping.hold.sample_%02d.route_flags=0x%x\n"
+                              "wifi_connect_ping.hold.sample_%02d.route_metric=%u\n"
+                              "wifi_connect_ping.hold.sample_%02d.route_errno=%d\n"
+                              "wifi_connect_ping.hold.sample_%02d.arp_before_checked=%d\n"
+                              "wifi_connect_ping.hold.sample_%02d.arp_before_present=%d\n"
+                              "wifi_connect_ping.hold.sample_%02d.arp_before_complete=%d\n"
+                              "wifi_connect_ping.hold.sample_%02d.arp_before_flags=0x%x\n"
+                              "wifi_connect_ping.hold.sample_%02d.arp_before_errno=%d\n"
+                              "wifi_connect_ping.hold.sample_%02d.arp_after_checked=%d\n"
+                              "wifi_connect_ping.hold.sample_%02d.arp_after_present=%d\n"
+                              "wifi_connect_ping.hold.sample_%02d.arp_after_complete=%d\n"
+                              "wifi_connect_ping.hold.sample_%02d.arp_after_flags=0x%x\n"
+                              "wifi_connect_ping.hold.sample_%02d.arp_after_errno=%d\n",
+                              samples,
+                              default_route.present ? 1 : 0,
+                              samples,
+                              default_route.gateway_present ? 1 : 0,
+                              samples,
+                              default_route.flags_up ? 1 : 0,
+                              samples,
+                              default_route.flags_gateway ? 1 : 0,
+                              samples,
+                              default_route.flags,
+                              samples,
+                              default_route.metric,
+                              samples,
+                              default_route.err_no,
+                              samples,
+                              arp_before.checked ? 1 : 0,
+                              samples,
+                              arp_before.entry_present ? 1 : 0,
+                              samples,
+                              arp_before.complete ? 1 : 0,
+                              samples,
+                              arp_before.flags,
+                              samples,
+                              arp_before.err_no,
+                              samples,
+                              arp_after.checked ? 1 : 0,
+                              samples,
+                              arp_after.entry_present ? 1 : 0,
+                              samples,
+                              arp_after.complete ? 1 : 0,
+                              samples,
+                              arp_after.flags,
+                              samples,
+                              arp_after.err_no) < 0 ||
+                append_format(stdout_buf,
+                              "wifi_connect_ping.hold.sample_%02d.stats_before_ok=%d\n"
+                              "wifi_connect_ping.hold.sample_%02d.stats_before_errno=%d\n"
+                              "wifi_connect_ping.hold.sample_%02d.stats_after_ok=%d\n"
+                              "wifi_connect_ping.hold.sample_%02d.stats_after_errno=%d\n"
+                              "wifi_connect_ping.hold.sample_%02d.rx_packets_delta=%llu\n"
+                              "wifi_connect_ping.hold.sample_%02d.tx_packets_delta=%llu\n"
+                              "wifi_connect_ping.hold.sample_%02d.rx_errors_delta=%llu\n"
+                              "wifi_connect_ping.hold.sample_%02d.tx_errors_delta=%llu\n"
+                              "wifi_connect_ping.hold.sample_%02d.rx_dropped_delta=%llu\n"
+                              "wifi_connect_ping.hold.sample_%02d.tx_dropped_delta=%llu\n",
+                              samples,
+                              stats_before.ok ? 1 : 0,
+                              samples,
+                              stats_before.err_no,
+                              samples,
+                              stats_after.ok ? 1 : 0,
+                              samples,
+                              stats_after.err_no,
+                              samples,
+                              stats_before.ok && stats_after.ok
+                                  ? hold_stat_delta(stats_after.rx_packets, stats_before.rx_packets)
+                                  : 0ULL,
+                              samples,
+                              stats_before.ok && stats_after.ok
+                                  ? hold_stat_delta(stats_after.tx_packets, stats_before.tx_packets)
+                                  : 0ULL,
+                              samples,
+                              stats_before.ok && stats_after.ok
+                                  ? hold_stat_delta(stats_after.rx_errors, stats_before.rx_errors)
+                                  : 0ULL,
+                              samples,
+                              stats_before.ok && stats_after.ok
+                                  ? hold_stat_delta(stats_after.tx_errors, stats_before.tx_errors)
+                                  : 0ULL,
+                              samples,
+                              stats_before.ok && stats_after.ok
+                                  ? hold_stat_delta(stats_after.rx_dropped, stats_before.rx_dropped)
+                                  : 0ULL,
+                              samples,
+                              stats_before.ok && stats_after.ok
+                                  ? hold_stat_delta(stats_after.tx_dropped, stats_before.tx_dropped)
+                                  : 0ULL) < 0 ||
+                append_format(stdout_buf,
+                              "wifi_connect_ping.hold.sample_%02d.gateway_ping_rc=%d\n"
+                              "wifi_connect_ping.hold.sample_%02d.gateway_ping_signal=%d\n"
+                              "wifi_connect_ping.hold.sample_%02d.gateway_ping_timeout=%d\n"
+                              "wifi_connect_ping.hold.sample_%02d.gateway_ping_ok=%d\n"
+                              "wifi_connect_ping.hold.sample_%02d.gateway_ping_classifier=%s\n"
+                              "wifi_connect_ping.hold.sample_%02d.gateway_ping_available=%d\n"
                               "wifi_connect_ping.hold.sample_%02d.ip_ping_rc=%d\n"
                               "wifi_connect_ping.hold.sample_%02d.ip_ping_signal=%d\n"
                               "wifi_connect_ping.hold.sample_%02d.ip_ping_timeout=%d\n"
@@ -11647,6 +12739,18 @@ static int append_connect_hold_summary(struct buffer *stdout_buf,
                               "wifi_connect_ping.hold.sample_%02d.host_ping_timeout=%d\n"
                               "wifi_connect_ping.hold.sample_%02d.host_ping_ok=%d\n"
                               "wifi_connect_ping.hold.sample_%02d.host_ping_classifier=%s\n",
+                              samples,
+                              gateway_ping_exit,
+                              samples,
+                              gateway_ping_signal,
+                              samples,
+                              gateway_ping_timeout ? 1 : 0,
+                              samples,
+                              gateway_ping_ok ? 1 : 0,
+                              samples,
+                              gateway_ping_classifier,
+                              samples,
+                              default_route.present && default_route.gateway_present ? 1 : 0,
                               samples,
                               ip_ping_exit,
                               samples,
@@ -11692,6 +12796,15 @@ static int append_connect_hold_summary(struct buffer *stdout_buf,
                          "wifi_connect_ping.hold.ip_ping_attempt_count=%d\n"
                          "wifi_connect_ping.hold.ip_ping_success_count=%d\n"
                          "wifi_connect_ping.hold.ip_ping_fail_count=%d\n"
+                         "wifi_connect_ping.hold.gateway_ping_attempt_count=%d\n"
+                         "wifi_connect_ping.hold.gateway_ping_success_count=%d\n"
+                         "wifi_connect_ping.hold.gateway_ping_fail_count=%d\n"
+                         "wifi_connect_ping.hold.route_default_present_count=%d\n"
+                         "wifi_connect_ping.hold.route_gateway_present_count=%d\n"
+                         "wifi_connect_ping.hold.arp_before_entry_count=%d\n"
+                         "wifi_connect_ping.hold.arp_before_complete_count=%d\n"
+                         "wifi_connect_ping.hold.arp_after_entry_count=%d\n"
+                         "wifi_connect_ping.hold.arp_after_complete_count=%d\n"
                          "wifi_connect_ping.hold.reconnect_attempt_count=%d\n"
                          "wifi_connect_ping.hold.reconnect_success_count=%d\n"
                          "wifi_connect_ping.hold.first_fail_sample=%d\n"
@@ -11708,6 +12821,15 @@ static int append_connect_hold_summary(struct buffer *stdout_buf,
                          ip_ping_attempt_count,
                          ip_ping_success_count,
                          ip_ping_fail_count,
+                         gateway_ping_attempt_count,
+                         gateway_ping_success_count,
+                         gateway_ping_fail_count,
+                         route_default_present_count,
+                         route_gateway_present_count,
+                         arp_before_entry_count,
+                         arp_before_complete_count,
+                         arp_after_entry_count,
+                         arp_after_complete_count,
                          reconnect_attempt_count,
                          reconnect_success_count,
                          first_fail_sample,
@@ -11754,6 +12876,38 @@ static int write_udhcpc_script(char *path, size_t path_size) {
         return -1;
     }
     return close(fd);
+}
+
+struct wlan_pd_modem_holder {
+    pid_t pid;
+    pid_t pgid;
+    int pipe_fd;
+    bool pipe_open;
+    bool started;
+    bool term_sent;
+    bool kill_sent;
+    bool reaped;
+    int exit_code;
+    int signal;
+};
+
+static void wlan_pd_modem_holder_init(struct wlan_pd_modem_holder *holder);
+static int start_wlan_pd_modem_holder(const struct paths *paths,
+                                      struct buffer *stdout_buf,
+                                      struct wlan_pd_modem_holder *holder);
+static int stop_wlan_pd_modem_holder(const struct paths *paths,
+                                     struct buffer *stdout_buf,
+                                     struct wlan_pd_modem_holder *holder);
+
+static int stop_connect_modem_holder_if_needed(const struct paths *paths,
+                                               struct buffer *stdout_buf,
+                                               struct wlan_pd_modem_holder *holder,
+                                               bool *active) {
+    if (!*active) {
+        return 0;
+    }
+    *active = false;
+    return stop_wlan_pd_modem_holder(paths, stdout_buf, holder);
 }
 
 static int run_wifi_connect_ping_scaffold(const struct config *cfg,
@@ -11842,7 +12996,9 @@ static int run_wifi_connect_ping_scaffold(const struct config *cfg,
     bool supplicant_zombie_after_ctrl_wait = false;
     struct connect_logdw_sink logdw_sink;
     struct wpa_ctrl_endpoint wpa_ctrl;
+    struct wlan_pd_modem_holder connect_modem_holder;
     int wpa_ctrl_ready_errno = 0;
+    bool connect_modem_holder_active = false;
     bool hold_pass = true;
     bool pass = false;
 
@@ -11859,6 +13015,7 @@ static int run_wifi_connect_ping_scaffold(const struct config *cfg,
     memset(ping_capture_path, 0, sizeof(ping_capture_path));
     memset(wpa_ctrl_socket_path, 0, sizeof(wpa_ctrl_socket_path));
     memset(udhcpc_script, 0, sizeof(udhcpc_script));
+    wlan_pd_modem_holder_init(&connect_modem_holder);
     snprintf(supplicant_stdio_log_chroot,
              sizeof(supplicant_stdio_log_chroot),
              "/cache/a90-wifi/a90_supplicant_execns_stdio.log");
@@ -12099,6 +13256,10 @@ static int run_wifi_connect_ping_scaffold(const struct config *cfg,
         unlink(private_config_host);
         return 43;
     }
+    if (append_connect_force_power_on_result(stdout_buf, cfg) < 0) {
+        unlink(private_config_host);
+        return -1;
+    }
     if (append_hdd_country_ioctl_result(stdout_buf, cfg->connect_iface) < 0) {
         unlink(private_config_host);
         return -1;
@@ -12150,6 +13311,36 @@ static int run_wifi_connect_ping_scaffold(const struct config *cfg,
                   kmsg_stream_pid > 0 ? 1 : 0,
                   (long)kmsg_stream_pid,
                   kmsg_stream_errno);
+    append_format(stdout_buf,
+                  "wifi_connect_ping.modem_holder.enabled=%d\n",
+                  cfg->connect_hold_subsys_modem ? 1 : 0);
+    if (cfg->connect_hold_subsys_modem) {
+        if (start_wlan_pd_modem_holder(paths, stdout_buf, &connect_modem_holder) < 0) {
+            connect_modem_holder_active = connect_modem_holder.started;
+            (void)stop_connect_modem_holder_if_needed(paths,
+                                                      stdout_buf,
+                                                      &connect_modem_holder,
+                                                      &connect_modem_holder_active);
+            unlink(private_config_host);
+            unlink(supplicant_stdio_log_host);
+            unlink(hwservicemanager_stdio_log_host);
+            (void)connect_logdw_sink_stop(stdout_buf, &logdw_sink);
+            if (kmsg_stream_pid > 0) {
+                kill(kmsg_stream_pid, SIGTERM);
+                wait_child_quiet(kmsg_stream_pid,
+                                 3000,
+                                 true,
+                                 &kmsg_stream_exit,
+                                 &kmsg_stream_signal,
+                                 &kmsg_stream_timeout);
+            }
+            return -1;
+        }
+        connect_modem_holder_active = true;
+        append_literal(stdout_buf, "wifi_connect_ping.modem_holder.started=1\n");
+    } else {
+        append_literal(stdout_buf, "wifi_connect_ping.modem_holder.started=0\n");
+    }
     unlink(hwservicemanager_stdio_log_host);
     if (A90_WPA_ANDROID_SOCKET_HIDL_CONNECT &&
         A90_WPA_HIDL_START_LOCAL_HWSERVICEMANAGER) {
@@ -12162,11 +13353,15 @@ static int run_wifi_connect_ping_scaffold(const struct config *cfg,
                           "wifi_connect_ping.executor_implemented=1\n"
                           "wifi_connect_ping.result=hwservicemanager-start-failed\n"
                           "wifi_connect_ping.reason=hwservicemanager-fork-or-preexec-failed\n"
-                          "wifi_connect_ping.end=1\n",
-                          errno);
+                              "wifi_connect_ping.end=1\n",
+                              errno);
             unlink(private_config_host);
             unlink(supplicant_stdio_log_host);
             unlink(hwservicemanager_stdio_log_host);
+            (void)stop_connect_modem_holder_if_needed(paths,
+                                                      stdout_buf,
+                                                      &connect_modem_holder,
+                                                      &connect_modem_holder_active);
             (void)connect_logdw_sink_stop(stdout_buf, &logdw_sink);
             if (kmsg_stream_pid > 0) {
                 kill(kmsg_stream_pid, SIGTERM);
@@ -12215,6 +13410,10 @@ static int run_wifi_connect_ping_scaffold(const struct config *cfg,
         unlink(private_config_host);
         unlink(supplicant_stdio_log_host);
         unlink(hwservicemanager_stdio_log_host);
+        (void)stop_connect_modem_holder_if_needed(paths,
+                                                  stdout_buf,
+                                                  &connect_modem_holder,
+                                                  &connect_modem_holder_active);
         (void)connect_logdw_sink_stop(stdout_buf, &logdw_sink);
         if (hwservicemanager_pid > 0) {
             kill(-hwservicemanager_pid, SIGTERM);
@@ -12342,6 +13541,10 @@ static int run_wifi_connect_ping_scaffold(const struct config *cfg,
                      private_config_chroot) >= (int)sizeof(interface_add_command)) {
             unlink(private_config_host);
             unlink(supplicant_stdio_log_host);
+            (void)stop_connect_modem_holder_if_needed(paths,
+                                                      stdout_buf,
+                                                      &connect_modem_holder,
+                                                      &connect_modem_holder_active);
             errno = ENAMETOOLONG;
             return -1;
         }
@@ -12351,6 +13554,10 @@ static int run_wifi_connect_ping_scaffold(const struct config *cfg,
                                                   interface_add_command) < 0) {
             unlink(private_config_host);
             unlink(supplicant_stdio_log_host);
+            (void)stop_connect_modem_holder_if_needed(paths,
+                                                      stdout_buf,
+                                                      &connect_modem_holder,
+                                                      &connect_modem_holder_active);
             return -1;
         }
         if (wait_wpa_ctrl_endpoint(paths,
@@ -12394,6 +13601,10 @@ static int run_wifi_connect_ping_scaffold(const struct config *cfg,
                                            "REASSOCIATE") < 0) {
             unlink(private_config_host);
             unlink(supplicant_stdio_log_host);
+            (void)stop_connect_modem_holder_if_needed(paths,
+                                                      stdout_buf,
+                                                      &connect_modem_holder,
+                                                      &connect_modem_holder_active);
             return -1;
         }
     }
@@ -12455,6 +13666,10 @@ static int run_wifi_connect_ping_scaffold(const struct config *cfg,
     if (append_resolv_conf_summary(stdout_buf) < 0) {
         unlink(private_config_host);
         unlink(supplicant_stdio_log_host);
+        (void)stop_connect_modem_holder_if_needed(paths,
+                                                  stdout_buf,
+                                                  &connect_modem_holder,
+                                                  &connect_modem_holder_active);
         return -1;
     }
     if (carrier_errno == 0 && dhcp_exit == 0) {
@@ -12492,6 +13707,10 @@ static int run_wifi_connect_ping_scaffold(const struct config *cfg,
         unlink(private_config_host);
         unlink(supplicant_stdio_log_host);
         unlink(ping_capture_path);
+        (void)stop_connect_modem_holder_if_needed(paths,
+                                                  stdout_buf,
+                                                  &connect_modem_holder,
+                                                  &connect_modem_holder_active);
         return -1;
     }
     if (append_connect_hold_summary(stdout_buf,
@@ -12503,6 +13722,39 @@ static int run_wifi_connect_ping_scaffold(const struct config *cfg,
         unlink(private_config_host);
         unlink(supplicant_stdio_log_host);
         unlink(ping_capture_path);
+        (void)stop_connect_modem_holder_if_needed(paths,
+                                                  stdout_buf,
+                                                  &connect_modem_holder,
+                                                  &connect_modem_holder_active);
+        return -1;
+    }
+    if (stop_connect_modem_holder_if_needed(paths,
+                                            stdout_buf,
+                                            &connect_modem_holder,
+                                            &connect_modem_holder_active) < 0) {
+        unlink(private_config_host);
+        unlink(supplicant_stdio_log_host);
+        unlink(hwservicemanager_stdio_log_host);
+        unlink(kmsg_stream_log_host);
+        unlink(ping_capture_path);
+        if (hwservicemanager_pid > 0) {
+            kill(-hwservicemanager_pid, SIGTERM);
+            wait_child_quiet(hwservicemanager_pid,
+                             3000,
+                             true,
+                             &hwservicemanager_exit,
+                             &hwservicemanager_signal,
+                             &hwservicemanager_timeout);
+        }
+        if (kmsg_stream_pid > 0) {
+            kill(kmsg_stream_pid, SIGTERM);
+            wait_child_quiet(kmsg_stream_pid,
+                             3000,
+                             true,
+                             &kmsg_stream_exit,
+                             &kmsg_stream_signal,
+                             &kmsg_stream_timeout);
+        }
         return -1;
     }
     if (connect_logdw_sink_stop(stdout_buf, &logdw_sink) < 0) {
@@ -27162,19 +28414,6 @@ static int open_subsys_hold_child_node(int out_fd, const char *path, const char 
     return fd;
 }
 
-struct wlan_pd_modem_holder {
-    pid_t pid;
-    pid_t pgid;
-    int pipe_fd;
-    bool pipe_open;
-    bool started;
-    bool term_sent;
-    bool kill_sent;
-    bool reaped;
-    int exit_code;
-    int signal;
-};
-
 static void wlan_pd_modem_holder_init(struct wlan_pd_modem_holder *holder) {
     holder->pid = -1;
     holder->pgid = -1;
@@ -27400,7 +28639,7 @@ static int stop_wlan_pd_modem_holder(const struct paths *paths,
         if (kill(kill_target, SIGTERM) == 0 || errno == ESRCH) {
             holder->term_sent = true;
         }
-        deadline = monotonic_ms() + 1000L;
+        deadline = monotonic_ms() + 3000L;
         while (!holder->reaped && monotonic_ms() < deadline) {
             int status = 0;
             pid_t wait_rc = waitpid(holder->pid, &status, WNOHANG);
@@ -27424,7 +28663,7 @@ static int stop_wlan_pd_modem_holder(const struct paths *paths,
         if (kill(kill_target, SIGKILL) == 0 || errno == ESRCH) {
             holder->kill_sent = true;
         }
-        deadline = monotonic_ms() + 1000L;
+        deadline = monotonic_ms() + 10000L;
         while (!holder->reaped && monotonic_ms() < deadline) {
             int status = 0;
             pid_t wait_rc = waitpid(holder->pid, &status, WNOHANG);
@@ -27454,21 +28693,24 @@ static int stop_wlan_pd_modem_holder(const struct paths *paths,
         unlink(modem_node);
     }
     holder->started = false;
-    return append_format(stdout_buf,
-                         "wlan_pd_modem_holder.stop_attempted=1\n"
-                         "wlan_pd_modem_holder.term_sent=%d\n"
-                         "wlan_pd_modem_holder.kill_sent=%d\n"
-                         "wlan_pd_modem_holder.reaped=%d\n"
-                         "wlan_pd_modem_holder.exit_code=%d\n"
-                         "wlan_pd_modem_holder.signal=%d\n"
-                         "wlan_pd_modem_holder.postflight_safe=%d\n"
-                         "wlan_pd_modem_holder.end=1\n",
-                         holder->term_sent ? 1 : 0,
-                         holder->kill_sent ? 1 : 0,
-                         holder->reaped ? 1 : 0,
-                         holder->exit_code,
-                         holder->signal,
-                         holder->reaped ? 1 : 0);
+    if (append_format(stdout_buf,
+                      "wlan_pd_modem_holder.stop_attempted=1\n"
+                      "wlan_pd_modem_holder.term_sent=%d\n"
+                      "wlan_pd_modem_holder.kill_sent=%d\n"
+                      "wlan_pd_modem_holder.reaped=%d\n"
+                      "wlan_pd_modem_holder.exit_code=%d\n"
+                      "wlan_pd_modem_holder.signal=%d\n"
+                      "wlan_pd_modem_holder.postflight_safe=%d\n"
+                      "wlan_pd_modem_holder.end=1\n",
+                      holder->term_sent ? 1 : 0,
+                      holder->kill_sent ? 1 : 0,
+                      holder->reaped ? 1 : 0,
+                      holder->exit_code,
+                      holder->signal,
+                      holder->reaped ? 1 : 0) < 0) {
+        return -1;
+    }
+    return holder->reaped ? 0 : -1;
 }
 
 static int open_esoc_req_registered_subsys_child_node(int out_fd) {
@@ -53523,6 +54765,12 @@ static int append_icnss_stats_summary(struct buffer *buf,
 }
 
 #if A90_WIFI_TEST_BOOT_POST_FW_READY_BOOT_WLAN_TRIGGER
+#ifndef A90_WIFI_TEST_BOOT_POST_FW_READY_BOOT_WLAN_WAIT_MS
+#define A90_WIFI_TEST_BOOT_POST_FW_READY_BOOT_WLAN_WAIT_MS 90000
+#endif
+#ifndef A90_WIFI_TEST_BOOT_POST_FW_READY_BOOT_WLAN_POLL_MS
+#define A90_WIFI_TEST_BOOT_POST_FW_READY_BOOT_WLAN_POLL_MS 250
+#endif
 static int append_post_fw_ready_boot_wlan_trigger(struct buffer *stdout_buf) {
     static const char * const prefix = "post_fw_ready_boot_wlan_trigger";
     static const char boot_value[] = "1";
@@ -53531,8 +54779,16 @@ static int append_post_fw_ready_boot_wlan_trigger(struct buffer *stdout_buf) {
     struct stat st;
     long started;
     long duration;
+    long wait_started;
+    long wait_elapsed = 0;
+    int wait_poll_count = 0;
+    int initial_fw_ready_processed = -1;
+    int initial_register_driver_posted = -1;
+    int initial_register_driver_processed = -1;
     int stats_rc;
     int stats_errno = 0;
+    int final_stats_rc;
+    int final_stats_errno = 0;
     int path_errno = 0;
     int open_errno = 0;
     int write_errno = 0;
@@ -53546,6 +54802,29 @@ static int append_post_fw_ready_boot_wlan_trigger(struct buffer *stdout_buf) {
     stats_rc = load_icnss_stats_numeric_summary(&stats);
     if (stats_rc < 0) {
         stats_errno = -stats_rc;
+    }
+#if A90_WIFI_TEST_BOOT_ICNSS_STATS_EVENT_SUMMARY
+    if (stats_rc == 0) {
+        initial_fw_ready_processed = stats.fw_ready_processed;
+        initial_register_driver_posted = stats.register_driver_posted;
+        initial_register_driver_processed = stats.register_driver_processed;
+    }
+    wait_started = monotonic_ms();
+    while (stats_rc == 0 && stats.fw_ready_processed <= 0 &&
+           monotonic_ms() - wait_started < A90_WIFI_TEST_BOOT_POST_FW_READY_BOOT_WLAN_WAIT_MS) {
+        usleep(A90_WIFI_TEST_BOOT_POST_FW_READY_BOOT_WLAN_POLL_MS * 1000);
+        ++wait_poll_count;
+        stats_rc = load_icnss_stats_numeric_summary(&stats);
+        if (stats_rc < 0) {
+            final_stats_errno = -stats_rc;
+            break;
+        }
+    }
+    wait_elapsed = monotonic_ms() - wait_started;
+#endif
+    final_stats_rc = stats_rc;
+    if (final_stats_rc < 0 && final_stats_errno == 0) {
+        final_stats_errno = -final_stats_rc;
     }
     if (stat(path, &st) == 0) {
         path_exists = true;
@@ -53577,6 +54856,15 @@ static int append_post_fw_ready_boot_wlan_trigger(struct buffer *stdout_buf) {
                       "%s.pre.fw_ready_processed=%d\n"
                       "%s.pre.register_driver_posted=%d\n"
                       "%s.pre.register_driver_processed=%d\n"
+                      "%s.wait_timeout_ms=%d\n"
+                      "%s.wait_poll_ms=%d\n"
+                      "%s.wait_poll_count=%d\n"
+                      "%s.wait_elapsed_ms=%ld\n"
+                      "%s.final.stats_read_rc=%d\n"
+                      "%s.final.stats_read_errno=%d\n"
+                      "%s.final.fw_ready_processed=%d\n"
+                      "%s.final.register_driver_posted=%d\n"
+                      "%s.final.register_driver_processed=%d\n"
                       "%s.path.exists=%d\n"
                       "%s.path.writable=%d\n"
                       "%s.path.mode=%04o\n"
@@ -53598,6 +54886,36 @@ static int append_post_fw_ready_boot_wlan_trigger(struct buffer *stdout_buf) {
                       stats_rc,
                       prefix,
                       stats_errno,
+                      prefix,
+#if A90_WIFI_TEST_BOOT_ICNSS_STATS_EVENT_SUMMARY
+                      initial_fw_ready_processed,
+#else
+                      -1,
+#endif
+                      prefix,
+#if A90_WIFI_TEST_BOOT_ICNSS_STATS_EVENT_SUMMARY
+                      initial_register_driver_posted,
+#else
+                      -1,
+#endif
+                      prefix,
+#if A90_WIFI_TEST_BOOT_ICNSS_STATS_EVENT_SUMMARY
+                      initial_register_driver_processed,
+#else
+                      -1,
+#endif
+                      prefix,
+                      A90_WIFI_TEST_BOOT_POST_FW_READY_BOOT_WLAN_WAIT_MS,
+                      prefix,
+                      A90_WIFI_TEST_BOOT_POST_FW_READY_BOOT_WLAN_POLL_MS,
+                      prefix,
+                      wait_poll_count,
+                      prefix,
+                      wait_elapsed,
+                      prefix,
+                      final_stats_rc,
+                      prefix,
+                      final_stats_errno,
                       prefix,
 #if A90_WIFI_TEST_BOOT_ICNSS_STATS_EVENT_SUMMARY
                       stats.fw_ready_processed,
