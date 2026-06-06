@@ -14,7 +14,7 @@ live/cleanup execution, and later actions that need separate approval.
 
 ## Code Change
 
-- `docs/operations/WIFI_V317_APPROVAL_AND_SUDO_MATRIX.md`
+- `docs/archive/legacy/operations/WIFI_V317_APPROVAL_AND_SUDO_MATRIX.md`
   - records current V357 gate state
   - lists command classes and their approval/sudo requirements
   - records the exact V317 approval phrase

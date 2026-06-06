@@ -85,7 +85,7 @@
 - V411 prep result: helper v27, deploy wrapper, and binderized lshal runner are implemented. Static ARM64 helper build PASS, SHA `0519b557482f347d47962e9da76ee7afcce270bf12df860d37678e9a26bf2c74`; approved query plan command length remains 29; no-approval paths execute no mutation or daemon/HAL/Wi-Fi bring-up.
 - V411 contract linter result: `scripts/revalidation/wifi_v411_binderized_lshal_linter.py` PASS, proving helper source, runner, deploy wrapper, approved-plan/noapproval manifests, deploy plan, and read-only preflight all agree on the binderized-only lshal contract.
 - latest V411 prep report: `docs/reports/NATIVE_INIT_V411_BINDERIZED_LSHAL_QUERY_PREP_2026-05-20.md`.
-- V411 live handoff: `docs/operations/WIFI_V411_BINDERIZED_LSHAL_LIVE_HANDOFF.md`.
+- V411 live handoff: `docs/archive/legacy/operations/WIFI_V411_BINDERIZED_LSHAL_LIVE_HANDOFF.md`.
 - V411 deploy/query executor result: `scripts/revalidation/wifi_v411_deploy_query_executor.py` is fail-closed; plan/deploy/live/full no-approval paths and partial-full-approval paths execute no device command or mutation.
 - V411 current read-only preflight result: deploy preflight is ready but still needs helper v27 deploy; binderized query preflight is blocked only by remote helper-v27 and approval gate. Report: `docs/reports/NATIVE_INIT_V411_CURRENT_PREFLIGHT_2026-05-20.md`.
 - V412 planned next-branch router: classify V411 binderized registration evidence into deploy-wait, live-query-wait, Wi-Fi-service-candidates-ready, no-wifi-service, micro-query-needed, or tool-missing without any device command. Plan: `docs/plans/NATIVE_INIT_V412_REGISTRATION_RESULT_ROUTER_PLAN_2026-05-20.md`.
@@ -4994,7 +4994,7 @@
 
 - 계획: `docs/plans/NATIVE_INIT_V358_APPROVAL_SUDO_BOUNDARY_PLAN_2026-05-19.md`
 - 보고서: `docs/reports/NATIVE_INIT_V358_APPROVAL_SUDO_BOUNDARY_2026-05-19.md`
-- 운영 문서: `docs/operations/WIFI_V317_APPROVAL_AND_SUDO_MATRIX.md`
+- 운영 문서: `docs/archive/legacy/operations/WIFI_V317_APPROVAL_AND_SUDO_MATRIX.md`
 - boot image: 없음. v358은 host-side 운영 경계 문서화이며 native init version 변경 없음
 - 구현:
   - host-only/no-sudo, host-sudo, exact approval required, separate approval required 명령군을 구분
@@ -8397,7 +8397,7 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
 - readiness: `docs/reports/NATIVE_INIT_V392_BACKCHAIN_CAPTURE_2026-05-20.md`
 - handoff/analyzer: `docs/reports/NATIVE_INIT_V392_HANDOFF_AND_FRAMECHAIN_ANALYZER_2026-05-20.md`
 - executor integration: `docs/reports/NATIVE_INIT_V392_EXECUTOR_FRAMECHAIN_INTEGRATION_2026-05-20.md`
-- live handoff: `docs/operations/WIFI_V392_BACKCHAIN_LIVE_HANDOFF.md`
+- live handoff: `docs/archive/legacy/operations/WIFI_V392_BACKCHAIN_LIVE_HANDOFF.md`
 - local helper: `tmp/wifi/v392-a90_android_execns_probe-v21/a90_android_execns_probe`
 - sha256: `c6216cc3b579f78bfd668148a24e1948e9e08621ea7d4e21c8b280475cc09ab8`
 - host wrappers:

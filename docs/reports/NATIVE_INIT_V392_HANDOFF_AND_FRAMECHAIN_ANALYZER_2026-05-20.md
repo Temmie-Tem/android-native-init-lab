@@ -27,7 +27,7 @@ V390 confirmed:
 
 ## Added Handoff
 
-- handoff: `docs/operations/WIFI_V392_BACKCHAIN_LIVE_HANDOFF.md`
+- handoff: `docs/archive/legacy/operations/WIFI_V392_BACKCHAIN_LIVE_HANDOFF.md`
 
 The handoff records:
 

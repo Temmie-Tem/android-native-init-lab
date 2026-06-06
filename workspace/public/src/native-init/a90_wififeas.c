@@ -229,11 +229,11 @@ int a90_wififeas_print_paths(void) {
     feas_emit(&sink, "  wifiinv full\r\n");
     feas_emit(&sink, "  wififeas full\r\n");
     feas_emit(&sink, "  mountsystem ro ; wifiinv full ; wififeas full\r\n");
-    feas_emit(&sink, "host native collector:\r\n");
-    feas_emit(&sink, "  python3 scripts/revalidation/wifi_inventory_collect.py --native-only --boot-image stage3/boot_linux_v122.img --out tmp/wifiinv/v122-native.txt\r\n");
+    feas_emit(&sink, "legacy host native collector:\r\n");
+    feas_emit(&sink, "  python3 workspace/public/archive/scripts/revalidation/wifi_inventory_collect.py --native-only --boot-image workspace/private/inputs/boot_images/boot_linux_v122.img --out tmp/wifiinv/v122-native.txt\r\n");
     feas_emit(&sink, "optional read-only adb baselines:\r\n");
-    feas_emit(&sink, "  python3 scripts/revalidation/wifi_inventory_collect.py --android-adb --out tmp/wifiinv/v104-android.txt\r\n");
-    feas_emit(&sink, "  python3 scripts/revalidation/wifi_inventory_collect.py --twrp-adb --out tmp/wifiinv/v104-twrp.txt\r\n");
+    feas_emit(&sink, "  python3 workspace/public/archive/scripts/revalidation/wifi_inventory_collect.py --android-adb --out tmp/wifiinv/v104-android.txt\r\n");
+    feas_emit(&sink, "  python3 workspace/public/archive/scripts/revalidation/wifi_inventory_collect.py --twrp-adb --out tmp/wifiinv/v104-twrp.txt\r\n");
     feas_emit(&sink, "forbidden:\r\n");
     feas_emit(&sink, "  svc wifi enable; ip link set wlan0 up; rfkill write; insmod/rmmod/modprobe; firmware/vendor mutation\r\n");
     return 0;

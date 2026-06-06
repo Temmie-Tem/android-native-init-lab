@@ -8,7 +8,7 @@
 
 ## Key Changes
 
-- `docs/operations/WIFI_V317_APPROVAL_AND_SUDO_MATRIX.md`를 추가한다.
+- `docs/archive/legacy/operations/WIFI_V317_APPROVAL_AND_SUDO_MATRIX.md`를 추가한다.
 - 문서는 다음 범주를 분리한다.
   - host-only/no-sudo: plan, audit, checklist, regression, manifest inspection, static checks
   - host-sudo: serial bridge open/restart, `/dev/ttyACM0` access, NCM host IP assignment
