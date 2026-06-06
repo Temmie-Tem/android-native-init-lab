@@ -537,6 +537,8 @@ struct config {
     const char *private_cnss_daemon_path;
     const char *result_output_path;
     int timeout_sec;
+    int connect_hold_sec;
+    int connect_hold_interval_sec;
     bool cnss_surface_mode_explicit;
     bool service_manager_order_explicit;
     bool subsys_trigger_gate_explicit;
@@ -553,6 +555,7 @@ struct config {
     bool allow_service_notifier_listener_probe;
     bool allow_scan_only;
     bool allow_connect_dhcp_ping;
+    bool connect_reconnect_on_drop;
     bool allow_policy_load_proof;
     bool allow_esoc_control_preflight;
     bool allow_esoc_engine_register_preflight;
@@ -949,6 +952,9 @@ static void usage(FILE *out) {
             "[--connect-config /cache/a90-wifi/...] "
             "[--connect-iface auto|wlan0] "
             "[--ping-target 1.1.1.1] "
+            "[--connect-hold-sec 0..900] "
+            "[--connect-hold-interval-sec 1..120] "
+            "[--connect-reconnect-on-drop] "
             "[--cnss-surface-mode full|compact] "
             "[--service-manager-order none|before-cnss|after-cnss|after-mdm-helper-esoc-fd|after-mdm-helper-esoc-fd-with-pm-proxy|after-mdm-helper-esoc-fd-with-pm-full-contract|after-mdm-helper-esoc-fd-with-pm-full-contract-with-modem-holder|after-mdm-helper-esoc-fd-with-wifi-surface|after-mdm-helper-esoc-fd-with-wifi-surface-subsys-window] "
             "[--subsys-trigger-gate observe-only|wlfw-precondition|post-provider-no-wlfw|post-upper-surface-no-wlfw] "
@@ -1635,6 +1641,8 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
     cfg->android_selinux_context_mode = "auto";
     cfg->connect_iface = "auto";
     cfg->ping_target = "1.1.1.1";
+    cfg->connect_hold_sec = 0;
+    cfg->connect_hold_interval_sec = 20;
     cfg->qrtr_readback_matrix = DEFAULT_QRTR_READBACK_MATRIX;
     cfg->cnss_surface_mode = "full";
     cfg->service_manager_order = "none";
@@ -1696,6 +1704,10 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
         }
         if (strcmp(argv[i], "--allow-connect-dhcp-ping") == 0) {
             cfg->allow_connect_dhcp_ping = true;
+            continue;
+        }
+        if (strcmp(argv[i], "--connect-reconnect-on-drop") == 0) {
+            cfg->connect_reconnect_on_drop = true;
             continue;
         }
         if (strcmp(argv[i], "--allow-policy-load-proof") == 0) {
@@ -2062,6 +2074,16 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             cfg->connect_iface = argv[++i];
         } else if (strcmp(argv[i], "--ping-target") == 0) {
             cfg->ping_target = argv[++i];
+        } else if (strcmp(argv[i], "--connect-hold-sec") == 0) {
+            if (!parse_int_range(argv[++i], 0, 900, &cfg->connect_hold_sec)) {
+                fprintf(stderr, "invalid --connect-hold-sec\n");
+                return 2;
+            }
+        } else if (strcmp(argv[i], "--connect-hold-interval-sec") == 0) {
+            if (!parse_int_range(argv[++i], 1, 120, &cfg->connect_hold_interval_sec)) {
+                fprintf(stderr, "invalid --connect-hold-interval-sec\n");
+                return 2;
+            }
         } else if (strcmp(argv[i], "--qrtr-readback-matrix") == 0) {
             cfg->qrtr_readback_matrix = argv[++i];
         } else if (strcmp(argv[i], "--cnss-surface-mode") == 0) {
@@ -3726,6 +3748,11 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
     }
     if (cfg->allow_connect_dhcp_ping && !is_wifi_active_session_connect_ping_mode(cfg->mode)) {
         fprintf(stderr, "--allow-connect-dhcp-ping is only valid with wifi-active-session-connect-ping mode\n");
+        return 2;
+    }
+    if ((cfg->connect_hold_sec > 0 || cfg->connect_reconnect_on_drop) &&
+        !is_wifi_active_session_connect_ping_mode(cfg->mode)) {
+        fprintf(stderr, "connect hold/reconnect options are only valid with wifi-active-session-connect-ping mode\n");
         return 2;
     }
     if (is_wifi_active_session_connect_ping_mode(cfg->mode)) {
@@ -11372,6 +11399,324 @@ static int wait_wlan_carrier(const char *ifname, int timeout_ms) {
     return -1;
 }
 
+static bool run_hold_ping_once(const char *ifname,
+                               const char *target,
+                               const char *output_path,
+                               int *exit_code,
+                               int *signal_no,
+                               bool *timed_out,
+                               const char **classifier) {
+    char ping_text[1024];
+    bool bytes_from;
+    bool bad_address;
+    bool unknown_host;
+    bool network_unreachable;
+    bool permission_denied;
+    bool sendto_error;
+    bool zero_received;
+    bool packet_loss_100;
+    char *const ping_argv[] = {
+        (char *)"/cache/bin/busybox",
+        (char *)"ping",
+        (char *)"-I",
+        (char *)ifname,
+        (char *)"-c",
+        (char *)"1",
+        (char *)"-W",
+        (char *)"3",
+        (char *)target,
+        NULL,
+    };
+
+    *exit_code = -1;
+    *signal_no = 0;
+    *timed_out = false;
+    *classifier = "unknown-output";
+    run_capture_argv_to_file(ping_argv,
+                             output_path,
+                             8000,
+                             exit_code,
+                             signal_no,
+                             timed_out);
+    ping_text[0] = '\0';
+    (void)read_small_file_trim(output_path, ping_text, sizeof(ping_text));
+    bytes_from = text_contains_any(ping_text, "bytes from", "bytes_from", NULL);
+    bad_address = text_contains_any(ping_text, "bad address", "Name or service not known", "Temporary failure in name resolution");
+    unknown_host = text_contains_any(ping_text, "unknown host", "Unknown host", "No address associated");
+    network_unreachable = text_contains_any(ping_text, "Network is unreachable", "network is unreachable", "No route to host");
+    permission_denied = text_contains_any(ping_text, "Permission denied", "permission denied", "Operation not permitted");
+    sendto_error = text_contains_any(ping_text, "sendto", "sendmsg", "transmit failed");
+    zero_received = text_contains_any(ping_text, "0 packets received", "0 received", "0% packet loss") && !bytes_from;
+    packet_loss_100 = text_contains_any(ping_text, "100% packet loss", "100% loss", NULL);
+    if (*exit_code == 0 || bytes_from) {
+        *classifier = "icmp-reply";
+        return true;
+    }
+    if (*timed_out) {
+        *classifier = "timeout";
+    } else if (bad_address || unknown_host) {
+        *classifier = "dns-resolution-failed";
+    } else if (network_unreachable) {
+        *classifier = "network-unreachable";
+    } else if (permission_denied) {
+        *classifier = "permission-denied";
+    } else if (sendto_error) {
+        *classifier = "sendto-error";
+    } else if (zero_received || packet_loss_100) {
+        *classifier = "icmp-no-reply";
+    } else if (ping_text[0] == '\0') {
+        *classifier = "no-output";
+    }
+    return false;
+}
+
+static int append_connect_hold_summary(struct buffer *stdout_buf,
+                                       const struct config *cfg,
+                                       struct wpa_ctrl_endpoint *wpa_ctrl,
+                                       bool wpa_ctrl_ready,
+                                       const char *ping_capture_path,
+                                       bool *hold_pass_out) {
+    char carrier_path[128];
+    long deadline;
+    int hold_sec = cfg->connect_hold_sec;
+    int interval_sec = cfg->connect_hold_interval_sec > 0
+        ? cfg->connect_hold_interval_sec
+        : 20;
+    int samples = 0;
+    int carrier_up_count = 0;
+    int carrier_down_count = 0;
+    int ping_attempt_count = 0;
+    int ping_success_count = 0;
+    int ping_fail_count = 0;
+    int ip_ping_attempt_count = 0;
+    int ip_ping_success_count = 0;
+    int ip_ping_fail_count = 0;
+    int reconnect_attempt_count = 0;
+    int reconnect_success_count = 0;
+    int first_fail_sample = -1;
+    int first_fail_errno = 0;
+    int first_fail_ping_rc = 0;
+    const char *first_fail_reason = "none";
+    bool pass = true;
+
+    if (append_format(stdout_buf,
+                      "wifi_connect_ping.hold.enabled=%d\n"
+                      "wifi_connect_ping.hold.requested_sec=%d\n"
+                      "wifi_connect_ping.hold.interval_sec=%d\n"
+                      "wifi_connect_ping.hold.reconnect_on_drop=%d\n",
+                      hold_sec > 0 ? 1 : 0,
+                      hold_sec,
+                      interval_sec,
+                      cfg->connect_reconnect_on_drop ? 1 : 0) < 0) {
+        return -1;
+    }
+    if (hold_sec <= 0) {
+        if (hold_pass_out != NULL) {
+            *hold_pass_out = true;
+        }
+        return append_literal(stdout_buf,
+                              "wifi_connect_ping.hold.executed=0\n"
+                              "wifi_connect_ping.hold.pass=1\n"
+                              "wifi_connect_ping.hold.reason=disabled\n");
+    }
+    if (snprintf(carrier_path,
+                 sizeof(carrier_path),
+                 "/sys/class/net/%s/carrier",
+                 cfg->connect_iface) >= (int)sizeof(carrier_path)) {
+        errno = ENAMETOOLONG;
+        return -1;
+    }
+
+    append_literal(stdout_buf, "wifi_connect_ping.hold.executed=1\n");
+    deadline = monotonic_ms() + (long)hold_sec * 1000L;
+    while (monotonic_ms() < deadline) {
+        int sleep_sec = interval_sec;
+        long remaining_ms = deadline - monotonic_ms();
+        bool carrier_up;
+        int host_ping_exit = -1;
+        int host_ping_signal = 0;
+        bool host_ping_timeout = false;
+        bool host_ping_ok = false;
+        int ip_ping_exit = -1;
+        int ip_ping_signal = 0;
+        bool ip_ping_timeout = false;
+        bool ip_ping_ok = false;
+        const char *host_ping_classifier = "not-run";
+        const char *ip_ping_classifier = "not-run";
+
+        if (remaining_ms <= 0) {
+            break;
+        }
+        if ((long)sleep_sec * 1000L > remaining_ms) {
+            sleep_sec = (int)((remaining_ms + 999L) / 1000L);
+            if (sleep_sec <= 0) {
+                sleep_sec = 1;
+            }
+        }
+        sleep((unsigned int)sleep_sec);
+        carrier_up = sysfs_file_equals(carrier_path, "1");
+        if (!carrier_up &&
+            cfg->connect_reconnect_on_drop &&
+            reconnect_attempt_count == 0 &&
+            wpa_ctrl_ready) {
+            if (append_wpa_ctrl_command_result(stdout_buf,
+                                               wpa_ctrl,
+                                               cfg->connect_iface,
+                                               "hold_reassociate_00",
+                                               "REASSOCIATE") < 0) {
+                return -1;
+            }
+            reconnect_attempt_count++;
+            if (wait_wlan_carrier(cfg->connect_iface, 15000) == 0) {
+                reconnect_success_count++;
+                carrier_up = true;
+            }
+        }
+        if (carrier_up) {
+            carrier_up_count++;
+            ip_ping_attempt_count++;
+            ip_ping_ok = run_hold_ping_once(cfg->connect_iface,
+                                            "1.1.1.1",
+                                            ping_capture_path,
+                                            &ip_ping_exit,
+                                            &ip_ping_signal,
+                                            &ip_ping_timeout,
+                                            &ip_ping_classifier);
+            if (ip_ping_ok) {
+                ip_ping_success_count++;
+            } else {
+                ip_ping_fail_count++;
+            }
+            ping_attempt_count++;
+            host_ping_ok = run_hold_ping_once(cfg->connect_iface,
+                                              cfg->ping_target,
+                                              ping_capture_path,
+                                              &host_ping_exit,
+                                              &host_ping_signal,
+                                              &host_ping_timeout,
+                                              &host_ping_classifier);
+            if (host_ping_ok) {
+                ping_success_count++;
+            } else {
+                ping_fail_count++;
+            }
+            if (!ip_ping_ok || !host_ping_ok) {
+                pass = false;
+                if (first_fail_sample < 0) {
+                    first_fail_sample = samples;
+                    if (!ip_ping_ok) {
+                        first_fail_reason = ip_ping_timeout ? "ip-ping-timeout" : "ip-ping-failed";
+                        first_fail_ping_rc = ip_ping_exit;
+                    } else {
+                        first_fail_reason = host_ping_timeout ? "host-ping-timeout" : "host-ping-failed";
+                        first_fail_ping_rc = host_ping_exit;
+                    }
+                }
+            }
+        } else {
+            int saved_errno = errno == 0 ? ENETDOWN : errno;
+
+            carrier_down_count++;
+            ping_fail_count++;
+            pass = false;
+            if (first_fail_sample < 0) {
+                first_fail_sample = samples;
+                first_fail_reason = "carrier-down";
+                first_fail_errno = saved_errno;
+            }
+        }
+        if (samples < 16) {
+            if (append_format(stdout_buf,
+                              "wifi_connect_ping.hold.sample_%02d.carrier=%d\n"
+                              "wifi_connect_ping.hold.sample_%02d.ping_rc=%d\n"
+                              "wifi_connect_ping.hold.sample_%02d.ping_ok=%d\n",
+                              samples,
+                              carrier_up ? 1 : 0,
+                              samples,
+                              host_ping_exit,
+                              samples,
+                              host_ping_ok ? 1 : 0) < 0 ||
+                append_format(stdout_buf,
+                              "wifi_connect_ping.hold.sample_%02d.ip_ping_rc=%d\n"
+                              "wifi_connect_ping.hold.sample_%02d.ip_ping_signal=%d\n"
+                              "wifi_connect_ping.hold.sample_%02d.ip_ping_timeout=%d\n"
+                              "wifi_connect_ping.hold.sample_%02d.ip_ping_ok=%d\n"
+                              "wifi_connect_ping.hold.sample_%02d.ip_ping_classifier=%s\n"
+                              "wifi_connect_ping.hold.sample_%02d.host_ping_rc=%d\n"
+                              "wifi_connect_ping.hold.sample_%02d.host_ping_signal=%d\n"
+                              "wifi_connect_ping.hold.sample_%02d.host_ping_timeout=%d\n"
+                              "wifi_connect_ping.hold.sample_%02d.host_ping_ok=%d\n"
+                              "wifi_connect_ping.hold.sample_%02d.host_ping_classifier=%s\n",
+                              samples,
+                              ip_ping_exit,
+                              samples,
+                              ip_ping_signal,
+                              samples,
+                              ip_ping_timeout ? 1 : 0,
+                              samples,
+                              ip_ping_ok ? 1 : 0,
+                              samples,
+                              ip_ping_classifier,
+                              samples,
+                              host_ping_exit,
+                              samples,
+                              host_ping_signal,
+                              samples,
+                              host_ping_timeout ? 1 : 0,
+                              samples,
+                              host_ping_ok ? 1 : 0,
+                              samples,
+                              host_ping_classifier) < 0) {
+                return -1;
+            }
+        }
+        samples++;
+    }
+    if (samples <= 0 || ping_attempt_count <= 0) {
+        pass = false;
+        if (first_fail_sample < 0) {
+            first_fail_sample = 0;
+            first_fail_reason = "no-samples";
+        }
+    }
+    if (hold_pass_out != NULL) {
+        *hold_pass_out = pass;
+    }
+    return append_format(stdout_buf,
+                         "wifi_connect_ping.hold.samples=%d\n"
+                         "wifi_connect_ping.hold.carrier_up_count=%d\n"
+                         "wifi_connect_ping.hold.carrier_down_count=%d\n"
+                         "wifi_connect_ping.hold.ping_attempt_count=%d\n"
+                         "wifi_connect_ping.hold.ping_success_count=%d\n"
+                         "wifi_connect_ping.hold.ping_fail_count=%d\n"
+                         "wifi_connect_ping.hold.ip_ping_attempt_count=%d\n"
+                         "wifi_connect_ping.hold.ip_ping_success_count=%d\n"
+                         "wifi_connect_ping.hold.ip_ping_fail_count=%d\n"
+                         "wifi_connect_ping.hold.reconnect_attempt_count=%d\n"
+                         "wifi_connect_ping.hold.reconnect_success_count=%d\n"
+                         "wifi_connect_ping.hold.first_fail_sample=%d\n"
+                         "wifi_connect_ping.hold.first_fail_errno=%d\n"
+                         "wifi_connect_ping.hold.first_fail_ping_rc=%d\n"
+                         "wifi_connect_ping.hold.pass=%d\n"
+                         "wifi_connect_ping.hold.reason=%s\n",
+                         samples,
+                         carrier_up_count,
+                         carrier_down_count,
+                         ping_attempt_count,
+                         ping_success_count,
+                         ping_fail_count,
+                         ip_ping_attempt_count,
+                         ip_ping_success_count,
+                         ip_ping_fail_count,
+                         reconnect_attempt_count,
+                         reconnect_success_count,
+                         first_fail_sample,
+                         first_fail_errno,
+                         first_fail_ping_rc,
+                         pass ? 1 : 0,
+                         pass ? "hold-carrier-and-ping-stable" : first_fail_reason);
+}
+
 static int write_udhcpc_script(char *path, size_t path_size) {
     static const char script[] =
         "#!/cache/bin/busybox sh\n"
@@ -11498,6 +11843,7 @@ static int run_wifi_connect_ping_scaffold(const struct config *cfg,
     struct connect_logdw_sink logdw_sink;
     struct wpa_ctrl_endpoint wpa_ctrl;
     int wpa_ctrl_ready_errno = 0;
+    bool hold_pass = true;
     bool pass = false;
 
 #ifdef O_NOFOLLOW
@@ -12148,6 +12494,17 @@ static int run_wifi_connect_ping_scaffold(const struct config *cfg,
         unlink(ping_capture_path);
         return -1;
     }
+    if (append_connect_hold_summary(stdout_buf,
+                                    cfg,
+                                    &wpa_ctrl,
+                                    wpa_ctrl_ready_errno == 0,
+                                    ping_capture_path,
+                                    &hold_pass) < 0) {
+        unlink(private_config_host);
+        unlink(supplicant_stdio_log_host);
+        unlink(ping_capture_path);
+        return -1;
+    }
     if (connect_logdw_sink_stop(stdout_buf, &logdw_sink) < 0) {
         unlink(private_config_host);
         unlink(supplicant_stdio_log_host);
@@ -12246,14 +12603,15 @@ static int run_wifi_connect_ping_scaffold(const struct config *cfg,
                       down_signal,
                       down_timeout ? 1 : 0);
     }
-    pass = carrier_errno == 0 && dhcp_exit == 0 && ping_exit == 0;
+    pass = carrier_errno == 0 && dhcp_exit == 0 && ping_exit == 0 && hold_pass;
     append_format(stdout_buf,
                   "wifi_connect_ping.executor_implemented=1\n"
                   "wifi_connect_ping.result=%s\n"
                   "wifi_connect_ping.reason=%s\n"
                   "wifi_connect_ping.end=1\n",
                   pass ? "connect-dhcp-ping-pass" : "connect-dhcp-ping-failed",
-                  pass ? "association-dhcp-google-ping-succeeded" : "association-dhcp-or-google-ping-failed");
+                  pass ? "association-dhcp-google-ping-succeeded" :
+                  (hold_pass ? "association-dhcp-or-google-ping-failed" : "connect-hold-failed"));
     return pass ? 0 : 45;
 }
 

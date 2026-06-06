@@ -26,6 +26,19 @@ import native_property_runtime_overlay_v471 as propbase
 import native_property_runtime_overlay_v535 as prop535
 
 
+def env_int(name: str, default: int, minimum: int, maximum: int) -> int:
+    raw = os.environ.get(name, "").strip()
+    if not raw:
+        return default
+    try:
+        value = int(raw, 10)
+    except ValueError as exc:
+        raise ValueError(f"{name} must be an integer") from exc
+    if value < minimum or value > maximum:
+        raise ValueError(f"{name} must be between {minimum} and {maximum}")
+    return value
+
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CYCLE = "V2167"
 RAW_RUN_LABEL = os.environ.get("A90_WIFI_RUN_LABEL", "").strip().lower()
@@ -69,6 +82,9 @@ BOOT_PROPERTY_REMOTE_ROOT = f"{BOOT_PROPERTY_REMOTE_BASE}/dev/__properties__"
 PROPERTY_REMOTE_TGZ = "/cache/a90-property-v2167.tgz"
 PROPERTY_REMOTE_B64 = f"{PROPERTY_REMOTE_TGZ}.b64"
 PING_TARGET = "google.com"
+QA_HOLD_SEC = env_int("A90_WIFI_QA_HOLD_SEC", 0, 0, 900)
+QA_HOLD_INTERVAL_SEC = env_int("A90_WIFI_QA_HOLD_INTERVAL_SEC", 20, 1, 120)
+QA_RECONNECT_ON_DROP = os.environ.get("A90_WIFI_QA_RECONNECT_ON_DROP", "1").lower() not in {"0", "false", "no"}
 CHUNK_SIZE = 1536
 FAST_TRANSFER_ENABLED = os.environ.get("A90_FAST_TRANSFER", "1").lower() not in {"0", "false", "no"}
 FAST_TRANSFER_IFNAME = "ncm0"
@@ -1423,8 +1439,11 @@ def stage_connect_script(store: base.EvidenceStore,
         "connect_script.path": CONNECT_SCRIPT,
         "connect_script.result_path": CONNECT_RESULT,
         "connect_script.raw_values_logged": "0",
+        "connect_script.qa_hold_sec": str(QA_HOLD_SEC),
+        "connect_script.qa_hold_interval_sec": str(QA_HOLD_INTERVAL_SEC),
+        "connect_script.qa_reconnect_on_drop": "1" if QA_RECONNECT_ON_DROP else "0",
     }
-    helper_command = " ".join(shlex.quote(part) for part in [
+    helper_args = [
         HELPER_REMOTE,
         "--system-root",
         "/mnt/system/system",
@@ -1464,7 +1483,17 @@ def stage_connect_script(store: base.EvidenceStore,
         "--allow-hal-service-query",
         "--allow-iwifi-start-only",
         "--allow-connect-dhcp-ping",
-    ])
+    ]
+    if QA_HOLD_SEC > 0:
+        helper_args.extend([
+            "--connect-hold-sec",
+            str(QA_HOLD_SEC),
+            "--connect-hold-interval-sec",
+            str(QA_HOLD_INTERVAL_SEC),
+        ])
+        if QA_RECONNECT_ON_DROP:
+            helper_args.append("--connect-reconnect-on-drop")
+    helper_command = " ".join(shlex.quote(part) for part in helper_args)
     run_step(store, steps, "connect-script-clean", ["run", "/cache/bin/busybox", "rm", "-f", CONNECT_SCRIPT, CONNECT_RESULT])
     run_step(store, steps, "connect-script-touch", ["run", "/cache/bin/busybox", "touch", CONNECT_SCRIPT])
     script_lines = [
@@ -1476,6 +1505,9 @@ def stage_connect_script(store: base.EvidenceStore,
         "echo v2167.connect_attempted=1 >> \"$out\"",
         "echo v2167.dhcp_route_attempted=1 >> \"$out\"",
         "echo v2167.external_ping_attempted=1 >> \"$out\"",
+        f"echo v2167.qa_hold_sec={QA_HOLD_SEC} >> \"$out\"",
+        f"echo v2167.qa_hold_interval_sec={QA_HOLD_INTERVAL_SEC} >> \"$out\"",
+        f"echo v2167.qa_reconnect_on_drop={1 if QA_RECONNECT_ON_DROP else 0} >> \"$out\"",
         "loop=0",
         "while [ \"$loop\" -lt 1200 ]; do",
         "if [ -e /sys/class/net/wlan0 ]; then echo v2167.wlan0_seen=1 >> \"$out\"; break; fi",
@@ -1622,7 +1654,7 @@ def post_flash_connect(store: base.EvidenceStore,
                        property_fields: dict[str, str],
                        config_fields: dict[str, str]) -> dict[str, Any]:
     script_fields = stage_connect_script(store, steps)
-    wait_fields = wait_for_connect_result(store, steps)
+    wait_fields = wait_for_connect_result(store, steps, max_wait_sec=190.0 + float(QA_HOLD_SEC))
     ok = (
         property_fields.get("property_stage.ok") == "1"
         and helper_fields.get("helper_stage.ok") == "1"
@@ -1768,6 +1800,8 @@ def collect_gate(manifest: dict[str, Any], result: dict[str, Any]) -> dict[str, 
     dhcp_rc = intish(fields.get("wifi_connect_ping.dhcp_rc"))
     ping_target = fields.get("wifi_connect_ping.external_ping_target", "")
     ping_rc = intish(fields.get("wifi_connect_ping.external_ping_rc"))
+    hold_enabled = fields.get("wifi_connect_ping.hold.enabled") == "1"
+    hold_pass = fields.get("wifi_connect_ping.hold.pass", "1") == "1"
     no_raw = fields.get("v2167.raw_values_logged") == "0" and fields.get("wifi_connect_ping.secret_values_logged", "0") == "0"
     if not manifest.get("test_flash_ok") or not rollback_ok:
         label = "connect-dhcp-ping-handoff-incomplete"
@@ -1796,10 +1830,18 @@ def collect_gate(manifest: dict[str, Any], result: dict[str, Any]) -> dict[str, 
         label = "connect-dhcp-ping-helper-argument-failed"
         passed = False
         reason = f"connect helper exited before executor body rc={helper_rc}"
+    elif association_carrier and dhcp_rc == 0 and ping_target == PING_TARGET and ping_rc == 0 and hold_enabled and not hold_pass:
+        label = "connect-dhcp-ping-hold-failed"
+        passed = False
+        reason = f"native wlan0 associated, DHCP and google.com ping succeeded, but hold failed: {fields.get('wifi_connect_ping.hold.reason', 'unknown')}"
     elif executor_result == "connect-dhcp-ping-pass" and helper_rc == 0 and association_carrier and dhcp_rc == 0 and ping_target == PING_TARGET and ping_rc == 0:
-        label = "connect-dhcp-google-ping-pass"
+        label = "connect-dhcp-google-ping-hold-pass" if hold_enabled else "connect-dhcp-google-ping-pass"
         passed = True
-        reason = "native wlan0 associated, DHCP succeeded, and google.com ping returned success"
+        reason = (
+            "native wlan0 associated, DHCP succeeded, google.com ping returned success, and hold stayed stable"
+            if hold_enabled
+            else "native wlan0 associated, DHCP succeeded, and google.com ping returned success"
+        )
     elif not association_carrier:
         label = "connect-dhcp-ping-association-failed"
         passed = False
@@ -1869,6 +1911,27 @@ def collect_gate(manifest: dict[str, Any], result: dict[str, Any]) -> dict[str, 
         "external_ping_output_zero_received": fields.get("wifi_connect_ping.external_ping_output.zero_received") == "1",
         "external_ping_output_packet_loss_100": fields.get("wifi_connect_ping.external_ping_output.packet_loss_100") == "1",
         "external_ping_output_classifier": fields.get("wifi_connect_ping.external_ping_output.classifier", ""),
+        "hold_enabled": hold_enabled,
+        "hold_executed": fields.get("wifi_connect_ping.hold.executed") == "1",
+        "hold_requested_sec": intish(fields.get("wifi_connect_ping.hold.requested_sec")),
+        "hold_interval_sec": intish(fields.get("wifi_connect_ping.hold.interval_sec")),
+        "hold_reconnect_on_drop": fields.get("wifi_connect_ping.hold.reconnect_on_drop") == "1",
+        "hold_samples": intish(fields.get("wifi_connect_ping.hold.samples")),
+        "hold_carrier_up_count": intish(fields.get("wifi_connect_ping.hold.carrier_up_count")),
+        "hold_carrier_down_count": intish(fields.get("wifi_connect_ping.hold.carrier_down_count")),
+        "hold_ping_attempt_count": intish(fields.get("wifi_connect_ping.hold.ping_attempt_count")),
+        "hold_ping_success_count": intish(fields.get("wifi_connect_ping.hold.ping_success_count")),
+        "hold_ping_fail_count": intish(fields.get("wifi_connect_ping.hold.ping_fail_count")),
+        "hold_ip_ping_attempt_count": intish(fields.get("wifi_connect_ping.hold.ip_ping_attempt_count")),
+        "hold_ip_ping_success_count": intish(fields.get("wifi_connect_ping.hold.ip_ping_success_count")),
+        "hold_ip_ping_fail_count": intish(fields.get("wifi_connect_ping.hold.ip_ping_fail_count")),
+        "hold_reconnect_attempt_count": intish(fields.get("wifi_connect_ping.hold.reconnect_attempt_count")),
+        "hold_reconnect_success_count": intish(fields.get("wifi_connect_ping.hold.reconnect_success_count")),
+        "hold_first_fail_sample": intish(fields.get("wifi_connect_ping.hold.first_fail_sample")),
+        "hold_first_fail_errno": intish(fields.get("wifi_connect_ping.hold.first_fail_errno")),
+        "hold_first_fail_ping_rc": intish(fields.get("wifi_connect_ping.hold.first_fail_ping_rc")),
+        "hold_pass": hold_pass,
+        "hold_reason": fields.get("wifi_connect_ping.hold.reason", ""),
         "secret_values_logged": fields.get("wifi_connect_ping.secret_values_logged", ""),
         "country_code": fields.get("wifi_connect_ping.country_code", ""),
         "driver_ioctl_country_rc": intish(fields.get("wifi_connect_ping.driver_ioctl.country.rc")),
@@ -2236,6 +2299,7 @@ def render_report(manifest: dict[str, Any]) -> str:
         f"- Pass: `{manifest['pass']}`",
         f"- Reason: {manifest['reason']}",
         f"- Evidence: `{manifest['out_dir']}`",
+        f"- QA hold config: sec `{manifest.get('qa_hold_config', {}).get('hold_sec', 0)}` interval `{manifest.get('qa_hold_config', {}).get('hold_interval_sec', 0)}` reconnect_on_drop `{manifest.get('qa_hold_config', {}).get('reconnect_on_drop', False)}`",
         f"- Result source: `{gate['result_source']}` serial_attempts `{gate['serial_attempt_count']}` result_left_on_device `{gate['result_left_on_device']}`",
         f"- Fast upload: ok `{gate['fast_upload_ok']}` reason `{gate['fast_upload_reason']}` elapsed `{gate['fast_upload_elapsed_sec']}`",
         f"- Fast upload archive: `{gate['fast_upload_archive_path']}` bytes `{gate['fast_upload_archive_bytes']}` receiver_bytes `{gate['fast_upload_receiver_bytes']}` entries `{gate['fast_upload_entry_count']}` secret_hits `{gate['fast_upload_secret_hits']}` forbidden_entries `{gate['fast_upload_forbidden_entries']}`",
@@ -2283,6 +2347,7 @@ def render_report(manifest: dict[str, Any]) -> str:
         f"- `kmsg_stream`: started `{gate['kmsg_stream_started']}` start_errno `{gate['kmsg_stream_start_errno']}` present `{gate['kmsg_stream_present']}` size `{gate['kmsg_stream_size']}` lines `{gate['kmsg_stream_lines']}` permission `{gate['kmsg_stream_permission']}` avc `{gate['kmsg_stream_avc']}` nl80211 `{gate['kmsg_stream_nl80211']}` auth `{gate['kmsg_stream_auth']}` assoc `{gate['kmsg_stream_assoc']}` fail `{gate['kmsg_stream_fail']}` sensitive_skipped `{gate['kmsg_stream_sensitive_sample_skipped']}` cleanup_exit `{gate['kmsg_stream_cleanup_exit']}` signal `{gate['kmsg_stream_cleanup_signal']}` timeout `{gate['kmsg_stream_cleanup_timeout']}`",
         f"- `dhcp_executed`: `{gate['dhcp_executed']}` dhcp_rc `{gate['dhcp_rc']}` resolv_present `{gate['resolv_conf_present']}` resolv_errno `{gate['resolv_conf_errno']}` resolv_size `{gate['resolv_conf_size']}` nameservers `{gate['resolv_conf_nameserver_count']}`",
         f"- `external_ping_executed`: `{gate['external_ping_executed']}` target `{gate['external_ping_target']}` rc `{gate['external_ping_rc']}` classifier `{gate['external_ping_output_classifier']}` output_present `{gate['external_ping_output_present']}` output_errno `{gate['external_ping_output_errno']}` bytes_from `{gate['external_ping_output_bytes_from']}` bad_address `{gate['external_ping_output_bad_address']}` unknown_host `{gate['external_ping_output_unknown_host']}` net_unreach `{gate['external_ping_output_network_unreachable']}` sendto `{gate['external_ping_output_sendto_error']}` zero_recv `{gate['external_ping_output_zero_received']}` loss100 `{gate['external_ping_output_packet_loss_100']}`",
+        f"- `hold`: enabled `{gate['hold_enabled']}` executed `{gate['hold_executed']}` requested_sec `{gate['hold_requested_sec']}` interval_sec `{gate['hold_interval_sec']}` pass `{gate['hold_pass']}` reason `{gate['hold_reason']}` samples `{gate['hold_samples']}` carrier_up `{gate['hold_carrier_up_count']}` carrier_down `{gate['hold_carrier_down_count']}` host_ping_success `{gate['hold_ping_success_count']}` host_ping_fail `{gate['hold_ping_fail_count']}` ip_ping_success `{gate['hold_ip_ping_success_count']}` ip_ping_fail `{gate['hold_ip_ping_fail_count']}` reconnect_on_drop `{gate['hold_reconnect_on_drop']}` reconnect_attempts `{gate['hold_reconnect_attempt_count']}` reconnect_success `{gate['hold_reconnect_success_count']}` first_fail_sample `{gate['hold_first_fail_sample']}` first_fail_errno `{gate['hold_first_fail_errno']}` first_fail_ping_rc `{gate['hold_first_fail_ping_rc']}`",
         f"- `pre_state`: operstate `{gate['pre_operstate']}` carrier `{gate['pre_carrier']}` flags `{gate['pre_flags']}`",
         f"- `post_state`: operstate `{gate['post_operstate']}` carrier `{gate['post_carrier']}` flags `{gate['post_flags']}`",
         f"- `staging`: property `{gate['property_stage_ok']}` helper `{gate['helper_stage_ok']}` standalone_wpa `{gate['standalone_wpa_stage_ok']}` config `{gate['config_ok']}` script `{gate['script_ok']}` wait_complete `{gate['wait_complete']}`",
@@ -2729,7 +2794,7 @@ def main() -> int:
             out_dir=OUT_DIR,
             report_path=REPORT_PATH,
             post_flash_hook=hook,
-            helper_wait_sec=280.0,
+            helper_wait_sec=280.0 + float(QA_HOLD_SEC),
         )
     store = base.EvidenceStore(OUT_DIR)
     steps = manifest["steps"]
@@ -2759,6 +2824,11 @@ def main() -> int:
         "connect_executed": True,
         "dhcp_route_executed": gate["dhcp_executed"],
         "external_ping_executed": gate["external_ping_executed"],
+        "qa_hold_config": {
+            "hold_sec": QA_HOLD_SEC,
+            "hold_interval_sec": QA_HOLD_INTERVAL_SEC,
+            "reconnect_on_drop": QA_RECONNECT_ON_DROP,
+        },
     }
     attach_timing_manifest(store, manifest, phase_timer)
     summary = render_report(manifest)
