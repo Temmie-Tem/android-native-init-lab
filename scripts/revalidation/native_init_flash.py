@@ -8,6 +8,7 @@ import socket
 import subprocess
 import sys
 import time
+from contextlib import contextmanager
 from pathlib import Path
 
 from a90ctl import ProtocolResult, run_cmdv1_command
@@ -24,6 +25,18 @@ INPUT_CHAR_DELAY_ENV = "A90CTL_INPUT_CHAR_DELAY_SEC"
 def log(message: str) -> None:
     timestamp = time.strftime("%H:%M:%S")
     print(f"[native-init-flash {timestamp}] {message}", file=sys.stderr, flush=True)
+
+
+@contextmanager
+def phase_timer(name: str):
+    started = time.monotonic()
+    ok = False
+    try:
+        yield
+        ok = True
+    finally:
+        elapsed = time.monotonic() - started
+        log(f"phase.native_init_flash.{name}.elapsed_sec={elapsed:.3f} ok={int(ok)}")
 
 
 def run_command(args: list[str],
@@ -296,9 +309,11 @@ def flash_boot_image(args: argparse.Namespace,
     remote = quote_remote_path(args.remote_image, label="remote image")
     block = quote_remote_path(args.boot_block, label="boot block")
 
-    run_command(adb_base(args.adb, serial) + ["push", str(image_path), args.remote_image])
+    with phase_timer("adb_push"):
+        run_command(adb_base(args.adb, serial) + ["push", str(image_path), args.remote_image])
 
-    remote_hash = remote_sha256(args.adb, serial, args.remote_image)
+    with phase_timer("remote_sha256"):
+        remote_hash = remote_sha256(args.adb, serial, args.remote_image)
     log(f"remote image sha256: {remote_hash}")
     if remote_hash != local_hash:
         raise RuntimeError("remote sha256 mismatch after adb push")
@@ -307,9 +322,11 @@ def flash_boot_image(args: argparse.Namespace,
         f"dd if={remote} of={block} "
         "bs=4M conv=fsync && sync"
     )
-    run_command(adb_base(args.adb, serial) + ["shell", flash_cmd])
+    with phase_timer("boot_dd_write"):
+        run_command(adb_base(args.adb, serial) + ["shell", flash_cmd])
 
-    boot_prefix_hash = remote_boot_prefix_sha256(args.adb, serial, args.boot_block, image_size)
+    with phase_timer("boot_readback_sha256"):
+        boot_prefix_hash = remote_boot_prefix_sha256(args.adb, serial, args.boot_block, image_size)
     log(f"boot block prefix sha256: {boot_prefix_hash}")
     if boot_prefix_hash != local_hash:
         raise RuntimeError("boot block prefix sha256 mismatch after flash")
@@ -454,26 +471,34 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
 
-    if args.verify_only:
-        verify_native_init(args)
+    with phase_timer("total"):
+        if args.verify_only:
+            with phase_timer("verify_native_init"):
+                verify_native_init(args)
+            return 0
+
+        if not args.boot_image:
+            raise SystemExit("boot_image is required unless --verify-only is used")
+
+        with phase_timer("inspect_local_image"):
+            image_path, local_hash, image_size = inspect_local_image(args)
+
+        if args.from_native:
+            with phase_timer("native_to_recovery"):
+                reboot_native_to_recovery(args)
+
+        with phase_timer("wait_recovery_adb"):
+            serial, state = wait_for_adb_state(args.adb, args.serial, {"recovery"}, args.recovery_timeout)
+        if state != "recovery":
+            raise RuntimeError(f"expected recovery state, got {state}")
+
+        with phase_timer("flash_boot_image"):
+            flash_boot_image(args, serial, image_path, local_hash, image_size)
+        with phase_timer("reboot_twrp_to_system"):
+            reboot_twrp_to_system(args, serial)
+        with phase_timer("verify_native_init"):
+            verify_native_init(args)
         return 0
-
-    if not args.boot_image:
-        raise SystemExit("boot_image is required unless --verify-only is used")
-
-    image_path, local_hash, image_size = inspect_local_image(args)
-
-    if args.from_native:
-        reboot_native_to_recovery(args)
-
-    serial, state = wait_for_adb_state(args.adb, args.serial, {"recovery"}, args.recovery_timeout)
-    if state != "recovery":
-        raise RuntimeError(f"expected recovery state, got {state}")
-
-    flash_boot_image(args, serial, image_path, local_hash, image_size)
-    reboot_twrp_to_system(args, serial)
-    verify_native_init(args)
-    return 0
 
 
 if __name__ == "__main__":

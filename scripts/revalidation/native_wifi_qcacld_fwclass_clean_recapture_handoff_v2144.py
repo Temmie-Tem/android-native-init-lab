@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""V2144 clean recapture for the V2137 QCACLD firmware_class feeder route."""
+"""V2144 clean recapture for the V2168 QCACLD firmware_class fasttransport route."""
 
 from __future__ import annotations
 
@@ -32,23 +32,23 @@ TEST_IMAGE = (
     REPO_ROOT
     / "tmp"
     / "wifi"
-    / "v2137-qcacld-fwclass-feeder-test-boot"
-    / "boot_linux_v2137_qcacld_fwclass_feeder.img"
+    / "v2168-qcacld-fwclass-fasttransport-test-boot"
+    / "boot_linux_v2168_qcacld_fwclass_fasttransport.img"
 )
 ROLLBACK_IMAGE = REPO_ROOT / "stage3" / "boot_linux_v725_fasttransport.img"
-TEST_EXPECT_VERSION = "A90 Linux init 0.9.243 (v2137-qcacld-fwclass-feeder)"
+TEST_EXPECT_VERSION = "A90 Linux init 0.9.245 (v2168-qcacld-fwclass-fasttransport)"
 ROLLBACK_EXPECT_VERSION = "A90 Linux init 0.9.244 (v725-fasttransport)"
-TEST_LOG_PATH = "/cache/native-init-wifi-test-boot-v2137.log"
-TEST_SUMMARY_PATH = "/cache/native-init-wifi-test-boot-v2137.summary"
-TEST_HELPER_RESULT_PATH = "/cache/native-init-wifi-test-boot-v2137-helper.result"
+TEST_LOG_PATH = "/cache/native-init-wifi-test-boot-v2168.log"
+TEST_SUMMARY_PATH = "/cache/native-init-wifi-test-boot-v2168.summary"
+TEST_HELPER_RESULT_PATH = "/cache/native-init-wifi-test-boot-v2168-helper.result"
 SIBLING_FLAG_PATH = "/cache/native-init-sibling-fwssctl-v641"
 DEFAULT_HELPER_WAIT_SEC = 260.0
 POLL_INTERVAL_SEC = 5.0
 FAST_EVIDENCE_DIR = "a90-v2144-evidence"
 FAST_EVIDENCE_STEPS = {
-    "test-v2137-log",
-    "test-v2137-summary",
-    "test-v2137-helper-result",
+    "test-v2168-log",
+    "test-v2168-summary",
+    "test-v2168-helper-result",
     "test-dmesg-full",
     "test-dmesg-wifi-filter",
     "test-icnss-stats",
@@ -56,6 +56,7 @@ FAST_EVIDENCE_STEPS = {
     "test-wlan0-state",
     "test-wlan0-ifconfig",
     "test-sys-wifi-mac-node",
+    "test-supplicant-strace",
 }
 
 
@@ -232,19 +233,26 @@ def wait_for_helper_completion(store: EvidenceStore,
     result_exists = False
     summary_armed = True
     wlan0_present = False
+    helper_exited = False
+    helper_timed_out = False
     last_stdout = ""
 
     while time.monotonic() <= deadline:
         command = (
-            "result_exists=0; summary_armed=0; wlan0_present=0; "
+            "result_exists=0; summary_armed=0; wlan0_present=0; helper_exited=0; helper_timed_out=0; "
             f"test -s {TEST_HELPER_RESULT_PATH} && result_exists=1; "
             f"if /cache/bin/busybox grep -q '^state=armed' {TEST_SUMMARY_PATH} 2>/dev/null; "
             "then summary_armed=1; fi; "
+            f"if /cache/bin/busybox grep -q '^helper_exited=1' {TEST_SUMMARY_PATH} 2>/dev/null; "
+            "then helper_exited=1; fi; "
+            f"if /cache/bin/busybox grep -q '^helper_timed_out=1' {TEST_SUMMARY_PATH} 2>/dev/null; "
+            "then helper_timed_out=1; fi; "
             "test -e /sys/class/net/wlan0 && wlan0_present=1; "
             f"result_size=$(/cache/bin/busybox wc -c < {TEST_HELPER_RESULT_PATH} 2>/dev/null || echo 0); "
             f"summary_head=$(/cache/bin/busybox head -n 1 {TEST_SUMMARY_PATH} 2>/dev/null || true); "
             "echo result_exists=$result_exists summary_armed=$summary_armed "
-            "wlan0_present=$wlan0_present result_size=$result_size summary_head=$summary_head"
+            "wlan0_present=$wlan0_present helper_exited=$helper_exited "
+            "helper_timed_out=$helper_timed_out result_size=$result_size summary_head=$summary_head"
         )
         result = run_command(
             a90ctl_command(["run", "/cache/bin/busybox", "sh", "-c", command], timeout=30),
@@ -261,19 +269,23 @@ def wait_for_helper_completion(store: EvidenceStore,
         result_exists = "result_exists=1" in last_stdout
         summary_armed = "summary_armed=1" in last_stdout
         wlan0_present = "wlan0_present=1" in last_stdout
-        if result_exists and not summary_armed:
+        helper_exited = "helper_exited=1" in last_stdout
+        helper_timed_out = "helper_timed_out=1" in last_stdout
+        if (result_exists and not summary_armed) or (not summary_armed and (helper_exited or helper_timed_out)):
             break
         time.sleep(POLL_INTERVAL_SEC)
 
+    helper_done_without_result = (not summary_armed) and (helper_exited or helper_timed_out)
+    completed = (result_exists and not summary_armed) or helper_done_without_result
     store.write_text("test-helper-wait-polls.txt", "\n".join(polls) + "\n")
     steps.append({
         "name": "test-helper-wait-polls",
         "command": ["poll", TEST_HELPER_RESULT_PATH, TEST_SUMMARY_PATH],
         "started": polls[0].split("]")[0].lstrip("[") if polls else now_iso(),
         "ended": now_iso(),
-        "timeout": not (result_exists and not summary_armed),
-        "rc": 0 if result_exists else 1,
-        "ok": result_exists and not summary_armed,
+        "timeout": not completed,
+        "rc": 0 if completed else 1,
+        "ok": completed,
         "stdout_file": "test-helper-wait-polls.txt",
         "stderr_file": "",
     })
@@ -281,9 +293,12 @@ def wait_for_helper_completion(store: EvidenceStore,
         "result_exists": result_exists,
         "summary_armed": summary_armed,
         "wlan0_present": wlan0_present,
+        "helper_exited": helper_exited,
+        "helper_timed_out": helper_timed_out,
+        "helper_done_without_result": helper_done_without_result,
         "last_stdout": last_stdout,
         "poll_count": len(polls),
-        "completed": result_exists and not summary_armed,
+        "completed": completed,
     }
 
 
@@ -294,9 +309,9 @@ def collect_test_evidence(store: EvidenceStore, steps: list[dict[str, Any]]) -> 
         "test-status": ["status"],
         "test-selftest": ["selftest"],
         "test-bootstatus": ["bootstatus"],
-        "test-v2137-log": ["run", "/cache/bin/busybox", "cat", TEST_LOG_PATH],
-        "test-v2137-summary": ["run", "/cache/bin/busybox", "cat", TEST_SUMMARY_PATH],
-        "test-v2137-helper-result": ["run", "/cache/bin/busybox", "cat", TEST_HELPER_RESULT_PATH],
+        "test-v2168-log": ["run", "/cache/bin/busybox", "cat", TEST_LOG_PATH],
+        "test-v2168-summary": ["run", "/cache/bin/busybox", "cat", TEST_SUMMARY_PATH],
+        "test-v2168-helper-result": ["run", "/cache/bin/busybox", "cat", TEST_HELPER_RESULT_PATH],
         "test-dmesg-full": ["run", "/cache/bin/busybox", "dmesg"],
         "test-dmesg-wifi-filter": [
             "run",
@@ -305,7 +320,7 @@ def collect_test_evidence(store: EvidenceStore, steps: list[dict[str, Any]]) -> 
             "-c",
             (
                 "dmesg | grep -Ei "
-                "'A90v2137|wlan0|swlan0|set_features|Assigning MAC|icnss|FW ready|FW_READY|"
+                "'A90v2168|A90v2137|wlan0|swlan0|set_features|Assigning MAC|icnss|FW ready|FW_READY|"
                 "wlfw|WLFW|BDF|bdwlan|regdb|firmware_class|request_firmware|qca|HDD|wlanmdsp' "
                 "| tail -800"
             ),
@@ -417,53 +432,94 @@ def collect_test_evidence_fast(store: EvidenceStore, steps: list[dict[str, Any]]
         )
         return result
 
+    collector_path = store.path("test-fast-evidence-collector.sh")
+    collector_script = "\n".join([
+        "#!/cache/bin/busybox sh",
+        "set -u",
+        "remote_host=\"$1\"",
+        "remote_port=\"$2\"",
+        "bb=/cache/bin/busybox",
+        "toy=/cache/bin/toybox",
+        "tmp=/cache/a90-fastupload-v2144-$$",
+        f"payload=$tmp/{FAST_EVIDENCE_DIR}",
+        "if [ ! -x \"$bb\" ]; then echo fast_evidence.reason=busybox-missing; exit 42; fi",
+        "$bb rm -rf \"$tmp\"",
+        "$bb mkdir -p \"$payload\"",
+        "copy_if() { src=\"$1\"; dst=\"$2\"; [ -f \"$src\" ] && $bb cp \"$src\" \"$payload/$dst\" || true; }",
+        f"copy_if {shlex.quote(TEST_LOG_PATH)} test-v2168-log.stdout.txt",
+        f"copy_if {shlex.quote(TEST_SUMMARY_PATH)} test-v2168-summary.stdout.txt",
+        f"copy_if {shlex.quote(TEST_HELPER_RESULT_PATH)} test-v2168-helper-result.stdout.txt",
+        "$bb dmesg > \"$payload/test-dmesg-full.stdout.txt\" 2>&1 || true",
+        (
+            "$bb dmesg | $bb grep -Ei "
+            "'A90v2168|A90v2137|wlan0|swlan0|set_features|Assigning MAC|icnss|FW ready|FW_READY|"
+            "wlfw|WLFW|BDF|bdwlan|regdb|firmware_class|request_firmware|qca|HDD|wlanmdsp' "
+            "> \"$payload/test-dmesg-wifi-filter.stdout.txt\" 2>&1 || true"
+        ),
+        "$bb cat /sys/kernel/debug/icnss/stats > \"$payload/test-icnss-stats.stdout.txt\" 2>&1 || true",
+        "$bb ls -la /sys/kernel/debug/icnss > \"$payload/test-icnss-debugfs-ls.stdout.txt\" 2>&1 || true",
+        (
+            "if [ -e /sys/class/net/wlan0 ]; then echo wlan0=present; "
+            "for f in address operstate carrier flags mtu type uevent; do "
+            "printf '%s=' \"$f\"; $bb cat /sys/class/net/wlan0/$f 2>/dev/null || echo unreadable; "
+            "done; else echo wlan0=absent; fi"
+        ) + " > \"$payload/test-wlan0-state.stdout.txt\" 2>&1 || true",
+        (
+            "if [ -x \"$toy\" ]; then $toy ip addr show wlan0; "
+            "else $bb ifconfig wlan0; fi"
+        ) + " > \"$payload/test-wlan0-ifconfig.stdout.txt\" 2>&1 || true",
+        "$bb ls -la /sys/wifi /sys/wifi/mac_addr > \"$payload/test-sys-wifi-mac-node.stdout.txt\" 2>&1 || true",
+        "$bb stat /sys/wifi/mac_addr >> \"$payload/test-sys-wifi-mac-node.stdout.txt\" 2>&1 || true",
+        (
+            "{ i=0; for src in /cache/a90-wifi/a90_supplicant_strace*; do "
+            "[ -f \"$src\" ] || continue; "
+            "echo \"===== $src =====\"; $bb cat \"$src\"; i=$((i+1)); "
+            "done; echo test_supplicant_strace_file_count=$i; } "
+            "> \"$payload/test-supplicant-strace.stdout.txt\" 2>&1 || true"
+        ),
+        f"(cd \"$tmp\" && $bb tar -cf - {FAST_EVIDENCE_DIR}) | $bb gzip -c | $bb timeout 5 $bb nc -w 1 \"$remote_host\" \"$remote_port\"",
+        "rc=$?",
+        "$bb rm -rf \"$tmp\"",
+        "echo fast_evidence.nc_rc=$rc",
+        "exit \"$rc\"",
+    ]) + "\n"
+    collector_path.write_text(collector_script, encoding="utf-8")
+    collector_sha = sha256(collector_path)
+    collector_transfer = transfer.transfer_file(
+        label="test-fast-evidence-collector",
+        local_path=collector_path,
+        remote_path="/cache/a90-fastupload-v2144.sh",
+        expected_sha256=collector_sha,
+        mode="700",
+    )
+    if not collector_transfer.get("ok"):
+        result = {
+            "ok": False,
+            "reason": "collector-script-transfer-failed",
+            "method": "ncm-targzip-nc",
+            "elapsed_sec": round(time.monotonic() - started, 3),
+            "collector_transfer": collector_transfer,
+            "extracted": [],
+        }
+        ncm_transport.write_compact_step(
+            store,
+            steps,
+            "test-fast-evidence-upload-result",
+            command=["fast-upload-result", "v2144-evidence"],
+            ok=False,
+            rc=1,
+            stdout=json.dumps(result, ensure_ascii=False, sort_keys=True) + "\n",
+        )
+        return result
+
     archive_path = store.path("test-fast-evidence.tgz")
     with ncm_transport.TcpArchiveReceiver(archive_path, timeout=90.0) as receiver:
-        remote_host = shlex.quote(transfer.host_link_local + "%" + transfer.device_ifname)
-        script = "\n".join([
-            "bb=/cache/bin/busybox",
-            "toy=/cache/bin/toybox",
-            "tmp=/cache/a90-fastupload-v2144-$$",
-            f"payload=$tmp/{FAST_EVIDENCE_DIR}",
-            "if [ ! -x \"$bb\" ]; then echo fast_evidence.reason=busybox-missing; exit 42; fi",
-            "$bb rm -rf \"$tmp\"",
-            "$bb mkdir -p \"$payload\"",
-            "copy_if() { src=\"$1\"; dst=\"$2\"; [ -f \"$src\" ] && $bb cp \"$src\" \"$payload/$dst\" || true; }",
-            f"copy_if {shlex.quote(TEST_LOG_PATH)} test-v2137-log.stdout.txt",
-            f"copy_if {shlex.quote(TEST_SUMMARY_PATH)} test-v2137-summary.stdout.txt",
-            f"copy_if {shlex.quote(TEST_HELPER_RESULT_PATH)} test-v2137-helper-result.stdout.txt",
-            "$bb dmesg > \"$payload/test-dmesg-full.stdout.txt\" 2>&1 || true",
-            (
-                "$bb dmesg | $bb grep -Ei "
-                "'A90v2137|wlan0|swlan0|set_features|Assigning MAC|icnss|FW ready|FW_READY|"
-                "wlfw|WLFW|BDF|bdwlan|regdb|firmware_class|request_firmware|qca|HDD|wlanmdsp' "
-                "> \"$payload/test-dmesg-wifi-filter.stdout.txt\" 2>&1 || true"
-            ),
-            "$bb cat /sys/kernel/debug/icnss/stats > \"$payload/test-icnss-stats.stdout.txt\" 2>&1 || true",
-            "$bb ls -la /sys/kernel/debug/icnss > \"$payload/test-icnss-debugfs-ls.stdout.txt\" 2>&1 || true",
-            (
-                "if [ -e /sys/class/net/wlan0 ]; then echo wlan0=present; "
-                "for f in address operstate carrier flags mtu type uevent; do "
-                "printf '%s=' \"$f\"; $bb cat /sys/class/net/wlan0/$f 2>/dev/null || echo unreadable; "
-                "done; else echo wlan0=absent; fi"
-            ) + " > \"$payload/test-wlan0-state.stdout.txt\" 2>&1 || true",
-            (
-                "if [ -x \"$toy\" ]; then $toy ip addr show wlan0; "
-                "else $bb ifconfig wlan0; fi"
-            ) + " > \"$payload/test-wlan0-ifconfig.stdout.txt\" 2>&1 || true",
-            "$bb ls -la /sys/wifi /sys/wifi/mac_addr > \"$payload/test-sys-wifi-mac-node.stdout.txt\" 2>&1 || true",
-            "$bb stat /sys/wifi/mac_addr >> \"$payload/test-sys-wifi-mac-node.stdout.txt\" 2>&1 || true",
-            f"(cd \"$tmp\" && $bb tar -cf - {FAST_EVIDENCE_DIR}) | $bb gzip -c | $bb nc -w 1 {remote_host} {receiver.port}",
-            "rc=$?",
-            "$bb rm -rf \"$tmp\"",
-            "echo fast_evidence.nc_rc=$rc",
-            "exit \"$rc\"",
-        ])
+        remote_host = transfer.host_link_local + "%" + transfer.device_ifname
         step = a90ctl_step(
             store,
             steps,
             "test-fast-evidence-device-stream",
-            ["run", "/cache/bin/busybox", "sh", "-c", script],
+            ["run", "/cache/bin/busybox", "sh", "/cache/a90-fastupload-v2144.sh", remote_host, str(receiver.port)],
             timeout=120,
             bridge_timeout=100,
         )
@@ -477,9 +533,10 @@ def collect_test_evidence_fast(store: EvidenceStore, steps: list[dict[str, Any]]
         "extracted": [],
         "rejected": [],
     }
+    device_nc_rc = fields.get("fast_evidence.nc_rc", "")
+    device_stream_ok = bool(step.get("ok")) and device_nc_rc in {"", "0"}
     ok = (
-        bool(step.get("ok"))
-        and fields.get("fast_evidence.nc_rc") == "0"
+        device_stream_ok
         and bool(receiver.result.get("ok"))
         and bool(validation.get("ok"))
         and bool(extraction.get("ok"))
@@ -489,7 +546,7 @@ def collect_test_evidence_fast(store: EvidenceStore, steps: list[dict[str, Any]]
         "reason": "ok" if ok else "upload-validation-or-extract-failed",
         "method": "ncm-targzip-nc",
         "elapsed_sec": round(time.monotonic() - started, 3),
-        "device_nc_rc": fields.get("fast_evidence.nc_rc", ""),
+        "device_nc_rc": device_nc_rc,
         "archive_path": rel(archive_path) if archive_path.exists() else "",
         "receiver": receiver.result,
         "validation": {key: value for key, value in validation.items() if key != "connect_result_text"},
@@ -547,8 +604,8 @@ def classify(store: EvidenceStore,
              rollback_result: dict[str, Any]) -> dict[str, Any]:
     dmesg = read_evidence_text(store, "test-dmesg-full.stdout.txt")
     dmesg_filter = read_evidence_text(store, "test-dmesg-wifi-filter.stdout.txt")
-    helper = read_evidence_text(store, "test-v2137-helper-result.stdout.txt")
-    summary = read_evidence_text(store, "test-v2137-summary.stdout.txt")
+    helper = read_evidence_text(store, "test-v2168-helper-result.stdout.txt")
+    summary = read_evidence_text(store, "test-v2168-summary.stdout.txt")
     icnss_stats = read_evidence_text(store, "test-icnss-stats.stdout.txt")
     wlan0_state = read_evidence_text(store, "test-wlan0-state.stdout.txt")
     helper_fields = parse_key_values(helper)
@@ -665,7 +722,7 @@ def render_report(manifest: dict[str, Any]) -> str:
         "",
         "## Reframe",
         "",
-        "- This recaptures the V2137 route with a late collection window so `helper.result` and helper-embedded `/sys/kernel/debug/icnss/stats` counters are available.",
+        "- This recaptures the V2168 fasttransport route with a late collection window so `helper.result` and helper-embedded `/sys/kernel/debug/icnss/stats` counters are available.",
         "- If `wlan0` and FW_READY persist while `requested_wlanmdsp` remains false, this firmware_class path is independent of the modem tftp `wlanmdsp.mbn` branch for native bring-up.",
         "- Connectivity, scans, credentials, DHCP/routes, and external ping remain blocked until MAC assignment and degraded-interface errors are resolved.",
         "",
@@ -678,7 +735,7 @@ def render_report(manifest: dict[str, Any]) -> str:
         "",
         "- No Wi-Fi HAL, scan/connect, credentials, DHCP/routes, or external ping was used.",
         "- No `/dev/subsys_esoc0`, forced RC1/case, PMIC/GPIO/GDSC/regulator write, PCI rescan, bind/unbind, fake ONLINE, or eSoC notify/BOOT_DONE action was used.",
-        "- Mutation scope: `/cache` one-shot clean-DSP flag, V2137 rollbackable test boot, bounded firmware_class fallback sysfs writes from the V2137 contract, and rollback to `stage3/boot_linux_v725_fasttransport.img` with selftest verification.",
+        "- Mutation scope: `/cache` one-shot clean-DSP flag, V2168 rollbackable test boot, bounded firmware_class fallback sysfs writes from the V2137/V2168 contract, and rollback to `stage3/boot_linux_v725_fasttransport.img` with selftest verification.",
         "",
     ])
 

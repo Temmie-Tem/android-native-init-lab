@@ -4,15 +4,19 @@
 from __future__ import annotations
 
 import base64
+from contextlib import contextmanager
+import datetime as dt
 import gzip
 import hashlib
 import json
+import lzma
 import os
 import re
 import shlex
 import shutil
 import tarfile
 import time
+import urllib.request
 from pathlib import Path
 from typing import Any
 
@@ -40,15 +44,28 @@ HELPER_LOCAL = HELPER_BUILD_DIR / "a90_android_execns_probe_v2167"
 HELPER_REMOTE = "/cache/bin/a90_android_execns_probe_v2167"
 HELPER_REMOTE_B64 = "/cache/a90-execns-v2167.gz.b64"
 HELPER_REMOTE_GZ = "/cache/a90-execns-v2167.gz"
+STRACE_LOCAL = REPO_ROOT / "external_tools" / "userland" / "bin" / "strace-aarch64-static"
+STRACE_REMOTE = "/cache/a90-wifi/a90_strace_v2167"
 CONNECT_DIR = "/cache/a90-wifi"
 CONNECT_CONFIG = f"{CONNECT_DIR}/v2167.conf"
 CONNECT_CONFIG_B64 = f"{CONNECT_CONFIG}.b64"
 CONNECT_SCRIPT = "/cache/a90-v2167-connect-ping.sh"
 CONNECT_RESULT = "/cache/a90-v2167-connect-ping.result"
+STANDALONE_WPA_ENABLED = os.environ.get("A90_STANDALONE_WPA", "1").lower() not in {"0", "false", "no"}
+STANDALONE_WPA_SUITE = os.environ.get("A90_STANDALONE_WPA_SUITE", "resolute")
+STANDALONE_WPA_BASE_URL = os.environ.get("A90_STANDALONE_WPA_BASE_URL", "https://archive.ubuntu.com/ubuntu")
+STANDALONE_WPA_CACHE_DIR = REPO_ROOT / "external_tools" / "userland" / "downloads" / "ubuntu-arm64-wpa"
+STANDALONE_WPA_BUILD_DIR = HELPER_BUILD_DIR / "wpa-standalone"
+STANDALONE_WPA_ARCHIVE = HELPER_BUILD_DIR / "wpa-standalone-v2167.tgz"
+STANDALONE_WPA_REMOTE_TGZ = f"{CONNECT_DIR}/wpa-standalone-v2167.tgz"
+STANDALONE_WPA_REMOTE_DIR = f"{CONNECT_DIR}/wpa-standalone"
+STANDALONE_WPA_REMOTE_WRAPPER = f"{STANDALONE_WPA_REMOTE_DIR}/wpa_supplicant-a90.sh"
 PROPERTY_LAYOUT_DIR = OUT_DIR / "layout"
 PROPERTY_ROOT = PROPERTY_LAYOUT_DIR / "dev" / "__properties__"
 PROPERTY_REMOTE_BASE = "/cache/a90-wifi-property-v2167"
 PROPERTY_REMOTE_ROOT = f"{PROPERTY_REMOTE_BASE}/dev/__properties__"
+BOOT_PROPERTY_REMOTE_BASE = "/mnt/sdext/a90/private-property-v317/v2168"
+BOOT_PROPERTY_REMOTE_ROOT = f"{BOOT_PROPERTY_REMOTE_BASE}/dev/__properties__"
 PROPERTY_REMOTE_TGZ = "/cache/a90-property-v2167.tgz"
 PROPERTY_REMOTE_B64 = f"{PROPERTY_REMOTE_TGZ}.b64"
 PING_TARGET = "google.com"
@@ -68,6 +85,163 @@ SUPPLICANT_PROPERTY_KEYS = (
     "persist.log.tag.wpa_supplicant",
     "log.tag.wpa_supplicant",
 )
+
+
+class PhaseTimer:
+    def __init__(self) -> None:
+        self.records: list[dict[str, Any]] = []
+
+    @contextmanager
+    def phase(self, name: str):
+        started_iso = base.now_iso()
+        started = time.monotonic()
+        detail = ""
+        ok = False
+        try:
+            yield
+            ok = True
+        except Exception as exc:
+            detail = type(exc).__name__
+            raise
+        finally:
+            self.records.append({
+                "name": name,
+                "started": started_iso,
+                "ended": base.now_iso(),
+                "elapsed_sec": round(time.monotonic() - started, 3),
+                "ok": ok,
+                "detail": detail,
+            })
+
+
+def parse_iso(value: object) -> dt.datetime | None:
+    if not value:
+        return None
+    try:
+        return dt.datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def step_elapsed_sec(step: dict[str, Any]) -> float:
+    started = parse_iso(step.get("started"))
+    ended = parse_iso(step.get("ended"))
+    if started is None or ended is None:
+        return 0.0
+    elapsed = (ended - started).total_seconds()
+    return elapsed if elapsed > 0 else 0.0
+
+
+def step_phase_name(step_name: str) -> str:
+    if step_name == "test-flash-from-native":
+        return "flash_total"
+    if step_name in {"pre-status", "pre-selftest", "set-sibling-fwssctl-flag"}:
+        return "preflight_device"
+    if step_name.startswith("property-runtime") or step_name.startswith("execns-helper") or step_name == "host-build-execns-helper":
+        return "helper_stage"
+    if step_name.startswith("connect-config"):
+        return "connect_config_stage"
+    if step_name.startswith("connect-script") or step_name == "connect-result-wait-polls":
+        return "connect_window"
+    if step_name.startswith("test-fast-evidence") or step_name.startswith("fast-upload-v2167"):
+        return "artifact_upload"
+    if step_name.startswith("post-rollback-connect-ping-result"):
+        return "artifact_upload"
+    if step_name.startswith("test-dmesg") or step_name.startswith("test-v2137") or step_name.startswith("test-v2168") or step_name.startswith("test-icnss"):
+        return "artifact_upload"
+    if step_name.startswith("test-wlan0") or step_name.startswith("test-sys-wifi"):
+        return "artifact_upload"
+    if step_name.startswith("rollback-from"):
+        return "rollback_flash_total"
+    if step_name == "rollback-status":
+        return "rollback_status"
+    if step_name in {"rollback-selftest", "test-selftest"}:
+        return "selftest"
+    return "other"
+
+
+def summarize_step_phases(steps: list[dict[str, Any]]) -> dict[str, Any]:
+    phases: dict[str, dict[str, Any]] = {}
+    for step in steps:
+        elapsed = step_elapsed_sec(step)
+        phase = step_phase_name(str(step.get("name") or ""))
+        bucket = phases.setdefault(phase, {"elapsed_sec": 0.0, "step_count": 0, "slow_steps": []})
+        bucket["elapsed_sec"] += elapsed
+        bucket["step_count"] += 1
+        if elapsed > 0:
+            bucket["slow_steps"].append({
+                "name": step.get("name", ""),
+                "elapsed_sec": round(elapsed, 3),
+                "ok": bool(step.get("ok")),
+                "timeout": bool(step.get("timeout")),
+            })
+    for bucket in phases.values():
+        bucket["elapsed_sec"] = round(float(bucket["elapsed_sec"]), 3)
+        bucket["slow_steps"] = sorted(
+            bucket["slow_steps"],
+            key=lambda item: float(item.get("elapsed_sec") or 0.0),
+            reverse=True,
+        )[:8]
+    return phases
+
+
+NATIVE_FLASH_PHASE_RE = re.compile(
+    r"phase\.native_init_flash\.([A-Za-z0-9_.-]+)\.elapsed_sec=([0-9.]+)\s+ok=([01])"
+)
+
+
+def extract_native_flash_phase_timers(store: base.EvidenceStore,
+                                      steps: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    records: list[dict[str, Any]] = []
+    for step in steps:
+        step_name = str(step.get("name") or "")
+        if not (step_name == "test-flash-from-native" or step_name.startswith("rollback-from")):
+            continue
+        stderr_file = step.get("stderr_file")
+        if not stderr_file:
+            continue
+        text = read_text(store.run_dir / str(stderr_file))
+        for match in NATIVE_FLASH_PHASE_RE.finditer(text):
+            records.append({
+                "step": step_name,
+                "name": match.group(1),
+                "elapsed_sec": float(match.group(2)),
+                "ok": match.group(3) == "1",
+            })
+    return records
+
+
+def slow_steps(steps: list[dict[str, Any]], limit: int = 12) -> list[dict[str, Any]]:
+    rows = [
+        {
+            "name": step.get("name", ""),
+            "elapsed_sec": round(step_elapsed_sec(step), 3),
+            "ok": bool(step.get("ok")),
+            "timeout": bool(step.get("timeout")),
+        }
+        for step in steps
+    ]
+    return [
+        row for row in sorted(rows, key=lambda item: float(item["elapsed_sec"]), reverse=True)
+        if float(row["elapsed_sec"]) > 0
+    ][:limit]
+
+
+def render_slow_step_refs(rows: list[dict[str, Any]]) -> str:
+    return ", ".join(
+        f"{row.get('name')}:{row.get('elapsed_sec')}s"
+        for row in rows[:3]
+    )
+
+
+def attach_timing_manifest(store: base.EvidenceStore,
+                           manifest: dict[str, Any],
+                           phase_timer: PhaseTimer | None) -> None:
+    steps = manifest.get("steps") if isinstance(manifest.get("steps"), list) else []
+    manifest["phase_timers"] = list(phase_timer.records) if phase_timer is not None else []
+    manifest["step_phase_summary"] = summarize_step_phases(steps)
+    manifest["native_init_flash_phase_timers"] = extract_native_flash_phase_timers(store, steps)
+    manifest["slow_steps"] = slow_steps(steps)
 
 
 def read_text(path: Path) -> str:
@@ -105,8 +279,30 @@ def parse_fields(text: str) -> dict[str, str]:
     return fields
 
 
+def has_v2167_result(text: str) -> bool:
+    return parse_fields(text).get("v2167.begin") == "1"
+
+
 def intish(value: object) -> int:
     return base.intish(value)
+
+
+def field_or_embedded_sample(fields: dict[str, str], key: str, default: str = "") -> str:
+    value = fields.get(key)
+    if value is not None:
+        return value
+    prefixes = (
+        "wifi_connect_ping.supplicant_stdio.sample_",
+        "wifi_connect_ping.supplicant_stdio.tail_sample_",
+        "wifi_connect_ping.supplicant_stdio.nonproperty_sample_",
+    )
+    marker = f"{key}="
+    for sample_key, sample_value in fields.items():
+        if not sample_key.startswith(prefixes):
+            continue
+        if sample_value.startswith(marker):
+            return sample_value.split("=", 1)[1]
+    return default
 
 
 def run_step(store: base.EvidenceStore,
@@ -226,18 +422,14 @@ class FastUploadSession:
                 "$bb mkdir -p \"$payload\"",
                 "copy_if() { src=\"$1\"; dst=\"$2\"; [ -f \"$src\" ] && $bb cp \"$src\" \"$payload/$dst\"; }",
                 f"copy_if {shlex.quote(CONNECT_RESULT)} connect-result.txt",
-                f"copy_if {shlex.quote(CONNECT_DIR + '/a90_supplicant_execns.log')} supplicant-execns.log",
-                f"copy_if {shlex.quote(CONNECT_DIR + '/a90_supplicant_execns_stdio.log')} supplicant-execns-stdio.log",
                 "copy_if /cache/native-init.log native-init.log",
                 "copy_if /cache/native-init-netservice.log native-init-netservice.log",
                 "copy_if /cache/usbnet.log usbnet.log",
+                "i=0; for src in /cache/a90-wifi/a90_supplicant_strace*; do [ -f \"$src\" ] || continue; $bb cp \"$src\" \"$payload/strace-$i.txt\"; i=$((i+1)); done",
                 "if [ -x /cache/bin/a90_netservice ]; then /cache/bin/a90_netservice status > \"$payload/netservice-status.txt\" 2>&1; fi",
-                "$bb ifconfig ncm0 > \"$payload/ncm0-ifconfig.txt\" 2>&1 || true",
-                "$bb ip addr show ncm0 > \"$payload/ncm0-ip-addr.txt\" 2>&1 || true",
-                "$bb dmesg > \"$payload/dmesg.txt\" 2>&1 || true",
                 "if [ -f /sys/kernel/debug/icnss/stats ]; then $bb cat /sys/kernel/debug/icnss/stats > \"$payload/icnss-stats.txt\" 2>&1; fi",
                 "if [ -d /sys/class/net/wlan0 ]; then $bb cat /sys/class/net/wlan0/operstate > \"$payload/wlan0-operstate.txt\" 2>&1; fi",
-                "(cd \"$tmp\" && $bb tar -cf - a90-v2167-evidence) | $bb gzip -c | $bb nc -w 1 "
+                "(cd \"$tmp\" && $bb tar -cf - a90-v2167-evidence) | $bb gzip -c | $bb timeout 5 $bb nc -w 1 "
                 f"{remote_host} {receiver.port}",
                 "rc=$?",
                 "$bb rm -rf \"$tmp\"",
@@ -255,9 +447,10 @@ class FastUploadSession:
         upload_output = "\n".join([str(step.get("stdout") or ""), str(step.get("stderr") or "")])
         fields = base.parse_key_values(upload_output)
         validation = validate_uploaded_archive(archive_path)
+        device_nc_rc = fields.get("fast_upload.nc_rc", "")
+        device_stream_ok = bool(step.get("ok")) and device_nc_rc in {"", "0"}
         ok = (
-            bool(step.get("ok"))
-            and fields.get("fast_upload.nc_rc") == "0"
+            device_stream_ok
             and bool(receiver.result.get("ok"))
             and bool(validation.get("ok"))
         )
@@ -266,7 +459,7 @@ class FastUploadSession:
             "reason": "ok" if ok else "upload-or-validation-failed",
             "method": "ncm-targzip-nc",
             "elapsed_sec": round(time.monotonic() - started, 3),
-            "device_nc_rc": fields.get("fast_upload.nc_rc", ""),
+            "device_nc_rc": device_nc_rc,
             "archive_path": base.rel(archive_path) if archive_path.exists() else "",
             "receiver": receiver.result,
             "validation": {
@@ -499,6 +692,412 @@ def stage_helper_binary(store: base.EvidenceStore,
     return fields
 
 
+def stage_strace_binary(store: base.EvidenceStore,
+                        steps: list[dict[str, Any]],
+                        fast_transfer: FastTransferSession | None = None) -> dict[str, str]:
+    fields: dict[str, str] = {
+        "strace_stage.begin": "1",
+        "strace_stage.local": str(STRACE_LOCAL),
+        "strace_stage.remote": STRACE_REMOTE,
+    }
+    if not STRACE_LOCAL.exists():
+        fields["strace_stage.ok"] = "0"
+        fields["strace_stage.reason"] = "local-strace-missing"
+        return fields
+    local_sha = base.sha256(STRACE_LOCAL)
+    fields["strace_stage.local_sha256"] = local_sha
+    prep = run_step(
+        store,
+        steps,
+        "strace-helper-prepare-cache-dir",
+        [
+            "run",
+            "/cache/bin/busybox",
+            "sh",
+            "-c",
+            "/cache/bin/busybox mkdir -p /cache/a90-wifi && "
+            "/cache/bin/busybox chmod 0770 /cache/a90-wifi && "
+            "echo strace_stage.cache_dir_ready=1",
+        ],
+        timeout=30,
+        bridge_timeout=15,
+    )
+    fields.update(base.parse_key_values(str(prep.get("stdout") or "")))
+    if not prep.get("ok") or fields.get("strace_stage.cache_dir_ready") != "1":
+        fields["strace_stage.ok"] = "0"
+        fields["strace_stage.reason"] = "cache-dir-prepare-failed"
+        return fields
+    verify = run_step(
+        store,
+        steps,
+        "strace-helper-verify-existing",
+        [
+            "run",
+            "/cache/bin/busybox",
+            "sh",
+            "-c",
+            f"test -x {STRACE_REMOTE}; echo strace_existing.executable_rc=$?; "
+            f"printf 'strace_existing.remote_sha256='; /cache/bin/busybox sha256sum {STRACE_REMOTE} 2>/dev/null | /cache/bin/busybox awk '{{print $1}}'",
+        ],
+        timeout=30,
+        bridge_timeout=15,
+    )
+    existing = base.parse_key_values("\n".join([str(verify.get("stdout") or ""), str(verify.get("stderr") or "")]))
+    if existing.get("strace_existing.executable_rc") == "0" and existing.get("strace_existing.remote_sha256") == local_sha:
+        fields["strace_stage.ok"] = "1"
+        fields["strace_stage.reason"] = "already-present"
+        fields["strace_stage.remote_sha256"] = local_sha
+        return fields
+    if fast_transfer is None:
+        fields["strace_stage.ok"] = "0"
+        fields["strace_stage.reason"] = "fast-transfer-required"
+        return fields
+    transfer = fast_transfer.transfer_file(
+        label="strace-helper",
+        local_path=STRACE_LOCAL,
+        remote_path=STRACE_REMOTE,
+        expected_sha256=local_sha,
+        mode="700",
+    )
+    fields["strace_stage.fast_transfer_ok"] = "1" if transfer.get("ok") else "0"
+    fields["strace_stage.fast_transfer_reason"] = str(transfer.get("reason") or "")
+    fields["strace_stage.fast_transfer_elapsed_sec"] = str(transfer.get("elapsed_sec") or "")
+    fields["strace_stage.remote_sha256"] = str(transfer.get("remote_sha256") or "")
+    fields["strace_stage.ok"] = "1" if transfer.get("ok") else "0"
+    fields["strace_stage.reason"] = "ok" if transfer.get("ok") else str(transfer.get("reason") or "transfer-failed")
+    return fields
+
+
+def parse_deb_dependencies(depends: str) -> list[str]:
+    names: list[str] = []
+    for item in depends.split(","):
+        choice = item.split("|", 1)[0].strip()
+        match = re.match(r"([A-Za-z0-9+.-]+)", choice)
+        if match:
+            names.append(match.group(1))
+    return names
+
+
+def parse_packages_index(text: str) -> dict[str, dict[str, str]]:
+    entries: dict[str, dict[str, str]] = {}
+    for paragraph in text.split("\n\n"):
+        fields: dict[str, str] = {}
+        key = ""
+        for raw_line in paragraph.splitlines():
+            if not raw_line:
+                continue
+            if raw_line[:1].isspace() and key:
+                fields[key] = fields[key] + " " + raw_line.strip()
+            elif ":" in raw_line:
+                key, value = raw_line.split(":", 1)
+                fields[key] = value.strip()
+        package = fields.get("Package")
+        if package:
+            entries[package] = fields
+    return entries
+
+
+def fetch_url_bytes(url: str, timeout: float) -> bytes:
+    request = urllib.request.Request(url, headers={"User-Agent": "A90-native-init-revalidation/1"})
+    with urllib.request.urlopen(request, timeout=timeout) as response:
+        return response.read()
+
+
+def load_ubuntu_arm64_package_index() -> dict[str, dict[str, str]]:
+    merged: dict[str, dict[str, str]] = {}
+    index_dir = STANDALONE_WPA_CACHE_DIR / "indexes" / STANDALONE_WPA_SUITE
+    index_dir.mkdir(parents=True, exist_ok=True)
+    for component in ("main", "universe"):
+        cache_path = index_dir / f"{component}-binary-arm64-Packages.xz"
+        if not cache_path.exists() or cache_path.stat().st_size == 0:
+            url = f"{STANDALONE_WPA_BASE_URL}/dists/{STANDALONE_WPA_SUITE}/{component}/binary-arm64/Packages.xz"
+            cache_path.write_bytes(fetch_url_bytes(url, 60))
+        text = lzma.decompress(cache_path.read_bytes()).decode("utf-8", errors="replace")
+        merged.update(parse_packages_index(text))
+    return merged
+
+
+def standalone_wpa_runtime_packages(index: dict[str, dict[str, str]]) -> list[str]:
+    include_explicit = {"wpasupplicant", "zlib1g", "openssl-provider-legacy", "gcc-16-base", "readline-common"}
+    skip = {"adduser", "debconf", "debconf-2.0", "libc-gconv-modules-extra"}
+    seen: set[str] = set()
+    queue = ["wpasupplicant"]
+    while queue:
+        package = queue.pop(0)
+        if package in seen or package in skip:
+            continue
+        if package != "wpasupplicant" and not (package.startswith("lib") or package in include_explicit):
+            continue
+        entry = index.get(package)
+        if not entry:
+            continue
+        seen.add(package)
+        for dependency in parse_deb_dependencies(entry.get("Depends", "")):
+            if dependency not in seen:
+                queue.append(dependency)
+    seen.update(package for package in include_explicit if package in index)
+    return sorted(seen)
+
+
+def download_standalone_wpa_debs(index: dict[str, dict[str, str]],
+                                 packages: list[str]) -> list[Path]:
+    STANDALONE_WPA_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    debs: list[Path] = []
+    for package in packages:
+        entry = index.get(package)
+        if not entry:
+            raise RuntimeError(f"missing Ubuntu arm64 package index entry: {package}")
+        filename = entry.get("Filename", "")
+        sha256 = entry.get("SHA256", "")
+        if not filename or not sha256:
+            raise RuntimeError(f"missing Filename/SHA256 for {package}")
+        deb_path = STANDALONE_WPA_CACHE_DIR / Path(filename).name
+        if deb_path.exists() and hashlib.sha256(deb_path.read_bytes()).hexdigest() != sha256:
+            deb_path.unlink()
+        if not deb_path.exists():
+            url = f"{STANDALONE_WPA_BASE_URL}/{filename}"
+            deb_path.write_bytes(fetch_url_bytes(url, 90))
+        actual = hashlib.sha256(deb_path.read_bytes()).hexdigest()
+        if actual != sha256:
+            raise RuntimeError(f"sha256 mismatch for {package}: {actual} != {sha256}")
+        debs.append(deb_path)
+    return debs
+
+
+def prune_standalone_wpa_root(root: Path) -> None:
+    for rel in (
+        "usr/share/doc",
+        "usr/share/man",
+        "usr/share/lintian",
+        "usr/share/bash-completion",
+        "usr/share/dbus-1",
+        "usr/share/systemd",
+        "lib/systemd",
+        "usr/lib/systemd",
+        "etc/dbus-1",
+        "etc/init.d",
+    ):
+        target = root / rel
+        if target.exists():
+            shutil.rmtree(target, ignore_errors=True)
+
+
+def create_standalone_wpa_wrapper(root: Path) -> None:
+    wrapper = root / "wpa_supplicant-a90.sh"
+    wrapper.write_text(
+        "\n".join([
+            "#!/cache/bin/busybox sh",
+            "root=/cache/a90-wifi/wpa-standalone",
+            "loader=$root/lib/ld-linux-aarch64.so.1",
+            "[ -x \"$loader\" ] || loader=$root/lib/aarch64-linux-gnu/ld-linux-aarch64.so.1",
+            "[ -x \"$loader\" ] || loader=$root/usr/lib/ld-linux-aarch64.so.1",
+            "[ -x \"$loader\" ] || loader=$root/usr/lib/aarch64-linux-gnu/ld-linux-aarch64.so.1",
+            "libpath=$root/usr/lib/aarch64-linux-gnu:$root/lib/aarch64-linux-gnu:$root/usr/lib:$root/lib",
+            "export LD_LIBRARY_PATH=$libpath",
+            "export OPENSSL_MODULES=$root/usr/lib/aarch64-linux-gnu/ossl-modules",
+            "export PATH=/cache/bin:/system/bin:/vendor/bin",
+            "exec \"$loader\" --library-path \"$libpath\" \"$root/usr/sbin/wpa_supplicant\" \"$@\"",
+            "",
+        ]),
+        encoding="utf-8",
+    )
+    wrapper.chmod(0o700)
+
+
+def build_standalone_wpa_archive(store: base.EvidenceStore,
+                                 steps: list[dict[str, Any]]) -> dict[str, Any]:
+    fields: dict[str, Any] = {
+        "ok": False,
+        "enabled": STANDALONE_WPA_ENABLED,
+        "archive": base.rel(STANDALONE_WPA_ARCHIVE),
+        "remote_wrapper": STANDALONE_WPA_REMOTE_WRAPPER,
+        "suite": STANDALONE_WPA_SUITE,
+        "base_url": STANDALONE_WPA_BASE_URL,
+    }
+    if not STANDALONE_WPA_ENABLED:
+        fields["reason"] = "disabled"
+        return fields
+    try:
+        index = load_ubuntu_arm64_package_index()
+        packages = standalone_wpa_runtime_packages(index)
+        debs = download_standalone_wpa_debs(index, packages)
+        if STANDALONE_WPA_BUILD_DIR.exists():
+            shutil.rmtree(STANDALONE_WPA_BUILD_DIR)
+        root = STANDALONE_WPA_BUILD_DIR / "wpa-standalone"
+        root.mkdir(parents=True, exist_ok=True)
+        for deb in debs:
+            result = base.run_command(["dpkg-deb", "-x", str(deb), str(root)], timeout=90)
+            if not result.get("ok"):
+                base.write_step(store, steps, f"standalone-wpa-extract-{deb.name}", result)
+                raise RuntimeError(f"dpkg-deb extract failed: {deb.name}")
+        prune_standalone_wpa_root(root)
+        create_standalone_wpa_wrapper(root)
+        binary = root / "usr" / "sbin" / "wpa_supplicant"
+        loader_candidates = [
+            root / "lib" / "ld-linux-aarch64.so.1",
+            root / "lib" / "aarch64-linux-gnu" / "ld-linux-aarch64.so.1",
+            root / "usr" / "lib" / "ld-linux-aarch64.so.1",
+            root / "usr" / "lib" / "aarch64-linux-gnu" / "ld-linux-aarch64.so.1",
+        ]
+        if not binary.exists() or not any(path.exists() for path in loader_candidates):
+            raise RuntimeError("standalone wpa_supplicant binary or loader missing after extraction")
+        manifest = {
+            "packages": packages,
+            "package_count": len(packages),
+            "suite": STANDALONE_WPA_SUITE,
+            "base_url": STANDALONE_WPA_BASE_URL,
+            "binary": "usr/sbin/wpa_supplicant",
+            "wrapper": "wpa_supplicant-a90.sh",
+        }
+        (root / "a90-standalone-wpa-manifest.json").write_text(
+            json.dumps(manifest, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        STANDALONE_WPA_ARCHIVE.parent.mkdir(parents=True, exist_ok=True)
+        with tarfile.open(STANDALONE_WPA_ARCHIVE, "w:gz") as tar:
+            tar.add(root, arcname="wpa-standalone", recursive=True)
+        archive_bytes = STANDALONE_WPA_ARCHIVE.read_bytes()
+        fields.update({
+            "ok": True,
+            "reason": "ok",
+            "packages": packages,
+            "package_count": len(packages),
+            "bytes": len(archive_bytes),
+            "sha256": hashlib.sha256(archive_bytes).hexdigest(),
+        })
+    except Exception as exc:
+        fields["reason"] = f"{type(exc).__name__}: {exc}"
+    append_compact_step(
+        store,
+        steps,
+        "standalone-wpa-host-bundle",
+        command=["build-standalone-wpa-bundle"],
+        ok=bool(fields.get("ok")),
+        rc=0 if fields.get("ok") else 1,
+        stdout=json.dumps({
+            key: value
+            for key, value in fields.items()
+            if key not in {"base_url"}
+        }, ensure_ascii=False, sort_keys=True) + "\n",
+    )
+    return fields
+
+
+def stage_standalone_wpa_bundle(store: base.EvidenceStore,
+                                steps: list[dict[str, Any]],
+                                archive_info: dict[str, Any],
+                                fast_transfer: FastTransferSession | None = None) -> dict[str, str]:
+    fields: dict[str, str] = {
+        "standalone_wpa_stage.begin": "1",
+        "standalone_wpa_stage.enabled": "1" if STANDALONE_WPA_ENABLED else "0",
+        "standalone_wpa_stage.remote_dir": STANDALONE_WPA_REMOTE_DIR,
+        "standalone_wpa_stage.remote_wrapper": STANDALONE_WPA_REMOTE_WRAPPER,
+        "standalone_wpa_stage.local_sha256": str(archive_info.get("sha256") or ""),
+        "standalone_wpa_stage.package_count": str(archive_info.get("package_count") or "0"),
+        "standalone_wpa_stage.archive_len": str(archive_info.get("bytes") or "0"),
+    }
+    if not STANDALONE_WPA_ENABLED:
+        fields["standalone_wpa_stage.ok"] = "1"
+        fields["standalone_wpa_stage.reason"] = "disabled"
+        return fields
+    if not archive_info.get("ok") or not STANDALONE_WPA_ARCHIVE.exists():
+        fields["standalone_wpa_stage.ok"] = "0"
+        fields["standalone_wpa_stage.reason"] = str(archive_info.get("reason") or "host-bundle-failed")
+        return fields
+    prep = run_step(
+        store,
+        steps,
+        "standalone-wpa-prepare-cache-dir",
+        [
+            "run",
+            "/cache/bin/busybox",
+            "sh",
+            "-c",
+            f"/cache/bin/busybox mkdir -p {CONNECT_DIR}; /cache/bin/busybox chmod 0770 {CONNECT_DIR}; echo standalone_wpa_stage.cache_dir_ready=1",
+        ],
+        timeout=30,
+        bridge_timeout=15,
+    )
+    fields.update(base.parse_key_values(str(prep.get("stdout") or "")))
+    if not prep.get("ok"):
+        fields["standalone_wpa_stage.ok"] = "0"
+        fields["standalone_wpa_stage.reason"] = "cache-dir-prepare-failed"
+        return fields
+    verify = run_step(
+        store,
+        steps,
+        "standalone-wpa-verify-existing",
+        [
+            "run",
+            "/cache/bin/busybox",
+            "sh",
+            "-c",
+            f"test -x {STANDALONE_WPA_REMOTE_WRAPPER}; echo standalone_wpa_existing.executable_rc=$?; "
+            f"printf 'standalone_wpa_existing.bundle_sha256='; /cache/bin/busybox cat {STANDALONE_WPA_REMOTE_DIR}/.a90_bundle_sha256 2>/dev/null",
+        ],
+        timeout=30,
+        bridge_timeout=15,
+    )
+    existing = base.parse_key_values("\n".join([str(verify.get("stdout") or ""), str(verify.get("stderr") or "")]))
+    if (
+        existing.get("standalone_wpa_existing.executable_rc") == "0"
+        and existing.get("standalone_wpa_existing.bundle_sha256") == fields["standalone_wpa_stage.local_sha256"]
+    ):
+        fields["standalone_wpa_stage.ok"] = "1"
+        fields["standalone_wpa_stage.reason"] = "already-present"
+        fields["standalone_wpa_stage.remote_sha256"] = fields["standalone_wpa_stage.local_sha256"]
+        return fields
+    if fast_transfer is None:
+        fields["standalone_wpa_stage.ok"] = "0"
+        fields["standalone_wpa_stage.reason"] = "fast-transfer-required"
+        return fields
+    transfer = fast_transfer.transfer_file(
+        label="standalone-wpa",
+        local_path=STANDALONE_WPA_ARCHIVE,
+        remote_path=STANDALONE_WPA_REMOTE_TGZ,
+        expected_sha256=str(archive_info.get("sha256") or ""),
+        mode="600",
+    )
+    fields["standalone_wpa_stage.fast_transfer_ok"] = "1" if transfer.get("ok") else "0"
+    fields["standalone_wpa_stage.fast_transfer_reason"] = str(transfer.get("reason") or "")
+    fields["standalone_wpa_stage.fast_transfer_elapsed_sec"] = str(transfer.get("elapsed_sec") or "")
+    fields["standalone_wpa_stage.remote_sha256"] = str(transfer.get("remote_sha256") or "")
+    if not transfer.get("ok"):
+        fields["standalone_wpa_stage.ok"] = "0"
+        fields["standalone_wpa_stage.reason"] = str(transfer.get("reason") or "transfer-failed")
+        return fields
+    extract_script = (
+        f"set -e; "
+        f"/cache/bin/busybox rm -rf {STANDALONE_WPA_REMOTE_DIR}; "
+        f"/cache/bin/busybox tar -xzf {STANDALONE_WPA_REMOTE_TGZ} -C {CONNECT_DIR}; "
+        f"/cache/bin/busybox chmod 700 {STANDALONE_WPA_REMOTE_WRAPPER}; "
+        f"/cache/bin/busybox chmod 755 {STANDALONE_WPA_REMOTE_DIR}/usr/sbin/wpa_supplicant; "
+        f"printf '%s' {shlex.quote(str(archive_info.get('sha256') or ''))} > {STANDALONE_WPA_REMOTE_DIR}/.a90_bundle_sha256; "
+        f"test -x {STANDALONE_WPA_REMOTE_WRAPPER}; echo standalone_wpa_stage.wrapper_executable_rc=$?; "
+        f"/cache/bin/busybox timeout 6 {STANDALONE_WPA_REMOTE_WRAPPER} -v >/cache/a90-wifi/standalone-wpa-version.txt 2>&1; "
+        f"echo standalone_wpa_stage.version_rc=$?; "
+        f"printf 'standalone_wpa_stage.version_sample='; /cache/bin/busybox head -n 1 /cache/a90-wifi/standalone-wpa-version.txt 2>/dev/null | /cache/bin/busybox tr ' ' '_'"
+    )
+    extract = run_step(
+        store,
+        steps,
+        "standalone-wpa-stage-extract-verify",
+        ["run", "/cache/bin/busybox", "sh", "-c", extract_script],
+        timeout=90,
+        bridge_timeout=60,
+    )
+    fields.update(base.parse_key_values("\n".join([str(extract.get("stdout") or ""), str(extract.get("stderr") or "")])))
+    fields["standalone_wpa_stage.ok"] = (
+        "1"
+        if extract.get("ok")
+        and fields.get("standalone_wpa_stage.wrapper_executable_rc") == "0"
+        and fields.get("standalone_wpa_stage.version_rc") == "0"
+        else "0"
+    )
+    fields["standalone_wpa_stage.reason"] = "ok" if fields["standalone_wpa_stage.ok"] == "1" else "extract-or-version-failed"
+    return fields
+
+
 def build_supplicant_property_runtime(store: base.EvidenceStore) -> dict[str, Any]:
     args = type("Args", (), {
         "out_dir": OUT_DIR,
@@ -571,6 +1170,7 @@ def stage_property_runtime(store: base.EvidenceStore,
     fields: dict[str, str] = {
         "property_stage.begin": "1",
         "property_stage.remote_root": PROPERTY_REMOTE_ROOT,
+        "property_stage.boot_remote_root": BOOT_PROPERTY_REMOTE_ROOT,
         "property_stage.archive_sha256": str(archive_info.get("sha256") or ""),
         "property_stage.archive_len": str(archive_info.get("bytes") or "0"),
         "property_stage.file_count": str(archive_info.get("file_count") or "0"),
@@ -583,8 +1183,8 @@ def stage_property_runtime(store: base.EvidenceStore,
 
     archive_path = OUT_DIR / "property-runtime-v2167.tgz"
     clean_script = (
-        f"/cache/bin/busybox rm -rf {PROPERTY_REMOTE_BASE} {PROPERTY_REMOTE_TGZ} {PROPERTY_REMOTE_B64}; "
-        f"/cache/bin/busybox mkdir -p {PROPERTY_REMOTE_ROOT}"
+        f"/cache/bin/busybox rm -rf {PROPERTY_REMOTE_BASE} {BOOT_PROPERTY_REMOTE_BASE} {PROPERTY_REMOTE_TGZ} {PROPERTY_REMOTE_B64}; "
+        f"/cache/bin/busybox mkdir -p {PROPERTY_REMOTE_ROOT} {BOOT_PROPERTY_REMOTE_ROOT}"
     )
     clean = run_step(
         store,
@@ -615,11 +1215,15 @@ def stage_property_runtime(store: base.EvidenceStore,
             extract_script = (
                 f"set -e; "
                 f"/cache/bin/busybox tar -xzf {PROPERTY_REMOTE_TGZ} -C {PROPERTY_REMOTE_ROOT}; "
-                f"/cache/bin/busybox chmod 755 {PROPERTY_REMOTE_BASE} {PROPERTY_REMOTE_BASE}/dev {PROPERTY_REMOTE_ROOT}; "
-                f"/cache/bin/busybox chmod 644 {PROPERTY_REMOTE_ROOT}/*; "
+                f"/cache/bin/busybox tar -xzf {PROPERTY_REMOTE_TGZ} -C {BOOT_PROPERTY_REMOTE_ROOT}; "
+                f"/cache/bin/busybox chmod 755 {PROPERTY_REMOTE_BASE} {PROPERTY_REMOTE_BASE}/dev {PROPERTY_REMOTE_ROOT} "
+                f"{BOOT_PROPERTY_REMOTE_BASE} {BOOT_PROPERTY_REMOTE_BASE}/dev {BOOT_PROPERTY_REMOTE_ROOT}; "
+                f"/cache/bin/busybox chmod 644 {PROPERTY_REMOTE_ROOT}/* {BOOT_PROPERTY_REMOTE_ROOT}/*; "
                 f"printf 'property_stage.remote_sha256='; /cache/bin/busybox sha256sum {PROPERTY_REMOTE_TGZ} | /cache/bin/busybox awk '{{print $1}}'; "
                 f"printf 'property_stage.remote_file_count='; /cache/bin/busybox find {PROPERTY_REMOTE_ROOT} -type f | /cache/bin/busybox wc -l; "
-                f"printf 'property_stage.property_info_size='; /cache/bin/busybox stat -c '%s' {PROPERTY_REMOTE_ROOT}/property_info 2>/dev/null"
+                f"printf 'property_stage.property_info_size='; /cache/bin/busybox stat -c '%s' {PROPERTY_REMOTE_ROOT}/property_info 2>/dev/null; "
+                f"printf 'property_stage.boot_remote_file_count='; /cache/bin/busybox find {BOOT_PROPERTY_REMOTE_ROOT} -type f | /cache/bin/busybox wc -l; "
+                f"printf 'property_stage.boot_property_info_size='; /cache/bin/busybox stat -c '%s' {BOOT_PROPERTY_REMOTE_ROOT}/property_info 2>/dev/null"
             )
             extract = run_step(
                 store,
@@ -679,12 +1283,16 @@ def stage_property_runtime(store: base.EvidenceStore,
         f"set -e; "
         f"/cache/bin/busybox base64 -d {PROPERTY_REMOTE_B64} > {PROPERTY_REMOTE_TGZ}; "
         f"/cache/bin/busybox tar -xzf {PROPERTY_REMOTE_TGZ} -C {PROPERTY_REMOTE_ROOT}; "
-        f"/cache/bin/busybox chmod 755 {PROPERTY_REMOTE_BASE} {PROPERTY_REMOTE_BASE}/dev {PROPERTY_REMOTE_ROOT}; "
-        f"/cache/bin/busybox chmod 644 {PROPERTY_REMOTE_ROOT}/*; "
+        f"/cache/bin/busybox tar -xzf {PROPERTY_REMOTE_TGZ} -C {BOOT_PROPERTY_REMOTE_ROOT}; "
+        f"/cache/bin/busybox chmod 755 {PROPERTY_REMOTE_BASE} {PROPERTY_REMOTE_BASE}/dev {PROPERTY_REMOTE_ROOT} "
+        f"{BOOT_PROPERTY_REMOTE_BASE} {BOOT_PROPERTY_REMOTE_BASE}/dev {BOOT_PROPERTY_REMOTE_ROOT}; "
+        f"/cache/bin/busybox chmod 644 {PROPERTY_REMOTE_ROOT}/* {BOOT_PROPERTY_REMOTE_ROOT}/*; "
         f"/cache/bin/busybox rm -f {PROPERTY_REMOTE_B64}; "
         f"printf 'property_stage.remote_sha256='; /cache/bin/busybox sha256sum {PROPERTY_REMOTE_TGZ} | /cache/bin/busybox awk '{{print $1}}'; "
         f"printf 'property_stage.remote_file_count='; /cache/bin/busybox find {PROPERTY_REMOTE_ROOT} -type f | /cache/bin/busybox wc -l; "
-        f"printf 'property_stage.property_info_size='; /cache/bin/busybox stat -c '%s' {PROPERTY_REMOTE_ROOT}/property_info 2>/dev/null"
+        f"printf 'property_stage.property_info_size='; /cache/bin/busybox stat -c '%s' {PROPERTY_REMOTE_ROOT}/property_info 2>/dev/null; "
+        f"printf 'property_stage.boot_remote_file_count='; /cache/bin/busybox find {BOOT_PROPERTY_REMOTE_ROOT} -type f | /cache/bin/busybox wc -l; "
+        f"printf 'property_stage.boot_property_info_size='; /cache/bin/busybox stat -c '%s' {BOOT_PROPERTY_REMOTE_ROOT}/property_info 2>/dev/null"
     )
     extract = run_step(
         store,
@@ -732,7 +1340,14 @@ def stage_connect_config(store: base.EvidenceStore,
             "/cache/bin/busybox",
             "sh",
             "-c",
-            f"umask 077; /cache/bin/busybox mkdir -p {CONNECT_DIR}; /cache/bin/busybox chmod 700 {CONNECT_DIR}",
+            (
+                f"umask 077; "
+                f"/cache/bin/busybox mkdir -p {CONNECT_DIR}/sockets; "
+                f"/cache/bin/busybox chown 1010:1010 {CONNECT_DIR} {CONNECT_DIR}/sockets; "
+                f"/cache/bin/busybox chmod 770 {CONNECT_DIR} {CONNECT_DIR}/sockets; "
+                f"/cache/bin/busybox rm -f {CONNECT_DIR}/sockets/wpa_global {CONNECT_DIR}/sockets/wlan0 "
+                f"{CONNECT_DIR}/a90_supplicant_strace*"
+            ),
         ],
     )
     if not mkdir.get("ok"):
@@ -782,6 +1397,7 @@ def stage_connect_config(store: base.EvidenceStore,
     decode_script = (
         f"set -e; "
         f"/cache/bin/busybox base64 -d {CONNECT_CONFIG_B64} > {CONNECT_CONFIG}; "
+        f"/cache/bin/busybox chown 1010:1010 {CONNECT_CONFIG}; "
         f"/cache/bin/busybox chmod 600 {CONNECT_CONFIG}; "
         f"/cache/bin/busybox rm -f {CONNECT_CONFIG_B64}; "
         f"test -s {CONNECT_CONFIG}; echo connect_config.exists_rc=$?; "
@@ -845,6 +1461,7 @@ def stage_connect_script(store: base.EvidenceStore,
         "--allow-service-manager-start-only",
         "--allow-wifi-hal-start-only",
         "--allow-cnss-start-only",
+        "--allow-hal-service-query",
         "--allow-iwifi-start-only",
         "--allow-connect-dhcp-ping",
     ])
@@ -877,7 +1494,7 @@ def stage_connect_script(store: base.EvidenceStore,
         "printf 'v2167.post_flags=' >> \"$out\"; cat /sys/class/net/wlan0/flags >> \"$out\" 2>/dev/null || echo unreadable >> \"$out\"",
         "echo v2167.end=1 >> \"$out\"",
     ]
-    line_ok = True
+    failed_script_lines: list[int] = []
     for index, line in enumerate(script_lines):
         result = run_step(
             store,
@@ -885,7 +1502,36 @@ def stage_connect_script(store: base.EvidenceStore,
             f"connect-script-line-{index:02d}",
             ["run", "/cache/bin/busybox", "sh", "-c", f"printf '%s\\n' {shlex.quote(line)} >> {CONNECT_SCRIPT}"],
         )
-        line_ok = line_ok and bool(result.get("ok"))
+        if not result.get("ok"):
+            failed_script_lines.append(index)
+    validate_script = (
+        "set -e; "
+        f"script={shlex.quote(CONNECT_SCRIPT)}; tmp={shlex.quote(CONNECT_SCRIPT)}.tmp; "
+        "shebang='#!/cache/bin/busybox sh'; repaired=0; "
+        "first=$(/cache/bin/busybox head -n 1 \"$script\" 2>/dev/null || true); "
+        "if [ \"$first\" != \"$shebang\" ]; then "
+        "  { printf '%s\\n' \"$shebang\"; /cache/bin/busybox cat \"$script\" 2>/dev/null || true; } > \"$tmp\"; "
+        "  /cache/bin/busybox mv \"$tmp\" \"$script\"; repaired=1; "
+        "fi; "
+        f"expected={len(script_lines)}; "
+        "line_count=$(/cache/bin/busybox wc -l < \"$script\" 2>/dev/null || echo 0); "
+        "first_after=$(/cache/bin/busybox head -n 1 \"$script\" 2>/dev/null || true); "
+        "last_ok=0; /cache/bin/busybox tail -n 1 \"$script\" 2>/dev/null | "
+        "/cache/bin/busybox grep -q '^echo v2167.end=1' && last_ok=1; "
+        "content_ok=0; "
+        "[ \"$first_after\" = \"$shebang\" ] && [ \"$line_count\" -ge \"$expected\" ] && [ \"$last_ok\" = 1 ] && content_ok=1; "
+        "echo connect_script.shebang_repaired=$repaired; "
+        "echo connect_script.line_count=$line_count; "
+        "echo connect_script.expected_lines=$expected; "
+        "echo connect_script.last_ok=$last_ok; "
+        "echo connect_script.content_ok=$content_ok"
+    )
+    validate = run_step(
+        store,
+        steps,
+        "connect-script-validate",
+        ["run", "/cache/bin/busybox", "sh", "-c", validate_script],
+    )
     chmod = run_step(store, steps, "connect-script-chmod", ["run", "/cache/bin/busybox", "chmod", "700", CONNECT_SCRIPT])
     start = run_step(
         store,
@@ -899,11 +1545,16 @@ def stage_connect_script(store: base.EvidenceStore,
             f"/cache/bin/busybox setsid {CONNECT_SCRIPT} >/dev/null 2>&1 & echo connect_script.started=1",
         ],
     )
+    fields.update(base.parse_key_values(str(validate.get("stdout") or "")))
     fields.update(base.parse_key_values(str(start.get("stdout") or "")))
-    fields["connect_script.lines_ok"] = "1" if line_ok else "0"
+    fields["connect_script.line_fail_count"] = str(len(failed_script_lines))
+    fields["connect_script.failed_lines"] = ",".join(str(item) for item in failed_script_lines)
+    fields["connect_script.lines_ok"] = "1" if not failed_script_lines else "0"
     fields["connect_script.ok"] = (
         "1"
-        if line_ok and chmod.get("ok") and fields.get("connect_script.started") == "1"
+        if fields.get("connect_script.content_ok") == "1"
+        and chmod.get("ok")
+        and fields.get("connect_script.started") == "1"
         else "0"
     )
     return fields
@@ -967,6 +1618,7 @@ def wait_for_connect_result(store: base.EvidenceStore,
 def post_flash_connect(store: base.EvidenceStore,
                        steps: list[dict[str, Any]],
                        helper_fields: dict[str, str],
+                       standalone_wpa_fields: dict[str, str],
                        property_fields: dict[str, str],
                        config_fields: dict[str, str]) -> dict[str, Any]:
     script_fields = stage_connect_script(store, steps)
@@ -974,13 +1626,14 @@ def post_flash_connect(store: base.EvidenceStore,
     ok = (
         property_fields.get("property_stage.ok") == "1"
         and helper_fields.get("helper_stage.ok") == "1"
+        and standalone_wpa_fields.get("standalone_wpa_stage.ok") == "1"
         and config_fields.get("connect_config.ok") == "1"
         and script_fields.get("connect_script.ok") == "1"
         and wait_fields.get("complete") is True
     )
     return {
         "ok": ok,
-        "fields": {**property_fields, **helper_fields, **config_fields, **script_fields},
+        "fields": {**property_fields, **helper_fields, **standalone_wpa_fields, **config_fields, **script_fields},
         "wait": wait_fields,
     }
 
@@ -994,19 +1647,10 @@ def collect_post_rollback_result(store: base.EvidenceStore,
     finally:
         fast_transfer.close()
 
-    result: dict[str, Any] | None = None
-    result_text = str(fast_upload.get("connect_result_text") or "") if fast_upload.get("ok") else ""
-    if not result_text:
-        result = base.a90ctl_step(
-            store,
-            steps,
-            "post-rollback-connect-ping-result",
-            ["cat", CONNECT_RESULT],
-            timeout=120,
-            bridge_timeout=90,
-        )
-        result_text = str(result.get("stdout") or "")
-    else:
+    serial_results: list[dict[str, Any]] = []
+    result_text = str(fast_upload.get("connect_result_text") or "")
+    result_source = "fast-upload" if has_v2167_result(result_text) else ""
+    if result_source:
         append_compact_step(
             store,
             steps,
@@ -1016,41 +1660,81 @@ def collect_post_rollback_result(store: base.EvidenceStore,
             rc=0,
             stdout=result_text,
         )
+    else:
+        for attempt in range(3):
+            name = "post-rollback-connect-ping-result" if attempt == 0 else f"post-rollback-connect-ping-result-retry{attempt}"
+            result = base.a90ctl_step(
+                store,
+                steps,
+                name,
+                ["cat", CONNECT_RESULT],
+                timeout=120,
+                bridge_timeout=90,
+            )
+            serial_results.append(result)
+            result_text = str(result.get("stdout") or "")
+            if has_v2167_result(result_text):
+                result_source = "serial-cat" if attempt == 0 else f"serial-cat-retry{attempt}"
+                break
+            if attempt < 2:
+                base.a90ctl_step(
+                    store,
+                    steps,
+                    f"post-rollback-connect-ping-result-hide-retry{attempt + 1}",
+                    ["hide"],
+                    timeout=15,
+                    bridge_timeout=10,
+                )
+                time.sleep(1.5)
     fields = parse_fields(result_text)
-    cleanup_script = " ".join([
-        "/cache/bin/busybox rm -f",
-        shlex.quote(CONNECT_SCRIPT),
-        shlex.quote(CONNECT_RESULT),
-        shlex.quote(CONNECT_CONFIG),
-        shlex.quote(CONNECT_CONFIG_B64),
-        shlex.quote(f"{CONNECT_DIR}/a90_supplicant_execns.log"),
-        shlex.quote(f"{CONNECT_DIR}/a90_supplicant_execns_stdio.log"),
-        shlex.quote(f"{CONNECT_DIR}/sockets/wlan0"),
-        shlex.quote(HELPER_REMOTE_B64),
-        shlex.quote(HELPER_REMOTE_GZ),
-        shlex.quote(PROPERTY_REMOTE_TGZ),
-        shlex.quote(PROPERTY_REMOTE_B64),
-        "; /cache/bin/busybox rm -rf",
-        shlex.quote(PROPERTY_REMOTE_BASE),
-    ])
-    cleanup = base.a90ctl_step(
-        store,
-        steps,
-        "post-rollback-connect-ping-cleanup",
-        ["run", "/cache/bin/busybox", "sh", "-c", cleanup_script],
-        timeout=90,
-        bridge_timeout=60,
+    result_retrieved = has_v2167_result(result_text)
+    cleanup_script = (
+        "bb=/cache/bin/busybox; "
+        "$bb rm -f /cache/a90-v2167-connect-ping.sh /cache/a90-v2167-connect-ping.result "
+        "/cache/a90-v2167-helper.b64 /cache/a90-v2167-helper.gz "
+        "/cache/a90-wifi-property-v2167.tgz /cache/a90-wifi-property-v2167.b64; "
+        "cd /cache/a90-wifi 2>/dev/null && "
+        "$bb rm -f v2167.conf v2167.conf.b64 a90_supplicant_execns.log "
+        "a90_supplicant_execns_stdio.log a90_supplicant_strace* "
+        "a90_hwservicemanager_execns_stdio.log a90_connect_kmsg_stream.log "
+        "a90_external_ping_capture.log sockets/wpa_global sockets/wlan0; "
+        "$bb rm -rf /cache/a90-wifi-property-v2167"
     )
+    cleanup: dict[str, Any] | None = None
+    cleanup_skipped_reason = ""
+    if result_retrieved:
+        cleanup = base.a90ctl_step(
+            store,
+            steps,
+            "post-rollback-connect-ping-cleanup",
+            ["run", "/cache/bin/busybox", "sh", "-c", cleanup_script],
+            timeout=90,
+            bridge_timeout=60,
+        )
+    else:
+        cleanup_skipped_reason = "connect-result-not-retrieved"
+        append_compact_step(
+            store,
+            steps,
+            "post-rollback-connect-ping-cleanup-skipped",
+            command=["cleanup-skipped", CONNECT_RESULT],
+            ok=False,
+            rc=1,
+            stdout=f"cleanup_skipped.reason={cleanup_skipped_reason}\nresult_left_on_device=1\n",
+        )
     return {
-        "ok": bool(fast_upload.get("ok")) or bool(result and result.get("ok")),
+        "ok": result_retrieved,
         "fields": fields,
         "fast_upload": {
             key: value
             for key, value in fast_upload.items()
             if key != "connect_result_text"
         },
-        "result_source": "fast-upload" if fast_upload.get("ok") else "serial-cat",
-        "cleanup_ok": bool(cleanup.get("ok")),
+        "result_source": result_source or "unretrieved",
+        "serial_attempt_count": len(serial_results),
+        "cleanup_ok": bool(cleanup and cleanup.get("ok")),
+        "cleanup_skipped_reason": cleanup_skipped_reason,
+        "result_left_on_device": not result_retrieved,
     }
 
 
@@ -1072,6 +1756,7 @@ def collect_gate(manifest: dict[str, Any], result: dict[str, Any]) -> dict[str, 
     rollback_ok = bool((manifest.get("rollback") or {}).get("ok"))
     property_stage_ok = hook_fields.get("property_stage.ok") == "1"
     helper_stage_ok = hook_fields.get("helper_stage.ok") == "1"
+    standalone_wpa_stage_ok = hook_fields.get("standalone_wpa_stage.ok") == "1"
     config_ok = hook_fields.get("connect_config.ok") == "1"
     script_ok = hook_fields.get("connect_script.ok") == "1"
     wait_complete = bool((hook.get("wait") or {}).get("complete"))
@@ -1088,11 +1773,11 @@ def collect_gate(manifest: dict[str, Any], result: dict[str, Any]) -> dict[str, 
         label = "connect-dhcp-ping-handoff-incomplete"
         passed = False
         reason = "test boot or rollback did not complete"
-    elif not property_stage_ok or not helper_stage_ok or not config_ok or not script_ok or not wait_complete:
+    elif not property_stage_ok or not helper_stage_ok or not standalone_wpa_stage_ok or not config_ok or not script_ok or not wait_complete:
         label = "connect-dhcp-ping-stage-or-wait-failed"
         passed = False
         reason = (
-            f"stage/wait failed property={property_stage_ok} helper={helper_stage_ok} "
+            f"stage/wait failed property={property_stage_ok} helper={helper_stage_ok} standalone_wpa={standalone_wpa_stage_ok} "
             f"config={config_ok} script={script_ok} wait={wait_complete}"
         )
     elif not no_raw:
@@ -1137,6 +1822,13 @@ def collect_gate(manifest: dict[str, Any], result: dict[str, Any]) -> dict[str, 
         "pass": passed,
         "reason": reason,
         "helper_stage_ok": helper_stage_ok,
+        "standalone_wpa_stage_ok": standalone_wpa_stage_ok,
+        "standalone_wpa_stage_enabled": hook_fields.get("standalone_wpa_stage.enabled", ""),
+        "standalone_wpa_stage_reason": hook_fields.get("standalone_wpa_stage.reason", ""),
+        "standalone_wpa_stage_remote_wrapper": hook_fields.get("standalone_wpa_stage.remote_wrapper", ""),
+        "standalone_wpa_stage_package_count": intish(hook_fields.get("standalone_wpa_stage.package_count")),
+        "standalone_wpa_stage_version_rc": intish(hook_fields.get("standalone_wpa_stage.version_rc")),
+        "standalone_wpa_stage_version_sample": hook_fields.get("standalone_wpa_stage.version_sample", ""),
         "property_stage_ok": property_stage_ok,
         "property_stage_remote_root": hook_fields.get("property_stage.remote_root", ""),
         "property_stage_runtime_decision": hook_fields.get("property_stage.runtime_decision", ""),
@@ -1159,9 +1851,24 @@ def collect_gate(manifest: dict[str, Any], result: dict[str, Any]) -> dict[str, 
         "association_carrier_errno": intish(fields.get("wifi_connect_ping.association_carrier_errno")),
         "dhcp_rc": dhcp_rc,
         "dhcp_executed": fields.get("wifi_connect_ping.dhcp_executed") == "1",
+        "resolv_conf_present": fields.get("wifi_connect_ping.resolv_conf.present") == "1",
+        "resolv_conf_errno": intish(fields.get("wifi_connect_ping.resolv_conf.errno")),
+        "resolv_conf_size": intish(fields.get("wifi_connect_ping.resolv_conf.size")),
+        "resolv_conf_nameserver_count": intish(fields.get("wifi_connect_ping.resolv_conf.nameserver_count")),
         "external_ping_target": ping_target,
         "external_ping_rc": ping_rc,
         "external_ping_executed": fields.get("wifi_connect_ping.external_ping_executed") == "1",
+        "external_ping_output_present": fields.get("wifi_connect_ping.external_ping_output.present") == "1",
+        "external_ping_output_errno": intish(fields.get("wifi_connect_ping.external_ping_output.errno")),
+        "external_ping_output_bytes_from": fields.get("wifi_connect_ping.external_ping_output.bytes_from") == "1",
+        "external_ping_output_bad_address": fields.get("wifi_connect_ping.external_ping_output.bad_address") == "1",
+        "external_ping_output_unknown_host": fields.get("wifi_connect_ping.external_ping_output.unknown_host") == "1",
+        "external_ping_output_network_unreachable": fields.get("wifi_connect_ping.external_ping_output.network_unreachable") == "1",
+        "external_ping_output_permission_denied": fields.get("wifi_connect_ping.external_ping_output.permission_denied") == "1",
+        "external_ping_output_sendto_error": fields.get("wifi_connect_ping.external_ping_output.sendto_error") == "1",
+        "external_ping_output_zero_received": fields.get("wifi_connect_ping.external_ping_output.zero_received") == "1",
+        "external_ping_output_packet_loss_100": fields.get("wifi_connect_ping.external_ping_output.packet_loss_100") == "1",
+        "external_ping_output_classifier": fields.get("wifi_connect_ping.external_ping_output.classifier", ""),
         "secret_values_logged": fields.get("wifi_connect_ping.secret_values_logged", ""),
         "country_code": fields.get("wifi_connect_ping.country_code", ""),
         "driver_ioctl_country_rc": intish(fields.get("wifi_connect_ping.driver_ioctl.country.rc")),
@@ -1175,6 +1882,8 @@ def collect_gate(manifest: dict[str, Any], result: dict[str, Any]) -> dict[str, 
         "wpa_ctrl_surface": fields.get("wifi_connect_ping.wpa_ctrl.surface", ""),
         "wpa_ctrl_global_path": fields.get("wifi_connect_ping.wpa_ctrl.global_path", ""),
         "wpa_ctrl_global_abstract": fields.get("wifi_connect_ping.wpa_ctrl.global_abstract") == "1",
+        "wpa_ctrl_global_preclean_path": fields.get("wifi_connect_ping.wpa_ctrl.global_preclean_path", ""),
+        "wpa_ctrl_global_preclean_errno": intish(fields.get("wifi_connect_ping.wpa_ctrl.global_preclean_errno")),
         "wpa_ctrl_ready_errno": intish(fields.get("wifi_connect_ping.wpa_ctrl.ready_errno")),
         "wpa_ctrl_ping_reply": fields.get("wifi_connect_ping.wpa_ctrl.ping_reply", ""),
         "driver_country_reply": fields.get("wifi_connect_ping.wpa_ctrl.driver_country.reply", ""),
@@ -1196,7 +1905,44 @@ def collect_gate(manifest: dict[str, Any], result: dict[str, Any]) -> dict[str, 
         "supplicant_driver": fields.get("wifi_connect_ping.supplicant_driver", ""),
         "supplicant_launch_mode": fields.get("wifi_connect_ping.supplicant_launch_mode", ""),
         "supplicant_global_ctrl": fields.get("wifi_connect_ping.supplicant_global_ctrl", ""),
+        "supplicant_strace_enabled": fields.get("wifi_connect_ping.supplicant_strace.enabled") == "1",
+        "supplicant_strace_output": fields.get("wifi_connect_ping.supplicant_strace.output", ""),
+        "supplicant_include_direct_interface": fields.get("wifi_connect_ping.supplicant_include_direct_interface") == "1",
+        "supplicant_preexec_path": field_or_embedded_sample(fields, "wifi_connect_ping.supplicant_preexec.path"),
+        "supplicant_preexec_path_access_x": field_or_embedded_sample(fields, "wifi_connect_ping.supplicant_preexec.path_access_x") == "1",
+        "supplicant_preexec_path_access_errno": intish(field_or_embedded_sample(fields, "wifi_connect_ping.supplicant_preexec.path_access_errno")),
+        "supplicant_preexec_loader_access_x": field_or_embedded_sample(fields, "wifi_connect_ping.supplicant_preexec.loader_access_x") == "1",
+        "supplicant_preexec_loader_access_errno": intish(field_or_embedded_sample(fields, "wifi_connect_ping.supplicant_preexec.loader_access_errno")),
+        "supplicant_preexec_binary_access_x": field_or_embedded_sample(fields, "wifi_connect_ping.supplicant_preexec.binary_access_x") == "1",
+        "supplicant_preexec_binary_access_errno": intish(field_or_embedded_sample(fields, "wifi_connect_ping.supplicant_preexec.binary_access_errno")),
+        "supplicant_preexec_busybox_access_x": field_or_embedded_sample(fields, "wifi_connect_ping.supplicant_preexec.busybox_access_x") == "1",
+        "supplicant_preexec_busybox_access_errno": intish(field_or_embedded_sample(fields, "wifi_connect_ping.supplicant_preexec.busybox_access_errno")),
+        "supplicant_preexec_dev_urandom_access_r": field_or_embedded_sample(fields, "wifi_connect_ping.supplicant_preexec.dev_urandom_access_r") == "1",
+        "supplicant_preexec_dev_urandom_access_errno": intish(field_or_embedded_sample(fields, "wifi_connect_ping.supplicant_preexec.dev_urandom_access_errno")),
+        "supplicant_preexec_dev_urandom_mode": field_or_embedded_sample(fields, "wifi_connect_ping.supplicant_preexec.dev_urandom.mode"),
+        "supplicant_preexec_dev_urandom_rdev_major": intish(field_or_embedded_sample(fields, "wifi_connect_ping.supplicant_preexec.dev_urandom.rdev_major")),
+        "supplicant_preexec_dev_urandom_rdev_minor": intish(field_or_embedded_sample(fields, "wifi_connect_ping.supplicant_preexec.dev_urandom.rdev_minor")),
+        "hwservicemanager_started": fields.get("wifi_connect_ping.hwservicemanager_started") == "1",
+        "hwservicemanager_start_mode": fields.get("wifi_connect_ping.hwservicemanager_start_mode", ""),
+        "hwservicemanager_pid": intish(fields.get("wifi_connect_ping.hwservicemanager_pid")),
+        "supplicant_hidl_add_interface_rc": intish(fields.get("wifi_connect_ping.supplicant_hidl_add_interface_rc")),
+        "supplicant_hidl_add_interface_result": fields.get("supplicant_hidl_add_interface.result", ""),
+        "supplicant_hidl_add_interface_reason": fields.get("supplicant_hidl_add_interface.reason", ""),
+        "supplicant_hidl_add_interface_service_found": fields.get("supplicant_hidl_add_interface.service_handle_found") == "1",
+        "supplicant_hidl_add_interface_service_descriptor": fields.get("supplicant_hidl_add_interface.service_descriptor", ""),
+        "supplicant_hidl_add_interface_service_instance": fields.get("supplicant_hidl_add_interface.service_instance", ""),
+        "supplicant_hidl_add_interface_status_name": fields.get("supplicant_hidl_add_interface.status_name", ""),
+        "supplicant_hidl_add_interface_transaction_ok": fields.get("supplicant_hidl_add_interface.transaction_ok") == "1",
+        "supplicant_hidl_add_interface_iface_handle_found": fields.get("supplicant_hidl_add_interface.iface_handle_found") == "1",
+        "supplicant_hidl_vendor_service_found": fields.get("supplicant_hidl_vendor_service_probe.any_found") == "1",
+        "supplicant_hidl_vendor_service_descriptor": fields.get("supplicant_hidl_vendor_service_probe.first_descriptor", ""),
+        "supplicant_hidl_vendor_service_instance": fields.get("supplicant_hidl_vendor_service_probe.first_instance", ""),
+        "android_socket_wpa_wlan0_path": fields.get("wifi_connect_ping.android_socket_wpa_wlan0.path", ""),
+        "android_socket_wpa_wlan0_mode": fields.get("wifi_connect_ping.android_socket_wpa_wlan0.mode", ""),
+        "android_socket_wpa_wlan0_fd": intish(fields.get("wifi_connect_ping.android_socket_wpa_wlan0.fd")),
+        "android_socket_wpa_wlan0_errno": intish(fields.get("wifi_connect_ping.android_socket_wpa_wlan0.errno")),
         "supplicant_alive_after_start": fields.get("wifi_connect_ping.supplicant_alive_after_start") == "1",
+        "supplicant_zombie_after_ctrl_wait": fields.get("wifi_connect_ping.supplicant_zombie_after_ctrl_wait") == "1",
         "supplicant_proc_state_after_start": fields.get("wifi_connect_ping.supplicant_proc_state_after_start", ""),
         "supplicant_alive_after_carrier_wait": fields.get("wifi_connect_ping.supplicant_alive_after_carrier_wait") == "1",
         "supplicant_proc_state_after_carrier_wait": fields.get("wifi_connect_ping.supplicant_proc_state_after_carrier_wait", ""),
@@ -1205,6 +1951,11 @@ def collect_gate(manifest: dict[str, Any], result: dict[str, Any]) -> dict[str, 
         "supplicant_proc_start_has_wpa": fields.get("wifi_connect_ping.supplicant_proc_after_start.cmdline_has_wpa_supplicant") == "1",
         "supplicant_proc_start_has_helper": fields.get("wifi_connect_ping.supplicant_proc_after_start.cmdline_has_execns_probe") == "1",
         "supplicant_proc_start_has_config": fields.get("wifi_connect_ping.supplicant_proc_after_start.cmdline_has_connect_config") == "1",
+        "supplicant_proc_hidl_add_fd_count": intish(fields.get("wifi_connect_ping.supplicant_proc_after_hidl_add.fd_count")),
+        "supplicant_proc_hidl_add_fd_socket_count": intish(fields.get("wifi_connect_ping.supplicant_proc_after_hidl_add.fd_socket_count")),
+        "supplicant_proc_hidl_add_fd_netlink_count": intish(fields.get("wifi_connect_ping.supplicant_proc_after_hidl_add.fd_netlink_count")),
+        "supplicant_proc_hidl_add_fd_generic_netlink_count": intish(fields.get("wifi_connect_ping.supplicant_proc_after_hidl_add.fd_generic_netlink_count")),
+        "supplicant_proc_hidl_add_fd_wpa_socket_count": intish(fields.get("wifi_connect_ping.supplicant_proc_after_hidl_add.fd_wpa_socket_count")),
         "supplicant_proc_carrier_comm": fields.get("wifi_connect_ping.supplicant_proc_after_carrier_wait.comm", ""),
         "supplicant_proc_carrier_exe": fields.get("wifi_connect_ping.supplicant_proc_after_carrier_wait.exe_basename", ""),
         "supplicant_proc_carrier_has_wpa": fields.get("wifi_connect_ping.supplicant_proc_after_carrier_wait.cmdline_has_wpa_supplicant") == "1",
@@ -1222,6 +1973,27 @@ def collect_gate(manifest: dict[str, Any], result: dict[str, Any]) -> dict[str, 
         "supplicant_log_connected": intish(fields.get("wifi_connect_ping.supplicant_log.connected")),
         "supplicant_log_disconnected": intish(fields.get("wifi_connect_ping.supplicant_log.disconnected")),
         "supplicant_log_fail": intish(fields.get("wifi_connect_ping.supplicant_log.fail")),
+        "supplicant_log_permission": intish(fields.get("wifi_connect_ping.supplicant_log.permission")),
+        "supplicant_log_avc": intish(fields.get("wifi_connect_ping.supplicant_log.avc")),
+        "supplicant_log_sample_count": intish(fields.get("wifi_connect_ping.supplicant_log.sample_count")),
+        "supplicant_log_tail_sample_count": intish(fields.get("wifi_connect_ping.supplicant_log.tail_sample_count")),
+        "supplicant_log_nonproperty_sample_count": intish(fields.get("wifi_connect_ping.supplicant_log.nonproperty_sample_count")),
+        "supplicant_log_sensitive_sample_skipped": intish(fields.get("wifi_connect_ping.supplicant_log.sensitive_sample_skipped")),
+        "supplicant_log_samples": [
+            fields.get(f"wifi_connect_ping.supplicant_log.sample_{index:02d}", "")
+            for index in range(24)
+            if fields.get(f"wifi_connect_ping.supplicant_log.sample_{index:02d}", "")
+        ],
+        "supplicant_log_tail_samples": [
+            fields.get(f"wifi_connect_ping.supplicant_log.tail_sample_{index:02d}", "")
+            for index in range(24)
+            if fields.get(f"wifi_connect_ping.supplicant_log.tail_sample_{index:02d}", "")
+        ],
+        "supplicant_log_nonproperty_samples": [
+            fields.get(f"wifi_connect_ping.supplicant_log.nonproperty_sample_{index:02d}", "")
+            for index in range(24)
+            if fields.get(f"wifi_connect_ping.supplicant_log.nonproperty_sample_{index:02d}", "")
+        ],
         "supplicant_stdio_present": fields.get("wifi_connect_ping.supplicant_stdio.present") == "1",
         "supplicant_stdio_size": intish(fields.get("wifi_connect_ping.supplicant_stdio.size")),
         "supplicant_stdio_lines": intish(fields.get("wifi_connect_ping.supplicant_stdio.lines")),
@@ -1240,6 +2012,7 @@ def collect_gate(manifest: dict[str, Any], result: dict[str, Any]) -> dict[str, 
         "supplicant_stdio_socket": intish(fields.get("wifi_connect_ping.supplicant_stdio.socket")),
         "supplicant_stdio_terminate": intish(fields.get("wifi_connect_ping.supplicant_stdio.terminate")),
         "supplicant_stdio_permission": intish(fields.get("wifi_connect_ping.supplicant_stdio.permission")),
+        "supplicant_stdio_avc": intish(fields.get("wifi_connect_ping.supplicant_stdio.avc")),
         "supplicant_stdio_sample_count": intish(fields.get("wifi_connect_ping.supplicant_stdio.sample_count")),
         "supplicant_stdio_tail_sample_count": intish(fields.get("wifi_connect_ping.supplicant_stdio.tail_sample_count")),
         "supplicant_stdio_nonproperty_sample_count": intish(fields.get("wifi_connect_ping.supplicant_stdio.nonproperty_sample_count")),
@@ -1263,8 +2036,13 @@ def collect_gate(manifest: dict[str, Any], result: dict[str, Any]) -> dict[str, 
         "supplicant_proc_start_gid": fields.get("wifi_connect_ping.supplicant_proc_after_start.status_gid", ""),
         "supplicant_proc_start_groups": fields.get("wifi_connect_ping.supplicant_proc_after_start.status_groups", ""),
         "supplicant_proc_start_wchan": fields.get("wifi_connect_ping.supplicant_proc_after_start.wchan", ""),
+        "supplicant_proc_start_syscall": fields.get("wifi_connect_ping.supplicant_proc_after_start.syscall", ""),
+        "supplicant_proc_start_stack_first": fields.get("wifi_connect_ping.supplicant_proc_after_start.stack_first", ""),
         "supplicant_proc_start_fd_count": intish(fields.get("wifi_connect_ping.supplicant_proc_after_start.fd_count")),
         "supplicant_proc_start_fd_socket_count": intish(fields.get("wifi_connect_ping.supplicant_proc_after_start.fd_socket_count")),
+        "supplicant_proc_start_fd_netlink_count": intish(fields.get("wifi_connect_ping.supplicant_proc_after_start.fd_netlink_count")),
+        "supplicant_proc_start_fd_generic_netlink_count": intish(fields.get("wifi_connect_ping.supplicant_proc_after_start.fd_generic_netlink_count")),
+        "supplicant_proc_start_fd_netlink_lookup_miss": intish(fields.get("wifi_connect_ping.supplicant_proc_after_start.fd_netlink_lookup_miss")),
         "supplicant_proc_start_fd_wpa_socket_count": intish(fields.get("wifi_connect_ping.supplicant_proc_after_start.fd_wpa_socket_count")),
         "supplicant_proc_start_fd_stdio_log_count": intish(fields.get("wifi_connect_ping.supplicant_proc_after_start.fd_stdio_log_count")),
         "supplicant_proc_start_fd_samples": [
@@ -1276,8 +2054,13 @@ def collect_gate(manifest: dict[str, Any], result: dict[str, Any]) -> dict[str, 
         "supplicant_proc_carrier_gid": fields.get("wifi_connect_ping.supplicant_proc_after_carrier_wait.status_gid", ""),
         "supplicant_proc_carrier_groups": fields.get("wifi_connect_ping.supplicant_proc_after_carrier_wait.status_groups", ""),
         "supplicant_proc_carrier_wchan": fields.get("wifi_connect_ping.supplicant_proc_after_carrier_wait.wchan", ""),
+        "supplicant_proc_carrier_syscall": fields.get("wifi_connect_ping.supplicant_proc_after_carrier_wait.syscall", ""),
+        "supplicant_proc_carrier_stack_first": fields.get("wifi_connect_ping.supplicant_proc_after_carrier_wait.stack_first", ""),
         "supplicant_proc_carrier_fd_count": intish(fields.get("wifi_connect_ping.supplicant_proc_after_carrier_wait.fd_count")),
         "supplicant_proc_carrier_fd_socket_count": intish(fields.get("wifi_connect_ping.supplicant_proc_after_carrier_wait.fd_socket_count")),
+        "supplicant_proc_carrier_fd_netlink_count": intish(fields.get("wifi_connect_ping.supplicant_proc_after_carrier_wait.fd_netlink_count")),
+        "supplicant_proc_carrier_fd_generic_netlink_count": intish(fields.get("wifi_connect_ping.supplicant_proc_after_carrier_wait.fd_generic_netlink_count")),
+        "supplicant_proc_carrier_fd_netlink_lookup_miss": intish(fields.get("wifi_connect_ping.supplicant_proc_after_carrier_wait.fd_netlink_lookup_miss")),
         "supplicant_proc_carrier_fd_wpa_socket_count": intish(fields.get("wifi_connect_ping.supplicant_proc_after_carrier_wait.fd_wpa_socket_count")),
         "supplicant_proc_carrier_fd_stdio_log_count": intish(fields.get("wifi_connect_ping.supplicant_proc_after_carrier_wait.fd_stdio_log_count")),
         "supplicant_proc_carrier_fd_samples": [
@@ -1285,8 +2068,56 @@ def collect_gate(manifest: dict[str, Any], result: dict[str, Any]) -> dict[str, 
             for index in range(16)
             if fields.get(f"wifi_connect_ping.supplicant_proc_after_carrier_wait.fd_sample_{index:02d}", "")
         ],
+        "kmsg_stream_started": fields.get("wifi_connect_ping.kmsg_stream.started") == "1",
+        "kmsg_stream_start_errno": intish(fields.get("wifi_connect_ping.kmsg_stream.start_errno")),
+        "kmsg_stream_cleanup_exit": intish(fields.get("wifi_connect_ping.kmsg_stream.cleanup_exit")),
+        "kmsg_stream_cleanup_signal": intish(fields.get("wifi_connect_ping.kmsg_stream.cleanup_signal")),
+        "kmsg_stream_cleanup_timeout": fields.get("wifi_connect_ping.kmsg_stream.cleanup_timeout") == "1",
+        "kmsg_stream_present": fields.get("wifi_connect_ping.kmsg_stream.present") == "1",
+        "kmsg_stream_size": intish(fields.get("wifi_connect_ping.kmsg_stream.size")),
+        "kmsg_stream_lines": intish(fields.get("wifi_connect_ping.kmsg_stream.lines")),
+        "kmsg_stream_permission": intish(fields.get("wifi_connect_ping.kmsg_stream.permission")),
+        "kmsg_stream_avc": intish(fields.get("wifi_connect_ping.kmsg_stream.avc")),
+        "kmsg_stream_nl80211": intish(fields.get("wifi_connect_ping.kmsg_stream.nl80211")),
+        "kmsg_stream_auth": intish(fields.get("wifi_connect_ping.kmsg_stream.auth")),
+        "kmsg_stream_assoc": intish(fields.get("wifi_connect_ping.kmsg_stream.assoc")),
+        "kmsg_stream_fail": intish(fields.get("wifi_connect_ping.kmsg_stream.fail")),
+        "kmsg_stream_sensitive_sample_skipped": intish(fields.get("wifi_connect_ping.kmsg_stream.sensitive_sample_skipped")),
+        "kmsg_stream_samples": [
+            fields.get(f"wifi_connect_ping.kmsg_stream.sample_{index:02d}", "")
+            for index in range(24)
+            if fields.get(f"wifi_connect_ping.kmsg_stream.sample_{index:02d}", "")
+        ],
+        "kmsg_stream_tail_samples": [
+            fields.get(f"wifi_connect_ping.kmsg_stream.tail_sample_{index:02d}", "")
+            for index in range(24)
+            if fields.get(f"wifi_connect_ping.kmsg_stream.tail_sample_{index:02d}", "")
+        ],
+        "logdw_sink_started": fields.get("wifi_connect_ping.logdw_sink.started") == "1",
+        "logdw_sink_errno": intish(fields.get("wifi_connect_ping.logdw_sink.errno")),
+        "logdw_sink_drain_errno": intish(fields.get("wifi_connect_ping.logdw_sink.drain_errno")),
+        "logdw_sink_datagrams": intish(fields.get("wifi_connect_ping.logdw_sink.datagrams")),
+        "logdw_sink_bytes": intish(fields.get("wifi_connect_ping.logdw_sink.bytes")),
+        "logdw_sink_wpa": intish(fields.get("wifi_connect_ping.logdw_sink.wpa")),
+        "logdw_sink_supplicant": intish(fields.get("wifi_connect_ping.logdw_sink.supplicant")),
+        "logdw_sink_nl80211": intish(fields.get("wifi_connect_ping.logdw_sink.nl80211")),
+        "logdw_sink_ctrl": intish(fields.get("wifi_connect_ping.logdw_sink.ctrl")),
+        "logdw_sink_interface": intish(fields.get("wifi_connect_ping.logdw_sink.interface")),
+        "logdw_sink_fail": intish(fields.get("wifi_connect_ping.logdw_sink.fail")),
+        "logdw_sink_permission": intish(fields.get("wifi_connect_ping.logdw_sink.permission")),
+        "logdw_sink_hidl": intish(fields.get("wifi_connect_ping.logdw_sink.hidl")),
+        "logdw_sink_service_manager": intish(fields.get("wifi_connect_ping.logdw_sink.service_manager")),
+        "logdw_sink_sample_count": intish(fields.get("wifi_connect_ping.logdw_sink.sample_count")),
+        "logdw_sink_sensitive_sample_skipped": intish(fields.get("wifi_connect_ping.logdw_sink.sensitive_sample_skipped")),
+        "logdw_sink_samples": [
+            fields.get(f"wifi_connect_ping.logdw_sink.sample_{index:02d}", "")
+            for index in range(24)
+            if fields.get(f"wifi_connect_ping.logdw_sink.sample_{index:02d}", "")
+        ],
         "no_raw": no_raw,
         "result_source": result.get("result_source", ""),
+        "serial_attempt_count": intish(result.get("serial_attempt_count")),
+        "result_left_on_device": bool(result.get("result_left_on_device")),
         "fast_upload_ok": bool(fast_upload.get("ok")),
         "fast_upload_reason": str(fast_upload.get("reason") or ""),
         "fast_upload_elapsed_sec": fast_upload.get("elapsed_sec", ""),
@@ -1298,12 +2129,15 @@ def collect_gate(manifest: dict[str, Any], result: dict[str, Any]) -> dict[str, 
         "fast_upload_forbidden_entries": fast_upload_validation.get("forbidden_entries") or [],
         "fast_upload_secret_hits": fast_upload_validation.get("secret_hits") or [],
         "cleanup_ok": bool(result.get("cleanup_ok")),
+        "cleanup_skipped_reason": str(result.get("cleanup_skipped_reason") or ""),
     }
 
 
 def render_report(manifest: dict[str, Any]) -> str:
     gate = manifest["connect_ping_gate"]
     helper = manifest.get("helper_build") or {}
+    standalone_wpa = manifest.get("standalone_wpa_archive") or {}
+    standalone_wpa_stage = manifest.get("standalone_wpa_stage") or {}
     property_archive = manifest.get("property_archive") or {}
     property_stage = manifest.get("property_stage") or {}
     config = manifest.get("config_stage") or {}
@@ -1311,6 +2145,18 @@ def render_report(manifest: dict[str, Any]) -> str:
     step_lines = [
         f"- `{step['name']}` rc `{step['rc']}` ok `{step['ok']}` evidence `{step['stdout_file']}`"
         for step in steps
+    ]
+    supplicant_log_sample_lines = [
+        f"- `log_sample_{index:02d}`: `{sample}`"
+        for index, sample in enumerate(gate.get("supplicant_log_samples", []))
+    ]
+    supplicant_log_tail_sample_lines = [
+        f"- `log_tail_{index:02d}`: `{sample}`"
+        for index, sample in enumerate(gate.get("supplicant_log_tail_samples", []))
+    ]
+    supplicant_log_nonproperty_sample_lines = [
+        f"- `log_nonproperty_{index:02d}`: `{sample}`"
+        for index, sample in enumerate(gate.get("supplicant_log_nonproperty_samples", []))
     ]
     supplicant_stdio_sample_lines = [
         f"- `sample_{index:02d}`: `{sample}`"
@@ -1323,6 +2169,52 @@ def render_report(manifest: dict[str, Any]) -> str:
     supplicant_stdio_nonproperty_sample_lines = [
         f"- `nonproperty_{index:02d}`: `{sample}`"
         for index, sample in enumerate(gate.get("supplicant_stdio_nonproperty_samples", []))
+    ]
+    kmsg_sample_lines = [
+        f"- `kmsg_sample_{index:02d}`: `{sample}`"
+        for index, sample in enumerate(gate.get("kmsg_stream_samples", []))
+    ]
+    kmsg_tail_sample_lines = [
+        f"- `kmsg_tail_{index:02d}`: `{sample}`"
+        for index, sample in enumerate(gate.get("kmsg_stream_tail_samples", []))
+    ]
+    logdw_sample_lines = [
+        f"- `logdw_sample_{index:02d}`: `{sample}`"
+        for index, sample in enumerate(gate.get("logdw_sink_samples", []))
+    ]
+    phase_timer_lines = [
+        f"- `{item.get('name', '')}` elapsed `{item.get('elapsed_sec', 0)}` ok `{item.get('ok', False)}` detail `{item.get('detail', '')}`"
+        for item in manifest.get("phase_timers", [])
+    ]
+    step_phase_order = [
+        "preflight_device",
+        "helper_stage",
+        "connect_config_stage",
+        "flash_total",
+        "connect_window",
+        "artifact_upload",
+        "rollback_flash_total",
+        "rollback_status",
+        "selftest",
+        "other",
+    ]
+    step_phase_summary = manifest.get("step_phase_summary", {})
+    step_phase_lines = [
+        (
+            f"- `{name}` elapsed `{step_phase_summary.get(name, {}).get('elapsed_sec', 0)}` "
+            f"steps `{step_phase_summary.get(name, {}).get('step_count', 0)}` "
+            f"slow `{render_slow_step_refs(step_phase_summary.get(name, {}).get('slow_steps', []))}`"
+        )
+        for name in step_phase_order
+        if name in step_phase_summary
+    ]
+    native_flash_phase_lines = [
+        f"- `{item.get('step', '')}.{item.get('name', '')}` elapsed `{item.get('elapsed_sec', 0)}` ok `{item.get('ok', False)}`"
+        for item in manifest.get("native_init_flash_phase_timers", [])
+    ]
+    slow_step_lines = [
+        f"- `{item.get('name', '')}` elapsed `{item.get('elapsed_sec', 0)}` ok `{item.get('ok', False)}` timeout `{item.get('timeout', False)}`"
+        for item in manifest.get("slow_steps", [])
     ]
     supplicant_start_fd_lines = [
         f"- `start_fd_{index:02d}`: `{sample}`"
@@ -1344,8 +2236,29 @@ def render_report(manifest: dict[str, Any]) -> str:
         f"- Pass: `{manifest['pass']}`",
         f"- Reason: {manifest['reason']}",
         f"- Evidence: `{manifest['out_dir']}`",
-        f"- Result source: `{gate['result_source']}` fast_upload_ok `{gate['fast_upload_ok']}` reason `{gate['fast_upload_reason']}` elapsed `{gate['fast_upload_elapsed_sec']}`",
+        f"- Result source: `{gate['result_source']}` serial_attempts `{gate['serial_attempt_count']}` result_left_on_device `{gate['result_left_on_device']}`",
+        f"- Fast upload: ok `{gate['fast_upload_ok']}` reason `{gate['fast_upload_reason']}` elapsed `{gate['fast_upload_elapsed_sec']}`",
         f"- Fast upload archive: `{gate['fast_upload_archive_path']}` bytes `{gate['fast_upload_archive_bytes']}` receiver_bytes `{gate['fast_upload_receiver_bytes']}` entries `{gate['fast_upload_entry_count']}` secret_hits `{gate['fast_upload_secret_hits']}` forbidden_entries `{gate['fast_upload_forbidden_entries']}`",
+        "",
+        "## Phase Timers",
+        "",
+        *phase_timer_lines,
+        *([] if phase_timer_lines else ["- `explicit`: `none`"]),
+        "",
+        "## Step Phase Summary",
+        "",
+        *step_phase_lines,
+        *([] if step_phase_lines else ["- `step_phase_summary`: `none`"]),
+        "",
+        "## Native Flash Subphases",
+        "",
+        *native_flash_phase_lines,
+        *([] if native_flash_phase_lines else ["- `native_init_flash`: `no phase markers in this run`"]),
+        "",
+        "## Slowest Steps",
+        "",
+        *slow_step_lines,
+        *([] if slow_step_lines else ["- `slow_steps`: `none`"]),
         "",
         "## Gate Results",
         "",
@@ -1353,24 +2266,37 @@ def render_report(manifest: dict[str, Any]) -> str:
         f"- `executor_result`: `{gate['executor_result']}`",
         f"- `association_carrier`: `{gate['association_carrier']}` errno `{gate['association_carrier_errno']}`",
         f"- `country`: `{gate['country_code']}` driver_ioctl_rc `{gate['driver_ioctl_country_rc']}` errno `{gate['driver_ioctl_country_errno']}` readback `{gate['driver_ioctl_getcountry_readback']}` get_rc `{gate['driver_ioctl_getcountry_rc']}`",
-        f"- `wpa_ctrl`: ready `{gate['wpa_ctrl_ready']}` surface `{gate['wpa_ctrl_surface']}` global_path `{gate['wpa_ctrl_global_path']}` abstract `{gate['wpa_ctrl_global_abstract']}` ping `{gate['wpa_ctrl_ping_reply']}` interface_add_rc `{gate['interface_add_rc']}` interface_add `{gate['interface_add_reply']}` after_add_ready `{gate['wpa_ctrl_after_interface_add_ready']}` after_add_surface `{gate['wpa_ctrl_after_interface_add_surface']}` after_add_global `{gate['wpa_ctrl_after_interface_add_global_path']}` after_add_ping `{gate['wpa_ctrl_after_interface_add_ping']}` country_rc `{gate['driver_country_rc']}` reply `{gate['driver_country_reply']}` enable `{gate['enable_network_reply']}` reassociate `{gate['reassociate_reply']}`",
+        f"- `wpa_ctrl`: ready `{gate['wpa_ctrl_ready']}` surface `{gate['wpa_ctrl_surface']}` global_path `{gate['wpa_ctrl_global_path']}` abstract `{gate['wpa_ctrl_global_abstract']}` preclean `{gate['wpa_ctrl_global_preclean_path']}` preclean_errno `{gate['wpa_ctrl_global_preclean_errno']}` ping `{gate['wpa_ctrl_ping_reply']}` interface_add_rc `{gate['interface_add_rc']}` interface_add `{gate['interface_add_reply']}` after_add_ready `{gate['wpa_ctrl_after_interface_add_ready']}` after_add_surface `{gate['wpa_ctrl_after_interface_add_surface']}` after_add_global `{gate['wpa_ctrl_after_interface_add_global_path']}` after_add_ping `{gate['wpa_ctrl_after_interface_add_ping']}` country_rc `{gate['driver_country_rc']}` reply `{gate['driver_country_reply']}` enable `{gate['enable_network_reply']}` reassociate `{gate['reassociate_reply']}`",
         f"- `wpa_ctrl_path`: dir `{gate['wpa_ctrl_dir']}` interface `{gate['wpa_ctrl_interface_path']}`",
-        f"- `supplicant`: launch `{gate['supplicant_launch_mode']}` driver `{gate['supplicant_driver']}` global_ctrl `{gate['supplicant_global_ctrl']}` alive_start `{gate['supplicant_alive_after_start']}` state_start `{gate['supplicant_proc_state_after_start']}` alive_after_carrier_wait `{gate['supplicant_alive_after_carrier_wait']}` state_after_carrier_wait `{gate['supplicant_proc_state_after_carrier_wait']}`",
+        f"- `supplicant`: launch `{gate['supplicant_launch_mode']}` driver `{gate['supplicant_driver']}` global_ctrl `{gate['supplicant_global_ctrl']}` direct_iface `{gate['supplicant_include_direct_interface']}` strace `{gate['supplicant_strace_enabled']}` strace_output `{gate['supplicant_strace_output']}` android_socket_mode `{gate['android_socket_wpa_wlan0_mode']}` android_socket_fd `{gate['android_socket_wpa_wlan0_fd']}` android_socket_errno `{gate['android_socket_wpa_wlan0_errno']}` alive_start `{gate['supplicant_alive_after_start']}` state_start `{gate['supplicant_proc_state_after_start']}` zombie_after_ctrl `{gate['supplicant_zombie_after_ctrl_wait']}` alive_after_carrier_wait `{gate['supplicant_alive_after_carrier_wait']}` state_after_carrier_wait `{gate['supplicant_proc_state_after_carrier_wait']}`",
+        f"- `supplicant_preexec`: path `{gate['supplicant_preexec_path']}` path_x `{gate['supplicant_preexec_path_access_x']}` path_errno `{gate['supplicant_preexec_path_access_errno']}` loader_x `{gate['supplicant_preexec_loader_access_x']}` loader_errno `{gate['supplicant_preexec_loader_access_errno']}` binary_x `{gate['supplicant_preexec_binary_access_x']}` binary_errno `{gate['supplicant_preexec_binary_access_errno']}` busybox_x `{gate['supplicant_preexec_busybox_access_x']}` busybox_errno `{gate['supplicant_preexec_busybox_access_errno']}` urandom_r `{gate['supplicant_preexec_dev_urandom_access_r']}` urandom_errno `{gate['supplicant_preexec_dev_urandom_access_errno']}` urandom_mode `{gate['supplicant_preexec_dev_urandom_mode']}` urandom_rdev `{gate['supplicant_preexec_dev_urandom_rdev_major']}:{gate['supplicant_preexec_dev_urandom_rdev_minor']}`",
+        f"- `standalone_wpa`: enabled `{gate['standalone_wpa_stage_enabled']}` staged `{gate['standalone_wpa_stage_ok']}` reason `{gate['standalone_wpa_stage_reason']}` wrapper `{gate['standalone_wpa_stage_remote_wrapper']}` packages `{gate['standalone_wpa_stage_package_count']}` version_rc `{gate['standalone_wpa_stage_version_rc']}` version `{gate['standalone_wpa_stage_version_sample']}`",
+        f"- `supplicant_hidl`: hwservicemanager_started `{gate['hwservicemanager_started']}` mode `{gate['hwservicemanager_start_mode']}` pid `{gate['hwservicemanager_pid']}` add_rc `{gate['supplicant_hidl_add_interface_rc']}` service_found `{gate['supplicant_hidl_add_interface_service_found']}` descriptor `{gate['supplicant_hidl_add_interface_service_descriptor']}` instance `{gate['supplicant_hidl_add_interface_service_instance']}` transaction_ok `{gate['supplicant_hidl_add_interface_transaction_ok']}` status `{gate['supplicant_hidl_add_interface_status_name']}` iface_handle `{gate['supplicant_hidl_add_interface_iface_handle_found']}` result `{gate['supplicant_hidl_add_interface_result']}` reason `{gate['supplicant_hidl_add_interface_reason']}` after_add_fd `{gate['supplicant_proc_hidl_add_fd_count']}` after_add_netlink `{gate['supplicant_proc_hidl_add_fd_netlink_count']}` after_add_genl `{gate['supplicant_proc_hidl_add_fd_generic_netlink_count']}`",
+        f"- `supplicant_hidl_vendor`: service_found `{gate['supplicant_hidl_vendor_service_found']}` descriptor `{gate['supplicant_hidl_vendor_service_descriptor']}` instance `{gate['supplicant_hidl_vendor_service_instance']}`",
         f"- `supplicant_proc_start`: comm `{gate['supplicant_proc_start_comm']}` exe `{gate['supplicant_proc_start_exe']}` has_wpa `{gate['supplicant_proc_start_has_wpa']}` has_helper `{gate['supplicant_proc_start_has_helper']}` has_config `{gate['supplicant_proc_start_has_config']}`",
-        f"- `supplicant_proc_start_runtime`: uid `{gate['supplicant_proc_start_uid']}` gid `{gate['supplicant_proc_start_gid']}` groups `{gate['supplicant_proc_start_groups']}` wchan `{gate['supplicant_proc_start_wchan']}` fd_count `{gate['supplicant_proc_start_fd_count']}` socket_fds `{gate['supplicant_proc_start_fd_socket_count']}` wpa_socket_fds `{gate['supplicant_proc_start_fd_wpa_socket_count']}` stdio_fds `{gate['supplicant_proc_start_fd_stdio_log_count']}`",
+        f"- `supplicant_proc_start_runtime`: uid `{gate['supplicant_proc_start_uid']}` gid `{gate['supplicant_proc_start_gid']}` groups `{gate['supplicant_proc_start_groups']}` wchan `{gate['supplicant_proc_start_wchan']}` syscall `{gate['supplicant_proc_start_syscall']}` stack `{gate['supplicant_proc_start_stack_first']}` fd_count `{gate['supplicant_proc_start_fd_count']}` socket_fds `{gate['supplicant_proc_start_fd_socket_count']}` netlink_fds `{gate['supplicant_proc_start_fd_netlink_count']}` generic_netlink_fds `{gate['supplicant_proc_start_fd_generic_netlink_count']}` netlink_miss `{gate['supplicant_proc_start_fd_netlink_lookup_miss']}` wpa_socket_fds `{gate['supplicant_proc_start_fd_wpa_socket_count']}` stdio_fds `{gate['supplicant_proc_start_fd_stdio_log_count']}`",
         f"- `supplicant_proc_after_wait`: comm `{gate['supplicant_proc_carrier_comm']}` exe `{gate['supplicant_proc_carrier_exe']}` has_wpa `{gate['supplicant_proc_carrier_has_wpa']}` has_helper `{gate['supplicant_proc_carrier_has_helper']}` has_config `{gate['supplicant_proc_carrier_has_config']}`",
-        f"- `supplicant_proc_after_wait_runtime`: uid `{gate['supplicant_proc_carrier_uid']}` gid `{gate['supplicant_proc_carrier_gid']}` groups `{gate['supplicant_proc_carrier_groups']}` wchan `{gate['supplicant_proc_carrier_wchan']}` fd_count `{gate['supplicant_proc_carrier_fd_count']}` socket_fds `{gate['supplicant_proc_carrier_fd_socket_count']}` wpa_socket_fds `{gate['supplicant_proc_carrier_fd_wpa_socket_count']}` stdio_fds `{gate['supplicant_proc_carrier_fd_stdio_log_count']}`",
-        f"- `supplicant_log`: present `{gate['supplicant_log_present']}` size `{gate['supplicant_log_size']}` lines `{gate['supplicant_log_lines']}` ctrl `{gate['supplicant_log_ctrl_iface']}` ctrl_err `{gate['supplicant_log_ctrl_iface_error']}` nl80211 `{gate['supplicant_log_nl80211']}` scan `{gate['supplicant_log_scan']}` auth `{gate['supplicant_log_auth']}` assoc `{gate['supplicant_log_assoc']}` connected `{gate['supplicant_log_connected']}` disconnected `{gate['supplicant_log_disconnected']}` fail `{gate['supplicant_log_fail']}`",
-        f"- `supplicant_stdio`: present `{gate['supplicant_stdio_present']}` size `{gate['supplicant_stdio_size']}` lines `{gate['supplicant_stdio_lines']}` ctrl `{gate['supplicant_stdio_ctrl_iface']}` ctrl_err `{gate['supplicant_stdio_ctrl_iface_error']}` config_err `{gate['supplicant_stdio_config_error']}` nl80211 `{gate['supplicant_stdio_nl80211']}` scan `{gate['supplicant_stdio_scan']}` auth `{gate['supplicant_stdio_auth']}` assoc `{gate['supplicant_stdio_assoc']}` connected `{gate['supplicant_stdio_connected']}` disconnected `{gate['supplicant_stdio_disconnected']}` fail `{gate['supplicant_stdio_fail']}` usage `{gate['supplicant_stdio_usage']}` interface `{gate['supplicant_stdio_interface']}` socket `{gate['supplicant_stdio_socket']}` terminate `{gate['supplicant_stdio_terminate']}` permission `{gate['supplicant_stdio_permission']}` samples `{gate['supplicant_stdio_sample_count']}` tail_samples `{gate['supplicant_stdio_tail_sample_count']}` nonproperty_samples `{gate['supplicant_stdio_nonproperty_sample_count']}` sensitive_skipped `{gate['supplicant_stdio_sensitive_sample_skipped']}`",
-        f"- `dhcp_executed`: `{gate['dhcp_executed']}` dhcp_rc `{gate['dhcp_rc']}`",
-        f"- `external_ping_executed`: `{gate['external_ping_executed']}` target `{gate['external_ping_target']}` rc `{gate['external_ping_rc']}`",
+        f"- `supplicant_proc_after_wait_runtime`: uid `{gate['supplicant_proc_carrier_uid']}` gid `{gate['supplicant_proc_carrier_gid']}` groups `{gate['supplicant_proc_carrier_groups']}` wchan `{gate['supplicant_proc_carrier_wchan']}` syscall `{gate['supplicant_proc_carrier_syscall']}` stack `{gate['supplicant_proc_carrier_stack_first']}` fd_count `{gate['supplicant_proc_carrier_fd_count']}` socket_fds `{gate['supplicant_proc_carrier_fd_socket_count']}` netlink_fds `{gate['supplicant_proc_carrier_fd_netlink_count']}` generic_netlink_fds `{gate['supplicant_proc_carrier_fd_generic_netlink_count']}` netlink_miss `{gate['supplicant_proc_carrier_fd_netlink_lookup_miss']}` wpa_socket_fds `{gate['supplicant_proc_carrier_fd_wpa_socket_count']}` stdio_fds `{gate['supplicant_proc_carrier_fd_stdio_log_count']}`",
+        f"- `supplicant_log`: present `{gate['supplicant_log_present']}` size `{gate['supplicant_log_size']}` lines `{gate['supplicant_log_lines']}` ctrl `{gate['supplicant_log_ctrl_iface']}` ctrl_err `{gate['supplicant_log_ctrl_iface_error']}` nl80211 `{gate['supplicant_log_nl80211']}` scan `{gate['supplicant_log_scan']}` auth `{gate['supplicant_log_auth']}` assoc `{gate['supplicant_log_assoc']}` connected `{gate['supplicant_log_connected']}` disconnected `{gate['supplicant_log_disconnected']}` fail `{gate['supplicant_log_fail']}` permission `{gate['supplicant_log_permission']}` avc `{gate['supplicant_log_avc']}` samples `{gate['supplicant_log_sample_count']}` tail_samples `{gate['supplicant_log_tail_sample_count']}` nonproperty_samples `{gate['supplicant_log_nonproperty_sample_count']}` sensitive_skipped `{gate['supplicant_log_sensitive_sample_skipped']}`",
+        f"- `supplicant_stdio`: present `{gate['supplicant_stdio_present']}` size `{gate['supplicant_stdio_size']}` lines `{gate['supplicant_stdio_lines']}` ctrl `{gate['supplicant_stdio_ctrl_iface']}` ctrl_err `{gate['supplicant_stdio_ctrl_iface_error']}` config_err `{gate['supplicant_stdio_config_error']}` nl80211 `{gate['supplicant_stdio_nl80211']}` scan `{gate['supplicant_stdio_scan']}` auth `{gate['supplicant_stdio_auth']}` assoc `{gate['supplicant_stdio_assoc']}` connected `{gate['supplicant_stdio_connected']}` disconnected `{gate['supplicant_stdio_disconnected']}` fail `{gate['supplicant_stdio_fail']}` usage `{gate['supplicant_stdio_usage']}` interface `{gate['supplicant_stdio_interface']}` socket `{gate['supplicant_stdio_socket']}` terminate `{gate['supplicant_stdio_terminate']}` permission `{gate['supplicant_stdio_permission']}` avc `{gate['supplicant_stdio_avc']}` samples `{gate['supplicant_stdio_sample_count']}` tail_samples `{gate['supplicant_stdio_tail_sample_count']}` nonproperty_samples `{gate['supplicant_stdio_nonproperty_sample_count']}` sensitive_skipped `{gate['supplicant_stdio_sensitive_sample_skipped']}`",
+        f"- `logdw_sink`: started `{gate['logdw_sink_started']}` errno `{gate['logdw_sink_errno']}` datagrams `{gate['logdw_sink_datagrams']}` bytes `{gate['logdw_sink_bytes']}` wpa `{gate['logdw_sink_wpa']}` supplicant `{gate['logdw_sink_supplicant']}` nl80211 `{gate['logdw_sink_nl80211']}` ctrl `{gate['logdw_sink_ctrl']}` interface `{gate['logdw_sink_interface']}` fail `{gate['logdw_sink_fail']}` permission `{gate['logdw_sink_permission']}` hidl `{gate['logdw_sink_hidl']}` service_manager `{gate['logdw_sink_service_manager']}` samples `{gate['logdw_sink_sample_count']}` sensitive_skipped `{gate['logdw_sink_sensitive_sample_skipped']}` drain_errno `{gate['logdw_sink_drain_errno']}`",
+        f"- `kmsg_stream`: started `{gate['kmsg_stream_started']}` start_errno `{gate['kmsg_stream_start_errno']}` present `{gate['kmsg_stream_present']}` size `{gate['kmsg_stream_size']}` lines `{gate['kmsg_stream_lines']}` permission `{gate['kmsg_stream_permission']}` avc `{gate['kmsg_stream_avc']}` nl80211 `{gate['kmsg_stream_nl80211']}` auth `{gate['kmsg_stream_auth']}` assoc `{gate['kmsg_stream_assoc']}` fail `{gate['kmsg_stream_fail']}` sensitive_skipped `{gate['kmsg_stream_sensitive_sample_skipped']}` cleanup_exit `{gate['kmsg_stream_cleanup_exit']}` signal `{gate['kmsg_stream_cleanup_signal']}` timeout `{gate['kmsg_stream_cleanup_timeout']}`",
+        f"- `dhcp_executed`: `{gate['dhcp_executed']}` dhcp_rc `{gate['dhcp_rc']}` resolv_present `{gate['resolv_conf_present']}` resolv_errno `{gate['resolv_conf_errno']}` resolv_size `{gate['resolv_conf_size']}` nameservers `{gate['resolv_conf_nameserver_count']}`",
+        f"- `external_ping_executed`: `{gate['external_ping_executed']}` target `{gate['external_ping_target']}` rc `{gate['external_ping_rc']}` classifier `{gate['external_ping_output_classifier']}` output_present `{gate['external_ping_output_present']}` output_errno `{gate['external_ping_output_errno']}` bytes_from `{gate['external_ping_output_bytes_from']}` bad_address `{gate['external_ping_output_bad_address']}` unknown_host `{gate['external_ping_output_unknown_host']}` net_unreach `{gate['external_ping_output_network_unreachable']}` sendto `{gate['external_ping_output_sendto_error']}` zero_recv `{gate['external_ping_output_zero_received']}` loss100 `{gate['external_ping_output_packet_loss_100']}`",
         f"- `pre_state`: operstate `{gate['pre_operstate']}` carrier `{gate['pre_carrier']}` flags `{gate['pre_flags']}`",
         f"- `post_state`: operstate `{gate['post_operstate']}` carrier `{gate['post_carrier']}` flags `{gate['post_flags']}`",
-        f"- `staging`: property `{gate['property_stage_ok']}` helper `{gate['helper_stage_ok']}` config `{gate['config_ok']}` script `{gate['script_ok']}` wait_complete `{gate['wait_complete']}`",
+        f"- `staging`: property `{gate['property_stage_ok']}` helper `{gate['helper_stage_ok']}` standalone_wpa `{gate['standalone_wpa_stage_ok']}` config `{gate['config_ok']}` script `{gate['script_ok']}` wait_complete `{gate['wait_complete']}`",
         f"- `property_root`: remote `{gate['property_stage_remote_root']}` decision `{gate['property_stage_runtime_decision']}` files `{gate['property_stage_file_count']}` property_info_size `{gate['property_stage_property_info_size']}`",
         f"- `no_raw`: `{gate['no_raw']}` secret_values_logged `{gate['secret_values_logged']}`",
         "",
         "## Redacted Supplicant Samples",
+        "",
+        *supplicant_log_sample_lines,
+        *supplicant_log_tail_sample_lines,
+        *supplicant_log_nonproperty_sample_lines,
+        *([] if supplicant_log_sample_lines or supplicant_log_tail_sample_lines or supplicant_log_nonproperty_sample_lines else ["- `supplicant_log`: `none`"]),
+        "",
+        "## Redacted Supplicant Stdio Samples",
         "",
         *supplicant_stdio_sample_lines,
         *([] if supplicant_stdio_sample_lines else ["- `none`"]),
@@ -1385,6 +2311,15 @@ def render_report(manifest: dict[str, Any]) -> str:
         *supplicant_stdio_nonproperty_sample_lines,
         *([] if supplicant_stdio_nonproperty_sample_lines else ["- `none`"]),
         "",
+        "## Redacted Kernel Stream Samples",
+        "",
+        *logdw_sample_lines,
+        *([] if logdw_sample_lines else ["- `logdw`: `none`"]),
+        *kmsg_sample_lines,
+        *([] if kmsg_sample_lines else ["- `none`"]),
+        *kmsg_tail_sample_lines,
+        *([] if kmsg_tail_sample_lines else ["- `tail`: `none`"]),
+        "",
         "## Supplicant FD Samples",
         "",
         *supplicant_start_fd_lines,
@@ -1396,14 +2331,16 @@ def render_report(manifest: dict[str, Any]) -> str:
         "",
         f"- `property_archive`: `{property_archive.get('path', '')}` bytes `{property_archive.get('bytes', 0)}` chunks `{property_archive.get('chunks', 0)}` staged `{property_stage.get('property_stage.ok', '')}` method `{property_stage.get('property_stage.transfer_method', '')}` fast `{property_stage.get('property_stage.fast_transfer_ok', '')}` elapsed `{property_stage.get('property_stage.fast_transfer_elapsed_sec', '')}`",
         f"- `helper_sha256`: `{helper.get('sha256', '')}` gzip_len `{helper.get('gzip_len', 0)}` chunks `{helper.get('chunks', 0)}` method `{manifest.get('helper_stage', {}).get('helper_stage.transfer_method', '')}` fast `{manifest.get('helper_stage', {}).get('helper_stage.fast_transfer_ok', '')}` elapsed `{manifest.get('helper_stage', {}).get('helper_stage.fast_transfer_elapsed_sec', '')}`",
+        f"- `strace_stage`: ok `{manifest.get('strace_stage', {}).get('strace_stage.ok', '')}` reason `{manifest.get('strace_stage', {}).get('strace_stage.reason', '')}` fast `{manifest.get('strace_stage', {}).get('strace_stage.fast_transfer_ok', '')}` elapsed `{manifest.get('strace_stage', {}).get('strace_stage.fast_transfer_elapsed_sec', '')}`",
+        f"- `standalone_wpa_archive`: ok `{standalone_wpa.get('ok', False)}` bytes `{standalone_wpa.get('bytes', 0)}` sha `{standalone_wpa.get('sha256', '')}` packages `{standalone_wpa.get('package_count', 0)}` staged `{standalone_wpa_stage.get('standalone_wpa_stage.ok', '')}` fast `{standalone_wpa_stage.get('standalone_wpa_stage.fast_transfer_ok', '')}` elapsed `{standalone_wpa_stage.get('standalone_wpa_stage.fast_transfer_elapsed_sec', '')}`",
         f"- `connect_config`: path `{CONNECT_CONFIG}` size `{config.get('connect_config.size', '')}` mode `{config.get('connect_config.mode', '')}` security `{config.get('connect_config.security_mode', '')}` disabled_initially `{config.get('connect_config.network_initially_disabled', '')}` raw_values_logged `0`",
         "",
         "## Scope",
         "",
-        f"- This V2167 unit stages a generated private property root at `{PROPERTY_REMOTE_ROOT}` with the wpa_supplicant loader/log lookup keys, adds private `/dev/random` and `/dev/urandom`, launches `wpa_supplicant` root-start direct `-i wlan0 -D nl80211 -c <private-config> -O /cache/a90-wifi/sockets`, and records redacted first/tail/non-property stdio samples plus `/proc` exec-state counters.",
+        f"- This V2167 unit stages a generated private property root at `{PROPERTY_REMOTE_ROOT}` with the wpa_supplicant loader/log lookup keys, adds private `/dev/random` and `/dev/urandom`, creates `/dev/socket/logdw`, launches `wpa_supplicant` direct as `-dd -i wlan0 -D nl80211 -c <config> -O /cache/a90-wifi/sockets -t`, and observes carrier/DHCP/ping. It records redacted supplicant/logdw/kmsg samples plus `/proc` fd/netlink/syscall counters. This target supplicant does not support `-f`, so stdout/stderr plus logdw are the diagnostic logs.",
         "- Allowed actions: start private Wi-Fi active-session surface, start `wpa_supplicant`, run DHCP, set temporary route/DNS, and ping `google.com`.",
         "- Outputs are redacted: no SSID, PSK, BSSID, raw MAC, assigned IP, route, DNS, DHCP lease, or ping transcript is recorded in the report.",
-        "- Cleanup removes staged config/result/script artifacts and rollback returns to `v724`.",
+        "- Cleanup removes staged config/result/script artifacts and rollback returns to `v725-fasttransport`.",
         "",
         "## Steps",
         "",
@@ -1413,11 +2350,12 @@ def render_report(manifest: dict[str, Any]) -> str:
         "## Cleanup",
         "",
         f"- `cache_artifacts_removed`: `{gate['cleanup_ok']}`",
+        f"- `cleanup_skipped_reason`: `{gate['cleanup_skipped_reason']}`",
         "",
         "## Safety",
         "",
         "- Wi-Fi credentials are read only from environment variables and are not committed.",
-        "- Raw supplicant, DHCP, and ping stdout/stderr are redirected to `/dev/null` by the helper.",
+        "- Raw supplicant, kmsg, DHCP, and ping stdout/stderr are summarized with redacted samples; raw supplicant/kmsg files are removed during helper cleanup.",
         "- No `/dev/subsys_esoc0`, forced RC1/case, PMIC/GPIO/GDSC/regulator write, PCI rescan, bind/unbind, fake ONLINE, or eSoC notify/BOOT_DONE action is used.",
         "",
     ])
@@ -1441,12 +2379,15 @@ def write_preflight_manifest(store: base.EvidenceStore,
                              steps: list[dict[str, Any]],
                              helper_build: dict[str, Any],
                              helper_stage: dict[str, str],
+                             standalone_wpa_archive: dict[str, Any],
+                             standalone_wpa_stage: dict[str, str],
                              property_manifest: dict[str, Any],
                              property_archive: dict[str, Any],
                              property_stage: dict[str, str],
                              config_stage: dict[str, str],
                              label: str,
-                             reason: str) -> None:
+                             reason: str,
+                             phase_timer: PhaseTimer | None = None) -> None:
     manifest = {
         "cycle": CYCLE,
         "run_label": RUN_LABEL,
@@ -1457,6 +2398,8 @@ def write_preflight_manifest(store: base.EvidenceStore,
         "out_dir": base.rel(OUT_DIR),
         "helper_build": helper_build,
         "helper_stage": helper_stage,
+        "standalone_wpa_archive": standalone_wpa_archive,
+        "standalone_wpa_stage": standalone_wpa_stage,
         "property_runtime": property_manifest,
         "property_archive": property_archive,
         "property_stage": property_stage,
@@ -1467,6 +2410,21 @@ def write_preflight_manifest(store: base.EvidenceStore,
     }
     gate = {
         "wlan0_seen": False,
+        "result_source": "none",
+        "serial_attempt_count": 0,
+        "result_left_on_device": False,
+        "fast_upload_ok": False,
+        "fast_upload_reason": "not-run",
+        "fast_upload_elapsed_sec": "",
+        "fast_upload_archive_path": "",
+        "fast_upload_archive_bytes": 0,
+        "fast_upload_archive_sha256": "",
+        "fast_upload_receiver_bytes": 0,
+        "fast_upload_entry_count": 0,
+        "fast_upload_forbidden_entries": [],
+        "fast_upload_secret_hits": [],
+        "cleanup_ok": False,
+        "cleanup_skipped_reason": "",
         "helper_invoked": False,
         "helper_rc": 0,
         "executor_result": "",
@@ -1489,6 +2447,8 @@ def write_preflight_manifest(store: base.EvidenceStore,
         "wpa_ctrl_surface": "",
         "wpa_ctrl_global_path": "",
         "wpa_ctrl_global_abstract": False,
+        "wpa_ctrl_global_preclean_path": "",
+        "wpa_ctrl_global_preclean_errno": 0,
         "wpa_ctrl_ready_errno": 0,
         "wpa_ctrl_ping_reply": "",
         "driver_country_reply": "",
@@ -1510,7 +2470,34 @@ def write_preflight_manifest(store: base.EvidenceStore,
         "supplicant_driver": "",
         "supplicant_launch_mode": "",
         "supplicant_global_ctrl": "",
+        "supplicant_strace_enabled": False,
+        "supplicant_strace_output": "",
+        "hwservicemanager_started": False,
+        "hwservicemanager_start_mode": "",
+        "hwservicemanager_pid": -1,
+        "supplicant_hidl_add_interface_rc": 0,
+        "supplicant_hidl_add_interface_result": "",
+        "supplicant_hidl_add_interface_reason": "",
+        "supplicant_hidl_add_interface_service_found": False,
+        "supplicant_hidl_add_interface_service_descriptor": "",
+        "supplicant_hidl_add_interface_service_instance": "",
+        "supplicant_hidl_add_interface_status_name": "",
+        "supplicant_hidl_add_interface_transaction_ok": False,
+        "supplicant_hidl_add_interface_iface_handle_found": False,
+        "supplicant_hidl_vendor_service_found": False,
+        "supplicant_hidl_vendor_service_descriptor": "",
+        "supplicant_hidl_vendor_service_instance": "",
+        "supplicant_proc_hidl_add_fd_count": 0,
+        "supplicant_proc_hidl_add_fd_socket_count": 0,
+        "supplicant_proc_hidl_add_fd_netlink_count": 0,
+        "supplicant_proc_hidl_add_fd_generic_netlink_count": 0,
+        "supplicant_proc_hidl_add_fd_wpa_socket_count": 0,
+        "android_socket_wpa_wlan0_path": "",
+        "android_socket_wpa_wlan0_mode": "",
+        "android_socket_wpa_wlan0_fd": -1,
+        "android_socket_wpa_wlan0_errno": 0,
         "supplicant_alive_after_start": False,
+        "supplicant_zombie_after_ctrl_wait": False,
         "supplicant_proc_state_after_start": "",
         "supplicant_alive_after_carrier_wait": False,
         "supplicant_proc_state_after_carrier_wait": "",
@@ -1536,6 +2523,15 @@ def write_preflight_manifest(store: base.EvidenceStore,
         "supplicant_log_connected": 0,
         "supplicant_log_disconnected": 0,
         "supplicant_log_fail": 0,
+        "supplicant_log_permission": 0,
+        "supplicant_log_avc": 0,
+        "supplicant_log_sample_count": 0,
+        "supplicant_log_tail_sample_count": 0,
+        "supplicant_log_nonproperty_sample_count": 0,
+        "supplicant_log_sensitive_sample_skipped": 0,
+        "supplicant_log_samples": [],
+        "supplicant_log_tail_samples": [],
+        "supplicant_log_nonproperty_samples": [],
         "supplicant_stdio_present": False,
         "supplicant_stdio_size": 0,
         "supplicant_stdio_lines": 0,
@@ -1554,6 +2550,7 @@ def write_preflight_manifest(store: base.EvidenceStore,
         "supplicant_stdio_socket": 0,
         "supplicant_stdio_terminate": 0,
         "supplicant_stdio_permission": 0,
+        "supplicant_stdio_avc": 0,
         "supplicant_stdio_sample_count": 0,
         "supplicant_stdio_tail_sample_count": 0,
         "supplicant_stdio_nonproperty_sample_count": 0,
@@ -1565,8 +2562,13 @@ def write_preflight_manifest(store: base.EvidenceStore,
         "supplicant_proc_start_gid": "",
         "supplicant_proc_start_groups": "",
         "supplicant_proc_start_wchan": "",
+        "supplicant_proc_start_syscall": "",
+        "supplicant_proc_start_stack_first": "",
         "supplicant_proc_start_fd_count": 0,
         "supplicant_proc_start_fd_socket_count": 0,
+        "supplicant_proc_start_fd_netlink_count": 0,
+        "supplicant_proc_start_fd_generic_netlink_count": 0,
+        "supplicant_proc_start_fd_netlink_lookup_miss": 0,
         "supplicant_proc_start_fd_wpa_socket_count": 0,
         "supplicant_proc_start_fd_stdio_log_count": 0,
         "supplicant_proc_start_fd_samples": [],
@@ -1574,11 +2576,50 @@ def write_preflight_manifest(store: base.EvidenceStore,
         "supplicant_proc_carrier_gid": "",
         "supplicant_proc_carrier_groups": "",
         "supplicant_proc_carrier_wchan": "",
+        "supplicant_proc_carrier_syscall": "",
+        "supplicant_proc_carrier_stack_first": "",
         "supplicant_proc_carrier_fd_count": 0,
         "supplicant_proc_carrier_fd_socket_count": 0,
+        "supplicant_proc_carrier_fd_netlink_count": 0,
+        "supplicant_proc_carrier_fd_generic_netlink_count": 0,
+        "supplicant_proc_carrier_fd_netlink_lookup_miss": 0,
         "supplicant_proc_carrier_fd_wpa_socket_count": 0,
         "supplicant_proc_carrier_fd_stdio_log_count": 0,
         "supplicant_proc_carrier_fd_samples": [],
+        "kmsg_stream_started": False,
+        "kmsg_stream_start_errno": 0,
+        "kmsg_stream_cleanup_exit": 0,
+        "kmsg_stream_cleanup_signal": 0,
+        "kmsg_stream_cleanup_timeout": False,
+        "kmsg_stream_present": False,
+        "kmsg_stream_size": 0,
+        "kmsg_stream_lines": 0,
+        "kmsg_stream_permission": 0,
+        "kmsg_stream_avc": 0,
+        "kmsg_stream_nl80211": 0,
+        "kmsg_stream_auth": 0,
+        "kmsg_stream_assoc": 0,
+        "kmsg_stream_fail": 0,
+        "kmsg_stream_sensitive_sample_skipped": 0,
+        "kmsg_stream_samples": [],
+        "kmsg_stream_tail_samples": [],
+        "logdw_sink_started": False,
+        "logdw_sink_errno": 0,
+        "logdw_sink_drain_errno": 0,
+        "logdw_sink_datagrams": 0,
+        "logdw_sink_bytes": 0,
+        "logdw_sink_wpa": 0,
+        "logdw_sink_supplicant": 0,
+        "logdw_sink_nl80211": 0,
+        "logdw_sink_ctrl": 0,
+        "logdw_sink_interface": 0,
+        "logdw_sink_fail": 0,
+        "logdw_sink_permission": 0,
+        "logdw_sink_hidl": 0,
+        "logdw_sink_service_manager": 0,
+        "logdw_sink_sample_count": 0,
+        "logdw_sink_sensitive_sample_skipped": 0,
+        "logdw_sink_samples": [],
         "pre_operstate": "",
         "pre_carrier": "",
         "pre_flags": "",
@@ -1586,6 +2627,13 @@ def write_preflight_manifest(store: base.EvidenceStore,
         "post_carrier": "",
         "post_flags": "",
         "helper_stage_ok": helper_stage.get("helper_stage.ok") == "1",
+        "standalone_wpa_stage_ok": standalone_wpa_stage.get("standalone_wpa_stage.ok") == "1",
+        "standalone_wpa_stage_enabled": standalone_wpa_stage.get("standalone_wpa_stage.enabled", ""),
+        "standalone_wpa_stage_reason": standalone_wpa_stage.get("standalone_wpa_stage.reason", ""),
+        "standalone_wpa_stage_remote_wrapper": standalone_wpa_stage.get("standalone_wpa_stage.remote_wrapper", ""),
+        "standalone_wpa_stage_package_count": intish(standalone_wpa_stage.get("standalone_wpa_stage.package_count")),
+        "standalone_wpa_stage_version_rc": intish(standalone_wpa_stage.get("standalone_wpa_stage.version_rc")),
+        "standalone_wpa_stage_version_sample": standalone_wpa_stage.get("standalone_wpa_stage.version_sample", ""),
         "property_stage_ok": property_stage.get("property_stage.ok") == "1",
         "property_stage_remote_root": property_stage.get("property_stage.remote_root", ""),
         "property_stage_runtime_decision": property_stage.get("property_stage.runtime_decision", ""),
@@ -1599,6 +2647,7 @@ def write_preflight_manifest(store: base.EvidenceStore,
         "cleanup_ok": True,
     }
     manifest["connect_ping_gate"] = gate
+    attach_timing_manifest(store, manifest, phase_timer)
     summary = render_report(manifest)
     store.write_json("manifest.json", manifest)
     store.write_text("summary.md", summary)
@@ -1614,19 +2663,36 @@ def write_preflight_manifest(store: base.EvidenceStore,
 def main() -> int:
     store = base.EvidenceStore(OUT_DIR)
     bootstrap_steps: list[dict[str, Any]] = []
-    property_manifest = build_supplicant_property_runtime(store)
-    property_archive = build_property_archive(property_manifest)
-    fast_transfer = FastTransferSession(store, bootstrap_steps)
-    try:
-        property_stage = stage_property_runtime(store, bootstrap_steps, property_manifest, property_archive, fast_transfer)
-        helper_build = build_helper(store, bootstrap_steps)
-        helper_stage = stage_helper_binary(store, bootstrap_steps, helper_build, fast_transfer)
-    finally:
-        fast_transfer.close()
-    config_stage = stage_connect_config(store, bootstrap_steps)
+    phase_timer = PhaseTimer()
+    with phase_timer.phase("host_property_build"):
+        property_manifest = build_supplicant_property_runtime(store)
+    with phase_timer.phase("host_property_archive"):
+        property_archive = build_property_archive(property_manifest)
+    with phase_timer.phase("host_standalone_wpa_bundle"):
+        standalone_wpa_archive = build_standalone_wpa_archive(store, bootstrap_steps)
+    with phase_timer.phase("prestage_total"):
+        fast_transfer = FastTransferSession(store, bootstrap_steps)
+        try:
+            with phase_timer.phase("property_stage"):
+                property_stage = stage_property_runtime(store, bootstrap_steps, property_manifest, property_archive, fast_transfer)
+            with phase_timer.phase("host_helper_build"):
+                helper_build = build_helper(store, bootstrap_steps)
+            with phase_timer.phase("helper_stage"):
+                helper_stage = stage_helper_binary(store, bootstrap_steps, helper_build, fast_transfer)
+            with phase_timer.phase("strace_stage"):
+                strace_stage = stage_strace_binary(store, bootstrap_steps, fast_transfer)
+            with phase_timer.phase("standalone_wpa_stage"):
+                standalone_wpa_stage = stage_standalone_wpa_bundle(store, bootstrap_steps, standalone_wpa_archive, fast_transfer)
+        finally:
+            with phase_timer.phase("fast_transfer_close"):
+                fast_transfer.close()
+    with phase_timer.phase("connect_config_stage"):
+        config_stage = stage_connect_config(store, bootstrap_steps)
     if (
         property_stage.get("property_stage.ok") != "1"
         or helper_stage.get("helper_stage.ok") != "1"
+        or strace_stage.get("strace_stage.ok") != "1"
+        or standalone_wpa_stage.get("standalone_wpa_stage.ok") != "1"
         or config_stage.get("connect_config.ok") != "1"
     ):
         write_preflight_manifest(
@@ -1634,6 +2700,8 @@ def main() -> int:
             bootstrap_steps,
             helper_build,
             helper_stage,
+            standalone_wpa_archive,
+            standalone_wpa_stage,
             property_manifest,
             property_archive,
             property_stage,
@@ -1642,25 +2710,31 @@ def main() -> int:
             (
                 f"prestage failed property={property_stage.get('property_stage.reason')} "
                 f"helper={helper_stage.get('helper_stage.reason')} "
+                f"strace={strace_stage.get('strace_stage.reason')} "
+                f"standalone_wpa={standalone_wpa_stage.get('standalone_wpa_stage.reason')} "
                 f"config={config_stage.get('connect_config.reason')}"
             ),
+            phase_timer,
         )
         return 1
 
     def hook(hook_store: base.EvidenceStore, steps: list[dict[str, Any]]) -> dict[str, Any]:
         steps.extend(bootstrap_steps)
-        return post_flash_connect(hook_store, steps, helper_stage, property_stage, config_stage)
+        with phase_timer.phase("connect_window"):
+            return post_flash_connect(hook_store, steps, helper_stage, standalone_wpa_stage, property_stage, config_stage)
 
-    manifest = base.run_handoff(
-        cycle=CYCLE,
-        out_dir=OUT_DIR,
-        report_path=REPORT_PATH,
-        post_flash_hook=hook,
-        helper_wait_sec=280.0,
-    )
+    with phase_timer.phase("handoff_flash_test_rollback_total"):
+        manifest = base.run_handoff(
+            cycle=CYCLE,
+            out_dir=OUT_DIR,
+            report_path=REPORT_PATH,
+            post_flash_hook=hook,
+            helper_wait_sec=280.0,
+        )
     store = base.EvidenceStore(OUT_DIR)
     steps = manifest["steps"]
-    connect_result = collect_post_rollback_result(store, steps)
+    with phase_timer.phase("post_rollback_artifact_upload"):
+        connect_result = collect_post_rollback_result(store, steps)
     gate = collect_gate(manifest, connect_result)
     manifest = {
         **manifest,
@@ -1671,6 +2745,9 @@ def main() -> int:
         "reason": gate["reason"],
         "helper_build": helper_build,
         "helper_stage": helper_stage,
+        "strace_stage": strace_stage,
+        "standalone_wpa_archive": standalone_wpa_archive,
+        "standalone_wpa_stage": standalone_wpa_stage,
         "property_runtime": property_manifest,
         "property_archive": property_archive,
         "property_stage": property_stage,
@@ -1683,6 +2760,7 @@ def main() -> int:
         "dhcp_route_executed": gate["dhcp_executed"],
         "external_ping_executed": gate["external_ping_executed"],
     }
+    attach_timing_manifest(store, manifest, phase_timer)
     summary = render_report(manifest)
     hits = forbidden_hits(summary)
     manifest["forbidden_output_hits"] = hits
