@@ -168,6 +168,7 @@
 - HUD boot summary: `BOOT OK shell` 표시 확인
 - run cancel: `/bin/a90sleep` helper 확인
 - storage: `/cache` safe write, ext4 SD workspace `/mnt/sdext/a90`, critical partitions do-not-touch
+- Wi-Fi autoconnect/config plan: `docs/reports/NATIVE_INIT_WIFI_AUTOCONNECT_CONFIG_PLAN_2026-06-07.md`
 - screen menu: 자동 메뉴, 앱 폴더, CPU stress app, nonblocking `screenmenu`, serial `hide`/busy gate 확인
 - USB map: ACM-only gadget `04e8:6861` / host `cdc_acm` 기준 문서화
 - userland: static BusyBox 1.36.1 SD runtime 실행과 toybox 0.8.13 fallback 실행 확인
@@ -675,10 +676,11 @@
 
 ### 4. Current Native Init Reports
 
-- `reports/NATIVE_INIT_V726_WIFI_LIFECYCLE_BASELINE_PROMOTION_2026-06-07.md` – `0.9.246 (v726-wifi-lifecycle)`/SHA `2a8d3f...`를 현재 baseline으로 승격하고, 현재 부팅 `status`/`selftest fail=0`, persistent `baseline_ready=1`, final SHA 60초 connect smoke를 묶은 결과
+- `reports/NATIVE_INIT_WIFI_AUTOCONNECT_CONFIG_PLAN_2026-06-07.md` – V726 이후 Wi-Fi SSID/PSK 저장, 명시적 autoconnect 옵션, generated supplicant config, HUD/runtime summary 연동, artifact hygiene를 정리한 계획
+- `reports/NATIVE_INIT_V726_WIFI_LIFECYCLE_BASELINE_PROMOTION_2026-06-07.md` – `0.9.246 (v726-wifi-lifecycle)`/SHA `99e443...`를 현재 baseline으로 승격하고, 현재 부팅 `status`/`selftest fail=0`, persistent `baseline_ready=1`, final SHA 60초 connect smoke를 묶은 결과
 - `reports/NATIVE_INIT_V2167_CONNECT_DHCP_GOOGLE_PING_HANDOFF_V726_FINAL_SHA_SMOKE_2026-06-05.md` – 최종 V726 SHA를 test/rollback 이미지로 사용해 connect→DHCP→google ping→60초 hold를 통과하고 v726 rollback/selftest를 검증한 결과
 - `reports/NATIVE_INIT_V2167_CONNECT_DHCP_GOOGLE_PING_HANDOFF_V726_5G_FWREADY_WAIT_5MIN_NO_HELPER_HOLDER_2026-06-05.md` – V726 Wi-Fi lifecycle route가 connect→DHCP→google ping 이후 5분 hold 동안 carrier/route/gateway/IP/host ping을 모두 유지하고 v725 rollback/selftest fail=0을 검증한 장시간 hold 결과
-- `reports/NATIVE_INIT_V726_WIFI_LIFECYCLE_SOURCE_BUILD_2026-06-07.md` – V726 source/build 결과 V2168 QCACLD firmware_class feeder, post-FW_READY `boot_wlan`, V725 fasttransport, PID1 `/dev/subsys_modem` lifecycle owner를 결합한 `0.9.246 (v726-wifi-lifecycle)` 이미지 생성 결과
+- `reports/NATIVE_INIT_V726_WIFI_LIFECYCLE_SOURCE_BUILD_2026-06-07.md` – V726 source/build 결과 V2168 QCACLD firmware_class feeder, post-FW_READY `boot_wlan`, V725 fasttransport, PID1 `/dev/subsys_modem` lifecycle owner, Wi-Fi runtime summary HUD를 결합한 `0.9.246 (v726-wifi-lifecycle)` 이미지 생성 결과
 - `reports/NATIVE_INIT_V1005_V1004_FD_GAP_CLASSIFIER_2026-05-26.md` – V1000 Android lower timing, V911 native `mdm_helper` fd positive, V1004 service-window fd-gate miss를 host-only로 비교해 helper `v171` fd-poll support를 다음으로 선택한 V1005 결과
 - `reports/NATIVE_INIT_V1006_SERVICE_WINDOW_FD_POLL_SUPPORT_2026-05-26.md` – helper `v171`에 Android service-window `mdm_helper` `/dev/esoc-0` repeated fd-poll markers와 Android-like mdm-helper→cnss timing support를 source/build-only로 추가한 V1006 결과
 - `reports/NATIVE_INIT_V1007_HELPER_V171_DEPLOY_2026-05-26.md` – helper `v171`을 `/cache/bin/a90_android_execns_probe`로 deploy-only 설치하고 remote sha/contract parity 및 no-Wi-Fi guard를 확인한 V1007 결과

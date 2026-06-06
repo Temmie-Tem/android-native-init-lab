@@ -15,6 +15,7 @@
 - Source/build: `docs/reports/NATIVE_INIT_V726_WIFI_LIFECYCLE_SOURCE_BUILD_2026-06-07.md`
 - Long hold evidence: `docs/reports/NATIVE_INIT_V2167_CONNECT_DHCP_GOOGLE_PING_HANDOFF_V726_5G_FWREADY_WAIT_5MIN_NO_HELPER_HOLDER_2026-06-05.md`
 - Final SHA smoke evidence: `docs/reports/NATIVE_INIT_V2167_CONNECT_DHCP_GOOGLE_PING_HANDOFF_V726_FINAL_SHA_SMOKE_2026-06-05.md`
+- Autoconnect/config plan: `docs/reports/NATIVE_INIT_WIFI_AUTOCONNECT_CONFIG_PLAN_2026-06-07.md`
 - Current boot was flashed to V726 and verified by `status` + `selftest fail=0`.
 - Persistent boot summary now reports `wlan0_present=1`, `baseline_ready=1`, `helper_timeout_benign=1`, and `supervisor_result=wlan0-ready`.
 - HUD now shows Wi-Fi state (`WIFI WAIT`/`IFACE`/`READY`/`UP`) above the existing SD/storage line and consumes `/cache/native-init-wifi-runtime.summary` for runtime MAC/IP/RX/TX details.
