@@ -29,6 +29,7 @@ from a90harness.evidence import workspace_private_build_path, workspace_private_
 
 LINUX_INIT = REPO_ROOT / "workspace" / "public" / "src" / "native-init"
 NATIVE_INIT_HELPERS = workspace_private_build_path("native-init", "helpers")
+MKBOOTIMG_DIR = REPO_ROOT / "workspace" / "public" / "src" / "third_party" / "mkbootimg"
 DEFAULT_BASE_BOOT = workspace_private_input_path("boot_images", "boot_linux_v319.img")
 DEFAULT_INIT_SOURCE = LINUX_INIT / "init_v724.c"
 DEFAULT_INIT_BINARY = workspace_private_build_path("native-init", "v724", "init_v724")
@@ -136,7 +137,7 @@ def build_boot_image(args: argparse.Namespace) -> None:
         unpack_args = run(
             [
                 "python3",
-                REPO_ROOT / "mkbootimg" / "unpack_bootimg.py",
+                MKBOOTIMG_DIR / "unpack_bootimg.py",
                 "--boot_img",
                 args.base_boot,
                 "--out",
@@ -159,7 +160,7 @@ def build_boot_image(args: argparse.Namespace) -> None:
         args.boot_image.parent.mkdir(parents=True, exist_ok=True)
         run([
             "python3",
-            REPO_ROOT / "mkbootimg" / "mkbootimg.py",
+            MKBOOTIMG_DIR / "mkbootimg.py",
             *mkboot_args,
             "--output",
             args.boot_image,

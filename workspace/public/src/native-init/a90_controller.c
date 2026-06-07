@@ -20,7 +20,7 @@
 #endif
 
 #define A90_POLICY_MAX_ARGS 5
-#define A90_POLICY_MAX_RESULTS 96
+#define A90_POLICY_MAX_RESULTS 128
 
 struct controller_policy_case {
     const char *label;
@@ -183,6 +183,12 @@ static bool service_read_only(int argc, char **argv) {
     return false;
 }
 
+static bool wifi_read_only(int argc, char **argv) {
+    return argc == 3 &&
+           arg_equals(argv, argc, 1, "config") &&
+           arg_equals(argv, argc, 2, "status");
+}
+
 static bool command_allowed_during_menu_ex(const char *name, int argc, char **argv) {
     static const char *const status_verbose[] = {
         "status",
@@ -238,6 +244,9 @@ static bool command_allowed_during_menu_ex(const char *name, int argc, char **ar
     }
     if (strcmp(name, "wififeas") == 0) {
         return subcmd_absent_or_one_of(argc, argv, wififeas_safe, sizeof(wififeas_safe) / sizeof(wififeas_safe[0]));
+    }
+    if (strcmp(name, "wifi") == 0) {
+        return wifi_read_only(argc, argv);
     }
     if (strcmp(name, "rshell") == 0) {
         return subcmd_absent_or_one_of(argc, argv, rshell_safe, sizeof(rshell_safe) / sizeof(rshell_safe[0]));
@@ -368,6 +377,7 @@ static const struct controller_policy_case policy_cases[] = {
     { "menu allow wifiinv paths", 2, { "wifiinv", "paths" }, false, true },
     { "menu allow wififeas summary", 2, { "wififeas", "summary" }, false, true },
     { "menu allow wififeas gate", 2, { "wififeas", "gate" }, false, true },
+    { "menu allow wifi config status", 3, { "wifi", "config", "status" }, false, true },
     { "menu allow hide", 1, { "hide" }, false, true },
     { "menu block bare mountsd", 1, { "mountsd" }, false, false },
     { "menu block mountsd ro", 2, { "mountsd", "ro" }, false, false },
@@ -395,6 +405,7 @@ static const struct controller_policy_case policy_cases[] = {
     { "menu block diag bundle", 2, { "diag", "bundle" }, false, false },
     { "menu block wifiinv refresh", 2, { "wifiinv", "refresh" }, false, false },
     { "menu block wififeas refresh", 2, { "wififeas", "refresh" }, false, false },
+    { "menu block wifi scan", 2, { "wifi", "scan" }, false, false },
     { "menu block userland test all", 3, { "userland", "test", "all" }, false, false },
     { "menu block busybox sh", 2, { "busybox", "sh" }, false, false },
     { "menu block toybox sh", 2, { "toybox", "sh" }, false, false },

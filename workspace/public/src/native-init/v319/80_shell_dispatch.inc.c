@@ -791,6 +791,10 @@ static int handle_tracefs(char **argv, int argc) {
     return a90_tracefs_cmd(argv, argc);
 }
 
+static int handle_wifi(char **argv, int argc) {
+    return a90_wificfg_cmd(argv, argc);
+}
+
 static int handle_wifiinv(char **argv, int argc) {
     const char *subcommand = argc > 1 ? argv[1] : "summary";
 
@@ -912,6 +916,7 @@ static const struct shell_command command_table[] = {
     { "pstore", handle_pstore, "pstore [summary|full|paths]", CMD_NONE, A90_CMD_GROUP_CORE },
     { "watchdoginv", handle_watchdoginv, "watchdoginv [summary|full|paths]", CMD_NONE, A90_CMD_GROUP_CORE },
     { "tracefs", handle_tracefs, "tracefs [summary|full|paths]", CMD_NONE, A90_CMD_GROUP_CORE },
+    { "wifi", handle_wifi, "wifi config status", CMD_NONE, A90_CMD_GROUP_NETWORK },
     { "wifiinv", handle_wifiinv, "wifiinv [summary|full|refresh|paths]", CMD_NONE, A90_CMD_GROUP_NETWORK },
     { "wififeas", handle_wififeas, "wififeas [summary|full|gate|refresh|paths]", CMD_NONE, A90_CMD_GROUP_NETWORK },
     { "timeline", handle_timeline, "timeline", CMD_NONE, A90_CMD_GROUP_CORE },

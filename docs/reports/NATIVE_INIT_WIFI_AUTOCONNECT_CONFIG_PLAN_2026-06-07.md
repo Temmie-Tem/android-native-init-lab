@@ -122,6 +122,14 @@ Label rules:
 - Secret scan must check raw SSID/PSK values and hex encodings before accepting any archive.
 - Reports should contain presence booleans and redacted labels only.
 
+## Implementation Progress
+
+- 2026-06-07: Step 1 source scaffold added.
+  - Added `wifi config status` as a read-only native-init command.
+  - Validates config roots, autoconnect config, default profile metadata, secret-file presence, and owner-only modes.
+  - Does not read, print, archive, or log SSID/PSK values; status prints `secret_values_logged=0`.
+  - Boot autoconnect, scan, connect, DHCP, routes, and ping remain disabled until later steps.
+
 ## Implementation Order
 
 1. Add config parser and `wifi config status`.

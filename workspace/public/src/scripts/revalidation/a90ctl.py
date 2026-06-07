@@ -35,6 +35,7 @@ SAFE_RETRY_COMMANDS = {
     "netservice",
     "rshell",
     "diag",
+    "wifi",
     "wififeas",
     "wifiinv",
     "logpath",
