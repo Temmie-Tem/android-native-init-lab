@@ -25,6 +25,7 @@ DEFAULT_BRIDGE_DEVICE = os.environ.get("A90_BRIDGE_DEVICE", "auto")
 DEFAULT_BRIDGE_DEVICE_GLOB = "/dev/serial/by-id/usb-SAMSUNG_SAMSUNG_Android_*"
 BRIDGE_SCRIPT_REL = "workspace/public/src/scripts/revalidation/a90_bridge.py"
 TRANSPORT_SELECTOR_CONTRACT = 1
+NCM_AUTO_REPAIR_ENV = "A90_TRANSPORT_AUTO_REPAIR_NCM"
 
 
 def now_iso() -> str:
@@ -288,6 +289,85 @@ def summarize_host_ncm() -> dict[str, Any]:
     }
 
 
+def auto_repair_enabled(default: bool = True) -> bool:
+    raw = os.environ.get(NCM_AUTO_REPAIR_ENV)
+    if raw is None:
+        return default
+    return raw.strip().lower() not in {"0", "false", "no", "off"}
+
+
+def maybe_repair_host_ncm(store: Any | None,
+                          steps: list[dict[str, Any]] | None,
+                          host_ncm: dict[str, Any],
+                          *,
+                          enabled: bool) -> tuple[dict[str, Any], dict[str, Any] | None]:
+    if not enabled or host_ncm.get("state") != "present-no-link-local":
+        return host_ncm, None
+
+    repair = ncm.host_linklocal_repair_nmcli(
+        reason="transport-selector-present-no-link-local",
+        before=host_ncm.get("snapshot") if isinstance(host_ncm.get("snapshot"), list) else None,
+    )
+    if store is not None and steps is not None:
+        write_step(
+            store,
+            steps,
+            "transport-host-ncm-linklocal-repair",
+            {
+                "command": ["host", "nmcli", "a90-linklocal-repair"],
+                "started": now_iso(),
+                "ended": now_iso(),
+                "timeout": False,
+                "rc": 0 if repair.get("ok") else 1,
+                "ok": bool(repair.get("ok")),
+                "stdout": json.dumps(repair, ensure_ascii=False, sort_keys=True) + "\n",
+                "stderr": "",
+            },
+        )
+
+    repaired_ncm = summarize_host_ncm()
+    if store is not None and steps is not None:
+        write_step(
+            store,
+            steps,
+            "transport-host-ncm-after-repair",
+            {
+                "command": ["host", "detect-a90-ncm-after-repair"],
+                "started": now_iso(),
+                "ended": now_iso(),
+                "timeout": False,
+                "rc": 0 if repaired_ncm.get("state") == "ready" else 1,
+                "ok": repaired_ncm.get("state") == "ready",
+                "stdout": json.dumps(repaired_ncm, ensure_ascii=False, sort_keys=True) + "\n",
+                "stderr": "",
+            },
+        )
+    return repaired_ncm, repair
+
+
+def compact_ncm_repair(repair: dict[str, Any] | None) -> dict[str, Any] | None:
+    if repair is None:
+        return None
+    commands = repair.get("commands") if isinstance(repair.get("commands"), list) else []
+    return {
+        "ok": bool(repair.get("ok")),
+        "reason": repair.get("reason", ""),
+        "trigger_reason": repair.get("trigger_reason", ""),
+        "profile": repair.get("profile", ""),
+        "ifname": repair.get("ifname", ""),
+        "host_link_local": repair.get("host_link_local", ""),
+        "commands": [
+            {
+                "command": item.get("command", []),
+                "rc": item.get("rc"),
+                "ok": bool(item.get("ok")),
+            }
+            for item in commands
+            if isinstance(item, dict)
+        ],
+    }
+
+
 def select_transport(store: Any | None = None,
                      steps: list[dict[str, Any]] | None = None,
                      *,
@@ -296,7 +376,8 @@ def select_transport(store: Any | None = None,
                      bridge_device: str = DEFAULT_BRIDGE_DEVICE,
                      ensure: bool = True,
                      no_client_probe: bool = True,
-                     prefer_fast: bool = True) -> dict[str, Any]:
+                     prefer_fast: bool = True,
+                     auto_repair_ncm: bool | None = None) -> dict[str, Any]:
     bridge_result = ensure_bridge(
         host=host,
         port=port,
@@ -336,6 +417,13 @@ def select_transport(store: Any | None = None,
                 "stderr": "",
             },
         )
+    host_ncm_repair: dict[str, Any] | None
+    host_ncm, host_ncm_repair = maybe_repair_host_ncm(
+        store,
+        steps,
+        host_ncm,
+        enabled=auto_repair_enabled() if auto_repair_ncm is None else auto_repair_ncm,
+    )
 
     status_fields = parse_key_values(str(status_result.get("stdout") or ""))
     contract_raw = status_fields.get("transport.contract", "0")
@@ -379,6 +467,8 @@ def select_transport(store: Any | None = None,
             "ready_candidates": host_ncm["ready_candidates"],
             "present_candidates": host_ncm["present_candidates"],
         },
+        "host_ncm_repair": compact_ncm_repair(host_ncm_repair),
+        "host_ncm_auto_repair": auto_repair_enabled() if auto_repair_ncm is None else auto_repair_ncm,
     }
     if store is not None and steps is not None:
         write_step(

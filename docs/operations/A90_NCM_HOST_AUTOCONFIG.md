@@ -11,8 +11,8 @@ Date: `2026-05-21`
 - repo deploy 기본값: `workspace/public/archive/scripts/revalidation/wifi_execns_helper_v12_deploy_preflight.py`는 `--transfer-method ncm`이 기본이다.
 - 전송 원리: HTTP가 아니라 device `toybox netcat` listener와 host TCP socket send를 이용한 NCM bulk transfer다.
 - 안전 범위: host IP 자동 설정만 다루며, Wi-Fi scan/connect/link-up/external ping과 무관하다.
-- `v725-fasttransport` 계열은 IPv4 고정 주소 대신 USB NCM IPv6 link-local
-  (`fe80::...%ncm0`)도 사용한다. 현재 V2167 transport runner는 Samsung
+- `v725-fasttransport` 이후 계열은 IPv4 고정 주소 대신 USB NCM IPv6 link-local
+  (`fe80::...%ncm0`)도 사용한다. 현재 transport selector는 Samsung
   `idVendor=04e8` + `driver=cdc_ncm`만 자동 후보로 인정하고, ASIX 등
   generic `cdc_ncm` USB NIC는 배제한다.
 
@@ -29,7 +29,7 @@ python3 workspace/public/src/scripts/revalidation/a90_ncm_host_preflight.py run
 - `a90-ncm-host-no-interface`: device NCM이 내려갔거나 USB 재열거가 안 됐다.
 - `a90-ncm-host-address-present-ping-failed`: host IP는 있으나 device NCM state/cable/주소를 다시 확인한다.
 - IPv6 link-local 전송 runner에서는 `a90-ncm-host-needs-address`가 곧바로
-  실패를 의미하지 않을 수 있다. V2167은 별도로 host `fe80::`, device
+  실패를 의미하지 않을 수 있다. 현재 selector는 별도로 host `fe80::`, device
   `ncm0` reachability, device-to-host TCP probe를 확인한다.
 
 검증기는 `/etc`를 수정하지 않는다. copyable template은 `tmp/host/a90-ncm-host-preflight/templates/` 아래에 만든다.
@@ -108,9 +108,15 @@ nmcli -f GENERAL.STATE,GENERAL.CONNECTION,IP6.ADDRESS device show "$IFACE"
 ip -6 addr show dev "$IFACE" | grep 'fe80::'
 ```
 
-V2167 runner는 위 동작을 one-shot repair로 내장한다. 조건은 A90 NCM
-interface가 존재하지만 host `fe80::`가 없거나, device→host TCP probe가
-실패한 경우다.
+현재 `a90_transport.select_transport()`는 위 동작을 one-shot repair로
+내장한다. 조건은 A90 NCM interface가 존재하지만 host `fe80::`가 없는
+경우다. 자동 복구를 끄고 host 상태를 그대로 관찰하려면:
+
+```bash
+A90_TRANSPORT_AUTO_REPAIR_NCM=0 python3 ...
+```
+
+`FastTransferSession`도 동일한 NetworkManager repair helper를 사용한다.
 
 ## 대안: systemd-networkd
 

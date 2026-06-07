@@ -203,15 +203,17 @@ Selector output contract:
   "serial_bridge": "ready",
   "device_status": "ready",
   "ncm_host": "ready|present-no-link-local|not-ready",
+  "host_ncm_auto_repair": true,
+  "host_ncm_repair": null,
   "tcpctl": "ready|not-tested|stopped|starting|degraded",
   "selected": "serial|ncm|tcpctl",
   "fallback_reason": null
 }
 ```
 
-For current `v726`, `transport_contract=0` is expected because the device does
-not yet emit `transport.contract=1`. That is not a failure if host bridge,
-version/status, and host NCM are ready.
+For current `v2169-transport-contract`, `transport_contract=1` is expected.
+Older images may still report `transport_contract=0`; that is not a selector
+failure if host bridge, version/status, and host NCM are ready.
 
 NCM readiness requires:
 
@@ -220,6 +222,18 @@ NCM readiness requires:
 - vendor ID `04e8`;
 - host IPv6 link-local address exists;
 - device-side NCM path is reachable for the bounded transfer being attempted.
+
+If Samsung `04e8` + `cdc_ncm` is present but host `fe80::` is missing, the
+selector may run bounded NetworkManager repair before falling back to serial:
+
+- profile: `a90-v725-ncm-bench` for compatibility with existing host setup;
+- IPv4 disabled;
+- IPv6 link-local enabled;
+- `ipv6.addr-gen-mode=stable-privacy`;
+- `connection.autoconnect=yes`.
+
+The repair path only targets the detected A90 NCM interface. Disable it with
+`A90_TRANSPORT_AUTO_REPAIR_NCM=0` when auditing host NetworkManager behavior.
 
 Fast artifact upload rules:
 

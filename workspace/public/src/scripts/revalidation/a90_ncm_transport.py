@@ -27,6 +27,7 @@ DEFAULT_DEVICE_IFNAME = "ncm0"
 DEFAULT_DEVICE_IP = "192.168.7.2"
 DEFAULT_DEVICE_NETMASK = "255.255.255.0"
 DEFAULT_NM_PROFILE = "a90-v725-ncm-bench"
+NM_REPAIR_COMMAND_TAIL_CHARS = 1000
 
 RunStep = Callable[..., dict[str, Any]]
 
@@ -479,6 +480,123 @@ def safe_host_ifname(ifname: str) -> bool:
     return bool(re.fullmatch(r"[A-Za-z0-9_.:-]+", ifname)) and "/" not in ifname and ifname not in {".", ".."}
 
 
+def nmcli_connection_for_device(ifname: str) -> str:
+    result = run_command(
+        ["nmcli", "-g", "GENERAL.CONNECTION", "device", "show", ifname],
+        timeout=10,
+    )
+    if not result.get("ok"):
+        return ""
+    lines = str(result.get("stdout") or "").splitlines()
+    return lines[0].strip() if lines else ""
+
+
+def host_linklocal_repair_nmcli(*,
+                                reason: str,
+                                nm_profile: str = DEFAULT_NM_PROFILE,
+                                before: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+    snapshot = before if before is not None else host_netdev_snapshot()
+    present = host_ncm_candidates(snapshot, require_link_local=False)
+    ready = host_ncm_candidates(snapshot, require_link_local=True)
+    result: dict[str, Any] = {
+        "ok": False,
+        "reason": "",
+        "trigger_reason": reason,
+        "profile": nm_profile,
+        "ifname": "",
+        "host_link_local": "",
+        "commands": [],
+        "before": snapshot,
+        "after": [],
+    }
+    if ready:
+        item = ready[0]
+        result.update({
+            "ok": True,
+            "reason": "already-ready",
+            "ifname": str(item.get("ifname") or ""),
+            "host_link_local": str(item.get("link_local") or ""),
+            "after": snapshot,
+        })
+        return result
+    if not present:
+        result["reason"] = "host-a90-ncm-interface-not-found"
+        return result
+    if shutil.which("nmcli") is None:
+        result["reason"] = "nmcli-not-found"
+        return result
+
+    ifname = str(present[0].get("ifname") or "")
+    result["ifname"] = ifname
+    if not safe_host_ifname(ifname):
+        result["reason"] = "unsafe-host-ncm-ifname"
+        return result
+
+    commands: list[list[str]] = []
+    active_connection = nmcli_connection_for_device(ifname)
+    if active_connection and active_connection != "--" and active_connection != nm_profile:
+        commands.extend([
+            ["nmcli", "connection", "modify", active_connection, "connection.autoconnect", "no"],
+            ["nmcli", "connection", "down", active_connection],
+        ])
+    commands.extend([
+        ["nmcli", "connection", "delete", nm_profile],
+        [
+            "nmcli",
+            "connection",
+            "add",
+            "type",
+            "ethernet",
+            "con-name",
+            nm_profile,
+            "ifname",
+            ifname,
+            "ipv4.method",
+            "disabled",
+            "ipv6.method",
+            "link-local",
+            "ipv6.addr-gen-mode",
+            "stable-privacy",
+            "connection.autoconnect",
+            "yes",
+        ],
+        ["nmcli", "connection", "up", nm_profile],
+    ])
+
+    command_results: list[dict[str, Any]] = []
+    repair_ok = True
+    for command in commands:
+        command_result = run_command(command, timeout=20)
+        command_ok = bool(command_result.get("ok"))
+        if command[:3] != ["nmcli", "connection", "delete"]:
+            repair_ok = repair_ok and command_ok
+        command_results.append({
+            "command": command,
+            "rc": command_result.get("rc"),
+            "ok": command_ok,
+            "stdout": str(command_result.get("stdout") or "")[-NM_REPAIR_COMMAND_TAIL_CHARS:],
+            "stderr": str(command_result.get("stderr") or "")[-NM_REPAIR_COMMAND_TAIL_CHARS:],
+        })
+
+    time.sleep(1.5)
+    after = host_netdev_snapshot()
+    ready_after = host_ncm_candidates(after, require_link_local=True)
+    result["commands"] = command_results
+    result["after"] = after
+    if ready_after:
+        item = ready_after[0]
+        result.update({
+            "ok": True,
+            "reason": "ok" if repair_ok else "nmcli-command-failed-but-linklocal-ready",
+            "ifname": str(item.get("ifname") or ifname),
+            "host_link_local": str(item.get("link_local") or ""),
+        })
+    else:
+        result["ok"] = False
+        result["reason"] = "nm-linklocal-repair-did-not-produce-host-fe80"
+    return result
+
+
 class FastTransferSession:
     def __init__(self,
                  store: Any,
@@ -525,105 +643,27 @@ class FastTransferSession:
             return False
         self.nm_repair_attempted = True
         snapshot = host_netdev_snapshot()
-        candidates = host_ncm_candidates(snapshot, require_link_local=False)
-        if not candidates:
-            self.reason = "host-a90-ncm-interface-not-found-for-nm-repair"
-            write_compact_step(
-                self.store,
-                self.steps,
-                "fast-transfer-host-nm-linklocal-repair-skipped",
-                command=["host", "nmcli", "a90-linklocal-repair"],
-                ok=False,
-                rc=1,
-                stdout=json.dumps({"reason": self.reason, "snapshot": snapshot}, ensure_ascii=False, sort_keys=True) + "\n",
-            )
-            return False
-        ifname = str(candidates[0].get("ifname") or "")
-        if not safe_host_ifname(ifname):
-            self.reason = "unsafe-host-ncm-ifname"
-            write_compact_step(
-                self.store,
-                self.steps,
-                "fast-transfer-host-nm-linklocal-repair-skipped",
-                command=["host", "nmcli", "a90-linklocal-repair"],
-                ok=False,
-                rc=1,
-                stdout=json.dumps({"reason": self.reason, "ifname": ifname}, ensure_ascii=False, sort_keys=True) + "\n",
-            )
-            return False
-        if shutil.which("nmcli") is None:
-            self.reason = "nmcli-not-found"
-            write_compact_step(
-                self.store,
-                self.steps,
-                "fast-transfer-host-nm-linklocal-repair-skipped",
-                command=["host", "nmcli", "a90-linklocal-repair"],
-                ok=False,
-                rc=1,
-                stdout=json.dumps({"reason": self.reason, "ifname": ifname}, ensure_ascii=False, sort_keys=True) + "\n",
-            )
-            return False
-
-        commands = [
-            ["nmcli", "con", "delete", self.nm_profile],
-            [
-                "nmcli",
-                "con",
-                "add",
-                "type",
-                "ethernet",
-                "ifname",
-                ifname,
-                "con-name",
-                self.nm_profile,
-                "ipv4.method",
-                "disabled",
-                "ipv6.method",
-                "link-local",
-                "connection.autoconnect",
-                "no",
-            ],
-            ["nmcli", "con", "up", self.nm_profile],
-        ]
-        command_results: list[dict[str, Any]] = []
-        repair_ok = True
-        for index, command in enumerate(commands):
-            result = run_command(command, timeout=20)
-            command_results.append({
-                "command": command,
-                "rc": result.get("rc"),
-                "ok": result.get("ok"),
-                "stdout": str(result.get("stdout") or "")[-1000:],
-                "stderr": str(result.get("stderr") or "")[-1000:],
-            })
-            if index == 0:
-                continue
-            repair_ok = repair_ok and bool(result.get("ok"))
-        time.sleep(1.5)
-        after = host_netdev_snapshot()
-        ready_after = self.select_ready_candidate(after, reason="nm-linklocal-repair")
+        result = host_linklocal_repair_nmcli(
+            reason=reason,
+            nm_profile=self.nm_profile,
+            before=snapshot,
+        )
+        ready_after = bool(result.get("ok")) and self.select_ready_candidate(
+            result.get("after") if isinstance(result.get("after"), list) else [],
+            reason="nm-linklocal-repair",
+        )
         if not ready_after:
-            self.reason = "nm-linklocal-repair-did-not-produce-host-fe80"
+            self.reason = str(result.get("reason") or "nm-linklocal-repair-failed")
         write_compact_step(
             self.store,
             self.steps,
             "fast-transfer-host-nm-linklocal-repair",
-            command=["host", "nmcli", "a90-linklocal-repair", ifname],
-            ok=repair_ok and ready_after,
-            rc=0 if repair_ok and ready_after else 1,
-            stdout=json.dumps({
-                "ok": repair_ok and ready_after,
-                "reason": "ok" if repair_ok and ready_after else self.reason,
-                "trigger_reason": reason,
-                "profile": self.nm_profile,
-                "ifname": ifname,
-                "commands": command_results,
-                "before": snapshot,
-                "after": after,
-                "host_link_local": self.host_link_local,
-            }, ensure_ascii=False, sort_keys=True) + "\n",
+            command=["host", "nmcli", "a90-linklocal-repair", str(result.get("ifname") or "")],
+            ok=ready_after,
+            rc=0 if ready_after else 1,
+            stdout=json.dumps(result, ensure_ascii=False, sort_keys=True) + "\n",
         )
-        return repair_ok and ready_after
+        return ready_after
 
     def ensure_ready(self) -> bool:
         if not self.enabled:

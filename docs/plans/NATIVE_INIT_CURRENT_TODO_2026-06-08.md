@@ -99,6 +99,8 @@ Completed first units:
 - Bridge status includes `wrapper_contract=1`.
 - Boot/bridge/communication contract is documented in
   `docs/operations/NATIVE_INIT_BOOT_TRANSPORT_CONTRACT.md`.
+- Transport selector has bounded host NCM link-local auto-repair for the
+  Samsung `04e8` + `cdc_ncm` present/no-`fe80::` state.
 
 Open tasks:
 
@@ -106,6 +108,7 @@ Open tasks:
   - bridge ensure/status;
   - `cmdv1` version/status;
   - host NCM snapshot;
+  - optional host NCM link-local repair;
   - selection manifest.
 - Treat selector fields as the stable contract for migrated runners:
   - `selector_contract=1`;
