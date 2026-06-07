@@ -184,6 +184,12 @@ static bool service_read_only(int argc, char **argv) {
 }
 
 static bool wifi_read_only(int argc, char **argv) {
+    if (argc == 1) {
+        return true;
+    }
+    if (argc == 2 && arg_equals(argv, argc, 1, "status")) {
+        return true;
+    }
     return argc == 3 &&
            arg_equals(argv, argc, 1, "config") &&
            arg_equals(argv, argc, 2, "status");
@@ -377,6 +383,7 @@ static const struct controller_policy_case policy_cases[] = {
     { "menu allow wifiinv paths", 2, { "wifiinv", "paths" }, false, true },
     { "menu allow wififeas summary", 2, { "wififeas", "summary" }, false, true },
     { "menu allow wififeas gate", 2, { "wififeas", "gate" }, false, true },
+    { "menu allow wifi status", 2, { "wifi", "status" }, false, true },
     { "menu allow wifi config status", 3, { "wifi", "config", "status" }, false, true },
     { "menu allow hide", 1, { "hide" }, false, true },
     { "menu block bare mountsd", 1, { "mountsd" }, false, false },

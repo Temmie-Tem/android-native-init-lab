@@ -67,6 +67,7 @@
 #include "../a90_userland.h"
 #include "../a90_util.h"
 #include "../a90_watchdoginv.h"
+#include "../a90_wifi.h"
 #include "../a90_wificfg.h"
 #include "../a90_wififeas.h"
 #include "../a90_wifiinv.h"

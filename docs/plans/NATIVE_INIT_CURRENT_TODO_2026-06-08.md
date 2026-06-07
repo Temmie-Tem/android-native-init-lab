@@ -48,6 +48,18 @@ Completed first units:
 - `wifi config status` exists as a read-only config/secret validator.
 - `wifi config prepare [profile]` exists as an explicit, non-boot supplicant
   config generator.
+- `wifi status` exists as a read-only native-init status/UI primitive.
+- `wifi scan [delay_ms]` exists as a bounded credential-free nl80211 scan
+  primitive.
+- `v2172-wifi-status-scan` live validation passed:
+  - corrected the test boot to reuse verified V726 private-property snapshot;
+  - flashed test boot;
+  - verified `wlan0_present=1`;
+  - ran bounded direct nl80211 scan with `scan_result_count=12`;
+  - preserved `credentials=0`, `connect=0`, `dhcp_routing=0`,
+    `external_ping=0`;
+  - rolled back to `v2169-transport-contract`;
+  - final rollback `selftest fail=0`.
 - `v2170-wifi-config-prepare` source build passed on top of
   `v2169-transport-contract`.
 - `v2170-wifi-config-prepare` live validation passed:
@@ -60,6 +72,13 @@ Completed first units:
 
 Open tasks:
 
+- Block immediate `wifi connect` entry risks:
+  - require bounded `wlan0_present=1` precondition before launching
+    supplicant;
+  - keep Wi-Fi test boots on the verified V726 property snapshot unless a new
+    private-property snapshot is explicitly provisioned;
+  - keep profile secrets private, generated configs under `/cache/a90-wifi/`,
+    no `wpa_supplicant -K`, and `secret_values_logged=0`.
 - Finish remaining native Wi-Fi config/autoconnect design:
   - credential source under `workspace/private/secrets/`;
   - profile creation/listing operator commands;
@@ -70,6 +89,8 @@ Open tasks:
   `supplicant-dependency-standalone-only-ctrl-ready`. Native `wifi connect`
   should keep the staged standalone `wpa_supplicant` route; vendor supplicant
   paths were absent in the native namespace.
+- V2172 source build completed:
+  `v2172-wifi-status-scan-source-build-pass`.
 - Verify both target bands:
   - `temmie2.4G`;
   - `temmie5G`;
@@ -316,12 +337,10 @@ Exit criteria:
 
 ## Suggested Next Sequence
 
-1. Review and commit the current `v2170-wifi-config-prepare` source, builder,
-   and validation reports as one focused unit.
-2. Add explicit `wifi scan` and `wifi connect <profile>` commands on top of the
-   prepared config path.
-3. Migrate the Wi-Fi lifecycle runner to `a90_transport.py`.
-4. Add phase timers to Wi-Fi live runners.
-5. Generate a script inventory and classify active/module/archive/delete-review.
-6. Run N>=3 Wi-Fi lifecycle stability checks.
-7. Decide whether to promote the next boot/init baseline.
+1. Add explicit `wifi connect [profile]` on top of the prepared config path and
+   V2171 standalone supplicant dependency result.
+2. Migrate the Wi-Fi lifecycle runner to `a90_transport.py`.
+3. Add phase timers to Wi-Fi live runners.
+4. Generate a script inventory and classify active/module/archive/delete-review.
+5. Run N>=3 Wi-Fi lifecycle stability checks.
+6. Decide whether to promote the next boot/init baseline.
