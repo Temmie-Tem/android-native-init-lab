@@ -66,6 +66,10 @@ Open tasks:
   - no raw PSK or generated supplicant config in public git;
   - explicit boot-autoconnect gate.
 - Add boot-time or operator-triggered autoconnect option.
+- V2171 supplicant dependency probe completed:
+  `supplicant-dependency-standalone-only-ctrl-ready`. Native `wifi connect`
+  should keep the staged standalone `wpa_supplicant` route; vendor supplicant
+  paths were absent in the native namespace.
 - Verify both target bands:
   - `temmie2.4G`;
   - `temmie5G`;

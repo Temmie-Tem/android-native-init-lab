@@ -67,6 +67,7 @@
 /public/**/*private*
 /public/**/*credential*
 /public/**/*supplicant*
+!/public/src/scripts/revalidation/native_wifi_supplicant_dependency_probe.py
 /public/**/*lease*
 
 # Generated native-init outputs inside the public current-source tree. Source
