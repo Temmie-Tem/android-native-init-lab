@@ -10,11 +10,14 @@ import sys
 import time
 from dataclasses import dataclass
 
+from a90_serial_lock import SerialBridgeLock, SerialBridgeLockBusy
+
 
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 54321
 CMDV1_RETRY_INTERVAL_SEC = 0.5
 BRIDGE_SERIAL_MISSING_TEXT = "serial device is not connected"
+BRIDGE_BUSY_TEXT = "busy: another client is active"
 INPUT_MODE_ENV = "A90CTL_INPUT_MODE"
 INPUT_CHAR_DELAY_ENV = "A90CTL_INPUT_CHAR_DELAY_SEC"
 END_RE = re.compile(r"^A90P1 END (?P<fields>.+)$", re.MULTILINE)
@@ -169,31 +172,36 @@ def bridge_exchange(host: str,
                     *,
                     input_mode: str | None = None,
                     require_prompt_after_end: bool = False) -> str:
-    connect_timeout = min(3.0, max(0.1, timeout_sec))
+    deadline = time.monotonic() + timeout_sec
     wire_line = encode_wire_line(line, input_mode=input_mode)
     mode = input_mode or os.environ.get(INPUT_MODE_ENV, "normal")
-    with socket.create_connection((host, port), timeout=connect_timeout) as sock:
-        sock.settimeout(0.25)
-        prefix = "" if mode in {"double", "slow"} else "\n"
-        payload = prefix + wire_line + "\n"
-        if mode == "slow":
-            delay = float(os.environ.get(INPUT_CHAR_DELAY_ENV, "0.02"))
-            for ch in payload:
-                sock.sendall(ch.encode("utf-8"))
-                time.sleep(delay)
-        else:
-            sock.sendall(payload.encode("utf-8"))
-        data = read_until(
-            sock,
-            markers,
-            timeout_sec,
-            require_prompt_after_end=require_prompt_after_end,
-        )
+    with SerialBridgeLock(timeout_sec=timeout_sec, purpose=f"a90ctl:{line.split(' ', 1)[0]}"):
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise SerialBridgeLockBusy("serial bridge transaction lock wait exhausted command timeout")
+        connect_timeout = min(3.0, max(0.1, remaining))
+        with socket.create_connection((host, port), timeout=connect_timeout) as sock:
+            sock.settimeout(0.25)
+            prefix = "" if mode in {"double", "slow"} else "\n"
+            payload = prefix + wire_line + "\n"
+            if mode == "slow":
+                delay = float(os.environ.get(INPUT_CHAR_DELAY_ENV, "0.02"))
+                for ch in payload:
+                    sock.sendall(ch.encode("utf-8"))
+                    time.sleep(delay)
+            else:
+                sock.sendall(payload.encode("utf-8"))
+            data = read_until(
+                sock,
+                markers,
+                max(0.1, deadline - time.monotonic()),
+                require_prompt_after_end=require_prompt_after_end,
+            )
     return data.decode("utf-8", errors="replace")
 
 
 def should_retry_cmdv1_exchange(text: str) -> bool:
-    if text.strip() == "" or BRIDGE_SERIAL_MISSING_TEXT in text:
+    if text.strip() == "" or BRIDGE_SERIAL_MISSING_TEXT in text or BRIDGE_BUSY_TEXT in text:
         return True
     if os.environ.get(INPUT_MODE_ENV) in {"double", "slow"} and "[err] unknown command:" in text:
         return True
@@ -302,6 +310,10 @@ def run_cmdv1_command(host: str,
                 sleep_before_retry(deadline)
                 continue
             return result
+        if BRIDGE_BUSY_TEXT in text:
+            last_text = text
+            sleep_before_retry(deadline)
+            continue
         if not allow_retry:
             return parse_protocol_output(text)
         if not should_retry_cmdv1_exchange(text):

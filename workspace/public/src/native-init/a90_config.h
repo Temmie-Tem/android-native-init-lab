@@ -13,6 +13,9 @@
 #ifndef INIT_BANNER
 #define INIT_BANNER "A90 Linux init " INIT_VERSION " (" INIT_BUILD ")"
 #endif
+#ifndef A90_TRANSPORT_STATUS_CONTRACT
+#define A90_TRANSPORT_STATUS_CONTRACT 0
+#endif
 #define BOOT_SPLASH_SECONDS 2
 #define BOOT_HUD_REFRESH_SECONDS 2
 #define NATIVE_LOG_PRIMARY "/cache/native-init.log"

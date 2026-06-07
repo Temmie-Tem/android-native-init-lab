@@ -63,7 +63,7 @@ boot image filename.
 Examples:
 
 - `v726-wifi-lifecycle`
-- `v2169-wifi-lifecycle-baseline`
+- `v2169-transport-contract`
 
 Rules:
 
@@ -108,11 +108,11 @@ under a new run/build tag instead of silently replacing the old baseline SHA.
 Every non-trivial run or baseline report should state all relevant axes:
 
 ```text
-Run ID: V2169
-Native init: A90 Linux init 0.9.247
-Build tag: v2169-wifi-lifecycle-baseline
+Run ID: V2170
+Native init: A90 Linux init 0.9.248
+Build tag: v2170-<purpose>
 Helper: a90_android_execns_probe helper-v427
-Boot image: workspace/private/inputs/boot_images/boot_linux_v2169_wifi_lifecycle_baseline.img
+Boot image: workspace/private/inputs/boot_images/boot_linux_v2170_<purpose>.img
 Boot SHA256: <sha256>
 Device flash: yes|no
 Host commit: <git-sha-or-uncommitted>
@@ -122,7 +122,7 @@ For host-only or unchanged-image validation:
 
 ```text
 Run ID: V2170
-Native init: A90 Linux init 0.9.247 (v2169-wifi-lifecycle-baseline)
+Native init: A90 Linux init 0.9.247 (v2169-transport-contract)
 Build tag: unchanged
 Helper: unchanged
 Device flash: no
@@ -134,33 +134,34 @@ Host commit: <git-sha-or-uncommitted>
 Read versions in this order:
 
 ```text
-V2169  = what project/test/promotion run is being executed
+V2169  = what project/test/promotion run was executed
 0.9.247 = what native init build is visible on the phone
-v2169-wifi-lifecycle-baseline = what boot/init baseline role was flashed
+v2169-transport-contract = what boot/init baseline role was flashed
 helper-v427 = which helper binary marker is embedded or deployed
 sha256 = exact binary/evidence artifact identity
 ```
 
 ## Current Example
 
-Current verified Wi-Fi lifecycle evidence is based on:
+Current verified transport-contract baseline evidence is based on:
 
 ```text
-Native init: A90 Linux init 0.9.246 (v726-wifi-lifecycle)
-Build tag: v726-wifi-lifecycle
+Native init: A90 Linux init 0.9.247 (v2169-transport-contract)
+Build tag: v2169-transport-contract
 Helper: a90_android_execns_probe helper-v427
-Boot image: workspace/private/inputs/boot_images/boot_linux_v726_wifi_lifecycle.img
-Boot SHA256: 6b34aac93d4fa6d5b40355b9e13b2c1ae847c24a3685d84b0d1cd78751351d40
-Evidence: V2167, V2168, and v726 baseline source/build/promotion reports
+Boot image: workspace/private/inputs/boot_images/boot_linux_v2169_transport_contract.img
+Boot SHA256: 190b93d0741a6eeba17913c940f3bb398fed765f38532d5e0009840112166d6d
+Evidence: V2169 source/build and live validation reports
 ```
 
-If this artifact is re-promoted as the next baseline after the current `V2168`
-run stream, the clean promotion should use a new run/build identity such as:
+If this artifact is reproduced unchanged, keep the build tag and record the
+same artifact SHA. If a future boot image changes, promote it under a new
+run/build identity such as:
 
 ```text
-Run ID: V2169
-Native init: A90 Linux init 0.9.247
-Build tag: v2169-wifi-lifecycle-baseline
-Boot image: workspace/private/inputs/boot_images/boot_linux_v2169_wifi_lifecycle_baseline.img
+Run ID: V2170
+Native init: A90 Linux init 0.9.248
+Build tag: v2170-<purpose>
+Boot image: workspace/private/inputs/boot_images/boot_linux_v2170_<purpose>.img
 Helper: a90_android_execns_probe helper-v427
 ```

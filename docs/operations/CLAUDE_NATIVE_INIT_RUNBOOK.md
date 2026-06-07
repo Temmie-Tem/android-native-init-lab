@@ -12,13 +12,13 @@ Date: `2026-04-29`
 
 - device: `Samsung Galaxy A90 5G SM-A908N`
 - recovery: TWRP 사용 가능
-- latest verified build: `A90 Linux init 0.9.246 (v726-wifi-lifecycle)`
-- latest verified source: `workspace/public/src/native-init/init_v724.c` + 모듈 `workspace/public/src/native-init/v724/90_main.inc.c` + 헬퍼 `workspace/public/src/native-init/helpers/` + 빌더 `workspace/public/src/scripts/revalidation/build_native_init_boot_v726_wifi_lifecycle.py`
-- latest verified boot image: `workspace/private/inputs/boot_images/boot_linux_v726_wifi_lifecycle.img`
-- latest verified boot image SHA256: `6b34aac93d4fa6d5b40355b9e13b2c1ae847c24a3685d84b0d1cd78751351d40`
-- 현재 기준 사이클: `v726-wifi-lifecycle` Wi-Fi lifecycle baseline (native Wi-Fi bring-up은 이 이미지로 rollback/test)
-- version axes: `v726`은 boot/init baseline tag, `a90_android_execns_probe helper-v427`은 포함된 helper marker, `V2167`/`V2168` 등은 검증 run/report 번호다. 전체 규칙은 `docs/operations/VERSIONING_POLICY.md`를 따른다.
-- previous verified boot image: `workspace/private/inputs/boot_images/boot_linux_v725_fasttransport.img` (`A90 Linux init 0.9.244 (v725-fasttransport)`)
+- latest verified build: `A90 Linux init 0.9.247 (v2169-transport-contract)`
+- latest verified source: `workspace/public/src/native-init/init_v724.c` + 모듈 `workspace/public/src/native-init/v724/90_main.inc.c` + 헬퍼 `workspace/public/src/native-init/helpers/` + 빌더 `workspace/public/src/scripts/revalidation/build_native_init_boot_v2169_transport_contract.py`
+- latest verified boot image: `workspace/private/inputs/boot_images/boot_linux_v2169_transport_contract.img`
+- latest verified boot image SHA256: `190b93d0741a6eeba17913c940f3bb398fed765f38532d5e0009840112166d6d`
+- 현재 기준 사이클: `v2169-transport-contract` transport-contract baseline (native Wi-Fi bring-up은 이 이미지로 rollback/test)
+- version axes: `v2169-transport-contract`는 boot/init baseline tag, `a90_android_execns_probe helper-v427`은 포함된 helper marker, `V2169`는 검증 run/report 번호다. 전체 규칙은 `docs/operations/VERSIONING_POLICY.md`를 따른다.
+- previous verified boot image: `workspace/private/inputs/boot_images/boot_linux_v726_wifi_lifecycle.img` (`A90 Linux init 0.9.246 (v726-wifi-lifecycle)`)
 - older verified boot image: `workspace/private/inputs/boot_images/boot_linux_v261.img` (`A90 Linux init 0.9.60 (v261)`)
 - known-good fallback native init: `A90 Linux init v48`
 - known-good fallback boot image: `workspace/private/inputs/boot_images/boot_linux_v48.img`

@@ -139,6 +139,79 @@ static void cmd_version(void) {
     }
 }
 
+#if A90_TRANSPORT_STATUS_CONTRACT
+static const char *transport_ncm_state(const struct a90_netservice_status *status) {
+    if (status->ncm_present) {
+        return "ready";
+    }
+    if (status->enabled) {
+        return "starting";
+    }
+    return "absent";
+}
+
+static const char *transport_tcpctl_state(const struct a90_netservice_status *status) {
+    if (status->tcpctl_running) {
+        return "ready";
+    }
+    if (status->enabled) {
+        return "starting";
+    }
+    return "stopped";
+}
+
+static const char *transport_upload_state(const struct a90_netservice_status *status) {
+    if (status->tcpctl_running) {
+        return "tcpctl-ready";
+    }
+    if (status->ncm_present) {
+        return "ncm-ready";
+    }
+    return "serial-only";
+}
+
+static const char *transport_preferred_path(const struct a90_netservice_status *status) {
+    if (status->tcpctl_running) {
+        return "tcpctl";
+    }
+    if (status->ncm_present) {
+        return "ncm";
+    }
+    return "serial";
+}
+
+static const char *transport_reason_label(const struct a90_netservice_status *status) {
+    if (status->tcpctl_running) {
+        return "tcpctl-ready";
+    }
+    if (status->ncm_present) {
+        return "ncm-ready";
+    }
+    if (status->enabled) {
+        return "netservice-starting";
+    }
+    return "serial-only";
+}
+
+static void print_transport_status_contract(const struct a90_netservice_status *status) {
+    a90_console_printf("transport.contract=1\r\n");
+    a90_console_printf("transport.serial=ready\r\n");
+    a90_console_printf("transport.bridge_endpoint=127.0.0.1:54321\r\n");
+    a90_console_printf("transport.ncm=%s\r\n", transport_ncm_state(status));
+    a90_console_printf("transport.ncm.ifname=%s\r\n",
+            status->ncm_present ? status->ifname : "-");
+    a90_console_printf("transport.ncm.ipv4=%s\r\n",
+            status->ncm_present ? status->device_ip : "-");
+    a90_console_printf("transport.ncm.ipv6_ll=-\r\n");
+    a90_console_printf("transport.tcpctl=%s\r\n", transport_tcpctl_state(status));
+    a90_console_printf("transport.tcpctl.port=%s\r\n",
+            status->tcpctl_running ? status->tcp_port : "-");
+    a90_console_printf("transport.upload=%s\r\n", transport_upload_state(status));
+    a90_console_printf("transport.preferred=%s\r\n", transport_preferred_path(status));
+    a90_console_printf("transport.reason=%s\r\n", transport_reason_label(status));
+}
+#endif
+
 static void cmd_status(void) {
     struct a90_metrics_snapshot snapshot;
     char boot_summary[64];
@@ -233,6 +306,9 @@ static void cmd_status(void) {
         a90_console_printf("netservice: %s tcpctl=%s\r\n",
                 net_status.enabled ? "enabled" : "disabled",
                 net_status.tcpctl_running ? "running" : "stopped");
+#if A90_TRANSPORT_STATUS_CONTRACT
+        print_transport_status_contract(&net_status);
+#endif
         (void)a90_service_reap(A90_SERVICE_RSHELL, NULL);
         a90_console_printf("rshell: %s pid=%ld port=%s\r\n",
                 a90_service_pid(A90_SERVICE_RSHELL) > 0 ? "running" : "stopped",

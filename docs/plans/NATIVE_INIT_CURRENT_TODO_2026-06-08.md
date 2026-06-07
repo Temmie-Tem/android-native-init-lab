@@ -8,7 +8,7 @@ than the long-term roadmap.
 
 Current baseline:
 
-- Device baseline: `A90 Linux init 0.9.246 (v726-wifi-lifecycle)`.
+- Device baseline: `A90 Linux init 0.9.247 (v2169-transport-contract)`.
 - Active control path: USB ACM serial bridge managed by
   `workspace/public/src/scripts/revalidation/a90_bridge.py`.
 - Active fast path: USB NCM link-local plus bounded FastUpload-style transfers.
@@ -189,8 +189,8 @@ Goal: avoid mixing run IDs, helper versions, and boot baseline tags.
 
 Open tasks:
 
-- Keep current baseline fixed as `v726-wifi-lifecycle` until a new boot image is
-  intentionally promoted.
+- Keep current baseline fixed as `v2169-transport-contract` until a newer boot
+  image is intentionally promoted.
 - If a new boot/init image is promoted, use the next global run/build identity,
   not helper numbering.
 - Record all axes in reports:

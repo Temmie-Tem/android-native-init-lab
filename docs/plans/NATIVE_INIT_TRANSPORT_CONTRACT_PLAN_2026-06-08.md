@@ -19,7 +19,7 @@ contract.
 - Host serial bridge script: `workspace/public/src/scripts/revalidation/serial_tcp_bridge.py`.
 - Host command wrapper: `workspace/public/src/scripts/revalidation/a90ctl.py`.
 - Fasttransport boot baseline: `v725-fasttransport` and later Wi-Fi baselines.
-- Current device baseline: `v726-wifi-lifecycle`.
+- Current device baseline: `v2169-transport-contract`.
 - Serial command protocol: `cmdv1` / `cmdv1x` with `A90P1 BEGIN` and `A90P1 END` framing.
 - NCM/tcpctl exists, but scripts still make ad-hoc readiness and fallback decisions.
 
@@ -321,7 +321,7 @@ Use separate axes:
 
 - Host wrapper version: script feature version, not a boot baseline.
 - Transport contract version: `transport.contract=1`.
-- Boot/init baseline tag: e.g. `v726-wifi-lifecycle`, future `v727-transport-contract` if promoted.
+- Boot/init baseline tag: e.g. `v2169-transport-contract`, future `v2170-<purpose>` if promoted.
 - Validation run IDs: evidence/run numbers, not baseline names.
 
 Do not use helper version, run ID, and boot baseline interchangeably.

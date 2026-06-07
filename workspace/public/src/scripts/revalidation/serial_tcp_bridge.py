@@ -19,6 +19,7 @@ DEFAULT_DEVICE_GLOB = "/dev/serial/by-id/usb-SAMSUNG_SAMSUNG_Android_*"
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 54321
 DEFAULT_BAUD = 115200
+BRIDGE_BUSY_TEXT = b"[bridge] busy: another client is active; retry later\r\n"
 
 BAUD_MAP = {
     9600: termios.B9600,
@@ -283,6 +284,10 @@ class Bridge:
 
         if self.client is not None:
             self.log(f"rejecting extra client from {addr[0]}:{addr[1]}")
+            try:
+                conn.sendall(BRIDGE_BUSY_TEXT)
+            except OSError:
+                pass
             conn.close()
             return
 

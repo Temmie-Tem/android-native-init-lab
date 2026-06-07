@@ -26,13 +26,12 @@ Keep these axes separate.
 
 Rules:
 
-- Do not use a build tag as a run ID. `v726-wifi-lifecycle` is a boot/init
-  baseline tag, not a `V726` run.
+- Do not use a build tag as a run ID. `v2169-transport-contract` is a boot/init
+  baseline tag, not a `V2169` run ID.
 - Do not use helper numbers as run IDs, boot filenames, or native-init build
   tags.
-- If a new flashed baseline is promoted after `V2168`, use a new run/build
-  identity such as `V2169`, `0.9.247`, and
-  `v2169-wifi-lifecycle-baseline`.
+- The current promoted baseline uses `V2169`, `0.9.247`, and
+  `v2169-transport-contract`.
 - If an existing artifact is only reproduced or documented, keep its build tag
   and record it as `Baseline tag`, not `Cycle`.
 - If the boot image SHA changes and that image becomes a rollback/test
@@ -114,11 +113,11 @@ should state the relevant axes explicitly.
 For a new artifact:
 
 ```text
-Run ID: V2169
-Native init: A90 Linux init 0.9.247
-Build tag: v2169-wifi-lifecycle-baseline
+Run ID: V2170
+Native init: A90 Linux init 0.9.248
+Build tag: v2170-<purpose>
 Helper: a90_android_execns_probe helper-v427
-Boot image: workspace/private/inputs/boot_images/boot_linux_v2169_wifi_lifecycle_baseline.img
+Boot image: workspace/private/inputs/boot_images/boot_linux_v2170_<purpose>.img
 Boot SHA256: <sha256>
 Device flash: yes|no
 Host commit: <git-sha-or-uncommitted>
@@ -128,9 +127,9 @@ For an unchanged existing artifact:
 
 ```text
 Run ID: <current validation run>
-Native init: A90 Linux init 0.9.246 (v726-wifi-lifecycle)
+Native init: A90 Linux init 0.9.247 (v2169-transport-contract)
 Build tag: unchanged
-Baseline tag: v726-wifi-lifecycle
+Baseline tag: v2169-transport-contract
 Helper: unchanged
 Device flash: no
 Host commit: <git-sha-or-uncommitted>

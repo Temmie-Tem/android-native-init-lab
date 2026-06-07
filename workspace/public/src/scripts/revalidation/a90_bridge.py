@@ -23,6 +23,7 @@ from typing import Any
 sys.dont_write_bytecode = True
 
 from _workspace_bootstrap import repo_root
+from a90_serial_lock import SerialBridgeLock, SerialBridgeLockBusy
 
 
 DEFAULT_HOST = "127.0.0.1"
@@ -252,21 +253,27 @@ def pids_for_socket_inodes(inodes: list[str]) -> list[int]:
 
 def probe_bridge_client(host: str, port: int) -> str:
     try:
-        with socket.create_connection((host, port), timeout=0.25) as sock:
-            sock.settimeout(0.25)
+        with SerialBridgeLock(timeout_sec=0.0, purpose="a90_bridge:probe"):
             try:
-                data = sock.recv(256)
-            except socket.timeout:
-                return "connected-no-immediate-error"
-            if b"serial device is not connected" in data:
-                return "serial-missing"
-            if data == b"":
-                return "closed"
-            return "data"
-    except ConnectionRefusedError:
-        return "not-listening"
-    except OSError as exc:
-        return f"error:{exc.__class__.__name__}"
+                with socket.create_connection((host, port), timeout=0.25) as sock:
+                    sock.settimeout(0.25)
+                    try:
+                        data = sock.recv(256)
+                    except socket.timeout:
+                        return "connected-no-immediate-error"
+                    if b"serial device is not connected" in data:
+                        return "serial-missing"
+                    if b"busy: another client is active" in data:
+                        return "busy-bridge-client"
+                    if data == b"":
+                        return "closed"
+                    return "data"
+            except ConnectionRefusedError:
+                return "not-listening"
+            except OSError as exc:
+                return f"error:{exc.__class__.__name__}"
+    except SerialBridgeLockBusy:
+        return "busy-serial-lock"
 
 
 def serial_candidates(device_glob: str) -> list[SerialCandidate]:
@@ -662,7 +669,13 @@ def command_doctor(args: argparse.Namespace, root: Path) -> int:
     add_check(
         checks,
         "bridge_probe",
-        "pass" if status["bridge_probe"] in {"connected-no-immediate-error", "data", "skipped"} else "warn",
+        "pass" if status["bridge_probe"] in {
+            "connected-no-immediate-error",
+            "data",
+            "skipped",
+            "busy-serial-lock",
+            "busy-bridge-client",
+        } else "warn",
         f"probe={status['bridge_probe']}",
     )
     pid_source = status["port_pid_source"]

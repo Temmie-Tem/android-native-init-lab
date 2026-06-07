@@ -20,13 +20,15 @@ Current verified baseline:
 
 | Field | Value |
 | --- | --- |
-| Device-visible version | `A90 Linux init 0.9.246` |
-| Build tag | `v726-wifi-lifecycle` |
-| Boot image | `workspace/private/inputs/boot_images/boot_linux_v726_wifi_lifecycle.img` |
-| Boot SHA256 | `6b34aac93d4fa6d5b40355b9e13b2c1ae847c24a3685d84b0d1cd78751351d40` |
+| Device-visible version | `A90 Linux init 0.9.247` |
+| Build tag | `v2169-transport-contract` |
+| Boot image | `workspace/private/inputs/boot_images/boot_linux_v2169_transport_contract.img` |
+| Boot SHA256 | `190b93d0741a6eeba17913c940f3bb398fed765f38532d5e0009840112166d6d` |
 | Source root | `workspace/public/src/native-init/` |
-| Builder | `workspace/public/src/scripts/revalidation/build_native_init_boot_v726_wifi_lifecycle.py` |
-| Previous rollback | `workspace/private/inputs/boot_images/boot_linux_v725_fasttransport.img` |
+| Builder | `workspace/public/src/scripts/revalidation/build_native_init_boot_v2169_transport_contract.py` |
+| Source/build report | `docs/reports/NATIVE_INIT_V2169_TRANSPORT_CONTRACT_SOURCE_BUILD_2026-06-08.md` |
+| Live validation report | `docs/reports/NATIVE_INIT_V2169_TRANSPORT_CONTRACT_LIVE_VALIDATION_2026-06-08.md` |
+| Previous rollback | `workspace/private/inputs/boot_images/boot_linux_v726_wifi_lifecycle.img` |
 | Known-good fallback | `workspace/private/inputs/boot_images/boot_linux_v48.img` |
 
 The boot image must provide:
@@ -38,22 +40,27 @@ The boot image must provide:
 - `selftest`;
 - `cmdv1` / `cmdv1x` framed command handling for v73+ images;
 - `netservice` controls when the image supports NCM/tcpctl;
+- `transport.contract=1` status fields;
 - rollback path through TWRP/recovery.
 
-The current `v726-wifi-lifecycle` image does **not** yet provide the new
-`transport.contract=1` device status fields. Therefore host tooling must treat
-current device transport status as legacy and infer readiness from:
+Previous baseline:
 
-- bridge status;
-- `cmdv1 version`;
-- `cmdv1 status`;
-- host NCM inspection;
-- existing `netservice` output when needed.
+| Field | Value |
+| --- | --- |
+| Build tag | `v726-wifi-lifecycle` |
+| Device-visible version | `A90 Linux init 0.9.246` |
+| Boot image | `workspace/private/inputs/boot_images/boot_linux_v726_wifi_lifecycle.img` |
+| Boot SHA256 | `6b34aac93d4fa6d5b40355b9e13b2c1ae847c24a3685d84b0d1cd78751351d40` |
+| Current role | Immediate rollback image |
 
-## 2. Next Boot-Image Contract
+`v2169-transport-contract` is promoted as the current baseline. It keeps the
+V726 Wi-Fi lifecycle route and adds the device-side `transport.contract=1`
+status fields.
 
-The next promoted boot/init baseline should add device-side transport status
-without breaking existing parsers.
+## 2. Boot-Image Transport Contract
+
+The current and next promoted boot/init baselines must provide device-side
+transport status without breaking existing parsers.
 
 Required `status` additions:
 
@@ -152,6 +159,22 @@ Success criteria:
 
 Host code should use `a90ctl.py` or `a90_transport.py` rather than parsing raw
 `nc` output. Raw `nc` is allowed for manual debugging and pre-v73 fallback only.
+
+Serial bridge transaction rules:
+
+- The serial wire is a single byte stream; host clients must not issue
+  concurrent command transactions against `127.0.0.1:54321`.
+- `a90ctl.py` serial exchanges must hold the shared lock
+  `workspace/private/run/a90-serial-bridge.lock` from TCP connect through final
+  response parsing.
+- `a90_bridge.py doctor/status` probes must not disturb an active transaction;
+  if the shared lock is held, classify the probe as `busy-serial-lock`.
+- `serial_tcp_bridge.py` must reject an extra TCP client with
+  `[bridge] busy: another client is active; retry later` rather than silently
+  closing the connection.
+- Runners should treat bridge busy as retryable when no command reached the
+  device, but unsafe device commands still must not be replayed after partial
+  serial writes.
 
 Retry rules:
 
@@ -265,9 +288,10 @@ As of `2026-06-08`:
 - Host bridge wrapper contract exists: `wrapper_contract=1`.
 - Host transport selector contract exists: `selector_contract=1`.
 - NCM smoke runner records transport selection in its manifest.
-- Current boot image is still `v726-wifi-lifecycle`.
-- Device-side `transport.contract=1` is a next boot-image task, not a current
-  `v726` guarantee.
+- Current boot image is `v2169-transport-contract`.
+- Device-side `transport.contract=1` is a current baseline guarantee.
+- Previous rollback image is `v726-wifi-lifecycle`; known-good fallback remains
+  `v48`.
 
-The next boot-image promotion should close that last gap by adding the
-device-side `transport.*` status lines and validating old parser compatibility.
+The next boot-image promotion should preserve the device-side `transport.*`
+status lines and validate old parser compatibility.
