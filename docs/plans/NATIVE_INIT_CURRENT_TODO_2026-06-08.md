@@ -146,6 +146,13 @@ Completed first units:
   - cleaned up runtime config residue;
   - rolled back to `v2169-transport-contract`;
   - final rollback `selftest fail=0`.
+- Serial bridge retry behavior is now shared transport behavior:
+  - `a90_transport.run_serial_command_recovered()` records
+    `serial_recovery_contract=1`;
+  - protocol-noise recovery can restart the managed bridge once and retry safe
+    commands once;
+  - V2180 did not naturally fire the `AT`/protocol-noise path, so live-fired
+    evidence remains opportunistic.
 
 Open tasks:
 
@@ -158,10 +165,6 @@ Open tasks:
   - firmware/helper window dominates and can take roughly three minutes;
   - status runners must poll `autoconnect.decision=wifi-autoconnect-running`
     until a terminal result.
-- Harden serial bridge retry behavior against intermittent `AT` noise:
-  - V2179 proved bridge restart/retry is sufficient for live validation;
-  - shared runner helpers should keep this behavior instead of failing the full
-    run on one malformed cmdv1 exchange.
 - Continue UI polish beyond the P3 minimum:
   - optional redacted SSID display mode;
   - RSSI/link quality when available from supplicant status;
@@ -230,23 +233,13 @@ Completed first units:
     cleaned up, restored autoconnect disabled, and ended with `selftest fail=0`;
   - report:
     `docs/reports/NATIVE_INIT_V2180_TRANSPORT_COMMONIZATION_LIVE_VALIDATION_2026-06-09.md`.
-
-Open tasks:
-
-- Stabilize `a90_transport.py` as the import target for active runners:
-  - bridge ensure/status;
-  - `cmdv1` version/status;
-  - host NCM snapshot;
-  - optional host NCM link-local repair;
-  - selection manifest.
-- Treat selector fields as the stable contract for migrated runners:
+- Stable selector fields are now the runner contract for migrated entrypoints:
   - `selector_contract=1`;
   - `selected=serial|ncm|tcpctl`;
   - `fallback_reason=<label-or-null>`.
-- Migrate one runner at a time:
-  - NCM smoke first;
-  - Wi-Fi lifecycle runner done;
-  - baseline validation runner done.
+
+Open tasks:
+
 - Live-validate serial `AT` noise recovery when it naturally fires:
   - recovery must appear in the relevant step metadata;
   - unsafe commands must still not replay unless explicitly scoped.
@@ -262,6 +255,8 @@ Exit criteria:
 - No runner directly starts `serial_tcp_bridge.py` unless testing the bridge
   implementation itself.
 - Bridge artifacts land under `workspace/private/logs/bridge/`.
+- Active migrated runners use `a90_transport.py` for transport selection,
+  serial steps, phase timers, and recovery evidence.
 
 ## Priority 3: Test Script Inventory And Consolidation
 
@@ -279,7 +274,9 @@ Inventory labels:
 
 Open tasks:
 
-- Keep the inventory current when active entrypoints move.
+- Keep the inventory current when active entrypoints move; V2180 refreshed the
+  current report after adding
+  `native_wifi_v2178_autoconnect_phase_validation.py`.
 - For each script, continue to record:
   - purpose;
   - last known baseline/run;

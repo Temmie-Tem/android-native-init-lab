@@ -17,22 +17,6 @@
       "type": "file"
     },
     {
-      "executable": true,
-      "has_phase_timer": false,
-      "has_secret_redaction": false,
-      "imports_a90_transport": false,
-      "label": "delete-review",
-      "live_device_required": false,
-      "mentions_a90_bridge": false,
-      "mentions_a90ctl_subprocess": false,
-      "mentions_serial_tcp_bridge": false,
-      "name": "__pycache__",
-      "path": "workspace/public/src/scripts/revalidation/__pycache__",
-      "reason": "generated Python bytecode cache",
-      "repo_reference_count": 3,
-      "type": "dir"
-    },
-    {
       "executable": false,
       "has_phase_timer": false,
       "has_secret_redaction": false,
@@ -114,7 +98,7 @@
     },
     {
       "executable": false,
-      "has_phase_timer": false,
+      "has_phase_timer": true,
       "has_secret_redaction": false,
       "imports_a90_transport": true,
       "label": "active",
@@ -125,7 +109,7 @@
       "name": "a90_ncm_transport_smoke.py",
       "path": "workspace/public/src/scripts/revalidation/a90_ncm_transport_smoke.py",
       "reason": "active NCM transport smoke",
-      "repo_reference_count": 9,
+      "repo_reference_count": 11,
       "type": "file"
     },
     {
@@ -146,7 +130,7 @@
     },
     {
       "executable": false,
-      "has_phase_timer": false,
+      "has_phase_timer": true,
       "has_secret_redaction": false,
       "imports_a90_transport": false,
       "label": "module",
@@ -157,12 +141,12 @@
       "name": "a90_transport.py",
       "path": "workspace/public/src/scripts/revalidation/a90_transport.py",
       "reason": "shared bridge/transport selector",
-      "repo_reference_count": 7,
+      "repo_reference_count": 8,
       "type": "file"
     },
     {
       "executable": false,
-      "has_phase_timer": false,
+      "has_phase_timer": true,
       "has_secret_redaction": false,
       "imports_a90_transport": true,
       "label": "active",
@@ -173,7 +157,7 @@
       "name": "a90_v725_fasttransport_baseline_validation.py",
       "path": "workspace/public/src/scripts/revalidation/a90_v725_fasttransport_baseline_validation.py",
       "reason": "fast transport baseline validator",
-      "repo_reference_count": 5,
+      "repo_reference_count": 6,
       "type": "file"
     },
     {
@@ -189,7 +173,7 @@
       "name": "a90_wifi_profile_stage.py",
       "path": "workspace/public/src/scripts/revalidation/a90_wifi_profile_stage.py",
       "reason": "active Wi-Fi profile staging helper",
-      "repo_reference_count": 6,
+      "repo_reference_count": 9,
       "type": "file"
     },
     {
@@ -205,7 +189,7 @@
       "name": "a90ctl.py",
       "path": "workspace/public/src/scripts/revalidation/a90ctl.py",
       "reason": "cmdv1 operator/client entrypoint",
-      "repo_reference_count": 354,
+      "repo_reference_count": 355,
       "type": "file"
     },
     {
@@ -269,7 +253,7 @@
       "name": "build_native_init_boot_v2174_wifi_urandom_connect.py",
       "path": "workspace/public/src/scripts/revalidation/build_native_init_boot_v2174_wifi_urandom_connect.py",
       "reason": "Wi-Fi carrier boot builder",
-      "repo_reference_count": 10,
+      "repo_reference_count": 5,
       "type": "file"
     },
     {
@@ -301,7 +285,7 @@
       "name": "build_native_init_boot_v2178_wifi_profile_autoconnect.py",
       "path": "workspace/public/src/scripts/revalidation/build_native_init_boot_v2178_wifi_profile_autoconnect.py",
       "reason": "Wi-Fi profile/autoconnect boot builder",
-      "repo_reference_count": 5,
+      "repo_reference_count": 10,
       "type": "file"
     },
     {
@@ -530,7 +514,7 @@
     },
     {
       "executable": false,
-      "has_phase_timer": false,
+      "has_phase_timer": true,
       "has_secret_redaction": true,
       "imports_a90_transport": true,
       "label": "active",
@@ -541,7 +525,7 @@
       "name": "native_wifi_connect_carrier_handoff_v2174.py",
       "path": "workspace/public/src/scripts/revalidation/native_wifi_connect_carrier_handoff_v2174.py",
       "reason": "active Wi-Fi carrier validation",
-      "repo_reference_count": 6,
+      "repo_reference_count": 7,
       "type": "file"
     },
     {
@@ -557,7 +541,7 @@
       "name": "native_wifi_dhcp_ping_handoff_v2176.py",
       "path": "workspace/public/src/scripts/revalidation/native_wifi_dhcp_ping_handoff_v2176.py",
       "reason": "active Wi-Fi DHCP/ping validation",
-      "repo_reference_count": 7,
+      "repo_reference_count": 8,
       "type": "file"
     },
     {
@@ -573,7 +557,7 @@
       "name": "native_wifi_hold_reconnect_handoff_v2177.py",
       "path": "workspace/public/src/scripts/revalidation/native_wifi_hold_reconnect_handoff_v2177.py",
       "reason": "active Wi-Fi hold/reconnect validation",
-      "repo_reference_count": 4,
+      "repo_reference_count": 5,
       "type": "file"
     },
     {
@@ -590,6 +574,22 @@
       "path": "workspace/public/src/scripts/revalidation/native_wifi_supplicant_dependency_probe.py",
       "reason": "current Wi-Fi dependency probe",
       "repo_reference_count": 6,
+      "type": "file"
+    },
+    {
+      "executable": false,
+      "has_phase_timer": true,
+      "has_secret_redaction": true,
+      "imports_a90_transport": true,
+      "label": "active",
+      "live_device_required": true,
+      "mentions_a90_bridge": false,
+      "mentions_a90ctl_subprocess": false,
+      "mentions_serial_tcp_bridge": false,
+      "name": "native_wifi_v2178_autoconnect_phase_validation.py",
+      "path": "workspace/public/src/scripts/revalidation/native_wifi_v2178_autoconnect_phase_validation.py",
+      "reason": "active V2178 Wi-Fi autoconnect phase validation",
+      "repo_reference_count": 5,
       "type": "file"
     },
     {
@@ -689,11 +689,10 @@
       "type": "file"
     }
   ],
-  "generated_at": "2026-06-08T16:18:21.930885+00:00",
+  "generated_at": "2026-06-08T22:45:50.823396+00:00",
   "root": "workspace/public/src/scripts/revalidation",
   "summary": {
-    "active": 36,
-    "delete-review": 1,
+    "active": 37,
     "module": 6
   }
 }
