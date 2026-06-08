@@ -32,6 +32,7 @@ from a90harness.evidence import (  # noqa: E402
     WORKSPACE_PRIVATE_ROOT,
     workspace_private_input_path,
 )
+import a90_transport as transport  # noqa: E402
 import a90_ncm_transport as ncm_transport  # noqa: E402
 from tcpctl_host import tcpctl_request, tcpctl_run_line  # noqa: E402
 
@@ -294,6 +295,18 @@ def a90ctl_step(store: EvidenceStore,
                 timeout: float = 60.0,
                 bridge_timeout: float | None = None,
                 input_mode: str | None = None) -> dict[str, Any]:
+    if input_mode is None:
+        return transport.run_serial_step(
+            store,
+            steps,
+            name,
+            command,
+            timeout=timeout,
+            bridge_timeout=bridge_timeout if bridge_timeout is not None else timeout,
+            host=BRIDGE_HOST,
+            port=BRIDGE_PORT,
+        )
+
     result = run_command(a90ctl_command(command, timeout=bridge_timeout, input_mode=input_mode), timeout=timeout)
     if "[busy]" in str(result.get("stdout") or ""):
         hide = run_command(a90ctl_command(["hide"], timeout=20), timeout=30)
@@ -1409,6 +1422,7 @@ def render_report(manifest: dict[str, Any]) -> str:
     connect = manifest.get("connect") or {}
     supplicant_log = connect.get("supplicant_log") or {}
     rollback_result = manifest.get("rollback") or {}
+    transport_selection = manifest.get("transport_selection") or {}
     return "\n".join([
         "# Native Init V2174 Wi-Fi Urandom Connect Live Validation",
         "",
@@ -1421,6 +1435,9 @@ def render_report(manifest: dict[str, Any]) -> str:
         f"- Bridge ready for cmdv1: `{manifest.get('bridge_ready_for_a90ctl', False)}`",
         f"- Bridge probe: `{(manifest.get('bridge_status') or {}).get('bridge_probe', '')}`",
         f"- Serial candidates: `{len((manifest.get('bridge_status') or {}).get('serial_candidates') or [])}`",
+        f"- Transport selected: `{transport_selection.get('selected', '')}`",
+        f"- Transport fallback reason: `{transport_selection.get('fallback_reason', '')}`",
+        f"- Transport selector contract: `{transport_selection.get('selector_contract', '')}`",
         f"- Wi-Fi env valid: `{(manifest.get('wifi_secret_status') or {}).get('valid', False)}`",
         f"- Test image: `{manifest['preflight']['test_image']}`",
         f"- Test SHA256: `{manifest['preflight']['test_image_sha256']}`",
@@ -1483,14 +1500,16 @@ def run(profile_name: str | None = None) -> dict[str, Any]:
         "env_load": env_load,
     }
     store.write_json("preflight.json", preflight)
-    bridge_status = bridge_status_step(store, steps, "pre-bridge-status")
-    bridge_status_data = bridge_status_payload(bridge_status)
-    bridge_ready = bridge_ready_for_a90ctl(bridge_status)
+    transport_selection = transport.select_transport(store, steps, ensure=True, prefer_fast=True)
+    bridge_status_data = transport_selection.get("bridge") if isinstance(transport_selection.get("bridge"), dict) else {}
+    bridge_ready = (
+        bool(transport_selection.get("status_ok"))
+        and transport_selection.get("serial_bridge") == "ready"
+    )
 
     if bridge_ready:
-        pre_status = a90ctl_step(store, steps, "pre-status", ["status"], timeout=90, bridge_timeout=60)
         pre_selftest = a90ctl_step(store, steps, "pre-selftest", ["selftest"], timeout=90, bridge_timeout=60)
-        pre_native_ok = bool(pre_status.get("ok")) and bool(pre_selftest.get("ok"))
+        pre_native_ok = bool(transport_selection.get("status_ok")) and bool(pre_selftest.get("ok"))
     else:
         pre_native_ok = False
 
@@ -1523,6 +1542,7 @@ def run(profile_name: str | None = None) -> dict[str, Any]:
             "selected_device": bridge_status_data.get("selected_device", ""),
             "serial_candidates": bridge_status_data.get("serial_candidates", []),
         },
+        "transport_selection": transport_selection,
         "bridge_ready_for_a90ctl": bridge_ready,
         "pre_native_ok": pre_native_ok,
         "test_flash_ok": test_flash_ok,
@@ -1559,6 +1579,8 @@ def main() -> int:
         "pass": manifest["pass"],
         "reason": manifest["reason"],
         "out_dir": manifest["out_dir"],
+        "transport_selected": (manifest.get("transport_selection") or {}).get("selected", ""),
+        "transport_fallback_reason": (manifest.get("transport_selection") or {}).get("fallback_reason", ""),
         "bridge_probe": (manifest.get("bridge_status") or {}).get("bridge_probe", ""),
         "serial_candidates": len((manifest.get("bridge_status") or {}).get("serial_candidates") or []),
         "wifi_env_valid": (manifest.get("wifi_secret_status") or {}).get("valid", False),

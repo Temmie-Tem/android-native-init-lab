@@ -72,6 +72,12 @@ Completed first units:
   - verified cleanup removed test DHCP/DNS residue;
   - rolled back to `v2174-wifi-urandom-connect`;
   - final rollback `selftest fail=0`.
+- `v2176-wifi-dhcp` final-code N=3 stability validation passed:
+  - all three runs selected `tcpctl`;
+  - all three reached carrier, DHCP, bounded ping rc `0`, cleanup success, and
+    rollback selftest success;
+  - aggregate report:
+    `docs/reports/NATIVE_INIT_V2176_WIFI_DHCP_STABILITY_N3_2026-06-08.md`.
 - `v2174-wifi-urandom-connect` live validation passed:
   - prior V2173 no-carrier evidence isolated the connect blocker to missing
     `/dev/urandom` during WPA SNonce generation;
@@ -129,10 +135,7 @@ Open tasks:
   - private 5 GHz test SSID from
     `workspace/private/secrets/a90-wifi-test.env`;
   - same password source, no duplicated secret storage.
-- Run bounded stability checks:
-  - connect;
-  - DHCP;
-  - one bounded ping target when explicitly in Wi-Fi connectivity scope;
+- Run remaining bounded stability checks:
   - hold/idle;
   - disconnect/reconnect.
 - Add UI status surface:
@@ -148,7 +151,8 @@ Open tasks:
 
 Exit criteria:
 
-- N>=3 repeated connect cycles without cleanup-dependent success.
+- N>=3 repeated connect/DHCP/ping cycles without cleanup-dependent success is
+  complete for the V2176 route.
 - `selftest fail=0` after the run.
 - Secret scan reports no leaked PSK.
 - Public report contains redacted Wi-Fi evidence only.
@@ -178,6 +182,12 @@ Completed first units:
   Samsung `04e8` + `cdc_ncm` present/no-`fe80::` state.
 - Current `v2174-wifi-urandom-connect` baseline preserves the device-side
   `transport.contract=1` contract from V2169.
+- Active Wi-Fi lifecycle runners use the shared transport selector/serial step:
+  - `native_wifi_connect_carrier_handoff_v2174.py` uses
+    `a90_transport.select_transport()` for preflight and
+    `a90_transport.run_serial_step()` for cmdv1 commands;
+  - `native_wifi_dhcp_ping_handoff_v2176.py` inherits the V2174 command path
+    and already records `transport_selection`.
 
 Open tasks:
 
@@ -193,7 +203,7 @@ Open tasks:
   - `fallback_reason=<label-or-null>`.
 - Migrate one runner at a time:
   - NCM smoke first;
-  - Wi-Fi lifecycle runner next;
+  - Wi-Fi lifecycle runner done;
   - baseline validation runner after that.
 - Add phase timers to live runners:
   - `flash`;
@@ -257,6 +267,8 @@ Exit criteria:
 
 - A generated inventory report exists under `docs/reports/` or `workspace/public`
   as redacted metadata.
+- Current inventory report:
+  `docs/reports/REVALIDATION_SCRIPT_INVENTORY_2026-06-08.md`.
 - Active entrypoints list in `workspace/public/src/scripts/revalidation/README.md`
   matches the actual current set.
 - New scripts use shared modules instead of reimplementing bridge/NCM logic.
@@ -329,8 +341,8 @@ Open tasks:
   - cleanup;
   - rollback selftest.
 - Add repeated-run evidence:
-  - N>=3 for basic stability;
-  - longer hold/idle only after cleanup is deterministic.
+  - N>=3 for basic stability is complete for the V2176 route;
+  - longer hold/idle remains open.
 - Capture residual state:
   - bridge process;
   - NCM interface;
@@ -371,8 +383,8 @@ Exit criteria:
 
 ## Suggested Next Sequence
 
-1. Migrate the remaining Wi-Fi lifecycle runner code paths to `a90_transport.py`.
-2. Generate a script inventory and classify active/module/archive/delete-review.
-3. Run N>=3 Wi-Fi lifecycle stability checks on the V2176 route.
+1. Run bounded hold/idle and disconnect/reconnect checks on the V2176 route.
+2. Migrate the baseline validation runner to `a90_transport.py`.
+3. Review the script inventory archive candidate, especially V2167.
 4. Design profile persistence and explicit boot-autoconnect controls.
 5. Decide whether to promote the next boot/init baseline.

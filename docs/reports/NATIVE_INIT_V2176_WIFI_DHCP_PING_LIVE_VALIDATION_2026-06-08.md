@@ -5,7 +5,7 @@
 - Decision: `v2176-dhcp-ping-rollback-pass`
 - Pass: `True`
 - Reason: carrier, DHCP, bounded ping, cleanup, and rollback selftest passed
-- Run dir: `workspace/private/runs/wifi/v2176-wifi-dhcp-ping-20260608-210924`
+- Run dir: `workspace/private/runs/wifi/v2176-wifi-dhcp-ping-20260608-223417`
 - Test image: `workspace/private/inputs/boot_images/boot_linux_v2176_wifi_dhcp.img`
 - Test SHA256: `1defb35d2fbbefba5972046ba2c15391329db10bfc2201bdbd0b787279aa668d`
 - Rollback image: `workspace/private/inputs/boot_images/boot_linux_v2174_wifi_urandom_connect.img`
@@ -24,12 +24,12 @@
 
 ## Phase Timers
 
-- `preflight_transport`: `3.623` sec
-- `flash_boot_wait`: `64.005` sec
-- `connect_window`: `133.759` sec
-- `dhcp_ping_window`: `3.438` sec
-- `rollback`: `64.702` sec
-- `selftest`: `61.061` sec
+- `preflight_transport`: `0.968` sec
+- `flash_boot_wait`: `65.046` sec
+- `connect_window`: `133.69` sec
+- `dhcp_ping_window`: `3.715` sec
+- `rollback`: `65.006` sec
+- `selftest`: `0.221` sec
 - `artifact_upload`: `0.0` sec
 
 ## Rollback

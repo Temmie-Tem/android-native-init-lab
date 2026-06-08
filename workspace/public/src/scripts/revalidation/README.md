@@ -29,6 +29,7 @@ Current migrated entrypoints:
 - `native_wifi_connect_dhcp_google_ping_handoff_v2167.py`
 - `native_wifi_supplicant_dependency_probe.py`
 - `a90_v725_fasttransport_baseline_validation.py`
+- `inventory_revalidation_scripts.py`
 - cleanup and inventory utilities in this directory
 
 New commands should call this workspace path directly.

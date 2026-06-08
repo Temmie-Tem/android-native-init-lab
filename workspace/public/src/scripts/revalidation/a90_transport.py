@@ -226,6 +226,55 @@ def run_serial_command(command: list[str],
         }
 
 
+def serial_output(result: dict[str, Any]) -> str:
+    return "\n".join([str(result.get("stdout") or ""), str(result.get("stderr") or "")])
+
+
+def serial_needs_hide_on_busy(result: dict[str, Any]) -> bool:
+    return "[busy]" in serial_output(result)
+
+
+def serial_needs_hide_on_protocol_noise(result: dict[str, Any]) -> bool:
+    output = serial_output(result)
+    return "A90P1 END marker not found" in output or "cmdvATATAT" in output
+
+
+def run_serial_command_recovered(command: list[str],
+                                 *,
+                                 host: str = DEFAULT_HOST,
+                                 port: int = DEFAULT_PORT,
+                                 timeout: float = 20.0,
+                                 retry_unsafe: bool = False,
+                                 store: Any | None = None,
+                                 steps: list[dict[str, Any]] | None = None,
+                                 recovery_step_prefix: str = "serial") -> dict[str, Any]:
+    result = run_serial_command(
+        command,
+        host=host,
+        port=port,
+        timeout=timeout,
+        retry_unsafe=retry_unsafe,
+    )
+    recovery_label = ""
+    if serial_needs_hide_on_busy(result):
+        recovery_label = "busy"
+    elif serial_needs_hide_on_protocol_noise(result):
+        recovery_label = "protocol-noise"
+
+    if recovery_label:
+        hide = run_serial_command(["hide"], host=host, port=port, timeout=20.0)
+        if store is not None and steps is not None:
+            write_step(store, steps, f"{recovery_step_prefix}-hide-on-{recovery_label}", hide)
+        result = run_serial_command(
+            command,
+            host=host,
+            port=port,
+            timeout=timeout,
+            retry_unsafe=retry_unsafe,
+        )
+    return result
+
+
 def run_serial_step(store: Any,
                     steps: list[dict[str, Any]],
                     name: str,
@@ -238,17 +287,18 @@ def run_serial_step(store: Any,
                     hide_on_busy: bool = True,
                     retry_unsafe: bool = False) -> dict[str, Any]:
     del timeout
-    result = run_serial_command(
-        command,
-        host=host,
-        port=port,
-        timeout=bridge_timeout,
-        retry_unsafe=retry_unsafe,
-    )
-    output = "\n".join([str(result.get("stdout") or ""), str(result.get("stderr") or "")])
-    if hide_on_busy and "[busy]" in output:
-        hide = run_serial_command(["hide"], host=host, port=port, timeout=20.0)
-        write_step(store, steps, f"{name}-hide-on-busy", hide)
+    if hide_on_busy:
+        result = run_serial_command_recovered(
+            command,
+            host=host,
+            port=port,
+            timeout=bridge_timeout,
+            retry_unsafe=retry_unsafe,
+            store=store,
+            steps=steps,
+            recovery_step_prefix=name,
+        )
+    else:
         result = run_serial_command(
             command,
             host=host,
@@ -392,11 +442,27 @@ def select_transport(store: Any | None = None,
     if store is not None and steps is not None:
         write_step(store, steps, "transport-bridge-ensure" if ensure else "transport-bridge-status", bridge_result)
 
-    version_result = run_serial_command(["version"], host=host, port=port, timeout=10.0)
+    version_result = run_serial_command_recovered(
+        ["version"],
+        host=host,
+        port=port,
+        timeout=10.0,
+        store=store,
+        steps=steps,
+        recovery_step_prefix="transport-version",
+    )
     if store is not None and steps is not None:
         write_step(store, steps, "transport-version", version_result)
 
-    status_result = run_serial_command(["status"], host=host, port=port, timeout=20.0)
+    status_result = run_serial_command_recovered(
+        ["status"],
+        host=host,
+        port=port,
+        timeout=20.0,
+        store=store,
+        steps=steps,
+        recovery_step_prefix="transport-status",
+    )
     if store is not None and steps is not None:
         write_step(store, steps, "transport-status", status_result)
 
@@ -436,7 +502,10 @@ def select_transport(store: Any | None = None,
     serial_bridge = "ready" if bridge_result.get("ok") and bridge_json.get("bridge_process") == "running" else "not-ready"
     device_status = "ready" if status_result.get("ok") else "not-ready"
     tcpctl = status_fields.get("transport.tcpctl", "not-tested")
-    if contract and tcpctl == "ready" and prefer_fast:
+    if not status_result.get("ok"):
+        selected = "serial"
+        fallback_reason = "device-status-not-ready"
+    elif contract and tcpctl == "ready" and prefer_fast:
         selected = "tcpctl"
         fallback_reason = None
     elif prefer_fast and host_ncm["state"] == "ready":
