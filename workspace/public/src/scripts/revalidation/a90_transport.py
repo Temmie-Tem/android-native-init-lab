@@ -8,8 +8,10 @@ import json
 import os
 import subprocess
 import sys
+import time
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
 
 sys.dont_write_bytecode = True
 
@@ -25,6 +27,8 @@ DEFAULT_BRIDGE_DEVICE = os.environ.get("A90_BRIDGE_DEVICE", "auto")
 DEFAULT_BRIDGE_DEVICE_GLOB = "/dev/serial/by-id/usb-SAMSUNG_SAMSUNG_Android_*"
 BRIDGE_SCRIPT_REL = "workspace/public/src/scripts/revalidation/a90_bridge.py"
 TRANSPORT_SELECTOR_CONTRACT = 1
+PHASE_TIMER_CONTRACT = 1
+SERIAL_RECOVERY_CONTRACT = 1
 NCM_AUTO_REPAIR_ENV = "A90_TRANSPORT_AUTO_REPAIR_NCM"
 
 
@@ -32,8 +36,39 @@ def now_iso() -> str:
     return dt.datetime.now(dt.timezone.utc).isoformat()
 
 
+def elapsed_sec(started_monotonic: float) -> float:
+    return round(time.monotonic() - started_monotonic, 3)
+
+
+@contextmanager
+def phase(manifest: dict[str, Any], name: str) -> Iterator[None]:
+    started = now_iso()
+    started_monotonic = time.monotonic()
+    ok = False
+    error_type = ""
+    manifest["phase_timer_contract"] = PHASE_TIMER_CONTRACT
+    try:
+        yield
+        ok = True
+    except BaseException as exc:
+        error_type = exc.__class__.__name__
+        raise
+    finally:
+        item = {
+            "name": name,
+            "started": started,
+            "ended": now_iso(),
+            "elapsed_sec": elapsed_sec(started_monotonic),
+            "ok": ok,
+        }
+        if error_type:
+            item["error_type"] = error_type
+        manifest.setdefault("phase_timers", []).append(item)
+
+
 def run_host_command(command: list[object], *, timeout: float = 30.0) -> dict[str, Any]:
     started = now_iso()
+    started_monotonic = time.monotonic()
     try:
         completed = subprocess.run(
             [str(item) for item in command],
@@ -48,6 +83,7 @@ def run_host_command(command: list[object], *, timeout: float = 30.0) -> dict[st
             "command": [str(item) for item in command],
             "started": started,
             "ended": now_iso(),
+            "elapsed_sec": elapsed_sec(started_monotonic),
             "timeout": False,
             "rc": completed.returncode,
             "ok": completed.returncode == 0,
@@ -59,6 +95,7 @@ def run_host_command(command: list[object], *, timeout: float = 30.0) -> dict[st
             "command": [str(item) for item in command],
             "started": started,
             "ended": now_iso(),
+            "elapsed_sec": elapsed_sec(started_monotonic),
             "timeout": True,
             "rc": None,
             "ok": False,
@@ -83,7 +120,7 @@ def write_step(store: Any,
         store.write_text(f"logs/host/{stderr_file}", str(result.get("stderr") or ""))
         stdout_file = f"logs/host/{stdout_file}"
         stderr_file = f"logs/host/{stderr_file}"
-    steps.append({
+    step = {
         "name": name,
         "command": [str(item) for item in result.get("command", [])],
         "started": result.get("started", now_iso()),
@@ -93,7 +130,21 @@ def write_step(store: Any,
         "ok": bool(result.get("ok")),
         "stdout_file": stdout_file,
         "stderr_file": stderr_file,
-    })
+    }
+    if "elapsed_sec" in result:
+        step["elapsed_sec"] = result.get("elapsed_sec")
+    recovery = result.get("serial_recovery")
+    if isinstance(recovery, dict):
+        step["serial_recovery_contract"] = result.get(
+            "serial_recovery_contract",
+            SERIAL_RECOVERY_CONTRACT,
+        )
+        step["serial_recovery"] = recovery
+        step["recovery"] = {
+            "reason": recovery.get("reason", ""),
+            "recovered": bool(recovery.get("recovered")),
+        }
+    steps.append(step)
 
 
 def parse_json_stdout(result: dict[str, Any]) -> dict[str, Any]:
@@ -177,13 +228,37 @@ def bridge_status(*,
     return result
 
 
+def restart_bridge(*,
+                   host: str = DEFAULT_HOST,
+                   port: int = DEFAULT_PORT,
+                   device: str = DEFAULT_BRIDGE_DEVICE,
+                   device_glob: str = DEFAULT_BRIDGE_DEVICE_GLOB,
+                   no_client_probe: bool = True,
+                   timeout: float = 20.0) -> dict[str, Any]:
+    result = run_host_command(
+        bridge_command(
+            "restart",
+            host=host,
+            port=port,
+            device=device,
+            device_glob=device_glob,
+            no_client_probe=no_client_probe,
+        ),
+        timeout=timeout,
+    )
+    result["json"] = parse_json_stdout(result)
+    return result
+
+
 def protocol_result_to_command_result(command: list[str],
                                       started: str,
+                                      elapsed: float,
                                       result: a90ctl.ProtocolResult) -> dict[str, Any]:
     return {
         "command": ["cmdv1", *command],
         "started": started,
         "ended": now_iso(),
+        "elapsed_sec": elapsed,
         "timeout": False,
         "rc": result.rc,
         "ok": result.rc == 0,
@@ -204,6 +279,7 @@ def run_serial_command(command: list[str],
                        timeout: float = 20.0,
                        retry_unsafe: bool = False) -> dict[str, Any]:
     started = now_iso()
+    started_monotonic = time.monotonic()
     try:
         result = a90ctl.run_cmdv1_command(
             host,
@@ -212,12 +288,18 @@ def run_serial_command(command: list[str],
             command,
             retry_unsafe=retry_unsafe,
         )
-        return protocol_result_to_command_result(command, started, result)
+        return protocol_result_to_command_result(
+            command,
+            started,
+            elapsed_sec(started_monotonic),
+            result,
+        )
     except Exception as exc:  # noqa: BLE001 - transport evidence must preserve exact failure
         return {
             "command": ["cmdv1", *command],
             "started": started,
             "ended": now_iso(),
+            "elapsed_sec": elapsed_sec(started_monotonic),
             "timeout": False,
             "rc": None,
             "ok": False,
@@ -236,7 +318,26 @@ def serial_needs_hide_on_busy(result: dict[str, Any]) -> bool:
 
 def serial_needs_hide_on_protocol_noise(result: dict[str, Any]) -> bool:
     output = serial_output(result)
-    return "A90P1 END marker not found" in output or "cmdvATATAT" in output
+    return (
+        "A90P1 END marker not found" in output
+        or "A90P1 command mismatch" in output
+        or "cmdvATATAT" in output
+    )
+
+
+def serial_needs_bridge_ensure_on_missing(result: dict[str, Any]) -> bool:
+    return a90ctl.BRIDGE_SERIAL_MISSING_TEXT in serial_output(result)
+
+
+def serial_command_can_recover(command: list[str], retry_unsafe: bool) -> bool:
+    return retry_unsafe or a90ctl.command_allows_retry(command)
+
+
+def attach_serial_recovery(result: dict[str, Any],
+                           recovery: dict[str, Any]) -> dict[str, Any]:
+    result["serial_recovery_contract"] = SERIAL_RECOVERY_CONTRACT
+    result["serial_recovery"] = recovery
+    return result
 
 
 def run_serial_command_recovered(command: list[str],
@@ -255,16 +356,36 @@ def run_serial_command_recovered(command: list[str],
         timeout=timeout,
         retry_unsafe=retry_unsafe,
     )
+    recovery = {
+        "attempts": 1,
+        "recovered": False,
+        "reason": "",
+        "actions": [],
+        "unsafe_retry": bool(retry_unsafe),
+        "retry_allowed": serial_command_can_recover(command, retry_unsafe),
+    }
     recovery_label = ""
     if serial_needs_hide_on_busy(result):
         recovery_label = "busy"
     elif serial_needs_hide_on_protocol_noise(result):
         recovery_label = "protocol-noise"
+    elif serial_needs_bridge_ensure_on_missing(result):
+        recovery_label = "serial-missing"
 
-    if recovery_label:
+    if not recovery_label:
+        return attach_serial_recovery(result, recovery)
+
+    recovery["reason"] = recovery_label
+    if recovery_label == "busy":
         hide = run_serial_command(["hide"], host=host, port=port, timeout=20.0)
         if store is not None and steps is not None:
             write_step(store, steps, f"{recovery_step_prefix}-hide-on-{recovery_label}", hide)
+        recovery["actions"] = ["hide"]
+        if not recovery["retry_allowed"]:
+            recovery["skip_reason"] = "unsafe-retry-not-allowed"
+            return attach_serial_recovery(result, recovery)
+        recovery["actions"].append("retry-command")
+        recovery["attempts"] = 2
         result = run_serial_command(
             command,
             host=host,
@@ -272,7 +393,34 @@ def run_serial_command_recovered(command: list[str],
             timeout=timeout,
             retry_unsafe=retry_unsafe,
         )
-    return result
+        recovery["recovered"] = bool(result.get("ok"))
+        return attach_serial_recovery(result, recovery)
+
+    if not recovery["retry_allowed"]:
+        recovery["skip_reason"] = "unsafe-retry-not-allowed"
+        return attach_serial_recovery(result, recovery)
+
+    if recovery_label == "protocol-noise":
+        restart = restart_bridge(host=host, port=port)
+        if store is not None and steps is not None:
+            write_step(store, steps, f"{recovery_step_prefix}-bridge-restart-on-{recovery_label}", restart)
+        recovery["actions"] = ["bridge-restart", "retry-command"]
+    else:
+        ensure = ensure_bridge(host=host, port=port)
+        if store is not None and steps is not None:
+            write_step(store, steps, f"{recovery_step_prefix}-bridge-ensure-on-{recovery_label}", ensure)
+        recovery["actions"] = ["bridge-ensure", "retry-command"]
+
+    recovery["attempts"] = 2
+    result = run_serial_command(
+        command,
+        host=host,
+        port=port,
+        timeout=timeout,
+        retry_unsafe=retry_unsafe,
+    )
+    recovery["recovered"] = bool(result.get("ok"))
+    return attach_serial_recovery(result, recovery)
 
 
 def run_serial_step(store: Any,

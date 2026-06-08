@@ -40,10 +40,6 @@ DEFAULT_HOLD_INTERVAL_SEC = 30
 DEFAULT_PING_TARGET = "google.com"
 
 
-def phase_timer(manifest: dict[str, Any], name: str):
-    return v2176.phase_timer(manifest, name)
-
-
 def rel(path: Path) -> str:
     return v2174.rel(path)
 
@@ -412,6 +408,7 @@ def run(profile_name: str | None = None,
         "cycle": CYCLE,
         "run_label": RUN_LABEL,
         "out_dir": rel(out_dir),
+        "phase_timer_contract": transport.PHASE_TIMER_CONTRACT,
         "phase_timers": [],
     }
     env_load = v2174.load_wifi_env()
@@ -436,7 +433,7 @@ def run(profile_name: str | None = None,
     manifest["preflight"] = preflight
     manifest["wifi_secret_status"] = secret_status
 
-    with phase_timer(manifest, "preflight_transport"):
+    with transport.phase(manifest, "preflight"):
         transport_selection = transport.select_transport(store, steps, ensure=True, prefer_fast=True)
     manifest["transport_selection"] = {
         "selector_contract": transport_selection.get("selector_contract"),
@@ -459,12 +456,12 @@ def run(profile_name: str | None = None,
     rollback_result: dict[str, Any] = {"ok": True, "attempt": "not-needed", "selftest_ok": "not-tested"}
 
     if preflight["test_image_exists"] and preflight["rollback_image_exists"] and secret_status.get("valid") and transport_selection.get("status_ok"):
-        with phase_timer(manifest, "flash_boot_wait"):
+        with transport.phase(manifest, "flash"):
             test_flash = v2174.run_command(v2176.flash_command(v2176.TEST_IMAGE, v2176.TEST_EXPECT_VERSION, from_native=True), timeout=720)
             v2174.write_step(store, steps, "test-flash-v2176-from-native", test_flash)
             test_flash_ok = bool(test_flash.get("ok"))
         if test_flash_ok:
-            with phase_timer(manifest, "initial_connect_window"):
+            with transport.phase(manifest, "initial_connect_window"):
                 initial_connect = run_connect_phase(
                     store,
                     steps,
@@ -472,7 +469,7 @@ def run(profile_name: str | None = None,
                     profile_name=profile_name,
                 )
             if initial_connect.get("ok"):
-                with phase_timer(manifest, "initial_dhcp_ping_window"):
+                with transport.phase(manifest, "initial_dhcp_ping_window"):
                     initial_dhcp = run_dhcp_ping_no_cleanup(
                         store,
                         steps,
@@ -481,7 +478,7 @@ def run(profile_name: str | None = None,
                         ping_target=ping_target,
                     )
             if initial_dhcp.get("ok"):
-                with phase_timer(manifest, "hold_idle_window"):
+                with transport.phase(manifest, "hold_idle_window"):
                     hold_result = run_hold_idle(
                         store,
                         steps,
@@ -489,10 +486,10 @@ def run(profile_name: str | None = None,
                         interval_sec=hold_interval_sec,
                         ping_target=ping_target,
                     )
-            with phase_timer(manifest, "disconnect_cleanup_window"):
+            with transport.phase(manifest, "disconnect_cleanup_window"):
                 disconnect = run_cleanup_check(store, steps, prefix="disconnect")
             if disconnect.get("ok"):
-                with phase_timer(manifest, "reconnect_window"):
+                with transport.phase(manifest, "reconnect_window"):
                     reconnect_connect = run_connect_phase(
                         store,
                         steps,
@@ -500,7 +497,7 @@ def run(profile_name: str | None = None,
                         profile_name=profile_name,
                     )
                 if reconnect_connect.get("ok"):
-                    with phase_timer(manifest, "reconnect_dhcp_ping_window"):
+                    with transport.phase(manifest, "reconnect_dhcp_ping_window"):
                         reconnect_dhcp = run_dhcp_ping_no_cleanup(
                             store,
                             steps,
@@ -508,15 +505,15 @@ def run(profile_name: str | None = None,
                             profile_name=profile_name,
                             ping_target=ping_target,
                         )
-                with phase_timer(manifest, "final_cleanup_window"):
+                with transport.phase(manifest, "final_cleanup_window"):
                     reconnect_cleanup = run_cleanup_check(store, steps, prefix="final")
-        with phase_timer(manifest, "rollback"):
+        with transport.phase(manifest, "rollback"):
             rollback_result = v2176.rollback(store, steps)
-        with phase_timer(manifest, "selftest"):
+        with transport.phase(manifest, "selftest"):
             final_selftest = serial_step(store, steps, "post-rollback-selftest", ["selftest"], timeout=90, bridge_timeout=60)
             rollback_result["post_selftest_ok"] = bool(final_selftest.get("ok")) and "fail=0" in str(final_selftest.get("stdout") or "")
 
-    with phase_timer(manifest, "artifact_upload"):
+    with transport.phase(manifest, "artifact_upload"):
         pass
 
     manifest["test_flash_ok"] = test_flash_ok

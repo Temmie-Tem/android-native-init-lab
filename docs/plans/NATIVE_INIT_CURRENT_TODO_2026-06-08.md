@@ -213,20 +213,23 @@ Completed first units:
 - Baseline validation runner transport migration is complete:
   - `a90_v725_fasttransport_baseline_validation.py` now uses
     `a90_transport.select_transport()` and recovered serial cmdv1 probes.
+- Transport commonization implementation is in place:
+  - `a90_transport.phase()` records `phase_timer_contract=1` and
+    `phase_timers[]` using a monotonic elapsed clock;
+  - `a90_transport.run_serial_command_recovered()` records
+    `serial_recovery_contract=1` and structured recovery evidence;
+  - protocol-noise recovery can restart the managed bridge once and retry safe
+    commands once;
+  - V2174 carrier, V2176 DHCP/ping, V2177 hold/reconnect, and V725 transport
+    baseline runners now use the shared phase timer contract.
 
 Open tasks:
 
-- Add phase timers to active live runners:
-  - `flash`;
-  - `boot_wait`;
-  - `helper_stage`;
-  - `connect_window`;
-  - `artifact_upload`;
-  - `rollback`;
-  - `selftest`.
-- Use the shared design in
-  `docs/plans/NATIVE_INIT_TRANSPORT_COMMONIZATION_DESIGN_2026-06-09.md`
-  instead of adding more local runner-only timer/retry helpers.
+- Live-validate the shared phase timer implementation on one active Wi-Fi
+  runner and one transport-only runner:
+  - require `phase_timer_contract=1`;
+  - require standard phases in `manifest.json`;
+  - confirm phase wall time identifies the dominant slow window.
 - Stabilize `a90_transport.py` as the import target for active runners:
   - bridge ensure/status;
   - `cmdv1` version/status;
@@ -241,11 +244,9 @@ Open tasks:
   - NCM smoke first;
   - Wi-Fi lifecycle runner done;
   - baseline validation runner done.
-- Promote serial `AT` noise handling into the shared runner path:
-  - detect malformed cmdv1 exchanges;
-  - restart the bridge once;
-  - retry the command once;
-  - record the recovery in the run manifest instead of hiding it.
+- Live-validate serial `AT` noise recovery when it naturally fires:
+  - recovery must appear in the relevant step metadata;
+  - unsafe commands must still not replay unless explicitly scoped.
 - Keep bridge warnings actionable:
   - `private_log_dir` / `private_run_dir` writable must be pass;
   - `port_pid_resolution=cmdline-fallback` is acceptable when bridge is already
@@ -420,10 +421,10 @@ Exit criteria:
 
 ## Suggested Next Sequence
 
-1. Add shared phase timers to the active Wi-Fi/bridge runners so slow phases are
-   measured instead of inferred.
-2. Move the V2179 serial `AT` noise bridge restart/retry behavior into shared
-   transport helpers and require manifest evidence when it fires.
+1. Run one host/live validation cycle that confirms shared phase timers in a
+   Wi-Fi runner and a transport-only runner manifest.
+2. If serial `AT` noise fires, confirm the shared recovery evidence is present;
+   otherwise keep it as a ready-but-not-live-fired path.
 3. Polish Wi-Fi status/HUD output on top of the promoted V2178 baseline:
    redacted SSID display, RSSI/link quality, and clearer
    disabled/running/pass/fail labels.
@@ -436,8 +437,8 @@ Exit criteria:
 
 | Risk | Current impact | Handling |
 | --- | --- | --- |
-| Boot autoconnect latency | Wi-Fi success can take roughly three minutes. | Poll `autoconnect.decision` until a terminal result; add phase timers next. |
-| Serial `AT` noise | A single cmdv1 exchange can be malformed. | Bridge restart/retry is proven manually; move it into shared helpers. |
+| Boot autoconnect latency | Wi-Fi success can take roughly three minutes. | Poll `autoconnect.decision` until a terminal result; shared phase timers are implemented and need live validation. |
+| Serial `AT` noise | A single cmdv1 exchange can be malformed. | Shared recovery is implemented for safe commands; live firing evidence is still opportunistic. |
 | UI completeness | Baseline works, but operator-facing status is still sparse. | Add redacted SSID, RSSI/link quality, and clearer state labels. |
 | Script sprawl | Older one-off runners still duplicate transport/artifact logic. | Keep inventory current; migrate one active runner at a time. |
 | Private data leakage | Wi-Fi profiles and raw run artifacts are intentionally private. | Keep secrets under ignored private roots; public reports stay redacted. |

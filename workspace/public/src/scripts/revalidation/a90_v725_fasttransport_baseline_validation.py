@@ -354,17 +354,27 @@ def main() -> int:
     out_dir = wifi_artifact_dir("runs", f"v725-fasttransport-baseline-validation-{safe_label}", timestamp=True)
     store = EvidenceStore(out_dir)
     steps: list[dict[str, Any]] = []
+    manifest: dict[str, Any] = {
+        "label": safe_label,
+        "out_dir": str(out_dir),
+        "phase_timer_contract": transport.PHASE_TIMER_CONTRACT,
+        "phase_timers": [],
+    }
 
-    transport_selection = transport.select_transport(store, steps, ensure=True, prefer_fast=True)
-    initial_status = a90ctl_step(store, steps, "initial-status", ["status"], timeout=30, bridge_timeout=15)
-    initial = status_summary(str(initial_status.get("stdout") or ""))
-    idempotent = run_idempotent_netservice(store, steps, count=5)
-    bigfile = run_transport_smoke(store, steps, label="baseline-bigfile", sizes_mib="1,32,128", timeout=240)
-    nm_repair = run_nm_repair_probe(store, steps)
-    cold_reboot = {"ok": True, "skipped": True} if args.skip_cold_reboot else run_cold_reboot_probe(store, steps)
-    v2144_probe = run_v2144_collector_probe(store, steps)
-    final_status = a90ctl_step(store, steps, "final-status", ["status"], timeout=30, bridge_timeout=15)
-    final = status_summary(str(final_status.get("stdout") or ""))
+    with transport.phase(manifest, "preflight"):
+        transport_selection = transport.select_transport(store, steps, ensure=True, prefer_fast=True)
+        initial_status = a90ctl_step(store, steps, "initial-status", ["status"], timeout=30, bridge_timeout=15)
+        initial = status_summary(str(initial_status.get("stdout") or ""))
+    with transport.phase(manifest, "helper_stage"):
+        idempotent = run_idempotent_netservice(store, steps, count=5)
+        bigfile = run_transport_smoke(store, steps, label="baseline-bigfile", sizes_mib="1,32,128", timeout=240)
+        nm_repair = run_nm_repair_probe(store, steps)
+        v2144_probe = run_v2144_collector_probe(store, steps)
+    with transport.phase(manifest, "boot_wait"):
+        cold_reboot = {"ok": True, "skipped": True} if args.skip_cold_reboot else run_cold_reboot_probe(store, steps)
+    with transport.phase(manifest, "selftest"):
+        final_status = a90ctl_step(store, steps, "final-status", ["status"], timeout=30, bridge_timeout=15)
+        final = status_summary(str(final_status.get("stdout") or ""))
 
     checks = {
         "initial_status": initial,
@@ -388,15 +398,15 @@ def main() -> int:
         and bool(final.get("ncm_present"))
         and bool(final.get("tcpctl_stopped"))
     )
-    manifest = {
-        "label": safe_label,
+    manifest.update({
         "decision": "v725-fasttransport-baseline-accepted" if pass_all else "v725-fasttransport-baseline-blocked",
         "pass": pass_all,
-        "out_dir": str(out_dir),
         "transport_selection": transport_selection,
         "checks": checks,
         "steps": steps,
-    }
+    })
+    with transport.phase(manifest, "artifact_upload"):
+        pass
     store.write_json("manifest.json", manifest)
     print(json.dumps({
         "decision": manifest["decision"],

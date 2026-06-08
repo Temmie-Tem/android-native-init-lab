@@ -1357,6 +1357,10 @@ def render_report(manifest: dict[str, Any]) -> str:
     supplicant_log = connect.get("supplicant_log") or {}
     rollback_result = manifest.get("rollback") or {}
     transport_selection = manifest.get("transport_selection") or {}
+    phase_lines = [
+        f"- `{item['name']}`: `{item['elapsed_sec']}` sec"
+        for item in manifest.get("phase_timers", [])
+    ]
     return "\n".join([
         "# Native Init V2174 Wi-Fi Urandom Connect Live Validation",
         "",
@@ -1394,6 +1398,10 @@ def render_report(manifest: dict[str, Any]) -> str:
         f"- Supplicant log collected: `{supplicant_log.get('ok', False)}`",
         f"- Supplicant log redacted file: `{supplicant_log.get('redacted_log_file', '')}`",
         "",
+        "## Phase Timers",
+        "",
+        *(phase_lines if phase_lines else ["- `none`: `0` sec"]),
+        "",
         "## Root Cause",
         "",
         "- Prior no-carrier runs reached association but failed in the 4-way handshake because `wpa_supplicant` could not open `/dev/urandom` and could not generate SNonce.",
@@ -1418,34 +1426,43 @@ def run(profile_name: str | None = None) -> dict[str, Any]:
     out_dir = WORKSPACE_PRIVATE_ROOT / "runs" / "wifi" / f"{RUN_LABEL}-{timestamp_label()}"
     store = EvidenceStore(out_dir)
     steps: list[dict[str, Any]] = []
-    env_load = load_wifi_env()
-    secret_status = wifi_secret_status(profile_name)
-    preflight = {
+    manifest: dict[str, Any] = {
         "cycle": CYCLE,
         "run_label": RUN_LABEL,
-        "test_image": rel(TEST_IMAGE),
-        "test_image_exists": TEST_IMAGE.exists(),
-        "test_image_sha256": sha256(TEST_IMAGE) if TEST_IMAGE.exists() else "",
-        "rollback_image": rel(ROLLBACK_IMAGE),
-        "rollback_image_exists": ROLLBACK_IMAGE.exists(),
-        "rollback_image_sha256": sha256(ROLLBACK_IMAGE) if ROLLBACK_IMAGE.exists() else "",
-        "profile_source": "explicit" if profile_name else "default",
-        "credential_values_logged": False,
-        "env_load": env_load,
+        "started": now_iso(),
+        "out_dir": rel(out_dir),
+        "phase_timer_contract": transport.PHASE_TIMER_CONTRACT,
+        "phase_timers": [],
     }
-    store.write_json("preflight.json", preflight)
-    transport_selection = transport.select_transport(store, steps, ensure=True, prefer_fast=True)
-    bridge_status_data = transport_selection.get("bridge") if isinstance(transport_selection.get("bridge"), dict) else {}
-    bridge_ready = (
-        bool(transport_selection.get("status_ok"))
-        and transport_selection.get("serial_bridge") == "ready"
-    )
+    with transport.phase(manifest, "preflight"):
+        env_load = load_wifi_env()
+        secret_status = wifi_secret_status(profile_name)
+        preflight = {
+            "cycle": CYCLE,
+            "run_label": RUN_LABEL,
+            "test_image": rel(TEST_IMAGE),
+            "test_image_exists": TEST_IMAGE.exists(),
+            "test_image_sha256": sha256(TEST_IMAGE) if TEST_IMAGE.exists() else "",
+            "rollback_image": rel(ROLLBACK_IMAGE),
+            "rollback_image_exists": ROLLBACK_IMAGE.exists(),
+            "rollback_image_sha256": sha256(ROLLBACK_IMAGE) if ROLLBACK_IMAGE.exists() else "",
+            "profile_source": "explicit" if profile_name else "default",
+            "credential_values_logged": False,
+            "env_load": env_load,
+        }
+        store.write_json("preflight.json", preflight)
+        transport_selection = transport.select_transport(store, steps, ensure=True, prefer_fast=True)
+        bridge_status_data = transport_selection.get("bridge") if isinstance(transport_selection.get("bridge"), dict) else {}
+        bridge_ready = (
+            bool(transport_selection.get("status_ok"))
+            and transport_selection.get("serial_bridge") == "ready"
+        )
 
-    if bridge_ready:
-        pre_selftest = a90ctl_step(store, steps, "pre-selftest", ["selftest"], timeout=90, bridge_timeout=60)
-        pre_native_ok = bool(transport_selection.get("status_ok")) and bool(pre_selftest.get("ok"))
-    else:
-        pre_native_ok = False
+        if bridge_ready:
+            pre_selftest = a90ctl_step(store, steps, "pre-selftest", ["selftest"], timeout=90, bridge_timeout=60)
+            pre_native_ok = bool(transport_selection.get("status_ok")) and bool(pre_selftest.get("ok"))
+        else:
+            pre_native_ok = False
 
     test_flash_ok = False
     connect_result: dict[str, Any] = {}
@@ -1456,17 +1473,20 @@ def run(profile_name: str | None = None) -> dict[str, Any]:
         and pre_native_ok
         and secret_status.get("valid")
     ):
-        test_flash = run_command(flash_command(TEST_IMAGE, TEST_EXPECT_VERSION, from_native=True), timeout=720)
-        write_step(store, steps, "test-flash-from-native", test_flash)
-        test_flash_ok = bool(test_flash["ok"])
+        with transport.phase(manifest, "flash"):
+            test_flash = run_command(flash_command(TEST_IMAGE, TEST_EXPECT_VERSION, from_native=True), timeout=720)
+            write_step(store, steps, "test-flash-from-native", test_flash)
+            test_flash_ok = bool(test_flash["ok"])
         if test_flash_ok:
-            connect_result = run_connect_window(store, steps, profile_name)
-        rollback_result = rollback(store, steps)
+            with transport.phase(manifest, "connect_window"):
+                connect_result = run_connect_window(store, steps, profile_name)
+        with transport.phase(manifest, "rollback"):
+            rollback_result = rollback(store, steps)
 
-    manifest = {
-        "cycle": CYCLE,
-        "run_label": RUN_LABEL,
-        "started": now_iso(),
+    with transport.phase(manifest, "artifact_upload"):
+        pass
+
+    manifest.update({
         "preflight": preflight,
         "wifi_secret_status": secret_status,
         "bridge_status": {
@@ -1483,8 +1503,7 @@ def run(profile_name: str | None = None) -> dict[str, Any]:
         "connect": connect_result,
         "rollback": rollback_result,
         "steps": steps,
-        "out_dir": rel(out_dir),
-    }
+    })
     classification = classify(manifest)
     manifest["classification"] = classification
     manifest["decision"] = classification["decision"]

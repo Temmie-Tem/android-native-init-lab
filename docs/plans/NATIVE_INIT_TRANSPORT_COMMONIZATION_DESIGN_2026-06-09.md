@@ -121,7 +121,8 @@ Recoverable reasons:
 
 Actions:
 
-- For `busy`, keep current `hide` then retry-once behavior.
+- For `busy`, send `hide`; retry once only if the original command is safe or
+  `retry_unsafe=True` was explicitly scoped.
 - For `protocol-noise`, restart the managed bridge once, then retry once.
 - For `serial-missing`, do not hide; run bridge ensure/status, then retry only
   if the original command is safe.
@@ -183,6 +184,33 @@ Live, after implementation:
   - standard phase names;
   - `transport_selection.selector_contract=1`;
   - serial recovery block only when recovery fires.
+
+## Implementation Status
+
+Implemented in the follow-up code change:
+
+- `workspace/public/src/scripts/revalidation/a90_transport.py`
+  - `phase()` shared context manager;
+  - `PHASE_TIMER_CONTRACT=1`;
+  - `SERIAL_RECOVERY_CONTRACT=1`;
+  - elapsed time in host/serial step records;
+  - structured `serial_recovery` evidence from
+    `run_serial_command_recovered()`;
+  - safe-command protocol-noise recovery using managed bridge restart plus
+    one retry.
+- Migrated active runners:
+  - `native_wifi_connect_carrier_handoff_v2174.py`;
+  - `native_wifi_dhcp_ping_handoff_v2176.py`;
+  - `native_wifi_hold_reconnect_handoff_v2177.py`;
+  - `a90_v725_fasttransport_baseline_validation.py`.
+
+Remaining validation:
+
+- Host-only py_compile and synthetic helper checks are required before commit.
+- Live validation should confirm the new manifest fields on one Wi-Fi runner and
+  one transport-only runner.
+- Serial `AT` noise recovery is implemented but only observable when the
+  transient condition naturally fires.
 
 ## Non-Goals
 

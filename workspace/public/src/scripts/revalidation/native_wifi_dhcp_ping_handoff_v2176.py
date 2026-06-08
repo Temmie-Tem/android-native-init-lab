@@ -11,10 +11,8 @@ from __future__ import annotations
 import argparse
 import json
 import shlex
-import time
-from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
 
 from _workspace_bootstrap import add_legacy_revalidation_path, repo_root
 
@@ -41,18 +39,6 @@ REPORT_PATH = (
     / "NATIVE_INIT_V2176_WIFI_DHCP_PING_LIVE_VALIDATION_2026-06-08.md"
 )
 DEFAULT_PING_TARGET = "google.com"
-
-
-@contextmanager
-def phase_timer(manifest: dict[str, Any], name: str) -> Iterator[None]:
-    started = time.monotonic()
-    try:
-        yield
-    finally:
-        manifest.setdefault("phase_timers", []).append({
-            "name": name,
-            "elapsed_sec": round(time.monotonic() - started, 3),
-        })
 
 
 def rel(path: Path) -> str:
@@ -287,6 +273,7 @@ def run(profile_name: str | None = None, ping_target: str = DEFAULT_PING_TARGET)
         "cycle": CYCLE,
         "run_label": RUN_LABEL,
         "out_dir": rel(out_dir),
+        "phase_timer_contract": transport.PHASE_TIMER_CONTRACT,
         "phase_timers": [],
     }
     env_load = v2174.load_wifi_env()
@@ -309,7 +296,7 @@ def run(profile_name: str | None = None, ping_target: str = DEFAULT_PING_TARGET)
     manifest["preflight"] = preflight
     manifest["wifi_secret_status"] = secret_status
 
-    with phase_timer(manifest, "preflight_transport"):
+    with transport.phase(manifest, "preflight"):
         transport_selection = transport.select_transport(store, steps, ensure=True, prefer_fast=True)
     manifest["transport_selection"] = {
         "selector_contract": transport_selection.get("selector_contract"),
@@ -326,23 +313,23 @@ def run(profile_name: str | None = None, ping_target: str = DEFAULT_PING_TARGET)
     dhcp_result: dict[str, Any] = {}
     rollback_result: dict[str, Any] = {"ok": True, "attempt": "not-needed", "selftest_ok": "not-tested"}
     if preflight["test_image_exists"] and preflight["rollback_image_exists"] and secret_status.get("valid") and transport_selection.get("status_ok"):
-        with phase_timer(manifest, "flash_boot_wait"):
+        with transport.phase(manifest, "flash"):
             test_flash = v2174.run_command(flash_command(TEST_IMAGE, TEST_EXPECT_VERSION, from_native=True), timeout=720)
             v2174.write_step(store, steps, "test-flash-v2176-from-native", test_flash)
             test_flash_ok = bool(test_flash.get("ok"))
         if test_flash_ok:
-            with phase_timer(manifest, "connect_window"):
+            with transport.phase(manifest, "connect_window"):
                 connect_result = v2174.run_connect_window(store, steps, profile_name)
             if connect_result.get("ok"):
-                with phase_timer(manifest, "dhcp_ping_window"):
+                with transport.phase(manifest, "dhcp_ping_window"):
                     dhcp_result = run_dhcp_window(store, steps, profile_name, ping_target)
-        with phase_timer(manifest, "rollback"):
+        with transport.phase(manifest, "rollback"):
             rollback_result = rollback(store, steps)
-        with phase_timer(manifest, "selftest"):
+        with transport.phase(manifest, "selftest"):
             final_selftest = v2174.a90ctl_step(store, steps, "post-rollback-selftest", ["selftest"], timeout=90, bridge_timeout=60)
             rollback_result["post_selftest_ok"] = bool(final_selftest.get("ok")) and "fail=0" in str(final_selftest.get("stdout") or "")
 
-    with phase_timer(manifest, "artifact_upload"):
+    with transport.phase(manifest, "artifact_upload"):
         pass
 
     manifest["test_flash_ok"] = test_flash_ok
