@@ -147,8 +147,8 @@ Completed first units:
 
 Open tasks:
 
-- Treat V2178 as the profile/autoconnect baseline and V2174 as immediate
-  rollback.
+- Keep V2178 as the profile/autoconnect baseline and V2174 as immediate
+  rollback until a newer boot image is intentionally promoted.
 - Keep private Wi-Fi profile/secret files out of public git; use
   `workspace/public/src/scripts/revalidation/a90_wifi_profile_stage.py` for
   staging and keep raw SSID/PSK under ignored private roots.
@@ -164,9 +164,6 @@ Open tasks:
   - optional redacted SSID display mode;
   - RSSI/link quality when available from supplicant status;
   - clearer disabled/running/pass/fail labels on the HUD.
-- Continue script consolidation separately:
-  - migrate one live runner at a time to shared transport/phase-timer helpers;
-  - keep legacy reports as evidence, not active entrypoints.
 - Keep secondary interface noise out of the main gate:
   - `swlan0` MAC generation failure is not a primary `wlan0` blocker;
   - `set_features(-11)` remains non-blocking unless reproduced as persistent.
@@ -217,6 +214,14 @@ Completed first units:
 
 Open tasks:
 
+- Add phase timers to active live runners:
+  - `flash`;
+  - `boot_wait`;
+  - `helper_stage`;
+  - `connect_window`;
+  - `artifact_upload`;
+  - `rollback`;
+  - `selftest`.
 - Stabilize `a90_transport.py` as the import target for active runners:
   - bridge ensure/status;
   - `cmdv1` version/status;
@@ -231,14 +236,11 @@ Open tasks:
   - NCM smoke first;
   - Wi-Fi lifecycle runner done;
   - baseline validation runner done.
-- Add phase timers to live runners:
-  - `flash`;
-  - `boot_wait`;
-  - `helper_stage`;
-  - `connect_window`;
-  - `artifact_upload`;
-  - `rollback`;
-  - `selftest`.
+- Promote serial `AT` noise handling into the shared runner path:
+  - detect malformed cmdv1 exchanges;
+  - restart the bridge once;
+  - retry the command once;
+  - record the recovery in the run manifest instead of hiding it.
 - Keep bridge warnings actionable:
   - `private_log_dir` / `private_run_dir` writable must be pass;
   - `port_pid_resolution=cmdline-fallback` is acceptable when bridge is already
@@ -413,10 +415,24 @@ Exit criteria:
 
 ## Suggested Next Sequence
 
-1. Review and commit the V2178 profile/autoconnect implementation plus live
-   validation report.
-2. Decide whether V2178 becomes the next promoted Wi-Fi baseline, or whether
-   log/profile-list polish should land first.
-3. Add the remaining Wi-Fi UI/status fields.
-4. Run longer-duration Wi-Fi soak only if the promotion decision needs it.
-5. Continue lower-priority tmp/archive cleanup separately.
+1. Add shared phase timers to the active Wi-Fi/bridge runners so slow phases are
+   measured instead of inferred.
+2. Move the V2179 serial `AT` noise bridge restart/retry behavior into shared
+   transport helpers and require manifest evidence when it fires.
+3. Polish Wi-Fi status/HUD output on top of the promoted V2178 baseline:
+   redacted SSID display, RSSI/link quality, and clearer
+   disabled/running/pass/fail labels.
+4. Refresh the script inventory after each active runner migration and continue
+   deleting or archiving only classified one-off scripts.
+5. Run a longer Wi-Fi soak only after runner timing/retry instrumentation is in
+   place, or when a new baseline promotion needs additional stability evidence.
+
+## Current Risk Register
+
+| Risk | Current impact | Handling |
+| --- | --- | --- |
+| Boot autoconnect latency | Wi-Fi success can take roughly three minutes. | Poll `autoconnect.decision` until a terminal result; add phase timers next. |
+| Serial `AT` noise | A single cmdv1 exchange can be malformed. | Bridge restart/retry is proven manually; move it into shared helpers. |
+| UI completeness | Baseline works, but operator-facing status is still sparse. | Add redacted SSID, RSSI/link quality, and clearer state labels. |
+| Script sprawl | Older one-off runners still duplicate transport/artifact logic. | Keep inventory current; migrate one active runner at a time. |
+| Private data leakage | Wi-Fi profiles and raw run artifacts are intentionally private. | Keep secrets under ignored private roots; public reports stay redacted. |
