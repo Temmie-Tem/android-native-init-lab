@@ -188,6 +188,9 @@ Completed first units:
     `a90_transport.run_serial_step()` for cmdv1 commands;
   - `native_wifi_dhcp_ping_handoff_v2176.py` inherits the V2174 command path
     and already records `transport_selection`.
+- Baseline validation runner transport migration is complete:
+  - `a90_v725_fasttransport_baseline_validation.py` now uses
+    `a90_transport.select_transport()` and recovered serial cmdv1 probes.
 
 Open tasks:
 
@@ -204,7 +207,7 @@ Open tasks:
 - Migrate one runner at a time:
   - NCM smoke first;
   - Wi-Fi lifecycle runner done;
-  - baseline validation runner after that.
+  - baseline validation runner done.
 - Add phase timers to live runners:
   - `flash`;
   - `boot_wait`;
@@ -242,8 +245,8 @@ Inventory labels:
 
 Open tasks:
 
-- Generate an inventory for `workspace/public/src/scripts/revalidation/`.
-- For each script, record:
+- Keep the inventory current when active entrypoints move.
+- For each script, continue to record:
   - purpose;
   - last known baseline/run;
   - import dependencies;
@@ -260,7 +263,8 @@ Open tasks:
   - redaction/secret scan.
 - Move only after classification:
   - active scripts stay stable;
-  - historical scripts move to archive with references preserved;
+  - V2167 historical runner moved to
+    `workspace/public/archive/scripts/revalidation/native_wifi_connect_dhcp_google_ping_handoff_v2167.py`;
   - delete-review items require a focused cleanup commit.
 
 Exit criteria:
@@ -269,6 +273,8 @@ Exit criteria:
   as redacted metadata.
 - Current inventory report:
   `docs/reports/REVALIDATION_SCRIPT_INVENTORY_2026-06-08.md`.
+- V2167 is no longer a current entrypoint; it is archived under
+  `workspace/public/archive/scripts/revalidation/`.
 - Active entrypoints list in `workspace/public/src/scripts/revalidation/README.md`
   matches the actual current set.
 - New scripts use shared modules instead of reimplementing bridge/NCM logic.
@@ -384,7 +390,7 @@ Exit criteria:
 ## Suggested Next Sequence
 
 1. Run bounded hold/idle and disconnect/reconnect checks on the V2176 route.
-2. Migrate the baseline validation runner to `a90_transport.py`.
-3. Review the script inventory archive candidate, especially V2167.
-4. Design profile persistence and explicit boot-autoconnect controls.
-5. Decide whether to promote the next boot/init baseline.
+2. Design profile persistence and explicit boot-autoconnect controls.
+3. Add the remaining Wi-Fi UI/status fields.
+4. Decide whether to promote the next boot/init baseline.
+5. Continue lower-priority tmp/archive cleanup separately.

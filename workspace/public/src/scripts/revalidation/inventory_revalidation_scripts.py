@@ -47,8 +47,10 @@ MODULES = {
     "a90_transport.py": "shared bridge/transport selector",
     "tcpctl_host.py": "tcpctl host protocol helper",
 }
-ARCHIVE_CANDIDATES = {
-    "native_wifi_connect_dhcp_google_ping_handoff_v2167.py": "superseded by V2174/V2176 split lifecycle runners",
+ARCHIVED_ENTRYPOINTS = {
+    "native_wifi_connect_dhcp_google_ping_handoff_v2167.py": (
+        "superseded by V2174/V2176 split lifecycle runners"
+    ),
 }
 UTILITY_PREFIXES = (
     "cleanup_",
@@ -110,8 +112,6 @@ def classify(path: Path, text: str) -> tuple[str, str]:
         return "active", ACTIVE[name]
     if name in MODULES:
         return "module", MODULES[name]
-    if name in ARCHIVE_CANDIDATES:
-        return "archive", ARCHIVE_CANDIDATES[name]
     if name == "README.md":
         return "active", "current entrypoint index"
     if path.is_dir() and name == "__pycache__":
@@ -187,6 +187,22 @@ def inventory(root: Path) -> dict[str, Any]:
 
 def render_markdown(data: dict[str, Any]) -> str:
     entries = data["entries"]
+    archived_lines = []
+    for name, reason in ARCHIVED_ENTRYPOINTS.items():
+        archive_path = REPO_ROOT / "workspace" / "public" / "archive" / "scripts" / "revalidation" / name
+        if archive_path.exists():
+            archived_lines.append(f"- `{rel(archive_path)}`: {reason}.")
+
+    cleanup_lines = []
+    if data["summary"].get("archive", 0):
+        cleanup_lines.append("- `archive`: review docs references before moving to `workspace/public/archive/scripts/revalidation/`.")
+    else:
+        cleanup_lines.append("- No current source-root archive candidates remain.")
+    if data["summary"].get("delete-review", 0):
+        cleanup_lines.append("- `delete-review`: inspect manually before deletion; generated caches can be removed immediately.")
+    else:
+        cleanup_lines.append("- No current source-root delete-review candidates remain.")
+    cleanup_lines.append("- Active live workflow scripts should use `a90_transport.py`; `a90ctl.py` itself remains the cmdv1 client.")
     rows = [
         "| Label | Count |",
         "| --- | ---: |",
@@ -231,11 +247,13 @@ def render_markdown(data: dict[str, Any]) -> str:
         "",
         *table,
         "",
+        "## Archived Entrypoints",
+        "",
+        *(archived_lines if archived_lines else ["- None recorded."]),
+        "",
         "## Immediate Cleanup Candidates",
         "",
-        "- `archive`: review docs references before moving to `workspace/public/archive/scripts/revalidation/`.",
-        "- `delete-review`: inspect manually before deletion; generated caches can be removed immediately.",
-        "- `active` with `a90ctl-subprocess`: migrate to `a90_transport.py` when touched next.",
+        *cleanup_lines,
         "",
     ])
 

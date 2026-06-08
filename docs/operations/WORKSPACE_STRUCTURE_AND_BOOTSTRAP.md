@@ -228,7 +228,7 @@ An explicit override is also supported:
 
 ```bash
 A90_WIFI_ENV_FILE=/path/to/env \
-python3 workspace/public/src/scripts/revalidation/native_wifi_connect_dhcp_google_ping_handoff_v2167.py
+python3 workspace/public/src/scripts/revalidation/native_wifi_dhcp_ping_handoff_v2176.py
 ```
 
 Template:

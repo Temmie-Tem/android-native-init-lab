@@ -20,6 +20,7 @@ from _workspace_bootstrap import add_legacy_revalidation_path, repo_root
 add_legacy_revalidation_path(repo_root())
 
 import a90_ncm_transport as ncm
+import a90_transport as transport
 import native_wifi_qcacld_fwclass_clean_recapture_handoff_v2144 as v2144
 from a90harness.evidence import EvidenceStore, safe_artifact_label, wifi_artifact_dir
 
@@ -86,10 +87,6 @@ def write_step(store: EvidenceStore,
     })
 
 
-def a90ctl(command: list[str], *, timeout: float = 20.0, bridge_timeout: float = 10.0) -> list[object]:
-    return ["python3", "workspace/public/src/scripts/revalidation/a90ctl.py", "--timeout", str(bridge_timeout), *command]
-
-
 def a90ctl_step(store: EvidenceStore,
                 steps: list[dict[str, Any]],
                 name: str,
@@ -98,15 +95,17 @@ def a90ctl_step(store: EvidenceStore,
                 timeout: float = 30.0,
                 bridge_timeout: float = 15.0,
                 allow_reboot_no_end: bool = False) -> dict[str, Any]:
-    result = run_command(a90ctl(command, bridge_timeout=bridge_timeout), timeout=timeout)
-    output = "\n".join([str(result.get("stdout") or ""), str(result.get("stderr") or "")])
-    if "[busy]" in output:
-        hide = run_command(a90ctl(["hide"], bridge_timeout=20), timeout=30)
-        write_step(store, steps, f"{name}-hide-on-busy", hide)
-        result = run_command(a90ctl(command, bridge_timeout=bridge_timeout), timeout=timeout)
+    del timeout
+    result = transport.run_serial_command_recovered(
+        command,
+        timeout=bridge_timeout,
+        store=store,
+        steps=steps,
+        recovery_step_prefix=name,
+    )
     if allow_reboot_no_end and result.get("rc") != 0 and "reboot: syncing" in str(result.get("stderr") or result.get("stdout") or ""):
         result = {**result, "ok": True, "rc": 0}
-    write_step(store, steps, name, result)
+    transport.write_step(store, steps, name, result)
     return result
 
 
@@ -255,7 +254,13 @@ def wait_for_status(store: EvidenceStore, steps: list[dict[str, Any]], *, timeou
     last: dict[str, Any] | None = None
     while time.monotonic() < deadline:
         attempts += 1
-        result = run_command(a90ctl(["status"], bridge_timeout=5), timeout=8)
+        result = transport.run_serial_command_recovered(
+            ["status"],
+            timeout=5,
+            store=store,
+            steps=steps,
+            recovery_step_prefix=f"cold-reboot-status-{attempts}",
+        )
         last = result
         summary = status_summary(str(result.get("stdout") or ""))
         if (
@@ -265,7 +270,7 @@ def wait_for_status(store: EvidenceStore, steps: list[dict[str, Any]], *, timeou
             and summary.get("ncm_present")
             and summary.get("tcpctl_stopped")
         ):
-            write_step(store, steps, "cold-reboot-status-ready", result)
+            transport.write_step(store, steps, "cold-reboot-status-ready", result)
             return {
                 "ok": True,
                 "attempts": attempts,
@@ -274,7 +279,7 @@ def wait_for_status(store: EvidenceStore, steps: list[dict[str, Any]], *, timeou
             }
         time.sleep(5)
     if last is not None:
-        write_step(store, steps, "cold-reboot-status-timeout-last", last)
+        transport.write_step(store, steps, "cold-reboot-status-timeout-last", last)
     return {"ok": False, "attempts": attempts, "elapsed_sec": timeout_sec}
 
 
@@ -350,6 +355,7 @@ def main() -> int:
     store = EvidenceStore(out_dir)
     steps: list[dict[str, Any]] = []
 
+    transport_selection = transport.select_transport(store, steps, ensure=True, prefer_fast=True)
     initial_status = a90ctl_step(store, steps, "initial-status", ["status"], timeout=30, bridge_timeout=15)
     initial = status_summary(str(initial_status.get("stdout") or ""))
     idempotent = run_idempotent_netservice(store, steps, count=5)
@@ -387,6 +393,7 @@ def main() -> int:
         "decision": "v725-fasttransport-baseline-accepted" if pass_all else "v725-fasttransport-baseline-blocked",
         "pass": pass_all,
         "out_dir": str(out_dir),
+        "transport_selection": transport_selection,
         "checks": checks,
         "steps": steps,
     }
@@ -395,6 +402,8 @@ def main() -> int:
         "decision": manifest["decision"],
         "pass": manifest["pass"],
         "out_dir": manifest["out_dir"],
+        "transport_selected": transport_selection.get("selected"),
+        "transport_fallback_reason": transport_selection.get("fallback_reason"),
         "initial_status": initial,
         "final_status": final,
         "idempotent_ok": idempotent.get("ok"),

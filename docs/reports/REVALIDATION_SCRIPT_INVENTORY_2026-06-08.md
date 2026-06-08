@@ -1,6 +1,6 @@
 # Revalidation Script Inventory
 
-- Generated at: `2026-06-08T13:10:43.965183+00:00`
+- Generated at: `2026-06-08T14:33:37.687941+00:00`
 - Root: `workspace/public/src/scripts/revalidation`
 - Scope: public metadata only; no private run logs, credentials, boot images, or raw captures.
 - Action: inventory only. No scripts were moved or deleted by this report.
@@ -10,7 +10,6 @@
 | Label | Count |
 | --- | ---: |
 | `active` | 33 |
-| `archive` | 1 |
 | `module` | 6 |
 
 ## Entries
@@ -19,15 +18,15 @@
 | --- | --- | --- | ---: | --- |
 | `README.md` | `active` | `a90ctl-subprocess,bridge-wrapper,bridge-impl` | 98 | current entrypoint index |
 | `_workspace_bootstrap.py` | `module` | `none` | 3 | workspace path bootstrap |
-| `a90_bridge.py` | `active` | `bridge-wrapper,bridge-impl` | 11 | bridge lifecycle wrapper |
+| `a90_bridge.py` | `active` | `bridge-wrapper,bridge-impl` | 10 | bridge lifecycle wrapper |
 | `a90_kernel_tools.py` | `module` | `none` | 21 | kernel inspection helper module |
 | `a90_ncm_host_preflight.py` | `active` | `none` | 7 | operator utility or inventory/cleanup utility |
 | `a90_ncm_transport.py` | `module` | `none` | 5 | NCM host/device helper module |
 | `a90_ncm_transport_smoke.py` | `active` | `shared` | 9 | active NCM transport smoke |
 | `a90_serial_lock.py` | `module` | `none` | 3 | serial bridge lock helper |
 | `a90_transport.py` | `module` | `bridge-wrapper` | 7 | shared bridge/transport selector |
-| `a90_v725_fasttransport_baseline_validation.py` | `active` | `a90ctl-subprocess` | 4 | fast transport baseline validator |
-| `a90ctl.py` | `active` | `a90ctl-subprocess` | 357 | cmdv1 operator/client entrypoint |
+| `a90_v725_fasttransport_baseline_validation.py` | `active` | `shared` | 5 | fast transport baseline validator |
+| `a90ctl.py` | `active` | `a90ctl-subprocess` | 354 | cmdv1 operator/client entrypoint |
 | `build_native_init_boot_v2169_transport_contract.py` | `active` | `none` | 6 | transport contract boot builder |
 | `build_native_init_boot_v2170_wifi_config_prepare.py` | `active` | `none` | 4 | Wi-Fi config prepare boot builder |
 | `build_native_init_boot_v2172_wifi_status_scan.py` | `active` | `none` | 4 | Wi-Fi status/scan boot builder |
@@ -47,9 +46,8 @@
 | `inventory_tmp_artifacts.py` | `active` | `none` | 4 | operator utility or inventory/cleanup utility |
 | `kselftest_feasibility.py` | `active` | `none` | 8 | operator utility or inventory/cleanup utility |
 | `native_init_flash.py` | `active` | `none` | 190 | active flash/rollback helper |
-| `native_wifi_connect_carrier_handoff_v2174.py` | `active` | `shared,a90ctl-subprocess,bridge-wrapper` | 6 | active Wi-Fi carrier validation |
-| `native_wifi_connect_dhcp_google_ping_handoff_v2167.py` | `archive` | `none` | 6 | superseded by V2174/V2176 split lifecycle runners |
-| `native_wifi_dhcp_ping_handoff_v2176.py` | `active` | `shared` | 6 | active Wi-Fi DHCP/ping validation |
+| `native_wifi_connect_carrier_handoff_v2174.py` | `active` | `shared` | 6 | active Wi-Fi carrier validation |
+| `native_wifi_dhcp_ping_handoff_v2176.py` | `active` | `shared` | 7 | active Wi-Fi DHCP/ping validation |
 | `native_wifi_supplicant_dependency_probe.py` | `active` | `shared` | 6 | current Wi-Fi dependency probe |
 | `ncm_host_setup.py` | `active` | `none` | 42 | operator utility or inventory/cleanup utility |
 | `netservice_reconnect_soak.py` | `active` | `none` | 22 | operator utility or inventory/cleanup utility |
@@ -58,8 +56,12 @@
 | `tcpctl_host.py` | `module` | `none` | 126 | tcpctl host protocol helper |
 | `usb_recovery_validate.py` | `active` | `none` | 10 | operator utility or inventory/cleanup utility |
 
+## Archived Entrypoints
+
+- `workspace/public/archive/scripts/revalidation/native_wifi_connect_dhcp_google_ping_handoff_v2167.py`: superseded by V2174/V2176 split lifecycle runners.
+
 ## Immediate Cleanup Candidates
 
-- `archive`: review docs references before moving to `workspace/public/archive/scripts/revalidation/`.
-- `delete-review`: inspect manually before deletion; generated caches can be removed immediately.
-- `active` with `a90ctl-subprocess`: migrate to `a90_transport.py` when touched next.
+- No current source-root archive candidates remain.
+- No current source-root delete-review candidates remain.
+- Active live workflow scripts should use `a90_transport.py`; `a90ctl.py` itself remains the cmdv1 client.

@@ -271,59 +271,23 @@ def synthetic_step_result(command: list[object],
     }
 
 
-def a90ctl_command(command: list[str],
-                   *,
-                   timeout: float | None = None,
-                   input_mode: str | None = None) -> list[object]:
-    result: list[object] = [
-        "python3",
-        "workspace/public/src/scripts/revalidation/a90ctl.py",
-    ]
-    if timeout is not None:
-        result.extend(["--timeout", str(timeout)])
-    if input_mode:
-        result.extend(["--input-mode", input_mode])
-    result.extend(command)
-    return result
-
-
 def a90ctl_step(store: EvidenceStore,
                 steps: list[dict[str, Any]],
                 name: str,
                 command: list[str],
                 *,
                 timeout: float = 60.0,
-                bridge_timeout: float | None = None,
-                input_mode: str | None = None) -> dict[str, Any]:
-    if input_mode is None:
-        return transport.run_serial_step(
-            store,
-            steps,
-            name,
-            command,
-            timeout=timeout,
-            bridge_timeout=bridge_timeout if bridge_timeout is not None else timeout,
-            host=BRIDGE_HOST,
-            port=BRIDGE_PORT,
-        )
-
-    result = run_command(a90ctl_command(command, timeout=bridge_timeout, input_mode=input_mode), timeout=timeout)
-    if "[busy]" in str(result.get("stdout") or ""):
-        hide = run_command(a90ctl_command(["hide"], timeout=20), timeout=30)
-        write_step(store, steps, f"{name}-hide-on-busy", hide)
-        result = run_command(a90ctl_command(command, timeout=bridge_timeout, input_mode=input_mode), timeout=timeout)
-    if (
-        not result.get("ok")
-        and (
-            "A90P1 END marker not found" in str(result.get("stderr") or "")
-            or "cmdvATATAT" in str(result.get("stderr") or "")
-        )
-    ):
-        hide = run_command(a90ctl_command(["hide"], timeout=20), timeout=30)
-        write_step(store, steps, f"{name}-hide-on-protocol-noise", hide)
-        result = run_command(a90ctl_command(command, timeout=bridge_timeout, input_mode=input_mode), timeout=timeout)
-    write_step(store, steps, name, result)
-    return result
+                bridge_timeout: float | None = None) -> dict[str, Any]:
+    return transport.run_serial_step(
+        store,
+        steps,
+        name,
+        command,
+        timeout=timeout,
+        bridge_timeout=bridge_timeout if bridge_timeout is not None else timeout,
+        host=BRIDGE_HOST,
+        port=BRIDGE_PORT,
+    )
 
 
 def step_has_text(store: EvidenceStore, step: dict[str, Any] | None, needle: str) -> bool:
@@ -532,7 +496,7 @@ def fetch_tcpctl_token_redacted(store: EvidenceStore, steps: list[dict[str, Any]
             partial_match = TCPCTL_TOKEN_RE.search(error_text)
             if partial_match is not None:
                 result = {
-                    "command": a90ctl_command(["netservice", "token", "show"], timeout=45),
+                    "command": ["cmdv1", "netservice", "token", "show"],
                     "started": started,
                     "ended": now_iso(),
                     "timeout": False,
@@ -544,7 +508,7 @@ def fetch_tcpctl_token_redacted(store: EvidenceStore, steps: list[dict[str, Any]
                 write_step(store, steps, f"test-netservice-token-show-redacted-{attempt}", result)
                 return partial_match.group(1)
             result = {
-                "command": a90ctl_command(["netservice", "token", "show"], timeout=45),
+                "command": ["cmdv1", "netservice", "token", "show"],
                 "started": started,
                 "ended": now_iso(),
                 "timeout": False,
@@ -561,7 +525,7 @@ def fetch_tcpctl_token_redacted(store: EvidenceStore, steps: list[dict[str, Any]
         match = TCPCTL_TOKEN_RE.search(text)
         ok = bool(match) and protocol.rc == 0 and protocol.status == "ok"
         result = {
-            "command": a90ctl_command(["netservice", "token", "show"], timeout=45),
+            "command": ["cmdv1", "netservice", "token", "show"],
             "started": started,
             "ended": now_iso(),
             "timeout": False,
@@ -1151,36 +1115,6 @@ def stage_wifi_config_cache(store: EvidenceStore,
         "host_ncm": host_ncm,
         "secret_values_logged": 0,
     })
-
-
-def bridge_status_step(store: EvidenceStore, steps: list[dict[str, Any]], name: str) -> dict[str, Any]:
-    result = run_command(
-        ["python3", "workspace/public/src/scripts/revalidation/a90_bridge.py", "status", "--json"],
-        timeout=20,
-    )
-    write_step(store, steps, name, result)
-    return result
-
-
-def bridge_ready_for_a90ctl(result: dict[str, Any]) -> bool:
-    payload = bridge_status_payload(result)
-    if not payload:
-        return False
-    if not payload.get("port_listening"):
-        return False
-    if payload.get("bridge_probe") in {"serial-missing", "not-listening", "closed"}:
-        return False
-    return True
-
-
-def bridge_status_payload(result: dict[str, Any]) -> dict[str, Any]:
-    if not result.get("ok"):
-        return {}
-    try:
-        payload = json.loads(str(result.get("stdout") or "{}"))
-    except json.JSONDecodeError:
-        return {}
-    return payload if isinstance(payload, dict) else {}
 
 
 def flash_command(image: Path, expect_version: str, *, from_native: bool) -> list[object]:

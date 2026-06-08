@@ -45,7 +45,7 @@
       "name": "a90_bridge.py",
       "path": "workspace/public/src/scripts/revalidation/a90_bridge.py",
       "reason": "bridge lifecycle wrapper",
-      "repo_reference_count": 11,
+      "repo_reference_count": 10,
       "type": "file"
     },
     {
@@ -148,16 +148,16 @@
       "executable": false,
       "has_phase_timer": false,
       "has_secret_redaction": false,
-      "imports_a90_transport": false,
+      "imports_a90_transport": true,
       "label": "active",
       "live_device_required": true,
       "mentions_a90_bridge": false,
-      "mentions_a90ctl_subprocess": true,
+      "mentions_a90ctl_subprocess": false,
       "mentions_serial_tcp_bridge": false,
       "name": "a90_v725_fasttransport_baseline_validation.py",
       "path": "workspace/public/src/scripts/revalidation/a90_v725_fasttransport_baseline_validation.py",
       "reason": "fast transport baseline validator",
-      "repo_reference_count": 4,
+      "repo_reference_count": 5,
       "type": "file"
     },
     {
@@ -173,7 +173,7 @@
       "name": "a90ctl.py",
       "path": "workspace/public/src/scripts/revalidation/a90ctl.py",
       "reason": "cmdv1 operator/client entrypoint",
-      "repo_reference_count": 357,
+      "repo_reference_count": 354,
       "type": "file"
     },
     {
@@ -487,28 +487,12 @@
       "imports_a90_transport": true,
       "label": "active",
       "live_device_required": true,
-      "mentions_a90_bridge": true,
-      "mentions_a90ctl_subprocess": true,
+      "mentions_a90_bridge": false,
+      "mentions_a90ctl_subprocess": false,
       "mentions_serial_tcp_bridge": false,
       "name": "native_wifi_connect_carrier_handoff_v2174.py",
       "path": "workspace/public/src/scripts/revalidation/native_wifi_connect_carrier_handoff_v2174.py",
       "reason": "active Wi-Fi carrier validation",
-      "repo_reference_count": 6,
-      "type": "file"
-    },
-    {
-      "executable": false,
-      "has_phase_timer": true,
-      "has_secret_redaction": true,
-      "imports_a90_transport": false,
-      "label": "archive",
-      "live_device_required": true,
-      "mentions_a90_bridge": false,
-      "mentions_a90ctl_subprocess": false,
-      "mentions_serial_tcp_bridge": false,
-      "name": "native_wifi_connect_dhcp_google_ping_handoff_v2167.py",
-      "path": "workspace/public/src/scripts/revalidation/native_wifi_connect_dhcp_google_ping_handoff_v2167.py",
-      "reason": "superseded by V2174/V2176 split lifecycle runners",
       "repo_reference_count": 6,
       "type": "file"
     },
@@ -525,7 +509,7 @@
       "name": "native_wifi_dhcp_ping_handoff_v2176.py",
       "path": "workspace/public/src/scripts/revalidation/native_wifi_dhcp_ping_handoff_v2176.py",
       "reason": "active Wi-Fi DHCP/ping validation",
-      "repo_reference_count": 6,
+      "repo_reference_count": 7,
       "type": "file"
     },
     {
@@ -641,11 +625,10 @@
       "type": "file"
     }
   ],
-  "generated_at": "2026-06-08T13:10:43.965183+00:00",
+  "generated_at": "2026-06-08T14:33:37.687941+00:00",
   "root": "workspace/public/src/scripts/revalidation",
   "summary": {
     "active": 33,
-    "archive": 1,
     "module": 6
   }
 }
