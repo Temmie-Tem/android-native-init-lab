@@ -184,79 +184,86 @@ def main() -> int:
     store = EvidenceStore(out_dir)
     steps: list[dict[str, Any]] = []
     sizes = parse_sizes(args.sizes_mib)
-    transport_selection = transport.select_transport(
-        store,
-        steps,
-        bridge_device=args.bridge_device,
-        ensure=not args.no_bridge_ensure,
-        prefer_fast=True,
-    )
+    manifest: dict[str, Any] = {
+        "label": safe_label,
+        "out_dir": str(out_dir),
+        "phase_timer_contract": transport.PHASE_TIMER_CONTRACT,
+        "phase_timers": [],
+    }
+    with transport.phase(manifest, "preflight"):
+        transport_selection = transport.select_transport(
+            store,
+            steps,
+            bridge_device=args.bridge_device,
+            ensure=not args.no_bridge_ensure,
+            prefer_fast=True,
+        )
 
-    run_step(store, steps, "pre-smoke-hide", ["hide"], timeout=15, bridge_timeout=8)
+        run_step(store, steps, "pre-smoke-hide", ["hide"], timeout=15, bridge_timeout=8)
 
-    if args.force_nm_repair:
-        maybe_force_nm_repair(ncm.DEFAULT_NM_PROFILE, store, steps)
+        if args.force_nm_repair:
+            maybe_force_nm_repair(ncm.DEFAULT_NM_PROFILE, store, steps)
 
     transfer = ncm.FastTransferSession(store, steps, run_step=run_step)
     tests: list[dict[str, Any]] = []
     try:
-        for size_mib in sizes:
-            size_bytes = size_mib * 1024 * 1024
-            label = f"{safe_label}-{size_mib}mib"
-            local_path = store.path(f"{label}.bin")
-            expected_sha256 = write_pattern_file(local_path, size_bytes)
-            remote_path = f"/cache/a90-ncm-smoke-{label}.bin"
-            download_attempts: list[dict[str, Any]] = []
-            download: dict[str, Any] = {}
-            for attempt in range(max(0, args.download_retries) + 1):
-                attempt_label = label if attempt == 0 else f"{label}-retry{attempt}"
-                download = transfer.transfer_file(
-                    label=attempt_label,
-                    local_path=local_path,
-                    remote_path=remote_path,
-                    expected_sha256=expected_sha256,
-                    mode="600",
-                )
-                download_attempts.append(download)
-                if download.get("ok"):
-                    break
-                if attempt < max(0, args.download_retries):
-                    time.sleep(max(0.0, args.retry_sleep_sec))
-            upload: dict[str, Any] = {}
-            if args.upload and download.get("ok"):
-                upload = stream_remote_to_host(
-                    transfer,
-                    store,
-                    steps,
-                    label=label,
-                    remote_path=remote_path,
-                    expected_sha256=expected_sha256,
-                    timeout=max(45.0, float(size_mib) * 3.0),
-                )
-            if not args.keep_remote:
-                run_step(
-                    store,
-                    steps,
-                    f"{label}-cleanup",
-                    ["run", "/cache/bin/busybox", "rm", "-f", remote_path],
-                    timeout=30,
-                    bridge_timeout=15,
-                )
-            tests.append({
-                "size_mib": size_mib,
-                "size_bytes": size_bytes,
-                "sha256": expected_sha256,
-                "download": download,
-                "download_attempts": download_attempts,
-                "upload": upload,
-            })
+        with transport.phase(manifest, "helper_stage"):
+            for size_mib in sizes:
+                size_bytes = size_mib * 1024 * 1024
+                label = f"{safe_label}-{size_mib}mib"
+                local_path = store.path(f"{label}.bin")
+                expected_sha256 = write_pattern_file(local_path, size_bytes)
+                remote_path = f"/cache/a90-ncm-smoke-{label}.bin"
+                download_attempts: list[dict[str, Any]] = []
+                download: dict[str, Any] = {}
+                for attempt in range(max(0, args.download_retries) + 1):
+                    attempt_label = label if attempt == 0 else f"{label}-retry{attempt}"
+                    download = transfer.transfer_file(
+                        label=attempt_label,
+                        local_path=local_path,
+                        remote_path=remote_path,
+                        expected_sha256=expected_sha256,
+                        mode="600",
+                    )
+                    download_attempts.append(download)
+                    if download.get("ok"):
+                        break
+                    if attempt < max(0, args.download_retries):
+                        time.sleep(max(0.0, args.retry_sleep_sec))
+                upload: dict[str, Any] = {}
+                if args.upload and download.get("ok"):
+                    upload = stream_remote_to_host(
+                        transfer,
+                        store,
+                        steps,
+                        label=label,
+                        remote_path=remote_path,
+                        expected_sha256=expected_sha256,
+                        timeout=max(45.0, float(size_mib) * 3.0),
+                    )
+                if not args.keep_remote:
+                    run_step(
+                        store,
+                        steps,
+                        f"{label}-cleanup",
+                        ["run", "/cache/bin/busybox", "rm", "-f", remote_path],
+                        timeout=30,
+                        bridge_timeout=15,
+                    )
+                tests.append({
+                    "size_mib": size_mib,
+                    "size_bytes": size_bytes,
+                    "sha256": expected_sha256,
+                    "download": download,
+                    "download_attempts": download_attempts,
+                    "upload": upload,
+                })
     finally:
         transfer.close()
 
-    status = run_step(store, steps, "post-smoke-status", ["status"], timeout=45, bridge_timeout=20)
-    manifest = {
-        "label": safe_label,
-        "out_dir": str(out_dir),
+    with transport.phase(manifest, "selftest"):
+        status = run_step(store, steps, "post-smoke-status", ["status"], timeout=45, bridge_timeout=20)
+    manifest.update({
         "sizes_mib": sizes,
         "force_nm_repair": args.force_nm_repair,
         "download_retries": args.download_retries,
@@ -268,7 +275,9 @@ def main() -> int:
         "tests": tests,
         "post_status_ok": status.get("ok"),
         "steps": steps,
-    }
+    })
+    with transport.phase(manifest, "artifact_upload"):
+        pass
     store.write_text("manifest.json", json.dumps(manifest, indent=2, sort_keys=True) + "\n")
 
     ok = all(test["download"].get("ok") and (not args.upload or test["upload"].get("ok")) for test in tests)

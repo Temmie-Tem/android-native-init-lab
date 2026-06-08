@@ -204,11 +204,16 @@ Implemented in the follow-up code change:
   - `native_wifi_hold_reconnect_handoff_v2177.py`;
   - `a90_v725_fasttransport_baseline_validation.py`.
 
-Remaining validation:
+Validation status:
 
-- Host-only py_compile and synthetic helper checks are required before commit.
-- Live validation should confirm the new manifest fields on one Wi-Fi runner and
-  one transport-only runner.
+- Host-only py_compile and synthetic helper checks passed before implementation
+  commit.
+- V2180 live validation confirmed the new manifest fields on:
+  - transport-only runner `a90_ncm_transport_smoke.py`;
+  - current-baseline Wi-Fi runner
+    `native_wifi_v2178_autoconnect_phase_validation.py`.
+- Evidence report:
+  `docs/reports/NATIVE_INIT_V2180_TRANSPORT_COMMONIZATION_LIVE_VALIDATION_2026-06-09.md`.
 - Serial `AT` noise recovery is implemented but only observable when the
   transient condition naturally fires.
 

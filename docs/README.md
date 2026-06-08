@@ -683,6 +683,7 @@ hygiene를 기준으로 한다.
 
 - `operations/WORKSPACE_STRUCTURE_AND_BOOTSTRAP.md` – 새 GitHub clone/new workspace에서 tracked source, ignored local inputs, structured `tmp` layout, boot image rebuild order, private Wi-Fi env, host NCM setup, seal check를 복구하는 기준
 - `plans/NATIVE_INIT_CURRENT_TODO_2026-06-08.md` – 현재 baseline hardening TODO, Wi-Fi lifecycle/bridge/script inventory/versioning/workspace/QA/safety 우선순위 기준
+- `reports/NATIVE_INIT_V2180_TRANSPORT_COMMONIZATION_LIVE_VALIDATION_2026-06-09.md` – 공용 `a90_transport.phase()`/serial recovery evidence를 transport-only NCM smoke와 현재 V2178 Wi-Fi autoconnect-once runner에서 live 검증한 결과
 - `plans/NATIVE_INIT_V2178_WIFI_PROFILE_AUTOCONNECT_PLAN_2026-06-09.md` – V2178 profile inventory, secret-safe staging, explicit autoconnect command surface, boot-background autoconnect worker, validation/promotion gates 설계
 - `reports/NATIVE_INIT_V2179_V2178_WIFI_PROFILE_AUTOCONNECT_BASELINE_PROMOTION_2026-06-09.md` – P0 stale-result/profile-list/UI status fixes, V2178 boot autoconnect N=3, private 2.4/5 GHz once checks, V2174 rollback/selftest를 묶어 `0.9.253 (v2178-wifi-profile-autoconnect)` baseline promotion 근거로 기록
 - `reports/NATIVE_INIT_V2178_WIFI_PROFILE_AUTOCONNECT_LIVE_VALIDATION_2026-06-09.md` – V2178 profile staging, explicit autoconnect once, boot-background autoconnect, cleanup, V2174 rollback/selftest live PASS 결과
