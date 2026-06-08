@@ -78,6 +78,19 @@ Completed first units:
     rollback selftest success;
   - aggregate report:
     `docs/reports/NATIVE_INIT_V2176_WIFI_DHCP_STABILITY_N3_2026-06-08.md`.
+- `v2177-wifi-hold-reconnect` live validation passed:
+  - flashed V2176 test boot on top of the V2174 baseline;
+  - ran carrier connect, DHCP, 180 second hold/idle sampling, one bounded
+    external ping, cleanup, reconnect, DHCP, one bounded external ping, final
+    cleanup, and rollback;
+  - held carrier/route/resolv through all six hold samples and final ping rc
+    `0`;
+  - reconnected after cleanup with `wpa_state=COMPLETED`, carrier `1`, DHCP
+    pass, and ping rc `0`;
+  - rolled back to `v2174-wifi-urandom-connect`;
+  - final rollback `selftest fail=0`;
+  - report:
+    `docs/reports/NATIVE_INIT_V2177_WIFI_HOLD_RECONNECT_LIVE_VALIDATION_2026-06-09.md`.
 - `v2174-wifi-urandom-connect` live validation passed:
   - prior V2173 no-carrier evidence isolated the connect blocker to missing
     `/dev/urandom` during WPA SNonce generation;
@@ -135,9 +148,8 @@ Open tasks:
   - private 5 GHz test SSID from
     `workspace/private/secrets/a90-wifi-test.env`;
   - same password source, no duplicated secret storage.
-- Run remaining bounded stability checks:
-  - hold/idle;
-  - disconnect/reconnect.
+- Run longer or repeated stability checks only if promoting V2176 or a newer
+  boot image as a persistent Wi-Fi baseline.
 - Add UI status surface:
   - Wi-Fi enabled/disabled;
   - SSID redacted or configured display mode;
@@ -153,6 +165,8 @@ Exit criteria:
 
 - N>=3 repeated connect/DHCP/ping cycles without cleanup-dependent success is
   complete for the V2176 route.
+- 180 second hold/idle plus cleanup/reconnect validation is complete for the
+  V2176 route.
 - `selftest fail=0` after the run.
 - Secret scan reports no leaked PSK.
 - Public report contains redacted Wi-Fi evidence only.
@@ -348,7 +362,8 @@ Open tasks:
   - rollback selftest.
 - Add repeated-run evidence:
   - N>=3 for basic stability is complete for the V2176 route;
-  - longer hold/idle remains open.
+  - 180 second hold/idle plus cleanup/reconnect is complete for the V2176
+    route.
 - Capture residual state:
   - bridge process;
   - NCM interface;
@@ -389,8 +404,8 @@ Exit criteria:
 
 ## Suggested Next Sequence
 
-1. Run bounded hold/idle and disconnect/reconnect checks on the V2176 route.
-2. Design profile persistence and explicit boot-autoconnect controls.
-3. Add the remaining Wi-Fi UI/status fields.
-4. Decide whether to promote the next boot/init baseline.
+1. Design profile persistence and explicit boot-autoconnect controls.
+2. Add the remaining Wi-Fi UI/status fields.
+3. Decide whether to promote V2176 or a newer boot/init baseline.
+4. Run longer-duration Wi-Fi soak only if the promotion decision needs it.
 5. Continue lower-priority tmp/archive cleanup separately.

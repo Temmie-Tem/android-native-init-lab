@@ -9,12 +9,13 @@ For full history, read `docs/reports/`, `docs/overview/PROJECT_STATUS.md`, and
 - Device: Samsung Galaxy A90 5G `SM-A908N`, build `A908NKSU5EWA3`.
 - Kernel: Samsung stock Android Linux `4.14.190`.
 - Runtime goal: custom static `/init` as PID 1 on the stock Android kernel.
-- Current verified boot/init baseline: `A90 Linux init 0.9.246 (v726-wifi-lifecycle)`.
-- Current boot image: `workspace/private/inputs/boot_images/boot_linux_v726_wifi_lifecycle.img`.
-- Previous verified transport baseline: `workspace/private/inputs/boot_images/boot_linux_v725_fasttransport.img`.
+- Current verified boot/init baseline: `A90 Linux init 0.9.251 (v2174-wifi-urandom-connect)`.
+- Current boot image: `workspace/private/inputs/boot_images/boot_linux_v2174_wifi_urandom_connect.img`.
+- Rollback baseline: `workspace/private/inputs/boot_images/boot_linux_v2169_transport_contract.img`.
 - Known-good fallback: `workspace/private/inputs/boot_images/boot_linux_v48.img`.
-- Current Wi-Fi status: native `wlan0` is proven to come up and bounded scan/connect/DHCP/ping evidence exists; baseline hardening and repeatability remain the active work.
-- Next promoted baseline should use the next global run/build identity, e.g. `V2169`, native init `0.9.247`, build tag `v2169-wifi-lifecycle-baseline`.
+- Baseline lineage (since the workspace reorg): `v726-wifi-lifecycle` → `v2169-transport-contract` → `v2174-wifi-urandom-connect`.
+- Current Wi-Fi status: native `wlan0` connects end-to-end (associate → DHCP → external ping) on both bands, and Wi-Fi is now an on-device native-init command surface (`wifi status` / `wifi scan` / `wifi connect` / `wifi dhcp` / `wifi cleanup`; see `docs/operations/NATIVE_INIT_WIFI_LIFECYCLE_COMMANDS.md`). DHCP/ping stability is N=3 clean (V2176), and 180 second hold plus cleanup/reconnect passed (V2177). Active work: profile persistence, boot-time unattended auto-connect, and UI/status polish.
+- Next promoted baseline should use the next global run/build identity (e.g. `V2178+`), bump native init `0.9.252+`, and a `vNNNN-purpose` build tag.
 
 ## Read First
 
@@ -43,7 +44,8 @@ Use workspace paths. Do not recreate old root payload trees.
 | Generated builds | `workspace/private/builds/` |
 | Secrets | `workspace/private/secrets/` |
 | Raw logs/device dumps/private archives | `workspace/private/raw-logs/`, `workspace/private/device-dumps/`, `workspace/private/archives/` |
-| Structured run evidence | `tmp/wifi/runs/`, `tmp/logs/` |
+| Structured Wi-Fi run evidence | `workspace/private/runs/wifi/` |
+| Other structured run evidence | `tmp/wifi/runs/`, `tmp/logs/` |
 
 Root `scripts/`, `stage3/`, `mkbootimg/`, `firmware/`, `kernel_build/`,
 `toolchains/`, `external_tools/`, `backups/`, and `out/` are not active paths.
@@ -82,16 +84,16 @@ python3 workspace/public/src/scripts/revalidation/a90ctl.py 'selftest verbose'
 Rebuild known boot-image baselines into private outputs:
 
 ```bash
-python3 workspace/public/src/scripts/revalidation/build_native_init_boot_v724.py
-python3 workspace/public/src/scripts/revalidation/build_native_init_boot_v725_fasttransport.py
-python3 workspace/public/src/scripts/revalidation/build_native_init_boot_v726_wifi_lifecycle.py
+python3 workspace/public/src/scripts/revalidation/build_native_init_boot_v2169_transport_contract.py
+python3 workspace/public/src/scripts/revalidation/build_native_init_boot_v2174_wifi_urandom_connect.py
+python3 workspace/public/src/scripts/revalidation/build_native_init_boot_v2176_wifi_dhcp.py
 ```
 
 Flash only through the checked flash helper:
 
 ```bash
 python3 workspace/public/src/scripts/revalidation/native_init_flash.py \
-  workspace/private/inputs/boot_images/boot_linux_v726_wifi_lifecycle.img --from-native
+  workspace/private/inputs/boot_images/boot_linux_v2174_wifi_urandom_connect.img --from-native
 ```
 
 Boot image pack/unpack tools live under:

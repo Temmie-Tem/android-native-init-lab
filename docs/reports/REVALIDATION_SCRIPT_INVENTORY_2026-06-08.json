@@ -514,6 +514,22 @@
     },
     {
       "executable": false,
+      "has_phase_timer": true,
+      "has_secret_redaction": true,
+      "imports_a90_transport": true,
+      "label": "active",
+      "live_device_required": true,
+      "mentions_a90_bridge": false,
+      "mentions_a90ctl_subprocess": false,
+      "mentions_serial_tcp_bridge": false,
+      "name": "native_wifi_hold_reconnect_handoff_v2177.py",
+      "path": "workspace/public/src/scripts/revalidation/native_wifi_hold_reconnect_handoff_v2177.py",
+      "reason": "active Wi-Fi hold/reconnect validation",
+      "repo_reference_count": 4,
+      "type": "file"
+    },
+    {
+      "executable": false,
       "has_phase_timer": false,
       "has_secret_redaction": true,
       "imports_a90_transport": true,
@@ -625,10 +641,10 @@
       "type": "file"
     }
   ],
-  "generated_at": "2026-06-08T14:33:37.687941+00:00",
+  "generated_at": "2026-06-08T15:55:35.770132+00:00",
   "root": "workspace/public/src/scripts/revalidation",
   "summary": {
-    "active": 33,
+    "active": 34,
     "module": 6
   }
 }

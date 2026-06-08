@@ -682,6 +682,10 @@ hygiene를 기준으로 한다.
 ### 4. Current Native Init Reports
 
 - `operations/WORKSPACE_STRUCTURE_AND_BOOTSTRAP.md` – 새 GitHub clone/new workspace에서 tracked source, ignored local inputs, structured `tmp` layout, boot image rebuild order, private Wi-Fi env, host NCM setup, seal check를 복구하는 기준
+- `plans/NATIVE_INIT_CURRENT_TODO_2026-06-08.md` – 현재 baseline hardening TODO, Wi-Fi lifecycle/bridge/script inventory/versioning/workspace/QA/safety 우선순위 기준
+- `reports/NATIVE_INIT_V2177_WIFI_HOLD_RECONNECT_LIVE_VALIDATION_2026-06-09.md` – V2176 test boot에서 connect→DHCP→180초 hold→ping→cleanup→reconnect→DHCP→ping→cleanup을 통과하고 V2174 rollback/selftest를 검증한 결과
+- `reports/NATIVE_INIT_V2176_WIFI_DHCP_STABILITY_N3_2026-06-08.md` – V2176 final-code N=3 connect→DHCP→bounded ping→cleanup→V2174 rollback 안정성 검증 결과
+- `reports/NATIVE_INIT_V2176_WIFI_DHCP_PING_LIVE_VALIDATION_2026-06-08.md` – V2176 test boot가 carrier connect, DHCP, one bounded external ping, cleanup, V2174 rollback/selftest를 통과한 결과
 - `reports/NATIVE_INIT_V2175_V2174_WIFI_URANDOM_CONNECT_BASELINE_PROMOTION_2026-06-08.md` – `0.9.251 (v2174-wifi-urandom-connect)`/SHA `cda957e...`를 현재 baseline으로 승격하고, 현재 부팅 `version`/`status`/`selftest fail=0`, `transport.contract=1`, NCM/tcpctl readiness를 확인한 결과
 - `reports/NATIVE_INIT_V2174_WIFI_URANDOM_CONNECT_LIVE_VALIDATION_2026-06-08.md` – V2174 test boot가 carrier-level `wifi connect`에서 `wpa_state=COMPLETED`/`carrier=1`에 도달하고 V2169 rollback/selftest를 통과한 결과
 - `reports/NATIVE_INIT_V2174_WIFI_URANDOM_CONNECT_SOURCE_BUILD_2026-06-08.md` – V2174 source/build 결과 native-init `wifi connect [profile]`와 `/dev/random`/`/dev/urandom` bootstrap을 결합한 `0.9.251 (v2174-wifi-urandom-connect)` 이미지 생성 결과

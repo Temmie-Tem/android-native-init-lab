@@ -27,6 +27,7 @@ ACTIVE = {
     "native_init_flash.py": "active flash/rollback helper",
     "native_wifi_connect_carrier_handoff_v2174.py": "active Wi-Fi carrier validation",
     "native_wifi_dhcp_ping_handoff_v2176.py": "active Wi-Fi DHCP/ping validation",
+    "native_wifi_hold_reconnect_handoff_v2177.py": "active Wi-Fi hold/reconnect validation",
     "native_wifi_supplicant_dependency_probe.py": "current Wi-Fi dependency probe",
     "a90_v725_fasttransport_baseline_validation.py": "fast transport baseline validator",
     "build_native_init_boot_v724.py": "baseline/emergency boot builder",

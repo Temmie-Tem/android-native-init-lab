@@ -26,6 +26,7 @@ Current migrated entrypoints:
 - `build_native_init_boot_v2176_wifi_dhcp.py`
 - `native_wifi_connect_carrier_handoff_v2174.py`
 - `native_wifi_dhcp_ping_handoff_v2176.py`
+- `native_wifi_hold_reconnect_handoff_v2177.py`
 - `native_wifi_supplicant_dependency_probe.py`
 - `a90_v725_fasttransport_baseline_validation.py`
 - `inventory_revalidation_scripts.py`

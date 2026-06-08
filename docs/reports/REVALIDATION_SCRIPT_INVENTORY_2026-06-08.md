@@ -1,6 +1,6 @@
 # Revalidation Script Inventory
 
-- Generated at: `2026-06-08T14:33:37.687941+00:00`
+- Generated at: `2026-06-08T15:55:35.770132+00:00`
 - Root: `workspace/public/src/scripts/revalidation`
 - Scope: public metadata only; no private run logs, credentials, boot images, or raw captures.
 - Action: inventory only. No scripts were moved or deleted by this report.
@@ -9,7 +9,7 @@
 
 | Label | Count |
 | --- | ---: |
-| `active` | 33 |
+| `active` | 34 |
 | `module` | 6 |
 
 ## Entries
@@ -48,6 +48,7 @@
 | `native_init_flash.py` | `active` | `none` | 190 | active flash/rollback helper |
 | `native_wifi_connect_carrier_handoff_v2174.py` | `active` | `shared` | 6 | active Wi-Fi carrier validation |
 | `native_wifi_dhcp_ping_handoff_v2176.py` | `active` | `shared` | 7 | active Wi-Fi DHCP/ping validation |
+| `native_wifi_hold_reconnect_handoff_v2177.py` | `active` | `shared` | 4 | active Wi-Fi hold/reconnect validation |
 | `native_wifi_supplicant_dependency_probe.py` | `active` | `shared` | 6 | current Wi-Fi dependency probe |
 | `ncm_host_setup.py` | `active` | `none` | 42 | operator utility or inventory/cleanup utility |
 | `netservice_reconnect_soak.py` | `active` | `none` | 22 | operator utility or inventory/cleanup utility |
