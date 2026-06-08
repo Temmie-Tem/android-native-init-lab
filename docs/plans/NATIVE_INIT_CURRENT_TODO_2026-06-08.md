@@ -8,11 +8,11 @@ than the long-term roadmap.
 
 Current baseline:
 
-- Device baseline: `A90 Linux init 0.9.253 (v2178-wifi-profile-autoconnect)`.
-- Promotion run: `V2179`; boot SHA256
-  `8ea6f468f997446e9fa3e80606db107ca27d067f3ee023ff45c2ecf159341047`.
+- Device baseline: `A90 Linux init 0.9.255 (v2182-hud-menu-cleanup)`.
+- Promotion run: `V2183`; boot SHA256
+  `8e3e16f68d019ef5f56d2246ddcc7dbf14aa5ae08b40a0b983688812d792f839`.
 - Immediate rollback image:
-  `workspace/private/inputs/boot_images/boot_linux_v2174_wifi_urandom_connect.img`.
+  `workspace/private/inputs/boot_images/boot_linux_v2178_wifi_profile_autoconnect.img`.
 - Emergency rollback image:
   `workspace/private/inputs/boot_images/boot_linux_v2169_transport_contract.img`.
 - Active control path: USB ACM serial bridge managed by
@@ -103,7 +103,7 @@ Completed first units:
     `dhcp_routing=0`, and `external_ping=0`;
   - rolled back to `v2169-transport-contract`;
   - final rollback `selftest fail=0`.
-- `v2174-wifi-urandom-connect` was promoted as the current baseline by V2175:
+- `v2174-wifi-urandom-connect` was previously promoted by V2175:
   - flashed the same V2174 boot image as the persistent baseline;
   - verified device-visible version
     `A90 Linux init 0.9.251 (v2174-wifi-urandom-connect)`;
@@ -111,7 +111,7 @@ Completed first units:
     `cda957e4302d66e407fc97a95932501f0ef2ac655ee264c94519111fece0b3ba`;
   - verified `transport.contract=1`, NCM/tcpctl readiness, and
     `selftest fail=0`.
-- `v2178-wifi-profile-autoconnect` was promoted as the current baseline by V2179:
+- `v2178-wifi-profile-autoconnect` was previously promoted by V2179:
   - fixed stale autoconnect result/log state, profile-list duplicate display,
     and Wi-Fi status/HUD decision surfacing;
   - flashed patched V2178 boot image SHA
@@ -128,6 +128,16 @@ Completed first units:
     final `selftest fail=0`;
   - promotion report:
     `docs/reports/NATIVE_INIT_V2179_V2178_WIFI_PROFILE_AUTOCONNECT_BASELINE_PROMOTION_2026-06-09.md`.
+- `v2182-hud-menu-cleanup` was promoted as the current baseline by V2183:
+  - added HUD storage free/free-percent/read-write-rate and Wi-Fi profile/status
+    glance fields;
+  - fixed the six-row HUD/menu/log/preview layout overlap with shared geometry;
+  - removed duplicate STATUS/LIVE STATUS menu entries and clarified USB NET
+    STATUS naming;
+  - flashed V2182 boot image SHA
+    `8e3e16f68d019ef5f56d2246ddcc7dbf14aa5ae08b40a0b983688812d792f839`;
+  - verified `statushud`, `screenmenu`, `watchhud`, rollback to V2178, and final
+    selftest `fail=0`.
 - `v2172-wifi-status-scan` live validation passed:
   - corrected the test boot to reuse verified V726 private-property snapshot;
   - flashed test boot;
@@ -205,8 +215,8 @@ Completed first units:
   `docs/operations/NATIVE_INIT_BOOT_TRANSPORT_CONTRACT.md`.
 - Transport selector has bounded host NCM link-local auto-repair for the
   Samsung `04e8` + `cdc_ncm` present/no-`fe80::` state.
-- Current `v2178-wifi-profile-autoconnect` baseline preserves the device-side
-  `transport.contract=1` contract from V2174/V2169.
+- Current `v2182-hud-menu-cleanup` baseline preserves the device-side
+  `transport.contract=1` contract from V2178/V2174/V2169.
 - Active Wi-Fi lifecycle runners use the shared transport selector/serial step:
   - `native_wifi_connect_carrier_handoff_v2174.py` uses
     `a90_transport.select_transport()` for preflight and
@@ -316,7 +326,7 @@ Goal: avoid mixing run IDs, helper versions, and boot baseline tags.
 
 Open tasks:
 
-- Keep current baseline fixed as `v2178-wifi-profile-autoconnect` until a newer boot
+- Keep current baseline fixed as `v2182-hud-menu-cleanup` until a newer boot
   image is intentionally promoted.
 - If a new boot/init image is promoted, use the next global run/build identity,
   not helper numbering.

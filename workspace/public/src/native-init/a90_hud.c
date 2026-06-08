@@ -7,6 +7,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/statvfs.h>
+#include <sys/sysmacros.h>
 #include <unistd.h>
 
 #include "a90_config.h"
@@ -21,6 +23,10 @@
 
 #ifndef O_NOFOLLOW
 #define O_NOFOLLOW 0
+#endif
+
+#ifndef A90_WIFI_TEST_BOOT_SUMMARY
+#define A90_WIFI_TEST_BOOT_SUMMARY "/cache/native-init-wifi-test-boot-v726.summary"
 #endif
 
 static bool hud_read_key_value_file(const char *path,
@@ -74,9 +80,263 @@ static void hud_append_wifi_token(char *out, size_t out_size, const char *fmt, .
     va_end(ap);
 }
 
+static const char *hud_short_decision(const char *decision) {
+    if (decision == NULL || decision[0] == '\0') {
+        return "-";
+    }
+    if (strncmp(decision, "wifi-autoconnect-", 17) == 0) {
+        return decision + 17;
+    }
+    if (strncmp(decision, "wifi-connect-", 13) == 0) {
+        return decision + 13;
+    }
+    if (strncmp(decision, "wifi-dhcp-", 10) == 0) {
+        return decision + 10;
+    }
+    if (strncmp(decision, "wifi-", 5) == 0) {
+        return decision + 5;
+    }
+    return decision;
+}
+
+static bool hud_decision_is_running(const char *decision) {
+    return decision != NULL &&
+           (strstr(decision, "running") != NULL ||
+            strstr(decision, "in-progress") != NULL);
+}
+
+static bool hud_decision_is_failure(const char *decision) {
+    return decision != NULL &&
+           (strstr(decision, "failed") != NULL ||
+            strstr(decision, "timeout") != NULL ||
+            strstr(decision, "no-carrier") != NULL ||
+            strstr(decision, "supplicant-missing") != NULL ||
+            strstr(decision, "blocked") != NULL);
+}
+
+static const char *hud_storage_label(const char *backend) {
+    if (backend == NULL || backend[0] == '\0') {
+        return "?";
+    }
+    if (strcmp(backend, "sd") == 0) {
+        return "SD";
+    }
+    if (strcmp(backend, "cache") == 0) {
+        return "CACHE";
+    }
+    if (strcmp(backend, "tmp") == 0) {
+        return "TMP";
+    }
+    return backend;
+}
+
+static void hud_format_bytes_compact(unsigned long long bytes,
+                                     char *out,
+                                     size_t out_size) {
+    static const unsigned long long gib = 1024ULL * 1024ULL * 1024ULL;
+    static const unsigned long long mib = 1024ULL * 1024ULL;
+    unsigned long long tenths;
+
+    if (out_size == 0) {
+        return;
+    }
+    if (bytes >= gib) {
+        tenths = (bytes * 10ULL + gib / 2ULL) / gib;
+        if (tenths >= 100ULL) {
+            snprintf(out, out_size, "%lluG", tenths / 10ULL);
+        } else {
+            snprintf(out, out_size, "%llu.%lluG", tenths / 10ULL, tenths % 10ULL);
+        }
+        return;
+    }
+    if (bytes >= mib) {
+        tenths = (bytes * 10ULL + mib / 2ULL) / mib;
+        if (tenths >= 100ULL) {
+            snprintf(out, out_size, "%lluM", tenths / 10ULL);
+        } else {
+            snprintf(out, out_size, "%llu.%lluM", tenths / 10ULL, tenths % 10ULL);
+        }
+        return;
+    }
+    snprintf(out, out_size, "%lluK", (bytes + 1023ULL) / 1024ULL);
+}
+
+struct hud_diskstats_sample {
+    bool valid;
+    unsigned int major_num;
+    unsigned int minor_num;
+    unsigned long long read_sectors;
+    unsigned long long write_sectors;
+    long sample_ms;
+};
+
+static bool hud_read_diskstats_sample(unsigned int major_num,
+                                      unsigned int minor_num,
+                                      struct hud_diskstats_sample *sample) {
+    FILE *fp;
+    char line[256];
+
+    fp = fopen("/proc/diskstats", "r");
+    if (fp == NULL) {
+        return false;
+    }
+    while (fgets(line, sizeof(line), fp) != NULL) {
+        unsigned int line_major = 0;
+        unsigned int line_minor = 0;
+        unsigned long long sectors_read = 0;
+        unsigned long long sectors_written = 0;
+
+        if (sscanf(line,
+                   " %u %u %*63s %*s %*s %llu %*s %*s %*s %llu",
+                   &line_major,
+                   &line_minor,
+                   &sectors_read,
+                   &sectors_written) != 4) {
+            continue;
+        }
+        if (line_major == major_num && line_minor == minor_num) {
+            fclose(fp);
+            sample->valid = true;
+            sample->major_num = major_num;
+            sample->minor_num = minor_num;
+            sample->read_sectors = sectors_read;
+            sample->write_sectors = sectors_written;
+            sample->sample_ms = monotonic_millis();
+            return true;
+        }
+    }
+    fclose(fp);
+    return false;
+}
+
+static void hud_format_rate_label(unsigned long long sectors_delta,
+                                  long elapsed_ms,
+                                  char *out,
+                                  size_t out_size) {
+    unsigned long long bytes_delta;
+    unsigned long long denominator;
+    unsigned long long rate_x10;
+
+    if (out_size == 0) {
+        return;
+    }
+    if (elapsed_ms <= 0) {
+        snprintf(out, out_size, "-");
+        return;
+    }
+    bytes_delta = sectors_delta * 512ULL;
+    denominator = (unsigned long long)elapsed_ms * 1048576ULL;
+    if (denominator == 0) {
+        snprintf(out, out_size, "-");
+        return;
+    }
+    rate_x10 = (bytes_delta * 10000ULL + denominator / 2ULL) / denominator;
+    snprintf(out, out_size, "%llu.%lluM", rate_x10 / 10ULL, rate_x10 % 10ULL);
+}
+
+static void hud_read_storage_io_rates(const char *root,
+                                      char *read_rate,
+                                      size_t read_rate_size,
+                                      char *write_rate,
+                                      size_t write_rate_size) {
+    static struct hud_diskstats_sample previous;
+    struct hud_diskstats_sample current;
+    struct stat st;
+    unsigned int major_num;
+    unsigned int minor_num;
+    long elapsed_ms;
+
+    if (read_rate_size > 0) {
+        snprintf(read_rate, read_rate_size, "-");
+    }
+    if (write_rate_size > 0) {
+        snprintf(write_rate, write_rate_size, "-");
+    }
+    if (root == NULL || stat(root, &st) < 0) {
+        previous.valid = false;
+        return;
+    }
+    major_num = (unsigned int)major(st.st_dev);
+    minor_num = (unsigned int)minor(st.st_dev);
+    memset(&current, 0, sizeof(current));
+    if (!hud_read_diskstats_sample(major_num, minor_num, &current)) {
+        previous.valid = false;
+        return;
+    }
+    if (!previous.valid ||
+        previous.major_num != current.major_num ||
+        previous.minor_num != current.minor_num ||
+        current.sample_ms <= previous.sample_ms ||
+        current.read_sectors < previous.read_sectors ||
+        current.write_sectors < previous.write_sectors) {
+        previous = current;
+        return;
+    }
+    elapsed_ms = current.sample_ms - previous.sample_ms;
+    hud_format_rate_label(current.read_sectors - previous.read_sectors,
+                          elapsed_ms,
+                          read_rate,
+                          read_rate_size);
+    hud_format_rate_label(current.write_sectors - previous.write_sectors,
+                          elapsed_ms,
+                          write_rate,
+                          write_rate_size);
+    previous = current;
+}
+
+static bool hud_format_storage_usage_line(const char *backend,
+                                          const char *root,
+                                          bool warning,
+                                          char *out,
+                                          size_t out_size,
+                                          uint32_t *color_out) {
+    struct statvfs vfs;
+    unsigned long long total_blocks;
+    unsigned long long available_blocks;
+    unsigned long long available_bytes;
+    unsigned int free_pct;
+    char free_label[24];
+    char read_rate[24];
+    char write_rate[24];
+    uint32_t color = warning ? 0xffcc33 : 0x88ee88;
+
+    if (out_size == 0 || root == NULL || statvfs(root, &vfs) < 0 || vfs.f_blocks == 0) {
+        return false;
+    }
+    total_blocks = (unsigned long long)vfs.f_blocks;
+    available_blocks = (unsigned long long)vfs.f_bavail;
+    available_bytes = available_blocks * (unsigned long long)vfs.f_frsize;
+    free_pct = (unsigned int)((available_blocks * 100ULL + total_blocks / 2ULL) / total_blocks);
+    if (free_pct <= 3 || available_bytes < 256ULL * 1024ULL * 1024ULL) {
+        color = 0xff6666;
+    } else if (free_pct <= 10 || available_bytes < 1024ULL * 1024ULL * 1024ULL) {
+        color = 0xffcc33;
+    }
+    hud_format_bytes_compact(available_bytes, free_label, sizeof(free_label));
+    hud_read_storage_io_rates(root,
+                              read_rate,
+                              sizeof(read_rate),
+                              write_rate,
+                              sizeof(write_rate));
+    snprintf(out,
+             out_size,
+             "STORAGE %.8s%.5s FREE %.12s %u%% R%.8s/W%.8s",
+             hud_storage_label(backend),
+             warning ? " WARN" : "",
+             free_label,
+             free_pct,
+             read_rate,
+             write_rate);
+    if (color_out != NULL) {
+        *color_out = color;
+    }
+    return true;
+}
+
 static void hud_read_wifi_line(char *out, size_t out_size, uint32_t *color_out) {
-    static const char *summary_path = "/cache/native-init-wifi-test-boot-v726.summary";
+    static const char *summary_path = A90_WIFI_TEST_BOOT_SUMMARY;
     static const char *runtime_path = "/cache/native-init-wifi-runtime.summary";
+    static const char *autoconnect_path = "/cache/a90-wifi/autoconnect.result";
     struct stat st;
     char operstate[32] = "?";
     char carrier[16] = "?";
@@ -94,6 +354,11 @@ static void hud_read_wifi_line(char *out, size_t out_size, uint32_t *color_out) 
     char tx_mbps[24] = "";
     char baseline_ready[16] = "0";
     char supervisor_result[48] = "";
+    char autoconnect_profile[64] = "";
+    char autoconnect_decision[64] = "";
+    const char *short_decision;
+    const char *ssid_or_profile;
+    const char *state_label;
     bool wlan0_present;
     bool link_up;
     bool ready;
@@ -160,12 +425,29 @@ static void hud_read_wifi_line(char *out, size_t out_size, uint32_t *color_out) 
                                       tx_mbps,
                                       sizeof(tx_mbps));
     }
+    (void)hud_read_key_value_file(autoconnect_path,
+                                  "profile=",
+                                  autoconnect_profile,
+                                  sizeof(autoconnect_profile));
+    (void)hud_read_key_value_file(autoconnect_path,
+                                  "decision=",
+                                  autoconnect_decision,
+                                  sizeof(autoconnect_decision));
+    if (decision[0] == '\0' && autoconnect_decision[0] != '\0') {
+        snprintf(decision, sizeof(decision), "%s", autoconnect_decision);
+    }
+    short_decision = hud_short_decision(decision);
 
     if (!wlan0_present) {
-        if (supervisor_result[0] != '\0') {
+        if (hud_decision_is_failure(decision)) {
+            snprintf(out, out_size, "WIFI FAIL %.40s", short_decision);
+            if (color_out != NULL) {
+                *color_out = 0xff6666;
+            }
+        } else if (supervisor_result[0] != '\0') {
             snprintf(out, out_size, "WIFI WAIT %.40s", supervisor_result);
         } else {
-            snprintf(out, out_size, "WIFI WAIT wlan0 missing");
+            snprintf(out, out_size, "WIFI MISSING wlan0");
         }
         return;
     }
@@ -198,11 +480,20 @@ static void hud_read_wifi_line(char *out, size_t out_size, uint32_t *color_out) 
 
     link_up = strcmp(carrier, "1") == 0 || strcmp(operstate, "up") == 0;
     ready = strcmp(baseline_ready, "1") == 0;
+    if (ssid_label[0] != '\0' && strcmp(ssid_label, "connected") != 0) {
+        ssid_or_profile = ssid_label;
+    } else if (autoconnect_profile[0] != '\0') {
+        ssid_or_profile = autoconnect_profile;
+    } else if (ssid_label[0] != '\0') {
+        ssid_or_profile = ssid_label;
+    } else {
+        ssid_or_profile = "wlan0";
+    }
     if (link_up) {
         snprintf(out,
                  out_size,
                  "WIFI UP %.32s",
-                 ssid_label[0] != '\0' ? ssid_label : "wlan0");
+                 ssid_or_profile);
         if (rssi_dbm[0] != '\0') {
             hud_append_wifi_token(out, out_size, " %sdBm", rssi_dbm);
         }
@@ -219,12 +510,25 @@ static void hud_read_wifi_line(char *out, size_t out_size, uint32_t *color_out) 
         if (color_out != NULL) {
             *color_out = 0x88ee88;
         }
+    } else if (hud_decision_is_running(decision)) {
+        snprintf(out, out_size, "WIFI RUN %.32s %.32s", ssid_or_profile, short_decision);
+        if (color_out != NULL) {
+            *color_out = 0xffcc33;
+        }
+    } else if (hud_decision_is_failure(decision)) {
+        snprintf(out, out_size, "WIFI FAIL %.44s", short_decision);
+        if (color_out != NULL) {
+            *color_out = 0xff6666;
+        }
     } else if (ready) {
+        state_label = autoconnect_decision[0] != '\0' &&
+            strstr(autoconnect_decision, "disabled") != NULL ? "OFF" : "READY";
         snprintf(out,
                  out_size,
-                 "WIFI READY wlan0 %s %.32s",
+                 "WIFI %s wlan0 %s %.32s",
+                 state_label,
                  operstate,
-                 decision[0] != '\0' ? decision : mac);
+                 decision[0] != '\0' ? short_decision : mac);
         if (color_out != NULL) {
             *color_out = 0x88ee88;
         }
@@ -233,7 +537,7 @@ static void hud_read_wifi_line(char *out, size_t out_size, uint32_t *color_out) 
                  out_size,
                  "WIFI IFACE wlan0 %s %.32s",
                  operstate,
-                 decision[0] != '\0' ? decision : mac);
+                 decision[0] != '\0' ? short_decision : mac);
         if (color_out != NULL) {
             *color_out = 0xffcc33;
         }
@@ -360,7 +664,7 @@ void a90_hud_draw_status_overlay(struct a90_fb *fb,
     const char *warning = storage != NULL && storage->warning != NULL ? storage->warning : "";
     const char *backend = storage != NULL && storage->backend != NULL ? storage->backend : "?";
     const char *root = storage != NULL && storage->root != NULL ? storage->root : "?";
-    uint32_t scale = 5;
+    uint32_t scale = A90_HUD_STATUS_SCALE;
     uint32_t x = fb->width / 24;
     uint32_t line_h = scale * 10;
     uint32_t card_h = line_h + scale * 4;
@@ -369,8 +673,7 @@ void a90_hud_draw_status_overlay(struct a90_fb *fb,
     uint32_t footer_scale = scale;
     uint32_t footer_text_y = footer_y;
     uint32_t char_w = scale * 6;
-    uint32_t glyph_h = scale * 7;
-    uint32_t y = fb->height / 16;
+    uint32_t y = a90_hud_status_origin_y(fb->height);
     uint32_t slot = line_h + scale * 3;
     uint32_t bat_color;
     uint32_t boot_color;
@@ -378,12 +681,10 @@ void a90_hud_draw_status_overlay(struct a90_fb *fb,
     uint32_t wifi_color;
     uint32_t off;
     long bat_pct_val;
+    uint32_t row;
 
     (void)refresh_sec;
     (void)sequence;
-
-    if (y > glyph_h + glyph_h / 2 + scale * 2)
-        y -= glyph_h + glyph_h / 2;
 
     a90_metrics_read_snapshot(&snapshot);
     a90_timeline_boot_summary(boot_summary, sizeof(boot_summary));
@@ -417,11 +718,9 @@ void a90_hud_draw_status_overlay(struct a90_fb *fb,
     if (footer_scale < scale)
         footer_text_y += ((scale - footer_scale) * 7) / 2;
 
-    a90_draw_rect(fb, x - scale, y + slot * 0 - scale, card_w, card_h, 0x202020);
-    a90_draw_rect(fb, x - scale, y + slot * 1 - scale, card_w, card_h, 0x202020);
-    a90_draw_rect(fb, x - scale, y + slot * 2 - scale, card_w, card_h, 0x202020);
-    a90_draw_rect(fb, x - scale, y + slot * 3 - scale, card_w, card_h, 0x202020);
-    a90_draw_rect(fb, x - scale, y + slot * 4 - scale, card_w, card_h, 0x202020);
+    for (row = 0; row < A90_HUD_STATUS_ROW_COUNT; ++row) {
+        a90_draw_rect(fb, x - scale, y + slot * row - scale, card_w, card_h, 0x202020);
+    }
 
     a90_draw_text(fb, x, y + slot * 0, "A90 INIT ", 0x909090, scale);
     a90_draw_text(fb, x + 9 * char_w, y + slot * 0, boot_summary, boot_color, scale);
@@ -467,7 +766,14 @@ void a90_hud_draw_status_overlay(struct a90_fb *fb,
                       scale > 3 ? scale - 2 : scale,
                       card_w - scale * 2);
 
-    if (warning[0] != '\0') {
+    if (hud_format_storage_usage_line(backend,
+                                      root,
+                                      warning[0] != '\0',
+                                      storage_line,
+                                      sizeof(storage_line),
+                                      &storage_color)) {
+        storage_line[sizeof(storage_line) - 1] = '\0';
+    } else if (warning[0] != '\0') {
         snprintf(storage_line, sizeof(storage_line), "SD WARN %.70s", warning);
         storage_color = 0xffcc33;
     } else {
@@ -752,22 +1058,17 @@ void a90_hud_draw_log_tail_panel(struct a90_fb *fb,
 
 void a90_hud_draw_hud_log_tail(struct a90_fb *fb) {
     uint32_t scale = 3;
-    uint32_t hud_scale = 5;
-    uint32_t slot = (hud_scale * 10) + hud_scale * 3;
-    uint32_t card_h = (hud_scale * 10) + hud_scale * 4;
-    uint32_t glyph_h = hud_scale * 7;
+    uint32_t hud_scale = A90_HUD_STATUS_SCALE;
     uint32_t x = fb->width / 24;
     uint32_t card_w = fb->width - x * 2;
-    uint32_t y = fb->height / 16;
+    uint32_t y = a90_hud_status_origin_y(fb->height);
     uint32_t area_y;
 
     if (!a90_hud_log_tail_enabled()) {
         return;
     }
 
-    if (y > glyph_h + glyph_h / 2 + hud_scale * 2)
-        y -= glyph_h + glyph_h / 2;
-    area_y = y + 3 * slot + card_h + hud_scale * 8;
+    area_y = y + a90_hud_status_overlay_height() + hud_scale * 8;
 
     a90_hud_draw_log_tail_panel(fb,
                                 x,

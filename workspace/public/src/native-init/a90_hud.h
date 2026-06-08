@@ -26,6 +26,32 @@ struct a90_hud_storage_status {
     const char *warning;
 };
 
+#define A90_HUD_STATUS_SCALE 5U
+#define A90_HUD_STATUS_ROW_COUNT 6U
+
+static inline uint32_t a90_hud_status_row_slot(void) {
+    return (A90_HUD_STATUS_SCALE * 10U) + (A90_HUD_STATUS_SCALE * 3U);
+}
+
+static inline uint32_t a90_hud_status_card_height(void) {
+    return (A90_HUD_STATUS_SCALE * 10U) + (A90_HUD_STATUS_SCALE * 4U);
+}
+
+static inline uint32_t a90_hud_status_origin_y(uint32_t framebuffer_height) {
+    uint32_t glyph_h = A90_HUD_STATUS_SCALE * 7U;
+    uint32_t y = framebuffer_height / 16U;
+
+    if (y > glyph_h + glyph_h / 2U + A90_HUD_STATUS_SCALE * 2U) {
+        y -= glyph_h + glyph_h / 2U;
+    }
+    return y;
+}
+
+static inline uint32_t a90_hud_status_overlay_height(void) {
+    return (A90_HUD_STATUS_ROW_COUNT - 1U) * a90_hud_status_row_slot() +
+           a90_hud_status_card_height();
+}
+
 void a90_hud_boot_splash_set_line(size_t index, const char *fmt, ...);
 void a90_hud_draw_boot_splash(struct a90_fb *fb);
 void a90_hud_draw_status_overlay(struct a90_fb *fb,

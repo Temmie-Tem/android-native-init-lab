@@ -889,13 +889,10 @@ static void kms_draw_menu_section(struct a90_fb *fb,
                                   size_t selected) {
     uint32_t scale = 5;
     uint32_t x = fb->width / 24;
-    uint32_t line_h = scale * 10;
-    uint32_t card_h = line_h + scale * 4;
     uint32_t glyph_h = scale * 7;
-    uint32_t slot = line_h + scale * 3;
     uint32_t card_w = fb->width - x * 2;
     uint32_t menu_scale = scale;
-    uint32_t y = fb->height / 16;
+    uint32_t y = a90_hud_status_origin_y(fb->height);
     uint32_t status_bottom;
     uint32_t divider_y;
     uint32_t menu_y;
@@ -909,10 +906,7 @@ static void kms_draw_menu_section(struct a90_fb *fb,
     size_t last_visible;
     size_t i;
 
-    if (y > glyph_h + glyph_h / 2 + scale * 2)
-        y -= glyph_h + glyph_h / 2;
-
-    status_bottom = y + 3 * slot + card_h;
+    status_bottom = y + a90_hud_status_overlay_height();
     divider_y = status_bottom + scale * 5;
     menu_y = divider_y + scale * 17;
 

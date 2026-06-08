@@ -12,13 +12,13 @@ Date: `2026-04-29`
 
 - device: `Samsung Galaxy A90 5G SM-A908N`
 - recovery: TWRP 사용 가능
-- latest verified build: `A90 Linux init 0.9.253 (v2178-wifi-profile-autoconnect)`
-- latest verified source: `workspace/public/src/native-init/` + 빌더 `workspace/public/src/scripts/revalidation/build_native_init_boot_v2178_wifi_profile_autoconnect.py`
-- latest verified boot image: `workspace/private/inputs/boot_images/boot_linux_v2178_wifi_profile_autoconnect.img`
-- latest verified boot image SHA256: `8ea6f468f997446e9fa3e80606db107ca27d067f3ee023ff45c2ecf159341047`
-- 현재 기준 사이클: `v2178-wifi-profile-autoconnect` Wi-Fi profile/autoconnect baseline (V2179 promotion)
-- version axes: `v2178-wifi-profile-autoconnect`는 boot/init baseline tag, `a90_android_execns_probe helper-v427`은 포함된 helper marker, `V2179`는 baseline-promotion run/report 번호다. 전체 규칙은 `docs/operations/VERSIONING_POLICY.md`를 따른다.
-- previous verified boot image: `workspace/private/inputs/boot_images/boot_linux_v2174_wifi_urandom_connect.img` (`A90 Linux init 0.9.251 (v2174-wifi-urandom-connect)`)
+- latest verified build: `A90 Linux init 0.9.255 (v2182-hud-menu-cleanup)`
+- latest verified source: `workspace/public/src/native-init/` + 빌더 `workspace/public/src/scripts/revalidation/build_native_init_boot_v2182_hud_menu_cleanup.py`
+- latest verified boot image: `workspace/private/inputs/boot_images/boot_linux_v2182_hud_menu_cleanup.img`
+- latest verified boot image SHA256: `8e3e16f68d019ef5f56d2246ddcc7dbf14aa5ae08b40a0b983688812d792f839`
+- 현재 기준 사이클: `v2182-hud-menu-cleanup` HUD/menu cleanup baseline (V2183 promotion)
+- version axes: `v2182-hud-menu-cleanup`은 boot/init baseline tag, `a90_android_execns_probe helper-v427`은 포함된 helper marker, `V2183`는 baseline-promotion run/report 번호다. 전체 규칙은 `docs/operations/VERSIONING_POLICY.md`를 따른다.
+- previous verified boot image: `workspace/private/inputs/boot_images/boot_linux_v2178_wifi_profile_autoconnect.img` (`A90 Linux init 0.9.253 (v2178-wifi-profile-autoconnect)`)
 - older verified boot image: `workspace/private/inputs/boot_images/boot_linux_v261.img` (`A90 Linux init 0.9.60 (v261)`)
 - known-good fallback native init: `A90 Linux init v48`
 - known-good fallback boot image: `workspace/private/inputs/boot_images/boot_linux_v48.img`

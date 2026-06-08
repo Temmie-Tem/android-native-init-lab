@@ -25,6 +25,7 @@ Current migrated entrypoints:
 - `build_native_init_boot_v2174_wifi_urandom_connect.py`
 - `build_native_init_boot_v2176_wifi_dhcp.py`
 - `build_native_init_boot_v2178_wifi_profile_autoconnect.py`
+- `build_native_init_boot_v2182_hud_menu_cleanup.py`
 - `a90_wifi_profile_stage.py`
 - `native_wifi_connect_carrier_handoff_v2174.py`
 - `native_wifi_dhcp_ping_handoff_v2176.py`

@@ -30,8 +30,8 @@ Rules:
   baseline tag, not a `V2169` run ID.
 - Do not use helper numbers as run IDs, boot filenames, or native-init build
   tags.
-- The current promoted baseline uses promotion run `V2179`, native init
-  `0.9.253`, and build tag `v2178-wifi-profile-autoconnect`.
+- The current promoted baseline uses promotion run `V2183`, native init
+  `0.9.255`, and build tag `v2182-hud-menu-cleanup`.
 - If an existing artifact is only reproduced or documented, keep its build tag
   and record it as `Baseline tag`, not `Cycle`.
 - If the boot image SHA changes and that image becomes a rollback/test
@@ -127,9 +127,9 @@ For an unchanged existing artifact:
 
 ```text
 Run ID: <current validation run>
-Native init: A90 Linux init 0.9.253 (v2178-wifi-profile-autoconnect)
+Native init: A90 Linux init 0.9.255 (v2182-hud-menu-cleanup)
 Build tag: unchanged
-Baseline tag: v2178-wifi-profile-autoconnect
+Baseline tag: v2182-hud-menu-cleanup
 Helper: unchanged
 Device flash: no
 Host commit: <git-sha-or-uncommitted>

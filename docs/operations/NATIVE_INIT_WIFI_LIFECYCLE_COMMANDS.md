@@ -191,11 +191,10 @@ python3 workspace/public/src/scripts/revalidation/native_wifi_connect_carrier_ha
 ```
 
 The runner flashes the V2174 test boot, runs only the carrier-level connect
-window, rolls back to the previous `v2169-transport-contract` baseline, and
-verifies rollback `selftest fail=0`. After V2175 promotion, this runner remains
-the carrier-level evidence runner; new Wi-Fi lifecycle work should treat
-`v2174-wifi-urandom-connect` as the current baseline unless explicitly testing
-rollback behavior.
+window, and verifies rollback `selftest fail=0`. After the V2183 promotion, this
+runner remains carrier-level evidence only; new Wi-Fi lifecycle work should
+treat `v2182-hud-menu-cleanup` as the current baseline and use older images only
+for explicit rollback/regression testing.
 
 ## `wifi dhcp [profile]`
 

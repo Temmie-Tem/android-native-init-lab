@@ -453,9 +453,9 @@ int a90_app_displaytest_draw_page(unsigned int page_index,
     };
     static const char *layout_items[] = {
         "HIDE MENU",
-        "STATUS",
+        "APPS",
+        "USB NET",
         "LOG",
-        "TOOLS",
         "POWER",
     };
     const char *wrap_sample =
@@ -725,7 +725,7 @@ int a90_app_displaytest_draw_page(unsigned int page_index,
         if (storage != NULL) {
             a90_hud_draw_status_overlay(a90_kms_framebuffer(), storage, left, card_y);
         }
-        card_y += line_height * 5;
+        card_y += a90_hud_status_overlay_height() + gap;
         a90_draw_text_fit(a90_kms_framebuffer(), left, card_y,
                           "HUD/MENU PREVIEW - CHECK SPACING AND TEXT WEIGHT",
                           0x88ee88, small_scale, content_width);
@@ -755,7 +755,7 @@ int a90_app_displaytest_draw_page(unsigned int page_index,
         a90_draw_text_fit(a90_kms_framebuffer(),
                           left,
                           footer_y - line_height * 2,
-                          "PREVIEW ONLY: REAL MENU STILL USES LIVE STATUS + LOG TAIL",
+                          "PREVIEW ONLY: REAL MENU USES HUD SUMMARY + LOG TAIL",
                           0xdddddd,
                           small_scale,
                           content_width - scale * 4);

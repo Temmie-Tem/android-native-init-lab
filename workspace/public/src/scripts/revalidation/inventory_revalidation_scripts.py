@@ -42,6 +42,7 @@ ACTIVE = {
     "build_native_init_boot_v2174_wifi_urandom_connect.py": "Wi-Fi carrier boot builder",
     "build_native_init_boot_v2176_wifi_dhcp.py": "Wi-Fi DHCP boot builder",
     "build_native_init_boot_v2178_wifi_profile_autoconnect.py": "Wi-Fi profile/autoconnect boot builder",
+    "build_native_init_boot_v2182_hud_menu_cleanup.py": "HUD/menu cleanup baseline boot builder",
 }
 MODULES = {
     "_workspace_bootstrap.py": "workspace path bootstrap",
