@@ -16,6 +16,8 @@ static int setup_base_mounts(void) {
     mount("tmpfs", "/tmp", "tmpfs", 0, "mode=1777");
     ensure_char_node_exact("/dev/null", 1, 3);
     ensure_char_node_exact("/dev/zero", 1, 5);
+    ensure_char_node_exact_mode("/dev/random", 1, 8, 0666);
+    ensure_char_node_exact_mode("/dev/urandom", 1, 9, 0666);
 
     return 0;
 }

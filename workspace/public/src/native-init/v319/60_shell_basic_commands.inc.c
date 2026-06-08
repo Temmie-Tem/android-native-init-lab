@@ -25,7 +25,7 @@ static void cmd_help(void) {
     a90_console_printf("exposure [status|verbose|guard]\r\n");
     a90_console_printf("policycheck [status|run|verbose]\r\n");
     a90_console_printf("diag [summary|full|bundle|paths]\r\n");
-    a90_console_printf("wifi [status|scan [delay_ms]|config [status|prepare [profile]]]\r\n");
+    a90_console_printf("wifi [status|scan [delay_ms]|connect [profile]|config [status|prepare [profile]]]\r\n");
     a90_console_printf("wifiinv [summary|full|refresh|paths]\r\n");
     a90_console_printf("wififeas [summary|full|gate|refresh|paths]\r\n");
     a90_console_printf("timeline\r\n");

@@ -4,5 +4,6 @@
 int a90_wifi_cmd(char **argv, int argc);
 int a90_wifi_print_status(void);
 int a90_wifi_scan_once(int delay_ms);
+int a90_wifi_connect_profile(const char *profile_name);
 
 #endif

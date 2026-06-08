@@ -12,6 +12,7 @@ mutations.
 wifi
 wifi status
 wifi scan [delay_ms]
+wifi connect [profile]
 wifi config status
 wifi config prepare [profile]
 ```
@@ -88,23 +89,82 @@ existing Wi-Fi config module.
 - Public git must never contain raw PSK, generated supplicant config, DHCP
   leases, or connect artifacts.
 
-## Next Command
+## `wifi connect [profile]`
 
-The next native-init command should be:
+`wifi connect [profile]` is the bounded association/carrier primitive. It is not
+a full network bring-up command.
+
+It:
+
+- waits for `wlan0` with a bounded timeout;
+- brings `wlan0` administratively up;
+- calls the same config generator as `wifi config prepare [profile]`;
+- requires the staged standalone `wpa_supplicant` bundle from V2171;
+- starts or reuses standalone `wpa_supplicant` with:
 
 ```text
-wifi connect [profile]
+wpa_supplicant -i wlan0 -D nl80211 -c /cache/a90-wifi/wpa_supplicant.conf -O /cache/a90-wifi/sockets -t
+```
+
+- waits for `/cache/a90-wifi/sockets/wlan0` to answer `PING`;
+- sends redacted ctrl commands:
+  - `DRIVER COUNTRY KR`;
+  - `SCAN`;
+  - `ENABLE_NETWORK 0`;
+  - `SELECT_NETWORK 0`;
+  - `REASSOCIATE`;
+- waits for `/sys/class/net/wlan0/carrier` to become `1`;
+- leaves the supplicant running only if carrier comes up.
+
+It does not:
+
+- run DHCP;
+- install routes;
+- set DNS;
+- ping external hosts;
+- enable boot autoconnect;
+- print raw SSID, PSK, BSSID, MAC, IP, or raw ctrl replies.
+
+Expected decision labels:
+
+| Label | Meaning |
+| --- | --- |
+| `wifi-connect-carrier-up` | Association/carrier succeeded. |
+| `wifi-connect-no-carrier` | Supplicant control path ran, but carrier did not come up before timeout. |
+| `wifi-connect-wlan0-timeout` | `wlan0` did not appear before the bounded precondition timeout. |
+| `wifi-connect-config-prepare-failed` | Profile/secret-backed supplicant config generation failed. |
+| `wifi-connect-supplicant-missing` | Standalone `wpa_supplicant` wrapper is absent or not executable. |
+| `wifi-connect-supplicant-start-failed` | PID1 failed to spawn the standalone supplicant. |
+| `wifi-connect-ctrl-timeout` | Supplicant started but private control socket did not become ready. |
+| `wifi-connect-supplicant-busy-no-ctrl` | A supplicant-like process exists but no usable private ctrl socket is available. |
+
+`wifi connect` remains blocked while the native-init menu/power-busy gate is
+active. Hide the menu first when deliberately running association.
+
+Live validation entrypoint:
+
+```text
+python3 workspace/public/src/scripts/revalidation/native_wifi_connect_carrier_handoff_v2174.py
+```
+
+The runner flashes the V2174 test boot, runs only the carrier-level connect
+window, rolls back to `v2169-transport-contract`, and verifies rollback
+`selftest fail=0`.
+
+## Next Command
+
+The next native-init command after association should be explicitly separate:
+
+```text
+wifi dhcp [profile]
 ```
 
 Minimum contract before implementation:
 
-- use the staged standalone `wpa_supplicant` bundle established by V2171;
-- use the prepared config path from `wifi config prepare`;
-- wait for the private control socket under `/cache/a90-wifi/sockets/`;
-- issue bounded `SCAN`/`SELECT_NETWORK` or equivalent control actions;
-- capture redacted supplicant status and kernel state;
-- avoid DHCP/routes/ping unless the command is explicitly scoped beyond link
-  association.
+- require `wifi connect`/carrier as precondition;
+- run DHCP with bounded timeout;
+- install only temporary scoped routes/DNS;
+- keep external ping as an explicit test-only scope.
 
 ## Immediate Connect Entry Gates
 

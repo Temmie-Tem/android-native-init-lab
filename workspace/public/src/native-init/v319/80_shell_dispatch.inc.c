@@ -916,7 +916,7 @@ static const struct shell_command command_table[] = {
     { "pstore", handle_pstore, "pstore [summary|full|paths]", CMD_NONE, A90_CMD_GROUP_CORE },
     { "watchdoginv", handle_watchdoginv, "watchdoginv [summary|full|paths]", CMD_NONE, A90_CMD_GROUP_CORE },
     { "tracefs", handle_tracefs, "tracefs [summary|full|paths]", CMD_NONE, A90_CMD_GROUP_CORE },
-    { "wifi", handle_wifi, "wifi [status|scan [delay_ms]|config [status|prepare [profile]]]", CMD_NONE, A90_CMD_GROUP_NETWORK },
+    { "wifi", handle_wifi, "wifi [status|scan [delay_ms]|connect [profile]|config [status|prepare [profile]]]", CMD_NONE, A90_CMD_GROUP_NETWORK },
     { "wifiinv", handle_wifiinv, "wifiinv [summary|full|refresh|paths]", CMD_NONE, A90_CMD_GROUP_NETWORK },
     { "wififeas", handle_wififeas, "wififeas [summary|full|gate|refresh|paths]", CMD_NONE, A90_CMD_GROUP_NETWORK },
     { "timeline", handle_timeline, "timeline", CMD_NONE, A90_CMD_GROUP_CORE },

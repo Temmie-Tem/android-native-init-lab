@@ -1155,12 +1155,16 @@ static int cmd_hide_menu(void) {
     return 0;
 }
 
-static int ensure_char_node_exact(const char *path, unsigned int major_num, unsigned int minor_num) {
+static int ensure_char_node_exact_mode(const char *path,
+                                       unsigned int major_num,
+                                       unsigned int minor_num,
+                                       mode_t mode) {
     dev_t wanted = makedev(major_num, minor_num);
     struct stat st;
 
     if (lstat(path, &st) == 0) {
         if (S_ISCHR(st.st_mode) && st.st_rdev == wanted) {
+            (void)chmod(path, mode);
             return 0;
         }
         if (unlink(path) < 0) {
@@ -1170,9 +1174,14 @@ static int ensure_char_node_exact(const char *path, unsigned int major_num, unsi
         return -1;
     }
 
-    if (mknod(path, S_IFCHR | 0600, wanted) == 0 || errno == EEXIST) {
+    if (mknod(path, S_IFCHR | mode, wanted) == 0 || errno == EEXIST) {
+        (void)chmod(path, mode);
         return 0;
     }
 
     return -1;
+}
+
+static int ensure_char_node_exact(const char *path, unsigned int major_num, unsigned int minor_num) {
+    return ensure_char_node_exact_mode(path, major_num, minor_num, 0600);
 }

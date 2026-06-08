@@ -51,6 +51,18 @@ Completed first units:
 - `wifi status` exists as a read-only native-init status/UI primitive.
 - `wifi scan [delay_ms]` exists as a bounded credential-free nl80211 scan
   primitive.
+- `wifi connect [profile]` exists at source level as a bounded
+  association/carrier primitive.
+- `v2174-wifi-urandom-connect` live validation passed:
+  - prior V2173 no-carrier evidence isolated the connect blocker to missing
+    `/dev/urandom` during WPA SNonce generation;
+  - native `/dev` bootstrap now creates `/dev/random` and `/dev/urandom`;
+  - flashed V2174 test boot;
+  - reached `wpa_state=COMPLETED` and `carrier=1`;
+  - preserved `credentials_logged=0`, `secret_values_logged=0`,
+    `dhcp_routing=0`, and `external_ping=0`;
+  - rolled back to `v2169-transport-contract`;
+  - final rollback `selftest fail=0`.
 - `v2172-wifi-status-scan` live validation passed:
   - corrected the test boot to reuse verified V726 private-property snapshot;
   - flashed test boot;
@@ -72,13 +84,10 @@ Completed first units:
 
 Open tasks:
 
-- Block immediate `wifi connect` entry risks:
-  - require bounded `wlan0_present=1` precondition before launching
-    supplicant;
-  - keep Wi-Fi test boots on the verified V726 property snapshot unless a new
-    private-property snapshot is explicitly provisioned;
-  - keep profile secrets private, generated configs under `/cache/a90-wifi/`,
-    no `wpa_supplicant -K`, and `secret_values_logged=0`.
+- Promote or rebase the next Wi-Fi test unit on V2174:
+  - use `workspace/public/src/scripts/revalidation/native_wifi_connect_carrier_handoff_v2174.py` as the carrier-level safety baseline;
+  - keep DHCP/routes/ping out of carrier validation;
+  - preserve rollback to `v2169-transport-contract` until a new baseline is explicitly promoted.
 - Finish remaining native Wi-Fi config/autoconnect design:
   - credential source under `workspace/private/secrets/`;
   - profile creation/listing operator commands;
@@ -92,8 +101,10 @@ Open tasks:
 - V2172 source build completed:
   `v2172-wifi-status-scan-source-build-pass`.
 - Verify both target bands:
-  - `temmie2.4G`;
-  - `temmie5G`;
+  - private 2.4 GHz test SSID from
+    `workspace/private/secrets/a90-wifi-test.env`;
+  - private 5 GHz test SSID from
+    `workspace/private/secrets/a90-wifi-test.env`;
   - same password source, no duplicated secret storage.
 - Run bounded stability checks:
   - connect;
@@ -337,10 +348,11 @@ Exit criteria:
 
 ## Suggested Next Sequence
 
-1. Add explicit `wifi connect [profile]` on top of the prepared config path and
-   V2171 standalone supplicant dependency result.
-2. Migrate the Wi-Fi lifecycle runner to `a90_transport.py`.
-3. Add phase timers to Wi-Fi live runners.
-4. Generate a script inventory and classify active/module/archive/delete-review.
-5. Run N>=3 Wi-Fi lifecycle stability checks.
-6. Decide whether to promote the next boot/init baseline.
+1. Decide whether to promote V2174 as the next Wi-Fi-capable test baseline.
+2. Add the separate DHCP/route/ping-scoped command or runner only after
+   carrier-level connect passes.
+3. Migrate the Wi-Fi lifecycle runner to `a90_transport.py`.
+4. Add phase timers to Wi-Fi live runners.
+5. Generate a script inventory and classify active/module/archive/delete-review.
+6. Run N>=3 Wi-Fi lifecycle stability checks.
+7. Decide whether to promote the next boot/init baseline.
