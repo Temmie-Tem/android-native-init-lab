@@ -6,6 +6,42 @@
 
 #define A90_WIFI_UI_MAX_SCAN_RESULTS 8
 
+struct a90_wifi_ping_target_result {
+    bool requested;
+    bool resolved;
+    bool executed;
+    bool success;
+    bool target_redacted;
+    int run_wait_rc;
+    int ping_rc;
+    int ping_status;
+    int ping_timed_out;
+    int saved_errno;
+    int packets_transmitted;
+    int packets_received;
+    int packet_loss_percent;
+    long duration_ms;
+    char kind[24];
+    char target[64];
+    char log_path[128];
+    char rtt_avg_ms[32];
+    char decision[64];
+};
+
+struct a90_wifi_ping_snapshot {
+    int rc;
+    int count;
+    int timeout_sec;
+    bool wlan0_present;
+    bool carrier_up;
+    bool route_default_present;
+    bool busybox_executable;
+    char mode[24];
+    char decision[64];
+    struct a90_wifi_ping_target_result gateway;
+    struct a90_wifi_ping_target_result internet;
+};
+
 struct a90_wifi_status_snapshot {
     bool wlan0_present;
     bool runtime_summary_present;
@@ -69,6 +105,8 @@ int a90_wifi_status_snapshot(struct a90_wifi_status_snapshot *out);
 int a90_wifi_print_status(void);
 int a90_wifi_scan_collect(int delay_ms, struct a90_wifi_scan_snapshot *out);
 int a90_wifi_scan_once(int delay_ms);
+int a90_wifi_ping_collect(const char *mode, struct a90_wifi_ping_snapshot *out);
+int a90_wifi_ping_once(const char *mode);
 int a90_wifi_connect_profile(const char *profile_name);
 int a90_wifi_dhcp_profile(const char *profile_name);
 int a90_wifi_cleanup(void);

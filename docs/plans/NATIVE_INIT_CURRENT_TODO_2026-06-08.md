@@ -1,6 +1,6 @@
 # Native Init Current TODO
 
-Date: `2026-06-09`
+Date: `2026-06-10`
 
 This is the active TODO map for the current native-init baseline hardening
 cycle. It is intentionally higher-level than per-run reports and lower-level
@@ -8,11 +8,11 @@ than the long-term roadmap.
 
 Current baseline:
 
-- Device baseline: `A90 Linux init 0.9.255 (v2182-hud-menu-cleanup)`.
-- Promotion run: `V2183`; boot SHA256
-  `8e3e16f68d019ef5f56d2246ddcc7dbf14aa5ae08b40a0b983688812d792f839`.
+- Device baseline: `A90 Linux init 0.9.257 (v2185-network-ping-test)`.
+- Promotion run: `V2185`; boot SHA256
+  `3ab13707c4ad93cb0b23c26174407be9a0ca30460fce879131ba6bea0df253b7`.
 - Immediate rollback image:
-  `workspace/private/inputs/boot_images/boot_linux_v2178_wifi_profile_autoconnect.img`.
+  `workspace/private/inputs/boot_images/boot_linux_v2185_network_ping_test.img`.
 - Emergency rollback image:
   `workspace/private/inputs/boot_images/boot_linux_v2169_transport_contract.img`.
 - Active control path: USB ACM serial bridge managed by
@@ -124,11 +124,11 @@ Completed first units:
     carrier plus DHCP pass, and `secret_values_logged=0`;
   - rolled back to V2174 during validation and verified rollback
     `selftest fail=0`;
-  - flashed V2178 again as the current baseline with autoconnect disabled and
+  - flashed V2178 again as the then-current baseline with autoconnect disabled and
     final `selftest fail=0`;
   - promotion report:
     `docs/reports/NATIVE_INIT_V2179_V2178_WIFI_PROFILE_AUTOCONNECT_BASELINE_PROMOTION_2026-06-09.md`.
-- `v2182-hud-menu-cleanup` was promoted as the current baseline by V2183:
+- `v2182-hud-menu-cleanup` was promoted as the then-current baseline by V2183:
   - added HUD storage free/free-percent/read-write-rate and Wi-Fi profile/status
     glance fields;
   - fixed the six-row HUD/menu/log/preview layout overlap with shared geometry;
@@ -172,6 +172,41 @@ Completed first units:
   - preserved `wlan0` carrier after transfer and final `selftest fail=0`;
   - report:
     `docs/reports/NATIVE_INIT_V2184_PHONE_WIFI_LARGE_TRANSFER_2026-06-10.md`.
+- `v2185-network-ping-test` source work is in place:
+  - adds `wifi ping [gateway|internet|all]` as an explicit bounded diagnostic;
+  - adds `NETWORK > PING TEST` for one-shot gateway plus `1.1.1.1` ping;
+  - keeps ping out of status/HUD/profile/scan automatic paths;
+  - gateway target is redacted in structured command output.
+- `v2185-network-ping-test` source build passed:
+  - built `workspace/private/inputs/boot_images/boot_linux_v2185_network_ping_test.img`;
+  - boot SHA256:
+    `3ab13707c4ad93cb0b23c26174407be9a0ca30460fce879131ba6bea0df253b7`;
+  - report:
+    `docs/reports/NATIVE_INIT_V2185_NETWORK_PING_TEST_SOURCE_BUILD_2026-06-10.md`.
+- `v2185-network-ping-test` live validation passed:
+  - flashed `workspace/private/inputs/boot_images/boot_linux_v2185_network_ping_test.img`;
+  - verified device-visible version
+    `A90 Linux init 0.9.257 (v2185-network-ping-test)`;
+  - verified boot partition prefix SHA matched the local image SHA
+    `3ab13707c4ad93cb0b23c26174407be9a0ca30460fce879131ba6bea0df253b7`;
+  - ran the split connect path: `wifi connect`, `wifi dhcp`, and
+    `wifi ping all`;
+  - reached `wifi-connect-carrier-up`, `wifi-dhcp-pass`, and
+    `wifi-ping-pass`;
+  - gateway and fixed external IP ping both returned `3/3` packets with
+    `0%` loss;
+  - verified `screenmenu` accepts the updated network menu and final
+    `selftest fail=0`;
+  - report:
+    `docs/reports/NATIVE_INIT_V2185_NETWORK_PING_TEST_LIVE_VALIDATION_2026-06-10.md`.
+- `v2185-network-ping-test` is promoted as the current baseline and rollback
+  point:
+  - device remains flashed with the V2185 boot image after live validation;
+  - future rollback should target
+    `workspace/private/inputs/boot_images/boot_linux_v2185_network_ping_test.img`
+    unless testing explicitly requires an older fallback;
+  - promotion report:
+    `docs/reports/NATIVE_INIT_V2185_NETWORK_PING_BASELINE_PROMOTION_2026-06-10.md`.
 - `v2172-wifi-status-scan` live validation passed:
   - corrected the test boot to reuse verified V726 private-property snapshot;
   - flashed test boot;
@@ -200,12 +235,10 @@ Completed first units:
 
 Open tasks:
 
-- Keep V2178 as the profile/autoconnect baseline and V2174 as immediate
-  rollback until a newer boot image is intentionally promoted.
-- Treat V2178 as the verified rollback image until V2184 is promoted or the
-  original V2182 private boot image is restored externally; the local private
-  `boot_linux_v2182_hud_menu_cleanup.img` was regenerated during V2184 work and
-  no longer matches the V2183 promotion SHA.
+- Keep V2185 as the current baseline and rollback image until a newer boot image
+  is intentionally promoted.
+- Keep V2178 profile/autoconnect and V2169 transport-contract images as older
+  conservative fallbacks only; they are no longer the default rollback point.
 - Keep private Wi-Fi profile/secret files out of public git; use
   `workspace/public/src/scripts/revalidation/a90_wifi_profile_stage.py` for
   staging and keep raw SSID/PSK under ignored private roots.
@@ -222,16 +255,20 @@ Open tasks:
   - optional redacted SSID display mode toggle for scan results;
   - RSSI/link quality when available from supplicant status;
   - clearer disabled/running/pass/fail labels on the HUD.
+- Optional physical UI validation remains open:
+  - live CLI validation passed, including gateway plus fixed-IP ping;
+  - `screenmenu` smoke was verified, but physical selection of
+    `NETWORK > PING TEST` was not required for baseline promotion.
 - Keep secondary interface noise out of the main gate:
   - `swlan0` MAC generation failure is not a primary `wlan0` blocker;
   - `set_features(-11)` remains non-blocking unless reproduced as persistent.
 
 Exit criteria:
 
-- V2178 profile/autoconnect baseline promotion is complete by V2179.
+- V2185 network-ping baseline promotion is complete.
 - Boot autoconnect N=3 passed with carrier and DHCP, no external ping.
 - Private 2.4 GHz and 5 GHz profile checks passed with redacted evidence.
-- `selftest fail=0` after rollback/promotion validation.
+- `selftest fail=0` after promotion validation.
 - Secret scan reports no leaked PSK.
 - Public report contains redacted Wi-Fi evidence only.
 
@@ -258,7 +295,7 @@ Completed first units:
   `docs/operations/NATIVE_INIT_BOOT_TRANSPORT_CONTRACT.md`.
 - Transport selector has bounded host NCM link-local auto-repair for the
   Samsung `04e8` + `cdc_ncm` present/no-`fe80::` state.
-- Current `v2182-hud-menu-cleanup` baseline preserves the device-side
+- Current `v2185-network-ping-test` baseline preserves the device-side
   `transport.contract=1` contract from V2178/V2174/V2169.
 - Active Wi-Fi lifecycle runners use the shared transport selector/serial step:
   - `native_wifi_connect_carrier_handoff_v2174.py` uses
@@ -369,7 +406,7 @@ Goal: avoid mixing run IDs, helper versions, and boot baseline tags.
 
 Open tasks:
 
-- Keep current baseline fixed as `v2182-hud-menu-cleanup` until a newer boot
+- Keep current baseline fixed as `v2185-network-ping-test` until a newer boot
   image is intentionally promoted.
 - If a new boot/init image is promoted, use the next global run/build identity,
   not helper numbering.
@@ -386,7 +423,8 @@ Open tasks:
 Exit criteria:
 
 - New baseline report names the exact artifact and SHA.
-- Rollback to the prior baseline is verified with `selftest fail=0`.
+- Current baseline boot/readback/selftest is verified; older fallback images
+  remain documented.
 - README and runbook agree on latest verified baseline.
 
 ## Priority 5: Workspace Structure
@@ -476,7 +514,7 @@ Exit criteria:
 
 1. If serial `AT` noise fires, confirm the shared recovery evidence is present;
    otherwise keep it as a ready-but-not-live-fired path.
-2. Polish Wi-Fi status/HUD output on top of the promoted V2178 baseline:
+2. Polish Wi-Fi status/HUD output on top of the promoted V2185 baseline:
    redacted SSID display, RSSI/link quality, and clearer
    disabled/running/pass/fail labels.
 3. Refresh the script inventory after each active runner migration and continue
@@ -490,7 +528,7 @@ Exit criteria:
 | --- | --- | --- |
 | Boot autoconnect latency | Wi-Fi success can take roughly three minutes. | Poll `autoconnect.decision` until a terminal result; shared phase timers are live-validated for bounded current-baseline runners, but boot/reboot latency still needs separate timing if retested. |
 | Serial `AT` noise | A single cmdv1 exchange can be malformed. | Shared recovery is implemented for safe commands; V2180 did not naturally fire the path, so live-fired evidence remains opportunistic. |
-| V2184 baseline promotion drift | V2184 has scan, connect, DHCP, and large-transfer evidence, but the documented current baseline is still V2182 until promotion is intentional. | Promote only with a focused baseline report, exact boot SHA, rollback verification, and runbook/TODO update. |
+| Physical network-menu ping selection | V2185 has CLI ping validation and `screenmenu` smoke, but not a button-driven `NETWORK > PING TEST` selection capture. | Treat as UI polish, not a baseline blocker; validate physically or with framebuffer capture when doing the next UI pass. |
 | Large-transfer soak depth | V2184 passed 512MiB and 1GiB single-run bidirectional SHA checks, but not repeated N-run or multi-hour soak. | Treat as strong data-path evidence; run `cleanup -> reconnect -> 512MiB` or N-run soak only if promotion criteria require it. |
 | UI completeness | Baseline works, but operator-facing status is still sparse. | Add redacted SSID, RSSI/link quality, and clearer state labels. |
 | Script sprawl | Older one-off runners still duplicate transport/artifact logic. | Keep inventory current; migrate one active runner at a time. |

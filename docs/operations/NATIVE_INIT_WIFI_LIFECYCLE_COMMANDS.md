@@ -14,6 +14,7 @@ wifi status
 wifi scan [delay_ms]
 wifi connect [profile]
 wifi dhcp [profile]
+wifi ping [gateway|internet|all]
 wifi cleanup
 wifi profile list
 wifi profile status [profile]
@@ -108,6 +109,32 @@ On-device UI:
   public artifacts.
 - It keeps the same scope as `wifi scan`: no association, credentials, DHCP,
   route installation, DNS, or ping.
+
+## `wifi ping [gateway|internet|all]`
+
+`wifi ping` is an explicit, bounded connectivity diagnostic. It does not scan,
+associate, run DHCP, modify routes/DNS, or read credentials.
+
+Targets:
+
+- `gateway`: pings the current DHCP/default gateway for local LAN reachability.
+- `internet`: pings fixed IP `1.1.1.1` for external IPv4 reachability.
+- `all`: runs `gateway` and `internet`; this is the default.
+
+Scope and output:
+
+- requires existing `wlan0` carrier and default route;
+- runs `3` packets with `2s` per-packet timeout;
+- uses `/cache/bin/busybox ping`;
+- writes logs under `/cache/a90-wifi/ping-gateway.log` and
+  `/cache/a90-wifi/ping-internet.log`;
+- redacts the private gateway target in structured command output;
+- reports transmitted/received/loss/average RTT when the ping log format is
+  parseable.
+
+`NETWORK > PING TEST` runs the same `all` check once from the foreground menu.
+Menu entry is intentionally explicit: status/HUD/profile/scan screens do not
+auto-run external network traffic.
 
 ## `wifi config ...`
 

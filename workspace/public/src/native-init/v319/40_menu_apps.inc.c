@@ -243,6 +243,8 @@ static void auto_hud_draw_current_screen(struct auto_hud_state *state) {
         a90_app_wifi_draw_profiles();
     } else if (state->active_app == SCREEN_APP_WIFI_SCAN) {
         a90_app_wifi_draw_scan();
+    } else if (state->active_app == SCREEN_APP_WIFI_PING) {
+        a90_app_wifi_draw_ping();
     } else if (state->active_app == SCREEN_APP_INPUT_MONITOR) {
         draw_screen_input_monitor_app();
     } else if (state->active_app == SCREEN_APP_DISPLAY_TEST) {

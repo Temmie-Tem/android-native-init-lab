@@ -69,12 +69,19 @@
 #define A90_WIFI_SCAN_VERSION "a90-native-wifi-scan-v1"
 #define A90_WIFI_CONNECT_VERSION "a90-native-wifi-connect-v1"
 #define A90_WIFI_DHCP_VERSION "a90-native-wifi-dhcp-v1"
+#define A90_WIFI_PING_VERSION "a90-native-wifi-ping-v1"
 #define A90_WIFI_UID 1010
 #define A90_WIFI_GID 1010
 #define A90_WIFI_CONNECT_WLAN0_WAIT_MS 180000
 #define A90_WIFI_CONNECT_CTRL_WAIT_MS 15000
 #define A90_WIFI_CONNECT_CARRIER_WAIT_MS 35000
 #define A90_WIFI_DHCP_TIMEOUT_MS 30000
+#define A90_WIFI_PING_COUNT 3
+#define A90_WIFI_PING_TIMEOUT_SEC 2
+#define A90_WIFI_PING_TIMEOUT_MS 10000
+#define A90_WIFI_PING_GATEWAY_LOG "/cache/a90-wifi/ping-gateway.log"
+#define A90_WIFI_PING_INTERNET_LOG "/cache/a90-wifi/ping-internet.log"
+#define A90_WIFI_PING_INTERNET_TARGET "1.1.1.1"
 
 static int wifi_write_text_file(const char *path, const char *text, mode_t mode) {
     int fd;
@@ -729,6 +736,55 @@ static bool wifi_default_route_present(void) {
     return false;
 }
 
+static int wifi_default_gateway_ipv4(char *out, size_t out_size) {
+    char text[4096];
+    char *cursor;
+    bool first = true;
+
+    if (out == NULL || out_size == 0) {
+        return -EINVAL;
+    }
+    snprintf(out, out_size, "-");
+    if (read_text_file("/proc/net/route", text, sizeof(text)) < 0) {
+        return -ENOENT;
+    }
+    cursor = text;
+    while (cursor != NULL && *cursor != '\0') {
+        char *line_end = strchr(cursor, '\n');
+        char iface[32] = "";
+        char destination[32] = "";
+        char gateway[32] = "";
+        unsigned long gateway_value;
+        struct in_addr address;
+
+        if (line_end != NULL) {
+            *line_end = '\0';
+        }
+        if (first) {
+            first = false;
+            cursor = line_end == NULL ? NULL : line_end + 1;
+            continue;
+        }
+        if (sscanf(cursor, "%31s %31s %31s", iface, destination, gateway) == 3 &&
+            strcmp(iface, A90_WIFI_IFACE) == 0 &&
+            strcmp(destination, "00000000") == 0 &&
+            strcmp(gateway, "00000000") != 0) {
+            errno = 0;
+            gateway_value = strtoul(gateway, NULL, 16);
+            if (errno != 0) {
+                return -errno;
+            }
+            address.s_addr = (in_addr_t)gateway_value;
+            if (inet_ntop(AF_INET, &address, out, (socklen_t)out_size) == NULL) {
+                return -errno;
+            }
+            return 0;
+        }
+        cursor = line_end == NULL ? NULL : line_end + 1;
+    }
+    return -ENOENT;
+}
+
 static int wifi_run_wait(char *const argv[],
                          const char *tag,
                          const char *log_path,
@@ -965,6 +1021,272 @@ int a90_wifi_dhcp_profile(const char *profile_name) {
              route_default ? 1 : 0);
     a90_console_printf("decision=wifi-dhcp-failed\r\n");
     return dhcp_wait_rc < 0 ? dhcp_wait_rc : (dhcp_rc != 0 ? -EIO : -ENETUNREACH);
+}
+
+static void wifi_ping_init_target(struct a90_wifi_ping_target_result *result,
+                                  const char *kind,
+                                  const char *target,
+                                  const char *log_path,
+                                  bool target_redacted) {
+    if (result == NULL) {
+        return;
+    }
+    memset(result, 0, sizeof(*result));
+    result->requested = true;
+    result->packets_transmitted = -1;
+    result->packets_received = -1;
+    result->packet_loss_percent = -1;
+    snprintf(result->kind, sizeof(result->kind), "%s", kind != NULL ? kind : "-");
+    snprintf(result->target, sizeof(result->target), "%s", target != NULL ? target : "-");
+    snprintf(result->log_path, sizeof(result->log_path), "%s", log_path != NULL ? log_path : "-");
+    snprintf(result->rtt_avg_ms, sizeof(result->rtt_avg_ms), "%s", "-");
+    snprintf(result->decision, sizeof(result->decision), "wifi-ping-%s-pending", result->kind);
+    result->target_redacted = target_redacted;
+}
+
+static void wifi_ping_parse_log(const char *log_path, struct a90_wifi_ping_target_result *result) {
+    char text[4096];
+    char *line;
+
+    if (log_path == NULL || result == NULL || read_text_file(log_path, text, sizeof(text)) < 0) {
+        return;
+    }
+    line = text;
+    while (line != NULL && *line != '\0') {
+        char *line_end = strchr(line, '\n');
+        char *packets;
+        char *equals;
+
+        if (line_end != NULL) {
+            *line_end = '\0';
+        }
+        packets = strstr(line, " packets transmitted");
+        if (packets != NULL) {
+            int transmitted = -1;
+            int received = -1;
+            int loss = -1;
+
+            if (sscanf(line,
+                       "%d packets transmitted, %d received, %d%% packet loss",
+                       &transmitted,
+                       &received,
+                       &loss) == 3 ||
+                sscanf(line,
+                       "%d packets transmitted, %d packets received, %d%% packet loss",
+                       &transmitted,
+                       &received,
+                       &loss) == 3) {
+                result->packets_transmitted = transmitted;
+                result->packets_received = received;
+                result->packet_loss_percent = loss;
+            }
+        }
+        if (strstr(line, "rtt ") != NULL || strstr(line, "round-trip ") != NULL) {
+            char min_ms[32] = "";
+            char avg_ms[32] = "";
+            char max_ms[32] = "";
+            char tail[32] = "";
+
+            equals = strchr(line, '=');
+            if (equals != NULL &&
+                sscanf(equals + 1, " %31[^/]/%31[^/]/%31[^/]/%31s", min_ms, avg_ms, max_ms, tail) >= 2) {
+                trim_newline(avg_ms);
+                snprintf(result->rtt_avg_ms, sizeof(result->rtt_avg_ms), "%s", avg_ms);
+            }
+        }
+        line = line_end == NULL ? NULL : line_end + 1;
+    }
+}
+
+static int wifi_run_ping_target(struct a90_wifi_ping_target_result *target,
+                                const char *actual_target,
+                                const char *log_path) {
+    char *const argv[] = {
+        (char *)"/cache/bin/busybox",
+        (char *)"ping",
+        (char *)"-c",
+        (char *)"3",
+        (char *)"-W",
+        (char *)"2",
+        (char *)actual_target,
+        NULL,
+    };
+    struct a90_run_result run_result;
+
+    if (target == NULL || actual_target == NULL || actual_target[0] == '\0' || log_path == NULL) {
+        return -EINVAL;
+    }
+    memset(&run_result, 0, sizeof(run_result));
+    target->resolved = true;
+    target->executed = true;
+    (void)unlink(log_path);
+    target->run_wait_rc = wifi_run_wait(argv, "wifi-ping", log_path, A90_WIFI_PING_TIMEOUT_MS, &run_result);
+    target->ping_rc = run_result.rc;
+    target->ping_status = run_result.status;
+    target->ping_timed_out = run_result.timed_out ? 1 : 0;
+    target->saved_errno = run_result.saved_errno;
+    target->duration_ms = run_result.duration_ms;
+    wifi_ping_parse_log(log_path, target);
+    target->success = (target->run_wait_rc == 0 && target->ping_rc == 0);
+    snprintf(target->decision,
+             sizeof(target->decision),
+             "wifi-ping-%s-%s",
+             target->kind,
+             target->success ? "pass" : "failed");
+    return target->success ? 0 : -EIO;
+}
+
+static bool wifi_ping_mode_requests_gateway(const char *mode) {
+    return mode == NULL || mode[0] == '\0' || strcmp(mode, "all") == 0 || strcmp(mode, "gateway") == 0;
+}
+
+static bool wifi_ping_mode_requests_internet(const char *mode) {
+    return mode == NULL || mode[0] == '\0' || strcmp(mode, "all") == 0 || strcmp(mode, "internet") == 0;
+}
+
+int a90_wifi_ping_collect(const char *mode, struct a90_wifi_ping_snapshot *out) {
+    char gateway[64];
+    bool request_gateway;
+    bool request_internet;
+    int gateway_rc = 0;
+    int internet_rc = 0;
+
+    if (out == NULL) {
+        return -EINVAL;
+    }
+    memset(out, 0, sizeof(*out));
+    out->count = A90_WIFI_PING_COUNT;
+    out->timeout_sec = A90_WIFI_PING_TIMEOUT_SEC;
+    snprintf(out->mode, sizeof(out->mode), "%s", mode != NULL && mode[0] != '\0' ? mode : "all");
+    snprintf(out->decision, sizeof(out->decision), "%s", "wifi-ping-not-run");
+
+    request_gateway = wifi_ping_mode_requests_gateway(mode);
+    request_internet = wifi_ping_mode_requests_internet(mode);
+    if (!request_gateway && !request_internet) {
+        snprintf(out->decision, sizeof(out->decision), "%s", "wifi-ping-invalid-mode");
+        out->rc = -EINVAL;
+        return out->rc;
+    }
+
+    out->wlan0_present = wifi_iface_present();
+    out->carrier_up = wifi_carrier_up();
+    out->route_default_present = wifi_default_route_present();
+    out->busybox_executable = access("/cache/bin/busybox", X_OK) == 0;
+
+    if (!out->wlan0_present) {
+        snprintf(out->decision, sizeof(out->decision), "%s", "wifi-ping-wlan0-missing");
+        out->rc = -ENODEV;
+        return out->rc;
+    }
+    if (!out->carrier_up) {
+        snprintf(out->decision, sizeof(out->decision), "%s", "wifi-ping-no-carrier");
+        out->rc = -ENOTCONN;
+        return out->rc;
+    }
+    if (!out->route_default_present) {
+        snprintf(out->decision, sizeof(out->decision), "%s", "wifi-ping-no-default-route");
+        out->rc = -ENETUNREACH;
+        return out->rc;
+    }
+    if (!out->busybox_executable) {
+        snprintf(out->decision, sizeof(out->decision), "%s", "wifi-ping-busybox-missing");
+        out->rc = -ENOENT;
+        return out->rc;
+    }
+
+    if (request_gateway) {
+        int route_rc;
+
+        wifi_ping_init_target(&out->gateway,
+                              "gateway",
+                              "private-gateway",
+                              A90_WIFI_PING_GATEWAY_LOG,
+                              true);
+        route_rc = wifi_default_gateway_ipv4(gateway, sizeof(gateway));
+        if (route_rc < 0) {
+            gateway_rc = route_rc;
+            snprintf(out->gateway.decision,
+                     sizeof(out->gateway.decision),
+                     "%s",
+                     "wifi-ping-gateway-unresolved");
+        } else {
+            gateway_rc = wifi_run_ping_target(&out->gateway, gateway, A90_WIFI_PING_GATEWAY_LOG);
+        }
+    }
+    if (request_internet) {
+        wifi_ping_init_target(&out->internet,
+                              "internet",
+                              A90_WIFI_PING_INTERNET_TARGET,
+                              A90_WIFI_PING_INTERNET_LOG,
+                              false);
+        internet_rc = wifi_run_ping_target(&out->internet,
+                                           A90_WIFI_PING_INTERNET_TARGET,
+                                           A90_WIFI_PING_INTERNET_LOG);
+    }
+
+    if ((request_gateway && gateway_rc < 0) || (request_internet && internet_rc < 0)) {
+        snprintf(out->decision, sizeof(out->decision), "%s", "wifi-ping-failed");
+        out->rc = gateway_rc < 0 ? gateway_rc : internet_rc;
+        return out->rc;
+    }
+    snprintf(out->decision, sizeof(out->decision), "%s", "wifi-ping-pass");
+    out->rc = 0;
+    return 0;
+}
+
+static void wifi_print_ping_target(const char *prefix,
+                                   const struct a90_wifi_ping_target_result *target) {
+    if (prefix == NULL || target == NULL) {
+        return;
+    }
+    a90_console_printf("%s.requested=%d\r\n", prefix, target->requested ? 1 : 0);
+    a90_console_printf("%s.resolved=%d\r\n", prefix, target->resolved ? 1 : 0);
+    a90_console_printf("%s.executed=%d\r\n", prefix, target->executed ? 1 : 0);
+    a90_console_printf("%s.target=%s\r\n", prefix, target->target);
+    a90_console_printf("%s.target_redacted=%d\r\n", prefix, target->target_redacted ? 1 : 0);
+    a90_console_printf("%s.log=%s\r\n", prefix, target->log_path);
+    a90_console_printf("%s.run_wait_rc=%d\r\n", prefix, target->run_wait_rc);
+    a90_console_printf("%s.rc=%d\r\n", prefix, target->ping_rc);
+    a90_console_printf("%s.status=%d\r\n", prefix, target->ping_status);
+    a90_console_printf("%s.timed_out=%d\r\n", prefix, target->ping_timed_out);
+    a90_console_printf("%s.duration_ms=%ld\r\n", prefix, target->duration_ms);
+    a90_console_printf("%s.packets_transmitted=%d\r\n", prefix, target->packets_transmitted);
+    a90_console_printf("%s.packets_received=%d\r\n", prefix, target->packets_received);
+    a90_console_printf("%s.packet_loss_percent=%d\r\n", prefix, target->packet_loss_percent);
+    a90_console_printf("%s.rtt_avg_ms=%s\r\n", prefix, target->rtt_avg_ms);
+    a90_console_printf("%s.decision=%s\r\n", prefix, target->decision);
+}
+
+int a90_wifi_ping_once(const char *mode) {
+    struct a90_wifi_ping_snapshot snapshot;
+    int rc;
+
+    a90_console_printf("[wifi ping]\r\n");
+    a90_console_printf("version=%s\r\n", A90_WIFI_PING_VERSION);
+    a90_console_printf("mode=%s\r\n", mode != NULL && mode[0] != '\0' ? mode : "all");
+    a90_console_printf("count=%d\r\n", A90_WIFI_PING_COUNT);
+    a90_console_printf("timeout_sec=%d\r\n", A90_WIFI_PING_TIMEOUT_SEC);
+    a90_console_printf("external_ping=%d\r\n",
+                       mode == NULL || mode[0] == '\0' || strcmp(mode, "all") == 0 ||
+                       strcmp(mode, "internet") == 0 ? 1 : 0);
+    a90_console_printf("credentials_logged=0\r\n");
+    a90_console_printf("secret_values_logged=0\r\n");
+    rc = a90_wifi_ping_collect(mode, &snapshot);
+    a90_console_printf("wlan0_present=%d\r\n", snapshot.wlan0_present ? 1 : 0);
+    a90_console_printf("carrier_up=%d\r\n", snapshot.carrier_up ? 1 : 0);
+    a90_console_printf("route_default_present=%d\r\n", snapshot.route_default_present ? 1 : 0);
+    a90_console_printf("busybox_executable=%d\r\n", snapshot.busybox_executable ? 1 : 0);
+    wifi_print_ping_target("gateway", &snapshot.gateway);
+    wifi_print_ping_target("internet", &snapshot.internet);
+    a90_console_printf("decision=%s\r\n", snapshot.decision);
+    a90_logf("wifi",
+             "ping mode=%s rc=%d decision=%s gateway=%s internet=%s secret_values_logged=0",
+             snapshot.mode,
+             rc,
+             snapshot.decision,
+             snapshot.gateway.decision,
+             snapshot.internet.decision);
+    return rc;
 }
 
 int a90_wifi_cleanup(void) {
@@ -2398,6 +2720,12 @@ int a90_wifi_cmd(char **argv, int argc) {
         strcmp(argv[1], "dhcp") == 0) {
         return a90_wifi_dhcp_profile(argc == 3 ? argv[2] : NULL);
     }
+    if ((argc == 2 || argc == 3) &&
+        argv != NULL &&
+        argv[1] != NULL &&
+        strcmp(argv[1], "ping") == 0) {
+        return a90_wifi_ping_once(argc == 3 ? argv[2] : "all");
+    }
     if (argc == 2 &&
         argv != NULL &&
         argv[1] != NULL &&
@@ -2434,6 +2762,6 @@ int a90_wifi_cmd(char **argv, int argc) {
         return a90_wificfg_cmd(argv, argc);
     }
 
-    a90_console_printf("usage: wifi [status|scan [delay_ms]|connect [profile]|dhcp [profile]|cleanup|profile [list|status [profile]]|autoconnect [status|enable [profile]|disable|once [profile]]|config [status|prepare [profile]]]\r\n");
+    a90_console_printf("usage: wifi [status|scan [delay_ms]|connect [profile]|dhcp [profile]|ping [gateway|internet|all]|cleanup|profile [list|status [profile]]|autoconnect [status|enable [profile]|disable|once [profile]]|config [status|prepare [profile]]]\r\n");
     return -EINVAL;
 }

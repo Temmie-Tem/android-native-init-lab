@@ -15,7 +15,9 @@
 #define A90_APP_WIFI_SCAN_DELAY_MS 5000
 
 static bool app_wifi_scan_done;
+static bool app_wifi_ping_done;
 static struct a90_wifi_scan_snapshot app_wifi_scan_snapshot;
+static struct a90_wifi_ping_snapshot app_wifi_ping_snapshot;
 
 static uint32_t app_wifi_text_scale(void) {
     struct a90_kms_info info;
@@ -108,6 +110,9 @@ void a90_app_wifi_reset(enum screen_app_id app_id) {
     if (app_id == SCREEN_APP_WIFI_SCAN) {
         memset(&app_wifi_scan_snapshot, 0, sizeof(app_wifi_scan_snapshot));
         app_wifi_scan_done = false;
+    } else if (app_id == SCREEN_APP_WIFI_PING) {
+        memset(&app_wifi_ping_snapshot, 0, sizeof(app_wifi_ping_snapshot));
+        app_wifi_ping_done = false;
     }
 }
 
@@ -275,4 +280,105 @@ int a90_app_wifi_draw_scan(void) {
 
     return app_wifi_draw_lines("WIFI SCAN RESULTS", lines, A90_APP_WIFI_LINE_COUNT,
                                "PRESS ANY BUTTON TO RETURN", 0xffcc33);
+}
+
+static int app_wifi_draw_ping_progress(void) {
+    const char *lines[A90_APP_WIFI_LINE_COUNT] = {
+        "PINGING DHCP GATEWAY",
+        "PINGING INTERNET TARGET 1.1.1.1",
+        "COUNT: 3",
+        "TIMEOUT: 2s EACH",
+        "CONNECT: NO",
+        "DHCP: NO",
+        "CREDENTIALS: NOT READ",
+        "WAITING...",
+    };
+
+    return app_wifi_draw_lines("WIFI PING TEST", lines, A90_APP_WIFI_LINE_COUNT,
+                               "RUNS ONCE, THEN RESULTS STAY ON SCREEN", 0x99ff66);
+}
+
+static const char *app_wifi_ping_result_word(const struct a90_wifi_ping_target_result *result) {
+    if (result == NULL || !result->requested) {
+        return "SKIP";
+    }
+    if (!result->executed) {
+        return "NOTRUN";
+    }
+    return result->success ? "PASS" : "FAIL";
+}
+
+static void app_wifi_ping_target_line(char *out,
+                                      size_t out_size,
+                                      const char *label,
+                                      const struct a90_wifi_ping_target_result *result) {
+    if (out == NULL || out_size == 0 || result == NULL) {
+        return;
+    }
+    snprintf(out,
+             out_size,
+             "%s %s RX %d/%d LOSS %d%% AVG %sms",
+             label,
+             app_wifi_ping_result_word(result),
+             result->packets_received,
+             result->packets_transmitted,
+             result->packet_loss_percent,
+             app_wifi_text_or_dash(result->rtt_avg_ms));
+}
+
+int a90_app_wifi_draw_ping(void) {
+    char line0[256];
+    char line1[256];
+    char line2[256];
+    char line3[256];
+    char line4[256];
+    char line5[256];
+    char line6[256];
+    char line7[256];
+    const char *lines[A90_APP_WIFI_LINE_COUNT];
+
+    if (!app_wifi_ping_done) {
+        (void)app_wifi_draw_ping_progress();
+        (void)a90_wifi_ping_collect("all", &app_wifi_ping_snapshot);
+        app_wifi_ping_done = true;
+    }
+
+    snprintf(line0,
+             sizeof(line0),
+             "%s RC %d COUNT %d TIMEOUT %ds",
+             app_wifi_text_or_dash(app_wifi_ping_snapshot.decision),
+             app_wifi_ping_snapshot.rc,
+             app_wifi_ping_snapshot.count,
+             app_wifi_ping_snapshot.timeout_sec);
+    snprintf(line1,
+             sizeof(line1),
+             "WLAN0 %d CARRIER %d ROUTE %d BUSYBOX %d",
+             app_wifi_ping_snapshot.wlan0_present ? 1 : 0,
+             app_wifi_ping_snapshot.carrier_up ? 1 : 0,
+             app_wifi_ping_snapshot.route_default_present ? 1 : 0,
+             app_wifi_ping_snapshot.busybox_executable ? 1 : 0);
+    app_wifi_ping_target_line(line2, sizeof(line2), "GATEWAY", &app_wifi_ping_snapshot.gateway);
+    app_wifi_ping_target_line(line3, sizeof(line3), "INTERNET", &app_wifi_ping_snapshot.internet);
+    snprintf(line4,
+             sizeof(line4),
+             "GW LOG %s",
+             app_wifi_text_or_dash(app_wifi_ping_snapshot.gateway.log_path));
+    snprintf(line5,
+             sizeof(line5),
+             "NET LOG %s",
+             app_wifi_text_or_dash(app_wifi_ping_snapshot.internet.log_path));
+    snprintf(line6, sizeof(line6), "GW TARGET REDACTED %d",
+             app_wifi_ping_snapshot.gateway.target_redacted ? 1 : 0);
+    snprintf(line7, sizeof(line7), "EXTERNAL PING: EXPLICIT USER ACTION");
+
+    lines[0] = line0;
+    lines[1] = line1;
+    lines[2] = line2;
+    lines[3] = line3;
+    lines[4] = line4;
+    lines[5] = line5;
+    lines[6] = line6;
+    lines[7] = line7;
+    return app_wifi_draw_lines("WIFI PING RESULTS", lines, A90_APP_WIFI_LINE_COUNT,
+                               "PRESS ANY BUTTON TO RETURN", 0x99ff66);
 }

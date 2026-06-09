@@ -145,6 +145,7 @@ static const struct screen_menu_item screen_menu_network_items[] = {
     { "WIFI STATUS",    "WLAN0 LINK AND IP",     SCREEN_MENU_WIFI_STATUS,   SCREEN_MENU_PAGE_NETWORK },
     { "WIFI PROFILES",  "SAVED PROFILE STATE",   SCREEN_MENU_WIFI_PROFILES, SCREEN_MENU_PAGE_NETWORK },
     { "WIFI SCAN",      "ONE BOUNDED AP SCAN",   SCREEN_MENU_WIFI_SCAN,     SCREEN_MENU_PAGE_NETWORK },
+    { "PING TEST",      "GATEWAY + 1.1.1.1",     SCREEN_MENU_WIFI_PING,     SCREEN_MENU_PAGE_NETWORK },
     { "USB NET STATUS", "NCM/TCPCTL STATE",      SCREEN_MENU_NET_STATUS,    SCREEN_MENU_PAGE_NETWORK },
     { "BACK",           "MAIN MENU",             SCREEN_MENU_BACK,          SCREEN_MENU_PAGE_MAIN },
 };
@@ -245,6 +246,8 @@ enum screen_app_id a90_menu_app_from_action(enum screen_menu_action action) {
         return SCREEN_APP_WIFI_PROFILES;
     case SCREEN_MENU_WIFI_SCAN:
         return SCREEN_APP_WIFI_SCAN;
+    case SCREEN_MENU_WIFI_PING:
+        return SCREEN_APP_WIFI_PING;
     default:
         return SCREEN_APP_NONE;
     }
