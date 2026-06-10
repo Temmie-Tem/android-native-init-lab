@@ -30,11 +30,22 @@ Current baseline:
 
 Goal: keep the current workspace reviewable before more live tests.
 
-- Review uncommitted Wi-Fi config changes separately from bridge/transport
-  changes.
-- Keep generated logs, boot images, firmware, credentials, and raw captures out
-  of git.
-- Commit in focused units:
+Status: complete for the current `v2186-wifi-ui-polish` baseline.
+
+Completed audit:
+
+- Latest focused commit:
+  `abccad6b Promote V2186 Wi-Fi UI polish baseline`.
+- Post-commit workspace audit found no uncommitted tracked changes.
+- `git diff --check` passed on the clean baseline.
+- Generated logs, boot images, firmware, credentials, and raw captures remain out
+  of git; tracked `workspace/private/` entries are README/skeleton files only.
+- Audit report:
+  `docs/reports/NATIVE_INIT_P0_COMMIT_HYGIENE_AUDIT_2026-06-10.md`.
+
+Ongoing rule:
+
+- Keep future changes in focused units:
   1. Wi-Fi config/autoconnect source changes.
   2. Bridge/transport wrapper and selector changes.
   3. TODO/workspace documentation.
