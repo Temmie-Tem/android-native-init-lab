@@ -7,6 +7,12 @@ http_port="${A90_WIFI_HTTP_PORT:-8080}"
 upload_port="${A90_WIFI_UPLOAD_PORT:-9001}"
 sizes_mib="${A90_WIFI_SIZES_MIB:-1 8 32}"
 install_deps="${A90_WIFI_LAB_INSTALL:-1}"
+bind_host="${A90_WIFI_BIND_HOST:-0.0.0.0}"
+allowed_peer="${A90_WIFI_ALLOWED_PEER:-}"
+max_upload_mib="${A90_WIFI_MAX_UPLOAD_MIB:-1024}"
+max_upload_clients="${A90_WIFI_MAX_UPLOAD_CLIENTS:-1}"
+idle_timeout_sec="${A90_WIFI_IDLE_TIMEOUT_SEC:-10}"
+lab_token="${A90_WIFI_LAB_TOKEN:-}"
 server_py="$root/a90_wifi_lab_server.py"
 python_bin="${PYTHON:-}"
 
@@ -25,6 +31,12 @@ Environment:
   A90_WIFI_UPLOAD_PORT=9001              raw TCP upload receiver port
   A90_WIFI_SIZES_MIB="1 8 32"            generated download file sizes
   A90_WIFI_LAB_INSTALL=0                 skip Termux pkg install step
+  A90_WIFI_BIND_HOST=0.0.0.0             bind address; use phone Wi-Fi IP to narrow exposure
+  A90_WIFI_ALLOWED_PEER=192.168.x.y      optional single A90 source IP allowlist
+  A90_WIFI_LAB_TOKEN=<token>             optional token; generated when omitted
+  A90_WIFI_MAX_UPLOAD_MIB=1024           per-upload size cap
+  A90_WIFI_MAX_UPLOAD_CLIENTS=1          concurrent upload cap
+  A90_WIFI_IDLE_TIMEOUT_SEC=10           socket idle timeout
 
 Default `serve` installs minimal Termux packages when possible, writes the
 embedded Python server, generates test files, starts:
@@ -77,7 +89,7 @@ import urllib.parse
 from pathlib import Path
 
 
-SERVER_VERSION = "a90-wifi-lab-20260610-upload-metadata-v2"
+SERVER_VERSION = "a90-wifi-lab-20260610-auth-limits-v3"
 
 
 def log(message: str) -> None:
@@ -169,9 +181,15 @@ def safe_upload_entries(upload_dir: Path):
 
 
 class A90WifiLabHandler(http.server.SimpleHTTPRequestHandler):
-    def __init__(self, *args: object, download_dir: Path, upload_dir: Path, **kwargs: object) -> None:
+    def __init__(self,
+                 *args: object,
+                 download_dir: Path,
+                 upload_dir: Path,
+                 token: str,
+                 **kwargs: object) -> None:
         self.download_dir = download_dir
         self.upload_dir = upload_dir
+        self.token = token
         super().__init__(*args, directory=str(download_dir), **kwargs)
 
     def log_message(self, fmt: str, *args: object) -> None:
@@ -193,8 +211,20 @@ class A90WifiLabHandler(http.server.SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def authorized(self, parsed: urllib.parse.ParseResult) -> bool:
+        if not self.token:
+            return True
+        query = urllib.parse.parse_qs(parsed.query)
+        query_tokens = query.get("token", [])
+        header_token = self.headers.get("X-A90-Wifi-Lab-Token", "")
+        return header_token == self.token or self.token in query_tokens
+
     def do_GET(self) -> None:
-        path = urllib.parse.urlparse(self.path).path
+        parsed = urllib.parse.urlparse(self.path)
+        path = parsed.path
+        if not self.authorized(parsed):
+            self.write_json({"error": "unauthorized", "version": SERVER_VERSION}, status=403)
+            return
         if path == "/server-version.txt":
             self.write_text(SERVER_VERSION + "\n")
             return
@@ -255,7 +285,7 @@ class ThreadingHTTPServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
     allow_reuse_address = True
 
 
-def serve_http(root: Path, port: int, stop: threading.Event) -> None:
+def serve_http(root: Path, bind_host: str, port: int, token: str, stop: threading.Event) -> None:
     download_dir = root / "download"
     upload_dir = root / "uploads"
     upload_dir.mkdir(parents=True, exist_ok=True)
@@ -263,17 +293,39 @@ def serve_http(root: Path, port: int, stop: threading.Event) -> None:
         *args,
         download_dir=download_dir,
         upload_dir=upload_dir,
+        token=token,
         **kwargs,
     )
-    server = ThreadingHTTPServer(("0.0.0.0", port), handler)
+    server = ThreadingHTTPServer((bind_host, port), handler)
     server.timeout = 0.5
-    log(f"http server listening on 0.0.0.0:{port}, root={download_dir}, upload_meta={upload_dir}")
+    log(f"http server listening on {bind_host}:{port}, root={download_dir}, upload_meta={upload_dir}")
     while not stop.is_set():
         server.handle_request()
     server.server_close()
 
 
-def recv_one(conn: socket.socket, peer: tuple[str, int], upload_dir: Path) -> None:
+def recv_auth_prefix(conn: socket.socket, token: str) -> tuple[bool, bytes]:
+    if not token:
+        return True, b""
+    prefix = b""
+    token_bytes = token.encode("utf-8")
+    while b"\n" not in prefix and len(prefix) <= 4096:
+        chunk = conn.recv(256)
+        if not chunk:
+            return False, b""
+        prefix += chunk
+    line, separator, rest = prefix.partition(b"\n")
+    if not separator:
+        return False, b""
+    return line.rstrip(b"\r") == token_bytes, rest
+
+
+def recv_one(conn: socket.socket,
+             peer: tuple[str, int],
+             upload_dir: Path,
+             token: str,
+             max_upload_bytes: int,
+             idle_timeout: float) -> None:
     started = time.monotonic()
     stamp = _dt.datetime.now().strftime("%Y%m%d-%H%M%S")
     safe_peer = peer[0].replace(":", "_").replace(".", "_")
@@ -281,11 +333,25 @@ def recv_one(conn: socket.socket, peer: tuple[str, int], upload_dir: Path) -> No
     tmp_path = out_path.with_suffix(".bin.tmp")
     digest = hashlib.sha256()
     total = 0
+    conn.settimeout(idle_timeout)
     with conn, tmp_path.open("wb") as handle:
+        authorized, buffered = recv_auth_prefix(conn, token)
+        if not authorized:
+            tmp_path.unlink(missing_ok=True)
+            log(f"upload rejected peer={peer[0]} reason=bad-token")
+            return
+        if buffered:
+            handle.write(buffered)
+            digest.update(buffered)
+            total += len(buffered)
         while True:
             data = conn.recv(1024 * 1024)
             if not data:
                 break
+            if total + len(data) > max_upload_bytes:
+                tmp_path.unlink(missing_ok=True)
+                log(f"upload rejected peer={peer[0]} reason=size-limit limit={max_upload_bytes}")
+                return
             handle.write(data)
             digest.update(data)
             total += len(data)
@@ -313,24 +379,57 @@ def recv_one(conn: socket.socket, peer: tuple[str, int], upload_dir: Path) -> No
     )
 
 
-def serve_upload(root: Path, port: int, stop: threading.Event) -> None:
+def serve_upload(root: Path,
+                 bind_host: str,
+                 port: int,
+                 token: str,
+                 allowed_peer: str,
+                 max_upload_bytes: int,
+                 max_clients: int,
+                 idle_timeout: float,
+                 stop: threading.Event) -> None:
     upload_dir = root / "uploads"
     upload_dir.mkdir(parents=True, exist_ok=True)
     listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    listener.bind(("0.0.0.0", port))
+    listener.bind((bind_host, port))
     listener.listen(8)
     listener.settimeout(0.5)
-    log(f"upload receiver listening on 0.0.0.0:{port}, root={upload_dir}")
+    slots = threading.BoundedSemaphore(max_clients)
+    log(
+        "upload receiver listening on "
+        f"{bind_host}:{port}, root={upload_dir}, max_upload_bytes={max_upload_bytes}, "
+        f"max_clients={max_clients}, allowed_peer={allowed_peer or 'any-token-authenticated'}"
+    )
     try:
         while not stop.is_set():
             try:
                 conn, peer = listener.accept()
             except socket.timeout:
                 continue
+            if allowed_peer and peer[0] != allowed_peer:
+                log(f"upload rejected peer={peer[0]} reason=source-not-allowed")
+                conn.close()
+                continue
+            if not slots.acquire(blocking=False):
+                log(f"upload rejected peer={peer[0]} reason=too-many-clients")
+                conn.close()
+                continue
+
+            def run_upload() -> None:
+                try:
+                    recv_one(conn, peer, upload_dir, token, max_upload_bytes, idle_timeout)
+                except Exception as exc:
+                    log(f"upload failed peer={peer[0]} error={exc!r}")
+                    try:
+                        conn.close()
+                    except OSError:
+                        pass
+                finally:
+                    slots.release()
+
             threading.Thread(
-                target=recv_one,
-                args=(conn, peer, upload_dir),
+                target=run_upload,
                 daemon=True,
             ).start()
     finally:
@@ -439,33 +538,43 @@ def get_ipv4_addrs() -> list[str]:
     return addrs
 
 
-def print_instructions(addrs: list[str], http_port: int, upload_port: int, manifest: list[dict[str, object]]) -> None:
+def print_instructions(addrs: list[str],
+                       http_port: int,
+                       upload_port: int,
+                       manifest: list[dict[str, object]],
+                       token: str) -> None:
+    token_query = f"?token={urllib.parse.quote(token)}" if token else ""
     log("ready")
     if addrs:
         log("phone IPv4 candidates: " + ", ".join(addrs))
     else:
         log("phone IPv4 candidates unavailable; check Android Wi-Fi details")
-    log(f"download manifest: http://<PHONE_IP>:{http_port}/manifest.json")
-    log(f"sha list:          http://<PHONE_IP>:{http_port}/SHA256SUMS.txt")
+    if token:
+        log(f"token: {token}")
+    log(f"download manifest: http://<PHONE_IP>:{http_port}/manifest.json{token_query}")
+    log(f"sha list:          http://<PHONE_IP>:{http_port}/SHA256SUMS.txt{token_query}")
     log(f"upload receiver:   <PHONE_IP>:{upload_port}")
     first = manifest[-1]["name"] if manifest else "test-32MiB.bin"
     print("", flush=True)
     print("A90 download example:", flush=True)
-    print(f"  wget http://<PHONE_IP>:{http_port}/{first} -O /cache/a90-wifi/{first}", flush=True)
+    print(f"  wget 'http://<PHONE_IP>:{http_port}/{first}{token_query}' -O /cache/a90-wifi/{first}", flush=True)
     print(f"  sha256sum /cache/a90-wifi/{first}", flush=True)
     print("", flush=True)
     print("A90 upload example:", flush=True)
-    print(f"  cat /cache/a90-wifi/{first} | nc <PHONE_IP> {upload_port}", flush=True)
+    if token:
+        print(f"  (printf '%s\\n' '{token}'; cat /cache/a90-wifi/{first}) | nc <PHONE_IP> {upload_port}", flush=True)
+    else:
+        print(f"  cat /cache/a90-wifi/{first} | nc <PHONE_IP> {upload_port}", flush=True)
     print("", flush=True)
     print("Stop server: Ctrl-C", flush=True)
 
 
-def ensure_port_available(port: int, label: str) -> bool:
+def ensure_port_available(bind_host: str, port: int, label: str) -> bool:
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
-        sock.bind(("0.0.0.0", port))
+        sock.bind((bind_host, port))
     except OSError as exc:
-        log(f"{label} port {port} unavailable: {exc}; stop old server or use another port")
+        log(f"{label} {bind_host}:{port} unavailable: {exc}; stop old server or use another port")
         return False
     finally:
         sock.close()
@@ -475,17 +584,26 @@ def ensure_port_available(port: int, label: str) -> bool:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--root", required=True)
+    parser.add_argument("--bind-host", required=True)
     parser.add_argument("--http-port", type=int, required=True)
     parser.add_argument("--upload-port", type=int, required=True)
     parser.add_argument("--sizes-mib", required=True)
+    parser.add_argument("--token", default="")
+    parser.add_argument("--allowed-peer", default="")
+    parser.add_argument("--max-upload-bytes", type=int, required=True)
+    parser.add_argument("--max-upload-clients", type=int, required=True)
+    parser.add_argument("--idle-timeout-sec", type=float, required=True)
     args = parser.parse_args()
 
     root = Path(args.root).expanduser().resolve()
     root.mkdir(parents=True, exist_ok=True)
     sizes = parse_sizes(args.sizes_mib)
-    if not ensure_port_available(args.http_port, "http"):
+    if args.max_upload_bytes <= 0 or args.max_upload_clients <= 0 or args.idle_timeout_sec <= 0:
+        log("max-upload-bytes, max-upload-clients, and idle-timeout-sec must be positive")
+        return 2
+    if not ensure_port_available(args.bind_host, args.http_port, "http"):
         return 98
-    if not ensure_port_available(args.upload_port, "upload"):
+    if not ensure_port_available(args.bind_host, args.upload_port, "upload"):
         return 98
     manifest = prepare_downloads(root, sizes)
 
@@ -499,18 +617,28 @@ def main() -> int:
 
     http_thread = threading.Thread(
         target=serve_http,
-        args=(root, args.http_port, stop),
+        args=(root, args.bind_host, args.http_port, args.token, stop),
         daemon=True,
     )
     upload_thread = threading.Thread(
         target=serve_upload,
-        args=(root, args.upload_port, stop),
+        args=(
+            root,
+            args.bind_host,
+            args.upload_port,
+            args.token,
+            args.allowed_peer,
+            args.max_upload_bytes,
+            args.max_upload_clients,
+            args.idle_timeout_sec,
+            stop,
+        ),
         daemon=True,
     )
     http_thread.start()
     upload_thread.start()
     time.sleep(0.2)
-    print_instructions(get_ipv4_addrs(), args.http_port, args.upload_port, manifest)
+    print_instructions(get_ipv4_addrs(), args.http_port, args.upload_port, manifest, args.token)
 
     while not stop.is_set():
         time.sleep(0.5)
@@ -544,12 +672,27 @@ find_python() {
 
 run_server() {
   local py
+  local max_upload_bytes
   py="$(find_python)"
+  if [ -z "$lab_token" ]; then
+    lab_token="$("$py" - <<'PY'
+import secrets
+print(secrets.token_urlsafe(18))
+PY
+)"
+  fi
+  max_upload_bytes=$((max_upload_mib * 1024 * 1024))
   exec "$py" "$server_py" \
     --root "$root" \
+    --bind-host "$bind_host" \
     --http-port "$http_port" \
     --upload-port "$upload_port" \
-    --sizes-mib "$sizes_mib"
+    --sizes-mib "$sizes_mib" \
+    --token "$lab_token" \
+    --allowed-peer "$allowed_peer" \
+    --max-upload-bytes "$max_upload_bytes" \
+    --max-upload-clients "$max_upload_clients" \
+    --idle-timeout-sec "$idle_timeout_sec"
 }
 
 stop_servers() {

@@ -7,6 +7,7 @@ import subprocess
 import sys
 import time
 
+from a90harness.evidence import read_bounded_json
 from a90harness.module import ModuleContext, StepResult, TestModule
 
 
@@ -57,7 +58,7 @@ class UsbRecoveryModule(TestModule):
         report_path = ctx.module_dir / self._run_id / "usb-recovery-report.json"
         if not report_path.exists():
             return StepResult("verify", False, f"missing {report_path}", 0.0)
-        payload = json.loads(report_path.read_text(encoding="utf-8"))
+        payload = read_bounded_json(report_path, max_bytes=2 * 1024 * 1024)
         checks = {item.get("name", ""): item.get("ok") is True for item in payload.get("checks", [])}
         ok = payload.get("pass") is True and checks.get("final version", False) and checks.get("final selftest", False)
         return StepResult(

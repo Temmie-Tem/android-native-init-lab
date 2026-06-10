@@ -91,7 +91,12 @@ def stream_remote_to_host(transfer: ncm.FastTransferSession,
             "elapsed_sec": 0.0,
         }
     receive_path = store.path(f"{label}-upload.bin")
-    with ncm.TcpArchiveReceiver(receive_path, timeout=timeout) as receiver:
+    with ncm.TcpArchiveReceiver(
+        receive_path,
+        bind_host=transfer.host_link_local,
+        bind_ifname=transfer.ifname,
+        timeout=timeout,
+    ) as receiver:
         remote_host = shlex.quote(transfer.host_link_local + "%" + transfer.device_ifname)
         script = (
             f"/cache/bin/busybox cat {shlex.quote(remote_path)} | "

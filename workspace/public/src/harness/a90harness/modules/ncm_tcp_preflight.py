@@ -5,6 +5,7 @@ from __future__ import annotations
 import subprocess
 import sys
 
+from a90harness.evidence import read_bounded_text
 from a90harness.module import ModuleContext, StepResult, TestModule
 
 TRUSTED_TCPCTL_BINARY = "/bin/a90_tcpctl"
@@ -108,7 +109,7 @@ class NcmTcpPreflightModule(TestModule):
         if self._skip_reason:
             return StepResult("verify", True, self._skip_reason, 0.0, skipped=True)
         output_path = ctx.module_dir / "wrapper-output.txt"
-        text = output_path.read_text(encoding="utf-8", errors="replace") if output_path.exists() else ""
+        text = read_bounded_text(output_path, max_bytes=2 * 1024 * 1024) if output_path.exists() else ""
         markers = {
             "pong": "pong" in text,
             "authenticated": "OK authenticated" in text,

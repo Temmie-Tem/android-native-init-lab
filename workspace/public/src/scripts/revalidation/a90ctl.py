@@ -313,6 +313,12 @@ def run_cmdv1_command(host: str,
             return result
         if BRIDGE_BUSY_TEXT in text:
             last_text = text
+            if not allow_retry:
+                raise RuntimeError(
+                    "bridge busy response received after unsafe command send; "
+                    "not retrying command without retry_unsafe\n"
+                    f"{text}"
+                )
             sleep_before_retry(deadline)
             continue
         if not allow_retry:

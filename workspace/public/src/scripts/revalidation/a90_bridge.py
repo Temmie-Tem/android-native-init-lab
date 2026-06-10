@@ -35,6 +35,7 @@ TCP_LISTEN_STATE = "0A"
 BRIDGE_SCRIPT_REL = "workspace/public/src/scripts/revalidation/serial_tcp_bridge.py"
 PRIVATE_RUN_REL = "workspace/private/run"
 PRIVATE_LOG_REL = "workspace/private/logs/bridge"
+PRIVATE_REPAIR_ROOT_REL = "workspace/private"
 PRIVATE_REPAIR_RELS = (PRIVATE_LOG_REL, PRIVATE_RUN_REL)
 MANAGED_NAME = "a90_bridge"
 
@@ -63,6 +64,47 @@ def rel(path: Path, root: Path) -> str:
         return str(path.resolve().relative_to(root))
     except ValueError:
         return str(path)
+
+
+def reject_symlink_components(root: Path, path: Path) -> None:
+    root_abs = root.resolve(strict=True)
+    path_abs = path.absolute()
+    try:
+        relative_parts = path_abs.relative_to(root_abs).parts
+    except ValueError as exc:
+        raise RuntimeError(f"path escapes repo root: {path}") from exc
+
+    current = root_abs
+    for part in relative_parts:
+        current = current / part
+        try:
+            mode = current.lstat().st_mode
+        except FileNotFoundError:
+            break
+        if stat.S_ISLNK(mode):
+            raise RuntimeError(f"refusing symlink repair path component: {current.relative_to(root_abs)}")
+
+
+def validate_private_repair_path(root: Path, path: Path) -> None:
+    root_abs = root.resolve(strict=True)
+    private_root = root_abs / PRIVATE_REPAIR_ROOT_REL
+    path_abs = path.absolute()
+    try:
+        lexical_rel = path_abs.relative_to(private_root)
+    except ValueError as exc:
+        raise RuntimeError(f"repair path is outside {PRIVATE_REPAIR_ROOT_REL}: {rel(path_abs, root_abs)}") from exc
+    if any(part == ".." for part in lexical_rel.parts):
+        raise RuntimeError(f"repair path contains parent traversal: {rel(path_abs, root_abs)}")
+    reject_symlink_components(root_abs, path_abs)
+
+
+def ensure_private_repair_dir(root: Path, path: Path) -> None:
+    validate_private_repair_path(root, path)
+    path.mkdir(parents=True, exist_ok=True)
+    validate_private_repair_path(root, path)
+    mode = path.lstat().st_mode
+    if stat.S_ISLNK(mode) or not stat.S_ISDIR(mode):
+        raise RuntimeError(f"repair target is not a plain directory: {rel(path, root)}")
 
 
 def now_label() -> str:
@@ -499,12 +541,17 @@ def ensure_user_write_bits(path: Path) -> None:
 
 def chown_tree(path: Path, uid: int, gid: int) -> int:
     changed = 0
+    try:
+        root_item = path.lstat()
+    except OSError:
+        return changed
+    if stat.S_ISLNK(root_item.st_mode) or not stat.S_ISDIR(root_item.st_mode):
+        raise RuntimeError(f"refusing non-directory repair root: {path}")
     targets = [path]
-    if path.is_dir():
-        for dirpath, dirnames, filenames in os.walk(path):
-            current = Path(dirpath)
-            targets.extend(current / item for item in dirnames)
-            targets.extend(current / item for item in filenames)
+    for dirpath, dirnames, filenames in os.walk(path, followlinks=False):
+        current = Path(dirpath)
+        targets.extend(current / item for item in dirnames)
+        targets.extend(current / item for item in filenames)
     for target in targets:
         try:
             item = target.lstat()
@@ -537,22 +584,30 @@ def command_repair_dirs(args: argparse.Namespace, root: Path) -> int:
         created = False
         repaired = False
         error = ""
-        if not path.exists():
-            try:
-                path.mkdir(parents=True, exist_ok=True)
-                created = True
-            except OSError as exc:
-                error = str(exc)
-                needs_sudo = True
+        try:
+            existed_before = path.exists()
+            ensure_private_repair_dir(root, path)
+            created = not existed_before and path.exists()
+        except RuntimeError as exc:
+            error = str(exc)
+        except OSError as exc:
+            error = str(exc)
+            needs_sudo = os.geteuid() != 0
         if not error and not path_writable(path):
             if os.geteuid() != 0:
                 needs_sudo = True
             else:
+                try:
+                    changed += chown_tree(path, uid, gid)
+                    repaired = True
+                except RuntimeError as exc:
+                    error = str(exc)
+        elif not error and os.geteuid() == 0:
+            try:
                 changed += chown_tree(path, uid, gid)
                 repaired = True
-        elif not error and os.geteuid() == 0:
-            changed += chown_tree(path, uid, gid)
-            repaired = True
+            except RuntimeError as exc:
+                error = str(exc)
         if not error and path.exists():
             try:
                 ensure_user_write_bits(path)

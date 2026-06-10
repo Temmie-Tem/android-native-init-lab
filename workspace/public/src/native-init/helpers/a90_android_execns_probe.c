@@ -3945,11 +3945,18 @@ static int mkdir_p(const char *path, mode_t mode) {
 }
 
 static int init_paths(struct paths *paths) {
+    char base_template[] = "/tmp/a90-v231-XXXXXX";
+    char *base_dir;
     int rc;
 
-    rc = snprintf(paths->base, sizeof(paths->base), "/tmp/a90-v231-%ld", (long)getpid());
+    base_dir = mkdtemp(base_template);
+    if (base_dir == NULL) {
+        return -1;
+    }
+    rc = snprintf(paths->base, sizeof(paths->base), "%s", base_dir);
     if (rc < 0 || (size_t)rc >= sizeof(paths->base)) {
         errno = ENAMETOOLONG;
+        rmdir(base_dir);
         return -1;
     }
     if (append_path(paths->root, sizeof(paths->root), paths->base, "root") < 0 ||
@@ -9396,6 +9403,9 @@ static int start_supplicant_quiet(const struct config *cfg,
         if (android_wpa_socket_fd >= 0) {
             emit_android_wpa_socket_preexec_probe(android_wpa_socket_fd, "after-selinux-exec");
         }
+        if (apply_wificond_identity_contract("wifi_connect_ping.supplicant_identity") < 0) {
+            _exit(126);
+        }
         dprintf(STDOUT_FILENO,
                 "wifi_connect_ping.supplicant_strace.enabled=%d\n"
                 "wifi_connect_ping.supplicant_strace.path=/cache/a90-wifi/a90_strace_v2167\n"
@@ -12840,6 +12850,7 @@ static int append_connect_hold_summary(struct buffer *stdout_buf,
 }
 
 static int write_udhcpc_script(char *path, size_t path_size) {
+    char path_template[] = "/tmp/a90-connect-udhcpc-XXXXXX";
     static const char script[] =
         "#!/cache/bin/busybox sh\n"
         "case \"$1\" in\n"
@@ -12855,24 +12866,30 @@ static int write_udhcpc_script(char *path, size_t path_size) {
         "esac\n"
         "exit 0\n";
     int fd;
+    int flags;
 
-    if (snprintf(path,
-                 path_size,
-                 "/tmp/a90-connect-udhcpc-%ld.script",
-                 (long)getpid()) >= (int)path_size) {
-        errno = ENAMETOOLONG;
-        return -1;
-    }
-    fd = open(path, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0700);
+    fd = mkstemp(path_template);
     if (fd < 0) {
         return -1;
     }
+    if (snprintf(path, path_size, "%s", path_template) >= (int)path_size) {
+        errno = ENAMETOOLONG;
+        close(fd);
+        unlink(path_template);
+        return -1;
+    }
+    flags = fcntl(fd, F_GETFD, 0);
+    if (flags >= 0) {
+        (void)fcntl(fd, F_SETFD, flags | FD_CLOEXEC);
+    }
     if (write_all_fd(fd, script, strlen(script)) < 0) {
         close(fd);
+        unlink(path);
         return -1;
     }
     if (fchmod(fd, 0700) < 0) {
         close(fd);
+        unlink(path);
         return -1;
     }
     return close(fd);
@@ -17824,8 +17841,10 @@ static int materialize_private_cnss_daemon_sdx50m(const struct config *cfg,
                                                   char *error_buf,
                                                   size_t error_size) {
     char target[MAX_PATH_LEN];
+    char source_fd_path[64];
     struct stat source_st;
     struct stat target_st;
+    int source_fd;
 
     if (!cfg->pm_observer_private_cnss_daemon_sdx50m) {
         return 0;
@@ -17841,43 +17860,76 @@ static int materialize_private_cnss_daemon_sdx50m(const struct config *cfg,
                  "private cnss-daemon: source path must be absolute");
         return -1;
     }
-    if (stat(cfg->private_cnss_daemon_path, &source_st) < 0) {
+    if (!path_has_prefix_component(cfg->private_cnss_daemon_path, "/cache/bin") ||
+        strstr(cfg->private_cnss_daemon_path, "..") != NULL ||
+        strstr(cfg->private_cnss_daemon_path, "\n") != NULL ||
+        strstr(cfg->private_cnss_daemon_path, "\r") != NULL) {
         snprintf(error_buf, error_size,
-                 "private cnss-daemon: stat source: %s", strerror(errno));
+                 "private cnss-daemon: source path is outside trusted cache bin");
+        errno = EACCES;
         return -1;
     }
-    if (!S_ISREG(source_st.st_mode)) {
+    source_fd = open(cfg->private_cnss_daemon_path, O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
+    if (source_fd < 0) {
         snprintf(error_buf, error_size,
-                 "private cnss-daemon: source is not regular");
-        errno = EINVAL;
+                 "private cnss-daemon: open source: %s", strerror(errno));
+        return -1;
+    }
+    if (fstat(source_fd, &source_st) < 0) {
+        snprintf(error_buf, error_size,
+                 "private cnss-daemon: fstat source: %s", strerror(errno));
+        close(source_fd);
+        return -1;
+    }
+    if (!S_ISREG(source_st.st_mode) ||
+        source_st.st_uid != 0 ||
+        (source_st.st_mode & (S_IWGRP | S_IWOTH | S_ISUID | S_ISGID)) != 0) {
+        snprintf(error_buf, error_size,
+                 "private cnss-daemon: source mode/owner is not trusted");
+        errno = EACCES;
+        close(source_fd);
         return -1;
     }
     if ((source_st.st_mode & 0111) == 0) {
         snprintf(error_buf, error_size,
                  "private cnss-daemon: source is not executable");
         errno = EACCES;
+        close(source_fd);
         return -1;
     }
     if (append_path(target, sizeof(target), paths->vendor, "bin/cnss-daemon") < 0) {
         snprintf(error_buf, error_size, "private cnss-daemon: target path overflow");
+        close(source_fd);
         return -1;
     }
     if (stat(target, &target_st) < 0) {
         snprintf(error_buf, error_size,
                  "private cnss-daemon: stat target: %s", strerror(errno));
+        close(source_fd);
         return -1;
     }
     if (!S_ISREG(target_st.st_mode)) {
         snprintf(error_buf, error_size,
                  "private cnss-daemon: target is not regular");
         errno = EINVAL;
+        close(source_fd);
         return -1;
     }
-    if (mount(cfg->private_cnss_daemon_path, target, NULL, MS_BIND, NULL) < 0) {
+    if (snprintf(source_fd_path,
+                 sizeof(source_fd_path),
+                 "/proc/self/fd/%d",
+                 source_fd) < 0) {
+        snprintf(error_buf, error_size, "private cnss-daemon: source fd path overflow");
+        close(source_fd);
+        return -1;
+    }
+    if (mount(source_fd_path, target, NULL, MS_BIND, NULL) < 0) {
         snprintf(error_buf, error_size,
                  "private cnss-daemon: bind mount: %s", strerror(errno));
+        close(source_fd);
         return -1;
     }
+    close(source_fd);
     if (snprintf(paths->private_cnss_daemon_target,
                  sizeof(paths->private_cnss_daemon_target),
                  "%s",

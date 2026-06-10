@@ -8,6 +8,7 @@ import sys
 import time
 from pathlib import Path
 
+from a90harness.evidence import read_bounded_json
 from a90harness.module import ModuleContext, StepResult, TestModule
 
 
@@ -114,6 +115,6 @@ class StorageIoModule(TestModule):
         report_path = ctx.module_dir / "storage-iotest-report.json"
         if not report_path.exists():
             return StepResult("verify", False, f"missing {report_path}", 0.0)
-        payload = json.loads(report_path.read_text(encoding="utf-8"))
+        payload = read_bounded_json(report_path, max_bytes=4 * 1024 * 1024)
         ok = payload.get("pass") is True and bool(payload.get("results"))
         return StepResult("verify", ok, f"pass={payload.get('pass')} files={len(payload.get('results', []))}", 0.0)

@@ -28,7 +28,7 @@ INIT_BINARY = OUT_DIR / "init_v2189_security_p0_stage_fix"
 RAMDISK_CPIO = OUT_DIR / "ramdisk_v2189_security_p0_stage_fix.cpio"
 REMOTE_PROPERTY_ROOT = v2188.REMOTE_PROPERTY_ROOT
 EXPECTED_HELPER_MARKER = v2188.EXPECTED_HELPER_MARKER
-EXPECTED_HELPER_SHA256 = v2188.EXPECTED_HELPER_SHA256
+EXPECTED_HELPER_SHA256 = "a4ef028aee167ab6a66b17389ade37427e85647d18e45270634f666b8efe1a44"
 EXTRA_INIT_FLAGS = v2188.EXTRA_INIT_FLAGS
 
 
@@ -84,7 +84,7 @@ def render_report(manifest: dict[str, object]) -> str:
         "- Type: source/build-only test boot candidate.",
         f"- Decision: `{manifest['decision']}`",
         "- Result: PASS",
-        "- Reason: V2189 preserves V2188 P0 hardening and fixes the live validation gap where stale staged Wi-Fi executables remained non-root-owned.",
+        "- Reason: V2189 preserves V2188 P0 hardening, fixes the live validation gap where stale staged Wi-Fi executables remained non-root-owned, and adds the 2026-06-10 active security triage hardening set.",
         "- Manifest: `workspace/private/builds/native-init/v2189-security-p0-stage-fix-boot/manifest.json`",
         f"- Base boot: `{manifest['base_boot']}`",
         f"- Boot image: `{manifest['boot_image']}`",
@@ -103,6 +103,8 @@ def render_report(manifest: dict[str, object]) -> str:
         "- Fixed: generated Wi-Fi runtime files are re-owned as root when rewritten by PID1.",
         "- Fixed: `wifi status` and `wifi connect` report standalone supplicant root-exec verification explicitly.",
         "- Fixed: host Wi-Fi profile/connect staging hardens existing `/cache/a90-wifi/wpa-standalone` ownership before connect.",
+        "- Fixed: host bridge repair, unsafe busy replay, NCM listener/repair scope, Wi-Fi identifier redaction, wificfg symlink traversal, bounded evidence reads, and Termux lab auth/limits.",
+        "- Fixed: helper temp paths use `mkdtemp()`/`mkstemp()`, private cnss-daemon bind sources are verified, and supplicant helper exec drops to UID/GID 1010 before exec.",
         "",
         "## Safety Scope",
         "",
@@ -141,6 +143,8 @@ def main() -> int:
         .prev2129.prev2127.prev2120.prev2112.prev2108.prev2106.prev2102
         .prev2100.prev2097.prev2095.prev2082.prev2080.prev2058.prev2038
     )
+    helper_builder.EXPECTED_HELPER_MARKER = EXPECTED_HELPER_MARKER
+    helper_builder.EXPECTED_HELPER_SHA256 = EXPECTED_HELPER_SHA256
     helper_builder.patch_helper_builder(base)
     base.render_report = render_report
     created_legacy_link = v2188.v2187.v2182.v2178.v2176.v2174.v2169.ensure_legacy_mkbootimg_link()

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
@@ -14,7 +15,11 @@ def repo_root() -> Path:
     raise RuntimeError(f"could not locate repo root from {current}")
 
 
-def add_legacy_revalidation_path(root: Path | None = None) -> Path:
+def _env_flag(name: str) -> bool:
+    return os.environ.get(name, "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def add_legacy_revalidation_path(root: Path | None = None, *, include_archive: bool | None = None) -> Path:
     resolved_root = root or repo_root()
     harness_path = resolved_root / "workspace" / "public" / "src" / "harness"
     harness_text = str(harness_path)
@@ -28,7 +33,9 @@ def add_legacy_revalidation_path(root: Path | None = None) -> Path:
         / "scripts"
         / "revalidation"
     )
-    legacy_text = str(legacy_path)
-    if legacy_text not in sys.path:
-        sys.path.append(legacy_text)
+    archive_enabled = _env_flag("A90_INCLUDE_ARCHIVE_REVALIDATION") if include_archive is None else include_archive
+    if archive_enabled:
+        legacy_text = str(legacy_path)
+        if legacy_text not in sys.path:
+            sys.path.append(legacy_text)
     return legacy_path

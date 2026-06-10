@@ -8,6 +8,8 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
+from a90harness.evidence import read_bounded_text
+
 
 @dataclass(frozen=True)
 class FailureClassification:
@@ -137,7 +139,7 @@ def load_observer_samples(path: Path) -> list[dict[str, Any]]:
     if not path.exists():
         return []
     samples: list[dict[str, Any]] = []
-    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+    for line in read_bounded_text(path, max_bytes=8 * 1024 * 1024).splitlines():
         if not line.strip():
             continue
         try:

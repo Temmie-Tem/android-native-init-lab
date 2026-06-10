@@ -15,6 +15,7 @@ PRIVATE_DIR_MODE = 0o700
 PRIVATE_FILE_MODE = 0o600
 PUBLIC_DIR_MODE = 0o755
 PUBLIC_FILE_MODE = 0o644
+DEFAULT_MAX_EVIDENCE_READ_BYTES = 16 * 1024 * 1024
 
 
 def repo_root() -> Path:
@@ -166,6 +167,46 @@ def write_public_text(path: Path, text: str) -> None:
 
 def write_public_json(path: Path, payload: dict[str, Any]) -> None:
     write_public_text(path, json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n")
+
+
+def read_bounded_bytes(path: Path, *, max_bytes: int = DEFAULT_MAX_EVIDENCE_READ_BYTES) -> bytes:
+    if max_bytes <= 0:
+        raise ValueError("max_bytes must be positive")
+    info = path.lstat()
+    if stat.S_ISLNK(info.st_mode):
+        raise RuntimeError(f"refusing symlink input: {path}")
+    if not stat.S_ISREG(info.st_mode):
+        raise RuntimeError(f"refusing non-regular input: {path}")
+    if info.st_size > max_bytes:
+        raise RuntimeError(f"input exceeds bounded read limit: {path} size={info.st_size} limit={max_bytes}")
+    fd = os.open(path, os.O_RDONLY | cloexec_flag() | nofollow_flag())
+    try:
+        chunks: list[bytes] = []
+        remaining = max_bytes + 1
+        while remaining > 0:
+            chunk = os.read(fd, min(1024 * 1024, remaining))
+            if not chunk:
+                break
+            chunks.append(chunk)
+            remaining -= len(chunk)
+        data = b"".join(chunks)
+    finally:
+        os.close(fd)
+    if len(data) > max_bytes:
+        raise RuntimeError(f"input exceeds bounded read limit while reading: {path}")
+    return data
+
+
+def read_bounded_text(path: Path,
+                      *,
+                      max_bytes: int = DEFAULT_MAX_EVIDENCE_READ_BYTES,
+                      encoding: str = "utf-8",
+                      errors: str = "replace") -> str:
+    return read_bounded_bytes(path, max_bytes=max_bytes).decode(encoding, errors=errors)
+
+
+def read_bounded_json(path: Path, *, max_bytes: int = DEFAULT_MAX_EVIDENCE_READ_BYTES) -> Any:
+    return json.loads(read_bounded_text(path, max_bytes=max_bytes))
 
 
 def artifact_timestamp() -> str:

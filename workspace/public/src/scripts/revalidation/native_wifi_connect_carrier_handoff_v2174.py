@@ -55,7 +55,7 @@ BOOT_IMAGE_EXPECTED_SHA256 = {
     "boot_linux_v2186_wifi_ui_polish.img": "7a0db3bb76232f778869d3bf0788268f3a1942b230b094158dddf7a7d500fd32",
     "boot_linux_v2187_screenapp_ui_validation.img": "0422f854b3e78d36e225012fd89a53016067155e200291d067ff7d71f32091ca",
     "boot_linux_v2188_security_p0_hardening.img": "0329f977077009b9cdce9514ac940bd9c7fe828db712b82f2c264341f62969be",
-    "boot_linux_v2189_security_p0_stage_fix.img": "a7332612199cfd275f2dfc6fdb25843af401a1ecef2fa54ac0f52afe705f1ffe",
+    "boot_linux_v2189_security_p0_stage_fix.img": "f54becb2b720ad198413c2a0089912626ca295c79a96f13e0921cf4f05b39f51",
 }
 TEST_EXPECT_SHA256 = BOOT_IMAGE_EXPECTED_SHA256[TEST_IMAGE.name]
 ROLLBACK_EXPECT_SHA256 = BOOT_IMAGE_EXPECTED_SHA256[ROLLBACK_IMAGE.name]

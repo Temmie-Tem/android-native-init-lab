@@ -64,6 +64,7 @@ struct wificfg_file_info {
     bool is_regular;
     bool is_dir;
     bool is_symlink;
+    bool path_components_safe;
     bool mode_owner_only;
     bool openable;
     mode_t mode;
@@ -385,10 +386,16 @@ static void wificfg_profile_defaults(struct wificfg_profile_config *profile) {
     snprintf(profile->key_mgmt, sizeof(profile->key_mgmt), "%s", "WPA-PSK");
 }
 
+static bool wificfg_path_components_safe(const char *path, bool include_final);
+
 static void wificfg_stat_path(const char *path, struct wificfg_file_info *info) {
     struct stat statbuf;
 
     memset(info, 0, sizeof(*info));
+    info->path_components_safe = wificfg_path_components_safe(path, true);
+    if (!info->path_components_safe) {
+        return;
+    }
     if (lstat(path, &statbuf) < 0) {
         return;
     }
@@ -409,6 +416,10 @@ static int wificfg_read_regular_text(const char *path, char *buf, size_t buf_siz
 
     if (buf_size == 0) {
         errno = EINVAL;
+        return -1;
+    }
+    if (!wificfg_path_components_safe(path, true)) {
+        errno = ELOOP;
         return -1;
     }
     if (lstat(path, &statbuf) < 0) {
@@ -513,11 +524,73 @@ static bool wificfg_path_has_prefix(const char *path, const char *prefix) {
            (path[prefix_len] == '\0' || path[prefix_len] == '/');
 }
 
+static bool wificfg_path_has_suffix(const char *path, const char *suffix) {
+    size_t path_len = strlen(path);
+    size_t suffix_len = strlen(suffix);
+
+    return path_len >= suffix_len &&
+           strcmp(path + path_len - suffix_len, suffix) == 0;
+}
+
+static bool wificfg_path_components_safe(const char *path, bool include_final) {
+    char current[WIFICFG_MAX_PATH];
+    size_t path_len;
+    size_t index;
+
+    if (path == NULL || path[0] != '/') {
+        return false;
+    }
+    path_len = strlen(path);
+    if (path_len == 0 || path_len >= sizeof(current)) {
+        return false;
+    }
+    if (strstr(path, "/../") != NULL ||
+        strstr(path, "/./") != NULL ||
+        strstr(path, "//") != NULL ||
+        wificfg_path_has_suffix(path, "/..") ||
+        wificfg_path_has_suffix(path, "/.")) {
+        return false;
+    }
+
+    for (index = 1; index <= path_len; ++index) {
+        struct stat statbuf;
+
+        if (path[index] != '/' && path[index] != '\0') {
+            continue;
+        }
+        if (path[index] == '\0' && !include_final) {
+            break;
+        }
+        if (index >= sizeof(current)) {
+            return false;
+        }
+        memcpy(current, path, index);
+        current[index] = '\0';
+        if (lstat(current, &statbuf) < 0) {
+            if (errno == ENOENT || errno == ENOTDIR) {
+                return true;
+            }
+            return false;
+        }
+        if (S_ISLNK(statbuf.st_mode)) {
+            errno = ELOOP;
+            return false;
+        }
+    }
+    return true;
+}
+
 static bool wificfg_secret_path_safe(const char *path) {
     if (path == NULL || path[0] != '/' || strstr(path, "/../") != NULL) {
         return false;
     }
-    if (strstr(path, "/./") != NULL || strstr(path, "//") != NULL) {
+    if (strstr(path, "/./") != NULL ||
+        strstr(path, "//") != NULL ||
+        wificfg_path_has_suffix(path, "/..") ||
+        wificfg_path_has_suffix(path, "/.")) {
+        return false;
+    }
+    if (!wificfg_path_components_safe(path, true)) {
         return false;
     }
     return wificfg_path_has_prefix(path, WIFICFG_PRIMARY_SECRET_ROOT) ||
@@ -826,6 +899,9 @@ static const char *wificfg_profile_source_name(const struct wificfg_profile_conf
 }
 
 static const char *wificfg_path_kind(const struct wificfg_file_info *info) {
+    if (!info->path_components_safe) {
+        return "unsafe";
+    }
     if (!info->exists) {
         return "missing";
     }
@@ -848,6 +924,9 @@ static void wificfg_print_path_info(const char *label, const char *path, bool sh
     if (show_path) {
         a90_console_printf("%s.path=%s\r\n", label, path);
     }
+    a90_console_printf("%s.path_components_safe=%d\r\n",
+                       label,
+                       info.path_components_safe ? 1 : 0);
     a90_console_printf("%s.kind=%s\r\n", label, wificfg_path_kind(&info));
     if (info.exists) {
         a90_console_printf("%s.mode=0%03o\r\n", label, (unsigned int)info.mode);
@@ -879,6 +958,9 @@ static bool wificfg_secret_status(const char *label, const char *path, bool conf
     wificfg_stat_path(path, &info);
     usable = info.exists && info.is_regular && !info.is_symlink && info.mode_owner_only;
     a90_console_printf("%s.present=%d\r\n", label, info.exists ? 1 : 0);
+    a90_console_printf("%s.path_components_safe=%d\r\n",
+                       label,
+                       info.path_components_safe ? 1 : 0);
     if (info.exists) {
         a90_console_printf("%s.kind=%s\r\n", label, wificfg_path_kind(&info));
         a90_console_printf("%s.mode=0%03o\r\n", label, (unsigned int)info.mode);
@@ -1483,6 +1565,9 @@ static void wificfg_collect_profile_dir(const char *source,
     DIR *dir;
     struct dirent *entry;
 
+    if (!wificfg_path_components_safe(dir_path, true)) {
+        return;
+    }
     dir = opendir(dir_path);
     if (dir == NULL) {
         return;
@@ -1580,6 +1665,9 @@ static void wificfg_scan_profile_dir(const char *source,
     DIR *dir;
     struct dirent *entry;
 
+    if (!wificfg_path_components_safe(dir_path, true)) {
+        return;
+    }
     dir = opendir(dir_path);
     if (dir == NULL) {
         return;

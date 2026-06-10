@@ -11,7 +11,7 @@
 
 ## Gate Results
 
-- `wlan0_present`: `True` address `00:0a:f5:44:7f:3a`
+- `wlan0_present`: `True` address `xx:7f:3a` (`mac_raw_redacted=1`)
 - `helper_intact`: `True` missing `False` summary_armed `False`
 - `icnss_state_line`: `State: 0xd8d(FW CONN | FW READY | DRIVER PROBED | SSR REGISTERED | PDR REGISTERED | MSA0 ASSIGNED | WLAN FW EXISTS)`
 - `icnss_fw_ready_processed`: `1`

@@ -6,7 +6,7 @@ from __future__ import annotations
 from _workspace_bootstrap import add_legacy_revalidation_path, repo_root
 
 REPO_ROOT = repo_root()
-add_legacy_revalidation_path(REPO_ROOT)
+add_legacy_revalidation_path(REPO_ROOT, include_archive=True)
 
 from a90harness.evidence import workspace_private_build_path, workspace_private_input_path
 

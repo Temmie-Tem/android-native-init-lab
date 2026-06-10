@@ -57,7 +57,8 @@ After the supervisor window, `wifi status` succeeded:
 
 ```text
 wlan0_present=1
-mac=00:0a:f5:44:7f:3a
+mac=xx:7f:3a
+mac_raw_redacted=1
 operstate=down
 flags=0x1002
 decision=wifi-status-wlan0-present

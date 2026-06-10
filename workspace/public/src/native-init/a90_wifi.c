@@ -967,6 +967,47 @@ static bool wifi_value_missing(const char *value) {
     return value == NULL || value[0] == '\0' || strcmp(value, "-") == 0;
 }
 
+static void wifi_mac_label(const char *mac, char *out, size_t out_size) {
+    size_t mac_len;
+
+    if (out == NULL || out_size == 0) {
+        return;
+    }
+    snprintf(out, out_size, "%s", "none");
+    if (wifi_value_missing(mac)) {
+        return;
+    }
+    mac_len = strlen(mac);
+    if (mac_len < 5) {
+        snprintf(out, out_size, "%s", "redacted");
+        return;
+    }
+    snprintf(out, out_size, "xx:%s", mac + mac_len - 5);
+}
+
+static void wifi_ipv4_label(const char *ipv4, char *out, size_t out_size) {
+    struct in_addr address;
+    uint32_t value;
+
+    if (out == NULL || out_size == 0) {
+        return;
+    }
+    snprintf(out, out_size, "%s", "none");
+    if (wifi_value_missing(ipv4)) {
+        return;
+    }
+    if (inet_pton(AF_INET, ipv4, &address) != 1) {
+        return;
+    }
+    value = ntohl(address.s_addr);
+    snprintf(out,
+             out_size,
+             "%u.%u.%u.x",
+             (unsigned int)((value >> 24) & 0xffU),
+             (unsigned int)((value >> 16) & 0xffU),
+             (unsigned int)((value >> 8) & 0xffU));
+}
+
 static bool wifi_ctrl_reply_value(const char *reply, const char *key, char *out, size_t out_size) {
     const char *cursor = reply;
     size_t key_len;
@@ -1069,7 +1110,9 @@ static int wifi_write_runtime_summary(const char *decision) {
     char operstate[80];
     char carrier[32];
     char mac[80];
+    char mac_label[32];
     char ipv4[64];
+    char ip4_label[32];
     char text[1600];
     const char *ssid_label;
     int ipv4_rc;
@@ -1079,6 +1122,8 @@ static int wifi_write_runtime_summary(const char *decision) {
     wifi_read_attr("/sys/class/net/" A90_WIFI_IFACE, "carrier", carrier, sizeof(carrier));
     wifi_read_attr("/sys/class/net/" A90_WIFI_IFACE, "address", mac, sizeof(mac));
     ipv4_rc = wifi_ipv4_addr(A90_WIFI_IFACE, ipv4, sizeof(ipv4));
+    wifi_mac_label(mac, mac_label, sizeof(mac_label));
+    wifi_ipv4_label(ipv4_rc == 0 ? ipv4 : "-", ip4_label, sizeof(ip4_label));
     ssid_label = link_info.ssid_label[0] != '\0' ?
         link_info.ssid_label : (wifi_carrier_up() ? "connected" : "");
     snprintf(text,
@@ -1088,6 +1133,7 @@ static int wifi_write_runtime_summary(const char *decision) {
              "carrier=%s\n"
              "mac_label=%s\n"
              "mac=%s\n"
+             "mac_raw_redacted=1\n"
              "ssid_label=%s\n"
              "wpa_state=%s\n"
              "rssi_dbm=%s\n"
@@ -1095,6 +1141,7 @@ static int wifi_write_runtime_summary(const char *decision) {
              "freq_mhz=%s\n"
              "ipv4=%s\n"
              "ip4_label=%s\n"
+             "ip4_masked=1\n"
              "dhcp_ready=%d\n"
              "route_default=%d\n"
              "ctrl_status_rc=%d\n"
@@ -1105,15 +1152,15 @@ static int wifi_write_runtime_summary(const char *decision) {
              wifi_iface_present() ? 1 : 0,
              operstate,
              carrier,
-             mac,
-             mac,
+             mac_label,
+             mac_label,
              ssid_label,
              link_info.wpa_state,
              link_info.rssi_dbm,
              link_info.linkspeed_mbps,
              link_info.freq_mhz,
-             ipv4_rc == 0 ? ipv4 : "-",
-             ipv4_rc == 0 ? ipv4 : "none",
+             ip4_label,
+             ip4_label,
              ipv4_rc == 0 ? 1 : 0,
              wifi_default_route_present() ? 1 : 0,
              link_info.status_rc,
@@ -1195,6 +1242,7 @@ int a90_wifi_dhcp_profile(const char *profile_name) {
     struct a90_run_result dhcp_result;
     struct stat resolv_stat;
     char ipv4[64];
+    char ip4_label[32];
     int script_rc;
     int dhcp_wait_rc;
     int dhcp_rc;
@@ -1262,11 +1310,14 @@ int a90_wifi_dhcp_profile(const char *profile_name) {
     a90_console_printf("dhcp_timed_out=%d\r\n", dhcp_result.timed_out ? 1 : 0);
 
     ipv4_rc = wifi_ipv4_addr(A90_WIFI_IFACE, ipv4, sizeof(ipv4));
+    wifi_ipv4_label(ipv4_rc == 0 ? ipv4 : "-", ip4_label, sizeof(ip4_label));
     route_default = wifi_default_route_present();
     nameservers = wifi_count_resolv_nameservers();
     a90_console_printf("ipv4_assigned=%d\r\n", ipv4_rc == 0 ? 1 : 0);
     a90_console_printf("ipv4_rc=%d\r\n", ipv4_rc);
-    a90_console_printf("ipv4=%s\r\n", ipv4_rc == 0 ? ipv4 : "-");
+    a90_console_printf("ipv4=%s\r\n", ip4_label);
+    a90_console_printf("ip4_label=%s\r\n", ip4_label);
+    a90_console_printf("ip4_masked=1\r\n");
     a90_console_printf("route_default_present=%d\r\n", route_default ? 1 : 0);
     a90_console_printf("resolv_conf.path=%s\r\n", A90_WIFI_RESOLV_CONF);
     a90_console_printf("resolv_conf.present=%d\r\n", stat(A90_WIFI_RESOLV_CONF, &resolv_stat) == 0 ? 1 : 0);
@@ -1648,6 +1699,8 @@ static void wifi_runtime_value(const char *key, char *out, size_t out_size) {
 int a90_wifi_status_snapshot(struct a90_wifi_status_snapshot *out) {
     char iface_path[128];
     char kind[32];
+    char raw_mac[80];
+    char raw_ipv4[64];
 
     if (out == NULL) {
         return -EINVAL;
@@ -1656,20 +1709,22 @@ int a90_wifi_status_snapshot(struct a90_wifi_status_snapshot *out) {
     snprintf(out->iface, sizeof(out->iface), "%s", A90_WIFI_IFACE);
     snprintf(iface_path, sizeof(iface_path), "/sys/class/net/%s", A90_WIFI_IFACE);
     out->wlan0_present = access(iface_path, F_OK) == 0;
-    wifi_read_attr(iface_path, "address", out->mac, sizeof(out->mac));
+    wifi_read_attr(iface_path, "address", raw_mac, sizeof(raw_mac));
+    wifi_mac_label(raw_mac, out->mac, sizeof(out->mac));
     wifi_read_attr(iface_path, "operstate", out->operstate, sizeof(out->operstate));
     wifi_read_attr(iface_path, "carrier", out->carrier, sizeof(out->carrier));
     wifi_read_attr(iface_path, "flags", out->flags, sizeof(out->flags));
     wifi_read_attr(iface_path, "statistics/rx_bytes", out->rx_bytes, sizeof(out->rx_bytes));
     wifi_read_attr(iface_path, "statistics/tx_bytes", out->tx_bytes, sizeof(out->tx_bytes));
-    out->ipv4_rc = wifi_ipv4_addr(A90_WIFI_IFACE, out->ipv4, sizeof(out->ipv4));
+    out->ipv4_rc = wifi_ipv4_addr(A90_WIFI_IFACE, raw_ipv4, sizeof(raw_ipv4));
     if (out->ipv4_rc < 0) {
-        snprintf(out->ipv4, sizeof(out->ipv4), "%s", "-");
+        snprintf(raw_ipv4, sizeof(raw_ipv4), "%s", "-");
     }
+    wifi_ipv4_label(raw_ipv4, out->ipv4, sizeof(out->ipv4));
     out->supplicant_process_count = wifi_count_processes_with_token("wpa_supplicant");
     wifi_runtime_value("wlan0_present=", out->runtime_wlan0, sizeof(out->runtime_wlan0));
-    wifi_runtime_value("mac=", out->runtime_mac, sizeof(out->runtime_mac));
-    wifi_runtime_value("ipv4=", out->runtime_ip, sizeof(out->runtime_ip));
+    wifi_runtime_value("mac_label=", out->runtime_mac, sizeof(out->runtime_mac));
+    wifi_runtime_value("ip4_label=", out->runtime_ip, sizeof(out->runtime_ip));
     wifi_runtime_value("ssid_label=", out->runtime_ssid_label, sizeof(out->runtime_ssid_label));
     wifi_runtime_value("wpa_state=", out->runtime_wpa_state, sizeof(out->runtime_wpa_state));
     wifi_runtime_value("rssi_dbm=", out->runtime_rssi, sizeof(out->runtime_rssi));
@@ -1741,12 +1796,16 @@ int a90_wifi_print_status(void) {
     a90_console_printf("iface=%s\r\n", status.iface);
     a90_console_printf("wlan0_present=%d\r\n", status.wlan0_present ? 1 : 0);
     a90_console_printf("mac=%s\r\n", status.mac);
+    a90_console_printf("mac_label=%s\r\n", status.mac);
+    a90_console_printf("mac_raw_redacted=1\r\n");
     a90_console_printf("operstate=%s\r\n", status.operstate);
     a90_console_printf("carrier=%s\r\n", status.carrier);
     a90_console_printf("flags=%s\r\n", status.flags);
     a90_console_printf("rx_bytes=%s\r\n", status.rx_bytes);
     a90_console_printf("tx_bytes=%s\r\n", status.tx_bytes);
     a90_console_printf("ipv4=%s\r\n", status.ipv4);
+    a90_console_printf("ip4_label=%s\r\n", status.ipv4);
+    a90_console_printf("ip4_masked=1\r\n");
     a90_console_printf("ipv4_rc=%d\r\n", status.ipv4_rc);
     a90_console_printf("runtime_summary.path=%s\r\n", A90_WIFI_RUNTIME_SUMMARY);
     a90_console_printf("runtime_summary.present=%d\r\n", status.runtime_summary_present ? 1 : 0);

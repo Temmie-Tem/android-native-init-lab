@@ -76,9 +76,14 @@ def find_step(steps: list[dict[str, Any]], name: str) -> dict[str, Any] | None:
     return None
 
 
+def zero_flag(value: Any) -> bool:
+    return str(value) == "0"
+
+
 def classify(manifest: dict[str, Any]) -> dict[str, Any]:
     version = manifest.get("version") or {}
     connect = manifest.get("connect") or {}
+    autoconnect_status = manifest.get("autoconnect_status") or {}
     cleanup = manifest.get("cleanup") or {}
     disable_restore = manifest.get("autoconnect_disable_restore") or {}
     final_selftest = manifest.get("final_selftest") or {}
@@ -93,6 +98,23 @@ def classify(manifest: dict[str, Any]) -> dict[str, Any]:
             "decision": "v2180-wifi-phase-connect-failed",
             "pass": False,
             "reason": "wifi autoconnect once did not pass",
+        }
+    secret_checks = {
+        "autoconnect_status.secret_values_logged": autoconnect_status.get("secret_values_logged"),
+        "connect.secret_values_logged": connect.get("secret_values_logged"),
+        "connect.credentials_logged": connect.get("credentials_logged"),
+        "scope.credentials_logged": (manifest.get("scope") or {}).get("credentials_logged"),
+    }
+    leaked = [
+        f"{key}={value}"
+        for key, value in secret_checks.items()
+        if not zero_flag(value)
+    ]
+    if leaked:
+        return {
+            "decision": "v2180-wifi-phase-secret-hygiene-failed",
+            "pass": False,
+            "reason": "credential/secret hygiene flags are not all zero: " + ", ".join(leaked),
         }
     if cleanup.get("decision") != "wifi-cleanup-done":
         return {

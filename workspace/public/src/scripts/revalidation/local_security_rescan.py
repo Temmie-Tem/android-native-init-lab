@@ -89,7 +89,7 @@ def active_boot_sha_map_has_v2189() -> bool:
     text = read_rel(path)
     return (
         '"boot_linux_v2189_security_p0_stage_fix.img": '
-        '"a7332612199cfd275f2dfc6fdb25843af401a1ecef2fa54ac0f52afe705f1ffe"'
+        '"f54becb2b720ad198413c2a0089912626ca295c79a96f13e0921cf4f05b39f51"'
     ) in text
 
 

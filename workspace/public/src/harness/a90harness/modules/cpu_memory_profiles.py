@@ -11,6 +11,7 @@ import time
 from dataclasses import asdict, dataclass
 from typing import Any
 
+from a90harness.evidence import read_bounded_json
 from a90harness.path_safety import require_path_under, require_safe_component
 from a90harness.module import ModuleContext, StepResult, TestModule
 
@@ -251,7 +252,7 @@ class CpuMemoryProfilesModule(TestModule):
         report_path = ctx.module_dir / "cpu-memory-profiles-report.json"
         if not report_path.exists():
             return StepResult("verify", False, f"missing {report_path}", 0.0)
-        report = json.loads(report_path.read_text(encoding="utf-8"))
+        report = read_bounded_json(report_path, max_bytes=4 * 1024 * 1024)
         profiles = report.get("profiles", [])
         failures: list[str] = []
         max_cpu_usage = 0

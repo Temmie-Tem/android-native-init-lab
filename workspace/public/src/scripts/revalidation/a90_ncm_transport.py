@@ -28,6 +28,9 @@ DEFAULT_DEVICE_IP = "192.168.7.2"
 DEFAULT_DEVICE_NETMASK = "255.255.255.0"
 DEFAULT_NM_PROFILE = "a90-v725-ncm-bench"
 NM_REPAIR_COMMAND_TAIL_CHARS = 1000
+NCM_REPAIR_HOST_NET_ENV = "A90_NCM_REPAIR_HOST_NET"
+SECRET_SCAN_CHUNK_BYTES = 1024 * 1024
+MAX_ARCHIVE_MEMBER_SCAN_BYTES = 16 * 1024 * 1024
 
 RunStep = Callable[..., dict[str, Any]]
 
@@ -89,6 +92,10 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def env_flag(name: str) -> bool:
+    return os.environ.get(name, "").strip().lower() in {"1", "true", "yes", "on"}
+
+
 def write_compact_step(store: Any,
                        steps: list[dict[str, Any]],
                        name: str,
@@ -132,16 +139,17 @@ class FastTransferHandler(http.server.BaseHTTPRequestHandler):
         if self.path.split("?", 1)[0] != expected_path:
             self.send_error(404, "not found")
             return
-        data = self.server.file_path.read_bytes()  # type: ignore[attr-defined]
+        file_path = self.server.file_path  # type: ignore[attr-defined]
+        file_size = file_path.stat().st_size
         self.send_response(200)
         self.send_header("Content-Type", "application/octet-stream")
-        self.send_header("Content-Length", str(len(data)))
+        self.send_header("Content-Length", str(file_size))
         self.send_header("Cache-Control", "no-store")
         self.send_header("Connection", "close")
         self.end_headers()
         try:
-            self.wfile.write(data)
-            self.wfile.flush()
+            with file_path.open("rb") as handle:
+                shutil.copyfileobj(handle, self.wfile, length=1024 * 1024)
             self.server.served_count += 1  # type: ignore[attr-defined]
         except (BrokenPipeError, ConnectionResetError) as exc:
             self.server.request_log.append(f"client-closed-during-body: {exc}")  # type: ignore[attr-defined]
@@ -155,16 +163,36 @@ class IPv6ThreadingHTTPServer(http.server.ThreadingHTTPServer):
     daemon_threads = True
     allow_reuse_address = True
 
+    def server_bind(self) -> None:
+        try:
+            self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 1)
+        except OSError:
+            pass
+        super().server_bind()
+
+
+def scoped_ipv6_bind_tuple(host: str, ifname: str, port: int = 0) -> tuple[str, int, int, int]:
+    host = host.split("%", 1)[0]
+    scope_id = 0
+    if host.lower().startswith("fe80:"):
+        scope_id = socket.if_nametoindex(ifname)
+    return (host, port, 0, scope_id)
+
 
 class SingleFileHttpServer:
-    def __init__(self, file_path: Path) -> None:
+    def __init__(self, file_path: Path, *, bind_host: str, bind_ifname: str) -> None:
         self.file_path = file_path
+        self.bind_host = bind_host
+        self.bind_ifname = bind_ifname
         self.server: IPv6ThreadingHTTPServer | None = None
         self.thread: threading.Thread | None = None
         self.port = 0
 
     def __enter__(self) -> "SingleFileHttpServer":
-        server = IPv6ThreadingHTTPServer(("::", 0), FastTransferHandler)
+        server = IPv6ThreadingHTTPServer(
+            scoped_ipv6_bind_tuple(self.bind_host, self.bind_ifname),
+            FastTransferHandler,
+        )
         server.file_path = self.file_path  # type: ignore[attr-defined]
         server.request_log = []  # type: ignore[attr-defined]
         server.served_count = 0  # type: ignore[attr-defined]
@@ -186,14 +214,23 @@ class SingleFileHttpServer:
         return {
             "port": self.port,
             "file": self.file_path.name,
+            "bind_host": self.bind_host,
+            "bind_ifname": self.bind_ifname,
             "served_count": int(getattr(server, "served_count", 0)) if server is not None else 0,
             "request_log": list(getattr(server, "request_log", [])) if server is not None else [],
         }
 
 
 class TcpArchiveReceiver:
-    def __init__(self, archive_path: Path, *, timeout: float = 45.0) -> None:
+    def __init__(self,
+                 archive_path: Path,
+                 *,
+                 bind_host: str,
+                 bind_ifname: str,
+                 timeout: float = 45.0) -> None:
         self.archive_path = archive_path
+        self.bind_host = bind_host
+        self.bind_ifname = bind_ifname
         self.timeout = timeout
         self.sock: socket.socket | None = None
         self.thread: threading.Thread | None = None
@@ -209,7 +246,11 @@ class TcpArchiveReceiver:
     def __enter__(self) -> "TcpArchiveReceiver":
         sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        sock.bind(("::", 0))
+        try:
+            sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 1)
+        except OSError:
+            pass
+        sock.bind(scoped_ipv6_bind_tuple(self.bind_host, self.bind_ifname))
         sock.listen(1)
         sock.settimeout(self.timeout)
         self.sock = sock
@@ -257,7 +298,9 @@ class TcpArchiveReceiver:
 
 
 class TcpProbeReceiver:
-    def __init__(self, *, timeout: float = 8.0) -> None:
+    def __init__(self, *, bind_host: str, bind_ifname: str, timeout: float = 8.0) -> None:
+        self.bind_host = bind_host
+        self.bind_ifname = bind_ifname
         self.timeout = timeout
         self.sock: socket.socket | None = None
         self.thread: threading.Thread | None = None
@@ -268,7 +311,11 @@ class TcpProbeReceiver:
     def __enter__(self) -> "TcpProbeReceiver":
         sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        sock.bind(("::", 0))
+        try:
+            sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 1)
+        except OSError:
+            pass
+        sock.bind(scoped_ipv6_bind_tuple(self.bind_host, self.bind_ifname))
         sock.listen(1)
         sock.settimeout(self.timeout)
         self.sock = sock
@@ -368,6 +415,7 @@ def is_a90_ncm_netdev(item: dict[str, Any]) -> bool:
     return (
         str(item.get("driver") or "") == A90_USB_NCM_DRIVER
         and str(item.get("usb_vendor") or "").lower() == A90_USB_VENDOR_ID
+        and str(item.get("usb_product") or "").lower() == A90_USB_PRODUCT_ID
     )
 
 
@@ -422,7 +470,11 @@ def host_netdev_snapshot() -> list[dict[str, Any]]:
         interface_subclass = usb_attrs.get("bInterfaceSubClass") or ""
         interface_protocol = usb_attrs.get("bInterfaceProtocol") or ""
         interface_number = usb_attrs.get("bInterfaceNumber") or udev_props.get("ID_USB_INTERFACE_NUM") or ""
-        a90_ncm = driver == A90_USB_NCM_DRIVER and usb_vendor == A90_USB_VENDOR_ID
+        a90_ncm = (
+            driver == A90_USB_NCM_DRIVER
+            and usb_vendor == A90_USB_VENDOR_ID
+            and usb_product == A90_USB_PRODUCT_ID
+        )
         snapshot.append({
             "ifname": ifname,
             "operstate": str(entry.get("operstate") or ""),
@@ -462,7 +514,7 @@ def host_netdev_snapshot() -> list[dict[str, Any]]:
 def host_ncm_candidates(snapshot: list[dict[str, Any]], *, require_link_local: bool) -> list[dict[str, Any]]:
     candidates: list[dict[str, Any]] = []
     for item in snapshot:
-        if not item.get("likely_usb_ncm"):
+        if not is_a90_ncm_netdev(item):
             continue
         if require_link_local and not str(item.get("link_local") or "").startswith("fe80:"):
             continue
@@ -535,10 +587,9 @@ def host_linklocal_repair_nmcli(*,
     commands: list[list[str]] = []
     active_connection = nmcli_connection_for_device(ifname)
     if active_connection and active_connection != "--" and active_connection != nm_profile:
-        commands.extend([
-            ["nmcli", "connection", "modify", active_connection, "connection.autoconnect", "no"],
-            ["nmcli", "connection", "down", active_connection],
-        ])
+        result["reason"] = "foreign-active-nm-connection"
+        result["active_connection"] = active_connection
+        return result
     commands.extend([
         ["nmcli", "connection", "delete", nm_profile],
         [
@@ -558,7 +609,7 @@ def host_linklocal_repair_nmcli(*,
             "ipv6.addr-gen-mode",
             "stable-privacy",
             "connection.autoconnect",
-            "yes",
+            "no",
         ],
         ["nmcli", "connection", "up", nm_profile],
     ])
@@ -607,7 +658,8 @@ class FastTransferSession:
                  device_ifname: str = DEFAULT_DEVICE_IFNAME,
                  device_ip: str = DEFAULT_DEVICE_IP,
                  device_netmask: str = DEFAULT_DEVICE_NETMASK,
-                 nm_profile: str = DEFAULT_NM_PROFILE) -> None:
+                 nm_profile: str = DEFAULT_NM_PROFILE,
+                 repair_host_net: bool | None = None) -> None:
         self.store = store
         self.steps = steps
         self.run_step = run_step
@@ -616,6 +668,7 @@ class FastTransferSession:
         self.device_ip = device_ip
         self.device_netmask = device_netmask
         self.nm_profile = nm_profile
+        self.repair_host_net = env_flag(NCM_REPAIR_HOST_NET_ENV) if repair_host_net is None else repair_host_net
         self.attempted = False
         self.ready = False
         self.closed = False
@@ -624,6 +677,27 @@ class FastTransferSession:
         self.reason = "not-started"
         self.device_probe_ok = False
         self.nm_repair_attempted = False
+
+    def record_host_repair_skipped(self, *, reason: str) -> None:
+        if self.nm_repair_attempted:
+            self.reason = f"host-ncm-repair-disabled:{reason}"
+            return
+        self.nm_repair_attempted = True
+        self.reason = f"host-ncm-repair-disabled:{reason}"
+        write_compact_step(
+            self.store,
+            self.steps,
+            "fast-transfer-host-nm-linklocal-repair-skipped",
+            command=["host", "nmcli", "a90-linklocal-repair", "skipped"],
+            ok=False,
+            rc=1,
+            stdout=json.dumps({
+                "ok": False,
+                "reason": self.reason,
+                "repair_host_net": self.repair_host_net,
+                "opt_in_env": NCM_REPAIR_HOST_NET_ENV,
+            }, ensure_ascii=False, sort_keys=True) + "\n",
+        )
 
     def select_ready_candidate(self, snapshot: list[dict[str, Any]], *, reason: str) -> bool:
         candidates = host_ncm_candidates(snapshot, require_link_local=True)
@@ -699,8 +773,10 @@ class FastTransferSession:
             )
             return True
         if host_ncm_candidates(before, require_link_local=False):
-            if self.repair_host_linklocal(reason="a90-ncm-present-without-host-fe80"):
+            if self.repair_host_net and self.repair_host_linklocal(reason="a90-ncm-present-without-host-fe80"):
                 return True
+            if not self.repair_host_net:
+                self.record_host_repair_skipped(reason="a90-ncm-present-without-host-fe80")
         self.attempted = True
         self.run_step(
             self.store,
@@ -745,8 +821,10 @@ class FastTransferSession:
                 )
                 return True
             if host_ncm_candidates(snapshot, require_link_local=False):
-                if self.repair_host_linklocal(reason="a90-ncm-after-usbnet-without-host-fe80"):
+                if self.repair_host_net and self.repair_host_linklocal(reason="a90-ncm-after-usbnet-without-host-fe80"):
                     return True
+                if not self.repair_host_net:
+                    self.record_host_repair_skipped(reason="a90-ncm-after-usbnet-without-host-fe80")
             time.sleep(0.5)
         self.reason = "host-a90-ncm-link-local-not-found"
         write_compact_step(
@@ -761,7 +839,7 @@ class FastTransferSession:
         return False
 
     def probe_device_to_host(self, *, label: str) -> bool:
-        with TcpProbeReceiver(timeout=8.0) as probe:
+        with TcpProbeReceiver(bind_host=self.host_link_local, bind_ifname=self.ifname, timeout=8.0) as probe:
             script = (
                 f"printf a90-fast-probe | /cache/bin/busybox nc -w 3 "
                 f"{shlex.quote(self.host_link_local + '%' + self.device_ifname)} {probe.port}; "
@@ -810,8 +888,10 @@ class FastTransferSession:
         self.device_probe_ok = self.probe_device_to_host(label="")
         if self.device_probe_ok:
             return True
-        if self.repair_host_linklocal(reason=self.reason):
+        if self.repair_host_net and self.repair_host_linklocal(reason=self.reason):
             self.device_probe_ok = self.probe_device_to_host(label="-after-nm-repair")
+        elif not self.repair_host_net:
+            self.record_host_repair_skipped(reason=self.reason)
         return self.device_probe_ok
 
     def transfer_file(self,
@@ -840,7 +920,7 @@ class FastTransferSession:
             )
             return result
         tmp_remote = f"{remote_path}.tmp.{os.getpid()}"
-        with SingleFileHttpServer(local_path) as httpd:
+        with SingleFileHttpServer(local_path, bind_host=self.host_link_local, bind_ifname=self.ifname) as httpd:
             url = f"http://[{self.host_link_local}%{self.device_ifname}]:{httpd.port}/{local_path.name}"
             wait_ipv6 = (
                 "i=0; "
@@ -958,6 +1038,42 @@ def scan_secret_bytes(data: bytes, secret_patterns: dict[str, bytes]) -> list[st
     return hits
 
 
+def scan_secret_file(path: Path, secret_patterns: dict[str, bytes]) -> list[str]:
+    hits: set[str] = set()
+    max_pattern = max((len(pattern) for pattern in secret_patterns.values() if pattern), default=0)
+    carry = b""
+    with path.open("rb") as handle:
+        while True:
+            chunk = handle.read(SECRET_SCAN_CHUNK_BYTES)
+            if not chunk:
+                break
+            window = carry + chunk
+            hits.update(scan_secret_bytes(window, secret_patterns))
+            carry = window[-max_pattern:] if max_pattern > 0 else b""
+    return sorted(hits)
+
+
+def scan_secret_stream(handle: Any,
+                       secret_patterns: dict[str, bytes],
+                       *,
+                       max_bytes: int) -> list[str]:
+    hits: set[str] = set()
+    max_pattern = max((len(pattern) for pattern in secret_patterns.values() if pattern), default=0)
+    carry = b""
+    read_total = 0
+    while True:
+        chunk = handle.read(min(SECRET_SCAN_CHUNK_BYTES, max_bytes - read_total))
+        if not chunk:
+            break
+        read_total += len(chunk)
+        window = carry + chunk
+        hits.update(scan_secret_bytes(window, secret_patterns))
+        carry = window[-max_pattern:] if max_pattern > 0 else b""
+        if read_total >= max_bytes:
+            break
+    return sorted(hits)
+
+
 def validate_uploaded_archive(archive_path: Path,
                               *,
                               secret_patterns: dict[str, bytes] | None = None,
@@ -985,7 +1101,7 @@ def validate_uploaded_archive(archive_path: Path,
         return result
 
     patterns = secret_patterns or {}
-    secret_hits = set(scan_secret_bytes(archive_path.read_bytes(), patterns))
+    secret_hits = set(scan_secret_file(archive_path, patterns))
     try:
         with tarfile.open(archive_path, "r:gz") as tar:
             entries = tar.getmembers()
@@ -999,13 +1115,25 @@ def validate_uploaded_archive(archive_path: Path,
             for member in entries:
                 if not member.isfile():
                     continue
+                if member.size > MAX_ARCHIVE_MEMBER_SCAN_BYTES:
+                    result["ok"] = False
+                    result["reason"] = "member-too-large"
+                    return result
                 extracted = tar.extractfile(member)
                 if extracted is None:
                     continue
-                data = extracted.read()
-                secret_hits.update(scan_secret_bytes(data, patterns))
+                member_hits = scan_secret_stream(
+                    extracted,
+                    patterns,
+                    max_bytes=MAX_ARCHIVE_MEMBER_SCAN_BYTES,
+                )
+                secret_hits.update(member_hits)
                 if member.name.endswith("/connect-result.txt") or member.name == "connect-result.txt":
-                    result["connect_result_text"] = data.decode("utf-8", errors="replace")
+                    extracted = tar.extractfile(member)
+                    if extracted is not None:
+                        result["connect_result_text"] = extracted.read(
+                            min(member.size, MAX_ARCHIVE_MEMBER_SCAN_BYTES)
+                        ).decode("utf-8", errors="replace")
     except tarfile.TarError as exc:
         result["reason"] = f"tar-validate-failed:{exc}"
         return result

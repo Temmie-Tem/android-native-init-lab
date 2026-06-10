@@ -389,6 +389,10 @@ def pick_decision(mode: str, fields: dict[str, str], candidates: list[dict[str, 
     return "supplicant-dependency-no-ctrl-ready-candidate"
 
 
+def transfer_ok(result: dict[str, Any]) -> bool:
+    return bool(result.get("ok")) and not bool(result.get("sha256_mismatch"))
+
+
 def main() -> int:
     started_monotonic = time.monotonic()
     parser = argparse.ArgumentParser(description=__doc__)
@@ -437,6 +441,13 @@ def main() -> int:
     script_path.chmod(0o700)
 
     transfer = ncm.FastTransferSession(store, steps, run_step=transport.run_serial_step)
+    helper_transfer: dict[str, Any] = {"ok": False, "reason": "not-run"}
+    script_transfer: dict[str, Any] = {"ok": False, "reason": "not-run"}
+    probe_step: dict[str, Any] = {
+        "ok": False,
+        "stdout": "",
+        "stderr": "transfer validation not completed",
+    }
     try:
         helper_transfer = transfer.transfer_file(
             label="wpa-ctrl-helper",
@@ -452,25 +463,26 @@ def main() -> int:
             expected_sha256=sha256_file(script_path),
             mode="700",
         )
-        probe_step = transport.run_serial_step(
-            store,
-            steps,
-            "run-supplicant-dependency-probe",
-            [
-                "run",
-                "/cache/bin/busybox",
-                "sh",
-                "-c",
-                " ".join([
-                    shlex.quote(REMOTE_PROBE_SCRIPT),
-                    shlex.quote(args.mode),
-                    shlex.quote(args.connect_config),
-                    "1" if args.keep_remote else "0",
-                ]),
-            ],
-            timeout=180,
-            bridge_timeout=170,
-        )
+        if transfer_ok(helper_transfer) and transfer_ok(script_transfer):
+            probe_step = transport.run_serial_step(
+                store,
+                steps,
+                "run-supplicant-dependency-probe",
+                [
+                    "run",
+                    "/cache/bin/busybox",
+                    "sh",
+                    "-c",
+                    " ".join([
+                        shlex.quote(REMOTE_PROBE_SCRIPT),
+                        shlex.quote(args.mode),
+                        shlex.quote(args.connect_config),
+                        "1" if args.keep_remote else "0",
+                    ]),
+                ],
+                timeout=180,
+                bridge_timeout=170,
+            )
     finally:
         transfer.close()
 
@@ -478,10 +490,15 @@ def main() -> int:
     output = "\n".join([str(probe_step.get("stdout") or ""), str(probe_step.get("stderr") or "")])
     fields = transport.parse_key_values(output)
     candidates = parse_candidate_results(fields)
-    decision = pick_decision(args.mode, fields, candidates)
-    ok = any(item.get("ping_ok") for item in candidates)
-    if args.mode == "connect":
-        ok = any(item.get("carrier_up") for item in candidates)
+    transfers_valid = transfer_ok(helper_transfer) and transfer_ok(script_transfer)
+    if transfers_valid:
+        decision = pick_decision(args.mode, fields, candidates)
+        ok = any(item.get("ping_ok") for item in candidates)
+        if args.mode == "connect":
+            ok = any(item.get("carrier_up") for item in candidates)
+    else:
+        decision = "supplicant-dependency-probe-transfer-failed"
+        ok = False
 
     manifest = {
         "label": safe_label,
@@ -492,6 +509,8 @@ def main() -> int:
         "transport": selection,
         "helper_transfer": helper_transfer,
         "script_transfer": script_transfer,
+        "transfer_validated": transfers_valid,
+        "probe_executed": transfers_valid,
         "connect_config": args.connect_config,
         "prepare_profile_used": bool(args.prepare_profile),
         "keep_remote": args.keep_remote,

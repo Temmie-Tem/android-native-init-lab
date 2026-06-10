@@ -6,6 +6,7 @@ import json
 import subprocess
 import sys
 
+from a90harness.evidence import read_bounded_json
 from a90harness.module import ModuleContext, StepResult, TestModule
 
 
@@ -49,7 +50,7 @@ class KselftestFeasibilityModule(TestModule):
         report_path = ctx.module_dir / "kselftest-feasibility-report.json"
         if not report_path.exists():
             return StepResult("verify", False, f"missing {report_path}", 0.0)
-        payload = json.loads(report_path.read_text(encoding="utf-8"))
+        payload = read_bounded_json(report_path, max_bytes=4 * 1024 * 1024)
         checks = {
             "pass": payload.get("pass") is True,
             "version_matches": payload.get("version_matches") is True,
