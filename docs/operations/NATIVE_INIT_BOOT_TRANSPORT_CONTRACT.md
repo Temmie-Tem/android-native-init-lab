@@ -20,16 +20,16 @@ Current verified baseline:
 
 | Field | Value |
 | --- | --- |
-| Device-visible version | `A90 Linux init 0.9.255` |
-| Build tag | `v2182-hud-menu-cleanup` |
-| Boot image | `workspace/private/inputs/boot_images/boot_linux_v2182_hud_menu_cleanup.img` |
-| Boot SHA256 | `8e3e16f68d019ef5f56d2246ddcc7dbf14aa5ae08b40a0b983688812d792f839` |
+| Device-visible version | `A90 Linux init 0.9.259` |
+| Build tag | `v2187-screenapp-ui-validation` |
+| Boot image | `workspace/private/inputs/boot_images/boot_linux_v2187_screenapp_ui_validation.img` |
+| Boot SHA256 | `0422f854b3e78d36e225012fd89a53016067155e200291d067ff7d71f32091ca` |
 | Source root | `workspace/public/src/native-init/` |
-| Builder | `workspace/public/src/scripts/revalidation/build_native_init_boot_v2182_hud_menu_cleanup.py` |
-| Source/build report | `docs/reports/NATIVE_INIT_V2182_HUD_MENU_CLEANUP_SOURCE_BUILD_2026-06-09.md` |
-| Live validation report | `workspace/private/runs/ui/v2182-hud-menu-cleanup-live-20260609-083432` |
-| Promotion report | `docs/reports/NATIVE_INIT_V2183_V2182_HUD_MENU_CLEANUP_BASELINE_PROMOTION_2026-06-09.md` |
-| Previous rollback | `workspace/private/inputs/boot_images/boot_linux_v2178_wifi_profile_autoconnect.img` |
+| Builder | `workspace/public/src/scripts/revalidation/build_native_init_boot_v2187_screenapp_ui_validation.py` |
+| Source/build report | `docs/reports/NATIVE_INIT_V2187_SCREENAPP_UI_VALIDATION_SOURCE_BUILD_2026-06-10.md` |
+| Live validation report | `docs/reports/NATIVE_INIT_V2187_SCREENAPP_UI_VALIDATION_LIVE_2026-06-10.md` |
+| Promotion report | `docs/reports/NATIVE_INIT_V2187_SCREENAPP_UI_VALIDATION_BASELINE_PROMOTION_2026-06-10.md` |
+| Previous rollback | `workspace/private/inputs/boot_images/boot_linux_v2186_wifi_ui_polish.img` |
 | Known-good fallback | `workspace/private/inputs/boot_images/boot_linux_v48.img` |
 
 The boot image must provide:
@@ -48,15 +48,15 @@ Previous baseline:
 
 | Field | Value |
 | --- | --- |
-| Build tag | `v2174-wifi-urandom-connect` |
-| Device-visible version | `A90 Linux init 0.9.251` |
-| Boot image | `workspace/private/inputs/boot_images/boot_linux_v2174_wifi_urandom_connect.img` |
-| Boot SHA256 | `cda957e4302d66e407fc97a95932501f0ef2ac655ee264c94519111fece0b3ba` |
-| Current role | Immediate rollback image |
+| Build tag | `v2186-wifi-ui-polish` |
+| Device-visible version | `A90 Linux init 0.9.258` |
+| Boot image | `workspace/private/inputs/boot_images/boot_linux_v2186_wifi_ui_polish.img` |
+| Boot SHA256 | `7a0db3bb76232f778869d3bf0788268f3a1942b230b094158dddf7a7d500fd32` |
+| Current role | Older conservative fallback |
 
-`v2182-hud-menu-cleanup` is promoted as the current baseline by V2183. It keeps
-the V2178 Wi-Fi profile/autoconnect path and adds HUD storage/Wi-Fi glance
-fields, shared six-row HUD layout geometry, and cleaned menu navigation.
+`v2187-screenapp-ui-validation` is promoted as the current baseline by V2187. It
+keeps the V2186 Wi-Fi UI/status/ping path and adds the `screenapp` dev-display
+validation command for reproducible network screen presentation checks.
 
 ## 2. Boot-Image Transport Contract
 
@@ -304,14 +304,14 @@ Blocked by default:
 
 ## 8. Current State Summary
 
-As of `2026-06-09`:
+As of `2026-06-10`:
 
 - Host bridge wrapper contract exists: `wrapper_contract=1`.
 - Host transport selector contract exists: `selector_contract=1`.
 - NCM smoke runner records transport selection in its manifest.
-- Current boot image is `v2182-hud-menu-cleanup`.
+- Current boot image is `v2187-screenapp-ui-validation`.
 - Device-side `transport.contract=1` is a current baseline guarantee.
-- Previous rollback image is `v2178-wifi-profile-autoconnect`; known-good fallback
+- Previous rollback image is `v2186-wifi-ui-polish`; known-good fallback
   remains `v48`.
 
 The next boot-image promotion should preserve the device-side `transport.*`

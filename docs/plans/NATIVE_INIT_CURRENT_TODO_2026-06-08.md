@@ -8,11 +8,11 @@ than the long-term roadmap.
 
 Current baseline:
 
-- Device baseline: `A90 Linux init 0.9.258 (v2186-wifi-ui-polish)`.
-- Promotion run: `V2186`; boot SHA256
-  `7a0db3bb76232f778869d3bf0788268f3a1942b230b094158dddf7a7d500fd32`.
+- Device baseline: `A90 Linux init 0.9.259 (v2187-screenapp-ui-validation)`.
+- Promotion run: `V2187`; boot SHA256
+  `0422f854b3e78d36e225012fd89a53016067155e200291d067ff7d71f32091ca`.
 - Immediate rollback image:
-  `workspace/private/inputs/boot_images/boot_linux_v2186_wifi_ui_polish.img`.
+  `workspace/private/inputs/boot_images/boot_linux_v2187_screenapp_ui_validation.img`.
 - Emergency rollback image:
   `workspace/private/inputs/boot_images/boot_linux_v2169_transport_contract.img`.
 - Active control path: USB ACM serial bridge managed by
@@ -30,7 +30,7 @@ Current baseline:
 
 Goal: keep the current workspace reviewable before more live tests.
 
-Status: complete for the current `v2186-wifi-ui-polish` baseline.
+Status: complete for the current `v2187-screenapp-ui-validation` baseline.
 
 Completed audit:
 
@@ -246,7 +246,7 @@ Completed first units:
     `A90 Linux init 0.9.257 (v2185-network-ping-test)`;
   - report:
     `docs/reports/NATIVE_INIT_V2186_WIFI_UI_POLISH_LIVE_VALIDATION_2026-06-10.md`.
-- `v2186-wifi-ui-polish` is promoted as the current baseline and rollback
+- `v2186-wifi-ui-polish` was promoted as the then-current baseline and rollback
   point:
   - device is flashed back to V2186 after the live validation and V2185 rollback
     proof;
@@ -256,11 +256,11 @@ Completed first units:
   - promotion report:
     `docs/reports/NATIVE_INIT_V2186_WIFI_UI_POLISH_BASELINE_PROMOTION_2026-06-10.md`.
 - `v2187-screenapp-ui-validation` source work is in place:
-  - keeps V2186 as the parent baseline and rollback target;
+  - keeps V2186 as the parent baseline and older conservative fallback;
   - adds `screenapp [network|wifi-status|wifi-profiles|wifi-scan|wifi-ping]`
     as a direct display validation command for the same native draw functions
     used by the `NETWORK` menu apps;
-  - does not promote V2187 as the current baseline.
+  - V2187 is now the promoted current baseline.
 - `v2187-screenapp-ui-validation` source build passed:
   - built
     `workspace/private/inputs/boot_images/boot_linux_v2187_screenapp_ui_validation.img`;
@@ -280,6 +280,15 @@ Completed first units:
     `A90 Linux init 0.9.258 (v2186-wifi-ui-polish)` plus selftest `fail=0`;
   - report:
     `docs/reports/NATIVE_INIT_V2187_SCREENAPP_UI_VALIDATION_LIVE_2026-06-10.md`.
+- `v2187-screenapp-ui-validation` is promoted as the current baseline and
+  rollback point:
+  - device is flashed back to V2187 after the live validation and V2186 rollback
+    proof;
+  - future rollback should target
+    `workspace/private/inputs/boot_images/boot_linux_v2187_screenapp_ui_validation.img`
+    unless testing explicitly requires an older fallback;
+  - promotion report:
+    `docs/reports/NATIVE_INIT_V2187_SCREENAPP_UI_VALIDATION_BASELINE_PROMOTION_2026-06-10.md`.
 - `v2172-wifi-status-scan` live validation passed:
   - corrected the test boot to reuse verified V726 private-property snapshot;
   - flashed test boot;
@@ -308,9 +317,9 @@ Completed first units:
 
 Open tasks:
 
-- Keep V2186 as the current baseline and rollback image until a newer boot image
+- Keep V2187 as the current baseline and rollback image until a newer boot image
   is intentionally promoted.
-- Keep V2185 network-ping, V2178 profile/autoconnect, and V2169
+- Keep V2186 Wi-Fi UI polish, V2185 network-ping, V2178 profile/autoconnect, and V2169
   transport-contract images as older conservative fallbacks only; they are no
   longer the default rollback point.
 - Keep private Wi-Fi profile/secret files out of public git; use
@@ -368,7 +377,7 @@ Completed first units:
   `docs/operations/NATIVE_INIT_BOOT_TRANSPORT_CONTRACT.md`.
 - Transport selector has bounded host NCM link-local auto-repair for the
   Samsung `04e8` + `cdc_ncm` present/no-`fe80::` state.
-- Current `v2186-wifi-ui-polish` baseline preserves the device-side
+- Current `v2187-screenapp-ui-validation` baseline preserves the device-side
   `transport.contract=1` contract from V2178/V2174/V2169.
 - Active Wi-Fi lifecycle runners use the shared transport selector/serial step:
   - `native_wifi_connect_carrier_handoff_v2174.py` uses
@@ -479,7 +488,7 @@ Goal: avoid mixing run IDs, helper versions, and boot baseline tags.
 
 Open tasks:
 
-- Keep current baseline fixed as `v2186-wifi-ui-polish` until a newer boot
+- Keep current baseline fixed as `v2187-screenapp-ui-validation` until a newer boot
   image is intentionally promoted.
 - If a new boot/init image is promoted, use the next global run/build identity,
   not helper numbering.
@@ -587,9 +596,8 @@ Exit criteria:
 
 1. If serial `AT` noise fires, confirm the shared recovery evidence is present;
    otherwise keep it as a ready-but-not-live-fired path.
-2. Decide whether to promote V2187 `screenapp` as a baseline dev-display
-   command or keep it as a validated test-boot helper; physical/OCR UI evidence
-   can remain a later polish item.
+2. Keep V2187 `screenapp` as the promoted baseline dev-display command;
+   physical/OCR UI evidence can remain a later polish item.
 3. Refresh the script inventory after each active runner migration and continue
    deleting or archiving only classified one-off scripts.
 4. Run a longer Wi-Fi soak only after runner timing/retry instrumentation is in
@@ -601,8 +609,8 @@ Exit criteria:
 | --- | --- | --- |
 | Boot autoconnect latency | Wi-Fi success can take roughly three minutes. | Poll `autoconnect.decision` until a terminal result; shared phase timers are live-validated for bounded current-baseline runners, but boot/reboot latency still needs separate timing if retested. |
 | Serial `AT` noise | A single cmdv1 exchange can be malformed. | Shared recovery is implemented for safe commands; V2180 did not naturally fire the path, so live-fired evidence remains opportunistic. |
-| Physical network-menu ping selection | V2186 has CLI ping/status validation and `screenmenu` smoke; V2187 adds command-level framebuffer presentation evidence for `WIFI STATUS` and `WIFI PING RESULTS`, but not button-driven physical capture. | Treat as UI polish, not a baseline blocker; validate physically or with OCR only if visual-navigation evidence is required. |
+| Physical network-menu ping selection | V2187 has command-level framebuffer presentation evidence for `WIFI STATUS` and `WIFI PING RESULTS`, but not button-driven physical capture. | Treat as UI polish, not a baseline blocker; validate physically or with OCR only if visual-navigation evidence is required. |
 | Large-transfer soak depth | V2184 passed 512MiB and 1GiB single-run bidirectional SHA checks, but not repeated N-run or multi-hour soak. | Treat as strong data-path evidence; run `cleanup -> reconnect -> 512MiB` or N-run soak only if promotion criteria require it. |
-| UI completeness | V2186 is the current baseline and passed `wifi status`, connected metrics, gateway ping, rollback, and `screenmenu`; V2187 test boot proved the same network app draw paths via `screenapp`. | Keep V2186 as baseline unless V2187 `screenapp` is intentionally promoted; physical button/OCR validation remains optional. |
+| UI completeness | V2187 is the current baseline and adds `screenapp` proof for the same network app draw paths while preserving V2186 Wi-Fi status/ping behavior. | Keep V2187 as baseline; physical button/OCR validation remains optional. |
 | Script sprawl | Older one-off runners still duplicate transport/artifact logic. | Keep inventory current; migrate one active runner at a time. |
 | Private data leakage | Wi-Fi profiles and raw run artifacts are intentionally private. | Keep secrets under ignored private roots; public reports stay redacted. |

@@ -120,15 +120,15 @@ def normalize_manifest_axes() -> None:
     manifest = json.loads(manifest_path.read_text())
     manifest["candidate_tag"] = "v2187-screenapp-ui-validation"
     manifest["parent_baseline"] = "v2186-wifi-ui-polish"
-    manifest["rollback_baseline"] = "v2186-wifi-ui-polish"
-    manifest["promoted_baseline"] = False
+    manifest["rollback_baseline"] = "v2187-screenapp-ui-validation"
+    manifest["promoted_baseline"] = True
     manifest["version_axes"] = {
         "candidate_tag": "v2187-screenapp-ui-validation",
         "parent_baseline": "v2186-wifi-ui-polish",
-        "rollback_baseline": "v2186-wifi-ui-polish",
+        "rollback_baseline": "v2187-screenapp-ui-validation",
         "helper_version": "helper-v427",
         "run_id": "V2187",
-        "note": "V2187 is a screenapp UI validation candidate on top of the promoted V2186 baseline.",
+        "note": "V2187 is promoted as the current screenapp UI validation baseline after live validation.",
     }
     manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
 
