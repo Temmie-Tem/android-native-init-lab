@@ -481,6 +481,22 @@ Exit criteria:
 - Source-root cleanup state: `43 active`, `6 module`, `0 archive`,
   `0 delete-review` entries in
   `workspace/public/src/scripts/revalidation/`.
+- Report-style live runners that were missing phase metadata now record
+  `phase_timer_contract=1` and `residual_state_contract=1`:
+  - `a90_wifi_profile_stage.py`;
+  - `cpu_mem_thermal_stability.py`;
+  - `kselftest_feasibility.py`;
+  - `native_wifi_supplicant_dependency_probe.py`;
+  - `storage_iotest.py`;
+  - `usb_recovery_validate.py`.
+- `ncm_host_setup.py` and `netservice_reconnect_soak.py` remain
+  phase-timer-exempt interactive utilities because they do not emit runner
+  manifests.
+- Current inventory consolidation signals:
+  - active live scripts without phase timer markers: `0`;
+  - active live scripts without residual-state metadata: `0`;
+  - phase-timer-exempt live utilities: `2`;
+  - residual-state-exempt live utilities/helpers: `3`.
 - V2167 is no longer a current entrypoint; it is archived under
   `workspace/public/archive/scripts/revalidation/`.
 - Active entrypoints list in `workspace/public/src/scripts/revalidation/README.md`
@@ -561,13 +577,15 @@ Open tasks:
   - N>=3 for basic stability is complete for the V2176 route;
   - 180 second hold/idle plus cleanup/reconnect is complete for the V2176
     route.
-- Capture residual state:
+- For new or changed active runners, keep capturing residual state:
   - bridge process;
   - NCM interface;
   - supplicant process;
   - generated configs;
   - runtime logs.
 - Treat cleanup failure as a real baseline risk if it affects the next run.
+- Use `docs/operations/NATIVE_INIT_QA_STABILITY_POLICY.md` as the baseline
+  promotion and repeated-live-QA checklist.
 
 Exit criteria:
 
@@ -619,5 +637,5 @@ Exit criteria:
 | Physical network-menu ping selection | V2187 has command-level framebuffer presentation evidence for `WIFI STATUS` and `WIFI PING RESULTS`, but not button-driven physical capture. | Treat as UI polish, not a baseline blocker; validate physically or with OCR only if visual-navigation evidence is required. |
 | Large-transfer soak depth | V2184 passed 512MiB and 1GiB single-run bidirectional SHA checks, but not repeated N-run or multi-hour soak. | Treat as strong data-path evidence; run `cleanup -> reconnect -> 512MiB` or N-run soak only if promotion criteria require it. |
 | UI completeness | V2187 is the current baseline and adds `screenapp` proof for the same network app draw paths while preserving V2186 Wi-Fi status/ping behavior. | Keep V2187 as baseline; physical button/OCR validation remains optional. |
-| Script sprawl | Older one-off runners still duplicate transport/artifact logic. | Keep inventory current; migrate one active runner at a time. |
+| Script sprawl | Current source-root inventory is clean, but archive provenance remains large and older utility scripts still duplicate some transport/artifact logic. | Keep inventory current; migrate one active runner at a time; do not run archive scripts without focused migration/review. |
 | Private data leakage | Wi-Fi profiles and raw run artifacts are intentionally private. | Keep secrets under ignored private roots; public reports stay redacted. |

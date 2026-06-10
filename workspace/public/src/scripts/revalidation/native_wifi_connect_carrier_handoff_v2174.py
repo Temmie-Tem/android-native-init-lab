@@ -1510,6 +1510,14 @@ def run(profile_name: str | None = None) -> dict[str, Any]:
     manifest["label"] = classification["label"]
     manifest["pass"] = classification["pass"]
     manifest["reason"] = classification["reason"]
+    transport.set_residual_state(manifest, {
+        "connect_ok": bool(connect_result.get("ok")),
+        "carrier_up": connect_result.get("carrier_up", ""),
+        "rollback_ok": bool(rollback_result.get("ok")),
+        "rollback_attempt": rollback_result.get("attempt", ""),
+        "rollback_selftest_ok": bool(rollback_result.get("selftest_ok")),
+        "cleanup_required": not bool(rollback_result.get("selftest_ok")),
+    })
     store.write_json("manifest.json", manifest)
     summary = render_report(manifest)
     store.write_text("summary.md", summary)

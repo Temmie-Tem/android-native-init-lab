@@ -532,6 +532,20 @@ def run(profile_name: str | None = None,
     manifest["decision"] = classification["decision"]
     manifest["pass"] = classification["pass"]
     manifest["reason"] = classification["reason"]
+    transport.set_residual_state(manifest, {
+        "disconnect_cleanup_ok": bool(disconnect.get("ok")),
+        "disconnect_residue_clean": bool(disconnect.get("residue_clean")),
+        "final_cleanup_ok": bool(reconnect_cleanup.get("ok")),
+        "final_residue_clean": bool(reconnect_cleanup.get("residue_clean")),
+        "rollback_ok": bool(rollback_result.get("ok")),
+        "rollback_attempt": rollback_result.get("attempt", ""),
+        "rollback_selftest_ok": bool(rollback_result.get("selftest_ok")),
+        "cleanup_required": not (
+            bool(reconnect_cleanup.get("ok"))
+            and bool(reconnect_cleanup.get("residue_clean"))
+            and bool(rollback_result.get("selftest_ok"))
+        ),
+    })
     store.write_json("manifest.json", manifest)
     summary = render_report(manifest)
     store.write_text("summary.md", summary)

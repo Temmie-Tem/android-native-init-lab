@@ -236,6 +236,16 @@ def run(label: str, profile: str | None = None) -> dict[str, Any]:
     manifest["decision"] = classification["decision"]
     manifest["pass"] = classification["pass"]
     manifest["reason"] = classification["reason"]
+    transport.set_residual_state(manifest, {
+        "cleanup_ok": (manifest.get("cleanup") or {}).get("decision") == "wifi-cleanup-done",
+        "cleanup_decision": (manifest.get("cleanup") or {}).get("decision", ""),
+        "autoconnect_disabled": bool((manifest.get("cleanup") or {}).get("autoconnect_disabled")),
+        "final_selftest_fail0": bool((manifest.get("final_selftest") or {}).get("fail0")),
+        "cleanup_required": not (
+            (manifest.get("cleanup") or {}).get("decision") == "wifi-cleanup-done"
+            and bool((manifest.get("final_selftest") or {}).get("fail0"))
+        ),
+    })
     with transport.phase(manifest, "artifact_upload"):
         pass
     store.write_json("manifest.json", manifest)

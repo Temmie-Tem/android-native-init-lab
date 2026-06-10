@@ -29,6 +29,7 @@ BRIDGE_SCRIPT_REL = "workspace/public/src/scripts/revalidation/a90_bridge.py"
 TRANSPORT_SELECTOR_CONTRACT = 1
 PHASE_TIMER_CONTRACT = 1
 SERIAL_RECOVERY_CONTRACT = 1
+RESIDUAL_STATE_CONTRACT = 1
 NCM_AUTO_REPAIR_ENV = "A90_TRANSPORT_AUTO_REPAIR_NCM"
 
 
@@ -38,6 +39,26 @@ def now_iso() -> str:
 
 def elapsed_sec(started_monotonic: float) -> float:
     return round(time.monotonic() - started_monotonic, 3)
+
+
+def add_total_phase(manifest: dict[str, Any],
+                    name: str,
+                    started_monotonic: float,
+                    *,
+                    ok: bool | None = None) -> None:
+    manifest["phase_timer_contract"] = PHASE_TIMER_CONTRACT
+    item: dict[str, Any] = {
+        "name": name,
+        "elapsed_sec": elapsed_sec(started_monotonic),
+    }
+    if ok is not None:
+        item["ok"] = ok
+    manifest.setdefault("phase_timers", []).append(item)
+
+
+def set_residual_state(manifest: dict[str, Any], state: dict[str, Any]) -> None:
+    manifest["residual_state_contract"] = RESIDUAL_STATE_CONTRACT
+    manifest["residual_state"] = state
 
 
 @contextmanager

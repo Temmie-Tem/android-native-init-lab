@@ -7,6 +7,7 @@ import argparse
 import datetime as dt
 import json
 import os
+import time
 from pathlib import Path
 from typing import Any
 
@@ -16,6 +17,7 @@ REPO_ROOT = repo_root()
 add_legacy_revalidation_path(REPO_ROOT)
 
 from a90harness.evidence import EvidenceStore, WORKSPACE_PRIVATE_ROOT  # noqa: E402
+import a90_transport as transport  # noqa: E402
 import native_wifi_connect_carrier_handoff_v2174 as v2174  # noqa: E402
 
 
@@ -141,7 +143,32 @@ def compact_stage(stage: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def finalize_manifest(store: EvidenceStore,
+                      manifest: dict[str, Any],
+                      started_monotonic: float) -> dict[str, Any]:
+    transport.add_total_phase(
+        manifest,
+        "wifi_profile_stage_total",
+        started_monotonic,
+        ok=bool(manifest.get("pass")),
+    )
+    stage = manifest.get("stage") if isinstance(manifest.get("stage"), dict) else {}
+    transfers = manifest.get("transfer_results") if isinstance(manifest.get("transfer_results"), dict) else {}
+    transport.set_residual_state(manifest, {
+        "profile": stage.get("profile", ""),
+        "root": stage.get("root", ""),
+        "remote_root": stage.get("remote_roots", {}),
+        "staged": bool(manifest.get("pass")),
+        "partial_transfer_count": len(transfers),
+        "persistent_state_expected": bool(manifest.get("pass")),
+        "cleanup_required": bool((not manifest.get("pass")) and transfers),
+    })
+    store.write_json("manifest.json", manifest)
+    return manifest
+
+
 def run(args: argparse.Namespace) -> dict[str, Any]:
+    started_monotonic = time.monotonic()
     out_dir = Path(args.out_dir) if args.out_dir else (
         WORKSPACE_PRIVATE_ROOT / "runs" / "wifi" / f"{RUN_LABEL}-{timestamp_label()}"
     )
@@ -160,8 +187,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     if not stage.get("ok"):
         manifest["decision"] = "wifi-profile-stage-preflight-failed"
         manifest["pass"] = False
-        store.write_json("manifest.json", manifest)
-        return manifest
+        return finalize_manifest(store, manifest, started_monotonic)
 
     netservice = v2174.ensure_netservice_tcpctl(store, steps)
     host_ncm = {}
@@ -182,8 +208,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 "netservice": netservice,
                 "host_ncm": host_ncm,
             })
-            store.write_json("manifest.json", manifest)
-            return manifest
+            return finalize_manifest(store, manifest, started_monotonic)
     if tcp_args is None or not v2174.wait_for_tcpctl_ready(store, steps, tcp_args, timeout_sec=30.0):
         manifest.update({
             "decision": "wifi-profile-stage-transport-not-ready",
@@ -191,8 +216,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "netservice": netservice,
             "host_ncm": host_ncm,
         })
-        store.write_json("manifest.json", manifest)
-        return manifest
+        return finalize_manifest(store, manifest, started_monotonic)
 
     roots = stage["remote_roots"]
     if args.root == "persistent":
@@ -218,8 +242,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         )
         if not step.get("ok"):
             manifest.update({"decision": "wifi-profile-stage-prep-failed", "pass": False})
-            store.write_json("manifest.json", manifest)
-            return manifest
+            return finalize_manifest(store, manifest, started_monotonic)
 
     transfer_results: dict[str, Any] = {}
     for index, key in enumerate(("autoconnect", "profile", "ssid", "psk")):
@@ -246,8 +269,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 "pass": False,
                 "transfer_results": transfer_results,
             })
-            store.write_json("manifest.json", manifest)
-            return manifest
+            return finalize_manifest(store, manifest, started_monotonic)
 
     profile_status = v2174.a90ctl_step(
         store,
@@ -284,8 +306,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "prepare_ok": bool(prepare.get("ok")),
         "secret_values_logged": 0 if "secret_values_logged=1" not in output else 1,
     })
-    store.write_json("manifest.json", manifest)
-    return manifest
+    return finalize_manifest(store, manifest, started_monotonic)
 
 
 def parse_args() -> argparse.Namespace:

@@ -255,8 +255,10 @@ Active revalidation runners should:
    helper;
 4. record phase timers when the runner spans flash, boot, connect, upload, or
    rollback;
-5. keep raw artifacts under private/ignored paths;
-6. redact secrets before writing public reports.
+5. record `residual_state_contract=1` when the runner can leave device, host,
+   network, or filesystem state behind;
+6. keep raw artifacts under private/ignored paths;
+7. redact secrets before writing public reports.
 
 Commonization design:
 

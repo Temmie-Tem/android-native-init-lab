@@ -3,6 +3,7 @@
     {
       "executable": false,
       "has_phase_timer": false,
+      "has_residual_state": false,
       "has_secret_redaction": false,
       "imports_a90_transport": false,
       "label": "active",
@@ -19,6 +20,7 @@
     {
       "executable": false,
       "has_phase_timer": false,
+      "has_residual_state": false,
       "has_secret_redaction": false,
       "imports_a90_transport": false,
       "label": "module",
@@ -35,6 +37,7 @@
     {
       "executable": true,
       "has_phase_timer": false,
+      "has_residual_state": false,
       "has_secret_redaction": false,
       "imports_a90_transport": false,
       "label": "active",
@@ -51,6 +54,7 @@
     {
       "executable": false,
       "has_phase_timer": false,
+      "has_residual_state": false,
       "has_secret_redaction": false,
       "imports_a90_transport": false,
       "label": "module",
@@ -67,6 +71,7 @@
     {
       "executable": false,
       "has_phase_timer": false,
+      "has_residual_state": false,
       "has_secret_redaction": false,
       "imports_a90_transport": false,
       "label": "active",
@@ -83,6 +88,7 @@
     {
       "executable": false,
       "has_phase_timer": false,
+      "has_residual_state": false,
       "has_secret_redaction": false,
       "imports_a90_transport": false,
       "label": "module",
@@ -99,6 +105,7 @@
     {
       "executable": false,
       "has_phase_timer": true,
+      "has_residual_state": true,
       "has_secret_redaction": false,
       "imports_a90_transport": true,
       "label": "active",
@@ -115,6 +122,7 @@
     {
       "executable": false,
       "has_phase_timer": false,
+      "has_residual_state": false,
       "has_secret_redaction": false,
       "imports_a90_transport": false,
       "label": "module",
@@ -131,6 +139,7 @@
     {
       "executable": false,
       "has_phase_timer": true,
+      "has_residual_state": true,
       "has_secret_redaction": false,
       "imports_a90_transport": false,
       "label": "module",
@@ -147,6 +156,7 @@
     {
       "executable": false,
       "has_phase_timer": true,
+      "has_residual_state": true,
       "has_secret_redaction": false,
       "imports_a90_transport": true,
       "label": "active",
@@ -162,9 +172,10 @@
     },
     {
       "executable": false,
-      "has_phase_timer": false,
+      "has_phase_timer": true,
+      "has_residual_state": true,
       "has_secret_redaction": true,
-      "imports_a90_transport": false,
+      "imports_a90_transport": true,
       "label": "active",
       "live_device_required": true,
       "mentions_a90_bridge": false,
@@ -179,6 +190,7 @@
     {
       "executable": true,
       "has_phase_timer": false,
+      "has_residual_state": false,
       "has_secret_redaction": false,
       "imports_a90_transport": false,
       "label": "active",
@@ -195,6 +207,7 @@
     {
       "executable": true,
       "has_phase_timer": false,
+      "has_residual_state": false,
       "has_secret_redaction": true,
       "imports_a90_transport": false,
       "label": "active",
@@ -211,6 +224,7 @@
     {
       "executable": false,
       "has_phase_timer": false,
+      "has_residual_state": false,
       "has_secret_redaction": true,
       "imports_a90_transport": false,
       "label": "active",
@@ -227,6 +241,7 @@
     {
       "executable": false,
       "has_phase_timer": false,
+      "has_residual_state": false,
       "has_secret_redaction": false,
       "imports_a90_transport": false,
       "label": "active",
@@ -243,6 +258,7 @@
     {
       "executable": false,
       "has_phase_timer": false,
+      "has_residual_state": false,
       "has_secret_redaction": true,
       "imports_a90_transport": false,
       "label": "active",
@@ -259,6 +275,7 @@
     {
       "executable": false,
       "has_phase_timer": false,
+      "has_residual_state": false,
       "has_secret_redaction": true,
       "imports_a90_transport": false,
       "label": "active",
@@ -275,6 +292,7 @@
     {
       "executable": false,
       "has_phase_timer": false,
+      "has_residual_state": false,
       "has_secret_redaction": true,
       "imports_a90_transport": false,
       "label": "active",
@@ -291,6 +309,7 @@
     {
       "executable": true,
       "has_phase_timer": false,
+      "has_residual_state": false,
       "has_secret_redaction": true,
       "imports_a90_transport": false,
       "label": "active",
@@ -307,6 +326,7 @@
     {
       "executable": false,
       "has_phase_timer": false,
+      "has_residual_state": false,
       "has_secret_redaction": true,
       "imports_a90_transport": false,
       "label": "active",
@@ -323,6 +343,7 @@
     {
       "executable": false,
       "has_phase_timer": false,
+      "has_residual_state": false,
       "has_secret_redaction": true,
       "imports_a90_transport": false,
       "label": "active",
@@ -339,6 +360,7 @@
     {
       "executable": false,
       "has_phase_timer": false,
+      "has_residual_state": false,
       "has_secret_redaction": true,
       "imports_a90_transport": false,
       "label": "active",
@@ -355,6 +377,7 @@
     {
       "executable": false,
       "has_phase_timer": false,
+      "has_residual_state": false,
       "has_secret_redaction": true,
       "imports_a90_transport": false,
       "label": "active",
@@ -371,6 +394,7 @@
     {
       "executable": false,
       "has_phase_timer": false,
+      "has_residual_state": false,
       "has_secret_redaction": false,
       "imports_a90_transport": false,
       "label": "active",
@@ -387,6 +411,7 @@
     {
       "executable": false,
       "has_phase_timer": false,
+      "has_residual_state": false,
       "has_secret_redaction": false,
       "imports_a90_transport": false,
       "label": "active",
@@ -403,6 +428,7 @@
     {
       "executable": false,
       "has_phase_timer": false,
+      "has_residual_state": false,
       "has_secret_redaction": true,
       "imports_a90_transport": false,
       "label": "active",
@@ -419,6 +445,7 @@
     {
       "executable": false,
       "has_phase_timer": false,
+      "has_residual_state": false,
       "has_secret_redaction": false,
       "imports_a90_transport": false,
       "label": "active",
@@ -435,6 +462,7 @@
     {
       "executable": true,
       "has_phase_timer": false,
+      "has_residual_state": false,
       "has_secret_redaction": false,
       "imports_a90_transport": false,
       "label": "active",
@@ -451,6 +479,7 @@
     {
       "executable": true,
       "has_phase_timer": false,
+      "has_residual_state": false,
       "has_secret_redaction": false,
       "imports_a90_transport": false,
       "label": "active",
@@ -467,6 +496,7 @@
     {
       "executable": true,
       "has_phase_timer": false,
+      "has_residual_state": false,
       "has_secret_redaction": false,
       "imports_a90_transport": false,
       "label": "active",
@@ -483,6 +513,7 @@
     {
       "executable": false,
       "has_phase_timer": false,
+      "has_residual_state": false,
       "has_secret_redaction": false,
       "imports_a90_transport": false,
       "label": "active",
@@ -499,6 +530,7 @@
     {
       "executable": true,
       "has_phase_timer": false,
+      "has_residual_state": false,
       "has_secret_redaction": false,
       "imports_a90_transport": false,
       "label": "active",
@@ -514,9 +546,10 @@
     },
     {
       "executable": false,
-      "has_phase_timer": false,
+      "has_phase_timer": true,
+      "has_residual_state": true,
       "has_secret_redaction": false,
-      "imports_a90_transport": false,
+      "imports_a90_transport": true,
       "label": "active",
       "live_device_required": true,
       "mentions_a90_bridge": false,
@@ -525,12 +558,13 @@
       "name": "cpu_mem_thermal_stability.py",
       "path": "workspace/public/src/scripts/revalidation/cpu_mem_thermal_stability.py",
       "reason": "operator utility or inventory/cleanup utility",
-      "repo_reference_count": 24,
+      "repo_reference_count": 25,
       "type": "file"
     },
     {
       "executable": false,
       "has_phase_timer": false,
+      "has_residual_state": false,
       "has_secret_redaction": false,
       "imports_a90_transport": false,
       "label": "active",
@@ -547,6 +581,7 @@
     {
       "executable": false,
       "has_phase_timer": false,
+      "has_residual_state": false,
       "has_secret_redaction": false,
       "imports_a90_transport": false,
       "label": "active",
@@ -562,9 +597,10 @@
     },
     {
       "executable": true,
-      "has_phase_timer": false,
+      "has_phase_timer": true,
+      "has_residual_state": true,
       "has_secret_redaction": false,
-      "imports_a90_transport": false,
+      "imports_a90_transport": true,
       "label": "active",
       "live_device_required": true,
       "mentions_a90_bridge": false,
@@ -573,12 +609,13 @@
       "name": "kselftest_feasibility.py",
       "path": "workspace/public/src/scripts/revalidation/kselftest_feasibility.py",
       "reason": "operator utility or inventory/cleanup utility",
-      "repo_reference_count": 10,
+      "repo_reference_count": 11,
       "type": "file"
     },
     {
       "executable": true,
       "has_phase_timer": true,
+      "has_residual_state": false,
       "has_secret_redaction": false,
       "imports_a90_transport": false,
       "label": "active",
@@ -595,6 +632,7 @@
     {
       "executable": false,
       "has_phase_timer": true,
+      "has_residual_state": true,
       "has_secret_redaction": false,
       "imports_a90_transport": true,
       "label": "active",
@@ -611,6 +649,7 @@
     {
       "executable": false,
       "has_phase_timer": true,
+      "has_residual_state": true,
       "has_secret_redaction": true,
       "imports_a90_transport": true,
       "label": "active",
@@ -627,6 +666,7 @@
     {
       "executable": false,
       "has_phase_timer": true,
+      "has_residual_state": true,
       "has_secret_redaction": true,
       "imports_a90_transport": true,
       "label": "active",
@@ -643,6 +683,7 @@
     {
       "executable": false,
       "has_phase_timer": true,
+      "has_residual_state": true,
       "has_secret_redaction": true,
       "imports_a90_transport": true,
       "label": "active",
@@ -658,7 +699,8 @@
     },
     {
       "executable": false,
-      "has_phase_timer": false,
+      "has_phase_timer": true,
+      "has_residual_state": true,
       "has_secret_redaction": true,
       "imports_a90_transport": true,
       "label": "active",
@@ -669,12 +711,13 @@
       "name": "native_wifi_supplicant_dependency_probe.py",
       "path": "workspace/public/src/scripts/revalidation/native_wifi_supplicant_dependency_probe.py",
       "reason": "current Wi-Fi dependency probe",
-      "repo_reference_count": 8,
+      "repo_reference_count": 9,
       "type": "file"
     },
     {
       "executable": false,
       "has_phase_timer": true,
+      "has_residual_state": true,
       "has_secret_redaction": true,
       "imports_a90_transport": true,
       "label": "active",
@@ -691,6 +734,7 @@
     {
       "executable": true,
       "has_phase_timer": false,
+      "has_residual_state": false,
       "has_secret_redaction": false,
       "imports_a90_transport": false,
       "label": "active",
@@ -701,12 +745,13 @@
       "name": "ncm_host_setup.py",
       "path": "workspace/public/src/scripts/revalidation/ncm_host_setup.py",
       "reason": "operator utility or inventory/cleanup utility",
-      "repo_reference_count": 44,
+      "repo_reference_count": 46,
       "type": "file"
     },
     {
       "executable": true,
       "has_phase_timer": false,
+      "has_residual_state": false,
       "has_secret_redaction": false,
       "imports_a90_transport": false,
       "label": "active",
@@ -717,12 +762,13 @@
       "name": "netservice_reconnect_soak.py",
       "path": "workspace/public/src/scripts/revalidation/netservice_reconnect_soak.py",
       "reason": "operator utility or inventory/cleanup utility",
-      "repo_reference_count": 24,
+      "repo_reference_count": 26,
       "type": "file"
     },
     {
       "executable": false,
       "has_phase_timer": false,
+      "has_residual_state": false,
       "has_secret_redaction": false,
       "imports_a90_transport": false,
       "label": "active",
@@ -738,9 +784,10 @@
     },
     {
       "executable": false,
-      "has_phase_timer": false,
+      "has_phase_timer": true,
+      "has_residual_state": true,
       "has_secret_redaction": false,
-      "imports_a90_transport": false,
+      "imports_a90_transport": true,
       "label": "active",
       "live_device_required": true,
       "mentions_a90_bridge": false,
@@ -749,12 +796,13 @@
       "name": "storage_iotest.py",
       "path": "workspace/public/src/scripts/revalidation/storage_iotest.py",
       "reason": "operator utility or inventory/cleanup utility",
-      "repo_reference_count": 22,
+      "repo_reference_count": 23,
       "type": "file"
     },
     {
       "executable": true,
       "has_phase_timer": false,
+      "has_residual_state": false,
       "has_secret_redaction": false,
       "imports_a90_transport": false,
       "label": "module",
@@ -770,9 +818,10 @@
     },
     {
       "executable": false,
-      "has_phase_timer": false,
+      "has_phase_timer": true,
+      "has_residual_state": true,
       "has_secret_redaction": false,
-      "imports_a90_transport": false,
+      "imports_a90_transport": true,
       "label": "active",
       "live_device_required": true,
       "mentions_a90_bridge": false,
@@ -781,11 +830,11 @@
       "name": "usb_recovery_validate.py",
       "path": "workspace/public/src/scripts/revalidation/usb_recovery_validate.py",
       "reason": "operator utility or inventory/cleanup utility",
-      "repo_reference_count": 12,
+      "repo_reference_count": 13,
       "type": "file"
     }
   ],
-  "generated_at": "2026-06-10T01:58:07.915844+00:00",
+  "generated_at": "2026-06-10T02:13:09.917935+00:00",
   "root": "workspace/public/src/scripts/revalidation",
   "summary": {
     "active": 43,

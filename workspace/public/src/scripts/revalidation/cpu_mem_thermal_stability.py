@@ -20,6 +20,7 @@ from _workspace_bootstrap import add_legacy_revalidation_path, repo_root
 add_legacy_revalidation_path(repo_root())
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import a90_transport as transport  # noqa: E402
 from a90ctl import run_cmdv1_command  # noqa: E402
 from tcpctl_host import DEFAULT_BRIDGE_HOST, DEFAULT_BRIDGE_PORT, DEFAULT_TOYBOX, host_ping  # noqa: E402
 
@@ -490,6 +491,14 @@ def main() -> int:
         "commands": [asdict(record) for record in command_records],
         "checks": [asdict(item) for item in checks],
     }
+    transport.add_total_phase(report, "cpu_mem_thermal_total", started, ok=pass_ok)
+    transport.set_residual_state(report, {
+        "controlled_process_names": sorted(CONTROLLED_PROCESS_NAMES),
+        "controlled_zombie_count": process.controlled_zombie_count,
+        "final_selftest_ok": final_selftest.ok,
+        "final_longsoak_ok": final_longsoak.ok,
+        "cleanup_required": False,
+    })
     lines = [
         "# A90 CPU/Memory/Thermal Stability Report\n\n",
         f"- result: {'PASS' if pass_ok else 'FAIL'}\n",

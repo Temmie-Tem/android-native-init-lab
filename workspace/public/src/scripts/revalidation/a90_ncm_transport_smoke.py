@@ -263,7 +263,9 @@ def main() -> int:
 
     with transport.phase(manifest, "selftest"):
         status = run_step(store, steps, "post-smoke-status", ["status"], timeout=45, bridge_timeout=20)
+    ok = all(test["download"].get("ok") and (not args.upload or test["upload"].get("ok")) for test in tests)
     manifest.update({
+        "pass": ok,
         "sizes_mib": sizes,
         "force_nm_repair": args.force_nm_repair,
         "download_retries": args.download_retries,
@@ -276,11 +278,19 @@ def main() -> int:
         "post_status_ok": status.get("ok"),
         "steps": steps,
     })
+    transport.set_residual_state(manifest, {
+        "remote_cleanup_attempted": not args.keep_remote,
+        "cleanup_required": bool(args.keep_remote),
+        "remote_paths": [
+            f"/cache/a90-ncm-smoke-{safe_label}-{size_mib}mib.bin"
+            for size_mib in sizes
+        ],
+        "post_status_ok": bool(status.get("ok")),
+    })
     with transport.phase(manifest, "artifact_upload"):
         pass
     store.write_text("manifest.json", json.dumps(manifest, indent=2, sort_keys=True) + "\n")
 
-    ok = all(test["download"].get("ok") and (not args.upload or test["upload"].get("ok")) for test in tests)
     print(json.dumps({
         "ok": ok,
         "out_dir": str(out_dir),

@@ -19,6 +19,7 @@ from _workspace_bootstrap import add_legacy_revalidation_path, repo_root
 add_legacy_revalidation_path(repo_root())
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import a90_transport as transport  # noqa: E402
 from a90ctl import (  # noqa: E402
     DEFAULT_HOST,
     DEFAULT_PORT,
@@ -233,6 +234,14 @@ def main() -> int:
         "final_acm_only": final_acm_only,
         "checks": [asdict(item) for item in checks],
     }
+    transport.add_total_phase(report, "usb_recovery_total", started, ok=pass_ok)
+    transport.set_residual_state(report, {
+        "ncm_present_after_ncm_step": ncm_present,
+        "final_acm_only": final_acm_only,
+        "final_version_ok": final_version_ok,
+        "final_selftest_ok": final_selftest_ok,
+        "cleanup_required": not final_acm_only,
+    })
     lines = [
         "# A90 USB Recovery Report\n\n",
         f"- result: {'PASS' if pass_ok else 'FAIL'}\n",

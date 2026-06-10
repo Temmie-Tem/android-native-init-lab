@@ -22,6 +22,7 @@ from _workspace_bootstrap import add_legacy_revalidation_path, repo_root
 add_legacy_revalidation_path(repo_root())
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import a90_transport as transport  # noqa: E402
 from a90harness.path_safety import (  # noqa: E402
     normalize_device_path,
     require_path_under,
@@ -308,6 +309,14 @@ def command_run(args: argparse.Namespace) -> int:
         "sizes": sizes,
         "results": [asdict(item) for item in results],
     }
+    transport.add_total_phase(payload, "storage_iotest_total", started, ok=pass_ok)
+    transport.set_residual_state(payload, {
+        "device_run_root": device_run_root,
+        "host_dir": str(host_dir),
+        "device_files_left": len(results),
+        "cleanup_command": f"clean --run-id {args.run_id}",
+        "cleanup_required": True,
+    })
     lines = [
         "# A90 Storage I/O Test Report\n\n",
         f"- result: {'PASS' if pass_ok else 'FAIL'}\n",

@@ -20,6 +20,7 @@ from _workspace_bootstrap import add_legacy_revalidation_path, repo_root
 add_legacy_revalidation_path(repo_root())
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import a90_transport as transport  # noqa: E402
 from a90ctl import ProtocolResult, run_cmdv1_command  # noqa: E402
 
 
@@ -344,6 +345,7 @@ def render_markdown(manifest: dict[str, Any]) -> str:
 
 
 def main() -> int:
+    started_monotonic = time.monotonic()
     args = parse_args()
     bundle_dir = args.bundle_dir if args.bundle_dir.is_absolute() else REPO_ROOT / args.bundle_dir
     ensure_private_dir(bundle_dir.parent)
@@ -386,6 +388,18 @@ def main() -> int:
         "classification": classification,
         "commands": [asdict(capture) for capture in captures],
     }
+    transport.add_total_phase(
+        manifest,
+        "kselftest_feasibility_total",
+        started_monotonic,
+        ok=pass_ok,
+    )
+    transport.set_residual_state(manifest, {
+        "mutation_performed": mutation_performed,
+        "failed_mandatory_count": len(failed_mandatory),
+        "failed_optional_count": len(failed_optional),
+        "cleanup_required": False,
+    })
     write_private_text(
         bundle_dir / "kselftest-feasibility-report.json",
         json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True) + "\n",

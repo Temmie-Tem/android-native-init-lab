@@ -405,6 +405,13 @@ def main() -> int:
         "checks": checks,
         "steps": steps,
     })
+    transport.set_residual_state(manifest, {
+        "final_status_ok": bool(final.get("version_ok")),
+        "final_selftest_fail0": bool(final.get("selftest_fail0")),
+        "ncm_present": bool(final.get("ncm_present")),
+        "tcpctl_stopped": bool(final.get("tcpctl_stopped")),
+        "cleanup_required": False,
+    })
     with transport.phase(manifest, "artifact_upload"):
         pass
     store.write_json("manifest.json", manifest)

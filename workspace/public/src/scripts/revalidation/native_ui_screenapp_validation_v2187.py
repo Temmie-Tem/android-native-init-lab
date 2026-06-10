@@ -300,6 +300,14 @@ def run(label: str) -> dict[str, Any]:
     manifest["decision"] = manifest["classification"]["decision"]
     manifest["pass"] = manifest["classification"]["pass"]
     manifest["reason"] = manifest["classification"]["reason"]
+    transport.set_residual_state(manifest, {
+        "rollback_ok": bool(rollback_info.get("ok")),
+        "rollback_attempt": rollback_info.get("attempt", ""),
+        "rollback_selftest_ok": bool(rollback_info.get("selftest_ok")),
+        "screenapp_status_presented": (manifest.get("screenapp_status") or {}).get("presented", ""),
+        "screenapp_ping_presented": (manifest.get("screenapp_ping") or {}).get("presented", ""),
+        "cleanup_required": not bool(rollback_info.get("selftest_ok")),
+    })
     store.write_json("manifest.json", manifest)
     REPORT_PATH.write_text(render_report(manifest), encoding="utf-8")
     return manifest

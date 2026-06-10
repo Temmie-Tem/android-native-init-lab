@@ -75,6 +75,14 @@ UTILITY_NAMES = {
     "storage_iotest.py",
     "usb_recovery_validate.py",
 }
+PHASE_TIMER_EXEMPT = {
+    "ncm_host_setup.py": "interactive host NCM setup utility; no manifest contract",
+    "netservice_reconnect_soak.py": "interactive netservice lifecycle utility; no manifest contract",
+}
+RESIDUAL_STATE_EXEMPT = {
+    **PHASE_TIMER_EXEMPT,
+    "native_init_flash.py": "flash helper; caller runner records rollback/residual state",
+}
 
 
 def parse_args() -> argparse.Namespace:
@@ -186,7 +194,13 @@ def inventory(root: Path) -> dict[str, Any]:
             "mentions_serial_tcp_bridge": False if self_inventory else "serial_tcp_bridge.py" in text,
             "mentions_a90ctl_subprocess": False if self_inventory else "a90ctl.py" in text,
             "has_phase_timer": False if self_inventory else (
-                "phase_timer" in text or "PhaseTimer" in text or "transport.phase(" in text
+                "phase_timer" in text
+                or "PhaseTimer" in text
+                or "transport.phase(" in text
+                or "add_total_phase(" in text
+            ),
+            "has_residual_state": False if self_inventory else (
+                "residual_state_contract" in text or "residual_state" in text
             ),
             "has_secret_redaction": False if self_inventory else (
                 "redact" in text.lower() or "secret_values_logged" in text
@@ -238,6 +252,30 @@ def render_markdown(data: dict[str, Any]) -> str:
         and entry["label"] == "active"
         and not entry["has_phase_timer"]
         and entry["name"] not in {"a90ctl.py", "a90_bridge.py", "serial_tcp_bridge.py"}
+        and entry["name"] not in PHASE_TIMER_EXEMPT
+        and not entry["name"].startswith("build_")
+    ]
+    live_phase_exempt = [
+        entry["name"] for entry in entries
+        if entry["live_device_required"]
+        and entry["label"] == "active"
+        and not entry["has_phase_timer"]
+        and entry["name"] in PHASE_TIMER_EXEMPT
+    ]
+    live_residual_exempt = [
+        entry["name"] for entry in entries
+        if entry["live_device_required"]
+        and entry["label"] == "active"
+        and not entry["has_residual_state"]
+        and entry["name"] in RESIDUAL_STATE_EXEMPT
+    ]
+    live_without_residual = [
+        entry["name"] for entry in entries
+        if entry["live_device_required"]
+        and entry["label"] == "active"
+        and not entry["has_residual_state"]
+        and entry["name"] not in {"a90ctl.py", "a90_bridge.py", "serial_tcp_bridge.py"}
+        and entry["name"] not in RESIDUAL_STATE_EXEMPT
         and not entry["name"].startswith("build_")
     ]
     secret_related = [
@@ -250,6 +288,12 @@ def render_markdown(data: dict[str, Any]) -> str:
         + (f" (`{', '.join(direct_a90ctl[:8])}`{'...' if len(direct_a90ctl) > 8 else ''})." if direct_a90ctl else "."),
         f"- Active live scripts without explicit phase timer markers: `{len(live_without_phase)}`"
         + (f" (`{', '.join(live_without_phase[:8])}`{'...' if len(live_without_phase) > 8 else ''})." if live_without_phase else "."),
+        f"- Phase-timer-exempt live utilities: `{len(live_phase_exempt)}`"
+        + (f" (`{', '.join(live_phase_exempt[:8])}`{'...' if len(live_phase_exempt) > 8 else ''})." if live_phase_exempt else "."),
+        f"- Active live scripts without residual-state metadata: `{len(live_without_residual)}`"
+        + (f" (`{', '.join(live_without_residual[:8])}`{'...' if len(live_without_residual) > 8 else ''})." if live_without_residual else "."),
+        f"- Residual-state-exempt live utilities/helpers: `{len(live_residual_exempt)}`"
+        + (f" (`{', '.join(live_residual_exempt[:8])}`{'...' if len(live_residual_exempt) > 8 else ''})." if live_residual_exempt else "."),
         f"- Scripts with explicit redaction/secret handling: `{len(secret_related)}`"
         + (f" (`{', '.join(secret_related[:8])}`{'...' if len(secret_related) > 8 else ''})." if secret_related else "."),
     ]
@@ -261,8 +305,8 @@ def render_markdown(data: dict[str, Any]) -> str:
         rows.append(f"| `{label}` | {count} |")
 
     table = [
-        "| Script | Label | Transport | Live | Phase | Secret | Refs | Reason |",
-        "| --- | --- | --- | --- | --- | --- | ---: | --- |",
+        "| Script | Label | Transport | Live | Phase | Residual | Secret | Refs | Reason |",
+        "| --- | --- | --- | --- | --- | --- | --- | ---: | --- |",
     ]
     for entry in entries:
         transport_bits = []
@@ -281,6 +325,7 @@ def render_markdown(data: dict[str, Any]) -> str:
             f"`{','.join(transport_bits)}` | "
             f"{flag(entry['live_device_required'])} | "
             f"{flag(entry['has_phase_timer'])} | "
+            f"{flag(entry['has_residual_state'])} | "
             f"{flag(entry['has_secret_redaction'])} | "
             f"{entry['repo_reference_count']} | {entry['reason']} |"
         )

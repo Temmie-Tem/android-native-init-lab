@@ -16,6 +16,7 @@ import os
 import shlex
 import subprocess
 import sys
+import time
 from pathlib import Path
 from typing import Any
 
@@ -389,6 +390,7 @@ def pick_decision(mode: str, fields: dict[str, str], candidates: list[dict[str, 
 
 
 def main() -> int:
+    started_monotonic = time.monotonic()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--label", default="default")
     parser.add_argument("--mode", choices=("no-connect", "connect"), default="no-connect")
@@ -506,6 +508,19 @@ def main() -> int:
         "post_status_ok": post_status.get("ok"),
         "steps": steps,
     }
+    transport.add_total_phase(
+        manifest,
+        "supplicant_dependency_probe_total",
+        started_monotonic,
+        ok=ok,
+    )
+    transport.set_residual_state(manifest, {
+        "remote_helper": REMOTE_CTRL_HELPER,
+        "remote_script": REMOTE_PROBE_SCRIPT,
+        "keep_remote": args.keep_remote,
+        "remote_cleanup_expected": not args.keep_remote,
+        "post_status_ok": bool(post_status.get("ok")),
+    })
     store.write_json("manifest.json", manifest)
     print(json.dumps({
         "ok": ok,
