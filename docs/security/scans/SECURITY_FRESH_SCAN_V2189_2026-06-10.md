@@ -2,7 +2,7 @@
 
 Date: 2026-06-10
 Baseline: `A90 Linux init 0.9.261 (v2189-security-p0-stage-fix)`
-Git HEAD: `be5c54e4`
+Git HEAD: `eeb11b10`
 Scope: active workspace native-init source, active revalidation host tools, third-party boot tooling used by the current builder, V2189 security P0 guardrails, and accepted trusted-lab root-control boundaries.
 
 This is a local targeted rescan, not a Codex Cloud scanner replacement.

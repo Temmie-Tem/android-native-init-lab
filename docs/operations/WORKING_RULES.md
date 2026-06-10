@@ -33,7 +33,7 @@ Rules:
 - Do not use helper numbers as run IDs, boot filenames, or native-init build
   tags.
 - The current promoted baseline uses build tag
-  `v2187-screenapp-ui-validation`. Keep this as the rollback/test baseline until
+  `v2189-security-p0-stage-fix`. Keep this as the rollback/test baseline until
   a newer boot image is intentionally promoted.
 - If an existing artifact is only reproduced or documented, keep its build tag
   and record it as `Baseline tag`, not `Cycle`.
@@ -130,9 +130,9 @@ For an unchanged existing artifact:
 
 ```text
 Run ID: <current validation run>
-Native init: A90 Linux init 0.9.259 (v2187-screenapp-ui-validation)
+Native init: A90 Linux init 0.9.261 (v2189-security-p0-stage-fix)
 Build tag: unchanged
-Baseline tag: v2187-screenapp-ui-validation
+Baseline tag: v2189-security-p0-stage-fix
 Helper: unchanged
 Device flash: no
 Host commit: <git-sha-or-uncommitted>

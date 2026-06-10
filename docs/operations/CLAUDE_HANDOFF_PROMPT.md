@@ -1,6 +1,6 @@
 # Claude Handoff Prompt
 
-Date: `2026-04-29`
+Date: `2026-06-10`
 
 아래 블록을 Claude나 다른 에이전트에게 그대로 붙여 넣는다.
 목표는 **먼저 상태를 확인하고, known-good v48 복구 경로와 latest verified 작업 경로를 혼동하지 않게 하는 것**이다.
@@ -16,13 +16,13 @@ Date: `2026-04-29`
 
 현재 기준:
 
-- latest verified build: A90 Linux init 0.9.259 (v2187-screenapp-ui-validation)
-- latest verified source: workspace/public/src/native-init/ + 빌더 workspace/public/src/scripts/revalidation/build_native_init_boot_v2187_screenapp_ui_validation.py
-- latest verified boot image: workspace/private/inputs/boot_images/boot_linux_v2187_screenapp_ui_validation.img
-- latest verified boot image SHA256: 0422f854b3e78d36e225012fd89a53016067155e200291d067ff7d71f32091ca
-- 현재 기준 사이클: v2187-screenapp-ui-validation screenapp UI validation baseline (V2187 promotion)
-- version axes: v2187-screenapp-ui-validation은 boot/init baseline tag, a90_android_execns_probe helper-v427은 포함된 helper marker, V2187은 baseline-promotion run/report 번호다. 전체 규칙은 docs/operations/VERSIONING_POLICY.md를 따른다.
-- previous verified boot image: workspace/private/inputs/boot_images/boot_linux_v2186_wifi_ui_polish.img (A90 Linux init 0.9.258 (v2186-wifi-ui-polish))
+- latest verified build: A90 Linux init 0.9.261 (v2189-security-p0-stage-fix)
+- latest verified source: workspace/public/src/native-init/ + 빌더 workspace/public/src/scripts/revalidation/build_native_init_boot_v2189_security_p0_stage_fix.py
+- latest verified boot image: workspace/private/inputs/boot_images/boot_linux_v2189_security_p0_stage_fix.img
+- latest verified boot image SHA256: a7332612199cfd275f2dfc6fdb25843af401a1ecef2fa54ac0f52afe705f1ffe
+- 현재 기준 사이클: v2189-security-p0-stage-fix security P0 stage-fix baseline (V2190 promotion)
+- version axes: v2189-security-p0-stage-fix는 boot/init baseline tag, a90_android_execns_probe helper-v427은 포함된 helper marker, V2190은 baseline-promotion run/report 번호다. 전체 규칙은 docs/operations/VERSIONING_POLICY.md를 따른다.
+- previous verified boot image: workspace/private/inputs/boot_images/boot_linux_v2187_screenapp_ui_validation.img (A90 Linux init 0.9.259 (v2187-screenapp-ui-validation))
 - known-good fallback native init: A90 Linux init v48
 - known-good fallback source: workspace/public/archive/stage3/linux_init/init_v48.c
 - known-good fallback boot image: workspace/private/inputs/boot_images/boot_linux_v48.img
@@ -85,7 +85,7 @@ python3 workspace/public/src/scripts/revalidation/a90ctl.py --json status || tru
 
 판단:
 
-- bridge에서 A90 Linux init 0.8.17 (v86)이 나오면 latest verified native init boot 상태다. `storage`/`mountsd status`로 SD 상태를 재확인한다.
+- bridge에서 `A90 Linux init 0.9.261 (v2189-security-p0-stage-fix)`가 나오면 latest verified native init boot 상태다. `status`/`selftest`로 상태를 재확인한다.
 - bridge에서 A90 Linux init v48이 나오면 known-good fallback native init 상태다.
 - adb devices -l에서 recovery면 TWRP 상태다.
 - adb devices -l에서 device이고 /proc/1/exe가 /system/bin/init이면 Android 상태다.

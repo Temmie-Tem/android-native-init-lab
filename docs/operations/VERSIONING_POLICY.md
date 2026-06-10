@@ -1,6 +1,6 @@
 # A90 Native Init Versioning Policy
 
-Date: `2026-05-11` (refreshed `2026-06-09`)
+Date: `2026-05-11` (refreshed `2026-06-10`)
 
 This project uses separate version axes. Do not collapse them into one `vNNN`
 number.
@@ -33,6 +33,8 @@ Examples:
 - `V2183` baseline-promotion run for the `v2182-hud-menu-cleanup` artifact
 - `V2187` baseline-promotion run for the `v2187-screenapp-ui-validation`
   artifact
+- `V2190` baseline-promotion run for the `v2189-security-p0-stage-fix`
+  artifact
 
 Rules:
 
@@ -53,7 +55,7 @@ Examples:
 - `A90 Linux init 0.9.251`
 - `A90 Linux init 0.9.253`
 - `A90 Linux init 0.9.255`
-- `A90 Linux init 0.9.259`
+- `A90 Linux init 0.9.261`
 
 Increase this version when the flashed boot artifact changes:
 
@@ -76,7 +78,7 @@ Examples:
 - `v726-wifi-lifecycle`
 - `v2169-transport-contract`
 - `v2182-hud-menu-cleanup`
-- `v2187-screenapp-ui-validation`
+- `v2189-security-p0-stage-fix`
 
 Rules:
 
@@ -134,8 +136,8 @@ Host commit: <git-sha-or-uncommitted>
 For host-only or unchanged-image validation:
 
 ```text
-Run ID: V2188
-Native init: A90 Linux init 0.9.259 (v2187-screenapp-ui-validation)
+Run ID: V2191
+Native init: A90 Linux init 0.9.261 (v2189-security-p0-stage-fix)
 Build tag: unchanged
 Helper: unchanged
 Device flash: no
@@ -147,25 +149,25 @@ Host commit: <git-sha-or-uncommitted>
 Read versions in this order:
 
 ```text
-V2187  = what project/test/promotion run was executed
-0.9.259 = what native init build is visible on the phone
-v2187-screenapp-ui-validation = what boot/init baseline role was flashed
+V2190  = what project/test/promotion run was executed
+0.9.261 = what native init build is visible on the phone
+v2189-security-p0-stage-fix = what boot/init baseline role was flashed
 helper-v427 = which helper binary marker is embedded or deployed
 sha256 = exact binary/evidence artifact identity
 ```
 
 ## Current Example
 
-Current verified screenapp UI validation baseline evidence is based on:
+Current verified security P0 stage-fix baseline evidence is based on:
 
 ```text
-Run ID: V2187
-Native init: A90 Linux init 0.9.259 (v2187-screenapp-ui-validation)
-Build tag: v2187-screenapp-ui-validation
+Run ID: V2190
+Native init: A90 Linux init 0.9.261 (v2189-security-p0-stage-fix)
+Build tag: v2189-security-p0-stage-fix
 Helper: a90_android_execns_probe helper-v427
-Boot image: workspace/private/inputs/boot_images/boot_linux_v2187_screenapp_ui_validation.img
-Boot SHA256: 0422f854b3e78d36e225012fd89a53016067155e200291d067ff7d71f32091ca
-Evidence: V2187 source/build, screenapp live validation, and V2187 baseline promotion report
+Boot image: workspace/private/inputs/boot_images/boot_linux_v2189_security_p0_stage_fix.img
+Boot SHA256: a7332612199cfd275f2dfc6fdb25843af401a1ecef2fa54ac0f52afe705f1ffe
+Evidence: V2189 source/build, V2189 live validation, V2189 security precheck, and V2190 baseline promotion report
 ```
 
 If this artifact is reproduced unchanged, keep the build tag and record the

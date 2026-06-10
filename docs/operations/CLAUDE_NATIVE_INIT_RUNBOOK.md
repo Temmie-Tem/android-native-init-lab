@@ -1,6 +1,6 @@
 # Claude / Agent Native Init Operations Runbook
 
-Date: `2026-04-29`
+Date: `2026-06-10`
 
 이 문서는 Claude나 다른 에이전트가 이 저장소에서 같은 실수를 반복하지 않도록 남기는
 운영 설명서다. 핵심은 **브릿지로 현재 상태를 먼저 확인하고, TWRP/boot image/serial rescue
@@ -12,13 +12,13 @@ Date: `2026-04-29`
 
 - device: `Samsung Galaxy A90 5G SM-A908N`
 - recovery: TWRP 사용 가능
-- latest verified build: `A90 Linux init 0.9.259 (v2187-screenapp-ui-validation)`
-- latest verified source: `workspace/public/src/native-init/` + 빌더 `workspace/public/src/scripts/revalidation/build_native_init_boot_v2187_screenapp_ui_validation.py`
-- latest verified boot image: `workspace/private/inputs/boot_images/boot_linux_v2187_screenapp_ui_validation.img`
-- latest verified boot image SHA256: `0422f854b3e78d36e225012fd89a53016067155e200291d067ff7d71f32091ca`
-- 현재 기준 사이클: `v2187-screenapp-ui-validation` screenapp UI validation baseline (V2187 promotion)
-- version axes: `v2187-screenapp-ui-validation`은 boot/init baseline tag, `a90_android_execns_probe helper-v427`은 포함된 helper marker, `V2187`은 baseline-promotion run/report 번호다. 전체 규칙은 `docs/operations/VERSIONING_POLICY.md`를 따른다.
-- previous verified boot image: `workspace/private/inputs/boot_images/boot_linux_v2186_wifi_ui_polish.img` (`A90 Linux init 0.9.258 (v2186-wifi-ui-polish)`)
+- latest verified build: `A90 Linux init 0.9.261 (v2189-security-p0-stage-fix)`
+- latest verified source: `workspace/public/src/native-init/` + 빌더 `workspace/public/src/scripts/revalidation/build_native_init_boot_v2189_security_p0_stage_fix.py`
+- latest verified boot image: `workspace/private/inputs/boot_images/boot_linux_v2189_security_p0_stage_fix.img`
+- latest verified boot image SHA256: `a7332612199cfd275f2dfc6fdb25843af401a1ecef2fa54ac0f52afe705f1ffe`
+- 현재 기준 사이클: `v2189-security-p0-stage-fix` security P0 stage-fix baseline (V2190 promotion)
+- version axes: `v2189-security-p0-stage-fix`는 boot/init baseline tag, `a90_android_execns_probe helper-v427`은 포함된 helper marker, `V2190`은 baseline-promotion run/report 번호다. 전체 규칙은 `docs/operations/VERSIONING_POLICY.md`를 따른다.
+- previous verified boot image: `workspace/private/inputs/boot_images/boot_linux_v2187_screenapp_ui_validation.img` (`A90 Linux init 0.9.259 (v2187-screenapp-ui-validation)`)
 - older verified boot image: `workspace/private/inputs/boot_images/boot_linux_v261.img` (`A90 Linux init 0.9.60 (v261)`)
 - known-good fallback native init: `A90 Linux init v48`
 - known-good fallback boot image: `workspace/private/inputs/boot_images/boot_linux_v48.img`

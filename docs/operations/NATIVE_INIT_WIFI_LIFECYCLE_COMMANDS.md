@@ -1,6 +1,6 @@
 # Native Init Wi-Fi Lifecycle Commands
 
-Date: `2026-06-09`
+Date: `2026-06-10`
 
 This is the operator-facing command contract for native-init Wi-Fi lifecycle
 work. It keeps diagnostic/status commands separate from scan/connect/autoconnect
@@ -277,9 +277,9 @@ python3 workspace/public/src/scripts/revalidation/native_wifi_connect_carrier_ha
 ```
 
 The runner flashes the V2174 test boot, runs only the carrier-level connect
-window, and verifies rollback `selftest fail=0`. After the V2187 promotion, this
+window, and verifies rollback `selftest fail=0`. After the V2190 promotion, this
 runner remains carrier-level evidence only; new Wi-Fi lifecycle work should
-treat `v2187-screenapp-ui-validation` as the current baseline and use older
+treat `v2189-security-p0-stage-fix` as the current baseline and use older
 images only for explicit rollback/regression testing.
 
 ## `wifi dhcp [profile]`

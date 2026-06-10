@@ -20,5 +20,5 @@ This directory stores raw Codex Cloud CSV exports and local rescan reports.
 snapshots, not the canonical finding index. Canonical status stays in
 `../findings/README.md`.
 
-- Latest local active-workspace pre-promotion scan:
+- Latest local active-workspace promotion-supporting scan:
   `SECURITY_FRESH_SCAN_V2189_2026-06-10.md`.

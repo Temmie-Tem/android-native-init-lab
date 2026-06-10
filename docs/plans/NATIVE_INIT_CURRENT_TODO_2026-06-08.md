@@ -8,11 +8,11 @@ than the long-term roadmap.
 
 Current baseline:
 
-- Device baseline: `A90 Linux init 0.9.259 (v2187-screenapp-ui-validation)`.
-- Promotion run: `V2187`; boot SHA256
-  `0422f854b3e78d36e225012fd89a53016067155e200291d067ff7d71f32091ca`.
+- Device baseline: `A90 Linux init 0.9.261 (v2189-security-p0-stage-fix)`.
+- Promotion run: `V2190`; boot SHA256
+  `a7332612199cfd275f2dfc6fdb25843af401a1ecef2fa54ac0f52afe705f1ffe`.
 - Immediate rollback image:
-  `workspace/private/inputs/boot_images/boot_linux_v2187_screenapp_ui_validation.img`.
+  `workspace/private/inputs/boot_images/boot_linux_v2189_security_p0_stage_fix.img`.
 - Emergency rollback image:
   `workspace/private/inputs/boot_images/boot_linux_v2169_transport_contract.img`.
 - Active control path: USB ACM serial bridge managed by
@@ -26,11 +26,8 @@ Current baseline:
 - Active script root: `workspace/public/src/scripts/revalidation/`.
 - Private/generated payload root: `workspace/private/` and structured `tmp/`.
 
-Pre-promotion candidate:
+Latest promotion evidence:
 
-- Candidate: `A90 Linux init 0.9.261 (v2189-security-p0-stage-fix)`.
-- Boot SHA256:
-  `a7332612199cfd275f2dfc6fdb25843af401a1ecef2fa54ac0f52afe705f1ffe`.
 - Live validation:
   `docs/reports/NATIVE_INIT_V2189_SECURITY_P0_STAGE_FIX_LIVE_VALIDATION_2026-06-10.md`.
 - Fresh local security scan:
@@ -38,14 +35,15 @@ Pre-promotion candidate:
   (`PASS=10`, `WARN=1`, `FAIL=0`).
 - Promotion precheck:
   `docs/reports/NATIVE_INIT_V2189_PROMOTION_PRECHECK_2026-06-10.md`.
-- Status: eligible for explicit baseline promotion; current promoted baseline
-  remains V2187 until the promotion report and baseline pointer updates land.
+- Baseline promotion:
+  `docs/reports/NATIVE_INIT_V2190_V2189_SECURITY_P0_STAGE_FIX_BASELINE_PROMOTION_2026-06-10.md`.
+- Status: promoted baseline.
 
 ## Priority 0: Commit Hygiene
 
 Goal: keep the current workspace reviewable before more live tests.
 
-Status: complete for the current `v2187-screenapp-ui-validation` baseline.
+Status: complete for the current `v2189-security-p0-stage-fix` baseline.
 
 Completed audit:
 
@@ -77,7 +75,7 @@ Exit criteria:
 
 Goal: keep the proven `wlan0` lifecycle as repeatable baseline behavior.
 
-Status: complete for the current `v2187-screenapp-ui-validation` baseline.
+Status: complete for the current `v2189-security-p0-stage-fix` baseline.
 
 Completed baseline capabilities:
 
@@ -103,8 +101,10 @@ Completed baseline capabilities:
   - V2185 passed bounded gateway plus fixed-IP ping and became a prior rollback
     baseline;
   - V2186 passed Wi-Fi status/RF UI polish and became a prior rollback baseline;
-  - V2187 passed `screenapp` framebuffer validation and is now the promoted
-    rollback baseline.
+  - V2187 passed `screenapp` framebuffer validation and remains the previous
+    conservative rollback baseline;
+  - V2189 passed security P0 flash/staging hardening, carrier smoke, cleanup,
+    and fresh local security scan; V2190 promoted it as the current baseline.
 - Primary evidence reports:
   - `docs/reports/NATIVE_INIT_V2176_WIFI_DHCP_STABILITY_N3_2026-06-08.md`;
   - `docs/reports/NATIVE_INIT_V2177_WIFI_HOLD_RECONNECT_LIVE_VALIDATION_2026-06-09.md`;
@@ -112,13 +112,17 @@ Completed baseline capabilities:
   - `docs/reports/NATIVE_INIT_V2184_PHONE_WIFI_LARGE_TRANSFER_2026-06-10.md`;
   - `docs/reports/NATIVE_INIT_V2185_NETWORK_PING_BASELINE_PROMOTION_2026-06-10.md`;
   - `docs/reports/NATIVE_INIT_V2186_WIFI_UI_POLISH_BASELINE_PROMOTION_2026-06-10.md`;
-  - `docs/reports/NATIVE_INIT_V2187_SCREENAPP_UI_VALIDATION_BASELINE_PROMOTION_2026-06-10.md`.
+  - `docs/reports/NATIVE_INIT_V2187_SCREENAPP_UI_VALIDATION_BASELINE_PROMOTION_2026-06-10.md`;
+  - `docs/reports/NATIVE_INIT_V2189_SECURITY_P0_STAGE_FIX_LIVE_VALIDATION_2026-06-10.md`;
+  - `docs/security/scans/SECURITY_FRESH_SCAN_V2189_2026-06-10.md`;
+  - `docs/reports/NATIVE_INIT_V2190_V2189_SECURITY_P0_STAGE_FIX_BASELINE_PROMOTION_2026-06-10.md`.
 
 Standing rules:
 
-- Keep V2187 as the current baseline and rollback image until a newer boot image
-  is intentionally promoted.
-- Keep V2186, V2185, V2178, and V2169 as older conservative fallbacks only.
+- Keep V2189 as the current baseline and normal rollback image until a newer
+  boot image is intentionally promoted.
+- Keep V2187, V2186, V2185, V2178, and V2169 as older conservative fallbacks
+  only.
 - Keep Wi-Fi profiles, SSID, PSK, raw phone-transfer evidence, private IPs, and
   raw LAN identifiers under ignored private roots.
 - Keep secondary-interface noise out of the main gate unless it becomes a
@@ -132,8 +136,8 @@ Deferred polish:
   autoconnect; runners must poll `autoconnect.decision=wifi-autoconnect-running`
   until a terminal result.
 - Optional redacted SSID display toggle for scan results.
-- Optional physical button/OCR validation for `NETWORK > PING TEST`; V2187
-  already has command-level framebuffer evidence for the same draw path.
+- Optional physical button/OCR validation for `NETWORK > PING TEST`; V2189
+  preserves V2187 command-level framebuffer evidence for the same draw path.
 
 ## Priority 2: Bridge And Transport
 
@@ -223,7 +227,7 @@ When promoting a new boot image:
   - boot SHA256;
   - host commit.
 - Update rollback image path and SHA in the runbook.
-- Keep V2187 fixed as current baseline until that promotion happens.
+- Keep V2189 fixed as current baseline until the next explicit promotion.
 
 ## Priority 5: Workspace Structure
 
@@ -301,10 +305,10 @@ Keep:
 
 ## Suggested Next Sequence
 
-1. Promote V2189 only through an explicit promotion report and baseline pointer
-   updates; do not silently replace V2187.
-2. Defer architecture source cleanup until after the security baseline
-   promotion, unless a cleanup patch is kept separate and validation-neutral.
+1. Start new live validation from V2189 unless a test explicitly validates an
+   older rollback image.
+2. Defer architecture source cleanup unless a cleanup patch is kept separate and
+   validation-neutral.
 3. If serial `AT` noise naturally fires, confirm shared recovery evidence.
 4. Run longer Wi-Fi/data-path soak only when new promotion criteria require it.
 
@@ -314,8 +318,8 @@ Keep:
 | --- | --- | --- |
 | Boot autoconnect latency | Wi-Fi success can take roughly three minutes. | Poll `autoconnect.decision` until a terminal result; shared phase timers are live-validated for bounded current-baseline runners, but boot/reboot latency still needs separate timing if retested. |
 | Serial `AT` noise | A single cmdv1 exchange can be malformed. | Shared recovery is implemented for safe commands; V2180 did not naturally fire the path, so live-fired evidence remains opportunistic. |
-| Physical network-menu ping selection | V2187 has command-level framebuffer presentation evidence for `WIFI STATUS` and `WIFI PING RESULTS`, but not button-driven physical capture. | Treat as UI polish, not a baseline blocker; validate physically or with OCR only if visual-navigation evidence is required. |
+| Physical network-menu ping selection | V2189 inherits V2187 command-level framebuffer presentation evidence for `WIFI STATUS` and `WIFI PING RESULTS`, but not button-driven physical capture. | Treat as UI polish, not a baseline blocker; validate physically or with OCR only if visual-navigation evidence is required. |
 | Large-transfer soak depth | V2184 passed 512MiB and 1GiB single-run bidirectional SHA checks, but not repeated N-run or multi-hour soak. | Treat as strong data-path evidence; run `cleanup -> reconnect -> 512MiB` or N-run soak only if promotion criteria require it. |
-| UI completeness | V2187 is the current baseline and adds `screenapp` proof for the same network app draw paths while preserving V2186 Wi-Fi status/ping behavior. | Keep V2187 as baseline; physical button/OCR validation remains optional. |
+| UI completeness | V2189 is the current baseline and preserves V2187 `screenapp` proof for the same network app draw paths while adding security P0 hardening. | Keep V2189 as baseline; physical button/OCR validation remains optional. |
 | Script sprawl | Current source-root inventory is clean, but archive provenance remains large and older utility scripts still duplicate some transport/artifact logic. | Keep inventory current; migrate one active runner at a time; do not run archive scripts without focused migration/review. |
 | Private data leakage | Wi-Fi profiles and raw run artifacts are intentionally private. | Keep secrets under ignored private roots; public reports stay redacted. |

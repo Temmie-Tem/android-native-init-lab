@@ -1,6 +1,6 @@
 # Native Init Boot And Transport Contract
 
-Updated: `2026-06-09`
+Updated: `2026-06-10`
 
 This document defines the standing contract between:
 
@@ -20,16 +20,16 @@ Current verified baseline:
 
 | Field | Value |
 | --- | --- |
-| Device-visible version | `A90 Linux init 0.9.259` |
-| Build tag | `v2187-screenapp-ui-validation` |
-| Boot image | `workspace/private/inputs/boot_images/boot_linux_v2187_screenapp_ui_validation.img` |
-| Boot SHA256 | `0422f854b3e78d36e225012fd89a53016067155e200291d067ff7d71f32091ca` |
+| Device-visible version | `A90 Linux init 0.9.261` |
+| Build tag | `v2189-security-p0-stage-fix` |
+| Boot image | `workspace/private/inputs/boot_images/boot_linux_v2189_security_p0_stage_fix.img` |
+| Boot SHA256 | `a7332612199cfd275f2dfc6fdb25843af401a1ecef2fa54ac0f52afe705f1ffe` |
 | Source root | `workspace/public/src/native-init/` |
-| Builder | `workspace/public/src/scripts/revalidation/build_native_init_boot_v2187_screenapp_ui_validation.py` |
-| Source/build report | `docs/reports/NATIVE_INIT_V2187_SCREENAPP_UI_VALIDATION_SOURCE_BUILD_2026-06-10.md` |
-| Live validation report | `docs/reports/NATIVE_INIT_V2187_SCREENAPP_UI_VALIDATION_LIVE_2026-06-10.md` |
-| Promotion report | `docs/reports/NATIVE_INIT_V2187_SCREENAPP_UI_VALIDATION_BASELINE_PROMOTION_2026-06-10.md` |
-| Previous rollback | `workspace/private/inputs/boot_images/boot_linux_v2186_wifi_ui_polish.img` |
+| Builder | `workspace/public/src/scripts/revalidation/build_native_init_boot_v2189_security_p0_stage_fix.py` |
+| Source/build report | `docs/reports/NATIVE_INIT_V2189_SECURITY_P0_STAGE_FIX_SOURCE_BUILD_2026-06-10.md` |
+| Live validation report | `docs/reports/NATIVE_INIT_V2189_SECURITY_P0_STAGE_FIX_LIVE_VALIDATION_2026-06-10.md` |
+| Promotion report | `docs/reports/NATIVE_INIT_V2190_V2189_SECURITY_P0_STAGE_FIX_BASELINE_PROMOTION_2026-06-10.md` |
+| Previous rollback | `workspace/private/inputs/boot_images/boot_linux_v2187_screenapp_ui_validation.img` |
 | Known-good fallback | `workspace/private/inputs/boot_images/boot_linux_v48.img` |
 
 The boot image must provide:
@@ -48,15 +48,15 @@ Previous baseline:
 
 | Field | Value |
 | --- | --- |
-| Build tag | `v2186-wifi-ui-polish` |
-| Device-visible version | `A90 Linux init 0.9.258` |
-| Boot image | `workspace/private/inputs/boot_images/boot_linux_v2186_wifi_ui_polish.img` |
-| Boot SHA256 | `7a0db3bb76232f778869d3bf0788268f3a1942b230b094158dddf7a7d500fd32` |
+| Build tag | `v2187-screenapp-ui-validation` |
+| Device-visible version | `A90 Linux init 0.9.259` |
+| Boot image | `workspace/private/inputs/boot_images/boot_linux_v2187_screenapp_ui_validation.img` |
+| Boot SHA256 | `0422f854b3e78d36e225012fd89a53016067155e200291d067ff7d71f32091ca` |
 | Current role | Older conservative fallback |
 
-`v2187-screenapp-ui-validation` is promoted as the current baseline by V2187. It
-keeps the V2186 Wi-Fi UI/status/ping path and adds the `screenapp` dev-display
-validation command for reproducible network screen presentation checks.
+`v2189-security-p0-stage-fix` is promoted as the current baseline by V2190. It
+keeps the V2187 screenapp/UI validation baseline and adds the V2188/V2189
+security P0 flash identity and Wi-Fi staged-artifact hardening.
 
 ## 2. Boot-Image Transport Contract
 
@@ -311,9 +311,9 @@ As of `2026-06-10`:
 - Host bridge wrapper contract exists: `wrapper_contract=1`.
 - Host transport selector contract exists: `selector_contract=1`.
 - NCM smoke runner records transport selection in its manifest.
-- Current boot image is `v2187-screenapp-ui-validation`.
+- Current boot image is `v2189-security-p0-stage-fix`.
 - Device-side `transport.contract=1` is a current baseline guarantee.
-- Previous rollback image is `v2186-wifi-ui-polish`; known-good fallback
+- Previous rollback image is `v2187-screenapp-ui-validation`; known-good fallback
   remains `v48`.
 
 The next boot-image promotion should preserve the device-side `transport.*`

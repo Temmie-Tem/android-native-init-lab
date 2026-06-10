@@ -207,13 +207,16 @@ python3 workspace/public/src/scripts/revalidation/build_native_init_boot_v2184_n
 python3 workspace/public/src/scripts/revalidation/build_native_init_boot_v2185_network_ping_test.py
 python3 workspace/public/src/scripts/revalidation/build_native_init_boot_v2186_wifi_ui_polish.py
 python3 workspace/public/src/scripts/revalidation/build_native_init_boot_v2187_screenapp_ui_validation.py
-sha256sum workspace/private/inputs/boot_images/boot_linux_v2187_screenapp_ui_validation.img
+python3 workspace/public/src/scripts/revalidation/build_native_init_boot_v2188_security_p0_hardening.py
+python3 workspace/public/src/scripts/revalidation/build_native_init_boot_v2189_security_p0_stage_fix.py
+sha256sum workspace/private/inputs/boot_images/boot_linux_v2189_security_p0_stage_fix.img
 ```
 
 The active builders write ramdisk/init/helper intermediates under
 `workspace/private/builds/native-init/` and final baseline boot images under
-`workspace/private/inputs/boot_images/`. The current V2187 baseline SHA is
-recorded in the source-build, live validation, and V2187 promotion reports.
+`workspace/private/inputs/boot_images/`. The current V2189 artifact SHA is
+recorded in the source-build, live validation, security precheck, and V2190
+promotion reports.
 Verify SHA before using an image for any flash/handoff cycle.
 
 ### 5. Create Private Wi-Fi Test Env Only When Needed

@@ -8,17 +8,17 @@
 
 상단 `docs/`는 이제 다음 흐름에 필요한 문서를 유지합니다.
 
-1. native init 0.9.259 / v2187-screenapp-ui-validation baseline 고정
+1. native init 0.9.261 / v2189-security-p0-stage-fix baseline 고정
 2. shell/HUD/log/menu 운영 안정화
 3. 필요한 하드웨어/커널 경로만 역추적
 4. BusyBox/network/SSH 같은 서버형 확장 가능성 검토
 
 ## 최신 Wi-Fi bring-up 조사 기준
 
-> 현재 기준은 `A90 Linux init 0.9.259 (v2187-screenapp-ui-validation)`
-> screenapp UI validation baseline이다. 번호 체계는
-> `docs/operations/VERSIONING_POLICY.md`를 따른다: `V2187`은
-> baseline-promotion run/report와 현재 boot/init baseline tag를 동시에 가리키며,
+> 현재 기준은 `A90 Linux init 0.9.261 (v2189-security-p0-stage-fix)`
+> security P0 stage-fix baseline이다. 번호 체계는
+> `docs/operations/VERSIONING_POLICY.md`를 따른다: `V2190`은
+> baseline-promotion run/report이고 `v2189-security-p0-stage-fix`는 현재 boot/init baseline tag이며,
 > `a90_android_execns_probe helper-v427`은 helper marker다.
 > 작업 위치와 커밋 경계는 `docs/operations/WORKING_RULES.md`를 우선 확인한다.
 
@@ -152,16 +152,16 @@ hygiene를 기준으로 한다.
 - 빌드: `A908NKSU5EWA3`
 - kernel: Samsung stock Android kernel `Linux 4.14.190`
 - recovery: TWRP 사용 가능
-- latest verified build: `A90 Linux init 0.9.259 (v2187-screenapp-ui-validation)`
-- official version: `0.9.259`
-- build tag: `v2187-screenapp-ui-validation`
-- 현재 기준 사이클: `v2187-screenapp-ui-validation` screenapp UI validation baseline (V2187 promotion)
-- version axes: `v2187-screenapp-ui-validation`은 boot/init baseline tag, `a90_android_execns_probe helper-v427`은 포함된 helper marker, `V2187`은 baseline-promotion run/report 번호다. 전체 규칙은 `docs/operations/VERSIONING_POLICY.md`를 따른다.
+- latest verified build: `A90 Linux init 0.9.261 (v2189-security-p0-stage-fix)`
+- official version: `0.9.261`
+- build tag: `v2189-security-p0-stage-fix`
+- 현재 기준 사이클: `v2189-security-p0-stage-fix` security P0 stage-fix baseline (V2190 promotion)
+- version axes: `v2189-security-p0-stage-fix`는 boot/init baseline tag, `a90_android_execns_probe helper-v427`은 포함된 helper marker, `V2190`은 baseline-promotion run/report 번호다. 전체 규칙은 `docs/operations/VERSIONING_POLICY.md`를 따른다.
 - creator: `made by temmie0214`
-- latest verified source: `workspace/public/src/native-init/` + 빌더 `workspace/public/src/scripts/revalidation/build_native_init_boot_v2187_screenapp_ui_validation.py`
-- latest verified boot image: `workspace/private/inputs/boot_images/boot_linux_v2187_screenapp_ui_validation.img`
-- latest verified boot image SHA256: `0422f854b3e78d36e225012fd89a53016067155e200291d067ff7d71f32091ca`
-- previous verified boot image: `workspace/private/inputs/boot_images/boot_linux_v2186_wifi_ui_polish.img` (`0.9.258 (v2186-wifi-ui-polish)`)
+- latest verified source: `workspace/public/src/native-init/` + 빌더 `workspace/public/src/scripts/revalidation/build_native_init_boot_v2189_security_p0_stage_fix.py`
+- latest verified boot image: `workspace/private/inputs/boot_images/boot_linux_v2189_security_p0_stage_fix.img`
+- latest verified boot image SHA256: `a7332612199cfd275f2dfc6fdb25843af401a1ecef2fa54ac0f52afe705f1ffe`
+- previous verified boot image: `workspace/private/inputs/boot_images/boot_linux_v2187_screenapp_ui_validation.img` (`0.9.259 (v2187-screenapp-ui-validation)`)
 - older verified boot image: `workspace/private/inputs/boot_images/boot_linux_v261.img` (`0.9.60 (v261)`)
 - known-good fallback: `workspace/private/inputs/boot_images/boot_linux_v48.img`
 - control channel: USB CDC ACM serial bridge
@@ -684,6 +684,7 @@ hygiene를 기준으로 한다.
 
 - `operations/WORKSPACE_STRUCTURE_AND_BOOTSTRAP.md` – 새 GitHub clone/new workspace에서 tracked source, ignored local inputs, structured `tmp` layout, boot image rebuild order, private Wi-Fi env, host NCM setup, seal check를 복구하는 기준
 - `plans/NATIVE_INIT_CURRENT_TODO_2026-06-08.md` – 현재 baseline hardening TODO, Wi-Fi lifecycle/bridge/script inventory/versioning/workspace/QA/safety 우선순위 기준
+- `reports/NATIVE_INIT_V2190_V2189_SECURITY_P0_STAGE_FIX_BASELINE_PROMOTION_2026-06-10.md` – V2189 security P0 stage-fix artifact를 현재 native-init baseline으로 승격한 V2190 promotion report
 - `reports/NATIVE_INIT_V2189_PROMOTION_PRECHECK_2026-06-10.md` – V2189 security P0 live validation, fresh local security scan, architecture debt disposition을 묶어 baseline promotion eligibility를 판정한 precheck 결과
 - `security/scans/SECURITY_FRESH_SCAN_V2189_2026-06-10.md` – active workspace 기준 V2189 root-control/flash/Wi-Fi staging 보안 guardrail 재스캔, PASS 10/WARN 1/FAIL 0
 - `reports/NATIVE_INIT_V2189_SECURITY_P0_STAGE_FIX_LIVE_VALIDATION_2026-06-10.md` – V2189 test boot flash/readback/selftest/version, Wi-Fi root-exec staging fix, carrier smoke, cleanup/selftest live PASS 결과

@@ -12,7 +12,7 @@ patch reports, and local rescan evidence for the A90 native init project.
 - Latest imported batch: `F054-F056`, mitigated in host tooling.
 - Latest live validation for that batch is recorded in
   `batches/SECURITY_FINDINGS_F054_F056_PATCH_REPORT_2026-05-12.md`.
-- Latest local active-workspace pre-promotion scan:
+- Latest local active-workspace promotion-supporting scan:
   `scans/SECURITY_FRESH_SCAN_V2189_2026-06-10.md` with PASS `10`, WARN `1`,
   FAIL `0`; the remaining warning is the accepted trusted-lab local
   root-control boundary.
