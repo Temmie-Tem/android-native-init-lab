@@ -139,6 +139,37 @@ Scope and output:
 Menu entry is intentionally explicit: status/HUD/profile/scan screens do not
 auto-run external network traffic.
 
+## `screenapp ...`
+
+`screenapp` is a V2187+ dev-display validation primitive for rendering selected
+on-device app screens without physical button navigation.
+
+Supported network screens:
+
+- `screenapp network`;
+- `screenapp wifi-status`;
+- `screenapp wifi-profiles`;
+- `screenapp wifi-scan`;
+- `screenapp wifi-ping`.
+
+Behavior:
+
+- uses the same native draw functions as the `NETWORK` menu apps;
+- prints `screenapp.title`, `screenapp.rc`, and `screenapp.presented` for
+  automation;
+- does not write raw SSID, BSSID, PSK, private IP, gateway, or peer MAC details
+  to public reports;
+- should normally be run after `stophud` in live validation so the auto HUD does
+  not redraw over the test frame.
+
+Safety:
+
+- `screenapp wifi-status` and `screenapp wifi-profiles` are read-only.
+- `screenapp wifi-scan` uses the same bounded, credential-free scope as
+  `NETWORK > WIFI SCAN`.
+- `screenapp wifi-ping` uses the same explicit bounded collector as
+  `NETWORK > PING TEST`; it does not connect, run DHCP, or read credentials.
+
 ## `wifi config ...`
 
 `wifi config status` and `wifi config prepare [profile]` remain delegated to the

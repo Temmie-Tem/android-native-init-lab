@@ -51,6 +51,7 @@ SAFE_RETRY_COMMANDS = {
     "ls",
     "cat",
     "stat",
+    "screenapp",
 }
 
 

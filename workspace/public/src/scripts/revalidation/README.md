@@ -29,11 +29,13 @@ Current migrated entrypoints:
 - `build_native_init_boot_v2184_network_ui_p0_p1.py`
 - `build_native_init_boot_v2185_network_ping_test.py`
 - `build_native_init_boot_v2186_wifi_ui_polish.py`
+- `build_native_init_boot_v2187_screenapp_ui_validation.py`
 - `a90_wifi_profile_stage.py`
 - `native_wifi_connect_carrier_handoff_v2174.py`
 - `native_wifi_dhcp_ping_handoff_v2176.py`
 - `native_wifi_hold_reconnect_handoff_v2177.py`
 - `native_wifi_v2178_autoconnect_phase_validation.py`
+- `native_ui_screenapp_validation_v2187.py`
 - `native_wifi_supplicant_dependency_probe.py`
 - `a90_v725_fasttransport_baseline_validation.py`
 - `inventory_revalidation_scripts.py`

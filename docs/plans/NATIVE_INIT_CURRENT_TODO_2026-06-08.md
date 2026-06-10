@@ -255,6 +255,31 @@ Completed first units:
     unless testing explicitly requires an older fallback;
   - promotion report:
     `docs/reports/NATIVE_INIT_V2186_WIFI_UI_POLISH_BASELINE_PROMOTION_2026-06-10.md`.
+- `v2187-screenapp-ui-validation` source work is in place:
+  - keeps V2186 as the parent baseline and rollback target;
+  - adds `screenapp [network|wifi-status|wifi-profiles|wifi-scan|wifi-ping]`
+    as a direct display validation command for the same native draw functions
+    used by the `NETWORK` menu apps;
+  - does not promote V2187 as the current baseline.
+- `v2187-screenapp-ui-validation` source build passed:
+  - built
+    `workspace/private/inputs/boot_images/boot_linux_v2187_screenapp_ui_validation.img`;
+  - boot SHA256:
+    `0422f854b3e78d36e225012fd89a53016067155e200291d067ff7d71f32091ca`;
+  - report:
+    `docs/reports/NATIVE_INIT_V2187_SCREENAPP_UI_VALIDATION_SOURCE_BUILD_2026-06-10.md`.
+- `v2187-screenapp-ui-validation` live validation passed and rolled back:
+  - flashed
+    `workspace/private/inputs/boot_images/boot_linux_v2187_screenapp_ui_validation.img`;
+  - verified device-visible version
+    `A90 Linux init 0.9.259 (v2187-screenapp-ui-validation)`;
+  - ran `stophud`, `screenapp wifi-status`, and `screenapp wifi-ping`;
+  - verified framebuffer presentation for `WIFI STATUS` and
+    `WIFI PING RESULTS`;
+  - rolled back to V2186 and verified
+    `A90 Linux init 0.9.258 (v2186-wifi-ui-polish)` plus selftest `fail=0`;
+  - report:
+    `docs/reports/NATIVE_INIT_V2187_SCREENAPP_UI_VALIDATION_LIVE_2026-06-10.md`.
 - `v2172-wifi-status-scan` live validation passed:
   - corrected the test boot to reuse verified V726 private-property snapshot;
   - flashed test boot;
@@ -299,13 +324,14 @@ Open tasks:
   - status runners must poll `autoconnect.decision=wifi-autoconnect-running`
     until a terminal result.
 - Continue UI polish beyond the P3 minimum:
-  - inspect P0/P1 network menu screens physically or add a framebuffer capture
-    helper for automated visual validation;
+  - V2187 provides automated command-level framebuffer presentation evidence for
+    `WIFI STATUS` and `WIFI PING RESULTS`;
   - optional redacted SSID display mode toggle for scan results.
-- Optional physical UI validation remains open:
+- Optional physical/OCR UI validation remains open:
   - live CLI validation passed, including gateway plus fixed-IP ping;
-  - `screenmenu` smoke was verified, but physical selection of
-    `NETWORK > PING TEST` was not required for baseline promotion.
+  - `screenmenu` smoke and V2187 `screenapp` framebuffer presentation were
+    verified, but physical button selection of `NETWORK > PING TEST` was not
+    required for baseline promotion.
 - Keep secondary interface noise out of the main gate:
   - `swlan0` MAC generation failure is not a primary `wlan0` blocker;
   - `set_features(-11)` remains non-blocking unless reproduced as persistent.
@@ -561,8 +587,9 @@ Exit criteria:
 
 1. If serial `AT` noise fires, confirm the shared recovery evidence is present;
    otherwise keep it as a ready-but-not-live-fired path.
-2. Add physical or framebuffer UI evidence for the promoted V2186 network
-   screens, especially `NETWORK > WIFI STATUS` and `NETWORK > PING TEST`.
+2. Decide whether to promote V2187 `screenapp` as a baseline dev-display
+   command or keep it as a validated test-boot helper; physical/OCR UI evidence
+   can remain a later polish item.
 3. Refresh the script inventory after each active runner migration and continue
    deleting or archiving only classified one-off scripts.
 4. Run a longer Wi-Fi soak only after runner timing/retry instrumentation is in
@@ -574,8 +601,8 @@ Exit criteria:
 | --- | --- | --- |
 | Boot autoconnect latency | Wi-Fi success can take roughly three minutes. | Poll `autoconnect.decision` until a terminal result; shared phase timers are live-validated for bounded current-baseline runners, but boot/reboot latency still needs separate timing if retested. |
 | Serial `AT` noise | A single cmdv1 exchange can be malformed. | Shared recovery is implemented for safe commands; V2180 did not naturally fire the path, so live-fired evidence remains opportunistic. |
-| Physical network-menu ping selection | V2186 has CLI ping/status validation and `screenmenu` smoke, but not button-driven `NETWORK > WIFI STATUS` or `NETWORK > PING TEST` capture. | Treat as UI polish, not a baseline blocker; validate physically or with framebuffer capture when doing the next UI pass. |
+| Physical network-menu ping selection | V2186 has CLI ping/status validation and `screenmenu` smoke; V2187 adds command-level framebuffer presentation evidence for `WIFI STATUS` and `WIFI PING RESULTS`, but not button-driven physical capture. | Treat as UI polish, not a baseline blocker; validate physically or with OCR only if visual-navigation evidence is required. |
 | Large-transfer soak depth | V2184 passed 512MiB and 1GiB single-run bidirectional SHA checks, but not repeated N-run or multi-hour soak. | Treat as strong data-path evidence; run `cleanup -> reconnect -> 512MiB` or N-run soak only if promotion criteria require it. |
-| UI completeness | V2186 is the current baseline and passed `wifi status`, connected metrics, gateway ping, rollback, and `screenmenu`; physical button selection is still uncaptured. | Keep as baseline; improve visual capture/physical navigation evidence in the next UI pass. |
+| UI completeness | V2186 is the current baseline and passed `wifi status`, connected metrics, gateway ping, rollback, and `screenmenu`; V2187 test boot proved the same network app draw paths via `screenapp`. | Keep V2186 as baseline unless V2187 `screenapp` is intentionally promoted; physical button/OCR validation remains optional. |
 | Script sprawl | Older one-off runners still duplicate transport/artifact logic. | Keep inventory current; migrate one active runner at a time. |
 | Private data leakage | Wi-Fi profiles and raw run artifacts are intentionally private. | Keep secrets under ignored private roots; public reports stay redacted. |

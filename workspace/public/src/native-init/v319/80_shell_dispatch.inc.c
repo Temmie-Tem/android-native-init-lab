@@ -341,6 +341,47 @@ static int handle_screenmenu(char **argv, int argc) {
     return cmd_screenmenu();
 }
 
+static int handle_screenapp(char **argv, int argc) {
+    const char *app;
+    int rc;
+
+    if (argc != 2) {
+        a90_console_printf("usage: screenapp [network|wifi-status|wifi-profiles|wifi-scan|wifi-ping]\r\n");
+        return -EINVAL;
+    }
+
+    app = argv[1];
+    a90_console_printf("screenapp.app=%s\r\n", app);
+    a90_console_printf("screenapp.safety=display-only-explicit\r\n");
+    if (strcmp(app, "network") == 0 || strcmp(app, "usb-net") == 0) {
+        a90_console_printf("screenapp.title=NETWORK STATUS\r\n");
+        rc = a90_app_network_draw_summary();
+    } else if (strcmp(app, "wifi-status") == 0 || strcmp(app, "status") == 0) {
+        a90_console_printf("screenapp.title=WIFI STATUS\r\n");
+        rc = a90_app_wifi_draw_status();
+    } else if (strcmp(app, "wifi-profiles") == 0 || strcmp(app, "profiles") == 0) {
+        a90_console_printf("screenapp.title=WIFI PROFILES\r\n");
+        rc = a90_app_wifi_draw_profiles();
+    } else if (strcmp(app, "wifi-scan") == 0 || strcmp(app, "scan") == 0) {
+        a90_console_printf("screenapp.title=WIFI SCAN RESULTS\r\n");
+        a90_app_wifi_reset(SCREEN_APP_WIFI_SCAN);
+        rc = a90_app_wifi_draw_scan();
+    } else if (strcmp(app, "wifi-ping") == 0 || strcmp(app, "ping") == 0) {
+        a90_console_printf("screenapp.title=WIFI PING RESULTS\r\n");
+        a90_app_wifi_reset(SCREEN_APP_WIFI_PING);
+        rc = a90_app_wifi_draw_ping();
+    } else {
+        a90_console_printf("screenapp.valid=0\r\n");
+        a90_console_printf("usage: screenapp [network|wifi-status|wifi-profiles|wifi-scan|wifi-ping]\r\n");
+        return -EINVAL;
+    }
+
+    a90_console_printf("screenapp.valid=1\r\n");
+    a90_console_printf("screenapp.rc=%d\r\n", rc);
+    a90_console_printf("screenapp.presented=%d\r\n", rc == 0 ? 1 : 0);
+    return rc;
+}
+
 static int handle_hide_menu(char **argv, int argc) {
     (void)argv;
     (void)argc;
@@ -964,6 +1005,7 @@ static const struct shell_command command_table[] = {
     { "inputmonitor", handle_inputmonitor, "inputmonitor [events]", CMD_DISPLAY | CMD_BLOCKING, A90_CMD_GROUP_INPUT },
     { "screenmenu", handle_screenmenu, "screenmenu", CMD_BACKGROUND, A90_CMD_GROUP_MENU },
     { "menu", handle_screenmenu, "menu", CMD_BACKGROUND, A90_CMD_GROUP_MENU },
+    { "screenapp", handle_screenapp, "screenapp [network|wifi-status|wifi-profiles|wifi-scan|wifi-ping]", CMD_DISPLAY, A90_CMD_GROUP_MENU },
     { "hide", handle_hide_menu, "hide", CMD_BACKGROUND, A90_CMD_GROUP_MENU },
     { "hidemenu", handle_hide_menu, "hidemenu", CMD_BACKGROUND, A90_CMD_GROUP_MENU },
     { "resume", handle_hide_menu, "resume", CMD_BACKGROUND, A90_CMD_GROUP_MENU },
