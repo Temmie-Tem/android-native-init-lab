@@ -3,10 +3,13 @@
 import argparse
 import hashlib
 import os
+import shutil
 import shlex
 import socket
+import stat
 import subprocess
 import sys
+import tempfile
 import time
 from contextlib import contextmanager
 from pathlib import Path
@@ -141,6 +144,15 @@ def local_sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def normalize_sha256(value: str | None, *, label: str) -> str | None:
+    if value is None:
+        return None
+    normalized = value.strip().lower()
+    if len(normalized) != 64 or any(ch not in "0123456789abcdef" for ch in normalized):
+        raise RuntimeError(f"{label} must be a 64-character hex SHA256")
+    return normalized
+
+
 def file_contains(path: Path, needle: bytes) -> bool:
     if not needle:
         return True
@@ -159,10 +171,16 @@ def file_contains(path: Path, needle: bytes) -> bool:
 
 def inspect_local_image(args: argparse.Namespace) -> tuple[Path, str, int]:
     image_path = Path(args.boot_image)
-    if not image_path.is_file():
+    try:
+        image_stat = image_path.lstat()
+    except FileNotFoundError:
         raise FileNotFoundError(image_path)
+    if not stat.S_ISREG(image_stat.st_mode):
+        raise RuntimeError(f"boot image is not a regular file: {image_path}")
+    if image_stat.st_mode & (stat.S_IWGRP | stat.S_IWOTH):
+        raise RuntimeError(f"boot image is group/world writable: {image_path}")
 
-    image_size = image_path.stat().st_size
+    image_size = image_stat.st_size
     if image_size <= 0:
         raise RuntimeError(f"boot image is empty: {image_path}")
     if image_size % BOOT_READBACK_BLOCK_SIZE != 0:
@@ -181,9 +199,43 @@ def inspect_local_image(args: argparse.Namespace) -> tuple[Path, str, int]:
         log(f"local image contains expected marker: {args.expect_version}")
 
     local_hash = local_sha256(image_path)
+    if args.expect_sha256 and local_hash != args.expect_sha256:
+        raise RuntimeError(
+            f"local image sha256 mismatch: expected={args.expect_sha256} actual={local_hash}"
+        )
     log(f"local image size: {image_size}")
     log(f"local image sha256: {local_hash}")
     return image_path, local_hash, image_size
+
+
+@contextmanager
+def sealed_local_image_copy(image_path: Path, expected_hash: str, expected_size: int):
+    with tempfile.TemporaryDirectory(prefix="native-init-flash-") as temp_dir:
+        sealed_path = Path(temp_dir) / "boot.img"
+        open_flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
+        fd = os.open(image_path, open_flags)
+        try:
+            source_stat = os.fstat(fd)
+            if not stat.S_ISREG(source_stat.st_mode):
+                raise RuntimeError(f"boot image changed to a non-regular file: {image_path}")
+            if source_stat.st_size != expected_size:
+                raise RuntimeError(
+                    f"boot image size changed before push: expected={expected_size} "
+                    f"actual={source_stat.st_size}"
+                )
+            with os.fdopen(os.dup(fd), "rb") as source, sealed_path.open("xb") as destination:
+                shutil.copyfileobj(source, destination, 1024 * 1024)
+        finally:
+            os.close(fd)
+        os.chmod(sealed_path, 0o600)
+        sealed_size = sealed_path.stat().st_size
+        sealed_hash = local_sha256(sealed_path)
+        if sealed_size != expected_size:
+            raise RuntimeError(f"sealed image size mismatch: expected={expected_size} actual={sealed_size}")
+        if sealed_hash != expected_hash:
+            raise RuntimeError(f"sealed image sha256 mismatch: expected={expected_hash} actual={sealed_hash}")
+        log(f"sealed local image copy: {sealed_path}")
+        yield sealed_path
 
 
 def remote_sha256(adb: str, serial: str | None, remote_path: str) -> str:
@@ -306,6 +358,7 @@ def flash_boot_image(args: argparse.Namespace,
                      image_path: Path,
                      local_hash: str,
                      image_size: int) -> None:
+    expected_readback_hash = args.expect_readback_sha256 or local_hash
     remote = quote_remote_path(args.remote_image, label="remote image")
     block = quote_remote_path(args.boot_block, label="boot block")
 
@@ -328,7 +381,7 @@ def flash_boot_image(args: argparse.Namespace,
     with phase_timer("boot_readback_sha256"):
         boot_prefix_hash = remote_boot_prefix_sha256(args.adb, serial, args.boot_block, image_size)
     log(f"boot block prefix sha256: {boot_prefix_hash}")
-    if boot_prefix_hash != local_hash:
+    if boot_prefix_hash != expected_readback_hash:
         raise RuntimeError("boot block prefix sha256 mismatch after flash")
 
 
@@ -384,8 +437,21 @@ def verify_native_init_selftest(args: argparse.Namespace) -> str:
     verify_cmdv1_result(result, "selftest")
     if "fail=0" not in result.text:
         raise RuntimeError("native selftest did not report fail=0")
+    version_text = ""
+    if args.expect_version:
+        version_result = run_cmdv1_command(
+            args.bridge_host,
+            args.bridge_port,
+            args.bridge_timeout,
+            ["version"],
+        )
+        print(version_result.text, end="" if version_result.text.endswith("\n") else "\n")
+        verify_cmdv1_result(version_result, "version")
+        if args.expect_version not in version_result.text:
+            raise RuntimeError(f"expected version marker not found: {args.expect_version}")
+        version_text = version_result.text
     log("cmdv1 verify passed: selftest rc=0 status=ok fail=0")
-    return result.text
+    return result.text + version_text
 
 
 def verify_native_init_raw(args: argparse.Namespace) -> str:
@@ -449,6 +515,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--recovery-timeout", type=float, default=180.0)
     parser.add_argument("--bridge-timeout", type=float, default=180.0)
     parser.add_argument("--expect-version", help="string expected in the native init version output")
+    parser.add_argument("--expect-sha256", help="expected SHA256 of the local boot image")
+    parser.add_argument(
+        "--expect-readback-sha256",
+        help="expected SHA256 of the flashed boot block prefix; defaults to --expect-sha256",
+    )
+    parser.add_argument(
+        "--allow-unpinned-image",
+        action="store_true",
+        help="allow flashing without --expect-sha256; intended only for explicit local experiments",
+    )
     parser.add_argument(
         "--verify-protocol",
         choices=("auto", "cmdv1", "raw", "selftest"),
@@ -470,6 +546,11 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
+    args.expect_sha256 = normalize_sha256(args.expect_sha256, label="--expect-sha256")
+    args.expect_readback_sha256 = normalize_sha256(
+        args.expect_readback_sha256,
+        label="--expect-readback-sha256",
+    )
 
     with phase_timer("total"):
         if args.verify_only:
@@ -479,6 +560,10 @@ def main() -> int:
 
         if not args.boot_image:
             raise SystemExit("boot_image is required unless --verify-only is used")
+        if not args.expect_sha256 and not args.allow_unpinned_image:
+            raise SystemExit("refusing to flash without --expect-sha256")
+        if args.allow_unpinned_image:
+            log("unsafe override active: flashing without caller-pinned expected sha256")
 
         with phase_timer("inspect_local_image"):
             image_path, local_hash, image_size = inspect_local_image(args)
@@ -492,8 +577,9 @@ def main() -> int:
         if state != "recovery":
             raise RuntimeError(f"expected recovery state, got {state}")
 
-        with phase_timer("flash_boot_image"):
-            flash_boot_image(args, serial, image_path, local_hash, image_size)
+        with sealed_local_image_copy(image_path, local_hash, image_size) as sealed_image_path:
+            with phase_timer("flash_boot_image"):
+                flash_boot_image(args, serial, sealed_image_path, local_hash, image_size)
         with phase_timer("reboot_twrp_to_system"):
             reboot_twrp_to_system(args, serial)
         with phase_timer("verify_native_init"):

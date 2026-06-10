@@ -25,6 +25,10 @@
 #define O_NOFOLLOW 0
 #endif
 
+#ifndef O_DIRECTORY
+#define O_DIRECTORY 0
+#endif
+
 #define WIFICFG_PRIMARY_ROOT "/mnt/sdext/a90/config/wifi"
 #define WIFICFG_PRIMARY_AUTOCONNECT WIFICFG_PRIMARY_ROOT "/autoconnect.conf"
 #define WIFICFG_PRIMARY_PROFILES WIFICFG_PRIMARY_ROOT "/profiles"
@@ -949,6 +953,29 @@ static void wificfg_secure_zero(void *data, size_t data_size) {
     }
 }
 
+static int wificfg_prepare_dir_owned(const char *path, mode_t mode, uid_t uid, gid_t gid) {
+    int fd;
+    int rc = 0;
+
+    if (ensure_dir(path, mode) < 0) {
+        return negative_errno_or(EIO);
+    }
+    fd = open(path, O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW);
+    if (fd < 0) {
+        return -errno;
+    }
+    if (fchown(fd, uid, gid) < 0) {
+        rc = -errno;
+    }
+    if (rc == 0 && fchmod(fd, mode) < 0) {
+        rc = -errno;
+    }
+    if (close(fd) < 0 && rc == 0) {
+        rc = -errno;
+    }
+    return rc;
+}
+
 static bool wificfg_hex_string(const char *text) {
     size_t index;
 
@@ -1056,15 +1083,18 @@ static int wificfg_write_supplicant_text(const char *ssid_hex,
     char text[1024];
     int text_len;
     int fd;
+    int rc;
 
-    if (ensure_dir(WIFICFG_RUNTIME_ROOT, 0700) < 0 ||
-        ensure_dir(WIFICFG_SUPPLICANT_CTRL_DIR, 0770) < 0) {
-        return negative_errno_or(EIO);
+    rc = wificfg_prepare_dir_owned(WIFICFG_RUNTIME_ROOT, 0755, 0, 0);
+    if (rc < 0) {
+        return rc;
     }
-    if (chown(WIFICFG_RUNTIME_ROOT, WIFICFG_WIFI_UID, WIFICFG_WIFI_GID) < 0 ||
-        chown(WIFICFG_SUPPLICANT_CTRL_DIR, WIFICFG_WIFI_UID, WIFICFG_WIFI_GID) < 0 ||
-        chmod(WIFICFG_SUPPLICANT_CTRL_DIR, 0770) < 0) {
-        return negative_errno_or(EIO);
+    rc = wificfg_prepare_dir_owned(WIFICFG_SUPPLICANT_CTRL_DIR,
+                                   0770,
+                                   WIFICFG_WIFI_UID,
+                                   WIFICFG_WIFI_GID);
+    if (rc < 0) {
+        return rc;
     }
 
     text_len = snprintf(text,
@@ -1102,7 +1132,7 @@ static int wificfg_write_supplicant_text(const char *ssid_hex,
         errno = saved_errno;
         return negative_errno_or(EIO);
     }
-    if (fchown(fd, WIFICFG_WIFI_UID, WIFICFG_WIFI_GID) < 0 ||
+    if (fchown(fd, 0, 0) < 0 ||
         fchmod(fd, 0600) < 0) {
         int saved_errno = errno;
 

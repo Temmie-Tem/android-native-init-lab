@@ -36,6 +36,8 @@ ROLLBACK_IMAGE = workspace_private_input_path(
 )
 TEST_EXPECT_VERSION = "A90 Linux init 0.9.259 (v2187-screenapp-ui-validation)"
 ROLLBACK_EXPECT_VERSION = "A90 Linux init 0.9.258 (v2186-wifi-ui-polish)"
+TEST_EXPECT_SHA256 = v2174.expected_sha256_for_image(TEST_IMAGE)
+ROLLBACK_EXPECT_SHA256 = v2174.expected_sha256_for_image(ROLLBACK_IMAGE)
 REPORT_PATH = (
     REPO_ROOT
     / "docs"
@@ -234,6 +236,10 @@ def run(label: str) -> dict[str, Any]:
             "screenapp_ping": 1,
             "credentials_logged": 0,
         },
+        "test_image": rel(TEST_IMAGE),
+        "test_image_expected_sha256": TEST_EXPECT_SHA256,
+        "rollback_image": rel(ROLLBACK_IMAGE),
+        "rollback_image_expected_sha256": ROLLBACK_EXPECT_SHA256,
     }
     rollback_info: dict[str, Any] = {"ok": False, "attempt": "not-started", "selftest_ok": False}
 

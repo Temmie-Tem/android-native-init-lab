@@ -32,6 +32,8 @@ ROLLBACK_IMAGE = workspace_private_input_path(
 )
 TEST_EXPECT_VERSION = "A90 Linux init 0.9.252 (v2176-wifi-dhcp)"
 ROLLBACK_EXPECT_VERSION = "A90 Linux init 0.9.251 (v2174-wifi-urandom-connect)"
+TEST_EXPECT_SHA256 = v2174.expected_sha256_for_image(TEST_IMAGE)
+ROLLBACK_EXPECT_SHA256 = v2174.expected_sha256_for_image(ROLLBACK_IMAGE)
 REPORT_PATH = (
     REPO_ROOT
     / "docs"
@@ -283,9 +285,11 @@ def run(profile_name: str | None = None, ping_target: str = DEFAULT_PING_TARGET)
         "run_label": RUN_LABEL,
         "test_image": rel(TEST_IMAGE),
         "test_image_exists": TEST_IMAGE.exists(),
+        "test_image_expected_sha256": TEST_EXPECT_SHA256,
         "test_image_sha256": sha256(TEST_IMAGE) if TEST_IMAGE.exists() else "",
         "rollback_image": rel(ROLLBACK_IMAGE),
         "rollback_image_exists": ROLLBACK_IMAGE.exists(),
+        "rollback_image_expected_sha256": ROLLBACK_EXPECT_SHA256,
         "rollback_image_sha256": sha256(ROLLBACK_IMAGE) if ROLLBACK_IMAGE.exists() else "",
         "profile_source": "explicit" if profile_name else "default",
         "credential_values_logged": False,

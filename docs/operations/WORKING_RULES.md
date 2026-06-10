@@ -130,9 +130,9 @@ For an unchanged existing artifact:
 
 ```text
 Run ID: <current validation run>
-Native init: A90 Linux init 0.9.255 (v2182-hud-menu-cleanup)
+Native init: A90 Linux init 0.9.259 (v2187-screenapp-ui-validation)
 Build tag: unchanged
-Baseline tag: v2182-hud-menu-cleanup
+Baseline tag: v2187-screenapp-ui-validation
 Helper: unchanged
 Device flash: no
 Host commit: <git-sha-or-uncommitted>

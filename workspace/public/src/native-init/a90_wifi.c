@@ -50,6 +50,10 @@
 #define NLA_TYPE_MASK ~(NLA_F_NESTED | NLA_F_NET_BYTEORDER)
 #endif
 
+#ifndef O_DIRECTORY
+#define O_DIRECTORY 0
+#endif
+
 #define A90_WIFI_IFACE "wlan0"
 #define A90_WIFI_RUNTIME_SUMMARY "/cache/native-init-wifi-runtime.summary"
 #define A90_WIFI_RUNTIME_INPUT "/cache/native-init-wifi-runtime-input.summary"
@@ -83,6 +87,123 @@
 #define A90_WIFI_PING_INTERNET_LOG "/cache/a90-wifi/ping-internet.log"
 #define A90_WIFI_PING_INTERNET_TARGET "1.1.1.1"
 
+static int wifi_open_dir_no_follow(const char *path) {
+    return open(path, O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW);
+}
+
+static int wifi_prepare_dir_owned(const char *path, mode_t mode, uid_t uid, gid_t gid) {
+    int fd;
+    int rc = 0;
+
+    if (ensure_dir(path, mode) < 0) {
+        return negative_errno_or(EIO);
+    }
+    fd = wifi_open_dir_no_follow(path);
+    if (fd < 0) {
+        return -errno;
+    }
+    if (fchown(fd, uid, gid) < 0) {
+        rc = -errno;
+    }
+    if (rc == 0 && fchmod(fd, mode) < 0) {
+        rc = -errno;
+    }
+    if (close(fd) < 0 && rc == 0) {
+        rc = -errno;
+    }
+    return rc;
+}
+
+static int wifi_verify_root_exec_dir(const char *path) {
+    struct stat st;
+    int fd;
+    int rc = 0;
+
+    fd = wifi_open_dir_no_follow(path);
+    if (fd < 0) {
+        return -errno;
+    }
+    if (fstat(fd, &st) < 0) {
+        rc = -errno;
+    } else if (!S_ISDIR(st.st_mode) ||
+               st.st_uid != 0 ||
+               (st.st_mode & (S_IWGRP | S_IWOTH)) != 0) {
+        rc = -EACCES;
+    }
+    if (close(fd) < 0 && rc == 0) {
+        rc = -errno;
+    }
+    return rc;
+}
+
+static int wifi_verify_root_exec_parents(const char *path) {
+    char current[256];
+    size_t root_len;
+    size_t index;
+    int rc;
+
+    if (path == NULL) {
+        return -EINVAL;
+    }
+    root_len = strlen(A90_WIFI_RUNTIME_ROOT);
+    if (strncmp(path, A90_WIFI_RUNTIME_ROOT, root_len) != 0 ||
+        path[root_len] != '/') {
+        return -EINVAL;
+    }
+    if (root_len >= sizeof(current)) {
+        return -ENAMETOOLONG;
+    }
+    memcpy(current, A90_WIFI_RUNTIME_ROOT, root_len);
+    current[root_len] = '\0';
+    rc = wifi_verify_root_exec_dir(current);
+    if (rc < 0) {
+        return rc;
+    }
+    for (index = root_len + 1; path[index] != '\0'; ++index) {
+        if (path[index] != '/') {
+            continue;
+        }
+        if (index >= sizeof(current)) {
+            return -ENAMETOOLONG;
+        }
+        memcpy(current, path, index);
+        current[index] = '\0';
+        rc = wifi_verify_root_exec_dir(current);
+        if (rc < 0) {
+            return rc;
+        }
+    }
+    return 0;
+}
+
+static int wifi_verify_root_exec_file(const char *path, bool require_exec) {
+    struct stat st;
+    int fd;
+    int rc;
+
+    rc = wifi_verify_root_exec_parents(path);
+    if (rc < 0) {
+        return rc;
+    }
+    fd = open(path, O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
+    if (fd < 0) {
+        return -errno;
+    }
+    rc = 0;
+    if (fstat(fd, &st) < 0) {
+        rc = -errno;
+    } else if (!S_ISREG(st.st_mode) ||
+               st.st_uid != 0 ||
+               (st.st_mode & (S_IWGRP | S_IWOTH)) != 0 ||
+               (require_exec && (st.st_mode & S_IXUSR) == 0)) {
+        rc = -EACCES;
+    }
+    if (close(fd) < 0 && rc == 0) {
+        rc = -errno;
+    }
+    return rc;
+}
+
 static int wifi_write_text_file(const char *path, const char *text, mode_t mode) {
     int fd;
     int rc;
@@ -95,6 +216,9 @@ static int wifi_write_text_file(const char *path, const char *text, mode_t mode)
         return -errno;
     }
     rc = write_all_checked(fd, text, strlen(text));
+    if (rc == 0 && fchown(fd, 0, 0) < 0) {
+        rc = -errno;
+    }
     if (rc == 0 && fchmod(fd, mode) < 0) {
         rc = -errno;
     }
@@ -125,7 +249,7 @@ static void wifi_append_text_file(const char *path, const char *format, ...) {
         buffer[len] = '\0';
     }
 
-    (void)mkdir(A90_WIFI_RUNTIME_ROOT, 0755);
+    (void)wifi_prepare_dir_owned(A90_WIFI_RUNTIME_ROOT, 0755, 0, 0);
     fd = open(path, O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC | O_NOFOLLOW, 0644);
     if (fd < 0) {
         return;
@@ -474,16 +598,13 @@ static bool wifi_process_alive(pid_t pid) {
 }
 
 static int wifi_prepare_runtime_dirs(void) {
-    if (ensure_dir(A90_WIFI_RUNTIME_ROOT, 0700) < 0 ||
-        ensure_dir(A90_WIFI_CTRL_DIR, 0770) < 0) {
-        return negative_errno_or(EIO);
+    int rc;
+
+    rc = wifi_prepare_dir_owned(A90_WIFI_RUNTIME_ROOT, 0755, 0, 0);
+    if (rc < 0) {
+        return rc;
     }
-    if (chown(A90_WIFI_RUNTIME_ROOT, A90_WIFI_UID, A90_WIFI_GID) < 0 ||
-        chown(A90_WIFI_CTRL_DIR, A90_WIFI_UID, A90_WIFI_GID) < 0 ||
-        chmod(A90_WIFI_CTRL_DIR, 0770) < 0) {
-        return negative_errno_or(EIO);
-    }
-    return 0;
+    return wifi_prepare_dir_owned(A90_WIFI_CTRL_DIR, 0770, A90_WIFI_UID, A90_WIFI_GID);
 }
 
 static int wifi_start_supplicant(pid_t *pid_out) {
@@ -514,7 +635,12 @@ static int wifi_start_supplicant(pid_t *pid_out) {
         .timeout_ms = 0,
         .stop_timeout_ms = 3000,
     };
+    int verify_rc;
 
+    verify_rc = wifi_verify_root_exec_file(A90_WIFI_STANDALONE_SUPPLICANT, true);
+    if (verify_rc < 0) {
+        return verify_rc;
+    }
     return a90_run_spawn(&config, pid_out);
 }
 
@@ -1035,7 +1161,7 @@ static int wifi_write_udhcpc_script(void) {
     if (rc < 0) {
         return rc;
     }
-    return chmod(A90_WIFI_UDHCPC_SCRIPT, 0700) < 0 ? -errno : 0;
+    return wifi_verify_root_exec_file(A90_WIFI_UDHCPC_SCRIPT, true);
 }
 
 static int wifi_run_dhcp_client(struct a90_run_result *result) {
@@ -1056,7 +1182,12 @@ static int wifi_run_dhcp_client(struct a90_run_result *result) {
         (char *)A90_WIFI_UDHCPC_SCRIPT,
         NULL,
     };
+    int verify_rc;
 
+    verify_rc = wifi_verify_root_exec_file(A90_WIFI_UDHCPC_SCRIPT, true);
+    if (verify_rc < 0) {
+        return verify_rc;
+    }
     return wifi_run_wait(argv, "wifi-dhcp", A90_WIFI_UDHCPC_LOG, A90_WIFI_DHCP_TIMEOUT_MS, result);
 }
 
@@ -1642,6 +1773,12 @@ int a90_wifi_print_status(void) {
     a90_console_printf("supplicant.kind=%s\r\n",
                        wifi_path_kind(A90_WIFI_STANDALONE_SUPPLICANT, false, kind, sizeof(kind)) == 0 ? kind : kind);
     a90_console_printf("supplicant.executable=%d\r\n", status.supplicant_executable ? 1 : 0);
+    {
+        int root_exec_rc = wifi_verify_root_exec_file(A90_WIFI_STANDALONE_SUPPLICANT, true);
+
+        a90_console_printf("supplicant.root_exec_rc=%d\r\n", root_exec_rc);
+        a90_console_printf("supplicant.root_exec_ok=%d\r\n", root_exec_rc == 0 ? 1 : 0);
+    }
     a90_console_printf("supplicant.process_count=%d\r\n", status.supplicant_process_count);
     a90_console_printf("ctrl_socket.path=%s\r\n", A90_WIFI_CTRL_SOCKET);
     a90_console_printf("ctrl_socket.kind=%s\r\n", status.ctrl_socket_kind);
@@ -2344,6 +2481,7 @@ static int wifi_connect_profile_with_carrier_timeout(const char *profile_name, i
     int carrier_rc;
     int status_rc;
     int terminate_status = 0;
+    int supplicant_root_exec_rc;
     pid_t supplicant_pid = -1;
     bool spawned_supplicant = false;
     bool reusing_supplicant = false;
@@ -2404,6 +2542,9 @@ static int wifi_connect_profile_with_carrier_timeout(const char *profile_name, i
     a90_console_printf("supplicant.path=%s\r\n", A90_WIFI_STANDALONE_SUPPLICANT);
     a90_console_printf("supplicant.executable=%d\r\n",
                        access(A90_WIFI_STANDALONE_SUPPLICANT, X_OK) == 0 ? 1 : 0);
+    supplicant_root_exec_rc = wifi_verify_root_exec_file(A90_WIFI_STANDALONE_SUPPLICANT, true);
+    a90_console_printf("supplicant.root_exec_rc=%d\r\n", supplicant_root_exec_rc);
+    a90_console_printf("supplicant.root_exec_ok=%d\r\n", supplicant_root_exec_rc == 0 ? 1 : 0);
     a90_console_printf("supplicant_log.path=%s\r\n", A90_WIFI_SUPPLICANT_LOG);
     if (access(A90_WIFI_STANDALONE_SUPPLICANT, X_OK) < 0) {
         int saved_errno = errno;
@@ -2412,6 +2553,11 @@ static int wifi_connect_profile_with_carrier_timeout(const char *profile_name, i
         a90_console_printf("secret_values_logged=0\r\n");
         a90_console_printf("decision=wifi-connect-supplicant-missing\r\n");
         return -saved_errno;
+    }
+    if (supplicant_root_exec_rc < 0) {
+        a90_console_printf("secret_values_logged=0\r\n");
+        a90_console_printf("decision=wifi-connect-supplicant-unsafe\r\n");
+        return supplicant_root_exec_rc;
     }
 
     supplicant_process_count = wifi_count_processes_with_token("wpa_supplicant");

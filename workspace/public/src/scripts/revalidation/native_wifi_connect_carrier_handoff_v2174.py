@@ -47,6 +47,18 @@ ROLLBACK_IMAGE = workspace_private_input_path(
 )
 TEST_EXPECT_VERSION = "A90 Linux init 0.9.251 (v2174-wifi-urandom-connect)"
 ROLLBACK_EXPECT_VERSION = "A90 Linux init 0.9.247 (v2169-transport-contract)"
+BOOT_IMAGE_EXPECTED_SHA256 = {
+    "boot_linux_v2169_transport_contract.img": "190b93d0741a6eeba17913c940f3bb398fed765f38532d5e0009840112166d6d",
+    "boot_linux_v2174_wifi_urandom_connect.img": "cda957e4302d66e407fc97a95932501f0ef2ac655ee264c94519111fece0b3ba",
+    "boot_linux_v2176_wifi_dhcp.img": "1defb35d2fbbefba5972046ba2c15391329db10bfc2201bdbd0b787279aa668d",
+    "boot_linux_v2178_wifi_profile_autoconnect.img": "8ea6f468f997446e9fa3e80606db107ca27d067f3ee023ff45c2ecf159341047",
+    "boot_linux_v2186_wifi_ui_polish.img": "7a0db3bb76232f778869d3bf0788268f3a1942b230b094158dddf7a7d500fd32",
+    "boot_linux_v2187_screenapp_ui_validation.img": "0422f854b3e78d36e225012fd89a53016067155e200291d067ff7d71f32091ca",
+    "boot_linux_v2188_security_p0_hardening.img": "0329f977077009b9cdce9514ac940bd9c7fe828db712b82f2c264341f62969be",
+    "boot_linux_v2189_security_p0_stage_fix.img": "a7332612199cfd275f2dfc6fdb25843af401a1ecef2fa54ac0f52afe705f1ffe",
+}
+TEST_EXPECT_SHA256 = BOOT_IMAGE_EXPECTED_SHA256[TEST_IMAGE.name]
+ROLLBACK_EXPECT_SHA256 = BOOT_IMAGE_EXPECTED_SHA256[ROLLBACK_IMAGE.name]
 REPORT_PATH = (
     REPO_ROOT
     / "docs"
@@ -1025,7 +1037,13 @@ def stage_wifi_config_cache(store: EvidenceStore,
 
     prep_commands = [
         ("mkdir", [TOYBOX, "mkdir", "-p", CACHE_PROFILE_ROOT, CACHE_SECRET_ROOT]),
-        ("chmod-root", [TOYBOX, "chmod", "700", "/cache/a90-wifi", CACHE_CONFIG_ROOT]),
+        ("mkdir-standalone-wpa", [TOYBOX, "mkdir", "-p", "/cache/a90-wifi/wpa-standalone"]),
+        ("chown-root", [TOYBOX, "chown", "0:0", "/cache/a90-wifi"]),
+        ("chmod-root", [TOYBOX, "chmod", "755", "/cache/a90-wifi"]),
+        ("chown-standalone-wpa", [TOYBOX, "chown", "-R", "0:0", "/cache/a90-wifi/wpa-standalone"]),
+        ("chmod-standalone-wpa", [TOYBOX, "chmod", "-R", "go-w", "/cache/a90-wifi/wpa-standalone"]),
+        ("chmod-standalone-dir", [TOYBOX, "chmod", "755", "/cache/a90-wifi/wpa-standalone"]),
+        ("chmod-config", [TOYBOX, "chmod", "700", CACHE_CONFIG_ROOT]),
         ("chmod-leaves", [TOYBOX, "chmod", "700", CACHE_PROFILE_ROOT, CACHE_SECRET_ROOT]),
     ]
     for key, remote_path in remote.items():
@@ -1117,7 +1135,16 @@ def stage_wifi_config_cache(store: EvidenceStore,
     })
 
 
-def flash_command(image: Path, expect_version: str, *, from_native: bool) -> list[object]:
+def expected_sha256_for_image(image: Path) -> str:
+    return BOOT_IMAGE_EXPECTED_SHA256.get(image.name, "")
+
+
+def flash_command(image: Path,
+                  expect_version: str,
+                  *,
+                  from_native: bool,
+                  expect_sha256: str | None = None) -> list[object]:
+    expected_sha256 = expect_sha256 or expected_sha256_for_image(image)
     command: list[object] = [
         "python3",
         "workspace/public/src/scripts/revalidation/native_init_flash.py",
@@ -1131,6 +1158,8 @@ def flash_command(image: Path, expect_version: str, *, from_native: bool) -> lis
         "--recovery-timeout",
         "240",
     ]
+    if expected_sha256:
+        command.extend(["--expect-sha256", expected_sha256])
     if from_native:
         command.append("--from-native")
     return command
@@ -1442,9 +1471,11 @@ def run(profile_name: str | None = None) -> dict[str, Any]:
             "run_label": RUN_LABEL,
             "test_image": rel(TEST_IMAGE),
             "test_image_exists": TEST_IMAGE.exists(),
+            "test_image_expected_sha256": TEST_EXPECT_SHA256,
             "test_image_sha256": sha256(TEST_IMAGE) if TEST_IMAGE.exists() else "",
             "rollback_image": rel(ROLLBACK_IMAGE),
             "rollback_image_exists": ROLLBACK_IMAGE.exists(),
+            "rollback_image_expected_sha256": ROLLBACK_EXPECT_SHA256,
             "rollback_image_sha256": sha256(ROLLBACK_IMAGE) if ROLLBACK_IMAGE.exists() else "",
             "profile_source": "explicit" if profile_name else "default",
             "credential_values_logged": False,

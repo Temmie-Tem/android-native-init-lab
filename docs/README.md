@@ -8,17 +8,18 @@
 
 상단 `docs/`는 이제 다음 흐름에 필요한 문서를 유지합니다.
 
-1. native init 0.9.255 / v2182-hud-menu-cleanup HUD/menu baseline 고정
+1. native init 0.9.259 / v2187-screenapp-ui-validation baseline 고정
 2. shell/HUD/log/menu 운영 안정화
 3. 필요한 하드웨어/커널 경로만 역추적
 4. BusyBox/network/SSH 같은 서버형 확장 가능성 검토
 
 ## 최신 Wi-Fi bring-up 조사 기준
 
-> 현재 기준은 `A90 Linux init 0.9.255 (v2182-hud-menu-cleanup)` HUD/menu
-> cleanup baseline이다. 번호 체계는 `docs/operations/VERSIONING_POLICY.md`를
-> 따른다: `V2183`는 baseline-promotion run/report, `v2182-hud-menu-cleanup`은
-> 현재 boot/init baseline tag, `a90_android_execns_probe helper-v427`은 helper marker다.
+> 현재 기준은 `A90 Linux init 0.9.259 (v2187-screenapp-ui-validation)`
+> screenapp UI validation baseline이다. 번호 체계는
+> `docs/operations/VERSIONING_POLICY.md`를 따른다: `V2187`은
+> baseline-promotion run/report와 현재 boot/init baseline tag를 동시에 가리키며,
+> `a90_android_execns_probe helper-v427`은 helper marker다.
 > 작업 위치와 커밋 경계는 `docs/operations/WORKING_RULES.md`를 우선 확인한다.
 
 아래 초기 PM/CNSS 목록은 과거 스냅샷으로 보존한다. 현재 baseline 작업은 외부
@@ -151,16 +152,16 @@ hygiene를 기준으로 한다.
 - 빌드: `A908NKSU5EWA3`
 - kernel: Samsung stock Android kernel `Linux 4.14.190`
 - recovery: TWRP 사용 가능
-- latest verified build: `A90 Linux init 0.9.255 (v2182-hud-menu-cleanup)`
-- official version: `0.9.255`
-- build tag: `v2182-hud-menu-cleanup`
-- 현재 기준 사이클: `v2182-hud-menu-cleanup` HUD/menu cleanup baseline (V2183 promotion)
-- version axes: `v2182-hud-menu-cleanup`은 boot/init baseline tag, `a90_android_execns_probe helper-v427`은 포함된 helper marker, `V2183`는 baseline-promotion run/report 번호다. 전체 규칙은 `docs/operations/VERSIONING_POLICY.md`를 따른다.
+- latest verified build: `A90 Linux init 0.9.259 (v2187-screenapp-ui-validation)`
+- official version: `0.9.259`
+- build tag: `v2187-screenapp-ui-validation`
+- 현재 기준 사이클: `v2187-screenapp-ui-validation` screenapp UI validation baseline (V2187 promotion)
+- version axes: `v2187-screenapp-ui-validation`은 boot/init baseline tag, `a90_android_execns_probe helper-v427`은 포함된 helper marker, `V2187`은 baseline-promotion run/report 번호다. 전체 규칙은 `docs/operations/VERSIONING_POLICY.md`를 따른다.
 - creator: `made by temmie0214`
-- latest verified source: `workspace/public/src/native-init/` + 빌더 `workspace/public/src/scripts/revalidation/build_native_init_boot_v2182_hud_menu_cleanup.py`
-- latest verified boot image: `workspace/private/inputs/boot_images/boot_linux_v2182_hud_menu_cleanup.img`
-- latest verified boot image SHA256: `8e3e16f68d019ef5f56d2246ddcc7dbf14aa5ae08b40a0b983688812d792f839`
-- previous verified boot image: `workspace/private/inputs/boot_images/boot_linux_v2178_wifi_profile_autoconnect.img` (`0.9.253 (v2178-wifi-profile-autoconnect)`)
+- latest verified source: `workspace/public/src/native-init/` + 빌더 `workspace/public/src/scripts/revalidation/build_native_init_boot_v2187_screenapp_ui_validation.py`
+- latest verified boot image: `workspace/private/inputs/boot_images/boot_linux_v2187_screenapp_ui_validation.img`
+- latest verified boot image SHA256: `0422f854b3e78d36e225012fd89a53016067155e200291d067ff7d71f32091ca`
+- previous verified boot image: `workspace/private/inputs/boot_images/boot_linux_v2186_wifi_ui_polish.img` (`0.9.258 (v2186-wifi-ui-polish)`)
 - older verified boot image: `workspace/private/inputs/boot_images/boot_linux_v261.img` (`0.9.60 (v261)`)
 - known-good fallback: `workspace/private/inputs/boot_images/boot_linux_v48.img`
 - control channel: USB CDC ACM serial bridge

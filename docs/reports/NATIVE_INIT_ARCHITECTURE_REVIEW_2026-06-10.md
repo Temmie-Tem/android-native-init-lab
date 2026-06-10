@@ -147,7 +147,7 @@ no-op이지만, **PID1 부팅 경로에 실제로 코드가 들어가 있고 호
 
 - `v319/90_main.inc.c` (321줄): 어디서도 include 되지 않는 **완전한 죽은
   파일** (`init_*.c` 는 `v724/90_main.inc.c` 만 include). 혼동 유발.
-- `a90_config.h` 의 INIT_VERSION/BUILD 가 현재 baseline(0.9.255/v2182)과
+- `a90_config.h` 의 INIT_VERSION/BUILD 가 현재 baseline(0.9.259/v2187)과
   불일치 (2.2 참조).
 - 1세대 빌드 스크립트(v724↔v725) 함수 복붙 중복.
 

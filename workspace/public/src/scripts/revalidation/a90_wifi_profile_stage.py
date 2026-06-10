@@ -229,7 +229,13 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     else:
         prep = [
             ["mkdir", "-p", roots["config"], roots["profiles"], roots["secrets"]],
-            ["chmod", "700", "/cache/a90-wifi", roots["config"], roots["profiles"], roots["secrets"]],
+            ["mkdir", "-p", "/cache/a90-wifi/wpa-standalone"],
+            ["chown", "0:0", "/cache/a90-wifi"],
+            ["chmod", "755", "/cache/a90-wifi"],
+            ["chown", "-R", "0:0", "/cache/a90-wifi/wpa-standalone"],
+            ["chmod", "-R", "go-w", "/cache/a90-wifi/wpa-standalone"],
+            ["chmod", "755", "/cache/a90-wifi/wpa-standalone"],
+            ["chmod", "700", roots["config"], roots["profiles"], roots["secrets"]],
         ]
     for index, argv in enumerate(prep):
         step = v2174.tcpctl_step(
@@ -237,7 +243,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             steps,
             f"wifi-profile-stage-prep-{index}",
             tcp_args,
-            v2174.tcpctl_run_line([v2174.TOYBOX, *argv]),
+            v2174.tcpctl_run_line(argv if argv[0].startswith("/") else [v2174.TOYBOX, *argv]),
             timeout=30.0,
         )
         if not step.get("ok"):

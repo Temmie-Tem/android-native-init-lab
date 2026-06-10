@@ -31,6 +31,8 @@ Examples:
 - `V2179` baseline-promotion run for the `v2178-wifi-profile-autoconnect`
   artifact
 - `V2183` baseline-promotion run for the `v2182-hud-menu-cleanup` artifact
+- `V2187` baseline-promotion run for the `v2187-screenapp-ui-validation`
+  artifact
 
 Rules:
 
@@ -51,6 +53,7 @@ Examples:
 - `A90 Linux init 0.9.251`
 - `A90 Linux init 0.9.253`
 - `A90 Linux init 0.9.255`
+- `A90 Linux init 0.9.259`
 
 Increase this version when the flashed boot artifact changes:
 
@@ -73,6 +76,7 @@ Examples:
 - `v726-wifi-lifecycle`
 - `v2169-transport-contract`
 - `v2182-hud-menu-cleanup`
+- `v2187-screenapp-ui-validation`
 
 Rules:
 
@@ -130,8 +134,8 @@ Host commit: <git-sha-or-uncommitted>
 For host-only or unchanged-image validation:
 
 ```text
-Run ID: V2184
-Native init: A90 Linux init 0.9.255 (v2182-hud-menu-cleanup)
+Run ID: V2188
+Native init: A90 Linux init 0.9.259 (v2187-screenapp-ui-validation)
 Build tag: unchanged
 Helper: unchanged
 Device flash: no
@@ -143,25 +147,25 @@ Host commit: <git-sha-or-uncommitted>
 Read versions in this order:
 
 ```text
-V2183  = what project/test/promotion run was executed
-0.9.255 = what native init build is visible on the phone
-v2182-hud-menu-cleanup = what boot/init baseline role was flashed
+V2187  = what project/test/promotion run was executed
+0.9.259 = what native init build is visible on the phone
+v2187-screenapp-ui-validation = what boot/init baseline role was flashed
 helper-v427 = which helper binary marker is embedded or deployed
 sha256 = exact binary/evidence artifact identity
 ```
 
 ## Current Example
 
-Current verified HUD/menu cleanup baseline evidence is based on:
+Current verified screenapp UI validation baseline evidence is based on:
 
 ```text
-Run ID: V2183
-Native init: A90 Linux init 0.9.255 (v2182-hud-menu-cleanup)
-Build tag: v2182-hud-menu-cleanup
+Run ID: V2187
+Native init: A90 Linux init 0.9.259 (v2187-screenapp-ui-validation)
+Build tag: v2187-screenapp-ui-validation
 Helper: a90_android_execns_probe helper-v427
-Boot image: workspace/private/inputs/boot_images/boot_linux_v2182_hud_menu_cleanup.img
-Boot SHA256: 8e3e16f68d019ef5f56d2246ddcc7dbf14aa5ae08b40a0b983688812d792f839
-Evidence: V2182 source/build plus live UI validation and V2183 baseline promotion report
+Boot image: workspace/private/inputs/boot_images/boot_linux_v2187_screenapp_ui_validation.img
+Boot SHA256: 0422f854b3e78d36e225012fd89a53016067155e200291d067ff7d71f32091ca
+Evidence: V2187 source/build, screenapp live validation, and V2187 baseline promotion report
 ```
 
 If this artifact is reproduced unchanged, keep the build tag and record the
