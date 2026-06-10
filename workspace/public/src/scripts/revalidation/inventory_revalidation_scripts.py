@@ -16,8 +16,8 @@ from _workspace_bootstrap import repo_root
 
 REPO_ROOT = repo_root()
 SCRIPT_ROOT = REPO_ROOT / "workspace" / "public" / "src" / "scripts" / "revalidation"
-REPORT_PATH = REPO_ROOT / "docs" / "reports" / "REVALIDATION_SCRIPT_INVENTORY_2026-06-08.md"
-JSON_PATH = REPO_ROOT / "docs" / "reports" / "REVALIDATION_SCRIPT_INVENTORY_2026-06-08.json"
+REPORT_PATH = REPO_ROOT / "docs" / "reports" / "REVALIDATION_SCRIPT_INVENTORY_2026-06-10.md"
+JSON_PATH = REPO_ROOT / "docs" / "reports" / "REVALIDATION_SCRIPT_INVENTORY_2026-06-10.json"
 
 ACTIVE = {
     "a90ctl.py": "cmdv1 operator/client entrypoint",
@@ -43,6 +43,11 @@ ACTIVE = {
     "build_native_init_boot_v2176_wifi_dhcp.py": "Wi-Fi DHCP boot builder",
     "build_native_init_boot_v2178_wifi_profile_autoconnect.py": "Wi-Fi profile/autoconnect boot builder",
     "build_native_init_boot_v2182_hud_menu_cleanup.py": "HUD/menu cleanup baseline boot builder",
+    "build_native_init_boot_v2184_network_ui_p0_p1.py": "network UI P0/P1 boot builder",
+    "build_native_init_boot_v2185_network_ping_test.py": "network ping test boot builder",
+    "build_native_init_boot_v2186_wifi_ui_polish.py": "Wi-Fi UI polish boot builder",
+    "build_native_init_boot_v2187_screenapp_ui_validation.py": "screenapp UI validation boot builder",
+    "native_ui_screenapp_validation_v2187.py": "active V2187 screenapp UI validation",
 }
 MODULES = {
     "_workspace_bootstrap.py": "workspace path bootstrap",
@@ -136,17 +141,21 @@ def classify(path: Path, text: str) -> tuple[str, str]:
 
 def requires_live_device(path: Path, text: str) -> bool:
     name = path.name
+    if name == "README.md" or name.startswith("build_") or name.startswith("inventory_") or name.startswith("cleanup_"):
+        return False
     tokens = (
         "native_init_flash.py",
         "a90ctl.py",
         "run_cmdv1_command",
-        "wifi",
         "netservice",
         "reboot",
         "adb",
         "fastboot",
         "tcpctl",
         "serial_tcp_bridge",
+        "run_serial_step",
+        "run_serial_command_recovered",
+        "FastTransferSession",
     )
     return name in {"a90ctl.py", "a90_bridge.py", "serial_tcp_bridge.py"} or any(token in text for token in tokens)
 
@@ -159,6 +168,8 @@ def imports_module(text: str, module: str) -> bool:
 def inventory(root: Path) -> dict[str, Any]:
     entries: list[dict[str, Any]] = []
     for path in sorted(root.iterdir(), key=lambda item: item.name):
+        if path.name == "__pycache__" or path.suffix == ".pyc":
+            continue
         text = read_text(path) if path.is_file() else ""
         label, reason = classify(path, text)
         mode = path.stat().st_mode
@@ -174,8 +185,12 @@ def inventory(root: Path) -> dict[str, Any]:
             "mentions_a90_bridge": False if self_inventory else "a90_bridge.py" in text,
             "mentions_serial_tcp_bridge": False if self_inventory else "serial_tcp_bridge.py" in text,
             "mentions_a90ctl_subprocess": False if self_inventory else "a90ctl.py" in text,
-            "has_phase_timer": "phase_timer" in text or "PhaseTimer" in text or "transport.phase(" in text,
-            "has_secret_redaction": "redact" in text.lower() or "secret_values_logged" in text,
+            "has_phase_timer": False if self_inventory else (
+                "phase_timer" in text or "PhaseTimer" in text or "transport.phase(" in text
+            ),
+            "has_secret_redaction": False if self_inventory else (
+                "redact" in text.lower() or "secret_values_logged" in text
+            ),
             "live_device_required": requires_live_device(path, text),
             "repo_reference_count": repo_reference_count(path.name),
         })
@@ -192,6 +207,10 @@ def inventory(root: Path) -> dict[str, Any]:
 
 def render_markdown(data: dict[str, Any]) -> str:
     entries = data["entries"]
+
+    def flag(value: bool) -> str:
+        return "yes" if value else "no"
+
     archived_lines = []
     for name, reason in ARCHIVED_ENTRYPOINTS.items():
         archive_path = REPO_ROOT / "workspace" / "public" / "archive" / "scripts" / "revalidation" / name
@@ -208,6 +227,32 @@ def render_markdown(data: dict[str, Any]) -> str:
     else:
         cleanup_lines.append("- No current source-root delete-review candidates remain.")
     cleanup_lines.append("- Active live workflow scripts should use `a90_transport.py`; `a90ctl.py` itself remains the cmdv1 client.")
+
+    direct_a90ctl = [
+        entry["name"] for entry in entries
+        if entry["mentions_a90ctl_subprocess"] and entry["name"] not in {"README.md", "a90ctl.py"}
+    ]
+    live_without_phase = [
+        entry["name"] for entry in entries
+        if entry["live_device_required"]
+        and entry["label"] == "active"
+        and not entry["has_phase_timer"]
+        and entry["name"] not in {"a90ctl.py", "a90_bridge.py", "serial_tcp_bridge.py"}
+        and not entry["name"].startswith("build_")
+    ]
+    secret_related = [
+        entry["name"] for entry in entries
+        if entry["has_secret_redaction"]
+    ]
+    consolidation_lines = [
+        "- Direct `a90ctl.py` subprocess references outside the client are review-only candidates; migrate only when changing the script for another reason.",
+        f"- Direct `a90ctl.py` reference count: `{len(direct_a90ctl)}`"
+        + (f" (`{', '.join(direct_a90ctl[:8])}`{'...' if len(direct_a90ctl) > 8 else ''})." if direct_a90ctl else "."),
+        f"- Active live scripts without explicit phase timer markers: `{len(live_without_phase)}`"
+        + (f" (`{', '.join(live_without_phase[:8])}`{'...' if len(live_without_phase) > 8 else ''})." if live_without_phase else "."),
+        f"- Scripts with explicit redaction/secret handling: `{len(secret_related)}`"
+        + (f" (`{', '.join(secret_related[:8])}`{'...' if len(secret_related) > 8 else ''})." if secret_related else "."),
+    ]
     rows = [
         "| Label | Count |",
         "| --- | ---: |",
@@ -216,8 +261,8 @@ def render_markdown(data: dict[str, Any]) -> str:
         rows.append(f"| `{label}` | {count} |")
 
     table = [
-        "| Script | Label | Transport | Refs | Reason |",
-        "| --- | --- | --- | ---: | --- |",
+        "| Script | Label | Transport | Live | Phase | Secret | Refs | Reason |",
+        "| --- | --- | --- | --- | --- | --- | ---: | --- |",
     ]
     for entry in entries:
         transport_bits = []
@@ -233,7 +278,11 @@ def render_markdown(data: dict[str, Any]) -> str:
             transport_bits.append("none")
         table.append(
             f"| `{entry['name']}` | `{entry['label']}` | "
-            f"`{','.join(transport_bits)}` | {entry['repo_reference_count']} | {entry['reason']} |"
+            f"`{','.join(transport_bits)}` | "
+            f"{flag(entry['live_device_required'])} | "
+            f"{flag(entry['has_phase_timer'])} | "
+            f"{flag(entry['has_secret_redaction'])} | "
+            f"{entry['repo_reference_count']} | {entry['reason']} |"
         )
 
     return "\n".join([
@@ -259,6 +308,10 @@ def render_markdown(data: dict[str, Any]) -> str:
         "## Immediate Cleanup Candidates",
         "",
         *cleanup_lines,
+        "",
+        "## Consolidation Signals",
+        "",
+        *consolidation_lines,
         "",
     ])
 

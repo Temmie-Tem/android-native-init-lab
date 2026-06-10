@@ -446,9 +446,8 @@ Inventory labels:
 
 Open tasks:
 
-- Keep the inventory current when active entrypoints move; V2180 refreshed the
-  current report after adding
-  `native_wifi_v2178_autoconnect_phase_validation.py`.
+- Keep the inventory current when active entrypoints move; V2187 refreshed the
+  current report after adding the screenapp/UI validation entrypoints.
 - For each script, continue to record:
   - purpose;
   - last known baseline/run;
@@ -468,6 +467,9 @@ Open tasks:
   - active scripts stay stable;
   - V2167 historical runner moved to
     `workspace/public/archive/scripts/revalidation/native_wifi_connect_dhcp_google_ping_handoff_v2167.py`;
+  - archive tree is provenance-only; do not directly execute old runners from
+    `workspace/public/archive/scripts/revalidation/` without a focused
+    migration/review;
   - delete-review items require a focused cleanup commit.
 
 Exit criteria:
@@ -475,12 +477,17 @@ Exit criteria:
 - A generated inventory report exists under `docs/reports/` or `workspace/public`
   as redacted metadata.
 - Current inventory report:
-  `docs/reports/REVALIDATION_SCRIPT_INVENTORY_2026-06-08.md`.
+  `docs/reports/REVALIDATION_SCRIPT_INVENTORY_2026-06-10.md`.
+- Source-root cleanup state: `43 active`, `6 module`, `0 archive`,
+  `0 delete-review` entries in
+  `workspace/public/src/scripts/revalidation/`.
 - V2167 is no longer a current entrypoint; it is archived under
   `workspace/public/archive/scripts/revalidation/`.
 - Active entrypoints list in `workspace/public/src/scripts/revalidation/README.md`
   matches the actual current set.
 - New scripts use shared modules instead of reimplementing bridge/NCM logic.
+- Archive-wide dedupe remains a separate provenance cleanup task; it is not a
+  blocker for current source-root baseline work.
 
 ## Priority 4: Baseline And Versioning
 

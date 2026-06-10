@@ -2,7 +2,17 @@
 
 이 디렉토리는 legacy/historical revalidation tree입니다. 현재 baseline에서
 승격된 entrypoint는 `workspace/public/src/scripts/revalidation/` 아래에 두고,
-여기에는 기존 명령 호환 wrapper와 아직 마이그레이션하지 않은 의존 모듈을 남깁니다.
+여기에는 과거 증거 재현과 provenance 확인용 스크립트만 남깁니다.
+
+현재 작업 규칙:
+
+- 새 작업은 이 디렉토리에서 시작하지 않는다.
+- 현재 baseline 검증은 `workspace/public/src/scripts/revalidation/`의
+  inventory에 `active` 또는 `module`로 잡힌 entrypoint만 사용한다.
+- 여기의 과거 runner는 보고서/커밋 추적용이며, 재실행은 해당 보고서의
+  안전 scope를 재검토한 뒤 별도 migration 없이 직접 실행하지 않는다.
+- archive 전체 재분류/삭제는 대량 provenance 작업이므로 현재 P3 source-root
+  정리와 분리한다.
 
 현재 디렉토리는 rooted baseline과
 `native Linux rechallenge` 전단계인 부트체인 재검증에 직접 필요한 스크립트만 두는 자리입니다.

@@ -43,6 +43,16 @@ Current migrated entrypoints:
 
 New commands should call this workspace path directly.
 
+Inventory:
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 \
+python3 workspace/public/src/scripts/revalidation/inventory_revalidation_scripts.py --write
+```
+
+The current public inventory report is
+`docs/reports/REVALIDATION_SCRIPT_INVENTORY_2026-06-10.md`.
+
 Archived/superseded entrypoints:
 
 - `workspace/public/archive/scripts/revalidation/native_wifi_connect_dhcp_google_ping_handoff_v2167.py`
