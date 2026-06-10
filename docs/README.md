@@ -684,6 +684,9 @@ hygiene를 기준으로 한다.
 
 - `operations/WORKSPACE_STRUCTURE_AND_BOOTSTRAP.md` – 새 GitHub clone/new workspace에서 tracked source, ignored local inputs, structured `tmp` layout, boot image rebuild order, private Wi-Fi env, host NCM setup, seal check를 복구하는 기준
 - `plans/NATIVE_INIT_CURRENT_TODO_2026-06-08.md` – 현재 baseline hardening TODO, Wi-Fi lifecycle/bridge/script inventory/versioning/workspace/QA/safety 우선순위 기준
+- `reports/NATIVE_INIT_V2189_PROMOTION_PRECHECK_2026-06-10.md` – V2189 security P0 live validation, fresh local security scan, architecture debt disposition을 묶어 baseline promotion eligibility를 판정한 precheck 결과
+- `security/scans/SECURITY_FRESH_SCAN_V2189_2026-06-10.md` – active workspace 기준 V2189 root-control/flash/Wi-Fi staging 보안 guardrail 재스캔, PASS 10/WARN 1/FAIL 0
+- `reports/NATIVE_INIT_V2189_SECURITY_P0_STAGE_FIX_LIVE_VALIDATION_2026-06-10.md` – V2189 test boot flash/readback/selftest/version, Wi-Fi root-exec staging fix, carrier smoke, cleanup/selftest live PASS 결과
 - `reports/NATIVE_INIT_V2183_V2182_HUD_MENU_CLEANUP_BASELINE_PROMOTION_2026-06-09.md` – HUD storage/Wi-Fi glance, six-row HUD/menu layout fix, menu duplicate cleanup, V2182 live UI smoke, V2178 rollback/selftest, final V2182 baseline promotion 근거
 - `reports/NATIVE_INIT_V2182_HUD_MENU_CLEANUP_SOURCE_BUILD_2026-06-09.md` – V2182 HUD/menu cleanup source build, manifest/hash, included route, safety scope 결과
 - `reports/NATIVE_INIT_V2180_TRANSPORT_COMMONIZATION_LIVE_VALIDATION_2026-06-09.md` – 공용 `a90_transport.phase()`/serial recovery evidence를 transport-only NCM smoke와 현재 V2178 Wi-Fi autoconnect-once runner에서 live 검증한 결과

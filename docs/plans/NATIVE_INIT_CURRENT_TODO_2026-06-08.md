@@ -26,6 +26,21 @@ Current baseline:
 - Active script root: `workspace/public/src/scripts/revalidation/`.
 - Private/generated payload root: `workspace/private/` and structured `tmp/`.
 
+Pre-promotion candidate:
+
+- Candidate: `A90 Linux init 0.9.261 (v2189-security-p0-stage-fix)`.
+- Boot SHA256:
+  `a7332612199cfd275f2dfc6fdb25843af401a1ecef2fa54ac0f52afe705f1ffe`.
+- Live validation:
+  `docs/reports/NATIVE_INIT_V2189_SECURITY_P0_STAGE_FIX_LIVE_VALIDATION_2026-06-10.md`.
+- Fresh local security scan:
+  `docs/security/scans/SECURITY_FRESH_SCAN_V2189_2026-06-10.md`
+  (`PASS=10`, `WARN=1`, `FAIL=0`).
+- Promotion precheck:
+  `docs/reports/NATIVE_INIT_V2189_PROMOTION_PRECHECK_2026-06-10.md`.
+- Status: eligible for explicit baseline promotion; current promoted baseline
+  remains V2187 until the promotion report and baseline pointer updates land.
+
 ## Priority 0: Commit Hygiene
 
 Goal: keep the current workspace reviewable before more live tests.
@@ -286,8 +301,10 @@ Keep:
 
 ## Suggested Next Sequence
 
-1. No immediate source-root cleanup is required.
-2. If a new boot image is promoted, follow the versioning and QA policies above.
+1. Promote V2189 only through an explicit promotion report and baseline pointer
+   updates; do not silently replace V2187.
+2. Defer architecture source cleanup until after the security baseline
+   promotion, unless a cleanup patch is kept separate and validation-neutral.
 3. If serial `AT` noise naturally fires, confirm shared recovery evidence.
 4. Run longer Wi-Fi/data-path soak only when new promotion criteria require it.
 
