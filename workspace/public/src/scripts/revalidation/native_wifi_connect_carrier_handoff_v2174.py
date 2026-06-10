@@ -22,9 +22,10 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
-from _workspace_bootstrap import repo_root
+from _workspace_bootstrap import add_legacy_revalidation_path, repo_root
 
 REPO_ROOT = repo_root()
+add_legacy_revalidation_path(REPO_ROOT)
 
 from a90ctl import run_cmdv1_command  # noqa: E402
 from a90harness.evidence import (  # noqa: E402

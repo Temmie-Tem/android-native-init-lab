@@ -20,6 +20,10 @@
 - **Unit A/B/C/D 및 Tier 2 핵심 패턴 조치 완료.**
 - V2189 source build PASS: `boot_sha256=f54becb2b720ad198413c2a0089912626ca295c79a96f13e0921cf4f05b39f51`,
   `helper_sha256=a4ef028aee167ab6a66b17389ade37427e85647d18e45270634f666b8efe1a44`.
+- 실기기 flash/readback/selftest PASS:
+  `docs/reports/NATIVE_INIT_V2189_SECURITY_TRIAGE_REFRESH_FLASH_VALIDATION_2026-06-10.md`.
+- 동일 실기기 run에서 저장된 private profiles 기준 Wi-Fi scan + 5 GHz-class connect + 2.4 GHz connect PASS
+  (`credentials_logged=0`, `secret_values_logged=0`, `dhcp_routing=0`, `external_ping=0`).
 - 로컬 targeted rescan PASS: `docs/security/scans/SECURITY_FRESH_SCAN_V2189_2026-06-10.md`
   (`PASS=10`, `WARN=1`, `FAIL=0`). 남은 WARN은 의도된 trusted-lab local root-control boundary.
 
