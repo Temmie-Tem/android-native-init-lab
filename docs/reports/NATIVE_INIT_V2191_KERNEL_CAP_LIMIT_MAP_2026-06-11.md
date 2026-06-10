@@ -127,7 +127,7 @@ tracepoint/uprobe/raw_syscalls 에 eBPF attach (V781로 작동 확인)
 
 서브시스템마다 일회성 프로브 금지. **엔진-first + 우선순위 sweep + catalog**:
 
-- **A. Breadth 카탈로그**(read-only, 진행 중·본 문서가 70%): tracepoint/debugfs/
+- **A. Breadth 카탈로그**(read-only, **완료 → 부록 A**): tracepoint/debugfs/
   uprobe/sysfs 전수.
 - **B. Generic 추출 엔진**(빌드 1회): V781/`a90_bpf_trace_counter.c` 기반 →
   `(tracepoint/uprobe, read-spec[ptr+offset+size], map)` 파라메트릭 helper.
@@ -135,6 +135,33 @@ tracepoint/uprobe/raw_syscalls 에 eBPF attach (V781로 작동 확인)
 - **C. Depth, value×safety 순**: ① safe&high-info(sched, raw_syscalls) →
   ② 미션(cfg80211/cld/cnss, regulator/clk/power) → ③ 나머지.
 - **D. Control, 마지막·bounded**: 반응 루프 + cgroup-BPF + debugfs/sysfs write(가역).
+
+## 부록 A — Breadth 카탈로그 (전수, V2191 census)
+
+전수 결과: tracepoint 그룹 **1456 이벤트 / ~110 그룹**, debugfs 최상위 **115 노드**,
+`/proc/sys` 10 디렉터리 / **writable knob 2089개**. 도메인별 관측·제어 앵커:
+
+| 도메인 | tracepoint 그룹(이벤트수) | debugfs 노드 / sysctl |
+| --- | --- | --- |
+| **WLAN** | `cfg80211`(162), `a90cnss`(114, uprobe) | `cld cnss-prealloc cnss_utils icnss ieee80211 wlan wlan0 wifi-aware0 p2p0` / sysctl `ath_pktlog` |
+| **Modem 데이터패스** | `rmnet`(16) `dfc`(11) `ipa`(9) `xdp`(5) `wda`(3) `rndis_ipa`(3) | `ipa ipa_usb mhi mhi_netdev qrtr gsi pci-msm uether_rndis usb_diag` |
+| **Power/Clock/Thermal** | `power`(32) `clk`(17) `thermal`(12) `msm_low_power`(10) `msm_bus`(10) `regulator`(7) `rpmh`(4) `rpm`(4) `lmh`(1) | `clk regulator opp pm_genpd pm_qos lmh_monitor lpm_stats cmd_db sleep_time suspend_stats max77705-regs charger-pca9468` |
+| **Scheduler/MM** | `sched`(62) `kmem`(35) `writeback`(30) `vmscan`(16) `compaction`(14) `oom`(8) `migrate`(3) `process_reclaim`(2) `almk`(2) `lowmemorykiller`(1) | `sched_debug sched_features memblock extfrag show_mem_notifier` |
+| **Storage/FS** | `ext4`(102) `f2fs`(70) `jbd2`(16) `block`(18) `ufs`(13) `mmc`(16) `scsi`(5) `android_fs`(6) `filelock`(10) `filemap`(4) | `f2fs mmc0 1d84000.ufshc block bdi` |
+| **GPU/Display/Camera/Audio** | `kgsl`(79) `msm_vidc_events`(16) `sde_rotator`(12) `camera`(13) `asoc`(13) `sde`(10) `v4l2`(6) `vb2`(4) `drm`(3) `mdss_pll`(3) | `kgsl npu sde_rotator0 sde_rsc0 dri drm_dp display_driver ss_dsi_panel_* camera_* msm_vidc afe_loopback asoc msm_apr_debug` |
+| **USB** | `xhci-hcd`(38) `gadget`(24) `dwc3`(15) | `a600000.dwc3 usb usb_gsi usb_diag uether_rndis ipa_usb 88e2000.hsphy` |
+| **Core/IPC/Bus** | `binder`(31) `random`(15) `timer`(13) `regmap`(15) `iommu`(12) `bpf`(12) `irq`(9) `cgroup`(9) `spi`(7) `i2c`(4) `spmi`(5) `workqueue`(4) `ipi`(3) `rcu`(1) `printk`(1) | `binder ipc_logging tracing gpi_dma sps iommu ion dma_buf regmap pinctrl gpio gpiomux pwm` |
+| **Net 스택** | `net`(11) `skb`(4) `sock`(2) `fib`(3) `bridge`(4) `udp`(1) `napi`(1) `qdisc`(1) `fib6`(1) `mdio`(1) | sysctl `net` (서브트리) |
+| **Security/TEE/PIL** | `msm_pil_event`(3) `sec_debug`(4) `scm`(4) `ras`(4) | `tzdbg trustonic_tee diag ras hyp 관련` |
+| **syscall/proc** | `raw_syscalls`(2) `task`(2) `signal`(2) `pagefault`(6) `pagemap`(2) `namei`(1) `emulation`(1) | — |
+| **기타 uprobe(현역)** | `a90pmsrv`(46) `a90periph`(25) `a90libqmi`(21) | — |
+
+`/proc/sys` 최상위: `abi ath_pktlog crypto debug dev fs kernel net user vm`
+(제어 노브 2089개 writable). `available_tracers=nop`(function/graph tracer 부재).
+
+미션 직결: **WLAN(cfg80211 162 + icnss/cld/wlan debugfs)** 과 **modem
+데이터패스(ipa/mhi/qrtr/rmnet)**, **power/clk(regulator/cmd_db/rpmh)** 가 가장
+두꺼운 관측면 — 과거 추적 타깃과 정확히 겹친다. 제어 노브(ath_pktlog 등)도 동거.
 
 ## Safety
 
