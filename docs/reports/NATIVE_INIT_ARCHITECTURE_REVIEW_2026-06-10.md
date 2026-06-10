@@ -5,6 +5,11 @@
 분석 방법: 빌드 모델 역추적 + 소스 정적 분석(컴파일 경계, dispatch, 모듈
 경계, 죽은 코드 식별). 디바이스 실행은 하지 않음.
 
+관련 문서: 이 문서가 **현재 상태 진단 + 청소 계획**이라면, 향후 **구조 종류
+선택지와 목표 구조(모듈러 모놀리식 + supervisor-helper 하이브리드) 결정**은
+[`NATIVE_INIT_ARCHITECTURE_OPTIONS_AND_TARGET_2026-06-10.md`](NATIVE_INIT_ARCHITECTURE_OPTIONS_AND_TARGET_2026-06-10.md)
+가 다룬다. 이 문서의 청소가 선행, 그쪽의 분리가 후행이다.
+
 ---
 
 ## 1. 한 줄 결론
