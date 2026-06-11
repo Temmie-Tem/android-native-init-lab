@@ -41,7 +41,7 @@
 #define BPF_PSEUDO_MAP_FD 1
 #endif
 
-#define A90_VERSION "a90_bpf_file_ops_anchor v2204"
+#define A90_VERSION "a90_bpf_file_ops_anchor v2206"
 #define TRACEFS_A "/sys/kernel/tracing/events"
 #define TRACEFS_B "/sys/kernel/debug/tracing/events"
 #define MAX_INSNS 512
@@ -58,6 +58,14 @@
 #define FDTABLE_FD_OFF 8
 #define FILE_F_OP_OFF 40
 #define FILE_PRIVATE_DATA_OFF 208
+#define FOPS_LLSEEK_OFF 8
+#define FOPS_READ_OFF 16
+#define FOPS_WRITE_OFF 24
+#define FOPS_READ_ITER_OFF 32
+#define FOPS_WRITE_ITER_OFF 40
+#define FOPS_MMAP_OFF 88
+#define FOPS_GET_UNMAPPED_AREA_OFF 152
+#define FOPS_SPLICE_WRITE_OFF 176
 
 struct summary_value {
     uint64_t count;
@@ -76,6 +84,22 @@ struct summary_value {
     uint64_t fd0_private;
     uint64_t fd1_private;
     uint64_t fd2_private;
+    uint64_t fd0_llseek;
+    uint64_t fd0_read;
+    uint64_t fd0_write;
+    uint64_t fd0_read_iter;
+    uint64_t fd0_write_iter;
+    uint64_t fd0_mmap;
+    uint64_t fd0_get_unmapped_area;
+    uint64_t fd0_splice_write;
+    uint64_t fd1_llseek;
+    uint64_t fd1_read;
+    uint64_t fd1_write;
+    uint64_t fd1_read_iter;
+    uint64_t fd1_write_iter;
+    uint64_t fd1_mmap;
+    uint64_t fd1_get_unmapped_area;
+    uint64_t fd1_splice_write;
 };
 
 struct emitter {
@@ -257,6 +281,29 @@ static void emit_read_fd_file_and_fop(struct emitter *e, int fd, int file_off, i
     patch_jump(e, jnull);
 }
 
+static void emit_read_fop_members(struct emitter *e,
+                                  int fop_value_off,
+                                  int llseek_off,
+                                  int read_off,
+                                  int write_off,
+                                  int read_iter_off,
+                                  int write_iter_off,
+                                  int mmap_off,
+                                  int get_unmapped_area_off,
+                                  int splice_write_off) {
+    emit(e, BPF_LDX | BPF_MEM | BPF_DW, BPF_REG_6, BPF_REG_8, (int16_t)fop_value_off, 0);
+    int fop_null = emit(e, BPF_JMP | BPF_JEQ | BPF_K, BPF_REG_6, 0, 0, 0);
+    emit_read_u64_to_value(e, llseek_off, BPF_REG_6, FOPS_LLSEEK_OFF);
+    emit_read_u64_to_value(e, read_off, BPF_REG_6, FOPS_READ_OFF);
+    emit_read_u64_to_value(e, write_off, BPF_REG_6, FOPS_WRITE_OFF);
+    emit_read_u64_to_value(e, read_iter_off, BPF_REG_6, FOPS_READ_ITER_OFF);
+    emit_read_u64_to_value(e, write_iter_off, BPF_REG_6, FOPS_WRITE_ITER_OFF);
+    emit_read_u64_to_value(e, mmap_off, BPF_REG_6, FOPS_MMAP_OFF);
+    emit_read_u64_to_value(e, get_unmapped_area_off, BPF_REG_6, FOPS_GET_UNMAPPED_AREA_OFF);
+    emit_read_u64_to_value(e, splice_write_off, BPF_REG_6, FOPS_SPLICE_WRITE_OFF);
+    patch_jump(e, fop_null);
+}
+
 static int build_prog(struct emitter *e, int summary_map_fd, int target_pid, int fd0, int fd1, int fd2) {
     e->n = 0;
 
@@ -312,6 +359,27 @@ static int build_prog(struct emitter *e, int summary_map_fd, int target_pid, int
                               (int)offsetof(struct summary_value, fd2_fop),
                               (int)offsetof(struct summary_value, fd2_private));
 
+    emit_read_fop_members(e,
+                          (int)offsetof(struct summary_value, fd0_fop),
+                          (int)offsetof(struct summary_value, fd0_llseek),
+                          (int)offsetof(struct summary_value, fd0_read),
+                          (int)offsetof(struct summary_value, fd0_write),
+                          (int)offsetof(struct summary_value, fd0_read_iter),
+                          (int)offsetof(struct summary_value, fd0_write_iter),
+                          (int)offsetof(struct summary_value, fd0_mmap),
+                          (int)offsetof(struct summary_value, fd0_get_unmapped_area),
+                          (int)offsetof(struct summary_value, fd0_splice_write));
+    emit_read_fop_members(e,
+                          (int)offsetof(struct summary_value, fd1_fop),
+                          (int)offsetof(struct summary_value, fd1_llseek),
+                          (int)offsetof(struct summary_value, fd1_read),
+                          (int)offsetof(struct summary_value, fd1_write),
+                          (int)offsetof(struct summary_value, fd1_read_iter),
+                          (int)offsetof(struct summary_value, fd1_write_iter),
+                          (int)offsetof(struct summary_value, fd1_mmap),
+                          (int)offsetof(struct summary_value, fd1_get_unmapped_area),
+                          (int)offsetof(struct summary_value, fd1_splice_write));
+
     patch_jump(e, files_null);
     patch_jump(e, fdt_null);
     emit(e, BPF_ALU64 | BPF_MOV | BPF_K, BPF_REG_0, 0, 0, 0);
@@ -329,7 +397,7 @@ static void sleep_trigger_ms(int duration_ms) {
 }
 
 static void print_summary(const struct summary_value *value) {
-    printf("summary count=%llu read_errors=%llu last_tgid=%u last_pid=%u task=0x%016llx files=0x%016llx fdt=0x%016llx fd_array=0x%016llx fd0_file=0x%016llx fd0_fop=0x%016llx fd0_private=0x%016llx fd1_file=0x%016llx fd1_fop=0x%016llx fd1_private=0x%016llx fd2_file=0x%016llx fd2_fop=0x%016llx fd2_private=0x%016llx\n",
+    printf("summary count=%llu read_errors=%llu last_tgid=%u last_pid=%u task=0x%016llx files=0x%016llx fdt=0x%016llx fd_array=0x%016llx fd0_file=0x%016llx fd0_fop=0x%016llx fd0_private=0x%016llx fd1_file=0x%016llx fd1_fop=0x%016llx fd1_private=0x%016llx fd2_file=0x%016llx fd2_fop=0x%016llx fd2_private=0x%016llx fd0_llseek=0x%016llx fd0_read=0x%016llx fd0_write=0x%016llx fd0_read_iter=0x%016llx fd0_write_iter=0x%016llx fd0_mmap=0x%016llx fd0_get_unmapped_area=0x%016llx fd0_splice_write=0x%016llx fd1_llseek=0x%016llx fd1_read=0x%016llx fd1_write=0x%016llx fd1_read_iter=0x%016llx fd1_write_iter=0x%016llx fd1_mmap=0x%016llx fd1_get_unmapped_area=0x%016llx fd1_splice_write=0x%016llx\n",
            (unsigned long long)value->count,
            (unsigned long long)value->read_errors,
            (unsigned int)(value->last_pid_tgid >> 32),
@@ -346,7 +414,23 @@ static void print_summary(const struct summary_value *value) {
            (unsigned long long)value->fd1_private,
            (unsigned long long)value->fd2_file,
            (unsigned long long)value->fd2_fop,
-           (unsigned long long)value->fd2_private);
+           (unsigned long long)value->fd2_private,
+           (unsigned long long)value->fd0_llseek,
+           (unsigned long long)value->fd0_read,
+           (unsigned long long)value->fd0_write,
+           (unsigned long long)value->fd0_read_iter,
+           (unsigned long long)value->fd0_write_iter,
+           (unsigned long long)value->fd0_mmap,
+           (unsigned long long)value->fd0_get_unmapped_area,
+           (unsigned long long)value->fd0_splice_write,
+           (unsigned long long)value->fd1_llseek,
+           (unsigned long long)value->fd1_read,
+           (unsigned long long)value->fd1_write,
+           (unsigned long long)value->fd1_read_iter,
+           (unsigned long long)value->fd1_write_iter,
+           (unsigned long long)value->fd1_mmap,
+           (unsigned long long)value->fd1_get_unmapped_area,
+           (unsigned long long)value->fd1_splice_write);
 }
 
 static void usage(const char *argv0) {
@@ -394,8 +478,10 @@ int main(int argc, char **argv) {
     printf("%s\n", A90_VERSION);
     printf("allow_attach=%d duration_ms=%d target_pid=%d verbose=%d\n",
            allow_attach, duration_ms, target_pid, verbose);
-    printf("offsets task_files=%d files_fdt=%d fdtable_fd=%d file_f_op=%d file_private_data=%d\n",
-           TASK_FILES_OFF, FILES_FDT_OFF, FDTABLE_FD_OFF, FILE_F_OP_OFF, FILE_PRIVATE_DATA_OFF);
+    printf("offsets task_files=%d files_fdt=%d fdtable_fd=%d file_f_op=%d file_private_data=%d fops_llseek=%d fops_read=%d fops_write=%d fops_read_iter=%d fops_write_iter=%d fops_mmap=%d fops_get_unmapped_area=%d fops_splice_write=%d\n",
+           TASK_FILES_OFF, FILES_FDT_OFF, FDTABLE_FD_OFF, FILE_F_OP_OFF, FILE_PRIVATE_DATA_OFF,
+           FOPS_LLSEEK_OFF, FOPS_READ_OFF, FOPS_WRITE_OFF, FOPS_READ_ITER_OFF, FOPS_WRITE_ITER_OFF,
+           FOPS_MMAP_OFF, FOPS_GET_UNMAPPED_AREA_OFF, FOPS_SPLICE_WRITE_OFF);
     printf("anchor fd0=%d path=/dev/null expected=null_fops fd1=%d path=/dev/zero expected=zero_fops fd2=%d path=/proc/version expected=version_proc_fops\n",
            fd_null, fd_zero, fd_version);
 
