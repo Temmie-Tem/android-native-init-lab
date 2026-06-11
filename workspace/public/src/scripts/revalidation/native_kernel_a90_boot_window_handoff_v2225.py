@@ -143,6 +143,7 @@ def a90ctl_command(args: argparse.Namespace, command: list[str], *, allow_error:
         str(args.bridge_port),
         "--timeout",
         str(args.timeout),
+        "--hide-on-busy",
     ]
     if allow_error:
         rendered.append("--allow-error")
@@ -245,6 +246,26 @@ def run_parser(store: EvidenceStore, steps: list[dict[str, Any]], inputs: list[P
     }
 
 
+def diagnose_artifacts(paths: list[Path]) -> dict[str, Any]:
+    text = "\n".join(path.read_text(encoding="utf-8", errors="replace") for path in paths if path.exists())
+    if "setup_error=lstat property root: No such file or directory" in text:
+        return {
+            "kind": "property-root-missing",
+            "decision": "helper-setup-error-property-root-missing",
+            "setup_error": "lstat property root: No such file or directory",
+            "helper_exit_code": 20 if "helper_exit_code=20" in text or "child_exit_code=20" in text else None,
+        }
+    if "helper_status=setup-error" in text:
+        return {
+            "kind": "setup-error",
+            "decision": "helper-setup-error",
+            "helper_exit_code": 20 if "helper_exit_code=20" in text or "child_exit_code=20" in text else None,
+        }
+    if "helper_result_size=" in text or "A90_EXECNS_RESULT_FILE_BEGIN" in text:
+        return {"kind": "helper-artifacts-present", "decision": "helper-artifacts-present"}
+    return {"kind": "unknown", "decision": "helper-artifact-diagnosis-unknown"}
+
+
 def collect_helper_artifacts(args: argparse.Namespace, store: EvidenceStore, steps: list[dict[str, Any]]) -> dict[str, Any]:
     inputs: list[Path] = []
     collected: dict[str, Any] = {}
@@ -266,7 +287,7 @@ def collect_helper_artifacts(args: argparse.Namespace, store: EvidenceStore, ste
             "bytes": local_path.stat().st_size,
         }
     parser = run_parser(store, steps, inputs)
-    return {"artifacts": collected, "parser": parser}
+    return {"artifacts": collected, "diagnosis": diagnose_artifacts(inputs), "parser": parser}
 
 
 def rollback(args: argparse.Namespace, store: EvidenceStore, steps: list[dict[str, Any]], rollback_sha: str) -> dict[str, Any]:
@@ -332,6 +353,13 @@ def classify(manifest: dict[str, Any]) -> dict[str, Any]:
             "pass": False,
             "reason": "V2224 test boot flash failed, but rollback selftest fail=0 passed",
         }
+    diagnosis = collect.get("diagnosis") or {}
+    if diagnosis.get("kind") == "property-root-missing":
+        return {
+            "decision": "v2225-boot-window-helper-property-root-missing-rollback-pass",
+            "pass": False,
+            "reason": "V2224 booted and rollback passed, but the helper exited before tracing because its configured property root was missing",
+        }
     if parser.get("parsed_pass") is True:
         return {
             "decision": "v2225-boot-window-helper-parsed-rollback-pass",
@@ -376,13 +404,40 @@ def render_report(manifest: dict[str, Any]) -> str:
         "- Live sequence: V2222 preflight -> flash V2224 -> collect `/cache/native-init-wifi-test-boot-v2224-*` -> V2220 parser -> rollback V2189 -> selftest fail=0.",
         "- Collection is read-only after boot; it uses `cat` over the native bridge and the helper-owned trace output.",
         "",
+    ]
+    if manifest.get("execute"):
+        rollback_result = manifest.get("rollback") or {}
+        collect = manifest.get("collect") or {}
+        parser = collect.get("parser") or {}
+        diagnosis = collect.get("diagnosis") or {}
+        lines.extend([
+            "## Live Evidence",
+            "",
+            f"- Rollback OK: `{rollback_result.get('ok', False)}`",
+            f"- Rollback selftest fail=0: `{rollback_result.get('selftest_ok', False)}`",
+            f"- Parser decision: `{parser.get('parsed_decision')}`",
+            f"- Parser pass: `{parser.get('parsed_pass')}`",
+            f"- Helper diagnosis: `{diagnosis.get('decision', 'unknown')}`",
+            "",
+        ])
+        if diagnosis.get("kind") == "property-root-missing":
+            lines.extend([
+                "## Live Diagnosis",
+                "",
+                "- The V2224 helper did not reach WLFW/CNSS trace collection.",
+                "- Recovered helper result shows `helper_status=setup-error` and `setup_error=lstat property root: No such file or directory`.",
+                "- Root cause: the configured V2224 property root was missing on the device.",
+                "- Next unit: rebuild with a present/staged property root and keep `--hide-on-busy` for bridge artifact collection.",
+                "",
+            ])
+    lines.extend([
         "## Safety Scope",
         "",
         "- Dry-run does not flash, reboot, write device partitions, scan/connect Wi-Fi, use credentials, configure DHCP/routes, ping, attach BPF, execute `probe_write_user`, or write tracefs controls.",
         "- Live mode flashes only the approved rollbackable V2224 test boot and V2189 rollback image.",
         "- It does not use Wi-Fi HAL scan/connect, credentials, DHCP/routes, external ping, PMIC/GPIO/GDSC/eSoC/PCI paths, platform bind/unbind, or `sda29` writes.",
         "",
-    ]
+    ])
     if manifest.get("dry_run_commands"):
         lines.extend([
             "## Dry-Run Command Plan",
