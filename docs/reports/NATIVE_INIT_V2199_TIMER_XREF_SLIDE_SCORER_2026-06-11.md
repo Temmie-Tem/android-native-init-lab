@@ -171,3 +171,17 @@ Recommended next unit:
    keep `0x1bcebc` as a semantic lead only.
 4. Only move WLAN/cfg80211 object-chain symbolization to exact labels after the slide is
    cross-confirmed. Until then, every resolved symbol must remain `provisional`.
+
+---
+
+## 7. V2200 Follow-Up
+
+V2200 ran the recommended same-boot read-only `timer:timer_start` context capture.
+Result: `0xffffff80083108fc` was still the dominant function pointer, but all `1396`
+filtered events had `expires - now = 18000` (`timeout_eq1=0`, `timeout_eq18000=1396`).
+
+This contradicts the `jiffies + 1` cadence that made `do_nocb_deferred_wakeup_timer`
+attractive in V2199. The function-name lead remains useful, but `0x1bcebc` / `0x1bceb8`
+are not exact slide authorities. Keep `exact_symbolization=false` and label downstream
+symbols as provisional until V2201 or another independent discriminator resolves the
+owner/cadence mismatch.
