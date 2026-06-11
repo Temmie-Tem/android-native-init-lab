@@ -1,10 +1,11 @@
 /*
- * a90_bpf_helper_probe — V2193 bounded BPF helper capability probe.
+ * a90_bpf_helper_probe — bounded BPF helper capability probe.
  *
  * Scope:
  *   - load/attach tiny tracepoint programs for get_current_task/get_stackid;
  *   - load-only probe_write_user program behind a zero-valued map gate;
- *   - optionally attach a pass-through CGROUP_SKB program to a temporary cgroup.
+ *   - optionally attach a pass-through CGROUP_SKB program to a temporary cgroup;
+ *   - optionally dump stackmap values after a get_stackid runtime hit.
  *
  * Safety:
  *   - default is check-only, no attach;
@@ -76,11 +77,13 @@
 #define BPF_PROG_DETACH 9
 #endif
 
-#define A90_VERSION "a90_bpf_helper_probe v2193"
+#define A90_VERSION "a90_bpf_helper_probe v2195"
 #define TRACEFS_A "/sys/kernel/tracing/events"
 #define TRACEFS_B "/sys/kernel/debug/tracing/events"
 #define MAX_INSNS 128
 #define LOG_BUF_SIZE 65536
+#define STACK_DEPTH 127
+#define STACK_MAX_ENTRIES 128
 
 #define A90_FN_map_lookup_elem 1
 #define A90_FN_map_update_elem 2
@@ -103,6 +106,17 @@ struct probe_result {
     unsigned long long count;
     unsigned long long last;
     char detail[256];
+};
+
+struct stack_dump_result {
+    int requested;
+    int lookup_ok;
+    int lookup_errno;
+    uint32_t stackid;
+    int depth;
+    int nonzero;
+    int kernelish;
+    uint64_t ips[STACK_DEPTH];
 };
 
 static char log_buf[LOG_BUF_SIZE];
@@ -330,11 +344,61 @@ static void print_result(const struct probe_result *r) {
            r->attach_errno, r->count, r->last, r->detail[0] ? r->detail : "-");
 }
 
+static int looks_kernel_address(uint64_t value) {
+    return value >= 0xffffff0000000000ULL;
+}
+
+static void dump_stackmap_value(int stack_map_fd, uint64_t stackid_value) {
+    struct stack_dump_result d;
+    memset(&d, 0, sizeof(d));
+    d.requested = 1;
+    d.depth = STACK_DEPTH;
+
+    int64_t signed_stackid = (int64_t)stackid_value;
+    if (signed_stackid < 0 || signed_stackid >= STACK_MAX_ENTRIES) {
+        d.lookup_errno = EINVAL;
+        printf("stackmap_dump requested=%d lookup_ok=%d stackid=%lld depth=%d nonzero=%d kernelish=%d errno=%d detail=stackid_out_of_range\n",
+               d.requested, d.lookup_ok, (long long)signed_stackid, d.depth,
+               d.nonzero, d.kernelish, d.lookup_errno);
+        return;
+    }
+
+    d.stackid = (uint32_t)signed_stackid;
+    if (map_lookup(stack_map_fd, &d.stackid, d.ips) != 0) {
+        d.lookup_errno = errno;
+        printf("stackmap_dump requested=%d lookup_ok=%d stackid=%u depth=%d nonzero=%d kernelish=%d errno=%d detail=map_lookup_failed\n",
+               d.requested, d.lookup_ok, d.stackid, d.depth, d.nonzero,
+               d.kernelish, d.lookup_errno);
+        return;
+    }
+
+    d.lookup_ok = 1;
+    for (int i = 0; i < STACK_DEPTH; i++) {
+        if (d.ips[i] != 0) {
+            d.nonzero++;
+        }
+        if (looks_kernel_address(d.ips[i])) {
+            d.kernelish++;
+        }
+    }
+    printf("stackmap_dump requested=%d lookup_ok=%d stackid=%u depth=%d nonzero=%d kernelish=%d errno=%d detail=ok\n",
+           d.requested, d.lookup_ok, d.stackid, d.depth, d.nonzero,
+           d.kernelish, d.lookup_errno);
+    for (int i = 0; i < STACK_DEPTH; i++) {
+        if (d.ips[i] == 0) {
+            continue;
+        }
+        printf("stack_ip index=%d value=0x%016llx kernelish=%d\n",
+               i, (unsigned long long)d.ips[i], looks_kernel_address(d.ips[i]));
+    }
+}
+
 static void run_trace_probe(const char *name,
                             int mode,
                             int allow_attach,
                             int duration_sec,
-                            int verbose) {
+                            int verbose,
+                            int dump_stackmap) {
     struct probe_result r;
     memset(&r, 0, sizeof(r));
     r.name = name;
@@ -347,7 +411,8 @@ static void run_trace_probe(const char *name,
         return;
     }
     if (mode == 2) {
-        stack_map = create_map((enum bpf_map_type)BPF_MAP_TYPE_STACK_TRACE, 4, 127 * 8, 128);
+        stack_map = create_map((enum bpf_map_type)BPF_MAP_TYPE_STACK_TRACE,
+                               4, STACK_DEPTH * 8, STACK_MAX_ENTRIES);
         if (stack_map < 0) {
             r.load_errno = errno;
             snprintf(r.detail, sizeof(r.detail), "stack_map_create_failed");
@@ -423,12 +488,20 @@ static void run_trace_probe(const char *name,
     }
     ioctl(tp_fd, PERF_EVENT_IOC_DISABLE, 0);
     close(tp_fd);
+    print_result(&r);
+    if (mode == 2 && dump_stackmap) {
+        if (r.runtime_ok) {
+            dump_stackmap_value(stack_map, value[1]);
+        } else {
+            printf("stackmap_dump requested=1 lookup_ok=0 stackid=-1 depth=%d nonzero=0 kernelish=0 errno=%d detail=no_runtime_stackid\n",
+                   STACK_DEPTH, ENOENT);
+        }
+    }
     close(prog_fd);
     close(stats_map);
     if (stack_map >= 0) {
         close(stack_map);
     }
-    print_result(&r);
 }
 
 static void run_probe_write_user_loadonly(int verbose) {
@@ -533,7 +606,7 @@ static void run_cgroup_probe(int allow_attach, int verbose) {
 static void usage(const char *argv0) {
     fprintf(stderr,
         "%s\n"
-        "usage: %s [--allow-attach] [--allow-cgroup-attach] [--duration SEC] [--verbose]\n",
+        "usage: %s [--allow-attach] [--allow-cgroup-attach] [--duration SEC] [--dump-stackmap] [--verbose]\n",
         A90_VERSION, argv0);
 }
 
@@ -541,12 +614,15 @@ int main(int argc, char **argv) {
     int allow_attach = 0;
     int allow_cgroup_attach = 0;
     int verbose = 0;
+    int dump_stackmap = 0;
     int duration_sec = 1;
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "--allow-attach")) {
             allow_attach = 1;
         } else if (!strcmp(argv[i], "--allow-cgroup-attach")) {
             allow_cgroup_attach = 1;
+        } else if (!strcmp(argv[i], "--dump-stackmap")) {
+            dump_stackmap = 1;
         } else if (!strcmp(argv[i], "--verbose")) {
             verbose = 1;
         } else if (!strcmp(argv[i], "--duration") && i + 1 < argc) {
@@ -572,12 +648,12 @@ int main(int argc, char **argv) {
     setrlimit(RLIMIT_MEMLOCK, &rl);
 
     printf("%s\n", A90_VERSION);
-    printf("allow_attach=%d allow_cgroup_attach=%d duration_sec=%d verbose=%d\n",
-           allow_attach, allow_cgroup_attach, duration_sec, verbose);
-    run_trace_probe("get_current_task", 1, allow_attach, duration_sec, verbose);
-    run_trace_probe("get_stackid", 2, allow_attach, duration_sec, verbose);
+    printf("allow_attach=%d allow_cgroup_attach=%d duration_sec=%d dump_stackmap=%d verbose=%d\n",
+           allow_attach, allow_cgroup_attach, duration_sec, dump_stackmap, verbose);
+    run_trace_probe("get_current_task", 1, allow_attach, duration_sec, verbose, 0);
+    run_trace_probe("get_stackid", 2, allow_attach, duration_sec, verbose, dump_stackmap);
     run_probe_write_user_loadonly(verbose);
     run_cgroup_probe(allow_cgroup_attach, verbose);
-    printf("result=v2193-helper-capability-probe-complete\n");
+    printf("result=v2195-helper-capability-probe-complete\n");
     return 0;
 }

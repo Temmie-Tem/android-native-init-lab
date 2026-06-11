@@ -176,11 +176,14 @@ P0: `current_task` 기반 read-chain extractor — **완료(V2194)**.
   [V2194 current_task read-chain live probe](NATIVE_INIT_V2194_CURRENT_TASK_READCHAIN_LIVE_2026-06-11.md)
   에서 `decision=v2194-current-task-readchain-pass`.
 
-P1: stackmap dump + symbolization 파이프라인을 만든다.
+P1: stackmap dump + symbolization 파이프라인.
 
-- stackmap id → raw address list 회수.
-- 현재 커널 `System.map`/vmlinux 심볼과 매칭.
-- WLAN/QRTR/cfg80211 이벤트에만 적용한다.
+- stackmap id → raw address list 회수는 **완료(V2195)**.
+- 결과:
+  [V2195 stackmap dump live probe](NATIVE_INIT_V2195_STACKMAP_DUMP_LIVE_2026-06-11.md)
+  에서 `stackid=122` value lookup이 raw kernel IP 6개를 반환했다.
+- 남은 P1b는 현재 커널 `System.map`/unstripped `vmlinux` 심볼과 매칭.
+- 이후 WLAN/QRTR/cfg80211 이벤트에만 적용한다.
 
 P2: cgroup-BPF는 후순위로 둔다.
 

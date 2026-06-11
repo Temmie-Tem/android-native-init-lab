@@ -187,9 +187,10 @@ WLAN/cfg80211 구조체를 읽을 때는 V2194의 helper oracle을 그대로 쓸
 
 P1: stackmap value dump + symbolization.
 
-- V2193의 `stackid=122`에서 stackmap value를 userspace로 lookup.
-- raw address가 실제로 회수되는지 확인.
-- `System.map`/vmlinux 또는 kallsyms-derived symbol map과 매칭.
+- V2195에서 V2193의 `stackid=122` value를 userspace로 lookup했고 raw kernel IP
+  6개를 회수했다:
+  [V2195 stackmap dump live probe](NATIVE_INIT_V2195_STACKMAP_DUMP_LIVE_2026-06-11.md)
+- 남은 P1b는 `System.map`/unstripped `vmlinux` symbol map과 매칭.
 - WLAN/QRTR/cfg80211 tracepoint에만 적용한다.
 
 P2: WLAN/cfg80211 object-chain read.
