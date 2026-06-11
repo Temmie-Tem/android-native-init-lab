@@ -191,3 +191,13 @@ P2: WLAN/cfg80211 object-chain read.
 - cgroup attach는 수행하지 않았다.
 - Wi-Fi scan/connect, credential, DHCP, route, external ping 없음.
 - selftest `fail=0`.
+---
+
+## 7. V2197 Update
+
+The matching stock symbol map blocker noted above was closed in V2197 by parsing
+the embedded kallsyms tables from the live stock kernel wrapper. The V2195 stack
+IP set now symbolicates under the stock map; timer anchors still need separate
+callback-entry validation before they are used as slide authority.
+
+See `docs/reports/NATIVE_INIT_V2197_STOCK_KALLSYMS_SYMBOLIZATION_2026-06-11.md`.

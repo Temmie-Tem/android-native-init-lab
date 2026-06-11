@@ -26,6 +26,11 @@ DEFAULT_CANDIDATE_SYMBOLS = (
     "trace_event_raw_event_sched_switch",
 )
 
+TIMER_NAME_HINT_RE = re.compile(
+    r"(timer|timeout|delayed_work|watchdog|hrtimer|tick|process_times|scheduler|work)",
+    re.IGNORECASE,
+)
+
 
 @dataclass(frozen=True)
 class Symbol:
@@ -137,11 +142,15 @@ def score_slide(symbols: list[Symbol],
                 addresses: list[int],
                 slide: int,
                 stack_ips: list[int],
-                timer_functions: list[dict[str, int]]) -> dict[str, object]:
+                timer_functions: list[dict[str, int]],
+                source: dict[str, object] | None = None) -> dict[str, object]:
     stack_mappings = []
     timer_mappings = []
     stack_score = 0
     timer_score = 0
+    timer_entry_score = 0
+    timer_near_entry_score = 0
+    timer_name_hint_score = 0
     for stack_ip in stack_ips:
         static_address = stack_ip - slide
         mapping = nearest_symbol(symbols, addresses, static_address)
@@ -175,13 +184,23 @@ def score_slide(symbols: list[Symbol],
         next_delta = mapping["next_delta"]
         if 0 <= offset < 0x4000 and (next_delta is None or int(next_delta) >= 0):
             timer_score += int(timer["count"])
+        if offset == 0:
+            timer_entry_score += int(timer["count"])
+        if 0 <= offset < 0x100:
+            timer_near_entry_score += int(timer["count"])
+        if TIMER_NAME_HINT_RE.search(str(mapping["symbol"])):
+            timer_name_hint_score += int(timer["count"])
     return {
         "slide": slide,
         "slide_hex": f"0x{slide:x}",
+        "source": source or {},
         "stack_score": stack_score,
         "stack_total": len(stack_ips),
         "timer_weighted_score": timer_score,
         "timer_weight_total": sum(int(item["count"]) for item in timer_functions),
+        "timer_entry_weighted_score": timer_entry_score,
+        "timer_near_entry_weighted_score": timer_near_entry_score,
+        "timer_name_hint_weighted_score": timer_name_hint_score,
         "stack_mappings": stack_mappings,
         "timer_mappings": timer_mappings,
     }
@@ -219,11 +238,30 @@ def render_markdown(result: dict[str, object]) -> str:
             f"{candidate['stack_score']}/{candidate['stack_total']}, timer "
             f"{candidate['timer_weighted_score']}/{candidate['timer_weight_total']}"
         )
+        if candidate.get("source"):
+            source = candidate["source"]
+            lines.append(
+                f"  - source: `{source.get('source_symbol', 'unknown')}` from "
+                f"`{source.get('source_ip', 'unknown')}`"
+            )
+        lines.append(
+            f"  - timer_entry: {candidate.get('timer_entry_weighted_score', 0)}/"
+            f"{candidate['timer_weight_total']}, timer_near_entry: "
+            f"{candidate.get('timer_near_entry_weighted_score', 0)}/"
+            f"{candidate['timer_weight_total']}, timer_name_hint: "
+            f"{candidate.get('timer_name_hint_weighted_score', 0)}/"
+            f"{candidate['timer_weight_total']}"
+        )
         for mapping in candidate["stack_mappings"][:6]:
             lines.append(
                 f"  - `{mapping.get('runtime')}` -> `{mapping.get('symbol', 'unmapped')}`"
                 f"+0x{int(mapping.get('offset', 0)):x}"
             )
+    ambiguity = result.get("ambiguity") or {}
+    if ambiguity:
+        lines.extend(["", "## Ambiguity", ""])
+        for key, value in ambiguity.items():
+            lines.append(f"- {key}: `{value}`")
     lines.append("")
     return "\n".join(lines)
 
@@ -263,10 +301,18 @@ def main() -> int:
     candidates = candidate_slides(stack_ips, symbol_index, candidate_names)
     candidates.append({"slide": 0, "source_ip": "manual", "source_symbol": "identity", "source_symbol_address": "0x0"})
     scored = [
-        score_slide(symbols, addresses, int(candidate["slide"]), stack_ips, timer_functions)
+        score_slide(symbols, addresses, int(candidate["slide"]), stack_ips, timer_functions, candidate)
         for candidate in candidates
     ]
-    scored.sort(key=lambda item: (int(item["stack_score"]), int(item["timer_weighted_score"])), reverse=True)
+    scored.sort(
+        key=lambda item: (
+            int(item["stack_score"]),
+            int(item["timer_entry_weighted_score"]),
+            int(item["timer_near_entry_weighted_score"]),
+            int(item["timer_weighted_score"]),
+        ),
+        reverse=True,
+    )
     comparison = {}
     if args.live_kernel and args.candidate_image:
         comparison = {
@@ -278,11 +324,15 @@ def main() -> int:
         comparison["hash_match"] = str(comparison["live_kernel_sha256"] == comparison["candidate_image_sha256"]).lower()
     exact = False
     reason = "candidate System.map is not proven to match the live boot kernel"
+    full_stack_candidate_count = sum(1 for item in scored if item["stack_score"] == len(stack_ips))
+    best = scored[0] if scored else None
     if comparison and comparison.get("hash_match") == "true":
-        best = scored[0] if scored else None
         if best and best["stack_score"] == best["stack_total"]:
             exact = True
-            reason = "candidate kernel hash matches live boot kernel and all stack IPs map under one slide"
+            reason = (
+                "candidate kernel hash matches live boot kernel and all stack IPs map under one "
+                "stack-context slide"
+            )
         else:
             reason = "kernel hash matches but no single candidate slide maps all stack IPs"
     decision = "kernel-stack-symbolization-pass" if exact else "kernel-stack-symbolization-blocked-no-matching-symbol-map"
@@ -300,6 +350,15 @@ def main() -> int:
         "raw_stack_ips": [f"0x{value:016x}" for value in stack_ips],
         "timer_functions": timer_functions,
         "top_slide_candidates": scored[:10],
+        "ambiguity": {
+            "full_stack_candidate_count": full_stack_candidate_count,
+            "best_timer_entry_weighted_score": 0 if best is None else best["timer_entry_weighted_score"],
+            "best_timer_near_entry_weighted_score": 0 if best is None else best["timer_near_entry_weighted_score"],
+            "best_timer_name_hint_weighted_score": 0 if best is None else best["timer_name_hint_weighted_score"],
+            "timer_functions_are_slide_authority": (
+                "true" if best and best["timer_entry_weighted_score"] == best["timer_weight_total"] else "false"
+            ),
+        },
     }
     args.out_json.parent.mkdir(parents=True, exist_ok=True)
     args.out_json.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n")

@@ -296,3 +296,13 @@ P1b exact를 닫으려면 **stock System.map 복구**가 우선이다.
    포함하는 stock map을 만들면 V2196 symbolization을 재실행한다.
 5. 후보 map 검증은 V2195 stack IP와 V2196 timer function anchors 둘 다로 한다.
 6. 그 다음에 WLAN/cfg80211 tracepoint stack/object-chain에 적용한다.
+---
+
+## 10. V2197 Update
+
+V2197 recovered the stock embedded kallsyms map from the same live stock kernel
+wrapper blob and reran stack symbolization. The V2196 artifact gap is closed for
+stackmap IP naming. Timer function anchors remain useful raw evidence but are not
+yet independent slide authority because multiple slides can map them into text.
+
+See `docs/reports/NATIVE_INIT_V2197_STOCK_KALLSYMS_SYMBOLIZATION_2026-06-11.md`.
