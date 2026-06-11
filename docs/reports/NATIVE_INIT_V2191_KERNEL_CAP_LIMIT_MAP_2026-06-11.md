@@ -173,6 +173,8 @@ tracepoint/uprobe/raw_syscalls 에 eBPF attach (V781로 작동 확인)
 ## Next
 
 - V2192: generic 추출 엔진 설계/빌드(Phase B), `sched`로 검증 후 미션 서브시스템.
+  → **완료**: [V2192 Parametric eBPF Trace Extractor](NATIVE_INIT_V2192_BPF_TRACE_EXTRACT_2026-06-11.md)
+  (Tier-1/Tier-2 read × sample/freq/stream 온디바이스 검증, 체인 확장 분석).
 - census 후 마운트한 tracefs/debugfs는 후속 관측에 유지(원하면 umount).
 
 ## 참조
