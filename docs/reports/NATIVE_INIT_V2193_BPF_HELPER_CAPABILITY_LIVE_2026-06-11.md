@@ -1,7 +1,8 @@
 # Native Init V2193 BPF Helper Capability Live Probe (2026-06-11)
 
-대상: A90 native boot, 현재 v2187/0.9.259 계열 베이스라인 위에서 별도 helper
-`a90_bpf_helper_probe v2193` 를 `/cache/bin/` 에 임시 배포해 실행했다.
+대상: A90 native boot, 현재 `0.9.261 (v2189-security-p0-stage-fix)` 베이스라인
+위에서 별도 helper `a90_bpf_helper_probe v2193` 를 `/cache/bin/` 에 임시 배포해
+실행했다.
 
 범위: 읽기/관측 능력 확장 가능성 확인. Wi-Fi, 네트워크 연결, credential, DHCP,
 외부 ping, 커널/펌웨어/파티션 쓰기는 수행하지 않았다.
@@ -20,6 +21,17 @@ V2193 live probe 기준으로 BPF 기반 관측 확장은 실사용 가능하다
 즉, locked/RKP 환경에서도 tracepoint 기반 `current_task` 앵커와 stackmap 콜스택
 수집은 확인됐다. 커널 메모리 쓰기 벽을 깨는 증거는 없고, `probe_write_user` 는
 “로드 가능하지만 실행 금지” 상태로만 분류한다.
+
+핵심 보정: `stackid=122`는 stackmap 인덱스 반환이 실동작했다는 증거다. 이 run은
+stackmap value를 유저스페이스로 dump하지 않았으므로 raw KASLR-slid address 회수와
+`kptr_restrict` 우회는 아직 확정하지 않는다.
+
+| probe | load | attach | runtime | 핵심 수치 | 판정 |
+| --- | --- | --- | --- | --- | --- |
+| `get_current_task(35)` | ✅ | ✅ | ✅ | `count=440/s`, `last=1` | 앵커 runtime 확정 |
+| `get_stackid(27)` | ✅ | ✅ | ✅ | `count=398/s`, `last=122` | stackmap index 반환 확정 |
+| `probe_write_user(36)` | ✅ | — | 미실행 | map-gated load-only | verifier load 확정, 실행 보류 |
+| `cgroup_skb` | ✅ | ❌ | — | `errno=2` | cgroupfs 미마운트 환경 게이트 |
 
 ---
 
@@ -88,7 +100,9 @@ result=v2193-helper-capability-probe-complete
 
 - `sched:sched_switch` tracepoint id는 `58`.
 - 1초 동안 `get_current_task` 440회, `get_stackid` 398회 카운트.
-- stack id 마지막 값은 `122`; stackmap 경로가 실제로 값 반환.
+- stack id 마지막 값은 `122`; stackmap index 반환 경로가 실제로 동작.
+- raw stack address dump는 아직 수행하지 않았다. 다음 단계에서 stackmap key `122`
+  value를 `BPF_MAP_LOOKUP_ELEM` 으로 읽어 심볼화 가능성을 별도 판정해야 한다.
 
 ### 3.3 cgroup attach
 
@@ -114,7 +128,8 @@ result=v2193-helper-capability-probe-complete
 
 - cgroup skb program load는 가능.
 - attach는 `cgroupfs` 미마운트 때문에 대상 cgroup fd를 만들 수 없어 미확정.
-- 이 단계에서 cgroupfs mount는 하지 않았다. mount는 제어면 변경이라 별도 승인이 필요하다.
+- 이 단계에서 cgroupfs mount는 하지 않았다. `errno=2` 는 RKP/권한 거부가 아니라
+  attach 대상 cgroup 경로 부재다. 단, cgroupfs mount는 제어면 변경이라 별도 승인이 필요하다.
 
 ---
 
@@ -129,13 +144,13 @@ result=v2193-helper-capability-probe-complete
 - helper 27 `bpf_get_stackid`: 사용 가능.
 - tracepoint attach + runtime map update: 사용 가능.
 - BPF map 기반 상태 누적: 사용 가능.
+- `probe_write_user` verifier load: 가능. 단, 프로젝트 정책상 실행하지 않음.
 
 조건부/미확정:
 
-- helper 36 `bpf_probe_write_user`: verifier load는 가능하지만 실행하지 않았다.
-  이 프로젝트의 관측 목적에서는 사용하지 않는 것이 맞다.
 - cgroup-BPF attach: program load는 가능하지만 현재 boot namespace에 cgroupfs가
   없어 attach 미확정.
+- stackmap raw address 회수: `stackid`는 받았지만 stackmap value dump는 아직 안 함.
 
 유효하지 않은 확대 해석:
 
@@ -144,6 +159,8 @@ result=v2193-helper-capability-probe-complete
 - “임의 커널 읽기 전체 개방”도 아직 과장이다. V2193가 확정한 것은
   `current_task` 앵커와 stackid 콜스택을 live tracepoint에서 얻을 수 있다는
   점이다. 구조체 offset-chain extractor는 다음 단계에서 별도 구현해야 한다.
+- “raw KASLR address 회수”도 아직 미확정이다. stackmap index 반환은 확정됐지만
+  value dump와 심볼화가 남아 있다.
 
 ---
 
@@ -156,7 +173,7 @@ P0: `current_task` 기반 read-chain extractor 를 작게 만든다.
 - 소스/빌드 기준 offset으로 `pid/tgid/comm/cred uid/euid` 정도만 읽는다.
 - 유저스페이스 출력은 pid/comm/uid/euid 카운터 수준으로 제한한다.
 
-P1: stackmap symbolization 파이프라인을 만든다.
+P1: stackmap dump + symbolization 파이프라인을 만든다.
 
 - stackmap id → raw address list 회수.
 - 현재 커널 `System.map`/vmlinux 심볼과 매칭.
