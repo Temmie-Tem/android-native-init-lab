@@ -199,3 +199,16 @@ Recommended next unit:
 3. Keep exact symbol labels disabled until at least one candidate satisfies both object
    invariants and an independent stack/callsite constraint.
 4. Do not execute `probe_write_user`, cgroup attach, or any mutating BPF path.
+
+---
+
+## 8. V2202 Follow-Up
+
+V2202 extended the single-filter object capture into a multi-row timer object histogram.
+It confirmed that the V2201 top row `0xffffff80083108fc` remains stable with
+`timeout=18000` and `obj_data_delta=-16`, but it also separated the RCU-like behavior into
+a different raw function row: `0xffffff80081db824` with `comm=rcu_preempt` and
+`timeout_min=1`.
+
+This strengthens the V2201 conclusion: the top row is not the RCU no-CB exact authority.
+The next step is row-to-source pattern matching, not naming the dominant raw pointer.
