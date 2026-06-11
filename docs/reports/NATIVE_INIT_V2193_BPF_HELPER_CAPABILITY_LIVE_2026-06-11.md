@@ -166,12 +166,15 @@ result=v2193-helper-capability-probe-complete
 
 ## 5. 다음 단계
 
-P0: `current_task` 기반 read-chain extractor 를 작게 만든다.
+P0: `current_task` 기반 read-chain extractor — **완료(V2194)**.
 
 - `sched_switch` 에 attach.
 - `bpf_get_current_task()` 로 task pointer 획득.
 - 소스/빌드 기준 offset으로 `pid/tgid/comm/cred uid/euid` 정도만 읽는다.
 - 유저스페이스 출력은 pid/comm/uid/euid 카운터 수준으로 제한한다.
+- 결과:
+  [V2194 current_task read-chain live probe](NATIVE_INIT_V2194_CURRENT_TASK_READCHAIN_LIVE_2026-06-11.md)
+  에서 `decision=v2194-current-task-readchain-pass`.
 
 P1: stackmap dump + symbolization 파이프라인을 만든다.
 
