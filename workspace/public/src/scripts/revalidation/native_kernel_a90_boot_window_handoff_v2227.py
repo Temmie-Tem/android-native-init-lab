@@ -274,6 +274,21 @@ def extract_summary_value(text: str, key: str) -> str | None:
 
 def diagnose_artifacts(paths: list[Path]) -> dict[str, Any]:
     text = "\n".join(path.read_text(encoding="utf-8", errors="replace") for path in paths if path.exists())
+    nonlog = {
+        "label": extract_summary_value(text, "wlan_pd_cnss_nonlog_control_flow.label"),
+        "pm_init_pm_client_register_call_hits": extract_summary_value(
+            text, "wlan_pd_cnss_nonlog_control_flow.uprobe.pm_init_pm_client_register_call.hit_count"
+        ),
+        "pm_init_pm_client_register_retcheck_hits": extract_summary_value(
+            text, "wlan_pd_cnss_nonlog_control_flow.uprobe.pm_init_pm_client_register_retcheck.hit_count"
+        ),
+        "periph_default_service_manager_call_hits": extract_summary_value(
+            text, "wlan_pd_cnss_nonlog_control_flow.peripheral_uprobe.periph_default_service_manager_call.hit_count"
+        ),
+        "periph_manager_name_string16_call_hits": extract_summary_value(
+            text, "wlan_pd_cnss_nonlog_control_flow.peripheral_uprobe.periph_manager_name_string16_call.hit_count"
+        ),
+    }
     if "setup_error=lstat property root: No such file or directory" in text:
         return {
             "kind": "property-root-missing",
@@ -296,6 +311,7 @@ def diagnose_artifacts(paths: list[Path]) -> dict[str, Any]:
             "supervisor_result": extract_summary_value(text, "supervisor_result"),
             "wlan0_present": extract_summary_value(text, "wlan0_present"),
             "helper_result_size": extract_summary_value(text, "helper_result_size"),
+            "nonlog_control_flow": {key: value for key, value in nonlog.items() if value is not None},
         }
     return {"kind": "unknown", "decision": "helper-artifact-diagnosis-unknown"}
 
@@ -567,6 +583,18 @@ def render_report(manifest: dict[str, Any]) -> str:
             f"- Helper result: supervisor=`{diagnosis.get('supervisor_result')}` exit=`{diagnosis.get('helper_exit_code')}` timed_out=`{diagnosis.get('helper_timed_out')}` wlan0_present=`{diagnosis.get('wlan0_present')}`",
             "",
         ])
+        nonlog = diagnosis.get("nonlog_control_flow") or {}
+        if nonlog:
+            lines.extend([
+                "## Nonlog Control-Flow Summary",
+                "",
+                f"- Classifier: `{nonlog.get('label')}`",
+                f"- `pm_init_pm_client_register_call`: hits=`{nonlog.get('pm_init_pm_client_register_call_hits')}`",
+                f"- `pm_init_pm_client_register_retcheck`: hits=`{nonlog.get('pm_init_pm_client_register_retcheck_hits')}`",
+                f"- `periph_default_service_manager_call`: hits=`{nonlog.get('periph_default_service_manager_call_hits')}`",
+                f"- `periph_manager_name_string16_call`: hits=`{nonlog.get('periph_manager_name_string16_call_hits')}`",
+                "",
+            ])
         key_events = parser.get("key_events") or {}
         if key_events:
             lines.extend([
@@ -596,7 +624,20 @@ def render_report(manifest: dict[str, Any]) -> str:
             cap_hits = ((key_events.get("uprobe:wlfw_cap_qmi") or {}).get("total_hit_count") or 0)
             bdf_hits = ((key_events.get("uprobe:wlfw_bdf_entry") or {}).get("total_hit_count") or 0)
             if wlfw_start_hits and not (wlfw_request_hits or cap_hits or bdf_hits):
-                lines.extend([
+                nonlog = diagnosis.get("nonlog_control_flow") or {}
+                if nonlog.get("label") == "peripheral-default-service-manager-call-no-return":
+                    lines.extend([
+                        "## Live Diagnosis",
+                        "",
+                        "- V2226 fixed the property-root setup failure and the helper completed normally.",
+                        "- The trace reached `wlfw_start`, entered the CNSS PM registration path, and called into `libperipheral_client`.",
+                        "- Nonlog classifier: `peripheral-default-service-manager-call-no-return`; `periph_default_service_manager_call` hit, but the service-name/get-service edge did not.",
+                        "- This matches the V2226 output-visibility route: service-manager/PM trio were intentionally not started in that route.",
+                        "- Next unit: enable the service-manager + PM/service-object-visible route with the same property-root and observer stack, rather than chasing more WLFW offsets.",
+                        "",
+                    ])
+                else:
+                    lines.extend([
                     "## Live Diagnosis",
                     "",
                     "- V2226 fixed the property-root setup failure and the helper completed normally.",
@@ -604,7 +645,7 @@ def render_report(manifest: dict[str, Any]) -> str:
                     "- `wlan0_present=0`; this is a valid negative downstream-cascade observation, not a parser/collection failure.",
                     "- Next unit: instrument the early `cnss-daemon` path between `wlfw_start` and the missing service-request edge.",
                     "",
-                ])
+                    ])
     lines.extend([
         "## Safety Scope",
         "",

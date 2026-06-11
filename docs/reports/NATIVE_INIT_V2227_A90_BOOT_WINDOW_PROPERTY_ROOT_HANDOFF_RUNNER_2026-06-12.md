@@ -35,6 +35,14 @@
 - Helper diagnosis: `helper-artifacts-present`
 - Helper result: supervisor=`helper-complete-no-wlan0` exit=`0` timed_out=`0` wlan0_present=`0`
 
+## Nonlog Control-Flow Summary
+
+- Classifier: `peripheral-default-service-manager-call-no-return`
+- `pm_init_pm_client_register_call`: hits=`1`
+- `pm_init_pm_client_register_retcheck`: hits=`0`
+- `periph_default_service_manager_call`: hits=`1`
+- `periph_manager_name_string16_call`: hits=`0`
+
 ## WLFW Edge Summary
 
 - `uprobe:wlfw_start`: hits=`1` first_ts=`3.224034`
@@ -45,9 +53,10 @@
 ## Live Diagnosis
 
 - V2226 fixed the property-root setup failure and the helper completed normally.
-- The boot-window trace reached `wlfw_start`, but did not reach `wlfw_service_request`, `wlfw_cap_qmi`, or `wlfw_bdf_entry`.
-- `wlan0_present=0`; this is a valid negative downstream-cascade observation, not a parser/collection failure.
-- Next unit: instrument the early `cnss-daemon` path between `wlfw_start` and the missing service-request edge.
+- The trace reached `wlfw_start`, entered the CNSS PM registration path, and called into `libperipheral_client`.
+- Nonlog classifier: `peripheral-default-service-manager-call-no-return`; `periph_default_service_manager_call` hit, but the service-name/get-service edge did not.
+- This matches the V2226 output-visibility route: service-manager/PM trio were intentionally not started in that route.
+- Next unit: enable the service-manager + PM/service-object-visible route with the same property-root and observer stack, rather than chasing more WLFW offsets.
 
 ## Safety Scope
 
