@@ -302,7 +302,9 @@ P1b exact를 닫으려면 **stock System.map 복구**가 우선이다.
 
 V2197 recovered the stock embedded kallsyms map from the same live stock kernel
 wrapper blob and reran stack symbolization. The V2196 artifact gap is closed for
-stackmap IP naming. Timer function anchors remain useful raw evidence but are not
-yet independent slide authority because multiple slides can map them into text.
+stock map authority. Stack IP naming is still provisional because multiple
+full-stack slides remain. Timer function anchors remain useful raw evidence but
+are not yet independent slide authority because multiple slides can map them into
+text.
 
 See `docs/reports/NATIVE_INIT_V2197_STOCK_KALLSYMS_SYMBOLIZATION_2026-06-11.md`.

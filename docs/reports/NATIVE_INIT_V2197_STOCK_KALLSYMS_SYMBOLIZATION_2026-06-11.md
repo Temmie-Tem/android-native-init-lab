@@ -2,8 +2,8 @@
 
 대상: A90 native boot `0.9.261 (v2189-security-p0-stage-fix)` stock kernel blob.
 
-목적: V2196에서 막힌 P1b exact gate, 즉 live stock kernel과 일치하는 symbol map을
-host-only로 복구하고 V2195 stackmap raw IP를 다시 symbolization 한다.
+목적: V2196에서 막힌 P1b stock map artifact gate, 즉 live stock kernel과 일치하는
+symbol map을 host-only로 복구하고 V2195 stackmap raw IP를 다시 symbolization 한다.
 
 범위: host-only parser 구현·실행 + 기존 V2195/V2196 evidence 재분석. 새 live device
 명령, flash, reboot, Wi-Fi scan/connect, credential, DHCP/routes, external ping,
@@ -13,12 +13,15 @@ host-only로 복구하고 V2195 stackmap raw IP를 다시 symbolization 한다.
 
 ## 1. 결론
 
-P1b의 artifact gap은 닫혔다.
+P1b의 stock map artifact gap은 닫혔다. 단, slide identity는 아직 provisional이다.
 
 ```text
 decision: stock-kallsyms-extract-pass
-decision: kernel-stack-symbolization-pass
-exact_symbolization: true
+decision: kernel-stack-symbolization-provisional-ambiguous-slide
+stock_map_authoritative: true
+stack_context_symbolization: true
+stack_slide_unique: false
+exact_symbolization: false
 ```
 
 V2196에서 생성한 OSRC rebuild `System.map`은 live kernel과 SHA가 달라 authority가
@@ -28,8 +31,11 @@ stock `System.map`을 생성했다.
 중요한 보정:
 
 - stackmap raw IP는 stock map + sched_switch 문맥의 `__schedule` slide로 symbolization 가능하다.
+- 그러나 6개 stack IP만으로는 full-stack slide 후보가 4개 남아 slide가 유일하지 않다.
 - timer function anchors는 raw callback pointer bank로는 유효하지만, 현재 scoring에서는 여러
   slide가 timer pointers를 임의 text symbol 중간이나 entry에 그럴듯하게 맞출 수 있다.
+- 선택된 stack-context slide에서는 `timer_entry_weighted_score=0/415`라 timer callback
+  pointer entry constraint와도 합치하지 않는다.
 - 따라서 timer anchors는 이번 run에서 slide authority로 승격하지 않는다. timer callback 이름은
   별도 callback-entry/tracepoint 검증 전까지 보조 evidence다.
 
@@ -141,9 +147,12 @@ python3 workspace/public/src/scripts/revalidation/a90_kernel_stack_symbolize.py 
 Result:
 
 ```text
-decision: kernel-stack-symbolization-pass
-exact_symbolization: true
-reason: candidate kernel hash matches live boot kernel and all stack IPs map under one stack-context slide
+decision: kernel-stack-symbolization-provisional-ambiguous-slide
+stock_map_authoritative: true
+stack_context_symbolization: true
+stack_slide_unique: false
+exact_symbolization: false
+reason: kernel hash matches and stack IPs map, but slide identity remains provisional because multiple full-stack candidates or timer-entry disagreement remain
 hash_match: true
 best_slide: 0x7f0dc
 source: __schedule from 0xffffff8009a42334
@@ -169,12 +178,16 @@ Best sched_switch-context stack mapping:
 Interpretation:
 
 - `stackid -> raw IP -> symbol+offset` path is now end-to-end operational.
-- The chosen slide is anchored by the sched_switch stack's `__schedule` frame.
+- The chosen slide is a sched_switch-context candidate anchored by an assumed
+  `__schedule` frame.
 - Other mathematical slide candidates still exist because four candidate slides map
   all stack IPs, and many arbitrary slides map all timer pointers somewhere inside
   text.
 - The best sched_switch-context slide has `timer_entry_weighted_score=0/415`, so
   timer callback names are not treated as independent slide proof in this report.
+- The old `exact_symbolization=true` label was too broad because it mixed two
+  separate facts: bit-exact map authority and slide uniqueness. V2197 now reports
+  those as separate fields.
 
 ---
 
@@ -185,11 +198,13 @@ Interpretation:
 | raw stack IP recovery | pass | pass |
 | raw timer function pointer recovery | pass | pass |
 | matching stock symbol map | blocked | **pass** |
-| stack raw IP symbolization | blocked | **pass** |
+| stack raw IP map application | blocked | **pass, provisional slide** |
+| slide uniqueness | blocked | **not yet; 4 full-stack candidates** |
 | timer callback semantic naming | weak/blocked | still weak; needs callback-entry validation |
 | kernel write / `probe_write_user` | forbidden | forbidden |
 
-V2197 closes the stock map artifact gap. It does not change the write boundary.
+V2197 closes the stock map artifact gap. It does not close the slide-uniqueness
+gate and does not change the write boundary.
 
 ---
 
@@ -197,9 +212,11 @@ V2197 closes the stock map artifact gap. It does not change the write boundary.
 
 Recommended next unit:
 
-1. Apply the stock map to WLAN/cfg80211/QRTR tracepoints with the updated symbolizer
-   ambiguity metrics enabled.
-2. Treat timer callback naming as a separate validation problem; do not use it as
-   slide authority until callback-entry evidence is added.
-3. For WLAN object-chain work, keep writes blocked and use source offset + structure
+1. Collect or reuse multiple tracepoint stack sets and intersect slides across
+   all stacks until the candidate set collapses to one.
+2. Validate timer callback pointers as either direct function entries or CFP/CFI
+   wrapped targets before using them as slide authority.
+3. Apply the stock map to WLAN/cfg80211/QRTR tracepoints only with ambiguity
+   metrics enabled.
+4. For WLAN object-chain work, keep writes blocked and use source offset + structure
    invariants as planned in V2194.

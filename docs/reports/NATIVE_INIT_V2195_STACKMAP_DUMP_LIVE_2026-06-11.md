@@ -197,7 +197,8 @@ P2: WLAN/cfg80211 object-chain read.
 
 The matching stock symbol map blocker noted above was closed in V2197 by parsing
 the embedded kallsyms tables from the live stock kernel wrapper. The V2195 stack
-IP set now symbolicates under the stock map; timer anchors still need separate
-callback-entry validation before they are used as slide authority.
+IP set now maps under the stock map, but slide identity remains provisional;
+timer anchors still need separate callback-entry validation before they are used
+as slide authority.
 
 See `docs/reports/NATIVE_INIT_V2197_STOCK_KALLSYMS_SYMBOLIZATION_2026-06-11.md`.

@@ -322,22 +322,41 @@ def main() -> int:
             "candidate_image_sha256": sha256(args.candidate_image),
         }
         comparison["hash_match"] = str(comparison["live_kernel_sha256"] == comparison["candidate_image_sha256"]).lower()
-    exact = False
-    reason = "candidate System.map is not proven to match the live boot kernel"
     full_stack_candidate_count = sum(1 for item in scored if item["stack_score"] == len(stack_ips))
     best = scored[0] if scored else None
-    if comparison and comparison.get("hash_match") == "true":
-        if best and best["stack_score"] == best["stack_total"]:
-            exact = True
-            reason = (
-                "candidate kernel hash matches live boot kernel and all stack IPs map under one "
-                "stack-context slide"
-            )
-        else:
-            reason = "kernel hash matches but no single candidate slide maps all stack IPs"
-    decision = "kernel-stack-symbolization-pass" if exact else "kernel-stack-symbolization-blocked-no-matching-symbol-map"
+    map_authoritative = comparison.get("hash_match") == "true"
+    best_full_stack = bool(best and best["stack_score"] == best["stack_total"])
+    stack_context_symbolization = bool(map_authoritative and best_full_stack)
+    stack_slide_unique = full_stack_candidate_count == 1
+    timer_weight_total = 0 if best is None else int(best["timer_weight_total"])
+    timer_functions_are_slide_authority = bool(
+        best and timer_weight_total > 0 and best["timer_entry_weighted_score"] == timer_weight_total
+    )
+    exact = bool(
+        stack_context_symbolization
+        and stack_slide_unique
+        and (timer_weight_total == 0 or timer_functions_are_slide_authority)
+    )
+    if not map_authoritative:
+        reason = "candidate System.map is not proven to match the live boot kernel"
+        decision = "kernel-stack-symbolization-blocked-no-matching-symbol-map"
+    elif not best_full_stack:
+        reason = "kernel hash matches but no single candidate slide maps all stack IPs"
+        decision = "kernel-stack-symbolization-blocked-no-full-stack-slide"
+    elif exact:
+        reason = "kernel hash matches and stack slide is unique with independent timer-entry agreement"
+        decision = "kernel-stack-symbolization-pass"
+    else:
+        reason = (
+            "kernel hash matches and stack IPs map, but slide identity remains provisional because "
+            "multiple full-stack candidates or timer-entry disagreement remain"
+        )
+        decision = "kernel-stack-symbolization-provisional-ambiguous-slide"
     result = {
         "decision": decision,
+        "stock_map_authoritative": map_authoritative,
+        "stack_context_symbolization": stack_context_symbolization,
+        "stack_slide_unique": stack_slide_unique,
         "exact_symbolization": exact,
         "reason": reason,
         "inputs": {
@@ -355,9 +374,7 @@ def main() -> int:
             "best_timer_entry_weighted_score": 0 if best is None else best["timer_entry_weighted_score"],
             "best_timer_near_entry_weighted_score": 0 if best is None else best["timer_near_entry_weighted_score"],
             "best_timer_name_hint_weighted_score": 0 if best is None else best["timer_name_hint_weighted_score"],
-            "timer_functions_are_slide_authority": (
-                "true" if best and best["timer_entry_weighted_score"] == best["timer_weight_total"] else "false"
-            ),
+            "timer_functions_are_slide_authority": timer_functions_are_slide_authority,
         },
     }
     args.out_json.parent.mkdir(parents=True, exist_ok=True)
@@ -367,12 +384,15 @@ def main() -> int:
         args.out_md.write_text(render_markdown(result))
     print(json.dumps({
         "decision": decision,
+        "stock_map_authoritative": map_authoritative,
+        "stack_context_symbolization": stack_context_symbolization,
+        "stack_slide_unique": stack_slide_unique,
         "exact_symbolization": exact,
         "reason": reason,
         "out_json": str(args.out_json),
         "out_md": str(args.out_md) if args.out_md else None,
     }, indent=2, sort_keys=True))
-    return 0 if exact else 1
+    return 0 if map_authoritative and best_full_stack else 1
 
 
 if __name__ == "__main__":
