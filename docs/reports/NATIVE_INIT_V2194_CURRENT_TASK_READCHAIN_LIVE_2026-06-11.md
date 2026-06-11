@@ -138,6 +138,13 @@ decision=v2194-current-task-readchain-pass
 따라서 `__randomize_layout`/`randomized_struct_fields_start`는 실질적으로 비활성이다.
 그래도 V2194는 소스 offset만 믿지 않고 live helper 값과 비교해 offset을 검증했다.
 
+주의: 이 run에서 `offsetof()`를 char-array size로 인코딩한 host-side offset object
+생성은 vendor clang/toolchain 경로 문제로 완료하지 못했다. 따라서 V2194가 보증한
+것은 “컴파일타임 offset 산출물” 자체가 아니라, `CONFIG_GCC_PLUGINS=n` 환경에서
+소스 선언순서 기반 후보를 live oracle로 교차검증하는 방법이다. P2의 oracle 없는
+구조체로 전이하려면 host-side `offsetof` 산출 경로를 별도 보강하거나, 각 구조체별
+불변식 검증을 추가해야 한다.
+
 ### 4.2 cred false-positive 제거
 
 초기 cred scan은 invalid pointer read가 0으로 남아 root uid 0과 우연히 맞는 false
@@ -163,12 +170,16 @@ V2194 이후 상태:
 | V2193 `current_task` 앵커 | 확정 |
 | V2194 `current_task -> task_struct scalar` read-chain | 확정 |
 | V2194 `current_task -> cred -> uid/euid` read-chain | 확정 |
+| Source-order offset candidate + live helper oracle 검증 방식 | 확정 |
+| Host-side `offsetof()` object 기반 권위 offset 추출 | 미완료 |
 | stackmap raw address dump / symbolization | 아직 미구현 |
 | kernel write / `probe_write_user` execution | 미수행, 금지 유지 |
 | cgroup-BPF attach | cgroupfs 미마운트로 미확정 |
 
 즉 “부품은 입증됐고 조립만 남음” 상태에서, 핵심 조립인
-`current_task + probe_read offset-chain`은 완료됐다.
+`current_task + probe_read offset-chain`은 완료됐다. 다만 앞으로 oracle이 없는
+WLAN/cfg80211 구조체를 읽을 때는 V2194의 helper oracle을 그대로 쓸 수 없으므로,
+컴파일타임 offset 산출물 또는 구조 불변식 기반 교차검증을 별도 요구한다.
 
 ---
 
@@ -185,6 +196,8 @@ P2: WLAN/cfg80211 object-chain read.
 
 - tracepoint record pointer → wiphy/wireless_dev/net_device → driver private 방향.
 - 각 offset은 소스 기반 후보 + V2194 방식의 live 교차검증으로만 승격.
+- helper oracle이 없는 객체는 포인터 유효성, list-head self/prev/next 일관성,
+  enum/range 값, 상호 필드 관계 같은 구조 불변식으로 승격한다.
 
 ---
 
