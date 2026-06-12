@@ -11,18 +11,24 @@ COMMIT → REPEAT) is defined in `GOAL.md`.
 
 1. **Partitions:** never write/flash `/efs`, `/sec_efs`, modem, RPMB, keymaster, vbmeta,
    bootloader, or any partition other than **boot**. Device changes touch the boot image
-   only.
+   only. These forbidden partitions are **NOT** TWRP/download-mode recoverable = permanent
+   brick; the operator's acceptance of boot-flash risk does NOT extend to them. Absolute.
 2. **Flash only via the checked helper:** `workspace/public/src/scripts/revalidation/native_init_flash.py`.
    Never `dd`/`fastboot`/raw-write a partition. Never invent a new flash path.
-3. **Rollback precondition:** before ANY flash, confirm a known-good rollback boot image
-   exists (e.g. `workspace/private/inputs/boot_images/boot_linux_v48.img` and the current
-   promoted baseline) AND recovery/TWRP is available. If you cannot confirm both, DO NOT
-   flash — stop and report.
+3. **Rollback precondition:** before ANY flash, confirm the known-good rollback image
+   `workspace/private/inputs/boot_images/boot_linux_v2237_supplicant_terminate_poll.img`
+   (SHA256 `b2ea2d26d160b7702ce7d4438b84367788eea26c6a5bbe4ed93f3d270292ac7f`, the resident
+   checkpoint) exists, plus the deeper fallback `boot_linux_v48.img`, AND recovery/TWRP is
+   available. v2237 is the auto-rollback target. If you cannot confirm both, DO NOT flash —
+   stop and report.
 4. **No cascading bad flashes:** never flash a new experimental image onto a device that
    failed its last boot/health check. Recover first (invariant 8), then stop.
-5. **Wi-Fi is gated:** run scan/connect/dhcp/ping ONLY when the selected sub-goal
-   explicitly requires that bounded validation. Keep PSKs in `workspace/private/secrets/`;
-   never log PSKs.
+5. **Wi-Fi is gated, and creds are currently ABSENT:** run scan/connect/dhcp/ping ONLY
+   when the selected sub-goal explicitly requires that bounded validation. Because
+   `workspace/private/secrets/` has no Wi-Fi env, `connect`/`dhcp`/`ping` cannot run —
+   device validation is limited to boot + `version`/`status`/`selftest` + `wifi status`/
+   `wifi scan`. Never block waiting for creds; never invent or log PSKs; record full Wi-Fi
+   functional validation as a parked human checkpoint.
 6. **Don't reopen external subsystems:** no SDX50M/eSoC/PCIe/MHI/GDSC/PMIC/GPIO chasing for
    internal `wlan0` unless new on-frontier evidence explicitly reopens them.
 7. **Don't commit:** boot images, firmware, ramdisks, compiled binaries, raw logs,

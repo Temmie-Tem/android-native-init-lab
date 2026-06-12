@@ -1,4 +1,4 @@
-# Goal: autonomous native-init frontier loop (Codex)
+# Goal: autonomous native-init forward loop (Codex)
 
 Drive the A90 native-init project forward one **bounded V-iteration at a time** using
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
@@ -7,44 +7,64 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > Running mode note: this loop is intended to run unattended (incl. Codex bypass).
 > Because it can flash a real device with no human in the loop, every device step MUST
 > obey the flash gates in `AGENTS.md` (rollback precondition, post-flash health check,
-> auto-rollback, no cascading bad flashes). When in doubt, STOP and report — never guess.
+> auto-rollback, no cascading bad flashes). The operator accepts that a boot failure may
+> need a manual TWRP/download-mode recovery in the morning — **but that acceptance covers
+> the boot partition ONLY.** Forbidden partitions (efs/sec_efs/modem/RPMB/keymaster/
+> vbmeta/bootloader) are NOT TWRP-recoverable = permanent brick, and remain absolutely
+> off-limits regardless. When in doubt, STOP and report — never guess.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
 Pursue the **highest tier that still has a meaningful, safely-actionable next step**.
-Drop to the next tier only when the current one is *impossible* or *meaningless* (criteria
-below). Re-evaluate the tier each iteration; you may climb back up if new evidence reopens
-a higher tier.
+Drop to the next tier only when the current one is *saturated* or *meaningless* (criteria
+below). Re-evaluate each iteration; you may climb back up if new work appears.
 
-**T1 (primary) — kernel observation.** Extend what is *observable* on the locked RKP
-kernel via sanctioned read paths: the V2192–V2221 line — BPF/perf read probes, the slide
-solver / exact symbolization (resume at the V2214 perf-event register-frame sampler:
-raw `ctx->pc` kernel-text anchor to collapse the V2197 four-candidate slide ambiguity),
-uprobe/tracepoint observation, and mapping the observe/control envelope. Mostly read-only
-(`/cache/bin` helper + bounded attach) — usually **no flash needed**, lower risk.
+**T1 (primary) — analyzer / harness regression test suite (host-only, NO flash).**
+This is the original goal and is barely started: only `path_safety` of the 12
+`workspace/public/src/harness/a90harness/` modules has tests, and the 124 revalidation
+scripts are untested. Each iteration, pick **one** untested unit — an `a90harness` module
+(`bundle`/`device`/`evidence`/`failure`/`gate`/`module`/`observer`/`runner`/…) or a
+cohesive cluster of revalidation-script logic — and write representative + edge/reject
+tests under `tests/` using the `tests/_loader.py` import helpers. Validate with
+`python3 -m unittest discover -s tests -p 'test_*.py'` and `py_compile` (see `tests/GOAL.md`
+for the runner contract + coverage checklist). This track is **fully host-only**: no device,
+no creds, no flash, no approval gates — the ideal unattended overnight work. Done-signal:
+the unit has accept + reject/edge tests passing; coverage delta recorded. Stay here until
+the meaningful units are genuinely covered.
 
-**T2 (fallback) — WLAN native-init.** Advance the WLAN bring-up / boot baseline (latest
-promoted = **V2254 Wi-Fi detail surface**): e.g. connect robustness, network detail
-surface, or bounded lifecycle/soak evidence. Device/flash steps obey the `AGENTS.md`
-flash gates.
+**T2 (fallback) — native-init / WLAN baseline improvement (device; flash authorized).**
+When T1 is saturated, or when you have a concrete device-validatable improvement, advance
+the native-init baseline beyond `0.9.272`. Candidates: the parked **WLAN structural epic**
+(a supervised long-lived `wpa_supplicant` + event subscription — ctrl-iface events +
+netlink — replacing spawn-per-connect polling), or **`a90_wifi.c` (~3156 lines)**
+modularization / dead-code reduction. Do DESIGN → IMPLEMENT → STATIC VALIDATE host-side
+autonomously; the DEVICE step (flash + validate) **is authorized** and MUST obey the
+`AGENTS.md` flash gates.
+- **Validation ceiling — Wi-Fi creds are ABSENT.** `wifi connect`/`dhcp`/`ping` (the N=3
+  both-band functional check) cannot run. Device validation = boot + `version` / `status`
+  / `selftest fail=0` + non-creds surfaces only (`wifi status`, `wifi scan`). Do NOT block
+  waiting for creds; record full Wi-Fi functional validation as a **parked human
+  checkpoint** in the report. Do NOT promote a new safety/rollback baseline on boot-health
+  alone — **`v2237` stays the rollback target.**
 
-**T3 (fallback) — self-directed.** When T1 and T2 are both exhausted/meaningless, pick the
-next best step anywhere on the current frontier from the state docs.
+**T3 (fallback) — self-directed (host-only preferred).**
+Build reproducibility / tooling hardening (e.g. mkbootimg round-trip verification,
+build-script robustness), or another concrete frontier unit from the state docs. Prefer
+host-only, safe units.
 
-**Drop-tier criteria** — leave a tier when the next step would need a kernel-write
-primitive / RKP bypass / exploit (out of scope), needs hardware/data not available, is
-blocked with no new independent oracle after exhausting non-conflicting evidence, or only
-re-confirms already-established facts (diminishing returns). **When you change tier, record
-the trigger** (what made the higher tier impossible/meaningless) in that iteration's report
-before proceeding.
+**Drop-tier criteria** — leave a tier when its meaningful units are genuinely covered/done,
+it needs hardware/data not available (e.g. creds for full Wi-Fi validation), it is blocked
+with no safe next step, or it would only re-confirm established facts (diminishing returns).
+**When you change tier, record the trigger** in that iteration's report.
 
-Read at the START of every iteration (then apply the tier policy above):
+## Read at the START of every iteration
+
 - **this `GOAL.md`** — re-read it every iteration; the contract may be updated mid-run,
   so never rely on a cached copy from session start,
+- `AGENTS.md` (binding safety/flash gates),
 - `CLAUDE.md` (current state + safety),
-- `docs/overview/PROJECT_STATUS.md`,
-- the newest `docs/reports/NATIVE_INIT_V*.md` (a few; include the latest kernel-track
-  V21xx reports when on T1),
+- `tests/GOAL.md` (the host-only harness sub-goal detail) when on T1,
+- the newest `docs/reports/NATIVE_INIT_*.md` (a few),
 - `git log --oneline -15`.
 
 ## The cycle (repeat)
@@ -54,476 +74,52 @@ Read at the START of every iteration (then apply the tier policy above):
    V-iteration on the current frontier. Assign the next run/build identity per
    `docs/operations/VERSIONING_POLICY.md` (keep run ID / init version / build tag / SHA
    axes separate).
-3. **DESIGN** — short plan; web research allowed when it helps; ground claims in kernel
-   source (`tmp/wifi/v766-icnss-qcacld-patch-apply-build/source`) or docs.
-4. **IMPLEMENT** — focused change in canonical `workspace/public/src/...` paths only.
-5. **STATIC VALIDATE** — `py_compile` touched Python; cross-compile touched C with
-   `aarch64-linux-gnu-gcc` and verify with `file`; `git diff --check`.
+3. **DESIGN** — short plan; web research allowed when it helps; ground claims in source or
+   docs.
+4. **IMPLEMENT** — focused change in canonical `workspace/public/src/...` / `tests/` paths
+   only.
+5. **STATIC VALIDATE** — `py_compile` + `python3 -m unittest discover -s tests -p
+   'test_*.py'` for touched Python; cross-compile touched C with `aarch64-linux-gnu-gcc`
+   and verify with `file`; `git diff --check`.
 6. **DEVICE** (only if the sub-goal needs a new boot artifact) — build via the checked
    build script, record SHA256, flash via `native_init_flash.py`, reboot, run the
    serial-bridge health check (`a90ctl version` / `status` / `selftest`), then the bounded
-   functional validation this sub-goal calls for. On any failure → auto-rollback per
-   `AGENTS.md`.
-7. **REPORT** — write `docs/reports/NATIVE_INIT_VNNNN_<purpose>_<date>.md`: redacted,
-   metadata-only, no secrets/binaries.
-8. **COMMIT** — one sub-goal per commit; scoped `git add` of the touched public paths +
-   the report; never `-A`. Message per project convention.
+   non-creds validation this sub-goal calls for. On any failure → auto-rollback per
+   `AGENTS.md`. T1 sub-goals skip this step entirely.
+7. **REPORT** — write `docs/reports/NATIVE_INIT_VNNNN_<purpose>_<date>.md` (or a `tests/`
+   coverage note for T1): redacted, metadata-only, no secrets/binaries.
+8. **COMMIT** — one sub-goal per commit; scoped `git add` of the touched paths + the
+   report; never `-A`. Message per project convention; end with the Co-Authored-By line.
 9. **REPEAT** → back to STATE.
 
 ## Stop conditions
 
 - Device unreachable after an auto-rollback → STOP, leave an incident report.
 - The same sub-goal fails twice → STOP or shelve it and move on; do NOT retry-loop.
-- No sub-goal is safely actionable without the operator → STOP with a note.
+- No sub-goal is safely actionable without the operator → STOP with a note (but T1 is
+  almost always safely actionable, so this should be rare).
 
 ## Anti-churn guard (low-value *success* streaks)
 
-The "fails twice → stop" rule does not catch *successful* but low-information work, e.g.
-per-item metadata/inventory/cleanup sweeps that each succeed and justify the next. Guard:
+The "fails twice → stop" rule does not catch *successful* but low-information work. Guard:
 
 - If the last **3+ iterations** were host-only metadata / inventory / runner / cleanup /
-  audit work with **no new observable-or-controllable capability and no device
-  validation**, treat that cleanup theme as **exhausted**. Force a tier re-evaluation
-  toward substantive work: a new T1 oracle, a concrete T2 live criterion, or — only if
-  both are genuinely blocked — drop to T3, recording the trigger.
-- Never let one cleanup theme justify its own next iteration ("previous left a backlog"
-  is not a reason to continue it past the streak limit).
-- **Batch** mechanical sweeps (e.g. per-runner metadata across N runners) into a **single**
-  iteration, not one-V-iteration-per-item.
+  audit work with **no new tested behavior and no device validation**, treat that theme as
+  **exhausted** and force a tier re-evaluation toward substantive work.
+- A new test file that actually exercises previously-untested behavior is substantive (not
+  churn). Mechanical sweeps with no new assertions are churn — **batch** them into one
+  iteration, never one-V-per-item.
+- Never let one theme justify its own next iteration ("previous left a backlog" is not a
+  reason to continue past the streak limit).
 
-## Sub-goal seeds (optional; the loop may pick others from state)
+## Out of scope / do not reopen
 
-**T1 — kernel observation (try first):**
-- After V2280 live: the V2279 wide workqueue `execute_start` oracle ran
-  rollbackably and closed the V2278 overflow limitation for scalar function
-  pointers. V2279 booted as `A90 Linux init 0.9.276
-  (v2279-workqueue-exec-wide)`, reached `wlan0-ready`, collected
-  `/cache/native-init-v2279-workqueue-exec-wide.log` plus the same-boot
-  codeword log, and rolled back to V2237 with `version`/`status`/`selftest
-  fail=0`. Same-boot codeword slide was accepted (`0xe4ef4`, bounded
-  UAO-patch-aware). Workqueue coverage was complete for the widened scalar
-  window (`total=6281`, `stored=6281`, `overflow=0`) and found
-  `target_hit_count=0`; the bounded stack prefix (`512` samples) also found no
-  firmware_class/qcacld-HDD target symbol. Do **not** rerun V2277/V2279
-  workqueue execute-start coverage or generic CPU-clock sampling for this
-  question. Next iteration must re-read this file and re-evaluate T1 for a new
-  independent oracle; if none is safely actionable, record the drop trigger and
-  select a concrete T2/T3 unit.
-- After V2279 source/build-only: the higher-coverage workqueue
-  `execute_start` oracle is packaged as
-  `boot_linux_v2279_workqueue_exec_wide.img` (`A90 Linux init 0.9.276`,
-  helper `a90_android_execns_probe v434`, boot SHA256
-  `bfe6d2bb4f2e60e83b4b5ff104e153825bd10aa012afc1f5b4ee75909e57d541`,
-  workqueue-wide helper SHA256
-  `02ee8071a02b867bb25e422b1ae835c8f627816ec05b818a5fd1dd2093bc0a91`,
-  codeword helper SHA256
-  `3a16efc217eafeacbcc95a5e6005d0abce02e89ab52ed537df1fc2b193ca3dd7`).
-  It keeps the V2237 route, raises workqueue scalar sample capacity/print
-  limit to `8192`, and bounds stack-IP printing to the first `512` samples to
-  avoid repeating V2278's `512`-printed / `5213`-overflow limitation. Next
-  bounded live unit: V2280 should flash V2279 rollbackably, collect helper
-  result and both logs, roll back to the selected baseline, verify
-  `selftest fail=0`, and classify the expanded function-pointer window plus
-  bounded stack prefix against same-boot codeword evidence.
-- After V2278 live: the V2277 workqueue execute-start stack/codeword oracle
-  ran rollbackably. V2277 booted as `A90 Linux init 0.9.275
-  (v2277-workqueue-exec-stack)`, reached `wlan0-ready`, collected both sampler
-  logs, and rolled back to V2237 with `version`/`status`/`selftest fail=0`.
-  The same-boot codeword slide was exact (`0x124ef4`,
-  `accepted=True`, reason `exact_pc_lr_codeword_match`). The workqueue stack
-  sampler completed (`result=v2277-workqueue-exec-stack-sample-ring-complete`)
-  with `total=6237`, `stored=1024`, `printed=512`, `overflow=5213`. No printed
-  execute-start `function` or printed stack frame intersected the V2246
-  firmware_class/qcacld-HDD target list (`target_hit_count=0`), but this is
-  only a **printed-window negative**, not a full path-negative, because most
-  events overflowed/unprinted. Do not rerun the same V2277 image. Next bounded
-  T1 unit: build a higher-coverage or filtered workqueue execute-start oracle
-  (e.g. larger ring/print capacity or source-backed early filtering) so the
-  firmware_class/qcacld-HDD worker window is not lost to overflow.
-- After V2277 source/build-only: the focused workqueue
-  `execute_start` stack/callsite oracle is packaged as
-  `boot_linux_v2277_workqueue_exec_stack.img` (`A90 Linux init 0.9.275`,
-  helper `a90_android_execns_probe v433`, boot SHA256
-  `313a39b603296810dc44d8132c2c7db6c8fc790eb168a9ef9d94b20225baa18f`,
-  workqueue-stack helper SHA256
-  `978e3406d4223d6f726d02ee2be041e2d7aa1f8934b0a4f21b889cd5c6e7d5b5`,
-  codeword helper SHA256
-  `3a16efc217eafeacbcc95a5e6005d0abce02e89ab52ed537df1fc2b193ca3dd7`).
-  It keeps the V2237 route, starts the `workqueue_execute_start` stack
-  sampler and same-boot perf-regs/codeword sampler before `boot_wlan`, and
-  writes `/cache/native-init-v2277-workqueue-exec-stack.log` plus
-  `/cache/native-init-v2277-tail-perf-regs-codeword.log`. Next bounded live
-  unit: V2278 should flash V2277 rollbackably, collect helper result and both
-  logs, roll back to the selected baseline, verify `selftest fail=0`, and
-  classify workqueue execute-start stacks/callsites against the same-boot
-  codeword evidence using the V2276 bounded UAO-patch-aware rule.
-- After V2276 host-only postprocess: the V2275 same-boot codeword slide is
-  accepted under a **bounded UAO-patch-aware rule**. All three V2275 PC
-  mismatches for best slide `0xccef4` are source-matched ARM64 UAO runtime
-  alternatives (`str -> sttr`, `ldp -> ldtr`, `stp -> sttr`) while LR-4 and LR
-  remain exact (`709/709` each). This is not a general codeword relaxation; it
-  only admits known UAO runtime alternative sites from
-  `arch/arm64/include/asm/alternative.h`. Reclassifying V2275 workqueue
-  function pointers with that accepted slide gives classifiable negative
-  evidence: `target_hit_count=0` across `2048` stored samples. Do **not** rerun
-  the same combined workqueue/codeword capture or generic CPU-clock sampling for
-  this question. Next bounded T1 unit, if kernel observation remains selected:
-  design/build a narrower workqueue `execute_start` call-stack or callsite
-  oracle that ties the worker to the V2253 firmware_class/qcacld-HDD stack
-  rather than relying on `work->func` alone.
-- After V2275 live: the V2274 combined workqueue/codeword oracle was run
-  rollbackably. V2274 booted as `A90 Linux init 0.9.274
-  (v2274-workqueue-codeword-combined)`, reached `wlan0-ready`, collected both
-  sampler logs, and the final manual rollback to V2237 ended with
-  `version`/`status`/`selftest fail=0`. The workqueue sampler itself worked:
-  `total=12511`, `stored=2048`, `queue_work=6254`, `execute_start=6257`,
-  `overflow=10463`, result `v2273-workqueue-func-sample-ring-complete`.
-  The paired codeword sampler produced `715/715` printed/occupied samples and a
-  strong best slide `0xccef4` (`pc_match=712/715`, `lr_prev=709/709`,
-  `lr=709/709`) but did not meet the existing V2216 exact/near acceptance policy
-  (`accepted_symbolization_slide=false`, reason `not_accepted`). Therefore V2275
-  is a live evidence success but an oracle-classification FAIL/inconclusive as
-  of V2275. V2276 resolves the codeword acceptance-policy question above.
-- After V2253 live: the V2252 boundary-stack observer passed with rollback.
-  V2252 flashed and booted as `A90 Linux init 0.9.271
-  (v2252-fwclass-boundary-stack)`, health checks passed, helper result was
-  `wlan0-ready`, and rollback to V2237 ended with `version`/`status`/`selftest
-  fail=0`. The boundary classifier saw the full V2246 whitelist stack
-  (`_request_firmware`, `request_firmware`, `qdf_file_read`, `qdf_ini_parse`,
-  `cfg_parse`, `hdd_context_create`, `wlan_hdd_pld_probe`) before the
-  `WCNSS_qcom_cfg.ini` firmware_class feed; after-feed the sampled worker had
-  moved to a later wait state and no longer contained those seven symbols.
-  `bdwlan.bin` and `regdb.bin` did not appear as userspace fallback requests in
-  the captured boot. This closes the V2250 CPU-clock ambiguity as a sampler miss,
-  not function absence. Do not spend more T1 work on generic CPU-clock tuning or
-  this firmware_class boundary unless a new independent oracle is identified.
-  Next loop: re-evaluate T1 for a new meaningful kernel-observation question;
-  if none is actionable, record that trigger in the next report and proceed to
-  T2 WLAN surface/cleanup work.
-- After V2252: source/build-only deterministic firmware_class boundary stack
-  observer exists as `boot_linux_v2252_fwclass_boundary_stack.img`
-  (`A90 Linux init 0.9.271`, helper `a90_android_execns_probe v430`,
-  helper SHA256 `7f31ff603a486cf42a026fdfe43e6f9de03a3d6e3883aa2a25bd54b254c88c94`,
-  boot SHA256 `4ce33e0c1b2b542d9b5d043a3c120d74f657208c803860ad228957162c8634d4`).
-  It keeps the V2237 route and adds
-  `A90_WIFI_TEST_BOOT_QCACLD_FWCLASS_BOUNDARY_STACK_SAMPLER=1`, emitting
-  `qcacld_fwclass_boundary_stack_sampler.*.before_feed/after_feed` plus
-  `icnss_register_probe_stack_sampler.fwclass_reqN_before_feed/after_feed`
-  around the three QCACLD firmware_class fallback requests. Next live unit:
-  flash V2252 rollbackably as V2253, collect helper result, classify whether
-  the V2246 whitelist stack appears before or after `WCNSS_qcom_cfg.ini`,
-  `bdwlan.bin`, and `regdb.bin` feed edges, then roll back and selftest.
-- After V2251: the V2250 generic CPU-clock zero-hit result is now classified as
-  `sampler_miss_not_function_absence`. The same V2250 helper result contains a
-  deterministic read-only `/proc/*/stack` target sample in `kworker/u16:1` with
-  `wchan=_request_firmware` and all seven V2246 whitelist functions present:
-  `_request_firmware`, `request_firmware`, `qdf_file_read`, `qdf_ini_parse`,
-  `cfg_parse`, `hdd_context_create`, and `wlan_hdd_pld_probe`. The firmware_class
-  feeder also confirmed `WCNSS_qcom_cfg.ini` seen/fed with `13343` bytes and rc0
-  data/loading completion. Do not spend another iteration on generic CPU-clock
-  duration/print-limit tweaks for this tail. Next meaningful T1 unit: use
-  deterministic helper-owned boundary markers or focused `/proc/*/stack`
-  snapshots around each firmware_class fallback operation if finer ordering is
-  needed.
-- After V2250 live: the helper-started full-print tail sampler completed its
-  contract and removed V2249's output-loss blocker. V2250 reached `wlan0-ready`,
-  emitted `tail_perf_regs_codeword_sampler.started=1`, finished the
-  `after_fwclass_feeder` phase with `output_exists=1`, and printed every
-  occupied sample (`835/835`, capacity `1024`). The V2216 parser found usable
-  per-boot slide `0x1dcef4`: strict exact stayed false due one inspected PC
-  runtime-patch mismatch, but LR and LR-4 were exact (`830/830` each), so
-  `accepted_symbolization_slide=true` with reason
-  `lr_exact_single_pc_mismatch`. The V2247 scorer then returned `0/835` hits
-  for the V2246 firmware_class/qcacld-HDD whitelist. Do not rerun generic
-  CPU-clock duration tweaks. Next T1 unit: build a target-specific post-FWREADY
-  observable around firmware_class/qcacld-HDD entry points or an adjacent
-  helper-owned boundary marker to distinguish `function not executed` from
-  `function executed but too narrow for generic CPU-clock sampling`.
-- After V2249 live: the helper-started tail sampler hook works, but V2249 is
-  not a baseline promotion candidate. The rollbackable test boot reached
-  `wlan0-ready`, emitted `tail_perf_regs_codeword_sampler.started=1`, finished
-  `after_fwclass_feeder` with `output_exists=1`, captured `668` perf samples,
-  and the V2216 parser accepted an exact per-boot codeword slide with `512/512`
-  PC matches and `507/507` LR/LR-4 matches. The V2247 post-FWREADY whitelist
-  scorer returned `0/512` target hits, but this is not yet a path-negative:
-  the helper log had `samples occupied=668 printed=512 capacity=1024`, so 156
-  occupied ring entries were not printed. Next live unit (V2250): keep the same
-  V2237 route and V2249 hook placement, set the tail sampler `print_limit` to
-  `1024` (or otherwise emit every occupied ring entry), re-score with V2247,
-  then only if hits remain zero treat CPU-clock sampling as missing the narrow
-  firmware_class/qcacld tail and switch to a more target-specific observable.
-- After V2248: do not try to run the V2216 perf regs/codeword sampler only
-  after native boot if the goal is the post-FWREADY qcacld/HDD tail. The source
-  route calls `append_post_fw_ready_boot_wlan_trigger(stdout_buf)`, holds 8 s,
-  then runs post-trigger samplers and
-  `append_qcacld_firmware_class_fallback_feeder(..., "after_boot_wlan_trigger",
-  30000)` inside `a90_android_execns_probe`; host-side post-boot attachment can
-  miss the tail. The next live unit (V2249) should package or embed the V2216
-  exact-slide perf regs/codeword sampler, launch it from a compile-gated helper
-  child before the `boot_wlan` write, keep it alive at least 45 s through the
-  firmware_class feeder, store output under
-  `/cache/native-init-v2249-tail-perf-regs-codeword.log`, then score with
-  `a90_kernel_v2247_tail_pc_lr_scorer.py`.
-- After V2247: tail PC/LR scoring infrastructure exists.
-  `a90_kernel_v2247_tail_pc_lr_scorer.py` consumes a per-boot exact-slide
-  perf regs/codeword summary plus the V2246 whitelist and scores `ctx_pc`,
-  `ctx_lr`, and `ctx_lr-4`; the V2216 generic CPU-clock negative control had
-  exact slide `0x84ef4`, `62/62` PC codeword matches, and `0` tail hits. The
-  next meaningful live T1 unit is a tail-window perf regs/codeword capture
-  around the post-FWREADY firmware_class/qcacld-HDD path, then run the V2247
-  scorer on that capture.
-- After V2246: the post-FWREADY tail live-sampling whitelist is source-backed:
-  `_request_firmware`, `request_firmware`, `qdf_file_read`, `qdf_ini_parse`,
-  `cfg_parse`, `hdd_context_create`, and `wlan_hdd_pld_probe` all map to stock
-  kallsyms plus source definitions. Do not reuse a numeric slide across boots or
-  treat next-symbol deltas as function sizes on the RKP/CFP/JOPP kernel.
-- After V2245: the V2233 `wlan0-ready` delta is the downstream post-FWREADY
-  tail, not WLFW/QMI order: V2229/V2231 have `tail_absent`, while V2233 executes
-  `boot_wlan`, feeds `wlan/qca_cld/WCNSS_qcom_cfg.ini` through firmware_class,
-  catches the qcacld/HDD `_request_firmware -> request_firmware -> qdf_file_read
-  -> qdf_ini_parse -> cfg_parse -> hdd_context_create -> wlan_hdd_pld_probe`
-  worker stack, then reaches ICNSS register/cfg/mode/ini completion and `wlan0`.
-  Do not re-run PerMgr/WLFW/QMI ordering.
-- After V2244: V2229/V2231/V2233 have identical semantic WLFW/QMI edge sets:
-  nine edges per run, four strong and five marker edges, with no weak/missing
-  semantic rows. Do not spend another T1 iteration re-proving WLFW/QMI order
-  unless new evidence contradicts this.
-- After V2243: helper-owned `a90*` event interpretation now has a public
-  semantic layer. Use
-  `workspace/private/runs/kernel/v2243-user-uprobe-semantic-classifier-20260612-113113/summary.json`
-  for event role / instruction class / alignment / confidence. Key events have
-  no low-confidence rows; non-key `needs_manual_context` rows must be rechecked
-  against private context before supporting strong conclusions.
-- After V2242: all checked `a90*` helper static offsets map to executable user-ELF
-  `LOAD` segments. Treat `group` as the log surface and `object` as the ELF identity:
-  `periph_*` offsets belong to `libperipheral_client.so` (`a90periph`), not
-  `cnss-daemon`. Use
-  `workspace/private/runs/kernel/v2242-user-elf-offset-context-20260612-112444/private_instruction_context.json`
-  for bounded private instruction-context lookups; do not publish raw
-  bytes/disassembly.
-- After V2241: `a90*` user-space code-path identity is `runtime_probe_ip =
-  per-run_load_bias + helper_static_uprobe_offset`. Parse offsets from
-  `a90_android_execns_probe.c`, require one page-aligned load bias per `(run, object)`,
-  and use stripped user-ELF disassembly around those offsets if finer instruction
-  context is needed.
-- After V2240: V2216/V2217 exact-slide symbolization is valid for kernel canonical
-  PC/LR samples and kernel function-pointer anchors only. Do not apply the kernel slide
-  to `a90cnss`/`a90libqmi`/`a90pmsrv` user-space trace-uprobe `__probe_ip`; use event
-  names plus stable relative user-space offset signatures instead. If finer `a90*`
-  names are needed, build a user-ELF ASLR/base mapper rather than extending the kernel
-  System.map slide solver.
-- After V2239: use `docs/reports/NATIVE_INIT_V2239_SCALAR_UPROBE_TIMELINE_CONTRACT_2026-06-12.md`
-  as the merge contract before new boot-window observers. Do not retry
-  cfg80211/PIL/QRTR static-tracepoint object-chain dereference from trace records; those
-  records are scalarized. Use static tracepoints for scalar lifecycle correlation,
-  helper-owned `a90*` tracefs records for WLFW/QMI edge sequencing, and exact-slide
-  live-register sampling for code-path identity.
-
-**T2 — WLAN native-init (if T1 blocked):**
-- After V2272 workqueue firmware_class oracle plan: T1 is actionable again.
-  `native_kernel_workqueue_fwclass_oracle_plan_v2272.py` writes
-  `docs/artifacts/native-init-frontier-candidates.json`, defining
-  `t1-workqueue-fwclass-function-pointer-oracle` as a new independent
-  kernel-observation oracle. Source checks confirm `workqueue_queue_work` and
-  `workqueue_execute_start` both expose `work->func`, `firmware_class.c` uses
-  `request_firmware_work_func` for async firmware work, no firmware tracepoint
-  source is present, V2216 exact codeword slide evidence exists, and V2253
-  closed the prior boundary. `native_init_frontier_select.py --json` now returns
-  `frontier-selector-actionable-unit-present` with `selected_track=T1`. Next
-  bounded unit: implement/run a workqueue function-pointer observer around the
-  post-FWREADY `boot_wlan`/firmware_class window, then classify function
-  pointers with same-boot exact-slide/codeword evidence. Host-only validation
-  only; no device action was taken in V2272.
-- After V2271 frontier selector/audit utility: T1/T2/T3 selection now has a
-  host-only machine-readable check in
-  `native_init_frontier_select.py`. Current output is
-  `frontier-selector-no-automatic-safe-unit`: T1 is deferred until a new
-  independent kernel-observation oracle exists, T2 is deferred until a concrete
-  V2254 live-validation/promotion criterion exists, and T3 has no active
-  cleanup backlog (`direct_a90ctl_actionable_now_count=0`,
-  `source_delete_review_count=0`, phase/residual backlog closed). Do not turn
-  this into a hardware-wall or success conclusion; it is a loop-selection guard.
-  Next loop must define a new oracle/criterion/revived runner before selecting
-  a live or migration unit. Validation was host-only (`py_compile`, selector
-  assertions, inventory regeneration); no device action was taken.
-- After V2270 direct-a90ctl actionability gates: inventory
-  `consolidation_signals` now separates direct `a90ctl.py` references into
-  `actionable_now` and review-only groups. Current state is
-  `direct_a90ctl_reference_count=14`, `direct_a90ctl_actionable_now_count=0`,
-  `direct_a90ctl_review_only_count=14`, and
-  `direct_a90ctl_next_actionable_group={}`. Do not select another direct-ref
-  migration just because the historical references exist; revive or modify a
-  bounded runner first, then migrate that runner through the shared transport
-  path as part of that scoped work. Validation was host-only (`py_compile`,
-  inventory regeneration, signal assertions); no device action was taken.
-- After V2269 current-baseline Wi-Fi detail runner transport migration:
-  `native_wifi_detail_surface_handoff_v2255.py` now uses
-  `a90_transport.run_serial_step` for device cmdv1 steps instead of direct
-  `a90ctl.py` subprocess command lists. Inventory confirms that runner is now
-  `Transport=shared` with no `a90ctl-subprocess`, reducing
-  `direct_a90ctl_reference_count` from `15` to `14`. The new top direct-ref
-  group is `flash_capable_kernel_handoff_runners=6`, which remains review-only
-  unless that historical handoff family is revived. Validation was host-only
-  (`--help`, dry-run, inventory); no device action was taken.
-- After V2268 direct-a90ctl consolidation grouping: `consolidation_signals` now
-  includes `direct_a90ctl_candidate_groups` and `direct_a90ctl_top_group`. The
-  current top group is `current_baseline_wifi_surface` with
-  `native_wifi_detail_surface_handoff_v2255.py` as the single member; the other
-  groups are `flash_capable_kernel_handoff_runners=6`,
-  `live_readonly_kernel_catalog_runners=4`, and `legacy_bpf_anchor_runners=4`.
-  No device action was taken. Next cleanup unit: if a current-baseline Wi-Fi
-  surface runner is changed again, migrate its direct `a90ctl.py` command lists
-  to shared transport helpers first; otherwise keep direct-ref migration
-  review-only.
-- After V2267 inventory consolidation-signal export: the script inventory now
-  writes a machine-readable `consolidation_signals` JSON block mirroring the
-  Markdown consolidation section. It records `active_live_phase_residual_backlog_closed=true`,
-  `live_without_phase_timer_count=0`, `live_without_residual_state_count=0`,
-  `source_delete_review_count=0`, and `direct_a90ctl_reference_count=15`. No
-  device action was taken. Next T2/T3 cleanup unit: use those signals to pick
-  any future migration by actual impact, not by re-deriving inventory manually.
-- After V2266 local security rescan metadata cleanup: `local_security_rescan.py`
-  now uses shared `a90_transport` phase/residual metadata while preserving its
-  host-only targeted-scan behavior. Inventory confirms it is no longer in the
-  live metadata gap list (`Phase=yes`, `Residual=yes`), reducing active live
-  scripts without phase markers and residual-state metadata from `1` to `0`
-  each. No device action was taken beyond `--help`/inventory validation. Next
-  T2 cleanup unit: active live runner phase/residual backlog is closed;
-  re-evaluate T1 for a new meaningful kernel-observation question, otherwise
-  choose the next T2 surface/consolidation item from the TODO.
-- After V2265 kernel-observation runner metadata cleanup: the remaining
-  kernel-observation gap entries V2218/V2238/V2253 now use shared
-  `a90_transport` phase/residual metadata. Inventory confirms
-  `native_kernel_wlan_tracepoint_catalog_v2218.py`,
-  `native_kernel_static_tracepoint_object_chain_audit_v2238.py`, and
-  `native_kernel_fwclass_boundary_stack_handoff_v2253.py` are no longer in the
-  live metadata gap list (`Phase=yes`, `Residual=yes`), reducing active live
-  scripts without phase markers and residual-state metadata from `4` to `1`
-  each. No device action was taken. Next T2 cleanup unit: decide whether the
-  remaining `local_security_rescan.py` workflow should get the same
-  phase/residual contract or be classified separately as security tooling.
-- After V2264 boot-window runner metadata cleanup: the V2222/V2223/V2225/V2227
-  boot-window preflight/plan/handoff runners now use shared `a90_transport`
-  phase/residual metadata. Inventory confirms
-  `native_kernel_a90_boot_window_preflight_v2222.py`,
-  `native_kernel_a90_boot_window_plan_v2223.py`,
-  `native_kernel_a90_boot_window_handoff_v2225.py`, and
-  `native_kernel_a90_boot_window_handoff_v2227.py` are no longer in the live
-  metadata gap list (`Phase=yes`, `Residual=yes`), reducing active live scripts
-  without phase markers and residual-state metadata from `8` to `4` each. No
-  device action was taken. Next T2 cleanup unit: finish one remaining active
-  live runner entry from the gap list, static-only unless that runner
-  specifically requires live proof.
-- After V2263 service-object runner metadata cleanup: the V2229/V2231/V2233
-  service-object/post-BDF handoff runners now use shared `a90_transport`
-  phase/residual metadata. Inventory confirms
-  `native_kernel_a90_service_object_visible_handoff_v2229.py`,
-  `native_kernel_a90_post_bdf_hold_handoff_v2231.py`, and
-  `native_kernel_a90_service_object_fwclass_bridge_handoff_v2233.py` are no
-  longer in the live metadata gap list (`Phase=yes`, `Residual=yes`), reducing
-  active live scripts without phase markers and residual-state metadata from
-  `11` to `8` each. No device action was taken. Next T2 cleanup unit: continue
-  with one remaining active live runner family from the kernel-observation
-  list, static-only unless that runner specifically requires live proof.
-- After V2262 uprobe trace runner metadata cleanup: the V2219/V2221 uprobe
-  trace collector/postprocess runners now use shared `a90_transport`
-  phase/residual metadata. Inventory confirms
-  `native_kernel_a90_uprobe_trace_buffer_collector_v2219.py` and
-  `native_kernel_a90_uprobe_trace_postprocess_v2221.py` are no longer in the
-  live metadata gap list (`Phase=yes`, `Residual=yes`), reducing active live
-  scripts without phase markers and residual-state metadata from `13` to `11`
-  each. No device action was taken. Next T2 cleanup unit: continue with one
-  remaining active live runner family from the kernel-observation list,
-  static-only unless that runner specifically requires live proof.
-- After V2261 sample-ring runner metadata cleanup: the V2212/V2213/V2214/V2216
-  raw/perf sample-ring kernel-observation runners now use shared
-  `a90_transport` phase/residual metadata. Inventory confirms
-  `native_kernel_raw_frame_slots_v2212.py`,
-  `native_kernel_raw_frame_sample_ring_v2213.py`,
-  `native_kernel_perf_regs_frame_sample_ring_v2214.py`, and
-  `native_kernel_perf_regs_codeword_sample_ring_v2216.py` are no longer in the
-  live metadata gap list (`Phase=yes`, `Residual=yes`), reducing active live
-  scripts without phase markers and residual-state metadata from `17` to `13`
-  each. No device action was taken. Next T2 cleanup unit: continue with one
-  remaining active live runner family from the kernel-observation list,
-  static-only unless that runner specifically requires live proof.
-- After V2260 file-ops anchor runner metadata cleanup: the V2204/V2206
-  file-operations anchor kernel-observation runners now use shared
-  `a90_transport` phase/residual metadata. Inventory confirms
-  `native_kernel_file_ops_anchor_v2204.py` and
-  `native_kernel_fops_member_anchor_v2206.py` are no longer in the live
-  metadata gap list (`Phase=yes`, `Residual=yes`), reducing active live scripts
-  without phase markers and residual-state metadata from `19` to `17` each. No
-  device action was taken. Next T2 cleanup unit: continue with one remaining
-  active live runner family from the kernel-observation list, static-only unless
-  that runner specifically requires live proof.
-- After V2259 timer runner metadata cleanup: the V2200/V2201/V2202 timer
-  kernel-observation runners now use shared `a90_transport` phase/residual
-  metadata. Inventory confirms
-  `native_kernel_timer_start_context_v2200.py`,
-  `native_kernel_timer_object_context_v2201.py`, and
-  `native_kernel_timer_object_histogram_v2202.py` are no longer in the live
-  metadata gap list (`Phase=yes`, `Residual=yes`), reducing active live scripts
-  without phase markers and residual-state metadata from `22` to `19` each. No
-  device action was taken. Next T2 cleanup unit: continue with one remaining
-  active live runner family from the kernel-observation list, static-only unless
-  that runner specifically requires live proof.
-- After V2258 metadata cleanup: `native_wifi_detail_surface_handoff_v2255.py`
-  now uses the shared `a90_transport` phase/residual contracts. Inventory
-  confirms the V2255 detail-surface runner is no longer in the live metadata
-  gap list (`Phase=yes`, `Residual=yes`), reducing active live scripts without
-  phase markers and residual-state metadata from `23` to `22` each. No device
-  action was taken. Next T2 cleanup unit: continue with one active live runner
-  family from the remaining kernel-observation runner list, preserving the
-  same static-only validation discipline unless the selected runner itself
-  requires live proof.
-- After V2257 inventory refresh: T1 was re-evaluated and dropped for this unit
-  with trigger `t1-fwclass-boundary-question-closed-no-new-independent-oracle`;
-  V2253 already closed the latest firmware_class/qcacld boundary question, and
-  another generic CPU-clock or same-boundary observer would only re-confirm
-  known evidence. V2257 refreshed the active script inventory and TODO map for
-  the V2254 baseline. Source-root now has `107 active`, `6 module`, `0 archive`,
-  and `0 delete-review` entries; active live metadata gaps are explicit again
-  (`23` without phase markers, `23` without residual-state metadata). Next T2
-  cleanup unit: choose one active live runner family and migrate shared
-  phase/residual metadata, rather than rerunning the full inventory.
-- After V2256 promotion: V2254 is the current rollback/test baseline:
-  `A90 Linux init 0.9.272 (v2254-wifi-detail-surface)`,
-  `boot_linux_v2254_wifi_detail_surface.img`, boot SHA256
-  `c668e9cd9a3621c955fa369c5d106271a96a949dcaec3774a5719d24b8ba19e9`.
-  The promotion rests on V2254 source/build evidence and V2255 rollbackable
-  live validation of `wifi status` and `screenapp wifi-status` route/default-DNS
-  fields with no scan/connect/DHCP/ping or credentials. V2237 remains the
-  previous verified rollback artifact. Next T2 unit: remaining test-script
-  cleanup or explicit lifecycle/soak evidence on top of V2254.
-- After V2255 live: V2254 was rollbackably flashed and validated. Test boot
-  `A90 Linux init 0.9.272 (v2254-wifi-detail-surface)` exposed all V2254
-  read-only `wifi status` route/default-DNS fields
-  (`default_route_present`, redacted `gateway_label`, `gateway_rc`,
-  `resolv_conf.present`, `resolv_conf.nameserver_count`), `screenapp
-  wifi-status` presented successfully, and rollback to V2237 ended with
-  `version`/`status`/`selftest fail=0`. The V2254 version match came from the
-  `status` health output because the immediate `version` command stdout missed
-  the banner in this bridge cycle; `native_init_flash.py` and `status` still
-  verified the test build. No scan/connect/DHCP/ping or credentials were used.
-  Next T2 unit: either promote V2254 as the next rollback baseline after an
-  explicit baseline decision, or continue the remaining test-script cleanup if
-  promotion is deferred.
-- After V2254: the T2 downgrade trigger was recorded. V2253 closed the active
-  T1 firmware_class boundary question, and another generic CPU-clock or
-  same-boundary observer would only re-confirm established facts. V2254 is a
-  source/build-only candidate on top of V2237:
-  `boot_linux_v2254_wifi_detail_surface.img`, `A90 Linux init 0.9.272
-  (v2254-wifi-detail-surface)`, boot SHA256
-  `c668e9cd9a3621c955fa369c5d106271a96a949dcaec3774a5719d24b8ba19e9`. It adds
-  read-only `wifi status` fields for `default_route_present`, redacted
-  `gateway_label`, `gateway_rc`, `resolv_conf.present`, and
-  `resolv_conf.nameserver_count`, and renders route/default-DNS state on
-  `NETWORK > WIFI STATUS`. Next live unit: flash V2254 rollbackably, verify
-  `version`/`status`/`selftest`, query `wifi status` and `screenapp
-  wifi-status` without scan/connect/DHCP/ping, then roll back to V2237 and
-  selftest.
-- Network detail surface + remaining test-script cleanup (CLAUDE.md "Active work").
-
-**Any tier — safe filler (no device):**
-- **Host-only regression harness** — `tests/GOAL.md`. Ideal between device iterations.
+- **Kernel-security recon and kernel-observation phases are CLOSED.** See
+  `docs/reports/NATIVE_INIT_KERNEL_SECURITY_RECON_PHASE_CLOSE_CHECKPOINT_2026-06-13.md`.
+  Do NOT re-triage FastRPC/Binder/KGSL, build trigger/exploit/UAF helpers, attempt any
+  memory-corruption trigger, do heap spray/reclaim, or flash `slub_debug`/debug-cmdline
+  images. No exploit development.
+- **KGSL `/dev/kgsl-3d0` open-block** is a human-gated investigation, NOT a loop unit (live
+  open hangs). Leave it.
+- **No doc / metadata / inventory cleanup as a track** (anti-churn trap).
+- **Never reopen** external SDX50M/eSoC/PCIe/MHI/GDSC/PMIC/GPIO paths for internal `wlan0`.
