@@ -74,8 +74,10 @@ functions.
 - [x] `workspace/public/src/harness/a90harness/observer.py` —
       ObserverSample/Summary serialization, text_excerpt, observe_cycle,
       run_observer stop paths.
-- [ ] (append more as discovered: a90harness runner.py / bundle.py, and
-      v2203 / v2204 / v2205 / v2207 / v2208 / v2209 / v2210 analyzers.)
+- [x] `workspace/public/src/harness/a90harness/runner.py` —
+      ModuleRunner context wiring, step orchestration, observer result handling.
+- [ ] (append more as discovered: a90harness bundle.py, and v2203 / v2204 /
+      v2205 / v2207 / v2208 / v2209 / v2210 analyzers.)
 
 ## Progress log
 
@@ -123,4 +125,7 @@ functions.
 - 2026-06-13 — `a90harness/observer.py` — ObserverSample, ObserverSummary,
   text_excerpt, observe_cycle default-command sampling, run_observer
   max-cycles/stop-event summaries — 7 cases — green.
+- 2026-06-13 — `a90harness/runner.py` — ModuleRunner context wiring,
+  module step orchestration, artifact/result writing, step failure capture,
+  optional observer failure propagation — 3 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
