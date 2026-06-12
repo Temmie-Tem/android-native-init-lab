@@ -211,6 +211,9 @@ functions.
 - [x] `workspace/public/src/scripts/revalidation/a90_kernel_v2247_tail_pc_lr_scorer.py`
       — exact-slide extraction, target range loading, sample address extraction,
       PC/LR hit scoring, pass/no-slide/no-target summary output.
+- [x] `workspace/public/src/scripts/revalidation/a90_kernel_v2248_tail_capture_insertion_audit.py`
+      — source-line matching, helper/build/sampler anchor extraction,
+      tail-capture contract rendering, pass/fail summary output.
 - [ ] (append more as discovered: v2231+ analyzers.)
 
 ## Progress log
@@ -445,4 +448,7 @@ functions.
 - 2026-06-13 — `a90_kernel_v2247_tail_pc_lr_scorer.py` —
   parse_int, load_exact_slide, load_targets, target_for_static,
   sample_addresses, score_samples, build_summary — 10 cases — green.
+- 2026-06-13 — `a90_kernel_v2248_tail_capture_insertion_audit.py` —
+  line_matches, require_matches, first_line, helper_tail_anchors,
+  build_anchors, v2216_sampler_anchors, build_summary — 8 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
