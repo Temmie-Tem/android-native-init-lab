@@ -213,6 +213,18 @@ Read at the START of every iteration (then apply the tier policy above):
   live-register sampling for code-path identity.
 
 **T2 — WLAN native-init (if T1 blocked):**
+- After V2261 sample-ring runner metadata cleanup: the V2212/V2213/V2214/V2216
+  raw/perf sample-ring kernel-observation runners now use shared
+  `a90_transport` phase/residual metadata. Inventory confirms
+  `native_kernel_raw_frame_slots_v2212.py`,
+  `native_kernel_raw_frame_sample_ring_v2213.py`,
+  `native_kernel_perf_regs_frame_sample_ring_v2214.py`, and
+  `native_kernel_perf_regs_codeword_sample_ring_v2216.py` are no longer in the
+  live metadata gap list (`Phase=yes`, `Residual=yes`), reducing active live
+  scripts without phase markers and residual-state metadata from `17` to `13`
+  each. No device action was taken. Next T2 cleanup unit: continue with one
+  remaining active live runner family from the kernel-observation list,
+  static-only unless that runner specifically requires live proof.
 - After V2260 file-ops anchor runner metadata cleanup: the V2204/V2206
   file-operations anchor kernel-observation runners now use shared
   `a90_transport` phase/residual metadata. Inventory confirms

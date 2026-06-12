@@ -27,6 +27,7 @@ REMOTE_TOYBOX = "/cache/bin/busybox"
 REPORT_PATH = REPO_ROOT / "docs/reports/NATIVE_INIT_V2212_RAW_FRAME_SLOTS_LIVE_2026-06-12.md"
 
 sys.path.insert(0, str(SCRIPT_DIR))
+import a90_transport as transport  # noqa: E402
 import native_kernel_file_ops_anchor_v2204 as base  # noqa: E402
 
 
@@ -139,6 +140,8 @@ def render_report(summary: dict[str, Any]) -> str:
         f"- Samples: `{probe_summary.get('count')}`",
         f"- Read errors: `{probe_summary.get('read_errors')}`",
         f"- Selftest fail=0: `{str(summary.get('selftest_fail0')).lower()}`",
+        f"- Phase timer contract: `{summary.get('phase_timer_contract')}`",
+        f"- Residual-state contract: `{summary.get('residual_state_contract')}`",
         "",
         "## Method",
         "",
@@ -240,6 +243,8 @@ def main() -> int:
         "out_dir": str(out_dir.relative_to(REPO_ROOT)),
         "started_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
         "steps": [],
+        "phase_timer_contract": transport.PHASE_TIMER_CONTRACT,
+        "phase_timers": [],
         "safety": {
             "read_only_bpf": True,
             "probe_write_user_executed": False,
@@ -251,41 +256,45 @@ def main() -> int:
     }
 
     try:
-        base.run_host(out_dir, steps, "bridge-status", [
-            sys.executable,
-            str(SCRIPT_DIR / "a90_bridge.py"),
-            "status",
-            "--json",
-        ], timeout=30, allow_error=True)
-        base.a90ctl(args, out_dir, steps, "pre-status", ["status"], timeout=60, allow_error=True)
+        with transport.phase(summary, "preflight_bridge_status"):
+            base.run_host(out_dir, steps, "bridge-status", [
+                sys.executable,
+                str(SCRIPT_DIR / "a90_bridge.py"),
+                "status",
+                "--json",
+            ], timeout=30, allow_error=True)
+            base.a90ctl(args, out_dir, steps, "pre-status", ["status"], timeout=60, allow_error=True)
 
-        build_dir = out_dir / "build"
-        build_dir.mkdir(parents=True, exist_ok=True)
-        helper_bin = build_dir / "a90_bpf_raw_frame_slots"
-        if not args.skip_build:
-            helper_bin = base.build_helper(
-                build_dir,
-                steps,
-                source=HELPER_DIR / "a90_bpf_raw_frame_slots.c",
-                output_name="a90_bpf_raw_frame_slots",
-                cc=args.cc,
-                strip=args.strip,
-            )
-        summary["build"] = {
-            "helper_local": str(helper_bin.relative_to(REPO_ROOT)),
-            "helper_sha256": base.sha256_file(helper_bin),
-        }
+        with transport.phase(summary, "build_helper"):
+            build_dir = out_dir / "build"
+            build_dir.mkdir(parents=True, exist_ok=True)
+            helper_bin = build_dir / "a90_bpf_raw_frame_slots"
+            if not args.skip_build:
+                helper_bin = base.build_helper(
+                    build_dir,
+                    steps,
+                    source=HELPER_DIR / "a90_bpf_raw_frame_slots.c",
+                    output_name="a90_bpf_raw_frame_slots",
+                    cc=args.cc,
+                    strip=args.strip,
+                )
+            summary["build"] = {
+                "helper_local": str(helper_bin.relative_to(REPO_ROOT)),
+                "helper_sha256": base.sha256_file(helper_bin),
+            }
 
         if not args.skip_install:
-            base.install_helper(args, out_dir, steps, "raw-frame-slots", helper_bin, REMOTE_HELPER)
+            with transport.phase(summary, "install_helper"):
+                base.install_helper(args, out_dir, steps, "raw-frame-slots", helper_bin, REMOTE_HELPER)
 
-        check_stdout = base.tcpctl_run(args, out_dir, steps, "raw-frame-slots-check-only", [
-            REMOTE_HELPER,
-            "--duration-ms",
-            str(args.duration_ms),
-        ], timeout=60)
-        if "result=check-only" not in check_stdout:
-            raise RuntimeError(f"check-only did not complete cleanly:\n{check_stdout}")
+        with transport.phase(summary, "helper_check"):
+            check_stdout = base.tcpctl_run(args, out_dir, steps, "raw-frame-slots-check-only", [
+                REMOTE_HELPER,
+                "--duration-ms",
+                str(args.duration_ms),
+            ], timeout=60)
+            if "result=check-only" not in check_stdout:
+                raise RuntimeError(f"check-only did not complete cleanly:\n{check_stdout}")
 
         helper_args = [
             REMOTE_HELPER,
@@ -295,20 +304,24 @@ def main() -> int:
         ]
         if args.verbose_helper:
             helper_args.append("--verbose")
-        probe_stdout = base.tcpctl_run(
-            args,
-            out_dir,
-            steps,
-            "raw-frame-slots-live",
-            helper_args,
-            timeout=max(60, args.duration_ms / 1000.0 + 30),
-        )
-        if "result=v2212-raw-frame-slots-complete" not in probe_stdout:
-            raise RuntimeError(f"live helper did not complete cleanly:\n{probe_stdout}")
+        with transport.phase(summary, "sample_capture"):
+            probe_stdout = base.tcpctl_run(
+                args,
+                out_dir,
+                steps,
+                "raw-frame-slots-live",
+                helper_args,
+                timeout=max(60, args.duration_ms / 1000.0 + 30),
+            )
+            if "result=v2212-raw-frame-slots-complete" not in probe_stdout:
+                raise RuntimeError(f"live helper did not complete cleanly:\n{probe_stdout}")
+            probe = parse_helper_stdout(probe_stdout)
 
-        probe = parse_helper_stdout(probe_stdout)
-        analysis = analyze_probe(probe)
-        selftest = base.a90ctl(args, out_dir, steps, "post-selftest", ["selftest"], timeout=90, allow_error=True)
+        with transport.phase(summary, "analysis"):
+            analysis = analyze_probe(probe)
+
+        with transport.phase(summary, "post_selftest"):
+            selftest = base.a90ctl(args, out_dir, steps, "post-selftest", ["selftest"], timeout=90, allow_error=True)
         count = int((probe.get("summary") or {}).get("count", 0))
         if count > 0 and analysis["has_raw_frame_slot"]:
             decision = "v2212-raw-frame-slots-captured"
@@ -341,11 +354,14 @@ def main() -> int:
             }
             for step in steps
         ]
+        transport.set_residual_state(summary, base.residual_state(summary))
+        artifact_started = time.monotonic()
         (out_dir / "summary.json").write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n")
         if "probe" in summary:
             REPORT_PATH.write_text(render_report(summary))
             summary["report_path"] = str(REPORT_PATH.relative_to(REPO_ROOT))
-            (out_dir / "summary.json").write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n")
+        transport.add_total_phase(summary, "artifact_write", artifact_started, ok=True)
+        (out_dir / "summary.json").write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n")
 
     print(json.dumps({
         "decision": summary.get("decision"),
