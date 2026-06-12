@@ -169,6 +169,10 @@ functions.
 - [x] `workspace/public/src/scripts/revalidation/build_native_init_boot_v2232_service_object_fwclass_bridge.py`
       — helper bridge flag deduplication/propagation, V2230 wrapper argument
       rewrites, report rendering.
+- [x] `workspace/public/src/scripts/revalidation/native_kernel_a90_service_object_fwclass_bridge_handoff_v2233.py`
+      — SHA/build-manifest helpers, command rendering, artifact diagnosis including
+      post-FW_READY boot_wlan / firmware_class / ICNSS snapshots, current-window
+      preflight classifiers, result classification, report rendering, residual state.
 - [ ] (append more as discovered: v2231+ analyzers.)
 
 ## Progress log
@@ -358,4 +362,11 @@ functions.
 - 2026-06-13 — `build_native_init_boot_v2232_service_object_fwclass_bridge.py` —
   with_bridge_flag, configure_helper_flags via configure_base,
   configure_base, render_report — 3 cases — green.
+- 2026-06-13 — `native_kernel_a90_service_object_fwclass_bridge_handoff_v2233.py` —
+  sha256, load_build_manifest, a90ctl_command, flash_command,
+  dry_run_commands, extract_summary_value, diagnose_artifacts including
+  post-FW_READY boot_wlan / firmware_class / ICNSS snapshots,
+  is_current_window_a90_absent_preflight,
+  is_current_window_collector_busy_preflight, classify, render_report,
+  residual_state — 9 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
