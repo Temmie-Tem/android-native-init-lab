@@ -70,9 +70,13 @@ def track_evaluations(
         todo_text,
         "Status: complete for the current `v2254-wifi-detail-surface` baseline.",
     )
+    t2_hold_reconnect_complete = marker_present(
+        todo_text,
+        "V2282 rollbackably validated V2254 through current-baseline connect, DHCP,",
+    )
     t2_soak_deferred = marker_present(
         todo_text,
-        "Run longer Wi-Fi/data-path soak only when new promotion criteria require it.",
+        "V2282 already covers the current 180 second hold/reconnect criterion.",
     )
     t3_no_direct_migration = signals.get("direct_a90ctl_actionable_now_count") == 0
     t3_no_delete_review = signals.get("source_delete_review_count") == 0
@@ -84,6 +88,7 @@ def track_evaluations(
         "the V2280 live-validation candidate remains."
         if t1_candidates
         else "V2253 closed the documented firmware_class boundary and generic CPU-clock sampler loop; "
+        "V2280 closed the widened workqueue execute_start scalar function-pointer window with total=stored and overflow=0; "
         "current public state names no new independent kernel-observation oracle."
     )
 
@@ -106,11 +111,13 @@ def track_evaluations(
             "safe_actionable_now": False,
             "status": "defer-until-new-promotion-or-live-validation-criterion",
             "drop_trigger": (
-                "V2254/V2256 are the current promoted WLAN surface baseline and the TODO limits "
-                "longer data-path soak to cases where new promotion criteria require it."
+                "V2254/V2256 are the current promoted WLAN surface baseline, and V2282 "
+                "already covered the current 180 second connect/DHCP/ping/hold/reconnect criterion; "
+                "longer data-path soak remains deferred until new promotion criteria require it."
             ),
             "evidence": {
                 "current_baseline_complete_marker_present": t2_complete_baseline,
+                "hold_reconnect_complete_marker_present": t2_hold_reconnect_complete,
                 "soak_deferred_marker_present": t2_soak_deferred,
             },
         },
@@ -148,7 +155,7 @@ def select_frontier() -> dict[str, Any]:
         "selected_reason": actionable[0]["status"] if actionable else None,
         "track_evaluations": evaluations,
         "next_operator_decision": (
-            "Define a new T1 oracle, set a concrete V2254 live-validation criterion, "
+            "Define a new T1 oracle, set a concrete V2254 live-validation criterion beyond V2282, "
             "or revive a historical runner before selecting the next bounded unit."
         ) if not actionable else "Run the first actionable track through the normal GOAL.md cycle.",
         "source_paths": {

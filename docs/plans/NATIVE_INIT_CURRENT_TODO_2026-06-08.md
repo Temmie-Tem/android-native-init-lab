@@ -36,11 +36,15 @@ Latest promotion evidence:
   `docs/reports/NATIVE_INIT_V2255_WIFI_DETAIL_SURFACE_LIVE_2026-06-12.md`.
 - Baseline promotion:
   `docs/reports/NATIVE_INIT_V2256_V2254_WIFI_DETAIL_SURFACE_BASELINE_PROMOTION_2026-06-12.md`.
+- Current-baseline hold/reconnect validation:
+  `docs/reports/NATIVE_INIT_V2282_V2254_WIFI_HOLD_RECONNECT_RUNNER_2026-06-12.md`.
 - Status: promoted baseline preserves the V2237 native `wlan0` route and adds
   read-only route/default-DNS detail fields to `wifi status` and
   `screenapp wifi-status`. V2255 validated that surface rollbackably with no
-  scan/connect/DHCP/ping or credentials. Long idle/hold data-path stability
-  remains a separate follow-up.
+  scan/connect/DHCP/ping or credentials. V2282 then validated the same V2254
+  image rollbackably through connect, DHCP, bounded ping, 180 second
+  hold/idle sampling, cleanup, reconnect, DHCP, bounded ping, final cleanup,
+  and rollback to V2237 with `selftest fail=0`.
 
 ## Priority 0: Commit Hygiene
 
@@ -120,7 +124,10 @@ Completed baseline capabilities:
   - V2254 added read-only route/default-DNS fields to `wifi status` and
     `screenapp wifi-status`;
   - V2255 rollbackably validated that surface without scan/connect/DHCP/ping;
-  - V2256 promoted V2254 as the current rollback/test baseline.
+  - V2256 promoted V2254 as the current rollback/test baseline;
+  - V2282 rollbackably validated V2254 through current-baseline connect, DHCP,
+    bounded ping, 180 second hold/idle sampling, cleanup, reconnect, DHCP,
+    bounded ping, final cleanup, and rollback to V2237 with `selftest fail=0`.
 - Primary evidence reports:
   - `docs/reports/NATIVE_INIT_V2176_WIFI_DHCP_STABILITY_N3_2026-06-08.md`;
   - `docs/reports/NATIVE_INIT_V2177_WIFI_HOLD_RECONNECT_LIVE_VALIDATION_2026-06-09.md`;
@@ -138,7 +145,8 @@ Completed baseline capabilities:
   - `docs/reports/NATIVE_INIT_V2237_SUPPLICANT_TERMINATE_POLL_LIVE_VALIDATION_2026-06-12.md`;
   - `docs/reports/NATIVE_INIT_V2254_WIFI_DETAIL_SURFACE_SOURCE_BUILD_2026-06-12.md`;
   - `docs/reports/NATIVE_INIT_V2255_WIFI_DETAIL_SURFACE_LIVE_2026-06-12.md`;
-  - `docs/reports/NATIVE_INIT_V2256_V2254_WIFI_DETAIL_SURFACE_BASELINE_PROMOTION_2026-06-12.md`.
+  - `docs/reports/NATIVE_INIT_V2256_V2254_WIFI_DETAIL_SURFACE_BASELINE_PROMOTION_2026-06-12.md`;
+  - `docs/reports/NATIVE_INIT_V2282_V2254_WIFI_HOLD_RECONNECT_RUNNER_2026-06-12.md`.
 
 Standing rules:
 
@@ -455,11 +463,13 @@ Keep:
    kernel-observation oracle is available, record that trigger before selecting
    a bounded T2 WLAN or T3 unit.
 4. Start new WLAN live validation from V2254 only when a concrete criterion
-   exists, unless a test explicitly validates an older rollback image.
+   exists beyond the V2282 connect/DHCP/ping/180s hold/reconnect proof, unless
+   a test explicitly validates an older rollback image.
 5. Defer architecture source cleanup unless a cleanup patch is kept separate and
    validation-neutral.
 6. If serial `AT` noise naturally fires, confirm shared recovery evidence.
-7. Run longer Wi-Fi/data-path soak only when new promotion criteria require it.
+7. Run longer Wi-Fi/data-path soak only when new promotion criteria require it;
+   V2282 already covers the current 180 second hold/reconnect criterion.
 
 ## Current Risk Register
 
@@ -468,7 +478,7 @@ Keep:
 | Boot autoconnect latency | Wi-Fi success can take roughly three minutes. | Poll `autoconnect.decision` until a terminal result; shared phase timers are live-validated for bounded current-baseline runners, but boot/reboot latency still needs separate timing if retested. |
 | Serial `AT` noise | A single cmdv1 exchange can be malformed. | Shared recovery is implemented for safe commands; V2180 did not naturally fire the path, so live-fired evidence remains opportunistic. |
 | Physical network-menu ping selection | V2189 inherits V2187 command-level framebuffer presentation evidence for `WIFI STATUS` and `WIFI PING RESULTS`, but not button-driven physical capture. | Treat as UI polish, not a baseline blocker; validate physically or with OCR only if visual-navigation evidence is required. |
-| Large-transfer soak depth | V2184 passed 512MiB and 1GiB single-run bidirectional SHA checks, but not repeated N-run or multi-hour soak. | Treat as strong data-path evidence; run `cleanup -> reconnect -> 512MiB` or N-run soak only if promotion criteria require it. |
+| Large-transfer soak depth | V2184 passed 512MiB and 1GiB single-run bidirectional SHA checks, and V2282 passed current-baseline connect/DHCP/ping/180s hold/reconnect, but repeated N-run or multi-hour transfer soak is still not covered. | Treat as strong data-path evidence; run `cleanup -> reconnect -> 512MiB` or N-run soak only if promotion criteria require it. |
 | UI completeness | V2254 is the current baseline and preserves V2237 native `wlan0` bring-up/strict connect cleanup while adding the read-only Wi-Fi detail surface. | Keep V2254 as baseline; physical button/OCR validation remains optional. |
 | T1 oracle execution | V2280 completed the V2279 wide workqueue execute-start live validation with `total=stored=6281`, `overflow=0`, accepted codeword slide `0xe4ef4`, rollback selftest `fail=0`, and zero target hits. | Treat the workqueue execute-start function-pointer oracle as exhausted for the firmware_class/qcacld-HDD target question. Next iteration must identify a new independent T1 oracle or explicitly drop tier. |
 | Script sprawl | Current source-root inventory has no delete-review rows and no active live phase/residual gaps. Remaining direct `a90ctl.py` references are review-only: `direct_a90ctl_reference_count=14`, `direct_a90ctl_actionable_now_count=0`, `direct_a90ctl_review_only_count=14`, top group `flash_capable_kernel_handoff_runners`. | Do not select direct-ref migration solely from historical references; use `consolidation_signals.direct_a90ctl_next_actionable_group` and migrate a runner only if it is revived or changed for a bounded run. |
