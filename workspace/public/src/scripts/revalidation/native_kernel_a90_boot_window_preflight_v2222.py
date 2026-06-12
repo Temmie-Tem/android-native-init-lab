@@ -18,6 +18,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+import a90_transport as transport
+
 
 REPO_ROOT = Path(__file__).resolve().parents[5]
 SCRIPT_DIR = REPO_ROOT / "workspace/public/src/scripts/revalidation"
@@ -216,6 +218,29 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def residual_state(summary: dict[str, Any]) -> dict[str, Any]:
+    device_touched = bool(summary.get("steps"))
+    selftest_ok = bool(summary.get("selftest_fail0"))
+    cleanup_required = bool(device_touched and not selftest_ok)
+    return {
+        "device_touched": device_touched,
+        "flash_reboot": False,
+        "test_flash_ok": False,
+        "rollback_ok": True,
+        "rollback_attempt": "not-needed-no-flash",
+        "selftest_ok": selftest_ok,
+        "cleanup_required": cleanup_required,
+        "residual_risk": "post-selftest-incomplete" if cleanup_required else "none",
+        "wifi_scan_connect": False,
+        "credentials_used": False,
+        "dhcp_routes_ping": False,
+        "tracefs_control_write": False,
+        "bpf_attach": False,
+        "probe_write_user_executed": False,
+        "partition_write": False,
+    }
+
+
 def main() -> int:
     args = parse_args()
     out_dir = PRIVATE_RUNS / f"{args.label}-{now_label()}"
@@ -227,6 +252,8 @@ def main() -> int:
         "summary_path": rel(out_dir / "summary.json"),
         "started_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
         "mode": "preflight-only",
+        "phase_timer_contract": transport.PHASE_TIMER_CONTRACT,
+        "phase_timers": [],
         "safety": {
             "tracefs_control_write": False,
             "bpf_attach": False,
@@ -240,14 +267,15 @@ def main() -> int:
     }
 
     try:
-        bridge_stdout = run_step(
-            out_dir,
-            steps,
-            "bridge-status",
-            [sys.executable, str(SCRIPT_DIR / "a90_bridge.py"), "status", "--json"],
-            timeout=30,
-            allow_error=True,
-        )
+        with transport.phase(summary, "bridge_status"):
+            bridge_stdout = run_step(
+                out_dir,
+                steps,
+                "bridge-status",
+                [sys.executable, str(SCRIPT_DIR / "a90_bridge.py"), "status", "--json"],
+                timeout=30,
+                allow_error=True,
+            )
         bridge_status = parse_json_object(bridge_stdout)
         bridge_ready = (
             bridge_status.get("bridge_process") == "running"
@@ -255,30 +283,31 @@ def main() -> int:
             and bridge_status.get("bridge_probe") == "connected-no-immediate-error"
         )
 
-        status_text = run_step(
-            out_dir,
-            steps,
-            "native-status",
-            a90ctl_command(args, ["status"], allow_error=True),
-            timeout=args.timeout + 20,
-            allow_error=True,
-        )
-        version_text = run_step(
-            out_dir,
-            steps,
-            "native-version",
-            a90ctl_command(args, ["version"], allow_error=True),
-            timeout=args.timeout + 20,
-            allow_error=True,
-        )
-        helpers_text = run_step(
-            out_dir,
-            steps,
-            "native-helpers",
-            a90ctl_command(args, ["helpers"], allow_error=True),
-            timeout=args.timeout + 20,
-            allow_error=True,
-        )
+        with transport.phase(summary, "native_state_snapshot"):
+            status_text = run_step(
+                out_dir,
+                steps,
+                "native-status",
+                a90ctl_command(args, ["status"], allow_error=True),
+                timeout=args.timeout + 20,
+                allow_error=True,
+            )
+            version_text = run_step(
+                out_dir,
+                steps,
+                "native-version",
+                a90ctl_command(args, ["version"], allow_error=True),
+                timeout=args.timeout + 20,
+                allow_error=True,
+            )
+            helpers_text = run_step(
+                out_dir,
+                steps,
+                "native-helpers",
+                a90ctl_command(args, ["helpers"], allow_error=True),
+                timeout=args.timeout + 20,
+                allow_error=True,
+            )
 
         helper_script = (
             "for h in /bin/a90_android_execns_probe /cache/bin/a90_android_execns_probe; do "
@@ -290,46 +319,49 @@ def main() -> int:
             "grep -ao -m1 'a90_android_execns_probe v[0-9][0-9]*' $h 2>/dev/null | sed 's/^/version_string=/'; "
             "done"
         )
-        helper_inventory_text = run_step(
-            out_dir,
-            steps,
-            "helper-inventory",
-            a90ctl_command(args, ["run", args.toybox, "sh", "-c", helper_script], allow_error=True),
-            timeout=args.timeout + 20,
-            allow_error=True,
-        )
+        with transport.phase(summary, "helper_inventory"):
+            helper_inventory_text = run_step(
+                out_dir,
+                steps,
+                "helper-inventory",
+                a90ctl_command(args, ["run", args.toybox, "sh", "-c", helper_script], allow_error=True),
+                timeout=args.timeout + 20,
+                allow_error=True,
+            )
         helper_inventory = parse_helper_inventory(helper_inventory_text)
 
-        v2221_stdout = run_step(
-            out_dir,
-            steps,
-            "v2221-current-window-contract",
-            [
-                sys.executable,
-                str(SCRIPT_DIR / "native_kernel_a90_uprobe_trace_postprocess_v2221.py"),
-                "--bridge-host",
-                args.bridge_host,
-                "--bridge-port",
-                str(args.bridge_port),
-                "--timeout",
-                str(args.timeout),
-                "--wait-sec",
-                "0",
-            ],
-            timeout=max(180.0, args.timeout * 6),
-        )
-        v2221_brief = parse_json_object(v2221_stdout)
-        v2221_summary_path = REPO_ROOT / str(v2221_brief["out_dir"]) / "summary.json"
-        v2221_summary = json.loads(v2221_summary_path.read_text())
+        with transport.phase(summary, "v2221_current_window_contract"):
+            v2221_stdout = run_step(
+                out_dir,
+                steps,
+                "v2221-current-window-contract",
+                [
+                    sys.executable,
+                    str(SCRIPT_DIR / "native_kernel_a90_uprobe_trace_postprocess_v2221.py"),
+                    "--bridge-host",
+                    args.bridge_host,
+                    "--bridge-port",
+                    str(args.bridge_port),
+                    "--timeout",
+                    str(args.timeout),
+                    "--wait-sec",
+                    "0",
+                ],
+                timeout=max(180.0, args.timeout * 6),
+            )
+            v2221_brief = parse_json_object(v2221_stdout)
+            v2221_summary_path = REPO_ROOT / str(v2221_brief["out_dir"]) / "summary.json"
+            v2221_summary = json.loads(v2221_summary_path.read_text())
 
-        selftest_text = run_step(
-            out_dir,
-            steps,
-            "post-selftest",
-            a90ctl_command(args, ["selftest"], allow_error=True),
-            timeout=args.timeout + 30,
-            allow_error=True,
-        )
+        with transport.phase(summary, "post_selftest"):
+            selftest_text = run_step(
+                out_dir,
+                steps,
+                "post-selftest",
+                a90ctl_command(args, ["selftest"], allow_error=True),
+                timeout=args.timeout + 30,
+                allow_error=True,
+            )
 
         summary.update(
             {
@@ -383,10 +415,13 @@ def main() -> int:
             }
             for step in steps
         ]
-        contract = build_contract(summary)
-        contract_path = out_dir / "boot_window_contract.json"
-        contract_path.write_text(json.dumps(contract, indent=2, sort_keys=True) + "\n")
+        with transport.phase(summary, "contract_write"):
+            contract = build_contract(summary)
+            contract_path = out_dir / "boot_window_contract.json"
+            contract_path.write_text(json.dumps(contract, indent=2, sort_keys=True) + "\n")
         summary["contract_path"] = rel(contract_path)
+        transport.set_residual_state(summary, residual_state(summary))
+        transport.add_total_phase(summary, "artifact_write", time.monotonic(), ok=True)
         (out_dir / "summary.json").write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n")
         print(
             json.dumps(

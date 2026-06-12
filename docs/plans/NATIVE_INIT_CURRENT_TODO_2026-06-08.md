@@ -204,24 +204,30 @@ Open edge:
 Goal: prevent new one-off script sprawl.
 
 Status: refreshed for the V2254 baseline; source-root has no `delete-review`
-entries, and V2263 closed the V2229/V2231/V2233 service-object handoff runner
+entries, and V2264 closed the V2222/V2223/V2225/V2227 boot-window runner
 family's live metadata gap. The remaining gaps are concentrated in older
-kernel-observation live runner families and one local security utility.
+kernel-observation live runner entries and one local security utility.
 
 Completed:
 
 - Current inventory report:
   `docs/reports/REVALIDATION_SCRIPT_INVENTORY_2026-06-10.md`.
-- Current source-root state after V2263 inventory refresh:
+- Current source-root state after V2264 inventory refresh:
   - `107 active`;
   - `6 module`;
   - `0 archive`;
   - `0 delete-review`.
 - Active live metadata gaps:
-  - phase timer markers missing: `8`;
-  - residual-state metadata missing: `8`;
+  - phase timer markers missing: `4`;
+  - residual-state metadata missing: `4`;
   - phase-timer-exempt live utilities: `2`;
   - residual-state-exempt live utilities/helpers: `3`.
+- V2264 migrated the boot-window preflight/plan/handoff runner family to shared
+  `a90_transport` phase timing plus residual-state metadata:
+  `native_kernel_a90_boot_window_preflight_v2222.py`,
+  `native_kernel_a90_boot_window_plan_v2223.py`,
+  `native_kernel_a90_boot_window_handoff_v2225.py`, and
+  `native_kernel_a90_boot_window_handoff_v2227.py`.
 - V2263 migrated the service-object/post-BDF handoff runner family to shared
   `a90_transport` phase timing plus residual-state metadata:
   `native_kernel_a90_service_object_visible_handoff_v2229.py`,

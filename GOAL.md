@@ -213,6 +213,18 @@ Read at the START of every iteration (then apply the tier policy above):
   live-register sampling for code-path identity.
 
 **T2 — WLAN native-init (if T1 blocked):**
+- After V2264 boot-window runner metadata cleanup: the V2222/V2223/V2225/V2227
+  boot-window preflight/plan/handoff runners now use shared `a90_transport`
+  phase/residual metadata. Inventory confirms
+  `native_kernel_a90_boot_window_preflight_v2222.py`,
+  `native_kernel_a90_boot_window_plan_v2223.py`,
+  `native_kernel_a90_boot_window_handoff_v2225.py`, and
+  `native_kernel_a90_boot_window_handoff_v2227.py` are no longer in the live
+  metadata gap list (`Phase=yes`, `Residual=yes`), reducing active live scripts
+  without phase markers and residual-state metadata from `8` to `4` each. No
+  device action was taken. Next T2 cleanup unit: finish one remaining active
+  live runner entry from the gap list, static-only unless that runner
+  specifically requires live proof.
 - After V2263 service-object runner metadata cleanup: the V2229/V2231/V2233
   service-object/post-BDF handoff runners now use shared `a90_transport`
   phase/residual metadata. Inventory confirms

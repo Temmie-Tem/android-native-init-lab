@@ -26,6 +26,7 @@ from a90harness.evidence import (
     workspace_private_input_path,
     write_public_text,
 )
+import a90_transport as transport
 
 
 REPO_ROOT = repo_root()
@@ -666,6 +667,34 @@ def render_report(manifest: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def residual_state(manifest: dict[str, Any]) -> dict[str, Any]:
+    steps = [step for step in manifest.get("steps", []) if isinstance(step, dict)]
+    flash_steps = [step for step in steps if str(step.get("name") or "").startswith("flash-v")]
+    test_flash_attempted = bool(flash_steps)
+    rollback_needed = bool(manifest.get("execute") and test_flash_attempted)
+    rollback_result = manifest.get("rollback") if isinstance(manifest.get("rollback"), dict) else {}
+    rollback_selftest_ok = bool(rollback_result.get("selftest_ok"))
+    rollback_ok = bool(rollback_result.get("ok")) and rollback_selftest_ok if rollback_needed else True
+    cleanup_required = bool(rollback_needed and not rollback_ok)
+    return {
+        "device_touched": bool(manifest.get("execute") and steps),
+        "flash_reboot": test_flash_attempted,
+        "test_flash_ok": any(bool(step.get("ok")) for step in flash_steps),
+        "rollback_ok": rollback_ok,
+        "rollback_attempt": rollback_result.get("attempt", "not-needed-no-flash"),
+        "selftest_ok": rollback_selftest_ok if rollback_needed else True,
+        "cleanup_required": cleanup_required,
+        "residual_risk": "rollback-or-selftest-incomplete" if cleanup_required else "none",
+        "wifi_scan_connect": False,
+        "credentials_used": False,
+        "dhcp_routes_ping": False,
+        "tracefs_control_write": False,
+        "bpf_attach": False,
+        "probe_write_user_executed": False,
+        "partition_write": test_flash_attempted,
+    }
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--label", default="v2227-a90-boot-window-property-root-handoff")
@@ -695,14 +724,15 @@ def main() -> int:
     run_dir = RUN_ROOT / f"{label}-{artifact_timestamp()}"
     store = EvidenceStore(run_dir)
     steps: list[dict[str, Any]] = []
-    preflight_result = preflight()
     manifest: dict[str, Any] = {
         "cycle": "V2227",
         "started_at": now_iso(),
         "out_dir": rel(run_dir),
         "execute": bool(args.execute),
-        "preflight": preflight_result,
+        "preflight": {},
         "steps": steps,
+        "phase_timer_contract": transport.PHASE_TIMER_CONTRACT,
+        "phase_timers": [],
         "safety": {
             "dry_run_default": True,
             "requires_confirm_for_flash": True,
@@ -716,8 +746,12 @@ def main() -> int:
             "partition_write_scope": "boot image flash to V2226 and rollback to V2189 only" if args.execute else "none",
         },
     }
+    with transport.phase(manifest, "host_preflight"):
+        preflight_result = preflight()
+    manifest["preflight"] = preflight_result
     if not args.execute:
-        manifest["dry_run_commands"] = dry_run_commands(preflight_result)
+        with transport.phase(manifest, "dry_run_plan"):
+            manifest["dry_run_commands"] = dry_run_commands(preflight_result)
     elif args.confirm != REQUIRED_CONFIRM:
         manifest["result"] = {
             "decision": "v2227-boot-window-handoff-live-confirmation-missing",
@@ -726,21 +760,22 @@ def main() -> int:
         }
     else:
         test_flash_attempted = False
-        v2222 = run_command(
-            [
-                "python3",
-                "workspace/public/src/scripts/revalidation/native_kernel_a90_boot_window_preflight_v2222.py",
-                "--label",
-                "v2227-preflight-before-flash",
-                "--bridge-host",
-                args.bridge_host,
-                "--bridge-port",
-                str(args.bridge_port),
-                "--timeout",
-                str(args.timeout),
-            ],
-            timeout=180,
-        )
+        with transport.phase(manifest, "v2222_preflight_before_flash"):
+            v2222 = run_command(
+                [
+                    "python3",
+                    "workspace/public/src/scripts/revalidation/native_kernel_a90_boot_window_preflight_v2222.py",
+                    "--label",
+                    "v2227-preflight-before-flash",
+                    "--bridge-host",
+                    args.bridge_host,
+                    "--bridge-port",
+                    str(args.bridge_port),
+                    "--timeout",
+                    str(args.timeout),
+                ],
+                timeout=180,
+            )
         write_step(store, steps, "preflight-v2222-before-flash", v2222)
         current_window_a90_absent = bool(not v2222.get("ok") and is_current_window_a90_absent_preflight(v2222))
         current_window_collector_busy = bool(
@@ -760,22 +795,27 @@ def main() -> int:
             manifest["live_block"] = "v2222-preflight-failed"
         else:
             test_flash_attempted = True
-            test_flash = run_command(
-                flash_command(TEST_IMAGE, TEST_EXPECT_VERSION, str(preflight_result["test_image_sha256"]), from_native=True),
-                timeout=args.flash_timeout,
-            )
+            with transport.phase(manifest, "test_flash"):
+                test_flash = run_command(
+                    flash_command(TEST_IMAGE, TEST_EXPECT_VERSION, str(preflight_result["test_image_sha256"]), from_native=True),
+                    timeout=args.flash_timeout,
+                )
             write_step(store, steps, "flash-v2226-from-native", test_flash)
             if bool(test_flash.get("ok")):
-                status = run_command(a90ctl_command(args, ["status"], allow_error=True), timeout=90)
-                write_step(store, steps, "test-boot-status", status)
-                selftest = run_command(a90ctl_command(args, ["selftest"], allow_error=True), timeout=90)
-                write_step(store, steps, "test-boot-selftest", selftest)
-                wait_step(store, steps, args.post_boot_wait_sec)
-                manifest["collect"] = collect_helper_artifacts(args, store, steps)
+                with transport.phase(manifest, "test_boot_health"):
+                    status = run_command(a90ctl_command(args, ["status"], allow_error=True), timeout=90)
+                    write_step(store, steps, "test-boot-status", status)
+                    selftest = run_command(a90ctl_command(args, ["selftest"], allow_error=True), timeout=90)
+                    write_step(store, steps, "test-boot-selftest", selftest)
+                with transport.phase(manifest, "post_boot_helper_window_wait"):
+                    wait_step(store, steps, args.post_boot_wait_sec)
+                with transport.phase(manifest, "collect_helper_artifacts"):
+                    manifest["collect"] = collect_helper_artifacts(args, store, steps)
             else:
                 manifest["live_block"] = "test-flash-failed"
         if test_flash_attempted:
-            manifest["rollback"] = rollback(args, store, steps, str(preflight_result["rollback_image_sha256"]))
+            with transport.phase(manifest, "rollback"):
+                manifest["rollback"] = rollback(args, store, steps, str(preflight_result["rollback_image_sha256"]))
         else:
             manifest["rollback"] = {
                 "ok": True,
@@ -785,8 +825,11 @@ def main() -> int:
             }
 
     if "result" not in manifest:
-        manifest["result"] = classify(manifest)
+        with transport.phase(manifest, "classify"):
+            manifest["result"] = classify(manifest)
     manifest["finished_at"] = now_iso()
+    transport.set_residual_state(manifest, residual_state(manifest))
+    transport.add_total_phase(manifest, "artifact_write", time.monotonic(), ok=True)
     store.write_json("manifest.json", manifest)
     write_public_text(REPORT_PATH, render_report(manifest))
     print(json.dumps({

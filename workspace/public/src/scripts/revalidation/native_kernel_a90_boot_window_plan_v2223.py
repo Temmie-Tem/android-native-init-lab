@@ -17,6 +17,8 @@ import time
 from pathlib import Path
 from typing import Any
 
+import a90_transport as transport
+
 
 REPO_ROOT = Path(__file__).resolve().parents[5]
 PRIVATE_RUNS = REPO_ROOT / "workspace/private/runs/kernel"
@@ -228,70 +230,102 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def residual_state(summary: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "device_touched": False,
+        "flash_reboot": False,
+        "test_flash_ok": False,
+        "rollback_ok": True,
+        "rollback_attempt": "not-needed-host-only-plan",
+        "selftest_ok": True,
+        "cleanup_required": False,
+        "residual_risk": "none",
+        "wifi_scan_connect": False,
+        "credentials_used": False,
+        "dhcp_routes_ping": False,
+        "tracefs_control_write": False,
+        "bpf_attach": False,
+        "probe_write_user_executed": False,
+        "partition_write": False,
+    }
+
+
 def main() -> int:
     args = parse_args()
     out_dir = Path(args.out_dir) if args.out_dir else PRIVATE_RUNS / f"{args.label}-{now_label()}"
     if not out_dir.is_absolute():
         out_dir = REPO_ROOT / out_dir
     out_dir.mkdir(parents=True, exist_ok=True)
+    summary: dict[str, Any] = {
+        "label": args.label,
+        "out_dir": rel(out_dir),
+        "phase_timer_contract": transport.PHASE_TIMER_CONTRACT,
+        "phase_timers": [],
+    }
 
-    if args.v2222_summary:
-        v2222_summary_path = Path(args.v2222_summary)
-        if not v2222_summary_path.is_absolute():
-            v2222_summary_path = REPO_ROOT / v2222_summary_path
-    else:
-        latest = latest_v2222_summary()
-        if latest is None:
-            raise SystemExit("no V2222 preflight summary found")
-        v2222_summary_path = latest
+    with transport.phase(summary, "input_resolution"):
+        if args.v2222_summary:
+            v2222_summary_path = Path(args.v2222_summary)
+            if not v2222_summary_path.is_absolute():
+                v2222_summary_path = REPO_ROOT / v2222_summary_path
+        else:
+            latest = latest_v2222_summary()
+            if latest is None:
+                raise SystemExit("no V2222 preflight summary found")
+            v2222_summary_path = latest
 
-    v2222_summary, v2222_contract = contract_summary(v2222_summary_path)
-    source_audit = source_marker_audit()
-    boot_images = boot_image_inventory()
-    plan = build_capture_plan(
-        out_dir=out_dir,
-        v2222_summary_path=v2222_summary_path,
-        v2222_summary=v2222_summary,
-        v2222_contract=v2222_contract,
-        source_audit=source_audit,
-        boot_images=boot_images,
-    )
+    with transport.phase(summary, "plan_inputs"):
+        v2222_summary, v2222_contract = contract_summary(v2222_summary_path)
+        source_audit = source_marker_audit()
+        boot_images = boot_image_inventory()
+    with transport.phase(summary, "plan_build"):
+        plan = build_capture_plan(
+            out_dir=out_dir,
+            v2222_summary_path=v2222_summary_path,
+            v2222_summary=v2222_summary,
+            v2222_contract=v2222_contract,
+            source_audit=source_audit,
+            boot_images=boot_images,
+        )
 
     decision = (
         "v2223-boot-window-plan-ready-approval-required"
         if plan["ready_for_approval"]
         else "v2223-boot-window-plan-not-ready"
     )
-    summary = {
-        "label": args.label,
-        "decision": decision,
-        "pass": plan["ready_for_approval"],
-        "out_dir": rel(out_dir),
-        "plan_path": rel(out_dir / "boot_window_execution_plan.json"),
-        "source_v2222_summary": rel(v2222_summary_path),
-        "source_v2222_decision": v2222_summary.get("decision"),
-        "source_v2222_pass": v2222_summary.get("pass"),
-        "source_audit_all_present": source_audit.get("all_present"),
-        "baseline_v2189_present": any(row.get("exists") and "v2189" in row["path"] for row in boot_images),
-        "requires_explicit_user_approval": True,
-        "host_only": True,
-        "device_io": False,
-        "safety": {
-            "tracefs_control_write": False,
-            "bpf_attach": False,
-            "probe_write_user_executed": False,
-            "cgroup_bpf_attach": False,
-            "wifi_scan_connect": False,
-            "network_route_change": False,
-            "flash_reboot": False,
-            "partition_write": False,
-        },
-        "next_artifact_gap": plan["next_artifact_gap"],
-    }
-
-    (out_dir / "boot_window_execution_plan.json").write_text(
-        json.dumps(plan, indent=2, sort_keys=True) + "\n"
+    summary.update(
+        {
+            "decision": decision,
+            "pass": plan["ready_for_approval"],
+            "plan_path": rel(out_dir / "boot_window_execution_plan.json"),
+            "source_v2222_summary": rel(v2222_summary_path),
+            "source_v2222_decision": v2222_summary.get("decision"),
+            "source_v2222_pass": v2222_summary.get("pass"),
+            "source_audit_all_present": source_audit.get("all_present"),
+            "baseline_v2189_present": any(row.get("exists") and "v2189" in row["path"] for row in boot_images),
+            "requires_explicit_user_approval": True,
+            "host_only": True,
+            "device_io": False,
+            "safety": {
+                "tracefs_control_write": False,
+                "bpf_attach": False,
+                "probe_write_user_executed": False,
+                "cgroup_bpf_attach": False,
+                "wifi_scan_connect": False,
+                "network_route_change": False,
+                "flash_reboot": False,
+                "partition_write": False,
+            },
+            "next_artifact_gap": plan["next_artifact_gap"],
+        }
     )
+
+    with transport.phase(summary, "artifact_write"):
+        (out_dir / "boot_window_execution_plan.json").write_text(
+            json.dumps(plan, indent=2, sort_keys=True) + "\n"
+        )
+    transport.set_residual_state(summary, residual_state(summary))
+    transport.add_total_phase(summary, "summary_write", time.monotonic(), ok=True)
     (out_dir / "summary.json").write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n")
     print(json.dumps(summary, indent=2, sort_keys=True))
     return 0 if summary["pass"] else 1
