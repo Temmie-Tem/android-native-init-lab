@@ -223,6 +223,9 @@ functions.
 - [x] `workspace/public/src/scripts/revalidation/a90_kernel_v2251_tail_target_evidence_classifier.py`
       — helper stack/feeder parsing, scorer summary normalization,
       deterministic tail evidence classification, evidence metadata output.
+- [x] `workspace/public/src/scripts/revalidation/build_native_init_boot_v2252_fwclass_boundary_stack.py`
+      — boundary-stack flag propagation, V2237 wrapper argument rewrites,
+      report contract, manifest/promotion metadata.
 - [ ] (append more as discovered: v2231+ analyzers.)
 
 ## Progress log
@@ -469,4 +472,7 @@ functions.
 - 2026-06-13 — `a90_kernel_v2251_tail_target_evidence_classifier.py` —
   parse_int, extract_stack_symbol, read_json, parse_helper, summarize_feeder,
   summarize_scorer, build_summary decision/evidence branches — 9 cases — green.
+- 2026-06-13 — `build_native_init_boot_v2252_fwclass_boundary_stack.py` —
+  with_boundary_stack_flag, configure_base, render_report, main
+  manifest/promotion metadata — 4 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
