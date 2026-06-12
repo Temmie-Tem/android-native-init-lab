@@ -255,6 +255,10 @@ functions.
       — UAO runtime-patch instruction classification, codeword mismatch row
       analysis, workqueue classification with a fixed slide, patch-aware
       decision branches.
+- [x] `workspace/public/src/scripts/revalidation/build_native_init_boot_v2277_workqueue_exec_stack.py`
+      — execute-start stack sampler flag propagation, V2237 wrapper argument
+      rewrites, dual ramdisk helper injection, report rendering, manifest/
+      live-candidate metadata.
 - [ ] (append more as discovered: v2231+ analyzers.)
 
 ## Progress log
@@ -533,4 +537,8 @@ functions.
   as_int/hex helpers, ARM64 post-index/unprivileged instruction classifiers,
   classify_uao_runtime_patch, symbol_resolver, mismatch_rows,
   classify_workqueue_with_slide, analyze decision branches — 10 cases — green.
+- 2026-06-13 — `build_native_init_boot_v2277_workqueue_exec_stack.py` —
+  sha256, with_workqueue_flags, configure_base, build_bpf_helpers,
+  patch_ramdisk_helpers, render_report, main manifest/live-candidate metadata —
+  7 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
