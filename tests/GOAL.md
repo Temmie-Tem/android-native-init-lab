@@ -57,7 +57,7 @@ functions.
       — pure parse/scoring helpers (discover the deterministic ones).
 - [x] `workspace/public/src/scripts/revalidation/a90_stock_kallsyms_extract.py`
       — token/offset decode + layout-validation helpers (pure parts only).
-- [ ] `workspace/public/src/scripts/revalidation/a90_kernel_stack_symbolize.py`
+- [x] `workspace/public/src/scripts/revalidation/a90_kernel_stack_symbolize.py`
       — slide / scoring helpers (pure parts only).
 - [ ] `workspace/public/src/scripts/revalidation/native_kernel_a90_uprobe_trace_postprocess_v2221.py`
       — parse_stdout_json, load_json.
@@ -89,4 +89,7 @@ functions.
   unwrap_kernel, printable_token, parse_token_run, token_table_at,
   marker_candidate, parse_record_offsets, decode_names, find_num_syms_position,
   find_address_table, render_system_map — 12 cases — green.
+- 2026-06-13 — `a90_kernel_stack_symbolize.py` — parse_int,
+  parse_system_map, parse_stack_log, parse_timer_log, nearest_symbol,
+  build_symbol_index, candidate_slides, score_slide — 7 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
