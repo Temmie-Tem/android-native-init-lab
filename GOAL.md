@@ -213,6 +213,19 @@ Read at the START of every iteration (then apply the tier policy above):
   live-register sampling for code-path identity.
 
 **T2 — WLAN native-init (if T1 blocked):**
+- After V2255 live: V2254 was rollbackably flashed and validated. Test boot
+  `A90 Linux init 0.9.272 (v2254-wifi-detail-surface)` exposed all V2254
+  read-only `wifi status` route/default-DNS fields
+  (`default_route_present`, redacted `gateway_label`, `gateway_rc`,
+  `resolv_conf.present`, `resolv_conf.nameserver_count`), `screenapp
+  wifi-status` presented successfully, and rollback to V2237 ended with
+  `version`/`status`/`selftest fail=0`. The V2254 version match came from the
+  `status` health output because the immediate `version` command stdout missed
+  the banner in this bridge cycle; `native_init_flash.py` and `status` still
+  verified the test build. No scan/connect/DHCP/ping or credentials were used.
+  Next T2 unit: either promote V2254 as the next rollback baseline after an
+  explicit baseline decision, or continue the remaining test-script cleanup if
+  promotion is deferred.
 - After V2254: the T2 downgrade trigger was recorded. V2253 closed the active
   T1 firmware_class boundary question, and another generic CPU-clock or
   same-boundary observer would only re-confirm established facts. V2254 is a
