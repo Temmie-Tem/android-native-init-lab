@@ -173,6 +173,9 @@ functions.
       — SHA/build-manifest helpers, command rendering, artifact diagnosis including
       post-FW_READY boot_wlan / firmware_class / ICNSS snapshots, current-window
       preflight classifiers, result classification, report rendering, residual state.
+- [x] `workspace/public/src/scripts/revalidation/build_native_init_boot_v2236_strict_wifi_connect.py`
+      — helper bridge flag deduplication/propagation, V2230 wrapper argument
+      rewrites, strict-connect report rendering.
 - [ ] (append more as discovered: v2231+ analyzers.)
 
 ## Progress log
@@ -369,4 +372,7 @@ functions.
   is_current_window_a90_absent_preflight,
   is_current_window_collector_busy_preflight, classify, render_report,
   residual_state — 9 cases — green.
+- 2026-06-13 — `build_native_init_boot_v2236_strict_wifi_connect.py` —
+  with_bridge_flag, configure_helper_flags via configure_base,
+  configure_base, render_report — 3 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
