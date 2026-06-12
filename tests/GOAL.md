@@ -131,7 +131,11 @@ functions.
       — cmdv1 output cleanup, event-state parsing, event-name mapping,
       trace-argument parsing, trace-line parsing/group inference, hit summary,
       residual state, StepResult.
-- [ ] (append more as discovered: v2222+ analyzers.)
+- [x] `workspace/public/src/scripts/revalidation/native_kernel_a90_boot_window_preflight_v2222.py`
+      — JSON extraction, protocol rc parsing, regex value extraction,
+      helper inventory parsing, a90ctl command construction, contract
+      rendering, residual state, StepResult.
+- [ ] (append more as discovered: v2223+ analyzers.)
 
 ## Progress log
 
@@ -273,4 +277,8 @@ functions.
   parse_trace_lines, summarize_hits, residual_state, StepResult.ok,
   is_kernel_va — 10 cases — green. Also fixed `KV_RE` to parse unquoted
   trace args such as `svc=69` and `rc=-11`, matching tracefs output.
+- 2026-06-13 — `native_kernel_a90_boot_window_preflight_v2222.py` —
+  parse_json_object, parse_protocol_rc, grep_value, parse_helper_inventory,
+  a90ctl_command, build_contract, residual_state, StepResult.ok —
+  9 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
