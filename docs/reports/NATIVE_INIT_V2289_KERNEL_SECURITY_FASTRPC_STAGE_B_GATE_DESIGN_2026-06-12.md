@@ -77,6 +77,13 @@ Implementation requirement if B1 is selected:
 
 B2 is the first step that enters the UAF-adjacent command families from V2288.
 
+Diagnosability correction:
+
+- The stock config has `CONFIG_SLUB_DEBUG=y`, but `CONFIG_SLUB_DEBUG_ON` is not set.
+- `CONFIG_KASAN` and `CONFIG_PAGE_POISONING` are not set.
+- Therefore a naive crash-only B2 negative is low-information: `b2-returned-no-crash` means "not detected in this runtime configuration", not "not vulnerable".
+- A positive B2 result still matters (`kernel-warning`, `panic`, or reboot), but a negative result is inconclusive unless a later diagnostic boot enables relevant allocator poisoning/debugging.
+
 Allowed objective:
 
 - **Crash-only / no-escalation classification**: return value, hang, kernel warning, panic, or no visible effect from one approved attempt.
@@ -212,7 +219,7 @@ Every abort path ends the unit. No second attempt in the same iteration.
 | `b2-not-run` | gate not approved | stop |
 | `b2-preflight-fail` | safety precondition failed | stop and report |
 | `b2-invalid-helper-or-scope` | helper or plan violates constraints | stop and redesign |
-| `b2-returned-no-crash` | one shot returned without visible kernel fault | report; no retry |
+| `b2-returned-no-crash` | one shot returned without visible kernel fault | report as inconclusive under stock config; no retry |
 | `b2-hung-cancelled` | command hung and was cancelled | report; no retry |
 | `b2-kernel-warning` | warning/oops but device alive | collect logs; stop |
 | `b2-panic-reboot` | kernel panic/reboot observed | collect pstore; rollback if needed; stop |
