@@ -119,7 +119,11 @@ functions.
       — perf-regs codeword stdout parsing, address/symbol helpers,
       stock raw/meta reads, generated slide discovery, codeword match
       analysis, probe metrics, report rendering.
-- [ ] (append more as discovered: v2217+ analyzers.)
+- [x] `workspace/public/src/scripts/revalidation/a90_kernel_v2217_exact_slide_resymbolization_audit.py`
+      — exact slide extraction, System.map/raw helpers, instruction
+      classification, function ranges, callsite maps, live register
+      resymbolization, ROPP decode audit, report rendering.
+- [ ] (append more as discovered: v2218+ analyzers.)
 
 ## Progress log
 
@@ -243,4 +247,11 @@ functions.
   load_synthetic_base, read_stock_u32, candidate_slides,
   codeword_generated_slides, codeword_match_analysis, analyze_probe,
   render_report — 8 cases — green.
+- 2026-06-13 — `a90_kernel_v2217_exact_slide_resymbolization_audit.py` —
+  parse_int, hex64, hex_signed, extract_exact_slide, parse_system_map,
+  build_symbol_index, nearest_symbol, load_kernel_raw, load_synthetic_base,
+  read_u32, is_bl, decode_bl_target, decode_insn_kind,
+  build_function_ranges, function_lookup, build_callsite_map,
+  resymbolize_live_regs, ropp_decode_attempt, render_report —
+  7 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
