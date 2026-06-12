@@ -238,6 +238,10 @@
 #define A90_WIFI_TEST_BOOT_QCACLD_FIRMWARE_CLASS_FALLBACK_FEEDER 0
 #endif
 
+#ifndef A90_WIFI_TEST_BOOT_QCACLD_FWCLASS_BOUNDARY_STACK_SAMPLER
+#define A90_WIFI_TEST_BOOT_QCACLD_FWCLASS_BOUNDARY_STACK_SAMPLER 0
+#endif
+
 #ifndef A90_WIFI_TEST_BOOT_SERVICE_OBJECT_POST_FW_READY_FWCLASS_BRIDGE
 #define A90_WIFI_TEST_BOOT_SERVICE_OBJECT_POST_FW_READY_FWCLASS_BRIDGE 0
 #endif
@@ -314,6 +318,8 @@
 #define EXECNS_VERSION "a90_android_execns_probe v429"
 #elif A90_WIFI_TEST_BOOT_TAIL_PERF_REGS_CODEWORD_SAMPLER
 #define EXECNS_VERSION "a90_android_execns_probe v428"
+#elif A90_WIFI_TEST_BOOT_QCACLD_FWCLASS_BOUNDARY_STACK_SAMPLER && A90_WIFI_TEST_BOOT_QCACLD_FIRMWARE_CLASS_FALLBACK_FEEDER && A90_WIFI_TEST_BOOT_FIRMWARE_CLASS_FALLBACK_SAMPLER && A90_WIFI_TEST_BOOT_ICNSS_REGISTER_PROBE_STACK_SAMPLER
+#define EXECNS_VERSION "a90_android_execns_probe v430"
 #elif A90_WIFI_TEST_BOOT_QCACLD_FIRMWARE_CLASS_FALLBACK_FEEDER && A90_WIFI_TEST_BOOT_FIRMWARE_CLASS_FALLBACK_SAMPLER && A90_WIFI_TEST_BOOT_ICNSS_REGISTER_PROBE_STACK_SAMPLER && A90_WIFI_TEST_BOOT_POST_FW_READY_BOOT_WLAN_TRIGGER && A90_WIFI_TEST_BOOT_ICNSS_STATS_EVENT_SUMMARY && A90_WIFI_TEST_BOOT_ICNSS_STATS_NUMERIC_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_INDICATION_LABEL_FIX && A90_WIFI_TEST_BOOT_TFTP_SHARED_SERVER_INFO_TMPFS && !A90_WIFI_TEST_BOOT_ANDROID_RMT_STORAGE_IDENTITY && !A90_WIFI_TEST_BOOT_ANDROID_TFTP_SERVER_IDENTITY && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_LEAF_PRECREATE && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_PARENT_TRAVERSE_PARITY && A90_WIFI_TEST_BOOT_TFTP_PROCESS_NAMESPACE_AUDIT && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_AUTODIR_PARITY && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_VENDOR_RFS_PERMS && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_TMPFS && A90_WIFI_TEST_BOOT_ICNSS_QCACLD_POST_BDF_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_LATE_MSG21_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
 #define EXECNS_VERSION "a90_android_execns_probe v427"
 #elif A90_WIFI_TEST_BOOT_FIRMWARE_CLASS_FALLBACK_SAMPLER && A90_WIFI_TEST_BOOT_ICNSS_REGISTER_PROBE_STACK_SAMPLER && A90_WIFI_TEST_BOOT_POST_FW_READY_BOOT_WLAN_TRIGGER && A90_WIFI_TEST_BOOT_ICNSS_STATS_EVENT_SUMMARY && A90_WIFI_TEST_BOOT_ICNSS_STATS_NUMERIC_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_INDICATION_LABEL_FIX && A90_WIFI_TEST_BOOT_TFTP_SHARED_SERVER_INFO_TMPFS && !A90_WIFI_TEST_BOOT_ANDROID_RMT_STORAGE_IDENTITY && !A90_WIFI_TEST_BOOT_ANDROID_TFTP_SERVER_IDENTITY && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_LEAF_PRECREATE && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_PARENT_TRAVERSE_PARITY && A90_WIFI_TEST_BOOT_TFTP_PROCESS_NAMESPACE_AUDIT && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_AUTODIR_PARITY && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_VENDOR_RFS_PERMS && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_TMPFS && A90_WIFI_TEST_BOOT_ICNSS_QCACLD_POST_BDF_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_LATE_MSG21_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
@@ -56295,6 +56301,67 @@ static int a90_qcacld_feed_one_fw_fallback(struct buffer *stdout_buf,
     return 0;
 }
 
+static int append_qcacld_fwclass_boundary_stack_sampler(
+    struct buffer *stdout_buf,
+    const char *phase,
+    int request_index,
+    const struct a90_qcacld_fw_fallback_request *request,
+    const char *point) {
+#if A90_WIFI_TEST_BOOT_QCACLD_FWCLASS_BOUNDARY_STACK_SAMPLER && A90_WIFI_TEST_BOOT_ICNSS_REGISTER_PROBE_STACK_SAMPLER
+    static const char * const prefix = "qcacld_fwclass_boundary_stack_sampler";
+    char stack_phase[128];
+
+    if (snprintf(stack_phase,
+                 sizeof(stack_phase),
+                 "fwclass_req%d_%s",
+                 request_index,
+                 point) >= (int)sizeof(stack_phase)) {
+        return append_format(stdout_buf,
+                             "%s.%s.request_%d.%s.error=phase-too-long\n",
+                             prefix, phase, request_index, point);
+    }
+    if (append_format(stdout_buf,
+                      "%s.%s.request_%d.%s.begin=1\n"
+                      "%s.%s.request_%d.%s.label=%s\n"
+                      "%s.%s.request_%d.%s.firmware=%s\n"
+                      "%s.%s.request_%d.%s.sysfs_name=%s\n"
+                      "%s.%s.request_%d.%s.stack_phase=%s\n"
+                      "%s.%s.request_%d.%s.mode=read-only-boundary-proc-stack-snapshot\n"
+                      "%s.%s.request_%d.%s.no_sysfs_write=1\n"
+                      "%s.%s.request_%d.%s.no_tracefs_write=1\n"
+                      "%s.%s.request_%d.%s.no_wifi_hal=1\n"
+                      "%s.%s.request_%d.%s.scan_connect=0\n"
+                      "%s.%s.request_%d.%s.credentials=0\n"
+                      "%s.%s.request_%d.%s.dhcp_routing=0\n"
+                      "%s.%s.request_%d.%s.external_ping=0\n",
+                      prefix, phase, request_index, point,
+                      prefix, phase, request_index, point, request->label,
+                      prefix, phase, request_index, point, request->firmware_name,
+                      prefix, phase, request_index, point, request->sysfs_name,
+                      prefix, phase, request_index, point, stack_phase,
+                      prefix, phase, request_index, point,
+                      prefix, phase, request_index, point,
+                      prefix, phase, request_index, point,
+                      prefix, phase, request_index, point,
+                      prefix, phase, request_index, point,
+                      prefix, phase, request_index, point,
+                      prefix, phase, request_index, point,
+                      prefix, phase, request_index, point) < 0 ||
+        append_icnss_register_probe_stack_sampler(stdout_buf, stack_phase) < 0 ||
+        append_format(stdout_buf,
+                      "%s.%s.request_%d.%s.end=1\n",
+                      prefix, phase, request_index, point) < 0) {
+        return -1;
+    }
+#endif
+    (void)stdout_buf;
+    (void)phase;
+    (void)request_index;
+    (void)request;
+    (void)point;
+    return 0;
+}
+
 static int append_qcacld_firmware_class_fallback_feeder(struct buffer *stdout_buf,
                                                         const char *phase,
                                                         long wait_ms) {
@@ -56371,11 +56438,27 @@ static int append_qcacld_firmware_class_fallback_feeder(struct buffer *stdout_bu
                 seen[request_index] = true;
                 seen_count++;
             }
+            if (append_qcacld_fwclass_boundary_stack_sampler(
+                    stdout_buf,
+                    phase,
+                    (int)request_index,
+                    &a90_qcacld_fw_requests[request_index],
+                    "before_feed") < 0) {
+                return -1;
+            }
             if (a90_qcacld_feed_one_fw_fallback(stdout_buf,
                                                 phase,
                                                 (int)request_index,
                                                 &a90_qcacld_fw_requests[request_index],
                                                 &request_fed) < 0) {
+                return -1;
+            }
+            if (append_qcacld_fwclass_boundary_stack_sampler(
+                    stdout_buf,
+                    phase,
+                    (int)request_index,
+                    &a90_qcacld_fw_requests[request_index],
+                    "after_feed") < 0) {
                 return -1;
             }
             if (request_fed) {

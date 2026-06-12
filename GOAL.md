@@ -77,6 +77,19 @@ Read at the START of every iteration (then apply the tier policy above):
 ## Sub-goal seeds (optional; the loop may pick others from state)
 
 **T1 — kernel observation (try first):**
+- After V2252: source/build-only deterministic firmware_class boundary stack
+  observer exists as `boot_linux_v2252_fwclass_boundary_stack.img`
+  (`A90 Linux init 0.9.271`, helper `a90_android_execns_probe v430`,
+  helper SHA256 `7f31ff603a486cf42a026fdfe43e6f9de03a3d6e3883aa2a25bd54b254c88c94`,
+  boot SHA256 `4ce33e0c1b2b542d9b5d043a3c120d74f657208c803860ad228957162c8634d4`).
+  It keeps the V2237 route and adds
+  `A90_WIFI_TEST_BOOT_QCACLD_FWCLASS_BOUNDARY_STACK_SAMPLER=1`, emitting
+  `qcacld_fwclass_boundary_stack_sampler.*.before_feed/after_feed` plus
+  `icnss_register_probe_stack_sampler.fwclass_reqN_before_feed/after_feed`
+  around the three QCACLD firmware_class fallback requests. Next live unit:
+  flash V2252 rollbackably as V2253, collect helper result, classify whether
+  the V2246 whitelist stack appears before or after `WCNSS_qcom_cfg.ini`,
+  `bdwlan.bin`, and `regdb.bin` feed edges, then roll back and selftest.
 - After V2251: the V2250 generic CPU-clock zero-hit result is now classified as
   `sampler_miss_not_function_absence`. The same V2250 helper result contains a
   deterministic read-only `/proc/*/stack` target sample in `kworker/u16:1` with
