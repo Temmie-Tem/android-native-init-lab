@@ -277,6 +277,10 @@ functions.
 - [x] `workspace/public/src/scripts/revalidation/a90_transport.py`
       — phase timers, residual state, bridge command rendering, serial recovery
       classification, NCM readiness/repair compaction, transport selection.
+- [x] `workspace/public/src/scripts/revalidation/a90_ncm_transport.py`
+      — key/value parsing, host NCM candidate selection/snapshot parsing,
+      NetworkManager link-local repair decisions, secret scanning, upload archive
+      validation.
 - [ ] (append more as discovered: v2231+ analyzers.)
 
 ## Progress log
@@ -579,4 +583,10 @@ functions.
   protocol_result_to_command_result, serial recovery helpers, parse_key_values,
   summarize_host_ncm, auto_repair_enabled, maybe_repair_host_ncm,
   compact_ncm_repair, select_transport — 13 cases — green.
+- 2026-06-13 — `a90_ncm_transport.py` — parse_key_values, sha256_file,
+  env_flag, scoped_ipv6_bind_tuple, write_compact_step,
+  is_a90_ncm_netdev, host_ncm_candidates, safe_host_ifname,
+  host_netdev_snapshot, nmcli_connection_for_device,
+  host_linklocal_repair_nmcli, scan_secret_*,
+  validate_uploaded_archive — 11 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
