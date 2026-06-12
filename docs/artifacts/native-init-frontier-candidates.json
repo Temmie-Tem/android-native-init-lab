@@ -2,67 +2,67 @@
   "candidates": [
     {
       "expected_discriminator": {
-        "inconclusive": "The live run fails to collect both sampler logs, rollback/selftest fails, or the same-boot codeword slide is not acceptable under the V2276 bounded rule.",
-        "negative": "No classifiable execute_start stack/callsite intersects the firmware_class/qcacld-HDD target stack in the captured post-FWREADY window.",
-        "positive": "At least one execute_start stack/callsite intersects the V2253 firmware_class/qcacld-HDD stack or a source-backed wrapper that reaches it."
+        "inconclusive": "The new oracle still overflows before covering the target window, codeword slide is not acceptable, or rollback/selftest fails.",
+        "negative": "The expanded/filtered capture covers the post-FWREADY execute_start window without overflow hiding target candidates and still reports zero target hits.",
+        "positive": "A higher-coverage or filtered execute_start capture finds at least one firmware_class/qcacld-HDD target function or stack/callsite hit."
       },
-      "id": "t1-workqueue-execute-start-stack-live",
+      "id": "t1-workqueue-execute-start-coverage-or-filter-oracle",
       "next_runner_contract": [
-        "Before live work, reread GOAL.md and reconfirm rollback image plus recovery/TWRP availability per AGENTS.md.",
-        "Flash only workspace/private/inputs/boot_images/boot_linux_v2277_workqueue_exec_stack.img through workspace/public/src/scripts/revalidation/native_init_flash.py.",
-        "After boot, run serial-bridge health checks: a90ctl version, status, and selftest.",
-        "Collect helper result plus /cache/native-init-v2277-workqueue-exec-stack.log and /cache/native-init-v2277-tail-perf-regs-codeword.log as private artifacts.",
-        "Rollback to the selected baseline, then verify version/status/selftest fail=0 before analysis.",
-        "Classify workqueue execute_start stacks/callsites against the same-boot codeword evidence using the V2276 bounded UAO-patch-aware rule.",
-        "Do not run Wi-Fi scan/connect/DHCP/ping; this oracle only needs the boot_wlan route already embedded in the helper.",
-        "Publish only redacted metadata and target-hit summaries; keep raw stack/IP/log samples private."
+        "Do not rerun workspace/private/inputs/boot_images/boot_linux_v2277_workqueue_exec_stack.img for the same question.",
+        "Build a new V2279 source artifact that changes coverage: larger sample map/print limit, bounded full-print transfer, or source-backed in-BPF/userland filtering for target-relevant execute_start records.",
+        "Keep the same V2276 same-boot codeword acceptance policy and collect a paired codeword log.",
+        "If live validation is needed after the build, use only native_init_flash.py, rollback to V2237 or the selected baseline, and verify selftest fail=0.",
+        "Do not run Wi-Fi scan/connect/DHCP/ping; the embedded boot_wlan path is sufficient for this oracle.",
+        "Publish only redacted counts, target-hit summaries, and coverage metrics; keep raw stack/IP logs private."
       ],
       "safe_actionable_now": true,
-      "source_build": {
-        "boot_image": "workspace/private/inputs/boot_images/boot_linux_v2277_workqueue_exec_stack.img",
-        "boot_sha256": "313a39b603296810dc44d8132c2c7db6c8fc790eb168a9ef9d94b20225baa18f",
-        "codeword_helper": "/bin/a90_bpf_perf_regs_codeword_sample_ring",
-        "codeword_helper_sha256": "3a16efc217eafeacbcc95a5e6005d0abce02e89ab52ed537df1fc2b193ca3dd7",
-        "cycle": "V2277",
-        "decision": "v2277-workqueue-exec-stack-source-build-pass",
-        "helper_marker": "a90_android_execns_probe v433",
-        "helper_sha256": "9772717fcf22bbdaec47348362107050899c6e026dbf4d670ebe693726c24e64",
-        "init_build": "v2277-workqueue-exec-stack",
-        "init_version": "0.9.275",
-        "manifest": "workspace/private/builds/native-init/v2277-workqueue-exec-stack/manifest.json",
-        "report": "docs/reports/NATIVE_INIT_V2277_WORKQUEUE_EXEC_STACK_SOURCE_BUILD_2026-06-12.md",
-        "workqueue_stack_helper": "/bin/a90_bpf_workqueue_exec_stack_sample_ring",
-        "workqueue_stack_helper_sha256": "978e3406d4223d6f726d02ee2be041e2d7aa1f8934b0a4f21b889cd5c6e7d5b5"
-      },
       "status": "ready_for_next_v_iteration",
-      "summary": "V2277 built a focused workqueue execute_start stack/callsite oracle image; the next substantive T1 unit is V2278 rollbackable live validation and same-boot stack/callsite classification.",
+      "summary": "V2278 proved the V2277 live route and rollback, but the target-negative result only covers the printed workqueue window because 5213 execute_start events overflowed. The next unit should build a higher-coverage or filtered execute_start oracle, not rerun V2277.",
       "track": "T1",
+      "v2278_result": {
+        "codeword_acceptance_reason": "exact_pc_lr_codeword_match",
+        "codeword_slide_hex": "0x124ef4",
+        "cycle": "V2278",
+        "decision": "v2278-workqueue-exec-stack-live-pass-workqueue-exec-stack-no-target-hit-partial-coverage",
+        "function_target_hit_count_printed": 0,
+        "private_run_dir": "workspace/private/runs/kernel/v2278-workqueue-exec-stack-live-20260612-181524",
+        "report": "docs/reports/NATIVE_INIT_V2278_WORKQUEUE_EXEC_STACK_LIVE_2026-06-12.md",
+        "rollback_selftest_fail0": true,
+        "rollback_version": "A90 Linux init 0.9.268 (v2237-supplicant-terminate-poll)",
+        "stack_target_hit_count_printed": 0,
+        "target_hit_count_printed": 0,
+        "test_image": "workspace/private/inputs/boot_images/boot_linux_v2277_workqueue_exec_stack.img",
+        "test_version": "A90 Linux init 0.9.275 (v2277-workqueue-exec-stack)",
+        "workqueue_overflow": 5213,
+        "workqueue_printed": 512,
+        "workqueue_stored": 1024,
+        "workqueue_total": 6237
+      },
       "why_independent": [
-        "It does not rerun generic CPU-clock sampling.",
-        "It does not repeat the completed V2274/V2275 work->func oracle.",
-        "It observes worker execution stack/callsite context at workqueue_execute_start, which can link or exclude the V2253 firmware_class/qcacld-HDD stack even when work->func itself has no target hit."
+        "It does not repeat the V2277 image or the V2278 printed-window capture.",
+        "It addresses the actual V2278 limitation: 512 printed samples versus 6237 total events and 5213 overflowed events.",
+        "It remains on the same T1 question but changes the observable coverage boundary, so a target hit cannot be hidden behind print/storage overflow."
       ]
     }
   ],
   "checks": {
     "anti_churn_guard_respected": true,
-    "v2276_codeword_uao_patch_aware_accepted": true,
-    "v2276_workqueue_target_hit_count_zero": true,
-    "v2277_boot_image_built": true,
-    "v2277_helper_marker_embedded": true,
-    "v2277_live_validation_pending": true,
-    "v2277_source_build_complete": true,
-    "workqueue_execute_start_has_function_field": true,
-    "workqueue_trace_source_exists": true
+    "next_t1_requires_coverage_or_filter_change": true,
+    "same_v2277_rerun_forbidden": true,
+    "v2278_codeword_exact_slide_accepted": true,
+    "v2278_live_validation_complete": true,
+    "v2278_printed_window_target_hit_count_zero": true,
+    "v2278_rollback_selftest_fail0": true,
+    "v2278_workqueue_overflow_present": true
   },
-  "decision": "v2277-workqueue-exec-stack-built-next-live-ready",
-  "generated_at": "2026-06-12T09:05:31.972254+00:00",
+  "decision": "v2278-workqueue-exec-stack-printed-window-negative-next-coverage-oracle-ready",
+  "generated_at": "2026-06-12T09:26:00.305317+00:00",
   "source_paths": {
     "goal": "GOAL.md",
     "todo": "docs/plans/NATIVE_INIT_CURRENT_TODO_2026-06-08.md",
-    "v2276_report": "docs/reports/NATIVE_INIT_V2276_CODEWORD_MISMATCH_POSTPROCESS_2026-06-12.md",
-    "v2277_build_script": "workspace/public/src/scripts/revalidation/build_native_init_boot_v2277_workqueue_exec_stack.py",
     "v2277_report": "docs/reports/NATIVE_INIT_V2277_WORKQUEUE_EXEC_STACK_SOURCE_BUILD_2026-06-12.md",
+    "v2278_report": "docs/reports/NATIVE_INIT_V2278_WORKQUEUE_EXEC_STACK_LIVE_2026-06-12.md",
+    "v2278_runner": "workspace/public/src/scripts/revalidation/native_kernel_workqueue_exec_stack_handoff_v2278.py",
     "workqueue_stack_helper_source": "workspace/public/src/native-init/helpers/a90_bpf_workqueue_exec_stack_sample_ring.c",
     "workqueue_trace": "tmp/wifi/v766-icnss-qcacld-patch-apply-build/source/include/trace/events/workqueue.h"
   }

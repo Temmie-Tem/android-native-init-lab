@@ -94,6 +94,21 @@ per-item metadata/inventory/cleanup sweeps that each succeed and justify the nex
 ## Sub-goal seeds (optional; the loop may pick others from state)
 
 **T1 — kernel observation (try first):**
+- After V2278 live: the V2277 workqueue execute-start stack/codeword oracle
+  ran rollbackably. V2277 booted as `A90 Linux init 0.9.275
+  (v2277-workqueue-exec-stack)`, reached `wlan0-ready`, collected both sampler
+  logs, and rolled back to V2237 with `version`/`status`/`selftest fail=0`.
+  The same-boot codeword slide was exact (`0x124ef4`,
+  `accepted=True`, reason `exact_pc_lr_codeword_match`). The workqueue stack
+  sampler completed (`result=v2277-workqueue-exec-stack-sample-ring-complete`)
+  with `total=6237`, `stored=1024`, `printed=512`, `overflow=5213`. No printed
+  execute-start `function` or printed stack frame intersected the V2246
+  firmware_class/qcacld-HDD target list (`target_hit_count=0`), but this is
+  only a **printed-window negative**, not a full path-negative, because most
+  events overflowed/unprinted. Do not rerun the same V2277 image. Next bounded
+  T1 unit: build a higher-coverage or filtered workqueue execute-start oracle
+  (e.g. larger ring/print capacity or source-backed early filtering) so the
+  firmware_class/qcacld-HDD worker window is not lost to overflow.
 - After V2277 source/build-only: the focused workqueue
   `execute_start` stack/callsite oracle is packaged as
   `boot_linux_v2277_workqueue_exec_stack.img` (`A90 Linux init 0.9.275`,
