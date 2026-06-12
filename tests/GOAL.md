@@ -304,6 +304,10 @@ functions.
       — repo path resolution, host metadata capture, cmdv1 capture wrapping,
       manifest truncation, cmdv1 text cleanup, kernel config parsing,
       markdown rendering, config fetch glue.
+- [x] `workspace/public/src/scripts/revalidation/a90_ncm_host_preflight.py`
+      — IPv4 validation, command/service wrappers, IPv4 parsing,
+      interface classification, template rendering/writing, decision branches,
+      summary/manifest rendering.
 - [ ] (append more as discovered: v2231+ analyzers.)
 
 ## Progress log
@@ -637,4 +641,8 @@ functions.
   collect_host_metadata, run_capture, capture_to_manifest, strip_cmdv1_text,
   parse_kernel_config, config_state/config_enabled, summarize_options,
   markdown_table, fetch_kernel_config — 10 cases — green.
+- 2026-06-13 — `a90_ncm_host_preflight.py` — valid_ipv4,
+  run_text, read_text, service_state, ipv4_addrs, classify_interface,
+  render_templates, write_templates, decide, render_summary, build_manifest —
+  9 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
