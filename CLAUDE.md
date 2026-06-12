@@ -9,13 +9,13 @@ For full history, read `docs/reports/`, `docs/overview/PROJECT_STATUS.md`, and
 - Device: Samsung Galaxy A90 5G `SM-A908N`, build `A908NKSU5EWA3`.
 - Kernel: Samsung stock Android Linux `4.14.190`.
 - Runtime goal: custom static `/init` as PID 1 on the stock Android kernel.
-- Current verified boot/init baseline: `A90 Linux init 0.9.272 (v2254-wifi-detail-surface)`.
-- Current boot image: `workspace/private/inputs/boot_images/boot_linux_v2254_wifi_detail_surface.img`.
-- Rollback baseline: `workspace/private/inputs/boot_images/boot_linux_v2237_supplicant_terminate_poll.img`.
+- **Pre-pivot WLAN checkpoint (RESIDENT, proven): `A90 Linux init 0.9.268 (v2237-supplicant-terminate-poll)`** — currently booted, `version/status/selftest` clean, both-band connect→DHCP→ping validated in lineage. Image `workspace/private/inputs/boot_images/boot_linux_v2237_supplicant_terminate_poll.img`, SHA256 `b2ea2d26d160b7702ce7d4438b84367788eea26c6a5bbe4ed93f3d270292ac7f`. **This is the known-good rollback/restore point for the kernel-research phase.**
+- Latest promoted artifact (most complete, NOT resident): `A90 Linux init 0.9.272 (v2254-wifi-detail-surface)`, image `workspace/private/inputs/boot_images/boot_linux_v2254_wifi_detail_surface.img` — adds read-only Wi-Fi detail surface on top of v2237; its connect/DHCP/ping was not re-validated on-image and Wi-Fi creds are currently absent, so v2237 (not v2254) is the safety checkpoint.
 - Known-good fallback: `workspace/private/inputs/boot_images/boot_linux_v48.img`.
 - Baseline lineage (since the workspace reorg): `v726-wifi-lifecycle` → `v2169-transport-contract` → `v2174-wifi-urandom-connect` → `v2178-wifi-profile-autoconnect` → `v2182-hud-menu-cleanup` → `v2189-security-p0-stage-fix` → `v2232-service-object-fwclass-bridge` → `v2236-strict-wifi-connect` → `v2237-supplicant-terminate-poll` → `v2254-wifi-detail-surface`.
 - Current Wi-Fi status: native `wlan0` connects end-to-end (associate → DHCP → external ping) on both bands, and Wi-Fi is now an on-device native-init command surface (`wifi status` / `wifi scan` / `wifi connect` / `wifi dhcp` / `wifi ping` / `wifi cleanup`; see `docs/operations/NATIVE_INIT_WIFI_LIFECYCLE_COMMANDS.md`). V2236 requires `wpa_state=COMPLETED` to reject stale carrier, V2237 replaces the blind post-`TERMINATE` sleep with bounded supplicant exit polling plus SIGKILL escalation, and V2254 adds read-only route/default-DNS detail fields to `wifi status` and `screenapp wifi-status`. Long idle/hold data-path stability remains separate follow-up evidence, not a blocker for the current baseline.
 - Next promoted baseline should use the next global run/build identity, bump native init beyond `0.9.272`, and use a `vNNNN-purpose` build tag.
+- **Phase pivot (2026-06-12):** the WLAN native-init and kernel-observation tracks are **closed at the v2237 checkpoint**. Kernel-observation reached exact KASLR slide (V2216 codeword-exact); ROPP full-stack symbolization needs the RKP-protected per-boot key = out of read-only scope. Next phase = **kernel security research** (recon-first: attack-surface + patch-level n-day feasibility on stock `4.14.190`), tracked separately. The autonomous WLAN/observation loop (`GOAL.md`/`AGENTS.md`) is retired for that phase. See the checkpoint/closure report in `docs/reports/`.
 
 ## Read First
 
