@@ -290,6 +290,9 @@ functions.
 - [x] `workspace/public/src/harness/a90harness/device.py`
       — direct/broker backend validation, metadata, command record generation,
       broker payload construction, exception capture, exclusive lock reentrancy.
+- [x] `workspace/public/src/scripts/revalidation/a90_serial_lock.py`
+      — explicit/default lock path selection, env timeout parsing, metadata
+      write/clear behavior, busy timeout handling, exit no-op safety.
 - [ ] (append more as discovered: v2231+ analyzers.)
 
 ## Progress log
@@ -610,4 +613,7 @@ functions.
 - 2026-06-13 — `a90harness/device.py` — DeviceClient init validation,
   metadata, direct backend delegation, broker payload/response handling,
   exception-to-CommandRecord capture, exclusive context reentrancy — 8 cases — green.
+- 2026-06-13 — `a90_serial_lock.py` — lock_path, default_timeout,
+  SerialBridgeLock metadata write/clear, busy timeout close behavior,
+  never-entered __exit__ no-op — 5 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
