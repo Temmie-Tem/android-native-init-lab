@@ -59,7 +59,7 @@ functions.
       — token/offset decode + layout-validation helpers (pure parts only).
 - [x] `workspace/public/src/scripts/revalidation/a90_kernel_stack_symbolize.py`
       — slide / scoring helpers (pure parts only).
-- [ ] `workspace/public/src/scripts/revalidation/native_kernel_a90_uprobe_trace_postprocess_v2221.py`
+- [x] `workspace/public/src/scripts/revalidation/native_kernel_a90_uprobe_trace_postprocess_v2221.py`
       — parse_stdout_json, load_json.
 - [ ] `workspace/public/src/harness/a90harness/schema.py` — pure validators (discover).
 - [ ] (append more as discovered: a90harness gate.py / evidence.py / failure.py,
@@ -92,4 +92,6 @@ functions.
 - 2026-06-13 — `a90_kernel_stack_symbolize.py` — parse_int,
   parse_system_map, parse_stack_log, parse_timer_log, nearest_symbol,
   build_symbol_index, candidate_slides, score_slide — 7 cases — green.
+- 2026-06-13 — `native_kernel_a90_uprobe_trace_postprocess_v2221.py` —
+  parse_stdout_json, load_json — 8 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
