@@ -71,9 +71,11 @@ functions.
       observer failure classification and mixed-soak summary.
 - [x] `workspace/public/src/harness/a90harness/module.py` — StepResult,
       ModuleOutcome, TestModule metadata/defaults/artifacts, run_step.
-- [ ] (append more as discovered: a90harness observer.py / runner.py /
-      bundle.py, and v2203 / v2204 / v2205 / v2207 / v2208 / v2209 /
-      v2210 analyzers.)
+- [x] `workspace/public/src/harness/a90harness/observer.py` —
+      ObserverSample/Summary serialization, text_excerpt, observe_cycle,
+      run_observer stop paths.
+- [ ] (append more as discovered: a90harness runner.py / bundle.py, and
+      v2203 / v2204 / v2205 / v2207 / v2208 / v2209 / v2210 analyzers.)
 
 ## Progress log
 
@@ -118,4 +120,7 @@ functions.
 - 2026-06-13 — `a90harness/module.py` — StepResult, ModuleOutcome,
   TestModule metadata/defaults/artifacts, run_step duration and exception
   paths — 9 cases — green.
+- 2026-06-13 — `a90harness/observer.py` — ObserverSample, ObserverSummary,
+  text_excerpt, observe_cycle default-command sampling, run_observer
+  max-cycles/stop-event summaries — 7 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
