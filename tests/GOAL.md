@@ -79,8 +79,10 @@ functions.
 - [x] `workspace/public/src/harness/a90harness/bundle.py` —
       BundleFile serialization, bundle file inventory, README rendering,
       finalize_bundle manifest/index writes.
-- [ ] (append more as discovered: v2203 / v2204 / v2205 / v2207 /
-      v2208 / v2209 / v2210 analyzers.)
+- [x] `workspace/public/src/scripts/revalidation/a90_kernel_v2203_timer_row_source_matcher.py`
+      — timer row signature/scoring, source xref extraction, minimal analyze fixture.
+- [ ] (append more as discovered: v2204 / v2205 / v2207 / v2208 /
+      v2209 / v2210 analyzers.)
 
 ## Progress log
 
@@ -134,4 +136,8 @@ functions.
 - 2026-06-13 — `a90harness/bundle.py` — BundleFile, collect_bundle_files,
   render_bundle_readme, finalize_bundle manifest/summary/README/index writes,
   symlink rejection — 6 cases — green.
+- 2026-06-13 — `a90_kernel_v2203_timer_row_source_matcher.py` — parse_int,
+  row_signature, fast_extract_timer_xrefs, score_row_mapping,
+  candidate_source_roots, render_markdown, analyze minimal source-backed
+  fixture — 8 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
