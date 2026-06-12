@@ -1,6 +1,59 @@
 {
   "consolidation_signals": {
     "active_live_phase_residual_backlog_closed": true,
+    "direct_a90ctl_candidate_groups": [
+      {
+        "count": 1,
+        "group": "current_baseline_wifi_surface",
+        "impact_score": 90,
+        "names": [
+          "native_wifi_detail_surface_handoff_v2255.py"
+        ],
+        "reason": "current V2254 baseline live-surface validator",
+        "recommended_action": "migrate direct a90ctl command lists if this current-baseline runner is changed again"
+      },
+      {
+        "count": 6,
+        "group": "flash_capable_kernel_handoff_runners",
+        "impact_score": 80,
+        "names": [
+          "native_kernel_a90_boot_window_handoff_v2225.py",
+          "native_kernel_a90_boot_window_handoff_v2227.py",
+          "native_kernel_a90_post_bdf_hold_handoff_v2231.py",
+          "native_kernel_a90_service_object_fwclass_bridge_handoff_v2233.py",
+          "native_kernel_a90_service_object_visible_handoff_v2229.py",
+          "native_kernel_fwclass_boundary_stack_handoff_v2253.py"
+        ],
+        "reason": "rollbackable flash-capable historical kernel/WLAN observer",
+        "recommended_action": "migrate only if reviving or modifying this flash-capable observer family"
+      },
+      {
+        "count": 4,
+        "group": "live_readonly_kernel_catalog_runners",
+        "impact_score": 60,
+        "names": [
+          "native_kernel_a90_boot_window_preflight_v2222.py",
+          "native_kernel_a90_uprobe_trace_buffer_collector_v2219.py",
+          "native_kernel_static_tracepoint_object_chain_audit_v2238.py",
+          "native_kernel_wlan_tracepoint_catalog_v2218.py"
+        ],
+        "reason": "read-only live observer/catalog runner with direct a90ctl subprocess helper",
+        "recommended_action": "prefer shared transport serial helpers when next changing this observer"
+      },
+      {
+        "count": 4,
+        "group": "legacy_bpf_anchor_runners",
+        "impact_score": 40,
+        "names": [
+          "native_kernel_file_ops_anchor_v2204.py",
+          "native_kernel_timer_object_context_v2201.py",
+          "native_kernel_timer_object_histogram_v2202.py",
+          "native_kernel_timer_start_context_v2200.py"
+        ],
+        "reason": "older BPF/perf anchor runner retained for provenance",
+        "recommended_action": "review-only unless the old anchor runner is reactivated"
+      }
+    ],
     "direct_a90ctl_reference_count": 15,
     "direct_a90ctl_reference_names": [
       "native_kernel_a90_boot_window_handoff_v2225.py",
@@ -19,6 +72,16 @@
       "native_kernel_wlan_tracepoint_catalog_v2218.py",
       "native_wifi_detail_surface_handoff_v2255.py"
     ],
+    "direct_a90ctl_top_group": {
+      "count": 1,
+      "group": "current_baseline_wifi_surface",
+      "impact_score": 90,
+      "names": [
+        "native_wifi_detail_surface_handoff_v2255.py"
+      ],
+      "reason": "current V2254 baseline live-surface validator",
+      "recommended_action": "migrate direct a90ctl command lists if this current-baseline runner is changed again"
+    },
     "live_phase_timer_exempt_count": 2,
     "live_phase_timer_exempt_names": [
       "ncm_host_setup.py",
@@ -691,7 +754,7 @@
       "name": "a90ctl.py",
       "path": "workspace/public/src/scripts/revalidation/a90ctl.py",
       "reason": "cmdv1 operator/client entrypoint",
-      "repo_reference_count": 374,
+      "repo_reference_count": 376,
       "type": "file"
     },
     {
@@ -1286,7 +1349,7 @@
       "name": "inventory_revalidation_scripts.py",
       "path": "workspace/public/src/scripts/revalidation/inventory_revalidation_scripts.py",
       "reason": "operator utility or inventory/cleanup utility",
-      "repo_reference_count": 16,
+      "repo_reference_count": 17,
       "type": "file"
     },
     {
@@ -1371,7 +1434,7 @@
       "name": "native_kernel_a90_boot_window_handoff_v2225.py",
       "path": "workspace/public/src/scripts/revalidation/native_kernel_a90_boot_window_handoff_v2225.py",
       "reason": "kernel-observation runner or postprocessor",
-      "repo_reference_count": 4,
+      "repo_reference_count": 5,
       "type": "file"
     },
     {
@@ -1388,7 +1451,7 @@
       "name": "native_kernel_a90_boot_window_handoff_v2227.py",
       "path": "workspace/public/src/scripts/revalidation/native_kernel_a90_boot_window_handoff_v2227.py",
       "reason": "kernel-observation runner or postprocessor",
-      "repo_reference_count": 4,
+      "repo_reference_count": 5,
       "type": "file"
     },
     {
@@ -1422,7 +1485,7 @@
       "name": "native_kernel_a90_boot_window_preflight_v2222.py",
       "path": "workspace/public/src/scripts/revalidation/native_kernel_a90_boot_window_preflight_v2222.py",
       "reason": "kernel-observation runner or postprocessor",
-      "repo_reference_count": 11,
+      "repo_reference_count": 12,
       "type": "file"
     },
     {
@@ -1439,7 +1502,7 @@
       "name": "native_kernel_a90_post_bdf_hold_handoff_v2231.py",
       "path": "workspace/public/src/scripts/revalidation/native_kernel_a90_post_bdf_hold_handoff_v2231.py",
       "reason": "kernel-observation runner or postprocessor",
-      "repo_reference_count": 4,
+      "repo_reference_count": 5,
       "type": "file"
     },
     {
@@ -1456,7 +1519,7 @@
       "name": "native_kernel_a90_service_object_fwclass_bridge_handoff_v2233.py",
       "path": "workspace/public/src/scripts/revalidation/native_kernel_a90_service_object_fwclass_bridge_handoff_v2233.py",
       "reason": "kernel-observation runner or postprocessor",
-      "repo_reference_count": 4,
+      "repo_reference_count": 5,
       "type": "file"
     },
     {
@@ -1473,7 +1536,7 @@
       "name": "native_kernel_a90_service_object_visible_handoff_v2229.py",
       "path": "workspace/public/src/scripts/revalidation/native_kernel_a90_service_object_visible_handoff_v2229.py",
       "reason": "kernel-observation runner or postprocessor",
-      "repo_reference_count": 4,
+      "repo_reference_count": 5,
       "type": "file"
     },
     {
@@ -1490,7 +1553,7 @@
       "name": "native_kernel_a90_uprobe_trace_buffer_collector_v2219.py",
       "path": "workspace/public/src/scripts/revalidation/native_kernel_a90_uprobe_trace_buffer_collector_v2219.py",
       "reason": "kernel-observation runner or postprocessor",
-      "repo_reference_count": 6,
+      "repo_reference_count": 7,
       "type": "file"
     },
     {
@@ -1524,7 +1587,7 @@
       "name": "native_kernel_file_ops_anchor_v2204.py",
       "path": "workspace/public/src/scripts/revalidation/native_kernel_file_ops_anchor_v2204.py",
       "reason": "kernel-observation runner or postprocessor",
-      "repo_reference_count": 4,
+      "repo_reference_count": 5,
       "type": "file"
     },
     {
@@ -1558,7 +1621,7 @@
       "name": "native_kernel_fwclass_boundary_stack_handoff_v2253.py",
       "path": "workspace/public/src/scripts/revalidation/native_kernel_fwclass_boundary_stack_handoff_v2253.py",
       "reason": "kernel-observation runner or postprocessor",
-      "repo_reference_count": 4,
+      "repo_reference_count": 5,
       "type": "file"
     },
     {
@@ -1643,7 +1706,7 @@
       "name": "native_kernel_static_tracepoint_object_chain_audit_v2238.py",
       "path": "workspace/public/src/scripts/revalidation/native_kernel_static_tracepoint_object_chain_audit_v2238.py",
       "reason": "kernel-observation runner or postprocessor",
-      "repo_reference_count": 5,
+      "repo_reference_count": 6,
       "type": "file"
     },
     {
@@ -1660,7 +1723,7 @@
       "name": "native_kernel_timer_object_context_v2201.py",
       "path": "workspace/public/src/scripts/revalidation/native_kernel_timer_object_context_v2201.py",
       "reason": "kernel-observation runner or postprocessor",
-      "repo_reference_count": 5,
+      "repo_reference_count": 6,
       "type": "file"
     },
     {
@@ -1677,7 +1740,7 @@
       "name": "native_kernel_timer_object_histogram_v2202.py",
       "path": "workspace/public/src/scripts/revalidation/native_kernel_timer_object_histogram_v2202.py",
       "reason": "kernel-observation runner or postprocessor",
-      "repo_reference_count": 5,
+      "repo_reference_count": 6,
       "type": "file"
     },
     {
@@ -1694,7 +1757,7 @@
       "name": "native_kernel_timer_start_context_v2200.py",
       "path": "workspace/public/src/scripts/revalidation/native_kernel_timer_start_context_v2200.py",
       "reason": "kernel-observation runner or postprocessor",
-      "repo_reference_count": 5,
+      "repo_reference_count": 6,
       "type": "file"
     },
     {
@@ -1711,7 +1774,7 @@
       "name": "native_kernel_wlan_tracepoint_catalog_v2218.py",
       "path": "workspace/public/src/scripts/revalidation/native_kernel_wlan_tracepoint_catalog_v2218.py",
       "reason": "kernel-observation runner or postprocessor",
-      "repo_reference_count": 5,
+      "repo_reference_count": 6,
       "type": "file"
     },
     {
@@ -1762,7 +1825,7 @@
       "name": "native_wifi_detail_surface_handoff_v2255.py",
       "path": "workspace/public/src/scripts/revalidation/native_wifi_detail_surface_handoff_v2255.py",
       "reason": "scripted live-device workflow",
-      "repo_reference_count": 4,
+      "repo_reference_count": 6,
       "type": "file"
     },
     {
@@ -1987,7 +2050,7 @@
       "type": "file"
     }
   ],
-  "generated_at": "2026-06-12T06:48:33.919445+00:00",
+  "generated_at": "2026-06-12T06:53:27.304425+00:00",
   "root": "workspace/public/src/scripts/revalidation",
   "summary": {
     "active": 107,

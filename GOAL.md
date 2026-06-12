@@ -213,6 +213,16 @@ Read at the START of every iteration (then apply the tier policy above):
   live-register sampling for code-path identity.
 
 **T2 — WLAN native-init (if T1 blocked):**
+- After V2268 direct-a90ctl consolidation grouping: `consolidation_signals` now
+  includes `direct_a90ctl_candidate_groups` and `direct_a90ctl_top_group`. The
+  current top group is `current_baseline_wifi_surface` with
+  `native_wifi_detail_surface_handoff_v2255.py` as the single member; the other
+  groups are `flash_capable_kernel_handoff_runners=6`,
+  `live_readonly_kernel_catalog_runners=4`, and `legacy_bpf_anchor_runners=4`.
+  No device action was taken. Next cleanup unit: if a current-baseline Wi-Fi
+  surface runner is changed again, migrate its direct `a90ctl.py` command lists
+  to shared transport helpers first; otherwise keep direct-ref migration
+  review-only.
 - After V2267 inventory consolidation-signal export: the script inventory now
   writes a machine-readable `consolidation_signals` JSON block mirroring the
   Markdown consolidation section. It records `active_live_phase_residual_backlog_closed=true`,

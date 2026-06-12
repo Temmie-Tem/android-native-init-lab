@@ -1,6 +1,6 @@
 # Revalidation Script Inventory
 
-- Generated at: `2026-06-12T06:48:33.919445+00:00`
+- Generated at: `2026-06-12T06:53:27.304425+00:00`
 - Root: `workspace/public/src/scripts/revalidation`
 - Scope: public metadata only; no private run logs, credentials, boot images, or raw captures.
 - Action: inventory only. No scripts were moved or deleted by this report.
@@ -52,7 +52,7 @@
 | `a90_transport.py` | `module` | `bridge-wrapper` | yes | yes | yes | no | 10 | shared bridge/transport selector |
 | `a90_v725_fasttransport_baseline_validation.py` | `active` | `shared` | yes | yes | yes | no | 8 | fast transport baseline validator |
 | `a90_wifi_profile_stage.py` | `active` | `shared` | yes | yes | yes | yes | 12 | active Wi-Fi profile staging helper |
-| `a90ctl.py` | `active` | `a90ctl-subprocess` | yes | no | no | no | 374 | cmdv1 operator/client entrypoint |
+| `a90ctl.py` | `active` | `a90ctl-subprocess` | yes | no | no | no | 376 | cmdv1 operator/client entrypoint |
 | `build_native_init_boot_v2169_transport_contract.py` | `active` | `none` | no | no | no | yes | 8 | transport contract boot builder |
 | `build_native_init_boot_v2170_wifi_config_prepare.py` | `active` | `none` | no | no | no | yes | 6 | Wi-Fi config prepare boot builder |
 | `build_native_init_boot_v2172_wifi_status_scan.py` | `active` | `none` | no | no | no | no | 6 | Wi-Fi status/scan boot builder |
@@ -87,35 +87,35 @@
 | `cleanup_tmp_classified_artifacts.py` | `active` | `none` | no | no | no | no | 6 | operator utility or inventory/cleanup utility |
 | `cleanup_tmp_wifi_artifacts.py` | `active` | `none` | no | no | no | no | 7 | operator utility or inventory/cleanup utility |
 | `cpu_mem_thermal_stability.py` | `active` | `shared` | yes | yes | yes | no | 24 | operator utility or inventory/cleanup utility |
-| `inventory_revalidation_scripts.py` | `active` | `none` | no | no | no | no | 16 | operator utility or inventory/cleanup utility |
+| `inventory_revalidation_scripts.py` | `active` | `none` | no | no | no | no | 17 | operator utility or inventory/cleanup utility |
 | `inventory_tmp_artifacts.py` | `active` | `none` | no | no | no | no | 6 | operator utility or inventory/cleanup utility |
 | `kselftest_feasibility.py` | `active` | `shared` | yes | yes | yes | no | 10 | operator utility or inventory/cleanup utility |
 | `local_security_rescan.py` | `active` | `shared,bridge-wrapper,bridge-impl` | yes | yes | yes | yes | 52 | scripted live-device workflow |
 | `native_init_flash.py` | `active` | `none` | yes | yes | no | no | 215 | active flash/rollback helper |
-| `native_kernel_a90_boot_window_handoff_v2225.py` | `active` | `shared,a90ctl-subprocess` | yes | yes | yes | no | 4 | kernel-observation runner or postprocessor |
-| `native_kernel_a90_boot_window_handoff_v2227.py` | `active` | `shared,a90ctl-subprocess` | yes | yes | yes | no | 4 | kernel-observation runner or postprocessor |
+| `native_kernel_a90_boot_window_handoff_v2225.py` | `active` | `shared,a90ctl-subprocess` | yes | yes | yes | no | 5 | kernel-observation runner or postprocessor |
+| `native_kernel_a90_boot_window_handoff_v2227.py` | `active` | `shared,a90ctl-subprocess` | yes | yes | yes | no | 5 | kernel-observation runner or postprocessor |
 | `native_kernel_a90_boot_window_plan_v2223.py` | `active` | `shared` | yes | yes | yes | no | 5 | kernel-observation runner or postprocessor |
-| `native_kernel_a90_boot_window_preflight_v2222.py` | `active` | `shared,a90ctl-subprocess,bridge-wrapper` | yes | yes | yes | no | 11 | kernel-observation runner or postprocessor |
-| `native_kernel_a90_post_bdf_hold_handoff_v2231.py` | `active` | `shared,a90ctl-subprocess` | yes | yes | yes | no | 4 | kernel-observation runner or postprocessor |
-| `native_kernel_a90_service_object_fwclass_bridge_handoff_v2233.py` | `active` | `shared,a90ctl-subprocess` | yes | yes | yes | no | 4 | kernel-observation runner or postprocessor |
-| `native_kernel_a90_service_object_visible_handoff_v2229.py` | `active` | `shared,a90ctl-subprocess` | yes | yes | yes | no | 4 | kernel-observation runner or postprocessor |
-| `native_kernel_a90_uprobe_trace_buffer_collector_v2219.py` | `active` | `shared,a90ctl-subprocess,bridge-wrapper` | yes | yes | yes | no | 6 | kernel-observation runner or postprocessor |
+| `native_kernel_a90_boot_window_preflight_v2222.py` | `active` | `shared,a90ctl-subprocess,bridge-wrapper` | yes | yes | yes | no | 12 | kernel-observation runner or postprocessor |
+| `native_kernel_a90_post_bdf_hold_handoff_v2231.py` | `active` | `shared,a90ctl-subprocess` | yes | yes | yes | no | 5 | kernel-observation runner or postprocessor |
+| `native_kernel_a90_service_object_fwclass_bridge_handoff_v2233.py` | `active` | `shared,a90ctl-subprocess` | yes | yes | yes | no | 5 | kernel-observation runner or postprocessor |
+| `native_kernel_a90_service_object_visible_handoff_v2229.py` | `active` | `shared,a90ctl-subprocess` | yes | yes | yes | no | 5 | kernel-observation runner or postprocessor |
+| `native_kernel_a90_uprobe_trace_buffer_collector_v2219.py` | `active` | `shared,a90ctl-subprocess,bridge-wrapper` | yes | yes | yes | no | 7 | kernel-observation runner or postprocessor |
 | `native_kernel_a90_uprobe_trace_postprocess_v2221.py` | `active` | `shared` | yes | yes | yes | no | 6 | kernel-observation runner or postprocessor |
-| `native_kernel_file_ops_anchor_v2204.py` | `active` | `shared,a90ctl-subprocess,bridge-wrapper` | yes | yes | yes | no | 4 | kernel-observation runner or postprocessor |
+| `native_kernel_file_ops_anchor_v2204.py` | `active` | `shared,a90ctl-subprocess,bridge-wrapper` | yes | yes | yes | no | 5 | kernel-observation runner or postprocessor |
 | `native_kernel_fops_member_anchor_v2206.py` | `active` | `shared,bridge-wrapper` | yes | yes | yes | no | 4 | kernel-observation runner or postprocessor |
-| `native_kernel_fwclass_boundary_stack_handoff_v2253.py` | `active` | `shared,a90ctl-subprocess` | yes | yes | yes | no | 4 | kernel-observation runner or postprocessor |
+| `native_kernel_fwclass_boundary_stack_handoff_v2253.py` | `active` | `shared,a90ctl-subprocess` | yes | yes | yes | no | 5 | kernel-observation runner or postprocessor |
 | `native_kernel_perf_regs_codeword_sample_ring_v2216.py` | `active` | `shared,bridge-wrapper` | yes | yes | yes | no | 6 | kernel-observation runner or postprocessor |
 | `native_kernel_perf_regs_frame_sample_ring_v2214.py` | `active` | `shared,bridge-wrapper` | yes | yes | yes | no | 4 | kernel-observation runner or postprocessor |
 | `native_kernel_raw_frame_sample_ring_v2213.py` | `active` | `shared,bridge-wrapper` | yes | yes | yes | no | 4 | kernel-observation runner or postprocessor |
 | `native_kernel_raw_frame_slots_v2212.py` | `active` | `shared,bridge-wrapper` | yes | yes | yes | no | 4 | kernel-observation runner or postprocessor |
-| `native_kernel_static_tracepoint_object_chain_audit_v2238.py` | `active` | `shared,a90ctl-subprocess` | yes | yes | yes | no | 5 | kernel-observation runner or postprocessor |
-| `native_kernel_timer_object_context_v2201.py` | `active` | `shared,a90ctl-subprocess,bridge-wrapper` | yes | yes | yes | no | 5 | kernel-observation runner or postprocessor |
-| `native_kernel_timer_object_histogram_v2202.py` | `active` | `shared,a90ctl-subprocess,bridge-wrapper` | yes | yes | yes | no | 5 | kernel-observation runner or postprocessor |
-| `native_kernel_timer_start_context_v2200.py` | `active` | `shared,a90ctl-subprocess,bridge-wrapper` | yes | yes | yes | no | 5 | kernel-observation runner or postprocessor |
-| `native_kernel_wlan_tracepoint_catalog_v2218.py` | `active` | `shared,a90ctl-subprocess,bridge-wrapper` | yes | yes | yes | no | 5 | kernel-observation runner or postprocessor |
+| `native_kernel_static_tracepoint_object_chain_audit_v2238.py` | `active` | `shared,a90ctl-subprocess` | yes | yes | yes | no | 6 | kernel-observation runner or postprocessor |
+| `native_kernel_timer_object_context_v2201.py` | `active` | `shared,a90ctl-subprocess,bridge-wrapper` | yes | yes | yes | no | 6 | kernel-observation runner or postprocessor |
+| `native_kernel_timer_object_histogram_v2202.py` | `active` | `shared,a90ctl-subprocess,bridge-wrapper` | yes | yes | yes | no | 6 | kernel-observation runner or postprocessor |
+| `native_kernel_timer_start_context_v2200.py` | `active` | `shared,a90ctl-subprocess,bridge-wrapper` | yes | yes | yes | no | 6 | kernel-observation runner or postprocessor |
+| `native_kernel_wlan_tracepoint_catalog_v2218.py` | `active` | `shared,a90ctl-subprocess,bridge-wrapper` | yes | yes | yes | no | 6 | kernel-observation runner or postprocessor |
 | `native_ui_screenapp_validation_v2187.py` | `active` | `shared` | yes | yes | yes | no | 4 | active V2187 screenapp UI validation |
 | `native_wifi_connect_carrier_handoff_v2174.py` | `active` | `shared` | yes | yes | yes | yes | 9 | active Wi-Fi carrier validation |
-| `native_wifi_detail_surface_handoff_v2255.py` | `active` | `shared,a90ctl-subprocess` | yes | yes | yes | yes | 4 | scripted live-device workflow |
+| `native_wifi_detail_surface_handoff_v2255.py` | `active` | `shared,a90ctl-subprocess` | yes | yes | yes | yes | 6 | scripted live-device workflow |
 | `native_wifi_dhcp_ping_handoff_v2176.py` | `active` | `shared` | yes | yes | yes | yes | 9 | active Wi-Fi DHCP/ping validation |
 | `native_wifi_hold_reconnect_handoff_v2177.py` | `active` | `shared` | yes | yes | yes | yes | 7 | active Wi-Fi hold/reconnect validation |
 | `native_wifi_supplicant_dependency_probe.py` | `active` | `shared` | yes | yes | yes | yes | 9 | current Wi-Fi dependency probe |
@@ -145,6 +145,7 @@
 - Machine-readable copy: JSON field `consolidation_signals`.
 - Direct `a90ctl.py` subprocess references outside the client are review-only candidates; migrate only when changing the script for another reason.
 - Direct `a90ctl.py` reference count: `15` (`native_kernel_a90_boot_window_handoff_v2225.py, native_kernel_a90_boot_window_handoff_v2227.py, native_kernel_a90_boot_window_preflight_v2222.py, native_kernel_a90_post_bdf_hold_handoff_v2231.py, native_kernel_a90_service_object_fwclass_bridge_handoff_v2233.py, native_kernel_a90_service_object_visible_handoff_v2229.py, native_kernel_a90_uprobe_trace_buffer_collector_v2219.py, native_kernel_file_ops_anchor_v2204.py`...).
+- Direct `a90ctl.py` candidate groups: `current_baseline_wifi_surface`=1, `flash_capable_kernel_handoff_runners`=6, `live_readonly_kernel_catalog_runners`=4, `legacy_bpf_anchor_runners`=4.
 - Active live scripts without explicit phase timer markers: `0`.
 - Phase-timer-exempt live utilities: `2` (`ncm_host_setup.py, netservice_reconnect_soak.py`).
 - Active live scripts without residual-state metadata: `0`.

@@ -211,6 +211,81 @@ def imports_module(text: str, module: str) -> bool:
     return re.search(pattern, text, flags=re.MULTILINE) is not None
 
 
+def direct_a90ctl_group(name: str) -> dict[str, Any]:
+    if name == "native_wifi_detail_surface_handoff_v2255.py":
+        return {
+            "group": "current_baseline_wifi_surface",
+            "impact_score": 90,
+            "reason": "current V2254 baseline live-surface validator",
+            "recommended_action": "migrate direct a90ctl command lists if this current-baseline runner is changed again",
+        }
+    if name in {
+        "native_kernel_a90_boot_window_handoff_v2225.py",
+        "native_kernel_a90_boot_window_handoff_v2227.py",
+        "native_kernel_a90_post_bdf_hold_handoff_v2231.py",
+        "native_kernel_a90_service_object_fwclass_bridge_handoff_v2233.py",
+        "native_kernel_a90_service_object_visible_handoff_v2229.py",
+        "native_kernel_fwclass_boundary_stack_handoff_v2253.py",
+    }:
+        return {
+            "group": "flash_capable_kernel_handoff_runners",
+            "impact_score": 80,
+            "reason": "rollbackable flash-capable historical kernel/WLAN observer",
+            "recommended_action": "migrate only if reviving or modifying this flash-capable observer family",
+        }
+    if name in {
+        "native_kernel_a90_boot_window_preflight_v2222.py",
+        "native_kernel_a90_uprobe_trace_buffer_collector_v2219.py",
+        "native_kernel_static_tracepoint_object_chain_audit_v2238.py",
+        "native_kernel_wlan_tracepoint_catalog_v2218.py",
+    }:
+        return {
+            "group": "live_readonly_kernel_catalog_runners",
+            "impact_score": 60,
+            "reason": "read-only live observer/catalog runner with direct a90ctl subprocess helper",
+            "recommended_action": "prefer shared transport serial helpers when next changing this observer",
+        }
+    if name in {
+        "native_kernel_file_ops_anchor_v2204.py",
+        "native_kernel_timer_object_context_v2201.py",
+        "native_kernel_timer_object_histogram_v2202.py",
+        "native_kernel_timer_start_context_v2200.py",
+    }:
+        return {
+            "group": "legacy_bpf_anchor_runners",
+            "impact_score": 40,
+            "reason": "older BPF/perf anchor runner retained for provenance",
+            "recommended_action": "review-only unless the old anchor runner is reactivated",
+        }
+    return {
+        "group": "ungrouped_direct_a90ctl_reference",
+        "impact_score": 10,
+        "reason": "direct a90ctl reference not matched by current grouping rules",
+        "recommended_action": "inspect manually before migration",
+    }
+
+
+def direct_a90ctl_candidate_groups(names: list[str]) -> list[dict[str, Any]]:
+    groups: dict[str, dict[str, Any]] = {}
+    for name in names:
+        detail = direct_a90ctl_group(name)
+        group = groups.setdefault(detail["group"], {
+            "group": detail["group"],
+            "impact_score": detail["impact_score"],
+            "reason": detail["reason"],
+            "recommended_action": detail["recommended_action"],
+            "count": 0,
+            "names": [],
+        })
+        group["impact_score"] = max(group["impact_score"], detail["impact_score"])
+        group["count"] += 1
+        group["names"].append(name)
+    return sorted(
+        groups.values(),
+        key=lambda item: (-int(item["impact_score"]), str(item["group"])),
+    )
+
+
 def consolidation_signals(entries: list[dict[str, Any]]) -> dict[str, Any]:
     direct_a90ctl = [
         entry["name"] for entry in entries
@@ -256,9 +331,12 @@ def consolidation_signals(entries: list[dict[str, Any]]) -> dict[str, Any]:
         entry["name"] for entry in entries
         if entry["label"] == "delete-review"
     ]
+    candidate_groups = direct_a90ctl_candidate_groups(direct_a90ctl)
     return {
         "direct_a90ctl_reference_count": len(direct_a90ctl),
         "direct_a90ctl_reference_names": direct_a90ctl,
+        "direct_a90ctl_candidate_groups": candidate_groups,
+        "direct_a90ctl_top_group": candidate_groups[0] if candidate_groups else {},
         "live_without_phase_timer_count": len(live_without_phase),
         "live_without_phase_timer_names": live_without_phase,
         "live_phase_timer_exempt_count": len(live_phase_exempt),
@@ -357,6 +435,12 @@ def render_markdown(data: dict[str, Any]) -> str:
         "- Direct `a90ctl.py` subprocess references outside the client are review-only candidates; migrate only when changing the script for another reason.",
         f"- Direct `a90ctl.py` reference count: `{len(direct_a90ctl)}`"
         + (f" (`{', '.join(direct_a90ctl[:8])}`{'...' if len(direct_a90ctl) > 8 else ''})." if direct_a90ctl else "."),
+        "- Direct `a90ctl.py` candidate groups: "
+        + ", ".join(
+            f"`{group['group']}`={group['count']}"
+            for group in signals["direct_a90ctl_candidate_groups"]
+        )
+        + ".",
         f"- Active live scripts without explicit phase timer markers: `{len(live_without_phase)}`"
         + (f" (`{', '.join(live_without_phase[:8])}`{'...' if len(live_without_phase) > 8 else ''})." if live_without_phase else "."),
         f"- Phase-timer-exempt live utilities: `{len(live_phase_exempt)}`"
