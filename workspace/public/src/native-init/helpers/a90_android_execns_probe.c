@@ -333,7 +333,9 @@
 #define A90_WIFI_TEST_BOOT_ANDROID_TFTP_SERVER_IDENTITY A90_WIFI_TEST_BOOT_ANDROID_RMT_TFTP_IDENTITY
 #endif
 
-#if A90_WIFI_TEST_BOOT_WORKQUEUE_FWCLASS_FUNC_SAMPLER
+#if A90_WIFI_TEST_BOOT_WORKQUEUE_FWCLASS_FUNC_SAMPLER && A90_WIFI_TEST_BOOT_TAIL_PERF_REGS_CODEWORD_SAMPLER
+#define EXECNS_VERSION "a90_android_execns_probe v432"
+#elif A90_WIFI_TEST_BOOT_WORKQUEUE_FWCLASS_FUNC_SAMPLER
 #define EXECNS_VERSION "a90_android_execns_probe v431"
 #elif A90_WIFI_TEST_BOOT_TAIL_PERF_REGS_CODEWORD_SAMPLER && A90_WIFI_TEST_BOOT_TAIL_PERF_REGS_CODEWORD_PRINT_LIMIT == 1024
 #define EXECNS_VERSION "a90_android_execns_probe v429"
@@ -59495,6 +59497,11 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
 #endif
 #if A90_WIFI_TEST_BOOT_WORKQUEUE_FWCLASS_FUNC_SAMPLER
         if (append_workqueue_fwclass_func_sampler_start(stdout_buf, &workqueue_fwclass_sampler) < 0) {
+#if A90_WIFI_TEST_BOOT_TAIL_PERF_REGS_CODEWORD_SAMPLER
+            append_tail_perf_regs_codeword_sampler_finish(stdout_buf,
+                                                          &tail_perf_sampler,
+                                                          "workqueue_sampler_start_failed");
+#endif
             stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
             composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
             stop_property_service_shim(&property_shim, paths, stdout_buf);
@@ -59527,6 +59534,11 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
 	                                                     "after_boot_wlan_trigger",
 	                                                     children,
 	                                                     active_child_count) < 0)) {
+#if A90_WIFI_TEST_BOOT_TAIL_PERF_REGS_CODEWORD_SAMPLER
+                append_tail_perf_regs_codeword_sampler_finish(stdout_buf,
+                                                              &tail_perf_sampler,
+                                                              "after_boot_wlan_snapshot_failed");
+#endif
 #if A90_WIFI_TEST_BOOT_WORKQUEUE_FWCLASS_FUNC_SAMPLER
                 append_workqueue_fwclass_func_sampler_finish(stdout_buf,
                                                              &workqueue_fwclass_sampler,
@@ -59540,6 +59552,11 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
 #if A90_WIFI_TEST_BOOT_ICNSS_REGISTER_PROBE_STACK_SAMPLER
 	        if (append_icnss_register_probe_stack_sampler(stdout_buf,
 	                                                      "after_boot_wlan_trigger") < 0) {
+#if A90_WIFI_TEST_BOOT_TAIL_PERF_REGS_CODEWORD_SAMPLER
+                append_tail_perf_regs_codeword_sampler_finish(stdout_buf,
+                                                              &tail_perf_sampler,
+                                                              "icnss_stack_sample_failed");
+#endif
 #if A90_WIFI_TEST_BOOT_WORKQUEUE_FWCLASS_FUNC_SAMPLER
                 append_workqueue_fwclass_func_sampler_finish(stdout_buf,
                                                              &workqueue_fwclass_sampler,
@@ -59554,6 +59571,11 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
 #if A90_WIFI_TEST_BOOT_FIRMWARE_CLASS_FALLBACK_SAMPLER
 	        if (append_firmware_class_fallback_sampler(stdout_buf,
 	                                                   "after_boot_wlan_trigger") < 0) {
+#if A90_WIFI_TEST_BOOT_TAIL_PERF_REGS_CODEWORD_SAMPLER
+                append_tail_perf_regs_codeword_sampler_finish(stdout_buf,
+                                                              &tail_perf_sampler,
+                                                              "fwclass_fallback_sample_failed");
+#endif
 #if A90_WIFI_TEST_BOOT_WORKQUEUE_FWCLASS_FUNC_SAMPLER
                 append_workqueue_fwclass_func_sampler_finish(stdout_buf,
                                                              &workqueue_fwclass_sampler,

@@ -94,23 +94,28 @@ per-item metadata/inventory/cleanup sweeps that each succeed and justify the nex
 ## Sub-goal seeds (optional; the loop may pick others from state)
 
 **T1 — kernel observation (try first):**
-- After V2273 source/build: the T1 workqueue firmware_class oracle is now
-  implemented as a rollbackable test boot image, but not yet live-run.
-  `build_native_init_boot_v2273_workqueue_fwclass_func_sampler.py` produced
-  `workspace/private/inputs/boot_images/boot_linux_v2273_workqueue_fwclass_func_sampler.img`
-  (`A90 Linux init 0.9.273`, helper `a90_android_execns_probe v431`,
-  helper SHA256 `2f28c91401811af357602de6a3f339a5ca73ba0e74aa7085e46444f055252628`,
-  boot SHA256 `ac9bd247f37308b91fc8d63397e3b34704268d96026268b2b7b11e9bbcbe6ba6`).
+- After V2274 source/build: the T1 workqueue firmware_class oracle is now
+  implemented as a rollbackable combined test boot image with same-boot
+  codeword evidence packaged into the same boot. V2273 built the workqueue-only
+  sampler, but that left the exact-slide/codeword oracle implicit; V2274 fixes
+  that by packaging both samplers. `build_native_init_boot_v2274_workqueue_codeword_combined.py`
+  produced `workspace/private/inputs/boot_images/boot_linux_v2274_workqueue_codeword_combined.img`
+  (`A90 Linux init 0.9.274`, helper `a90_android_execns_probe v432`,
+  helper SHA256 `5709432f1f065de969cf0d54f6ae78369557faa37993bb5d5a3dce7d77dee39a`,
+  boot SHA256 `c389a7c423c752e02af4a73fa8d6f3365de53042e71763b16b7c2b011c59bb2f`).
   It keeps the V2237 Wi-Fi route and packages the read-only
   `/bin/a90_bpf_workqueue_func_sample_ring` sampler (SHA256
-  `4f3250d996de5156bb43bcc2844e5cb429b8478cc1aaf32244281d58e8f6f524`) in
-  ramdisk. The helper starts it before post-FWREADY `boot_wlan` and waits for
-  it after the firmware_class feeder, writing
-  `/cache/native-init-v2273-workqueue-fwclass.log`. Next bounded live unit:
-  flash this image as V2274, collect the workqueue log/helper result/kmsg
-  anchors, roll back, verify selftest `FAIL=0`, then classify function
-  pointers with same-boot exact-slide/codeword evidence. This is code-path
-  observation only; no Wi-Fi scan/connect/DHCP/ping or credentials.
+  `4f3250d996de5156bb43bcc2844e5cb429b8478cc1aaf32244281d58e8f6f524`) plus
+  `/bin/a90_bpf_perf_regs_codeword_sample_ring` (SHA256
+  `3a16efc217eafeacbcc95a5e6005d0abce02e89ab52ed537df1fc2b193ca3dd7`) in
+  ramdisk. The helper starts both before post-FWREADY `boot_wlan` and waits for
+  them after the firmware_class feeder, writing
+  `/cache/native-init-v2274-workqueue-fwclass.log` and
+  `/cache/native-init-v2274-tail-perf-regs-codeword.log`. Next bounded live
+  unit: flash this image as V2275, collect both sampler logs/helper result/kmsg
+  anchors, roll back, verify selftest `FAIL=0`, then classify function pointers
+  with same-boot exact-slide/codeword evidence. This is code-path observation
+  only; no Wi-Fi scan/connect/DHCP/ping or credentials.
 - After V2253 live: the V2252 boundary-stack observer passed with rollback.
   V2252 flashed and booted as `A90 Linux init 0.9.271
   (v2252-fwclass-boundary-stack)`, health checks passed, helper result was

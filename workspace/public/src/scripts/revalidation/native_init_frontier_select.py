@@ -80,7 +80,7 @@ def track_evaluations(
     t1_status = "new-independent-oracle-ready" if t1_candidates else "defer-until-new-independent-oracle"
     t1_trigger = (
         "V2253 closed the documented firmware_class boundary and generic CPU-clock sampler loop; "
-        "V2273 built the independent workqueue function-pointer oracle and its live run is pending."
+        "V2274 built the independent combined workqueue/codeword oracle and its V2275 live run is pending."
         if t1_candidates
         else "V2253 closed the documented firmware_class boundary and generic CPU-clock sampler loop; "
         "current public state names no new independent kernel-observation oracle."
