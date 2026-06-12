@@ -94,6 +94,23 @@ per-item metadata/inventory/cleanup sweeps that each succeed and justify the nex
 ## Sub-goal seeds (optional; the loop may pick others from state)
 
 **T1 — kernel observation (try first):**
+- After V2277 source/build-only: the focused workqueue
+  `execute_start` stack/callsite oracle is packaged as
+  `boot_linux_v2277_workqueue_exec_stack.img` (`A90 Linux init 0.9.275`,
+  helper `a90_android_execns_probe v433`, boot SHA256
+  `313a39b603296810dc44d8132c2c7db6c8fc790eb168a9ef9d94b20225baa18f`,
+  workqueue-stack helper SHA256
+  `978e3406d4223d6f726d02ee2be041e2d7aa1f8934b0a4f21b889cd5c6e7d5b5`,
+  codeword helper SHA256
+  `3a16efc217eafeacbcc95a5e6005d0abce02e89ab52ed537df1fc2b193ca3dd7`).
+  It keeps the V2237 route, starts the `workqueue_execute_start` stack
+  sampler and same-boot perf-regs/codeword sampler before `boot_wlan`, and
+  writes `/cache/native-init-v2277-workqueue-exec-stack.log` plus
+  `/cache/native-init-v2277-tail-perf-regs-codeword.log`. Next bounded live
+  unit: V2278 should flash V2277 rollbackably, collect helper result and both
+  logs, roll back to the selected baseline, verify `selftest fail=0`, and
+  classify workqueue execute-start stacks/callsites against the same-boot
+  codeword evidence using the V2276 bounded UAO-patch-aware rule.
 - After V2276 host-only postprocess: the V2275 same-boot codeword slide is
   accepted under a **bounded UAO-patch-aware rule**. All three V2275 PC
   mismatches for best slide `0xccef4` are source-matched ARM64 UAO runtime
