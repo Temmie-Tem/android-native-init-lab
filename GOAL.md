@@ -77,6 +77,18 @@ Read at the START of every iteration (then apply the tier policy above):
 ## Sub-goal seeds (optional; the loop may pick others from state)
 
 **T1 — kernel observation (try first):**
+- After V2248: do not try to run the V2216 perf regs/codeword sampler only
+  after native boot if the goal is the post-FWREADY qcacld/HDD tail. The source
+  route calls `append_post_fw_ready_boot_wlan_trigger(stdout_buf)`, holds 8 s,
+  then runs post-trigger samplers and
+  `append_qcacld_firmware_class_fallback_feeder(..., "after_boot_wlan_trigger",
+  30000)` inside `a90_android_execns_probe`; host-side post-boot attachment can
+  miss the tail. The next live unit (V2249) should package or embed the V2216
+  exact-slide perf regs/codeword sampler, launch it from a compile-gated helper
+  child before the `boot_wlan` write, keep it alive at least 45 s through the
+  firmware_class feeder, store output under
+  `/cache/native-init-v2249-tail-perf-regs-codeword.log`, then score with
+  `a90_kernel_v2247_tail_pc_lr_scorer.py`.
 - After V2247: tail PC/LR scoring infrastructure exists.
   `a90_kernel_v2247_tail_pc_lr_scorer.py` consumes a per-boot exact-slide
   perf regs/codeword summary plus the V2246 whitelist and scores `ctx_pc`,
