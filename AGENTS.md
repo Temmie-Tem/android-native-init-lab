@@ -1,45 +1,85 @@
-# AGENTS.md
+# AGENTS.md — operating contract for autonomous Codex runs
 
-> **Active delegated task:** build the host-only regression test harness described in
-> [`GOAL.md`](GOAL.md). Read `GOAL.md` first — it is the contract and the progress
-> ledger. These rules govern that run. Remove or revise this file once the goal is done.
+This is the binding contract for Codex working this repo, **including unattended /
+bypass runs**. It mirrors `CLAUDE.md`. `GOAL.md` says what to pursue; this file says how.
+**Safety invariants and flash gates below are absolute and override any sub-goal.**
 
-## Hard rules (non-negotiable)
+The work cycle (STATE → SELECT → DESIGN → IMPLEMENT → STATIC VALIDATE → DEVICE → REPORT →
+COMMIT → REPEAT) is defined in `GOAL.md`.
 
-1. **Scope:** modify ONLY files under `tests/`, plus `GOAL.md` (checklist/log) and this
-   `AGENTS.md`. Read anything in the repo; change nothing else. Do not edit analyzers,
-   `a90harness`, `a90_wifi.c`, boot scripts, docs, or config.
-2. **No device interaction of any kind:** no flashing, no boot-image builds, no serial
-   bridge, no `a90ctl`, no Wi-Fi scan/connect/dhcp/ping, no live BPF/uprobe/perf probes.
-   This harness is pure host-side and needs none of that.
-3. **No network, no installs:** Python **stdlib `unittest` only**. No `pip`, no new
-   dependencies. (Tests run offline.)
-4. **Characterize, do not fix:** tests pin the analyzer's CURRENT behavior. Never edit an
-   analyzer to make a test pass. If an analyzer genuinely looks buggy, add a
-   `# KNOWN-DIVERGENCE:` comment, assert the current behavior, and note it in `GOAL.md` —
-   do not change the analyzer.
+## Safety invariants (NEVER violate)
 
-## Working cadence (one unit per commit, for easy recovery)
+1. **Partitions:** never write/flash `/efs`, `/sec_efs`, modem, RPMB, keymaster, vbmeta,
+   bootloader, or any partition other than **boot**. Device changes touch the boot image
+   only.
+2. **Flash only via the checked helper:** `workspace/public/src/scripts/revalidation/native_init_flash.py`.
+   Never `dd`/`fastboot`/raw-write a partition. Never invent a new flash path.
+3. **Rollback precondition:** before ANY flash, confirm a known-good rollback boot image
+   exists (e.g. `workspace/private/inputs/boot_images/boot_linux_v48.img` and the current
+   promoted baseline) AND recovery/TWRP is available. If you cannot confirm both, DO NOT
+   flash — stop and report.
+4. **No cascading bad flashes:** never flash a new experimental image onto a device that
+   failed its last boot/health check. Recover first (invariant 8), then stop.
+5. **Wi-Fi is gated:** run scan/connect/dhcp/ping ONLY when the selected sub-goal
+   explicitly requires that bounded validation. Keep PSKs in `workspace/private/secrets/`;
+   never log PSKs.
+6. **Don't reopen external subsystems:** no SDX50M/eSoC/PCIe/MHI/GDSC/PMIC/GPIO chasing for
+   internal `wlan0` unless new on-frontier evidence explicitly reopens them.
+7. **Don't commit:** boot images, firmware, ramdisks, compiled binaries, raw logs,
+   credentials, DHCP leases, or unredacted MAC/BSSID/IP. Private/large/generated payloads
+   live under `workspace/private/`. Redact device identifiers (serial, ap_serial, PARTUUID,
+   MAC/BSSID/IP) from anything committed.
 
-For each unit of work:
+## Flash gates (the DEVICE step in detail)
 
-1. Open `GOAL.md`, take the **first unchecked** `[ ]` target.
-2. Read its source to learn the real behavior of its pure functions.
-3. Write `tests/test_<name>.py` with `unittest`, covering accepted inputs and the
-   edge/reject cases (for validators, the inputs that must raise).
-4. Run it: `python3 -m unittest discover -s tests -p 'test_*.py' -v`. It MUST be green.
-   If red, fix the TEST until green (never the analyzer).
-5. Flip the target to `[x]` in `GOAL.md` and append a Progress-log line.
-6. **Commit this single unit:**
-   ```
-   git add tests/ GOAL.md AGENTS.md
-   git commit -m "test(harness): cover <name> (<N> cases)"
-   ```
-   Never `git add -A` / `git add .` — stage only the paths above so unrelated in-flight
-   work is never swept into the commit. Commit only when the suite is green.
+Perform a device step ONLY if the sub-goal needs a new boot artifact. Then, in order:
 
-## Stop conditions
+1. Build via the checked build script; capture and record the artifact **SHA256**. Flash
+   only the exact artifact you just built and checksummed.
+2. Re-confirm invariant 3 (rollback image + recovery present).
+3. Flash via `native_init_flash.py`; reboot.
+4. **Health check** over the serial bridge: `a90ctl version`, `status`, `selftest`. The
+   device must come back and selftest must not regress.
+5. **On failure** (no boot, unreachable, selftest fail): **auto-rollback** to the current
+   known-good baseline via `native_init_flash.py`, then re-run the health check.
+   - Rollback OK → record the failure, STOP that sub-goal (do not retry-loop), continue
+     only with non-device sub-goals if any.
+   - Rollback fails or device still unreachable → **STOP the whole loop**, write an
+     incident report, do not flash anything else.
+6. Only after a clean health check, run the bounded functional validation the sub-goal
+   needs (and only the Wi-Fi actions it explicitly requires).
 
-- All checklist targets `[x]` and the full suite green → mark the goal achieved and stop.
-- Blocked or ambiguous → write a note in `GOAL.md` and stop. Do NOT widen scope, invent
-  device steps, or guess behavior to keep going.
+## Versioning (per `docs/operations/VERSIONING_POLICY.md`)
+
+Keep axes separate: Run ID `VNNNN`; native init `MAJOR.MINOR.PATCH` (bump only when the
+flashed artifact changes); build tag `vNNNN-purpose`; helper `helper-vNNN`; SHA256 =
+artifact identity. A new rollback/test baseline must be promoted under a new run/build
+identity. Never use helper numbers as run IDs or boot tags.
+
+## Commit & report hygiene
+
+- One sub-goal per commit. Scoped `git add` of the touched public paths + the report —
+  **never `git add -A`/`.`** Inspect `git status --short` before and after.
+- Commit only after the sub-goal is implemented, statically validated, and (if a device
+  step ran) health-checked. `git diff --check` before commit.
+- Every device/analysis iteration gets a redacted, metadata-only report under
+  `docs/reports/NATIVE_INIT_VNNNN_*.md`.
+- Commit message: imperative subject naming the V-iteration + purpose; body with what /
+  why / validation result.
+
+## Development discipline
+
+- Canonical paths only (`workspace/public/src/...`, `workspace/private/...`,
+  `docs/...`). Do not recreate old root `stage3/ scripts/ kernel_build/ ...` trees.
+- Prefer `rg` for search and `git mv` for tracked moves. Keep patches focused; do not
+  repair unrelated historical docs.
+- `py_compile` touched Python; cross-compile touched C with `aarch64-linux-gnu-gcc` and
+  verify with `file`.
+- Web research is allowed during DESIGN; cite sources in the report.
+
+## Stop / escalate
+
+If anything is ambiguous, unsafe, or blocked — or any safety invariant would have to bend
+to proceed — STOP and write a note/report. Do not widen scope, fabricate device steps, or
+keep retrying. The host-only `tests/GOAL.md` harness is always a safe sub-goal to fall
+back to when no device work is safely actionable.
