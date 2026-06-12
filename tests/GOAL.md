@@ -76,8 +76,11 @@ functions.
       run_observer stop paths.
 - [x] `workspace/public/src/harness/a90harness/runner.py` —
       ModuleRunner context wiring, step orchestration, observer result handling.
-- [ ] (append more as discovered: a90harness bundle.py, and v2203 / v2204 /
-      v2205 / v2207 / v2208 / v2209 / v2210 analyzers.)
+- [x] `workspace/public/src/harness/a90harness/bundle.py` —
+      BundleFile serialization, bundle file inventory, README rendering,
+      finalize_bundle manifest/index writes.
+- [ ] (append more as discovered: v2203 / v2204 / v2205 / v2207 /
+      v2208 / v2209 / v2210 analyzers.)
 
 ## Progress log
 
@@ -128,4 +131,7 @@ functions.
 - 2026-06-13 — `a90harness/runner.py` — ModuleRunner context wiring,
   module step orchestration, artifact/result writing, step failure capture,
   optional observer failure propagation — 3 cases — green.
+- 2026-06-13 — `a90harness/bundle.py` — BundleFile, collect_bundle_files,
+  render_bundle_readme, finalize_bundle manifest/summary/README/index writes,
+  symlink rejection — 6 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
