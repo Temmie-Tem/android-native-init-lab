@@ -77,6 +77,13 @@ Read at the START of every iteration (then apply the tier policy above):
 ## Sub-goal seeds (optional; the loop may pick others from state)
 
 **T1 — kernel observation (try first):**
+- After V2242: all checked `a90*` helper static offsets map to executable user-ELF
+  `LOAD` segments. Treat `group` as the log surface and `object` as the ELF identity:
+  `periph_*` offsets belong to `libperipheral_client.so` (`a90periph`), not
+  `cnss-daemon`. Use
+  `workspace/private/runs/kernel/v2242-user-elf-offset-context-20260612-112444/private_instruction_context.json`
+  for bounded private instruction-context lookups; do not publish raw
+  bytes/disassembly.
 - After V2241: `a90*` user-space code-path identity is `runtime_probe_ip =
   per-run_load_bias + helper_static_uprobe_offset`. Parse offsets from
   `a90_android_execns_probe.c`, require one page-aligned load bias per `(run, object)`,
