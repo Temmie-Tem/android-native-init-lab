@@ -2,21 +2,36 @@
   "candidates": [
     {
       "expected_discriminator": {
-        "inconclusive": "tracepoint unavailable live, function pointers cannot be symbolized for the same boot, or capture starts after the target window",
-        "negative": "target window has workqueue activity but no firmware_class/qcacld-HDD function pointer hits, narrowing the tail gap to a non-workqueue/synchronous path",
-        "positive": "function pointer sequence includes firmware_class request_firmware_work_func or source-backed qcacld/CNSS worker functions in the target window"
+        "inconclusive": "sampler attach/load fails, tracepoints are unavailable live, capture starts after the target window, output is lost, or same-boot symbolization cannot classify the pointers.",
+        "negative": "V2274 captures target-window workqueue activity but no firmware_class/qcacld-HDD function pointer hits, narrowing the tail gap to a non-workqueue/synchronous path.",
+        "positive": "V2274 captures workqueue function pointers in the target window and same-boot classification identifies firmware_class request_firmware_work_func or source-backed qcacld/CNSS worker functions."
       },
       "id": "t1-workqueue-fwclass-function-pointer-oracle",
       "next_runner_contract": [
-        "Capture workqueue:workqueue_queue_work and workqueue:workqueue_execute_start around the post-FWREADY boot_wlan/firmware_class window.",
-        "Record work pointer, function pointer, workqueue pointer, requested CPU, and executing CPU where available.",
-        "Classify function pointers with the V2216/V2217 exact-slide/codeword method for the same boot.",
+        "Flash workspace/private/inputs/boot_images/boot_linux_v2273_workqueue_fwclass_func_sampler.img in a rollbackable V2274 live handoff.",
+        "Collect /cache/native-init-v2273-workqueue-fwclass.log, the helper result, summary, kmsg/dmesg anchors, and rollback/selftest evidence.",
+        "Verify the sampler started before post-FWREADY boot_wlan and finished after the firmware_class feeder window without perturbing Wi-Fi scan/connect state.",
+        "Classify captured function pointers with same-boot exact-slide/codeword evidence; use V2216/V2217 stock-map/codeword methods rather than generic CPU-clock retuning.",
         "Treat hits on request_firmware_work_func or adjacent qcacld/CNSS workers as code-path identity evidence, not as a network functional test.",
         "Keep Wi-Fi scan/connect/DHCP/ping and credentials out of scope unless a later V-iteration explicitly requires them."
       ],
       "safe_actionable_now": true,
+      "source_build": {
+        "boot_image": "workspace/private/inputs/boot_images/boot_linux_v2273_workqueue_fwclass_func_sampler.img",
+        "boot_sha256": "ac9bd247f37308b91fc8d63397e3b34704268d96026268b2b7b11e9bbcbe6ba6",
+        "build_manifest": "workspace/private/builds/native-init/v2273-workqueue-fwclass-func-sampler/manifest.json",
+        "cycle": "V2273",
+        "decision": "v2273-workqueue-fwclass-func-sampler-source-build-pass",
+        "helper_marker": "a90_android_execns_probe v431",
+        "helper_sha256": "2f28c91401811af357602de6a3f339a5ca73ba0e74aa7085e46444f055252628",
+        "init_build": "v2273-workqueue-fwclass-func-sampler",
+        "init_version": "0.9.273",
+        "report": "docs/reports/NATIVE_INIT_V2273_WORKQUEUE_FWCLASS_FUNC_SAMPLER_SOURCE_BUILD_2026-06-12.md",
+        "sampler_log": "/cache/native-init-v2273-workqueue-fwclass.log",
+        "sampler_sha256": "4f3250d996de5156bb43bcc2844e5cb429b8478cc1aaf32244281d58e8f6f524"
+      },
       "status": "ready_for_next_v_iteration",
-      "summary": "Use stock workqueue tracepoints as an independent firmware_class/qcacld-HDD tail oracle: collect workqueue_queue_work and workqueue_execute_start function pointers, then classify them with the per-boot exact codeword slide.",
+      "summary": "V2273 source/build packaged a ramdisk-local read-only workqueue function-pointer sampler; the next actionable unit is V2274 live flash/capture/rollback and offline classification.",
       "track": "T1",
       "why_independent": [
         "It does not reuse generic CPU-clock sampling.",
@@ -35,12 +50,13 @@
     "workqueue_queue_work_has_function_field": true,
     "workqueue_trace_source_exists": true
   },
-  "decision": "v2272-workqueue-fwclass-oracle-defined",
-  "generated_at": "2026-06-12T07:29:08.178418+00:00",
+  "decision": "v2273-workqueue-fwclass-source-build-ready-for-live",
+  "generated_at": "2026-06-12T07:54:55.710839+00:00",
   "source_paths": {
     "firmware_class": "tmp/wifi/v766-icnss-qcacld-patch-apply-build/source/drivers/base/firmware_class.c",
     "v2216_report": "docs/reports/NATIVE_INIT_V2216_PERF_REGS_CODEWORD_SAMPLE_RING_LIVE_2026-06-12.md",
     "v2253_report": "docs/reports/NATIVE_INIT_V2253_FWCLASS_BOUNDARY_STACK_LIVE_2026-06-12.md",
+    "v2273_report": "docs/reports/NATIVE_INIT_V2273_WORKQUEUE_FWCLASS_FUNC_SAMPLER_SOURCE_BUILD_2026-06-12.md",
     "workqueue_trace": "tmp/wifi/v766-icnss-qcacld-patch-apply-build/source/include/trace/events/workqueue.h"
   }
 }

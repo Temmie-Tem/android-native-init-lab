@@ -221,12 +221,18 @@ Completed:
   - residual-state metadata missing: `0`;
   - phase-timer-exempt live utilities: `2`;
   - residual-state-exempt live utilities/helpers: `3`.
-- V2272 defined a new T1 oracle candidate:
-  `t1-workqueue-fwclass-function-pointer-oracle`, stored in
-  `docs/artifacts/native-init-frontier-candidates.json`. The selector now
+- V2273 implemented the new T1 oracle candidate as a source/build-only test
+  boot: `boot_linux_v2273_workqueue_fwclass_func_sampler.img`
+  (`A90 Linux init 0.9.273`, helper `a90_android_execns_probe v431`, boot SHA256
+  `ac9bd247f37308b91fc8d63397e3b34704268d96026268b2b7b11e9bbcbe6ba6`). It
+  packages `/bin/a90_bpf_workqueue_func_sample_ring` and starts it before the
+  post-FWREADY `boot_wlan`/firmware_class feeder window. The selector still
   returns `frontier-selector-actionable-unit-present` with `selected_track=T1`.
-  Next bounded unit should implement/run the workqueue function-pointer observer
-  around the post-FWREADY `boot_wlan`/firmware_class window.
+  Next bounded unit is V2274 live flash/capture/rollback plus same-boot
+  function-pointer classification.
+- V2272 defined the underlying T1 oracle candidate:
+  `t1-workqueue-fwclass-function-pointer-oracle`, stored in
+  `docs/artifacts/native-init-frontier-candidates.json`.
 - V2271 added `native_init_frontier_select.py`, a host-only selector/audit
   utility. At the time it returned `frontier-selector-no-automatic-safe-unit`
   because no new T1 oracle, no concrete V2254 live-validation/promotion
@@ -402,18 +408,21 @@ Keep:
 
 1. Run `native_init_frontier_select.py --json` after the normal state read.
    Current expected result is `frontier-selector-actionable-unit-present` with
-   `selected_track=T1` because V2272 defined the workqueue firmware_class
-   function-pointer oracle.
-2. Implement/run the V2272 T1 observer: capture
-   `workqueue:workqueue_queue_work` and `workqueue:workqueue_execute_start`
-   around the post-FWREADY `boot_wlan`/firmware_class window, then classify
-   function pointers with same-boot exact-slide/codeword evidence.
-3. Start new WLAN live validation from V2254 only when a concrete criterion
+   `selected_track=T1` because V2273 built the workqueue firmware_class
+   function-pointer observer and the live V2274 run is pending.
+2. Run the V2274 live validation of the V2273 image: flash
+   `boot_linux_v2273_workqueue_fwclass_func_sampler.img`, collect
+   `/cache/native-init-v2273-workqueue-fwclass.log`, helper result, summary,
+   kmsg/dmesg anchors, then roll back and verify selftest `FAIL=0`.
+3. Classify captured `workqueue:workqueue_queue_work` and
+   `workqueue:workqueue_execute_start` function pointers with same-boot
+   exact-slide/codeword evidence; do not retune generic CPU-clock sampling.
+4. Start new WLAN live validation from V2254 only when a concrete criterion
    exists, unless a test explicitly validates an older rollback image.
-4. Defer architecture source cleanup unless a cleanup patch is kept separate and
+5. Defer architecture source cleanup unless a cleanup patch is kept separate and
    validation-neutral.
-5. If serial `AT` noise naturally fires, confirm shared recovery evidence.
-6. Run longer Wi-Fi/data-path soak only when new promotion criteria require it.
+6. If serial `AT` noise naturally fires, confirm shared recovery evidence.
+7. Run longer Wi-Fi/data-path soak only when new promotion criteria require it.
 
 ## Current Risk Register
 
@@ -424,6 +433,6 @@ Keep:
 | Physical network-menu ping selection | V2189 inherits V2187 command-level framebuffer presentation evidence for `WIFI STATUS` and `WIFI PING RESULTS`, but not button-driven physical capture. | Treat as UI polish, not a baseline blocker; validate physically or with OCR only if visual-navigation evidence is required. |
 | Large-transfer soak depth | V2184 passed 512MiB and 1GiB single-run bidirectional SHA checks, but not repeated N-run or multi-hour soak. | Treat as strong data-path evidence; run `cleanup -> reconnect -> 512MiB` or N-run soak only if promotion criteria require it. |
 | UI completeness | V2254 is the current baseline and preserves V2237 native `wlan0` bring-up/strict connect cleanup while adding the read-only Wi-Fi detail surface. | Keep V2254 as baseline; physical button/OCR validation remains optional. |
-| T1 oracle execution | V2272 defines `t1-workqueue-fwclass-function-pointer-oracle` and selector now chooses T1 again, but the live observer has not been implemented/run yet. | Next bounded unit should capture workqueue queue/execute function pointers in the post-FWREADY firmware_class window and classify with same-boot exact-slide/codeword evidence. |
+| T1 oracle execution | V2273 built the workqueue queue/execute function-pointer observer into a rollbackable test boot, but the live V2274 capture has not run yet. | Flash V2273 as V2274, collect `/cache/native-init-v2273-workqueue-fwclass.log` plus helper/kmsg/selftest evidence, roll back, and classify with same-boot exact-slide/codeword evidence. |
 | Script sprawl | Current source-root inventory has no delete-review rows and no active live phase/residual gaps. Remaining direct `a90ctl.py` references are review-only: `direct_a90ctl_reference_count=14`, `direct_a90ctl_actionable_now_count=0`, `direct_a90ctl_review_only_count=14`, top group `flash_capable_kernel_handoff_runners`. | Do not select direct-ref migration solely from historical references; use `consolidation_signals.direct_a90ctl_next_actionable_group` and migrate a runner only if it is revived or changed for a bounded run. |
 | Private data leakage | Wi-Fi profiles and raw run artifacts are intentionally private. | Keep secrets under ignored private roots; public reports stay redacted. |
