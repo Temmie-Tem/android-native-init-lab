@@ -247,6 +247,10 @@ functions.
       — combined workqueue/codeword sampler flag propagation, V2237 wrapper
       argument rewrites, dual ramdisk helper injection, report rendering,
       manifest/live-candidate metadata.
+- [x] `workspace/public/src/scripts/revalidation/native_kernel_workqueue_codeword_handoff_v2275.py`
+      — workqueue log parsing, same-boot codeword slide classification,
+      dry-run command rendering, manifest decisions, report/residual-state
+      rendering.
 - [ ] (append more as discovered: v2231+ analyzers.)
 
 ## Progress log
@@ -517,4 +521,8 @@ functions.
   sha256, with_workqueue_flags, configure_base, build_bpf_helpers,
   patch_ramdisk_helpers, render_report, main manifest/live-candidate metadata —
   7 cases — green.
+- 2026-06-13 — `native_kernel_workqueue_codeword_handoff_v2275.py` —
+  parse_key_values, parse_workqueue_log, resolve_symbol,
+  classify_combined_artifacts, dry_run_commands, classify_manifest,
+  render_report, residual_state — 9 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
