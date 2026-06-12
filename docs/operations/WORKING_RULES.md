@@ -33,7 +33,7 @@ Rules:
 - Do not use helper numbers as run IDs, boot filenames, or native-init build
   tags.
 - The current promoted baseline uses build tag
-  `v2237-supplicant-terminate-poll`. Keep this as the rollback/test
+  `v2254-wifi-detail-surface`. Keep this as the rollback/test
   baseline until a newer boot image is intentionally promoted.
 - If an existing artifact is only reproduced or documented, keep its build tag
   and record it as `Baseline tag`, not `Cycle`.
@@ -158,16 +158,16 @@ boot-image input changes, also run the relevant build script and record:
 - source root used by the builder
 - output paths under `workspace/private/`
 
-For the current V2237 artifact reproduction:
+For the current V2254 artifact reproduction:
 
 ```bash
-python3 workspace/public/src/scripts/revalidation/build_native_init_boot_v2237_supplicant_terminate_poll.py
+python3 workspace/public/src/scripts/revalidation/build_native_init_boot_v2254_wifi_detail_surface.py
 ```
 
 Expected current boot SHA:
 
 ```text
-b2ea2d26d160b7702ce7d4438b84367788eea26c6a5bbe4ed93f3d270292ac7f
+c668e9cd9a3621c955fa369c5d106271a96a949dcaec3774a5719d24b8ba19e9
 ```
 
 ## 7. Live Test Safety Rules

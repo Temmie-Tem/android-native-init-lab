@@ -20,16 +20,16 @@ Current verified baseline:
 
 | Field | Value |
 | --- | --- |
-| Device-visible version | `A90 Linux init 0.9.268` |
-| Build tag | `v2237-supplicant-terminate-poll` |
-| Boot image | `workspace/private/inputs/boot_images/boot_linux_v2237_supplicant_terminate_poll.img` |
-| Boot SHA256 | `b2ea2d26d160b7702ce7d4438b84367788eea26c6a5bbe4ed93f3d270292ac7f` |
+| Device-visible version | `A90 Linux init 0.9.272` |
+| Build tag | `v2254-wifi-detail-surface` |
+| Boot image | `workspace/private/inputs/boot_images/boot_linux_v2254_wifi_detail_surface.img` |
+| Boot SHA256 | `c668e9cd9a3621c955fa369c5d106271a96a949dcaec3774a5719d24b8ba19e9` |
 | Source root | `workspace/public/src/native-init/` |
-| Builder | `workspace/public/src/scripts/revalidation/build_native_init_boot_v2237_supplicant_terminate_poll.py` |
-| Source/build report | `docs/reports/NATIVE_INIT_V2237_SUPPLICANT_TERMINATE_POLL_SOURCE_BUILD_2026-06-12.md` |
-| Live validation report | `docs/reports/NATIVE_INIT_V2237_SUPPLICANT_TERMINATE_POLL_LIVE_VALIDATION_2026-06-12.md` |
-| Promotion report | `docs/reports/NATIVE_INIT_V2237_SUPPLICANT_TERMINATE_POLL_LIVE_VALIDATION_2026-06-12.md` |
-| Previous rollback | `workspace/private/inputs/boot_images/boot_linux_v2236_strict_wifi_connect.img` |
+| Builder | `workspace/public/src/scripts/revalidation/build_native_init_boot_v2254_wifi_detail_surface.py` |
+| Source/build report | `docs/reports/NATIVE_INIT_V2254_WIFI_DETAIL_SURFACE_SOURCE_BUILD_2026-06-12.md` |
+| Live validation report | `docs/reports/NATIVE_INIT_V2255_WIFI_DETAIL_SURFACE_LIVE_2026-06-12.md` |
+| Promotion report | `docs/reports/NATIVE_INIT_V2256_V2254_WIFI_DETAIL_SURFACE_BASELINE_PROMOTION_2026-06-12.md` |
+| Previous rollback | `workspace/private/inputs/boot_images/boot_linux_v2237_supplicant_terminate_poll.img` |
 | Known-good fallback | `workspace/private/inputs/boot_images/boot_linux_v48.img` |
 
 The boot image must provide:
@@ -48,16 +48,16 @@ Previous baseline:
 
 | Field | Value |
 | --- | --- |
-| Build tag | `v2236-strict-wifi-connect` |
-| Device-visible version | `A90 Linux init 0.9.267` |
-| Boot image | `workspace/private/inputs/boot_images/boot_linux_v2236_strict_wifi_connect.img` |
-| Boot SHA256 | `47dea2d602e25b60d7e6cd20619076446de0066fff0ed8b5ac80286f279ccd5b` |
-| Current role | Previous strict Wi-Fi connect fallback |
+| Build tag | `v2237-supplicant-terminate-poll` |
+| Device-visible version | `A90 Linux init 0.9.268` |
+| Boot image | `workspace/private/inputs/boot_images/boot_linux_v2237_supplicant_terminate_poll.img` |
+| Boot SHA256 | `b2ea2d26d160b7702ce7d4438b84367788eea26c6a5bbe4ed93f3d270292ac7f` |
+| Current role | Previous strict Wi-Fi connect and supplicant cleanup fallback |
 
-`v2237-supplicant-terminate-poll` is promoted as the current baseline by
-V2237. It keeps the V2236 strict Wi-Fi connect validation that rejects stale
-carrier unless supplicant reaches `wpa_state=COMPLETED`, and replaces the blind
-post-`TERMINATE` delay with a bounded process-exit poll plus SIGKILL escalation.
+`v2254-wifi-detail-surface` is promoted as the current baseline by V2256. It
+keeps the V2237 strict Wi-Fi connect and bounded stale-supplicant termination
+route, and adds read-only route/default-DNS detail fields to `wifi status` and
+`screenapp wifi-status`.
 
 ## 2. Boot-Image Transport Contract
 
@@ -213,7 +213,7 @@ Selector output contract:
 }
 ```
 
-For current `v2237-supplicant-terminate-poll`, `transport_contract=1` is
+For current `v2254-wifi-detail-surface`, `transport_contract=1` is
 expected. Older images may still report `transport_contract=0`; that is not a
 selector failure if host bridge, version/status, and host NCM are ready.
 
@@ -312,10 +312,10 @@ As of `2026-06-12`:
 - Host bridge wrapper contract exists: `wrapper_contract=1`.
 - Host transport selector contract exists: `selector_contract=1`.
 - NCM smoke runner records transport selection in its manifest.
-- Current boot image is `v2237-supplicant-terminate-poll`.
+- Current boot image is `v2254-wifi-detail-surface`.
 - Device-side `transport.contract=1` is a current baseline guarantee.
-- Previous rollback image is `v2236-strict-wifi-connect`;
+- Previous rollback image is `v2237-supplicant-terminate-poll`;
   known-good fallback remains `v48`.
 
 The next boot-image promotion should preserve the device-side `transport.*`
-status lines, the V2237 WLAN startup/connect route, and old parser compatibility.
+status lines, the V2254 WLAN command/detail route, and old parser compatibility.

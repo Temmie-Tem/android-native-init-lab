@@ -12,13 +12,13 @@ Date: `2026-06-12`
 
 - device: `Samsung Galaxy A90 5G SM-A908N`
 - recovery: TWRP 사용 가능
-- latest verified build: `A90 Linux init 0.9.268 (v2237-supplicant-terminate-poll)`
-- latest verified source: `workspace/public/src/native-init/` + 빌더 `workspace/public/src/scripts/revalidation/build_native_init_boot_v2237_supplicant_terminate_poll.py`
-- latest verified boot image: `workspace/private/inputs/boot_images/boot_linux_v2237_supplicant_terminate_poll.img`
-- latest verified boot image SHA256: `b2ea2d26d160b7702ce7d4438b84367788eea26c6a5bbe4ed93f3d270292ac7f`
-- 현재 기준 사이클: `v2237-supplicant-terminate-poll` strict Wi-Fi connect baseline with bounded supplicant terminate poll (V2237 promotion)
-- version axes: `v2237-supplicant-terminate-poll`는 boot/init baseline tag, `a90_android_execns_probe helper-v427`은 포함된 helper marker, `V2237`은 baseline-promotion run/report 번호다. 전체 규칙은 `docs/operations/VERSIONING_POLICY.md`를 따른다.
-- previous verified boot image: `workspace/private/inputs/boot_images/boot_linux_v2236_strict_wifi_connect.img` (`A90 Linux init 0.9.267 (v2236-strict-wifi-connect)`)
+- latest verified build: `A90 Linux init 0.9.272 (v2254-wifi-detail-surface)`
+- latest verified source: `workspace/public/src/native-init/` + 빌더 `workspace/public/src/scripts/revalidation/build_native_init_boot_v2254_wifi_detail_surface.py`
+- latest verified boot image: `workspace/private/inputs/boot_images/boot_linux_v2254_wifi_detail_surface.img`
+- latest verified boot image SHA256: `c668e9cd9a3621c955fa369c5d106271a96a949dcaec3774a5719d24b8ba19e9`
+- 현재 기준 사이클: `v2254-wifi-detail-surface` Wi-Fi command surface baseline with read-only route/default-DNS detail fields (V2256 promotion)
+- version axes: `v2254-wifi-detail-surface`는 boot/init baseline tag, `a90_android_execns_probe helper-v427`은 포함된 helper marker, `V2256`은 baseline-promotion run/report 번호다. 전체 규칙은 `docs/operations/VERSIONING_POLICY.md`를 따른다.
+- previous verified boot image: `workspace/private/inputs/boot_images/boot_linux_v2237_supplicant_terminate_poll.img` (`A90 Linux init 0.9.268 (v2237-supplicant-terminate-poll)`)
 - older verified boot image: `workspace/private/inputs/boot_images/boot_linux_v261.img` (`A90 Linux init 0.9.60 (v261)`)
 - known-good fallback native init: `A90 Linux init v48`
 - known-good fallback boot image: `workspace/private/inputs/boot_images/boot_linux_v48.img`

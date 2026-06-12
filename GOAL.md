@@ -24,7 +24,7 @@ uprobe/tracepoint observation, and mapping the observe/control envelope. Mostly 
 (`/cache/bin` helper + bounded attach) — usually **no flash needed**, lower risk.
 
 **T2 (fallback) — WLAN native-init.** Advance the WLAN bring-up / boot baseline (latest
-promoted = **V2237 supplicant terminate-poll**): e.g. connect robustness, network detail
+promoted = **V2254 Wi-Fi detail surface**): e.g. connect robustness, network detail
 surface, or bounded lifecycle/soak evidence. Device/flash steps obey the `AGENTS.md`
 flash gates.
 
@@ -213,6 +213,15 @@ Read at the START of every iteration (then apply the tier policy above):
   live-register sampling for code-path identity.
 
 **T2 — WLAN native-init (if T1 blocked):**
+- After V2256 promotion: V2254 is the current rollback/test baseline:
+  `A90 Linux init 0.9.272 (v2254-wifi-detail-surface)`,
+  `boot_linux_v2254_wifi_detail_surface.img`, boot SHA256
+  `c668e9cd9a3621c955fa369c5d106271a96a949dcaec3774a5719d24b8ba19e9`.
+  The promotion rests on V2254 source/build evidence and V2255 rollbackable
+  live validation of `wifi status` and `screenapp wifi-status` route/default-DNS
+  fields with no scan/connect/DHCP/ping or credentials. V2237 remains the
+  previous verified rollback artifact. Next T2 unit: remaining test-script
+  cleanup or explicit lifecycle/soak evidence on top of V2254.
 - After V2255 live: V2254 was rollbackably flashed and validated. Test boot
   `A90 Linux init 0.9.272 (v2254-wifi-detail-surface)` exposed all V2254
   read-only `wifi status` route/default-DNS fields
