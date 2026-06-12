@@ -77,6 +77,12 @@ Read at the START of every iteration (then apply the tier policy above):
 ## Sub-goal seeds (optional; the loop may pick others from state)
 
 **T1 — kernel observation (try first):**
+- After V2243: helper-owned `a90*` event interpretation now has a public
+  semantic layer. Use
+  `workspace/private/runs/kernel/v2243-user-uprobe-semantic-classifier-20260612-113113/summary.json`
+  for event role / instruction class / alignment / confidence. Key events have
+  no low-confidence rows; non-key `needs_manual_context` rows must be rechecked
+  against private context before supporting strong conclusions.
 - After V2242: all checked `a90*` helper static offsets map to executable user-ELF
   `LOAD` segments. Treat `group` as the log surface and `object` as the ELF identity:
   `periph_*` offsets belong to `libperipheral_client.so` (`a90periph`), not
