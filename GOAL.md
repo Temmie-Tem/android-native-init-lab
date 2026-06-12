@@ -39,6 +39,8 @@ the trigger** (what made the higher tier impossible/meaningless) in that iterati
 before proceeding.
 
 Read at the START of every iteration (then apply the tier policy above):
+- **this `GOAL.md`** — re-read it every iteration; the contract may be updated mid-run,
+  so never rely on a cached copy from session start,
 - `CLAUDE.md` (current state + safety),
 - `docs/overview/PROJECT_STATUS.md`,
 - the newest `docs/reports/NATIVE_INIT_V*.md` (a few; include the latest kernel-track
@@ -73,6 +75,21 @@ Read at the START of every iteration (then apply the tier policy above):
 - Device unreachable after an auto-rollback → STOP, leave an incident report.
 - The same sub-goal fails twice → STOP or shelve it and move on; do NOT retry-loop.
 - No sub-goal is safely actionable without the operator → STOP with a note.
+
+## Anti-churn guard (low-value *success* streaks)
+
+The "fails twice → stop" rule does not catch *successful* but low-information work, e.g.
+per-item metadata/inventory/cleanup sweeps that each succeed and justify the next. Guard:
+
+- If the last **3+ iterations** were host-only metadata / inventory / runner / cleanup /
+  audit work with **no new observable-or-controllable capability and no device
+  validation**, treat that cleanup theme as **exhausted**. Force a tier re-evaluation
+  toward substantive work: a new T1 oracle, a concrete T2 live criterion, or — only if
+  both are genuinely blocked — drop to T3, recording the trigger.
+- Never let one cleanup theme justify its own next iteration ("previous left a backlog"
+  is not a reason to continue it past the streak limit).
+- **Batch** mechanical sweeps (e.g. per-runner metadata across N runners) into a **single**
+  iteration, not one-V-iteration-per-item.
 
 ## Sub-goal seeds (optional; the loop may pick others from state)
 
