@@ -84,7 +84,10 @@ functions.
 - [x] `workspace/public/src/scripts/revalidation/native_kernel_file_ops_anchor_v2204.py`
       — StepResult/sha256 helpers, probe/System.map parsing,
       file_operations slide analysis, residual/report rendering.
-- [ ] (append more as discovered: v2205 / v2207 / v2208 /
+- [x] `workspace/public/src/scripts/revalidation/a90_kernel_v2205_exact_slide_resymbolization_audit.py`
+      — System.map parsing, runtime symbolization, V2195/V2202 mapping,
+      legacy context loading, result classification, report rendering.
+- [ ] (append more as discovered: v2207 / v2208 /
       v2209 / v2210 analyzers.)
 
 ## Progress log
@@ -147,4 +150,8 @@ functions.
   sha256_file, format_signed_hex, parse_key_values, parse_int,
   parse_probe_stdout, parse_system_map, analyze_fops, residual_state,
   render_report — 10 cases — green.
+- 2026-06-13 — `a90_kernel_v2205_exact_slide_resymbolization_audit.py` —
+  signed_hex, parse_system_map, nearest_symbol, symbolize_runtime,
+  parse_stack_ips, load_exact_slide, map_v2195_stack, map_v2202_rows,
+  load_legacy_context, classify_result, render_markdown — 11 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
