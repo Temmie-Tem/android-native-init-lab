@@ -132,6 +132,11 @@ def compare_outcomes(runs: dict[str, dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def sorted_counter(values) -> dict[str, int]:
+    normalized = ("none" if value is None else str(value) for value in values)
+    return dict(sorted(Counter(normalized).items()))
+
+
 def build_summary(args: argparse.Namespace, out_dir: Path) -> dict[str, Any]:
     v2239_summary = read_json(args.v2239_summary)
     v2239_timeline = read_json(args.v2239_timeline)
@@ -188,9 +193,9 @@ def build_summary(args: argparse.Namespace, out_dir: Path) -> dict[str, Any]:
         "missing_semantic_edges": missing_semantic_edges,
         "weak_edges": weak_edges,
         "low_confidence_key_edges": low_confidence_key_edges,
-        "strength_counts": dict(sorted(Counter(edge["evidence_strength"] for edge in edge_rows).items())),
-        "role_counts": dict(sorted(Counter(edge["event_role"] for edge in edge_rows).items())),
-        "alignment_counts": dict(sorted(Counter(edge["alignment"] for edge in edge_rows).items())),
+        "strength_counts": sorted_counter(edge["evidence_strength"] for edge in edge_rows),
+        "role_counts": sorted_counter(edge["event_role"] for edge in edge_rows),
+        "alignment_counts": sorted_counter(edge["alignment"] for edge in edge_rows),
         "run_summaries": {
             run_id: {
                 "outcome": run["outcome"],

@@ -199,6 +199,9 @@ functions.
 - [x] `workspace/public/src/scripts/revalidation/a90_kernel_v2243_user_uprobe_semantic_classifier.py`
       — disassembly line parsing, target/neighbor lookup, instruction/event-role
       classes, role alignment, context classification, semantic summary rendering.
+- [x] `workspace/public/src/scripts/revalidation/a90_kernel_v2244_semantic_timeline_merger.py`
+      — semantic key-event lookup, evidence-strength bucketing, edge merge,
+      per-run strength summary, cross-run outcome comparison, merged summary output.
 - [ ] (append more as discovered: v2231+ analyzers.)
 
 ## Progress log
@@ -421,4 +424,7 @@ functions.
 - 2026-06-13 — `a90_kernel_v2243_user_uprobe_semantic_classifier.py` —
   parse_instructions, find_target, instruction_class, event_role,
   role_alignment, classify_context, counter_dict, build_summary — 8 cases — green.
+- 2026-06-13 — `a90_kernel_v2244_semantic_timeline_merger.py` —
+  semantic_by_event, evidence_strength, merge_edge, summarize_run,
+  compare_outcomes, build_summary — 8 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
