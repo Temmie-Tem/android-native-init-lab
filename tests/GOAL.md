@@ -308,6 +308,10 @@ functions.
       — IPv4 validation, command/service wrappers, IPv4 parsing,
       interface classification, template rendering/writing, decision branches,
       summary/manifest rendering.
+- [x] `workspace/public/src/scripts/revalidation/a90_ncm_transport_smoke.py`
+      — size parsing, deterministic pattern-file generation, PATH lookup,
+      bounded NetworkManager repair recording, raw upload stream success/fail
+      classification.
 - [ ] (append more as discovered: v2231+ analyzers.)
 
 ## Progress log
@@ -645,4 +649,7 @@ functions.
   run_text, read_text, service_state, ipv4_addrs, classify_interface,
   render_templates, write_templates, decide, render_summary, build_manifest —
   9 cases — green.
+- 2026-06-13 — `a90_ncm_transport_smoke.py` — parse_sizes,
+  write_pattern_file, shutil_which, maybe_force_nm_repair,
+  stream_remote_to_host unreachable/success/failure branches — 8 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
