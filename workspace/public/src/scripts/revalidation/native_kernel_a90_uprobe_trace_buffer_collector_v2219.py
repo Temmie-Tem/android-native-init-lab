@@ -62,7 +62,7 @@ TRACE_LINE_RE = re.compile(
     r"(?P<event>[A-Za-z0-9_]+):\s+"
     r"\((?P<probe_ip>0x[0-9a-fA-F]+)\)(?P<args>.*)$"
 )
-KV_RE = re.compile(r"(?P<key>[A-Za-z0-9_]+)=(?P<value>\"[^\"]*\"|\\S+)")
+KV_RE = re.compile(r"(?P<key>[A-Za-z0-9_]+)=(?P<value>\"[^\"]*\"|\S+)")
 
 
 @dataclass

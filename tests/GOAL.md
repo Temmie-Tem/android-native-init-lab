@@ -127,7 +127,11 @@ functions.
       — cmdv1 output cleanup, trace event parsing/categorization,
       tracepoint format field parsing, System.map symbolization,
       trace extract output parsing, residual state, StepResult.
-- [ ] (append more as discovered: v2219+ analyzers.)
+- [x] `workspace/public/src/scripts/revalidation/native_kernel_a90_uprobe_trace_buffer_collector_v2219.py`
+      — cmdv1 output cleanup, event-state parsing, event-name mapping,
+      trace-argument parsing, trace-line parsing/group inference, hit summary,
+      residual state, StepResult.
+- [ ] (append more as discovered: v2222+ analyzers.)
 
 ## Progress log
 
@@ -264,4 +268,9 @@ functions.
   StepResult.ok — 9 cases — green. Also extended `tests/_loader.py`
   to expose each standalone script's directory on `sys.path`, matching
   CLI sibling-import behavior for scripts that import `a90_transport`.
+- 2026-06-13 — `native_kernel_a90_uprobe_trace_buffer_collector_v2219.py` —
+  clean_cmdv1_text, parse_event_state, event_name_map, parse_args_text,
+  parse_trace_lines, summarize_hits, residual_state, StepResult.ok,
+  is_kernel_va — 10 cases — green. Also fixed `KV_RE` to parse unquoted
+  trace args such as `svc=69` and `rc=-11`, matching tracefs output.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
