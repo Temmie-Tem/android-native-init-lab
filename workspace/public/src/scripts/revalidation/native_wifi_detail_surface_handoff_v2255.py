@@ -27,6 +27,7 @@ from a90harness.evidence import (
     workspace_private_input_path,
     write_public_text,
 )
+import a90_transport as transport
 
 
 REPO_ROOT = repo_root()
@@ -518,6 +519,65 @@ def classify_manifest(manifest: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def residual_state(manifest: dict[str, Any]) -> dict[str, Any]:
+    rollback_result = manifest.get("rollback") or {}
+    test_flash = manifest.get("test_flash") or {}
+    observations = manifest.get("observations") or {}
+    wifi_status = observations.get("wifi_status") or {}
+    screenapp = observations.get("screenapp_wifi_status") or {}
+    execute = bool(manifest.get("execute"))
+    if not execute:
+        return {
+            "device_touched": False,
+            "test_flash_ok": False,
+            "rollback_ok": True,
+            "rollback_attempt": "not-needed-dry-run",
+            "rollback_selftest_ok": True,
+            "status_surface_ok": False,
+            "screenapp_presented": False,
+            "forbidden_runtime_actions_detected": {},
+            "cleanup_required": False,
+            "residual_risk": "none",
+            "wifi_scan_connect": False,
+            "credentials_used": False,
+            "dhcp_routes_ping": False,
+        }
+    if not test_flash and not rollback_result:
+        return {
+            "device_touched": False,
+            "test_flash_ok": False,
+            "rollback_ok": True,
+            "rollback_attempt": "not-needed-no-device-action",
+            "rollback_selftest_ok": True,
+            "status_surface_ok": False,
+            "screenapp_presented": False,
+            "forbidden_runtime_actions_detected": {},
+            "cleanup_required": False,
+            "residual_risk": "none",
+            "wifi_scan_connect": False,
+            "credentials_used": False,
+            "dhcp_routes_ping": False,
+        }
+    rollback_selftest_ok = bool(rollback_result.get("selftest_ok"))
+    rollback_ok = bool(rollback_result.get("ok"))
+    cleanup_required = bool(execute and not (rollback_ok and rollback_selftest_ok))
+    return {
+        "device_touched": bool(execute and (test_flash or rollback_result)),
+        "test_flash_ok": bool(test_flash.get("ok")),
+        "rollback_ok": rollback_ok,
+        "rollback_attempt": rollback_result.get("attempt", "not-run"),
+        "rollback_selftest_ok": rollback_selftest_ok,
+        "status_surface_ok": bool(wifi_status.get("all_required_fields_present")),
+        "screenapp_presented": str(screenapp.get("screenapp_presented")) == "1",
+        "forbidden_runtime_actions_detected": wifi_status.get("forbidden_runtime_actions_detected") or {},
+        "cleanup_required": cleanup_required,
+        "residual_risk": "rollback-health-incomplete" if cleanup_required else "none",
+        "wifi_scan_connect": False,
+        "credentials_used": False,
+        "dhcp_routes_ping": False,
+    }
+
+
 def render_report(manifest: dict[str, Any]) -> str:
     result = manifest["result"]
     pre = manifest["preflight"]
@@ -534,6 +594,8 @@ def render_report(manifest: dict[str, Any]) -> str:
         f"- Reason: {result['reason']}",
         f"- Execute mode: `{manifest['execute']}`",
         f"- Evidence: `{manifest['out_dir']}`",
+        f"- Phase timer contract: `{manifest.get('phase_timer_contract')}`",
+        f"- Residual-state contract: `{manifest.get('residual_state_contract')}`",
         "",
         "## Images",
         "",
@@ -622,6 +684,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> int:
+    main_started = time.monotonic()
     args = parse_args()
     label = safe_artifact_label(args.label)
     run_dir = RUN_ROOT / f"{label}-{artifact_timestamp()}"
@@ -635,6 +698,8 @@ def main() -> int:
         "execute": bool(args.execute),
         "preflight": preflight_result,
         "steps": steps,
+        "phase_timer_contract": transport.PHASE_TIMER_CONTRACT,
+        "phase_timers": [],
         "safety": {
             "dry_run_default": True,
             "requires_confirm_for_flash": True,
@@ -648,8 +713,19 @@ def main() -> int:
             "tracefs_write": False,
         },
     }
+    transport.add_total_phase(
+        manifest,
+        "preflight",
+        main_started,
+        ok=bool(
+            preflight_result.get("test_image_exists")
+            and preflight_result.get("rollback_image_exists")
+            and preflight_result.get("fallback_image_exists")
+        ),
+    )
     if not args.execute:
-        manifest["dry_run_commands"] = dry_run_commands(preflight_result)
+        with transport.phase(manifest, "dry_run_plan"):
+            manifest["dry_run_commands"] = dry_run_commands(preflight_result)
     elif args.confirm != REQUIRED_CONFIRM:
         manifest["result"] = {
             "decision": "v2255-wifi-detail-surface-live-confirmation-missing",
@@ -657,32 +733,42 @@ def main() -> int:
             "reason": "live mode requires the exact confirmation token",
         }
     else:
-        current = verify_current(args, store, steps, str(preflight_result["rollback_image_sha256"]))
+        with transport.phase(manifest, "current_baseline_verify"):
+            current = verify_current(args, store, steps, str(preflight_result["rollback_image_sha256"]))
         manifest["current_preflight"] = current
         if not (current.get("verify_ok") and current.get("selftest_ok")):
             manifest["live_block"] = "preflight-current-baseline-failed"
             manifest["rollback"] = {"ok": True, "attempt": "not-needed-pre-test-flash", "selftest_ok": True}
         else:
-            test_flash = run_command(
-                flash_command(TEST_IMAGE, TEST_EXPECT_VERSION, str(preflight_result["test_image_sha256"]), from_native=True),
-                timeout=args.flash_timeout,
-            )
-            write_step(store, steps, "flash-v2254-from-native", test_flash)
+            with transport.phase(manifest, "flash_test_boot"):
+                test_flash = run_command(
+                    flash_command(TEST_IMAGE, TEST_EXPECT_VERSION, str(preflight_result["test_image_sha256"]), from_native=True),
+                    timeout=args.flash_timeout,
+                )
+                write_step(store, steps, "flash-v2254-from-native", test_flash)
             manifest["test_flash"] = {"ok": bool(test_flash.get("ok")), "rc": test_flash.get("rc")}
             if bool(test_flash.get("ok")):
-                version = run_a90ctl_step(store, steps, "test-boot-version", args, ["version"], timeout=120)
-                status = run_a90ctl_step(store, steps, "test-boot-status", args, ["status"], timeout=120)
-                selftest = run_a90ctl_step(store, steps, "test-boot-selftest", args, ["selftest"], timeout=120)
+                with transport.phase(manifest, "test_boot_health"):
+                    version = run_a90ctl_step(store, steps, "test-boot-version", args, ["version"], timeout=120)
+                    status = run_a90ctl_step(store, steps, "test-boot-status", args, ["status"], timeout=120)
+                    selftest = run_a90ctl_step(store, steps, "test-boot-selftest", args, ["selftest"], timeout=120)
                 manifest["test_health"] = classify_test_health(version, status, selftest)
-                manifest["observations"] = collect_live_observations(args, store, steps)
+                with transport.phase(manifest, "detail_observation"):
+                    manifest["observations"] = collect_live_observations(args, store, steps)
             else:
                 manifest["live_block"] = "test-flash-failed"
-            manifest["rollback"] = rollback(args, store, steps, str(preflight_result["rollback_image_sha256"]))
+            with transport.phase(manifest, "rollback"):
+                manifest["rollback"] = rollback(args, store, steps, str(preflight_result["rollback_image_sha256"]))
     if "result" not in manifest:
         manifest["result"] = classify_manifest(manifest)
+    transport.set_residual_state(manifest, residual_state(manifest))
     manifest["finished_at"] = now_iso()
+    artifact_started = time.monotonic()
+    report_text = render_report(manifest)
     store.write_json("manifest.json", manifest)
-    write_public_text(REPORT_PATH, render_report(manifest))
+    write_public_text(REPORT_PATH, report_text)
+    transport.add_total_phase(manifest, "artifact_write", artifact_started, ok=True)
+    store.write_json("manifest.json", manifest)
     print(json.dumps({
         "decision": manifest["result"]["decision"],
         "pass": manifest["result"]["pass"],

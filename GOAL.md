@@ -213,6 +213,15 @@ Read at the START of every iteration (then apply the tier policy above):
   live-register sampling for code-path identity.
 
 **T2 — WLAN native-init (if T1 blocked):**
+- After V2258 metadata cleanup: `native_wifi_detail_surface_handoff_v2255.py`
+  now uses the shared `a90_transport` phase/residual contracts. Inventory
+  confirms the V2255 detail-surface runner is no longer in the live metadata
+  gap list (`Phase=yes`, `Residual=yes`), reducing active live scripts without
+  phase markers and residual-state metadata from `23` to `22` each. No device
+  action was taken. Next T2 cleanup unit: continue with one active live runner
+  family from the remaining kernel-observation runner list, preserving the
+  same static-only validation discipline unless the selected runner itself
+  requires live proof.
 - After V2257 inventory refresh: T1 was re-evaluated and dropped for this unit
   with trigger `t1-fwclass-boundary-question-closed-no-new-independent-oracle`;
   V2253 already closed the latest firmware_class/qcacld boundary question, and

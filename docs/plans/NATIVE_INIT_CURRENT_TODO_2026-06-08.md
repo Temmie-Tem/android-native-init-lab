@@ -204,23 +204,27 @@ Open edge:
 Goal: prevent new one-off script sprawl.
 
 Status: refreshed for the V2254 baseline; source-root has no `delete-review`
-entries, but current live-runner metadata gaps are visible again after the
-V22xx kernel-observation scripts were classified.
+entries, and V2258 closed the current Wi-Fi detail-surface runner's live
+metadata gap. The remaining gaps are concentrated in older kernel-observation
+live runner families and one local security utility.
 
 Completed:
 
 - Current inventory report:
   `docs/reports/REVALIDATION_SCRIPT_INVENTORY_2026-06-10.md`.
-- Current source-root state after V2257 inventory refresh:
+- Current source-root state after V2258 inventory refresh:
   - `107 active`;
   - `6 module`;
   - `0 archive`;
   - `0 delete-review`.
 - Active live metadata gaps:
-  - phase timer markers missing: `23`;
-  - residual-state metadata missing: `23`;
+  - phase timer markers missing: `22`;
+  - residual-state metadata missing: `22`;
   - phase-timer-exempt live utilities: `2`;
   - residual-state-exempt live utilities/helpers: `3`.
+- V2258 migrated `native_wifi_detail_surface_handoff_v2255.py` to shared
+  `a90_transport` phase timing plus residual-state metadata; it is no longer in
+  the active live gap list.
 - V2167 historical runner is archived under
   `workspace/public/archive/scripts/revalidation/native_wifi_connect_dhcp_google_ping_handoff_v2167.py`.
 - `workspace/public/archive/scripts/revalidation/` is provenance-only and must

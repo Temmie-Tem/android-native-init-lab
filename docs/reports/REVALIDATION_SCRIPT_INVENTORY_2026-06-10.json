@@ -1221,7 +1221,7 @@
       "name": "inventory_revalidation_scripts.py",
       "path": "workspace/public/src/scripts/revalidation/inventory_revalidation_scripts.py",
       "reason": "operator utility or inventory/cleanup utility",
-      "repo_reference_count": 5,
+      "repo_reference_count": 7,
       "type": "file"
     },
     {
@@ -1685,10 +1685,10 @@
     },
     {
       "executable": false,
-      "has_phase_timer": false,
-      "has_residual_state": false,
+      "has_phase_timer": true,
+      "has_residual_state": true,
       "has_secret_redaction": true,
-      "imports_a90_transport": false,
+      "imports_a90_transport": true,
       "label": "active",
       "live_device_required": true,
       "mentions_a90_bridge": false,
@@ -1697,7 +1697,7 @@
       "name": "native_wifi_detail_surface_handoff_v2255.py",
       "path": "workspace/public/src/scripts/revalidation/native_wifi_detail_surface_handoff_v2255.py",
       "reason": "scripted live-device workflow",
-      "repo_reference_count": 2,
+      "repo_reference_count": 4,
       "type": "file"
     },
     {
@@ -1922,7 +1922,7 @@
       "type": "file"
     }
   ],
-  "generated_at": "2026-06-12T05:16:39.474648+00:00",
+  "generated_at": "2026-06-12T05:26:42.612545+00:00",
   "root": "workspace/public/src/scripts/revalidation",
   "summary": {
     "active": 107,
