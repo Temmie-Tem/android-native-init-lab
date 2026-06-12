@@ -82,8 +82,10 @@ Read at the START of every iteration (then apply the tier policy above):
   LR (off 240) as un-ROPP'd kernel-text anchors; `exclude_user=1 exclude_idle=1`,
   ~1 ms period. Harvest the kernel `ctx->pc` set and solve the unique KASLR slide
   (collapse the V2197 four-candidate ambiguity). Read-only BPF; no flash.
-- After the slide is pinned: read-only WLAN/cfg80211/QRTR tracepoint object-chain reads
-  with ambiguity metrics; extend the observe/control envelope map.
+- After V2238: do not retry cfg80211/PIL/QRTR static-tracepoint object-chain
+  dereference from trace records; those records are scalarized. Use static tracepoints
+  for scalar lifecycle correlation, helper-owned `a90*` tracefs records for WLFW/QMI
+  edge sequencing, and exact-slide live-register sampling for code-path identity.
 
 **T2 — WLAN native-init (if T1 blocked):**
 - Network detail surface + remaining test-script cleanup (CLAUDE.md "Active work").
