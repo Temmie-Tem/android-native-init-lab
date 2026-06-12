@@ -2542,6 +2542,7 @@ static int wifi_connect_profile_with_carrier_timeout(const char *profile_name, i
     int terminate_status = 0;
     int supplicant_root_exec_rc;
     pid_t supplicant_pid = -1;
+    struct wifi_ctrl_link_info status_info;
     bool spawned_supplicant = false;
     bool reusing_supplicant = false;
 
@@ -2622,62 +2623,49 @@ static int wifi_connect_profile_with_carrier_timeout(const char *profile_name, i
     supplicant_process_count = wifi_count_processes_with_token("wpa_supplicant");
     a90_console_printf("supplicant.process_count_before=%d\r\n", supplicant_process_count);
     if (supplicant_process_count > 0) {
-        ctrl_ready_rc = wifi_wait_ctrl_ready(0,
-                                             false,
-                                             5000,
-                                             &ctrl_wait_elapsed_ms,
-                                             ctrl_category,
-                                             sizeof(ctrl_category),
-                                             &ctrl_errno);
-        a90_console_printf("supplicant.reuse_attempted=1\r\n");
-        a90_console_printf("ctrl_wait_elapsed_ms=%d\r\n", ctrl_wait_elapsed_ms);
-        a90_console_printf("ctrl_ping_rc=%d\r\n", ctrl_ready_rc);
-        a90_console_printf("ctrl_ping_errno=%d\r\n", ctrl_errno);
-        a90_console_printf("ctrl_ping.reply_category=%s\r\n",
-                           ctrl_ready_rc == 0 ? ctrl_category : "error");
-        if (ctrl_ready_rc < 0) {
-            a90_console_printf("secret_values_logged=0\r\n");
-            a90_console_printf("decision=wifi-connect-supplicant-busy-no-ctrl\r\n");
-            return -EBUSY;
-        }
-        reusing_supplicant = true;
-    } else {
-        (void)unlink(A90_WIFI_CTRL_SOCKET);
-        (void)unlink(A90_WIFI_SUPPLICANT_LOG);
-        supplicant_start_rc = wifi_start_supplicant(&supplicant_pid);
         a90_console_printf("supplicant.reuse_attempted=0\r\n");
-        a90_console_printf("supplicant_start_rc=%d\r\n", supplicant_start_rc);
-        a90_console_printf("supplicant_pid=%ld\r\n", supplicant_start_rc == 0 ? (long)supplicant_pid : -1L);
-        if (supplicant_start_rc < 0) {
-            a90_console_printf("secret_values_logged=0\r\n");
-            a90_console_printf("decision=wifi-connect-supplicant-start-failed\r\n");
-            return supplicant_start_rc;
-        }
-        spawned_supplicant = true;
-        ctrl_ready_rc = wifi_wait_ctrl_ready(supplicant_pid,
-                                             true,
-                                             A90_WIFI_CONNECT_CTRL_WAIT_MS,
-                                             &ctrl_wait_elapsed_ms,
-                                             ctrl_category,
-                                             sizeof(ctrl_category),
-                                             &ctrl_errno);
-        a90_console_printf("ctrl_wait_timeout_ms=%d\r\n", A90_WIFI_CONNECT_CTRL_WAIT_MS);
-        a90_console_printf("ctrl_wait_elapsed_ms=%d\r\n", ctrl_wait_elapsed_ms);
-        a90_console_printf("ctrl_ping_rc=%d\r\n", ctrl_ready_rc);
-        a90_console_printf("ctrl_ping_errno=%d\r\n", ctrl_errno);
-        a90_console_printf("ctrl_ping.reply_category=%s\r\n",
-                           ctrl_ready_rc == 0 ? ctrl_category : "error");
-        if (ctrl_ready_rc < 0) {
-            (void)a90_run_stop_pid_ex(supplicant_pid,
-                                      "wifi-supplicant",
-                                      3000,
-                                      true,
-                                      &terminate_status);
-            a90_console_printf("supplicant_cleanup_status=%d\r\n", terminate_status);
-            a90_console_printf("secret_values_logged=0\r\n");
-            a90_console_printf("decision=wifi-connect-ctrl-timeout\r\n");
-            return ctrl_ready_rc;
-        }
+        a90_console_printf("supplicant.existing_terminate_attempted=1\r\n");
+        (void)wifi_print_ctrl_result("ctrl.terminate_existing", "TERMINATE");
+        usleep(500000);
+        a90_console_printf("supplicant.process_count_after_terminate=%d\r\n",
+                           wifi_count_processes_with_token("wpa_supplicant"));
+    } else {
+        a90_console_printf("supplicant.reuse_attempted=0\r\n");
+    }
+    (void)unlink(A90_WIFI_CTRL_SOCKET);
+    (void)unlink(A90_WIFI_SUPPLICANT_LOG);
+    supplicant_start_rc = wifi_start_supplicant(&supplicant_pid);
+    a90_console_printf("supplicant_start_rc=%d\r\n", supplicant_start_rc);
+    a90_console_printf("supplicant_pid=%ld\r\n", supplicant_start_rc == 0 ? (long)supplicant_pid : -1L);
+    if (supplicant_start_rc < 0) {
+        a90_console_printf("secret_values_logged=0\r\n");
+        a90_console_printf("decision=wifi-connect-supplicant-start-failed\r\n");
+        return supplicant_start_rc;
+    }
+    spawned_supplicant = true;
+    ctrl_ready_rc = wifi_wait_ctrl_ready(supplicant_pid,
+                                         true,
+                                         A90_WIFI_CONNECT_CTRL_WAIT_MS,
+                                         &ctrl_wait_elapsed_ms,
+                                         ctrl_category,
+                                         sizeof(ctrl_category),
+                                         &ctrl_errno);
+    a90_console_printf("ctrl_wait_timeout_ms=%d\r\n", A90_WIFI_CONNECT_CTRL_WAIT_MS);
+    a90_console_printf("ctrl_wait_elapsed_ms=%d\r\n", ctrl_wait_elapsed_ms);
+    a90_console_printf("ctrl_ping_rc=%d\r\n", ctrl_ready_rc);
+    a90_console_printf("ctrl_ping_errno=%d\r\n", ctrl_errno);
+    a90_console_printf("ctrl_ping.reply_category=%s\r\n",
+                       ctrl_ready_rc == 0 ? ctrl_category : "error");
+    if (ctrl_ready_rc < 0) {
+        (void)a90_run_stop_pid_ex(supplicant_pid,
+                                  "wifi-supplicant",
+                                  3000,
+                                  true,
+                                  &terminate_status);
+        a90_console_printf("supplicant_cleanup_status=%d\r\n", terminate_status);
+        a90_console_printf("secret_values_logged=0\r\n");
+        a90_console_printf("decision=wifi-connect-ctrl-timeout\r\n");
+        return ctrl_ready_rc;
     }
 
     (void)wifi_print_ctrl_result("ctrl.driver_country", "DRIVER COUNTRY KR");
@@ -2695,23 +2683,51 @@ static int wifi_connect_profile_with_carrier_timeout(const char *profile_name, i
     a90_console_printf("carrier_wait_elapsed_ms=%d\r\n", carrier_wait_elapsed_ms);
     a90_console_printf("carrier_up=%d\r\n", carrier_rc == 0 ? 1 : 0);
     status_rc = wifi_print_ctrl_result("ctrl.status", "STATUS");
+    wifi_collect_ctrl_link_info(&status_info);
+    a90_console_printf("ctrl.status_confirm.rc=%d\r\n", status_info.status_rc);
+    a90_console_printf("ctrl.status_confirm.errno=%d\r\n", status_info.status_errno);
+    a90_console_printf("ctrl.status_confirm.field.wpa_state=%s\r\n",
+                       status_info.wpa_state[0] != '\0' ? status_info.wpa_state : "-");
+    a90_console_printf("ctrl.status_confirm.field.freq=%s\r\n",
+                       status_info.freq_mhz[0] != '\0' ? status_info.freq_mhz : "-");
+    a90_console_printf("ctrl.status_confirm.completed=%d\r\n",
+                       strcmp(status_info.wpa_state, "COMPLETED") == 0 ? 1 : 0);
     a90_console_printf("supplicant.reused=%d\r\n", reusing_supplicant ? 1 : 0);
     a90_console_printf("supplicant.spawned=%d\r\n", spawned_supplicant ? 1 : 0);
-    a90_console_printf("supplicant.left_running=%d\r\n", carrier_rc == 0 ? 1 : 0);
+    a90_console_printf("supplicant.left_running=%d\r\n",
+                       carrier_rc == 0 && strcmp(status_info.wpa_state, "COMPLETED") == 0 ? 1 : 0);
     a90_console_printf("status_request_rc=%d\r\n", status_rc);
     a90_console_printf("credentials_logged=0\r\n");
     a90_console_printf("dhcp_routing=0\r\n");
     a90_console_printf("external_ping=0\r\n");
     a90_console_printf("secret_values_logged=0\r\n");
 
-    if (carrier_rc == 0) {
+    if (carrier_rc == 0 && strcmp(status_info.wpa_state, "COMPLETED") == 0) {
         a90_logf("wifi",
-                 "connect profile=%s carrier=1 reused=%d spawned=%d secret_values_logged=0",
+                 "connect profile=%s carrier=1 wpa_state=COMPLETED reused=%d spawned=%d secret_values_logged=0",
                  profile_name != NULL && profile_name[0] != '\0' ? profile_name : "default",
                  reusing_supplicant ? 1 : 0,
                  spawned_supplicant ? 1 : 0);
         a90_console_printf("decision=wifi-connect-carrier-up\r\n");
         return 0;
+    }
+
+    if (carrier_rc == 0) {
+        (void)wifi_print_ctrl_result("ctrl.terminate", "TERMINATE");
+        (void)a90_run_stop_pid_ex(supplicant_pid,
+                                  "wifi-supplicant",
+                                  3000,
+                                  true,
+                                  &terminate_status);
+        a90_console_printf("supplicant_cleanup_status=%d\r\n", terminate_status);
+        a90_logf("wifi",
+                 "connect profile=%s carrier=1 wpa_state=%s reused=%d spawned=%d secret_values_logged=0",
+                 profile_name != NULL && profile_name[0] != '\0' ? profile_name : "default",
+                 status_info.wpa_state[0] != '\0' ? status_info.wpa_state : "-",
+                 reusing_supplicant ? 1 : 0,
+                 spawned_supplicant ? 1 : 0);
+        a90_console_printf("decision=wifi-connect-status-not-completed\r\n");
+        return -ENOTCONN;
     }
 
     if (spawned_supplicant) {

@@ -20,16 +20,16 @@ Current verified baseline:
 
 | Field | Value |
 | --- | --- |
-| Device-visible version | `A90 Linux init 0.9.266` |
-| Build tag | `v2232-service-object-fwclass-bridge` |
-| Boot image | `workspace/private/inputs/boot_images/boot_linux_v2232_service_object_fwclass_bridge.img` |
-| Boot SHA256 | `dd56aa2dd8c0d9b2bafd1c12e23a3db6ba7095bea5e632ab03c5785fac69786c` |
+| Device-visible version | `A90 Linux init 0.9.267` |
+| Build tag | `v2236-strict-wifi-connect` |
+| Boot image | `workspace/private/inputs/boot_images/boot_linux_v2236_strict_wifi_connect.img` |
+| Boot SHA256 | `47dea2d602e25b60d7e6cd20619076446de0066fff0ed8b5ac80286f279ccd5b` |
 | Source root | `workspace/public/src/native-init/` |
-| Builder | `workspace/public/src/scripts/revalidation/build_native_init_boot_v2232_service_object_fwclass_bridge.py` |
-| Source/build report | `docs/reports/NATIVE_INIT_V2232_SERVICE_OBJECT_FWCLASS_BRIDGE_SOURCE_BUILD_2026-06-12.md` |
-| Live validation report | `docs/reports/NATIVE_INIT_V2233_SERVICE_OBJECT_FWCLASS_BRIDGE_HANDOFF_RUNNER_2026-06-12.md` |
-| Promotion report | `docs/reports/NATIVE_INIT_V2234_V2232_SERVICE_OBJECT_FWCLASS_BRIDGE_BASELINE_PROMOTION_2026-06-12.md` |
-| Previous rollback | `workspace/private/inputs/boot_images/boot_linux_v2189_security_p0_stage_fix.img` |
+| Builder | `workspace/public/src/scripts/revalidation/build_native_init_boot_v2236_strict_wifi_connect.py` |
+| Source/build report | `docs/reports/NATIVE_INIT_V2236_STRICT_WIFI_CONNECT_SOURCE_BUILD_2026-06-12.md` |
+| Live validation report | `docs/reports/NATIVE_INIT_V2236_STRICT_WIFI_CONNECT_LIVE_VALIDATION_2026-06-12.md` |
+| Promotion report | `docs/reports/NATIVE_INIT_V2236_STRICT_WIFI_CONNECT_LIVE_VALIDATION_2026-06-12.md` |
+| Previous rollback | `workspace/private/inputs/boot_images/boot_linux_v2232_service_object_fwclass_bridge.img` |
 | Known-good fallback | `workspace/private/inputs/boot_images/boot_linux_v48.img` |
 
 The boot image must provide:
@@ -48,16 +48,17 @@ Previous baseline:
 
 | Field | Value |
 | --- | --- |
-| Build tag | `v2189-security-p0-stage-fix` |
-| Device-visible version | `A90 Linux init 0.9.261` |
-| Boot image | `workspace/private/inputs/boot_images/boot_linux_v2189_security_p0_stage_fix.img` |
-| Boot SHA256 | `f54becb2b720ad198413c2a0089912626ca295c79a96f13e0921cf4f05b39f51` |
-| Current role | Previous conservative fallback |
+| Build tag | `v2232-service-object-fwclass-bridge` |
+| Device-visible version | `A90 Linux init 0.9.266` |
+| Boot image | `workspace/private/inputs/boot_images/boot_linux_v2232_service_object_fwclass_bridge.img` |
+| Boot SHA256 | `dd56aa2dd8c0d9b2bafd1c12e23a3db6ba7095bea5e632ab03c5785fac69786c` |
+| Current role | Previous native-`wlan0` fallback |
 
-`v2232-service-object-fwclass-bridge` is promoted as the current baseline by
-V2234. It keeps the V2189 security P0 stage-fix baseline and adds the
-service-object-visible PM route plus the post-FW_READY `boot_wlan`/firmware_class
-tail that produced real native `wlan0` in V2233/V2234.
+`v2236-strict-wifi-connect` is promoted as the current baseline by
+V2236. It keeps the V2232 service-object-visible PM route plus the
+post-FW_READY `boot_wlan`/firmware_class tail that produced real native
+`wlan0`, and adds strict Wi-Fi connect validation that rejects stale carrier
+unless supplicant reaches `wpa_state=COMPLETED`.
 
 ## 2. Boot-Image Transport Contract
 
@@ -312,10 +313,10 @@ As of `2026-06-12`:
 - Host bridge wrapper contract exists: `wrapper_contract=1`.
 - Host transport selector contract exists: `selector_contract=1`.
 - NCM smoke runner records transport selection in its manifest.
-- Current boot image is `v2232-service-object-fwclass-bridge`.
+- Current boot image is `v2236-strict-wifi-connect`.
 - Device-side `transport.contract=1` is a current baseline guarantee.
-- Previous rollback image is `v2189-security-p0-stage-fix`; known-good fallback
-  remains `v48`.
+- Previous rollback image is `v2232-service-object-fwclass-bridge`;
+  known-good fallback remains `v48`.
 
 The next boot-image promotion should preserve the device-side `transport.*`
-status lines, the V2232 WLAN startup route, and old parser compatibility.
+status lines, the V2236 WLAN startup route, and old parser compatibility.

@@ -16,13 +16,13 @@ Date: `2026-06-12`
 
 현재 기준:
 
-- latest verified build: A90 Linux init 0.9.266 (v2232-service-object-fwclass-bridge)
-- latest verified source: workspace/public/src/native-init/ + 빌더 workspace/public/src/scripts/revalidation/build_native_init_boot_v2232_service_object_fwclass_bridge.py
-- latest verified boot image: workspace/private/inputs/boot_images/boot_linux_v2232_service_object_fwclass_bridge.img
-- latest verified boot image SHA256: dd56aa2dd8c0d9b2bafd1c12e23a3db6ba7095bea5e632ab03c5785fac69786c
-- 현재 기준 사이클: v2232-service-object-fwclass-bridge service-object FWClass bridge baseline (V2234 promotion)
-- version axes: v2232-service-object-fwclass-bridge는 boot/init baseline tag, a90_android_execns_probe helper-v427은 포함된 helper marker, V2234는 baseline-promotion run/report 번호다. 전체 규칙은 docs/operations/VERSIONING_POLICY.md를 따른다.
-- previous verified boot image: workspace/private/inputs/boot_images/boot_linux_v2189_security_p0_stage_fix.img (A90 Linux init 0.9.261 (v2189-security-p0-stage-fix))
+- latest verified build: A90 Linux init 0.9.267 (v2236-strict-wifi-connect)
+- latest verified source: workspace/public/src/native-init/ + 빌더 workspace/public/src/scripts/revalidation/build_native_init_boot_v2236_strict_wifi_connect.py
+- latest verified boot image: workspace/private/inputs/boot_images/boot_linux_v2236_strict_wifi_connect.img
+- latest verified boot image SHA256: 47dea2d602e25b60d7e6cd20619076446de0066fff0ed8b5ac80286f279ccd5b
+- 현재 기준 사이클: v2236-strict-wifi-connect strict Wi-Fi connect baseline (V2236 promotion)
+- version axes: v2236-strict-wifi-connect는 boot/init baseline tag, a90_android_execns_probe helper-v427은 포함된 helper marker, V2236은 baseline-promotion run/report 번호다. 전체 규칙은 docs/operations/VERSIONING_POLICY.md를 따른다.
+- previous verified boot image: workspace/private/inputs/boot_images/boot_linux_v2232_service_object_fwclass_bridge.img (A90 Linux init 0.9.266 (v2232-service-object-fwclass-bridge))
 - known-good fallback native init: A90 Linux init v48
 - known-good fallback source: workspace/public/archive/stage3/linux_init/init_v48.c
 - known-good fallback boot image: workspace/private/inputs/boot_images/boot_linux_v48.img
@@ -85,7 +85,7 @@ python3 workspace/public/src/scripts/revalidation/a90ctl.py --json status || tru
 
 판단:
 
-- bridge에서 `A90 Linux init 0.9.266 (v2232-service-object-fwclass-bridge)`가 나오면 latest verified native init boot 상태다. `status`/`selftest`로 상태를 재확인한다.
+- bridge에서 `A90 Linux init 0.9.267 (v2236-strict-wifi-connect)`가 나오면 latest verified native init boot 상태다. `status`/`selftest`로 상태를 재확인한다.
 - bridge에서 A90 Linux init v48이 나오면 known-good fallback native init 상태다.
 - adb devices -l에서 recovery면 TWRP 상태다.
 - adb devices -l에서 device이고 /proc/1/exe가 /system/bin/init이면 Android 상태다.

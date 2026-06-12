@@ -33,7 +33,7 @@ Rules:
 - Do not use helper numbers as run IDs, boot filenames, or native-init build
   tags.
 - The current promoted baseline uses build tag
-  `v2232-service-object-fwclass-bridge`. Keep this as the rollback/test
+  `v2236-strict-wifi-connect`. Keep this as the rollback/test
   baseline until a newer boot image is intentionally promoted.
 - If an existing artifact is only reproduced or documented, keep its build tag
   and record it as `Baseline tag`, not `Cycle`.

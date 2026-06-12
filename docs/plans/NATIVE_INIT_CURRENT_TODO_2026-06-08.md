@@ -8,11 +8,11 @@ than the long-term roadmap.
 
 Current baseline:
 
-- Device baseline: `A90 Linux init 0.9.266 (v2232-service-object-fwclass-bridge)`.
-- Promotion run: `V2234`; boot SHA256
-  `dd56aa2dd8c0d9b2bafd1c12e23a3db6ba7095bea5e632ab03c5785fac69786c`.
+- Device baseline: `A90 Linux init 0.9.267 (v2236-strict-wifi-connect)`.
+- Promotion run: `V2236`; boot SHA256
+  `47dea2d602e25b60d7e6cd20619076446de0066fff0ed8b5ac80286f279ccd5b`.
 - Immediate rollback image:
-  `workspace/private/inputs/boot_images/boot_linux_v2232_service_object_fwclass_bridge.img`.
+  `workspace/private/inputs/boot_images/boot_linux_v2236_strict_wifi_connect.img`.
 - Emergency rollback image:
   `workspace/private/inputs/boot_images/boot_linux_v2169_transport_contract.img`.
 - Active control path: USB ACM serial bridge managed by
@@ -29,18 +29,21 @@ Current baseline:
 Latest promotion evidence:
 
 - Source/build:
-  `docs/reports/NATIVE_INIT_V2232_SERVICE_OBJECT_FWCLASS_BRIDGE_SOURCE_BUILD_2026-06-12.md`.
+  `docs/reports/NATIVE_INIT_V2236_STRICT_WIFI_CONNECT_SOURCE_BUILD_2026-06-12.md`.
 - Rollbackable live WLAN handoff:
-  `docs/reports/NATIVE_INIT_V2233_SERVICE_OBJECT_FWCLASS_BRIDGE_HANDOFF_RUNNER_2026-06-12.md`.
+  `docs/reports/NATIVE_INIT_V2236_STRICT_WIFI_CONNECT_LIVE_VALIDATION_2026-06-12.md`.
 - Baseline promotion:
-  `docs/reports/NATIVE_INIT_V2234_V2232_SERVICE_OBJECT_FWCLASS_BRIDGE_BASELINE_PROMOTION_2026-06-12.md`.
-- Status: promoted baseline with native `wlan0_present=1`; connectivity validation remains a separate bounded scope.
+  `docs/reports/NATIVE_INIT_V2236_STRICT_WIFI_CONNECT_LIVE_VALIDATION_2026-06-12.md`.
+- Status: promoted baseline with native `wlan0_present=1`, bounded scan,
+  5 GHz connect/DHCP/ping, direct 5 GHz to 2.4 GHz profile switch,
+  2.4 GHz connect/DHCP/ping, final cleanup, and `selftest fail=0` validated.
+  Long idle/hold data-path stability remains a separate follow-up.
 
 ## Priority 0: Commit Hygiene
 
 Goal: keep the current workspace reviewable before more live tests.
 
-Status: complete for the current `v2232-service-object-fwclass-bridge` baseline.
+Status: complete for the current `v2236-strict-wifi-connect` baseline.
 
 Completed audit:
 
@@ -72,7 +75,7 @@ Exit criteria:
 
 Goal: keep the proven `wlan0` lifecycle as repeatable baseline behavior.
 
-Status: complete for the current `v2232-service-object-fwclass-bridge` baseline.
+Status: complete for the current `v2236-strict-wifi-connect` baseline.
 
 Completed baseline capabilities:
 
@@ -103,7 +106,11 @@ Completed baseline capabilities:
   - V2189 passed security P0 flash/staging hardening, carrier smoke, cleanup,
     and fresh local security scan; V2190 promoted it as a prior baseline;
   - V2232/V2233 crossed the service-object-visible post-BDF wall to real native
-    `wlan0`; V2234 promoted it as the current baseline.
+    `wlan0`; V2234 promoted it as the first native-`wlan0` baseline;
+  - V2235 exposed that `wifi connect` could accept stale carrier while
+    supplicant was `DISCONNECTED`;
+  - V2236 fixed that validation gap, requires `wpa_state=COMPLETED`, and passed
+    bounded 5 GHz plus direct 2.4 GHz switch/DHCP/ping validation.
 - Primary evidence reports:
   - `docs/reports/NATIVE_INIT_V2176_WIFI_DHCP_STABILITY_N3_2026-06-08.md`;
   - `docs/reports/NATIVE_INIT_V2177_WIFI_HOLD_RECONNECT_LIVE_VALIDATION_2026-06-09.md`;
@@ -115,13 +122,12 @@ Completed baseline capabilities:
   - `docs/reports/NATIVE_INIT_V2189_SECURITY_P0_STAGE_FIX_LIVE_VALIDATION_2026-06-10.md`;
   - `docs/security/scans/SECURITY_FRESH_SCAN_V2189_2026-06-10.md`;
   - `docs/reports/NATIVE_INIT_V2190_V2189_SECURITY_P0_STAGE_FIX_BASELINE_PROMOTION_2026-06-10.md`;
-  - `docs/reports/NATIVE_INIT_V2232_SERVICE_OBJECT_FWCLASS_BRIDGE_SOURCE_BUILD_2026-06-12.md`;
-  - `docs/reports/NATIVE_INIT_V2233_SERVICE_OBJECT_FWCLASS_BRIDGE_HANDOFF_RUNNER_2026-06-12.md`;
-  - `docs/reports/NATIVE_INIT_V2234_V2232_SERVICE_OBJECT_FWCLASS_BRIDGE_BASELINE_PROMOTION_2026-06-12.md`.
+  - `docs/reports/NATIVE_INIT_V2236_STRICT_WIFI_CONNECT_SOURCE_BUILD_2026-06-12.md`;
+  - `docs/reports/NATIVE_INIT_V2236_STRICT_WIFI_CONNECT_LIVE_VALIDATION_2026-06-12.md`.
 
 Standing rules:
 
-- Keep V2232 as the current baseline and normal rollback image until a newer
+- Keep V2236 as the current baseline and normal rollback image until a newer
   boot image is intentionally promoted.
 - Keep V2187, V2186, V2185, V2178, and V2169 as older conservative fallbacks
   only.
@@ -229,7 +235,7 @@ When promoting a new boot image:
   - boot SHA256;
   - host commit.
 - Update rollback image path and SHA in the runbook.
-- Keep V2232 fixed as current baseline until the next explicit promotion.
+- Keep V2236 fixed as current baseline until the next explicit promotion.
 
 ## Priority 5: Workspace Structure
 
@@ -322,6 +328,6 @@ Keep:
 | Serial `AT` noise | A single cmdv1 exchange can be malformed. | Shared recovery is implemented for safe commands; V2180 did not naturally fire the path, so live-fired evidence remains opportunistic. |
 | Physical network-menu ping selection | V2189 inherits V2187 command-level framebuffer presentation evidence for `WIFI STATUS` and `WIFI PING RESULTS`, but not button-driven physical capture. | Treat as UI polish, not a baseline blocker; validate physically or with OCR only if visual-navigation evidence is required. |
 | Large-transfer soak depth | V2184 passed 512MiB and 1GiB single-run bidirectional SHA checks, but not repeated N-run or multi-hour soak. | Treat as strong data-path evidence; run `cleanup -> reconnect -> 512MiB` or N-run soak only if promotion criteria require it. |
-| UI completeness | V2232 is the current baseline and preserves V2187 `screenapp` proof plus V2189 security P0 hardening while adding native `wlan0` bring-up. | Keep V2232 as baseline; physical button/OCR validation remains optional. |
+| UI completeness | V2236 is the current baseline and preserves V2187 `screenapp` proof plus V2189 security P0 hardening while adding native `wlan0` bring-up. | Keep V2236 as baseline; physical button/OCR validation remains optional. |
 | Script sprawl | Current source-root inventory is clean, but archive provenance remains large and older utility scripts still duplicate some transport/artifact logic. | Keep inventory current; migrate one active runner at a time; do not run archive scripts without focused migration/review. |
 | Private data leakage | Wi-Fi profiles and raw run artifacts are intentionally private. | Keep secrets under ignored private roots; public reports stay redacted. |
