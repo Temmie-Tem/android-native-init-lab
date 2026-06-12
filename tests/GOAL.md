@@ -99,7 +99,10 @@ functions.
 - [x] `workspace/public/src/scripts/revalidation/a90_kernel_v2210_generic_fops_rela_inventory.py`
       — scalar/System.map/source/raw helpers, RELA discovery/clone-base scoring,
       generic fops inventory analysis, report rendering.
-- [ ] (append more as discovered: v2211+ analyzers.)
+- [x] `workspace/public/src/scripts/revalidation/a90_kernel_v2211_ropp_stack_recovery_audit.py`
+      — scalar/System.map/raw helpers, BL/callsite decoding, stack slide rows,
+      joint-key solving, source evidence, report rendering.
+- [ ] (append more as discovered: v2212+ analyzers.)
 
 ## Progress log
 
@@ -194,4 +197,10 @@ functions.
   load_kernel_raw, load_synthetic_base, looks_like_kernel_va,
   is_stock_rela_record, discover_stock_rela, parse_elf_rela_dyn,
   find_clone_base, analyze, render_table, render_markdown — 9 cases — green.
+- 2026-06-13 — `a90_kernel_v2211_ropp_stack_recovery_audit.py` —
+  parse_int, hex64, hex_signed, parse_system_map, build_symbol_index,
+  nearest_symbol, load_kernel_raw, load_synthetic_base, parse_config_symbols,
+  read_u32, is_bl, decode_bl_target, build_callsite_map, candidate_slides,
+  stack_rows_for_slide, solve_joint_keys, source_evidence, analyze,
+  render_table, render_markdown — 9 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
