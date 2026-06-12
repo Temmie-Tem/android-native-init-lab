@@ -8,10 +8,12 @@ than the long-term roadmap.
 
 Current baseline:
 
-- Device baseline: `A90 Linux init 0.9.268 (v2237-supplicant-terminate-poll)`.
-- Promotion run: `V2237`; boot SHA256
-  `b2ea2d26d160b7702ce7d4438b84367788eea26c6a5bbe4ed93f3d270292ac7f`.
+- Device baseline: `A90 Linux init 0.9.272 (v2254-wifi-detail-surface)`.
+- Promotion run: `V2256`; boot SHA256
+  `c668e9cd9a3621c955fa369c5d106271a96a949dcaec3774a5719d24b8ba19e9`.
 - Immediate rollback image:
+  `workspace/private/inputs/boot_images/boot_linux_v2254_wifi_detail_surface.img`.
+- Previous verified rollback image:
   `workspace/private/inputs/boot_images/boot_linux_v2237_supplicant_terminate_poll.img`.
 - Emergency rollback image:
   `workspace/private/inputs/boot_images/boot_linux_v2169_transport_contract.img`.
@@ -29,27 +31,27 @@ Current baseline:
 Latest promotion evidence:
 
 - Source/build:
-  `docs/reports/NATIVE_INIT_V2237_SUPPLICANT_TERMINATE_POLL_SOURCE_BUILD_2026-06-12.md`.
-- Rollbackable live WLAN handoff:
-  `docs/reports/NATIVE_INIT_V2237_SUPPLICANT_TERMINATE_POLL_LIVE_VALIDATION_2026-06-12.md`.
+  `docs/reports/NATIVE_INIT_V2254_WIFI_DETAIL_SURFACE_SOURCE_BUILD_2026-06-12.md`.
+- Rollbackable live WLAN surface validation:
+  `docs/reports/NATIVE_INIT_V2255_WIFI_DETAIL_SURFACE_LIVE_2026-06-12.md`.
 - Baseline promotion:
-  `docs/reports/NATIVE_INIT_V2237_SUPPLICANT_TERMINATE_POLL_LIVE_VALIDATION_2026-06-12.md`.
-- Status: promoted baseline with native `wlan0_present=1`, bounded scan,
-  5 GHz connect/DHCP/ping, direct 5 GHz to 2.4 GHz profile switch,
-  bounded stale-supplicant terminate poll, 2.4 GHz connect/DHCP/ping, final
-  cleanup, and `selftest fail=0` validated. Long idle/hold data-path stability
+  `docs/reports/NATIVE_INIT_V2256_V2254_WIFI_DETAIL_SURFACE_BASELINE_PROMOTION_2026-06-12.md`.
+- Status: promoted baseline preserves the V2237 native `wlan0` route and adds
+  read-only route/default-DNS detail fields to `wifi status` and
+  `screenapp wifi-status`. V2255 validated that surface rollbackably with no
+  scan/connect/DHCP/ping or credentials. Long idle/hold data-path stability
   remains a separate follow-up.
 
 ## Priority 0: Commit Hygiene
 
 Goal: keep the current workspace reviewable before more live tests.
 
-Status: complete for the current `v2237-supplicant-terminate-poll` baseline.
+Status: complete for the current `v2254-wifi-detail-surface` baseline.
 
 Completed audit:
 
 - Latest focused committed unit before this TODO cleanup:
-  `53ee87ca Add QA metadata contracts to active runners`.
+  `532342ca Promote V2254 Wi-Fi detail baseline`.
 - Post-commit workspace audit found no uncommitted tracked changes.
 - `git diff --check` passed on the clean baseline.
 - Generated logs, boot images, firmware, credentials, and raw captures remain out
@@ -76,7 +78,7 @@ Exit criteria:
 
 Goal: keep the proven `wlan0` lifecycle as repeatable baseline behavior.
 
-Status: complete for the current `v2237-supplicant-terminate-poll` baseline.
+Status: complete for the current `v2254-wifi-detail-surface` baseline.
 
 Completed baseline capabilities:
 
@@ -114,7 +116,11 @@ Completed baseline capabilities:
     bounded 5 GHz plus direct 2.4 GHz switch/DHCP/ping validation;
   - V2237 replaced the blind post-`TERMINATE` delay with bounded
     `wpa_supplicant` exit polling plus SIGKILL escalation, and passed bounded
-    5 GHz plus direct 2.4 GHz switch/DHCP/ping validation.
+    5 GHz plus direct 2.4 GHz switch/DHCP/ping validation;
+  - V2254 added read-only route/default-DNS fields to `wifi status` and
+    `screenapp wifi-status`;
+  - V2255 rollbackably validated that surface without scan/connect/DHCP/ping;
+  - V2256 promoted V2254 as the current rollback/test baseline.
 - Primary evidence reports:
   - `docs/reports/NATIVE_INIT_V2176_WIFI_DHCP_STABILITY_N3_2026-06-08.md`;
   - `docs/reports/NATIVE_INIT_V2177_WIFI_HOLD_RECONNECT_LIVE_VALIDATION_2026-06-09.md`;
@@ -129,14 +135,17 @@ Completed baseline capabilities:
   - `docs/reports/NATIVE_INIT_V2236_STRICT_WIFI_CONNECT_SOURCE_BUILD_2026-06-12.md`;
   - `docs/reports/NATIVE_INIT_V2236_STRICT_WIFI_CONNECT_LIVE_VALIDATION_2026-06-12.md`;
   - `docs/reports/NATIVE_INIT_V2237_SUPPLICANT_TERMINATE_POLL_SOURCE_BUILD_2026-06-12.md`;
-  - `docs/reports/NATIVE_INIT_V2237_SUPPLICANT_TERMINATE_POLL_LIVE_VALIDATION_2026-06-12.md`.
+  - `docs/reports/NATIVE_INIT_V2237_SUPPLICANT_TERMINATE_POLL_LIVE_VALIDATION_2026-06-12.md`;
+  - `docs/reports/NATIVE_INIT_V2254_WIFI_DETAIL_SURFACE_SOURCE_BUILD_2026-06-12.md`;
+  - `docs/reports/NATIVE_INIT_V2255_WIFI_DETAIL_SURFACE_LIVE_2026-06-12.md`;
+  - `docs/reports/NATIVE_INIT_V2256_V2254_WIFI_DETAIL_SURFACE_BASELINE_PROMOTION_2026-06-12.md`.
 
 Standing rules:
 
-- Keep V2237 as the current baseline and normal rollback image until a newer
-  boot image is intentionally promoted.
-- Keep V2187, V2186, V2185, V2178, and V2169 as older conservative fallbacks
-  only.
+- Keep V2254 as the current baseline and normal rollback/test image until a
+  newer boot image is intentionally promoted.
+- Keep V2237, V2187, V2186, V2185, V2178, and V2169 as older conservative
+  fallbacks only.
 - Keep Wi-Fi profiles, SSID, PSK, raw phone-transfer evidence, private IPs, and
   raw LAN identifiers under ignored private roots.
 - Keep secondary-interface noise out of the main gate unless it becomes a
@@ -194,20 +203,22 @@ Open edge:
 
 Goal: prevent new one-off script sprawl.
 
-Status: current source-root is clean.
+Status: refreshed for the V2254 baseline; source-root has no `delete-review`
+entries, but current live-runner metadata gaps are visible again after the
+V22xx kernel-observation scripts were classified.
 
 Completed:
 
 - Current inventory report:
   `docs/reports/REVALIDATION_SCRIPT_INVENTORY_2026-06-10.md`.
-- Current source-root state:
-  - `43 active`;
+- Current source-root state after V2257 inventory refresh:
+  - `107 active`;
   - `6 module`;
   - `0 archive`;
   - `0 delete-review`.
-- Active live metadata gaps are closed:
-  - phase timer markers: `0`;
-  - residual-state metadata: `0`;
+- Active live metadata gaps:
+  - phase timer markers missing: `23`;
+  - residual-state metadata missing: `23`;
   - phase-timer-exempt live utilities: `2`;
   - residual-state-exempt live utilities/helpers: `3`.
 - V2167 historical runner is archived under
@@ -241,7 +252,7 @@ When promoting a new boot image:
   - boot SHA256;
   - host commit.
 - Update rollback image path and SHA in the runbook.
-- Keep V2237 fixed as current baseline until the next explicit promotion.
+- Keep V2254 fixed as current baseline until the next explicit promotion.
 
 ## Priority 5: Workspace Structure
 
@@ -319,7 +330,7 @@ Keep:
 
 ## Suggested Next Sequence
 
-1. Start new live validation from V2189 unless a test explicitly validates an
+1. Start new live validation from V2254 unless a test explicitly validates an
    older rollback image.
 2. Defer architecture source cleanup unless a cleanup patch is kept separate and
    validation-neutral.
@@ -334,6 +345,6 @@ Keep:
 | Serial `AT` noise | A single cmdv1 exchange can be malformed. | Shared recovery is implemented for safe commands; V2180 did not naturally fire the path, so live-fired evidence remains opportunistic. |
 | Physical network-menu ping selection | V2189 inherits V2187 command-level framebuffer presentation evidence for `WIFI STATUS` and `WIFI PING RESULTS`, but not button-driven physical capture. | Treat as UI polish, not a baseline blocker; validate physically or with OCR only if visual-navigation evidence is required. |
 | Large-transfer soak depth | V2184 passed 512MiB and 1GiB single-run bidirectional SHA checks, but not repeated N-run or multi-hour soak. | Treat as strong data-path evidence; run `cleanup -> reconnect -> 512MiB` or N-run soak only if promotion criteria require it. |
-| UI completeness | V2237 is the current baseline and preserves V2187 `screenapp` proof plus V2189 security P0 hardening while adding native `wlan0` bring-up and strict connect cleanup. | Keep V2237 as baseline; physical button/OCR validation remains optional. |
-| Script sprawl | Current source-root inventory is clean, but archive provenance remains large and older utility scripts still duplicate some transport/artifact logic. | Keep inventory current; migrate one active runner at a time; do not run archive scripts without focused migration/review. |
+| UI completeness | V2254 is the current baseline and preserves V2237 native `wlan0` bring-up/strict connect cleanup while adding the read-only Wi-Fi detail surface. | Keep V2254 as baseline; physical button/OCR validation remains optional. |
+| Script sprawl | Current source-root inventory has no delete-review rows, but V22xx kernel/live runners expose phase/residual metadata gaps and duplicate some transport/artifact logic. | Keep inventory current; migrate one active runner at a time; do not run historical one-off scripts without focused review. |
 | Private data leakage | Wi-Fi profiles and raw run artifacts are intentionally private. | Keep secrets under ignored private roots; public reports stay redacted. |

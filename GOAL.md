@@ -213,6 +213,16 @@ Read at the START of every iteration (then apply the tier policy above):
   live-register sampling for code-path identity.
 
 **T2 — WLAN native-init (if T1 blocked):**
+- After V2257 inventory refresh: T1 was re-evaluated and dropped for this unit
+  with trigger `t1-fwclass-boundary-question-closed-no-new-independent-oracle`;
+  V2253 already closed the latest firmware_class/qcacld boundary question, and
+  another generic CPU-clock or same-boundary observer would only re-confirm
+  known evidence. V2257 refreshed the active script inventory and TODO map for
+  the V2254 baseline. Source-root now has `107 active`, `6 module`, `0 archive`,
+  and `0 delete-review` entries; active live metadata gaps are explicit again
+  (`23` without phase markers, `23` without residual-state metadata). Next T2
+  cleanup unit: choose one active live runner family and migrate shared
+  phase/residual metadata, rather than rerunning the full inventory.
 - After V2256 promotion: V2254 is the current rollback/test baseline:
   `A90 Linux init 0.9.272 (v2254-wifi-detail-surface)`,
   `boot_linux_v2254_wifi_detail_surface.img`, boot SHA256

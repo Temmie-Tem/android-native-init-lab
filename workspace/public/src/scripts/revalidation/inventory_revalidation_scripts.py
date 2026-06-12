@@ -75,6 +75,37 @@ UTILITY_NAMES = {
     "storage_iotest.py",
     "usb_recovery_validate.py",
 }
+ACTIVE_PATTERN_REASONS: tuple[tuple[re.Pattern[str], str], ...] = (
+    (
+        re.compile(r"^build_native_init_boot_v\d+_.*\.py$"),
+        "native-init boot artifact builder",
+    ),
+    (
+        re.compile(r"^build_native_init_wifi_test_boot_v\d+.*\.py$"),
+        "native-init Wi-Fi test boot builder",
+    ),
+    (
+        re.compile(r"^native_kernel_.*\.py$"),
+        "kernel-observation runner or postprocessor",
+    ),
+    (
+        re.compile(r"^a90_kernel_v\d+_.*\.py$"),
+        "host-side kernel-observation analyzer",
+    ),
+    (
+        re.compile(r"^security_.*_regression\.py$"),
+        "local security regression utility",
+    ),
+)
+ACTIVE_UTILITY_NAMES = {
+    "a90_kernel_stack_symbolize.py": "kernel stack symbolization utility",
+    "a90_stock_kallsyms_extract.py": "stock kernel kallsyms extraction utility",
+}
+HOST_ONLY_PATTERNS = (
+    re.compile(r"^a90_kernel_v\d+_.*\.py$"),
+    re.compile(r"^security_.*_regression\.py$"),
+)
+HOST_ONLY_NAMES = set(ACTIVE_UTILITY_NAMES)
 PHASE_TIMER_EXEMPT = {
     "ncm_host_setup.py": "interactive host NCM setup utility; no manifest contract",
     "netservice_reconnect_soak.py": "interactive netservice lifecycle utility; no manifest contract",
@@ -128,6 +159,8 @@ def classify(path: Path, text: str) -> tuple[str, str]:
     name = path.name
     if name in ACTIVE:
         return "active", ACTIVE[name]
+    if name in ACTIVE_UTILITY_NAMES:
+        return "active", ACTIVE_UTILITY_NAMES[name]
     if name in MODULES:
         return "module", MODULES[name]
     if name == "README.md":
@@ -142,6 +175,9 @@ def classify(path: Path, text: str) -> tuple[str, str]:
         return "delete-review", "non-file entry in script root"
     if "TODO" in text or "deprecated" in text.lower():
         return "delete-review", "requires manual review before keeping"
+    for pattern, reason in ACTIVE_PATTERN_REASONS:
+        if pattern.match(name):
+            return "active", reason
     if "native_init_flash.py" in text or "a90ctl.py" in text:
         return "active", "scripted live-device workflow"
     return "delete-review", "unclassified top-level script"
@@ -149,6 +185,8 @@ def classify(path: Path, text: str) -> tuple[str, str]:
 
 def requires_live_device(path: Path, text: str) -> bool:
     name = path.name
+    if name in HOST_ONLY_NAMES or any(pattern.match(name) for pattern in HOST_ONLY_PATTERNS):
+        return False
     if name == "README.md" or name.startswith("build_") or name.startswith("inventory_") or name.startswith("cleanup_"):
         return False
     tokens = (
