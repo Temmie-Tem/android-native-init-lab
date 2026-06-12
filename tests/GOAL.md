@@ -300,6 +300,10 @@ functions.
       — classification, live-device detection, import detection,
       direct-a90ctl grouping, consolidation signals, inventory generation,
       markdown rendering.
+- [x] `workspace/public/src/scripts/revalidation/a90_kernel_tools.py`
+      — repo path resolution, host metadata capture, cmdv1 capture wrapping,
+      manifest truncation, cmdv1 text cleanup, kernel config parsing,
+      markdown rendering, config fetch glue.
 - [ ] (append more as discovered: v2231+ analyzers.)
 
 ## Progress log
@@ -629,4 +633,8 @@ functions.
 - 2026-06-13 — `inventory_revalidation_scripts.py` — classify,
   requires_live_device, imports_module, direct_a90ctl_candidate_groups,
   consolidation_signals, inventory, render_markdown — 7 cases — green.
+- 2026-06-13 — `a90_kernel_tools.py` — repo_path,
+  collect_host_metadata, run_capture, capture_to_manifest, strip_cmdv1_text,
+  parse_kernel_config, config_state/config_enabled, summarize_options,
+  markdown_table, fetch_kernel_config — 10 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
