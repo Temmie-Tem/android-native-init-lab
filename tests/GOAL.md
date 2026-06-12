@@ -115,7 +115,11 @@ functions.
       — scalar/System.map/raw helpers, function ranges, slide intervals,
       BL callsite maps, slide/no-slide classifiers, ROPP decode audit,
       report rendering.
-- [ ] (append more as discovered: v2216+ analyzers.)
+- [x] `workspace/public/src/scripts/revalidation/native_kernel_perf_regs_codeword_sample_ring_v2216.py`
+      — perf-regs codeword stdout parsing, address/symbol helpers,
+      stock raw/meta reads, generated slide discovery, codeword match
+      analysis, probe metrics, report rendering.
+- [ ] (append more as discovered: v2217+ analyzers.)
 
 ## Progress log
 
@@ -233,4 +237,10 @@ functions.
   top_slide_intervals, build_callsite_map, candidate_slides_from_intervals,
   score_slide, classify_no_slide, classify_under_slide, ropp_decode_audit,
   render_report — 7 cases — green.
+- 2026-06-13 — `native_kernel_perf_regs_codeword_sample_ring_v2216.py` —
+  parse_int, parse_helper_stdout, classify_addr, load_text_symbols,
+  load_symbol_index, nearest_symbol, symbolize_counter, load_kernel_raw,
+  load_synthetic_base, read_stock_u32, candidate_slides,
+  codeword_generated_slides, codeword_match_analysis, analyze_probe,
+  render_report — 8 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
