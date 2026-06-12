@@ -251,6 +251,10 @@ functions.
       — workqueue log parsing, same-boot codeword slide classification,
       dry-run command rendering, manifest decisions, report/residual-state
       rendering.
+- [x] `workspace/public/src/scripts/revalidation/native_kernel_v2276_codeword_mismatch_postprocess.py`
+      — UAO runtime-patch instruction classification, codeword mismatch row
+      analysis, workqueue classification with a fixed slide, patch-aware
+      decision branches.
 - [ ] (append more as discovered: v2231+ analyzers.)
 
 ## Progress log
@@ -525,4 +529,8 @@ functions.
   parse_key_values, parse_workqueue_log, resolve_symbol,
   classify_combined_artifacts, dry_run_commands, classify_manifest,
   render_report, residual_state — 9 cases — green.
+- 2026-06-13 — `native_kernel_v2276_codeword_mismatch_postprocess.py` —
+  as_int/hex helpers, ARM64 post-index/unprivileged instruction classifiers,
+  classify_uao_runtime_patch, symbol_resolver, mismatch_rows,
+  classify_workqueue_with_slide, analyze decision branches — 10 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
