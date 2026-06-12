@@ -135,7 +135,11 @@ functions.
       — JSON extraction, protocol rc parsing, regex value extraction,
       helper inventory parsing, a90ctl command construction, contract
       rendering, residual state, StepResult.
-- [ ] (append more as discovered: v2223+ analyzers.)
+- [x] `workspace/public/src/scripts/revalidation/native_kernel_a90_boot_window_plan_v2223.py`
+      — SHA/JSON helpers, latest preflight discovery, helper source marker
+      audit, boot image inventory, contract loading, capture-plan rendering,
+      residual state.
+- [ ] (append more as discovered: v2224+ analyzers.)
 
 ## Progress log
 
@@ -281,4 +285,8 @@ functions.
   parse_json_object, parse_protocol_rc, grep_value, parse_helper_inventory,
   a90ctl_command, build_contract, residual_state, StepResult.ok —
   9 cases — green.
+- 2026-06-13 — `native_kernel_a90_boot_window_plan_v2223.py` —
+  sha256_file, load_json, latest_v2222_summary, source_marker_audit,
+  boot_image_inventory, contract_summary, build_capture_plan,
+  residual_state — 8 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
