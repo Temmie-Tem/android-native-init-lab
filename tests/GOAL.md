@@ -271,6 +271,9 @@ functions.
       — wide execute-start log parsing, same-boot codeword slide classification,
       dry-run command rendering, manifest decisions, report/residual-state
       rendering.
+- [x] `workspace/public/src/scripts/revalidation/native_wifi_v2254_hold_reconnect_handoff_v2282.py`
+      — credential-gated V2254 hold/reconnect preflight, dry-run command
+      rendering, manifest decisions, secret redaction, report rendering.
 - [ ] (append more as discovered: v2231+ analyzers.)
 
 ## Progress log
@@ -565,4 +568,7 @@ functions.
   parse_scalar_fields, parse_key_values, parse_workqueue_wide_log,
   symbol_resolver, analyze_codeword, classify_artifacts, dry_run_commands,
   classify_manifest, render_report, residual_state — 11 cases — green.
+- 2026-06-13 — `native_wifi_v2254_hold_reconnect_handoff_v2282.py` —
+  preflight, dry_run_commands, classify, redacted_secret_status,
+  redacted_env_load, render_report — 8 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
