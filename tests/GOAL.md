@@ -259,6 +259,10 @@ functions.
       — execute-start stack sampler flag propagation, V2237 wrapper argument
       rewrites, dual ramdisk helper injection, report rendering, manifest/
       live-candidate metadata.
+- [x] `workspace/public/src/scripts/revalidation/native_kernel_workqueue_exec_stack_handoff_v2278.py`
+      — execute-start stack log parsing, same-boot codeword slide classification,
+      dry-run command rendering, manifest decisions, report/residual-state
+      rendering.
 - [ ] (append more as discovered: v2231+ analyzers.)
 
 ## Progress log
@@ -541,4 +545,8 @@ functions.
   sha256, with_workqueue_flags, configure_base, build_bpf_helpers,
   patch_ramdisk_helpers, render_report, main manifest/live-candidate metadata —
   7 cases — green.
+- 2026-06-13 — `native_kernel_workqueue_exec_stack_handoff_v2278.py` —
+  parse_scalar_fields, parse_key_values, parse_workqueue_stack_log,
+  symbol_resolver, analyze_codeword, classify_artifacts, dry_run_commands,
+  classify_manifest, render_report, residual_state — 11 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
