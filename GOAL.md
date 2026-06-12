@@ -213,6 +213,16 @@ Read at the START of every iteration (then apply the tier policy above):
   live-register sampling for code-path identity.
 
 **T2 — WLAN native-init (if T1 blocked):**
+- After V2260 file-ops anchor runner metadata cleanup: the V2204/V2206
+  file-operations anchor kernel-observation runners now use shared
+  `a90_transport` phase/residual metadata. Inventory confirms
+  `native_kernel_file_ops_anchor_v2204.py` and
+  `native_kernel_fops_member_anchor_v2206.py` are no longer in the live
+  metadata gap list (`Phase=yes`, `Residual=yes`), reducing active live scripts
+  without phase markers and residual-state metadata from `19` to `17` each. No
+  device action was taken. Next T2 cleanup unit: continue with one remaining
+  active live runner family from the kernel-observation list, static-only unless
+  that runner specifically requires live proof.
 - After V2259 timer runner metadata cleanup: the V2200/V2201/V2202 timer
   kernel-observation runners now use shared `a90_transport` phase/residual
   metadata. Inventory confirms

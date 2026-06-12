@@ -204,24 +204,28 @@ Open edge:
 Goal: prevent new one-off script sprawl.
 
 Status: refreshed for the V2254 baseline; source-root has no `delete-review`
-entries, and V2259 closed the V2200-V2202 timer runner family's live metadata
-gap. The remaining gaps are concentrated in older kernel-observation live
-runner families and one local security utility.
+entries, and V2260 closed the V2204/V2206 file-ops anchor runner family's live
+metadata gap. The remaining gaps are concentrated in older kernel-observation
+live runner families and one local security utility.
 
 Completed:
 
 - Current inventory report:
   `docs/reports/REVALIDATION_SCRIPT_INVENTORY_2026-06-10.md`.
-- Current source-root state after V2259 inventory refresh:
+- Current source-root state after V2260 inventory refresh:
   - `107 active`;
   - `6 module`;
   - `0 archive`;
   - `0 delete-review`.
 - Active live metadata gaps:
-  - phase timer markers missing: `19`;
-  - residual-state metadata missing: `19`;
+  - phase timer markers missing: `17`;
+  - residual-state metadata missing: `17`;
   - phase-timer-exempt live utilities: `2`;
   - residual-state-exempt live utilities/helpers: `3`.
+- V2260 migrated the file-ops anchor kernel-observation runner pair to shared
+  `a90_transport` phase timing plus residual-state metadata:
+  `native_kernel_file_ops_anchor_v2204.py` and
+  `native_kernel_fops_member_anchor_v2206.py`.
 - V2259 migrated the timer kernel-observation runner family to shared
   `a90_transport` phase timing plus residual-state metadata:
   `native_kernel_timer_start_context_v2200.py`,

@@ -30,6 +30,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+import a90_transport as transport
+
 
 REPO_ROOT = Path(__file__).resolve().parents[5]
 SCRIPT_DIR = REPO_ROOT / "workspace/public/src/scripts/revalidation"
@@ -369,6 +371,28 @@ def analyze_fops(probe: dict[str, Any], symbols: dict[str, int]) -> dict[str, An
     }
 
 
+def residual_state(summary: dict[str, Any]) -> dict[str, Any]:
+    selftest_ok = bool(summary.get("selftest_fail0"))
+    device_touched = bool(summary.get("steps"))
+    cleanup_required = bool(device_touched and not selftest_ok)
+    return {
+        "device_touched": device_touched,
+        "flash_reboot": False,
+        "test_flash_ok": False,
+        "rollback_ok": True,
+        "rollback_attempt": "not-needed-no-flash",
+        "selftest_ok": selftest_ok,
+        "cleanup_required": cleanup_required,
+        "residual_risk": "post-selftest-incomplete" if cleanup_required else "none",
+        "wifi_scan_connect": False,
+        "credentials_used": False,
+        "dhcp_routes_ping": False,
+        "read_only_bpf": True,
+        "probe_write_user_executed": False,
+        "cgroup_attach": False,
+    }
+
+
 def render_report(summary: dict[str, Any]) -> str:
     analysis = summary.get("analysis") or {}
     probe_summary = (summary.get("probe") or {}).get("summary") or {}
@@ -382,6 +406,8 @@ def render_report(summary: dict[str, Any]) -> str:
         f"- Exact slide: `{str(analysis.get('exact_slide')).lower()}`",
         f"- Best slide: `{analysis.get('best_slide_hex')}`",
         f"- Reason: {analysis.get('reason')}",
+        f"- Phase timer contract: `{summary.get('phase_timer_contract')}`",
+        f"- Residual-state contract: `{summary.get('residual_state_contract')}`",
         "",
         "## Method",
         "",
@@ -454,6 +480,8 @@ def main() -> int:
         "system_map": str(system_map.relative_to(REPO_ROOT)) if system_map.is_relative_to(REPO_ROOT) else str(system_map),
         "started_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
         "steps": [],
+        "phase_timer_contract": transport.PHASE_TIMER_CONTRACT,
+        "phase_timers": [],
         "safety": {
             "read_only_bpf": True,
             "probe_write_user_executed": False,
@@ -464,46 +492,51 @@ def main() -> int:
     }
 
     try:
-        symbols = parse_system_map(system_map)
-        missing = sorted({name for names in EXPECTED_SYMBOLS.values() for name in names if name not in symbols})
-        if "null_fops" in missing or "zero_fops" in missing:
-            raise RuntimeError(f"required fops symbols missing from {system_map}: {missing}")
+        with transport.phase(summary, "symbol_map_load"):
+            symbols = parse_system_map(system_map)
+            missing = sorted({name for names in EXPECTED_SYMBOLS.values() for name in names if name not in symbols})
+            if "null_fops" in missing or "zero_fops" in missing:
+                raise RuntimeError(f"required fops symbols missing from {system_map}: {missing}")
 
-        run_host(out_dir, steps, "bridge-status", [
-            sys.executable,
-            str(SCRIPT_DIR / "a90_bridge.py"),
-            "status",
-            "--json",
-        ], timeout=30, allow_error=True)
-        a90ctl(args, out_dir, steps, "pre-status", ["status"], timeout=60, allow_error=True)
+        with transport.phase(summary, "preflight_bridge_status"):
+            run_host(out_dir, steps, "bridge-status", [
+                sys.executable,
+                str(SCRIPT_DIR / "a90_bridge.py"),
+                "status",
+                "--json",
+            ], timeout=30, allow_error=True)
+            a90ctl(args, out_dir, steps, "pre-status", ["status"], timeout=60, allow_error=True)
 
-        build_dir = out_dir / "build"
-        build_dir.mkdir(parents=True, exist_ok=True)
-        anchor_bin = build_dir / "a90_bpf_file_ops_anchor"
-        if not args.skip_build:
-            anchor_bin = build_helper(
-                build_dir,
-                steps,
-                source=HELPER_DIR / "a90_bpf_file_ops_anchor.c",
-                output_name="a90_bpf_file_ops_anchor",
-                cc=args.cc,
-                strip=args.strip,
-            )
-        summary["build"] = {
-            "anchor_local": str(anchor_bin.relative_to(REPO_ROOT)),
-            "anchor_sha256": sha256_file(anchor_bin),
-        }
+        with transport.phase(summary, "build_helper"):
+            build_dir = out_dir / "build"
+            build_dir.mkdir(parents=True, exist_ok=True)
+            anchor_bin = build_dir / "a90_bpf_file_ops_anchor"
+            if not args.skip_build:
+                anchor_bin = build_helper(
+                    build_dir,
+                    steps,
+                    source=HELPER_DIR / "a90_bpf_file_ops_anchor.c",
+                    output_name="a90_bpf_file_ops_anchor",
+                    cc=args.cc,
+                    strip=args.strip,
+                )
+            summary["build"] = {
+                "anchor_local": str(anchor_bin.relative_to(REPO_ROOT)),
+                "anchor_sha256": sha256_file(anchor_bin),
+            }
 
         if not args.skip_install:
-            install_helper(args, out_dir, steps, "file-ops-anchor", anchor_bin, REMOTE_ANCHOR)
+            with transport.phase(summary, "install_helper"):
+                install_helper(args, out_dir, steps, "file-ops-anchor", anchor_bin, REMOTE_ANCHOR)
 
-        check_stdout = tcpctl_run(args, out_dir, steps, "file-ops-anchor-check-only", [
-            REMOTE_ANCHOR,
-            "--duration-ms",
-            str(args.duration_ms),
-        ], timeout=60)
-        if "result=check-only" not in check_stdout:
-            raise RuntimeError(f"check-only did not complete cleanly:\n{check_stdout}")
+        with transport.phase(summary, "anchor_check"):
+            check_stdout = tcpctl_run(args, out_dir, steps, "file-ops-anchor-check-only", [
+                REMOTE_ANCHOR,
+                "--duration-ms",
+                str(args.duration_ms),
+            ], timeout=60)
+            if "result=check-only" not in check_stdout:
+                raise RuntimeError(f"check-only did not complete cleanly:\n{check_stdout}")
 
         helper_args = [
             REMOTE_ANCHOR,
@@ -513,20 +546,24 @@ def main() -> int:
         ]
         if args.verbose_helper:
             helper_args.append("--verbose")
-        probe_stdout = tcpctl_run(
-            args,
-            out_dir,
-            steps,
-            "file-ops-anchor-live",
-            helper_args,
-            timeout=max(60, args.duration_ms / 1000.0 + 30),
-        )
-        if "result=v2204-file-ops-anchor-complete" not in probe_stdout:
-            raise RuntimeError(f"live helper did not complete cleanly:\n{probe_stdout}")
+        with transport.phase(summary, "file_ops_anchor_live"):
+            probe_stdout = tcpctl_run(
+                args,
+                out_dir,
+                steps,
+                "file-ops-anchor-live",
+                helper_args,
+                timeout=max(60, args.duration_ms / 1000.0 + 30),
+            )
+            if "result=v2204-file-ops-anchor-complete" not in probe_stdout:
+                raise RuntimeError(f"live helper did not complete cleanly:\n{probe_stdout}")
+            probe = parse_probe_stdout(probe_stdout)
 
-        probe = parse_probe_stdout(probe_stdout)
-        analysis = analyze_fops(probe, symbols)
-        selftest = a90ctl(args, out_dir, steps, "post-selftest", ["selftest"], timeout=90, allow_error=True)
+        with transport.phase(summary, "analysis"):
+            analysis = analyze_fops(probe, symbols)
+
+        with transport.phase(summary, "post_selftest"):
+            selftest = a90ctl(args, out_dir, steps, "post-selftest", ["selftest"], timeout=90, allow_error=True)
         summary.update({
             "decision": "v2204-file-ops-anchor-exact-slide" if analysis["exact_slide"] else "v2204-file-ops-anchor-no-exact-slide",
             "probe": probe,
@@ -552,12 +589,15 @@ def main() -> int:
             }
             for step in steps
         ]
+        transport.set_residual_state(summary, residual_state(summary))
+        artifact_started = time.monotonic()
         (out_dir / "summary.json").write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n")
         if "analysis" in summary:
             report_path = REPO_ROOT / "docs/reports/NATIVE_INIT_V2204_FILE_OPS_ANCHOR_2026-06-12.md"
             report_path.write_text(render_report(summary))
             summary["report_path"] = str(report_path.relative_to(REPO_ROOT))
-            (out_dir / "summary.json").write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n")
+        transport.add_total_phase(summary, "artifact_write", artifact_started, ok=True)
+        (out_dir / "summary.json").write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n")
         print(json.dumps({
             "decision": summary.get("decision"),
             "pass": summary.get("pass"),

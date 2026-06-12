@@ -30,6 +30,7 @@ REMOTE_ANCHOR = "/cache/bin/a90_bpf_file_ops_anchor"
 REPORT_PATH = REPO_ROOT / "docs/reports/NATIVE_INIT_V2206_FOPS_MEMBER_TEXT_ANCHOR_2026-06-12.md"
 
 sys.path.insert(0, str(SCRIPT_DIR))
+import a90_transport as transport  # noqa: E402
 import native_kernel_file_ops_anchor_v2204 as base  # noqa: E402
 
 
@@ -132,6 +133,8 @@ def render_report(summary: dict[str, Any]) -> str:
         f"- Member/text slide: `{member_analysis.get('best_slide_hex')}`",
         f"- Member exact: `{str(member_analysis.get('exact_text_member_slide')).lower()}`",
         f"- Reason: {member_analysis.get('reason')}",
+        f"- Phase timer contract: `{summary.get('phase_timer_contract')}`",
+        f"- Residual-state contract: `{summary.get('residual_state_contract')}`",
         "",
         "## Interpretation",
         "",
@@ -213,6 +216,8 @@ def main() -> int:
         "system_map": rel(system_map),
         "started_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
         "steps": [],
+        "phase_timer_contract": transport.PHASE_TIMER_CONTRACT,
+        "phase_timers": [],
         "safety": {
             "read_only_bpf": True,
             "probe_write_user_executed": False,
@@ -223,51 +228,56 @@ def main() -> int:
     }
 
     try:
-        symbols = base.parse_system_map(system_map)
-        missing = sorted({
-            name
-            for names in EXPECTED_MEMBER_SYMBOLS.values()
-            for name in names
-            if name not in symbols
-        })
-        if missing:
-            raise RuntimeError(f"required member symbols missing from {system_map}: {missing}")
+        with transport.phase(summary, "symbol_map_load"):
+            symbols = base.parse_system_map(system_map)
+            missing = sorted({
+                name
+                for names in EXPECTED_MEMBER_SYMBOLS.values()
+                for name in names
+                if name not in symbols
+            })
+            if missing:
+                raise RuntimeError(f"required member symbols missing from {system_map}: {missing}")
 
-        base.run_host(out_dir, steps, "bridge-status", [
-            sys.executable,
-            str(SCRIPT_DIR / "a90_bridge.py"),
-            "status",
-            "--json",
-        ], timeout=30, allow_error=True)
-        base.a90ctl(args, out_dir, steps, "pre-status", ["status"], timeout=60, allow_error=True)
+        with transport.phase(summary, "preflight_bridge_status"):
+            base.run_host(out_dir, steps, "bridge-status", [
+                sys.executable,
+                str(SCRIPT_DIR / "a90_bridge.py"),
+                "status",
+                "--json",
+            ], timeout=30, allow_error=True)
+            base.a90ctl(args, out_dir, steps, "pre-status", ["status"], timeout=60, allow_error=True)
 
-        build_dir = out_dir / "build"
-        build_dir.mkdir(parents=True, exist_ok=True)
-        anchor_bin = build_dir / "a90_bpf_file_ops_anchor"
-        if not args.skip_build:
-            anchor_bin = base.build_helper(
-                build_dir,
-                steps,
-                source=HELPER_DIR / "a90_bpf_file_ops_anchor.c",
-                output_name="a90_bpf_file_ops_anchor",
-                cc=args.cc,
-                strip=args.strip,
-            )
-        summary["build"] = {
-            "anchor_local": rel(anchor_bin),
-            "anchor_sha256": base.sha256_file(anchor_bin),
-        }
+        with transport.phase(summary, "build_helper"):
+            build_dir = out_dir / "build"
+            build_dir.mkdir(parents=True, exist_ok=True)
+            anchor_bin = build_dir / "a90_bpf_file_ops_anchor"
+            if not args.skip_build:
+                anchor_bin = base.build_helper(
+                    build_dir,
+                    steps,
+                    source=HELPER_DIR / "a90_bpf_file_ops_anchor.c",
+                    output_name="a90_bpf_file_ops_anchor",
+                    cc=args.cc,
+                    strip=args.strip,
+                )
+            summary["build"] = {
+                "anchor_local": rel(anchor_bin),
+                "anchor_sha256": base.sha256_file(anchor_bin),
+            }
 
         if not args.skip_install:
-            base.install_helper(args, out_dir, steps, "fops-member-anchor", anchor_bin, REMOTE_ANCHOR)
+            with transport.phase(summary, "install_helper"):
+                base.install_helper(args, out_dir, steps, "fops-member-anchor", anchor_bin, REMOTE_ANCHOR)
 
-        check_stdout = base.tcpctl_run(args, out_dir, steps, "fops-member-check-only", [
-            REMOTE_ANCHOR,
-            "--duration-ms",
-            str(args.duration_ms),
-        ], timeout=60)
-        if "result=check-only" not in check_stdout:
-            raise RuntimeError(f"check-only did not complete cleanly:\n{check_stdout}")
+        with transport.phase(summary, "anchor_check"):
+            check_stdout = base.tcpctl_run(args, out_dir, steps, "fops-member-check-only", [
+                REMOTE_ANCHOR,
+                "--duration-ms",
+                str(args.duration_ms),
+            ], timeout=60)
+            if "result=check-only" not in check_stdout:
+                raise RuntimeError(f"check-only did not complete cleanly:\n{check_stdout}")
 
         helper_args = [
             REMOTE_ANCHOR,
@@ -277,21 +287,25 @@ def main() -> int:
         ]
         if args.verbose_helper:
             helper_args.append("--verbose")
-        probe_stdout = base.tcpctl_run(
-            args,
-            out_dir,
-            steps,
-            "fops-member-live",
-            helper_args,
-            timeout=max(60, args.duration_ms / 1000.0 + 30),
-        )
-        if "result=v2204-file-ops-anchor-complete" not in probe_stdout:
-            raise RuntimeError(f"live helper did not complete cleanly:\n{probe_stdout}")
+        with transport.phase(summary, "fops_member_live"):
+            probe_stdout = base.tcpctl_run(
+                args,
+                out_dir,
+                steps,
+                "fops-member-live",
+                helper_args,
+                timeout=max(60, args.duration_ms / 1000.0 + 30),
+            )
+            if "result=v2204-file-ops-anchor-complete" not in probe_stdout:
+                raise RuntimeError(f"live helper did not complete cleanly:\n{probe_stdout}")
+            probe = base.parse_probe_stdout(probe_stdout)
 
-        probe = base.parse_probe_stdout(probe_stdout)
-        object_analysis = base.analyze_fops(probe, symbols)
-        member_analysis = analyze_members(probe, symbols)
-        selftest = base.a90ctl(args, out_dir, steps, "post-selftest", ["selftest"], timeout=90, allow_error=True)
+        with transport.phase(summary, "analysis"):
+            object_analysis = base.analyze_fops(probe, symbols)
+            member_analysis = analyze_members(probe, symbols)
+
+        with transport.phase(summary, "post_selftest"):
+            selftest = base.a90ctl(args, out_dir, steps, "post-selftest", ["selftest"], timeout=90, allow_error=True)
 
         summary.update({
             "decision": "v2206-fops-member-text-slide-captured" if member_analysis["exact_text_member_slide"] else "v2206-fops-member-pointer-stub-layer-observed",
@@ -319,11 +333,14 @@ def main() -> int:
             }
             for step in steps
         ]
+        transport.set_residual_state(summary, base.residual_state(summary))
+        artifact_started = time.monotonic()
         (out_dir / "summary.json").write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n")
         if "member_analysis" in summary:
             REPORT_PATH.write_text(render_report(summary))
             summary["report_path"] = rel(REPORT_PATH)
-            (out_dir / "summary.json").write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n")
+        transport.add_total_phase(summary, "artifact_write", artifact_started, ok=True)
+        (out_dir / "summary.json").write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n")
         print(json.dumps({
             "decision": summary.get("decision"),
             "pass": summary.get("pass"),

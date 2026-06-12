@@ -1221,7 +1221,7 @@
       "name": "inventory_revalidation_scripts.py",
       "path": "workspace/public/src/scripts/revalidation/inventory_revalidation_scripts.py",
       "reason": "operator utility or inventory/cleanup utility",
-      "repo_reference_count": 7,
+      "repo_reference_count": 8,
       "type": "file"
     },
     {
@@ -1447,10 +1447,10 @@
     },
     {
       "executable": false,
-      "has_phase_timer": false,
-      "has_residual_state": false,
+      "has_phase_timer": true,
+      "has_residual_state": true,
       "has_secret_redaction": false,
-      "imports_a90_transport": false,
+      "imports_a90_transport": true,
       "label": "active",
       "live_device_required": true,
       "mentions_a90_bridge": true,
@@ -1464,10 +1464,10 @@
     },
     {
       "executable": false,
-      "has_phase_timer": false,
-      "has_residual_state": false,
+      "has_phase_timer": true,
+      "has_residual_state": true,
       "has_secret_redaction": false,
-      "imports_a90_transport": false,
+      "imports_a90_transport": true,
       "label": "active",
       "live_device_required": true,
       "mentions_a90_bridge": true,
@@ -1595,7 +1595,7 @@
       "name": "native_kernel_timer_object_context_v2201.py",
       "path": "workspace/public/src/scripts/revalidation/native_kernel_timer_object_context_v2201.py",
       "reason": "kernel-observation runner or postprocessor",
-      "repo_reference_count": 3,
+      "repo_reference_count": 5,
       "type": "file"
     },
     {
@@ -1612,7 +1612,7 @@
       "name": "native_kernel_timer_object_histogram_v2202.py",
       "path": "workspace/public/src/scripts/revalidation/native_kernel_timer_object_histogram_v2202.py",
       "reason": "kernel-observation runner or postprocessor",
-      "repo_reference_count": 3,
+      "repo_reference_count": 5,
       "type": "file"
     },
     {
@@ -1629,7 +1629,7 @@
       "name": "native_kernel_timer_start_context_v2200.py",
       "path": "workspace/public/src/scripts/revalidation/native_kernel_timer_start_context_v2200.py",
       "reason": "kernel-observation runner or postprocessor",
-      "repo_reference_count": 3,
+      "repo_reference_count": 5,
       "type": "file"
     },
     {
@@ -1922,7 +1922,7 @@
       "type": "file"
     }
   ],
-  "generated_at": "2026-06-12T05:37:19.386967+00:00",
+  "generated_at": "2026-06-12T05:45:58.634116+00:00",
   "root": "workspace/public/src/scripts/revalidation",
   "summary": {
     "active": 107,
