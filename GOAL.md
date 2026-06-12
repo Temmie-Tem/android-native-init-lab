@@ -77,6 +77,18 @@ Read at the START of every iteration (then apply the tier policy above):
 ## Sub-goal seeds (optional; the loop may pick others from state)
 
 **T1 — kernel observation (try first):**
+- After V2251: the V2250 generic CPU-clock zero-hit result is now classified as
+  `sampler_miss_not_function_absence`. The same V2250 helper result contains a
+  deterministic read-only `/proc/*/stack` target sample in `kworker/u16:1` with
+  `wchan=_request_firmware` and all seven V2246 whitelist functions present:
+  `_request_firmware`, `request_firmware`, `qdf_file_read`, `qdf_ini_parse`,
+  `cfg_parse`, `hdd_context_create`, and `wlan_hdd_pld_probe`. The firmware_class
+  feeder also confirmed `WCNSS_qcom_cfg.ini` seen/fed with `13343` bytes and rc0
+  data/loading completion. Do not spend another iteration on generic CPU-clock
+  duration/print-limit tweaks for this tail. Next meaningful T1 unit: use
+  deterministic helper-owned boundary markers or focused `/proc/*/stack`
+  snapshots around each firmware_class fallback operation if finer ordering is
+  needed.
 - After V2250 live: the helper-started full-print tail sampler completed its
   contract and removed V2249's output-loss blocker. V2250 reached `wlan0-ready`,
   emitted `tail_perf_regs_codeword_sampler.started=1`, finished the
