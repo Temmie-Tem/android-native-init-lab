@@ -196,6 +196,9 @@ functions.
 - [x] `workspace/public/src/scripts/revalidation/a90_kernel_v2242_user_elf_offset_context.py`
       — LOAD segment modeling, observed spec filtering, offset context issue
       classification, private context writer metadata, user-ELF context summary.
+- [x] `workspace/public/src/scripts/revalidation/a90_kernel_v2243_user_uprobe_semantic_classifier.py`
+      — disassembly line parsing, target/neighbor lookup, instruction/event-role
+      classes, role alignment, context classification, semantic summary rendering.
 - [ ] (append more as discovered: v2231+ analyzers.)
 
 ## Progress log
@@ -415,4 +418,7 @@ functions.
   LoadSegment helpers, parse_load_segments missing-file path, object_for_spec,
   observed_spec_keys, build_offset_contexts, write_private_context,
   build_summary — 9 cases — green.
+- 2026-06-13 — `a90_kernel_v2243_user_uprobe_semantic_classifier.py` —
+  parse_instructions, find_target, instruction_class, event_role,
+  role_alignment, classify_context, counter_dict, build_summary — 8 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
