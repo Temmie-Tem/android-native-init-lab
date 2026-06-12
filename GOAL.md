@@ -77,6 +77,11 @@ Read at the START of every iteration (then apply the tier policy above):
 ## Sub-goal seeds (optional; the loop may pick others from state)
 
 **T1 — kernel observation (try first):**
+- After V2241: `a90*` user-space code-path identity is `runtime_probe_ip =
+  per-run_load_bias + helper_static_uprobe_offset`. Parse offsets from
+  `a90_android_execns_probe.c`, require one page-aligned load bias per `(run, object)`,
+  and use stripped user-ELF disassembly around those offsets if finer instruction
+  context is needed.
 - After V2240: V2216/V2217 exact-slide symbolization is valid for kernel canonical
   PC/LR samples and kernel function-pointer anchors only. Do not apply the kernel slide
   to `a90cnss`/`a90libqmi`/`a90pmsrv` user-space trace-uprobe `__probe_ip`; use event
