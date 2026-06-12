@@ -236,6 +236,9 @@ functions.
       — Wi-Fi status/screenapp parsing, read-only action detection,
       dry-run command rendering, manifest classification, report/residual-state
       rendering.
+- [x] `workspace/public/src/scripts/revalidation/native_kernel_workqueue_fwclass_oracle_plan_v2272.py`
+      — workqueue/firmware source evidence checks, firmware tracepoint absence
+      detection, candidate readiness classification, text rendering.
 - [ ] (append more as discovered: v2231+ analyzers.)
 
 ## Progress log
@@ -496,4 +499,7 @@ functions.
   parse_key_values, last_value, sanitize_field_value, classify_wifi_status,
   classify_screenapp, flash_command, dry_run_commands, classify_test_health,
   classify_manifest, render_report, residual_state — 13 cases — green.
+- 2026-06-13 — `native_kernel_workqueue_fwclass_oracle_plan_v2272.py` —
+  read_text, rel, regex_present, firmware_tracepoint_source_absent,
+  build_plan ready/block branches, render_text — 5 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
