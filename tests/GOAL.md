@@ -108,7 +108,10 @@ functions.
 - [x] `workspace/public/src/scripts/revalidation/native_kernel_raw_frame_sample_ring_v2213.py`
       — sample-ring stdout parsing, address classification, convergence metrics,
       probe analysis, live report rendering.
-- [ ] (append more as discovered: v2214+ analyzers.)
+- [x] `workspace/public/src/scripts/revalidation/native_kernel_perf_regs_frame_sample_ring_v2214.py`
+      — perf-regs sample-ring stdout parsing, address classification,
+      stock-map symbolization helpers, convergence metrics, report rendering.
+- [ ] (append more as discovered: v2215+ analyzers.)
 
 ## Progress log
 
@@ -215,4 +218,8 @@ functions.
 - 2026-06-13 — `native_kernel_raw_frame_sample_ring_v2213.py` —
   parse_int, parse_helper_stdout, classify_addr, analyze_probe,
   render_report — 7 cases — green.
+- 2026-06-13 — `native_kernel_perf_regs_frame_sample_ring_v2214.py` —
+  parse_int, parse_helper_stdout, classify_addr, load_text_symbols,
+  nearest_symbol, symbolize_counter, analyze_probe, render_report —
+  7 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
