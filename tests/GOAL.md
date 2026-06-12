@@ -281,6 +281,9 @@ functions.
       — key/value parsing, host NCM candidate selection/snapshot parsing,
       NetworkManager link-local repair decisions, secret scanning, upload archive
       validation.
+- [x] `workspace/public/src/scripts/revalidation/a90ctl.py`
+      — cmdv1/cmdv1x argument encoding, wire-input modes, A90P1 protocol
+      parsing/validation, retry policy, JSON result rendering.
 - [ ] (append more as discovered: v2231+ analyzers.)
 
 ## Progress log
@@ -589,4 +592,9 @@ functions.
   host_netdev_snapshot, nmcli_connection_for_device,
   host_linklocal_repair_nmcli, scan_secret_*,
   validate_uploaded_archive — 11 cases — green.
+- 2026-06-13 — `a90ctl.py` — parse_fields, shell_command_to_argv,
+  can_use_legacy_cmdv1_arg, encode_cmdv1x_arg, encode_cmdv1_line,
+  double_input_line, encode_wire_line, has_prompt_after_last_end,
+  parse_protocol_output, validate_protocol_command, command_allows_retry,
+  should_retry_cmdv1_exchange, result_to_json, run_cmdv1_command — 14 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
