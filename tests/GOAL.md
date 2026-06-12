@@ -296,6 +296,10 @@ functions.
 - [x] `workspace/public/src/scripts/revalidation/native_init_frontier_select.py`
       — read_text/read_json, marker helpers, T1 readiness filtering,
       track evaluation branches, select_frontier path/decision handling.
+- [x] `workspace/public/src/scripts/revalidation/inventory_revalidation_scripts.py`
+      — classification, live-device detection, import detection,
+      direct-a90ctl grouping, consolidation signals, inventory generation,
+      markdown rendering.
 - [ ] (append more as discovered: v2231+ analyzers.)
 
 ## Progress log
@@ -622,4 +626,7 @@ functions.
 - 2026-06-13 — `native_init_frontier_select.py` — read_text/read_json,
   marker_present, all_markers_present, ready_t1_candidates, track_evaluations,
   select_frontier missing/present frontier candidate branches — 7 cases — green.
+- 2026-06-13 — `inventory_revalidation_scripts.py` — classify,
+  requires_live_device, imports_module, direct_a90ctl_candidate_groups,
+  consolidation_signals, inventory, render_markdown — 7 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
