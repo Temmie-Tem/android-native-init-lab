@@ -287,6 +287,9 @@ functions.
 - [x] `workspace/public/src/harness/a90harness/scheduler.py`
       — resource-lock derivation, default workload selection, seeded schedule
       construction, document/result serialization, mixed-soak event accounting.
+- [x] `workspace/public/src/harness/a90harness/device.py`
+      — direct/broker backend validation, metadata, command record generation,
+      broker payload construction, exception capture, exclusive lock reentrancy.
 - [ ] (append more as discovered: v2231+ analyzers.)
 
 ## Progress log
@@ -604,4 +607,7 @@ functions.
   default_workloads, build_schedule, schedule_document, WorkloadEvent.to_dict,
   MixedSoakResult.to_dict, run_mixed_soak_schedule pass/blocked/external-client
   paths — 9 cases — green.
+- 2026-06-13 — `a90harness/device.py` — DeviceClient init validation,
+  metadata, direct backend delegation, broker payload/response handling,
+  exception-to-CommandRecord capture, exclusive context reentrancy — 8 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
