@@ -148,7 +148,11 @@ functions.
 - [x] `workspace/public/src/scripts/revalidation/build_native_init_boot_v2226_a90_boot_window_property_root.py`
       — V2189 wrapper argument rewrites, v726 property-root route, report rendering,
       manifest version-axis normalization.
-- [ ] (append more as discovered: v2227+ analyzers.)
+- [x] `workspace/public/src/scripts/revalidation/native_kernel_a90_boot_window_handoff_v2227.py`
+      — SHA/build-manifest helpers, command rendering, artifact diagnosis,
+      current-window preflight classifiers, result classification, report rendering,
+      residual state.
+- [ ] (append more as discovered: v2228+ analyzers.)
 
 ## Progress log
 
@@ -310,4 +314,10 @@ functions.
 - 2026-06-13 — `build_native_init_boot_v2226_a90_boot_window_property_root.py` —
   configure_base, render_report, normalize_manifest_axes — 3 cases —
   green.
+- 2026-06-13 — `native_kernel_a90_boot_window_handoff_v2227.py` —
+  sha256, load_build_manifest, a90ctl_command, flash_command,
+  dry_run_commands, extract_summary_value, diagnose_artifacts,
+  is_current_window_a90_absent_preflight,
+  is_current_window_collector_busy_preflight, classify, render_report,
+  residual_state — 10 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
