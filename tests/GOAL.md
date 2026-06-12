@@ -183,6 +183,9 @@ functions.
       — cmdv1 cleanup, macro argument parsing, trace block extraction, pointer
       parameter/source/live format parsing, object-chain feasibility classification,
       residual state.
+- [x] `workspace/public/src/scripts/revalidation/a90_kernel_v2239_scalar_uprobe_timeline.py`
+      — key edge extraction, delta computation, parser-summary loading,
+      outcome inference, delta statistics, scalar/uprobe contract rendering.
 - [ ] (append more as discovered: v2231+ analyzers.)
 
 ## Progress log
@@ -389,4 +392,7 @@ functions.
   clean_cmdv1_text, split_top_level_args, extract_macro_call,
   pointer_params, source_fields, parse_live_format, event_source_summary,
   classify_event, residual_state — 8 cases — green.
+- 2026-06-13 — `a90_kernel_v2239_scalar_uprobe_timeline.py` —
+  first_edges, compute_deltas, build_run_summary, infer_outcome,
+  summarize_delta_stats, build_contract — 8 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
