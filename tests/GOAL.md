@@ -67,9 +67,11 @@ functions.
       GateResult, evaluate_gate.
 - [x] `workspace/public/src/harness/a90harness/evidence.py` — safe artifact
       labels/paths, bounded readers, private/public writers, EvidenceStore.
-- [ ] (append more as discovered: a90harness failure.py / module.py /
-      observer.py / runner.py / bundle.py, and v2203 / v2204 / v2205 /
-      v2207 / v2208 / v2209 / v2210 analyzers.)
+- [x] `workspace/public/src/harness/a90harness/failure.py` — workload/
+      observer failure classification and mixed-soak summary.
+- [ ] (append more as discovered: a90harness module.py / observer.py /
+      runner.py / bundle.py, and v2203 / v2204 / v2205 / v2207 / v2208 /
+      v2209 / v2210 analyzers.)
 
 ## Progress log
 
@@ -108,4 +110,7 @@ functions.
 - 2026-06-13 — `a90harness/evidence.py` — safe_artifact_label, path
   builders, workspace private roots, private/public writers, bounded readers,
   EvidenceStore — 10 cases — green.
+- 2026-06-13 — `a90harness/failure.py` — FailureClassification,
+  classify_workload_event, classify_observer_sample, load_observer_samples,
+  summarize_classifications, classify_mixed_soak — 13 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
