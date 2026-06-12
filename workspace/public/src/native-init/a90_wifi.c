@@ -1801,6 +1801,7 @@ int a90_wifi_status_snapshot(struct a90_wifi_status_snapshot *out) {
     char kind[32];
     char raw_mac[80];
     char raw_ipv4[64];
+    char raw_gateway[64];
 
     if (out == NULL) {
         return -EINVAL;
@@ -1821,6 +1822,13 @@ int a90_wifi_status_snapshot(struct a90_wifi_status_snapshot *out) {
         snprintf(raw_ipv4, sizeof(raw_ipv4), "%s", "-");
     }
     wifi_ipv4_label(raw_ipv4, out->ipv4, sizeof(out->ipv4));
+    out->route_default_present = wifi_default_route_present();
+    out->gateway_rc = wifi_default_gateway_ipv4(raw_gateway, sizeof(raw_gateway));
+    if (out->gateway_rc < 0) {
+        snprintf(raw_gateway, sizeof(raw_gateway), "%s", "-");
+    }
+    wifi_ipv4_label(raw_gateway, out->gateway, sizeof(out->gateway));
+    out->nameserver_count = wifi_count_resolv_nameservers();
     out->supplicant_process_count = wifi_count_processes_with_token("wpa_supplicant");
     wifi_runtime_value("wlan0_present=", out->runtime_wlan0, sizeof(out->runtime_wlan0));
     wifi_runtime_value("mac_label=", out->runtime_mac, sizeof(out->runtime_mac));
@@ -1878,6 +1886,7 @@ int a90_wifi_status_snapshot(struct a90_wifi_status_snapshot *out) {
     out->runtime_summary_present = access(A90_WIFI_RUNTIME_SUMMARY, R_OK) == 0;
     out->runtime_input_present = access(A90_WIFI_RUNTIME_INPUT, R_OK) == 0;
     out->autoconnect_result_present = access(A90_WIFI_AUTOCONNECT_RESULT, R_OK) == 0;
+    out->resolv_conf_present = access(A90_WIFI_RESOLV_CONF, R_OK) == 0;
     out->supplicant_executable = access(A90_WIFI_STANDALONE_SUPPLICANT, X_OK) == 0;
     snprintf(kind, sizeof(kind), "%s", "missing");
     (void)wifi_path_kind(A90_WIFI_CTRL_SOCKET, false, kind, sizeof(kind));
@@ -1907,6 +1916,15 @@ int a90_wifi_print_status(void) {
     a90_console_printf("ip4_label=%s\r\n", status.ipv4);
     a90_console_printf("ip4_masked=1\r\n");
     a90_console_printf("ipv4_rc=%d\r\n", status.ipv4_rc);
+    a90_console_printf("default_route_present=%d\r\n", status.route_default_present ? 1 : 0);
+    a90_console_printf("gateway=%s\r\n", status.gateway);
+    a90_console_printf("gateway_label=%s\r\n", status.gateway);
+    a90_console_printf("gateway_masked=1\r\n");
+    a90_console_printf("gateway_rc=%d\r\n", status.gateway_rc);
+    a90_console_printf("resolv_conf.path=%s\r\n", A90_WIFI_RESOLV_CONF);
+    a90_console_printf("resolv_conf.present=%d\r\n", status.resolv_conf_present ? 1 : 0);
+    a90_console_printf("resolv_conf.nameserver_count=%d\r\n",
+                       status.nameserver_count >= 0 ? status.nameserver_count : 0);
     a90_console_printf("runtime_summary.path=%s\r\n", A90_WIFI_RUNTIME_SUMMARY);
     a90_console_printf("runtime_summary.present=%d\r\n", status.runtime_summary_present ? 1 : 0);
     a90_console_printf("runtime_input.path=%s\r\n", A90_WIFI_RUNTIME_INPUT);

@@ -48,7 +48,11 @@ struct a90_wifi_status_snapshot {
     bool runtime_input_present;
     bool autoconnect_result_present;
     bool supplicant_executable;
+    bool route_default_present;
+    bool resolv_conf_present;
     int ipv4_rc;
+    int gateway_rc;
+    int nameserver_count;
     int supplicant_process_count;
     char iface[16];
     char mac[80];
@@ -58,6 +62,7 @@ struct a90_wifi_status_snapshot {
     char rx_bytes[64];
     char tx_bytes[64];
     char ipv4[64];
+    char gateway[64];
     char runtime_wlan0[32];
     char runtime_mac[80];
     char runtime_ip[80];

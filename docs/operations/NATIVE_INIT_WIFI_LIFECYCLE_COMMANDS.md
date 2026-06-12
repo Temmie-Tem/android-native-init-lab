@@ -36,6 +36,8 @@ It reports:
 - `mac`, `operstate`, `carrier`, `flags`;
 - `rx_bytes`, `tx_bytes`;
 - current IPv4 address if one exists;
+- `default_route_present`, redacted `gateway_label`, `gateway_rc`,
+  `resolv_conf.present`, and `resolv_conf.nameserver_count`;
 - redacted runtime summary fields from
   `/cache/native-init-wifi-runtime.summary`, including `runtime.decision`,
   `runtime.wpa_state`, `runtime.rssi_dbm`, `runtime.linkspeed_mbps`, and
@@ -56,8 +58,9 @@ On-device UI:
 
 - `NETWORK > WIFI STATUS` renders the same read-only state surface on screen:
   `wlan0`, carrier, IPv4, MAC, redacted runtime connection label, WPA state,
-  RSSI/link speed/frequency when available, autoconnect PASS/RUN/OFF/FAIL
-  label, runtime decision label, and private supplicant control state.
+  RSSI/link speed/frequency when available, route/default-DNS state,
+  autoconnect PASS/RUN/OFF/FAIL label, runtime decision label, and private
+  supplicant control state.
 - The screen does not start scan, association, DHCP, routing, DNS, or ping.
 
 ## `wifi scan [delay_ms]`

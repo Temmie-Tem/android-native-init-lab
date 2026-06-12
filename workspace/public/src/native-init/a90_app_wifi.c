@@ -175,18 +175,20 @@ int a90_app_wifi_draw_status(void) {
              app_wifi_text_or_dash(status.runtime_rssi),
              app_wifi_text_or_dash(status.runtime_linkspeed),
              app_wifi_text_or_dash(status.runtime_freq_mhz));
-    snprintf(line4, sizeof(line4), "AUTO %s PROFILE %s CARRIER %s NS %s",
+    snprintf(line4, sizeof(line4), "NET ROUTE %d NS %d GW %s",
+             status.route_default_present ? 1 : 0,
+             status.nameserver_count >= 0 ? status.nameserver_count : 0,
+             app_wifi_text_or_dash(status.gateway));
+    snprintf(line5, sizeof(line5), "AUTO %s PROFILE %s CARRIER %s",
              auto_badge,
              app_wifi_text_or_dash(status.autoconnect_profile),
-             app_wifi_text_or_dash(status.autoconnect_carrier_up),
+             app_wifi_text_or_dash(status.autoconnect_carrier_up));
+    snprintf(line6, sizeof(line6), "AUTO DECISION %s  NS %s",
+             app_wifi_text_or_dash(status.autoconnect_decision),
              app_wifi_text_or_dash(status.autoconnect_nameserver_count));
-    snprintf(line5, sizeof(line5), "AUTO DECISION %s",
-             app_wifi_text_or_dash(status.autoconnect_decision));
-    snprintf(line6, sizeof(line6), "RUNTIME %s %s",
+    snprintf(line7, sizeof(line7), "RUN %s %s CTRL %s",
              runtime_badge,
-             app_wifi_text_or_dash(status.runtime_decision));
-    snprintf(line7, sizeof(line7), "SUPP PID %d  CTRL %s",
-             status.supplicant_process_count,
+             app_wifi_text_or_dash(status.runtime_decision),
              app_wifi_text_or_dash(status.ctrl_socket_kind));
 
     lines[0] = line0;

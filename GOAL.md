@@ -213,6 +213,20 @@ Read at the START of every iteration (then apply the tier policy above):
   live-register sampling for code-path identity.
 
 **T2 — WLAN native-init (if T1 blocked):**
+- After V2254: the T2 downgrade trigger was recorded. V2253 closed the active
+  T1 firmware_class boundary question, and another generic CPU-clock or
+  same-boundary observer would only re-confirm established facts. V2254 is a
+  source/build-only candidate on top of V2237:
+  `boot_linux_v2254_wifi_detail_surface.img`, `A90 Linux init 0.9.272
+  (v2254-wifi-detail-surface)`, boot SHA256
+  `c668e9cd9a3621c955fa369c5d106271a96a949dcaec3774a5719d24b8ba19e9`. It adds
+  read-only `wifi status` fields for `default_route_present`, redacted
+  `gateway_label`, `gateway_rc`, `resolv_conf.present`, and
+  `resolv_conf.nameserver_count`, and renders route/default-DNS state on
+  `NETWORK > WIFI STATUS`. Next live unit: flash V2254 rollbackably, verify
+  `version`/`status`/`selftest`, query `wifi status` and `screenapp
+  wifi-status` without scan/connect/DHCP/ping, then roll back to V2237 and
+  selftest.
 - Network detail surface + remaining test-script cleanup (CLAUDE.md "Active work").
 
 **Any tier — safe filler (no device):**
