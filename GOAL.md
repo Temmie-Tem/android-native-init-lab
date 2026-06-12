@@ -77,14 +77,19 @@ Read at the START of every iteration (then apply the tier policy above):
 ## Sub-goal seeds (optional; the loop may pick others from state)
 
 **T1 — kernel observation (try first):**
+- After V2247: tail PC/LR scoring infrastructure exists.
+  `a90_kernel_v2247_tail_pc_lr_scorer.py` consumes a per-boot exact-slide
+  perf regs/codeword summary plus the V2246 whitelist and scores `ctx_pc`,
+  `ctx_lr`, and `ctx_lr-4`; the V2216 generic CPU-clock negative control had
+  exact slide `0x84ef4`, `62/62` PC codeword matches, and `0` tail hits. The
+  next meaningful live T1 unit is a tail-window perf regs/codeword capture
+  around the post-FWREADY firmware_class/qcacld-HDD path, then run the V2247
+  scorer on that capture.
 - After V2246: the post-FWREADY tail live-sampling whitelist is source-backed:
   `_request_firmware`, `request_firmware`, `qdf_file_read`, `qdf_ini_parse`,
   `cfg_parse`, `hdd_context_create`, and `wlan_hdd_pld_probe` all map to stock
-  kallsyms plus source definitions. The next live T1 unit, if pursued, should
-  run a per-boot exact-slide PC/LR sampler during the post-FWREADY
-  firmware_class/qcacld-HDD tail and score hits against this whitelist. Do not
-  reuse a numeric slide across boots or treat next-symbol deltas as function
-  sizes on the RKP/CFP/JOPP kernel.
+  kallsyms plus source definitions. Do not reuse a numeric slide across boots or
+  treat next-symbol deltas as function sizes on the RKP/CFP/JOPP kernel.
 - After V2245: the V2233 `wlan0-ready` delta is the downstream post-FWREADY
   tail, not WLFW/QMI order: V2229/V2231 have `tail_absent`, while V2233 executes
   `boot_wlan`, feeds `wlan/qca_cld/WCNSS_qcom_cfg.ini` through firmware_class,
