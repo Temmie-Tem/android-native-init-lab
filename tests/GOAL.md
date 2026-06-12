@@ -202,6 +202,9 @@ functions.
 - [x] `workspace/public/src/scripts/revalidation/a90_kernel_v2244_semantic_timeline_merger.py`
       — semantic key-event lookup, evidence-strength bucketing, edge merge,
       per-run strength summary, cross-run outcome comparison, merged summary output.
+- [x] `workspace/public/src/scripts/revalidation/a90_kernel_v2245_post_fwready_tail_inventory.py`
+      — helper key-value parsing, tail-key counts, target-stack extraction,
+      post-FWREADY stage classification, run comparison, inventory summary output.
 - [ ] (append more as discovered: v2231+ analyzers.)
 
 ## Progress log
@@ -427,4 +430,7 @@ functions.
 - 2026-06-13 — `a90_kernel_v2244_semantic_timeline_merger.py` —
   semantic_by_event, evidence_strength, merge_edge, summarize_run,
   compare_outcomes, build_summary — 8 cases — green.
+- 2026-06-13 — `a90_kernel_v2245_post_fwready_tail_inventory.py` —
+  read_key_values, as_int, count_tail_keys, collect_target_stacks,
+  classify_stage, summarize_run, compare_runs, build_summary — 10 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
