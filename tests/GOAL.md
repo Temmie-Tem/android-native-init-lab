@@ -61,7 +61,8 @@ functions.
       — slide / scoring helpers (pure parts only).
 - [x] `workspace/public/src/scripts/revalidation/native_kernel_a90_uprobe_trace_postprocess_v2221.py`
       — parse_stdout_json, load_json.
-- [ ] `workspace/public/src/harness/a90harness/schema.py` — pure validators (discover).
+- [x] `workspace/public/src/harness/a90harness/schema.py` — result dataclass
+      serialization and failure rollups.
 - [ ] (append more as discovered: a90harness gate.py / evidence.py / failure.py,
       and v2203 / v2204 / v2205 / v2207 / v2208 / v2209 / v2210 analyzers.)
 
@@ -94,4 +95,6 @@ functions.
   build_symbol_index, candidate_slides, score_slide — 7 cases — green.
 - 2026-06-13 — `native_kernel_a90_uprobe_trace_postprocess_v2221.py` —
   parse_stdout_json, load_json — 8 cases — green.
+- 2026-06-13 — `a90harness/schema.py` — CheckResult, CommandRecord,
+  HarnessResult `to_dict` serialization and failure rollups — 5 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
