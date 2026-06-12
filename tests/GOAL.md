@@ -139,7 +139,10 @@ functions.
       — SHA/JSON helpers, latest preflight discovery, helper source marker
       audit, boot image inventory, contract loading, capture-plan rendering,
       residual state.
-- [ ] (append more as discovered: v2224+ analyzers.)
+- [x] `workspace/public/src/scripts/revalidation/build_native_init_boot_v2224_a90_boot_window_observer.py`
+      — V2189 wrapper argument rewrites, report rendering, manifest version-axis
+      normalization.
+- [ ] (append more as discovered: v2225+ analyzers.)
 
 ## Progress log
 
@@ -289,4 +292,7 @@ functions.
   sha256_file, load_json, latest_v2222_summary, source_marker_audit,
   boot_image_inventory, contract_summary, build_capture_plan,
   residual_state — 8 cases — green.
+- 2026-06-13 — `build_native_init_boot_v2224_a90_boot_window_observer.py` —
+  configure_base, render_report, normalize_manifest_axes — 3 cases —
+  green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
