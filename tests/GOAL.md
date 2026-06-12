@@ -50,7 +50,7 @@ functions.
 - [x] `workspace/public/src/scripts/revalidation/a90_kernel_v2199_timer_xref_scorer.py`
       — format_signed_hex, clean_expr, timer_leaf, interval_class, interval_score,
       score_xref, score_candidate.
-- [ ] `workspace/public/src/scripts/revalidation/a90_kernel_v2220_helper_summary_trace_parser.py`
+- [x] `workspace/public/src/scripts/revalidation/a90_kernel_v2220_helper_summary_trace_parser.py`
       — as_int, extract_ts, flatten_json, event_group, parse_legacy_nonlog_key,
       split_group_event, group_to_surface, aggregate.
 - [ ] `workspace/public/src/scripts/revalidation/a90_kernel_v2198_jopp_ropp_classifier.py`
@@ -76,4 +76,7 @@ functions.
   score_candidate — 9 cases — green. Also fixed `tests/_loader.py` to register
   standalone scripts in `sys.modules` before exec so dataclass-based analyzers
   import correctly.
+- 2026-06-13 — `a90_kernel_v2220_helper_summary_trace_parser.py` — as_int,
+  extract_ts, flatten_json, event_group, parse_legacy_nonlog_key,
+  split_group_event, group_to_surface, aggregate — 7 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
