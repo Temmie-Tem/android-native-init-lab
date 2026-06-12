@@ -1583,10 +1583,10 @@
     },
     {
       "executable": false,
-      "has_phase_timer": false,
-      "has_residual_state": false,
+      "has_phase_timer": true,
+      "has_residual_state": true,
       "has_secret_redaction": false,
-      "imports_a90_transport": false,
+      "imports_a90_transport": true,
       "label": "active",
       "live_device_required": true,
       "mentions_a90_bridge": true,
@@ -1600,10 +1600,10 @@
     },
     {
       "executable": false,
-      "has_phase_timer": false,
-      "has_residual_state": false,
+      "has_phase_timer": true,
+      "has_residual_state": true,
       "has_secret_redaction": false,
-      "imports_a90_transport": false,
+      "imports_a90_transport": true,
       "label": "active",
       "live_device_required": true,
       "mentions_a90_bridge": true,
@@ -1617,10 +1617,10 @@
     },
     {
       "executable": false,
-      "has_phase_timer": false,
-      "has_residual_state": false,
+      "has_phase_timer": true,
+      "has_residual_state": true,
       "has_secret_redaction": false,
-      "imports_a90_transport": false,
+      "imports_a90_transport": true,
       "label": "active",
       "live_device_required": true,
       "mentions_a90_bridge": true,
@@ -1922,7 +1922,7 @@
       "type": "file"
     }
   ],
-  "generated_at": "2026-06-12T05:26:42.612545+00:00",
+  "generated_at": "2026-06-12T05:37:19.386967+00:00",
   "root": "workspace/public/src/scripts/revalidation",
   "summary": {
     "active": 107,

@@ -31,6 +31,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+import a90_transport as transport
+
 
 REPO_ROOT = Path(__file__).resolve().parents[5]
 SCRIPT_DIR = REPO_ROOT / "workspace/public/src/scripts/revalidation"
@@ -325,6 +327,28 @@ def parse_context(stdout: str) -> dict[str, Any]:
     }
 
 
+def residual_state(summary: dict[str, Any]) -> dict[str, Any]:
+    selftest_ok = bool(summary.get("selftest_fail0"))
+    device_touched = bool(summary.get("steps"))
+    cleanup_required = bool(device_touched and not selftest_ok)
+    return {
+        "device_touched": device_touched,
+        "flash_reboot": False,
+        "test_flash_ok": False,
+        "rollback_ok": True,
+        "rollback_attempt": "not-needed-no-flash",
+        "selftest_ok": selftest_ok,
+        "cleanup_required": cleanup_required,
+        "residual_risk": "post-selftest-incomplete" if cleanup_required else "none",
+        "wifi_scan_connect": False,
+        "credentials_used": False,
+        "dhcp_routes_ping": False,
+        "read_only_bpf": True,
+        "probe_write_user_executed": False,
+        "cgroup_attach": False,
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--label", default="v2201-timer-object-context")
@@ -357,6 +381,8 @@ def main() -> int:
         "out_dir": str(out_dir.relative_to(REPO_ROOT)),
         "started_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
         "steps": [],
+        "phase_timer_contract": transport.PHASE_TIMER_CONTRACT,
+        "phase_timers": [],
         "safety": {
             "read_only_bpf": True,
             "probe_write_user_executed": False,
@@ -367,89 +393,96 @@ def main() -> int:
     }
 
     try:
-        run_host(out_dir, steps, "bridge-status", [
-            sys.executable,
-            str(SCRIPT_DIR / "a90_bridge.py"),
-            "status",
-            "--json",
-        ], timeout=30, allow_error=True)
-        a90ctl(args, out_dir, steps, "pre-status", ["status"], timeout=60, allow_error=True)
+        with transport.phase(summary, "preflight_bridge_status"):
+            run_host(out_dir, steps, "bridge-status", [
+                sys.executable,
+                str(SCRIPT_DIR / "a90_bridge.py"),
+                "status",
+                "--json",
+            ], timeout=30, allow_error=True)
+            a90ctl(args, out_dir, steps, "pre-status", ["status"], timeout=60, allow_error=True)
 
-        build_dir = out_dir / "build"
-        build_dir.mkdir(parents=True, exist_ok=True)
-        extract_bin = build_dir / "a90_bpf_trace_extract"
-        context_bin = build_dir / "a90_bpf_timer_object_context"
-        if not args.skip_build:
-            extract_bin = build_helper(
-                build_dir,
-                steps,
-                source=HELPER_DIR / "a90_bpf_trace_extract.c",
-                output_name="a90_bpf_trace_extract",
-                cc=args.cc,
-                strip=args.strip,
-            )
-            context_bin = build_helper(
-                build_dir,
-                steps,
-                source=HELPER_DIR / "a90_bpf_timer_object_context.c",
-                output_name="a90_bpf_timer_object_context",
-                cc=args.cc,
-                strip=args.strip,
-            )
-        summary["build"] = {
-            "extract_local": str(extract_bin.relative_to(REPO_ROOT)),
-            "context_local": str(context_bin.relative_to(REPO_ROOT)),
-            "extract_sha256": sha256_file(extract_bin),
-            "context_sha256": sha256_file(context_bin),
-        }
+        with transport.phase(summary, "build_helpers"):
+            build_dir = out_dir / "build"
+            build_dir.mkdir(parents=True, exist_ok=True)
+            extract_bin = build_dir / "a90_bpf_trace_extract"
+            context_bin = build_dir / "a90_bpf_timer_object_context"
+            if not args.skip_build:
+                extract_bin = build_helper(
+                    build_dir,
+                    steps,
+                    source=HELPER_DIR / "a90_bpf_trace_extract.c",
+                    output_name="a90_bpf_trace_extract",
+                    cc=args.cc,
+                    strip=args.strip,
+                )
+                context_bin = build_helper(
+                    build_dir,
+                    steps,
+                    source=HELPER_DIR / "a90_bpf_timer_object_context.c",
+                    output_name="a90_bpf_timer_object_context",
+                    cc=args.cc,
+                    strip=args.strip,
+                )
+            summary["build"] = {
+                "extract_local": str(extract_bin.relative_to(REPO_ROOT)),
+                "context_local": str(context_bin.relative_to(REPO_ROOT)),
+                "extract_sha256": sha256_file(extract_bin),
+                "context_sha256": sha256_file(context_bin),
+            }
 
         if not args.skip_install:
-            install_helper(args, out_dir, steps, "trace-extract", extract_bin, REMOTE_EXTRACT)
-            install_helper(args, out_dir, steps, "timer-context", context_bin, REMOTE_CONTEXT)
+            with transport.phase(summary, "install_helpers"):
+                install_helper(args, out_dir, steps, "trace-extract", extract_bin, REMOTE_EXTRACT)
+                install_helper(args, out_dir, steps, "timer-context", context_bin, REMOTE_CONTEXT)
 
-        tcpctl_run(args, out_dir, steps, "context-check-only", [
-            REMOTE_CONTEXT,
-            "--filter-function",
-            args.filter_function or "0",
-        ], timeout=60)
+        with transport.phase(summary, "context_probe_check"):
+            tcpctl_run(args, out_dir, steps, "context-check-only", [
+                REMOTE_CONTEXT,
+                "--filter-function",
+                args.filter_function or "0",
+            ], timeout=60)
 
         dominant_value = int(args.filter_function, 0) if args.filter_function else 0
         freq_rows: list[dict[str, int]] = []
-        if not args.skip_freq and not args.filter_function:
-            freq_stdout = tcpctl_run(args, out_dir, steps, "timer-function-freq", [
-                REMOTE_EXTRACT,
-                "--event",
-                "timer:timer_start",
-                "--field",
-                "function",
-                "--mode",
-                "freq",
-                "--duration-sec",
-                str(args.freq_duration),
-                "--top",
-                str(args.top),
+        with transport.phase(summary, "timer_function_selection"):
+            if not args.skip_freq and not args.filter_function:
+                freq_stdout = tcpctl_run(args, out_dir, steps, "timer-function-freq", [
+                    REMOTE_EXTRACT,
+                    "--event",
+                    "timer:timer_start",
+                    "--field",
+                    "function",
+                    "--mode",
+                    "freq",
+                    "--duration-sec",
+                    str(args.freq_duration),
+                    "--top",
+                    str(args.top),
+                    "--busy-observe",
+                    "--allow-attach",
+                ], timeout=args.freq_duration + 90)
+                freq_rows = parse_freq(freq_stdout)
+                if not freq_rows:
+                    raise RuntimeError("timer function freq produced no rows")
+                dominant_value = freq_rows[0]["value"]
+            if not dominant_value:
+                raise RuntimeError("dominant/filter function pointer is zero")
+
+        with transport.phase(summary, "timer_context_capture"):
+            context_stdout = tcpctl_run(args, out_dir, steps, "timer-context-capture", [
+                REMOTE_CONTEXT,
+                "--filter-function",
+                f"0x{dominant_value:016x}",
+                "--duration",
+                str(args.context_duration),
                 "--busy-observe",
                 "--allow-attach",
-            ], timeout=args.freq_duration + 90)
-            freq_rows = parse_freq(freq_stdout)
-            if not freq_rows:
-                raise RuntimeError("timer function freq produced no rows")
-            dominant_value = freq_rows[0]["value"]
-        if not dominant_value:
-            raise RuntimeError("dominant/filter function pointer is zero")
+            ], timeout=args.context_duration + 90)
+            context = parse_context(context_stdout)
 
-        context_stdout = tcpctl_run(args, out_dir, steps, "timer-context-capture", [
-            REMOTE_CONTEXT,
-            "--filter-function",
-            f"0x{dominant_value:016x}",
-            "--duration",
-            str(args.context_duration),
-            "--busy-observe",
-            "--allow-attach",
-        ], timeout=args.context_duration + 90)
-        context = parse_context(context_stdout)
-
-        selftest = a90ctl(args, out_dir, steps, "post-selftest", ["selftest"], timeout=90, allow_error=True)
+        with transport.phase(summary, "post_selftest"):
+            selftest = a90ctl(args, out_dir, steps, "post-selftest", ["selftest"], timeout=90, allow_error=True)
         summary.update({
             "decision": "v2201-timer-object-context-captured" if context["summary"].get("count", 0) > 0 else "v2201-timer-object-context-no-hit",
             "dominant_function": f"0x{dominant_value:016x}",
@@ -479,6 +512,8 @@ def main() -> int:
             }
             for step in steps
         ]
+        transport.set_residual_state(summary, residual_state(summary))
+        transport.add_total_phase(summary, "artifact_write", time.monotonic(), ok=True)
         (out_dir / "summary.json").write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n")
         print(json.dumps({
             "decision": summary.get("decision"),

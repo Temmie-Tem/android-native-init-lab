@@ -213,6 +213,17 @@ Read at the START of every iteration (then apply the tier policy above):
   live-register sampling for code-path identity.
 
 **T2 — WLAN native-init (if T1 blocked):**
+- After V2259 timer runner metadata cleanup: the V2200/V2201/V2202 timer
+  kernel-observation runners now use shared `a90_transport` phase/residual
+  metadata. Inventory confirms
+  `native_kernel_timer_start_context_v2200.py`,
+  `native_kernel_timer_object_context_v2201.py`, and
+  `native_kernel_timer_object_histogram_v2202.py` are no longer in the live
+  metadata gap list (`Phase=yes`, `Residual=yes`), reducing active live scripts
+  without phase markers and residual-state metadata from `22` to `19` each. No
+  device action was taken. Next T2 cleanup unit: continue with one remaining
+  active live runner family from the kernel-observation list, static-only unless
+  that runner specifically requires live proof.
 - After V2258 metadata cleanup: `native_wifi_detail_surface_handoff_v2255.py`
   now uses the shared `a90_transport` phase/residual contracts. Inventory
   confirms the V2255 detail-surface runner is no longer in the live metadata

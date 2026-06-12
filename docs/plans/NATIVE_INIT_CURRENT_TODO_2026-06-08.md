@@ -204,24 +204,29 @@ Open edge:
 Goal: prevent new one-off script sprawl.
 
 Status: refreshed for the V2254 baseline; source-root has no `delete-review`
-entries, and V2258 closed the current Wi-Fi detail-surface runner's live
-metadata gap. The remaining gaps are concentrated in older kernel-observation
-live runner families and one local security utility.
+entries, and V2259 closed the V2200-V2202 timer runner family's live metadata
+gap. The remaining gaps are concentrated in older kernel-observation live
+runner families and one local security utility.
 
 Completed:
 
 - Current inventory report:
   `docs/reports/REVALIDATION_SCRIPT_INVENTORY_2026-06-10.md`.
-- Current source-root state after V2258 inventory refresh:
+- Current source-root state after V2259 inventory refresh:
   - `107 active`;
   - `6 module`;
   - `0 archive`;
   - `0 delete-review`.
 - Active live metadata gaps:
-  - phase timer markers missing: `22`;
-  - residual-state metadata missing: `22`;
+  - phase timer markers missing: `19`;
+  - residual-state metadata missing: `19`;
   - phase-timer-exempt live utilities: `2`;
   - residual-state-exempt live utilities/helpers: `3`.
+- V2259 migrated the timer kernel-observation runner family to shared
+  `a90_transport` phase timing plus residual-state metadata:
+  `native_kernel_timer_start_context_v2200.py`,
+  `native_kernel_timer_object_context_v2201.py`, and
+  `native_kernel_timer_object_histogram_v2202.py`.
 - V2258 migrated `native_wifi_detail_surface_handoff_v2255.py` to shared
   `a90_transport` phase timing plus residual-state metadata; it is no longer in
   the active live gap list.
