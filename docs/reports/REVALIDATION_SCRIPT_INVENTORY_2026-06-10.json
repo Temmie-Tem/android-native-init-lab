@@ -1221,7 +1221,7 @@
       "name": "inventory_revalidation_scripts.py",
       "path": "workspace/public/src/scripts/revalidation/inventory_revalidation_scripts.py",
       "reason": "operator utility or inventory/cleanup utility",
-      "repo_reference_count": 9,
+      "repo_reference_count": 11,
       "type": "file"
     },
     {
@@ -1413,10 +1413,10 @@
     },
     {
       "executable": false,
-      "has_phase_timer": false,
-      "has_residual_state": false,
+      "has_phase_timer": true,
+      "has_residual_state": true,
       "has_secret_redaction": false,
-      "imports_a90_transport": false,
+      "imports_a90_transport": true,
       "label": "active",
       "live_device_required": true,
       "mentions_a90_bridge": true,
@@ -1425,15 +1425,15 @@
       "name": "native_kernel_a90_uprobe_trace_buffer_collector_v2219.py",
       "path": "workspace/public/src/scripts/revalidation/native_kernel_a90_uprobe_trace_buffer_collector_v2219.py",
       "reason": "kernel-observation runner or postprocessor",
-      "repo_reference_count": 4,
+      "repo_reference_count": 6,
       "type": "file"
     },
     {
       "executable": false,
-      "has_phase_timer": false,
-      "has_residual_state": false,
+      "has_phase_timer": true,
+      "has_residual_state": true,
       "has_secret_redaction": false,
-      "imports_a90_transport": false,
+      "imports_a90_transport": true,
       "label": "active",
       "live_device_required": true,
       "mentions_a90_bridge": false,
@@ -1442,7 +1442,7 @@
       "name": "native_kernel_a90_uprobe_trace_postprocess_v2221.py",
       "path": "workspace/public/src/scripts/revalidation/native_kernel_a90_uprobe_trace_postprocess_v2221.py",
       "reason": "kernel-observation runner or postprocessor",
-      "repo_reference_count": 4,
+      "repo_reference_count": 6,
       "type": "file"
     },
     {
@@ -1510,7 +1510,7 @@
       "name": "native_kernel_perf_regs_codeword_sample_ring_v2216.py",
       "path": "workspace/public/src/scripts/revalidation/native_kernel_perf_regs_codeword_sample_ring_v2216.py",
       "reason": "kernel-observation runner or postprocessor",
-      "repo_reference_count": 4,
+      "repo_reference_count": 6,
       "type": "file"
     },
     {
@@ -1527,7 +1527,7 @@
       "name": "native_kernel_perf_regs_frame_sample_ring_v2214.py",
       "path": "workspace/public/src/scripts/revalidation/native_kernel_perf_regs_frame_sample_ring_v2214.py",
       "reason": "kernel-observation runner or postprocessor",
-      "repo_reference_count": 2,
+      "repo_reference_count": 4,
       "type": "file"
     },
     {
@@ -1544,7 +1544,7 @@
       "name": "native_kernel_raw_frame_sample_ring_v2213.py",
       "path": "workspace/public/src/scripts/revalidation/native_kernel_raw_frame_sample_ring_v2213.py",
       "reason": "kernel-observation runner or postprocessor",
-      "repo_reference_count": 2,
+      "repo_reference_count": 4,
       "type": "file"
     },
     {
@@ -1561,7 +1561,7 @@
       "name": "native_kernel_raw_frame_slots_v2212.py",
       "path": "workspace/public/src/scripts/revalidation/native_kernel_raw_frame_slots_v2212.py",
       "reason": "kernel-observation runner or postprocessor",
-      "repo_reference_count": 2,
+      "repo_reference_count": 4,
       "type": "file"
     },
     {
@@ -1922,7 +1922,7 @@
       "type": "file"
     }
   ],
-  "generated_at": "2026-06-12T05:54:44.712436+00:00",
+  "generated_at": "2026-06-12T06:04:53.855492+00:00",
   "root": "workspace/public/src/scripts/revalidation",
   "summary": {
     "active": 107,

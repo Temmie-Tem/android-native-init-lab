@@ -213,6 +213,16 @@ Read at the START of every iteration (then apply the tier policy above):
   live-register sampling for code-path identity.
 
 **T2 — WLAN native-init (if T1 blocked):**
+- After V2262 uprobe trace runner metadata cleanup: the V2219/V2221 uprobe
+  trace collector/postprocess runners now use shared `a90_transport`
+  phase/residual metadata. Inventory confirms
+  `native_kernel_a90_uprobe_trace_buffer_collector_v2219.py` and
+  `native_kernel_a90_uprobe_trace_postprocess_v2221.py` are no longer in the
+  live metadata gap list (`Phase=yes`, `Residual=yes`), reducing active live
+  scripts without phase markers and residual-state metadata from `13` to `11`
+  each. No device action was taken. Next T2 cleanup unit: continue with one
+  remaining active live runner family from the kernel-observation list,
+  static-only unless that runner specifically requires live proof.
 - After V2261 sample-ring runner metadata cleanup: the V2212/V2213/V2214/V2216
   raw/perf sample-ring kernel-observation runners now use shared
   `a90_transport` phase/residual metadata. Inventory confirms

@@ -204,7 +204,7 @@ Open edge:
 Goal: prevent new one-off script sprawl.
 
 Status: refreshed for the V2254 baseline; source-root has no `delete-review`
-entries, and V2261 closed the V2212-V2216 sample-ring runner family's live
+entries, and V2262 closed the V2219/V2221 uprobe trace runner pair's live
 metadata gap. The remaining gaps are concentrated in older kernel-observation
 live runner families and one local security utility.
 
@@ -212,16 +212,20 @@ Completed:
 
 - Current inventory report:
   `docs/reports/REVALIDATION_SCRIPT_INVENTORY_2026-06-10.md`.
-- Current source-root state after V2261 inventory refresh:
+- Current source-root state after V2262 inventory refresh:
   - `107 active`;
   - `6 module`;
   - `0 archive`;
   - `0 delete-review`.
 - Active live metadata gaps:
-  - phase timer markers missing: `13`;
-  - residual-state metadata missing: `13`;
+  - phase timer markers missing: `11`;
+  - residual-state metadata missing: `11`;
   - phase-timer-exempt live utilities: `2`;
   - residual-state-exempt live utilities/helpers: `3`.
+- V2262 migrated the uprobe trace kernel-observation runner pair to shared
+  `a90_transport` phase timing plus residual-state metadata:
+  `native_kernel_a90_uprobe_trace_buffer_collector_v2219.py` and
+  `native_kernel_a90_uprobe_trace_postprocess_v2221.py`.
 - V2261 migrated the raw/perf sample-ring kernel-observation runner family to
   shared `a90_transport` phase timing plus residual-state metadata:
   `native_kernel_raw_frame_slots_v2212.py`,

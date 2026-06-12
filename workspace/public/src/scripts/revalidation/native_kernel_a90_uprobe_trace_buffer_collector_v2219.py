@@ -24,6 +24,9 @@ SCRIPT_DIR = REPO_ROOT / "workspace/public/src/scripts/revalidation"
 PRIVATE_RUNS = REPO_ROOT / "workspace/private/runs/kernel"
 REMOTE_TOYBOX = "/cache/bin/busybox"
 
+sys.path.insert(0, str(SCRIPT_DIR))
+import a90_transport as transport  # noqa: E402
+
 EVENTS = [
     "a90cnss:wlfw_start",
     "a90cnss:wlfw_service_request",
@@ -302,6 +305,28 @@ def summarize_hits(rows: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def residual_state(summary: dict[str, Any]) -> dict[str, Any]:
+    selftest_ok = bool(summary.get("selftest_fail0"))
+    device_touched = bool(summary.get("steps"))
+    cleanup_required = bool(device_touched and not selftest_ok)
+    return {
+        "device_touched": device_touched,
+        "flash_reboot": False,
+        "test_flash_ok": False,
+        "rollback_ok": True,
+        "rollback_attempt": "not-needed-no-flash",
+        "selftest_ok": selftest_ok,
+        "cleanup_required": cleanup_required,
+        "residual_risk": "post-selftest-incomplete" if cleanup_required else "none",
+        "wifi_scan_connect": False,
+        "credentials_used": False,
+        "dhcp_routes_ping": False,
+        "tracefs_control_write": False,
+        "bpf_attach": False,
+        "probe_write_user_executed": False,
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--label", default="v2219-a90-uprobe-trace-buffer")
@@ -320,6 +345,9 @@ def main() -> int:
         "label": args.label,
         "out_dir": str(out_dir.relative_to(REPO_ROOT)),
         "started_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+        "steps": [],
+        "phase_timer_contract": transport.PHASE_TIMER_CONTRACT,
+        "phase_timers": [],
         "safety": {
             "tracefs_control_write": False,
             "bpf_attach": False,
@@ -332,15 +360,16 @@ def main() -> int:
     }
 
     try:
-        run_host(
-            out_dir,
-            steps,
-            "bridge-status",
-            [sys.executable, str(SCRIPT_DIR / "a90_bridge.py"), "status", "--json"],
-            timeout=30,
-            allow_error=True,
-        )
-        a90ctl(args, out_dir, steps, "pre-status", ["status"], timeout=args.timeout, allow_error=True)
+        with transport.phase(summary, "preflight_bridge_status"):
+            run_host(
+                out_dir,
+                steps,
+                "bridge-status",
+                [sys.executable, str(SCRIPT_DIR / "a90_bridge.py"), "status", "--json"],
+                timeout=30,
+                allow_error=True,
+            )
+            a90ctl(args, out_dir, steps, "pre-status", ["status"], timeout=args.timeout, allow_error=True)
 
         events_shell = " ".join(EVENTS)
         state_script = (
@@ -354,26 +383,31 @@ def main() -> int:
             "echo tracing_on=$(cat /sys/kernel/tracing/tracing_on 2>/dev/null); "
             "echo trace_clock=$(cat /sys/kernel/tracing/trace_clock 2>/dev/null | tr '\\n' ' ')"
         )
-        event_state_raw = run_device_shell(args, out_dir, steps, "event-state", state_script, timeout=args.timeout)
-        event_state_clean = clean_cmdv1_text(event_state_raw)
-        (out_dir / "event_state.txt").write_text(event_state_clean)
-        states = parse_event_state(event_state_raw)
+        with transport.phase(summary, "event_state_snapshot"):
+            event_state_raw = run_device_shell(args, out_dir, steps, "event-state", state_script, timeout=args.timeout)
+            event_state_clean = clean_cmdv1_text(event_state_raw)
+            (out_dir / "event_state.txt").write_text(event_state_clean)
+            states = parse_event_state(event_state_raw)
 
         if args.wait_sec > 0:
-            run_device_shell(args, out_dir, steps, "bounded-idle-wait", f"sleep {args.wait_sec}", timeout=args.wait_sec + 20)
+            with transport.phase(summary, "bounded_idle_wait"):
+                run_device_shell(args, out_dir, steps, "bounded-idle-wait", f"sleep {args.wait_sec}", timeout=args.wait_sec + 20)
 
         trace_script = (
             "grep -E 'a90cnss|a90libqmi|a90pmsrv' /sys/kernel/tracing/trace 2>/dev/null "
             f"| tail -n {args.tail_lines}"
         )
-        trace_raw = run_device_shell(args, out_dir, steps, "trace-buffer-snapshot", trace_script, timeout=args.timeout, allow_error=True)
-        trace_clean = clean_cmdv1_text(trace_raw)
-        (out_dir / "a90_trace_tail.txt").write_text(trace_clean)
-        rows = parse_trace_lines(trace_raw, states)
-        (out_dir / "parsed_hits.json").write_text(json.dumps(rows, indent=2, sort_keys=True) + "\n")
-        hit_summary = summarize_hits(rows)
+        with transport.phase(summary, "trace_buffer_snapshot"):
+            trace_raw = run_device_shell(args, out_dir, steps, "trace-buffer-snapshot", trace_script, timeout=args.timeout, allow_error=True)
+            trace_clean = clean_cmdv1_text(trace_raw)
+            (out_dir / "a90_trace_tail.txt").write_text(trace_clean)
+        with transport.phase(summary, "trace_parse"):
+            rows = parse_trace_lines(trace_raw, states)
+            (out_dir / "parsed_hits.json").write_text(json.dumps(rows, indent=2, sort_keys=True) + "\n")
+            hit_summary = summarize_hits(rows)
 
-        selftest = a90ctl(args, out_dir, steps, "post-selftest", ["selftest"], timeout=90, allow_error=True)
+        with transport.phase(summary, "post_selftest"):
+            selftest = a90ctl(args, out_dir, steps, "post-selftest", ["selftest"], timeout=90, allow_error=True)
         existing = [name for name, state in states.items() if state.get("exists")]
         enabled = [name for name, state in states.items() if state.get("enable") == "1"]
         summary.update(
@@ -416,6 +450,8 @@ def main() -> int:
             }
             for step in steps
         ]
+        transport.set_residual_state(summary, residual_state(summary))
+        transport.add_total_phase(summary, "artifact_write", time.monotonic(), ok=True)
         (out_dir / "summary.json").write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n")
         print(
             json.dumps(

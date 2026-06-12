@@ -24,6 +24,9 @@ REPO_ROOT = Path(__file__).resolve().parents[5]
 SCRIPT_DIR = REPO_ROOT / "workspace/public/src/scripts/revalidation"
 PRIVATE_RUNS = REPO_ROOT / "workspace/private/runs/kernel"
 
+sys.path.insert(0, str(SCRIPT_DIR))
+import a90_transport as transport  # noqa: E402
+
 
 @dataclass
 class StepResult:
@@ -116,6 +119,28 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def residual_state(summary: dict[str, Any]) -> dict[str, Any]:
+    selftest_ok = bool(summary.get("collector_selftest_fail0"))
+    device_touched = bool(summary.get("steps"))
+    cleanup_required = bool(device_touched and not selftest_ok)
+    return {
+        "device_touched": device_touched,
+        "flash_reboot": False,
+        "test_flash_ok": False,
+        "rollback_ok": True,
+        "rollback_attempt": "not-needed-no-flash",
+        "selftest_ok": selftest_ok,
+        "cleanup_required": cleanup_required,
+        "residual_risk": "collector-selftest-incomplete" if cleanup_required else "none",
+        "wifi_scan_connect": False,
+        "credentials_used": False,
+        "dhcp_routes_ping": False,
+        "tracefs_control_write": False,
+        "bpf_attach": False,
+        "probe_write_user_executed": False,
+    }
+
+
 def main() -> int:
     args = parse_args()
     out_dir = PRIVATE_RUNS / f"{args.label}-{now_label()}"
@@ -125,6 +150,9 @@ def main() -> int:
         "label": args.label,
         "out_dir": rel(out_dir),
         "started_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+        "steps": [],
+        "phase_timer_contract": transport.PHASE_TIMER_CONTRACT,
+        "phase_timers": [],
         "safety": {
             "host_orchestration_only": True,
             "tracefs_control_write": False,
@@ -138,52 +166,54 @@ def main() -> int:
     }
 
     try:
-        collector_stdout = run_step(
-            out_dir,
-            steps,
-            "v2219-collector",
-            [
-                sys.executable,
-                str(SCRIPT_DIR / "native_kernel_a90_uprobe_trace_buffer_collector_v2219.py"),
-                "--label",
-                "v2221-current-window-collector",
-                "--bridge-host",
-                args.bridge_host,
-                "--bridge-port",
-                str(args.bridge_port),
-                "--timeout",
-                str(args.timeout),
-                "--wait-sec",
-                str(args.wait_sec),
-                "--tail-lines",
-                str(args.tail_lines),
-            ],
-            timeout=max(180.0, args.timeout * 6),
-        )
-        collector_brief = parse_stdout_json(collector_stdout)
-        collector_out_dir = REPO_ROOT / str(collector_brief["out_dir"])
-        collector_summary_path = collector_out_dir / "summary.json"
-        collector_summary = load_json(collector_summary_path)
+        with transport.phase(summary, "v2219_collector"):
+            collector_stdout = run_step(
+                out_dir,
+                steps,
+                "v2219-collector",
+                [
+                    sys.executable,
+                    str(SCRIPT_DIR / "native_kernel_a90_uprobe_trace_buffer_collector_v2219.py"),
+                    "--label",
+                    "v2221-current-window-collector",
+                    "--bridge-host",
+                    args.bridge_host,
+                    "--bridge-port",
+                    str(args.bridge_port),
+                    "--timeout",
+                    str(args.timeout),
+                    "--wait-sec",
+                    str(args.wait_sec),
+                    "--tail-lines",
+                    str(args.tail_lines),
+                ],
+                timeout=max(180.0, args.timeout * 6),
+            )
+            collector_brief = parse_stdout_json(collector_stdout)
+            collector_out_dir = REPO_ROOT / str(collector_brief["out_dir"])
+            collector_summary_path = collector_out_dir / "summary.json"
+            collector_summary = load_json(collector_summary_path)
 
         parser_out_dir = out_dir / "v2220-parser"
-        parser_stdout = run_step(
-            out_dir,
-            steps,
-            "v2220-parser",
-            [
-                sys.executable,
-                str(SCRIPT_DIR / "a90_kernel_v2220_helper_summary_trace_parser.py"),
-                "--input",
-                rel(collector_summary_path),
-                "--out-dir",
-                rel(parser_out_dir),
-                "--label",
-                "v2221-current-window-parser",
-                "--allow-nohit",
-            ],
-            timeout=120.0,
-        )
-        parser_summary = parse_stdout_json(parser_stdout)
+        with transport.phase(summary, "v2220_parser"):
+            parser_stdout = run_step(
+                out_dir,
+                steps,
+                "v2220-parser",
+                [
+                    sys.executable,
+                    str(SCRIPT_DIR / "a90_kernel_v2220_helper_summary_trace_parser.py"),
+                    "--input",
+                    rel(collector_summary_path),
+                    "--out-dir",
+                    rel(parser_out_dir),
+                    "--label",
+                    "v2221-current-window-parser",
+                    "--allow-nohit",
+                ],
+                timeout=120.0,
+            )
+            parser_summary = parse_stdout_json(parser_stdout)
 
         summary.update(
             {
@@ -225,6 +255,8 @@ def main() -> int:
             }
             for step in steps
         ]
+        transport.set_residual_state(summary, residual_state(summary))
+        transport.add_total_phase(summary, "artifact_write", time.monotonic(), ok=True)
         (out_dir / "summary.json").write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n")
         print(
             json.dumps(
