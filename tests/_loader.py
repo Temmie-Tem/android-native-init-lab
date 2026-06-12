@@ -30,6 +30,9 @@ def load_script(rel_path: str) -> ModuleType:
     path = (REPO_ROOT / rel_path).resolve()
     if not path.is_file():
         raise FileNotFoundError(f"script not found: {path}")
+    script_dir = str(path.parent)
+    if script_dir not in sys.path:
+        sys.path.insert(0, script_dir)
     spec = importlib.util.spec_from_file_location(f"a90test_{path.stem}", path)
     if spec is None or spec.loader is None:
         raise ImportError(f"cannot build import spec for {path}")
