@@ -49,6 +49,9 @@ def load_revalidation(name: str) -> ModuleType:
 def load_harness(name: str) -> ModuleType:
     """Import a module from the a90harness package, e.g. load_harness('path_safety')."""
     harness_str = str(HARNESS_DIR)
+    reval_str = str(REVAL_DIR)
     if harness_str not in sys.path:
         sys.path.insert(0, harness_str)
+    if reval_str not in sys.path:
+        sys.path.insert(0, reval_str)
     return importlib.import_module(f"a90harness.{name}")
