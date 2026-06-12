@@ -221,6 +221,10 @@ Completed:
   - residual-state metadata missing: `0`;
   - phase-timer-exempt live utilities: `2`;
   - residual-state-exempt live utilities/helpers: `3`.
+- V2267 added machine-readable `consolidation_signals` to the inventory JSON:
+  - `active_live_phase_residual_backlog_closed=true`;
+  - `direct_a90ctl_reference_count=15`;
+  - `source_delete_review_count=0`.
 - V2266 migrated `local_security_rescan.py` to shared `a90_transport` phase
   timing plus residual-state metadata while preserving host-only targeted-scan
   behavior.
@@ -387,5 +391,5 @@ Keep:
 | Physical network-menu ping selection | V2189 inherits V2187 command-level framebuffer presentation evidence for `WIFI STATUS` and `WIFI PING RESULTS`, but not button-driven physical capture. | Treat as UI polish, not a baseline blocker; validate physically or with OCR only if visual-navigation evidence is required. |
 | Large-transfer soak depth | V2184 passed 512MiB and 1GiB single-run bidirectional SHA checks, but not repeated N-run or multi-hour soak. | Treat as strong data-path evidence; run `cleanup -> reconnect -> 512MiB` or N-run soak only if promotion criteria require it. |
 | UI completeness | V2254 is the current baseline and preserves V2237 native `wlan0` bring-up/strict connect cleanup while adding the read-only Wi-Fi detail surface. | Keep V2254 as baseline; physical button/OCR validation remains optional. |
-| Script sprawl | Current source-root inventory has no delete-review rows, but V22xx kernel/live runners expose phase/residual metadata gaps and duplicate some transport/artifact logic. | Keep inventory current; migrate one active runner at a time; do not run historical one-off scripts without focused review. |
+| Script sprawl | Current source-root inventory has no delete-review rows and no active live phase/residual gaps. Remaining consolidation is review-only: `direct_a90ctl_reference_count=15` plus duplicated transport/artifact logic in older runners. | Use inventory `consolidation_signals` to pick migrations by impact; migrate only when changing a script for another reason; do not run historical one-off scripts without focused review. |
 | Private data leakage | Wi-Fi profiles and raw run artifacts are intentionally private. | Keep secrets under ignored private roots; public reports stay redacted. |

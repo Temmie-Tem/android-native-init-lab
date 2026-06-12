@@ -1,6 +1,6 @@
 # Revalidation Script Inventory
 
-- Generated at: `2026-06-12T06:41:57.402790+00:00`
+- Generated at: `2026-06-12T06:48:33.919445+00:00`
 - Root: `workspace/public/src/scripts/revalidation`
 - Scope: public metadata only; no private run logs, credentials, boot images, or raw captures.
 - Action: inventory only. No scripts were moved or deleted by this report.
@@ -52,7 +52,7 @@
 | `a90_transport.py` | `module` | `bridge-wrapper` | yes | yes | yes | no | 10 | shared bridge/transport selector |
 | `a90_v725_fasttransport_baseline_validation.py` | `active` | `shared` | yes | yes | yes | no | 8 | fast transport baseline validator |
 | `a90_wifi_profile_stage.py` | `active` | `shared` | yes | yes | yes | yes | 12 | active Wi-Fi profile staging helper |
-| `a90ctl.py` | `active` | `a90ctl-subprocess` | yes | no | no | no | 373 | cmdv1 operator/client entrypoint |
+| `a90ctl.py` | `active` | `a90ctl-subprocess` | yes | no | no | no | 374 | cmdv1 operator/client entrypoint |
 | `build_native_init_boot_v2169_transport_contract.py` | `active` | `none` | no | no | no | yes | 8 | transport contract boot builder |
 | `build_native_init_boot_v2170_wifi_config_prepare.py` | `active` | `none` | no | no | no | yes | 6 | Wi-Fi config prepare boot builder |
 | `build_native_init_boot_v2172_wifi_status_scan.py` | `active` | `none` | no | no | no | no | 6 | Wi-Fi status/scan boot builder |
@@ -87,10 +87,10 @@
 | `cleanup_tmp_classified_artifacts.py` | `active` | `none` | no | no | no | no | 6 | operator utility or inventory/cleanup utility |
 | `cleanup_tmp_wifi_artifacts.py` | `active` | `none` | no | no | no | no | 7 | operator utility or inventory/cleanup utility |
 | `cpu_mem_thermal_stability.py` | `active` | `shared` | yes | yes | yes | no | 24 | operator utility or inventory/cleanup utility |
-| `inventory_revalidation_scripts.py` | `active` | `none` | no | no | no | no | 14 | operator utility or inventory/cleanup utility |
+| `inventory_revalidation_scripts.py` | `active` | `none` | no | no | no | no | 16 | operator utility or inventory/cleanup utility |
 | `inventory_tmp_artifacts.py` | `active` | `none` | no | no | no | no | 6 | operator utility or inventory/cleanup utility |
 | `kselftest_feasibility.py` | `active` | `shared` | yes | yes | yes | no | 10 | operator utility or inventory/cleanup utility |
-| `local_security_rescan.py` | `active` | `shared,bridge-wrapper,bridge-impl` | yes | yes | yes | yes | 51 | scripted live-device workflow |
+| `local_security_rescan.py` | `active` | `shared,bridge-wrapper,bridge-impl` | yes | yes | yes | yes | 52 | scripted live-device workflow |
 | `native_init_flash.py` | `active` | `none` | yes | yes | no | no | 215 | active flash/rollback helper |
 | `native_kernel_a90_boot_window_handoff_v2225.py` | `active` | `shared,a90ctl-subprocess` | yes | yes | yes | no | 4 | kernel-observation runner or postprocessor |
 | `native_kernel_a90_boot_window_handoff_v2227.py` | `active` | `shared,a90ctl-subprocess` | yes | yes | yes | no | 4 | kernel-observation runner or postprocessor |
@@ -142,6 +142,7 @@
 
 ## Consolidation Signals
 
+- Machine-readable copy: JSON field `consolidation_signals`.
 - Direct `a90ctl.py` subprocess references outside the client are review-only candidates; migrate only when changing the script for another reason.
 - Direct `a90ctl.py` reference count: `15` (`native_kernel_a90_boot_window_handoff_v2225.py, native_kernel_a90_boot_window_handoff_v2227.py, native_kernel_a90_boot_window_preflight_v2222.py, native_kernel_a90_post_bdf_hold_handoff_v2231.py, native_kernel_a90_service_object_fwclass_bridge_handoff_v2233.py, native_kernel_a90_service_object_visible_handoff_v2229.py, native_kernel_a90_uprobe_trace_buffer_collector_v2219.py, native_kernel_file_ops_anchor_v2204.py`...).
 - Active live scripts without explicit phase timer markers: `0`.

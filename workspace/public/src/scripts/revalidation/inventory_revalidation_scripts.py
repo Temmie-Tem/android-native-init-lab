@@ -211,6 +211,70 @@ def imports_module(text: str, module: str) -> bool:
     return re.search(pattern, text, flags=re.MULTILINE) is not None
 
 
+def consolidation_signals(entries: list[dict[str, Any]]) -> dict[str, Any]:
+    direct_a90ctl = [
+        entry["name"] for entry in entries
+        if entry["mentions_a90ctl_subprocess"] and entry["name"] not in {"README.md", "a90ctl.py"}
+    ]
+    live_without_phase = [
+        entry["name"] for entry in entries
+        if entry["live_device_required"]
+        and entry["label"] == "active"
+        and not entry["has_phase_timer"]
+        and entry["name"] not in {"a90ctl.py", "a90_bridge.py", "serial_tcp_bridge.py"}
+        and entry["name"] not in PHASE_TIMER_EXEMPT
+        and not entry["name"].startswith("build_")
+    ]
+    live_phase_exempt = [
+        entry["name"] for entry in entries
+        if entry["live_device_required"]
+        and entry["label"] == "active"
+        and not entry["has_phase_timer"]
+        and entry["name"] in PHASE_TIMER_EXEMPT
+    ]
+    live_without_residual = [
+        entry["name"] for entry in entries
+        if entry["live_device_required"]
+        and entry["label"] == "active"
+        and not entry["has_residual_state"]
+        and entry["name"] not in {"a90ctl.py", "a90_bridge.py", "serial_tcp_bridge.py"}
+        and entry["name"] not in RESIDUAL_STATE_EXEMPT
+        and not entry["name"].startswith("build_")
+    ]
+    live_residual_exempt = [
+        entry["name"] for entry in entries
+        if entry["live_device_required"]
+        and entry["label"] == "active"
+        and not entry["has_residual_state"]
+        and entry["name"] in RESIDUAL_STATE_EXEMPT
+    ]
+    secret_related = [
+        entry["name"] for entry in entries
+        if entry["has_secret_redaction"]
+    ]
+    source_delete_review = [
+        entry["name"] for entry in entries
+        if entry["label"] == "delete-review"
+    ]
+    return {
+        "direct_a90ctl_reference_count": len(direct_a90ctl),
+        "direct_a90ctl_reference_names": direct_a90ctl,
+        "live_without_phase_timer_count": len(live_without_phase),
+        "live_without_phase_timer_names": live_without_phase,
+        "live_phase_timer_exempt_count": len(live_phase_exempt),
+        "live_phase_timer_exempt_names": live_phase_exempt,
+        "live_without_residual_state_count": len(live_without_residual),
+        "live_without_residual_state_names": live_without_residual,
+        "live_residual_state_exempt_count": len(live_residual_exempt),
+        "live_residual_state_exempt_names": live_residual_exempt,
+        "secret_handling_count": len(secret_related),
+        "secret_handling_names": secret_related,
+        "source_delete_review_count": len(source_delete_review),
+        "source_delete_review_names": source_delete_review,
+        "active_live_phase_residual_backlog_closed": not live_without_phase and not live_without_residual,
+    }
+
+
 def inventory(root: Path) -> dict[str, Any]:
     entries: list[dict[str, Any]] = []
     for path in sorted(root.iterdir(), key=lambda item: item.name):
@@ -253,12 +317,14 @@ def inventory(root: Path) -> dict[str, Any]:
         "generated_at": dt.datetime.now(dt.timezone.utc).isoformat(),
         "root": rel(root),
         "summary": summary,
+        "consolidation_signals": consolidation_signals(entries),
         "entries": entries,
     }
 
 
 def render_markdown(data: dict[str, Any]) -> str:
     entries = data["entries"]
+    signals = data["consolidation_signals"]
 
     def flag(value: bool) -> str:
         return "yes" if value else "no"
@@ -280,47 +346,14 @@ def render_markdown(data: dict[str, Any]) -> str:
         cleanup_lines.append("- No current source-root delete-review candidates remain.")
     cleanup_lines.append("- Active live workflow scripts should use `a90_transport.py`; `a90ctl.py` itself remains the cmdv1 client.")
 
-    direct_a90ctl = [
-        entry["name"] for entry in entries
-        if entry["mentions_a90ctl_subprocess"] and entry["name"] not in {"README.md", "a90ctl.py"}
-    ]
-    live_without_phase = [
-        entry["name"] for entry in entries
-        if entry["live_device_required"]
-        and entry["label"] == "active"
-        and not entry["has_phase_timer"]
-        and entry["name"] not in {"a90ctl.py", "a90_bridge.py", "serial_tcp_bridge.py"}
-        and entry["name"] not in PHASE_TIMER_EXEMPT
-        and not entry["name"].startswith("build_")
-    ]
-    live_phase_exempt = [
-        entry["name"] for entry in entries
-        if entry["live_device_required"]
-        and entry["label"] == "active"
-        and not entry["has_phase_timer"]
-        and entry["name"] in PHASE_TIMER_EXEMPT
-    ]
-    live_residual_exempt = [
-        entry["name"] for entry in entries
-        if entry["live_device_required"]
-        and entry["label"] == "active"
-        and not entry["has_residual_state"]
-        and entry["name"] in RESIDUAL_STATE_EXEMPT
-    ]
-    live_without_residual = [
-        entry["name"] for entry in entries
-        if entry["live_device_required"]
-        and entry["label"] == "active"
-        and not entry["has_residual_state"]
-        and entry["name"] not in {"a90ctl.py", "a90_bridge.py", "serial_tcp_bridge.py"}
-        and entry["name"] not in RESIDUAL_STATE_EXEMPT
-        and not entry["name"].startswith("build_")
-    ]
-    secret_related = [
-        entry["name"] for entry in entries
-        if entry["has_secret_redaction"]
-    ]
+    direct_a90ctl = signals["direct_a90ctl_reference_names"]
+    live_without_phase = signals["live_without_phase_timer_names"]
+    live_phase_exempt = signals["live_phase_timer_exempt_names"]
+    live_residual_exempt = signals["live_residual_state_exempt_names"]
+    live_without_residual = signals["live_without_residual_state_names"]
+    secret_related = signals["secret_handling_names"]
     consolidation_lines = [
+        "- Machine-readable copy: JSON field `consolidation_signals`.",
         "- Direct `a90ctl.py` subprocess references outside the client are review-only candidates; migrate only when changing the script for another reason.",
         f"- Direct `a90ctl.py` reference count: `{len(direct_a90ctl)}`"
         + (f" (`{', '.join(direct_a90ctl[:8])}`{'...' if len(direct_a90ctl) > 8 else ''})." if direct_a90ctl else "."),

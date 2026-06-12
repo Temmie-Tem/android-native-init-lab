@@ -213,6 +213,13 @@ Read at the START of every iteration (then apply the tier policy above):
   live-register sampling for code-path identity.
 
 **T2 — WLAN native-init (if T1 blocked):**
+- After V2267 inventory consolidation-signal export: the script inventory now
+  writes a machine-readable `consolidation_signals` JSON block mirroring the
+  Markdown consolidation section. It records `active_live_phase_residual_backlog_closed=true`,
+  `live_without_phase_timer_count=0`, `live_without_residual_state_count=0`,
+  `source_delete_review_count=0`, and `direct_a90ctl_reference_count=15`. No
+  device action was taken. Next T2/T3 cleanup unit: use those signals to pick
+  any future migration by actual impact, not by re-deriving inventory manually.
 - After V2266 local security rescan metadata cleanup: `local_security_rescan.py`
   now uses shared `a90_transport` phase/residual metadata while preserving its
   host-only targeted-scan behavior. Inventory confirms it is no longer in the

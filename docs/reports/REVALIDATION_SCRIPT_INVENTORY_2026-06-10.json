@@ -1,4 +1,69 @@
 {
+  "consolidation_signals": {
+    "active_live_phase_residual_backlog_closed": true,
+    "direct_a90ctl_reference_count": 15,
+    "direct_a90ctl_reference_names": [
+      "native_kernel_a90_boot_window_handoff_v2225.py",
+      "native_kernel_a90_boot_window_handoff_v2227.py",
+      "native_kernel_a90_boot_window_preflight_v2222.py",
+      "native_kernel_a90_post_bdf_hold_handoff_v2231.py",
+      "native_kernel_a90_service_object_fwclass_bridge_handoff_v2233.py",
+      "native_kernel_a90_service_object_visible_handoff_v2229.py",
+      "native_kernel_a90_uprobe_trace_buffer_collector_v2219.py",
+      "native_kernel_file_ops_anchor_v2204.py",
+      "native_kernel_fwclass_boundary_stack_handoff_v2253.py",
+      "native_kernel_static_tracepoint_object_chain_audit_v2238.py",
+      "native_kernel_timer_object_context_v2201.py",
+      "native_kernel_timer_object_histogram_v2202.py",
+      "native_kernel_timer_start_context_v2200.py",
+      "native_kernel_wlan_tracepoint_catalog_v2218.py",
+      "native_wifi_detail_surface_handoff_v2255.py"
+    ],
+    "live_phase_timer_exempt_count": 2,
+    "live_phase_timer_exempt_names": [
+      "ncm_host_setup.py",
+      "netservice_reconnect_soak.py"
+    ],
+    "live_residual_state_exempt_count": 3,
+    "live_residual_state_exempt_names": [
+      "native_init_flash.py",
+      "ncm_host_setup.py",
+      "netservice_reconnect_soak.py"
+    ],
+    "live_without_phase_timer_count": 0,
+    "live_without_phase_timer_names": [],
+    "live_without_residual_state_count": 0,
+    "live_without_residual_state_names": [],
+    "secret_handling_count": 24,
+    "secret_handling_names": [
+      "a90_wifi_profile_stage.py",
+      "build_native_init_boot_v2169_transport_contract.py",
+      "build_native_init_boot_v2170_wifi_config_prepare.py",
+      "build_native_init_boot_v2174_wifi_urandom_connect.py",
+      "build_native_init_boot_v2176_wifi_dhcp.py",
+      "build_native_init_boot_v2178_wifi_profile_autoconnect.py",
+      "build_native_init_boot_v2182_hud_menu_cleanup.py",
+      "build_native_init_boot_v2184_network_ui_p0_p1.py",
+      "build_native_init_boot_v2185_network_ping_test.py",
+      "build_native_init_boot_v2186_wifi_ui_polish.py",
+      "build_native_init_boot_v2187_screenapp_ui_validation.py",
+      "build_native_init_boot_v2189_security_p0_stage_fix.py",
+      "build_native_init_boot_v2236_strict_wifi_connect.py",
+      "build_native_init_boot_v2237_supplicant_terminate_poll.py",
+      "build_native_init_boot_v2254_wifi_detail_surface.py",
+      "build_native_init_boot_v726_wifi_lifecycle.py",
+      "local_security_rescan.py",
+      "native_wifi_connect_carrier_handoff_v2174.py",
+      "native_wifi_detail_surface_handoff_v2255.py",
+      "native_wifi_dhcp_ping_handoff_v2176.py",
+      "native_wifi_hold_reconnect_handoff_v2177.py",
+      "native_wifi_supplicant_dependency_probe.py",
+      "native_wifi_v2178_autoconnect_phase_validation.py",
+      "security_unit_b_regression.py"
+    ],
+    "source_delete_review_count": 0,
+    "source_delete_review_names": []
+  },
   "entries": [
     {
       "executable": false,
@@ -626,7 +691,7 @@
       "name": "a90ctl.py",
       "path": "workspace/public/src/scripts/revalidation/a90ctl.py",
       "reason": "cmdv1 operator/client entrypoint",
-      "repo_reference_count": 373,
+      "repo_reference_count": 374,
       "type": "file"
     },
     {
@@ -1221,7 +1286,7 @@
       "name": "inventory_revalidation_scripts.py",
       "path": "workspace/public/src/scripts/revalidation/inventory_revalidation_scripts.py",
       "reason": "operator utility or inventory/cleanup utility",
-      "repo_reference_count": 14,
+      "repo_reference_count": 16,
       "type": "file"
     },
     {
@@ -1272,7 +1337,7 @@
       "name": "local_security_rescan.py",
       "path": "workspace/public/src/scripts/revalidation/local_security_rescan.py",
       "reason": "scripted live-device workflow",
-      "repo_reference_count": 51,
+      "repo_reference_count": 52,
       "type": "file"
     },
     {
@@ -1922,7 +1987,7 @@
       "type": "file"
     }
   ],
-  "generated_at": "2026-06-12T06:41:57.402790+00:00",
+  "generated_at": "2026-06-12T06:48:33.919445+00:00",
   "root": "workspace/public/src/scripts/revalidation",
   "summary": {
     "active": 107,
