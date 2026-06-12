@@ -239,6 +239,10 @@ functions.
 - [x] `workspace/public/src/scripts/revalidation/native_kernel_workqueue_fwclass_oracle_plan_v2272.py`
       — workqueue/firmware source evidence checks, firmware tracepoint absence
       detection, candidate readiness classification, text rendering.
+- [x] `workspace/public/src/scripts/revalidation/build_native_init_boot_v2273_workqueue_fwclass_func_sampler.py`
+      — workqueue sampler flag propagation, V2237 wrapper argument rewrites,
+      ramdisk helper injection, report rendering, manifest/live-candidate
+      metadata.
 - [ ] (append more as discovered: v2231+ analyzers.)
 
 ## Progress log
@@ -502,4 +506,7 @@ functions.
 - 2026-06-13 — `native_kernel_workqueue_fwclass_oracle_plan_v2272.py` —
   read_text, rel, regex_present, firmware_tracepoint_source_absent,
   build_plan ready/block branches, render_text — 5 cases — green.
+- 2026-06-13 — `build_native_init_boot_v2273_workqueue_fwclass_func_sampler.py` —
+  sha256, with_workqueue_flags, configure_base, patch_ramdisk_helpers,
+  render_report, main manifest/live-candidate metadata — 6 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
