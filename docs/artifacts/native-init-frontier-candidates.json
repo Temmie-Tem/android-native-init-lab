@@ -2,64 +2,42 @@
   "candidates": [
     {
       "expected_discriminator": {
-        "inconclusive": "V2276 cannot map the mismatch sites or the private codeword log is insufficient to distinguish runtime patching from bad slide selection.",
-        "negative": "V2276 shows the three PC mismatches are not explainable by known runtime-patch/codeword exception patterns, so V2275 workqueue function pointers remain untrusted and a narrower same-boot oracle is required.",
-        "positive": "V2276 explains all three V2275 PC mismatches as known runtime-patch/codeword exception sites while LR/LR-4 remain exact, allowing a patch-aware same-boot slide acceptance for workqueue function-pointer classification."
+        "inconclusive": "The observer cannot collect classifiable same-boot stack/callsite evidence or codeword slide acceptance is unavailable.",
+        "negative": "No worker execution context/callsite intersects the firmware_class/qcacld-HDD stack in the captured window, pushing the tail away from workqueue execution.",
+        "positive": "The execute_start call-stack/callsite oracle links at least one worker context to the V2253 firmware_class/qcacld-HDD stack or a source-backed wrapper that reaches it."
       },
-      "id": "t1-workqueue-fwclass-function-pointer-oracle",
-      "live_result": {
-        "accepted_symbolization_slide": false,
-        "codeword_best_slide": "0xccef4",
+      "id": "t1-workqueue-execute-start-callsite-oracle",
+      "next_runner_contract": [
+        "Do not flash or run another identical combined workqueue/codeword capture for V2275/V2276 evidence.",
+        "Design/build a focused workqueue execute_start call-stack or callsite observer that records worker execution context around the firmware_class/qcacld-HDD tail.",
+        "Use a same-boot codeword slide only with the bounded UAO-patch-aware acceptance rule proven in V2276.",
+        "Keep raw stack/callsite samples private; publish only redacted metadata and target-hit summaries.",
+        "If a live run is needed, use the normal rollbackable boot-only flash gates and avoid Wi-Fi scan/connect/DHCP/ping unless the new oracle explicitly requires it."
+      ],
+      "safe_actionable_now": true,
+      "status": "ready_for_next_v_iteration",
+      "summary": "V2276 made the V2275 workqueue function-pointer evidence classifiable and negative; the next independent T1 unit should observe workqueue execute_start call-stack/callsite context rather than work->func alone.",
+      "track": "T1",
+      "v2276_result": {
         "codeword_matches": {
           "lr": "709/709",
           "lr_prev": "709/709",
           "pc": "712/715"
         },
-        "cycle": "V2275",
-        "decision": "v2275-workqueue-codeword-live-codeword-slide-unusable-rollback-pass",
-        "private_run": "workspace/private/runs/kernel/v2275-workqueue-codeword-live-20260612-172723",
-        "report": "docs/reports/NATIVE_INIT_V2275_WORKQUEUE_CODEWORD_LIVE_2026-06-12.md",
-        "rollback": "manual V2237 rollback completed; version/status/selftest fail=0 confirmed",
-        "workqueue_stats": {
-          "execute_start": 6257,
-          "overflow": 10463,
-          "queue_work": 6254,
-          "stored": 2048,
-          "total": 12511
-        }
+        "codeword_slide": "0xccef4",
+        "cycle": "V2276",
+        "decision": "v2276-codeword-uao-patch-aware-accepted-workqueue-no-target-hit",
+        "pc_mismatch_explanation": "all three PC mismatches are ARM64 UAO runtime alternatives",
+        "private_summary": "workspace/private/runs/kernel/v2275-workqueue-codeword-live-20260612-172723/v2276_postprocess_summary.json",
+        "report": "docs/reports/NATIVE_INIT_V2276_CODEWORD_MISMATCH_POSTPROCESS_2026-06-12.md",
+        "stored_samples": 2048,
+        "target_hit_count": 0,
+        "workqueue_classification": "workqueue-no-target-hit"
       },
-      "next_runner_contract": [
-        "Use the existing V2275 private run workspace/private/runs/kernel/v2275-workqueue-codeword-live-20260612-172723; do not flash for V2276.",
-        "Re-analyze /cache/native-init-v2274-tail-perf-regs-codeword.log from that run and enumerate the three PC mismatches for best slide 0xccef4.",
-        "Compare each mismatch static address/instruction against stock raw, known runtime-patch/JOPP/alternatives patterns, and the exact LR/LR-4 evidence.",
-        "If the mismatches are justified, classify the already-collected V2275 workqueue function pointers with the accepted patch-aware same-boot slide.",
-        "If not justified, mark the V2275 workqueue classification inconclusive and design a narrower same-boot symbolization oracle rather than rerunning generic CPU-clock sampling.",
-        "Keep this host-only; no Wi-Fi scan/connect/DHCP/ping, credentials, or device flash."
-      ],
-      "safe_actionable_now": true,
-      "source_build": {
-        "boot_image": "workspace/private/inputs/boot_images/boot_linux_v2274_workqueue_codeword_combined.img",
-        "boot_sha256": "c389a7c423c752e02af4a73fa8d6f3365de53042e71763b16b7c2b011c59bb2f",
-        "build_manifest": "workspace/private/builds/native-init/v2274-workqueue-codeword-combined/manifest.json",
-        "codeword_sampler_log": "/cache/native-init-v2274-tail-perf-regs-codeword.log",
-        "codeword_sampler_sha256": "3a16efc217eafeacbcc95a5e6005d0abce02e89ab52ed537df1fc2b193ca3dd7",
-        "cycle": "V2274",
-        "decision": "v2274-workqueue-codeword-combined-source-build-pass",
-        "helper_marker": "a90_android_execns_probe v432",
-        "helper_sha256": "5709432f1f065de969cf0d54f6ae78369557faa37993bb5d5a3dce7d77dee39a",
-        "init_build": "v2274-workqueue-codeword-combined",
-        "init_version": "0.9.274",
-        "report": "docs/reports/NATIVE_INIT_V2274_WORKQUEUE_CODEWORD_COMBINED_SOURCE_BUILD_2026-06-12.md",
-        "workqueue_sampler_log": "/cache/native-init-v2274-workqueue-fwclass.log",
-        "workqueue_sampler_sha256": "4f3250d996de5156bb43bcc2844e5cb429b8478cc1aaf32244281d58e8f6f524"
-      },
-      "status": "ready_for_next_v_iteration",
-      "summary": "V2275 live captured the combined workqueue/codeword evidence but did not satisfy the existing V2216 codeword acceptance policy; the next actionable T1 unit is host-only V2276 mismatch analysis on the V2275 run.",
-      "track": "T1",
       "why_independent": [
-        "It does not reuse generic CPU-clock sampling.",
-        "It does not rely on /proc/*/stack boundary snapshots from V2253.",
-        "It observes the static kernel workqueue function pointer copied from work->func."
+        "It does not rerun generic CPU-clock sampling.",
+        "It does not repeat the completed V2274/V2275 work->func oracle.",
+        "It targets worker execution context/callsite identity, which can explain why V2253 saw the firmware_class/qcacld-HDD stack while work->func had no target hits."
       ]
     }
   ],
@@ -69,19 +47,23 @@
     "firmware_tracepoint_source_absent": true,
     "v2216_exact_codeword_slide_reported": true,
     "v2253_fwclass_boundary_closed": true,
+    "v2276_codeword_uao_patch_aware_accepted": true,
+    "v2276_workqueue_target_hit_count_zero": true,
     "workqueue_execute_start_has_function_field": true,
     "workqueue_queue_work_has_function_field": true,
     "workqueue_trace_source_exists": true
   },
-  "decision": "v2275-live-codeword-mismatch-ready-for-v2276-postprocess",
-  "generated_at": "2026-06-12T08:45:00+00:00",
+  "decision": "v2276-workqueue-func-negative-next-callsite-oracle-ready",
+  "generated_at": "2026-06-12T09:25:00+00:00",
   "source_paths": {
+    "arm64_alternative": "tmp/wifi/v766-icnss-qcacld-patch-apply-build/source/arch/arm64/include/asm/alternative.h",
     "firmware_class": "tmp/wifi/v766-icnss-qcacld-patch-apply-build/source/drivers/base/firmware_class.c",
     "v2216_report": "docs/reports/NATIVE_INIT_V2216_PERF_REGS_CODEWORD_SAMPLE_RING_LIVE_2026-06-12.md",
     "v2253_report": "docs/reports/NATIVE_INIT_V2253_FWCLASS_BOUNDARY_STACK_LIVE_2026-06-12.md",
     "v2273_report": "docs/reports/NATIVE_INIT_V2273_WORKQUEUE_FWCLASS_FUNC_SAMPLER_SOURCE_BUILD_2026-06-12.md",
     "v2274_report": "docs/reports/NATIVE_INIT_V2274_WORKQUEUE_CODEWORD_COMBINED_SOURCE_BUILD_2026-06-12.md",
     "v2275_report": "docs/reports/NATIVE_INIT_V2275_WORKQUEUE_CODEWORD_LIVE_2026-06-12.md",
+    "v2276_report": "docs/reports/NATIVE_INIT_V2276_CODEWORD_MISMATCH_POSTPROCESS_2026-06-12.md",
     "workqueue_trace": "tmp/wifi/v766-icnss-qcacld-patch-apply-build/source/include/trace/events/workqueue.h"
   }
 }

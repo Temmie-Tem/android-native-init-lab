@@ -94,6 +94,20 @@ per-item metadata/inventory/cleanup sweeps that each succeed and justify the nex
 ## Sub-goal seeds (optional; the loop may pick others from state)
 
 **T1 — kernel observation (try first):**
+- After V2276 host-only postprocess: the V2275 same-boot codeword slide is
+  accepted under a **bounded UAO-patch-aware rule**. All three V2275 PC
+  mismatches for best slide `0xccef4` are source-matched ARM64 UAO runtime
+  alternatives (`str -> sttr`, `ldp -> ldtr`, `stp -> sttr`) while LR-4 and LR
+  remain exact (`709/709` each). This is not a general codeword relaxation; it
+  only admits known UAO runtime alternative sites from
+  `arch/arm64/include/asm/alternative.h`. Reclassifying V2275 workqueue
+  function pointers with that accepted slide gives classifiable negative
+  evidence: `target_hit_count=0` across `2048` stored samples. Do **not** rerun
+  the same combined workqueue/codeword capture or generic CPU-clock sampling for
+  this question. Next bounded T1 unit, if kernel observation remains selected:
+  design/build a narrower workqueue `execute_start` call-stack or callsite
+  oracle that ties the worker to the V2253 firmware_class/qcacld-HDD stack
+  rather than relying on `work->func` alone.
 - After V2275 live: the V2274 combined workqueue/codeword oracle was run
   rollbackably. V2274 booted as `A90 Linux init 0.9.274
   (v2274-workqueue-codeword-combined)`, reached `wlan0-ready`, collected both
@@ -105,12 +119,8 @@ per-item metadata/inventory/cleanup sweeps that each succeed and justify the nex
   strong best slide `0xccef4` (`pc_match=712/715`, `lr_prev=709/709`,
   `lr=709/709`) but did not meet the existing V2216 exact/near acceptance policy
   (`accepted_symbolization_slide=false`, reason `not_accepted`). Therefore V2275
-  is a live evidence success but an oracle-classification FAIL/inconclusive:
-  same-boot workqueue function-pointer classification is not yet trusted. Next
-  bounded T1 unit: host-only V2276 postprocess of the V2275 codeword log to
-  decide whether the three PC mismatches are known runtime-patch sites and
-  whether an LR-exact/PC-patch-aware acceptance rule is justified; do not rerun
-  another live workqueue capture until that acceptance policy is resolved.
+  is a live evidence success but an oracle-classification FAIL/inconclusive as
+  of V2275. V2276 resolves the codeword acceptance-policy question above.
 - After V2253 live: the V2252 boundary-stack observer passed with rollback.
   V2252 flashed and booted as `A90 Linux init 0.9.271
   (v2252-fwclass-boundary-stack)`, health checks passed, helper result was
