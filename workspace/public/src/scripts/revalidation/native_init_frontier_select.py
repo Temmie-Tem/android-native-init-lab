@@ -16,6 +16,7 @@ REPO_ROOT = repo_root()
 GOAL_PATH = REPO_ROOT / "GOAL.md"
 TODO_PATH = REPO_ROOT / "docs" / "plans" / "NATIVE_INIT_CURRENT_TODO_2026-06-08.md"
 INVENTORY_JSON = REPO_ROOT / "docs" / "reports" / "REVALIDATION_SCRIPT_INVENTORY_2026-06-10.json"
+FRONTIER_CANDIDATES_JSON = REPO_ROOT / "docs" / "artifacts" / "native-init-frontier-candidates.json"
 
 
 def parse_args() -> argparse.Namespace:
@@ -40,8 +41,24 @@ def all_markers_present(text: str, markers: tuple[str, ...]) -> bool:
     return all(marker in text for marker in markers)
 
 
-def track_evaluations(goal_text: str, todo_text: str, inventory: dict[str, Any]) -> list[dict[str, Any]]:
+def ready_t1_candidates(frontier_candidates: dict[str, Any]) -> list[dict[str, Any]]:
+    return [
+        candidate
+        for candidate in frontier_candidates.get("candidates", [])
+        if candidate.get("track") == "T1"
+        and candidate.get("safe_actionable_now") is True
+        and candidate.get("status") == "ready_for_next_v_iteration"
+    ]
+
+
+def track_evaluations(
+    goal_text: str,
+    todo_text: str,
+    inventory: dict[str, Any],
+    frontier_candidates: dict[str, Any],
+) -> list[dict[str, Any]]:
     signals = inventory["consolidation_signals"]
+    t1_candidates = ready_t1_candidates(frontier_candidates)
     t1_closed_boundary = all_markers_present(
         goal_text,
         (
@@ -60,19 +77,26 @@ def track_evaluations(goal_text: str, todo_text: str, inventory: dict[str, Any])
     t3_no_direct_migration = signals.get("direct_a90ctl_actionable_now_count") == 0
     t3_no_delete_review = signals.get("source_delete_review_count") == 0
     t3_no_phase_residual_backlog = bool(signals.get("active_live_phase_residual_backlog_closed"))
+    t1_status = "new-independent-oracle-ready" if t1_candidates else "defer-until-new-independent-oracle"
+    t1_trigger = (
+        "V2253 closed the documented firmware_class boundary and generic CPU-clock sampler loop; "
+        "V2272 defines a new independent workqueue function-pointer oracle."
+        if t1_candidates
+        else "V2253 closed the documented firmware_class boundary and generic CPU-clock sampler loop; "
+        "current public state names no new independent kernel-observation oracle."
+    )
 
     return [
         {
             "track": "T1",
             "name": "kernel-observation",
-            "safe_actionable_now": False,
-            "status": "defer-until-new-independent-oracle",
-            "drop_trigger": (
-                "V2253 closed the documented firmware_class boundary and generic CPU-clock sampler loop; "
-                "current public state names no new independent kernel-observation oracle."
-            ),
+            "safe_actionable_now": bool(t1_candidates),
+            "status": t1_status,
+            "drop_trigger": t1_trigger,
             "evidence": {
                 "closed_boundary_marker_present": t1_closed_boundary,
+                "ready_candidate_count": len(t1_candidates),
+                "ready_candidate_ids": [candidate["id"] for candidate in t1_candidates],
             },
         },
         {
@@ -113,7 +137,8 @@ def select_frontier() -> dict[str, Any]:
     goal_text = read_text(GOAL_PATH)
     todo_text = read_text(TODO_PATH)
     inventory = read_json(INVENTORY_JSON)
-    evaluations = track_evaluations(goal_text, todo_text, inventory)
+    frontier_candidates = read_json(FRONTIER_CANDIDATES_JSON) if FRONTIER_CANDIDATES_JSON.exists() else {"candidates": []}
+    evaluations = track_evaluations(goal_text, todo_text, inventory, frontier_candidates)
     actionable = [evaluation for evaluation in evaluations if evaluation["safe_actionable_now"]]
     return {
         "generated_at": dt.datetime.now(dt.timezone.utc).isoformat(),
@@ -129,6 +154,7 @@ def select_frontier() -> dict[str, Any]:
             "goal": str(GOAL_PATH.relative_to(REPO_ROOT)),
             "todo": str(TODO_PATH.relative_to(REPO_ROOT)),
             "inventory": str(INVENTORY_JSON.relative_to(REPO_ROOT)),
+            "frontier_candidates": str(FRONTIER_CANDIDATES_JSON.relative_to(REPO_ROOT)),
         },
     }
 

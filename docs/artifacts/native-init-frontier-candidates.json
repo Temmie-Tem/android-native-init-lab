@@ -1,0 +1,46 @@
+{
+  "candidates": [
+    {
+      "expected_discriminator": {
+        "inconclusive": "tracepoint unavailable live, function pointers cannot be symbolized for the same boot, or capture starts after the target window",
+        "negative": "target window has workqueue activity but no firmware_class/qcacld-HDD function pointer hits, narrowing the tail gap to a non-workqueue/synchronous path",
+        "positive": "function pointer sequence includes firmware_class request_firmware_work_func or source-backed qcacld/CNSS worker functions in the target window"
+      },
+      "id": "t1-workqueue-fwclass-function-pointer-oracle",
+      "next_runner_contract": [
+        "Capture workqueue:workqueue_queue_work and workqueue:workqueue_execute_start around the post-FWREADY boot_wlan/firmware_class window.",
+        "Record work pointer, function pointer, workqueue pointer, requested CPU, and executing CPU where available.",
+        "Classify function pointers with the V2216/V2217 exact-slide/codeword method for the same boot.",
+        "Treat hits on request_firmware_work_func or adjacent qcacld/CNSS workers as code-path identity evidence, not as a network functional test.",
+        "Keep Wi-Fi scan/connect/DHCP/ping and credentials out of scope unless a later V-iteration explicitly requires them."
+      ],
+      "safe_actionable_now": true,
+      "status": "ready_for_next_v_iteration",
+      "summary": "Use stock workqueue tracepoints as an independent firmware_class/qcacld-HDD tail oracle: collect workqueue_queue_work and workqueue_execute_start function pointers, then classify them with the per-boot exact codeword slide.",
+      "track": "T1",
+      "why_independent": [
+        "It does not reuse generic CPU-clock sampling.",
+        "It does not rely on /proc/*/stack boundary snapshots from V2253.",
+        "It observes the static kernel workqueue function pointer copied from work->func."
+      ]
+    }
+  ],
+  "checks": {
+    "firmware_nowait_schedules_worker": true,
+    "firmware_nowait_worker_exists": true,
+    "firmware_tracepoint_source_absent": true,
+    "v2216_exact_codeword_slide_reported": true,
+    "v2253_fwclass_boundary_closed": true,
+    "workqueue_execute_start_has_function_field": true,
+    "workqueue_queue_work_has_function_field": true,
+    "workqueue_trace_source_exists": true
+  },
+  "decision": "v2272-workqueue-fwclass-oracle-defined",
+  "generated_at": "2026-06-12T07:29:08.178418+00:00",
+  "source_paths": {
+    "firmware_class": "tmp/wifi/v766-icnss-qcacld-patch-apply-build/source/drivers/base/firmware_class.c",
+    "v2216_report": "docs/reports/NATIVE_INIT_V2216_PERF_REGS_CODEWORD_SAMPLE_RING_LIVE_2026-06-12.md",
+    "v2253_report": "docs/reports/NATIVE_INIT_V2253_FWCLASS_BOUNDARY_STACK_LIVE_2026-06-12.md",
+    "workqueue_trace": "tmp/wifi/v766-icnss-qcacld-patch-apply-build/source/include/trace/events/workqueue.h"
+  }
+}

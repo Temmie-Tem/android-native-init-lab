@@ -1,6 +1,6 @@
 # Revalidation Script Inventory
 
-- Generated at: `2026-06-12T07:15:37.803012+00:00`
+- Generated at: `2026-06-12T07:28:00.393154+00:00`
 - Root: `workspace/public/src/scripts/revalidation`
 - Scope: public metadata only; no private run logs, credentials, boot images, or raw captures.
 - Action: inventory only. No scripts were moved or deleted by this report.
@@ -9,7 +9,7 @@
 
 | Label | Count |
 | --- | ---: |
-| `active` | 108 |
+| `active` | 109 |
 | `module` | 6 |
 
 ## Entries
@@ -87,12 +87,12 @@
 | `cleanup_tmp_classified_artifacts.py` | `active` | `none` | no | no | no | no | 6 | operator utility or inventory/cleanup utility |
 | `cleanup_tmp_wifi_artifacts.py` | `active` | `none` | no | no | no | no | 7 | operator utility or inventory/cleanup utility |
 | `cpu_mem_thermal_stability.py` | `active` | `shared` | yes | yes | yes | no | 24 | operator utility or inventory/cleanup utility |
-| `inventory_revalidation_scripts.py` | `active` | `none` | no | no | no | no | 20 | operator utility or inventory/cleanup utility |
+| `inventory_revalidation_scripts.py` | `active` | `none` | no | no | no | no | 21 | operator utility or inventory/cleanup utility |
 | `inventory_tmp_artifacts.py` | `active` | `none` | no | no | no | no | 6 | operator utility or inventory/cleanup utility |
 | `kselftest_feasibility.py` | `active` | `shared` | yes | yes | yes | no | 10 | operator utility or inventory/cleanup utility |
 | `local_security_rescan.py` | `active` | `shared,bridge-wrapper,bridge-impl` | yes | yes | yes | yes | 52 | scripted live-device workflow |
 | `native_init_flash.py` | `active` | `none` | yes | yes | no | no | 215 | active flash/rollback helper |
-| `native_init_frontier_select.py` | `active` | `none` | no | no | no | no | 5 | native-init frontier selector/audit utility |
+| `native_init_frontier_select.py` | `active` | `none` | no | no | no | no | 6 | native-init frontier selector/audit utility |
 | `native_kernel_a90_boot_window_handoff_v2225.py` | `active` | `shared,a90ctl-subprocess` | yes | yes | yes | no | 5 | kernel-observation runner or postprocessor |
 | `native_kernel_a90_boot_window_handoff_v2227.py` | `active` | `shared,a90ctl-subprocess` | yes | yes | yes | no | 5 | kernel-observation runner or postprocessor |
 | `native_kernel_a90_boot_window_plan_v2223.py` | `active` | `shared` | yes | yes | yes | no | 5 | kernel-observation runner or postprocessor |
@@ -114,6 +114,7 @@
 | `native_kernel_timer_object_histogram_v2202.py` | `active` | `shared,a90ctl-subprocess,bridge-wrapper` | yes | yes | yes | no | 6 | kernel-observation runner or postprocessor |
 | `native_kernel_timer_start_context_v2200.py` | `active` | `shared,a90ctl-subprocess,bridge-wrapper` | yes | yes | yes | no | 6 | kernel-observation runner or postprocessor |
 | `native_kernel_wlan_tracepoint_catalog_v2218.py` | `active` | `shared,a90ctl-subprocess,bridge-wrapper` | yes | yes | yes | no | 6 | kernel-observation runner or postprocessor |
+| `native_kernel_workqueue_fwclass_oracle_plan_v2272.py` | `active` | `none` | no | no | no | no | 4 | T1 workqueue firmware_class oracle plan utility |
 | `native_ui_screenapp_validation_v2187.py` | `active` | `shared` | yes | yes | yes | no | 4 | active V2187 screenapp UI validation |
 | `native_wifi_connect_carrier_handoff_v2174.py` | `active` | `shared` | yes | yes | yes | yes | 9 | active Wi-Fi carrier validation |
 | `native_wifi_detail_surface_handoff_v2255.py` | `active` | `shared` | yes | yes | yes | yes | 7 | scripted live-device workflow |

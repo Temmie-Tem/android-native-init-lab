@@ -10,6 +10,7 @@ test artifacts.
 - Redacted device state such as masked MAC/IP/SSID labels
 - Artifact manifests with file names, sizes, hashes, and secret-scan status
 - Metadata-only tmp inventory summaries such as `TMP_ARTIFACT_INVENTORY_SUMMARY.md`
+- Metadata-only frontier candidate summaries such as `native-init-frontier-candidates.json`
 
 ## Not Allowed
 
@@ -23,3 +24,4 @@ test artifacts.
 
 - `TMP_ARTIFACT_INVENTORY_SUMMARY.md` – classifies current `tmp`/`tmp/wifi` entries by record type and cleanup posture without copying raw evidence.
 - `tmp-artifact-inventory-summary.json` – machine-readable version of the same metadata-only inventory.
+- `native-init-frontier-candidates.json` – machine-readable next-frontier candidate list derived from public reports and local source metadata.

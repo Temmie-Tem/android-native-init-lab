@@ -213,6 +213,20 @@ Read at the START of every iteration (then apply the tier policy above):
   live-register sampling for code-path identity.
 
 **T2 — WLAN native-init (if T1 blocked):**
+- After V2272 workqueue firmware_class oracle plan: T1 is actionable again.
+  `native_kernel_workqueue_fwclass_oracle_plan_v2272.py` writes
+  `docs/artifacts/native-init-frontier-candidates.json`, defining
+  `t1-workqueue-fwclass-function-pointer-oracle` as a new independent
+  kernel-observation oracle. Source checks confirm `workqueue_queue_work` and
+  `workqueue_execute_start` both expose `work->func`, `firmware_class.c` uses
+  `request_firmware_work_func` for async firmware work, no firmware tracepoint
+  source is present, V2216 exact codeword slide evidence exists, and V2253
+  closed the prior boundary. `native_init_frontier_select.py --json` now returns
+  `frontier-selector-actionable-unit-present` with `selected_track=T1`. Next
+  bounded unit: implement/run a workqueue function-pointer observer around the
+  post-FWREADY `boot_wlan`/firmware_class window, then classify function
+  pointers with same-boot exact-slide/codeword evidence. Host-only validation
+  only; no device action was taken in V2272.
 - After V2271 frontier selector/audit utility: T1/T2/T3 selection now has a
   host-only machine-readable check in
   `native_init_frontier_select.py`. Current output is

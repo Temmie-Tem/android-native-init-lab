@@ -211,8 +211,8 @@ Completed:
 
 - Current inventory report:
   `docs/reports/REVALIDATION_SCRIPT_INVENTORY_2026-06-10.md`.
-- Current source-root state after V2271 inventory refresh:
-  - `108 active`;
+- Current source-root state after V2272 inventory refresh:
+  - `109 active`;
   - `6 module`;
   - `0 archive`;
   - `0 delete-review`.
@@ -221,10 +221,16 @@ Completed:
   - residual-state metadata missing: `0`;
   - phase-timer-exempt live utilities: `2`;
   - residual-state-exempt live utilities/helpers: `3`.
+- V2272 defined a new T1 oracle candidate:
+  `t1-workqueue-fwclass-function-pointer-oracle`, stored in
+  `docs/artifacts/native-init-frontier-candidates.json`. The selector now
+  returns `frontier-selector-actionable-unit-present` with `selected_track=T1`.
+  Next bounded unit should implement/run the workqueue function-pointer observer
+  around the post-FWREADY `boot_wlan`/firmware_class window.
 - V2271 added `native_init_frontier_select.py`, a host-only selector/audit
-  utility. Current decision is `frontier-selector-no-automatic-safe-unit`:
-  no new T1 oracle, no concrete V2254 live-validation/promotion criterion, and
-  no active T3 cleanup backlog are present in public state.
+  utility. At the time it returned `frontier-selector-no-automatic-safe-unit`
+  because no new T1 oracle, no concrete V2254 live-validation/promotion
+  criterion, and no active T3 cleanup backlog were present in public state.
 - V2270 added direct `a90ctl.py` actionability gates to inventory
   `consolidation_signals`. Remaining direct references are now explicitly
   review-only:
@@ -394,16 +400,20 @@ Keep:
 
 ## Suggested Next Sequence
 
-1. Run `native_init_frontier_select.py --json` after the normal state read; if
-   it still returns `frontier-selector-no-automatic-safe-unit`, define a new
-   T1 oracle, a concrete V2254 live-validation/promotion criterion, or a
-   revived historical runner before selecting a live/migration unit.
-2. Start new live validation from V2254 only when that concrete criterion
+1. Run `native_init_frontier_select.py --json` after the normal state read.
+   Current expected result is `frontier-selector-actionable-unit-present` with
+   `selected_track=T1` because V2272 defined the workqueue firmware_class
+   function-pointer oracle.
+2. Implement/run the V2272 T1 observer: capture
+   `workqueue:workqueue_queue_work` and `workqueue:workqueue_execute_start`
+   around the post-FWREADY `boot_wlan`/firmware_class window, then classify
+   function pointers with same-boot exact-slide/codeword evidence.
+3. Start new WLAN live validation from V2254 only when a concrete criterion
    exists, unless a test explicitly validates an older rollback image.
-3. Defer architecture source cleanup unless a cleanup patch is kept separate and
+4. Defer architecture source cleanup unless a cleanup patch is kept separate and
    validation-neutral.
-4. If serial `AT` noise naturally fires, confirm shared recovery evidence.
-5. Run longer Wi-Fi/data-path soak only when new promotion criteria require it.
+5. If serial `AT` noise naturally fires, confirm shared recovery evidence.
+6. Run longer Wi-Fi/data-path soak only when new promotion criteria require it.
 
 ## Current Risk Register
 
@@ -414,5 +424,6 @@ Keep:
 | Physical network-menu ping selection | V2189 inherits V2187 command-level framebuffer presentation evidence for `WIFI STATUS` and `WIFI PING RESULTS`, but not button-driven physical capture. | Treat as UI polish, not a baseline blocker; validate physically or with OCR only if visual-navigation evidence is required. |
 | Large-transfer soak depth | V2184 passed 512MiB and 1GiB single-run bidirectional SHA checks, but not repeated N-run or multi-hour soak. | Treat as strong data-path evidence; run `cleanup -> reconnect -> 512MiB` or N-run soak only if promotion criteria require it. |
 | UI completeness | V2254 is the current baseline and preserves V2237 native `wlan0` bring-up/strict connect cleanup while adding the read-only Wi-Fi detail surface. | Keep V2254 as baseline; physical button/OCR validation remains optional. |
-| Script sprawl | Current source-root inventory has no delete-review rows and no active live phase/residual gaps. Remaining direct `a90ctl.py` references are review-only: `direct_a90ctl_reference_count=14`, `direct_a90ctl_actionable_now_count=0`, `direct_a90ctl_review_only_count=14`, top group `flash_capable_kernel_handoff_runners`. `native_init_frontier_select.py` reports no automatic safe unit. | Do not select direct-ref migration solely from historical references; use `consolidation_signals.direct_a90ctl_next_actionable_group` and migrate a runner only if it is revived or changed for a bounded run. If the selector still reports no automatic safe unit, first define a new oracle, live criterion, or revived runner. |
+| T1 oracle execution | V2272 defines `t1-workqueue-fwclass-function-pointer-oracle` and selector now chooses T1 again, but the live observer has not been implemented/run yet. | Next bounded unit should capture workqueue queue/execute function pointers in the post-FWREADY firmware_class window and classify with same-boot exact-slide/codeword evidence. |
+| Script sprawl | Current source-root inventory has no delete-review rows and no active live phase/residual gaps. Remaining direct `a90ctl.py` references are review-only: `direct_a90ctl_reference_count=14`, `direct_a90ctl_actionable_now_count=0`, `direct_a90ctl_review_only_count=14`, top group `flash_capable_kernel_handoff_runners`. | Do not select direct-ref migration solely from historical references; use `consolidation_signals.direct_a90ctl_next_actionable_group` and migrate a runner only if it is revived or changed for a bounded run. |
 | Private data leakage | Wi-Fi profiles and raw run artifacts are intentionally private. | Keep secrets under ignored private roots; public reports stay redacted. |

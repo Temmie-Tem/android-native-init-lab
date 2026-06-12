@@ -1371,7 +1371,7 @@
       "name": "inventory_revalidation_scripts.py",
       "path": "workspace/public/src/scripts/revalidation/inventory_revalidation_scripts.py",
       "reason": "operator utility or inventory/cleanup utility",
-      "repo_reference_count": 20,
+      "repo_reference_count": 21,
       "type": "file"
     },
     {
@@ -1456,7 +1456,7 @@
       "name": "native_init_frontier_select.py",
       "path": "workspace/public/src/scripts/revalidation/native_init_frontier_select.py",
       "reason": "native-init frontier selector/audit utility",
-      "repo_reference_count": 5,
+      "repo_reference_count": 6,
       "type": "file"
     },
     {
@@ -1818,6 +1818,23 @@
     },
     {
       "executable": false,
+      "has_phase_timer": false,
+      "has_residual_state": false,
+      "has_secret_redaction": false,
+      "imports_a90_transport": false,
+      "label": "active",
+      "live_device_required": false,
+      "mentions_a90_bridge": false,
+      "mentions_a90ctl_subprocess": false,
+      "mentions_serial_tcp_bridge": false,
+      "name": "native_kernel_workqueue_fwclass_oracle_plan_v2272.py",
+      "path": "workspace/public/src/scripts/revalidation/native_kernel_workqueue_fwclass_oracle_plan_v2272.py",
+      "reason": "T1 workqueue firmware_class oracle plan utility",
+      "repo_reference_count": 4,
+      "type": "file"
+    },
+    {
+      "executable": false,
       "has_phase_timer": true,
       "has_residual_state": true,
       "has_secret_redaction": false,
@@ -2089,10 +2106,10 @@
       "type": "file"
     }
   ],
-  "generated_at": "2026-06-12T07:15:37.803012+00:00",
+  "generated_at": "2026-06-12T07:28:00.393154+00:00",
   "root": "workspace/public/src/scripts/revalidation",
   "summary": {
-    "active": 108,
+    "active": 109,
     "module": 6
   }
 }

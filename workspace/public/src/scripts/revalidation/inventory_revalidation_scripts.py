@@ -49,6 +49,7 @@ ACTIVE = {
     "build_native_init_boot_v2187_screenapp_ui_validation.py": "screenapp UI validation boot builder",
     "native_ui_screenapp_validation_v2187.py": "active V2187 screenapp UI validation",
     "native_init_frontier_select.py": "native-init frontier selector/audit utility",
+    "native_kernel_workqueue_fwclass_oracle_plan_v2272.py": "T1 workqueue firmware_class oracle plan utility",
 }
 MODULES = {
     "_workspace_bootstrap.py": "workspace path bootstrap",
