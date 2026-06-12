@@ -87,7 +87,10 @@ functions.
 - [x] `workspace/public/src/scripts/revalidation/a90_kernel_v2205_exact_slide_resymbolization_audit.py`
       — System.map parsing, runtime symbolization, V2195/V2202 mapping,
       legacy context loading, result classification, report rendering.
-- [ ] (append more as discovered: v2207 / v2208 /
+- [x] `workspace/public/src/scripts/revalidation/a90_kernel_v2207_jopp_stub_mapper.py`
+      — scalar/image helpers, instruction decoding, entry/static mapping,
+      V2206/config/RKP inputs, analyze fixture, report rendering.
+- [ ] (append more as discovered: v2208 /
       v2209 / v2210 analyzers.)
 
 ## Progress log
@@ -154,4 +157,11 @@ functions.
   signed_hex, parse_system_map, nearest_symbol, symbolize_runtime,
   parse_stack_ips, load_exact_slide, map_v2195_stack, map_v2202_rows,
   load_legacy_context, classify_result, render_markdown — 11 cases — green.
+- 2026-06-13 — `a90_kernel_v2207_jopp_stub_mapper.py` — parse_int,
+  hex64, hex_signed, parse_system_map, build_symbol_index, nearest_symbol,
+  load_kernel, load_synthetic_base, raw_offset, read_u32/read_u64,
+  decode_branch_target, classify_insn, instruction_window, entry_profile,
+  static_mapping, parse_v2206_members, parse_required_config,
+  inspect_rkp_source, load_v2197_slide_context, analyze, render_table,
+  render_markdown — 11 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
