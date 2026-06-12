@@ -94,6 +94,21 @@ per-item metadata/inventory/cleanup sweeps that each succeed and justify the nex
 ## Sub-goal seeds (optional; the loop may pick others from state)
 
 **T1 — kernel observation (try first):**
+- After V2280 live: the V2279 wide workqueue `execute_start` oracle ran
+  rollbackably and closed the V2278 overflow limitation for scalar function
+  pointers. V2279 booted as `A90 Linux init 0.9.276
+  (v2279-workqueue-exec-wide)`, reached `wlan0-ready`, collected
+  `/cache/native-init-v2279-workqueue-exec-wide.log` plus the same-boot
+  codeword log, and rolled back to V2237 with `version`/`status`/`selftest
+  fail=0`. Same-boot codeword slide was accepted (`0xe4ef4`, bounded
+  UAO-patch-aware). Workqueue coverage was complete for the widened scalar
+  window (`total=6281`, `stored=6281`, `overflow=0`) and found
+  `target_hit_count=0`; the bounded stack prefix (`512` samples) also found no
+  firmware_class/qcacld-HDD target symbol. Do **not** rerun V2277/V2279
+  workqueue execute-start coverage or generic CPU-clock sampling for this
+  question. Next iteration must re-read this file and re-evaluate T1 for a new
+  independent oracle; if none is safely actionable, record the drop trigger and
+  select a concrete T2/T3 unit.
 - After V2279 source/build-only: the higher-coverage workqueue
   `execute_start` oracle is packaged as
   `boot_linux_v2279_workqueue_exec_wide.img` (`A90 Linux init 0.9.276`,
