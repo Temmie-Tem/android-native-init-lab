@@ -21,6 +21,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+import a90_transport as transport
+
 
 REPO_ROOT = Path(__file__).resolve().parents[5]
 SCRIPT_DIR = REPO_ROOT / "workspace/public/src/scripts/revalidation"
@@ -347,6 +349,29 @@ def sample_event(
     return {"event": event, "field": field, "stdout": stdout}
 
 
+def residual_state(summary: dict[str, Any]) -> dict[str, Any]:
+    device_touched = bool(summary.get("steps"))
+    selftest_ok = bool(summary.get("selftest_fail0"))
+    cleanup_required = bool(device_touched and not selftest_ok)
+    return {
+        "device_touched": device_touched,
+        "flash_reboot": False,
+        "test_flash_ok": False,
+        "rollback_ok": True,
+        "rollback_attempt": "not-needed-no-flash",
+        "selftest_ok": selftest_ok,
+        "cleanup_required": cleanup_required,
+        "residual_risk": "post-selftest-incomplete" if cleanup_required else "none",
+        "wifi_scan_connect": False,
+        "credentials_used": False,
+        "dhcp_routes_ping": False,
+        "tracefs_control_write": False,
+        "bpf_attach": bool((summary.get("safety") or {}).get("bpf_tracepoint_attach")),
+        "probe_write_user_executed": False,
+        "partition_write": False,
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--label", default="v2218-wlan-tracepoint-catalog")
@@ -368,6 +393,8 @@ def main() -> int:
         "label": args.label,
         "out_dir": str(out_dir.relative_to(REPO_ROOT)),
         "started_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+        "phase_timer_contract": transport.PHASE_TIMER_CONTRACT,
+        "phase_timers": [],
         "safety": {
             "tracefs_control_write": False,
             "bpf_tracepoint_attach": not args.skip_idle_attach,
@@ -381,51 +408,54 @@ def main() -> int:
     }
 
     try:
-        run_host(
-            out_dir,
-            steps,
-            "bridge-status",
-            [
-                sys.executable,
-                str(SCRIPT_DIR / "a90_bridge.py"),
-                "status",
-                "--json",
-            ],
-            timeout=30,
-            allow_error=True,
-        )
-        a90ctl(args, out_dir, steps, "pre-status", ["status"], timeout=args.timeout, allow_error=True)
+        with transport.phase(summary, "preflight_status"):
+            run_host(
+                out_dir,
+                steps,
+                "bridge-status",
+                [
+                    sys.executable,
+                    str(SCRIPT_DIR / "a90_bridge.py"),
+                    "status",
+                    "--json",
+                ],
+                timeout=30,
+                allow_error=True,
+            )
+            a90ctl(args, out_dir, steps, "pre-status", ["status"], timeout=args.timeout, allow_error=True)
 
-        tracefs_probe = run_device_shell(
-            args,
-            out_dir,
-            steps,
-            "tracefs-probe",
-            (
-                "for p in /sys/kernel/tracing /sys/kernel/debug/tracing; do "
-                "echo TRACEFS=$p; test -r $p/available_events && echo READABLE=1 && wc -l $p/available_events; "
-                "done"
-            ),
-            timeout=args.timeout,
-        )
+        with transport.phase(summary, "tracefs_probe"):
+            tracefs_probe = run_device_shell(
+                args,
+                out_dir,
+                steps,
+                "tracefs-probe",
+                (
+                    "for p in /sys/kernel/tracing /sys/kernel/debug/tracing; do "
+                    "echo TRACEFS=$p; test -r $p/available_events && echo READABLE=1 && wc -l $p/available_events; "
+                    "done"
+                ),
+                timeout=args.timeout,
+            )
         summary["tracefs_probe_clean"] = clean_cmdv1_text(tracefs_probe)
 
-        available_raw = run_device_shell(
-            args,
-            out_dir,
-            steps,
-            "available-events",
-            "cat /sys/kernel/tracing/available_events",
-            timeout=args.timeout,
-        )
-        available_clean = clean_cmdv1_text(available_raw)
-        (out_dir / "available_events.txt").write_text(available_clean)
-        events = parse_events(available_clean)
-        categories: dict[str, list[str]] = {}
-        for event in events:
-            category = category_for(event)
-            if category:
-                categories.setdefault(category, []).append(event)
+        with transport.phase(summary, "available_events"):
+            available_raw = run_device_shell(
+                args,
+                out_dir,
+                steps,
+                "available-events",
+                "cat /sys/kernel/tracing/available_events",
+                timeout=args.timeout,
+            )
+            available_clean = clean_cmdv1_text(available_raw)
+            (out_dir / "available_events.txt").write_text(available_clean)
+            events = parse_events(available_clean)
+            categories: dict[str, list[str]] = {}
+            for event in events:
+                category = category_for(event)
+                if category:
+                    categories.setdefault(category, []).append(event)
 
         selected_events = []
         for event in IMPORTANT_EVENTS:
@@ -437,59 +467,63 @@ def main() -> int:
                     selected_events.append(event)
 
         formats: dict[str, Any] = {}
-        for event in selected_events:
-            group, name = event.split(":", 1)
-            stdout = run_device_shell(
-                args,
-                out_dir,
-                steps,
-                f"format-{event.replace(':', '-')}",
-                f"cat /sys/kernel/tracing/events/{group}/{name}/id; cat /sys/kernel/tracing/events/{group}/{name}/format",
-                timeout=args.timeout,
-                allow_error=True,
-            )
-            clean = clean_cmdv1_text(stdout)
-            event_path = out_dir / "formats" / group
-            event_path.mkdir(parents=True, exist_ok=True)
-            (event_path / f"{name}.txt").write_text(clean)
-            parsed = parse_format(clean)
-            id_line = next((line.strip() for line in clean.splitlines() if line.strip().isdigit()), "")
-            formats[event] = {
-                "id": int(id_line, 10) if id_line else None,
-                **parsed,
-                "format_path": str((event_path / f"{name}.txt").relative_to(REPO_ROOT)),
-            }
+        with transport.phase(summary, "format_catalog"):
+            for event in selected_events:
+                group, name = event.split(":", 1)
+                stdout = run_device_shell(
+                    args,
+                    out_dir,
+                    steps,
+                    f"format-{event.replace(':', '-')}",
+                    f"cat /sys/kernel/tracing/events/{group}/{name}/id; cat /sys/kernel/tracing/events/{group}/{name}/format",
+                    timeout=args.timeout,
+                    allow_error=True,
+                )
+                clean = clean_cmdv1_text(stdout)
+                event_path = out_dir / "formats" / group
+                event_path.mkdir(parents=True, exist_ok=True)
+                (event_path / f"{name}.txt").write_text(clean)
+                parsed = parse_format(clean)
+                id_line = next((line.strip() for line in clean.splitlines() if line.strip().isdigit()), "")
+                formats[event] = {
+                    "id": int(id_line, 10) if id_line else None,
+                    **parsed,
+                    "format_path": str((event_path / f"{name}.txt").relative_to(REPO_ROOT)),
+                }
 
-        symbols = load_system_map(args.system_map)
+        with transport.phase(summary, "system_map_load"):
+            symbols = load_system_map(args.system_map)
         uprobe_samples: list[dict[str, Any]] = []
         stock_idle_samples: list[dict[str, Any]] = []
         positive_control: dict[str, Any] | None = None
         if not args.skip_idle_attach:
-            extract_check = run_device_shell(
-                args,
-                out_dir,
-                steps,
-                "extract-helper-check",
-                f"test -x {args.extract} && {args.extract} --event a90cnss:wlfw_start --field __probe_ip --check-only",
-                timeout=args.timeout,
-            )
-            summary["extract_helper_check_clean"] = clean_cmdv1_text(extract_check)
-            control_raw = sample_event(args, out_dir, steps, "timer:timer_start", "function", 1, allow_error=True)
-            positive_control = parse_extract_output(control_raw["stdout"], symbols, int(args.exact_slide, 0))
-            for event, field in STOCK_IDLE_ATTACH_FIELDS:
-                if event not in formats:
-                    continue
-                raw = sample_event(args, out_dir, steps, event, field, args.idle_duration, allow_error=True)
-                parsed = parse_extract_output(raw["stdout"], symbols, int(args.exact_slide, 0))
-                stock_idle_samples.append({"event": event, "field": field, **parsed})
-            for event in UPROBE_ATTACH_EVENTS:
-                if event not in formats or not formats[event]["has_probe_ip"]:
-                    continue
-                raw = sample_event(args, out_dir, steps, event, "__probe_ip", args.idle_duration, allow_error=True)
-                parsed = parse_extract_output(raw["stdout"], symbols, int(args.exact_slide, 0))
-                uprobe_samples.append({"event": event, "field": "__probe_ip", **parsed})
+            with transport.phase(summary, "bounded_idle_attach_samples"):
+                extract_check = run_device_shell(
+                    args,
+                    out_dir,
+                    steps,
+                    "extract-helper-check",
+                    f"test -x {args.extract} && {args.extract} --event a90cnss:wlfw_start --field __probe_ip --check-only",
+                    timeout=args.timeout,
+                )
+                summary["extract_helper_check_clean"] = clean_cmdv1_text(extract_check)
+                control_raw = sample_event(args, out_dir, steps, "timer:timer_start", "function", 1, allow_error=True)
+                positive_control = parse_extract_output(control_raw["stdout"], symbols, int(args.exact_slide, 0))
+                for event, field in STOCK_IDLE_ATTACH_FIELDS:
+                    if event not in formats:
+                        continue
+                    raw = sample_event(args, out_dir, steps, event, field, args.idle_duration, allow_error=True)
+                    parsed = parse_extract_output(raw["stdout"], symbols, int(args.exact_slide, 0))
+                    stock_idle_samples.append({"event": event, "field": field, **parsed})
+                for event in UPROBE_ATTACH_EVENTS:
+                    if event not in formats or not formats[event]["has_probe_ip"]:
+                        continue
+                    raw = sample_event(args, out_dir, steps, event, "__probe_ip", args.idle_duration, allow_error=True)
+                    parsed = parse_extract_output(raw["stdout"], symbols, int(args.exact_slide, 0))
+                    uprobe_samples.append({"event": event, "field": "__probe_ip", **parsed})
 
-        selftest = a90ctl(args, out_dir, steps, "post-selftest", ["selftest"], timeout=90, allow_error=True)
+        with transport.phase(summary, "post_selftest"):
+            selftest = a90ctl(args, out_dir, steps, "post-selftest", ["selftest"], timeout=90, allow_error=True)
 
         wlan_hits = [sample for sample in uprobe_samples if sample.get("count", 0) > 0]
         uprobe_attach_failures = [
@@ -554,6 +588,8 @@ def main() -> int:
             }
             for step in steps
         ]
+        transport.set_residual_state(summary, residual_state(summary))
+        transport.add_total_phase(summary, "artifact_write", time.monotonic(), ok=True)
         (out_dir / "summary.json").write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n")
         print(
             json.dumps(

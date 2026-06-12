@@ -213,6 +213,17 @@ Read at the START of every iteration (then apply the tier policy above):
   live-register sampling for code-path identity.
 
 **T2 — WLAN native-init (if T1 blocked):**
+- After V2265 kernel-observation runner metadata cleanup: the remaining
+  kernel-observation gap entries V2218/V2238/V2253 now use shared
+  `a90_transport` phase/residual metadata. Inventory confirms
+  `native_kernel_wlan_tracepoint_catalog_v2218.py`,
+  `native_kernel_static_tracepoint_object_chain_audit_v2238.py`, and
+  `native_kernel_fwclass_boundary_stack_handoff_v2253.py` are no longer in the
+  live metadata gap list (`Phase=yes`, `Residual=yes`), reducing active live
+  scripts without phase markers and residual-state metadata from `4` to `1`
+  each. No device action was taken. Next T2 cleanup unit: decide whether the
+  remaining `local_security_rescan.py` workflow should get the same
+  phase/residual contract or be classified separately as security tooling.
 - After V2264 boot-window runner metadata cleanup: the V2222/V2223/V2225/V2227
   boot-window preflight/plan/handoff runners now use shared `a90_transport`
   phase/residual metadata. Inventory confirms

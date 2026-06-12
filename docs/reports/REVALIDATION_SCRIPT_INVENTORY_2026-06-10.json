@@ -1221,7 +1221,7 @@
       "name": "inventory_revalidation_scripts.py",
       "path": "workspace/public/src/scripts/revalidation/inventory_revalidation_scripts.py",
       "reason": "operator utility or inventory/cleanup utility",
-      "repo_reference_count": 13,
+      "repo_reference_count": 14,
       "type": "file"
     },
     {
@@ -1272,7 +1272,7 @@
       "name": "local_security_rescan.py",
       "path": "workspace/public/src/scripts/revalidation/local_security_rescan.py",
       "reason": "scripted live-device workflow",
-      "repo_reference_count": 49,
+      "repo_reference_count": 51,
       "type": "file"
     },
     {
@@ -1481,10 +1481,10 @@
     },
     {
       "executable": true,
-      "has_phase_timer": false,
-      "has_residual_state": false,
+      "has_phase_timer": true,
+      "has_residual_state": true,
       "has_secret_redaction": false,
-      "imports_a90_transport": false,
+      "imports_a90_transport": true,
       "label": "active",
       "live_device_required": true,
       "mentions_a90_bridge": false,
@@ -1493,7 +1493,7 @@
       "name": "native_kernel_fwclass_boundary_stack_handoff_v2253.py",
       "path": "workspace/public/src/scripts/revalidation/native_kernel_fwclass_boundary_stack_handoff_v2253.py",
       "reason": "kernel-observation runner or postprocessor",
-      "repo_reference_count": 2,
+      "repo_reference_count": 4,
       "type": "file"
     },
     {
@@ -1566,10 +1566,10 @@
     },
     {
       "executable": true,
-      "has_phase_timer": false,
-      "has_residual_state": false,
+      "has_phase_timer": true,
+      "has_residual_state": true,
       "has_secret_redaction": false,
-      "imports_a90_transport": false,
+      "imports_a90_transport": true,
       "label": "active",
       "live_device_required": true,
       "mentions_a90_bridge": false,
@@ -1578,7 +1578,7 @@
       "name": "native_kernel_static_tracepoint_object_chain_audit_v2238.py",
       "path": "workspace/public/src/scripts/revalidation/native_kernel_static_tracepoint_object_chain_audit_v2238.py",
       "reason": "kernel-observation runner or postprocessor",
-      "repo_reference_count": 3,
+      "repo_reference_count": 5,
       "type": "file"
     },
     {
@@ -1634,10 +1634,10 @@
     },
     {
       "executable": false,
-      "has_phase_timer": false,
-      "has_residual_state": false,
+      "has_phase_timer": true,
+      "has_residual_state": true,
       "has_secret_redaction": false,
-      "imports_a90_transport": false,
+      "imports_a90_transport": true,
       "label": "active",
       "live_device_required": true,
       "mentions_a90_bridge": true,
@@ -1646,7 +1646,7 @@
       "name": "native_kernel_wlan_tracepoint_catalog_v2218.py",
       "path": "workspace/public/src/scripts/revalidation/native_kernel_wlan_tracepoint_catalog_v2218.py",
       "reason": "kernel-observation runner or postprocessor",
-      "repo_reference_count": 3,
+      "repo_reference_count": 5,
       "type": "file"
     },
     {
@@ -1922,7 +1922,7 @@
       "type": "file"
     }
   ],
-  "generated_at": "2026-06-12T06:23:44.172206+00:00",
+  "generated_at": "2026-06-12T06:35:42.035105+00:00",
   "root": "workspace/public/src/scripts/revalidation",
   "summary": {
     "active": 107,

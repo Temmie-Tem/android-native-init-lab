@@ -19,6 +19,8 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
+import a90_transport as transport
+
 REPO_ROOT = next(parent for parent in Path(__file__).resolve().parents if (parent / ".git").exists())
 SCRIPT_DIR = REPO_ROOT / "workspace/public/src/scripts/revalidation"
 PRIVATE_RUNS = REPO_ROOT / "workspace/private/runs/kernel"
@@ -361,6 +363,30 @@ def classify_event(event: dict[str, Any], live: dict[str, Any] | None) -> dict[s
     }
 
 
+def residual_state(summary: dict[str, Any]) -> dict[str, Any]:
+    device_touched = bool(summary.get("steps"))
+    selftest_value = summary.get("selftest_fail0")
+    selftest_ok = True if selftest_value is None else bool(selftest_value)
+    cleanup_required = bool(device_touched and not selftest_ok)
+    return {
+        "device_touched": device_touched,
+        "flash_reboot": False,
+        "test_flash_ok": False,
+        "rollback_ok": True,
+        "rollback_attempt": "not-needed-no-flash",
+        "selftest_ok": selftest_ok,
+        "cleanup_required": cleanup_required,
+        "residual_risk": "post-selftest-incomplete" if cleanup_required else "none",
+        "wifi_scan_connect": False,
+        "credentials_used": False,
+        "dhcp_routes_ping": False,
+        "tracefs_control_write": False,
+        "bpf_attach": False,
+        "probe_write_user_executed": False,
+        "partition_write": False,
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--label", default="v2238-static-tracepoint-object-chain-audit")
@@ -379,6 +405,8 @@ def main() -> int:
         "out_dir": rel(out_dir),
         "started_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
         "source_root": rel(args.source_root),
+        "phase_timer_contract": transport.PHASE_TIMER_CONTRACT,
+        "phase_timers": [],
         "safety": {
             "host_only_source_analysis": bool(args.skip_device),
             "tracefs_control_write": False,
@@ -392,12 +420,13 @@ def main() -> int:
     }
 
     try:
-        source_groups: dict[str, Any] = {}
-        for group, relative in TARGET_FILES.items():
-            path = args.source_root / relative
-            if not path.exists():
-                raise FileNotFoundError(path)
-            source_groups[group] = event_source_summary(group, path)
+        with transport.phase(summary, "source_tracepoint_audit"):
+            source_groups: dict[str, Any] = {}
+            for group, relative in TARGET_FILES.items():
+                path = args.source_root / relative
+                if not path.exists():
+                    raise FileNotFoundError(path)
+                source_groups[group] = event_source_summary(group, path)
 
         live_events: list[str] = []
         live_formats: dict[str, Any] = {}
@@ -405,80 +434,84 @@ def main() -> int:
         selftest_text = ""
         live_tracefs_readable: bool | None = None
         if not args.skip_device:
-            status_text = a90ctl(out_dir, steps, "status", ["status"], args.bridge_host, args.bridge_port, args.timeout, allow_error=True)
-            available = a90ctl(
-                out_dir,
-                steps,
-                "available-events",
-                [
-                    "run",
-                    "/cache/bin/busybox",
-                    "sh",
-                    "-c",
-                    "cat /sys/kernel/tracing/available_events 2>/dev/null || cat /sys/kernel/debug/tracing/available_events 2>/dev/null",
-                ],
-                args.bridge_host,
-                args.bridge_port,
-                args.timeout,
-                allow_error=True,
-            )
-            available_clean = clean_cmdv1_text(available)
-            (out_dir / "available_events.txt").write_text(available_clean)
-            for line in available_clean.splitlines():
-                if ":" in line:
-                    live_events.append(line.strip())
-            live_tracefs_readable = bool(live_events)
-            selected = []
-            for group, group_summary in source_groups.items():
-                for event in group_summary["events"]:
-                    full = f"{group}:{event}"
-                    if full in live_events and (event in IMPORTANT_EVENT_NAMES or group in {"msm_pil_event", "dfc"}):
-                        selected.append((group, event))
-            selected = selected[:80]
-            for group, event in selected:
-                fmt = a90ctl(
+            with transport.phase(summary, "live_available_events"):
+                status_text = a90ctl(out_dir, steps, "status", ["status"], args.bridge_host, args.bridge_port, args.timeout, allow_error=True)
+                available = a90ctl(
                     out_dir,
                     steps,
-                    f"format-{group}-{event}",
+                    "available-events",
                     [
                         "run",
                         "/cache/bin/busybox",
                         "sh",
                         "-c",
-                        f"cat /sys/kernel/tracing/events/{group}/{event}/format 2>/dev/null || cat /sys/kernel/debug/tracing/events/{group}/{event}/format 2>/dev/null",
+                        "cat /sys/kernel/tracing/available_events 2>/dev/null || cat /sys/kernel/debug/tracing/available_events 2>/dev/null",
                     ],
                     args.bridge_host,
                     args.bridge_port,
                     args.timeout,
                     allow_error=True,
                 )
-                clean = clean_cmdv1_text(fmt)
-                live_formats[f"{group}:{event}"] = parse_live_format(clean)
-            selftest_text = a90ctl(out_dir, steps, "selftest", ["selftest"], args.bridge_host, args.bridge_port, args.timeout, allow_error=True)
+                available_clean = clean_cmdv1_text(available)
+                (out_dir / "available_events.txt").write_text(available_clean)
+                for line in available_clean.splitlines():
+                    if ":" in line:
+                        live_events.append(line.strip())
+                live_tracefs_readable = bool(live_events)
+                selected = []
+                for group, group_summary in source_groups.items():
+                    for event in group_summary["events"]:
+                        full = f"{group}:{event}"
+                        if full in live_events and (event in IMPORTANT_EVENT_NAMES or group in {"msm_pil_event", "dfc"}):
+                            selected.append((group, event))
+                selected = selected[:80]
+            with transport.phase(summary, "live_format_catalog"):
+                for group, event in selected:
+                    fmt = a90ctl(
+                        out_dir,
+                        steps,
+                        f"format-{group}-{event}",
+                        [
+                            "run",
+                            "/cache/bin/busybox",
+                            "sh",
+                            "-c",
+                            f"cat /sys/kernel/tracing/events/{group}/{event}/format 2>/dev/null || cat /sys/kernel/debug/tracing/events/{group}/{event}/format 2>/dev/null",
+                        ],
+                        args.bridge_host,
+                        args.bridge_port,
+                        args.timeout,
+                        allow_error=True,
+                    )
+                    clean = clean_cmdv1_text(fmt)
+                    live_formats[f"{group}:{event}"] = parse_live_format(clean)
+            with transport.phase(summary, "post_selftest"):
+                selftest_text = a90ctl(out_dir, steps, "selftest", ["selftest"], args.bridge_host, args.bridge_port, args.timeout, allow_error=True)
 
-        assessments: list[dict[str, Any]] = []
-        for group, group_summary in source_groups.items():
-            for event_name, event_summary in sorted(group_summary["events"].items()):
-                full = f"{group}:{event_name}"
-                live = live_formats.get(full)
-                classification = classify_event(event_summary, live)
-                assessments.append(
-                    {
-                        "event": full,
-                        "source": event_summary["source"],
-                        "line": event_summary["line"],
-                        "kind": event_summary["kind"],
-                        "template": event_summary["template"],
-                        "live_available": full in live_events if live_events else None,
-                        "important": event_name in IMPORTANT_EVENT_NAMES,
-                        "classification": classification,
-                        "proto_pointer_params": event_summary["proto_pointer_params"],
-                        "scalarized_macros": event_summary["scalarized_macros"],
-                        "source_raw_pointer_fields": event_summary["source_raw_pointer_fields"],
-                        "live_raw_pointer_fields": (live or {}).get("raw_pointer_fields", []),
-                        "live_field_names": (live or {}).get("field_names", []),
-                    }
-                )
+        with transport.phase(summary, "object_chain_classification"):
+            assessments: list[dict[str, Any]] = []
+            for group, group_summary in source_groups.items():
+                for event_name, event_summary in sorted(group_summary["events"].items()):
+                    full = f"{group}:{event_name}"
+                    live = live_formats.get(full)
+                    classification = classify_event(event_summary, live)
+                    assessments.append(
+                        {
+                            "event": full,
+                            "source": event_summary["source"],
+                            "line": event_summary["line"],
+                            "kind": event_summary["kind"],
+                            "template": event_summary["template"],
+                            "live_available": full in live_events if live_events else None,
+                            "important": event_name in IMPORTANT_EVENT_NAMES,
+                            "classification": classification,
+                            "proto_pointer_params": event_summary["proto_pointer_params"],
+                            "scalarized_macros": event_summary["scalarized_macros"],
+                            "source_raw_pointer_fields": event_summary["source_raw_pointer_fields"],
+                            "live_raw_pointer_fields": (live or {}).get("raw_pointer_fields", []),
+                            "live_field_names": (live or {}).get("field_names", []),
+                        }
+                    )
 
         by_feasibility: dict[str, int] = {}
         for item in assessments:
@@ -535,6 +568,8 @@ def main() -> int:
     finally:
         summary["finished_at"] = time.strftime("%Y-%m-%dT%H:%M:%S%z")
         summary["steps"] = [asdict(step) | {"ok": step.ok} for step in steps]
+        transport.set_residual_state(summary, residual_state(summary))
+        transport.add_total_phase(summary, "artifact_write", time.monotonic(), ok=True)
         (out_dir / "summary.json").write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n")
         print(json.dumps({
             "decision": summary.get("decision"),

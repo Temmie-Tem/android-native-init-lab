@@ -28,6 +28,7 @@ from a90harness.evidence import (
     workspace_private_input_path,
     write_public_text,
 )
+import a90_transport as transport
 
 
 REPO_ROOT = repo_root()
@@ -639,6 +640,34 @@ def render_report(manifest: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def residual_state(manifest: dict[str, Any]) -> dict[str, Any]:
+    steps = [step for step in manifest.get("steps", []) if isinstance(step, dict)]
+    test_flash = manifest.get("test_flash") if isinstance(manifest.get("test_flash"), dict) else {}
+    test_flash_attempted = "ok" in test_flash
+    rollback_needed = bool(manifest.get("execute") and test_flash_attempted)
+    rollback_result = manifest.get("rollback") if isinstance(manifest.get("rollback"), dict) else {}
+    rollback_selftest_ok = bool(rollback_result.get("selftest_ok"))
+    rollback_ok = bool(rollback_result.get("ok")) and rollback_selftest_ok if rollback_needed else True
+    cleanup_required = bool(rollback_needed and not rollback_ok)
+    return {
+        "device_touched": bool(manifest.get("execute") and steps),
+        "flash_reboot": test_flash_attempted,
+        "test_flash_ok": bool(test_flash.get("ok")),
+        "rollback_ok": rollback_ok,
+        "rollback_attempt": rollback_result.get("attempt", "not-needed-no-flash"),
+        "selftest_ok": rollback_selftest_ok if rollback_needed else True,
+        "cleanup_required": cleanup_required,
+        "residual_risk": "rollback-or-selftest-incomplete" if cleanup_required else "none",
+        "wifi_scan_connect": False,
+        "credentials_used": False,
+        "dhcp_routes_ping": False,
+        "tracefs_control_write": False,
+        "bpf_attach": False,
+        "probe_write_user_executed": False,
+        "partition_write": test_flash_attempted,
+    }
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--label", default="v2253-fwclass-boundary-stack-live")
@@ -659,14 +688,15 @@ def main() -> int:
     run_dir = RUN_ROOT / f"{label}-{artifact_timestamp()}"
     store = EvidenceStore(run_dir)
     steps: list[dict[str, Any]] = []
-    preflight_result = preflight()
     manifest: dict[str, Any] = {
         "cycle": "V2253",
         "started_at": now_iso(),
         "out_dir": rel(run_dir),
         "execute": bool(args.execute),
-        "preflight": preflight_result,
+        "preflight": {},
         "steps": steps,
+        "phase_timer_contract": transport.PHASE_TIMER_CONTRACT,
+        "phase_timers": [],
         "safety": {
             "dry_run_default": True,
             "requires_confirm_for_flash": True,
@@ -680,8 +710,12 @@ def main() -> int:
             "tracefs_write": False,
         },
     }
+    with transport.phase(manifest, "host_preflight"):
+        preflight_result = preflight()
+    manifest["preflight"] = preflight_result
     if not args.execute:
-        manifest["dry_run_commands"] = dry_run_commands(preflight_result)
+        with transport.phase(manifest, "dry_run_plan"):
+            manifest["dry_run_commands"] = dry_run_commands(preflight_result)
     elif args.confirm != REQUIRED_CONFIRM:
         manifest["result"] = {
             "decision": "v2253-fwclass-boundary-stack-live-confirmation-missing",
@@ -689,46 +723,55 @@ def main() -> int:
             "reason": "live mode requires the exact confirmation token",
         }
     else:
-        current = verify_current(args, store, steps, str(preflight_result["rollback_image_sha256"]))
+        with transport.phase(manifest, "verify_current_baseline"):
+            current = verify_current(args, store, steps, str(preflight_result["rollback_image_sha256"]))
         manifest["current_preflight"] = current
         if not (current.get("verify_ok") and current.get("selftest_ok")):
             manifest["live_block"] = "preflight-current-baseline-failed"
             manifest["rollback"] = {"ok": True, "attempt": "not-needed-pre-test-flash", "selftest_ok": True}
         else:
-            test_flash = run_command(
-                flash_command(TEST_IMAGE, TEST_EXPECT_VERSION, str(preflight_result["test_image_sha256"]), from_native=True),
-                timeout=args.flash_timeout,
-            )
+            with transport.phase(manifest, "test_flash"):
+                test_flash = run_command(
+                    flash_command(TEST_IMAGE, TEST_EXPECT_VERSION, str(preflight_result["test_image_sha256"]), from_native=True),
+                    timeout=args.flash_timeout,
+                )
             write_step(store, steps, "flash-v2252-from-native", test_flash)
             manifest["test_flash"] = {"ok": bool(test_flash.get("ok")), "rc": test_flash.get("rc")}
             if bool(test_flash.get("ok")):
-                version = run_a90ctl_step(store, steps, "test-boot-version", args, ["version"], timeout=120)
-                status = run_a90ctl_step(store, steps, "test-boot-status", args, ["status"], timeout=120)
-                selftest = run_a90ctl_step(store, steps, "test-boot-selftest", args, ["selftest"], timeout=120)
+                with transport.phase(manifest, "test_boot_health"):
+                    version = run_a90ctl_step(store, steps, "test-boot-version", args, ["version"], timeout=120)
+                    status = run_a90ctl_step(store, steps, "test-boot-status", args, ["status"], timeout=120)
+                    selftest = run_a90ctl_step(store, steps, "test-boot-selftest", args, ["selftest"], timeout=120)
                 manifest["test_health"] = {
                     "version_ok": bool(version.get("ok")) and TEST_EXPECT_VERSION in str(version.get("stdout") or ""),
                     "status_ok": bool(status.get("ok")),
                     "selftest_ok": bool(selftest.get("ok")) and "fail=0" in str(selftest.get("stdout") or ""),
                 }
-                wait_started = now_iso()
-                time.sleep(max(0.0, args.post_boot_wait_sec))
-                write_step(store, steps, "post-boot-helper-window-wait", {
-                    "command": ["sleep", f"{args.post_boot_wait_sec:.3f}"],
-                    "started": wait_started,
-                    "ended": now_iso(),
-                    "timeout": False,
-                    "rc": 0,
-                    "ok": True,
-                    "stdout": f"waited_sec={args.post_boot_wait_sec:.3f}\n",
-                    "stderr": "",
-                })
-                manifest["collect"] = collect_artifacts(args, store, steps)
+                with transport.phase(manifest, "post_boot_helper_window_wait"):
+                    wait_started = now_iso()
+                    time.sleep(max(0.0, args.post_boot_wait_sec))
+                    write_step(store, steps, "post-boot-helper-window-wait", {
+                        "command": ["sleep", f"{args.post_boot_wait_sec:.3f}"],
+                        "started": wait_started,
+                        "ended": now_iso(),
+                        "timeout": False,
+                        "rc": 0,
+                        "ok": True,
+                        "stdout": f"waited_sec={args.post_boot_wait_sec:.3f}\n",
+                        "stderr": "",
+                    })
+                with transport.phase(manifest, "collect_artifacts"):
+                    manifest["collect"] = collect_artifacts(args, store, steps)
             else:
                 manifest["live_block"] = "test-flash-failed"
-            manifest["rollback"] = rollback(args, store, steps, str(preflight_result["rollback_image_sha256"]))
+            with transport.phase(manifest, "rollback"):
+                manifest["rollback"] = rollback(args, store, steps, str(preflight_result["rollback_image_sha256"]))
     if "result" not in manifest:
-        manifest["result"] = classify_manifest(manifest)
+        with transport.phase(manifest, "classify"):
+            manifest["result"] = classify_manifest(manifest)
     manifest["finished_at"] = now_iso()
+    transport.set_residual_state(manifest, residual_state(manifest))
+    transport.add_total_phase(manifest, "artifact_write", time.monotonic(), ok=True)
     store.write_json("manifest.json", manifest)
     write_public_text(REPORT_PATH, render_report(manifest))
     print(json.dumps({
