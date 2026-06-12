@@ -162,6 +162,10 @@ functions.
 - [x] `workspace/public/src/scripts/revalidation/build_native_init_boot_v2230_service_object_visible_post_bdf_hold.py`
       — V2189 wrapper argument rewrites, long post-BDF hold window,
       report rendering, manifest version-axis normalization.
+- [x] `workspace/public/src/scripts/revalidation/native_kernel_a90_post_bdf_hold_handoff_v2231.py`
+      — SHA/build-manifest helpers, command rendering, artifact diagnosis,
+      current-window preflight classifiers, result classification, report rendering,
+      residual state.
 - [ ] (append more as discovered: v2231+ analyzers.)
 
 ## Progress log
@@ -342,4 +346,10 @@ functions.
 - 2026-06-13 — `build_native_init_boot_v2230_service_object_visible_post_bdf_hold.py` —
   configure_base, render_report, normalize_manifest_axes — 3 cases —
   green.
+- 2026-06-13 — `native_kernel_a90_post_bdf_hold_handoff_v2231.py` —
+  sha256, load_build_manifest, a90ctl_command, flash_command,
+  dry_run_commands, extract_summary_value, diagnose_artifacts,
+  is_current_window_a90_absent_preflight,
+  is_current_window_collector_busy_preflight, classify, render_report,
+  residual_state — 9 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
