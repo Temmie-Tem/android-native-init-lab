@@ -186,6 +186,9 @@ functions.
 - [x] `workspace/public/src/scripts/revalidation/a90_kernel_v2239_scalar_uprobe_timeline.py`
       — key edge extraction, delta computation, parser-summary loading,
       outcome inference, delta statistics, scalar/uprobe contract rendering.
+- [x] `workspace/public/src/scripts/revalidation/a90_kernel_v2240_codepath_identity_boundary.py`
+      — address-domain classification, a90 uprobe sample extraction, low12 and
+      relative-offset signatures, kernel/user identity-boundary summary rendering.
 - [ ] (append more as discovered: v2231+ analyzers.)
 
 ## Progress log
@@ -395,4 +398,7 @@ functions.
 - 2026-06-13 — `a90_kernel_v2239_scalar_uprobe_timeline.py` —
   first_edges, compute_deltas, build_run_summary, infer_outcome,
   summarize_delta_stats, build_contract — 8 cases — green.
+- 2026-06-13 — `a90_kernel_v2240_codepath_identity_boundary.py` —
+  classify_domain, extract_samples, build_a90cnss_relative_signature,
+  summarize_low12_by_event, build_summary — 8 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
