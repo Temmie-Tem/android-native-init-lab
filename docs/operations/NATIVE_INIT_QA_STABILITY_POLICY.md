@@ -57,7 +57,7 @@ polish so that revalidation work does not drift into unrelated live tests.
 
 ## Current Baseline Notes
 
-- Current promoted baseline: `v2236-strict-wifi-connect`.
+- Current promoted baseline: `v2237-supplicant-terminate-poll`.
 - Current source-root revalidation inventory:
   `docs/reports/REVALIDATION_SCRIPT_INVENTORY_2026-06-10.md`.
 - Current inventory state:

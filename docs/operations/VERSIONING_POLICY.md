@@ -38,6 +38,8 @@ Examples:
 - `V2234` baseline-promotion run for the `v2232-service-object-fwclass-bridge`
 - `V2236` baseline-promotion run for the `v2236-strict-wifi-connect`
   artifact
+- `V2237` baseline-promotion run for the `v2237-supplicant-terminate-poll`
+  artifact
 
 Rules:
 
@@ -61,6 +63,7 @@ Examples:
 - `A90 Linux init 0.9.261`
 - `A90 Linux init 0.9.266`
 - `A90 Linux init 0.9.267`
+- `A90 Linux init 0.9.268`
 
 Increase this version when the flashed boot artifact changes:
 
@@ -86,6 +89,7 @@ Examples:
 - `v2189-security-p0-stage-fix`
 - `v2232-service-object-fwclass-bridge`
 - `v2236-strict-wifi-connect`
+- `v2237-supplicant-terminate-poll`
 
 Rules:
 
@@ -165,16 +169,16 @@ sha256 = exact binary/evidence artifact identity
 
 ## Current Example
 
-Current verified strict Wi-Fi connect baseline evidence is based on:
+Current verified supplicant terminate-poll baseline evidence is based on:
 
 ```text
-Run ID: V2236
-Native init: A90 Linux init 0.9.267 (v2236-strict-wifi-connect)
-Build tag: v2236-strict-wifi-connect
+Run ID: V2237
+Native init: A90 Linux init 0.9.268 (v2237-supplicant-terminate-poll)
+Build tag: v2237-supplicant-terminate-poll
 Helper: a90_android_execns_probe helper-v427 marker, SHA256 062c7a491bee66bcb7112850f4581e53e58d923719d85dbbe651d9df285ee910
-Boot image: workspace/private/inputs/boot_images/boot_linux_v2236_strict_wifi_connect.img
-Boot SHA256: 47dea2d602e25b60d7e6cd20619076446de0066fff0ed8b5ac80286f279ccd5b
-Evidence: V2236 source/build and V2236 strict Wi-Fi connect live validation report
+Boot image: workspace/private/inputs/boot_images/boot_linux_v2237_supplicant_terminate_poll.img
+Boot SHA256: b2ea2d26d160b7702ce7d4438b84367788eea26c6a5bbe4ed93f3d270292ac7f
+Evidence: V2237 source/build and V2237 supplicant terminate-poll live validation report
 ```
 
 If this artifact is reproduced unchanged, keep the build tag and record the

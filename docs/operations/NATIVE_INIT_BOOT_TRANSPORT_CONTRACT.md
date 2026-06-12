@@ -20,16 +20,16 @@ Current verified baseline:
 
 | Field | Value |
 | --- | --- |
-| Device-visible version | `A90 Linux init 0.9.267` |
-| Build tag | `v2236-strict-wifi-connect` |
-| Boot image | `workspace/private/inputs/boot_images/boot_linux_v2236_strict_wifi_connect.img` |
-| Boot SHA256 | `47dea2d602e25b60d7e6cd20619076446de0066fff0ed8b5ac80286f279ccd5b` |
+| Device-visible version | `A90 Linux init 0.9.268` |
+| Build tag | `v2237-supplicant-terminate-poll` |
+| Boot image | `workspace/private/inputs/boot_images/boot_linux_v2237_supplicant_terminate_poll.img` |
+| Boot SHA256 | `b2ea2d26d160b7702ce7d4438b84367788eea26c6a5bbe4ed93f3d270292ac7f` |
 | Source root | `workspace/public/src/native-init/` |
-| Builder | `workspace/public/src/scripts/revalidation/build_native_init_boot_v2236_strict_wifi_connect.py` |
-| Source/build report | `docs/reports/NATIVE_INIT_V2236_STRICT_WIFI_CONNECT_SOURCE_BUILD_2026-06-12.md` |
-| Live validation report | `docs/reports/NATIVE_INIT_V2236_STRICT_WIFI_CONNECT_LIVE_VALIDATION_2026-06-12.md` |
-| Promotion report | `docs/reports/NATIVE_INIT_V2236_STRICT_WIFI_CONNECT_LIVE_VALIDATION_2026-06-12.md` |
-| Previous rollback | `workspace/private/inputs/boot_images/boot_linux_v2232_service_object_fwclass_bridge.img` |
+| Builder | `workspace/public/src/scripts/revalidation/build_native_init_boot_v2237_supplicant_terminate_poll.py` |
+| Source/build report | `docs/reports/NATIVE_INIT_V2237_SUPPLICANT_TERMINATE_POLL_SOURCE_BUILD_2026-06-12.md` |
+| Live validation report | `docs/reports/NATIVE_INIT_V2237_SUPPLICANT_TERMINATE_POLL_LIVE_VALIDATION_2026-06-12.md` |
+| Promotion report | `docs/reports/NATIVE_INIT_V2237_SUPPLICANT_TERMINATE_POLL_LIVE_VALIDATION_2026-06-12.md` |
+| Previous rollback | `workspace/private/inputs/boot_images/boot_linux_v2236_strict_wifi_connect.img` |
 | Known-good fallback | `workspace/private/inputs/boot_images/boot_linux_v48.img` |
 
 The boot image must provide:
@@ -48,17 +48,16 @@ Previous baseline:
 
 | Field | Value |
 | --- | --- |
-| Build tag | `v2232-service-object-fwclass-bridge` |
-| Device-visible version | `A90 Linux init 0.9.266` |
-| Boot image | `workspace/private/inputs/boot_images/boot_linux_v2232_service_object_fwclass_bridge.img` |
-| Boot SHA256 | `dd56aa2dd8c0d9b2bafd1c12e23a3db6ba7095bea5e632ab03c5785fac69786c` |
-| Current role | Previous native-`wlan0` fallback |
+| Build tag | `v2236-strict-wifi-connect` |
+| Device-visible version | `A90 Linux init 0.9.267` |
+| Boot image | `workspace/private/inputs/boot_images/boot_linux_v2236_strict_wifi_connect.img` |
+| Boot SHA256 | `47dea2d602e25b60d7e6cd20619076446de0066fff0ed8b5ac80286f279ccd5b` |
+| Current role | Previous strict Wi-Fi connect fallback |
 
-`v2236-strict-wifi-connect` is promoted as the current baseline by
-V2236. It keeps the V2232 service-object-visible PM route plus the
-post-FW_READY `boot_wlan`/firmware_class tail that produced real native
-`wlan0`, and adds strict Wi-Fi connect validation that rejects stale carrier
-unless supplicant reaches `wpa_state=COMPLETED`.
+`v2237-supplicant-terminate-poll` is promoted as the current baseline by
+V2237. It keeps the V2236 strict Wi-Fi connect validation that rejects stale
+carrier unless supplicant reaches `wpa_state=COMPLETED`, and replaces the blind
+post-`TERMINATE` delay with a bounded process-exit poll plus SIGKILL escalation.
 
 ## 2. Boot-Image Transport Contract
 
@@ -214,9 +213,9 @@ Selector output contract:
 }
 ```
 
-For current `v2174-wifi-urandom-connect`, `transport_contract=1` is expected.
-Older images may still report `transport_contract=0`; that is not a selector
-failure if host bridge, version/status, and host NCM are ready.
+For current `v2237-supplicant-terminate-poll`, `transport_contract=1` is
+expected. Older images may still report `transport_contract=0`; that is not a
+selector failure if host bridge, version/status, and host NCM are ready.
 
 NCM readiness requires:
 
@@ -313,10 +312,10 @@ As of `2026-06-12`:
 - Host bridge wrapper contract exists: `wrapper_contract=1`.
 - Host transport selector contract exists: `selector_contract=1`.
 - NCM smoke runner records transport selection in its manifest.
-- Current boot image is `v2236-strict-wifi-connect`.
+- Current boot image is `v2237-supplicant-terminate-poll`.
 - Device-side `transport.contract=1` is a current baseline guarantee.
-- Previous rollback image is `v2232-service-object-fwclass-bridge`;
+- Previous rollback image is `v2236-strict-wifi-connect`;
   known-good fallback remains `v48`.
 
 The next boot-image promotion should preserve the device-side `transport.*`
-status lines, the V2236 WLAN startup route, and old parser compatibility.
+status lines, the V2237 WLAN startup/connect route, and old parser compatibility.

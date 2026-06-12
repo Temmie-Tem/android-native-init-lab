@@ -79,6 +79,8 @@
 #define A90_WIFI_CONNECT_WLAN0_WAIT_MS 180000
 #define A90_WIFI_CONNECT_CTRL_WAIT_MS 15000
 #define A90_WIFI_CONNECT_CARRIER_WAIT_MS 35000
+#define A90_WIFI_SUPPLICANT_TERMINATE_WAIT_MS 3000
+#define A90_WIFI_SUPPLICANT_KILL_WAIT_MS 1500
 #define A90_WIFI_DHCP_TIMEOUT_MS 30000
 #define A90_WIFI_PING_COUNT 3
 #define A90_WIFI_PING_TIMEOUT_SEC 2
@@ -372,6 +374,104 @@ static int wifi_count_processes_with_token(const char *token) {
     }
     closedir(proc_dir);
     return count;
+}
+
+static int wifi_signal_processes_with_token(const char *token, int signal_number) {
+    int signaled = 0;
+    int first_errno = 0;
+    char proc_path[320];
+    char cmdline[512];
+    int proc_dir_fd;
+    DIR *proc_dir;
+    struct dirent *entry;
+
+    proc_dir = opendir("/proc");
+    if (proc_dir == NULL) {
+        return -errno;
+    }
+    proc_dir_fd = dirfd(proc_dir);
+    while ((entry = readdir(proc_dir)) != NULL) {
+        char *cursor = entry->d_name;
+        char *endptr;
+        long pid_value;
+        int fd;
+        ssize_t bytes_read;
+        bool matched = false;
+
+        if (*cursor == '\0') {
+            continue;
+        }
+        while (*cursor != '\0') {
+            if (*cursor < '0' || *cursor > '9') {
+                break;
+            }
+            ++cursor;
+        }
+        if (*cursor != '\0') {
+            continue;
+        }
+        snprintf(proc_path, sizeof(proc_path), "%s/cmdline", entry->d_name);
+        fd = openat(proc_dir_fd, proc_path, O_RDONLY | O_CLOEXEC);
+        if (fd < 0) {
+            continue;
+        }
+        bytes_read = read(fd, cmdline, sizeof(cmdline) - 1);
+        close(fd);
+        if (bytes_read <= 0) {
+            continue;
+        }
+        cmdline[bytes_read] = '\0';
+        {
+            size_t token_len = strlen(token);
+            ssize_t offset;
+
+            for (offset = 0; offset + (ssize_t)token_len <= bytes_read; ++offset) {
+                if (memcmp(cmdline + offset, token, token_len) == 0) {
+                    matched = true;
+                    break;
+                }
+            }
+        }
+        if (!matched) {
+            continue;
+        }
+        errno = 0;
+        pid_value = strtol(entry->d_name, &endptr, 10);
+        if (errno != 0 || endptr == entry->d_name || *endptr != '\0' || pid_value <= 1) {
+            continue;
+        }
+        if (kill((pid_t)pid_value, signal_number) == 0) {
+            ++signaled;
+        } else if (errno != ESRCH && first_errno == 0) {
+            first_errno = errno;
+        }
+    }
+    closedir(proc_dir);
+    if (first_errno != 0) {
+        return -first_errno;
+    }
+    return signaled;
+}
+
+static int wifi_wait_processes_gone(const char *token, int timeout_ms, int *elapsed_ms_out) {
+    long started_ms = monotonic_millis();
+    long deadline_ms = started_ms + timeout_ms;
+
+    while (monotonic_millis() <= deadline_ms) {
+        int count = wifi_count_processes_with_token(token);
+
+        if (count <= 0) {
+            if (elapsed_ms_out != NULL) {
+                *elapsed_ms_out = (int)(monotonic_millis() - started_ms);
+            }
+            return count < 0 ? count : 0;
+        }
+        usleep(100000);
+    }
+    if (elapsed_ms_out != NULL) {
+        *elapsed_ms_out = timeout_ms;
+    }
+    return -ETIMEDOUT;
 }
 
 static int wifi_ipv4_addr(const char *ifname, char *out, size_t out_size) {
@@ -2543,6 +2643,11 @@ static int wifi_connect_profile_with_carrier_timeout(const char *profile_name, i
     int supplicant_root_exec_rc;
     pid_t supplicant_pid = -1;
     struct wifi_ctrl_link_info status_info;
+    int existing_terminate_wait_rc = 0;
+    int existing_terminate_wait_elapsed_ms = 0;
+    int existing_kill_rc = 0;
+    int existing_kill_wait_rc = 0;
+    int existing_kill_wait_elapsed_ms = 0;
     bool spawned_supplicant = false;
     bool reusing_supplicant = false;
 
@@ -2626,11 +2731,44 @@ static int wifi_connect_profile_with_carrier_timeout(const char *profile_name, i
         a90_console_printf("supplicant.reuse_attempted=0\r\n");
         a90_console_printf("supplicant.existing_terminate_attempted=1\r\n");
         (void)wifi_print_ctrl_result("ctrl.terminate_existing", "TERMINATE");
-        usleep(500000);
+        existing_terminate_wait_rc = wifi_wait_processes_gone("wpa_supplicant",
+                                                              A90_WIFI_SUPPLICANT_TERMINATE_WAIT_MS,
+                                                              &existing_terminate_wait_elapsed_ms);
+        a90_console_printf("supplicant.existing_terminate_wait_timeout_ms=%d\r\n",
+                           A90_WIFI_SUPPLICANT_TERMINATE_WAIT_MS);
+        a90_console_printf("supplicant.existing_terminate_wait_rc=%d\r\n",
+                           existing_terminate_wait_rc);
+        a90_console_printf("supplicant.existing_terminate_wait_elapsed_ms=%d\r\n",
+                           existing_terminate_wait_elapsed_ms);
         a90_console_printf("supplicant.process_count_after_terminate=%d\r\n",
                            wifi_count_processes_with_token("wpa_supplicant"));
+        if (existing_terminate_wait_rc < 0) {
+            a90_console_printf("supplicant.existing_kill_attempted=1\r\n");
+            existing_kill_rc = wifi_signal_processes_with_token("wpa_supplicant", SIGKILL);
+            a90_console_printf("supplicant.existing_kill_rc=%d\r\n", existing_kill_rc);
+            existing_kill_wait_rc = wifi_wait_processes_gone("wpa_supplicant",
+                                                             A90_WIFI_SUPPLICANT_KILL_WAIT_MS,
+                                                             &existing_kill_wait_elapsed_ms);
+            a90_console_printf("supplicant.existing_kill_wait_timeout_ms=%d\r\n",
+                               A90_WIFI_SUPPLICANT_KILL_WAIT_MS);
+            a90_console_printf("supplicant.existing_kill_wait_rc=%d\r\n",
+                               existing_kill_wait_rc);
+            a90_console_printf("supplicant.existing_kill_wait_elapsed_ms=%d\r\n",
+                               existing_kill_wait_elapsed_ms);
+            a90_console_printf("supplicant.process_count_after_kill=%d\r\n",
+                               wifi_count_processes_with_token("wpa_supplicant"));
+            if (existing_kill_rc < 0 || existing_kill_wait_rc < 0) {
+                a90_console_printf("secret_values_logged=0\r\n");
+                a90_console_printf("decision=wifi-connect-supplicant-terminate-timeout\r\n");
+                return existing_kill_rc < 0 ? existing_kill_rc : -EBUSY;
+            }
+        } else {
+            a90_console_printf("supplicant.existing_kill_attempted=0\r\n");
+        }
     } else {
         a90_console_printf("supplicant.reuse_attempted=0\r\n");
+        a90_console_printf("supplicant.existing_terminate_attempted=0\r\n");
+        a90_console_printf("supplicant.existing_kill_attempted=0\r\n");
     }
     (void)unlink(A90_WIFI_CTRL_SOCKET);
     (void)unlink(A90_WIFI_SUPPLICANT_LOG);

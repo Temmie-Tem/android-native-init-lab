@@ -1,5 +1,15 @@
 # Samsung Galaxy A90 5G - 현재 상태
 
+> 2026-06-12 native-init track update: the current verified native baseline is
+> `A90 Linux init 0.9.268 (v2237-supplicant-terminate-poll)`, boot image
+> `workspace/private/inputs/boot_images/boot_linux_v2237_supplicant_terminate_poll.img`,
+> SHA256 `b2ea2d26d160b7702ce7d4438b84367788eea26c6a5bbe4ed93f3d270292ac7f`.
+> V2237 preserves the native `wlan0` route and validates bounded scan,
+> 5 GHz connect/DHCP/ping, direct 5 GHz to 2.4 GHz profile switch with
+> bounded stale-supplicant terminate polling, cleanup, and `selftest fail=0`.
+> The sections below are older Android/boot-chain context unless a newer
+> native-init report explicitly references them.
+
 ## 기준점 A
 
 **디바이스**: Samsung Galaxy A90 5G (`SM-A908N`)  

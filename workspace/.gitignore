@@ -68,6 +68,7 @@
 /public/**/*credential*
 /public/**/*supplicant*
 !/public/src/scripts/revalidation/native_wifi_supplicant_dependency_probe.py
+!/public/src/scripts/revalidation/build_native_init_boot_v2237_supplicant_terminate_poll.py
 /public/**/*lease*
 
 # Generated native-init outputs inside the public current-source tree. Source

@@ -17,12 +17,12 @@ Date: `2026-06-12`
 - known-good fallback source: `workspace/public/archive/stage3/linux_init/init_v48.c`
 - known-good fallback boot image: `workspace/private/inputs/boot_images/boot_linux_v48.img`
 - known-good fallback boot image SHA256: `1c87fa59712395027c5c2e489b15c4f6ddefabc3c50f78d3c235c4508a63e042`
-- latest verified build: `A90 Linux init 0.9.267 (v2236-strict-wifi-connect)`
-- latest verified source: `workspace/public/src/native-init/` + 빌더 `workspace/public/src/scripts/revalidation/build_native_init_boot_v2236_strict_wifi_connect.py`
-- latest verified boot image: `workspace/private/inputs/boot_images/boot_linux_v2236_strict_wifi_connect.img`
-- latest verified boot image SHA256: `47dea2d602e25b60d7e6cd20619076446de0066fff0ed8b5ac80286f279ccd5b`
-- version axes: `v2236-strict-wifi-connect`는 boot/init baseline tag, `a90_android_execns_probe helper-v427`은 포함된 helper marker, `V2236`은 baseline-promotion run/report 번호다. 전체 규칙은 `docs/operations/VERSIONING_POLICY.md`를 따른다.
-- previous verified boot image: `workspace/private/inputs/boot_images/boot_linux_v2232_service_object_fwclass_bridge.img` (`A90 Linux init 0.9.266 (v2232-service-object-fwclass-bridge)`)
+- latest verified build: `A90 Linux init 0.9.268 (v2237-supplicant-terminate-poll)`
+- latest verified source: `workspace/public/src/native-init/` + 빌더 `workspace/public/src/scripts/revalidation/build_native_init_boot_v2237_supplicant_terminate_poll.py`
+- latest verified boot image: `workspace/private/inputs/boot_images/boot_linux_v2237_supplicant_terminate_poll.img`
+- latest verified boot image SHA256: `b2ea2d26d160b7702ce7d4438b84367788eea26c6a5bbe4ed93f3d270292ac7f`
+- version axes: `v2237-supplicant-terminate-poll`는 boot/init baseline tag, `a90_android_execns_probe helper-v427`은 포함된 helper marker, `V2237`은 baseline-promotion run/report 번호다. 전체 규칙은 `docs/operations/VERSIONING_POLICY.md`를 따른다.
+- previous verified boot image: `workspace/private/inputs/boot_images/boot_linux_v2236_strict_wifi_connect.img` (`A90 Linux init 0.9.267 (v2236-strict-wifi-connect)`)
 - control channel: USB CDC ACM serial bridge
 - bridge endpoint: `127.0.0.1:54321`
 - bridge script: `workspace/public/src/scripts/revalidation/serial_tcp_bridge.py`

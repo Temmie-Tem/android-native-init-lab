@@ -24,8 +24,9 @@ uprobe/tracepoint observation, and mapping the observe/control envelope. Mostly 
 (`/cache/bin` helper + bounded attach) — usually **no flash needed**, lower risk.
 
 **T2 (fallback) — WLAN native-init.** Advance the WLAN bring-up / boot baseline (latest
-promoted = **V2236 strict Wi-Fi connect**): e.g. the terminate-race fold-down, connect
-robustness, network detail surface. Device/flash steps obey the `AGENTS.md` flash gates.
+promoted = **V2237 supplicant terminate-poll**): e.g. connect robustness, network detail
+surface, or bounded lifecycle/soak evidence. Device/flash steps obey the `AGENTS.md`
+flash gates.
 
 **T3 (fallback) — self-directed.** When T1 and T2 are both exhausted/meaningless, pick the
 next best step anywhere on the current frontier from the state docs.
@@ -85,9 +86,6 @@ Read at the START of every iteration (then apply the tier policy above):
   with ambiguity metrics; extend the observe/control envelope map.
 
 **T2 — WLAN native-init (if T1 blocked):**
-- **V2236 strict-connect terminate-race**: replace the blind 500 ms post-`TERMINATE`
-  sleep with a bounded poll until the old supplicant is gone + SIGKILL escalation
-  (connect path in `workspace/public/src/native-init/a90_wifi.c`).
 - Network detail surface + remaining test-script cleanup (CLAUDE.md "Active work").
 
 **Any tier — safe filler (no device):**

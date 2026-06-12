@@ -265,6 +265,7 @@ Expected decision labels:
 | `wifi-connect-config-prepare-failed` | Profile/secret-backed supplicant config generation failed. |
 | `wifi-connect-supplicant-missing` | Standalone `wpa_supplicant` wrapper is absent or not executable. |
 | `wifi-connect-supplicant-start-failed` | PID1 failed to spawn the standalone supplicant. |
+| `wifi-connect-supplicant-terminate-timeout` | Existing supplicant did not exit after bounded `TERMINATE` plus `SIGKILL` escalation; the new profile was not started. |
 | `wifi-connect-ctrl-timeout` | Supplicant started but private control socket did not become ready. |
 | `wifi-connect-supplicant-busy-no-ctrl` | Legacy label retained for older builds; current `wifi connect` terminates stale supplicant before starting a fresh profile instance. |
 
@@ -278,9 +279,9 @@ python3 workspace/public/src/scripts/revalidation/native_wifi_connect_carrier_ha
 ```
 
 The runner flashes the V2174 test boot, runs only the carrier-level connect
-window, and verifies rollback `selftest fail=0`. After the V2236 promotion, this
+window, and verifies rollback `selftest fail=0`. After the V2237 promotion, this
 runner remains carrier-level evidence only; new Wi-Fi lifecycle work should
-treat `v2236-strict-wifi-connect` as the current baseline and use
+treat `v2237-supplicant-terminate-poll` as the current baseline and use
 older images only for explicit rollback/regression testing.
 
 ## `wifi dhcp [profile]`
