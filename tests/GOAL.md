@@ -208,6 +208,9 @@ functions.
 - [x] `workspace/public/src/scripts/revalidation/a90_kernel_v2246_post_fwready_tail_symbol_source_map.py`
       — hex/System.map/source helpers, target-stack extraction, row mapping,
       pass/review summary output.
+- [x] `workspace/public/src/scripts/revalidation/a90_kernel_v2247_tail_pc_lr_scorer.py`
+      — exact-slide extraction, target range loading, sample address extraction,
+      PC/LR hit scoring, pass/no-slide/no-target summary output.
 - [ ] (append more as discovered: v2231+ analyzers.)
 
 ## Progress log
@@ -439,4 +442,7 @@ functions.
 - 2026-06-13 — `a90_kernel_v2246_post_fwready_tail_symbol_source_map.py` —
   parse_int_hex, load_text_symbols, symbol_index, extract_observed_stack,
   find_source_definition, build_rows, build_summary — 9 cases — green.
+- 2026-06-13 — `a90_kernel_v2247_tail_pc_lr_scorer.py` —
+  parse_int, load_exact_slide, load_targets, target_for_static,
+  sample_addresses, score_samples, build_summary — 10 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
