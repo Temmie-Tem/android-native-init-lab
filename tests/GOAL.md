@@ -741,4 +741,8 @@ functions.
   metadata-only public scope, run_ping_step command quoting, run_dhcp_window
   DHCP-fail skip-ping and DHCP-pass ping/cleanup paths, rel/flash delegation —
   7 cases — green.
+- 2026-06-13 — `native_wifi_connect_carrier_handoff_v2174.py` —
+  profile/env file validation, Wi-Fi secret length-only status, evidence
+  redaction, key-value/step helpers, classify preflight/flash/rollback/pass
+  and safety branches, render_report connect-scope text — 8 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
