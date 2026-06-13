@@ -745,4 +745,9 @@ functions.
   profile/env file validation, Wi-Fi secret length-only status, evidence
   redaction, key-value/step helpers, classify preflight/flash/rollback/pass
   and safety branches, render_report connect-scope text — 8 cases — green.
+- 2026-06-13 — `native_wifi_hold_reconnect_handoff_v2177.py` —
+  classify preflight/flash/rollback/pass/safety branches, ping command
+  quoting/parsing, DHCP-fail skip-ping and DHCP-pass ping paths, cleanup residue
+  gates, hold sampling loop, render_report redacted hold scope — 8 cases —
+  green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
