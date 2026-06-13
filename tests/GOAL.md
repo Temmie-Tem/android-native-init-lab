@@ -771,4 +771,8 @@ functions.
   configure_base V2189 axis rewrites, helper marker/SHA pinning before patch,
   security stage-fix render_report no-runtime-Wi-Fi safety scope,
   normalize_manifest_axes parent-candidate metadata — 4 cases — green.
+- 2026-06-13 — `build_native_init_boot_v2169_transport_contract.py` —
+  configure_base V2169 axis rewrites and transport flag propagation,
+  legacy mkbootimg symlink shim, transport-contract render_report safety scope,
+  normalize_manifest_axes promoted-baseline metadata — 4 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
