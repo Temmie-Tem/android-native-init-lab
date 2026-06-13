@@ -720,4 +720,8 @@ functions.
   run_one_file mocked transfer/hash/rename/sync/unlink flow, command_run
   report/residual state, command_clean safe run-child removal — 7 cases —
   green.
+- 2026-06-13 — `netservice_reconnect_soak.py` — USB/NCM status parsing,
+  host-interface selection gates, tcpctl token cache/auth rules, start/stop
+  ready-marker checks, verify_ncm_and_tcp orchestration, once/soak failure
+  cleanup paths, host config/sudo/cmdv1 fallback branches — 10 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
