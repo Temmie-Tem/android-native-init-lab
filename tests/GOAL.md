@@ -787,4 +787,8 @@ functions.
   configure_base V2174 axis rewrites, helper patch plus temporary legacy-link
   cleanup, connect/urandom render_report redacted-scope contract,
   normalize_manifest_axes test-candidate metadata — 4 cases — green.
+- 2026-06-13 — `build_native_init_boot_v2176_wifi_dhcp.py` —
+  configure_base V2176 axis rewrites, helper patch plus temporary legacy-link
+  cleanup, DHCP/cleanup render_report ping-boundary safety scope,
+  normalize_manifest_axes test-candidate metadata — 4 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
