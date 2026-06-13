@@ -693,4 +693,8 @@ functions.
   prepare ping-skip/helper-present/helper-missing branches, run tcpctl smoke
   command and marker validation, cleanup skip/no-op, verify authenticated marker
   and auth=none rejection branches — 7 cases — green.
+- 2026-06-13 — `a90harness/modules/storage_io.py` — prepare ping
+  skip/success branches, run skip/smoke/quick command construction, cleanup
+  skip/clean command, verify skip/missing/pass/empty-result branches — 7 cases
+  — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
