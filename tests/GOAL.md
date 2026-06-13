@@ -804,4 +804,9 @@ functions.
   ramdisk helper copy/mode/reproducible cpio contract, base boot ramdisk
   replacement error path, marker verification pass/fail branches — 5 cases —
   green.
+- 2026-06-13 — `build_native_init_boot_v725_fasttransport.py` —
+  arg-driven PID1 source selection, fasttransport `EXTRA_CFLAGS` injection,
+  ramdisk-local transport helper materialization and modes, base boot ramdisk
+  replacement error path, fasttransport marker verification pass/fail branches
+  — 5 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
