@@ -728,4 +728,8 @@ functions.
   rejection, raw cmdv1 success/disconnect evidence writes, recovery polling
   success, cmdv1 exception capture, recovery_times filtering, main report
   checks/residual-state failure path — 5 cases — green.
+- 2026-06-13 — `native_ui_screenapp_validation_v2187.py` —
+  screenapp_pass field contract, classify flash/status/ping/rollback/pass
+  decisions, render_report evidence/safety text, rel path handling,
+  fields_for key-value parsing — 5 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
