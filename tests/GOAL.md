@@ -727,8 +727,9 @@ functions.
   cleanup paths, host config/sudo/cmdv1 fallback branches — 10 cases — green.
 - 2026-06-13 — `usb_recovery_validate.py` — private evidence mode/symlink
   rejection, raw cmdv1 success/disconnect evidence writes, recovery polling
-  success, cmdv1 exception capture, recovery_times filtering, main report
-  checks/residual-state failure path — 5 cases — green.
+  success, cmdv1 exception capture, run_step orchestration, recovery_times
+  filtering, main report checks/residual-state failure and pass paths — 7
+  cases — green.
 - 2026-06-13 — `native_ui_screenapp_validation_v2187.py` —
   screenapp_pass field contract, classify flash/status/ping/rollback/pass
   decisions, render_report evidence/safety text, rel path handling,

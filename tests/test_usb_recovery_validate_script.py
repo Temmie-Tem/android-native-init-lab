@@ -98,6 +98,33 @@ class EvidenceHelpers(unittest.TestCase):
         ]
         self.assertEqual(usb_recovery.recovery_times(steps), [0.25])
 
+    def test_run_step_combines_raw_command_and_recovery_probe(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            args = args_for(tmp)
+            out_dir = Path(tmp)
+            with (
+                mock.patch.object(usb_recovery, "send_raw_cmdv1", return_value=(True, "", "raw.txt")) as send_raw,
+                mock.patch.object(usb_recovery, "wait_recovered", return_value=(True, 0.42, 0, "ok")) as wait_recovered,
+            ):
+                step = usb_recovery.run_step(
+                    args,
+                    "usbnet-off",
+                    ["run", "/cache/bin/a90_usbnet", "off"],
+                    out_dir,
+                )
+
+        self.assertEqual(step.label, "usbnet-off")
+        self.assertEqual(step.command, ["run", "/cache/bin/a90_usbnet", "off"])
+        self.assertTrue(step.raw_ok)
+        self.assertEqual(step.raw_error, "")
+        self.assertEqual(step.raw_output_file, "raw.txt")
+        self.assertTrue(step.recovered)
+        self.assertEqual(step.recovery_sec, 0.42)
+        self.assertEqual(step.verify_rc, 0)
+        self.assertEqual(step.verify_status, "ok")
+        send_raw.assert_called_once_with(args, ["run", "/cache/bin/a90_usbnet", "off"], "usbnet-off", out_dir)
+        wait_recovered.assert_called_once_with(args, out_dir, "usbnet-off")
+
 
 class MainReportFlow(unittest.TestCase):
     def test_main_writes_report_with_checks_residual_state_and_failure_rc(self) -> None:
@@ -136,6 +163,89 @@ class MainReportFlow(unittest.TestCase):
         self.assertTrue(payload["residual_state"]["cleanup_required"])
         self.assertIn("| `final acm-only` | `FAIL`", markdown)
         self.assertEqual(run_step.call_count, 3)
+        self.assertEqual(cmdv1.call_count, 5)
+
+    def test_main_writes_pass_report_when_recovery_and_final_acm_only_succeed(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            args = args_for(tmp, cycles=2)
+            steps = [
+                usb_recovery.RecoveryStep(
+                    "usbacmreset-01",
+                    ["usbacmreset"],
+                    True,
+                    "",
+                    "reset-01.txt",
+                    True,
+                    0.1,
+                    0,
+                    "ok",
+                ),
+                usb_recovery.RecoveryStep(
+                    "usbacmreset-02",
+                    ["usbacmreset"],
+                    True,
+                    "",
+                    "reset-02.txt",
+                    True,
+                    0.2,
+                    0,
+                    "ok",
+                ),
+                usb_recovery.RecoveryStep(
+                    "usbnet-ncm",
+                    ["run", "/cache/bin/a90_usbnet", "ncm"],
+                    True,
+                    "",
+                    "ncm.txt",
+                    True,
+                    0.3,
+                    0,
+                    "ok",
+                ),
+                usb_recovery.RecoveryStep(
+                    "usbnet-off",
+                    ["run", "/cache/bin/a90_usbnet", "off"],
+                    True,
+                    "",
+                    "off.txt",
+                    True,
+                    0.4,
+                    0,
+                    "ok",
+                ),
+            ]
+            captures = [
+                (True, "A90 Linux init\n", 0, "ok"),
+                (True, "ncm.ifname: ncm0\n", 0, "ok"),
+                (True, "ncm0=absent tcpctl=stopped\n", 0, "ok"),
+                (True, "A90 Linux init\n", 0, "ok"),
+                (True, "selftest fail=0\n", 0, "ok"),
+            ]
+            with (
+                mock.patch.object(usb_recovery, "parse_args", return_value=args),
+                mock.patch.object(usb_recovery, "run_step", side_effect=steps) as run_step,
+                mock.patch.object(usb_recovery, "cmdv1_text", side_effect=captures) as cmdv1,
+                contextlib.redirect_stdout(io.StringIO()) as stdout,
+            ):
+                rc = usb_recovery.main()
+
+            report_dir = Path(tmp) / "run-01"
+            payload = json.loads((report_dir / "usb-recovery-report.json").read_text(encoding="utf-8"))
+            markdown = (report_dir / "usb-recovery-report.md").read_text(encoding="utf-8")
+
+        self.assertEqual(rc, 0)
+        self.assertIn("PASS run_id=run-01", stdout.getvalue())
+        self.assertTrue(payload["pass"])
+        self.assertEqual(payload["recovered_count"], 4)
+        self.assertEqual(payload["max_recovery_sec"], 0.4)
+        self.assertTrue(payload["ncm_present_after_ncm_step"])
+        self.assertTrue(payload["final_acm_only"])
+        self.assertFalse(payload["residual_state"]["cleanup_required"])
+        self.assertTrue(payload["residual_state"]["final_version_ok"])
+        self.assertTrue(payload["residual_state"]["final_selftest_ok"])
+        self.assertIn("| `final acm-only` | `PASS`", markdown)
+        self.assertIn("- result: PASS", markdown)
+        self.assertEqual(run_step.call_count, 4)
         self.assertEqual(cmdv1.call_count, 5)
 
 
