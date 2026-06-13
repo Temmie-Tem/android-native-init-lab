@@ -312,6 +312,10 @@ functions.
       — size parsing, deterministic pattern-file generation, PATH lookup,
       bounded NetworkManager repair recording, raw upload stream success/fail
       classification.
+- [x] `workspace/public/src/scripts/revalidation/cleanup_stage3_artifacts.py`
+      — legacy v-tag extraction, candidate discovery, dry-run keep/remove
+      reporting, execute deletion limited to non-kept legacy root stage3
+      artifacts.
 - [ ] (append more as discovered: v2231+ analyzers.)
 
 ## Progress log
@@ -844,4 +848,8 @@ functions.
   embedded host-only hardening suites imported through the standard
   revalidation loader, expected test-count assertions for Unit A/B/Tier2,
   Unit B minimal manifest secret-hygiene defaults — 4 cases — green.
+- 2026-06-13 — `cleanup_stage3_artifacts.py` — legacy v-tag parsing,
+  root-stage3 candidate discovery including optional `boot_linux_init.img`,
+  dry-run keep/remove reporting, execute deletion of non-kept files/dirs while
+  preserving kept build tags — 4 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
