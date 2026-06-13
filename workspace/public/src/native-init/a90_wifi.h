@@ -112,6 +112,7 @@ int a90_wifi_status_snapshot(struct a90_wifi_status_snapshot *out);
 int a90_wifi_print_status(void);
 int a90_wifi_scan_collect(int delay_ms, struct a90_wifi_scan_snapshot *out);
 int a90_wifi_scan_once(int delay_ms);
+int a90_wifi_netevents_once(int timeout_ms);
 int a90_wifi_ping_collect(const char *mode, struct a90_wifi_ping_snapshot *out);
 int a90_wifi_ping_once(const char *mode);
 int a90_wifi_connect_profile(const char *profile_name);

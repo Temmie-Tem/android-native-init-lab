@@ -5,8 +5,11 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <linux/genetlink.h>
+#include <linux/if_addr.h>
+#include <linux/if_link.h>
 #include <linux/netlink.h>
 #include <linux/nl80211.h>
+#include <linux/rtnetlink.h>
 #include <net/if.h>
 #include <poll.h>
 #include <stdarg.h>
@@ -88,6 +91,10 @@
 #define A90_WIFI_PING_GATEWAY_LOG "/cache/a90-wifi/ping-gateway.log"
 #define A90_WIFI_PING_INTERNET_LOG "/cache/a90-wifi/ping-internet.log"
 #define A90_WIFI_PING_INTERNET_TARGET "1.1.1.1"
+#define A90_WIFI_NETEVENTS_VERSION "a90-native-wifi-rtnetlink-events-v1"
+#define A90_WIFI_NETEVENT_DEFAULT_MS 5000
+#define A90_WIFI_NETEVENT_MAX_MS 30000
+#define A90_WIFI_NETEVENT_MAX_STORED 16
 
 static int wifi_open_dir_no_follow(const char *path) {
     return open(path, O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW);
@@ -1050,6 +1057,28 @@ struct wifi_ctrl_link_info {
     char freq_mhz[32];
 };
 
+struct wifi_netevent {
+    char type[16];
+    char iface[IFNAMSIZ];
+    char operstate[32];
+    char ip4_label[64];
+    unsigned int ifindex;
+    unsigned int flags;
+    int carrier;
+    long monotonic_ms;
+};
+
+struct wifi_netevent_snapshot {
+    int rc;
+    int saved_errno;
+    int socket_open;
+    int timeout_ms;
+    int event_count;
+    int stored_count;
+    struct wifi_netevent events[A90_WIFI_NETEVENT_MAX_STORED];
+    char decision[64];
+};
+
 static char wifi_safe_metric_char(char value) {
     if ((value >= 'A' && value <= 'Z') ||
         (value >= 'a' && value <= 'z') ||
@@ -1970,6 +1999,306 @@ int a90_wifi_print_status(void) {
              status.carrier,
              status.supplicant_process_count);
     return 0;
+}
+
+static bool wifi_netevent_iface_interesting(const char *iface) {
+    return iface != NULL &&
+           (strcmp(iface, A90_WIFI_IFACE) == 0 || strcmp(iface, "ncm0") == 0);
+}
+
+static void wifi_read_iface_attr(const char *iface, const char *name, char *out, size_t out_size) {
+    char iface_path[128];
+
+    if (out == NULL || out_size == 0) {
+        return;
+    }
+    snprintf(out, out_size, "-");
+    if (iface == NULL ||
+        snprintf(iface_path, sizeof(iface_path), "/sys/class/net/%s", iface) >= (int)sizeof(iface_path)) {
+        return;
+    }
+    wifi_read_attr(iface_path, name, out, out_size);
+}
+
+static int wifi_iface_carrier_value(const char *iface) {
+    char carrier[16];
+    char *end = NULL;
+    long value;
+
+    wifi_read_iface_attr(iface, "carrier", carrier, sizeof(carrier));
+    if (wifi_value_missing(carrier)) {
+        return -1;
+    }
+    errno = 0;
+    value = strtol(carrier, &end, 10);
+    if (errno != 0 || end == carrier) {
+        return -1;
+    }
+    return value != 0 ? 1 : 0;
+}
+
+static void wifi_netevent_store(struct wifi_netevent_snapshot *out,
+                                const char *type,
+                                const char *iface,
+                                unsigned int ifindex,
+                                unsigned int flags,
+                                int carrier,
+                                const char *operstate,
+                                const char *ip4_label) {
+    struct wifi_netevent *event;
+
+    if (out == NULL || type == NULL || iface == NULL) {
+        return;
+    }
+    ++out->event_count;
+    if (out->stored_count >= A90_WIFI_NETEVENT_MAX_STORED) {
+        return;
+    }
+    event = &out->events[out->stored_count++];
+    memset(event, 0, sizeof(*event));
+    snprintf(event->type, sizeof(event->type), "%s", type);
+    snprintf(event->iface, sizeof(event->iface), "%s", iface);
+    snprintf(event->operstate, sizeof(event->operstate), "%s",
+             operstate != NULL && operstate[0] != '\0' ? operstate : "-");
+    snprintf(event->ip4_label, sizeof(event->ip4_label), "%s",
+             ip4_label != NULL && ip4_label[0] != '\0' ? ip4_label : "none");
+    event->ifindex = ifindex;
+    event->flags = flags;
+    event->carrier = carrier;
+    event->monotonic_ms = monotonic_millis();
+    a90_logf("wifi",
+             "netevent type=%s iface=%s ifindex=%u flags=0x%x carrier=%d operstate=%s ip4_label=%s raw_ip_redacted=1",
+             event->type,
+             event->iface,
+             event->ifindex,
+             event->flags,
+             event->carrier,
+             event->operstate,
+             event->ip4_label);
+}
+
+static void wifi_netevent_parse_link(struct wifi_netevent_snapshot *out,
+                                     const struct nlmsghdr *nlh,
+                                     const char *type) {
+    const struct ifinfomsg *ifi = (const struct ifinfomsg *)NLMSG_DATA(nlh);
+    char iface[IFNAMSIZ];
+    char operstate[32];
+
+    if (ifi == NULL || if_indextoname((unsigned int)ifi->ifi_index, iface) == NULL) {
+        return;
+    }
+    if (!wifi_netevent_iface_interesting(iface)) {
+        return;
+    }
+    wifi_read_iface_attr(iface, "operstate", operstate, sizeof(operstate));
+    wifi_netevent_store(out,
+                        type,
+                        iface,
+                        (unsigned int)ifi->ifi_index,
+                        (unsigned int)ifi->ifi_flags,
+                        wifi_iface_carrier_value(iface),
+                        operstate,
+                        "none");
+}
+
+static void wifi_netevent_parse_addr(struct wifi_netevent_snapshot *out,
+                                     const struct nlmsghdr *nlh,
+                                     const char *type) {
+    const struct ifaddrmsg *ifa = (const struct ifaddrmsg *)NLMSG_DATA(nlh);
+    struct rtattr *attr;
+    int attr_len;
+    char iface[IFNAMSIZ];
+    char raw_ip[64] = "-";
+    char ip4_label[64];
+    char operstate[32];
+
+    if (ifa == NULL || ifa->ifa_family != AF_INET ||
+        if_indextoname((unsigned int)ifa->ifa_index, iface) == NULL ||
+        !wifi_netevent_iface_interesting(iface)) {
+        return;
+    }
+    attr = IFA_RTA(ifa);
+    attr_len = IFA_PAYLOAD(nlh);
+    while (RTA_OK(attr, attr_len)) {
+        int attr_type = attr->rta_type & NLA_TYPE_MASK;
+
+        if ((attr_type == IFA_LOCAL || attr_type == IFA_ADDRESS) &&
+            RTA_PAYLOAD(attr) >= (int)sizeof(struct in_addr)) {
+            if (inet_ntop(AF_INET, RTA_DATA(attr), raw_ip, sizeof(raw_ip)) == NULL) {
+                snprintf(raw_ip, sizeof(raw_ip), "%s", "-");
+            }
+            if (attr_type == IFA_LOCAL) {
+                break;
+            }
+        }
+        attr = RTA_NEXT(attr, attr_len);
+    }
+    wifi_ipv4_label(raw_ip, ip4_label, sizeof(ip4_label));
+    wifi_read_iface_attr(iface, "operstate", operstate, sizeof(operstate));
+    wifi_netevent_store(out,
+                        type,
+                        iface,
+                        (unsigned int)ifa->ifa_index,
+                        0,
+                        wifi_iface_carrier_value(iface),
+                        operstate,
+                        ip4_label);
+}
+
+int a90_wifi_netevents_collect(int timeout_ms, struct wifi_netevent_snapshot *out) {
+    struct sockaddr_nl local;
+    int fd;
+    long started_ms;
+    long deadline_ms;
+
+    if (out == NULL) {
+        return -EINVAL;
+    }
+    memset(out, 0, sizeof(*out));
+    out->timeout_ms = timeout_ms;
+    snprintf(out->decision, sizeof(out->decision), "%s", "wifi-netevents-unstarted");
+    if (timeout_ms < 0 || timeout_ms > A90_WIFI_NETEVENT_MAX_MS) {
+        out->rc = -EINVAL;
+        out->saved_errno = EINVAL;
+        snprintf(out->decision, sizeof(out->decision), "%s", "wifi-netevents-invalid-timeout");
+        return out->rc;
+    }
+    fd = socket(AF_NETLINK, SOCK_RAW | SOCK_CLOEXEC, NETLINK_ROUTE);
+    if (fd < 0) {
+        out->rc = -errno;
+        out->saved_errno = errno;
+        snprintf(out->decision, sizeof(out->decision), "%s", "wifi-netevents-socket-failed");
+        return out->rc;
+    }
+    out->socket_open = 1;
+    memset(&local, 0, sizeof(local));
+    local.nl_family = AF_NETLINK;
+    local.nl_groups = RTMGRP_LINK | RTMGRP_IPV4_IFADDR;
+    if (bind(fd, (struct sockaddr *)&local, sizeof(local)) < 0) {
+        out->rc = -errno;
+        out->saved_errno = errno;
+        snprintf(out->decision, sizeof(out->decision), "%s", "wifi-netevents-bind-failed");
+        (void)close(fd);
+        return out->rc;
+    }
+
+    started_ms = monotonic_millis();
+    deadline_ms = started_ms + timeout_ms;
+    for (;;) {
+        struct pollfd poll_fd;
+        int wait_ms = (int)(deadline_ms - monotonic_millis());
+        int poll_rc;
+        char buffer[8192];
+        ssize_t received;
+        struct nlmsghdr *nlh;
+        int remaining;
+
+        if (wait_ms < 0) {
+            break;
+        }
+        memset(&poll_fd, 0, sizeof(poll_fd));
+        poll_fd.fd = fd;
+        poll_fd.events = POLLIN;
+        poll_rc = poll(&poll_fd, 1, wait_ms);
+        if (poll_rc == 0) {
+            break;
+        }
+        if (poll_rc < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            out->rc = -errno;
+            out->saved_errno = errno;
+            snprintf(out->decision, sizeof(out->decision), "%s", "wifi-netevents-poll-failed");
+            (void)close(fd);
+            return out->rc;
+        }
+        received = recv(fd, buffer, sizeof(buffer), 0);
+        if (received < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            out->rc = -errno;
+            out->saved_errno = errno;
+            snprintf(out->decision, sizeof(out->decision), "%s", "wifi-netevents-recv-failed");
+            (void)close(fd);
+            return out->rc;
+        }
+        for (nlh = (struct nlmsghdr *)buffer, remaining = (int)received;
+             NLMSG_OK(nlh, remaining);
+             nlh = NLMSG_NEXT(nlh, remaining)) {
+            if (nlh->nlmsg_type == NLMSG_ERROR) {
+                const struct nlmsgerr *err = (const struct nlmsgerr *)NLMSG_DATA(nlh);
+
+                out->rc = err->error < 0 ? err->error : -EIO;
+                out->saved_errno = err->error < 0 ? -err->error : EIO;
+                snprintf(out->decision, sizeof(out->decision), "%s", "wifi-netevents-netlink-error");
+                (void)close(fd);
+                return out->rc;
+            }
+            if (nlh->nlmsg_type == RTM_NEWLINK) {
+                wifi_netevent_parse_link(out, nlh, "newlink");
+            } else if (nlh->nlmsg_type == RTM_DELLINK) {
+                wifi_netevent_parse_link(out, nlh, "dellink");
+            } else if (nlh->nlmsg_type == RTM_NEWADDR) {
+                wifi_netevent_parse_addr(out, nlh, "newaddr");
+            } else if (nlh->nlmsg_type == RTM_DELADDR) {
+                wifi_netevent_parse_addr(out, nlh, "deladdr");
+            }
+        }
+    }
+    (void)close(fd);
+    out->rc = 0;
+    snprintf(out->decision,
+             sizeof(out->decision),
+             "%s",
+             out->event_count > 0 ? "wifi-netevents-events-observed" : "wifi-netevents-timeout-no-events");
+    return 0;
+}
+
+int a90_wifi_netevents_once(int timeout_ms) {
+    struct wifi_netevent_snapshot snapshot;
+    int rc;
+    int i;
+
+    rc = a90_wifi_netevents_collect(timeout_ms, &snapshot);
+    a90_console_printf("[wifi netevents]\r\n");
+    a90_console_printf("version=%s\r\n", A90_WIFI_NETEVENTS_VERSION);
+    a90_console_printf("monitor=rtnetlink\r\n");
+    a90_console_printf("groups=RTMGRP_LINK,RTMGRP_IPV4_IFADDR\r\n");
+    a90_console_printf("ifaces=wlan0,ncm0\r\n");
+    a90_console_printf("timeout_ms=%d\r\n", snapshot.timeout_ms);
+    a90_console_printf("socket_open=%d\r\n", snapshot.socket_open);
+    a90_console_printf("event_count=%d\r\n", snapshot.event_count);
+    a90_console_printf("stored_count=%d\r\n", snapshot.stored_count);
+    a90_console_printf("raw_ip_redacted=1\r\n");
+    a90_console_printf("secret_values_logged=0\r\n");
+    a90_console_printf("connect_attempted=0\r\n");
+    a90_console_printf("dhcp_attempted=0\r\n");
+    a90_console_printf("external_ping_attempted=0\r\n");
+    for (i = 0; i < snapshot.stored_count; ++i) {
+        const struct wifi_netevent *event = &snapshot.events[i];
+
+        a90_console_printf("event.%d.type=%s\r\n", i, event->type);
+        a90_console_printf("event.%d.iface=%s\r\n", i, event->iface);
+        a90_console_printf("event.%d.ifindex=%u\r\n", i, event->ifindex);
+        a90_console_printf("event.%d.flags=0x%x\r\n", i, event->flags);
+        a90_console_printf("event.%d.carrier=%d\r\n", i, event->carrier);
+        a90_console_printf("event.%d.operstate=%s\r\n", i, event->operstate);
+        a90_console_printf("event.%d.ip4_label=%s\r\n", i, event->ip4_label);
+        a90_console_printf("event.%d.monotonic_ms=%ld\r\n", i, event->monotonic_ms);
+    }
+    a90_console_printf("rc=%d\r\n", snapshot.rc);
+    a90_console_printf("saved_errno=%d\r\n", snapshot.saved_errno);
+    a90_console_printf("decision=%s\r\n", snapshot.decision);
+    a90_logf("wifi",
+             "netevents decision=%s rc=%d events=%d stored=%d timeout_ms=%d",
+             snapshot.decision,
+             snapshot.rc,
+             snapshot.event_count,
+             snapshot.stored_count,
+             snapshot.timeout_ms);
+    return rc;
 }
 
 static void *wifi_nla_data(const struct nlattr *attr) {
@@ -3256,6 +3585,18 @@ int a90_wifi_cmd(char **argv, int argc) {
     if ((argc == 2 || argc == 3) &&
         argv != NULL &&
         argv[1] != NULL &&
+        strcmp(argv[1], "netevents") == 0) {
+        int timeout_ms = A90_WIFI_NETEVENT_DEFAULT_MS;
+
+        if (argc == 3 && wifi_parse_delay_ms(argv[2], &timeout_ms) < 0) {
+            a90_console_printf("usage: wifi netevents [timeout_ms]\r\n");
+            return -EINVAL;
+        }
+        return a90_wifi_netevents_once(timeout_ms);
+    }
+    if ((argc == 2 || argc == 3) &&
+        argv != NULL &&
+        argv[1] != NULL &&
         strcmp(argv[1], "connect") == 0) {
         return a90_wifi_connect_profile(argc == 3 ? argv[2] : NULL);
     }
@@ -3307,6 +3648,6 @@ int a90_wifi_cmd(char **argv, int argc) {
         return a90_wificfg_cmd(argv, argc);
     }
 
-    a90_console_printf("usage: wifi [status|scan [delay_ms]|connect [profile]|dhcp [profile]|ping [gateway|internet|all]|cleanup|profile [list|status [profile]]|autoconnect [status|enable [profile]|disable|once [profile]]|config [status|prepare [profile]]]\r\n");
+    a90_console_printf("usage: wifi [status|scan [delay_ms]|netevents [timeout_ms]|connect [profile]|dhcp [profile]|ping [gateway|internet|all]|cleanup|profile [list|status [profile]]|autoconnect [status|enable [profile]|disable|once [profile]]|config [status|prepare [profile]]]\r\n");
     return -EINVAL;
 }
