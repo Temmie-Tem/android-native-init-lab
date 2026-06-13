@@ -700,4 +700,7 @@ functions.
 - 2026-06-13 — `a90harness/modules/kselftest_feasibility.py` — run command
   contract, timeout floor/scale and nonzero rc branches, verify missing/pass
   and mutation/safe-candidate/blocked reject branches — 5 cases — green.
+- 2026-06-13 — `a90harness/modules/cpu_mem_thermal.py` — smoke/quick run
+  command construction and nonzero rc branches, verify missing/pass and
+  failed/missing controlled-zombie check branches — 5 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
