@@ -676,4 +676,9 @@ functions.
   tcpctl_run_line, tcpctl_listen_command, tcpctl_request,
   tcpctl_expect_ok, tcpctl_install_command, wait_for_tcpctl,
   cmdv1_unavailable, device_command, command_run — 15 cases — green.
+- 2026-06-13 — `a90_bridge.py` — validate_private_repair_path,
+  ensure_private_repair_dir, cmdline_port_match, parse_proc_tcp_line,
+  listen_sockets, selected_device_info, collect_status, print_status_text,
+  build_bridge_command, effective_expect_realpath, write_metadata,
+  path_detail, stat_info — 13 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
