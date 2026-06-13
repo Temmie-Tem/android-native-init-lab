@@ -19,5 +19,7 @@ int a90_usb_gadget_reset_acm(void);
 int a90_usb_gadget_unbind(void);
 int a90_usb_gadget_bind_default_udc(void);
 int a90_usb_gadget_status(struct a90_usb_gadget_status *out);
+int a90_usb_gadget_print_status(void);
+int a90_usb_gadget_cmd(char **argv, int argc);
 
 #endif

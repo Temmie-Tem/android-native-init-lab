@@ -21,8 +21,11 @@ below). Re-evaluate each iteration; you may climb back up if new work appears.
 
 ### Active epic — USB gadget runtime control (layer ①)
 
-**Prior epic (WLAN events) is CLOSED** at V2312 (`0.9.276`, current validated test baseline;
-`v2237` still the rollback target). **New active epic: a native-init `usb` gadget control surface.**
+**Prior epic (WLAN events) is CLOSED** at V2312 (`0.9.276`; `v2237` still the rollback target).
+**Active epic: a native-init `usb` gadget control surface.** U1 is now closed at V2313
+(`0.9.277`, current validated test baseline): `usb status` maps the live gadget topology
+read-only and confirms the live config already has both control functions (`ncm.usb0` and
+`acm.usb0`) on UDC `a600000.dwc3`. **Next unit is U2 only.**
 Full design — read it before starting — is
 `docs/plans/NATIVE_INIT_USB_GADGET_CONTROL_EPIC_PLAN_2026-06-13.md`. Grounded in the TWRP gadget
 recipe (`docs/reports/TWRP_RECOVERY_TEARDOWN_DEVICE_REFERENCE_2026-06-13.md` §1) and the kernel
@@ -39,11 +42,11 @@ follow-on epics — do not start them here**.
 
 Staged units, one V-iteration each:
 
-- **U1 — `usb status` inventory (read-only) — do FIRST.** Read `/config/usb_gadget/*` and
+- **U1 — `usb status` inventory (read-only) — DONE at V2313.** Read `/config/usb_gadget/*` and
   `/sys/class/udc/*`; report UDC + bind state, configs, the function list **and which are the control
   functions**, VID/PID, strings. Serial-self-validatable; **required first** so the exact control
   topology is known before any reconfigure.
-- **U2 — atomic auxiliary-function add/remove** (start `mass_storage.0`) via unbind→reconfigure→
+- **U2 — atomic auxiliary-function add/remove — NEXT** (start `mass_storage.0`) via unbind→reconfigure→
   rebind with watchdog + restore; keep NCM+ACM in every config; validate the control channel returns.
 - **U3 — first persona end-to-end** (`mass_storage` recommended, or HID). Host-side validation.
 

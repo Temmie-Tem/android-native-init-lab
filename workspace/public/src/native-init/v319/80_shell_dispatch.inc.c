@@ -812,6 +812,10 @@ static int handle_diag(char **argv, int argc) {
     return -EINVAL;
 }
 
+static int handle_usb(char **argv, int argc) {
+    return a90_usb_gadget_cmd(argv, argc);
+}
+
 static int handle_kernelinv(char **argv, int argc) {
     return a90_kernelinv_cmd(argv, argc);
 }
@@ -952,6 +956,7 @@ static const struct shell_command command_table[] = {
     { "exposure", handle_exposure, "exposure [status|verbose|guard]", CMD_NONE, A90_CMD_GROUP_NETWORK },
     { "policycheck", handle_policycheck, "policycheck [status|run|verbose]", CMD_NONE, A90_CMD_GROUP_CORE },
     { "diag", handle_diag, "diag [summary|full|bundle|paths]", CMD_NONE, A90_CMD_GROUP_CORE },
+    { "usb", handle_usb, "usb [status]", CMD_NONE, A90_CMD_GROUP_SERVICE },
     { "kernelinv", handle_kernelinv, "kernelinv [summary|full|paths]", CMD_NONE, A90_CMD_GROUP_CORE },
     { "sensormap", handle_sensormap, "sensormap [summary|thermal|power|full|paths]", CMD_NONE, A90_CMD_GROUP_CORE },
     { "pstore", handle_pstore, "pstore [summary|full|paths]", CMD_NONE, A90_CMD_GROUP_CORE },
