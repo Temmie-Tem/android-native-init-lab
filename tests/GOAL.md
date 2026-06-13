@@ -809,4 +809,9 @@ functions.
   ramdisk-local transport helper materialization and modes, base boot ramdisk
   replacement error path, fasttransport marker verification pass/fail branches
   — 5 cases — green.
+- 2026-06-13 — `build_native_init_boot_v726_wifi_lifecycle.py` —
+  V2168 wrapper axis rewrites and lifecycle modem-owner flag propagation,
+  lifecycle route/safety render_report text, manifest cycle/baseline axis
+  normalization including non-V726 preservation, main helper patch and success
+  only normalization orchestration — 5 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
