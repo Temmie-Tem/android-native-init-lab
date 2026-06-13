@@ -5,6 +5,8 @@
 #include <stddef.h>
 
 #define A90_WIFI_UI_MAX_SCAN_RESULTS 8
+#define A90_WIFI_NL80211_EVENT_DEFAULT_MS 5000
+#define A90_WIFI_NETEVENT_DEFAULT_MS 5000
 
 struct a90_wifi_ping_target_result {
     bool requested;
