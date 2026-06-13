@@ -779,4 +779,8 @@ functions.
   configure_base V2170 axis rewrites, helper patch plus temporary legacy-link
   cleanup, config-prepare render_report negative Wi-Fi scope,
   normalize_manifest_axes test-candidate metadata — 4 cases — green.
+- 2026-06-13 — `build_native_init_boot_v2172_wifi_status_scan.py` —
+  configure_base V2172 axis rewrites, helper patch plus temporary legacy-link
+  cleanup, status/scan render_report credential-free scope,
+  normalize_manifest_axes test-candidate metadata — 4 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
