@@ -68,7 +68,7 @@ def parse_status(text: str) -> dict[str, Any]:
     if match := re.search(r"memory:\s*([0-9]+)/([0-9]+)MB used", text):
         parsed["mem_used_mb"] = int(match.group(1))
         parsed["mem_total_mb"] = int(match.group(2))
-    if match := re.search(r"battery:\s*([0-9]+)%\\s+([^\\r\\n]+?)\\s+temp=([0-9.]+)C", text):
+    if match := re.search(r"battery:\s*([0-9]+)%\s+([^\r\n]+?)\s+temp=([0-9.]+)C", text):
         parsed["battery_percent"] = int(match.group(1))
         parsed["battery_state"] = match.group(2).strip()
         parsed["battery_temp_c"] = float(match.group(3))

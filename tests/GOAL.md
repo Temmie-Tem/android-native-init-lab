@@ -684,4 +684,9 @@ functions.
 - 2026-06-13 — `serial_tcp_bridge.py` — Bridge.resolve_device,
   serial_realpath_allowed, accept_client, close_client, forward_client,
   forward_serial, flush_serial_tx — 11 cases — green.
+- 2026-06-13 — `a90harness/modules/cpu_memory_profiles.py` —
+  CpuMemoryProfile.to_dict, zero_sha256, parse_status, profile selection,
+  safe temp/path builders, _run_cmd, _run_profile success/failure branches,
+  run report writing, verify pass/mismatch/missing-report branches — 9 cases —
+  green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
