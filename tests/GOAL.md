@@ -714,7 +714,8 @@ functions.
 - 2026-06-13 — `kselftest_feasibility.py` — private output path/mode and
   symlink rejects, safe_filename, run_capture success/error evidence writes,
   classify tracefs/toybox marker branches, render_markdown summary/capture
-  output — 5 cases — green.
+  output, host git metadata collection success/fallback, main manifest/markdown
+  residual-state flow — 7 cases — green.
 - 2026-06-13 — `storage_iotest.py` — parse_sizes,
   deterministic_bytes/sha256, device root/path/port validation, mkdir_chain,
   run_one_file mocked transfer/hash/rename/sync/unlink flow, transfer temp-file

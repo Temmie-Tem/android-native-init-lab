@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import contextlib
+import io
+import json
 import os
 import stat
 import tempfile
@@ -133,6 +136,86 @@ class CaptureAndClassificationHelpers(unittest.TestCase):
         self.assertIn("`procfs-readers`: read-only", markdown)
         self.assertIn("`watchdog-tests` (blocked): can arm reboot", markdown)
         self.assertIn("OK `version` (mandatory) rc=0 status=ok duration=0.123s", markdown)
+
+
+class MetadataAndMainFlow(unittest.TestCase):
+    def test_collect_host_metadata_records_head_dirty_and_status_lines(self) -> None:
+        responses = [
+            (0, "abc1234\n"),
+            (0, " M tests/example.py\n?? new.txt\n"),
+        ]
+
+        with mock.patch.object(kselftest, "run_host_command", side_effect=responses) as run_host:
+            metadata = kselftest.collect_host_metadata()
+
+        self.assertEqual(metadata["repo"], str(kselftest.REPO_ROOT))
+        self.assertEqual(metadata["git_head"], "abc1234")
+        self.assertTrue(metadata["git_dirty"])
+        self.assertEqual(metadata["git_status_short"], [" M tests/example.py", "?? new.txt"])
+        self.assertEqual(run_host.call_args_list[0].args[0], ["git", "rev-parse", "--short", "HEAD"])
+        self.assertEqual(run_host.call_args_list[1].args[0], ["git", "status", "--short"])
+
+        with mock.patch.object(kselftest, "run_host_command", side_effect=[(1, "bad"), (1, "bad")]):
+            fallback = kselftest.collect_host_metadata()
+        self.assertEqual(fallback["git_head"], "unknown")
+        self.assertFalse(fallback["git_dirty"])
+        self.assertEqual(fallback["git_status_short"], [])
+
+    def test_main_writes_manifest_markdown_and_residual_state_without_device_access(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            bundle = Path(tmp) / "bundle"
+            args = SimpleNamespace(
+                host="127.0.0.1",
+                port=54321,
+                timeout_scale=1.0,
+                expect_version="A90 Linux init 0.9.268",
+                bundle_dir=bundle,
+            )
+
+            def fake_capture(_args, bundle_dir: Path, name: str, command: list[str], timeout: float, mandatory: bool):
+                text = "A90 Linux init 0.9.268\n" if name == "version" else ""
+                if name == "cat-proc-filesystems":
+                    text = "nodev\ttracefs\nnodev\tpstore\n"
+                elif name == "userland-status":
+                    text = "toybox=ready\n"
+                path = bundle_dir / f"cmd-{kselftest.safe_filename(name)}.txt"
+                kselftest.write_private_text(path, text)
+                return kselftest.CommandCapture(
+                    name=name,
+                    command=" ".join(command),
+                    mandatory=mandatory,
+                    ok=True,
+                    rc=0,
+                    status="ok",
+                    duration_sec=0.01,
+                    file=str(path),
+                    error="",
+                )
+
+            with (
+                mock.patch.object(kselftest, "parse_args", return_value=args),
+                mock.patch.object(kselftest, "run_capture", side_effect=fake_capture) as run_capture,
+                mock.patch.object(kselftest, "collect_host_metadata", return_value={"git_head": "abc1234", "git_dirty": False}),
+                contextlib.redirect_stdout(io.StringIO()) as stdout,
+            ):
+                rc = kselftest.main()
+
+            manifest = json.loads((bundle / "kselftest-feasibility-report.json").read_text(encoding="utf-8"))
+            markdown = (bundle / "kselftest-feasibility-report.md").read_text(encoding="utf-8")
+
+        self.assertEqual(rc, 0)
+        self.assertIn("PASS bundle=", stdout.getvalue())
+        self.assertEqual(run_capture.call_count, len(kselftest.MANDATORY_COMMANDS) + len(kselftest.OPTIONAL_COMMANDS))
+        self.assertTrue(manifest["pass"])
+        self.assertTrue(manifest["version_matches"])
+        self.assertEqual(manifest["failed_mandatory_count"], 0)
+        self.assertEqual(manifest["failed_optional_count"], 0)
+        self.assertFalse(manifest["mutation_performed"])
+        self.assertEqual(manifest["host"], {"git_head": "abc1234", "git_dirty": False})
+        self.assertEqual(manifest["residual_state"]["cleanup_required"], False)
+        self.assertEqual(manifest["residual_state"]["failed_mandatory_count"], 0)
+        self.assertIn("kselftest_feasibility_total", {item["name"] for item in manifest["phase_timers"]})
+        self.assertIn("- result: `PASS`", markdown)
 
 
 if __name__ == "__main__":
