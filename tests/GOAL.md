@@ -707,4 +707,8 @@ functions.
   and operator gate contract, smoke/quick run command and nonzero rc branches,
   verify missing/pass and failed/missing final-health check branches — 6 cases
   — green.
+- 2026-06-13 — `cpu_mem_thermal_stability.py` — parse_size,
+  parse_status_text, zero_sha256/parse_sha256, sample_extreme,
+  process_snapshot zombie/fd counting and fd-failure tolerance,
+  maybe_host_ping disabled/success/error branches — 6 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
