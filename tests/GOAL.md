@@ -821,4 +821,8 @@ functions.
 - 2026-06-13 — `_workspace_bootstrap.py` — repo root discovery success/failure,
   harness/archive path injection defaults, env-controlled archive inclusion,
   explicit archive override, duplicate prevention — 6 cases — green.
+- 2026-06-13 — `build_native_init_wifi_test_boot_v2168.py` — V2137 axis
+  rewrites, helper marker/SHA propagation, fasttransport ramdisk helper
+  wrapping, QCACLD firmware_class render_report safety scope, main
+  patch/report/return orchestration — 3 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
