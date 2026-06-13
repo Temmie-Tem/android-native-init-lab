@@ -767,4 +767,8 @@ functions.
   configure_base V2188 axis rewrites, security P0 hardening render_report
   no-runtime-Wi-Fi safety scope, normalize_manifest_axes unpromoted-candidate
   metadata — 3 cases — green.
+- 2026-06-13 — `build_native_init_boot_v2189_security_p0_stage_fix.py` —
+  configure_base V2189 axis rewrites, helper marker/SHA pinning before patch,
+  security stage-fix render_report no-runtime-Wi-Fi safety scope,
+  normalize_manifest_axes parent-candidate metadata — 4 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
