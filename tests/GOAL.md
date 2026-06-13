@@ -711,4 +711,8 @@ functions.
   parse_status_text, zero_sha256/parse_sha256, sample_extreme,
   process_snapshot zombie/fd counting and fd-failure tolerance,
   maybe_host_ping disabled/success/error branches — 6 cases — green.
+- 2026-06-13 — `kselftest_feasibility.py` — private output path/mode and
+  symlink rejects, safe_filename, run_capture success/error evidence writes,
+  classify tracefs/toybox marker branches, render_markdown summary/capture
+  output — 5 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
