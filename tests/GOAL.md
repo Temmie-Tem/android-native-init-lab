@@ -724,4 +724,8 @@ functions.
   host-interface selection gates, tcpctl token cache/auth rules, start/stop
   ready-marker checks, verify_ncm_and_tcp orchestration, once/soak failure
   cleanup paths, host config/sudo/cmdv1 fallback branches — 10 cases — green.
+- 2026-06-13 — `usb_recovery_validate.py` — private evidence mode/symlink
+  rejection, raw cmdv1 success/disconnect evidence writes, recovery polling
+  success, cmdv1 exception capture, recovery_times filtering, main report
+  checks/residual-state failure path — 5 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
