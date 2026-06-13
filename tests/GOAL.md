@@ -652,4 +652,10 @@ functions.
 - 2026-06-13 — `a90_ncm_transport_smoke.py` — parse_sizes,
   write_pattern_file, shutil_which, maybe_force_nm_repair,
   stream_remote_to_host unreachable/success/failure branches — 8 cases — green.
+- 2026-06-13 — `ncm_host_setup.py` — parse_status,
+  prefix_to_netmask, cmdv1_unavailable, sudo_prefix,
+  validate_host_interface_name, select_host_interface,
+  device_command cmdv1/raw/busy branches, configure_host_interface_nmcli,
+  configure_host_interface fallback/manual paths, command_setup orchestration —
+  13 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
