@@ -825,4 +825,8 @@ functions.
   rewrites, helper marker/SHA propagation, fasttransport ramdisk helper
   wrapping, QCACLD firmware_class render_report safety scope, main
   patch/report/return orchestration — 3 cases — green.
+- 2026-06-13 — `cleanup_tmp_wifi_artifacts.py` — structured threshold removal
+  planning, legacy-flat protection/explicit deletion gate, build-product-only
+  pruning, symlink escape refusal in execute_plan, text rendering — 5 cases —
+  green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
