@@ -770,8 +770,8 @@ static int usb_ensure_control_base_unbound(void) {
     usb_write_best_effort(A90_USB_GADGET_ROOT "/idVendor", "0x04e8");
     usb_write_best_effort(A90_USB_GADGET_ROOT "/idProduct", "0x6861");
     usb_write_best_effort(A90_USB_GADGET_ROOT "/bcdDevice", "0x0100");
-    usb_write_best_effort(A90_USB_GADGET_ROOT "/strings/0x409/manufacturer", "samsung");
-    usb_write_best_effort(A90_USB_GADGET_ROOT "/strings/0x409/product", "SM8150-ACM");
+    usb_write_best_effort(A90_USB_GADGET_ROOT "/strings/0x409/manufacturer", "A90 NativeInit");
+    usb_write_best_effort(A90_USB_GADGET_ROOT "/strings/0x409/product", "A90 Linux (ARM)");
     usb_write_best_effort(A90_USB_GADGET_CONFIG "/strings/0x409/configuration", "serial");
     usb_write_best_effort(A90_USB_GADGET_CONFIG "/MaxPower", "900");
 
@@ -1112,8 +1112,8 @@ int a90_usb_gadget_setup_acm(void) {
     write_file(A90_USB_GADGET_ROOT "/bcdUSB", "0x0200");
     write_file(A90_USB_GADGET_ROOT "/bcdDevice", "0x0100");
     write_file(A90_USB_GADGET_ROOT "/strings/0x409/serialnumber", "A90NATIVE001");
-    write_file(A90_USB_GADGET_ROOT "/strings/0x409/manufacturer", "samsung");
-    write_file(A90_USB_GADGET_ROOT "/strings/0x409/product", "SM8150-ACM");
+    write_file(A90_USB_GADGET_ROOT "/strings/0x409/manufacturer", "A90 NativeInit");
+    write_file(A90_USB_GADGET_ROOT "/strings/0x409/product", "A90 Linux (ARM)");
     write_file(A90_USB_GADGET_CONFIG "/strings/0x409/configuration", "serial");
     write_file(A90_USB_GADGET_CONFIG "/MaxPower", "900");
 

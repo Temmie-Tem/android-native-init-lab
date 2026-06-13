@@ -254,8 +254,8 @@ static int configure_acm_base(void)
     write_best_effort(GADGET_DIR "/bcdUSB", "0x0200");
     write_best_effort(GADGET_DIR "/bcdDevice", "0x0100");
     write_best_effort(GADGET_DIR "/strings/0x409/serialnumber", "A90NATIVE001");
-    write_best_effort(GADGET_DIR "/strings/0x409/manufacturer", "samsung");
-    write_best_effort(GADGET_DIR "/strings/0x409/product", "SM8150-ACM");
+    write_best_effort(GADGET_DIR "/strings/0x409/manufacturer", "A90 NativeInit");
+    write_best_effort(GADGET_DIR "/strings/0x409/product", "A90 Linux (ARM)");
     write_best_effort(CONFIG_DIR "/strings/0x409/configuration", "serial");
     write_best_effort(CONFIG_DIR "/MaxPower", "900");
 
