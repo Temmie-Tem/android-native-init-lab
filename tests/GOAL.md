@@ -791,4 +791,8 @@ functions.
   configure_base V2176 axis rewrites, helper patch plus temporary legacy-link
   cleanup, DHCP/cleanup render_report ping-boundary safety scope,
   normalize_manifest_axes test-candidate metadata — 4 cases — green.
+- 2026-06-13 — `build_native_init_boot_v2178_wifi_profile_autoconnect.py` —
+  configure_base V2178 axis rewrites, helper patch plus temporary legacy-link
+  cleanup, profile/autoconnect render_report disabled-by-default safety scope,
+  normalize_manifest_axes test-candidate metadata — 4 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
