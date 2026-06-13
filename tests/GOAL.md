@@ -837,4 +837,9 @@ functions.
   counting, redacted run-metadata rendering, report blocker text/metadata,
   repo-root scoped file/boot-SHA helpers, Wi-Fi test-boot define detection,
   main report write/phase-timer flow — 6 cases — green.
+- 2026-06-13 — `security_unit_a_regression.py` /
+  `security_unit_b_regression.py` / `security_tier2_regression.py` —
+  embedded host-only hardening suites imported through the standard
+  revalidation loader, expected test-count assertions for Unit A/B/Tier2,
+  Unit B minimal manifest secret-hygiene defaults — 4 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
