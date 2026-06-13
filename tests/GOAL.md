@@ -759,4 +759,8 @@ functions.
 - 2026-06-13 — `build_native_init_boot_v2186_wifi_ui_polish.py` —
   configure_base V2186 axis rewrites, Wi-Fi UI polish render_report safety
   scope, normalize_manifest_axes promoted-baseline metadata — 3 cases — green.
+- 2026-06-13 — `build_native_init_boot_v2187_screenapp_ui_validation.py` —
+  configure_base V2187 axis rewrites, screenapp UI validation render_report
+  safety scope, normalize_manifest_axes promoted-baseline metadata — 3 cases —
+  green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
