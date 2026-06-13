@@ -671,4 +671,9 @@ functions.
   sha256_file, remote_probe_script contract markers, parse_candidate_results,
   pick_decision precondition/connect/no-connect branches, transfer_ok —
   7 cases — green.
+- 2026-06-13 — `tcpctl_host.py` — sha256_file, validate_install_target,
+  parse_tcpctl_token, tcpctl_command_requires_auth, get_tcpctl_token,
+  tcpctl_run_line, tcpctl_listen_command, tcpctl_request,
+  tcpctl_expect_ok, tcpctl_install_command, wait_for_tcpctl,
+  cmdv1_unavailable, device_command, command_run — 15 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
