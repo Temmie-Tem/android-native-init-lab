@@ -715,4 +715,9 @@ functions.
   symlink rejects, safe_filename, run_capture success/error evidence writes,
   classify tracefs/toybox marker branches, render_markdown summary/capture
   output — 5 cases — green.
+- 2026-06-13 — `storage_iotest.py` — parse_sizes,
+  deterministic_bytes/sha256, device root/path/port validation, mkdir_chain,
+  run_one_file mocked transfer/hash/rename/sync/unlink flow, command_run
+  report/residual state, command_clean safe run-child removal — 7 cases —
+  green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
