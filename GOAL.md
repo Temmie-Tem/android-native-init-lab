@@ -19,41 +19,34 @@ Pursue the **highest tier that still has a meaningful, safely-actionable next st
 Drop to the next tier only when the current one is *saturated* or *meaningless* (criteria
 below). Re-evaluate each iteration; you may climb back up if new work appears.
 
-### Active epic (do this FIRST — overrides the T1→T3 tier order below)
+### Active epic — FINAL closure unit only (overrides the T1→T3 tier order below)
 
-**WLAN kernel-interface event modernization.** Two device units, **E1 then E2**. The on-device
-`wifi` surface reads link state by **polling sysfs** (`/sys/class/net/wlan0/operstate`,`carrier`,
-`a90_wifi.c:1221`) inside `usleep()` loops and does **one-shot** nl80211 dumps; there is **no
-asynchronous kernel event stream**. nl80211/genetlink plumbing already exists
-(`wifi_open_genl_socket` `a90_wifi.c:2048`, `wifi_send_genl`, attribute parse, `CTRL_CMD_GETFAMILY`,
-scan `NLM_F_DUMP`) — so these units are **incremental on existing code, not greenfield**. In scope:
-native init consuming kernel netlink interfaces. **Out of scope:** kernel code/module changes or a
-kernel rebuild (beyond boot-init = brick risk), and anything from the closed observation/security
-phases.
+**WLAN kernel-interface event epic: E1 + E2 are DONE.** E2 (rtnetlink monitor,
+`wifi netevents`) shipped as **V2309**; E1 (nl80211 multicast events, `wifi events`) shipped as
+**V2310**; the event code was modularized in **V2311** (resident `0.9.275 (v2311-wifi-event-module)`).
+All flashed boot-only, `selftest fail=0`, `v2237` still the rollback target. Only the
+**creds-gated E1 assertion** was parked.
 
-- **E1 — nl80211 multicast event subscription** (highest value; aligned with the creds plan).
-  Parse `CTRL_ATTR_MCAST_GROUPS` from the `GETFAMILY` reply (not parsed today), `setsockopt`
-  `NETLINK_ADD_MEMBERSHIP` for the `mlme`/`scan`/`config` groups on a **persistent** genl socket,
-  and run an event loop decoding `NL80211_CMD_{CONNECT,DISCONNECT,NEW_SCAN_RESULTS,ROAM}`. Surface
-  the last event (+ monotonic ts) into `wifi status` and/or a read-only `wifi events` command, plus
-  a structured `a90_logf("wifi", …)` line (never log PSK/BSSID/IP). Reuse the existing genl helpers;
-  do not rewrite them.
-  - **Validation:** static cross-compile (`aarch64-linux-gnu-gcc` + `file`); device flash
-    **boot-only** + `version`/`status`/`selftest fail=0`; **with creds present**, one bounded
-    `wifi connect` → assert a `CMD_CONNECT` event is observed and matches the polled `carrier`.
-    **Creds are ABSENT now** → implement + static + boot-health still proceed; **park** the
-    event-path assertion as a human checkpoint, do NOT block, do NOT promote a baseline on
-    boot-health alone (`v2237` stays the rollback target).
-- **E2 — rtnetlink link/addr monitor** (fully validatable WITHOUT creds).
-  `AF_NETLINK`/`NETLINK_ROUTE` socket bound to `RTMGRP_LINK | RTMGRP_IPV4_IFADDR`; decode
-  `RTM_{NEWLINK,DELLINK,NEWADDR,DELADDR}` to report link up/down and IPv4 add/remove for `wlan0`
-  **and** `ncm0`, surfaced as a read-only command + structured log. Generalizes beyond Wi-Fi.
+**Wi-Fi credentials are now PRESENT** (`workspace/private/secrets/a90-wifi-test.env`). The single
+remaining unit is the **E1 connect-event closure** — do ONLY this, then STOP:
 
-**Ordering:** one unit per V-iteration; never bundle E1+E2. If creds are present → **E1 first**. If
-creds are still absent → **E2 first** (validates end-to-end today by toggling an interface), then E1
-with its event-path validation parked. Assign a fresh run/build/init identity per
-`VERSIONING_POLICY.md`, bump native init **beyond 0.9.272**, use a `vNNNN-purpose` tag. When the
-epic's units are implemented + validated to their ceiling, fall through to the tiers below.
+- On the **resident V2311 image** (no new boot artifact is required for a validation-only closure;
+  build/flash only if the closure genuinely needs an on-image change), run **one bounded
+  `wifi connect`** and assert a **`NL80211_CMD_CONNECT`** event is observed on the `mlme` group **and
+  matches the polled `carrier`** coming up. Keep it to a single bounded connect cycle; `wifi cleanup`
+  after. Never log PSK/BSSID/IP (`secret_values_logged=0`, `raw_bssid_redacted=1`,
+  `raw_ip_redacted=1`).
+- A single serial channel cannot run blocking `wifi events` and `wifi connect` at once — use the
+  second transport (tcpctl/NCM) or a device-side combined capture, and orchestrate the timing so the
+  event window spans the connect.
+- Write the closure report `docs/reports/NATIVE_INIT_VNNNN_E1_CONNECT_EVENT_CLOSURE_*.md` and commit
+  (scoped). Promote a new validated baseline ONLY if connect→event→carrier all pass; otherwise leave
+  `v2237` as the rollback target and report the gap.
+
+**After this closure commit the WLAN-events epic is CLOSED.** STOP and report — do **not** start a new
+epic, refactor, T2, or T3 unit. The operator chooses the next direction (candidate: the
+peripheral-breadth track — see `docs/reports/A90_KERNEL_CAPABILITY_INVENTORY_COMPILED_UNUSED_2026-06-13.md`
+and `docs/reports/TWRP_RECOVERY_TEARDOWN_DEVICE_REFERENCE_2026-06-13.md`).
 
 **T1 (now SATURATED) — analyzer / harness regression test suite (host-only, NO flash).**
 As of 2026-06-13 the 12 `workspace/public/src/harness/a90harness/` modules and all 124 revalidation
