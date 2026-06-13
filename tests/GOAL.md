@@ -717,9 +717,9 @@ functions.
   output — 5 cases — green.
 - 2026-06-13 — `storage_iotest.py` — parse_sizes,
   deterministic_bytes/sha256, device root/path/port validation, mkdir_chain,
-  run_one_file mocked transfer/hash/rename/sync/unlink flow, command_run
-  report/residual state, command_clean safe run-child removal — 7 cases —
-  green.
+  run_one_file mocked transfer/hash/rename/sync/unlink flow, transfer temp-file
+  cleanup on socket failure, device sha256 parse/reject paths, command_run
+  report/residual state, command_clean safe run-child removal — 9 cases — green.
 - 2026-06-13 — `netservice_reconnect_soak.py` — USB/NCM status parsing,
   host-interface selection gates, tcpctl token cache/auth rules, start/stop
   ready-marker checks, verify_ncm_and_tcp orchestration, once/soak failure

@@ -126,6 +126,81 @@ class DeviceOrchestration(unittest.TestCase):
         self.assertIn(("run /cache/bin/toybox rm -f /mnt/sdext/a90/test-io/run-01/file-01-32.bin.unlink-probe", False), run_commands)
         self.assertTrue(any(command.startswith("stat ") and allow_error for command, allow_error in run_commands))
 
+    def test_transfer_file_cleans_temp_path_when_socket_send_fails(self) -> None:
+        args = base_args(test_root="/mnt/sdext/a90/test-io", transfer_port=19001)
+        run_commands: list[tuple[str, bool]] = []
+        tmp_paths: list[str] = []
+
+        class FakeRunner:
+            error = None
+
+            def __init__(_self, _args, command: str, *, echo: bool = False) -> None:
+                self.assertIn("netcat", command)
+                match = command.split("of=", 1)[1].split()[0]
+                tmp_paths.append(match)
+
+            def start(self) -> None:
+                return None
+
+            def join(self, _timeout: float) -> None:
+                return None
+
+            def is_alive(self) -> bool:
+                return False
+
+            def text(self) -> str:
+                return "[done] run"
+
+        class FailingSocket:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_exc) -> None:
+                return None
+
+            def sendall(self, _chunk: bytes) -> None:
+                raise OSError("host send failed")
+
+            def shutdown(self, _how: int) -> None:
+                return None
+
+        def fake_run_device(_args, command: str, **kwargs) -> str:
+            run_commands.append((command, bool(kwargs.get("allow_error"))))
+            return "[done]"
+
+        with tempfile.TemporaryDirectory() as tmp:
+            local_path = Path(tmp) / "payload.bin"
+            local_path.write_bytes(b"abc")
+            with (
+                mock.patch.object(storage_iotest, "run_device", side_effect=fake_run_device),
+                mock.patch.object(storage_iotest, "BridgeRunThread", FakeRunner),
+                mock.patch.object(storage_iotest.socket, "create_connection", return_value=FailingSocket()),
+                mock.patch.object(storage_iotest.os, "getpid", return_value=1234),
+                mock.patch.object(storage_iotest.time, "time", return_value=5678.0),
+                self.assertRaisesRegex(OSError, "host send failed"),
+            ):
+                storage_iotest.transfer_file(args, local_path, "/mnt/sdext/a90/test-io/run-01/payload.bin")
+
+        self.assertEqual(tmp_paths, ["/mnt/sdext/a90/test-io/run-01/payload.bin.tmp.1234.5678"])
+        cleanup_command = "run /cache/bin/toybox rm -f /mnt/sdext/a90/test-io/run-01/payload.bin.tmp.1234.5678"
+        self.assertEqual(run_commands[0], (cleanup_command, True))
+        self.assertEqual(run_commands[-1], (cleanup_command, True))
+        self.assertNotIn(("run /cache/bin/toybox mv -f /mnt/sdext/a90/test-io/run-01/payload.bin.tmp.1234.5678 /mnt/sdext/a90/test-io/run-01/payload.bin", False), run_commands)
+
+    def test_device_sha256_parses_valid_digest_and_rejects_missing_digest(self) -> None:
+        args = base_args()
+        digest = "a" * 64
+
+        with mock.patch.object(storage_iotest, "run_device", return_value=f"{digest}  /mnt/sdext/a90/test-io/run-01/file.bin\n"):
+            self.assertEqual(
+                storage_iotest.device_sha256(args, "/mnt/sdext/a90/test-io/run-01/file.bin"),
+                digest,
+            )
+
+        with mock.patch.object(storage_iotest, "run_device", return_value="not-a-sha file.bin\n"):
+            with self.assertRaisesRegex(RuntimeError, "could not parse sha256sum"):
+                storage_iotest.device_sha256(args, "/mnt/sdext/a90/test-io/run-01/file.bin")
+
     def test_command_run_writes_json_markdown_and_residual_cleanup_state(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
