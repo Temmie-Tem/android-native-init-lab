@@ -27,7 +27,7 @@ below). Re-evaluate each iteration; you may climb back up if new work appears.
 closed in **V2312** with `wifi connect-event`.
 
 V2312 (`A90 Linux init 0.9.276 (v2312-e1-connect-event-closure)`) flashed boot-only, passed
-`selftest fail=0`, ran one bounded `wifi connect-event temmie5g 60000`, observed
+`selftest fail=0`, ran one bounded `wifi connect-event <redacted-ssid> 60000`, observed
 `NL80211_CMD_CONNECT` on `wlan0`, matched final carrier up, redacted BSSID/IP/secret values, then
 ran `wifi cleanup`. No DHCP, routes, external ping, or partition writes were performed. V2312 is the
 current validated test baseline; **`v2237` remains the known-good rollback target.**

@@ -39,9 +39,9 @@ that `NL80211_CMD_CONNECT` and final carrier-up agree.
 
 ## Live Closure Evidence
 
-- Run profile: `temmie5g`
+- Run profile: `<redacted-ssid>`
 - Profile evidence: `profile_valid=1`, `profile_key_mgmt=WPA-PSK`, `secret_values_logged=0`
-- Command: `wifi connect-event temmie5g 60000`
+- Command: `wifi connect-event <redacted-ssid> 60000`
 - Event collector version: `a90-native-wifi-connect-event-v1`
 - nl80211 groups joined: `mlme=1`, `scan=1`, `config=1`
 - Event count: `event.count=1`
