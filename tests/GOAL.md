@@ -829,4 +829,8 @@ functions.
   planning, legacy-flat protection/explicit deletion gate, build-product-only
   pruning, symlink escape refusal in execute_plan, text rendering — 5 cases —
   green.
+- 2026-06-13 — `cleanup_tmp_classified_artifacts.py` — classified NCM/kernel
+  out/root ELF/bridge-log action planning, skip already-compressed logs,
+  remove/compress execution, symlink escape refusal, execute manifest rewrite
+  path — 5 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
