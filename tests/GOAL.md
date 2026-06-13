@@ -689,4 +689,8 @@ functions.
   safe temp/path builders, _run_cmd, _run_profile success/failure branches,
   run report writing, verify pass/mismatch/missing-report branches — 9 cases —
   green.
+- 2026-06-13 — `a90harness/modules/ncm_tcp_preflight.py` —
+  prepare ping-skip/helper-present/helper-missing branches, run tcpctl smoke
+  command and marker validation, cleanup skip/no-op, verify authenticated marker
+  and auth=none rejection branches — 7 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
