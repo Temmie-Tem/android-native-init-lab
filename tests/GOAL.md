@@ -732,4 +732,8 @@ functions.
   screenapp_pass field contract, classify flash/status/ping/rollback/pass
   decisions, render_report evidence/safety text, rel path handling,
   fields_for key-value parsing — 5 cases — green.
+- 2026-06-13 — `native_wifi_v2178_autoconnect_phase_validation.py` —
+  classify pass and baseline/connect/secret/cleanup/disable/selftest failure
+  branches, step_text/find_step output handling, zero_flag strictness,
+  rel path handling — 5 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
