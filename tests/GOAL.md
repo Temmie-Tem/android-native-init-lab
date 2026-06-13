@@ -667,4 +667,8 @@ functions.
   run_command, status_summary, candidate_brief, write_step,
   run_json_subprocess, run_transport_smoke, run_idempotent_netservice,
   run_nm_repair_probe, wait_for_status — 9 cases — green.
+- 2026-06-13 — `native_wifi_supplicant_dependency_probe.py` —
+  sha256_file, remote_probe_script contract markers, parse_candidate_results,
+  pick_decision precondition/connect/no-connect branches, transfer_ok —
+  7 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
