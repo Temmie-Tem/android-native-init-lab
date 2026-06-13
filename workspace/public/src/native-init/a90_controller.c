@@ -190,6 +190,9 @@ static bool wifi_read_only(int argc, char **argv) {
     if (argc == 2 && arg_equals(argv, argc, 1, "status")) {
         return true;
     }
+    if ((argc == 2 || argc == 3) && arg_equals(argv, argc, 1, "events")) {
+        return true;
+    }
     if ((argc == 2 || argc == 3) && arg_equals(argv, argc, 1, "netevents")) {
         return true;
     }
@@ -387,6 +390,7 @@ static const struct controller_policy_case policy_cases[] = {
     { "menu allow wififeas summary", 2, { "wififeas", "summary" }, false, true },
     { "menu allow wififeas gate", 2, { "wififeas", "gate" }, false, true },
     { "menu allow wifi status", 2, { "wifi", "status" }, false, true },
+    { "menu allow wifi events", 2, { "wifi", "events" }, false, true },
     { "menu allow wifi netevents", 2, { "wifi", "netevents" }, false, true },
     { "menu allow wifi config status", 3, { "wifi", "config", "status" }, false, true },
     { "menu allow hide", 1, { "hide" }, false, true },

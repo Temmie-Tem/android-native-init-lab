@@ -95,6 +95,10 @@
 #define A90_WIFI_NETEVENT_DEFAULT_MS 5000
 #define A90_WIFI_NETEVENT_MAX_MS 30000
 #define A90_WIFI_NETEVENT_MAX_STORED 16
+#define A90_WIFI_NL80211_EVENTS_VERSION "a90-native-wifi-nl80211-events-v1"
+#define A90_WIFI_NL80211_EVENT_DEFAULT_MS 5000
+#define A90_WIFI_NL80211_EVENT_MAX_MS 30000
+#define A90_WIFI_NL80211_EVENT_MAX_STORED 16
 
 static int wifi_open_dir_no_follow(const char *path) {
     return open(path, O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW);
@@ -1076,6 +1080,42 @@ struct wifi_netevent_snapshot {
     int event_count;
     int stored_count;
     struct wifi_netevent events[A90_WIFI_NETEVENT_MAX_STORED];
+    char decision[64];
+};
+
+struct wifi_nl80211_family_info {
+    int family_id;
+    int group_count;
+    int mlme_group_id;
+    int scan_group_id;
+    int config_group_id;
+};
+
+struct wifi_nl80211_event {
+    char cmd[32];
+    char iface[IFNAMSIZ];
+    int cmd_id;
+    unsigned int ifindex;
+    long monotonic_ms;
+};
+
+struct wifi_nl80211_event_snapshot {
+    int rc;
+    int saved_errno;
+    int socket_open;
+    int timeout_ms;
+    int family_id;
+    int group_count;
+    int mlme_group_id;
+    int scan_group_id;
+    int config_group_id;
+    int mlme_joined;
+    int scan_joined;
+    int config_joined;
+    int groups_joined;
+    int event_count;
+    int stored_count;
+    struct wifi_nl80211_event events[A90_WIFI_NL80211_EVENT_MAX_STORED];
     char decision[64];
 };
 
@@ -2322,6 +2362,13 @@ static unsigned int wifi_nla_type(const struct nlattr *attr) {
     return attr->nla_type & NLA_TYPE_MASK;
 }
 
+static int wifi_nla_payload_len(const struct nlattr *attr) {
+    if (attr == NULL || attr->nla_len < NLA_HDRLEN) {
+        return 0;
+    }
+    return (int)attr->nla_len - NLA_HDRLEN;
+}
+
 static void wifi_parse_attrs(struct nlattr **attrs, int max_attr, struct nlattr *attr, int len) {
     memset(attrs, 0, sizeof(struct nlattr *) * (size_t)(max_attr + 1));
     while (wifi_nla_ok(attr, len)) {
@@ -2503,6 +2550,427 @@ static int wifi_get_family_id(int socket_fd, const char *name) {
         return -1;
     }
     return wifi_recv_family_id(socket_fd, seq);
+}
+
+static void wifi_copy_nla_string(const struct nlattr *attr, char *out, size_t out_size) {
+    int payload_len;
+    size_t copy_len;
+
+    if (out == NULL || out_size == 0) {
+        return;
+    }
+    out[0] = '\0';
+    payload_len = wifi_nla_payload_len(attr);
+    if (attr == NULL || payload_len <= 0) {
+        return;
+    }
+    copy_len = (size_t)payload_len;
+    if (copy_len >= out_size) {
+        copy_len = out_size - 1;
+    }
+    memcpy(out, wifi_nla_data(attr), copy_len);
+    out[copy_len] = '\0';
+}
+
+static int wifi_nla_u32(const struct nlattr *attr, uint32_t *out) {
+    if (attr == NULL || out == NULL || wifi_nla_payload_len(attr) < (int)sizeof(*out)) {
+        return -EINVAL;
+    }
+    memcpy(out, wifi_nla_data(attr), sizeof(*out));
+    return 0;
+}
+
+static void wifi_parse_mcast_group_entry(struct wifi_nl80211_family_info *info,
+                                         struct nlattr *group_attr) {
+    struct nlattr *group_attrs[CTRL_ATTR_MCAST_GRP_MAX + 1];
+    char name[64];
+    uint32_t group_id = 0;
+    int payload_len;
+
+    if (info == NULL || group_attr == NULL) {
+        return;
+    }
+    payload_len = wifi_nla_payload_len(group_attr);
+    if (payload_len <= 0) {
+        return;
+    }
+    wifi_parse_attrs(group_attrs,
+                     CTRL_ATTR_MCAST_GRP_MAX,
+                     (struct nlattr *)wifi_nla_data(group_attr),
+                     payload_len);
+    wifi_copy_nla_string(group_attrs[CTRL_ATTR_MCAST_GRP_NAME], name, sizeof(name));
+    if (wifi_nla_u32(group_attrs[CTRL_ATTR_MCAST_GRP_ID], &group_id) < 0 || name[0] == '\0') {
+        return;
+    }
+    ++info->group_count;
+    if (strcmp(name, "mlme") == 0) {
+        info->mlme_group_id = (int)group_id;
+    } else if (strcmp(name, "scan") == 0) {
+        info->scan_group_id = (int)group_id;
+    } else if (strcmp(name, "config") == 0) {
+        info->config_group_id = (int)group_id;
+    }
+}
+
+static void wifi_parse_mcast_groups(struct wifi_nl80211_family_info *info, struct nlattr *groups_attr) {
+    struct nlattr *group_attr;
+    int remaining;
+
+    if (info == NULL || groups_attr == NULL) {
+        return;
+    }
+    group_attr = (struct nlattr *)wifi_nla_data(groups_attr);
+    remaining = wifi_nla_payload_len(groups_attr);
+    while (wifi_nla_ok(group_attr, remaining)) {
+        wifi_parse_mcast_group_entry(info, group_attr);
+        group_attr = wifi_nla_next(group_attr, &remaining);
+    }
+}
+
+static int wifi_recv_family_info(int socket_fd,
+                                 uint32_t seq,
+                                 struct wifi_nl80211_family_info *info) {
+    char buffer[A90_WIFI_SCAN_RECV_SIZE];
+    ssize_t received = recv(socket_fd, buffer, sizeof(buffer), 0);
+    struct nlmsghdr *nlh;
+    int remaining;
+
+    if (info == NULL) {
+        errno = EINVAL;
+        return -1;
+    }
+    memset(info, 0, sizeof(*info));
+    if (received < 0) {
+        return -1;
+    }
+    for (nlh = (struct nlmsghdr *)buffer, remaining = (int)received;
+         NLMSG_OK(nlh, remaining);
+         nlh = NLMSG_NEXT(nlh, remaining)) {
+        struct genlmsghdr *genlh;
+        struct nlattr *attrs[CTRL_ATTR_MAX + 1];
+        int attr_len;
+        uint16_t family_id = 0;
+
+        if (nlh->nlmsg_seq != seq) {
+            continue;
+        }
+        if (nlh->nlmsg_type == NLMSG_ERROR) {
+            struct nlmsgerr *err = (struct nlmsgerr *)NLMSG_DATA(nlh);
+
+            errno = err->error < 0 ? -err->error : EIO;
+            return -1;
+        }
+        if (nlh->nlmsg_type == NLMSG_DONE) {
+            break;
+        }
+        genlh = (struct genlmsghdr *)NLMSG_DATA(nlh);
+        attr_len = (int)nlh->nlmsg_len - (int)NLMSG_LENGTH(sizeof(*genlh));
+        if (attr_len < 0) {
+            continue;
+        }
+        wifi_parse_attrs(attrs,
+                         CTRL_ATTR_MAX,
+                         (struct nlattr *)((char *)genlh + GENL_HDRLEN),
+                         attr_len);
+        if (attrs[CTRL_ATTR_FAMILY_ID] == NULL ||
+            wifi_nla_payload_len(attrs[CTRL_ATTR_FAMILY_ID]) < (int)sizeof(family_id)) {
+            continue;
+        }
+        memcpy(&family_id, wifi_nla_data(attrs[CTRL_ATTR_FAMILY_ID]), sizeof(family_id));
+        info->family_id = (int)family_id;
+        wifi_parse_mcast_groups(info, attrs[CTRL_ATTR_MCAST_GROUPS]);
+        return 0;
+    }
+    errno = ENOENT;
+    return -1;
+}
+
+static int wifi_get_family_info(int socket_fd,
+                                const char *name,
+                                struct wifi_nl80211_family_info *info) {
+    const uint32_t seq = 100;
+
+    if (wifi_send_genl(socket_fd, GENL_ID_CTRL, CTRL_CMD_GETFAMILY, 0, seq, name, 0, false, false) < 0) {
+        return -1;
+    }
+    return wifi_recv_family_info(socket_fd, seq, info);
+}
+
+static const char *wifi_nl80211_cmd_name(int cmd) {
+    switch (cmd) {
+        case NL80211_CMD_CONNECT:
+            return "CONNECT";
+        case NL80211_CMD_DISCONNECT:
+            return "DISCONNECT";
+        case NL80211_CMD_NEW_SCAN_RESULTS:
+            return "NEW_SCAN_RESULTS";
+        case NL80211_CMD_SCAN_ABORTED:
+            return "SCAN_ABORTED";
+        case NL80211_CMD_ROAM:
+            return "ROAM";
+        default:
+            return "OTHER";
+    }
+}
+
+static bool wifi_nl80211_cmd_interesting(int cmd) {
+    return cmd == NL80211_CMD_CONNECT ||
+           cmd == NL80211_CMD_DISCONNECT ||
+           cmd == NL80211_CMD_NEW_SCAN_RESULTS ||
+           cmd == NL80211_CMD_SCAN_ABORTED ||
+           cmd == NL80211_CMD_ROAM;
+}
+
+static int wifi_join_genl_group(int socket_fd, int group_id) {
+    int group = group_id;
+
+    if (group_id <= 0) {
+        errno = ENOENT;
+        return -1;
+    }
+    return setsockopt(socket_fd, SOL_NETLINK, NETLINK_ADD_MEMBERSHIP, &group, sizeof(group));
+}
+
+static void wifi_nl80211_store_event(struct wifi_nl80211_event_snapshot *out,
+                                     int cmd,
+                                     unsigned int ifindex,
+                                     const char *iface) {
+    struct wifi_nl80211_event *event;
+
+    if (out == NULL) {
+        return;
+    }
+    ++out->event_count;
+    if (out->stored_count >= A90_WIFI_NL80211_EVENT_MAX_STORED) {
+        return;
+    }
+    event = &out->events[out->stored_count++];
+    memset(event, 0, sizeof(*event));
+    event->cmd_id = cmd;
+    event->ifindex = ifindex;
+    event->monotonic_ms = monotonic_millis();
+    snprintf(event->cmd, sizeof(event->cmd), "%s", wifi_nl80211_cmd_name(cmd));
+    snprintf(event->iface, sizeof(event->iface), "%s",
+             iface != NULL && iface[0] != '\0' ? iface : "unknown");
+    a90_logf("wifi",
+             "nl80211_event cmd=%s cmd_id=%d iface=%s ifindex=%u raw_bssid_redacted=1 raw_ip_redacted=1",
+             event->cmd,
+             event->cmd_id,
+             event->iface,
+             event->ifindex);
+}
+
+static void wifi_nl80211_parse_event(struct wifi_nl80211_event_snapshot *out,
+                                     const struct nlmsghdr *nlh) {
+    const struct genlmsghdr *genlh = (const struct genlmsghdr *)NLMSG_DATA(nlh);
+    struct nlattr *attrs[NL80211_ATTR_MAX + 1];
+    uint32_t ifindex = 0;
+    char iface[IFNAMSIZ] = "unknown";
+    int attr_len;
+
+    if (genlh == NULL || !wifi_nl80211_cmd_interesting(genlh->cmd)) {
+        return;
+    }
+    attr_len = (int)nlh->nlmsg_len - (int)NLMSG_LENGTH(sizeof(*genlh));
+    if (attr_len < 0) {
+        return;
+    }
+    wifi_parse_attrs(attrs,
+                     NL80211_ATTR_MAX,
+                     (struct nlattr *)((char *)genlh + GENL_HDRLEN),
+                     attr_len);
+    if (wifi_nla_u32(attrs[NL80211_ATTR_IFINDEX], &ifindex) == 0 &&
+        if_indextoname(ifindex, iface) != NULL) {
+        if (strcmp(iface, A90_WIFI_IFACE) != 0) {
+            return;
+        }
+    }
+    wifi_nl80211_store_event(out, (int)genlh->cmd, ifindex, iface);
+}
+
+int a90_wifi_events_collect(int timeout_ms, struct wifi_nl80211_event_snapshot *out) {
+    struct wifi_nl80211_family_info family_info;
+    int fd;
+    long started_ms;
+    long deadline_ms;
+
+    if (out == NULL) {
+        return -EINVAL;
+    }
+    memset(out, 0, sizeof(*out));
+    out->timeout_ms = timeout_ms;
+    snprintf(out->decision, sizeof(out->decision), "%s", "wifi-events-unstarted");
+    if (timeout_ms < 0 || timeout_ms > A90_WIFI_NL80211_EVENT_MAX_MS) {
+        out->rc = -EINVAL;
+        out->saved_errno = EINVAL;
+        snprintf(out->decision, sizeof(out->decision), "%s", "wifi-events-invalid-timeout");
+        return out->rc;
+    }
+    fd = wifi_open_genl_socket();
+    if (fd < 0) {
+        out->rc = -errno;
+        out->saved_errno = errno;
+        snprintf(out->decision, sizeof(out->decision), "%s", "wifi-events-socket-failed");
+        return out->rc;
+    }
+    out->socket_open = 1;
+    if (wifi_get_family_info(fd, "nl80211", &family_info) < 0) {
+        out->rc = -errno;
+        out->saved_errno = errno;
+        snprintf(out->decision, sizeof(out->decision), "%s", "wifi-events-family-info-failed");
+        (void)close(fd);
+        return out->rc;
+    }
+    out->family_id = family_info.family_id;
+    out->group_count = family_info.group_count;
+    out->mlme_group_id = family_info.mlme_group_id;
+    out->scan_group_id = family_info.scan_group_id;
+    out->config_group_id = family_info.config_group_id;
+    if (wifi_join_genl_group(fd, family_info.mlme_group_id) == 0) {
+        out->mlme_joined = 1;
+        ++out->groups_joined;
+    } else {
+        out->saved_errno = out->saved_errno == 0 ? errno : out->saved_errno;
+    }
+    if (wifi_join_genl_group(fd, family_info.scan_group_id) == 0) {
+        out->scan_joined = 1;
+        ++out->groups_joined;
+    } else {
+        out->saved_errno = out->saved_errno == 0 ? errno : out->saved_errno;
+    }
+    if (wifi_join_genl_group(fd, family_info.config_group_id) == 0) {
+        out->config_joined = 1;
+        ++out->groups_joined;
+    } else {
+        out->saved_errno = out->saved_errno == 0 ? errno : out->saved_errno;
+    }
+    if (out->groups_joined <= 0) {
+        out->rc = -(out->saved_errno != 0 ? out->saved_errno : ENOENT);
+        snprintf(out->decision, sizeof(out->decision), "%s", "wifi-events-subscribe-failed");
+        (void)close(fd);
+        return out->rc;
+    }
+
+    started_ms = monotonic_millis();
+    deadline_ms = started_ms + timeout_ms;
+    for (;;) {
+        struct pollfd poll_fd;
+        int wait_ms = (int)(deadline_ms - monotonic_millis());
+        int poll_rc;
+        char buffer[A90_WIFI_SCAN_RECV_SIZE];
+        ssize_t received;
+        struct nlmsghdr *nlh;
+        int remaining;
+
+        if (wait_ms < 0) {
+            break;
+        }
+        memset(&poll_fd, 0, sizeof(poll_fd));
+        poll_fd.fd = fd;
+        poll_fd.events = POLLIN;
+        poll_rc = poll(&poll_fd, 1, wait_ms);
+        if (poll_rc == 0) {
+            break;
+        }
+        if (poll_rc < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            out->rc = -errno;
+            out->saved_errno = errno;
+            snprintf(out->decision, sizeof(out->decision), "%s", "wifi-events-poll-failed");
+            (void)close(fd);
+            return out->rc;
+        }
+        received = recv(fd, buffer, sizeof(buffer), 0);
+        if (received < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            out->rc = -errno;
+            out->saved_errno = errno;
+            snprintf(out->decision, sizeof(out->decision), "%s", "wifi-events-recv-failed");
+            (void)close(fd);
+            return out->rc;
+        }
+        for (nlh = (struct nlmsghdr *)buffer, remaining = (int)received;
+             NLMSG_OK(nlh, remaining);
+             nlh = NLMSG_NEXT(nlh, remaining)) {
+            if (nlh->nlmsg_type == NLMSG_ERROR) {
+                const struct nlmsgerr *err = (const struct nlmsgerr *)NLMSG_DATA(nlh);
+
+                out->rc = err->error < 0 ? err->error : -EIO;
+                out->saved_errno = err->error < 0 ? -err->error : EIO;
+                snprintf(out->decision, sizeof(out->decision), "%s", "wifi-events-netlink-error");
+                (void)close(fd);
+                return out->rc;
+            }
+            if (nlh->nlmsg_type == (unsigned int)family_info.family_id) {
+                wifi_nl80211_parse_event(out, nlh);
+            }
+        }
+    }
+    (void)close(fd);
+    out->rc = 0;
+    snprintf(out->decision,
+             sizeof(out->decision),
+             "%s",
+             out->event_count > 0 ? "wifi-events-observed" : "wifi-events-timeout-no-events");
+    return 0;
+}
+
+int a90_wifi_events_once(int timeout_ms) {
+    struct wifi_nl80211_event_snapshot snapshot;
+    int rc;
+    int i;
+
+    rc = a90_wifi_events_collect(timeout_ms, &snapshot);
+    a90_console_printf("[wifi events]\r\n");
+    a90_console_printf("version=%s\r\n", A90_WIFI_NL80211_EVENTS_VERSION);
+    a90_console_printf("monitor=nl80211\r\n");
+    a90_console_printf("groups=mlme,scan,config\r\n");
+    a90_console_printf("timeout_ms=%d\r\n", snapshot.timeout_ms);
+    a90_console_printf("socket_open=%d\r\n", snapshot.socket_open);
+    a90_console_printf("family_id=%d\r\n", snapshot.family_id);
+    a90_console_printf("mcast_group_count=%d\r\n", snapshot.group_count);
+    a90_console_printf("group.mlme.id=%d\r\n", snapshot.mlme_group_id);
+    a90_console_printf("group.mlme.joined=%d\r\n", snapshot.mlme_joined);
+    a90_console_printf("group.scan.id=%d\r\n", snapshot.scan_group_id);
+    a90_console_printf("group.scan.joined=%d\r\n", snapshot.scan_joined);
+    a90_console_printf("group.config.id=%d\r\n", snapshot.config_group_id);
+    a90_console_printf("group.config.joined=%d\r\n", snapshot.config_joined);
+    a90_console_printf("groups_joined=%d\r\n", snapshot.groups_joined);
+    a90_console_printf("event_count=%d\r\n", snapshot.event_count);
+    a90_console_printf("stored_count=%d\r\n", snapshot.stored_count);
+    a90_console_printf("raw_bssid_redacted=1\r\n");
+    a90_console_printf("raw_ip_redacted=1\r\n");
+    a90_console_printf("secret_values_logged=0\r\n");
+    a90_console_printf("scan_attempted=0\r\n");
+    a90_console_printf("connect_attempted=0\r\n");
+    a90_console_printf("dhcp_attempted=0\r\n");
+    a90_console_printf("external_ping_attempted=0\r\n");
+    for (i = 0; i < snapshot.stored_count; ++i) {
+        const struct wifi_nl80211_event *event = &snapshot.events[i];
+
+        a90_console_printf("event.%d.cmd=%s\r\n", i, event->cmd);
+        a90_console_printf("event.%d.cmd_id=%d\r\n", i, event->cmd_id);
+        a90_console_printf("event.%d.iface=%s\r\n", i, event->iface);
+        a90_console_printf("event.%d.ifindex=%u\r\n", i, event->ifindex);
+        a90_console_printf("event.%d.monotonic_ms=%ld\r\n", i, event->monotonic_ms);
+    }
+    a90_console_printf("rc=%d\r\n", snapshot.rc);
+    a90_console_printf("saved_errno=%d\r\n", snapshot.saved_errno);
+    a90_console_printf("decision=%s\r\n", snapshot.decision);
+    a90_logf("wifi",
+             "events decision=%s rc=%d family_id=%d groups_joined=%d events=%d stored=%d timeout_ms=%d",
+             snapshot.decision,
+             snapshot.rc,
+             snapshot.family_id,
+             snapshot.groups_joined,
+             snapshot.event_count,
+             snapshot.stored_count,
+             snapshot.timeout_ms);
+    return rc;
 }
 
 static int wifi_recv_ack(int socket_fd, uint32_t seq) {
@@ -3585,6 +4053,18 @@ int a90_wifi_cmd(char **argv, int argc) {
     if ((argc == 2 || argc == 3) &&
         argv != NULL &&
         argv[1] != NULL &&
+        strcmp(argv[1], "events") == 0) {
+        int timeout_ms = A90_WIFI_NL80211_EVENT_DEFAULT_MS;
+
+        if (argc == 3 && wifi_parse_delay_ms(argv[2], &timeout_ms) < 0) {
+            a90_console_printf("usage: wifi events [timeout_ms]\r\n");
+            return -EINVAL;
+        }
+        return a90_wifi_events_once(timeout_ms);
+    }
+    if ((argc == 2 || argc == 3) &&
+        argv != NULL &&
+        argv[1] != NULL &&
         strcmp(argv[1], "netevents") == 0) {
         int timeout_ms = A90_WIFI_NETEVENT_DEFAULT_MS;
 
@@ -3648,6 +4128,6 @@ int a90_wifi_cmd(char **argv, int argc) {
         return a90_wificfg_cmd(argv, argc);
     }
 
-    a90_console_printf("usage: wifi [status|scan [delay_ms]|netevents [timeout_ms]|connect [profile]|dhcp [profile]|ping [gateway|internet|all]|cleanup|profile [list|status [profile]]|autoconnect [status|enable [profile]|disable|once [profile]]|config [status|prepare [profile]]]\r\n");
+    a90_console_printf("usage: wifi [status|scan [delay_ms]|events [timeout_ms]|netevents [timeout_ms]|connect [profile]|dhcp [profile]|ping [gateway|internet|all]|cleanup|profile [list|status [profile]]|autoconnect [status|enable [profile]|disable|once [profile]]|config [status|prepare [profile]]]\r\n");
     return -EINVAL;
 }
