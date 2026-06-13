@@ -25,8 +25,8 @@ below). Re-evaluate each iteration; you may climb back up if new work appears.
 (U1 `usb status` / U2 atomic auxiliary add-remove / U3 read-only mass-storage persona); USB
 **device identity** at V2316–V2321 (real serial redacted to `A90NATIVE001`; host-visible
 descriptor set to `A90-LNX` / `A90 Linux ARM64` via fixed-length kernel **rodata** patches).
-Rollback target `v2321` (`0.9.285`); `v2237`/`v48` remain deeper fallbacks. U-A of this
-epic is closed at V2322 (`0.9.286`) as a validated test artifact, not yet the rollback target.
+Rollback target `v2321` (`0.9.285`); `v2237`/`v48` remain deeper fallbacks. U-A is
+closed at V2322 (`0.9.286`), and U-B is closed at V2323 (`0.9.287`) as a validated test artifact; neither is the rollback target until explicitly promoted.
 
 **Active epic: make a USB-mounted disk show a dedicated name on the host** by giving the
 mass-storage function named, multi-LUN identity. Keep **three independent naming layers** separate:
@@ -58,8 +58,7 @@ expose real `/data`, internal partitions, the SD raw block, or any forbidden par
   image labeled `A90INTERNAL` (11 chars). Live host validation passed: `lsblk -S` showed SCSI
   model `A90-INTERNAL`, and the block view showed label `A90INTERNAL`, filesystem `vfat`, size
   `8M`, read-only `1`.
-- **U-B — multi-LUN.** Add `lun.1` (model `A90-SD`, label `A90SD`, file-backed RO) so the host sees
-  two named disks; confirm both names on the host. (`FSG_MAX_LUNS = 8`.)
+- **U-B — multi-LUN — DONE at V2323.** `lun.1` was added with model `A90-SD`, label `A90SD`, and a read-only file-backed FAT16 image. Live host validation passed: `lsblk -S` showed two USB disks with SCSI models `A90-INTERNAL` and `A90-SD`, and the block view showed labels `A90INTERNAL` and `A90SD`, filesystem `vfat`, size `8M`, read-only `1`. (`FSG_MAX_LUNS = 8`.)
 - **U-C — real SD / internal read-only exposure with a mount-conflict gate — DEFERRED.** Do NOT start
   without a new explicit goal.
 

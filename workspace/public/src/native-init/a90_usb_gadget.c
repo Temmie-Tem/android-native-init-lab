@@ -33,13 +33,20 @@
 #define A90_USB_RECONFIG_WATCHDOG_SEC 8
 #define A90_USB_RECONFIG_DETACH_DELAY_USEC 1000000
 #define A90_USB_RECONFIG_SETTLE_USEC 350000
-#define A90_USB_MASS_STORAGE_BACKING_PATH "/cache/a90-usb-mass-storage-v2322-internal.img"
+#define A90_USB_MASS_STORAGE_INTERNAL_BACKING_PATH "/cache/a90-usb-mass-storage-v2323-internal.img"
+#define A90_USB_MASS_STORAGE_SD_BACKING_PATH "/cache/a90-usb-mass-storage-v2323-sd.img"
 #define A90_USB_MASS_STORAGE_BACKING_BYTES (8LL * 1024LL * 1024LL)
-#define A90_USB_MASS_STORAGE_INQUIRY_STRING "A90-LNX A90-INTERNAL    0001"
-#define A90_USB_MASS_STORAGE_INQUIRY_VENDOR "A90-LNX"
-#define A90_USB_MASS_STORAGE_INQUIRY_PRODUCT "A90-INTERNAL"
-#define A90_USB_MASS_STORAGE_INQUIRY_REVISION "0001"
-#define A90_USB_MASS_STORAGE_VOLUME_LABEL "A90INTERNAL"
+#define A90_USB_MASS_STORAGE_INTERNAL_INQUIRY_STRING "A90-LNX A90-INTERNAL    0001"
+#define A90_USB_MASS_STORAGE_INTERNAL_INQUIRY_VENDOR "A90-LNX"
+#define A90_USB_MASS_STORAGE_INTERNAL_INQUIRY_PRODUCT "A90-INTERNAL"
+#define A90_USB_MASS_STORAGE_INTERNAL_INQUIRY_REVISION "0001"
+#define A90_USB_MASS_STORAGE_INTERNAL_VOLUME_LABEL "A90INTERNAL"
+#define A90_USB_MASS_STORAGE_SD_INQUIRY_STRING "A90-LNX A90-SD          0001"
+#define A90_USB_MASS_STORAGE_SD_INQUIRY_VENDOR "A90-LNX"
+#define A90_USB_MASS_STORAGE_SD_INQUIRY_PRODUCT "A90-SD"
+#define A90_USB_MASS_STORAGE_SD_INQUIRY_REVISION "0001"
+#define A90_USB_MASS_STORAGE_SD_VOLUME_LABEL "A90SD"
+#define A90_USB_MASS_STORAGE_MAX_LUNS 2
 #define A90_USB_FAT_BYTES_PER_SECTOR 512
 #define A90_USB_FAT_TOTAL_SECTORS ((unsigned int)(A90_USB_MASS_STORAGE_BACKING_BYTES / A90_USB_FAT_BYTES_PER_SECTOR))
 #define A90_USB_FAT_RESERVED_SECTORS 1
@@ -103,6 +110,37 @@ struct usb_inventory {
     struct usb_function_info functions[A90_USB_MAX_FUNCTIONS];
     struct usb_config_info configs[A90_USB_MAX_CONFIGS];
     struct usb_udc_info udcs[A90_USB_MAX_UDCS];
+};
+
+struct usb_mass_storage_lun_identity {
+    int lun;
+    const char *backing_path;
+    const char *inquiry_string;
+    const char *vendor;
+    const char *product;
+    const char *revision;
+    const char *volume_label;
+};
+
+static const struct usb_mass_storage_lun_identity A90_USB_MASS_STORAGE_LUNS[A90_USB_MASS_STORAGE_MAX_LUNS] = {
+    {
+        0,
+        A90_USB_MASS_STORAGE_INTERNAL_BACKING_PATH,
+        A90_USB_MASS_STORAGE_INTERNAL_INQUIRY_STRING,
+        A90_USB_MASS_STORAGE_INTERNAL_INQUIRY_VENDOR,
+        A90_USB_MASS_STORAGE_INTERNAL_INQUIRY_PRODUCT,
+        A90_USB_MASS_STORAGE_INTERNAL_INQUIRY_REVISION,
+        A90_USB_MASS_STORAGE_INTERNAL_VOLUME_LABEL,
+    },
+    {
+        1,
+        A90_USB_MASS_STORAGE_SD_BACKING_PATH,
+        A90_USB_MASS_STORAGE_SD_INQUIRY_STRING,
+        A90_USB_MASS_STORAGE_SD_INQUIRY_VENDOR,
+        A90_USB_MASS_STORAGE_SD_INQUIRY_PRODUCT,
+        A90_USB_MASS_STORAGE_SD_INQUIRY_REVISION,
+        A90_USB_MASS_STORAGE_SD_VOLUME_LABEL,
+    },
 };
 
 static int write_file(const char *path, const char *value) {
@@ -687,59 +725,113 @@ static void usb_print_inventory(const struct usb_inventory *inventory) {
                            function_index,
                            dash_if_empty(function->control_role));
         if (strcmp(function->name, "mass_storage.0") == 0) {
-            char file[256];
-            char ro[32];
-            char removable[32];
-            char cdrom[32];
-            char inquiry_string[64];
-            bool file_present;
+            int lun_index;
 
-            usb_read_value(A90_USB_GADGET_MASS_STORAGE_FUNCTION "/lun.0/file",
-                           file,
-                           sizeof(file));
-            usb_read_value(A90_USB_GADGET_MASS_STORAGE_FUNCTION "/lun.0/ro",
-                           ro,
-                           sizeof(ro));
-            usb_read_value(A90_USB_GADGET_MASS_STORAGE_FUNCTION "/lun.0/removable",
-                           removable,
-                           sizeof(removable));
-            usb_read_value(A90_USB_GADGET_MASS_STORAGE_FUNCTION "/lun.0/cdrom",
-                           cdrom,
-                           sizeof(cdrom));
-            usb_read_value(A90_USB_GADGET_MASS_STORAGE_FUNCTION "/lun.0/inquiry_string",
-                           inquiry_string,
-                           sizeof(inquiry_string));
-            file_present = file[0] != '\0' && strcmp(file, "-") != 0;
-            a90_console_printf("function.%d.mass_storage.file.present=%d\r\n",
+            a90_console_printf("function.%d.mass_storage.lun.count=%d\r\n",
                                function_index,
-                               file_present ? 1 : 0);
-            a90_console_printf("function.%d.mass_storage.file.path=%s\r\n",
-                               function_index,
-                               file_present ? file : "-");
-            a90_console_printf("function.%d.mass_storage.ro=%s\r\n",
-                               function_index,
-                               dash_if_empty(ro));
-            a90_console_printf("function.%d.mass_storage.removable=%s\r\n",
-                               function_index,
-                               dash_if_empty(removable));
-            a90_console_printf("function.%d.mass_storage.cdrom=%s\r\n",
-                               function_index,
-                               dash_if_empty(cdrom));
-            a90_console_printf("function.%d.mass_storage.inquiry_string=%s\r\n",
-                               function_index,
-                               dash_if_empty(inquiry_string));
-            a90_console_printf("function.%d.mass_storage.inquiry.vendor=%s\r\n",
-                               function_index,
-                               A90_USB_MASS_STORAGE_INQUIRY_VENDOR);
-            a90_console_printf("function.%d.mass_storage.inquiry.product=%s\r\n",
-                               function_index,
-                               A90_USB_MASS_STORAGE_INQUIRY_PRODUCT);
-            a90_console_printf("function.%d.mass_storage.inquiry.revision=%s\r\n",
-                               function_index,
-                               A90_USB_MASS_STORAGE_INQUIRY_REVISION);
-            a90_console_printf("function.%d.mass_storage.volume_label=%s\r\n",
-                               function_index,
-                               A90_USB_MASS_STORAGE_VOLUME_LABEL);
+                               A90_USB_MASS_STORAGE_MAX_LUNS);
+            for (lun_index = 0; lun_index < A90_USB_MASS_STORAGE_MAX_LUNS; ++lun_index) {
+                const struct usb_mass_storage_lun_identity *lun = &A90_USB_MASS_STORAGE_LUNS[lun_index];
+                char lun_path[256];
+                char attr_path[320];
+                char file[256];
+                char ro[32];
+                char removable[32];
+                char cdrom[32];
+                char inquiry_string[64];
+                bool lun_present;
+                bool file_present;
+
+                snprintf(lun_path,
+                         sizeof(lun_path),
+                         "%s/lun.%d",
+                         A90_USB_GADGET_MASS_STORAGE_FUNCTION,
+                         lun->lun);
+                lun_present = path_is_dir(lun_path);
+                if (lun_present) {
+                    snprintf(attr_path, sizeof(attr_path), "%s/file", lun_path);
+                    usb_read_value(attr_path, file, sizeof(file));
+                    snprintf(attr_path, sizeof(attr_path), "%s/ro", lun_path);
+                    usb_read_value(attr_path, ro, sizeof(ro));
+                    snprintf(attr_path, sizeof(attr_path), "%s/removable", lun_path);
+                    usb_read_value(attr_path, removable, sizeof(removable));
+                    snprintf(attr_path, sizeof(attr_path), "%s/cdrom", lun_path);
+                    usb_read_value(attr_path, cdrom, sizeof(cdrom));
+                    snprintf(attr_path, sizeof(attr_path), "%s/inquiry_string", lun_path);
+                    usb_read_value(attr_path, inquiry_string, sizeof(inquiry_string));
+                } else {
+                    snprintf(file, sizeof(file), "-");
+                    snprintf(ro, sizeof(ro), "-");
+                    snprintf(removable, sizeof(removable), "-");
+                    snprintf(cdrom, sizeof(cdrom), "-");
+                    snprintf(inquiry_string, sizeof(inquiry_string), "-");
+                }
+                file_present = file[0] != '\0' && strcmp(file, "-") != 0;
+                if (lun->lun == 0) {
+                    a90_console_printf("function.%d.mass_storage.file.present=%d\r\n",
+                                       function_index,
+                                       file_present ? 1 : 0);
+                    a90_console_printf("function.%d.mass_storage.file.path=%s\r\n",
+                                       function_index,
+                                       file_present ? file : "-");
+                    a90_console_printf("function.%d.mass_storage.ro=%s\r\n",
+                                       function_index,
+                                       dash_if_empty(ro));
+                    a90_console_printf("function.%d.mass_storage.removable=%s\r\n",
+                                       function_index,
+                                       dash_if_empty(removable));
+                    a90_console_printf("function.%d.mass_storage.cdrom=%s\r\n",
+                                       function_index,
+                                       dash_if_empty(cdrom));
+                    a90_console_printf("function.%d.mass_storage.inquiry_string=%s\r\n",
+                                       function_index,
+                                       dash_if_empty(inquiry_string));
+                }
+                a90_console_printf("function.%d.mass_storage.lun.%d.present=%d\r\n",
+                                   function_index,
+                                   lun->lun,
+                                   lun_present ? 1 : 0);
+                a90_console_printf("function.%d.mass_storage.lun.%d.file.present=%d\r\n",
+                                   function_index,
+                                   lun->lun,
+                                   file_present ? 1 : 0);
+                a90_console_printf("function.%d.mass_storage.lun.%d.file.path=%s\r\n",
+                                   function_index,
+                                   lun->lun,
+                                   file_present ? file : "-");
+                a90_console_printf("function.%d.mass_storage.lun.%d.ro=%s\r\n",
+                                   function_index,
+                                   lun->lun,
+                                   dash_if_empty(ro));
+                a90_console_printf("function.%d.mass_storage.lun.%d.removable=%s\r\n",
+                                   function_index,
+                                   lun->lun,
+                                   dash_if_empty(removable));
+                a90_console_printf("function.%d.mass_storage.lun.%d.cdrom=%s\r\n",
+                                   function_index,
+                                   lun->lun,
+                                   dash_if_empty(cdrom));
+                a90_console_printf("function.%d.mass_storage.lun.%d.inquiry_string=%s\r\n",
+                                   function_index,
+                                   lun->lun,
+                                   dash_if_empty(inquiry_string));
+                a90_console_printf("function.%d.mass_storage.lun.%d.inquiry.vendor=%s\r\n",
+                                   function_index,
+                                   lun->lun,
+                                   lun->vendor);
+                a90_console_printf("function.%d.mass_storage.lun.%d.inquiry.product=%s\r\n",
+                                   function_index,
+                                   lun->lun,
+                                   lun->product);
+                a90_console_printf("function.%d.mass_storage.lun.%d.inquiry.revision=%s\r\n",
+                                   function_index,
+                                   lun->lun,
+                                   lun->revision);
+                a90_console_printf("function.%d.mass_storage.lun.%d.volume_label=%s\r\n",
+                                   function_index,
+                                   lun->lun,
+                                   lun->volume_label);
+            }
         }
     }
     a90_console_printf("control.acm.present=%d\r\n", inventory->acm_control_present ? 1 : 0);
@@ -850,18 +942,66 @@ static int usb_ensure_mass_storage_function_ready(void) {
     return 0;
 }
 
-static int usb_clear_mass_storage_medium(void) {
-    if (!path_is_dir(A90_USB_GADGET_MASS_STORAGE_FUNCTION "/lun.0")) {
+static void usb_mass_storage_lun_path(int lun, char *out, size_t out_size) {
+    snprintf(out, out_size, "%s/lun.%d", A90_USB_GADGET_MASS_STORAGE_FUNCTION, lun);
+}
+
+static void usb_mass_storage_lun_attr_path(int lun, const char *attr, char *out, size_t out_size) {
+    snprintf(out, out_size, "%s/lun.%d/%s", A90_USB_GADGET_MASS_STORAGE_FUNCTION, lun, attr);
+}
+
+static int usb_ensure_mass_storage_lun_ready(int lun) {
+    char path[256];
+
+    usb_mass_storage_lun_path(lun, path, sizeof(path));
+    if (path_is_dir(path)) {
         return 0;
     }
-    if (write_file(A90_USB_GADGET_MASS_STORAGE_FUNCTION "/lun.0/file", "\n") < 0) {
-        return negative_errno_or(EIO);
+    if (mkdir(path, 0770) == 0 || errno == EEXIST) {
+        return 0;
+    }
+    return negative_errno_or(EIO);
+}
+
+static int usb_ensure_named_mass_storage_luns_ready(void) {
+    int lun_index;
+    int rc = usb_ensure_mass_storage_function_ready();
+
+    if (rc < 0) {
+        return rc;
+    }
+    for (lun_index = 0; lun_index < A90_USB_MASS_STORAGE_MAX_LUNS; ++lun_index) {
+        rc = usb_ensure_mass_storage_lun_ready(A90_USB_MASS_STORAGE_LUNS[lun_index].lun);
+        if (rc < 0) {
+            return rc;
+        }
     }
     return 0;
 }
 
-static int usb_configure_mass_storage_function(const char *backing_path) {
-    int rc = usb_ensure_mass_storage_function_ready();
+static int usb_clear_mass_storage_medium(void) {
+    int lun_index;
+
+    for (lun_index = 0; lun_index < A90_USB_MASS_STORAGE_MAX_LUNS; ++lun_index) {
+        const struct usb_mass_storage_lun_identity *lun = &A90_USB_MASS_STORAGE_LUNS[lun_index];
+        char lun_path[256];
+        char file_path[320];
+
+        usb_mass_storage_lun_path(lun->lun, lun_path, sizeof(lun_path));
+        if (!path_is_dir(lun_path)) {
+            continue;
+        }
+        usb_mass_storage_lun_attr_path(lun->lun, "file", file_path, sizeof(file_path));
+        if (write_file(file_path, "\n") < 0) {
+            return negative_errno_or(EIO);
+        }
+    }
+    return 0;
+}
+
+static int usb_configure_mass_storage_function(bool expose_backing) {
+    int lun_index;
+    int rc = usb_ensure_named_mass_storage_luns_ready();
 
     if (rc < 0) {
         return rc;
@@ -871,23 +1011,43 @@ static int usb_configure_mass_storage_function(const char *backing_path) {
         return rc;
     }
     usb_write_best_effort(A90_USB_GADGET_MASS_STORAGE_FUNCTION "/stall", "1");
-    usb_write_best_effort(A90_USB_GADGET_MASS_STORAGE_FUNCTION "/lun.0/removable", "1");
-    usb_write_best_effort(A90_USB_GADGET_MASS_STORAGE_FUNCTION "/lun.0/ro", "1");
-    usb_write_best_effort(A90_USB_GADGET_MASS_STORAGE_FUNCTION "/lun.0/cdrom", "0");
-    usb_write_best_effort(A90_USB_GADGET_MASS_STORAGE_FUNCTION "/lun.0/nofua", "1");
-    if (write_file(A90_USB_GADGET_MASS_STORAGE_FUNCTION "/lun.0/inquiry_string",
-                   A90_USB_MASS_STORAGE_INQUIRY_STRING) < 0) {
-        return negative_errno_or(EIO);
-    }
-    if (backing_path != NULL && backing_path[0] != '\0') {
-        if (write_file(A90_USB_GADGET_MASS_STORAGE_FUNCTION "/lun.0/file", backing_path) < 0) {
+    for (lun_index = 0; lun_index < A90_USB_MASS_STORAGE_MAX_LUNS; ++lun_index) {
+        const struct usb_mass_storage_lun_identity *lun = &A90_USB_MASS_STORAGE_LUNS[lun_index];
+        char attr_path[320];
+
+        usb_mass_storage_lun_attr_path(lun->lun, "removable", attr_path, sizeof(attr_path));
+        usb_write_best_effort(attr_path, "1");
+        usb_mass_storage_lun_attr_path(lun->lun, "ro", attr_path, sizeof(attr_path));
+        usb_write_best_effort(attr_path, "1");
+        usb_mass_storage_lun_attr_path(lun->lun, "cdrom", attr_path, sizeof(attr_path));
+        usb_write_best_effort(attr_path, "0");
+        usb_mass_storage_lun_attr_path(lun->lun, "nofua", attr_path, sizeof(attr_path));
+        usb_write_best_effort(attr_path, "1");
+        usb_mass_storage_lun_attr_path(lun->lun, "inquiry_string", attr_path, sizeof(attr_path));
+        if (write_file(attr_path, lun->inquiry_string) < 0) {
             return negative_errno_or(EIO);
+        }
+        if (expose_backing) {
+            usb_mass_storage_lun_attr_path(lun->lun, "file", attr_path, sizeof(attr_path));
+            if (write_file(attr_path, lun->backing_path) < 0) {
+                return negative_errno_or(EIO);
+            }
         }
     }
     return 0;
 }
 
-static void usb_prepare_fat_boot_sector(unsigned char *sector) {
+static void usb_copy_fat_label(unsigned char *dest, const char *label) {
+    size_t label_len = strlen(label);
+
+    memset(dest, ' ', 11);
+    if (label_len > 11) {
+        label_len = 11;
+    }
+    memcpy(dest, label, label_len);
+}
+
+static void usb_prepare_fat_boot_sector(unsigned char *sector, const char *label, unsigned int serial) {
     memset(sector, 0, A90_USB_FAT_BYTES_PER_SECTOR);
     sector[0] = 0xeb;
     sector[1] = 0x3c;
@@ -907,8 +1067,8 @@ static void usb_prepare_fat_boot_sector(unsigned char *sector) {
     usb_put_le32(sector, 32, 0);
     sector[36] = 0x80;
     sector[38] = 0x29;
-    usb_put_le32(sector, 39, 0xA902322U);
-    memcpy(sector + 43, A90_USB_MASS_STORAGE_VOLUME_LABEL, 11);
+    usb_put_le32(sector, 39, serial);
+    usb_copy_fat_label(sector + 43, label);
     memcpy(sector + 54, "FAT16   ", 8);
     sector[510] = 0x55;
     sector[511] = 0xaa;
@@ -922,13 +1082,14 @@ static void usb_prepare_fat_sector_zero(unsigned char *sector) {
     sector[3] = 0xff;
 }
 
-static void usb_prepare_fat_root_dir(unsigned char *sector) {
+static void usb_prepare_fat_root_dir(unsigned char *sector, const char *label) {
     memset(sector, 0, A90_USB_FAT_BYTES_PER_SECTOR);
-    memcpy(sector, A90_USB_MASS_STORAGE_VOLUME_LABEL, 11);
+    usb_copy_fat_label(sector, label);
     sector[11] = 0x08;
 }
 
-static int usb_create_mass_storage_backing_file(void) {
+static int usb_create_mass_storage_backing_file(const struct usb_mass_storage_lun_identity *lun,
+                                                unsigned int serial) {
     unsigned char sector[A90_USB_FAT_BYTES_PER_SECTOR];
     off_t fat_primary_offset = A90_USB_FAT_RESERVED_SECTORS * A90_USB_FAT_BYTES_PER_SECTOR;
     off_t fat_secondary_offset =
@@ -938,7 +1099,7 @@ static int usb_create_mass_storage_backing_file(void) {
     int fd;
     int saved_errno;
 
-    fd = open(A90_USB_MASS_STORAGE_BACKING_PATH,
+    fd = open(lun->backing_path,
               O_RDWR | O_CREAT | O_TRUNC | O_CLOEXEC,
               0600);
     if (fd < 0) {
@@ -951,7 +1112,7 @@ static int usb_create_mass_storage_backing_file(void) {
         return negative_errno_or(EIO);
     }
 
-    usb_prepare_fat_boot_sector(sector);
+    usb_prepare_fat_boot_sector(sector, lun->volume_label, serial);
     if (usb_write_block_at(fd, 0, sector, sizeof(sector)) < 0) {
         saved_errno = errno;
         close(fd);
@@ -966,7 +1127,7 @@ static int usb_create_mass_storage_backing_file(void) {
         errno = saved_errno;
         return negative_errno_or(EIO);
     }
-    usb_prepare_fat_root_dir(sector);
+    usb_prepare_fat_root_dir(sector, lun->volume_label);
     if (usb_write_block_at(fd, root_dir_offset, sector, sizeof(sector)) < 0 ||
         fsync(fd) < 0) {
         saved_errno = errno;
@@ -977,7 +1138,20 @@ static int usb_create_mass_storage_backing_file(void) {
     if (close(fd) < 0) {
         return negative_errno_or(EIO);
     }
-    (void)chmod(A90_USB_MASS_STORAGE_BACKING_PATH, 0600);
+    (void)chmod(lun->backing_path, 0600);
+    return 0;
+}
+
+static int usb_create_mass_storage_backing_files(void) {
+    int lun_index;
+
+    for (lun_index = 0; lun_index < A90_USB_MASS_STORAGE_MAX_LUNS; ++lun_index) {
+        int rc = usb_create_mass_storage_backing_file(&A90_USB_MASS_STORAGE_LUNS[lun_index],
+                                                      0xA902323U + (unsigned int)lun_index);
+        if (rc < 0) {
+            return rc;
+        }
+    }
     return 0;
 }
 
@@ -1073,7 +1247,7 @@ static int usb_run_mass_storage_reconfigure(bool add_mass_storage, bool expose_b
             return rc;
         }
         if (expose_backing) {
-            rc = usb_create_mass_storage_backing_file();
+            rc = usb_create_mass_storage_backing_files();
             if (rc < 0) {
                 a90_logf("usb", "mass_storage backing create failed rc=%d", rc);
                 return rc;
@@ -1098,9 +1272,7 @@ static int usb_run_mass_storage_reconfigure(bool add_mass_storage, bool expose_b
     usleep(A90_USB_RECONFIG_SETTLE_USEC);
 
     if (add_mass_storage) {
-        rc = usb_configure_mass_storage_function(expose_backing ?
-                                                     A90_USB_MASS_STORAGE_BACKING_PATH :
-                                                     NULL);
+        rc = usb_configure_mass_storage_function(expose_backing);
         if (rc == 0) {
             rc = usb_ensure_control_base_unbound();
         }
@@ -1182,7 +1354,19 @@ static int usb_start_mass_storage_reconfigure(bool add_mass_storage, bool expose
     a90_console_printf("usb.mass_storage.host_enumeration_required=parked\r\n");
     if (expose_backing) {
         a90_console_printf("usb.mass_storage.persona=readonly-backing\r\n");
-        a90_console_printf("usb.mass_storage.backing_file=%s\r\n", A90_USB_MASS_STORAGE_BACKING_PATH);
+        a90_console_printf("usb.mass_storage.lun.count=%d\r\n", A90_USB_MASS_STORAGE_MAX_LUNS);
+        a90_console_printf("usb.mass_storage.lun.0.backing_file=%s\r\n",
+                           A90_USB_MASS_STORAGE_LUNS[0].backing_path);
+        a90_console_printf("usb.mass_storage.lun.0.model=%s\r\n",
+                           A90_USB_MASS_STORAGE_LUNS[0].product);
+        a90_console_printf("usb.mass_storage.lun.0.volume_label=%s\r\n",
+                           A90_USB_MASS_STORAGE_LUNS[0].volume_label);
+        a90_console_printf("usb.mass_storage.lun.1.backing_file=%s\r\n",
+                           A90_USB_MASS_STORAGE_LUNS[1].backing_path);
+        a90_console_printf("usb.mass_storage.lun.1.model=%s\r\n",
+                           A90_USB_MASS_STORAGE_LUNS[1].product);
+        a90_console_printf("usb.mass_storage.lun.1.volume_label=%s\r\n",
+                           A90_USB_MASS_STORAGE_LUNS[1].volume_label);
         a90_console_printf("usb.mass_storage.backing_bytes=%lld\r\n",
                            (long long)A90_USB_MASS_STORAGE_BACKING_BYTES);
         a90_console_printf("usb.mass_storage.read_only=1\r\n");
