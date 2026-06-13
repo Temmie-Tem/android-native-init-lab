@@ -736,4 +736,9 @@ functions.
   classify pass and baseline/connect/secret/cleanup/disable/selftest failure
   branches, step_text/find_step output handling, zero_flag strictness,
   rel path handling — 5 cases — green.
+- 2026-06-13 — `native_wifi_dhcp_ping_handoff_v2176.py` —
+  classify preflight/flash/rollback/pass/safety branches, render_report
+  metadata-only public scope, run_ping_step command quoting, run_dhcp_window
+  DHCP-fail skip-ping and DHCP-pass ping/cleanup paths, rel/flash delegation —
+  7 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
