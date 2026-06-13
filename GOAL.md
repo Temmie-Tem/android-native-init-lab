@@ -19,23 +19,38 @@ Pursue the **highest tier that still has a meaningful, safely-actionable next st
 Drop to the next tier only when the current one is *saturated* or *meaningless* (criteria
 below). Re-evaluate each iteration; you may climb back up if new work appears.
 
-### Active epic — CLOSED, STOP after V2312 closure
+### Active epic — USB gadget runtime control (layer ①)
 
-**WLAN kernel-interface event epic: E1 + E2 are DONE and closed.** E2 (rtnetlink monitor,
-`wifi netevents`) shipped as **V2309**; E1 (nl80211 multicast events, `wifi events`) shipped as
-**V2310**; the event code was modularized in **V2311**; the credentials-gated connect assertion was
-closed in **V2312** with `wifi connect-event`.
+**Prior epic (WLAN events) is CLOSED** at V2312 (`0.9.276`, current validated test baseline;
+`v2237` still the rollback target). **New active epic: a native-init `usb` gadget control surface.**
+Full design — read it before starting — is
+`docs/plans/NATIVE_INIT_USB_GADGET_CONTROL_EPIC_PLAN_2026-06-13.md`. Grounded in the TWRP gadget
+recipe (`docs/reports/TWRP_RECOVERY_TEARDOWN_DEVICE_REFERENCE_2026-06-13.md` §1) and the kernel
+capability inventory (`USB_F_HID`/`USB_F_MASS_STORAGE`/`USB_F_FS` all compiled in). This is layer ①
+(runtime gadget control); ② adb-over-ffs reconnecting channel and ③ HID/BadUSB are **separate
+follow-on epics — do not start them here**.
 
-V2312 (`A90 Linux init 0.9.276 (v2312-e1-connect-event-closure)`) flashed boot-only, passed
-`selftest fail=0`, ran one bounded `wifi connect-event <redacted-ssid> 60000`, observed
-`NL80211_CMD_CONNECT` on `wlan0`, matched final carrier up, redacted BSSID/IP/secret values, then
-ran `wifi cleanup`. No DHCP, routes, external ping, or partition writes were performed. V2312 is the
-current validated test baseline; **`v2237` remains the known-good rollback target.**
+> **THE hard constraint:** the control channel (USB **ACM serial bridge** + **NCM**) lives on the
+> **same UDC** as everything else, and Linux cannot modify a *bound* gadget — reconfiguring requires
+> `UDC->"none"` (unbind, which drops the channel the command arrived on) → reconfigure → rebind. So:
+> **never produce a config without NCM+control-ACM; every reconfigure is atomic unbind→reconfigure→
+> rebind with an auto-rebind watchdog + known-good restore; boot must always bring up a controllable
+> gadget. Never ship a path that can leave the device with no control channel.**
 
-**STOP here.** Do **not** start a new epic, refactor, T2, or T3 unit from the autonomous loop. The
-operator chooses the next direction (candidate: the peripheral-breadth track — see
-`docs/reports/A90_KERNEL_CAPABILITY_INVENTORY_COMPILED_UNUSED_2026-06-13.md` and
-`docs/reports/TWRP_RECOVERY_TEARDOWN_DEVICE_REFERENCE_2026-06-13.md`).
+Staged units, one V-iteration each:
+
+- **U1 — `usb status` inventory (read-only) — do FIRST.** Read `/config/usb_gadget/*` and
+  `/sys/class/udc/*`; report UDC + bind state, configs, the function list **and which are the control
+  functions**, VID/PID, strings. Serial-self-validatable; **required first** so the exact control
+  topology is known before any reconfigure.
+- **U2 — atomic auxiliary-function add/remove** (start `mass_storage.0`) via unbind→reconfigure→
+  rebind with watchdog + restore; keep NCM+ACM in every config; validate the control channel returns.
+- **U3 — first persona end-to-end** (`mass_storage` recommended, or HID). Host-side validation.
+
+**Validation:** U1 = serial bridge + `selftest fail=0`. **U2/U3 need host-side validation** (plug
+into a PC; confirm the function enumerates AND control returns) — a new modality vs serial-only;
+record operator host steps in the report. Every device step: boot-only flash, pinned SHA, post-boot
+health check, auto-rollback to `v2237` on any failure. Bump init beyond `0.9.276`; `vNNNN-purpose` tag.
 
 **T1 (now SATURATED) — analyzer / harness regression test suite (host-only, NO flash).**
 As of 2026-06-13 the 12 `workspace/public/src/harness/a90harness/` modules and all 124 revalidation
