@@ -818,4 +818,7 @@ functions.
   SHA256/path validation, chunk-boundary marker search, local boot image
   regular/aligned/marker/hash safety checks, sealed local image copy
   mutation checks, cmdv1 result rejection branches — 8 cases — green.
+- 2026-06-13 — `_workspace_bootstrap.py` — repo root discovery success/failure,
+  harness/archive path injection defaults, env-controlled archive inclusion,
+  explicit archive override, duplicate prevention — 6 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
