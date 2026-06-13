@@ -799,4 +799,9 @@ functions.
   configure_base V2182 axis rewrites, helper patch plus temporary legacy-link
   cleanup, HUD/menu cleanup render_report no-active-Wi-Fi safety scope,
   normalize_manifest_axes promoted-baseline metadata — 4 cases — green.
+- 2026-06-13 — `build_native_init_boot_v724.py` — PID1 source
+  selection excluding standalone `a90_*.c` programs, static init build command,
+  ramdisk helper copy/mode/reproducible cpio contract, base boot ramdisk
+  replacement error path, marker verification pass/fail branches — 5 cases —
+  green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
