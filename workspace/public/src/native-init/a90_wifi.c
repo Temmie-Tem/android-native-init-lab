@@ -3223,7 +3223,7 @@ int a90_wifi_start_boot_autoconnect_once(void) {
     return 0;
 }
 
-static int wifi_parse_delay_ms(const char *text, int *delay_ms) {
+static int wifi_parse_delay_ms_max(const char *text, int *delay_ms, long max_ms) {
     char *end = NULL;
     long value;
 
@@ -3232,11 +3232,15 @@ static int wifi_parse_delay_ms(const char *text, int *delay_ms) {
     }
     errno = 0;
     value = strtol(text, &end, 10);
-    if (errno != 0 || end == text || *end != '\0' || value < 0 || value > 30000) {
+    if (errno != 0 || end == text || *end != '\0' || value < 0 || value > max_ms) {
         return -EINVAL;
     }
     *delay_ms = (int)value;
     return 0;
+}
+
+static int wifi_parse_delay_ms(const char *text, int *delay_ms) {
+    return wifi_parse_delay_ms_max(text, delay_ms, 30000);
 }
 
 int a90_wifi_cmd(char **argv, int argc) {
@@ -3285,6 +3289,19 @@ int a90_wifi_cmd(char **argv, int argc) {
         argv[1] != NULL &&
         strcmp(argv[1], "connect") == 0) {
         return a90_wifi_connect_profile(argc == 3 ? argv[2] : NULL);
+    }
+    if ((argc >= 2 && argc <= 4) &&
+        argv != NULL &&
+        argv[1] != NULL &&
+        strcmp(argv[1], "connect-event") == 0) {
+        int timeout_ms = A90_WIFI_CONNECT_EVENT_DEFAULT_MS;
+
+        if (argc == 4 &&
+            wifi_parse_delay_ms_max(argv[3], &timeout_ms, A90_WIFI_CONNECT_EVENT_MAX_MS) < 0) {
+            a90_console_printf("usage: wifi connect-event [profile] [timeout_ms]\r\n");
+            return -EINVAL;
+        }
+        return a90_wifi_connect_event_once(argc >= 3 ? argv[2] : NULL, timeout_ms);
     }
     if ((argc == 2 || argc == 3) &&
         argv != NULL &&

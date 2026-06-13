@@ -10,6 +10,7 @@
 #include <linux/rtnetlink.h>
 #include <net/if.h>
 #include <poll.h>
+#include <signal.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -17,6 +18,7 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/time.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 #include "a90_console.h"
@@ -49,8 +51,10 @@
 #define A90_WIFI_NETEVENT_MAX_MS 30000
 #define A90_WIFI_NETEVENT_MAX_STORED 16
 #define A90_WIFI_NL80211_EVENTS_VERSION "a90-native-wifi-nl80211-events-v1"
-#define A90_WIFI_NL80211_EVENT_MAX_MS 30000
+#define A90_WIFI_CONNECT_EVENT_VERSION "a90-native-wifi-connect-event-v1"
+#define A90_WIFI_NL80211_EVENT_MAX_MS 60000
 #define A90_WIFI_NL80211_EVENT_MAX_STORED 16
+#define A90_WIFI_CONNECT_EVENT_CHILD_WAIT_MS 240000
 
 struct wifi_netevent {
     char type[16];
@@ -105,9 +109,31 @@ struct wifi_nl80211_event_snapshot {
     int config_joined;
     int groups_joined;
     int event_count;
+    int connect_event_count;
     int stored_count;
+    long first_connect_event_ms;
     struct wifi_nl80211_event events[A90_WIFI_NL80211_EVENT_MAX_STORED];
     char decision[64];
+};
+
+struct wifi_nl80211_event_start {
+    int (*fn)(void *ctx);
+    void *ctx;
+};
+
+struct wifi_connect_event_child {
+    const char *profile_name;
+    int pipe_read;
+    int pipe_write;
+    int start_rc;
+    int start_errno;
+    int connect_rc;
+    int child_status;
+    int child_exit_code;
+    int child_signal;
+    int child_exited;
+    int child_timed_out;
+    pid_t pid;
 };
 
 static void wifi_read_attr(const char *path, const char *name, char *out, size_t out_size) {
@@ -796,6 +822,12 @@ static void wifi_nl80211_store_event(struct wifi_nl80211_event_snapshot *out,
         return;
     }
     ++out->event_count;
+    if (cmd == NL80211_CMD_CONNECT) {
+        ++out->connect_event_count;
+        if (out->first_connect_event_ms <= 0) {
+            out->first_connect_event_ms = monotonic_millis();
+        }
+    }
     if (out->stored_count >= A90_WIFI_NL80211_EVENT_MAX_STORED) {
         return;
     }
@@ -843,7 +875,9 @@ static void wifi_nl80211_parse_event(struct wifi_nl80211_event_snapshot *out,
     wifi_nl80211_store_event(out, (int)genlh->cmd, ifindex, iface);
 }
 
-int a90_wifi_events_collect(int timeout_ms, struct wifi_nl80211_event_snapshot *out) {
+static int wifi_nl80211_events_collect_with_start(int timeout_ms,
+                                                  struct wifi_nl80211_event_snapshot *out,
+                                                  const struct wifi_nl80211_event_start *start) {
     struct wifi_nl80211_family_info family_info;
     int fd;
     long started_ms;
@@ -904,6 +938,17 @@ int a90_wifi_events_collect(int timeout_ms, struct wifi_nl80211_event_snapshot *
         snprintf(out->decision, sizeof(out->decision), "%s", "wifi-events-subscribe-failed");
         (void)close(fd);
         return out->rc;
+    }
+    if (start != NULL && start->fn != NULL) {
+        int start_rc = start->fn(start->ctx);
+
+        if (start_rc < 0) {
+            out->rc = start_rc;
+            out->saved_errno = -start_rc;
+            snprintf(out->decision, sizeof(out->decision), "%s", "wifi-events-start-failed");
+            (void)close(fd);
+            return out->rc;
+        }
     }
 
     started_ms = monotonic_millis();
@@ -972,6 +1017,209 @@ int a90_wifi_events_collect(int timeout_ms, struct wifi_nl80211_event_snapshot *
              "%s",
              out->event_count > 0 ? "wifi-events-observed" : "wifi-events-timeout-no-events");
     return 0;
+}
+
+int a90_wifi_events_collect(int timeout_ms, struct wifi_nl80211_event_snapshot *out) {
+    return wifi_nl80211_events_collect_with_start(timeout_ms, out, NULL);
+}
+
+static int wifi_connect_event_start_child(void *ctx) {
+    struct wifi_connect_event_child *child = (struct wifi_connect_event_child *)ctx;
+    int pipe_fds[2];
+    pid_t pid;
+
+    if (child == NULL) {
+        return -EINVAL;
+    }
+    child->start_rc = 0;
+    child->start_errno = 0;
+    child->connect_rc = -EINPROGRESS;
+    child->pipe_read = -1;
+    child->pipe_write = -1;
+    if (pipe(pipe_fds) < 0) {
+        child->start_errno = errno;
+        child->start_rc = -errno;
+        return child->start_rc;
+    }
+    pid = fork();
+    if (pid < 0) {
+        child->start_errno = errno;
+        child->start_rc = -errno;
+        (void)close(pipe_fds[0]);
+        (void)close(pipe_fds[1]);
+        return child->start_rc;
+    }
+    if (pid == 0) {
+        int rc;
+        ssize_t written;
+
+        (void)close(pipe_fds[0]);
+        a90_console_silence_child();
+        rc = a90_wifi_connect_profile(child->profile_name);
+        written = write(pipe_fds[1], &rc, sizeof(rc));
+        (void)close(pipe_fds[1]);
+        if (written != (ssize_t)sizeof(rc)) {
+            _exit(2);
+        }
+        _exit(rc == 0 ? 0 : 1);
+    }
+    (void)close(pipe_fds[1]);
+    child->pid = pid;
+    child->pipe_read = pipe_fds[0];
+    child->pipe_write = -1;
+    return 0;
+}
+
+static void wifi_connect_event_wait_child(struct wifi_connect_event_child *child) {
+    long deadline_ms;
+
+    if (child == NULL || child->pid <= 0) {
+        return;
+    }
+    deadline_ms = monotonic_millis() + A90_WIFI_CONNECT_EVENT_CHILD_WAIT_MS;
+    for (;;) {
+        pid_t got = waitpid(child->pid, &child->child_status, WNOHANG);
+
+        if (got == child->pid) {
+            child->child_exited = 1;
+            break;
+        }
+        if (got < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            child->child_status = -errno;
+            break;
+        }
+        if (monotonic_millis() >= deadline_ms) {
+            child->child_timed_out = 1;
+            (void)kill(child->pid, SIGKILL);
+            (void)waitpid(child->pid, &child->child_status, 0);
+            child->child_exited = 1;
+            break;
+        }
+        usleep(100000);
+    }
+    if (child->pipe_read >= 0) {
+        int rc = -EIO;
+        ssize_t n = read(child->pipe_read, &rc, sizeof(rc));
+
+        if (n == (ssize_t)sizeof(rc)) {
+            child->connect_rc = rc;
+        }
+        (void)close(child->pipe_read);
+        child->pipe_read = -1;
+    }
+    if (child->child_exited && WIFEXITED(child->child_status)) {
+        child->child_exit_code = WEXITSTATUS(child->child_status);
+    } else {
+        child->child_exit_code = -1;
+    }
+    if (child->child_exited && WIFSIGNALED(child->child_status)) {
+        child->child_signal = WTERMSIG(child->child_status);
+    } else {
+        child->child_signal = 0;
+    }
+}
+
+static int wifi_connect_event_status_carrier_up(struct a90_wifi_status_snapshot *status) {
+    if (status == NULL) {
+        return 0;
+    }
+    return strcmp(status->carrier, "1") == 0 ? 1 : 0;
+}
+
+int a90_wifi_connect_event_once(const char *profile_name, int timeout_ms) {
+    struct wifi_nl80211_event_snapshot snapshot;
+    struct wifi_connect_event_child child;
+    struct wifi_nl80211_event_start start;
+    struct a90_wifi_status_snapshot status;
+    int status_rc;
+    int carrier_up;
+    int carrier_match;
+    int rc;
+    int i;
+
+    if (timeout_ms <= 0) {
+        timeout_ms = A90_WIFI_CONNECT_EVENT_DEFAULT_MS;
+    }
+    memset(&child, 0, sizeof(child));
+    child.profile_name = profile_name;
+    child.pipe_read = -1;
+    child.pipe_write = -1;
+    start.fn = wifi_connect_event_start_child;
+    start.ctx = &child;
+
+    rc = wifi_nl80211_events_collect_with_start(timeout_ms, &snapshot, &start);
+    wifi_connect_event_wait_child(&child);
+    memset(&status, 0, sizeof(status));
+    status_rc = a90_wifi_status_snapshot(&status);
+    carrier_up = status_rc == 0 ? wifi_connect_event_status_carrier_up(&status) : 0;
+    carrier_match = snapshot.connect_event_count > 0 && carrier_up ? 1 : 0;
+    if (rc == 0 && (child.connect_rc != 0 || !carrier_match)) {
+        rc = child.connect_rc != 0 ? child.connect_rc : -ENOLINK;
+    }
+
+    a90_console_printf("[wifi connect-event]\r\n");
+    a90_console_printf("version=%s\r\n", A90_WIFI_CONNECT_EVENT_VERSION);
+    a90_console_printf("profile=%s\r\n",
+                       profile_name != NULL && profile_name[0] != '\0' ? profile_name : "default");
+    a90_console_printf("timeout_ms=%d\r\n", snapshot.timeout_ms);
+    a90_console_printf("event.socket_open=%d\r\n", snapshot.socket_open);
+    a90_console_printf("event.family_id=%d\r\n", snapshot.family_id);
+    a90_console_printf("event.group.mlme.joined=%d\r\n", snapshot.mlme_joined);
+    a90_console_printf("event.group.scan.joined=%d\r\n", snapshot.scan_joined);
+    a90_console_printf("event.group.config.joined=%d\r\n", snapshot.config_joined);
+    a90_console_printf("event.groups_joined=%d\r\n", snapshot.groups_joined);
+    a90_console_printf("event.count=%d\r\n", snapshot.event_count);
+    a90_console_printf("event.connect_count=%d\r\n", snapshot.connect_event_count);
+    a90_console_printf("event.stored_count=%d\r\n", snapshot.stored_count);
+    a90_console_printf("event.first_connect_monotonic_ms=%ld\r\n", snapshot.first_connect_event_ms);
+    for (i = 0; i < snapshot.stored_count; ++i) {
+        const struct wifi_nl80211_event *event = &snapshot.events[i];
+
+        a90_console_printf("event.%d.cmd=%s\r\n", i, event->cmd);
+        a90_console_printf("event.%d.cmd_id=%d\r\n", i, event->cmd_id);
+        a90_console_printf("event.%d.iface=%s\r\n", i, event->iface);
+        a90_console_printf("event.%d.ifindex=%u\r\n", i, event->ifindex);
+        a90_console_printf("event.%d.monotonic_ms=%ld\r\n", i, event->monotonic_ms);
+    }
+    a90_console_printf("connect.child_pid=%ld\r\n", (long)child.pid);
+    a90_console_printf("connect.start_rc=%d\r\n", child.start_rc);
+    a90_console_printf("connect.start_errno=%d\r\n", child.start_errno);
+    a90_console_printf("connect.rc=%d\r\n", child.connect_rc);
+    a90_console_printf("connect.child_exited=%d\r\n", child.child_exited);
+    a90_console_printf("connect.child_exit_code=%d\r\n", child.child_exit_code);
+    a90_console_printf("connect.child_signal=%d\r\n", child.child_signal);
+    a90_console_printf("connect.child_timed_out=%d\r\n", child.child_timed_out);
+    a90_console_printf("status.rc=%d\r\n", status_rc);
+    a90_console_printf("status.wlan0_present=%d\r\n", status.wlan0_present ? 1 : 0);
+    a90_console_printf("status.carrier=%s\r\n", status.carrier);
+    a90_console_printf("carrier_up=%d\r\n", carrier_up);
+    a90_console_printf("event_carrier_match=%d\r\n", carrier_match);
+    a90_console_printf("raw_bssid_redacted=1\r\n");
+    a90_console_printf("raw_ip_redacted=1\r\n");
+    a90_console_printf("secret_values_logged=0\r\n");
+    a90_console_printf("connect_attempted=1\r\n");
+    a90_console_printf("dhcp_attempted=0\r\n");
+    a90_console_printf("external_ping_attempted=0\r\n");
+    a90_console_printf("cleanup_attempted=0\r\n");
+    a90_console_printf("rc=%d\r\n", rc);
+    a90_console_printf("event.rc=%d\r\n", snapshot.rc);
+    a90_console_printf("event.saved_errno=%d\r\n", snapshot.saved_errno);
+    a90_console_printf("event.decision=%s\r\n", snapshot.decision);
+    a90_console_printf("decision=%s\r\n",
+                       rc == 0 && carrier_match ? "wifi-connect-event-carrier-match" :
+                       snapshot.connect_event_count > 0 ? "wifi-connect-event-carrier-mismatch" :
+                       "wifi-connect-event-missing-connect");
+    a90_logf("wifi",
+             "connect_event profile=%s rc=%d connect_rc=%d connect_events=%d carrier=%d secret_values_logged=0",
+             profile_name != NULL && profile_name[0] != '\0' ? profile_name : "default",
+             rc,
+             child.connect_rc,
+             snapshot.connect_event_count,
+             carrier_up);
+    return rc;
 }
 
 int a90_wifi_events_once(int timeout_ms) {

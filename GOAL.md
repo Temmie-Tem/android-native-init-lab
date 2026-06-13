@@ -19,34 +19,23 @@ Pursue the **highest tier that still has a meaningful, safely-actionable next st
 Drop to the next tier only when the current one is *saturated* or *meaningless* (criteria
 below). Re-evaluate each iteration; you may climb back up if new work appears.
 
-### Active epic — FINAL closure unit only (overrides the T1→T3 tier order below)
+### Active epic — CLOSED, STOP after V2312 closure
 
-**WLAN kernel-interface event epic: E1 + E2 are DONE.** E2 (rtnetlink monitor,
+**WLAN kernel-interface event epic: E1 + E2 are DONE and closed.** E2 (rtnetlink monitor,
 `wifi netevents`) shipped as **V2309**; E1 (nl80211 multicast events, `wifi events`) shipped as
-**V2310**; the event code was modularized in **V2311** (resident `0.9.275 (v2311-wifi-event-module)`).
-All flashed boot-only, `selftest fail=0`, `v2237` still the rollback target. Only the
-**creds-gated E1 assertion** was parked.
+**V2310**; the event code was modularized in **V2311**; the credentials-gated connect assertion was
+closed in **V2312** with `wifi connect-event`.
 
-**Wi-Fi credentials are now PRESENT** (`workspace/private/secrets/a90-wifi-test.env`). The single
-remaining unit is the **E1 connect-event closure** — do ONLY this, then STOP:
+V2312 (`A90 Linux init 0.9.276 (v2312-e1-connect-event-closure)`) flashed boot-only, passed
+`selftest fail=0`, ran one bounded `wifi connect-event temmie5g 60000`, observed
+`NL80211_CMD_CONNECT` on `wlan0`, matched final carrier up, redacted BSSID/IP/secret values, then
+ran `wifi cleanup`. No DHCP, routes, external ping, or partition writes were performed. V2312 is the
+current validated test baseline; **`v2237` remains the known-good rollback target.**
 
-- On the **resident V2311 image** (no new boot artifact is required for a validation-only closure;
-  build/flash only if the closure genuinely needs an on-image change), run **one bounded
-  `wifi connect`** and assert a **`NL80211_CMD_CONNECT`** event is observed on the `mlme` group **and
-  matches the polled `carrier`** coming up. Keep it to a single bounded connect cycle; `wifi cleanup`
-  after. Never log PSK/BSSID/IP (`secret_values_logged=0`, `raw_bssid_redacted=1`,
-  `raw_ip_redacted=1`).
-- A single serial channel cannot run blocking `wifi events` and `wifi connect` at once — use the
-  second transport (tcpctl/NCM) or a device-side combined capture, and orchestrate the timing so the
-  event window spans the connect.
-- Write the closure report `docs/reports/NATIVE_INIT_VNNNN_E1_CONNECT_EVENT_CLOSURE_*.md` and commit
-  (scoped). Promote a new validated baseline ONLY if connect→event→carrier all pass; otherwise leave
-  `v2237` as the rollback target and report the gap.
-
-**After this closure commit the WLAN-events epic is CLOSED.** STOP and report — do **not** start a new
-epic, refactor, T2, or T3 unit. The operator chooses the next direction (candidate: the
-peripheral-breadth track — see `docs/reports/A90_KERNEL_CAPABILITY_INVENTORY_COMPILED_UNUSED_2026-06-13.md`
-and `docs/reports/TWRP_RECOVERY_TEARDOWN_DEVICE_REFERENCE_2026-06-13.md`).
+**STOP here.** Do **not** start a new epic, refactor, T2, or T3 unit from the autonomous loop. The
+operator chooses the next direction (candidate: the peripheral-breadth track — see
+`docs/reports/A90_KERNEL_CAPABILITY_INVENTORY_COMPILED_UNUSED_2026-06-13.md` and
+`docs/reports/TWRP_RECOVERY_TEARDOWN_DEVICE_REFERENCE_2026-06-13.md`).
 
 **T1 (now SATURATED) — analyzer / harness regression test suite (host-only, NO flash).**
 As of 2026-06-13 the 12 `workspace/public/src/harness/a90harness/` modules and all 124 revalidation
@@ -57,19 +46,10 @@ to add a regression test for a **real bug you actually hit**, batched into a sin
 resume per-script coverage sweeps.
 
 **T2 (fallback) — native-init / WLAN baseline improvement (device; flash authorized).**
-When T1 is saturated, or when you have a concrete device-validatable improvement, advance
-the native-init baseline beyond `0.9.272`. Candidates: the parked **WLAN structural epic**
-(a supervised long-lived `wpa_supplicant` + event subscription — ctrl-iface events +
-netlink — replacing spawn-per-connect polling), or **`a90_wifi.c` (~3156 lines)**
-modularization / dead-code reduction. Do DESIGN → IMPLEMENT → STATIC VALIDATE host-side
-autonomously; the DEVICE step (flash + validate) **is authorized** and MUST obey the
-`AGENTS.md` flash gates.
-- **Validation ceiling — Wi-Fi creds are ABSENT.** `wifi connect`/`dhcp`/`ping` (the N=3
-  both-band functional check) cannot run. Device validation = boot + `version` / `status`
-  / `selftest fail=0` + non-creds surfaces only (`wifi status`, `wifi scan`). Do NOT block
-  waiting for creds; record full Wi-Fi functional validation as a **parked human
-  checkpoint** in the report. Do NOT promote a new safety/rollback baseline on boot-health
-  alone — **`v2237` stays the rollback target.**
+Do not enter T2 from this closed-loop file without a fresh operator direction. If selected later,
+advance the native-init baseline from the current V2312 test baseline with DESIGN → IMPLEMENT →
+STATIC VALIDATE host-side, then DEVICE validation through the `AGENTS.md` flash gates. Wi-Fi
+credentials may be available under `workspace/private/secrets/`; never log their values.
 
 **T3 (fallback) — self-directed (host-only preferred).**
 Build reproducibility / tooling hardening (e.g. mkbootimg round-trip verification,

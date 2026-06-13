@@ -7,6 +7,8 @@
 #define A90_WIFI_UI_MAX_SCAN_RESULTS 8
 #define A90_WIFI_NL80211_EVENT_DEFAULT_MS 5000
 #define A90_WIFI_NETEVENT_DEFAULT_MS 5000
+#define A90_WIFI_CONNECT_EVENT_DEFAULT_MS 60000
+#define A90_WIFI_CONNECT_EVENT_MAX_MS 60000
 
 struct a90_wifi_ping_target_result {
     bool requested;
@@ -116,6 +118,7 @@ int a90_wifi_scan_collect(int delay_ms, struct a90_wifi_scan_snapshot *out);
 int a90_wifi_scan_once(int delay_ms);
 int a90_wifi_events_once(int timeout_ms);
 int a90_wifi_netevents_once(int timeout_ms);
+int a90_wifi_connect_event_once(const char *profile_name, int timeout_ms);
 int a90_wifi_ping_collect(const char *mode, struct a90_wifi_ping_snapshot *out);
 int a90_wifi_ping_once(const char *mode);
 int a90_wifi_connect_profile(const char *profile_name);
