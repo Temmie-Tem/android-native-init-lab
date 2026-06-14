@@ -147,13 +147,19 @@ delta. The route-relevant active controls include `SLIMBUS_0_RX Audio Mixer Mult
 `SLIM RX0 MUX=AIF1_PB`, `RX INT7_1 MIX1 INP0=RX0`, `COMP7 Switch=On`, `AIF4_VI Mixer SPKR_VI_1/2=On`,
 `SpkrLeft COMP/BOOST/VISENSE=On`, and `SpkrLeft SWR DAC_Port Switch=On`; most route switches reset
 after playback, while `Audio Stream 0 App Type Cfg=69941 15 48000 2 ...` persisted as stream config.
-V2377 rolled back to V2321 with final `selftest fail=0`. Magisk-module stimulus delivery is no
-longer needed for this route-delta purpose; keep it only as a future fallback if a new Android
-handoff delivery wall appears. Next frontier: host-only native playback recipe design from the
+V2377 rolled back to V2321 with final `selftest fail=0`. Magisk-module stimulus delivery is not
+part of the native-init runtime path, but keep it as the Android-side measurement fallback used in
+earlier Wi-Fi-style handoffs: temporary helper packaging, boot-time Android stimulus hooks, or
+vendor-log probes if a future Android delivery wall appears. Next frontier: host-only native playback recipe design from the
 observed Android route, including exact control order, reset sequence, low-amplitude PCM plan, and
-abort conditions before any native `tinymix set`/`tinyplay`.
-Do not attempt internal speaker playback, native `tinymix set`, PCM playback open/write, or
-`tinyplay` until that V2377-derived route recipe and safety plan is written. Android route-delta live
+abort conditions before any native `tinymix set`/`tinyplay`. V2378 added that host-only route recipe
+planner (`native_audio_speaker_route_recipe_v2378.py`): it verifies V2377 evidence, exact route
+controls, and V2345 `tinymix`/`tinyplay` hashes, then emits a future-only plan with 13 observed
+route-apply controls, reverse reset, card0/device0 `tinyplay`, `amplitude=0.02`, `duration_ms=1000`,
+and exact future gate `AUD-4-native-speaker-pilot go: one-shot V2377 observed route apply,
+low-amplitude tinyplay, reverse reset, rollback to V2321`. The next frontier is implementing the
+exact-gated native speaker pilot runner as source/build/test only; do not run live playback until
+that runner has static safety coverage and the exact AUD-4 gate is used. Android route-delta live
 capture itself is covered by the overnight pre-authorization above, but must use the checked-helper
 Android handoff, bounded low-amplitude framework playback, V2321 rollback, and the current
 V2372/V2375 observability/stimulus path. V2363 and V2367 repeated the already-passed
