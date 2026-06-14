@@ -25,7 +25,7 @@ import native_audio_tinyalsa_inventory_gate_v2346 as inv
 RUN_ID = "V2349"
 BUILD_TAG = "v2349-audio-tinyalsa-inventory-live"
 APPROVAL_PHRASE = inv.REQUIRED_APPROVAL_PHRASE
-REMOTE_DIR = "/cache/a90-audio/v2349-tinyalsa-inventory"
+REMOTE_DIR = "/cache/a90-runtime/bin/v2349-tinyalsa-inventory"
 REMOTE_TOOLS = {
     "tinymix": f"{REMOTE_DIR}/tinymix",
     "tinypcminfo": f"{REMOTE_DIR}/tinypcminfo",
@@ -358,6 +358,11 @@ def live_run(args: argparse.Namespace, state: dict[str, Any]) -> dict[str, Any]:
         if not snd.selftest_ok(stdout_of(final_candidate_selftest)):
             raise RuntimeError("candidate final selftest did not report fail=0")
         result["decision"] = "v2349-tinyalsa-inventory-live-pass-before-rollback"
+    except Exception as exc:
+        result["decision"] = "v2349-tinyalsa-inventory-live-blocked-before-inventory"
+        result["error_type"] = type(exc).__name__
+        result["error"] = str(exc)
+        raise
     finally:
         if candidate_flashed:
             rollback_record = run_host_step(

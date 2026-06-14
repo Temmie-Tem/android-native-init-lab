@@ -79,12 +79,13 @@ ADSP subsystem-restart is recoverable, but forbidden-partition rules remain abso
   fresh operator go: load the speaker route via `tinymix`/`mixer_paths.xml` and push a test PCM with
   `tinyplay`. First actual sound test.
 
-**Latest AUD-3 preflight result (V2348):** exact-gated `/dev/snd` materialization passed on
-V2334 and rolled back to V2321 cleanly. Before materialization `/dev/snd` was empty; after one
-token-gated materializer run, 61 allowed `/dev/snd` nodes existed (`control_like=1`,
-`pcm_like=59`), with `open_attempted=0`, `ioctl_attempted=0`, and `playback_attempted=0`.
-Playback is still unproven. The next safe audio unit is a **separately exact-gated read-only
-tinyalsa inventory** (`tinypcminfo`/`tinymix` query only), not `tinyplay` or mixer writes.
+**Latest AUD-3C inventory result (V2350):** exact-gated read-only tinyalsa inventory reached
+the V2334 ADSP + `/dev/snd` materialization window twice, and both runs rolled back to V2321
+with `selftest fail=0`. `/dev/snd` again materialized to 61 nodes (`control_like=1`,
+`pcm_like=59`), but tinyalsa inventory did **not** run: the first attempt used a disallowed
+install root, and the corrected second attempt timed out reaching `tcpctl` at the install step.
+Playback is still unproven. The next safe audio unit is a host-only transfer/readiness fix for
+the tinyalsa staging path; do not retry live inventory until that is implemented and exact-gated.
 
 **Validation:** AUD-0/AUD-1 are host-only — `py_compile`/unittest for any harness code, no flash,
 no device. AUD-2/AUD-3 (if gated-in) every iteration: boot-only flash, pinned SHA, post-boot health

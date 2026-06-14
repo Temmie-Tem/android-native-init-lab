@@ -59,6 +59,18 @@ class TinyalsaInventoryLiveHandoff(unittest.TestCase):
         self.assertIn("--install-control-channel", flat)
         self.assertNotIn("tinyplay", " ".join(step["command"][0] for step in payload["inventory_plan"]))
 
+    def test_remote_tools_install_under_tcpctl_allowed_runtime_root(self) -> None:
+        payload = v2349.dry_run_payload(args())
+
+        self.assertEqual(payload["preflight"]["remote_dir"], "/cache/a90-runtime/bin/v2349-tinyalsa-inventory")
+        for path in payload["preflight"]["remote_tools"].values():
+            self.assertTrue(path.startswith("/cache/a90-runtime/bin/"), path)
+        for step in payload["tool_install_plan"]:
+            command = step["command"]
+            self.assertIn("--device-binary", command)
+            target = command[command.index("--device-binary") + 1]
+            self.assertTrue(target.startswith("/cache/a90-runtime/bin/"), target)
+
     def test_inventory_commands_are_safe_under_v2346_safety_checker(self) -> None:
         commands = v2349.planned_inventory_commands(args(pcm_device=[0, 1]))
         safety = v2349.command_safety(commands)
