@@ -41,11 +41,13 @@ class NativeSpeakerRouteRecipe(unittest.TestCase):
 
         self.assertTrue(delta["ok"], delta["findings"])
         by_name = {item["name"]: item for item in delta["controls"]}
-        self.assertEqual(by_name["SLIMBUS_0_RX Audio Mixer MultiMedia1"]["command_values_active"], ["On", "Off"])
+        self.assertEqual(by_name["SLIMBUS_0_RX Audio Mixer MultiMedia1"]["command_values_active"], ["1", "0"])
         self.assertEqual(by_name["SLIM RX0 MUX"]["command_values_active"], ["AIF1_PB"])
         self.assertEqual(by_name["RX INT7_1 MIX1 INP0"]["command_values_active"], ["RX0"])
-        self.assertEqual(by_name["COMP7 Switch"]["command_values_active"], ["On"])
-        self.assertEqual(by_name["SpkrLeft SWR DAC_Port Switch"]["command_values_active"], ["On"])
+        self.assertEqual(by_name["COMP7 Switch"]["command_values_active"], ["1"])
+        self.assertEqual(by_name["SpkrLeft SWR DAC_Port Switch"]["command_values_active"], ["1"])
+        self.assertEqual(by_name["SLIMBUS_0_RX Audio Mixer MultiMedia1"]["command_values_baseline"], ["0", "0"])
+        self.assertEqual(by_name["SLIM RX0 MUX"]["command_values_baseline"], ["ZERO"])
         self.assertEqual(by_name["ADSP Path Latency 0"]["role"], "observe_only")
 
     def test_future_plan_is_host_only_and_bounded(self) -> None:

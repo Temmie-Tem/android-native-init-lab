@@ -114,10 +114,27 @@ def selected_enum(value: str) -> str:
     raise ValueError(f"enum value has no selected token: {value!r}")
 
 
+BOOL_VALUE_MAP = {
+    "Off": "0",
+    "On": "1",
+    "off": "0",
+    "on": "1",
+    "0": "0",
+    "1": "1",
+}
+
+
 def command_values(control_type: str, value: str) -> list[str]:
     stripped = strip_dsrange(value)
     if control_type == "ENUM":
         return [selected_enum(stripped)]
+    if control_type == "BOOL":
+        values: list[str] = []
+        for part in stripped.split():
+            if part not in BOOL_VALUE_MAP:
+                raise ValueError(f"unsupported BOOL token: {part!r}")
+            values.append(BOOL_VALUE_MAP[part])
+        return values
     return [part[1:] if part.startswith(">") else part for part in stripped.split()]
 
 
