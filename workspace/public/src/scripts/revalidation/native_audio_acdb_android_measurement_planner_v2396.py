@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
-"""V2396 host-only Android/Magisk ACDB measurement planner.
+"""V2396/V2397 Android/Magisk ACDB measurement planner and gated runner.
 
-This is a dry-run-only planner for the V2395 Branch-A discriminator.  It does
-not boot Android, install a Magisk module, start playback, touch ADSP, open
-/dev/snd, write mixer controls, or call ACDB ioctls.  It builds a future command
-plan that reuses the proven Android handoff and V2321 rollback path, then
-captures the vendor HAL/ACDB/App-Type sequence under normal Android AudioTrack
-speaker playback.
+Default mode is a host-only dry-run planner for the V2395 Branch-A
+discriminator.  Live mode is V2397 and requires the exact AUD-5A approval
+phrase.  The live path boots Android through the checked helper, captures the
+vendor HAL/ACDB/App-Type sequence under normal Android AudioTrack speaker
+playback, and rolls back to V2321.  It does not perform native speaker writes,
+open native /dev/snd, write mixer controls from native init, or call ACDB ioctls
+from native init.
 
 Magisk is treated as a private Android-side delivery/observability mechanism
 only.  The default plan uses a transient Magisk-style module directory invoked
@@ -22,6 +23,7 @@ import hashlib
 import json
 import os
 import stat
+import time
 import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
@@ -32,6 +34,8 @@ import native_audio_android_route_delta_handoff_v2365 as route
 
 RUN_ID = "V2396"
 BUILD_TAG = "v2396-audio-acdb-android-magisk-measurement-planner"
+LIVE_RUN_ID = "V2397"
+LIVE_BUILD_TAG = "v2397-audio-acdb-android-magisk-live"
 ROOT = Path(__file__).resolve().parents[5]
 DEFAULT_MODULE_OUT_DIR = ROOT / "workspace/private/builds/audio/v2396-acdb-magisk-measurement-module"
 DEFAULT_STIMULUS_APK = ROOT / "workspace/private/builds/audio/v2373-android-route-stimulus-apk/A90AudioRouteStimulus.apk"
@@ -261,8 +265,7 @@ def stage_commands(args: argparse.Namespace, route_args: argparse.Namespace, mod
         adb_push(args, rel(args.module_out_dir / "service.sh"), REMOTE_SERVICE_SH),
         adb_push(args, rel(args.module_out_dir / "system/bin/a90_acdb_probe.sh"), REMOTE_PROBE),
         adb_push(args, zip_path, f"{REMOTE_DIR}/{MODULE_ID}.zip"),
-        adb_push(args, rel(args.stimulus_apk), f"{REMOTE_DIR}/A90AudioRouteStimulus.apk"),
-        adb_base(args) + ["install", "-r", f"{REMOTE_DIR}/A90AudioRouteStimulus.apk"],
+        adb_base(args) + ["install", "-r", rel(args.stimulus_apk)],
         adb_root_shell(args, f"chmod 700 {REMOTE_TINYMIX} {REMOTE_SERVICE_SH} {REMOTE_PROBE} && chmod 600 {REMOTE_MODULE_DIR}/module.prop {REMOTE_DIR}/{MODULE_ID}.zip"),
     ]
 
@@ -271,8 +274,8 @@ def probe_command(args: argparse.Namespace, phase: str) -> list[str]:
     return adb_root_shell(args, f"A90_V2396_TINYMIX={REMOTE_TINYMIX} {REMOTE_PROBE} {phase}")
 
 
-def collect_command(args: argparse.Namespace) -> list[str]:
-    return adb_base(args) + ["pull", REMOTE_ARTIFACT_DIR, "<private-run-dir>/device-artifacts"]
+def collect_command(args: argparse.Namespace, destination: str = "<private-run-dir>/device-artifacts") -> list[str]:
+    return adb_base(args) + ["pull", REMOTE_ARTIFACT_DIR, destination]
 
 
 def cleanup_commands(args: argparse.Namespace) -> list[list[str]]:
@@ -416,9 +419,154 @@ def dry_run_payload(args: argparse.Namespace) -> dict[str, Any]:
     return plan
 
 
+def now_slug() -> str:
+    return datetime.now(timezone.utc).astimezone().strftime("%Y%m%d-%H%M%S")
+
+
+def default_live_out_dir() -> Path:
+    return ROOT / f"workspace/private/runs/audio/v2397-android-acdb-measurement-{now_slug()}"
+
+
+def write_json(path: Path, payload: dict[str, Any]) -> None:
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+
+
+def ensure_live_approval(args: argparse.Namespace) -> None:
+    if args.approval != APPROVAL_PHRASE:
+        raise RuntimeError("exact AUD-5A Android ACDB measurement approval phrase is required for --run-live")
+
+
+def run_live(args: argparse.Namespace) -> dict[str, Any]:
+    """Run the exact-gated V2397 Android ACDB measurement and roll back.
+
+    This function is intentionally reachable only through the full approval phrase.
+    It performs no native speaker write; playback is Android framework AudioTrack
+    through the already-built APK.  Generated logs and module artifacts remain in
+    workspace/private.
+    """
+
+    ensure_live_approval(args)
+    args.materialize_module_template = True
+    route_args = android_args(args)
+    plan = dry_run_payload(args)
+    if not plan.get("future_live_ready"):
+        raise RuntimeError(f"V2397 live inputs are not ready: {plan.get('future_live_blockers')}")
+    if not plan.get("command_safety", {}).get("ok"):
+        raise RuntimeError(f"V2397 command safety failed: {plan.get('command_safety')}")
+
+    out_dir = args.out_dir or default_live_out_dir()
+    out_dir.mkdir(parents=True, exist_ok=False)
+    os.chmod(out_dir, 0o700)
+
+    steps: list[dict[str, Any]] = []
+    result: dict[str, Any] = {
+        "run_id": LIVE_RUN_ID,
+        "build_tag": LIVE_BUILD_TAG,
+        "decision": "v2397-android-acdb-measurement-live-started",
+        "out_dir": rel(out_dir),
+        "approval_ok": True,
+        "plan": plan,
+        "steps": steps,
+        "rolled_back": False,
+        "ok": False,
+    }
+    write_json(out_dir / "result.json", result)
+
+    android_boot_state = route.copy_sealed_android_boot(plan["android_boot"]["selected"], out_dir)
+    result["sealed_android_boot"] = android_boot_state
+    write_json(out_dir / "result.json", result)
+
+    rollback_needed = False
+    logcat_capture: dict[str, Any] | None = None
+    try:
+        rollback_needed = True
+        steps.append(route.run_step(
+            "flash_android",
+            route.flash_android_command(route_args, str(out_dir / "android_boot_0600.img")),
+            out_dir,
+            timeout_sec=args.flash_timeout,
+        ))
+        for index, command in enumerate(plan["commands"]["stage_transient_module_and_stimulus"]):
+            steps.append(route.run_step(f"stage-{index}", command, out_dir, timeout_sec=args.adb_command_timeout))
+
+        steps.append(route.run_step("baseline-probe", probe_command(args, "baseline"), out_dir, timeout_sec=args.adb_command_timeout, check=False))
+        steps.append(route.run_step("logcat-clear-before-stimulus", route.logcat_clear_command(route_args), out_dir, timeout_sec=args.adb_command_timeout, check=False))
+        logcat_capture = route.start_logcat_capture(route_args, out_dir)
+        logcat_capture["record"]["name"] = "acdb-logcat-capture"
+        logcat_capture["record"]["filter_regex_offline"] = LOG_FILTER_REGEX
+        steps.append(logcat_capture["record"])
+
+        steps.append(route.run_step(
+            "playback-start-background",
+            route.playback_start_command(route_args),
+            out_dir,
+            timeout_sec=args.adb_command_timeout,
+        ))
+        time.sleep(args.active_delay_sec)
+        steps.append(route.run_step("active-probe", probe_command(args, "active"), out_dir, timeout_sec=args.adb_command_timeout, check=False))
+        remaining = max(0.0, (args.duration_ms / 1000.0) - args.active_delay_sec + args.post_delay_sec)
+        time.sleep(remaining)
+        for index, command in enumerate(route.stimulus_result_commands(route_args)):
+            steps.append(route.run_step(f"playback-result-{index}", command, out_dir, timeout_sec=args.adb_command_timeout, check=False))
+        steps.append(route.run_step("post-probe", probe_command(args, "post"), out_dir, timeout_sec=args.adb_command_timeout, check=False))
+        steps.append(route.run_step(
+            "collect-private-artifacts",
+            collect_command(args, str(out_dir / "device-artifacts")),
+            out_dir,
+            timeout_sec=args.adb_command_timeout,
+            check=False,
+        ))
+        for index, command in enumerate(cleanup_commands(args)):
+            steps.append(route.run_step(f"cleanup-{index}", command, out_dir, timeout_sec=args.adb_command_timeout, check=False))
+
+        result["decision"] = "v2397-android-acdb-measurement-captured-before-rollback"
+        result["ok"] = True
+        return result
+    finally:
+        route.stop_logcat_capture(logcat_capture)
+        if rollback_needed:
+            try:
+                steps.append(route.run_step(
+                    "android-reboot-recovery-for-rollback",
+                    route.android_reboot_recovery_command(route_args),
+                    out_dir,
+                    timeout_sec=args.adb_command_timeout,
+                    check=False,
+                ))
+                steps.append(route.run_step(
+                    "rollback-v2321",
+                    route.rollback_command(route_args, from_native=False),
+                    out_dir,
+                    timeout_sec=args.flash_timeout,
+                ))
+                result["rolled_back"] = True
+                if result.get("ok"):
+                    result["decision"] = "v2397-android-acdb-measurement-captured-rollback-pass"
+            except Exception as first_rollback_error:
+                result["rollback_error"] = str(first_rollback_error)
+                try:
+                    steps.append(route.run_step(
+                        "rollback-v2321-from-native-fallback",
+                        route.rollback_command(route_args, from_native=True),
+                        out_dir,
+                        timeout_sec=args.flash_timeout,
+                    ))
+                    result["rolled_back"] = True
+                    result["rollback_fallback"] = "from-native"
+                    if result.get("ok"):
+                        result["decision"] = "v2397-android-acdb-measurement-captured-rollback-pass-fallback"
+                except Exception as second_rollback_error:
+                    result["rollback_fallback_error"] = str(second_rollback_error)
+                    raise
+            finally:
+                write_json(out_dir / "result.json", result)
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--dry-run", action="store_true", help="emit the V2396 plan; no device action")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--dry-run", action="store_true", help="emit the V2396 plan; no device action")
+    mode.add_argument("--run-live", action="store_true", help="run the exact-gated V2397 Android ACDB measurement")
     parser.add_argument("--materialize-module-template", action="store_true", help="write private Magisk-style module template files and zip")
     parser.add_argument("--module-out-dir", type=Path, default=DEFAULT_MODULE_OUT_DIR)
     parser.add_argument("--stimulus-apk", type=Path, default=DEFAULT_STIMULUS_APK)
@@ -433,11 +581,30 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--active-delay-sec", type=float, default=0.75)
     parser.add_argument("--post-delay-sec", type=float, default=1.0)
     parser.add_argument("--from-native", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument("--approval", help="exact AUD-5A approval phrase required by --run-live")
+    parser.add_argument("--out-dir", type=Path, help="private live output directory")
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
+    if args.run_live:
+        try:
+            payload = run_live(args)
+        except RuntimeError as error:
+            payload = {
+                "run_id": LIVE_RUN_ID,
+                "build_tag": LIVE_BUILD_TAG,
+                "decision": "v2397-android-acdb-measurement-live-refused",
+                "ok": False,
+                "rolled_back": False,
+                "reason": str(error),
+            }
+            print(json.dumps(payload, indent=2, sort_keys=True))
+            return 1
+        print(json.dumps(payload, indent=2, sort_keys=True))
+        return 0 if payload.get("ok") and payload.get("rolled_back") else 1
+
     payload = dry_run_payload(args)
     print(json.dumps(payload, indent=2, sort_keys=True))
     return 0 if payload.get("ok") else 1

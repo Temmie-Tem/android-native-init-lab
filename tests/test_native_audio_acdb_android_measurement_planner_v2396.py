@@ -61,6 +61,12 @@ class AcdbAndroidMeasurementPlanner(unittest.TestCase):
         self.assertIn("rollback_v2321", commands)
         self.assertIn("--expect-version", commands["rollback_v2321"])
         self.assertIn("0.9.285", commands["rollback_v2321"])
+        install_steps = [step for step in commands["stage_transient_module_and_stimulus"] if "install" in step]
+        self.assertEqual(len(install_steps), 1)
+        self.assertEqual(install_steps[0][:4], ["/opt/android/adb", "-s", "A90ADB01", "install"])
+        self.assertIn("workspace/private/builds/audio/v2373-android-route-stimulus-apk/A90AudioRouteStimulus.apk", install_steps[0])
+        self.assertEqual(commands["collect_private_artifacts"][:3], ["/opt/android/adb", "-s", "A90ADB01"])
+        self.assertEqual(commands["collect_private_artifacts"][-1], "<private-run-dir>/device-artifacts")
 
     def test_plan_contains_acdb_specific_observability(self) -> None:
         payload = v2396.dry_run_payload(args())
@@ -97,6 +103,49 @@ class AcdbAndroidMeasurementPlanner(unittest.TestCase):
             self.assertTrue((Path(temp_dir) / "service.sh").exists())
             self.assertTrue((Path(temp_dir) / "system/bin/a90_acdb_probe.sh").exists())
             self.assertTrue((Path(temp_dir) / "a90_audio_acdb_probe_v2396.zip").exists())
+
+
+    def test_run_live_requires_exact_aud5a_approval(self) -> None:
+        namespace = args(materialize_module_template=True, approval="continue")
+
+        with self.assertRaisesRegex(RuntimeError, "exact AUD-5A"):
+            v2396.ensure_live_approval(namespace)
+
+    def test_run_live_gate_accepts_exact_approval_without_running(self) -> None:
+        namespace = args(approval=v2396.APPROVAL_PHRASE)
+
+        v2396.ensure_live_approval(namespace)
+
+    def test_live_run_metadata_names_v2397_and_private_out_dir(self) -> None:
+        self.assertEqual(v2396.LIVE_RUN_ID, "V2397")
+        self.assertIn("v2397-android-acdb-measurement-", str(v2396.default_live_out_dir()))
+        self.assertIn("--run-live", subprocess.run(
+            [sys.executable, "workspace/public/src/scripts/revalidation/native_audio_acdb_android_measurement_planner_v2396.py", "--help"],
+            cwd=v2396.ROOT,
+            check=False,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=30,
+        ).stdout)
+
+    def test_cli_run_live_bad_approval_refuses_before_live_action(self) -> None:
+        script = Path("workspace/public/src/scripts/revalidation/native_audio_acdb_android_measurement_planner_v2396.py")
+        completed = subprocess.run(
+            [sys.executable, str(script), "--run-live", "--approval", "continue"],
+            cwd=v2396.ROOT,
+            check=False,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=30,
+        )
+
+        self.assertEqual(completed.returncode, 1)
+        self.assertEqual(completed.stderr, "")
+        payload = json.loads(completed.stdout)
+        self.assertEqual(payload["decision"], "v2397-android-acdb-measurement-live-refused")
+        self.assertIn("exact AUD-5A", payload["reason"])
 
     def test_cli_dry_run_outputs_json(self) -> None:
         script = Path("workspace/public/src/scripts/revalidation/native_audio_acdb_android_measurement_planner_v2396.py")
