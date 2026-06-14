@@ -79,19 +79,18 @@ ADSP subsystem-restart is recoverable, but forbidden-partition rules remain abso
   fresh operator go: load the speaker route via `tinymix`/`mixer_paths.xml` and push a test PCM with
   `tinyplay`. First actual sound test.
 
-**Latest audio route state (V2360):** V2360 reconciled the V2359 tinyalsa inventory against
-private vendor `mixer_paths_tavil.xml`, `audio_platform_info.xml`, `audio_policy_configuration.xml`,
-and staged tinyalsa source. The `deep-buffer-playback headphones` route is a clean live-control
-match (`SLIMBUS_0_RX Audio Mixer MultiMedia1 = 1`, present as `BOOL num=2`), and card0/device0
-supports the intended low-amplitude 48 kHz stereo PCM parameters. But A90 5G has no 3.5 mm jack, so
-this route is not a reliable audible-output proof under the current USB-gadget control setup. The
-audible internal-speaker path is not ready: vendor `SND_DEVICE_OUT_SPEAKER` maps to `SEC_TDM_RX_0`,
-while the XML speaker route still references `SLIMBUS_0_RX` plus `SpkrLeft*` / `SLIM_0_RX*` controls
-that do not appear by exact name in V2359 tinymix; live alternatives (`SEC_TDM_RX_*`, `WSA_*`,
-`COMP*`, `RX INT7*`) need another host-only reconciliation. The next safe audio unit is host-only
-AUD-3D planning/implementation: either prepare a separately gated low-risk headphone-route PCM smoke
-that may be inaudible, or first resolve the speaker route mismatch. Do not run `tinymix set`, PCM
-playback opens, or `tinyplay` without a fresh exact playback gate.
+**Latest audio speaker-route state (V2361):** V2361 host-only analysis narrowed the audible
+speaker path but did not produce a safe live route. `audio_platform_info.xml` maps
+`SND_DEVICE_OUT_SPEAKER` to backend `speaker` / interface `SEC_TDM_RX_0`, and V2359 live tinymix
+exposes `SEC_TDM_RX_0 Audio Mixer MultiMedia*`, `WSA_CDC_DMA_RX_0*`, `COMP7`, and `RX INT7*`
+controls. But `mixer_paths_tavil.xml` still routes `deep-buffer-playback speaker` through
+`SLIMBUS_0_RX Audio Mixer MultiMedia1` plus `spk` controls (`SpkrLeft*`, `SLIM_0_RX*`) missing by
+exact live name. Stock kernel strings prove related `SEC_TDM_RX_0`, `WSA_CDC_DMA_RX_0`, and
+`SpkrLeft` support exists, so the issue is route mapping, not total hardware absence. Do not attempt
+internal speaker playback yet. The next safe unit is host-only planning: either design a rollbackable
+Android route-delta capture to learn the vendor HAL's actual speaker mixer sequence, or implement a
+separately gated low-risk headphone-route PCM smoke that may be inaudible. No `tinymix set`, PCM
+playback open/write, or `tinyplay` without a fresh exact playback gate.
 
 **Validation:** AUD-0/AUD-1 are host-only — `py_compile`/unittest for any harness code, no flash,
 no device. AUD-2/AUD-3 (if gated-in) every iteration: boot-only flash, pinned SHA, post-boot health
