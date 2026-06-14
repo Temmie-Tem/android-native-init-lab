@@ -141,7 +141,7 @@ def android_post_handoff_settle_commands(args: argparse.Namespace) -> list[list[
     return [
         adb_base(args) + ["wait-for-device"],
         android_boot_complete_check_command(args),
-        adb_root_shell(args, 'out="$(id)"; case "$out" in *uid=0*) exit 0;; *) echo "$out"; exit 1;; esac'),
+        adb_root_shell(args, "id"),
     ]
 
 
@@ -293,6 +293,34 @@ def module_state(args: argparse.Namespace) -> dict[str, Any]:
     return state
 
 
+def magisk_strategy() -> dict[str, Any]:
+    return {
+        "default_tier": "M0-transient-helper",
+        "precedent": "Wi-Fi-style Android handoff: use Android/Magisk to observe the stock-good path, then port only bounded native-safe pieces",
+        "native_runtime_dependency": False,
+        "tiers": [
+            {
+                "tier": "M0-transient-helper",
+                "default": True,
+                "mechanism": "stage scripts/tools under /data/local/tmp and run with su -c after Android ADB/root is ready",
+                "current_use": "AUD-5A baseline/active/post ACDB/App Type measurement",
+            },
+            {
+                "tier": "M1-temporary-boot-module",
+                "default": False,
+                "mechanism": "temporary post-fs-data.sh/service.sh observer module for early Android boot edges",
+                "gate": "new exact approval required; only if M0 capture misses early ACDB/App Type events",
+            },
+            {
+                "tier": "M2-vendor-wrapper",
+                "default": False,
+                "mechanism": "targeted Android-side vendor process wrapper/probe",
+                "gate": "last resort; only for one identified vendor edge not observable through M0/M1/logcat/dmesg",
+            },
+        ],
+    }
+
+
 def stage_commands(args: argparse.Namespace, route_args: argparse.Namespace, module: dict[str, Any], tinymix: dict[str, Any]) -> list[list[str]]:
     zip_path = module.get("zip", {}).get("path") or rel(args.module_out_dir / f"{MODULE_ID}.zip")
     return [
@@ -414,6 +442,7 @@ def dry_run_payload(args: argparse.Namespace) -> dict[str, Any]:
         "tinymix": tinymix,
         "stimulus_apk": stimulus,
         "magisk_module": module,
+        "magisk_strategy": magisk_strategy(),
         "measurement_focus": {
             "speaker_acdb_id": 15,
             "expected_app_type": 69941,
@@ -514,6 +543,29 @@ def step_stdout(record: dict[str, Any]) -> str:
         return (ROOT / stdout).read_text()
     except OSError:
         return ""
+
+
+def validate_android_root_recheck(record: dict[str, Any]) -> None:
+    stdout = step_stdout(record)
+    if "uid=0" not in stdout:
+        raise RuntimeError(f"android root recheck did not report uid=0; see {record.get('stdout')}")
+
+
+def run_android_post_handoff_settle(
+    args: argparse.Namespace,
+    out_dir: Path,
+    steps: list[dict[str, Any]],
+) -> None:
+    for index, command in enumerate(android_post_handoff_settle_commands(args)):
+        record = route.run_step(
+            f"android-post-handoff-settle-{index}",
+            command,
+            out_dir,
+            timeout_sec=args.adb_command_timeout,
+        )
+        steps.append(record)
+        if index == 2:
+            validate_android_root_recheck(record)
 
 
 def run_android_reboot_recovery_steps(
@@ -684,8 +736,7 @@ def run_live(args: argparse.Namespace) -> dict[str, Any]:
             out_dir,
             timeout_sec=args.flash_timeout,
         ))
-        for index, command in enumerate(android_post_handoff_settle_commands(args)):
-            steps.append(route.run_step(f"android-post-handoff-settle-{index}", command, out_dir, timeout_sec=args.adb_command_timeout))
+        run_android_post_handoff_settle(args, out_dir, steps)
 
         for index, command in enumerate(plan["commands"]["stage_transient_module_and_stimulus"]):
             steps.append(route.run_step(f"stage-{index}", command, out_dir, timeout_sec=args.adb_command_timeout))

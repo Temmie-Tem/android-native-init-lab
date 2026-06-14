@@ -99,8 +99,7 @@ class AcdbAndroidMeasurementPlanner(unittest.TestCase):
         settle = commands["android_post_handoff_settle"]
         self.assertEqual(settle[0], ["/opt/android/adb", "-s", "A90ADB01", "wait-for-device"])
         self.assertIn("getprop sys.boot_completed", " ".join(settle[1]))
-        self.assertEqual(settle[2][:4], ["/opt/android/adb", "-s", "A90ADB01", "shell"])
-        self.assertIn("uid=0", " ".join(settle[2]))
+        self.assertEqual(settle[2], ["/opt/android/adb", "-s", "A90ADB01", "shell", "su", "-c", "id"])
         self.assertEqual(commands["baseline_probe"][:3], ["/opt/android/adb", "-s", "A90ADB01"])
         self.assertEqual(commands["android_wait_device_before_rollback"], ["/opt/android/adb", "-s", "A90ADB01", "wait-for-device"])
         self.assertEqual(commands["android_reboot_recovery_for_rollback"], ["/opt/android/adb", "-s", "A90ADB01", "reboot", "recovery"])
@@ -139,6 +138,19 @@ class AcdbAndroidMeasurementPlanner(unittest.TestCase):
         self.assertNotIn(" tinymix set ", flat)
         self.assertNotIn("fastboot", flat)
         self.assertEqual(payload["command_safety"]["default_delivery"], "transient Magisk-root helper; no persistent module install")
+
+    def test_magisk_strategy_keeps_module_as_android_measurement_capsule(self) -> None:
+        payload = v2396.dry_run_payload(args())
+        strategy = payload["magisk_strategy"]
+
+        self.assertEqual(strategy["default_tier"], "M0-transient-helper")
+        self.assertFalse(strategy["native_runtime_dependency"])
+        self.assertIn("Wi-Fi-style Android handoff", strategy["precedent"])
+        self.assertEqual(strategy["tiers"][0]["tier"], "M0-transient-helper")
+        self.assertTrue(strategy["tiers"][0]["default"])
+        self.assertEqual(strategy["tiers"][1]["tier"], "M1-temporary-boot-module")
+        self.assertFalse(strategy["tiers"][1]["default"])
+        self.assertIn("new exact approval", strategy["tiers"][1]["gate"])
 
     def test_module_template_materialization_is_private_ready(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -264,6 +276,18 @@ class AcdbAndroidMeasurementPlanner(unittest.TestCase):
         self.assertIn("android-reboot-recovery-for-rollback-retry", calls)
         self.assertIn("rollback-v2321-after-android-reboot-retry", calls)
         self.assertNotIn("rollback-v2321-from-native-fallback", calls)
+
+    def test_root_recheck_validates_captured_stdout_on_host(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            out_dir = Path(temp_dir)
+            ok_stdout = out_dir / "ok.stdout.txt"
+            ok_stdout.write_text("uid=0(root) gid=0(root)\n")
+            v2396.validate_android_root_recheck({"stdout": v2396.rel(ok_stdout)})
+
+            bad_stdout = out_dir / "bad.stdout.txt"
+            bad_stdout.write_text("uid=2000(shell) gid=2000(shell)\n")
+            with self.assertRaisesRegex(RuntimeError, "uid=0"):
+                v2396.validate_android_root_recheck({"stdout": v2396.rel(bad_stdout)})
 
     def test_cli_dry_run_outputs_json(self) -> None:
         script = Path("workspace/public/src/scripts/revalidation/native_audio_acdb_android_measurement_planner_v2396.py")
