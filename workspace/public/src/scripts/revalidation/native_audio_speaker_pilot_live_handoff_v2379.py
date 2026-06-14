@@ -18,6 +18,7 @@ import argparse
 import copy
 import json
 import math
+import re
 import struct
 import subprocess
 import wave
@@ -59,6 +60,17 @@ FORBIDDEN_TOKENS = (
     "su -c",
     "adsprpc",
 )
+MAGISK_DIRECTION = {
+    "role": "android_measurement_fallback_only",
+    "native_runtime_dependency": False,
+    "aud4_uses_magisk": False,
+    "allowed_future_uses": [
+        "temporary Android-side route-delta stimulus packaging",
+        "boot-time Android framework stimulus hook when adb/app_process/APK delivery is blocked",
+        "Android vendor-log probe packaging",
+    ],
+    "private_artifacts_only": True,
+}
 
 
 def rel(path: Path) -> str:
@@ -240,6 +252,9 @@ def preflight_state(args: argparse.Namespace) -> dict[str, Any]:
         "remote_dir": REMOTE_DIR,
         "remote_tools": {"tinymix": REMOTE_TINYMIX, "tinyplay": REMOTE_TINYPLAY},
         "remote_pcm": REMOTE_PCM,
+        "route_transport": args.route_transport,
+        "tcpctl_remote_failure_is_hard_failure": True,
+        "magisk_direction": MAGISK_DIRECTION,
         "ok": ok,
     }
 
@@ -289,6 +304,9 @@ def dry_run_payload(args: argparse.Namespace) -> dict[str, Any]:
         },
         "tool_install_plan": dry_run_install_plan(args, state),
         "runtime_plan": {
+            "route_transport": args.route_transport,
+            "snapshot_transport": "auto-selected transfer transport",
+            "playback_transport": "auto-selected transfer transport",
             "snapshot_before_apply": [REMOTE_TINYMIX, "-D", str(args.card), "--all-values"],
             "route_apply_commands": plan["route_apply_commands"],
             "playback": plan["playback"],
@@ -334,10 +352,48 @@ def step_text(step: dict[str, Any]) -> str:
     return tiny_live.step_text(step)
 
 
-def run_tool_command(args: argparse.Namespace, out_dir: Path, steps: list[dict[str, Any]], name: str, argv: list[str], *, use_tcpctl: bool, timeout: float, allow_error: bool = False) -> dict[str, Any]:
+NONZERO_EXIT_RE = re.compile(r"(?:ERR exit=|\[exit )(\d+)")
+
+
+def classify_remote_tool_output(text: str, failure_markers: tuple[str, ...] = ()) -> dict[str, Any]:
+    exits = [int(match.group(1)) for match in NONZERO_EXIT_RE.finditer(text)]
+    nonzero = [code for code in exits if code != 0]
+    markers = [marker for marker in failure_markers if marker in text]
+    return {
+        "ok": not nonzero and not markers,
+        "exit_codes": exits,
+        "nonzero_exit_codes": nonzero,
+        "failure_markers": markers,
+    }
+
+
+def annotate_tool_step(step: dict[str, Any], *, failure_markers: tuple[str, ...] = ()) -> dict[str, Any]:
+    remote = classify_remote_tool_output(step_text(step), failure_markers)
+    step["remote_tool_result"] = remote
+    step["ok"] = bool(step.get("ok")) and remote["ok"]
+    return step
+
+
+def run_tool_command(
+    args: argparse.Namespace,
+    out_dir: Path,
+    steps: list[dict[str, Any]],
+    name: str,
+    argv: list[str],
+    *,
+    use_tcpctl: bool,
+    timeout: float,
+    allow_error: bool = False,
+    failure_markers: tuple[str, ...] = (),
+) -> dict[str, Any]:
     if use_tcpctl:
-        return run_host_step(out_dir, steps, name, tiny_live.tcpctl_run_command(args, argv), timeout=timeout, allow_error=allow_error)
-    return snd.run_serial_transport_step(out_dir, steps, name, args, ["run", *argv], timeout=timeout, retry_observation=False, allow_error=allow_error)
+        step = run_host_step(out_dir, steps, name, tiny_live.tcpctl_run_command(args, argv), timeout=timeout, allow_error=True)
+    else:
+        step = snd.run_serial_transport_step(out_dir, steps, name, args, ["run", *argv], timeout=timeout, retry_observation=False, allow_error=True)
+    annotate_tool_step(step, failure_markers=failure_markers)
+    if not step["ok"] and not allow_error:
+        raise RuntimeError(f"remote tool command failed: {name}: {step.get('remote_tool_result')}")
+    return step
 
 
 def parse_tinymix_text(text: str) -> dict[int, dict[str, Any]]:
@@ -398,8 +454,13 @@ def run_speaker_pilot(args: argparse.Namespace, out_dir: Path, steps: list[dict[
     result: dict[str, Any] = {"pilot_wav": pcm, "route_apply": [], "route_reset": [], "playback_attempted": False}
     install = install_runtime_artifacts(args, out_dir, steps, state, pcm_path)
     result["install"] = install
-    use_tcpctl = install["selected_transport"] == "tcpctl"
+    snapshot_use_tcpctl = install["selected_transport"] == "tcpctl"
+    playback_use_tcpctl = install["selected_transport"] == "tcpctl"
+    route_use_tcpctl = args.route_transport == "tcpctl"
     plan = state["speaker_plan"]
+    result["route_transport"] = "tcpctl" if route_use_tcpctl else "serial-cmdv1x"
+    result["snapshot_transport"] = install["selected_transport"]
+    result["playback_transport"] = install["selected_transport"]
     baseline_step: dict[str, Any] | None = None
     post_reset_step: dict[str, Any] | None = None
     try:
@@ -409,7 +470,7 @@ def run_speaker_pilot(args: argparse.Namespace, out_dir: Path, steps: list[dict[
             steps,
             "tinymix-all-values-before-apply",
             [REMOTE_TINYMIX, "-D", str(args.card), "--all-values"],
-            use_tcpctl=use_tcpctl,
+            use_tcpctl=snapshot_use_tcpctl,
             timeout=args.mixer_timeout,
         )
         for command in plan["route_apply_commands"]:
@@ -419,8 +480,9 @@ def run_speaker_pilot(args: argparse.Namespace, out_dir: Path, steps: list[dict[
                 steps,
                 command["name"],
                 [str(part) for part in command["argv"]],
-                use_tcpctl=use_tcpctl,
+                use_tcpctl=route_use_tcpctl,
                 timeout=args.mixer_timeout,
+                failure_markers=("Invalid mixer control",),
             )
             result["route_apply"].append({"name": command["name"], "ok": bool(step.get("ok")), "stdout_path": step.get("stdout_path")})
         result["playback_attempted"] = True
@@ -430,8 +492,9 @@ def run_speaker_pilot(args: argparse.Namespace, out_dir: Path, steps: list[dict[
             steps,
             "tinyplay-low-amplitude-speaker-pilot",
             [str(part) for part in plan["playback"]["argv"]],
-            use_tcpctl=use_tcpctl,
+            use_tcpctl=playback_use_tcpctl,
             timeout=args.playback_timeout,
+            failure_markers=("Error playing sample",),
         )
         result["playback"] = {"ok": bool(playback_step.get("ok")), "stdout_path": playback_step.get("stdout_path")}
     finally:
@@ -442,9 +505,10 @@ def run_speaker_pilot(args: argparse.Namespace, out_dir: Path, steps: list[dict[
                 steps,
                 command["name"],
                 [str(part) for part in command["argv"]],
-                use_tcpctl=use_tcpctl,
+                use_tcpctl=route_use_tcpctl,
                 timeout=args.mixer_timeout,
                 allow_error=True,
+                failure_markers=("Invalid mixer control",),
             )
             result["route_reset"].append({"name": command["name"], "ok": bool(step.get("ok")), "stdout_path": step.get("stdout_path")})
         post_reset_step = run_tool_command(
@@ -453,7 +517,7 @@ def run_speaker_pilot(args: argparse.Namespace, out_dir: Path, steps: list[dict[
             steps,
             "tinymix-all-values-after-reset",
             [REMOTE_TINYMIX, "-D", str(args.card), "--all-values"],
-            use_tcpctl=use_tcpctl,
+            use_tcpctl=snapshot_use_tcpctl,
             timeout=args.mixer_timeout,
             allow_error=True,
         )
@@ -586,6 +650,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--ncm-setup-sudo", default="sudo -n")
     parser.add_argument("--inventory-transport", choices=("auto", "tcpctl", "serial"), default="auto")
     parser.add_argument("--card", type=int, default=0)
+    parser.add_argument("--route-transport", choices=("serial", "tcpctl"), default="serial", help="transport for tinymix controls with space-containing names; default serial preserves argv via cmdv1x")
     parser.add_argument("--mixer-timeout", type=float, default=45.0)
     parser.add_argument("--playback-timeout", type=float, default=20.0)
     parser.add_argument("--duration-ms", type=int, default=DEFAULT_DURATION_MS)

@@ -43,6 +43,7 @@ def args(**overrides: object) -> argparse.Namespace:
         "ncm_setup_sudo": "sudo -n",
         "inventory_transport": "auto",
         "card": 0,
+        "route_transport": "serial",
         "mixer_timeout": 45.0,
         "playback_timeout": 20.0,
         "duration_ms": v2379.DEFAULT_DURATION_MS,
@@ -62,6 +63,9 @@ class NativeSpeakerPilotLiveHandoff(unittest.TestCase):
         self.assertEqual(payload["preflight"]["remote_dir"], "/cache/a90-runtime/bin/v2379-speaker-pilot")
         self.assertEqual([step["artifact"] for step in payload["tool_install_plan"]], ["tinymix", "tinyplay", "pilot_wav_generated_runtime"])
         runtime = payload["runtime_plan"]
+        self.assertEqual(runtime["route_transport"], "serial")
+        self.assertEqual(runtime["snapshot_transport"], "auto-selected transfer transport")
+        self.assertEqual(runtime["playback_transport"], "auto-selected transfer transport")
         self.assertEqual(len(runtime["route_apply_commands"]), 13)
         self.assertEqual(len(runtime["route_reset_commands"]), 12)
         self.assertEqual(
@@ -79,9 +83,10 @@ class NativeSpeakerPilotLiveHandoff(unittest.TestCase):
         self.assertIn("flash_candidate", flat)
         self.assertIn("snd-materialize-once", flat)
         self.assertIn("transfer_readiness_plan", payload)
-        self.assertNotIn("app_process", flat)
-        self.assertNotIn("am start", flat)
-        self.assertNotIn("/dev/block", flat)
+        runtime_flat = json.dumps(payload["runtime_plan"], sort_keys=True)
+        self.assertNotIn("app_process", runtime_flat)
+        self.assertNotIn("am start", runtime_flat)
+        self.assertNotIn("/dev/block", runtime_flat)
 
     def test_preflight_verifies_v2377_recipe_and_pinned_tinyalsa_tools(self) -> None:
         state = v2379.preflight_state(args())
@@ -91,6 +96,11 @@ class NativeSpeakerPilotLiveHandoff(unittest.TestCase):
         self.assertTrue(state["tools"]["tinymix"]["sha256_ok"])
         self.assertTrue(state["tools"]["tinyplay"]["sha256_ok"])
         self.assertTrue(state["command_safety"]["ok"])
+        self.assertEqual(state["route_transport"], "serial")
+        self.assertTrue(state["tcpctl_remote_failure_is_hard_failure"])
+        self.assertEqual(state["magisk_direction"]["role"], "android_measurement_fallback_only")
+        self.assertFalse(state["magisk_direction"]["native_runtime_dependency"])
+        self.assertFalse(state["magisk_direction"]["aud4_uses_magisk"])
 
     def test_command_safety_rejects_unbounded_or_forbidden_plans(self) -> None:
         plan = v2379.speaker_plan(args())
@@ -112,6 +122,31 @@ class NativeSpeakerPilotLiveHandoff(unittest.TestCase):
                 self.assertEqual(wav.getnframes(), 48000)
         with tempfile.TemporaryDirectory() as temp_dir, self.assertRaisesRegex(ValueError, "amplitude"):
             v2379.generate_pilot_wav(Path(temp_dir) / "bad.wav", duration_ms=1000, amplitude=0.2)
+
+    def test_remote_tool_output_classifies_tcpctl_and_tinyplay_failures(self) -> None:
+        bad_tinymix = "\n".join(
+            [
+                "a90_tcpctl v1 ready",
+                "OK authenticated",
+                "Invalid mixer control: 'Audio'",
+                "[exit 2]",
+                "ERR exit=2",
+            ]
+        )
+        tinymix_result = v2379.classify_remote_tool_output(bad_tinymix, ("Invalid mixer control",))
+
+        self.assertFalse(tinymix_result["ok"])
+        self.assertEqual(tinymix_result["nonzero_exit_codes"], [2, 2])
+        self.assertEqual(tinymix_result["failure_markers"], ["Invalid mixer control"])
+
+        tinyplay_result = v2379.classify_remote_tool_output(
+            "Error playing sample\n[exit 0]\nOK",
+            ("Error playing sample",),
+        )
+
+        self.assertFalse(tinyplay_result["ok"])
+        self.assertEqual(tinyplay_result["exit_codes"], [0])
+        self.assertEqual(tinyplay_result["failure_markers"], ["Error playing sample"])
 
     def test_wrong_live_approval_exits_before_flash(self) -> None:
         completed = subprocess.run(
