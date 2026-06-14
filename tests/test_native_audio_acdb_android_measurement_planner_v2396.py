@@ -122,6 +122,9 @@ class AcdbAndroidMeasurementPlanner(unittest.TestCase):
 
         self.assertIn("/dev/msm_audio_cal", "".join(v2396.module_files().values()))
         self.assertIn("audio-hal-pids", "".join(v2396.module_files().values()))
+        self.assertIn("/data/local/tmp/a90-audio-acdb-v2396/artifacts", flat)
+        self.assertNotIn("/cache/a90-audio-acdb-v2396", flat)
+        self.assertNotIn("/cache/a90-audio-acdb-v2396", "".join(v2396.module_files().values()))
         self.assertIn("ACDB", payload["measurement_focus"]["log_filter_regex"])
         self.assertIn("q6asm_send_cal", payload["measurement_focus"]["log_filter_regex"])
         self.assertIn("logcat", flat)

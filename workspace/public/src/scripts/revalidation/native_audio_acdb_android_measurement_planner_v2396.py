@@ -45,7 +45,7 @@ REMOTE_TINYMIX = f"{REMOTE_DIR}/tinymix"
 REMOTE_MODULE_DIR = f"{REMOTE_DIR}/module"
 REMOTE_PROBE = f"{REMOTE_MODULE_DIR}/system/bin/a90_acdb_probe.sh"
 REMOTE_SERVICE_SH = f"{REMOTE_MODULE_DIR}/service.sh"
-REMOTE_ARTIFACT_DIR = "/cache/a90-audio-acdb-v2396"
+REMOTE_ARTIFACT_DIR = f"{REMOTE_DIR}/artifacts"
 MODULE_ID = "a90_audio_acdb_probe_v2396"
 APPROVAL_PHRASE = (
     "AUD-5A-android-acdb-magisk-measurement go: rollbackable Android AudioTrack "
@@ -189,7 +189,7 @@ def module_files() -> dict[str, str]:
     helper = r'''#!/system/bin/sh
 set -eu
 PHASE="${1:-manual}"
-OUT="/cache/a90-audio-acdb-v2396"
+OUT="${A90_V2396_OUT:-/data/local/tmp/a90-audio-acdb-v2396/artifacts}"
 TINYMIX="${A90_V2396_TINYMIX:-/data/local/tmp/a90-audio-acdb-v2396/tinymix}"
 mkdir -p "$OUT"
 chmod 700 "$OUT" 2>/dev/null || true
@@ -212,8 +212,12 @@ exit 0
 '''
     service = r'''#!/system/bin/sh
 MODDIR="${0%/*}"
+OUT="/data/local/tmp/a90-audio-acdb-v2396/artifacts"
+mkdir -p "$OUT"
+chmod 700 "$OUT" 2>/dev/null || true
+A90_V2396_OUT="$OUT" \
 A90_V2396_TINYMIX="/data/local/tmp/a90-audio-acdb-v2396/tinymix" \
-  "$MODDIR/system/bin/a90_acdb_probe.sh" boot-observe >> /cache/a90-audio-acdb-v2396/service.log 2>&1
+  "$MODDIR/system/bin/a90_acdb_probe.sh" boot-observe >> "$OUT/service.log" 2>&1
 exit 0
 '''
     module_prop = """id=a90_audio_acdb_probe_v2396
@@ -324,7 +328,7 @@ def magisk_strategy() -> dict[str, Any]:
 def stage_commands(args: argparse.Namespace, route_args: argparse.Namespace, module: dict[str, Any], tinymix: dict[str, Any]) -> list[list[str]]:
     zip_path = module.get("zip", {}).get("path") or rel(args.module_out_dir / f"{MODULE_ID}.zip")
     return [
-        adb_root_shell(args, f"rm -rf {REMOTE_DIR} {REMOTE_ARTIFACT_DIR} && mkdir -p {REMOTE_DIR} {REMOTE_MODULE_DIR}/system/bin && chmod 700 {REMOTE_DIR} {REMOTE_ARTIFACT_DIR}"),
+        adb_root_shell(args, f"rm -rf {REMOTE_DIR} && mkdir -p {REMOTE_DIR} {REMOTE_MODULE_DIR}/system/bin {REMOTE_ARTIFACT_DIR} && chmod 700 {REMOTE_DIR} {REMOTE_ARTIFACT_DIR}"),
         adb_push(args, tinymix.get("path") or "<tinymix>", REMOTE_TINYMIX),
         adb_push(args, rel(args.module_out_dir / "module.prop"), f"{REMOTE_MODULE_DIR}/module.prop"),
         adb_push(args, rel(args.module_out_dir / "service.sh"), REMOTE_SERVICE_SH),
@@ -336,7 +340,7 @@ def stage_commands(args: argparse.Namespace, route_args: argparse.Namespace, mod
 
 
 def probe_command(args: argparse.Namespace, phase: str) -> list[str]:
-    return adb_root_shell(args, f"A90_V2396_TINYMIX={REMOTE_TINYMIX} {REMOTE_PROBE} {phase}")
+    return adb_root_shell(args, f"A90_V2396_OUT={REMOTE_ARTIFACT_DIR} A90_V2396_TINYMIX={REMOTE_TINYMIX} {REMOTE_PROBE} {phase}")
 
 
 def collect_command(args: argparse.Namespace, destination: str = "<private-run-dir>/device-artifacts") -> list[str]:
@@ -358,7 +362,7 @@ def optional_strace_plan(args: argparse.Namespace) -> dict[str, Any]:
             args,
             "pid=$(pidof android.hardware.audio.service | awk '{print $1}'); "
             "[ -n \"$pid\" ] && timeout 5 strace -ff -tt -s 256 -e trace=openat,ioctl -p $pid "
-            "> /cache/a90-audio-acdb-v2396/strace-audio-hal.txt 2>&1",
+            f"> {REMOTE_ARTIFACT_DIR}/strace-audio-hal.txt 2>&1",
         ),
     }
 
