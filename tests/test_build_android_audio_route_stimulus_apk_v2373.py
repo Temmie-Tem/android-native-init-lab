@@ -68,6 +68,8 @@ class AndroidAudioRouteStimulusApkBuilder(unittest.TestCase):
         builder = Path(v2373.__file__).read_text()
 
         self.assertIn('package="com.a90.nativeinit.audio"', manifest)
+        self.assertIn('android:minSdkVersion="23"', manifest)
+        self.assertIn('android:targetSdkVersion="31"', manifest)
         self.assertIn('android:exported="true"', manifest)
         self.assertIn("PLAY_ROUTE_STIMULUS", manifest)
         self.assertIn("AudioTrack", sources)

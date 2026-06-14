@@ -132,14 +132,17 @@ preserving explicit ADB targeting and V2372 logcat capture. V2375 executed that 
 APK-mode Android route-delta handoff and rolled back to V2321 with `selftest fail=0`; APK install
 succeeded, but `am start` was redirected to PermissionController `REVIEW_PERMISSIONS`, no
 `A90_AUDIO_STIMULUS_*` marker ran, AudioFlinger saw no package activity, and baseline/active/post
-`tinymix --all-values` were byte-identical. Host `aapt dump badging` identifies the concrete cause:
-the APK manifest lacks explicit `uses-sdk`, so Android treats it as `targetSdkVersion < 4` and adds
-implied dangerous permissions (`WRITE_EXTERNAL_STORAGE`, `READ_PHONE_STATE`, `READ_EXTERNAL_STORAGE`),
-triggering first-launch permission review. Next unit: add a modern explicit `uses-sdk`/target SDK to
-the APK manifest, rebuild the private APK, then rerun the same preauthorized route-delta path.
-Magisk-module stimulus delivery is a valid follow-on only if the modern-target APK still cannot
-launch; do not jump to Magisk before fixing this manifest issue. The frontier remains Android
-stimulus execution/observability, not a native speaker route.
+`tinymix --all-values` were byte-identical. Host `aapt dump badging` identified the concrete cause:
+the APK manifest lacked explicit `uses-sdk`, so Android treated it as `targetSdkVersion < 4` and
+added implied dangerous permissions. V2376 fixed the manifest with `minSdkVersion=23` and
+`targetSdkVersion=31`, rebuilt the private APK (SHA256
+`fef87886bd1fb5f3dd07b857bbe3c4c00f9046f797ba9c84d48b89dc1d2d13f3`, mode `0600`), verified
+`apksigner`, confirmed `aapt dump badging` reports `sdkVersion:'23'` and `targetSdkVersion:'31'`
+with no implied dangerous permissions, and the route-delta runner dry-run is again
+`live_ready=True`. Next unit: rerun the same preauthorized route-delta path with this modern-target
+APK. Magisk-module stimulus delivery is a valid follow-on only if the modern-target APK still cannot
+launch; do not jump to Magisk before testing this fix. The frontier remains Android stimulus
+execution/observability, not a native speaker route.
 Do not attempt internal speaker playback, native `tinymix set`, PCM playback open/write, or
 `tinyplay` until Android route-delta evidence identifies a speaker route. Android route-delta live
 capture itself is covered by the overnight pre-authorization above, but must use the checked-helper
