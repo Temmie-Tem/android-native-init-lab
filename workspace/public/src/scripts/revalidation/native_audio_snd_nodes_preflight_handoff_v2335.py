@@ -37,8 +37,8 @@ ADSP_TOKEN = "AUD2_ONE_SHOT_ADSP_BOOT"
 SND_TOKEN = "AUD3_DEV_SND_MATERIALIZE_ONLY"
 
 AUDIO_CARD_RE = re.compile(r"sm8150-tavil-snd-card|sm8150tavilsndc")
-SND_CONTROL_RE = re.compile(r"(?:^|/)controlC\d+\b")
-SND_PCM_RE = re.compile(r"(?:^|/)pcmC\d+D\d+[pc]\b")
+SND_CONTROL_OK_RE = re.compile(r"\bdevnode=/dev/snd/controlC\d+\b[^\r\n]*\bstate=ok\b")
+SND_PCM_OK_RE = re.compile(r"\bdevnode=/dev/snd/pcmC\d+D\d+[pc]\b[^\r\n]*\bstate=ok\b")
 SELFTEST_FAIL0_RE = re.compile(r"\bfail=0\b")
 
 
@@ -95,7 +95,22 @@ def parse_key_values(text: str) -> dict[str, list[str]]:
         key, value = line.split("=", 1)
         if not key or key.startswith("A90P1 "):
             continue
-        values.setdefault(key, []).append(value.strip())
+        value = value.strip()
+        tokens = value.split()
+        inline_attrs: list[tuple[str, str]] = []
+        for token in tokens[1:]:
+            if "=" not in token:
+                continue
+            attr_key, attr_value = token.split("=", 1)
+            if attr_key and re.fullmatch(r"[A-Za-z0-9_]+", attr_key):
+                inline_attrs.append((attr_key, attr_value))
+        if tokens and inline_attrs and "." in key:
+            prefix = key.rsplit(".", 1)[0]
+            values.setdefault(key, []).append(tokens[0])
+            for attr_key, attr_value in inline_attrs:
+                values.setdefault(f"{prefix}.{attr_key}", []).append(attr_value.strip())
+        else:
+            values.setdefault(key, []).append(value)
     return values
 
 
@@ -343,8 +358,8 @@ def classify_audio_status(text: str) -> dict[str, Any]:
     return {
         "has_audio_card": bool(AUDIO_CARD_RE.search(text) or AUDIO_CARD_RE.search(proc_cards)),
         "has_sound_class_control": control_like not in {None, "0"},
-        "has_dev_snd_control": control_count not in {None, "0"} or bool(SND_CONTROL_RE.search(text)),
-        "has_dev_snd_pcm": pcm_count not in {None, "0"} or bool(SND_PCM_RE.search(text)),
+        "has_dev_snd_control": control_count not in {None, "0"} or bool(SND_CONTROL_OK_RE.search(text)),
+        "has_dev_snd_pcm": pcm_count not in {None, "0"} or bool(SND_PCM_OK_RE.search(text)),
         "audio.sound_class.count": sound_count,
         "audio.sound_class.card_like": card_like,
         "audio.sound_class.control_like": control_like,

@@ -116,5 +116,52 @@ class ObservationRetry(unittest.TestCase):
             self.assertEqual(command[-2:], ["audio", "snd-status"])
 
 
+class AudioStatusParsing(unittest.TestCase):
+    def test_inline_sound_class_fields_satisfy_pre_materialization_gate(self) -> None:
+        sample = """
+audio.rpmsg.count=20 adsp_like=7 cdsp_like=0
+audio.sound_class.count=128 card_like=1 control_like=1
+audio.dev_snd.count=0 control_like=0 pcm_like=0
+audio.proc_asound_cards= 0 [sm8150tavilsndc]: sm8150-tavil-sn - sm8150-tavil-snd-card sm8150-tavil-snd-card
+audio.snd.9.name=controlC0 sysfs_dev=116:2 devnode=/dev/snd/controlC0 state=missing
+audio.snd.24.name=pcmC0D0c sysfs_dev=116:4 devnode=/dev/snd/pcmC0D0c state=missing
+audio.snd_status.entries=128 allowed=61 with_dev=61 listed=61 missing=61 already_ok=0 invalid=0 refused=67 created=0 failed=0
+audio.status.audio_playback_attempted=0
+"""
+
+        parsed = v2335.parse_key_values(sample)
+        classification = v2335.classify_audio_status(sample)
+
+        self.assertEqual(parsed["audio.sound_class.count"][-1], "128")
+        self.assertEqual(parsed["audio.sound_class.card_like"][-1], "1")
+        self.assertEqual(parsed["audio.sound_class.control_like"][-1], "1")
+        self.assertEqual(parsed["audio.dev_snd.count"][-1], "0")
+        self.assertEqual(parsed["audio.dev_snd.control_like"][-1], "0")
+        self.assertEqual(parsed["audio.dev_snd.pcm_like"][-1], "0")
+        self.assertIn("sm8150-tavil-snd-card", parsed["audio.proc_asound_cards"][-1])
+        self.assertTrue(classification["has_audio_card"])
+        self.assertTrue(classification["has_sound_class_control"])
+        self.assertFalse(classification["has_dev_snd_control"])
+        self.assertFalse(classification["has_dev_snd_pcm"])
+
+    def test_ok_dev_snd_summary_or_state_marks_materialized_nodes(self) -> None:
+        summary_sample = """
+audio.dev_snd.count=2 control_like=1 pcm_like=1
+"""
+        state_sample = """
+audio.dev_snd.count=0 control_like=0 pcm_like=0
+audio.snd.0.name=controlC0 sysfs_dev=116:2 devnode=/dev/snd/controlC0 state=ok
+audio.snd.1.name=pcmC0D0p sysfs_dev=116:3 devnode=/dev/snd/pcmC0D0p state=ok
+"""
+
+        summary = v2335.classify_audio_status(summary_sample)
+        state = v2335.classify_audio_status(state_sample)
+
+        self.assertTrue(summary["has_dev_snd_control"])
+        self.assertTrue(summary["has_dev_snd_pcm"])
+        self.assertTrue(state["has_dev_snd_control"])
+        self.assertTrue(state["has_dev_snd_pcm"])
+
+
 if __name__ == "__main__":
     unittest.main()
