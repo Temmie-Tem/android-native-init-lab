@@ -31,6 +31,7 @@ REMOTE_TOOLS = {
     "tinypcminfo": f"{REMOTE_DIR}/tinypcminfo",
 }
 TCPCTL_HOST = snd.ROOT / "workspace/public/src/scripts/revalidation/tcpctl_host.py"
+NCM_HOST_SETUP = snd.ROOT / "workspace/public/src/scripts/revalidation/ncm_host_setup.py"
 
 
 def rel(path: Path) -> str:
@@ -130,6 +131,37 @@ def tcpctl_ping_command(args: argparse.Namespace) -> list[str]:
     return [*tcpctl_common(args), "ping"]
 
 
+def ncm_host_setup_command(args: argparse.Namespace) -> list[str]:
+    return [
+        "python3",
+        rel(NCM_HOST_SETUP),
+        "setup",
+        "--bridge-host",
+        args.bridge_host,
+        "--bridge-port",
+        str(args.bridge_port),
+        "--bridge-timeout",
+        str(args.command_timeout),
+        "--device-protocol",
+        "cmdv1",
+        "--device-ip",
+        args.device_ip,
+        "--host-ip",
+        args.host_ip,
+        "--prefix",
+        str(args.host_prefix),
+        "--interface-timeout",
+        str(args.ncm_interface_timeout),
+        "--allow-auto-interface",
+        "--ping-count",
+        "1",
+        "--ping-timeout",
+        "2",
+        "--sudo",
+        args.ncm_setup_sudo,
+    ]
+
+
 def planned_inventory_commands(args: argparse.Namespace) -> list[dict[str, Any]]:
     commands = [
         {
@@ -182,7 +214,13 @@ def preflight_state(args: argparse.Namespace) -> dict[str, Any]:
         "command_safety": safety,
         "remote_dir": REMOTE_DIR,
         "remote_tools": REMOTE_TOOLS,
-        "ok": bool(snd.preflight_ok(snd_state) and manifest.get("ok") and safety.get("ok") and TCPCTL_HOST.exists()),
+        "ok": bool(
+            snd.preflight_ok(snd_state)
+            and manifest.get("ok")
+            and safety.get("ok")
+            and TCPCTL_HOST.exists()
+            and NCM_HOST_SETUP.exists()
+        ),
         "hard_boundary": [
             "no tinyplay",
             "no PCM playback/write",
@@ -241,7 +279,9 @@ def dry_run_payload(args: argparse.Namespace) -> dict[str, Any]:
         "transfer_readiness_plan": {
             "host_ncm_ping": host_ping_command(args),
             "tcpctl_ping": tcpctl_ping_command(args),
+            "host_ncm_repair": ncm_host_setup_command(args),
             "selection": "auto: tcpctl when ping returns pong/OK; otherwise serial fallback when host NCM ping succeeds",
+            "repair_policy": "if initial host ping/tcpctl probes cannot satisfy the requested transport, run one ncm_host_setup.py setup repair, then re-probe once",
         },
         "tool_install_plan": install_steps,
         "inventory_plan": inventory_steps,
@@ -286,13 +326,15 @@ def choose_inventory_transport(args: argparse.Namespace,
     raise RuntimeError("neither tcpctl nor host NCM ping is ready; cannot stage tinyalsa tools")
 
 
-def probe_transfer_readiness(args: argparse.Namespace,
-                             out_dir: Path,
-                             steps: list[dict[str, Any]]) -> dict[str, Any]:
+def probe_transfer_once(args: argparse.Namespace,
+                        out_dir: Path,
+                        steps: list[dict[str, Any]],
+                        suffix: str) -> dict[str, Any]:
+    name_suffix = f"-{suffix}" if suffix else ""
     host_ping = run_host_step(
         out_dir,
         steps,
-        "transfer-host-ncm-ping",
+        f"transfer-host-ncm-ping{name_suffix}",
         host_ping_command(args),
         timeout=8.0,
         allow_error=True,
@@ -300,21 +342,62 @@ def probe_transfer_readiness(args: argparse.Namespace,
     tcpctl_ping = run_host_step(
         out_dir,
         steps,
-        "transfer-tcpctl-ping",
+        f"transfer-tcpctl-ping{name_suffix}",
         tcpctl_ping_command(args),
         timeout=args.tcp_timeout + 5.0,
         allow_error=True,
     )
     tcpctl_text = step_text(tcpctl_ping)
-    host_ready = int(host_ping.get("rc") or 1) == 0
-    tcpctl_ready = int(tcpctl_ping.get("rc") or 1) == 0 and "pong" in tcpctl_text and "OK" in tcpctl_text
-    selected = choose_inventory_transport(args, host_ncm_ready=host_ready, tcpctl_ready=tcpctl_ready)
+    host_ready = host_ping.get("rc") == 0
+    tcpctl_ready = tcpctl_ping.get("rc") == 0 and "pong" in tcpctl_text and "OK" in tcpctl_text
     return {
         "host_ncm_ping_ok": host_ready,
         "tcpctl_ping_ok": tcpctl_ready,
-        "selected_transport": selected,
         "host_ping_step": host_ping.get("stdout_path"),
         "tcpctl_ping_step": tcpctl_ping.get("stdout_path"),
+    }
+
+
+def probe_transfer_readiness(args: argparse.Namespace,
+                             out_dir: Path,
+                             steps: list[dict[str, Any]]) -> dict[str, Any]:
+    initial = probe_transfer_once(args, out_dir, steps, "")
+    try:
+        selected = choose_inventory_transport(
+            args,
+            host_ncm_ready=bool(initial["host_ncm_ping_ok"]),
+            tcpctl_ready=bool(initial["tcpctl_ping_ok"]),
+        )
+    except RuntimeError as initial_error:
+        if not args.repair_host_ncm:
+            raise
+        repair_step = run_host_step(
+            out_dir,
+            steps,
+            "transfer-host-ncm-setup",
+            ncm_host_setup_command(args),
+            timeout=args.ncm_setup_timeout,
+            allow_error=True,
+        )
+        repaired = probe_transfer_once(args, out_dir, steps, "after-ncm-setup")
+        selected = choose_inventory_transport(
+            args,
+            host_ncm_ready=bool(repaired["host_ncm_ping_ok"]),
+            tcpctl_ready=bool(repaired["tcpctl_ping_ok"]),
+        )
+        return {
+            **repaired,
+            "selected_transport": selected,
+            "repair_attempted": True,
+            "repair_ok": repair_step.get("rc") == 0,
+            "repair_step": repair_step.get("stdout_path"),
+            "initial_error": str(initial_error),
+            "initial_probe": initial,
+        }
+    return {
+        **initial,
+        "selected_transport": selected,
+        "repair_attempted": False,
     }
 
 
@@ -532,6 +615,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--bridge-host", default="127.0.0.1")
     parser.add_argument("--bridge-port", type=int, default=54321)
     parser.add_argument("--device-ip", default="192.168.7.2")
+    parser.add_argument("--host-ip", default="192.168.7.1")
+    parser.add_argument("--host-prefix", type=int, default=24)
     parser.add_argument("--tcp-port", type=int, default=2325)
     parser.add_argument("--command-timeout", type=float, default=60.0)
     parser.add_argument("--tcp-timeout", type=float, default=30.0)
@@ -542,6 +627,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--transfer-port", type=int, default=18149)
     parser.add_argument("--transfer-delay", type=float, default=1.0)
     parser.add_argument("--transfer-timeout", type=float, default=120.0)
+    parser.add_argument("--repair-host-ncm", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument("--ncm-setup-timeout", type=float, default=120.0)
+    parser.add_argument("--ncm-interface-timeout", type=float, default=20.0)
+    parser.add_argument("--ncm-setup-sudo", default="sudo -n")
     parser.add_argument("--inventory-timeout", type=float, default=60.0)
     parser.add_argument("--inventory-transport", choices=("auto", "tcpctl", "serial"), default="auto")
     parser.add_argument("--card", type=int, default=0)

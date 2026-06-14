@@ -8,6 +8,7 @@ import subprocess
 import sys
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from _loader import load_revalidation
 
@@ -21,6 +22,8 @@ def args(**overrides: object) -> argparse.Namespace:
         "bridge_host": "127.0.0.1",
         "bridge_port": 54321,
         "device_ip": "192.168.7.2",
+        "host_ip": "192.168.7.1",
+        "host_prefix": 24,
         "tcp_port": 2325,
         "command_timeout": 60.0,
         "tcp_timeout": 30.0,
@@ -31,6 +34,10 @@ def args(**overrides: object) -> argparse.Namespace:
         "transfer_port": 18149,
         "transfer_delay": 1.0,
         "transfer_timeout": 120.0,
+        "repair_host_ncm": True,
+        "ncm_setup_timeout": 120.0,
+        "ncm_interface_timeout": 20.0,
+        "ncm_setup_sudo": "sudo -n",
         "inventory_timeout": 60.0,
         "inventory_transport": "auto",
         "card": 0,
@@ -61,6 +68,11 @@ class TinyalsaInventoryLiveHandoff(unittest.TestCase):
         self.assertIn("transfer_readiness_plan", payload)
         self.assertIn("host_ncm_ping", payload["transfer_readiness_plan"])
         self.assertIn("tcpctl_ping", payload["transfer_readiness_plan"])
+        self.assertIn("host_ncm_repair", payload["transfer_readiness_plan"])
+        repair_command = payload["transfer_readiness_plan"]["host_ncm_repair"]
+        self.assertIn("ncm_host_setup.py", " ".join(repair_command))
+        self.assertIn("--allow-auto-interface", repair_command)
+        self.assertIn("sudo -n", repair_command)
         inventory_commands = []
         for step in payload["inventory_plan"]:
             inventory_commands.extend(step["auto_select"]["tcpctl"])
@@ -90,6 +102,50 @@ class TinyalsaInventoryLiveHandoff(unittest.TestCase):
         )
         with self.assertRaisesRegex(RuntimeError, "neither tcpctl nor host NCM"):
             v2349.choose_inventory_transport(args(), host_ncm_ready=False, tcpctl_ready=False)
+
+    def test_transfer_readiness_repairs_host_ncm_then_selects_tcpctl(self) -> None:
+        calls: list[str] = []
+
+        def fake_run_host_step(_out_dir, _steps, name, _command, **_kwargs):
+            calls.append(name)
+            if name == "transfer-host-ncm-ping":
+                return {"rc": 1, "stdout_tail": ""}
+            if name == "transfer-tcpctl-ping":
+                return {"rc": 1, "stdout_tail": "timed out"}
+            if name == "transfer-host-ncm-setup":
+                return {"rc": 0, "stdout_path": "setup.txt"}
+            if name == "transfer-host-ncm-ping-after-ncm-setup":
+                return {"rc": 0, "stdout_tail": "1 packets transmitted, 1 received"}
+            if name == "transfer-tcpctl-ping-after-ncm-setup":
+                return {"rc": 0, "stdout_tail": "a90_tcpctl v1 ready\npong\nOK\n", "stdout_path": ""}
+            raise AssertionError(name)
+
+        with mock.patch.object(v2349, "run_host_step", side_effect=fake_run_host_step):
+            readiness = v2349.probe_transfer_readiness(args(), Path("/tmp/out"), [])
+
+        self.assertEqual(readiness["selected_transport"], "tcpctl")
+        self.assertTrue(readiness["repair_attempted"])
+        self.assertTrue(readiness["repair_ok"])
+        self.assertEqual(readiness["initial_probe"]["host_ncm_ping_ok"], False)
+        self.assertEqual(
+            calls,
+            [
+                "transfer-host-ncm-ping",
+                "transfer-tcpctl-ping",
+                "transfer-host-ncm-setup",
+                "transfer-host-ncm-ping-after-ncm-setup",
+                "transfer-tcpctl-ping-after-ncm-setup",
+            ],
+        )
+
+    def test_transfer_readiness_can_disable_host_ncm_repair(self) -> None:
+        def fake_run_host_step(_out_dir, _steps, name, _command, **_kwargs):
+            self.assertNotEqual(name, "transfer-host-ncm-setup")
+            return {"rc": 1, "stdout_tail": ""}
+
+        with mock.patch.object(v2349, "run_host_step", side_effect=fake_run_host_step), \
+                self.assertRaisesRegex(RuntimeError, "neither tcpctl nor host NCM"):
+            v2349.probe_transfer_readiness(args(repair_host_ncm=False), Path("/tmp/out"), [])
 
     def test_forced_transport_requires_matching_readiness(self) -> None:
         with self.assertRaisesRegex(RuntimeError, "requested tcpctl"):

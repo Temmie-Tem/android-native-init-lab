@@ -79,14 +79,17 @@ ADSP subsystem-restart is recoverable, but forbidden-partition rules remain abso
   fresh operator go: load the speaker route via `tinymix`/`mixer_paths.xml` and push a test PCM with
   `tinyplay`. First actual sound test.
 
-**Latest AUD-3C inventory state (V2352):** V2350 exact-gated live attempts reached the V2334
-ADSP + `/dev/snd` materialization window twice and rolled back cleanly, but tinyalsa inventory did
-not run because tool staging assumed post-materialization `tcpctl` reachability. V2351 fixed the
-runner with host NCM + `tcpctl` probes, `/cache/bin` tool staging, and tcpctl/serial auto-select.
-V2352 then repaired the host NetworkManager profile for the current A90 NCM ifname and verified
-`a90-ncm-host-ready`, `ping 192.168.7.2`, and `tcpctl ping` on resident V2321. Playback is still
-unproven. The next safe audio unit is a fresh exact-gated AUD-3C live attempt with the updated
-readiness/fallback runner; do not proceed to `tinyplay` or mixer writes.
+**Latest AUD-3C inventory state (V2354):** V2353 used the exact AUD-3C approval, flashed V2334,
+accepted one ADSP boot, and reproduced `/dev/snd` materialization (`count=61`, `control_like=1`,
+`pcm_like=59`) with no tinyalsa execution, mixer write, PCM write/playback, audio HAL, or adsprpc.
+The run blocked before inventory because the host lost NCM/tcpctl reachability after the V2334 USB
+re-enumeration (`ping 192.168.7.2` failed and `tcpctl` timed out), then rolled back to V2321 with
+`selftest fail=0`. V2354 is a host-only runner repair: the inventory runner now treats this as a
+transport setup problem, runs one `ncm_host_setup.py setup` repair when initial ping/tcpctl probes
+cannot satisfy the requested transport, fixes the `rc=0` readiness bug, then re-probes before
+installing `tinymix`/`tinypcminfo`. Playback is still unproven. The next safe audio unit is a fresh
+exact-gated AUD-3C live attempt with this NCM-repair runner; do not proceed to `tinyplay` or mixer
+writes.
 
 **Validation:** AUD-0/AUD-1 are host-only — `py_compile`/unittest for any harness code, no flash,
 no device. AUD-2/AUD-3 (if gated-in) every iteration: boot-only flash, pinned SHA, post-boot health
