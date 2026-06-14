@@ -96,11 +96,12 @@ V2366 added `A90AudioRouteStimulus.java` and a private-output builder for that D
 host lacks `javac`, `d8`/`dx`, and `android.jar`, so no DEX was produced. Do not
 attempt internal speaker playback, native `tinymix set`, PCM playback open/write, `tinyplay`, or
 Android route-delta live capture until that stimulus artifact exists, the runner is live-capable, and
-a fresh exact route-delta gate is
-provided. V2363 repeated the already-passed AUD-3C read-only tinyalsa inventory at operator request:
-V2334 again materialized `/dev/snd` (`61` nodes), `tinymix`/`tinypcminfo` read-only queries returned
-`rc=0`, and rollback to V2321 ended with `selftest fail=0`; this was a reproducibility replay and did
-not change the next frontier.
+a fresh exact route-delta gate is provided. V2363 and V2367 repeated the already-passed
+AUD-3C read-only tinyalsa inventory at operator request: V2334 again materialized `/dev/snd`
+(`61` nodes), `tinymix`/`tinypcminfo` read-only queries returned `rc=0`, and rollback to
+V2321 ended with `selftest fail=0`; V2367 private evidence is
+`workspace/private/runs/audio/v2349-tinyalsa-inventory-20260615-025616/`. These were
+reproducibility replays and did not change the next frontier.
 
 **Validation:** AUD-0/AUD-1 are host-only — `py_compile`/unittest for any harness code, no flash,
 no device. AUD-2/AUD-3 (if gated-in) every iteration: boot-only flash, pinned SHA, post-boot health
