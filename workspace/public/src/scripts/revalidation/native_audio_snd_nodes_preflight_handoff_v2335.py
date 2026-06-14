@@ -20,6 +20,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+import a90_transport as transport
+
 APPROVAL_PHRASE = (
     "AUD-3-preflight go: materialize ALSA /dev/snd nodes only on V2334, "
     "no open/ioctl/mixer/playback, rollback to V2321"
@@ -299,6 +301,51 @@ def run_step(out_dir: Path, steps: list[dict[str, Any]], name: str, command: lis
     return record
 
 
+def run_serial_transport_step(out_dir: Path,
+                              steps: list[dict[str, Any]],
+                              name: str,
+                              args: argparse.Namespace,
+                              native_command: list[str],
+                              *,
+                              timeout: float,
+                              retry_observation: bool = False,
+                              allow_error: bool = False) -> dict[str, Any]:
+    text_path = out_dir / f"{len(steps):02d}_{name}.txt"
+    json_path = out_dir / f"{len(steps):02d}_{name}.json"
+    result = transport.run_serial_command_recovered(
+        native_command,
+        host=args.bridge_host,
+        port=args.bridge_port,
+        timeout=timeout,
+        retry_unsafe=retry_observation,
+        recovery_step_prefix=name,
+    )
+    output = "".join([str(result.get("stdout") or ""), str(result.get("stderr") or "")])
+    record: dict[str, Any] = {
+        "name": name,
+        "command": [str(part) for part in result.get("command", ["cmdv1", *native_command])],
+        "timeout_sec": timeout,
+        "started_at": result.get("started"),
+        "rc": result.get("rc"),
+        "ok": bool(result.get("ok")) or allow_error,
+        "elapsed_sec": result.get("elapsed_sec"),
+        "stdout_path": rel(text_path),
+        "stdout_tail": output[-4000:],
+        "transport": "a90_transport.serial",
+    }
+    if "protocol" in result:
+        record["protocol"] = result.get("protocol")
+    if "serial_recovery" in result:
+        record["serial_recovery"] = result.get("serial_recovery")
+        record["serial_recovery_contract"] = result.get("serial_recovery_contract")
+    text_path.write_text(output, encoding="utf-8", errors="replace")
+    write_json(json_path, record)
+    steps.append(record)
+    if not record["ok"] and not allow_error:
+        raise RuntimeError(f"step failed: {name}")
+    return record
+
+
 
 def run_a90ctl_observation(args: argparse.Namespace,
                            out_dir: Path,
@@ -320,17 +367,14 @@ def run_a90ctl_observation(args: argparse.Namespace,
     last_error: Exception | None = None
     for attempt in range(1, max(1, attempts) + 1):
         try:
-            return run_step(
+            return run_serial_transport_step(
                 out_dir,
                 steps,
                 f"{name}-attempt-{attempt}",
-                a90ctl_command(
-                    args,
-                    native_command,
-                    hide_on_busy=True,
-                    timeout=timeout,
-                ),
-                timeout=timeout + 30.0,
+                args,
+                native_command,
+                timeout=timeout,
+                retry_observation=True,
             )
         except RuntimeError as exc:
             last_error = exc
@@ -463,18 +507,14 @@ def live_run(args: argparse.Namespace, state: dict[str, Any]) -> dict[str, Any]:
         result["initial_audio"] = initial_audio
 
         if not (initial_audio["has_audio_card"] and initial_audio["has_sound_class_control"]):
-            run_step(
+            run_serial_transport_step(
                 out_dir,
                 steps,
                 "candidate-adsp-boot-once",
-                a90ctl_command(
-                    args,
-                    ["audio", "adsp-boot-once", ADSP_TOKEN],
-                    hide_on_busy=True,
-                    allow_error=False,
-                    timeout=90.0,
-                ),
-                timeout=150.0,
+                args,
+                ["audio", "adsp-boot-once", ADSP_TOKEN],
+                timeout=90.0,
+                retry_observation=False,
             )
 
         result["card_wait"] = wait_for_audio_card(args, out_dir, steps)
@@ -484,12 +524,14 @@ def live_run(args: argparse.Namespace, state: dict[str, Any]) -> dict[str, Any]:
         )
         result["before_materialize"] = classify_audio_status(stdout_of(before_materialize))
 
-        materialize = run_step(
+        materialize = run_serial_transport_step(
             out_dir,
             steps,
             "snd-materialize-once",
-            a90ctl_command(args, ["audio", "snd-materialize-once", SND_TOKEN], timeout=90.0),
-            timeout=120.0,
+            args,
+            ["audio", "snd-materialize-once", SND_TOKEN],
+            timeout=90.0,
+            retry_observation=False,
         )
         result["materialize_tail"] = stdout_of(materialize)[-4000:]
 

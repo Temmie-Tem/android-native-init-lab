@@ -83,18 +83,26 @@ class ApprovalAndPreflight(unittest.TestCase):
 
 
 class ObservationRetry(unittest.TestCase):
-    def test_observation_retries_read_only_commands_with_hide_but_does_not_call_real_bridge(self) -> None:
-        calls: list[list[str]] = []
+    def test_observation_uses_recoverable_serial_transport_without_calling_real_bridge(self) -> None:
+        calls: list[dict] = []
 
-        def fake_run_step(out_dir, steps, name, command, *, timeout, allow_error=False):
-            del out_dir, allow_error
-            calls.append(command)
-            steps.append({"name": name, "ok": len(calls) > 1})
-            if len(calls) == 1:
-                raise RuntimeError("A90P1 END marker not found")
-            return {"name": name, "ok": True, "stdout_path": ""}
+        def fake_transport_step(out_dir, steps, name, serial_args, native_args, *, timeout, retry_observation, allow_error=False):
+            del out_dir, serial_args, allow_error
+            calls.append({
+                "name": name,
+                "native_args": native_args,
+                "timeout": timeout,
+                "retry_observation": retry_observation,
+            })
+            step = {"name": name, "ok": True, "stdout_path": ""}
+            steps.append(step)
+            return step
 
-        with tempfile.TemporaryDirectory() as tempdir, mock.patch.object(v2335, "run_step", side_effect=fake_run_step):
+        with tempfile.TemporaryDirectory() as tempdir, mock.patch.object(
+            v2335,
+            "run_serial_transport_step",
+            side_effect=fake_transport_step,
+        ):
             steps: list[dict] = []
             result = v2335.run_a90ctl_observation(
                 args(),
@@ -108,12 +116,58 @@ class ObservationRetry(unittest.TestCase):
             )
 
         self.assertTrue(result["ok"])
-        self.assertEqual(len(calls), 2)
-        for command in calls:
-            self.assertIn("--input-mode", command)
-            self.assertIn("slow", command)
-            self.assertIn("--hide-on-busy", command)
-            self.assertEqual(command[-2:], ["audio", "snd-status"])
+        self.assertEqual(calls, [{
+            "name": "audio-snd-status-attempt-1",
+            "native_args": ["audio", "snd-status"],
+            "timeout": 10.0,
+            "retry_observation": True,
+        }])
+
+    def test_serial_transport_step_records_recovery_and_never_retries_token_by_default(self) -> None:
+        captured: list[dict] = []
+
+        def fake_recovered(command, *, host, port, timeout, retry_unsafe, recovery_step_prefix):
+            captured.append({
+                "command": command,
+                "host": host,
+                "port": port,
+                "timeout": timeout,
+                "retry_unsafe": retry_unsafe,
+                "recovery_step_prefix": recovery_step_prefix,
+            })
+            return {
+                "command": ["cmdv1", *command],
+                "started": "2026-06-14T00:00:00+00:00",
+                "elapsed_sec": 0.1,
+                "rc": 0,
+                "ok": True,
+                "stdout": "ok\n",
+                "stderr": "",
+                "serial_recovery_contract": 1,
+                "serial_recovery": {"retry_allowed": retry_unsafe, "recovered": False},
+            }
+
+        with tempfile.TemporaryDirectory() as tempdir, mock.patch.object(
+            v2335.transport,
+            "run_serial_command_recovered",
+            side_effect=fake_recovered,
+        ):
+            steps: list[dict] = []
+            record = v2335.run_serial_transport_step(
+                Path(tempdir),
+                steps,
+                "snd-materialize-once",
+                args(),
+                ["audio", "snd-materialize-once", v2335.SND_TOKEN],
+                timeout=90.0,
+                retry_observation=False,
+            )
+
+        self.assertTrue(record["ok"])
+        self.assertEqual(record["transport"], "a90_transport.serial")
+        self.assertEqual(record["serial_recovery"], {"retry_allowed": False, "recovered": False})
+        self.assertEqual(captured[0]["command"], ["audio", "snd-materialize-once", v2335.SND_TOKEN])
+        self.assertFalse(captured[0]["retry_unsafe"])
 
 
 class AudioStatusParsing(unittest.TestCase):
