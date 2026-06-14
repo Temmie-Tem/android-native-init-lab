@@ -56,7 +56,10 @@ class UnitBRegressionTests(unittest.TestCase):
         self.assertFalse(probe.transfer_ok({"ok": True, "sha256_mismatch": True}))
 
     def test_public_v2172_report_has_no_full_mac_address(self) -> None:
-        report = REPO_ROOT / "docs/reports/NATIVE_INIT_V2172_WIFI_STATUS_SCAN_LIVE_VALIDATION_2026-06-08.md"
+        report_name = "NATIVE_INIT_V2172_WIFI_STATUS_SCAN_LIVE_VALIDATION_2026-06-08.md"
+        report = REPO_ROOT / "docs/reports" / report_name
+        if not report.exists():
+            report = REPO_ROOT / "docs/archive/legacy/reports" / report_name
         text = report.read_text(encoding="utf-8")
 
         self.assertNotRegex(text, re.compile(r"\b[0-9a-fA-F]{2}(?::[0-9a-fA-F]{2}){5}\b"))
