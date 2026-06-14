@@ -223,6 +223,36 @@ class AcdbAndroidMeasurementPlanner(unittest.TestCase):
         self.assertEqual(analysis["decision"], "bounded-native-acdb-candidate")
         self.assertEqual(result["post_live_analysis"]["device_action"], "none")
 
+    def test_post_live_analysis_writes_current_result_before_analyzing(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            run_dir = Path(temp_dir) / "v2397-android-acdb-measurement-synthetic"
+            make_synthetic_acdb_capture(run_dir)
+            write_text(
+                run_dir / "result.json",
+                json.dumps({
+                    "run_id": "V2397",
+                    "build_tag": "v2397-audio-acdb-android-magisk-live",
+                    "decision": "v2397-android-acdb-measurement-live-started",
+                    "ok": False,
+                    "rolled_back": False,
+                    "approval_ok": True,
+                }),
+            )
+            result = {
+                "run_id": "V2397",
+                "build_tag": "v2397-audio-acdb-android-magisk-live",
+                "decision": "v2397-android-acdb-measurement-captured-rollback-pass",
+                "ok": True,
+                "rolled_back": True,
+                "approval_ok": True,
+            }
+
+            analysis = v2396.attach_post_live_analysis(result, run_dir)
+
+        self.assertEqual(analysis["result"]["decision"], "v2397-android-acdb-measurement-captured-rollback-pass")
+        self.assertTrue(analysis["result"]["rolled_back"])
+        self.assertEqual(analysis["decision"], "bounded-native-acdb-candidate")
+
     def test_post_live_analysis_skips_without_rollback_proof(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             result = {"ok": True, "rolled_back": False}

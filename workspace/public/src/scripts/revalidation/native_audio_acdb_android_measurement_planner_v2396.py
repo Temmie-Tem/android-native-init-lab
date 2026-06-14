@@ -525,6 +525,7 @@ def attach_post_live_analysis(result: dict[str, Any], out_dir: Path) -> dict[str
         }
     else:
         try:
+            write_json(out_dir / "result.json", result)
             analysis = acdb_analyzer.analyze_run(out_dir)
         except Exception as exc:  # noqa: BLE001 - preserve live result, report parser failure.
             analysis = {
