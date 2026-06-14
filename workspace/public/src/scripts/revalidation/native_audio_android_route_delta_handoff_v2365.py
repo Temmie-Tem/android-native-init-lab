@@ -1,14 +1,18 @@
 #!/usr/bin/env python3
-"""V2365 host-only planner for Android speaker route-delta capture.
+"""V2365/V2369 planner and exact-gated runner for Android speaker route-delta capture.
 
-This does not boot Android and does not play audio.  It converts the V2362
-route-delta design into a checked-helper command plan and exposes the remaining
-live blockers explicitly:
+The default mode is still host-only dry-run.  Live mode is guarded by the exact
+AUD-3D2 approval phrase and uses only Android framework AudioTrack playback
+through app_process.  It does not run native tinyalsa playback, tinymix set, or
+direct /dev/snd access.
+
+The planner converts the V2362 route-delta design into a checked-helper command
+plan and exposes live blockers explicitly:
 
 * the private Android boot image must be sealed into a 0600 run-local copy
   before passing it to native_init_flash.py, because the archived candidates are
   group-writable;
-* an Android framework playback stimulus dex/jar is still required.
+* an Android framework playback stimulus dex is required.
 """
 
 from __future__ import annotations
@@ -18,6 +22,9 @@ import hashlib
 import json
 import os
 import shutil
+import shlex
+import subprocess
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -27,6 +34,8 @@ import native_audio_tinyalsa_inventory_gate_v2346 as tinyalsa
 
 RUN_ID = "V2365"
 BUILD_TAG = "v2365-android-route-delta-runner-plan"
+LIVE_RUN_ID = "V2369"
+LIVE_BUILD_TAG = "v2369-android-route-delta-live-runner"
 ROOT = Path(__file__).resolve().parents[5]
 ANDROID_BOOT_SHA256 = "c15ce425abb8da41f0b1696d19d05a625fd7cec949b4ae50651a5f1e7293057b"
 ANDROID_BOOT_CANDIDATES = (
@@ -39,6 +48,8 @@ FLASH_HELPER = ROOT / "workspace/public/src/scripts/revalidation/native_init_fla
 REMOTE_DIR = "/data/local/tmp/a90-audio-route-delta"
 REMOTE_TINYMIX = f"{REMOTE_DIR}/tinymix"
 REMOTE_STIMULUS = f"{REMOTE_DIR}/A90AudioRouteStimulus.dex"
+REMOTE_STIMULUS_LOG = f"{REMOTE_DIR}/stimulus.log"
+REMOTE_STIMULUS_RC = f"{REMOTE_DIR}/stimulus.rc"
 APPROVAL_PHRASE = (
     "AUD-3D2-android-route-delta go: rollbackable Android AudioTrack speaker route-delta "
     "capture, checked-helper boot handoff only, low-amplitude framework playback, "
@@ -47,6 +58,8 @@ APPROVAL_PHRASE = (
 DEFAULT_DURATION_MS = 2000
 DEFAULT_SAMPLE_RATE = 48000
 DEFAULT_AMPLITUDE = 0.05
+DEFAULT_ACTIVE_DELAY_SEC = 0.75
+DEFAULT_POST_DELAY_SEC = 1.0
 WATCH_CONTROLS = (
     "SEC_TDM_RX_0",
     "WSA_CDC_DMA_RX_0",
@@ -67,6 +80,10 @@ def rel(path: Path) -> str:
 
 def now_slug() -> str:
     return datetime.now(timezone.utc).astimezone().strftime("%Y%m%d-%H%M%S")
+
+
+def default_live_out_dir() -> Path:
+    return ROOT / f"workspace/private/runs/audio/v2369-android-route-delta-{now_slug()}"
 
 
 def sha256(path: Path) -> str:
@@ -190,8 +207,8 @@ def flash_android_command(args: argparse.Namespace, boot_image_for_helper: str) 
     return command
 
 
-def rollback_command(args: argparse.Namespace) -> list[str]:
-    return [
+def rollback_command(args: argparse.Namespace, *, from_native: bool = False) -> list[str]:
+    command = [
         "python3",
         rel(FLASH_HELPER),
         rel(ROLLBACK_IMAGE),
@@ -201,7 +218,17 @@ def rollback_command(args: argparse.Namespace) -> list[str]:
         "0.9.285",
         "--verify-protocol",
         "selftest",
-        "--from-native",
+    ]
+    if from_native:
+        command.append("--from-native")
+    return command
+
+
+def android_reboot_recovery_command(args: argparse.Namespace) -> list[str]:
+    return [
+        "adb",
+        "reboot",
+        "recovery",
     ]
 
 
@@ -249,6 +276,30 @@ def playback_command(args: argparse.Namespace) -> list[str]:
             amplitude=args.amplitude,
         )
     )
+
+
+def playback_start_command(args: argparse.Namespace) -> list[str]:
+    command = (
+        f"cd {shlex.quote(REMOTE_DIR)} && "
+        f"rm -f {shlex.quote(REMOTE_STIMULUS_LOG)} {shlex.quote(REMOTE_STIMULUS_RC)} && "
+        "("
+        f"CLASSPATH={shlex.quote(REMOTE_STIMULUS)} "
+        "app_process /system/bin A90AudioRouteStimulus "
+        f"--speaker --duration-ms {int(args.duration_ms)} "
+        f"--sample-rate {int(args.sample_rate)} "
+        f"--amplitude {float(args.amplitude)} "
+        f"> {shlex.quote(REMOTE_STIMULUS_LOG)} 2>&1; "
+        f"echo $? > {shlex.quote(REMOTE_STIMULUS_RC)}"
+        ") &"
+    )
+    return android_shell(command)
+
+
+def stimulus_result_commands() -> list[list[str]]:
+    return [
+        android_shell(f"cat {shlex.quote(REMOTE_STIMULUS_LOG)} 2>/dev/null || true"),
+        android_shell(f"cat {shlex.quote(REMOTE_STIMULUS_RC)} 2>/dev/null || true"),
+    ]
 
 
 def command_safety(plan: dict[str, Any]) -> dict[str, Any]:
@@ -304,9 +355,12 @@ def dry_run_payload(args: argparse.Namespace) -> dict[str, Any]:
             ],
             "baseline_snapshots": snapshot_plan("baseline"),
             "playback": playback_command(args),
+            "playback_start_background": playback_start_command(args),
+            "playback_result": stimulus_result_commands(),
             "active_snapshots": snapshot_plan("active"),
             "post_snapshots": snapshot_plan("post"),
             "cleanup": [["adb", "shell", "su", "-c", f"rm -rf {REMOTE_DIR}"]],
+            "android_reboot_recovery_for_rollback": android_reboot_recovery_command(args),
             "rollback_v2321": rollback_command(args),
         },
         "watch_controls": WATCH_CONTROLS,
@@ -327,20 +381,213 @@ def dry_run_payload(args: argparse.Namespace) -> dict[str, Any]:
     return plan
 
 
+def write_json(path: Path, payload: dict[str, Any]) -> None:
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+
+
+def run_step(name: str,
+             command: list[str],
+             out_dir: Path,
+             *,
+             timeout_sec: float,
+             check: bool = True) -> dict[str, Any]:
+    started = time.monotonic()
+    record: dict[str, Any] = {
+        "name": name,
+        "command": command,
+        "started_at": datetime.now(timezone.utc).astimezone().isoformat(),
+        "timeout_sec": timeout_sec,
+    }
+    stdout_path = out_dir / f"{name}.stdout.txt"
+    stderr_path = out_dir / f"{name}.stderr.txt"
+    try:
+        result = subprocess.run(
+            command,
+            cwd=ROOT,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=timeout_sec,
+            check=False,
+        )
+        stdout_path.write_text(result.stdout)
+        stderr_path.write_text(result.stderr)
+        record.update({
+            "rc": result.returncode,
+            "stdout": rel(stdout_path),
+            "stderr": rel(stderr_path),
+            "elapsed_sec": round(time.monotonic() - started, 3),
+            "ok": result.returncode == 0,
+        })
+        if check and result.returncode != 0:
+            raise RuntimeError(f"{name} failed rc={result.returncode}; see {rel(stdout_path)} {rel(stderr_path)}")
+    except subprocess.TimeoutExpired as exc:
+        stdout_path.write_text(exc.stdout or "")
+        stderr_path.write_text(exc.stderr or "")
+        record.update({
+            "timeout": True,
+            "elapsed_sec": round(time.monotonic() - started, 3),
+            "ok": False,
+            "stdout": rel(stdout_path),
+            "stderr": rel(stderr_path),
+        })
+        raise RuntimeError(f"{name} timed out after {timeout_sec}s") from exc
+    finally:
+        record.setdefault("finished_at", datetime.now(timezone.utc).astimezone().isoformat())
+    return record
+
+
+def copy_sealed_android_boot(selected: dict[str, Any], out_dir: Path) -> dict[str, Any]:
+    source = ROOT / selected["path"]
+    destination = out_dir / "android_boot_0600.img"
+    shutil.copyfile(source, destination)
+    os.chmod(destination, 0o600)
+    state = file_state(destination, expected_sha256=ANDROID_BOOT_SHA256, android_magic=True)
+    if not state.get("ok") or state.get("group_or_world_writable"):
+        raise RuntimeError(f"sealed Android boot copy is invalid: {state}")
+    return state
+
+
+def capture_snapshots(label: str, out_dir: Path, args: argparse.Namespace, steps: list[dict[str, Any]]) -> None:
+    for item in snapshot_plan(label):
+        steps.append(run_step(
+            item["name"],
+            item["command"],
+            out_dir,
+            timeout_sec=args.adb_command_timeout,
+            check=False,
+        ))
+
+
+def ensure_live_approval(args: argparse.Namespace) -> None:
+    if args.approval != APPROVAL_PHRASE:
+        raise RuntimeError("exact AUD-3D2 route-delta approval phrase is required for --run-live")
+
+
+def run_live(args: argparse.Namespace) -> dict[str, Any]:
+    ensure_live_approval(args)
+    payload = dry_run_payload(args)
+    if not payload.get("live_ready"):
+        raise RuntimeError(f"live inputs are not ready: {payload.get('live_blockers')}")
+    if not payload.get("command_safety", {}).get("ok"):
+        raise RuntimeError(f"command safety failed: {payload['command_safety']}")
+
+    out_dir = args.out_dir or default_live_out_dir()
+    out_dir.mkdir(parents=True, exist_ok=False)
+    os.chmod(out_dir, 0o700)
+
+    steps: list[dict[str, Any]] = []
+    result: dict[str, Any] = {
+        "run_id": LIVE_RUN_ID,
+        "build_tag": LIVE_BUILD_TAG,
+        "decision": "v2369-android-route-delta-live-started",
+        "out_dir": rel(out_dir),
+        "approval_ok": True,
+        "plan": payload,
+        "steps": steps,
+        "rolled_back": False,
+        "ok": False,
+    }
+    write_json(out_dir / "result.json", result)
+
+    android_boot_state = copy_sealed_android_boot(payload["android_boot"]["selected"], out_dir)
+    result["sealed_android_boot"] = android_boot_state
+    write_json(out_dir / "result.json", result)
+
+    rollback_needed = False
+    try:
+        rollback_needed = True
+        steps.append(run_step(
+            "flash_android",
+            flash_android_command(args, str(out_dir / "android_boot_0600.img")),
+            out_dir,
+            timeout_sec=args.flash_timeout,
+        ))
+
+        for index, command in enumerate(payload["commands"]["stage"]):
+            steps.append(run_step(f"stage-{index}", command, out_dir, timeout_sec=args.adb_command_timeout))
+
+        capture_snapshots("baseline", out_dir, args, steps)
+        steps.append(run_step(
+            "playback-start-background",
+            playback_start_command(args),
+            out_dir,
+            timeout_sec=args.adb_command_timeout,
+        ))
+        time.sleep(args.active_delay_sec)
+        capture_snapshots("active", out_dir, args, steps)
+        remaining = max(0.0, (args.duration_ms / 1000.0) - args.active_delay_sec + args.post_delay_sec)
+        time.sleep(remaining)
+        for index, command in enumerate(stimulus_result_commands()):
+            steps.append(run_step(f"playback-result-{index}", command, out_dir, timeout_sec=args.adb_command_timeout, check=False))
+        capture_snapshots("post", out_dir, args, steps)
+        for index, command in enumerate(payload["commands"]["cleanup"]):
+            steps.append(run_step(f"cleanup-{index}", command, out_dir, timeout_sec=args.adb_command_timeout, check=False))
+        result["decision"] = "v2369-android-route-delta-live-captured-before-rollback"
+        result["ok"] = True
+        return result
+    finally:
+        if rollback_needed:
+            try:
+                steps.append(run_step(
+                    "android-reboot-recovery-for-rollback",
+                    android_reboot_recovery_command(args),
+                    out_dir,
+                    timeout_sec=args.adb_command_timeout,
+                    check=False,
+                ))
+                steps.append(run_step(
+                    "rollback-v2321",
+                    rollback_command(args, from_native=False),
+                    out_dir,
+                    timeout_sec=args.flash_timeout,
+                ))
+                result["rolled_back"] = True
+            except Exception as first_rollback_error:
+                result["rollback_error"] = str(first_rollback_error)
+                try:
+                    steps.append(run_step(
+                        "rollback-v2321-from-native-fallback",
+                        rollback_command(args, from_native=True),
+                        out_dir,
+                        timeout_sec=args.flash_timeout,
+                    ))
+                    result["rolled_back"] = True
+                    result["rollback_fallback"] = "from-native"
+                except Exception as second_rollback_error:
+                    result["rollback_fallback_error"] = str(second_rollback_error)
+                    raise
+            finally:
+                write_json(out_dir / "result.json", result)
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--dry-run", action="store_true", default=True, help="emit the route-delta plan; no device action")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--dry-run", action="store_true", help="emit the route-delta plan; no device action")
+    mode.add_argument("--run-live", action="store_true", help="run the exact-gated Android route-delta capture")
     parser.add_argument("--stimulus-dex", type=Path, help="private AudioTrack stimulus dex for future live use")
+    parser.add_argument("--approval", help="exact AUD-3D2 approval phrase required by --run-live")
+    parser.add_argument("--out-dir", type=Path, help="private live output directory")
     parser.add_argument("--android-timeout", type=float, default=420.0)
+    parser.add_argument("--adb-command-timeout", type=float, default=120.0)
+    parser.add_argument("--flash-timeout", type=float, default=900.0)
     parser.add_argument("--duration-ms", type=int, default=DEFAULT_DURATION_MS)
     parser.add_argument("--sample-rate", type=int, default=DEFAULT_SAMPLE_RATE)
     parser.add_argument("--amplitude", type=float, default=DEFAULT_AMPLITUDE)
+    parser.add_argument("--active-delay-sec", type=float, default=DEFAULT_ACTIVE_DELAY_SEC)
+    parser.add_argument("--post-delay-sec", type=float, default=DEFAULT_POST_DELAY_SEC)
     parser.add_argument("--from-native", action=argparse.BooleanOptionalAction, default=True)
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
+    if args.run_live:
+        payload = run_live(args)
+        print(json.dumps(payload, indent=2, sort_keys=True))
+        return 0 if payload.get("ok") and payload.get("rolled_back") else 1
+
     payload = dry_run_payload(args)
     print(json.dumps(payload, indent=2, sort_keys=True))
     return 0 if payload.get("ok") else 1

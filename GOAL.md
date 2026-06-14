@@ -79,7 +79,7 @@ ADSP subsystem-restart is recoverable, but forbidden-partition rules remain abso
   fresh operator go: load the speaker route via `tinymix`/`mixer_paths.xml` and push a test PCM with
   `tinyplay`. First actual sound test.
 
-**Latest audio route-delta planning state (V2368):** V2362 selected Android route-delta
+**Latest audio route-delta planning state (V2369):** V2362 selected Android route-delta
 capture as the next speaker-route measurement and designed it host-only. The measurement should boot
 normal Android, use Android framework `AudioTrack` playback through AudioFlinger/vendor HAL, capture
 `tinymix -D 0 --all-values` before/during/after, then roll back to V2321 and diff `SEC_TDM_RX_0` /
@@ -93,7 +93,13 @@ checked-helper Android flash/stage/snapshot/playback/rollback command plan, and 
 Android boot image must be sealed to a private `0600` copy before helper use. V2366 added
 `A90AudioRouteStimulus.java` plus a private-output builder. V2368 staged a private Temurin JDK +
 Android SDK toolchain and built the DEX at `workspace/private/builds/audio/v2366-android-route-stimulus/A90AudioRouteStimulus.dex` (SHA256 `95c27a152acee5c57d634e03436f72166999f5fd809d772f8f6414a3f9dc2b57`, mode `0600`);
-V2365 dry-run with that DEX now reports `live_ready=True`. Do not attempt internal speaker playback,
+V2365 dry-run with that DEX now reports `live_ready=True`. V2369 converted the planner into an
+exact-gated live runner: it creates a run-local `0600` Android boot copy, boots Android through the
+checked helper, stages only `tinymix` + the AudioTrack DEX, captures baseline/active/post snapshots,
+starts the stimulus in the background so active `tinymix` reads occur during playback, then reboots
+Android to recovery and flashes V2321 without incorrectly claiming a native-bridge origin. The
+operator text `exact route-delta approval.` is **not** the exact gate and no live run was executed in
+V2369. Do not attempt internal speaker playback,
 native `tinymix set`, PCM playback open/write, `tinyplay`, or Android route-delta live capture until
 a fresh exact route-delta gate is provided. V2363 and V2367 repeated the already-passed
 AUD-3C read-only tinyalsa inventory at operator request: V2334 again materialized `/dev/snd`

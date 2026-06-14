@@ -22,6 +22,12 @@ def args(**overrides: object) -> argparse.Namespace:
         "sample_rate": 48000,
         "amplitude": 0.05,
         "from_native": True,
+        "approval": None,
+        "out_dir": None,
+        "adb_command_timeout": 120.0,
+        "flash_timeout": 900.0,
+        "active_delay_sec": 0.75,
+        "post_delay_sec": 1.0,
     }
     defaults.update(overrides)
     return argparse.Namespace(**defaults)
@@ -53,6 +59,7 @@ class AndroidRouteDeltaPlanner(unittest.TestCase):
         self.assertNotIn("fastboot", flat)
         self.assertIn("app_process", flat)
         self.assertIn("A90AudioRouteStimulus", flat)
+        self.assertIn("playback_start_background", payload["commands"])
 
     def test_android_boot_candidate_requires_sealed_copy_due_archive_mode(self) -> None:
         payload = v2365.dry_run_payload(args())
@@ -73,6 +80,28 @@ class AndroidRouteDeltaPlanner(unittest.TestCase):
         self.assertTrue(payload["stimulus_dex"]["ok"])
         self.assertTrue(payload["live_ready"])
         self.assertEqual(payload["commands"]["stage"][2][-1], v2365.REMOTE_STIMULUS)
+
+    def test_rollback_from_android_does_not_claim_native_bridge_origin(self) -> None:
+        payload = v2365.dry_run_payload(args())
+
+        self.assertEqual(payload["commands"]["android_reboot_recovery_for_rollback"], ["adb", "reboot", "recovery"])
+        rollback = payload["commands"]["rollback_v2321"]
+        self.assertIn("native_init_flash.py", " ".join(rollback))
+        self.assertNotIn("--from-native", rollback)
+
+    def test_run_live_requires_exact_approval_phrase(self) -> None:
+        namespace = args(
+            stimulus_dex=Path("workspace/private/builds/audio/v2366-android-route-stimulus/A90AudioRouteStimulus.dex"),
+            approval="exact route-delta approval.",
+        )
+
+        with self.assertRaisesRegex(RuntimeError, "exact AUD-3D2 route-delta approval"):
+            v2365.ensure_live_approval(namespace)
+
+    def test_exact_approval_phrase_is_accepted_by_gate(self) -> None:
+        namespace = args(approval=v2365.APPROVAL_PHRASE)
+
+        v2365.ensure_live_approval(namespace)
 
 
 if __name__ == "__main__":
