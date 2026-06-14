@@ -79,18 +79,17 @@ ADSP subsystem-restart is recoverable, but forbidden-partition rules remain abso
   fresh operator go: load the speaker route via `tinymix`/`mixer_paths.xml` and push a test PCM with
   `tinyplay`. First actual sound test.
 
-**Latest AUD-3C inventory state (V2358):** V2357 used the exact AUD-3C approval, flashed V2334,
+**Latest AUD-3C inventory state (V2359):** V2359 used the exact AUD-3C approval, flashed V2334,
 accepted one ADSP boot, reproduced `/dev/snd` materialization (`count=61`, `control_like=1`,
-`pcm_like=59`), and again proved the V2354 NCM re-enumeration repair restores host ping and tcpctl
-`pong/OK`. The run then blocked before inventory because the V2356 `/cache/bin/busybox` fix solved
-the missing-path issue but not netcat semantics: BusyBox `nc` exited immediately for the toybox-style
-`netcat -l -p PORT COMMAND...` listener form, so the host transfer socket got `ECONNREFUSED`.
-Read-only help confirmed `/bin/toybox netcat` supports that command form while BusyBox requires
-`-e`. V2358 is a host-only runner repair: the AUD-3C runner now passes
-`tcpctl_host.py --toybox /bin/toybox`, and dry-run/tests assert both stale `/cache/bin/toybox` and
-incompatible `/cache/bin/busybox` install-toolbox choices are absent. Playback is still unproven.
-The next safe audio unit is a fresh exact-gated AUD-3C live attempt with this toybox-semantic runner;
-do not proceed to `tinyplay` or mixer writes.
+`pcm_like=59`), repaired post-reenumeration NCM/tcpctl reachability, staged `tinymix` and
+`tinypcminfo` over tcpctl using `/bin/toybox netcat`, and completed read-only tinyalsa inventory.
+`tinymix -D 0` identified mixer card `sm8150-tavil-snd-card` with `Number of controls: 3628`;
+`tinymix -D 0 --all-values` captured values/ranges; `tinypcminfo -D 0 -d 0` returned PCM out/in
+caps for device 0. Candidate selftest after inventory and final rollback V2321 selftest both
+reported `fail=0`. Playback is still unproven. The next safe audio unit is host-only route analysis:
+correlate the captured tinymix controls with private vendor `mixer_paths_tavil.xml` / audio platform
+files and design the minimal first playback route. Do not run `tinymix set`, PCM playback opens, or
+`tinyplay` without a fresh exact playback gate.
 
 **Validation:** AUD-0/AUD-1 are host-only — `py_compile`/unittest for any harness code, no flash,
 no device. AUD-2/AUD-3 (if gated-in) every iteration: boot-only flash, pinned SHA, post-boot health
