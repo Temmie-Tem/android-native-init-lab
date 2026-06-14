@@ -79,17 +79,19 @@ ADSP subsystem-restart is recoverable, but forbidden-partition rules remain abso
   fresh operator go: load the speaker route via `tinymix`/`mixer_paths.xml` and push a test PCM with
   `tinyplay`. First actual sound test.
 
-**Latest AUD-3C inventory state (V2359):** V2359 used the exact AUD-3C approval, flashed V2334,
-accepted one ADSP boot, reproduced `/dev/snd` materialization (`count=61`, `control_like=1`,
-`pcm_like=59`), repaired post-reenumeration NCM/tcpctl reachability, staged `tinymix` and
-`tinypcminfo` over tcpctl using `/bin/toybox netcat`, and completed read-only tinyalsa inventory.
-`tinymix -D 0` identified mixer card `sm8150-tavil-snd-card` with `Number of controls: 3628`;
-`tinymix -D 0 --all-values` captured values/ranges; `tinypcminfo -D 0 -d 0` returned PCM out/in
-caps for device 0. Candidate selftest after inventory and final rollback V2321 selftest both
-reported `fail=0`. Playback is still unproven. The next safe audio unit is host-only route analysis:
-correlate the captured tinymix controls with private vendor `mixer_paths_tavil.xml` / audio platform
-files and design the minimal first playback route. Do not run `tinymix set`, PCM playback opens, or
-`tinyplay` without a fresh exact playback gate.
+**Latest audio route state (V2360):** V2360 reconciled the V2359 tinyalsa inventory against
+private vendor `mixer_paths_tavil.xml`, `audio_platform_info.xml`, `audio_policy_configuration.xml`,
+and staged tinyalsa source. The `deep-buffer-playback headphones` route is a clean live-control
+match (`SLIMBUS_0_RX Audio Mixer MultiMedia1 = 1`, present as `BOOL num=2`), and card0/device0
+supports the intended low-amplitude 48 kHz stereo PCM parameters. But A90 5G has no 3.5 mm jack, so
+this route is not a reliable audible-output proof under the current USB-gadget control setup. The
+audible internal-speaker path is not ready: vendor `SND_DEVICE_OUT_SPEAKER` maps to `SEC_TDM_RX_0`,
+while the XML speaker route still references `SLIMBUS_0_RX` plus `SpkrLeft*` / `SLIM_0_RX*` controls
+that do not appear by exact name in V2359 tinymix; live alternatives (`SEC_TDM_RX_*`, `WSA_*`,
+`COMP*`, `RX INT7*`) need another host-only reconciliation. The next safe audio unit is host-only
+AUD-3D planning/implementation: either prepare a separately gated low-risk headphone-route PCM smoke
+that may be inaudible, or first resolve the speaker route mismatch. Do not run `tinymix set`, PCM
+playback opens, or `tinyplay` without a fresh exact playback gate.
 
 **Validation:** AUD-0/AUD-1 are host-only — `py_compile`/unittest for any harness code, no flash,
 no device. AUD-2/AUD-3 (if gated-in) every iteration: boot-only flash, pinned SHA, post-boot health
