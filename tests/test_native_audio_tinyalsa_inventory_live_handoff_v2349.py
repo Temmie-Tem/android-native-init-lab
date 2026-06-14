@@ -27,6 +27,7 @@ def args(**overrides: object) -> argparse.Namespace:
         "tcp_port": 2325,
         "command_timeout": 60.0,
         "tcp_timeout": 30.0,
+        "device_toolbox": v2349.DEFAULT_DEVICE_TOOLBOX,
         "flash_timeout": 900.0,
         "card_timeout": 70.0,
         "poll_interval": 2.0,
@@ -90,6 +91,20 @@ class TinyalsaInventoryLiveHandoff(unittest.TestCase):
                 self.assertIn("--device-binary", command)
                 target = command[command.index("--device-binary") + 1]
                 self.assertTrue(target.startswith("/cache/bin/"), target)
+                self.assertIn("--toybox", command)
+                self.assertEqual(
+                    command[command.index("--toybox") + 1],
+                    "/cache/bin/busybox",
+                )
+                self.assertNotIn("/cache/bin/toybox", command)
+
+    def test_tcpctl_commands_use_runtime_busybox_toolbox(self) -> None:
+        payload = v2349.dry_run_payload(args())
+
+        self.assertEqual(payload["preflight"]["device_toolbox"], "/cache/bin/busybox")
+        flat = json.dumps(payload, sort_keys=True)
+        self.assertIn("/cache/bin/busybox", flat)
+        self.assertNotIn("/cache/bin/toybox", flat)
 
     def test_auto_transport_prefers_tcpctl_then_falls_back_to_serial_when_ncm_is_ready(self) -> None:
         self.assertEqual(

@@ -26,6 +26,7 @@ RUN_ID = "V2349"
 BUILD_TAG = "v2349-audio-tinyalsa-inventory-live"
 APPROVAL_PHRASE = inv.REQUIRED_APPROVAL_PHRASE
 REMOTE_DIR = "/cache/bin"
+DEFAULT_DEVICE_TOOLBOX = "/cache/bin/busybox"
 REMOTE_TOOLS = {
     "tinymix": f"{REMOTE_DIR}/tinymix",
     "tinypcminfo": f"{REMOTE_DIR}/tinypcminfo",
@@ -82,6 +83,8 @@ def tcpctl_common(args: argparse.Namespace, *, target_binary: str | None = None)
         str(args.command_timeout),
         "--tcp-timeout",
         str(args.tcp_timeout),
+        "--toybox",
+        args.device_toolbox,
     ]
     if target_binary:
         command.extend(["--device-binary", target_binary])
@@ -214,6 +217,7 @@ def preflight_state(args: argparse.Namespace) -> dict[str, Any]:
         "command_safety": safety,
         "remote_dir": REMOTE_DIR,
         "remote_tools": REMOTE_TOOLS,
+        "device_toolbox": args.device_toolbox,
         "ok": bool(
             snd.preflight_ok(snd_state)
             and manifest.get("ok")
@@ -620,6 +624,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--tcp-port", type=int, default=2325)
     parser.add_argument("--command-timeout", type=float, default=60.0)
     parser.add_argument("--tcp-timeout", type=float, default=30.0)
+    parser.add_argument("--device-toolbox", default=DEFAULT_DEVICE_TOOLBOX)
     parser.add_argument("--flash-timeout", type=float, default=900.0)
     parser.add_argument("--card-timeout", type=float, default=70.0)
     parser.add_argument("--poll-interval", type=float, default=2.0)
