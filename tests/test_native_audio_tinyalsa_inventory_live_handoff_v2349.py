@@ -32,6 +32,7 @@ def args(**overrides: object) -> argparse.Namespace:
         "transfer_delay": 1.0,
         "transfer_timeout": 120.0,
         "inventory_timeout": 60.0,
+        "inventory_transport": "auto",
         "card": 0,
         "pcm_device": [0],
         "allow_pcm_query_error": True,
@@ -57,19 +58,52 @@ class TinyalsaInventoryLiveHandoff(unittest.TestCase):
         flat = json.dumps(payload, sort_keys=True)
         self.assertIn("snd-materialize-once", flat)
         self.assertIn("--install-control-channel", flat)
-        self.assertNotIn("tinyplay", " ".join(step["command"][0] for step in payload["inventory_plan"]))
+        self.assertIn("transfer_readiness_plan", payload)
+        self.assertIn("host_ncm_ping", payload["transfer_readiness_plan"])
+        self.assertIn("tcpctl_ping", payload["transfer_readiness_plan"])
+        inventory_commands = []
+        for step in payload["inventory_plan"]:
+            inventory_commands.extend(step["auto_select"]["tcpctl"])
+            inventory_commands.extend(step["auto_select"]["serial"])
+        self.assertNotIn("tinyplay", " ".join(inventory_commands))
 
-    def test_remote_tools_install_under_tcpctl_allowed_runtime_root(self) -> None:
+    def test_remote_tools_install_under_tcpctl_allowed_cache_root(self) -> None:
         payload = v2349.dry_run_payload(args())
 
-        self.assertEqual(payload["preflight"]["remote_dir"], "/cache/a90-runtime/bin/v2349-tinyalsa-inventory")
-        for path in payload["preflight"]["remote_tools"].values():
-            self.assertTrue(path.startswith("/cache/a90-runtime/bin/"), path)
+        self.assertEqual(payload["preflight"]["remote_dir"], "/cache/bin")
+        self.assertEqual(payload["preflight"]["remote_tools"]["tinymix"], "/cache/bin/tinymix")
+        self.assertEqual(payload["preflight"]["remote_tools"]["tinypcminfo"], "/cache/bin/tinypcminfo")
         for step in payload["tool_install_plan"]:
-            command = step["command"]
-            self.assertIn("--device-binary", command)
-            target = command[command.index("--device-binary") + 1]
-            self.assertTrue(target.startswith("/cache/a90-runtime/bin/"), target)
+            for command in step["auto_select"].values():
+                self.assertIn("--device-binary", command)
+                target = command[command.index("--device-binary") + 1]
+                self.assertTrue(target.startswith("/cache/bin/"), target)
+
+    def test_auto_transport_prefers_tcpctl_then_falls_back_to_serial_when_ncm_is_ready(self) -> None:
+        self.assertEqual(
+            v2349.choose_inventory_transport(args(), host_ncm_ready=True, tcpctl_ready=True),
+            "tcpctl",
+        )
+        self.assertEqual(
+            v2349.choose_inventory_transport(args(), host_ncm_ready=True, tcpctl_ready=False),
+            "serial",
+        )
+        with self.assertRaisesRegex(RuntimeError, "neither tcpctl nor host NCM"):
+            v2349.choose_inventory_transport(args(), host_ncm_ready=False, tcpctl_ready=False)
+
+    def test_forced_transport_requires_matching_readiness(self) -> None:
+        with self.assertRaisesRegex(RuntimeError, "requested tcpctl"):
+            v2349.choose_inventory_transport(
+                args(inventory_transport="tcpctl"),
+                host_ncm_ready=True,
+                tcpctl_ready=False,
+            )
+        with self.assertRaisesRegex(RuntimeError, "requested serial"):
+            v2349.choose_inventory_transport(
+                args(inventory_transport="serial"),
+                host_ncm_ready=False,
+                tcpctl_ready=False,
+            )
 
     def test_inventory_commands_are_safe_under_v2346_safety_checker(self) -> None:
         commands = v2349.planned_inventory_commands(args(pcm_device=[0, 1]))

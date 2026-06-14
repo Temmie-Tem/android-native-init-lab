@@ -25,7 +25,7 @@ import native_audio_tinyalsa_inventory_gate_v2346 as inv
 RUN_ID = "V2349"
 BUILD_TAG = "v2349-audio-tinyalsa-inventory-live"
 APPROVAL_PHRASE = inv.REQUIRED_APPROVAL_PHRASE
-REMOTE_DIR = "/cache/a90-runtime/bin/v2349-tinyalsa-inventory"
+REMOTE_DIR = "/cache/bin"
 REMOTE_TOOLS = {
     "tinymix": f"{REMOTE_DIR}/tinymix",
     "tinypcminfo": f"{REMOTE_DIR}/tinypcminfo",
@@ -87,12 +87,17 @@ def tcpctl_common(args: argparse.Namespace, *, target_binary: str | None = None)
     return command
 
 
-def install_command(args: argparse.Namespace, local_path: Path, target_path: str, transfer_port: int) -> list[str]:
+def install_command(args: argparse.Namespace,
+                    local_path: Path,
+                    target_path: str,
+                    transfer_port: int,
+                    *,
+                    control_channel: str) -> list[str]:
     return [
         *tcpctl_common(args, target_binary=target_path),
         "install",
         "--install-control-channel",
-        "tcpctl",
+        control_channel,
         "--local-binary",
         rel(local_path),
         "--transfer-port",
@@ -106,6 +111,23 @@ def install_command(args: argparse.Namespace, local_path: Path, target_path: str
 
 def tcpctl_run_command(args: argparse.Namespace, argv: list[str]) -> list[str]:
     return [*tcpctl_common(args), "run", "--", *argv]
+
+
+def serial_run_command(args: argparse.Namespace, argv: list[str]) -> list[str]:
+    return snd.a90ctl_command(
+        args,
+        ["run", *argv],
+        hide_on_busy=True,
+        timeout=args.inventory_timeout,
+    )
+
+
+def host_ping_command(args: argparse.Namespace) -> list[str]:
+    return ["ping", "-c", "1", "-W", "2", args.device_ip]
+
+
+def tcpctl_ping_command(args: argparse.Namespace) -> list[str]:
+    return [*tcpctl_common(args), "ping"]
 
 
 def planned_inventory_commands(args: argparse.Namespace) -> list[dict[str, Any]]:
@@ -181,10 +203,32 @@ def dry_run_payload(args: argparse.Namespace) -> dict[str, Any]:
             local_path = tool_local_path(state["tinyalsa_manifest"], tool)
             install_steps.append({
                 "tool": tool,
-                "command": install_command(args, local_path, REMOTE_TOOLS[tool], args.transfer_port + index),
+                "auto_select": {
+                    "tcpctl": install_command(
+                        args,
+                        local_path,
+                        REMOTE_TOOLS[tool],
+                        args.transfer_port + index,
+                        control_channel="tcpctl",
+                    ),
+                    "serial": install_command(
+                        args,
+                        local_path,
+                        REMOTE_TOOLS[tool],
+                        args.transfer_port + index,
+                        control_channel="bridge",
+                    ),
+                },
             })
     inventory_steps = [
-        {"name": item["name"], "command": tcpctl_run_command(args, item["argv"]), "allow_error": item["allow_error"]}
+        {
+            "name": item["name"],
+            "auto_select": {
+                "tcpctl": tcpctl_run_command(args, item["argv"]),
+                "serial": serial_run_command(args, item["argv"]),
+            },
+            "allow_error": item["allow_error"],
+        }
         for item in state["inventory_commands"]
     ]
     return {
@@ -194,6 +238,11 @@ def dry_run_payload(args: argparse.Namespace) -> dict[str, Any]:
         "approval_phrase_required": APPROVAL_PHRASE,
         "preflight": state,
         "materialization_plan": materialize_plan,
+        "transfer_readiness_plan": {
+            "host_ncm_ping": host_ping_command(args),
+            "tcpctl_ping": tcpctl_ping_command(args),
+            "selection": "auto: tcpctl when ping returns pong/OK; otherwise serial fallback when host NCM ping succeeds",
+        },
         "tool_install_plan": install_steps,
         "inventory_plan": inventory_steps,
     }
@@ -209,6 +258,66 @@ def run_host_step(out_dir: Path,
     return snd.run_step(out_dir, steps, name, command, timeout=timeout, allow_error=allow_error)
 
 
+def step_text(step: dict[str, Any]) -> str:
+    path_text = step.get("stdout_path")
+    if not path_text:
+        return str(step.get("stdout_tail") or "")
+    path = snd.ROOT / str(path_text)
+    text = snd.load_text(path, limit=128_000)
+    return text or str(step.get("stdout_tail") or "")
+
+
+def choose_inventory_transport(args: argparse.Namespace,
+                               *,
+                               host_ncm_ready: bool,
+                               tcpctl_ready: bool) -> str:
+    if args.inventory_transport == "tcpctl":
+        if not tcpctl_ready:
+            raise RuntimeError("requested tcpctl inventory transport, but tcpctl ping did not return pong/OK")
+        return "tcpctl"
+    if args.inventory_transport == "serial":
+        if not host_ncm_ready:
+            raise RuntimeError("requested serial inventory transport, but host NCM ping failed; cannot stage tools")
+        return "serial"
+    if tcpctl_ready:
+        return "tcpctl"
+    if host_ncm_ready:
+        return "serial"
+    raise RuntimeError("neither tcpctl nor host NCM ping is ready; cannot stage tinyalsa tools")
+
+
+def probe_transfer_readiness(args: argparse.Namespace,
+                             out_dir: Path,
+                             steps: list[dict[str, Any]]) -> dict[str, Any]:
+    host_ping = run_host_step(
+        out_dir,
+        steps,
+        "transfer-host-ncm-ping",
+        host_ping_command(args),
+        timeout=8.0,
+        allow_error=True,
+    )
+    tcpctl_ping = run_host_step(
+        out_dir,
+        steps,
+        "transfer-tcpctl-ping",
+        tcpctl_ping_command(args),
+        timeout=args.tcp_timeout + 5.0,
+        allow_error=True,
+    )
+    tcpctl_text = step_text(tcpctl_ping)
+    host_ready = int(host_ping.get("rc") or 1) == 0
+    tcpctl_ready = int(tcpctl_ping.get("rc") or 1) == 0 and "pong" in tcpctl_text and "OK" in tcpctl_text
+    selected = choose_inventory_transport(args, host_ncm_ready=host_ready, tcpctl_ready=tcpctl_ready)
+    return {
+        "host_ncm_ping_ok": host_ready,
+        "tcpctl_ping_ok": tcpctl_ready,
+        "selected_transport": selected,
+        "host_ping_step": host_ping.get("stdout_path"),
+        "tcpctl_ping_step": tcpctl_ping.get("stdout_path"),
+    }
+
+
 def run_inventory(args: argparse.Namespace,
                   out_dir: Path,
                   steps: list[dict[str, Any]],
@@ -220,30 +329,55 @@ def run_inventory(args: argparse.Namespace,
         "mixer_set_attempted": False,
         "playback_attempted": False,
     }
+    readiness = probe_transfer_readiness(args, out_dir, steps)
+    inventory_result["transfer_readiness"] = readiness
+    use_tcpctl = readiness["selected_transport"] == "tcpctl"
+    install_control_channel = "tcpctl" if use_tcpctl else "bridge"
     for index, tool in enumerate(("tinymix", "tinypcminfo"), start=0):
         local_path = tool_local_path(manifest_state, tool)
         step = run_host_step(
             out_dir,
             steps,
             f"install-{tool}",
-            install_command(args, local_path, REMOTE_TOOLS[tool], args.transfer_port + index),
+            install_command(
+                args,
+                local_path,
+                REMOTE_TOOLS[tool],
+                args.transfer_port + index,
+                control_channel=install_control_channel,
+            ),
             timeout=args.transfer_timeout + 45.0,
         )
         inventory_result["installed_tools"][tool] = {
             "remote": REMOTE_TOOLS[tool],
             "ok": bool(step.get("ok")),
             "stdout_path": step.get("stdout_path"),
+            "control_channel": install_control_channel,
         }
 
     for item in planned_inventory_commands(args):
-        step = run_host_step(
-            out_dir,
-            steps,
-            item["name"],
-            tcpctl_run_command(args, item["argv"]),
-            timeout=args.inventory_timeout,
-            allow_error=bool(item.get("allow_error")),
-        )
+        if use_tcpctl:
+            step = run_host_step(
+                out_dir,
+                steps,
+                item["name"],
+                tcpctl_run_command(args, item["argv"]),
+                timeout=args.inventory_timeout,
+                allow_error=bool(item.get("allow_error")),
+            )
+            transport_name = "tcpctl"
+        else:
+            step = snd.run_serial_transport_step(
+                out_dir,
+                steps,
+                item["name"],
+                args,
+                ["run", *item["argv"]],
+                timeout=args.inventory_timeout,
+                retry_observation=False,
+                allow_error=bool(item.get("allow_error")),
+            )
+            transport_name = "serial"
         inventory_result["commands"].append({
             "name": item["name"],
             "kind": item["kind"],
@@ -252,6 +386,7 @@ def run_inventory(args: argparse.Namespace,
             "rc": step.get("rc"),
             "allow_error": bool(item.get("allow_error")),
             "stdout_path": step.get("stdout_path"),
+            "transport": transport_name,
         })
     return inventory_result
 
@@ -408,6 +543,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--transfer-delay", type=float, default=1.0)
     parser.add_argument("--transfer-timeout", type=float, default=120.0)
     parser.add_argument("--inventory-timeout", type=float, default=60.0)
+    parser.add_argument("--inventory-transport", choices=("auto", "tcpctl", "serial"), default="auto")
     parser.add_argument("--card", type=int, default=0)
     parser.add_argument("--pcm-device", type=int, action="append", default=[0])
     parser.add_argument("--allow-pcm-query-error", action=argparse.BooleanOptionalAction, default=True)

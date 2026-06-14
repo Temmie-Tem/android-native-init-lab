@@ -79,13 +79,13 @@ ADSP subsystem-restart is recoverable, but forbidden-partition rules remain abso
   fresh operator go: load the speaker route via `tinymix`/`mixer_paths.xml` and push a test PCM with
   `tinyplay`. First actual sound test.
 
-**Latest AUD-3C inventory result (V2350):** exact-gated read-only tinyalsa inventory reached
-the V2334 ADSP + `/dev/snd` materialization window twice, and both runs rolled back to V2321
-with `selftest fail=0`. `/dev/snd` again materialized to 61 nodes (`control_like=1`,
-`pcm_like=59`), but tinyalsa inventory did **not** run: the first attempt used a disallowed
-install root, and the corrected second attempt timed out reaching `tcpctl` at the install step.
-Playback is still unproven. The next safe audio unit is a host-only transfer/readiness fix for
-the tinyalsa staging path; do not retry live inventory until that is implemented and exact-gated.
+**Latest AUD-3C inventory state (V2351):** V2350 exact-gated live attempts reached the V2334
+ADSP + `/dev/snd` materialization window twice and rolled back cleanly, but tinyalsa inventory did
+not run because tool staging assumed post-materialization `tcpctl` reachability. V2351 fixed this
+host-side: the runner now probes host NCM + `tcpctl` before install, stages tools under `/cache/bin`,
+and auto-selects `tcpctl` when available or serial/bridge fallback when only NCM is reachable.
+Playback is still unproven. The next safe audio unit is a fresh exact-gated AUD-3C live attempt
+with the updated readiness/fallback runner; do not proceed to `tinyplay` or mixer writes.
 
 **Validation:** AUD-0/AUD-1 are host-only — `py_compile`/unittest for any harness code, no flash,
 no device. AUD-2/AUD-3 (if gated-in) every iteration: boot-only flash, pinned SHA, post-boot health
