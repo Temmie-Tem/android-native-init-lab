@@ -157,9 +157,13 @@ planner (`native_audio_speaker_route_recipe_v2378.py`): it verifies V2377 eviden
 controls, and V2345 `tinymix`/`tinyplay` hashes, then emits a future-only plan with 13 observed
 route-apply controls, reverse reset, card0/device0 `tinyplay`, `amplitude=0.02`, `duration_ms=1000`,
 and exact future gate `AUD-4-native-speaker-pilot go: one-shot V2377 observed route apply,
-low-amplitude tinyplay, reverse reset, rollback to V2321`. The next frontier is implementing the
-exact-gated native speaker pilot runner as source/build/test only; do not run live playback until
-that runner has static safety coverage and the exact AUD-4 gate is used. Android route-delta live
+low-amplitude tinyplay, reverse reset, rollback to V2321`. V2379 implemented the exact-gated native speaker pilot runner as source/build/test only:
+`native_audio_speaker_pilot_live_handoff_v2379.py` reuses the V2334 ADSP + `/dev/snd`
+materialization path, stages pinned V2345 `tinymix`/`tinyplay`, generates a run-local
+48 kHz stereo S16_LE 0.02-amplitude 1 s WAV, applies only the 13 V2377-observed route controls,
+runs one bounded `tinyplay`, reverse-resets 12 controls, verifies reset against pre-apply `tinymix`,
+and rolls back to V2321. Dry-run reports `v2379-native-speaker-pilot-runner-dry-run`, `ok=True`.
+The next frontier is the exact-gated AUD-4 live pilot under the existing recoverable-device envelope. Android route-delta live
 capture itself is covered by the overnight pre-authorization above, but must use the checked-helper
 Android handoff, bounded low-amplitude framework playback, V2321 rollback, and the current
 V2372/V2375 observability/stimulus path. V2363 and V2367 repeated the already-passed

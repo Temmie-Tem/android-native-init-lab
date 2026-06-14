@@ -1,0 +1,160 @@
+"""Host-only tests for the V2379 exact-gated native speaker pilot runner."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import subprocess
+import sys
+import tempfile
+import unittest
+import wave
+from pathlib import Path
+
+from _loader import load_revalidation
+
+v2379 = load_revalidation("native_audio_speaker_pilot_live_handoff_v2379")
+
+
+def args(**overrides: object) -> argparse.Namespace:
+    defaults: dict[str, object] = {
+        "approval": "",
+        "manifest": v2379.inv.MANIFEST,
+        "evidence_dir": v2379.recipe.DEFAULT_EVIDENCE_DIR,
+        "bridge_host": "127.0.0.1",
+        "bridge_port": 54321,
+        "device_ip": "192.168.7.2",
+        "host_ip": "192.168.7.1",
+        "host_prefix": 24,
+        "tcp_port": 2325,
+        "command_timeout": 60.0,
+        "tcp_timeout": 30.0,
+        "device_toolbox": v2379.DEFAULT_DEVICE_TOOLBOX,
+        "flash_timeout": 900.0,
+        "card_timeout": 70.0,
+        "poll_interval": 2.0,
+        "menu_settle_sec": 1.0,
+        "transfer_port": 18179,
+        "transfer_delay": 1.0,
+        "transfer_timeout": 120.0,
+        "repair_host_ncm": True,
+        "ncm_setup_timeout": 120.0,
+        "ncm_interface_timeout": 20.0,
+        "ncm_setup_sudo": "sudo -n",
+        "inventory_transport": "auto",
+        "card": 0,
+        "mixer_timeout": 45.0,
+        "playback_timeout": 20.0,
+        "duration_ms": v2379.DEFAULT_DURATION_MS,
+        "amplitude": v2379.DEFAULT_AMPLITUDE,
+    }
+    defaults.update(overrides)
+    return argparse.Namespace(**defaults)
+
+
+class NativeSpeakerPilotLiveHandoff(unittest.TestCase):
+    def test_dry_run_composes_materialization_route_playback_reset(self) -> None:
+        payload = v2379.dry_run_payload(args())
+
+        self.assertTrue(payload["ok"])
+        self.assertEqual(payload["decision"], "v2379-native-speaker-pilot-runner-dry-run")
+        self.assertIn("AUD-4-native-speaker-pilot go:", payload["approval_phrase_required"])
+        self.assertEqual(payload["preflight"]["remote_dir"], "/cache/a90-runtime/bin/v2379-speaker-pilot")
+        self.assertEqual([step["artifact"] for step in payload["tool_install_plan"]], ["tinymix", "tinyplay", "pilot_wav_generated_runtime"])
+        runtime = payload["runtime_plan"]
+        self.assertEqual(len(runtime["route_apply_commands"]), 13)
+        self.assertEqual(len(runtime["route_reset_commands"]), 12)
+        self.assertEqual(
+            runtime["playback"]["argv"],
+            [
+                "/cache/a90-runtime/bin/v2379-speaker-pilot/tinyplay",
+                "/cache/a90-runtime/bin/v2379-speaker-pilot/pilot_48k_s16le_stereo_0p02_1s.wav",
+                "-D",
+                "0",
+                "-d",
+                "0",
+            ],
+        )
+        flat = json.dumps(payload, sort_keys=True)
+        self.assertIn("flash_candidate", flat)
+        self.assertIn("snd-materialize-once", flat)
+        self.assertIn("transfer_readiness_plan", payload)
+        self.assertNotIn("app_process", flat)
+        self.assertNotIn("am start", flat)
+        self.assertNotIn("/dev/block", flat)
+
+    def test_preflight_verifies_v2377_recipe_and_pinned_tinyalsa_tools(self) -> None:
+        state = v2379.preflight_state(args())
+
+        self.assertTrue(state["ok"])
+        self.assertTrue(state["speaker_plan"]["recipe"]["ok"])
+        self.assertTrue(state["tools"]["tinymix"]["sha256_ok"])
+        self.assertTrue(state["tools"]["tinyplay"]["sha256_ok"])
+        self.assertTrue(state["command_safety"]["ok"])
+
+    def test_command_safety_rejects_unbounded_or_forbidden_plans(self) -> None:
+        plan = v2379.speaker_plan(args())
+        self.assertFalse(v2379.command_safety(plan, amplitude=0.2, duration_ms=1000)["ok"])
+        self.assertFalse(v2379.command_safety(plan, amplitude=0.02, duration_ms=1500)["ok"])
+        plan["route_apply_commands"][0]["argv"].append("/dev/block/by-name/boot")
+        self.assertFalse(v2379.command_safety(plan, amplitude=0.02, duration_ms=1000)["ok"])
+
+    def test_generate_pilot_wav_is_bounded_stereo_48k(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            wav_path = Path(temp_dir) / "pilot.wav"
+            meta = v2379.generate_pilot_wav(wav_path, duration_ms=1000, amplitude=0.02)
+            self.assertTrue(wav_path.exists())
+            self.assertEqual(meta["frames"], 48000)
+            with wave.open(str(wav_path), "rb") as wav:
+                self.assertEqual(wav.getframerate(), 48000)
+                self.assertEqual(wav.getnchannels(), 2)
+                self.assertEqual(wav.getsampwidth(), 2)
+                self.assertEqual(wav.getnframes(), 48000)
+        with tempfile.TemporaryDirectory() as temp_dir, self.assertRaisesRegex(ValueError, "amplitude"):
+            v2379.generate_pilot_wav(Path(temp_dir) / "bad.wav", duration_ms=1000, amplitude=0.2)
+
+    def test_wrong_live_approval_exits_before_flash(self) -> None:
+        completed = subprocess.run(
+            [
+                sys.executable,
+                "workspace/public/src/scripts/revalidation/native_audio_speaker_pilot_live_handoff_v2379.py",
+                "--run-live",
+                "--approval",
+                "wrong",
+            ],
+            cwd=v2379.snd.ROOT,
+            check=False,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=30,
+        )
+
+        self.assertNotEqual(completed.returncode, 0)
+        self.assertIn("exact --approval phrase required", completed.stderr)
+        self.assertIn(v2379.APPROVAL_PHRASE, completed.stderr)
+        self.assertNotIn("native_init_flash.py", completed.stdout)
+
+    def test_cli_dry_run_outputs_json(self) -> None:
+        completed = subprocess.run(
+            [
+                sys.executable,
+                "workspace/public/src/scripts/revalidation/native_audio_speaker_pilot_live_handoff_v2379.py",
+                "--dry-run",
+            ],
+            cwd=v2379.snd.ROOT,
+            check=False,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=30,
+        )
+
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        payload = json.loads(completed.stdout)
+        self.assertEqual(payload["decision"], "v2379-native-speaker-pilot-runner-dry-run")
+        self.assertTrue(payload["preflight"]["tools"]["tinyplay"]["sha256_ok"])
+
+
+if __name__ == "__main__":
+    unittest.main()
