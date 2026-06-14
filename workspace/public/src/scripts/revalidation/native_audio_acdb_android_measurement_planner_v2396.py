@@ -123,6 +123,42 @@ def adb_push(args: argparse.Namespace, source: str, destination: str) -> list[st
     return adb_base(args) + ["push", source, destination]
 
 
+def android_boot_complete_check_command(args: argparse.Namespace) -> list[str]:
+    command = (
+        'i=0; '
+        'while [ "$i" -lt 30 ]; do '
+        'sys="$(getprop sys.boot_completed 2>/dev/null)"; '
+        'dev="$(getprop dev.bootcomplete 2>/dev/null)"; '
+        'if [ "$sys" = "1" ] || [ "$dev" = "1" ]; then exit 0; fi; '
+        'i=$((i + 1)); sleep 1; '
+        'done; '
+        'echo "boot-complete recheck failed: sys=$sys dev=$dev"; exit 1'
+    )
+    return adb_shell(args, command)
+
+
+def android_post_handoff_settle_commands(args: argparse.Namespace) -> list[list[str]]:
+    return [
+        adb_base(args) + ["wait-for-device"],
+        android_boot_complete_check_command(args),
+        adb_root_shell(args, 'out="$(id)"; case "$out" in *uid=0*) exit 0;; *) echo "$out"; exit 1;; esac'),
+    ]
+
+
+def android_adb_state_command(args: argparse.Namespace) -> list[str]:
+    return adb_base(args) + ["get-state"]
+
+
+def native_bridge_probe_command(args: argparse.Namespace) -> list[str]:
+    return [
+        "python3",
+        rel(ROOT / "workspace/public/src/scripts/revalidation/a90ctl.py"),
+        "--timeout",
+        "5",
+        "version",
+    ]
+
+
 def file_state(path: Path, *, expected_sha256: str | None = None, zip_magic: bool = False) -> dict[str, Any]:
     state: dict[str, Any] = {"path": rel(path), "exists": path.exists()}
     if not path.exists():
@@ -342,6 +378,7 @@ def dry_run_payload(args: argparse.Namespace) -> dict[str, Any]:
     sealed_boot = "<private-run-dir>/android_boot_0600.img"
     commands = {
         "flash_android": route.flash_android_command(route_args, sealed_boot),
+        "android_post_handoff_settle": android_post_handoff_settle_commands(args),
         "stage_transient_module_and_stimulus": stage_commands(args, route_args, module, tinymix),
         "baseline_probe": probe_command(args, "baseline"),
         "logcat": {
@@ -356,7 +393,11 @@ def dry_run_payload(args: argparse.Namespace) -> dict[str, Any]:
         "post_probe": probe_command(args, "post"),
         "collect_private_artifacts": collect_command(args),
         "cleanup": cleanup_commands(args),
+        "android_wait_device_before_rollback": adb_base(args) + ["wait-for-device"],
         "android_reboot_recovery_for_rollback": route.android_reboot_recovery_command(route_args),
+        "android_adb_state_after_rollback_failure": android_adb_state_command(args),
+        "android_reboot_recovery_for_rollback_retry": route.android_reboot_recovery_command(route_args),
+        "native_bridge_probe_before_from_native_fallback": native_bridge_probe_command(args),
         "rollback_v2321": route.rollback_command(route_args),
         "optional_strace_disabled": optional_strace_plan(args),
     }
@@ -465,6 +506,129 @@ def attach_post_live_analysis(result: dict[str, Any], out_dir: Path) -> dict[str
     return analysis
 
 
+def step_stdout(record: dict[str, Any]) -> str:
+    stdout = record.get("stdout")
+    if not stdout:
+        return ""
+    try:
+        return (ROOT / stdout).read_text()
+    except OSError:
+        return ""
+
+
+def run_android_reboot_recovery_steps(
+    args: argparse.Namespace,
+    route_args: argparse.Namespace,
+    out_dir: Path,
+    steps: list[dict[str, Any]],
+    *,
+    suffix: str = "",
+) -> None:
+    steps.append(route.run_step(
+        f"android-wait-device-before-rollback{suffix}",
+        adb_base(args) + ["wait-for-device"],
+        out_dir,
+        timeout_sec=args.adb_command_timeout,
+        check=False,
+    ))
+    steps.append(route.run_step(
+        f"android-reboot-recovery-for-rollback{suffix}",
+        route.android_reboot_recovery_command(route_args),
+        out_dir,
+        timeout_sec=args.adb_command_timeout,
+        check=False,
+    ))
+
+
+def run_rollback_checked_helper(
+    route_args: argparse.Namespace,
+    out_dir: Path,
+    steps: list[dict[str, Any]],
+    *,
+    name: str,
+    timeout_sec: float,
+    from_native: bool = False,
+) -> None:
+    steps.append(route.run_step(
+        name,
+        route.rollback_command(route_args, from_native=from_native),
+        out_dir,
+        timeout_sec=timeout_sec,
+    ))
+
+
+def rollback_to_v2321_with_android_recovery(
+    args: argparse.Namespace,
+    route_args: argparse.Namespace,
+    out_dir: Path,
+    steps: list[dict[str, Any]],
+    result: dict[str, Any],
+) -> None:
+    try:
+        run_android_reboot_recovery_steps(args, route_args, out_dir, steps)
+        run_rollback_checked_helper(
+            route_args,
+            out_dir,
+            steps,
+            name="rollback-v2321",
+            timeout_sec=args.flash_timeout,
+        )
+        result["rolled_back"] = True
+        return
+    except Exception as first_rollback_error:
+        result["rollback_error"] = str(first_rollback_error)
+
+    state_record = route.run_step(
+        "android-adb-state-after-rollback-failure",
+        android_adb_state_command(args),
+        out_dir,
+        timeout_sec=min(args.adb_command_timeout, 30.0),
+        check=False,
+    )
+    steps.append(state_record)
+    state_text = step_stdout(state_record).strip()
+    result["rollback_adb_state_after_failure"] = state_text
+
+    if state_record.get("ok") and state_text == "device":
+        try:
+            run_android_reboot_recovery_steps(args, route_args, out_dir, steps, suffix="-retry")
+            run_rollback_checked_helper(
+                route_args,
+                out_dir,
+                steps,
+                name="rollback-v2321-after-android-reboot-retry",
+                timeout_sec=args.flash_timeout,
+            )
+            result["rolled_back"] = True
+            result["rollback_fallback"] = "android-adb-reboot-retry"
+            return
+        except Exception as retry_error:
+            result["rollback_retry_error"] = str(retry_error)
+
+    bridge_probe = route.run_step(
+        "native-bridge-probe-before-from-native-fallback",
+        native_bridge_probe_command(args),
+        out_dir,
+        timeout_sec=15.0,
+        check=False,
+    )
+    steps.append(bridge_probe)
+    if not bridge_probe.get("ok"):
+        result["rollback_fallback_skipped"] = "native-bridge-unavailable"
+        raise RuntimeError("rollback failed and native bridge fallback was unavailable")
+
+    run_rollback_checked_helper(
+        route_args,
+        out_dir,
+        steps,
+        name="rollback-v2321-from-native-fallback",
+        timeout_sec=args.flash_timeout,
+        from_native=True,
+    )
+    result["rolled_back"] = True
+    result["rollback_fallback"] = "from-native"
+
+
 def ensure_live_approval(args: argparse.Namespace) -> None:
     if args.approval != APPROVAL_PHRASE:
         raise RuntimeError("exact AUD-5A Android ACDB measurement approval phrase is required for --run-live")
@@ -520,6 +684,9 @@ def run_live(args: argparse.Namespace) -> dict[str, Any]:
             out_dir,
             timeout_sec=args.flash_timeout,
         ))
+        for index, command in enumerate(android_post_handoff_settle_commands(args)):
+            steps.append(route.run_step(f"android-post-handoff-settle-{index}", command, out_dir, timeout_sec=args.adb_command_timeout))
+
         for index, command in enumerate(plan["commands"]["stage_transient_module_and_stimulus"]):
             steps.append(route.run_step(f"stage-{index}", command, out_dir, timeout_sec=args.adb_command_timeout))
 
@@ -560,38 +727,14 @@ def run_live(args: argparse.Namespace) -> dict[str, Any]:
         route.stop_logcat_capture(logcat_capture)
         if rollback_needed:
             try:
-                steps.append(route.run_step(
-                    "android-reboot-recovery-for-rollback",
-                    route.android_reboot_recovery_command(route_args),
-                    out_dir,
-                    timeout_sec=args.adb_command_timeout,
-                    check=False,
-                ))
-                steps.append(route.run_step(
-                    "rollback-v2321",
-                    route.rollback_command(route_args, from_native=False),
-                    out_dir,
-                    timeout_sec=args.flash_timeout,
-                ))
-                result["rolled_back"] = True
+                rollback_to_v2321_with_android_recovery(args, route_args, out_dir, steps, result)
                 if result.get("ok"):
                     result["decision"] = "v2397-android-acdb-measurement-captured-rollback-pass"
-            except Exception as first_rollback_error:
-                result["rollback_error"] = str(first_rollback_error)
-                try:
-                    steps.append(route.run_step(
-                        "rollback-v2321-from-native-fallback",
-                        route.rollback_command(route_args, from_native=True),
-                        out_dir,
-                        timeout_sec=args.flash_timeout,
-                    ))
-                    result["rolled_back"] = True
-                    result["rollback_fallback"] = "from-native"
-                    if result.get("ok"):
+                    if result.get("rollback_fallback"):
                         result["decision"] = "v2397-android-acdb-measurement-captured-rollback-pass-fallback"
-                except Exception as second_rollback_error:
-                    result["rollback_fallback_error"] = str(second_rollback_error)
-                    raise
+            except Exception as rollback_error:
+                result["rollback_fallback_error"] = str(rollback_error)
+                raise
             finally:
                 attach_post_live_analysis(result, out_dir)
                 write_json(out_dir / "result.json", result)

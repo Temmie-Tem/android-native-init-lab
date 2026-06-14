@@ -96,8 +96,17 @@ class AcdbAndroidMeasurementPlanner(unittest.TestCase):
         self.assertIn("native_init_flash.py", " ".join(commands["flash_android"]))
         self.assertIn("--post-flash-target", commands["flash_android"])
         self.assertIn("android-adb", commands["flash_android"])
+        settle = commands["android_post_handoff_settle"]
+        self.assertEqual(settle[0], ["/opt/android/adb", "-s", "A90ADB01", "wait-for-device"])
+        self.assertIn("getprop sys.boot_completed", " ".join(settle[1]))
+        self.assertEqual(settle[2][:4], ["/opt/android/adb", "-s", "A90ADB01", "shell"])
+        self.assertIn("uid=0", " ".join(settle[2]))
         self.assertEqual(commands["baseline_probe"][:3], ["/opt/android/adb", "-s", "A90ADB01"])
+        self.assertEqual(commands["android_wait_device_before_rollback"], ["/opt/android/adb", "-s", "A90ADB01", "wait-for-device"])
         self.assertEqual(commands["android_reboot_recovery_for_rollback"], ["/opt/android/adb", "-s", "A90ADB01", "reboot", "recovery"])
+        self.assertEqual(commands["android_adb_state_after_rollback_failure"], ["/opt/android/adb", "-s", "A90ADB01", "get-state"])
+        self.assertEqual(commands["android_reboot_recovery_for_rollback_retry"], ["/opt/android/adb", "-s", "A90ADB01", "reboot", "recovery"])
+        self.assertIn("a90ctl.py", " ".join(commands["native_bridge_probe_before_from_native_fallback"]))
         self.assertIn("rollback_v2321", commands)
         self.assertIn("--expect-version", commands["rollback_v2321"])
         self.assertIn("0.9.285", commands["rollback_v2321"])
@@ -208,6 +217,53 @@ class AcdbAndroidMeasurementPlanner(unittest.TestCase):
         self.assertEqual(analysis["decision"], "analysis-skipped")
         self.assertFalse(analysis["ok"])
         self.assertEqual(analysis["device_action"], "none")
+
+    def test_rollback_retries_android_reboot_when_adb_still_device(self) -> None:
+        original_run_step = v2396.route.run_step
+        calls: list[str] = []
+
+        def fake_run_step(name: str, command: list[str], out_dir: Path, *, timeout_sec: float, check: bool = True) -> dict[str, object]:
+            calls.append(name)
+            if name == "rollback-v2321":
+                raise RuntimeError("rollback-v2321 failed rc=1")
+            stdout_path = out_dir / f"{name}.stdout.txt"
+            stdout_text = "device\n" if name == "android-adb-state-after-rollback-failure" else ""
+            stdout_path.write_text(stdout_text)
+            stderr_path = out_dir / f"{name}.stderr.txt"
+            stderr_path.write_text("")
+            return {
+                "name": name,
+                "command": command,
+                "stdout": v2396.rel(stdout_path),
+                "stderr": v2396.rel(stderr_path),
+                "ok": True,
+                "rc": 0,
+                "timeout_sec": timeout_sec,
+            }
+
+        v2396.route.run_step = fake_run_step
+        try:
+            with tempfile.TemporaryDirectory() as temp_dir:
+                out_dir = Path(temp_dir)
+                result = {"ok": False, "rolled_back": False}
+                steps: list[dict[str, object]] = []
+
+                v2396.rollback_to_v2321_with_android_recovery(
+                    args(),
+                    v2396.android_args(args()),
+                    out_dir,
+                    steps,
+                    result,
+                )
+        finally:
+            v2396.route.run_step = original_run_step
+
+        self.assertTrue(result["rolled_back"])
+        self.assertEqual(result["rollback_fallback"], "android-adb-reboot-retry")
+        self.assertEqual(result["rollback_adb_state_after_failure"], "device")
+        self.assertIn("android-reboot-recovery-for-rollback-retry", calls)
+        self.assertIn("rollback-v2321-after-android-reboot-retry", calls)
+        self.assertNotIn("rollback-v2321-from-native-fallback", calls)
 
     def test_cli_dry_run_outputs_json(self) -> None:
         script = Path("workspace/public/src/scripts/revalidation/native_audio_acdb_android_measurement_planner_v2396.py")
