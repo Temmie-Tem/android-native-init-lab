@@ -224,6 +224,33 @@ Start **host-only** (recon/observation), exactly parallel to AUD-0/AUD-1, before
 cont-splash?) or a defensible non-viable close. The fun end-targets — Bad Apple, then DOOM (touch
 evdev or USB-keyboard input) — are downstream demos, **not** this recon epic.
 
+### Downstream demo targets (REFERENCE / direction only — NOT an active directive)
+
+The payoff demos the audio + video tracks aim at. This is **direction, not a committed step list**
+(refine the exact approach from recon results), and it is **gated**: do NOT start any item until its
+prerequisites are actually proven. Until then this block is **orientation only** — e.g. it tells the
+video recon to **optimize for a drawable display framebuffer (the demos need it), not Venus** (the
+demos need no hardware video decode). Do not let it pull the loop off the one active frontier.
+
+Dependency-ordered (prereq in parens):
+1. **Boot chime = sound check** (prereq: AUD-4 sound) — PID-1 init plays a bundled bounded-amplitude
+   chime at boot, **best-effort / non-fatal — never block boot on audio**. Minimal "audio integrated
+   into the system" proof.
+2. **Display framebuffer** (prereq: none — this *is* the video recon's display sub-target) — a
+   drawable inherited **cont-splash** surface (`/dev/dri/card0` or `/dev/fb0`) + region blit; **no
+   from-scratch DSI panel init, no backlight/PMIC/regulator writes (brick-caution); if the splash
+   surface is already torn down, STOP and report rather than re-lighting the panel**.
+3. **Bad Apple demo** (prereq: audio + display framebuffer) — pre-decoded raw frames + raw PCM + a
+   sync loop (no codec, no Venus). The AV-integration demo.
+4. **Touch bring-up** (prereq: none; parallel-able) — read the touch panel via evdev
+   `/dev/input/event*` (driver likely auto-probes; may need a firmware_class feed). The input track.
+5. **DOOM = capstone** (prereq: display + input [touch *or* USB-keyboard fallback]; audio SFX
+   optional) — `doomgeneric`: `DG_DrawFrame` → framebuffer region, `DG_GetKey` → touch evdev.
+   Combines display + input + audio.
+
+**Venus (HW video decode) is NOT on this demo path** — it stays an optional, separate track for
+real-video / headless-media, only if explicitly chartered later.
+
 **T1 (now SATURATED) — analyzer / harness regression test suite (host-only, NO flash).**
 As of 2026-06-13 the 12 `workspace/public/src/harness/a90harness/` modules and all 124 revalidation
 scripts have accept + reject/edge tests (**964 tests green**). **This tier is covered — do NOT grind
