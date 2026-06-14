@@ -20,6 +20,7 @@
 
 #define AUDIO_FW_DIR "/vendor/firmware_mnt/image"
 #define AUDIO_BOOT_ATTR "/sys/kernel/boot_adsp/boot"
+#define AUDIO_ADSP_BOOT_ONCE_TOKEN "AUD2_ONE_SHOT_ADSP_BOOT"
 #define AUDIO_MAX_LISTED 8
 
 static const char *yesno(bool value) {
@@ -192,6 +193,21 @@ static void print_firmware_status(void) {
     a90_console_printf("audio.firmware.adspua_jsn=%s\r\n", yesno(firmware_file_exists_ci("adspua.jsn")));
 }
 
+static int count_adsp_segments(void) {
+    int present_segments = 0;
+    int index;
+
+    for (index = 0; index <= 16; ++index) {
+        char name[32];
+
+        snprintf(name, sizeof(name), "adsp.b%02d", index);
+        if (firmware_file_exists_ci(name)) {
+            ++present_segments;
+        }
+    }
+    return present_segments;
+}
+
 static void print_remoteproc_status(void) {
     DIR *dir;
     struct dirent *entry;
@@ -278,11 +294,83 @@ static int audio_print_adsp_status(void) {
     return 0;
 }
 
+static int audio_adsp_boot_once(char **argv, int argc) {
+    struct stat st;
+    int segments;
+    int fd;
+
+    a90_console_printf("audio.adsp_boot_once.version=1\r\n");
+    a90_console_printf("audio.adsp_boot_once.scope=AUD-2-liveness-only\r\n");
+    a90_console_printf("audio.status.audio_playback_attempted=0\r\n");
+
+    if (argc != 3 || argv == NULL || argv[2] == NULL ||
+        strcmp(argv[2], AUDIO_ADSP_BOOT_ONCE_TOKEN) != 0) {
+        a90_console_printf("audio.adsp_boot_once.refused=missing-token\r\n");
+        a90_console_printf("audio.status.activation_write_attempted=0\r\n");
+        a90_console_printf("usage: audio adsp-boot-once %s\r\n", AUDIO_ADSP_BOOT_ONCE_TOKEN);
+        return -EPERM;
+    }
+
+    if (!path_lstat(AUDIO_BOOT_ATTR, &st)) {
+        a90_console_printf("audio.adsp_boot_once.refused=no-boot-attr errno=%d\r\n", errno);
+        a90_console_printf("audio.status.activation_write_attempted=0\r\n");
+        return negative_errno_or(ENOENT);
+    }
+    if (!path_is_dir(AUDIO_FW_DIR)) {
+        a90_console_printf("audio.adsp_boot_once.refused=no-firmware-dir\r\n");
+        a90_console_printf("audio.status.activation_write_attempted=0\r\n");
+        return -ENOENT;
+    }
+    if (!firmware_file_exists_ci("adsp.mdt")) {
+        a90_console_printf("audio.adsp_boot_once.refused=no-adsp-mdt\r\n");
+        a90_console_printf("audio.status.activation_write_attempted=0\r\n");
+        return -ENOENT;
+    }
+    segments = count_adsp_segments();
+    if (segments != 17) {
+        a90_console_printf("audio.adsp_boot_once.refused=missing-adsp-segments present=%d expected=17\r\n",
+                           segments);
+        a90_console_printf("audio.status.activation_write_attempted=0\r\n");
+        return -ENOENT;
+    }
+    if (count_dir_entries_matching("/sys/bus/rpmsg/devices", "adsp") > 0 ||
+        count_dir_entries_matching("/sys/class/sound", "card") > 0 ||
+        count_dir_entries_matching("/dev/snd", "controlC") > 0) {
+        a90_console_printf("audio.adsp_boot_once.refused=already-up-or-sound-present\r\n");
+        a90_console_printf("audio.status.activation_write_attempted=0\r\n");
+        return -EALREADY;
+    }
+
+    fd = open(AUDIO_BOOT_ATTR, O_WRONLY | O_CLOEXEC);
+    if (fd < 0) {
+        a90_console_printf("audio.adsp_boot_once.write=open_failed errno=%d\r\n", errno);
+        a90_console_printf("audio.status.activation_write_attempted=0\r\n");
+        return negative_errno_or(EIO);
+    }
+
+    a90_console_printf("audio.status.activation_write_attempted=1\r\n");
+    if (write_all_checked(fd, "1\n", 2) < 0) {
+        a90_console_printf("audio.adsp_boot_once.write=failed errno=%d\r\n", errno);
+        close(fd);
+        return negative_errno_or(EIO);
+    }
+    if (close(fd) < 0) {
+        a90_console_printf("audio.adsp_boot_once.write=close_failed errno=%d\r\n", errno);
+        return negative_errno_or(EIO);
+    }
+    a90_console_printf("audio.adsp_boot_once.write=accepted\r\n");
+    a90_console_printf("audio.adsp_boot_once.retry=forbidden\r\n");
+    return 0;
+}
+
 int a90_audio_cmd(char **argv, int argc) {
     if (argc <= 1 ||
         (argc == 2 && (strcmp(argv[1], "adsp-status") == 0 || strcmp(argv[1], "status") == 0))) {
         return audio_print_adsp_status();
     }
-    a90_console_printf("usage: audio [adsp-status|status]\r\n");
+    if (argc >= 2 && argv != NULL && argv[1] != NULL && strcmp(argv[1], "adsp-boot-once") == 0) {
+        return audio_adsp_boot_once(argv, argc);
+    }
+    a90_console_printf("usage: audio [adsp-status|status|adsp-boot-once]\r\n");
     return -EINVAL;
 }
