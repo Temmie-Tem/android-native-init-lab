@@ -233,9 +233,11 @@ def dry_run_plan(state: dict[str, Any]) -> dict[str, Any]:
         ],
         "audio_window": [
             a90ctl_command(placeholder, ["audio", "adsp-status"], hide_on_busy=True, timeout=90.0),
+            "settle auto menu before token-gated ADSP boot: cmdv1 hide, then bounded sleep",
             a90ctl_command(placeholder, ["audio", "adsp-boot-once", ADSP_TOKEN], hide_on_busy=True, timeout=90.0),
             "poll audio adsp-status / audio snd-status until ALSA card and sound sysfs device entries appear",
             a90ctl_command(placeholder, ["audio", "snd-status"], hide_on_busy=True, timeout=90.0),
+            "settle auto menu before token-gated /dev/snd materializer: cmdv1 hide, then bounded sleep",
             a90ctl_command(placeholder, ["audio", "snd-materialize-once", SND_TOKEN], timeout=90.0),
             a90ctl_command(placeholder, ["audio", "snd-status"], hide_on_busy=True, timeout=90.0),
         ],
@@ -343,6 +345,49 @@ def run_serial_transport_step(out_dir: Path,
     steps.append(record)
     if not record["ok"] and not allow_error:
         raise RuntimeError(f"step failed: {name}")
+    return record
+
+
+def append_sleep_step(out_dir: Path, steps: list[dict[str, Any]], name: str, duration_sec: float) -> dict[str, Any]:
+    started = datetime.now(timezone.utc).isoformat()
+    time.sleep(max(0.0, duration_sec))
+    record: dict[str, Any] = {
+        "name": name,
+        "command": ["host", "sleep", f"{max(0.0, duration_sec):.3f}"],
+        "timeout_sec": None,
+        "started_at": started,
+        "rc": 0,
+        "ok": True,
+        "elapsed_sec": round(max(0.0, duration_sec), 3),
+        "transport": "host",
+    }
+    write_json(out_dir / f"{len(steps):02d}_{name}.json", record)
+    steps.append(record)
+    return record
+
+
+def run_menu_settle_step(out_dir: Path,
+                         steps: list[dict[str, Any]],
+                         name: str,
+                         args: argparse.Namespace) -> dict[str, Any]:
+    """Hide the native auto menu before an unsafe-to-retry one-shot command.
+
+    V2343 proved that detecting busy after dispatch is too late for token-gated
+    audio commands: recovery can send `hide`, but the one-shot command must not
+    be retried automatically.  This pre-settle step is intentionally limited to
+    the safe `hide` control command plus a short host-side delay.
+    """
+
+    record = run_serial_transport_step(
+        out_dir,
+        steps,
+        name,
+        args,
+        ["hide"],
+        timeout=20.0,
+        retry_observation=True,
+    )
+    append_sleep_step(out_dir, steps, f"{name}-settle", args.menu_settle_sec)
     return record
 
 
@@ -507,6 +552,7 @@ def live_run(args: argparse.Namespace, state: dict[str, Any]) -> dict[str, Any]:
         result["initial_audio"] = initial_audio
 
         if not (initial_audio["has_audio_card"] and initial_audio["has_sound_class_control"]):
+            run_menu_settle_step(out_dir, steps, "settle-before-adsp-boot-once", args)
             run_serial_transport_step(
                 out_dir,
                 steps,
@@ -524,6 +570,7 @@ def live_run(args: argparse.Namespace, state: dict[str, Any]) -> dict[str, Any]:
         )
         result["before_materialize"] = classify_audio_status(stdout_of(before_materialize))
 
+        run_menu_settle_step(out_dir, steps, "settle-before-snd-materialize-once", args)
         materialize = run_serial_transport_step(
             out_dir,
             steps,
@@ -586,6 +633,7 @@ def main() -> int:
     parser.add_argument("--flash-timeout", type=float, default=900.0)
     parser.add_argument("--card-timeout", type=float, default=70.0)
     parser.add_argument("--poll-interval", type=float, default=2.0)
+    parser.add_argument("--menu-settle-sec", type=float, default=1.0)
     args = parser.parse_args()
 
     state = preflight_state()

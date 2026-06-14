@@ -18,6 +18,7 @@ def args() -> argparse.Namespace:
         bridge_host="127.0.0.1",
         bridge_port=54321,
         command_timeout=60.0,
+        menu_settle_sec=0.0,
     )
 
 
@@ -39,11 +40,13 @@ class CommandConstruction(unittest.TestCase):
             self.assertIn("slow", command)
             self.assertIn("--hide-on-busy", command)
 
-        adsp_status = plan["audio_window"][0]
-        adsp_boot = plan["audio_window"][1]
-        snd_status_before = plan["audio_window"][3]
-        materialize = plan["audio_window"][4]
-        snd_status_after = plan["audio_window"][5]
+        audio_commands = [item for item in plan["audio_window"] if isinstance(item, list)]
+        adsp_status = audio_commands[0]
+        adsp_boot = audio_commands[1]
+        snd_status_before = audio_commands[2]
+        materialize = audio_commands[3]
+        snd_status_after = audio_commands[4]
+        settle_notes = [item for item in plan["audio_window"] if isinstance(item, str) and "settle auto menu" in item]
 
         self.assertIn("--hide-on-busy", adsp_status)
         self.assertIn("--hide-on-busy", snd_status_before)
@@ -53,6 +56,9 @@ class CommandConstruction(unittest.TestCase):
         self.assertNotIn("--hide-on-busy", materialize)
         self.assertNotIn("--retry-unsafe", materialize)
         self.assertEqual(materialize[-3:], ["audio", "snd-materialize-once", v2335.SND_TOKEN])
+        self.assertEqual(len(settle_notes), 2)
+        self.assertIn("ADSP boot", settle_notes[0])
+        self.assertIn("/dev/snd materializer", settle_notes[1])
 
 
 class ApprovalAndPreflight(unittest.TestCase):
@@ -83,6 +89,45 @@ class ApprovalAndPreflight(unittest.TestCase):
 
 
 class ObservationRetry(unittest.TestCase):
+    def test_menu_settle_hides_before_one_shot_without_audio_retry(self) -> None:
+        calls: list[dict] = []
+
+        def fake_transport_step(out_dir, steps, name, serial_args, native_args, *, timeout, retry_observation, allow_error=False):
+            del out_dir, serial_args, allow_error
+            calls.append({
+                "name": name,
+                "native_args": native_args,
+                "timeout": timeout,
+                "retry_observation": retry_observation,
+            })
+            step = {"name": name, "ok": True, "stdout_path": ""}
+            steps.append(step)
+            return step
+
+        with tempfile.TemporaryDirectory() as tempdir, mock.patch.object(
+            v2335,
+            "run_serial_transport_step",
+            side_effect=fake_transport_step,
+        ):
+            steps: list[dict] = []
+            result = v2335.run_menu_settle_step(
+                Path(tempdir),
+                steps,
+                "settle-before-adsp-boot-once",
+                args(),
+            )
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(calls, [{
+            "name": "settle-before-adsp-boot-once",
+            "native_args": ["hide"],
+            "timeout": 20.0,
+            "retry_observation": True,
+        }])
+        self.assertEqual(steps[0]["name"], "settle-before-adsp-boot-once")
+        self.assertEqual(steps[1]["name"], "settle-before-adsp-boot-once-settle")
+        self.assertEqual(steps[1]["command"], ["host", "sleep", "0.000"])
+
     def test_observation_uses_recoverable_serial_transport_without_calling_real_bridge(self) -> None:
         calls: list[dict] = []
 
