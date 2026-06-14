@@ -41,7 +41,9 @@ REMOTE_TINYPLAY = f"{REMOTE_DIR}/tinyplay"
 REMOTE_PCM_PROBE = f"{REMOTE_DIR}/a90_pcm_write_probe_v2386"
 REMOTE_PCM = f"{REMOTE_DIR}/pilot_48k_s16le_stereo_0p02_1s.wav"
 DEFAULT_DEVICE_TOOLBOX = tiny_live.DEFAULT_DEVICE_TOOLBOX
+DEFAULT_DEVICE_BUSYBOX = "/bin/busybox"
 PLAYBACK_FAILURE_DMESG_STEP = "dmesg-after-playback-failure-before-reset"
+DMESG_TAIL_LINE_COUNT = 240
 SAMPLE_RATE = 48_000
 CHANNELS = 2
 SAMPLE_WIDTH_BYTES = 2
@@ -103,6 +105,10 @@ def rewrite_remote_argv(argv: list[str]) -> list[str]:
         recipe.REMOTE_PCM: REMOTE_PCM,
     }
     return [mapping.get(part, part) for part in argv]
+
+
+def playback_failure_dmesg_argv(args: argparse.Namespace) -> list[str]:
+    return [args.device_busybox, "sh", "-c", f"dmesg | tail -n {DMESG_TAIL_LINE_COUNT}"]
 
 
 def recipe_state(args: argparse.Namespace) -> dict[str, Any]:
@@ -394,9 +400,11 @@ def dry_run_payload(args: argparse.Namespace) -> dict[str, Any]:
             "playback": plan["playback"],
             "playback_failure_dmesg_capture": {
                 "when": "only after a playback-attempt failure and before route reset",
-                "argv": [args.device_toolbox, "dmesg"],
+                "argv": playback_failure_dmesg_argv(args),
                 "step": PLAYBACK_FAILURE_DMESG_STEP,
                 "read_only": True,
+                "transport": "serial-cmdv1x",
+                "bounded_tail_lines": DMESG_TAIL_LINE_COUNT,
             },
             "route_reset_commands": plan["route_reset_commands"],
             "snapshot_after_reset": [REMOTE_TINYMIX, "-D", str(args.card), "--all-values"],
@@ -665,8 +673,8 @@ def run_speaker_pilot(args: argparse.Namespace, out_dir: Path, steps: list[dict[
                     out_dir,
                     steps,
                     PLAYBACK_FAILURE_DMESG_STEP,
-                    [args.device_toolbox, "dmesg"],
-                    use_tcpctl=snapshot_use_tcpctl,
+                    playback_failure_dmesg_argv(args),
+                    use_tcpctl=False,
                     timeout=args.mixer_timeout,
                     allow_error=True,
                 )
@@ -675,6 +683,8 @@ def run_speaker_pilot(args: argparse.Namespace, out_dir: Path, steps: list[dict[
                     "stdout_path": dmesg_step.get("stdout_path"),
                     "remote_tool_result": dmesg_step.get("remote_tool_result"),
                     "capture_point": "after playback failure before route reset",
+                    "transport": "serial-cmdv1x",
+                    "bounded_tail_lines": DMESG_TAIL_LINE_COUNT,
                 }
     finally:
         for command in plan["route_reset_commands"]:
@@ -850,6 +860,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--command-timeout", type=float, default=60.0)
     parser.add_argument("--tcp-timeout", type=float, default=30.0)
     parser.add_argument("--device-toolbox", default=DEFAULT_DEVICE_TOOLBOX)
+    parser.add_argument("--device-busybox", default=DEFAULT_DEVICE_BUSYBOX)
     parser.add_argument("--flash-timeout", type=float, default=900.0)
     parser.add_argument("--card-timeout", type=float, default=70.0)
     parser.add_argument("--poll-interval", type=float, default=2.0)

@@ -32,6 +32,7 @@ def args(**overrides: object) -> argparse.Namespace:
         "command_timeout": 60.0,
         "tcp_timeout": 30.0,
         "device_toolbox": v2379.DEFAULT_DEVICE_TOOLBOX,
+        "device_busybox": v2379.DEFAULT_DEVICE_BUSYBOX,
         "flash_timeout": 900.0,
         "card_timeout": 70.0,
         "poll_interval": 2.0,
@@ -72,7 +73,12 @@ class NativeSpeakerPilotLiveHandoff(unittest.TestCase):
         self.assertEqual(len(runtime["route_reset_commands"]), 12)
         self.assertEqual(runtime["playback_failure_dmesg_capture"]["step"], "dmesg-after-playback-failure-before-reset")
         self.assertTrue(runtime["playback_failure_dmesg_capture"]["read_only"])
-        self.assertEqual(runtime["playback_failure_dmesg_capture"]["argv"], [v2379.DEFAULT_DEVICE_TOOLBOX, "dmesg"])
+        self.assertEqual(runtime["playback_failure_dmesg_capture"]["transport"], "serial-cmdv1x")
+        self.assertEqual(runtime["playback_failure_dmesg_capture"]["bounded_tail_lines"], 240)
+        self.assertEqual(
+            runtime["playback_failure_dmesg_capture"]["argv"],
+            [v2379.DEFAULT_DEVICE_BUSYBOX, "sh", "-c", "dmesg | tail -n 240"],
+        )
         self.assertEqual(
             runtime["playback"]["argv"],
             [
