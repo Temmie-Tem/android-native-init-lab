@@ -15,6 +15,46 @@ from _loader import load_revalidation
 v2396 = load_revalidation("native_audio_acdb_android_measurement_planner_v2396")
 
 
+
+
+def write_text(path: Path, text: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text)
+
+
+def make_synthetic_acdb_capture(run_dir: Path) -> None:
+    artifact_dir = run_dir / "device-artifacts" / "a90-audio-acdb-v2396"
+    result = {
+        "run_id": "V2397",
+        "build_tag": "v2397-audio-acdb-android-magisk-live",
+        "decision": "v2397-android-acdb-measurement-captured-rollback-pass",
+        "ok": True,
+        "rolled_back": True,
+        "approval_ok": True,
+    }
+    write_text(run_dir / "result.json", json.dumps(result))
+    write_text(
+        run_dir / "stimulus-logcat.stdout.txt",
+        "\n".join([
+            "A90_AUDIO_STIMULUS_BEGIN",
+            "audio_hw_primary platform_send_audio_calibration app_type=69941",
+            "ACDB acdb_loader_send_audio_cal_v5 /dev/msm_audio_cal",
+            "A90_AUDIO_STIMULUS_END",
+            "A90_AUDIO_STIMULUS_FINISH",
+        ]),
+    )
+    for phase in ("baseline", "active", "post"):
+        write_text(artifact_dir / f"{phase}-meta.txt", f"phase={phase}\n")
+        write_text(artifact_dir / f"{phase}-getprop-audio.txt", "[vendor.audio.test]: [1]\n")
+        write_text(artifact_dir / f"{phase}-ps.txt", "audio 123 android.hardware.audio.service\n")
+        write_text(artifact_dir / f"{phase}-audio-hal-pids.txt", "123\n")
+        write_text(artifact_dir / f"{phase}-audio-hal-123-maps.txt", "/vendor/lib/hw/audio.primary.msmnile.so\n/vendor/lib/libacdbloader.so\n")
+        write_text(artifact_dir / f"{phase}-audio-hal-123-fd.txt", "/dev/msm_audio_cal\n/dev/snd/controlC0\n")
+        write_text(artifact_dir / f"{phase}-devnodes.txt", "crw------- /dev/msm_audio_cal\ndrwxr-xr-x /dev/snd\n")
+        write_text(artifact_dir / f"{phase}-proc-asound.txt", " 0 [tavil]: sm8150-tavil-snd-card\n")
+        write_text(artifact_dir / f"{phase}-tinymix-all-values.txt", "3345 INT 4 Audio Stream 0 App Type Cfg  69941 15 48000 2\n")
+        write_text(artifact_dir / f"{phase}-dmesg-tail.txt", "send_afe_cal_type cal_block found\nq6asm_send_cal ok\nadm_open returned ADSP_EOK\n")
+
 def args(**overrides: object) -> argparse.Namespace:
     defaults: dict[str, object] = {
         "dry_run": True,
@@ -146,6 +186,28 @@ class AcdbAndroidMeasurementPlanner(unittest.TestCase):
         payload = json.loads(completed.stdout)
         self.assertEqual(payload["decision"], "v2397-android-acdb-measurement-live-refused")
         self.assertIn("exact AUD-5A", payload["reason"])
+
+    def test_post_live_analysis_attaches_v2399_decision_after_rollback(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            run_dir = Path(temp_dir) / "v2397-android-acdb-measurement-synthetic"
+            make_synthetic_acdb_capture(run_dir)
+            result = {"ok": True, "rolled_back": True}
+
+            analysis = v2396.attach_post_live_analysis(result, run_dir)
+
+        self.assertEqual(analysis["run_id"], "V2399")
+        self.assertEqual(analysis["decision"], "bounded-native-acdb-candidate")
+        self.assertEqual(result["post_live_analysis"]["device_action"], "none")
+
+    def test_post_live_analysis_skips_without_rollback_proof(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            result = {"ok": True, "rolled_back": False}
+
+            analysis = v2396.attach_post_live_analysis(result, Path(temp_dir))
+
+        self.assertEqual(analysis["decision"], "analysis-skipped")
+        self.assertFalse(analysis["ok"])
+        self.assertEqual(analysis["device_action"], "none")
 
     def test_cli_dry_run_outputs_json(self) -> None:
         script = Path("workspace/public/src/scripts/revalidation/native_audio_acdb_android_measurement_planner_v2396.py")

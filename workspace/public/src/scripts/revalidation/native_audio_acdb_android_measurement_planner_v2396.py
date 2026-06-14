@@ -30,6 +30,7 @@ from pathlib import Path
 from typing import Any
 
 import native_audio_android_route_delta_handoff_v2365 as route
+import analyze_audio_acdb_android_measurement_v2399 as acdb_analyzer
 
 
 RUN_ID = "V2396"
@@ -431,6 +432,39 @@ def write_json(path: Path, payload: dict[str, Any]) -> None:
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
 
 
+def attach_post_live_analysis(result: dict[str, Any], out_dir: Path) -> dict[str, Any]:
+    """Attach V2399 host-only analysis after a successful rollback.
+
+    Analysis is deliberately best-effort: rollback and capture status remain the
+    primary safety result.  If parsing fails, the error is recorded without
+    changing rollback evidence or rerunning any device command.
+    """
+
+    if not (result.get("ok") and result.get("rolled_back")):
+        analysis = {
+            "run_id": "V2399",
+            "ok": False,
+            "decision": "analysis-skipped",
+            "reason": "capture ok plus rollback proof required before post-live analysis",
+            "host_only": True,
+            "device_action": "none",
+        }
+    else:
+        try:
+            analysis = acdb_analyzer.analyze_run(out_dir)
+        except Exception as exc:  # noqa: BLE001 - preserve live result, report parser failure.
+            analysis = {
+                "run_id": "V2399",
+                "ok": False,
+                "decision": "analysis-error",
+                "reason": str(exc),
+                "host_only": True,
+                "device_action": "none",
+            }
+    result["post_live_analysis"] = analysis
+    return analysis
+
+
 def ensure_live_approval(args: argparse.Namespace) -> None:
     if args.approval != APPROVAL_PHRASE:
         raise RuntimeError("exact AUD-5A Android ACDB measurement approval phrase is required for --run-live")
@@ -559,6 +593,7 @@ def run_live(args: argparse.Namespace) -> dict[str, Any]:
                     result["rollback_fallback_error"] = str(second_rollback_error)
                     raise
             finally:
+                attach_post_live_analysis(result, out_dir)
                 write_json(out_dir / "result.json", result)
 
 
