@@ -148,6 +148,48 @@ no cascading bad flashes, known-good rollback image must be present before flash
 the current validated artifact; `vNNNN-purpose` tag. **If the evidence lands on "full HAL mandatory,"
 close the epic with that evidence rather than grinding.**
 
+### Next epic (QUEUED — start only after the audio epic reaches closure) — Video (Venus decode / display) feasibility *recon*
+
+**Do NOT start this while the audio epic is open.** Begin only once audio is closed — either
+internal-speaker playback is proven (a `tinyplay` made sound) **or** it is closed as "full HAL
+mandatory / non-viable." One frontier at a time; finish audio first. Like audio, this is a
+*research / feasibility* epic and a **"NON-VIABLE under native init" close is an acceptable outcome**.
+Start **host-only** (recon/observation), exactly parallel to AUD-0/AUD-1, before any device step.
+
+**Grounded starting facts (2026-06-14/15 session research; re-verify, do not trust blindly):**
+- **Venus (HW video decode)** = the natural successor: `CONFIG_MSM_VIDC_V4L2=y` is in the stock kernel,
+  and Venus is a **PIL/remoteproc subsystem with its own `venus` firmware** — so the **ADSP PIL
+  bring-up pattern just proven in the audio epic transfers directly.** Decode → frames → out over the
+  already-working NCM/Wi-Fi = a headless media node (no panel needed).
+- **Display** = a separate flavor (NOT PIL): `DRM_MSM=y`, `DRM_MSM_DSI_STAGING=y`, panel
+  `ss_dsi_panel_S6E3FC2_AMS670TA01_FHD`, and **continuous splash is configured** (`cont_splash` /
+  `qcom,cont-splash` in DTS) → the bootloader lights the panel and hands a live framebuffer to the
+  kernel. The cheap probe is whether native init inherits a writable `/dev/dri/card0` or `/dev/fb0`
+  **before cont-splash teardown** — i.e. draw to a screen region WITHOUT a from-scratch DSI panel init.
+- **GPU (Adreno/KGSL) = OUT of scope here** (open-hang wall; GMU + GX-GDSC power = regulator
+  brick-caution). Not needed for decode (Venus) or scanout (DPU).
+
+**Staged units (host-only first):**
+- **VID-0 — host-only inventory & decision basis.** From the stock vendor image + kernel source + DTS,
+  enumerate the Venus `venus*` firmware + the VIDC V4L2 driver / expected `/dev/video*` nodes, and the
+  display DRM/DSI/cont-splash config + panel node. Decide the lower-risk sub-target: **Venus headless
+  decode (reuses the proven PIL pattern)** vs **display cont-splash framebuffer probe**. Deliverable:
+  feasibility report.
+- **VID-1 — host-only path analysis.** Venus: the remoteproc/PIL `venus` load path + minimal V4L2
+  decode plumbing (parallel to AUD-1). Display: cont-splash teardown timing + `/dev/dri/card0` vs
+  `/dev/fb0` exposure + a region-blit plan that does **not** re-init the panel. Deliverable: the
+  reviewable device-step plan.
+- **VID-2+ — DEVICE (overnight pre-authorized, recoverable envelope) — observation first.** Does
+  native init see `/dev/video*` (Venus) / an inherited framebuffer (display)? Venus PIL load is
+  reboot-recoverable like ADSP. **Display: use ONLY the inherited cont-splash surface — do NOT drive
+  backlight/PMIC/PWM/regulator or run a from-scratch DSI panel init (brick-caution); if the splash
+  surface is already torn down / blanked, STOP that sub-target and report rather than re-lighting the
+  panel.**
+
+**Closure:** a grounded "what's reachable" answer (Venus headless decode? display region-draw via
+cont-splash?) or a defensible non-viable close. The fun end-targets — Bad Apple, then DOOM (touch
+evdev or USB-keyboard input) — are downstream demos, **not** this recon epic.
+
 **T1 (now SATURATED) — analyzer / harness regression test suite (host-only, NO flash).**
 As of 2026-06-13 the 12 `workspace/public/src/harness/a90harness/` modules and all 124 revalidation
 scripts have accept + reject/edge tests (**964 tests green**). **This tier is covered — do NOT grind
