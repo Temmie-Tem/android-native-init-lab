@@ -35,11 +35,17 @@ import native_audio_tinyalsa_inventory_live_handoff_v2349 as tiny_live
 RUN_ID = "V2379"
 BUILD_TAG = "v2379-audio-native-speaker-pilot-runner"
 APPROVAL_PHRASE = recipe.FUTURE_APPROVAL_PHRASE
+APP_TYPE_APPROVAL_PHRASE = (
+    "AUD-5B-native-app-type-gate go: one-shot V2407 App Type Cfg before V2377 route, "
+    "low-amplitude PCM probe, reverse reset, rollback to V2321"
+)
 REMOTE_DIR = "/cache/a90-runtime/bin/v2379-speaker-pilot"
 REMOTE_TINYMIX = f"{REMOTE_DIR}/tinymix"
 REMOTE_TINYPLAY = f"{REMOTE_DIR}/tinyplay"
 REMOTE_PCM_PROBE = f"{REMOTE_DIR}/a90_pcm_write_probe_v2386"
 REMOTE_PCM = f"{REMOTE_DIR}/pilot_48k_s16le_stereo_0p02_1s.wav"
+APP_TYPE_CONTROL_NAME = "Audio Stream 0 App Type Cfg"
+OBSERVED_APP_TYPE_TUPLE = ("69941", "15", "48000", "2")
 DEFAULT_DEVICE_TOOLBOX = tiny_live.DEFAULT_DEVICE_TOOLBOX
 DEFAULT_DEVICE_BUSYBOX = "/bin/busybox"
 PLAYBACK_FAILURE_DMESG_STEP = "dmesg-after-playback-failure-before-reset"
@@ -128,6 +134,7 @@ def speaker_plan(args: argparse.Namespace) -> dict[str, Any]:
     apply_commands = copy.deepcopy(future.get("route_apply_commands", []))
     reset_commands = copy.deepcopy(future.get("route_reset_commands", []))
     playback = copy.deepcopy(future.get("playback", {}))
+    app_type_command: dict[str, Any] | None = None
     for command in apply_commands + reset_commands:
         command["argv"] = rewrite_remote_argv([str(part) for part in command.get("argv", [])])
         command["not_executed_by_v2379_dry_run"] = True
@@ -141,8 +148,25 @@ def speaker_plan(args: argparse.Namespace) -> dict[str, Any]:
             playback["argv"] = rewrite_remote_argv([str(part) for part in playback.get("argv", [])])
             playback["diagnostic_tool"] = "tinyplay"
         playback["not_executed_by_v2379_dry_run"] = True
+    if getattr(args, "set_observed_app_type", False):
+        app_type_command = {
+            "name": "v2409-observed-audio-stream-0-app-type-cfg",
+            "role": "app_type_gate",
+            "source": "V2407 Android AudioTrack capture",
+            "control": APP_TYPE_CONTROL_NAME,
+            "values": list(OBSERVED_APP_TYPE_TUPLE),
+            "argv": [REMOTE_TINYMIX, "-D", str(args.card), APP_TYPE_CONTROL_NAME, *OBSERVED_APP_TYPE_TUPLE],
+            "not_executed_by_v2379_dry_run": True,
+        }
     return {
         "recipe": payload,
+        "app_type_gate": {
+            "enabled": bool(app_type_command),
+            "source": "V2407 Android AudioTrack capture",
+            "control": APP_TYPE_CONTROL_NAME,
+            "values": list(OBSERVED_APP_TYPE_TUPLE),
+        },
+        "app_type_command": app_type_command,
         "route_apply_commands": apply_commands,
         "route_reset_commands": reset_commands,
         "playback": playback,
@@ -232,6 +256,7 @@ def verify_tool(raw_manifest: dict[str, Any], tool: str, expected_sha256: str) -
 
 def command_safety(plan: dict[str, Any], *, amplitude: float, duration_ms: int) -> dict[str, Any]:
     findings: list[str] = []
+    app_type_command = plan.get("app_type_command")
     apply_commands = plan.get("route_apply_commands", [])
     reset_commands = plan.get("route_reset_commands", [])
     playback = plan.get("playback", {})
@@ -253,6 +278,12 @@ def command_safety(plan: dict[str, Any], *, amplitude: float, duration_ms: int) 
             findings.append(f"invalid tinymix command argv: {argv}")
         if command.get("role") == "observe_only":
             findings.append(f"observe-only control appears in write plan: {command.get('name')}")
+    if app_type_command is not None:
+        argv = [str(part) for part in app_type_command.get("argv", [])]
+        if argv != [REMOTE_TINYMIX, "-D", "0", APP_TYPE_CONTROL_NAME, *OBSERVED_APP_TYPE_TUPLE]:
+            findings.append(f"invalid App Type gate argv: {argv}")
+        if app_type_command.get("role") != "app_type_gate":
+            findings.append(f"invalid App Type gate role: {app_type_command.get('role')}")
     playback_argv = [str(part) for part in playback.get("argv", [])]
     if playback_argv not in (
         [REMOTE_TINYPLAY, REMOTE_PCM, "-D", "0", "-d", "0"],
@@ -265,13 +296,19 @@ def command_safety(plan: dict[str, Any], *, amplitude: float, duration_ms: int) 
         "boundaries": [
             "dry-run performs no device action",
             "live requires the exact AUD-4 phrase",
+            "App-Type-first live runs require the exact AUD-5B phrase",
             "only V2377-observed route controls may be written",
+            "optional App Type gate may only write the V2407-observed Audio Stream 0 tuple",
             "one low-amplitude one-second WAV only",
             "reverse reset is mandatory after attempted route application",
             "rollback to V2321 is mandatory after candidate flash",
             "Magisk remains Android-measurement fallback only, not native runtime dependency",
         ],
     }
+
+
+def approval_phrase_for_args(args: argparse.Namespace) -> str:
+    return APP_TYPE_APPROVAL_PHRASE if getattr(args, "set_observed_app_type", False) else APPROVAL_PHRASE
 
 
 def preflight_state(args: argparse.Namespace) -> dict[str, Any]:
@@ -299,7 +336,7 @@ def preflight_state(args: argparse.Namespace) -> dict[str, Any]:
     return {
         "run_id": RUN_ID,
         "build_tag": BUILD_TAG,
-        "approval_phrase_required": APPROVAL_PHRASE,
+        "approval_phrase_required": approval_phrase_for_args(args),
         "created_at": now_iso(),
         "snd_materialization_preflight": snd_state,
         "tinyalsa_manifest": manifest,
@@ -324,6 +361,7 @@ def preflight_state(args: argparse.Namespace) -> dict[str, Any]:
         "remote_pcm": REMOTE_PCM,
         "playback_tool": args.playback_tool,
         "route_transport": args.route_transport,
+        "set_observed_app_type": bool(args.set_observed_app_type),
         "tcpctl_remote_failure_is_hard_failure": True,
         "magisk_direction": MAGISK_DIRECTION,
         "ok": ok,
@@ -381,7 +419,7 @@ def dry_run_payload(args: argparse.Namespace) -> dict[str, Any]:
         "decision": "v2379-native-speaker-pilot-runner-dry-run" if state["ok"] else "v2379-native-speaker-pilot-runner-blocked",
         "ok": bool(state["ok"]),
         "device_action": "none",
-        "approval_phrase_required": APPROVAL_PHRASE,
+        "approval_phrase_required": approval_phrase_for_args(args),
         "preflight": state,
         "materialization_plan": materialize_plan,
         "transfer_readiness_plan": {
@@ -396,6 +434,7 @@ def dry_run_payload(args: argparse.Namespace) -> dict[str, Any]:
             "snapshot_transport": "auto-selected transfer transport",
             "playback_transport": "auto-selected transfer transport",
             "snapshot_before_apply": [REMOTE_TINYMIX, "-D", str(args.card), "--all-values"],
+            "app_type_command": plan.get("app_type_command"),
             "route_apply_commands": plan["route_apply_commands"],
             "playback": plan["playback"],
             "playback_failure_dmesg_capture": {
@@ -626,6 +665,29 @@ def run_speaker_pilot(args: argparse.Namespace, out_dir: Path, steps: list[dict[
             }
             if not baseline_step.get("ok"):
                 raise RuntimeError(f"baseline tinymix snapshot failed: {baseline_step.get('remote_tool_result')}")
+            app_type_command = plan.get("app_type_command")
+            if app_type_command:
+                step = run_tool_command(
+                    args,
+                    out_dir,
+                    steps,
+                    app_type_command["name"],
+                    [str(part) for part in app_type_command["argv"]],
+                    use_tcpctl=route_use_tcpctl,
+                    timeout=args.mixer_timeout,
+                    allow_error=True,
+                    failure_markers=("Invalid mixer control",),
+                )
+                result["app_type_gate"] = {
+                    "name": app_type_command["name"],
+                    "ok": bool(step.get("ok")),
+                    "stdout_path": step.get("stdout_path"),
+                    "remote_tool_result": step.get("remote_tool_result"),
+                    "control": app_type_command.get("control"),
+                    "values": app_type_command.get("values"),
+                }
+                if not step.get("ok"):
+                    raise RuntimeError(f"App Type gate failed: {step.get('remote_tool_result')}")
             for command in plan["route_apply_commands"]:
                 step = run_tool_command(
                     args,
@@ -740,8 +802,9 @@ def run_speaker_pilot(args: argparse.Namespace, out_dir: Path, steps: list[dict[
 
 
 def verify_live_approval(args: argparse.Namespace) -> None:
-    if args.approval != APPROVAL_PHRASE:
-        raise SystemExit("refusing live run: exact --approval phrase required:\n" + APPROVAL_PHRASE)
+    required = approval_phrase_for_args(args)
+    if args.approval != required:
+        raise SystemExit("refusing live run: exact --approval phrase required:\n" + required)
 
 
 def live_run(args: argparse.Namespace, state: dict[str, Any]) -> dict[str, Any]:
@@ -879,6 +942,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--playback-timeout", type=float, default=20.0)
     parser.add_argument("--duration-ms", type=int, default=DEFAULT_DURATION_MS)
     parser.add_argument("--amplitude", type=float, default=DEFAULT_AMPLITUDE)
+    parser.add_argument(
+        "--set-observed-app-type",
+        action="store_true",
+        help="set the V2407-observed Audio Stream 0 App Type Cfg tuple before route apply; requires the AUD-5B live gate",
+    )
     return parser.parse_args()
 
 

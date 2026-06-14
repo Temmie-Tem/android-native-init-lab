@@ -51,6 +51,7 @@ def args(**overrides: object) -> argparse.Namespace:
         "playback_timeout": 20.0,
         "duration_ms": v2379.DEFAULT_DURATION_MS,
         "amplitude": v2379.DEFAULT_AMPLITUDE,
+        "set_observed_app_type": False,
     }
     defaults.update(overrides)
     return argparse.Namespace(**defaults)
@@ -115,6 +116,34 @@ class NativeSpeakerPilotLiveHandoff(unittest.TestCase):
         self.assertEqual(state["magisk_direction"]["role"], "android_measurement_fallback_only")
         self.assertFalse(state["magisk_direction"]["native_runtime_dependency"])
         self.assertFalse(state["magisk_direction"]["aud4_uses_magisk"])
+
+    def test_app_type_gate_dry_run_adds_observed_tuple_before_route(self) -> None:
+        payload = v2379.dry_run_payload(args(set_observed_app_type=True))
+
+        self.assertTrue(payload["ok"])
+        self.assertIn("AUD-5B-native-app-type-gate go:", payload["approval_phrase_required"])
+        state = payload["preflight"]
+        self.assertTrue(state["set_observed_app_type"])
+        self.assertTrue(state["speaker_plan"]["app_type_gate"]["enabled"])
+        command = payload["runtime_plan"]["app_type_command"]
+        self.assertEqual(command["role"], "app_type_gate")
+        self.assertEqual(command["control"], "Audio Stream 0 App Type Cfg")
+        self.assertEqual(command["values"], ["69941", "15", "48000", "2"])
+        self.assertEqual(
+            command["argv"],
+            [
+                "/cache/a90-runtime/bin/v2379-speaker-pilot/tinymix",
+                "-D",
+                "0",
+                "Audio Stream 0 App Type Cfg",
+                "69941",
+                "15",
+                "48000",
+                "2",
+            ],
+        )
+        self.assertEqual(len(payload["runtime_plan"]["route_apply_commands"]), 13)
+        self.assertFalse(state["magisk_direction"]["native_runtime_dependency"])
 
     def test_command_safety_rejects_unbounded_or_forbidden_plans(self) -> None:
         plan = v2379.speaker_plan(args())
@@ -229,6 +258,29 @@ class NativeSpeakerPilotLiveHandoff(unittest.TestCase):
         self.assertNotEqual(completed.returncode, 0)
         self.assertIn("exact --approval phrase required", completed.stderr)
         self.assertIn(v2379.APPROVAL_PHRASE, completed.stderr)
+        self.assertNotIn("native_init_flash.py", completed.stdout)
+
+    def test_wrong_app_type_live_approval_reports_aud5b_phrase(self) -> None:
+        completed = subprocess.run(
+            [
+                sys.executable,
+                "workspace/public/src/scripts/revalidation/native_audio_speaker_pilot_live_handoff_v2379.py",
+                "--run-live",
+                "--set-observed-app-type",
+                "--approval",
+                v2379.APPROVAL_PHRASE,
+            ],
+            cwd=v2379.snd.ROOT,
+            check=False,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=30,
+        )
+
+        self.assertNotEqual(completed.returncode, 0)
+        self.assertIn("exact --approval phrase required", completed.stderr)
+        self.assertIn(v2379.APP_TYPE_APPROVAL_PHRASE, completed.stderr)
         self.assertNotIn("native_init_flash.py", completed.stdout)
 
     def test_cli_dry_run_outputs_json(self) -> None:
