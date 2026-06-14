@@ -79,18 +79,18 @@ ADSP subsystem-restart is recoverable, but forbidden-partition rules remain abso
   fresh operator go: load the speaker route via `tinymix`/`mixer_paths.xml` and push a test PCM with
   `tinyplay`. First actual sound test.
 
-**Latest audio speaker-route state (V2361):** V2361 host-only analysis narrowed the audible
-speaker path but did not produce a safe live route. `audio_platform_info.xml` maps
-`SND_DEVICE_OUT_SPEAKER` to backend `speaker` / interface `SEC_TDM_RX_0`, and V2359 live tinymix
-exposes `SEC_TDM_RX_0 Audio Mixer MultiMedia*`, `WSA_CDC_DMA_RX_0*`, `COMP7`, and `RX INT7*`
-controls. But `mixer_paths_tavil.xml` still routes `deep-buffer-playback speaker` through
-`SLIMBUS_0_RX Audio Mixer MultiMedia1` plus `spk` controls (`SpkrLeft*`, `SLIM_0_RX*`) missing by
-exact live name. Stock kernel strings prove related `SEC_TDM_RX_0`, `WSA_CDC_DMA_RX_0`, and
-`SpkrLeft` support exists, so the issue is route mapping, not total hardware absence. Do not attempt
-internal speaker playback yet. The next safe unit is host-only planning: either design a rollbackable
-Android route-delta capture to learn the vendor HAL's actual speaker mixer sequence, or implement a
-separately gated low-risk headphone-route PCM smoke that may be inaudible. No `tinymix set`, PCM
-playback open/write, or `tinyplay` without a fresh exact playback gate.
+**Latest audio route-delta planning state (V2362):** V2362 selected Android route-delta
+capture as the next speaker-route measurement and designed it host-only. The measurement should boot
+normal Android, use Android framework `AudioTrack` playback through AudioFlinger/vendor HAL, capture
+`tinymix -D 0 --all-values` before/during/after, then roll back to V2321 and diff `SEC_TDM_RX_0` /
+`WSA_CDC_DMA_RX_0` / `RX INT7` / `COMP7` / `Spkr` controls offline. This is the clean path to learn
+Android's actual speaker route without guessing native smart-amp writes. But live route-delta is not
+ready yet: historical Android handoffs used direct recovery `dd`, while current `AGENTS.md` allows
+only `native_init_flash.py`; that helper currently verifies native serial after reboot, so it needs an
+explicit Android-target mode or checked wrapper before any Android route-delta live run. Do not
+attempt internal speaker playback, native `tinymix set`, PCM playback open/write, `tinyplay`, or
+Android route-delta live capture until that helper gap is closed and a fresh exact route-delta gate is
+provided.
 
 **Validation:** AUD-0/AUD-1 are host-only — `py_compile`/unittest for any harness code, no flash,
 no device. AUD-2/AUD-3 (if gated-in) every iteration: boot-only flash, pinned SHA, post-boot health
