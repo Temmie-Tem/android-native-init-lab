@@ -94,17 +94,18 @@ class TinyalsaInventoryLiveHandoff(unittest.TestCase):
                 self.assertIn("--toybox", command)
                 self.assertEqual(
                     command[command.index("--toybox") + 1],
-                    "/cache/bin/busybox",
+                    "/bin/toybox",
                 )
                 self.assertNotIn("/cache/bin/toybox", command)
 
-    def test_tcpctl_commands_use_runtime_busybox_toolbox(self) -> None:
+    def test_tcpctl_commands_use_toybox_netcat_semantics(self) -> None:
         payload = v2349.dry_run_payload(args())
 
-        self.assertEqual(payload["preflight"]["device_toolbox"], "/cache/bin/busybox")
+        self.assertEqual(payload["preflight"]["device_toolbox"], "/bin/toybox")
         flat = json.dumps(payload, sort_keys=True)
-        self.assertIn("/cache/bin/busybox", flat)
+        self.assertIn("/bin/toybox", flat)
         self.assertNotIn("/cache/bin/toybox", flat)
+        self.assertNotIn("/cache/bin/busybox", flat)
 
     def test_auto_transport_prefers_tcpctl_then_falls_back_to_serial_when_ncm_is_ready(self) -> None:
         self.assertEqual(

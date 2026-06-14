@@ -79,16 +79,17 @@ ADSP subsystem-restart is recoverable, but forbidden-partition rules remain abso
   fresh operator go: load the speaker route via `tinymix`/`mixer_paths.xml` and push a test PCM with
   `tinyplay`. First actual sound test.
 
-**Latest AUD-3C inventory state (V2356):** V2355 used the exact AUD-3C approval, flashed V2334,
+**Latest AUD-3C inventory state (V2358):** V2357 used the exact AUD-3C approval, flashed V2334,
 accepted one ADSP boot, reproduced `/dev/snd` materialization (`count=61`, `control_like=1`,
-`pcm_like=59`), and proved the V2354 NCM re-enumeration repair works: after initial host ping/tcpctl
-failure, one `ncm_host_setup.py setup` restored `192.168.7.2` ping and tcpctl `pong/OK`. The run
-then blocked before inventory because `tcpctl_host.py install` used its stale default
-`/cache/bin/toybox`, which is absent on the V2321/V2334 native-init runtime; `/cache/bin/busybox`
-and `/bin/toybox` exist. V2356 is a host-only runner repair: the AUD-3C runner now passes the
-existing `tcpctl_host.py --toybox /cache/bin/busybox` option for tool staging and tcpctl-run checks,
-and dry-run/tests assert `/cache/bin/toybox` is absent from the plan. Playback is still unproven.
-The next safe audio unit is a fresh exact-gated AUD-3C live attempt with this toolbox-path runner;
+`pcm_like=59`), and again proved the V2354 NCM re-enumeration repair restores host ping and tcpctl
+`pong/OK`. The run then blocked before inventory because the V2356 `/cache/bin/busybox` fix solved
+the missing-path issue but not netcat semantics: BusyBox `nc` exited immediately for the toybox-style
+`netcat -l -p PORT COMMAND...` listener form, so the host transfer socket got `ECONNREFUSED`.
+Read-only help confirmed `/bin/toybox netcat` supports that command form while BusyBox requires
+`-e`. V2358 is a host-only runner repair: the AUD-3C runner now passes
+`tcpctl_host.py --toybox /bin/toybox`, and dry-run/tests assert both stale `/cache/bin/toybox` and
+incompatible `/cache/bin/busybox` install-toolbox choices are absent. Playback is still unproven.
+The next safe audio unit is a fresh exact-gated AUD-3C live attempt with this toybox-semantic runner;
 do not proceed to `tinyplay` or mixer writes.
 
 **Validation:** AUD-0/AUD-1 are host-only — `py_compile`/unittest for any harness code, no flash,

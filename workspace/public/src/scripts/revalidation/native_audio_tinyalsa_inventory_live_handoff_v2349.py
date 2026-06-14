@@ -26,7 +26,7 @@ RUN_ID = "V2349"
 BUILD_TAG = "v2349-audio-tinyalsa-inventory-live"
 APPROVAL_PHRASE = inv.REQUIRED_APPROVAL_PHRASE
 REMOTE_DIR = "/cache/bin"
-DEFAULT_DEVICE_TOOLBOX = "/cache/bin/busybox"
+DEFAULT_DEVICE_TOOLBOX = "/bin/toybox"
 REMOTE_TOOLS = {
     "tinymix": f"{REMOTE_DIR}/tinymix",
     "tinypcminfo": f"{REMOTE_DIR}/tinypcminfo",
