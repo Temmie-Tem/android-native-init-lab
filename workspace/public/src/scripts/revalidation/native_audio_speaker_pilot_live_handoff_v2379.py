@@ -28,6 +28,7 @@ from typing import Any
 
 import native_audio_snd_nodes_preflight_handoff_v2335 as snd
 import native_audio_speaker_route_recipe_v2378 as recipe
+import build_audio_pcm_write_probe_v2386 as pcm_probe
 import native_audio_tinyalsa_inventory_gate_v2346 as inv
 import native_audio_tinyalsa_inventory_live_handoff_v2349 as tiny_live
 
@@ -37,6 +38,7 @@ APPROVAL_PHRASE = recipe.FUTURE_APPROVAL_PHRASE
 REMOTE_DIR = "/cache/a90-runtime/bin/v2379-speaker-pilot"
 REMOTE_TINYMIX = f"{REMOTE_DIR}/tinymix"
 REMOTE_TINYPLAY = f"{REMOTE_DIR}/tinyplay"
+REMOTE_PCM_PROBE = f"{REMOTE_DIR}/a90_pcm_write_probe_v2386"
 REMOTE_PCM = f"{REMOTE_DIR}/pilot_48k_s16le_stereo_0p02_1s.wav"
 DEFAULT_DEVICE_TOOLBOX = tiny_live.DEFAULT_DEVICE_TOOLBOX
 SAMPLE_RATE = 48_000
@@ -123,7 +125,14 @@ def speaker_plan(args: argparse.Namespace) -> dict[str, Any]:
         command["argv"] = rewrite_remote_argv([str(part) for part in command.get("argv", [])])
         command["not_executed_by_v2379_dry_run"] = True
     if playback:
-        playback["argv"] = rewrite_remote_argv([str(part) for part in playback.get("argv", [])])
+        if getattr(args, "playback_tool", "pcm-probe") == "pcm-probe":
+            playback["original_tinyplay_argv"] = rewrite_remote_argv([str(part) for part in playback.get("argv", [])])
+            playback["argv"] = [REMOTE_PCM_PROBE, REMOTE_PCM, "-D", "0", "-d", "0"]
+            playback["diagnostic_tool"] = "a90_pcm_write_probe_v2386"
+            playback["diagnostic_markers"] = ["A90_PCM_PROBE_WRITE_ERROR", "A90_PCM_PROBE_PCM_OPEN_ERROR", "A90_PCM_PROBE_DONE"]
+        else:
+            playback["argv"] = rewrite_remote_argv([str(part) for part in playback.get("argv", [])])
+            playback["diagnostic_tool"] = "tinyplay"
         playback["not_executed_by_v2379_dry_run"] = True
     return {
         "recipe": payload,
@@ -151,6 +160,47 @@ def raw_tool_record(raw_manifest: dict[str, Any], tool: str) -> dict[str, Any]:
 
 def raw_tool_path(raw_manifest: dict[str, Any], tool: str) -> Path:
     return snd.ROOT / str(raw_tool_record(raw_manifest, tool).get("path", ""))
+
+
+def load_pcm_probe_manifest(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        return {"exists": False, "path": rel(path), "build": {"tools": {}}}
+    manifest = json.loads(path.read_text(encoding="utf-8"))
+    manifest["exists"] = True
+    manifest["path"] = rel(path)
+    return manifest
+
+
+def pcm_probe_tool_record(manifest: dict[str, Any]) -> dict[str, Any]:
+    try:
+        return manifest["build"]["tools"][pcm_probe.TOOL_NAME]
+    except KeyError as exc:
+        raise RuntimeError(f"missing PCM probe tool record: {pcm_probe.TOOL_NAME}") from exc
+
+
+def pcm_probe_tool_path(manifest: dict[str, Any]) -> Path:
+    return snd.ROOT / str(pcm_probe_tool_record(manifest).get("path", ""))
+
+
+def verify_pcm_probe_tool(manifest: dict[str, Any]) -> dict[str, Any]:
+    try:
+        record = pcm_probe_tool_record(manifest)
+    except RuntimeError as exc:
+        return {"tool": pcm_probe.TOOL_NAME, "ok": False, "reason": str(exc), "path": manifest.get("path", "")}
+    path = snd.ROOT / str(record.get("path", ""))
+    exists = path.exists()
+    actual = recipe.sha256_file(path) if exists else ""
+    return {
+        "tool": pcm_probe.TOOL_NAME,
+        "path": rel(path),
+        "exists": exists,
+        "sha256": actual,
+        "expected_sha256": record.get("sha256", ""),
+        "sha256_ok": exists and actual == record.get("sha256"),
+        "file": record.get("file", ""),
+        "file_ok": "ARM aarch64" in str(record.get("file", "")) and "statically linked" in str(record.get("file", "")),
+        "diagnostic_contract": manifest.get("diagnostic_contract", {}),
+    }
 
 
 def verify_tool(raw_manifest: dict[str, Any], tool: str, expected_sha256: str) -> dict[str, Any]:
@@ -197,8 +247,11 @@ def command_safety(plan: dict[str, Any], *, amplitude: float, duration_ms: int) 
         if command.get("role") == "observe_only":
             findings.append(f"observe-only control appears in write plan: {command.get('name')}")
     playback_argv = [str(part) for part in playback.get("argv", [])]
-    if playback_argv != [REMOTE_TINYPLAY, REMOTE_PCM, "-D", "0", "-d", "0"]:
-        findings.append(f"unexpected tinyplay argv: {playback_argv}")
+    if playback_argv not in (
+        [REMOTE_TINYPLAY, REMOTE_PCM, "-D", "0", "-d", "0"],
+        [REMOTE_PCM_PROBE, REMOTE_PCM, "-D", "0", "-d", "0"],
+    ):
+        findings.append(f"unexpected playback argv: {playback_argv}")
     return {
         "ok": not findings,
         "findings": findings,
@@ -218,10 +271,13 @@ def preflight_state(args: argparse.Namespace) -> dict[str, Any]:
     snd_state = snd.preflight_state()
     manifest = inv.verify_manifest(args.manifest)
     raw_manifest = load_raw_tinyalsa_manifest(args.manifest)
+    probe_manifest = load_pcm_probe_manifest(args.pcm_probe_manifest)
     tools = {
         "tinymix": verify_tool(raw_manifest, "tinymix", recipe.EXPECTED_TINYMIX_SHA256),
         "tinyplay": verify_tool(raw_manifest, "tinyplay", recipe.EXPECTED_TINYPLAY_SHA256),
     }
+    if args.playback_tool == "pcm-probe":
+        tools["pcm_probe"] = verify_pcm_probe_tool(probe_manifest)
     plan = speaker_plan(args)
     safety = command_safety(plan, amplitude=args.amplitude, duration_ms=args.duration_ms)
     ok = bool(
@@ -246,12 +302,20 @@ def preflight_state(args: argparse.Namespace) -> dict[str, Any]:
             "source_commit": raw_manifest.get("source", {}).get("commit", ""),
             "tool_names": sorted(raw_manifest.get("build", {}).get("tools", {}).keys()),
         },
+        "pcm_probe_manifest": {
+            "exists": probe_manifest.get("exists", False),
+            "path": probe_manifest.get("path", rel(args.pcm_probe_manifest)),
+            "build_tag": probe_manifest.get("build_tag", ""),
+            "tool_names": sorted(probe_manifest.get("build", {}).get("tools", {}).keys()),
+            "diagnostic_contract": probe_manifest.get("diagnostic_contract", {}),
+        },
         "tools": tools,
         "speaker_plan": plan,
         "command_safety": safety,
         "remote_dir": REMOTE_DIR,
-        "remote_tools": {"tinymix": REMOTE_TINYMIX, "tinyplay": REMOTE_TINYPLAY},
+        "remote_tools": {"tinymix": REMOTE_TINYMIX, "tinyplay": REMOTE_TINYPLAY, "pcm_probe": REMOTE_PCM_PROBE},
         "remote_pcm": REMOTE_PCM,
+        "playback_tool": args.playback_tool,
         "route_transport": args.route_transport,
         "tcpctl_remote_failure_is_hard_failure": True,
         "magisk_direction": MAGISK_DIRECTION,
@@ -262,15 +326,32 @@ def preflight_state(args: argparse.Namespace) -> dict[str, Any]:
 def dry_run_install_plan(args: argparse.Namespace, state: dict[str, Any]) -> list[dict[str, Any]]:
     install_steps: list[dict[str, Any]] = []
     if state.get("tinyalsa_manifest", {}).get("ok"):
-        for index, tool in enumerate(("tinymix", "tinyplay"), start=0):
-            raw_manifest = load_raw_tinyalsa_manifest(args.manifest)
-            local_path = raw_tool_path(raw_manifest, tool)
-            target_path = REMOTE_TINYMIX if tool == "tinymix" else REMOTE_TINYPLAY
+        raw_manifest = load_raw_tinyalsa_manifest(args.manifest)
+        local_path = raw_tool_path(raw_manifest, "tinymix")
+        install_steps.append({
+            "artifact": "tinymix",
+            "auto_select": {
+                "tcpctl": tiny_live.install_command(args, local_path, REMOTE_TINYMIX, args.transfer_port, control_channel="tcpctl"),
+                "serial": tiny_live.install_command(args, local_path, REMOTE_TINYMIX, args.transfer_port, control_channel="bridge"),
+            },
+        })
+        if args.playback_tool == "pcm-probe":
+            probe_manifest = load_pcm_probe_manifest(args.pcm_probe_manifest)
+            local_path = pcm_probe_tool_path(probe_manifest)
             install_steps.append({
-                "artifact": tool,
+                "artifact": "pcm_probe",
                 "auto_select": {
-                    "tcpctl": tiny_live.install_command(args, local_path, target_path, args.transfer_port + index, control_channel="tcpctl"),
-                    "serial": tiny_live.install_command(args, local_path, target_path, args.transfer_port + index, control_channel="bridge"),
+                    "tcpctl": tiny_live.install_command(args, local_path, REMOTE_PCM_PROBE, args.transfer_port + 1, control_channel="tcpctl"),
+                    "serial": tiny_live.install_command(args, local_path, REMOTE_PCM_PROBE, args.transfer_port + 1, control_channel="bridge"),
+                },
+            })
+        else:
+            local_path = raw_tool_path(raw_manifest, "tinyplay")
+            install_steps.append({
+                "artifact": "tinyplay",
+                "auto_select": {
+                    "tcpctl": tiny_live.install_command(args, local_path, REMOTE_TINYPLAY, args.transfer_port + 1, control_channel="tcpctl"),
+                    "serial": tiny_live.install_command(args, local_path, REMOTE_TINYPLAY, args.transfer_port + 1, control_channel="bridge"),
                 },
             })
     install_steps.append({
@@ -439,11 +520,13 @@ def install_runtime_artifacts(args: argparse.Namespace, out_dir: Path, steps: li
     use_tcpctl = readiness["selected_transport"] == "tcpctl"
     control_channel = "tcpctl" if use_tcpctl else "bridge"
     installed: dict[str, Any] = {"transfer_readiness": readiness, "artifacts": {}, "selected_transport": readiness["selected_transport"]}
-    artifacts = [
-        ("tinymix", raw_tool_path(load_raw_tinyalsa_manifest(args.manifest), "tinymix"), REMOTE_TINYMIX, args.transfer_port),
-        ("tinyplay", raw_tool_path(load_raw_tinyalsa_manifest(args.manifest), "tinyplay"), REMOTE_TINYPLAY, args.transfer_port + 1),
-        ("pilot_wav", pcm_path, REMOTE_PCM, args.transfer_port + 2),
-    ]
+    raw_manifest = load_raw_tinyalsa_manifest(args.manifest)
+    artifacts = [("tinymix", raw_tool_path(raw_manifest, "tinymix"), REMOTE_TINYMIX, args.transfer_port)]
+    if args.playback_tool == "pcm-probe":
+        artifacts.append(("pcm_probe", pcm_probe_tool_path(load_pcm_probe_manifest(args.pcm_probe_manifest)), REMOTE_PCM_PROBE, args.transfer_port + 1))
+    else:
+        artifacts.append(("tinyplay", raw_tool_path(raw_manifest, "tinyplay"), REMOTE_TINYPLAY, args.transfer_port + 1))
+    artifacts.append(("pilot_wav", pcm_path, REMOTE_PCM, args.transfer_port + 2))
     for name, local_path, target_path, port in artifacts:
         step = run_host_step(
             out_dir,
@@ -521,7 +604,7 @@ def run_speaker_pilot(args: argparse.Namespace, out_dir: Path, steps: list[dict[
                 use_tcpctl=playback_use_tcpctl,
                 timeout=args.playback_timeout,
                 allow_error=True,
-                failure_markers=("Error playing sample",),
+                failure_markers=("Error playing sample", "A90_PCM_PROBE_WRITE_ERROR", "A90_PCM_PROBE_PCM_OPEN_ERROR"),
             )
             result["playback"] = {
                 "ok": bool(playback_step.get("ok")),
@@ -682,6 +765,8 @@ def parse_args() -> argparse.Namespace:
     mode.add_argument("--run-live", action="store_true", help="perform the exact-gated native speaker pilot")
     parser.add_argument("--approval", default="", help="exact AUD-4 phrase required with --run-live")
     parser.add_argument("--manifest", type=Path, default=inv.MANIFEST)
+    parser.add_argument("--pcm-probe-manifest", type=Path, default=pcm_probe.DEFAULT_MANIFEST)
+    parser.add_argument("--playback-tool", choices=("pcm-probe", "tinyplay"), default="pcm-probe")
     parser.add_argument("--evidence-dir", type=Path, default=recipe.DEFAULT_EVIDENCE_DIR)
     parser.add_argument("--bridge-host", default="127.0.0.1")
     parser.add_argument("--bridge-port", type=int, default=54321)

@@ -20,6 +20,8 @@ def args(**overrides: object) -> argparse.Namespace:
     defaults: dict[str, object] = {
         "approval": "",
         "manifest": v2379.inv.MANIFEST,
+        "pcm_probe_manifest": v2379.pcm_probe.DEFAULT_MANIFEST,
+        "playback_tool": "pcm-probe",
         "evidence_dir": v2379.recipe.DEFAULT_EVIDENCE_DIR,
         "bridge_host": "127.0.0.1",
         "bridge_port": 54321,
@@ -61,7 +63,7 @@ class NativeSpeakerPilotLiveHandoff(unittest.TestCase):
         self.assertEqual(payload["decision"], "v2379-native-speaker-pilot-runner-dry-run")
         self.assertIn("AUD-4-native-speaker-pilot go:", payload["approval_phrase_required"])
         self.assertEqual(payload["preflight"]["remote_dir"], "/cache/a90-runtime/bin/v2379-speaker-pilot")
-        self.assertEqual([step["artifact"] for step in payload["tool_install_plan"]], ["tinymix", "tinyplay", "pilot_wav_generated_runtime"])
+        self.assertEqual([step["artifact"] for step in payload["tool_install_plan"]], ["tinymix", "pcm_probe", "pilot_wav_generated_runtime"])
         runtime = payload["runtime_plan"]
         self.assertEqual(runtime["route_transport"], "serial")
         self.assertEqual(runtime["snapshot_transport"], "auto-selected transfer transport")
@@ -71,7 +73,7 @@ class NativeSpeakerPilotLiveHandoff(unittest.TestCase):
         self.assertEqual(
             runtime["playback"]["argv"],
             [
-                "/cache/a90-runtime/bin/v2379-speaker-pilot/tinyplay",
+                "/cache/a90-runtime/bin/v2379-speaker-pilot/a90_pcm_write_probe_v2386",
                 "/cache/a90-runtime/bin/v2379-speaker-pilot/pilot_48k_s16le_stereo_0p02_1s.wav",
                 "-D",
                 "0",
@@ -95,6 +97,9 @@ class NativeSpeakerPilotLiveHandoff(unittest.TestCase):
         self.assertTrue(state["speaker_plan"]["recipe"]["ok"])
         self.assertTrue(state["tools"]["tinymix"]["sha256_ok"])
         self.assertTrue(state["tools"]["tinyplay"]["sha256_ok"])
+        self.assertTrue(state["tools"]["pcm_probe"]["sha256_ok"])
+        self.assertTrue(state["tools"]["pcm_probe"]["diagnostic_contract"]["reports_pcm_get_error"])
+        self.assertEqual(state["playback_tool"], "pcm-probe")
         self.assertTrue(state["command_safety"]["ok"])
         self.assertEqual(state["route_transport"], "serial")
         self.assertTrue(state["tcpctl_remote_failure_is_hard_failure"])
@@ -156,6 +161,15 @@ class NativeSpeakerPilotLiveHandoff(unittest.TestCase):
         self.assertFalse(tinyplay_result["ok"])
         self.assertEqual(tinyplay_result["exit_codes"], [0])
         self.assertEqual(tinyplay_result["failure_markers"], ["Error playing sample"])
+
+        probe_result = v2379.classify_remote_tool_output(
+            'A90_PCM_PROBE_WRITE_ERROR rc=-1 errno=22 pcm_error="cannot write initial data: Invalid argument"\n[exit 40]',
+            ("A90_PCM_PROBE_WRITE_ERROR", "A90_PCM_PROBE_PCM_OPEN_ERROR"),
+        )
+
+        self.assertFalse(probe_result["ok"])
+        self.assertEqual(probe_result["nonzero_exit_codes"], [40])
+        self.assertEqual(probe_result["failure_markers"], ["A90_PCM_PROBE_WRITE_ERROR"])
 
     def test_wrong_live_approval_exits_before_flash(self) -> None:
         completed = subprocess.run(
