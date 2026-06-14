@@ -79,7 +79,7 @@ ADSP subsystem-restart is recoverable, but forbidden-partition rules remain abso
   fresh operator go: load the speaker route via `tinymix`/`mixer_paths.xml` and push a test PCM with
   `tinyplay`. First actual sound test.
 
-**Latest audio route-delta planning state (V2370):** V2362 selected Android route-delta
+**Latest audio route-delta planning state (V2371):** V2362 selected Android route-delta
 capture as the next speaker-route measurement and designed it host-only. The measurement should boot
 normal Android, use Android framework `AudioTrack` playback through AudioFlinger/vendor HAL, capture
 `tinymix -D 0 --all-values` before/during/after, then roll back to V2321 and diff `SEC_TDM_RX_0` /
@@ -101,8 +101,13 @@ Android to recovery and flashes V2321 without incorrectly claiming a native-brid
 operator text `exact route-delta approval.` is **not** the exact gate and no live run was executed in
 V2369. V2370 then closed a live-runner safety gap by adding explicit `--adb` and `--serial`
 propagation through Android flash, staging, snapshot, recovery-reboot, and V2321 rollback commands
-so a multi-device host cannot silently target the wrong ADB device. No live run was executed in
-V2370. Do not attempt internal speaker playback,
+so a multi-device host cannot silently target the wrong ADB device. V2371 used the exact AUD-3D2
+gate for the first live Android route-delta attempt: Android boot/staging/snapshots/cleanup/rollback
+all completed and final V2321 selftest was `fail=0`, but the raw `app_process` AudioTrack stimulus
+was killed with rc `137`, no AudioFlinger active track survived into the active snapshot, and parsed
+`tinymix --all-values` showed `0` changed controls across baseline/active/post. The frontier is now
+Android stimulus execution/observability (logcat or APK-style stimulus), not a native speaker route.
+Do not attempt internal speaker playback,
 native `tinymix set`, PCM playback open/write, `tinyplay`, or Android route-delta live capture until
 a fresh exact route-delta gate is provided. V2363 and V2367 repeated the already-passed
 AUD-3C read-only tinyalsa inventory at operator request: V2334 again materialized `/dev/snd`
