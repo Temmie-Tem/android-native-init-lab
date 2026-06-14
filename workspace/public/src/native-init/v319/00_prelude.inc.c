@@ -35,6 +35,7 @@
 #include "../a90_app_log.h"
 #include "../a90_app_network.h"
 #include "../a90_app_wifi.h"
+#include "../a90_audio.h"
 #include "../a90_console.h"
 #include "../a90_controller.h"
 #include "../a90_cmdproto.h"

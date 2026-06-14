@@ -893,6 +893,10 @@ static int handle_wififeas(char **argv, int argc) {
     return -EINVAL;
 }
 
+static int handle_audio(char **argv, int argc) {
+    return a90_audio_cmd(argv, argc);
+}
+
 static int handle_reattach(char **argv, int argc) {
     (void)argv;
     (void)argc;
@@ -962,6 +966,7 @@ static const struct shell_command command_table[] = {
     { "pstore", handle_pstore, "pstore [summary|full|paths]", CMD_NONE, A90_CMD_GROUP_CORE },
     { "watchdoginv", handle_watchdoginv, "watchdoginv [summary|full|paths]", CMD_NONE, A90_CMD_GROUP_CORE },
     { "tracefs", handle_tracefs, "tracefs [summary|full|paths]", CMD_NONE, A90_CMD_GROUP_CORE },
+    { "audio", handle_audio, "audio [adsp-status|status]", CMD_NONE, A90_CMD_GROUP_ANDROID },
     { "wifi", handle_wifi, "wifi [status|scan [delay_ms]|connect [profile]|dhcp [profile]|ping [gateway|internet|all]|cleanup|config [status|prepare [profile]]]", CMD_NONE, A90_CMD_GROUP_NETWORK },
     { "wifiinv", handle_wifiinv, "wifiinv [summary|full|refresh|paths]", CMD_NONE, A90_CMD_GROUP_NETWORK },
     { "wififeas", handle_wififeas, "wififeas [summary|full|gate|refresh|paths]", CMD_NONE, A90_CMD_GROUP_NETWORK },
