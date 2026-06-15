@@ -95,6 +95,22 @@ class AcdbM1HybridLateObserverLiveHandoffV2451(unittest.TestCase):
         self.assertNotIn("tinyplay", flat)
         self.assertNotIn("tinymix set", flat)
 
+    def test_stage_adb_wait_plan_covers_shell_push_and_install(self) -> None:
+        payload = v2451.dry_run(args())
+        waits = payload["stage_adb_waits"]
+        stage_commands = v2451.v2450.stage_commands(args())
+        expected_indexes = [
+            index
+            for index, command in enumerate(stage_commands)
+            if v2451.v2450.adb_subcommand(command) in {"shell", "push", "install"}
+        ]
+
+        self.assertEqual([item["before_stage_index"] for item in waits], expected_indexes)
+        self.assertIn("shell", {item["stage_subcommand"] for item in waits})
+        self.assertIn("push", {item["stage_subcommand"] for item in waits})
+        self.assertIn("install", {item["stage_subcommand"] for item in waits})
+        self.assertEqual(waits[2]["stage_subcommand"], "shell")
+
     def test_late_observer_start_command_targets_audio_processes_with_supervisor(self) -> None:
         command = " ".join(v2451.late_observer_start_command(args()))
 

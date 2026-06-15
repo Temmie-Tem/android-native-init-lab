@@ -187,6 +187,26 @@ exit 0
     return v2450.adb_su_shell(args, command)
 
 
+def needs_stage_adb_wait(command: list[str]) -> bool:
+    return v2450.adb_subcommand(command) in {"shell", "push", "install"}
+
+
+def stage_wait_plan(args: argparse.Namespace) -> list[dict[str, Any]]:
+    waits: list[dict[str, Any]] = []
+    for index, command in enumerate(v2450.stage_commands(args)):
+        subcommand = v2450.adb_subcommand(command)
+        if subcommand and needs_stage_adb_wait(command):
+            waits.append(
+                {
+                    "before_stage_index": index,
+                    "reason": f"stabilize ADB before staged adb {subcommand}",
+                    "command": v2450.stage_wait_command(args),
+                    "stage_subcommand": subcommand,
+                }
+            )
+    return waits
+
+
 def summarize_late_subset(out_dir: Path) -> dict[str, Any]:
     artifact_root = out_dir / "device-artifacts"
     late_logs = sorted(artifact_root.rglob("late-observer.log")) if artifact_root.exists() else []
@@ -343,6 +363,7 @@ def dry_run(args: argparse.Namespace) -> dict[str, Any]:
         "rollback_v2321",
     ]
     base["commands"] = commands
+    base["stage_adb_waits"] = stage_wait_plan(args)
     base.update(
         {
             "run_id": RUN_ID,
@@ -434,7 +455,7 @@ def run_live(args: argparse.Namespace) -> dict[str, Any]:
         v2396.run_android_post_handoff_settle(args, out_dir, steps)
 
         for index, command in enumerate(v2450.stage_commands(args)):
-            if v2450.needs_adb_wait(command):
+            if needs_stage_adb_wait(command):
                 subcommand = v2450.adb_subcommand(command) or "unknown"
                 steps.append(route.run_step(
                     f"stage-{index}-adb-wait-before-{subcommand}",

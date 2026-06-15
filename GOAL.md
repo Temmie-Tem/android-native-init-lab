@@ -573,12 +573,16 @@ V2452 executed that exact AUD-5L live path but failed before module staging: And
 settle passed, `stage-0`/`stage-1` readonly Magisk probes passed, then `stage-2` failed with
 `adb: no devices/emulators found` before the pre-residue shell script ran. Cleanup and checked
 V2321 rollback passed (`selftest fail=0`). This is an Android ADB stage-gap, not ACDB evidence
-and not a negative payload result. Next meaningful unit is **V2453 host-only stage-wait
-hardening**: add `adb wait-for-device` before every staged `adb shell`, `adb push`, and
-`adb install` command in the V2451 runner, expose that expanded wait plan in dry-run output,
-add tests, and keep all V2451 safety boundaries unchanged. After V2453, rerun AUD-5L as a fresh
-live iteration. Do not attempt native ACDB replay before payload order, decoded headers, hashes,
-mem-handle policy, and cleanup policy are pinned.
+and not a negative payload result. V2453 completed the host-only stage-wait hardening: the V2451
+runner now inserts `adb wait-for-device` before every staged `adb shell`, `adb push`, and
+`adb install` command; materialized dry-run reports `stage_wait_count=10`, `future_live_ready=true`,
+and command safety clean. Next meaningful unit is a **fresh V2454 exact-gated AUD-5L live rerun**
+using the same exact phrase:
+`AUD-5L-acdb-m1-hybrid-late-observer go: rollbackable Android AudioTrack speaker msm_audio_cal
+diagnostic ioctl capture with temporary Magisk service module plus host-coordinated late
+observer, helper-completion wait, no native calibration ioctl, no native speaker write,
+rollback to V2321`. Do not attempt native ACDB replay before payload order, decoded headers,
+hashes, mem-handle policy, and cleanup policy are pinned.
 
 ## Read at the START of every iteration
 

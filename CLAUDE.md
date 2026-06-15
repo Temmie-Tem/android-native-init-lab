@@ -21,10 +21,11 @@ For full history, read `docs/reports/`, `docs/overview/PROJECT_STATUS.md`, and
   command-safety clean. V2452 attempted the exact AUD-5L live path: Android boot/root settle
   passed, `stage-0`/`stage-1` readonly Magisk probes passed, then `stage-2` failed with
   `adb: no devices/emulators found` before module staging; cleanup and checked V2321 rollback
-  passed with `selftest fail=0`. This is an ADB stage-gap, not ACDB evidence. Magisk remains a
-  Wi-Fi-style Android-good measurement capsule only, not a native-init runtime dependency. Next
-  unit: V2453 host-only runner hardening to wait for ADB before every staged `adb shell`,
-  `adb push`, and `adb install` command, then rerun AUD-5L as a fresh live iteration. Do not
+  passed with `selftest fail=0`. This is an ADB stage-gap, not ACDB evidence. V2453 hardened
+  the runner to wait for ADB before every staged `adb shell`, `adb push`, and `adb install`
+  command; materialized dry-run reports `stage_wait_count=10`, `future_live_ready=true`, and
+  command-safety clean. Magisk remains a Wi-Fi-style Android-good measurement capsule only, not
+  a native-init runtime dependency. Next unit: V2454 exact-gated AUD-5L live rerun. Do not
   attempt native ACDB replay before payload order, decoded headers, hashes, mem-handle policy,
   and cleanup policy are pinned.
 - **Resident validated image / rollback checkpoint (V2321): `A90 Linux init 0.9.285 (v2321-usb-clean-identity-rodata)`** — image `workspace/private/inputs/boot_images/boot_linux_v2321_usb_clean_identity_rodata.img`, SHA256 `ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb`. Carries the full V2313–V2315 USB control surface, V2316 serial redaction/userspace configfs identity, V2318 manufacturer rodata patch (`SAMSUNG` → `A90-LNX`), and the V2321 fixed-length clean product rodata patch (`SAMSUNG_Android\0` → `A90 Linux ARM64\0`) with no product-slot overrun; adjacent USB configfs `KERN_ERR` log-prefix bytes `0x01 0x33` are retained. Live validation: pinned boot-only flash/readback PASS, `version/status/selftest fail=0`, `usb status control.ok=1`, host descriptor now `iManufacturer=A90-LNX`, `iProduct=A90 Linux ARM64`, `iSerial=A90NATIVE001`, and `usb mass-storage expose`/`remove` smoke passed with NCM+ACM control returning. Known manufacturer collateral retained: the merged kernel rodata suffix `Gamepad for SAMSUNG` becomes `Gamepad for A90-LNX`; accepted for this fixed-string line. **`A90 Linux init 0.9.268 (v2237-supplicant-terminate-poll)`** (image `workspace/private/inputs/boot_images/boot_linux_v2237_supplicant_terminate_poll.img`, SHA256 `b2ea2d26d160b7702ce7d4438b84367788eea26c6a5bbe4ed93f3d270292ac7f`) remains the deeper fully-Wi-Fi-proven fallback, with `boot_linux_v48.img` as final fallback.
