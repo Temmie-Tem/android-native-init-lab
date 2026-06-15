@@ -444,6 +444,20 @@ single-shot `v2396.run_android_post_handoff_settle()` path. Classification:
 rerun live until dry-run/tests prove the retry loop is attached to the module-activation
 reboot.
 
+
+V2442 completed that host-only wiring fix. The new runner preserves the V2438/V2440
+staging/install, SHA validation, observer payload, playback stimulus, cleanup, rollback,
+and native-audio boundaries, but changes live settle ordering: the initial Android flash
+uses the established Android post-handoff settle, while the bounded post-module root retry
+now runs after `android-reboot-for-magisk-service` and before logcat/playback. A focused
+ordering regression asserts that the module activation reboot is followed by
+`run_post_module_reboot_settle()` before `logcat-clear-before-stimulus`, preventing the
+V2441 `android-post-handoff-settle-2` single-shot edge from returning. Materialized dry-run
+is `future_live_ready=true` with command safety clean; focused V2442 tests pass (`8`), full
+unittest discovery passes (`1206`), and `git diff --check` passes. Next meaningful unit is
+**V2443 exact-gated live rerun** using the V2442 runner, with the same M1 Android-good
+measurement boundary and no native ACDB replay.
+
 ## Read at the START of every iteration
 
 - **this `GOAL.md`** — re-read it every iteration; the contract may be updated mid-run,
