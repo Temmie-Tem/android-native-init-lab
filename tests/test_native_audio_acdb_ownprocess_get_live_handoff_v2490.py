@@ -99,7 +99,7 @@ class NativeAudioAcdbOwnprocessGetV2490(unittest.TestCase):
 
         summary = v2490.parse_ownget_artifacts(root)
 
-        self.assertEqual(summary["classification"], "captured-ownprocess-topology-4916")
+        self.assertEqual(summary["classification"], "acdb-get-success-4916")
         self.assertTrue(summary["full_success"])
         self.assertTrue(summary["operator_valuable"])
         self.assertFalse(summary["counts_toward_fails_twice"])
@@ -123,10 +123,24 @@ class NativeAudioAcdbOwnprocessGetV2490(unittest.TestCase):
 
         summary = v2490.parse_ownget_artifacts(root)
 
-        self.assertEqual(summary["classification"], "captured-ownprocess-outbuf-set-no-4916")
+        self.assertEqual(summary["classification"], "acdb-get-full-outbuf-set-no-4916")
         self.assertTrue(summary["partial_success"])
         self.assertTrue(summary["operator_valuable"])
         self.assertFalse(summary["counts_toward_fails_twice"])
+
+    def test_parse_ownget_artifacts_maps_namespace_api_error_bucket(self) -> None:
+        root = Path(tempfile.mkdtemp(prefix="a90-v2490-artifacts-"))
+        (root / "acdb-ownget-events.jsonl").write_text(json.dumps({
+            "event": "error",
+            "stage": "dlsym-android_dlopen_ext",
+            "code": -3,
+        }) + "\n")
+
+        summary = v2490.parse_ownget_artifacts(root)
+
+        self.assertEqual(summary["classification"], "namespace-api-symbol-missing")
+        self.assertTrue(summary["operator_valuable"])
+        self.assertTrue(summary["counts_toward_fails_twice"])
 
     def test_parse_ownget_artifacts_classifies_dlopen_error(self) -> None:
         root = Path(tempfile.mkdtemp(prefix="a90-v2490-artifacts-"))

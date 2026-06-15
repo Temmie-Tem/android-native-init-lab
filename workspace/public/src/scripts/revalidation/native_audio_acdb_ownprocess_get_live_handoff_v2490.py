@@ -212,6 +212,7 @@ def parse_ownget_artifacts(path: Path) -> dict[str, Any]:
     events = path / "acdb-ownget-events.jsonl"
     rows: list[dict[str, Any]] = []
     errors: list[dict[str, Any]] = []
+    namespace_events: list[dict[str, Any]] = []
     malformed = 0
     if events.exists():
         for line in events.read_text(encoding="utf-8", errors="replace").splitlines():
@@ -226,6 +227,8 @@ def parse_ownget_artifacts(path: Path) -> dict[str, Any]:
                 rows.append(item)
             elif item.get("event") == "error":
                 errors.append(item)
+            elif str(item.get("event", "")).startswith("namespace_"):
+                namespace_events.append(item)
     target = [row for row in rows if row.get("is_target_4916") is True or row.get("out_len") == 4916]
     raw_files = sorted(path.glob("acdb-ownget-*.bin"))
     missing_raw = []
@@ -238,26 +241,39 @@ def parse_ownget_artifacts(path: Path) -> dict[str, Any]:
         if not local.exists():
             missing_raw.append(row.get("seq"))
     if target and not missing_raw:
-        classification = "captured-ownprocess-topology-4916"
+        classification = "acdb-get-success-4916"
     elif rows and not missing_raw:
-        classification = "captured-ownprocess-outbuf-set-no-4916"
+        classification = "acdb-get-full-outbuf-set-no-4916"
     elif errors and not rows:
         stage = str(errors[-1].get("stage", "unknown"))
-        classification = f"ownprocess-error-{stage}"
+        if stage in {"dlsym-android_get_exported_namespace", "dlsym-android_dlopen_ext"}:
+            classification = "namespace-api-symbol-missing"
+        elif stage == "namespace-none-visible":
+            classification = "namespace-none-visible"
+        elif stage == "namespace-visible-load-failed-libaudcal":
+            classification = "namespace-visible-load-failed"
+        elif stage == "android_dlopen_ext-libacdbloader":
+            classification = "libaudcal-loaded-libacdbloader-block"
+        elif stage == "acdb_loader_init_v3":
+            classification = "init-v3-block"
+        else:
+            classification = f"ownprocess-error-{stage}"
     elif malformed:
         classification = "ownprocess-events-malformed"
     else:
         classification = "ownprocess-no-events"
-    partial_success = classification == "captured-ownprocess-outbuf-set-no-4916"
-    full_success = classification == "captured-ownprocess-topology-4916"
+    partial_success = classification == "acdb-get-full-outbuf-set-no-4916"
+    full_success = classification == "acdb-get-success-4916"
     return {
         "classification": classification,
         "event_path": rel(events) if events.exists() else None,
         "rows": rows,
         "errors": errors,
+        "namespace_events": namespace_events,
         "malformed_lines": malformed,
         "row_count": len(rows),
         "error_count": len(errors),
+        "namespace_event_count": len(namespace_events),
         "target_4916_count": len(target),
         "raw_file_count": len(raw_files),
         "missing_raw_seq": missing_raw,
