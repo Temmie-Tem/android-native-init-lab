@@ -31,8 +31,10 @@ extern char *dlerror(void);
 #define A90_EVENTS_PATH "/data/local/tmp/a90-acdb-ownget/acdb-ownget-events.jsonl"
 #define A90_RAW_PREFIX "/data/local/tmp/a90-acdb-ownget/acdb-ownget-"
 #define A90_LIBDL "libdl.so"
+#define A90_LIBAUDCAL_LOCAL "/data/local/tmp/a90-acdb-ownget/libaudcal.so"
 #define A90_LIBAUDCAL_SONAME "libaudcal.so"
 #define A90_LIBAUDCAL_ABSPATH "/vendor/lib/libaudcal.so"
+#define A90_LIBACDBLOADER_LOCAL "/data/local/tmp/a90-acdb-ownget/libacdbloader.so"
 #define A90_LIBACDBLOADER_SONAME "libacdbloader.so"
 #define A90_LIBACDBLOADER_ABSPATH "/vendor/lib/libacdbloader.so"
 
@@ -688,6 +690,18 @@ static void *a90_android_dlopen_in_namespace(const struct a90_resolved_dlopen_ex
     return ((a90_android_dlopen_ext_fn)dlopen_ext->fn)(library, A90_RTLD_NOW, &extinfo);
 }
 
+static void *a90_plain_dlopen(const char *scope, const char *library)
+{
+    void *handle;
+    (void)dlerror();
+    handle = dlopen(library, A90_RTLD_NOW);
+    if (handle)
+        a90_write_namespace_load_event(scope, library, 1, (const char *)0);
+    else
+        a90_write_namespace_load_event(scope, library, 0, dlerror());
+    return handle;
+}
+
 static void *a90_try_namespace_libraries(const struct a90_resolved_dlopen_ext *dlopen_ext,
                                          const char *namespace_name,
                                          a90_android_namespace *namespace_handle,
@@ -792,6 +806,18 @@ void _start(void)
         a90_write_error_event("dlopen-libdl", -1, dlerror());
         a90_exit(21);
     }
+
+    audcal = a90_plain_dlopen("plain-local", A90_LIBAUDCAL_LOCAL);
+    if (audcal) {
+        loader = a90_plain_dlopen("plain-local", A90_LIBACDBLOADER_LOCAL);
+        if (!loader) {
+            a90_write_error_event("dlopen-local-libacdbloader", -6, (const char *)0);
+            a90_exit(26);
+        }
+        a90_write_namespace_selected_event("plain-local");
+        goto acdb_symbols;
+    }
+
     get_namespace_fn = a90_resolve_get_namespace(libdl);
     if (!get_namespace_fn) {
         a90_write_error_event("dlsym-android_get_exported_namespace", -2, (const char *)0);
@@ -842,6 +868,7 @@ void _start(void)
         a90_exit(26);
     }
 
+acdb_symbols:
     (void)dlerror();
     init_v3 = (a90_acdb_loader_init_v3_fn)dlsym(loader, "acdb_loader_init_v3");
     if (!init_v3) {

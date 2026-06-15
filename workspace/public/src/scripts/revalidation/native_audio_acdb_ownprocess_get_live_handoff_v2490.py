@@ -28,6 +28,10 @@ DEFAULT_OUT_BASE = ROOT / "workspace/private/runs/audio"
 REMOTE_DIR = "/data/local/tmp/a90-acdb-ownget"
 REMOTE_HELPER = f"{REMOTE_DIR}/a90_acdb_ownprocess_get_v2489"
 REMOTE_EVENTS = f"{REMOTE_DIR}/acdb-ownget-events.jsonl"
+ACDB_DEP_LIBS = (
+    "libaudcal.so",
+    "libacdbloader.so",
+)
 
 
 def rel(path: Path | str) -> str:
@@ -129,6 +133,24 @@ def selected_helper_state(args: argparse.Namespace) -> dict[str, Any]:
     return helper_artifact_state(default_path)
 
 
+def acdb_dependency_states() -> dict[str, Any]:
+    libs: list[dict[str, Any]] = []
+    ok = True
+    for name in ACDB_DEP_LIBS:
+        path = v2489.VENDOR_DUMP / name
+        state = helper_artifact_state(path)
+        state["name"] = name
+        state["remote_path"] = f"{REMOTE_DIR}/{name}"
+        libs.append(state)
+        ok = bool(ok and state.get("ok"))
+    return {
+        "source_dir": rel(v2489.VENDOR_DUMP),
+        "remote_dir": REMOTE_DIR,
+        "libs": libs,
+        "ok": ok,
+    }
+
+
 def setup_command(args: argparse.Namespace) -> list[str]:
     script = f"""
 set -eu
@@ -146,14 +168,16 @@ def chmod_helper_command(args: argparse.Namespace) -> list[str]:
     script = f"""
 set -eu
 chmod 700 {shlex.quote(REMOTE_HELPER)}
+chmod 600 {shlex.quote(REMOTE_DIR)}/*.so 2>/dev/null || true
 sha256sum {shlex.quote(REMOTE_HELPER)} 2>/dev/null || toybox sha256sum {shlex.quote(REMOTE_HELPER)}
+ls -l {shlex.quote(REMOTE_DIR)}/*.so 2>/dev/null || true
 file {shlex.quote(REMOTE_HELPER)} 2>/dev/null || true
 """.strip()
     return adb_su(args, script)
 
 
 def run_helper_command(args: argparse.Namespace) -> list[str]:
-    ld_library_path = ":".join(["/vendor/lib", "/system/lib", "/system_ext/lib", "/product/lib"])
+    ld_library_path = ":".join([REMOTE_DIR, "/vendor/lib", "/system/lib", "/system_ext/lib", "/product/lib"])
     script = f"""
 set +e
 cd {shlex.quote(REMOTE_DIR)} || exit 61
@@ -300,6 +324,7 @@ def dry_run_payload(args: argparse.Namespace) -> dict[str, Any]:
     android_boot = route.select_android_boot_candidate()
     rollback = route.file_state(route.ROLLBACK_IMAGE, expected_sha256=route.ROLLBACK_SHA256)
     helper = selected_helper_state(args)
+    deps = acdb_dependency_states()
     sealed_boot = "<private-run-dir>/android_boot_0600.img"
     helper_remote = REMOTE_HELPER
     commands = {
@@ -307,6 +332,10 @@ def dry_run_payload(args: argparse.Namespace) -> dict[str, Any]:
         "post_handoff_settle": ["adb wait-for-device + boot-complete + su id with bounded retries"],
         "setup": setup_command(args),
         "push_helper": adb_push(args, helper.get("path") or "<helper>", helper_remote),
+        "push_acdb_dependencies": [
+            adb_push(args, item.get("path") or "<missing>", item.get("remote_path") or "<remote>")
+            for item in deps["libs"]
+        ],
         "chmod_helper": chmod_helper_command(args),
         "run_helper": run_helper_command(args),
         "collect_prepare": collect_prepare_command(args),
@@ -324,6 +353,7 @@ def dry_run_payload(args: argparse.Namespace) -> dict[str, Any]:
         "android_boot": android_boot,
         "rollback": rollback,
         "helper": helper,
+        "acdb_dependencies": deps,
         "operator_spec": "docs/OPERATOR_ACDB_IOCTL_INTERPOSE_CAPTURE_SPEC_2026-06-15.md",
         "commands": commands,
         "partial_success_policy": "captured-ownprocess-outbuf-set-no-4916 is preserved as operator-valuable partial evidence; ACDB tap no-4916 policy remains non-dead-run",
@@ -337,7 +367,7 @@ def dry_run_payload(args: argparse.Namespace) -> dict[str, Any]:
             "boot partition only through native_init_flash.py",
             "rollback to V2321 after capture",
         ],
-        "live_ready": bool(android_boot.get("ok") and rollback.get("ok") and helper.get("ok")),
+        "live_ready": bool(android_boot.get("ok") and rollback.get("ok") and helper.get("ok") and deps.get("ok")),
         "live_blockers": [],
     }
     if not android_boot.get("ok"):
@@ -346,6 +376,8 @@ def dry_run_payload(args: argparse.Namespace) -> dict[str, Any]:
         payload["live_blockers"].append("V2321 rollback image missing or invalid")
     if not helper.get("ok"):
         payload["live_blockers"].append("V2489 helper artifact missing or invalid; run V2489 builder first")
+    if not deps.get("ok"):
+        payload["live_blockers"].append("ACDB dependency set missing from private V2324 vendor dump")
     payload["command_safety"] = command_safety(payload)
     payload["ok"] = bool(payload["live_ready"] and payload["command_safety"]["ok"])
     return payload
@@ -393,6 +425,14 @@ def run_live(args: argparse.Namespace) -> dict[str, Any]:
         steps.append(route.run_step("ownget-setup", setup_command(args), out_dir, timeout_sec=args.adb_command_timeout))
         helper_path = ROOT / payload["helper"]["path"]
         steps.append(route.run_step("ownget-push-helper", adb_push(args, rel(helper_path), REMOTE_HELPER), out_dir, timeout_sec=args.adb_command_timeout))
+        for dep in payload["acdb_dependencies"]["libs"]:
+            dep_path = ROOT / dep["path"]
+            steps.append(route.run_step(
+                f"ownget-push-{dep['name']}",
+                adb_push(args, rel(dep_path), dep["remote_path"]),
+                out_dir,
+                timeout_sec=args.adb_command_timeout,
+            ))
         steps.append(route.run_step("ownget-chmod-helper", chmod_helper_command(args), out_dir, timeout_sec=args.adb_command_timeout))
         steps.append(route.run_step("ownget-run-helper", run_helper_command(args), out_dir, timeout_sec=args.helper_timeout, check=False))
         steps.append(route.run_step("ownget-collect-prepare", collect_prepare_command(args), out_dir, timeout_sec=args.adb_command_timeout, check=False))

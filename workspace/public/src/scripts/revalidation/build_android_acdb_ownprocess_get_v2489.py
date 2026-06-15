@@ -149,6 +149,8 @@ def source_state() -> dict[str, Any]:
         "custom_start": "void _start(void)" in text,
         "uses_absolute_vendor_paths": '/vendor/lib/libaudcal.so' in text
         and '/vendor/lib/libacdbloader.so' in text,
+        "uses_local_staged_paths": "/data/local/tmp/a90-acdb-ownget/libaudcal.so" in text
+        and "/data/local/tmp/a90-acdb-ownget/libacdbloader.so" in text,
         "uses_soname_vendor_paths": '"libaudcal.so"' in text
         and '"libacdbloader.so"' in text,
         "uses_arm32_rtld_default": "A90_RTLD_DEFAULT ((void *)0xffffffffU)" in text,
@@ -176,6 +178,8 @@ def source_state() -> dict[str, Any]:
         and "a90_libaudcal_names" in text,
         "uses_namespace_load_for_libacdbloader": "a90_try_namespace_libraries(&dlopen_ext, selected_namespace_name" in text
         and "a90_libacdbloader_names" in text,
+        "uses_plain_local_dlopen_first": "a90_plain_dlopen(\"plain-local\", A90_LIBAUDCAL_LOCAL)" in text
+        and "a90_plain_dlopen(\"plain-local\", A90_LIBACDBLOADER_LOCAL)" in text,
         "uses_dlsym_init_v3": 'dlsym(loader, "acdb_loader_init_v3")' in text,
         "uses_dlsym_acdb_ioctl": 'dlsym(audcal, "acdb_ioctl")' in text,
         "uses_dlerror_detail": "dlerror()" in text and '\\"detail\\":' in text,
@@ -379,11 +383,19 @@ def manifest(args: argparse.Namespace) -> dict[str, Any]:
         "capture_contract": {
             "artifact": ARTIFACT_NAME,
             "abi": "32-bit armeabi-v7a PIE",
-            "load_strategy": "runtime symbol_probe for public and __loader Android linker namespace APIs through libdl/default scope, probe sphal/vendor/default/vndk, android_dlopen_ext vendor ACDB libs by soname then absolute path, then dlsym acdb_loader_init_v3/acdb_ioctl",
+            "load_strategy": "plain dlopen same-directory staged ACDB libs first; if absent or blocked, runtime symbol_probe for public and __loader Android linker namespace APIs through libdl/default scope, probe sphal/vendor/default/vndk, android_dlopen_ext vendor ACDB libs by soname then absolute path, then dlsym acdb_loader_init_v3/acdb_ioctl",
             "namespace_probe_order": ["sphal", "vendor", "default", "vndk"],
             "library_load_candidates": {
-                "libaudcal": ["libaudcal.so", "/vendor/lib/libaudcal.so"],
-                "libacdbloader": ["libacdbloader.so", "/vendor/lib/libacdbloader.so"],
+                "libaudcal": [
+                    "/data/local/tmp/a90-acdb-ownget/libaudcal.so",
+                    "libaudcal.so",
+                    "/vendor/lib/libaudcal.so",
+                ],
+                "libacdbloader": [
+                    "/data/local/tmp/a90-acdb-ownget/libacdbloader.so",
+                    "libacdbloader.so",
+                    "/vendor/lib/libacdbloader.so",
+                ],
             },
             "symbol_probe_candidates": [
                 "libdl:android_get_exported_namespace",

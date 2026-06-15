@@ -50,8 +50,15 @@ class NativeAudioAcdbOwnprocessGetV2490(unittest.TestCase):
         self.assertTrue(payload["live_ready"], payload.get("live_blockers"))
         self.assertTrue(payload["command_safety"]["ok"], payload["command_safety"])
         self.assertTrue(payload["helper"]["ok"], payload["helper"])
+        self.assertTrue(payload["acdb_dependencies"]["ok"], payload["acdb_dependencies"])
+        self.assertEqual(
+            [item["name"] for item in payload["acdb_dependencies"]["libs"]],
+            ["libaudcal.so", "libacdbloader.so"],
+        )
         self.assertIn("own-process helper only", "\n".join(payload["hard_boundary"]))
         flat_commands = json.dumps(payload["commands"], sort_keys=True)
+        self.assertIn("/data/local/tmp/a90-acdb-ownget/libaudcal.so", flat_commands)
+        self.assertIn("LD_LIBRARY_PATH=/data/local/tmp/a90-acdb-ownget:", flat_commands)
         self.assertNotIn("magisk --install-module", flat_commands)
         self.assertNotIn("android.hardware.audio.service", flat_commands)
         self.assertNotIn("AudioTrack", flat_commands)

@@ -37,6 +37,7 @@ class BuildAndroidAcdbOwnprocessGetV2489(unittest.TestCase):
         self.assertTrue(state["required_ok"], state["required"])
         self.assertTrue(state["prohibited_ok"], state["prohibited"])
         self.assertTrue(state["required"]["uses_absolute_vendor_paths"])
+        self.assertTrue(state["required"]["uses_local_staged_paths"])
         self.assertTrue(state["required"]["uses_soname_vendor_paths"])
         self.assertTrue(state["required"]["uses_arm32_rtld_default"])
         self.assertTrue(state["required"]["uses_rtld_now_only"])
@@ -56,6 +57,7 @@ class BuildAndroidAcdbOwnprocessGetV2489(unittest.TestCase):
         self.assertTrue(state["required"]["records_namespace_events"])
         self.assertTrue(state["required"]["uses_namespace_load_for_libaudcal"])
         self.assertTrue(state["required"]["uses_namespace_load_for_libacdbloader"])
+        self.assertTrue(state["required"]["uses_plain_local_dlopen_first"])
         self.assertTrue(state["required"]["uses_dlsym_acdb_ioctl"])
         self.assertTrue(state["required"]["uses_dlerror_detail"])
         self.assertTrue(state["required"]["calls_init_v3"])
@@ -75,11 +77,19 @@ class BuildAndroidAcdbOwnprocessGetV2489(unittest.TestCase):
         self.assertEqual(payload["capture_contract"]["namespace_probe_order"], ["sphal", "vendor", "default", "vndk"])
         self.assertEqual(
             payload["capture_contract"]["library_load_candidates"]["libaudcal"],
-            ["libaudcal.so", "/vendor/lib/libaudcal.so"],
+            [
+                "/data/local/tmp/a90-acdb-ownget/libaudcal.so",
+                "libaudcal.so",
+                "/vendor/lib/libaudcal.so",
+            ],
         )
         self.assertEqual(
             payload["capture_contract"]["library_load_candidates"]["libacdbloader"],
-            ["libacdbloader.so", "/vendor/lib/libacdbloader.so"],
+            [
+                "/data/local/tmp/a90-acdb-ownget/libacdbloader.so",
+                "libacdbloader.so",
+                "/vendor/lib/libacdbloader.so",
+            ],
         )
         self.assertIn("default:__loader_android_get_exported_namespace", payload["capture_contract"]["symbol_probe_candidates"])
         self.assertIn("default:__loader_android_dlopen_ext", payload["capture_contract"]["symbol_probe_candidates"])
