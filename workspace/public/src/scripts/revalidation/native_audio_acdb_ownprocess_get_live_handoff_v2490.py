@@ -13,6 +13,7 @@ import argparse
 import json
 import os
 import shlex
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -49,6 +50,16 @@ ACDB_RUNTIME_EXTERNAL_LIBS = (
     "libutils.so",
     "liblog.so",
     "libc++.so",
+)
+DEFAULT_SETTLE_ADB_RETRY_ATTEMPTS = 3
+DEFAULT_SETTLE_ADB_RETRY_SLEEP_SEC = 2.0
+TRANSIENT_SETTLE_ADB_FAILURE_MARKERS = (
+    "error: closed",
+    "adb: no devices/emulators found",
+    "no devices/emulators found",
+    "device offline",
+    "failed to get feature set",
+    "protocol fault",
 )
 
 
@@ -93,6 +104,14 @@ def adb_su(args: argparse.Namespace, script: str) -> list[str]:
 
 def adb_push(args: argparse.Namespace, source: str, destination: str) -> list[str]:
     return adb_base(args) + ["push", source, destination]
+
+
+def settle_adb_retry_attempts(args: argparse.Namespace) -> int:
+    return max(1, int(getattr(args, "android_settle_adb_retry_attempts", DEFAULT_SETTLE_ADB_RETRY_ATTEMPTS)))
+
+
+def settle_adb_retry_sleep_sec(args: argparse.Namespace) -> float:
+    return max(0.0, float(getattr(args, "android_settle_adb_retry_sleep_sec", DEFAULT_SETTLE_ADB_RETRY_SLEEP_SEC)))
 
 
 def sha256_file(path: Path) -> str:
@@ -287,6 +306,109 @@ def command_safety(payload: dict[str, Any]) -> dict[str, Any]:
     return {"ok": not findings, "findings": findings, "forbidden": sorted(forbidden)}
 
 
+def step_output_text(step: dict[str, Any]) -> str:
+    parts: list[str] = []
+    for key in ("stdout", "stderr"):
+        value = step.get(key)
+        if not isinstance(value, str) or not value:
+            continue
+        path = Path(value)
+        if not path.is_absolute():
+            path = ROOT / path
+        try:
+            parts.append(path.read_text(encoding="utf-8", errors="replace"))
+        except OSError:
+            continue
+    return "\n".join(parts)
+
+
+def step_has_transient_settle_adb_failure(step: dict[str, Any]) -> bool:
+    if step.get("ok"):
+        return False
+    lower_text = step_output_text(step).lower()
+    return any(marker.lower() in lower_text for marker in TRANSIENT_SETTLE_ADB_FAILURE_MARKERS)
+
+
+def settle_failure_message(name: str, step: dict[str, Any]) -> str:
+    return f"{name} failed rc={step.get('rc')}; see {step.get('stdout')} {step.get('stderr')}"
+
+
+def run_settle_command_with_transport_retry(
+    args: argparse.Namespace,
+    *,
+    index: int,
+    command: list[str],
+    out_dir: Path,
+    steps: list[dict[str, Any]],
+) -> dict[str, Any]:
+    attempts = settle_adb_retry_attempts(args)
+    sleep_sec = settle_adb_retry_sleep_sec(args)
+    last_step: dict[str, Any] | None = None
+    for attempt in range(1, attempts + 1):
+        if attempt > 1:
+            steps.append(route.run_step(
+                f"android-post-handoff-settle-{index}-retry-{attempt}-wait-for-device",
+                adb_base(args) + ["wait-for-device"],
+                out_dir,
+                timeout_sec=args.adb_command_timeout,
+                check=False,
+            ))
+        name = f"android-post-handoff-settle-{index}" if attempt == 1 else f"android-post-handoff-settle-{index}-retry-{attempt}"
+        step = route.run_step(name, command, out_dir, timeout_sec=args.adb_command_timeout, check=False)
+        steps.append(step)
+        last_step = step
+        if step.get("ok"):
+            if attempt > 1:
+                step["settle_retry_recovered"] = True
+                step["settle_retry_attempt"] = attempt
+            return step
+        if not step_has_transient_settle_adb_failure(step):
+            raise RuntimeError(settle_failure_message(name, step))
+        step["settle_retry_reason"] = "transient-adb-transport"
+        if attempt < attempts:
+            time.sleep(sleep_sec)
+    assert last_step is not None
+    raise RuntimeError(
+        f"android-post-handoff-settle-{index} transient ADB transport failure persisted "
+        f"after {attempts} attempts; see {last_step.get('stdout')} {last_step.get('stderr')}"
+    )
+
+
+def run_android_post_handoff_settle_with_transport_retry(
+    args: argparse.Namespace,
+    out_dir: Path,
+    steps: list[dict[str, Any]],
+) -> None:
+    commands = v2396.android_post_handoff_settle_commands(args)
+    for index, command in enumerate(commands):
+        if index in {0, 1}:
+            run_settle_command_with_transport_retry(args, index=index, command=command, out_dir=out_dir, steps=steps)
+            continue
+
+        attempts = max(1, int(getattr(args, "android_root_recheck_attempts", v2396.DEFAULT_ANDROID_ROOT_RECHECK_ATTEMPTS)))
+        sleep_sec = max(0.0, float(getattr(args, "android_root_recheck_sleep_sec", v2396.DEFAULT_ANDROID_ROOT_RECHECK_SLEEP_SEC)))
+        last_record: dict[str, Any] | None = None
+        for attempt in range(1, attempts + 1):
+            name = "android-post-handoff-settle-2" if attempt == 1 else f"android-post-handoff-settle-2-retry-{attempt}"
+            record = route.run_step(name, command, out_dir, timeout_sec=args.adb_command_timeout, check=False)
+            steps.append(record)
+            summary = v2396.android_root_recheck_summary(record)
+            summary["attempt"] = attempt
+            summary["max_attempts"] = attempts
+            record["root_recheck"] = summary
+            last_record = record
+            if summary["root_ready"]:
+                record["settle_decision"] = "android-root-ready"
+                return
+            record["settle_decision"] = summary["classification"]
+            if attempt != attempts:
+                time.sleep(sleep_sec)
+
+        if last_record is not None:
+            v2396.validate_android_root_recheck(last_record)
+        raise RuntimeError("android root recheck did not run")
+
+
 def parse_ownget_artifacts(path: Path) -> dict[str, Any]:
     events = path / "acdb-ownget-events.jsonl"
     acdb_log = path / "logcat-acdb-loader.txt"
@@ -438,6 +560,15 @@ def dry_run_payload(args: argparse.Namespace) -> dict[str, Any]:
         "acdb_dependencies": deps,
         "operator_spec": "docs/OPERATOR_ACDB_IOCTL_INTERPOSE_CAPTURE_SPEC_2026-06-15.md",
         "commands": commands,
+        "android_settle_adb_retry": {
+            "enabled": settle_adb_retry_attempts(args) > 1,
+            "attempts": settle_adb_retry_attempts(args),
+            "sleep_sec": settle_adb_retry_sleep_sec(args),
+            "scope": "android-post-handoff-settle-0/1 transport-only failures before helper staging",
+            "retry_markers": list(TRANSIENT_SETTLE_ADB_FAILURE_MARKERS),
+            "semantic_failures_fail_closed": True,
+            "v2515_gap": "android-post-handoff-settle-1 failed with adb 'error: closed' before helper staging",
+        },
         "partial_success_policy": "captured-ownprocess-outbuf-set-no-4916 is preserved as operator-valuable partial evidence; ACDB tap no-4916 policy remains non-dead-run",
         "hard_boundary": [
             "own-process helper only; no in-HAL LD_PRELOAD/injection",
@@ -505,7 +636,7 @@ def run_live(args: argparse.Namespace) -> dict[str, Any]:
             out_dir,
             timeout_sec=args.flash_timeout,
         ))
-        v2396.run_android_post_handoff_settle(args, out_dir, steps)
+        run_android_post_handoff_settle_with_transport_retry(args, out_dir, steps)
         steps.append(route.run_step("ownget-setup", setup_command(args), out_dir, timeout_sec=args.adb_command_timeout))
         helper_path = ROOT / payload["helper"]["path"]
         steps.append(route.run_step("ownget-push-helper", adb_push(args, rel(helper_path), REMOTE_HELPER), out_dir, timeout_sec=args.adb_command_timeout))
@@ -564,6 +695,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--helper-timeout", type=float, default=60.0)
     parser.add_argument("--android-root-recheck-attempts", type=int, default=v2396.DEFAULT_ANDROID_ROOT_RECHECK_ATTEMPTS)
     parser.add_argument("--android-root-recheck-sleep-sec", type=float, default=v2396.DEFAULT_ANDROID_ROOT_RECHECK_SLEEP_SEC)
+    parser.add_argument("--android-settle-adb-retry-attempts", type=int, default=DEFAULT_SETTLE_ADB_RETRY_ATTEMPTS)
+    parser.add_argument("--android-settle-adb-retry-sleep-sec", type=float, default=DEFAULT_SETTLE_ADB_RETRY_SLEEP_SEC)
     parser.add_argument("--helper-path", type=Path)
     parser.add_argument("--helper-sha256")
     parser.add_argument("--helper-build-root", type=Path, default=v2489.DEFAULT_BUILD_ROOT)

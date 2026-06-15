@@ -31,6 +31,8 @@ def args(**overrides: object) -> Namespace:
         "helper_timeout": 60.0,
         "android_root_recheck_attempts": 4,
         "android_root_recheck_sleep_sec": 2.0,
+        "android_settle_adb_retry_attempts": v2490.DEFAULT_SETTLE_ADB_RETRY_ATTEMPTS,
+        "android_settle_adb_retry_sleep_sec": v2490.DEFAULT_SETTLE_ADB_RETRY_SLEEP_SEC,
         "helper_path": None,
         "helper_sha256": None,
         "helper_build_root": v2489.DEFAULT_BUILD_ROOT,
@@ -50,6 +52,9 @@ class NativeAudioAcdbOwnprocessGetV2490(unittest.TestCase):
         self.assertTrue(payload["live_ready"], payload.get("live_blockers"))
         self.assertTrue(payload["command_safety"]["ok"], payload["command_safety"])
         self.assertTrue(payload["helper"]["ok"], payload["helper"])
+        self.assertTrue(payload["android_settle_adb_retry"]["enabled"])
+        self.assertEqual(payload["android_settle_adb_retry"]["attempts"], v2490.DEFAULT_SETTLE_ADB_RETRY_ATTEMPTS)
+        self.assertIn("error: closed", payload["android_settle_adb_retry"]["retry_markers"])
         self.assertTrue(payload["acdb_dependencies"]["ok"], payload["acdb_dependencies"])
         dep_names = [item["name"] for item in payload["acdb_dependencies"]["libs"]]
         self.assertIn("libaudcal.so", dep_names)
@@ -79,6 +84,22 @@ class NativeAudioAcdbOwnprocessGetV2490(unittest.TestCase):
         self.assertNotIn("AudioTrack", flat_commands)
         self.assertNotIn("/dev/msm_audio_cal", flat_commands)
         self.assertNotIn("0xc00461cb", flat_commands.lower())
+
+    def test_step_has_transient_settle_adb_failure_for_error_closed(self) -> None:
+        root = Path(tempfile.mkdtemp(prefix="a90-v2490-step-"))
+        stderr = root / "step.stderr.txt"
+        stderr.write_text("error: closed\n")
+        step = {"ok": False, "stdout": str(root / "missing.stdout.txt"), "stderr": str(stderr)}
+
+        self.assertTrue(v2490.step_has_transient_settle_adb_failure(step))
+
+    def test_step_has_transient_settle_adb_failure_ignores_semantic_boot_failure(self) -> None:
+        root = Path(tempfile.mkdtemp(prefix="a90-v2490-step-"))
+        stdout = root / "step.stdout.txt"
+        stdout.write_text("boot-complete recheck failed: sys= dev=\n")
+        step = {"ok": False, "stdout": str(stdout), "stderr": str(root / "missing.stderr.txt")}
+
+        self.assertFalse(v2490.step_has_transient_settle_adb_failure(step))
 
     def test_command_safety_rejects_inhal_and_native_calibration_paths(self) -> None:
         payload = {
