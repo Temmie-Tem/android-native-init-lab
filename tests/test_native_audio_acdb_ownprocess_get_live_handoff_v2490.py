@@ -131,6 +131,11 @@ class NativeAudioAcdbOwnprocessGetV2490(unittest.TestCase):
     def test_parse_ownget_artifacts_maps_namespace_api_error_bucket(self) -> None:
         root = Path(tempfile.mkdtemp(prefix="a90-v2490-artifacts-"))
         (root / "acdb-ownget-events.jsonl").write_text(json.dumps({
+            "event": "symbol_probe",
+            "scope": "libdl",
+            "symbol": "__loader_android_dlopen_ext",
+            "found": False,
+        }) + "\n" + json.dumps({
             "event": "error",
             "stage": "dlsym-android_dlopen_ext",
             "code": -3,
@@ -139,6 +144,8 @@ class NativeAudioAcdbOwnprocessGetV2490(unittest.TestCase):
         summary = v2490.parse_ownget_artifacts(root)
 
         self.assertEqual(summary["classification"], "namespace-api-symbol-missing")
+        self.assertEqual(summary["symbol_event_count"], 1)
+        self.assertEqual(summary["symbol_events"][0]["symbol"], "__loader_android_dlopen_ext")
         self.assertTrue(summary["operator_valuable"])
         self.assertTrue(summary["counts_toward_fails_twice"])
 

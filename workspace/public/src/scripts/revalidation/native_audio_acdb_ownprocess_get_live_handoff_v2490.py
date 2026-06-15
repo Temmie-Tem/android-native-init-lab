@@ -213,6 +213,7 @@ def parse_ownget_artifacts(path: Path) -> dict[str, Any]:
     rows: list[dict[str, Any]] = []
     errors: list[dict[str, Any]] = []
     namespace_events: list[dict[str, Any]] = []
+    symbol_events: list[dict[str, Any]] = []
     malformed = 0
     if events.exists():
         for line in events.read_text(encoding="utf-8", errors="replace").splitlines():
@@ -227,6 +228,8 @@ def parse_ownget_artifacts(path: Path) -> dict[str, Any]:
                 rows.append(item)
             elif item.get("event") == "error":
                 errors.append(item)
+            elif item.get("event") == "symbol_probe":
+                symbol_events.append(item)
             elif str(item.get("event", "")).startswith("namespace_"):
                 namespace_events.append(item)
     target = [row for row in rows if row.get("is_target_4916") is True or row.get("out_len") == 4916]
@@ -270,10 +273,12 @@ def parse_ownget_artifacts(path: Path) -> dict[str, Any]:
         "rows": rows,
         "errors": errors,
         "namespace_events": namespace_events,
+        "symbol_events": symbol_events,
         "malformed_lines": malformed,
         "row_count": len(rows),
         "error_count": len(errors),
         "namespace_event_count": len(namespace_events),
+        "symbol_event_count": len(symbol_events),
         "target_4916_count": len(target),
         "raw_file_count": len(raw_files),
         "missing_raw_seq": missing_raw,
