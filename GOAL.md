@@ -272,30 +272,29 @@ it needs hardware/data not available (e.g. creds for full Wi-Fi validation), it 
 with no safe next step, or it would only re-confirm established facts (diminishing returns).
 **When you change tier, record the trigger** in that iteration's report.
 
-## Current audio frontier update (V2428)
+## Current audio frontier update (V2429)
 
-V2428 completed the exact-gated Android/Magisk M0 rerun after V2427 clone-child resume
-hardening. The Android handoff, ADB/root settle, staging, playback Activity launch, artifact
-pull, cleanup, checked rollback to V2321, and final native `selftest fail=0` all passed. The
-fixed helper observed and resumed cloned child TID `4619` (`clone-child-resumed` in private
-JSONL), and logcat proved the same TID later ran the Android-good speaker/ACDB path
-(`select_devices` to speaker `acdb 15`, ACDB loader topology/table/calibration calls,
-`AUDIO_SET_AUDPROC_CAL`, and `AUDIO_SET_AFE_CAL`). The target process also had fd
-`13 -> /dev/msm_audio_cal`.
+V2428 completed the fixed Android/Magisk M0 rerun and justified M1: the helper resumed the
+same worker TID that logcat showed running the speaker/ACDB path with `/dev/msm_audio_cal`
+open, yet still captured `0` calibration ioctls. V2429 then completed the host-only M1
+planner. It builds a private temporary Magisk `service.sh` module that packages the same
+V2423 thread-set clone-following observer earlier in Android boot/service lifetime, using
+`service.sh` late_start mode rather than blocking `post-fs-data`.
 
-Despite that, the fixed staged/running M0 observer still captured `0` `/dev/msm_audio_cal`
-ioctl entries. This closes the prior M0 implementation-gap explanations: staging/root,
-main-thread-only tracing, and clone-child resume were all addressed. The remaining practical
-discriminator is Android-side placement/timing.
+M1 remains Android-good **measurement/packaging** only. The generated private module zip is
+under `workspace/private/builds/audio/v2429-acdb-m1-magisk-module/` and is not tracked. It
+does not open `/dev/msm_audio_cal`, issue calibration ioctls, replay native audio, write
+native speaker/mixer/PCM state, or become a native-init dependency. Future live activation is
+separate and exact-gated:
 
-Magisk remains an Android-good **measurement/packaging** layer, not a native-init runtime
-dependency. M1 is now justified as the next **host-only design/planner** unit, but only in the
-Wi-Fi-style sense: a temporary Android-side Magisk module/service may package the same
-observer earlier in boot/service lifetime, changing delivery timing only. It must not open
-`/dev/msm_audio_cal`, issue calibration ioctls, replay native audio, become persistent, or
-ship as a native-init dependency. Native replay remains blocked until raw ioctl command
-order, decoded headers, private payload hashes, mem-handle policy, and cleanup behavior are
-pinned.
+```text
+AUD-5G-acdb-m1-magisk-module-capture go: rollbackable Android AudioTrack speaker msm_audio_cal ioctl payload capture with temporary Magisk service module, no native calibration ioctl, no native speaker write, cleanup module and rollback to V2321
+```
+
+Next meaningful unit is a single checked Android live M1 run with that exact gate, module
+cleanup, artifact pull, and rollback to V2321. Native replay remains blocked until raw ioctl
+command order, decoded headers, private payload hashes, mem-handle policy, and cleanup
+behavior are pinned.
 
 ## Read at the START of every iteration
 
