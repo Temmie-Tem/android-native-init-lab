@@ -189,6 +189,8 @@ mkdir -p {shlex.quote(REMOTE_DIR)} {shlex.quote(REMOTE_DIR + '/delta')}
 chmod 700 {shlex.quote(REMOTE_DIR)} {shlex.quote(REMOTE_DIR + '/delta')}
 ls -ld {shlex.quote(REMOTE_DIR)} {shlex.quote(REMOTE_DIR + '/delta')}
 ls -l /vendor/etc/acdbdata 2>/dev/null || true
+ls -ld /vendor/etc/audconf /vendor/etc/audconf/OPEN 2>/dev/null || true
+find /vendor/etc/audconf -maxdepth 2 -type f -name '*.acdb' -exec ls -l {{}} \\; 2>/dev/null | sort || true
 ls -l /vendor/lib/libacdbloader.so /vendor/lib/libaudcal.so 2>/dev/null || true
 """.strip()
     return adb_su(args, script)

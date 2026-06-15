@@ -64,6 +64,10 @@ class NativeAudioAcdbOwnprocessGetV2490(unittest.TestCase):
         flat_commands = json.dumps(payload["commands"], sort_keys=True)
         self.assertIn("/data/local/tmp/a90-acdb-ownget/libaudcal.so", flat_commands)
         self.assertIn("LD_LIBRARY_PATH=/data/local/tmp/a90-acdb-ownget:", flat_commands)
+        self.assertIn("/vendor/etc/acdbdata", flat_commands)
+        self.assertIn("/vendor/etc/audconf/OPEN", flat_commands)
+        self.assertIn("find /vendor/etc/audconf", flat_commands)
+        self.assertIn("-exec ls -l", flat_commands)
         if payload["acdb_dependencies"].get("source_kind") == "v2506-vendor-ext4-closure":
             self.assertIn("/data/local/tmp/a90-acdb-ownget/libdiag.so", flat_commands)
         self.assertNotIn("magisk --install-module", flat_commands)
