@@ -658,9 +658,13 @@ request distribution `AUDIO_ALLOCATE_CALIBRATION`×26, `AUDIO_DEALLOCATE_CALIBRA
 `AUDIO_SET_CALIBRATION`×1. The captured public headers show calibration handles `17..41`, then
 `CORE_CUSTOM_TOPOLOGIES_CAL_TYPE` handle `37` deallocate/reallocate and `AUDIO_SET_CALIBRATION` with
 `cal_size=4916`, `mem_handle=37`; raw buffers remain private and only SHA-256 hashes are committed.
-Next meaningful unit is host-only N3 decode/replay design from the V2461 private payloads: decode the
-raw buffers against `msm_audio_calibration.h`, document ownership/mem-handle lifetime/cleanup policy,
-and define a bounded native replay gate. Do **not** issue native calibration ioctls yet.
+V2462 completed the host-only decode/replay design and corrected the replay boundary: the kernel copies
+only `data_size=32` bytes from each ioctl argument, so the observer's 512-byte tail is stale/unconsumed;
+`mem_handle=37` is a process-local dma-buf fd imported via `dma_buf_get()`, and the 4916-byte topology
+payload was not captured in V2461. Native ACDB replay remains blocked until an Android-good observer
+captures or reconstructs the dmabuf payload bytes, length, hash, and cleanup policy. Next meaningful
+unit is a host-only Android-good dmabuf-payload capture design/implementation for the V2461
+`AUDIO_SET_CALIBRATION` mem_handle. Do **not** issue native calibration ioctls yet.
 
 ## Read at the START of every iteration
 
