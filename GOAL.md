@@ -85,6 +85,39 @@ ADSP subsystem-restart and `tinymix`/PCM/`tinyplay` writes are reboot-recoverabl
 auto-rolls-back to `v2321`. Forbidden-partition rules remain absolute. Keep audio writes to
 observed/known-good routes and bounded amplitude (no blind smart-amp gain/boost poking).
 
+> **⚡ OPERATOR NUDGE (2026-06-15) — supersedes the trailing "Next meaningful unit" in the ledger.**
+> The cross-process dmabuf/source-buffer capture line (V2463–V2473) has hit a *genuine* wall, not a
+> flake: the 4916-byte `CORE_CUSTOM_TOPOLOGIES` payload lives in a dma-buf that is **opaque to
+> cross-process inspection** (procfs fd reopen → `ENXIO`, owner-VA read → `EIO`, early-dup → `ENXIO`).
+> **Do not keep iterating cross-process capture variants** (file-read source-buffer included). The
+> V2473 file-read rerun may run **at most once** as a cheap correlation check; if it does not yield the
+> `cal_type=39 cal_size=4916` bytes, **stop that theme** — it is being handled host-side by the operator.
+>
+> **Host-side handling (operator track, runs in parallel — do NOT duplicate it):** the payload is
+> produced by `libacdbloader.so` export `acdb_loader_send_common_custom_topology`, fetched from the
+> `.acdb` DB via internal `ACDB_CMD_GET_AVCS_CUSTOM_TOPO_INFO` (engine-assembled, *not* a verbatim file
+> slice). Host RE confirmed the clean capture point: `acdb_ioctl` (imported by `libacdbloader.so`
+> from `libaudcal.so`, signature pinned) is **`LD_PRELOAD`-interposable inside the audio HAL process**,
+> and the topology bytes pass through it (`out_len==4916`) **before** the dma-buf copy — bypassing
+> dmabuf opacity, `.acdb` format RE, `acdb_loader_init_v4` RE, and audioserver ptrace. **Build the
+> interposition helper per the operator spec:
+> `docs/OPERATOR_ACDB_IOCTL_INTERPOSE_CAPTURE_SPEC_2026-06-15.md`** (32-bit `armeabi-v7a` `acdb_ioctl`
+> wrapper → dump `out_buf` when `out_len==4916`, inject into `android.hardware.audio.service`, restart
+> HAL then play). Capture is measurement-only; raw bytes private; native ioctls still blocked.
+>
+> **Your parallel substantive track NOW = payload-independent native ACDB replay scaffolding** (per the
+> V2462 design): ION/dma-buf allocation of the captured length, the `AUDIO_ALLOCATE`/`DEALLOCATE`/`SET`
+> ioctl-sequence runner, keep `/dev/msm_audio_cal` + dmabuf fds open across the bounded PCM probe, and
+> explicit `AUDIO_DEALLOCATE` + fd-close cleanup. Build/test host-only against a **placeholder payload**;
+> drop in the real bytes once the operator RE track delivers them. **Native calibration ioctls remain
+> BLOCKED live** until the real payload bytes/length/SHA-256/mem-handle/cleanup policy are pinned
+> (V2462/V2414 boundary unchanged).
+>
+> **Also stage for host cross-validation** (host-only copies under `workspace/private/`, never commit):
+> the `.acdb` data files from the device `/vendor/etc/acdbdata`, and the ACDB dep libs `libaudcal.so`,
+> `libacdb-fts.so`, `libacdbrtac.so`, `libadiertac.so`. Recoverable envelope, checked rollback to
+> `v2321`, and anti-churn/fails-twice guards all stay in force.
+
 - **AUD-0 — host-only inventory & decision basis.** From the stock AP/`vendor` image (extract
   host-side; treat as proprietary, keep under `workspace/private/`, never commit), enumerate: audio
   `.ko` modules, the **`adsp` firmware** image, **ACDB** `.acdb` files, `mixer_paths*.xml`,
