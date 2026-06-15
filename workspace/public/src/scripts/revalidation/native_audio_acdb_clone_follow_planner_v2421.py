@@ -230,12 +230,21 @@ def adb_push(args: argparse.Namespace, local: str, remote: str) -> list[str]:
 
 
 def stage_commands(args: argparse.Namespace, bundle: dict[str, Any]) -> list[list[str]]:
-    binary_path = bundle.get("build", {}).get("binary", {}).get("path") or rel(args.helper_out_dir / "a90_acdb_ioctl_capture_clone_v2421")
-    script_path = bundle.get("build", {}).get("controller_script", {}).get("path") or rel(args.helper_out_dir / "a90_acdb_clone_follow_capture.sh")
+    build_manifest = bundle.get("build", {})
+    binary_path = (
+        build_manifest.get("build", {}).get("binary", {}).get("path")
+        or build_manifest.get("binary", {}).get("path")
+        or rel(args.helper_out_dir / "a90_acdb_ioctl_capture_clone_v2421")
+    )
+    script_path = (
+        build_manifest.get("controller_script", {}).get("path")
+        or rel(args.helper_out_dir / "a90_acdb_clone_follow_capture.sh")
+    )
     return [
         adb_root_shell(args, f"rm -rf {DEFAULT_REMOTE_DIR} && mkdir -p {DEFAULT_REMOTE_DIR} {REMOTE_ARTIFACT_DIR} && chmod 700 {DEFAULT_REMOTE_DIR} {REMOTE_ARTIFACT_DIR}"),
         adb_push(args, binary_path, REMOTE_HELPER),
         adb_push(args, script_path, REMOTE_SCRIPT),
+        adb_base(args) + ["install", "-r", rel(args.stimulus_apk)],
         adb_root_shell(args, f"chmod 700 {REMOTE_HELPER} {REMOTE_SCRIPT} && chmod 700 {REMOTE_ARTIFACT_DIR}"),
     ]
 
@@ -250,6 +259,10 @@ def capture_start_command(args: argparse.Namespace) -> list[str]:
 
 def collect_command(args: argparse.Namespace) -> list[str]:
     return adb_base(args) + ["pull", REMOTE_ARTIFACT_DIR, "<private-run-dir>/device-artifacts"]
+
+
+def prepare_collect_command(args: argparse.Namespace) -> list[str]:
+    return adb_root_shell(args, f"chmod 644 {REMOTE_ARTIFACT_DIR}/* 2>/dev/null || true")
 
 
 def cleanup_commands(args: argparse.Namespace) -> list[list[str]]:
@@ -354,6 +367,7 @@ def dry_run_payload(args: argparse.Namespace) -> dict[str, Any]:
         },
         "playback_start_background": v2415.route.playback_start_command(route_args),
         "post_capture_wait_sec": args.capture_duration_sec + 1,
+        "prepare_private_artifacts_for_pull": prepare_collect_command(args),
         "collect_private_artifacts": collect_command(args),
         "cleanup": cleanup_commands(args),
         "android_reboot_recovery_for_rollback": v2415.route.android_reboot_recovery_command(route_args),

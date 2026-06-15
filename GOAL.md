@@ -272,26 +272,35 @@ it needs hardware/data not available (e.g. creds for full Wi-Fi validation), it 
 with no safe next step, or it would only re-confirm established facts (diminishing returns).
 **When you change tier, record the trigger** in that iteration's report.
 
-## Current audio frontier update (V2421)
+## Current audio frontier update (V2422)
 
-V2421 completed the host-only clone-following ACDB payload observer checkpoint. The new
-Android-side helper attaches to the audio process before playback, enables
-`PTRACE_O_TRACECLONE`, follows worker TIDs through `PTRACE_GETEVENTMSG`, filters ioctl
-syscall stops to fds resolving to `/dev/msm_audio_cal`, and copies bounded request bytes to
-private JSONL only. The generated controller now starts one clone-following helper per audio
-process instead of polling `/proc/<pid>/task/*` and starting late per-TID helpers. Private
-AArch64 static helper build and dry-run validation passed; no Android boot, no native flash,
-no playback, and no calibration ioctl ran in V2421.
+V2422 executed the exact-gated Android-good clone-following ACDB payload capture and
+rolled back to V2321 with final `selftest fail=0`. The live route was healthy: checked
+Android boot, Magisk root, APK install/launch, `AudioTrack` playback, private artifact
+pull, cleanup, and checked rollback all passed. The observer started for the audio HAL
+process and `audioserver`, but it attached only one TID per process (`795`, `933`), saw
+`clone_events=0`, and captured `0` `/dev/msm_audio_cal` ioctl entries.
+
+This is not an ACDB-negative result. Logcat from the same capture proves the speaker
+ACDB edge happened in audio HAL worker TID `4158`: `send_app_type_cfg_for_device
+PLAYBACK app_type 69941, acdb_dev_id 15, sample_rate 48000`, `ACDB ->
+send_audio_cal acdb_id=15 path=0 app id=0x11135`, `AUDIO_SET_AUDPROC_CAL
+cal_type[11]`, and `AUDIO_SET_AFE_CAL cal_type[16]`. PID `795` had
+`/dev/msm_audio_cal` open, and the initial task snapshot did not include TID `4158`.
+The measured blocker is observer coverage: `PTRACE_O_TRACECLONE` only follows clones
+created by traced TIDs, so tracing only the process-main TID misses workers created by
+other existing HAL threads.
 
 Magisk remains an Android-good **measurement/packaging** layer, not a native-init runtime
-dependency. The Wi-Fi precedent is now encoded explicitly: M0 is the default transient
-Magisk-root helper staged under `/data/local/tmp`; M1 is only a separate exact-gated
-temporary Magisk-module packaging fallback if clone-following M0 cannot attach early enough
-after Android handoff or must be active before the audio HAL process starts. M1 must package
-the same clone-following observer and changes delivery timing only; it must not revert to
-the old polling-only watcher. Next meaningful unit is V2422 exact-gated Android live rerun
-with the V2421 observer. Native replay remains blocked until raw ioctl command order,
-decoded headers, private payload hashes, and cleanup policy are pinned.
+dependency. The Wi-Fi precedent still applies, but M1 is not the next step yet: first
+fix M0 by attaching every existing TID in each target process and enabling clone-following
+on every traced TID. M1 temporary Magisk module is justified only if that hybrid M0 route
+still misses a logcat-proven ACDB edge because the observer must be active before the
+audio HAL process or worker pool exists. If M1 is used later, it must package the same
+hybrid observer and only change delivery timing. Next meaningful unit is V2423 host-only
+hybrid attach-all-existing-TIDs + clone-following observer support. Native replay remains
+blocked until raw ioctl command order, decoded headers, private payload hashes, and
+cleanup policy are pinned.
 
 ## Read at the START of every iteration
 
