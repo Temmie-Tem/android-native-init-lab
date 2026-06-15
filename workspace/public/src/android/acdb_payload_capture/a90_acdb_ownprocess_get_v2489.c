@@ -1,11 +1,12 @@
 /*
  * V2489 ARM32 own-process ACDB pure-read GET probe.
  *
- * Built as a freestanding 32-bit PIE with a custom _start.  It loads the stock
- * ACDB libraries with absolute-path dlopen(), resolves acdb_loader_init_v3() and
- * acdb_ioctl(), initializes the ACDB database path, then issues a bounded set
- * of read-only GET command candidates from the operator RE update.  It does
- * not touch the native calibration device or calibration SET path.
+ * Built as a freestanding 32-bit PIE with a custom _start.  It resolves the
+ * Android linker namespace APIs from libdl, loads the stock ACDB libraries from
+ * a visible vendor namespace, resolves acdb_loader_init_v3() and acdb_ioctl(),
+ * initializes the ACDB database path, then issues a bounded set of read-only GET
+ * command candidates from the operator RE update.  It does not touch the native
+ * calibration device or calibration SET path.
  *
  * Runtime output directory must already exist:
  *   /data/local/tmp/a90-acdb-ownget
@@ -22,11 +23,15 @@ extern void *dlsym(void *handle, const char *symbol);
 extern char *dlerror(void);
 
 #define A90_RTLD_NOW 2
+#define A90_ANDROID_DLEXT_USE_NAMESPACE 0x200ULL
 
 #define A90_ACDB_FILES_PATH "/vendor/etc/acdbdata"
 #define A90_DELTA_DIR "/data/local/tmp/a90-acdb-ownget/delta"
 #define A90_EVENTS_PATH "/data/local/tmp/a90-acdb-ownget/acdb-ownget-events.jsonl"
 #define A90_RAW_PREFIX "/data/local/tmp/a90-acdb-ownget/acdb-ownget-"
+#define A90_LIBDL "libdl.so"
+#define A90_LIBAUDCAL "/vendor/lib/libaudcal.so"
+#define A90_LIBACDBLOADER "/vendor/lib/libacdbloader.so"
 
 #define A90_TARGET_OUT_LEN 4916U
 #define A90_SIZE_QUERY_OUT_LEN 4U
@@ -54,6 +59,22 @@ typedef int32_t (*a90_acdb_ioctl_fn)(uint32_t cmd, const uint8_t *in_buf,
                                      uint32_t in_len, uint8_t *out_buf,
                                      uint32_t out_len);
 
+typedef struct a90_android_namespace a90_android_namespace;
+
+struct a90_android_dlextinfo {
+    uint64_t flags;
+    void *reserved_addr;
+    size_t reserved_size;
+    int relro_fd;
+    int library_fd;
+    uint64_t library_fd_offset;
+    a90_android_namespace *library_namespace;
+};
+
+typedef a90_android_namespace *(*a90_android_get_exported_namespace_fn)(const char *name);
+typedef void *(*a90_android_dlopen_ext_fn)(const char *filename, int flags,
+                                           const struct a90_android_dlextinfo *extinfo);
+
 struct a90_sha256 {
     uint32_t h[8];
     uint64_t bits;
@@ -79,6 +100,13 @@ static const uint32_t a90_in_lens[] = {
 static const uint32_t a90_out_lens[] = {
     A90_SIZE_QUERY_OUT_LEN,
     A90_TARGET_OUT_LEN,
+};
+
+static const char *const a90_namespace_names[] = {
+    "sphal",
+    "vendor",
+    "default",
+    "vndk",
 };
 
 static uint8_t a90_input[A90_MAX_IN_LEN];
@@ -478,6 +506,74 @@ static void a90_write_error_event(const char *stage, int32_t code, const char *d
     a90_close(fd);
 }
 
+static void a90_write_namespace_probe_event(const char *name, int found)
+{
+    int fd = a90_open_append(A90_EVENTS_PATH);
+    if (fd < 0)
+        return;
+    a90_write_str(fd, "{\"event\":\"namespace_probe\",\"name\":\"");
+    a90_write_json_escaped(fd, name, 64U);
+    a90_write_str(fd, "\",\"found\":");
+    a90_write_str(fd, found ? "true" : "false");
+    a90_write_str(fd, ",\"pid\":");
+    a90_write_dec(fd, a90_getpid());
+    a90_write_str(fd, ",\"tid\":");
+    a90_write_dec(fd, a90_gettid());
+    a90_write_str(fd, "}\n");
+    a90_close(fd);
+}
+
+static void a90_write_namespace_load_event(const char *name, const char *library,
+                                           int ok, const char *detail)
+{
+    int fd = a90_open_append(A90_EVENTS_PATH);
+    if (fd < 0)
+        return;
+    a90_write_str(fd, "{\"event\":\"namespace_load\",\"name\":\"");
+    a90_write_json_escaped(fd, name, 64U);
+    a90_write_str(fd, "\",\"library\":\"");
+    a90_write_json_escaped(fd, library, 160U);
+    a90_write_str(fd, "\",\"ok\":");
+    a90_write_str(fd, ok ? "true" : "false");
+    a90_write_str(fd, ",\"pid\":");
+    a90_write_dec(fd, a90_getpid());
+    a90_write_str(fd, ",\"tid\":");
+    a90_write_dec(fd, a90_gettid());
+    if (detail && detail[0]) {
+        a90_write_str(fd, ",\"detail\":\"");
+        a90_write_json_escaped(fd, detail, 512U);
+        a90_write_str(fd, "\"");
+    }
+    a90_write_str(fd, "}\n");
+    a90_close(fd);
+}
+
+static void a90_write_namespace_selected_event(const char *name)
+{
+    int fd = a90_open_append(A90_EVENTS_PATH);
+    if (fd < 0)
+        return;
+    a90_write_str(fd, "{\"event\":\"namespace_selected\",\"name\":\"");
+    a90_write_json_escaped(fd, name, 64U);
+    a90_write_str(fd, "\",\"pid\":");
+    a90_write_dec(fd, a90_getpid());
+    a90_write_str(fd, ",\"tid\":");
+    a90_write_dec(fd, a90_gettid());
+    a90_write_str(fd, "}\n");
+    a90_close(fd);
+}
+
+static void *a90_android_dlopen_in_namespace(a90_android_dlopen_ext_fn dlopen_ext_fn,
+                                             const char *library,
+                                             a90_android_namespace *namespace_handle)
+{
+    struct a90_android_dlextinfo extinfo = {0};
+    extinfo.flags = A90_ANDROID_DLEXT_USE_NAMESPACE;
+    extinfo.library_namespace = namespace_handle;
+    (void)dlerror();
+    return dlopen_ext_fn(library, A90_RTLD_NOW, &extinfo);
+}
+
 static void a90_write_call_event(uint32_t seq, uint32_t cmd, uint32_t in_len,
                                  uint32_t out_len, int32_t ret,
                                  const uint8_t digest[32], const char *raw_path)
@@ -540,8 +636,15 @@ void _start(void)
     uint32_t j;
     uint32_t k;
     int32_t init_ret;
+    int namespace_seen = 0;
+    const char *selected_namespace_name = (const char *)0;
+    a90_android_namespace *namespace_handle;
+    a90_android_namespace *selected_namespace = (a90_android_namespace *)0;
+    void *libdl;
     void *audcal;
     void *loader;
+    a90_android_get_exported_namespace_fn get_namespace_fn;
+    a90_android_dlopen_ext_fn dlopen_ext_fn;
     a90_acdb_loader_init_v3_fn init_v3;
     a90_acdb_ioctl_fn acdb_ioctl_fn;
 
@@ -549,33 +652,84 @@ void _start(void)
         a90_input[i] = 0;
 
     (void)dlerror();
-    audcal = dlopen("/vendor/lib/libaudcal.so", A90_RTLD_NOW);
-    if (!audcal) {
-        a90_write_error_event("dlopen-libaudcal", -1, dlerror());
+    libdl = dlopen(A90_LIBDL, A90_RTLD_NOW);
+    if (!libdl) {
+        a90_write_error_event("dlopen-libdl", -1, dlerror());
         a90_exit(21);
     }
     (void)dlerror();
-    loader = dlopen("/vendor/lib/libacdbloader.so", A90_RTLD_NOW);
-    if (!loader) {
-        a90_write_error_event("dlopen-libacdbloader", -2, dlerror());
+    get_namespace_fn = (a90_android_get_exported_namespace_fn)dlsym(
+        libdl, "android_get_exported_namespace");
+    if (!get_namespace_fn) {
+        a90_write_error_event("dlsym-android_get_exported_namespace", -2, dlerror());
         a90_exit(22);
     }
     (void)dlerror();
+    dlopen_ext_fn = (a90_android_dlopen_ext_fn)dlsym(libdl, "android_dlopen_ext");
+    if (!dlopen_ext_fn) {
+        a90_write_error_event("dlsym-android_dlopen_ext", -3, dlerror());
+        a90_exit(23);
+    }
+
+    audcal = (void *)0;
+    for (i = 0; i < sizeof(a90_namespace_names) / sizeof(a90_namespace_names[0]); i++) {
+        namespace_handle = get_namespace_fn(a90_namespace_names[i]);
+        a90_write_namespace_probe_event(a90_namespace_names[i],
+                                        namespace_handle != (a90_android_namespace *)0);
+        if (!namespace_handle)
+            continue;
+        namespace_seen = 1;
+        audcal = a90_android_dlopen_in_namespace(dlopen_ext_fn, A90_LIBAUDCAL,
+                                                 namespace_handle);
+        if (audcal) {
+            selected_namespace = namespace_handle;
+            selected_namespace_name = a90_namespace_names[i];
+            a90_write_namespace_load_event(selected_namespace_name, A90_LIBAUDCAL,
+                                           1, (const char *)0);
+            a90_write_namespace_selected_event(selected_namespace_name);
+            break;
+        }
+        a90_write_namespace_load_event(a90_namespace_names[i], A90_LIBAUDCAL,
+                                       0, dlerror());
+    }
+    if (!audcal) {
+        if (!namespace_seen) {
+            a90_write_error_event("namespace-none-visible", -4, (const char *)0);
+            a90_exit(24);
+        }
+        a90_write_error_event("namespace-visible-load-failed-libaudcal", -5,
+                              (const char *)0);
+        a90_exit(25);
+    }
+
+    loader = a90_android_dlopen_in_namespace(dlopen_ext_fn, A90_LIBACDBLOADER,
+                                             selected_namespace);
+    if (!loader) {
+        a90_write_namespace_load_event(selected_namespace_name, A90_LIBACDBLOADER,
+                                       0, dlerror());
+        a90_write_error_event("android_dlopen_ext-libacdbloader", -6,
+                              (const char *)0);
+        a90_exit(26);
+    }
+    a90_write_namespace_load_event(selected_namespace_name, A90_LIBACDBLOADER,
+                                   1, (const char *)0);
+
+    (void)dlerror();
     init_v3 = (a90_acdb_loader_init_v3_fn)dlsym(loader, "acdb_loader_init_v3");
     if (!init_v3) {
-        a90_write_error_event("dlsym-acdb_loader_init_v3", -3, dlerror());
-        a90_exit(23);
+        a90_write_error_event("dlsym-acdb_loader_init_v3", -7, dlerror());
+        a90_exit(27);
     }
     (void)dlerror();
     acdb_ioctl_fn = (a90_acdb_ioctl_fn)dlsym(audcal, "acdb_ioctl");
     if (!acdb_ioctl_fn) {
-        a90_write_error_event("dlsym-acdb_ioctl", -4, dlerror());
-        a90_exit(24);
+        a90_write_error_event("dlsym-acdb_ioctl", -8, dlerror());
+        a90_exit(28);
     }
     init_ret = init_v3(A90_ACDB_FILES_PATH, A90_DELTA_DIR, 0U);
     if (init_ret != 0) {
         a90_write_error_event("acdb_loader_init_v3", init_ret, (const char *)0);
-        a90_exit(25);
+        a90_exit(29);
     }
 
     for (i = 0; i < sizeof(a90_commands) / sizeof(a90_commands[0]); i++) {
