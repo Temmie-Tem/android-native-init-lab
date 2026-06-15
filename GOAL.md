@@ -508,11 +508,25 @@ the dedicated post-module ADB wait budget to `300s`, above the observed V2445 `2
 return. The dry-run records `adb_wait_timeout_sec=300.0` and
 `v2446_observed_v2445_adb_return_sec=206.359`; materialized dry-run is
 `future_live_ready=true` with command safety clean. Focused tests pass (`8`), full unittest
-discovery passes (`1222`), and `git diff --check` passes. Next meaningful unit is
-**V2447 exact-gated live rerun** using the V2446 runner. First success criterion remains
-helper JSONL startup/trace telemetry; if the longer wait reaches playback but still captures
-zero ioctls while logcat shows the ACDB edge, classify the helper ptrace/filter/timing
-boundary before any native replay.
+discovery passes (`1222`), and `git diff --check` passes.
+
+V2447 ran the exact-gated live rerun with the V2446 runner. The new post-module wait budget
+worked: Android ADB returned after the Magisk module activation reboot in `191.618s` under
+the `300s` timeout, Magisk root was ready, playback and artifact collection ran, cleanup
+completed, and checked rollback returned the device to V2321 with independent
+`selftest fail=0`. The temporary Magisk module path is therefore valid as a Wi-Fi-style
+Android-good measurement capsule: boot-time helper packaging, service hooks, vendor-log
+probes, exact cleanup, and rollback are usable. It is **not** a native-init runtime
+dependency. The capture result remains negative: `10` threadset helpers started,
+`138` tracees were added, `90` clone events were followed, and audio HAL worker TID
+`12004` (the logcat-proven ACDB worker) was attached, but the helper captured `0`
+`/dev/msm_audio_cal` ioctl entries/exits while logcat showed `send_app_type_cfg_for_device`
+and `ACDB -> send_audio_cal acdb_id=15`. Next meaningful unit is **V2448 host-only
+artifact/capture-method analysis**: do not blind-rerun M1; classify the ptrace syscall
+state machine, clone/syscall sequencing, fd-resolution timing, and timestamp gaps, then add
+future helper timestamps or switch capture method only if that analysis justifies it. Native
+ACDB replay remains blocked until command sequence, decoded headers, payload hashes, and
+cleanup policy are pinned.
 
 ## Read at the START of every iteration
 
