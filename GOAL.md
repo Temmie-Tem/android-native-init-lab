@@ -611,9 +611,17 @@ V2456 preflight is now complete without flash/playback: bridge is reachable, V23
 `version/status/selftest verbose` passed with `fail=0`, checked V2321 `--verify-only` passed,
 V2321/V2237/V48 rollback inputs are present, and the materialized V2451/V2455 dry-run reports
 `future_live_ready=true`, `command_safety_ok=true`, `stage_wait_count=10`,
-`boot_complete_soft_gate=true`, and `root_check_hard_gate=true`. The exact AUD-5L phrase is
-still required before the live Android handoff/flash/playback rerun; absent that phrase, stop at
-preflight.
+`boot_complete_soft_gate=true`, and `root_check_hard_gate=true`. After the 2026-06-15
+principle-based preauthorization update, V2456 then executed the AUD-5L live rerun inside the
+recoverable envelope: Android flash via checked helper passed, Android ADB and boot-complete
+recheck passed, but the initial `adb shell su -c id` root recheck returned rc `0` with empty
+stdout/stderr, so the runner failed closed before module staging, late observer startup, playback,
+or artifact collection. Cleanup confirmed no M1 module/run-dir residue, checked rollback to V2321
+passed, and final `selftest verbose` returned `fail=0`. This is not ACDB payload evidence and not
+a negative payload result. Next meaningful unit is host-only runner hardening for this
+`root-output-empty` gap: classify the empty-output case distinctly, add bounded root reprobe/retry
+metadata, keep `uid=0` as the hard gate before late observer/playback, and do not rerun AUD-5L
+unchanged.
 
 ## Read at the START of every iteration
 
