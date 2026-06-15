@@ -148,11 +148,16 @@ echo "A90_V2415_CAPTURE_BEGIN duration=$DURATION max_bytes=$MAX_BYTES" > "$OUT/c
 (ps -A 2>/dev/null || ps 2>/dev/null || true) > "$OUT/ps-before.txt"
 (pidof android.hardware.audio.service 2>/dev/null || true) > "$OUT/audio-hal-pids.txt"
 (pidof audioserver 2>/dev/null || true) > "$OUT/audioserver-pids.txt"
+HELPER_PIDS=""
 for pid in $(cat "$OUT/audio-hal-pids.txt" "$OUT/audioserver-pids.txt" 2>/dev/null | tr ' ' '\n' | sort -u); do
   [ -n "$pid" ] || continue
   [ -r "/proc/$pid/maps" ] && cat "/proc/$pid/maps" > "$OUT/proc-$pid-maps.txt" || true
   [ -r "/proc/$pid/fd" ] && ls -l "/proc/$pid/fd" > "$OUT/proc-$pid-fd.txt" 2>&1 || true
-  "$HELPER" --pid "$pid" --out "$OUT/msm-audio-cal-ioctl-$pid.jsonl" --duration-sec "$DURATION" --max-bytes "$MAX_BYTES" >> "$OUT/capture-controller.log" 2>&1 || true
+  "$HELPER" --pid "$pid" --out "$OUT/msm-audio-cal-ioctl-$pid.jsonl" --duration-sec "$DURATION" --max-bytes "$MAX_BYTES" >> "$OUT/capture-controller.log" 2>&1 &
+  HELPER_PIDS="$HELPER_PIDS $!"
+done
+for helper_pid in $HELPER_PIDS; do
+  wait "$helper_pid" || true
 done
 echo "A90_V2415_CAPTURE_END" >> "$OUT/capture-controller.log"
 exit 0
@@ -269,6 +274,10 @@ def collect_command(args: argparse.Namespace) -> list[str]:
     return adb_base(args) + ["pull", REMOTE_ARTIFACT_DIR, "<private-run-dir>/device-artifacts"]
 
 
+def prepare_collect_command(args: argparse.Namespace) -> list[str]:
+    return adb_root_shell(args, f"chmod 644 {REMOTE_ARTIFACT_DIR}/* 2>/dev/null || true")
+
+
 def cleanup_commands(args: argparse.Namespace) -> list[list[str]]:
     return [
         adb_base(args) + ["uninstall", route.APK_PACKAGE],
@@ -368,6 +377,7 @@ def dry_run_payload(args: argparse.Namespace) -> dict[str, Any]:
         },
         "playback_start_background": route.playback_start_command(route_args),
         "post_capture_wait_sec": args.capture_duration_sec + 1,
+        "prepare_private_artifacts_for_pull": prepare_collect_command(args),
         "collect_private_artifacts": collect_command(args),
         "cleanup": cleanup_commands(args),
         "android_reboot_recovery_for_rollback": route.android_reboot_recovery_command(route_args),

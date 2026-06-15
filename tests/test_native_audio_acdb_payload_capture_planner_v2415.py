@@ -44,7 +44,8 @@ def args(**overrides: object) -> argparse.Namespace:
 
 class AcdbPayloadCapturePlanner(unittest.TestCase):
     def test_dry_run_is_host_only_and_blocks_live_until_helper_materialized(self) -> None:
-        payload = v2415.dry_run_payload(args())
+        with tempfile.TemporaryDirectory() as temp_dir:
+            payload = v2415.dry_run_payload(args(helper_out_dir=Path(temp_dir) / "missing-helper"))
 
         self.assertTrue(payload["ok"])
         self.assertTrue(payload["host_only"])
@@ -89,6 +90,8 @@ class AcdbPayloadCapturePlanner(unittest.TestCase):
         self.assertEqual(commands["android_post_handoff_settle"][2], ["/opt/android/adb", "-s", "A90ADB01", "shell", "su", "-c", "id"])
         self.assertIn("a90_acdb_ioctl_capture_v2415", " ".join(" ".join(step) for step in commands["stage_capture_helper_and_stimulus"]))
         self.assertIn("A90AudioRouteStimulusActivity", " ".join(commands["playback_start_background"]))
+        self.assertIn("prepare_private_artifacts_for_pull", commands)
+        self.assertIn("chmod 644", " ".join(commands["prepare_private_artifacts_for_pull"]))
         self.assertIn("rollback_v2321", commands)
         self.assertIn("--expect-version", commands["rollback_v2321"])
         self.assertIn("0.9.285", commands["rollback_v2321"])
