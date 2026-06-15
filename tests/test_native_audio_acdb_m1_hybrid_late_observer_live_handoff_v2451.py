@@ -38,6 +38,7 @@ def args(**overrides: object) -> argparse.Namespace:
         "post_module_root_retry_attempts": v2451.v2450.DEFAULT_POST_MODULE_ROOT_RETRY_ATTEMPTS,
         "post_module_root_retry_sleep_sec": v2451.v2450.DEFAULT_POST_MODULE_ROOT_RETRY_SLEEP_SEC,
         "post_module_adb_wait_timeout": v2451.v2450.DEFAULT_POST_MODULE_ADB_WAIT_TIMEOUT_SEC,
+        "post_module_boot_complete_timeout_sec": v2451.DEFAULT_POST_MODULE_BOOT_COMPLETE_TIMEOUT_SEC,
         "helper_completion_timeout_sec": v2451.v2450.DEFAULT_HELPER_COMPLETION_TIMEOUT_SEC,
         "late_capture_duration_sec": v2451.DEFAULT_LATE_CAPTURE_DURATION_SEC,
         "late_helper_completion_timeout_sec": v2451.DEFAULT_LATE_HELPER_COMPLETION_TIMEOUT_SEC,
@@ -110,6 +111,19 @@ class AcdbM1HybridLateObserverLiveHandoffV2451(unittest.TestCase):
         self.assertIn("push", {item["stage_subcommand"] for item in waits})
         self.assertIn("install", {item["stage_subcommand"] for item in waits})
         self.assertEqual(waits[2]["stage_subcommand"], "shell")
+
+    def test_post_module_boot_complete_is_soft_gate_before_root(self) -> None:
+        payload = v2451.dry_run(args())
+        plan = payload["commands"]["android_post_module_reboot_settle"]
+        flat = json.dumps(plan, sort_keys=True)
+
+        self.assertTrue(plan["boot_complete_soft_gate"])
+        self.assertEqual(plan["boot_complete_timeout_sec"], v2451.DEFAULT_POST_MODULE_BOOT_COMPLETE_TIMEOUT_SEC)
+        self.assertTrue(plan["root_check_hard_gate"])
+        self.assertIn("A90_POST_MODULE_BOOT_COMPLETE_WAIT_BEGIN", flat)
+        self.assertIn("A90_POST_MODULE_BOOT_COMPLETE_NOT_READY", flat)
+        self.assertIn("root_check", plan)
+        self.assertIn("Magisk uid=0", payload["magisk_strategy"]["post_module_settle"])
 
     def test_late_observer_start_command_targets_audio_processes_with_supervisor(self) -> None:
         command = " ".join(v2451.late_observer_start_command(args()))

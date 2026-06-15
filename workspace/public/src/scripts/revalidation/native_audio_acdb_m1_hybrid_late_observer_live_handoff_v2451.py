@@ -37,6 +37,7 @@ ROOT = v2450.ROOT
 DEFAULT_OUT_BASE = ROOT / "workspace/private/runs/audio"
 DEFAULT_LATE_CAPTURE_DURATION_SEC = 60
 DEFAULT_LATE_HELPER_COMPLETION_TIMEOUT_SEC = 150.0
+DEFAULT_POST_MODULE_BOOT_COMPLETE_TIMEOUT_SEC = 180.0
 APPROVAL_PHRASE = (
     "AUD-5L-acdb-m1-hybrid-late-observer go: rollbackable Android AudioTrack speaker "
     "msm_audio_cal diagnostic ioctl capture with temporary Magisk service module plus "
@@ -207,6 +208,109 @@ def stage_wait_plan(args: argparse.Namespace) -> list[dict[str, Any]]:
     return waits
 
 
+def post_module_boot_complete_soft_command(args: argparse.Namespace) -> list[str]:
+    timeout = int(args.post_module_boot_complete_timeout_sec)
+    command = f"""
+set -eu
+TIMEOUT_SEC={timeout}
+DEADLINE="$(( $(date +%s) + TIMEOUT_SEC ))"
+sys=""
+dev=""
+echo A90_POST_MODULE_BOOT_COMPLETE_WAIT_BEGIN timeout_sec="$TIMEOUT_SEC"
+while [ "$(date +%s)" -le "$DEADLINE" ]; do
+  sys="$(getprop sys.boot_completed 2>/dev/null || true)"
+  dev="$(getprop dev.bootcomplete 2>/dev/null || true)"
+  if [ "$sys" = "1" ] || [ "$dev" = "1" ]; then
+    echo A90_POST_MODULE_BOOT_COMPLETE_READY sys="$sys" dev="$dev"
+    exit 0
+  fi
+  sleep 1
+done
+echo A90_POST_MODULE_BOOT_COMPLETE_NOT_READY sys="$sys" dev="$dev"
+exit 1
+"""
+    return v2396.adb_shell(args, command)
+
+
+def post_module_reboot_settle_plan(args: argparse.Namespace) -> dict[str, Any]:
+    commands = v2396.android_post_handoff_settle_commands(args)
+    return {
+        "initial_wait_for_device": commands[0],
+        "boot_complete_soft_recheck": post_module_boot_complete_soft_command(args),
+        "boot_complete_soft_gate": True,
+        "boot_complete_timeout_sec": args.post_module_boot_complete_timeout_sec,
+        "root_check": commands[2],
+        "root_check_hard_gate": True,
+        "root_retry_attempts": args.post_module_root_retry_attempts,
+        "root_retry_sleep_sec": args.post_module_root_retry_sleep_sec,
+        "adb_wait_timeout_sec": args.post_module_adb_wait_timeout,
+        "v2454_observed_wait_for_device_sec": 207.631,
+        "classification": (
+            "V2455 keeps long post-module ADB reacquire, records boot-complete as "
+            "soft telemetry, and still requires Magisk uid=0 before late observer/playback"
+        ),
+    }
+
+
+def run_post_module_reboot_settle(
+    args: argparse.Namespace,
+    out_dir: Path,
+    steps: list[dict[str, Any]],
+) -> None:
+    commands = v2396.android_post_handoff_settle_commands(args)
+    steps.append(route.run_step(
+        "android-post-module-reboot-settle-0-wait-for-device",
+        commands[0],
+        out_dir,
+        timeout_sec=args.post_module_adb_wait_timeout,
+    ))
+    boot_record = route.run_step(
+        "android-post-module-reboot-settle-1-boot-complete-soft",
+        post_module_boot_complete_soft_command(args),
+        out_dir,
+        timeout_sec=float(args.post_module_boot_complete_timeout_sec) + 10.0,
+        check=False,
+    )
+    boot_record["soft_gate"] = True
+    boot_record["boot_complete_ready"] = boot_record.get("rc") == 0
+    steps.append(boot_record)
+
+    last_record: dict[str, Any] | None = None
+    attempts = max(1, int(args.post_module_root_retry_attempts))
+    for attempt in range(1, attempts + 1):
+        wait_record = route.run_step(
+            f"android-post-module-reboot-root-wait-{attempt}",
+            commands[0],
+            out_dir,
+            timeout_sec=args.post_module_adb_wait_timeout,
+            check=False,
+        )
+        steps.append(wait_record)
+        root_record = route.run_step(
+            f"android-post-module-reboot-root-check-{attempt}",
+            commands[2],
+            out_dir,
+            timeout_sec=args.adb_command_timeout,
+            check=False,
+        )
+        steps.append(root_record)
+        last_record = root_record
+        stdout = v2396.step_stdout(root_record)
+        root_record["root_ready"] = "uid=0" in stdout
+        if root_record["root_ready"]:
+            root_record["settle_decision"] = "post-module-root-ready"
+            return
+        root_record["settle_decision"] = "post-module-root-not-ready"
+        if attempt != attempts:
+            time.sleep(float(args.post_module_root_retry_sleep_sec))
+
+    raise RuntimeError(
+        "post-module Android root recheck did not report uid=0 after "
+        f"{attempts} attempts; see {last_record.get('stdout') if last_record else 'no root attempt'} "
+        f"{last_record.get('stderr') if last_record else ''}"
+    )
+
+
 def summarize_late_subset(out_dir: Path) -> dict[str, Any]:
     artifact_root = out_dir / "device-artifacts"
     late_logs = sorted(artifact_root.rglob("late-observer.log")) if artifact_root.exists() else []
@@ -349,6 +453,7 @@ def dry_run(args: argparse.Namespace) -> dict[str, Any]:
     base = v2450.dry_run(args)
     route_args = v2396.android_args(args)
     commands = dict(base["commands"])
+    commands["android_post_module_reboot_settle"] = post_module_reboot_settle_plan(args)
     commands["start_late_diag_observer_after_post_module_settle"] = late_observer_start_command(args)
     commands["wait_for_late_diag_helper_completion"] = late_helper_completion_wait_command(args)
     commands["playback_order"] = [
@@ -380,6 +485,9 @@ def dry_run(args: argparse.Namespace) -> dict[str, Any]:
             "v2451_late_observer_start": "after post-module Android ADB/root settle and before AudioTrack playback",
             "v2451_late_helper_duration_sec": min(int(args.late_capture_duration_sec), v2449.HELPER_MAX_DURATION_SEC),
             "v2451_late_helper_completion_timeout_sec": args.late_helper_completion_timeout_sec,
+            "v2455_post_module_boot_complete_soft_gate": True,
+            "v2455_post_module_boot_complete_timeout_sec": args.post_module_boot_complete_timeout_sec,
+            "v2455_post_module_root_hard_gate": True,
             "native_runtime_dependency": False,
         }
     )
@@ -388,6 +496,7 @@ def dry_run(args: argparse.Namespace) -> dict[str, Any]:
         "boot_service": "temporary M1 module service for early observation only",
         "late_observer": "host-coordinated su-c supervisor from staged module helper",
         "native_init_dependency": False,
+        "post_module_settle": "boot-complete is telemetry; Magisk uid=0 root remains the hard gate before late observer/playback",
         "final_native_audio_path": "blocked until payload order, headers, hashes, mem-handle policy, and cleanup policy are pinned",
     }
     base["hard_boundary"] = list(base.get("hard_boundary", [])) + [
@@ -467,7 +576,7 @@ def run_live(args: argparse.Namespace) -> dict[str, Any]:
             steps.append(route.run_step(f"stage-{index}", command, out_dir, timeout_sec=args.adb_command_timeout))
 
         steps.append(route.run_step("android-reboot-for-magisk-service", v2450.android_reboot_command(args), out_dir, timeout_sec=args.adb_command_timeout, check=False))
-        v2450.run_post_module_reboot_settle(args, out_dir, steps)
+        run_post_module_reboot_settle(args, out_dir, steps)
 
         steps.append(route.run_step(
             "start-late-diag-observer-after-post-module-settle",
@@ -565,6 +674,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--post-module-root-retry-attempts", type=int, default=v2450.DEFAULT_POST_MODULE_ROOT_RETRY_ATTEMPTS)
     parser.add_argument("--post-module-root-retry-sleep-sec", type=float, default=v2450.DEFAULT_POST_MODULE_ROOT_RETRY_SLEEP_SEC)
     parser.add_argument("--post-module-adb-wait-timeout", type=float, default=v2450.DEFAULT_POST_MODULE_ADB_WAIT_TIMEOUT_SEC)
+    parser.add_argument("--post-module-boot-complete-timeout-sec", type=float, default=DEFAULT_POST_MODULE_BOOT_COMPLETE_TIMEOUT_SEC)
     parser.add_argument("--helper-completion-timeout-sec", type=float, default=v2450.DEFAULT_HELPER_COMPLETION_TIMEOUT_SEC)
     parser.add_argument("--late-capture-duration-sec", type=int, default=DEFAULT_LATE_CAPTURE_DURATION_SEC)
     parser.add_argument("--late-helper-completion-timeout-sec", type=float, default=DEFAULT_LATE_HELPER_COMPLETION_TIMEOUT_SEC)

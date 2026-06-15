@@ -587,12 +587,15 @@ temporary module with `A90_M1_INSTALL_OK`. The run then failed before late obser
 the post-module hard boot-complete recheck: after `adb wait-for-device` returned at about
 `207.6s`, `sys.boot_completed` and `dev.bootcomplete` stayed empty for the next 30s. Cleanup
 and checked V2321 rollback passed (`selftest fail=0`). This is still not ACDB evidence and not
-a negative payload result. Next meaningful unit is **V2455 host-only post-module settle
-hardening**: keep the long ADB wait, make the post-module boot-complete recheck a recorded soft
-gate or give it its own longer retry budget, continue requiring Magisk root before late
-observer/playback, expose this in dry-run/tests, and keep cleanup/rollback unchanged. Do not
-attempt native ACDB replay before payload order, decoded headers, hashes, mem-handle policy, and
-cleanup policy are pinned.
+a negative payload result. V2455 completed the host-only post-module settle hardening: the V2451
+runner now keeps the long ADB wait, records post-module boot-complete as a soft 180s telemetry
+gate with `A90_POST_MODULE_BOOT_COMPLETE_*` markers, and still requires Magisk `uid=0` root as
+the hard gate before late observer/playback. Materialized dry-run reports
+`future_live_ready=true`, `command_safety_ok=true`, `stage_wait_count=10`,
+`boot_complete_soft_gate=true`, and `root_check_hard_gate=true`. Magisk remains the Wi-Fi-style
+Android-good measurement capsule only, not a native-init runtime dependency. Next meaningful unit
+is a **fresh V2456 exact-gated AUD-5L live rerun**. Do not attempt native ACDB replay before
+payload order, decoded headers, hashes, mem-handle policy, and cleanup policy are pinned.
 
 ## Read at the START of every iteration
 
