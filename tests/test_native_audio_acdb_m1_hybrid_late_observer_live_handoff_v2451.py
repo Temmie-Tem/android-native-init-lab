@@ -35,6 +35,8 @@ def args(**overrides: object) -> argparse.Namespace:
         "post_delay_sec": 1.0,
         "capture_duration_sec": v2451.v2450.DEFAULT_CAPTURE_DURATION_SEC,
         "capture_observe_sec": 6.0,
+        "android_root_recheck_attempts": v2451.v2396.DEFAULT_ANDROID_ROOT_RECHECK_ATTEMPTS,
+        "android_root_recheck_sleep_sec": 0.0,
         "post_module_root_retry_attempts": v2451.v2450.DEFAULT_POST_MODULE_ROOT_RETRY_ATTEMPTS,
         "post_module_root_retry_sleep_sec": v2451.v2450.DEFAULT_POST_MODULE_ROOT_RETRY_SLEEP_SEC,
         "post_module_adb_wait_timeout": v2451.v2450.DEFAULT_POST_MODULE_ADB_WAIT_TIMEOUT_SEC,
@@ -68,6 +70,9 @@ class AcdbM1HybridLateObserverLiveHandoffV2451(unittest.TestCase):
         self.assertFalse(payload["module_lifecycle"]["native_runtime_dependency"])
         self.assertFalse(payload["module_lifecycle"]["uses_magisk_install_module"])
         self.assertEqual(payload["magisk_strategy"]["classification"], "Wi-Fi-style Android-good measurement capsule")
+        self.assertEqual(payload["android_root_recheck"]["initial_handoff_attempts"], v2451.v2396.DEFAULT_ANDROID_ROOT_RECHECK_ATTEMPTS)
+        self.assertIn("root-output-empty", payload["android_root_recheck"]["classifications"])
+        self.assertIn("uid=0", payload["android_root_recheck"]["hard_gate"])
         self.assertTrue(payload["command_safety"]["ok"], payload["command_safety"])
         self.assertIn("V2449 diagnostic module plan not live-ready", " ".join(payload["future_live_blockers"]))
 

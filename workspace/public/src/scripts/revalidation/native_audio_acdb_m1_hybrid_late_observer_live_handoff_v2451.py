@@ -295,18 +295,23 @@ def run_post_module_reboot_settle(
         )
         steps.append(root_record)
         last_record = root_record
-        stdout = v2396.step_stdout(root_record)
-        root_record["root_ready"] = "uid=0" in stdout
-        if root_record["root_ready"]:
+        summary = v2396.android_root_recheck_summary(root_record)
+        summary["attempt"] = attempt
+        summary["max_attempts"] = attempts
+        root_record["root_recheck"] = summary
+        root_record["root_ready"] = summary["root_ready"]
+        if summary["root_ready"]:
             root_record["settle_decision"] = "post-module-root-ready"
             return
-        root_record["settle_decision"] = "post-module-root-not-ready"
+        root_record["settle_decision"] = summary["classification"]
         if attempt != attempts:
             time.sleep(float(args.post_module_root_retry_sleep_sec))
 
     raise RuntimeError(
         "post-module Android root recheck did not report uid=0 after "
-        f"{attempts} attempts; see {last_record.get('stdout') if last_record else 'no root attempt'} "
+        f"{attempts} attempts; classification="
+        f"{last_record.get('root_recheck', {}).get('classification') if last_record else 'no-root-attempt'}; "
+        f"see {last_record.get('stdout') if last_record else 'no root attempt'} "
         f"{last_record.get('stderr') if last_record else ''}"
     )
 
@@ -499,6 +504,20 @@ def dry_run(args: argparse.Namespace) -> dict[str, Any]:
         "post_module_settle": "boot-complete is telemetry; Magisk uid=0 root remains the hard gate before late observer/playback",
         "final_native_audio_path": "blocked until payload order, headers, hashes, mem-handle policy, and cleanup policy are pinned",
     }
+    base["android_root_recheck"] = {
+        "hard_gate": "uid=0 required before module staging, late observer, and playback",
+        "initial_handoff_attempts": max(1, int(getattr(args, "android_root_recheck_attempts", v2396.DEFAULT_ANDROID_ROOT_RECHECK_ATTEMPTS))),
+        "initial_handoff_sleep_sec": max(0.0, float(getattr(args, "android_root_recheck_sleep_sec", v2396.DEFAULT_ANDROID_ROOT_RECHECK_SLEEP_SEC))),
+        "post_module_attempts": max(1, int(args.post_module_root_retry_attempts)),
+        "post_module_sleep_sec": max(0.0, float(args.post_module_root_retry_sleep_sec)),
+        "classifications": [
+            "root-ready",
+            "root-output-empty",
+            "root-command-failed",
+            "root-no-uid0",
+        ],
+        "v2457_gap": "V2456 rc0 plus empty stdout/stderr is retried and reported as root-output-empty, not treated as root-ready",
+    }
     base["hard_boundary"] = list(base.get("hard_boundary", [])) + [
         "late observer is Android-good measurement only",
         "late observer uses the staged Magisk module helper but starts under host control after ADB/root settle",
@@ -671,6 +690,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--post-delay-sec", type=float, default=1.0)
     parser.add_argument("--capture-duration-sec", type=int, default=v2450.DEFAULT_CAPTURE_DURATION_SEC)
     parser.add_argument("--capture-observe-sec", type=float, default=6.0)
+    parser.add_argument("--android-root-recheck-attempts", type=int, default=v2396.DEFAULT_ANDROID_ROOT_RECHECK_ATTEMPTS)
+    parser.add_argument("--android-root-recheck-sleep-sec", type=float, default=v2396.DEFAULT_ANDROID_ROOT_RECHECK_SLEEP_SEC)
     parser.add_argument("--post-module-root-retry-attempts", type=int, default=v2450.DEFAULT_POST_MODULE_ROOT_RETRY_ATTEMPTS)
     parser.add_argument("--post-module-root-retry-sleep-sec", type=float, default=v2450.DEFAULT_POST_MODULE_ROOT_RETRY_SLEEP_SEC)
     parser.add_argument("--post-module-adb-wait-timeout", type=float, default=v2450.DEFAULT_POST_MODULE_ADB_WAIT_TIMEOUT_SEC)

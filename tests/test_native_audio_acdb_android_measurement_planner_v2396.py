@@ -71,6 +71,8 @@ def args(**overrides: object) -> argparse.Namespace:
         "amplitude": 0.05,
         "active_delay_sec": 0.75,
         "post_delay_sec": 1.0,
+        "android_root_recheck_attempts": v2396.DEFAULT_ANDROID_ROOT_RECHECK_ATTEMPTS,
+        "android_root_recheck_sleep_sec": 0.0,
         "from_native": True,
     }
     defaults.update(overrides)
@@ -321,6 +323,122 @@ class AcdbAndroidMeasurementPlanner(unittest.TestCase):
             bad_stdout.write_text("uid=2000(shell) gid=2000(shell)\n")
             with self.assertRaisesRegex(RuntimeError, "uid=0"):
                 v2396.validate_android_root_recheck({"stdout": v2396.rel(bad_stdout)})
+
+    def test_root_recheck_classifies_empty_output_and_records_lengths(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            out_dir = Path(temp_dir)
+            stdout = out_dir / "empty.stdout.txt"
+            stderr = out_dir / "empty.stderr.txt"
+            stdout.write_text("")
+            stderr.write_text("")
+            record = {
+                "stdout": v2396.rel(stdout),
+                "stderr": v2396.rel(stderr),
+                "ok": True,
+                "rc": 0,
+            }
+
+            summary = v2396.android_root_recheck_summary(record)
+
+        self.assertFalse(summary["root_ready"])
+        self.assertEqual(summary["classification"], "root-output-empty")
+        self.assertEqual(summary["stdout_len"], 0)
+        self.assertEqual(summary["stderr_len"], 0)
+
+    def test_root_recheck_accepts_uid0_from_stderr(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            out_dir = Path(temp_dir)
+            stdout = out_dir / "root.stdout.txt"
+            stderr = out_dir / "root.stderr.txt"
+            stdout.write_text("")
+            stderr.write_text("uid=0(root) gid=0(root)\n")
+            record = {
+                "stdout": v2396.rel(stdout),
+                "stderr": v2396.rel(stderr),
+                "ok": True,
+                "rc": 0,
+            }
+
+            v2396.validate_android_root_recheck(record)
+
+        self.assertEqual(record["root_recheck"]["classification"], "root-ready")
+        self.assertTrue(record["root_recheck"]["root_ready"])
+
+    def test_post_handoff_root_recheck_retries_empty_output(self) -> None:
+        original_run_step = v2396.route.run_step
+        calls: list[str] = []
+
+        def fake_run_step(name: str, command: list[str], out_dir: Path, *, timeout_sec: float, check: bool = True) -> dict[str, object]:
+            calls.append(name)
+            stdout_path = out_dir / f"{name}.stdout.txt"
+            stderr_path = out_dir / f"{name}.stderr.txt"
+            if name == "android-post-handoff-settle-2-retry-2":
+                stdout_path.write_text("uid=0(root) gid=0(root)\n")
+            else:
+                stdout_path.write_text("")
+            stderr_path.write_text("")
+            return {
+                "name": name,
+                "command": command,
+                "stdout": v2396.rel(stdout_path),
+                "stderr": v2396.rel(stderr_path),
+                "ok": True,
+                "rc": 0,
+                "timeout_sec": timeout_sec,
+            }
+
+        v2396.route.run_step = fake_run_step
+        try:
+            with tempfile.TemporaryDirectory() as temp_dir:
+                steps: list[dict[str, object]] = []
+                v2396.run_android_post_handoff_settle(
+                    args(android_root_recheck_attempts=2, android_root_recheck_sleep_sec=0.0),
+                    Path(temp_dir),
+                    steps,
+                )
+        finally:
+            v2396.route.run_step = original_run_step
+
+        self.assertEqual(calls, [
+            "android-post-handoff-settle-0",
+            "android-post-handoff-settle-1",
+            "android-post-handoff-settle-2",
+            "android-post-handoff-settle-2-retry-2",
+        ])
+        self.assertEqual(steps[2]["root_recheck"]["classification"], "root-output-empty")
+        self.assertEqual(steps[2]["settle_decision"], "root-output-empty")
+        self.assertEqual(steps[3]["root_recheck"]["classification"], "root-ready")
+        self.assertEqual(steps[3]["settle_decision"], "android-root-ready")
+
+    def test_post_handoff_root_recheck_raises_after_empty_retries(self) -> None:
+        original_run_step = v2396.route.run_step
+
+        def fake_run_step(name: str, command: list[str], out_dir: Path, *, timeout_sec: float, check: bool = True) -> dict[str, object]:
+            stdout_path = out_dir / f"{name}.stdout.txt"
+            stderr_path = out_dir / f"{name}.stderr.txt"
+            stdout_path.write_text("")
+            stderr_path.write_text("")
+            return {
+                "name": name,
+                "command": command,
+                "stdout": v2396.rel(stdout_path),
+                "stderr": v2396.rel(stderr_path),
+                "ok": True,
+                "rc": 0,
+                "timeout_sec": timeout_sec,
+            }
+
+        v2396.route.run_step = fake_run_step
+        try:
+            with tempfile.TemporaryDirectory() as temp_dir:
+                with self.assertRaisesRegex(RuntimeError, "classification=root-output-empty"):
+                    v2396.run_android_post_handoff_settle(
+                        args(android_root_recheck_attempts=2, android_root_recheck_sleep_sec=0.0),
+                        Path(temp_dir),
+                        [],
+                    )
+        finally:
+            v2396.route.run_step = original_run_step
 
     def test_cli_dry_run_outputs_json(self) -> None:
         script = Path("workspace/public/src/scripts/revalidation/native_audio_acdb_android_measurement_planner_v2396.py")

@@ -55,6 +55,8 @@ APPROVAL_PHRASE = (
 DEFAULT_DURATION_MS = 2000
 DEFAULT_SAMPLE_RATE = 48000
 DEFAULT_AMPLITUDE = 0.05
+DEFAULT_ANDROID_ROOT_RECHECK_ATTEMPTS = 4
+DEFAULT_ANDROID_ROOT_RECHECK_SLEEP_SEC = 2.0
 LOG_FILTER_REGEX = (
     "ACDB|acdb|audio_hw|platform|adm|afe|q6asm|app_type|App Type|AudioFlinger|"
     "AudioTrack|A90_AUDIO_STIMULUS|msm_audio_cal|send_afe_cal|q6asm_send_cal|adm_open"
@@ -455,6 +457,18 @@ def dry_run_payload(args: argparse.Namespace) -> dict[str, Any]:
             "duration_ms": args.duration_ms,
             "log_filter_regex": LOG_FILTER_REGEX,
         },
+        "android_root_recheck": {
+            "hard_gate": "uid=0 required before Android-side observer/stimulus work",
+            "attempts": max(1, int(getattr(args, "android_root_recheck_attempts", DEFAULT_ANDROID_ROOT_RECHECK_ATTEMPTS))),
+            "sleep_sec": max(0.0, float(getattr(args, "android_root_recheck_sleep_sec", DEFAULT_ANDROID_ROOT_RECHECK_SLEEP_SEC))),
+            "classifications": [
+                "root-ready",
+                "root-output-empty",
+                "root-command-failed",
+                "root-no-uid0",
+            ],
+            "v2457_gap": "rc0 plus empty stdout/stderr is retried and reported as root-output-empty, not treated as root-ready",
+        },
         "commands": commands,
         "hard_boundary": [
             "dry-run-only in V2396",
@@ -541,19 +555,58 @@ def attach_post_live_analysis(result: dict[str, Any], out_dir: Path) -> dict[str
 
 
 def step_stdout(record: dict[str, Any]) -> str:
-    stdout = record.get("stdout")
-    if not stdout:
+    return step_text(record, "stdout")
+
+
+def step_stderr(record: dict[str, Any]) -> str:
+    return step_text(record, "stderr")
+
+
+def step_text(record: dict[str, Any], key: str) -> str:
+    path = record.get(key)
+    if not path:
         return ""
     try:
-        return (ROOT / stdout).read_text()
+        return (ROOT / path).read_text()
     except OSError:
         return ""
 
 
-def validate_android_root_recheck(record: dict[str, Any]) -> None:
+def android_root_recheck_summary(record: dict[str, Any]) -> dict[str, Any]:
     stdout = step_stdout(record)
-    if "uid=0" not in stdout:
-        raise RuntimeError(f"android root recheck did not report uid=0; see {record.get('stdout')}")
+    stderr = step_stderr(record)
+    combined = f"{stdout}\n{stderr}"
+    root_ready = "uid=0" in combined
+    if root_ready:
+        classification = "root-ready"
+    elif not stdout and not stderr:
+        classification = "root-output-empty"
+    elif record.get("rc") not in (0, None) or not record.get("ok", False):
+        classification = "root-command-failed"
+    else:
+        classification = "root-no-uid0"
+    return {
+        "classification": classification,
+        "root_ready": root_ready,
+        "rc": record.get("rc"),
+        "ok": record.get("ok"),
+        "stdout": record.get("stdout"),
+        "stderr": record.get("stderr"),
+        "stdout_len": len(stdout),
+        "stderr_len": len(stderr),
+    }
+
+
+def validate_android_root_recheck(record: dict[str, Any]) -> None:
+    summary = android_root_recheck_summary(record)
+    record["root_recheck"] = summary
+    if not summary["root_ready"]:
+        raise RuntimeError(
+            "android root recheck did not report uid=0; "
+            f"classification={summary['classification']} rc={summary['rc']} "
+            f"stdout_len={summary['stdout_len']} stderr_len={summary['stderr_len']}; "
+            f"see {record.get('stdout')} {record.get('stderr')}"
+        )
 
 
 def run_android_post_handoff_settle(
@@ -562,15 +615,44 @@ def run_android_post_handoff_settle(
     steps: list[dict[str, Any]],
 ) -> None:
     for index, command in enumerate(android_post_handoff_settle_commands(args)):
-        record = route.run_step(
-            f"android-post-handoff-settle-{index}",
-            command,
-            out_dir,
-            timeout_sec=args.adb_command_timeout,
-        )
-        steps.append(record)
-        if index == 2:
-            validate_android_root_recheck(record)
+        if index != 2:
+            record = route.run_step(
+                f"android-post-handoff-settle-{index}",
+                command,
+                out_dir,
+                timeout_sec=args.adb_command_timeout,
+            )
+            steps.append(record)
+            continue
+
+        attempts = max(1, int(getattr(args, "android_root_recheck_attempts", DEFAULT_ANDROID_ROOT_RECHECK_ATTEMPTS)))
+        sleep_sec = max(0.0, float(getattr(args, "android_root_recheck_sleep_sec", DEFAULT_ANDROID_ROOT_RECHECK_SLEEP_SEC)))
+        last_record: dict[str, Any] | None = None
+        for attempt in range(1, attempts + 1):
+            name = "android-post-handoff-settle-2" if attempt == 1 else f"android-post-handoff-settle-2-retry-{attempt}"
+            record = route.run_step(
+                name,
+                command,
+                out_dir,
+                timeout_sec=args.adb_command_timeout,
+                check=False,
+            )
+            steps.append(record)
+            summary = android_root_recheck_summary(record)
+            summary["attempt"] = attempt
+            summary["max_attempts"] = attempts
+            record["root_recheck"] = summary
+            last_record = record
+            if summary["root_ready"]:
+                record["settle_decision"] = "android-root-ready"
+                return
+            record["settle_decision"] = summary["classification"]
+            if attempt != attempts:
+                time.sleep(sleep_sec)
+
+        if last_record is not None:
+            validate_android_root_recheck(last_record)
+        raise RuntimeError("android root recheck did not run")
 
 
 def run_android_reboot_recovery_steps(
@@ -814,6 +896,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--amplitude", type=float, default=DEFAULT_AMPLITUDE)
     parser.add_argument("--active-delay-sec", type=float, default=0.75)
     parser.add_argument("--post-delay-sec", type=float, default=1.0)
+    parser.add_argument("--android-root-recheck-attempts", type=int, default=DEFAULT_ANDROID_ROOT_RECHECK_ATTEMPTS)
+    parser.add_argument("--android-root-recheck-sleep-sec", type=float, default=DEFAULT_ANDROID_ROOT_RECHECK_SLEEP_SEC)
     parser.add_argument("--from-native", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--approval", help="exact AUD-5A approval phrase required by --run-live")
     parser.add_argument("--out-dir", type=Path, help="private live output directory")

@@ -621,7 +621,16 @@ passed, and final `selftest verbose` returned `fail=0`. This is not ACDB payload
 a negative payload result. Next meaningful unit is host-only runner hardening for this
 `root-output-empty` gap: classify the empty-output case distinctly, add bounded root reprobe/retry
 metadata, keep `uid=0` as the hard gate before late observer/playback, and do not rerun AUD-5L
-unchanged.
+unchanged. V2457 completed that host-only hardening: the shared Android/Magisk settle path now
+classifies root probes as `root-ready` / `root-output-empty` / `root-command-failed` /
+`root-no-uid0`, validates combined stdout/stderr for `uid=0`, records rc and output lengths, and
+retries the initial post-handoff root check up to 4 attempts with 2s delay before failing closed.
+V2451 dry-run metadata now exposes the root hard-gate contract, and the post-module root retry loop
+uses the same classification metadata. Focused tests passed (`28` tests), `py_compile` passed, and
+materialized V2451 dry-run is live-ready with `future_live_ready=true`, `future_live_blockers=[]`,
+and `command_safety_ok=true`. Next meaningful unit is a fresh AUD-5L live rerun using the
+V2457-hardened runner; if root output is empty again, the run should now preserve per-attempt
+`root-output-empty` evidence instead of stopping after a single opaque root check.
 
 ## Read at the START of every iteration
 
