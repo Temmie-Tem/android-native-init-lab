@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -38,6 +39,15 @@ class V2480VendorPreloadPlannerTests(unittest.TestCase):
             self.assertNotIn("setenforce 0", flat)
             self.assertNotIn("AUDIO_SET_CALIBRATION", flat)
             self.assertNotIn("tinyplay", flat)
+
+
+    def test_su_c_commands_are_host_shell_parseable(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            plan = v2480.command_plan(Path(tmp) / "module")
+            for key in ["install_module_direct", "verify_vendor_visible_after_reboot", "cleanup_exact_module"]:
+                shell_command = plan[key][2]
+                result = subprocess.run(["sh", "-n", "-c", shell_command], text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
+                self.assertEqual(result.returncode, 0, f"{key}: {result.stderr}")
 
     def test_command_safety_ignores_metadata_forbidden_names_but_rejects_command_usage(self) -> None:
         safe_payload = {

@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shlex
 import shutil
 from datetime import datetime, timezone
 from pathlib import Path
@@ -185,10 +186,10 @@ echo A90_ACDBTAP_V2480_VERIFY_OK
     return {
         "stage_setup": ["adb", "shell", f"su -mm -c 'rm -rf {REMOTE_DIR!s}; mkdir -p {REMOTE_STAGE_DIR!s}/system/vendor/lib; chmod 755 {REMOTE_DIR!s}; chmod -R 777 {REMOTE_STAGE_DIR!s}'"],
         "push_files": [["adb", "push", rel(path), f"{REMOTE_STAGE_DIR}/{name}"] for name, path in files.items()],
-        "install_module_direct": ["adb", "shell", f"su -mm -c {install_script!r}"],
+        "install_module_direct": ["adb", "shell", f"su -mm -c {shlex.quote(install_script)}"],
         "android_reboot_for_magisk_mount": ["adb", "reboot"],
-        "verify_vendor_visible_after_reboot": ["adb", "shell", f"su -c {verify_script!r}"],
-        "cleanup_exact_module": ["adb", "shell", f"su -mm -c {cleanup_script!r}"],
+        "verify_vendor_visible_after_reboot": ["adb", "shell", f"su -c {shlex.quote(verify_script)}"],
+        "cleanup_exact_module": ["adb", "shell", f"su -mm -c {shlex.quote(cleanup_script)}"],
         "retry_acdbtap_live_after_module": "reuse V2477 runner but replace LD_PRELOAD with first verified candidate path; no playback unless maps confirms libacdbtap",
     }
 
