@@ -3,8 +3,10 @@
 
 Host-only unit.  The output is a private 32-bit Android shared object that
 interposes libc ioctl() for the already-running own-process helper.  It logs
-request, return value, and errno for existing libacdbloader ioctls.  It does
-not open /dev/msm_audio_cal and does not issue any extra calibration ioctl.
+request, return value, and errno for existing libacdbloader ioctls.  With
+A90_ACDB_FAKE_ALLOCATE=1 it can no-op AUDIO_ALLOCATE/DEALLOCATE/SET to bypass
+a kernel runtime-state conflict while keeping ACDB GET capture pure-read.  It
+does not open /dev/msm_audio_cal and does not issue any extra calibration ioctl.
 """
 
 from __future__ import annotations
@@ -150,6 +152,16 @@ def source_state() -> dict[str, Any]:
         "logs_audio_allocate_name": "AUDIO_ALLOCATE_CALIBRATION" in text and "0xc00461c8UL" in text,
         "logs_deallocate_name": "AUDIO_DEALLOCATE_CALIBRATION" in text and "0xc00461c9UL" in text,
         "logs_set_name_only": "AUDIO_SET_CALIBRATION" in text and "0xc00461cbUL" in text,
+        "captures_arg_snapshot": "arg_snapshot" in text and "a90_copy_arg_snapshot" in text,
+        "decodes_audio_cal_fields": "cal_type" in text and "mem_handle" in text and "cal_size" in text,
+        "supports_fake_allocate_mode": "A90_ACDB_FAKE_ALLOCATE" in text and "fake-success" in text,
+        "fake_mode_noops_audio_cal_mutating_ioctls": (
+            "a90_should_fake_success" in text
+            and "A90_AUDIO_ALLOCATE_CALIBRATION" in text
+            and "A90_AUDIO_DEALLOCATE_CALIBRATION" in text
+            and "A90_AUDIO_SET_CALIBRATION" in text
+        ),
+        "logs_intercept_mode": "intercept" in text,
         "trace_path_private_tmp": "/data/local/tmp/a90-acdb-ownget/ioctl-trace-events.jsonl" in text,
         "no_libc_headers": "#include <" not in text,
     }
@@ -240,7 +252,9 @@ def manifest(args: argparse.Namespace) -> dict[str, Any]:
             "ldflags": list(LDFLAGS),
         },
         "boundaries": {
-            "observes_existing_ioctl_calls_only": True,
+            "default_mode_observes_existing_ioctl_calls_only": True,
+            "fake_mode_noops_allocate_deallocate_set_only": True,
+            "fake_mode_requires_A90_ACDB_FAKE_ALLOCATE": True,
             "does_not_open_msm_audio_cal": True,
             "does_not_issue_extra_ioctl": True,
             "does_not_call_audio_set_calibration": True,

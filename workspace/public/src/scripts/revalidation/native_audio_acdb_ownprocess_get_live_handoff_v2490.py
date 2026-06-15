@@ -224,6 +224,10 @@ def selected_ioctl_trace_state(args: argparse.Namespace) -> dict[str, Any]:
     return state
 
 
+
+def fake_audio_cal_allocate_enabled(args: argparse.Namespace) -> bool:
+    return bool(getattr(args, "fake_audio_cal_allocate", False)) and not getattr(args, "disable_ioctl_trace", False)
+
 def acdb_dependency_source() -> tuple[str, Path, tuple[str, ...]]:
     if all((ACDB_DEP_CLOSURE_DIR / name).exists() for name in ACDB_DEP_LIBS):
         return "v2506-vendor-ext4-closure", ACDB_DEP_CLOSURE_DIR, ACDB_DEP_LIBS
@@ -316,6 +320,8 @@ exit 0
 def run_helper_command(args: argparse.Namespace) -> list[str]:
     ld_library_path = ":".join([REMOTE_DIR, "/vendor/lib", "/system/lib", "/system_ext/lib", "/product/lib"])
     trace_enabled = not getattr(args, "disable_ioctl_trace", False)
+    fake_allocate = fake_audio_cal_allocate_enabled(args)
+    fake_allocate_prefix = "A90_ACDB_FAKE_ALLOCATE=1 " if fake_allocate else ""
     preload_prefix = f"LD_PRELOAD={shlex.quote(REMOTE_IOCTL_TRACE_SO)} " if trace_enabled else ""
     script = f"""
 set +e
@@ -327,11 +333,12 @@ rm -f ownget.stdout.txt ownget.stderr.txt ownget.rc ownget-run-context.txt ioctl
   id -Z 2>&1 || true
   echo '### run-env'
   echo 'LD_PRELOAD={REMOTE_IOCTL_TRACE_SO if trace_enabled else ""}'
+  echo 'A90_ACDB_FAKE_ALLOCATE={"1" if fake_allocate else ""}'
   echo 'LD_LIBRARY_PATH={ld_library_path}'
   echo '### run-proc-self-status'
   grep -E '^(Name|Uid|Gid|Groups|Cap(Inh|Prm|Eff|Bnd|Amb)|NoNewPrivs|Seccomp):' /proc/self/status 2>&1 || true
 }} > ownget-run-context.txt 2>&1
-{preload_prefix}LD_LIBRARY_PATH={shlex.quote(ld_library_path)} {shlex.quote(REMOTE_HELPER)} > ownget.stdout.txt 2> ownget.stderr.txt
+{fake_allocate_prefix}{preload_prefix}LD_LIBRARY_PATH={shlex.quote(ld_library_path)} {shlex.quote(REMOTE_HELPER)} > ownget.stdout.txt 2> ownget.stderr.txt
 rc=$?
 echo "$rc" > ownget.rc
 cat ownget.rc
@@ -657,6 +664,11 @@ def parse_ownget_artifacts(path: Path) -> dict[str, Any]:
         if str(event.get("request", "")).lower() == "0xc00461cb"
         or event.get("name") == "AUDIO_SET_CALIBRATION"
     ]
+    deallocate_ioctl_events = [
+        event for event in ioctl_trace_events
+        if str(event.get("request", "")).lower() == "0xc00461c9"
+        or event.get("name") == "AUDIO_DEALLOCATE_CALIBRATION"
+    ]
     has_msm_audio_cal_open_denied = "cannot open /dev/msm_audio_cal errno: 13" in diagnostic_text
     has_audio_allocate_calibration_failed = (
         "sending audio_allocate_calibration" in diagnostic_text
@@ -810,7 +822,37 @@ def parse_ownget_artifacts(path: Path) -> dict[str, Any]:
                 for event in allocate_ioctl_events
                 if int_or_none(event.get("ret")) is not None
             }),
+            "audio_allocate_ioctl_intercepts": sorted({
+                str(event.get("intercept"))
+                for event in allocate_ioctl_events
+                if event.get("intercept") is not None
+            }),
+            "audio_allocate_ioctl_fake_success_count": sum(
+                1 for event in allocate_ioctl_events if event.get("intercept") == "fake-success"
+            ),
+            "audio_allocate_arg_snapshots": [
+                event.get("arg_snapshot")
+                for event in allocate_ioctl_events
+                if isinstance(event.get("arg_snapshot"), dict)
+            ],
+            "audio_deallocate_ioctl_count": len(deallocate_ioctl_events),
+            "audio_deallocate_ioctl_intercepts": sorted({
+                str(event.get("intercept"))
+                for event in deallocate_ioctl_events
+                if event.get("intercept") is not None
+            }),
+            "audio_deallocate_ioctl_fake_success_count": sum(
+                1 for event in deallocate_ioctl_events if event.get("intercept") == "fake-success"
+            ),
             "audio_set_ioctl_count": len(set_ioctl_events),
+            "audio_set_ioctl_intercepts": sorted({
+                str(event.get("intercept"))
+                for event in set_ioctl_events
+                if event.get("intercept") is not None
+            }),
+            "audio_set_ioctl_fake_success_count": sum(
+                1 for event in set_ioctl_events if event.get("intercept") == "fake-success"
+            ),
             "has_acdb_files_load_error": "could not load .acdb files" in diagnostic_text,
             "has_acph_init_error": "error initializing acph returned" in diagnostic_text,
             "has_audio_allocate_calibration_failed": has_audio_allocate_calibration_failed,
@@ -922,14 +964,20 @@ def dry_run_payload(args: argparse.Namespace) -> dict[str, Any]:
         },
         "ioctl_trace_policy": {
             "enabled": bool(ioctl_trace.get("enabled")),
-            "mechanism": "own-process LD_PRELOAD ioctl observer only; no extra ioctls",
+            "mechanism": (
+                "own-process LD_PRELOAD ioctl observer; optional fake-success for "
+                "AUDIO_ALLOCATE/DEALLOCATE/SET only"
+            ),
+            "fake_audio_cal_allocate": fake_audio_cal_allocate_enabled(args),
+            "fake_mode_env": "A90_ACDB_FAKE_ALLOCATE=1" if fake_audio_cal_allocate_enabled(args) else "",
             "target_request": "AUDIO_ALLOCATE_CALIBRATION 0xc00461c8",
             "required_evidence": ["ioctl-trace-events.jsonl", "dmesg-avc-acdb-filter.txt", "logcat-avc-acdb-filter.txt"],
         },
         "partial_success_policy": "captured-ownprocess-outbuf-set-no-4916 is preserved as operator-valuable partial evidence; ACDB tap no-4916 policy remains non-dead-run",
         "hard_boundary": [
             "own-process helper only; no in-HAL LD_PRELOAD/injection",
-            "own-process LD_PRELOAD ioctl trace observes existing calls only",
+            "own-process LD_PRELOAD ioctl trace observes existing calls by default",
+            "if --fake-audio-cal-allocate is set, AUDIO_ALLOCATE/DEALLOCATE/SET are no-op success in-process only",
             "no Magisk module install",
             "no HAL restart",
             "no AudioTrack/playback",
@@ -1115,6 +1163,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--build-helper", action="store_true", help="Build the V2489 helper before planning/running")
     parser.add_argument("--build-ioctl-trace", action="store_true", help="Build the V2531 ioctl trace preload before planning/running")
     parser.add_argument("--disable-ioctl-trace", action="store_true", help="Run without the V2531 ioctl trace preload")
+    parser.add_argument(
+        "--fake-audio-cal-allocate",
+        action="store_true",
+        help="Set A90_ACDB_FAKE_ALLOCATE=1 so the preload returns success for AUDIO_ALLOCATE/DEALLOCATE/SET only",
+    )
     parser.add_argument("--out-dir", type=Path)
     parser.add_argument("--adb", default="adb")
     parser.add_argument("--serial")

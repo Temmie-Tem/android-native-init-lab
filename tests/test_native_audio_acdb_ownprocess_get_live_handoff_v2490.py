@@ -24,6 +24,7 @@ def args(**overrides: object) -> Namespace:
         "build_helper": False,
         "build_ioctl_trace": False,
         "disable_ioctl_trace": False,
+        "fake_audio_cal_allocate": False,
         "out_dir": root / "run",
         "adb": "adb",
         "serial": None,
@@ -52,7 +53,7 @@ def args(**overrides: object) -> Namespace:
     return Namespace(**defaults)
 
 
-def fake_helper_args() -> Namespace:
+def fake_helper_args(**overrides: object) -> Namespace:
     root = Path(tempfile.mkdtemp(prefix="a90-v2490-helper-"))
     helper = root / "v2529-acdb-ownprocess-softfail-get-host-only" / "bin" / v_helper.ARTIFACT_NAME
     helper.parent.mkdir(parents=True)
@@ -62,12 +63,14 @@ def fake_helper_args() -> Namespace:
     trace.parent.mkdir(parents=True)
     trace.write_bytes(b"fake-arm32-ioctl-trace-preload-for-dry-run")
     trace_digest = hashlib.sha256(trace.read_bytes()).hexdigest()
-    return args(
-        helper_path=helper,
-        helper_sha256=digest,
-        ioctl_trace_so=trace,
-        ioctl_trace_sha256=trace_digest,
-    )
+    defaults = {
+        "helper_path": helper,
+        "helper_sha256": digest,
+        "ioctl_trace_so": trace,
+        "ioctl_trace_sha256": trace_digest,
+    }
+    defaults.update(overrides)
+    return args(**defaults)
 
 
 class NativeAudioAcdbOwnprocessGetV2490(unittest.TestCase):
@@ -132,6 +135,19 @@ class NativeAudioAcdbOwnprocessGetV2490(unittest.TestCase):
         self.assertNotIn("magisk --install-module", flat_commands)
         self.assertNotIn("android.hardware.audio.service", flat_commands)
         self.assertNotIn("AudioTrack", flat_commands)
+        self.assertNotIn("0xc00461cb", flat_commands.lower())
+
+
+    def test_dry_run_fake_allocate_sets_explicit_env_only(self) -> None:
+        payload = v2490.dry_run_payload(fake_helper_args(fake_audio_cal_allocate=True))
+
+        self.assertTrue(payload["live_ready"], payload.get("live_blockers"))
+        self.assertTrue(payload["ioctl_trace_policy"]["fake_audio_cal_allocate"])
+        self.assertEqual(payload["ioctl_trace_policy"]["fake_mode_env"], "A90_ACDB_FAKE_ALLOCATE=1")
+        flat_commands = json.dumps(payload["commands"], sort_keys=True)
+        self.assertIn("A90_ACDB_FAKE_ALLOCATE=1", flat_commands)
+        self.assertIn("LD_PRELOAD=/data/local/tmp/a90-acdb-ownget/liba90_ioctl_trace_v2531.so", flat_commands)
+        self.assertIn("AUDIO_ALLOCATE/DEALLOCATE/SET", "\n".join(payload["hard_boundary"]))
         self.assertNotIn("0xc00461cb", flat_commands.lower())
 
     def test_step_has_transient_settle_adb_failure_for_error_closed(self) -> None:
@@ -313,8 +329,18 @@ class NativeAudioAcdbOwnprocessGetV2490(unittest.TestCase):
             "request": "0xc00461c8",
             "name": "AUDIO_ALLOCATE_CALIBRATION",
             "arg": "0xbeef0000",
-            "ret": -1,
-            "errno": 13,
+            "ret": 0,
+            "errno": 0,
+            "intercept": "fake-success",
+            "arg_snapshot": {
+                "available": True,
+                "requested_size": 32,
+                "sample_len": 32,
+                "cal_type": 39,
+                "cal_type_size": 16,
+                "cal_size": 4916,
+                "mem_handle": 45,
+            },
         }) + "\n")
         (root / "ownget-run-context.txt").write_text("uid=0(root)\n")
 
@@ -322,8 +348,11 @@ class NativeAudioAcdbOwnprocessGetV2490(unittest.TestCase):
 
         self.assertEqual(summary["diagnostics"]["ioctl_trace_event_count"], 1)
         self.assertEqual(summary["diagnostics"]["audio_allocate_ioctl_count"], 1)
-        self.assertEqual(summary["diagnostics"]["audio_allocate_ioctl_ret_values"], [-1])
-        self.assertEqual(summary["diagnostics"]["audio_allocate_ioctl_errno_values"], [13])
+        self.assertEqual(summary["diagnostics"]["audio_allocate_ioctl_ret_values"], [0])
+        self.assertEqual(summary["diagnostics"]["audio_allocate_ioctl_errno_values"], [0])
+        self.assertEqual(summary["diagnostics"]["audio_allocate_ioctl_intercepts"], ["fake-success"])
+        self.assertEqual(summary["diagnostics"]["audio_allocate_ioctl_fake_success_count"], 1)
+        self.assertEqual(summary["diagnostics"]["audio_allocate_arg_snapshots"][0]["cal_size"], 4916)
         self.assertEqual(summary["diagnostics"]["audio_set_ioctl_count"], 0)
 
     def test_parse_ownget_artifacts_preserves_no_4916_partial(self) -> None:

@@ -23,6 +23,11 @@ class BuildAndroidIoctlTracePreloadV2531(unittest.TestCase):
         self.assertTrue(state["required"]["uses_raw_ioctl_syscall"])
         self.assertTrue(state["required"]["logs_audio_allocate_name"])
         self.assertTrue(state["required"]["logs_set_name_only"])
+        self.assertTrue(state["required"]["captures_arg_snapshot"])
+        self.assertTrue(state["required"]["decodes_audio_cal_fields"])
+        self.assertTrue(state["required"]["supports_fake_allocate_mode"])
+        self.assertTrue(state["required"]["fake_mode_noops_audio_cal_mutating_ioctls"])
+        self.assertTrue(state["required"]["logs_intercept_mode"])
         self.assertFalse(state["prohibited"]["opens_msm_audio_cal"])
         self.assertFalse(state["prohibited"]["calls_acdb_ioctl"])
 
@@ -41,7 +46,9 @@ class BuildAndroidIoctlTracePreloadV2531(unittest.TestCase):
         self.assertTrue(payload["ok"], payload)
         self.assertTrue(payload["host_only"])
         self.assertEqual(payload["device_action"], "none")
-        self.assertTrue(payload["boundaries"]["observes_existing_ioctl_calls_only"])
+        self.assertTrue(payload["boundaries"]["default_mode_observes_existing_ioctl_calls_only"])
+        self.assertTrue(payload["boundaries"]["fake_mode_noops_allocate_deallocate_set_only"])
+        self.assertTrue(payload["boundaries"]["fake_mode_requires_A90_ACDB_FAKE_ALLOCATE"])
         self.assertTrue(payload["boundaries"]["does_not_issue_extra_ioctl"])
 
     def test_private_build_exports_ioctl(self) -> None:
