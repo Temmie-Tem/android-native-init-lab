@@ -1,4 +1,4 @@
-// V2449 Android-side msm_audio_cal diagnostic thread-set clone-following ioctl observer.
+// V2449/V2460 Android-side msm_audio_cal diagnostic thread-set clone-following ioctl observer.
 // Measurement-only helper: attaches all existing TIDs in an Android audio
 // process, follows new threads with PTRACE_O_TRACECLONE, records diagnostic syscall/ioctl/fd telemetry, and
 // copies request buffers only for fd-matched private offline decoding. It does not open
@@ -29,6 +29,10 @@
 #define __NR_ioctl 29
 #endif
 
+#define A90_COMPAT_ARM_NR_IOCTL 54UL
+#define A90_COMPAT_ARM_GPR_COUNT 18U
+#define A90_COMPAT_ARM_GPR_BYTES (A90_COMPAT_ARM_GPR_COUNT * sizeof(uint32_t))
+
 #ifndef __WALL
 #define __WALL 0x40000000
 #endif
@@ -55,9 +59,22 @@ struct options {
 struct pending_ioctl {
     int active;
     int seq;
+    const char *abi;
+    unsigned long syscall_nr;
+    size_t regset_len;
     long fd;
     unsigned long request;
     unsigned long argp;
+};
+
+struct syscall_frame {
+    const char *abi;
+    unsigned long syscall_nr;
+    size_t regset_len;
+    long fd;
+    unsigned long request;
+    unsigned long argp;
+    long ret;
 };
 
 struct traced_task {
@@ -166,12 +183,43 @@ static long long wall_ms(void) {
     return (long long)tv.tv_sec * 1000LL + (long long)tv.tv_usec / 1000LL;
 }
 
-static int get_regs(pid_t tid, struct user_pt_regs *regs) {
+static int get_syscall_frame(pid_t tid, struct syscall_frame *frame) {
+    union {
+        struct user_pt_regs native;
+        uint32_t compat[A90_COMPAT_ARM_GPR_COUNT];
+    } regs;
     struct iovec iov;
-    memset(regs, 0, sizeof(*regs));
-    iov.iov_base = regs;
-    iov.iov_len = sizeof(*regs);
-    return ptrace(PTRACE_GETREGSET, tid, (void *)(uintptr_t)NT_PRSTATUS, &iov);
+    memset(&regs, 0, sizeof(regs));
+    memset(frame, 0, sizeof(*frame));
+    iov.iov_base = &regs;
+    iov.iov_len = sizeof(regs);
+    if (ptrace(PTRACE_GETREGSET, tid, (void *)(uintptr_t)NT_PRSTATUS, &iov) != 0) {
+        return -1;
+    }
+
+    frame->regset_len = iov.iov_len;
+    if (iov.iov_len == A90_COMPAT_ARM_GPR_BYTES) {
+        frame->abi = "aarch32";
+        frame->syscall_nr = regs.compat[7];
+        frame->fd = (int32_t)regs.compat[0];
+        frame->request = regs.compat[1];
+        frame->argp = regs.compat[2];
+        frame->ret = (int32_t)regs.compat[0];
+        return 0;
+    }
+
+    if (iov.iov_len == sizeof(struct user_pt_regs)) {
+        frame->abi = "aarch64";
+        frame->syscall_nr = regs.native.regs[8];
+        frame->fd = (long)regs.native.regs[0];
+        frame->request = regs.native.regs[1];
+        frame->argp = regs.native.regs[2];
+        frame->ret = (long)regs.native.regs[0];
+        return 0;
+    }
+
+    errno = EINVAL;
+    return -1;
 }
 
 static int fd_resolve_target(pid_t pid, long fd, char *target, size_t target_size) {
@@ -278,14 +326,19 @@ static void write_trace_event(FILE *fp, const char *event, pid_t tid, pid_t chil
     fflush(fp);
 }
 
-static void write_entry(FILE *fp, int seq, pid_t tid, pid_t fd_pid, const char *fd_target,
+static void write_entry(FILE *fp, int seq, pid_t tid, pid_t fd_pid, const char *abi,
+                        unsigned long syscall_nr, size_t regset_len, const char *fd_target,
                         unsigned long request, unsigned long argp,
                         const unsigned char *buf, ssize_t read_len, int read_errno) {
     fprintf(fp,
             "{\"event\":\"ioctl_entry\",\"ts_ms\":%lld,\"wall_ms\":%lld,"
-            "\"seq\":%d,\"tid\":%ld,\"fd_pid\":%ld,"
+            "\"seq\":%d,\"tid\":%ld,\"fd_pid\":%ld,\"abi\":\"",
+            now_ms(), wall_ms(), seq, (long)tid, (long)fd_pid);
+    json_escape(fp, abi);
+    fprintf(fp,
+            "\",\"syscall_nr\":%lu,\"regset_len\":%zu,"
             "\"request\":\"0x%lx\",\"argp\":\"0x%lx\",\"fd_target\":\"",
-            now_ms(), wall_ms(), seq, (long)tid, (long)fd_pid, request, argp);
+            syscall_nr, regset_len, request, argp);
     json_escape(fp, fd_target);
     fprintf(fp, "\",\"read_len\":%zd,\"read_errno\":%d,\"bytes_hex\":\"",
             read_len > 0 ? read_len : 0, read_errno);
@@ -297,13 +350,18 @@ static void write_entry(FILE *fp, int seq, pid_t tid, pid_t fd_pid, const char *
 static void write_exit(FILE *fp, pid_t tid, const struct pending_ioctl *pending, long ret) {
     fprintf(fp,
             "{\"event\":\"ioctl_exit\",\"ts_ms\":%lld,\"wall_ms\":%lld,"
-            "\"seq\":%d,\"tid\":%ld,\"request\":\"0x%lx\","
+            "\"seq\":%d,\"tid\":%ld,\"abi\":\"",
+            now_ms(), wall_ms(), pending->seq, (long)tid);
+    json_escape(fp, pending->abi);
+    fprintf(fp,
+            "\",\"syscall_nr\":%lu,\"regset_len\":%zu,\"request\":\"0x%lx\","
             "\"argp\":\"0x%lx\",\"ret\":%ld}\n",
-            now_ms(), wall_ms(), pending->seq, (long)tid, pending->request, pending->argp, ret);
+            pending->syscall_nr, pending->regset_len, pending->request, pending->argp, ret);
     fflush(fp);
 }
 
 static void write_unmatched_ioctl(FILE *fp, const struct options *opts, pid_t tid, long fd,
+                                  const char *abi, unsigned long syscall_nr, size_t regset_len,
                                   unsigned long request, unsigned long argp,
                                   const char *fd_target, int readlink_errno,
                                   struct capture_stats *stats) {
@@ -312,10 +370,15 @@ static void write_unmatched_ioctl(FILE *fp, const struct options *opts, pid_t ti
     fprintf(fp,
             "{\"event\":\"ioctl_unmatched\",\"ts_ms\":%lld,\"wall_ms\":%lld,"
             "\"sample\":%d,\"tid\":%ld,\"fd_pid\":%ld,\"fd\":%ld,"
+            "\"abi\":\"",
+            now_ms(), wall_ms(), stats->unmatched_samples, (long)tid, (long)opts->fd_pid,
+            fd);
+    json_escape(fp, abi);
+    fprintf(fp,
+            "\",\"syscall_nr\":%lu,\"regset_len\":%zu,"
             "\"request\":\"0x%lx\",\"argp\":\"0x%lx\",\"readlink_errno\":%d,"
             "\"fd_target\":\"",
-            now_ms(), wall_ms(), stats->unmatched_samples, (long)tid, (long)opts->fd_pid,
-            fd, request, argp, readlink_errno);
+            syscall_nr, regset_len, request, argp, readlink_errno);
     json_escape(fp, fd_target);
     fprintf(fp, "\"}\n");
     fflush(fp);
@@ -444,21 +507,21 @@ static void stop_and_detach_all(struct traced_task *tasks, int task_count, FILE 
 
 static void handle_syscall_stop(FILE *out, const struct options *opts, struct traced_task *task,
                                 int *sequence, int *events, struct capture_stats *stats) {
-    struct user_pt_regs regs;
+    struct syscall_frame frame;
     stats->syscall_stop_count++;
-    if (get_regs(task->tid, &regs) != 0) {
+    if (get_syscall_frame(task->tid, &frame) != 0) {
         write_error(out, "PTRACE_GETREGSET", task->tid, errno);
         return;
     }
 
     if (task->entering_syscall) {
         stats->syscall_entry_count++;
-        unsigned long syscall_nr = regs.regs[8];
-        if (syscall_nr == __NR_ioctl) {
+        if ((frame.abi && !strcmp(frame.abi, "aarch64") && frame.syscall_nr == __NR_ioctl) ||
+            (frame.abi && !strcmp(frame.abi, "aarch32") && frame.syscall_nr == A90_COMPAT_ARM_NR_IOCTL)) {
             stats->ioctl_any_entry_count++;
-            long fd = (long)regs.regs[0];
-            unsigned long request = regs.regs[1];
-            unsigned long argp = regs.regs[2];
+            long fd = frame.fd;
+            unsigned long request = frame.request;
+            unsigned long argp = frame.argp;
             char target[512];
             target[0] = '\0';
             int readlink_errno = 0;
@@ -474,22 +537,26 @@ static void handle_syscall_stop(FILE *out, const struct options *opts, struct tr
                     (*sequence)++;
                     task->pending.active = 1;
                     task->pending.seq = *sequence;
+                    task->pending.abi = frame.abi;
+                    task->pending.syscall_nr = frame.syscall_nr;
+                    task->pending.regset_len = frame.regset_len;
                     task->pending.fd = fd;
                     task->pending.request = request;
                     task->pending.argp = argp;
-                    write_entry(out, *sequence, task->tid, opts->fd_pid, target, request, argp, buf, bytes, read_errno);
+                    write_entry(out, *sequence, task->tid, opts->fd_pid, frame.abi,
+                                frame.syscall_nr, frame.regset_len, target, request, argp, buf, bytes, read_errno);
                     free(buf);
                     (*events)++;
                 }
             } else {
                 stats->ioctl_fd_miss_count++;
                 if (readlink_errno) stats->fd_readlink_error_count++;
-                write_unmatched_ioctl(out, opts, task->tid, fd, request, argp, target, readlink_errno, stats);
+                write_unmatched_ioctl(out, opts, task->tid, fd, frame.abi, frame.syscall_nr,
+                                      frame.regset_len, request, argp, target, readlink_errno, stats);
             }
         }
     } else if (task->pending.active) {
-        long ret = (long)regs.regs[0];
-        write_exit(out, task->tid, &task->pending, ret);
+        write_exit(out, task->tid, &task->pending, frame.ret);
         memset(&task->pending, 0, sizeof(task->pending));
     }
     task->entering_syscall = !task->entering_syscall;
