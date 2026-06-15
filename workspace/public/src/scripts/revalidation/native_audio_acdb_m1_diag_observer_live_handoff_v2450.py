@@ -420,6 +420,11 @@ def summarize_diag_capture_artifacts(out_dir: Path) -> dict[str, Any]:
         "ioctl_fd_match_count": 0,
         "ioctl_fd_miss_count": 0,
         "fd_readlink_error_count": 0,
+        "mmap_entry_count": 0,
+        "mmap_success_count": 0,
+        "mmap_error_count": 0,
+        "mmap_record_count": 0,
+        "mmap_events": [],
         "unmatched_samples": [],
         "requests": {},
         "payload_hashes": [],
@@ -506,6 +511,20 @@ def summarize_diag_capture_artifacts(out_dir: Path) -> dict[str, Any]:
                             "write_errno": event.get("write_errno"),
                         }
                     )
+            elif kind in {"mmap_entry", "mmap_exit"}:
+                if len(summary["mmap_events"]) < 24:
+                    summary["mmap_events"].append(
+                        {
+                            "file": rel(path),
+                            "event": kind,
+                            "seq": event.get("seq"),
+                            "fd": event.get("fd"),
+                            "length": event.get("length"),
+                            "ret": event.get("ret"),
+                            "status": event.get("status"),
+                            "fd_target": event.get("fd_target"),
+                        }
+                    )
             elif kind == "stop":
                 has_stop = True
                 for key in (
@@ -515,6 +534,10 @@ def summarize_diag_capture_artifacts(out_dir: Path) -> dict[str, Any]:
                     "ioctl_fd_match_count",
                     "ioctl_fd_miss_count",
                     "fd_readlink_error_count",
+                    "mmap_entry_count",
+                    "mmap_success_count",
+                    "mmap_error_count",
+                    "mmap_record_count",
                     "unmatched_samples",
                 ):
                     value = event.get(key)

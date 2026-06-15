@@ -452,6 +452,11 @@ def summarize_late_subset(out_dir: Path) -> dict[str, Any]:
         "ioctl_fd_match_count": 0,
         "ioctl_fd_miss_count": 0,
         "fd_readlink_error_count": 0,
+        "mmap_entry_count": 0,
+        "mmap_success_count": 0,
+        "mmap_error_count": 0,
+        "mmap_record_count": 0,
+        "mmap_events": [],
         "syscall_stop_count": 0,
         "payload_hashes": [],
         "dmabuf_payload_hashes": [],
@@ -499,6 +504,23 @@ def summarize_late_subset(out_dir: Path) -> dict[str, Any]:
                             "mem_handle": event.get("mem_handle"),
                             "capture_len": event.get("capture_len"),
                             "written_len": event.get("written_len"),
+                            "open_errno": event.get("open_errno"),
+                            "mmap_errno": event.get("mmap_errno"),
+                            "write_errno": event.get("write_errno"),
+                        }
+                    )
+            elif kind in {"mmap_entry", "mmap_exit"}:
+                if len(summary["mmap_events"]) < 24:
+                    summary["mmap_events"].append(
+                        {
+                            "file": rel(path),
+                            "event": kind,
+                            "seq": event.get("seq"),
+                            "fd": event.get("fd"),
+                            "length": event.get("length"),
+                            "ret": event.get("ret"),
+                            "status": event.get("status"),
+                            "fd_target": event.get("fd_target"),
                         }
                     )
             elif kind == "stop":
@@ -509,6 +531,10 @@ def summarize_late_subset(out_dir: Path) -> dict[str, Any]:
                     "ioctl_fd_match_count",
                     "ioctl_fd_miss_count",
                     "fd_readlink_error_count",
+                    "mmap_entry_count",
+                    "mmap_success_count",
+                    "mmap_error_count",
+                    "mmap_record_count",
                 ):
                     value = event.get(key)
                     if isinstance(value, int):

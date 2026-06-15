@@ -29,8 +29,12 @@
 #ifndef __NR_ioctl
 #define __NR_ioctl 29
 #endif
+#ifndef __NR_mmap
+#define __NR_mmap 222
+#endif
 
 #define A90_COMPAT_ARM_NR_IOCTL 54UL
+#define A90_COMPAT_ARM_NR_MMAP2 192UL
 #define A90_COMPAT_ARM_GPR_COUNT 18U
 #define A90_COMPAT_ARM_GPR_BYTES (A90_COMPAT_ARM_GPR_COUNT * sizeof(uint32_t))
 
@@ -44,6 +48,7 @@
 #define DEFAULT_MAX_UNMATCHED_SAMPLES 32
 #define DEFAULT_MAX_DMABUF_BYTES 65536U
 #define MAX_TRACED_TASKS 256
+#define MAX_MMAP_RECORDS 128
 #define WAIT_POLL_USEC 10000
 #define A90_CAL_CMD_SET_COMPAT 0xc00461cbUL
 #define A90_CAL_CMD_SET_NATIVE 0xc00861cbUL
@@ -74,14 +79,32 @@ struct pending_ioctl {
     unsigned long argp;
 };
 
-struct syscall_frame {
+struct pending_mmap {
+    int active;
+    int seq;
     const char *abi;
     unsigned long syscall_nr;
     size_t regset_len;
     long fd;
+    unsigned long addr;
+    unsigned long length;
+    unsigned long prot;
+    unsigned long flags;
+    unsigned long offset;
+    char fd_target[512];
+    int readlink_errno;
+};
+
+struct syscall_frame {
+    const char *abi;
+    unsigned long syscall_nr;
+    size_t regset_len;
+    unsigned long args[6];
+    long fd;
     unsigned long request;
     unsigned long argp;
     long ret;
+    unsigned long raw_ret;
 };
 
 struct traced_task {
@@ -90,6 +113,7 @@ struct traced_task {
     int entering_syscall;
     int options_set;
     struct pending_ioctl pending;
+    struct pending_mmap pending_mmap;
 };
 
 struct decoded_cal_header {
@@ -112,6 +136,28 @@ struct capture_stats {
     int ioctl_fd_miss_count;
     int fd_readlink_error_count;
     int unmatched_samples;
+    int mmap_entry_count;
+    int mmap_success_count;
+    int mmap_error_count;
+    int mmap_record_count;
+};
+
+struct mmap_record {
+    int valid;
+    int seq;
+    long fd;
+    unsigned long addr;
+    unsigned long length;
+    unsigned long prot;
+    unsigned long flags;
+    unsigned long offset;
+    char fd_target[512];
+};
+
+struct mmap_records {
+    struct mmap_record records[MAX_MMAP_RECORDS];
+    int next_index;
+    int count;
 };
 
 static void usage(const char *argv0) {
@@ -229,20 +275,28 @@ static int get_syscall_frame(pid_t tid, struct syscall_frame *frame) {
     if (iov.iov_len == A90_COMPAT_ARM_GPR_BYTES) {
         frame->abi = "aarch32";
         frame->syscall_nr = regs.compat[7];
+        for (int index = 0; index < 6; index++) {
+            frame->args[index] = regs.compat[index];
+        }
         frame->fd = (int32_t)regs.compat[0];
         frame->request = regs.compat[1];
         frame->argp = regs.compat[2];
         frame->ret = (int32_t)regs.compat[0];
+        frame->raw_ret = regs.compat[0];
         return 0;
     }
 
     if (iov.iov_len == sizeof(struct user_pt_regs)) {
         frame->abi = "aarch64";
         frame->syscall_nr = regs.native.regs[8];
+        for (int index = 0; index < 6; index++) {
+            frame->args[index] = regs.native.regs[index];
+        }
         frame->fd = (long)regs.native.regs[0];
         frame->request = regs.native.regs[1];
         frame->argp = regs.native.regs[2];
         frame->ret = (long)regs.native.regs[0];
+        frame->raw_ret = regs.native.regs[0];
         return 0;
     }
 
@@ -353,6 +407,22 @@ static int is_dmabuf_capture_target(unsigned long request, const struct decoded_
            header->mem_handle > 0;
 }
 
+static int is_mmap_syscall(const struct syscall_frame *frame) {
+    if (!frame || !frame->abi) return 0;
+    if (!strcmp(frame->abi, "aarch64")) return frame->syscall_nr == __NR_mmap;
+    if (!strcmp(frame->abi, "aarch32")) return frame->syscall_nr == A90_COMPAT_ARM_NR_MMAP2;
+    return 0;
+}
+
+static int syscall_return_is_error(const struct syscall_frame *frame) {
+    if (!frame || !frame->abi) return 1;
+    if (!strcmp(frame->abi, "aarch32")) {
+        uint32_t raw = (uint32_t)frame->raw_ret;
+        return raw >= 0xfffff001U;
+    }
+    return frame->raw_ret >= (unsigned long)-4095L;
+}
+
 static void write_header(FILE *fp, const struct options *opts) {
     fprintf(fp,
             "{\"event\":\"start\",\"ts_ms\":%lld,\"wall_ms\":%lld,"
@@ -384,6 +454,39 @@ static void write_trace_event(FILE *fp, const char *event, pid_t tid, pid_t chil
     fprintf(fp, "\",\"ts_ms\":%lld,\"wall_ms\":%lld,\"tid\":%ld", now_ms(), wall_ms(), (long)tid);
     if (child_tid > 0) fprintf(fp, ",\"child_tid\":%ld", (long)child_tid);
     fprintf(fp, "}\n");
+    fflush(fp);
+}
+
+static void write_mmap_event(FILE *fp, const char *event, pid_t tid, const struct pending_mmap *pending,
+                             unsigned long ret_addr, long ret_signed, const char *status) {
+    fprintf(fp,
+            "{\"event\":\"");
+    json_escape(fp, event);
+    fprintf(fp,
+            "\",\"ts_ms\":%lld,\"wall_ms\":%lld,"
+            "\"seq\":%d,\"tid\":%ld,\"fd\":%ld,\"abi\":\"",
+            now_ms(), wall_ms(), pending ? pending->seq : 0, (long)tid,
+            pending ? pending->fd : -1L);
+    if (pending && pending->abi) json_escape(fp, pending->abi);
+    fprintf(fp,
+            "\",\"syscall_nr\":%lu,\"regset_len\":%zu,"
+            "\"addr\":\"0x%lx\",\"length\":%lu,\"prot\":\"0x%lx\","
+            "\"flags\":\"0x%lx\",\"offset\":\"0x%lx\",\"ret\":\"0x%lx\","
+            "\"ret_signed\":%ld,\"readlink_errno\":%d,\"status\":\"",
+            pending ? pending->syscall_nr : 0,
+            pending ? pending->regset_len : 0,
+            pending ? pending->addr : 0,
+            pending ? pending->length : 0,
+            pending ? pending->prot : 0,
+            pending ? pending->flags : 0,
+            pending ? pending->offset : 0,
+            ret_addr,
+            ret_signed,
+            pending ? pending->readlink_errno : 0);
+    json_escape(fp, status ? status : "");
+    fprintf(fp, "\",\"fd_target\":\"");
+    if (pending) json_escape(fp, pending->fd_target);
+    fprintf(fp, "\"}\n");
     fflush(fp);
 }
 
@@ -432,6 +535,38 @@ static void write_dmabuf_capture_event(FILE *fp, int seq, pid_t tid, pid_t fd_pi
     fflush(fp);
 }
 
+static void remember_mmap_record(struct mmap_records *records, const struct pending_mmap *pending,
+                                 unsigned long addr, struct capture_stats *stats) {
+    if (!records || !pending || pending->fd < 0 || pending->length == 0 || addr == 0) return;
+    int index = records->next_index % MAX_MMAP_RECORDS;
+    records->records[index].valid = 1;
+    records->records[index].seq = pending->seq;
+    records->records[index].fd = pending->fd;
+    records->records[index].addr = addr;
+    records->records[index].length = pending->length;
+    records->records[index].prot = pending->prot;
+    records->records[index].flags = pending->flags;
+    records->records[index].offset = pending->offset;
+    snprintf(records->records[index].fd_target, sizeof(records->records[index].fd_target), "%s", pending->fd_target);
+    records->next_index++;
+    if (records->count < MAX_MMAP_RECORDS) records->count++;
+    if (stats) stats->mmap_record_count++;
+}
+
+static const struct mmap_record *find_recent_mmap_record(const struct mmap_records *records,
+                                                         uint32_t mem_handle, size_t capture_len) {
+    if (!records || records->count <= 0) return NULL;
+    for (int step = 0; step < records->count; step++) {
+        int index = (records->next_index - 1 - step + MAX_MMAP_RECORDS) % MAX_MMAP_RECORDS;
+        const struct mmap_record *record = &records->records[index];
+        if (!record->valid) continue;
+        if (record->fd != (long)mem_handle) continue;
+        if (record->length < capture_len) continue;
+        return record;
+    }
+    return NULL;
+}
+
 static ssize_t write_all(int fd, const unsigned char *buf, size_t len) {
     size_t total = 0;
     while (total < len) {
@@ -447,7 +582,8 @@ static ssize_t write_all(int fd, const unsigned char *buf, size_t len) {
 }
 
 static void capture_dmabuf_payload(FILE *fp, const struct options *opts, int seq, pid_t tid,
-                                   const struct decoded_cal_header *header) {
+                                   const struct decoded_cal_header *header,
+                                   const struct mmap_records *mmap_records) {
     if (!opts->dmabuf_out_dir || !header) return;
     if (mkdir(opts->dmabuf_out_dir, 0700) != 0 && errno != EEXIST) {
         write_dmabuf_capture_event(fp, seq, tid, opts->fd_pid, header, "mkdir-failed", "",
@@ -463,8 +599,52 @@ static void capture_dmabuf_payload(FILE *fp, const struct options *opts, int seq
     snprintf(proc_fd_path, sizeof(proc_fd_path), "/proc/%ld/fd/%u", (long)opts->fd_pid, header->mem_handle);
     int source_fd = open(proc_fd_path, O_RDONLY | O_CLOEXEC);
     if (source_fd < 0) {
-        write_dmabuf_capture_event(fp, seq, tid, opts->fd_pid, header, "open-proc-fd-failed", "",
-                                   capture_len, -1, errno, 0, 0);
+        int open_errno = errno;
+        const struct mmap_record *record = find_recent_mmap_record(mmap_records, header->mem_handle, capture_len);
+        if (record) {
+            unsigned char *remote_copy = calloc(1, capture_len);
+            if (!remote_copy) {
+                write_dmabuf_capture_event(fp, seq, tid, opts->fd_pid, header,
+                                           "open-proc-fd-failed-remote-calloc-failed", "",
+                                           capture_len, -1, open_errno, 0, errno);
+                return;
+            }
+            errno = 0;
+            ssize_t read_len = read_remote(tid, record->addr, remote_copy, capture_len);
+            int read_errno = read_len < 0 ? errno : 0;
+            if (read_len > 0) {
+                char out_path[512];
+                snprintf(out_path, sizeof(out_path), "%s/dmabuf-seq%04d-cal%u-fd%u-remote-map.bin",
+                         opts->dmabuf_out_dir, seq, header->cal_type, header->mem_handle);
+                int out_fd = open(out_path, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0600);
+                if (out_fd >= 0) {
+                    ssize_t written = write_all(out_fd, remote_copy, (size_t)read_len);
+                    int write_errno = written == read_len ? 0 : errno;
+                    close(out_fd);
+                    free(remote_copy);
+                    write_dmabuf_capture_event(fp, seq, tid, opts->fd_pid, header,
+                                               written == read_len && read_len == (ssize_t)capture_len
+                                                   ? "ok-remote-mmap"
+                                                   : "remote-mmap-write-short",
+                                               out_path, capture_len, written,
+                                               open_errno, 0, write_errno);
+                    return;
+                }
+                int out_errno = errno;
+                free(remote_copy);
+                write_dmabuf_capture_event(fp, seq, tid, opts->fd_pid, header,
+                                           "open-proc-fd-failed-remote-output-open-failed", "",
+                                           capture_len, -1, open_errno, 0, out_errno);
+                return;
+            }
+            free(remote_copy);
+            write_dmabuf_capture_event(fp, seq, tid, opts->fd_pid, header,
+                                       "open-proc-fd-failed-remote-mmap-read-failed", "",
+                                       capture_len, -1, open_errno, 0, read_errno);
+            return;
+        }
+        write_dmabuf_capture_event(fp, seq, tid, opts->fd_pid, header, "open-proc-fd-failed-no-mmap-record", "",
+                                   capture_len, -1, open_errno, 0, 0);
         return;
     }
 
@@ -511,6 +691,53 @@ static void write_exit(FILE *fp, pid_t tid, const struct pending_ioctl *pending,
             "\"argp\":\"0x%lx\",\"ret\":%ld}\n",
             pending->syscall_nr, pending->regset_len, pending->request, pending->argp, ret);
     fflush(fp);
+}
+
+static void handle_mmap_entry(FILE *out, const struct options *opts, struct traced_task *task,
+                              const struct syscall_frame *frame, int *mmap_sequence,
+                              struct capture_stats *stats) {
+    if (!frame || !is_mmap_syscall(frame)) return;
+    long fd = (long)frame->args[4];
+    unsigned long length = frame->args[1];
+    if (fd < 0 || length == 0) return;
+
+    (*mmap_sequence)++;
+    memset(&task->pending_mmap, 0, sizeof(task->pending_mmap));
+    task->pending_mmap.active = 1;
+    task->pending_mmap.seq = *mmap_sequence;
+    task->pending_mmap.abi = frame->abi;
+    task->pending_mmap.syscall_nr = frame->syscall_nr;
+    task->pending_mmap.regset_len = frame->regset_len;
+    task->pending_mmap.fd = fd;
+    task->pending_mmap.addr = frame->args[0];
+    task->pending_mmap.length = length;
+    task->pending_mmap.prot = frame->args[2];
+    task->pending_mmap.flags = frame->args[3];
+    task->pending_mmap.offset = frame->args[5];
+    task->pending_mmap.fd_target[0] = '\0';
+    task->pending_mmap.readlink_errno = 0;
+    if (fd_resolve_target(opts->fd_pid, fd, task->pending_mmap.fd_target,
+                          sizeof(task->pending_mmap.fd_target)) != 0) {
+        task->pending_mmap.readlink_errno = errno;
+    }
+    stats->mmap_entry_count++;
+    write_mmap_event(out, "mmap_entry", task->tid, &task->pending_mmap, 0, 0, "entry");
+}
+
+static void handle_mmap_exit(FILE *out, struct traced_task *task, const struct syscall_frame *frame,
+                             struct mmap_records *mmap_records, struct capture_stats *stats) {
+    if (!task->pending_mmap.active) return;
+    if (syscall_return_is_error(frame)) {
+        stats->mmap_error_count++;
+        write_mmap_event(out, "mmap_exit", task->tid, &task->pending_mmap,
+                         frame->raw_ret, frame->ret, "error");
+    } else {
+        stats->mmap_success_count++;
+        remember_mmap_record(mmap_records, &task->pending_mmap, frame->raw_ret, stats);
+        write_mmap_event(out, "mmap_exit", task->tid, &task->pending_mmap,
+                         frame->raw_ret, frame->ret, "ok");
+    }
+    memset(&task->pending_mmap, 0, sizeof(task->pending_mmap));
 }
 
 static void write_unmatched_ioctl(FILE *fp, const struct options *opts, pid_t tid, long fd,
@@ -659,7 +886,8 @@ static void stop_and_detach_all(struct traced_task *tasks, int task_count, FILE 
 }
 
 static void handle_syscall_stop(FILE *out, const struct options *opts, struct traced_task *task,
-                                int *sequence, int *events, struct capture_stats *stats) {
+                                int *sequence, int *events, int *mmap_sequence,
+                                struct capture_stats *stats, struct mmap_records *mmap_records) {
     struct syscall_frame frame;
     stats->syscall_stop_count++;
     if (get_syscall_frame(task->tid, &frame) != 0) {
@@ -669,6 +897,7 @@ static void handle_syscall_stop(FILE *out, const struct options *opts, struct tr
 
     if (task->entering_syscall) {
         stats->syscall_entry_count++;
+        handle_mmap_entry(out, opts, task, &frame, mmap_sequence, stats);
         if ((frame.abi && !strcmp(frame.abi, "aarch64") && frame.syscall_nr == __NR_ioctl) ||
             (frame.abi && !strcmp(frame.abi, "aarch32") && frame.syscall_nr == A90_COMPAT_ARM_NR_IOCTL)) {
             stats->ioctl_any_entry_count++;
@@ -700,7 +929,7 @@ static void handle_syscall_stop(FILE *out, const struct options *opts, struct tr
                                 frame.syscall_nr, frame.regset_len, target, request, argp, buf, bytes, read_errno);
                     struct decoded_cal_header cal_header = decode_cal_header(buf, bytes);
                     if (is_dmabuf_capture_target(request, &cal_header)) {
-                        capture_dmabuf_payload(out, opts, *sequence, task->tid, &cal_header);
+                        capture_dmabuf_payload(out, opts, *sequence, task->tid, &cal_header, mmap_records);
                     }
                     free(buf);
                     (*events)++;
@@ -712,9 +941,12 @@ static void handle_syscall_stop(FILE *out, const struct options *opts, struct tr
                                       frame.regset_len, request, argp, target, readlink_errno, stats);
             }
         }
-    } else if (task->pending.active) {
-        write_exit(out, task->tid, &task->pending, frame.ret);
-        memset(&task->pending, 0, sizeof(task->pending));
+    } else {
+        handle_mmap_exit(out, task, &frame, mmap_records, stats);
+        if (task->pending.active) {
+            write_exit(out, task->tid, &task->pending, frame.ret);
+            memset(&task->pending, 0, sizeof(task->pending));
+        }
     }
     task->entering_syscall = !task->entering_syscall;
 }
@@ -861,10 +1093,13 @@ int main(int argc, char **argv) {
     }
 
     int sequence = 0;
+    int mmap_sequence = 0;
     int events = 0;
     int timed_out = 0;
     struct capture_stats stats;
     memset(&stats, 0, sizeof(stats));
+    struct mmap_records mmap_records;
+    memset(&mmap_records, 0, sizeof(mmap_records));
 
     while (now_ms() < deadline && events < opts.max_events) {
         pid_t stopped_tid = wait_for_any_stop(&status, deadline, out);
@@ -909,7 +1144,7 @@ int main(int argc, char **argv) {
         }
 
         if (stop_signal == (SIGTRAP | 0x80)) {
-            handle_syscall_stop(out, &opts, task, &sequence, &events, &stats);
+            handle_syscall_stop(out, &opts, task, &sequence, &events, &mmap_sequence, &stats, &mmap_records);
             resume_syscall(task, 0, out);
             continue;
         }
@@ -930,11 +1165,15 @@ int main(int argc, char **argv) {
             "\"syscall_stop_count\":%d,\"syscall_entry_count\":%d,"
             "\"ioctl_any_entry_count\":%d,\"ioctl_fd_match_count\":%d,"
             "\"ioctl_fd_miss_count\":%d,\"fd_readlink_error_count\":%d,"
-            "\"unmatched_samples\":%d}\n",
+            "\"unmatched_samples\":%d,\"mmap_entry_count\":%d,"
+            "\"mmap_success_count\":%d,\"mmap_error_count\":%d,"
+            "\"mmap_record_count\":%d}\n",
             now_ms(), wall_ms(), events, task_count, timed_out ? "true" : "false",
             stats.syscall_stop_count, stats.syscall_entry_count, stats.ioctl_any_entry_count,
             stats.ioctl_fd_match_count, stats.ioctl_fd_miss_count,
-            stats.fd_readlink_error_count, stats.unmatched_samples);
+            stats.fd_readlink_error_count, stats.unmatched_samples,
+            stats.mmap_entry_count, stats.mmap_success_count,
+            stats.mmap_error_count, stats.mmap_record_count);
     fflush(out);
     stop_and_detach_all(tasks, task_count, out);
     fclose(out);

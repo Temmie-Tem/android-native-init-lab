@@ -253,10 +253,13 @@ class AcdbM1HybridLateObserverLiveHandoffV2451(unittest.TestCase):
                 "A90_M1_LATE_DIAG_END status=complete\n"
             )
             (artifact_dir / "msm-audio-cal-diag-threadset-p222-late.jsonl").write_text(
+                '{"event":"mmap_entry","seq":3,"fd":37,"length":4916,"status":"entry","fd_target":"dmabuf"}\n'
+                '{"event":"mmap_exit","seq":3,"fd":37,"length":4916,"ret":"0xf0000000","status":"ok","fd_target":"dmabuf"}\n'
                 '{"event":"dmabuf_capture","seq":7,"status":"ok","cal_type":39,'
                 '"cal_size":4,"mem_handle":37,"capture_len":4,"written_len":4}\n'
                 '{"event":"stop","syscall_stop_count":4,"ioctl_any_entry_count":1,'
-                '"ioctl_fd_match_count":1,"ioctl_fd_miss_count":0,"fd_readlink_error_count":0}\n'
+                '"ioctl_fd_match_count":1,"ioctl_fd_miss_count":0,"fd_readlink_error_count":0,'
+                '"mmap_entry_count":1,"mmap_success_count":1,"mmap_error_count":0,"mmap_record_count":1}\n'
             )
             (dmabuf_dir / "dmabuf-seq0007-cal39-fd37.bin").write_bytes(b"ABCD")
 
@@ -267,6 +270,9 @@ class AcdbM1HybridLateObserverLiveHandoffV2451(unittest.TestCase):
         self.assertEqual(summary["late_observer"]["classification"], "late-msm-audio-cal-dmabuf-payload-captured")
         self.assertEqual(summary["late_observer"]["dmabuf_payload_count"], 1)
         self.assertEqual(summary["late_observer"]["dmabuf_payload_hashes"][0]["size"], 4)
+        self.assertEqual(summary["late_observer"]["mmap_success_count"], 1)
+        self.assertEqual(summary["late_observer"]["mmap_record_count"], 1)
+        self.assertEqual(summary["late_observer"]["mmap_events"][1]["status"], "ok")
         self.assertFalse(summary["late_observer"]["raw_dmabuf_in_summary"])
         self.assertNotIn("ABCD", encoded)
 
