@@ -94,6 +94,7 @@ or native calibration replay logic. It must be removed before rollback.
 def audio_hal_rc() -> str:
     return f"""# {RC_MARKER}
 service vendor.audio-hal /vendor/bin/hw/android.hardware.audio.service
+    override
     class hal
     user audioserver
     # media gid needed for /dev/fm (radio) and for /data/misc/media (tee)
@@ -217,6 +218,7 @@ done
 if [ -e {shlex.quote(VENDOR_RC_PATH)} ]; then
   ls -lZ {shlex.quote(VENDOR_RC_PATH)}
   grep -n {shlex.quote(RC_MARKER)} {shlex.quote(VENDOR_RC_PATH)}
+  grep -n 'override' {shlex.quote(VENDOR_RC_PATH)}
   grep -n 'setenv LD_PRELOAD' {shlex.quote(VENDOR_RC_PATH)}
   grep -n 'setenv A90_ACDBTAP_DIR' {shlex.quote(VENDOR_RC_PATH)}
 else

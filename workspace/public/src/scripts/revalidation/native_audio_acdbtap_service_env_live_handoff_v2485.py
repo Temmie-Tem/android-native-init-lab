@@ -125,6 +125,84 @@ def step_stderr(record: dict[str, Any]) -> str:
         return ""
 
 
+def is_adb_push_command(command: list[str]) -> bool:
+    return len(command) >= 4 and command[0].endswith("adb") and command[1] == "push"
+
+
+def local_path_from_push(command: list[str]) -> Path:
+    source = Path(command[2])
+    return source if source.is_absolute() else ROOT / source
+
+
+def expected_push_sha256(command: list[str]) -> str:
+    return v2396.sha256(local_path_from_push(command))
+
+
+def remote_sha256_command(args: argparse.Namespace, remote_path: str) -> list[str]:
+    script = f"""
+set -eu
+if [ ! -f {shlex.quote(remote_path)} ]; then
+  echo A90_ACDBTAP_PUSH_REMOTE_MISSING {shlex.quote(remote_path)}
+  exit 72
+fi
+sha256sum {shlex.quote(remote_path)} 2>/dev/null || toybox sha256sum {shlex.quote(remote_path)}
+""".strip()
+    return adb_su(args, script)
+
+
+def remote_sha_matches(record: dict[str, Any], expected_sha256: str) -> bool:
+    return expected_sha256 in step_stdout(record).split()
+
+
+def run_adb_push_with_sha_recovery(
+    args: argparse.Namespace,
+    name: str,
+    command: list[str],
+    out_dir: Path,
+    steps: list[dict[str, Any]],
+) -> None:
+    """Run one small module `adb push`, accepting a bad rc only after remote SHA verification.
+
+    Android ADB can report `failed to read copy response` even after the payload line says the
+    file was transferred. For the temporary Magisk capsule files, the safe recovery rule is:
+    verify the exact remote SHA and continue only if it matches; otherwise wait for ADB once,
+    retry the push once, and verify again. This is transport hardening, not ACDB retry logic.
+    """
+    expected_sha = expected_push_sha256(command)
+    remote_path = command[3]
+    first = route.run_step(name, command, out_dir, timeout_sec=args.adb_command_timeout, check=False)
+    first["expected_remote_sha256"] = expected_sha
+    steps.append(first)
+    if first.get("ok"):
+        return
+
+    verify_name = f"{name}-sha-after-failed-push"
+    verify = route.run_step(verify_name, remote_sha256_command(args, remote_path), out_dir, timeout_sec=args.adb_command_timeout, check=False)
+    verify["expected_remote_sha256"] = expected_sha
+    verify["accepted_failed_push_by_remote_sha"] = remote_sha_matches(verify, expected_sha)
+    steps.append(verify)
+    if verify["accepted_failed_push_by_remote_sha"]:
+        first["accepted_by_remote_sha"] = True
+        return
+
+    wait_name = f"{name}-wait-for-device-before-retry"
+    wait_record = route.run_step(wait_name, [args.adb, "wait-for-device"], out_dir, timeout_sec=args.adb_command_timeout, check=False)
+    steps.append(wait_record)
+    retry = route.run_step(f"{name}-retry-once", command, out_dir, timeout_sec=args.adb_command_timeout, check=False)
+    retry["expected_remote_sha256"] = expected_sha
+    steps.append(retry)
+    retry_verify = route.run_step(f"{name}-sha-after-retry", remote_sha256_command(args, remote_path), out_dir, timeout_sec=args.adb_command_timeout, check=False)
+    retry_verify["expected_remote_sha256"] = expected_sha
+    retry_verify["accepted_retry_by_remote_sha"] = remote_sha_matches(retry_verify, expected_sha)
+    steps.append(retry_verify)
+    if retry_verify["accepted_retry_by_remote_sha"]:
+        return
+    raise RuntimeError(
+        f"{name} failed and remote SHA did not match after one retry; see "
+        f"{first.get('stdout')} {first.get('stderr')}"
+    )
+
+
 def verified_preload_candidates(record: dict[str, Any]) -> list[str]:
     stdout = step_stdout(record)
     candidates: list[str] = []
@@ -295,6 +373,7 @@ def command_safety(payload: dict[str, Any]) -> dict[str, Any]:
         "LD_PRELOAD",
         "A90_ACDBTAP_SERVICE_PRELOAD_ALL_PIDS",
         v2484.RC_MARKER,
+        "override",
         "setenv LD_PRELOAD",
         "cmd package path",
         "AudioTrack",
@@ -426,7 +505,10 @@ def run_live(args: argparse.Namespace) -> dict[str, Any]:
 
         module_stage_started = True
         for name, command, check in module_stage_commands(args):
-            steps.append(route.run_step(name, command, out_dir, timeout_sec=args.adb_command_timeout, check=check))
+            if is_adb_push_command(command):
+                run_adb_push_with_sha_recovery(args, name, command, out_dir, steps)
+            else:
+                steps.append(route.run_step(name, command, out_dir, timeout_sec=args.adb_command_timeout, check=check))
 
         run_android_settle_with_prefix(args, out_dir, steps, "android-post-module-settle")
         verify_record = route.run_step("v2485-module-verify-service-env", module_verify_command(args), out_dir, timeout_sec=args.adb_command_timeout, check=False)

@@ -42,6 +42,7 @@ class V2485ServiceEnvLiveHandoffTests(unittest.TestCase):
         self.assertTrue(payload["module_safety"]["ok"])
         self.assertIn(v2484.MODULE_ID, flat)
         self.assertIn(v2484.RC_MARKER, flat)
+        self.assertIn("override", flat)
         self.assertIn("setenv LD_PRELOAD", flat)
         self.assertIn("A90_ACDBTAP_SERVICE_PRELOAD_ALL_PIDS", flat)
         self.assertIn("install_stimulus_apk", flat)
@@ -88,6 +89,18 @@ class V2485ServiceEnvLiveHandoffTests(unittest.TestCase):
         self.assertIn("magisk_install_module", names)
         self.assertIn("native_cal_set_symbol", names)
         self.assertIn("service_script", names)
+
+    def test_adb_push_sha_recovery_helpers(self) -> None:
+        command = ["adb", "push", "workspace/public/src/scripts/revalidation/native_audio_acdbtap_service_env_live_handoff_v2485.py", "/data/local/tmp/libacdbtap.so"]
+        self.assertTrue(v2485.is_adb_push_command(command))
+        self.assertFalse(v2485.is_adb_push_command(["adb", "shell", "true"]))
+        expected = v2485.expected_push_sha256(command)
+        with tempfile.TemporaryDirectory() as tmp:
+            stdout = Path(tmp) / "stdout.txt"
+            stdout.write_text(f"{expected}  /data/local/tmp/libacdbtap.so\n")
+            self.assertTrue(v2485.remote_sha_matches({"stdout": str(stdout)}, expected))
+            stdout.write_text("deadbeef  /data/local/tmp/libacdbtap.so\n")
+            self.assertFalse(v2485.remote_sha_matches({"stdout": str(stdout)}, expected))
 
 
 if __name__ == "__main__":
