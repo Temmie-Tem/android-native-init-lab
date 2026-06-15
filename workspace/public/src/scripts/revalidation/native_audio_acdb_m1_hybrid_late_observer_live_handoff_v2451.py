@@ -87,6 +87,7 @@ DURATION_SEC={duration}
 MAX_BYTES={int(args.max_bytes)}
 MAX_EVENTS={max_events}
 MAX_UNMATCHED={int(args.max_unmatched_samples)}
+MAX_DMABUF_BYTES={v2449.DEFAULT_MAX_DMABUF_BYTES}
 LOG="$ARTIFACT_DIR/late-observer.log"
 mkdir -p "$ARTIFACT_DIR"
 : > "$LOG"
@@ -126,6 +127,8 @@ mkdir -p "$ARTIFACT_DIR"
       --duration-sec "$DURATION_SEC" \
       --max-bytes "$MAX_BYTES" \
       --max-events "$MAX_EVENTS" \
+      --dmabuf-out-dir "$ARTIFACT_DIR/dmabuf-late" \
+      --max-dmabuf-bytes "$MAX_DMABUF_BYTES" \
       --max-unmatched-samples "$MAX_UNMATCHED" \
       > "$ARTIFACT_DIR/late-helper-$pid.log" 2>&1 &
     helper_pid="$!"
@@ -336,7 +339,10 @@ def summarize_late_subset(out_dir: Path) -> dict[str, Any]:
         "fd_readlink_error_count": 0,
         "syscall_stop_count": 0,
         "payload_hashes": [],
+        "dmabuf_payload_hashes": [],
+        "dmabuf_capture_events": [],
         "raw_payload_in_summary": False,
+        "raw_dmabuf_in_summary": False,
     }
     for log in late_logs:
         for line in log.read_text(errors="replace").splitlines():
@@ -366,6 +372,20 @@ def summarize_late_subset(out_dir: Path) -> dict[str, Any]:
                             "sha256": digest,
                         }
                     )
+            elif kind == "dmabuf_capture":
+                if len(summary["dmabuf_capture_events"]) < 16:
+                    summary["dmabuf_capture_events"].append(
+                        {
+                            "file": rel(path),
+                            "seq": event.get("seq"),
+                            "status": event.get("status"),
+                            "cal_type": event.get("cal_type"),
+                            "cal_size": event.get("cal_size"),
+                            "mem_handle": event.get("mem_handle"),
+                            "capture_len": event.get("capture_len"),
+                            "written_len": event.get("written_len"),
+                        }
+                    )
             elif kind == "stop":
                 has_stop = True
                 for key in (
@@ -382,7 +402,11 @@ def summarize_late_subset(out_dir: Path) -> dict[str, Any]:
             summary["missing_stop_files"].append(rel(path))
 
     summary["payload_hashes"] = summary["payload_hashes"][:64]
-    if summary["ioctl_entries"] > 0:
+    summary["dmabuf_payload_hashes"] = v2450.summarize_dmabuf_payload_files(artifact_root)[:64]
+    summary["dmabuf_payload_count"] = len(summary["dmabuf_payload_hashes"])
+    if summary["dmabuf_payload_hashes"]:
+        classification = "late-msm-audio-cal-dmabuf-payload-captured"
+    elif summary["ioctl_entries"] > 0:
         classification = "late-msm-audio-cal-payload-captured"
     elif summary["missing_stop_files"]:
         classification = "late-partial-helper-still-running"
@@ -404,7 +428,10 @@ def summarize_hybrid_capture_artifacts(out_dir: Path) -> dict[str, Any]:
     summary = v2450.summarize_diag_capture_artifacts(out_dir)
     summary["late_observer"] = summarize_late_subset(out_dir)
     late_classification = summary["late_observer"].get("classification")
-    if late_classification == "late-msm-audio-cal-payload-captured":
+    if late_classification in {
+        "late-msm-audio-cal-payload-captured",
+        "late-msm-audio-cal-dmabuf-payload-captured",
+    }:
         summary["classification"] = late_classification
     elif summary.get("classification") == "partial-helper-still-running" and late_classification:
         summary["classification"] = f"hybrid-{late_classification}"
@@ -636,7 +663,12 @@ def run_live(args: argparse.Namespace) -> dict[str, Any]:
             steps.append(route.run_step(f"cleanup-{index}", command, out_dir, timeout_sec=args.adb_command_timeout, check=False))
 
         classification = result["payload_capture_summary"].get("classification")
-        if classification in {"msm-audio-cal-payload-captured", "late-msm-audio-cal-payload-captured"}:
+        if classification in {
+            "msm-audio-cal-payload-captured",
+            "late-msm-audio-cal-payload-captured",
+            "msm-audio-cal-dmabuf-payload-captured",
+            "late-msm-audio-cal-dmabuf-payload-captured",
+        }:
             result["decision"] = f"{decision_slug()}-payload-captured-before-rollback"
         else:
             result["decision"] = f"{decision_slug()}-{classification}-before-rollback"

@@ -664,7 +664,13 @@ only `data_size=32` bytes from each ioctl argument, so the observer's 512-byte t
 payload was not captured in V2461. Native ACDB replay remains blocked until an Android-good observer
 captures or reconstructs the dmabuf payload bytes, length, hash, and cleanup policy. Next meaningful
 unit is a host-only Android-good dmabuf-payload capture design/implementation for the V2461
-`AUDIO_SET_CALIBRATION` mem_handle. Do **not** issue native calibration ioctls yet.
+`AUDIO_SET_CALIBRATION` mem_handle. V2463 implemented that host-only support: the existing Android
+ptrace observer now recognizes the custom-topology set-cal header, duplicates the target process
+`mem_handle` fd via `/proc/<tgid>/fd/<fd>`, mmaps at most the declared calibration length into a
+private binary artifact, and records only metadata in JSONL; host summaries hash those private
+dmabuf files without embedding raw bytes. Next meaningful unit is a bounded Android-good live rerun
+of the already validated hybrid late-observer path with this V2463 helper to capture the missing
+4916-byte topology dmabuf. Do **not** issue native calibration ioctls yet.
 
 ## Read at the START of every iteration
 

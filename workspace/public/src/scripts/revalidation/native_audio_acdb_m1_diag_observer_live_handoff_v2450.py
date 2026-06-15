@@ -379,6 +379,23 @@ def parse_jsonl(path: Path) -> list[dict[str, Any]]:
     return events
 
 
+def summarize_dmabuf_payload_files(artifact_root: Path) -> list[dict[str, Any]]:
+    if not artifact_root.exists():
+        return []
+    payloads: list[dict[str, Any]] = []
+    for path in sorted(artifact_root.rglob("dmabuf*.bin")):
+        if not path.is_file():
+            continue
+        payloads.append(
+            {
+                "file": rel(path),
+                "size": path.stat().st_size,
+                "sha256": v2396.sha256(path),
+            }
+        )
+    return payloads
+
+
 def summarize_diag_capture_artifacts(out_dir: Path) -> dict[str, Any]:
     artifact_root = out_dir / "device-artifacts"
     service_logs = sorted(artifact_root.rglob("service.log")) if artifact_root.exists() else []
@@ -406,7 +423,10 @@ def summarize_diag_capture_artifacts(out_dir: Path) -> dict[str, Any]:
         "unmatched_samples": [],
         "requests": {},
         "payload_hashes": [],
+        "dmabuf_payload_hashes": [],
+        "dmabuf_capture_events": [],
         "raw_payload_in_summary": False,
+        "raw_dmabuf_in_summary": False,
         "missing_stop_files": [],
         "wait_markers": [],
     }
@@ -469,6 +489,23 @@ def summarize_diag_capture_artifacts(out_dir: Path) -> dict[str, Any]:
                             "fd_target": event.get("fd_target"),
                         }
                     )
+            elif kind == "dmabuf_capture":
+                if len(summary["dmabuf_capture_events"]) < 16:
+                    summary["dmabuf_capture_events"].append(
+                        {
+                            "file": rel(path),
+                            "seq": event.get("seq"),
+                            "status": event.get("status"),
+                            "cal_type": event.get("cal_type"),
+                            "cal_size": event.get("cal_size"),
+                            "mem_handle": event.get("mem_handle"),
+                            "capture_len": event.get("capture_len"),
+                            "written_len": event.get("written_len"),
+                            "open_errno": event.get("open_errno"),
+                            "mmap_errno": event.get("mmap_errno"),
+                            "write_errno": event.get("write_errno"),
+                        }
+                    )
             elif kind == "stop":
                 has_stop = True
                 for key in (
@@ -491,9 +528,13 @@ def summarize_diag_capture_artifacts(out_dir: Path) -> dict[str, Any]:
 
     summary["target_pids"] = sorted(set(summary["target_pids"]))
     summary["payload_hashes"] = summary["payload_hashes"][:64]
+    summary["dmabuf_payload_hashes"] = summarize_dmabuf_payload_files(artifact_root)[:64]
+    summary["dmabuf_payload_count"] = len(summary["dmabuf_payload_hashes"])
     summary["wait_marker_count"] = len(summary["wait_markers"])
     if not summary["artifact_root_exists"]:
         classification = "artifact-pull-missing"
+    elif summary["dmabuf_payload_hashes"]:
+        classification = "msm-audio-cal-dmabuf-payload-captured"
     elif summary["ioctl_entries"] > 0:
         classification = "msm-audio-cal-payload-captured"
     elif summary["missing_stop_files"]:
@@ -815,7 +856,7 @@ def run_live(args: argparse.Namespace) -> dict[str, Any]:
             steps.append(route.run_step(f"cleanup-{index}", command, out_dir, timeout_sec=args.adb_command_timeout, check=False))
 
         classification = result["payload_capture_summary"].get("classification")
-        if classification == "msm-audio-cal-payload-captured":
+        if classification in {"msm-audio-cal-payload-captured", "msm-audio-cal-dmabuf-payload-captured"}:
             result["decision"] = f"{decision_slug()}-payload-captured-before-rollback"
         else:
             result["decision"] = f"{decision_slug()}-{classification}-before-rollback"

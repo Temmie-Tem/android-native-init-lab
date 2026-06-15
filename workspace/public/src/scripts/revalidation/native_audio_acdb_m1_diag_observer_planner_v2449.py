@@ -44,6 +44,7 @@ DEFAULT_CAPTURE_DURATION_SEC = 180
 DEFAULT_MAX_BYTES = 512
 DEFAULT_PROCESS_POLL_SEC = 0.2
 DEFAULT_MAX_UNMATCHED_SAMPLES = 32
+DEFAULT_MAX_DMABUF_BYTES = 65536
 HELPER_MAX_DURATION_SEC = 120
 REMOTE_DIR = "/data/local/tmp/a90-audio-acdb-m1-diag-v2449"
 REMOTE_ARTIFACT_DIR = f"{REMOTE_DIR}/artifacts"
@@ -101,6 +102,8 @@ def source_state() -> dict[str, Any]:
             "contains_stop_counters": "syscall_stop_count" in text and "ioctl_any_entry_count" in text,
             "contains_fd_miss_counters": "ioctl_fd_miss_count" in text and "fd_readlink_error_count" in text,
             "contains_unmatched_sample_limit": "max_unmatched_samples" in text,
+            "contains_dmabuf_capture": "--dmabuf-out-dir" in text and "dmabuf_capture" in text and "mmap(" in text,
+            "contains_targeted_set_cal_constants_without_forbidden_symbol": "A90_CAL_CMD_SET_COMPAT" in text and "A90_CORE_CUSTOM_TOPOLOGIES_CAL_TYPE" in text,
             "contains_monotonic_ts": "CLOCK_MONOTONIC" in text,
             "contains_wall_ts": "wall_ms" in text,
             "forbidden": forbidden,
@@ -164,6 +167,7 @@ DURATION="${{A90_M1_DIAG_DURATION_SEC:-{duration_sec}}}"
 MAX_BYTES="${{A90_M1_DIAG_MAX_BYTES:-{max_bytes}}}"
 PROCESS_POLL_SEC="${{A90_M1_DIAG_PROCESS_POLL_SEC:-{process_poll_sec}}}"
 MAX_UNMATCHED_SAMPLES="${{A90_M1_DIAG_MAX_UNMATCHED_SAMPLES:-{max_unmatched_samples}}}"
+MAX_DMABUF_BYTES="${{A90_M1_DIAG_MAX_DMABUF_BYTES:-{DEFAULT_MAX_DMABUF_BYTES}}}"
 HELPER_MAX_DURATION_SEC="{HELPER_MAX_DURATION_SEC}"
 LOCK="$RUN_DIR/service.lock"
 
@@ -217,6 +221,8 @@ echo "$$" > "$LOCK"
       --duration-sec "$helper_duration" \\
       --max-bytes "$MAX_BYTES" \\
       --max-events 4096 \\
+      --dmabuf-out-dir "$OUT/dmabuf" \\
+      --max-dmabuf-bytes "$MAX_DMABUF_BYTES" \\
       --max-unmatched-samples "$MAX_UNMATCHED_SAMPLES" >> "$OUT/helper-$pid.log" 2>&1 &
     echo "$! $pid threadset-clone-following-diagnostic" >> "$OUT/helper-pids.txt"
   }}
@@ -259,7 +265,8 @@ Private temporary Magisk service module for Android-side measurement only.
 
 It launches the V2449 diagnostic thread-set clone-following observer from
 `service.sh`, records syscall/ioctl/fd counters and bounded unmatched ioctl
-metadata samples, then waits for helper completion before artifacts are pulled.
+metadata samples, captures matching ACDB dmabuf payloads only into private
+binary artifacts, then waits for helper completion before artifacts are pulled.
 It intentionally omits the Magisk early-boot hook and does not install a
 persistent module baseline.
 """
@@ -412,6 +419,8 @@ def command_safety(payload: dict[str, Any]) -> dict[str, Any]:
         "--fd-pid",
         "--device-substr /dev/msm_audio_cal",
         "--max-unmatched-samples",
+        "--dmabuf-out-dir",
+        "dmabuf_capture",
         "ioctl_unmatched",
         "syscall_stop_count",
         "ioctl_any_entry_count",
@@ -454,8 +463,10 @@ def dry_run_payload(args: argparse.Namespace) -> dict[str, Any]:
             "adds_syscall_ioctl_fd_counters": True,
             "adds_bounded_unmatched_ioctl_samples": True,
             "adds_monotonic_and_wall_timestamps": True,
+            "adds_private_dmabuf_payload_capture": True,
             "requires_terminal_stop_before_collection": True,
             "private_raw_payload_policy": "raw bytes only for fd-matched /dev/msm_audio_cal ioctls; unmatched samples metadata-only",
+            "dmabuf_capture_policy": "matching custom-topology set-cal dmabuf bytes are stored only in private binary artifacts; public summaries may include length and SHA-256 only",
         },
         "boundaries": [
             "M1 is Android-good measurement packaging only, matching the prior Wi-Fi-style temporary helper pattern",

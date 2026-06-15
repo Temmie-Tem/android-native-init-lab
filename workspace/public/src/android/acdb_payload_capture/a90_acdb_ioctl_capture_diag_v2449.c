@@ -16,6 +16,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/mman.h>
 #include <sys/ptrace.h>
 #include <sys/stat.h>
 #include <sys/time.h>
@@ -41,8 +42,12 @@
 #define DEFAULT_DURATION_SEC 8
 #define DEFAULT_MAX_EVENTS 128
 #define DEFAULT_MAX_UNMATCHED_SAMPLES 32
+#define DEFAULT_MAX_DMABUF_BYTES 65536U
 #define MAX_TRACED_TASKS 256
 #define WAIT_POLL_USEC 10000
+#define A90_CAL_CMD_SET_COMPAT 0xc00461cbUL
+#define A90_CAL_CMD_SET_NATIVE 0xc00861cbUL
+#define A90_CORE_CUSTOM_TOPOLOGIES_CAL_TYPE 39U
 
 struct options {
     pid_t pid;
@@ -54,6 +59,8 @@ struct options {
     int duration_sec;
     int max_events;
     int max_unmatched_samples;
+    const char *dmabuf_out_dir;
+    size_t max_dmabuf_bytes;
 };
 
 struct pending_ioctl {
@@ -85,6 +92,18 @@ struct traced_task {
     struct pending_ioctl pending;
 };
 
+struct decoded_cal_header {
+    int valid;
+    uint32_t data_size;
+    uint32_t version;
+    uint32_t cal_type;
+    uint32_t cal_type_size;
+    uint32_t type_version;
+    uint32_t buffer_number;
+    uint32_t cal_size;
+    uint32_t mem_handle;
+};
+
 struct capture_stats {
     int syscall_stop_count;
     int syscall_entry_count;
@@ -98,7 +117,8 @@ struct capture_stats {
 static void usage(const char *argv0) {
     fprintf(stderr,
             "usage: %s --tgid TGID --out PATH [--pid PID] [--fd-pid TGID] [--device-substr /dev/msm_audio_cal] "
-            "[--max-bytes 512] [--duration-sec 8] [--max-events 128] [--max-unmatched-samples 32]\n",
+            "[--max-bytes 512] [--duration-sec 8] [--max-events 128] [--max-unmatched-samples 32] "
+            "[--dmabuf-out-dir PATH] [--max-dmabuf-bytes 65536]\n",
             argv0);
 }
 
@@ -123,6 +143,8 @@ static int parse_options(int argc, char **argv, struct options *opts) {
     opts->duration_sec = DEFAULT_DURATION_SEC;
     opts->max_events = DEFAULT_MAX_EVENTS;
     opts->max_unmatched_samples = DEFAULT_MAX_UNMATCHED_SAMPLES;
+    opts->dmabuf_out_dir = NULL;
+    opts->max_dmabuf_bytes = DEFAULT_MAX_DMABUF_BYTES;
 
     for (int arg_index = 1; arg_index < argc; arg_index++) {
         if (!strcmp(argv[arg_index], "--pid") && arg_index + 1 < argc) {
@@ -157,6 +179,12 @@ static int parse_options(int argc, char **argv, struct options *opts) {
             long value = 0;
             if (parse_int_arg(argv[++arg_index], 0, 1024, &value)) return -1;
             opts->max_unmatched_samples = (int)value;
+        } else if (!strcmp(argv[arg_index], "--dmabuf-out-dir") && arg_index + 1 < argc) {
+            opts->dmabuf_out_dir = argv[++arg_index];
+        } else if (!strcmp(argv[arg_index], "--max-dmabuf-bytes") && arg_index + 1 < argc) {
+            long value = 0;
+            if (parse_int_arg(argv[++arg_index], 1, 1048576, &value)) return -1;
+            opts->max_dmabuf_bytes = (size_t)value;
         } else {
             return -1;
         }
@@ -294,15 +322,48 @@ static void write_hex(FILE *fp, const unsigned char *buf, ssize_t len) {
     }
 }
 
+static uint32_t read_le32(const unsigned char *buf) {
+    return ((uint32_t)buf[0]) |
+           ((uint32_t)buf[1] << 8) |
+           ((uint32_t)buf[2] << 16) |
+           ((uint32_t)buf[3] << 24);
+}
+
+static struct decoded_cal_header decode_cal_header(const unsigned char *buf, ssize_t len) {
+    struct decoded_cal_header header;
+    memset(&header, 0, sizeof(header));
+    if (len < 32) return header;
+    header.data_size = read_le32(buf + 0);
+    header.version = read_le32(buf + 4);
+    header.cal_type = read_le32(buf + 8);
+    header.cal_type_size = read_le32(buf + 12);
+    header.type_version = read_le32(buf + 16);
+    header.buffer_number = read_le32(buf + 20);
+    header.cal_size = read_le32(buf + 24);
+    header.mem_handle = read_le32(buf + 28);
+    header.valid = header.data_size >= 32 && header.data_size <= DEFAULT_MAX_BYTES;
+    return header;
+}
+
+static int is_dmabuf_capture_target(unsigned long request, const struct decoded_cal_header *header) {
+    if (!header || !header->valid) return 0;
+    if (request != A90_CAL_CMD_SET_COMPAT && request != A90_CAL_CMD_SET_NATIVE) return 0;
+    return header->cal_type == A90_CORE_CUSTOM_TOPOLOGIES_CAL_TYPE &&
+           header->cal_size > 0 &&
+           header->mem_handle > 0;
+}
+
 static void write_header(FILE *fp, const struct options *opts) {
     fprintf(fp,
             "{\"event\":\"start\",\"ts_ms\":%lld,\"wall_ms\":%lld,"
             "\"pid\":%ld,\"tgid\":%ld,\"fd_pid\":%ld,\"duration_sec\":%d,"
             "\"max_bytes\":%zu,\"max_unmatched_samples\":%d,"
+            "\"dmabuf_capture_enabled\":%s,\"max_dmabuf_bytes\":%zu,"
             "\"trace_mode\":\"threadset-clone-following-diagnostic\",\"device_substr\":\"",
             now_ms(), wall_ms(),
             (long)opts->pid, (long)opts->tgid, (long)opts->fd_pid, opts->duration_sec,
-            opts->max_bytes, opts->max_unmatched_samples);
+            opts->max_bytes, opts->max_unmatched_samples,
+            opts->dmabuf_out_dir ? "true" : "false", opts->max_dmabuf_bytes);
     json_escape(fp, opts->device_substr);
     fprintf(fp, "\",\"note\":\"private raw hex only for fd-matched payloads; unmatched samples are metadata-only\"}\n");
     fflush(fp);
@@ -345,6 +406,98 @@ static void write_entry(FILE *fp, int seq, pid_t tid, pid_t fd_pid, const char *
     if (read_len > 0) write_hex(fp, buf, read_len);
     fprintf(fp, "\"}\n");
     fflush(fp);
+}
+
+static void write_dmabuf_capture_event(FILE *fp, int seq, pid_t tid, pid_t fd_pid,
+                                       const struct decoded_cal_header *header,
+                                       const char *status, const char *path,
+                                       size_t capture_len, ssize_t written_len,
+                                       int open_errno, int mmap_errno, int write_errno) {
+    fprintf(fp,
+            "{\"event\":\"dmabuf_capture\",\"ts_ms\":%lld,\"wall_ms\":%lld,"
+            "\"seq\":%d,\"tid\":%ld,\"fd_pid\":%ld,"
+            "\"data_size\":%u,\"cal_type\":%u,\"buffer_number\":%u,"
+            "\"cal_size\":%u,\"mem_handle\":%u,\"capture_len\":%zu,"
+            "\"written_len\":%zd,\"open_errno\":%d,\"mmap_errno\":%d,\"write_errno\":%d,"
+            "\"status\":\"",
+            now_ms(), wall_ms(), seq, (long)tid, (long)fd_pid,
+            header ? header->data_size : 0, header ? header->cal_type : 0,
+            header ? header->buffer_number : 0, header ? header->cal_size : 0,
+            header ? header->mem_handle : 0, capture_len, written_len,
+            open_errno, mmap_errno, write_errno);
+    json_escape(fp, status);
+    fprintf(fp, "\",\"path\":\"");
+    if (path) json_escape(fp, path);
+    fprintf(fp, "\"}\n");
+    fflush(fp);
+}
+
+static ssize_t write_all(int fd, const unsigned char *buf, size_t len) {
+    size_t total = 0;
+    while (total < len) {
+        ssize_t rc = write(fd, buf + total, len - total);
+        if (rc < 0) {
+            if (errno == EINTR) continue;
+            return total > 0 ? (ssize_t)total : -1;
+        }
+        if (rc == 0) break;
+        total += (size_t)rc;
+    }
+    return (ssize_t)total;
+}
+
+static void capture_dmabuf_payload(FILE *fp, const struct options *opts, int seq, pid_t tid,
+                                   const struct decoded_cal_header *header) {
+    if (!opts->dmabuf_out_dir || !header) return;
+    if (mkdir(opts->dmabuf_out_dir, 0700) != 0 && errno != EEXIST) {
+        write_dmabuf_capture_event(fp, seq, tid, opts->fd_pid, header, "mkdir-failed", "",
+                                   0, -1, 0, 0, errno);
+        return;
+    }
+
+    size_t capture_len = header->cal_size;
+    if (capture_len > opts->max_dmabuf_bytes) capture_len = opts->max_dmabuf_bytes;
+    if (capture_len == 0) return;
+
+    char proc_fd_path[128];
+    snprintf(proc_fd_path, sizeof(proc_fd_path), "/proc/%ld/fd/%u", (long)opts->fd_pid, header->mem_handle);
+    int source_fd = open(proc_fd_path, O_RDONLY | O_CLOEXEC);
+    if (source_fd < 0) {
+        write_dmabuf_capture_event(fp, seq, tid, opts->fd_pid, header, "open-proc-fd-failed", "",
+                                   capture_len, -1, errno, 0, 0);
+        return;
+    }
+
+    void *mapped = mmap(NULL, capture_len, PROT_READ, MAP_SHARED, source_fd, 0);
+    if (mapped == MAP_FAILED) {
+        int mmap_errno = errno;
+        close(source_fd);
+        write_dmabuf_capture_event(fp, seq, tid, opts->fd_pid, header, "mmap-failed", "",
+                                   capture_len, -1, 0, mmap_errno, 0);
+        return;
+    }
+
+    char out_path[512];
+    snprintf(out_path, sizeof(out_path), "%s/dmabuf-seq%04d-cal%u-fd%u.bin",
+             opts->dmabuf_out_dir, seq, header->cal_type, header->mem_handle);
+    int out_fd = open(out_path, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0600);
+    if (out_fd < 0) {
+        int write_errno = errno;
+        munmap(mapped, capture_len);
+        close(source_fd);
+        write_dmabuf_capture_event(fp, seq, tid, opts->fd_pid, header, "open-output-failed", out_path,
+                                   capture_len, -1, 0, 0, write_errno);
+        return;
+    }
+
+    ssize_t written = write_all(out_fd, (const unsigned char *)mapped, capture_len);
+    int write_errno = written == (ssize_t)capture_len ? 0 : errno;
+    close(out_fd);
+    munmap(mapped, capture_len);
+    close(source_fd);
+    write_dmabuf_capture_event(fp, seq, tid, opts->fd_pid, header,
+                               written == (ssize_t)capture_len ? "ok" : "write-short",
+                               out_path, capture_len, written, 0, 0, write_errno);
 }
 
 static void write_exit(FILE *fp, pid_t tid, const struct pending_ioctl *pending, long ret) {
@@ -545,6 +698,10 @@ static void handle_syscall_stop(FILE *out, const struct options *opts, struct tr
                     task->pending.argp = argp;
                     write_entry(out, *sequence, task->tid, opts->fd_pid, frame.abi,
                                 frame.syscall_nr, frame.regset_len, target, request, argp, buf, bytes, read_errno);
+                    struct decoded_cal_header cal_header = decode_cal_header(buf, bytes);
+                    if (is_dmabuf_capture_target(request, &cal_header)) {
+                        capture_dmabuf_payload(out, opts, *sequence, task->tid, &cal_header);
+                    }
                     free(buf);
                     (*events)++;
                 }
