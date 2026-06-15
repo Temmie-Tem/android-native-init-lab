@@ -272,7 +272,7 @@ it needs hardware/data not available (e.g. creds for full Wi-Fi validation), it 
 with no safe next step, or it would only re-confirm established facts (diminishing returns).
 **When you change tier, record the trigger** in that iteration's report.
 
-## Current audio frontier update (V2429)
+## Current audio frontier update (V2430)
 
 V2428 completed the fixed Android/Magisk M0 rerun and justified M1: the helper resumed the
 same worker TID that logcat showed running the speaker/ACDB path with `/dev/msm_audio_cal`
@@ -281,20 +281,23 @@ planner. It builds a private temporary Magisk `service.sh` module that packages 
 V2423 thread-set clone-following observer earlier in Android boot/service lifetime, using
 `service.sh` late_start mode rather than blocking `post-fs-data`.
 
-M1 remains Android-good **measurement/packaging** only. The generated private module zip is
-under `workspace/private/builds/audio/v2429-acdb-m1-magisk-module/` and is not tracked. It
-does not open `/dev/msm_audio_cal`, issue calibration ioctls, replay native audio, write
-native speaker/mixer/PCM state, or become a native-init dependency. Future live activation is
-separate and exact-gated:
+V2430 implemented and ran the exact-gated Android M1 live runner. Android boot/root handoff,
+`/data/local/tmp` staging, APK install, cleanup-finally, checked V2321 rollback, and final
+native `selftest fail=0` all passed. The module never activated: direct `su -c` placement
+under `/data/adb/modules/a90_audio_acdb_m1_v2429` failed with `Permission denied` at
+`stage-6`, before the Android reboot that would start Magisk `service.sh`. No M1
+`msm_audio_cal` ioctl artifact was captured.
 
-```text
-AUD-5G-acdb-m1-magisk-module-capture go: rollbackable Android AudioTrack speaker msm_audio_cal ioctl payload capture with temporary Magisk service module, no native calibration ioctl, no native speaker write, cleanup module and rollback to V2321
-```
+M1 remains Android-good **measurement/packaging** only. It does not open `/dev/msm_audio_cal`,
+issue calibration ioctls, replay native audio, write native speaker/mixer/PCM state, or
+become a native-init dependency. Native replay remains blocked until raw ioctl command order,
+decoded headers, private payload hashes, mem-handle policy, and cleanup behavior are pinned.
 
-Next meaningful unit is a single checked Android live M1 run with that exact gate, module
-cleanup, artifact pull, and rollback to V2321. Native replay remains blocked until raw ioctl
-command order, decoded headers, private payload hashes, mem-handle policy, and cleanup
-behavior are pinned.
+Next meaningful unit is **host-only V2431 Magisk staging redesign**, not another blind live
+rerun: determine whether direct `/data/adb/modules` staging is fixable through Magisk `su`
+namespace/context handling, or whether a bounded `magisk --install-module` flow is the only
+correct module-install interface. Any `magisk --install-module` path needs a new explicit
+safety design because V2429/V2430 intentionally forbade it.
 
 ## Read at the START of every iteration
 
