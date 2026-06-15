@@ -1,4 +1,4 @@
-"""Host-only tests for the V2512 exec-linked own-process ACDB GET helper build."""
+"""Host-only tests for the V2529 exec-linked own-process ACDB GET helper build."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from pathlib import Path
 
 from _loader import load_revalidation
 
-v2512 = load_revalidation("build_android_acdb_ownprocess_get_exec_linked_v2512")
+v2529 = load_revalidation("build_android_acdb_ownprocess_get_exec_linked_v2512")
 
 
 def args(**overrides: object) -> Namespace:
@@ -20,8 +20,8 @@ def args(**overrides: object) -> Namespace:
         "build": False,
         "build_root": root / "build",
         "manifest_path": root / "build/manifest.json",
-        "clang": v2512.TOOLCHAIN_ROOT / "bin/clang",
-        "lld": v2512.TOOLCHAIN_ROOT / "bin/ld.lld",
+        "clang": v2529.TOOLCHAIN_ROOT / "bin/clang",
+        "lld": v2529.TOOLCHAIN_ROOT / "bin/ld.lld",
         "readelf": "readelf",
         "file": "file",
     }
@@ -29,9 +29,9 @@ def args(**overrides: object) -> Namespace:
     return Namespace(**defaults)
 
 
-class BuildAndroidAcdbOwnprocessGetExecLinkedV2512(unittest.TestCase):
+class BuildAndroidAcdbOwnprocessGetExecLinkedV2529(unittest.TestCase):
     def test_source_state_matches_exec_linked_pure_read_boundary(self) -> None:
-        state = v2512.source_state()
+        state = v2529.source_state()
 
         self.assertTrue(state["exists"])
         self.assertTrue(state["required_ok"], state["required"])
@@ -44,12 +44,13 @@ class BuildAndroidAcdbOwnprocessGetExecLinkedV2512(unittest.TestCase):
         self.assertTrue(state["required"]["calls_acdb_ioctl_direct"])
         self.assertTrue(state["required"]["target_out_len_4916"])
         self.assertTrue(state["required"]["uses_exit_group"])
+        self.assertTrue(state["required"]["soft_fail_after_init_minus_12"])
         self.assertEqual(state["bounded_matrix"]["max_calls"], 40)
 
     def test_dry_run_is_host_only_and_live_blocked(self) -> None:
-        payload = v2512.manifest(args())
+        payload = v2529.manifest(args())
 
-        self.assertEqual(payload["decision"], "v2512-acdb-ownprocess-exec-linked-host-only")
+        self.assertEqual(payload["decision"], "v2529-acdb-ownprocess-softfail-get-host-only")
         self.assertTrue(payload["host_only"])
         self.assertEqual(payload["device_action"], "none")
         self.assertEqual(payload["android_action"], "none")
@@ -57,14 +58,15 @@ class BuildAndroidAcdbOwnprocessGetExecLinkedV2512(unittest.TestCase):
         self.assertTrue(payload["boundaries"]["no_forbidden_set_ioctl"])
         self.assertTrue(payload["boundaries"]["no_hal_injection"])
         self.assertTrue(payload["boundaries"]["live_execution_blocked_in_this_unit"])
-        self.assertEqual(payload["capture_contract"]["required_dt_needed"], v2512.REQUIRED_NEEDED)
+        self.assertEqual(payload["capture_contract"]["required_dt_needed"], v2529.REQUIRED_NEEDED)
         self.assertEqual(payload["capture_contract"]["acdb_files_path"], "/vendor/etc/audconf/OPEN")
         self.assertEqual(payload["capture_contract"]["commands"], ["0x11394", "0x12e01", "0x130da", "0x130dc"])
         self.assertEqual(payload["capture_contract"]["out_lens"], [4, 4916])
         self.assertEqual(payload["capture_contract"]["max_acdb_ioctl_calls"], 40)
+        self.assertEqual(payload["capture_contract"]["acdb_init"]["soft_fail_continue_ret"], -12)
 
     def test_vendor_lib_state_has_required_symbols_and_closure(self) -> None:
-        state = v2512.vendor_lib_state("readelf")
+        state = v2529.vendor_lib_state("readelf")
 
         self.assertTrue(state["all_required_present"], state["libs"])
         loader = state.get("libacdbloader_symbols", {})
@@ -74,13 +76,13 @@ class BuildAndroidAcdbOwnprocessGetExecLinkedV2512(unittest.TestCase):
         self.assertTrue(audcal.get("exports_acdb_ioctl"), audcal)
 
     @unittest.skipUnless(
-        (v2512.TOOLCHAIN_ROOT / "bin/clang").exists()
-        and (v2512.TOOLCHAIN_ROOT / "bin/ld.lld").exists()
-        and all((v2512.VENDOR_LIB_DIR / name).exists() for name in v2512.REQUIRED_NEEDED),
+        (v2529.TOOLCHAIN_ROOT / "bin/clang").exists()
+        and (v2529.TOOLCHAIN_ROOT / "bin/ld.lld").exists()
+        and all((v2529.VENDOR_LIB_DIR / name).exists() for name in v2529.REQUIRED_NEEDED),
         "private Android clang/lld or ACDB closure unavailable",
     )
     def test_build_outputs_arm32_pie_with_acdb_dt_needed(self) -> None:
-        payload = v2512.manifest(args(build=True))
+        payload = v2529.manifest(args(build=True))
         artifact = payload["build"]["artifact"]
 
         self.assertIn("ELF 32-bit LSB shared object, ARM", artifact["file"])
@@ -110,7 +112,7 @@ class BuildAndroidAcdbOwnprocessGetExecLinkedV2512(unittest.TestCase):
                 "--manifest-path",
                 str(local_args.manifest_path),
             ],
-            cwd=v2512.ROOT,
+            cwd=v2529.ROOT,
             check=False,
             text=True,
             stdout=subprocess.PIPE,
@@ -120,7 +122,7 @@ class BuildAndroidAcdbOwnprocessGetExecLinkedV2512(unittest.TestCase):
 
         self.assertEqual(completed.returncode, 0, completed.stderr)
         payload = json.loads(completed.stdout)
-        self.assertEqual(payload["decision"], "v2512-acdb-ownprocess-exec-linked-host-only")
+        self.assertEqual(payload["decision"], "v2529-acdb-ownprocess-softfail-get-host-only")
         self.assertTrue(local_args.manifest_path.exists())
 
 

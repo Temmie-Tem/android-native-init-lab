@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-"""Build V2512 ARM32 exec-linked own-process ACDB pure-read GET helper.
+"""Build V2529 ARM32 exec-linked own-process ACDB pure-read GET helper.
 
 Host-only unit.  The output is a private 32-bit Android PIE that directly links
 against the staged stock ACDB vendor libraries as DT_NEEDED entries.  This avoids
 late dlopen of libaudcal/libacdbloader and keeps the runtime path pure-read: no
-HAL injection, no playback, no native calibration SET ioctl.
+HAL injection, no playback, no native calibration SET ioctl.  V2529 extends the
+V2512 helper by continuing the bounded GET matrix after the observed
+acdb_loader_init_v3() allocation-side-effect return -12.
 """
 
 from __future__ import annotations
@@ -20,14 +22,14 @@ from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[5]
-RUN_ID = "V2512"
-BUILD_TAG = "v2512-acdb-ownprocess-exec-linked-host-only"
+RUN_ID = "V2529"
+BUILD_TAG = "v2529-acdb-ownprocess-softfail-get-host-only"
 SOURCE_REL = "workspace/public/src/android/acdb_payload_capture/a90_acdb_ownprocess_get_exec_linked_v2512.c"
 TOOLCHAIN_ROOT = ROOT / "workspace/private/inputs/toolchains/llvm-arm-toolchain-ship-10.0"
 VENDOR_LIB_DIR = ROOT / "workspace/private/inputs/audio/acdb-deps-v2506/vendor-lib"
 DEFAULT_BUILD_ROOT = ROOT / "workspace/private/builds/audio" / BUILD_TAG
 DEFAULT_MANIFEST = DEFAULT_BUILD_ROOT / "manifest.json"
-ARTIFACT_NAME = "a90_acdb_ownprocess_get_exec_linked_v2512"
+ARTIFACT_NAME = "a90_acdb_ownprocess_get_exec_linked_v2529"
 TARGET = "armv7a-linux-androideabi29"
 REQUIRED_NEEDED = [
     "libacdbloader.so",
@@ -175,6 +177,9 @@ def source_state() -> dict[str, Any]:
         "has_operator_get_cmd_130dc": "0x000130dcU" in text,
         "target_out_len_4916": "A90_TARGET_OUT_LEN 4916U" in text,
         "size_query_out_len_4": "A90_SIZE_QUERY_OUT_LEN 4U" in text,
+        "soft_fail_after_init_minus_12": "A90_INIT_RET_ALLOCATE_CAL_FAILED (-12)" in text
+        and "soft_continue_after_allocate_cal_failure" in text
+        and "a90_should_continue_after_init_ret(init_ret)" in text,
         "private_capture_dir": "/data/local/tmp/a90-acdb-ownget" in text,
         "sha256_implemented": "a90_sha256_final" in text,
         "uses_exit_group": "A90_NR_EXIT_GROUP" in text and "a90_syscall1(A90_NR_EXIT_GROUP" in text,
@@ -249,7 +254,7 @@ def build(build_root: Path, *, clang: Path, lld: Path, readelf: str, file_cmd: s
 
     host_libraries = prepare_host_libraries(build_root)
     env = tool_env(host_libraries)
-    obj = obj_dir / "a90_acdb_ownprocess_get_exec_linked_v2512.o"
+    obj = obj_dir / "a90_acdb_ownprocess_get_exec_linked_v2529.o"
     out = bin_dir / ARTIFACT_NAME
 
     missing = [name for name in REQUIRED_NEEDED if not (VENDOR_LIB_DIR / name).exists()]
@@ -337,7 +342,7 @@ def build(build_root: Path, *, clang: Path, lld: Path, readelf: str, file_cmd: s
 
 def manifest(args: argparse.Namespace) -> dict[str, Any]:
     payload: dict[str, Any] = {
-        "decision": "v2512-acdb-ownprocess-exec-linked-host-only",
+        "decision": "v2529-acdb-ownprocess-softfail-get-host-only",
         "run_id": RUN_ID,
         "build_tag": BUILD_TAG,
         "created_at": now_iso(),
@@ -365,6 +370,8 @@ def manifest(args: argparse.Namespace) -> dict[str, Any]:
                 "acdb_files_path": "/vendor/etc/audconf/OPEN",
                 "delta_file_path": "/data/local/tmp/a90-acdb-ownget/delta",
                 "meta_info_type": 0,
+                "soft_fail_continue_ret": -12,
+                "soft_fail_continue_reason": "V2527 proves DB load plus ACPH/RTAC init completes before AUDIO_ALLOCATE_CALIBRATION fails",
             },
             "capture_dir": "/data/local/tmp/a90-acdb-ownget",
             "commands": ["0x11394", "0x12e01", "0x130da", "0x130dc"],

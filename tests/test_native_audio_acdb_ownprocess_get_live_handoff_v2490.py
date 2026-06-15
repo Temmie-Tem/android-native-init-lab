@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import tempfile
 import unittest
 from argparse import Namespace
@@ -11,7 +12,7 @@ from pathlib import Path
 from _loader import load_revalidation
 
 v2490 = load_revalidation("native_audio_acdb_ownprocess_get_live_handoff_v2490")
-v2489 = load_revalidation("build_android_acdb_ownprocess_get_v2489")
+v_helper = load_revalidation("build_android_acdb_ownprocess_get_exec_linked_v2512")
 
 
 def args(**overrides: object) -> Namespace:
@@ -35,13 +36,22 @@ def args(**overrides: object) -> Namespace:
         "android_settle_adb_retry_sleep_sec": v2490.DEFAULT_SETTLE_ADB_RETRY_SLEEP_SEC,
         "helper_path": None,
         "helper_sha256": None,
-        "helper_build_root": v2489.DEFAULT_BUILD_ROOT,
-        "helper_manifest_path": v2489.DEFAULT_MANIFEST,
+        "helper_build_root": v_helper.DEFAULT_BUILD_ROOT,
+        "helper_manifest_path": v_helper.DEFAULT_MANIFEST,
         "readelf": "readelf",
         "file": "file",
     }
     defaults.update(overrides)
     return Namespace(**defaults)
+
+
+def fake_helper_args() -> Namespace:
+    root = Path(tempfile.mkdtemp(prefix="a90-v2490-helper-"))
+    helper = root / "v2529-acdb-ownprocess-softfail-get-host-only" / "bin" / v_helper.ARTIFACT_NAME
+    helper.parent.mkdir(parents=True)
+    helper.write_bytes(b"fake-arm32-helper-for-dry-run")
+    digest = hashlib.sha256(helper.read_bytes()).hexdigest()
+    return args(helper_path=helper, helper_sha256=digest)
 
 
 class NativeAudioAcdbOwnprocessGetV2490(unittest.TestCase):
@@ -55,12 +65,13 @@ class NativeAudioAcdbOwnprocessGetV2490(unittest.TestCase):
         self.assertNotEqual(command[2], "su -c set +e")
 
     def test_dry_run_is_ownprocess_only_and_live_ready_when_artifact_exists(self) -> None:
-        payload = v2490.dry_run_payload(args())
+        payload = v2490.dry_run_payload(fake_helper_args())
 
         self.assertEqual(payload["decision"], "v2490-acdb-ownprocess-get-live-runner-dry-run")
         self.assertTrue(payload["live_ready"], payload.get("live_blockers"))
         self.assertTrue(payload["command_safety"]["ok"], payload["command_safety"])
         self.assertTrue(payload["helper"]["ok"], payload["helper"])
+        self.assertIn("v2529-acdb-ownprocess-softfail-get-host-only", payload["helper"].get("path", ""))
         self.assertTrue(payload["android_settle_adb_retry"]["enabled"])
         self.assertEqual(payload["android_settle_adb_retry"]["attempts"], v2490.DEFAULT_SETTLE_ADB_RETRY_ATTEMPTS)
         self.assertIn("error: closed", payload["android_settle_adb_retry"]["retry_markers"])

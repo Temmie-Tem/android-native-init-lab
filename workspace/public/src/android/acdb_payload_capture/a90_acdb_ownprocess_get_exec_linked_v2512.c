@@ -1,5 +1,6 @@
 /*
- * V2512 ARM32 own-process ACDB pure-read GET probe, exec-linked variant.
+ * V2512/V2529 ARM32 own-process ACDB pure-read GET probe,
+ * exec-linked soft-fail variant.
  *
  * Built as a 32-bit Android PIE with direct DT_NEEDED dependencies on the
  * staged stock ACDB libraries.  This avoids the V2507 late dynamic-load bionic TLS
@@ -33,6 +34,7 @@ extern int32_t acdb_ioctl(uint32_t cmd, const uint8_t *in_buf,
 #define A90_SIZE_QUERY_OUT_LEN 4U
 #define A90_MAX_OUT_LEN 4916U
 #define A90_MAX_IN_LEN 32U
+#define A90_INIT_RET_ALLOCATE_CAL_FAILED (-12)
 
 #define A90_AT_FDCWD (-100)
 #define A90_O_WRONLY 00000001
@@ -534,6 +536,11 @@ static void a90_capture_one(a90_acdb_ioctl_fn acdb_ioctl_fn, uint32_t cmd,
     a90_write_call_event(seq, cmd, in_len, out_len, ret, digest, raw_path);
 }
 
+static int a90_should_continue_after_init_ret(int32_t init_ret)
+{
+    return init_ret == A90_INIT_RET_ALLOCATE_CAL_FAILED;
+}
+
 void _start(void)
 {
     uint32_t i;
@@ -546,8 +553,12 @@ void _start(void)
 
     init_ret = acdb_loader_init_v3(A90_ACDB_FILES_PATH, A90_DELTA_DIR, 0U);
     if (init_ret != 0) {
-        a90_write_error_event("acdb_loader_init_v3", init_ret, (const char *)0);
-        a90_exit(29);
+        a90_write_error_event("acdb_loader_init_v3", init_ret,
+                              a90_should_continue_after_init_ret(init_ret)
+                                  ? "soft_continue_after_allocate_cal_failure"
+                                  : (const char *)0);
+        if (!a90_should_continue_after_init_ret(init_ret))
+            a90_exit(29);
     }
 
     for (i = 0; i < sizeof(a90_commands) / sizeof(a90_commands[0]); i++) {

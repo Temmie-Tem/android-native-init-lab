@@ -2,7 +2,7 @@
 """V2490 live runner for the own-process ACDB pure-read GET helper.
 
 This path intentionally avoids the V2477-V2488 in-HAL LD_PRELOAD lines.  It
-boots stock Android through the checked helper, runs the V2489 ARM32 helper once
+boots stock Android through the checked helper, runs the current ARM32 helper once
 from /data/local/tmp under su, pulls private artifacts, cleans up, and rolls
 back to V2321.
 """
@@ -19,15 +19,16 @@ from pathlib import Path
 from typing import Any
 
 import build_android_acdb_ownprocess_get_v2489 as v2489
+import build_android_acdb_ownprocess_get_exec_linked_v2512 as v_helper
 import native_audio_acdb_android_measurement_planner_v2396 as v2396
 import native_audio_android_route_delta_handoff_v2365 as route
 
 RUN_ID = "V2490"
 BUILD_TAG = "v2490-audio-acdb-ownprocess-get-live"
-ROOT = v2489.ROOT
+ROOT = v_helper.ROOT
 DEFAULT_OUT_BASE = ROOT / "workspace/private/runs/audio"
 REMOTE_DIR = "/data/local/tmp/a90-acdb-ownget"
-REMOTE_HELPER = f"{REMOTE_DIR}/a90_acdb_ownprocess_get_v2489"
+REMOTE_HELPER = f"{REMOTE_DIR}/{v_helper.ARTIFACT_NAME}"
 REMOTE_EVENTS = f"{REMOTE_DIR}/acdb-ownget-events.jsonl"
 ACDB_DEP_CLOSURE_DIR = ROOT / "workspace/private/inputs/audio/acdb-deps-v2506/vendor-lib"
 ACDB_DEP_LEGACY_DIR = v2489.VENDOR_DUMP
@@ -64,7 +65,7 @@ TRANSIENT_SETTLE_ADB_FAILURE_MARKERS = (
 
 
 def rel(path: Path | str) -> str:
-    return v2489.rel(Path(path) if not isinstance(path, Path) else path)
+    return v_helper.rel(Path(path) if not isinstance(path, Path) else path)
 
 
 def now_iso() -> str:
@@ -143,12 +144,12 @@ def build_helper(args: argparse.Namespace) -> dict[str, Any]:
         build=True,
         build_root=args.helper_build_root,
         manifest_path=args.helper_manifest_path,
-        clang=v2489.TOOLCHAIN_ROOT / "bin/clang",
-        lld=v2489.TOOLCHAIN_ROOT / "bin/ld.lld",
+        clang=v_helper.TOOLCHAIN_ROOT / "bin/clang",
+        lld=v_helper.TOOLCHAIN_ROOT / "bin/ld.lld",
         readelf=args.readelf,
         file=args.file,
     )
-    return v2489.manifest(build_args)
+    return v_helper.manifest(build_args)
 
 
 def selected_helper_state(args: argparse.Namespace) -> dict[str, Any]:
@@ -166,7 +167,7 @@ def selected_helper_state(args: argparse.Namespace) -> dict[str, Any]:
             return state
         except Exception as error:
             return {"path": None, "exists": False, "ok": False, "error": str(error)}
-    default_path = args.helper_build_root / "bin" / v2489.ARTIFACT_NAME
+    default_path = args.helper_build_root / "bin" / v_helper.ARTIFACT_NAME
     return helper_artifact_state(default_path)
 
 
@@ -822,8 +823,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--android-settle-adb-retry-sleep-sec", type=float, default=DEFAULT_SETTLE_ADB_RETRY_SLEEP_SEC)
     parser.add_argument("--helper-path", type=Path)
     parser.add_argument("--helper-sha256")
-    parser.add_argument("--helper-build-root", type=Path, default=v2489.DEFAULT_BUILD_ROOT)
-    parser.add_argument("--helper-manifest-path", type=Path, default=v2489.DEFAULT_MANIFEST)
+    parser.add_argument("--helper-build-root", type=Path, default=v_helper.DEFAULT_BUILD_ROOT)
+    parser.add_argument("--helper-manifest-path", type=Path, default=v_helper.DEFAULT_MANIFEST)
     parser.add_argument("--readelf", default="readelf")
     parser.add_argument("--file", default="file")
     return parser.parse_args(argv)
