@@ -502,6 +502,18 @@ not staging, cleanup, rollback, or helper argument handling. Next meaningful uni
 wait above the observed return time, add focused tests, and keep the M1 Android-good
 measurement boundary unchanged. Do not blind-rerun live before that host-only fix.
 
+V2446 completed that host-only hardening. It adds a fresh V2446 runner identity, separates
+post-module `adb wait-for-device` from the generic `120s` ADB command timeout, and defaults
+the dedicated post-module ADB wait budget to `300s`, above the observed V2445 `206.359s`
+return. The dry-run records `adb_wait_timeout_sec=300.0` and
+`v2446_observed_v2445_adb_return_sec=206.359`; materialized dry-run is
+`future_live_ready=true` with command safety clean. Focused tests pass (`8`), full unittest
+discovery passes (`1222`), and `git diff --check` passes. Next meaningful unit is
+**V2447 exact-gated live rerun** using the V2446 runner. First success criterion remains
+helper JSONL startup/trace telemetry; if the longer wait reaches playback but still captures
+zero ioctls while logcat shows the ACDB edge, classify the helper ptrace/filter/timing
+boundary before any native replay.
+
 ## Read at the START of every iteration
 
 - **this `GOAL.md`** — re-read it every iteration; the contract may be updated mid-run,
