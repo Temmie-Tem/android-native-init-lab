@@ -173,6 +173,36 @@ class NativeAudioAcdbOwnprocessGetV2490(unittest.TestCase):
         self.assertTrue(summary["operator_valuable"])
         self.assertFalse(summary["counts_toward_fails_twice"])
 
+    def test_parse_ownget_artifacts_rejects_failed_zero_4916_buffers(self) -> None:
+        root = Path(tempfile.mkdtemp(prefix="a90-v2490-artifacts-"))
+        event = root / "acdb-ownget-events.jsonl"
+        raw = root / "acdb-ownget-00000002-000130da-in0-out4916.bin"
+        raw.write_bytes(b"\0" * 4916)
+        event.write_text(json.dumps({
+            "event": "acdb_ioctl",
+            "seq": 2,
+            "cmd": "0x000130da",
+            "in_len": 0,
+            "out_len": 4916,
+            "ret": -2,
+            "is_target_4916": True,
+            "sha256": hashlib.sha256(b"\0" * 4916).hexdigest(),
+            "raw_path": f"/data/local/tmp/a90-acdb-ownget/{raw.name}",
+        }) + "\n")
+
+        summary = v2490.parse_ownget_artifacts(root)
+
+        self.assertEqual(summary["classification"], "acdb-get-dispatch-ret-failed-zero-outbuf")
+        self.assertFalse(summary["full_success"])
+        self.assertFalse(summary["partial_success"])
+        self.assertTrue(summary["operator_valuable"])
+        self.assertTrue(summary["counts_toward_fails_twice"])
+        self.assertEqual(summary["target_4916_count"], 1)
+        self.assertEqual(summary["diagnostics"]["target_4916_success_count"], 0)
+        self.assertEqual(summary["diagnostics"]["successful_row_count"], 0)
+        self.assertEqual(summary["diagnostics"]["zero_outbuf_count"], 1)
+        self.assertEqual(summary["diagnostics"]["zero_hash_by_len"]["4916"], hashlib.sha256(b"\0" * 4916).hexdigest())
+
     def test_parse_ownget_artifacts_preserves_no_4916_partial(self) -> None:
         root = Path(tempfile.mkdtemp(prefix="a90-v2490-artifacts-"))
         event = root / "acdb-ownget-events.jsonl"

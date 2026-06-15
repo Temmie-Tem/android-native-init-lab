@@ -10,6 +10,7 @@ back to V2321.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import shlex
@@ -117,6 +118,17 @@ def settle_adb_retry_sleep_sec(args: argparse.Namespace) -> float:
 
 def sha256_file(path: Path) -> str:
     return v2489.sha256_file(path)
+
+
+def sha256_zero(length: int) -> str:
+    return hashlib.sha256(b"\0" * max(0, length)).hexdigest()
+
+
+def int_or_none(value: Any) -> int | None:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
 
 
 def helper_artifact_state(path: Path, *, expected_sha256: str | None = None) -> dict[str, Any]:
@@ -529,7 +541,25 @@ def parse_ownget_artifacts(path: Path) -> dict[str, Any]:
     target = [row for row in rows if row.get("is_target_4916") is True or row.get("out_len") == 4916]
     raw_files = sorted(path.glob("acdb-ownget-*.bin"))
     missing_raw = []
+    raw_size_mismatch = []
+    raw_sha_mismatch = []
+    zero_raw_seq = []
+    successful_rows = []
+    successful_nonzero_rows = []
+    target_success = []
+    target_ret_failed = []
+    ret_values = set()
+    zero_hash_by_len: dict[int, str] = {}
     for row in rows:
+        ret = int_or_none(row.get("ret"))
+        out_len = int_or_none(row.get("out_len"))
+        if ret is not None:
+            ret_values.add(ret)
+        if out_len is not None:
+            zero_hash_by_len[out_len] = sha256_zero(out_len)
+        if row.get("is_target_4916") is True or out_len == 4916:
+            if ret != 0:
+                target_ret_failed.append(row.get("seq"))
         raw_path = row.get("raw_path")
         if not raw_path:
             missing_raw.append(row.get("seq"))
@@ -537,6 +567,23 @@ def parse_ownget_artifacts(path: Path) -> dict[str, Any]:
         local = path / Path(str(raw_path)).name
         if not local.exists():
             missing_raw.append(row.get("seq"))
+            continue
+        raw_data = local.read_bytes()
+        raw_sha = hashlib.sha256(raw_data).hexdigest()
+        if out_len is not None and len(raw_data) != out_len:
+            raw_size_mismatch.append(row.get("seq"))
+        if row.get("sha256") and str(row.get("sha256")).lower() != raw_sha:
+            raw_sha_mismatch.append(row.get("seq"))
+        is_zero = out_len is not None and raw_sha == zero_hash_by_len[out_len]
+        if is_zero:
+            zero_raw_seq.append(row.get("seq"))
+        valid_raw = out_len is None or len(raw_data) == out_len
+        if ret == 0 and valid_raw:
+            successful_rows.append(row)
+            if not is_zero:
+                successful_nonzero_rows.append(row)
+            if (row.get("is_target_4916") is True or out_len == 4916) and not is_zero:
+                target_success.append(row)
     context_only = bool(
         exec_context.exists()
         or run_context.exists()
@@ -544,10 +591,19 @@ def parse_ownget_artifacts(path: Path) -> dict[str, Any]:
         or filtered_log.exists()
         or dmesg_log.exists()
     )
-    if target and not missing_raw:
+    no_raw_problems = not missing_raw and not raw_size_mismatch
+    if target_success and no_raw_problems:
         classification = "acdb-get-success-4916"
-    elif rows and not missing_raw:
+    elif successful_nonzero_rows and no_raw_problems:
         classification = "acdb-get-full-outbuf-set-no-4916"
+    elif rows and no_raw_problems and not successful_rows and len(zero_raw_seq) == len(rows):
+        classification = "acdb-get-dispatch-ret-failed-zero-outbuf"
+    elif rows and no_raw_problems and not successful_rows:
+        classification = "acdb-get-dispatch-ret-failed"
+    elif rows and no_raw_problems:
+        classification = "acdb-get-no-successful-nonzero-outbuf"
+    elif rows:
+        classification = "acdb-get-outbuf-set-missing-or-invalid-raw"
     elif errors and not rows:
         stage = str(errors[-1].get("stage", "unknown"))
         if stage in {"dlsym-android_get_exported_namespace", "dlsym-android_dlopen_ext"}:
@@ -608,6 +664,16 @@ def parse_ownget_artifacts(path: Path) -> dict[str, Any]:
             "has_msm_audio_cal_open_denied": has_msm_audio_cal_open_denied,
             "has_vendor_audio_prop_denied": has_vendor_audio_prop_denied,
             "has_shell_domain_context": has_shell_domain_context,
+            "ret_values": sorted(ret_values),
+            "successful_row_count": len(successful_rows),
+            "successful_nonzero_row_count": len(successful_nonzero_rows),
+            "target_4916_success_count": len(target_success),
+            "target_4916_ret_failed_seq": target_ret_failed,
+            "zero_outbuf_count": len(zero_raw_seq),
+            "zero_outbuf_seq": zero_raw_seq,
+            "zero_hash_by_len": {str(key): value for key, value in sorted(zero_hash_by_len.items())},
+            "raw_size_mismatch_seq": raw_size_mismatch,
+            "raw_sha_mismatch_seq": raw_sha_mismatch,
         },
         "malformed_lines": malformed,
         "row_count": len(rows),
