@@ -32,6 +32,7 @@ DEFAULT_CC = v2423.DEFAULT_CC
 DEFAULT_CAPTURE_DURATION_SEC = 120
 DEFAULT_MAX_BYTES = 512
 DEFAULT_PROCESS_POLL_SEC = 0.2
+HELPER_MAX_DURATION_SEC = 120
 REMOTE_DIR = "/data/local/tmp/a90-audio-acdb-m1-v2429"
 REMOTE_ARTIFACT_DIR = f"{REMOTE_DIR}/artifacts"
 HELPER_NAME = "a90_acdb_ioctl_capture_threadset_v2423"
@@ -81,6 +82,7 @@ HELPER="$MODDIR/bin/{HELPER_NAME}"
 DURATION="${{A90_M1_DURATION_SEC:-{duration_sec}}}"
 MAX_BYTES="${{A90_M1_MAX_BYTES:-{max_bytes}}}"
 PROCESS_POLL_SEC="${{A90_M1_PROCESS_POLL_SEC:-{process_poll_sec}}}"
+HELPER_MAX_DURATION_SEC="{HELPER_MAX_DURATION_SEC}"
 LOCK="$RUN_DIR/service.lock"
 
 mkdir -p "$OUT"
@@ -116,17 +118,21 @@ echo "$$" > "$LOCK"
     now_ts="$(date +%s)"
     remaining="$((END_TS - now_ts))"
     [ "$remaining" -gt 0 ] || return 0
+    helper_duration="$remaining"
+    if [ "$helper_duration" -gt "$HELPER_MAX_DURATION_SEC" ]; then
+      helper_duration="$HELPER_MAX_DURATION_SEC"
+    fi
     echo "$pid" >> "$SEEN_PIDS"
     [ -r "/proc/$pid/maps" ] && cat "/proc/$pid/maps" > "$OUT/proc-$pid-maps.txt" || true
     [ -d "/proc/$pid/fd" ] && ls -l "/proc/$pid/fd" > "$OUT/proc-$pid-fd.txt" 2>&1 || true
     [ -d "/proc/$pid/task" ] && ls -1 "/proc/$pid/task" > "$OUT/proc-$pid-tasks-initial.txt" 2>&1 || true
-    echo "A90_M1_HELPER_START tgid=$pid remaining=$remaining mode=threadset-clone-following"
+    echo "A90_M1_HELPER_START tgid=$pid remaining=$remaining helper_duration=$helper_duration mode=threadset-clone-following"
     "$HELPER" \\
       --tgid "$pid" \\
       --fd-pid "$pid" \\
       --device-substr /dev/msm_audio_cal \\
       --out "$OUT/msm-audio-cal-threadset-p${{pid}}.jsonl" \\
-      --duration-sec "$remaining" \\
+      --duration-sec "$helper_duration" \\
       --max-bytes "$MAX_BYTES" \\
       --max-events 4096 >> "$OUT/helper-$pid.log" 2>&1 &
     echo "$! $pid threadset-clone-following" >> "$OUT/helper-pids.txt"

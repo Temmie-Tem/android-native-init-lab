@@ -474,6 +474,19 @@ service duration clamp**: keep the V2442 live wiring and boundaries unchanged, c
 helper invocation's `--duration-sec` to the helper-supported maximum, add tests, and only
 then rerun live.
 
+
+V2444 completed that host-only clamp. The shared M1 module template now emits
+`HELPER_MAX_DURATION_SEC="120"`, computes per-target `helper_duration`, clamps it to the
+helper-supported maximum, logs `helper_duration` in `A90_M1_HELPER_START`, and invokes the
+helper with `--duration-sec "$helper_duration"` rather than raw `$remaining`. V2444 also
+adds a fresh runner identity preserving the V2442 live wiring. Focused tests prove the
+service template no longer passes `$remaining` directly; materialized dry-run is
+`future_live_ready=true` with command safety clean and generated service containing the
+clamp; focused tests pass (`12`), full unittest discovery passes (`1214`), and
+`git diff --check` passes. Next meaningful unit is **V2445 exact-gated live rerun** using
+the V2444 runner. First success criterion is helper JSONL startup/trace telemetry, not yet
+native replay.
+
 ## Read at the START of every iteration
 
 - **this `GOAL.md`** — re-read it every iteration; the contract may be updated mid-run,
