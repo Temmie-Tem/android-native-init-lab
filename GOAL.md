@@ -272,7 +272,7 @@ it needs hardware/data not available (e.g. creds for full Wi-Fi validation), it 
 with no safe next step, or it would only re-confirm established facts (diminishing returns).
 **When you change tier, record the trigger** in that iteration's report.
 
-## Current audio frontier update (V2435)
+## Current audio frontier update (V2436)
 
 V2428 completed the fixed Android/Magisk M0 rerun and justified M1: the helper resumed the
 same worker TID that logcat showed running the speaker/ACDB path with `/dev/msm_audio_cal`
@@ -337,13 +337,24 @@ issue calibration ioctls, replay native audio, write native speaker/mixer/PCM st
 become a native-init dependency. Native replay remains blocked until raw ioctl command order,
 decoded headers, private payload hashes, mem-handle policy, and cleanup behavior are pinned.
 
-Next meaningful unit is **V2436 source/test-only M1 retry runner update/design** using the
-corrected `adb shell "su -c '<script>'"` pattern plus the V2435 cleanup discipline. It must
-stay Android-good measurement-only, keep exact cleanup-finally logic, avoid native speaker /
-mixer / PCM writes and native `/dev/msm_audio_cal` ioctls, and keep `magisk --install-module`
-deferred unless direct targeted staging fails again. Do not proceed to native ACDB replay
-until the M1/Android-good path captures raw ioctl command order, decoded headers, private
-payload hashes, mem-handle policy, and cleanup behavior.
+V2436 completed that source/test-only M1 retry runner as a new wrapper rather than mutating
+the historical V2430 artifact. It keeps the V2429 private temporary Magisk module template
+and Android-good measurement purpose, but changes staging/cleanup to the V2432/V2435-proven
+remote-shell form: `adb shell "su -c '<script>'"` for root scripts and
+`adb shell "su -mm -c '<script>'"` for mount-master read-only module namespace probes. The
+dry-run preflights exact module/module_update absence, avoids deleting module paths before
+the pre-residue check, stages only exact files into `/data/adb/modules/a90_audio_acdb_m1_v2429`,
+requires `A90_M1_RESIDUE_CHECK_OK`, `A90_M1_INSTALL_OK`, and `A90_M1_CLEANUP_OK`, rejects
+broad `/data/adb/modules` removal and `magisk --install-module`, and remains host-only in
+V2436. Materialized dry-run is `future_live_ready=true` with no blockers.
+
+Next meaningful unit is **V2437 exact-gated live M1 retry** with the V2436 runner. It should
+not alter the native runtime path: no native speaker/mixer/PCM writes, no native
+`/dev/msm_audio_cal` ioctls, and no native ACDB replay. If V2437 captures payload events,
+analyze command order, decoded headers, private payload hashes, mem-handle policy, and
+cleanup behavior before any native replay design. If it captures zero events despite
+confirmed module activation, classify that Android-good measurement wall before changing hook
+strategy.
 
 ## Read at the START of every iteration
 
