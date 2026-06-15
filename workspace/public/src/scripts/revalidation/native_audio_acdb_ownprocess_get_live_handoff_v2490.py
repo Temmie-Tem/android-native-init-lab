@@ -607,6 +607,8 @@ def parse_ownget_artifacts(path: Path) -> dict[str, Any]:
     dmesg_log = path / "dmesg-avc-acdb-filter.txt"
     exec_context = path / "ownget-exec-context.txt"
     run_context = path / "ownget-run-context.txt"
+    helper_rc_file = path / "ownget.rc"
+    helper_stderr_file = path / "ownget.stderr.txt"
     ioctl_trace = path / "ioctl-trace-events.jsonl"
     rows: list[dict[str, Any]] = []
     errors: list[dict[str, Any]] = []
@@ -647,13 +649,17 @@ def parse_ownget_artifacts(path: Path) -> dict[str, Any]:
     dmesg_log_text = dmesg_log.read_text(encoding="utf-8", errors="replace") if dmesg_log.exists() else ""
     exec_context_text = exec_context.read_text(encoding="utf-8", errors="replace") if exec_context.exists() else ""
     run_context_text = run_context.read_text(encoding="utf-8", errors="replace") if run_context.exists() else ""
+    helper_stderr_text = helper_stderr_file.read_text(encoding="utf-8", errors="replace") if helper_stderr_file.exists() else ""
+    helper_rc = int_or_none(helper_rc_file.read_text(encoding="utf-8", errors="replace").strip()) if helper_rc_file.exists() else None
     diagnostic_text = "\n".join([
         acdb_log_text,
         filtered_log_text,
         dmesg_log_text,
         exec_context_text,
         run_context_text,
+        helper_stderr_text,
     ]).lower()
+    helper_sigsegv = helper_rc == 139 or "segmentation fault" in helper_stderr_text.lower() or "sigsegv" in diagnostic_text
     allocate_ioctl_events = [
         event for event in ioctl_trace_events
         if str(event.get("request", "")).lower() == "0xc00461c8"
@@ -669,6 +675,12 @@ def parse_ownget_artifacts(path: Path) -> dict[str, Any]:
         if str(event.get("request", "")).lower() == "0xc00461c9"
         or event.get("name") == "AUDIO_DEALLOCATE_CALIBRATION"
     ]
+    audio_set_fake_success_count = sum(
+        1 for event in set_ioctl_events if event.get("intercept") == "fake-success"
+    )
+    audio_set_pass_through_count = sum(
+        1 for event in set_ioctl_events if event.get("intercept") != "fake-success"
+    )
     has_msm_audio_cal_open_denied = "cannot open /dev/msm_audio_cal errno: 13" in diagnostic_text
     has_audio_allocate_calibration_failed = (
         "sending audio_allocate_calibration" in diagnostic_text
@@ -738,12 +750,16 @@ def parse_ownget_artifacts(path: Path) -> dict[str, Any]:
     context_only = bool(
         exec_context.exists()
         or run_context.exists()
+        or helper_rc_file.exists()
+        or helper_stderr_file.exists()
         or acdb_log.exists()
         or filtered_log.exists()
         or dmesg_log.exists()
     )
     no_raw_problems = not missing_raw and not raw_size_mismatch
-    if target_success and no_raw_problems:
+    if audio_set_pass_through_count:
+        classification = "ownprocess-real-audio-set-passthrough"
+    elif target_success and no_raw_problems:
         classification = "acdb-get-success-4916"
     elif successful_nonzero_rows and no_raw_problems:
         classification = "acdb-get-full-outbuf-set-no-4916"
@@ -784,6 +800,8 @@ def parse_ownget_artifacts(path: Path) -> dict[str, Any]:
             classification = f"ownprocess-error-{stage}"
     elif malformed:
         classification = "ownprocess-events-malformed"
+    elif helper_sigsegv:
+        classification = "ownprocess-helper-sigsegv-no-events"
     elif context_only:
         classification = "ownprocess-context-only-no-events"
     else:
@@ -804,6 +822,11 @@ def parse_ownget_artifacts(path: Path) -> dict[str, Any]:
             "dmesg_filter_path": rel(dmesg_log) if dmesg_log.exists() else None,
             "exec_context_path": rel(exec_context) if exec_context.exists() else None,
             "run_context_path": rel(run_context) if run_context.exists() else None,
+            "helper_rc_path": rel(helper_rc_file) if helper_rc_file.exists() else None,
+            "helper_stderr_path": rel(helper_stderr_file) if helper_stderr_file.exists() else None,
+            "helper_rc": helper_rc,
+            "helper_sigsegv": helper_sigsegv,
+            "helper_stderr_tail": helper_stderr_text[-256:],
             "ioctl_trace_path": rel(ioctl_trace) if ioctl_trace.exists() else None,
             "acdb_loader_line_count": len(acdb_log_text.splitlines()),
             "filtered_log_line_count": len(filtered_log_text.splitlines()),
@@ -850,9 +873,8 @@ def parse_ownget_artifacts(path: Path) -> dict[str, Any]:
                 for event in set_ioctl_events
                 if event.get("intercept") is not None
             }),
-            "audio_set_ioctl_fake_success_count": sum(
-                1 for event in set_ioctl_events if event.get("intercept") == "fake-success"
-            ),
+            "audio_set_ioctl_fake_success_count": audio_set_fake_success_count,
+            "audio_set_ioctl_pass_through_count": audio_set_pass_through_count,
             "has_acdb_files_load_error": "could not load .acdb files" in diagnostic_text,
             "has_acph_init_error": "error initializing acph returned" in diagnostic_text,
             "has_audio_allocate_calibration_failed": has_audio_allocate_calibration_failed,

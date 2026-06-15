@@ -355,6 +355,61 @@ class NativeAudioAcdbOwnprocessGetV2490(unittest.TestCase):
         self.assertEqual(summary["diagnostics"]["audio_allocate_arg_snapshots"][0]["cal_size"], 4916)
         self.assertEqual(summary["diagnostics"]["audio_set_ioctl_count"], 0)
 
+
+    def test_parse_ownget_artifacts_flags_real_audio_set_passthrough(self) -> None:
+        root = Path(tempfile.mkdtemp(prefix="a90-v2490-artifacts-"))
+        (root / "ioctl-trace-events.jsonl").write_text(json.dumps({
+            "event": "ioctl_trace",
+            "pid": 123,
+            "tid": 123,
+            "fd": 7,
+            "request": "0xc00461cb",
+            "name": "AUDIO_SET_CALIBRATION",
+            "arg": "0xbeef1000",
+            "ret": 0,
+            "errno": 0,
+            "intercept": "pass-through",
+            "arg_snapshot": {
+                "available": True,
+                "data_size": 32,
+                "cal_type": 39,
+                "cal_size": 4916,
+                "mem_handle": 30,
+            },
+        }) + "\n")
+        (root / "ownget-run-context.txt").write_text("uid=0(root)\n")
+
+        summary = v2490.parse_ownget_artifacts(root)
+
+        self.assertEqual(summary["classification"], "ownprocess-real-audio-set-passthrough")
+        self.assertEqual(summary["diagnostics"]["audio_set_ioctl_count"], 1)
+        self.assertEqual(summary["diagnostics"]["audio_set_ioctl_intercepts"], ["pass-through"])
+        self.assertEqual(summary["diagnostics"]["audio_set_ioctl_fake_success_count"], 0)
+        self.assertEqual(summary["diagnostics"]["audio_set_ioctl_pass_through_count"], 1)
+
+    def test_parse_ownget_artifacts_allows_fake_audio_set_intercept(self) -> None:
+        root = Path(tempfile.mkdtemp(prefix="a90-v2490-artifacts-"))
+        (root / "ioctl-trace-events.jsonl").write_text(json.dumps({
+            "event": "ioctl_trace",
+            "pid": 123,
+            "tid": 123,
+            "fd": 7,
+            "request": "0xc00461cb",
+            "name": "AUDIO_SET_CALIBRATION",
+            "arg": "0xbeef1000",
+            "ret": 0,
+            "errno": 0,
+            "intercept": "fake-success",
+        }) + "\n")
+        (root / "ownget-run-context.txt").write_text("uid=0(root)\n")
+
+        summary = v2490.parse_ownget_artifacts(root)
+
+        self.assertEqual(summary["classification"], "ownprocess-context-only-no-events")
+        self.assertEqual(summary["diagnostics"]["audio_set_ioctl_count"], 1)
+        self.assertEqual(summary["diagnostics"]["audio_set_ioctl_fake_success_count"], 1)
+        self.assertEqual(summary["diagnostics"]["audio_set_ioctl_pass_through_count"], 0)
+
     def test_parse_ownget_artifacts_preserves_no_4916_partial(self) -> None:
         root = Path(tempfile.mkdtemp(prefix="a90-v2490-artifacts-"))
         event = root / "acdb-ownget-events.jsonl"
@@ -470,6 +525,19 @@ class NativeAudioAcdbOwnprocessGetV2490(unittest.TestCase):
         self.assertEqual(summary["classification"], "init-v3-block-audio-allocate-calibration-failed")
         self.assertTrue(summary["diagnostics"]["has_audio_allocate_calibration_failed"])
         self.assertFalse(summary["diagnostics"]["has_vendor_audio_prop_denied"])
+
+
+    def test_parse_ownget_artifacts_classifies_helper_sigsegv_without_events(self) -> None:
+        root = Path(tempfile.mkdtemp(prefix="a90-v2490-artifacts-"))
+        (root / "ownget.rc").write_text("139\n")
+        (root / "ownget.stderr.txt").write_text("Segmentation fault \n")
+
+        summary = v2490.parse_ownget_artifacts(root)
+
+        self.assertEqual(summary["classification"], "ownprocess-helper-sigsegv-no-events")
+        self.assertEqual(summary["diagnostics"]["helper_rc"], 139)
+        self.assertTrue(summary["diagnostics"]["helper_sigsegv"])
+        self.assertIn("Segmentation fault", summary["diagnostics"]["helper_stderr_tail"])
 
     def test_parse_ownget_artifacts_classifies_init_v3_avc_denial(self) -> None:
         root = Path(tempfile.mkdtemp(prefix="a90-v2490-artifacts-"))
