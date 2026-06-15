@@ -21,6 +21,7 @@ from typing import Any
 
 import build_android_acdb_ownprocess_get_v2489 as v2489
 import build_android_acdb_ownprocess_get_exec_linked_v2512 as v_helper
+import build_android_acdbtap_v2475 as v_acdbtap
 import build_android_ioctl_trace_preload_v2531 as v_ioctltrace
 import native_audio_acdb_android_measurement_planner_v2396 as v2396
 import native_audio_android_route_delta_handoff_v2365 as route
@@ -30,9 +31,12 @@ BUILD_TAG = "v2490-audio-acdb-ownprocess-get-live"
 ROOT = v_helper.ROOT
 DEFAULT_OUT_BASE = ROOT / "workspace/private/runs/audio"
 REMOTE_DIR = "/data/local/tmp/a90-acdb-ownget"
+REMOTE_ACDBTAP_DIR = "/data/local/tmp/a90-acdb-tap"
 REMOTE_HELPER = f"{REMOTE_DIR}/{v_helper.ARTIFACT_NAME}"
+REMOTE_ACDBTAP_SO = f"{REMOTE_DIR}/{v_acdbtap.SO_NAME}"
 REMOTE_IOCTL_TRACE_SO = f"{REMOTE_DIR}/{v_ioctltrace.ARTIFACT_NAME}"
 REMOTE_EVENTS = f"{REMOTE_DIR}/acdb-ownget-events.jsonl"
+REMOTE_ACDBTAP_EVENTS = f"{REMOTE_ACDBTAP_DIR}/acdbtap-events.jsonl"
 ACDB_DEP_CLOSURE_DIR = ROOT / "workspace/private/inputs/audio/acdb-deps-v2506/vendor-lib"
 ACDB_DEP_LEGACY_DIR = v2489.VENDOR_DUMP
 ACDB_DEP_LIBS = (
@@ -128,9 +132,21 @@ def sha256_zero(length: int) -> str:
 
 def int_or_none(value: Any) -> int | None:
     try:
+        if isinstance(value, str):
+            return int(value, 0)
         return int(value)
     except (TypeError, ValueError):
         return None
+
+
+def int32_or_none(value: Any) -> int | None:
+    parsed = int_or_none(value)
+    if parsed is None:
+        return None
+    parsed &= 0xFFFFFFFF
+    if parsed & 0x80000000:
+        return parsed - 0x100000000
+    return parsed
 
 
 def helper_artifact_state(path: Path, *, expected_sha256: str | None = None) -> dict[str, Any]:
@@ -179,6 +195,20 @@ def build_ioctl_trace(args: argparse.Namespace) -> dict[str, Any]:
     return v_ioctltrace.manifest(build_args)
 
 
+def build_acdbtap(args: argparse.Namespace) -> dict[str, Any]:
+    build_args = argparse.Namespace(
+        dry_run=False,
+        build=True,
+        build_root=args.acdbtap_build_root,
+        manifest_path=args.acdbtap_manifest_path,
+        clang=v_acdbtap.TOOLCHAIN_ROOT / "bin/clang",
+        lld=v_acdbtap.TOOLCHAIN_ROOT / "bin/ld.lld",
+        readelf=args.readelf,
+        file=args.file,
+    )
+    return v_acdbtap.manifest(build_args)
+
+
 def selected_helper_state(args: argparse.Namespace) -> dict[str, Any]:
     if args.helper_path:
         return helper_artifact_state(args.helper_path, expected_sha256=args.helper_sha256)
@@ -224,6 +254,32 @@ def selected_ioctl_trace_state(args: argparse.Namespace) -> dict[str, Any]:
     return state
 
 
+def selected_acdbtap_state(args: argparse.Namespace) -> dict[str, Any]:
+    if not getattr(args, "enable_acdbtap_preload", False):
+        return {"enabled": False, "ok": True, "path": None}
+    if args.acdbtap_so:
+        state = helper_artifact_state(args.acdbtap_so, expected_sha256=args.acdbtap_sha256)
+        state["enabled"] = True
+        return state
+    manifest_path = args.acdbtap_manifest_path
+    if manifest_path.exists():
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            artifact = manifest.get("build", {}).get("artifact", {})
+            path = ROOT / artifact.get("path", "")
+            expected = artifact.get("sha256")
+            state = helper_artifact_state(path, expected_sha256=expected)
+            state["manifest"] = rel(manifest_path)
+            state["enabled"] = True
+            return state
+        except Exception as error:
+            return {"enabled": True, "path": None, "exists": False, "ok": False, "error": str(error)}
+    default_path = args.acdbtap_build_root / "bin" / v_acdbtap.SO_NAME
+    state = helper_artifact_state(default_path)
+    state["enabled"] = True
+    return state
+
+
 
 def fake_audio_cal_allocate_enabled(args: argparse.Namespace) -> bool:
     return bool(getattr(args, "fake_audio_cal_allocate", False)) and not getattr(args, "disable_ioctl_trace", False)
@@ -262,10 +318,15 @@ def setup_command(args: argparse.Namespace) -> list[str]:
     script = f"""
 set -eu
 rm -rf {shlex.quote(REMOTE_DIR)}
+rm -rf {shlex.quote(REMOTE_ACDBTAP_DIR)}
 mkdir -p {shlex.quote(REMOTE_DIR)} {shlex.quote(REMOTE_DIR + '/delta')}
+mkdir -p {shlex.quote(REMOTE_ACDBTAP_DIR)}
 chown shell:shell {shlex.quote(REMOTE_DIR)} {shlex.quote(REMOTE_DIR + '/delta')} 2>/dev/null || true
+chown shell:shell {shlex.quote(REMOTE_ACDBTAP_DIR)} 2>/dev/null || true
 chmod 700 {shlex.quote(REMOTE_DIR)} {shlex.quote(REMOTE_DIR + '/delta')}
+chmod 700 {shlex.quote(REMOTE_ACDBTAP_DIR)}
 ls -ld {shlex.quote(REMOTE_DIR)} {shlex.quote(REMOTE_DIR + '/delta')}
+ls -ld {shlex.quote(REMOTE_ACDBTAP_DIR)}
 ls -l /vendor/etc/acdbdata 2>/dev/null || true
 ls -ld /vendor/etc/audconf /vendor/etc/audconf/OPEN 2>/dev/null || true
 find /vendor/etc/audconf -maxdepth 2 -type f -name '*.acdb' -exec ls -l {{}} \\; 2>/dev/null | sort || true
@@ -278,12 +339,15 @@ def chmod_helper_command(args: argparse.Namespace) -> list[str]:
     script = f"""
 set -eu
 chmod 700 {shlex.quote(REMOTE_HELPER)}
+chmod 600 {shlex.quote(REMOTE_ACDBTAP_SO)} 2>/dev/null || true
 chmod 600 {shlex.quote(REMOTE_IOCTL_TRACE_SO)} 2>/dev/null || true
 chmod 600 {shlex.quote(REMOTE_DIR)}/*.so 2>/dev/null || true
 sha256sum {shlex.quote(REMOTE_HELPER)} 2>/dev/null || toybox sha256sum {shlex.quote(REMOTE_HELPER)}
+sha256sum {shlex.quote(REMOTE_ACDBTAP_SO)} 2>/dev/null || true
 sha256sum {shlex.quote(REMOTE_IOCTL_TRACE_SO)} 2>/dev/null || true
 ls -l {shlex.quote(REMOTE_DIR)}/*.so 2>/dev/null || true
 file {shlex.quote(REMOTE_HELPER)} 2>/dev/null || true
+file {shlex.quote(REMOTE_ACDBTAP_SO)} 2>/dev/null || true
 file {shlex.quote(REMOTE_IOCTL_TRACE_SO)} 2>/dev/null || true
 """.strip()
     return adb_su(args, script)
@@ -320,19 +384,28 @@ exit 0
 def run_helper_command(args: argparse.Namespace) -> list[str]:
     ld_library_path = ":".join([REMOTE_DIR, "/vendor/lib", "/system/lib", "/system_ext/lib", "/product/lib"])
     trace_enabled = not getattr(args, "disable_ioctl_trace", False)
+    tap_enabled = bool(getattr(args, "enable_acdbtap_preload", False))
     fake_allocate = fake_audio_cal_allocate_enabled(args)
     fake_allocate_prefix = "A90_ACDB_FAKE_ALLOCATE=1 " if fake_allocate else ""
-    preload_prefix = f"LD_PRELOAD={shlex.quote(REMOTE_IOCTL_TRACE_SO)} " if trace_enabled else ""
+    preloads = []
+    if tap_enabled:
+        preloads.append(REMOTE_ACDBTAP_SO)
+    if trace_enabled:
+        preloads.append(REMOTE_IOCTL_TRACE_SO)
+    preload_value = " ".join(preloads)
+    preload_prefix = f"LD_PRELOAD={shlex.quote(preload_value)} " if preload_value else ""
     script = f"""
 set +e
 cd {shlex.quote(REMOTE_DIR)} || exit 61
 rm -f ownget.stdout.txt ownget.stderr.txt ownget.rc ownget-run-context.txt ioctl-trace-events.jsonl
+rm -f {shlex.quote(REMOTE_ACDBTAP_DIR)}/* 2>/dev/null || true
 {{
   echo '### run-shell-id'
   id 2>&1 || true
   id -Z 2>&1 || true
   echo '### run-env'
-  echo 'LD_PRELOAD={REMOTE_IOCTL_TRACE_SO if trace_enabled else ""}'
+  echo 'LD_PRELOAD={preload_value}'
+  echo 'A90_ACDBTAP_DIR={REMOTE_ACDBTAP_DIR if tap_enabled else ""}'
   echo 'A90_ACDB_FAKE_ALLOCATE={"1" if fake_allocate else ""}'
   echo 'LD_LIBRARY_PATH={ld_library_path}'
   echo '### run-proc-self-status'
@@ -374,11 +447,19 @@ def collect_prepare_command(args: argparse.Namespace) -> list[str]:
     script = f"""
 set +e
 cd {shlex.quote(REMOTE_DIR)} || exit 0
+rm -rf acdbtap
+if [ -d {shlex.quote(REMOTE_ACDBTAP_DIR)} ]; then
+  mkdir -p acdbtap
+  cp -p {shlex.quote(REMOTE_ACDBTAP_DIR)}/* acdbtap/ 2>/dev/null || true
+  find acdbtap -maxdepth 1 -type f -exec chmod 644 {{}} \\; 2>/dev/null || true
+fi
 ls -la > listing.txt 2>&1
 [ -f {shlex.quote(REMOTE_EVENTS)} ] && cat {shlex.quote(REMOTE_EVENTS)} > events.copy.jsonl 2>/dev/null
 find . -maxdepth 1 -type f -name 'acdb-ownget-*.bin' -exec sha256sum {{}} \\; > raw-sha256s.txt 2>/dev/null
+find acdbtap -maxdepth 1 -type f -name 'acdbtap-*.bin' -exec sha256sum {{}} \\; > acdbtap-raw-sha256s.txt 2>/dev/null || true
 chmod 755 . 2>/dev/null || true
 find . -maxdepth 1 -type f -exec chmod 644 {{}} \\; 2>/dev/null || true
+chmod 755 ./acdbtap 2>/dev/null || true
 chmod 755 ./delta 2>/dev/null || true
 exit 0
 """.strip()
@@ -390,7 +471,7 @@ def pull_artifacts_command(args: argparse.Namespace, destination: str) -> list[s
 
 
 def cleanup_command(args: argparse.Namespace) -> list[str]:
-    return adb_su(args, f"rm -rf {shlex.quote(REMOTE_DIR)}")
+    return adb_su(args, f"rm -rf {shlex.quote(REMOTE_DIR)} {shlex.quote(REMOTE_ACDBTAP_DIR)}")
 
 
 def timeout_step_record(name: str, command: list[str], out_dir: Path, timeout_sec: float, error: Exception) -> dict[str, Any]:
@@ -602,6 +683,11 @@ def run_early_staging_command_with_transport_retry(
 
 def parse_ownget_artifacts(path: Path) -> dict[str, Any]:
     events = path / "acdb-ownget-events.jsonl"
+    acdbtap_dir = path / "acdbtap"
+    acdbtap_events = acdbtap_dir / "acdbtap-events.jsonl"
+    if not acdbtap_events.exists() and (path / "acdbtap-events.jsonl").exists():
+        acdbtap_dir = path
+        acdbtap_events = path / "acdbtap-events.jsonl"
     acdb_log = path / "logcat-acdb-loader.txt"
     filtered_log = path / "logcat-avc-acdb-filter.txt"
     dmesg_log = path / "dmesg-avc-acdb-filter.txt"
@@ -615,6 +701,7 @@ def parse_ownget_artifacts(path: Path) -> dict[str, Any]:
     namespace_events: list[dict[str, Any]] = []
     symbol_events: list[dict[str, Any]] = []
     ioctl_trace_events: list[dict[str, Any]] = []
+    acdbtap_rows: list[dict[str, Any]] = []
     malformed = 0
     if events.exists():
         for line in events.read_text(encoding="utf-8", errors="replace").splitlines():
@@ -644,6 +731,17 @@ def parse_ownget_artifacts(path: Path) -> dict[str, Any]:
                 continue
             if item.get("event") == "ioctl_trace":
                 ioctl_trace_events.append(item)
+    if acdbtap_events.exists():
+        for line in acdbtap_events.read_text(encoding="utf-8", errors="replace").splitlines():
+            if not line.strip():
+                continue
+            try:
+                item = json.loads(line)
+            except json.JSONDecodeError:
+                malformed += 1
+                continue
+            if "cmd" in item and "out_len" in item:
+                acdbtap_rows.append(item)
     acdb_log_text = acdb_log.read_text(encoding="utf-8", errors="replace") if acdb_log.exists() else ""
     filtered_log_text = filtered_log.read_text(encoding="utf-8", errors="replace") if filtered_log.exists() else ""
     dmesg_log_text = dmesg_log.read_text(encoding="utf-8", errors="replace") if dmesg_log.exists() else ""
@@ -701,8 +799,13 @@ def parse_ownget_artifacts(path: Path) -> dict[str, Any]:
         )
     )
     has_shell_domain_context = "u:r:shell:s0" in diagnostic_text
-    target = [row for row in rows if row.get("is_target_4916") is True or row.get("out_len") == 4916]
+    target = [row for row in rows if row.get("is_target_4916") is True or int_or_none(row.get("out_len")) == 4916]
     raw_files = sorted(path.glob("acdb-ownget-*.bin"))
+    acdbtap_target = [
+        row for row in acdbtap_rows
+        if row.get("is_target_4916") is True or int_or_none(row.get("out_len")) == 4916
+    ]
+    acdbtap_raw_files = sorted(acdbtap_dir.glob("acdbtap-*.bin")) if acdbtap_dir.exists() else []
     missing_raw = []
     raw_size_mismatch = []
     raw_sha_mismatch = []
@@ -747,6 +850,51 @@ def parse_ownget_artifacts(path: Path) -> dict[str, Any]:
                 successful_nonzero_rows.append(row)
             if (row.get("is_target_4916") is True or out_len == 4916) and not is_zero:
                 target_success.append(row)
+    acdbtap_missing_raw = []
+    acdbtap_raw_size_mismatch = []
+    acdbtap_raw_sha_mismatch = []
+    acdbtap_zero_raw_seq = []
+    acdbtap_successful_rows = []
+    acdbtap_successful_nonzero_rows = []
+    acdbtap_target_success = []
+    acdbtap_target_ret_failed = []
+    acdbtap_ret_values = set()
+    acdbtap_zero_hash_by_len: dict[int, str] = {}
+    for row in acdbtap_rows:
+        ret = int32_or_none(row.get("ret"))
+        out_len = int_or_none(row.get("out_len"))
+        seq = row.get("seq")
+        if ret is not None:
+            acdbtap_ret_values.add(ret)
+        if out_len is not None:
+            acdbtap_zero_hash_by_len[out_len] = sha256_zero(out_len)
+        if row.get("is_target_4916") is True or out_len == 4916:
+            if ret != 0:
+                acdbtap_target_ret_failed.append(seq)
+        raw_path = row.get("raw_path")
+        if not raw_path:
+            acdbtap_missing_raw.append(seq)
+            continue
+        local = acdbtap_dir / Path(str(raw_path)).name
+        if not local.exists():
+            acdbtap_missing_raw.append(seq)
+            continue
+        raw_data = local.read_bytes()
+        raw_sha = hashlib.sha256(raw_data).hexdigest()
+        if out_len is not None and len(raw_data) != out_len:
+            acdbtap_raw_size_mismatch.append(seq)
+        if row.get("sha256") and str(row.get("sha256")).lower() != raw_sha:
+            acdbtap_raw_sha_mismatch.append(seq)
+        is_zero = out_len is not None and raw_sha == acdbtap_zero_hash_by_len[out_len]
+        if is_zero:
+            acdbtap_zero_raw_seq.append(seq)
+        valid_raw = out_len is None or len(raw_data) == out_len
+        if ret == 0 and valid_raw:
+            acdbtap_successful_rows.append(row)
+            if not is_zero:
+                acdbtap_successful_nonzero_rows.append(row)
+            if (row.get("is_target_4916") is True or out_len == 4916) and not is_zero:
+                acdbtap_target_success.append(row)
     context_only = bool(
         exec_context.exists()
         or run_context.exists()
@@ -757,20 +905,33 @@ def parse_ownget_artifacts(path: Path) -> dict[str, Any]:
         or dmesg_log.exists()
     )
     no_raw_problems = not missing_raw and not raw_size_mismatch
+    acdbtap_no_raw_problems = not acdbtap_missing_raw and not acdbtap_raw_size_mismatch
     if audio_set_pass_through_count:
         classification = "ownprocess-real-audio-set-passthrough"
     elif target_success and no_raw_problems:
         classification = "acdb-get-success-4916"
+    elif acdbtap_target_success and acdbtap_no_raw_problems:
+        classification = "acdbtap-success-4916-before-helper-exit"
     elif successful_nonzero_rows and no_raw_problems:
         classification = "acdb-get-full-outbuf-set-no-4916"
+    elif acdbtap_successful_nonzero_rows and acdbtap_no_raw_problems:
+        classification = "acdbtap-full-outbuf-set-no-4916-before-helper-exit"
     elif rows and no_raw_problems and not successful_rows and len(zero_raw_seq) == len(rows):
         classification = "acdb-get-dispatch-ret-failed-zero-outbuf"
+    elif acdbtap_rows and acdbtap_no_raw_problems and not acdbtap_successful_rows and len(acdbtap_zero_raw_seq) == len(acdbtap_rows):
+        classification = "acdbtap-dispatch-ret-failed-zero-outbuf"
     elif rows and no_raw_problems and not successful_rows:
         classification = "acdb-get-dispatch-ret-failed"
+    elif acdbtap_rows and acdbtap_no_raw_problems and not acdbtap_successful_rows:
+        classification = "acdbtap-dispatch-ret-failed"
     elif rows and no_raw_problems:
         classification = "acdb-get-no-successful-nonzero-outbuf"
+    elif acdbtap_rows and acdbtap_no_raw_problems:
+        classification = "acdbtap-no-successful-nonzero-outbuf"
     elif rows:
         classification = "acdb-get-outbuf-set-missing-or-invalid-raw"
+    elif acdbtap_rows:
+        classification = "acdbtap-outbuf-set-missing-or-invalid-raw"
     elif errors and not rows:
         stage = str(errors[-1].get("stage", "unknown"))
         if stage in {"dlsym-android_get_exported_namespace", "dlsym-android_dlopen_ext"}:
@@ -806,12 +967,18 @@ def parse_ownget_artifacts(path: Path) -> dict[str, Any]:
         classification = "ownprocess-context-only-no-events"
     else:
         classification = "ownprocess-no-events"
-    partial_success = classification == "acdb-get-full-outbuf-set-no-4916"
-    full_success = classification == "acdb-get-success-4916"
+    own_full_success = bool(target_success and no_raw_problems)
+    tap_full_success = bool(acdbtap_target_success and acdbtap_no_raw_problems)
+    own_partial_success = bool(successful_nonzero_rows and no_raw_problems and not own_full_success)
+    tap_partial_success = bool(acdbtap_successful_nonzero_rows and acdbtap_no_raw_problems and not tap_full_success)
+    partial_success = bool(own_partial_success or tap_partial_success)
+    full_success = bool(own_full_success or tap_full_success)
     return {
         "classification": classification,
         "event_path": rel(events) if events.exists() else None,
+        "acdbtap_event_path": rel(acdbtap_events) if acdbtap_events.exists() else None,
         "rows": rows,
+        "acdbtap_rows": acdbtap_rows,
         "errors": errors,
         "namespace_events": namespace_events,
         "symbol_events": symbol_events,
@@ -828,6 +995,7 @@ def parse_ownget_artifacts(path: Path) -> dict[str, Any]:
             "helper_sigsegv": helper_sigsegv,
             "helper_stderr_tail": helper_stderr_text[-256:],
             "ioctl_trace_path": rel(ioctl_trace) if ioctl_trace.exists() else None,
+            "acdbtap_event_path": rel(acdbtap_events) if acdbtap_events.exists() else None,
             "acdb_loader_line_count": len(acdb_log_text.splitlines()),
             "filtered_log_line_count": len(filtered_log_text.splitlines()),
             "dmesg_filter_line_count": len(dmesg_log_text.splitlines()),
@@ -892,18 +1060,35 @@ def parse_ownget_artifacts(path: Path) -> dict[str, Any]:
             "zero_hash_by_len": {str(key): value for key, value in sorted(zero_hash_by_len.items())},
             "raw_size_mismatch_seq": raw_size_mismatch,
             "raw_sha_mismatch_seq": raw_sha_mismatch,
+            "acdbtap_event_count": len(acdbtap_rows),
+            "acdbtap_ret_values": sorted(acdbtap_ret_values),
+            "acdbtap_successful_row_count": len(acdbtap_successful_rows),
+            "acdbtap_successful_nonzero_row_count": len(acdbtap_successful_nonzero_rows),
+            "acdbtap_target_4916_success_count": len(acdbtap_target_success),
+            "acdbtap_target_4916_ret_failed_seq": acdbtap_target_ret_failed,
+            "acdbtap_zero_outbuf_count": len(acdbtap_zero_raw_seq),
+            "acdbtap_zero_outbuf_seq": acdbtap_zero_raw_seq,
+            "acdbtap_zero_hash_by_len": {str(key): value for key, value in sorted(acdbtap_zero_hash_by_len.items())},
+            "acdbtap_raw_size_mismatch_seq": acdbtap_raw_size_mismatch,
+            "acdbtap_raw_sha_mismatch_seq": acdbtap_raw_sha_mismatch,
         },
         "malformed_lines": malformed,
         "row_count": len(rows),
         "error_count": len(errors),
         "namespace_event_count": len(namespace_events),
         "symbol_event_count": len(symbol_events),
+        "acdbtap_row_count": len(acdbtap_rows),
         "target_4916_count": len(target),
+        "acdbtap_target_4916_count": len(acdbtap_target),
         "raw_file_count": len(raw_files),
+        "acdbtap_raw_file_count": len(acdbtap_raw_files),
         "missing_raw_seq": missing_raw,
+        "acdbtap_missing_raw_seq": acdbtap_missing_raw,
+        "own_full_success": own_full_success,
+        "acdbtap_full_success": tap_full_success,
         "full_success": full_success,
         "partial_success": partial_success,
-        "operator_valuable": bool(full_success or partial_success or rows or errors or context_only),
+        "operator_valuable": bool(full_success or partial_success or rows or acdbtap_rows or errors or context_only),
         "counts_toward_fails_twice": not bool(full_success or partial_success),
     }
 
@@ -919,6 +1104,7 @@ def dry_run_payload(args: argparse.Namespace) -> dict[str, Any]:
     android_boot = route.select_android_boot_candidate()
     rollback = route.file_state(route.ROLLBACK_IMAGE, expected_sha256=route.ROLLBACK_SHA256)
     helper = selected_helper_state(args)
+    acdbtap = selected_acdbtap_state(args)
     ioctl_trace = selected_ioctl_trace_state(args)
     deps = acdb_dependency_states()
     sealed_boot = "<private-run-dir>/android_boot_0600.img"
@@ -928,6 +1114,11 @@ def dry_run_payload(args: argparse.Namespace) -> dict[str, Any]:
         "post_handoff_settle": ["adb wait-for-device + boot-complete + su id with bounded retries"],
         "setup": setup_command(args),
         "push_helper": adb_push(args, helper.get("path") or "<helper>", helper_remote),
+        "push_acdbtap_preload": (
+            adb_push(args, acdbtap.get("path") or "<acdbtap-so>", REMOTE_ACDBTAP_SO)
+            if acdbtap.get("enabled")
+            else ["disabled"]
+        ),
         "push_ioctl_trace_preload": (
             adb_push(args, ioctl_trace.get("path") or "<ioctl-trace-so>", REMOTE_IOCTL_TRACE_SO)
             if ioctl_trace.get("enabled")
@@ -957,6 +1148,7 @@ def dry_run_payload(args: argparse.Namespace) -> dict[str, Any]:
         "android_boot": android_boot,
         "rollback": rollback,
         "helper": helper,
+        "acdbtap_preload": acdbtap,
         "ioctl_trace_preload": ioctl_trace,
         "acdb_dependencies": deps,
         "operator_spec": "docs/OPERATOR_ACDB_IOCTL_INTERPOSE_CAPTURE_SPEC_2026-06-15.md",
@@ -974,6 +1166,7 @@ def dry_run_payload(args: argparse.Namespace) -> dict[str, Any]:
             "early_staging_scope": [
                 "ownget-setup",
                 "ownget-push-helper",
+                "ownget-push-acdbtap-preload",
                 "ownget-push-ioctl-trace-preload",
                 "ownget-push-<acdb-dependency>",
                 "ownget-chmod-helper",
@@ -995,9 +1188,17 @@ def dry_run_payload(args: argparse.Namespace) -> dict[str, Any]:
             "target_request": "AUDIO_ALLOCATE_CALIBRATION 0xc00461c8",
             "required_evidence": ["ioctl-trace-events.jsonl", "dmesg-avc-acdb-filter.txt", "logcat-avc-acdb-filter.txt"],
         },
+        "acdbtap_policy": {
+            "enabled": bool(acdbtap.get("enabled")),
+            "mechanism": "own-process LD_PRELOAD acdb_ioctl tap before V2531 ioctl trace preload",
+            "capture_dir": REMOTE_ACDBTAP_DIR,
+            "required_evidence": ["acdbtap/acdbtap-events.jsonl", "acdbtap/acdbtap-*.bin"],
+            "success_requires": "ret==0 and non-zero raw output buffer; requested out_len alone is not success",
+        },
         "partial_success_policy": "captured-ownprocess-outbuf-set-no-4916 is preserved as operator-valuable partial evidence; ACDB tap no-4916 policy remains non-dead-run",
         "hard_boundary": [
             "own-process helper only; no in-HAL LD_PRELOAD/injection",
+            "own-process LD_PRELOAD acdb_ioctl tap observes existing libacdbloader calls when enabled",
             "own-process LD_PRELOAD ioctl trace observes existing calls by default",
             "if --fake-audio-cal-allocate is set, AUDIO_ALLOCATE/DEALLOCATE/SET are no-op success in-process only",
             "no Magisk module install",
@@ -1013,6 +1214,7 @@ def dry_run_payload(args: argparse.Namespace) -> dict[str, Any]:
             android_boot.get("ok")
             and rollback.get("ok")
             and helper.get("ok")
+            and acdbtap.get("ok")
             and ioctl_trace.get("ok")
             and deps.get("ok")
         ),
@@ -1024,6 +1226,8 @@ def dry_run_payload(args: argparse.Namespace) -> dict[str, Any]:
         payload["live_blockers"].append("V2321 rollback image missing or invalid")
     if not helper.get("ok"):
         payload["live_blockers"].append("V2489 helper artifact missing or invalid; run V2489 builder first")
+    if not acdbtap.get("ok"):
+        payload["live_blockers"].append("V2475 acdbtap preload missing or invalid; run V2475 builder first")
     if not ioctl_trace.get("ok"):
         payload["live_blockers"].append("V2531 ioctl trace preload missing or invalid; run V2531 builder first")
     if not deps.get("ok"):
@@ -1038,6 +1242,8 @@ def dry_run_payload(args: argparse.Namespace) -> dict[str, Any]:
 def run_live(args: argparse.Namespace) -> dict[str, Any]:
     if args.build_helper:
         build_helper(args)
+    if args.build_acdbtap and args.enable_acdbtap_preload:
+        build_acdbtap(args)
     if args.build_ioctl_trace and not args.disable_ioctl_trace:
         build_ioctl_trace(args)
     payload = dry_run_payload(args)
@@ -1093,6 +1299,16 @@ def run_live(args: argparse.Namespace) -> dict[str, Any]:
             steps=steps,
             timeout_sec=args.adb_command_timeout,
         )
+        if payload["acdbtap_preload"].get("enabled"):
+            acdbtap_path = ROOT / payload["acdbtap_preload"]["path"]
+            run_early_staging_command_with_transport_retry(
+                args,
+                name="ownget-push-acdbtap-preload",
+                command=adb_push(args, rel(acdbtap_path), REMOTE_ACDBTAP_SO),
+                out_dir=out_dir,
+                steps=steps,
+                timeout_sec=args.adb_command_timeout,
+            )
         if payload["ioctl_trace_preload"].get("enabled"):
             trace_path = ROOT / payload["ioctl_trace_preload"]["path"]
             run_early_staging_command_with_transport_retry(
@@ -1183,7 +1399,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--run-live", action="store_true")
     parser.add_argument("--build-helper", action="store_true", help="Build the V2489 helper before planning/running")
+    parser.add_argument("--build-acdbtap", action="store_true", help="Build the V2475 acdbtap preload before planning/running")
     parser.add_argument("--build-ioctl-trace", action="store_true", help="Build the V2531 ioctl trace preload before planning/running")
+    parser.add_argument("--enable-acdbtap-preload", action="store_true", help="Stack the V2475 acdb_ioctl interposer before the V2531 ioctl trace preload")
     parser.add_argument("--disable-ioctl-trace", action="store_true", help="Run without the V2531 ioctl trace preload")
     parser.add_argument(
         "--fake-audio-cal-allocate",
@@ -1207,6 +1425,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--helper-sha256")
     parser.add_argument("--helper-build-root", type=Path, default=v_helper.DEFAULT_BUILD_ROOT)
     parser.add_argument("--helper-manifest-path", type=Path, default=v_helper.DEFAULT_MANIFEST)
+    parser.add_argument("--acdbtap-so", type=Path)
+    parser.add_argument("--acdbtap-sha256")
+    parser.add_argument("--acdbtap-build-root", type=Path, default=v_acdbtap.DEFAULT_BUILD_ROOT)
+    parser.add_argument("--acdbtap-manifest-path", type=Path, default=v_acdbtap.DEFAULT_MANIFEST)
     parser.add_argument("--ioctl-trace-so", type=Path)
     parser.add_argument("--ioctl-trace-sha256")
     parser.add_argument("--ioctl-trace-build-root", type=Path, default=v_ioctltrace.DEFAULT_BUILD_ROOT)
@@ -1220,6 +1442,8 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     if args.build_helper and not args.run_live:
         build_helper(args)
+    if args.build_acdbtap and args.enable_acdbtap_preload and not args.run_live:
+        build_acdbtap(args)
     if args.build_ioctl_trace and not args.run_live:
         build_ioctl_trace(args)
     if args.run_live:

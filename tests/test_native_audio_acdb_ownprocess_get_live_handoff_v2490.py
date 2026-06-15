@@ -12,6 +12,7 @@ from pathlib import Path
 from _loader import load_revalidation
 
 v2490 = load_revalidation("native_audio_acdb_ownprocess_get_live_handoff_v2490")
+v_acdbtap = load_revalidation("build_android_acdbtap_v2475")
 v_helper = load_revalidation("build_android_acdb_ownprocess_get_exec_linked_v2512")
 v_ioctltrace = load_revalidation("build_android_ioctl_trace_preload_v2531")
 
@@ -22,7 +23,9 @@ def args(**overrides: object) -> Namespace:
         "dry_run": True,
         "run_live": False,
         "build_helper": False,
+        "build_acdbtap": False,
         "build_ioctl_trace": False,
+        "enable_acdbtap_preload": False,
         "disable_ioctl_trace": False,
         "fake_audio_cal_allocate": False,
         "out_dir": root / "run",
@@ -42,6 +45,10 @@ def args(**overrides: object) -> Namespace:
         "helper_sha256": None,
         "helper_build_root": v_helper.DEFAULT_BUILD_ROOT,
         "helper_manifest_path": v_helper.DEFAULT_MANIFEST,
+        "acdbtap_so": None,
+        "acdbtap_sha256": None,
+        "acdbtap_build_root": v_acdbtap.DEFAULT_BUILD_ROOT,
+        "acdbtap_manifest_path": v_acdbtap.DEFAULT_MANIFEST,
         "ioctl_trace_so": None,
         "ioctl_trace_sha256": None,
         "ioctl_trace_build_root": v_ioctltrace.DEFAULT_BUILD_ROOT,
@@ -63,9 +70,15 @@ def fake_helper_args(**overrides: object) -> Namespace:
     trace.parent.mkdir(parents=True)
     trace.write_bytes(b"fake-arm32-ioctl-trace-preload-for-dry-run")
     trace_digest = hashlib.sha256(trace.read_bytes()).hexdigest()
+    acdbtap = root / "v2475-acdbtap-interposer-build" / "bin" / v_acdbtap.SO_NAME
+    acdbtap.parent.mkdir(parents=True)
+    acdbtap.write_bytes(b"fake-arm32-acdbtap-preload-for-dry-run")
+    acdbtap_digest = hashlib.sha256(acdbtap.read_bytes()).hexdigest()
     defaults = {
         "helper_path": helper,
         "helper_sha256": digest,
+        "acdbtap_so": acdbtap,
+        "acdbtap_sha256": acdbtap_digest,
         "ioctl_trace_so": trace,
         "ioctl_trace_sha256": trace_digest,
     }
@@ -148,6 +161,25 @@ class NativeAudioAcdbOwnprocessGetV2490(unittest.TestCase):
         self.assertIn("A90_ACDB_FAKE_ALLOCATE=1", flat_commands)
         self.assertIn("LD_PRELOAD=/data/local/tmp/a90-acdb-ownget/liba90_ioctl_trace_v2531.so", flat_commands)
         self.assertIn("AUDIO_ALLOCATE/DEALLOCATE/SET", "\n".join(payload["hard_boundary"]))
+        self.assertNotIn("0xc00461cb", flat_commands.lower())
+
+    def test_dry_run_can_stack_acdbtap_before_ioctl_trace(self) -> None:
+        payload = v2490.dry_run_payload(fake_helper_args(
+            enable_acdbtap_preload=True,
+            fake_audio_cal_allocate=True,
+        ))
+
+        self.assertTrue(payload["live_ready"], payload.get("live_blockers"))
+        self.assertTrue(payload["acdbtap_preload"]["ok"], payload["acdbtap_preload"])
+        self.assertTrue(payload["acdbtap_preload"]["enabled"], payload["acdbtap_preload"])
+        self.assertTrue(payload["acdbtap_policy"]["enabled"])
+        flat_commands = json.dumps(payload["commands"], sort_keys=True)
+        self.assertIn("/data/local/tmp/a90-acdb-ownget/libacdbtap.so", flat_commands)
+        self.assertIn("ownget-push-acdbtap-preload", payload["android_settle_adb_retry"]["early_staging_scope"])
+        self.assertIn("libacdbtap.so /data/local/tmp/a90-acdb-ownget/liba90_ioctl_trace_v2531.so", flat_commands)
+        self.assertNotIn("libacdbtap.so:/data/local/tmp/a90-acdb-ownget/liba90_ioctl_trace_v2531.so", flat_commands)
+        self.assertIn("A90_ACDBTAP_DIR=/data/local/tmp/a90-acdb-tap", flat_commands)
+        self.assertIn("acdbtap/acdbtap-events.jsonl", json.dumps(payload["acdbtap_policy"], sort_keys=True))
         self.assertNotIn("0xc00461cb", flat_commands.lower())
 
     def test_step_has_transient_settle_adb_failure_for_error_closed(self) -> None:
@@ -318,6 +350,69 @@ class NativeAudioAcdbOwnprocessGetV2490(unittest.TestCase):
         self.assertEqual(summary["diagnostics"]["successful_row_count"], 0)
         self.assertEqual(summary["diagnostics"]["zero_outbuf_count"], 1)
         self.assertEqual(summary["diagnostics"]["zero_hash_by_len"]["4916"], hashlib.sha256(b"\0" * 4916).hexdigest())
+
+    def test_parse_ownget_artifacts_accepts_acdbtap_4916_success_before_helper_crash(self) -> None:
+        root = Path(tempfile.mkdtemp(prefix="a90-v2490-acdbtap-artifacts-"))
+        tap_dir = root / "acdbtap"
+        tap_dir.mkdir()
+        raw = tap_dir / "acdbtap-00000001-cmd-000130da-len-00001334.bin"
+        raw.write_bytes(b"t" * 4916)
+        (tap_dir / "acdbtap-events.jsonl").write_text(json.dumps({
+            "seq": "0x00000001",
+            "pid": "0x000004d2",
+            "tid": "0x000004d2",
+            "cmd": "0x000130da",
+            "in_len": "0x00000010",
+            "out_len": "0x00001334",
+            "ret": "0x00000000",
+            "sha256": hashlib.sha256(b"t" * 4916).hexdigest(),
+            "raw_path": f"/data/local/tmp/a90-acdb-tap/{raw.name}",
+            "raw_written": True,
+            "is_target_4916": True,
+            "is_size_query_4": False,
+        }) + "\n")
+        (root / "ownget.rc").write_text("139\n")
+        (root / "ownget.stderr.txt").write_text("Segmentation fault\n")
+
+        summary = v2490.parse_ownget_artifacts(root)
+
+        self.assertEqual(summary["classification"], "acdbtap-success-4916-before-helper-exit")
+        self.assertTrue(summary["full_success"])
+        self.assertTrue(summary["acdbtap_full_success"])
+        self.assertTrue(summary["operator_valuable"])
+        self.assertFalse(summary["counts_toward_fails_twice"])
+        self.assertEqual(summary["diagnostics"]["acdbtap_target_4916_success_count"], 1)
+        self.assertEqual(summary["diagnostics"]["acdbtap_ret_values"], [0])
+
+    def test_parse_ownget_artifacts_rejects_acdbtap_failed_zero_4916(self) -> None:
+        root = Path(tempfile.mkdtemp(prefix="a90-v2490-acdbtap-zero-"))
+        tap_dir = root / "acdbtap"
+        tap_dir.mkdir()
+        raw = tap_dir / "acdbtap-00000002-cmd-000130da-len-00001334.bin"
+        raw.write_bytes(b"\0" * 4916)
+        (tap_dir / "acdbtap-events.jsonl").write_text(json.dumps({
+            "seq": "0x00000002",
+            "cmd": "0x000130da",
+            "in_len": "0x00000010",
+            "out_len": "0x00001334",
+            "ret": "0xfffffffe",
+            "sha256": hashlib.sha256(b"\0" * 4916).hexdigest(),
+            "raw_path": f"/data/local/tmp/a90-acdb-tap/{raw.name}",
+            "raw_written": True,
+            "is_target_4916": True,
+            "is_size_query_4": False,
+        }) + "\n")
+
+        summary = v2490.parse_ownget_artifacts(root)
+
+        self.assertEqual(summary["classification"], "acdbtap-dispatch-ret-failed-zero-outbuf")
+        self.assertFalse(summary["full_success"])
+        self.assertFalse(summary["partial_success"])
+        self.assertTrue(summary["operator_valuable"])
+        self.assertTrue(summary["counts_toward_fails_twice"])
+        self.assertEqual(summary["diagnostics"]["acdbtap_ret_values"], [-2])
+        self.assertEqual(summary["diagnostics"]["acdbtap_zero_outbuf_count"], 1)
+        self.assertEqual(summary["diagnostics"]["acdbtap_zero_hash_by_len"]["4916"], hashlib.sha256(b"\0" * 4916).hexdigest())
 
     def test_parse_ownget_artifacts_extracts_allocate_ioctl_errno(self) -> None:
         root = Path(tempfile.mkdtemp(prefix="a90-v2490-artifacts-"))
