@@ -272,7 +272,7 @@ it needs hardware/data not available (e.g. creds for full Wi-Fi validation), it 
 with no safe next step, or it would only re-confirm established facts (diminishing returns).
 **When you change tier, record the trigger** in that iteration's report.
 
-## Current audio frontier update (V2437)
+## Current audio frontier update (V2438)
 
 V2428 completed the fixed Android/Magisk M0 rerun and justified M1: the helper resumed the
 same worker TID that logcat showed running the speaker/ACDB path with `/dev/msm_audio_cal`
@@ -372,6 +372,26 @@ exact filenames/hashes, then use `su -c` to copy/install only those exact files 
 `/data/adb/modules/a90_audio_acdb_m1_v2429` with final restrictive permissions and exact
 cleanup. Keep `magisk --install-module` deferred and do not rerun live activation until the
 host-only fix, tests, dry-run, and command-safety checks pass.
+
+V2438 completed that host-only staging-transfer fix as a new runner instead of mutating the
+V2436 artifact. It creates a shell-owned incoming directory at
+`/data/local/tmp/a90-audio-acdb-m1-v2429/incoming` (`uid:gid 2000:2000`) while keeping the
+parent run directory traversable but not listable (`0711`), then has root validate exactly
+four files and their SHA-256 values before copying into
+`/data/adb/modules/a90_audio_acdb_m1_v2429`. The final module path is still root-owned and
+permission-tightened, cleanup remains exact, and `magisk --install-module` remains deferred.
+Materialized dry-run is `future_live_ready=true` with `command_safety_ok=true`; focused
+tests prove all pushes target `/incoming/` rather than the broken V2437 `module-stage` path
+and that hash/file-count validation is present.
+
+Next meaningful unit is **V2439 exact-gated live rerun** with the V2438 runner. It should
+use the same M1 boundary as V2437: Android-good measurement only, temporary Magisk
+`service.sh` module, no native speaker/mixer/PCM writes, no native `/dev/msm_audio_cal`
+ioctl, no native ACDB replay, and exact cleanup before checked V2321 rollback. If V2439
+captures payload events, analyze command order, decoded headers, private payload hashes,
+mem-handle policy, and cleanup behavior before native replay design. If V2439 activates the
+module but still captures zero events, classify that Android-good measurement wall before
+changing hook strategy.
 
 ## Read at the START of every iteration
 
