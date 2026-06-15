@@ -38,6 +38,24 @@ DEFAULT_OUT_BASE = ROOT / "workspace/private/runs/audio"
 DEFAULT_LATE_CAPTURE_DURATION_SEC = 60
 DEFAULT_LATE_HELPER_COMPLETION_TIMEOUT_SEC = 150.0
 DEFAULT_POST_MODULE_BOOT_COMPLETE_TIMEOUT_SEC = 180.0
+DEFAULT_STAGE_ADB_RETRY_ATTEMPTS = 3
+DEFAULT_STAGE_ADB_RETRY_SLEEP_SEC = 2.0
+TRANSIENT_STAGE_ADB_FAILURE_MARKERS = (
+    "error: closed",
+    "adb: no devices/emulators found",
+    "no devices/emulators found",
+    "device offline",
+    "failed to get feature set",
+    "protocol fault",
+)
+SEMANTIC_STAGE_FAILURE_MARKERS = (
+    "A90_M1_RESIDUE_PRESENT",
+    "A90_M1_CLEANUP_PROBE_RESIDUE_PRESENT",
+    "A90_M1_INSTALL_RESIDUE_PRESENT",
+    "A90_M1_INCOMING_FILE_MISSING",
+    "A90_M1_INCOMING_SHA_MISMATCH",
+    "A90_M1_INCOMING_FILE_COUNT_MISMATCH",
+)
 APPROVAL_PHRASE = (
     "AUD-5L-acdb-m1-hybrid-late-observer go: rollbackable Android AudioTrack speaker "
     "msm_audio_cal diagnostic ioctl capture with temporary Magisk service module plus "
@@ -209,6 +227,103 @@ def stage_wait_plan(args: argparse.Namespace) -> list[dict[str, Any]]:
                 }
             )
     return waits
+
+
+def stage_adb_retry_attempts(args: argparse.Namespace) -> int:
+    return max(1, int(getattr(args, "stage_adb_retry_attempts", DEFAULT_STAGE_ADB_RETRY_ATTEMPTS)))
+
+
+def stage_adb_retry_sleep_sec(args: argparse.Namespace) -> float:
+    return max(0.0, float(getattr(args, "stage_adb_retry_sleep_sec", DEFAULT_STAGE_ADB_RETRY_SLEEP_SEC)))
+
+
+def stage_adb_retry_plan(args: argparse.Namespace) -> dict[str, Any]:
+    return {
+        "enabled": stage_adb_retry_attempts(args) > 1,
+        "attempts": stage_adb_retry_attempts(args),
+        "sleep_sec": stage_adb_retry_sleep_sec(args),
+        "scope": "staged adb shell/push/install only, before module reboot/playback",
+        "retry_markers": list(TRANSIENT_STAGE_ADB_FAILURE_MARKERS),
+        "semantic_stop_markers": list(SEMANTIC_STAGE_FAILURE_MARKERS),
+        "v2464_gap": "stage-2 failed with adb 'error: closed' after wait-for-device returned",
+    }
+
+
+def step_output_text(step: dict[str, Any]) -> str:
+    parts: list[str] = []
+    for key in ("stdout", "stderr"):
+        value = step.get(key)
+        if not isinstance(value, str) or not value:
+            continue
+        path = Path(value)
+        if not path.is_absolute():
+            path = ROOT / path
+        try:
+            parts.append(path.read_text(errors="replace"))
+        except OSError:
+            continue
+    return "\n".join(parts)
+
+
+def stage_step_has_semantic_failure(step: dict[str, Any]) -> bool:
+    text = step_output_text(step)
+    return any(marker in text for marker in SEMANTIC_STAGE_FAILURE_MARKERS)
+
+
+def stage_step_has_transient_adb_failure(step: dict[str, Any]) -> bool:
+    if step.get("ok"):
+        return False
+    if stage_step_has_semantic_failure(step):
+        return False
+    lower_text = step_output_text(step).lower()
+    return any(marker.lower() in lower_text for marker in TRANSIENT_STAGE_ADB_FAILURE_MARKERS)
+
+
+def checked_stage_failure_message(index: int, step: dict[str, Any]) -> str:
+    rc = step.get("rc", "unknown")
+    return f"stage-{index} failed rc={rc}; see {step.get('stdout')} {step.get('stderr')}"
+
+
+def run_stage_command_with_adb_retry(
+    args: argparse.Namespace,
+    index: int,
+    command: list[str],
+    out_dir: Path,
+    steps: list[dict[str, Any]],
+) -> dict[str, Any]:
+    attempts = stage_adb_retry_attempts(args)
+    sleep_sec = stage_adb_retry_sleep_sec(args)
+    subcommand = v2450.adb_subcommand(command) or "unknown"
+    last_step: dict[str, Any] | None = None
+    for attempt in range(1, attempts + 1):
+        if needs_stage_adb_wait(command):
+            steps.append(route.run_step(
+                f"stage-{index}-attempt-{attempt}-adb-wait-before-{subcommand}",
+                v2450.stage_wait_command(args),
+                out_dir,
+                timeout_sec=args.adb_command_timeout,
+                check=False,
+            ))
+        step = route.run_step(
+            f"stage-{index}-attempt-{attempt}",
+            command,
+            out_dir,
+            timeout_sec=args.adb_command_timeout,
+            check=False,
+        )
+        steps.append(step)
+        last_step = step
+        if step.get("ok"):
+            return step
+        if not stage_step_has_transient_adb_failure(step):
+            raise RuntimeError(checked_stage_failure_message(index, step))
+        if attempt < attempts:
+            time.sleep(sleep_sec)
+    assert last_step is not None
+    raise RuntimeError(
+        f"stage-{index} transient ADB transport failure persisted after {attempts} attempts; "
+        f"see {last_step.get('stdout')} {last_step.get('stderr')}"
+    )
 
 
 def post_module_boot_complete_soft_command(args: argparse.Namespace) -> list[str]:
@@ -501,6 +616,7 @@ def dry_run(args: argparse.Namespace) -> dict[str, Any]:
     ]
     base["commands"] = commands
     base["stage_adb_waits"] = stage_wait_plan(args)
+    base["stage_adb_retry"] = stage_adb_retry_plan(args)
     base.update(
         {
             "run_id": RUN_ID,
@@ -610,16 +726,7 @@ def run_live(args: argparse.Namespace) -> dict[str, Any]:
         v2396.run_android_post_handoff_settle(args, out_dir, steps)
 
         for index, command in enumerate(v2450.stage_commands(args)):
-            if needs_stage_adb_wait(command):
-                subcommand = v2450.adb_subcommand(command) or "unknown"
-                steps.append(route.run_step(
-                    f"stage-{index}-adb-wait-before-{subcommand}",
-                    v2450.stage_wait_command(args),
-                    out_dir,
-                    timeout_sec=args.adb_command_timeout,
-                    check=False,
-                ))
-            steps.append(route.run_step(f"stage-{index}", command, out_dir, timeout_sec=args.adb_command_timeout))
+            run_stage_command_with_adb_retry(args, index, command, out_dir, steps)
 
         steps.append(route.run_step("android-reboot-for-magisk-service", v2450.android_reboot_command(args), out_dir, timeout_sec=args.adb_command_timeout, check=False))
         run_post_module_reboot_settle(args, out_dir, steps)
@@ -727,6 +834,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--post-module-root-retry-attempts", type=int, default=v2450.DEFAULT_POST_MODULE_ROOT_RETRY_ATTEMPTS)
     parser.add_argument("--post-module-root-retry-sleep-sec", type=float, default=v2450.DEFAULT_POST_MODULE_ROOT_RETRY_SLEEP_SEC)
     parser.add_argument("--post-module-adb-wait-timeout", type=float, default=v2450.DEFAULT_POST_MODULE_ADB_WAIT_TIMEOUT_SEC)
+    parser.add_argument("--stage-adb-retry-attempts", type=int, default=DEFAULT_STAGE_ADB_RETRY_ATTEMPTS)
+    parser.add_argument("--stage-adb-retry-sleep-sec", type=float, default=DEFAULT_STAGE_ADB_RETRY_SLEEP_SEC)
     parser.add_argument("--post-module-boot-complete-timeout-sec", type=float, default=DEFAULT_POST_MODULE_BOOT_COMPLETE_TIMEOUT_SEC)
     parser.add_argument("--helper-completion-timeout-sec", type=float, default=v2450.DEFAULT_HELPER_COMPLETION_TIMEOUT_SEC)
     parser.add_argument("--late-capture-duration-sec", type=int, default=DEFAULT_LATE_CAPTURE_DURATION_SEC)

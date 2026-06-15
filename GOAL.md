@@ -674,7 +674,7 @@ boot-complete, Magisk root, and two read-only Magisk probes had passed; no modul
 playback, ioctl capture, or dmabuf capture ran. Cleanup completed, rollback to V2321 passed, and
 final native `selftest fail=0`. Next meaningful unit is host-only stage-command retry hardening for
 transient ADB transport closures, then a fresh dmabuf live rerun. Do **not** issue native calibration
-ioctls yet.
+ioctls yet. V2465 completed that host-only hardening: staged ADB `shell`/`push`/`install` commands now run through a bounded retry wrapper for transport-only failures (`error: closed`, `no devices/emulators found`, etc.), with `adb wait-for-device` before each attempt and attempt-specific evidence filenames. Semantic failures such as residue, incoming file count/hash mismatch, and install residue still fail closed without retry. Focused tests and a materialized dry-run passed (`future_live_ready=True`, `command_safety_ok=True`, `stage_retry_attempts=3`). Next meaningful unit is a fresh bounded Android-good dmabuf live rerun with the V2465-hardened runner.
 
 ## Read at the START of every iteration
 

@@ -40,6 +40,8 @@ def args(**overrides: object) -> argparse.Namespace:
         "post_module_root_retry_attempts": v2451.v2450.DEFAULT_POST_MODULE_ROOT_RETRY_ATTEMPTS,
         "post_module_root_retry_sleep_sec": v2451.v2450.DEFAULT_POST_MODULE_ROOT_RETRY_SLEEP_SEC,
         "post_module_adb_wait_timeout": v2451.v2450.DEFAULT_POST_MODULE_ADB_WAIT_TIMEOUT_SEC,
+        "stage_adb_retry_attempts": v2451.DEFAULT_STAGE_ADB_RETRY_ATTEMPTS,
+        "stage_adb_retry_sleep_sec": 0.0,
         "post_module_boot_complete_timeout_sec": v2451.DEFAULT_POST_MODULE_BOOT_COMPLETE_TIMEOUT_SEC,
         "helper_completion_timeout_sec": v2451.v2450.DEFAULT_HELPER_COMPLETION_TIMEOUT_SEC,
         "late_capture_duration_sec": v2451.DEFAULT_LATE_CAPTURE_DURATION_SEC,
@@ -118,6 +120,66 @@ class AcdbM1HybridLateObserverLiveHandoffV2451(unittest.TestCase):
         self.assertIn("push", {item["stage_subcommand"] for item in waits})
         self.assertIn("install", {item["stage_subcommand"] for item in waits})
         self.assertEqual(waits[2]["stage_subcommand"], "shell")
+
+    def test_stage_adb_retry_plan_targets_v2464_transport_gap(self) -> None:
+        payload = v2451.dry_run(args())
+        retry = payload["stage_adb_retry"]
+
+        self.assertTrue(retry["enabled"])
+        self.assertEqual(retry["attempts"], v2451.DEFAULT_STAGE_ADB_RETRY_ATTEMPTS)
+        self.assertIn("error: closed", retry["retry_markers"])
+        self.assertIn("no devices/emulators found", retry["retry_markers"])
+        self.assertIn("A90_M1_RESIDUE_PRESENT", retry["semantic_stop_markers"])
+        self.assertIn("staged adb shell/push/install", retry["scope"])
+
+    def test_stage_adb_retry_classifier_ignores_semantic_failures(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            stdout = Path(temp_dir) / "stdout.txt"
+            stderr = Path(temp_dir) / "stderr.txt"
+            stdout.write_text("A90_M1_RESIDUE_PRESENT /data/adb/modules/a90_audio_acdb_m1_v2429\n")
+            stderr.write_text("error: closed\n")
+            step = {"ok": False, "stdout": str(stdout), "stderr": str(stderr)}
+
+            self.assertTrue(v2451.stage_step_has_semantic_failure(step))
+            self.assertFalse(v2451.stage_step_has_transient_adb_failure(step))
+
+    def test_stage_adb_retry_retries_transient_closed_once(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            out_dir = Path(temp_dir)
+            calls: list[str] = []
+
+            def fake_run_step(name: str, command: list[str], out: Path, *, timeout_sec: float, check: bool = True) -> dict[str, object]:
+                calls.append(name)
+                stdout = out / f"{name}.stdout.txt"
+                stderr = out / f"{name}.stderr.txt"
+                stdout.write_text("")
+                stderr.write_text("")
+                if name == "stage-2-attempt-1":
+                    stderr.write_text("error: closed\n")
+                    return {"name": name, "ok": False, "rc": 1, "stdout": str(stdout), "stderr": str(stderr)}
+                return {"name": name, "ok": True, "rc": 0, "stdout": str(stdout), "stderr": str(stderr)}
+
+            original_run_step = v2451.route.run_step
+            original_sleep = v2451.time.sleep
+            try:
+                v2451.route.run_step = fake_run_step  # type: ignore[assignment]
+                v2451.time.sleep = lambda _seconds: None  # type: ignore[assignment]
+                steps: list[dict[str, object]] = []
+                step = v2451.run_stage_command_with_adb_retry(
+                    args(stage_adb_retry_attempts=2),
+                    2,
+                    ["adb", "shell", "true"],
+                    out_dir,
+                    steps,  # type: ignore[arg-type]
+                )
+            finally:
+                v2451.route.run_step = original_run_step  # type: ignore[assignment]
+                v2451.time.sleep = original_sleep  # type: ignore[assignment]
+
+        self.assertEqual(step["name"], "stage-2-attempt-2")
+        self.assertIn("stage-2-attempt-1-adb-wait-before-shell", calls)
+        self.assertIn("stage-2-attempt-2-adb-wait-before-shell", calls)
+        self.assertEqual([item["name"] for item in steps if item["name"].startswith("stage-2-attempt-") and "adb-wait" not in item["name"]], ["stage-2-attempt-1", "stage-2-attempt-2"])
 
     def test_post_module_boot_complete_is_soft_gate_before_root(self) -> None:
         payload = v2451.dry_run(args())
