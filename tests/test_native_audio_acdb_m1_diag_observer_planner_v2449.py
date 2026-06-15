@@ -78,6 +78,7 @@ class AcdbM1DiagnosticObserverPlannerV2449(unittest.TestCase):
         self.assertIn("A90_M1_DIAG_HELPER_WAIT_DONE", service)
         self.assertIn("A90_M1_DIAG_SERVICE_END", service)
         self.assertIn(f"HELPER=\"$MODDIR/bin/{v2449.HELPER_NAME}\"", service)
+        self.assertIn('HELPER_MAX_DURATION_SEC="120"', service)
         self.assertIn("--tgid \"$pid\"", service)
         self.assertIn("--fd-pid \"$pid\"", service)
         self.assertIn("--device-substr /dev/msm_audio_cal", service)

@@ -552,9 +552,23 @@ helper completion, and the future collection contract requires terminal JSONL `s
 records or the `partial-helper-still-running` classification. Materialized dry-run reports
 `future_live_ready=true`, command safety clean, private helper SHA256
 `9520e9f297ba4cb52ce2730d8166876409162a70f64998b7c2ac16ca21f165f8`, and private module zip
-SHA256 `ef98419a2a63f610115238eebf934391e8d1799a3c3b9329d9426c4618428bd0`. Next meaningful
-unit is **V2450/AUD-5K live diagnostic rerun** with the exact phrase
-`AUD-5K-acdb-m1-diagnostic-observer go: rollbackable Android AudioTrack speaker msm_audio_cal diagnostic ioctl capture with temporary Magisk service module, helper-completion wait, no native calibration ioctl, no native speaker write, rollback to V2321`.
+SHA256 `ef98419a2a63f610115238eebf934391e8d1799a3c3b9329d9426c4618428bd0`.
+V2450 implemented and ran the exact-gated AUD-5K live handoff. The first run exposed a
+service/helper argument mismatch (`--duration-sec 180` rejected by the helper's max `120`);
+V2450 fixed the service helper cap to `120` and reran. The second run proved the diagnostic
+helper can trace Android audio processes (`syscall_stop_count=257929`,
+`ioctl_any_entry_count=2619`) and rollback to V2321 cleanly, but captured no
+`/dev/msm_audio_cal` payload (`ioctl_fd_match_count=0`, only binder/hwbinder fd misses) and
+classified as `partial-helper-still-running` because five JSONL files lacked terminal `stop`.
+The decisive new timing fact is that the temporary Magisk service starts at Android boot and
+can age out before host-triggered AudioTrack playback after a long post-module ADB settle
+(observed about `207s`). Magisk remains the right Wi-Fi-style Android-good measurement capsule,
+but not as a native runtime dependency. Next meaningful unit is **V2451 host-only hybrid M1
+late-observer design/implementation**: keep the boot service as optional early observer, then
+after post-module ADB/root settle and before playback launch a host-coordinated late diagnostic
+observer from the staged module helper, wait for terminal `stop`, collect, cleanup, and roll
+back. Do not attempt native ACDB replay before payload order, decoded headers, hashes,
+mem-handle policy, and cleanup policy are pinned.
 
 ## Read at the START of every iteration
 
