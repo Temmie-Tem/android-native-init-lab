@@ -42,7 +42,11 @@ def rel(path: Path | str) -> str:
 
 def default_live_out_dir() -> Path:
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-    return DEFAULT_OUT_BASE / f"v2424-acdb-threadset-clone-follow-capture-{stamp}"
+    return DEFAULT_OUT_BASE / f"{RUN_ID.lower()}-acdb-threadset-clone-follow-capture-{stamp}"
+
+
+def decision_slug() -> str:
+    return f"{RUN_ID.lower()}-acdb-threadset-clone-follow-capture"
 
 
 def write_json(path: Path, payload: dict[str, Any]) -> None:
@@ -251,7 +255,7 @@ def run_live(args: argparse.Namespace) -> dict[str, Any]:
     result: dict[str, Any] = {
         "run_id": RUN_ID,
         "build_tag": BUILD_TAG,
-        "decision": "v2424-acdb-threadset-clone-follow-capture-live-started",
+        "decision": f"{decision_slug()}-live-started",
         "out_dir": rel(out_dir),
         "approval_ok": True,
         "plan": plan,
@@ -319,12 +323,12 @@ def run_live(args: argparse.Namespace) -> dict[str, Any]:
 
         classification = result["payload_capture_summary"].get("classification")
         if classification == "captured-msm-audio-cal-payload-events":
-            result["decision"] = "v2424-acdb-threadset-clone-follow-capture-events-before-rollback"
+            result["decision"] = f"{decision_slug()}-events-before-rollback"
         else:
-            result["decision"] = f"v2424-acdb-threadset-clone-follow-capture-{classification}-before-rollback"
+            result["decision"] = f"{decision_slug()}-{classification}-before-rollback"
         result["ok"] = True
     except Exception as error:
-        result["decision"] = "v2424-acdb-threadset-clone-follow-capture-failed-before-rollback"
+        result["decision"] = f"{decision_slug()}-failed-before-rollback"
         result["error"] = str(error)
         result["ok"] = False
     finally:
@@ -356,7 +360,7 @@ def dry_run(args: argparse.Namespace) -> dict[str, Any]:
     payload.update({
         "run_id": RUN_ID,
         "build_tag": BUILD_TAG,
-        "decision": "v2424-acdb-threadset-clone-follow-capture-live-dry-run",
+        "decision": f"{decision_slug()}-live-dry-run",
         "host_only": True,
         "device_action": "none",
         "live_runner": rel(ROOT / "workspace/public/src/scripts/revalidation/native_audio_acdb_threadset_clone_follow_live_handoff_v2424.py"),
@@ -404,7 +408,7 @@ def main() -> int:
             payload = {
                 "run_id": RUN_ID,
                 "build_tag": BUILD_TAG,
-                "decision": "v2424-acdb-threadset-clone-follow-capture-live-refused",
+                "decision": f"{decision_slug()}-live-refused",
                 "ok": False,
                 "rolled_back": False,
                 "reason": str(error),
