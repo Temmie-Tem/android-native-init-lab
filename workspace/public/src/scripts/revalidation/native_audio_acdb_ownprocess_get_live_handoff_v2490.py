@@ -223,6 +223,29 @@ exit 0
     return adb_su(args, script)
 
 
+def clear_logcat_command(args: argparse.Namespace) -> list[str]:
+    script = """
+set +e
+logcat -c >/dev/null 2>&1
+exit 0
+""".strip()
+    return adb_su(args, script)
+
+
+def capture_logcat_command(args: argparse.Namespace) -> list[str]:
+    acdb_log = f"{REMOTE_DIR}/logcat-acdb-loader.txt"
+    filtered_log = f"{REMOTE_DIR}/logcat-avc-acdb-filter.txt"
+    dmesg_log = f"{REMOTE_DIR}/dmesg-avc-acdb-filter.txt"
+    script = f"""
+set +e
+logcat -d -v threadtime -s ACDB-LOADER > {shlex.quote(acdb_log)} 2>&1
+logcat -d -b all -v threadtime 2>/dev/null | grep -Ei 'avc:|denied|ACDB-LOADER|acdb|audcal' > {shlex.quote(filtered_log)} 2>/dev/null || true
+dmesg 2>/dev/null | grep -Ei 'avc:|denied|ACDB-LOADER|acdb|audcal' > {shlex.quote(dmesg_log)} 2>/dev/null || true
+exit 0
+""".strip()
+    return adb_su(args, script)
+
+
 def collect_prepare_command(args: argparse.Namespace) -> list[str]:
     script = f"""
 set +e
@@ -266,6 +289,9 @@ def command_safety(payload: dict[str, Any]) -> dict[str, Any]:
 
 def parse_ownget_artifacts(path: Path) -> dict[str, Any]:
     events = path / "acdb-ownget-events.jsonl"
+    acdb_log = path / "logcat-acdb-loader.txt"
+    filtered_log = path / "logcat-avc-acdb-filter.txt"
+    dmesg_log = path / "dmesg-avc-acdb-filter.txt"
     rows: list[dict[str, Any]] = []
     errors: list[dict[str, Any]] = []
     namespace_events: list[dict[str, Any]] = []
@@ -288,6 +314,10 @@ def parse_ownget_artifacts(path: Path) -> dict[str, Any]:
                 symbol_events.append(item)
             elif str(item.get("event", "")).startswith("namespace_"):
                 namespace_events.append(item)
+    acdb_log_text = acdb_log.read_text(encoding="utf-8", errors="replace") if acdb_log.exists() else ""
+    filtered_log_text = filtered_log.read_text(encoding="utf-8", errors="replace") if filtered_log.exists() else ""
+    dmesg_log_text = dmesg_log.read_text(encoding="utf-8", errors="replace") if dmesg_log.exists() else ""
+    diagnostic_text = "\n".join([acdb_log_text, filtered_log_text, dmesg_log_text]).lower()
     target = [row for row in rows if row.get("is_target_4916") is True or row.get("out_len") == 4916]
     raw_files = sorted(path.glob("acdb-ownget-*.bin"))
     missing_raw = []
@@ -314,7 +344,14 @@ def parse_ownget_artifacts(path: Path) -> dict[str, Any]:
         elif stage == "android_dlopen_ext-libacdbloader":
             classification = "libaudcal-loaded-libacdbloader-block"
         elif stage == "acdb_loader_init_v3":
-            classification = "init-v3-block"
+            if "could not load .acdb files" in diagnostic_text:
+                classification = "init-v3-block-acdb-files-load"
+            elif "error initializing acph returned" in diagnostic_text:
+                classification = "init-v3-block-acph-init"
+            elif "avc:" in diagnostic_text or "denied" in diagnostic_text:
+                classification = "init-v3-block-avc-denial"
+            else:
+                classification = "init-v3-block"
         else:
             classification = f"ownprocess-error-{stage}"
     elif malformed:
@@ -330,6 +367,17 @@ def parse_ownget_artifacts(path: Path) -> dict[str, Any]:
         "errors": errors,
         "namespace_events": namespace_events,
         "symbol_events": symbol_events,
+        "diagnostics": {
+            "acdb_loader_log_path": rel(acdb_log) if acdb_log.exists() else None,
+            "filtered_log_path": rel(filtered_log) if filtered_log.exists() else None,
+            "dmesg_filter_path": rel(dmesg_log) if dmesg_log.exists() else None,
+            "acdb_loader_line_count": len(acdb_log_text.splitlines()),
+            "filtered_log_line_count": len(filtered_log_text.splitlines()),
+            "dmesg_filter_line_count": len(dmesg_log_text.splitlines()),
+            "has_acdb_files_load_error": "could not load .acdb files" in diagnostic_text,
+            "has_acph_init_error": "error initializing acph returned" in diagnostic_text,
+            "has_avc_or_denial": "avc:" in diagnostic_text or "denied" in diagnostic_text,
+        },
         "malformed_lines": malformed,
         "row_count": len(rows),
         "error_count": len(errors),
@@ -369,7 +417,9 @@ def dry_run_payload(args: argparse.Namespace) -> dict[str, Any]:
             for item in deps["libs"]
         ],
         "chmod_helper": chmod_helper_command(args),
+        "clear_logcat_before_helper": clear_logcat_command(args),
         "run_helper": run_helper_command(args),
+        "capture_logcat_after_helper": capture_logcat_command(args),
         "collect_prepare": collect_prepare_command(args),
         "pull_artifacts": pull_artifacts_command(args, "<private-run-dir>/ownget-device-artifacts"),
         "cleanup": cleanup_command(args),
@@ -468,7 +518,9 @@ def run_live(args: argparse.Namespace) -> dict[str, Any]:
                 timeout_sec=args.adb_command_timeout,
             ))
         steps.append(route.run_step("ownget-chmod-helper", chmod_helper_command(args), out_dir, timeout_sec=args.adb_command_timeout))
+        steps.append(route.run_step("ownget-logcat-clear", clear_logcat_command(args), out_dir, timeout_sec=args.adb_command_timeout, check=False))
         steps.append(route.run_step("ownget-run-helper", run_helper_command(args), out_dir, timeout_sec=args.helper_timeout, check=False))
+        steps.append(route.run_step("ownget-logcat-capture", capture_logcat_command(args), out_dir, timeout_sec=args.adb_command_timeout, check=False))
         steps.append(route.run_step("ownget-collect-prepare", collect_prepare_command(args), out_dir, timeout_sec=args.adb_command_timeout, check=False))
         local_artifacts = out_dir / "ownget-device-artifacts"
         steps.append(route.run_step("ownget-pull-artifacts", pull_artifacts_command(args, str(local_artifacts)), out_dir, timeout_sec=args.adb_pull_timeout, check=False))

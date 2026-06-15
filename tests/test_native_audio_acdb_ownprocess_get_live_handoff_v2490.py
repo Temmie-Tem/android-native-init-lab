@@ -68,6 +68,10 @@ class NativeAudioAcdbOwnprocessGetV2490(unittest.TestCase):
         self.assertIn("/vendor/etc/audconf/OPEN", flat_commands)
         self.assertIn("find /vendor/etc/audconf", flat_commands)
         self.assertIn("-exec ls -l", flat_commands)
+        self.assertIn("logcat -c", flat_commands)
+        self.assertIn("logcat-acdb-loader.txt", flat_commands)
+        self.assertIn("logcat-avc-acdb-filter.txt", flat_commands)
+        self.assertIn("dmesg-avc-acdb-filter.txt", flat_commands)
         if payload["acdb_dependencies"].get("source_kind") == "v2506-vendor-ext4-closure":
             self.assertIn("/data/local/tmp/a90-acdb-ownget/libdiag.so", flat_commands)
         self.assertNotIn("magisk --install-module", flat_commands)
@@ -180,6 +184,48 @@ class NativeAudioAcdbOwnprocessGetV2490(unittest.TestCase):
         self.assertEqual(summary["classification"], "ownprocess-error-dlopen-libaudcal")
         self.assertTrue(summary["operator_valuable"])
         self.assertTrue(summary["counts_toward_fails_twice"])
+
+    def test_parse_ownget_artifacts_classifies_init_v3_acdb_load_log(self) -> None:
+        root = Path(tempfile.mkdtemp(prefix="a90-v2490-artifacts-"))
+        (root / "acdb-ownget-events.jsonl").write_text(json.dumps({
+            "event": "error",
+            "stage": "acdb_loader_init_v3",
+            "code": -19,
+        }) + "\n")
+        (root / "logcat-acdb-loader.txt").write_text("ACDB-LOADER: ACDB -> Could not load .acdb files!\n")
+
+        summary = v2490.parse_ownget_artifacts(root)
+
+        self.assertEqual(summary["classification"], "init-v3-block-acdb-files-load")
+        self.assertTrue(summary["diagnostics"]["has_acdb_files_load_error"])
+
+    def test_parse_ownget_artifacts_classifies_init_v3_acph_log(self) -> None:
+        root = Path(tempfile.mkdtemp(prefix="a90-v2490-artifacts-"))
+        (root / "acdb-ownget-events.jsonl").write_text(json.dumps({
+            "event": "error",
+            "stage": "acdb_loader_init_v3",
+            "code": -19,
+        }) + "\n")
+        (root / "logcat-acdb-loader.txt").write_text("ACDB-LOADER: Error initializing ACPH returned = -19\n")
+
+        summary = v2490.parse_ownget_artifacts(root)
+
+        self.assertEqual(summary["classification"], "init-v3-block-acph-init")
+        self.assertTrue(summary["diagnostics"]["has_acph_init_error"])
+
+    def test_parse_ownget_artifacts_classifies_init_v3_avc_denial(self) -> None:
+        root = Path(tempfile.mkdtemp(prefix="a90-v2490-artifacts-"))
+        (root / "acdb-ownget-events.jsonl").write_text(json.dumps({
+            "event": "error",
+            "stage": "acdb_loader_init_v3",
+            "code": -19,
+        }) + "\n")
+        (root / "logcat-avc-acdb-filter.txt").write_text("avc: denied { read } for path=/vendor/etc/audconf/OPEN/Speaker_cal.acdb\n")
+
+        summary = v2490.parse_ownget_artifacts(root)
+
+        self.assertEqual(summary["classification"], "init-v3-block-avc-denial")
+        self.assertTrue(summary["diagnostics"]["has_avc_or_denial"])
 
     def test_select_pulled_artifact_dir_accepts_flat_adb_pull_layout(self) -> None:
         root = Path(tempfile.mkdtemp(prefix="a90-v2490-pull-"))
