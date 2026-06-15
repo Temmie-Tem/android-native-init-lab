@@ -45,6 +45,15 @@ def args(**overrides: object) -> Namespace:
 
 
 class NativeAudioAcdbOwnprocessGetV2490(unittest.TestCase):
+    def test_adb_su_quotes_multiline_script_as_single_remote_command(self) -> None:
+        command = v2490.adb_su(args(), "set +e\necho 'quoted value'\nid -Z")
+
+        self.assertEqual(command[:2], ["adb", "shell"])
+        self.assertEqual(len(command), 3)
+        self.assertTrue(command[2].startswith("su -c "), command)
+        self.assertIn("quoted value", command[2])
+        self.assertNotEqual(command[2], "su -c set +e")
+
     def test_dry_run_is_ownprocess_only_and_live_ready_when_artifact_exists(self) -> None:
         payload = v2490.dry_run_payload(args())
 

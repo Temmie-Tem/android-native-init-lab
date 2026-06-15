@@ -99,7 +99,7 @@ def adb_base(args: argparse.Namespace) -> list[str]:
 
 
 def adb_su(args: argparse.Namespace, script: str) -> list[str]:
-    return adb_base(args) + ["shell", "su", "-c", script]
+    return adb_base(args) + ["shell", f"su -c {shlex.quote(script)}"]
 
 
 def adb_push(args: argparse.Namespace, source: str, destination: str) -> list[str]:
