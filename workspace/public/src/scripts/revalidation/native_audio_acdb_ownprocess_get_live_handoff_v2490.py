@@ -755,6 +755,7 @@ def parse_ownget_artifacts(path: Path) -> dict[str, Any]:
     symbol_events: list[dict[str, Any]] = []
     ioctl_trace_events: list[dict[str, Any]] = []
     acdbtap_rows: list[dict[str, Any]] = []
+    acdbtap_call_rows: list[dict[str, Any]] = []
     malformed = 0
     if events.exists():
         for line in events.read_text(encoding="utf-8", errors="replace").splitlines():
@@ -793,7 +794,9 @@ def parse_ownget_artifacts(path: Path) -> dict[str, Any]:
             except json.JSONDecodeError:
                 malformed += 1
                 continue
-            if "cmd" in item and "out_len" in item:
+            if item.get("event") == "acdb_ioctl_call" and "cmd" in item and "out_len" in item:
+                acdbtap_call_rows.append(item)
+            elif "cmd" in item and "out_len" in item:
                 acdbtap_rows.append(item)
     acdb_log_text = acdb_log.read_text(encoding="utf-8", errors="replace") if acdb_log.exists() else ""
     filtered_log_text = filtered_log.read_text(encoding="utf-8", errors="replace") if filtered_log.exists() else ""
@@ -981,6 +984,16 @@ def parse_ownget_artifacts(path: Path) -> dict[str, Any]:
         classification = "acdb-get-no-successful-nonzero-outbuf"
     elif acdbtap_rows and acdbtap_no_raw_problems:
         classification = "acdbtap-no-successful-nonzero-outbuf"
+    elif acdbtap_call_rows and not acdbtap_rows:
+        phases = {str(row.get("phase", "")) for row in acdbtap_call_rows}
+        if "before_real" in phases:
+            classification = "acdbtap-enter-before-real-no-return"
+        elif "enter" in phases:
+            classification = "acdbtap-enter-no-return"
+        elif "resolve_failed" in phases:
+            classification = "acdbtap-resolve-failed"
+        else:
+            classification = "acdbtap-call-events-no-return"
     elif rows:
         classification = "acdb-get-outbuf-set-missing-or-invalid-raw"
     elif acdbtap_rows:
@@ -1032,6 +1045,7 @@ def parse_ownget_artifacts(path: Path) -> dict[str, Any]:
         "acdbtap_event_path": rel(acdbtap_events) if acdbtap_events.exists() else None,
         "rows": rows,
         "acdbtap_rows": acdbtap_rows,
+        "acdbtap_call_rows": acdbtap_call_rows,
         "errors": errors,
         "namespace_events": namespace_events,
         "symbol_events": symbol_events,
@@ -1114,6 +1128,9 @@ def parse_ownget_artifacts(path: Path) -> dict[str, Any]:
             "raw_size_mismatch_seq": raw_size_mismatch,
             "raw_sha_mismatch_seq": raw_sha_mismatch,
             "acdbtap_event_count": len(acdbtap_rows),
+            "acdbtap_call_event_count": len(acdbtap_call_rows),
+            "acdbtap_call_phases": sorted({str(row.get("phase", "")) for row in acdbtap_call_rows}),
+            "acdbtap_call_cmds": sorted({str(row.get("cmd", "")) for row in acdbtap_call_rows}),
             "acdbtap_ret_values": sorted(acdbtap_ret_values),
             "acdbtap_successful_row_count": len(acdbtap_successful_rows),
             "acdbtap_successful_nonzero_row_count": len(acdbtap_successful_nonzero_rows),
@@ -1131,6 +1148,7 @@ def parse_ownget_artifacts(path: Path) -> dict[str, Any]:
         "namespace_event_count": len(namespace_events),
         "symbol_event_count": len(symbol_events),
         "acdbtap_row_count": len(acdbtap_rows),
+        "acdbtap_call_row_count": len(acdbtap_call_rows),
         "target_4916_count": len(target),
         "acdbtap_target_4916_count": len(acdbtap_target),
         "raw_file_count": len(raw_files),
@@ -1141,7 +1159,7 @@ def parse_ownget_artifacts(path: Path) -> dict[str, Any]:
         "acdbtap_full_success": tap_full_success,
         "full_success": full_success,
         "partial_success": partial_success,
-        "operator_valuable": bool(full_success or partial_success or rows or acdbtap_rows or errors or context_only),
+        "operator_valuable": bool(full_success or partial_success or rows or acdbtap_rows or acdbtap_call_rows or errors or context_only),
         "counts_toward_fails_twice": not bool(full_success or partial_success),
     }
 

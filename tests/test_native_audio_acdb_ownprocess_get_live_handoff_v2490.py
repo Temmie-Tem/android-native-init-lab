@@ -384,6 +384,36 @@ class NativeAudioAcdbOwnprocessGetV2490(unittest.TestCase):
         self.assertEqual(summary["diagnostics"]["zero_outbuf_count"], 1)
         self.assertEqual(summary["diagnostics"]["zero_hash_by_len"]["4916"], hashlib.sha256(b"\0" * 4916).hexdigest())
 
+
+    def test_parse_ownget_artifacts_classifies_acdbtap_enter_before_real_no_return(self) -> None:
+        root = Path(tempfile.mkdtemp(prefix="a90-v2490-acdbtap-enter-"))
+        tap_dir = root / "acdbtap"
+        tap_dir.mkdir(parents=True)
+        (tap_dir / "acdbtap-events.jsonl").write_text("\n".join([
+            json.dumps({
+                "event": "acdb_ioctl_call",
+                "seq": "0x00000000",
+                "cmd": "0x00012e01",
+                "in_len": "0x00000010",
+                "out_len": "0x00000004",
+                "phase": "enter",
+            }),
+            json.dumps({
+                "event": "acdb_ioctl_call",
+                "seq": "0x00000000",
+                "cmd": "0x00012e01",
+                "in_len": "0x00000010",
+                "out_len": "0x00000004",
+                "phase": "before_real",
+            }),
+        ]) + "\n", encoding="utf-8")
+        summary = v2490.parse_ownget_artifacts(root)
+        self.assertEqual(summary["classification"], "acdbtap-enter-before-real-no-return")
+        self.assertEqual(summary["acdbtap_row_count"], 0)
+        self.assertEqual(summary["acdbtap_call_row_count"], 2)
+        self.assertEqual(summary["diagnostics"]["acdbtap_call_phases"], ["before_real", "enter"])
+        self.assertTrue(summary["operator_valuable"])
+
     def test_parse_ownget_artifacts_accepts_acdbtap_4916_success_before_helper_crash(self) -> None:
         root = Path(tempfile.mkdtemp(prefix="a90-v2490-acdbtap-artifacts-"))
         tap_dir = root / "acdbtap"

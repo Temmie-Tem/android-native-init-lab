@@ -23,6 +23,9 @@ extern void *dlsym(void *handle, const char *symbol);
 #define A90_TARGET_OUT_LEN 4916U
 #define A90_SIZE_QUERY_OUT_LEN 4U
 #define A90_MAX_CAPTURE_LEN 65536U
+#ifndef A90_ACDBTAP_LOG_ENTER
+#define A90_ACDBTAP_LOG_ENTER 0
+#endif
 
 #define A90_AT_FDCWD (-100)
 #define A90_O_WRONLY 00000001
@@ -341,6 +344,41 @@ static void a90_build_raw_path(char *path, uint32_t seq, uint32_t cmd, uint32_t 
     *p = 0;
 }
 
+static void a90_log_call_phase(uint32_t seq, uint32_t cmd, uint32_t in_len, uint32_t out_len,
+                               const char *phase)
+{
+    char line[320];
+    char *p;
+    int event_fd;
+
+    event_fd = a90_open_append(A90_EVENTS_PATH);
+    if (event_fd < 0)
+        return;
+
+    p = line;
+    p = a90_append_str(p, "{\"event\":\"acdb_ioctl_call\",");
+    p = a90_append_hex_field(p, "seq", seq);
+    *p++ = ',';
+    p = a90_append_hex_field(p, "pid", a90_getpid());
+    *p++ = ',';
+    p = a90_append_hex_field(p, "tid", a90_gettid());
+    *p++ = ',';
+    p = a90_append_hex_field(p, "cmd", cmd);
+    *p++ = ',';
+    p = a90_append_hex_field(p, "in_len", in_len);
+    *p++ = ',';
+    p = a90_append_hex_field(p, "out_len", out_len);
+    *p++ = ',';
+    p = a90_append_str(p, "\"phase\":\"");
+    p = a90_append_str(p, phase);
+    *p++ = '\"';
+    *p++ = '}';
+    *p++ = '\n';
+
+    a90_write_all(event_fd, line, (size_t)(p - line));
+    a90_close(event_fd);
+}
+
 static void a90_log_capture(uint32_t seq, uint32_t cmd, uint32_t in_len, uint32_t out_len,
                             int32_t ret, const uint8_t *out)
 {
@@ -427,16 +465,26 @@ acdb_ioctl(uint32_t cmd, const uint8_t *in, uint32_t in_len, uint8_t *out, uint3
         return a90_real_acdb_ioctl(cmd, in, in_len, out, out_len);
     }
 
+    seq = a90_sequence++;
+#if A90_ACDBTAP_LOG_ENTER
+    a90_log_call_phase(seq, cmd, in_len, out_len, "enter");
+#endif
+
     a90_in_hook = 1;
     if (!a90_real_acdb_ioctl)
         a90_real_acdb_ioctl = (a90_real_acdb_ioctl_fn)dlsym(A90_RTLD_NEXT, "acdb_ioctl");
     if (!a90_real_acdb_ioctl) {
+#if A90_ACDBTAP_LOG_ENTER
+        a90_log_call_phase(seq, cmd, in_len, out_len, "resolve_failed");
+#endif
         a90_in_hook = 0;
         return -1;
     }
 
+#if A90_ACDBTAP_LOG_ENTER
+    a90_log_call_phase(seq, cmd, in_len, out_len, "before_real");
+#endif
     ret = a90_real_acdb_ioctl(cmd, in, in_len, out, out_len);
-    seq = a90_sequence++;
     a90_log_capture(seq, cmd, in_len, out_len, ret, out);
     a90_in_hook = 0;
     return ret;
