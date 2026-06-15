@@ -37,6 +37,7 @@ class BuildAndroidAcdbOwnprocessGetV2489(unittest.TestCase):
         self.assertTrue(state["required_ok"], state["required"])
         self.assertTrue(state["prohibited_ok"], state["prohibited"])
         self.assertTrue(state["required"]["uses_dlopen_libaudcal"])
+        self.assertTrue(state["required"]["uses_absolute_vendor_paths"])
         self.assertTrue(state["required"]["uses_rtld_now_only"])
         self.assertTrue(state["required"]["uses_dlsym_acdb_ioctl"])
         self.assertTrue(state["required"]["uses_dlerror_detail"])

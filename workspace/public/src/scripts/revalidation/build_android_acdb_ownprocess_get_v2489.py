@@ -147,11 +147,13 @@ def source_state() -> dict[str, Any]:
     text = source.read_text(encoding="utf-8", errors="replace")
     required = {
         "custom_start": "void _start(void)" in text,
-        "uses_dlopen_libaudcal": 'dlopen("libaudcal.so"' in text,
-        "uses_dlopen_libacdbloader": 'dlopen("libacdbloader.so"' in text,
+        "uses_dlopen_libaudcal": 'dlopen("/vendor/lib/libaudcal.so"' in text,
+        "uses_dlopen_libacdbloader": 'dlopen("/vendor/lib/libacdbloader.so"' in text,
+        "uses_absolute_vendor_paths": '/vendor/lib/libaudcal.so' in text
+        and '/vendor/lib/libacdbloader.so' in text,
         "uses_rtld_now_only": "A90_RTLD_GLOBAL" not in text
-        and 'dlopen("libaudcal.so", A90_RTLD_NOW)' in text
-        and 'dlopen("libacdbloader.so", A90_RTLD_NOW)' in text,
+        and 'dlopen("/vendor/lib/libaudcal.so", A90_RTLD_NOW)' in text
+        and 'dlopen("/vendor/lib/libacdbloader.so", A90_RTLD_NOW)' in text,
         "uses_dlsym_init_v3": 'dlsym(loader, "acdb_loader_init_v3")' in text,
         "uses_dlsym_acdb_ioctl": 'dlsym(audcal, "acdb_ioctl")' in text,
         "uses_dlerror_detail": "dlerror()" in text and '\\"detail\\":' in text,
@@ -355,7 +357,7 @@ def manifest(args: argparse.Namespace) -> dict[str, Any]:
         "capture_contract": {
             "artifact": ARTIFACT_NAME,
             "abi": "32-bit armeabi-v7a PIE",
-            "load_strategy": "dlopen libaudcal.so and libacdbloader.so, then dlsym acdb_loader_init_v3/acdb_ioctl",
+            "load_strategy": "absolute-path dlopen /vendor/lib/libaudcal.so and /vendor/lib/libacdbloader.so, then dlsym acdb_loader_init_v3/acdb_ioctl",
             "acdb_init": {
                 "function": "acdb_loader_init_v3",
                 "acdb_files_path": "/vendor/etc/acdbdata",

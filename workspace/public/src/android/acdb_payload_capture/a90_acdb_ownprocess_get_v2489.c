@@ -2,7 +2,7 @@
  * V2489 ARM32 own-process ACDB pure-read GET probe.
  *
  * Built as a freestanding 32-bit PIE with a custom _start.  It loads the stock
- * ACDB libraries with dlopen(), resolves acdb_loader_init_v3() and
+ * ACDB libraries with absolute-path dlopen(), resolves acdb_loader_init_v3() and
  * acdb_ioctl(), initializes the ACDB database path, then issues a bounded set
  * of read-only GET command candidates from the operator RE update.  It does
  * not touch the native calibration device or calibration SET path.
@@ -549,13 +549,13 @@ void _start(void)
         a90_input[i] = 0;
 
     (void)dlerror();
-    audcal = dlopen("libaudcal.so", A90_RTLD_NOW);
+    audcal = dlopen("/vendor/lib/libaudcal.so", A90_RTLD_NOW);
     if (!audcal) {
         a90_write_error_event("dlopen-libaudcal", -1, dlerror());
         a90_exit(21);
     }
     (void)dlerror();
-    loader = dlopen("libacdbloader.so", A90_RTLD_NOW);
+    loader = dlopen("/vendor/lib/libacdbloader.so", A90_RTLD_NOW);
     if (!loader) {
         a90_write_error_event("dlopen-libacdbloader", -2, dlerror());
         a90_exit(22);
