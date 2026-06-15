@@ -272,7 +272,7 @@ it needs hardware/data not available (e.g. creds for full Wi-Fi validation), it 
 with no safe next step, or it would only re-confirm established facts (diminishing returns).
 **When you change tier, record the trigger** in that iteration's report.
 
-## Current audio frontier update (V2434)
+## Current audio frontier update (V2435)
 
 V2428 completed the fixed Android/Magisk M0 rerun and justified M1: the helper resumed the
 same worker TID that logcat showed running the speaker/ACDB path with `/dev/msm_audio_cal`
@@ -322,16 +322,28 @@ path generation, success/residue summarization, and command-safety blockers for
 activation files, broad module removal, playback, and calibration tokens. V2434 did not
 boot Android and did not write `/data/adb`.
 
+V2435 then ran that exact-gated cleanup probe live under normal Android and rolled back to
+V2321 with final native `selftest fail=0`. The runner flashed the pinned Android boot image,
+verified Magisk root settle, ran both `su -c` and `su -mm -c` read-only probes, created the
+single inert path `/data/adb/modules/.a90_v2433_cleanup_probe_v2435_20260615-133444`, wrote
+and read one `.probe` marker, removed the marker with `rm -f "$MARKER"`, removed the
+directory with `rmdir "$PROBE_DIR"`, and reported `cleanup-probe-ok` with
+`no_residue_seen=true`, `permission_denied_lines=[]`, and `residue_lines=[]`. This closes
+the cleanup bridge: corrected direct Magisk-root staging can touch the module namespace and
+cleanly unwind an exact inert path before rollback.
+
 M1 remains Android-good **measurement/packaging** only. It does not open `/dev/msm_audio_cal`,
 issue calibration ioctls, replay native audio, write native speaker/mixer/PCM state, or
 become a native-init dependency. Native replay remains blocked until raw ioctl command order,
 decoded headers, private payload hashes, mem-handle policy, and cleanup behavior are pinned.
 
-Next meaningful unit is **V2435 exact-gated live Magisk cleanup-probe run**, using the V2434
-runner and the V2433 gate phrase. It should prove targeted create/remove/no-residue under
-`/data/adb/modules` before any M1 activation. Do not run M1 activation yet; only after the
-cleanup probe passes may M1 be retried with the corrected `adb shell "su -c '<script>'"`
-pattern. Keep `magisk --install-module` deferred unless direct targeted staging/cleanup fails.
+Next meaningful unit is **V2436 source/test-only M1 retry runner update/design** using the
+corrected `adb shell "su -c '<script>'"` pattern plus the V2435 cleanup discipline. It must
+stay Android-good measurement-only, keep exact cleanup-finally logic, avoid native speaker /
+mixer / PCM writes and native `/dev/msm_audio_cal` ioctls, and keep `magisk --install-module`
+deferred unless direct targeted staging fails again. Do not proceed to native ACDB replay
+until the M1/Android-good path captures raw ioctl command order, decoded headers, private
+payload hashes, mem-handle policy, and cleanup behavior.
 
 ## Read at the START of every iteration
 
