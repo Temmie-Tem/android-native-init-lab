@@ -249,6 +249,35 @@ class NativeAudioAcdbOwnprocessGetV2490(unittest.TestCase):
         self.assertEqual(summary["classification"], "init-v3-block-acph-init")
         self.assertTrue(summary["diagnostics"]["has_acph_init_error"])
 
+    def test_parse_ownget_artifacts_classifies_allocate_calibration_failure(self) -> None:
+        root = Path(tempfile.mkdtemp(prefix="a90-v2490-artifacts-"))
+        (root / "acdb-ownget-events.jsonl").write_text(json.dumps({
+            "event": "error",
+            "stage": "acdb_loader_init_v3",
+            "code": -12,
+        }) + "\n")
+        (root / "logcat-acdb-loader.txt").write_text(
+            "ACDB-LOADER: ACDB -> ACPH INIT\n"
+            "ACDB-LOADER: ACDB -> RTAC INIT\n"
+            "ACDB-LOADER: ACDB -> MCS, FTS INIT\n"
+            "ACDB-LOADER: ACDB -> ADIE RTAC INIT\n"
+            "ACDB-LOADER: ACDB -> Error: Sending AUDIO_ALLOCATE_CALIBRATION, result = -1\n"
+            "ACDB-LOADER: ACDB -> allocate_cal_block failed!\n"
+            "ACDB-LOADER: ACDB -> Cannot allocate memory!\n"
+        )
+        (root / "ownget-run-context.txt").write_text(
+            "uid=0(root) gid=0(root) groups=0(root) context=u:r:magisk:s0\n"
+            "u:r:magisk:s0\n"
+            "vendor_audio_prop:s0 readable metadata line without denial\n"
+        )
+        (root / "dmesg-avc-acdb-filter.txt").write_text("audit: avc: denied { kill } unrelated\n")
+
+        summary = v2490.parse_ownget_artifacts(root)
+
+        self.assertEqual(summary["classification"], "init-v3-block-audio-allocate-calibration-failed")
+        self.assertTrue(summary["diagnostics"]["has_audio_allocate_calibration_failed"])
+        self.assertFalse(summary["diagnostics"]["has_vendor_audio_prop_denied"])
+
     def test_parse_ownget_artifacts_classifies_init_v3_avc_denial(self) -> None:
         root = Path(tempfile.mkdtemp(prefix="a90-v2490-artifacts-"))
         (root / "acdb-ownget-events.jsonl").write_text(json.dumps({
@@ -300,6 +329,24 @@ class NativeAudioAcdbOwnprocessGetV2490(unittest.TestCase):
 
         self.assertEqual(summary["classification"], "init-v3-block-vendor-audio-prop-denied")
         self.assertTrue(summary["diagnostics"]["has_vendor_audio_prop_denied"])
+
+    def test_parse_ownget_artifacts_does_not_infer_vendor_prop_from_unrelated_denial(self) -> None:
+        root = Path(tempfile.mkdtemp(prefix="a90-v2490-artifacts-"))
+        (root / "acdb-ownget-events.jsonl").write_text(json.dumps({
+            "event": "error",
+            "stage": "acdb_loader_init_v3",
+            "code": -19,
+        }) + "\n")
+        (root / "ownget-exec-context.txt").write_text(
+            "-r--r--r-- root root u:object_r:vendor_audio_prop:s0 "
+            "/dev/__properties__/u:object_r:vendor_audio_prop:s0\n"
+        )
+        (root / "dmesg-avc-acdb-filter.txt").write_text("audit: avc: denied { kill } unrelated\n")
+
+        summary = v2490.parse_ownget_artifacts(root)
+
+        self.assertEqual(summary["classification"], "init-v3-block-avc-denial")
+        self.assertFalse(summary["diagnostics"]["has_vendor_audio_prop_denied"])
 
     def test_parse_ownget_artifacts_keeps_context_only_timeout_evidence(self) -> None:
         root = Path(tempfile.mkdtemp(prefix="a90-v2490-artifacts-"))

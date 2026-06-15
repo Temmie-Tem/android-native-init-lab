@@ -506,10 +506,24 @@ def parse_ownget_artifacts(path: Path) -> dict[str, Any]:
         run_context_text,
     ]).lower()
     has_msm_audio_cal_open_denied = "cannot open /dev/msm_audio_cal errno: 13" in diagnostic_text
+    has_audio_allocate_calibration_failed = (
+        "sending audio_allocate_calibration" in diagnostic_text
+        or "allocate_cal_block failed" in diagnostic_text
+        or "cannot allocate memory" in diagnostic_text
+    )
     has_vendor_audio_prop_denied = (
-        "persist.vendor.audio.calfile0" in diagnostic_text
-        or "vendor_audio_prop" in diagnostic_text
-    ) and ("denied" in diagnostic_text or "access denied" in diagnostic_text)
+        'access denied finding property "persist.vendor.audio.calfile0"' in diagnostic_text
+        or "access denied finding property 'persist.vendor.audio.calfile0'" in diagnostic_text
+        or "denied finding property \"persist.vendor.audio.calfile0\"" in diagnostic_text
+        or (
+            "vendor_audio_prop" in filtered_log_text.lower()
+            and ("avc: denied" in filtered_log_text.lower() or "access denied" in filtered_log_text.lower())
+        )
+        or (
+            "vendor_audio_prop" in dmesg_log_text.lower()
+            and ("avc: denied" in dmesg_log_text.lower() or "access denied" in dmesg_log_text.lower())
+        )
+    )
     has_shell_domain_context = "u:r:shell:s0" in diagnostic_text
     target = [row for row in rows if row.get("is_target_4916") is True or row.get("out_len") == 4916]
     raw_files = sorted(path.glob("acdb-ownget-*.bin"))
@@ -548,6 +562,8 @@ def parse_ownget_artifacts(path: Path) -> dict[str, Any]:
                 classification = "init-v3-block-acdb-files-load"
             elif "error initializing acph returned" in diagnostic_text:
                 classification = "init-v3-block-acph-init"
+            elif has_audio_allocate_calibration_failed:
+                classification = "init-v3-block-audio-allocate-calibration-failed"
             elif has_msm_audio_cal_open_denied:
                 classification = "init-v3-block-msm-audio-cal-open-denied"
             elif has_vendor_audio_prop_denied:
@@ -586,6 +602,7 @@ def parse_ownget_artifacts(path: Path) -> dict[str, Any]:
             "run_context_line_count": len(run_context_text.splitlines()),
             "has_acdb_files_load_error": "could not load .acdb files" in diagnostic_text,
             "has_acph_init_error": "error initializing acph returned" in diagnostic_text,
+            "has_audio_allocate_calibration_failed": has_audio_allocate_calibration_failed,
             "has_avc_or_denial": "avc:" in diagnostic_text or "denied" in diagnostic_text,
             "has_msm_audio_cal_open_denied": has_msm_audio_cal_open_denied,
             "has_vendor_audio_prop_denied": has_vendor_audio_prop_denied,
