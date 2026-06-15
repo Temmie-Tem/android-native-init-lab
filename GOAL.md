@@ -4,27 +4,38 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
-> Running mode note: this loop runs unattended (incl. Codex bypass) and is **OVERNIGHT
-> OPERATOR-PRE-AUTHORIZED (2026-06-15)**. The operator has **pre-granted every device step
-> that is boot-partition-only and recoverable** — native-init flashes, ADSP activation,
-> `tinymix` mixer writes, `tinyplay`, booting a pinned stock-Android image for route-delta
-> capture, and rollback. **The loop MAY self-authorize these and MUST NOT stop merely to
-> ask for human approval — proceed through them.** This relaxes the *human-approval* gates
-> only; it does **not** relax the flash-safety machinery. Every device step still MUST obey
-> the `AGENTS.md` flash gates (rollback precondition, pinned + readback SHA, post-flash
-> health check, **auto-rollback to `v2321`**, no cascading bad flashes) — these stay ON
-> precisely because they are what makes unattended progress safe (a bad boot self-recovers
-> and the loop keeps going; a disabled rollback would instead strand the device until
-> morning). The operator accepts that a boot failure may need a manual TWRP/download-mode
-> recovery in the morning — **but that acceptance covers the boot partition ONLY.**
-> Forbidden partitions (efs/sec_efs/modem/RPMB/keymaster/vbmeta/bootloader/dsp/keydata) are
-> NOT TWRP-recoverable = permanent brick, and remain **absolutely off-limits** — never
-> write them, never use raw `dd`/fastboot to any non-boot partition. ADSP/mixer/`tinyplay`
-> writes are runtime state (reboot-recoverable); keep to **observed/known-good routes and
-> bounded/low amplitude — do not blind-poke smart-amp gain/boost**. The "fails twice →
-> stop" and anti-churn guards stay in force. If a step would touch a forbidden partition,
-> leave the recoverable envelope, or you cannot keep a known-good rollback image present,
-> STOP and report — never guess.
+> Running mode note: this loop runs unattended (incl. Codex bypass) and is **OPERATOR-PRE-AUTHORIZED
+> BY PRINCIPLE (2026-06-15)**, not by an enumerated mechanism list. **The rule: the loop MAY
+> self-authorize ANY device action that stays inside the "recoverable envelope" — it MUST NOT stop
+> merely to ask for human approval, and MUST NOT treat a *new* mechanism as needing fresh approval as
+> long as that mechanism stays inside the envelope.** Proceed.
+>
+> **Recoverable envelope (self-authorize freely):** an action whose only persistent writes are to the
+> **boot partition** (via the checked flash helper) or to **runtime / ephemeral / temporary state**,
+> AND which is **fully recoverable to `v2321` native init without manual partition repair**. This
+> explicitly includes — but is **not limited to** — native-init flashes, ADSP activation,
+> `tinymix`/PCM/`tinyplay`, USB-gadget reconfigure (control-channel preserved), booting a pinned
+> stock-Android image, **temporary systemless Magisk measurement capsules** (auto-cleaned before
+> rollback; writes confined to the Magisk module dir under `/data`; never format/wipe `/data`), and
+> all reads/observation. Any future mechanism that meets the envelope test is likewise pre-authorized.
+>
+> **Bright line — NEVER self-authorize; STOP and report:** (1) any write to a **forbidden partition**
+> (efs/sec_efs/modem/RPMB/keymaster/vbmeta/bootloader/dsp/keydata) = permanent brick; (2) raw
+> `dd`/fastboot to any non-boot partition; (3) any **PMIC/regulator/GDSC/GPIO power write** (e.g. GPU
+> GX-GDSC) — hardware-damage / hard-hang risk; (4) **destructive `/data`** (format/wipe userdata);
+> (5) anything **not recoverable to `v2321`** (no known-good rollback image present).
+>
+> This relaxes only the *human-approval* gate; it does **not** relax the flash-safety machinery —
+> every device step still obeys the `AGENTS.md` flash gates (rollback precondition, pinned + readback
+> SHA, post-flash health check, **auto-rollback to `v2321`**, no cascading bad flashes); these stay ON
+> because they are what makes unattended progress safe (a bad boot self-recovers and the loop
+> continues; a disabled rollback would strand the device until morning). Audio writes keep to
+> **observed/known-good routes and bounded/low amplitude — no blind smart-amp gain/boost poking**. The
+> **"fails twice → stop" and anti-churn guards stay in force** (broad pre-auth removes *parking*, not
+> the duty to stop grinding low-information plumbing). The operator accepts that a boot failure may
+> need a manual TWRP/download-mode recovery in the morning — **that acceptance covers the boot
+> partition ONLY.** When an action would cross the bright line or leave the recoverable envelope, STOP
+> and report — never guess.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
