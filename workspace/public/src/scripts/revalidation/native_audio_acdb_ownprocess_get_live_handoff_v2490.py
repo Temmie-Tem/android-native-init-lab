@@ -28,9 +28,27 @@ DEFAULT_OUT_BASE = ROOT / "workspace/private/runs/audio"
 REMOTE_DIR = "/data/local/tmp/a90-acdb-ownget"
 REMOTE_HELPER = f"{REMOTE_DIR}/a90_acdb_ownprocess_get_v2489"
 REMOTE_EVENTS = f"{REMOTE_DIR}/acdb-ownget-events.jsonl"
+ACDB_DEP_CLOSURE_DIR = ROOT / "workspace/private/inputs/audio/acdb-deps-v2506/vendor-lib"
+ACDB_DEP_LEGACY_DIR = v2489.VENDOR_DUMP
 ACDB_DEP_LIBS = (
     "libaudcal.so",
+    "libdiag.so",
+    "libacdb-fts.so",
+    "libacdbrtac.so",
+    "libadiertac.so",
     "libacdbloader.so",
+)
+ACDB_DEP_LEGACY_LIBS = (
+    "libaudcal.so",
+    "libacdbloader.so",
+)
+ACDB_RUNTIME_EXTERNAL_LIBS = (
+    "libtinyalsa.so",
+    "libion.so",
+    "libcutils.so",
+    "libutils.so",
+    "liblog.so",
+    "libc++.so",
 )
 
 
@@ -133,20 +151,32 @@ def selected_helper_state(args: argparse.Namespace) -> dict[str, Any]:
     return helper_artifact_state(default_path)
 
 
+def acdb_dependency_source() -> tuple[str, Path, tuple[str, ...]]:
+    if all((ACDB_DEP_CLOSURE_DIR / name).exists() for name in ACDB_DEP_LIBS):
+        return "v2506-vendor-ext4-closure", ACDB_DEP_CLOSURE_DIR, ACDB_DEP_LIBS
+    return "v2324-legacy-two-lib-dump", ACDB_DEP_LEGACY_DIR, ACDB_DEP_LEGACY_LIBS
+
+
 def acdb_dependency_states() -> dict[str, Any]:
+    source_kind, source_dir, names = acdb_dependency_source()
     libs: list[dict[str, Any]] = []
     ok = True
-    for name in ACDB_DEP_LIBS:
-        path = v2489.VENDOR_DUMP / name
+    for name in names:
+        path = source_dir / name
         state = helper_artifact_state(path)
         state["name"] = name
         state["remote_path"] = f"{REMOTE_DIR}/{name}"
         libs.append(state)
         ok = bool(ok and state.get("ok"))
+    closure_missing = [name for name in ACDB_DEP_LIBS if not (ACDB_DEP_CLOSURE_DIR / name).exists()]
     return {
-        "source_dir": rel(v2489.VENDOR_DUMP),
+        "source_kind": source_kind,
+        "source_dir": rel(source_dir),
+        "closure_dir": rel(ACDB_DEP_CLOSURE_DIR),
+        "closure_missing": closure_missing,
         "remote_dir": REMOTE_DIR,
         "libs": libs,
+        "runtime_external_libs": list(ACDB_RUNTIME_EXTERNAL_LIBS),
         "ok": ok,
     }
 
@@ -377,7 +407,9 @@ def dry_run_payload(args: argparse.Namespace) -> dict[str, Any]:
     if not helper.get("ok"):
         payload["live_blockers"].append("V2489 helper artifact missing or invalid; run V2489 builder first")
     if not deps.get("ok"):
-        payload["live_blockers"].append("ACDB dependency set missing from private V2324 vendor dump")
+        payload["live_blockers"].append("ACDB dependency set missing from selected private dependency source")
+    if deps.get("source_kind") != "v2506-vendor-ext4-closure":
+        payload["live_blockers"].append("V2506 ACDB dependency closure not prepared; run prepare_audio_acdb_dependency_closure_v2506.py")
     payload["command_safety"] = command_safety(payload)
     payload["ok"] = bool(payload["live_ready"] and payload["command_safety"]["ok"])
     return payload

@@ -51,14 +51,21 @@ class NativeAudioAcdbOwnprocessGetV2490(unittest.TestCase):
         self.assertTrue(payload["command_safety"]["ok"], payload["command_safety"])
         self.assertTrue(payload["helper"]["ok"], payload["helper"])
         self.assertTrue(payload["acdb_dependencies"]["ok"], payload["acdb_dependencies"])
-        self.assertEqual(
-            [item["name"] for item in payload["acdb_dependencies"]["libs"]],
-            ["libaudcal.so", "libacdbloader.so"],
-        )
+        dep_names = [item["name"] for item in payload["acdb_dependencies"]["libs"]]
+        self.assertIn("libaudcal.so", dep_names)
+        self.assertIn("libacdbloader.so", dep_names)
+        if payload["acdb_dependencies"].get("source_kind") == "v2506-vendor-ext4-closure":
+            self.assertIn("libdiag.so", dep_names)
+            self.assertIn("libacdb-fts.so", dep_names)
+            self.assertIn("libacdbrtac.so", dep_names)
+            self.assertIn("libadiertac.so", dep_names)
+            self.assertIn("libtinyalsa.so", payload["acdb_dependencies"]["runtime_external_libs"])
         self.assertIn("own-process helper only", "\n".join(payload["hard_boundary"]))
         flat_commands = json.dumps(payload["commands"], sort_keys=True)
         self.assertIn("/data/local/tmp/a90-acdb-ownget/libaudcal.so", flat_commands)
         self.assertIn("LD_LIBRARY_PATH=/data/local/tmp/a90-acdb-ownget:", flat_commands)
+        if payload["acdb_dependencies"].get("source_kind") == "v2506-vendor-ext4-closure":
+            self.assertIn("/data/local/tmp/a90-acdb-ownget/libdiag.so", flat_commands)
         self.assertNotIn("magisk --install-module", flat_commands)
         self.assertNotIn("android.hardware.audio.service", flat_commands)
         self.assertNotIn("AudioTrack", flat_commands)
