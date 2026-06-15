@@ -414,6 +414,12 @@ static int is_mmap_syscall(const struct syscall_frame *frame) {
     return 0;
 }
 
+static long mmap_fd_arg(const struct syscall_frame *frame) {
+    if (!frame || !frame->abi) return -1;
+    if (!strcmp(frame->abi, "aarch32")) return (int32_t)((uint32_t)frame->args[4]);
+    return (long)frame->args[4];
+}
+
 static int syscall_return_is_error(const struct syscall_frame *frame) {
     if (!frame || !frame->abi) return 1;
     if (!strcmp(frame->abi, "aarch32")) {
@@ -697,7 +703,7 @@ static void handle_mmap_entry(FILE *out, const struct options *opts, struct trac
                               const struct syscall_frame *frame, int *mmap_sequence,
                               struct capture_stats *stats) {
     if (!frame || !is_mmap_syscall(frame)) return;
-    long fd = (long)frame->args[4];
+    long fd = mmap_fd_arg(frame);
     unsigned long length = frame->args[1];
     if (fd < 0 || length == 0) return;
 
