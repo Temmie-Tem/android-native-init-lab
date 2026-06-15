@@ -630,7 +630,27 @@ uses the same classification metadata. Focused tests passed (`28` tests), `py_co
 materialized V2451 dry-run is live-ready with `future_live_ready=true`, `future_live_blockers=[]`,
 and `command_safety_ok=true`. Next meaningful unit is a fresh AUD-5L live rerun using the
 V2457-hardened runner; if root output is empty again, the run should now preserve per-attempt
-`root-output-empty` evidence instead of stopping after a single opaque root check.
+`root-output-empty` evidence instead of stopping after a single opaque root check. V2458 executed
+that live rerun and rolled back cleanly to V2321 with final `selftest fail=0`. The root hardening
+worked: both initial and post-module Magisk checks were `root-ready` on attempt 1. The run reached
+the intended Android-good measurement window: temporary M1 module staging/install passed, post-module
+ADB/root settle passed, the late observer started before playback, Android framework `AudioTrack`
+played successfully (`A90_AUDIO_STIMULUS_FINISH rc=0`), logcat showed the speaker ACDB edge
+(`send_app_type_cfg_for_device PLAYBACK app_type 69941, acdb_dev_id 15`, `ACDB -> send_audio_cal
+acdb_id=15`, `AUDIO_SET_AUDPROC_CAL cal_type[11]`, `AUDIO_SET_AFE_CAL cal_type[16]`), artifacts were
+pulled, cleanup removed the module/run dir, and rollback passed. Payload result: no
+`/dev/msm_audio_cal` ioctl payload was captured. Overall classification was
+`hybrid-late-ioctl-any-but-fd-miss`; late observer classification was
+`late-ioctl-any-but-fd-miss` with `ioctl_any_entry_count=492`, `ioctl_fd_match_count=0`, complete
+terminal stops, and no payload hashes. The late FD snapshot showed the traced audio HAL process
+`12816` had `/dev/msm_audio_cal` open as fd `13`, and clone-follow attached the ACDB worker TID
+`15644`, but that traced process reported `ioctl_any_entry_count=0`; captured ioctl activity was
+only binder/hwbinder in the AudioFlinger-side process. Do not rerun M1 unchanged. Next meaningful
+unit is host-only mechanism analysis of stock `libacdbloader.so`/HAL plus the kernel
+`msm_audio_cal` ABI to explain how the logged `AUDIO_SET_*` calibration reaches the kernel without a
+userspace `/dev/msm_audio_cal` ioctl in the traced playback window; inspect `allocate_cal_block:
+mmap`, mmap/shared-memory/binder/vendor-service possibilities, and whether native needs ACDB loader
+semantics rather than raw ioctl replay.
 
 ## Read at the START of every iteration
 
