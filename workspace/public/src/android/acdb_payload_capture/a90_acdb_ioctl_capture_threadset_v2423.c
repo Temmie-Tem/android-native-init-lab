@@ -514,6 +514,30 @@ static int set_options_and_resume_all(struct traced_task *tasks, int task_count,
     return ok > 0 ? 0 : -1;
 }
 
+static void initialize_cloned_child(pid_t child_tid, struct traced_task *tasks, int *task_count,
+                                    long long deadline, FILE *out) {
+    struct traced_task *child = add_task(tasks, task_count, child_tid, out);
+    if (!child) return;
+
+    int child_status = 0;
+    long long child_deadline = now_ms() + 250LL;
+    if (child_deadline > deadline) child_deadline = deadline;
+    int wait_rc = wait_for_specific_stop(child_tid, &child_status, child_deadline, out, "waitpid-clone-child");
+    if (wait_rc != 0) return;
+
+    if (WIFEXITED(child_status) || WIFSIGNALED(child_status)) {
+        fprintf(out, "{\"event\":\"target-exit\",\"tid\":%ld,\"status\":%d}\n", (long)child_tid, child_status);
+        fflush(out);
+        child->alive = 0;
+        return;
+    }
+    if (!WIFSTOPPED(child_status)) return;
+
+    if (set_trace_options(child, out) == 0 && resume_syscall(child, 0, out) == 0) {
+        write_trace_event(out, "clone-child-resumed", child_tid, 0);
+    }
+}
+
 int main(int argc, char **argv) {
     struct options opts;
     if (parse_options(argc, argv, &opts)) {
@@ -578,8 +602,8 @@ int main(int argc, char **argv) {
             unsigned long event_msg = 0;
             if (ptrace(PTRACE_GETEVENTMSG, stopped_tid, NULL, &event_msg) == 0) {
                 pid_t child_tid = (pid_t)event_msg;
-                add_task(tasks, &task_count, child_tid, out);
                 write_trace_event(out, "clone", stopped_tid, child_tid);
+                initialize_cloned_child(child_tid, tasks, &task_count, deadline, out);
             } else {
                 write_error(out, "PTRACE_GETEVENTMSG", stopped_tid, errno);
             }
