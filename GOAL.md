@@ -650,13 +650,17 @@ blocked until command order, decoded headers, payload hashes, mem-handle lifetim
 are pinned. V2460 completed the host-only compat observer support: source-backed `PTRACE_GETREGSET
 NT_PRSTATUS` regset-length detection now distinguishes AArch64 from AArch32, counts AArch32 ioctl
 syscall `54` via `r7`, decodes args from `r0/r1/r2`, preserves TGID fd-owner matching, and records
-`abi` / `syscall_nr` / `regset_len` in `ioctl_entry`, `ioctl_exit`, and `ioctl_unmatched` JSON. The
-AArch64 static helper rebuild passed, V2449 focused tests passed (`6/6`), V2451 hybrid focused tests
-passed (`8/8`), and dry-run source-state reports compat filter + ABI metadata + forbidden checks
-true. Next meaningful unit is a bounded Android-good rerun with the V2460 helper using the existing
-V2451/V2458 hybrid late-observer path; success means p12816 now reports `abi=aarch32`,
-`syscall_nr=54`, and either fd-matched `/dev/msm_audio_cal` payload events or a stronger negative
-with compat ioctl visibility, followed by rollback to V2321 and final `selftest fail=0`.
+`abi` / `syscall_nr` / `regset_len` in JSON events. V2461 then reran the bounded Android-good
+V2451/V2458 hybrid path with the V2460 helper and rolled back to V2321 with final `selftest fail=0`.
+The observer gap is closed: `28` fd-matched `/dev/msm_audio_cal` ioctls were captured from the
+stock 32-bit audio service (`abi=aarch32`, `syscall_nr=54`, `regset_len=72`, all returns `0`), with
+request distribution `AUDIO_ALLOCATE_CALIBRATION`×26, `AUDIO_DEALLOCATE_CALIBRATION`×1, and
+`AUDIO_SET_CALIBRATION`×1. The captured public headers show calibration handles `17..41`, then
+`CORE_CUSTOM_TOPOLOGIES_CAL_TYPE` handle `37` deallocate/reallocate and `AUDIO_SET_CALIBRATION` with
+`cal_size=4916`, `mem_handle=37`; raw buffers remain private and only SHA-256 hashes are committed.
+Next meaningful unit is host-only N3 decode/replay design from the V2461 private payloads: decode the
+raw buffers against `msm_audio_calibration.h`, document ownership/mem-handle lifetime/cleanup policy,
+and define a bounded native replay gate. Do **not** issue native calibration ioctls yet.
 
 ## Read at the START of every iteration
 
