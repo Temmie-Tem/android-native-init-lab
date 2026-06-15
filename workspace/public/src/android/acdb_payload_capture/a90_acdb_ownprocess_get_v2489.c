@@ -19,6 +19,7 @@ typedef unsigned long long uint64_t;
 
 extern void *dlopen(const char *name, int flags);
 extern void *dlsym(void *handle, const char *symbol);
+extern char *dlerror(void);
 
 #define A90_RTLD_NOW 2
 #define A90_RTLD_GLOBAL 0x100
@@ -182,6 +183,30 @@ static void a90_write_all(int fd, const void *buf, size_t len)
 static void a90_write_str(int fd, const char *s)
 {
     a90_write_all(fd, s, a90_strlen(s));
+}
+
+static void a90_write_json_escaped(int fd, const char *s, uint32_t max_len)
+{
+    uint32_t i;
+    if (!s)
+        return;
+    for (i = 0; s[i] && i < max_len; i++) {
+        char c = s[i];
+        if (c == '\\' || c == '"') {
+            a90_write_all(fd, "\\", 1);
+            a90_write_all(fd, &c, 1);
+        } else if (c == '\n') {
+            a90_write_str(fd, "\\n");
+        } else if (c == '\r') {
+            a90_write_str(fd, "\\r");
+        } else if (c == '\t') {
+            a90_write_str(fd, "\\t");
+        } else if ((uint8_t)c < 0x20U) {
+            a90_write_str(fd, "?");
+        } else {
+            a90_write_all(fd, &c, 1);
+        }
+    }
 }
 
 static uint32_t a90_rotr(uint32_t x, uint32_t n)
@@ -432,7 +457,7 @@ static void a90_make_raw_path(char *path, uint32_t seq, uint32_t cmd, uint32_t i
     path[n] = 0;
 }
 
-static void a90_write_error_event(const char *stage, int32_t code)
+static void a90_write_error_event(const char *stage, int32_t code, const char *detail)
 {
     int fd = a90_open_append(A90_EVENTS_PATH);
     if (fd < 0)
@@ -445,6 +470,11 @@ static void a90_write_error_event(const char *stage, int32_t code)
     a90_write_dec(fd, a90_getpid());
     a90_write_str(fd, ",\"tid\":");
     a90_write_dec(fd, a90_gettid());
+    if (detail && detail[0]) {
+        a90_write_str(fd, ",\"detail\":\"");
+        a90_write_json_escaped(fd, detail, 512U);
+        a90_write_str(fd, "\"");
+    }
     a90_write_str(fd, "}\n");
     a90_close(fd);
 }
@@ -519,29 +549,33 @@ void _start(void)
     for (i = 0; i < A90_MAX_IN_LEN; i++)
         a90_input[i] = 0;
 
+    (void)dlerror();
     audcal = dlopen("libaudcal.so", A90_RTLD_NOW | A90_RTLD_GLOBAL);
     if (!audcal) {
-        a90_write_error_event("dlopen-libaudcal", -1);
+        a90_write_error_event("dlopen-libaudcal", -1, dlerror());
         a90_exit(21);
     }
+    (void)dlerror();
     loader = dlopen("libacdbloader.so", A90_RTLD_NOW | A90_RTLD_GLOBAL);
     if (!loader) {
-        a90_write_error_event("dlopen-libacdbloader", -2);
+        a90_write_error_event("dlopen-libacdbloader", -2, dlerror());
         a90_exit(22);
     }
+    (void)dlerror();
     init_v3 = (a90_acdb_loader_init_v3_fn)dlsym(loader, "acdb_loader_init_v3");
     if (!init_v3) {
-        a90_write_error_event("dlsym-acdb_loader_init_v3", -3);
+        a90_write_error_event("dlsym-acdb_loader_init_v3", -3, dlerror());
         a90_exit(23);
     }
+    (void)dlerror();
     acdb_ioctl_fn = (a90_acdb_ioctl_fn)dlsym(audcal, "acdb_ioctl");
     if (!acdb_ioctl_fn) {
-        a90_write_error_event("dlsym-acdb_ioctl", -4);
+        a90_write_error_event("dlsym-acdb_ioctl", -4, dlerror());
         a90_exit(24);
     }
     init_ret = init_v3(A90_ACDB_FILES_PATH, A90_DELTA_DIR, 0U);
     if (init_ret != 0) {
-        a90_write_error_event("acdb_loader_init_v3", init_ret);
+        a90_write_error_event("acdb_loader_init_v3", init_ret, (const char *)0);
         a90_exit(25);
     }
 

@@ -151,6 +151,7 @@ def source_state() -> dict[str, Any]:
         "uses_dlopen_libacdbloader": 'dlopen("libacdbloader.so"' in text,
         "uses_dlsym_init_v3": 'dlsym(loader, "acdb_loader_init_v3")' in text,
         "uses_dlsym_acdb_ioctl": 'dlsym(audcal, "acdb_ioctl")' in text,
+        "uses_dlerror_detail": "dlerror()" in text and '\\"detail\\":' in text,
         "calls_init_v3": "init_v3(A90_ACDB_FILES_PATH, A90_DELTA_DIR, 0U)" in text,
         "has_operator_get_cmd_11394": "0x00011394U" in text,
         "has_operator_get_cmd_12e01": "0x00012e01U" in text,
@@ -323,6 +324,7 @@ def build(build_root: Path, *, clang: Path, lld: Path, readelf: str, file_cmd: s
             "needed_libdl": "Shared library: [libdl.so]" in dynamic,
             "undefined_dlopen": " UND dlopen" in symbols,
             "undefined_dlsym": " UND dlsym" in symbols,
+            "undefined_dlerror": " UND dlerror" in symbols,
             "interpreter_system_linker": "/system/bin/linker" in file_result["stdout"]
             or "Requesting program interpreter: /system/bin/linker" in header
             or "/system/bin/linker" in dynamic,
