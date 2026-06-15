@@ -46,6 +46,7 @@ extern int32_t acdb_ioctl(uint32_t cmd, const uint8_t *in_buf,
 #define A90_NR_CLOSE 6
 #define A90_NR_GETPID 20
 #define A90_NR_GETTID 224
+#define A90_NR_EXIT_GROUP 248
 #define A90_NR_OPENAT 322
 
 typedef int32_t (*a90_acdb_ioctl_fn)(uint32_t cmd, const uint8_t *in_buf,
@@ -122,6 +123,7 @@ static long a90_syscall4(long nr, long a0, long a1, long a2, long a3)
 
 static void a90_exit(int code)
 {
+    (void)a90_syscall1(A90_NR_EXIT_GROUP, code);
     (void)a90_syscall1(A90_NR_EXIT, code);
     for (;;) {
     }

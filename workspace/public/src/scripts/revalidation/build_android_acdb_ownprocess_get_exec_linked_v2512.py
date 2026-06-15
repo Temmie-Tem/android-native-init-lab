@@ -177,6 +177,7 @@ def source_state() -> dict[str, Any]:
         "size_query_out_len_4": "A90_SIZE_QUERY_OUT_LEN 4U" in text,
         "private_capture_dir": "/data/local/tmp/a90-acdb-ownget" in text,
         "sha256_implemented": "a90_sha256_final" in text,
+        "uses_exit_group": "A90_NR_EXIT_GROUP" in text and "a90_syscall1(A90_NR_EXIT_GROUP" in text,
         "raw_syscalls_only": "A90_NR_OPENAT" in text and "A90_NR_WRITE" in text,
         "no_libc_headers": "#include <" not in text,
     }

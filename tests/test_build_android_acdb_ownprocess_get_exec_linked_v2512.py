@@ -43,6 +43,7 @@ class BuildAndroidAcdbOwnprocessGetExecLinkedV2512(unittest.TestCase):
         self.assertTrue(state["required"]["calls_init_v3_direct"])
         self.assertTrue(state["required"]["calls_acdb_ioctl_direct"])
         self.assertTrue(state["required"]["target_out_len_4916"])
+        self.assertTrue(state["required"]["uses_exit_group"])
         self.assertEqual(state["bounded_matrix"]["max_calls"], 40)
 
     def test_dry_run_is_host_only_and_live_blocked(self) -> None:
