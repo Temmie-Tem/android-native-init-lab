@@ -521,6 +521,8 @@ def summarize_late_subset(out_dir: Path) -> dict[str, Any]:
                             "ret": event.get("ret"),
                             "status": event.get("status"),
                             "fd_target": event.get("fd_target"),
+                            "dup_fd": event.get("dup_fd"),
+                            "dup_errno": event.get("dup_errno"),
                         }
                     )
             elif kind == "stop":

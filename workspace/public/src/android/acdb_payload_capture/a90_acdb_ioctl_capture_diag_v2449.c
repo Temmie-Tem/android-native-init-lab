@@ -93,6 +93,8 @@ struct pending_mmap {
     unsigned long offset;
     char fd_target[512];
     int readlink_errno;
+    int dup_fd;
+    int dup_errno;
 };
 
 struct syscall_frame {
@@ -152,6 +154,8 @@ struct mmap_record {
     unsigned long flags;
     unsigned long offset;
     char fd_target[512];
+    int dup_fd;
+    int dup_errno;
 };
 
 struct mmap_records {
@@ -478,7 +482,8 @@ static void write_mmap_event(FILE *fp, const char *event, pid_t tid, const struc
             "\",\"syscall_nr\":%lu,\"regset_len\":%zu,"
             "\"addr\":\"0x%lx\",\"length\":%lu,\"prot\":\"0x%lx\","
             "\"flags\":\"0x%lx\",\"offset\":\"0x%lx\",\"ret\":\"0x%lx\","
-            "\"ret_signed\":%ld,\"readlink_errno\":%d,\"status\":\"",
+            "\"ret_signed\":%ld,\"readlink_errno\":%d,\"dup_fd\":%d,"
+            "\"dup_errno\":%d,\"status\":\"",
             pending ? pending->syscall_nr : 0,
             pending ? pending->regset_len : 0,
             pending ? pending->addr : 0,
@@ -488,7 +493,9 @@ static void write_mmap_event(FILE *fp, const char *event, pid_t tid, const struc
             pending ? pending->offset : 0,
             ret_addr,
             ret_signed,
-            pending ? pending->readlink_errno : 0);
+            pending ? pending->readlink_errno : 0,
+            pending ? pending->dup_fd : -1,
+            pending ? pending->dup_errno : 0);
     json_escape(fp, status ? status : "");
     fprintf(fp, "\",\"fd_target\":\"");
     if (pending) json_escape(fp, pending->fd_target);
@@ -541,10 +548,45 @@ static void write_dmabuf_capture_event(FILE *fp, int seq, pid_t tid, pid_t fd_pi
     fflush(fp);
 }
 
-static void remember_mmap_record(struct mmap_records *records, const struct pending_mmap *pending,
+static void close_mmap_record(struct mmap_record *record) {
+    if (!record || !record->valid) return;
+    if (record->dup_fd >= 0) close(record->dup_fd);
+    record->dup_fd = -1;
+}
+
+static void close_mmap_records(struct mmap_records *records) {
+    if (!records) return;
+    for (int index = 0; index < MAX_MMAP_RECORDS; index++) close_mmap_record(&records->records[index]);
+}
+
+static void close_pending_mmap(struct pending_mmap *pending) {
+    if (!pending) return;
+    if (pending->dup_fd >= 0) close(pending->dup_fd);
+    pending->dup_fd = -1;
+}
+
+static int dup_mmap_fd_if_dmabuf(const struct options *opts, struct pending_mmap *pending) {
+    if (!opts || !pending || !opts->dmabuf_out_dir) return -1;
+    if (pending->fd < 0 || pending->length == 0 || pending->length > opts->max_dmabuf_bytes) return -1;
+    if (pending->readlink_errno != 0 || !strstr(pending->fd_target, "dmabuf")) return -1;
+
+    char proc_fd_path[128];
+    snprintf(proc_fd_path, sizeof(proc_fd_path), "/proc/%ld/fd/%ld", (long)opts->fd_pid, pending->fd);
+    int dup_fd = open(proc_fd_path, O_RDONLY | O_CLOEXEC);
+    if (dup_fd < 0) {
+        pending->dup_errno = errno;
+        return -1;
+    }
+    pending->dup_fd = dup_fd;
+    pending->dup_errno = 0;
+    return 0;
+}
+
+static void remember_mmap_record(struct mmap_records *records, struct pending_mmap *pending,
                                  unsigned long addr, struct capture_stats *stats) {
     if (!records || !pending || pending->fd < 0 || pending->length == 0 || addr == 0) return;
     int index = records->next_index % MAX_MMAP_RECORDS;
+    close_mmap_record(&records->records[index]);
     records->records[index].valid = 1;
     records->records[index].seq = pending->seq;
     records->records[index].fd = pending->fd;
@@ -554,6 +596,10 @@ static void remember_mmap_record(struct mmap_records *records, const struct pend
     records->records[index].flags = pending->flags;
     records->records[index].offset = pending->offset;
     snprintf(records->records[index].fd_target, sizeof(records->records[index].fd_target), "%s", pending->fd_target);
+    records->records[index].dup_fd = pending->dup_fd;
+    records->records[index].dup_errno = pending->dup_errno;
+    pending->dup_fd = -1;
+    pending->dup_errno = 0;
     records->next_index++;
     if (records->count < MAX_MMAP_RECORDS) records->count++;
     if (stats) stats->mmap_record_count++;
@@ -587,6 +633,47 @@ static ssize_t write_all(int fd, const unsigned char *buf, size_t len) {
     return (ssize_t)total;
 }
 
+static void capture_dmabuf_from_fd(FILE *fp, const struct options *opts, int seq, pid_t tid,
+                                   const struct decoded_cal_header *header, int source_fd,
+                                   size_t capture_len, const char *suffix,
+                                   const char *ok_status, const char *short_status,
+                                   const char *mmap_failed_status, const char *output_failed_status,
+                                   int open_errno) {
+    void *mapped = mmap(NULL, capture_len, PROT_READ, MAP_SHARED, source_fd, 0);
+    if (mapped == MAP_FAILED) {
+        int mmap_errno = errno;
+        write_dmabuf_capture_event(fp, seq, tid, opts->fd_pid, header, mmap_failed_status, "",
+                                   capture_len, -1, open_errno, mmap_errno, 0);
+        return;
+    }
+
+    char out_path[512];
+    if (suffix && suffix[0]) {
+        snprintf(out_path, sizeof(out_path), "%s/dmabuf-seq%04d-cal%u-fd%u-%s.bin",
+                 opts->dmabuf_out_dir, seq, header->cal_type, header->mem_handle, suffix);
+    } else {
+        snprintf(out_path, sizeof(out_path), "%s/dmabuf-seq%04d-cal%u-fd%u.bin",
+                 opts->dmabuf_out_dir, seq, header->cal_type, header->mem_handle);
+    }
+
+    int out_fd = open(out_path, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0600);
+    if (out_fd < 0) {
+        int write_errno = errno;
+        munmap(mapped, capture_len);
+        write_dmabuf_capture_event(fp, seq, tid, opts->fd_pid, header, output_failed_status, out_path,
+                                   capture_len, -1, open_errno, 0, write_errno);
+        return;
+    }
+
+    ssize_t written = write_all(out_fd, (const unsigned char *)mapped, capture_len);
+    int write_errno = written == (ssize_t)capture_len ? 0 : errno;
+    close(out_fd);
+    munmap(mapped, capture_len);
+    write_dmabuf_capture_event(fp, seq, tid, opts->fd_pid, header,
+                               written == (ssize_t)capture_len ? ok_status : short_status,
+                               out_path, capture_len, written, open_errno, 0, write_errno);
+}
+
 static void capture_dmabuf_payload(FILE *fp, const struct options *opts, int seq, pid_t tid,
                                    const struct decoded_cal_header *header,
                                    const struct mmap_records *mmap_records) {
@@ -608,6 +695,14 @@ static void capture_dmabuf_payload(FILE *fp, const struct options *opts, int seq
         int open_errno = errno;
         const struct mmap_record *record = find_recent_mmap_record(mmap_records, header->mem_handle, capture_len);
         if (record) {
+            if (record->dup_fd >= 0) {
+                capture_dmabuf_from_fd(fp, opts, seq, tid, header, record->dup_fd, capture_len,
+                                       "early-dup", "ok-early-dup", "early-dup-write-short",
+                                       "open-proc-fd-failed-early-dup-mmap-failed",
+                                       "open-proc-fd-failed-early-dup-output-open-failed",
+                                       open_errno);
+                return;
+            }
             unsigned char *remote_copy = calloc(1, capture_len);
             if (!remote_copy) {
                 write_dmabuf_capture_event(fp, seq, tid, opts->fd_pid, header,
@@ -654,36 +749,9 @@ static void capture_dmabuf_payload(FILE *fp, const struct options *opts, int seq
         return;
     }
 
-    void *mapped = mmap(NULL, capture_len, PROT_READ, MAP_SHARED, source_fd, 0);
-    if (mapped == MAP_FAILED) {
-        int mmap_errno = errno;
-        close(source_fd);
-        write_dmabuf_capture_event(fp, seq, tid, opts->fd_pid, header, "mmap-failed", "",
-                                   capture_len, -1, 0, mmap_errno, 0);
-        return;
-    }
-
-    char out_path[512];
-    snprintf(out_path, sizeof(out_path), "%s/dmabuf-seq%04d-cal%u-fd%u.bin",
-             opts->dmabuf_out_dir, seq, header->cal_type, header->mem_handle);
-    int out_fd = open(out_path, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0600);
-    if (out_fd < 0) {
-        int write_errno = errno;
-        munmap(mapped, capture_len);
-        close(source_fd);
-        write_dmabuf_capture_event(fp, seq, tid, opts->fd_pid, header, "open-output-failed", out_path,
-                                   capture_len, -1, 0, 0, write_errno);
-        return;
-    }
-
-    ssize_t written = write_all(out_fd, (const unsigned char *)mapped, capture_len);
-    int write_errno = written == (ssize_t)capture_len ? 0 : errno;
-    close(out_fd);
-    munmap(mapped, capture_len);
+    capture_dmabuf_from_fd(fp, opts, seq, tid, header, source_fd, capture_len,
+                           "", "ok", "write-short", "mmap-failed", "open-output-failed", 0);
     close(source_fd);
-    write_dmabuf_capture_event(fp, seq, tid, opts->fd_pid, header,
-                               written == (ssize_t)capture_len ? "ok" : "write-short",
-                               out_path, capture_len, written, 0, 0, write_errno);
 }
 
 static void write_exit(FILE *fp, pid_t tid, const struct pending_ioctl *pending, long ret) {
@@ -710,6 +778,7 @@ static void handle_mmap_entry(FILE *out, const struct options *opts, struct trac
     (*mmap_sequence)++;
     memset(&task->pending_mmap, 0, sizeof(task->pending_mmap));
     task->pending_mmap.active = 1;
+    task->pending_mmap.dup_fd = -1;
     task->pending_mmap.seq = *mmap_sequence;
     task->pending_mmap.abi = frame->abi;
     task->pending_mmap.syscall_nr = frame->syscall_nr;
@@ -726,6 +795,7 @@ static void handle_mmap_entry(FILE *out, const struct options *opts, struct trac
                           sizeof(task->pending_mmap.fd_target)) != 0) {
         task->pending_mmap.readlink_errno = errno;
     }
+    dup_mmap_fd_if_dmabuf(opts, &task->pending_mmap);
     stats->mmap_entry_count++;
     write_mmap_event(out, "mmap_entry", task->tid, &task->pending_mmap, 0, 0, "entry");
 }
@@ -739,10 +809,11 @@ static void handle_mmap_exit(FILE *out, struct traced_task *task, const struct s
                          frame->raw_ret, frame->ret, "error");
     } else {
         stats->mmap_success_count++;
-        remember_mmap_record(mmap_records, &task->pending_mmap, frame->raw_ret, stats);
         write_mmap_event(out, "mmap_exit", task->tid, &task->pending_mmap,
                          frame->raw_ret, frame->ret, "ok");
+        remember_mmap_record(mmap_records, &task->pending_mmap, frame->raw_ret, stats);
     }
+    close_pending_mmap(&task->pending_mmap);
     memset(&task->pending_mmap, 0, sizeof(task->pending_mmap));
 }
 
@@ -1125,6 +1196,7 @@ int main(int argc, char **argv) {
         if (WIFEXITED(status) || WIFSIGNALED(status)) {
             fprintf(out, "{\"event\":\"target-exit\",\"tid\":%ld,\"status\":%d}\n", (long)stopped_tid, status);
             fflush(out);
+            close_pending_mmap(&task->pending_mmap);
             task->alive = 0;
             continue;
         }
@@ -1181,6 +1253,8 @@ int main(int argc, char **argv) {
             stats.mmap_entry_count, stats.mmap_success_count,
             stats.mmap_error_count, stats.mmap_record_count);
     fflush(out);
+    for (int index = 0; index < task_count; index++) close_pending_mmap(&tasks[index].pending_mmap);
+    close_mmap_records(&mmap_records);
     stop_and_detach_all(tasks, task_count, out);
     fclose(out);
     return 0;
