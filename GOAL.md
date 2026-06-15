@@ -581,8 +581,18 @@ using the same exact phrase:
 `AUD-5L-acdb-m1-hybrid-late-observer go: rollbackable Android AudioTrack speaker msm_audio_cal
 diagnostic ioctl capture with temporary Magisk service module plus host-coordinated late
 observer, helper-completion wait, no native calibration ioctl, no native speaker write,
-rollback to V2321`. Do not attempt native ACDB replay before payload order, decoded headers,
-hashes, mem-handle policy, and cleanup policy are pinned.
+rollback to V2321`. V2454 reran that path and proved the stage-wait hardening: all staged
+shell/push/install waits passed, all module/APK staging passed, and `stage-9` installed the
+temporary module with `A90_M1_INSTALL_OK`. The run then failed before late observer startup at
+the post-module hard boot-complete recheck: after `adb wait-for-device` returned at about
+`207.6s`, `sys.boot_completed` and `dev.bootcomplete` stayed empty for the next 30s. Cleanup
+and checked V2321 rollback passed (`selftest fail=0`). This is still not ACDB evidence and not
+a negative payload result. Next meaningful unit is **V2455 host-only post-module settle
+hardening**: keep the long ADB wait, make the post-module boot-complete recheck a recorded soft
+gate or give it its own longer retry budget, continue requiring Magisk root before late
+observer/playback, expose this in dry-run/tests, and keep cleanup/rollback unchanged. Do not
+attempt native ACDB replay before payload order, decoded headers, hashes, mem-handle policy, and
+cleanup policy are pinned.
 
 ## Read at the START of every iteration
 
