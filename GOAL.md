@@ -428,6 +428,22 @@ keep the same M1 boundary as V2439: Android-good measurement only, temporary Mag
 `service.sh` module, no native speaker/mixer/PCM writes, no native `/dev/msm_audio_cal`
 ioctl, no native ACDB replay, and exact cleanup before checked V2321 rollback.
 
+V2441 ran that exact-gated live rerun and rolled back to V2321 with final native
+`selftest fail=0`, but it exposed a V2440 runner wiring miss before any logcat/playback or
+artifact collection. The module staging/install path still works (`A90_M1_INSTALL_OK`),
+and cleanup removed both `/data/adb/modules/a90_audio_acdb_m1_v2429` and
+`/data/local/tmp/a90-audio-acdb-m1-v2429`. After the Android reboot for Magisk
+`service.sh` activation, `adb wait-for-device` and boot-complete recheck passed, but the
+root check failed with `adb: no devices/emulators found`. Source inspection shows why:
+V2440 calls `run_post_module_reboot_settle()` immediately after the initial Android flash,
+before module staging, while the actual post-module activation reboot still uses the older
+single-shot `v2396.run_android_post_handoff_settle()` path. Classification:
+`post-module-reboot-settle-retry-wired-to-wrong-boundary`. The next meaningful unit is
+**V2442 host-only wiring fix**: move/use the bounded post-module root retry after
+`android-reboot-for-magisk-service`, add a focused ordering regression test, and do not
+rerun live until dry-run/tests prove the retry loop is attached to the module-activation
+reboot.
+
 ## Read at the START of every iteration
 
 - **this `GOAL.md`** — re-read it every iteration; the contract may be updated mid-run,
