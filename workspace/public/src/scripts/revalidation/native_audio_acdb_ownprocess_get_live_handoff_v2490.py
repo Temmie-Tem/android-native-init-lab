@@ -21,6 +21,7 @@ from typing import Any
 
 import build_android_acdb_ownprocess_get_v2489 as v2489
 import build_android_acdb_ownprocess_get_exec_linked_v2512 as v_helper
+import build_android_ioctl_trace_preload_v2531 as v_ioctltrace
 import native_audio_acdb_android_measurement_planner_v2396 as v2396
 import native_audio_android_route_delta_handoff_v2365 as route
 
@@ -30,6 +31,7 @@ ROOT = v_helper.ROOT
 DEFAULT_OUT_BASE = ROOT / "workspace/private/runs/audio"
 REMOTE_DIR = "/data/local/tmp/a90-acdb-ownget"
 REMOTE_HELPER = f"{REMOTE_DIR}/{v_helper.ARTIFACT_NAME}"
+REMOTE_IOCTL_TRACE_SO = f"{REMOTE_DIR}/{v_ioctltrace.ARTIFACT_NAME}"
 REMOTE_EVENTS = f"{REMOTE_DIR}/acdb-ownget-events.jsonl"
 ACDB_DEP_CLOSURE_DIR = ROOT / "workspace/private/inputs/audio/acdb-deps-v2506/vendor-lib"
 ACDB_DEP_LEGACY_DIR = v2489.VENDOR_DUMP
@@ -164,6 +166,19 @@ def build_helper(args: argparse.Namespace) -> dict[str, Any]:
     return v_helper.manifest(build_args)
 
 
+def build_ioctl_trace(args: argparse.Namespace) -> dict[str, Any]:
+    build_args = argparse.Namespace(
+        build=True,
+        build_root=args.ioctl_trace_build_root,
+        manifest_path=args.ioctl_trace_manifest_path,
+        clang=None,
+        lld=v_ioctltrace.TOOLCHAIN_ROOT / "bin/ld.lld",
+        readelf=args.readelf,
+        file=args.file,
+    )
+    return v_ioctltrace.manifest(build_args)
+
+
 def selected_helper_state(args: argparse.Namespace) -> dict[str, Any]:
     if args.helper_path:
         return helper_artifact_state(args.helper_path, expected_sha256=args.helper_sha256)
@@ -181,6 +196,32 @@ def selected_helper_state(args: argparse.Namespace) -> dict[str, Any]:
             return {"path": None, "exists": False, "ok": False, "error": str(error)}
     default_path = args.helper_build_root / "bin" / v_helper.ARTIFACT_NAME
     return helper_artifact_state(default_path)
+
+
+def selected_ioctl_trace_state(args: argparse.Namespace) -> dict[str, Any]:
+    if getattr(args, "disable_ioctl_trace", False):
+        return {"enabled": False, "ok": True, "path": None}
+    if args.ioctl_trace_so:
+        state = helper_artifact_state(args.ioctl_trace_so, expected_sha256=args.ioctl_trace_sha256)
+        state["enabled"] = True
+        return state
+    manifest_path = args.ioctl_trace_manifest_path
+    if manifest_path.exists():
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            binary = manifest.get("build", {}).get("binary", {})
+            path = ROOT / binary.get("path", "")
+            expected = binary.get("sha256")
+            state = helper_artifact_state(path, expected_sha256=expected)
+            state["manifest"] = rel(manifest_path)
+            state["enabled"] = True
+            return state
+        except Exception as error:
+            return {"enabled": True, "path": None, "exists": False, "ok": False, "error": str(error)}
+    default_path = args.ioctl_trace_build_root / "bin" / v_ioctltrace.ARTIFACT_NAME
+    state = helper_artifact_state(default_path)
+    state["enabled"] = True
+    return state
 
 
 def acdb_dependency_source() -> tuple[str, Path, tuple[str, ...]]:
@@ -233,10 +274,13 @@ def chmod_helper_command(args: argparse.Namespace) -> list[str]:
     script = f"""
 set -eu
 chmod 700 {shlex.quote(REMOTE_HELPER)}
+chmod 600 {shlex.quote(REMOTE_IOCTL_TRACE_SO)} 2>/dev/null || true
 chmod 600 {shlex.quote(REMOTE_DIR)}/*.so 2>/dev/null || true
 sha256sum {shlex.quote(REMOTE_HELPER)} 2>/dev/null || toybox sha256sum {shlex.quote(REMOTE_HELPER)}
+sha256sum {shlex.quote(REMOTE_IOCTL_TRACE_SO)} 2>/dev/null || true
 ls -l {shlex.quote(REMOTE_DIR)}/*.so 2>/dev/null || true
 file {shlex.quote(REMOTE_HELPER)} 2>/dev/null || true
+file {shlex.quote(REMOTE_IOCTL_TRACE_SO)} 2>/dev/null || true
 """.strip()
     return adb_su(args, script)
 
@@ -271,18 +315,23 @@ exit 0
 
 def run_helper_command(args: argparse.Namespace) -> list[str]:
     ld_library_path = ":".join([REMOTE_DIR, "/vendor/lib", "/system/lib", "/system_ext/lib", "/product/lib"])
+    trace_enabled = not getattr(args, "disable_ioctl_trace", False)
+    preload_prefix = f"LD_PRELOAD={shlex.quote(REMOTE_IOCTL_TRACE_SO)} " if trace_enabled else ""
     script = f"""
 set +e
 cd {shlex.quote(REMOTE_DIR)} || exit 61
-rm -f ownget.stdout.txt ownget.stderr.txt ownget.rc ownget-run-context.txt
+rm -f ownget.stdout.txt ownget.stderr.txt ownget.rc ownget-run-context.txt ioctl-trace-events.jsonl
 {{
   echo '### run-shell-id'
   id 2>&1 || true
   id -Z 2>&1 || true
+  echo '### run-env'
+  echo 'LD_PRELOAD={REMOTE_IOCTL_TRACE_SO if trace_enabled else ""}'
+  echo 'LD_LIBRARY_PATH={ld_library_path}'
   echo '### run-proc-self-status'
   grep -E '^(Name|Uid|Gid|Groups|Cap(Inh|Prm|Eff|Bnd|Amb)|NoNewPrivs|Seccomp):' /proc/self/status 2>&1 || true
 }} > ownget-run-context.txt 2>&1
-LD_LIBRARY_PATH={shlex.quote(ld_library_path)} {shlex.quote(REMOTE_HELPER)} > ownget.stdout.txt 2> ownget.stderr.txt
+{preload_prefix}LD_LIBRARY_PATH={shlex.quote(ld_library_path)} {shlex.quote(REMOTE_HELPER)} > ownget.stdout.txt 2> ownget.stderr.txt
 rc=$?
 echo "$rc" > ownget.rc
 cat ownget.rc
@@ -484,10 +533,12 @@ def parse_ownget_artifacts(path: Path) -> dict[str, Any]:
     dmesg_log = path / "dmesg-avc-acdb-filter.txt"
     exec_context = path / "ownget-exec-context.txt"
     run_context = path / "ownget-run-context.txt"
+    ioctl_trace = path / "ioctl-trace-events.jsonl"
     rows: list[dict[str, Any]] = []
     errors: list[dict[str, Any]] = []
     namespace_events: list[dict[str, Any]] = []
     symbol_events: list[dict[str, Any]] = []
+    ioctl_trace_events: list[dict[str, Any]] = []
     malformed = 0
     if events.exists():
         for line in events.read_text(encoding="utf-8", errors="replace").splitlines():
@@ -506,6 +557,17 @@ def parse_ownget_artifacts(path: Path) -> dict[str, Any]:
                 symbol_events.append(item)
             elif str(item.get("event", "")).startswith("namespace_"):
                 namespace_events.append(item)
+    if ioctl_trace.exists():
+        for line in ioctl_trace.read_text(encoding="utf-8", errors="replace").splitlines():
+            if not line.strip():
+                continue
+            try:
+                item = json.loads(line)
+            except json.JSONDecodeError:
+                malformed += 1
+                continue
+            if item.get("event") == "ioctl_trace":
+                ioctl_trace_events.append(item)
     acdb_log_text = acdb_log.read_text(encoding="utf-8", errors="replace") if acdb_log.exists() else ""
     filtered_log_text = filtered_log.read_text(encoding="utf-8", errors="replace") if filtered_log.exists() else ""
     dmesg_log_text = dmesg_log.read_text(encoding="utf-8", errors="replace") if dmesg_log.exists() else ""
@@ -518,6 +580,16 @@ def parse_ownget_artifacts(path: Path) -> dict[str, Any]:
         exec_context_text,
         run_context_text,
     ]).lower()
+    allocate_ioctl_events = [
+        event for event in ioctl_trace_events
+        if str(event.get("request", "")).lower() == "0xc00461c8"
+        or event.get("name") == "AUDIO_ALLOCATE_CALIBRATION"
+    ]
+    set_ioctl_events = [
+        event for event in ioctl_trace_events
+        if str(event.get("request", "")).lower() == "0xc00461cb"
+        or event.get("name") == "AUDIO_SET_CALIBRATION"
+    ]
     has_msm_audio_cal_open_denied = "cannot open /dev/msm_audio_cal errno: 13" in diagnostic_text
     has_audio_allocate_calibration_failed = (
         "sending audio_allocate_calibration" in diagnostic_text
@@ -646,17 +718,32 @@ def parse_ownget_artifacts(path: Path) -> dict[str, Any]:
         "errors": errors,
         "namespace_events": namespace_events,
         "symbol_events": symbol_events,
+        "ioctl_trace_events": ioctl_trace_events,
         "diagnostics": {
             "acdb_loader_log_path": rel(acdb_log) if acdb_log.exists() else None,
             "filtered_log_path": rel(filtered_log) if filtered_log.exists() else None,
             "dmesg_filter_path": rel(dmesg_log) if dmesg_log.exists() else None,
             "exec_context_path": rel(exec_context) if exec_context.exists() else None,
             "run_context_path": rel(run_context) if run_context.exists() else None,
+            "ioctl_trace_path": rel(ioctl_trace) if ioctl_trace.exists() else None,
             "acdb_loader_line_count": len(acdb_log_text.splitlines()),
             "filtered_log_line_count": len(filtered_log_text.splitlines()),
             "dmesg_filter_line_count": len(dmesg_log_text.splitlines()),
             "exec_context_line_count": len(exec_context_text.splitlines()),
             "run_context_line_count": len(run_context_text.splitlines()),
+            "ioctl_trace_event_count": len(ioctl_trace_events),
+            "audio_allocate_ioctl_count": len(allocate_ioctl_events),
+            "audio_allocate_ioctl_errno_values": sorted({
+                int_or_none(event.get("errno"))
+                for event in allocate_ioctl_events
+                if int_or_none(event.get("errno")) is not None
+            }),
+            "audio_allocate_ioctl_ret_values": sorted({
+                int_or_none(event.get("ret"))
+                for event in allocate_ioctl_events
+                if int_or_none(event.get("ret")) is not None
+            }),
+            "audio_set_ioctl_count": len(set_ioctl_events),
             "has_acdb_files_load_error": "could not load .acdb files" in diagnostic_text,
             "has_acph_init_error": "error initializing acph returned" in diagnostic_text,
             "has_audio_allocate_calibration_failed": has_audio_allocate_calibration_failed,
@@ -701,6 +788,7 @@ def dry_run_payload(args: argparse.Namespace) -> dict[str, Any]:
     android_boot = route.select_android_boot_candidate()
     rollback = route.file_state(route.ROLLBACK_IMAGE, expected_sha256=route.ROLLBACK_SHA256)
     helper = selected_helper_state(args)
+    ioctl_trace = selected_ioctl_trace_state(args)
     deps = acdb_dependency_states()
     sealed_boot = "<private-run-dir>/android_boot_0600.img"
     helper_remote = REMOTE_HELPER
@@ -709,6 +797,11 @@ def dry_run_payload(args: argparse.Namespace) -> dict[str, Any]:
         "post_handoff_settle": ["adb wait-for-device + boot-complete + su id with bounded retries"],
         "setup": setup_command(args),
         "push_helper": adb_push(args, helper.get("path") or "<helper>", helper_remote),
+        "push_ioctl_trace_preload": (
+            adb_push(args, ioctl_trace.get("path") or "<ioctl-trace-so>", REMOTE_IOCTL_TRACE_SO)
+            if ioctl_trace.get("enabled")
+            else ["disabled"]
+        ),
         "push_acdb_dependencies": [
             adb_push(args, item.get("path") or "<missing>", item.get("remote_path") or "<remote>")
             for item in deps["libs"]
@@ -733,6 +826,7 @@ def dry_run_payload(args: argparse.Namespace) -> dict[str, Any]:
         "android_boot": android_boot,
         "rollback": rollback,
         "helper": helper,
+        "ioctl_trace_preload": ioctl_trace,
         "acdb_dependencies": deps,
         "operator_spec": "docs/OPERATOR_ACDB_IOCTL_INTERPOSE_CAPTURE_SPEC_2026-06-15.md",
         "commands": commands,
@@ -745,19 +839,32 @@ def dry_run_payload(args: argparse.Namespace) -> dict[str, Any]:
             "semantic_failures_fail_closed": True,
             "v2515_gap": "android-post-handoff-settle-1 failed with adb 'error: closed' before helper staging",
         },
+        "ioctl_trace_policy": {
+            "enabled": bool(ioctl_trace.get("enabled")),
+            "mechanism": "own-process LD_PRELOAD ioctl observer only; no extra ioctls",
+            "target_request": "AUDIO_ALLOCATE_CALIBRATION 0xc00461c8",
+            "required_evidence": ["ioctl-trace-events.jsonl", "dmesg-avc-acdb-filter.txt", "logcat-avc-acdb-filter.txt"],
+        },
         "partial_success_policy": "captured-ownprocess-outbuf-set-no-4916 is preserved as operator-valuable partial evidence; ACDB tap no-4916 policy remains non-dead-run",
         "hard_boundary": [
             "own-process helper only; no in-HAL LD_PRELOAD/injection",
-        "no Magisk module install",
-        "no HAL restart",
-        "no AudioTrack/playback",
-        "no native speaker write",
-        "no /dev/msm_audio_cal SET path",
-        "only read-only identity/label probes of /dev/msm_audio_cal",
-        "boot partition only through native_init_flash.py",
-        "rollback to V2321 after capture",
+            "own-process LD_PRELOAD ioctl trace observes existing calls only",
+            "no Magisk module install",
+            "no HAL restart",
+            "no AudioTrack/playback",
+            "no native speaker write",
+            "no /dev/msm_audio_cal SET path",
+            "only read-only identity/label probes of /dev/msm_audio_cal",
+            "boot partition only through native_init_flash.py",
+            "rollback to V2321 after capture",
         ],
-        "live_ready": bool(android_boot.get("ok") and rollback.get("ok") and helper.get("ok") and deps.get("ok")),
+        "live_ready": bool(
+            android_boot.get("ok")
+            and rollback.get("ok")
+            and helper.get("ok")
+            and ioctl_trace.get("ok")
+            and deps.get("ok")
+        ),
         "live_blockers": [],
     }
     if not android_boot.get("ok"):
@@ -766,6 +873,8 @@ def dry_run_payload(args: argparse.Namespace) -> dict[str, Any]:
         payload["live_blockers"].append("V2321 rollback image missing or invalid")
     if not helper.get("ok"):
         payload["live_blockers"].append("V2489 helper artifact missing or invalid; run V2489 builder first")
+    if not ioctl_trace.get("ok"):
+        payload["live_blockers"].append("V2531 ioctl trace preload missing or invalid; run V2531 builder first")
     if not deps.get("ok"):
         payload["live_blockers"].append("ACDB dependency set missing from selected private dependency source")
     if deps.get("source_kind") != "v2506-vendor-ext4-closure":
@@ -778,6 +887,8 @@ def dry_run_payload(args: argparse.Namespace) -> dict[str, Any]:
 def run_live(args: argparse.Namespace) -> dict[str, Any]:
     if args.build_helper:
         build_helper(args)
+    if args.build_ioctl_trace and not args.disable_ioctl_trace:
+        build_ioctl_trace(args)
     payload = dry_run_payload(args)
     if not payload.get("live_ready"):
         raise RuntimeError(f"live inputs are not ready: {payload.get('live_blockers')}")
@@ -817,6 +928,14 @@ def run_live(args: argparse.Namespace) -> dict[str, Any]:
         steps.append(route.run_step("ownget-setup", setup_command(args), out_dir, timeout_sec=args.adb_command_timeout))
         helper_path = ROOT / payload["helper"]["path"]
         steps.append(route.run_step("ownget-push-helper", adb_push(args, rel(helper_path), REMOTE_HELPER), out_dir, timeout_sec=args.adb_command_timeout))
+        if payload["ioctl_trace_preload"].get("enabled"):
+            trace_path = ROOT / payload["ioctl_trace_preload"]["path"]
+            steps.append(route.run_step(
+                "ownget-push-ioctl-trace-preload",
+                adb_push(args, rel(trace_path), REMOTE_IOCTL_TRACE_SO),
+                out_dir,
+                timeout_sec=args.adb_command_timeout,
+            ))
         for dep in payload["acdb_dependencies"]["libs"]:
             dep_path = ROOT / dep["path"]
             steps.append(route.run_step(
@@ -874,6 +993,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--run-live", action="store_true")
     parser.add_argument("--build-helper", action="store_true", help="Build the V2489 helper before planning/running")
+    parser.add_argument("--build-ioctl-trace", action="store_true", help="Build the V2531 ioctl trace preload before planning/running")
+    parser.add_argument("--disable-ioctl-trace", action="store_true", help="Run without the V2531 ioctl trace preload")
     parser.add_argument("--out-dir", type=Path)
     parser.add_argument("--adb", default="adb")
     parser.add_argument("--serial")
@@ -891,6 +1012,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--helper-sha256")
     parser.add_argument("--helper-build-root", type=Path, default=v_helper.DEFAULT_BUILD_ROOT)
     parser.add_argument("--helper-manifest-path", type=Path, default=v_helper.DEFAULT_MANIFEST)
+    parser.add_argument("--ioctl-trace-so", type=Path)
+    parser.add_argument("--ioctl-trace-sha256")
+    parser.add_argument("--ioctl-trace-build-root", type=Path, default=v_ioctltrace.DEFAULT_BUILD_ROOT)
+    parser.add_argument("--ioctl-trace-manifest-path", type=Path, default=v_ioctltrace.DEFAULT_MANIFEST)
     parser.add_argument("--readelf", default="readelf")
     parser.add_argument("--file", default="file")
     return parser.parse_args(argv)
@@ -900,6 +1025,8 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     if args.build_helper and not args.run_live:
         build_helper(args)
+    if args.build_ioctl_trace and not args.run_live:
+        build_ioctl_trace(args)
     if args.run_live:
         result = run_live(args)
     else:

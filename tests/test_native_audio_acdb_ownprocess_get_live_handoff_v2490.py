@@ -13,6 +13,7 @@ from _loader import load_revalidation
 
 v2490 = load_revalidation("native_audio_acdb_ownprocess_get_live_handoff_v2490")
 v_helper = load_revalidation("build_android_acdb_ownprocess_get_exec_linked_v2512")
+v_ioctltrace = load_revalidation("build_android_ioctl_trace_preload_v2531")
 
 
 def args(**overrides: object) -> Namespace:
@@ -21,6 +22,8 @@ def args(**overrides: object) -> Namespace:
         "dry_run": True,
         "run_live": False,
         "build_helper": False,
+        "build_ioctl_trace": False,
+        "disable_ioctl_trace": False,
         "out_dir": root / "run",
         "adb": "adb",
         "serial": None,
@@ -38,6 +41,10 @@ def args(**overrides: object) -> Namespace:
         "helper_sha256": None,
         "helper_build_root": v_helper.DEFAULT_BUILD_ROOT,
         "helper_manifest_path": v_helper.DEFAULT_MANIFEST,
+        "ioctl_trace_so": None,
+        "ioctl_trace_sha256": None,
+        "ioctl_trace_build_root": v_ioctltrace.DEFAULT_BUILD_ROOT,
+        "ioctl_trace_manifest_path": v_ioctltrace.DEFAULT_MANIFEST,
         "readelf": "readelf",
         "file": "file",
     }
@@ -51,7 +58,16 @@ def fake_helper_args() -> Namespace:
     helper.parent.mkdir(parents=True)
     helper.write_bytes(b"fake-arm32-helper-for-dry-run")
     digest = hashlib.sha256(helper.read_bytes()).hexdigest()
-    return args(helper_path=helper, helper_sha256=digest)
+    trace = root / "v2531-acdb-ioctl-trace-preload-host-only" / "bin" / v_ioctltrace.ARTIFACT_NAME
+    trace.parent.mkdir(parents=True)
+    trace.write_bytes(b"fake-arm32-ioctl-trace-preload-for-dry-run")
+    trace_digest = hashlib.sha256(trace.read_bytes()).hexdigest()
+    return args(
+        helper_path=helper,
+        helper_sha256=digest,
+        ioctl_trace_so=trace,
+        ioctl_trace_sha256=trace_digest,
+    )
 
 
 class NativeAudioAcdbOwnprocessGetV2490(unittest.TestCase):
@@ -71,7 +87,10 @@ class NativeAudioAcdbOwnprocessGetV2490(unittest.TestCase):
         self.assertTrue(payload["live_ready"], payload.get("live_blockers"))
         self.assertTrue(payload["command_safety"]["ok"], payload["command_safety"])
         self.assertTrue(payload["helper"]["ok"], payload["helper"])
+        self.assertTrue(payload["ioctl_trace_preload"]["ok"], payload["ioctl_trace_preload"])
+        self.assertTrue(payload["ioctl_trace_preload"]["enabled"], payload["ioctl_trace_preload"])
         self.assertIn("v2529-acdb-ownprocess-softfail-get-host-only", payload["helper"].get("path", ""))
+        self.assertIn("v2531-acdb-ioctl-trace-preload-host-only", payload["ioctl_trace_preload"].get("path", ""))
         self.assertTrue(payload["android_settle_adb_retry"]["enabled"])
         self.assertEqual(payload["android_settle_adb_retry"]["attempts"], v2490.DEFAULT_SETTLE_ADB_RETRY_ATTEMPTS)
         self.assertIn("error: closed", payload["android_settle_adb_retry"]["retry_markers"])
@@ -89,6 +108,8 @@ class NativeAudioAcdbOwnprocessGetV2490(unittest.TestCase):
         flat_commands = json.dumps(payload["commands"], sort_keys=True)
         self.assertIn("/data/local/tmp/a90-acdb-ownget/libaudcal.so", flat_commands)
         self.assertIn("LD_LIBRARY_PATH=/data/local/tmp/a90-acdb-ownget:", flat_commands)
+        self.assertIn("LD_PRELOAD=/data/local/tmp/a90-acdb-ownget/liba90_ioctl_trace_v2531.so", flat_commands)
+        self.assertIn("/data/local/tmp/a90-acdb-ownget/liba90_ioctl_trace_v2531.so", flat_commands)
         self.assertIn("/vendor/etc/acdbdata", flat_commands)
         self.assertIn("/vendor/etc/audconf/OPEN", flat_commands)
         self.assertIn("find /vendor/etc/audconf", flat_commands)
@@ -202,6 +223,29 @@ class NativeAudioAcdbOwnprocessGetV2490(unittest.TestCase):
         self.assertEqual(summary["diagnostics"]["successful_row_count"], 0)
         self.assertEqual(summary["diagnostics"]["zero_outbuf_count"], 1)
         self.assertEqual(summary["diagnostics"]["zero_hash_by_len"]["4916"], hashlib.sha256(b"\0" * 4916).hexdigest())
+
+    def test_parse_ownget_artifacts_extracts_allocate_ioctl_errno(self) -> None:
+        root = Path(tempfile.mkdtemp(prefix="a90-v2490-artifacts-"))
+        (root / "ioctl-trace-events.jsonl").write_text(json.dumps({
+            "event": "ioctl_trace",
+            "pid": 123,
+            "tid": 123,
+            "fd": 7,
+            "request": "0xc00461c8",
+            "name": "AUDIO_ALLOCATE_CALIBRATION",
+            "arg": "0xbeef0000",
+            "ret": -1,
+            "errno": 13,
+        }) + "\n")
+        (root / "ownget-run-context.txt").write_text("uid=0(root)\n")
+
+        summary = v2490.parse_ownget_artifacts(root)
+
+        self.assertEqual(summary["diagnostics"]["ioctl_trace_event_count"], 1)
+        self.assertEqual(summary["diagnostics"]["audio_allocate_ioctl_count"], 1)
+        self.assertEqual(summary["diagnostics"]["audio_allocate_ioctl_ret_values"], [-1])
+        self.assertEqual(summary["diagnostics"]["audio_allocate_ioctl_errno_values"], [13])
+        self.assertEqual(summary["diagnostics"]["audio_set_ioctl_count"], 0)
 
     def test_parse_ownget_artifacts_preserves_no_4916_partial(self) -> None:
         root = Path(tempfile.mkdtemp(prefix="a90-v2490-artifacts-"))
