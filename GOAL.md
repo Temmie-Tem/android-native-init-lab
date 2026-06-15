@@ -272,7 +272,7 @@ it needs hardware/data not available (e.g. creds for full Wi-Fi validation), it 
 with no safe next step, or it would only re-confirm established facts (diminishing returns).
 **When you change tier, record the trigger** in that iteration's report.
 
-## Current audio frontier update (V2436)
+## Current audio frontier update (V2437)
 
 V2428 completed the fixed Android/Magisk M0 rerun and justified M1: the helper resumed the
 same worker TID that logcat showed running the speaker/ACDB path with `/dev/msm_audio_cal`
@@ -348,13 +348,30 @@ requires `A90_M1_RESIDUE_CHECK_OK`, `A90_M1_INSTALL_OK`, and `A90_M1_CLEANUP_OK`
 broad `/data/adb/modules` removal and `magisk --install-module`, and remains host-only in
 V2436. Materialized dry-run is `future_live_ready=true` with no blockers.
 
-Next meaningful unit is **V2437 exact-gated live M1 retry** with the V2436 runner. It should
-not alter the native runtime path: no native speaker/mixer/PCM writes, no native
-`/dev/msm_audio_cal` ioctls, and no native ACDB replay. If V2437 captures payload events,
-analyze command order, decoded headers, private payload hashes, mem-handle policy, and
-cleanup behavior before any native replay design. If it captures zero events despite
-confirmed module activation, classify that Android-good measurement wall before changing hook
-strategy.
+V2437 then ran that exact-gated live M1 retry and rolled back cleanly to V2321 with final
+native `selftest fail=0`. Android boot, Magisk root settle, both Magisk namespace read-only
+probes, the exact pre-residue check, and root-side staging setup all passed. The run stopped
+before module install/activation because `stage-4` tried to `adb push` module files into
+`/data/local/tmp/a90-audio-acdb-m1-v2429/module-stage/` after root had created that staging
+tree as `0700`. The Android `shell` user therefore hit `Permission denied`. No
+`service.sh` module was installed, no Android reboot for module activation occurred, and no
+ACDB payload artifact was captured. This is a runner payload-transfer bug, not evidence that
+the Magisk module namespace is blocked: V2435 already proved exact create/remove under
+`/data/adb/modules` works when performed by correctly quoted Magisk root shell commands.
+
+Magisk remains Android-good **measurement/packaging** only, matching the earlier Wi-Fi-style
+handoffs: it is acceptable to use a temporary module to move the stock-Android observer
+earlier in boot/service lifetime, but it must not become a native-init runtime dependency or
+issue native calibration ioctls, native speaker/mixer/PCM writes, Wi-Fi actions, DHCP,
+routes, or ping.
+
+Next meaningful unit is **V2438 host-only staging-transfer fix**. Keep the V2436 wrapper and
+M1 semantics, but split file transfer by privilege: push module payload files into a
+shell-writable incoming directory under `/data/local/tmp/a90-audio-acdb-m1-v2429/`, validate
+exact filenames/hashes, then use `su -c` to copy/install only those exact files into
+`/data/adb/modules/a90_audio_acdb_m1_v2429` with final restrictive permissions and exact
+cleanup. Keep `magisk --install-module` deferred and do not rerun live activation until the
+host-only fix, tests, dry-run, and command-safety checks pass.
 
 ## Read at the START of every iteration
 
