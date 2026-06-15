@@ -77,12 +77,16 @@ class NativeAudioAcdbOwnprocessGetV2490(unittest.TestCase):
         self.assertIn("logcat-acdb-loader.txt", flat_commands)
         self.assertIn("logcat-avc-acdb-filter.txt", flat_commands)
         self.assertIn("dmesg-avc-acdb-filter.txt", flat_commands)
+        self.assertIn("ownget-exec-context.txt", flat_commands)
+        self.assertIn("ownget-run-context.txt", flat_commands)
+        self.assertIn("id -Z", flat_commands)
+        self.assertIn("ls -lZ /dev/msm_audio_cal", flat_commands)
+        self.assertIn("persist.vendor.audio.calfile0", flat_commands)
         if payload["acdb_dependencies"].get("source_kind") == "v2506-vendor-ext4-closure":
             self.assertIn("/data/local/tmp/a90-acdb-ownget/libdiag.so", flat_commands)
         self.assertNotIn("magisk --install-module", flat_commands)
         self.assertNotIn("android.hardware.audio.service", flat_commands)
         self.assertNotIn("AudioTrack", flat_commands)
-        self.assertNotIn("/dev/msm_audio_cal", flat_commands)
         self.assertNotIn("0xc00461cb", flat_commands.lower())
 
     def test_step_has_transient_settle_adb_failure_for_error_closed(self) -> None:
@@ -119,7 +123,7 @@ class NativeAudioAcdbOwnprocessGetV2490(unittest.TestCase):
         names = {item["name"] for item in safety["findings"]}
         self.assertIn("magisk_install", names)
         self.assertIn("hal_restart", names)
-        self.assertIn("native_msm_audio_cal", names)
+        self.assertIn("native_msm_audio_cal_set_combo", names)
         self.assertIn("native_cal_set_constant", names)
         self.assertIn("tinyplay", names)
 
@@ -247,6 +251,44 @@ class NativeAudioAcdbOwnprocessGetV2490(unittest.TestCase):
 
         self.assertEqual(summary["classification"], "init-v3-block-avc-denial")
         self.assertTrue(summary["diagnostics"]["has_avc_or_denial"])
+
+    def test_parse_ownget_artifacts_classifies_msm_audio_cal_denial(self) -> None:
+        root = Path(tempfile.mkdtemp(prefix="a90-v2490-artifacts-"))
+        (root / "acdb-ownget-events.jsonl").write_text(json.dumps({
+            "event": "error",
+            "stage": "acdb_loader_init_v3",
+            "code": -19,
+        }) + "\n")
+        (root / "logcat-acdb-loader.txt").write_text(
+            "ACDB-LOADER: ACDB -> Cannot open /dev/msm_audio_cal errno: 13\n"
+        )
+        (root / "ownget-run-context.txt").write_text(
+            "uid=2000(shell) gid=2000(shell) groups=2000(shell)\n"
+            "u:r:shell:s0\n"
+        )
+
+        summary = v2490.parse_ownget_artifacts(root)
+
+        self.assertEqual(summary["classification"], "init-v3-block-msm-audio-cal-open-denied")
+        self.assertTrue(summary["diagnostics"]["has_msm_audio_cal_open_denied"])
+        self.assertTrue(summary["diagnostics"]["has_shell_domain_context"])
+
+    def test_parse_ownget_artifacts_classifies_vendor_audio_prop_denial(self) -> None:
+        root = Path(tempfile.mkdtemp(prefix="a90-v2490-artifacts-"))
+        (root / "acdb-ownget-events.jsonl").write_text(json.dumps({
+            "event": "error",
+            "stage": "acdb_loader_init_v3",
+            "code": -19,
+        }) + "\n")
+        (root / "logcat-avc-acdb-filter.txt").write_text(
+            'libc: Access denied finding property "persist.vendor.audio.calfile0"\n'
+            'audit: avc: denied { read } name="u:object_r:vendor_audio_prop:s0"\n'
+        )
+
+        summary = v2490.parse_ownget_artifacts(root)
+
+        self.assertEqual(summary["classification"], "init-v3-block-vendor-audio-prop-denied")
+        self.assertTrue(summary["diagnostics"]["has_vendor_audio_prop_denied"])
 
     def test_select_pulled_artifact_dir_accepts_flat_adb_pull_layout(self) -> None:
         root = Path(tempfile.mkdtemp(prefix="a90-v2490-pull-"))

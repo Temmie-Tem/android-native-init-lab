@@ -227,12 +227,47 @@ file {shlex.quote(REMOTE_HELPER)} 2>/dev/null || true
     return adb_su(args, script)
 
 
+def execution_context_probe_command(args: argparse.Namespace) -> list[str]:
+    context_path = f"{REMOTE_DIR}/ownget-exec-context.txt"
+    script = f"""
+set +e
+{{
+  echo '### adb-su-shell-id'
+  id 2>&1 || true
+  id -Z 2>&1 || true
+  echo '### getenforce'
+  getenforce 2>&1 || true
+  echo '### proc-self-status'
+  grep -E '^(Name|Uid|Gid|Groups|Cap(Inh|Prm|Eff|Bnd|Amb)|NoNewPrivs|Seccomp):' /proc/self/status 2>&1 || true
+  echo '### ps-self'
+  ps -AZ -p $$ 2>&1 || ps -Z -p $$ 2>&1 || ps -p $$ -o USER,PID,PPID,ARGS 2>&1 || true
+  echo '### helper-label'
+  ls -lZ {shlex.quote(REMOTE_HELPER)} 2>&1 || ls -l {shlex.quote(REMOTE_HELPER)} 2>&1 || true
+  echo '### msm-audio-cal-node'
+  ls -lZ /dev/msm_audio_cal 2>&1 || ls -l /dev/msm_audio_cal 2>&1 || true
+  echo '### vendor-audio-prop-file'
+  ls -lZ /dev/__properties__/u:object_r:vendor_audio_prop:s0 2>&1 || ls -l /dev/__properties__/u:object_r:vendor_audio_prop:s0 2>&1 || true
+  echo '### vendor-audio-calfile0-prop'
+  getprop persist.vendor.audio.calfile0 2>&1 || true
+}} > {shlex.quote(context_path)} 2>&1
+exit 0
+""".strip()
+    return adb_su(args, script)
+
+
 def run_helper_command(args: argparse.Namespace) -> list[str]:
     ld_library_path = ":".join([REMOTE_DIR, "/vendor/lib", "/system/lib", "/system_ext/lib", "/product/lib"])
     script = f"""
 set +e
 cd {shlex.quote(REMOTE_DIR)} || exit 61
-rm -f ownget.stdout.txt ownget.stderr.txt ownget.rc
+rm -f ownget.stdout.txt ownget.stderr.txt ownget.rc ownget-run-context.txt
+{{
+  echo '### run-shell-id'
+  id 2>&1 || true
+  id -Z 2>&1 || true
+  echo '### run-proc-self-status'
+  grep -E '^(Name|Uid|Gid|Groups|Cap(Inh|Prm|Eff|Bnd|Amb)|NoNewPrivs|Seccomp):' /proc/self/status 2>&1 || true
+}} > ownget-run-context.txt 2>&1
 LD_LIBRARY_PATH={shlex.quote(ld_library_path)} {shlex.quote(REMOTE_HELPER)} > ownget.stdout.txt 2> ownget.stderr.txt
 rc=$?
 echo "$rc" > ownget.rc
@@ -294,7 +329,7 @@ def command_safety(payload: dict[str, Any]) -> dict[str, Any]:
         "tinyplay": "tinyplay",
         "tinymix": "tinymix",
         "native_cal_set_constant": "0xc00461cb",
-        "native_msm_audio_cal": "/dev/msm_audio_cal",
+        "native_msm_audio_cal_set_combo": "/dev/msm_audio_cal 0xc00461cb",
         "broad_module_delete": "rm -rf /data/adb/modules",
         "fastboot": "fastboot",
     }
@@ -414,6 +449,8 @@ def parse_ownget_artifacts(path: Path) -> dict[str, Any]:
     acdb_log = path / "logcat-acdb-loader.txt"
     filtered_log = path / "logcat-avc-acdb-filter.txt"
     dmesg_log = path / "dmesg-avc-acdb-filter.txt"
+    exec_context = path / "ownget-exec-context.txt"
+    run_context = path / "ownget-run-context.txt"
     rows: list[dict[str, Any]] = []
     errors: list[dict[str, Any]] = []
     namespace_events: list[dict[str, Any]] = []
@@ -439,7 +476,21 @@ def parse_ownget_artifacts(path: Path) -> dict[str, Any]:
     acdb_log_text = acdb_log.read_text(encoding="utf-8", errors="replace") if acdb_log.exists() else ""
     filtered_log_text = filtered_log.read_text(encoding="utf-8", errors="replace") if filtered_log.exists() else ""
     dmesg_log_text = dmesg_log.read_text(encoding="utf-8", errors="replace") if dmesg_log.exists() else ""
-    diagnostic_text = "\n".join([acdb_log_text, filtered_log_text, dmesg_log_text]).lower()
+    exec_context_text = exec_context.read_text(encoding="utf-8", errors="replace") if exec_context.exists() else ""
+    run_context_text = run_context.read_text(encoding="utf-8", errors="replace") if run_context.exists() else ""
+    diagnostic_text = "\n".join([
+        acdb_log_text,
+        filtered_log_text,
+        dmesg_log_text,
+        exec_context_text,
+        run_context_text,
+    ]).lower()
+    has_msm_audio_cal_open_denied = "cannot open /dev/msm_audio_cal errno: 13" in diagnostic_text
+    has_vendor_audio_prop_denied = (
+        "persist.vendor.audio.calfile0" in diagnostic_text
+        or "vendor_audio_prop" in diagnostic_text
+    ) and ("denied" in diagnostic_text or "access denied" in diagnostic_text)
+    has_shell_domain_context = "u:r:shell:s0" in diagnostic_text
     target = [row for row in rows if row.get("is_target_4916") is True or row.get("out_len") == 4916]
     raw_files = sorted(path.glob("acdb-ownget-*.bin"))
     missing_raw = []
@@ -470,6 +521,10 @@ def parse_ownget_artifacts(path: Path) -> dict[str, Any]:
                 classification = "init-v3-block-acdb-files-load"
             elif "error initializing acph returned" in diagnostic_text:
                 classification = "init-v3-block-acph-init"
+            elif has_msm_audio_cal_open_denied:
+                classification = "init-v3-block-msm-audio-cal-open-denied"
+            elif has_vendor_audio_prop_denied:
+                classification = "init-v3-block-vendor-audio-prop-denied"
             elif "avc:" in diagnostic_text or "denied" in diagnostic_text:
                 classification = "init-v3-block-avc-denial"
             else:
@@ -493,12 +548,19 @@ def parse_ownget_artifacts(path: Path) -> dict[str, Any]:
             "acdb_loader_log_path": rel(acdb_log) if acdb_log.exists() else None,
             "filtered_log_path": rel(filtered_log) if filtered_log.exists() else None,
             "dmesg_filter_path": rel(dmesg_log) if dmesg_log.exists() else None,
+            "exec_context_path": rel(exec_context) if exec_context.exists() else None,
+            "run_context_path": rel(run_context) if run_context.exists() else None,
             "acdb_loader_line_count": len(acdb_log_text.splitlines()),
             "filtered_log_line_count": len(filtered_log_text.splitlines()),
             "dmesg_filter_line_count": len(dmesg_log_text.splitlines()),
+            "exec_context_line_count": len(exec_context_text.splitlines()),
+            "run_context_line_count": len(run_context_text.splitlines()),
             "has_acdb_files_load_error": "could not load .acdb files" in diagnostic_text,
             "has_acph_init_error": "error initializing acph returned" in diagnostic_text,
             "has_avc_or_denial": "avc:" in diagnostic_text or "denied" in diagnostic_text,
+            "has_msm_audio_cal_open_denied": has_msm_audio_cal_open_denied,
+            "has_vendor_audio_prop_denied": has_vendor_audio_prop_denied,
+            "has_shell_domain_context": has_shell_domain_context,
         },
         "malformed_lines": malformed,
         "row_count": len(rows),
@@ -539,6 +601,7 @@ def dry_run_payload(args: argparse.Namespace) -> dict[str, Any]:
             for item in deps["libs"]
         ],
         "chmod_helper": chmod_helper_command(args),
+        "probe_execution_context": execution_context_probe_command(args),
         "clear_logcat_before_helper": clear_logcat_command(args),
         "run_helper": run_helper_command(args),
         "capture_logcat_after_helper": capture_logcat_command(args),
@@ -572,13 +635,14 @@ def dry_run_payload(args: argparse.Namespace) -> dict[str, Any]:
         "partial_success_policy": "captured-ownprocess-outbuf-set-no-4916 is preserved as operator-valuable partial evidence; ACDB tap no-4916 policy remains non-dead-run",
         "hard_boundary": [
             "own-process helper only; no in-HAL LD_PRELOAD/injection",
-            "no Magisk module install",
-            "no HAL restart",
-            "no AudioTrack/playback",
-            "no native speaker write",
-            "no /dev/msm_audio_cal SET path",
-            "boot partition only through native_init_flash.py",
-            "rollback to V2321 after capture",
+        "no Magisk module install",
+        "no HAL restart",
+        "no AudioTrack/playback",
+        "no native speaker write",
+        "no /dev/msm_audio_cal SET path",
+        "only read-only identity/label probes of /dev/msm_audio_cal",
+        "boot partition only through native_init_flash.py",
+        "rollback to V2321 after capture",
         ],
         "live_ready": bool(android_boot.get("ok") and rollback.get("ok") and helper.get("ok") and deps.get("ok")),
         "live_blockers": [],
@@ -649,6 +713,7 @@ def run_live(args: argparse.Namespace) -> dict[str, Any]:
                 timeout_sec=args.adb_command_timeout,
             ))
         steps.append(route.run_step("ownget-chmod-helper", chmod_helper_command(args), out_dir, timeout_sec=args.adb_command_timeout))
+        steps.append(route.run_step("ownget-probe-execution-context", execution_context_probe_command(args), out_dir, timeout_sec=args.adb_command_timeout, check=False))
         steps.append(route.run_step("ownget-logcat-clear", clear_logcat_command(args), out_dir, timeout_sec=args.adb_command_timeout, check=False))
         steps.append(route.run_step("ownget-run-helper", run_helper_command(args), out_dir, timeout_sec=args.helper_timeout, check=False))
         steps.append(route.run_step("ownget-logcat-capture", capture_logcat_command(args), out_dir, timeout_sec=args.adb_command_timeout, check=False))
