@@ -272,7 +272,7 @@ it needs hardware/data not available (e.g. creds for full Wi-Fi validation), it 
 with no safe next step, or it would only re-confirm established facts (diminishing returns).
 **When you change tier, record the trigger** in that iteration's report.
 
-## Current audio frontier update (V2430)
+## Current audio frontier update (V2431)
 
 V2428 completed the fixed Android/Magisk M0 rerun and justified M1: the helper resumed the
 same worker TID that logcat showed running the speaker/ACDB path with `/dev/msm_audio_cal`
@@ -293,11 +293,19 @@ issue calibration ioctls, replay native audio, write native speaker/mixer/PCM st
 become a native-init dependency. Native replay remains blocked until raw ioctl command order,
 decoded headers, private payload hashes, mem-handle policy, and cleanup behavior are pinned.
 
-Next meaningful unit is **host-only V2431 Magisk staging redesign**, not another blind live
-rerun: determine whether direct `/data/adb/modules` staging is fixable through Magisk `su`
-namespace/context handling, or whether a bounded `magisk --install-module` flow is the only
-correct module-install interface. Any `magisk --install-module` path needs a new explicit
-safety design because V2429/V2430 intentionally forbade it.
+V2431 completed the host-only Magisk staging redesign. Official Magisk docs confirm
+`/data/adb/modules` and `/data/adb/modules_update` are Magisk-managed secure paths,
+`service.sh` is the correct non-blocking late_start module hook, `su -mm` /
+`--mount-master` exists for the global mount namespace, and `magisk --install-module ZIP`
+is the official installer interface. Because V2430 failed before cleanup of a real module
+could be proven, do **not** jump directly to install-module.
+
+Next meaningful unit is **V2432 read-only Android/Magisk access probe**: checked Android
+handoff, root settle, read-only `magisk -c/-v/--path/--list`, `ls -ldZ`/mount probes for
+`/data/adb`, and the same probes through `su -mm -c`, then artifact pull and rollback to
+V2321. No writes under `/data/adb`, no module install, no playback, no calibration ioctl.
+Only if V2432 shows a viable namespace/context should a later V2433 attempt a bounded
+create/remove probe; only after that should M1 module activation be retried.
 
 ## Read at the START of every iteration
 
