@@ -74,6 +74,16 @@ struct a90_android_dlextinfo {
 typedef a90_android_namespace *(*a90_android_get_exported_namespace_fn)(const char *name);
 typedef void *(*a90_android_dlopen_ext_fn)(const char *filename, int flags,
                                            const struct a90_android_dlextinfo *extinfo);
+typedef void *(*a90_loader_android_dlopen_ext_fn)(const char *filename, int flags,
+                                                  const struct a90_android_dlextinfo *extinfo,
+                                                  const void *caller_addr);
+
+struct a90_resolved_dlopen_ext {
+    void *fn;
+    int is_loader_entry;
+    const char *scope;
+    const char *symbol;
+};
 
 struct a90_sha256 {
     uint32_t h[8];
@@ -563,7 +573,93 @@ static void a90_write_namespace_selected_event(const char *name)
     a90_close(fd);
 }
 
-static void *a90_android_dlopen_in_namespace(a90_android_dlopen_ext_fn dlopen_ext_fn,
+static void a90_write_symbol_probe_event(const char *scope, const char *symbol,
+                                         int found, const char *detail)
+{
+    int fd = a90_open_append(A90_EVENTS_PATH);
+    if (fd < 0)
+        return;
+    a90_write_str(fd, "{\"event\":\"symbol_probe\",\"scope\":\"");
+    a90_write_json_escaped(fd, scope, 64U);
+    a90_write_str(fd, "\",\"symbol\":\"");
+    a90_write_json_escaped(fd, symbol, 96U);
+    a90_write_str(fd, "\",\"found\":");
+    a90_write_str(fd, found ? "true" : "false");
+    a90_write_str(fd, ",\"pid\":");
+    a90_write_dec(fd, a90_getpid());
+    a90_write_str(fd, ",\"tid\":");
+    a90_write_dec(fd, a90_gettid());
+    if (detail && detail[0]) {
+        a90_write_str(fd, ",\"detail\":\"");
+        a90_write_json_escaped(fd, detail, 512U);
+        a90_write_str(fd, "\"");
+    }
+    a90_write_str(fd, "}\n");
+    a90_close(fd);
+}
+
+static void *a90_probe_symbol(void *handle, const char *scope, const char *symbol)
+{
+    void *fn;
+    (void)dlerror();
+    fn = dlsym(handle, symbol);
+    if (fn)
+        a90_write_symbol_probe_event(scope, symbol, 1, (const char *)0);
+    else
+        a90_write_symbol_probe_event(scope, symbol, 0, dlerror());
+    return fn;
+}
+
+static a90_android_get_exported_namespace_fn a90_resolve_get_namespace(void *libdl)
+{
+    void *fn;
+    fn = a90_probe_symbol(libdl, "libdl", "android_get_exported_namespace");
+    if (fn)
+        return (a90_android_get_exported_namespace_fn)fn;
+    fn = a90_probe_symbol((void *)0, "default", "android_get_exported_namespace");
+    if (fn)
+        return (a90_android_get_exported_namespace_fn)fn;
+    fn = a90_probe_symbol((void *)0, "default", "__loader_android_get_exported_namespace");
+    if (fn)
+        return (a90_android_get_exported_namespace_fn)fn;
+    fn = a90_probe_symbol(libdl, "libdl", "__loader_android_get_exported_namespace");
+    return (a90_android_get_exported_namespace_fn)fn;
+}
+
+static struct a90_resolved_dlopen_ext a90_resolve_dlopen_ext(void *libdl)
+{
+    struct a90_resolved_dlopen_ext resolved = {0};
+    resolved.fn = a90_probe_symbol(libdl, "libdl", "android_dlopen_ext");
+    if (resolved.fn) {
+        resolved.is_loader_entry = 0;
+        resolved.scope = "libdl";
+        resolved.symbol = "android_dlopen_ext";
+        return resolved;
+    }
+    resolved.fn = a90_probe_symbol((void *)0, "default", "android_dlopen_ext");
+    if (resolved.fn) {
+        resolved.is_loader_entry = 0;
+        resolved.scope = "default";
+        resolved.symbol = "android_dlopen_ext";
+        return resolved;
+    }
+    resolved.fn = a90_probe_symbol((void *)0, "default", "__loader_android_dlopen_ext");
+    if (resolved.fn) {
+        resolved.is_loader_entry = 1;
+        resolved.scope = "default";
+        resolved.symbol = "__loader_android_dlopen_ext";
+        return resolved;
+    }
+    resolved.fn = a90_probe_symbol(libdl, "libdl", "__loader_android_dlopen_ext");
+    if (resolved.fn) {
+        resolved.is_loader_entry = 1;
+        resolved.scope = "libdl";
+        resolved.symbol = "__loader_android_dlopen_ext";
+    }
+    return resolved;
+}
+
+static void *a90_android_dlopen_in_namespace(const struct a90_resolved_dlopen_ext *dlopen_ext,
                                              const char *library,
                                              a90_android_namespace *namespace_handle)
 {
@@ -571,7 +667,12 @@ static void *a90_android_dlopen_in_namespace(a90_android_dlopen_ext_fn dlopen_ex
     extinfo.flags = A90_ANDROID_DLEXT_USE_NAMESPACE;
     extinfo.library_namespace = namespace_handle;
     (void)dlerror();
-    return dlopen_ext_fn(library, A90_RTLD_NOW, &extinfo);
+    if (dlopen_ext->is_loader_entry) {
+        a90_loader_android_dlopen_ext_fn fn =
+            (a90_loader_android_dlopen_ext_fn)dlopen_ext->fn;
+        return fn(library, A90_RTLD_NOW, &extinfo, __builtin_return_address(0));
+    }
+    return ((a90_android_dlopen_ext_fn)dlopen_ext->fn)(library, A90_RTLD_NOW, &extinfo);
 }
 
 static void a90_write_call_event(uint32_t seq, uint32_t cmd, uint32_t in_len,
@@ -644,7 +745,7 @@ void _start(void)
     void *audcal;
     void *loader;
     a90_android_get_exported_namespace_fn get_namespace_fn;
-    a90_android_dlopen_ext_fn dlopen_ext_fn;
+    struct a90_resolved_dlopen_ext dlopen_ext;
     a90_acdb_loader_init_v3_fn init_v3;
     a90_acdb_ioctl_fn acdb_ioctl_fn;
 
@@ -657,17 +758,14 @@ void _start(void)
         a90_write_error_event("dlopen-libdl", -1, dlerror());
         a90_exit(21);
     }
-    (void)dlerror();
-    get_namespace_fn = (a90_android_get_exported_namespace_fn)dlsym(
-        libdl, "android_get_exported_namespace");
+    get_namespace_fn = a90_resolve_get_namespace(libdl);
     if (!get_namespace_fn) {
-        a90_write_error_event("dlsym-android_get_exported_namespace", -2, dlerror());
+        a90_write_error_event("dlsym-android_get_exported_namespace", -2, (const char *)0);
         a90_exit(22);
     }
-    (void)dlerror();
-    dlopen_ext_fn = (a90_android_dlopen_ext_fn)dlsym(libdl, "android_dlopen_ext");
-    if (!dlopen_ext_fn) {
-        a90_write_error_event("dlsym-android_dlopen_ext", -3, dlerror());
+    dlopen_ext = a90_resolve_dlopen_ext(libdl);
+    if (!dlopen_ext.fn) {
+        a90_write_error_event("dlsym-android_dlopen_ext", -3, (const char *)0);
         a90_exit(23);
     }
 
@@ -679,7 +777,7 @@ void _start(void)
         if (!namespace_handle)
             continue;
         namespace_seen = 1;
-        audcal = a90_android_dlopen_in_namespace(dlopen_ext_fn, A90_LIBAUDCAL,
+        audcal = a90_android_dlopen_in_namespace(&dlopen_ext, A90_LIBAUDCAL,
                                                  namespace_handle);
         if (audcal) {
             selected_namespace = namespace_handle;
@@ -702,7 +800,7 @@ void _start(void)
         a90_exit(25);
     }
 
-    loader = a90_android_dlopen_in_namespace(dlopen_ext_fn, A90_LIBACDBLOADER,
+    loader = a90_android_dlopen_in_namespace(&dlopen_ext, A90_LIBACDBLOADER,
                                              selected_namespace);
     if (!loader) {
         a90_write_namespace_load_event(selected_namespace_name, A90_LIBACDBLOADER,

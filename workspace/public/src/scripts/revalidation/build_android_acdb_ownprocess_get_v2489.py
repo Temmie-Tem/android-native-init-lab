@@ -151,10 +151,14 @@ def source_state() -> dict[str, Any]:
         and '/vendor/lib/libacdbloader.so' in text,
         "uses_rtld_now_only": "A90_RTLD_GLOBAL" not in text and "A90_RTLD_NOW" in text,
         "uses_libdl_api_resolution": 'dlopen(A90_LIBDL, A90_RTLD_NOW)' in text
-        and 'dlsym(\n        libdl, "android_get_exported_namespace")' in text
-        and 'dlsym(libdl, "android_dlopen_ext")' in text,
+        and "a90_resolve_get_namespace(libdl)" in text
+        and "a90_resolve_dlopen_ext(libdl)" in text,
         "uses_android_dlopen_ext": "android_dlopen_ext" in text,
         "uses_android_get_exported_namespace": "android_get_exported_namespace" in text,
+        "uses_loader_namespace_fallback": "__loader_android_get_exported_namespace" in text,
+        "uses_loader_dlopen_ext_fallback": "__loader_android_dlopen_ext" in text,
+        "uses_default_scope_symbol_probe": 'a90_probe_symbol((void *)0, "default"' in text,
+        "records_symbol_probe_events": "symbol_probe" in text,
         "uses_dlext_namespace_flag": "A90_ANDROID_DLEXT_USE_NAMESPACE 0x200ULL" in text,
         "uses_android_dlextinfo_namespace": "library_namespace" in text
         and "A90_ANDROID_DLEXT_USE_NAMESPACE" in text,
@@ -165,8 +169,8 @@ def source_state() -> dict[str, Any]:
         "records_namespace_events": "namespace_probe" in text
         and "namespace_load" in text
         and "namespace_selected" in text,
-        "uses_namespace_load_for_libaudcal": "a90_android_dlopen_in_namespace(dlopen_ext_fn, A90_LIBAUDCAL" in text,
-        "uses_namespace_load_for_libacdbloader": "a90_android_dlopen_in_namespace(dlopen_ext_fn, A90_LIBACDBLOADER" in text,
+        "uses_namespace_load_for_libaudcal": "a90_android_dlopen_in_namespace(&dlopen_ext, A90_LIBAUDCAL" in text,
+        "uses_namespace_load_for_libacdbloader": "a90_android_dlopen_in_namespace(&dlopen_ext, A90_LIBACDBLOADER" in text,
         "uses_dlsym_init_v3": 'dlsym(loader, "acdb_loader_init_v3")' in text,
         "uses_dlsym_acdb_ioctl": 'dlsym(audcal, "acdb_ioctl")' in text,
         "uses_dlerror_detail": "dlerror()" in text and '\\"detail\\":' in text,
@@ -370,9 +374,19 @@ def manifest(args: argparse.Namespace) -> dict[str, Any]:
         "capture_contract": {
             "artifact": ARTIFACT_NAME,
             "abi": "32-bit armeabi-v7a PIE",
-            "load_strategy": "runtime dlsym of Android linker namespace APIs, probe sphal/vendor/default/vndk, android_dlopen_ext vendor ACDB libs, then dlsym acdb_loader_init_v3/acdb_ioctl",
+            "load_strategy": "runtime symbol_probe for public and __loader Android linker namespace APIs through libdl/default scope, probe sphal/vendor/default/vndk, android_dlopen_ext vendor ACDB libs, then dlsym acdb_loader_init_v3/acdb_ioctl",
             "namespace_probe_order": ["sphal", "vendor", "default", "vndk"],
-            "namespace_events": ["namespace_probe", "namespace_load", "namespace_selected"],
+            "symbol_probe_candidates": [
+                "libdl:android_get_exported_namespace",
+                "default:android_get_exported_namespace",
+                "default:__loader_android_get_exported_namespace",
+                "libdl:__loader_android_get_exported_namespace",
+                "libdl:android_dlopen_ext",
+                "default:android_dlopen_ext",
+                "default:__loader_android_dlopen_ext",
+                "libdl:__loader_android_dlopen_ext",
+            ],
+            "namespace_events": ["symbol_probe", "namespace_probe", "namespace_load", "namespace_selected"],
             "acdb_init": {
                 "function": "acdb_loader_init_v3",
                 "acdb_files_path": "/vendor/etc/acdbdata",
