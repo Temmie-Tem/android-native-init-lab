@@ -272,7 +272,7 @@ it needs hardware/data not available (e.g. creds for full Wi-Fi validation), it 
 with no safe next step, or it would only re-confirm established facts (diminishing returns).
 **When you change tier, record the trigger** in that iteration's report.
 
-## Current audio frontier update (V2438)
+## Current audio frontier update (V2439)
 
 V2428 completed the fixed Android/Magisk M0 rerun and justified M1: the helper resumed the
 same worker TID that logcat showed running the speaker/ACDB path with `/dev/msm_audio_cal`
@@ -392,6 +392,25 @@ captures payload events, analyze command order, decoded headers, private payload
 mem-handle policy, and cleanup behavior before native replay design. If V2439 activates the
 module but still captures zero events, classify that Android-good measurement wall before
 changing hook strategy.
+
+V2439 then ran that exact-gated live rerun and rolled back to V2321 with final native
+`selftest fail=0`. It closed the V2437 staging-transfer wall: all four payload files pushed
+into the V2438 shell-owned `/incoming/` directory, root validated exact SHA-256 values,
+installed the exact module files under `/data/adb/modules/a90_audio_acdb_m1_v2429`, and
+reported `A90_M1_INSTALL_OK`. The planned Android reboot for Magisk `service.sh`
+activation then occurred. After reboot, `adb wait-for-device` and boot-complete recheck
+passed, but the immediate `su -c id` root check failed with `adb: no devices/emulators
+found`; cleanup-finally reacquired ADB, uninstalled the APK, removed the module/run
+directory with `A90_M1_CLEANUP_OK`, and checked V2321 rollback passed. No logcat,
+playback, or artifact collection ran, so V2439 says nothing about whether the M1 observer
+captures payload events. The new wall is a post-module-reboot ADB/Magisk-root settle
+robustness gap, not staging or module namespace.
+
+Next meaningful unit is **V2440 host-only post-module-reboot settle hardening**. Keep the
+V2438 staging/install path unchanged, but replace the single post-reboot `su -c id` check
+with a bounded ADB reacquire + Magisk-root retry loop that records failed attempts as
+metadata and proceeds only after `uid=0`. Do not alter observer payload, module semantics,
+playback stimulus, native audio boundaries, cleanup, or rollback behavior.
 
 ## Read at the START of every iteration
 
