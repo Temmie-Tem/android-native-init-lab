@@ -272,7 +272,7 @@ it needs hardware/data not available (e.g. creds for full Wi-Fi validation), it 
 with no safe next step, or it would only re-confirm established facts (diminishing returns).
 **When you change tier, record the trigger** in that iteration's report.
 
-## Current audio frontier update (V2433)
+## Current audio frontier update (V2434)
 
 V2428 completed the fixed Android/Magisk M0 rerun and justified M1: the helper resumed the
 same worker TID that logcat showed running the speaker/ACDB path with `/dev/msm_audio_cal`
@@ -312,17 +312,26 @@ M1 yet; it should only create and remove one inert unique directory under
 V2321 after cleanup. This is the targeted safety bridge between read-only Magisk access and
 any real temporary module activation.
 
+V2434 implemented the source/test-only exact-gated cleanup-probe runner for that design.
+Its dry-run emits the checked Android handoff, `su -c` and `su -mm -c` identity/path
+probes, one future create/remove operation for
+`/data/adb/modules/.a90_v2433_cleanup_probe_<safe_tag>`, exact marker cleanup with
+`rm -f "$MARKER"` plus `rmdir "$PROBE_DIR"`, residue checks, and checked rollback to
+V2321. Focused tests cover wrong-approval refusal, unsafe tag rejection, exact safe-prefix
+path generation, success/residue summarization, and command-safety blockers for
+activation files, broad module removal, playback, and calibration tokens. V2434 did not
+boot Android and did not write `/data/adb`.
+
 M1 remains Android-good **measurement/packaging** only. It does not open `/dev/msm_audio_cal`,
 issue calibration ioctls, replay native audio, write native speaker/mixer/PCM state, or
 become a native-init dependency. Native replay remains blocked until raw ioctl command order,
 decoded headers, private payload hashes, mem-handle policy, and cleanup behavior are pinned.
 
-Next meaningful unit is **V2434 source/test-only Magisk cleanup-probe runner** for the V2433
-design. It must implement the exact-gated dry-run/live plan, wrong-approval refusal, safe
-probe-path generation, command-safety checks, exact-path cleanup, and checked V2321 rollback.
-Do not run M1 activation yet; only after the cleanup probe passes may M1 be retried with the
-corrected `adb shell "su -c '<script>'"` pattern. Keep `magisk --install-module` deferred
-unless direct targeted staging/cleanup fails.
+Next meaningful unit is **V2435 exact-gated live Magisk cleanup-probe run**, using the V2434
+runner and the V2433 gate phrase. It should prove targeted create/remove/no-residue under
+`/data/adb/modules` before any M1 activation. Do not run M1 activation yet; only after the
+cleanup probe passes may M1 be retried with the corrected `adb shell "su -c '<script>'"`
+pattern. Keep `magisk --install-module` deferred unless direct targeted staging/cleanup fails.
 
 ## Read at the START of every iteration
 
