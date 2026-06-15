@@ -22,7 +22,6 @@ extern void *dlsym(void *handle, const char *symbol);
 extern char *dlerror(void);
 
 #define A90_RTLD_NOW 2
-#define A90_RTLD_GLOBAL 0x100
 
 #define A90_ACDB_FILES_PATH "/vendor/etc/acdbdata"
 #define A90_DELTA_DIR "/data/local/tmp/a90-acdb-ownget/delta"
@@ -550,13 +549,13 @@ void _start(void)
         a90_input[i] = 0;
 
     (void)dlerror();
-    audcal = dlopen("libaudcal.so", A90_RTLD_NOW | A90_RTLD_GLOBAL);
+    audcal = dlopen("libaudcal.so", A90_RTLD_NOW);
     if (!audcal) {
         a90_write_error_event("dlopen-libaudcal", -1, dlerror());
         a90_exit(21);
     }
     (void)dlerror();
-    loader = dlopen("libacdbloader.so", A90_RTLD_NOW | A90_RTLD_GLOBAL);
+    loader = dlopen("libacdbloader.so", A90_RTLD_NOW);
     if (!loader) {
         a90_write_error_event("dlopen-libacdbloader", -2, dlerror());
         a90_exit(22);

@@ -149,6 +149,9 @@ def source_state() -> dict[str, Any]:
         "custom_start": "void _start(void)" in text,
         "uses_dlopen_libaudcal": 'dlopen("libaudcal.so"' in text,
         "uses_dlopen_libacdbloader": 'dlopen("libacdbloader.so"' in text,
+        "uses_rtld_now_only": "A90_RTLD_GLOBAL" not in text
+        and 'dlopen("libaudcal.so", A90_RTLD_NOW)' in text
+        and 'dlopen("libacdbloader.so", A90_RTLD_NOW)' in text,
         "uses_dlsym_init_v3": 'dlsym(loader, "acdb_loader_init_v3")' in text,
         "uses_dlsym_acdb_ioctl": 'dlsym(audcal, "acdb_ioctl")' in text,
         "uses_dlerror_detail": "dlerror()" in text and '\\"detail\\":' in text,
