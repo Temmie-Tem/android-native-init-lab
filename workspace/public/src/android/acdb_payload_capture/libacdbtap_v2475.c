@@ -27,6 +27,7 @@ extern void *dlopen(const char *filename, int flags);
 #define A90_SIZE_QUERY_OUT_LEN 4U
 #define A90_CMD_INITIALIZE_V2 0x0001138cU
 #define A90_CMD_CUSTOM_TOPO_INFO_V3 0x00013296U
+#define A90_CMD_CUSTOM_TOPO_INFO_SIZE_V3 0x00013297U
 #define A90_MAX_CAPTURE_LEN 65536U
 #ifndef A90_ACDBTAP_LOG_ENTER
 #define A90_ACDBTAP_LOG_ENTER 0
@@ -39,6 +40,9 @@ extern void *dlopen(const char *filename, int flags);
 #endif
 #ifndef A90_ACDBTAP_EXIT_ON_TARGET
 #define A90_ACDBTAP_EXIT_ON_TARGET 1
+#endif
+#ifndef A90_ACDBTAP_CUSTOM_TOPOLOGY_ONLY
+#define A90_ACDBTAP_CUSTOM_TOPOLOGY_ONLY 0
 #endif
 
 #define A90_AT_FDCWD (-100)
@@ -458,6 +462,17 @@ static int a90_is_all_zero(const uint8_t *buf, uint32_t len)
     return 1;
 }
 
+static int a90_should_capture_cmd(uint32_t cmd)
+{
+#if A90_ACDBTAP_CUSTOM_TOPOLOGY_ONLY
+    return cmd == A90_CMD_CUSTOM_TOPO_INFO_V3 ||
+           cmd == A90_CMD_CUSTOM_TOPO_INFO_SIZE_V3;
+#else
+    (void)cmd;
+    return 1;
+#endif
+}
+
 static int a90_log_capture(uint32_t seq, uint32_t cmd, uint32_t in_len, uint32_t out_len,
                            int32_t ret, const uint8_t *out)
 {
@@ -561,6 +576,9 @@ acdb_ioctl(uint32_t cmd, const uint8_t *in, uint32_t in_len, uint8_t *out, uint3
         return ret;
     }
 #endif
+
+    if (!a90_should_capture_cmd(cmd))
+        return a90_real_acdb_ioctl(cmd, in, in_len, out, out_len);
 
     seq = a90_sequence++;
 #if A90_ACDBTAP_LOG_ENTER
