@@ -82,13 +82,17 @@ def read_v2553_manifest(path: Path) -> dict[str, Any]:
     helper = build.get("helper", {})
     preload = build.get("preload", {})
     source_state = payload.get("source_state", {})
+    required = source_state.get("required", {})
+    arm_policy_ok = bool(required.get("tap_post_initialize_auto_arm") or required.get("tap_manual_arm_only"))
     return {
         "ok": bool(payload.get("ok") and helper.get("ok") and preload.get("ok")),
         "path": rel(path),
         "manifest": payload,
         "helper": helper,
         "preload": preload,
-        "manual_arm_only": bool(source_state.get("required", {}).get("tap_manual_arm_only")),
+        "arm_policy_ok": arm_policy_ok,
+        "manual_arm_only": bool(required.get("tap_manual_arm_only")),
+        "post_initialize_auto_arm": bool(required.get("tap_post_initialize_auto_arm")),
         "preload_policy": payload.get("capture_contract", {}).get("preload_policy"),
     }
 
@@ -143,7 +147,7 @@ def selected_artifacts(args: argparse.Namespace) -> dict[str, Any]:
         "manifest": manifest,
         "helper": helper,
         "preload": preload,
-        "ok": bool(manifest.get("ok") and manifest.get("manual_arm_only") and helper.get("ok") and preload.get("ok")),
+        "ok": bool(manifest.get("ok") and manifest.get("arm_policy_ok") and helper.get("ok") and preload.get("ok")),
     }
 
 
@@ -305,7 +309,8 @@ def dry_run_payload(args: argparse.Namespace) -> dict[str, Any]:
             "commands": base_payload.get("commands", {}),
         },
         "capture_contract": {
-            "manual_arm_after_init_v3": True,
+            "post_initialize_auto_arm": bool(artifacts.get("manifest", {}).get("post_initialize_auto_arm")),
+            "manual_arm_after_init_v3": bool(artifacts.get("manifest", {}).get("manual_arm_only")),
             "fake_audio_cal_allocate": True,
             "combined_preload": True,
             "success_requires": "ret==0 and non-all-zero raw buffer; requested out_len alone is not success",

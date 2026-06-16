@@ -37,7 +37,8 @@ class AcdbFullManifestBuildV2553(unittest.TestCase):
         self.assertTrue(state["required"]["helper_calls_send_audio_cal_v5"])
         self.assertTrue(state["required"]["helper_speaker_acdb_id_15"])
         self.assertTrue(state["required"]["helper_app_type_69941"])
-        self.assertTrue(state["required"]["tap_manual_arm_only"])
+        self.assertTrue(state["required"]["tap_post_initialize_auto_arm"])
+        self.assertTrue(state["required"]["tap_unarmed_path_has_no_dump_before_real"])
         self.assertTrue(state["required"]["tap_has_no_exit_macro"])
         self.assertFalse(state["prohibited"]["helper_issues_ioctl"])
 
@@ -50,7 +51,7 @@ class AcdbFullManifestBuildV2553(unittest.TestCase):
         self.assertEqual(payload["flash_action"], "none")
         self.assertEqual(payload["capture_contract"]["per_device_call"], "acdb_loader_send_audio_cal_v5(15, 0, 0x11135, 48000, 48000, 0, 1)")
         self.assertEqual(payload["build"]["built"], False)
-        self.assertIn("manual-arm", payload["capture_contract"]["preload_policy"])
+        self.assertIn("post-INITIALIZE_V2 auto-arm", payload["capture_contract"]["preload_policy"])
 
     def test_private_build_outputs_helper_and_noexit_preload(self) -> None:
         payload = v2553.manifest(args(build=True))

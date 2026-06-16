@@ -88,8 +88,9 @@ def source_state() -> dict[str, Any]:
         "helper_private_event_path": "/data/local/tmp/a90-acdb-ownget/acdb-full-manifest-events.jsonl" in helper_text,
         "tap_exports_acdb_ioctl": "acdb_ioctl(uint32_t cmd" in tap_text,
         "tap_exports_arm_capture": "void a90_arm_capture(void)" in tap_text,
-        "tap_manual_arm_only": "if (!a90_armed) {\n        return a90_real_acdb_ioctl(cmd, in, in_len, out, out_len);\n    }" in tap_text
-        and "cmd == A90_CMD_INITIALIZE_V2" not in tap_text,
+        "tap_post_initialize_auto_arm": "if (ret == 0 && cmd == A90_CMD_INITIALIZE_V2)" in tap_text
+        and "a90_armed = 1;" in tap_text,
+        "tap_unarmed_path_has_no_dump_before_real": "if (!a90_armed) {\n        ret = a90_real_acdb_ioctl(cmd, in, in_len, out, out_len);" in tap_text,
         "tap_has_no_exit_macro": "A90_ACDBTAP_EXIT_ON_TARGET" in tap_text,
         "tap_private_raw_dir": "/data/local/tmp/a90-acdb-tap" in tap_text,
         "tap_all_zero_guard": "a90_is_all_zero" in tap_text and "\\\"all_zero\\\":" in tap_text,
@@ -285,7 +286,7 @@ def manifest(args: argparse.Namespace) -> dict[str, Any]:
             "acdb_init_path": "/vendor/etc/audconf/OPEN",
             "topology_call": "acdb_loader_send_common_custom_topology()",
             "per_device_call": "acdb_loader_send_audio_cal_v5(15, 0, 0x11135, 48000, 48000, 0, 1)",
-            "preload_policy": "manual-arm acdb_ioctl dump after init_v3, no exit on 4916, fake audio calibration ioctls when A90_ACDB_FAKE_ALLOCATE=1",
+            "preload_policy": "silent post-INITIALIZE_V2 auto-arm plus helper manual-arm fallback, no exit on 4916, fake audio calibration ioctls when A90_ACDB_FAKE_ALLOCATE=1",
             "raw_output_private_only": True,
         },
         "boundaries": {

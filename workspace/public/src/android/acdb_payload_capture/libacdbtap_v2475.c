@@ -25,6 +25,7 @@ extern void *dlopen(const char *filename, int flags);
 #define A90_RAW_PREFIX "/data/local/tmp/a90-acdb-tap/acdbtap-"
 #define A90_TARGET_OUT_LEN 4916U
 #define A90_SIZE_QUERY_OUT_LEN 4U
+#define A90_CMD_INITIALIZE_V2 0x0001138cU
 #define A90_CMD_CUSTOM_TOPO_INFO_V3 0x00013296U
 #define A90_MAX_CAPTURE_LEN 65536U
 #ifndef A90_ACDBTAP_LOG_ENTER
@@ -549,7 +550,10 @@ acdb_ioctl(uint32_t cmd, const uint8_t *in, uint32_t in_len, uint8_t *out, uint3
 
 #if A90_ACDBTAP_ARMED_CAPTURE
     if (!a90_armed) {
-        return a90_real_acdb_ioctl(cmd, in, in_len, out, out_len);
+        ret = a90_real_acdb_ioctl(cmd, in, in_len, out, out_len);
+        if (ret == 0 && cmd == A90_CMD_INITIALIZE_V2)
+            a90_armed = 1;
+        return ret;
     }
 #endif
 
