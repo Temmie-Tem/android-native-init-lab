@@ -28,15 +28,15 @@ def args(**overrides: object) -> Namespace:
         "exact_gate": None,
         "create_marker": False,
         "build_v2580_helper": False,
-        "build_combined_preload": False,
+        "build_ioctl_trace": False,
         "v2580_build_root": root / "build-v2580",
         "v2580_manifest_path": root / "build-v2580/manifest.json",
         "helper_path": None,
         "helper_sha256": None,
-        "combined_preload_build_root": root / "build-preload",
-        "combined_preload_manifest_path": root / "build-preload/manifest.json",
-        "combined_preload_so": None,
-        "combined_preload_sha256": None,
+        "ioctl_trace_build_root": root / "build-preload",
+        "ioctl_trace_manifest_path": root / "build-preload/manifest.json",
+        "ioctl_trace_so": None,
+        "ioctl_trace_sha256": None,
         "out_dir": root / "run",
         "adb": "adb",
         "serial": None,
@@ -58,21 +58,21 @@ def args(**overrides: object) -> Namespace:
 
 
 class NativeAudioAcdbStoreGetProbeLiveHandoffV2581(unittest.TestCase):
-    def test_to_v2490_args_forces_combined_preload_and_fake_allocate(self) -> None:
+    def test_to_v2490_args_forces_ioctl_only_preload_and_fake_allocate(self) -> None:
         local = args()
         artifacts = {
             "helper": {"path": "workspace/private/builds/audio/x/bin/helper", "sha256": "a" * 64},
-            "combined_preload": {"path": "workspace/private/builds/audio/x/bin/preload.so", "sha256": "b" * 64},
+            "ioctl_trace_preload": {"path": "workspace/private/builds/audio/x/bin/preload.so", "sha256": "b" * 64},
         }
 
         base = v2581.to_v2490_args(local, artifacts)
 
-        self.assertTrue(base.use_combined_preload)
+        self.assertFalse(base.use_combined_preload)
         self.assertFalse(base.enable_acdbtap_preload)
         self.assertFalse(base.disable_ioctl_trace)
         self.assertTrue(base.fake_audio_cal_allocate)
         self.assertEqual(base.helper_sha256, "a" * 64)
-        self.assertEqual(base.combined_preload_sha256, "b" * 64)
+        self.assertEqual(base.ioctl_trace_sha256, "b" * 64)
 
     def test_live_requires_exact_gate_and_marker(self) -> None:
         with self.assertRaisesRegex(RuntimeError, "exact gate"):
@@ -91,7 +91,7 @@ class NativeAudioAcdbStoreGetProbeLiveHandoffV2581(unittest.TestCase):
         self.assertIn("touch /data/local/tmp/a90-acdb-ownget/V2580_STORE_GET_GO", flat)
         self.assertIn("rm -f /data/local/tmp/a90-acdb-ownget/V2580_STORE_GET_GO", flat)
         self.assertIn("A90_ACDB_FAKE_ALLOCATE=1", flat)
-        self.assertIn("LD_PRELOAD=/data/local/tmp/a90-acdb-ownget/liba90_acdb_combined_preload_v2538.so", flat)
+        self.assertIn("LD_PRELOAD=/data/local/tmp/a90-acdb-ownget/liba90_ioctl_trace_v2531.so", flat)
 
     def test_summary_accepts_nonzero_case_return_metadata(self) -> None:
         root = Path(tempfile.mkdtemp(prefix="a90-v2581-summary-ok-"))

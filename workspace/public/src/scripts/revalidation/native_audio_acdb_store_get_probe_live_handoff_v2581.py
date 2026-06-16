@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any
 
 import build_android_acdb_store_get_probe_v2580 as v2580
+import build_android_ioctl_trace_preload_v2531 as v2531
 import native_audio_acdb_ownprocess_get_live_handoff_v2490 as v2490
 
 RUN_ID = "V2581"
@@ -166,26 +167,27 @@ def build_v2580_helper(args: argparse.Namespace) -> dict[str, Any]:
 def selected_artifacts(args: argparse.Namespace) -> dict[str, Any]:
     if args.build_v2580_helper:
         build_v2580_helper(args)
-    if args.build_combined_preload:
+    if args.build_ioctl_trace:
         base = v2490.parse_args([])
-        base.combined_preload_build_root = args.combined_preload_build_root
-        base.combined_preload_manifest_path = args.combined_preload_manifest_path
+        base.ioctl_trace_build_root = args.ioctl_trace_build_root
+        base.ioctl_trace_manifest_path = args.ioctl_trace_manifest_path
         base.readelf = args.readelf
         base.file = args.file
-        v2490.build_combined_preload(base)
+        v2490.build_ioctl_trace(base)
     manifest = read_v2580_manifest(args.v2580_manifest_path)
     helper = artifact_from_manifest(manifest.get("artifact", {}), args.helper_path, args.helper_sha256)
     base = v2490.parse_args([])
-    base.use_combined_preload = True
-    base.combined_preload_so = args.combined_preload_so
-    base.combined_preload_sha256 = args.combined_preload_sha256
-    base.combined_preload_manifest_path = args.combined_preload_manifest_path
-    base.combined_preload_build_root = args.combined_preload_build_root
-    preload = v2490.selected_combined_preload_state(base)
+    base.use_combined_preload = False
+    base.disable_ioctl_trace = False
+    base.ioctl_trace_so = args.ioctl_trace_so
+    base.ioctl_trace_sha256 = args.ioctl_trace_sha256
+    base.ioctl_trace_manifest_path = args.ioctl_trace_manifest_path
+    base.ioctl_trace_build_root = args.ioctl_trace_build_root
+    preload = v2490.selected_ioctl_trace_state(base)
     return {
         "manifest": manifest,
         "helper": helper,
-        "combined_preload": preload,
+        "ioctl_trace_preload": preload,
         "ok": bool(manifest.get("ok") and helper.get("ok") and preload.get("ok")),
     }
 
@@ -198,7 +200,7 @@ def to_v2490_args(args: argparse.Namespace, artifacts: dict[str, Any]) -> argpar
     base.build_combined_preload = False
     base.build_acdbtap = False
     base.build_ioctl_trace = False
-    base.use_combined_preload = True
+    base.use_combined_preload = False
     base.enable_acdbtap_preload = False
     base.disable_ioctl_trace = False
     base.fake_audio_cal_allocate = True
@@ -217,8 +219,8 @@ def to_v2490_args(args: argparse.Namespace, artifacts: dict[str, Any]) -> argpar
     base.android_settle_adb_retry_sleep_sec = args.android_settle_adb_retry_sleep_sec
     base.helper_path = ROOT / artifacts["helper"]["path"]
     base.helper_sha256 = artifacts["helper"]["sha256"]
-    base.combined_preload_so = ROOT / artifacts["combined_preload"]["path"]
-    base.combined_preload_sha256 = artifacts["combined_preload"]["sha256"]
+    base.ioctl_trace_so = ROOT / artifacts["ioctl_trace_preload"]["path"]
+    base.ioctl_trace_sha256 = artifacts["ioctl_trace_preload"]["sha256"]
     base.readelf = args.readelf
     base.file = args.file
     return base
@@ -226,7 +228,7 @@ def to_v2490_args(args: argparse.Namespace, artifacts: dict[str, Any]) -> argpar
 
 def marker_helper_command(args: argparse.Namespace) -> list[str]:
     ld_library_path = ":".join([v2490.REMOTE_DIR, "/vendor/lib", "/system/lib", "/system_ext/lib", "/product/lib"])
-    preload_value = v2490.REMOTE_COMBINED_PRELOAD_SO
+    preload_value = v2490.REMOTE_IOCTL_TRACE_SO
     marker_setup = f"touch {shlex.quote(GATE_PATH)} && chmod 600 {shlex.quote(GATE_PATH)}" if args.create_marker else "rm -f " + shlex.quote(GATE_PATH)
     script = f"""
 set +e
@@ -387,7 +389,7 @@ def dry_run_payload(args: argparse.Namespace) -> dict[str, Any]:
             "target_function": "acdb_loader_store_get_audio_cal",
             "request_cases": artifacts.get("manifest", {}).get("request_cases", []),
             "fake_audio_cal_allocate": True,
-            "combined_preload": True,
+            "ioctl_trace_preload": True,
             "success_requires": "ret==0 and all_zero=false in V2580 case_return metadata; requested length alone is not success",
             "metadata_only_public": True,
             "raw_private_only": True,
@@ -473,14 +475,14 @@ def write_report(path: Path, payload: dict[str, Any]) -> None:
         f"- exact live gate: `{EXACT_GATE}`",
         f"- marker path: `{GATE_PATH}`",
         "- Without the marker, the V2580 helper exits before `acdb_loader_init_v3()` or `acdb_loader_store_get_audio_cal()`.",
-        "- Live execution must use the V2538 combined preload with `A90_ACDB_FAKE_ALLOCATE=1`.",
+        "- Live execution must use the V2531 ioctl-only preload with `A90_ACDB_FAKE_ALLOCATE=1`; no `acdb_ioctl` tap is loaded for this probe.",
         "- Success requires `ret==0` plus `all_zero=false` in V2580 `case_return` metadata; requested length alone is not success.",
         "- Native replay SET, speaker playback, and raw payload publication remain blocked.",
         "",
         "## Artifacts",
         "",
         f"- helper_sha256: `{artifacts.get('helper', {}).get('sha256')}`",
-        f"- combined_preload_sha256: `{artifacts.get('combined_preload', {}).get('sha256')}`",
+        f"- ioctl_trace_preload_sha256: `{artifacts.get('ioctl_trace_preload', {}).get('sha256')}`",
         "",
         "## Validation",
         "",
@@ -503,15 +505,15 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--exact-gate")
     parser.add_argument("--create-marker", action="store_true")
     parser.add_argument("--build-v2580-helper", action="store_true")
-    parser.add_argument("--build-combined-preload", action="store_true")
+    parser.add_argument("--build-ioctl-trace", action="store_true")
     parser.add_argument("--v2580-build-root", type=Path, default=v2580.DEFAULT_BUILD_ROOT)
     parser.add_argument("--v2580-manifest-path", type=Path, default=v2580.DEFAULT_MANIFEST)
     parser.add_argument("--helper-path", type=Path)
     parser.add_argument("--helper-sha256")
-    parser.add_argument("--combined-preload-build-root", type=Path, default=v2490.v_combined.DEFAULT_BUILD_ROOT)
-    parser.add_argument("--combined-preload-manifest-path", type=Path, default=v2490.v_combined.DEFAULT_MANIFEST)
-    parser.add_argument("--combined-preload-so", type=Path)
-    parser.add_argument("--combined-preload-sha256")
+    parser.add_argument("--ioctl-trace-build-root", type=Path, default=v2531.DEFAULT_BUILD_ROOT)
+    parser.add_argument("--ioctl-trace-manifest-path", type=Path, default=v2531.DEFAULT_MANIFEST)
+    parser.add_argument("--ioctl-trace-so", type=Path)
+    parser.add_argument("--ioctl-trace-sha256")
     parser.add_argument("--out-dir", type=Path)
     parser.add_argument("--adb", default="adb")
     parser.add_argument("--serial")
