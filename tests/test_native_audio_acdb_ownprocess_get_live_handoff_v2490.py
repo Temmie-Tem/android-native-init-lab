@@ -415,6 +415,28 @@ class NativeAudioAcdbOwnprocessGetV2490(unittest.TestCase):
         self.assertEqual(summary["diagnostics"]["acdbtap_call_phases"], ["before_real", "enter"])
         self.assertTrue(summary["operator_valuable"])
 
+    def test_parse_ownget_artifacts_treats_armed_marker_as_control_not_call(self) -> None:
+        root = Path(tempfile.mkdtemp(prefix="a90-v2490-acdbtap-armed-"))
+        tap_dir = root / "acdbtap"
+        tap_dir.mkdir(parents=True)
+        (tap_dir / "acdbtap-events.jsonl").write_text(json.dumps({
+            "event": "acdb_ioctl_call",
+            "seq": "0x00000000",
+            "cmd": "0x00000000",
+            "in_len": "0x00000000",
+            "out_len": "0x00000000",
+            "phase": "armed",
+        }) + "\n", encoding="utf-8")
+
+        summary = v2490.parse_ownget_artifacts(root)
+
+        self.assertEqual(summary["classification"], "ownprocess-no-events")
+        self.assertEqual(summary["acdbtap_call_row_count"], 0)
+        self.assertEqual(summary["acdbtap_control_row_count"], 1)
+        self.assertEqual(summary["diagnostics"]["acdbtap_control_event_count"], 1)
+        self.assertEqual(summary["diagnostics"]["acdbtap_control_stages"], ["armed"])
+        self.assertFalse(summary["operator_valuable"])
+
     def test_parse_ownget_artifacts_accepts_acdbtap_4916_success_before_helper_crash(self) -> None:
         root = Path(tempfile.mkdtemp(prefix="a90-v2490-acdbtap-artifacts-"))
         tap_dir = root / "acdbtap"

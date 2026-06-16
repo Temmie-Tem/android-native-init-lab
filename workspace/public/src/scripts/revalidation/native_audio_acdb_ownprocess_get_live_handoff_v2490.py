@@ -756,6 +756,7 @@ def parse_ownget_artifacts(path: Path) -> dict[str, Any]:
     ioctl_trace_events: list[dict[str, Any]] = []
     acdbtap_rows: list[dict[str, Any]] = []
     acdbtap_call_rows: list[dict[str, Any]] = []
+    acdbtap_control_rows: list[dict[str, Any]] = []
     malformed = 0
     if events.exists():
         for line in events.read_text(encoding="utf-8", errors="replace").splitlines():
@@ -794,7 +795,17 @@ def parse_ownget_artifacts(path: Path) -> dict[str, Any]:
             except json.JSONDecodeError:
                 malformed += 1
                 continue
-            if item.get("event") == "acdb_ioctl_call" and "cmd" in item and "out_len" in item:
+            if item.get("event") == "acdbtap_control":
+                acdbtap_control_rows.append(item)
+            elif (
+                item.get("event") == "acdb_ioctl_call"
+                and str(item.get("phase", "")) == "armed"
+                and str(item.get("cmd", "")).lower() in {"0x00000000", "0"}
+                and str(item.get("in_len", "")).lower() in {"0x00000000", "0"}
+                and str(item.get("out_len", "")).lower() in {"0x00000000", "0"}
+            ):
+                acdbtap_control_rows.append(item)
+            elif item.get("event") == "acdb_ioctl_call" and "cmd" in item and "out_len" in item:
                 acdbtap_call_rows.append(item)
             elif "cmd" in item and "out_len" in item:
                 acdbtap_rows.append(item)
@@ -1046,6 +1057,7 @@ def parse_ownget_artifacts(path: Path) -> dict[str, Any]:
         "rows": rows,
         "acdbtap_rows": acdbtap_rows,
         "acdbtap_call_rows": acdbtap_call_rows,
+        "acdbtap_control_rows": acdbtap_control_rows,
         "errors": errors,
         "namespace_events": namespace_events,
         "symbol_events": symbol_events,
@@ -1129,6 +1141,8 @@ def parse_ownget_artifacts(path: Path) -> dict[str, Any]:
             "raw_sha_mismatch_seq": raw_sha_mismatch,
             "acdbtap_event_count": len(acdbtap_rows),
             "acdbtap_call_event_count": len(acdbtap_call_rows),
+            "acdbtap_control_event_count": len(acdbtap_control_rows),
+            "acdbtap_control_stages": sorted({str(row.get("stage", row.get("phase", ""))) for row in acdbtap_control_rows}),
             "acdbtap_call_phases": sorted({str(row.get("phase", "")) for row in acdbtap_call_rows}),
             "acdbtap_call_cmds": sorted({str(row.get("cmd", "")) for row in acdbtap_call_rows}),
             "acdbtap_ret_values": sorted(acdbtap_ret_values),
@@ -1149,6 +1163,7 @@ def parse_ownget_artifacts(path: Path) -> dict[str, Any]:
         "symbol_event_count": len(symbol_events),
         "acdbtap_row_count": len(acdbtap_rows),
         "acdbtap_call_row_count": len(acdbtap_call_rows),
+        "acdbtap_control_row_count": len(acdbtap_control_rows),
         "target_4916_count": len(target),
         "acdbtap_target_4916_count": len(acdbtap_target),
         "raw_file_count": len(raw_files),
