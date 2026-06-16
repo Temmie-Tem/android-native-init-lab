@@ -91,6 +91,7 @@ def source_state() -> dict[str, Any]:
         "ioctl_fake_allocate_mode": "A90_ACDB_FAKE_ALLOCATE" in ioctl_text and "fake-success" in ioctl_text,
         "ioctl_fakes_audio_set_path": "A90_AUDIO_SET_CALIBRATION" in ioctl_text and "A90_AUDIO_ALLOCATE_CALIBRATION" in ioctl_text,
         "toposkip_exports_common_topology": "int32_t acdb_loader_send_common_custom_topology(void)" in toposkip_text,
+        "toposkip_default_visibility": "__attribute__((visibility(\"default\"))) int32_t acdb_loader_send_common_custom_topology(void)" in toposkip_text,
         "toposkip_returns_success": "return 0;" in toposkip_text,
         "toposkip_logs_private_marker": "acdb-toposkip-events.jsonl" in toposkip_text,
         "toposkip_pins_topology_sha": EXPECTED_TOPOLOGY_SHA256 in toposkip_text,
@@ -146,11 +147,18 @@ def binary_state(path: Path, *, readelf: str, file_cmd: str, kind: str) -> dict[
     else:
         sym = symbols["stdout"]
         dyn = dynamic["stdout"]
+        dynsym_lines = [
+            line for line in sym.splitlines()
+            if " acdb_loader_send_common_custom_topology" in line
+        ]
+        dynsym_exports_skip = any("GLOBAL" in line and "DEFAULT" in line for line in dynsym_lines)
+        dynsym_hides_skip = any("LOCAL" in line or "HIDDEN" in line for line in dynsym_lines)
         state["checks"] = {
             "exports_acdb_ioctl": " acdb_ioctl" in sym,
             "exports_ioctl": " ioctl" in sym,
             "exports_a90_arm_capture": " a90_arm_capture" in sym,
-            "exports_common_topology_skip": " acdb_loader_send_common_custom_topology" in sym,
+            "exports_common_topology_skip": dynsym_exports_skip,
+            "does_not_hide_common_topology_skip": not dynsym_hides_skip,
             "soname": f"Library soname: [{PRELOAD_ARTIFACT_NAME}]" in dyn,
         }
     state["ok"] = bool(state["file"].get("ok") and all(state["checks"].values()))

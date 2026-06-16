@@ -149,7 +149,7 @@ static void a90_log_short_circuit(void)
     a90_close(fd);
 }
 
-int32_t acdb_loader_send_common_custom_topology(void)
+__attribute__((visibility("default"))) int32_t acdb_loader_send_common_custom_topology(void)
 {
     a90_log_short_circuit();
     return 0;
