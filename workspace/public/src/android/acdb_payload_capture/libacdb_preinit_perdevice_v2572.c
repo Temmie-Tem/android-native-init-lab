@@ -36,6 +36,9 @@ extern void a90_arm_capture(void) __attribute__((weak, visibility("default")));
 #ifndef A90_V2572_CALL_REAL_COMMON_TOPOLOGY
 #define A90_V2572_CALL_REAL_COMMON_TOPOLOGY 0
 #endif
+#ifndef A90_SEND_AUDIO_CAL_V5_FIXED_STACK_ORDER
+#define A90_SEND_AUDIO_CAL_V5_FIXED_STACK_ORDER 0
+#endif
 
 #define A90_AT_FDCWD (-100)
 #define A90_O_WRONLY 00000001
@@ -56,8 +59,8 @@ typedef int32_t (*a90_send_audio_cal_v5_fn)(int32_t acdb_id,
                                             int32_t path,
                                             int32_t app_id,
                                             int32_t sample_rate,
-                                            int32_t afe_sample_rate,
-                                            int32_t session_type,
+                                            int32_t stack_arg5,
+                                            int32_t stack_arg6,
                                             int32_t instance);
 
 static volatile int a90_in_hook;
@@ -295,8 +298,13 @@ __attribute__((visibility("default"))) int32_t acdb_loader_send_common_custom_to
                                              A90_SPEAKER_RX_PATH,
                                              A90_APP_TYPE_MEDIA,
                                              A90_SAMPLE_RATE_48K,
+#if A90_SEND_AUDIO_CAL_V5_FIXED_STACK_ORDER
+                                             A90_SESSION_TYPE_DEFAULT,
+                                             A90_AFE_SAMPLE_RATE_48K,
+#else
                                              A90_AFE_SAMPLE_RATE_48K,
                                              A90_SESSION_TYPE_DEFAULT,
+#endif
                                              A90_INSTANCE_FLAG_DEFAULT);
         a90_write_event("send_audio_cal_v5_return", cal_ret);
     } else {
