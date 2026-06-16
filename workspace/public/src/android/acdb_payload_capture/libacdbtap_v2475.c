@@ -34,6 +34,9 @@ extern void *dlopen(const char *filename, int flags);
 #ifndef A90_ACDBTAP_ARMED_CAPTURE
 #define A90_ACDBTAP_ARMED_CAPTURE 0
 #endif
+#ifndef A90_ACDBTAP_AUTO_ARM_ON_INITIALIZE
+#define A90_ACDBTAP_AUTO_ARM_ON_INITIALIZE 1
+#endif
 #ifndef A90_ACDBTAP_EXIT_ON_TARGET
 #define A90_ACDBTAP_EXIT_ON_TARGET 1
 #endif
@@ -551,8 +554,10 @@ acdb_ioctl(uint32_t cmd, const uint8_t *in, uint32_t in_len, uint8_t *out, uint3
 #if A90_ACDBTAP_ARMED_CAPTURE
     if (!a90_armed) {
         ret = a90_real_acdb_ioctl(cmd, in, in_len, out, out_len);
+#if A90_ACDBTAP_AUTO_ARM_ON_INITIALIZE
         if (ret == 0 && cmd == A90_CMD_INITIALIZE_V2)
             a90_armed = 1;
+#endif
         return ret;
     }
 #endif
