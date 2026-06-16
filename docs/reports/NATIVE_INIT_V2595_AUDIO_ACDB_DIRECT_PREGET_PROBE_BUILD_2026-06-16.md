@@ -20,7 +20,7 @@ ACDB command execution, or raw payload publication was performed.
   - sha256: `5cc7b9c6f2bacdb7c4789bb9f9f62ec2f2ec7488e9124e97b0364b3644af023d`
   - ok: `True`
 - preload: `workspace/private/builds/audio/v2595-acdb-direct-preget-probe-build-only/bin/liba90_acdb_direct_preget_probe_v2595.so`
-  - sha256: `40857f6fdd5f8406546bb5513e37bc8ef0e96782ca1b0ed9c8b4468b27fdcdf2`
+  - sha256: `7019b5d44fa6d8bedd9065f42368354f67e5c57d97b863ec62a456cd307c255a`
   - ok: `True`
 
 Private binaries remain under `workspace/private/builds/audio/` and are not committed.

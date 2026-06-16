@@ -222,18 +222,21 @@ static void a90_write_preget_event(int32_t ret, uint32_t out_word)
         return;
 
     a90_write_event_prefix(fd, "direct_preget_return");
-    a90_write_str(fd, ",\"cmd\":");
+    a90_write_str(fd, ",\"cmd\":\"");
     a90_write_hex32(fd, A90_ACDB_CMD_PREGET_METADATA);
+    a90_write_str(fd, "\"");
     a90_write_str(fd, ",\"in_len\":");
     a90_write_dec(fd, A90_PREGET_IN_LEN);
     a90_write_str(fd, ",\"out_len\":");
     a90_write_dec(fd, A90_PREGET_OUT_LEN);
-    a90_write_str(fd, ",\"input_word\":");
+    a90_write_str(fd, ",\"input_word\":\"");
     a90_write_hex32(fd, A90_APP_TYPE_MEDIA);
+    a90_write_str(fd, "\"");
     a90_write_str(fd, ",\"ret\":");
     a90_write_sdec(fd, ret);
-    a90_write_str(fd, ",\"out_word\":");
+    a90_write_str(fd, ",\"out_word\":\"");
     a90_write_hex32(fd, out_word);
+    a90_write_str(fd, "\"");
     a90_write_str(fd, ",\"out_nonzero\":");
     a90_write_str(fd, out_word ? "true" : "false");
     a90_write_str(fd, "}\n");
