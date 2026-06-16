@@ -31,6 +31,7 @@ extern void *dlopen(const char *filename, int flags);
 #define A90_CMD_AUDPROC_INSTANCE_COMMON_TABLE 0x00013265U
 #define A90_CMD_AUDPROC_INSTANCE_STREAM_TABLE 0x00013269U
 #define A90_CMD_AUDPROC_GAIN_DEP_STEP_TABLE 0x0001326eU
+#define A90_CMD_AFE_TOPOLOGIES 0x00013262U
 #define A90_CMD_AFE_INSTANCE_COMMON_TABLE 0x0001326fU
 #define A90_MAX_CAPTURE_LEN 65536U
 #ifndef A90_ACDBTAP_LOG_ENTER
@@ -666,6 +667,9 @@ static int a90_log_command_layout_indirect_captures(uint32_t seq, uint32_t cmd,
     case A90_CMD_AUDPROC_GAIN_DEP_STEP_TABLE:
         return a90_log_known_indirect_capture(seq, cmd, in_len, ret, in, out, out_len,
                                               "ind-ap-gain", 4U, 3U);
+    case A90_CMD_AFE_TOPOLOGIES:
+        return a90_log_known_indirect_capture(seq, cmd, in_len, ret, in, out, out_len,
+                                              "ind-afe-topology", 1U, 0U);
     case A90_CMD_AFE_INSTANCE_COMMON_TABLE:
         return a90_log_known_indirect_capture(seq, cmd, in_len, ret, in, out, out_len,
                                               "ind-afe-common", 3U, 2U);
