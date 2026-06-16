@@ -80,6 +80,7 @@ def source_state() -> dict[str, Any]:
         "ioctl_source_exists": ioctl_path.exists(),
         "tap_manual_arm_exported": "void a90_arm_capture(void)" in tap,
         "tap_unarmed_real_only_path": "if (!a90_armed)" in tap and "return ret;" in tap,
+        "tap_auto_arm_default_off": "#define A90_ACDBTAP_AUTO_ARM_ON_INITIALIZE 0" in tap,
         "tap_capture_inbuf_macro": "A90_ACDBTAP_CAPTURE_INBUF" in tap,
         "tap_capture_indirect_macro": "A90_ACDBTAP_CAPTURE_INDIRECT_CANDIDATES" in tap,
         "tap_scan_word_bound_macro": "A90_ACDBTAP_INDIRECT_SCAN_WORDS" in tap,

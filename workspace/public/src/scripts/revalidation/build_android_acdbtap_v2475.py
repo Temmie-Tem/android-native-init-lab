@@ -155,6 +155,7 @@ def source_state() -> dict[str, Any]:
         "sha256_implemented": "a90_sha256_final" in text,
         "raw_syscalls_only": "A90_NR_OPENAT" in text and "A90_NR_WRITE" in text,
         "no_libc_headers": "#include <" not in text,
+        "auto_arm_default_off": "#define A90_ACDBTAP_AUTO_ARM_ON_INITIALIZE 0" in text,
     }
     prohibited = {
         "opens_msm_audio_cal": "/dev/msm_audio_cal" in text,

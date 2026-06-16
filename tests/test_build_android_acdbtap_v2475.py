@@ -40,6 +40,7 @@ class BuildAndroidAcdbTapV2475(unittest.TestCase):
         self.assertTrue(state["required"]["target_out_len_4916"])
         self.assertTrue(state["required"]["sha256_implemented"])
         self.assertTrue(state["required"]["raw_syscalls_only"])
+        self.assertTrue(state["required"]["auto_arm_default_off"])
 
     def test_dry_run_is_host_only_and_measurement_only(self) -> None:
         payload = v2475.manifest(args())

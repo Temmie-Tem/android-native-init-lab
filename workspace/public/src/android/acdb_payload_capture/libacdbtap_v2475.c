@@ -36,7 +36,7 @@ extern void *dlopen(const char *filename, int flags);
 #define A90_ACDBTAP_ARMED_CAPTURE 0
 #endif
 #ifndef A90_ACDBTAP_AUTO_ARM_ON_INITIALIZE
-#define A90_ACDBTAP_AUTO_ARM_ON_INITIALIZE 1
+#define A90_ACDBTAP_AUTO_ARM_ON_INITIALIZE 0
 #endif
 #ifndef A90_ACDBTAP_EXIT_ON_TARGET
 #define A90_ACDBTAP_EXIT_ON_TARGET 1

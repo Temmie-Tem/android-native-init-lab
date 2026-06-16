@@ -40,6 +40,7 @@ class BuildAndroidAcdbIndirectBufferTapV2600(unittest.TestCase):
         self.assertTrue(state["prohibited_ok"], state["prohibited"])
         self.assertTrue(state["required"]["tap_capture_inbuf_macro"])
         self.assertTrue(state["required"]["tap_capture_indirect_macro"])
+        self.assertTrue(state["required"]["tap_auto_arm_default_off"])
         self.assertTrue(state["required"]["tap_kinded_raw_paths"])
         self.assertTrue(state["required"]["tap_zero_buffer_guard"])
         self.assertFalse(state["prohibited"]["tap_opens_msm_audio_cal"])
