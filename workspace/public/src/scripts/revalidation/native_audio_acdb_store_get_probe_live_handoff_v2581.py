@@ -400,7 +400,7 @@ def dry_run_payload(args: argparse.Namespace) -> dict[str, Any]:
     payload["live_ready"] = bool(artifacts.get("ok") and base_payload.get("live_ready"))
     payload["live_blockers"] = []
     if not artifacts.get("ok"):
-        payload["live_blockers"].append("V2580 store-get helper or V2538 combined preload artifacts are not ready")
+        payload["live_blockers"].append("V2580 store-get helper or V2531 ioctl-only fake-allocate preload artifacts are not ready")
     payload["live_blockers"].extend(base_payload.get("live_blockers", []))
     payload["base_command_safety"] = base_payload.get("command_safety", {"ok": False, "findings": ["base payload missing"]})
     payload["command_safety"] = v2490.command_safety({
