@@ -10,6 +10,8 @@ REPO = Path(__file__).resolve().parents[1]
 AUDIO_C = REPO / "workspace/public/src/native-init/a90_audio.c"
 AUDIO_PROFILE_H = REPO / "workspace/public/src/native-init/a90_audio_profile.h"
 AUDIO_PROFILE_C = REPO / "workspace/public/src/native-init/a90_audio_profile.c"
+ROUTE_C = REPO / "workspace/public/src/native-init/a90_audio_route.c"
+ROUTE_H = REPO / "workspace/public/src/native-init/a90_audio_route.h"
 
 
 def source_text() -> str:
@@ -17,6 +19,8 @@ def source_text() -> str:
         AUDIO_C.read_text(encoding="utf-8"),
         AUDIO_PROFILE_H.read_text(encoding="utf-8"),
         AUDIO_PROFILE_C.read_text(encoding="utf-8"),
+        ROUTE_C.read_text(encoding="utf-8"),
+        ROUTE_H.read_text(encoding="utf-8"),
     ])
 
 
@@ -36,8 +40,8 @@ class NativeAudioRouteContractV2753(unittest.TestCase):
         self.assertIn('#define AUDIO_ROUTE_RESET_COUNT 12', text)
         self.assertIn('audio.route.apply.count=%d', text)
         self.assertIn('audio.route.reset.count=%d', text)
-        self.assertIn('audio_route_control_count() != AUDIO_ROUTE_APPLY_COUNT', text)
-        self.assertIn('audio_route_reset_count() != AUDIO_ROUTE_RESET_COUNT', text)
+        self.assertIn('a90_audio_route_control_count() != AUDIO_ROUTE_APPLY_COUNT', text)
+        self.assertIn('a90_audio_route_reset_count() != AUDIO_ROUTE_RESET_COUNT', text)
 
     def test_route_contract_contains_v2378_internal_speaker_controls(self) -> None:
         text = source_text()
@@ -87,7 +91,7 @@ class NativeAudioRouteContractV2753(unittest.TestCase):
     def test_reset_order_is_reverse_and_skips_non_resettable_stream_cfg(self) -> None:
         text = source_text()
 
-        self.assertIn('for (index = audio_route_control_count() - 1; index >= 0; --index)', text)
+        self.assertIn('for (index = a90_audio_route_control_count() - 1; index >= 0; --index)', text)
         self.assertIn('if (!AUDIO_INTERNAL_SPEAKER_ROUTE[index].resettable)', text)
         self.assertIn('.name = "Audio Stream 0 App Type Cfg"', text)
         self.assertIn('.resettable = false', text)

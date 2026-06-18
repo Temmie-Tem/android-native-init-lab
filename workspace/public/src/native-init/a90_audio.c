@@ -1,5 +1,6 @@
 #include "a90_audio.h"
 #include "a90_audio_profile.h"
+#include "a90_audio_route.h"
 #include "a90_audio_stage.h"
 
 #include "a90_console.h"
@@ -191,15 +192,6 @@ static const struct audio_setcal_entry AUDIO_INTERNAL_SPEAKER_SETCAL_PLAN[] = {
     {.cal_type = 23, .role = "AFE_TOPOLOGY_ID_HEADER", .dmabuf_expected = false},
     {.cal_type = 16, .role = "AFE_COMMON_PAYLOAD", .dmabuf_expected = true},
     {.cal_type = 21, .role = "SPEAKER_VI_HEADER", .dmabuf_expected = false},
-};
-
-static const char *const AUDIO_SPEAKER_MAP_IDS[] = {
-    "shared",
-    "SPKR_VI_1",
-    "SPKR_VI_2",
-    "SPKR_VI",
-    "SpkrLeft",
-    "SpkrRight",
 };
 
 static const char *yesno(bool value) {
@@ -2261,196 +2253,24 @@ static int audio_app_type_cmd(char **argv, int argc) {
     return 0;
 }
 
-static int audio_route_control_count(void) {
-    return AUDIO_ROUTE_APPLY_COUNT;
-}
-
-static int audio_route_reset_count(void) {
-    int count = 0;
-    int index;
-
-    for (index = 0; index < audio_route_control_count(); ++index) {
-        if (AUDIO_INTERNAL_SPEAKER_ROUTE[index].resettable) {
-            ++count;
-        }
-    }
-    return count;
-}
-
-static int audio_route_value_total_count(const struct audio_route_value *value) {
-    if (value == NULL) {
-        return 0;
-    }
-    return value->int_count + value->zero_fill;
-}
-
-static const char *audio_route_value_kind_name(const struct audio_route_value *value) {
-    if (value == NULL) {
-        return "unknown";
-    }
-    if (value->kind == AUDIO_ROUTE_VALUE_ENUM) {
-        return "enum";
-    }
-    if (value->kind == AUDIO_ROUTE_VALUE_INTS) {
-        return "ints";
-    }
-    return "unknown";
-}
-
-static bool audio_route_has_smart_amp_boost(void) {
-    int index;
-
-    for (index = 0; index < audio_route_control_count(); ++index) {
-        if (AUDIO_INTERNAL_SPEAKER_ROUTE[index].smart_amp_boost) {
-            return true;
-        }
-    }
-    return false;
-}
-
-static bool audio_route_layer_valid(const char *layer) {
-    return layer != NULL &&
-           (strcmp(layer, "all") == 0 ||
-            strcmp(layer, "core") == 0 ||
-            strcmp(layer, "feedback") == 0 ||
-            strcmp(layer, "endpoint") == 0 ||
-            strcmp(layer, "blocked") == 0);
-}
-
-static bool audio_route_control_matches_layer(const struct audio_route_control *control,
-                                              const char *layer) {
-    if (control == NULL || layer == NULL) {
-        return false;
-    }
-    if (strcmp(layer, "all") == 0) {
-        return true;
-    }
-    if (strcmp(layer, "blocked") == 0) {
-        return control->smart_amp_boost;
-    }
-    return strcmp(control->layer, layer) == 0;
-}
-
-static int audio_route_selected_count(const char *layer, bool reset_mode) {
-    int count = 0;
-    int index;
-
-    for (index = 0; index < audio_route_control_count(); ++index) {
-        if (!audio_route_control_matches_layer(&AUDIO_INTERNAL_SPEAKER_ROUTE[index], layer)) {
-            continue;
-        }
-        if (reset_mode && !AUDIO_INTERNAL_SPEAKER_ROUTE[index].resettable) {
-            continue;
-        }
-        ++count;
-    }
-    return count;
-}
-
-static bool audio_route_selected_has_smart_amp_boost(const char *layer) {
-    int index;
-
-    for (index = 0; index < audio_route_control_count(); ++index) {
-        if (audio_route_control_matches_layer(&AUDIO_INTERNAL_SPEAKER_ROUTE[index], layer) &&
-            AUDIO_INTERNAL_SPEAKER_ROUTE[index].smart_amp_boost) {
-            return true;
-        }
-    }
-    return false;
-}
-
-static bool audio_route_layer_write_allowed(const char *layer) {
-    return layer != NULL && strcmp(layer, "core") == 0;
-}
-
-static bool audio_string_starts_with(const char *text, const char *prefix) {
-    size_t prefix_len;
-
-    if (text == NULL || prefix == NULL) {
-        return false;
-    }
-    prefix_len = strlen(prefix);
-    return strncmp(text, prefix, prefix_len) == 0;
-}
-
-static int audio_observer_count_for_prefix(const struct audio_speaker_profile *profile,
-                                           const char *prefix) {
-    int index;
-    int count = 0;
-
-    if (profile == NULL || prefix == NULL) {
-        return 0;
-    }
-    for (index = 0; index < profile->observer_control_count; ++index) {
-        if (audio_string_starts_with(profile->observer_controls[index], prefix)) {
-            ++count;
-        }
-    }
-    return count;
-}
-
-static int audio_route_count_for_speaker(const char *speaker) {
-    int index;
-    int count = 0;
-
-    for (index = 0; index < audio_route_control_count(); ++index) {
-        if (speaker != NULL && strcmp(AUDIO_INTERNAL_SPEAKER_ROUTE[index].speaker, speaker) == 0) {
-            ++count;
-        }
-    }
-    return count;
-}
-
-static int audio_route_layer_count_for_speaker(const char *speaker, const char *layer) {
-    int index;
-    int count = 0;
-
-    for (index = 0; index < audio_route_control_count(); ++index) {
-        if (speaker != NULL && layer != NULL &&
-            strcmp(AUDIO_INTERNAL_SPEAKER_ROUTE[index].speaker, speaker) == 0 &&
-            strcmp(AUDIO_INTERNAL_SPEAKER_ROUTE[index].layer, layer) == 0) {
-            ++count;
-        }
-    }
-    return count;
-}
-
-static int audio_route_boost_count_for_speaker(const char *speaker) {
-    int index;
-    int count = 0;
-
-    for (index = 0; index < audio_route_control_count(); ++index) {
-        if (speaker != NULL &&
-            strcmp(AUDIO_INTERNAL_SPEAKER_ROUTE[index].speaker, speaker) == 0 &&
-            AUDIO_INTERNAL_SPEAKER_ROUTE[index].smart_amp_boost) {
-            ++count;
-        }
-    }
-    return count;
-}
-
-static int audio_speaker_map_count(void) {
-    return (int)(sizeof(AUDIO_SPEAKER_MAP_IDS) / sizeof(AUDIO_SPEAKER_MAP_IDS[0]));
-}
-
 static void audio_speaker_map_print_speaker(const struct audio_speaker_profile *profile,
                                             int output_index,
                                             const char *speaker) {
     char prefix[64];
 
     snprintf(prefix, sizeof(prefix), "audio.speaker_map.speaker.%d", output_index);
-    a90_console_printf("%s.id=%s\r\n", prefix, speaker);
-    a90_console_printf("%s.route_controls=%d\r\n", prefix, audio_route_count_for_speaker(speaker));
+    a90_console_printf("%s.id=%s\r\n", prefix, speaker == NULL ? "" : speaker);
+    a90_console_printf("%s.route_controls=%d\r\n", prefix, a90_audio_route_count_for_speaker(speaker));
     a90_console_printf("%s.route_core_controls=%d\r\n", prefix,
-                       audio_route_layer_count_for_speaker(speaker, "core"));
+                       a90_audio_route_layer_count_for_speaker(speaker, AUDIO_ROUTE_LAYER_CORE));
     a90_console_printf("%s.route_feedback_controls=%d\r\n", prefix,
-                       audio_route_layer_count_for_speaker(speaker, "feedback"));
+                       a90_audio_route_layer_count_for_speaker(speaker, AUDIO_ROUTE_LAYER_FEEDBACK));
     a90_console_printf("%s.route_endpoint_controls=%d\r\n", prefix,
-                       audio_route_layer_count_for_speaker(speaker, "endpoint"));
+                       a90_audio_route_layer_count_for_speaker(speaker, AUDIO_ROUTE_LAYER_ENDPOINT));
     a90_console_printf("%s.route_blocked_boost_controls=%d\r\n", prefix,
-                       audio_route_boost_count_for_speaker(speaker));
+                       a90_audio_route_boost_count_for_speaker(speaker));
     a90_console_printf("%s.observer_controls=%d\r\n", prefix,
-                       audio_observer_count_for_prefix(profile, speaker));
+                       a90_audio_observer_count_for_prefix(profile, speaker));
 }
 
 static int audio_speaker_map_cmd(char **argv, int argc) {
@@ -2478,15 +2298,15 @@ static int audio_speaker_map_cmd(char **argv, int argc) {
     a90_console_printf("audio.speaker_map.endpoint=%s\r\n", profile->endpoint);
     a90_console_printf("audio.speaker_map.hardware=%s\r\n", profile->speaker_map);
     a90_console_printf("audio.speaker_map.route_path=SLIMBUS_0_RX_to_WSA_CDC_DMA_RX\r\n");
-    a90_console_printf("audio.speaker_map.route_control.count=%d\r\n", audio_route_control_count());
+    a90_console_printf("audio.speaker_map.route_control.count=%d\r\n", a90_audio_route_control_count());
     a90_console_printf("audio.speaker_map.observer_control.count=%d\r\n", profile->observer_control_count);
-    a90_console_printf("audio.speaker_map.speaker.count=%d\r\n", audio_speaker_map_count());
+    a90_console_printf("audio.speaker_map.speaker.count=%d\r\n", a90_audio_speaker_map_count());
     a90_console_printf("audio.speaker_map.safety.amplitude_cap_milli=%d\r\n", profile->amplitude_cap_milli);
     a90_console_printf("audio.speaker_map.safety.smart_amp_boost_write_allowed=0\r\n");
     a90_console_printf("audio.speaker_map.safety.smart_amp_boost_blocked=%d\r\n",
-                       audio_route_has_smart_amp_boost() ? 1 : 0);
-    for (index = 0; index < audio_speaker_map_count(); ++index) {
-        audio_speaker_map_print_speaker(profile, index, AUDIO_SPEAKER_MAP_IDS[index]);
+                       a90_audio_route_has_smart_amp_boost() ? 1 : 0);
+    for (index = 0; index < a90_audio_speaker_map_count(); ++index) {
+        audio_speaker_map_print_speaker(profile, index, a90_audio_speaker_map_id(index));
     }
     return 0;
 }
@@ -2494,7 +2314,7 @@ static int audio_speaker_map_cmd(char **argv, int argc) {
 static void audio_route_print_value(const char *prefix, const struct audio_route_value *value) {
     int index;
 
-    a90_console_printf("%s.kind=%s\r\n", prefix, audio_route_value_kind_name(value));
+    a90_console_printf("%s.kind=%s\r\n", prefix, a90_audio_route_value_kind_name(value));
     if (value == NULL) {
         return;
     }
@@ -2508,7 +2328,7 @@ static void audio_route_print_value(const char *prefix, const struct audio_route
     }
     a90_console_printf("\r\n");
     a90_console_printf("%s.zero_fill=%d\r\n", prefix, value->zero_fill);
-    a90_console_printf("%s.total_count=%d\r\n", prefix, audio_route_value_total_count(value));
+    a90_console_printf("%s.total_count=%d\r\n", prefix, a90_audio_route_value_total_count(value));
 }
 
 static void audio_route_print_control(const char *prefix,
@@ -2534,8 +2354,8 @@ static void audio_route_print_controls(bool reset_mode, const char *layer) {
     char prefix[64];
 
     if (reset_mode) {
-        for (index = audio_route_control_count() - 1; index >= 0; --index) {
-            if (!audio_route_control_matches_layer(&AUDIO_INTERNAL_SPEAKER_ROUTE[index], layer)) {
+        for (index = a90_audio_route_control_count() - 1; index >= 0; --index) {
+            if (!a90_audio_route_control_matches_layer(&AUDIO_INTERNAL_SPEAKER_ROUTE[index], layer)) {
                 continue;
             }
             if (!AUDIO_INTERNAL_SPEAKER_ROUTE[index].resettable) {
@@ -2550,8 +2370,8 @@ static void audio_route_print_controls(bool reset_mode, const char *layer) {
         return;
     }
 
-    for (index = 0; index < audio_route_control_count(); ++index) {
-        if (!audio_route_control_matches_layer(&AUDIO_INTERNAL_SPEAKER_ROUTE[index], layer)) {
+    for (index = 0; index < a90_audio_route_control_count(); ++index) {
+        if (!a90_audio_route_control_matches_layer(&AUDIO_INTERNAL_SPEAKER_ROUTE[index], layer)) {
             continue;
         }
         snprintf(prefix, sizeof(prefix), "audio.route.apply.%d", output_index);
@@ -2567,7 +2387,7 @@ static int audio_route_validate_integer_control(int fd,
                                                 struct snd_ctl_elem_info *info,
                                                 const struct audio_route_control *control,
                                                 const struct audio_route_value *route_value) {
-    int required = audio_route_value_total_count(route_value);
+    int required = a90_audio_route_value_total_count(route_value);
 
     memset(info, 0, sizeof(*info));
     info->id = *id;
@@ -2707,7 +2527,7 @@ static int audio_route_write_one_control(int fd,
 
     a90_console_printf("audio.route.write.control=%s kind=%s\r\n",
                        control->name,
-                       audio_route_value_kind_name(route_value));
+                       a90_audio_route_value_kind_name(route_value));
     if (ioctl(fd, SNDRV_CTL_IOCTL_ELEM_WRITE, &value) < 0) {
         a90_console_printf("audio.route.write_failed control=%s errno=%d\r\n", control->name, errno);
         return -1;
@@ -2729,8 +2549,8 @@ static int audio_route_write_selected_controls(const struct audio_speaker_profil
     }
 
     if (reset_mode) {
-        for (index = audio_route_control_count() - 1; index >= 0; --index) {
-            if (!audio_route_control_matches_layer(&AUDIO_INTERNAL_SPEAKER_ROUTE[index], layer) ||
+        for (index = a90_audio_route_control_count() - 1; index >= 0; --index) {
+            if (!a90_audio_route_control_matches_layer(&AUDIO_INTERNAL_SPEAKER_ROUTE[index], layer) ||
                 !AUDIO_INTERNAL_SPEAKER_ROUTE[index].resettable) {
                 continue;
             }
@@ -2743,8 +2563,8 @@ static int audio_route_write_selected_controls(const struct audio_speaker_profil
             ++written;
         }
     } else {
-        for (index = 0; index < audio_route_control_count(); ++index) {
-            if (!audio_route_control_matches_layer(&AUDIO_INTERNAL_SPEAKER_ROUTE[index], layer)) {
+        for (index = 0; index < a90_audio_route_control_count(); ++index) {
+            if (!a90_audio_route_control_matches_layer(&AUDIO_INTERNAL_SPEAKER_ROUTE[index], layer)) {
                 continue;
             }
             if (audio_route_write_one_control(fd,
@@ -2795,7 +2615,7 @@ static int audio_route_cmd(char **argv, int argc) {
             reset_mode = true;
         } else if (strcmp(argv[argi], "--layer") == 0) {
             ++argi;
-            if (argi >= argc || argv[argi] == NULL || !audio_route_layer_valid(argv[argi])) {
+            if (argi >= argc || argv[argi] == NULL || !a90_audio_route_layer_valid(argv[argi])) {
                 a90_console_printf("usage: audio route [profile] [--dry-run|--apply|--reset] [--layer all|core|feedback|endpoint|blocked]\r\n");
                 return -EINVAL;
             }
@@ -2820,12 +2640,12 @@ static int audio_route_cmd(char **argv, int argc) {
         a90_console_printf("audio.route.error=unknown-profile\r\n");
         return -ENOENT;
     }
-    if (audio_route_control_count() != AUDIO_ROUTE_APPLY_COUNT ||
-        audio_route_reset_count() != AUDIO_ROUTE_RESET_COUNT) {
+    if (a90_audio_route_control_count() != AUDIO_ROUTE_APPLY_COUNT ||
+        a90_audio_route_reset_count() != AUDIO_ROUTE_RESET_COUNT) {
         a90_console_printf("audio.route.error=route-count-mismatch apply=%d/%d reset=%d/%d\r\n",
-                           audio_route_control_count(),
+                           a90_audio_route_control_count(),
                            AUDIO_ROUTE_APPLY_COUNT,
-                           audio_route_reset_count(),
+                           a90_audio_route_reset_count(),
                            AUDIO_ROUTE_RESET_COUNT);
         return -EINVAL;
     }
@@ -2835,18 +2655,18 @@ static int audio_route_cmd(char **argv, int argc) {
     a90_console_printf("audio.route.pcm_device=%d\r\n", profile->pcm_device);
     a90_console_printf("audio.route.apply.count=%d\r\n", AUDIO_ROUTE_APPLY_COUNT);
     a90_console_printf("audio.route.reset.count=%d\r\n", AUDIO_ROUTE_RESET_COUNT);
-    a90_console_printf("audio.route.selected.apply.count=%d\r\n", audio_route_selected_count(layer, false));
-    a90_console_printf("audio.route.selected.reset.count=%d\r\n", audio_route_selected_count(layer, true));
+    a90_console_printf("audio.route.selected.apply.count=%d\r\n", a90_audio_route_selected_count(layer, false));
+    a90_console_printf("audio.route.selected.reset.count=%d\r\n", a90_audio_route_selected_count(layer, true));
     a90_console_printf("audio.route.requires_global_app_type=1\r\n");
     a90_console_printf("audio.route.global_app_type_primitive=audio app-type %s --write\r\n", profile->id);
     a90_console_printf("audio.route.smart_amp_boost_blocked=%d\r\n",
-                       audio_route_has_smart_amp_boost() ? 1 : 0);
-    selected_has_boost = audio_route_selected_has_smart_amp_boost(layer);
+                       a90_audio_route_has_smart_amp_boost() ? 1 : 0);
+    selected_has_boost = a90_audio_route_selected_has_smart_amp_boost(layer);
     a90_console_printf("audio.route.selected.smart_amp_boost_blocked=%d\r\n", selected_has_boost ? 1 : 0);
     a90_console_printf("audio.route.blocked_control=SpkrLeft BOOST Switch\r\n");
     audio_route_print_controls(reset_mode, layer);
 
-    if (write_mode && !audio_route_layer_write_allowed(layer)) {
+    if (write_mode && !a90_audio_route_layer_write_allowed(layer)) {
         if (selected_has_boost) {
             a90_console_printf("audio.route.refused=write-mode-blocked-smart-amp-boost-review\r\n");
         } else {

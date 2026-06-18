@@ -10,6 +10,8 @@ REPO = Path(__file__).resolve().parents[1]
 AUDIO_C = REPO / "workspace/public/src/native-init/a90_audio.c"
 AUDIO_PROFILE_H = REPO / "workspace/public/src/native-init/a90_audio_profile.h"
 AUDIO_PROFILE_C = REPO / "workspace/public/src/native-init/a90_audio_profile.c"
+ROUTE_C = REPO / "workspace/public/src/native-init/a90_audio_route.c"
+ROUTE_H = REPO / "workspace/public/src/native-init/a90_audio_route.h"
 
 
 def source_text() -> str:
@@ -17,6 +19,8 @@ def source_text() -> str:
         AUDIO_C.read_text(encoding="utf-8"),
         AUDIO_PROFILE_H.read_text(encoding="utf-8"),
         AUDIO_PROFILE_C.read_text(encoding="utf-8"),
+        ROUTE_C.read_text(encoding="utf-8"),
+        ROUTE_H.read_text(encoding="utf-8"),
     ])
 
 
@@ -25,11 +29,11 @@ class NativeAudioRouteLayerPolicyV2754(unittest.TestCase):
         text = source_text()
 
         self.assertIn('--layer all|core|feedback|endpoint|blocked', text)
-        self.assertIn('static bool audio_route_layer_valid', text)
-        self.assertIn('strcmp(layer, "core") == 0', text)
-        self.assertIn('strcmp(layer, "feedback") == 0', text)
-        self.assertIn('strcmp(layer, "endpoint") == 0', text)
-        self.assertIn('strcmp(layer, "blocked") == 0', text)
+        self.assertIn('bool a90_audio_route_layer_valid', text)
+        self.assertIn('strcmp(layer, AUDIO_ROUTE_LAYER_CORE) == 0', text)
+        self.assertIn('strcmp(layer, AUDIO_ROUTE_LAYER_FEEDBACK) == 0', text)
+        self.assertIn('strcmp(layer, AUDIO_ROUTE_LAYER_ENDPOINT) == 0', text)
+        self.assertIn('strcmp(layer, AUDIO_ROUTE_LAYER_BLOCKED) == 0', text)
         self.assertIn('audio.route.layer=%s', text)
 
     def test_route_controls_are_grouped_by_layer_and_speaker(self) -> None:
@@ -48,7 +52,7 @@ class NativeAudioRouteLayerPolicyV2754(unittest.TestCase):
         self.assertIn('.policy = "speaker-endpoint-review"', text)
         self.assertRegex(text, re.compile(r'\.name = "SpkrLeft BOOST Switch".*?\.policy = "blocked-smart-amp-boost".*?\.smart_amp_boost = true', re.DOTALL))
         self.assertIn('audio.route.selected.smart_amp_boost_blocked=%d', text)
-        self.assertIn('audio_route_selected_has_smart_amp_boost(layer)', text)
+        self.assertIn('a90_audio_route_selected_has_smart_amp_boost(layer)', text)
 
     def test_write_refusal_distinguishes_policy_block_from_unimplemented_writer(self) -> None:
         text = source_text()
@@ -61,10 +65,10 @@ class NativeAudioRouteLayerPolicyV2754(unittest.TestCase):
     def test_selected_counts_are_layer_aware(self) -> None:
         text = source_text()
 
-        self.assertIn('static int audio_route_selected_count(const char *layer, bool reset_mode)', text)
+        self.assertIn('int a90_audio_route_selected_count(const char *layer, bool reset_mode)', text)
         self.assertIn('audio.route.selected.apply.count=%d', text)
         self.assertIn('audio.route.selected.reset.count=%d', text)
-        self.assertIn('audio_route_control_matches_layer(&AUDIO_INTERNAL_SPEAKER_ROUTE[index], layer)', text)
+        self.assertIn('a90_audio_route_control_matches_layer(&AUDIO_INTERNAL_SPEAKER_ROUTE[index], layer)', text)
 
 
 if __name__ == "__main__":

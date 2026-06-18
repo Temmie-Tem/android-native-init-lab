@@ -9,6 +9,7 @@ REPO = Path(__file__).resolve().parents[1]
 AUDIO_C = REPO / "workspace/public/src/native-init/a90_audio.c"
 PROFILE_H = REPO / "workspace/public/src/native-init/a90_audio_profile.h"
 PROFILE_C = REPO / "workspace/public/src/native-init/a90_audio_profile.c"
+ROUTE_C = REPO / "workspace/public/src/native-init/a90_audio_route.c"
 
 
 class NativeAudioProfileModuleV2777(unittest.TestCase):
@@ -43,10 +44,11 @@ class NativeAudioProfileModuleV2777(unittest.TestCase):
 
     def test_command_file_uses_profile_module_instead_of_owning_profile_data(self) -> None:
         text = AUDIO_C.read_text(encoding="utf-8")
+        route = ROUTE_C.read_text(encoding="utf-8")
 
         self.assertIn('#include "a90_audio_profile.h"', text)
         self.assertIn("return AUDIO_SPEAKER_PROFILE_COUNT;", text)
-        self.assertIn("return AUDIO_ROUTE_APPLY_COUNT;", text)
+        self.assertIn("return AUDIO_ROUTE_APPLY_COUNT;", route)
         self.assertNotIn("static const struct audio_speaker_profile AUDIO_SPEAKER_PROFILES", text)
         self.assertNotIn("static const struct audio_route_control AUDIO_INTERNAL_SPEAKER_ROUTE", text)
         self.assertNotIn("struct audio_speaker_profile {", text)

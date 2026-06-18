@@ -7,10 +7,16 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
 AUDIO_C = REPO / "workspace/public/src/native-init/a90_audio.c"
+ROUTE_C = REPO / "workspace/public/src/native-init/a90_audio_route.c"
+ROUTE_H = REPO / "workspace/public/src/native-init/a90_audio_route.h"
 
 
 def source_text() -> str:
-    return AUDIO_C.read_text(encoding="utf-8")
+    return "\n".join([
+        AUDIO_C.read_text(encoding="utf-8"),
+        ROUTE_C.read_text(encoding="utf-8"),
+        ROUTE_H.read_text(encoding="utf-8"),
+    ])
 
 
 class NativeAudioSpeakerMapApiV2764(unittest.TestCase):
@@ -52,10 +58,10 @@ class NativeAudioSpeakerMapApiV2764(unittest.TestCase):
             "route_endpoint_controls",
             "route_blocked_boost_controls",
             "observer_controls",
-            "audio_observer_count_for_prefix",
-            "audio_route_count_for_speaker",
-            "audio_route_layer_count_for_speaker",
-            "audio_route_boost_count_for_speaker",
+            "a90_audio_observer_count_for_prefix",
+            "a90_audio_route_count_for_speaker",
+            "a90_audio_route_layer_count_for_speaker",
+            "a90_audio_route_boost_count_for_speaker",
         ]:
             with self.subTest(marker=marker):
                 self.assertIn(marker, text)
