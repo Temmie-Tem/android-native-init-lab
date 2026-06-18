@@ -139,9 +139,13 @@ class NativeAudioAcdbSetcalReplayLiveHandoffV2639(unittest.TestCase):
         self.assertIn("A90_SETCAL_REPLAY_ALL_SET_OK", start_local.read_text(encoding="utf-8"))
         observer_key, observer_remote, observer_local = scripts[1]
         self.assertEqual(observer_key, "pcm_output_observer")
-        self.assertTrue(observer_remote.endswith("/a90_pcm_output_observer_v2739.sh"))
+        self.assertTrue(observer_remote.endswith("/a90_pcm_output_observer_v2741.sh"))
         observer_text = observer_local.read_text(encoding="utf-8")
         self.assertIn("A90_OUTPUT_OBSERVER_BEGIN", observer_text)
+        self.assertIn("mode=direct-controls", observer_text)
+        self.assertIn("A90_OUTPUT_OBSERVER_CTL_BEGIN", observer_text)
+        self.assertIn("SpkrLeft COMP Switch", observer_text)
+        self.assertIn("Get RMS", observer_text)
         self.assertIn("A90_OUTPUT_OBSERVER_SAMPLES_BEGIN", observer_text)
         self.assertIn("a90_pcm_write_probe_v2386", observer_text)
 
@@ -214,19 +218,24 @@ class NativeAudioAcdbSetcalReplayLiveHandoffV2639(unittest.TestCase):
             source.index("route.get(\"route_reset_commands\")"),
         )
 
-    def test_dry_run_adds_v2739_dynamic_output_observer(self) -> None:
+    def test_dry_run_adds_v2741_dynamic_output_observer(self) -> None:
         root = Path(tempfile.mkdtemp(prefix="a90-v2639-"))
         args = v2639.parse_args(["--dry-run", "--v2636-manifest", str(fake_deploy(root))])
         state = v2639.dry_run_payload(args)
 
-        observer = state["v2739_output_observer"]
+        observer = state["v2741_output_observer"]
         self.assertTrue(observer["enabled"])
+        self.assertEqual(observer["name"], "v2741-direct-output-observer")
         self.assertEqual(observer["remote_script"], v2639.REMOTE_OUTPUT_OBSERVER_SCRIPT)
-        self.assertIn("RMS", observer["mixer_pattern"])
+        self.assertEqual(observer["sampling_mode"], "direct-control-allowlist")
+        self.assertIn("Get RMS", observer["direct_controls"])
+        self.assertIn("SpkrLeft COMP Switch", observer["direct_controls"])
         self.assertIn("output-side", observer["role"])
         self.assertIn("pcm_output_observer", state["remote_scripts"])
         self.assertIn("A90_OUTPUT_OBSERVER_PCM_BEGIN", state["remote_scripts"]["pcm_output_observer"])
+        self.assertIn("A90_OUTPUT_OBSERVER_CTL_BEGIN", state["remote_scripts"]["pcm_output_observer"])
         self.assertIn("A90_OUTPUT_OBSERVER_THERMAL", state["remote_scripts"]["pcm_output_observer"])
+        self.assertEqual(state["v2739_output_observer"], observer)
 
     def test_source_runs_output_observer_instead_of_plain_pcm_by_default(self) -> None:
         source = Path(v2639.__file__).read_text(encoding="utf-8")

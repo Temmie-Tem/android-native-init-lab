@@ -34,7 +34,7 @@ GLOBAL_APP_TYPE_CONTROL_NAME = "App Type Config"
 GLOBAL_APP_TYPE_SPEAKER_TUPLE = ("1", "69941", "48000", "16")
 GLOBAL_APP_TYPE_WRITER_ENTRY = "69941:48000:16"
 REMOTE_APP_TYPE_WRITER = f"{speaker.REMOTE_DIR}/a90_alsa_app_type_config_writer_v2733"
-REMOTE_OUTPUT_OBSERVER_SCRIPT = f"{speaker.REMOTE_DIR}/a90_pcm_output_observer_v2739.sh"
+REMOTE_OUTPUT_OBSERVER_SCRIPT = f"{speaker.REMOTE_DIR}/a90_pcm_output_observer_v2741.sh"
 DMESG_FOCUS_PATTERN = (
     "q6core|register_topolog|map_memory|avcs|adsp.*ready|adm_open|"
     "app type|bit_width|msm_pcm_routing|get_app_type|send_afe_cal|q6asm|"
@@ -45,6 +45,28 @@ MIXER_OUTPUT_FOCUS_PATTERN = (
     "SLIMBUS_0_RX|SWR DAC|App Type"
 )
 OUTPUT_OBSERVER_THERMAL_PATTERN = "wsa|spkr|speaker|audio|wcd|tavil|pa"
+OUTPUT_OBSERVER_DIRECT_CONTROLS = (
+    "COMP7 Switch",
+    "SLIMBUS_0_RX Audio Mixer MultiMedia1",
+    "RX INT7_1 MIX1 INP0",
+    "Audio Stream 0 App Type Cfg",
+    "App Type Config",
+    "Get RMS",
+    "Backend Device Channel Map",
+    "SpkrLeft WSA PA Gain",
+    "SpkrLeft WSA PA Mute",
+    "SpkrLeft WSA T0 Init",
+    "SpkrLeft COMP Switch",
+    "SpkrLeft BOOST Switch",
+    "SpkrLeft VISENSE Switch",
+    "SpkrLeft Boost Level",
+    "SpkrLeft SWR DAC_Port Switch",
+    "AIF4_VI Mixer SPKR_VI_1",
+    "AIF4_VI Mixer SPKR_VI_2",
+    "WSA_CDC_DMA_RX_0 Audio Mixer MultiMedia1",
+    "WSA_CDC_DMA_RX_1 Audio Mixer MultiMedia1",
+    "VI_FEED_TX Channels",
+)
 
 
 def rel(path: Path | str) -> str:
@@ -112,16 +134,8 @@ def dry_run_payload(args: argparse.Namespace) -> dict[str, Any]:
             },
             "v2730_dmesg_focus_pattern": DMESG_FOCUS_PATTERN,
             "v2737_mixer_output_focus_pattern": MIXER_OUTPUT_FOCUS_PATTERN,
-            "v2739_output_observer": {
-                "enabled": bool(getattr(args, "output_observer", True)),
-                "role": "read-only dynamic output-side sampler during bounded PCM probe",
-                "remote_script": REMOTE_OUTPUT_OBSERVER_SCRIPT,
-                "sample_count": int(getattr(args, "output_observer_samples", 12)),
-                "sample_sleep_sec": str(getattr(args, "output_observer_sleep", "0.10")),
-                "mixer_pattern": MIXER_OUTPUT_FOCUS_PATTERN,
-                "thermal_pattern": OUTPUT_OBSERVER_THERMAL_PATTERN,
-                "non_goal": "does not change WSA gain/boost/protection controls",
-            },
+            "v2739_output_observer": output_observer_plan(args),
+            "v2741_output_observer": output_observer_plan(args),
         }
     )
     paths = dict(payload.get("remote_script_paths") or {})
@@ -352,12 +366,27 @@ def focused_tinymix_script(remote_tinymix: str, card: int) -> str:
     )
 
 
+def output_observer_plan(args: argparse.Namespace) -> dict[str, Any]:
+    return {
+        "enabled": bool(getattr(args, "output_observer", True)),
+        "name": "v2741-direct-output-observer",
+        "role": "read-only dynamic output-side sampler during bounded PCM probe",
+        "remote_script": REMOTE_OUTPUT_OBSERVER_SCRIPT,
+        "sample_count": int(getattr(args, "output_observer_samples", 12)),
+        "sample_sleep_sec": str(getattr(args, "output_observer_sleep", "0.10")),
+        "sampling_mode": "direct-control-allowlist",
+        "direct_controls": list(OUTPUT_OBSERVER_DIRECT_CONTROLS),
+        "thermal_pattern": OUTPUT_OBSERVER_THERMAL_PATTERN,
+        "non_goal": "does not change WSA gain/boost/protection controls",
+    }
+
+
 def output_observer_script(args: argparse.Namespace) -> str:
     sample_count = max(1, int(getattr(args, "output_observer_samples", 12)))
     sample_sleep = str(getattr(args, "output_observer_sleep", "0.10"))
     card = int(getattr(args, "card", 0))
     device = int(getattr(args, "pcm_device", 0))
-    runtime_dir = f"{speaker.REMOTE_DIR}/v2739-output-observer"
+    runtime_dir = f"{speaker.REMOTE_DIR}/v2741-output-observer"
     lines = [
         "set -u",
         f"tinymix={shlex.quote(speaker.REMOTE_TINYMIX)}",
@@ -372,18 +401,35 @@ def output_observer_script(args: argparse.Namespace) -> str:
         "mkdir -p \"$runtime_dir\"",
         "samples=\"$runtime_dir/samples.txt\"",
         "stop=\"$runtime_dir/stop\"",
+        "read_ctl() {",
+        "  idx=\"$1\"",
+        "  label=\"$2\"",
+        "  name=\"$3\"",
+        "  out=\"$runtime_dir/ctl-${idx}-${label}.txt\"",
+        "  \"$tinymix\" -D \"$card\" \"$name\" >\"$out\" 2>&1",
+        "  rc=$?",
+        "  echo A90_OUTPUT_OBSERVER_CTL_BEGIN index=$idx label=$label rc=$rc name=$name",
+        "  while IFS= read -r line; do",
+        "    echo A90_OUTPUT_OBSERVER_CTL index=$idx label=$label line=$line",
+        "  done <\"$out\"",
+        "  echo A90_OUTPUT_OBSERVER_CTL_END index=$idx label=$label rc=$rc",
+        "}",
         "sample_once() {",
         "  idx=\"$1\"",
         "  ts=$(date +%s 2>/dev/null || echo 0)",
         "  echo A90_OUTPUT_OBSERVER_SAMPLE_BEGIN index=$idx ts=$ts",
-        f"  \"$tinymix\" -D \"$card\" --all-values | grep -iE {shlex.quote(MIXER_OUTPUT_FOCUS_PATTERN)} || true",
+    ]
+    for index, control in enumerate(OUTPUT_OBSERVER_DIRECT_CONTROLS):
+        label = f"c{index:02d}"
+        lines.append(f"  read_ctl \"$idx\" {shlex.quote(label)} {shlex.quote(control)}")
+    lines.extend([
         "  for zone in /sys/class/thermal/thermal_zone*; do",
         "    [ -r \"$zone/type\" ] || continue",
         "    ztype=$(cat \"$zone/type\" 2>/dev/null || true)",
         "    case \"$ztype\" in",
         "      *[Ww][Ss][Aa]*|*[Ss][Pp][Kk][Rr]*|*[Ss][Pp][Ee][Aa][Kk][Ee][Rr]*|*[Aa][Uu][Dd][Ii][Oo]*|*[Ww][Cc][Dd]*|*[Tt][Aa][Vv][Ii][Ll]*|*[Pp][Aa]*)",
         "        ztemp=$(cat \"$zone/temp\" 2>/dev/null || true)",
-        "        echo A90_OUTPUT_OBSERVER_THERMAL zone=${zone##*/} type=$ztype temp=$ztemp",
+        "        echo A90_OUTPUT_OBSERVER_THERMAL index=$idx zone=${zone##*/} type=$ztype temp=$ztemp",
         "        ;;",
         "    esac",
         "  done",
@@ -399,7 +445,7 @@ def output_observer_script(args: argparse.Namespace) -> str:
         "  done",
         ") >\"$samples\" 2>&1 &",
         "sampler_pid=$!",
-        "echo A90_OUTPUT_OBSERVER_BEGIN samples=$sample_count sleep=$sample_sleep",
+        "echo A90_OUTPUT_OBSERVER_BEGIN mode=direct-controls samples=$sample_count sleep=$sample_sleep controls=%d" % len(OUTPUT_OBSERVER_DIRECT_CONTROLS),
         "echo A90_OUTPUT_OBSERVER_PCM_BEGIN",
         "\"$pcm_probe\" \"$pcm_file\" -D \"$card\" -d \"$device\"",
         "pcm_rc=$?",
@@ -411,7 +457,7 @@ def output_observer_script(args: argparse.Namespace) -> str:
         "echo A90_OUTPUT_OBSERVER_SAMPLES_END",
         "echo A90_OUTPUT_OBSERVER_DONE rc=$pcm_rc",
         "exit $pcm_rc",
-    ]
+    ])
     return "\n".join(lines)
 
 
