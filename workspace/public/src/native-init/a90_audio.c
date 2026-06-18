@@ -1952,20 +1952,81 @@ static const char *audio_play_pcm_node_state(const char *path, bool *ready) {
     return "ok";
 }
 
-static bool audio_play_print_pcm_prereq(const struct audio_speaker_profile *profile,
-                                        char *pcm_path,
-                                        size_t pcm_path_size) {
+static bool audio_print_pcm_prereq(const char *prefix,
+                                   const struct audio_speaker_profile *profile,
+                                   char *pcm_path,
+                                   size_t pcm_path_size) {
     bool ready = false;
     const char *state;
 
+    if (prefix == NULL || prefix[0] == '\0') {
+        prefix = "audio.prereq.snd";
+    }
     audio_play_pcm_path(profile, pcm_path, pcm_path_size);
     state = audio_play_pcm_node_state(pcm_path, &ready);
-    a90_console_printf("audio.play.prereq.pcm_path=%s\r\n", pcm_path);
-    a90_console_printf("audio.play.prereq.pcm_node.state=%s\r\n", state);
-    a90_console_printf("audio.play.prereq.pcm_node.ready=%d\r\n", ready ? 1 : 0);
-    a90_console_printf("audio.play.prereq.snd_materialize_command=audio snd-materialize-once %s\r\n",
+    a90_console_printf("%s.pcm_path=%s\r\n", prefix, pcm_path);
+    a90_console_printf("%s.pcm_node.state=%s\r\n", prefix, state);
+    a90_console_printf("%s.pcm_node.ready=%d\r\n", prefix, ready ? 1 : 0);
+    a90_console_printf("%s.snd_materialize_command=audio snd-materialize-once %s\r\n",
+                       prefix,
                        AUDIO_SND_MATERIALIZE_TOKEN);
     return ready;
+}
+
+static bool audio_play_print_pcm_prereq(const struct audio_speaker_profile *profile,
+                                        char *pcm_path,
+                                        size_t pcm_path_size) {
+    return audio_print_pcm_prereq("audio.play.prereq", profile, pcm_path, pcm_path_size);
+}
+
+static int audio_prereq_cmd(char **argv, int argc) {
+    const struct audio_speaker_profile *profile;
+    const char *profile_id = AUDIO_DEFAULT_PROFILE_ID;
+    char pcm_path[64];
+    bool snd_ready;
+
+    if (argc > 3) {
+        a90_console_printf("usage: audio prereq [%s]\r\n", AUDIO_DEFAULT_PROFILE_ID);
+        return -EINVAL;
+    }
+    if (argc == 3 && argv != NULL && argv[2] != NULL) {
+        profile_id = argv[2];
+    }
+    profile = audio_find_profile(profile_id);
+    a90_console_printf("audio.prereq.version=1\r\n");
+    a90_console_printf("audio.prereq.profile=%s\r\n", profile_id);
+    a90_console_printf("audio.prereq.read_only=1\r\n");
+    a90_console_printf("audio.prereq.write_attempted=0\r\n");
+    a90_console_printf("audio.prereq.playback_attempted=0\r\n");
+    if (profile == NULL) {
+        a90_console_printf("audio.prereq.error=unknown-profile\r\n");
+        return -ENOENT;
+    }
+    a90_console_printf("audio.prereq.endpoint=%s\r\n", profile->endpoint);
+    a90_console_printf("audio.prereq.card=%d\r\n", profile->card);
+    a90_console_printf("audio.prereq.pcm_device=%d\r\n", profile->pcm_device);
+    a90_console_printf("audio.prereq.stage_order=boot,adsp,snd,app_type,setcal,route,pcm,cleanup,rollback\r\n");
+    a90_console_printf("audio.prereq.adsp.required=1\r\n");
+    a90_console_printf("audio.prereq.adsp.command=audio adsp-boot-once %s\r\n", AUDIO_ADSP_BOOT_ONCE_TOKEN);
+    a90_console_printf("audio.prereq.snd.required=1\r\n");
+    snd_ready = audio_print_pcm_prereq("audio.prereq.snd", profile, pcm_path, sizeof(pcm_path));
+    a90_console_printf("audio.prereq.app_type.required=1\r\n");
+    a90_console_printf("audio.prereq.app_type.command=audio app-type %s --write\r\n", profile->id);
+    a90_console_printf("audio.prereq.app_type.global_config=%s\r\n", profile->global_app_type_config);
+    a90_console_printf("audio.prereq.setcal.required=1\r\n");
+    a90_console_printf("audio.prereq.setcal.manifest=%s\r\n", AUDIO_SETCAL_DEFAULT_MANIFEST_PATH);
+    a90_console_printf("audio.prereq.setcal.command=audio setcal %s --manifest %s --execute\r\n",
+                       profile->id,
+                       AUDIO_SETCAL_DEFAULT_MANIFEST_PATH);
+    print_int_list("audio.prereq.setcal.order", profile->acdb_set_order, AUDIO_PROFILE_ACDB_SET_COUNT);
+    a90_console_printf("audio.prereq.route.required=1\r\n");
+    a90_console_printf("audio.prereq.route.command=audio route %s --apply --layer core\r\n", profile->id);
+    a90_console_printf("audio.prereq.play.required=1\r\n");
+    a90_console_printf("audio.prereq.play.command=audio play %s --mode probe --execute\r\n", profile->id);
+    a90_console_printf("audio.prereq.ready.snd=%d\r\n", snd_ready ? 1 : 0);
+    a90_console_printf("audio.prereq.ready.runtime_state_verified=0\r\n");
+    a90_console_printf("audio.prereq.ready.play=0\r\n");
+    return 0;
 }
 
 static bool audio_pcm_param_is_mask(int parameter) {
@@ -4012,6 +4073,9 @@ int a90_audio_cmd(char **argv, int argc) {
     if (argc >= 2 && argv != NULL && argv[1] != NULL && strcmp(argv[1], "stages") == 0) {
         return audio_print_stages(argv, argc);
     }
+    if (argc >= 2 && argv != NULL && argv[1] != NULL && strcmp(argv[1], "prereq") == 0) {
+        return audio_prereq_cmd(argv, argc);
+    }
     if (argc >= 2 && argv != NULL && argv[1] != NULL && strcmp(argv[1], "app-type") == 0) {
         return audio_app_type_cmd(argv, argc);
     }
@@ -4036,6 +4100,6 @@ int a90_audio_cmd(char **argv, int argc) {
     if (argc >= 2 && argv != NULL && argv[1] != NULL && strcmp(argv[1], "snd-materialize-once") == 0) {
         return audio_snd_materialize_once(argv, argc);
     }
-    a90_console_printf("usage: audio [adsp-status|status|profiles|profile [id]|speaker-map [id]|stages [id]|app-type [profile] [--dry-run|--write]|setcal [profile] [--dry-run|--execute] [--manifest PATH --verify|--prepare|--load]|play [profile] [--mode probe|listen] [--amplitude-milli N] [--duration-ms N] [--dry-run|--execute]|stop [profile] [--dry-run|--execute]|route [profile] [--dry-run|--apply|--reset] [--layer all|core|feedback|endpoint|blocked]|snd-status|adsp-boot-once|snd-materialize-once]\r\n");
+    a90_console_printf("usage: audio [adsp-status|status|profiles|profile [id]|speaker-map [id]|stages [id]|prereq [id]|app-type [profile] [--dry-run|--write]|setcal [profile] [--dry-run|--execute] [--manifest PATH --verify|--prepare|--load]|play [profile] [--mode probe|listen] [--amplitude-milli N] [--duration-ms N] [--dry-run|--execute]|stop [profile] [--dry-run|--execute]|route [profile] [--dry-run|--apply|--reset] [--layer all|core|feedback|endpoint|blocked]|snd-status|adsp-boot-once|snd-materialize-once]\r\n");
     return -EINVAL;
 }
