@@ -1,4 +1,4 @@
-"""Tests for the V2765 native audio PCM play execute-gate API."""
+"""Tests for the native audio PCM play execute path."""
 
 from __future__ import annotations
 
@@ -33,7 +33,7 @@ class NativeAudioPlayExecuteGateV2765(unittest.TestCase):
             with self.subTest(marker=marker):
                 self.assertIn(marker, text)
 
-    def test_play_execute_plan_reports_pcm_path_and_waveform_without_opening(self) -> None:
+    def test_play_execute_plan_reports_pcm_path_and_waveform(self) -> None:
         text = source_text()
         plan_start = text.index("static void audio_play_print_execute_plan")
         plan_end = text.index("static int audio_play_cmd")
@@ -54,19 +54,47 @@ class NativeAudioPlayExecuteGateV2765(unittest.TestCase):
         self.assertNotIn("ioctl(", plan_block)
         self.assertNotIn("write(", plan_block)
 
-    def test_play_execute_refuses_after_cap_checks_and_plan(self) -> None:
+    def test_play_execute_uses_raw_alsa_pcm_sequence_after_cap_checks_and_plan(self) -> None:
         text = source_text()
 
         cap_check = text.index("audio.play.refused=safety-cap-exceeded")
         plan_call = text.index("audio_play_print_execute_plan(profile, mode, amplitude_milli, duration_ms)")
-        refusal = text.index("audio.play.refused=execute-not-implemented-native-pcm")
+        execute_call = text.index("audio_play_execute_pcm(profile, mode, amplitude_milli, duration_ms)")
 
         self.assertLess(cap_check, plan_call)
-        self.assertLess(plan_call, refusal)
+        self.assertLess(plan_call, execute_call)
+        self.assertNotIn("execute-not-implemented-native-pcm", text)
         self.assertRegex(
             text,
-            re.compile(r'if \(execute_mode\).*?audio_play_print_execute_plan.*?execute-not-implemented-native-pcm.*?return -EPERM;', re.DOTALL),
+            re.compile(
+                r'if \(execute_mode\).*?audio_play_print_execute_plan.*?return audio_play_execute_pcm',
+                re.DOTALL,
+            ),
         )
+
+    def test_pcm_writer_is_bounded_and_uses_kernel_pcm_ioctls(self) -> None:
+        text = source_text()
+        execute_start = text.index("static int audio_play_execute_pcm")
+        execute_end = text.index("static void audio_play_print_execute_plan")
+        execute_block = text[execute_start:execute_end]
+
+        for marker in [
+            "AUDIO_PCM_MAX_CHANNELS 8",
+            "AUDIO_PCM_TONE_HZ 440",
+            "SNDRV_PCM_IOCTL_HW_PARAMS",
+            "SNDRV_PCM_IOCTL_SW_PARAMS",
+            "SNDRV_PCM_IOCTL_PREPARE",
+            "SNDRV_PCM_IOCTL_WRITEI_FRAMES",
+            "SNDRV_PCM_IOCTL_DRAIN",
+            "audio.play.execute.alsa_open_attempted=1",
+            "audio.play.execute.ioctl_attempted=1",
+            "audio.play.execute.pcm_write_attempted=1",
+            "audio.play.execute.done",
+        ]:
+            with self.subTest(marker=marker):
+                self.assertIn(marker, text)
+        self.assertIn("profile->bit_width != 16", execute_block)
+        self.assertIn("profile->channels > AUDIO_PCM_MAX_CHANNELS", execute_block)
 
 
 if __name__ == "__main__":

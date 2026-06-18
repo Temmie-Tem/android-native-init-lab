@@ -61,6 +61,8 @@
 #define AUDIO_SETCAL_MANIFEST_SHA256_SIZE 65
 #define AUDIO_PCM_PERIOD_SIZE 1024
 #define AUDIO_PCM_PERIOD_COUNT 4
+#define AUDIO_PCM_MAX_CHANNELS 8
+#define AUDIO_PCM_TONE_HZ 440
 
 enum audio_route_value_kind {
     AUDIO_ROUTE_VALUE_INTS = 1,
@@ -1916,6 +1918,298 @@ static long long audio_play_data_bytes(const struct audio_speaker_profile *profi
     return ((long long)profile->sample_rate * (long long)duration_ms * frame_bytes) / 1000LL;
 }
 
+static bool audio_pcm_param_is_mask(int parameter) {
+    return parameter >= SNDRV_PCM_HW_PARAM_FIRST_MASK && parameter <= SNDRV_PCM_HW_PARAM_LAST_MASK;
+}
+
+static bool audio_pcm_param_is_interval(int parameter) {
+    return parameter >= SNDRV_PCM_HW_PARAM_FIRST_INTERVAL && parameter <= SNDRV_PCM_HW_PARAM_LAST_INTERVAL;
+}
+
+static struct snd_mask *audio_pcm_param_to_mask(struct snd_pcm_hw_params *params, int parameter) {
+    return &params->masks[parameter - SNDRV_PCM_HW_PARAM_FIRST_MASK];
+}
+
+static struct snd_interval *audio_pcm_param_to_interval(struct snd_pcm_hw_params *params, int parameter) {
+    return &params->intervals[parameter - SNDRV_PCM_HW_PARAM_FIRST_INTERVAL];
+}
+
+static void audio_pcm_param_init(struct snd_pcm_hw_params *params) {
+    int parameter;
+
+    memset(params, 0, sizeof(*params));
+    for (parameter = SNDRV_PCM_HW_PARAM_FIRST_MASK; parameter <= SNDRV_PCM_HW_PARAM_LAST_MASK; ++parameter) {
+        struct snd_mask *mask = audio_pcm_param_to_mask(params, parameter);
+        mask->bits[0] = ~0U;
+        mask->bits[1] = ~0U;
+    }
+    for (parameter = SNDRV_PCM_HW_PARAM_FIRST_INTERVAL; parameter <= SNDRV_PCM_HW_PARAM_LAST_INTERVAL; ++parameter) {
+        struct snd_interval *interval = audio_pcm_param_to_interval(params, parameter);
+        interval->min = 0;
+        interval->max = ~0U;
+    }
+    params->rmask = ~0U;
+    params->cmask = 0;
+    params->info = ~0U;
+}
+
+static void audio_pcm_param_set_mask(struct snd_pcm_hw_params *params, int parameter, unsigned int bit) {
+    struct snd_mask *mask;
+
+    if (params == NULL || !audio_pcm_param_is_mask(parameter) || bit >= SNDRV_MASK_MAX) {
+        return;
+    }
+    mask = audio_pcm_param_to_mask(params, parameter);
+    memset(mask, 0, sizeof(*mask));
+    mask->bits[bit >> 5] |= (uint32_t)(1U << (bit & 31U));
+}
+
+static void audio_pcm_param_set_int(struct snd_pcm_hw_params *params, int parameter, unsigned int value) {
+    struct snd_interval *interval;
+
+    if (params == NULL || !audio_pcm_param_is_interval(parameter)) {
+        return;
+    }
+    interval = audio_pcm_param_to_interval(params, parameter);
+    interval->min = value;
+    interval->max = value;
+    interval->integer = 1;
+}
+
+static void audio_pcm_param_set_min(struct snd_pcm_hw_params *params, int parameter, unsigned int value) {
+    struct snd_interval *interval;
+
+    if (params == NULL || !audio_pcm_param_is_interval(parameter)) {
+        return;
+    }
+    interval = audio_pcm_param_to_interval(params, parameter);
+    interval->min = value;
+}
+
+static int audio_pcm_configure_fd(int fd, const struct audio_speaker_profile *profile) {
+    struct snd_pcm_hw_params hw_params;
+    struct snd_pcm_sw_params sw_params;
+    int rc;
+
+    if (fd < 0 || profile == NULL || profile->channels <= 0 || profile->channels > AUDIO_PCM_MAX_CHANNELS ||
+        profile->sample_rate <= 0 || profile->bit_width != 16) {
+        a90_console_printf("audio.play.execute.error=bad-pcm-profile\r\n");
+        return -EINVAL;
+    }
+
+    audio_pcm_param_init(&hw_params);
+    audio_pcm_param_set_mask(&hw_params, SNDRV_PCM_HW_PARAM_FORMAT, SNDRV_PCM_FORMAT_S16_LE);
+    audio_pcm_param_set_mask(&hw_params, SNDRV_PCM_HW_PARAM_SUBFORMAT, SNDRV_PCM_SUBFORMAT_STD);
+    audio_pcm_param_set_mask(&hw_params, SNDRV_PCM_HW_PARAM_ACCESS, SNDRV_PCM_ACCESS_RW_INTERLEAVED);
+    audio_pcm_param_set_min(&hw_params, SNDRV_PCM_HW_PARAM_PERIOD_SIZE, AUDIO_PCM_PERIOD_SIZE);
+    audio_pcm_param_set_int(&hw_params, SNDRV_PCM_HW_PARAM_SAMPLE_BITS, (unsigned int)profile->bit_width);
+    audio_pcm_param_set_int(&hw_params,
+                            SNDRV_PCM_HW_PARAM_FRAME_BITS,
+                            (unsigned int)(profile->bit_width * profile->channels));
+    audio_pcm_param_set_int(&hw_params, SNDRV_PCM_HW_PARAM_CHANNELS, (unsigned int)profile->channels);
+    audio_pcm_param_set_int(&hw_params, SNDRV_PCM_HW_PARAM_PERIODS, AUDIO_PCM_PERIOD_COUNT);
+    audio_pcm_param_set_int(&hw_params, SNDRV_PCM_HW_PARAM_RATE, (unsigned int)profile->sample_rate);
+
+    errno = 0;
+    rc = ioctl(fd, SNDRV_PCM_IOCTL_HW_PARAMS, &hw_params);
+    a90_console_printf("audio.play.execute.hw_params.rc=%d errno=%d\r\n", rc, rc < 0 ? errno : 0);
+    if (rc < 0) {
+        return -errno;
+    }
+
+    memset(&sw_params, 0, sizeof(sw_params));
+    sw_params.tstamp_mode = SNDRV_PCM_TSTAMP_ENABLE;
+    sw_params.period_step = 1;
+    sw_params.avail_min = 1;
+    sw_params.xfer_align = AUDIO_PCM_PERIOD_SIZE / 2;
+    sw_params.start_threshold = (AUDIO_PCM_PERIOD_COUNT * AUDIO_PCM_PERIOD_SIZE) / 2;
+    sw_params.stop_threshold = AUDIO_PCM_PERIOD_COUNT * AUDIO_PCM_PERIOD_SIZE;
+    sw_params.silence_threshold = 0;
+    sw_params.silence_size = 0;
+
+    errno = 0;
+    rc = ioctl(fd, SNDRV_PCM_IOCTL_SW_PARAMS, &sw_params);
+    a90_console_printf("audio.play.execute.sw_params.rc=%d errno=%d\r\n", rc, rc < 0 ? errno : 0);
+    if (rc < 0) {
+        return -errno;
+    }
+
+    errno = 0;
+    rc = ioctl(fd, SNDRV_PCM_IOCTL_PREPARE);
+    a90_console_printf("audio.play.execute.prepare.rc=%d errno=%d\r\n", rc, rc < 0 ? errno : 0);
+    if (rc < 0) {
+        return -errno;
+    }
+
+    return 0;
+}
+
+static int16_t audio_pcm_triangle_sample(int64_t frame_index,
+                                         int sample_rate,
+                                         int amplitude_milli) {
+    int amplitude = (32767 * amplitude_milli) / 1000;
+    int tone_period = sample_rate / AUDIO_PCM_TONE_HZ;
+    int phase;
+    int half_period;
+    int ramp;
+
+    if (amplitude <= 0 || tone_period < 4) {
+        return 0;
+    }
+    phase = (int)(frame_index % tone_period);
+    half_period = tone_period / 2;
+    ramp = phase < half_period ? phase : tone_period - phase;
+    return (int16_t)(((ramp * 4 * amplitude) / tone_period) - amplitude);
+}
+
+static void audio_pcm_fill_tone(int16_t *buffer,
+                                int frames,
+                                const struct audio_speaker_profile *profile,
+                                int amplitude_milli,
+                                int64_t start_frame) {
+    int frame_index;
+    int channel_index;
+
+    if (buffer == NULL || profile == NULL || frames <= 0) {
+        return;
+    }
+    for (frame_index = 0; frame_index < frames; ++frame_index) {
+        int16_t sample = audio_pcm_triangle_sample(start_frame + frame_index,
+                                                  profile->sample_rate,
+                                                  amplitude_milli);
+        for (channel_index = 0; channel_index < profile->channels; ++channel_index) {
+            buffer[(frame_index * profile->channels) + channel_index] = sample;
+        }
+    }
+}
+
+static int audio_pcm_write_frames(int fd,
+                                  const int16_t *buffer,
+                                  int frames) {
+    struct snd_xferi transfer;
+    int rc;
+
+    memset(&transfer, 0, sizeof(transfer));
+    transfer.buf = (void *)buffer;
+    transfer.frames = (snd_pcm_uframes_t)frames;
+
+    errno = 0;
+    rc = ioctl(fd, SNDRV_PCM_IOCTL_WRITEI_FRAMES, &transfer);
+    if (rc < 0) {
+        a90_console_printf("audio.play.execute.write.rc=%d errno=%d frames=%d\r\n", rc, errno, frames);
+        return -errno;
+    }
+    if (transfer.result < 0) {
+        a90_console_printf("audio.play.execute.write.result=%ld frames=%d\r\n",
+                           (long)transfer.result,
+                           frames);
+        return (int)transfer.result;
+    }
+    if (transfer.result != frames) {
+        a90_console_printf("audio.play.execute.write.short=%ld frames=%d\r\n",
+                           (long)transfer.result,
+                           frames);
+        return -EIO;
+    }
+    return 0;
+}
+
+static int audio_play_execute_pcm(const struct audio_speaker_profile *profile,
+                                  const char *mode,
+                                  int amplitude_milli,
+                                  int duration_ms) {
+    char pcm_path[64];
+    int16_t *buffer;
+    int fd;
+    int total_frames;
+    int frames_done = 0;
+    int chunk_count = 0;
+    int frame_bytes;
+    int buffer_bytes;
+    int rc = 0;
+
+    if (profile == NULL || mode == NULL) {
+        return -EINVAL;
+    }
+    frame_bytes = (int)audio_play_frame_bytes(profile);
+    total_frames = (profile->sample_rate * duration_ms) / 1000;
+    buffer_bytes = AUDIO_PCM_PERIOD_SIZE * frame_bytes;
+    if (total_frames <= 0 || frame_bytes <= 0 || buffer_bytes <= 0 ||
+        profile->channels <= 0 || profile->channels > AUDIO_PCM_MAX_CHANNELS ||
+        profile->bit_width != 16) {
+        a90_console_printf("audio.play.execute.error=bad-pcm-geometry\r\n");
+        return -EINVAL;
+    }
+
+    snprintf(pcm_path, sizeof(pcm_path), "/dev/snd/pcmC%dD%dp", profile->card, profile->pcm_device);
+    a90_console_printf("audio.play.execute.version=1\r\n");
+    a90_console_printf("audio.play.execute.profile=%s\r\n", profile->id);
+    a90_console_printf("audio.play.execute.mode=%s\r\n", mode);
+    a90_console_printf("audio.play.execute.pcm_path=%s\r\n", pcm_path);
+    a90_console_printf("audio.play.execute.tone_hz=%d\r\n", AUDIO_PCM_TONE_HZ);
+    a90_console_printf("audio.play.execute.total_frames=%d\r\n", total_frames);
+    a90_console_printf("audio.play.execute.buffer_bytes=%d\r\n", buffer_bytes);
+
+    buffer = malloc((size_t)buffer_bytes);
+    if (buffer == NULL) {
+        a90_console_printf("audio.play.execute.error=alloc-failed errno=%d bytes=%d\r\n", errno, buffer_bytes);
+        return -ENOMEM;
+    }
+
+    a90_console_printf("audio.play.execute.alsa_open_attempted=1\r\n");
+    errno = 0;
+    fd = open(pcm_path, O_WRONLY | O_CLOEXEC);
+    a90_console_printf("audio.play.execute.open.rc=%d errno=%d\r\n", fd >= 0 ? 0 : -1, fd < 0 ? errno : 0);
+    if (fd < 0) {
+        rc = -errno;
+        free(buffer);
+        return rc;
+    }
+
+    a90_console_printf("audio.play.execute.ioctl_attempted=1\r\n");
+    rc = audio_pcm_configure_fd(fd, profile);
+    if (rc < 0) {
+        close(fd);
+        free(buffer);
+        return rc;
+    }
+
+    a90_console_printf("audio.play.playback_attempted=1\r\n");
+    a90_console_printf("audio.play.execute.pcm_write_attempted=1\r\n");
+    while (frames_done < total_frames) {
+        int frames_this_chunk = total_frames - frames_done;
+        if (frames_this_chunk > AUDIO_PCM_PERIOD_SIZE) {
+            frames_this_chunk = AUDIO_PCM_PERIOD_SIZE;
+        }
+        audio_pcm_fill_tone(buffer, frames_this_chunk, profile, amplitude_milli, frames_done);
+        rc = audio_pcm_write_frames(fd, buffer, frames_this_chunk);
+        if (rc < 0) {
+            ioctl(fd, SNDRV_PCM_IOCTL_DROP);
+            close(fd);
+            free(buffer);
+            return rc;
+        }
+        frames_done += frames_this_chunk;
+        ++chunk_count;
+    }
+
+    errno = 0;
+    rc = ioctl(fd, SNDRV_PCM_IOCTL_DRAIN);
+    a90_console_printf("audio.play.execute.drain.rc=%d errno=%d\r\n", rc, rc < 0 ? errno : 0);
+    if (rc < 0) {
+        rc = -errno;
+    }
+
+    close(fd);
+    free(buffer);
+    a90_console_printf("audio.play.execute.done=%d chunks=%d frames=%d bytes=%lld\r\n",
+                       rc == 0 ? 1 : 0,
+                       chunk_count,
+                       frames_done,
+                       (long long)frames_done * (long long)frame_bytes);
+    return rc;
+}
+
 static void audio_play_print_execute_plan(const struct audio_speaker_profile *profile,
                                           const char *mode,
                                           int amplitude_milli,
@@ -2006,7 +2300,7 @@ static int audio_play_cmd(char **argv, int argc) {
     a90_console_printf("audio.play.profile=%s\r\n", profile_id);
     a90_console_printf("audio.play.mode=%s\r\n", mode);
     a90_console_printf("audio.play.execute_requested=%d\r\n", execute_mode ? 1 : 0);
-    a90_console_printf("audio.play.execute_supported=0\r\n");
+    a90_console_printf("audio.play.execute_supported=1\r\n");
     a90_console_printf("audio.play.execute_plan_supported=%d\r\n", execute_mode ? 1 : 0);
     a90_console_printf("audio.play.playback_attempted=0\r\n");
     if (profile == NULL) {
@@ -2052,9 +2346,7 @@ static int audio_play_cmd(char **argv, int argc) {
     }
     if (execute_mode) {
         audio_play_print_execute_plan(profile, mode, amplitude_milli, duration_ms);
-        a90_console_printf("audio.play.refused=execute-not-implemented-native-pcm\r\n");
-        a90_console_printf("audio.play.playback_attempted=0\r\n");
-        return -EPERM;
+        return audio_play_execute_pcm(profile, mode, amplitude_milli, duration_ms);
     }
     a90_console_printf("audio.play.dry_run_ok=1\r\n");
     return 0;

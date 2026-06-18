@@ -26,7 +26,7 @@ class NativeAudioPlayPlanApiV2761(unittest.TestCase):
         self.assertIn("return audio_play_cmd(argv, argc);", text)
         self.assertIn("usage: audio play [profile] [--mode probe|listen]", text)
         self.assertIn("audio.play.version=1", text)
-        self.assertIn("audio.play.execute_supported=0", text)
+        self.assertIn("audio.play.execute_supported=1", text)
         self.assertIn("audio.play.execute_plan_supported", text)
 
     def test_play_plan_exports_profile_pcm_defaults_and_safety_caps(self) -> None:
@@ -63,24 +63,26 @@ class NativeAudioPlayPlanApiV2761(unittest.TestCase):
     def test_play_dry_run_does_not_open_alsa_or_issue_ioctls(self) -> None:
         text = source_text()
         play_start = text.index("static int audio_play_cmd")
-        play_end = text.index("static int audio_open_control_device")
+        play_end = text.index("static int audio_stop_cmd")
         play_block = text[play_start:play_end]
+        execute_branch = play_block.index("if (execute_mode) {")
+        dry_run_line = play_block.index("audio.play.dry_run_ok=1")
+        dry_run_tail = play_block[execute_branch:dry_run_line]
 
-        self.assertIn("audio.play.alsa_open_attempted=0", play_block)
-        self.assertIn("audio.play.ioctl_attempted=0", play_block)
-        self.assertIn("audio.play.playback_attempted=0", play_block)
-        self.assertNotIn("open(", play_block)
-        self.assertNotIn("ioctl(", play_block)
-        self.assertNotIn("SNDRV_PCM", play_block)
+        self.assertIn("audio.play.alsa_open_attempted=0", text)
+        self.assertIn("audio.play.ioctl_attempted=0", text)
+        self.assertIn("audio.play.playback_attempted=0", text)
+        self.assertNotIn("open(", dry_run_tail)
+        self.assertNotIn("ioctl(", dry_run_tail)
 
-    def test_play_refuses_execute_and_cap_violations_before_playback(self) -> None:
+    def test_play_refuses_cap_violations_before_execute(self) -> None:
         text = source_text()
 
         self.assertIn("audio.play.refused=safety-cap-exceeded", text)
-        self.assertIn("audio.play.refused=execute-not-implemented-native-pcm", text)
+        self.assertNotIn("audio.play.refused=execute-not-implemented-native-pcm", text)
         self.assertRegex(
             text,
-            re.compile(r'if \(execute_mode\).*?execute-not-implemented-native-pcm.*?return -EPERM;', re.DOTALL),
+            re.compile(r'audio.play.refused=safety-cap-exceeded.*?return -EPERM;.*?if \(execute_mode\)', re.DOTALL),
         )
 
     def test_stage_api_has_native_play_plan_before_blocked_execute(self) -> None:
@@ -97,7 +99,7 @@ class NativeAudioPlayPlanApiV2761(unittest.TestCase):
             stages["bounded-pcm-playback"]["command"],
             ["audio", "play", "internal-speaker-safe", "--mode", "probe", "--execute"],
         )
-        self.assertFalse(stages["bounded-pcm-playback"]["native_implemented"])
+        self.assertTrue(stages["bounded-pcm-playback"]["native_implemented"])
 
 
 if __name__ == "__main__":

@@ -416,11 +416,11 @@ AUDIO_FEATURE_STAGES = (
         owner="native-init",
         phase="pcm",
         command_template=("audio", "play", "{profile}", "--mode", "probe", "--execute"),
-        native_implemented=False,
+        native_implemented=True,
         writes_runtime_state=True,
         rollback_boundary=False,
         speaker_scope="internal-speaker",
-        note="planned bounded tone API; amplitude stays capped by the profile",
+        note="native bounded PCM writer; amplitude and duration stay capped by the profile",
     ),
     AudioFeatureStage(
         stage_id="plan-audio-stop-cleanup",
