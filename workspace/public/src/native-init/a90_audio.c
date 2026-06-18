@@ -9,6 +9,7 @@
 #include <fcntl.h>
 #include <limits.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -52,6 +53,9 @@
 #define AUDIO_SETCAL_IOCTL_ALLOCATE_CALIBRATION 0xC00461C8u
 #define AUDIO_SETCAL_IOCTL_DEALLOCATE_CALIBRATION 0xC00461C9u
 #define AUDIO_SETCAL_IOCTL_SET_CALIBRATION 0xC00461CBu
+#define AUDIO_ION_FLAG_CACHED 1U
+#define AUDIO_ION_SYSTEM_HEAP_ID 25U
+#define AUDIO_ION_SYSTEM_HEAP_MASK (1U << AUDIO_ION_SYSTEM_HEAP_ID)
 #define AUDIO_SETCAL_MANIFEST_PROFILE_SIZE 96
 #define AUDIO_SETCAL_MANIFEST_ROLE_SIZE 64
 #define AUDIO_SETCAL_MANIFEST_SHA256_SIZE 65
@@ -225,6 +229,26 @@ struct audio_setcal_allocation_plan {
     int slot_count;
     long long total_payload_bytes;
     struct audio_setcal_allocation_slot slots[AUDIO_PROFILE_ACDB_SET_COUNT];
+};
+
+struct audio_setcal_ion_request_slot {
+    bool active;
+    int sequence;
+    int cal_type;
+    uint64_t len;
+    uint32_t heap_id_mask;
+    uint32_t flags;
+    int dmabuf_fd;
+    int mem_handle;
+    char role[AUDIO_SETCAL_MANIFEST_ROLE_SIZE];
+};
+
+struct audio_setcal_ion_request_plan {
+    int request_count;
+    uint32_t heap_id_mask;
+    uint32_t flags;
+    uint64_t total_len;
+    struct audio_setcal_ion_request_slot requests[AUDIO_PROFILE_ACDB_SET_COUNT];
 };
 
 static const char *const AUDIO_INTERNAL_SPEAKER_OBSERVER_CONTROLS[] = {
@@ -1579,6 +1603,74 @@ static void audio_setcal_print_allocation_plan(const struct audio_setcal_allocat
     }
 }
 
+static void audio_setcal_ion_request_plan_build(const struct audio_setcal_allocation_plan *allocation_plan,
+                                                struct audio_setcal_ion_request_plan *request_plan) {
+    int index;
+
+    if (request_plan == NULL) {
+        return;
+    }
+    memset(request_plan, 0, sizeof(*request_plan));
+    request_plan->heap_id_mask = AUDIO_ION_SYSTEM_HEAP_MASK;
+    request_plan->flags = AUDIO_ION_FLAG_CACHED;
+    if (allocation_plan == NULL) {
+        return;
+    }
+    for (index = 0; index < allocation_plan->slot_count; ++index) {
+        const struct audio_setcal_allocation_slot *slot = &allocation_plan->slots[index];
+        struct audio_setcal_ion_request_slot *request;
+
+        if (!slot->active || slot->payload_size <= 0) {
+            continue;
+        }
+        request = &request_plan->requests[request_plan->request_count];
+        request->active = true;
+        request->sequence = slot->sequence;
+        request->cal_type = slot->cal_type;
+        request->len = (uint64_t)slot->payload_size;
+        request->heap_id_mask = request_plan->heap_id_mask;
+        request->flags = request_plan->flags;
+        request->dmabuf_fd = -1;
+        request->mem_handle = -1;
+        audio_copy_string(request->role, sizeof(request->role), slot->role);
+        request_plan->request_count += 1;
+        request_plan->total_len += request->len;
+    }
+}
+
+static void audio_setcal_print_ion_request_plan(const struct audio_setcal_ion_request_plan *request_plan) {
+    int index;
+
+    if (request_plan == NULL) {
+        return;
+    }
+    a90_console_printf("audio.setcal.execute.ion.plan.version=1\r\n");
+    a90_console_printf("audio.setcal.execute.ion.plan.request.count=%d\r\n",
+                       request_plan->request_count);
+    a90_console_printf("audio.setcal.execute.ion.plan.total_len=%llu\r\n",
+                       (unsigned long long)request_plan->total_len);
+    a90_console_printf("audio.setcal.execute.ion.plan.heap_id_mask=0x%08x\r\n",
+                       request_plan->heap_id_mask);
+    a90_console_printf("audio.setcal.execute.ion.plan.flags=0x%08x\r\n", request_plan->flags);
+    a90_console_printf("audio.setcal.execute.ion.plan.alloc_attempted=0\r\n");
+    a90_console_printf("audio.setcal.execute.ion.plan.ioctl_attempted=0\r\n");
+    for (index = 0; index < request_plan->request_count; ++index) {
+        const struct audio_setcal_ion_request_slot *request = &request_plan->requests[index];
+        char prefix[96];
+
+        snprintf(prefix, sizeof(prefix), "audio.setcal.execute.ion.plan.request.%d", index);
+        a90_console_printf("%s.active=%d\r\n", prefix, request->active ? 1 : 0);
+        a90_console_printf("%s.sequence=%d\r\n", prefix, request->sequence);
+        a90_console_printf("%s.cal_type=%d\r\n", prefix, request->cal_type);
+        a90_console_printf("%s.role=%s\r\n", prefix, request->role[0] != '\0' ? request->role : "-");
+        a90_console_printf("%s.len=%llu\r\n", prefix, (unsigned long long)request->len);
+        a90_console_printf("%s.heap_id_mask=0x%08x\r\n", prefix, request->heap_id_mask);
+        a90_console_printf("%s.flags=0x%08x\r\n", prefix, request->flags);
+        a90_console_printf("%s.dmabuf_fd=%d\r\n", prefix, request->dmabuf_fd);
+        a90_console_printf("%s.mem_handle=%d\r\n", prefix, request->mem_handle);
+    }
+}
+
 static int audio_setcal_cmd(char **argv, int argc) {
     const char *profile_id = AUDIO_DEFAULT_PROFILE_ID;
     const char *manifest_path = NULL;
@@ -1586,6 +1678,7 @@ static int audio_setcal_cmd(char **argv, int argc) {
     struct audio_setcal_manifest_plan *manifest_plan = NULL;
     struct audio_setcal_execute_open_state execute_open_state;
     struct audio_setcal_allocation_plan allocation_plan;
+    struct audio_setcal_ion_request_plan ion_request_plan;
     struct audio_setcal_manifest_totals totals;
     struct audio_setcal_manifest_totals load_totals;
     bool seen_profile = false;
@@ -1602,6 +1695,7 @@ static int audio_setcal_cmd(char **argv, int argc) {
     memset(&load_totals, 0, sizeof(load_totals));
     audio_setcal_execute_open_state_reset(&execute_open_state);
     memset(&allocation_plan, 0, sizeof(allocation_plan));
+    memset(&ion_request_plan, 0, sizeof(ion_request_plan));
     for (argi = 2; argi < argc; ++argi) {
         if (argv == NULL || argv[argi] == NULL) {
             a90_console_printf("usage: audio setcal [profile] [--dry-run|--execute] [--manifest PATH --verify|--prepare|--load]\r\n");
@@ -1756,6 +1850,8 @@ static int audio_setcal_cmd(char **argv, int argc) {
         }
         audio_setcal_allocation_plan_build(manifest_plan, &allocation_plan);
         audio_setcal_print_allocation_plan(&allocation_plan);
+        audio_setcal_ion_request_plan_build(&allocation_plan, &ion_request_plan);
+        audio_setcal_print_ion_request_plan(&ion_request_plan);
         audio_setcal_close_execute_devices(&execute_open_state);
         a90_console_printf("audio.setcal.refused=execute-not-implemented-native-setcal-ioctl\r\n");
         a90_console_printf("audio.setcal.ioctl_attempted=0\r\n");
