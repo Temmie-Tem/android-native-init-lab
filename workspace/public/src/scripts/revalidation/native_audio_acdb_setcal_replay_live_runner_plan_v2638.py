@@ -38,6 +38,7 @@ REMOTE_START_SCRIPT = "setcal-start-and-wait-all-set.sh"
 REMOTE_DEALLOCATE_SCRIPT = "setcal-deallocate-check.sh"
 REMOTE_RUNTIME_CLEANUP_SCRIPT = "setcal-runtime-cleanup.sh"
 SET_WAIT_TIMEOUT_SEC = 30
+DEALLOCATE_WAIT_MARGIN_SEC = 15
 
 
 def rel(path: Path | str) -> str:
@@ -144,6 +145,17 @@ def payload_entry_indices(manifest: dict[str, Any]) -> list[int]:
     return indices
 
 
+def hold_sec(manifest: dict[str, Any]) -> int:
+    argv = [str(part) for part in manifest.get("remote_argv") or []]
+    for index, token in enumerate(argv):
+        if token == "--hold-sec" and index + 1 < len(argv):
+            try:
+                return max(0, int(argv[index + 1]))
+            except ValueError:
+                return 0
+    return 0
+
+
 def remote_sha_check_lines(manifest: dict[str, Any]) -> list[str]:
     lines: list[str] = []
     for item in deploy_files(manifest):
@@ -170,6 +182,7 @@ def remote_start_script(manifest: dict[str, Any], *, wait_timeout_sec: int = SET
     remote_dir = str(manifest.get("remote_dir"))
     stdout_path = f"{remote_dir}/{REMOTE_STDOUT}"
     stderr_path = f"{remote_dir}/{REMOTE_STDERR}"
+    pid_path = f"{remote_dir}/setcal-replay.pid"
     argv = [str(part) for part in manifest.get("remote_argv") or []]
     final_index = final_set_index(manifest)
     lines = [
@@ -180,6 +193,7 @@ def remote_start_script(manifest: dict[str, Any], *, wait_timeout_sec: int = SET
         *devnode_setup_lines(),
         " ".join(shlex.quote(part) for part in argv) + f" >{shlex.quote(stdout_path)} 2>{shlex.quote(stderr_path)} &",
         "helper_pid=$!",
+        f"echo \"$helper_pid\" >{shlex.quote(pid_path)}",
         "i=0",
         f"while [ $i -lt {int(wait_timeout_sec)} ]; do",
         f"  if grep -q 'A90_ACDB_SETCAL_SET_OK index={final_index}' {shlex.quote(stderr_path)} 2>/dev/null; then echo A90_SETCAL_REPLAY_ALL_SET_OK pid=$helper_pid final_index={final_index}; exit 0; fi",
@@ -195,12 +209,24 @@ def remote_start_script(manifest: dict[str, Any], *, wait_timeout_sec: int = SET
 def remote_deallocate_check_script(manifest: dict[str, Any]) -> str:
     remote_dir = str(manifest.get("remote_dir"))
     stderr_path = f"{remote_dir}/{REMOTE_STDERR}"
+    pid_path = f"{remote_dir}/setcal-replay.pid"
     final_index = final_set_index(manifest)
+    wait_timeout_sec = hold_sec(manifest) + DEALLOCATE_WAIT_MARGIN_SEC
     lines = [
         "set -u",
+        f"echo A90_SETCAL_REPLAY_WAIT_FOR_DONE timeout={wait_timeout_sec}",
+        "i=0",
+        f"while [ $i -lt {int(wait_timeout_sec)} ]; do",
+        f"  if grep -q 'A90_ACDB_SETCAL_REPLAY_DONE rc=0' {shlex.quote(stderr_path)} 2>/dev/null; then break; fi",
+        f"  if grep -q 'A90_ACDB_SETCAL_REPLAY_DONE rc=1' {shlex.quote(stderr_path)} 2>/dev/null; then break; fi",
+        "  i=$((i+1))",
+        "  sleep 1",
+        "done",
         "echo A90_SETCAL_REPLAY_STDERR_BEGIN",
         f"cat {shlex.quote(stderr_path)} 2>/dev/null || true",
-        f"if grep -q 'A90_ACDB_SETCAL_REPLAY_DONE rc=0' {shlex.quote(stderr_path)} 2>/dev/null; then echo A90_SETCAL_REPLAY_DONE_OK; else echo A90_SETCAL_REPLAY_DONE_MISSING; exit 34; fi",
+        f"if grep -q 'A90_ACDB_SETCAL_REPLAY_DONE rc=0' {shlex.quote(stderr_path)} 2>/dev/null; then echo A90_SETCAL_REPLAY_DONE_OK; else "
+        f"if [ -s {shlex.quote(pid_path)} ] && kill -0 \"$(cat {shlex.quote(pid_path)})\" 2>/dev/null; then echo A90_SETCAL_REPLAY_HELPER_STILL_RUNNING; else echo A90_SETCAL_REPLAY_HELPER_NOT_RUNNING; fi; "
+        "echo A90_SETCAL_REPLAY_DONE_MISSING; exit 34; fi",
     ]
     for index in payload_entry_indices(manifest):
         lines.append(

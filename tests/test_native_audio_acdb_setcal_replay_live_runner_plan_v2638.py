@@ -101,8 +101,11 @@ class NativeAudioAcdbSetcalReplayLiveRunnerPlanV2638(unittest.TestCase):
         self.assertIn("/dev/msm_audio_cal", start)
         self.assertIn("/dev/ion", start)
         self.assertIn("A90_SETCAL_REPLAY_ALL_SET_OK", start)
+        self.assertIn("setcal-replay.pid", start)
         self.assertIn("/cache/a90-runtime/bin/v2639-setcal-replay-scripts", plan["remote_scripts"]["runtime_cleanup"])
+        self.assertIn("A90_SETCAL_REPLAY_WAIT_FOR_DONE timeout=25", cleanup)
         self.assertIn("A90_ACDB_SETCAL_REPLAY_DONE rc=0", cleanup)
+        self.assertIn("A90_SETCAL_REPLAY_HELPER_STILL_RUNNING", cleanup)
         for index in [0, 3, 5, 7]:
             self.assertIn(f"A90_ACDB_SETCAL_DEALLOCATE_OK index={index}", cleanup)
 
