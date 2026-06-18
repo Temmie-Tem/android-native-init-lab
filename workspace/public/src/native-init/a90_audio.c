@@ -52,6 +52,9 @@
 #define AUDIO_SETCAL_IOCTL_ALLOCATE_CALIBRATION 0xC00461C8u
 #define AUDIO_SETCAL_IOCTL_DEALLOCATE_CALIBRATION 0xC00461C9u
 #define AUDIO_SETCAL_IOCTL_SET_CALIBRATION 0xC00461CBu
+#define AUDIO_SETCAL_MANIFEST_PROFILE_SIZE 96
+#define AUDIO_SETCAL_MANIFEST_ROLE_SIZE 64
+#define AUDIO_SETCAL_MANIFEST_SHA256_SIZE 65
 #define AUDIO_PCM_PERIOD_SIZE 1024
 #define AUDIO_PCM_PERIOD_COUNT 4
 
@@ -175,6 +178,32 @@ struct audio_setcal_manifest_totals {
     int files_opened;
     long long arg_bytes;
     long long payload_bytes;
+};
+
+struct audio_setcal_manifest_plan_entry {
+    bool present;
+    int sequence;
+    int cal_type;
+    bool dmabuf_expected;
+    char role[AUDIO_SETCAL_MANIFEST_ROLE_SIZE];
+    char arg_path[PATH_MAX];
+    long long arg_size;
+    char arg_sha256[AUDIO_SETCAL_MANIFEST_SHA256_SIZE];
+    char payload_path[PATH_MAX];
+    long long payload_size;
+    char payload_sha256[AUDIO_SETCAL_MANIFEST_SHA256_SIZE];
+    long long arg_loaded;
+    long long payload_loaded;
+};
+
+struct audio_setcal_manifest_plan {
+    int version;
+    char profile[AUDIO_SETCAL_MANIFEST_PROFILE_SIZE];
+    int declared_entry_count;
+    struct audio_setcal_manifest_totals totals;
+    struct audio_setcal_manifest_totals load_totals;
+    struct audio_setcal_manifest_plan_entry entries[AUDIO_PROFILE_ACDB_SET_COUNT];
+    bool valid;
 };
 
 static const char *const AUDIO_INTERNAL_SPEAKER_OBSERVER_CONTROLS[] = {
@@ -981,12 +1010,72 @@ static int audio_setcal_load_regular_file(const char *prefix,
     return total_read == expected_size ? 0 : -EIO;
 }
 
+static void audio_copy_string(char *dst, size_t dst_size, const char *src) {
+    size_t index;
+
+    if (dst == NULL || dst_size == 0) {
+        return;
+    }
+    if (src == NULL) {
+        src = "";
+    }
+    for (index = 0; index + 1 < dst_size && src[index] != '\0'; ++index) {
+        dst[index] = src[index];
+    }
+    dst[index] = '\0';
+}
+
+static void audio_setcal_manifest_plan_reset(struct audio_setcal_manifest_plan *plan) {
+    if (plan == NULL) {
+        return;
+    }
+    memset(plan, 0, sizeof(*plan));
+    plan->version = -1;
+    plan->declared_entry_count = -1;
+}
+
+static void audio_setcal_manifest_plan_store_entry(struct audio_setcal_manifest_plan *plan,
+                                                   int sequence,
+                                                   int cal_type,
+                                                   const char *role,
+                                                   bool dmabuf_expected,
+                                                   const char *arg_path,
+                                                   long long arg_size,
+                                                   const char *arg_sha256,
+                                                   const char *payload_path,
+                                                   long long payload_size,
+                                                   const char *payload_sha256,
+                                                   long long arg_loaded,
+                                                   long long payload_loaded) {
+    struct audio_setcal_manifest_plan_entry *entry;
+
+    if (plan == NULL || sequence < 0 || sequence >= AUDIO_PROFILE_ACDB_SET_COUNT) {
+        return;
+    }
+    entry = &plan->entries[sequence];
+    memset(entry, 0, sizeof(*entry));
+    entry->present = true;
+    entry->sequence = sequence;
+    entry->cal_type = cal_type;
+    entry->dmabuf_expected = dmabuf_expected;
+    audio_copy_string(entry->role, sizeof(entry->role), role);
+    audio_copy_string(entry->arg_path, sizeof(entry->arg_path), arg_path);
+    entry->arg_size = arg_size;
+    audio_copy_string(entry->arg_sha256, sizeof(entry->arg_sha256), arg_sha256);
+    audio_copy_string(entry->payload_path, sizeof(entry->payload_path), payload_path);
+    entry->payload_size = payload_size;
+    audio_copy_string(entry->payload_sha256, sizeof(entry->payload_sha256), payload_sha256);
+    entry->arg_loaded = arg_loaded;
+    entry->payload_loaded = payload_loaded;
+}
+
 static int audio_setcal_verify_manifest_entry(char *line,
                                               const struct audio_speaker_profile *profile,
                                               bool *seen_entry,
                                               struct audio_setcal_manifest_totals *totals,
                                               bool load_files,
-                                              struct audio_setcal_manifest_totals *load_totals) {
+                                              struct audio_setcal_manifest_totals *load_totals,
+                                              struct audio_setcal_manifest_plan *plan) {
     int sequence = -1;
     int cal_type = -1;
     int dmabuf_expected = -1;
@@ -1095,6 +1184,21 @@ static int audio_setcal_verify_manifest_entry(char *line,
         }
         a90_console_printf("audio.setcal.load.entry.%d.ok=%d\r\n", sequence, rc == 0 ? 1 : 0);
     }
+    if (rc == 0) {
+        audio_setcal_manifest_plan_store_entry(plan,
+                                               sequence,
+                                               cal_type,
+                                               role,
+                                               dmabuf_expected != 0,
+                                               arg_path,
+                                               arg_size,
+                                               arg_sha256,
+                                               payload_path,
+                                               payload_size,
+                                               payload_sha256,
+                                               arg_loaded,
+                                               payload_loaded);
+    }
     a90_console_printf("%s.ok=%d\r\n", prefix, rc == 0 ? 1 : 0);
     return rc;
 }
@@ -1103,7 +1207,8 @@ static int audio_setcal_verify_manifest(const struct audio_speaker_profile *prof
                                         const char *manifest_path,
                                         struct audio_setcal_manifest_totals *totals,
                                         bool load_files,
-                                        struct audio_setcal_manifest_totals *load_totals) {
+                                        struct audio_setcal_manifest_totals *load_totals,
+                                        struct audio_setcal_manifest_plan *plan) {
     FILE *fp;
     int fd;
     char line[1024];
@@ -1123,6 +1228,7 @@ static int audio_setcal_verify_manifest(const struct audio_speaker_profile *prof
     if (load_totals != NULL) {
         memset(load_totals, 0, sizeof(*load_totals));
     }
+    audio_setcal_manifest_plan_reset(plan);
     a90_console_printf("audio.setcal.verify.manifest=%s\r\n", manifest_path != NULL ? manifest_path : "-");
     a90_console_printf("audio.setcal.verify.path_allowed=%d\r\n",
                        audio_setcal_manifest_path_allowed(manifest_path) ? 1 : 0);
@@ -1163,12 +1269,21 @@ static int audio_setcal_verify_manifest(const struct audio_speaker_profile *prof
             continue;
         }
         if (sscanf(cursor, "version %d", &manifest_version) == 1) {
+            if (plan != NULL) {
+                plan->version = manifest_version;
+            }
             continue;
         }
         if (sscanf(cursor, "profile %95s", manifest_profile) == 1) {
+            if (plan != NULL) {
+                audio_copy_string(plan->profile, sizeof(plan->profile), manifest_profile);
+            }
             continue;
         }
         if (sscanf(cursor, "entry_count %d", &manifest_entry_count) == 1) {
+            if (plan != NULL) {
+                plan->declared_entry_count = manifest_entry_count;
+            }
             continue;
         }
         if (strncmp(cursor, "entry ", 6) == 0) {
@@ -1177,7 +1292,8 @@ static int audio_setcal_verify_manifest(const struct audio_speaker_profile *prof
                                                    seen_entry,
                                                    totals,
                                                    load_files,
-                                                   load_totals) < 0) {
+                                                   load_totals,
+                                                   plan) < 0) {
                 rc = -EINVAL;
             }
             ++parsed_entries;
@@ -1221,17 +1337,33 @@ static int audio_setcal_verify_manifest(const struct audio_speaker_profile *prof
         }
     }
     a90_console_printf("audio.setcal.verify.ok=%d\r\n", rc == 0 ? 1 : 0);
+    if (plan != NULL && rc == 0) {
+        if (totals != NULL) {
+            plan->totals = *totals;
+        }
+        if (load_totals != NULL) {
+            plan->load_totals = *load_totals;
+        }
+        plan->valid = true;
+    }
     return rc;
 }
 
 static void audio_setcal_print_execute_plan(const struct audio_speaker_profile *profile,
-                                            const struct audio_setcal_manifest_totals *totals,
-                                            const struct audio_setcal_manifest_totals *load_totals) {
-    if (profile == NULL || totals == NULL || load_totals == NULL) {
+                                            const struct audio_setcal_manifest_plan *plan) {
+    int index;
+
+    if (profile == NULL || plan == NULL) {
         return;
     }
     a90_console_printf("audio.setcal.execute.plan.version=1\r\n");
     a90_console_printf("audio.setcal.execute.plan.profile=%s\r\n", profile->id);
+    a90_console_printf("audio.setcal.execute.plan.manifest.valid=%d\r\n", plan->valid ? 1 : 0);
+    a90_console_printf("audio.setcal.execute.plan.manifest.version=%d\r\n", plan->version);
+    a90_console_printf("audio.setcal.execute.plan.manifest.profile=%s\r\n",
+                       plan->profile[0] != '\0' ? plan->profile : "-");
+    a90_console_printf("audio.setcal.execute.plan.manifest.entry_count=%d\r\n",
+                       plan->declared_entry_count);
     a90_console_printf("audio.setcal.execute.plan.device.msm_audio_cal=%s\r\n", AUDIO_SETCAL_DEV_MSM_AUDIO_CAL);
     a90_console_printf("audio.setcal.execute.plan.device.ion=%s\r\n", AUDIO_SETCAL_DEV_ION);
     a90_console_printf("audio.setcal.execute.plan.ioctl.allocate=0x%08x\r\n",
@@ -1240,14 +1372,30 @@ static void audio_setcal_print_execute_plan(const struct audio_speaker_profile *
                        AUDIO_SETCAL_IOCTL_SET_CALIBRATION);
     a90_console_printf("audio.setcal.execute.plan.ioctl.deallocate=0x%08x\r\n",
                        AUDIO_SETCAL_IOCTL_DEALLOCATE_CALIBRATION);
-    a90_console_printf("audio.setcal.execute.plan.entry.count=%d\r\n", totals->entries);
-    a90_console_printf("audio.setcal.execute.plan.arg_entries=%d\r\n", totals->arg_entries);
-    a90_console_printf("audio.setcal.execute.plan.payload_entries=%d\r\n", totals->payload_entries);
-    a90_console_printf("audio.setcal.execute.plan.arg_bytes=%lld\r\n", totals->arg_bytes);
-    a90_console_printf("audio.setcal.execute.plan.payload_bytes=%lld\r\n", totals->payload_bytes);
-    a90_console_printf("audio.setcal.execute.plan.loaded_files=%d\r\n", load_totals->files_opened);
-    a90_console_printf("audio.setcal.execute.plan.loaded_arg_bytes=%lld\r\n", load_totals->arg_bytes);
-    a90_console_printf("audio.setcal.execute.plan.loaded_payload_bytes=%lld\r\n", load_totals->payload_bytes);
+    a90_console_printf("audio.setcal.execute.plan.entry.count=%d\r\n", plan->totals.entries);
+    a90_console_printf("audio.setcal.execute.plan.arg_entries=%d\r\n", plan->totals.arg_entries);
+    a90_console_printf("audio.setcal.execute.plan.payload_entries=%d\r\n", plan->totals.payload_entries);
+    a90_console_printf("audio.setcal.execute.plan.arg_bytes=%lld\r\n", plan->totals.arg_bytes);
+    a90_console_printf("audio.setcal.execute.plan.payload_bytes=%lld\r\n", plan->totals.payload_bytes);
+    a90_console_printf("audio.setcal.execute.plan.loaded_files=%d\r\n", plan->load_totals.files_opened);
+    a90_console_printf("audio.setcal.execute.plan.loaded_arg_bytes=%lld\r\n", plan->load_totals.arg_bytes);
+    a90_console_printf("audio.setcal.execute.plan.loaded_payload_bytes=%lld\r\n", plan->load_totals.payload_bytes);
+    a90_console_printf("audio.setcal.execute.plan.executor_input=manifest-plan-entries\r\n");
+    for (index = 0; index < AUDIO_PROFILE_ACDB_SET_COUNT; ++index) {
+        const struct audio_setcal_manifest_plan_entry *entry = &plan->entries[index];
+        char prefix[80];
+
+        snprintf(prefix, sizeof(prefix), "audio.setcal.execute.plan.entry.%d", index);
+        a90_console_printf("%s.present=%d\r\n", prefix, entry->present ? 1 : 0);
+        a90_console_printf("%s.sequence=%d\r\n", prefix, entry->sequence);
+        a90_console_printf("%s.cal_type=%d\r\n", prefix, entry->cal_type);
+        a90_console_printf("%s.role=%s\r\n", prefix, entry->role[0] != '\0' ? entry->role : "-");
+        a90_console_printf("%s.dmabuf_expected=%d\r\n", prefix, entry->dmabuf_expected ? 1 : 0);
+        a90_console_printf("%s.arg_size=%lld\r\n", prefix, entry->arg_size);
+        a90_console_printf("%s.payload_size=%lld\r\n", prefix, entry->payload_size);
+        a90_console_printf("%s.arg_loaded=%lld\r\n", prefix, entry->arg_loaded);
+        a90_console_printf("%s.payload_loaded=%lld\r\n", prefix, entry->payload_loaded);
+    }
     a90_console_printf("audio.setcal.execute.plan.sequence=open_ion,open_msm_audio_cal,allocate_payload_entries,set_entries_in_order,hold_fds,deallocate_payload_entries_reverse,close_fds\r\n");
     a90_console_printf("audio.setcal.execute.plan.devices_opened=0\r\n");
     a90_console_printf("audio.setcal.execute.plan.ioctl_attempted=0\r\n");
@@ -1257,6 +1405,7 @@ static int audio_setcal_cmd(char **argv, int argc) {
     const char *profile_id = AUDIO_DEFAULT_PROFILE_ID;
     const char *manifest_path = NULL;
     const struct audio_speaker_profile *profile;
+    struct audio_setcal_manifest_plan *manifest_plan = NULL;
     struct audio_setcal_manifest_totals totals;
     struct audio_setcal_manifest_totals load_totals;
     bool seen_profile = false;
@@ -1366,17 +1515,26 @@ static int audio_setcal_cmd(char **argv, int argc) {
             a90_console_printf("audio.setcal.ioctl_attempted=0\r\n");
             return -EINVAL;
         }
+        manifest_plan = calloc(1, sizeof(*manifest_plan));
+        if (manifest_plan == NULL) {
+            a90_console_printf("audio.setcal.error=manifest-plan-alloc-failed\r\n");
+            a90_console_printf("audio.setcal.ioctl_attempted=0\r\n");
+            return -ENOMEM;
+        }
         verify_rc = audio_setcal_verify_manifest(profile,
                                                  manifest_path,
                                                  &totals,
                                                  load_files,
-                                                 load_files ? &load_totals : NULL);
+                                                 load_files ? &load_totals : NULL,
+                                                 manifest_plan);
         if (verify_rc < 0) {
             a90_console_printf("audio.setcal.verify_failed=%d\r\n", -verify_rc);
             a90_console_printf("audio.setcal.ioctl_attempted=0\r\n");
+            free(manifest_plan);
             return verify_rc;
         }
         a90_console_printf("audio.setcal.verify_ok=1\r\n");
+        a90_console_printf("audio.setcal.manifest_plan.valid=%d\r\n", manifest_plan->valid ? 1 : 0);
         if (prepare_manifest) {
             a90_console_printf("audio.setcal.prepare.entry.count=%d\r\n", totals.entries);
             a90_console_printf("audio.setcal.prepare.arg_entries=%d\r\n", totals.arg_entries);
@@ -1401,11 +1559,13 @@ static int audio_setcal_cmd(char **argv, int argc) {
     }
 
     if (execute_mode) {
-        audio_setcal_print_execute_plan(profile, &totals, &load_totals);
+        audio_setcal_print_execute_plan(profile, manifest_plan);
         a90_console_printf("audio.setcal.refused=execute-not-implemented-native-setcal-ioctl\r\n");
         a90_console_printf("audio.setcal.ioctl_attempted=0\r\n");
+        free(manifest_plan);
         return -EPERM;
     }
+    free(manifest_plan);
     a90_console_printf("audio.setcal.dry_run_ok=1\r\n");
     return 0;
 }

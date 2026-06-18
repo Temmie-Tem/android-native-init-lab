@@ -50,7 +50,7 @@ class NativeAudioSetcalExecuteGateV2763(unittest.TestCase):
         text = source_text()
 
         verify_call = text.index("verify_rc = audio_setcal_verify_manifest")
-        plan_call = text.index("audio_setcal_print_execute_plan(profile, &totals, &load_totals)")
+        plan_call = text.index("audio_setcal_print_execute_plan(profile, manifest_plan)")
         refusal = text.index("audio.setcal.refused=execute-not-implemented-native-setcal-ioctl")
 
         self.assertLess(verify_call, plan_call)
