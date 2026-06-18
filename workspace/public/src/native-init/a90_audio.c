@@ -214,6 +214,23 @@ struct audio_setcal_execute_state {
     size_t payload_len;
 };
 
+struct audio_setcal_execute_session {
+    struct audio_setcal_execute_state states[AUDIO_PROFILE_ACDB_SET_COUNT];
+    int cal_fd;
+    int prepared_count;
+    int allocated_count;
+    int set_count;
+    int deallocated_count;
+    int ioctl_sequence;
+    bool initialized;
+};
+
+static int audio_adsp_boot_once(char **argv, int argc);
+static int audio_snd_materialize_once(char **argv, int argc);
+static int audio_app_type_cmd(char **argv, int argc);
+static int audio_route_cmd(char **argv, int argc);
+static int count_dir_entries_matching(const char *path, const char *needle);
+
 static const struct audio_setcal_entry AUDIO_INTERNAL_SPEAKER_SETCAL_PLAN[] = {
     {.cal_type = 39, .role = "CORE_CUSTOM_TOPOLOGIES_BYTE_EXACT_SET", .dmabuf_expected = true},
     {.cal_type = 20, .role = "AFE_FB_SPKR_PROT_HEADER_REAL_HAL_1", .dmabuf_expected = false},
@@ -1425,115 +1442,146 @@ static int audio_setcal_ioctl_cal(int fd,
     return 0;
 }
 
-static int audio_setcal_execute_manifest_plan(const struct audio_setcal_manifest_plan *plan,
-                                              int *ioctl_count_out) {
-    struct audio_setcal_execute_state states[AUDIO_PROFILE_ACDB_SET_COUNT];
-    int cal_fd = -1;
-    int prepared_count = 0;
-    int allocated_count = 0;
-    int set_count = 0;
-    int deallocated_count = 0;
-    int ioctl_sequence = 0;
+static void audio_setcal_execute_session_init(struct audio_setcal_execute_session *session) {
+    if (session == NULL) {
+        return;
+    }
+    memset(session, 0, sizeof(*session));
+    session->cal_fd = -1;
+}
+
+static int audio_setcal_execute_session_start(struct audio_setcal_execute_session *session,
+                                              const struct audio_setcal_manifest_plan *plan) {
     int rc = 0;
+    int index;
+
+    if (session == NULL) {
+        return -EINVAL;
+    }
+    audio_setcal_execute_session_init(session);
+    if (plan == NULL || !plan->valid || plan->declared_entry_count != AUDIO_PROFILE_ACDB_SET_COUNT) {
+        a90_console_printf("audio.setcal.execute.error=bad-manifest-plan\r\n");
+        return -EINVAL;
+    }
+    for (index = 0; index < AUDIO_PROFILE_ACDB_SET_COUNT; ++index) {
+        audio_setcal_execute_state_init(&session->states[index], &plan->entries[index]);
+    }
+    session->initialized = true;
+    a90_console_printf("audio.setcal.execute.start=1\r\n");
+    for (index = 0; index < AUDIO_PROFILE_ACDB_SET_COUNT; ++index) {
+        rc = audio_setcal_prepare_exact_entry(&session->states[index], &plan->entries[index]);
+        if (rc < 0) {
+            a90_console_printf("audio.setcal.execute.prepare_failed.index=%d errno=%d\r\n", index, -rc);
+            return rc;
+        }
+        ++session->prepared_count;
+    }
+    session->cal_fd = open(AUDIO_SETCAL_DEV_MSM_AUDIO_CAL, O_RDWR | O_CLOEXEC);
+    if (session->cal_fd < 0) {
+        int saved_errno = errno;
+
+        a90_console_printf("audio.setcal.execute.open.msm_audio_cal.open_ok=0 errno=%d\r\n", saved_errno);
+        return -saved_errno;
+    }
+    a90_console_printf("audio.setcal.execute.open.msm_audio_cal.open_ok=1\r\n");
+    for (index = 0; index < AUDIO_PROFILE_ACDB_SET_COUNT; ++index) {
+        if (session->states[index].has_payload) {
+            rc = audio_setcal_ioctl_cal(session->cal_fd,
+                                        AUDIO_SETCAL_IOCTL_ALLOCATE_CALIBRATION,
+                                        session->states[index].alloc_arg,
+                                        session->states[index].arg_len,
+                                        "AUDIO_ALLOCATE_CALIBRATION",
+                                        session->ioctl_sequence++);
+            if (rc < 0) {
+                a90_console_printf("audio.setcal.execute.allocate_failed.index=%d errno=%d\r\n",
+                                   index,
+                                   -rc);
+                return rc;
+            }
+            session->states[index].allocated = true;
+            ++session->allocated_count;
+        }
+        rc = audio_setcal_ioctl_cal(session->cal_fd,
+                                    AUDIO_SETCAL_IOCTL_SET_CALIBRATION,
+                                    session->states[index].set_arg,
+                                    session->states[index].arg_len,
+                                    "AUDIO_SET_CALIBRATION",
+                                    session->ioctl_sequence++);
+        if (rc < 0) {
+            a90_console_printf("audio.setcal.execute.set_failed.index=%d errno=%d\r\n", index, -rc);
+            return rc;
+        }
+        ++session->set_count;
+    }
+    a90_console_printf("audio.setcal.execute.hold_active=1\r\n");
+    return 0;
+}
+
+static int audio_setcal_execute_session_cleanup(struct audio_setcal_execute_session *session,
+                                                int prior_rc,
+                                                int *ioctl_count_out) {
+    int rc = prior_rc;
     int index;
 
     if (ioctl_count_out != NULL) {
         *ioctl_count_out = 0;
     }
-    if (plan == NULL || !plan->valid || plan->declared_entry_count != AUDIO_PROFILE_ACDB_SET_COUNT) {
-        a90_console_printf("audio.setcal.execute.error=bad-manifest-plan\r\n");
-        return -EINVAL;
+    if (session == NULL) {
+        return rc < 0 ? rc : -EINVAL;
     }
-    memset(states, 0, sizeof(states));
-    for (index = 0; index < AUDIO_PROFILE_ACDB_SET_COUNT; ++index) {
-        audio_setcal_execute_state_init(&states[index], &plan->entries[index]);
-    }
-    a90_console_printf("audio.setcal.execute.start=1\r\n");
-    for (index = 0; index < AUDIO_PROFILE_ACDB_SET_COUNT; ++index) {
-        rc = audio_setcal_prepare_exact_entry(&states[index], &plan->entries[index]);
-        if (rc < 0) {
-            a90_console_printf("audio.setcal.execute.prepare_failed.index=%d errno=%d\r\n", index, -rc);
-            goto done;
-        }
-        ++prepared_count;
-    }
-    cal_fd = open(AUDIO_SETCAL_DEV_MSM_AUDIO_CAL, O_RDWR | O_CLOEXEC);
-    if (cal_fd < 0) {
-        int saved_errno = errno;
-
-        a90_console_printf("audio.setcal.execute.open.msm_audio_cal.open_ok=0 errno=%d\r\n", saved_errno);
-        rc = -saved_errno;
-        goto done;
-    }
-    a90_console_printf("audio.setcal.execute.open.msm_audio_cal.open_ok=1\r\n");
-    for (index = 0; index < AUDIO_PROFILE_ACDB_SET_COUNT; ++index) {
-        if (states[index].has_payload) {
-            rc = audio_setcal_ioctl_cal(cal_fd,
-                                        AUDIO_SETCAL_IOCTL_ALLOCATE_CALIBRATION,
-                                        states[index].alloc_arg,
-                                        states[index].arg_len,
-                                        "AUDIO_ALLOCATE_CALIBRATION",
-                                        ioctl_sequence++);
-            if (rc < 0) {
-                a90_console_printf("audio.setcal.execute.allocate_failed.index=%d errno=%d\r\n",
-                                   index,
-                                   -rc);
-                goto done;
-            }
-            states[index].allocated = true;
-            ++allocated_count;
-        }
-        rc = audio_setcal_ioctl_cal(cal_fd,
-                                    AUDIO_SETCAL_IOCTL_SET_CALIBRATION,
-                                    states[index].set_arg,
-                                    states[index].arg_len,
-                                    "AUDIO_SET_CALIBRATION",
-                                    ioctl_sequence++);
-        if (rc < 0) {
-            a90_console_printf("audio.setcal.execute.set_failed.index=%d errno=%d\r\n", index, -rc);
-            goto done;
-        }
-        ++set_count;
-    }
-
-done:
-    if (cal_fd >= 0) {
-        for (index = prepared_count; index > 0; --index) {
+    if (session->cal_fd >= 0) {
+        for (index = session->prepared_count; index > 0; --index) {
             int reverse_index = index - 1;
             int cleanup_rc;
 
-            if (!states[reverse_index].allocated) {
+            if (!session->states[reverse_index].allocated) {
                 continue;
             }
-            cleanup_rc = audio_setcal_ioctl_cal(cal_fd,
+            cleanup_rc = audio_setcal_ioctl_cal(session->cal_fd,
                                                 AUDIO_SETCAL_IOCTL_DEALLOCATE_CALIBRATION,
-                                                states[reverse_index].dealloc_arg,
-                                                states[reverse_index].arg_len,
+                                                session->states[reverse_index].dealloc_arg,
+                                                session->states[reverse_index].arg_len,
                                                 "AUDIO_DEALLOCATE_CALIBRATION",
-                                                ioctl_sequence++);
+                                                session->ioctl_sequence++);
             if (cleanup_rc == 0) {
-                states[reverse_index].allocated = false;
-                ++deallocated_count;
+                session->states[reverse_index].allocated = false;
+                ++session->deallocated_count;
             } else if (rc == 0) {
                 rc = cleanup_rc;
             }
         }
-        close(cal_fd);
+        close(session->cal_fd);
+        session->cal_fd = -1;
     }
-    for (index = 0; index < AUDIO_PROFILE_ACDB_SET_COUNT; ++index) {
-        audio_setcal_execute_state_release(&states[index]);
+    if (session->initialized) {
+        for (index = 0; index < AUDIO_PROFILE_ACDB_SET_COUNT; ++index) {
+            audio_setcal_execute_state_release(&session->states[index]);
+        }
+        session->initialized = false;
     }
-    a90_console_printf("audio.setcal.execute.prepared_count=%d\r\n", prepared_count);
-    a90_console_printf("audio.setcal.execute.allocated_count=%d\r\n", allocated_count);
-    a90_console_printf("audio.setcal.execute.set_count=%d\r\n", set_count);
-    a90_console_printf("audio.setcal.execute.deallocated_count=%d\r\n", deallocated_count);
-    a90_console_printf("audio.setcal.execute.ioctl_count=%d\r\n", ioctl_sequence);
-    a90_console_printf("audio.setcal.execute.ioctl_attempted=%d\r\n", ioctl_sequence > 0 ? 1 : 0);
+    a90_console_printf("audio.setcal.execute.prepared_count=%d\r\n", session->prepared_count);
+    a90_console_printf("audio.setcal.execute.allocated_count=%d\r\n", session->allocated_count);
+    a90_console_printf("audio.setcal.execute.set_count=%d\r\n", session->set_count);
+    a90_console_printf("audio.setcal.execute.deallocated_count=%d\r\n", session->deallocated_count);
+    a90_console_printf("audio.setcal.execute.ioctl_count=%d\r\n", session->ioctl_sequence);
+    a90_console_printf("audio.setcal.execute.ioctl_attempted=%d\r\n", session->ioctl_sequence > 0 ? 1 : 0);
     a90_console_printf("audio.setcal.execute.ok=%d\r\n", rc == 0 ? 1 : 0);
     if (ioctl_count_out != NULL) {
-        *ioctl_count_out = ioctl_sequence;
+        *ioctl_count_out = session->ioctl_sequence;
     }
     return rc;
+}
+
+static int audio_setcal_execute_manifest_plan(const struct audio_setcal_manifest_plan *plan,
+                                              int *ioctl_count_out) {
+    struct audio_setcal_execute_session session;
+    int rc;
+
+    if (ioctl_count_out != NULL) {
+        *ioctl_count_out = 0;
+    }
+    rc = audio_setcal_execute_session_start(&session, plan);
+    return audio_setcal_execute_session_cleanup(&session, rc, ioctl_count_out);
 }
 
 static int audio_setcal_cmd(char **argv, int argc) {
@@ -2140,6 +2188,11 @@ static int audio_play_execute_pcm(const struct audio_speaker_profile *profile,
 
     a90_console_printf("audio.play.playback_attempted=1\r\n");
     a90_console_printf("audio.play.execute.pcm_write_attempted=1\r\n");
+    a90_console_printf("A90_LISTEN_WINDOW_BEGIN profile=%s mode=%s amplitude_milli=%d duration_ms=%d\r\n",
+                       profile->id,
+                       mode,
+                       amplitude_milli,
+                       duration_ms);
     while (frames_done < total_frames) {
         int frames_this_chunk = total_frames - frames_done;
         if (frames_this_chunk > AUDIO_PCM_PERIOD_SIZE) {
@@ -2148,6 +2201,11 @@ static int audio_play_execute_pcm(const struct audio_speaker_profile *profile,
         audio_pcm_fill_tone(buffer, frames_this_chunk, profile, amplitude_milli, frames_done);
         rc = audio_pcm_write_frames(fd, buffer, frames_this_chunk);
         if (rc < 0) {
+            a90_console_printf("A90_LISTEN_WINDOW_END rc=%d chunks=%d frames=%d bytes=%lld\r\n",
+                               rc,
+                               chunk_count,
+                               frames_done,
+                               (long long)frames_done * (long long)frame_bytes);
             ioctl(fd, SNDRV_PCM_IOCTL_DROP);
             close(fd);
             free(buffer);
@@ -2166,6 +2224,11 @@ static int audio_play_execute_pcm(const struct audio_speaker_profile *profile,
 
     close(fd);
     free(buffer);
+    a90_console_printf("A90_LISTEN_WINDOW_END rc=%d chunks=%d frames=%d bytes=%lld\r\n",
+                       rc,
+                       chunk_count,
+                       frames_done,
+                       (long long)frames_done * (long long)frame_bytes);
     a90_console_printf("audio.play.execute.done=%d chunks=%d frames=%d bytes=%lld\r\n",
                        rc == 0 ? 1 : 0,
                        chunk_count,
@@ -2207,9 +2270,203 @@ static void audio_play_print_execute_plan(const struct audio_speaker_profile *pr
     a90_console_printf("audio.play.execute.plan.pcm_write_attempted=0\r\n");
 }
 
+static bool audio_wait_for_audio_condition(const char *label,
+                                           int timeout_ms,
+                                           int sleep_ms,
+                                           bool (*predicate)(const struct audio_speaker_profile *),
+                                           const struct audio_speaker_profile *profile) {
+    int elapsed_ms = 0;
+
+    if (label == NULL || predicate == NULL || sleep_ms <= 0 || timeout_ms < 0) {
+        return false;
+    }
+    while (elapsed_ms <= timeout_ms) {
+        if (predicate(profile)) {
+            a90_console_printf("audio.play.integrated.wait.%s.ready=1 elapsed_ms=%d\r\n", label, elapsed_ms);
+            return true;
+        }
+        usleep((useconds_t)sleep_ms * 1000U);
+        elapsed_ms += sleep_ms;
+    }
+    a90_console_printf("audio.play.integrated.wait.%s.ready=0 elapsed_ms=%d\r\n", label, elapsed_ms);
+    return false;
+}
+
+static bool audio_condition_sound_control_ready(const struct audio_speaker_profile *profile) {
+    (void)profile;
+    return count_dir_entries_matching(AUDIO_SOUND_CLASS_DIR, "control") > 0;
+}
+
+static bool audio_condition_pcm_ready(const struct audio_speaker_profile *profile) {
+    char pcm_path[64];
+    bool ready = false;
+
+    if (profile == NULL) {
+        return false;
+    }
+    audio_play_pcm_path(profile, pcm_path, sizeof(pcm_path));
+    (void)audio_play_pcm_node_state(pcm_path, &ready);
+    return ready;
+}
+
+static int audio_play_run_adsp_stage(const struct audio_speaker_profile *profile) {
+    char *adsp_argv[] = {"audio", "adsp-boot-once", AUDIO_ADSP_BOOT_ONCE_TOKEN};
+    int rc;
+
+    (void)profile;
+    a90_console_printf("audio.play.integrated.stage=adsp\r\n");
+    rc = audio_adsp_boot_once(adsp_argv, 3);
+    a90_console_printf("audio.play.integrated.adsp.rc=%d\r\n", rc);
+    if (rc == -EALREADY) {
+        a90_console_printf("audio.play.integrated.adsp.already_ready=1\r\n");
+        rc = 0;
+    }
+    if (rc < 0) {
+        return rc;
+    }
+    if (!audio_wait_for_audio_condition("sound_control", 70000, 250, audio_condition_sound_control_ready, profile)) {
+        return -ETIMEDOUT;
+    }
+    return 0;
+}
+
+static int audio_play_run_snd_stage(const struct audio_speaker_profile *profile) {
+    char *snd_argv[] = {"audio", "snd-materialize-once", AUDIO_SND_MATERIALIZE_TOKEN};
+    int rc;
+
+    a90_console_printf("audio.play.integrated.stage=snd\r\n");
+    rc = audio_snd_materialize_once(snd_argv, 3);
+    a90_console_printf("audio.play.integrated.snd.rc=%d\r\n", rc);
+    if (rc < 0) {
+        return rc;
+    }
+    if (!audio_wait_for_audio_condition("pcm_node", 10000, 250, audio_condition_pcm_ready, profile)) {
+        return -ETIMEDOUT;
+    }
+    return 0;
+}
+
+static int audio_play_run_app_type_stage(const struct audio_speaker_profile *profile) {
+    char *app_argv[] = {"audio", "app-type", NULL, "--write"};
+    int rc;
+
+    if (profile == NULL) {
+        return -EINVAL;
+    }
+    app_argv[2] = (char *)profile->id;
+    a90_console_printf("audio.play.integrated.stage=app_type\r\n");
+    rc = audio_app_type_cmd(app_argv, 4);
+    a90_console_printf("audio.play.integrated.app_type.rc=%d\r\n", rc);
+    return rc;
+}
+
+static int audio_play_load_setcal_session(const struct audio_speaker_profile *profile,
+                                          const char *manifest_path,
+                                          struct audio_setcal_execute_session *session) {
+    struct audio_setcal_manifest_plan plan;
+    struct audio_setcal_manifest_totals totals;
+    struct audio_setcal_manifest_totals load_totals;
+    int rc;
+
+    if (profile == NULL || manifest_path == NULL || session == NULL) {
+        return -EINVAL;
+    }
+    memset(&plan, 0, sizeof(plan));
+    memset(&totals, 0, sizeof(totals));
+    memset(&load_totals, 0, sizeof(load_totals));
+    a90_console_printf("audio.play.integrated.stage=setcal\r\n");
+    a90_console_printf("audio.play.integrated.setcal.manifest=%s\r\n", manifest_path);
+    rc = audio_setcal_verify_manifest(profile, manifest_path, &totals, true, &load_totals, &plan);
+    a90_console_printf("audio.play.integrated.setcal.verify_rc=%d\r\n", rc);
+    if (rc < 0) {
+        return rc;
+    }
+    rc = audio_setcal_execute_session_start(session, &plan);
+    a90_console_printf("audio.play.integrated.setcal.start_rc=%d\r\n", rc);
+    return rc;
+}
+
+static int audio_play_run_route_stage(const struct audio_speaker_profile *profile, bool reset) {
+    char *route_argv[] = {"audio", "route", NULL, NULL, "--layer", "core"};
+    int rc;
+
+    if (profile == NULL) {
+        return -EINVAL;
+    }
+    route_argv[2] = (char *)profile->id;
+    route_argv[3] = reset ? "--reset" : "--apply";
+    a90_console_printf("audio.play.integrated.stage=%s\r\n", reset ? "route_reset" : "route_apply");
+    rc = audio_route_cmd(route_argv, 6);
+    a90_console_printf("audio.play.integrated.%s.rc=%d\r\n", reset ? "route_reset" : "route_apply", rc);
+    return rc;
+}
+
+static int audio_play_execute_integrated(const struct audio_speaker_profile *profile,
+                                         const char *mode,
+                                         int amplitude_milli,
+                                         int duration_ms,
+                                         const char *manifest_path) {
+    struct audio_setcal_execute_session setcal_session;
+    bool setcal_started = false;
+    bool route_apply_attempted = false;
+    int rc;
+    int cleanup_rc;
+    int ioctl_count = 0;
+
+    audio_setcal_execute_session_init(&setcal_session);
+    if (manifest_path == NULL || manifest_path[0] == '\0') {
+        manifest_path = AUDIO_SETCAL_DEFAULT_MANIFEST_PATH;
+    }
+    a90_console_printf("audio.play.integrated.version=1\r\n");
+    a90_console_printf("audio.play.integrated.profile=%s\r\n", profile != NULL ? profile->id : "-");
+    a90_console_printf("audio.play.integrated.manifest=%s\r\n", manifest_path);
+    a90_console_printf("audio.play.integrated.sequence=adsp,snd,app_type,setcal_hold,route_core,pcm,route_core_reset,setcal_deallocate\r\n");
+    rc = audio_play_run_adsp_stage(profile);
+    if (rc < 0) {
+        goto done;
+    }
+    rc = audio_play_run_snd_stage(profile);
+    if (rc < 0) {
+        goto done;
+    }
+    rc = audio_play_run_app_type_stage(profile);
+    if (rc < 0) {
+        goto done;
+    }
+    rc = audio_play_load_setcal_session(profile, manifest_path, &setcal_session);
+    if (rc < 0) {
+        goto done;
+    }
+    setcal_started = true;
+    route_apply_attempted = true;
+    rc = audio_play_run_route_stage(profile, false);
+    if (rc < 0) {
+        goto done;
+    }
+    rc = audio_play_execute_pcm(profile, mode, amplitude_milli, duration_ms);
+
+done:
+    if (route_apply_attempted) {
+        cleanup_rc = audio_play_run_route_stage(profile, true);
+        if (cleanup_rc < 0 && rc == 0) {
+            rc = cleanup_rc;
+        }
+    }
+    if (setcal_started || setcal_session.initialized || setcal_session.cal_fd >= 0) {
+        cleanup_rc = audio_setcal_execute_session_cleanup(&setcal_session, rc, &ioctl_count);
+        if (cleanup_rc < 0) {
+            rc = cleanup_rc;
+        }
+    }
+    a90_console_printf("audio.play.integrated.setcal_ioctl_count=%d\r\n", ioctl_count);
+    a90_console_printf("audio.play.integrated.done=%d rc=%d\r\n", rc == 0 ? 1 : 0, rc);
+    return rc;
+}
+
 static int audio_play_cmd(char **argv, int argc) {
     const char *profile_id = AUDIO_DEFAULT_PROFILE_ID;
     const char *mode = "probe";
+    const char *manifest_path = AUDIO_SETCAL_DEFAULT_MANIFEST_PATH;
     const struct audio_speaker_profile *profile;
     bool seen_profile = false;
     bool execute_mode = false;
@@ -2225,7 +2482,7 @@ static int audio_play_cmd(char **argv, int argc) {
 
     for (argi = 2; argi < argc; ++argi) {
         if (argv == NULL || argv[argi] == NULL) {
-            a90_console_printf("usage: audio play [profile] [--mode probe|listen] [--amplitude-milli N] [--duration-ms N] [--dry-run|--execute]\r\n");
+            a90_console_printf("usage: audio play [profile] [--mode probe|listen] [--amplitude-milli N] [--duration-ms N] [--manifest PATH] [--dry-run|--execute]\r\n");
             return -EINVAL;
         }
         if (strcmp(argv[argi], "--dry-run") == 0) {
@@ -2234,29 +2491,35 @@ static int audio_play_cmd(char **argv, int argc) {
             execute_mode = true;
         } else if (strcmp(argv[argi], "--mode") == 0) {
             if (argi + 1 >= argc || argv[argi + 1] == NULL) {
-                a90_console_printf("usage: audio play [profile] [--mode probe|listen] [--amplitude-milli N] [--duration-ms N] [--dry-run|--execute]\r\n");
+                a90_console_printf("usage: audio play [profile] [--mode probe|listen] [--amplitude-milli N] [--duration-ms N] [--manifest PATH] [--dry-run|--execute]\r\n");
                 return -EINVAL;
             }
             mode = argv[++argi];
         } else if (strcmp(argv[argi], "--amplitude-milli") == 0) {
             if (argi + 1 >= argc || !audio_parse_nonnegative_int(argv[argi + 1], &requested_amplitude_milli)) {
-                a90_console_printf("usage: audio play [profile] [--mode probe|listen] [--amplitude-milli N] [--duration-ms N] [--dry-run|--execute]\r\n");
+                a90_console_printf("usage: audio play [profile] [--mode probe|listen] [--amplitude-milli N] [--duration-ms N] [--manifest PATH] [--dry-run|--execute]\r\n");
                 return -EINVAL;
             }
             amplitude_override = true;
             ++argi;
         } else if (strcmp(argv[argi], "--duration-ms") == 0) {
             if (argi + 1 >= argc || !audio_parse_nonnegative_int(argv[argi + 1], &requested_duration_ms)) {
-                a90_console_printf("usage: audio play [profile] [--mode probe|listen] [--amplitude-milli N] [--duration-ms N] [--dry-run|--execute]\r\n");
+                a90_console_printf("usage: audio play [profile] [--mode probe|listen] [--amplitude-milli N] [--duration-ms N] [--manifest PATH] [--dry-run|--execute]\r\n");
                 return -EINVAL;
             }
             duration_override = true;
             ++argi;
+        } else if (strcmp(argv[argi], "--manifest") == 0) {
+            if (argi + 1 >= argc || argv[argi + 1] == NULL) {
+                a90_console_printf("usage: audio play [profile] [--mode probe|listen] [--amplitude-milli N] [--duration-ms N] [--manifest PATH] [--dry-run|--execute]\r\n");
+                return -EINVAL;
+            }
+            manifest_path = argv[++argi];
         } else if (!seen_profile) {
             profile_id = argv[argi];
             seen_profile = true;
         } else {
-            a90_console_printf("usage: audio play [profile] [--mode probe|listen] [--amplitude-milli N] [--duration-ms N] [--dry-run|--execute]\r\n");
+            a90_console_printf("usage: audio play [profile] [--mode probe|listen] [--amplitude-milli N] [--duration-ms N] [--manifest PATH] [--dry-run|--execute]\r\n");
             return -EINVAL;
         }
     }
@@ -2268,6 +2531,8 @@ static int audio_play_cmd(char **argv, int argc) {
     a90_console_printf("audio.play.execute_requested=%d\r\n", execute_mode ? 1 : 0);
     a90_console_printf("audio.play.execute_supported=1\r\n");
     a90_console_printf("audio.play.execute_plan_supported=%d\r\n", execute_mode ? 1 : 0);
+    a90_console_printf("audio.play.integrated_execute_supported=1\r\n");
+    a90_console_printf("audio.play.setcal_manifest=%s\r\n", manifest_path != NULL ? manifest_path : "-");
     a90_console_printf("audio.play.playback_attempted=0\r\n");
     if (profile == NULL) {
         a90_console_printf("audio.play.error=unknown-profile\r\n");
@@ -2301,10 +2566,12 @@ static int audio_play_cmd(char **argv, int argc) {
                        amplitude_milli <= profile->amplitude_cap_milli ? 1 : 0);
     a90_console_printf("audio.play.safety.duration_within_cap=%d\r\n",
                        duration_ms <= profile->duration_cap_ms ? 1 : 0);
+    a90_console_printf("audio.play.requires.adsp=1\r\n");
+    a90_console_printf("audio.play.requires.snd=1\r\n");
     a90_console_printf("audio.play.requires.app_type=1\r\n");
     a90_console_printf("audio.play.requires.setcal=1\r\n");
     a90_console_printf("audio.play.requires.route=1\r\n");
-    a90_console_printf("audio.play.requires.snd=1\r\n");
+    a90_console_printf("audio.play.execute.sequence=adsp,snd,app_type,setcal_hold,route_core,pcm,route_core_reset,setcal_deallocate\r\n");
     a90_console_printf("audio.play.alsa_open_attempted=0\r\n");
     a90_console_printf("audio.play.ioctl_attempted=0\r\n");
     pcm_node_ready = audio_play_print_pcm_prereq(profile, pcm_path, sizeof(pcm_path));
@@ -2314,14 +2581,8 @@ static int audio_play_cmd(char **argv, int argc) {
     }
     if (execute_mode) {
         audio_play_print_execute_plan(profile, mode, amplitude_milli, duration_ms);
-        if (!pcm_node_ready) {
-            a90_console_printf("audio.play.refused=missing-pcm-node\r\n");
-            a90_console_printf("audio.play.execute.alsa_open_attempted=0\r\n");
-            a90_console_printf("audio.play.execute.ioctl_attempted=0\r\n");
-            a90_console_printf("audio.play.execute.pcm_write_attempted=0\r\n");
-            return -ENOENT;
-        }
-        return audio_play_execute_pcm(profile, mode, amplitude_milli, duration_ms);
+        a90_console_printf("audio.play.initial_pcm_node_ready=%d\r\n", pcm_node_ready ? 1 : 0);
+        return audio_play_execute_integrated(profile, mode, amplitude_milli, duration_ms, manifest_path);
     }
     a90_console_printf("audio.play.dry_run_ok=1\r\n");
     return 0;
@@ -3724,6 +3985,6 @@ int a90_audio_cmd(char **argv, int argc) {
     if (argc >= 2 && argv != NULL && argv[1] != NULL && strcmp(argv[1], "snd-materialize-once") == 0) {
         return audio_snd_materialize_once(argv, argc);
     }
-    a90_console_printf("usage: audio [adsp-status|status|profiles|profile [id]|speaker-map [id]|stages [id]|prereq [id]|app-type [profile] [--dry-run|--write]|setcal [profile] [--dry-run|--execute] [--manifest PATH --verify|--prepare|--load]|play [profile] [--mode probe|listen] [--amplitude-milli N] [--duration-ms N] [--dry-run|--execute]|stop [profile] [--dry-run|--execute]|route [profile] [--dry-run|--apply|--reset] [--layer all|core|feedback|endpoint|blocked]|snd-status|adsp-boot-once|snd-materialize-once]\r\n");
+    a90_console_printf("usage: audio [adsp-status|status|profiles|profile [id]|speaker-map [id]|stages [id]|prereq [id]|app-type [profile] [--dry-run|--write]|setcal [profile] [--dry-run|--execute] [--manifest PATH --verify|--prepare|--load]|play [profile] [--mode probe|listen] [--amplitude-milli N] [--duration-ms N] [--manifest PATH] [--dry-run|--execute]|stop [profile] [--dry-run|--execute]|route [profile] [--dry-run|--apply|--reset] [--layer all|core|feedback|endpoint|blocked]|snd-status|adsp-boot-once|snd-materialize-once]\r\n");
     return -EINVAL;
 }

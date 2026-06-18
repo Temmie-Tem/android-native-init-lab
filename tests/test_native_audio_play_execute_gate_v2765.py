@@ -54,28 +54,26 @@ class NativeAudioPlayExecuteGateV2765(unittest.TestCase):
         self.assertNotIn("ioctl(", plan_block)
         self.assertNotIn("write(", plan_block)
 
-    def test_play_execute_uses_raw_alsa_pcm_sequence_after_cap_checks_and_plan(self) -> None:
+    def test_play_execute_uses_integrated_sequence_after_cap_checks_and_plan(self) -> None:
         text = source_text()
 
         cap_check = text.index("audio.play.refused=safety-cap-exceeded")
         plan_call = text.index("audio_play_print_execute_plan(profile, mode, amplitude_milli, duration_ms)")
-        prereq_refusal = text.index("audio.play.refused=missing-pcm-node")
-        execute_call = text.index("audio_play_execute_pcm(profile, mode, amplitude_milli, duration_ms)")
+        integrated_call = text.index("return audio_play_execute_integrated(profile, mode, amplitude_milli, duration_ms, manifest_path)")
 
         self.assertLess(cap_check, plan_call)
-        self.assertLess(plan_call, prereq_refusal)
-        self.assertLess(prereq_refusal, execute_call)
-        self.assertLess(plan_call, execute_call)
+        self.assertLess(plan_call, integrated_call)
         self.assertNotIn("execute-not-implemented-native-pcm", text)
+        self.assertNotIn("audio.play.refused=missing-pcm-node", text)
         self.assertRegex(
             text,
             re.compile(
-                r'if \(execute_mode\).*?audio_play_print_execute_plan.*?audio.play.refused=missing-pcm-node.*?return audio_play_execute_pcm',
+                r'if \(execute_mode\).*?audio_play_print_execute_plan.*?audio.play.initial_pcm_node_ready=.*?return audio_play_execute_integrated',
                 re.DOTALL,
             ),
         )
 
-    def test_play_execute_reports_snd_prerequisite_before_open(self) -> None:
+    def test_play_execute_reports_and_materializes_snd_prerequisite(self) -> None:
         text = source_text()
 
         for marker in [
@@ -86,10 +84,12 @@ class NativeAudioPlayExecuteGateV2765(unittest.TestCase):
             "%s.pcm_node.state=%s",
             "%s.pcm_node.ready=%d",
             "%s.snd_materialize_command=audio snd-materialize-once %s",
-            "audio.play.refused=missing-pcm-node",
-            "audio.play.execute.alsa_open_attempted=0",
-            "audio.play.execute.ioctl_attempted=0",
-            "audio.play.execute.pcm_write_attempted=0",
+            "audio.play.initial_pcm_node_ready=%d",
+            "audio_play_run_snd_stage",
+            "audio_snd_materialize_once",
+            "audio.play.alsa_open_attempted=0",
+            "audio.play.ioctl_attempted=0",
+            "audio.play.execute.plan.pcm_write_attempted=0",
         ]:
             with self.subTest(marker=marker):
                 self.assertIn(marker, text)

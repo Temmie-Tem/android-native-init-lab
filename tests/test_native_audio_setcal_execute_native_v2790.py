@@ -64,20 +64,20 @@ class NativeAudioSetcalExecuteNativeV2790(unittest.TestCase):
 
     def test_executor_calls_allocate_set_and_reverse_deallocate(self) -> None:
         text = AUDIO_C.read_text(encoding="utf-8")
-        start = text.index("static int audio_setcal_execute_manifest_plan")
-        end = text.index("static int audio_setcal_cmd", start)
+        start = text.index("static int audio_setcal_execute_session_start")
+        end = text.index("static int audio_setcal_execute_manifest_plan", start)
         block = text[start:end]
 
         allocate = block.index("AUDIO_SETCAL_IOCTL_ALLOCATE_CALIBRATION")
         set_call = block.index("AUDIO_SETCAL_IOCTL_SET_CALIBRATION")
-        reverse_loop = block.index("for (index = prepared_count; index > 0; --index)")
+        reverse_loop = block.index("for (index = session->prepared_count; index > 0; --index)")
         deallocate = block.index("AUDIO_SETCAL_IOCTL_DEALLOCATE_CALIBRATION")
 
         self.assertLess(allocate, set_call)
         self.assertLess(set_call, reverse_loop)
         self.assertLess(reverse_loop, deallocate)
-        self.assertIn("states[index].allocated = true", block)
-        self.assertIn("states[reverse_index].allocated = false", block)
+        self.assertIn("session->states[index].allocated = true", block)
+        self.assertIn("session->states[reverse_index].allocated = false", block)
         self.assertIn("audio.setcal.execute.set_count=%d", block)
         self.assertIn("audio.setcal.execute.deallocated_count=%d", block)
 
