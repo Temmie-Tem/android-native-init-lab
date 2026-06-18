@@ -130,14 +130,25 @@ class NativeAudioAcdbSetcalReplayLiveHandoffV2639(unittest.TestCase):
 
         scripts = v2639.runtime_script_files(root, state, deploy)
 
-        self.assertEqual([item[0] for item in scripts], ["start_and_wait_all_set", "pcm_output_observer", "deallocate_check", "runtime_cleanup"])
+        self.assertEqual(
+            [item[0] for item in scripts],
+            ["start_and_wait_all_set", "listen_window", "pcm_output_observer", "deallocate_check", "runtime_cleanup"],
+        )
         start_key, start_remote, start_local = scripts[0]
         self.assertEqual(start_key, "start_and_wait_all_set")
         self.assertTrue(start_remote.startswith("/cache/a90-runtime/bin/"))
         self.assertTrue(start_remote.endswith("/setcal-start-and-wait-all-set.sh"))
         self.assertIn("sha256sum -c -", start_local.read_text(encoding="utf-8"))
         self.assertIn("A90_SETCAL_REPLAY_ALL_SET_OK", start_local.read_text(encoding="utf-8"))
-        observer_key, observer_remote, observer_local = scripts[1]
+        listen_key, listen_remote, listen_local = scripts[1]
+        self.assertEqual(listen_key, "listen_window")
+        self.assertTrue(listen_remote.endswith("/a90_pcm_listen_window_v2743.sh"))
+        listen_text = listen_local.read_text(encoding="utf-8")
+        self.assertIn("A90_LISTEN_WINDOW_READY", listen_text)
+        self.assertIn("A90_LISTEN_WINDOW_BEGIN", listen_text)
+        self.assertIn("A90_LISTEN_WINDOW_END", listen_text)
+        self.assertIn("a90_pcm_write_probe_v2386", listen_text)
+        observer_key, observer_remote, observer_local = scripts[2]
         self.assertEqual(observer_key, "pcm_output_observer")
         self.assertTrue(observer_remote.endswith("/a90_pcm_output_observer_v2741.sh"))
         observer_text = observer_local.read_text(encoding="utf-8")
@@ -236,6 +247,48 @@ class NativeAudioAcdbSetcalReplayLiveHandoffV2639(unittest.TestCase):
         self.assertIn("A90_OUTPUT_OBSERVER_CTL_BEGIN", state["remote_scripts"]["pcm_output_observer"])
         self.assertIn("A90_OUTPUT_OBSERVER_THERMAL", state["remote_scripts"]["pcm_output_observer"])
         self.assertEqual(state["v2739_output_observer"], observer)
+
+    def test_dry_run_listen_test_uses_bounded_audible_window(self) -> None:
+        root = Path(tempfile.mkdtemp(prefix="a90-v2639-"))
+        args = v2639.parse_args(["--dry-run", "--listen-test", "--v2636-manifest", str(fake_deploy(root))])
+        state = v2639.dry_run_payload(args)
+
+        listen = state["v2743_listening_test"]
+        self.assertTrue(listen["enabled"])
+        self.assertEqual(listen["name"], "v2743-human-audible-listen-window")
+        self.assertEqual(listen["remote_script"], v2639.REMOTE_LISTEN_WINDOW_SCRIPT)
+        self.assertEqual(listen["amplitude"], 0.15)
+        self.assertEqual(listen["duration_ms"], 8000)
+        self.assertEqual(listen["max_amplitude"], 0.20)
+        self.assertEqual(listen["max_duration_ms"], 10000)
+        self.assertIn("A90_LISTEN_WINDOW_BEGIN", listen["markers"])
+        self.assertIn("A90_LISTEN_WINDOW_END", listen["markers"])
+        self.assertIn("listen_window", state["remote_scripts"])
+        self.assertIn("amplitude=0.15", state["remote_scripts"]["listen_window"])
+        self.assertIn("duration_ms=8000", state["remote_scripts"]["listen_window"])
+
+    def test_listen_test_caps_amplitude_and_duration(self) -> None:
+        root = Path(tempfile.mkdtemp(prefix="a90-v2639-"))
+
+        with self.assertRaises(ValueError):
+            v2639.dry_run_payload(v2639.parse_args([
+                "--dry-run",
+                "--listen-test",
+                "--amplitude",
+                "0.21",
+                "--v2636-manifest",
+                str(fake_deploy(root)),
+            ]))
+
+        with self.assertRaises(ValueError):
+            v2639.dry_run_payload(v2639.parse_args([
+                "--dry-run",
+                "--listen-test",
+                "--duration-ms",
+                "10001",
+                "--v2636-manifest",
+                str(fake_deploy(root)),
+            ]))
 
     def test_source_runs_output_observer_instead_of_plain_pcm_by_default(self) -> None:
         source = Path(v2639.__file__).read_text(encoding="utf-8")

@@ -12,7 +12,9 @@ from __future__ import annotations
 import argparse
 import copy
 import json
+import math
 import shlex
+import wave
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -35,6 +37,7 @@ GLOBAL_APP_TYPE_SPEAKER_TUPLE = ("1", "69941", "48000", "16")
 GLOBAL_APP_TYPE_WRITER_ENTRY = "69941:48000:16"
 REMOTE_APP_TYPE_WRITER = f"{speaker.REMOTE_DIR}/a90_alsa_app_type_config_writer_v2733"
 REMOTE_OUTPUT_OBSERVER_SCRIPT = f"{speaker.REMOTE_DIR}/a90_pcm_output_observer_v2741.sh"
+REMOTE_LISTEN_WINDOW_SCRIPT = f"{speaker.REMOTE_DIR}/a90_pcm_listen_window_v2743.sh"
 DMESG_FOCUS_PATTERN = (
     "q6core|register_topolog|map_memory|avcs|adsp.*ready|adm_open|"
     "app type|bit_width|msm_pcm_routing|get_app_type|send_afe_cal|q6asm|"
@@ -45,6 +48,10 @@ MIXER_OUTPUT_FOCUS_PATTERN = (
     "SLIMBUS_0_RX|SWR DAC|App Type"
 )
 OUTPUT_OBSERVER_THERMAL_PATTERN = "wsa|spkr|speaker|audio|wcd|tavil|pa"
+LISTEN_TEST_DEFAULT_AMPLITUDE = 0.15
+LISTEN_TEST_MAX_AMPLITUDE = 0.20
+LISTEN_TEST_DEFAULT_DURATION_MS = 8000
+LISTEN_TEST_MAX_DURATION_MS = 10000
 OUTPUT_OBSERVER_DIRECT_CONTROLS = (
     "COMP7 Switch",
     "SLIMBUS_0_RX Audio Mixer MultiMedia1",
@@ -136,12 +143,15 @@ def dry_run_payload(args: argparse.Namespace) -> dict[str, Any]:
             "v2737_mixer_output_focus_pattern": MIXER_OUTPUT_FOCUS_PATTERN,
             "v2739_output_observer": output_observer_plan(args),
             "v2741_output_observer": output_observer_plan(args),
+            "v2743_listening_test": listening_test_plan(args),
         }
     )
     paths = dict(payload.get("remote_script_paths") or {})
     scripts = dict(payload.get("remote_scripts") or {})
     paths["pcm_output_observer"] = REMOTE_OUTPUT_OBSERVER_SCRIPT
     scripts["pcm_output_observer"] = output_observer_script(args)
+    paths["listen_window"] = REMOTE_LISTEN_WINDOW_SCRIPT
+    scripts["listen_window"] = listen_window_script(args)
     payload["remote_script_paths"] = paths
     payload["remote_scripts"] = scripts
     return payload
@@ -266,7 +276,11 @@ def runtime_script_files(out_dir: Path,
     script_dir.mkdir(parents=True, exist_ok=True)
     paths = state.get("remote_script_paths") or planmod.remote_script_paths(deploy_manifest)
     files: list[tuple[str, str, Path]] = []
-    for script_key in ("start_and_wait_all_set", "pcm_output_observer", "deallocate_check", "runtime_cleanup"):
+    script_keys = ["start_and_wait_all_set"]
+    if "listen_window" in paths:
+        script_keys.append("listen_window")
+    script_keys.extend(["pcm_output_observer", "deallocate_check", "runtime_cleanup"])
+    for script_key in script_keys:
         body = str((state.get("remote_scripts") or {}).get(script_key) or "")
         if not body.strip():
             raise RuntimeError(f"missing remote script body: {script_key}")
@@ -364,6 +378,91 @@ def focused_tinymix_script(remote_tinymix: str, card: int) -> str:
         f"{shlex.quote(remote_tinymix)} -D {int(card)} --all-values "
         f"| grep -iE {shlex.quote(MIXER_OUTPUT_FOCUS_PATTERN)} || true"
     )
+
+
+def effective_audio_params(args: argparse.Namespace) -> dict[str, Any]:
+    listen_test = bool(getattr(args, "listen_test", False))
+    amplitude = float(getattr(args, "amplitude", speaker.DEFAULT_AMPLITUDE))
+    duration_ms = int(getattr(args, "duration_ms", speaker.DEFAULT_DURATION_MS))
+    if listen_test and amplitude == speaker.DEFAULT_AMPLITUDE:
+        amplitude = LISTEN_TEST_DEFAULT_AMPLITUDE
+    if listen_test and duration_ms == speaker.DEFAULT_DURATION_MS:
+        duration_ms = LISTEN_TEST_DEFAULT_DURATION_MS
+    max_amplitude = LISTEN_TEST_MAX_AMPLITUDE if listen_test else speaker.MAX_AMPLITUDE
+    max_duration_ms = LISTEN_TEST_MAX_DURATION_MS if listen_test else speaker.MAX_DURATION_MS
+    if amplitude <= 0 or amplitude > max_amplitude:
+        raise ValueError(f"amplitude out of bound for {'listen' if listen_test else 'probe'} mode: {amplitude}")
+    if duration_ms <= 0 or duration_ms > max_duration_ms:
+        raise ValueError(f"duration_ms out of bound for {'listen' if listen_test else 'probe'} mode: {duration_ms}")
+    return {
+        "listen_test": listen_test,
+        "amplitude": amplitude,
+        "duration_ms": duration_ms,
+        "max_amplitude": max_amplitude,
+        "max_duration_ms": max_duration_ms,
+    }
+
+
+def generate_acdb_pilot_wav(path: Path, *, duration_ms: int, amplitude: float) -> dict[str, Any]:
+    frame_count = speaker.SAMPLE_RATE * duration_ms // 1000
+    frequency = 440.0
+    max_i16 = 32767
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with wave.open(str(path), "wb") as wav_file:
+        wav_file.setnchannels(2)
+        wav_file.setsampwidth(2)
+        wav_file.setframerate(speaker.SAMPLE_RATE)
+        for frame in range(frame_count):
+            value = int(max_i16 * amplitude * math.sin(2.0 * math.pi * frequency * frame / speaker.SAMPLE_RATE))
+            sample = value.to_bytes(2, "little", signed=True)
+            wav_file.writeframesraw(sample + sample)
+    return {
+        "path": rel(path),
+        "duration_ms": duration_ms,
+        "amplitude": amplitude,
+        "sample_rate": speaker.SAMPLE_RATE,
+        "channels": 2,
+        "sample_width_bytes": 2,
+        "frames": frame_count,
+        "sha256": speaker.sha256_file(path),
+    }
+
+
+def listening_test_plan(args: argparse.Namespace) -> dict[str, Any]:
+    params = effective_audio_params(args)
+    return {
+        "enabled": bool(getattr(args, "listen_test", False)),
+        "name": "v2743-human-audible-listen-window",
+        "remote_script": REMOTE_LISTEN_WINDOW_SCRIPT,
+        "amplitude": params["amplitude"],
+        "duration_ms": params["duration_ms"],
+        "max_amplitude": params["max_amplitude"],
+        "max_duration_ms": params["max_duration_ms"],
+        "markers": ["A90_LISTEN_WINDOW_BEGIN", "A90_LISTEN_WINDOW_END"],
+        "safety": "moderate short playback, no WSA gain/boost writes beyond observed route controls",
+    }
+
+
+def listen_window_script(args: argparse.Namespace) -> str:
+    params = effective_audio_params(args)
+    card = int(getattr(args, "card", 0))
+    device = int(getattr(args, "pcm_device", 0))
+    lines = [
+        "set -u",
+        f"pcm_probe={shlex.quote(speaker.REMOTE_PCM_PROBE)}",
+        f"pcm_file={shlex.quote(speaker.REMOTE_PCM)}",
+        f"card={card}",
+        f"device={device}",
+        f"amplitude={params['amplitude']}",
+        f"duration_ms={params['duration_ms']}",
+        "echo A90_LISTEN_WINDOW_READY amplitude=$amplitude duration_ms=$duration_ms card=$card device=$device",
+        "echo A90_LISTEN_WINDOW_BEGIN amplitude=$amplitude duration_ms=$duration_ms",
+        '"$pcm_probe" "$pcm_file" -D "$card" -d "$device"',
+        "pcm_rc=$?",
+        "echo A90_LISTEN_WINDOW_END rc=$pcm_rc",
+        "exit $pcm_rc",
+    ]
+    return "\n".join(lines)
 
 
 def output_observer_plan(args: argparse.Namespace) -> dict[str, Any]:
@@ -489,8 +588,14 @@ def run_setcal_replay_and_pcm(args: argparse.Namespace,
                               deploy_manifest: dict[str, Any]) -> dict[str, Any]:
     plan = route_plan(args)
     route = plan["raw"]
-    pcm_path = out_dir / "pilot_48k_s16le_stereo_0p02_1s.wav"
-    pcm = speaker.generate_pilot_wav(pcm_path, duration_ms=args.duration_ms, amplitude=args.amplitude)
+    audio_params = effective_audio_params(args)
+    suffix = "listen_48k_s16le_stereo_0p15_8s.wav" if audio_params["listen_test"] else "pilot_48k_s16le_stereo_0p02_1s.wav"
+    pcm_path = out_dir / suffix
+    pcm = generate_acdb_pilot_wav(
+        pcm_path,
+        duration_ms=int(audio_params["duration_ms"]),
+        amplitude=float(audio_params["amplitude"]),
+    )
     result: dict[str, Any] = {
         "pilot_wav": pcm,
         "install": {},
@@ -499,6 +604,7 @@ def run_setcal_replay_and_pcm(args: argparse.Namespace,
         "route_reset": [],
         "playback_attempted": False,
         "helper_started": False,
+        "listen_test": listening_test_plan(args),
     }
     install = install_runtime_artifacts(args, out_dir, steps, deploy_manifest, pcm_path, plan, state)
     result["install"] = install
@@ -656,7 +762,22 @@ def run_setcal_replay_and_pcm(args: argparse.Namespace,
             result["helper_started"] = True
             result["playback_attempted"] = True
             playback = route.get("playback") or {}
-            if bool(getattr(args, "output_observer", True)):
+            if bool(getattr(args, "listen_test", False)):
+                playback_script = install["scripts"]["listen_window"]["remote_path"]
+                playback_step = speaker.run_tool_command(
+                    args,
+                    out_dir,
+                    steps,
+                    "listen-window-audible-playback",
+                    [args.device_busybox, "sh", playback_script],
+                    use_tcpctl=False,
+                    timeout=args.playback_timeout,
+                    allow_error=True,
+                    failure_markers=("Error playing sample", "A90_PCM_PROBE_WRITE_ERROR", "A90_PCM_PROBE_PCM_OPEN_ERROR"),
+                )
+                result["output_observer"] = {"enabled": False, "reason": "listen-test uses marker-only playback wrapper"}
+                result["listen_test"] = {**listening_test_plan(args), "stdout_path": playback_step.get("stdout_path")}
+            elif bool(getattr(args, "output_observer", True)):
                 playback_script = install["scripts"]["pcm_output_observer"]["remote_path"]
                 playback_step = speaker.run_tool_command(
                     args,
@@ -1014,6 +1135,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--pcm-device", type=int, default=0)
     parser.add_argument("--duration-ms", type=int, default=speaker.DEFAULT_DURATION_MS)
     parser.add_argument("--amplitude", type=float, default=speaker.DEFAULT_AMPLITUDE)
+    parser.add_argument("--listen-test", action="store_true")
     parser.add_argument("--output-observer", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--output-observer-samples", type=int, default=12)
     parser.add_argument("--output-observer-sleep", default="0.10")
