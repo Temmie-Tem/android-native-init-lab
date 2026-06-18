@@ -12,10 +12,15 @@ profiles = load_revalidation("native_audio_speaker_profiles_v2749")
 
 REPO = Path(__file__).resolve().parents[1]
 AUDIO_C = REPO / "workspace/public/src/native-init/a90_audio.c"
+AUDIO_STAGE_H = REPO / "workspace/public/src/native-init/a90_audio_stage.h"
+AUDIO_STAGE_C = REPO / "workspace/public/src/native-init/a90_audio_stage.c"
 
 
 def source_text() -> str:
-    return AUDIO_C.read_text(encoding="utf-8")
+    return "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in (AUDIO_C, AUDIO_STAGE_H, AUDIO_STAGE_C)
+    )
 
 
 class NativeAudioStageApiContractV2756(unittest.TestCase):

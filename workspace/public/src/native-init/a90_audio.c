@@ -1,5 +1,6 @@
 #include "a90_audio.h"
 #include "a90_audio_profile.h"
+#include "a90_audio_stage.h"
 
 #include "a90_console.h"
 #include "a90_helper.h"
@@ -29,8 +30,6 @@
 #define AUDIO_FW_DIR "/vendor/firmware_mnt/image"
 #define AUDIO_FWCLASS_PATH "/sys/module/firmware_class/parameters/path"
 #define AUDIO_BOOT_ATTR "/sys/kernel/boot_adsp/boot"
-#define AUDIO_ADSP_BOOT_ONCE_TOKEN "AUD2_ONE_SHOT_ADSP_BOOT"
-#define AUDIO_SND_MATERIALIZE_TOKEN "AUD3_DEV_SND_MATERIALIZE_ONLY"
 #define AUDIO_SOUND_CLASS_DIR "/sys/class/sound"
 #define AUDIO_DEV_SND_DIR "/dev/snd"
 #define AUDIO_MAX_LISTED 8
@@ -39,7 +38,6 @@
 #define AUDIO_ADSP_SEGMENT_MODEL "stock-sparse-b00-b11-b13-b16"
 #define AUDIO_APP_TYPE_CFG_MAX_VALUES 128
 #define AUDIO_SETCAL_MANIFEST_VERSION 1
-#define AUDIO_SETCAL_DEFAULT_MANIFEST_PATH "/cache/a90-runtime/pkg/manifests/audio-setcal-internal-speaker-safe.manifest"
 #define AUDIO_SETCAL_RUNTIME_PREFIX "/cache/a90-runtime"
 #define AUDIO_SETCAL_LEGACY_REPLAY_PREFIX "/cache/a90-acdb-setcal-replay-"
 #define AUDIO_SETCAL_DEV_MSM_AUDIO_CAL "/dev/msm_audio_cal"
@@ -97,20 +95,6 @@ struct audio_snd_scan_stats {
     int invalid;
     int refused;
     int failed;
-};
-
-struct audio_stage_contract {
-    const char *id;
-    const char *owner;
-    const char *phase;
-    const char *command_template;
-    const char *speaker_scope;
-    const char *note;
-    int order;
-    bool uses_profile;
-    bool native_implemented;
-    bool writes_runtime_state;
-    bool rollback_boundary;
 };
 
 struct audio_setcal_entry {
@@ -195,187 +179,6 @@ struct audio_setcal_ion_request_plan {
     struct audio_setcal_ion_request_slot requests[AUDIO_PROFILE_ACDB_SET_COUNT];
 };
 
-static const struct audio_stage_contract AUDIO_STAGE_CONTRACTS[] = {
-    {
-        .id = "preflight-v2321-health",
-        .owner = "host",
-        .phase = "boot",
-        .command_template = "a90ctl version/status/selftest",
-        .speaker_scope = "host",
-        .note = "confirm rollback baseline health before flashing or playback work",
-        .order = 10,
-        .native_implemented = false,
-        .writes_runtime_state = false,
-        .rollback_boundary = true,
-    },
-    {
-        .id = "adsp-boot-once",
-        .owner = "native-init",
-        .phase = "adsp",
-        .command_template = "audio adsp-boot-once AUD2_ONE_SHOT_ADSP_BOOT",
-        .speaker_scope = "shared",
-        .note = "bounded ADSP boot write; retry is forbidden in one boot",
-        .order = 20,
-        .native_implemented = true,
-        .writes_runtime_state = true,
-        .rollback_boundary = false,
-    },
-    {
-        .id = "snd-materialize-once",
-        .owner = "native-init",
-        .phase = "snd",
-        .command_template = "audio snd-materialize-once AUD3_DEV_SND_MATERIALIZE_ONLY",
-        .speaker_scope = "shared",
-        .note = "materialize ALSA /dev/snd nodes from sysfs only",
-        .order = 30,
-        .native_implemented = true,
-        .writes_runtime_state = true,
-        .rollback_boundary = false,
-    },
-    {
-        .id = "write-global-app-type-config",
-        .owner = "native-init",
-        .phase = "app_type",
-        .command_template = "audio app-type %s --write",
-        .speaker_scope = "shared",
-        .note = "writes App Type Config with the V2735 proven tuple",
-        .order = 40,
-        .uses_profile = true,
-        .native_implemented = true,
-        .writes_runtime_state = true,
-        .rollback_boundary = false,
-    },
-    {
-        .id = "verify-private-acdb-manifest",
-        .owner = "native-init",
-        .phase = "acdb",
-        .command_template = "audio setcal %s --manifest " AUDIO_SETCAL_DEFAULT_MANIFEST_PATH " --verify --dry-run",
-        .speaker_scope = "shared",
-        .note = "verifies private SET arg/payload files by path, size, and sha256 without issuing audio calibration ioctls",
-        .order = 45,
-        .uses_profile = true,
-        .native_implemented = true,
-        .writes_runtime_state = false,
-        .rollback_boundary = false,
-    },
-    {
-        .id = "prepare-acdb-payload-bundle",
-        .owner = "native-init",
-        .phase = "acdb",
-        .command_template = "audio setcal %s --manifest " AUDIO_SETCAL_DEFAULT_MANIFEST_PATH " --prepare --dry-run",
-        .speaker_scope = "shared",
-        .note = "summarizes verified private SET arg/payload byte plan without opening audio devices",
-        .order = 47,
-        .uses_profile = true,
-        .native_implemented = true,
-        .writes_runtime_state = false,
-        .rollback_boundary = false,
-    },
-    {
-        .id = "load-acdb-payload-files",
-        .owner = "native-init",
-        .phase = "acdb",
-        .command_template = "audio setcal %s --manifest " AUDIO_SETCAL_DEFAULT_MANIFEST_PATH " --load --dry-run",
-        .speaker_scope = "shared",
-        .note = "opens and drains verified private SET arg/payload files without opening audio devices or issuing ioctls",
-        .order = 48,
-        .uses_profile = true,
-        .native_implemented = true,
-        .writes_runtime_state = false,
-        .rollback_boundary = false,
-    },
-    {
-        .id = "replay-acdb-setcal-sequence",
-        .owner = "native-init",
-        .phase = "acdb",
-        .command_template = "audio setcal %s --manifest " AUDIO_SETCAL_DEFAULT_MANIFEST_PATH " --execute",
-        .speaker_scope = "shared",
-        .note = "SET replay remains blocked until the private manifest verifier is followed by a native ioctl implementation",
-        .order = 50,
-        .uses_profile = true,
-        .native_implemented = false,
-        .writes_runtime_state = true,
-        .rollback_boundary = false,
-    },
-    {
-        .id = "apply-core-speaker-route",
-        .owner = "native-init",
-        .phase = "route",
-        .command_template = "audio route %s --apply --layer core",
-        .speaker_scope = "shared",
-        .note = "applies only core route controls; endpoint/boost layers remain blocked",
-        .order = 60,
-        .uses_profile = true,
-        .native_implemented = true,
-        .writes_runtime_state = true,
-        .rollback_boundary = false,
-    },
-    {
-        .id = "plan-bounded-pcm-playback",
-        .owner = "native-init",
-        .phase = "pcm",
-        .command_template = "audio play %s --mode probe --dry-run",
-        .speaker_scope = "internal-speaker",
-        .note = "plans bounded PCM playback from profile defaults and enforces amplitude/duration caps without opening ALSA",
-        .order = 68,
-        .uses_profile = true,
-        .native_implemented = true,
-        .writes_runtime_state = false,
-        .rollback_boundary = false,
-    },
-    {
-        .id = "bounded-pcm-playback",
-        .owner = "native-init",
-        .phase = "pcm",
-        .command_template = "audio play %s --mode probe --execute",
-        .speaker_scope = "internal-speaker",
-        .note = "bounded native ALSA PCM writer; prerequisite stages must provide /dev/snd, app-type, SET replay, and route state",
-        .order = 70,
-        .uses_profile = true,
-        .native_implemented = true,
-        .writes_runtime_state = true,
-        .rollback_boundary = false,
-    },
-    {
-        .id = "plan-audio-stop-cleanup",
-        .owner = "native-init",
-        .phase = "cleanup",
-        .command_template = "audio stop %s --dry-run",
-        .speaker_scope = "internal-speaker",
-        .note = "plans PCM stop, reverse ACDB deallocation, and core route reset without touching ALSA or calibration ioctls",
-        .order = 78,
-        .uses_profile = true,
-        .native_implemented = true,
-        .writes_runtime_state = false,
-        .rollback_boundary = false,
-    },
-    {
-        .id = "reset-core-speaker-route",
-        .owner = "native-init",
-        .phase = "cleanup",
-        .command_template = "audio route %s --reset --layer core",
-        .speaker_scope = "shared",
-        .note = "resets the same core controls in reverse order",
-        .order = 80,
-        .uses_profile = true,
-        .native_implemented = true,
-        .writes_runtime_state = true,
-        .rollback_boundary = false,
-    },
-    {
-        .id = "rollback-v2321",
-        .owner = "host",
-        .phase = "rollback",
-        .command_template = "native_init_flash.py boot_linux_v2321_usb_clean_identity_rodata.img",
-        .speaker_scope = "host",
-        .note = "checked boot-partition rollback target for live audio tests",
-        .order = 90,
-        .native_implemented = false,
-        .writes_runtime_state = true,
-        .rollback_boundary = true,
-    },
-};
-
 static const struct audio_setcal_entry AUDIO_INTERNAL_SPEAKER_SETCAL_PLAN[] = {
     {.cal_type = 39, .role = "CORE_CUSTOM_TOPOLOGIES_BYTE_EXACT_SET", .dmabuf_expected = true},
     {.cal_type = 20, .role = "AFE_FB_SPKR_PROT_HEADER_REAL_HAL_1", .dmabuf_expected = false},
@@ -408,7 +211,7 @@ static int audio_profile_count(void) {
 }
 
 static int audio_stage_count(void) {
-    return (int)(sizeof(AUDIO_STAGE_CONTRACTS) / sizeof(AUDIO_STAGE_CONTRACTS[0]));
+    return AUDIO_STAGE_CONTRACT_COUNT;
 }
 
 static int audio_setcal_entry_count(void) {
