@@ -24,6 +24,7 @@ import native_audio_acdb_setcal_replay_live_gate_v2637 as v2637
 import native_audio_acdb_setcal_replay_live_runner_plan_v2638 as planmod
 import native_audio_acdb_topology_replay_live_handoff_v2552 as topology_live
 import native_audio_speaker_pilot_live_handoff_v2379 as speaker
+import native_audio_speaker_profiles_v2749 as audio_profiles
 import native_audio_snd_nodes_preflight_handoff_v2335 as snd
 import build_audio_app_type_config_writer_v2733 as appcfg_writer
 
@@ -32,51 +33,25 @@ BUILD_TAG = "v2639-audio-acdb-setcal-replay-live-handoff"
 DEFAULT_MANIFEST = snd.ROOT / "workspace/private/builds/audio" / BUILD_TAG / "manifest.json"
 DEFAULT_OUT_BASE = snd.ROOT / "workspace/private/runs/audio"
 APPROVAL_PHRASE = v2637.APPROVAL_PHRASE
+DEFAULT_AUDIO_PROFILE_ID = audio_profiles.INTERNAL_SPEAKER_SAFE.profile_id
+DEFAULT_AUDIO_PROFILE = audio_profiles.get_profile(DEFAULT_AUDIO_PROFILE_ID)
 DMESG_TAIL_LINE_COUNT = 260
 GLOBAL_APP_TYPE_CONTROL_NAME = "App Type Config"
-GLOBAL_APP_TYPE_SPEAKER_TUPLE = ("1", "69941", "48000", "16")
-GLOBAL_APP_TYPE_WRITER_ENTRY = "69941:48000:16"
+GLOBAL_APP_TYPE_SPEAKER_TUPLE = DEFAULT_AUDIO_PROFILE.global_app_type_values()
+GLOBAL_APP_TYPE_WRITER_ENTRY = DEFAULT_AUDIO_PROFILE.global_app_type_entry()
 REMOTE_APP_TYPE_WRITER = f"{speaker.REMOTE_DIR}/a90_alsa_app_type_config_writer_v2733"
 REMOTE_OUTPUT_OBSERVER_SCRIPT = f"{speaker.REMOTE_DIR}/a90_pcm_output_observer_v2741.sh"
 REMOTE_LISTEN_WINDOW_SCRIPT = f"{speaker.REMOTE_DIR}/a90_pcm_listen_window_v2743.sh"
-DMESG_FOCUS_PATTERN = (
-    "q6core|register_topolog|map_memory|avcs|adsp.*ready|adm_open|"
-    "app type|bit_width|msm_pcm_routing|get_app_type|send_afe_cal|q6asm|"
-    "AFE_PORT|ASM"
-)
-MIXER_OUTPUT_FOCUS_PATTERN = (
-    "SPKR|Spkr|WSA|VISENSE|COMP|BOOST|RMS|VI|feedback|RX INT7|"
-    "SLIMBUS_0_RX|SWR DAC|App Type"
-)
+DMESG_FOCUS_PATTERN = DEFAULT_AUDIO_PROFILE.dmesg_focus_pattern()
+MIXER_OUTPUT_FOCUS_PATTERN = DEFAULT_AUDIO_PROFILE.mixer_focus_pattern()
 OUTPUT_OBSERVER_THERMAL_PATTERN = "wsa|spkr|speaker|audio|wcd|tavil|pa"
-LISTEN_TEST_DEFAULT_AMPLITUDE = 0.15
-LISTEN_TEST_MAX_AMPLITUDE = 0.20
-LISTEN_TEST_DEFAULT_DURATION_MS = 8000
-LISTEN_TEST_MAX_DURATION_MS = 10000
+LISTEN_TEST_DEFAULT_AMPLITUDE = DEFAULT_AUDIO_PROFILE.listen_limits.default_amplitude
+LISTEN_TEST_MAX_AMPLITUDE = DEFAULT_AUDIO_PROFILE.listen_limits.max_amplitude
+LISTEN_TEST_DEFAULT_DURATION_MS = DEFAULT_AUDIO_PROFILE.listen_limits.default_duration_ms
+LISTEN_TEST_MAX_DURATION_MS = DEFAULT_AUDIO_PROFILE.listen_limits.max_duration_ms
 LISTEN_TEST_DEFAULT_COUNTDOWN_SEC = 5
 LISTEN_TEST_MAX_COUNTDOWN_SEC = 10
-OUTPUT_OBSERVER_DIRECT_CONTROLS = (
-    "COMP7 Switch",
-    "SLIMBUS_0_RX Audio Mixer MultiMedia1",
-    "RX INT7_1 MIX1 INP0",
-    "Audio Stream 0 App Type Cfg",
-    "App Type Config",
-    "Get RMS",
-    "Backend Device Channel Map",
-    "SpkrLeft WSA PA Gain",
-    "SpkrLeft WSA PA Mute",
-    "SpkrLeft WSA T0 Init",
-    "SpkrLeft COMP Switch",
-    "SpkrLeft BOOST Switch",
-    "SpkrLeft VISENSE Switch",
-    "SpkrLeft Boost Level",
-    "SpkrLeft SWR DAC_Port Switch",
-    "AIF4_VI Mixer SPKR_VI_1",
-    "AIF4_VI Mixer SPKR_VI_2",
-    "WSA_CDC_DMA_RX_0 Audio Mixer MultiMedia1",
-    "WSA_CDC_DMA_RX_1 Audio Mixer MultiMedia1",
-    "VI_FEED_TX Channels",
-)
+OUTPUT_OBSERVER_DIRECT_CONTROLS = DEFAULT_AUDIO_PROFILE.output_observer_controls
 
 
 def rel(path: Path | str) -> str:
@@ -104,6 +79,10 @@ def load_deploy_manifest(path: Path) -> dict[str, Any]:
     return planmod.load_v2636(path)
 
 
+def selected_audio_profile(args: argparse.Namespace) -> audio_profiles.AudioSpeakerProfile:
+    return audio_profiles.get_profile(getattr(args, "audio_profile", DEFAULT_AUDIO_PROFILE_ID))
+
+
 def verify_live_gate(args: argparse.Namespace, deploy_manifest: dict[str, Any]) -> None:
     v2637.verify_live_gate(
         args.approval,
@@ -114,6 +93,7 @@ def verify_live_gate(args: argparse.Namespace, deploy_manifest: dict[str, Any]) 
 
 def dry_run_payload(args: argparse.Namespace) -> dict[str, Any]:
     plan = planmod.build_runner_plan(args)
+    profile = selected_audio_profile(args)
     payload = copy.deepcopy(plan)
     future_sequence = list(payload.get("future_live_sequence") or [])
     future_sequence = [
@@ -147,6 +127,7 @@ def dry_run_payload(args: argparse.Namespace) -> dict[str, Any]:
             "v2739_output_observer": output_observer_plan(args),
             "v2741_output_observer": output_observer_plan(args),
             "v2743_listening_test": listening_test_plan(args),
+            "v2749_audio_speaker_profile": profile.manifest(),
         }
     )
     paths = dict(payload.get("remote_script_paths") or {})
@@ -394,6 +375,8 @@ def run_remote_script(args: argparse.Namespace,
 def global_app_type_plan(args: argparse.Namespace) -> dict[str, Any]:
     enabled = bool(getattr(args, "set_global_app_type_config", True))
     use_atomic = bool(getattr(args, "use_atomic_app_type_writer", True))
+    profile = selected_audio_profile(args)
+    values = profile.global_app_type_values()
     tool = REMOTE_APP_TYPE_WRITER if use_atomic else speaker.REMOTE_TINYMIX
     argv = (
         [
@@ -403,7 +386,7 @@ def global_app_type_plan(args: argparse.Namespace) -> dict[str, Any]:
             "--control",
             GLOBAL_APP_TYPE_CONTROL_NAME,
             "--entry",
-            GLOBAL_APP_TYPE_WRITER_ENTRY,
+            profile.global_app_type_entry(),
         ]
         if use_atomic
         else [
@@ -411,17 +394,18 @@ def global_app_type_plan(args: argparse.Namespace) -> dict[str, Any]:
             "-D",
             str(args.card),
             GLOBAL_APP_TYPE_CONTROL_NAME,
-            *GLOBAL_APP_TYPE_SPEAKER_TUPLE,
+            *values,
         ]
     )
     return {
         "enabled": enabled,
         "name": "v2733-atomic-app-type-config" if use_atomic else "v2730-global-app-type-config",
+        "profile_id": profile.profile_id,
         "role": "global_app_type_cfg_gate",
         "source": "V2732 write-semantics recon",
         "control": GLOBAL_APP_TYPE_CONTROL_NAME,
-        "values": list(GLOBAL_APP_TYPE_SPEAKER_TUPLE),
-        "entry": GLOBAL_APP_TYPE_WRITER_ENTRY,
+        "values": list(values),
+        "entry": profile.global_app_type_entry(),
         "writer": "atomic-alsa-elem-write" if use_atomic else "tinymix-per-index-compat",
         "argv": argv,
         "expected_effect": "adm_open bit_width 0->16 and no app-type fallback for app_type 0x11135",
@@ -441,25 +425,24 @@ def focused_tinymix_script(remote_tinymix: str, card: int) -> str:
 
 
 def effective_audio_params(args: argparse.Namespace) -> dict[str, Any]:
+    profile = selected_audio_profile(args)
     listen_test = bool(getattr(args, "listen_test", False))
+    mode: audio_profiles.AudioMode = "listen" if listen_test else "probe"
+    limits = profile.limits_for_mode(mode)
     amplitude = float(getattr(args, "amplitude", speaker.DEFAULT_AMPLITUDE))
     duration_ms = int(getattr(args, "duration_ms", speaker.DEFAULT_DURATION_MS))
     if listen_test and amplitude == speaker.DEFAULT_AMPLITUDE:
-        amplitude = LISTEN_TEST_DEFAULT_AMPLITUDE
+        amplitude = limits.default_amplitude
     if listen_test and duration_ms == speaker.DEFAULT_DURATION_MS:
-        duration_ms = LISTEN_TEST_DEFAULT_DURATION_MS
-    max_amplitude = LISTEN_TEST_MAX_AMPLITUDE if listen_test else speaker.MAX_AMPLITUDE
-    max_duration_ms = LISTEN_TEST_MAX_DURATION_MS if listen_test else speaker.MAX_DURATION_MS
-    if amplitude <= 0 or amplitude > max_amplitude:
-        raise ValueError(f"amplitude out of bound for {'listen' if listen_test else 'probe'} mode: {amplitude}")
-    if duration_ms <= 0 or duration_ms > max_duration_ms:
-        raise ValueError(f"duration_ms out of bound for {'listen' if listen_test else 'probe'} mode: {duration_ms}")
+        duration_ms = limits.default_duration_ms
+    profile.validate_playback(mode=mode, amplitude=amplitude, duration_ms=duration_ms)
     return {
+        "profile_id": profile.profile_id,
         "listen_test": listen_test,
         "amplitude": amplitude,
         "duration_ms": duration_ms,
-        "max_amplitude": max_amplitude,
-        "max_duration_ms": max_duration_ms,
+        "max_amplitude": limits.max_amplitude,
+        "max_duration_ms": limits.max_duration_ms,
     }
 
 
@@ -491,9 +474,12 @@ def generate_acdb_pilot_wav(path: Path, *, duration_ms: int, amplitude: float) -
 def listening_test_plan(args: argparse.Namespace) -> dict[str, Any]:
     params = effective_audio_params(args)
     countdown_sec = effective_listen_countdown_sec(args)
+    profile = selected_audio_profile(args)
     return {
         "enabled": bool(getattr(args, "listen_test", False)),
         "name": "v2743-human-audible-listen-window",
+        "profile_id": profile.profile_id,
+        "endpoint": profile.endpoint,
         "remote_script": REMOTE_LISTEN_WINDOW_SCRIPT,
         "amplitude": params["amplitude"],
         "duration_ms": params["duration_ms"],
@@ -501,7 +487,7 @@ def listening_test_plan(args: argparse.Namespace) -> dict[str, Any]:
         "max_duration_ms": params["max_duration_ms"],
         "host_countdown_sec": countdown_sec,
         "markers": ["A90_LISTEN_WINDOW_BEGIN", "A90_LISTEN_WINDOW_END"],
-        "safety": "moderate short playback, no WSA gain/boost writes beyond observed route controls",
+        "safety": list(profile.safety_notes),
     }
 
 
@@ -550,15 +536,18 @@ def listen_window_script(args: argparse.Namespace) -> str:
 
 
 def output_observer_plan(args: argparse.Namespace) -> dict[str, Any]:
+    profile = selected_audio_profile(args)
     return {
         "enabled": bool(getattr(args, "output_observer", True)),
         "name": "v2741-direct-output-observer",
+        "profile_id": profile.profile_id,
+        "endpoint": profile.endpoint,
         "role": "read-only dynamic output-side sampler during bounded PCM probe",
         "remote_script": REMOTE_OUTPUT_OBSERVER_SCRIPT,
         "sample_count": int(getattr(args, "output_observer_samples", 12)),
         "sample_sleep_sec": str(getattr(args, "output_observer_sleep", "0.10")),
         "sampling_mode": "direct-control-allowlist",
-        "direct_controls": list(OUTPUT_OBSERVER_DIRECT_CONTROLS),
+        "direct_controls": list(profile.output_observer_controls),
         "thermal_pattern": OUTPUT_OBSERVER_THERMAL_PATTERN,
         "non_goal": "does not change WSA gain/boost/protection controls",
     }
@@ -657,8 +646,10 @@ def remote_step_clean(step: dict[str, Any]) -> bool:
 def route_plan(args: argparse.Namespace) -> dict[str, Any]:
     base = planmod.speaker_args(args)
     plan = speaker.speaker_plan(base)
+    profile = selected_audio_profile(args)
     return {
         "raw": plan,
+        "profile": profile.manifest(),
         "remote_tinymix": speaker.REMOTE_TINYMIX,
         "remote_pcm_probe": speaker.REMOTE_PCM_PROBE,
         "remote_pcm": speaker.REMOTE_PCM,
@@ -1218,6 +1209,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--mixer-timeout", type=float, default=45.0)
     parser.add_argument("--playback-timeout", type=float, default=25.0)
     parser.add_argument("--pcm-device", type=int, default=0)
+    parser.add_argument("--audio-profile", choices=audio_profiles.list_profiles(), default=DEFAULT_AUDIO_PROFILE_ID)
     parser.add_argument("--duration-ms", type=int, default=speaker.DEFAULT_DURATION_MS)
     parser.add_argument("--amplitude", type=float, default=speaker.DEFAULT_AMPLITUDE)
     parser.add_argument("--listen-test", action="store_true")
