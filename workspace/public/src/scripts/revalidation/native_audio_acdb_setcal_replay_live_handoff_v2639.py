@@ -39,6 +39,10 @@ DMESG_FOCUS_PATTERN = (
     "app type|bit_width|msm_pcm_routing|get_app_type|send_afe_cal|q6asm|"
     "AFE_PORT|ASM"
 )
+MIXER_OUTPUT_FOCUS_PATTERN = (
+    "SPKR|Spkr|WSA|VISENSE|COMP|BOOST|RMS|VI|feedback|RX INT7|"
+    "SLIMBUS_0_RX|SWR DAC|App Type"
+)
 
 
 def rel(path: Path | str) -> str:
@@ -105,6 +109,7 @@ def dry_run_payload(args: argparse.Namespace) -> dict[str, Any]:
                 "reason": "avoid tinymix per-index integer writes on write-only multi-value App Type Config",
             },
             "v2730_dmesg_focus_pattern": DMESG_FOCUS_PATTERN,
+            "v2737_mixer_output_focus_pattern": MIXER_OUTPUT_FOCUS_PATTERN,
         }
     )
     return payload
@@ -322,6 +327,13 @@ def focused_dmesg_script() -> str:
     return f"dmesg | grep -iE {shlex.quote(DMESG_FOCUS_PATTERN)} || true"
 
 
+def focused_tinymix_script(remote_tinymix: str, card: int) -> str:
+    return (
+        f"{shlex.quote(remote_tinymix)} -D {int(card)} --all-values "
+        f"| grep -iE {shlex.quote(MIXER_OUTPUT_FOCUS_PATTERN)} || true"
+    )
+
+
 def remote_step_clean(step: dict[str, Any]) -> bool:
     if not step.get("ok"):
         return False
@@ -485,6 +497,34 @@ def run_setcal_replay_and_pcm(args: argparse.Namespace,
                 "stdout_path": post_set_focus_step.get("stdout_path"),
                 "pattern": DMESG_FOCUS_PATTERN,
             }
+            active_snapshot_step = speaker.run_tool_command(
+                args,
+                out_dir,
+                steps,
+                "tinymix-all-values-active-before-pcm",
+                [plan["remote_tinymix"], "-D", str(args.card), "--all-values"],
+                use_tcpctl=use_tcpctl,
+                timeout=args.mixer_timeout,
+                allow_error=True,
+            )
+            active_focus_step = run_remote_shell(
+                args,
+                out_dir,
+                steps,
+                "tinymix-focus-active-before-pcm",
+                focused_tinymix_script(plan["remote_tinymix"], args.card),
+                timeout=args.mixer_timeout,
+                allow_error=True,
+            )
+            result["active_snapshot_before_pcm"] = {
+                "ok": bool(active_snapshot_step.get("ok")),
+                "stdout_path": active_snapshot_step.get("stdout_path"),
+            }
+            result["active_focus_before_pcm"] = {
+                "ok": bool(active_focus_step.get("ok")),
+                "stdout_path": active_focus_step.get("stdout_path"),
+                "pattern": MIXER_OUTPUT_FOCUS_PATTERN,
+            }
             helper_started = True
             result["helper_started"] = True
             result["playback_attempted"] = True
@@ -527,6 +567,34 @@ def run_setcal_replay_and_pcm(args: argparse.Namespace,
                 "ok": bool(playback_dmesg_focus_step.get("ok")),
                 "stdout_path": playback_dmesg_focus_step.get("stdout_path"),
                 "pattern": DMESG_FOCUS_PATTERN,
+            }
+            post_playback_snapshot_step = speaker.run_tool_command(
+                args,
+                out_dir,
+                steps,
+                "tinymix-all-values-active-after-pcm-before-reset",
+                [plan["remote_tinymix"], "-D", str(args.card), "--all-values"],
+                use_tcpctl=use_tcpctl,
+                timeout=args.mixer_timeout,
+                allow_error=True,
+            )
+            post_playback_focus_step = run_remote_shell(
+                args,
+                out_dir,
+                steps,
+                "tinymix-focus-active-after-pcm-before-reset",
+                focused_tinymix_script(plan["remote_tinymix"], args.card),
+                timeout=args.mixer_timeout,
+                allow_error=True,
+            )
+            result["active_snapshot_after_pcm_before_reset"] = {
+                "ok": bool(post_playback_snapshot_step.get("ok")),
+                "stdout_path": post_playback_snapshot_step.get("stdout_path"),
+            }
+            result["active_focus_after_pcm_before_reset"] = {
+                "ok": bool(post_playback_focus_step.get("ok")),
+                "stdout_path": post_playback_focus_step.get("stdout_path"),
+                "pattern": MIXER_OUTPUT_FOCUS_PATTERN,
             }
             if not playback_step.get("ok"):
                 result["playback_failure_dmesg"] = result["playback_dmesg"]

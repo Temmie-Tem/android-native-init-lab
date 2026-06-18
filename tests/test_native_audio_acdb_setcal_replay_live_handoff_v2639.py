@@ -188,6 +188,25 @@ class NativeAudioAcdbSetcalReplayLiveHandoffV2639(unittest.TestCase):
             source.index("dmesg-after-setcal-playback-before-reset"),
         )
 
+    def test_source_captures_active_tinymix_snapshots_before_reset(self) -> None:
+        source = Path(v2639.__file__).read_text(encoding="utf-8")
+
+        self.assertIn("MIXER_OUTPUT_FOCUS_PATTERN", source)
+        self.assertIn("tinymix-all-values-active-before-pcm", source)
+        self.assertIn("tinymix-focus-active-before-pcm", source)
+        self.assertIn("tinymix-all-values-active-after-pcm-before-reset", source)
+        self.assertIn("tinymix-focus-active-after-pcm-before-reset", source)
+        self.assertIn('result["active_snapshot_before_pcm"]', source)
+        self.assertIn('result["active_focus_after_pcm_before_reset"]', source)
+        self.assertLess(
+            source.index("tinymix-all-values-active-before-pcm"),
+            source.index('result["playback_attempted"] = True'),
+        )
+        self.assertLess(
+            source.index("tinymix-all-values-active-after-pcm-before-reset"),
+            source.index("route.get(\"route_reset_commands\")"),
+        )
+
     def test_global_app_type_config_runs_before_stream_app_type_and_route(self) -> None:
         source = Path(v2639.__file__).read_text(encoding="utf-8")
 
