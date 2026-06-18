@@ -65,7 +65,8 @@ class NativeAudioSetcalLoadApiV2760(unittest.TestCase):
 
     def test_load_summary_keeps_audio_devices_and_ioctls_zero(self) -> None:
         text = source_text()
-        load_summary = text[text.index("if (load_manifest)"):text.index("if (execute_mode)")]
+        load_start = text.index("if (load_files)")
+        load_summary = text[load_start:text.index("audio_setcal_print_execute_plan", load_start)]
 
         for marker in [
             "audio.setcal.load.entry.count",

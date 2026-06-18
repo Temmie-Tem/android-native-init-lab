@@ -67,8 +67,10 @@ class NativeAudioSetcalManifestCommandV2757(unittest.TestCase):
 
         self.assertIn('audio.setcal.private_payloads_required=1', text)
         self.assertIn('audio.setcal.exact_set_arg_replay=1', text)
-        self.assertIn('audio.setcal.devices.msm_audio_cal=/dev/msm_audio_cal', text)
-        self.assertIn('audio.setcal.devices.ion=/dev/ion', text)
+        self.assertIn('#define AUDIO_SETCAL_DEV_MSM_AUDIO_CAL "/dev/msm_audio_cal"', text)
+        self.assertIn('#define AUDIO_SETCAL_DEV_ION "/dev/ion"', text)
+        self.assertIn('audio.setcal.devices.msm_audio_cal=%s', text)
+        self.assertIn('audio.setcal.devices.ion=%s', text)
         self.assertIn('audio.setcal.sequence=prepare_payloads,set_each,hold,deallocate_payload_entries_reverse', text)
         self.assertRegex(
             text,
