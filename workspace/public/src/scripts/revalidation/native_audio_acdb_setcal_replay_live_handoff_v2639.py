@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import copy
 import json
+import shlex
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -28,6 +29,13 @@ DEFAULT_MANIFEST = snd.ROOT / "workspace/private/builds/audio" / BUILD_TAG / "ma
 DEFAULT_OUT_BASE = snd.ROOT / "workspace/private/runs/audio"
 APPROVAL_PHRASE = v2637.APPROVAL_PHRASE
 DMESG_TAIL_LINE_COUNT = 260
+GLOBAL_APP_TYPE_CONTROL_NAME = "App Type Config"
+GLOBAL_APP_TYPE_SPEAKER_TUPLE = ("1", "69941", "48000", "16")
+DMESG_FOCUS_PATTERN = (
+    "q6core|register_topolog|map_memory|avcs|adsp.*ready|adm_open|"
+    "app type|bit_width|msm_pcm_routing|get_app_type|send_afe_cal|q6asm|"
+    "AFE_PORT|ASM"
+)
 
 
 def rel(path: Path | str) -> str:
@@ -66,6 +74,15 @@ def verify_live_gate(args: argparse.Namespace, deploy_manifest: dict[str, Any]) 
 def dry_run_payload(args: argparse.Namespace) -> dict[str, Any]:
     plan = planmod.build_runner_plan(args)
     payload = copy.deepcopy(plan)
+    future_sequence = list(payload.get("future_live_sequence") or [])
+    future_sequence = [
+        (
+            "write global App Type Config 1 69941 48000 16, then apply V2407 stream App Type and V2377 route controls"
+            if step == "apply V2407 App Type and V2377 route controls"
+            else step
+        )
+        for step in future_sequence
+    ]
     payload.update(
         {
             "run_id": RUN_ID,
@@ -76,6 +93,9 @@ def dry_run_payload(args: argparse.Namespace) -> dict[str, Any]:
             "live_runner_default": "dry-run",
             "live_gate_passed_now": False,
             "manifest_path": rel(args.manifest_path),
+            "future_live_sequence": future_sequence,
+            "v2730_global_app_type_config": global_app_type_plan(args),
+            "v2730_dmesg_focus_pattern": DMESG_FOCUS_PATTERN,
         }
     )
     return payload
@@ -234,6 +254,31 @@ def run_remote_script(args: argparse.Namespace,
     )
 
 
+def global_app_type_plan(args: argparse.Namespace) -> dict[str, Any]:
+    enabled = bool(getattr(args, "set_global_app_type_config", True))
+    return {
+        "enabled": enabled,
+        "name": "v2730-global-app-type-config",
+        "role": "global_app_type_cfg_gate",
+        "source": "GOAL.md V2726 operator lead",
+        "control": GLOBAL_APP_TYPE_CONTROL_NAME,
+        "values": list(GLOBAL_APP_TYPE_SPEAKER_TUPLE),
+        "argv": [
+            speaker.REMOTE_TINYMIX,
+            "-D",
+            str(args.card),
+            GLOBAL_APP_TYPE_CONTROL_NAME,
+            *GLOBAL_APP_TYPE_SPEAKER_TUPLE,
+        ],
+        "expected_effect": "adm_open bit_width 0->16 and no app-type fallback for app_type 0x11135",
+        "transport": "serial-cmdv1x",
+    }
+
+
+def focused_dmesg_script() -> str:
+    return f"dmesg | grep -iE {shlex.quote(DMESG_FOCUS_PATTERN)} || true"
+
+
 def remote_step_clean(step: dict[str, Any]) -> bool:
     if not step.get("ok"):
         return False
@@ -267,6 +312,7 @@ def run_setcal_replay_and_pcm(args: argparse.Namespace,
     result: dict[str, Any] = {
         "pilot_wav": pcm,
         "install": {},
+        "global_app_type_config": {"enabled": bool(getattr(args, "set_global_app_type_config", True))},
         "route_apply": [],
         "route_reset": [],
         "playback_attempted": False,
@@ -295,6 +341,29 @@ def run_setcal_replay_and_pcm(args: argparse.Namespace,
             result["baseline_snapshot"] = {"ok": bool(baseline_step.get("ok")), "stdout_path": baseline_step.get("stdout_path")}
             if not baseline_step.get("ok"):
                 raise RuntimeError(f"baseline tinymix snapshot failed: {baseline_step.get('remote_tool_result')}")
+            global_app_type = global_app_type_plan(args)
+            if global_app_type["enabled"]:
+                step = speaker.run_tool_command(
+                    args,
+                    out_dir,
+                    steps,
+                    global_app_type["name"],
+                    [str(part) for part in global_app_type["argv"]],
+                    use_tcpctl=False,
+                    timeout=args.mixer_timeout,
+                    allow_error=True,
+                    failure_markers=("Invalid mixer control",),
+                )
+                result["global_app_type_config"] = {
+                    "enabled": True,
+                    "ok": bool(step.get("ok")),
+                    "stdout_path": step.get("stdout_path"),
+                    "remote_tool_result": step.get("remote_tool_result"),
+                    "control": global_app_type["control"],
+                    "values": global_app_type["values"],
+                }
+                if not step.get("ok"):
+                    raise RuntimeError(f"global App Type Config gate failed: {step.get('remote_tool_result')}")
             app_type = route.get("app_type_command")
             if app_type:
                 step = speaker.run_tool_command(
@@ -354,9 +423,23 @@ def run_setcal_replay_and_pcm(args: argparse.Namespace,
                 timeout=args.mixer_timeout,
                 allow_error=True,
             )
+            post_set_focus_step = run_remote_shell(
+                args,
+                out_dir,
+                steps,
+                "dmesg-focus-after-setcal-replay-before-pcm",
+                focused_dmesg_script(),
+                timeout=args.mixer_timeout,
+                allow_error=True,
+            )
             result["post_set_dmesg"] = {
                 "ok": bool(post_set_dmesg_step.get("ok")),
                 "stdout_path": post_set_dmesg_step.get("stdout_path"),
+            }
+            result["post_set_dmesg_focus"] = {
+                "ok": bool(post_set_focus_step.get("ok")),
+                "stdout_path": post_set_focus_step.get("stdout_path"),
+                "pattern": DMESG_FOCUS_PATTERN,
             }
             helper_started = True
             result["helper_started"] = True
@@ -380,7 +463,13 @@ def run_setcal_replay_and_pcm(args: argparse.Namespace,
             deferred_error = exc
             if result.get("playback_attempted"):
                 dmesg_step = run_remote_shell(args, out_dir, steps, "dmesg-after-setcal-playback-failure-before-reset", f"dmesg | tail -n {DMESG_TAIL_LINE_COUNT}", timeout=args.mixer_timeout, allow_error=True)
+                dmesg_focus_step = run_remote_shell(args, out_dir, steps, "dmesg-focus-after-setcal-playback-failure-before-reset", focused_dmesg_script(), timeout=args.mixer_timeout, allow_error=True)
                 result["playback_failure_dmesg"] = {"ok": bool(dmesg_step.get("ok")), "stdout_path": dmesg_step.get("stdout_path")}
+                result["playback_failure_dmesg_focus"] = {
+                    "ok": bool(dmesg_focus_step.get("ok")),
+                    "stdout_path": dmesg_focus_step.get("stdout_path"),
+                    "pattern": DMESG_FOCUS_PATTERN,
+                }
     finally:
         if helper_started:
             cleanup_script = install["scripts"]["deallocate_check"]["remote_path"]
@@ -522,7 +611,7 @@ def live_run(args: argparse.Namespace, state: dict[str, Any], deploy_manifest: d
 
 def write_report(path: Path, state: dict[str, Any]) -> None:
     lines = [
-        "# NATIVE_INIT V2639 — ACDB SET-cal replay live handoff",
+        "# NATIVE_INIT V2639/V2730 — ACDB SET-cal replay live handoff",
         "",
         "Date: 2026-06-18",
         "",
@@ -541,12 +630,36 @@ def write_report(path: Path, state: dict[str, Any]) -> None:
         f"- safe_to_run_native_replay: `{state.get('safe_to_run_native_replay')}`",
         f"- live_runner_implemented: `{state.get('live_runner_implemented')}`",
         f"- manifest_path: `{state.get('manifest_path')}`",
+        f"- global_app_type_config: `{state.get('v2730_global_app_type_config')}`",
+        f"- dmesg_focus_pattern: `{state.get('v2730_dmesg_focus_pattern')}`",
+        "",
+        "## V2730 Update",
+        "",
+        "V2730 updates the existing V2639 runner for the current GOAL frontier:",
+        "",
+        "- writes the global `App Type Config` mixer control via serial before the",
+        "  older per-stream `Audio Stream 0 App Type Cfg` and route controls;",
+        "- uses the speaker tuple `1 69941 48000 16`, targeting the kernel",
+        "  `app_type_cfg[]` table rather than `fe_dai_app_type_cfg[]`;",
+        "- captures focused dmesg greps for `q6core`, topology-registration,",
+        "  `adm_open`, app-type fallback, and `bit_width` before and after the PCM probe;",
+        "- keeps the replay manifest, exact SET bytes, bounded PCM probe, reverse",
+        "  deallocate cleanup, route reset, and V2321 rollback contract unchanged.",
         "",
         "## Gate Blockers",
         "",
     ]
     for blocker in state.get("replay_gate_blockers", []):
         lines.append(f"- {blocker}")
+    lines.extend(
+        [
+            "",
+            "## Future Live Sequence",
+            "",
+        ]
+    )
+    for step in state.get("future_live_sequence", []):
+        lines.append(f"- {step}")
     lines.extend(
         [
             "",
@@ -608,6 +721,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--playback-timeout", type=float, default=25.0)
     parser.add_argument("--duration-ms", type=int, default=speaker.DEFAULT_DURATION_MS)
     parser.add_argument("--amplitude", type=float, default=speaker.DEFAULT_AMPLITUDE)
+    parser.add_argument("--set-global-app-type-config", action=argparse.BooleanOptionalAction, default=True)
     return parser.parse_args(argv)
 
 

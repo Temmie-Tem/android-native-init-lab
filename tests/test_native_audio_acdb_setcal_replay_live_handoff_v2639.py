@@ -76,6 +76,19 @@ class NativeAudioAcdbSetcalReplayLiveHandoffV2639(unittest.TestCase):
         self.assertEqual(state["replay_gate_blockers"], [])
         self.assertEqual(state["remote"]["final_set_index"], 8)
 
+    def test_dry_run_defaults_to_v2730_global_app_type_config(self) -> None:
+        root = Path(tempfile.mkdtemp(prefix="a90-v2639-"))
+        args = v2639.parse_args(["--dry-run", "--v2636-manifest", str(fake_deploy(root))])
+        state = v2639.dry_run_payload(args)
+        gate = state["v2730_global_app_type_config"]
+
+        self.assertTrue(gate["enabled"])
+        self.assertEqual(gate["control"], "App Type Config")
+        self.assertEqual(gate["values"], ["1", "69941", "48000", "16"])
+        self.assertIn("q6core", state["v2730_dmesg_focus_pattern"])
+        self.assertIn("bit_width", state["v2730_dmesg_focus_pattern"])
+        self.assertTrue(any("global App Type Config" in step for step in state["future_live_sequence"]))
+
     def test_verify_live_gate_accepts_legacy_approval_flags_as_noops(self) -> None:
         root = Path(tempfile.mkdtemp(prefix="a90-v2639-"))
         manifest = fake_deploy(root, gate2=False)
@@ -124,6 +137,8 @@ class NativeAudioAcdbSetcalReplayLiveHandoffV2639(unittest.TestCase):
         text = report.read_text(encoding="utf-8")
 
         self.assertIn("ACDB SET-cal replay live handoff", text)
+        self.assertIn("V2730 Update", text)
+        self.assertIn("global `App Type Config`", text)
         self.assertIn("self-authorized", text)
         self.assertNotIn("local_path_private", text)
 
@@ -131,11 +146,21 @@ class NativeAudioAcdbSetcalReplayLiveHandoffV2639(unittest.TestCase):
         source = Path(v2639.__file__).read_text(encoding="utf-8")
 
         self.assertIn("dmesg-after-setcal-replay-before-pcm", source)
+        self.assertIn("dmesg-focus-after-setcal-replay-before-pcm", source)
         self.assertIn("post_set_dmesg", source)
         self.assertLess(
             source.index("dmesg-after-setcal-replay-before-pcm"),
             source.index('result["playback_attempted"] = True'),
         )
+
+    def test_global_app_type_config_runs_before_stream_app_type_and_route(self) -> None:
+        source = Path(v2639.__file__).read_text(encoding="utf-8")
+
+        self.assertIn("global_app_type_plan(args)", source)
+        self.assertIn('route.get("app_type_command")', source)
+        self.assertIn("route.get(\"route_apply_commands\")", source)
+        self.assertLess(source.index("global_app_type_plan(args)"), source.index('route.get("app_type_command")'))
+        self.assertLess(source.index('route.get("app_type_command")'), source.index("route.get(\"route_apply_commands\")"))
 
 
 if __name__ == "__main__":
