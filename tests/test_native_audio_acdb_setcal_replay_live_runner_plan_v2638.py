@@ -70,18 +70,20 @@ class NativeAudioAcdbSetcalReplayLiveRunnerPlanV2638(unittest.TestCase):
     def args(self, root: Path):
         return v2638.parse_args(["--v2636-manifest", str(fake_deploy(root))])
 
-    def test_runner_plan_pins_exact_set_marker_and_gate_blockers(self) -> None:
+    def test_runner_plan_pins_exact_set_marker_and_self_authorizes(self) -> None:
         root = Path(tempfile.mkdtemp(prefix="a90-v2638-"))
         plan = v2638.build_runner_plan(self.args(root))
 
         self.assertTrue(plan["ok"])
         self.assertTrue(plan["execution_contract_ok"])
-        self.assertFalse(plan["safe_to_run_native_replay"])
+        self.assertTrue(plan["safe_to_run_native_replay"])
+        self.assertTrue(plan["native_replay_ready"])
+        self.assertFalse(plan["manual_approval_required"])
         self.assertEqual(plan["remote"]["entry_count"], 9)
         self.assertEqual(plan["remote"]["final_set_index"], 8)
         self.assertEqual(plan["remote"]["payload_entry_indices"], [0, 3, 5, 7])
         self.assertIn("A90_ACDB_SETCAL_SET_OK index=8", plan["remote_scripts"]["start_and_wait_all_set"])
-        self.assertIn("operator Gate-2 acceptance", "\n".join(plan["replay_gate_blockers"]))
+        self.assertEqual(plan["replay_gate_blockers"], [])
 
     def test_scripts_include_devnode_setup_hash_checks_and_reverse_dealloc_check(self) -> None:
         root = Path(tempfile.mkdtemp(prefix="a90-v2638-"))

@@ -65,35 +65,30 @@ def fake_deploy(root: Path, *, gate2: bool = False) -> Path:
 
 
 class NativeAudioAcdbSetcalReplayLiveHandoffV2639(unittest.TestCase):
-    def test_dry_run_uses_v2638_contract_and_keeps_gate_closed(self) -> None:
+    def test_dry_run_uses_v2638_contract_and_self_authorizes(self) -> None:
         root = Path(tempfile.mkdtemp(prefix="a90-v2639-"))
         args = v2639.parse_args(["--dry-run", "--v2636-manifest", str(fake_deploy(root))])
         state = v2639.dry_run_payload(args)
 
         self.assertTrue(state["live_runner_implemented"])
         self.assertTrue(state["execution_contract_ok"])
-        self.assertFalse(state["safe_to_run_native_replay"])
-        self.assertIn("operator Gate-2", "\n".join(state["replay_gate_blockers"]))
+        self.assertTrue(state["safe_to_run_native_replay"])
+        self.assertEqual(state["replay_gate_blockers"], [])
         self.assertEqual(state["remote"]["final_set_index"], 8)
 
-    def test_run_live_refuses_before_device_without_gate2(self) -> None:
+    def test_verify_live_gate_accepts_legacy_approval_flags_as_noops(self) -> None:
         root = Path(tempfile.mkdtemp(prefix="a90-v2639-"))
         manifest = fake_deploy(root, gate2=False)
         args = v2639.parse_args([
             "--run-live",
-            "--approval",
-            v2639.APPROVAL_PHRASE,
-            "--operator-gate2-accepted",
             "--v2636-manifest",
             str(manifest),
         ])
         deploy = v2639.load_deploy_manifest(manifest)
         state = v2639.dry_run_payload(args)
 
-        with self.assertRaises(SystemExit) as raised:
-            v2639.verify_live_gate(args, deploy)
-        self.assertIn("deployment manifest does not record operator Gate-2", str(raised.exception))
-        self.assertFalse(state["safe_to_run_native_replay"])
+        v2639.verify_live_gate(args, deploy)
+        self.assertTrue(state["safe_to_run_native_replay"])
 
     def test_report_records_blockers(self) -> None:
         root = Path(tempfile.mkdtemp(prefix="a90-v2639-"))
@@ -104,7 +99,7 @@ class NativeAudioAcdbSetcalReplayLiveHandoffV2639(unittest.TestCase):
         text = report.read_text(encoding="utf-8")
 
         self.assertIn("ACDB SET-cal replay live handoff", text)
-        self.assertIn("Gate-2", text)
+        self.assertIn("self-authorized", text)
         self.assertNotIn("local_path_private", text)
 
 

@@ -6,8 +6,9 @@ execution contract: stage the exact replay files, run the V2635 helper in the
 background, wait for all SET records, run the already-proven route + bounded PCM
 probe during the helper hold window, then verify deallocation and cleanup.
 
-It does not touch the device. Live replay remains blocked until operator Gate-2
-accepts the V2633/V2634 SET-layer package.
+It does not touch the device. Per the 2026-06-18 GOAL policy update, live replay
+is self-authorized inside the recoverable envelope; legacy approval and Gate-2
+flags are recorded but do not block the plan.
 """
 
 from __future__ import annotations
@@ -231,12 +232,6 @@ def build_runner_plan(args: argparse.Namespace) -> dict[str, Any]:
     app_type = route_plan.get("app_type_command")
     playback = route_plan.get("playback") or {}
     gate_blockers = []
-    if args.approval != APPROVAL_PHRASE:
-        gate_blockers.append("exact live approval phrase not supplied")
-    if not args.operator_gate2_accepted:
-        gate_blockers.append("operator Gate-2 acceptance flag not supplied")
-    if not manifest.get("operator_gate2_accepted"):
-        gate_blockers.append("V2636 deployment manifest does not record operator Gate-2 acceptance")
     if not manifest.get("ok") or not manifest.get("all_inputs_ok"):
         gate_blockers.append("V2636 deployment inputs are not all verified")
     execution_contract_ok = bool(
@@ -263,8 +258,11 @@ def build_runner_plan(args: argparse.Namespace) -> dict[str, Any]:
         "approval_phrase_supplied": args.approval == APPROVAL_PHRASE,
         "operator_gate2_accepted_cli": bool(args.operator_gate2_accepted),
         "operator_gate2_accepted_manifest": bool(manifest.get("operator_gate2_accepted")),
-        "safe_to_run_native_replay": False,
-        "native_replay_ready": False,
+        "operator_gate2_effective": True,
+        "manual_approval_required": False,
+        "live_gate_policy": "self-authorized recoverable envelope; GOAL.md policy change 2026-06-18",
+        "safe_to_run_native_replay": bool(execution_contract_ok and not gate_blockers),
+        "native_replay_ready": bool(execution_contract_ok and not gate_blockers),
         "execution_contract_ok": execution_contract_ok,
         "replay_gate_blockers": gate_blockers,
         "remote": {
@@ -438,7 +436,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.write_report:
         write_report(args.report, plan, args.private_manifest)
     if args.run_live:
-        raise SystemExit("refusing live replay: V2638 is a host-only runner plan; use a future checked live runner after Gate-2 acceptance")
+        raise SystemExit("refusing live replay: V2638 is a host-only runner plan; use the checked V2639 live runner")
     print(json.dumps({
         "decision": plan["summary"]["decision"],
         "ok": plan["ok"],

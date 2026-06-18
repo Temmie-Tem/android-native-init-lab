@@ -10,13 +10,13 @@ issue calibration ioctls, or run PCM playback.
 
 ## Result
 
-- decision: `v2638-setcal-replay-live-runner-plan-blocked`
+- decision: `v2638-setcal-replay-live-runner-plan-gate-satisfied`
 - ok: `True`
 - execution_contract_ok: `True`
 - private_manifest: `workspace/private/builds/audio/v2638-audio-acdb-setcal-replay-live-runner-plan/runner-plan.json`
 - source_v2636_manifest: `workspace/private/builds/audio/v2636-audio-acdb-setcal-replay-deploy-plan/deploy-plan.json`
-- safe_to_run_native_replay: `False`
-- native_replay_ready: `False`
+- safe_to_run_native_replay: `True`
+- native_replay_ready: `True`
 
 ## Replay Contract
 
@@ -33,9 +33,6 @@ issue calibration ioctls, or run PCM playback.
 
 ## Gate Blockers
 
-- exact live approval phrase not supplied
-- operator Gate-2 acceptance flag not supplied
-- V2636 deployment manifest does not record operator Gate-2 acceptance
 
 ## Future Live Sequence
 

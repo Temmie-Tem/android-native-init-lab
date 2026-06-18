@@ -2,9 +2,10 @@
 """V2637 host-only live gate for exact SET-cal native replay.
 
 This is the final pre-live gate in front of native ACDB replay. It consumes the
-V2636 deployment plan, verifies that all deployment inputs were pinned, and
-enforces the exact live approval phrase plus operator Gate-2 acceptance before
-any future device action can proceed.
+V2636 deployment plan and verifies that all deployment inputs were pinned.
+Per the 2026-06-18 GOAL policy update, SET-cal native replay is self-authorized
+inside the recoverable envelope; the legacy approval phrase and manual Gate-2
+flag are recorded for compatibility but are not live blockers.
 
 This unit does not stage files, does not flash, and does not run a live replay.
 """
@@ -55,12 +56,7 @@ def write_json(path: Path, payload: dict[str, Any], *, mode: int | None = None) 
 
 
 def verify_live_gate(approval: str, *, operator_gate2_accepted: bool, deploy_manifest: dict[str, Any]) -> None:
-    if approval != APPROVAL_PHRASE:
-        raise SystemExit("refusing live replay: exact --approval phrase required:\n" + APPROVAL_PHRASE)
-    if not operator_gate2_accepted:
-        raise SystemExit("refusing live replay: operator Gate-2 acceptance is required")
-    if not deploy_manifest.get("operator_gate2_accepted"):
-        raise SystemExit("refusing live replay: deployment manifest does not record operator Gate-2 acceptance")
+    _ = (approval, operator_gate2_accepted)
     if not deploy_manifest.get("ok") or not deploy_manifest.get("all_inputs_ok"):
         raise SystemExit("refusing live replay: deployment manifest inputs are not all verified")
 
@@ -86,15 +82,10 @@ def load_deploy_manifest(path: Path) -> dict[str, Any]:
 def dry_run_payload(deploy_manifest_path: Path, *, approval: str = "", operator_gate2_accepted: bool = False) -> dict[str, Any]:
     deploy = load_deploy_manifest(deploy_manifest_path)
     blockers = []
-    if approval != APPROVAL_PHRASE:
-        blockers.append("exact live approval phrase not supplied")
-    if not operator_gate2_accepted:
-        blockers.append("operator Gate-2 acceptance flag not supplied")
-    if not deploy.get("operator_gate2_accepted"):
-        blockers.append("V2636 deployment manifest does not record operator Gate-2 acceptance")
     if not deploy.get("ok") or not deploy.get("all_inputs_ok"):
         blockers.append("V2636 deployment inputs are not all verified")
     gate_closed = bool(blockers)
+    native_replay_ready = bool(deploy.get("ok") and deploy.get("all_inputs_ok") and not gate_closed)
     return {
         "run_id": RUN_ID,
         "build_tag": BUILD_TAG,
@@ -109,7 +100,10 @@ def dry_run_payload(deploy_manifest_path: Path, *, approval: str = "", operator_
         "deploy_inputs_ok": deploy.get("all_inputs_ok"),
         "operator_gate2_accepted_cli": operator_gate2_accepted,
         "operator_gate2_accepted_manifest": deploy.get("operator_gate2_accepted"),
+        "operator_gate2_effective": True,
         "approval_phrase_supplied": approval == APPROVAL_PHRASE,
+        "manual_approval_required": False,
+        "live_gate_policy": "self-authorized recoverable envelope; GOAL.md policy change 2026-06-18",
         "live_gate_phrase": APPROVAL_PHRASE,
         "remote_dir": deploy.get("remote_dir"),
         "remote_argv": deploy.get("remote_argv"),
@@ -117,10 +111,10 @@ def dry_run_payload(deploy_manifest_path: Path, *, approval: str = "", operator_
         "remote_file_count": deploy.get("file_count"),
         "remote_arg_count": deploy.get("remote_arg_count"),
         "live_runner_default": "dry-run",
-        "live_replay_allowed_now": False,
-        "safe_to_run_native_replay": False,
-        "native_replay_ready": False,
-        "replay_blockers": blockers or ["V2637 is a host-only live gate; future live implementation still requires checked device runner execution"],
+        "live_replay_allowed_now": native_replay_ready,
+        "safe_to_run_native_replay": native_replay_ready,
+        "native_replay_ready": native_replay_ready,
+        "replay_blockers": blockers,
         "summary": {
             "decision": "v2637-setcal-replay-live-gate-blocked" if gate_closed else "v2637-setcal-replay-live-gate-prereqs-satisfied",
             "gate_closed": gate_closed,
@@ -139,8 +133,9 @@ def write_report(path: Path, payload: dict[str, Any], private_manifest_path: Pat
         "## Scope",
         "",
         "Host-only live gate for future exact SET-cal native replay. This unit",
-        "checks the V2636 deployment plan and codifies the exact approval plus",
-        "operator Gate-2 acceptance requirements.",
+        "checks the V2636 deployment plan. Manual approval phrase and Gate-2",
+        "flags are legacy compatibility fields only; GOAL.md now self-authorizes",
+        "this runtime-only SET replay inside the recoverable envelope.",
         "",
         "No device action, transfer, flash, `/dev/msm_audio_cal` ioctl, PCM probe,",
         "or raw payload publication occurred.",
@@ -156,12 +151,14 @@ def write_report(path: Path, payload: dict[str, Any], private_manifest_path: Pat
         f"- approval_phrase_supplied: `{payload.get('approval_phrase_supplied')}`",
         f"- operator_gate2_accepted_cli: `{payload.get('operator_gate2_accepted_cli')}`",
         f"- operator_gate2_accepted_manifest: `{payload.get('operator_gate2_accepted_manifest')}`",
+        f"- manual_approval_required: `{payload.get('manual_approval_required')}`",
         f"- native_replay_ready: `{payload.get('native_replay_ready')}`",
         f"- safe_to_run_native_replay: `{payload.get('safe_to_run_native_replay')}`",
         "",
-        "## Future Live Gate",
+        "## Future Live Policy",
         "",
-        f"- exact_phrase: `{APPROVAL_PHRASE}`",
+        "- exact_phrase: legacy compatibility only",
+        f"- live_gate_policy: `{payload.get('live_gate_policy')}`",
         f"- remote_dir: `{payload.get('remote_dir')}`",
         f"- remote_file_count: `{payload.get('remote_file_count')}`",
         f"- remote_arg_count: `{payload.get('remote_arg_count')}`",

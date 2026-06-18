@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""V2639 exact-gated live handoff for ACDB SET-cal native replay.
+"""V2639 checked live handoff for ACDB SET-cal native replay.
 
-Live mode is implemented but must pass the V2637/V2638 gate before any device
-action: exact approval phrase, explicit operator Gate-2 acceptance flag, and a
-V2636 deployment manifest that records Gate-2 acceptance. Without those, this
-runner refuses before flash/stage/replay.
+Live mode is implemented and must pass the V2637/V2638 deployment-integrity
+gate before any device action. Per the 2026-06-18 GOAL policy update, native
+SET-cal replay is self-authorized inside the recoverable envelope; legacy
+approval and Gate-2 flags are accepted as no-op compatibility options.
 """
 
 from __future__ import annotations
@@ -432,9 +432,11 @@ def write_report(path: Path, state: dict[str, Any]) -> None:
         "",
         "## Scope",
         "",
-        "Exact-gated checked live handoff for future native replay of the V2636",
-        "SET-cal manifest. Default validation is host-only; live mode refuses before",
-        "device action unless Gate-2 acceptance is recorded and the exact approval is supplied.",
+        "Checked live handoff for native replay of the V2636 SET-cal manifest.",
+        "Default validation is host-only. Live mode is self-authorized under the",
+        "recoverable envelope and is gated by deployment integrity plus the",
+        "operational invariants: one-shot exact SET args, bounded PCM probe,",
+        "reverse-deallocate cleanup, dmesg instrumentation, and rollback to V2321.",
         "",
         "## Result",
         "",
@@ -457,7 +459,7 @@ def write_report(path: Path, state: dict[str, Any]) -> None:
             "- `python3 -m py_compile workspace/public/src/scripts/revalidation/native_audio_acdb_setcal_replay_live_handoff_v2639.py tests/test_native_audio_acdb_setcal_replay_live_handoff_v2639.py`",
             "- `PYTHONPATH=tests:workspace/public/src/scripts/revalidation python3 -m unittest tests.test_native_audio_acdb_setcal_replay_live_handoff_v2639 -v`",
             "- `PYTHONPATH=workspace/public/src/scripts/revalidation python3 workspace/public/src/scripts/revalidation/native_audio_acdb_setcal_replay_live_handoff_v2639.py --dry-run --write-report`",
-            "- `PYTHONPATH=workspace/public/src/scripts/revalidation python3 workspace/public/src/scripts/revalidation/native_audio_acdb_setcal_replay_live_handoff_v2639.py --run-live --approval <exact> --operator-gate2-accepted` refused before device action because the V2636 manifest does not record Gate-2 acceptance",
+            "- `PYTHONPATH=workspace/public/src/scripts/revalidation python3 workspace/public/src/scripts/revalidation/native_audio_acdb_setcal_replay_live_handoff_v2639.py --run-live` deployment-integrity gate check",
             "- `git diff --check`",
             "",
         ]
