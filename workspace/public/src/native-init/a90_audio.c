@@ -573,10 +573,10 @@ static const struct audio_stage_contract AUDIO_STAGE_CONTRACTS[] = {
         .phase = "pcm",
         .command_template = "audio play %s --mode probe --execute",
         .speaker_scope = "internal-speaker",
-        .note = "planned bounded tone API; amplitude stays capped by the profile",
+        .note = "bounded native ALSA PCM writer; prerequisite stages must provide /dev/snd, app-type, SET replay, and route state",
         .order = 70,
         .uses_profile = true,
-        .native_implemented = false,
+        .native_implemented = true,
         .writes_runtime_state = true,
         .rollback_boundary = false,
     },
@@ -1918,6 +1918,56 @@ static long long audio_play_data_bytes(const struct audio_speaker_profile *profi
     return ((long long)profile->sample_rate * (long long)duration_ms * frame_bytes) / 1000LL;
 }
 
+static void audio_play_pcm_path(const struct audio_speaker_profile *profile,
+                                char *path,
+                                size_t path_size) {
+    if (path == NULL || path_size == 0) {
+        return;
+    }
+    if (profile == NULL) {
+        path[0] = '\0';
+        return;
+    }
+    snprintf(path, path_size, "/dev/snd/pcmC%dD%dp", profile->card, profile->pcm_device);
+}
+
+static const char *audio_play_pcm_node_state(const char *path, bool *ready) {
+    struct stat st;
+
+    if (ready != NULL) {
+        *ready = false;
+    }
+    if (path == NULL || path[0] == '\0') {
+        return "bad-path";
+    }
+    if (lstat(path, &st) < 0) {
+        return errno == ENOENT ? "missing" : "stat-failed";
+    }
+    if (!S_ISCHR(st.st_mode)) {
+        return "not-char";
+    }
+    if (ready != NULL) {
+        *ready = true;
+    }
+    return "ok";
+}
+
+static bool audio_play_print_pcm_prereq(const struct audio_speaker_profile *profile,
+                                        char *pcm_path,
+                                        size_t pcm_path_size) {
+    bool ready = false;
+    const char *state;
+
+    audio_play_pcm_path(profile, pcm_path, pcm_path_size);
+    state = audio_play_pcm_node_state(pcm_path, &ready);
+    a90_console_printf("audio.play.prereq.pcm_path=%s\r\n", pcm_path);
+    a90_console_printf("audio.play.prereq.pcm_node.state=%s\r\n", state);
+    a90_console_printf("audio.play.prereq.pcm_node.ready=%d\r\n", ready ? 1 : 0);
+    a90_console_printf("audio.play.prereq.snd_materialize_command=audio snd-materialize-once %s\r\n",
+                       AUDIO_SND_MATERIALIZE_TOKEN);
+    return ready;
+}
+
 static bool audio_pcm_param_is_mask(int parameter) {
     return parameter >= SNDRV_PCM_HW_PARAM_FIRST_MASK && parameter <= SNDRV_PCM_HW_PARAM_LAST_MASK;
 }
@@ -2141,7 +2191,7 @@ static int audio_play_execute_pcm(const struct audio_speaker_profile *profile,
         return -EINVAL;
     }
 
-    snprintf(pcm_path, sizeof(pcm_path), "/dev/snd/pcmC%dD%dp", profile->card, profile->pcm_device);
+    audio_play_pcm_path(profile, pcm_path, sizeof(pcm_path));
     a90_console_printf("audio.play.execute.version=1\r\n");
     a90_console_printf("audio.play.execute.profile=%s\r\n", profile->id);
     a90_console_printf("audio.play.execute.mode=%s\r\n", mode);
@@ -2223,7 +2273,7 @@ static void audio_play_print_execute_plan(const struct audio_speaker_profile *pr
     if (profile == NULL) {
         return;
     }
-    snprintf(pcm_path, sizeof(pcm_path), "/dev/snd/pcmC%dD%dp", profile->card, profile->pcm_device);
+    audio_play_pcm_path(profile, pcm_path, sizeof(pcm_path));
     a90_console_printf("audio.play.execute.plan.version=1\r\n");
     a90_console_printf("audio.play.execute.plan.profile=%s\r\n", profile->id);
     a90_console_printf("audio.play.execute.plan.mode=%s\r\n", mode);
@@ -2255,6 +2305,8 @@ static int audio_play_cmd(char **argv, int argc) {
     int requested_duration_ms = 0;
     int amplitude_milli = 0;
     int duration_ms = 0;
+    char pcm_path[64];
+    bool pcm_node_ready;
     int argi;
 
     for (argi = 2; argi < argc; ++argi) {
@@ -2338,14 +2390,23 @@ static int audio_play_cmd(char **argv, int argc) {
     a90_console_printf("audio.play.requires.app_type=1\r\n");
     a90_console_printf("audio.play.requires.setcal=1\r\n");
     a90_console_printf("audio.play.requires.route=1\r\n");
+    a90_console_printf("audio.play.requires.snd=1\r\n");
     a90_console_printf("audio.play.alsa_open_attempted=0\r\n");
     a90_console_printf("audio.play.ioctl_attempted=0\r\n");
+    pcm_node_ready = audio_play_print_pcm_prereq(profile, pcm_path, sizeof(pcm_path));
     if (amplitude_milli > profile->amplitude_cap_milli || duration_ms > profile->duration_cap_ms) {
         a90_console_printf("audio.play.refused=safety-cap-exceeded\r\n");
         return -EPERM;
     }
     if (execute_mode) {
         audio_play_print_execute_plan(profile, mode, amplitude_milli, duration_ms);
+        if (!pcm_node_ready) {
+            a90_console_printf("audio.play.refused=missing-pcm-node\r\n");
+            a90_console_printf("audio.play.execute.alsa_open_attempted=0\r\n");
+            a90_console_printf("audio.play.execute.ioctl_attempted=0\r\n");
+            a90_console_printf("audio.play.execute.pcm_write_attempted=0\r\n");
+            return -ENOENT;
+        }
         return audio_play_execute_pcm(profile, mode, amplitude_milli, duration_ms);
     }
     a90_console_printf("audio.play.dry_run_ok=1\r\n");

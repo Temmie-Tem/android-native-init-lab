@@ -59,18 +59,39 @@ class NativeAudioPlayExecuteGateV2765(unittest.TestCase):
 
         cap_check = text.index("audio.play.refused=safety-cap-exceeded")
         plan_call = text.index("audio_play_print_execute_plan(profile, mode, amplitude_milli, duration_ms)")
+        prereq_refusal = text.index("audio.play.refused=missing-pcm-node")
         execute_call = text.index("audio_play_execute_pcm(profile, mode, amplitude_milli, duration_ms)")
 
         self.assertLess(cap_check, plan_call)
+        self.assertLess(plan_call, prereq_refusal)
+        self.assertLess(prereq_refusal, execute_call)
         self.assertLess(plan_call, execute_call)
         self.assertNotIn("execute-not-implemented-native-pcm", text)
         self.assertRegex(
             text,
             re.compile(
-                r'if \(execute_mode\).*?audio_play_print_execute_plan.*?return audio_play_execute_pcm',
+                r'if \(execute_mode\).*?audio_play_print_execute_plan.*?audio.play.refused=missing-pcm-node.*?return audio_play_execute_pcm',
                 re.DOTALL,
             ),
         )
+
+    def test_play_execute_reports_snd_prerequisite_before_open(self) -> None:
+        text = source_text()
+
+        for marker in [
+            "audio_play_print_pcm_prereq",
+            "audio.play.requires.snd=1",
+            "audio.play.prereq.pcm_path",
+            "audio.play.prereq.pcm_node.state",
+            "audio.play.prereq.pcm_node.ready",
+            "audio.play.prereq.snd_materialize_command=audio snd-materialize-once",
+            "audio.play.refused=missing-pcm-node",
+            "audio.play.execute.alsa_open_attempted=0",
+            "audio.play.execute.ioctl_attempted=0",
+            "audio.play.execute.pcm_write_attempted=0",
+        ]:
+            with self.subTest(marker=marker):
+                self.assertIn(marker, text)
 
     def test_pcm_writer_is_bounded_and_uses_kernel_pcm_ioctls(self) -> None:
         text = source_text()

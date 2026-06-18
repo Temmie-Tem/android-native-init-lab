@@ -173,7 +173,7 @@ class NativeAudioStageApiContractV2756(unittest.TestCase):
         )
         self.assertRegex(
             text,
-            re.compile(r'\.id = "bounded-pcm-playback".*?\.native_implemented = false', re.DOTALL),
+            re.compile(r'\.id = "bounded-pcm-playback".*?\.native_implemented = true', re.DOTALL),
         )
         self.assertRegex(
             text,
