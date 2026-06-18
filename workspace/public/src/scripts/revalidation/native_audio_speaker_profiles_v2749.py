@@ -16,6 +16,16 @@ from typing import Literal
 AudioMode = Literal["probe", "listen"]
 
 
+def _jsonable(value: object) -> object:
+    if isinstance(value, tuple):
+        return [_jsonable(item) for item in value]
+    if isinstance(value, list):
+        return [_jsonable(item) for item in value]
+    if isinstance(value, dict):
+        return {str(key): _jsonable(item) for key, item in value.items()}
+    return value
+
+
 @dataclass(frozen=True)
 class AppTypeEntry:
     """Kernel app-type table tuple for one playback endpoint."""
@@ -104,7 +114,8 @@ class AudioSpeakerProfile:
         return "|".join(self.mixer_focus_terms)
 
     def manifest(self) -> dict[str, object]:
-        payload = asdict(self)
+        payload = _jsonable(asdict(self))
+        assert isinstance(payload, dict)
         payload["global_app_type_values"] = list(self.global_app_type_values())
         payload["global_app_type_entry"] = self.global_app_type_entry()
         payload["stream_app_type_values"] = list(self.stream_app_type_values())
