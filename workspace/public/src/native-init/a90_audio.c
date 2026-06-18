@@ -472,10 +472,23 @@ static const struct audio_stage_contract AUDIO_STAGE_CONTRACTS[] = {
         .rollback_boundary = false,
     },
     {
+        .id = "plan-bounded-pcm-playback",
+        .owner = "native-init",
+        .phase = "pcm",
+        .command_template = "audio play %s --mode probe --dry-run",
+        .speaker_scope = "internal-speaker",
+        .note = "plans bounded PCM playback from profile defaults and enforces amplitude/duration caps without opening ALSA",
+        .order = 68,
+        .uses_profile = true,
+        .native_implemented = true,
+        .writes_runtime_state = false,
+        .rollback_boundary = false,
+    },
+    {
         .id = "bounded-pcm-playback",
         .owner = "native-init",
         .phase = "pcm",
-        .command_template = "audio play %s --mode probe",
+        .command_template = "audio play %s --mode probe --execute",
         .speaker_scope = "internal-speaker",
         .note = "planned bounded tone API; amplitude stays capped by the profile",
         .order = 70,
@@ -1325,6 +1338,151 @@ static int audio_setcal_cmd(char **argv, int argc) {
         return -EPERM;
     }
     a90_console_printf("audio.setcal.dry_run_ok=1\r\n");
+    return 0;
+}
+
+static bool audio_parse_nonnegative_int(const char *text, int *value) {
+    char *endptr = NULL;
+    long parsed;
+
+    if (text == NULL || text[0] == '\0' || value == NULL) {
+        return false;
+    }
+    errno = 0;
+    parsed = strtol(text, &endptr, 10);
+    if (errno != 0 || endptr == text || *endptr != '\0' || parsed < 0 || parsed > INT_MAX) {
+        return false;
+    }
+    *value = (int)parsed;
+    return true;
+}
+
+static bool audio_play_mode_defaults(const struct audio_speaker_profile *profile,
+                                     const char *mode,
+                                     int *amplitude_milli,
+                                     int *duration_ms) {
+    if (profile == NULL || mode == NULL || amplitude_milli == NULL || duration_ms == NULL) {
+        return false;
+    }
+    if (strcmp(mode, "probe") == 0) {
+        *amplitude_milli = profile->probe_amplitude_milli;
+        *duration_ms = profile->probe_duration_ms;
+        return true;
+    }
+    if (strcmp(mode, "listen") == 0) {
+        *amplitude_milli = profile->listen_amplitude_milli;
+        *duration_ms = profile->listen_duration_ms;
+        return true;
+    }
+    return false;
+}
+
+static int audio_play_cmd(char **argv, int argc) {
+    const char *profile_id = AUDIO_DEFAULT_PROFILE_ID;
+    const char *mode = "probe";
+    const struct audio_speaker_profile *profile;
+    bool seen_profile = false;
+    bool execute_mode = false;
+    bool amplitude_override = false;
+    bool duration_override = false;
+    int requested_amplitude_milli = 0;
+    int requested_duration_ms = 0;
+    int amplitude_milli = 0;
+    int duration_ms = 0;
+    int argi;
+
+    for (argi = 2; argi < argc; ++argi) {
+        if (argv == NULL || argv[argi] == NULL) {
+            a90_console_printf("usage: audio play [profile] [--mode probe|listen] [--amplitude-milli N] [--duration-ms N] [--dry-run|--execute]\r\n");
+            return -EINVAL;
+        }
+        if (strcmp(argv[argi], "--dry-run") == 0) {
+            execute_mode = false;
+        } else if (strcmp(argv[argi], "--execute") == 0) {
+            execute_mode = true;
+        } else if (strcmp(argv[argi], "--mode") == 0) {
+            if (argi + 1 >= argc || argv[argi + 1] == NULL) {
+                a90_console_printf("usage: audio play [profile] [--mode probe|listen] [--amplitude-milli N] [--duration-ms N] [--dry-run|--execute]\r\n");
+                return -EINVAL;
+            }
+            mode = argv[++argi];
+        } else if (strcmp(argv[argi], "--amplitude-milli") == 0) {
+            if (argi + 1 >= argc || !audio_parse_nonnegative_int(argv[argi + 1], &requested_amplitude_milli)) {
+                a90_console_printf("usage: audio play [profile] [--mode probe|listen] [--amplitude-milli N] [--duration-ms N] [--dry-run|--execute]\r\n");
+                return -EINVAL;
+            }
+            amplitude_override = true;
+            ++argi;
+        } else if (strcmp(argv[argi], "--duration-ms") == 0) {
+            if (argi + 1 >= argc || !audio_parse_nonnegative_int(argv[argi + 1], &requested_duration_ms)) {
+                a90_console_printf("usage: audio play [profile] [--mode probe|listen] [--amplitude-milli N] [--duration-ms N] [--dry-run|--execute]\r\n");
+                return -EINVAL;
+            }
+            duration_override = true;
+            ++argi;
+        } else if (!seen_profile) {
+            profile_id = argv[argi];
+            seen_profile = true;
+        } else {
+            a90_console_printf("usage: audio play [profile] [--mode probe|listen] [--amplitude-milli N] [--duration-ms N] [--dry-run|--execute]\r\n");
+            return -EINVAL;
+        }
+    }
+
+    profile = audio_find_profile(profile_id);
+    a90_console_printf("audio.play.version=1\r\n");
+    a90_console_printf("audio.play.profile=%s\r\n", profile_id);
+    a90_console_printf("audio.play.mode=%s\r\n", mode);
+    a90_console_printf("audio.play.execute_requested=%d\r\n", execute_mode ? 1 : 0);
+    a90_console_printf("audio.play.execute_supported=0\r\n");
+    a90_console_printf("audio.play.playback_attempted=0\r\n");
+    if (profile == NULL) {
+        a90_console_printf("audio.play.error=unknown-profile\r\n");
+        return -ENOENT;
+    }
+    if (!audio_play_mode_defaults(profile, mode, &amplitude_milli, &duration_ms)) {
+        a90_console_printf("audio.play.error=unknown-mode\r\n");
+        return -EINVAL;
+    }
+    if (amplitude_override) {
+        amplitude_milli = requested_amplitude_milli;
+        a90_console_printf("audio.play.amplitude_override=1\r\n");
+    }
+    if (duration_override) {
+        duration_ms = requested_duration_ms;
+        a90_console_printf("audio.play.duration_override=1\r\n");
+    }
+    a90_console_printf("audio.play.endpoint=%s\r\n", profile->endpoint);
+    a90_console_printf("audio.play.card=%d\r\n", profile->card);
+    a90_console_printf("audio.play.pcm_device=%d\r\n", profile->pcm_device);
+    a90_console_printf("audio.play.channels=%d\r\n", profile->channels);
+    a90_console_printf("audio.play.sample_rate=%d\r\n", profile->sample_rate);
+    a90_console_printf("audio.play.bit_width=%d\r\n", profile->bit_width);
+    a90_console_printf("audio.play.format=s16le\r\n");
+    a90_console_printf("audio.play.amplitude_milli=%d\r\n", amplitude_milli);
+    a90_console_printf("audio.play.duration_ms=%d\r\n", duration_ms);
+    a90_console_printf("audio.play.cap.amplitude_milli=%d\r\n", profile->amplitude_cap_milli);
+    a90_console_printf("audio.play.cap.duration_ms=%d\r\n", profile->duration_cap_ms);
+    a90_console_printf("audio.play.safety.no_smart_amp_gain_boost_changes=1\r\n");
+    a90_console_printf("audio.play.safety.amplitude_within_cap=%d\r\n",
+                       amplitude_milli <= profile->amplitude_cap_milli ? 1 : 0);
+    a90_console_printf("audio.play.safety.duration_within_cap=%d\r\n",
+                       duration_ms <= profile->duration_cap_ms ? 1 : 0);
+    a90_console_printf("audio.play.requires.app_type=1\r\n");
+    a90_console_printf("audio.play.requires.setcal=1\r\n");
+    a90_console_printf("audio.play.requires.route=1\r\n");
+    a90_console_printf("audio.play.alsa_open_attempted=0\r\n");
+    a90_console_printf("audio.play.ioctl_attempted=0\r\n");
+    if (amplitude_milli > profile->amplitude_cap_milli || duration_ms > profile->duration_cap_ms) {
+        a90_console_printf("audio.play.refused=safety-cap-exceeded\r\n");
+        return -EPERM;
+    }
+    if (execute_mode) {
+        a90_console_printf("audio.play.refused=execute-not-implemented-native-pcm\r\n");
+        a90_console_printf("audio.play.playback_attempted=0\r\n");
+        return -EPERM;
+    }
+    a90_console_printf("audio.play.dry_run_ok=1\r\n");
     return 0;
 }
 
@@ -2745,6 +2903,9 @@ int a90_audio_cmd(char **argv, int argc) {
     if (argc >= 2 && argv != NULL && argv[1] != NULL && strcmp(argv[1], "setcal") == 0) {
         return audio_setcal_cmd(argv, argc);
     }
+    if (argc >= 2 && argv != NULL && argv[1] != NULL && strcmp(argv[1], "play") == 0) {
+        return audio_play_cmd(argv, argc);
+    }
     if (argc >= 2 && argv != NULL && argv[1] != NULL && strcmp(argv[1], "route") == 0) {
         return audio_route_cmd(argv, argc);
     }
@@ -2757,6 +2918,6 @@ int a90_audio_cmd(char **argv, int argc) {
     if (argc >= 2 && argv != NULL && argv[1] != NULL && strcmp(argv[1], "snd-materialize-once") == 0) {
         return audio_snd_materialize_once(argv, argc);
     }
-    a90_console_printf("usage: audio [adsp-status|status|profiles|profile [id]|stages [id]|app-type [profile] [--dry-run|--write]|setcal [profile] [--dry-run|--execute] [--manifest PATH --verify|--prepare|--load]|route [profile] [--dry-run|--apply|--reset] [--layer all|core|feedback|endpoint|blocked]|snd-status|adsp-boot-once|snd-materialize-once]\r\n");
+    a90_console_printf("usage: audio [adsp-status|status|profiles|profile [id]|stages [id]|app-type [profile] [--dry-run|--write]|setcal [profile] [--dry-run|--execute] [--manifest PATH --verify|--prepare|--load]|play [profile] [--mode probe|listen] [--amplitude-milli N] [--duration-ms N] [--dry-run|--execute]|route [profile] [--dry-run|--apply|--reset] [--layer all|core|feedback|endpoint|blocked]|snd-status|adsp-boot-once|snd-materialize-once]\r\n");
     return -EINVAL;
 }
