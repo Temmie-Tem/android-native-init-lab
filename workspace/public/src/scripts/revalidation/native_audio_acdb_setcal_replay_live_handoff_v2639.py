@@ -22,6 +22,7 @@ import native_audio_acdb_setcal_replay_live_runner_plan_v2638 as planmod
 import native_audio_acdb_topology_replay_live_handoff_v2552 as topology_live
 import native_audio_speaker_pilot_live_handoff_v2379 as speaker
 import native_audio_snd_nodes_preflight_handoff_v2335 as snd
+import build_audio_app_type_config_writer_v2733 as appcfg_writer
 
 RUN_ID = "V2639"
 BUILD_TAG = "v2639-audio-acdb-setcal-replay-live-handoff"
@@ -31,6 +32,8 @@ APPROVAL_PHRASE = v2637.APPROVAL_PHRASE
 DMESG_TAIL_LINE_COUNT = 260
 GLOBAL_APP_TYPE_CONTROL_NAME = "App Type Config"
 GLOBAL_APP_TYPE_SPEAKER_TUPLE = ("1", "69941", "48000", "16")
+GLOBAL_APP_TYPE_WRITER_ENTRY = "69941:48000:16"
+REMOTE_APP_TYPE_WRITER = f"{speaker.REMOTE_DIR}/a90_alsa_app_type_config_writer_v2733"
 DMESG_FOCUS_PATTERN = (
     "q6core|register_topolog|map_memory|avcs|adsp.*ready|adm_open|"
     "app type|bit_width|msm_pcm_routing|get_app_type|send_afe_cal|q6asm|"
@@ -77,7 +80,7 @@ def dry_run_payload(args: argparse.Namespace) -> dict[str, Any]:
     future_sequence = list(payload.get("future_live_sequence") or [])
     future_sequence = [
         (
-            "write global App Type Config 1 69941 48000 16, then apply V2407 stream App Type and V2377 route controls"
+            "write global App Type Config atomically as 1 69941 48000 16, then apply V2407 stream App Type and V2377 route controls"
             if step == "apply V2407 App Type and V2377 route controls"
             else step
         )
@@ -95,6 +98,12 @@ def dry_run_payload(args: argparse.Namespace) -> dict[str, Any]:
             "manifest_path": rel(args.manifest_path),
             "future_live_sequence": future_sequence,
             "v2730_global_app_type_config": global_app_type_plan(args),
+            "v2733_atomic_app_type_writer": {
+                "enabled": bool(getattr(args, "use_atomic_app_type_writer", True)),
+                "manifest": rel(getattr(args, "app_type_writer_manifest", appcfg_writer.DEFAULT_MANIFEST)),
+                "remote_path": REMOTE_APP_TYPE_WRITER,
+                "reason": "avoid tinymix per-index integer writes on write-only multi-value App Type Config",
+            },
             "v2730_dmesg_focus_pattern": DMESG_FOCUS_PATTERN,
         }
     )
@@ -139,6 +148,21 @@ def raw_tool_path(name: str, args: argparse.Namespace) -> Path:
     return topology_live.raw_tool_path(name, args)
 
 
+def app_type_writer_path(args: argparse.Namespace) -> Path:
+    manifest_path = Path(getattr(args, "app_type_writer_manifest", appcfg_writer.DEFAULT_MANIFEST))
+    if not manifest_path.is_absolute():
+        manifest_path = snd.ROOT / manifest_path
+    if not manifest_path.exists():
+        raise RuntimeError(f"missing V2733 App Type Config writer manifest: {rel(manifest_path)}")
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    tool = (manifest.get("build") or {}).get("tools", {}).get(appcfg_writer.TOOL_NAME, {})
+    path_value = tool.get("path")
+    if not path_value:
+        raise RuntimeError(f"V2733 writer manifest lacks tool path: {rel(manifest_path)}")
+    path = Path(str(path_value))
+    return path if path.is_absolute() else snd.ROOT / path
+
+
 def pcm_probe_path(args: argparse.Namespace) -> Path:
     return topology_live.pcm_probe_path(args)
 
@@ -178,6 +202,8 @@ def install_runtime_artifacts(args: argparse.Namespace,
         ("pcm_probe", pcm_probe_path(args), route_plan["remote_pcm_probe"], port + 41),
         ("pilot_wav", pcm_path, route_plan["remote_pcm"], port + 42),
     ]
+    if bool(getattr(args, "set_global_app_type_config", True)) and bool(getattr(args, "use_atomic_app_type_writer", True)):
+        extra.append(("app_type_writer", app_type_writer_path(args), REMOTE_APP_TYPE_WRITER, port + 43))
     for name, local_path, remote_path, transfer_port in extra:
         result["artifacts"][name] = install_artifact(args, out_dir, steps, name, local_path, remote_path, transfer_port, control_channel)
     for offset, (script_key, remote_path, local_path) in enumerate(runtime_script_files(out_dir, state, deploy_manifest)):
@@ -256,20 +282,37 @@ def run_remote_script(args: argparse.Namespace,
 
 def global_app_type_plan(args: argparse.Namespace) -> dict[str, Any]:
     enabled = bool(getattr(args, "set_global_app_type_config", True))
-    return {
-        "enabled": enabled,
-        "name": "v2730-global-app-type-config",
-        "role": "global_app_type_cfg_gate",
-        "source": "GOAL.md V2726 operator lead",
-        "control": GLOBAL_APP_TYPE_CONTROL_NAME,
-        "values": list(GLOBAL_APP_TYPE_SPEAKER_TUPLE),
-        "argv": [
-            speaker.REMOTE_TINYMIX,
+    use_atomic = bool(getattr(args, "use_atomic_app_type_writer", True))
+    tool = REMOTE_APP_TYPE_WRITER if use_atomic else speaker.REMOTE_TINYMIX
+    argv = (
+        [
+            tool,
+            "--card",
+            str(args.card),
+            "--control",
+            GLOBAL_APP_TYPE_CONTROL_NAME,
+            "--entry",
+            GLOBAL_APP_TYPE_WRITER_ENTRY,
+        ]
+        if use_atomic
+        else [
+            tool,
             "-D",
             str(args.card),
             GLOBAL_APP_TYPE_CONTROL_NAME,
             *GLOBAL_APP_TYPE_SPEAKER_TUPLE,
-        ],
+        ]
+    )
+    return {
+        "enabled": enabled,
+        "name": "v2733-atomic-app-type-config" if use_atomic else "v2730-global-app-type-config",
+        "role": "global_app_type_cfg_gate",
+        "source": "V2732 write-semantics recon",
+        "control": GLOBAL_APP_TYPE_CONTROL_NAME,
+        "values": list(GLOBAL_APP_TYPE_SPEAKER_TUPLE),
+        "entry": GLOBAL_APP_TYPE_WRITER_ENTRY,
+        "writer": "atomic-alsa-elem-write" if use_atomic else "tinymix-per-index-compat",
+        "argv": argv,
         "expected_effect": "adm_open bit_width 0->16 and no app-type fallback for app_type 0x11135",
         "transport": "serial-cmdv1x",
     }
@@ -361,6 +404,7 @@ def run_setcal_replay_and_pcm(args: argparse.Namespace,
                     "remote_tool_result": step.get("remote_tool_result"),
                     "control": global_app_type["control"],
                     "values": global_app_type["values"],
+                    "writer": global_app_type["writer"],
                 }
                 if not step.get("ok"):
                     raise RuntimeError(f"global App Type Config gate failed: {step.get('remote_tool_result')}")
@@ -641,6 +685,8 @@ def write_report(path: Path, state: dict[str, Any]) -> None:
         "  older per-stream `Audio Stream 0 App Type Cfg` and route controls;",
         "- uses the speaker tuple `1 69941 48000 16`, targeting the kernel",
         "  `app_type_cfg[]` table rather than `fe_dai_app_type_cfg[]`;",
+        "- V2733 replaces the old `tinymix` write with an atomic ALSA elem writer",
+        "  because V2732 showed `tinymix` performs per-index integer writes;",
         "- captures focused dmesg greps for `q6core`, topology-registration,",
         "  `adm_open`, app-type fallback, and `bit_width` before and after the PCM probe;",
         "- keeps the replay manifest, exact SET bytes, bounded PCM probe, reverse",
@@ -722,6 +768,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--duration-ms", type=int, default=speaker.DEFAULT_DURATION_MS)
     parser.add_argument("--amplitude", type=float, default=speaker.DEFAULT_AMPLITUDE)
     parser.add_argument("--set-global-app-type-config", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument("--use-atomic-app-type-writer", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument("--app-type-writer-manifest", type=Path, default=appcfg_writer.DEFAULT_MANIFEST)
     return parser.parse_args(argv)
 
 

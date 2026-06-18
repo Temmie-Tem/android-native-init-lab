@@ -85,9 +85,27 @@ class NativeAudioAcdbSetcalReplayLiveHandoffV2639(unittest.TestCase):
         self.assertTrue(gate["enabled"])
         self.assertEqual(gate["control"], "App Type Config")
         self.assertEqual(gate["values"], ["1", "69941", "48000", "16"])
+        self.assertEqual(gate["writer"], "atomic-alsa-elem-write")
+        self.assertEqual(gate["entry"], "69941:48000:16")
+        self.assertIn("a90_alsa_app_type_config_writer_v2733", " ".join(gate["argv"]))
+        self.assertTrue(state["v2733_atomic_app_type_writer"]["enabled"])
         self.assertIn("q6core", state["v2730_dmesg_focus_pattern"])
         self.assertIn("bit_width", state["v2730_dmesg_focus_pattern"])
         self.assertTrue(any("global App Type Config" in step for step in state["future_live_sequence"]))
+
+    def test_global_app_type_config_compat_tinymix_path_is_explicit(self) -> None:
+        root = Path(tempfile.mkdtemp(prefix="a90-v2639-"))
+        args = v2639.parse_args([
+            "--dry-run",
+            "--v2636-manifest",
+            str(fake_deploy(root)),
+            "--no-use-atomic-app-type-writer",
+        ])
+        gate = v2639.global_app_type_plan(args)
+
+        self.assertEqual(gate["name"], "v2730-global-app-type-config")
+        self.assertEqual(gate["writer"], "tinymix-per-index-compat")
+        self.assertEqual(gate["argv"][-4:], ["1", "69941", "48000", "16"])
 
     def test_verify_live_gate_accepts_legacy_approval_flags_as_noops(self) -> None:
         root = Path(tempfile.mkdtemp(prefix="a90-v2639-"))
@@ -138,6 +156,7 @@ class NativeAudioAcdbSetcalReplayLiveHandoffV2639(unittest.TestCase):
 
         self.assertIn("ACDB SET-cal replay live handoff", text)
         self.assertIn("V2730 Update", text)
+        self.assertIn("V2733 replaces", text)
         self.assertIn("global `App Type Config`", text)
         self.assertIn("self-authorized", text)
         self.assertNotIn("local_path_private", text)
