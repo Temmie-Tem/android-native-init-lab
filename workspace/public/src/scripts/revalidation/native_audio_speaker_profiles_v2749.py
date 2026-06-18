@@ -14,6 +14,7 @@ from typing import Literal
 
 
 AudioMode = Literal["probe", "listen"]
+StageOwner = Literal["host", "native-init", "private-helper"]
 
 
 def _jsonable(value: object) -> object:
@@ -69,6 +70,39 @@ class PlaybackLimits:
 
 
 @dataclass(frozen=True)
+class AudioFeatureStage:
+    """One callable stage in the speaker feature contract."""
+
+    stage_id: str
+    order: int
+    owner: StageOwner
+    phase: str
+    command_template: tuple[str, ...]
+    native_implemented: bool
+    writes_runtime_state: bool
+    rollback_boundary: bool
+    speaker_scope: str
+    note: str
+
+    def command_for_profile(self, profile_id: str) -> tuple[str, ...]:
+        return tuple(part.format(profile=profile_id) for part in self.command_template)
+
+    def manifest(self, profile_id: str) -> dict[str, object]:
+        return {
+            "stage_id": self.stage_id,
+            "order": self.order,
+            "owner": self.owner,
+            "phase": self.phase,
+            "command": list(self.command_for_profile(profile_id)),
+            "native_implemented": self.native_implemented,
+            "writes_runtime_state": self.writes_runtime_state,
+            "rollback_boundary": self.rollback_boundary,
+            "speaker_scope": self.speaker_scope,
+            "note": self.note,
+        }
+
+
+@dataclass(frozen=True)
 class AudioSpeakerProfile:
     """Replay/playback contract for a native-init audio endpoint."""
 
@@ -121,6 +155,8 @@ class AudioSpeakerProfile:
         payload["stream_app_type_values"] = list(self.stream_app_type_values())
         payload["dmesg_focus_pattern"] = self.dmesg_focus_pattern()
         payload["mixer_focus_pattern"] = self.mixer_focus_pattern()
+        payload["staged_contract"] = list(staged_contract())
+        payload["stage_api"] = stage_manifests(self.profile_id)
         return payload
 
 
@@ -221,8 +257,129 @@ INTERNAL_SPEAKER_SAFE = AudioSpeakerProfile(
 _PROFILES = {INTERNAL_SPEAKER_SAFE.profile_id: INTERNAL_SPEAKER_SAFE}
 
 
+AUDIO_FEATURE_STAGES = (
+    AudioFeatureStage(
+        stage_id="preflight-v2321-health",
+        order=10,
+        owner="host",
+        phase="boot",
+        command_template=("a90ctl", "version/status/selftest"),
+        native_implemented=False,
+        writes_runtime_state=False,
+        rollback_boundary=True,
+        speaker_scope="host",
+        note="confirm rollback baseline health before flashing or playback work",
+    ),
+    AudioFeatureStage(
+        stage_id="adsp-boot-once",
+        order=20,
+        owner="native-init",
+        phase="adsp",
+        command_template=("audio", "adsp-boot-once", "AUD2_ONE_SHOT_ADSP_BOOT"),
+        native_implemented=True,
+        writes_runtime_state=True,
+        rollback_boundary=False,
+        speaker_scope="shared",
+        note="bounded ADSP boot write; retry is forbidden in one boot",
+    ),
+    AudioFeatureStage(
+        stage_id="snd-materialize-once",
+        order=30,
+        owner="native-init",
+        phase="snd",
+        command_template=("audio", "snd-materialize-once", "AUD3_DEV_SND_MATERIALIZE_ONLY"),
+        native_implemented=True,
+        writes_runtime_state=True,
+        rollback_boundary=False,
+        speaker_scope="shared",
+        note="materialize ALSA /dev/snd nodes from sysfs only",
+    ),
+    AudioFeatureStage(
+        stage_id="write-global-app-type-config",
+        order=40,
+        owner="native-init",
+        phase="app_type",
+        command_template=("audio", "app-type", "{profile}", "--write"),
+        native_implemented=True,
+        writes_runtime_state=True,
+        rollback_boundary=False,
+        speaker_scope="shared",
+        note="writes App Type Config with the V2735 proven tuple",
+    ),
+    AudioFeatureStage(
+        stage_id="replay-acdb-setcal-sequence",
+        order=50,
+        owner="private-helper",
+        phase="acdb",
+        command_template=("a90_acdb_setcal_replay_scaffold", "--profile", "{profile}"),
+        native_implemented=False,
+        writes_runtime_state=True,
+        rollback_boundary=False,
+        speaker_scope="shared",
+        note="currently private helper; target for future native audio setcal API",
+    ),
+    AudioFeatureStage(
+        stage_id="apply-core-speaker-route",
+        order=60,
+        owner="native-init",
+        phase="route",
+        command_template=("audio", "route", "{profile}", "--apply", "--layer", "core"),
+        native_implemented=True,
+        writes_runtime_state=True,
+        rollback_boundary=False,
+        speaker_scope="shared",
+        note="applies only core route controls; endpoint/boost layers remain blocked",
+    ),
+    AudioFeatureStage(
+        stage_id="bounded-pcm-playback",
+        order=70,
+        owner="native-init",
+        phase="pcm",
+        command_template=("audio", "play", "{profile}", "--mode", "probe"),
+        native_implemented=False,
+        writes_runtime_state=True,
+        rollback_boundary=False,
+        speaker_scope="internal-speaker",
+        note="planned bounded tone API; amplitude stays capped by the profile",
+    ),
+    AudioFeatureStage(
+        stage_id="reset-core-speaker-route",
+        order=80,
+        owner="native-init",
+        phase="cleanup",
+        command_template=("audio", "route", "{profile}", "--reset", "--layer", "core"),
+        native_implemented=True,
+        writes_runtime_state=True,
+        rollback_boundary=False,
+        speaker_scope="shared",
+        note="resets the same core controls in reverse order",
+    ),
+    AudioFeatureStage(
+        stage_id="rollback-v2321",
+        order=90,
+        owner="host",
+        phase="rollback",
+        command_template=("native_init_flash.py", "boot_linux_v2321_usb_clean_identity_rodata.img"),
+        native_implemented=False,
+        writes_runtime_state=True,
+        rollback_boundary=True,
+        speaker_scope="host",
+        note="checked boot-partition rollback target for live audio tests",
+    ),
+)
+
+
 def list_profiles() -> tuple[str, ...]:
     return tuple(sorted(_PROFILES))
+
+
+def staged_contract() -> tuple[str, ...]:
+    return tuple(stage.stage_id for stage in AUDIO_FEATURE_STAGES)
+
+
+def stage_manifests(profile_id: str = INTERNAL_SPEAKER_SAFE.profile_id) -> list[dict[str, object]]:
+    profile = get_profile(profile_id)
+    return [stage.manifest(profile.profile_id) for stage in AUDIO_FEATURE_STAGES]
 
 
 def get_profile(profile_id: str = INTERNAL_SPEAKER_SAFE.profile_id) -> AudioSpeakerProfile:

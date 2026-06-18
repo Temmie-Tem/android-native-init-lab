@@ -136,6 +136,20 @@ struct audio_speaker_profile {
     int duration_cap_ms;
 };
 
+struct audio_stage_contract {
+    const char *id;
+    const char *owner;
+    const char *phase;
+    const char *command_template;
+    const char *speaker_scope;
+    const char *note;
+    int order;
+    bool uses_profile;
+    bool native_implemented;
+    bool writes_runtime_state;
+    bool rollback_boundary;
+};
+
 static const char *const AUDIO_INTERNAL_SPEAKER_OBSERVER_CONTROLS[] = {
     "SpkrLeft COMP Switch",
     "SpkrRight COMP Switch",
@@ -322,12 +336,132 @@ static const struct audio_route_control AUDIO_INTERNAL_SPEAKER_ROUTE[] = {
     },
 };
 
+static const struct audio_stage_contract AUDIO_STAGE_CONTRACTS[] = {
+    {
+        .id = "preflight-v2321-health",
+        .owner = "host",
+        .phase = "boot",
+        .command_template = "a90ctl version/status/selftest",
+        .speaker_scope = "host",
+        .note = "confirm rollback baseline health before flashing or playback work",
+        .order = 10,
+        .native_implemented = false,
+        .writes_runtime_state = false,
+        .rollback_boundary = true,
+    },
+    {
+        .id = "adsp-boot-once",
+        .owner = "native-init",
+        .phase = "adsp",
+        .command_template = "audio adsp-boot-once AUD2_ONE_SHOT_ADSP_BOOT",
+        .speaker_scope = "shared",
+        .note = "bounded ADSP boot write; retry is forbidden in one boot",
+        .order = 20,
+        .native_implemented = true,
+        .writes_runtime_state = true,
+        .rollback_boundary = false,
+    },
+    {
+        .id = "snd-materialize-once",
+        .owner = "native-init",
+        .phase = "snd",
+        .command_template = "audio snd-materialize-once AUD3_DEV_SND_MATERIALIZE_ONLY",
+        .speaker_scope = "shared",
+        .note = "materialize ALSA /dev/snd nodes from sysfs only",
+        .order = 30,
+        .native_implemented = true,
+        .writes_runtime_state = true,
+        .rollback_boundary = false,
+    },
+    {
+        .id = "write-global-app-type-config",
+        .owner = "native-init",
+        .phase = "app_type",
+        .command_template = "audio app-type %s --write",
+        .speaker_scope = "shared",
+        .note = "writes App Type Config with the V2735 proven tuple",
+        .order = 40,
+        .uses_profile = true,
+        .native_implemented = true,
+        .writes_runtime_state = true,
+        .rollback_boundary = false,
+    },
+    {
+        .id = "replay-acdb-setcal-sequence",
+        .owner = "private-helper",
+        .phase = "acdb",
+        .command_template = "a90_acdb_setcal_replay_scaffold --profile %s",
+        .speaker_scope = "shared",
+        .note = "currently private helper; target for future native audio setcal API",
+        .order = 50,
+        .uses_profile = true,
+        .native_implemented = false,
+        .writes_runtime_state = true,
+        .rollback_boundary = false,
+    },
+    {
+        .id = "apply-core-speaker-route",
+        .owner = "native-init",
+        .phase = "route",
+        .command_template = "audio route %s --apply --layer core",
+        .speaker_scope = "shared",
+        .note = "applies only core route controls; endpoint/boost layers remain blocked",
+        .order = 60,
+        .uses_profile = true,
+        .native_implemented = true,
+        .writes_runtime_state = true,
+        .rollback_boundary = false,
+    },
+    {
+        .id = "bounded-pcm-playback",
+        .owner = "native-init",
+        .phase = "pcm",
+        .command_template = "audio play %s --mode probe",
+        .speaker_scope = "internal-speaker",
+        .note = "planned bounded tone API; amplitude stays capped by the profile",
+        .order = 70,
+        .uses_profile = true,
+        .native_implemented = false,
+        .writes_runtime_state = true,
+        .rollback_boundary = false,
+    },
+    {
+        .id = "reset-core-speaker-route",
+        .owner = "native-init",
+        .phase = "cleanup",
+        .command_template = "audio route %s --reset --layer core",
+        .speaker_scope = "shared",
+        .note = "resets the same core controls in reverse order",
+        .order = 80,
+        .uses_profile = true,
+        .native_implemented = true,
+        .writes_runtime_state = true,
+        .rollback_boundary = false,
+    },
+    {
+        .id = "rollback-v2321",
+        .owner = "host",
+        .phase = "rollback",
+        .command_template = "native_init_flash.py boot_linux_v2321_usb_clean_identity_rodata.img",
+        .speaker_scope = "host",
+        .note = "checked boot-partition rollback target for live audio tests",
+        .order = 90,
+        .native_implemented = false,
+        .writes_runtime_state = true,
+        .rollback_boundary = true,
+    },
+};
+
 static const char *yesno(bool value) {
     return value ? "yes" : "no";
 }
 
 static int audio_profile_count(void) {
     return (int)(sizeof(AUDIO_SPEAKER_PROFILES) / sizeof(AUDIO_SPEAKER_PROFILES[0]));
+}
+
+static int audio_stage_count(void) {
+    return (int)(sizeof(AUDIO_STAGE_CONTRACTS) / sizeof(AUDIO_STAGE_CONTRACTS[0]));
 }
 
 static const struct audio_speaker_profile *audio_find_profile(const char *id) {
@@ -426,6 +560,72 @@ static int audio_print_profile(char **argv, int argc) {
                        profile->duration_cap_ms);
     a90_console_printf("audio.profile.safety.no_smart_amp_gain_boost_changes=1\r\n");
     a90_console_printf("audio.profile.read_only=1\r\n");
+    return 0;
+}
+
+static void audio_print_stage_command(const char *prefix,
+                                      const struct audio_stage_contract *stage,
+                                      const struct audio_speaker_profile *profile) {
+    a90_console_printf("%s.command=", prefix);
+    if (stage->uses_profile) {
+        a90_console_printf(stage->command_template, profile->id);
+    } else {
+        a90_console_printf("%s", stage->command_template);
+    }
+    a90_console_printf("\r\n");
+}
+
+static int audio_print_stages(char **argv, int argc) {
+    const struct audio_speaker_profile *profile;
+    const char *id = AUDIO_DEFAULT_PROFILE_ID;
+    int index;
+    int native_count = 0;
+    int runtime_write_count = 0;
+    char prefix[64];
+
+    if (argc > 3) {
+        a90_console_printf("usage: audio stages [%s]\r\n", AUDIO_DEFAULT_PROFILE_ID);
+        return -EINVAL;
+    }
+    if (argc == 3 && argv != NULL && argv[2] != NULL) {
+        id = argv[2];
+    }
+    profile = audio_find_profile(id);
+    a90_console_printf("audio.stages.version=1\r\n");
+    a90_console_printf("audio.stages.profile=%s\r\n", id);
+    if (profile == NULL) {
+        a90_console_printf("audio.stages.error=unknown-profile\r\n");
+        return -ENOENT;
+    }
+    for (index = 0; index < audio_stage_count(); ++index) {
+        if (AUDIO_STAGE_CONTRACTS[index].native_implemented) {
+            ++native_count;
+        }
+        if (AUDIO_STAGE_CONTRACTS[index].writes_runtime_state) {
+            ++runtime_write_count;
+        }
+    }
+    a90_console_printf("audio.stages.endpoint=%s\r\n", profile->endpoint);
+    a90_console_printf("audio.stages.count=%d\r\n", audio_stage_count());
+    a90_console_printf("audio.stages.native_implemented.count=%d\r\n", native_count);
+    a90_console_printf("audio.stages.runtime_write.count=%d\r\n", runtime_write_count);
+    a90_console_printf("audio.stages.all_native_ready=0\r\n");
+    a90_console_printf("audio.stages.read_only=1\r\n");
+    for (index = 0; index < audio_stage_count(); ++index) {
+        const struct audio_stage_contract *stage = &AUDIO_STAGE_CONTRACTS[index];
+
+        snprintf(prefix, sizeof(prefix), "audio.stages.%d", index);
+        a90_console_printf("%s.id=%s\r\n", prefix, stage->id);
+        a90_console_printf("%s.order=%d\r\n", prefix, stage->order);
+        a90_console_printf("%s.owner=%s\r\n", prefix, stage->owner);
+        a90_console_printf("%s.phase=%s\r\n", prefix, stage->phase);
+        a90_console_printf("%s.native_implemented=%d\r\n", prefix, stage->native_implemented ? 1 : 0);
+        a90_console_printf("%s.writes_runtime_state=%d\r\n", prefix, stage->writes_runtime_state ? 1 : 0);
+        a90_console_printf("%s.rollback_boundary=%d\r\n", prefix, stage->rollback_boundary ? 1 : 0);
+        a90_console_printf("%s.speaker_scope=%s\r\n", prefix, stage->speaker_scope);
+        audio_print_stage_command(prefix, stage, profile);
+        a90_console_printf("%s.note=%s\r\n", prefix, stage->note);
+    }
     return 0;
 }
 
@@ -1837,6 +2037,9 @@ int a90_audio_cmd(char **argv, int argc) {
     if (argc >= 2 && argv != NULL && argv[1] != NULL && strcmp(argv[1], "profile") == 0) {
         return audio_print_profile(argv, argc);
     }
+    if (argc >= 2 && argv != NULL && argv[1] != NULL && strcmp(argv[1], "stages") == 0) {
+        return audio_print_stages(argv, argc);
+    }
     if (argc >= 2 && argv != NULL && argv[1] != NULL && strcmp(argv[1], "app-type") == 0) {
         return audio_app_type_cmd(argv, argc);
     }
@@ -1852,6 +2055,6 @@ int a90_audio_cmd(char **argv, int argc) {
     if (argc >= 2 && argv != NULL && argv[1] != NULL && strcmp(argv[1], "snd-materialize-once") == 0) {
         return audio_snd_materialize_once(argv, argc);
     }
-    a90_console_printf("usage: audio [adsp-status|status|profiles|profile [id]|app-type [profile] [--dry-run|--write]|route [profile] [--dry-run|--apply|--reset] [--layer all|core|feedback|endpoint|blocked]|snd-status|adsp-boot-once|snd-materialize-once]\r\n");
+    a90_console_printf("usage: audio [adsp-status|status|profiles|profile [id]|stages [id]|app-type [profile] [--dry-run|--write]|route [profile] [--dry-run|--apply|--reset] [--layer all|core|feedback|endpoint|blocked]|snd-status|adsp-boot-once|snd-materialize-once]\r\n");
     return -EINVAL;
 }

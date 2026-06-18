@@ -26,24 +26,6 @@ BUILD_TAG = "v2750-audio-speaker-feature-entrypoint"
 DEFAULT_DEPLOY_MANIFEST = Path(
     "workspace/private/builds/audio/v2725-audio-acdb-corrected-core39-ioctl-result-deploy-plan/deploy-plan.json"
 )
-STAGED_CONTRACT = (
-    "preflight-v2321-health",
-    "flash-v2334-audio-candidate",
-    "adsp-boot-once",
-    "snd-materialize-once",
-    "install-profile-artifacts",
-    "write-global-app-type-config",
-    "write-stream-app-type-config",
-    "apply-speaker-route",
-    "replay-acdb-setcal-sequence",
-    "bounded-pcm-playback",
-    "capture-dmesg-and-focused-state",
-    "reverse-deallocate",
-    "reverse-route-reset",
-    "rollback-v2321",
-    "post-rollback-selftest",
-)
-
 
 @dataclass(frozen=True)
 class PlaybackRequest:
@@ -114,9 +96,11 @@ def build_plan(args: argparse.Namespace) -> dict[str, object]:
         "flash_action": "none",
         "profile": profile.manifest(),
         "request": asdict(request),
-        "staged_contract": list(STAGED_CONTRACT),
+        "staged_contract": list(profiles.staged_contract()),
+        "stage_api": profiles.stage_manifests(profile.profile_id),
         "entrypoint_status": {
             "clean_profile_api": True,
+            "speaker_stage_api": True,
             "single_host_entrypoint": True,
             "native_init_command_surface": False,
             "live_execution_delegates_to_v2639": True,
