@@ -26,6 +26,7 @@ class NativeAudioStageApiContractV2756(unittest.TestCase):
         self.assertEqual(stage_ids[0], "preflight-v2321-health")
         self.assertIn("write-global-app-type-config", stage_ids)
         self.assertIn("verify-private-acdb-manifest", stage_ids)
+        self.assertIn("prepare-acdb-payload-bundle", stage_ids)
         self.assertIn("replay-acdb-setcal-sequence", stage_ids)
         self.assertIn("bounded-pcm-playback", stage_ids)
         self.assertEqual(stage_ids[-1], "rollback-v2321")
@@ -60,6 +61,20 @@ class NativeAudioStageApiContractV2756(unittest.TestCase):
         )
         self.assertTrue(stages["verify-private-acdb-manifest"]["native_implemented"])
         self.assertFalse(stages["verify-private-acdb-manifest"]["writes_runtime_state"])
+        self.assertEqual(
+            stages["prepare-acdb-payload-bundle"]["command"],
+            [
+                "audio",
+                "setcal",
+                "internal-speaker-safe",
+                "--manifest",
+                profiles.DEFAULT_SETCAL_MANIFEST_PATH,
+                "--prepare",
+                "--dry-run",
+            ],
+        )
+        self.assertTrue(stages["prepare-acdb-payload-bundle"]["native_implemented"])
+        self.assertFalse(stages["prepare-acdb-payload-bundle"]["writes_runtime_state"])
         self.assertEqual(
             stages["replay-acdb-setcal-sequence"]["command"],
             [
@@ -102,6 +117,7 @@ class NativeAudioStageApiContractV2756(unittest.TestCase):
             "snd-materialize-once",
             "write-global-app-type-config",
             "verify-private-acdb-manifest",
+            "prepare-acdb-payload-bundle",
             "replay-acdb-setcal-sequence",
             "apply-core-speaker-route",
             "bounded-pcm-playback",
@@ -130,7 +146,9 @@ class NativeAudioStageApiContractV2756(unittest.TestCase):
         self.assertIn('.command_template = "audio route %s --apply --layer core"', text)
         self.assertIn('.command_template = "audio route %s --reset --layer core"', text)
         self.assertIn('verify-private-acdb-manifest', text)
+        self.assertIn('prepare-acdb-payload-bundle', text)
         self.assertIn('--manifest " AUDIO_SETCAL_DEFAULT_MANIFEST_PATH " --verify --dry-run"', text)
+        self.assertIn('--manifest " AUDIO_SETCAL_DEFAULT_MANIFEST_PATH " --prepare --dry-run"', text)
         self.assertIn('--manifest " AUDIO_SETCAL_DEFAULT_MANIFEST_PATH " --execute"', text)
 
 

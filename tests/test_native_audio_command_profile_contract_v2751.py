@@ -42,7 +42,7 @@ class NativeAudioCommandProfileContractV2751(unittest.TestCase):
         self.assertRegex(text, r'strcmp\(argv\[1\], "profile"\) == 0')
         self.assertIn('audio.profile.read_only=1', text)
         self.assertIn('audio.status.default_profile=%s', text)
-        self.assertIn('usage: audio [adsp-status|status|profiles|profile [id]|stages [id]|app-type [profile] [--dry-run|--write]|setcal [profile] [--dry-run|--execute] [--manifest PATH --verify]|route [profile] [--dry-run|--apply|--reset] [--layer all|core|feedback|endpoint|blocked]|snd-status|adsp-boot-once|snd-materialize-once]', text)
+        self.assertIn('usage: audio [adsp-status|status|profiles|profile [id]|stages [id]|app-type [profile] [--dry-run|--write]|setcal [profile] [--dry-run|--execute] [--manifest PATH --verify|--prepare]|route [profile] [--dry-run|--apply|--reset] [--layer all|core|feedback|endpoint|blocked]|snd-status|adsp-boot-once|snd-materialize-once]', text)
 
     def test_native_profile_preserves_speaker_safety_limits(self) -> None:
         text = source_text()
