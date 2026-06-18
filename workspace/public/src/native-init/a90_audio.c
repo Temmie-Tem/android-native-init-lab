@@ -348,7 +348,8 @@ static bool audio_setcal_manifest_path_allowed(const char *path) {
     if (path == NULL || path[0] != '/' || audio_setcal_path_has_dotdot(path)) {
         return false;
     }
-    return audio_setcal_path_has_prefix(path, AUDIO_SETCAL_RUNTIME_PREFIX);
+    return audio_setcal_path_has_prefix(path, AUDIO_SETCAL_RUNTIME_PREFIX) ||
+           audio_setcal_path_has_prefix(path, AUDIO_SETCAL_LEGACY_REPLAY_PREFIX);
 }
 
 static bool audio_setcal_payload_path_allowed(const char *path) {
