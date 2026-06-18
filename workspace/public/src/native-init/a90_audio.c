@@ -51,7 +51,10 @@
 #define AUDIO_SETCAL_LEGACY_REPLAY_PREFIX "/cache/a90-acdb-setcal-replay-"
 #define AUDIO_SETCAL_DEV_MSM_AUDIO_CAL "/dev/msm_audio_cal"
 #define AUDIO_SETCAL_DEV_ION "/dev/ion"
+#define AUDIO_SETCAL_SYSFS_MSM_AUDIO_CAL_DEV "/sys/class/misc/msm_audio_cal/dev"
 #define AUDIO_SETCAL_SYSFS_ION_DEV "/sys/class/misc/ion/dev"
+#define AUDIO_PROC_MISC "/proc/misc"
+#define AUDIO_MISC_MAJOR 10U
 #define AUDIO_SETCAL_IOCTL_ALLOCATE_CALIBRATION 0xC00461C8u
 #define AUDIO_SETCAL_IOCTL_DEALLOCATE_CALIBRATION 0xC00461C9u
 #define AUDIO_SETCAL_IOCTL_SET_CALIBRATION 0xC00461CBu
@@ -108,6 +111,7 @@ static const char *const AUDIO_ADSP_SEGMENTS[] = {
 };
 
 static int audio_materialize_ion_devnode_once(void);
+static int audio_materialize_msm_audio_cal_devnode_once(void);
 
 struct adsp_firmware_status {
     bool dir_exists;
@@ -1494,6 +1498,10 @@ static int audio_setcal_execute_session_start(struct audio_setcal_execute_sessio
             return rc;
         }
         ++session->prepared_count;
+    }
+    rc = audio_materialize_msm_audio_cal_devnode_once();
+    if (rc < 0) {
+        return rc;
     }
     session->cal_fd = open(AUDIO_SETCAL_DEV_MSM_AUDIO_CAL, O_RDWR | O_CLOEXEC);
     if (session->cal_fd < 0) {
@@ -3543,6 +3551,112 @@ static const char *sound_devnode_state(const char *path, dev_t wanted) {
         return "mismatch";
     }
     return "ok";
+}
+
+static int audio_read_misc_minor_by_name(const char *name, unsigned int *minor_out) {
+    FILE *file;
+    char line[256];
+
+    if (name == NULL || minor_out == NULL) {
+        errno = EINVAL;
+        return -1;
+    }
+    file = fopen(AUDIO_PROC_MISC, "r");
+    if (file == NULL) {
+        return -1;
+    }
+    while (fgets(line, sizeof(line), file) != NULL) {
+        unsigned int minor_num = 0;
+        char entry_name[128];
+
+        if (sscanf(line, " %u %127s", &minor_num, entry_name) != 2) {
+            continue;
+        }
+        if (strcmp(entry_name, name) == 0) {
+            *minor_out = minor_num;
+            fclose(file);
+            return 0;
+        }
+    }
+    fclose(file);
+    errno = ENOENT;
+    return -1;
+}
+
+static int audio_materialize_msm_audio_cal_devnode_once(void) {
+    char dev_info[64];
+    unsigned int major_num = 0;
+    unsigned int minor_num = 0;
+    dev_t wanted;
+    struct stat st;
+
+    a90_console_printf("audio.msm_audio_cal_materialize.version=1\r\n");
+    a90_console_printf("audio.msm_audio_cal_materialize.sysfs=%s\r\n",
+                       AUDIO_SETCAL_SYSFS_MSM_AUDIO_CAL_DEV);
+    a90_console_printf("audio.msm_audio_cal_materialize.proc_misc=%s\r\n", AUDIO_PROC_MISC);
+    a90_console_printf("audio.msm_audio_cal_materialize.devnode=%s\r\n",
+                       AUDIO_SETCAL_DEV_MSM_AUDIO_CAL);
+    if (read_trimmed_text_file(AUDIO_SETCAL_SYSFS_MSM_AUDIO_CAL_DEV,
+                               dev_info,
+                               sizeof(dev_info)) == 0 &&
+        parse_dev_numbers(dev_info, &major_num, &minor_num) == 0) {
+        a90_console_printf("audio.msm_audio_cal_materialize.source=sysfs\r\n");
+        a90_console_printf("audio.msm_audio_cal_materialize.sysfs_read_ok=1 value=%s major=%u minor=%u\r\n",
+                           dev_info,
+                           major_num,
+                           minor_num);
+    } else {
+        int saved_errno = errno;
+
+        a90_console_printf("audio.msm_audio_cal_materialize.sysfs_read_ok=0 errno=%d\r\n",
+                           saved_errno);
+        if (audio_read_misc_minor_by_name("msm_audio_cal", &minor_num) < 0) {
+            saved_errno = errno;
+            a90_console_printf("audio.msm_audio_cal_materialize.proc_misc_read_ok=0 errno=%d\r\n",
+                               saved_errno);
+            return -saved_errno;
+        }
+        major_num = AUDIO_MISC_MAJOR;
+        a90_console_printf("audio.msm_audio_cal_materialize.source=proc_misc\r\n");
+        a90_console_printf("audio.msm_audio_cal_materialize.proc_misc_read_ok=1 major=%u minor=%u\r\n",
+                           major_num,
+                           minor_num);
+    }
+    wanted = makedev(major_num, minor_num);
+    if (lstat(AUDIO_SETCAL_DEV_MSM_AUDIO_CAL, &st) == 0) {
+        if (S_ISCHR(st.st_mode) && st.st_rdev == wanted) {
+            a90_console_printf("audio.msm_audio_cal_materialize.already_ok=1\r\n");
+            return 0;
+        }
+        a90_console_printf("audio.msm_audio_cal_materialize.refused=existing-node-mismatch mode=0%o\r\n",
+                           (unsigned int)st.st_mode);
+        return -EINVAL;
+    }
+    if (errno != ENOENT) {
+        int saved_errno = errno;
+
+        a90_console_printf("audio.msm_audio_cal_materialize.stat_ok=0 errno=%d\r\n",
+                           saved_errno);
+        return -saved_errno;
+    }
+    if (mknod(AUDIO_SETCAL_DEV_MSM_AUDIO_CAL, S_IFCHR | 0600, wanted) < 0) {
+        int saved_errno = errno;
+
+        if (saved_errno == EEXIST &&
+            lstat(AUDIO_SETCAL_DEV_MSM_AUDIO_CAL, &st) == 0 &&
+            S_ISCHR(st.st_mode) &&
+            st.st_rdev == wanted) {
+            a90_console_printf("audio.msm_audio_cal_materialize.already_ok=1\r\n");
+            return 0;
+        }
+        a90_console_printf("audio.msm_audio_cal_materialize.created=0 errno=%d\r\n",
+                           saved_errno);
+        return -saved_errno;
+    }
+    a90_console_printf("audio.msm_audio_cal_materialize.created=1 major=%u minor=%u\r\n",
+                       major_num,
+                       minor_num);
+    return 0;
 }
 
 static int audio_materialize_ion_devnode_once(void) {
