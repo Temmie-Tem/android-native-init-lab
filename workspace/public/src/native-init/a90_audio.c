@@ -59,6 +59,9 @@ struct audio_route_value {
 struct audio_route_control {
     const char *name;
     const char *role;
+    const char *layer;
+    const char *speaker;
+    const char *policy;
     int order;
     bool resettable;
     bool smart_amp_boost;
@@ -176,6 +179,9 @@ static const struct audio_route_control AUDIO_INTERNAL_SPEAKER_ROUTE[] = {
     {
         .name = "Audio Stream 0 App Type Cfg",
         .role = "stream_cfg",
+        .layer = "core",
+        .speaker = "shared",
+        .policy = "safe-observed",
         .order = 10,
         .resettable = false,
         .apply = {.kind = AUDIO_ROUTE_VALUE_INTS, .ints = {69941, 15, 48000, 2}, .int_count = 4, .zero_fill = 124},
@@ -184,6 +190,9 @@ static const struct audio_route_control AUDIO_INTERNAL_SPEAKER_ROUTE[] = {
     {
         .name = "Playback Channel Map0",
         .role = "stream_cfg",
+        .layer = "core",
+        .speaker = "shared",
+        .policy = "safe-observed",
         .order = 20,
         .resettable = true,
         .apply = {.kind = AUDIO_ROUTE_VALUE_INTS, .ints = {1, 2}, .int_count = 2, .zero_fill = 30},
@@ -192,6 +201,9 @@ static const struct audio_route_control AUDIO_INTERNAL_SPEAKER_ROUTE[] = {
     {
         .name = "SLIMBUS_0_RX Audio Mixer MultiMedia1",
         .role = "route",
+        .layer = "core",
+        .speaker = "shared",
+        .policy = "safe-observed",
         .order = 30,
         .resettable = true,
         .apply = {.kind = AUDIO_ROUTE_VALUE_INTS, .ints = {1, 0}, .int_count = 2, .zero_fill = 0},
@@ -200,6 +212,9 @@ static const struct audio_route_control AUDIO_INTERNAL_SPEAKER_ROUTE[] = {
     {
         .name = "SLIM RX0 MUX",
         .role = "route",
+        .layer = "core",
+        .speaker = "shared",
+        .policy = "safe-observed",
         .order = 40,
         .resettable = true,
         .apply = {.kind = AUDIO_ROUTE_VALUE_ENUM, .enum_value = "AIF1_PB"},
@@ -208,6 +223,9 @@ static const struct audio_route_control AUDIO_INTERNAL_SPEAKER_ROUTE[] = {
     {
         .name = "RX INT7_1 MIX1 INP0",
         .role = "route",
+        .layer = "core",
+        .speaker = "shared",
+        .policy = "safe-observed",
         .order = 50,
         .resettable = true,
         .apply = {.kind = AUDIO_ROUTE_VALUE_ENUM, .enum_value = "RX0"},
@@ -216,6 +234,9 @@ static const struct audio_route_control AUDIO_INTERNAL_SPEAKER_ROUTE[] = {
     {
         .name = "COMP7 Switch",
         .role = "route",
+        .layer = "core",
+        .speaker = "shared",
+        .policy = "safe-observed",
         .order = 60,
         .resettable = true,
         .apply = {.kind = AUDIO_ROUTE_VALUE_INTS, .ints = {1}, .int_count = 1, .zero_fill = 0},
@@ -224,6 +245,9 @@ static const struct audio_route_control AUDIO_INTERNAL_SPEAKER_ROUTE[] = {
     {
         .name = "AIF4_VI Mixer SPKR_VI_1",
         .role = "speaker_feedback",
+        .layer = "feedback",
+        .speaker = "SPKR_VI_1",
+        .policy = "speaker-protection-observed",
         .order = 70,
         .resettable = true,
         .apply = {.kind = AUDIO_ROUTE_VALUE_INTS, .ints = {1}, .int_count = 1, .zero_fill = 0},
@@ -232,6 +256,9 @@ static const struct audio_route_control AUDIO_INTERNAL_SPEAKER_ROUTE[] = {
     {
         .name = "AIF4_VI Mixer SPKR_VI_2",
         .role = "speaker_feedback",
+        .layer = "feedback",
+        .speaker = "SPKR_VI_2",
+        .policy = "speaker-protection-observed",
         .order = 80,
         .resettable = true,
         .apply = {.kind = AUDIO_ROUTE_VALUE_INTS, .ints = {1}, .int_count = 1, .zero_fill = 0},
@@ -240,6 +267,9 @@ static const struct audio_route_control AUDIO_INTERNAL_SPEAKER_ROUTE[] = {
     {
         .name = "SLIM_4_TX Format",
         .role = "speaker_feedback",
+        .layer = "feedback",
+        .speaker = "SPKR_VI",
+        .policy = "speaker-protection-observed",
         .order = 90,
         .resettable = true,
         .apply = {.kind = AUDIO_ROUTE_VALUE_ENUM, .enum_value = "PACKED_16B"},
@@ -248,6 +278,9 @@ static const struct audio_route_control AUDIO_INTERNAL_SPEAKER_ROUTE[] = {
     {
         .name = "SpkrLeft VISENSE Switch",
         .role = "speaker_endpoint",
+        .layer = "endpoint",
+        .speaker = "SpkrLeft",
+        .policy = "speaker-protection-observed",
         .order = 100,
         .resettable = true,
         .apply = {.kind = AUDIO_ROUTE_VALUE_INTS, .ints = {1}, .int_count = 1, .zero_fill = 0},
@@ -256,6 +289,9 @@ static const struct audio_route_control AUDIO_INTERNAL_SPEAKER_ROUTE[] = {
     {
         .name = "SpkrLeft COMP Switch",
         .role = "speaker_endpoint",
+        .layer = "endpoint",
+        .speaker = "SpkrLeft",
+        .policy = "speaker-endpoint-review",
         .order = 110,
         .resettable = true,
         .apply = {.kind = AUDIO_ROUTE_VALUE_INTS, .ints = {1}, .int_count = 1, .zero_fill = 0},
@@ -264,6 +300,9 @@ static const struct audio_route_control AUDIO_INTERNAL_SPEAKER_ROUTE[] = {
     {
         .name = "SpkrLeft BOOST Switch",
         .role = "speaker_endpoint",
+        .layer = "endpoint",
+        .speaker = "SpkrLeft",
+        .policy = "blocked-smart-amp-boost",
         .order = 120,
         .resettable = true,
         .smart_amp_boost = true,
@@ -273,6 +312,9 @@ static const struct audio_route_control AUDIO_INTERNAL_SPEAKER_ROUTE[] = {
     {
         .name = "SpkrLeft SWR DAC_Port Switch",
         .role = "speaker_endpoint",
+        .layer = "endpoint",
+        .speaker = "SpkrLeft",
+        .policy = "safe-observed",
         .order = 130,
         .resettable = true,
         .apply = {.kind = AUDIO_ROUTE_VALUE_INTS, .ints = {1}, .int_count = 1, .zero_fill = 0},
@@ -605,6 +647,57 @@ static bool audio_route_has_smart_amp_boost(void) {
     return false;
 }
 
+static bool audio_route_layer_valid(const char *layer) {
+    return layer != NULL &&
+           (strcmp(layer, "all") == 0 ||
+            strcmp(layer, "core") == 0 ||
+            strcmp(layer, "feedback") == 0 ||
+            strcmp(layer, "endpoint") == 0 ||
+            strcmp(layer, "blocked") == 0);
+}
+
+static bool audio_route_control_matches_layer(const struct audio_route_control *control,
+                                              const char *layer) {
+    if (control == NULL || layer == NULL) {
+        return false;
+    }
+    if (strcmp(layer, "all") == 0) {
+        return true;
+    }
+    if (strcmp(layer, "blocked") == 0) {
+        return control->smart_amp_boost;
+    }
+    return strcmp(control->layer, layer) == 0;
+}
+
+static int audio_route_selected_count(const char *layer, bool reset_mode) {
+    int count = 0;
+    int index;
+
+    for (index = 0; index < audio_route_control_count(); ++index) {
+        if (!audio_route_control_matches_layer(&AUDIO_INTERNAL_SPEAKER_ROUTE[index], layer)) {
+            continue;
+        }
+        if (reset_mode && !AUDIO_INTERNAL_SPEAKER_ROUTE[index].resettable) {
+            continue;
+        }
+        ++count;
+    }
+    return count;
+}
+
+static bool audio_route_selected_has_smart_amp_boost(const char *layer) {
+    int index;
+
+    for (index = 0; index < audio_route_control_count(); ++index) {
+        if (audio_route_control_matches_layer(&AUDIO_INTERNAL_SPEAKER_ROUTE[index], layer) &&
+            AUDIO_INTERNAL_SPEAKER_ROUTE[index].smart_amp_boost) {
+            return true;
+        }
+    }
+    return false;
+}
+
 static void audio_route_print_value(const char *prefix, const struct audio_route_value *value) {
     int index;
 
@@ -632,6 +725,9 @@ static void audio_route_print_control(const char *prefix,
 
     a90_console_printf("%s.name=%s\r\n", prefix, control->name);
     a90_console_printf("%s.role=%s\r\n", prefix, control->role);
+    a90_console_printf("%s.layer=%s\r\n", prefix, control->layer);
+    a90_console_printf("%s.speaker=%s\r\n", prefix, control->speaker);
+    a90_console_printf("%s.policy=%s\r\n", prefix, control->policy);
     a90_console_printf("%s.order=%d\r\n", prefix, control->order);
     a90_console_printf("%s.resettable=%d\r\n", prefix, control->resettable ? 1 : 0);
     a90_console_printf("%s.smart_amp_boost=%d\r\n", prefix, control->smart_amp_boost ? 1 : 0);
@@ -639,13 +735,16 @@ static void audio_route_print_control(const char *prefix,
     audio_route_print_value(value_prefix, value);
 }
 
-static void audio_route_print_controls(bool reset_mode) {
+static void audio_route_print_controls(bool reset_mode, const char *layer) {
     int index;
     int output_index = 0;
     char prefix[64];
 
     if (reset_mode) {
         for (index = audio_route_control_count() - 1; index >= 0; --index) {
+            if (!audio_route_control_matches_layer(&AUDIO_INTERNAL_SPEAKER_ROUTE[index], layer)) {
+                continue;
+            }
             if (!AUDIO_INTERNAL_SPEAKER_ROUTE[index].resettable) {
                 continue;
             }
@@ -659,6 +758,9 @@ static void audio_route_print_controls(bool reset_mode) {
     }
 
     for (index = 0; index < audio_route_control_count(); ++index) {
+        if (!audio_route_control_matches_layer(&AUDIO_INTERNAL_SPEAKER_ROUTE[index], layer)) {
+            continue;
+        }
         snprintf(prefix, sizeof(prefix), "audio.route.apply.%d", output_index);
         audio_route_print_control(prefix,
                                   &AUDIO_INTERNAL_SPEAKER_ROUTE[index],
@@ -669,16 +771,18 @@ static void audio_route_print_controls(bool reset_mode) {
 
 static int audio_route_cmd(char **argv, int argc) {
     const char *profile_id = AUDIO_DEFAULT_PROFILE_ID;
+    const char *layer = "all";
     const struct audio_speaker_profile *profile;
     bool seen_profile = false;
     bool apply_mode = false;
     bool reset_mode = false;
     bool write_mode;
+    bool selected_has_boost;
     int argi;
 
     for (argi = 2; argi < argc; ++argi) {
         if (argv == NULL || argv[argi] == NULL) {
-            a90_console_printf("usage: audio route [profile] [--dry-run|--apply|--reset]\r\n");
+            a90_console_printf("usage: audio route [profile] [--dry-run|--apply|--reset] [--layer all|core|feedback|endpoint|blocked]\r\n");
             return -EINVAL;
         }
         if (strcmp(argv[argi], "--dry-run") == 0) {
@@ -690,11 +794,18 @@ static int audio_route_cmd(char **argv, int argc) {
         } else if (strcmp(argv[argi], "--reset") == 0) {
             apply_mode = false;
             reset_mode = true;
+        } else if (strcmp(argv[argi], "--layer") == 0) {
+            ++argi;
+            if (argi >= argc || argv[argi] == NULL || !audio_route_layer_valid(argv[argi])) {
+                a90_console_printf("usage: audio route [profile] [--dry-run|--apply|--reset] [--layer all|core|feedback|endpoint|blocked]\r\n");
+                return -EINVAL;
+            }
+            layer = argv[argi];
         } else if (!seen_profile) {
             profile_id = argv[argi];
             seen_profile = true;
         } else {
-            a90_console_printf("usage: audio route [profile] [--dry-run|--apply|--reset]\r\n");
+            a90_console_printf("usage: audio route [profile] [--dry-run|--apply|--reset] [--layer all|core|feedback|endpoint|blocked]\r\n");
             return -EINVAL;
         }
     }
@@ -704,6 +815,7 @@ static int audio_route_cmd(char **argv, int argc) {
     a90_console_printf("audio.route.version=1\r\n");
     a90_console_printf("audio.route.profile=%s\r\n", profile_id);
     a90_console_printf("audio.route.mode=%s\r\n", reset_mode ? "reset" : (apply_mode ? "apply" : "dry-run"));
+    a90_console_printf("audio.route.layer=%s\r\n", layer);
     a90_console_printf("audio.route.write_attempted=0\r\n");
     if (profile == NULL) {
         a90_console_printf("audio.route.error=unknown-profile\r\n");
@@ -724,15 +836,23 @@ static int audio_route_cmd(char **argv, int argc) {
     a90_console_printf("audio.route.pcm_device=%d\r\n", profile->pcm_device);
     a90_console_printf("audio.route.apply.count=%d\r\n", AUDIO_ROUTE_APPLY_COUNT);
     a90_console_printf("audio.route.reset.count=%d\r\n", AUDIO_ROUTE_RESET_COUNT);
+    a90_console_printf("audio.route.selected.apply.count=%d\r\n", audio_route_selected_count(layer, false));
+    a90_console_printf("audio.route.selected.reset.count=%d\r\n", audio_route_selected_count(layer, true));
     a90_console_printf("audio.route.requires_global_app_type=1\r\n");
     a90_console_printf("audio.route.global_app_type_primitive=audio app-type %s --write\r\n", profile->id);
     a90_console_printf("audio.route.smart_amp_boost_blocked=%d\r\n",
                        audio_route_has_smart_amp_boost() ? 1 : 0);
+    selected_has_boost = audio_route_selected_has_smart_amp_boost(layer);
+    a90_console_printf("audio.route.selected.smart_amp_boost_blocked=%d\r\n", selected_has_boost ? 1 : 0);
     a90_console_printf("audio.route.blocked_control=SpkrLeft BOOST Switch\r\n");
-    audio_route_print_controls(reset_mode);
+    audio_route_print_controls(reset_mode, layer);
 
     if (write_mode) {
-        a90_console_printf("audio.route.refused=write-mode-blocked-smart-amp-boost-review\r\n");
+        if (selected_has_boost) {
+            a90_console_printf("audio.route.refused=write-mode-blocked-smart-amp-boost-review\r\n");
+        } else {
+            a90_console_printf("audio.route.refused=write-mode-blocked-route-writer-not-implemented\r\n");
+        }
         a90_console_printf("audio.route.write_attempted=0\r\n");
         return -EPERM;
     }
@@ -1518,6 +1638,6 @@ int a90_audio_cmd(char **argv, int argc) {
     if (argc >= 2 && argv != NULL && argv[1] != NULL && strcmp(argv[1], "snd-materialize-once") == 0) {
         return audio_snd_materialize_once(argv, argc);
     }
-    a90_console_printf("usage: audio [adsp-status|status|profiles|profile [id]|app-type [profile] [--dry-run|--write]|route [profile] [--dry-run|--apply|--reset]|snd-status|adsp-boot-once|snd-materialize-once]\r\n");
+    a90_console_printf("usage: audio [adsp-status|status|profiles|profile [id]|app-type [profile] [--dry-run|--write]|route [profile] [--dry-run|--apply|--reset] [--layer all|core|feedback|endpoint|blocked]|snd-status|adsp-boot-once|snd-materialize-once]\r\n");
     return -EINVAL;
 }

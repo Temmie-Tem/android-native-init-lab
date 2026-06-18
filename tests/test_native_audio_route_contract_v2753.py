@@ -20,8 +20,8 @@ class NativeAudioRouteContractV2753(unittest.TestCase):
 
         self.assertIn('strcmp(argv[1], "route") == 0', text)
         self.assertIn('return audio_route_cmd(argv, argc);', text)
-        self.assertIn('usage: audio route [profile] [--dry-run|--apply|--reset]', text)
-        self.assertIn('route [profile] [--dry-run|--apply|--reset]', text)
+        self.assertIn('usage: audio route [profile] [--dry-run|--apply|--reset] [--layer all|core|feedback|endpoint|blocked]', text)
+        self.assertIn('route [profile] [--dry-run|--apply|--reset] [--layer all|core|feedback|endpoint|blocked]', text)
 
     def test_route_contract_pins_apply_and_reset_counts(self) -> None:
         text = source_text()
