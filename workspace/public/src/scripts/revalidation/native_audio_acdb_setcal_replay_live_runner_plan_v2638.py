@@ -118,6 +118,16 @@ def set_entry_count(manifest: dict[str, Any]) -> int:
     return int(argv.count("--basic-payload") + argv.count("--exact-set"))
 
 
+def expected_entry_count(manifest: dict[str, Any]) -> tuple[int | None, str]:
+    replay_entries = manifest.get("replay_entries")
+    if isinstance(replay_entries, list) and replay_entries:
+        return len(replay_entries), "replay_entries"
+    set_args = manifest.get("set_args")
+    if isinstance(set_args, list) and set_args:
+        return len(set_args) + 1, "set_args plus topology"
+    return None, "not declared"
+
+
 def final_set_index(manifest: dict[str, Any]) -> int:
     return set_entry_count(manifest) - 1
 
@@ -282,8 +292,9 @@ def build_runner_plan(args: argparse.Namespace) -> dict[str, Any]:
         gate_blockers.append(f"replay manifest has only {replay_entry_count} entries; expected at least {minimum_entry_count}")
     if replay_file_count < minimum_file_count:
         gate_blockers.append(f"replay manifest has only {replay_file_count} files; expected at least {minimum_file_count}")
-    if manifest.get("set_args") and replay_entry_count != len(manifest.get("set_args") or []) + 1:
-        gate_blockers.append("remote argv entry count does not match manifest set_args plus topology")
+    declared_entry_count, declared_entry_source = expected_entry_count(manifest)
+    if declared_entry_count is not None and replay_entry_count != declared_entry_count:
+        gate_blockers.append(f"remote argv entry count does not match manifest {declared_entry_source}")
     execution_contract_ok = bool(
         manifest.get("ok")
         and manifest.get("all_inputs_ok")
@@ -320,6 +331,8 @@ def build_runner_plan(args: argparse.Namespace) -> dict[str, Any]:
             "dir": manifest.get("remote_dir"),
             "file_count": replay_file_count,
             "entry_count": replay_entry_count,
+            "declared_entry_count": declared_entry_count,
+            "declared_entry_source": declared_entry_source,
             "final_set_index": final_set_index(manifest),
             "payload_entry_indices": payload_entry_indices(manifest),
             "argv": manifest.get("remote_argv") or [],

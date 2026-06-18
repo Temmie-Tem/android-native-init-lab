@@ -106,6 +106,56 @@ def fake_custom_deploy(root: Path) -> Path:
     return path
 
 
+def fake_core_derived_deploy(root: Path) -> Path:
+    remote_dir = "/cache/a90-test-v2684"
+    files = [fake_file(root / "helper-core", b"helper", f"{remote_dir}/helper", "helper")]
+    argv = [f"{remote_dir}/helper", "--execute"]
+    replay_entries = []
+
+    for index, cal_type in enumerate([39, 10, 14]):
+        remote = f"{remote_dir}/{index:02d}-basic-cal{cal_type}.bin"
+        files.append(fake_file(root / f"basic-{cal_type}", bytes([cal_type & 0xff]) * 396, remote, "payload"))
+        argv.extend(["--basic-payload", f"{cal_type}:0:{remote}"])
+        replay_entries.append({"sequence": index, "kind": "basic-payload", "cal_type": cal_type, "ok": True})
+
+    set_args = []
+    for index, cal_type in enumerate([24, 13, 9, 11, 12, 15, 23, 16, 21], start=3):
+        arg = f"{remote_dir}/{index:02d}-arg-cal{cal_type}.bin"
+        files.append(fake_file(root / f"core-arg{index}", bytes([index]) * 40, arg, "set_arg"))
+        payload = None
+        if cal_type in {24, 11, 15, 16}:
+            payload = f"{remote_dir}/{index:02d}-payload-cal{cal_type}.bin"
+            files.append(fake_file(root / f"core-payload{index}", bytes([cal_type]) * 12, payload, "payload"))
+        spec = arg if payload is None else f"{arg}:{payload}"
+        argv.extend(["--exact-set", spec])
+        set_args.append(
+            {
+                "sequence": index,
+                "cal_type": cal_type,
+                "role": f"CAL_{cal_type}",
+                "dmabuf_expected": payload is not None,
+                "arg_remote": arg,
+                "payload_remote": payload,
+                "ok": True,
+            }
+        )
+        replay_entries.append({"sequence": index, "kind": "exact-set", "cal_type": cal_type, "ok": True})
+
+    argv.extend(["--hold-sec", "10"])
+    path = root / "core-derived-deploy.json"
+    write_json(path, {
+        "ok": True,
+        "all_inputs_ok": True,
+        "operator_gate2_accepted": False,
+        "remote_dir": remote_dir,
+        "remote_argv": argv,
+        "set_args": set_args,
+        "replay_entries": replay_entries,
+        "files": files,
+    })
+    return path
+
+
 class NativeAudioAcdbSetcalReplayLiveRunnerPlanV2638(unittest.TestCase):
     def args(self, root: Path):
         return v2638.parse_args(["--v2636-manifest", str(fake_deploy(root))])
@@ -176,6 +226,23 @@ class NativeAudioAcdbSetcalReplayLiveRunnerPlanV2638(unittest.TestCase):
         self.assertEqual(plan["remote"]["final_set_index"], 10)
         self.assertEqual(plan["remote"]["payload_entry_indices"], [0, 1, 2, 5, 7, 9])
         self.assertIn("A90_ACDB_SETCAL_SET_OK index=10", plan["remote_scripts"]["start_and_wait_all_set"])
+        self.assertEqual(plan["replay_gate_blockers"], [])
+
+    def test_runner_plan_accepts_replay_entries_for_multi_basic_payload_manifest(self) -> None:
+        root = Path(tempfile.mkdtemp(prefix="a90-v2638-core-"))
+        args = v2638.parse_args(["--v2636-manifest", str(fake_core_derived_deploy(root))])
+
+        plan = v2638.build_runner_plan(args)
+
+        self.assertTrue(plan["ok"])
+        self.assertTrue(plan["execution_contract_ok"])
+        self.assertEqual(plan["remote"]["entry_count"], 12)
+        self.assertEqual(plan["remote"]["declared_entry_count"], 12)
+        self.assertEqual(plan["remote"]["declared_entry_source"], "replay_entries")
+        self.assertEqual(plan["remote"]["file_count"], 17)
+        self.assertEqual(plan["remote"]["final_set_index"], 11)
+        self.assertEqual(plan["remote"]["payload_entry_indices"], [0, 1, 2, 3, 6, 8, 10])
+        self.assertIn("A90_ACDB_SETCAL_SET_OK index=11", plan["remote_scripts"]["start_and_wait_all_set"])
         self.assertEqual(plan["replay_gate_blockers"], [])
 
 
