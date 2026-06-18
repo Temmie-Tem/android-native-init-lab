@@ -20,8 +20,8 @@ class NativeAudioSetcalManifestCommandV2757(unittest.TestCase):
 
         self.assertIn('strcmp(argv[1], "setcal") == 0', text)
         self.assertIn('return audio_setcal_cmd(argv, argc);', text)
-        self.assertIn('usage: audio setcal [profile] [--dry-run|--execute]', text)
-        self.assertIn('setcal [profile] [--dry-run|--execute]', text)
+        self.assertIn('usage: audio setcal [profile] [--dry-run|--execute] [--manifest PATH --verify]', text)
+        self.assertIn('setcal [profile] [--dry-run|--execute] [--manifest PATH --verify]', text)
 
     def test_setcal_manifest_pins_corrected_replay_order_and_roles(self) -> None:
         text = source_text()
@@ -56,9 +56,9 @@ class NativeAudioSetcalManifestCommandV2757(unittest.TestCase):
 
         self.assertIn('audio.setcal.ioctl_attempted=0', text)
         self.assertIn('audio.setcal.execute_supported=0', text)
-        self.assertIn('audio.setcal.refused=execute-not-implemented-native-manifest-only', text)
+        self.assertIn('audio.setcal.refused=execute-not-implemented-native-setcal-ioctl', text)
         self.assertIn('return -EPERM;', text)
-        execute_refusal = text.index('audio.setcal.refused=execute-not-implemented-native-manifest-only')
+        execute_refusal = text.index('audio.setcal.refused=execute-not-implemented-native-setcal-ioctl')
         self.assertNotIn('AUDIO_SET_CALIBRATION', text[:execute_refusal])
         self.assertNotIn('SNDRV_CTL_IOCTL_ELEM_WRITE', text[text.index('static int audio_setcal_cmd'):execute_refusal])
 

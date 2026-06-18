@@ -15,6 +15,7 @@ from typing import Literal
 
 AudioMode = Literal["probe", "listen"]
 StageOwner = Literal["host", "native-init", "private-helper"]
+DEFAULT_SETCAL_MANIFEST_PATH = "/cache/a90-runtime/pkg/manifests/audio-setcal-internal-speaker-safe.manifest"
 
 
 def _jsonable(value: object) -> object:
@@ -307,16 +308,43 @@ AUDIO_FEATURE_STAGES = (
         note="writes App Type Config with the V2735 proven tuple",
     ),
     AudioFeatureStage(
+        stage_id="verify-private-acdb-manifest",
+        order=45,
+        owner="native-init",
+        phase="acdb",
+        command_template=(
+            "audio",
+            "setcal",
+            "{profile}",
+            "--manifest",
+            DEFAULT_SETCAL_MANIFEST_PATH,
+            "--verify",
+            "--dry-run",
+        ),
+        native_implemented=True,
+        writes_runtime_state=False,
+        rollback_boundary=False,
+        speaker_scope="shared",
+        note="verifies private SET arg/payload files by path, size, and sha256 without issuing audio calibration ioctls",
+    ),
+    AudioFeatureStage(
         stage_id="replay-acdb-setcal-sequence",
         order=50,
         owner="native-init",
         phase="acdb",
-        command_template=("audio", "setcal", "{profile}", "--dry-run"),
+        command_template=(
+            "audio",
+            "setcal",
+            "{profile}",
+            "--manifest",
+            DEFAULT_SETCAL_MANIFEST_PATH,
+            "--execute",
+        ),
         native_implemented=False,
         writes_runtime_state=True,
         rollback_boundary=False,
         speaker_scope="shared",
-        note="native manifest API only; execute remains blocked until private payload loading is implemented",
+        note="SET replay remains blocked until the private manifest verifier is followed by a native ioctl implementation",
     ),
     AudioFeatureStage(
         stage_id="apply-core-speaker-route",

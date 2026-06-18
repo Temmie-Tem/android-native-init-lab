@@ -44,5 +44,6 @@ bool a90_helper_has_warnings(void);
 int a90_helper_print_inventory(bool verbose);
 int a90_helper_print_manifest_template(void);
 int a90_helper_cmd_helpers(char **argv, int argc);
+int a90_helper_sha256_file(const char *path, char *out, size_t out_size);
 
 #endif

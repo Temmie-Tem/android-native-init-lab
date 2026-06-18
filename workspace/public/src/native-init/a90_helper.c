@@ -297,6 +297,10 @@ static int helper_sha256_file(const char *path, char *out, size_t out_size) {
     return 0;
 }
 
+int a90_helper_sha256_file(const char *path, char *out, size_t out_size) {
+    return helper_sha256_file(path, out, out_size);
+}
+
 static bool helper_path_has_prefix(const char *path, const char *prefix) {
     size_t prefix_len;
 
@@ -622,9 +626,9 @@ static void helper_finalize_entry(struct a90_helper_entry *entry) {
     } else if (entry->present &&
                entry->expected_sha256[0] != '\0' &&
                (!entry->hash_checked || !entry->hash_match)) {
-        snprintf(entry->warning,
+            snprintf(entry->warning,
                  sizeof(entry->warning),
-                 "sha256 mismatch expected=%s actual=%s",
+                 "sha256 mismatch expected=%.16s actual=%.16s",
                  entry->expected_sha256,
                  entry->actual_sha256);
         ++helper_warn_count;

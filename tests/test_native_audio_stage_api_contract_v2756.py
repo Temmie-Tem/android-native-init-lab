@@ -25,6 +25,7 @@ class NativeAudioStageApiContractV2756(unittest.TestCase):
 
         self.assertEqual(stage_ids[0], "preflight-v2321-health")
         self.assertIn("write-global-app-type-config", stage_ids)
+        self.assertIn("verify-private-acdb-manifest", stage_ids)
         self.assertIn("replay-acdb-setcal-sequence", stage_ids)
         self.assertIn("bounded-pcm-playback", stage_ids)
         self.assertEqual(stage_ids[-1], "rollback-v2321")
@@ -46,8 +47,29 @@ class NativeAudioStageApiContractV2756(unittest.TestCase):
             ["audio", "route", "internal-speaker-safe", "--reset", "--layer", "core"],
         )
         self.assertEqual(
+            stages["verify-private-acdb-manifest"]["command"],
+            [
+                "audio",
+                "setcal",
+                "internal-speaker-safe",
+                "--manifest",
+                profiles.DEFAULT_SETCAL_MANIFEST_PATH,
+                "--verify",
+                "--dry-run",
+            ],
+        )
+        self.assertTrue(stages["verify-private-acdb-manifest"]["native_implemented"])
+        self.assertFalse(stages["verify-private-acdb-manifest"]["writes_runtime_state"])
+        self.assertEqual(
             stages["replay-acdb-setcal-sequence"]["command"],
-            ["audio", "setcal", "internal-speaker-safe", "--dry-run"],
+            [
+                "audio",
+                "setcal",
+                "internal-speaker-safe",
+                "--manifest",
+                profiles.DEFAULT_SETCAL_MANIFEST_PATH,
+                "--execute",
+            ],
         )
         self.assertFalse(stages["replay-acdb-setcal-sequence"]["native_implemented"])
         self.assertEqual(stages["bounded-pcm-playback"]["speaker_scope"], "internal-speaker")
@@ -79,6 +101,7 @@ class NativeAudioStageApiContractV2756(unittest.TestCase):
             "adsp-boot-once",
             "snd-materialize-once",
             "write-global-app-type-config",
+            "verify-private-acdb-manifest",
             "replay-acdb-setcal-sequence",
             "apply-core-speaker-route",
             "bounded-pcm-playback",
@@ -106,7 +129,9 @@ class NativeAudioStageApiContractV2756(unittest.TestCase):
         )
         self.assertIn('.command_template = "audio route %s --apply --layer core"', text)
         self.assertIn('.command_template = "audio route %s --reset --layer core"', text)
-        self.assertIn('.command_template = "audio setcal %s --dry-run"', text)
+        self.assertIn('verify-private-acdb-manifest', text)
+        self.assertIn('--manifest " AUDIO_SETCAL_DEFAULT_MANIFEST_PATH " --verify --dry-run"', text)
+        self.assertIn('--manifest " AUDIO_SETCAL_DEFAULT_MANIFEST_PATH " --execute"', text)
 
 
 if __name__ == "__main__":
