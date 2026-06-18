@@ -424,7 +424,7 @@ def generate_acdb_pilot_wav(path: Path, *, duration_ms: int, amplitude: float) -
         "channels": 2,
         "sample_width_bytes": 2,
         "frames": frame_count,
-        "sha256": speaker.sha256_file(path),
+        "sha256": speaker.recipe.sha256_file(path),
     }
 
 

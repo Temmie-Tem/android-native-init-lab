@@ -290,6 +290,19 @@ class NativeAudioAcdbSetcalReplayLiveHandoffV2639(unittest.TestCase):
                 str(fake_deploy(root)),
             ]))
 
+    def test_generate_acdb_pilot_wav_records_hash(self) -> None:
+        root = Path(tempfile.mkdtemp(prefix="a90-v2639-"))
+        wav = root / "listen.wav"
+
+        meta = v2639.generate_acdb_pilot_wav(wav, duration_ms=8000, amplitude=0.15)
+
+        self.assertTrue(wav.exists())
+        self.assertEqual(meta["duration_ms"], 8000)
+        self.assertEqual(meta["amplitude"], 0.15)
+        self.assertEqual(meta["frames"], 384000)
+        self.assertEqual(meta["sha256"], hashlib.sha256(wav.read_bytes()).hexdigest())
+        self.assertGreater(wav.stat().st_size, 384000 * 4)
+
     def test_source_runs_output_observer_instead_of_plain_pcm_by_default(self) -> None:
         source = Path(v2639.__file__).read_text(encoding="utf-8")
 
