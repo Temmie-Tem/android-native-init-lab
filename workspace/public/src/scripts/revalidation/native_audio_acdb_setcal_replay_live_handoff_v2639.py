@@ -176,12 +176,18 @@ def run_a90ctl_hard_observation(args: argparse.Namespace,
     let subprocess.run enforce a hard timeout that releases the child process.
     """
 
-    command = snd.a90ctl_command(
-        args,
-        native_command,
-        hide_on_busy=True,
-        timeout=timeout,
-    )
+    command = [
+        "python3",
+        snd.rel(snd.A90CTL),
+        "--host",
+        args.bridge_host,
+        "--port",
+        str(args.bridge_port),
+        "--timeout",
+        str(timeout),
+        "--hide-on-busy",
+        *native_command,
+    ]
     step = speaker.run_host_step(
         out_dir,
         steps,

@@ -329,8 +329,9 @@ class NativeAudioAcdbSetcalReplayLiveHandoffV2639(unittest.TestCase):
         source = Path(v2639.__file__).read_text(encoding="utf-8")
 
         self.assertIn("def run_a90ctl_hard_observation", source)
-        self.assertIn("snd.a90ctl_command", source)
+        self.assertIn("snd.rel(snd.A90CTL)", source)
         self.assertIn("timeout=timeout + 10.0", source)
+        self.assertIn('"--hide-on-busy"', source)
         self.assertIn('run_a90ctl_hard_observation(args, out_dir, steps, "candidate-status"', source)
         self.assertIn('run_a90ctl_hard_observation(args, out_dir, steps, "snd-status-after-materialize"', source)
 
