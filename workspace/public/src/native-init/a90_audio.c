@@ -212,6 +212,21 @@ struct audio_setcal_execute_open_state {
     int devices_opened;
 };
 
+struct audio_setcal_allocation_slot {
+    bool active;
+    int sequence;
+    int cal_type;
+    long long payload_size;
+    long long payload_loaded;
+    char role[AUDIO_SETCAL_MANIFEST_ROLE_SIZE];
+};
+
+struct audio_setcal_allocation_plan {
+    int slot_count;
+    long long total_payload_bytes;
+    struct audio_setcal_allocation_slot slots[AUDIO_PROFILE_ACDB_SET_COUNT];
+};
+
 static const char *const AUDIO_INTERNAL_SPEAKER_OBSERVER_CONTROLS[] = {
     "SpkrLeft COMP Switch",
     "SpkrRight COMP Switch",
@@ -1503,12 +1518,74 @@ static void audio_setcal_close_execute_devices(struct audio_setcal_execute_open_
     a90_console_printf("audio.setcal.execute.close.ioctl_attempted=0\r\n");
 }
 
+static void audio_setcal_allocation_plan_build(const struct audio_setcal_manifest_plan *manifest_plan,
+                                               struct audio_setcal_allocation_plan *allocation_plan) {
+    int index;
+
+    if (allocation_plan == NULL) {
+        return;
+    }
+    memset(allocation_plan, 0, sizeof(*allocation_plan));
+    if (manifest_plan == NULL || !manifest_plan->valid) {
+        return;
+    }
+    for (index = 0; index < AUDIO_PROFILE_ACDB_SET_COUNT; ++index) {
+        const struct audio_setcal_manifest_plan_entry *entry = &manifest_plan->entries[index];
+        struct audio_setcal_allocation_slot *slot;
+
+        if (!entry->present || !entry->dmabuf_expected) {
+            continue;
+        }
+        slot = &allocation_plan->slots[allocation_plan->slot_count];
+        slot->active = true;
+        slot->sequence = entry->sequence;
+        slot->cal_type = entry->cal_type;
+        slot->payload_size = entry->payload_size;
+        slot->payload_loaded = entry->payload_loaded;
+        audio_copy_string(slot->role, sizeof(slot->role), entry->role);
+        allocation_plan->slot_count += 1;
+        allocation_plan->total_payload_bytes += entry->payload_size > 0 ? entry->payload_size : 0;
+    }
+}
+
+static void audio_setcal_print_allocation_plan(const struct audio_setcal_allocation_plan *allocation_plan) {
+    int index;
+
+    if (allocation_plan == NULL) {
+        return;
+    }
+    a90_console_printf("audio.setcal.execute.allocate.plan.version=1\r\n");
+    a90_console_printf("audio.setcal.execute.allocate.plan.slot.count=%d\r\n",
+                       allocation_plan->slot_count);
+    a90_console_printf("audio.setcal.execute.allocate.plan.total_payload_bytes=%lld\r\n",
+                       allocation_plan->total_payload_bytes);
+    a90_console_printf("audio.setcal.execute.allocate.plan.ioctl.allocate=0x%08x\r\n",
+                       AUDIO_SETCAL_IOCTL_ALLOCATE_CALIBRATION);
+    a90_console_printf("audio.setcal.execute.allocate.plan.ioctl.deallocate=0x%08x\r\n",
+                       AUDIO_SETCAL_IOCTL_DEALLOCATE_CALIBRATION);
+    a90_console_printf("audio.setcal.execute.allocate.plan.allocate_attempted=0\r\n");
+    a90_console_printf("audio.setcal.execute.allocate.plan.ioctl_attempted=0\r\n");
+    for (index = 0; index < allocation_plan->slot_count; ++index) {
+        const struct audio_setcal_allocation_slot *slot = &allocation_plan->slots[index];
+        char prefix[96];
+
+        snprintf(prefix, sizeof(prefix), "audio.setcal.execute.allocate.plan.slot.%d", index);
+        a90_console_printf("%s.active=%d\r\n", prefix, slot->active ? 1 : 0);
+        a90_console_printf("%s.sequence=%d\r\n", prefix, slot->sequence);
+        a90_console_printf("%s.cal_type=%d\r\n", prefix, slot->cal_type);
+        a90_console_printf("%s.role=%s\r\n", prefix, slot->role[0] != '\0' ? slot->role : "-");
+        a90_console_printf("%s.payload_size=%lld\r\n", prefix, slot->payload_size);
+        a90_console_printf("%s.payload_loaded=%lld\r\n", prefix, slot->payload_loaded);
+    }
+}
+
 static int audio_setcal_cmd(char **argv, int argc) {
     const char *profile_id = AUDIO_DEFAULT_PROFILE_ID;
     const char *manifest_path = NULL;
     const struct audio_speaker_profile *profile;
     struct audio_setcal_manifest_plan *manifest_plan = NULL;
     struct audio_setcal_execute_open_state execute_open_state;
+    struct audio_setcal_allocation_plan allocation_plan;
     struct audio_setcal_manifest_totals totals;
     struct audio_setcal_manifest_totals load_totals;
     bool seen_profile = false;
@@ -1524,6 +1601,7 @@ static int audio_setcal_cmd(char **argv, int argc) {
     memset(&totals, 0, sizeof(totals));
     memset(&load_totals, 0, sizeof(load_totals));
     audio_setcal_execute_open_state_reset(&execute_open_state);
+    memset(&allocation_plan, 0, sizeof(allocation_plan));
     for (argi = 2; argi < argc; ++argi) {
         if (argv == NULL || argv[argi] == NULL) {
             a90_console_printf("usage: audio setcal [profile] [--dry-run|--execute] [--manifest PATH --verify|--prepare|--load]\r\n");
@@ -1668,14 +1746,17 @@ static int audio_setcal_cmd(char **argv, int argc) {
 
         audio_setcal_print_execute_plan(profile, manifest_plan);
         open_rc = audio_setcal_open_execute_devices(&execute_open_state);
-        audio_setcal_close_execute_devices(&execute_open_state);
         if (open_rc < 0) {
+            audio_setcal_close_execute_devices(&execute_open_state);
             a90_console_printf("audio.setcal.refused=execute-open-failed-before-ioctl errno=%d\r\n",
                                -open_rc);
             a90_console_printf("audio.setcal.ioctl_attempted=0\r\n");
             free(manifest_plan);
             return open_rc;
         }
+        audio_setcal_allocation_plan_build(manifest_plan, &allocation_plan);
+        audio_setcal_print_allocation_plan(&allocation_plan);
+        audio_setcal_close_execute_devices(&execute_open_state);
         a90_console_printf("audio.setcal.refused=execute-not-implemented-native-setcal-ioctl\r\n");
         a90_console_printf("audio.setcal.ioctl_attempted=0\r\n");
         free(manifest_plan);
