@@ -8,10 +8,16 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
 AUDIO_C = REPO / "workspace/public/src/native-init/a90_audio.c"
+AUDIO_PROFILE_H = REPO / "workspace/public/src/native-init/a90_audio_profile.h"
+AUDIO_PROFILE_C = REPO / "workspace/public/src/native-init/a90_audio_profile.c"
 
 
 def source_text() -> str:
-    return AUDIO_C.read_text(encoding="utf-8")
+    return "\n".join([
+        AUDIO_C.read_text(encoding="utf-8"),
+        AUDIO_PROFILE_H.read_text(encoding="utf-8"),
+        AUDIO_PROFILE_C.read_text(encoding="utf-8"),
+    ])
 
 
 class NativeAudioRouteLayerPolicyV2754(unittest.TestCase):

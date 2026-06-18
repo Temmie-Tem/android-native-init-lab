@@ -1,4 +1,5 @@
 #include "a90_audio.h"
+#include "a90_audio_profile.h"
 
 #include "a90_console.h"
 #include "a90_helper.h"
@@ -36,14 +37,7 @@
 #define AUDIO_SND_MAX_LISTED 64
 #define AUDIO_MISSING_LIST_SIZE 192
 #define AUDIO_ADSP_SEGMENT_MODEL "stock-sparse-b00-b11-b13-b16"
-#define AUDIO_PROFILE_VERSION 1
-#define AUDIO_DEFAULT_PROFILE_ID "internal-speaker-safe"
-#define AUDIO_PROFILE_ACDB_SET_COUNT 11
-#define AUDIO_PROFILE_FORBIDDEN_CAL_COUNT 3
-#define AUDIO_PROFILE_OBSERVER_COUNT 8
 #define AUDIO_APP_TYPE_CFG_MAX_VALUES 128
-#define AUDIO_ROUTE_APPLY_COUNT 13
-#define AUDIO_ROUTE_RESET_COUNT 12
 #define AUDIO_SETCAL_MANIFEST_VERSION 1
 #define AUDIO_SETCAL_DEFAULT_MANIFEST_PATH "/cache/a90-runtime/pkg/manifests/audio-setcal-internal-speaker-safe.manifest"
 #define AUDIO_SETCAL_RUNTIME_PREFIX "/cache/a90-runtime"
@@ -63,32 +57,6 @@
 #define AUDIO_PCM_PERIOD_COUNT 4
 #define AUDIO_PCM_MAX_CHANNELS 8
 #define AUDIO_PCM_TONE_HZ 440
-
-enum audio_route_value_kind {
-    AUDIO_ROUTE_VALUE_INTS = 1,
-    AUDIO_ROUTE_VALUE_ENUM = 2,
-};
-
-struct audio_route_value {
-    enum audio_route_value_kind kind;
-    const char *enum_value;
-    int ints[4];
-    int int_count;
-    int zero_fill;
-};
-
-struct audio_route_control {
-    const char *name;
-    const char *role;
-    const char *layer;
-    const char *speaker;
-    const char *policy;
-    int order;
-    bool resettable;
-    bool smart_amp_boost;
-    struct audio_route_value apply;
-    struct audio_route_value reset;
-};
 
 static const char *const AUDIO_ADSP_SEGMENTS[] = {
     "adsp.b00",
@@ -129,32 +97,6 @@ struct audio_snd_scan_stats {
     int invalid;
     int refused;
     int failed;
-};
-
-struct audio_speaker_profile {
-    const char *id;
-    const char *endpoint;
-    const char *speaker_map;
-    int card;
-    int pcm_device;
-    int channels;
-    int sample_rate;
-    int bit_width;
-    int app_type;
-    int acdb_id;
-    int stream_control_width;
-    const char *global_app_type_config;
-    const char *stream_app_type_config;
-    const int acdb_set_order[AUDIO_PROFILE_ACDB_SET_COUNT];
-    const int forbidden_cal_types[AUDIO_PROFILE_FORBIDDEN_CAL_COUNT];
-    const char *const *observer_controls;
-    int observer_control_count;
-    int probe_amplitude_milli;
-    int probe_duration_ms;
-    int listen_amplitude_milli;
-    int listen_duration_ms;
-    int amplitude_cap_milli;
-    int duration_cap_ms;
 };
 
 struct audio_stage_contract {
@@ -251,192 +193,6 @@ struct audio_setcal_ion_request_plan {
     uint32_t flags;
     uint64_t total_len;
     struct audio_setcal_ion_request_slot requests[AUDIO_PROFILE_ACDB_SET_COUNT];
-};
-
-static const char *const AUDIO_INTERNAL_SPEAKER_OBSERVER_CONTROLS[] = {
-    "SpkrLeft COMP Switch",
-    "SpkrRight COMP Switch",
-    "SpkrLeft BOOST Switch",
-    "SpkrRight BOOST Switch",
-    "SpkrLeft VISENSE Switch",
-    "SpkrRight VISENSE Switch",
-    "Get RMS",
-    "App Type Config",
-};
-
-static const struct audio_speaker_profile AUDIO_SPEAKER_PROFILES[] = {
-    {
-        .id = AUDIO_DEFAULT_PROFILE_ID,
-        .endpoint = "internal-speaker",
-        .speaker_map = "SpkrLeft/SpkrRight WSA881x via WSA_CDC_DMA_RX",
-        .card = 0,
-        .pcm_device = 0,
-        .channels = 2,
-        .sample_rate = 48000,
-        .bit_width = 16,
-        .app_type = 69941,
-        .acdb_id = 15,
-        .stream_control_width = 2,
-        .global_app_type_config = "1 69941 48000 16",
-        .stream_app_type_config = "69941 15 48000 2",
-        .acdb_set_order = {39, 20, 20, 13, 9, 11, 12, 15, 23, 16, 21},
-        .forbidden_cal_types = {10, 14, 24},
-        .observer_controls = AUDIO_INTERNAL_SPEAKER_OBSERVER_CONTROLS,
-        .observer_control_count = AUDIO_PROFILE_OBSERVER_COUNT,
-        .probe_amplitude_milli = 20,
-        .probe_duration_ms = 1000,
-        .listen_amplitude_milli = 150,
-        .listen_duration_ms = 8000,
-        .amplitude_cap_milli = 200,
-        .duration_cap_ms = 10000,
-    },
-};
-
-static const struct audio_route_control AUDIO_INTERNAL_SPEAKER_ROUTE[] = {
-    {
-        .name = "Audio Stream 0 App Type Cfg",
-        .role = "stream_cfg",
-        .layer = "core",
-        .speaker = "shared",
-        .policy = "safe-observed",
-        .order = 10,
-        .resettable = false,
-        .apply = {.kind = AUDIO_ROUTE_VALUE_INTS, .ints = {69941, 15, 48000, 2}, .int_count = 4, .zero_fill = 124},
-        .reset = {.kind = AUDIO_ROUTE_VALUE_INTS, .int_count = 0, .zero_fill = 0},
-    },
-    {
-        .name = "Playback Channel Map0",
-        .role = "stream_cfg",
-        .layer = "core",
-        .speaker = "shared",
-        .policy = "safe-observed",
-        .order = 20,
-        .resettable = true,
-        .apply = {.kind = AUDIO_ROUTE_VALUE_INTS, .ints = {1, 2}, .int_count = 2, .zero_fill = 30},
-        .reset = {.kind = AUDIO_ROUTE_VALUE_INTS, .int_count = 0, .zero_fill = 32},
-    },
-    {
-        .name = "SLIMBUS_0_RX Audio Mixer MultiMedia1",
-        .role = "route",
-        .layer = "core",
-        .speaker = "shared",
-        .policy = "safe-observed",
-        .order = 30,
-        .resettable = true,
-        .apply = {.kind = AUDIO_ROUTE_VALUE_INTS, .ints = {1, 0}, .int_count = 2, .zero_fill = 0},
-        .reset = {.kind = AUDIO_ROUTE_VALUE_INTS, .ints = {0, 0}, .int_count = 2, .zero_fill = 0},
-    },
-    {
-        .name = "SLIM RX0 MUX",
-        .role = "route",
-        .layer = "core",
-        .speaker = "shared",
-        .policy = "safe-observed",
-        .order = 40,
-        .resettable = true,
-        .apply = {.kind = AUDIO_ROUTE_VALUE_ENUM, .enum_value = "AIF1_PB"},
-        .reset = {.kind = AUDIO_ROUTE_VALUE_ENUM, .enum_value = "ZERO"},
-    },
-    {
-        .name = "RX INT7_1 MIX1 INP0",
-        .role = "route",
-        .layer = "core",
-        .speaker = "shared",
-        .policy = "safe-observed",
-        .order = 50,
-        .resettable = true,
-        .apply = {.kind = AUDIO_ROUTE_VALUE_ENUM, .enum_value = "RX0"},
-        .reset = {.kind = AUDIO_ROUTE_VALUE_ENUM, .enum_value = "ZERO"},
-    },
-    {
-        .name = "COMP7 Switch",
-        .role = "route",
-        .layer = "core",
-        .speaker = "shared",
-        .policy = "safe-observed",
-        .order = 60,
-        .resettable = true,
-        .apply = {.kind = AUDIO_ROUTE_VALUE_INTS, .ints = {1}, .int_count = 1, .zero_fill = 0},
-        .reset = {.kind = AUDIO_ROUTE_VALUE_INTS, .ints = {0}, .int_count = 1, .zero_fill = 0},
-    },
-    {
-        .name = "AIF4_VI Mixer SPKR_VI_1",
-        .role = "speaker_feedback",
-        .layer = "feedback",
-        .speaker = "SPKR_VI_1",
-        .policy = "speaker-protection-observed",
-        .order = 70,
-        .resettable = true,
-        .apply = {.kind = AUDIO_ROUTE_VALUE_INTS, .ints = {1}, .int_count = 1, .zero_fill = 0},
-        .reset = {.kind = AUDIO_ROUTE_VALUE_INTS, .ints = {0}, .int_count = 1, .zero_fill = 0},
-    },
-    {
-        .name = "AIF4_VI Mixer SPKR_VI_2",
-        .role = "speaker_feedback",
-        .layer = "feedback",
-        .speaker = "SPKR_VI_2",
-        .policy = "speaker-protection-observed",
-        .order = 80,
-        .resettable = true,
-        .apply = {.kind = AUDIO_ROUTE_VALUE_INTS, .ints = {1}, .int_count = 1, .zero_fill = 0},
-        .reset = {.kind = AUDIO_ROUTE_VALUE_INTS, .ints = {0}, .int_count = 1, .zero_fill = 0},
-    },
-    {
-        .name = "SLIM_4_TX Format",
-        .role = "speaker_feedback",
-        .layer = "feedback",
-        .speaker = "SPKR_VI",
-        .policy = "speaker-protection-observed",
-        .order = 90,
-        .resettable = true,
-        .apply = {.kind = AUDIO_ROUTE_VALUE_ENUM, .enum_value = "PACKED_16B"},
-        .reset = {.kind = AUDIO_ROUTE_VALUE_ENUM, .enum_value = "UNPACKED"},
-    },
-    {
-        .name = "SpkrLeft VISENSE Switch",
-        .role = "speaker_endpoint",
-        .layer = "endpoint",
-        .speaker = "SpkrLeft",
-        .policy = "speaker-protection-observed",
-        .order = 100,
-        .resettable = true,
-        .apply = {.kind = AUDIO_ROUTE_VALUE_INTS, .ints = {1}, .int_count = 1, .zero_fill = 0},
-        .reset = {.kind = AUDIO_ROUTE_VALUE_INTS, .ints = {0}, .int_count = 1, .zero_fill = 0},
-    },
-    {
-        .name = "SpkrLeft COMP Switch",
-        .role = "speaker_endpoint",
-        .layer = "endpoint",
-        .speaker = "SpkrLeft",
-        .policy = "speaker-endpoint-review",
-        .order = 110,
-        .resettable = true,
-        .apply = {.kind = AUDIO_ROUTE_VALUE_INTS, .ints = {1}, .int_count = 1, .zero_fill = 0},
-        .reset = {.kind = AUDIO_ROUTE_VALUE_INTS, .ints = {0}, .int_count = 1, .zero_fill = 0},
-    },
-    {
-        .name = "SpkrLeft BOOST Switch",
-        .role = "speaker_endpoint",
-        .layer = "endpoint",
-        .speaker = "SpkrLeft",
-        .policy = "blocked-smart-amp-boost",
-        .order = 120,
-        .resettable = true,
-        .smart_amp_boost = true,
-        .apply = {.kind = AUDIO_ROUTE_VALUE_INTS, .ints = {1}, .int_count = 1, .zero_fill = 0},
-        .reset = {.kind = AUDIO_ROUTE_VALUE_INTS, .ints = {0}, .int_count = 1, .zero_fill = 0},
-    },
-    {
-        .name = "SpkrLeft SWR DAC_Port Switch",
-        .role = "speaker_endpoint",
-        .layer = "endpoint",
-        .speaker = "SpkrLeft",
-        .policy = "safe-observed",
-        .order = 130,
-        .resettable = true,
-        .apply = {.kind = AUDIO_ROUTE_VALUE_INTS, .ints = {1}, .int_count = 1, .zero_fill = 0},
-        .reset = {.kind = AUDIO_ROUTE_VALUE_INTS, .ints = {0}, .int_count = 1, .zero_fill = 0},
-    },
 };
 
 static const struct audio_stage_contract AUDIO_STAGE_CONTRACTS[] = {
@@ -648,7 +404,7 @@ static const char *yesno(bool value) {
 }
 
 static int audio_profile_count(void) {
-    return (int)(sizeof(AUDIO_SPEAKER_PROFILES) / sizeof(AUDIO_SPEAKER_PROFILES[0]));
+    return AUDIO_SPEAKER_PROFILE_COUNT;
 }
 
 static int audio_stage_count(void) {
@@ -2703,7 +2459,7 @@ static int audio_app_type_cmd(char **argv, int argc) {
 }
 
 static int audio_route_control_count(void) {
-    return (int)(sizeof(AUDIO_INTERNAL_SPEAKER_ROUTE) / sizeof(AUDIO_INTERNAL_SPEAKER_ROUTE[0]));
+    return AUDIO_ROUTE_APPLY_COUNT;
 }
 
 static int audio_route_reset_count(void) {
