@@ -26,6 +26,7 @@ issue calibration ioctls, or run PCM playback.
 - final_set_index: `8`
 - final_set_marker: `A90_ACDB_SETCAL_SET_OK index=8`
 - payload_entry_indices_requiring_deallocate: `[0, 3, 5, 7]`
+- remote_script_paths: `{'start_and_wait_all_set': '/cache/a90-acdb-setcal-replay-v2636/setcal-start-and-wait-all-set.sh', 'deallocate_check': '/cache/a90-acdb-setcal-replay-v2636/setcal-deallocate-check.sh', 'runtime_cleanup': '/cache/a90-acdb-setcal-replay-v2636/setcal-runtime-cleanup.sh'}`
 - route_apply_count: `13`
 - route_reset_count: `12`
 - app_type_gate_enabled: `True`
@@ -40,6 +41,7 @@ issue calibration ioctls, or run PCM playback.
 - flash V2334 audio candidate through checked helper and verify health
 - boot ADSP and materialize /dev/snd nodes
 - stage 13 V2636 replay files plus tinymix, PCM probe, and generated low-amplitude WAV
+- stage long replay shell scripts as files and run only short shell commands
 - verify all staged ACDB file SHA-256 values on device
 - take tinymix baseline snapshot
 - apply V2407 App Type and V2377 route controls

@@ -33,6 +33,9 @@ DEFAULT_REPORT = ROOT / "docs/reports/NATIVE_INIT_V2638_AUDIO_ACDB_SETCAL_REPLAY
 APPROVAL_PHRASE = v2637.APPROVAL_PHRASE
 REMOTE_STDOUT = "setcal-replay.stdout"
 REMOTE_STDERR = "setcal-replay.stderr"
+REMOTE_START_SCRIPT = "setcal-start-and-wait-all-set.sh"
+REMOTE_DEALLOCATE_SCRIPT = "setcal-deallocate-check.sh"
+REMOTE_RUNTIME_CLEANUP_SCRIPT = "setcal-runtime-cleanup.sh"
 SET_WAIT_TIMEOUT_SEC = 30
 
 
@@ -223,6 +226,15 @@ def remote_runtime_cleanup_script(manifest: dict[str, Any]) -> str:
     )
 
 
+def remote_script_paths(manifest: dict[str, Any]) -> dict[str, str]:
+    remote_dir = str(manifest.get("remote_dir"))
+    return {
+        "start_and_wait_all_set": f"{remote_dir}/{REMOTE_START_SCRIPT}",
+        "deallocate_check": f"{remote_dir}/{REMOTE_DEALLOCATE_SCRIPT}",
+        "runtime_cleanup": f"{remote_dir}/{REMOTE_RUNTIME_CLEANUP_SCRIPT}",
+    }
+
+
 def build_runner_plan(args: argparse.Namespace) -> dict[str, Any]:
     manifest = load_v2636(args.v2636_manifest)
     route_args = speaker_args(args)
@@ -288,11 +300,13 @@ def build_runner_plan(args: argparse.Namespace) -> dict[str, Any]:
             "deallocate_check": remote_deallocate_check_script(manifest),
             "runtime_cleanup": remote_runtime_cleanup_script(manifest),
         },
+        "remote_script_paths": remote_script_paths(manifest),
         "future_live_sequence": [
             "verify rollback V2321 and current selftest fail=0",
             "flash V2334 audio candidate through checked helper and verify health",
             "boot ADSP and materialize /dev/snd nodes",
             "stage 13 V2636 replay files plus tinymix, PCM probe, and generated low-amplitude WAV",
+            "stage long replay shell scripts as files and run only short shell commands",
             "verify all staged ACDB file SHA-256 values on device",
             "take tinymix baseline snapshot",
             "apply V2407 App Type and V2377 route controls",
@@ -351,6 +365,7 @@ def write_report(path: Path, plan: dict[str, Any], private_manifest_path: Path) 
         f"- final_set_index: `{plan['remote']['final_set_index']}`",
         f"- final_set_marker: `{plan['summary']['remote_final_set_marker']}`",
         f"- payload_entry_indices_requiring_deallocate: `{plan['remote']['payload_entry_indices']}`",
+        f"- remote_script_paths: `{plan.get('remote_script_paths')}`",
         f"- route_apply_count: `{plan['route_pcm_contract']['route_apply_count']}`",
         f"- route_reset_count: `{plan['route_pcm_contract']['route_reset_count']}`",
         f"- app_type_gate_enabled: `{plan['route_pcm_contract']['app_type_gate_enabled']}`",

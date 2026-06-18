@@ -90,6 +90,30 @@ class NativeAudioAcdbSetcalReplayLiveHandoffV2639(unittest.TestCase):
         v2639.verify_live_gate(args, deploy)
         self.assertTrue(state["safe_to_run_native_replay"])
 
+    def test_runtime_scripts_are_materialized_as_files(self) -> None:
+        root = Path(tempfile.mkdtemp(prefix="a90-v2639-"))
+        manifest = fake_deploy(root, gate2=False)
+        args = v2639.parse_args(["--dry-run", "--v2636-manifest", str(manifest)])
+        state = v2639.dry_run_payload(args)
+        deploy = v2639.load_deploy_manifest(manifest)
+
+        scripts = v2639.runtime_script_files(root, state, deploy)
+
+        self.assertEqual([item[0] for item in scripts], ["start_and_wait_all_set", "deallocate_check", "runtime_cleanup"])
+        start_key, start_remote, start_local = scripts[0]
+        self.assertEqual(start_key, "start_and_wait_all_set")
+        self.assertTrue(start_remote.endswith("/setcal-start-and-wait-all-set.sh"))
+        self.assertIn("sha256sum -c -", start_local.read_text(encoding="utf-8"))
+        self.assertIn("A90_SETCAL_REPLAY_ALL_SET_OK", start_local.read_text(encoding="utf-8"))
+
+    def test_remote_step_clean_rejects_protocol_noise_and_unknown_command(self) -> None:
+        root = Path(tempfile.mkdtemp(prefix="a90-v2639-"))
+        stdout = root / "step.txt"
+        stdout.write_text("[err] unknown command: deadbeef\n", encoding="utf-8")
+
+        self.assertFalse(v2639.remote_step_clean({"ok": True, "stdout_path": str(stdout)}))
+        self.assertFalse(v2639.remote_step_clean({"ok": True, "stdout_path": str(stdout), "serial_recovery": {"reason": "protocol-noise"}}))
+
     def test_report_records_blockers(self) -> None:
         root = Path(tempfile.mkdtemp(prefix="a90-v2639-"))
         args = v2639.parse_args(["--dry-run", "--v2636-manifest", str(fake_deploy(root))])

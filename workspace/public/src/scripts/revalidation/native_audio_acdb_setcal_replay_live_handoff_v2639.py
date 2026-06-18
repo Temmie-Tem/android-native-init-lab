@@ -128,7 +128,8 @@ def install_runtime_artifacts(args: argparse.Namespace,
                               steps: list[dict[str, Any]],
                               deploy_manifest: dict[str, Any],
                               pcm_path: Path,
-                              route_plan: dict[str, Any]) -> dict[str, Any]:
+                              route_plan: dict[str, Any],
+                              state: dict[str, Any]) -> dict[str, Any]:
     readiness = speaker.tiny_live.probe_transfer_readiness(args, out_dir, steps)
     selected = readiness["selected_transport"]
     control_channel = "tcpctl" if selected == "tcpctl" else "bridge"
@@ -137,6 +138,7 @@ def install_runtime_artifacts(args: argparse.Namespace,
         "selected_transport": selected,
         "control_channel": control_channel,
         "artifacts": {},
+        "scripts": {},
     }
     port = int(args.transfer_port)
     for index, entry in enumerate(deploy_manifest.get("files") or []):
@@ -158,7 +160,38 @@ def install_runtime_artifacts(args: argparse.Namespace,
     ]
     for name, local_path, remote_path, transfer_port in extra:
         result["artifacts"][name] = install_artifact(args, out_dir, steps, name, local_path, remote_path, transfer_port, control_channel)
+    for offset, (script_key, remote_path, local_path) in enumerate(runtime_script_files(out_dir, state, deploy_manifest)):
+        artifact_name = f"script-{script_key}"
+        result["scripts"][script_key] = install_artifact(
+            args,
+            out_dir,
+            steps,
+            artifact_name,
+            local_path,
+            remote_path,
+            port + 60 + offset,
+            control_channel,
+        )
+        result["scripts"][script_key]["remote_path"] = remote_path
     return result
+
+
+def runtime_script_files(out_dir: Path,
+                         state: dict[str, Any],
+                         deploy_manifest: dict[str, Any]) -> list[tuple[str, str, Path]]:
+    script_dir = out_dir / "runtime-scripts"
+    script_dir.mkdir(parents=True, exist_ok=True)
+    paths = state.get("remote_script_paths") or planmod.remote_script_paths(deploy_manifest)
+    files: list[tuple[str, str, Path]] = []
+    for script_key in ("start_and_wait_all_set", "deallocate_check", "runtime_cleanup"):
+        body = str((state.get("remote_scripts") or {}).get(script_key) or "")
+        if not body.strip():
+            raise RuntimeError(f"missing remote script body: {script_key}")
+        local_path = script_dir / Path(str(paths[script_key])).name
+        local_path.write_text(body + "\n", encoding="utf-8")
+        local_path.chmod(0o600)
+        files.append((script_key, str(paths[script_key]), local_path))
+    return files
 
 
 def run_remote_shell(args: argparse.Namespace,
@@ -179,6 +212,36 @@ def run_remote_shell(args: argparse.Namespace,
         timeout=timeout,
         allow_error=allow_error,
     )
+
+
+def run_remote_script(args: argparse.Namespace,
+                      out_dir: Path,
+                      steps: list[dict[str, Any]],
+                      name: str,
+                      remote_script: str,
+                      *,
+                      timeout: float,
+                      allow_error: bool = False) -> dict[str, Any]:
+    return speaker.run_tool_command(
+        args,
+        out_dir,
+        steps,
+        name,
+        [args.device_busybox, "sh", remote_script],
+        use_tcpctl=False,
+        timeout=timeout,
+        allow_error=allow_error,
+    )
+
+
+def remote_step_clean(step: dict[str, Any]) -> bool:
+    if not step.get("ok"):
+        return False
+    recovery = step.get("serial_recovery") or {}
+    if recovery.get("reason") == "protocol-noise" or recovery.get("unsafe_retry"):
+        return False
+    text = speaker.step_text(step)
+    return "[err] unknown command" not in text and "unknown command:" not in text
 
 
 def route_plan(args: argparse.Namespace) -> dict[str, Any]:
@@ -209,7 +272,7 @@ def run_setcal_replay_and_pcm(args: argparse.Namespace,
         "playback_attempted": False,
         "helper_started": False,
     }
-    install = install_runtime_artifacts(args, out_dir, steps, deploy_manifest, pcm_path, plan)
+    install = install_runtime_artifacts(args, out_dir, steps, deploy_manifest, pcm_path, plan, state)
     result["install"] = install
     use_tcpctl = install["selected_transport"] == "tcpctl"
     route_use_tcpctl = args.route_transport == "tcpctl"
@@ -263,17 +326,24 @@ def run_setcal_replay_and_pcm(args: argparse.Namespace,
                 result["route_apply"].append({"name": command["name"], "ok": bool(step.get("ok")), "stdout_path": step.get("stdout_path"), "remote_tool_result": step.get("remote_tool_result")})
                 if not step.get("ok"):
                     raise RuntimeError(f"route apply failed: {command['name']}: {step.get('remote_tool_result')}")
-            replay_step = run_remote_shell(
+            replay_script = install["scripts"]["start_and_wait_all_set"]["remote_path"]
+            replay_step = run_remote_script(
                 args,
                 out_dir,
                 steps,
                 "acdb-setcal-replay-start-wait-all-set",
-                state["remote_scripts"]["start_and_wait_all_set"],
+                replay_script,
                 timeout=args.replay_start_timeout,
                 allow_error=True,
             )
-            result["replay_start"] = {"ok": bool(replay_step.get("ok")), "stdout_path": replay_step.get("stdout_path"), "remote_tool_result": replay_step.get("remote_tool_result")}
-            if not replay_step.get("ok"):
+            replay_clean = remote_step_clean(replay_step)
+            result["replay_start"] = {
+                "ok": replay_clean,
+                "stdout_path": replay_step.get("stdout_path"),
+                "remote_tool_result": replay_step.get("remote_tool_result"),
+                "remote_script": replay_script,
+            }
+            if not replay_clean:
                 raise RuntimeError(f"ACDB SET-cal replay did not reach final SET marker: {replay_step.get('remote_tool_result')}")
             helper_started = True
             result["helper_started"] = True
@@ -300,17 +370,24 @@ def run_setcal_replay_and_pcm(args: argparse.Namespace,
                 result["playback_failure_dmesg"] = {"ok": bool(dmesg_step.get("ok")), "stdout_path": dmesg_step.get("stdout_path")}
     finally:
         if helper_started:
-            cleanup = run_remote_shell(
+            cleanup_script = install["scripts"]["deallocate_check"]["remote_path"]
+            cleanup = run_remote_script(
                 args,
                 out_dir,
                 steps,
                 "acdb-setcal-helper-deallocate-check",
-                state["remote_scripts"]["deallocate_check"],
+                cleanup_script,
                 timeout=args.hold_sec + 45,
                 allow_error=True,
             )
-            result["helper_cleanup"] = {"ok": bool(cleanup.get("ok")), "stdout_path": cleanup.get("stdout_path"), "remote_tool_result": cleanup.get("remote_tool_result")}
-            if not cleanup.get("ok") and deferred_error is None:
+            cleanup_clean = remote_step_clean(cleanup)
+            result["helper_cleanup"] = {
+                "ok": cleanup_clean,
+                "stdout_path": cleanup.get("stdout_path"),
+                "remote_tool_result": cleanup.get("remote_tool_result"),
+                "remote_script": cleanup_script,
+            }
+            if not cleanup_clean and deferred_error is None:
                 deferred_error = RuntimeError(f"ACDB SET-cal helper cleanup/deallocate failed: {cleanup.get('remote_tool_result')}")
         for command in route.get("route_reset_commands") or []:
             step = speaker.run_tool_command(
@@ -336,8 +413,14 @@ def run_setcal_replay_and_pcm(args: argparse.Namespace,
             allow_error=True,
         )
         result["post_reset_snapshot"] = {"ok": bool(post_reset_step.get("ok")), "stdout_path": post_reset_step.get("stdout_path")}
-        runtime_cleanup = run_remote_shell(args, out_dir, steps, "runtime-dir-cleanup-after-setcal-reset", state["remote_scripts"]["runtime_cleanup"], timeout=args.mixer_timeout, allow_error=True)
-        result["runtime_cleanup"] = {"ok": bool(runtime_cleanup.get("ok")), "stdout_path": runtime_cleanup.get("stdout_path"), "remote_tool_result": runtime_cleanup.get("remote_tool_result")}
+        runtime_cleanup_script = install["scripts"]["runtime_cleanup"]["remote_path"]
+        runtime_cleanup = run_remote_script(args, out_dir, steps, "runtime-dir-cleanup-after-setcal-reset", runtime_cleanup_script, timeout=args.mixer_timeout, allow_error=True)
+        result["runtime_cleanup"] = {
+            "ok": remote_step_clean(runtime_cleanup),
+            "stdout_path": runtime_cleanup.get("stdout_path"),
+            "remote_tool_result": runtime_cleanup.get("remote_tool_result"),
+            "remote_script": runtime_cleanup_script,
+        }
     if baseline_step and baseline_step.get("ok") and post_reset_step and post_reset_step.get("ok"):
         result["route_reset_verification"] = speaker.route_reset_verification(
             speaker.step_text(baseline_step), speaker.step_text(post_reset_step), route.get("route_reset_commands") or []

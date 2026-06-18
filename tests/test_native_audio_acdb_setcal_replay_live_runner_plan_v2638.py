@@ -83,6 +83,11 @@ class NativeAudioAcdbSetcalReplayLiveRunnerPlanV2638(unittest.TestCase):
         self.assertEqual(plan["remote"]["final_set_index"], 8)
         self.assertEqual(plan["remote"]["payload_entry_indices"], [0, 3, 5, 7])
         self.assertIn("A90_ACDB_SETCAL_SET_OK index=8", plan["remote_scripts"]["start_and_wait_all_set"])
+        self.assertEqual(
+            sorted(plan["remote_script_paths"]),
+            ["deallocate_check", "runtime_cleanup", "start_and_wait_all_set"],
+        )
+        self.assertTrue(plan["remote_script_paths"]["start_and_wait_all_set"].endswith("/setcal-start-and-wait-all-set.sh"))
         self.assertEqual(plan["replay_gate_blockers"], [])
 
     def test_scripts_include_devnode_setup_hash_checks_and_reverse_dealloc_check(self) -> None:
