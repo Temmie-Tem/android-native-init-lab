@@ -34,6 +34,7 @@ GLOBAL_APP_TYPE_CONTROL_NAME = "App Type Config"
 GLOBAL_APP_TYPE_SPEAKER_TUPLE = ("1", "69941", "48000", "16")
 GLOBAL_APP_TYPE_WRITER_ENTRY = "69941:48000:16"
 REMOTE_APP_TYPE_WRITER = f"{speaker.REMOTE_DIR}/a90_alsa_app_type_config_writer_v2733"
+REMOTE_OUTPUT_OBSERVER_SCRIPT = f"{speaker.REMOTE_DIR}/a90_pcm_output_observer_v2739.sh"
 DMESG_FOCUS_PATTERN = (
     "q6core|register_topolog|map_memory|avcs|adsp.*ready|adm_open|"
     "app type|bit_width|msm_pcm_routing|get_app_type|send_afe_cal|q6asm|"
@@ -43,6 +44,7 @@ MIXER_OUTPUT_FOCUS_PATTERN = (
     "SPKR|Spkr|WSA|VISENSE|COMP|BOOST|RMS|VI|feedback|RX INT7|"
     "SLIMBUS_0_RX|SWR DAC|App Type"
 )
+OUTPUT_OBSERVER_THERMAL_PATTERN = "wsa|spkr|speaker|audio|wcd|tavil|pa"
 
 
 def rel(path: Path | str) -> str:
@@ -110,8 +112,24 @@ def dry_run_payload(args: argparse.Namespace) -> dict[str, Any]:
             },
             "v2730_dmesg_focus_pattern": DMESG_FOCUS_PATTERN,
             "v2737_mixer_output_focus_pattern": MIXER_OUTPUT_FOCUS_PATTERN,
+            "v2739_output_observer": {
+                "enabled": bool(getattr(args, "output_observer", True)),
+                "role": "read-only dynamic output-side sampler during bounded PCM probe",
+                "remote_script": REMOTE_OUTPUT_OBSERVER_SCRIPT,
+                "sample_count": int(getattr(args, "output_observer_samples", 12)),
+                "sample_sleep_sec": str(getattr(args, "output_observer_sleep", "0.10")),
+                "mixer_pattern": MIXER_OUTPUT_FOCUS_PATTERN,
+                "thermal_pattern": OUTPUT_OBSERVER_THERMAL_PATTERN,
+                "non_goal": "does not change WSA gain/boost/protection controls",
+            },
         }
     )
+    paths = dict(payload.get("remote_script_paths") or {})
+    scripts = dict(payload.get("remote_scripts") or {})
+    paths["pcm_output_observer"] = REMOTE_OUTPUT_OBSERVER_SCRIPT
+    scripts["pcm_output_observer"] = output_observer_script(args)
+    payload["remote_script_paths"] = paths
+    payload["remote_scripts"] = scripts
     return payload
 
 
@@ -234,7 +252,7 @@ def runtime_script_files(out_dir: Path,
     script_dir.mkdir(parents=True, exist_ok=True)
     paths = state.get("remote_script_paths") or planmod.remote_script_paths(deploy_manifest)
     files: list[tuple[str, str, Path]] = []
-    for script_key in ("start_and_wait_all_set", "deallocate_check", "runtime_cleanup"):
+    for script_key in ("start_and_wait_all_set", "pcm_output_observer", "deallocate_check", "runtime_cleanup"):
         body = str((state.get("remote_scripts") or {}).get(script_key) or "")
         if not body.strip():
             raise RuntimeError(f"missing remote script body: {script_key}")
@@ -332,6 +350,69 @@ def focused_tinymix_script(remote_tinymix: str, card: int) -> str:
         f"{shlex.quote(remote_tinymix)} -D {int(card)} --all-values "
         f"| grep -iE {shlex.quote(MIXER_OUTPUT_FOCUS_PATTERN)} || true"
     )
+
+
+def output_observer_script(args: argparse.Namespace) -> str:
+    sample_count = max(1, int(getattr(args, "output_observer_samples", 12)))
+    sample_sleep = str(getattr(args, "output_observer_sleep", "0.10"))
+    card = int(getattr(args, "card", 0))
+    device = int(getattr(args, "pcm_device", 0))
+    runtime_dir = f"{speaker.REMOTE_DIR}/v2739-output-observer"
+    lines = [
+        "set -u",
+        f"tinymix={shlex.quote(speaker.REMOTE_TINYMIX)}",
+        f"pcm_probe={shlex.quote(speaker.REMOTE_PCM_PROBE)}",
+        f"pcm_file={shlex.quote(speaker.REMOTE_PCM)}",
+        f"card={card}",
+        f"device={device}",
+        f"sample_count={sample_count}",
+        f"sample_sleep={shlex.quote(sample_sleep)}",
+        f"runtime_dir={shlex.quote(runtime_dir)}",
+        "rm -rf \"$runtime_dir\"",
+        "mkdir -p \"$runtime_dir\"",
+        "samples=\"$runtime_dir/samples.txt\"",
+        "stop=\"$runtime_dir/stop\"",
+        "sample_once() {",
+        "  idx=\"$1\"",
+        "  ts=$(date +%s 2>/dev/null || echo 0)",
+        "  echo A90_OUTPUT_OBSERVER_SAMPLE_BEGIN index=$idx ts=$ts",
+        f"  \"$tinymix\" -D \"$card\" --all-values | grep -iE {shlex.quote(MIXER_OUTPUT_FOCUS_PATTERN)} || true",
+        "  for zone in /sys/class/thermal/thermal_zone*; do",
+        "    [ -r \"$zone/type\" ] || continue",
+        "    ztype=$(cat \"$zone/type\" 2>/dev/null || true)",
+        "    case \"$ztype\" in",
+        "      *[Ww][Ss][Aa]*|*[Ss][Pp][Kk][Rr]*|*[Ss][Pp][Ee][Aa][Kk][Ee][Rr]*|*[Aa][Uu][Dd][Ii][Oo]*|*[Ww][Cc][Dd]*|*[Tt][Aa][Vv][Ii][Ll]*|*[Pp][Aa]*)",
+        "        ztemp=$(cat \"$zone/temp\" 2>/dev/null || true)",
+        "        echo A90_OUTPUT_OBSERVER_THERMAL zone=${zone##*/} type=$ztype temp=$ztemp",
+        "        ;;",
+        "    esac",
+        "  done",
+        "  echo A90_OUTPUT_OBSERVER_SAMPLE_END index=$idx",
+        "}",
+        "(",
+        "  i=0",
+        "  while [ $i -lt $sample_count ]; do",
+        "    [ -e \"$stop\" ] && break",
+        "    sample_once \"$i\"",
+        "    i=$((i+1))",
+        "    sleep \"$sample_sleep\" 2>/dev/null || sleep 1",
+        "  done",
+        ") >\"$samples\" 2>&1 &",
+        "sampler_pid=$!",
+        "echo A90_OUTPUT_OBSERVER_BEGIN samples=$sample_count sleep=$sample_sleep",
+        "echo A90_OUTPUT_OBSERVER_PCM_BEGIN",
+        "\"$pcm_probe\" \"$pcm_file\" -D \"$card\" -d \"$device\"",
+        "pcm_rc=$?",
+        "echo A90_OUTPUT_OBSERVER_PCM_END rc=$pcm_rc",
+        "touch \"$stop\"",
+        "wait $sampler_pid 2>/dev/null || true",
+        "echo A90_OUTPUT_OBSERVER_SAMPLES_BEGIN",
+        "cat \"$samples\" 2>/dev/null || true",
+        "echo A90_OUTPUT_OBSERVER_SAMPLES_END",
+        "echo A90_OUTPUT_OBSERVER_DONE rc=$pcm_rc",
+        "exit $pcm_rc",
+    ]
+    return "\n".join(lines)
 
 
 def remote_step_clean(step: dict[str, Any]) -> bool:
@@ -529,17 +610,39 @@ def run_setcal_replay_and_pcm(args: argparse.Namespace,
             result["helper_started"] = True
             result["playback_attempted"] = True
             playback = route.get("playback") or {}
-            playback_step = speaker.run_tool_command(
-                args,
-                out_dir,
-                steps,
-                playback.get("name", "pcm-probe-after-setcal-replay"),
-                [str(part) for part in playback.get("argv") or []],
-                use_tcpctl=use_tcpctl,
-                timeout=args.playback_timeout,
-                allow_error=True,
-                failure_markers=("Error playing sample", "A90_PCM_PROBE_WRITE_ERROR", "A90_PCM_PROBE_PCM_OPEN_ERROR"),
-            )
+            if bool(getattr(args, "output_observer", True)):
+                playback_script = install["scripts"]["pcm_output_observer"]["remote_path"]
+                playback_step = speaker.run_tool_command(
+                    args,
+                    out_dir,
+                    steps,
+                    "pcm-output-observer-during-playback",
+                    [args.device_busybox, "sh", playback_script],
+                    use_tcpctl=False,
+                    timeout=args.playback_timeout,
+                    allow_error=True,
+                    failure_markers=("Error playing sample", "A90_PCM_PROBE_WRITE_ERROR", "A90_PCM_PROBE_PCM_OPEN_ERROR"),
+                )
+                result["output_observer"] = {
+                    "enabled": True,
+                    "stdout_path": playback_step.get("stdout_path"),
+                    "remote_script": playback_script,
+                    "sample_count": int(getattr(args, "output_observer_samples", 12)),
+                    "sample_sleep_sec": str(getattr(args, "output_observer_sleep", "0.10")),
+                }
+            else:
+                playback_step = speaker.run_tool_command(
+                    args,
+                    out_dir,
+                    steps,
+                    playback.get("name", "pcm-probe-after-setcal-replay"),
+                    [str(part) for part in playback.get("argv") or []],
+                    use_tcpctl=use_tcpctl,
+                    timeout=args.playback_timeout,
+                    allow_error=True,
+                    failure_markers=("Error playing sample", "A90_PCM_PROBE_WRITE_ERROR", "A90_PCM_PROBE_PCM_OPEN_ERROR"),
+                )
+                result["output_observer"] = {"enabled": False}
             result["playback"] = {"ok": bool(playback_step.get("ok")), "stdout_path": playback_step.get("stdout_path"), "remote_tool_result": playback_step.get("remote_tool_result")}
             playback_dmesg_step = run_remote_shell(
                 args,
@@ -862,8 +965,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--route-transport", choices=("serial", "tcpctl"), default="serial")
     parser.add_argument("--mixer-timeout", type=float, default=45.0)
     parser.add_argument("--playback-timeout", type=float, default=25.0)
+    parser.add_argument("--pcm-device", type=int, default=0)
     parser.add_argument("--duration-ms", type=int, default=speaker.DEFAULT_DURATION_MS)
     parser.add_argument("--amplitude", type=float, default=speaker.DEFAULT_AMPLITUDE)
+    parser.add_argument("--output-observer", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument("--output-observer-samples", type=int, default=12)
+    parser.add_argument("--output-observer-sleep", default="0.10")
     parser.add_argument("--set-global-app-type-config", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--use-atomic-app-type-writer", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--app-type-writer-manifest", type=Path, default=appcfg_writer.DEFAULT_MANIFEST)

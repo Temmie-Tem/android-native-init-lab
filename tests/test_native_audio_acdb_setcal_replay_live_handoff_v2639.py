@@ -130,13 +130,20 @@ class NativeAudioAcdbSetcalReplayLiveHandoffV2639(unittest.TestCase):
 
         scripts = v2639.runtime_script_files(root, state, deploy)
 
-        self.assertEqual([item[0] for item in scripts], ["start_and_wait_all_set", "deallocate_check", "runtime_cleanup"])
+        self.assertEqual([item[0] for item in scripts], ["start_and_wait_all_set", "pcm_output_observer", "deallocate_check", "runtime_cleanup"])
         start_key, start_remote, start_local = scripts[0]
         self.assertEqual(start_key, "start_and_wait_all_set")
         self.assertTrue(start_remote.startswith("/cache/a90-runtime/bin/"))
         self.assertTrue(start_remote.endswith("/setcal-start-and-wait-all-set.sh"))
         self.assertIn("sha256sum -c -", start_local.read_text(encoding="utf-8"))
         self.assertIn("A90_SETCAL_REPLAY_ALL_SET_OK", start_local.read_text(encoding="utf-8"))
+        observer_key, observer_remote, observer_local = scripts[1]
+        self.assertEqual(observer_key, "pcm_output_observer")
+        self.assertTrue(observer_remote.endswith("/a90_pcm_output_observer_v2739.sh"))
+        observer_text = observer_local.read_text(encoding="utf-8")
+        self.assertIn("A90_OUTPUT_OBSERVER_BEGIN", observer_text)
+        self.assertIn("A90_OUTPUT_OBSERVER_SAMPLES_BEGIN", observer_text)
+        self.assertIn("a90_pcm_write_probe_v2386", observer_text)
 
     def test_remote_step_clean_rejects_protocol_noise_and_unknown_command(self) -> None:
         root = Path(tempfile.mkdtemp(prefix="a90-v2639-"))
@@ -205,6 +212,31 @@ class NativeAudioAcdbSetcalReplayLiveHandoffV2639(unittest.TestCase):
         self.assertLess(
             source.index("tinymix-all-values-active-after-pcm-before-reset"),
             source.index("route.get(\"route_reset_commands\")"),
+        )
+
+    def test_dry_run_adds_v2739_dynamic_output_observer(self) -> None:
+        root = Path(tempfile.mkdtemp(prefix="a90-v2639-"))
+        args = v2639.parse_args(["--dry-run", "--v2636-manifest", str(fake_deploy(root))])
+        state = v2639.dry_run_payload(args)
+
+        observer = state["v2739_output_observer"]
+        self.assertTrue(observer["enabled"])
+        self.assertEqual(observer["remote_script"], v2639.REMOTE_OUTPUT_OBSERVER_SCRIPT)
+        self.assertIn("RMS", observer["mixer_pattern"])
+        self.assertIn("output-side", observer["role"])
+        self.assertIn("pcm_output_observer", state["remote_scripts"])
+        self.assertIn("A90_OUTPUT_OBSERVER_PCM_BEGIN", state["remote_scripts"]["pcm_output_observer"])
+        self.assertIn("A90_OUTPUT_OBSERVER_THERMAL", state["remote_scripts"]["pcm_output_observer"])
+
+    def test_source_runs_output_observer_instead_of_plain_pcm_by_default(self) -> None:
+        source = Path(v2639.__file__).read_text(encoding="utf-8")
+
+        self.assertIn("pcm-output-observer-during-playback", source)
+        self.assertIn('install["scripts"]["pcm_output_observer"]["remote_path"]', source)
+        self.assertIn('result["output_observer"]', source)
+        self.assertLess(
+            source.index("pcm-output-observer-during-playback"),
+            source.index("dmesg-after-setcal-playback-before-reset"),
         )
 
     def test_global_app_type_config_runs_before_stream_app_type_and_route(self) -> None:
