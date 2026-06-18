@@ -501,11 +501,40 @@ def run_setcal_replay_and_pcm(args: argparse.Namespace,
                 failure_markers=("Error playing sample", "A90_PCM_PROBE_WRITE_ERROR", "A90_PCM_PROBE_PCM_OPEN_ERROR"),
             )
             result["playback"] = {"ok": bool(playback_step.get("ok")), "stdout_path": playback_step.get("stdout_path"), "remote_tool_result": playback_step.get("remote_tool_result")}
+            playback_dmesg_step = run_remote_shell(
+                args,
+                out_dir,
+                steps,
+                "dmesg-after-setcal-playback-before-reset",
+                f"dmesg | tail -n {DMESG_TAIL_LINE_COUNT}",
+                timeout=args.mixer_timeout,
+                allow_error=True,
+            )
+            playback_dmesg_focus_step = run_remote_shell(
+                args,
+                out_dir,
+                steps,
+                "dmesg-focus-after-setcal-playback-before-reset",
+                focused_dmesg_script(),
+                timeout=args.mixer_timeout,
+                allow_error=True,
+            )
+            result["playback_dmesg"] = {
+                "ok": bool(playback_dmesg_step.get("ok")),
+                "stdout_path": playback_dmesg_step.get("stdout_path"),
+            }
+            result["playback_dmesg_focus"] = {
+                "ok": bool(playback_dmesg_focus_step.get("ok")),
+                "stdout_path": playback_dmesg_focus_step.get("stdout_path"),
+                "pattern": DMESG_FOCUS_PATTERN,
+            }
             if not playback_step.get("ok"):
+                result["playback_failure_dmesg"] = result["playback_dmesg"]
+                result["playback_failure_dmesg_focus"] = result["playback_dmesg_focus"]
                 raise RuntimeError(f"PCM probe failed: {playback_step.get('remote_tool_result')}")
         except Exception as exc:  # noqa: BLE001
             deferred_error = exc
-            if result.get("playback_attempted"):
+            if result.get("playback_attempted") and "playback_dmesg" not in result:
                 dmesg_step = run_remote_shell(args, out_dir, steps, "dmesg-after-setcal-playback-failure-before-reset", f"dmesg | tail -n {DMESG_TAIL_LINE_COUNT}", timeout=args.mixer_timeout, allow_error=True)
                 dmesg_focus_step = run_remote_shell(args, out_dir, steps, "dmesg-focus-after-setcal-playback-failure-before-reset", focused_dmesg_script(), timeout=args.mixer_timeout, allow_error=True)
                 result["playback_failure_dmesg"] = {"ok": bool(dmesg_step.get("ok")), "stdout_path": dmesg_step.get("stdout_path")}

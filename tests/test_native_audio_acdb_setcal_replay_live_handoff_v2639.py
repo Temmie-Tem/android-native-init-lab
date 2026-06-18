@@ -172,6 +172,22 @@ class NativeAudioAcdbSetcalReplayLiveHandoffV2639(unittest.TestCase):
             source.index('result["playback_attempted"] = True'),
         )
 
+    def test_source_captures_playback_dmesg_before_route_reset(self) -> None:
+        source = Path(v2639.__file__).read_text(encoding="utf-8")
+
+        self.assertIn("dmesg-after-setcal-playback-before-reset", source)
+        self.assertIn("dmesg-focus-after-setcal-playback-before-reset", source)
+        self.assertIn('result["playback_dmesg"]', source)
+        self.assertIn('result["playback_dmesg_focus"]', source)
+        self.assertLess(
+            source.index("dmesg-after-setcal-playback-before-reset"),
+            source.index("route.get(\"route_reset_commands\")"),
+        )
+        self.assertLess(
+            source.index('result["playback"] ='),
+            source.index("dmesg-after-setcal-playback-before-reset"),
+        )
+
     def test_global_app_type_config_runs_before_stream_app_type_and_route(self) -> None:
         source = Path(v2639.__file__).read_text(encoding="utf-8")
 
