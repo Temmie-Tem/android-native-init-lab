@@ -36,7 +36,7 @@ class NativeAudioPlayExecuteGateV2765(unittest.TestCase):
     def test_play_execute_plan_reports_pcm_path_and_waveform(self) -> None:
         text = source_text()
         plan_start = text.index("static void audio_play_print_execute_plan")
-        plan_end = text.index("static int audio_play_cmd")
+        plan_end = text.index("static int audio_play_async_open_status")
         plan_block = text[plan_start:plan_end]
 
         for marker in [
@@ -59,16 +59,18 @@ class NativeAudioPlayExecuteGateV2765(unittest.TestCase):
 
         cap_check = text.index("audio.play.refused=safety-cap-exceeded")
         plan_call = text.index("audio_play_print_execute_plan(profile, mode, amplitude_milli, duration_ms)")
-        integrated_call = text.index("return audio_play_execute_integrated(profile, mode, amplitude_milli, duration_ms, manifest_path)")
+        worker_call = text.index("return audio_play_start_worker(profile, mode, amplitude_milli, duration_ms, manifest_path)")
+        child_integrated_call = text.index("rc = audio_play_execute_integrated(profile, mode, amplitude_milli, duration_ms, manifest_path)")
 
         self.assertLess(cap_check, plan_call)
-        self.assertLess(plan_call, integrated_call)
+        self.assertLess(plan_call, worker_call)
+        self.assertLess(child_integrated_call, worker_call)
         self.assertNotIn("execute-not-implemented-native-pcm", text)
         self.assertNotIn("audio.play.refused=missing-pcm-node", text)
         self.assertRegex(
             text,
             re.compile(
-                r'if \(execute_mode\).*?audio_play_print_execute_plan.*?audio.play.initial_pcm_node_ready=.*?return audio_play_execute_integrated',
+                r'if \(execute_mode\).*?audio_play_print_execute_plan.*?audio.play.initial_pcm_node_ready=.*?audio.play.execute.async_worker=1.*?return audio_play_start_worker',
                 re.DOTALL,
             ),
         )

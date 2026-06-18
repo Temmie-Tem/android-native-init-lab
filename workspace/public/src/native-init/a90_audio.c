@@ -12,6 +12,8 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
+#include <signal.h>
+#include <stdarg.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -28,6 +30,10 @@
 
 #ifndef O_CLOEXEC
 #define O_CLOEXEC 0
+#endif
+
+#ifndef O_NOFOLLOW
+#define O_NOFOLLOW 0
 #endif
 
 #define AUDIO_FW_DIR "/vendor/firmware_mnt/image"
@@ -67,6 +73,9 @@
 #define AUDIO_PCM_PERIOD_COUNT 4
 #define AUDIO_PCM_MAX_CHANNELS 8
 #define AUDIO_PCM_TONE_HZ 440
+#define AUDIO_PLAY_ASYNC_DIR "/cache/a90-audio-play"
+#define AUDIO_PLAY_ASYNC_STATUS_PATH AUDIO_PLAY_ASYNC_DIR "/status.txt"
+#define AUDIO_PLAY_ASYNC_LOG_PATH AUDIO_PLAY_ASYNC_DIR "/worker.log"
 
 struct audio_ion_allocation_data {
     uint64_t len;
@@ -2270,6 +2279,83 @@ static void audio_play_print_execute_plan(const struct audio_speaker_profile *pr
     a90_console_printf("audio.play.execute.plan.pcm_write_attempted=0\r\n");
 }
 
+static int audio_play_async_open_status(int flags) {
+    if (ensure_dir(AUDIO_PLAY_ASYNC_DIR, 0700) < 0) {
+        return -1;
+    }
+    return open(AUDIO_PLAY_ASYNC_STATUS_PATH, flags | O_CLOEXEC | O_NOFOLLOW, 0600);
+}
+
+static void audio_play_async_statusf(const char *fmt, ...) {
+    char line[512];
+    va_list ap;
+    int fd;
+    int len;
+
+    fd = audio_play_async_open_status(O_WRONLY | O_CREAT | O_APPEND);
+    if (fd < 0) {
+        return;
+    }
+    va_start(ap, fmt);
+    len = vsnprintf(line, sizeof(line), fmt, ap);
+    va_end(ap);
+    if (len > 0) {
+        if ((size_t)len >= sizeof(line)) {
+            len = (int)sizeof(line) - 1;
+        }
+        write_all(fd, line, (size_t)len);
+    }
+    close(fd);
+}
+
+static void audio_play_async_reset_status(const struct audio_speaker_profile *profile,
+                                          const char *mode,
+                                          int amplitude_milli,
+                                          int duration_ms,
+                                          const char *manifest_path) {
+    (void)ensure_dir(AUDIO_PLAY_ASYNC_DIR, 0700);
+    (void)unlink(AUDIO_PLAY_ASYNC_STATUS_PATH);
+    (void)unlink(AUDIO_PLAY_ASYNC_LOG_PATH);
+    audio_play_async_statusf("audio.play.worker.status.version=1\n");
+    audio_play_async_statusf("audio.play.worker.profile=%s\n", profile != NULL ? profile->id : "-");
+    audio_play_async_statusf("audio.play.worker.mode=%s\n", mode != NULL ? mode : "-");
+    audio_play_async_statusf("audio.play.worker.amplitude_milli=%d\n", amplitude_milli);
+    audio_play_async_statusf("audio.play.worker.duration_ms=%d\n", duration_ms);
+    audio_play_async_statusf("audio.play.worker.manifest=%s\n",
+                             manifest_path != NULL ? manifest_path : "-");
+    audio_play_async_statusf("audio.play.worker.done=0\n");
+}
+
+static int audio_play_status_cmd(void) {
+    int fd;
+    char buffer[512];
+    ssize_t rd;
+
+    a90_console_printf("audio.play_status.version=1\r\n");
+    a90_console_printf("audio.play_status.path=%s\r\n", AUDIO_PLAY_ASYNC_STATUS_PATH);
+    a90_console_printf("audio.play_status.log_path=%s\r\n", AUDIO_PLAY_ASYNC_LOG_PATH);
+    fd = open(AUDIO_PLAY_ASYNC_STATUS_PATH, O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
+    if (fd < 0) {
+        a90_console_printf("audio.play_status.present=0 errno=%d\r\n", errno);
+        return 0;
+    }
+    a90_console_printf("audio.play_status.present=1\r\n");
+    while ((rd = read(fd, buffer, sizeof(buffer))) > 0) {
+        size_t index;
+
+        for (index = 0; index < (size_t)rd; ++index) {
+            if (buffer[index] == '\n') {
+                a90_console_write("\r\n", 2);
+            } else {
+                a90_console_write(&buffer[index], 1);
+            }
+        }
+    }
+    close(fd);
+    a90_console_printf("audio.play_status.read_complete=1\r\n");
+    return 0;
+}
+
 static bool audio_wait_for_audio_condition(const char *label,
                                            int timeout_ms,
                                            int sleep_ms,
@@ -2463,6 +2549,52 @@ done:
     return rc;
 }
 
+static int audio_play_start_worker(const struct audio_speaker_profile *profile,
+                                   const char *mode,
+                                   int amplitude_milli,
+                                   int duration_ms,
+                                   const char *manifest_path) {
+    pid_t pid;
+
+    if (manifest_path == NULL || manifest_path[0] == '\0') {
+        manifest_path = AUDIO_SETCAL_DEFAULT_MANIFEST_PATH;
+    }
+    audio_play_async_reset_status(profile, mode, amplitude_milli, duration_ms, manifest_path);
+    pid = fork();
+    if (pid < 0) {
+        a90_console_printf("audio.play.worker.spawn_failed errno=%d\r\n", errno);
+        audio_play_async_statusf("audio.play.worker.spawn_failed=1 errno=%d\n", errno);
+        audio_play_async_statusf("audio.play.worker.done=1 rc=%d\n", -errno);
+        return negative_errno_or(EIO);
+    }
+    if (pid == 0) {
+        int rc;
+
+        signal(SIGHUP, SIG_IGN);
+        signal(SIGPIPE, SIG_IGN);
+        setsid();
+        if (a90_console_redirect_child_to_file(AUDIO_PLAY_ASYNC_LOG_PATH) < 0) {
+            a90_console_silence_child();
+        }
+        audio_play_async_statusf("audio.play.worker.child_started=1 pid=%ld\n", (long)getpid());
+        audio_play_async_statusf("audio.play.worker.log_path=%s\n", AUDIO_PLAY_ASYNC_LOG_PATH);
+        rc = audio_play_execute_integrated(profile, mode, amplitude_milli, duration_ms, manifest_path);
+        audio_play_async_statusf("audio.play.worker.done=1 rc=%d\n", rc);
+        audio_play_async_statusf("audio.play.worker.exit_code=%d\n", rc == 0 ? 0 : 1);
+        _exit(rc == 0 ? 0 : 1);
+    }
+
+    a90_console_printf("audio.play.worker.version=1\r\n");
+    a90_console_printf("audio.play.worker.started=1\r\n");
+    a90_console_printf("audio.play.worker.pid=%ld\r\n", (long)pid);
+    a90_console_printf("audio.play.worker.status_path=%s\r\n", AUDIO_PLAY_ASYNC_STATUS_PATH);
+    a90_console_printf("audio.play.worker.log_path=%s\r\n", AUDIO_PLAY_ASYNC_LOG_PATH);
+    a90_console_printf("audio.play.worker.parent_returns=1\r\n");
+    audio_play_async_statusf("audio.play.worker.started=1\n");
+    audio_play_async_statusf("audio.play.worker.pid=%ld\n", (long)pid);
+    return 0;
+}
+
 static int audio_play_cmd(char **argv, int argc) {
     const char *profile_id = AUDIO_DEFAULT_PROFILE_ID;
     const char *mode = "probe";
@@ -2582,7 +2714,8 @@ static int audio_play_cmd(char **argv, int argc) {
     if (execute_mode) {
         audio_play_print_execute_plan(profile, mode, amplitude_milli, duration_ms);
         a90_console_printf("audio.play.initial_pcm_node_ready=%d\r\n", pcm_node_ready ? 1 : 0);
-        return audio_play_execute_integrated(profile, mode, amplitude_milli, duration_ms, manifest_path);
+        a90_console_printf("audio.play.execute.async_worker=1\r\n");
+        return audio_play_start_worker(profile, mode, amplitude_milli, duration_ms, manifest_path);
     }
     a90_console_printf("audio.play.dry_run_ok=1\r\n");
     return 0;
@@ -3970,6 +4103,9 @@ int a90_audio_cmd(char **argv, int argc) {
     if (argc >= 2 && argv != NULL && argv[1] != NULL && strcmp(argv[1], "play") == 0) {
         return audio_play_cmd(argv, argc);
     }
+    if (argc == 2 && argv != NULL && argv[1] != NULL && strcmp(argv[1], "play-status") == 0) {
+        return audio_play_status_cmd();
+    }
     if (argc >= 2 && argv != NULL && argv[1] != NULL && strcmp(argv[1], "stop") == 0) {
         return audio_stop_cmd(argv, argc);
     }
@@ -3985,6 +4121,6 @@ int a90_audio_cmd(char **argv, int argc) {
     if (argc >= 2 && argv != NULL && argv[1] != NULL && strcmp(argv[1], "snd-materialize-once") == 0) {
         return audio_snd_materialize_once(argv, argc);
     }
-    a90_console_printf("usage: audio [adsp-status|status|profiles|profile [id]|speaker-map [id]|stages [id]|prereq [id]|app-type [profile] [--dry-run|--write]|setcal [profile] [--dry-run|--execute] [--manifest PATH --verify|--prepare|--load]|play [profile] [--mode probe|listen] [--amplitude-milli N] [--duration-ms N] [--manifest PATH] [--dry-run|--execute]|stop [profile] [--dry-run|--execute]|route [profile] [--dry-run|--apply|--reset] [--layer all|core|feedback|endpoint|blocked]|snd-status|adsp-boot-once|snd-materialize-once]\r\n");
+    a90_console_printf("usage: audio [adsp-status|status|profiles|profile [id]|speaker-map [id]|stages [id]|prereq [id]|app-type [profile] [--dry-run|--write]|setcal [profile] [--dry-run|--execute] [--manifest PATH --verify|--prepare|--load]|play [profile] [--mode probe|listen] [--amplitude-milli N] [--duration-ms N] [--manifest PATH] [--dry-run|--execute]|play-status|stop [profile] [--dry-run|--execute]|route [profile] [--dry-run|--apply|--reset] [--layer all|core|feedback|endpoint|blocked]|snd-status|adsp-boot-once|snd-materialize-once]\r\n");
     return -EINVAL;
 }

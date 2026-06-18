@@ -15,6 +15,10 @@
 #include <termios.h>
 #include <unistd.h>
 
+#ifndef O_NOFOLLOW
+#define O_NOFOLLOW 0
+#endif
+
 #ifndef ECANCELED
 #define ECANCELED 125
 #endif
@@ -82,6 +86,23 @@ void a90_console_silence_child(void) {
         close(console_fd);
         console_fd = -1;
     }
+}
+
+int a90_console_redirect_child_to_file(const char *path) {
+    int fd;
+
+    if (path == NULL || path[0] == '\0') {
+        errno = EINVAL;
+        return -1;
+    }
+    fd = open(path, O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC | O_NOFOLLOW, 0600);
+    if (fd < 0) {
+        return -1;
+    }
+    a90_console_silence_child();
+    console_fd = fd;
+    dprintf(console_fd, "\r\n[a90-console-child-log path=%s]\r\n", path);
+    return 0;
 }
 
 static void consume_escape_sequence(void) {
