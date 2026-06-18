@@ -41,13 +41,15 @@ class NativeAudioRouteCoreWriterV2755(unittest.TestCase):
         self.assertIn('audio.route.write_attempted=1', text)
         self.assertIn('audio.route.write_done count=%d layer=%s mode=%s', text)
 
-    def test_core_writer_supports_integer_and_enum_controls(self) -> None:
+    def test_core_writer_supports_numeric_boolean_and_enum_controls(self) -> None:
         text = source_text()
 
-        self.assertIn('static int audio_route_validate_integer_control', text)
+        self.assertIn('static int audio_route_validate_numeric_control', text)
         self.assertIn('static int audio_route_find_enum_item', text)
         self.assertIn('SNDRV_CTL_ELEM_TYPE_INTEGER', text)
+        self.assertIn('SNDRV_CTL_ELEM_TYPE_BOOLEAN', text)
         self.assertIn('SNDRV_CTL_ELEM_TYPE_ENUMERATED', text)
+        self.assertIn('expected=numeric', text)
         self.assertIn('value->value.integer.value[index] = route_value->ints[index];', text)
         self.assertIn('value->value.enumerated.item[0] = item;', text)
 

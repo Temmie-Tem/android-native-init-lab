@@ -2382,7 +2382,7 @@ static void audio_route_print_controls(bool reset_mode, const char *layer) {
     }
 }
 
-static int audio_route_validate_integer_control(int fd,
+static int audio_route_validate_numeric_control(int fd,
                                                 struct snd_ctl_elem_id *id,
                                                 struct snd_ctl_elem_info *info,
                                                 const struct audio_route_control *control,
@@ -2396,8 +2396,9 @@ static int audio_route_validate_integer_control(int fd,
         return -1;
     }
     *id = info->id;
-    if (info->type != SNDRV_CTL_ELEM_TYPE_INTEGER) {
-        a90_console_printf("audio.route.bad_type control=%s expected=integer actual=%u\r\n",
+    if (info->type != SNDRV_CTL_ELEM_TYPE_INTEGER &&
+        info->type != SNDRV_CTL_ELEM_TYPE_BOOLEAN) {
+        a90_console_printf("audio.route.bad_type control=%s expected=numeric actual=%u\r\n",
                            control->name,
                            info->type);
         errno = EINVAL;
@@ -2507,7 +2508,7 @@ static int audio_route_write_one_control(int fd,
     }
 
     if (route_value->kind == AUDIO_ROUTE_VALUE_INTS) {
-        if (audio_route_validate_integer_control(fd, &id, &info, control, route_value) < 0) {
+        if (audio_route_validate_numeric_control(fd, &id, &info, control, route_value) < 0) {
             return -1;
         }
         audio_route_fill_integer_value(&value, &id, route_value);
