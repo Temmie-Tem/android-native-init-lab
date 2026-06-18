@@ -48,7 +48,7 @@ class NativeAudioRouteLayerPolicyV2754(unittest.TestCase):
         text = source_text()
 
         self.assertIn('audio.route.refused=write-mode-blocked-smart-amp-boost-review', text)
-        self.assertIn('audio.route.refused=write-mode-blocked-route-writer-not-implemented', text)
+        self.assertIn('audio.route.refused=write-mode-blocked-non-core-layer', text)
         self.assertIn('if (selected_has_boost)', text)
         self.assertIn('return -EPERM;', text)
 

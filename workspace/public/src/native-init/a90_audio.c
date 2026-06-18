@@ -698,6 +698,10 @@ static bool audio_route_selected_has_smart_amp_boost(const char *layer) {
     return false;
 }
 
+static bool audio_route_layer_write_allowed(const char *layer) {
+    return layer != NULL && strcmp(layer, "core") == 0;
+}
+
 static void audio_route_print_value(const char *prefix, const struct audio_route_value *value) {
     int index;
 
@@ -767,6 +771,212 @@ static void audio_route_print_controls(bool reset_mode, const char *layer) {
                                   &AUDIO_INTERNAL_SPEAKER_ROUTE[index].apply);
         ++output_index;
     }
+}
+
+static int audio_route_validate_integer_control(int fd,
+                                                struct snd_ctl_elem_id *id,
+                                                struct snd_ctl_elem_info *info,
+                                                const struct audio_route_control *control,
+                                                const struct audio_route_value *route_value) {
+    int required = audio_route_value_total_count(route_value);
+
+    memset(info, 0, sizeof(*info));
+    info->id = *id;
+    if (ioctl(fd, SNDRV_CTL_IOCTL_ELEM_INFO, info) < 0) {
+        a90_console_printf("audio.route.info_failed control=%s errno=%d\r\n", control->name, errno);
+        return -1;
+    }
+    *id = info->id;
+    if (info->type != SNDRV_CTL_ELEM_TYPE_INTEGER) {
+        a90_console_printf("audio.route.bad_type control=%s expected=integer actual=%u\r\n",
+                           control->name,
+                           info->type);
+        errno = EINVAL;
+        return -1;
+    }
+    if ((int)info->count < required || required > 128) {
+        a90_console_printf("audio.route.bad_count control=%s count=%u required=%d\r\n",
+                           control->name,
+                           info->count,
+                           required);
+        errno = EINVAL;
+        return -1;
+    }
+    return 0;
+}
+
+static int audio_route_find_enum_item(int fd,
+                                      struct snd_ctl_elem_id *id,
+                                      struct snd_ctl_elem_info *info,
+                                      const struct audio_route_control *control,
+                                      const char *enum_value) {
+    unsigned int item;
+
+    memset(info, 0, sizeof(*info));
+    info->id = *id;
+    if (ioctl(fd, SNDRV_CTL_IOCTL_ELEM_INFO, info) < 0) {
+        a90_console_printf("audio.route.info_failed control=%s errno=%d\r\n", control->name, errno);
+        return -1;
+    }
+    *id = info->id;
+    if (info->type != SNDRV_CTL_ELEM_TYPE_ENUMERATED) {
+        a90_console_printf("audio.route.bad_type control=%s expected=enum actual=%u\r\n",
+                           control->name,
+                           info->type);
+        errno = EINVAL;
+        return -1;
+    }
+    if (info->count == 0 || info->value.enumerated.items == 0) {
+        a90_console_printf("audio.route.bad_enum_shape control=%s count=%u items=%u\r\n",
+                           control->name,
+                           info->count,
+                           info->value.enumerated.items);
+        errno = EINVAL;
+        return -1;
+    }
+
+    for (item = 0; item < info->value.enumerated.items; ++item) {
+        struct snd_ctl_elem_info item_info;
+
+        memset(&item_info, 0, sizeof(item_info));
+        item_info.id = *id;
+        item_info.value.enumerated.item = item;
+        if (ioctl(fd, SNDRV_CTL_IOCTL_ELEM_INFO, &item_info) < 0) {
+            a90_console_printf("audio.route.enum_item_failed control=%s item=%u errno=%d\r\n",
+                               control->name,
+                               item,
+                               errno);
+            return -1;
+        }
+        if (strncmp(item_info.value.enumerated.name,
+                    enum_value,
+                    sizeof(item_info.value.enumerated.name)) == 0) {
+            *info = item_info;
+            return (int)item;
+        }
+    }
+    a90_console_printf("audio.route.enum_not_found control=%s value=%s items=%u\r\n",
+                       control->name,
+                       enum_value == NULL ? "" : enum_value,
+                       info->value.enumerated.items);
+    errno = ENOENT;
+    return -1;
+}
+
+static void audio_route_fill_integer_value(struct snd_ctl_elem_value *value,
+                                           const struct snd_ctl_elem_id *id,
+                                           const struct audio_route_value *route_value) {
+    int index;
+
+    memset(value, 0, sizeof(*value));
+    value->id = *id;
+    for (index = 0; index < route_value->int_count; ++index) {
+        value->value.integer.value[index] = route_value->ints[index];
+    }
+}
+
+static void audio_route_fill_enum_value(struct snd_ctl_elem_value *value,
+                                        const struct snd_ctl_elem_id *id,
+                                        unsigned int item) {
+    memset(value, 0, sizeof(*value));
+    value->id = *id;
+    value->value.enumerated.item[0] = item;
+}
+
+static int audio_route_write_one_control(int fd,
+                                         const struct audio_route_control *control,
+                                         const struct audio_route_value *route_value) {
+    struct snd_ctl_elem_id id;
+    struct snd_ctl_elem_info info;
+    struct snd_ctl_elem_value value;
+    int enum_item;
+
+    memset(&id, 0, sizeof(id));
+    if (audio_resolve_control_by_name(fd, control->name, &id) < 0) {
+        a90_console_printf("audio.route.resolve_failed control=%s errno=%d\r\n", control->name, errno);
+        return -1;
+    }
+
+    if (route_value->kind == AUDIO_ROUTE_VALUE_INTS) {
+        if (audio_route_validate_integer_control(fd, &id, &info, control, route_value) < 0) {
+            return -1;
+        }
+        audio_route_fill_integer_value(&value, &id, route_value);
+    } else if (route_value->kind == AUDIO_ROUTE_VALUE_ENUM) {
+        enum_item = audio_route_find_enum_item(fd, &id, &info, control, route_value->enum_value);
+        if (enum_item < 0) {
+            return -1;
+        }
+        audio_route_fill_enum_value(&value, &id, (unsigned int)enum_item);
+    } else {
+        a90_console_printf("audio.route.bad_value_kind control=%s kind=%d\r\n",
+                           control->name,
+                           route_value->kind);
+        errno = EINVAL;
+        return -1;
+    }
+
+    a90_console_printf("audio.route.write.control=%s kind=%s\r\n",
+                       control->name,
+                       audio_route_value_kind_name(route_value));
+    if (ioctl(fd, SNDRV_CTL_IOCTL_ELEM_WRITE, &value) < 0) {
+        a90_console_printf("audio.route.write_failed control=%s errno=%d\r\n", control->name, errno);
+        return -1;
+    }
+    a90_console_printf("audio.route.write_ok control=%s\r\n", control->name);
+    return 0;
+}
+
+static int audio_route_write_selected_controls(const struct audio_speaker_profile *profile,
+                                               const char *layer,
+                                               bool reset_mode) {
+    int fd;
+    int index;
+    int written = 0;
+
+    fd = audio_open_control_device(profile->card);
+    if (fd < 0) {
+        return negative_errno_or(EIO);
+    }
+
+    if (reset_mode) {
+        for (index = audio_route_control_count() - 1; index >= 0; --index) {
+            if (!audio_route_control_matches_layer(&AUDIO_INTERNAL_SPEAKER_ROUTE[index], layer) ||
+                !AUDIO_INTERNAL_SPEAKER_ROUTE[index].resettable) {
+                continue;
+            }
+            if (audio_route_write_one_control(fd,
+                                              &AUDIO_INTERNAL_SPEAKER_ROUTE[index],
+                                              &AUDIO_INTERNAL_SPEAKER_ROUTE[index].reset) < 0) {
+                close(fd);
+                return negative_errno_or(EIO);
+            }
+            ++written;
+        }
+    } else {
+        for (index = 0; index < audio_route_control_count(); ++index) {
+            if (!audio_route_control_matches_layer(&AUDIO_INTERNAL_SPEAKER_ROUTE[index], layer)) {
+                continue;
+            }
+            if (audio_route_write_one_control(fd,
+                                              &AUDIO_INTERNAL_SPEAKER_ROUTE[index],
+                                              &AUDIO_INTERNAL_SPEAKER_ROUTE[index].apply) < 0) {
+                close(fd);
+                return negative_errno_or(EIO);
+            }
+            ++written;
+        }
+    }
+
+    if (close(fd) < 0) {
+        a90_console_printf("audio.route.close_failed errno=%d\r\n", errno);
+        return negative_errno_or(EIO);
+    }
+    a90_console_printf("audio.route.write_done count=%d layer=%s mode=%s\r\n",
+                       written,
+                       layer,
+                       reset_mode ? "reset" : "apply");
+    return 0;
 }
 
 static int audio_route_cmd(char **argv, int argc) {
@@ -847,14 +1057,18 @@ static int audio_route_cmd(char **argv, int argc) {
     a90_console_printf("audio.route.blocked_control=SpkrLeft BOOST Switch\r\n");
     audio_route_print_controls(reset_mode, layer);
 
-    if (write_mode) {
+    if (write_mode && !audio_route_layer_write_allowed(layer)) {
         if (selected_has_boost) {
             a90_console_printf("audio.route.refused=write-mode-blocked-smart-amp-boost-review\r\n");
         } else {
-            a90_console_printf("audio.route.refused=write-mode-blocked-route-writer-not-implemented\r\n");
+            a90_console_printf("audio.route.refused=write-mode-blocked-non-core-layer\r\n");
         }
         a90_console_printf("audio.route.write_attempted=0\r\n");
         return -EPERM;
+    }
+    if (write_mode) {
+        a90_console_printf("audio.route.write_attempted=1\r\n");
+        return audio_route_write_selected_controls(profile, layer, reset_mode);
     }
     a90_console_printf("audio.route.dry_run_ok=1\r\n");
     return 0;
