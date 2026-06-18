@@ -1299,10 +1299,13 @@ static int audio_setcal_prepare_payload_state(struct audio_setcal_execute_state 
         a90_console_printf("audio.setcal.execute.entry.%d.msync_ok=0 errno=%d\r\n",
                            state->sequence,
                            saved_errno);
-        return -saved_errno;
+        a90_console_printf("audio.setcal.execute.entry.%d.msync_nonfatal=1\r\n",
+                           state->sequence);
+    } else {
+        a90_console_printf("audio.setcal.execute.entry.%d.msync_ok=1\r\n", state->sequence);
     }
     a90_console_printf("audio.setcal.execute.entry.%d.mmap_ok=1\r\n", state->sequence);
-    a90_console_printf("audio.setcal.execute.entry.%d.msync_ok=1\r\n", state->sequence);
+    a90_console_printf("audio.setcal.execute.entry.%d.payload_copied=1\r\n", state->sequence);
     return 0;
 }
 
