@@ -1,5 +1,7 @@
 #include "a90_audio_profile.h"
 
+#include <string.h>
+
 static const char *const AUDIO_INTERNAL_SPEAKER_OBSERVER_CONTROLS[] = {
     "SpkrLeft COMP Switch",
     "SpkrRight COMP Switch",
@@ -38,6 +40,24 @@ const struct audio_speaker_profile AUDIO_SPEAKER_PROFILES[AUDIO_SPEAKER_PROFILE_
         .duration_cap_ms = 10000,
     },
 };
+
+int a90_audio_profile_count(void) {
+    return AUDIO_SPEAKER_PROFILE_COUNT;
+}
+
+const struct audio_speaker_profile *a90_audio_find_profile(const char *id) {
+    int index;
+
+    if (id == NULL || id[0] == '\0') {
+        id = AUDIO_DEFAULT_PROFILE_ID;
+    }
+    for (index = 0; index < a90_audio_profile_count(); ++index) {
+        if (strcmp(AUDIO_SPEAKER_PROFILES[index].id, id) == 0) {
+            return &AUDIO_SPEAKER_PROFILES[index];
+        }
+    }
+    return NULL;
+}
 
 const struct audio_route_control AUDIO_INTERNAL_SPEAKER_ROUTE[AUDIO_ROUTE_APPLY_COUNT] = {
     {

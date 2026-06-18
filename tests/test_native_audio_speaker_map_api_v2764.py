@@ -7,6 +7,8 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
 AUDIO_C = REPO / "workspace/public/src/native-init/a90_audio.c"
+QUERY_C = REPO / "workspace/public/src/native-init/a90_audio_query.c"
+QUERY_H = REPO / "workspace/public/src/native-init/a90_audio_query.h"
 ROUTE_C = REPO / "workspace/public/src/native-init/a90_audio_route.c"
 ROUTE_H = REPO / "workspace/public/src/native-init/a90_audio_route.h"
 
@@ -14,6 +16,8 @@ ROUTE_H = REPO / "workspace/public/src/native-init/a90_audio_route.h"
 def source_text() -> str:
     return "\n".join([
         AUDIO_C.read_text(encoding="utf-8"),
+        QUERY_C.read_text(encoding="utf-8"),
+        QUERY_H.read_text(encoding="utf-8"),
         ROUTE_C.read_text(encoding="utf-8"),
         ROUTE_H.read_text(encoding="utf-8"),
     ])
@@ -24,7 +28,7 @@ class NativeAudioSpeakerMapApiV2764(unittest.TestCase):
         text = source_text()
 
         self.assertIn('strcmp(argv[1], "speaker-map") == 0', text)
-        self.assertIn("return audio_speaker_map_cmd(argv, argc);", text)
+        self.assertIn("return a90_audio_query_speaker_map_cmd(argv, argc);", text)
         self.assertIn("usage: audio speaker-map", text)
         self.assertIn("audio.speaker_map.read_only=1", text)
         self.assertIn("audio.speaker_map.route_write_attempted=0", text)
@@ -71,10 +75,9 @@ class NativeAudioSpeakerMapApiV2764(unittest.TestCase):
                 self.assertIn(marker, text)
 
     def test_speaker_map_preserves_speaker_safety_boundary(self) -> None:
-        text = source_text()
-        start = text.index("static int audio_speaker_map_cmd")
-        end = text.index("static void audio_route_print_value")
-        block = text[start:end]
+        text = QUERY_C.read_text(encoding="utf-8")
+        start = text.index("int a90_audio_query_speaker_map_cmd")
+        block = text[start:]
 
         self.assertIn("audio.speaker_map.safety.amplitude_cap_milli", block)
         self.assertIn("audio.speaker_map.safety.smart_amp_boost_write_allowed=0", block)

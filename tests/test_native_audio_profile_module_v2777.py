@@ -44,10 +44,13 @@ class NativeAudioProfileModuleV2777(unittest.TestCase):
 
     def test_command_file_uses_profile_module_instead_of_owning_profile_data(self) -> None:
         text = AUDIO_C.read_text(encoding="utf-8")
+        profile = PROFILE_C.read_text(encoding="utf-8")
         route = ROUTE_C.read_text(encoding="utf-8")
 
         self.assertIn('#include "a90_audio_profile.h"', text)
-        self.assertIn("return AUDIO_SPEAKER_PROFILE_COUNT;", text)
+        self.assertIn("int a90_audio_profile_count(void)", profile)
+        self.assertIn("const struct audio_speaker_profile *a90_audio_find_profile", profile)
+        self.assertIn("return AUDIO_SPEAKER_PROFILE_COUNT;", profile)
         self.assertIn("return AUDIO_ROUTE_APPLY_COUNT;", route)
         self.assertNotIn("static const struct audio_speaker_profile AUDIO_SPEAKER_PROFILES", text)
         self.assertNotIn("static const struct audio_route_control AUDIO_INTERNAL_SPEAKER_ROUTE", text)

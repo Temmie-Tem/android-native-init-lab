@@ -7,6 +7,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
 AUDIO_C = REPO / "workspace/public/src/native-init/a90_audio.c"
+QUERY_C = REPO / "workspace/public/src/native-init/a90_audio_query.c"
 ROUTE_H = REPO / "workspace/public/src/native-init/a90_audio_route.h"
 ROUTE_C = REPO / "workspace/public/src/native-init/a90_audio_route.c"
 
@@ -14,6 +15,7 @@ ROUTE_C = REPO / "workspace/public/src/native-init/a90_audio_route.c"
 def all_text() -> str:
     return "\n".join([
         AUDIO_C.read_text(encoding="utf-8"),
+        QUERY_C.read_text(encoding="utf-8"),
         ROUTE_H.read_text(encoding="utf-8"),
         ROUTE_C.read_text(encoding="utf-8"),
     ])

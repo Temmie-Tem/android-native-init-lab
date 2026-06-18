@@ -67,4 +67,7 @@ struct audio_speaker_profile {
 extern const struct audio_speaker_profile AUDIO_SPEAKER_PROFILES[AUDIO_SPEAKER_PROFILE_COUNT];
 extern const struct audio_route_control AUDIO_INTERNAL_SPEAKER_ROUTE[AUDIO_ROUTE_APPLY_COUNT];
 
+int a90_audio_profile_count(void);
+const struct audio_speaker_profile *a90_audio_find_profile(const char *id);
+
 #endif

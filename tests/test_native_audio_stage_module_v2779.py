@@ -7,6 +7,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
 AUDIO_C = REPO / "workspace/public/src/native-init/a90_audio.c"
+QUERY_C = REPO / "workspace/public/src/native-init/a90_audio_query.c"
 STAGE_H = REPO / "workspace/public/src/native-init/a90_audio_stage.h"
 STAGE_C = REPO / "workspace/public/src/native-init/a90_audio_stage.c"
 BUILDER = REPO / "workspace/public/src/scripts/revalidation/build_native_init_boot_v2779_audio_stage_module.py"
@@ -51,9 +52,11 @@ class NativeAudioStageModuleV2779(unittest.TestCase):
 
     def test_command_file_uses_stage_module_instead_of_owning_stage_data(self) -> None:
         text = AUDIO_C.read_text(encoding="utf-8")
+        query = QUERY_C.read_text(encoding="utf-8")
 
         self.assertIn('#include "a90_audio_stage.h"', text)
-        self.assertIn("return AUDIO_STAGE_CONTRACT_COUNT;", text)
+        self.assertIn('#include "a90_audio_stage.h"', query)
+        self.assertIn("return AUDIO_STAGE_CONTRACT_COUNT;", query)
         self.assertNotIn("static const struct audio_stage_contract AUDIO_STAGE_CONTRACTS", text)
         self.assertNotIn("struct audio_stage_contract {", text)
         self.assertNotIn("#define AUDIO_ADSP_BOOT_ONCE_TOKEN", text)

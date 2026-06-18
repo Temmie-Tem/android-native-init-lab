@@ -12,6 +12,7 @@ profiles = load_revalidation("native_audio_speaker_profiles_v2749")
 
 REPO = Path(__file__).resolve().parents[1]
 AUDIO_C = REPO / "workspace/public/src/native-init/a90_audio.c"
+AUDIO_QUERY_C = REPO / "workspace/public/src/native-init/a90_audio_query.c"
 AUDIO_STAGE_H = REPO / "workspace/public/src/native-init/a90_audio_stage.h"
 AUDIO_STAGE_C = REPO / "workspace/public/src/native-init/a90_audio_stage.c"
 
@@ -19,7 +20,7 @@ AUDIO_STAGE_C = REPO / "workspace/public/src/native-init/a90_audio_stage.c"
 def source_text() -> str:
     return "\n".join(
         path.read_text(encoding="utf-8")
-        for path in (AUDIO_C, AUDIO_STAGE_H, AUDIO_STAGE_C)
+        for path in (AUDIO_C, AUDIO_QUERY_C, AUDIO_STAGE_H, AUDIO_STAGE_C)
     )
 
 
@@ -141,7 +142,7 @@ class NativeAudioStageApiContractV2756(unittest.TestCase):
         text = source_text()
 
         self.assertIn('strcmp(argv[1], "stages") == 0', text)
-        self.assertIn("return audio_print_stages(argv, argc);", text)
+        self.assertIn("return a90_audio_query_stages_cmd(argv, argc);", text)
         self.assertIn("audio.stages.read_only=1", text)
         self.assertIn("audio.stages.all_native_ready=0", text)
         self.assertIn("usage: audio stages [%s]", text)
