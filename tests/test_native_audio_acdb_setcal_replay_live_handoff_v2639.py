@@ -325,6 +325,15 @@ class NativeAudioAcdbSetcalReplayLiveHandoffV2639(unittest.TestCase):
             source.index("dmesg-after-setcal-playback-before-reset"),
         )
 
+    def test_source_uses_hard_timeout_a90ctl_for_live_observations(self) -> None:
+        source = Path(v2639.__file__).read_text(encoding="utf-8")
+
+        self.assertIn("def run_a90ctl_hard_observation", source)
+        self.assertIn("snd.a90ctl_command", source)
+        self.assertIn("timeout=timeout + 10.0", source)
+        self.assertIn('run_a90ctl_hard_observation(args, out_dir, steps, "candidate-status"', source)
+        self.assertIn('run_a90ctl_hard_observation(args, out_dir, steps, "snd-status-after-materialize"', source)
+
     def test_global_app_type_config_runs_before_stream_app_type_and_route(self) -> None:
         source = Path(v2639.__file__).read_text(encoding="utf-8")
 

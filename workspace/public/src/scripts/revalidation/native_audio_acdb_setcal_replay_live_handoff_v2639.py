@@ -160,8 +160,59 @@ def dry_run_payload(args: argparse.Namespace) -> dict[str, Any]:
     return payload
 
 
+def run_a90ctl_hard_observation(args: argparse.Namespace,
+                                out_dir: Path,
+                                steps: list[dict[str, Any]],
+                                name: str,
+                                native_command: list[str],
+                                *,
+                                timeout: float = 120.0,
+                                allow_error: bool = False) -> dict[str, Any]:
+    """Run observation commands through a subprocess-level timeout.
+
+    V2746 exposed a live-runner hang where the in-process serial observation
+    path held the serial transaction lock after the candidate-version step.
+    Observation commands are read-only, so use the a90ctl subprocess wrapper and
+    let subprocess.run enforce a hard timeout that releases the child process.
+    """
+
+    command = snd.a90ctl_command(
+        args,
+        native_command,
+        hide_on_busy=True,
+        timeout=timeout,
+    )
+    step = speaker.run_host_step(
+        out_dir,
+        steps,
+        name,
+        command,
+        timeout=timeout + 10.0,
+        allow_error=allow_error,
+    )
+    if not bool(step.get("ok")) and not allow_error:
+        raise RuntimeError(f"observation command failed: {name}: {step.get('stdout_tail')}")
+    return step
+
+
 def run_selftest_fail0(args: argparse.Namespace, out_dir: Path, steps: list[dict[str, Any]], name: str) -> dict[str, Any]:
-    return topology_live.run_selftest_fail0_observation(args, out_dir, steps, name)
+    last_step: dict[str, Any] | None = None
+    for attempt in range(1, 4):
+        step = run_a90ctl_hard_observation(
+            args,
+            out_dir,
+            steps,
+            f"{name}-content-attempt-{attempt}",
+            ["selftest", "verbose"],
+            timeout=120.0,
+            allow_error=True,
+        )
+        last_step = step
+        if snd.selftest_ok(stdout_of(step)):
+            step["ok"] = True
+            return step
+        time.sleep(1.0)
+    raise RuntimeError(f"{name} did not report fail=0 after content retries: {last_step.get('stdout_path') if last_step else 'no-step'}")
 
 
 def local_private_path(entry: dict[str, Any]) -> Path:
@@ -998,13 +1049,13 @@ def live_run(args: argparse.Namespace, state: dict[str, Any], deploy_manifest: d
         run_selftest_fail0(args, out_dir, steps, "preflight-current-selftest")
         speaker.run_host_step(out_dir, steps, "flash-v2334-candidate", snd.flash_command(snd.CANDIDATE_IMAGE, snd.CANDIDATE_VERSION, snd.CANDIDATE_SHA256, from_native=True), timeout=args.flash_timeout)
         candidate_flashed = True
-        version = snd.run_a90ctl_observation(args, out_dir, steps, "candidate-version", ["version"], timeout=90.0)
+        version = run_a90ctl_hard_observation(args, out_dir, steps, "candidate-version", ["version"], timeout=90.0)
         if snd.CANDIDATE_VERSION not in stdout_of(version):
             raise RuntimeError("candidate version output did not contain expected version")
-        snd.run_a90ctl_observation(args, out_dir, steps, "candidate-status", ["status"], timeout=90.0)
+        run_a90ctl_hard_observation(args, out_dir, steps, "candidate-status", ["status"], timeout=90.0)
         run_selftest_fail0(args, out_dir, steps, "candidate-selftest")
-        pre_adsp = snd.run_a90ctl_observation(args, out_dir, steps, "candidate-audio-adsp-status-before", ["audio", "adsp-status"], timeout=90.0)
-        pre_snd = snd.run_a90ctl_observation(args, out_dir, steps, "candidate-audio-snd-status-before", ["audio", "snd-status"], timeout=90.0)
+        pre_adsp = run_a90ctl_hard_observation(args, out_dir, steps, "candidate-audio-adsp-status-before", ["audio", "adsp-status"], timeout=90.0)
+        pre_snd = run_a90ctl_hard_observation(args, out_dir, steps, "candidate-audio-snd-status-before", ["audio", "snd-status"], timeout=90.0)
         result["initial_audio"] = snd.classify_audio_status(stdout_of(pre_adsp) + "\n" + stdout_of(pre_snd))
         if not (result["initial_audio"]["has_audio_card"] and result["initial_audio"]["has_sound_class_control"]):
             snd.run_menu_settle_step(out_dir, steps, "settle-before-adsp-boot-once", args)
@@ -1016,7 +1067,7 @@ def live_run(args: argparse.Namespace, state: dict[str, Any], deploy_manifest: d
         snd.run_menu_settle_step(out_dir, steps, "settle-before-snd-materialize-once", args)
         materialize = snd.run_serial_transport_step(out_dir, steps, "snd-materialize-once", args, ["audio", "snd-materialize-once", snd.SND_TOKEN], timeout=90.0, retry_observation=False)
         result["materialize_tail"] = stdout_of(materialize)[-4000:]
-        after_materialize = snd.run_a90ctl_observation(args, out_dir, steps, "snd-status-after-materialize", ["audio", "snd-status"], timeout=90.0)
+        after_materialize = run_a90ctl_hard_observation(args, out_dir, steps, "snd-status-after-materialize", ["audio", "snd-status"], timeout=90.0)
         after = snd.classify_audio_status(stdout_of(after_materialize))
         result["after_materialize"] = after
         if not (after["has_dev_snd_control"] and after["has_dev_snd_pcm"]):
@@ -1038,7 +1089,7 @@ def live_run(args: argparse.Namespace, state: dict[str, Any], deploy_manifest: d
             rollback_record = speaker.run_host_step(out_dir, steps, "rollback-v2321", snd.flash_command(snd.ROLLBACK_IMAGE, snd.ROLLBACK_VERSION, snd.ROLLBACK_SHA256, from_native=True), timeout=args.flash_timeout, allow_error=True)
             result["rolled_back"] = bool(rollback_record.get("ok"))
             try:
-                rollback_version = snd.run_a90ctl_observation(args, out_dir, steps, "rollback-version", ["version"], timeout=90.0)
+                rollback_version = run_a90ctl_hard_observation(args, out_dir, steps, "rollback-version", ["version"], timeout=90.0)
                 rollback_selftest = run_selftest_fail0(args, out_dir, steps, "rollback-selftest")
                 result["rollback_version_ok"] = snd.ROLLBACK_VERSION in stdout_of(rollback_version)
                 result["rollback_selftest_fail0"] = snd.selftest_ok(stdout_of(rollback_selftest))
