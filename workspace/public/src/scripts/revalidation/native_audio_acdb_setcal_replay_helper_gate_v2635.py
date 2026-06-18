@@ -54,6 +54,7 @@ REQUIRED_SOURCE_TOKENS = {
     "header_zero_cal_mem_handle_policy": "header_only_zero_cal_size_neutralizes_positive_mem_handle",
     "mem_handle_patch": "A90_OFF_MEM_HANDLE",
     "set_ok_marker": "A90_ACDB_SETCAL_SET_OK",
+    "ioctl_result_marker": "A90_ACDB_SETCAL_IOCTL_RESULT",
     "reverse_cleanup_marker": "A90_ACDB_SETCAL_DEALLOCATE_OK",
     "done_marker": "A90_ACDB_SETCAL_REPLAY_DONE",
 }
@@ -229,6 +230,7 @@ def build_helper(build_root: Path, *, cc: str, strip: str | None) -> dict[str, A
         "static_probe": {
             "strings_has_start_marker": "A90_ACDB_SETCAL_REPLAY_START" in strings_text,
             "strings_has_set_marker": "A90_ACDB_SETCAL_SET_OK" in strings_text,
+            "strings_has_ioctl_result_marker": "A90_ACDB_SETCAL_IOCTL_RESULT" in strings_text,
             "strings_has_exact_set_format": "--exact-set ARG[:PAYLOAD]" in strings_text,
             "strings_has_basic_payload_format": "--basic-payload CAL_TYPE:BUFFER:PAYLOAD" in strings_text,
             "strings_has_default_block_message": "execute mode is blocked in this scaffold build" in strings_text,
@@ -297,6 +299,7 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
             "supports_header_only_nonzero_cal_size_exact_args": True,
             "neutralizes_header_only_zero_cal_size_positive_mem_handle": True,
             "patches_fresh_mem_handle_for_payload_records": True,
+            "logs_uniform_ioctl_results": True,
             "keeps_all_payload_fds_open_across_probe": True,
             "reverse_deallocates_payload_records": True,
             "execute_define": "A90_ENABLE_NATIVE_SETCAL_REPLAY_EXECUTE",

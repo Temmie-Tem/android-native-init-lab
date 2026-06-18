@@ -76,6 +76,7 @@ class NativeAudioAcdbSetcalReplayHelperGateV2635(unittest.TestCase):
         self.assertTrue(state["required_tokens"]["header_only_marker"])
         self.assertTrue(state["required_tokens"]["header_mem_handle_neutralize"])
         self.assertTrue(state["required_tokens"]["header_zero_cal_mem_handle_policy"])
+        self.assertTrue(state["required_tokens"]["ioctl_result_marker"])
         self.assertFalse(any(state["prohibited_tokens"].values()))
 
     def test_v2634_state_generates_mixed_future_args(self) -> None:
@@ -112,6 +113,7 @@ class NativeAudioAcdbSetcalReplayHelperGateV2635(unittest.TestCase):
         self.assertEqual(manifest["helper_contract"]["max_replay_entries"], 16)
         self.assertTrue(manifest["helper_contract"]["supports_header_only_nonzero_cal_size_exact_args"])
         self.assertTrue(manifest["helper_contract"]["neutralizes_header_only_zero_cal_size_positive_mem_handle"])
+        self.assertTrue(manifest["helper_contract"]["logs_uniform_ioctl_results"])
 
     def test_report_states_no_live_replay_approval(self) -> None:
         root = Path(tempfile.mkdtemp(prefix="a90-v2635-"))

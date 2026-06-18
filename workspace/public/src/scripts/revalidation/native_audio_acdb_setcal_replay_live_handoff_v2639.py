@@ -345,6 +345,19 @@ def run_setcal_replay_and_pcm(args: argparse.Namespace,
             }
             if not replay_clean:
                 raise RuntimeError(f"ACDB SET-cal replay did not reach final SET marker: {replay_step.get('remote_tool_result')}")
+            post_set_dmesg_step = run_remote_shell(
+                args,
+                out_dir,
+                steps,
+                "dmesg-after-setcal-replay-before-pcm",
+                f"dmesg | tail -n {DMESG_TAIL_LINE_COUNT}",
+                timeout=args.mixer_timeout,
+                allow_error=True,
+            )
+            result["post_set_dmesg"] = {
+                "ok": bool(post_set_dmesg_step.get("ok")),
+                "stdout_path": post_set_dmesg_step.get("stdout_path"),
+            }
             helper_started = True
             result["helper_started"] = True
             result["playback_attempted"] = True

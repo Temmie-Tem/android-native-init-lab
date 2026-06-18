@@ -127,6 +127,16 @@ class NativeAudioAcdbSetcalReplayLiveHandoffV2639(unittest.TestCase):
         self.assertIn("self-authorized", text)
         self.assertNotIn("local_path_private", text)
 
+    def test_source_captures_post_set_dmesg_before_pcm(self) -> None:
+        source = Path(v2639.__file__).read_text(encoding="utf-8")
+
+        self.assertIn("dmesg-after-setcal-replay-before-pcm", source)
+        self.assertIn("post_set_dmesg", source)
+        self.assertLess(
+            source.index("dmesg-after-setcal-replay-before-pcm"),
+            source.index('result["playback_attempted"] = True'),
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

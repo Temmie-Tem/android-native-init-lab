@@ -356,11 +356,17 @@ static int ioctl_cal(int fd, unsigned long request, const void *packet,
     int32_t cal_size = read_le_i32(packet, packet_len, A90_OFF_CAL_SIZE);
     int32_t mem_handle = read_le_i32(packet, packet_len, A90_OFF_MEM_HANDLE);
     int rc = ioctl(fd, request, packet);
+    int saved_errno = rc == 0 ? 0 : errno;
+
+    fprintf(stderr,
+            "A90_ACDB_SETCAL_IOCTL_RESULT name=%s request=0x%lx rc=%d errno=%d strerror=%s cal_type=%d buffer=%d cal_size=%d mem_handle=%d arg_len=%zu\n",
+            name, request, rc, saved_errno, strerror(saved_errno), cal_type,
+            buffer_number, cal_size, mem_handle, packet_len);
 
     if (rc != 0) {
         fprintf(stderr,
                 "%s failed rc=%d errno=%d strerror=%s cal_type=%d buffer=%d cal_size=%d mem_handle=%d arg_len=%zu\n",
-                name, rc, errno, strerror(errno), cal_type, buffer_number, cal_size,
+                name, rc, saved_errno, strerror(saved_errno), cal_type, buffer_number, cal_size,
                 mem_handle, packet_len);
         return -1;
     }
