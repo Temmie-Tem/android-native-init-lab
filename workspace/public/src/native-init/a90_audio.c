@@ -165,6 +165,7 @@ struct audio_setcal_manifest_totals {
     int entries;
     int arg_entries;
     int payload_entries;
+    int files_opened;
     long long arg_bytes;
     long long payload_bytes;
 };
@@ -426,6 +427,19 @@ static const struct audio_stage_contract AUDIO_STAGE_CONTRACTS[] = {
         .speaker_scope = "shared",
         .note = "summarizes verified private SET arg/payload byte plan without opening audio devices",
         .order = 47,
+        .uses_profile = true,
+        .native_implemented = true,
+        .writes_runtime_state = false,
+        .rollback_boundary = false,
+    },
+    {
+        .id = "load-acdb-payload-files",
+        .owner = "native-init",
+        .phase = "acdb",
+        .command_template = "audio setcal %s --manifest " AUDIO_SETCAL_DEFAULT_MANIFEST_PATH " --load --dry-run",
+        .speaker_scope = "shared",
+        .note = "opens and drains verified private SET arg/payload files without opening audio devices or issuing ioctls",
+        .order = 48,
         .uses_profile = true,
         .native_implemented = true,
         .writes_runtime_state = false,
@@ -848,10 +862,89 @@ static int audio_setcal_verify_regular_file(const char *prefix,
     return sha_match ? 0 : (rc < 0 ? rc : -EIO);
 }
 
+static int audio_setcal_load_regular_file(const char *prefix,
+                                          const char *path,
+                                          long long expected_size,
+                                          bool path_required,
+                                          long long *bytes_read) {
+    struct stat st;
+    char buffer[4096];
+    long long total_read = 0;
+    int fd;
+
+    if (bytes_read != NULL) {
+        *bytes_read = 0;
+    }
+    if (!path_required) {
+        a90_console_printf("%s.required=0\r\n", prefix);
+        a90_console_printf("%s.open_ok=0\r\n", prefix);
+        a90_console_printf("%s.bytes_read=0\r\n", prefix);
+        a90_console_printf("%s.ok=1\r\n", prefix);
+        return 0;
+    }
+    if (path == NULL || strcmp(path, "-") == 0 || expected_size <= 0) {
+        a90_console_printf("%s.error=missing-path-or-size\r\n", prefix);
+        a90_console_printf("%s.ok=0\r\n", prefix);
+        return -EINVAL;
+    }
+    a90_console_printf("%s.path=%s\r\n", prefix, path);
+    a90_console_printf("%s.expected_size=%lld\r\n", prefix, expected_size);
+    fd = open(path, O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
+    if (fd < 0) {
+        int saved_errno = errno;
+
+        a90_console_printf("%s.open_ok=0 errno=%d\r\n", prefix, saved_errno);
+        a90_console_printf("%s.ok=0\r\n", prefix);
+        return -saved_errno;
+    }
+    a90_console_printf("%s.open_ok=1\r\n", prefix);
+    if (fstat(fd, &st) < 0) {
+        int saved_errno = errno;
+
+        close(fd);
+        a90_console_printf("%s.regular_file=0 errno=%d\r\n", prefix, saved_errno);
+        a90_console_printf("%s.ok=0\r\n", prefix);
+        return -saved_errno;
+    }
+    if (!S_ISREG(st.st_mode)) {
+        close(fd);
+        a90_console_printf("%s.regular_file=0 errno=%d\r\n", prefix, EINVAL);
+        a90_console_printf("%s.ok=0\r\n", prefix);
+        return -EINVAL;
+    }
+    a90_console_printf("%s.regular_file=1\r\n", prefix);
+    for (;;) {
+        ssize_t chunk = read(fd, buffer, sizeof(buffer));
+
+        if (chunk < 0) {
+            int saved_errno = errno;
+
+            close(fd);
+            a90_console_printf("%s.read_error=%d\r\n", prefix, saved_errno);
+            a90_console_printf("%s.ok=0\r\n", prefix);
+            return -saved_errno;
+        }
+        if (chunk == 0) {
+            break;
+        }
+        total_read += chunk;
+    }
+    close(fd);
+    if (bytes_read != NULL) {
+        *bytes_read = total_read;
+    }
+    a90_console_printf("%s.bytes_read=%lld\r\n", prefix, total_read);
+    a90_console_printf("%s.size_match=%d\r\n", total_read == expected_size ? 1 : 0);
+    a90_console_printf("%s.ok=%d\r\n", total_read == expected_size ? 1 : 0);
+    return total_read == expected_size ? 0 : -EIO;
+}
+
 static int audio_setcal_verify_manifest_entry(char *line,
                                               const struct audio_speaker_profile *profile,
                                               bool *seen_entry,
-                                              struct audio_setcal_manifest_totals *totals) {
+                                              struct audio_setcal_manifest_totals *totals,
+                                              bool load_files,
+                                              struct audio_setcal_manifest_totals *load_totals) {
     int sequence = -1;
     int cal_type = -1;
     int dmabuf_expected = -1;
@@ -866,6 +959,10 @@ static int audio_setcal_verify_manifest_entry(char *line,
     char prefix[80];
     char arg_prefix[96];
     char payload_prefix[96];
+    char load_arg_prefix[96];
+    char load_payload_prefix[96];
+    long long arg_loaded = 0;
+    long long payload_loaded = 0;
     int fields;
     int rc = 0;
 
@@ -930,13 +1027,41 @@ static int audio_setcal_verify_manifest_entry(char *line,
                                          expected->dmabuf_expected) < 0) {
         rc = -EINVAL;
     }
+    if (load_files && rc == 0) {
+        snprintf(load_arg_prefix, sizeof(load_arg_prefix), "audio.setcal.load.entry.%d.arg", sequence);
+        if (audio_setcal_load_regular_file(load_arg_prefix, arg_path, arg_size, true, &arg_loaded) < 0) {
+            rc = -EINVAL;
+        }
+        snprintf(load_payload_prefix, sizeof(load_payload_prefix), "audio.setcal.load.entry.%d.payload", sequence);
+        if (audio_setcal_load_regular_file(load_payload_prefix,
+                                           payload_path,
+                                           payload_size,
+                                           expected->dmabuf_expected,
+                                           &payload_loaded) < 0) {
+            rc = -EINVAL;
+        }
+        if (load_totals != NULL && rc == 0) {
+            load_totals->entries += 1;
+            load_totals->arg_entries += 1;
+            load_totals->files_opened += 1;
+            load_totals->arg_bytes += arg_loaded;
+            if (expected->dmabuf_expected) {
+                load_totals->payload_entries += 1;
+                load_totals->files_opened += 1;
+                load_totals->payload_bytes += payload_loaded;
+            }
+        }
+        a90_console_printf("audio.setcal.load.entry.%d.ok=%d\r\n", sequence, rc == 0 ? 1 : 0);
+    }
     a90_console_printf("%s.ok=%d\r\n", prefix, rc == 0 ? 1 : 0);
     return rc;
 }
 
 static int audio_setcal_verify_manifest(const struct audio_speaker_profile *profile,
                                         const char *manifest_path,
-                                        struct audio_setcal_manifest_totals *totals) {
+                                        struct audio_setcal_manifest_totals *totals,
+                                        bool load_files,
+                                        struct audio_setcal_manifest_totals *load_totals) {
     FILE *fp;
     int fd;
     char line[1024];
@@ -953,10 +1078,14 @@ static int audio_setcal_verify_manifest(const struct audio_speaker_profile *prof
     if (totals != NULL) {
         memset(totals, 0, sizeof(*totals));
     }
+    if (load_totals != NULL) {
+        memset(load_totals, 0, sizeof(*load_totals));
+    }
     a90_console_printf("audio.setcal.verify.manifest=%s\r\n", manifest_path != NULL ? manifest_path : "-");
     a90_console_printf("audio.setcal.verify.path_allowed=%d\r\n",
                        audio_setcal_manifest_path_allowed(manifest_path) ? 1 : 0);
     a90_console_printf("audio.setcal.verify.ioctl_attempted=0\r\n");
+    a90_console_printf("audio.setcal.load.requested=%d\r\n", load_files ? 1 : 0);
     if (!audio_setcal_manifest_path_allowed(manifest_path)) {
         a90_console_printf("audio.setcal.verify.error=manifest-path-not-allowed\r\n");
         a90_console_printf("audio.setcal.verify.ok=0\r\n");
@@ -1001,7 +1130,12 @@ static int audio_setcal_verify_manifest(const struct audio_speaker_profile *prof
             continue;
         }
         if (strncmp(cursor, "entry ", 6) == 0) {
-            if (audio_setcal_verify_manifest_entry(cursor, profile, seen_entry, totals) < 0) {
+            if (audio_setcal_verify_manifest_entry(cursor,
+                                                   profile,
+                                                   seen_entry,
+                                                   totals,
+                                                   load_files,
+                                                   load_totals) < 0) {
                 rc = -EINVAL;
             }
             ++parsed_entries;
@@ -1053,17 +1187,20 @@ static int audio_setcal_cmd(char **argv, int argc) {
     const char *manifest_path = NULL;
     const struct audio_speaker_profile *profile;
     struct audio_setcal_manifest_totals totals;
+    struct audio_setcal_manifest_totals load_totals;
     bool seen_profile = false;
     bool execute_mode = false;
     bool verify_manifest = false;
     bool prepare_manifest = false;
+    bool load_manifest = false;
     int argi;
     int index;
 
     memset(&totals, 0, sizeof(totals));
+    memset(&load_totals, 0, sizeof(load_totals));
     for (argi = 2; argi < argc; ++argi) {
         if (argv == NULL || argv[argi] == NULL) {
-            a90_console_printf("usage: audio setcal [profile] [--dry-run|--execute] [--manifest PATH --verify|--prepare]\r\n");
+            a90_console_printf("usage: audio setcal [profile] [--dry-run|--execute] [--manifest PATH --verify|--prepare|--load]\r\n");
             return -EINVAL;
         }
         if (strcmp(argv[argi], "--dry-run") == 0) {
@@ -1074,9 +1211,11 @@ static int audio_setcal_cmd(char **argv, int argc) {
             verify_manifest = true;
         } else if (strcmp(argv[argi], "--prepare") == 0) {
             prepare_manifest = true;
+        } else if (strcmp(argv[argi], "--load") == 0) {
+            load_manifest = true;
         } else if (strcmp(argv[argi], "--manifest") == 0) {
             if (argi + 1 >= argc || argv[argi + 1] == NULL) {
-                a90_console_printf("usage: audio setcal [profile] [--dry-run|--execute] [--manifest PATH --verify|--prepare]\r\n");
+                a90_console_printf("usage: audio setcal [profile] [--dry-run|--execute] [--manifest PATH --verify|--prepare|--load]\r\n");
                 return -EINVAL;
             }
             manifest_path = argv[++argi];
@@ -1084,7 +1223,7 @@ static int audio_setcal_cmd(char **argv, int argc) {
             profile_id = argv[argi];
             seen_profile = true;
         } else {
-            a90_console_printf("usage: audio setcal [profile] [--dry-run|--execute] [--manifest PATH --verify|--prepare]\r\n");
+            a90_console_printf("usage: audio setcal [profile] [--dry-run|--execute] [--manifest PATH --verify|--prepare|--load]\r\n");
             return -EINVAL;
         }
     }
@@ -1097,6 +1236,7 @@ static int audio_setcal_cmd(char **argv, int argc) {
     a90_console_printf("audio.setcal.execute_supported=0\r\n");
     a90_console_printf("audio.setcal.verify_requested=%d\r\n", verify_manifest ? 1 : 0);
     a90_console_printf("audio.setcal.prepare_requested=%d\r\n", prepare_manifest ? 1 : 0);
+    a90_console_printf("audio.setcal.load_requested=%d\r\n", load_manifest ? 1 : 0);
     a90_console_printf("audio.setcal.manifest_path=%s\r\n", manifest_path != NULL ? manifest_path : "-");
     if (profile == NULL) {
         a90_console_printf("audio.setcal.error=unknown-profile\r\n");
@@ -1137,15 +1277,19 @@ static int audio_setcal_cmd(char **argv, int argc) {
         a90_console_printf("%s.payload_required=%d\r\n", prefix, entry->dmabuf_expected ? 1 : 0);
     }
 
-    if (verify_manifest || prepare_manifest) {
+    if (verify_manifest || prepare_manifest || load_manifest) {
         int verify_rc;
 
         if (manifest_path == NULL) {
-            a90_console_printf("audio.setcal.error=manifest-required-for-verify-or-prepare\r\n");
+            a90_console_printf("audio.setcal.error=manifest-required-for-verify-prepare-or-load\r\n");
             a90_console_printf("audio.setcal.ioctl_attempted=0\r\n");
             return -EINVAL;
         }
-        verify_rc = audio_setcal_verify_manifest(profile, manifest_path, &totals);
+        verify_rc = audio_setcal_verify_manifest(profile,
+                                                 manifest_path,
+                                                 &totals,
+                                                 load_manifest,
+                                                 load_manifest ? &load_totals : NULL);
         if (verify_rc < 0) {
             a90_console_printf("audio.setcal.verify_failed=%d\r\n", -verify_rc);
             a90_console_printf("audio.setcal.ioctl_attempted=0\r\n");
@@ -1161,6 +1305,17 @@ static int audio_setcal_cmd(char **argv, int argc) {
             a90_console_printf("audio.setcal.prepare.devices_opened=0\r\n");
             a90_console_printf("audio.setcal.prepare.ioctl_attempted=0\r\n");
             a90_console_printf("audio.setcal.prepare_ok=1\r\n");
+        }
+        if (load_manifest) {
+            a90_console_printf("audio.setcal.load.entry.count=%d\r\n", load_totals.entries);
+            a90_console_printf("audio.setcal.load.arg_entries=%d\r\n", load_totals.arg_entries);
+            a90_console_printf("audio.setcal.load.payload_entries=%d\r\n", load_totals.payload_entries);
+            a90_console_printf("audio.setcal.load.files_opened=%d\r\n", load_totals.files_opened);
+            a90_console_printf("audio.setcal.load.arg_bytes=%lld\r\n", load_totals.arg_bytes);
+            a90_console_printf("audio.setcal.load.payload_bytes=%lld\r\n", load_totals.payload_bytes);
+            a90_console_printf("audio.setcal.load.devices_opened=0\r\n");
+            a90_console_printf("audio.setcal.load.ioctl_attempted=0\r\n");
+            a90_console_printf("audio.setcal.load_ok=1\r\n");
         }
     }
 
@@ -2602,6 +2757,6 @@ int a90_audio_cmd(char **argv, int argc) {
     if (argc >= 2 && argv != NULL && argv[1] != NULL && strcmp(argv[1], "snd-materialize-once") == 0) {
         return audio_snd_materialize_once(argv, argc);
     }
-    a90_console_printf("usage: audio [adsp-status|status|profiles|profile [id]|stages [id]|app-type [profile] [--dry-run|--write]|setcal [profile] [--dry-run|--execute] [--manifest PATH --verify|--prepare]|route [profile] [--dry-run|--apply|--reset] [--layer all|core|feedback|endpoint|blocked]|snd-status|adsp-boot-once|snd-materialize-once]\r\n");
+    a90_console_printf("usage: audio [adsp-status|status|profiles|profile [id]|stages [id]|app-type [profile] [--dry-run|--write]|setcal [profile] [--dry-run|--execute] [--manifest PATH --verify|--prepare|--load]|route [profile] [--dry-run|--apply|--reset] [--layer all|core|feedback|endpoint|blocked]|snd-status|adsp-boot-once|snd-materialize-once]\r\n");
     return -EINVAL;
 }

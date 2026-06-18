@@ -20,8 +20,8 @@ class NativeAudioSetcalManifestCommandV2757(unittest.TestCase):
 
         self.assertIn('strcmp(argv[1], "setcal") == 0', text)
         self.assertIn('return audio_setcal_cmd(argv, argc);', text)
-        self.assertIn('usage: audio setcal [profile] [--dry-run|--execute] [--manifest PATH --verify|--prepare]', text)
-        self.assertIn('setcal [profile] [--dry-run|--execute] [--manifest PATH --verify|--prepare]', text)
+        self.assertIn('usage: audio setcal [profile] [--dry-run|--execute] [--manifest PATH --verify|--prepare|--load]', text)
+        self.assertIn('setcal [profile] [--dry-run|--execute] [--manifest PATH --verify|--prepare|--load]', text)
 
     def test_setcal_manifest_pins_corrected_replay_order_and_roles(self) -> None:
         text = source_text()

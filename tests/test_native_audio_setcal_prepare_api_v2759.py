@@ -25,7 +25,7 @@ class NativeAudioSetcalPrepareApiV2759(unittest.TestCase):
         self.assertIn('strcmp(argv[argi], "--prepare") == 0', text)
         self.assertIn("prepare_manifest = true", text)
         self.assertIn("audio.setcal.prepare_requested", text)
-        self.assertIn("manifest-required-for-verify-or-prepare", text)
+        self.assertIn("manifest-required-for-verify-prepare-or-load", text)
 
     def test_prepare_includes_verify_then_prints_byte_plan(self) -> None:
         text = source_text()
