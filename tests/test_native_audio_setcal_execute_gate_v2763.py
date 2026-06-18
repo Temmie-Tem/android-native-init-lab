@@ -27,7 +27,7 @@ class NativeAudioSetcalExecuteGateV2763(unittest.TestCase):
     def test_execute_plan_publishes_ioctl_abi_without_calling_it(self) -> None:
         text = source_text()
         plan_start = text.index("static void audio_setcal_print_execute_plan")
-        plan_end = text.index("static int audio_setcal_cmd")
+        plan_end = text.index("static void audio_setcal_execute_open_state_reset")
         plan_block = text[plan_start:plan_end]
 
         for marker in [

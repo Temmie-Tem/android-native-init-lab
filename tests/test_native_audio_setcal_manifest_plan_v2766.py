@@ -68,7 +68,7 @@ class NativeAudioSetcalManifestPlanV2766(unittest.TestCase):
     def test_execute_plan_is_printed_from_materialized_manifest_plan(self) -> None:
         text = source_text()
         plan_start = text.index("static void audio_setcal_print_execute_plan")
-        plan_end = text.index("static int audio_setcal_cmd", plan_start)
+        plan_end = text.index("static void audio_setcal_execute_open_state_reset", plan_start)
         plan_block = text[plan_start:plan_end]
 
         for marker in [

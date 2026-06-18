@@ -206,6 +206,12 @@ struct audio_setcal_manifest_plan {
     bool valid;
 };
 
+struct audio_setcal_execute_open_state {
+    int ion_fd;
+    int msm_audio_cal_fd;
+    int devices_opened;
+};
+
 static const char *const AUDIO_INTERNAL_SPEAKER_OBSERVER_CONTROLS[] = {
     "SpkrLeft COMP Switch",
     "SpkrRight COMP Switch",
@@ -1401,11 +1407,108 @@ static void audio_setcal_print_execute_plan(const struct audio_speaker_profile *
     a90_console_printf("audio.setcal.execute.plan.ioctl_attempted=0\r\n");
 }
 
+static void audio_setcal_execute_open_state_reset(struct audio_setcal_execute_open_state *state) {
+    if (state == NULL) {
+        return;
+    }
+    state->ion_fd = -1;
+    state->msm_audio_cal_fd = -1;
+    state->devices_opened = 0;
+}
+
+static int audio_setcal_open_execute_device(const char *prefix, const char *path, int *fd_out) {
+    int fd;
+
+    if (fd_out != NULL) {
+        *fd_out = -1;
+    }
+    a90_console_printf("%s.path=%s\r\n", prefix, path);
+    a90_console_printf("%s.flags=O_RDWR|O_CLOEXEC\r\n", prefix);
+    a90_console_printf("%s.open_attempted=1\r\n", prefix);
+    fd = open(path, O_RDWR | O_CLOEXEC);
+    if (fd < 0) {
+        int saved_errno = errno;
+
+        a90_console_printf("%s.open_ok=0 errno=%d\r\n", prefix, saved_errno);
+        return -saved_errno;
+    }
+    if (fd_out != NULL) {
+        *fd_out = fd;
+    }
+    a90_console_printf("%s.open_ok=1\r\n", prefix);
+    return 0;
+}
+
+static void audio_setcal_close_execute_device(const char *prefix, int *fd) {
+    int saved_fd;
+
+    if (fd == NULL || *fd < 0) {
+        a90_console_printf("%s.close_attempted=0\r\n", prefix);
+        return;
+    }
+    saved_fd = *fd;
+    *fd = -1;
+    a90_console_printf("%s.close_attempted=1\r\n", prefix);
+    if (close(saved_fd) < 0) {
+        int saved_errno = errno;
+
+        a90_console_printf("%s.close_ok=0 errno=%d\r\n", prefix, saved_errno);
+        return;
+    }
+    a90_console_printf("%s.close_ok=1\r\n", prefix);
+}
+
+static int audio_setcal_open_execute_devices(struct audio_setcal_execute_open_state *state) {
+    int rc = 0;
+    int device_rc;
+
+    if (state == NULL) {
+        return -EINVAL;
+    }
+    audio_setcal_execute_open_state_reset(state);
+    a90_console_printf("audio.setcal.execute.open.version=1\r\n");
+    a90_console_printf("audio.setcal.execute.open.ioctl_attempted=0\r\n");
+
+    device_rc = audio_setcal_open_execute_device("audio.setcal.execute.open.ion",
+                                                 AUDIO_SETCAL_DEV_ION,
+                                                 &state->ion_fd);
+    if (device_rc < 0) {
+        rc = device_rc;
+    } else {
+        state->devices_opened += 1;
+    }
+
+    device_rc = audio_setcal_open_execute_device("audio.setcal.execute.open.msm_audio_cal",
+                                                 AUDIO_SETCAL_DEV_MSM_AUDIO_CAL,
+                                                 &state->msm_audio_cal_fd);
+    if (device_rc < 0 && rc == 0) {
+        rc = device_rc;
+    } else if (device_rc == 0) {
+        state->devices_opened += 1;
+    }
+
+    a90_console_printf("audio.setcal.execute.open.devices_opened=%d\r\n", state->devices_opened);
+    a90_console_printf("audio.setcal.execute.open.ioctl_attempted=0\r\n");
+    return rc;
+}
+
+static void audio_setcal_close_execute_devices(struct audio_setcal_execute_open_state *state) {
+    if (state == NULL) {
+        return;
+    }
+    audio_setcal_close_execute_device("audio.setcal.execute.close.msm_audio_cal",
+                                      &state->msm_audio_cal_fd);
+    audio_setcal_close_execute_device("audio.setcal.execute.close.ion", &state->ion_fd);
+    a90_console_printf("audio.setcal.execute.close.fds_held=0\r\n");
+    a90_console_printf("audio.setcal.execute.close.ioctl_attempted=0\r\n");
+}
+
 static int audio_setcal_cmd(char **argv, int argc) {
     const char *profile_id = AUDIO_DEFAULT_PROFILE_ID;
     const char *manifest_path = NULL;
     const struct audio_speaker_profile *profile;
     struct audio_setcal_manifest_plan *manifest_plan = NULL;
+    struct audio_setcal_execute_open_state execute_open_state;
     struct audio_setcal_manifest_totals totals;
     struct audio_setcal_manifest_totals load_totals;
     bool seen_profile = false;
@@ -1420,6 +1523,7 @@ static int audio_setcal_cmd(char **argv, int argc) {
 
     memset(&totals, 0, sizeof(totals));
     memset(&load_totals, 0, sizeof(load_totals));
+    audio_setcal_execute_open_state_reset(&execute_open_state);
     for (argi = 2; argi < argc; ++argi) {
         if (argv == NULL || argv[argi] == NULL) {
             a90_console_printf("usage: audio setcal [profile] [--dry-run|--execute] [--manifest PATH --verify|--prepare|--load]\r\n");
@@ -1461,6 +1565,7 @@ static int audio_setcal_cmd(char **argv, int argc) {
     a90_console_printf("audio.setcal.load_requested=%d\r\n", load_manifest ? 1 : 0);
     a90_console_printf("audio.setcal.execute_manifest_required=%d\r\n", execute_mode ? 1 : 0);
     a90_console_printf("audio.setcal.execute_auto_load=%d\r\n", execute_mode ? 1 : 0);
+    a90_console_printf("audio.setcal.execute_open_boundary_supported=%d\r\n", execute_mode ? 1 : 0);
     a90_console_printf("audio.setcal.manifest_path=%s\r\n", manifest_path != NULL ? manifest_path : "-");
     if (profile == NULL) {
         a90_console_printf("audio.setcal.error=unknown-profile\r\n");
@@ -1559,7 +1664,18 @@ static int audio_setcal_cmd(char **argv, int argc) {
     }
 
     if (execute_mode) {
+        int open_rc;
+
         audio_setcal_print_execute_plan(profile, manifest_plan);
+        open_rc = audio_setcal_open_execute_devices(&execute_open_state);
+        audio_setcal_close_execute_devices(&execute_open_state);
+        if (open_rc < 0) {
+            a90_console_printf("audio.setcal.refused=execute-open-failed-before-ioctl errno=%d\r\n",
+                               -open_rc);
+            a90_console_printf("audio.setcal.ioctl_attempted=0\r\n");
+            free(manifest_plan);
+            return open_rc;
+        }
         a90_console_printf("audio.setcal.refused=execute-not-implemented-native-setcal-ioctl\r\n");
         a90_console_printf("audio.setcal.ioctl_attempted=0\r\n");
         free(manifest_plan);
