@@ -4,8 +4,7 @@
 Builds a private AArch64 helper that can replay the operator-verified topology
 payload as a basic payload entry and the V2633 SET-layer records as exact
 SET-arg entries. This removes the local helper capability gap identified in
-V2634, but it still does not run native replay or authorize live execution:
-operator Gate-2 acceptance remains required.
+V2634, but it still does not run native replay.
 """
 
 from __future__ import annotations
@@ -48,6 +47,8 @@ REQUIRED_SOURCE_TOKENS = {
     "exact_set_entry": "--exact-set ARG[:PAYLOAD]",
     "exact_arg_replay": "exact_set_arg_replay",
     "header_only_replay": "header_only_set_arg_replay",
+    "header_only_nonzero_cal_size": "header_only_exact_arg_preserves_nonzero_cal_size",
+    "header_only_marker": "A90_ACDB_SETCAL_HEADER_ONLY_EXACT_ARG",
     "mem_handle_patch": "A90_OFF_MEM_HANDLE",
     "set_ok_marker": "A90_ACDB_SETCAL_SET_OK",
     "reverse_cleanup_marker": "A90_ACDB_SETCAL_DEALLOCATE_OK",
@@ -58,6 +59,7 @@ PROHIBITED_SOURCE_TOKENS = {
     "speaker_route_write": "tinymix",
     "playback_tool": "tinyplay",
     "persistent_magisk": "magisk --install-module",
+    "requires_payload_for_nonzero_cal_size": "exact arg requires payload but none supplied",
 }
 
 
@@ -288,6 +290,7 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
             "supports_basic_topology_payload": True,
             "supports_exact_set_arg_replay": True,
             "supports_header_only_set_arg_replay": True,
+            "supports_header_only_nonzero_cal_size_exact_args": True,
             "patches_fresh_mem_handle_for_payload_records": True,
             "keeps_all_payload_fds_open_across_probe": True,
             "reverse_deallocates_payload_records": True,
@@ -355,6 +358,7 @@ def write_report(path: Path, payload: dict[str, Any]) -> None:
         "",
         "- `--basic-payload CAL_TYPE:BUFFER:PAYLOAD` supports the operator-verified topology payload.",
         "- `--exact-set ARG` replays header-only SET records exactly.",
+        "- Header-only exact SET records preserve captured non-zero `cal_size` fields without requiring a separate dma-buf payload.",
         "- `--exact-set ARG:PAYLOAD` allocates a fresh ION dmabuf, copies the payload, patches `mem_handle`, then sends the captured SET arg.",
         "- Payload-backed records are deallocated in reverse order; header-only records are not deallocated.",
         "- The helper keeps `/dev/msm_audio_cal` and all payload fds open across the future bounded PCM probe window.",

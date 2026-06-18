@@ -71,6 +71,8 @@ class NativeAudioAcdbSetcalReplayHelperGateV2635(unittest.TestCase):
         self.assertTrue(state["ready"], state)
         self.assertTrue(state["required_tokens"]["exact_set_entry"])
         self.assertTrue(state["required_tokens"]["header_only_replay"])
+        self.assertTrue(state["required_tokens"]["header_only_nonzero_cal_size"])
+        self.assertTrue(state["required_tokens"]["header_only_marker"])
         self.assertFalse(any(state["prohibited_tokens"].values()))
 
     def test_v2634_state_generates_mixed_future_args(self) -> None:
@@ -82,6 +84,9 @@ class NativeAudioAcdbSetcalReplayHelperGateV2635(unittest.TestCase):
         self.assertEqual(state["future_private_args"][0], "--basic-payload")
         self.assertEqual(state["future_private_args"].count("--exact-set"), 8)
         self.assertTrue(any(":workspace/private/fake/payload-3-11.bin" in item for item in state["future_private_args"]))
+        self.assertIn("--exact-set", state["future_private_args"])
+        self.assertIn("workspace/private/fake/set-arg-8-21.bin", state["future_private_args"])
+        self.assertFalse(any("set-arg-8-21.bin:" in item for item in state["future_private_args"]))
 
     def test_manifest_stays_host_only_and_replay_blocked_without_build(self) -> None:
         root = Path(tempfile.mkdtemp(prefix="a90-v2635-"))
@@ -101,6 +106,7 @@ class NativeAudioAcdbSetcalReplayHelperGateV2635(unittest.TestCase):
         self.assertFalse(manifest["safe_to_run_native_replay"])
         self.assertIn("operator Gate-2", manifest["replay_blockers"][0])
         self.assertTrue(manifest["helper_contract"]["supports_exact_set_arg_replay"])
+        self.assertTrue(manifest["helper_contract"]["supports_header_only_nonzero_cal_size_exact_args"])
 
     def test_report_states_no_live_replay_approval(self) -> None:
         root = Path(tempfile.mkdtemp(prefix="a90-v2635-"))

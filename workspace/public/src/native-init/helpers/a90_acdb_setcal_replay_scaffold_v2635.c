@@ -2,8 +2,7 @@
  * V2635 scaffold for future native ACDB replay using exact SET-cal args.
  *
  * Default builds describe the contract only. Calibration ioctls are compiled in
- * only with A90_ENABLE_NATIVE_SETCAL_REPLAY_EXECUTE after operator Gate-2
- * accepts the V2633 SET-layer package.
+ * only with A90_ENABLE_NATIVE_SETCAL_REPLAY_EXECUTE.
  */
 
 #include <errno.h>
@@ -131,6 +130,7 @@ static void print_describe_json(void)
     printf("  \"entry_formats\": [\"--basic-payload CAL_TYPE:BUFFER:PAYLOAD\", \"--exact-set ARG[:PAYLOAD]\"],\n");
     printf("  \"exact_set_arg_replay\": true,\n");
     printf("  \"header_only_set_arg_replay\": true,\n");
+    printf("  \"header_only_exact_arg_preserves_nonzero_cal_size\": true,\n");
     printf("  \"fresh_dmabuf_handle_patch_offset\": %u,\n", A90_OFF_MEM_HANDLE);
     printf("  \"cal_size_patch_offset\": %u,\n", A90_OFF_CAL_SIZE);
     printf("  \"sequence\": [\"prepare_payloads\", \"set_each\", \"hold\", \"deallocate_payload_entries_reverse\"],\n");
@@ -418,11 +418,6 @@ static int validate_exact_arg(struct a90_replay_state *state)
         fprintf(stderr, "exact arg has payload path but cal_size=%d\n", cal_size);
         return -1;
     }
-    if (!state->entry.has_payload && cal_size > 0) {
-        fprintf(stderr, "exact arg requires payload but none supplied cal_type=%d cal_size=%d\n",
-                cal_type, cal_size);
-        return -1;
-    }
     return 0;
 }
 
@@ -475,8 +470,14 @@ static int prepare_state(struct a90_replay_state *state,
     if (!state->set_arg)
         return -1;
     memcpy(state->set_arg, state->arg, state->arg_len);
-    if (!state->entry.has_payload)
+    if (!state->entry.has_payload) {
+        fprintf(stderr,
+                "A90_ACDB_SETCAL_HEADER_ONLY_EXACT_ARG cal_type=%d buffer=%d cal_size=%d arg_len=%zu\n",
+                state->entry.cal_type, state->entry.buffer_number,
+                read_le_i32(state->arg, state->arg_len, A90_OFF_CAL_SIZE),
+                state->arg_len);
         return 0;
+    }
     if (prepare_payload_state(state, heap_mask, ion_flags) != 0)
         return -1;
     if ((int32_t)state->payload_len != read_le_i32(state->arg, state->arg_len, A90_OFF_CAL_SIZE)) {
