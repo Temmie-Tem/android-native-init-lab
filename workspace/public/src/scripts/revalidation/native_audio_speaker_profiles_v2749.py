@@ -309,14 +309,14 @@ AUDIO_FEATURE_STAGES = (
     AudioFeatureStage(
         stage_id="replay-acdb-setcal-sequence",
         order=50,
-        owner="private-helper",
+        owner="native-init",
         phase="acdb",
-        command_template=("a90_acdb_setcal_replay_scaffold", "--profile", "{profile}"),
+        command_template=("audio", "setcal", "{profile}", "--dry-run"),
         native_implemented=False,
         writes_runtime_state=True,
         rollback_boundary=False,
         speaker_scope="shared",
-        note="currently private helper; target for future native audio setcal API",
+        note="native manifest API only; execute remains blocked until private payload loading is implemented",
     ),
     AudioFeatureStage(
         stage_id="apply-core-speaker-route",

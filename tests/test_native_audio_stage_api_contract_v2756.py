@@ -45,6 +45,11 @@ class NativeAudioStageApiContractV2756(unittest.TestCase):
             stages["reset-core-speaker-route"]["command"],
             ["audio", "route", "internal-speaker-safe", "--reset", "--layer", "core"],
         )
+        self.assertEqual(
+            stages["replay-acdb-setcal-sequence"]["command"],
+            ["audio", "setcal", "internal-speaker-safe", "--dry-run"],
+        )
+        self.assertFalse(stages["replay-acdb-setcal-sequence"]["native_implemented"])
         self.assertEqual(stages["bounded-pcm-playback"]["speaker_scope"], "internal-speaker")
 
     def test_profile_manifest_includes_stage_api_without_private_paths(self) -> None:
@@ -101,6 +106,7 @@ class NativeAudioStageApiContractV2756(unittest.TestCase):
         )
         self.assertIn('.command_template = "audio route %s --apply --layer core"', text)
         self.assertIn('.command_template = "audio route %s --reset --layer core"', text)
+        self.assertIn('.command_template = "audio setcal %s --dry-run"', text)
 
 
 if __name__ == "__main__":

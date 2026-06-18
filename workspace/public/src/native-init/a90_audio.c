@@ -150,6 +150,12 @@ struct audio_stage_contract {
     bool rollback_boundary;
 };
 
+struct audio_setcal_entry {
+    int cal_type;
+    const char *role;
+    bool dmabuf_expected;
+};
+
 static const char *const AUDIO_INTERNAL_SPEAKER_OBSERVER_CONTROLS[] = {
     "SpkrLeft COMP Switch",
     "SpkrRight COMP Switch",
@@ -388,11 +394,11 @@ static const struct audio_stage_contract AUDIO_STAGE_CONTRACTS[] = {
     },
     {
         .id = "replay-acdb-setcal-sequence",
-        .owner = "private-helper",
+        .owner = "native-init",
         .phase = "acdb",
-        .command_template = "a90_acdb_setcal_replay_scaffold --profile %s",
+        .command_template = "audio setcal %s --dry-run",
         .speaker_scope = "shared",
-        .note = "currently private helper; target for future native audio setcal API",
+        .note = "native manifest API only; execute remains blocked until private payload loading is implemented",
         .order = 50,
         .uses_profile = true,
         .native_implemented = false,
@@ -452,6 +458,20 @@ static const struct audio_stage_contract AUDIO_STAGE_CONTRACTS[] = {
     },
 };
 
+static const struct audio_setcal_entry AUDIO_INTERNAL_SPEAKER_SETCAL_PLAN[] = {
+    {.cal_type = 39, .role = "CORE_CUSTOM_TOPOLOGIES_BYTE_EXACT_SET", .dmabuf_expected = true},
+    {.cal_type = 20, .role = "AFE_FB_SPKR_PROT_HEADER_REAL_HAL_1", .dmabuf_expected = false},
+    {.cal_type = 20, .role = "AFE_FB_SPKR_PROT_HEADER_REAL_HAL_2", .dmabuf_expected = false},
+    {.cal_type = 13, .role = "APP_META_HEADER", .dmabuf_expected = false},
+    {.cal_type = 9, .role = "AFE_TOPOLOGY_HEADER", .dmabuf_expected = false},
+    {.cal_type = 11, .role = "AUDPROC_COMMON_PAYLOAD", .dmabuf_expected = true},
+    {.cal_type = 12, .role = "VOL_HEADER_NO_PAYLOAD", .dmabuf_expected = false},
+    {.cal_type = 15, .role = "ASM_STREAM_PAYLOAD", .dmabuf_expected = true},
+    {.cal_type = 23, .role = "AFE_TOPOLOGY_ID_HEADER", .dmabuf_expected = false},
+    {.cal_type = 16, .role = "AFE_COMMON_PAYLOAD", .dmabuf_expected = true},
+    {.cal_type = 21, .role = "SPEAKER_VI_HEADER", .dmabuf_expected = false},
+};
+
 static const char *yesno(bool value) {
     return value ? "yes" : "no";
 }
@@ -462,6 +482,10 @@ static int audio_profile_count(void) {
 
 static int audio_stage_count(void) {
     return (int)(sizeof(AUDIO_STAGE_CONTRACTS) / sizeof(AUDIO_STAGE_CONTRACTS[0]));
+}
+
+static int audio_setcal_entry_count(void) {
+    return (int)(sizeof(AUDIO_INTERNAL_SPEAKER_SETCAL_PLAN) / sizeof(AUDIO_INTERNAL_SPEAKER_SETCAL_PLAN[0]));
 }
 
 static const struct audio_speaker_profile *audio_find_profile(const char *id) {
@@ -626,6 +650,112 @@ static int audio_print_stages(char **argv, int argc) {
         audio_print_stage_command(prefix, stage, profile);
         a90_console_printf("%s.note=%s\r\n", prefix, stage->note);
     }
+    return 0;
+}
+
+static bool audio_setcal_plan_matches_profile(const struct audio_speaker_profile *profile) {
+    int index;
+
+    if (profile == NULL || audio_setcal_entry_count() != AUDIO_PROFILE_ACDB_SET_COUNT) {
+        return false;
+    }
+    for (index = 0; index < audio_setcal_entry_count(); ++index) {
+        if (AUDIO_INTERNAL_SPEAKER_SETCAL_PLAN[index].cal_type != profile->acdb_set_order[index]) {
+            return false;
+        }
+    }
+    return true;
+}
+
+static int audio_setcal_payload_entry_count(void) {
+    int index;
+    int count = 0;
+
+    for (index = 0; index < audio_setcal_entry_count(); ++index) {
+        if (AUDIO_INTERNAL_SPEAKER_SETCAL_PLAN[index].dmabuf_expected) {
+            ++count;
+        }
+    }
+    return count;
+}
+
+static int audio_setcal_cmd(char **argv, int argc) {
+    const char *profile_id = AUDIO_DEFAULT_PROFILE_ID;
+    const struct audio_speaker_profile *profile;
+    bool seen_profile = false;
+    bool execute_mode = false;
+    int argi;
+    int index;
+
+    for (argi = 2; argi < argc; ++argi) {
+        if (argv == NULL || argv[argi] == NULL) {
+            a90_console_printf("usage: audio setcal [profile] [--dry-run|--execute]\r\n");
+            return -EINVAL;
+        }
+        if (strcmp(argv[argi], "--dry-run") == 0) {
+            execute_mode = false;
+        } else if (strcmp(argv[argi], "--execute") == 0) {
+            execute_mode = true;
+        } else if (!seen_profile) {
+            profile_id = argv[argi];
+            seen_profile = true;
+        } else {
+            a90_console_printf("usage: audio setcal [profile] [--dry-run|--execute]\r\n");
+            return -EINVAL;
+        }
+    }
+
+    profile = audio_find_profile(profile_id);
+    a90_console_printf("audio.setcal.version=1\r\n");
+    a90_console_printf("audio.setcal.profile=%s\r\n", profile_id);
+    a90_console_printf("audio.setcal.mode=%s\r\n", execute_mode ? "execute" : "dry-run");
+    a90_console_printf("audio.setcal.ioctl_attempted=0\r\n");
+    a90_console_printf("audio.setcal.execute_supported=0\r\n");
+    if (profile == NULL) {
+        a90_console_printf("audio.setcal.error=unknown-profile\r\n");
+        return -ENOENT;
+    }
+    if (!audio_setcal_plan_matches_profile(profile)) {
+        a90_console_printf("audio.setcal.error=plan-order-mismatch entries=%d expected=%d\r\n",
+                           audio_setcal_entry_count(),
+                           AUDIO_PROFILE_ACDB_SET_COUNT);
+        return -EINVAL;
+    }
+
+    a90_console_printf("audio.setcal.endpoint=%s\r\n", profile->endpoint);
+    a90_console_printf("audio.setcal.private_payloads_required=1\r\n");
+    a90_console_printf("audio.setcal.exact_set_arg_replay=1\r\n");
+    a90_console_printf("audio.setcal.header_only_set_arg_replay=1\r\n");
+    a90_console_printf("audio.setcal.devices.msm_audio_cal=/dev/msm_audio_cal\r\n");
+    a90_console_printf("audio.setcal.devices.ion=/dev/ion\r\n");
+    a90_console_printf("audio.setcal.sequence=prepare_payloads,set_each,hold,deallocate_payload_entries_reverse\r\n");
+    a90_console_printf("audio.setcal.entry.count=%d\r\n", audio_setcal_entry_count());
+    a90_console_printf("audio.setcal.entry.payload.count=%d\r\n", audio_setcal_payload_entry_count());
+    a90_console_printf("audio.setcal.helper.max_entries=16\r\n");
+    print_int_list("audio.setcal.replay_order", profile->acdb_set_order, AUDIO_PROFILE_ACDB_SET_COUNT);
+    print_int_list("audio.setcal.forbidden_stale_cal_types",
+                   profile->forbidden_cal_types,
+                   AUDIO_PROFILE_FORBIDDEN_CAL_COUNT);
+    for (index = 0; index < audio_setcal_entry_count(); ++index) {
+        char prefix[64];
+        const struct audio_setcal_entry *entry = &AUDIO_INTERNAL_SPEAKER_SETCAL_PLAN[index];
+
+        snprintf(prefix, sizeof(prefix), "audio.setcal.entry.%d", index);
+        a90_console_printf("%s.sequence=%d\r\n", prefix, index);
+        a90_console_printf("%s.kind=exact-set\r\n", prefix);
+        a90_console_printf("%s.cal_type=%d\r\n", prefix, entry->cal_type);
+        a90_console_printf("%s.role=%s\r\n", prefix, entry->role);
+        a90_console_printf("%s.arg_required=1\r\n", prefix);
+        a90_console_printf("%s.dmabuf_expected=%d\r\n", prefix, entry->dmabuf_expected ? 1 : 0);
+        a90_console_printf("%s.payload_required=%d\r\n", prefix, entry->dmabuf_expected ? 1 : 0);
+    }
+
+    if (execute_mode) {
+        a90_console_printf("audio.setcal.refused=execute-not-implemented-native-manifest-only\r\n");
+        a90_console_printf("audio.setcal.ioctl_attempted=0\r\n");
+        return -EPERM;
+    }
+    a90_console_printf("audio.setcal.dry_run_ok=1\r\n");
     return 0;
 }
 
@@ -2043,6 +2173,9 @@ int a90_audio_cmd(char **argv, int argc) {
     if (argc >= 2 && argv != NULL && argv[1] != NULL && strcmp(argv[1], "app-type") == 0) {
         return audio_app_type_cmd(argv, argc);
     }
+    if (argc >= 2 && argv != NULL && argv[1] != NULL && strcmp(argv[1], "setcal") == 0) {
+        return audio_setcal_cmd(argv, argc);
+    }
     if (argc >= 2 && argv != NULL && argv[1] != NULL && strcmp(argv[1], "route") == 0) {
         return audio_route_cmd(argv, argc);
     }
@@ -2055,6 +2188,6 @@ int a90_audio_cmd(char **argv, int argc) {
     if (argc >= 2 && argv != NULL && argv[1] != NULL && strcmp(argv[1], "snd-materialize-once") == 0) {
         return audio_snd_materialize_once(argv, argc);
     }
-    a90_console_printf("usage: audio [adsp-status|status|profiles|profile [id]|stages [id]|app-type [profile] [--dry-run|--write]|route [profile] [--dry-run|--apply|--reset] [--layer all|core|feedback|endpoint|blocked]|snd-status|adsp-boot-once|snd-materialize-once]\r\n");
+    a90_console_printf("usage: audio [adsp-status|status|profiles|profile [id]|stages [id]|app-type [profile] [--dry-run|--write]|setcal [profile] [--dry-run|--execute]|route [profile] [--dry-run|--apply|--reset] [--layer all|core|feedback|endpoint|blocked]|snd-status|adsp-boot-once|snd-materialize-once]\r\n");
     return -EINVAL;
 }
