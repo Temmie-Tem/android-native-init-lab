@@ -26,7 +26,7 @@ issue calibration ioctls, or run PCM playback.
 - final_set_index: `8`
 - final_set_marker: `A90_ACDB_SETCAL_SET_OK index=8`
 - payload_entry_indices_requiring_deallocate: `[0, 3, 5, 7]`
-- remote_script_paths: `{'start_and_wait_all_set': '/cache/a90-acdb-setcal-replay-v2636/setcal-start-and-wait-all-set.sh', 'deallocate_check': '/cache/a90-acdb-setcal-replay-v2636/setcal-deallocate-check.sh', 'runtime_cleanup': '/cache/a90-acdb-setcal-replay-v2636/setcal-runtime-cleanup.sh'}`
+- remote_script_paths: `{'start_and_wait_all_set': '/cache/a90-runtime/bin/v2639-setcal-replay-scripts/setcal-start-and-wait-all-set.sh', 'deallocate_check': '/cache/a90-runtime/bin/v2639-setcal-replay-scripts/setcal-deallocate-check.sh', 'runtime_cleanup': '/cache/a90-runtime/bin/v2639-setcal-replay-scripts/setcal-runtime-cleanup.sh'}`
 - route_apply_count: `13`
 - route_reset_count: `12`
 - app_type_gate_enabled: `True`

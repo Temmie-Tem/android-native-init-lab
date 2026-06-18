@@ -110,7 +110,7 @@ def install_artifact(args: argparse.Namespace,
         timeout=args.transfer_timeout + 60.0,
         allow_error=True,
     )
-    if not step.get("ok"):
+    if not step.get("ok") or int(step.get("rc") or 0) != 0:
         raise RuntimeError(f"install failed for {name}: {step.get('stdout_tail') or step.get('stderr_tail')}")
     return {"ok": True, "remote": remote_path, "stdout_path": step.get("stdout_path")}
 

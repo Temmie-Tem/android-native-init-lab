@@ -33,6 +33,7 @@ DEFAULT_REPORT = ROOT / "docs/reports/NATIVE_INIT_V2638_AUDIO_ACDB_SETCAL_REPLAY
 APPROVAL_PHRASE = v2637.APPROVAL_PHRASE
 REMOTE_STDOUT = "setcal-replay.stdout"
 REMOTE_STDERR = "setcal-replay.stderr"
+REMOTE_SCRIPT_DIR = "/cache/a90-runtime/bin/v2639-setcal-replay-scripts"
 REMOTE_START_SCRIPT = "setcal-start-and-wait-all-set.sh"
 REMOTE_DEALLOCATE_SCRIPT = "setcal-deallocate-check.sh"
 REMOTE_RUNTIME_CLEANUP_SCRIPT = "setcal-runtime-cleanup.sh"
@@ -221,17 +222,18 @@ def remote_runtime_cleanup_script(manifest: dict[str, Any]) -> str:
         [
             "set -u",
             f"rm -rf {shlex.quote(str(manifest.get('remote_dir')))}",
+            f"rm -rf {shlex.quote(REMOTE_SCRIPT_DIR)}",
             "echo A90_SETCAL_REPLAY_RUNTIME_CLEANUP_DONE",
         ]
     )
 
 
 def remote_script_paths(manifest: dict[str, Any]) -> dict[str, str]:
-    remote_dir = str(manifest.get("remote_dir"))
+    _ = manifest
     return {
-        "start_and_wait_all_set": f"{remote_dir}/{REMOTE_START_SCRIPT}",
-        "deallocate_check": f"{remote_dir}/{REMOTE_DEALLOCATE_SCRIPT}",
-        "runtime_cleanup": f"{remote_dir}/{REMOTE_RUNTIME_CLEANUP_SCRIPT}",
+        "start_and_wait_all_set": f"{REMOTE_SCRIPT_DIR}/{REMOTE_START_SCRIPT}",
+        "deallocate_check": f"{REMOTE_SCRIPT_DIR}/{REMOTE_DEALLOCATE_SCRIPT}",
+        "runtime_cleanup": f"{REMOTE_SCRIPT_DIR}/{REMOTE_RUNTIME_CLEANUP_SCRIPT}",
     }
 
 

@@ -87,6 +87,7 @@ class NativeAudioAcdbSetcalReplayLiveRunnerPlanV2638(unittest.TestCase):
             sorted(plan["remote_script_paths"]),
             ["deallocate_check", "runtime_cleanup", "start_and_wait_all_set"],
         )
+        self.assertTrue(plan["remote_script_paths"]["start_and_wait_all_set"].startswith("/cache/a90-runtime/bin/"))
         self.assertTrue(plan["remote_script_paths"]["start_and_wait_all_set"].endswith("/setcal-start-and-wait-all-set.sh"))
         self.assertEqual(plan["replay_gate_blockers"], [])
 
@@ -100,6 +101,7 @@ class NativeAudioAcdbSetcalReplayLiveRunnerPlanV2638(unittest.TestCase):
         self.assertIn("/dev/msm_audio_cal", start)
         self.assertIn("/dev/ion", start)
         self.assertIn("A90_SETCAL_REPLAY_ALL_SET_OK", start)
+        self.assertIn("/cache/a90-runtime/bin/v2639-setcal-replay-scripts", plan["remote_scripts"]["runtime_cleanup"])
         self.assertIn("A90_ACDB_SETCAL_REPLAY_DONE rc=0", cleanup)
         for index in [0, 3, 5, 7]:
             self.assertIn(f"A90_ACDB_SETCAL_DEALLOCATE_OK index={index}", cleanup)

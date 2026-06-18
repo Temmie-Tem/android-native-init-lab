@@ -102,6 +102,7 @@ class NativeAudioAcdbSetcalReplayLiveHandoffV2639(unittest.TestCase):
         self.assertEqual([item[0] for item in scripts], ["start_and_wait_all_set", "deallocate_check", "runtime_cleanup"])
         start_key, start_remote, start_local = scripts[0]
         self.assertEqual(start_key, "start_and_wait_all_set")
+        self.assertTrue(start_remote.startswith("/cache/a90-runtime/bin/"))
         self.assertTrue(start_remote.endswith("/setcal-start-and-wait-all-set.sh"))
         self.assertIn("sha256sum -c -", start_local.read_text(encoding="utf-8"))
         self.assertIn("A90_SETCAL_REPLAY_ALL_SET_OK", start_local.read_text(encoding="utf-8"))
