@@ -273,12 +273,23 @@ def build_runner_plan(args: argparse.Namespace) -> dict[str, Any]:
     playback = route_plan.get("playback") or {}
     gate_blockers = []
     if not manifest.get("ok") or not manifest.get("all_inputs_ok"):
-        gate_blockers.append("V2636 deployment inputs are not all verified")
+        gate_blockers.append("ACDB replay deployment inputs are not all verified")
+    replay_entry_count = set_entry_count(manifest)
+    replay_file_count = len(remote_paths(manifest))
+    minimum_entry_count = 9
+    minimum_file_count = 13
+    if replay_entry_count < minimum_entry_count:
+        gate_blockers.append(f"replay manifest has only {replay_entry_count} entries; expected at least {minimum_entry_count}")
+    if replay_file_count < minimum_file_count:
+        gate_blockers.append(f"replay manifest has only {replay_file_count} files; expected at least {minimum_file_count}")
+    if manifest.get("set_args") and replay_entry_count != len(manifest.get("set_args") or []) + 1:
+        gate_blockers.append("remote argv entry count does not match manifest set_args plus topology")
     execution_contract_ok = bool(
         manifest.get("ok")
         and manifest.get("all_inputs_ok")
-        and set_entry_count(manifest) == 9
-        and len(remote_paths(manifest)) == 13
+        and replay_entry_count >= minimum_entry_count
+        and replay_file_count >= minimum_file_count
+        and not gate_blockers
         and len(route_apply) == 13
         and len(route_reset) == 12
         and bool(app_type)
@@ -307,8 +318,8 @@ def build_runner_plan(args: argparse.Namespace) -> dict[str, Any]:
         "replay_gate_blockers": gate_blockers,
         "remote": {
             "dir": manifest.get("remote_dir"),
-            "file_count": len(remote_paths(manifest)),
-            "entry_count": set_entry_count(manifest),
+            "file_count": replay_file_count,
+            "entry_count": replay_entry_count,
             "final_set_index": final_set_index(manifest),
             "payload_entry_indices": payload_entry_indices(manifest),
             "argv": manifest.get("remote_argv") or [],
@@ -333,12 +344,12 @@ def build_runner_plan(args: argparse.Namespace) -> dict[str, Any]:
             "verify rollback V2321 and current selftest fail=0",
             "flash V2334 audio candidate through checked helper and verify health",
             "boot ADSP and materialize /dev/snd nodes",
-            "stage 13 V2636 replay files plus tinymix, PCM probe, and generated low-amplitude WAV",
+            "stage the ACDB replay manifest files plus tinymix, PCM probe, and generated low-amplitude WAV",
             "stage long replay shell scripts as files and run only short shell commands",
             "verify all staged ACDB file SHA-256 values on device",
             "take tinymix baseline snapshot",
             "apply V2407 App Type and V2377 route controls",
-            "start V2635 exact SET replay helper in background and wait for final SET index 8",
+            f"start V2635 exact SET replay helper in background and wait for final SET index {final_set_index(manifest)}",
             "run bounded PCM probe during helper hold window",
             "wait for replay done and reverse deallocation markers",
             "reverse-reset route controls and verify reset against baseline",

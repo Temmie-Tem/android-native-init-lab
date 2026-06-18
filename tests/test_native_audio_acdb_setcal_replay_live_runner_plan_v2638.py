@@ -66,6 +66,46 @@ def fake_deploy(root: Path) -> Path:
     return path
 
 
+def fake_custom_deploy(root: Path) -> Path:
+    remote_dir = "/cache/a90-test-v2677"
+    files = [fake_file(root / "helper-custom", b"helper", f"{remote_dir}/helper", "helper")]
+    files.append(fake_file(root / "topology-custom", b"T" * 4916, f"{remote_dir}/00-core.bin", "topology"))
+    set_args = []
+    argv = [f"{remote_dir}/helper", "--execute", "--basic-payload", f"39:0:{remote_dir}/00-core.bin"]
+    for index, cal_type in enumerate([24, 14, 13, 9, 11, 12, 15, 23, 16, 21], start=1):
+        arg = f"{remote_dir}/{index:02d}-arg-cal{cal_type}.bin"
+        files.append(fake_file(root / f"custom-arg{index}", bytes([index]) * 40, arg, "set_arg"))
+        payload = None
+        if cal_type in {24, 14, 11, 15, 16}:
+            payload = f"{remote_dir}/{index:02d}-payload-cal{cal_type}.bin"
+            files.append(fake_file(root / f"custom-payload{index}", bytes([cal_type]) * 12, payload, "payload"))
+        spec = arg if payload is None else f"{arg}:{payload}"
+        argv.extend(["--exact-set", spec])
+        set_args.append(
+            {
+                "sequence": index,
+                "cal_type": cal_type,
+                "role": f"CAL_{cal_type}",
+                "dmabuf_expected": payload is not None,
+                "arg_remote": arg,
+                "payload_remote": payload,
+                "ok": True,
+            }
+        )
+    argv.extend(["--hold-sec", "10"])
+    path = root / "custom-deploy.json"
+    write_json(path, {
+        "ok": True,
+        "all_inputs_ok": True,
+        "operator_gate2_accepted": False,
+        "remote_dir": remote_dir,
+        "remote_argv": argv,
+        "set_args": set_args,
+        "files": files,
+    })
+    return path
+
+
 class NativeAudioAcdbSetcalReplayLiveRunnerPlanV2638(unittest.TestCase):
     def args(self, root: Path):
         return v2638.parse_args(["--v2636-manifest", str(fake_deploy(root))])
@@ -122,6 +162,21 @@ class NativeAudioAcdbSetcalReplayLiveRunnerPlanV2638(unittest.TestCase):
         self.assertIn("final_set_index", text)
         self.assertNotIn("sha256sum -c -", text)
         self.assertNotIn("local_path_private", text)
+
+    def test_runner_plan_accepts_custom_topology_overlay_manifest(self) -> None:
+        root = Path(tempfile.mkdtemp(prefix="a90-v2638-custom-"))
+        args = v2638.parse_args(["--v2636-manifest", str(fake_custom_deploy(root))])
+
+        plan = v2638.build_runner_plan(args)
+
+        self.assertTrue(plan["ok"])
+        self.assertTrue(plan["execution_contract_ok"])
+        self.assertEqual(plan["remote"]["entry_count"], 11)
+        self.assertEqual(plan["remote"]["file_count"], 17)
+        self.assertEqual(plan["remote"]["final_set_index"], 10)
+        self.assertEqual(plan["remote"]["payload_entry_indices"], [0, 1, 2, 5, 7, 9])
+        self.assertIn("A90_ACDB_SETCAL_SET_OK index=10", plan["remote_scripts"]["start_and_wait_all_set"])
+        self.assertEqual(plan["replay_gate_blockers"], [])
 
 
 if __name__ == "__main__":
