@@ -2452,7 +2452,6 @@ static int audio_play_load_setcal_session(const struct audio_speaker_profile *pr
                                           struct audio_setcal_execute_session *session) {
     struct audio_setcal_manifest_plan plan;
     struct audio_setcal_manifest_totals totals;
-    struct audio_setcal_manifest_totals load_totals;
     int rc;
 
     if (profile == NULL || manifest_path == NULL || session == NULL) {
@@ -2460,10 +2459,10 @@ static int audio_play_load_setcal_session(const struct audio_speaker_profile *pr
     }
     memset(&plan, 0, sizeof(plan));
     memset(&totals, 0, sizeof(totals));
-    memset(&load_totals, 0, sizeof(load_totals));
     a90_console_printf("audio.play.integrated.stage=setcal\r\n");
     a90_console_printf("audio.play.integrated.setcal.manifest=%s\r\n", manifest_path);
-    rc = audio_setcal_verify_manifest(profile, manifest_path, &totals, true, &load_totals, &plan);
+    a90_console_printf("audio.play.integrated.setcal.verify_load_files=0\r\n");
+    rc = audio_setcal_verify_manifest(profile, manifest_path, &totals, false, NULL, &plan);
     a90_console_printf("audio.play.integrated.setcal.verify_rc=%d\r\n", rc);
     if (rc < 0) {
         return rc;
