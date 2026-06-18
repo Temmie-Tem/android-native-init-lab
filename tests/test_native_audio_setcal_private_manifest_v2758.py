@@ -29,8 +29,8 @@ class NativeAudioSetcalPrivateManifestV2758(unittest.TestCase):
         self.assertIn("audio.setcal.verify.ioctl_attempted=0", text)
         self.assertIn("a90_helper_sha256_file(path, actual_sha256", text)
         verify_start = text.index("static int audio_setcal_verify_manifest")
-        execute_refusal = text.index("audio.setcal.refused=execute-not-implemented-native-setcal-ioctl")
-        self.assertNotIn("AUDIO_SET_CALIBRATION", text[verify_start:execute_refusal])
+        verify_end = text.index("static void audio_setcal_print_execute_plan", verify_start)
+        self.assertNotIn("AUDIO_SET_CALIBRATION", text[verify_start:verify_end])
 
     def test_native_manifest_paths_are_bounded_to_runtime_or_legacy_cache(self) -> None:
         text = source_text()
@@ -41,7 +41,7 @@ class NativeAudioSetcalPrivateManifestV2758(unittest.TestCase):
         self.assertIn("audio_setcal_manifest_path_allowed", text)
         self.assertIn("audio_setcal_payload_path_allowed", text)
 
-    def test_stage_api_adds_native_verify_before_blocked_replay(self) -> None:
+    def test_stage_api_adds_native_verify_before_replay(self) -> None:
         stages = {stage["stage_id"]: stage for stage in profiles.stage_manifests()}
 
         verify = stages["verify-private-acdb-manifest"]
@@ -51,7 +51,7 @@ class NativeAudioSetcalPrivateManifestV2758(unittest.TestCase):
         self.assertFalse(verify["writes_runtime_state"])
         self.assertIn("--verify", verify["command"])
         self.assertIn(profiles.DEFAULT_SETCAL_MANIFEST_PATH, verify["command"])
-        self.assertFalse(replay["native_implemented"])
+        self.assertTrue(replay["native_implemented"])
         self.assertIn("--execute", replay["command"])
 
     def test_generator_builds_line_manifest_from_deploy_plan_shape(self) -> None:

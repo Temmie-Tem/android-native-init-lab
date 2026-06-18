@@ -109,7 +109,8 @@ class NativeAudioStageApiContractV2756(unittest.TestCase):
                 "--execute",
             ],
         )
-        self.assertFalse(stages["replay-acdb-setcal-sequence"]["native_implemented"])
+        self.assertTrue(stages["replay-acdb-setcal-sequence"]["native_implemented"])
+        self.assertTrue(stages["replay-acdb-setcal-sequence"]["writes_runtime_state"])
         self.assertEqual(
             stages["plan-bounded-pcm-playback"]["command"],
             ["audio", "play", "internal-speaker-safe", "--mode", "probe", "--dry-run"],
@@ -175,7 +176,7 @@ class NativeAudioStageApiContractV2756(unittest.TestCase):
 
         self.assertRegex(
             text,
-            re.compile(r'\.id = "replay-acdb-setcal-sequence".*?\.native_implemented = false', re.DOTALL),
+            re.compile(r'\.id = "replay-acdb-setcal-sequence".*?\.native_implemented = true', re.DOTALL),
         )
         self.assertRegex(
             text,

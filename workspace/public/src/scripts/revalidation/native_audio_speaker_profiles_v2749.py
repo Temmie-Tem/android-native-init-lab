@@ -380,11 +380,11 @@ AUDIO_FEATURE_STAGES = (
             DEFAULT_SETCAL_MANIFEST_PATH,
             "--execute",
         ),
-        native_implemented=False,
+        native_implemented=True,
         writes_runtime_state=True,
         rollback_boundary=False,
         speaker_scope="shared",
-        note="SET replay remains blocked until the private manifest verifier is followed by a native ioctl implementation",
+        note="replays the verified private ACDB SET sequence with ION dmabuf payloads and reverse deallocation cleanup",
     ),
     AudioFeatureStage(
         stage_id="apply-core-speaker-route",

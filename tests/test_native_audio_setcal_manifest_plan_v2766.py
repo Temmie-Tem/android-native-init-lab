@@ -68,7 +68,7 @@ class NativeAudioSetcalManifestPlanV2766(unittest.TestCase):
     def test_execute_plan_is_printed_from_materialized_manifest_plan(self) -> None:
         text = source_text()
         plan_start = text.index("static void audio_setcal_print_execute_plan")
-        plan_end = text.index("static void audio_setcal_execute_open_state_reset", plan_start)
+        plan_end = text.index("static void audio_setcal_allocation_plan_build", plan_start)
         plan_block = text[plan_start:plan_end]
 
         for marker in [
@@ -100,7 +100,10 @@ class NativeAudioSetcalManifestPlanV2766(unittest.TestCase):
         self.assertIn("audio_setcal_verify_manifest(profile", cmd_block)
         self.assertIn("manifest_plan)", cmd_block)
         self.assertIn("audio_setcal_print_execute_plan(profile, manifest_plan)", cmd_block)
-        self.assertRegex(cmd_block, re.compile(r"free\(manifest_plan\).*?return -EPERM;", re.DOTALL))
+        self.assertRegex(
+            cmd_block,
+            re.compile(r"audio_setcal_execute_manifest_plan\(manifest_plan, &ioctl_count\).*?free\(manifest_plan\).*?return execute_rc;", re.DOTALL),
+        )
         self.assertRegex(cmd_block, re.compile(r"free\(manifest_plan\).*?audio\.setcal\.dry_run_ok=1", re.DOTALL))
 
 

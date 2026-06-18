@@ -24,10 +24,10 @@ class NativeAudioSetcalExecuteGateV2763(unittest.TestCase):
         self.assertIn("manifest_action_requested = verify_manifest || prepare_manifest || load_manifest || execute_mode", text)
         self.assertIn("load_files = load_manifest || execute_mode", text)
 
-    def test_execute_plan_publishes_ioctl_abi_without_calling_it(self) -> None:
+    def test_execute_plan_publishes_ioctl_abi_before_calling_it(self) -> None:
         text = source_text()
         plan_start = text.index("static void audio_setcal_print_execute_plan")
-        plan_end = text.index("static void audio_setcal_execute_open_state_reset")
+        plan_end = text.index("static void audio_setcal_allocation_plan_build")
         plan_block = text[plan_start:plan_end]
 
         for marker in [
@@ -46,18 +46,18 @@ class NativeAudioSetcalExecuteGateV2763(unittest.TestCase):
         self.assertNotIn("open(", plan_block)
         self.assertNotIn("ioctl(", plan_block)
 
-    def test_execute_refusal_happens_after_verify_load_and_plan(self) -> None:
+    def test_execute_replay_happens_after_verify_load_and_plan(self) -> None:
         text = source_text()
 
         verify_call = text.index("verify_rc = audio_setcal_verify_manifest")
         plan_call = text.index("audio_setcal_print_execute_plan(profile, manifest_plan)")
-        refusal = text.index("audio.setcal.refused=execute-not-implemented-native-setcal-ioctl")
+        execute_call = text.index("audio_setcal_execute_manifest_plan(manifest_plan, &ioctl_count)")
 
         self.assertLess(verify_call, plan_call)
-        self.assertLess(plan_call, refusal)
+        self.assertLess(plan_call, execute_call)
         self.assertRegex(
             text,
-            re.compile(r'if \(execute_mode\).*?audio_setcal_print_execute_plan.*?execute-not-implemented-native-setcal-ioctl.*?return -EPERM;', re.DOTALL),
+            re.compile(r'if \(execute_mode\).*?audio_setcal_print_execute_plan.*?audio_setcal_execute_manifest_plan\(manifest_plan, &ioctl_count\).*?return execute_rc;', re.DOTALL),
         )
 
 

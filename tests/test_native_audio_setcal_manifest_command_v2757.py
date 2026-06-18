@@ -57,16 +57,15 @@ class NativeAudioSetcalManifestCommandV2757(unittest.TestCase):
         self.assertIn('audio_setcal_plan_matches_profile(profile)', text)
         self.assertIn('audio.setcal.error=plan-order-mismatch', text)
 
-    def test_setcal_execute_mode_is_refused_before_any_ioctl(self) -> None:
+    def test_setcal_execute_mode_invokes_native_replay_after_manifest(self) -> None:
         text = source_text()
 
         self.assertIn('audio.setcal.ioctl_attempted=0', text)
-        self.assertIn('audio.setcal.execute_supported=0', text)
-        self.assertIn('audio.setcal.refused=execute-not-implemented-native-setcal-ioctl', text)
-        self.assertIn('return -EPERM;', text)
-        execute_refusal = text.index('audio.setcal.refused=execute-not-implemented-native-setcal-ioctl')
-        self.assertNotIn('AUDIO_SET_CALIBRATION', text[:execute_refusal])
-        self.assertNotIn('SNDRV_CTL_IOCTL_ELEM_WRITE', text[text.index('static int audio_setcal_cmd'):execute_refusal])
+        self.assertIn('audio.setcal.execute_supported=1', text)
+        self.assertIn('audio.setcal.execute_native_replay_supported', text)
+        self.assertIn('audio_setcal_execute_manifest_plan(manifest_plan, &ioctl_count)', text)
+        self.assertIn('audio.setcal.execute.ioctl_attempted=%d', text)
+        self.assertNotIn('execute-not-implemented-native-setcal-ioctl', text)
 
     def test_setcal_manifest_declares_private_payload_boundary(self) -> None:
         text = source_text()

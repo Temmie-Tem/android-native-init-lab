@@ -57,7 +57,7 @@ class NativeAudioSetcalAllocationPlanV2768(unittest.TestCase):
     def test_allocation_plan_output_declares_no_allocate_attempt(self) -> None:
         text = source_text()
         print_start = text.index("static void audio_setcal_print_allocation_plan")
-        print_end = text.index("static int audio_setcal_cmd", print_start)
+        print_end = text.index("static void audio_setcal_ion_request_plan_build", print_start)
         print_block = text[print_start:print_end]
 
         for marker in [
@@ -76,25 +76,21 @@ class NativeAudioSetcalAllocationPlanV2768(unittest.TestCase):
                 self.assertIn(marker, print_block)
         self.assertNotIn("ioctl(", print_block)
 
-    def test_execute_inserts_allocation_plan_between_open_and_close(self) -> None:
+    def test_execute_inserts_allocation_plan_before_native_replay(self) -> None:
         text = source_text()
         cmd_start = text.index("static int audio_setcal_cmd")
         cmd_end = text.index("static bool audio_parse_nonnegative_int", cmd_start)
         cmd_block = text[cmd_start:cmd_end]
 
-        open_call = cmd_block.index("open_rc = audio_setcal_open_execute_devices(&execute_open_state)")
         build_call = cmd_block.index("audio_setcal_allocation_plan_build(manifest_plan, &allocation_plan)")
         print_call = cmd_block.index("audio_setcal_print_allocation_plan(&allocation_plan)")
-        close_call = cmd_block.rindex("audio_setcal_close_execute_devices(&execute_open_state)")
-        refusal = cmd_block.index("execute-not-implemented-native-setcal-ioctl")
+        execute_call = cmd_block.index("audio_setcal_execute_manifest_plan(manifest_plan, &ioctl_count)")
 
-        self.assertLess(open_call, build_call)
         self.assertLess(build_call, print_call)
-        self.assertLess(print_call, close_call)
-        self.assertLess(close_call, refusal)
+        self.assertLess(print_call, execute_call)
         self.assertIn("struct audio_setcal_allocation_plan allocation_plan", cmd_block)
         self.assertIn("memset(&allocation_plan, 0, sizeof(allocation_plan))", cmd_block)
-        self.assertRegex(cmd_block, re.compile(r"if \(open_rc < 0\).*?audio_setcal_close_execute_devices", re.DOTALL))
+        self.assertNotIn("execute-not-implemented-native-setcal-ioctl", cmd_block)
 
 
 if __name__ == "__main__":

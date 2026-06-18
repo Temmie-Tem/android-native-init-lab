@@ -68,7 +68,7 @@ class NativeAudioSetcalIonRequestPlanV2769(unittest.TestCase):
     def test_ion_request_plan_output_declares_no_alloc_attempt(self) -> None:
         text = source_text()
         print_start = text.index("static void audio_setcal_print_ion_request_plan")
-        print_end = text.index("static int audio_setcal_cmd", print_start)
+        print_end = text.index("static int32_t audio_setcal_read_le_i32", print_start)
         print_block = text[print_start:print_end]
 
         for marker in [
@@ -87,7 +87,7 @@ class NativeAudioSetcalIonRequestPlanV2769(unittest.TestCase):
                 self.assertIn(marker, print_block)
         self.assertNotIn("ioctl(", print_block)
 
-    def test_execute_orders_ion_request_plan_before_close_and_refusal(self) -> None:
+    def test_execute_orders_ion_request_plan_before_native_replay(self) -> None:
         text = source_text()
         cmd_start = text.index("static int audio_setcal_cmd")
         cmd_end = text.index("static bool audio_parse_nonnegative_int", cmd_start)
@@ -96,13 +96,11 @@ class NativeAudioSetcalIonRequestPlanV2769(unittest.TestCase):
         allocation = cmd_block.index("audio_setcal_print_allocation_plan(&allocation_plan)")
         build = cmd_block.index("audio_setcal_ion_request_plan_build(&allocation_plan, &ion_request_plan)")
         print_plan = cmd_block.index("audio_setcal_print_ion_request_plan(&ion_request_plan)")
-        close = cmd_block.rindex("audio_setcal_close_execute_devices(&execute_open_state)")
-        refusal = cmd_block.index("execute-not-implemented-native-setcal-ioctl")
+        execute = cmd_block.index("audio_setcal_execute_manifest_plan(manifest_plan, &ioctl_count)")
 
         self.assertLess(allocation, build)
         self.assertLess(build, print_plan)
-        self.assertLess(print_plan, close)
-        self.assertLess(close, refusal)
+        self.assertLess(print_plan, execute)
         self.assertIn("struct audio_setcal_ion_request_plan ion_request_plan", cmd_block)
         self.assertIn("memset(&ion_request_plan, 0, sizeof(ion_request_plan))", cmd_block)
         self.assertIn("audio.setcal.ioctl_attempted=0", cmd_block)

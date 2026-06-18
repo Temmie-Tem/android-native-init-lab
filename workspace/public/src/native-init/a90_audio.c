@@ -21,6 +21,7 @@
 #include <sys/stat.h>
 #include <sys/sysmacros.h>
 #include <sys/ioctl.h>
+#include <sys/mman.h>
 #include <unistd.h>
 
 #include <sound/asound.h>
@@ -53,10 +54,29 @@
 #define AUDIO_SETCAL_MANIFEST_PROFILE_SIZE 96
 #define AUDIO_SETCAL_MANIFEST_ROLE_SIZE 64
 #define AUDIO_SETCAL_MANIFEST_SHA256_SIZE 65
+#define AUDIO_SETCAL_ARG_MAX_BYTES 512U
+#define AUDIO_SETCAL_PAYLOAD_MAX_BYTES (256U * 1024U)
+#define AUDIO_SETCAL_CAL_BASIC_SIZE 32U
+#define AUDIO_SETCAL_OFF_DATA_SIZE 0U
+#define AUDIO_SETCAL_OFF_CAL_TYPE 8U
+#define AUDIO_SETCAL_OFF_BUFFER_NUMBER 20U
+#define AUDIO_SETCAL_OFF_CAL_SIZE 24U
+#define AUDIO_SETCAL_OFF_MEM_HANDLE 28U
+#define AUDIO_ION_IOC_MAGIC 'I'
 #define AUDIO_PCM_PERIOD_SIZE 1024
 #define AUDIO_PCM_PERIOD_COUNT 4
 #define AUDIO_PCM_MAX_CHANNELS 8
 #define AUDIO_PCM_TONE_HZ 440
+
+struct audio_ion_allocation_data {
+    uint64_t len;
+    uint32_t heap_id_mask;
+    uint32_t flags;
+    uint32_t fd;
+    uint32_t unused;
+};
+
+#define AUDIO_ION_IOC_ALLOC _IOWR(AUDIO_ION_IOC_MAGIC, 0, struct audio_ion_allocation_data)
 
 static const char *const AUDIO_ADSP_SEGMENTS[] = {
     "adsp.b00",
@@ -140,12 +160,6 @@ struct audio_setcal_manifest_plan {
     bool valid;
 };
 
-struct audio_setcal_execute_open_state {
-    int ion_fd;
-    int msm_audio_cal_fd;
-    int devices_opened;
-};
-
 struct audio_setcal_allocation_slot {
     bool active;
     int sequence;
@@ -179,6 +193,25 @@ struct audio_setcal_ion_request_plan {
     uint32_t flags;
     uint64_t total_len;
     struct audio_setcal_ion_request_slot requests[AUDIO_PROFILE_ACDB_SET_COUNT];
+};
+
+struct audio_setcal_execute_state {
+    bool active;
+    bool has_payload;
+    bool allocated;
+    int sequence;
+    int cal_type;
+    int buffer_number;
+    int ion_fd;
+    int dmabuf_fd;
+    void *mapped;
+    unsigned char *arg;
+    unsigned char *set_arg;
+    unsigned char *alloc_arg;
+    unsigned char *dealloc_arg;
+    unsigned char *payload;
+    size_t arg_len;
+    size_t payload_len;
 };
 
 static const struct audio_setcal_entry AUDIO_INTERNAL_SPEAKER_SETCAL_PLAN[] = {
@@ -838,102 +871,6 @@ static void audio_setcal_print_execute_plan(const struct audio_speaker_profile *
     a90_console_printf("audio.setcal.execute.plan.ioctl_attempted=0\r\n");
 }
 
-static void audio_setcal_execute_open_state_reset(struct audio_setcal_execute_open_state *state) {
-    if (state == NULL) {
-        return;
-    }
-    state->ion_fd = -1;
-    state->msm_audio_cal_fd = -1;
-    state->devices_opened = 0;
-}
-
-static int audio_setcal_open_execute_device(const char *prefix, const char *path, int *fd_out) {
-    int fd;
-
-    if (fd_out != NULL) {
-        *fd_out = -1;
-    }
-    a90_console_printf("%s.path=%s\r\n", prefix, path);
-    a90_console_printf("%s.flags=O_RDWR|O_CLOEXEC\r\n", prefix);
-    a90_console_printf("%s.open_attempted=1\r\n", prefix);
-    fd = open(path, O_RDWR | O_CLOEXEC);
-    if (fd < 0) {
-        int saved_errno = errno;
-
-        a90_console_printf("%s.open_ok=0 errno=%d\r\n", prefix, saved_errno);
-        return -saved_errno;
-    }
-    if (fd_out != NULL) {
-        *fd_out = fd;
-    }
-    a90_console_printf("%s.open_ok=1\r\n", prefix);
-    return 0;
-}
-
-static void audio_setcal_close_execute_device(const char *prefix, int *fd) {
-    int saved_fd;
-
-    if (fd == NULL || *fd < 0) {
-        a90_console_printf("%s.close_attempted=0\r\n", prefix);
-        return;
-    }
-    saved_fd = *fd;
-    *fd = -1;
-    a90_console_printf("%s.close_attempted=1\r\n", prefix);
-    if (close(saved_fd) < 0) {
-        int saved_errno = errno;
-
-        a90_console_printf("%s.close_ok=0 errno=%d\r\n", prefix, saved_errno);
-        return;
-    }
-    a90_console_printf("%s.close_ok=1\r\n", prefix);
-}
-
-static int audio_setcal_open_execute_devices(struct audio_setcal_execute_open_state *state) {
-    int rc = 0;
-    int device_rc;
-
-    if (state == NULL) {
-        return -EINVAL;
-    }
-    audio_setcal_execute_open_state_reset(state);
-    a90_console_printf("audio.setcal.execute.open.version=1\r\n");
-    a90_console_printf("audio.setcal.execute.open.ioctl_attempted=0\r\n");
-
-    device_rc = audio_setcal_open_execute_device("audio.setcal.execute.open.ion",
-                                                 AUDIO_SETCAL_DEV_ION,
-                                                 &state->ion_fd);
-    if (device_rc < 0) {
-        rc = device_rc;
-    } else {
-        state->devices_opened += 1;
-    }
-
-    device_rc = audio_setcal_open_execute_device("audio.setcal.execute.open.msm_audio_cal",
-                                                 AUDIO_SETCAL_DEV_MSM_AUDIO_CAL,
-                                                 &state->msm_audio_cal_fd);
-    if (device_rc < 0 && rc == 0) {
-        rc = device_rc;
-    } else if (device_rc == 0) {
-        state->devices_opened += 1;
-    }
-
-    a90_console_printf("audio.setcal.execute.open.devices_opened=%d\r\n", state->devices_opened);
-    a90_console_printf("audio.setcal.execute.open.ioctl_attempted=0\r\n");
-    return rc;
-}
-
-static void audio_setcal_close_execute_devices(struct audio_setcal_execute_open_state *state) {
-    if (state == NULL) {
-        return;
-    }
-    audio_setcal_close_execute_device("audio.setcal.execute.close.msm_audio_cal",
-                                      &state->msm_audio_cal_fd);
-    audio_setcal_close_execute_device("audio.setcal.execute.close.ion", &state->ion_fd);
-    a90_console_printf("audio.setcal.execute.close.fds_held=0\r\n");
-    a90_console_printf("audio.setcal.execute.close.ioctl_attempted=0\r\n");
-}
-
 static void audio_setcal_allocation_plan_build(const struct audio_setcal_manifest_plan *manifest_plan,
                                                struct audio_setcal_allocation_plan *allocation_plan) {
     int index;
@@ -1063,12 +1000,547 @@ static void audio_setcal_print_ion_request_plan(const struct audio_setcal_ion_re
     }
 }
 
+static int32_t audio_setcal_read_le_i32(const unsigned char *data, size_t len, size_t off) {
+    uint32_t raw;
+
+    if (data == NULL || off + sizeof(raw) > len) {
+        return INT32_MIN;
+    }
+    memcpy(&raw, data + off, sizeof(raw));
+    return (int32_t)raw;
+}
+
+static void audio_setcal_write_le_i32(unsigned char *data, size_t len, size_t off, int32_t value) {
+    uint32_t raw = (uint32_t)value;
+
+    if (data == NULL || off + sizeof(raw) > len) {
+        return;
+    }
+    memcpy(data + off, &raw, sizeof(raw));
+}
+
+static bool audio_setcal_buffer_is_all_zero(const unsigned char *data, size_t len) {
+    size_t offset;
+
+    if (data == NULL || len == 0) {
+        return true;
+    }
+    for (offset = 0; offset < len; ++offset) {
+        if (data[offset] != 0) {
+            return false;
+        }
+    }
+    return true;
+}
+
+static int audio_setcal_read_file_bytes(const char *prefix,
+                                        const char *path,
+                                        size_t max_len,
+                                        unsigned char **data_out,
+                                        size_t *size_out) {
+    int fd;
+    struct stat st;
+    unsigned char *data = NULL;
+    size_t done = 0;
+
+    if (data_out != NULL) {
+        *data_out = NULL;
+    }
+    if (size_out != NULL) {
+        *size_out = 0;
+    }
+    if (prefix == NULL) {
+        prefix = "audio.setcal.execute.input";
+    }
+    a90_console_printf("%s.path=%s\r\n", prefix, path != NULL ? path : "-");
+    if (!audio_setcal_payload_path_allowed(path)) {
+        a90_console_printf("%s.error=path-not-allowed\r\n", prefix);
+        return -EINVAL;
+    }
+    fd = open(path, O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
+    if (fd < 0) {
+        int saved_errno = errno;
+
+        a90_console_printf("%s.open_ok=0 errno=%d\r\n", prefix, saved_errno);
+        return -saved_errno;
+    }
+    if (fstat(fd, &st) < 0) {
+        int saved_errno = errno;
+
+        a90_console_printf("%s.fstat_ok=0 errno=%d\r\n", prefix, saved_errno);
+        close(fd);
+        return -saved_errno;
+    }
+    if (!S_ISREG(st.st_mode) || st.st_size <= 0 || st.st_size > (off_t)max_len) {
+        a90_console_printf("%s.error=bad-size-or-type size=%lld max=%llu\r\n",
+                           prefix,
+                           (long long)st.st_size,
+                           (unsigned long long)max_len);
+        close(fd);
+        return -EINVAL;
+    }
+    data = (unsigned char *)calloc(1, (size_t)st.st_size);
+    if (data == NULL) {
+        close(fd);
+        a90_console_printf("%s.error=alloc-failed\r\n", prefix);
+        return -ENOMEM;
+    }
+    while (done < (size_t)st.st_size) {
+        ssize_t rc = read(fd, data + done, (size_t)st.st_size - done);
+
+        if (rc < 0) {
+            int saved_errno = errno;
+
+            if (saved_errno == EINTR) {
+                continue;
+            }
+            a90_console_printf("%s.read_ok=0 errno=%d\r\n", prefix, saved_errno);
+            free(data);
+            close(fd);
+            return -saved_errno;
+        }
+        if (rc == 0) {
+            a90_console_printf("%s.error=short-read\r\n", prefix);
+            free(data);
+            close(fd);
+            return -EIO;
+        }
+        done += (size_t)rc;
+    }
+    close(fd);
+    if (audio_setcal_buffer_is_all_zero(data, (size_t)st.st_size)) {
+        a90_console_printf("%s.error=all-zero\r\n", prefix);
+        free(data);
+        return -EINVAL;
+    }
+    a90_console_printf("%s.open_ok=1\r\n", prefix);
+    a90_console_printf("%s.bytes=%llu\r\n", prefix, (unsigned long long)done);
+    if (data_out != NULL) {
+        *data_out = data;
+    } else {
+        free(data);
+    }
+    if (size_out != NULL) {
+        *size_out = done;
+    }
+    return 0;
+}
+
+static void audio_setcal_execute_state_init(struct audio_setcal_execute_state *state,
+                                            const struct audio_setcal_manifest_plan_entry *entry) {
+    memset(state, 0, sizeof(*state));
+    state->sequence = entry != NULL ? entry->sequence : -1;
+    state->cal_type = entry != NULL ? entry->cal_type : 0;
+    state->buffer_number = -1;
+    state->has_payload = entry != NULL && entry->dmabuf_expected;
+    state->mapped = MAP_FAILED;
+    state->ion_fd = -1;
+    state->dmabuf_fd = -1;
+}
+
+static void audio_setcal_execute_state_release(struct audio_setcal_execute_state *state) {
+    if (state == NULL) {
+        return;
+    }
+    if (state->mapped != MAP_FAILED) {
+        munmap(state->mapped, state->payload_len);
+        state->mapped = MAP_FAILED;
+    }
+    if (state->dmabuf_fd >= 0) {
+        close(state->dmabuf_fd);
+        state->dmabuf_fd = -1;
+    }
+    if (state->ion_fd >= 0) {
+        close(state->ion_fd);
+        state->ion_fd = -1;
+    }
+    free(state->arg);
+    free(state->set_arg);
+    free(state->alloc_arg);
+    free(state->dealloc_arg);
+    free(state->payload);
+    state->arg = NULL;
+    state->set_arg = NULL;
+    state->alloc_arg = NULL;
+    state->dealloc_arg = NULL;
+    state->payload = NULL;
+}
+
+static int audio_setcal_ion_alloc_dmabuf(size_t len,
+                                         int sequence,
+                                         int cal_type,
+                                         int *ion_fd_out,
+                                         int *dmabuf_fd_out) {
+    struct audio_ion_allocation_data allocation;
+    int ion_fd;
+
+    if (ion_fd_out != NULL) {
+        *ion_fd_out = -1;
+    }
+    if (dmabuf_fd_out != NULL) {
+        *dmabuf_fd_out = -1;
+    }
+    if (len == 0 || len > AUDIO_SETCAL_PAYLOAD_MAX_BYTES) {
+        a90_console_printf("audio.setcal.execute.ion.error=bad-len sequence=%d cal_type=%d len=%llu\r\n",
+                           sequence,
+                           cal_type,
+                           (unsigned long long)len);
+        return -EINVAL;
+    }
+    ion_fd = open(AUDIO_SETCAL_DEV_ION, O_RDONLY | O_CLOEXEC);
+    if (ion_fd < 0) {
+        int saved_errno = errno;
+
+        a90_console_printf("audio.setcal.execute.ion.open_ok=0 errno=%d\r\n", saved_errno);
+        return -saved_errno;
+    }
+    memset(&allocation, 0, sizeof(allocation));
+    allocation.len = (uint64_t)len;
+    allocation.heap_id_mask = AUDIO_ION_SYSTEM_HEAP_MASK;
+    allocation.flags = AUDIO_ION_FLAG_CACHED;
+    a90_console_printf("audio.setcal.execute.ion.alloc.sequence=%d\r\n", sequence);
+    a90_console_printf("audio.setcal.execute.ion.alloc.cal_type=%d\r\n", cal_type);
+    a90_console_printf("audio.setcal.execute.ion.alloc.len=%llu\r\n", (unsigned long long)len);
+    a90_console_printf("audio.setcal.execute.ion.alloc.heap_id_mask=0x%08x\r\n", allocation.heap_id_mask);
+    a90_console_printf("audio.setcal.execute.ion.alloc.flags=0x%08x\r\n", allocation.flags);
+    if (ioctl(ion_fd, AUDIO_ION_IOC_ALLOC, &allocation) < 0) {
+        int saved_errno = errno;
+
+        a90_console_printf("audio.setcal.execute.ion.alloc_ok=0 errno=%d\r\n", saved_errno);
+        close(ion_fd);
+        return -saved_errno;
+    }
+    if (ion_fd_out != NULL) {
+        *ion_fd_out = ion_fd;
+    }
+    if (dmabuf_fd_out != NULL) {
+        *dmabuf_fd_out = (int)allocation.fd;
+    }
+    a90_console_printf("audio.setcal.execute.ion.alloc_ok=1 dmabuf_fd=%d\r\n", (int)allocation.fd);
+    return 0;
+}
+
+static int audio_setcal_prepare_payload_state(struct audio_setcal_execute_state *state,
+                                              const struct audio_setcal_manifest_plan_entry *entry) {
+    char prefix[96];
+    int rc;
+
+    if (state == NULL || entry == NULL) {
+        return -EINVAL;
+    }
+    snprintf(prefix, sizeof(prefix), "audio.setcal.execute.entry.%d.payload", state->sequence);
+    rc = audio_setcal_read_file_bytes(prefix,
+                                      entry->payload_path,
+                                      AUDIO_SETCAL_PAYLOAD_MAX_BYTES,
+                                      &state->payload,
+                                      &state->payload_len);
+    if (rc < 0) {
+        return rc;
+    }
+    rc = audio_setcal_ion_alloc_dmabuf(state->payload_len,
+                                       state->sequence,
+                                       state->cal_type,
+                                       &state->ion_fd,
+                                       &state->dmabuf_fd);
+    if (rc < 0) {
+        return rc;
+    }
+    state->mapped = mmap(NULL,
+                         state->payload_len,
+                         PROT_READ | PROT_WRITE,
+                         MAP_SHARED,
+                         state->dmabuf_fd,
+                         0);
+    if (state->mapped == MAP_FAILED) {
+        int saved_errno = errno;
+
+        a90_console_printf("audio.setcal.execute.entry.%d.mmap_ok=0 errno=%d\r\n",
+                           state->sequence,
+                           saved_errno);
+        return -saved_errno;
+    }
+    memcpy(state->mapped, state->payload, state->payload_len);
+    if (msync(state->mapped, state->payload_len, MS_SYNC) < 0) {
+        int saved_errno = errno;
+
+        a90_console_printf("audio.setcal.execute.entry.%d.msync_ok=0 errno=%d\r\n",
+                           state->sequence,
+                           saved_errno);
+        return -saved_errno;
+    }
+    a90_console_printf("audio.setcal.execute.entry.%d.mmap_ok=1\r\n", state->sequence);
+    a90_console_printf("audio.setcal.execute.entry.%d.msync_ok=1\r\n", state->sequence);
+    return 0;
+}
+
+static int audio_setcal_prepare_exact_entry(struct audio_setcal_execute_state *state,
+                                            const struct audio_setcal_manifest_plan_entry *entry) {
+    char prefix[96];
+    int32_t data_size;
+    int32_t cal_type;
+    int32_t cal_size;
+    int32_t mem_handle;
+    int rc;
+
+    if (state == NULL || entry == NULL || !entry->present) {
+        return -EINVAL;
+    }
+    snprintf(prefix, sizeof(prefix), "audio.setcal.execute.entry.%d.arg", state->sequence);
+    rc = audio_setcal_read_file_bytes(prefix,
+                                      entry->arg_path,
+                                      AUDIO_SETCAL_ARG_MAX_BYTES,
+                                      &state->arg,
+                                      &state->arg_len);
+    if (rc < 0) {
+        return rc;
+    }
+    if (state->arg_len < AUDIO_SETCAL_CAL_BASIC_SIZE) {
+        a90_console_printf("audio.setcal.execute.entry.%d.error=arg-too-short len=%llu\r\n",
+                           state->sequence,
+                           (unsigned long long)state->arg_len);
+        return -EINVAL;
+    }
+    data_size = audio_setcal_read_le_i32(state->arg, state->arg_len, AUDIO_SETCAL_OFF_DATA_SIZE);
+    cal_type = audio_setcal_read_le_i32(state->arg, state->arg_len, AUDIO_SETCAL_OFF_CAL_TYPE);
+    cal_size = audio_setcal_read_le_i32(state->arg, state->arg_len, AUDIO_SETCAL_OFF_CAL_SIZE);
+    state->buffer_number = audio_setcal_read_le_i32(state->arg,
+                                                    state->arg_len,
+                                                    AUDIO_SETCAL_OFF_BUFFER_NUMBER);
+    if (data_size != (int32_t)state->arg_len || cal_type != entry->cal_type || cal_size < 0) {
+        a90_console_printf("audio.setcal.execute.entry.%d.error=bad-arg-header data_size=%d arg_len=%llu cal_type=%d expected_cal_type=%d cal_size=%d\r\n",
+                           state->sequence,
+                           data_size,
+                           (unsigned long long)state->arg_len,
+                           cal_type,
+                           entry->cal_type,
+                           cal_size);
+        return -EINVAL;
+    }
+    state->cal_type = cal_type;
+    state->set_arg = (unsigned char *)calloc(1, state->arg_len);
+    if (state->set_arg == NULL) {
+        return -ENOMEM;
+    }
+    memcpy(state->set_arg, state->arg, state->arg_len);
+    if (!state->has_payload) {
+        mem_handle = audio_setcal_read_le_i32(state->set_arg,
+                                              state->arg_len,
+                                              AUDIO_SETCAL_OFF_MEM_HANDLE);
+        if (cal_size == 0 && mem_handle >= 0) {
+            audio_setcal_write_le_i32(state->set_arg,
+                                      state->arg_len,
+                                      AUDIO_SETCAL_OFF_MEM_HANDLE,
+                                      -1);
+            a90_console_printf("audio.setcal.execute.entry.%d.mem_handle_neutralized=1 original=%d\r\n",
+                               state->sequence,
+                               mem_handle);
+        }
+        a90_console_printf("audio.setcal.execute.entry.%d.header_only=1 cal_type=%d buffer=%d cal_size=%d\r\n",
+                           state->sequence,
+                           state->cal_type,
+                           state->buffer_number,
+                           audio_setcal_read_le_i32(state->set_arg,
+                                                    state->arg_len,
+                                                    AUDIO_SETCAL_OFF_CAL_SIZE));
+        state->active = true;
+        return 0;
+    }
+    if (cal_size <= 0) {
+        a90_console_printf("audio.setcal.execute.entry.%d.error=payload-entry-without-positive-cal-size\r\n",
+                           state->sequence);
+        return -EINVAL;
+    }
+    rc = audio_setcal_prepare_payload_state(state, entry);
+    if (rc < 0) {
+        return rc;
+    }
+    if ((int32_t)state->payload_len != cal_size) {
+        a90_console_printf("audio.setcal.execute.entry.%d.error=payload-size-mismatch payload=%llu cal_size=%d\r\n",
+                           state->sequence,
+                           (unsigned long long)state->payload_len,
+                           cal_size);
+        return -EINVAL;
+    }
+    state->alloc_arg = (unsigned char *)calloc(1, state->arg_len);
+    state->dealloc_arg = (unsigned char *)calloc(1, state->arg_len);
+    if (state->alloc_arg == NULL || state->dealloc_arg == NULL) {
+        return -ENOMEM;
+    }
+    memcpy(state->alloc_arg, state->arg, state->arg_len);
+    memcpy(state->dealloc_arg, state->arg, state->arg_len);
+    audio_setcal_write_le_i32(state->set_arg,
+                              state->arg_len,
+                              AUDIO_SETCAL_OFF_MEM_HANDLE,
+                              state->dmabuf_fd);
+    audio_setcal_write_le_i32(state->set_arg,
+                              state->arg_len,
+                              AUDIO_SETCAL_OFF_CAL_SIZE,
+                              (int32_t)state->payload_len);
+    audio_setcal_write_le_i32(state->alloc_arg,
+                              state->arg_len,
+                              AUDIO_SETCAL_OFF_MEM_HANDLE,
+                              state->dmabuf_fd);
+    audio_setcal_write_le_i32(state->alloc_arg, state->arg_len, AUDIO_SETCAL_OFF_CAL_SIZE, 0);
+    audio_setcal_write_le_i32(state->dealloc_arg,
+                              state->arg_len,
+                              AUDIO_SETCAL_OFF_MEM_HANDLE,
+                              state->dmabuf_fd);
+    audio_setcal_write_le_i32(state->dealloc_arg, state->arg_len, AUDIO_SETCAL_OFF_CAL_SIZE, 0);
+    state->active = true;
+    a90_console_printf("audio.setcal.execute.entry.%d.payload_ready=1 dmabuf_fd=%d bytes=%llu\r\n",
+                       state->sequence,
+                       state->dmabuf_fd,
+                       (unsigned long long)state->payload_len);
+    return 0;
+}
+
+static int audio_setcal_ioctl_cal(int fd,
+                                  unsigned long request,
+                                  const unsigned char *packet,
+                                  size_t packet_len,
+                                  const char *name,
+                                  int sequence) {
+    int32_t cal_type = audio_setcal_read_le_i32(packet, packet_len, AUDIO_SETCAL_OFF_CAL_TYPE);
+    int32_t buffer_number = audio_setcal_read_le_i32(packet, packet_len, AUDIO_SETCAL_OFF_BUFFER_NUMBER);
+    int32_t cal_size = audio_setcal_read_le_i32(packet, packet_len, AUDIO_SETCAL_OFF_CAL_SIZE);
+    int32_t mem_handle = audio_setcal_read_le_i32(packet, packet_len, AUDIO_SETCAL_OFF_MEM_HANDLE);
+    int rc;
+    int saved_errno;
+
+    a90_console_printf("audio.setcal.execute.ioctl.%d.name=%s\r\n", sequence, name);
+    a90_console_printf("audio.setcal.execute.ioctl.%d.request=0x%08lx\r\n", sequence, request);
+    a90_console_printf("audio.setcal.execute.ioctl.%d.cal_type=%d\r\n", sequence, cal_type);
+    a90_console_printf("audio.setcal.execute.ioctl.%d.buffer=%d\r\n", sequence, buffer_number);
+    a90_console_printf("audio.setcal.execute.ioctl.%d.cal_size=%d\r\n", sequence, cal_size);
+    a90_console_printf("audio.setcal.execute.ioctl.%d.mem_handle=%d\r\n", sequence, mem_handle);
+    a90_console_printf("audio.setcal.execute.ioctl.%d.arg_len=%llu\r\n",
+                       sequence,
+                       (unsigned long long)packet_len);
+    rc = ioctl(fd, request, (void *)packet);
+    saved_errno = rc == 0 ? 0 : errno;
+    a90_console_printf("audio.setcal.execute.ioctl.%d.rc=%d errno=%d\r\n", sequence, rc, saved_errno);
+    if (rc < 0) {
+        return -saved_errno;
+    }
+    return 0;
+}
+
+static int audio_setcal_execute_manifest_plan(const struct audio_setcal_manifest_plan *plan,
+                                              int *ioctl_count_out) {
+    struct audio_setcal_execute_state states[AUDIO_PROFILE_ACDB_SET_COUNT];
+    int cal_fd = -1;
+    int prepared_count = 0;
+    int allocated_count = 0;
+    int set_count = 0;
+    int deallocated_count = 0;
+    int ioctl_sequence = 0;
+    int rc = 0;
+    int index;
+
+    if (ioctl_count_out != NULL) {
+        *ioctl_count_out = 0;
+    }
+    if (plan == NULL || !plan->valid || plan->declared_entry_count != AUDIO_PROFILE_ACDB_SET_COUNT) {
+        a90_console_printf("audio.setcal.execute.error=bad-manifest-plan\r\n");
+        return -EINVAL;
+    }
+    memset(states, 0, sizeof(states));
+    for (index = 0; index < AUDIO_PROFILE_ACDB_SET_COUNT; ++index) {
+        audio_setcal_execute_state_init(&states[index], &plan->entries[index]);
+    }
+    a90_console_printf("audio.setcal.execute.start=1\r\n");
+    for (index = 0; index < AUDIO_PROFILE_ACDB_SET_COUNT; ++index) {
+        rc = audio_setcal_prepare_exact_entry(&states[index], &plan->entries[index]);
+        if (rc < 0) {
+            a90_console_printf("audio.setcal.execute.prepare_failed.index=%d errno=%d\r\n", index, -rc);
+            goto done;
+        }
+        ++prepared_count;
+    }
+    cal_fd = open(AUDIO_SETCAL_DEV_MSM_AUDIO_CAL, O_RDWR | O_CLOEXEC);
+    if (cal_fd < 0) {
+        int saved_errno = errno;
+
+        a90_console_printf("audio.setcal.execute.open.msm_audio_cal.open_ok=0 errno=%d\r\n", saved_errno);
+        rc = -saved_errno;
+        goto done;
+    }
+    a90_console_printf("audio.setcal.execute.open.msm_audio_cal.open_ok=1\r\n");
+    for (index = 0; index < AUDIO_PROFILE_ACDB_SET_COUNT; ++index) {
+        if (states[index].has_payload) {
+            rc = audio_setcal_ioctl_cal(cal_fd,
+                                        AUDIO_SETCAL_IOCTL_ALLOCATE_CALIBRATION,
+                                        states[index].alloc_arg,
+                                        states[index].arg_len,
+                                        "AUDIO_ALLOCATE_CALIBRATION",
+                                        ioctl_sequence++);
+            if (rc < 0) {
+                a90_console_printf("audio.setcal.execute.allocate_failed.index=%d errno=%d\r\n",
+                                   index,
+                                   -rc);
+                goto done;
+            }
+            states[index].allocated = true;
+            ++allocated_count;
+        }
+        rc = audio_setcal_ioctl_cal(cal_fd,
+                                    AUDIO_SETCAL_IOCTL_SET_CALIBRATION,
+                                    states[index].set_arg,
+                                    states[index].arg_len,
+                                    "AUDIO_SET_CALIBRATION",
+                                    ioctl_sequence++);
+        if (rc < 0) {
+            a90_console_printf("audio.setcal.execute.set_failed.index=%d errno=%d\r\n", index, -rc);
+            goto done;
+        }
+        ++set_count;
+    }
+
+done:
+    if (cal_fd >= 0) {
+        for (index = prepared_count; index > 0; --index) {
+            int reverse_index = index - 1;
+            int cleanup_rc;
+
+            if (!states[reverse_index].allocated) {
+                continue;
+            }
+            cleanup_rc = audio_setcal_ioctl_cal(cal_fd,
+                                                AUDIO_SETCAL_IOCTL_DEALLOCATE_CALIBRATION,
+                                                states[reverse_index].dealloc_arg,
+                                                states[reverse_index].arg_len,
+                                                "AUDIO_DEALLOCATE_CALIBRATION",
+                                                ioctl_sequence++);
+            if (cleanup_rc == 0) {
+                states[reverse_index].allocated = false;
+                ++deallocated_count;
+            } else if (rc == 0) {
+                rc = cleanup_rc;
+            }
+        }
+        close(cal_fd);
+    }
+    for (index = 0; index < AUDIO_PROFILE_ACDB_SET_COUNT; ++index) {
+        audio_setcal_execute_state_release(&states[index]);
+    }
+    a90_console_printf("audio.setcal.execute.prepared_count=%d\r\n", prepared_count);
+    a90_console_printf("audio.setcal.execute.allocated_count=%d\r\n", allocated_count);
+    a90_console_printf("audio.setcal.execute.set_count=%d\r\n", set_count);
+    a90_console_printf("audio.setcal.execute.deallocated_count=%d\r\n", deallocated_count);
+    a90_console_printf("audio.setcal.execute.ioctl_count=%d\r\n", ioctl_sequence);
+    a90_console_printf("audio.setcal.execute.ioctl_attempted=%d\r\n", ioctl_sequence > 0 ? 1 : 0);
+    a90_console_printf("audio.setcal.execute.ok=%d\r\n", rc == 0 ? 1 : 0);
+    if (ioctl_count_out != NULL) {
+        *ioctl_count_out = ioctl_sequence;
+    }
+    return rc;
+}
+
 static int audio_setcal_cmd(char **argv, int argc) {
     const char *profile_id = AUDIO_DEFAULT_PROFILE_ID;
     const char *manifest_path = NULL;
     const struct audio_speaker_profile *profile;
     struct audio_setcal_manifest_plan *manifest_plan = NULL;
-    struct audio_setcal_execute_open_state execute_open_state;
     struct audio_setcal_allocation_plan allocation_plan;
     struct audio_setcal_ion_request_plan ion_request_plan;
     struct audio_setcal_manifest_totals totals;
@@ -1085,7 +1557,6 @@ static int audio_setcal_cmd(char **argv, int argc) {
 
     memset(&totals, 0, sizeof(totals));
     memset(&load_totals, 0, sizeof(load_totals));
-    audio_setcal_execute_open_state_reset(&execute_open_state);
     memset(&allocation_plan, 0, sizeof(allocation_plan));
     memset(&ion_request_plan, 0, sizeof(ion_request_plan));
     for (argi = 2; argi < argc; ++argi) {
@@ -1123,13 +1594,13 @@ static int audio_setcal_cmd(char **argv, int argc) {
     a90_console_printf("audio.setcal.profile=%s\r\n", profile_id);
     a90_console_printf("audio.setcal.mode=%s\r\n", execute_mode ? "execute" : "dry-run");
     a90_console_printf("audio.setcal.ioctl_attempted=0\r\n");
-    a90_console_printf("audio.setcal.execute_supported=0\r\n");
+    a90_console_printf("audio.setcal.execute_supported=1\r\n");
     a90_console_printf("audio.setcal.verify_requested=%d\r\n", verify_manifest ? 1 : 0);
     a90_console_printf("audio.setcal.prepare_requested=%d\r\n", prepare_manifest ? 1 : 0);
     a90_console_printf("audio.setcal.load_requested=%d\r\n", load_manifest ? 1 : 0);
     a90_console_printf("audio.setcal.execute_manifest_required=%d\r\n", execute_mode ? 1 : 0);
     a90_console_printf("audio.setcal.execute_auto_load=%d\r\n", execute_mode ? 1 : 0);
-    a90_console_printf("audio.setcal.execute_open_boundary_supported=%d\r\n", execute_mode ? 1 : 0);
+    a90_console_printf("audio.setcal.execute_native_replay_supported=%d\r\n", execute_mode ? 1 : 0);
     a90_console_printf("audio.setcal.manifest_path=%s\r\n", manifest_path != NULL ? manifest_path : "-");
     if (profile == NULL) {
         a90_console_printf("audio.setcal.error=unknown-profile\r\n");
@@ -1228,27 +1699,19 @@ static int audio_setcal_cmd(char **argv, int argc) {
     }
 
     if (execute_mode) {
-        int open_rc;
+        int execute_rc;
+        int ioctl_count = 0;
 
         audio_setcal_print_execute_plan(profile, manifest_plan);
-        open_rc = audio_setcal_open_execute_devices(&execute_open_state);
-        if (open_rc < 0) {
-            audio_setcal_close_execute_devices(&execute_open_state);
-            a90_console_printf("audio.setcal.refused=execute-open-failed-before-ioctl errno=%d\r\n",
-                               -open_rc);
-            a90_console_printf("audio.setcal.ioctl_attempted=0\r\n");
-            free(manifest_plan);
-            return open_rc;
-        }
         audio_setcal_allocation_plan_build(manifest_plan, &allocation_plan);
         audio_setcal_print_allocation_plan(&allocation_plan);
         audio_setcal_ion_request_plan_build(&allocation_plan, &ion_request_plan);
         audio_setcal_print_ion_request_plan(&ion_request_plan);
-        audio_setcal_close_execute_devices(&execute_open_state);
-        a90_console_printf("audio.setcal.refused=execute-not-implemented-native-setcal-ioctl\r\n");
-        a90_console_printf("audio.setcal.ioctl_attempted=0\r\n");
+        execute_rc = audio_setcal_execute_manifest_plan(manifest_plan, &ioctl_count);
+        a90_console_printf("audio.setcal.execute_rc=%d\r\n", execute_rc);
+        a90_console_printf("audio.setcal.ioctl_attempted=%d\r\n", ioctl_count > 0 ? 1 : 0);
         free(manifest_plan);
-        return -EPERM;
+        return execute_rc;
     }
     free(manifest_plan);
     a90_console_printf("audio.setcal.dry_run_ok=1\r\n");

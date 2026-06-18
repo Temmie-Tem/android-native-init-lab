@@ -46,8 +46,8 @@ class NativeAudioSetcalPrepareApiV2759(unittest.TestCase):
     def test_prepare_does_not_open_audio_devices_or_issue_ioctls(self) -> None:
         text = source_text()
         prepare_start = text.index("if (prepare_manifest)")
-        execute_refusal = text.index("audio.setcal.refused=execute-not-implemented-native-setcal-ioctl")
-        prepare_block = text[prepare_start:execute_refusal]
+        load_start = text.index("if (load_files)", prepare_start)
+        prepare_block = text[prepare_start:load_start]
 
         self.assertIn("audio.setcal.prepare.devices_opened=0", prepare_block)
         self.assertIn("audio.setcal.prepare.ioctl_attempted=0", prepare_block)
@@ -73,13 +73,12 @@ class NativeAudioSetcalPrepareApiV2759(unittest.TestCase):
             ],
         )
 
-    def test_replay_execute_remains_blocked_after_prepare(self) -> None:
+    def test_replay_execute_is_implemented_after_prepare(self) -> None:
         text = source_text()
 
-        self.assertRegex(
-            text,
-            re.compile(r'if \(execute_mode\).*?execute-not-implemented-native-setcal-ioctl.*?return -EPERM;', re.DOTALL),
-        )
+        self.assertIn("audio.setcal.execute_supported=1", text)
+        self.assertIn("audio_setcal_execute_manifest_plan(manifest_plan, &ioctl_count)", text)
+        self.assertNotIn("execute-not-implemented-native-setcal-ioctl", text)
 
 
 if __name__ == "__main__":

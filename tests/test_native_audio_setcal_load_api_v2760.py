@@ -84,13 +84,12 @@ class NativeAudioSetcalLoadApiV2760(unittest.TestCase):
         self.assertNotIn("ioctl(", load_summary)
         self.assertNotIn("AUDIO_SET_CALIBRATION", load_summary)
 
-    def test_execute_remains_blocked_after_load_api(self) -> None:
+    def test_execute_replay_is_called_after_load_api(self) -> None:
         text = source_text()
 
-        self.assertRegex(
-            text,
-            re.compile(r'if \(execute_mode\).*?execute-not-implemented-native-setcal-ioctl.*?return -EPERM;', re.DOTALL),
-        )
+        self.assertIn("audio_setcal_execute_manifest_plan(manifest_plan, &ioctl_count)", text)
+        self.assertIn("audio.setcal.execute_rc=%d", text)
+        self.assertNotIn("execute-not-implemented-native-setcal-ioctl", text)
 
 
 if __name__ == "__main__":
