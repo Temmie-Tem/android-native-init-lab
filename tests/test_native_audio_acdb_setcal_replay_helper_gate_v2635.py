@@ -69,6 +69,7 @@ class NativeAudioAcdbSetcalReplayHelperGateV2635(unittest.TestCase):
         state = v2635.helper_source_state()
 
         self.assertTrue(state["ready"], state)
+        self.assertTrue(state["required_tokens"]["entry_cap_16"])
         self.assertTrue(state["required_tokens"]["exact_set_entry"])
         self.assertTrue(state["required_tokens"]["header_only_replay"])
         self.assertTrue(state["required_tokens"]["header_only_nonzero_cal_size"])
@@ -108,6 +109,7 @@ class NativeAudioAcdbSetcalReplayHelperGateV2635(unittest.TestCase):
         self.assertFalse(manifest["safe_to_run_native_replay"])
         self.assertIn("operator Gate-2", manifest["replay_blockers"][0])
         self.assertTrue(manifest["helper_contract"]["supports_exact_set_arg_replay"])
+        self.assertEqual(manifest["helper_contract"]["max_replay_entries"], 16)
         self.assertTrue(manifest["helper_contract"]["supports_header_only_nonzero_cal_size_exact_args"])
         self.assertTrue(manifest["helper_contract"]["neutralizes_header_only_zero_cal_size_positive_mem_handle"])
 

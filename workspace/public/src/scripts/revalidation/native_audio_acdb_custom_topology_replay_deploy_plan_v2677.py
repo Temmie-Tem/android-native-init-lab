@@ -167,6 +167,27 @@ def verified_from_existing(entry: dict[str, Any]) -> dict[str, Any]:
     return verify_private_file(path, expected_size=local.get("size"), expected_sha256=local.get("sha256"))
 
 
+def helper_entry_from_manifest(path: Path) -> dict[str, Any]:
+    payload = read_json(path)
+    tool = payload.get("build", {}).get("tool", {})
+    helper_path = local_path(tool.get("path"))
+    if helper_path is None:
+        raise ValueError(f"helper manifest lacks build.tool.path: {path}")
+    return {
+        "kind": "helper",
+        "local": {
+            "local_path_private": rel(helper_path),
+            "size": tool.get("size"),
+            "sha256": tool.get("sha256"),
+            "private_only": True,
+            "ok": True,
+        },
+        "remote_path": "",
+        "ok": True,
+        "source_helper_manifest": rel(path),
+    }
+
+
 def load_v2675_events(run_dir: Path) -> dict[int, dict[str, Any]]:
     events_path = run_dir / "ownget-device-artifacts/setcal-events.jsonl"
     events: dict[int, dict[str, Any]] = {}
@@ -263,18 +284,25 @@ def legacy_entries(v2636: dict[str, Any], *, first_sequence: int, remote_dir: st
     return files, set_args
 
 
-def build_deploy_plan(v2636_manifest_path: Path, v2675_run_dir: Path, *, remote_dir: str = DEFAULT_REMOTE_DIR) -> dict[str, Any]:
+def build_deploy_plan(
+    v2636_manifest_path: Path,
+    v2675_run_dir: Path,
+    *,
+    remote_dir: str = DEFAULT_REMOTE_DIR,
+    helper_manifest_path: Path | None = None,
+) -> dict[str, Any]:
     v2636 = read_json(v2636_manifest_path)
     old_files = file_by_remote(v2636)
     old_helper = next((item for item in v2636.get("files") or [] if item.get("kind") == "helper"), None)
     old_topology = next((item for item in v2636.get("files") or [] if item.get("kind") == "topology"), None)
     if not old_helper or not old_topology:
         raise ValueError("source V2636 manifest lacks helper or topology entries")
+    helper_source_entry = helper_entry_from_manifest(helper_manifest_path) if helper_manifest_path else old_helper
 
     files: list[dict[str, Any]] = []
     helper_file = deploy_file(
         "helper",
-        verified_from_existing(old_helper),
+        verified_from_existing(helper_source_entry),
         remote_join(remote_dir, "a90_acdb_setcal_replay_execute_v2635"),
         executable=True,
     )
@@ -343,6 +371,7 @@ def build_deploy_plan(v2636_manifest_path: Path, v2675_run_dir: Path, *, remote_
         "native_calibration_ioctls_run": False,
         "audio_playback_run": False,
         "source_v2636_manifest": rel(v2636_manifest_path),
+        "source_helper_manifest": rel(helper_manifest_path) if helper_manifest_path else None,
         "source_v2675_run": rel(v2675_run_dir),
         "source_v2676_report": "docs/reports/NATIVE_INIT_V2676_AUDIO_ACDB_ADM_CUSTOM_TOPOLOGY_GET_RECON_2026-06-18.md",
         "custom_topology_overlay_cal_types": list(CUSTOM_SEQUENCE),
@@ -398,6 +427,7 @@ def write_report(path: Path, manifest: dict[str, Any], private_manifest_path: Pa
         f"- all_inputs_ok: `{manifest.get('all_inputs_ok')}`",
         f"- private_manifest: `{rel(private_manifest_path)}`",
         f"- source_v2636_manifest: `{manifest.get('source_v2636_manifest')}`",
+        f"- source_helper_manifest: `{manifest.get('source_helper_manifest')}`",
         f"- source_v2675_run: `{manifest.get('source_v2675_run')}`",
         f"- source_v2676_report: `{manifest.get('source_v2676_report')}`",
         f"- remote_dir: `{manifest.get('remote_dir')}`",
@@ -468,6 +498,7 @@ def write_report(path: Path, manifest: dict[str, Any], private_manifest_path: Pa
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--v2636-manifest", type=Path, default=DEFAULT_V2636_MANIFEST)
+    parser.add_argument("--helper-manifest", type=Path)
     parser.add_argument("--v2675-run", type=Path, default=DEFAULT_V2675_RUN)
     parser.add_argument("--remote-dir", default=DEFAULT_REMOTE_DIR)
     parser.add_argument("--private-manifest", type=Path, default=DEFAULT_PRIVATE_MANIFEST)
@@ -478,7 +509,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
-    manifest = build_deploy_plan(args.v2636_manifest, args.v2675_run, remote_dir=args.remote_dir)
+    manifest = build_deploy_plan(
+        args.v2636_manifest,
+        args.v2675_run,
+        remote_dir=args.remote_dir,
+        helper_manifest_path=args.helper_manifest,
+    )
     manifest["private_manifest_path"] = rel(args.private_manifest)
     write_json(args.private_manifest, manifest, mode=0o600)
     if args.write_report:

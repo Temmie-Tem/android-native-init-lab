@@ -43,6 +43,7 @@ CFLAGS = (
 )
 REQUIRED_SOURCE_TOKENS = {
     "execute_guard": "#ifdef A90_ENABLE_NATIVE_SETCAL_REPLAY_EXECUTE",
+    "entry_cap_16": "#define A90_MAX_REPLAY_ENTRIES 16",
     "basic_payload_entry": "--basic-payload CAL_TYPE:BUFFER:PAYLOAD",
     "exact_set_entry": "--exact-set ARG[:PAYLOAD]",
     "exact_arg_replay": "exact_set_arg_replay",
@@ -289,6 +290,7 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
         "helper_source_state": source,
         "v2634_manifest": upstream,
         "helper_contract": {
+            "max_replay_entries": 16,
             "supports_basic_topology_payload": True,
             "supports_exact_set_arg_replay": True,
             "supports_header_only_set_arg_replay": True,
@@ -366,6 +368,7 @@ def write_report(path: Path, payload: dict[str, Any]) -> None:
         "- `--exact-set ARG:PAYLOAD` allocates a fresh ION dmabuf, copies the payload, patches `mem_handle`, then sends the captured SET arg.",
         "- Payload-backed records are deallocated in reverse order; header-only records are not deallocated.",
         "- The helper keeps `/dev/msm_audio_cal` and all payload fds open across the future bounded PCM probe window.",
+        "- `A90_MAX_REPLAY_ENTRIES` is `16`, covering the V2677 custom-topology overlay's 11-entry replay sequence.",
         "",
         "## Gate",
         "",

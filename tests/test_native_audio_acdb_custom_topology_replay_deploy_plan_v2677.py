@@ -129,6 +129,27 @@ def fake_v2675_run(root: Path) -> Path:
     return run
 
 
+def fake_helper_manifest(root: Path) -> Path:
+    helper = root / "new-helper"
+    helper.write_bytes(b"new-helper-cap-16")
+    helper.chmod(0o700)
+    manifest = root / "helper-manifest.json"
+    write_json(
+        manifest,
+        {
+            "ok": True,
+            "build": {
+                "tool": {
+                    "path": str(helper),
+                    "size": helper.stat().st_size,
+                    "sha256": hashlib.sha256(helper.read_bytes()).hexdigest(),
+                }
+            },
+        },
+    )
+    return manifest
+
+
 class NativeAudioAcdbCustomTopologyReplayDeployPlanV2677(unittest.TestCase):
     def test_build_manifest_prepends_custom_topologies_and_keeps_legacy_order(self) -> None:
         root = Path(tempfile.mkdtemp(prefix="a90-v2677-"))
@@ -158,6 +179,24 @@ class NativeAudioAcdbCustomTopologyReplayDeployPlanV2677(unittest.TestCase):
         self.assertFalse(manifest["ok"])
         self.assertFalse(manifest["all_inputs_ok"])
         self.assertIn("failed local size/hash/nonzero", "\n".join(manifest["replay_blockers"]))
+
+    def test_helper_manifest_override_replaces_source_helper(self) -> None:
+        root = Path(tempfile.mkdtemp(prefix="a90-v2677-"))
+        helper_manifest = fake_helper_manifest(root)
+
+        manifest = v2677.build_deploy_plan(
+            fake_v2636(root),
+            fake_v2675_run(root),
+            remote_dir="/cache/test-v2677",
+            helper_manifest_path=helper_manifest,
+        )
+
+        helper = manifest["files"][0]
+        self.assertTrue(manifest["ok"])
+        self.assertEqual(manifest["source_helper_manifest"], str(helper_manifest))
+        self.assertEqual(helper["kind"], "helper")
+        self.assertEqual(helper["local"]["sha256"], hashlib.sha256((root / "new-helper").read_bytes()).hexdigest())
+        self.assertEqual(helper["remote_path"], "/cache/test-v2677/a90_acdb_setcal_replay_execute_v2635")
 
     def test_report_redacts_private_paths_and_documents_cal10_policy(self) -> None:
         root = Path(tempfile.mkdtemp(prefix="a90-v2677-"))
