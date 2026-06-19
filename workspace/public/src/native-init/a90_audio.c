@@ -81,6 +81,8 @@
 #define AUDIO_PLAY_ASYNC_DIR "/cache/a90-audio-play"
 #define AUDIO_PLAY_ASYNC_STATUS_PATH AUDIO_PLAY_ASYNC_DIR "/status.txt"
 #define AUDIO_PLAY_ASYNC_LOG_PATH AUDIO_PLAY_ASYNC_DIR "/worker.log"
+#define AUDIO_PLAY_MANIFEST_WAIT_TIMEOUT_MS 90000
+#define AUDIO_PLAY_MANIFEST_WAIT_SLEEP_MS 250
 
 struct audio_ion_allocation_data {
     uint64_t len;
@@ -2399,6 +2401,41 @@ static bool audio_wait_for_audio_condition(const char *label,
     return false;
 }
 
+static bool audio_wait_for_manifest_ready(const char *manifest_path) {
+    int elapsed_ms = 0;
+
+    a90_console_printf("audio.play.integrated.wait.manifest.path=%s\r\n",
+                       manifest_path != NULL ? manifest_path : "-");
+    audio_play_async_statusf("audio.play.worker.manifest_wait_started=1\n");
+    audio_play_async_statusf("audio.play.worker.manifest_wait_path=%s\n",
+                             manifest_path != NULL ? manifest_path : "-");
+    if (manifest_path == NULL || manifest_path[0] == '\0') {
+        a90_console_printf("audio.play.integrated.wait.manifest.ready=0 elapsed_ms=0 errno=%d\r\n",
+                           EINVAL);
+        audio_play_async_statusf("audio.play.worker.manifest_ready=0 elapsed_ms=0 errno=%d\n",
+                                 EINVAL);
+        return false;
+    }
+    while (elapsed_ms <= AUDIO_PLAY_MANIFEST_WAIT_TIMEOUT_MS) {
+        if (access(manifest_path, R_OK) == 0) {
+            a90_console_printf("audio.play.integrated.wait.manifest.ready=1 elapsed_ms=%d\r\n",
+                               elapsed_ms);
+            audio_play_async_statusf("audio.play.worker.manifest_ready=1 elapsed_ms=%d\n",
+                                     elapsed_ms);
+            return true;
+        }
+        usleep((useconds_t)AUDIO_PLAY_MANIFEST_WAIT_SLEEP_MS * 1000U);
+        elapsed_ms += AUDIO_PLAY_MANIFEST_WAIT_SLEEP_MS;
+    }
+    a90_console_printf("audio.play.integrated.wait.manifest.ready=0 elapsed_ms=%d errno=%d\r\n",
+                       elapsed_ms,
+                       ENOENT);
+    audio_play_async_statusf("audio.play.worker.manifest_ready=0 elapsed_ms=%d errno=%d\n",
+                             elapsed_ms,
+                             ENOENT);
+    return false;
+}
+
 static bool audio_condition_sound_control_ready(const struct audio_speaker_profile *profile) {
     (void)profile;
     return count_dir_entries_matching(AUDIO_SOUND_CLASS_DIR, "control") > 0;
@@ -2502,6 +2539,9 @@ static int audio_play_load_setcal_session(const struct audio_speaker_profile *pr
     memset(&totals, 0, sizeof(totals));
     a90_console_printf("audio.play.integrated.stage=setcal\r\n");
     a90_console_printf("audio.play.integrated.setcal.manifest=%s\r\n", manifest_path);
+    if (!audio_wait_for_manifest_ready(manifest_path)) {
+        return -ETIMEDOUT;
+    }
     a90_console_printf("audio.play.integrated.setcal.verify_load_files=0\r\n");
     rc = audio_setcal_verify_manifest(profile, manifest_path, &totals, false, NULL, &plan);
     a90_console_printf("audio.play.integrated.setcal.verify_rc=%d\r\n", rc);
@@ -2549,7 +2589,7 @@ static int audio_play_execute_integrated(const struct audio_speaker_profile *pro
     a90_console_printf("audio.play.integrated.profile=%s\r\n", profile != NULL ? profile->id : "-");
     a90_console_printf("audio.play.integrated.manifest=%s\r\n", manifest_path);
     a90_console_printf("audio.play.integrated.adsp_prebooted=%d\r\n", adsp_prebooted ? 1 : 0);
-    a90_console_printf("audio.play.integrated.sequence=adsp,snd,app_type,setcal_hold,route_core,pcm,route_core_reset,setcal_deallocate\r\n");
+    a90_console_printf("audio.play.integrated.sequence=adsp,snd,app_type,manifest_wait,setcal_hold,route_core,pcm,route_core_reset,setcal_deallocate\r\n");
     rc = audio_play_run_adsp_stage(profile, !adsp_prebooted);
     if (rc < 0) {
         goto done;
