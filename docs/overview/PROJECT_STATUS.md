@@ -13,7 +13,7 @@
 > boot image `workspace/private/inputs/boot_images/boot_linux_v2828_audio_route_map_safety.img`,
 > SHA256 `f7ad559ec519c7c9d8f537d3549ec4699dac911900ae5cb972ae50681133d69f`.
 > V2829 validated the read-only `audio status` core/profile/safety fields, the `selftest verbose`
-> PASS `audio` row, and display-only `screenapp audio-map` after route-map safety-label polish, then rolled back to `v2321` with `selftest fail=0`. The internal-speaker audio
+> PASS `audio` row, and display-only `screenapp audio-map` after route-map safety-label polish. V2830 validated the callable read-only `audio profiles`, `audio profile`, `audio stages`, and `audio speaker-map` API surfaces on the same candidate. Both runs rolled back to `v2321` with `selftest fail=0`. The internal-speaker audio
 > feasibility epic is closed; remaining audio work is post-promotion productization/observability.
 > The sections below "기준점 A" are older Android/boot-chain context unless a newer native-init report references them.
 
@@ -36,11 +36,11 @@
    n-day 트리아지, 메모리 손상 0. "비파괴 n-day로 EL1 = 불가", "fix-marker ≠ exploitable" ×3.
 6. **USB 가젯 런타임 제어 (V2313-2323, layer ① CLOSED):** `usb status`, mass-storage
    expose/remove, identity rodata 패치(SAMSUNG→A90-LNX), multi-LUN. **v2321 롤백 체크포인트 승격.**
-7. **오디오/ADSP 에픽 (V2324-V2815, CORE CLOSED; V2829 OBSERVABILITY PASS):** 내부 스피커 재생 경로를 닫음.
+7. **오디오/ADSP 에픽 (V2324-V2815, CORE CLOSED; V2830 OBSERVABILITY PASS):** 내부 스피커 재생 경로를 닫음.
    stock HAL/ACDB 관측 → ACDB SET replay → App Type Config `1 69941 48000 16` → route →
    bounded PCM 순서가 native `audio play --execute`에 통합됐고, V2814가 `0.10.0`
-   후보에서 SET-cal/route/PCM/cleanup/rollback을 검증했다. V2829는 `0.10.6` 관측성
-   후보에서 `audio status`, `selftest verbose` PASS audio row, `screenapp audio-map`, APPS/AUDIO 메뉴 표면, route-map safety label을 검증했다. 남은 작업은
+   후보에서 SET-cal/route/PCM/cleanup/rollback을 검증했다. V2829/V2830은 `0.10.6` 관측성
+   후보에서 `audio status`, `selftest verbose` PASS audio row, `screenapp audio-map`, APPS/AUDIO 메뉴 표면, route-map safety label, read-only profile/stage/speaker-map API를 검증했다. 남은 작업은
    스피커별 route map, 상태 UI, 부트차임 같은 post-promotion productization.
 
 > 갱신 규율: 새 롤백 체크포인트가 승격되면 위 note의 baseline/SHA와 7번 항목 현황을 함께 갱신.
