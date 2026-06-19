@@ -13,9 +13,16 @@ static const struct screen_menu_item screen_menu_main_items[] = {
 
 static const struct screen_menu_item screen_menu_apps_items[] = {
     { "ABOUT >", "VERSION AND CREDITS", SCREEN_MENU_SUBMENU, SCREEN_MENU_PAGE_ABOUT },
+    { "AUDIO >", "SPEAKER STATUS AND ROUTE MAP", SCREEN_MENU_SUBMENU, SCREEN_MENU_PAGE_AUDIO },
     { "TOOLS >", "TEST HELPERS",        SCREEN_MENU_SUBMENU, SCREEN_MENU_PAGE_TOOLS },
     { "LOGS >",  "BOOT/COMMAND LOGS",   SCREEN_MENU_SUBMENU, SCREEN_MENU_PAGE_LOGS },
     { "BACK",    "MAIN MENU",           SCREEN_MENU_BACK,    SCREEN_MENU_PAGE_MAIN },
+};
+
+static const struct screen_menu_item screen_menu_audio_items[] = {
+    { "AUDIO STATUS", "CORE PROFILE SAFETY", SCREEN_MENU_AUDIO_STATUS, SCREEN_MENU_PAGE_AUDIO },
+    { "ROUTE MAP",    "SPEAKERS AND PATH",   SCREEN_MENU_AUDIO_MAP,    SCREEN_MENU_PAGE_AUDIO },
+    { "BACK",         "APPS",                SCREEN_MENU_BACK,         SCREEN_MENU_PAGE_APPS },
 };
 
 static const struct screen_menu_item screen_menu_about_items[] = {
@@ -178,6 +185,10 @@ static const struct screen_menu_page screen_menu_pages[SCREEN_MENU_PAGE_COUNT] =
         "APPS / MONITORING", screen_menu_monitoring_items,
         SCREEN_MENU_COUNT(screen_menu_monitoring_items), SCREEN_MENU_PAGE_APPS
     },
+    [SCREEN_MENU_PAGE_AUDIO] = {
+        "APPS / AUDIO", screen_menu_audio_items,
+        SCREEN_MENU_COUNT(screen_menu_audio_items), SCREEN_MENU_PAGE_APPS
+    },
     [SCREEN_MENU_PAGE_TOOLS] = {
         "APPS / TOOLS", screen_menu_tools_items,
         SCREEN_MENU_COUNT(screen_menu_tools_items), SCREEN_MENU_PAGE_APPS
@@ -248,6 +259,10 @@ enum screen_app_id a90_menu_app_from_action(enum screen_menu_action action) {
         return SCREEN_APP_WIFI_SCAN;
     case SCREEN_MENU_WIFI_PING:
         return SCREEN_APP_WIFI_PING;
+    case SCREEN_MENU_AUDIO_STATUS:
+        return SCREEN_APP_AUDIO_STATUS;
+    case SCREEN_MENU_AUDIO_MAP:
+        return SCREEN_APP_AUDIO_MAP;
     default:
         return SCREEN_APP_NONE;
     }
