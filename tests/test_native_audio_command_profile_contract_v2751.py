@@ -50,7 +50,14 @@ class NativeAudioCommandProfileContractV2751(unittest.TestCase):
         self.assertRegex(text, r'strcmp\(argv\[1\], "profile"\) == 0')
         self.assertIn('audio.profile.read_only=1', text)
         self.assertIn('audio.status.default_profile=%s', text)
-        self.assertIn('usage: audio [adsp-status|status|profiles|profile [id]|speaker-map [id]|stages [id]|prereq [id]|app-type [profile] [--dry-run|--write]|setcal [profile] [--dry-run|--execute] [--manifest PATH --verify|--prepare|--load]|play [profile] [--mode probe|listen] [--amplitude-milli N] [--duration-ms N] [--manifest PATH] [--dry-run|--execute]|stop [profile] [--dry-run|--execute]|route [profile] [--dry-run|--apply|--reset] [--layer all|core|feedback|endpoint|blocked]|snd-status|adsp-boot-once|snd-materialize-once]', text)
+        self.assertIn('audio.status.core.promoted=1', text)
+        self.assertIn('audio.status.core.version=%s', text)
+        self.assertIn('AUDIO_CORE_PROMOTION_VERSION "0.10.0"', text)
+        self.assertIn('AUDIO_CORE_PROMOTION_TAG "v2812-audio-core-promotion-candidate"', text)
+        self.assertIn('audio.status.profile.speaker_map=%s', text)
+        self.assertIn('audio.status.safety.smart_amp_boost_write_allowed=0', text)
+        self.assertIn('audio.status.safety.wsa_speaker_protection_verified=0', text)
+        self.assertIn('usage: audio [adsp-status|status|profiles|profile [id]|speaker-map [id]|stages [id]|prereq [id]|app-type [profile] [--dry-run|--write]|setcal [profile] [--dry-run|--execute] [--manifest PATH --verify|--prepare|--load]|play [profile] [--mode probe|listen] [--amplitude-milli N] [--duration-ms N] [--manifest PATH] [--dry-run|--execute]|play-status|stop [profile] [--dry-run|--execute]|route [profile] [--dry-run|--apply|--reset] [--layer all|core|feedback|endpoint|blocked]|snd-status|adsp-boot-once|snd-materialize-once]', text)
 
     def test_native_profile_preserves_speaker_safety_limits(self) -> None:
         text = source_text()

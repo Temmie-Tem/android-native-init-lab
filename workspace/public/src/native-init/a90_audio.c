@@ -45,6 +45,10 @@
 #define AUDIO_SND_MAX_LISTED 64
 #define AUDIO_MISSING_LIST_SIZE 192
 #define AUDIO_ADSP_SEGMENT_MODEL "stock-sparse-b00-b11-b13-b16"
+#define AUDIO_CORE_PROMOTION_RUN "V2815"
+#define AUDIO_CORE_PROMOTION_VERSION "0.10.0"
+#define AUDIO_CORE_PROMOTION_TAG "v2812-audio-core-promotion-candidate"
+#define AUDIO_CORE_VALIDATION_RUN "V2814"
 #define AUDIO_APP_TYPE_CFG_MAX_VALUES 128
 #define AUDIO_SETCAL_MANIFEST_VERSION 1
 #define AUDIO_SETCAL_RUNTIME_PREFIX "/cache/a90-runtime"
@@ -4215,11 +4219,37 @@ static int audio_snd_materialize_once(char **argv, int argc) {
     return 0;
 }
 
+static void audio_print_core_promotion_status(const struct audio_speaker_profile *profile) {
+    a90_console_printf("audio.status.core.promoted=1\r\n");
+    a90_console_printf("audio.status.core.promotion_run=%s\r\n", AUDIO_CORE_PROMOTION_RUN);
+    a90_console_printf("audio.status.core.version=%s\r\n", AUDIO_CORE_PROMOTION_VERSION);
+    a90_console_printf("audio.status.core.build_tag=%s\r\n", AUDIO_CORE_PROMOTION_TAG);
+    a90_console_printf("audio.status.core.validation_run=%s\r\n", AUDIO_CORE_VALIDATION_RUN);
+    a90_console_printf("audio.status.core.native_play_gate=closed\r\n");
+    if (profile != NULL) {
+        a90_console_printf("audio.status.profile.id=%s\r\n", profile->id);
+        a90_console_printf("audio.status.profile.endpoint=%s\r\n", profile->endpoint);
+        a90_console_printf("audio.status.profile.speaker_map=%s\r\n", profile->speaker_map);
+        a90_console_printf("audio.status.profile.app_type=%d\r\n", profile->app_type);
+        a90_console_printf("audio.status.profile.acdb_id=%d\r\n", profile->acdb_id);
+        a90_console_printf("audio.status.profile.sample_rate=%d\r\n", profile->sample_rate);
+        a90_console_printf("audio.status.profile.bit_width=%d\r\n", profile->bit_width);
+        a90_console_printf("audio.status.profile.route_control_count=%d\r\n", a90_audio_route_control_count());
+        a90_console_printf("audio.status.profile.speaker_count=%d\r\n", a90_audio_speaker_map_count());
+        a90_console_printf("audio.status.safety.amplitude_cap_milli=%d\r\n", profile->amplitude_cap_milli);
+        a90_console_printf("audio.status.safety.duration_cap_ms=%d\r\n", profile->duration_cap_ms);
+    }
+    a90_console_printf("audio.status.safety.smart_amp_boost_write_allowed=0\r\n");
+    a90_console_printf("audio.status.safety.wsa_speaker_protection_verified=0\r\n");
+}
+
 static int audio_print_adsp_status(void) {
     struct audio_snd_scan_stats snd_stats;
-    a90_console_printf("audio.status.version=1\r\n");
+    const struct audio_speaker_profile *profile = a90_audio_find_profile(AUDIO_DEFAULT_PROFILE_ID);
+    a90_console_printf("audio.status.version=2\r\n");
     a90_console_printf("audio.status.read_only=1\r\n");
     a90_console_printf("audio.status.default_profile=%s\r\n", AUDIO_DEFAULT_PROFILE_ID);
+    audio_print_core_promotion_status(profile);
     print_trimmed_or_missing("firmware_class_path", AUDIO_FWCLASS_PATH);
     print_mode_line("boot_adsp_boot", AUDIO_BOOT_ATTR);
     print_firmware_status();
