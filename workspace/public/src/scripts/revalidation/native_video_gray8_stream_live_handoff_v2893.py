@@ -21,6 +21,8 @@ import native_audio_v2798_readiness_replay_live_handoff_v2801 as base
 ROOT = repo_root()
 RUN_ID = "V2893"
 BUILD_TAG = "v2893-video-gray8-stream-live"
+REPORT_TITLE = "Native Init V2893 Video Gray8 Stream Live Validation"
+DECISION_PREFIX = "v2893-video-gray8-stream"
 CANDIDATE_IMAGE = ROOT / "workspace/private/inputs/boot_images/boot_linux_v2892_video_gray8_stream.img"
 CANDIDATE_VERSION = "0.10.31"
 CANDIDATE_TAG = "v2892-video-gray8-stream"
@@ -476,7 +478,7 @@ def render_report(result: dict[str, Any]) -> str:
         for item in installed
     ] or ["- none"]
     return "\n".join([
-        "# Native Init V2893 Video Gray8 Stream Live Validation",
+        f"# {REPORT_TITLE}",
         "",
         "## Summary",
         "",
@@ -535,7 +537,7 @@ def render_report(result: dict[str, Any]) -> str:
 
 def dry_run_payload(args: argparse.Namespace, state: dict[str, Any]) -> dict[str, Any]:
     return {
-        "decision": "v2893-video-gray8-stream-live-dry-run" if preflight_ok(state) else "v2893-video-gray8-stream-live-blocked",
+        "decision": f"{DECISION_PREFIX}-live-dry-run" if preflight_ok(state) else f"{DECISION_PREFIX}-live-blocked",
         "ok": preflight_ok(state),
         "preflight": state,
         "commands": {
@@ -553,7 +555,7 @@ def run_live(args: argparse.Namespace, out_dir: Path, state: dict[str, Any]) -> 
     candidate_flash_attempted = False
     candidate_flash_ok = False
     result: dict[str, Any] = {
-        "decision": "v2893-video-gray8-stream-live-started",
+        "decision": f"{DECISION_PREFIX}-live-started",
         "pass": False,
         "preflight": state,
         "steps": steps,
@@ -597,7 +599,7 @@ def run_live(args: argparse.Namespace, out_dir: Path, state: dict[str, Any]) -> 
             result["candidate_video_status_stream_marker"] or result["candidate_video_status_basic_marker"]
         )
         if not (result["candidate_version_ok"] and result["candidate_selftest_fail0"] and result["candidate_video_status_ok"]):
-            result["decision"] = "v2893-video-gray8-stream-candidate-health-failed-before-stream"
+            result["decision"] = f"{DECISION_PREFIX}-candidate-health-failed-before-stream"
             raise RuntimeError("candidate health/video status did not pass")
         result["runtime_install"] = install_fixture(args, out_dir, steps, fixture)
         stream_manifest = str(result["runtime_install"].get("remote_manifest") or REMOTE_MANIFEST)
@@ -615,19 +617,19 @@ def run_live(args: argparse.Namespace, out_dir: Path, state: dict[str, Any]) -> 
         result["stream_stdout_path"] = stream.get("stdout_path")
         result["stream_summary"] = classify_stream_output(stream_text, args.frames)
         if stream.get("rc") != 0 or not result["stream_summary"].get("pass"):
-            result["decision"] = "v2893-video-gray8-stream-stream-failed-before-rollback"
+            result["decision"] = f"{DECISION_PREFIX}-stream-failed-before-rollback"
             raise RuntimeError("video stream command did not emit required pass markers")
         after = base.run_serial_step(out_dir, steps, "candidate-selftest-after-stream", ["selftest", "verbose"], timeout=120.0, retry_unsafe=True)
         result["candidate_selftest_after_stream_fail0"] = selftest_step_ok(after)
         if not result["candidate_selftest_after_stream_fail0"]:
-            result["decision"] = "v2893-video-gray8-stream-post-stream-selftest-failed"
+            result["decision"] = f"{DECISION_PREFIX}-post-stream-selftest-failed"
             raise RuntimeError("candidate post-stream selftest did not report fail=0")
-        result["decision"] = "v2893-video-gray8-stream-live-pass-before-rollback"
+        result["decision"] = f"{DECISION_PREFIX}-live-pass-before-rollback"
         result["pass"] = True
     except Exception as exc:
-        result.setdefault("decision", "v2893-video-gray8-stream-live-blocked")
-        if result["decision"] == "v2893-video-gray8-stream-live-started":
-            result["decision"] = "v2893-video-gray8-stream-live-blocked"
+        result.setdefault("decision", f"{DECISION_PREFIX}-live-blocked")
+        if result["decision"] == f"{DECISION_PREFIX}-live-started":
+            result["decision"] = f"{DECISION_PREFIX}-live-blocked"
         result["error_type"] = type(exc).__name__
         result["error"] = str(exc)
     finally:
@@ -684,7 +686,7 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
-    out_dir = ROOT / f"workspace/private/runs/video/v2893-video-gray8-stream-live-{now_slug()}"
+    out_dir = ROOT / f"workspace/private/runs/video/{BUILD_TAG}-{now_slug()}"
     out_dir.mkdir(parents=True, exist_ok=True)
     state = preflight_state(args)
     if not args.live:
@@ -694,7 +696,7 @@ def main() -> int:
         return 0 if payload["ok"] else 1
     if not preflight_ok(state):
         payload = {
-            "decision": "v2893-video-gray8-stream-live-preflight-failed-no-flash",
+            "decision": f"{DECISION_PREFIX}-live-preflight-failed-no-flash",
             "pass": False,
             "preflight": state,
         }
