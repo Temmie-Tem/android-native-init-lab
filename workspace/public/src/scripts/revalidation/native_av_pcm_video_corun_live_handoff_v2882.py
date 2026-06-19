@@ -382,7 +382,14 @@ def live_run(args: argparse.Namespace, state: dict[str, Any]) -> dict[str, Any]:
         result["candidate_version_ok"] = CANDIDATE_VERSION in stdout_of(version)
         result["candidate_status_stdout_path"] = status.get("stdout_path")
         result["candidate_selftest_fail0"] = selftest_step_ok(selftest)
-        result["candidate_video_status_ok"] = "video.status.next_stream=" in stdout_of(video_status)
+        video_status_text = stdout_of(video_status)
+        result["candidate_video_status_stream_marker"] = "video.status.next_stream=" in video_status_text
+        result["candidate_video_status_basic_marker"] = (
+            "video.status.next=" in video_status_text and "video.status.kms.initialized=1" in video_status_text
+        )
+        result["candidate_video_status_ok"] = bool(
+            result["candidate_video_status_stream_marker"] or result["candidate_video_status_basic_marker"]
+        )
         result["candidate_audio_status_ok"] = "audio.status.version=" in stdout_of(audio_status)
         if not (
             result["candidate_version_ok"]

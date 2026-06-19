@@ -1182,7 +1182,12 @@ static int video_stream_play(const struct video_stream_manifest *manifest,
     uint64_t total_bytes = 0;
     uint64_t late_frames = 0;
     uint64_t max_late_ns = 0;
+    uint64_t initial_drop_late_ns = 0;
     uint32_t flip_events = 0;
+    uint32_t presented_frames = 0;
+    uint32_t dropped_frames = 0;
+    uint32_t first_presented_frame = UINT32_MAX;
+    bool drop_late_frames = false;
     struct a90_kms_flip_result last_flip;
     uint32_t frame_index;
     int fd;
@@ -1235,14 +1240,18 @@ static int video_stream_play(const struct video_stream_manifest *manifest,
             return rc;
         }
         started_ns = audio_sync->listen_begin_ns;
+        drop_late_frames = audio_sync->ready && present_mode == VIDEO_STREAM_PRESENT_PAGEFLIP;
     } else {
         a90_console_printf("video.stream.audio_sync.enabled=0\r\n");
         started_ns = video_monotonic_ns();
     }
+    a90_console_printf("video.stream.audio_sync.drop_policy=%s\r\n",
+                       drop_late_frames ? "late-frame-skip" : "none");
     for (frame_index = 0; frame_index < limit_frames; ++frame_index) {
         struct video_stream_frame_record_v1 record;
         struct a90_fb *fb;
         uint64_t deadline_ns = started_ns + ((uint64_t)frame_index * interval_ns);
+        uint64_t before_wait_ns;
         uint64_t after_present_ns;
         enum a90_cancel_kind cancel;
 
@@ -1269,10 +1278,30 @@ static int video_stream_play(const struct video_stream_manifest *manifest,
         if (rc < 0) {
             break;
         }
+        before_wait_ns = video_monotonic_ns();
+        if (drop_late_frames && frame_index + 1U < limit_frames && before_wait_ns > deadline_ns) {
+            uint64_t late_ns = before_wait_ns - deadline_ns;
+
+            if (late_ns > interval_ns / 2U) {
+                if (dropped_frames == 0) {
+                    initial_drop_late_ns = late_ns;
+                }
+                ++dropped_frames;
+                cancel = a90_console_poll_cancel(0);
+                if (cancel != CANCEL_NONE) {
+                    close(fd);
+                    a90_console_printf("video.stream.presented=%u\r\n", presented_frames);
+                    a90_console_printf("video.stream.dropped_frames=%u\r\n", dropped_frames);
+                    return a90_console_cancelled("videostream", cancel);
+                }
+                continue;
+            }
+        }
         rc = video_wait_until_ns(deadline_ns);
         if (rc < 0) {
             close(fd);
-            a90_console_printf("video.stream.presented=%u\r\n", frame_index);
+            a90_console_printf("video.stream.presented=%u\r\n", presented_frames);
+            a90_console_printf("video.stream.dropped_frames=%u\r\n", dropped_frames);
             return rc;
         }
         if (present_mode == VIDEO_STREAM_PRESENT_PAGEFLIP) {
@@ -1293,6 +1322,10 @@ static int video_stream_play(const struct video_stream_manifest *manifest,
             }
         }
         total_bytes += record.payload_bytes;
+        if (first_presented_frame == UINT32_MAX) {
+            first_presented_frame = frame_index;
+        }
+        ++presented_frames;
         after_present_ns = video_monotonic_ns();
         if (after_present_ns > deadline_ns) {
             uint64_t late_ns = after_present_ns - deadline_ns;
@@ -1305,7 +1338,8 @@ static int video_stream_play(const struct video_stream_manifest *manifest,
         cancel = a90_console_poll_cancel(0);
         if (cancel != CANCEL_NONE) {
             close(fd);
-            a90_console_printf("video.stream.presented=%u\r\n", frame_index + 1);
+            a90_console_printf("video.stream.presented=%u\r\n", presented_frames);
+            a90_console_printf("video.stream.dropped_frames=%u\r\n", dropped_frames);
             return a90_console_cancelled("videostream", cancel);
         }
     }
@@ -1317,12 +1351,13 @@ static int video_stream_play(const struct video_stream_manifest *manifest,
 
     {
         uint64_t elapsed_ns = finished_ns > started_ns ? finished_ns - started_ns : 1;
-        uint64_t fps_milli = ((uint64_t)limit_frames * 1000000000000ULL) / elapsed_ns;
+        uint64_t fps_milli = ((uint64_t)presented_frames * 1000000000000ULL) / elapsed_ns;
         uint64_t mbps_milli = (total_bytes * 1000000ULL) / elapsed_ns;
 
-        a90_console_printf("video.stream.presented=%u\r\n", limit_frames);
+        a90_console_printf("video.stream.presented=%u\r\n", presented_frames);
         a90_console_printf("video.stream.frames_requested=%u\r\n", requested_frames);
         a90_console_printf("video.stream.frames_total=%u\r\n", manifest->frame_count);
+        a90_console_printf("video.stream.dropped_frames=%u\r\n", dropped_frames);
         a90_console_printf("video.stream.bytes=%llu\r\n", (unsigned long long)total_bytes);
         a90_console_printf("video.stream.elapsed_ns=%llu\r\n", (unsigned long long)elapsed_ns);
         a90_console_printf("video.stream.fps_milli=%llu\r\n", (unsigned long long)fps_milli);
@@ -1344,6 +1379,10 @@ static int video_stream_play(const struct video_stream_manifest *manifest,
             a90_console_printf("video.stream.audio_sync.sample_rate=%u\r\n", audio_sync->sample_rate);
             a90_console_printf("video.stream.audio_sync.frame_bytes=%u\r\n", audio_sync->frame_bytes);
             a90_console_printf("video.stream.audio_sync.total_frames=%u\r\n", audio_sync->total_frames);
+            a90_console_printf("video.stream.audio_sync.first_presented_frame=%u\r\n",
+                               first_presented_frame == UINT32_MAX ? 0 : first_presented_frame);
+            a90_console_printf("video.stream.audio_sync.initial_drop_late_ns=%llu\r\n",
+                               (unsigned long long)initial_drop_late_ns);
         }
         a90_console_printf("video.stream.flip_events=%u\r\n", flip_events);
         a90_console_printf("video.stream.last_sequence=%u\r\n", last_flip.sequence);
