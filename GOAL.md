@@ -43,8 +43,15 @@ Pursue the **highest tier that still has a meaningful, safely-actionable next st
 Drop to the next tier only when the current one is *saturated* or *meaningless* (criteria
 below). Re-evaluate each iteration; you may climb back up if new work appears.
 
-### Audio (ADSP/Q6) speaker — feasibility PROVEN ✅ (2026-06-19) → ACTIVE EPIC = productize it (A→B→C)
+### Audio (ADSP/Q6) speaker — DONE ✅ (CORE device-proven + promoted `0.10.0`, 2026-06-19) — now BACKGROUND/optional
 
+> **⛔ AUDIO IS NO LONGER THE ACTIVE FRONTIER (2026-06-19).** The audio CORE is closed: native `audio play --execute`
+> makes sound on-device as a self-contained command (V2811/V2814), promoted to init `0.10.0` (V2812→V2815), and the first
+> demo (bundled chime) passes (V2844). **The ACTIVE EPIC is now Video** (see the chartered Video section below). Remaining
+> audio Tier-C polish (UI/screen/route-map/changelog/status surfaces) is **optional background only** — do NOT grind it as
+> the primary track; pick it up only for a genuinely substantive item, never as churn. The A→B→C charter below is retained as
+> the completed record of how audio was productized.
+>
 > **🎉 FOUNDATION (proven, do not re-litigate): native init PID1 produced real, human-audible internal-speaker sound.**
 > Live run `workspace/private/runs/audio/v2639-acdb-setcal-replay-20260619-002937` played the 8 s
 > 48 kHz stereo S16LE 0.15-amplitude pilot end-to-end (`A90_APP_TYPE_CFG_WRITE_OK` →
@@ -351,15 +358,25 @@ no cascading bad flashes, known-good rollback image must be present before flash
 the current validated artifact; `vNNNN-purpose` tag. **If the evidence lands on "full HAL mandatory,"
 close the epic with that evidence rather than grinding.**
 
-### Candidate next epic (NOT chartered — REFERENCE ONLY) — Video (Venus decode / display) feasibility *recon*
+### ⚡ ACTIVE EPIC (operator-chartered 2026-06-19) — Video (display framebuffer / Venus) feasibility *recon*
 
-> **⛔ DO NOT START. The audio epic is now closed, but that does NOT auto-promote this.** The operator
-> explicitly decided (2026-06-19) to choose the next goal manually after organizing the audio close.
-> **Do not begin VID-0 or any video recon/device step** until this section is rewritten as the active
-> epic by the operator. This block is kept only as a candidate-direction reference. One frontier at a
-> time; right now there is **no** active frontier — see the closed audio banner at the top and the Stop
-> conditions. Like audio, if/when chartered this is a *research / feasibility* epic where a "NON-VIABLE"
-> close is acceptable; it would start **host-only** (recon), parallel to AUD-0/AUD-1, before any device step.
+> **This is now THE active frontier.** Audio CORE is device-proven + promoted (`0.10.0`); its Tier-C polish is
+> optional background, not the frontier. Like audio, this is a *research / feasibility* epic — a **"NON-VIABLE under
+> native init" close is an acceptable, valuable outcome.** Do not force a result.
+>
+> **Start HOST-ONLY (VID-0/VID-1), exactly parallel to AUD-0/AUD-1 — no device step until the recon plan is written.**
+> **Optimize for the DISPLAY FRAMEBUFFER, not Venus:** the demo ladder (Bad Apple → Nyan Cat → DOOM) needs a drawable
+> framebuffer, NOT hardware video decode, so the make-or-break question is the cont-splash inherited framebuffer — chase
+> that first; Venus stays an optional/separate sub-target.
+> **First unit — VID-0 (host-only inventory & decision):** from the stock vendor image + kernel source + DTS, enumerate the
+> display DRM/DSI/cont-splash config + panel node (and, secondarily, the Venus `venus*` firmware + VIDC V4L2 driver / expected
+> `/dev/video*`). Decide the lower-risk sub-target (expected: **display cont-splash framebuffer probe**). Deliverable: feasibility report.
+> **VID-1 (host-only path analysis):** cont-splash teardown timing + whether native init can inherit a writable `/dev/dri/card0`
+> or `/dev/fb0` **before** teardown + a region-blit plan that does **NOT** re-init the panel. Deliverable: the reviewable device-step plan.
+> **VID-2+ (DEVICE, recoverable, read-only first):** does native init actually see an inherited framebuffer? **HARD BRICK-CAUTION:
+> use ONLY the inherited cont-splash surface — do NOT run a from-scratch DSI panel init, and do NOT write backlight / PMIC / PWM /
+> regulator / GDSC (brick-risk). If the splash surface is already torn down / blanked, STOP that sub-target and report rather than
+> re-lighting the panel.** Recoverable boot-partition flashes only; rollback `v2321`; forbidden partitions absolute.
 
 **Grounded starting facts (2026-06-14/15 session research; re-verify, do not trust blindly):**
 - **Venus (HW video decode)** = the natural successor: `CONFIG_MSM_VIDC_V4L2=y` is in the stock kernel,
@@ -883,12 +900,14 @@ ioctls yet. V2465 completed that host-only hardening: staged ADB `shell`/`push`/
 
 ## Stop conditions
 
-- **ACTIVE EPIC (as of 2026-06-19) = audio productization A→B→C** (see the banner at the top:
-  modularize → native-init `audio` command surface → readable ops). The internal-audio *feasibility*
-  question is closed (sound proven); the chartered work now is turning it into a clean feature. Select
-  units from tiers A→B→C, staged. **Do NOT start the Video epic or any other new epic** — it stays
-  reference-only until the operator charters it. The audio feasibility *investigation* (operator
-  steering + AUD-* ledger) is closed history — do not reopen it as new replay experiments.
+- **ACTIVE EPIC (operator-chartered 2026-06-19) = Video (display framebuffer / Venus) feasibility recon**
+  (see the chartered Video section). Audio is DONE: CORE device-proven + promoted `0.10.0` + first demo
+  (chime) passing; **audio Tier-C polish is now optional background, NOT the primary track — do not grind
+  it.** Select units from the Video epic: **start HOST-ONLY (VID-0/VID-1) — inventory + cont-splash
+  framebuffer feasibility (optimize for the display framebuffer, not Venus) — before any device step.**
+  VID-2 device steps are read-only-first and under HARD brick-caution (inherited cont-splash surface only;
+  NO DSI panel re-init, NO backlight/PMIC/PWM/regulator/GDSC writes; if splash torn down → STOP and report).
+  Do NOT start a third epic (Bluetooth/sensors/etc.) — those stay reference-only until separately chartered.
 - Device unreachable after an auto-rollback → STOP, leave an incident report.
 - The same sub-goal fails twice → STOP or shelve it and move on; do NOT retry-loop.
 - No sub-goal is safely actionable without the operator → STOP with a note (but T1 is
