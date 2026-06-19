@@ -8,7 +8,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import posixpath
 import re
+import shlex
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
@@ -49,6 +51,7 @@ FLIP_DELTA_MAX_RE = re.compile(r"video\.stream\.flip_delta_max_us=(\d+)")
 FLIP_DELTA_AVG_RE = re.compile(r"video\.stream\.flip_delta_avg_us=(\d+)")
 FLIP_DELTA_TARGET_RE = re.compile(r"video\.stream\.flip_delta_target_us=(\d+)")
 SHA256_LINE_RE = re.compile(r"(?m)^([0-9a-fA-F]{64})\s+")
+DEFAULT_STREAM_CHUNK_BYTES = 256 * 1024 * 1024
 
 
 def rel(path: Path) -> str:
@@ -148,6 +151,132 @@ def copy_remote_file(out_dir: Path,
     }
 
 
+def planned_chunk_count(total_bytes: int, chunk_bytes: int) -> int:
+    if chunk_bytes <= 0:
+        raise ValueError(f"invalid chunk size: {chunk_bytes}")
+    if total_bytes <= 0:
+        return 0
+    return (total_bytes + chunk_bytes - 1) // chunk_bytes
+
+
+def write_local_chunk(source, destination: Path, limit: int) -> int:
+    written = 0
+    with destination.open("wb") as out:
+        while written < limit:
+            block = source.read(min(4 * 1024 * 1024, limit - written))
+            if not block:
+                break
+            out.write(block)
+            written += len(block)
+    return written
+
+
+def device_shell_step(out_dir: Path,
+                      steps: list[dict[str, Any]],
+                      label: str,
+                      command: str,
+                      *,
+                      timeout: float) -> dict[str, Any]:
+    return base.run_serial_step(
+        out_dir,
+        steps,
+        label,
+        ["run", "/bin/busybox", "sh", "-c", command],
+        timeout=timeout,
+        retry_unsafe=True,
+    )
+
+
+def install_stream_chunked(args: argparse.Namespace,
+                           out_dir: Path,
+                           steps: list[dict[str, Any]],
+                           local_path: Path,
+                           remote_path: str,
+                           transfer_port: int,
+                           *,
+                           control_channel: str) -> dict[str, Any]:
+    chunk_bytes = int(args.stream_chunk_bytes)
+    local_size = local_path.stat().st_size
+    chunk_count = planned_chunk_count(local_size, chunk_bytes)
+    remote_dir = posixpath.dirname(remote_path)
+    remote_name = posixpath.basename(remote_path)
+    remote_tmp = f"{remote_dir}/.{remote_name}.chunked.tmp"
+    remote_part_prefix = f"{remote_dir}/{remote_name}.part"
+    local_chunk_dir = out_dir / "stream-upload-chunks"
+    local_chunk_dir.mkdir(parents=True, exist_ok=True)
+    result: dict[str, Any] = {
+        "name": "stream",
+        "mode": "chunked",
+        "local": rel(local_path),
+        "remote": remote_path,
+        "bytes": local_size,
+        "chunk_bytes": chunk_bytes,
+        "chunks": chunk_count,
+        "ok": False,
+        "chunk_records": [],
+    }
+    cleanup_command = (
+        f"mkdir -p {shlex.quote(remote_dir)} && "
+        f"rm -f {shlex.quote(remote_path)} {shlex.quote(remote_tmp)} "
+        f"{shlex.quote(remote_dir)}/.{shlex.quote(remote_name)}.tmp.* "
+        f"{shlex.quote(remote_part_prefix)}.*"
+    )
+    cleanup = device_shell_step(out_dir, steps, "install-video-stream-chunked-cleanup", cleanup_command, timeout=120.0)
+    result["cleanup_stdout_path"] = cleanup.get("stdout_path")
+    result["cleanup_ok"] = bool(cleanup.get("ok"))
+    with local_path.open("rb") as source:
+        for index in range(chunk_count):
+            chunk_path = local_chunk_dir / f"frames.a90vstr.part.{index:04d}"
+            written = write_local_chunk(source, chunk_path, chunk_bytes)
+            if written <= 0:
+                raise RuntimeError(f"chunked stream upload produced empty chunk {index}")
+            remote_part = f"{remote_part_prefix}.{index:04d}"
+            install_step = base.run_step(
+                out_dir,
+                steps,
+                f"install-video-stream-chunk-{index:04d}",
+                tiny_live.install_command(
+                    args,
+                    chunk_path,
+                    remote_part,
+                    transfer_port,
+                    control_channel=control_channel,
+                ),
+                timeout=args.transfer_timeout + 90.0,
+            )
+            append_command = (
+                f"cat {shlex.quote(remote_part)} >> {shlex.quote(remote_tmp)} && "
+                f"rm -f {shlex.quote(remote_part)}"
+            )
+            append_step = device_shell_step(
+                out_dir,
+                steps,
+                f"install-video-stream-append-{index:04d}",
+                append_command,
+                timeout=max(180.0, min(args.transfer_timeout, 900.0)),
+            )
+            result["chunk_records"].append({
+                "index": index,
+                "bytes": written,
+                "remote_part": remote_part,
+                "install_stdout_path": install_step.get("stdout_path"),
+                "append_stdout_path": append_step.get("stdout_path"),
+                "ok": bool(install_step.get("ok")) and bool(append_step.get("ok")),
+            })
+            chunk_path.unlink(missing_ok=True)
+    finalize = device_shell_step(
+        out_dir,
+        steps,
+        "install-video-stream-chunked-finalize",
+        f"mv -f {shlex.quote(remote_tmp)} {shlex.quote(remote_path)}",
+        timeout=240.0,
+    )
+    result["finalize_stdout_path"] = finalize.get("stdout_path")
+    result["finalize_ok"] = bool(finalize.get("ok"))
+    result["ok"] = bool(result["cleanup_ok"]) and all(item["ok"] for item in result["chunk_records"]) and bool(result["finalize_ok"])
+    return result
+
+
 def selftest_step_ok(step: dict[str, Any]) -> bool:
     return bool(SELFTEST_FAIL0_RE.search(stdout_of(step))) or base.protocol_selftest_ok(step)
 
@@ -192,6 +321,8 @@ def preflight_state(args: argparse.Namespace) -> dict[str, Any]:
         "cache_enabled": not args.disable_cache,
         "require_cache_hit": bool(getattr(args, "require_cache_hit", False)),
         "adopt_legacy_cache": bool(args.adopt_legacy_cache),
+        "chunk_large_streams": bool(args.chunk_large_streams),
+        "stream_chunk_bytes": int(args.stream_chunk_bytes),
         "fixture_frames": args.frames,
         "cadence_target": f"{args.fps_num}/{args.fps_den}fps full-resolution {args.stream_format} page-flip stream",
         "fixture_fps_num": args.fps_num,
@@ -380,29 +511,58 @@ def install_fixture(args: argparse.Namespace,
         timeout=45.0,
         retry_unsafe=True,
     )
-    for name, local_path, remote_path, port in (
-        ("manifest", manifest_path, target_manifest, args.transfer_port),
-        ("stream", stream_path, target_stream, args.transfer_port + 1),
-    ):
-        step = base.run_step(
+    manifest_step = base.run_step(
+        out_dir,
+        steps,
+        "install-video-manifest",
+        tiny_live.install_command(
+            args,
+            manifest_path,
+            target_manifest,
+            args.transfer_port,
+            control_channel=control_channel,
+        ),
+        timeout=args.transfer_timeout + 90.0,
+    )
+    result["installed"].append({
+        "name": "manifest",
+        "mode": "single",
+        "local": rel(manifest_path),
+        "remote": target_manifest,
+        "stdout_path": manifest_step.get("stdout_path"),
+        "ok": bool(manifest_step.get("ok")),
+    })
+    if args.chunk_large_streams and stream_path.stat().st_size > int(args.stream_chunk_bytes):
+        result["installed"].append(install_stream_chunked(
+            args,
             out_dir,
             steps,
-            f"install-video-{name}",
+            stream_path,
+            target_stream,
+            args.transfer_port + 1,
+            control_channel=control_channel,
+        ))
+    else:
+        stream_step = base.run_step(
+            out_dir,
+            steps,
+            "install-video-stream",
             tiny_live.install_command(
                 args,
-                local_path,
-                remote_path,
-                port,
+                stream_path,
+                target_stream,
+                args.transfer_port + 1,
                 control_channel=control_channel,
             ),
             timeout=args.transfer_timeout + 90.0,
         )
         result["installed"].append({
-            "name": name,
-            "local": rel(local_path),
-            "remote": remote_path,
-            "stdout_path": step.get("stdout_path"),
-            "ok": bool(step.get("ok")),
+            "name": "stream",
+            "mode": "single",
+            "local": rel(stream_path),
+            "remote": target_stream,
+            "stdout_path": stream_step.get("stdout_path"),
+            "ok": bool(stream_step.get("ok")),
         })
     if not args.disable_cache:
         uploaded_manifest_probe = remote_file_sha256(out_dir, steps, "candidate-uploaded-manifest-sha256", target_manifest, manifest_sha)
@@ -481,10 +641,16 @@ def render_report(result: dict[str, Any]) -> str:
     stream_summary = result.get("stream_summary", {}) if isinstance(result.get("stream_summary"), dict) else {}
     install = result.get("runtime_install", {}) if isinstance(result.get("runtime_install"), dict) else {}
     installed = install.get("installed", []) if isinstance(install.get("installed"), list) else []
-    installed_lines = [
-        f"- `{item.get('name')}` -> `{item.get('remote')}` ok=`{int(bool(item.get('ok')))}`"
-        for item in installed
-    ] or ["- none"]
+    installed_lines = []
+    for item in installed:
+        chunk_note = ""
+        if item.get("mode") == "chunked":
+            chunk_note = f" chunks=`{item.get('chunks')}` chunk_bytes=`{item.get('chunk_bytes')}` bytes=`{item.get('bytes')}`"
+        installed_lines.append(
+            f"- `{item.get('name')}` mode=`{item.get('mode', 'single')}` -> `{item.get('remote')}` ok=`{int(bool(item.get('ok')))}`{chunk_note}"
+        )
+    if not installed_lines:
+        installed_lines = ["- none"]
     return "\n".join([
         f"# {REPORT_TITLE}",
         "",
@@ -693,6 +859,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--disable-cache", action="store_true", help="stage this run under the per-run remote directory instead of the SHA-addressed SD cache")
     parser.add_argument("--adopt-legacy-cache", action=argparse.BooleanOptionalAction, default=True, help="copy a matching legacy V2890 remote fixture into the SHA cache before uploading")
     parser.add_argument("--require-cache-hit", action="store_true", help="fail instead of uploading if the SHA-addressed SD video cache is missing")
+    parser.add_argument("--chunk-large-streams", action="store_true", help="upload large frame streams to the device SD cache in bounded chunks")
+    parser.add_argument("--stream-chunk-bytes", type=int, default=DEFAULT_STREAM_CHUNK_BYTES, help="maximum local chunk size for --chunk-large-streams")
     return parser.parse_args()
 
 
