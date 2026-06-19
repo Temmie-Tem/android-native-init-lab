@@ -177,10 +177,10 @@ int a90_app_audio_draw_status(void) {
 
     snprintf(line0, sizeof(line0), "CORE %s  %s",
              AUDIO_CORE_PROMOTION_VERSION, AUDIO_CORE_PROMOTION_RUN);
-    snprintf(line1, sizeof(line1), "PROFILE %s",
+    snprintf(line1, sizeof(line1), "LATEST %s %s",
+             AUDIO_PRODUCTIZATION_LATEST_VERSION, AUDIO_PRODUCTIZATION_LATEST_RUN);
+    snprintf(line2, sizeof(line2), "PROFILE %s",
              profile != NULL ? profile->id : AUDIO_DEFAULT_PROFILE_ID);
-    snprintf(line2, sizeof(line2), "ENDPOINT %s",
-             profile != NULL ? app_audio_text_or_dash(profile->endpoint) : "-");
     snprintf(line3, sizeof(line3), "APP %d  ACDB %d  %dHz %db",
              profile != NULL ? profile->app_type : -1,
              profile != NULL ? profile->acdb_id : -1,
@@ -188,8 +188,9 @@ int a90_app_audio_draw_status(void) {
              profile != NULL ? profile->bit_width : 0);
     snprintf(line4, sizeof(line4), "ROUTE %d  RESET %d  SPEAKERS %d",
              route_count, reset_count, speaker_count);
-    snprintf(line5, sizeof(line5), "MAP %s",
-             profile != NULL ? app_audio_text_or_dash(profile->speaker_map) : "-");
+    snprintf(line5, sizeof(line5), "CHIME BOOT %s  STOP %s",
+             AUDIO_CHIME_BOOT_AUTOPLAY_DEFAULT ? "ON" : "OFF",
+             AUDIO_STOP_EXECUTE_SCOPE);
     snprintf(line6, sizeof(line6), "SAFETY AMP <=%dmilli DUR <=%dms",
              profile != NULL ? profile->amplitude_cap_milli : 0,
              profile != NULL ? profile->duration_cap_ms : 0);
