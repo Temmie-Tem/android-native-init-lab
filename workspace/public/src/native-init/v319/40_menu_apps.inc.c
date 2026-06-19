@@ -8,6 +8,7 @@ static void kms_draw_menu_section(struct a90_fb *fb,
                                   size_t selected);
 static int cmd_statushud(void);
 static int cmd_recovery(void);
+int a90_audio_cmd(char **argv, int argc);
 static int draw_screen_input_monitor_app(void);
 static int draw_screen_display_test_page(unsigned int page_index);
 static uint32_t shrink_text_scale(const char *text, uint32_t scale, uint32_t max_width);
@@ -471,22 +472,45 @@ static bool auto_hud_handle_menu_key(struct auto_hud_state *state,
             auto_hud_enter_app(state, SCREEN_APP_CUTOUT_CAL);
             break;
         case SCREEN_MENU_DEMO_BADAPPLE: {
+            char *audio_argv[] = {
+                "audio", "play", "internal-speaker-safe",
+                "--mode", "listen",
+                "--amplitude-milli", "150",
+                "--duration-ms", "4000",
+                "--pcm-file", "/cache/a90-runtime/pkg/av/v2920/audio/badapple.s16le",
+                "--execute",
+            };
             char *demo_argv[] = {
                 "video", "demo", "badapple", "play",
                 "--trust-cache", "--frames", "120",
                 "--present", "pageflip",
                 "--layout", "player-hud",
+                "--sync-audio-status", "/cache/a90-audio-play/status.txt",
+                "--sync-wait-ms", "10000",
             };
+            int audio_rc;
             int rc;
 
-            a90_console_printf("menu.demo.badapple.action=play-preview\r\n");
+            a90_console_printf("menu.demo.badapple.action=play-av-preview\r\n");
             a90_console_printf("menu.demo.badapple.frames=120\r\n");
+            a90_console_printf("menu.demo.badapple.audio_duration_ms=4000\r\n");
+            a90_console_printf("menu.demo.badapple.audio_amplitude_milli=150\r\n");
+            a90_console_printf("menu.demo.badapple.audio_pcm=/cache/a90-runtime/pkg/av/v2920/audio/badapple.s16le\r\n");
+            a90_console_printf("menu.demo.badapple.audio_sync_status=/cache/a90-audio-play/status.txt\r\n");
             a90_console_printf("menu.demo.badapple.restore=menu\r\n");
             state->menu_active = false;
             a90_controller_set_menu_active(false);
             a90_controller_clear_menu_request();
-            rc = cmd_video_demo(demo_argv,
-                                (int)(sizeof(demo_argv) / sizeof(demo_argv[0])));
+            audio_rc = a90_audio_cmd(audio_argv,
+                                     (int)(sizeof(audio_argv) / sizeof(audio_argv[0])));
+            a90_console_printf("menu.demo.badapple.audio_rc=%d\r\n", audio_rc);
+            if (audio_rc == 0) {
+                rc = cmd_video_demo(demo_argv,
+                                    (int)(sizeof(demo_argv) / sizeof(demo_argv[0])));
+            } else {
+                rc = audio_rc;
+                a90_console_printf("menu.demo.badapple.video_skipped=audio-start-failed\r\n");
+            }
             a90_console_printf("menu.demo.badapple.rc=%d\r\n", rc);
             auto_hud_show_menu(state, false);
             break;
