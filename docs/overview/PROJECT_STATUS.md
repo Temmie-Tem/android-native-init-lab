@@ -9,11 +9,11 @@
 > safety rollback net remains `v2321` (`0.9.285`, SHA256
 > `ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb`) with deeper
 > fallbacks `v2237` and `v48` until the flash-gate contract is deliberately updated.
-> Post-promotion observability candidate: `A90 Linux init 0.10.8 (v2833-audio-stage-screen)`,
-> boot image `workspace/private/inputs/boot_images/boot_linux_v2833_audio_stage_screen.img`,
-> SHA256 `023c418374800afb4a1a9e303ced990b07622ecd587389db89cf10b84c963489`.
+> Post-promotion observability candidate: `A90 Linux init 0.10.9 (v2835-audio-help-surface)`,
+> boot image `workspace/private/inputs/boot_images/boot_linux_v2835_audio_help_surface.img`,
+> SHA256 `53ef5d1155b7833dcb05d6ecc6d9dfabfd336b9c66f695b1aa789eb9e5ba6aca`.
 > V2829 validated the read-only `audio status` core/profile/safety fields, the `selftest verbose`
-> PASS `audio` row, and display-only `screenapp audio-map` after route-map safety-label polish. V2830 validated the callable read-only `audio profiles`, `audio profile`, `audio stages`, and `audio speaker-map` API surfaces on the previous `0.10.6` candidate. V2832 validated display-only `screenapp audio-profile` on `0.10.7`; V2834 validated display-only `screenapp audio-stages` on `0.10.8`. These runs rolled back to `v2321` with `selftest fail=0`. The internal-speaker audio feasibility epic is closed; remaining audio work is post-promotion productization/observability.
+> PASS `audio` row, and display-only `screenapp audio-map` after route-map safety-label polish. V2830 validated the callable read-only `audio profiles`, `audio profile`, `audio stages`, and `audio speaker-map` API surfaces on the previous `0.10.6` candidate. V2832 validated display-only `screenapp audio-profile` on `0.10.7`; V2834 validated display-only `screenapp audio-stages` on `0.10.8`; V2836 validated current audio usage in `help` and `cmdmeta verbose` on `0.10.9`. These runs rolled back to `v2321` with `selftest fail=0`. The internal-speaker audio feasibility epic is closed; remaining audio work is post-promotion productization/observability.
 > The sections below "기준점 A" are older Android/boot-chain context unless a newer native-init report references them.
 
 ## 프로젝트 여정 (7-페이즈 arc, 첫 커밋 → 현재)
@@ -35,11 +35,11 @@
    n-day 트리아지, 메모리 손상 0. "비파괴 n-day로 EL1 = 불가", "fix-marker ≠ exploitable" ×3.
 6. **USB 가젯 런타임 제어 (V2313-2323, layer ① CLOSED):** `usb status`, mass-storage
    expose/remove, identity rodata 패치(SAMSUNG→A90-LNX), multi-LUN. **v2321 롤백 체크포인트 승격.**
-7. **오디오/ADSP 에픽 (V2324-V2815, CORE CLOSED; V2834 OBSERVABILITY PASS):** 내부 스피커 재생 경로를 닫음.
+7. **오디오/ADSP 에픽 (V2324-V2815, CORE CLOSED; V2836 OBSERVABILITY PASS):** 내부 스피커 재생 경로를 닫음.
    stock HAL/ACDB 관측 → ACDB SET replay → App Type Config `1 69941 48000 16` → route →
    bounded PCM 순서가 native `audio play --execute`에 통합됐고, V2814가 `0.10.0`
-   후보에서 SET-cal/route/PCM/cleanup/rollback을 검증했다. V2829/V2830/V2832/V2834는 `0.10.6`/`0.10.7`/`0.10.8` 관측성
-   후보에서 `audio status`, `selftest verbose` PASS audio row, `screenapp audio-map`, `screenapp audio-profile`, `screenapp audio-stages`, APPS/AUDIO 메뉴 표면, route-map safety label, read-only profile/stage/speaker-map API를 검증했다. 남은 작업은
+   후보에서 SET-cal/route/PCM/cleanup/rollback을 검증했다. V2829/V2830/V2832/V2834/V2836는 `0.10.6`/`0.10.7`/`0.10.8`/`0.10.9` 관측성
+   후보에서 `audio status`, `selftest verbose` PASS audio row, `screenapp audio-map`, `screenapp audio-profile`, `screenapp audio-stages`, APPS/AUDIO 메뉴 표면, route-map safety label, read-only profile/stage/speaker-map API, `help`/`cmdmeta verbose` audio usage를 검증했다. 남은 작업은
    스피커별 route map, 상태 UI, 부트차임 같은 post-promotion productization.
 
 > 갱신 규율: 새 롤백 체크포인트가 승격되면 위 note의 baseline/SHA와 7번 항목 현황을 함께 갱신.

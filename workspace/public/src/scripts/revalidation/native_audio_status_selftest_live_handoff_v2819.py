@@ -57,6 +57,7 @@ REQUIRED_SELFTEST_MARKERS = [
 ]
 SCREENAPP_COMMAND: list[str] | None = None
 REQUIRED_SCREENAPP_MARKERS: list[str] = []
+EXTRA_MARKER_STEPS: list[dict[str, Any]] = []
 MARKER_RETRY_LIMIT = 2
 MARKER_RETRY_DELAY_SEC = 0.5
 
@@ -201,7 +202,8 @@ def render_report(result: dict[str, Any]) -> str:
         f"- Result directory: `{result.get('out_dir')}`",
         f"- Candidate image: `{rel(CANDIDATE_IMAGE)}`",
         f"- Candidate SHA256: `{result.get('candidate_sha256')}`",
-        f"- Candidate version/tag observed: `{int(bool(result.get('candidate_version_ok')))}`",
+        f"- Candidate version/tag expected: `{CANDIDATE_VERSION}` / `{CANDIDATE_TAG}`",
+        f"- Candidate version/tag observed OK: `{int(bool(result.get('candidate_version_ok')))}`",
         f"- `audio status` marker pass: `{int(bool(audio.get('ok')))}` ({audio.get('count', 0)}/{audio.get('required', 0)})",
         f"- `selftest verbose` audio marker pass: `{int(bool(selftest.get('ok')))}` ({selftest.get('count', 0)}/{selftest.get('required', 0)})",
         f"- `screenapp` marker pass: `{int(bool(screenapp.get('ok', not REQUIRED_SCREENAPP_MARKERS)))}` ({screenapp.get('count', 0)}/{screenapp.get('required', 0)})",
@@ -339,11 +341,25 @@ def live_run(args: argparse.Namespace, state: dict[str, Any]) -> dict[str, Any]:
                 "count": 0,
                 "required": 0,
             }
+        extra_markers: dict[str, Any] = {}
+        for extra in EXTRA_MARKER_STEPS:
+            extra_name = str(extra["name"])
+            _extra_step, marker_state = run_serial_marker_step(
+                out_dir,
+                steps,
+                extra_name,
+                [str(part) for part in extra["command"]],
+                [str(marker) for marker in extra["markers"]],
+                timeout=float(extra.get("timeout", 120.0)),
+            )
+            extra_markers[extra_name] = marker_state
+        result["extra_markers"] = extra_markers
 
         if (
             result["audio_status_markers"].get("ok")
             and result["selftest_markers"].get("ok")
             and result["screenapp_markers"].get("ok")
+            and all(marker_state.get("ok") for marker_state in result["extra_markers"].values())
         ):
             result["decision"] = f"{decision_prefix()}-audio-status-selftest-device-pass"
         else:
@@ -381,6 +397,7 @@ def dry_run(state: dict[str, Any]) -> dict[str, Any]:
                 ["audio", "status"],
                 *([["hide"]] if SCREENAPP_COMMAND is not None else []),
                 *(list(SCREENAPP_COMMAND) for _ in [0] if SCREENAPP_COMMAND is not None),
+                *([list(extra["command"]) for extra in EXTRA_MARKER_STEPS]),
             ],
             "rollback": base.flash_command(ROLLBACK_IMAGE, ROLLBACK_VERSION, ROLLBACK_SHA256, from_native=True),
         },
