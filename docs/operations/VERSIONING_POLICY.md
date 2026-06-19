@@ -222,12 +222,12 @@ Safety rollback net: v2321 remains the flash-gate rollback target until AGENTS.m
 Current post-promotion audio productization candidate evidence is based on:
 
 ```text
-Run ID: V2848
-Native init: A90 Linux init 0.10.14 (v2847-audio-stop-execute)
-Build tag: v2847-audio-stop-execute
-Boot image: workspace/private/inputs/boot_images/boot_linux_v2847_audio_stop_execute.img
-Boot SHA256: 23b54b37bc3451697d218ddbd3d162ec3b167427b460bc0f31d40f17c55abd6e
-Evidence: V2845/V2846 source+live validation of PID1 boot-started `audio chime`, V2847 source/build report adding bounded `audio stop --execute`, and V2848 live validation of one `audio stop internal-speaker-safe --execute` with no-active PCM/SET-cal markers, core route-reset write-done, no refusal/error/write-failed markers, and rollback to v2321 selftest fail=0
+Run ID: V2850
+Native init: A90 Linux init 0.10.15 (v2849-audio-status-productization)
+Build tag: v2849-audio-status-productization
+Boot image: workspace/private/inputs/boot_images/boot_linux_v2849_audio_status_productization.img
+Boot SHA256: 4f818d7d2f910225bb37ce502bdaf37853053b5889fb699cd8e5ca6e6690b5f6
+Evidence: V2845/V2846 source+live validation of PID1 boot-started `audio chime`, V2847/V2848 source+live validation of bounded `audio stop --execute`, V2849 source/build report adding read-only productization markers, and V2850 live validation of `audio status` 30/30, `selftest verbose` audio 8/8, `screenapp audio-status` 6/6, and rollback to v2321 selftest fail=0
 Adoption state: device-validated post-promotion candidate
 Safety rollback net: v2321 remains the flash-gate rollback target until AGENTS.md is deliberately updated
 ```
