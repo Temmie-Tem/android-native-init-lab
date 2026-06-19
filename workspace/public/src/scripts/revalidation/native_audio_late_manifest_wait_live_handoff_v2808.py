@@ -257,6 +257,20 @@ def play_output_pass(summary: dict[str, Any]) -> bool:
     return base.play_output_pass(summary) and bool(summary.get("manifest_wait_started")) and bool(summary.get("manifest_ready"))
 
 
+def play_start_accepted(step: dict[str, Any], text: str) -> bool:
+    if step.get("rc") == 0 and "audio.play.worker.started=1" in text:
+        return True
+    if "audio.play.execute.async_worker=1" not in text:
+        return False
+    refusal_markers = (
+        "audio.play.refused=",
+        "audio.play.error=",
+        "audio.play.execute.foreground_prime_adsp.failed=1",
+        "audio.play.worker.spawn_failed=1",
+    )
+    return not any(marker in text for marker in refusal_markers)
+
+
 def run_play_sequence(args: argparse.Namespace,
                       out_dir: Path,
                       steps: list[dict[str, Any]],
@@ -278,7 +292,10 @@ def run_play_sequence(args: argparse.Namespace,
     play_text = stdout_of(play)
     result["play_rc"] = play.get("rc")
     result["play_stdout_path"] = play.get("stdout_path")
-    if play.get("rc") != 0 or "audio.play.worker.started=1" not in play_text:
+    result["play_start_marker_loss_accepted"] = bool(
+        play.get("rc") != 0 and play_start_accepted(play, play_text)
+    )
+    if not play_start_accepted(play, play_text):
         result["play_summary"] = classify_play_output(play_text)
         result["play_output_pass"] = False
         result["play_start_failed"] = True

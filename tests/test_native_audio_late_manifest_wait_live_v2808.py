@@ -10,6 +10,7 @@ SCRIPT = SCRIPT_DIR / "native_audio_late_manifest_wait_live_handoff_v2808.py"
 WRAPPER = SCRIPT_DIR / "native_audio_late_manifest_wait_live_handoff_v2810.py"
 WRAPPER_V2811 = SCRIPT_DIR / "native_audio_late_manifest_wait_live_handoff_v2811.py"
 PROMOTION_WRAPPER_V2813 = SCRIPT_DIR / "native_audio_core_promotion_candidate_live_handoff_v2813.py"
+PROMOTION_WRAPPER_V2814 = SCRIPT_DIR / "native_audio_core_promotion_candidate_live_handoff_v2814.py"
 
 
 class NativeAudioLateManifestWaitLiveV2808Test(unittest.TestCase):
@@ -86,6 +87,20 @@ class NativeAudioLateManifestWaitLiveV2808Test(unittest.TestCase):
         self.assertIn("audio.play.worker.manifest_wait_started=1", text)
         self.assertIn("audio.play.worker.manifest_ready=1", text)
 
+    def test_play_start_accepts_async_worker_marker_when_end_marker_is_lost(self) -> None:
+        text = "\n".join([
+            "A90P1 BEGIN seq=9 cmd=audio argc=5 flags=0x0",
+            "audio.play.execute.foreground_prime_adsp.rc=0",
+            "audio.play.execute.async_worker=1",
+        ])
+        self.assertTrue(self.module.play_start_accepted({"rc": None}, text))
+        self.assertFalse(
+            self.module.play_start_accepted(
+                {"rc": None},
+                text + "\naudio.play.worker.spawn_failed=1",
+            )
+        )
+
     def test_runner_decisions_and_output_dir_are_cycle_relative(self) -> None:
         text = SCRIPT.read_text(encoding="utf-8")
         self.assertIn("def decision(suffix: str)", text)
@@ -112,6 +127,14 @@ class NativeAudioLateManifestWaitLiveV2808Test(unittest.TestCase):
         self.assertIn("boot_linux_v2812_audio_core_promotion_candidate.img", text)
         self.assertIn("NATIVE_INIT_V2813_AUDIO_CORE_PROMOTION_CANDIDATE_LIVE_2026-06-19.md", text)
         self.assertIn("runner.configure_base_for_v2808()", text)
+
+    def test_v2814_wrapper_targets_0100_promotion_candidate(self) -> None:
+        text = PROMOTION_WRAPPER_V2814.read_text(encoding="utf-8")
+        self.assertIn('runner.CYCLE = "V2814"', text)
+        self.assertIn('runner.CANDIDATE_VERSION = "0.10.0"', text)
+        self.assertIn('runner.CANDIDATE_TAG = "v2812-audio-core-promotion-candidate"', text)
+        self.assertIn("boot_linux_v2812_audio_core_promotion_candidate.img", text)
+        self.assertIn("NATIVE_INIT_V2814_AUDIO_CORE_PROMOTION_CANDIDATE_MARKER_LOSS_TOLERANT_LIVE_2026-06-19.md", text)
 
 
 if __name__ == "__main__":
