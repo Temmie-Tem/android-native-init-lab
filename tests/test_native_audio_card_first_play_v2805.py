@@ -51,7 +51,15 @@ class NativeAudioCardFirstPlayV2805(unittest.TestCase):
             text.index("play_result = run_play_sequence"),
         )
         self.assertLess(
+            text.index('hide_auto_menu(out_dir, steps, "before-direct-adsp")'),
+            text.index('"candidate-audio-direct-adsp-boot-once"'),
+        )
+        self.assertLess(
             text.index('"runtime_artifacts": base.install_runtime_artifacts'),
+            text.index('"candidate-audio-play-execute-listen"'),
+        )
+        self.assertLess(
+            text.index('hide_auto_menu(out_dir, steps, "before-play")'),
             text.index('"candidate-audio-play-execute-listen"'),
         )
         self.assertIn('"run direct audio adsp-boot-once before runtime ACDB staging"', text)

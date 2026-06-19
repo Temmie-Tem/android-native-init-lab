@@ -153,6 +153,18 @@ def wait_for_sound_card(out_dir: Path,
     return {"ready": False, "attempts": len(polls), "polls": polls, "last": polls[-1] if polls else None}
 
 
+def hide_auto_menu(out_dir: Path, steps: list[dict[str, Any]], label: str) -> dict[str, Any]:
+    return base.run_serial_step(
+        out_dir,
+        steps,
+        f"candidate-hide-{label}",
+        ["hide"],
+        timeout=45.0,
+        retry_unsafe=True,
+        allow_error=True,
+    )
+
+
 def run_play_sequence(args: argparse.Namespace,
                       out_dir: Path,
                       steps: list[dict[str, Any]],
@@ -183,6 +195,7 @@ def run_play_sequence(args: argparse.Namespace,
 
     prereq = base.run_serial_step(out_dir, steps, "candidate-audio-prereq", ["audio", "prereq", base.PROFILE], timeout=150.0, retry_unsafe=True)
     result["prereq_stdout_path"] = prereq.get("stdout_path")
+    hide_auto_menu(out_dir, steps, "before-play")
     play = base.run_serial_step(
         out_dir,
         steps,
@@ -310,6 +323,7 @@ def live_run(args: argparse.Namespace, state: dict[str, Any]) -> dict[str, Any]:
             raise RuntimeError("candidate selftest did not report fail=0")
 
         result["status_before_direct_adsp"] = capture_audio_status(out_dir, steps, "before-direct-adsp")
+        hide_auto_menu(out_dir, steps, "before-direct-adsp")
         direct = base.run_serial_step(
             out_dir,
             steps,
