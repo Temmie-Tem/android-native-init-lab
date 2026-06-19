@@ -218,6 +218,14 @@ def hide_auto_menu(out_dir: Path, steps: list[dict[str, Any]], label: str) -> di
 
 
 def play_command(args: argparse.Namespace) -> list[str]:
+    if args.play_mode == "listen" and args.duration_ms == 8000 and args.amplitude_milli == 150:
+        return [
+            "audio",
+            "play",
+            "--mode",
+            "listen",
+            "--execute",
+        ]
     return [
         "audio",
         "play",

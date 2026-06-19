@@ -8,6 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SCRIPT_DIR = ROOT / "workspace/public/src/scripts/revalidation"
 SCRIPT = SCRIPT_DIR / "native_audio_late_manifest_wait_live_handoff_v2808.py"
 WRAPPER = SCRIPT_DIR / "native_audio_late_manifest_wait_live_handoff_v2810.py"
+WRAPPER_V2811 = SCRIPT_DIR / "native_audio_late_manifest_wait_live_handoff_v2811.py"
 
 
 class NativeAudioLateManifestWaitLiveV2808Test(unittest.TestCase):
@@ -34,9 +35,17 @@ class NativeAudioLateManifestWaitLiveV2808Test(unittest.TestCase):
         command = self.module.play_command(
             argparse.Namespace(play_mode="listen", duration_ms=8000, amplitude_milli=150)
         )
-        self.assertEqual(command[:3], ["audio", "play", "internal-speaker-safe"])
+        self.assertEqual(command, ["audio", "play", "--mode", "listen", "--execute"])
         self.assertIn("--execute", command)
         self.assertNotIn("--manifest", command)
+
+    def test_play_command_keeps_explicit_overrides_when_non_default(self) -> None:
+        command = self.module.play_command(
+            argparse.Namespace(play_mode="listen", duration_ms=7000, amplitude_milli=150)
+        )
+        self.assertEqual(command[:3], ["audio", "play", "internal-speaker-safe"])
+        self.assertIn("--duration-ms", command)
+        self.assertIn("7000", command)
 
     def test_deploy_plan_paths_remap_from_legacy_cache_to_default_runtime(self) -> None:
         module = self.module
@@ -86,6 +95,12 @@ class NativeAudioLateManifestWaitLiveV2808Test(unittest.TestCase):
         text = WRAPPER.read_text(encoding="utf-8")
         self.assertIn('runner.CYCLE = "V2810"', text)
         self.assertIn("NATIVE_INIT_V2810_AUDIO_LATE_MANIFEST_WAIT_RETRY_LIVE_2026-06-19.md", text)
+        self.assertIn("native_audio_late_manifest_wait_live_handoff_v2808", text)
+
+    def test_v2811_wrapper_reuses_runner_with_fresh_identity(self) -> None:
+        text = WRAPPER_V2811.read_text(encoding="utf-8")
+        self.assertIn('runner.CYCLE = "V2811"', text)
+        self.assertIn("NATIVE_INIT_V2811_AUDIO_LATE_MANIFEST_SHORT_PLAY_LIVE_2026-06-19.md", text)
         self.assertIn("native_audio_late_manifest_wait_live_handoff_v2808", text)
 
 
