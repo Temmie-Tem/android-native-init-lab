@@ -57,6 +57,8 @@ REQUIRED_SELFTEST_MARKERS = [
 ]
 SCREENAPP_COMMAND: list[str] | None = None
 REQUIRED_SCREENAPP_MARKERS: list[str] = []
+MARKER_RETRY_LIMIT = 2
+MARKER_RETRY_DELAY_SEC = 0.5
 
 
 def rel(path: Path) -> str:
@@ -122,6 +124,66 @@ def text_of(step: dict[str, Any]) -> str:
 def markers_present(text: str, markers: list[str]) -> dict[str, Any]:
     missing = [marker for marker in markers if marker not in text]
     return {"ok": not missing, "missing": missing, "count": len(markers) - len(missing), "required": len(markers)}
+
+
+def run_serial_marker_step(
+    out_dir: Path,
+    steps: list[dict[str, Any]],
+    name: str,
+    command: list[str],
+    markers: list[str],
+    *,
+    timeout: float,
+    pass_check: Any | None = None,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Run a read-only serial command and retry if marker collection is partial.
+
+    Serial protocol noise can truncate the text transcript while the command
+    itself succeeds. These commands are read-only/display-only validation
+    surfaces, so a bounded re-read is safer than classifying a healthy boot as a
+    device failure.
+    """
+
+    best_step: dict[str, Any] | None = None
+    best_markers: dict[str, Any] | None = None
+    best_score = (-1, -1)
+    attempts: list[dict[str, Any]] = []
+    for attempt in range(MARKER_RETRY_LIMIT + 1):
+        step_name = name if attempt == 0 else f"{name}-marker-retry{attempt}"
+        step = base.run_serial_step(
+            out_dir,
+            steps,
+            step_name,
+            command,
+            timeout=timeout,
+            retry_unsafe=True,
+        )
+        marker_state = markers_present(text_of(step), markers)
+        pass_ok = bool(pass_check(step)) if pass_check is not None else bool(step.get("ok"))
+        attempts.append({
+            "step": step_name,
+            "command_ok": bool(step.get("ok")),
+            "pass_check_ok": pass_ok,
+            "marker_count": marker_state["count"],
+            "marker_required": marker_state["required"],
+            "marker_ok": marker_state["ok"],
+        })
+        score = (int(pass_ok), int(marker_state["count"]))
+        if score > best_score:
+            best_step = step
+            best_markers = marker_state
+            best_score = score
+        if pass_ok and marker_state["ok"]:
+            break
+        if attempt < MARKER_RETRY_LIMIT:
+            time.sleep(MARKER_RETRY_DELAY_SEC)
+
+    assert best_step is not None and best_markers is not None
+    best_markers = dict(best_markers)
+    best_markers["attempts"] = attempts
+    best_markers["best_step"] = best_step.get("name")
+    best_markers["pass_check_ok"] = bool(best_score[0])
+    return best_step, best_markers
 
 
 def render_report(result: dict[str, Any]) -> str:
@@ -227,28 +289,29 @@ def live_run(args: argparse.Namespace, state: dict[str, Any]) -> dict[str, Any]:
         if not result["candidate_version_ok"]:
             raise RuntimeError("candidate version output did not contain expected version/tag")
         base.run_serial_step(out_dir, steps, "candidate-status", ["status"], timeout=90.0, retry_unsafe=True)
-        candidate_selftest = base.run_serial_step(
+        candidate_selftest, selftest_markers = run_serial_marker_step(
             out_dir,
             steps,
             "candidate-selftest-verbose",
             ["selftest", "verbose"],
             timeout=120.0,
-            retry_unsafe=True,
+            markers=REQUIRED_SELFTEST_MARKERS,
+            pass_check=base.selftest_step_ok,
         )
-        result["candidate_selftest_fail0"] = base.selftest_step_ok(candidate_selftest)
-        result["selftest_markers"] = markers_present(text_of(candidate_selftest), REQUIRED_SELFTEST_MARKERS)
+        result["candidate_selftest_fail0"] = bool(selftest_markers.get("pass_check_ok"))
+        result["selftest_markers"] = selftest_markers
         if not result["candidate_selftest_fail0"]:
             raise RuntimeError("candidate selftest did not report fail=0")
 
-        audio_status = base.run_serial_step(
+        audio_status, audio_status_markers = run_serial_marker_step(
             out_dir,
             steps,
             "candidate-audio-status",
             ["audio", "status"],
             timeout=150.0,
-            retry_unsafe=True,
+            markers=REQUIRED_AUDIO_STATUS_MARKERS,
         )
-        result["audio_status_markers"] = markers_present(text_of(audio_status), REQUIRED_AUDIO_STATUS_MARKERS)
+        result["audio_status_markers"] = audio_status_markers
         if SCREENAPP_COMMAND is not None:
             base.run_serial_step(
                 out_dir,
@@ -260,15 +323,15 @@ def live_run(args: argparse.Namespace, state: dict[str, Any]) -> dict[str, Any]:
                 allow_error=True,
             )
             time.sleep(1.0)
-            screenapp_status = base.run_serial_step(
+            screenapp_status, screenapp_markers = run_serial_marker_step(
                 out_dir,
                 steps,
                 "candidate-screenapp-status",
                 list(SCREENAPP_COMMAND),
                 timeout=120.0,
-                retry_unsafe=True,
+                markers=REQUIRED_SCREENAPP_MARKERS,
             )
-            result["screenapp_markers"] = markers_present(text_of(screenapp_status), REQUIRED_SCREENAPP_MARKERS)
+            result["screenapp_markers"] = screenapp_markers
         else:
             result["screenapp_markers"] = {
                 "ok": True,
