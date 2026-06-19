@@ -7,6 +7,7 @@
 
 #include "a90_audio_profile.h"
 #include "a90_audio_route.h"
+#include "a90_audio_stage.h"
 #include "a90_draw.h"
 #include "a90_kms.h"
 #include "a90_util.h"
@@ -37,6 +38,61 @@ static uint32_t app_audio_shrink_text_scale(const char *text,
 
 static const char *app_audio_text_or_dash(const char *text) {
     return text != NULL && text[0] != '\0' ? text : "-";
+}
+
+static void app_audio_format_acdb_order(const struct audio_speaker_profile *profile,
+                                        char *buffer,
+                                        size_t buffer_size) {
+    size_t used = 0;
+    int index;
+
+    if (buffer_size == 0) {
+        return;
+    }
+    buffer[0] = '\0';
+    if (profile == NULL) {
+        snprintf(buffer, buffer_size, "-");
+        return;
+    }
+    for (index = 0; index < AUDIO_PROFILE_ACDB_SET_COUNT; ++index) {
+        int written = snprintf(buffer + used,
+                               buffer_size - used,
+                               "%s%d",
+                               index == 0 ? "" : ",",
+                               profile->acdb_set_order[index]);
+        if (written < 0) {
+            buffer[0] = '\0';
+            return;
+        }
+        if ((size_t)written >= buffer_size - used) {
+            break;
+        }
+        used += (size_t)written;
+    }
+}
+
+static int app_audio_stage_native_count(void) {
+    int count = 0;
+    int index;
+
+    for (index = 0; index < AUDIO_STAGE_CONTRACT_COUNT; ++index) {
+        if (AUDIO_STAGE_CONTRACTS[index].native_implemented) {
+            ++count;
+        }
+    }
+    return count;
+}
+
+static int app_audio_stage_runtime_write_count(void) {
+    int count = 0;
+    int index;
+
+    for (index = 0; index < AUDIO_STAGE_CONTRACT_COUNT; ++index) {
+        if (AUDIO_STAGE_CONTRACTS[index].writes_runtime_state) {
+            ++count;
+        }
+    }
+    return count;
 }
 
 static int app_audio_draw_lines(const char *title,
@@ -154,6 +210,60 @@ int a90_app_audio_draw_status(void) {
                                 A90_APP_AUDIO_LINE_COUNT,
                                 "DISPLAY ONLY - NO AUDIO WRITE",
                                 0xffcc66);
+}
+
+int a90_app_audio_draw_profile(void) {
+    const struct audio_speaker_profile *profile =
+        a90_audio_find_profile(AUDIO_DEFAULT_PROFILE_ID);
+    char order[96];
+    char line0[160];
+    char line1[160];
+    char line2[160];
+    char line3[160];
+    char line4[160];
+    char line5[160];
+    char line6[160];
+    char line7[160];
+    const char *lines[A90_APP_AUDIO_LINE_COUNT];
+
+    app_audio_format_acdb_order(profile, order, sizeof(order));
+    snprintf(line0, sizeof(line0), "PROFILE %s",
+             profile != NULL ? profile->id : AUDIO_DEFAULT_PROFILE_ID);
+    snprintf(line1, sizeof(line1), "ENDPOINT %s",
+             profile != NULL ? app_audio_text_or_dash(profile->endpoint) : "-");
+    snprintf(line2, sizeof(line2), "PCM card=%d dev=%d ch=%d",
+             profile != NULL ? profile->card : -1,
+             profile != NULL ? profile->pcm_device : -1,
+             profile != NULL ? profile->channels : 0);
+    snprintf(line3, sizeof(line3), "APP %d ACDB %d %dHz %db",
+             profile != NULL ? profile->app_type : -1,
+             profile != NULL ? profile->acdb_id : -1,
+             profile != NULL ? profile->sample_rate : 0,
+             profile != NULL ? profile->bit_width : 0);
+    snprintf(line4, sizeof(line4), "GLOBAL CFG %s",
+             profile != NULL ? app_audio_text_or_dash(profile->global_app_type_config) : "-");
+    snprintf(line5, sizeof(line5), "STREAM CFG %s",
+             profile != NULL ? app_audio_text_or_dash(profile->stream_app_type_config) : "-");
+    snprintf(line6, sizeof(line6), "SETS %d: %s", AUDIO_PROFILE_ACDB_SET_COUNT, order);
+    snprintf(line7, sizeof(line7), "STAGES %d native=%d writes=%d",
+             AUDIO_STAGE_CONTRACT_COUNT,
+             app_audio_stage_native_count(),
+             app_audio_stage_runtime_write_count());
+
+    lines[0] = line0;
+    lines[1] = line1;
+    lines[2] = line2;
+    lines[3] = line3;
+    lines[4] = line4;
+    lines[5] = line5;
+    lines[6] = line6;
+    lines[7] = line7;
+
+    return app_audio_draw_lines("AUDIO PROFILE",
+                                lines,
+                                A90_APP_AUDIO_LINE_COUNT,
+                                "DISPLAY ONLY - NO AUDIO WRITE",
+                                0x99dd66);
 }
 
 int a90_app_audio_draw_map(void) {
