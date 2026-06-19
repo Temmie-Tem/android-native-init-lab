@@ -21,9 +21,11 @@ class NativeAudioMenuSurfaceV2826Test(unittest.TestCase):
             "SCREEN_MENU_PAGE_AUDIO",
             "SCREEN_MENU_AUDIO_STATUS",
             "SCREEN_MENU_AUDIO_PROFILE",
+            "SCREEN_MENU_AUDIO_STAGES",
             "SCREEN_MENU_AUDIO_MAP",
             "SCREEN_APP_AUDIO_STATUS",
             "SCREEN_APP_AUDIO_PROFILE",
+            "SCREEN_APP_AUDIO_STAGES",
             "SCREEN_APP_AUDIO_MAP",
         ]:
             with self.subTest(marker=marker):
@@ -34,12 +36,15 @@ class NativeAudioMenuSurfaceV2826Test(unittest.TestCase):
             'static const struct screen_menu_item screen_menu_audio_items[]',
             '{ "AUDIO STATUS", "CORE PROFILE SAFETY", SCREEN_MENU_AUDIO_STATUS, SCREEN_MENU_PAGE_AUDIO }',
             '{ "PROFILE",      "APP TYPE AND STAGES", SCREEN_MENU_AUDIO_PROFILE, SCREEN_MENU_PAGE_AUDIO }',
+            '{ "STAGES",       "CONTRACT AND WRITES", SCREEN_MENU_AUDIO_STAGES,  SCREEN_MENU_PAGE_AUDIO }',
             '{ "ROUTE MAP",    "SPEAKERS AND PATH",   SCREEN_MENU_AUDIO_MAP,    SCREEN_MENU_PAGE_AUDIO }',
             '"APPS / AUDIO", screen_menu_audio_items',
             'case SCREEN_MENU_AUDIO_STATUS:',
             'return SCREEN_APP_AUDIO_STATUS;',
             'case SCREEN_MENU_AUDIO_PROFILE:',
             'return SCREEN_APP_AUDIO_PROFILE;',
+            'case SCREEN_MENU_AUDIO_STAGES:',
+            'return SCREEN_APP_AUDIO_STAGES;',
             'case SCREEN_MENU_AUDIO_MAP:',
             'return SCREEN_APP_AUDIO_MAP;',
         ]:
@@ -55,6 +60,8 @@ class NativeAudioMenuSurfaceV2826Test(unittest.TestCase):
             'a90_app_audio_draw_status();',
             'state->active_app == SCREEN_APP_AUDIO_PROFILE',
             'a90_app_audio_draw_profile();',
+            'state->active_app == SCREEN_APP_AUDIO_STAGES',
+            'a90_app_audio_draw_stages();',
             'state->active_app == SCREEN_APP_AUDIO_MAP',
             'a90_app_audio_draw_map();',
         ]:

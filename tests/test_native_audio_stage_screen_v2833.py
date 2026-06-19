@@ -1,4 +1,4 @@
-"""Tests for the V2831 display-only audio profile screen surface."""
+"""Tests for the V2833 display-only audio stage contract screen surface."""
 
 from __future__ import annotations
 
@@ -15,25 +15,25 @@ MENU_H = REPO / "workspace/public/src/native-init/a90_menu.h"
 MENU_APPS = REPO / "workspace/public/src/native-init/v319/40_menu_apps.inc.c"
 
 
-class NativeAudioProfileScreenV2831Test(unittest.TestCase):
-    def test_profile_screen_is_display_only_and_profile_backed(self) -> None:
+class NativeAudioStageScreenV2833Test(unittest.TestCase):
+    def test_stage_screen_is_display_only_and_contract_backed(self) -> None:
         source = AUDIO_APP_C.read_text(encoding="utf-8")
         header = AUDIO_APP_H.read_text(encoding="utf-8")
 
         for marker in [
-            "int a90_app_audio_draw_profile(void)",
-            "int a90_app_audio_draw_profile(void);",
-            "AUDIO PROFILE",
-            "AUDIO_DEFAULT_PROFILE_ID",
-            "a90_audio_find_profile(AUDIO_DEFAULT_PROFILE_ID)",
-            "app_audio_format_acdb_order(profile, order, sizeof(order))",
-            "GLOBAL CFG %s",
-            "STREAM CFG %s",
-            "SETS %d: %s",
-            "STAGES %d native=%d writes=%d",
+            "int a90_app_audio_draw_stages(void)",
+            "int a90_app_audio_draw_stages(void);",
+            "AUDIO STAGES",
+            "AUDIO_STAGE_CONTRACT_VERSION",
             "AUDIO_STAGE_CONTRACT_COUNT",
-            "app_audio_stage_native_count()",
-            "app_audio_stage_runtime_write_count()",
+            "CONTRACT v%d stages=%d native=%d writes=%d",
+            "BOOT preflight-v2321-health RO",
+            "ADSP adsp-boot-once WRITE",
+            "SND snd-materialize-once WRITE",
+            "APP write-global-app-type-config WRITE",
+            "ACDB verify/prep/load RO; SET WRITE",
+            "ROUTE core WRITE; PCM bounded WRITE",
+            "STOP cleanup/reset/dealloc WRITE",
             "DISPLAY ONLY - NO AUDIO WRITE",
         ]:
             with self.subTest(marker=marker):
@@ -52,7 +52,7 @@ class NativeAudioProfileScreenV2831Test(unittest.TestCase):
             with self.subTest(marker=forbidden):
                 self.assertNotIn(forbidden, source)
 
-    def test_menu_and_screenapp_expose_profile_surface(self) -> None:
+    def test_menu_and_screenapp_expose_stage_surface(self) -> None:
         dispatch = DISPATCH.read_text(encoding="utf-8")
         help_text = HELP.read_text(encoding="utf-8")
         menu_c = MENU_C.read_text(encoding="utf-8")
@@ -60,22 +60,13 @@ class NativeAudioProfileScreenV2831Test(unittest.TestCase):
         menu_apps = MENU_APPS.read_text(encoding="utf-8")
 
         for marker in [
-            "SCREEN_MENU_AUDIO_PROFILE",
-            "SCREEN_APP_AUDIO_PROFILE",
             "SCREEN_MENU_AUDIO_STAGES",
             "SCREEN_APP_AUDIO_STAGES",
-            '{ "PROFILE",      "APP TYPE AND STAGES", SCREEN_MENU_AUDIO_PROFILE, SCREEN_MENU_PAGE_AUDIO }',
             '{ "STAGES",       "CONTRACT AND WRITES", SCREEN_MENU_AUDIO_STAGES,  SCREEN_MENU_PAGE_AUDIO }',
-            "case SCREEN_MENU_AUDIO_PROFILE:",
-            "return SCREEN_APP_AUDIO_PROFILE;",
             "case SCREEN_MENU_AUDIO_STAGES:",
             "return SCREEN_APP_AUDIO_STAGES;",
-            "state->active_app == SCREEN_APP_AUDIO_PROFILE",
-            "a90_app_audio_draw_profile();",
             "state->active_app == SCREEN_APP_AUDIO_STAGES",
             "a90_app_audio_draw_stages();",
-            'strcmp(app, "audio-profile") == 0 || strcmp(app, "profile") == 0',
-            "screenapp.title=AUDIO PROFILE",
             'strcmp(app, "audio-stages") == 0 || strcmp(app, "stages") == 0',
             "screenapp.title=AUDIO STAGES",
             "screenapp [network|wifi-status|wifi-profiles|wifi-scan|wifi-ping|audio-status|audio-profile|audio-stages|audio-map]",

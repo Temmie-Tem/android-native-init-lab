@@ -266,6 +266,46 @@ int a90_app_audio_draw_profile(void) {
                                 0x99dd66);
 }
 
+int a90_app_audio_draw_stages(void) {
+    char line0[160];
+    char line1[160];
+    char line2[160];
+    char line3[160];
+    char line4[160];
+    char line5[160];
+    char line6[160];
+    char line7[160];
+    const char *lines[A90_APP_AUDIO_LINE_COUNT];
+
+    snprintf(line0, sizeof(line0), "CONTRACT v%d stages=%d native=%d writes=%d",
+             AUDIO_STAGE_CONTRACT_VERSION,
+             AUDIO_STAGE_CONTRACT_COUNT,
+             app_audio_stage_native_count(),
+             app_audio_stage_runtime_write_count());
+    snprintf(line1, sizeof(line1), "BOOT preflight-v2321-health RO");
+    snprintf(line2, sizeof(line2), "ADSP adsp-boot-once WRITE");
+    snprintf(line3, sizeof(line3), "SND snd-materialize-once WRITE");
+    snprintf(line4, sizeof(line4), "APP write-global-app-type-config WRITE");
+    snprintf(line5, sizeof(line5), "ACDB verify/prep/load RO; SET WRITE");
+    snprintf(line6, sizeof(line6), "ROUTE core WRITE; PCM bounded WRITE");
+    snprintf(line7, sizeof(line7), "STOP cleanup/reset/dealloc WRITE");
+
+    lines[0] = line0;
+    lines[1] = line1;
+    lines[2] = line2;
+    lines[3] = line3;
+    lines[4] = line4;
+    lines[5] = line5;
+    lines[6] = line6;
+    lines[7] = line7;
+
+    return app_audio_draw_lines("AUDIO STAGES",
+                                lines,
+                                A90_APP_AUDIO_LINE_COUNT,
+                                "DISPLAY ONLY - NO AUDIO WRITE",
+                                0xddaa66);
+}
+
 int a90_app_audio_draw_map(void) {
     const struct audio_speaker_profile *profile =
         a90_audio_find_profile(AUDIO_DEFAULT_PROFILE_ID);

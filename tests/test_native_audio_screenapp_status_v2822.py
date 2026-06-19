@@ -37,6 +37,10 @@ class NativeAudioScreenappStatusV2822Test(unittest.TestCase):
             'STREAM CFG %s',
             'SETS %d: %s',
             'AUDIO PROFILE',
+            'int a90_app_audio_draw_stages(void)',
+            'AUDIO STAGES',
+            'CONTRACT v%d stages=%d native=%d writes=%d',
+            'ACDB verify/prep/load RO; SET WRITE',
             'int a90_app_audio_draw_map(void)',
             'a90_audio_route_selected_count(AUDIO_ROUTE_LAYER_CORE, false)',
             'a90_audio_route_selected_count(AUDIO_ROUTE_LAYER_FEEDBACK, false)',
@@ -72,6 +76,7 @@ class NativeAudioScreenappStatusV2822Test(unittest.TestCase):
         self.assertIn('#include "../a90_app_audio.h"', prelude)
         self.assertIn('int a90_app_audio_draw_status(void);', header)
         self.assertIn('int a90_app_audio_draw_profile(void);', header)
+        self.assertIn('int a90_app_audio_draw_stages(void);', header)
         self.assertIn('int a90_app_audio_draw_map(void);', header)
         self.assertIn('strcmp(app, "audio-status") == 0 || strcmp(app, "audio") == 0', dispatch)
         self.assertIn('screenapp.title=AUDIO STATUS', dispatch)
@@ -79,11 +84,14 @@ class NativeAudioScreenappStatusV2822Test(unittest.TestCase):
         self.assertIn('strcmp(app, "audio-profile") == 0 || strcmp(app, "profile") == 0', dispatch)
         self.assertIn('screenapp.title=AUDIO PROFILE', dispatch)
         self.assertIn('a90_app_audio_draw_profile()', dispatch)
+        self.assertIn('strcmp(app, "audio-stages") == 0 || strcmp(app, "stages") == 0', dispatch)
+        self.assertIn('screenapp.title=AUDIO STAGES', dispatch)
+        self.assertIn('a90_app_audio_draw_stages()', dispatch)
         self.assertIn('strcmp(app, "audio-map") == 0 || strcmp(app, "speaker-map") == 0', dispatch)
         self.assertIn('screenapp.title=AUDIO ROUTE MAP', dispatch)
         self.assertIn('a90_app_audio_draw_map()', dispatch)
-        self.assertIn('screenapp [network|wifi-status|wifi-profiles|wifi-scan|wifi-ping|audio-status|audio-profile|audio-map]', dispatch)
-        self.assertIn('screenapp [network|wifi-status|wifi-profiles|wifi-scan|wifi-ping|audio-status|audio-profile|audio-map]', help_text)
+        self.assertIn('screenapp [network|wifi-status|wifi-profiles|wifi-scan|wifi-ping|audio-status|audio-profile|audio-stages|audio-map]', dispatch)
+        self.assertIn('screenapp [network|wifi-status|wifi-profiles|wifi-scan|wifi-ping|audio-status|audio-profile|audio-stages|audio-map]', help_text)
 
     def test_pid1_source_glob_includes_new_a90_module(self) -> None:
         text = BUILDER.read_text(encoding="utf-8")
