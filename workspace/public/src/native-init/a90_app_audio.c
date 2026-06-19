@@ -188,9 +188,10 @@ int a90_app_audio_draw_status(void) {
              profile != NULL ? profile->bit_width : 0);
     snprintf(line4, sizeof(line4), "ROUTE %d  RESET %d  SPEAKERS %d",
              route_count, reset_count, speaker_count);
-    snprintf(line5, sizeof(line5), "CHIME BOOT %s  STOP %s",
+    snprintf(line5, sizeof(line5), "CHIME BOOT %s  STOP %s  ABOUT %s",
              AUDIO_CHIME_BOOT_AUTOPLAY_DEFAULT ? "ON" : "OFF",
-             AUDIO_STOP_EXECUTE_SCOPE);
+             AUDIO_STOP_EXECUTE_SCOPE,
+             AUDIO_CHANGELOG_VALIDATION_RUN);
     snprintf(line6, sizeof(line6), "SAFETY AMP <=%dmilli DUR <=%dms",
              profile != NULL ? profile->amplitude_cap_milli : 0,
              profile != NULL ? profile->duration_cap_ms : 0);

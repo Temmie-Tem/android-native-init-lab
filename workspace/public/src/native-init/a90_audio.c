@@ -4411,6 +4411,9 @@ static void audio_print_core_promotion_status(const struct audio_speaker_profile
     a90_console_printf("audio.status.feature.stop_execute=1\r\n");
     a90_console_printf("audio.status.feature.stop_execute.scope=%s\r\n", AUDIO_STOP_EXECUTE_SCOPE);
     a90_console_printf("audio.status.feature.stop_execute.validation_run=%s\r\n", AUDIO_STOP_EXECUTE_VALIDATION_RUN);
+    a90_console_printf("audio.status.feature.changelog=1\r\n");
+    a90_console_printf("audio.status.feature.changelog.validation_run=%s\r\n", AUDIO_CHANGELOG_VALIDATION_RUN);
+    a90_console_printf("audio.status.feature.changelog.screenapp_count=%d\r\n", AUDIO_CHANGELOG_SCREENAPP_COUNT);
     if (profile != NULL) {
         a90_console_printf("audio.status.profile.id=%s\r\n", profile->id);
         a90_console_printf("audio.status.profile.endpoint=%s\r\n", profile->endpoint);

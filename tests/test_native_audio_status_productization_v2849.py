@@ -16,12 +16,14 @@ class NativeAudioStatusProductizationV2849Test(unittest.TestCase):
         header = AUDIO_PROFILE_H.read_text(encoding="utf-8")
 
         for marker in [
-            '#define AUDIO_PRODUCTIZATION_LATEST_RUN "V2848"',
-            '#define AUDIO_PRODUCTIZATION_LATEST_VERSION "0.10.14"',
-            '#define AUDIO_PRODUCTIZATION_LATEST_TAG "v2847-audio-stop-execute"',
+            '#define AUDIO_PRODUCTIZATION_LATEST_RUN "V2852"',
+            '#define AUDIO_PRODUCTIZATION_LATEST_VERSION "0.10.16"',
+            '#define AUDIO_PRODUCTIZATION_LATEST_TAG "v2851-audio-changelog-productization"',
             '#define AUDIO_BOOT_CHIME_VALIDATION_RUN "V2846"',
             '#define AUDIO_STOP_EXECUTE_VALIDATION_RUN "V2848"',
             '#define AUDIO_STOP_EXECUTE_SCOPE "core-route-reset"',
+            '#define AUDIO_CHANGELOG_VALIDATION_RUN "V2852"',
+            '#define AUDIO_CHANGELOG_SCREENAPP_COUNT 2',
         ]:
             with self.subTest(marker=marker):
                 self.assertIn(marker, header)
@@ -46,6 +48,9 @@ class NativeAudioStatusProductizationV2849Test(unittest.TestCase):
             "audio.status.feature.stop_execute=1",
             "audio.status.feature.stop_execute.scope=%s",
             "audio.status.feature.stop_execute.validation_run=%s",
+            "audio.status.feature.changelog=1",
+            "audio.status.feature.changelog.validation_run=%s",
+            "audio.status.feature.changelog.screenapp_count=%d",
         ]:
             with self.subTest(marker=marker):
                 self.assertIn(marker, source)
@@ -57,9 +62,10 @@ class NativeAudioStatusProductizationV2849Test(unittest.TestCase):
             "LATEST %s %s",
             "AUDIO_PRODUCTIZATION_LATEST_VERSION",
             "AUDIO_PRODUCTIZATION_LATEST_RUN",
-            "CHIME BOOT %s  STOP %s",
+            "CHIME BOOT %s  STOP %s  ABOUT %s",
             "AUDIO_CHIME_BOOT_AUTOPLAY_DEFAULT ? \"ON\" : \"OFF\"",
             "AUDIO_STOP_EXECUTE_SCOPE",
+            "AUDIO_CHANGELOG_VALIDATION_RUN",
             "DISPLAY ONLY - NO AUDIO WRITE",
         ]:
             with self.subTest(marker=marker):
