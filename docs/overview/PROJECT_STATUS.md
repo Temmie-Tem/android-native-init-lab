@@ -14,9 +14,9 @@
 > SHA256 `53ef5d1155b7833dcb05d6ecc6d9dfabfd336b9c66f695b1aa789eb9e5ba6aca`.
 > V2829 validated the read-only `audio status` core/profile/safety fields, the `selftest verbose`
 > PASS `audio` row, and display-only `screenapp audio-map` after route-map safety-label polish. V2830 validated the callable read-only `audio profiles`, `audio profile`, `audio stages`, and `audio speaker-map` API surfaces on the previous `0.10.6` candidate. V2832 validated display-only `screenapp audio-profile` on `0.10.7`; V2834 validated display-only `screenapp audio-stages` on `0.10.8`; V2836 validated current audio usage in `help` and `cmdmeta verbose` on `0.10.9`; V2837 revalidated `audio play --mode listen --execute` on the same `0.10.9` candidate with SET-cal, route, PCM, cleanup, and rollback. These runs rolled back to `v2321` with `selftest fail=0`. The internal-speaker audio feasibility epic is closed; remaining audio work is post-promotion productization/observability.
-> Latest post-promotion validated candidate: `A90 Linux init 0.10.15 (v2849-audio-status-productization)`,
-> boot image `workspace/private/inputs/boot_images/boot_linux_v2849_audio_status_productization.img`,
-> SHA256 `4f818d7d2f910225bb37ce502bdaf37853053b5889fb699cd8e5ca6e6690b5f6`.
+> Latest post-promotion validated candidate: `A90 Linux init 0.10.16 (v2851-audio-changelog-productization)`,
+> boot image `workspace/private/inputs/boot_images/boot_linux_v2851_audio_changelog_productization.img`,
+> SHA256 `4626d5022bcc5859a23580e3423f6637588df3ae46d933dffd19b0ca9cf87eed`.
 > V2838 adds a manual `audio chime` preset that defaults to a bounded low-amplitude listen-mode tone over
 > the proven `audio play` path; V2839 validated `audio chime --duration-ms 1200 --amplitude-milli 80 --execute`
 > on-device with card publication, manifest wait, SET-cal, route apply/reset, PCM write/drain, and rollback to
@@ -31,7 +31,7 @@
 > best-effort PID1 boot chime autoplay with manual audio command count `0`, host artifact deployment count `0`, card publication,
 > manifest wait, SET-cal, route apply/reset, PCM write/drain, and rollback to `v2321` selftest `fail=0`. V2847/V2848 then add and validate
 > bounded `audio stop internal-speaker-safe --execute` cleanup: no-active PCM/SET-cal markers, core route-reset write-done,
-> no refusal/error/write-failed markers, and rollback to `v2321` selftest `fail=0`. V2849/V2850 then add and validate read-only productization markers: `audio status` 30/30, `selftest verbose` audio 8/8, `screenapp audio-status` 6/6, and rollback to `v2321` selftest `fail=0`.
+> no refusal/error/write-failed markers, and rollback to `v2321` selftest `fail=0`. V2849/V2850 then add and validate read-only productization markers: `audio status` 30/30, `selftest verbose` audio 8/8, `screenapp audio-status` 6/6, and rollback to `v2321` selftest `fail=0`. V2851/V2852 then add and validate latest 0.10.x changelog/about visibility: `screenapp about-changelog` 6/6, `screenapp about-version` 6/6, unchanged `audio status` 30/30, unchanged `selftest verbose` audio 8/8, and rollback to `v2321` selftest `fail=0`.
 > The sections below "기준점 A" are older Android/boot-chain context unless a newer native-init report references them.
 
 ## 프로젝트 여정 (7-페이즈 arc, 첫 커밋 → 현재)
@@ -58,7 +58,7 @@
    bounded PCM 순서가 native `audio play --execute`에 통합됐고, V2814가 `0.10.0`
    후보에서 SET-cal/route/PCM/cleanup/rollback을 검증했다. V2829/V2830/V2832/V2834/V2836/V2837는 `0.10.6`/`0.10.7`/`0.10.8`/`0.10.9` 관측성
    후보에서 `audio status`, `selftest verbose` PASS audio row, `screenapp audio-map`, `screenapp audio-profile`, `screenapp audio-stages`, APPS/AUDIO 메뉴 표면, route-map safety label, read-only profile/stage/speaker-map API, `help`/`cmdmeta verbose` audio usage, latest-candidate `audio play` playback regression을 검증했다. 남은 작업은
-   스피커별 route map, 상태 UI, 부트차임 같은 post-promotion productization이며, V2838/V2839는 첫 수동 `audio chime` preset을 build/live 검증했고, V2840은 해당 preset의 display-only screen/menu surface를 source-build했고, V2841은 이를 기기에서 검증했으며, V2842는 최신 `0.10.11` 이미지에서 같은 chime playback 경로를 재검증했다. V2843/V2844는 SET-cal 번들을 boot ramdisk `/a90/audio`로 옮긴 뒤 host deploy 없이 같은 chime 경로가 동작함을 검증했고, V2845/V2846은 같은 번들을 써서 PID1 best-effort boot chime autoplay가 수동 오디오 명령 없이 동작함을 검증했으며, V2847/V2848은 bounded `audio stop --execute` core route reset cleanup을 build/live 검증했고, V2849/V2850은 최신 productization 상태를 `audio status`/`screenapp audio-status`에서 읽기 전용 marker로 검증했다.
+   스피커별 route map, 상태 UI, 부트차임 같은 post-promotion productization이며, V2838/V2839는 첫 수동 `audio chime` preset을 build/live 검증했고, V2840은 해당 preset의 display-only screen/menu surface를 source-build했고, V2841은 이를 기기에서 검증했으며, V2842는 최신 `0.10.11` 이미지에서 같은 chime playback 경로를 재검증했다. V2843/V2844는 SET-cal 번들을 boot ramdisk `/a90/audio`로 옮긴 뒤 host deploy 없이 같은 chime 경로가 동작함을 검증했고, V2845/V2846은 같은 번들을 써서 PID1 best-effort boot chime autoplay가 수동 오디오 명령 없이 동작함을 검증했으며, V2847/V2848은 bounded `audio stop --execute` core route reset cleanup을 build/live 검증했고, V2849/V2850은 최신 productization 상태를 `audio status`/`screenapp audio-status`에서 읽기 전용 marker로 검증했고, V2851/V2852는 최신 0.10.x changelog/about 화면을 `screenapp about-changelog`/`screenapp about-version`에서 검증했다.
 
 > 갱신 규율: 새 롤백 체크포인트가 승격되면 위 note의 baseline/SHA와 7번 항목 현황을 함께 갱신.
 
