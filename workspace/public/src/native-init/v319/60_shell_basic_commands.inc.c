@@ -26,6 +26,7 @@ static void cmd_help(void) {
     a90_console_printf("policycheck [status|run|verbose]\r\n");
     a90_console_printf("diag [summary|full|bundle|paths]\r\n");
     a90_console_printf("usb [status|mass-storage add|mass-storage expose|mass-storage remove]\r\n");
+    a90_console_printf("audio [status|profiles|profile|speaker-map|stages|prereq|app-type|setcal|route|play|play-status|stop|adsp-status|snd-status]\r\n");
     a90_console_printf("wifi [status|scan [delay_ms]|connect [profile]|dhcp [profile]|ping [gateway|internet|all]|cleanup|config [status|prepare [profile]]]\r\n");
     a90_console_printf("wifiinv [summary|full|refresh|paths]\r\n");
     a90_console_printf("wififeas [summary|full|gate|refresh|paths]\r\n");
