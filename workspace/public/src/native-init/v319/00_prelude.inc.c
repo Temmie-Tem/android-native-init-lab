@@ -29,6 +29,7 @@
 
 #include "../a90_config.h"
 #include "../a90_app_about.h"
+#include "../a90_app_audio.h"
 #include "../a90_app_cpustress.h"
 #include "../a90_app_displaytest.h"
 #include "../a90_app_inputmon.h"

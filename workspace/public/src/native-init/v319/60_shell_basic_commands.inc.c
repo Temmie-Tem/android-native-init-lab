@@ -73,7 +73,7 @@ static void cmd_help(void) {
     a90_console_printf("inputmonitor [events]\r\n");
     a90_console_printf("displaytest [0-3|colors|font|safe|layout]\r\n");
     a90_console_printf("cutoutcal [x y size]\r\n");
-    a90_console_printf("screenapp [network|wifi-status|wifi-profiles|wifi-scan|wifi-ping]\r\n");
+    a90_console_printf("screenapp [network|wifi-status|wifi-profiles|wifi-scan|wifi-ping|audio-status]\r\n");
     a90_console_printf("menu\r\n");
     a90_console_printf("screenmenu\r\n");
     a90_console_printf("hide\r\n");
