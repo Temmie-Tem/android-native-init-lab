@@ -579,7 +579,7 @@ def run_live(args: argparse.Namespace, out_dir: Path, state: dict[str, Any]) -> 
         flash = base.run_step(
             out_dir,
             steps,
-            "flash-v2892-video-gray8-stream",
+            f"flash-{CANDIDATE_TAG}",
             flash_command(CANDIDATE_IMAGE, CANDIDATE_VERSION, CANDIDATE_SHA256, from_native=True),
             timeout=args.flash_timeout,
         )

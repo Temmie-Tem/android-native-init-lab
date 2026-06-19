@@ -52,18 +52,69 @@ def gray_for(color: int) -> int:
     return ((red * 77) + (green * 150) + (blue * 29)) >> 8
 
 
-def write_frame(handle, pattern: str, frame: int, width: int, height: int, stride: int, frame_bytes: int, fps_num: int, fps_den: int, stream_format: str) -> None:
+def mono1_row_for_checker(width: int, tile: int, x_phase: int) -> bytes:
+    row = bytearray((width + 7) // 8)
+    for x in range(width):
+        if ((x // tile) + x_phase) % 2 == 0:
+            row[x // 8] |= 1 << (7 - (x % 8))
+    return bytes(row)
+
+
+def mono1_row_for_bars(pattern: str, frame: int, width: int, height: int) -> bytes:
+    row = bytearray((width + 7) // 8)
+    for x in range(width):
+        if gray_for(pixel_for(pattern, x, 0, frame, width, height)) >= 128:
+            row[x // 8] |= 1 << (7 - (x % 8))
+    return bytes(row)
+
+
+def mono1_full_row(width: int, bit_set: bool) -> bytes:
+    row_bytes = (width + 7) // 8
+    if not bit_set:
+        return b"\x00" * row_bytes
+    row = bytearray(b"\xff" * row_bytes)
+    remainder = width % 8
+    if remainder:
+        row[-1] &= (0xff << (8 - remainder)) & 0xff
+    return bytes(row)
+
+
+def write_mono1_frame(handle, pattern: str, frame: int, width: int, height: int, stride: int, frame_bytes: int, fps_num: int, fps_den: int) -> None:
+    visible_row_bytes = (width + 7) // 8
     payload = bytearray(frame_bytes)
-    if stream_format == "mono1":
-        visible_row_bytes = (width + 7) // 8
+    rows: list[bytes]
+    if pattern == "checker":
+        tile = max(width // 12, 32)
+        rows = [
+            mono1_row_for_checker(width, tile, 0),
+            mono1_row_for_checker(width, tile, 1),
+        ]
         for y in range(height):
             row_base = y * stride
-            for x in range(width):
-                if gray_for(pixel_for(pattern, x, y, frame, width, height)) >= 128:
-                    payload[row_base + (x // 8)] |= 1 << (7 - (x % 8))
-            if stride > visible_row_bytes:
-                payload[row_base + visible_row_bytes:row_base + stride] = b"\x00" * (stride - visible_row_bytes)
-    elif stream_format == "gray8":
+            row = rows[((y // tile) + frame) & 1]
+            payload[row_base:row_base + visible_row_bytes] = row
+    elif pattern == "pulse":
+        bit_set = gray_for(pixel_for(pattern, 0, 0, frame, width, height)) >= 128
+        row = mono1_full_row(width, bit_set)
+        for y in range(height):
+            row_base = y * stride
+            payload[row_base:row_base + visible_row_bytes] = row
+    else:
+        row = mono1_row_for_bars(pattern, frame, width, height)
+        for y in range(height):
+            row_base = y * stride
+            payload[row_base:row_base + visible_row_bytes] = row
+    pts_ns = (frame * fps_den * 1_000_000_000) // fps_num
+    handle.write(struct.pack("<IIQ", frame, frame_bytes, pts_ns))
+    handle.write(payload)
+
+
+def write_frame(handle, pattern: str, frame: int, width: int, height: int, stride: int, frame_bytes: int, fps_num: int, fps_den: int, stream_format: str) -> None:
+    if stream_format == "mono1":
+        write_mono1_frame(handle, pattern, frame, width, height, stride, frame_bytes, fps_num, fps_den)
+        return
+    payload = bytearray(frame_bytes)
+    if stream_format == "gray8":
         visible_row_bytes = width
         for y in range(height):
             row_base = y * stride
