@@ -16,11 +16,12 @@ class NativeAudioStatusProductizationV2849Test(unittest.TestCase):
         header = AUDIO_PROFILE_H.read_text(encoding="utf-8")
 
         for marker in [
-            '#define AUDIO_PRODUCTIZATION_LATEST_RUN "V2852"',
-            '#define AUDIO_PRODUCTIZATION_LATEST_VERSION "0.10.16"',
-            '#define AUDIO_PRODUCTIZATION_LATEST_TAG "v2851-audio-changelog-productization"',
+            '#define AUDIO_PRODUCTIZATION_LATEST_RUN "V2856"',
+            '#define AUDIO_PRODUCTIZATION_LATEST_VERSION "0.10.17"',
+            '#define AUDIO_PRODUCTIZATION_LATEST_TAG "v2853-audio-productization-marker-refresh"',
             '#define AUDIO_BOOT_CHIME_VALIDATION_RUN "V2846"',
-            '#define AUDIO_STOP_EXECUTE_VALIDATION_RUN "V2848"',
+            '#define AUDIO_CHIME_VALIDATION_RUN "V2855"',
+            '#define AUDIO_STOP_EXECUTE_VALIDATION_RUN "V2856"',
             '#define AUDIO_STOP_EXECUTE_SCOPE "core-route-reset"',
             '#define AUDIO_CHANGELOG_VALIDATION_RUN "V2852"',
             '#define AUDIO_CHANGELOG_SCREENAPP_COUNT 2',
@@ -40,6 +41,8 @@ class NativeAudioStatusProductizationV2849Test(unittest.TestCase):
             "audio.status.productization.latest_tag=%s",
             "AUDIO_PRODUCTIZATION_LATEST_TAG",
             "audio.status.feature.chime=1",
+            "audio.status.feature.chime.validation_run=%s",
+            "AUDIO_CHIME_VALIDATION_RUN",
             "audio.status.feature.boot_chime=1",
             "audio.status.feature.boot_chime.enabled=%d",
             "audio.status.feature.boot_chime.best_effort=1",

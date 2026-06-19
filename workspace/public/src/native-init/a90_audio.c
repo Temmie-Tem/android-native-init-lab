@@ -4402,7 +4402,7 @@ static void audio_print_core_promotion_status(const struct audio_speaker_profile
     a90_console_printf("audio.status.productization.latest_version=%s\r\n", AUDIO_PRODUCTIZATION_LATEST_VERSION);
     a90_console_printf("audio.status.productization.latest_tag=%s\r\n", AUDIO_PRODUCTIZATION_LATEST_TAG);
     a90_console_printf("audio.status.feature.chime=1\r\n");
-    a90_console_printf("audio.status.feature.chime.validation_run=V2839\r\n");
+    a90_console_printf("audio.status.feature.chime.validation_run=%s\r\n", AUDIO_CHIME_VALIDATION_RUN);
     a90_console_printf("audio.status.feature.boot_chime=1\r\n");
     a90_console_printf("audio.status.feature.boot_chime.enabled=%d\r\n", AUDIO_CHIME_BOOT_AUTOPLAY_DEFAULT);
     a90_console_printf("audio.status.feature.boot_chime.best_effort=1\r\n");
