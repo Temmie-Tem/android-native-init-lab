@@ -346,7 +346,7 @@ static int handle_screenapp(char **argv, int argc) {
     int rc;
 
     if (argc != 2) {
-        a90_console_printf("usage: screenapp [network|wifi-status|wifi-profiles|wifi-scan|wifi-ping|audio-status]\r\n");
+        a90_console_printf("usage: screenapp [network|wifi-status|wifi-profiles|wifi-scan|wifi-ping|audio-status|audio-map]\r\n");
         return -EINVAL;
     }
 
@@ -373,9 +373,12 @@ static int handle_screenapp(char **argv, int argc) {
     } else if (strcmp(app, "audio-status") == 0 || strcmp(app, "audio") == 0) {
         a90_console_printf("screenapp.title=AUDIO STATUS\r\n");
         rc = a90_app_audio_draw_status();
+    } else if (strcmp(app, "audio-map") == 0 || strcmp(app, "speaker-map") == 0) {
+        a90_console_printf("screenapp.title=AUDIO ROUTE MAP\r\n");
+        rc = a90_app_audio_draw_map();
     } else {
         a90_console_printf("screenapp.valid=0\r\n");
-        a90_console_printf("usage: screenapp [network|wifi-status|wifi-profiles|wifi-scan|wifi-ping|audio-status]\r\n");
+        a90_console_printf("usage: screenapp [network|wifi-status|wifi-profiles|wifi-scan|wifi-ping|audio-status|audio-map]\r\n");
         return -EINVAL;
     }
 
@@ -1018,7 +1021,7 @@ static const struct shell_command command_table[] = {
     { "inputmonitor", handle_inputmonitor, "inputmonitor [events]", CMD_DISPLAY | CMD_BLOCKING, A90_CMD_GROUP_INPUT },
     { "screenmenu", handle_screenmenu, "screenmenu", CMD_BACKGROUND, A90_CMD_GROUP_MENU },
     { "menu", handle_screenmenu, "menu", CMD_BACKGROUND, A90_CMD_GROUP_MENU },
-    { "screenapp", handle_screenapp, "screenapp [network|wifi-status|wifi-profiles|wifi-scan|wifi-ping|audio-status]", CMD_DISPLAY, A90_CMD_GROUP_MENU },
+    { "screenapp", handle_screenapp, "screenapp [network|wifi-status|wifi-profiles|wifi-scan|wifi-ping|audio-status|audio-map]", CMD_DISPLAY, A90_CMD_GROUP_MENU },
     { "hide", handle_hide_menu, "hide", CMD_BACKGROUND, A90_CMD_GROUP_MENU },
     { "hidemenu", handle_hide_menu, "hidemenu", CMD_BACKGROUND, A90_CMD_GROUP_MENU },
     { "resume", handle_hide_menu, "resume", CMD_BACKGROUND, A90_CMD_GROUP_MENU },

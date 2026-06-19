@@ -31,6 +31,14 @@ class NativeAudioScreenappStatusV2822Test(unittest.TestCase):
             'a90_audio_route_layer_write_allowed(AUDIO_ROUTE_LAYER_BLOCKED)',
             'a90_kms_present("screenaudio", true)',
             'DISPLAY ONLY - NO AUDIO WRITE',
+            'int a90_app_audio_draw_map(void)',
+            'a90_audio_route_selected_count(AUDIO_ROUTE_LAYER_CORE, false)',
+            'a90_audio_route_selected_count(AUDIO_ROUTE_LAYER_FEEDBACK, false)',
+            'a90_audio_route_selected_count(AUDIO_ROUTE_LAYER_ENDPOINT, false)',
+            'a90_audio_route_selected_count(AUDIO_ROUTE_LAYER_BLOCKED, false)',
+            'a90_audio_route_count_for_speaker("SpkrLeft")',
+            'a90_audio_route_boost_count_for_speaker("SpkrRight")',
+            'AUDIO ROUTE MAP',
         ]:
             with self.subTest(marker=marker):
                 self.assertIn(marker, source)
@@ -57,11 +65,15 @@ class NativeAudioScreenappStatusV2822Test(unittest.TestCase):
 
         self.assertIn('#include "../a90_app_audio.h"', prelude)
         self.assertIn('int a90_app_audio_draw_status(void);', header)
+        self.assertIn('int a90_app_audio_draw_map(void);', header)
         self.assertIn('strcmp(app, "audio-status") == 0 || strcmp(app, "audio") == 0', dispatch)
         self.assertIn('screenapp.title=AUDIO STATUS', dispatch)
         self.assertIn('a90_app_audio_draw_status()', dispatch)
-        self.assertIn('screenapp [network|wifi-status|wifi-profiles|wifi-scan|wifi-ping|audio-status]', dispatch)
-        self.assertIn('screenapp [network|wifi-status|wifi-profiles|wifi-scan|wifi-ping|audio-status]', help_text)
+        self.assertIn('strcmp(app, "audio-map") == 0 || strcmp(app, "speaker-map") == 0', dispatch)
+        self.assertIn('screenapp.title=AUDIO ROUTE MAP', dispatch)
+        self.assertIn('a90_app_audio_draw_map()', dispatch)
+        self.assertIn('screenapp [network|wifi-status|wifi-profiles|wifi-scan|wifi-ping|audio-status|audio-map]', dispatch)
+        self.assertIn('screenapp [network|wifi-status|wifi-profiles|wifi-scan|wifi-ping|audio-status|audio-map]', help_text)
 
     def test_pid1_source_glob_includes_new_a90_module(self) -> None:
         text = BUILDER.read_text(encoding="utf-8")

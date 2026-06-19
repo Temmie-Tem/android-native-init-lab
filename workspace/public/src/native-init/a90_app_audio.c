@@ -155,3 +155,57 @@ int a90_app_audio_draw_status(void) {
                                 "DISPLAY ONLY - NO AUDIO WRITE",
                                 0xffcc66);
 }
+
+int a90_app_audio_draw_map(void) {
+    const struct audio_speaker_profile *profile =
+        a90_audio_find_profile(AUDIO_DEFAULT_PROFILE_ID);
+    int core_count = a90_audio_route_selected_count(AUDIO_ROUTE_LAYER_CORE, false);
+    int feedback_count = a90_audio_route_selected_count(AUDIO_ROUTE_LAYER_FEEDBACK, false);
+    int endpoint_count = a90_audio_route_selected_count(AUDIO_ROUTE_LAYER_ENDPOINT, false);
+    int blocked_count = a90_audio_route_selected_count(AUDIO_ROUTE_LAYER_BLOCKED, false);
+    char line0[160];
+    char line1[160];
+    char line2[160];
+    char line3[160];
+    char line4[160];
+    char line5[160];
+    char line6[160];
+    char line7[160];
+    const char *left = a90_audio_speaker_map_id(4);
+    const char *right = a90_audio_speaker_map_id(5);
+    const char *lines[A90_APP_AUDIO_LINE_COUNT];
+
+    snprintf(line0, sizeof(line0), "PROFILE %s",
+             profile != NULL ? profile->id : AUDIO_DEFAULT_PROFILE_ID);
+    snprintf(line1, sizeof(line1), "PATH SLIMBUS_0_RX -> WSA_CDC_DMA_RX");
+    snprintf(line2, sizeof(line2), "CORE %d  FEEDBACK %d  ENDPOINT %d",
+             core_count, feedback_count, endpoint_count);
+    snprintf(line3, sizeof(line3), "BLOCKED BOOST WRITES %d",
+             blocked_count);
+    snprintf(line4, sizeof(line4), "LEFT %s routes=%d boost=%d",
+             app_audio_text_or_dash(left),
+             a90_audio_route_count_for_speaker("SpkrLeft"),
+             a90_audio_route_boost_count_for_speaker("SpkrLeft"));
+    snprintf(line5, sizeof(line5), "RIGHT %s routes=%d boost=%d",
+             app_audio_text_or_dash(right),
+             a90_audio_route_count_for_speaker("SpkrRight"),
+             a90_audio_route_boost_count_for_speaker("SpkrRight"));
+    snprintf(line6, sizeof(line6), "VI SPKR_VI_1/SPKR_VI_2 observed");
+    snprintf(line7, sizeof(line7), "APPTYPE 69941 ACDB 15 SETS %d",
+             AUDIO_PROFILE_ACDB_SET_COUNT);
+
+    lines[0] = line0;
+    lines[1] = line1;
+    lines[2] = line2;
+    lines[3] = line3;
+    lines[4] = line4;
+    lines[5] = line5;
+    lines[6] = line6;
+    lines[7] = line7;
+
+    return app_audio_draw_lines("AUDIO ROUTE MAP",
+                                lines,
+                                A90_APP_AUDIO_LINE_COUNT,
+                                "DISPLAY ONLY - NO AUDIO WRITE",
+                                0x66ccff);
+}
