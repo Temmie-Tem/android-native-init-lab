@@ -56,6 +56,7 @@ class FileAndSafetyHelpers(unittest.TestCase):
             "/cache/bin/a90_tcpctl",
             "/cache/a90-acdb-setcal-replay-v2636/a90_acdb_setcal_replay_execute_v2635",
             "/cache/a90-runtime/bin/a90_tcpctl",
+            "/cache/a90-runtime/pkg/audio/setcal/internal-speaker-safe/00-set-arg.bin",
             "/mnt/sdext/a90/bin/a90_tcpctl",
         ]:
             tcpctl.validate_install_target(path)
