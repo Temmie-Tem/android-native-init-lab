@@ -20,6 +20,7 @@ REPO_ROOT = repo_root()
 DEFAULT_OUT_DIR = REPO_ROOT / "workspace/private/demo-assets/video/v2874-synthetic/build"
 MAGIC = b"A90VSTR1"
 PIXEL_FORMAT_XBGR8888_RAW_STRIDE = 1
+PIXEL_FORMAT_GRAY8 = 2
 
 
 def sha256(path: Path) -> str:
@@ -43,31 +44,56 @@ def pixel_for(pattern: str, x: int, y: int, frame: int, width: int, height: int)
     return colors[((x // bar_width) + frame) % len(colors)]
 
 
-def write_frame(handle, pattern: str, frame: int, width: int, height: int, stride: int, frame_bytes: int, fps_num: int, fps_den: int) -> None:
+def gray_for(color: int) -> int:
+    red = color & 0xFF
+    green = (color >> 8) & 0xFF
+    blue = (color >> 16) & 0xFF
+    return ((red * 77) + (green * 150) + (blue * 29)) >> 8
+
+
+def write_frame(handle, pattern: str, frame: int, width: int, height: int, stride: int, frame_bytes: int, fps_num: int, fps_den: int, stream_format: str) -> None:
     payload = bytearray(frame_bytes)
-    visible_row_bytes = width * 4
-    for y in range(height):
-        row_base = y * stride
-        for x in range(width):
-            color = pixel_for(pattern, x, y, frame, width, height)
-            offset = row_base + x * 4
-            payload[offset:offset + 4] = struct.pack("<I", color)
-        if stride > visible_row_bytes:
-            payload[row_base + visible_row_bytes:row_base + stride] = b"\x00" * (stride - visible_row_bytes)
+    if stream_format == "gray8":
+        visible_row_bytes = width
+        for y in range(height):
+            row_base = y * stride
+            for x in range(width):
+                payload[row_base + x] = gray_for(pixel_for(pattern, x, y, frame, width, height))
+            if stride > visible_row_bytes:
+                payload[row_base + visible_row_bytes:row_base + stride] = b"\x00" * (stride - visible_row_bytes)
+    else:
+        visible_row_bytes = width * 4
+        for y in range(height):
+            row_base = y * stride
+            for x in range(width):
+                color = pixel_for(pattern, x, y, frame, width, height)
+                offset = row_base + x * 4
+                payload[offset:offset + 4] = struct.pack("<I", color)
+            if stride > visible_row_bytes:
+                payload[row_base + visible_row_bytes:row_base + stride] = b"\x00" * (stride - visible_row_bytes)
     pts_ns = (frame * fps_den * 1_000_000_000) // fps_num
     handle.write(struct.pack("<IIQ", frame, frame_bytes, pts_ns))
     handle.write(payload)
 
 
-def write_stream(out_dir: Path, width: int, height: int, stride: int, fps_num: int, fps_den: int, frames: int, pattern: str) -> dict[str, object]:
+def write_stream(out_dir: Path, width: int, height: int, stride: int, fps_num: int, fps_den: int, frames: int, pattern: str, stream_format: str) -> dict[str, object]:
     if not out_dir.is_absolute():
         out_dir = REPO_ROOT / out_dir
     out_dir.mkdir(parents=True, exist_ok=True)
     stream_path = out_dir / "frames.a90vstr"
+    if stream_format == "gray8":
+        pixel_format = PIXEL_FORMAT_GRAY8
+        format_name = "gray8"
+        visible_row_bytes = width
+        if stride < visible_row_bytes:
+            raise ValueError("stride must be >= width for gray8")
+    else:
+        pixel_format = PIXEL_FORMAT_XBGR8888_RAW_STRIDE
+        format_name = "xbgr8888-raw-stride"
+        visible_row_bytes = width * 4
+        if stride < visible_row_bytes:
+            raise ValueError("stride must be >= width * 4")
     frame_bytes = stride * height
-    visible_row_bytes = width * 4
-    if stride < visible_row_bytes:
-        raise ValueError("stride must be >= width * 4")
     with stream_path.open("wb") as handle:
         handle.write(MAGIC)
         handle.write(struct.pack(
@@ -76,7 +102,7 @@ def write_stream(out_dir: Path, width: int, height: int, stride: int, fps_num: i
             width,
             height,
             stride,
-            PIXEL_FORMAT_XBGR8888_RAW_STRIDE,
+            pixel_format,
             fps_num,
             fps_den,
             frames,
@@ -84,14 +110,14 @@ def write_stream(out_dir: Path, width: int, height: int, stride: int, fps_num: i
             b"\x00" * 32,
         ))
         for frame in range(frames):
-            write_frame(handle, pattern, frame, width, height, stride, frame_bytes, fps_num, fps_den)
+            write_frame(handle, pattern, frame, width, height, stride, frame_bytes, fps_num, fps_den, stream_format)
     digest = sha256(stream_path)
     manifest = {
         "version": 1,
-        "asset_id": f"v2874-synthetic-{pattern}-{frames}f",
+        "asset_id": f"v2874-synthetic-{stream_format}-{pattern}-{frames}f",
         "video": {
             "path": "frames.a90vstr",
-            "format": "xbgr8888-raw-stride",
+            "format": format_name,
             "width": width,
             "height": height,
             "stride": stride,
@@ -124,6 +150,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--fps-den", type=int, default=1)
     parser.add_argument("--frames", type=int, default=30)
     parser.add_argument("--pattern", choices=("bars", "checker", "pulse"), default="bars")
+    parser.add_argument("--format", choices=("raw", "gray8"), default="raw")
     return parser.parse_args()
 
 
@@ -138,6 +165,7 @@ def main() -> int:
         args.fps_den,
         args.frames,
         args.pattern,
+        args.format,
     )
     print(json.dumps(result, indent=2, sort_keys=True))
     return 0
