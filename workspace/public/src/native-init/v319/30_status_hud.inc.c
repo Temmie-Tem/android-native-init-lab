@@ -1187,6 +1187,11 @@ static int video_stream_play(const struct video_stream_manifest *manifest,
     uint32_t presented_frames = 0;
     uint32_t dropped_frames = 0;
     uint32_t first_presented_frame = UINT32_MAX;
+    uint32_t flip_delta_count = 0;
+    uint64_t previous_flip_timestamp_us = 0;
+    uint64_t flip_delta_min_us = UINT64_MAX;
+    uint64_t flip_delta_max_us = 0;
+    uint64_t flip_delta_sum_us = 0;
     bool drop_late_frames = false;
     struct a90_kms_flip_result last_flip;
     uint32_t frame_index;
@@ -1312,6 +1317,19 @@ static int video_stream_play(const struct video_stream_manifest *manifest,
                 break;
             }
             if (flip.event_received) {
+                if (previous_flip_timestamp_us > 0 && flip.timestamp_us >= previous_flip_timestamp_us) {
+                    uint64_t delta_us = flip.timestamp_us - previous_flip_timestamp_us;
+
+                    if (delta_us < flip_delta_min_us) {
+                        flip_delta_min_us = delta_us;
+                    }
+                    if (delta_us > flip_delta_max_us) {
+                        flip_delta_max_us = delta_us;
+                    }
+                    flip_delta_sum_us += delta_us;
+                    ++flip_delta_count;
+                }
+                previous_flip_timestamp_us = flip.timestamp_us;
                 last_flip = flip;
                 ++flip_events;
             }
@@ -1385,6 +1403,16 @@ static int video_stream_play(const struct video_stream_manifest *manifest,
                                (unsigned long long)initial_drop_late_ns);
         }
         a90_console_printf("video.stream.flip_events=%u\r\n", flip_events);
+        a90_console_printf("video.stream.flip_delta_count=%u\r\n", flip_delta_count);
+        a90_console_printf("video.stream.flip_delta_min_us=%llu\r\n",
+                           (unsigned long long)(flip_delta_count > 0 ? flip_delta_min_us : 0));
+        a90_console_printf("video.stream.flip_delta_max_us=%llu\r\n",
+                           (unsigned long long)flip_delta_max_us);
+        a90_console_printf("video.stream.flip_delta_avg_us=%llu\r\n",
+                           (unsigned long long)(flip_delta_count > 0 ?
+                                                flip_delta_sum_us / flip_delta_count : 0));
+        a90_console_printf("video.stream.flip_delta_target_us=%llu\r\n",
+                           (unsigned long long)(interval_ns / 1000ULL));
         a90_console_printf("video.stream.last_sequence=%u\r\n", last_flip.sequence);
         a90_console_printf("video.stream.last_crtc=%u\r\n", last_flip.crtc_id);
         a90_console_printf("video.stream.last_timestamp_us=%llu\r\n",
