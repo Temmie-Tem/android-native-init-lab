@@ -6,6 +6,7 @@
 
 static const struct screen_menu_item screen_menu_main_items[] = {
     { "APPS >",    "TOOLS AND VIEWERS", SCREEN_MENU_SUBMENU, SCREEN_MENU_PAGE_APPS },
+    { "DEMO >",    "PLAYER HUD DEMOS",   SCREEN_MENU_SUBMENU, SCREEN_MENU_PAGE_DEMO },
     { "NETWORK >", "USB NCM AND TCPCTL", SCREEN_MENU_SUBMENU, SCREEN_MENU_PAGE_NETWORK },
     { "POWER >",   "REBOOT OPTIONS",    SCREEN_MENU_SUBMENU, SCREEN_MENU_PAGE_POWER },
     { "HIDE MENU", "SHOW HUD ONLY",     SCREEN_MENU_RESUME,  SCREEN_MENU_PAGE_MAIN },
@@ -151,6 +152,11 @@ static const struct screen_menu_item screen_menu_logs_items[] = {
     { "BACK",        "APPS",             SCREEN_MENU_BACK, SCREEN_MENU_PAGE_APPS },
 };
 
+static const struct screen_menu_item screen_menu_demo_items[] = {
+    { "BAD APPLE HUD", "4S PLAYER HUD PREVIEW", SCREEN_MENU_DEMO_BADAPPLE, SCREEN_MENU_PAGE_DEMO },
+    { "BACK",          "MAIN MENU",             SCREEN_MENU_BACK,          SCREEN_MENU_PAGE_MAIN },
+};
+
 static const struct screen_menu_item screen_menu_network_items[] = {
     { "WIFI STATUS",    "WLAN0 LINK AND IP",     SCREEN_MENU_WIFI_STATUS,   SCREEN_MENU_PAGE_NETWORK },
     { "WIFI PROFILES",  "SAVED PROFILE STATE",   SCREEN_MENU_WIFI_PROFILES, SCREEN_MENU_PAGE_NETWORK },
@@ -203,6 +209,10 @@ static const struct screen_menu_page screen_menu_pages[SCREEN_MENU_PAGE_COUNT] =
     [SCREEN_MENU_PAGE_LOGS] = {
         "APPS / LOGS", screen_menu_logs_items,
         SCREEN_MENU_COUNT(screen_menu_logs_items), SCREEN_MENU_PAGE_APPS
+    },
+    [SCREEN_MENU_PAGE_DEMO] = {
+        "DEMO", screen_menu_demo_items,
+        SCREEN_MENU_COUNT(screen_menu_demo_items), SCREEN_MENU_PAGE_MAIN
     },
     [SCREEN_MENU_PAGE_NETWORK] = {
         "NETWORK", screen_menu_network_items,

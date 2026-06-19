@@ -470,6 +470,27 @@ static bool auto_hud_handle_menu_key(struct auto_hud_state *state,
             auto_hud_reset_cutout_state(state);
             auto_hud_enter_app(state, SCREEN_APP_CUTOUT_CAL);
             break;
+        case SCREEN_MENU_DEMO_BADAPPLE: {
+            char *demo_argv[] = {
+                "video", "demo", "badapple", "play",
+                "--trust-cache", "--frames", "120",
+                "--present", "pageflip",
+                "--layout", "player-hud",
+            };
+            int rc;
+
+            a90_console_printf("menu.demo.badapple.action=play-preview\r\n");
+            a90_console_printf("menu.demo.badapple.frames=120\r\n");
+            a90_console_printf("menu.demo.badapple.restore=menu\r\n");
+            state->menu_active = false;
+            a90_controller_set_menu_active(false);
+            a90_controller_clear_menu_request();
+            rc = cmd_video_demo(demo_argv,
+                                (int)(sizeof(demo_argv) / sizeof(demo_argv[0])));
+            a90_console_printf("menu.demo.badapple.rc=%d\r\n", rc);
+            auto_hud_show_menu(state, false);
+            break;
+        }
         case SCREEN_MENU_CPU_STRESS_5:
         case SCREEN_MENU_CPU_STRESS_10:
         case SCREEN_MENU_CPU_STRESS_30:
