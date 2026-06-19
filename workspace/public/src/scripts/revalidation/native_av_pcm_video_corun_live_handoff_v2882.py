@@ -338,7 +338,7 @@ def render_report(result: dict[str, Any]) -> str:
 
 def live_run(args: argparse.Namespace, state: dict[str, Any]) -> dict[str, Any]:
     patch_child_module_paths()
-    out_dir = ROOT / "workspace/private/runs/av" / f"v2882-av-pcm-video-corun-{now_slug()}"
+    out_dir = ROOT / "workspace/private/runs/av" / f"{RUN_ID.lower()}-av-pcm-video-corun-{now_slug()}"
     out_dir.mkdir(parents=True, exist_ok=True)
     steps: list[dict[str, Any]] = []
     result: dict[str, Any] = {
@@ -368,7 +368,7 @@ def live_run(args: argparse.Namespace, state: dict[str, Any]) -> dict[str, Any]:
         flash = base.run_step(
             out_dir,
             steps,
-            "flash-v2880-av-corun",
+            f"flash-{CANDIDATE_TAG}-av-corun",
             flash_command(CANDIDATE_IMAGE, CANDIDATE_VERSION, CANDIDATE_SHA256, from_native=True),
             timeout=args.flash_timeout,
         )
