@@ -27,7 +27,7 @@ static void cmd_help(void) {
     a90_console_printf("diag [summary|full|bundle|paths]\r\n");
     a90_console_printf("usb [status|mass-storage add|mass-storage expose|mass-storage remove]\r\n");
     a90_console_printf("audio [status|profiles|profile|speaker-map|stages|prereq|app-type|setcal|route|play|chime|play-status|stop|adsp-status|snd-status]\r\n");
-    a90_console_printf("video [status|frame|anim|blitbench|stream --manifest PATH --video-only]\r\n");
+    a90_console_printf("video [status|frame|anim|blitbench|stream --manifest PATH --video-only|cache [status|verify|play] SHA256]\r\n");
     a90_console_printf("wifi [status|scan [delay_ms]|connect [profile]|dhcp [profile]|ping [gateway|internet|all]|cleanup|config [status|prepare [profile]]]\r\n");
     a90_console_printf("wifiinv [summary|full|refresh|paths]\r\n");
     a90_console_printf("wififeas [summary|full|gate|refresh|paths]\r\n");
@@ -59,7 +59,7 @@ static void cmd_help(void) {
     a90_console_printf("kmsprobe\r\n");
     a90_console_printf("kmssolid [color]\r\n");
     a90_console_printf("kmsframe\r\n");
-    a90_console_printf("video [status|frame|anim|blitbench|flipprobe|stream]\r\n");
+    a90_console_printf("video [status|frame|anim|blitbench|flipprobe|stream|cache]\r\n");
     a90_console_printf("statusscreen\r\n");
     a90_console_printf("statushud\r\n");
     a90_console_printf("watchhud [sec] [count]\r\n");

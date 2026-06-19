@@ -80,7 +80,7 @@ static int cmd_video_status(void) {
     struct a90_kms_info info;
 
     a90_kms_info(&info);
-    a90_console_printf("video.status.version=5\r\n");
+    a90_console_printf("video.status.version=6\r\n");
     a90_console_printf("video.status.path=kms-dumb-buffer\r\n");
     a90_console_printf("video.status.venus=not-used\r\n");
     a90_console_printf("video.status.kgsl=not-used\r\n");
@@ -109,6 +109,7 @@ static int cmd_video_status(void) {
     a90_console_printf("video.status.next_stream=video stream --manifest PATH --video-only [--frames N]\r\n");
     a90_console_printf("video.status.next_stream_pageflip=video stream --manifest PATH --video-only [--frames N] --present pageflip\r\n");
     a90_console_printf("video.status.next_stream_sync=video stream --manifest PATH --video-only [--frames N] --present pageflip --sync-audio-status /cache/a90-audio-play/status.txt\r\n");
+    a90_console_printf("video.status.next_cache=video cache [status|verify|play] SHA256 [--present pageflip]\r\n");
     a90_console_printf("video.status.next_flipprobe=video flipprobe [frames<=120]\r\n");
     return 0;
 }
@@ -577,6 +578,8 @@ static int cmd_video_flipprobe(char **argv, int argc) {
 #define VIDEO_STREAM_AUDIO_STATUS_PATH "/cache/a90-audio-play/status.txt"
 #define VIDEO_STREAM_AUDIO_SYNC_DEFAULT_WAIT_MS 90000U
 #define VIDEO_STREAM_AUDIO_SYNC_POLL_MS 20U
+#define VIDEO_STREAM_CACHE_ROOT "/mnt/sdext/a90/runtime/video/cache"
+#define VIDEO_STREAM_CACHE_DIR_PREFIX "sha256-"
 
 enum video_stream_present_mode {
     VIDEO_STREAM_PRESENT_SETCRTC = 0,
@@ -1161,6 +1164,123 @@ static int video_stream_verify_hash(const struct video_stream_manifest *manifest
     return 0;
 }
 
+static bool video_cache_manifest_path_for_sha(const char *sha256, char *out, size_t out_size) {
+    if (!video_text_is_sha256(sha256) || out == NULL || out_size == 0) {
+        return false;
+    }
+    return snprintf(out,
+                    out_size,
+                    "%s/%s%s/manifest.json",
+                    VIDEO_STREAM_CACHE_ROOT,
+                    VIDEO_STREAM_CACHE_DIR_PREFIX,
+                    sha256) < (int)out_size;
+}
+
+static uint64_t video_stream_expected_total_bytes(const struct video_stream_manifest *manifest) {
+    if (manifest == NULL) {
+        return 0;
+    }
+    return (uint64_t)sizeof(struct video_stream_header_v1) +
+           ((uint64_t)manifest->frame_count *
+            ((uint64_t)sizeof(struct video_stream_frame_record_v1) +
+             (uint64_t)manifest->frame_bytes));
+}
+
+static int video_cache_load_manifest(const char *sha256,
+                                     char *manifest_path,
+                                     size_t manifest_path_size,
+                                     struct video_stream_manifest *manifest) {
+    int rc;
+
+    if (!video_cache_manifest_path_for_sha(sha256, manifest_path, manifest_path_size)) {
+        a90_console_printf("video.cache.error=invalid-sha256\r\n");
+        return -EINVAL;
+    }
+    rc = video_parse_manifest(manifest_path, manifest);
+    if (rc < 0) {
+        a90_console_printf("video.cache.error=manifest-invalid rc=%d\r\n", rc);
+        return rc;
+    }
+    if (!video_sha256_equal_fold(manifest->sha256, sha256)) {
+        a90_console_printf("video.cache.expected_sha256=%s\r\n", sha256);
+        a90_console_printf("video.cache.manifest_sha256=%s\r\n", manifest->sha256);
+        a90_console_printf("video.cache.error=manifest-sha-mismatch\r\n");
+        return -EINVAL;
+    }
+    return 0;
+}
+
+static int video_cache_stat_stream(const struct video_stream_manifest *manifest,
+                                   bool *exists_out,
+                                   uint64_t *size_out,
+                                   bool *size_match_out) {
+    struct stat st;
+    uint64_t expected;
+
+    if (exists_out != NULL) {
+        *exists_out = false;
+    }
+    if (size_out != NULL) {
+        *size_out = 0;
+    }
+    if (size_match_out != NULL) {
+        *size_match_out = false;
+    }
+    if (manifest == NULL || stat(manifest->stream_path, &st) < 0 || !S_ISREG(st.st_mode)) {
+        return negative_errno_or(ENOENT);
+    }
+    expected = video_stream_expected_total_bytes(manifest);
+    if (exists_out != NULL) {
+        *exists_out = true;
+    }
+    if (size_out != NULL) {
+        *size_out = st.st_size > 0 ? (uint64_t)st.st_size : 0;
+    }
+    if (size_match_out != NULL) {
+        *size_match_out = st.st_size >= 0 && (uint64_t)st.st_size == expected;
+    }
+    return 0;
+}
+
+static void video_cache_print_status(const char *sha256,
+                                     const char *manifest_path,
+                                     const struct video_stream_manifest *manifest) {
+    bool stream_exists = false;
+    bool stream_size_match = false;
+    uint64_t stream_size = 0;
+    uint64_t expected_size = video_stream_expected_total_bytes(manifest);
+
+    (void)video_cache_stat_stream(manifest, &stream_exists, &stream_size, &stream_size_match);
+    a90_console_printf("video.cache.version=1\r\n");
+    a90_console_printf("video.cache.root=%s\r\n", VIDEO_STREAM_CACHE_ROOT);
+    a90_console_printf("video.cache.sha256=%s\r\n", sha256);
+    a90_console_printf("video.cache.manifest=%s\r\n", manifest_path);
+    a90_console_printf("video.cache.stream=%s\r\n", manifest->stream_path);
+    a90_console_printf("video.cache.manifest_ok=1\r\n");
+    a90_console_printf("video.cache.stream_exists=%d\r\n", stream_exists ? 1 : 0);
+    a90_console_printf("video.cache.stream_size=%llu\r\n", (unsigned long long)stream_size);
+    a90_console_printf("video.cache.stream_expected_size=%llu\r\n", (unsigned long long)expected_size);
+    a90_console_printf("video.cache.stream_size_match=%d\r\n", stream_size_match ? 1 : 0);
+    a90_console_printf("video.cache.format=%s\r\n", manifest->format);
+    a90_console_printf("video.cache.frames=%u\r\n", manifest->frame_count);
+    a90_console_printf("video.cache.fps=%u/%u\r\n", manifest->fps_num, manifest->fps_den);
+    a90_console_printf("video.cache.size=%ux%u\r\n", manifest->width, manifest->height);
+    a90_console_printf("video.cache.stride=%u\r\n", manifest->stride);
+    a90_console_printf("video.cache.frame_bytes=%u\r\n", manifest->frame_bytes);
+}
+
+static int video_cache_verify_hash(const struct video_stream_manifest *manifest,
+                                   char *actual_out,
+                                   size_t actual_out_size) {
+    int rc = video_stream_verify_hash(manifest, actual_out, actual_out_size);
+
+    a90_console_printf("video.cache.verify.expected_sha256=%s\r\n", manifest->sha256);
+    a90_console_printf("video.cache.verify.actual_sha256=%s\r\n", rc == 0 ? actual_out : "hash-error");
+    a90_console_printf("video.cache.verify.sha256_checked=1\r\n");
+    a90_console_printf("video.cache.verify.sha256_match=%d\r\n", rc == 0 ? 1 : 0);
+    return rc;
+}
+
 static int video_wait_until_ns(uint64_t deadline_ns) {
     for (;;) {
         uint64_t now_ns = video_monotonic_ns();
@@ -1686,13 +1806,128 @@ static int cmd_video_stream(char **argv, int argc) {
     return video_stream_play(&manifest, requested_frames, present_mode, &audio_sync);
 }
 
+static int cmd_video_cache(char **argv, int argc) {
+    const char *usage = "usage: video cache [status|verify|play] SHA256 [--frames N] [--present setcrtc|pageflip] [--sync-audio-status /cache/a90-audio-play/status.txt] [--sync-wait-ms N]\r\n";
+    const char *action;
+    const char *sha256;
+    char manifest_path[PATH_MAX];
+    char actual_sha256[65];
+    struct video_stream_manifest manifest;
+    struct video_audio_sync_state audio_sync;
+    uint32_t requested_frames = 0;
+    uint32_t sync_wait_ms = VIDEO_STREAM_AUDIO_SYNC_DEFAULT_WAIT_MS;
+    enum video_stream_present_mode present_mode = VIDEO_STREAM_PRESENT_SETCRTC;
+    bool present_seen = false;
+    int index;
+    int rc;
+
+    memset(&audio_sync, 0, sizeof(audio_sync));
+    if (argc < 4) {
+        a90_console_printf("%s", usage);
+        return -EINVAL;
+    }
+    action = argv[2];
+    sha256 = argv[3];
+    if (strcmp(action, "status") != 0 &&
+        strcmp(action, "verify") != 0 &&
+        strcmp(action, "play") != 0) {
+        a90_console_printf("%s", usage);
+        return -EINVAL;
+    }
+    rc = video_cache_load_manifest(sha256, manifest_path, sizeof(manifest_path), &manifest);
+    if (rc < 0) {
+        return rc;
+    }
+    if (strcmp(action, "status") == 0) {
+        if (argc != 4) {
+            a90_console_printf("%s", usage);
+            return -EINVAL;
+        }
+        video_cache_print_status(sha256, manifest_path, &manifest);
+        return 0;
+    }
+    if (strcmp(action, "verify") == 0) {
+        if (argc != 4) {
+            a90_console_printf("%s", usage);
+            return -EINVAL;
+        }
+        video_cache_print_status(sha256, manifest_path, &manifest);
+        return video_cache_verify_hash(&manifest, actual_sha256, sizeof(actual_sha256));
+    }
+
+    index = 4;
+    while (index < argc) {
+        if (strcmp(argv[index], "--frames") == 0) {
+            if (requested_frames != 0 ||
+                index + 1 >= argc ||
+                !parse_u32_arg(argv[index + 1], 1, VIDEO_STREAM_MAX_FRAMES, &requested_frames)) {
+                a90_console_printf("%s", usage);
+                return -EINVAL;
+            }
+            index += 2;
+            continue;
+        }
+        if (strcmp(argv[index], "--present") == 0) {
+            if (present_seen || index + 1 >= argc) {
+                a90_console_printf("%s", usage);
+                return -EINVAL;
+            }
+            present_seen = true;
+            if (strcmp(argv[index + 1], "setcrtc") == 0) {
+                present_mode = VIDEO_STREAM_PRESENT_SETCRTC;
+            } else if (strcmp(argv[index + 1], "pageflip") == 0) {
+                present_mode = VIDEO_STREAM_PRESENT_PAGEFLIP;
+            } else {
+                a90_console_printf("%s", usage);
+                return -EINVAL;
+            }
+            index += 2;
+            continue;
+        }
+        if (strcmp(argv[index], "--sync-audio-status") == 0) {
+            if (audio_sync.enabled || index + 1 >= argc ||
+                !video_audio_sync_status_path_allowed(argv[index + 1])) {
+                a90_console_printf("%s", usage);
+                a90_console_printf("video.cache.play.audio_sync.error=status-path-not-allowed\r\n");
+                return -EINVAL;
+            }
+            audio_sync.enabled = true;
+            snprintf(audio_sync.status_path, sizeof(audio_sync.status_path), "%s", argv[index + 1]);
+            index += 2;
+            continue;
+        }
+        if (strcmp(argv[index], "--sync-wait-ms") == 0) {
+            if (index + 1 >= argc ||
+                !parse_u32_arg(argv[index + 1], 0, 120000, &sync_wait_ms)) {
+                a90_console_printf("%s", usage);
+                return -EINVAL;
+            }
+            index += 2;
+            continue;
+        }
+        a90_console_printf("%s", usage);
+        return -EINVAL;
+    }
+    audio_sync.wait_ms = sync_wait_ms;
+    video_cache_print_status(sha256, manifest_path, &manifest);
+    rc = video_cache_verify_hash(&manifest, actual_sha256, sizeof(actual_sha256));
+    if (rc < 0) {
+        return rc;
+    }
+    a90_console_printf("video.cache.play.manifest=%s\r\n", manifest_path);
+    a90_console_printf("video.cache.play.file=%s\r\n", manifest.stream_path);
+    a90_console_printf("video.cache.play.requested_present=%s\r\n", video_stream_present_mode_name(present_mode));
+    a90_console_printf("video.cache.play.requested_audio_sync=%d\r\n", audio_sync.enabled ? 1 : 0);
+    return video_stream_play(&manifest, requested_frames, present_mode, &audio_sync);
+}
+
 
 static int handle_video(char **argv, int argc) {
     const char *subcommand = argc > 1 ? argv[1] : "status";
 
     if (strcmp(subcommand, "status") == 0) {
         if (argc != 1 && argc != 2) {
-            a90_console_printf("usage: video [status|frame [bars|checker|mono|0xRRGGBB]|anim [bars|checker|pulse] [frames] [delay_ms]|blitbench [frames]|flipprobe [frames]|stream --manifest PATH --video-only [--frames N] [--present setcrtc|pageflip] [--sync-audio-status PATH]]\r\n");
+            a90_console_printf("usage: video [status|frame [bars|checker|mono|0xRRGGBB]|anim [bars|checker|pulse] [frames] [delay_ms]|blitbench [frames]|flipprobe [frames]|stream --manifest PATH --video-only [--frames N] [--present setcrtc|pageflip] [--sync-audio-status PATH]|cache [status|verify|play] SHA256]\r\n");
             return -EINVAL;
         }
         return cmd_video_status();
@@ -1712,8 +1947,11 @@ static int handle_video(char **argv, int argc) {
     if (strcmp(subcommand, "stream") == 0) {
         return cmd_video_stream(argv, argc);
     }
+    if (strcmp(subcommand, "cache") == 0) {
+        return cmd_video_cache(argv, argc);
+    }
 
-    a90_console_printf("usage: video [status|frame [bars|checker|mono|0xRRGGBB]|anim [bars|checker|pulse] [frames] [delay_ms]|blitbench [frames]|flipprobe [frames]|stream --manifest PATH --video-only [--frames N] [--present setcrtc|pageflip] [--sync-audio-status PATH]]\r\n");
+    a90_console_printf("usage: video [status|frame [bars|checker|mono|0xRRGGBB]|anim [bars|checker|pulse] [frames] [delay_ms]|blitbench [frames]|flipprobe [frames]|stream --manifest PATH --video-only [--frames N] [--present setcrtc|pageflip] [--sync-audio-status PATH]|cache [status|verify|play] SHA256]\r\n");
     return -EINVAL;
 }
 
