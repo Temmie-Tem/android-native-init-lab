@@ -16,14 +16,14 @@ class NativeAudioStatusProductizationV2849Test(unittest.TestCase):
         header = AUDIO_PROFILE_H.read_text(encoding="utf-8")
 
         for marker in [
-            '#define AUDIO_PRODUCTIZATION_LATEST_RUN "V2856"',
-            '#define AUDIO_PRODUCTIZATION_LATEST_VERSION "0.10.17"',
-            '#define AUDIO_PRODUCTIZATION_LATEST_TAG "v2853-audio-productization-marker-refresh"',
+            '#define AUDIO_PRODUCTIZATION_LATEST_RUN "V2860"',
+            '#define AUDIO_PRODUCTIZATION_LATEST_VERSION "0.10.19"',
+            '#define AUDIO_PRODUCTIZATION_LATEST_TAG "v2859-audio-changelog-latest-refresh"',
             '#define AUDIO_BOOT_CHIME_VALIDATION_RUN "V2846"',
             '#define AUDIO_CHIME_VALIDATION_RUN "V2855"',
             '#define AUDIO_STOP_EXECUTE_VALIDATION_RUN "V2856"',
             '#define AUDIO_STOP_EXECUTE_SCOPE "core-route-reset"',
-            '#define AUDIO_CHANGELOG_VALIDATION_RUN "V2852"',
+            '#define AUDIO_CHANGELOG_VALIDATION_RUN "V2860"',
             '#define AUDIO_CHANGELOG_SCREENAPP_COUNT 2',
         ]:
             with self.subTest(marker=marker):

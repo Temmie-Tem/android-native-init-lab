@@ -222,12 +222,12 @@ Safety rollback net: v2321 remains the flash-gate rollback target until AGENTS.m
 Current post-promotion audio productization candidate evidence is based on:
 
 ```text
-Run ID: V2858
-Native init: A90 Linux init 0.10.18 (v2857-audio-latest-marker-refresh)
-Build tag: v2857-audio-latest-marker-refresh
-Boot image: workspace/private/inputs/boot_images/boot_linux_v2857_audio_latest_marker_refresh.img
-Boot SHA256: feceae0a52a05193dbe9c1be49767f1ecf82254df55a2bd8fd2ad495766598ad
-Evidence: V2845/V2846 source+live validation of PID1 boot-started `audio chime`, V2847/V2848 source+live validation of bounded `audio stop --execute`, V2849/V2850 source+live validation of read-only productization markers, V2851/V2852 source+live validation of latest 0.10.x changelog entries plus direct ABOUT display markers, V2853/V2854 source+live validation of refreshed `audio.status.productization.*`/`audio.status.feature.changelog.*` markers, V2855 latest-candidate chime playback regression validation, V2856 latest-candidate stop-execute regression validation, and V2857/V2858 source+live validation of refreshed latest-evidence markers; V2858 validated `audio status` 33/33, `selftest verbose` audio 8/8, `screenapp audio-status` 6/6, `screenapp about-changelog` 6/6, and rollback to v2321 selftest fail=0
+Run ID: V2860
+Native init: A90 Linux init 0.10.19 (v2859-audio-changelog-latest-refresh)
+Build tag: v2859-audio-changelog-latest-refresh
+Boot image: workspace/private/inputs/boot_images/boot_linux_v2859_audio_changelog_latest_refresh.img
+Boot SHA256: 1361e405171cf975d30c7b2c3c64aab145450f7bc866d21e641a60311e56e8b7
+Evidence: V2845/V2846 source+live validation of PID1 boot-started `audio chime`, V2847/V2848 source+live validation of bounded `audio stop --execute`, V2849/V2850 source+live validation of read-only productization markers, V2851/V2852 source+live validation of latest 0.10.x changelog entries plus direct ABOUT display markers, V2853/V2854 source+live validation of refreshed `audio.status.productization.*`/`audio.status.feature.changelog.*` markers, V2855 latest-candidate chime playback regression validation, V2856 latest-candidate stop-execute regression validation, V2857/V2858 source+live validation of refreshed latest-evidence markers, and V2859/V2860 source+live validation of the missing `0.10.16` through `0.10.19` ABOUT changelog entries; V2860 validated `audio status` 33/33, `selftest verbose` audio 8/8, `screenapp about-changelog` 6/6, `screenapp audio-status` 6/6, and rollback to v2321 selftest fail=0
 Adoption state: device-validated post-promotion candidate
 Safety rollback net: v2321 remains the flash-gate rollback target until AGENTS.md is deliberately updated
 ```
