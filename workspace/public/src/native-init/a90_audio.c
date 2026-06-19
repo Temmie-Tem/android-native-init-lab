@@ -48,7 +48,12 @@
 #define AUDIO_ADSP_SEGMENT_MODEL "stock-sparse-b00-b11-b13-b16"
 #define AUDIO_APP_TYPE_CFG_MAX_VALUES 128
 #define AUDIO_SETCAL_MANIFEST_VERSION 1
+#ifndef AUDIO_SETCAL_RUNTIME_PREFIX
 #define AUDIO_SETCAL_RUNTIME_PREFIX "/cache/a90-runtime"
+#endif
+#ifndef AUDIO_SETCAL_BUNDLED_PREFIX
+#define AUDIO_SETCAL_BUNDLED_PREFIX "/a90/audio"
+#endif
 #define AUDIO_SETCAL_LEGACY_REPLAY_PREFIX "/cache/a90-acdb-setcal-replay-"
 #define AUDIO_SETCAL_DEV_MSM_AUDIO_CAL "/dev/msm_audio_cal"
 #define AUDIO_SETCAL_DEV_ION "/dev/ion"
@@ -360,6 +365,7 @@ static bool audio_setcal_manifest_path_allowed(const char *path) {
         return false;
     }
     return audio_setcal_path_has_prefix(path, AUDIO_SETCAL_RUNTIME_PREFIX) ||
+           audio_setcal_path_has_prefix(path, AUDIO_SETCAL_BUNDLED_PREFIX) ||
            audio_setcal_path_has_prefix(path, AUDIO_SETCAL_LEGACY_REPLAY_PREFIX);
 }
 
@@ -368,6 +374,7 @@ static bool audio_setcal_payload_path_allowed(const char *path) {
         return false;
     }
     return audio_setcal_path_has_prefix(path, AUDIO_SETCAL_RUNTIME_PREFIX) ||
+           audio_setcal_path_has_prefix(path, AUDIO_SETCAL_BUNDLED_PREFIX) ||
            audio_setcal_path_has_prefix(path, AUDIO_SETCAL_LEGACY_REPLAY_PREFIX);
 }
 

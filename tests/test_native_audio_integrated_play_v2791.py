@@ -45,7 +45,7 @@ class NativeAudioIntegratedPlayV2791(unittest.TestCase):
         block = text[start:end]
 
         order = [
-            "audio_play_run_adsp_stage(profile)",
+            "audio_play_run_adsp_stage(profile, !adsp_prebooted)",
             "audio_play_run_snd_stage(profile)",
             "audio_play_run_app_type_stage(profile)",
             "audio_play_load_setcal_session(profile, manifest_path, &setcal_session)",

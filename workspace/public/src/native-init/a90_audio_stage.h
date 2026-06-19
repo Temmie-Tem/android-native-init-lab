@@ -7,7 +7,9 @@
 #define AUDIO_STAGE_CONTRACT_COUNT 14
 #define AUDIO_ADSP_BOOT_ONCE_TOKEN "AUD2_ONE_SHOT_ADSP_BOOT"
 #define AUDIO_SND_MATERIALIZE_TOKEN "AUD3_DEV_SND_MATERIALIZE_ONLY"
+#ifndef AUDIO_SETCAL_DEFAULT_MANIFEST_PATH
 #define AUDIO_SETCAL_DEFAULT_MANIFEST_PATH "/cache/a90-runtime/pkg/manifests/audio-setcal-internal-speaker-safe.manifest"
+#endif
 
 struct audio_stage_contract {
     const char *id;
