@@ -222,12 +222,12 @@ Safety rollback net: v2321 remains the flash-gate rollback target until AGENTS.m
 Current post-promotion audio productization candidate evidence is based on:
 
 ```text
-Run ID: V2846
-Native init: A90 Linux init 0.10.13 (v2845-audio-boot-chime)
-Build tag: v2845-audio-boot-chime
-Boot image: workspace/private/inputs/boot_images/boot_linux_v2845_audio_boot_chime.img
-Boot SHA256: be1e6f2559d435b72cce3d152c905c7b74742f2ba2c6917101d73a80d84f5bda
-Evidence: V2845 source/build report enabling compile-time gated best-effort boot chime autoplay on top of bundled SET-cal, and V2846 live validation of PID1 boot-started `audio chime` with manual audio command count 0, host artifact deployment count 0, card publication, manifest wait, SET-cal, route apply/reset, PCM write/drain, and rollback to v2321 selftest fail=0
+Run ID: V2848
+Native init: A90 Linux init 0.10.14 (v2847-audio-stop-execute)
+Build tag: v2847-audio-stop-execute
+Boot image: workspace/private/inputs/boot_images/boot_linux_v2847_audio_stop_execute.img
+Boot SHA256: 23b54b37bc3451697d218ddbd3d162ec3b167427b460bc0f31d40f17c55abd6e
+Evidence: V2845/V2846 source+live validation of PID1 boot-started `audio chime`, V2847 source/build report adding bounded `audio stop --execute`, and V2848 live validation of one `audio stop internal-speaker-safe --execute` with no-active PCM/SET-cal markers, core route-reset write-done, no refusal/error/write-failed markers, and rollback to v2321 selftest fail=0
 Adoption state: device-validated post-promotion candidate
 Safety rollback net: v2321 remains the flash-gate rollback target until AGENTS.md is deliberately updated
 ```
