@@ -107,6 +107,7 @@ static int cmd_video_status(void) {
     a90_console_printf("video.status.next_anim=video anim [bars|checker|pulse] [frames<=240] [delay_ms<=1000]\r\n");
     a90_console_printf("video.status.next_blitbench=video blitbench [frames<=240]\r\n");
     a90_console_printf("video.status.next_stream=video stream --manifest PATH --video-only [--frames N]\r\n");
+    a90_console_printf("video.status.next_stream_pageflip=video stream --manifest PATH --video-only [--frames N] --present pageflip\r\n");
     a90_console_printf("video.status.next_flipprobe=video flipprobe [frames<=120]\r\n");
     return 0;
 }
@@ -570,6 +571,11 @@ static int cmd_video_flipprobe(char **argv, int argc) {
 #define VIDEO_STREAM_MAX_FRAMES 600U
 #define VIDEO_STREAM_MAX_FRAME_BYTES (64U * 1024U * 1024U)
 #define VIDEO_STREAM_PIXEL_FORMAT_XBGR8888_RAW_STRIDE 1U
+
+enum video_stream_present_mode {
+    VIDEO_STREAM_PRESENT_SETCRTC = 0,
+    VIDEO_STREAM_PRESENT_PAGEFLIP = 1,
+};
 
 struct video_stream_manifest {
     char video_path[PATH_MAX];
@@ -1037,7 +1043,18 @@ static uint64_t video_frame_interval_ns(uint32_t fps_num, uint32_t fps_den) {
     return numerator / fps_num;
 }
 
-static int video_stream_play(const struct video_stream_manifest *manifest, uint32_t requested_frames) {
+static const char *video_stream_present_mode_name(enum video_stream_present_mode present_mode) {
+    return present_mode == VIDEO_STREAM_PRESENT_PAGEFLIP ? "pageflip" : "setcrtc";
+}
+
+static const char *video_stream_present_path_name(enum video_stream_present_mode present_mode) {
+    return present_mode == VIDEO_STREAM_PRESENT_PAGEFLIP ?
+           "kms-dumb-buffer-pageflip" : "kms-dumb-buffer";
+}
+
+static int video_stream_play(const struct video_stream_manifest *manifest,
+                             uint32_t requested_frames,
+                             enum video_stream_present_mode present_mode) {
     struct video_stream_header_v1 header;
     uint32_t limit_frames = requested_frames > 0 && requested_frames < manifest->frame_count ?
                             requested_frames : manifest->frame_count;
@@ -1047,10 +1064,13 @@ static int video_stream_play(const struct video_stream_manifest *manifest, uint3
     uint64_t total_bytes = 0;
     uint64_t late_frames = 0;
     uint64_t max_late_ns = 0;
+    uint32_t flip_events = 0;
+    struct a90_kms_flip_result last_flip;
     uint32_t frame_index;
     int fd;
     int rc;
 
+    memset(&last_flip, 0, sizeof(last_flip));
     if (interval_ns == 0) {
         return -EINVAL;
     }
@@ -1080,6 +1100,11 @@ static int video_stream_play(const struct video_stream_manifest *manifest, uint3
             a90_console_printf("video.stream.error=kms-geometry-mismatch\r\n");
             return -EINVAL;
         }
+    }
+    if (present_mode == VIDEO_STREAM_PRESENT_PAGEFLIP &&
+        a90_kms_present("videostreamprime", false) < 0) {
+        close(fd);
+        return negative_errno_or(EIO);
     }
 
     started_ns = video_monotonic_ns();
@@ -1119,9 +1144,22 @@ static int video_stream_play(const struct video_stream_manifest *manifest, uint3
             a90_console_printf("video.stream.presented=%u\r\n", frame_index);
             return rc;
         }
-        if (a90_kms_present("videostream", false) < 0) {
-            rc = negative_errno_or(EIO);
-            break;
+        if (present_mode == VIDEO_STREAM_PRESENT_PAGEFLIP) {
+            struct a90_kms_flip_result flip;
+
+            if (a90_kms_present_pageflip("videostream", 1000, &flip) < 0) {
+                rc = negative_errno_or(EIO);
+                break;
+            }
+            if (flip.event_received) {
+                last_flip = flip;
+                ++flip_events;
+            }
+        } else {
+            if (a90_kms_present("videostream", false) < 0) {
+                rc = negative_errno_or(EIO);
+                break;
+            }
         }
         total_bytes += record.payload_bytes;
         after_present_ns = video_monotonic_ns();
@@ -1160,12 +1198,18 @@ static int video_stream_play(const struct video_stream_manifest *manifest, uint3
         a90_console_printf("video.stream.mbps_milli=%llu\r\n", (unsigned long long)mbps_milli);
         a90_console_printf("video.stream.late_frames=%llu\r\n", (unsigned long long)late_frames);
         a90_console_printf("video.stream.max_late_ns=%llu\r\n", (unsigned long long)max_late_ns);
+        a90_console_printf("video.stream.present_mode=%s\r\n", video_stream_present_mode_name(present_mode));
+        a90_console_printf("video.stream.flip_events=%u\r\n", flip_events);
+        a90_console_printf("video.stream.last_sequence=%u\r\n", last_flip.sequence);
+        a90_console_printf("video.stream.last_crtc=%u\r\n", last_flip.crtc_id);
+        a90_console_printf("video.stream.last_timestamp_us=%llu\r\n",
+                           (unsigned long long)last_flip.timestamp_us);
         a90_console_printf("video.stream.width=%u\r\n", manifest->width);
         a90_console_printf("video.stream.height=%u\r\n", manifest->height);
         a90_console_printf("video.stream.stride=%u\r\n", manifest->stride);
         a90_console_printf("video.stream.frame_bytes=%u\r\n", manifest->frame_bytes);
         a90_console_printf("video.stream.pixel_format=xbgr8888\r\n");
-        a90_console_printf("video.stream.path=kms-dumb-buffer\r\n");
+        a90_console_printf("video.stream.path=%s\r\n", video_stream_present_path_name(present_mode));
     }
     return 0;
 }
@@ -1175,20 +1219,52 @@ static int cmd_video_stream(char **argv, int argc) {
     struct video_stream_manifest manifest;
     char actual_sha256[65];
     uint32_t requested_frames = 0;
+    enum video_stream_present_mode present_mode = VIDEO_STREAM_PRESENT_SETCRTC;
+    bool present_seen = false;
+    int index;
     int rc;
 
-    if (!((argc == 5 || argc == 7) &&
+    if (!(argc >= 5 &&
           strcmp(argv[2], "--manifest") == 0 &&
           strcmp(argv[4], "--video-only") == 0)) {
-        a90_console_printf("usage: video stream --manifest PATH --video-only [--frames N]\r\n");
+        a90_console_printf("usage: video stream --manifest PATH --video-only [--frames N] [--present setcrtc|pageflip]\r\n");
         return -EINVAL;
     }
-    if (argc == 7) {
-        if (strcmp(argv[5], "--frames") != 0 ||
-            !parse_u32_arg(argv[6], 1, VIDEO_STREAM_MAX_FRAMES, &requested_frames)) {
-            a90_console_printf("usage: video stream --manifest PATH --video-only [--frames N]\r\n");
-            return -EINVAL;
+    index = 5;
+    while (index < argc) {
+        if (strcmp(argv[index], "--frames") == 0) {
+            if (requested_frames != 0 ||
+                index + 1 >= argc ||
+                !parse_u32_arg(argv[index + 1], 1, VIDEO_STREAM_MAX_FRAMES, &requested_frames)) {
+                a90_console_printf("usage: video stream --manifest PATH --video-only [--frames N] [--present setcrtc|pageflip]\r\n");
+                return -EINVAL;
+            }
+            index += 2;
+            continue;
         }
+        if (strcmp(argv[index], "--present") == 0) {
+            if (present_seen || index + 1 >= argc) {
+                a90_console_printf("usage: video stream --manifest PATH --video-only [--frames N] [--present setcrtc|pageflip]\r\n");
+                return -EINVAL;
+            }
+            present_seen = true;
+            if (strcmp(argv[index + 1], "setcrtc") == 0) {
+                present_mode = VIDEO_STREAM_PRESENT_SETCRTC;
+            } else if (strcmp(argv[index + 1], "pageflip") == 0) {
+                present_mode = VIDEO_STREAM_PRESENT_PAGEFLIP;
+            } else {
+                a90_console_printf("usage: video stream --manifest PATH --video-only [--frames N] [--present setcrtc|pageflip]\r\n");
+                return -EINVAL;
+            }
+            index += 2;
+            continue;
+        }
+        a90_console_printf("usage: video stream --manifest PATH --video-only [--frames N] [--present setcrtc|pageflip]\r\n");
+        return -EINVAL;
+    }
+    if (argc > 9) {
+        a90_console_printf("usage: video stream --manifest PATH --video-only [--frames N] [--present setcrtc|pageflip]\r\n");
+        return -EINVAL;
     }
     manifest_path = argv[3];
     rc = video_parse_manifest(manifest_path, &manifest);
@@ -1207,7 +1283,8 @@ static int cmd_video_stream(char **argv, int argc) {
     a90_console_printf("video.stream.file=%s\r\n", manifest.stream_path);
     a90_console_printf("video.stream.format=%s\r\n", manifest.format);
     a90_console_printf("video.stream.fps=%u/%u\r\n", manifest.fps_num, manifest.fps_den);
-    return video_stream_play(&manifest, requested_frames);
+    a90_console_printf("video.stream.requested_present=%s\r\n", video_stream_present_mode_name(present_mode));
+    return video_stream_play(&manifest, requested_frames, present_mode);
 }
 
 
@@ -1216,7 +1293,7 @@ static int handle_video(char **argv, int argc) {
 
     if (strcmp(subcommand, "status") == 0) {
         if (argc != 1 && argc != 2) {
-            a90_console_printf("usage: video [status|frame [bars|checker|mono|0xRRGGBB]|anim [bars|checker|pulse] [frames] [delay_ms]|blitbench [frames]|flipprobe [frames]|stream --manifest PATH --video-only [--frames N]]\r\n");
+            a90_console_printf("usage: video [status|frame [bars|checker|mono|0xRRGGBB]|anim [bars|checker|pulse] [frames] [delay_ms]|blitbench [frames]|flipprobe [frames]|stream --manifest PATH --video-only [--frames N] [--present setcrtc|pageflip]]\r\n");
             return -EINVAL;
         }
         return cmd_video_status();
@@ -1237,7 +1314,7 @@ static int handle_video(char **argv, int argc) {
         return cmd_video_stream(argv, argc);
     }
 
-    a90_console_printf("usage: video [status|frame [bars|checker|mono|0xRRGGBB]|anim [bars|checker|pulse] [frames] [delay_ms]|blitbench [frames]|flipprobe [frames]|stream --manifest PATH --video-only [--frames N]]\r\n");
+    a90_console_printf("usage: video [status|frame [bars|checker|mono|0xRRGGBB]|anim [bars|checker|pulse] [frames] [delay_ms]|blitbench [frames]|flipprobe [frames]|stream --manifest PATH --video-only [--frames N] [--present setcrtc|pageflip]]\r\n");
     return -EINVAL;
 }
 
