@@ -46,6 +46,7 @@ INSTALL_ALLOWED_PREFIXES = (
     "/cache/a90-runtime/bin/",
     "/cache/a90-runtime/pkg/",
     "/mnt/sdext/a90/bin/",
+    "/mnt/sdext/a90/runtime/",
 )
 
 
@@ -75,7 +76,8 @@ def validate_install_target(path: str) -> None:
         raise RuntimeError(
             "refusing to install outside runtime/cache helper roots: "
             f"{path} (use /cache/bin, /cache/a90-acdb-setcal-replay-*, "
-            "/cache/a90-runtime/bin, /cache/a90-runtime/pkg, or /mnt/sdext/a90/bin)"
+            "/cache/a90-runtime/bin, /cache/a90-runtime/pkg, /mnt/sdext/a90/bin, "
+            "or /mnt/sdext/a90/runtime)"
         )
 
 

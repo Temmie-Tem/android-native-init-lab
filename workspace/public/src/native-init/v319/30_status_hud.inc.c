@@ -80,7 +80,7 @@ static int cmd_video_status(void) {
     struct a90_kms_info info;
 
     a90_kms_info(&info);
-    a90_console_printf("video.status.version=4\r\n");
+    a90_console_printf("video.status.version=5\r\n");
     a90_console_printf("video.status.path=kms-dumb-buffer\r\n");
     a90_console_printf("video.status.venus=not-used\r\n");
     a90_console_printf("video.status.kgsl=not-used\r\n");
@@ -108,6 +108,7 @@ static int cmd_video_status(void) {
     a90_console_printf("video.status.next_blitbench=video blitbench [frames<=240]\r\n");
     a90_console_printf("video.status.next_stream=video stream --manifest PATH --video-only [--frames N]\r\n");
     a90_console_printf("video.status.next_stream_pageflip=video stream --manifest PATH --video-only [--frames N] --present pageflip\r\n");
+    a90_console_printf("video.status.next_stream_sync=video stream --manifest PATH --video-only [--frames N] --present pageflip --sync-audio-status /cache/a90-audio-play/status.txt\r\n");
     a90_console_printf("video.status.next_flipprobe=video flipprobe [frames<=120]\r\n");
     return 0;
 }
@@ -571,6 +572,9 @@ static int cmd_video_flipprobe(char **argv, int argc) {
 #define VIDEO_STREAM_MAX_FRAMES 600U
 #define VIDEO_STREAM_MAX_FRAME_BYTES (64U * 1024U * 1024U)
 #define VIDEO_STREAM_PIXEL_FORMAT_XBGR8888_RAW_STRIDE 1U
+#define VIDEO_STREAM_AUDIO_STATUS_PATH "/cache/a90-audio-play/status.txt"
+#define VIDEO_STREAM_AUDIO_SYNC_DEFAULT_WAIT_MS 90000U
+#define VIDEO_STREAM_AUDIO_SYNC_POLL_MS 20U
 
 enum video_stream_present_mode {
     VIDEO_STREAM_PRESENT_SETCRTC = 0,
@@ -610,6 +614,20 @@ struct video_stream_frame_record_v1 {
     uint32_t index;
     uint32_t payload_bytes;
     uint64_t pts_ns;
+};
+
+struct video_audio_sync_state {
+    bool enabled;
+    bool ready;
+    char status_path[PATH_MAX];
+    uint32_t wait_ms;
+    uint32_t sample_rate;
+    uint32_t frame_bytes;
+    uint32_t total_frames;
+    uint64_t expected_duration_ns;
+    uint64_t listen_begin_ns;
+    uint64_t ready_elapsed_ms;
+    uint64_t anchor_age_ns;
 };
 
 static bool video_json_space(char ch) {
@@ -1052,9 +1070,109 @@ static const char *video_stream_present_path_name(enum video_stream_present_mode
            "kms-dumb-buffer-pageflip" : "kms-dumb-buffer";
 }
 
+static bool video_audio_sync_status_path_allowed(const char *path) {
+    return path != NULL && strcmp(path, VIDEO_STREAM_AUDIO_STATUS_PATH) == 0;
+}
+
+static bool video_audio_sync_extract_u64(const char *text, const char *key, uint64_t *out) {
+    const char *cursor;
+    char *end = NULL;
+    unsigned long long value;
+    char pattern[96];
+
+    if (text == NULL || key == NULL || out == NULL || strlen(key) + 2 > sizeof(pattern)) {
+        return false;
+    }
+    snprintf(pattern, sizeof(pattern), "%s=", key);
+    cursor = strstr(text, pattern);
+    if (cursor == NULL) {
+        return false;
+    }
+    cursor += strlen(pattern);
+    errno = 0;
+    value = strtoull(cursor, &end, 10);
+    if (errno != 0 || end == NULL || end == cursor) {
+        return false;
+    }
+    *out = (uint64_t)value;
+    return true;
+}
+
+static bool video_audio_sync_extract_u32(const char *text, const char *key, uint32_t *out) {
+    uint64_t value;
+
+    if (!video_audio_sync_extract_u64(text, key, &value) || value > UINT32_MAX) {
+        return false;
+    }
+    *out = (uint32_t)value;
+    return true;
+}
+
+static bool video_audio_sync_read_status(struct video_audio_sync_state *sync) {
+    char status[8192];
+
+    if (sync == NULL || !sync->enabled || !video_audio_sync_status_path_allowed(sync->status_path)) {
+        return false;
+    }
+    if (read_text_file(sync->status_path, status, sizeof(status)) < 0) {
+        return false;
+    }
+    if (!video_audio_sync_extract_u64(status, "audio.play.worker.listen_begin_ns", &sync->listen_begin_ns) ||
+        !video_audio_sync_extract_u32(status, "audio.play.worker.sample_rate", &sync->sample_rate) ||
+        !video_audio_sync_extract_u32(status, "audio.play.worker.frame_bytes", &sync->frame_bytes) ||
+        !video_audio_sync_extract_u32(status, "audio.play.worker.total_frames", &sync->total_frames)) {
+        return false;
+    }
+    (void)video_audio_sync_extract_u64(status,
+                                       "audio.play.worker.expected_duration_ns",
+                                       &sync->expected_duration_ns);
+    return sync->listen_begin_ns > 0 && sync->sample_rate > 0 &&
+           sync->frame_bytes > 0 && sync->total_frames > 0;
+}
+
+static int video_audio_sync_wait_ready(struct video_audio_sync_state *sync) {
+    uint32_t elapsed_ms = 0;
+    uint64_t now_ns;
+
+    if (sync == NULL || !sync->enabled) {
+        return 0;
+    }
+    if (!video_audio_sync_status_path_allowed(sync->status_path)) {
+        a90_console_printf("video.stream.audio_sync.error=status-path-not-allowed\r\n");
+        return -EINVAL;
+    }
+    while (elapsed_ms <= sync->wait_ms) {
+        if (video_audio_sync_read_status(sync)) {
+            sync->ready = true;
+            sync->ready_elapsed_ms = elapsed_ms;
+            now_ns = video_monotonic_ns();
+            sync->anchor_age_ns = now_ns > sync->listen_begin_ns ? now_ns - sync->listen_begin_ns : 0;
+            a90_console_printf("video.stream.audio_sync.ready=1 elapsed_ms=%llu\r\n",
+                               (unsigned long long)sync->ready_elapsed_ms);
+            a90_console_printf("video.stream.audio_sync.listen_begin_ns=%llu\r\n",
+                               (unsigned long long)sync->listen_begin_ns);
+            a90_console_printf("video.stream.audio_sync.anchor_age_ns=%llu\r\n",
+                               (unsigned long long)sync->anchor_age_ns);
+            a90_console_printf("video.stream.audio_sync.sample_rate=%u\r\n", sync->sample_rate);
+            a90_console_printf("video.stream.audio_sync.frame_bytes=%u\r\n", sync->frame_bytes);
+            a90_console_printf("video.stream.audio_sync.total_frames=%u\r\n", sync->total_frames);
+            a90_console_printf("video.stream.audio_sync.expected_duration_ns=%llu\r\n",
+                               (unsigned long long)sync->expected_duration_ns);
+            return 0;
+        }
+        usleep((useconds_t)VIDEO_STREAM_AUDIO_SYNC_POLL_MS * 1000U);
+        elapsed_ms += VIDEO_STREAM_AUDIO_SYNC_POLL_MS;
+    }
+    a90_console_printf("video.stream.audio_sync.ready=0 elapsed_ms=%u errno=%d\r\n",
+                       elapsed_ms,
+                       ETIMEDOUT);
+    return -ETIMEDOUT;
+}
+
 static int video_stream_play(const struct video_stream_manifest *manifest,
                              uint32_t requested_frames,
-                             enum video_stream_present_mode present_mode) {
+                             enum video_stream_present_mode present_mode,
+                             struct video_audio_sync_state *audio_sync) {
     struct video_stream_header_v1 header;
     uint32_t limit_frames = requested_frames > 0 && requested_frames < manifest->frame_count ?
                             requested_frames : manifest->frame_count;
@@ -1107,7 +1225,20 @@ static int video_stream_play(const struct video_stream_manifest *manifest,
         return negative_errno_or(EIO);
     }
 
-    started_ns = video_monotonic_ns();
+    if (audio_sync != NULL && audio_sync->enabled) {
+        a90_console_printf("video.stream.audio_sync.enabled=1\r\n");
+        a90_console_printf("video.stream.audio_sync.status_path=%s\r\n", audio_sync->status_path);
+        a90_console_printf("video.stream.audio_sync.wait_ms=%u\r\n", audio_sync->wait_ms);
+        rc = video_audio_sync_wait_ready(audio_sync);
+        if (rc < 0) {
+            close(fd);
+            return rc;
+        }
+        started_ns = audio_sync->listen_begin_ns;
+    } else {
+        a90_console_printf("video.stream.audio_sync.enabled=0\r\n");
+        started_ns = video_monotonic_ns();
+    }
     for (frame_index = 0; frame_index < limit_frames; ++frame_index) {
         struct video_stream_frame_record_v1 record;
         struct a90_fb *fb;
@@ -1199,6 +1330,21 @@ static int video_stream_play(const struct video_stream_manifest *manifest,
         a90_console_printf("video.stream.late_frames=%llu\r\n", (unsigned long long)late_frames);
         a90_console_printf("video.stream.max_late_ns=%llu\r\n", (unsigned long long)max_late_ns);
         a90_console_printf("video.stream.present_mode=%s\r\n", video_stream_present_mode_name(present_mode));
+        a90_console_printf("video.stream.audio_sync.enabled=%d\r\n",
+                           audio_sync != NULL && audio_sync->enabled ? 1 : 0);
+        a90_console_printf("video.stream.audio_sync.ready=%d\r\n",
+                           audio_sync != NULL && audio_sync->ready ? 1 : 0);
+        if (audio_sync != NULL && audio_sync->enabled) {
+            a90_console_printf("video.stream.audio_sync.ready_elapsed_ms=%llu\r\n",
+                               (unsigned long long)audio_sync->ready_elapsed_ms);
+            a90_console_printf("video.stream.audio_sync.anchor_age_ns=%llu\r\n",
+                               (unsigned long long)audio_sync->anchor_age_ns);
+            a90_console_printf("video.stream.audio_sync.listen_begin_ns=%llu\r\n",
+                               (unsigned long long)audio_sync->listen_begin_ns);
+            a90_console_printf("video.stream.audio_sync.sample_rate=%u\r\n", audio_sync->sample_rate);
+            a90_console_printf("video.stream.audio_sync.frame_bytes=%u\r\n", audio_sync->frame_bytes);
+            a90_console_printf("video.stream.audio_sync.total_frames=%u\r\n", audio_sync->total_frames);
+        }
         a90_console_printf("video.stream.flip_events=%u\r\n", flip_events);
         a90_console_printf("video.stream.last_sequence=%u\r\n", last_flip.sequence);
         a90_console_printf("video.stream.last_crtc=%u\r\n", last_flip.crtc_id);
@@ -1215,19 +1361,23 @@ static int video_stream_play(const struct video_stream_manifest *manifest,
 }
 
 static int cmd_video_stream(char **argv, int argc) {
+    const char *usage = "usage: video stream --manifest PATH --video-only [--frames N] [--present setcrtc|pageflip] [--sync-audio-status /cache/a90-audio-play/status.txt] [--sync-wait-ms N]\r\n";
     const char *manifest_path;
     struct video_stream_manifest manifest;
+    struct video_audio_sync_state audio_sync;
     char actual_sha256[65];
     uint32_t requested_frames = 0;
+    uint32_t sync_wait_ms = VIDEO_STREAM_AUDIO_SYNC_DEFAULT_WAIT_MS;
     enum video_stream_present_mode present_mode = VIDEO_STREAM_PRESENT_SETCRTC;
     bool present_seen = false;
     int index;
     int rc;
 
+    memset(&audio_sync, 0, sizeof(audio_sync));
     if (!(argc >= 5 &&
           strcmp(argv[2], "--manifest") == 0 &&
           strcmp(argv[4], "--video-only") == 0)) {
-        a90_console_printf("usage: video stream --manifest PATH --video-only [--frames N] [--present setcrtc|pageflip]\r\n");
+        a90_console_printf("%s", usage);
         return -EINVAL;
     }
     index = 5;
@@ -1236,7 +1386,7 @@ static int cmd_video_stream(char **argv, int argc) {
             if (requested_frames != 0 ||
                 index + 1 >= argc ||
                 !parse_u32_arg(argv[index + 1], 1, VIDEO_STREAM_MAX_FRAMES, &requested_frames)) {
-                a90_console_printf("usage: video stream --manifest PATH --video-only [--frames N] [--present setcrtc|pageflip]\r\n");
+                a90_console_printf("%s", usage);
                 return -EINVAL;
             }
             index += 2;
@@ -1244,7 +1394,7 @@ static int cmd_video_stream(char **argv, int argc) {
         }
         if (strcmp(argv[index], "--present") == 0) {
             if (present_seen || index + 1 >= argc) {
-                a90_console_printf("usage: video stream --manifest PATH --video-only [--frames N] [--present setcrtc|pageflip]\r\n");
+                a90_console_printf("%s", usage);
                 return -EINVAL;
             }
             present_seen = true;
@@ -1253,19 +1403,37 @@ static int cmd_video_stream(char **argv, int argc) {
             } else if (strcmp(argv[index + 1], "pageflip") == 0) {
                 present_mode = VIDEO_STREAM_PRESENT_PAGEFLIP;
             } else {
-                a90_console_printf("usage: video stream --manifest PATH --video-only [--frames N] [--present setcrtc|pageflip]\r\n");
+                a90_console_printf("%s", usage);
                 return -EINVAL;
             }
             index += 2;
             continue;
         }
-        a90_console_printf("usage: video stream --manifest PATH --video-only [--frames N] [--present setcrtc|pageflip]\r\n");
+        if (strcmp(argv[index], "--sync-audio-status") == 0) {
+            if (audio_sync.enabled || index + 1 >= argc ||
+                !video_audio_sync_status_path_allowed(argv[index + 1])) {
+                a90_console_printf("%s", usage);
+                a90_console_printf("video.stream.audio_sync.error=status-path-not-allowed\r\n");
+                return -EINVAL;
+            }
+            audio_sync.enabled = true;
+            snprintf(audio_sync.status_path, sizeof(audio_sync.status_path), "%s", argv[index + 1]);
+            index += 2;
+            continue;
+        }
+        if (strcmp(argv[index], "--sync-wait-ms") == 0) {
+            if (index + 1 >= argc ||
+                !parse_u32_arg(argv[index + 1], 0, 120000, &sync_wait_ms)) {
+                a90_console_printf("%s", usage);
+                return -EINVAL;
+            }
+            index += 2;
+            continue;
+        }
+        a90_console_printf("%s", usage);
         return -EINVAL;
     }
-    if (argc > 9) {
-        a90_console_printf("usage: video stream --manifest PATH --video-only [--frames N] [--present setcrtc|pageflip]\r\n");
-        return -EINVAL;
-    }
+    audio_sync.wait_ms = sync_wait_ms;
     manifest_path = argv[3];
     rc = video_parse_manifest(manifest_path, &manifest);
     if (rc < 0) {
@@ -1284,7 +1452,12 @@ static int cmd_video_stream(char **argv, int argc) {
     a90_console_printf("video.stream.format=%s\r\n", manifest.format);
     a90_console_printf("video.stream.fps=%u/%u\r\n", manifest.fps_num, manifest.fps_den);
     a90_console_printf("video.stream.requested_present=%s\r\n", video_stream_present_mode_name(present_mode));
-    return video_stream_play(&manifest, requested_frames, present_mode);
+    a90_console_printf("video.stream.requested_audio_sync=%d\r\n", audio_sync.enabled ? 1 : 0);
+    if (audio_sync.enabled) {
+        a90_console_printf("video.stream.requested_audio_sync_status=%s\r\n", audio_sync.status_path);
+        a90_console_printf("video.stream.requested_audio_sync_wait_ms=%u\r\n", audio_sync.wait_ms);
+    }
+    return video_stream_play(&manifest, requested_frames, present_mode, &audio_sync);
 }
 
 
@@ -1293,7 +1466,7 @@ static int handle_video(char **argv, int argc) {
 
     if (strcmp(subcommand, "status") == 0) {
         if (argc != 1 && argc != 2) {
-            a90_console_printf("usage: video [status|frame [bars|checker|mono|0xRRGGBB]|anim [bars|checker|pulse] [frames] [delay_ms]|blitbench [frames]|flipprobe [frames]|stream --manifest PATH --video-only [--frames N] [--present setcrtc|pageflip]]\r\n");
+            a90_console_printf("usage: video [status|frame [bars|checker|mono|0xRRGGBB]|anim [bars|checker|pulse] [frames] [delay_ms]|blitbench [frames]|flipprobe [frames]|stream --manifest PATH --video-only [--frames N] [--present setcrtc|pageflip] [--sync-audio-status PATH]]\r\n");
             return -EINVAL;
         }
         return cmd_video_status();
@@ -1314,7 +1487,7 @@ static int handle_video(char **argv, int argc) {
         return cmd_video_stream(argv, argc);
     }
 
-    a90_console_printf("usage: video [status|frame [bars|checker|mono|0xRRGGBB]|anim [bars|checker|pulse] [frames] [delay_ms]|blitbench [frames]|flipprobe [frames]|stream --manifest PATH --video-only [--frames N] [--present setcrtc|pageflip]]\r\n");
+    a90_console_printf("usage: video [status|frame [bars|checker|mono|0xRRGGBB]|anim [bars|checker|pulse] [frames] [delay_ms]|blitbench [frames]|flipprobe [frames]|stream --manifest PATH --video-only [--frames N] [--present setcrtc|pageflip] [--sync-audio-status PATH]]\r\n");
     return -EINVAL;
 }
 

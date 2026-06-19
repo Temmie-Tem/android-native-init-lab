@@ -49,6 +49,7 @@ REMOTE_AUDIO_DIR = f"{REMOTE_AV_ROOT}/audio"
 REMOTE_AUDIO_PCM = f"{REMOTE_AUDIO_DIR}/tone.s16le"
 REMOTE_PLAY_LOG = "/cache/a90-audio-play/worker.log"
 SELFTEST_FAIL0_RE = re.compile(r"\bfail=0\b")
+VIDEO_EXTRA_ARGS: list[str] = []
 
 
 def rel(path: Path) -> str:
@@ -398,6 +399,15 @@ def live_run(args: argparse.Namespace, state: dict[str, Any]) -> dict[str, Any]:
             raise RuntimeError("remote audio fixture SHA mismatch")
 
         base.run_serial_step(out_dir, steps, "candidate-hide-menu-before-av", ["hide"], timeout=45.0, allow_error=True, retry_unsafe=True)
+        base.run_serial_step(
+            out_dir,
+            steps,
+            "candidate-clear-audio-play-status-before-av",
+            ["run", "/bin/busybox", "rm", "-f", "/cache/a90-audio-play/status.txt", REMOTE_PLAY_LOG],
+            timeout=45.0,
+            retry_unsafe=True,
+            allow_error=True,
+        )
         audio_command = [
             "audio",
             "play",
@@ -430,21 +440,23 @@ def live_run(args: argparse.Namespace, state: dict[str, Any]) -> dict[str, Any]:
             result["decision"] = "v2882-av-corun-audio-start-failed-before-video"
             raise RuntimeError("audio PCM-file worker did not start")
 
+        video_command = [
+            "video",
+            "stream",
+            "--manifest",
+            REMOTE_VIDEO_MANIFEST,
+            "--video-only",
+            "--frames",
+            str(args.frames),
+            "--present",
+            "pageflip",
+            *VIDEO_EXTRA_ARGS,
+        ]
         video_step = base.run_serial_step(
             out_dir,
             steps,
             "candidate-av-video-stream-pageflip",
-            [
-                "video",
-                "stream",
-                "--manifest",
-                REMOTE_VIDEO_MANIFEST,
-                "--video-only",
-                "--frames",
-                str(args.frames),
-                "--present",
-                "pageflip",
-            ],
+            video_command,
             timeout=args.stream_timeout,
             retry_unsafe=False,
             allow_error=True,
@@ -535,7 +547,18 @@ def dry_run_payload(args: argparse.Namespace, state: dict[str, Any]) -> dict[str
                 REMOTE_AUDIO_PCM,
                 "--execute",
             ],
-            "video_stream": ["video", "stream", "--manifest", REMOTE_VIDEO_MANIFEST, "--video-only", "--frames", str(args.frames), "--present", "pageflip"],
+            "video_stream": [
+                "video",
+                "stream",
+                "--manifest",
+                REMOTE_VIDEO_MANIFEST,
+                "--video-only",
+                "--frames",
+                str(args.frames),
+                "--present",
+                "pageflip",
+                *VIDEO_EXTRA_ARGS,
+            ],
             "audio_status": ["audio", "play-status"],
             "rollback": flash_command(ROLLBACK_IMAGE, ROLLBACK_VERSION, ROLLBACK_SHA256, from_native=True),
         },
