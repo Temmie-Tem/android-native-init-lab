@@ -23,10 +23,12 @@ class NativeAudioMenuSurfaceV2826Test(unittest.TestCase):
             "SCREEN_MENU_AUDIO_PROFILE",
             "SCREEN_MENU_AUDIO_STAGES",
             "SCREEN_MENU_AUDIO_MAP",
+            "SCREEN_MENU_AUDIO_CHIME",
             "SCREEN_APP_AUDIO_STATUS",
             "SCREEN_APP_AUDIO_PROFILE",
             "SCREEN_APP_AUDIO_STAGES",
             "SCREEN_APP_AUDIO_MAP",
+            "SCREEN_APP_AUDIO_CHIME",
         ]:
             with self.subTest(marker=marker):
                 self.assertIn(marker, header)
@@ -38,6 +40,7 @@ class NativeAudioMenuSurfaceV2826Test(unittest.TestCase):
             '{ "PROFILE",      "APP TYPE AND STAGES", SCREEN_MENU_AUDIO_PROFILE, SCREEN_MENU_PAGE_AUDIO }',
             '{ "STAGES",       "CONTRACT AND WRITES", SCREEN_MENU_AUDIO_STAGES,  SCREEN_MENU_PAGE_AUDIO }',
             '{ "ROUTE MAP",    "SPEAKERS AND PATH",   SCREEN_MENU_AUDIO_MAP,    SCREEN_MENU_PAGE_AUDIO }',
+            '{ "CHIME",        "MANUAL SAFE PRESET",  SCREEN_MENU_AUDIO_CHIME,   SCREEN_MENU_PAGE_AUDIO }',
             '"APPS / AUDIO", screen_menu_audio_items',
             'case SCREEN_MENU_AUDIO_STATUS:',
             'return SCREEN_APP_AUDIO_STATUS;',
@@ -47,6 +50,8 @@ class NativeAudioMenuSurfaceV2826Test(unittest.TestCase):
             'return SCREEN_APP_AUDIO_STAGES;',
             'case SCREEN_MENU_AUDIO_MAP:',
             'return SCREEN_APP_AUDIO_MAP;',
+            'case SCREEN_MENU_AUDIO_CHIME:',
+            'return SCREEN_APP_AUDIO_CHIME;',
         ]:
             with self.subTest(marker=marker):
                 self.assertIn(marker, source)
@@ -64,6 +69,8 @@ class NativeAudioMenuSurfaceV2826Test(unittest.TestCase):
             'a90_app_audio_draw_stages();',
             'state->active_app == SCREEN_APP_AUDIO_MAP',
             'a90_app_audio_draw_map();',
+            'state->active_app == SCREEN_APP_AUDIO_CHIME',
+            'a90_app_audio_draw_chime();',
         ]:
             with self.subTest(marker=marker):
                 self.assertIn(marker, source)

@@ -253,6 +253,8 @@ static void auto_hud_draw_current_screen(struct auto_hud_state *state) {
         a90_app_audio_draw_stages();
     } else if (state->active_app == SCREEN_APP_AUDIO_MAP) {
         a90_app_audio_draw_map();
+    } else if (state->active_app == SCREEN_APP_AUDIO_CHIME) {
+        a90_app_audio_draw_chime();
     } else if (state->active_app == SCREEN_APP_INPUT_MONITOR) {
         draw_screen_input_monitor_app();
     } else if (state->active_app == SCREEN_APP_DISPLAY_TEST) {

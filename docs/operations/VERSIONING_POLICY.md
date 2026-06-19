@@ -222,13 +222,13 @@ Safety rollback net: v2321 remains the flash-gate rollback target until AGENTS.m
 Current post-promotion audio productization candidate evidence is based on:
 
 ```text
-Run ID: V2838
-Native init: A90 Linux init 0.10.10 (v2838-audio-chime-preset)
-Build tag: v2838-audio-chime-preset
-Boot image: workspace/private/inputs/boot_images/boot_linux_v2838_audio_chime_preset.img
-Boot SHA256: 0772ef64e24ab863e50a646f710f5c4eb4059056c1ba9528dc38be870cc8bd86
-Evidence: V2838 source/build report plus V2839 live validation of audio chime --duration-ms 1200 --amplitude-milli 80 --execute with SET-cal, route, PCM, cleanup, and rollback
-Adoption state: device-validated post-promotion candidate
+Run ID: V2840
+Native init: A90 Linux init 0.10.11 (v2840-audio-chime-screen)
+Build tag: v2840-audio-chime-screen
+Boot image: workspace/private/inputs/boot_images/boot_linux_v2840_audio_chime_screen.img
+Boot SHA256: 57a61bf47f5da326d7faf6a9fcf1284accf6f9628b4a8bb25679a670c31dbb58
+Evidence: V2840 source/build report for display-only screenapp audio-chime and APPS/AUDIO CHIME surface; V2839 remains the live audio chime execution proof
+Adoption state: source-built post-promotion candidate pending live screen validation
 Safety rollback net: v2321 remains the flash-gate rollback target until AGENTS.md is deliberately updated
 ```
 

@@ -12,6 +12,7 @@ profiles = load_revalidation("native_audio_speaker_profiles_v2749")
 
 REPO = Path(__file__).resolve().parents[1]
 AUDIO_C = REPO / "workspace/public/src/native-init/a90_audio.c"
+CHIME_H = REPO / "workspace/public/src/native-init/a90_audio_chime.h"
 
 
 def source_text() -> str:
@@ -93,8 +94,10 @@ class NativeAudioPlayPlanApiV2761(unittest.TestCase):
 
         self.assertIn('strcmp(argv[1], "chime") == 0', text)
         self.assertIn("return audio_chime_cmd(argv, argc);", text)
-        self.assertIn("AUDIO_CHIME_DEFAULT_AMPLITUDE_MILLI 80", text)
-        self.assertIn("AUDIO_CHIME_DEFAULT_DURATION_MS 1200", text)
+        chime_header = CHIME_H.read_text(encoding="utf-8")
+        self.assertIn("AUDIO_CHIME_DEFAULT_AMPLITUDE_MILLI 80", chime_header)
+        self.assertIn("AUDIO_CHIME_DEFAULT_DURATION_MS 1200", chime_header)
+        self.assertIn("AUDIO_CHIME_BOOT_AUTOPLAY_DEFAULT 0", chime_header)
         self.assertIn("audio.chime.boot_autoplay_default=0", chime_block)
         self.assertIn("audio.chime.best_effort=1", chime_block)
         self.assertIn("audio.chime.blocks_boot=0", chime_block)

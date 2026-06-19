@@ -78,7 +78,7 @@ class NativeAudioProfileScreenV2831Test(unittest.TestCase):
             "screenapp.title=AUDIO PROFILE",
             'strcmp(app, "audio-stages") == 0 || strcmp(app, "stages") == 0',
             "screenapp.title=AUDIO STAGES",
-            "screenapp [network|wifi-status|wifi-profiles|wifi-scan|wifi-ping|audio-status|audio-profile|audio-stages|audio-map]",
+            "screenapp [network|wifi-status|wifi-profiles|wifi-scan|wifi-ping|audio-status|audio-profile|audio-stages|audio-map|audio-chime]",
         ]:
             with self.subTest(marker=marker):
                 self.assertIn(marker, menu_h + menu_c + menu_apps + dispatch + help_text)

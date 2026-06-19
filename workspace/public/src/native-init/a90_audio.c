@@ -1,4 +1,5 @@
 #include "a90_audio.h"
+#include "a90_audio_chime.h"
 #include "a90_audio_profile.h"
 #include "a90_audio_query.h"
 #include "a90_audio_route.h"
@@ -78,8 +79,6 @@
 #define AUDIO_PCM_PERIOD_COUNT 4
 #define AUDIO_PCM_MAX_CHANNELS 8
 #define AUDIO_PCM_TONE_HZ 440
-#define AUDIO_CHIME_DEFAULT_AMPLITUDE_MILLI 80
-#define AUDIO_CHIME_DEFAULT_DURATION_MS 1200
 #define AUDIO_PLAY_ASYNC_DIR "/cache/a90-audio-play"
 #define AUDIO_PLAY_ASYNC_STATUS_PATH AUDIO_PLAY_ASYNC_DIR "/status.txt"
 #define AUDIO_PLAY_ASYNC_LOG_PATH AUDIO_PLAY_ASYNC_DIR "/worker.log"

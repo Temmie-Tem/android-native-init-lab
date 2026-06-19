@@ -24,6 +24,7 @@ static const struct screen_menu_item screen_menu_audio_items[] = {
     { "PROFILE",      "APP TYPE AND STAGES", SCREEN_MENU_AUDIO_PROFILE, SCREEN_MENU_PAGE_AUDIO },
     { "STAGES",       "CONTRACT AND WRITES", SCREEN_MENU_AUDIO_STAGES,  SCREEN_MENU_PAGE_AUDIO },
     { "ROUTE MAP",    "SPEAKERS AND PATH",   SCREEN_MENU_AUDIO_MAP,    SCREEN_MENU_PAGE_AUDIO },
+    { "CHIME",        "MANUAL SAFE PRESET",  SCREEN_MENU_AUDIO_CHIME,   SCREEN_MENU_PAGE_AUDIO },
     { "BACK",         "APPS",                SCREEN_MENU_BACK,         SCREEN_MENU_PAGE_APPS },
 };
 
@@ -269,6 +270,8 @@ enum screen_app_id a90_menu_app_from_action(enum screen_menu_action action) {
         return SCREEN_APP_AUDIO_STAGES;
     case SCREEN_MENU_AUDIO_MAP:
         return SCREEN_APP_AUDIO_MAP;
+    case SCREEN_MENU_AUDIO_CHIME:
+        return SCREEN_APP_AUDIO_CHIME;
     default:
         return SCREEN_APP_NONE;
     }

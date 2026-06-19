@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "a90_audio_chime.h"
 #include "a90_audio_profile.h"
 #include "a90_audio_route.h"
 #include "a90_audio_stage.h"
@@ -364,4 +365,48 @@ int a90_app_audio_draw_map(void) {
                                 A90_APP_AUDIO_LINE_COUNT,
                                 "DISPLAY ONLY - NO AUDIO WRITE",
                                 0x66ccff);
+}
+
+int a90_app_audio_draw_chime(void) {
+    const struct audio_speaker_profile *profile =
+        a90_audio_find_profile(AUDIO_DEFAULT_PROFILE_ID);
+    char line0[160];
+    char line1[160];
+    char line2[160];
+    char line3[160];
+    char line4[160];
+    char line5[160];
+    char line6[160];
+    char line7[160];
+    const char *lines[A90_APP_AUDIO_LINE_COUNT];
+
+    snprintf(line0, sizeof(line0), "COMMAND audio chime --execute");
+    snprintf(line1, sizeof(line1), "DEFAULT %dmilli %dms LISTEN",
+             AUDIO_CHIME_DEFAULT_AMPLITUDE_MILLI,
+             AUDIO_CHIME_DEFAULT_DURATION_MS);
+    snprintf(line2, sizeof(line2), "PROFILE %s -> audio play",
+             profile != NULL ? profile->id : AUDIO_DEFAULT_PROFILE_ID);
+    snprintf(line3, sizeof(line3), "BOOT AUTOPLAY %s BLOCKS_BOOT=0",
+             AUDIO_CHIME_BOOT_AUTOPLAY_DEFAULT ? "ENABLED" : "DISABLED");
+    snprintf(line4, sizeof(line4), "VALIDATED V2839 PCM ROUTE SETCAL OK");
+    snprintf(line5, sizeof(line5), "ROLLBACK v2321 SELFTEST fail=0");
+    snprintf(line6, sizeof(line6), "SAFETY AMP <=%dmilli DUR <=%dms",
+             profile != NULL ? profile->amplitude_cap_milli : 0,
+             profile != NULL ? profile->duration_cap_ms : 0);
+    snprintf(line7, sizeof(line7), "NO SMART-AMP BOOST/SP BYPASS WRITE");
+
+    lines[0] = line0;
+    lines[1] = line1;
+    lines[2] = line2;
+    lines[3] = line3;
+    lines[4] = line4;
+    lines[5] = line5;
+    lines[6] = line6;
+    lines[7] = line7;
+
+    return app_audio_draw_lines("AUDIO CHIME",
+                                lines,
+                                A90_APP_AUDIO_LINE_COUNT,
+                                "DISPLAY ONLY - MANUAL COMMAND",
+                                0xff99cc);
 }
