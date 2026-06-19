@@ -79,7 +79,7 @@ class NativeAudioAdspKickNoWaitV2804(unittest.TestCase):
             "\n".join([
                 "audio.play.execute.foreground_prime_adsp=1",
                 "audio.play.execute.foreground_prime_adsp.wait=0",
-                "audio.play.execute.foreground_prime_adsp.rc=0",
+                "audio.play.execute.foreground_prime_adsp.already_ready=1",
                 "audio.play.worker.adsp_prebooted=1",
                 "audio.play.integrated.adsp_prebooted=1",
                 "audio.play.integrated.adsp.boot_skipped=1 reason=foreground_prime_no_wait",
@@ -107,6 +107,8 @@ class NativeAudioAdspKickNoWaitV2804(unittest.TestCase):
         )
 
         self.assertTrue(summary["foreground_prime_no_wait"], summary)
+        self.assertTrue(summary["foreground_prime_already_ready"], summary)
+        self.assertTrue(summary["foreground_prime_ok"], summary)
         self.assertTrue(summary["worker_adsp_prebooted"], summary)
         self.assertTrue(summary["worker_adsp_boot_skipped"], summary)
         self.assertTrue(module.play_output_pass(summary), summary)

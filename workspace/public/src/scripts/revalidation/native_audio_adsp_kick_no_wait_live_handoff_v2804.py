@@ -499,7 +499,9 @@ def classify_play_output(text: str) -> dict[str, Any]:
         "listen_begin": "A90_LISTEN_WINDOW_BEGIN" in text,
         "listen_end": "A90_LISTEN_WINDOW_END" in text,
         "foreground_prime_seen": "audio.play.execute.foreground_prime_adsp=1" in text,
-        "foreground_prime_ok": "audio.play.execute.foreground_prime_adsp.rc=0" in text,
+        "foreground_prime_already_ready": "audio.play.execute.foreground_prime_adsp.already_ready=1" in text,
+        "foreground_prime_ok": "audio.play.execute.foreground_prime_adsp.rc=0" in text
+        or "audio.play.execute.foreground_prime_adsp.already_ready=1" in text,
         "foreground_prime_no_wait": "audio.play.execute.foreground_prime_adsp.wait=0" in text,
         "foreground_prime_failed": "audio.play.execute.foreground_prime_adsp.failed=1" in text,
         "worker_adsp_prebooted": "audio.play.worker.adsp_prebooted=1" in text
