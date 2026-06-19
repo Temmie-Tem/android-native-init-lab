@@ -17,6 +17,9 @@ struct a90_kms_info {
     bool initialized;
     uint32_t width;
     uint32_t height;
+    uint32_t stride;
+    size_t map_size;
+    uint32_t pixel_format;
     uint32_t connector_id;
     uint32_t encoder_id;
     uint32_t crtc_id;
@@ -25,6 +28,7 @@ struct a90_kms_info {
 };
 
 int a90_kms_begin_frame(uint32_t color);
+int a90_kms_begin_frame_no_clear(void);
 int a90_kms_present(const char *label, bool verbose);
 struct a90_fb *a90_kms_framebuffer(void);
 void a90_kms_info(struct a90_kms_info *info);

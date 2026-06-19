@@ -585,6 +585,21 @@ int a90_kms_begin_frame(uint32_t color) {
     return 0;
 }
 
+int a90_kms_begin_frame_no_clear(void) {
+    uint32_t next_buffer;
+
+    if (kms_state.fd < 0 ||
+        kms_state.map[0] == MAP_FAILED ||
+        kms_state.map[1] == MAP_FAILED) {
+        return a90_kms_begin_frame(0x000000);
+    }
+
+    next_buffer = 1U - kms_state.current_buffer;
+    kms_state.current_buffer = next_buffer;
+    kms_update_fb();
+    return 0;
+}
+
 int a90_kms_present(const char *label, bool verbose) {
     struct drm_mode_crtc setcrtc;
     uint32_t connector_list[1];
@@ -634,6 +649,9 @@ void a90_kms_info(struct a90_kms_info *info) {
                         kms_state.map[kms_state.current_buffer] != MAP_FAILED;
     info->width = kms_state.width;
     info->height = kms_state.height;
+    info->stride = kms_state.stride;
+    info->map_size = kms_state.map_size;
+    info->pixel_format = DRM_FORMAT_XBGR8888;
     info->connector_id = kms_state.connector_id;
     info->encoder_id = kms_state.encoder_id;
     info->crtc_id = kms_state.crtc_id;

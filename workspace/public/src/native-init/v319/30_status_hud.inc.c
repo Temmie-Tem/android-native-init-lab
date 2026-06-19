@@ -94,11 +94,70 @@ static int cmd_video_status(void) {
         a90_console_printf("video.status.kms.crtc=%u\r\n", info.crtc_id);
         a90_console_printf("video.status.kms.fb=%u\r\n", info.fb_id);
         a90_console_printf("video.status.kms.current_buffer=%u\r\n", info.current_buffer);
+        a90_console_printf("video.status.kms.stride=%u\r\n", info.stride);
+        a90_console_printf("video.status.kms.map_size=%zu\r\n", info.map_size);
+        a90_console_printf("video.status.kms.pixel_format=xbgr8888\r\n");
     } else {
         a90_console_printf("video.status.kms.size=0x0\r\n");
+        a90_console_printf("video.status.kms.stride=0\r\n");
+        a90_console_printf("video.status.kms.map_size=0\r\n");
+        a90_console_printf("video.status.kms.pixel_format=unknown\r\n");
     }
     a90_console_printf("video.status.next=video frame [bars|checker|mono|0xRRGGBB]\r\n");
     a90_console_printf("video.status.next_anim=video anim [bars|checker|pulse] [frames<=240] [delay_ms<=1000]\r\n");
+    a90_console_printf("video.status.next_blitbench=video blitbench [frames<=240]\r\n");
+    return 0;
+}
+
+static uint64_t video_monotonic_ns(void) {
+    struct timespec ts;
+
+    if (clock_gettime(CLOCK_MONOTONIC, &ts) < 0) {
+        return 0;
+    }
+    return ((uint64_t)ts.tv_sec * 1000000000ULL) + (uint64_t)ts.tv_nsec;
+}
+
+static uint32_t video_blitbench_pixel(uint32_t x, uint32_t y, uint32_t width, uint32_t height) {
+    uint32_t red = (x * 255U) / (width > 1 ? width - 1 : 1);
+    uint32_t green = (y * 255U) / (height > 1 ? height - 1 : 1);
+    uint32_t blue = ((x ^ y) & 0xffU);
+
+    return (blue << 16) | (green << 8) | red;
+}
+
+static void video_blitbench_fill_source(uint32_t *source, uint32_t width, uint32_t height) {
+    uint32_t y;
+
+    if (source == NULL) {
+        return;
+    }
+    for (y = 0; y < height; ++y) {
+        uint32_t x;
+
+        for (x = 0; x < width; ++x) {
+            source[((size_t)y * width) + x] = video_blitbench_pixel(x, y, width, height);
+        }
+    }
+}
+
+static int video_blitbench_copy_frame(struct a90_fb *fb, const uint32_t *source) {
+    uint32_t y;
+    size_t row_bytes;
+
+    if (fb == NULL || fb->pixels == NULL || source == NULL || fb->width == 0 || fb->height == 0) {
+        return -EINVAL;
+    }
+    row_bytes = (size_t)fb->width * sizeof(uint32_t);
+    if (fb->stride < row_bytes) {
+        return -EINVAL;
+    }
+
+    for (y = 0; y < fb->height; ++y) {
+        memcpy((char *)fb->pixels + ((size_t)y * fb->stride),
+               source + ((size_t)y * fb->width),
+               row_bytes);
+    }
     return 0;
 }
 
@@ -289,12 +348,110 @@ static int cmd_video_anim(char **argv, int argc) {
     return 0;
 }
 
+static int cmd_video_blitbench(char **argv, int argc) {
+    uint32_t frames = 30;
+    uint32_t frame_index;
+    struct a90_fb *fb;
+    uint32_t *source = NULL;
+    size_t frame_bytes;
+    size_t row_bytes;
+    uint64_t started_ns;
+    uint64_t finished_ns;
+    uint64_t elapsed_ns;
+    uint64_t total_bytes;
+    uint64_t fps_milli;
+    uint64_t mbps_milli;
+    int result = 0;
+
+    if (argc > 3) {
+        a90_console_printf("usage: video blitbench [frames<=240]\r\n");
+        return -EINVAL;
+    }
+    if (argc >= 3 && !parse_u32_arg(argv[2], 1, 240, &frames)) {
+        a90_console_printf("usage: video blitbench [frames<=240]\r\n");
+        return -EINVAL;
+    }
+
+    if (a90_kms_begin_frame(0x000000) < 0) {
+        return negative_errno_or(ENODEV);
+    }
+    fb = a90_kms_framebuffer();
+    if (fb == NULL || fb->width == 0 || fb->height == 0) {
+        return -ENODEV;
+    }
+
+    row_bytes = (size_t)fb->width * sizeof(uint32_t);
+    frame_bytes = row_bytes * fb->height;
+    if (fb->stride < row_bytes || frame_bytes == 0 || frame_bytes > (64U * 1024U * 1024U)) {
+        a90_console_printf("video.blitbench.error=invalid-frame-geometry\r\n");
+        return -EINVAL;
+    }
+
+    source = (uint32_t *)malloc(frame_bytes);
+    if (source == NULL) {
+        a90_console_printf("video.blitbench.error=alloc-failed\r\n");
+        return -ENOMEM;
+    }
+    video_blitbench_fill_source(source, fb->width, fb->height);
+
+    started_ns = video_monotonic_ns();
+    for (frame_index = 0; frame_index < frames; ++frame_index) {
+        enum a90_cancel_kind cancel;
+
+        if (a90_kms_begin_frame_no_clear() < 0) {
+            result = negative_errno_or(ENODEV);
+            break;
+        }
+        fb = a90_kms_framebuffer();
+        result = video_blitbench_copy_frame(fb, source);
+        if (result < 0) {
+            break;
+        }
+        if (a90_kms_present("videoblitbench", false) < 0) {
+            result = negative_errno_or(EIO);
+            break;
+        }
+
+        cancel = a90_console_poll_cancel(0);
+        if (cancel != CANCEL_NONE) {
+            a90_console_printf("video.blitbench.presented=%u\r\n", frame_index + 1);
+            free(source);
+            return a90_console_cancelled("videoblitbench", cancel);
+        }
+    }
+    finished_ns = video_monotonic_ns();
+
+    free(source);
+    if (result < 0) {
+        return result;
+    }
+
+    elapsed_ns = finished_ns > started_ns ? finished_ns - started_ns : 1;
+    total_bytes = (uint64_t)frame_bytes * frames;
+    fps_milli = ((uint64_t)frames * 1000000000000ULL) / elapsed_ns;
+    mbps_milli = (total_bytes * 1000000ULL) / elapsed_ns;
+
+    a90_console_printf("video.blitbench.presented=%u\r\n", frames);
+    a90_console_printf("video.blitbench.frames=%u\r\n", frames);
+    a90_console_printf("video.blitbench.bytes=%llu\r\n", (unsigned long long)total_bytes);
+    a90_console_printf("video.blitbench.elapsed_ns=%llu\r\n", (unsigned long long)elapsed_ns);
+    a90_console_printf("video.blitbench.fps_milli=%llu\r\n", (unsigned long long)fps_milli);
+    a90_console_printf("video.blitbench.mbps_milli=%llu\r\n", (unsigned long long)mbps_milli);
+    a90_console_printf("video.blitbench.width=%u\r\n", fb->width);
+    a90_console_printf("video.blitbench.height=%u\r\n", fb->height);
+    a90_console_printf("video.blitbench.stride=%u\r\n", fb->stride);
+    a90_console_printf("video.blitbench.frame_bytes=%zu\r\n", frame_bytes);
+    a90_console_printf("video.blitbench.pixel_format=xbgr8888\r\n");
+    a90_console_printf("video.blitbench.path=kms-dumb-buffer\r\n");
+    return 0;
+}
+
 static int handle_video(char **argv, int argc) {
     const char *subcommand = argc > 1 ? argv[1] : "status";
 
     if (strcmp(subcommand, "status") == 0) {
         if (argc != 1 && argc != 2) {
-            a90_console_printf("usage: video [status|frame [bars|checker|mono|0xRRGGBB]|anim [bars|checker|pulse] [frames] [delay_ms]]\r\n");
+            a90_console_printf("usage: video [status|frame [bars|checker|mono|0xRRGGBB]|anim [bars|checker|pulse] [frames] [delay_ms]|blitbench [frames]]\r\n");
             return -EINVAL;
         }
         return cmd_video_status();
@@ -305,8 +462,11 @@ static int handle_video(char **argv, int argc) {
     if (strcmp(subcommand, "anim") == 0) {
         return cmd_video_anim(argv, argc);
     }
+    if (strcmp(subcommand, "blitbench") == 0) {
+        return cmd_video_blitbench(argv, argc);
+    }
 
-    a90_console_printf("usage: video [status|frame [bars|checker|mono|0xRRGGBB]|anim [bars|checker|pulse] [frames] [delay_ms]]\r\n");
+    a90_console_printf("usage: video [status|frame [bars|checker|mono|0xRRGGBB]|anim [bars|checker|pulse] [frames] [delay_ms]|blitbench [frames]]\r\n");
     return -EINVAL;
 }
 
