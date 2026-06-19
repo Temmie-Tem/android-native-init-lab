@@ -192,7 +192,7 @@ def preflight_state(args: argparse.Namespace) -> dict[str, Any]:
         "cache_enabled": not args.disable_cache,
         "adopt_legacy_cache": bool(args.adopt_legacy_cache),
         "fixture_frames": args.frames,
-        "cadence_target": "30fps full-resolution gray8 page-flip stream",
+        "cadence_target": f"{args.fps_num}/{args.fps_den}fps full-resolution {args.stream_format} page-flip stream",
         "fixture_fps_num": args.fps_num,
         "fixture_fps_den": args.fps_den,
         "fixture_pattern": args.pattern,
@@ -410,7 +410,8 @@ def install_fixture(args: argparse.Namespace,
     return result
 
 
-def classify_stream_output(text: str, expected_frames: int) -> dict[str, Any]:
+def classify_stream_output(text: str, expected_frames: int, expected_format: str = "gray8") -> dict[str, Any]:
+    expected_pixel_format = "xbgr8888" if expected_format == "raw" else expected_format
     match = PRESENTED_RE.search(text)
     presented = int(match.group(1)) if match else 0
     flip_match = FLIP_EVENTS_RE.search(text)
@@ -427,7 +428,7 @@ def classify_stream_output(text: str, expected_frames: int) -> dict[str, Any]:
     delta_target_us = int(delta_target_match.group(1)) if delta_target_match else 0
     sha256_match = "video.stream.sha256_match=1" in text
     sha256_checked = "video.stream.sha256_checked=1" in text
-    pixel_format = "video.stream.pixel_format=gray8" in text
+    pixel_format = f"video.stream.pixel_format={expected_pixel_format}" in text
     requested_pageflip = "video.stream.requested_present=pageflip" in text
     present_pageflip = "video.stream.present_mode=pageflip" in text
     path_ok = "video.stream.path=kms-dumb-buffer-pageflip" in text
@@ -451,6 +452,7 @@ def classify_stream_output(text: str, expected_frames: int) -> dict[str, Any]:
         "sha256_match": sha256_match,
         "sha256_checked": sha256_checked,
         "pixel_format": pixel_format,
+        "expected_pixel_format": expected_pixel_format,
         "requested_pageflip": requested_pageflip,
         "present_pageflip": present_pageflip,
         "path_ok": path_ok,
@@ -615,7 +617,7 @@ def run_live(args: argparse.Namespace, out_dir: Path, state: dict[str, Any]) -> 
         stream_text = stdout_of(stream)
         result["stream_rc"] = stream.get("rc")
         result["stream_stdout_path"] = stream.get("stdout_path")
-        result["stream_summary"] = classify_stream_output(stream_text, args.frames)
+        result["stream_summary"] = classify_stream_output(stream_text, args.frames, args.stream_format)
         if stream.get("rc") != 0 or not result["stream_summary"].get("pass"):
             result["decision"] = f"{DECISION_PREFIX}-stream-failed-before-rollback"
             raise RuntimeError("video stream command did not emit required pass markers")
@@ -678,7 +680,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--fps-num", type=int, default=30)
     parser.add_argument("--fps-den", type=int, default=1)
     parser.add_argument("--pattern", choices=("bars", "checker", "pulse"), default="checker")
-    parser.add_argument("--stream-format", choices=("raw", "gray8"), default="gray8")
+    parser.add_argument("--stream-format", choices=("raw", "gray8", "mono1"), default="gray8")
     parser.add_argument("--disable-cache", action="store_true", help="stage this run under the per-run remote directory instead of the SHA-addressed SD cache")
     parser.add_argument("--adopt-legacy-cache", action=argparse.BooleanOptionalAction, default=True, help="copy a matching legacy V2890 remote fixture into the SHA cache before uploading")
     return parser.parse_args()

@@ -573,6 +573,7 @@ static int cmd_video_flipprobe(char **argv, int argc) {
 #define VIDEO_STREAM_MAX_FRAME_BYTES (64U * 1024U * 1024U)
 #define VIDEO_STREAM_PIXEL_FORMAT_XBGR8888_RAW_STRIDE 1U
 #define VIDEO_STREAM_PIXEL_FORMAT_GRAY8 2U
+#define VIDEO_STREAM_PIXEL_FORMAT_MONO1 3U
 #define VIDEO_STREAM_AUDIO_STATUS_PATH "/cache/a90-audio-play/status.txt"
 #define VIDEO_STREAM_AUDIO_SYNC_DEFAULT_WAIT_MS 90000U
 #define VIDEO_STREAM_AUDIO_SYNC_POLL_MS 20U
@@ -936,9 +937,9 @@ static int video_parse_manifest(const char *manifest_path, struct video_stream_m
         !video_json_extract_string(video_object, "sha256", manifest->sha256, sizeof(manifest->sha256)) ||
         !video_json_extract_u32(video_object, "width", 1, 8192, &manifest->width) ||
         !video_json_extract_u32(video_object, "height", 1, 8192, &manifest->height) ||
-        !video_json_extract_u32(video_object, "stride", 4, VIDEO_STREAM_MAX_FRAME_BYTES, &manifest->stride) ||
-        !video_json_extract_u32(video_object, "frame_bytes", 4, VIDEO_STREAM_MAX_FRAME_BYTES, &manifest->frame_bytes) ||
-        !video_json_extract_u32(video_object, "visible_row_bytes", 4, VIDEO_STREAM_MAX_FRAME_BYTES, &manifest->visible_row_bytes) ||
+        !video_json_extract_u32(video_object, "stride", 1, VIDEO_STREAM_MAX_FRAME_BYTES, &manifest->stride) ||
+        !video_json_extract_u32(video_object, "frame_bytes", 1, VIDEO_STREAM_MAX_FRAME_BYTES, &manifest->frame_bytes) ||
+        !video_json_extract_u32(video_object, "visible_row_bytes", 1, VIDEO_STREAM_MAX_FRAME_BYTES, &manifest->visible_row_bytes) ||
         !video_json_extract_u32(video_object, "fps_num", 1, 240, &manifest->fps_num) ||
         !video_json_extract_u32(video_object, "fps_den", 1, 1000000, &manifest->fps_den) ||
         !video_json_extract_u32(video_object, "frame_count", 1, VIDEO_STREAM_MAX_FRAMES, &manifest->frame_count)) {
@@ -958,6 +959,8 @@ static int video_parse_manifest(const char *manifest_path, struct video_stream_m
         manifest->pixel_format = VIDEO_STREAM_PIXEL_FORMAT_XBGR8888_RAW_STRIDE;
     } else if (strcmp(manifest->format, "gray8") == 0) {
         manifest->pixel_format = VIDEO_STREAM_PIXEL_FORMAT_GRAY8;
+    } else if (strcmp(manifest->format, "mono1") == 0) {
+        manifest->pixel_format = VIDEO_STREAM_PIXEL_FORMAT_MONO1;
     } else {
         a90_console_printf("video.stream.error=manifest-format-unsupported\r\n");
         return -EINVAL;
@@ -972,6 +975,13 @@ static int video_parse_manifest(const char *manifest_path, struct video_stream_m
     }
     if (manifest->pixel_format == VIDEO_STREAM_PIXEL_FORMAT_GRAY8 &&
         ((uint64_t)manifest->width != manifest->visible_row_bytes ||
+         manifest->stride < manifest->visible_row_bytes ||
+         expected_frame_bytes != manifest->frame_bytes)) {
+        a90_console_printf("video.stream.error=manifest-geometry-invalid\r\n");
+        return -EINVAL;
+    }
+    if (manifest->pixel_format == VIDEO_STREAM_PIXEL_FORMAT_MONO1 &&
+        ((((uint64_t)manifest->width + 7ULL) / 8ULL) != manifest->visible_row_bytes ||
          manifest->stride < manifest->visible_row_bytes ||
          expected_frame_bytes != manifest->frame_bytes)) {
         a90_console_printf("video.stream.error=manifest-geometry-invalid\r\n");
@@ -1005,6 +1015,9 @@ static int video_read_exact_fd(int fd, void *buffer, size_t bytes) {
 }
 
 static const char *video_stream_pixel_format_name(uint32_t pixel_format) {
+    if (pixel_format == VIDEO_STREAM_PIXEL_FORMAT_MONO1) {
+        return "mono1";
+    }
     if (pixel_format == VIDEO_STREAM_PIXEL_FORMAT_GRAY8) {
         return "gray8";
     }
@@ -1036,6 +1049,32 @@ static int video_expand_gray8_frame(struct a90_fb *fb,
     return 0;
 }
 
+static int video_expand_mono1_frame(struct a90_fb *fb,
+                                    const uint8_t *source,
+                                    const struct video_stream_manifest *manifest) {
+    uint32_t y;
+
+    if (fb == NULL || fb->pixels == NULL || source == NULL || manifest == NULL ||
+        fb->width != manifest->width || fb->height != manifest->height ||
+        fb->stride < (uint64_t)manifest->width * 4ULL ||
+        manifest->stride < ((manifest->width + 7U) / 8U)) {
+        return -EINVAL;
+    }
+    for (y = 0; y < manifest->height; ++y) {
+        const uint8_t *src = source + ((size_t)y * manifest->stride);
+        uint32_t *dst = (uint32_t *)((char *)fb->pixels + ((size_t)y * fb->stride));
+        uint32_t x;
+
+        for (x = 0; x < manifest->width; ++x) {
+            uint8_t byte = src[x / 8U];
+            uint32_t bit = (byte >> (7U - (x % 8U))) & 1U;
+
+            dst[x] = bit ? 0x00FFFFFFU : 0x00000000U;
+        }
+    }
+    return 0;
+}
+
 static int video_read_frame_payload(int fd,
                                     struct a90_fb *fb,
                                     uint8_t *frame_buffer,
@@ -1061,6 +1100,18 @@ static int video_read_frame_payload(int fd,
             return rc;
         }
         return video_expand_gray8_frame(fb, frame_buffer, manifest);
+    }
+    if (manifest->pixel_format == VIDEO_STREAM_PIXEL_FORMAT_MONO1) {
+        int rc;
+
+        if (frame_buffer == NULL) {
+            return -EINVAL;
+        }
+        rc = video_read_exact_fd(fd, frame_buffer, payload_bytes);
+        if (rc < 0) {
+            return rc;
+        }
+        return video_expand_mono1_frame(fb, frame_buffer, manifest);
     }
     return -EINVAL;
 }
@@ -1321,7 +1372,8 @@ static int video_stream_play(const struct video_stream_manifest *manifest,
             return -EINVAL;
         }
     }
-    if (manifest->pixel_format == VIDEO_STREAM_PIXEL_FORMAT_GRAY8) {
+    if (manifest->pixel_format == VIDEO_STREAM_PIXEL_FORMAT_GRAY8 ||
+        manifest->pixel_format == VIDEO_STREAM_PIXEL_FORMAT_MONO1) {
         frame_buffer = (uint8_t *)malloc(manifest->frame_bytes);
         if (frame_buffer == NULL) {
             close(fd);

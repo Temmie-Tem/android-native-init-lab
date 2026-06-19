@@ -21,6 +21,7 @@ DEFAULT_OUT_DIR = REPO_ROOT / "workspace/private/demo-assets/video/v2874-synthet
 MAGIC = b"A90VSTR1"
 PIXEL_FORMAT_XBGR8888_RAW_STRIDE = 1
 PIXEL_FORMAT_GRAY8 = 2
+PIXEL_FORMAT_MONO1 = 3
 
 
 def sha256(path: Path) -> str:
@@ -53,7 +54,16 @@ def gray_for(color: int) -> int:
 
 def write_frame(handle, pattern: str, frame: int, width: int, height: int, stride: int, frame_bytes: int, fps_num: int, fps_den: int, stream_format: str) -> None:
     payload = bytearray(frame_bytes)
-    if stream_format == "gray8":
+    if stream_format == "mono1":
+        visible_row_bytes = (width + 7) // 8
+        for y in range(height):
+            row_base = y * stride
+            for x in range(width):
+                if gray_for(pixel_for(pattern, x, y, frame, width, height)) >= 128:
+                    payload[row_base + (x // 8)] |= 1 << (7 - (x % 8))
+            if stride > visible_row_bytes:
+                payload[row_base + visible_row_bytes:row_base + stride] = b"\x00" * (stride - visible_row_bytes)
+    elif stream_format == "gray8":
         visible_row_bytes = width
         for y in range(height):
             row_base = y * stride
@@ -81,7 +91,13 @@ def write_stream(out_dir: Path, width: int, height: int, stride: int, fps_num: i
         out_dir = REPO_ROOT / out_dir
     out_dir.mkdir(parents=True, exist_ok=True)
     stream_path = out_dir / "frames.a90vstr"
-    if stream_format == "gray8":
+    if stream_format == "mono1":
+        pixel_format = PIXEL_FORMAT_MONO1
+        format_name = "mono1"
+        visible_row_bytes = (width + 7) // 8
+        if stride < visible_row_bytes:
+            raise ValueError("stride must be >= ceil(width / 8) for mono1")
+    elif stream_format == "gray8":
         pixel_format = PIXEL_FORMAT_GRAY8
         format_name = "gray8"
         visible_row_bytes = width
@@ -150,7 +166,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--fps-den", type=int, default=1)
     parser.add_argument("--frames", type=int, default=30)
     parser.add_argument("--pattern", choices=("bars", "checker", "pulse"), default="bars")
-    parser.add_argument("--format", choices=("raw", "gray8"), default="raw")
+    parser.add_argument("--format", choices=("raw", "gray8", "mono1"), default="raw")
     return parser.parse_args()
 
 
