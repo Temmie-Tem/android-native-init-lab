@@ -227,8 +227,8 @@ Native init: A90 Linux init 0.10.11 (v2840-audio-chime-screen)
 Build tag: v2840-audio-chime-screen
 Boot image: workspace/private/inputs/boot_images/boot_linux_v2840_audio_chime_screen.img
 Boot SHA256: 57a61bf47f5da326d7faf6a9fcf1284accf6f9628b4a8bb25679a670c31dbb58
-Evidence: V2840 source/build report for display-only screenapp audio-chime and APPS/AUDIO CHIME surface; V2839 remains the live audio chime execution proof
-Adoption state: source-built post-promotion candidate pending live screen validation
+Evidence: V2840 source/build report plus V2841 live validation of display-only screenapp audio-chime and APPS/AUDIO CHIME surface; V2839 remains the live audio chime execution proof
+Adoption state: device-validated post-promotion candidate
 Safety rollback net: v2321 remains the flash-gate rollback target until AGENTS.md is deliberately updated
 ```
 
