@@ -9,11 +9,11 @@
 > safety rollback net remains `v2321` (`0.9.285`, SHA256
 > `ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb`) with deeper
 > fallbacks `v2237` and `v48` until the flash-gate contract is deliberately updated.
-> Post-promotion observability candidate: `A90 Linux init 0.10.3 (v2822-audio-screenapp-status)`,
-> boot image `workspace/private/inputs/boot_images/boot_linux_v2822_audio_screenapp_status.img`,
-> SHA256 `30eb1ce0cb49143e3dca212cc44dce7ecf833163e130c2ff978d2125b785f3a8`.
-> V2823 validated the read-only `audio status` core/profile/safety fields, the `selftest verbose`
-> PASS `audio` row, and display-only `screenapp audio-status`, then rolled back to `v2321` with `selftest fail=0`. The internal-speaker audio
+> Post-promotion observability candidate: `A90 Linux init 0.10.4 (v2824-audio-screenapp-map)`,
+> boot image `workspace/private/inputs/boot_images/boot_linux_v2824_audio_screenapp_map.img`,
+> SHA256 `2f6b1c902ee3ad1e06850feb04df847cc4c85881154af0ae28f4ce6c56d8035c`.
+> V2825 validated the read-only `audio status` core/profile/safety fields, the `selftest verbose`
+> PASS `audio` row, and display-only `screenapp audio-map`, then rolled back to `v2321` with `selftest fail=0`. The internal-speaker audio
 > feasibility epic is closed; remaining audio work is post-promotion productization/observability.
 > The sections below "기준점 A" are older Android/boot-chain context unless a newer native-init report references them.
 
@@ -36,11 +36,11 @@
    n-day 트리아지, 메모리 손상 0. "비파괴 n-day로 EL1 = 불가", "fix-marker ≠ exploitable" ×3.
 6. **USB 가젯 런타임 제어 (V2313-2323, layer ① CLOSED):** `usb status`, mass-storage
    expose/remove, identity rodata 패치(SAMSUNG→A90-LNX), multi-LUN. **v2321 롤백 체크포인트 승격.**
-7. **오디오/ADSP 에픽 (V2324-V2815, CORE CLOSED; V2823 OBSERVABILITY PASS):** 내부 스피커 재생 경로를 닫음.
+7. **오디오/ADSP 에픽 (V2324-V2815, CORE CLOSED; V2825 OBSERVABILITY PASS):** 내부 스피커 재생 경로를 닫음.
    stock HAL/ACDB 관측 → ACDB SET replay → App Type Config `1 69941 48000 16` → route →
    bounded PCM 순서가 native `audio play --execute`에 통합됐고, V2814가 `0.10.0`
-   후보에서 SET-cal/route/PCM/cleanup/rollback을 검증했다. V2823은 `0.10.3` 관측성
-   후보에서 `audio status`, `selftest verbose` PASS audio row, `screenapp audio-status`를 검증했다. 남은 작업은
+   후보에서 SET-cal/route/PCM/cleanup/rollback을 검증했다. V2825는 `0.10.4` 관측성
+   후보에서 `audio status`, `selftest verbose` PASS audio row, `screenapp audio-map`을 검증했다. 남은 작업은
    스피커별 route map, 상태 UI, 부트차임 같은 post-promotion productization.
 
 > 갱신 규율: 새 롤백 체크포인트가 승격되면 위 note의 baseline/SHA와 7번 항목 현황을 함께 갱신.

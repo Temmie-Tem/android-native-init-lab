@@ -210,12 +210,12 @@ Safety rollback net: v2321 remains the flash-gate rollback target until AGENTS.m
 Current post-promotion audio observability candidate evidence is based on:
 
 ```text
-Run ID: V2823
-Native init: A90 Linux init 0.10.3 (v2822-audio-screenapp-status)
-Build tag: v2822-audio-screenapp-status
-Boot image: workspace/private/inputs/boot_images/boot_linux_v2822_audio_screenapp_status.img
-Boot SHA256: 30eb1ce0cb49143e3dca212cc44dce7ecf833163e130c2ff978d2125b785f3a8
-Evidence: V2822 source/build and V2823 audio status/selftest/screenapp live validation
+Run ID: V2825
+Native init: A90 Linux init 0.10.4 (v2824-audio-screenapp-map)
+Build tag: v2824-audio-screenapp-map
+Boot image: workspace/private/inputs/boot_images/boot_linux_v2824_audio_screenapp_map.img
+Boot SHA256: 2f6b1c902ee3ad1e06850feb04df847cc4c85881154af0ae28f4ce6c56d8035c
+Evidence: V2824 source/build and V2825 audio status/selftest/screenapp route-map live validation
 Safety rollback net: v2321 remains the flash-gate rollback target until AGENTS.md is deliberately updated
 ```
 
