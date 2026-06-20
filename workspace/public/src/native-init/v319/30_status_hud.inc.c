@@ -82,10 +82,11 @@ static int cmd_video_status(void) {
     struct a90_kms_info info;
 
     a90_kms_info(&info);
-    a90_console_printf("video.status.version=6\r\n");
+    a90_console_printf("video.status.version=7\r\n");
     a90_console_printf("video.status.path=kms-dumb-buffer\r\n");
     a90_console_printf("video.status.display_owner=1\r\n");
     a90_console_printf("video.status.player_hud_fastpath=1\r\n");
+    a90_console_printf("video.status.player_hud_incremental_panel=1\r\n");
     a90_console_printf("video.status.venus=not-used\r\n");
     a90_console_printf("video.status.kgsl=not-used\r\n");
     a90_console_printf("video.status.raw_dsi=blocked\r\n");
@@ -1232,7 +1233,9 @@ static int video_render_player_hud(struct a90_fb *fb,
                                    uint64_t frame_deadline_ns,
                                    const struct video_audio_sync_state *audio_sync) {
     static struct a90_metrics_snapshot metrics;
+    static struct a90_hud_storage_status storage;
     static uint32_t metrics_frame = UINT32_MAX;
+    static uint32_t storage_frame = UINT32_MAX;
     static uint32_t render_session_frames;
     static uint32_t previous_frame_index = UINT32_MAX;
     uint32_t scale = 2;
@@ -1255,7 +1258,9 @@ static int video_render_player_hud(struct a90_fb *fb,
     char pos[16];
     char total[16];
     char line[160];
-    struct a90_hud_storage_status storage = current_hud_storage_status();
+    bool full_repaint;
+    bool metrics_repaint = false;
+    bool storage_repaint = false;
 
     if (fb == NULL || frame_buffer == NULL || manifest == NULL ||
         manifest->pixel_format != VIDEO_STREAM_PIXEL_FORMAT_MONO1 ||
@@ -1273,11 +1278,19 @@ static int video_render_player_hud(struct a90_fb *fb,
         frame_index - metrics_frame >= 15U) {
         a90_metrics_read_snapshot(&metrics);
         metrics_frame = frame_index;
+        metrics_repaint = true;
+    }
+    if (storage_frame == UINT32_MAX || frame_index < storage_frame ||
+        frame_index - storage_frame >= 60U) {
+        storage = current_hud_storage_status();
+        storage_frame = frame_index;
+        storage_repaint = true;
     }
     if (previous_frame_index == UINT32_MAX || frame_index <= previous_frame_index) {
         render_session_frames = 0;
     }
     previous_frame_index = frame_index;
+    full_repaint = render_session_frames < 2U || (frame_index % 60U) == 0U;
     video_x = (fb->width - video_w) / 2U;
     panel_y = video_y + video_h + 40U;
     pos_ms = ((uint64_t)frame_index * 1000ULL * (uint64_t)manifest->fps_den) /
@@ -1294,28 +1307,20 @@ static int video_render_player_hud(struct a90_fb *fb,
     lamp_color = video_sync_lamp_color(delta_ms, delta_valid);
     border_color = beat_flash_active ? 0xFFFFFF : lamp_color;
 
-    if (render_session_frames < 2U) {
+    if (full_repaint) {
         a90_draw_rect(fb, 0, 0, fb->width, fb->height, 0x05070C);
     } else {
         uint32_t video_region_y = video_y > 8U ? video_y - 8U : 0U;
         uint32_t video_region_h = video_h + 16U;
 
-        a90_draw_rect(fb, 0, 0, fb->width, video_region_y, 0x05070C);
-        if (video_x > 8U) {
-            a90_draw_rect(fb, 0, video_region_y, video_x - 8U, video_region_h, 0x05070C);
-        }
-        if (video_x + video_w + 8U < fb->width) {
-            a90_draw_rect(fb,
-                          video_x + video_w + 8U,
-                          video_region_y,
-                          fb->width - (video_x + video_w + 8U),
-                          video_region_h,
-                          0x05070C);
-        }
+        (void)video_region_y;
+        (void)video_region_h;
     }
     ++render_session_frames;
-    a90_draw_text(fb, 48, 16, "DEMO / BAD APPLE", 0x66DDFF, scale);
-    a90_draw_text(fb, fb->width - 300U, 16, "A90 PLAYER HUD", 0xBBBBBB, scale);
+    if (full_repaint) {
+        a90_draw_text(fb, 48, 16, "DEMO / BAD APPLE", 0x66DDFF, scale);
+        a90_draw_text(fb, fb->width - 300U, 16, "A90 PLAYER HUD", 0xBBBBBB, scale);
+    }
     a90_draw_rect_outline(fb, video_x - 4U, video_y - 4U, video_w + 8U, video_h + 8U, 4U, border_color);
     if (video_expand_mono1_frame_scaled(fb,
                                         frame_buffer,
@@ -1332,8 +1337,15 @@ static int video_render_player_hud(struct a90_fb *fb,
                                (uint64_t)total_frames) : 0;
     video_format_time_mmss(pos_ms, pos, sizeof(pos));
     video_format_time_mmss(total_ms, total, sizeof(total));
-    a90_draw_rect(fb, 48, panel_y, fb->width - 96U, 240U, 0x101820);
-    a90_draw_rect_outline(fb, 48, panel_y, fb->width - 96U, 240U, 2U, 0x304050);
+    if (full_repaint) {
+        a90_draw_rect(fb, 48, panel_y, fb->width - 96U, 240U, 0x101820);
+        a90_draw_rect_outline(fb, 48, panel_y, fb->width - 96U, 240U, 2U, 0x304050);
+    } else {
+        a90_draw_rect(fb, 72, panel_y + 24U, fb->width - 144U, 24U, 0x101820);
+        a90_draw_rect(fb, 72, panel_y + 92U, fb->width - 144U, 24U, 0x101820);
+        a90_draw_rect(fb, 168, panel_y + 124U, fb->width - 240U, 28U, 0x101820);
+        a90_draw_rect(fb, 72, panel_y + 200U, fb->width - 144U, 24U, 0x101820);
+    }
     snprintf(line, sizeof(line), "FRAME %u/%u  POS %s/%s", frame_index + 1U, total_frames, pos, total);
     a90_draw_text(fb, 72, panel_y + 24U, line, 0xFFFFFF, scale);
     a90_draw_rect(fb, 72, panel_y + 60U, progress_w, 16U, 0x303030);
@@ -1353,11 +1365,16 @@ static int video_render_player_hud(struct a90_fb *fb,
              metrics.gpu_usage,
              metrics.loadavg,
              metrics.memory);
-    a90_draw_text_fit(fb, 168, panel_y + 124U, line, 0xCCCCCC, scale, fb->width - 220U);
-    snprintf(line, sizeof(line), "STORAGE %s %.48s  READONLY TELEMETRY /proc+/sys",
-             storage.backend != NULL ? storage.backend : "?",
-             storage.root != NULL ? storage.root : "?");
-    a90_draw_text_fit(fb, 72, panel_y + 164U, line, 0xAAAAAA, scale, fb->width - 144U);
+    if (full_repaint || metrics_repaint) {
+        a90_draw_text_fit(fb, 168, panel_y + 124U, line, 0xCCCCCC, scale, fb->width - 220U);
+    }
+    if (full_repaint || storage_repaint) {
+        a90_draw_rect(fb, 72, panel_y + 164U, fb->width - 144U, 24U, 0x101820);
+        snprintf(line, sizeof(line), "STORAGE %s %.48s  READONLY TELEMETRY /proc+/sys",
+                 storage.backend != NULL ? storage.backend : "?",
+                 storage.root != NULL ? storage.root : "?");
+        a90_draw_text_fit(fb, 72, panel_y + 164U, line, 0xAAAAAA, scale, fb->width - 144U);
+    }
     snprintf(line, sizeof(line), "BEAT FLASH %s  audio-clock onsets=%u nearest=%ums",
              beat_flash_active ? "PULSE" : (delta_valid ? "armed" : "waiting"),
              A90_BADAPPLE_BEAT_COUNT,
