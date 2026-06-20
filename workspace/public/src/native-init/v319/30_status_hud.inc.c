@@ -1,5 +1,7 @@
 /* Included by the current native-init translation unit. Do not compile standalone. */
 
+#include "a90_badapple_beat_table.h"
+
 static struct a90_hud_storage_status current_hud_storage_status(void) {
     static struct a90_storage_status snapshot;
     static struct a90_runtime_status runtime;
@@ -1189,6 +1191,31 @@ static uint32_t video_sync_lamp_color(int64_t delta_ms, bool valid) {
     return 0xFF4444;
 }
 
+static bool video_badapple_beat_flash_active(uint64_t audio_ms, uint32_t *nearest_ms) {
+    uint32_t best_delta = UINT32_MAX;
+    uint32_t best_ms = 0;
+    uint32_t index;
+
+    for (index = 0; index < A90_BADAPPLE_BEAT_COUNT; ++index) {
+        uint32_t beat_ms = A90_BADAPPLE_BEAT_MS[index];
+        uint32_t delta = audio_ms > beat_ms ?
+                         (uint32_t)(audio_ms - beat_ms) :
+                         (uint32_t)(beat_ms - audio_ms);
+
+        if (delta < best_delta) {
+            best_delta = delta;
+            best_ms = beat_ms;
+        }
+        if (beat_ms > audio_ms && delta > A90_BADAPPLE_BEAT_WINDOW_MS) {
+            break;
+        }
+    }
+    if (nearest_ms != NULL) {
+        *nearest_ms = best_ms;
+    }
+    return best_delta <= A90_BADAPPLE_BEAT_WINDOW_MS;
+}
+
 static int video_render_player_hud(struct a90_fb *fb,
                                    const uint8_t *frame_buffer,
                                    const struct video_stream_manifest *manifest,
@@ -1211,6 +1238,8 @@ static int video_render_player_hud(struct a90_fb *fb,
     uint64_t audio_ms = 0;
     int64_t delta_ms = 0;
     bool delta_valid = false;
+    bool beat_flash_active = false;
+    uint32_t nearest_beat_ms = 0;
     uint32_t lamp_color;
     uint32_t border_color;
     char pos[16];
@@ -1246,9 +1275,10 @@ static int video_render_player_hud(struct a90_fb *fb,
         audio_ms = (frame_deadline_ns - audio_sync->corrected_anchor_ns) / 1000000ULL;
         delta_ms = (int64_t)audio_ms - (int64_t)pos_ms;
         delta_valid = true;
+        beat_flash_active = video_badapple_beat_flash_active(audio_ms, &nearest_beat_ms);
     }
     lamp_color = video_sync_lamp_color(delta_ms, delta_valid);
-    border_color = ((pos_ms % 500ULL) < 80ULL) ? 0xFFFFFF : lamp_color;
+    border_color = beat_flash_active ? 0xFFFFFF : lamp_color;
 
     a90_draw_rect(fb, 0, 0, fb->width, fb->height, 0x05070C);
     a90_draw_text(fb, 48, 16, "DEMO / BAD APPLE", 0x66DDFF, scale);
@@ -1295,9 +1325,11 @@ static int video_render_player_hud(struct a90_fb *fb,
              storage.backend != NULL ? storage.backend : "?",
              storage.root != NULL ? storage.root : "?");
     a90_draw_text_fit(fb, 72, panel_y + 164U, line, 0xAAAAAA, scale, fb->width - 144U);
-    a90_draw_text(fb, 72, panel_y + 200U, "BEAT FLASH: audio-clock border pulse (host onset table pending)",
-                  border_color,
-                  scale);
+    snprintf(line, sizeof(line), "BEAT FLASH %s  audio-clock onsets=%u nearest=%ums",
+             beat_flash_active ? "PULSE" : (delta_valid ? "armed" : "waiting"),
+             A90_BADAPPLE_BEAT_COUNT,
+             nearest_beat_ms);
+    a90_draw_text(fb, 72, panel_y + 200U, line, border_color, scale);
     return 0;
 }
 
@@ -1674,6 +1706,9 @@ static int video_stream_play(const struct video_stream_manifest *manifest,
     uint32_t presented_frames = 0;
     uint32_t dropped_frames = 0;
     uint32_t first_presented_frame = UINT32_MAX;
+    uint32_t beat_flash_active_frames = 0;
+    uint32_t beat_flash_first_frame = UINT32_MAX;
+    uint32_t beat_flash_last_frame = UINT32_MAX;
     uint32_t flip_delta_count = 0;
     uint64_t previous_flip_timestamp_us = 0;
     uint64_t flip_delta_min_us = UINT64_MAX;
@@ -1849,6 +1884,20 @@ static int video_stream_play(const struct video_stream_manifest *manifest,
         if (rc < 0) {
             break;
         }
+        if (layout == VIDEO_STREAM_LAYOUT_PLAYER_HUD &&
+            audio_sync != NULL && audio_sync->ready &&
+            audio_sync->corrected_anchor_ns > 0 &&
+            deadline_ns >= audio_sync->corrected_anchor_ns) {
+            uint64_t frame_audio_ms = (deadline_ns - audio_sync->corrected_anchor_ns) / 1000000ULL;
+
+            if (video_badapple_beat_flash_active(frame_audio_ms, NULL)) {
+                if (beat_flash_first_frame == UINT32_MAX) {
+                    beat_flash_first_frame = frame_index;
+                }
+                beat_flash_last_frame = frame_index;
+                ++beat_flash_active_frames;
+            }
+        }
         before_wait_ns = video_monotonic_ns();
         rc = video_wait_until_ns(deadline_ns);
         if (rc < 0) {
@@ -1935,6 +1984,18 @@ static int video_stream_play(const struct video_stream_manifest *manifest,
         a90_console_printf("video.stream.max_late_ns=%llu\r\n", (unsigned long long)max_late_ns);
         a90_console_printf("video.stream.present_mode=%s\r\n", video_stream_present_mode_name(present_mode));
         a90_console_printf("video.stream.layout=%s\r\n", video_stream_layout_name(layout));
+        if (layout == VIDEO_STREAM_LAYOUT_PLAYER_HUD) {
+            a90_console_printf("video.stream.beat_flash.enabled=1\r\n");
+            a90_console_printf("video.stream.beat_flash.source=%s\r\n", A90_BADAPPLE_BEAT_SOURCE_ID);
+            a90_console_printf("video.stream.beat_flash.audio_sha256=%s\r\n", A90_BADAPPLE_BEAT_AUDIO_SHA256);
+            a90_console_printf("video.stream.beat_flash.table_count=%u\r\n", A90_BADAPPLE_BEAT_COUNT);
+            a90_console_printf("video.stream.beat_flash.window_ms=%u\r\n", A90_BADAPPLE_BEAT_WINDOW_MS);
+            a90_console_printf("video.stream.beat_flash.active_frames=%u\r\n", beat_flash_active_frames);
+            a90_console_printf("video.stream.beat_flash.first_frame=%u\r\n",
+                               beat_flash_first_frame == UINT32_MAX ? 0 : beat_flash_first_frame);
+            a90_console_printf("video.stream.beat_flash.last_frame=%u\r\n",
+                               beat_flash_last_frame == UINT32_MAX ? 0 : beat_flash_last_frame);
+        }
         a90_console_printf("video.stream.audio_sync.enabled=%d\r\n",
                            audio_sync != NULL && audio_sync->enabled ? 1 : 0);
         a90_console_printf("video.stream.audio_sync.ready=%d\r\n",
