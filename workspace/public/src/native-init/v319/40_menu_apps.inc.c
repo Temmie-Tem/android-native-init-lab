@@ -1038,10 +1038,80 @@ static int cmd_inputscan(char **argv, int argc) {
     return event_count > 0 ? 0 : first_error;
 }
 
+#ifndef ABS_MT_SLOT
+#define ABS_MT_SLOT 0x2f
+#endif
+#ifndef ABS_MT_TOUCH_MAJOR
+#define ABS_MT_TOUCH_MAJOR 0x30
+#endif
+#ifndef ABS_MT_PRESSURE
+#define ABS_MT_PRESSURE 0x3a
+#endif
+
+static void inputcaps_print_capability(const char *event_name,
+                                       const char *capability,
+                                       char *bitmap,
+                                       size_t bitmap_size) {
+    if (inputscan_read_capability(event_name, capability, bitmap, bitmap_size)) {
+        a90_console_printf("inputcaps.cap.%s=%s\r\n", capability, bitmap);
+    } else {
+        bitmap[0] = '\0';
+        a90_console_printf("inputcaps.cap.%s=<missing errno=%d>\r\n",
+                capability,
+                errno);
+    }
+}
+
+static void inputcaps_print_device_attr(const char *event_name,
+                                        const char *label,
+                                        const char *relative_path) {
+    char path[PATH_MAX];
+    char value[256];
+
+    if (snprintf(path, sizeof(path),
+                 "/sys/class/input/%s/device/%s",
+                 event_name,
+                 relative_path) >= (int)sizeof(path)) {
+        a90_console_printf("inputcaps.%s=<path-too-long>\r\n", label);
+        return;
+    }
+    if (read_text_file(path, value, sizeof(value)) < 0) {
+        a90_console_printf("inputcaps.%s=<missing errno=%d>\r\n", label, errno);
+        return;
+    }
+    trim_newline(value);
+    a90_console_printf("inputcaps.%s=%s\r\n", label, value);
+}
+
 static int cmd_inputcaps(char **argv, int argc) {
     char event_name[32];
-    char key_path[PATH_MAX];
-    char bitmap[1024];
+    char name_path[PATH_MAX];
+    char dev_info_path[PATH_MAX];
+    char node_path[PATH_MAX];
+    char name_buf[256] = "";
+    char dev_info[64] = "";
+    char ev_bitmap[256] = "";
+    char key_bitmap[1024] = "";
+    char abs_bitmap[512] = "";
+    char prop_bitmap[256] = "";
+    char sw_bitmap[256] = "";
+    bool ev_key;
+    bool ev_abs;
+    bool ev_syn;
+    bool btn_touch;
+    bool key_power;
+    bool key_volup;
+    bool key_voldown;
+    bool abs_x;
+    bool abs_y;
+    bool abs_pressure;
+    bool abs_mt_slot;
+    bool abs_mt_touch_major;
+    bool abs_mt_position_x;
+    bool abs_mt_position_y;
+    bool abs_mt_tracking_id;
+    bool abs_mt_pressure;
+    bool node_ok;
 
     if (argc < 2) {
         a90_console_printf("usage: inputcaps <eventX>\r\n");
@@ -1053,26 +1123,83 @@ static int cmd_inputcaps(char **argv, int argc) {
         return -EINVAL;
     }
 
-    if (snprintf(key_path, sizeof(key_path),
-                 "/sys/class/input/%s/device/capabilities/key", event_name) >=
-        (int)sizeof(key_path)) {
+    if (snprintf(name_path, sizeof(name_path),
+                 "/sys/class/input/%s/device/name", event_name) >= (int)sizeof(name_path) ||
+        snprintf(dev_info_path, sizeof(dev_info_path),
+                 "/sys/class/input/%s/dev", event_name) >= (int)sizeof(dev_info_path)) {
         a90_console_printf("inputcaps: path too long\r\n");
         return -ENAMETOOLONG;
     }
 
-    if (read_text_file(key_path, bitmap, sizeof(bitmap)) < 0) {
-        a90_console_printf("inputcaps: %s: %s\r\n", event_name, strerror(errno));
-        return negative_errno_or(ENOENT);
+    if (read_text_file(name_path, name_buf, sizeof(name_buf)) < 0) {
+        snprintf(name_buf, sizeof(name_buf), "<unknown:%s>", strerror(errno));
+    } else {
+        trim_newline(name_buf);
     }
+    if (read_text_file(dev_info_path, dev_info, sizeof(dev_info)) < 0) {
+        snprintf(dev_info, sizeof(dev_info), "<unknown:%s>", strerror(errno));
+    } else {
+        trim_newline(dev_info);
+    }
+    node_ok = get_input_event_path(event_name, node_path, sizeof(node_path)) == 0;
 
-    trim_newline(bitmap);
-    a90_console_printf("%s key-bitmap=%s\r\n", event_name, bitmap);
-    a90_console_printf("  KEY_VOLUMEDOWN(114)=%s\r\n",
-            test_key_bit(bitmap, KEY_VOLUMEDOWN) ? "yes" : "no");
-    a90_console_printf("  KEY_VOLUMEUP(115)=%s\r\n",
-            test_key_bit(bitmap, KEY_VOLUMEUP) ? "yes" : "no");
-    a90_console_printf("  KEY_POWER(116)=%s\r\n",
-            test_key_bit(bitmap, KEY_POWER) ? "yes" : "no");
+    a90_console_printf("inputcaps.event=%s name=%s dev=%s node=%s\r\n",
+            event_name,
+            name_buf,
+            dev_info,
+            node_ok ? node_path : "<missing>");
+
+    inputcaps_print_capability(event_name, "ev", ev_bitmap, sizeof(ev_bitmap));
+    inputcaps_print_capability(event_name, "key", key_bitmap, sizeof(key_bitmap));
+    inputcaps_print_capability(event_name, "abs", abs_bitmap, sizeof(abs_bitmap));
+    inputcaps_print_capability(event_name, "prop", prop_bitmap, sizeof(prop_bitmap));
+    inputcaps_print_capability(event_name, "sw", sw_bitmap, sizeof(sw_bitmap));
+
+    ev_syn = ev_bitmap[0] != '\0' && test_key_bit(ev_bitmap, EV_SYN);
+    ev_key = ev_bitmap[0] != '\0' && test_key_bit(ev_bitmap, EV_KEY);
+    ev_abs = ev_bitmap[0] != '\0' && test_key_bit(ev_bitmap, EV_ABS);
+    btn_touch = key_bitmap[0] != '\0' && test_key_bit(key_bitmap, BTN_TOUCH);
+    key_power = key_bitmap[0] != '\0' && test_key_bit(key_bitmap, KEY_POWER);
+    key_volup = key_bitmap[0] != '\0' && test_key_bit(key_bitmap, KEY_VOLUMEUP);
+    key_voldown = key_bitmap[0] != '\0' && test_key_bit(key_bitmap, KEY_VOLUMEDOWN);
+    abs_x = abs_bitmap[0] != '\0' && test_key_bit(abs_bitmap, ABS_X);
+    abs_y = abs_bitmap[0] != '\0' && test_key_bit(abs_bitmap, ABS_Y);
+    abs_pressure = abs_bitmap[0] != '\0' && test_key_bit(abs_bitmap, ABS_PRESSURE);
+    abs_mt_slot = abs_bitmap[0] != '\0' && test_key_bit(abs_bitmap, ABS_MT_SLOT);
+    abs_mt_touch_major = abs_bitmap[0] != '\0' && test_key_bit(abs_bitmap, ABS_MT_TOUCH_MAJOR);
+    abs_mt_position_x = abs_bitmap[0] != '\0' && test_key_bit(abs_bitmap, ABS_MT_POSITION_X);
+    abs_mt_position_y = abs_bitmap[0] != '\0' && test_key_bit(abs_bitmap, ABS_MT_POSITION_Y);
+    abs_mt_tracking_id = abs_bitmap[0] != '\0' && test_key_bit(abs_bitmap, ABS_MT_TRACKING_ID);
+    abs_mt_pressure = abs_bitmap[0] != '\0' && test_key_bit(abs_bitmap, ABS_MT_PRESSURE);
+
+    a90_console_printf("inputcaps.decode ev_syn=%d ev_key=%d ev_abs=%d btn_touch=%d key_power=%d key_volup=%d key_voldown=%d\r\n",
+            ev_syn ? 1 : 0,
+            ev_key ? 1 : 0,
+            ev_abs ? 1 : 0,
+            btn_touch ? 1 : 0,
+            key_power ? 1 : 0,
+            key_volup ? 1 : 0,
+            key_voldown ? 1 : 0);
+    a90_console_printf("inputcaps.decode abs_x=%d abs_y=%d abs_pressure=%d mt_slot=%d mt_touch_major=%d mt_x=%d mt_y=%d mt_tracking_id=%d mt_pressure=%d\r\n",
+            abs_x ? 1 : 0,
+            abs_y ? 1 : 0,
+            abs_pressure ? 1 : 0,
+            abs_mt_slot ? 1 : 0,
+            abs_mt_touch_major ? 1 : 0,
+            abs_mt_position_x ? 1 : 0,
+            abs_mt_position_y ? 1 : 0,
+            abs_mt_tracking_id ? 1 : 0,
+            abs_mt_pressure ? 1 : 0);
+    inputcaps_print_device_attr(event_name, "phys", "phys");
+    inputcaps_print_device_attr(event_name, "uniq", "uniq");
+    inputcaps_print_device_attr(event_name, "id.bustype", "id/bustype");
+    inputcaps_print_device_attr(event_name, "id.vendor", "id/vendor");
+    inputcaps_print_device_attr(event_name, "id.product", "id/product");
+    inputcaps_print_device_attr(event_name, "id.version", "id/version");
+    inputcaps_print_device_attr(event_name, "power.control", "power/control");
+    inputcaps_print_device_attr(event_name, "power.runtime_status", "power/runtime_status");
+    inputcaps_print_device_attr(event_name, "power.runtime_active_time", "power/runtime_active_time");
+    inputcaps_print_device_attr(event_name, "power.runtime_suspended_time", "power/runtime_suspended_time");
     return 0;
 }
 
