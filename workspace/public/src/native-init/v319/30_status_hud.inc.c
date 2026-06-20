@@ -89,7 +89,7 @@ static int cmd_video_status(void) {
     a90_console_printf("video.status.player_hud_incremental_panel=1\r\n");
     a90_console_printf("video.status.nyan_pal8_rle=1\r\n");
     a90_console_printf("video.status.doom_stub=1\r\n");
-    a90_console_printf("video.status.doom_input=not-proven\r\n");
+    a90_console_printf("video.status.doom_input=serial-doompad-staged\r\n");
     a90_console_printf("video.status.venus=not-used\r\n");
     a90_console_printf("video.status.kgsl=not-used\r\n");
     a90_console_printf("video.status.raw_dsi=blocked\r\n");
@@ -2498,22 +2498,24 @@ static int cmd_video_cache(char **argv, int argc);
 static int video_demo_doom_status(const char *action) {
     a90_console_printf("video.demo.preset=doom\r\n");
     a90_console_printf("video.demo.asset_id=doomgeneric-pending\r\n");
-    a90_console_printf("video.demo.status=blocked-input-prerequisite\r\n");
+    a90_console_printf("video.demo.status=blocked-gameplay-loop\r\n");
     a90_console_printf("video.demo.display=ready-kms-player-path\r\n");
     a90_console_printf("video.demo.audio=optional-ready\r\n");
-    a90_console_printf("video.demo.input=not-proven\r\n");
+    a90_console_printf("video.demo.input=serial-doompad-staged\r\n");
     a90_console_printf("video.demo.input.touch=event6,event8-zero-events\r\n");
     a90_console_printf("video.demo.input.physical_button_mux=v3002-zero-event-do-not-repeat\r\n");
     a90_console_printf("video.demo.input.keyboard_gate=v3004-doominput-keyboard-live-gate\r\n");
-    a90_console_printf("video.demo.input.hardware_gate=usb-keyboard-otg\r\n");
-    a90_console_printf("video.demo.input.next=attach-usb-keyboard-otg\r\n");
-    a90_console_printf("video.demo.input.command=doominput <keyboard-event> 32 60000\r\n");
+    a90_console_printf("video.demo.input.virtual_controller=doompad-serial-v3014\r\n");
+    a90_console_printf("video.demo.input.hardware_gate=none-serial-control\r\n");
+    a90_console_printf("video.demo.input.next=scripted-doompad-serial-validation\r\n");
+    a90_console_printf("video.demo.input.command=doompad key <role> <0|1>\r\n");
+    a90_console_printf("video.demo.input.keyboard_fallback=usb-keyboard-otg\r\n");
     a90_console_printf("video.demo.boot_asset_policy=boot-image-carries-status-not-doom\r\n");
     if (strcmp(action, "status") == 0) {
         a90_console_printf("video.demo.doom.status_rc=0\r\n");
         return 0;
     }
-    a90_console_printf("video.demo.doom.%s=blocked-input-not-proven\r\n", action);
+    a90_console_printf("video.demo.doom.%s=blocked-gameplay-not-wired\r\n", action);
     return -EAGAIN;
 }
 

@@ -575,11 +575,13 @@ static bool auto_hud_handle_menu_key(struct auto_hud_state *state,
             int rc;
 
             a90_console_printf("menu.demo.doom.action=status-only\r\n");
-            a90_console_printf("menu.demo.doom.status=blocked-input-prerequisite\r\n");
-            a90_console_printf("menu.demo.doom.input=not-proven\r\n");
-            a90_console_printf("menu.demo.doom.input.live_handoff=v3004-doominput-keyboard-live-gate\r\n");
-            a90_console_printf("menu.demo.doom.input.hardware_gate=usb-keyboard-otg\r\n");
-            a90_console_printf("menu.demo.doom.input.command=doominput <keyboard-event> 32 60000\r\n");
+            a90_console_printf("menu.demo.doom.status=blocked-gameplay-loop\r\n");
+            a90_console_printf("menu.demo.doom.input=serial-doompad-staged\r\n");
+            a90_console_printf("menu.demo.doom.input.live_handoff=v3014-doompad-serial-controller\r\n");
+            a90_console_printf("menu.demo.doom.input.virtual_controller=doompad-serial-v3014\r\n");
+            a90_console_printf("menu.demo.doom.input.hardware_gate=none-serial-control\r\n");
+            a90_console_printf("menu.demo.doom.input.command=doompad key <role> <0|1>\r\n");
+            a90_console_printf("menu.demo.doom.input.keyboard_fallback=usb-keyboard-otg\r\n");
             a90_console_printf("menu.demo.doom.restore=menu\r\n");
             rc = cmd_video_demo(demo_argv,
                                 (int)(sizeof(demo_argv) / sizeof(demo_argv[0])));
@@ -1570,6 +1572,195 @@ static bool doominput_state_active(const struct doominput_state *state) {
     return state->forward || state->back || state->left || state->right ||
         state->fire || state->use || state->menu || state->run ||
         state->touch_contact;
+}
+
+static struct doominput_state doompad_state;
+static bool doompad_state_ready;
+static unsigned int doompad_seq;
+
+static void doompad_init_once(void) {
+    if (!doompad_state_ready) {
+        doominput_reset_state(&doompad_state);
+        doompad_state_ready = true;
+    }
+}
+
+static int doompad_parse_role(const char *role,
+                              unsigned int *key_code,
+                              const char **canonical) {
+    if (role == NULL || role[0] == '\0') {
+        return -EINVAL;
+    }
+
+    if (strcmp(role, "forward") == 0 ||
+        strcmp(role, "fwd") == 0 ||
+        strcmp(role, "w") == 0 ||
+        strcmp(role, "up") == 0) {
+        *key_code = KEY_W;
+        *canonical = "forward";
+        return 0;
+    }
+    if (strcmp(role, "back") == 0 ||
+        strcmp(role, "backward") == 0 ||
+        strcmp(role, "s") == 0 ||
+        strcmp(role, "down") == 0) {
+        *key_code = KEY_S;
+        *canonical = "back";
+        return 0;
+    }
+    if (strcmp(role, "left") == 0 ||
+        strcmp(role, "a") == 0) {
+        *key_code = KEY_A;
+        *canonical = "left";
+        return 0;
+    }
+    if (strcmp(role, "right") == 0 ||
+        strcmp(role, "d") == 0) {
+        *key_code = KEY_D;
+        *canonical = "right";
+        return 0;
+    }
+    if (strcmp(role, "fire") == 0 ||
+        strcmp(role, "ctrl") == 0 ||
+        strcmp(role, "control") == 0) {
+        *key_code = KEY_LEFTCTRL;
+        *canonical = "fire";
+        return 0;
+    }
+    if (strcmp(role, "use") == 0 ||
+        strcmp(role, "enter") == 0 ||
+        strcmp(role, "space") == 0) {
+        *key_code = KEY_ENTER;
+        *canonical = "use";
+        return 0;
+    }
+    if (strcmp(role, "menu") == 0 ||
+        strcmp(role, "esc") == 0 ||
+        strcmp(role, "escape") == 0) {
+        *key_code = KEY_ESC;
+        *canonical = "menu";
+        return 0;
+    }
+    if (strcmp(role, "run") == 0 ||
+        strcmp(role, "shift") == 0) {
+        *key_code = KEY_LEFTSHIFT;
+        *canonical = "run";
+        return 0;
+    }
+
+    return -EINVAL;
+}
+
+static int doompad_parse_value(const char *value, int *down) {
+    if (value == NULL) {
+        return -EINVAL;
+    }
+
+    if (strcmp(value, "1") == 0 ||
+        strcmp(value, "down") == 0 ||
+        strcmp(value, "press") == 0 ||
+        strcmp(value, "on") == 0) {
+        *down = 1;
+        return 0;
+    }
+    if (strcmp(value, "0") == 0 ||
+        strcmp(value, "up") == 0 ||
+        strcmp(value, "release") == 0 ||
+        strcmp(value, "off") == 0) {
+        *down = 0;
+        return 0;
+    }
+
+    return -EINVAL;
+}
+
+static void doompad_print_state(void) {
+    a90_console_printf("doompad.version=1\r\n");
+    a90_console_printf("doompad.source=serial-control\r\n");
+    a90_console_printf("doompad.seq=%u\r\n", doompad_seq);
+    a90_console_printf("doompad.state seq=%u forward=%d back=%d left=%d right=%d fire=%d use=%d menu=%d run=%d active=%d\r\n",
+            doompad_seq,
+            doompad_state.forward ? 1 : 0,
+            doompad_state.back ? 1 : 0,
+            doompad_state.left ? 1 : 0,
+            doompad_state.right ? 1 : 0,
+            doompad_state.fire ? 1 : 0,
+            doompad_state.use ? 1 : 0,
+            doompad_state.menu ? 1 : 0,
+            doompad_state.run ? 1 : 0,
+            doominput_state_active(&doompad_state) ? 1 : 0);
+}
+
+static void doompad_apply_serial_role(unsigned int key_code,
+                                      const char *canonical,
+                                      int down) {
+    doominput_apply_key(&doompad_state, key_code, down);
+    ++doompad_state.frame;
+    ++doompad_seq;
+    a90_console_printf("doompad.event seq=%u role=%s value=%d\r\n",
+            doompad_seq,
+            canonical,
+            down ? 1 : 0);
+    doompad_print_state();
+}
+
+static int cmd_doompad(char **argv, int argc) {
+    unsigned int key_code;
+    const char *canonical;
+    int down;
+    int rc;
+
+    doompad_init_once();
+
+    if (argc < 2 || strcmp(argv[1], "status") == 0) {
+        doompad_print_state();
+        return 0;
+    }
+
+    if (strcmp(argv[1], "reset") == 0) {
+        doominput_reset_state(&doompad_state);
+        ++doompad_seq;
+        a90_console_printf("doompad.reset seq=%u\r\n", doompad_seq);
+        doompad_print_state();
+        return 0;
+    }
+
+    if (strcmp(argv[1], "key") == 0) {
+        if (argc < 4) {
+            a90_console_printf("usage: doompad key <role> <0|1|down|up>\r\n");
+            return -EINVAL;
+        }
+        rc = doompad_parse_role(argv[2], &key_code, &canonical);
+        if (rc < 0) {
+            a90_console_printf("doompad: invalid role %s\r\n", argv[2]);
+            return rc;
+        }
+        rc = doompad_parse_value(argv[3], &down);
+        if (rc < 0) {
+            a90_console_printf("doompad: invalid value %s\r\n", argv[3]);
+            return rc;
+        }
+        doompad_apply_serial_role(key_code, canonical, down);
+        return 0;
+    }
+
+    if (strcmp(argv[1], "tap") == 0) {
+        if (argc < 3) {
+            a90_console_printf("usage: doompad tap <role>\r\n");
+            return -EINVAL;
+        }
+        rc = doompad_parse_role(argv[2], &key_code, &canonical);
+        if (rc < 0) {
+            a90_console_printf("doompad: invalid role %s\r\n", argv[2]);
+            return rc;
+        }
+        doompad_apply_serial_role(key_code, canonical, 1);
+        doompad_apply_serial_role(key_code, canonical, 0);
+        return 0;
+    }
+
+    a90_console_printf("usage: doompad [status|reset|key <role> <0|1>|tap <role>]\r\n");
+    return -EINVAL;
 }
 
 static void doominput_print_event(int index, const struct input_event *event) {

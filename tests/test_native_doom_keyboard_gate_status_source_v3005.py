@@ -34,33 +34,35 @@ class TestNativeDoomKeyboardGateStatusSourceV3005(unittest.TestCase):
 
     def test_demo_menu_stays_status_only(self) -> None:
         source = MENU_SOURCE.read_text(encoding="utf-8")
-        self.assertIn('{ "DOOM",          "INPUT PREREQ STATUS", SCREEN_MENU_DEMO_DOOM', source)
+        self.assertIn('{ "DOOM",          "SERIAL DOOMPAD STATUS", SCREEN_MENU_DEMO_DOOM', source)
 
-    def test_video_status_reports_current_keyboard_gate(self) -> None:
+    def test_video_status_reports_current_serial_controller_gate(self) -> None:
         text = STATUS_HUD.read_text(encoding="utf-8")
-        self.assertIn('a90_console_printf("video.demo.status=blocked-input-prerequisite\\r\\n");', text)
-        self.assertIn('a90_console_printf("video.demo.input=not-proven\\r\\n");', text)
+        self.assertIn('a90_console_printf("video.demo.status=blocked-gameplay-loop\\r\\n");', text)
+        self.assertIn('a90_console_printf("video.demo.input=serial-doompad-staged\\r\\n");', text)
         self.assertIn('a90_console_printf("video.demo.input.touch=event6,event8-zero-events\\r\\n");', text)
         self.assertIn('a90_console_printf("video.demo.input.physical_button_mux=v3002-zero-event-do-not-repeat\\r\\n");', text)
         self.assertIn('a90_console_printf("video.demo.input.keyboard_gate=v3004-doominput-keyboard-live-gate\\r\\n");', text)
-        self.assertIn('a90_console_printf("video.demo.input.hardware_gate=usb-keyboard-otg\\r\\n");', text)
-        self.assertIn('a90_console_printf("video.demo.input.command=doominput <keyboard-event> 32 60000\\r\\n");', text)
+        self.assertIn('a90_console_printf("video.demo.input.virtual_controller=doompad-serial-v3014\\r\\n");', text)
+        self.assertIn('a90_console_printf("video.demo.input.hardware_gate=none-serial-control\\r\\n");', text)
+        self.assertIn('a90_console_printf("video.demo.input.command=doompad key <role> <0|1>\\r\\n");', text)
         self.assertIn('a90_console_printf("video.demo.doom.status_rc=0\\r\\n");', text)
-        self.assertIn('a90_console_printf("video.demo.doom.%s=blocked-input-not-proven\\r\\n", action);', text)
+        self.assertIn('a90_console_printf("video.demo.doom.%s=blocked-gameplay-not-wired\\r\\n", action);', text)
         self.assertIn("return -EAGAIN;", text)
         self.assertNotIn('video.demo.input.button_mux=v2999-doominput-mux-live', text)
         self.assertNotIn('video.demo.input.next=doominputmux event3,event0 24 45000', text)
 
-    def test_menu_action_reports_current_keyboard_gate(self) -> None:
+    def test_menu_action_reports_current_serial_controller_gate(self) -> None:
         text = MENU_APPS.read_text(encoding="utf-8")
         self.assertIn("case SCREEN_MENU_DEMO_DOOM:", text)
         self.assertIn('{ "video", "demo", "doom", "status" }', text)
         self.assertIn('a90_console_printf("menu.demo.doom.action=status-only\\r\\n");', text)
-        self.assertIn('a90_console_printf("menu.demo.doom.status=blocked-input-prerequisite\\r\\n");', text)
-        self.assertIn('a90_console_printf("menu.demo.doom.input=not-proven\\r\\n");', text)
-        self.assertIn('a90_console_printf("menu.demo.doom.input.live_handoff=v3004-doominput-keyboard-live-gate\\r\\n");', text)
-        self.assertIn('a90_console_printf("menu.demo.doom.input.hardware_gate=usb-keyboard-otg\\r\\n");', text)
-        self.assertIn('a90_console_printf("menu.demo.doom.input.command=doominput <keyboard-event> 32 60000\\r\\n");', text)
+        self.assertIn('a90_console_printf("menu.demo.doom.status=blocked-gameplay-loop\\r\\n");', text)
+        self.assertIn('a90_console_printf("menu.demo.doom.input=serial-doompad-staged\\r\\n");', text)
+        self.assertIn('a90_console_printf("menu.demo.doom.input.live_handoff=v3014-doompad-serial-controller\\r\\n");', text)
+        self.assertIn('a90_console_printf("menu.demo.doom.input.virtual_controller=doompad-serial-v3014\\r\\n");', text)
+        self.assertIn('a90_console_printf("menu.demo.doom.input.hardware_gate=none-serial-control\\r\\n");', text)
+        self.assertIn('a90_console_printf("menu.demo.doom.input.command=doompad key <role> <0|1>\\r\\n");', text)
         self.assertIn('a90_console_printf("menu.demo.doom.restore=menu\\r\\n");', text)
         self.assertIn("rc = cmd_video_demo(demo_argv,", text)
         self.assertNotIn('menu.demo.doom.input.live_handoff=v2999-doominput-mux-live', text)
