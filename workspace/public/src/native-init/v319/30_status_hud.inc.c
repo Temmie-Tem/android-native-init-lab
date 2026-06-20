@@ -2503,8 +2503,11 @@ static int video_demo_doom_status(const char *action) {
     a90_console_printf("video.demo.audio=optional-ready\r\n");
     a90_console_printf("video.demo.input=not-proven\r\n");
     a90_console_printf("video.demo.input.touch=event6,event8-zero-events\r\n");
-    a90_console_printf("video.demo.input.button_mux=v2999-doominput-mux-live\r\n");
-    a90_console_printf("video.demo.input.next=doominputmux event3,event0 24 45000\r\n");
+    a90_console_printf("video.demo.input.physical_button_mux=v3002-zero-event-do-not-repeat\r\n");
+    a90_console_printf("video.demo.input.keyboard_gate=v3004-doominput-keyboard-live-gate\r\n");
+    a90_console_printf("video.demo.input.hardware_gate=usb-keyboard-otg\r\n");
+    a90_console_printf("video.demo.input.next=attach-usb-keyboard-otg\r\n");
+    a90_console_printf("video.demo.input.command=doominput <keyboard-event> 32 60000\r\n");
     a90_console_printf("video.demo.boot_asset_policy=boot-image-carries-status-not-doom\r\n");
     if (strcmp(action, "status") == 0) {
         a90_console_printf("video.demo.doom.status_rc=0\r\n");

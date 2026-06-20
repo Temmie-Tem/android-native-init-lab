@@ -577,8 +577,9 @@ static bool auto_hud_handle_menu_key(struct auto_hud_state *state,
             a90_console_printf("menu.demo.doom.action=status-only\r\n");
             a90_console_printf("menu.demo.doom.status=blocked-input-prerequisite\r\n");
             a90_console_printf("menu.demo.doom.input=not-proven\r\n");
-            a90_console_printf("menu.demo.doom.input.live_handoff=v2999-doominput-mux-live\r\n");
-            a90_console_printf("menu.demo.doom.input.command=doominputmux event3,event0 24 45000\r\n");
+            a90_console_printf("menu.demo.doom.input.live_handoff=v3004-doominput-keyboard-live-gate\r\n");
+            a90_console_printf("menu.demo.doom.input.hardware_gate=usb-keyboard-otg\r\n");
+            a90_console_printf("menu.demo.doom.input.command=doominput <keyboard-event> 32 60000\r\n");
             a90_console_printf("menu.demo.doom.restore=menu\r\n");
             rc = cmd_video_demo(demo_argv,
                                 (int)(sizeof(demo_argv) / sizeof(demo_argv[0])));
