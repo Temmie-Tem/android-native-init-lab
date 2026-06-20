@@ -1102,6 +1102,21 @@ static int cmd_inputcaps(char **argv, int argc) {
     bool key_power;
     bool key_volup;
     bool key_voldown;
+    bool key_w;
+    bool key_a;
+    bool key_s;
+    bool key_d;
+    bool key_up;
+    bool key_down;
+    bool key_left;
+    bool key_right;
+    bool key_enter;
+    bool key_space;
+    bool key_esc;
+    bool key_leftctrl;
+    bool key_rightctrl;
+    bool key_leftshift;
+    bool key_rightshift;
     bool abs_x;
     bool abs_y;
     bool abs_pressure;
@@ -1162,6 +1177,21 @@ static int cmd_inputcaps(char **argv, int argc) {
     key_power = key_bitmap[0] != '\0' && test_key_bit(key_bitmap, KEY_POWER);
     key_volup = key_bitmap[0] != '\0' && test_key_bit(key_bitmap, KEY_VOLUMEUP);
     key_voldown = key_bitmap[0] != '\0' && test_key_bit(key_bitmap, KEY_VOLUMEDOWN);
+    key_w = key_bitmap[0] != '\0' && test_key_bit(key_bitmap, KEY_W);
+    key_a = key_bitmap[0] != '\0' && test_key_bit(key_bitmap, KEY_A);
+    key_s = key_bitmap[0] != '\0' && test_key_bit(key_bitmap, KEY_S);
+    key_d = key_bitmap[0] != '\0' && test_key_bit(key_bitmap, KEY_D);
+    key_up = key_bitmap[0] != '\0' && test_key_bit(key_bitmap, KEY_UP);
+    key_down = key_bitmap[0] != '\0' && test_key_bit(key_bitmap, KEY_DOWN);
+    key_left = key_bitmap[0] != '\0' && test_key_bit(key_bitmap, KEY_LEFT);
+    key_right = key_bitmap[0] != '\0' && test_key_bit(key_bitmap, KEY_RIGHT);
+    key_enter = key_bitmap[0] != '\0' && test_key_bit(key_bitmap, KEY_ENTER);
+    key_space = key_bitmap[0] != '\0' && test_key_bit(key_bitmap, KEY_SPACE);
+    key_esc = key_bitmap[0] != '\0' && test_key_bit(key_bitmap, KEY_ESC);
+    key_leftctrl = key_bitmap[0] != '\0' && test_key_bit(key_bitmap, KEY_LEFTCTRL);
+    key_rightctrl = key_bitmap[0] != '\0' && test_key_bit(key_bitmap, KEY_RIGHTCTRL);
+    key_leftshift = key_bitmap[0] != '\0' && test_key_bit(key_bitmap, KEY_LEFTSHIFT);
+    key_rightshift = key_bitmap[0] != '\0' && test_key_bit(key_bitmap, KEY_RIGHTSHIFT);
     abs_x = abs_bitmap[0] != '\0' && test_key_bit(abs_bitmap, ABS_X);
     abs_y = abs_bitmap[0] != '\0' && test_key_bit(abs_bitmap, ABS_Y);
     abs_pressure = abs_bitmap[0] != '\0' && test_key_bit(abs_bitmap, ABS_PRESSURE);
@@ -1180,6 +1210,22 @@ static int cmd_inputcaps(char **argv, int argc) {
             key_power ? 1 : 0,
             key_volup ? 1 : 0,
             key_voldown ? 1 : 0);
+    a90_console_printf("inputcaps.decode key_w=%d key_a=%d key_s=%d key_d=%d key_up=%d key_down=%d key_left=%d key_right=%d key_enter=%d key_space=%d key_esc=%d key_leftctrl=%d key_rightctrl=%d key_leftshift=%d key_rightshift=%d\r\n",
+            key_w ? 1 : 0,
+            key_a ? 1 : 0,
+            key_s ? 1 : 0,
+            key_d ? 1 : 0,
+            key_up ? 1 : 0,
+            key_down ? 1 : 0,
+            key_left ? 1 : 0,
+            key_right ? 1 : 0,
+            key_enter ? 1 : 0,
+            key_space ? 1 : 0,
+            key_esc ? 1 : 0,
+            key_leftctrl ? 1 : 0,
+            key_rightctrl ? 1 : 0,
+            key_leftshift ? 1 : 0,
+            key_rightshift ? 1 : 0);
     a90_console_printf("inputcaps.decode abs_x=%d abs_y=%d abs_pressure=%d mt_slot=%d mt_touch_major=%d mt_x=%d mt_y=%d mt_tracking_id=%d mt_pressure=%d\r\n",
             abs_x ? 1 : 0,
             abs_y ? 1 : 0,
