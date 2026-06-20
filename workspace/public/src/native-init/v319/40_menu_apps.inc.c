@@ -1440,6 +1440,14 @@ struct doominput_state {
     unsigned int frame;
 };
 
+#define DOOMINPUTMUX_MAX_EVENTS 4
+
+struct doominputmux_source {
+    char name[32];
+    char path[PATH_MAX];
+    int fd;
+};
+
 static void doominput_reset_state(struct doominput_state *state) {
     memset(state, 0, sizeof(*state));
     state->touch_tracking_id = -1;
@@ -1578,6 +1586,106 @@ static void doominput_print_state(int index, const struct doominput_state *state
             state->has_touch_pressure ? 1 : 0,
             doominput_state_active(state) ? 1 : 0,
             state->frame);
+}
+
+static void doominputmux_print_event(int index,
+                                     const char *source,
+                                     const struct input_event *event) {
+    a90_console_printf("doominputmux.event %d: source=%s type=%s code=%s role=%s value=%d\r\n",
+            index,
+            source,
+            readinput_event_type_name(event->type),
+            readinput_event_code_name(event->type, event->code),
+            readinput_event_role_name(event->type, event->code),
+            event->value);
+}
+
+static void doominputmux_print_state(int index,
+                                     const char *source,
+                                     const struct doominput_state *state) {
+    a90_console_printf("doominputmux.state %d: source=%s forward=%d back=%d left=%d right=%d fire=%d use=%d menu=%d run=%d touch=%d x=%d y=%d has_x=%d has_y=%d tracking=%d slot=%d pressure=%d has_pressure=%d active=%d frame=%u\r\n",
+            index,
+            source,
+            state->forward ? 1 : 0,
+            state->back ? 1 : 0,
+            state->left ? 1 : 0,
+            state->right ? 1 : 0,
+            state->fire ? 1 : 0,
+            state->use ? 1 : 0,
+            state->menu ? 1 : 0,
+            state->run ? 1 : 0,
+            state->touch_contact ? 1 : 0,
+            state->touch_x,
+            state->touch_y,
+            state->has_touch_x ? 1 : 0,
+            state->has_touch_y ? 1 : 0,
+            state->touch_tracking_id,
+            state->touch_slot,
+            state->touch_pressure,
+            state->has_touch_pressure ? 1 : 0,
+            doominput_state_active(state) ? 1 : 0,
+            state->frame);
+}
+
+static void doominputmux_close_sources(struct doominputmux_source *sources,
+                                       int source_count) {
+    int index;
+
+    for (index = 0; index < source_count; ++index) {
+        if (sources[index].fd >= 0) {
+            close(sources[index].fd);
+            sources[index].fd = -1;
+        }
+    }
+}
+
+static int doominputmux_parse_sources(const char *arg,
+                                      struct doominputmux_source *sources,
+                                      int *source_count) {
+    char spec[160];
+    char *cursor;
+    int copied;
+    int count = 0;
+
+    if (arg == NULL || arg[0] == '\0') {
+        return -EINVAL;
+    }
+    copied = snprintf(spec, sizeof(spec), "%s", arg);
+    if (copied < 0 || (size_t)copied >= sizeof(spec)) {
+        return -EINVAL;
+    }
+
+    cursor = spec;
+    while (cursor != NULL && *cursor != '\0') {
+        char *comma = strchr(cursor, ',');
+
+        if (comma != NULL) {
+            *comma = '\0';
+        }
+        if (*cursor == '\0') {
+            return -EINVAL;
+        }
+        if (count >= DOOMINPUTMUX_MAX_EVENTS) {
+            return -E2BIG;
+        }
+        if (normalize_event_name(cursor, sources[count].name,
+                                 sizeof(sources[count].name)) < 0) {
+            return -EINVAL;
+        }
+        if (get_input_event_path(sources[count].name,
+                                 sources[count].path,
+                                 sizeof(sources[count].path)) < 0) {
+            return negative_errno_or(ENOENT);
+        }
+        sources[count].fd = -1;
+        ++count;
+        cursor = comma != NULL ? comma + 1 : NULL;
+    }
+    if (count == 0) {
+        return -EINVAL;
+    }
+    *source_count = count;
+    return 0;
 }
 
 static int cmd_readinput(char **argv, int argc) {
@@ -1723,6 +1831,193 @@ static int cmd_readinput(char **argv, int argc) {
     }
 
     close(fd);
+    return 0;
+}
+
+static int cmd_doominputmux(char **argv, int argc) {
+    struct doominputmux_source sources[DOOMINPUTMUX_MAX_EVENTS];
+    int source_count = 0;
+    int count = 32;
+    int timeout_ms = -1;
+    int index;
+    int rc;
+    long deadline_ms = 0;
+    struct doominput_state state;
+    char source_list[160];
+
+    memset(sources, 0, sizeof(sources));
+    for (index = 0; index < DOOMINPUTMUX_MAX_EVENTS; ++index) {
+        sources[index].fd = -1;
+    }
+
+    if (argc < 2) {
+        a90_console_printf("usage: doominputmux <eventX,eventY[,eventZ]> [count] [timeout_ms]\r\n");
+        return -EINVAL;
+    }
+
+    rc = doominputmux_parse_sources(argv[1], sources, &source_count);
+    if (rc < 0) {
+        a90_console_printf("doominputmux: invalid event list\r\n");
+        return rc;
+    }
+
+    if (argc >= 3 && sscanf(argv[2], "%d", &count) != 1) {
+        a90_console_printf("doominputmux: invalid count\r\n");
+        return -EINVAL;
+    }
+    if (count <= 0) {
+        count = 1;
+    }
+    if (argc >= 4 && sscanf(argv[3], "%d", &timeout_ms) != 1) {
+        a90_console_printf("doominputmux: invalid timeout_ms\r\n");
+        return -EINVAL;
+    }
+    if (timeout_ms < 0) {
+        timeout_ms = -1;
+    }
+
+    source_list[0] = '\0';
+    for (index = 0; index < source_count; ++index) {
+        int written;
+        size_t used = strlen(source_list);
+
+        written = snprintf(source_list + used,
+                           sizeof(source_list) - used,
+                           "%s%s",
+                           used == 0 ? "" : ",",
+                           sources[index].name);
+        if (written < 0 || (size_t)written >= sizeof(source_list) - used) {
+            a90_console_printf("doominputmux: source list too long\r\n");
+            return -EINVAL;
+        }
+    }
+
+    for (index = 0; index < source_count; ++index) {
+        sources[index].fd = open(sources[index].path, O_RDONLY | O_NONBLOCK);
+        if (sources[index].fd < 0) {
+            int saved_errno = errno;
+
+            a90_console_printf("doominputmux: open %s: %s\r\n",
+                    sources[index].path,
+                    strerror(saved_errno));
+            doominputmux_close_sources(sources, source_count);
+            errno = saved_errno;
+            return negative_errno_or(ENOENT);
+        }
+    }
+
+    doominput_reset_state(&state);
+    a90_console_printf("doominputmux: waiting on %s (%d events across %d fds), q/Ctrl-C cancels\r\n",
+            source_list,
+            count,
+            source_count);
+    if (timeout_ms >= 0) {
+        deadline_ms = monotonic_millis() + timeout_ms;
+        a90_console_printf("doominputmux: timeout_ms=%d\r\n", timeout_ms);
+    }
+
+    index = 0;
+    while (index < count) {
+        struct pollfd fds[DOOMINPUTMUX_MAX_EVENTS + 1];
+        int poll_rc;
+        int poll_timeout = -1;
+        int fi;
+
+        for (fi = 0; fi < source_count; ++fi) {
+            fds[fi].fd = sources[fi].fd;
+            fds[fi].events = POLLIN;
+            fds[fi].revents = 0;
+        }
+        fds[source_count].fd = STDIN_FILENO;
+        fds[source_count].events = POLLIN;
+        fds[source_count].revents = 0;
+
+        if (timeout_ms >= 0) {
+            long remaining_ms = deadline_ms - monotonic_millis();
+            if (remaining_ms <= 0) {
+                a90_console_printf("doominputmux: timeout after %dms captured=%d/%d\r\n",
+                        timeout_ms,
+                        index,
+                        count);
+                doominputmux_close_sources(sources, source_count);
+                return -ETIMEDOUT;
+            }
+            poll_timeout = remaining_ms > 2147483647L ? 2147483647 : (int)remaining_ms;
+        }
+
+        poll_rc = poll(fds, (nfds_t)(source_count + 1), poll_timeout);
+        if (poll_rc < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            a90_console_printf("doominputmux: poll: %s\r\n", strerror(errno));
+            doominputmux_close_sources(sources, source_count);
+            return negative_errno_or(EIO);
+        }
+        if (poll_rc == 0) {
+            a90_console_printf("doominputmux: timeout after %dms captured=%d/%d\r\n",
+                    timeout_ms,
+                    index,
+                    count);
+            doominputmux_close_sources(sources, source_count);
+            return -ETIMEDOUT;
+        }
+
+        if ((fds[source_count].revents & POLLIN) != 0) {
+            enum a90_cancel_kind cancel = a90_console_read_cancel_event();
+
+            if (cancel != CANCEL_NONE) {
+                doominputmux_close_sources(sources, source_count);
+                return a90_console_cancelled("doominputmux", cancel);
+            }
+        }
+
+        for (fi = 0; fi < source_count && index < count; ++fi) {
+            if ((fds[fi].revents & POLLIN) == 0) {
+                continue;
+            }
+
+            while (index < count) {
+                struct input_event event;
+                ssize_t rd = read(sources[fi].fd, &event, sizeof(event));
+
+                if (rd < 0) {
+                    if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                        break;
+                    }
+                    a90_console_printf("doominputmux: read %s: %s\r\n",
+                            sources[fi].name,
+                            strerror(errno));
+                    doominputmux_close_sources(sources, source_count);
+                    return negative_errno_or(EIO);
+                }
+                if (rd != (ssize_t)sizeof(event)) {
+                    a90_console_printf("doominputmux: short read %s %ld\r\n",
+                            sources[fi].name,
+                            (long)rd);
+                    doominputmux_close_sources(sources, source_count);
+                    return -EIO;
+                }
+
+                doominputmux_print_event(index, sources[fi].name, &event);
+                doominput_apply_event(&state, &event);
+                doominputmux_print_state(index, sources[fi].name, &state);
+                ++index;
+            }
+        }
+
+        for (fi = 0; fi < source_count; ++fi) {
+            if ((fds[fi].revents & (POLLERR | POLLHUP | POLLNVAL)) != 0) {
+                a90_console_printf("doominputmux: poll error %s revents=0x%x\r\n",
+                        sources[fi].name,
+                        fds[fi].revents);
+                doominputmux_close_sources(sources, source_count);
+                return -EIO;
+            }
+        }
+    }
+
+    doominputmux_close_sources(sources, source_count);
     return 0;
 }
 

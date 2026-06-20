@@ -321,6 +321,10 @@ static int handle_doominput(char **argv, int argc) {
     return cmd_doominput(argv, argc);
 }
 
+static int handle_doominputmux(char **argv, int argc) {
+    return cmd_doominputmux(argv, argc);
+}
+
 static int handle_waitkey(char **argv, int argc) {
     return a90_input_cmd_waitkey(argv, argc);
 }
@@ -1041,6 +1045,7 @@ static const struct shell_command command_table[] = {
     { "inputcaps", handle_inputcaps, "inputcaps <eventX>", CMD_NONE, A90_CMD_GROUP_INPUT },
     { "readinput", handle_readinput, "readinput <eventX> [count] [timeout_ms]", CMD_BLOCKING, A90_CMD_GROUP_INPUT },
     { "doominput", handle_doominput, "doominput <eventX> [count] [timeout_ms]", CMD_BLOCKING, A90_CMD_GROUP_INPUT },
+    { "doominputmux", handle_doominputmux, "doominputmux <eventX,eventY[,eventZ]> [count] [timeout_ms]", CMD_BLOCKING, A90_CMD_GROUP_INPUT },
     { "waitkey", handle_waitkey, "waitkey [count]", CMD_BLOCKING, A90_CMD_GROUP_INPUT },
     { "inputlayout", handle_inputlayout, "inputlayout", CMD_NONE, A90_CMD_GROUP_INPUT },
     { "waitgesture", handle_waitgesture, "waitgesture [count]", CMD_BLOCKING, A90_CMD_GROUP_INPUT },
