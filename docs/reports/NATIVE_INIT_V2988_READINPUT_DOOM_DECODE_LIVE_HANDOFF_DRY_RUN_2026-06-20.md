@@ -1,16 +1,16 @@
-# Native Init V2988 Readinput DOOM Decode Live Handoff Dry Run
+# Native Init V2988 Readinput DOOM Decode Touch Live
 
 ## Summary
 
-- Decision: `v2988-readinput-doom-decode-dry-run`
+- Decision: `v2988-readinput-doom-decode-touch-decode-not-proven`
 - Result before rollback: `0`
 - Track: active Video playback / DOOM input prerequisite.
 - Candidate: `A90 Linux init 0.10.64 (v2987-readinput-doom-decode)`
 - Candidate image: `workspace/private/inputs/boot_images/boot_linux_v2987_readinput_doom_decode.img`
 - Candidate SHA256: `fc5d680be0b6575ea4650a4e84a2ee7f0620cc02693e77b5f4453f44f9ffad21`
-- Private run dir: `workspace/private/runs/input/v2988-readinput-doom-decode-live-20260620-173001`
-- Live execution: `0`
-- Requested mode: `auto` selected_mode=`-`
+- Private run dir: `workspace/private/runs/input/v2988-readinput-doom-decode-live-20260620-173333`
+- Live execution: `1`
+- Requested mode: `touch` selected_mode=`touch`
 
 ## Dry-Run Preflight
 
@@ -24,18 +24,19 @@
 
 ## Evidence
 
-- Candidate version ok: `not-run`
-- Candidate selftest fail=0: `not-run`
-- Inputscan rc: `not-run` keyboard_candidates=`not-run` touch_candidates=`not-run`
-- Selected event: `-` name=`-` class=`-`
-- Inputcaps rc: `not-run` caps_ok=`not-run`
-- `readinput` rc: `not-run` timeout_ms=`not-run`
-- Decoded events: `not-run` touch_decoded=`not-run` doom_decoded=`not-run` doom_presses=`not-run`
-- Candidate post-sample selftest fail=0: `not-run`
+- Candidate version ok: `1`
+- Candidate selftest fail=0: `1`
+- Inputscan rc: `0` keyboard_candidates=`0` touch_candidates=`2`
+- Selected event: `event6` name=`sec_touchscreen` class=`touch`
+- Inputcaps rc: `0` caps_ok=`1`
+- `readinput` rc: `-110` timeout_ms=`45000`
+- Decoded events: `0` touch_decoded=`0` doom_decoded=`0` doom_presses=`0`
+- Candidate post-sample selftest fail=0: `1`
 
 ## Input Candidates
 
-- none captured in this run
+- touch `event8` `sec_touchpad` class=`touch`
+- touch `event6` `sec_touchscreen` class=`touch`
 
 ## Captured Decoded Events
 
@@ -43,15 +44,17 @@
 
 ## Rollback Evidence
 
-- Rollback attempted: `0`
-- Rollback step ok: `0`
-- Rollback health: version_ok=`0` selftest_fail0=`0`
+- Rollback attempted: `1`
+- Rollback step ok: `1`
+- Rollback health: version_ok=`1` selftest_fail0=`1`
+- Post-run host recheck: resident version=`v2321-usb-clean-identity-rodata` selftest_fail0=`1`
 
 ## Interpretation
 
-- V2988 stages the live handoff for the V2987 decoded readinput candidate, covering both proven MT-capable touch nodes and the USB-keyboard fallback.
-- Pass requires the decoded `event.decode` line to carry either touch roles (`touch_x`/`touch_y`/`touch_tracking`/`touch_contact`) or a pressed DOOM keyboard role (`doom_*`), plus clean rollback health.
-- This dry run intentionally does not flash because meaningful validation still needs operator finger motion or an attached USB keyboard during the bounded read window.
+- V2988 live flashed the V2987 decoded `readinput` candidate, proved the candidate boots with `selftest fail=0`, selected `event6 sec_touchscreen`, and confirmed the event still exposes the required touch capability bits.
+- The bounded `readinput event6 32 45000` window timed out with `0` numeric events and `0` decoded events, so V2987's decoded touch event path is still not live-proven.
+- Rollback to `v2321-usb-clean-identity-rodata` succeeded and an additional host-side read-only version/selftest check confirmed the device is back on the clean rollback baseline with `selftest fail=0`.
+- Next meaningful branch is either another live decoded sample with deliberate operator finger motion during the window, or a USB-keyboard/OTG fallback validation when a keyboard-class event appears.
 
 ## Safety
 
