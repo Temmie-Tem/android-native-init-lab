@@ -475,28 +475,30 @@ static bool auto_hud_handle_menu_key(struct auto_hud_state *state,
             char *audio_argv[] = {
                 "audio", "play", "internal-speaker-safe",
                 "--mode", "listen",
-                "--amplitude-milli", "200",
-                "--duration-ms", "10000",
-                "--pcm-file", "/cache/a90-runtime/pkg/av/v2933/audio/badapple_preview200_limited.s16le",
+                "--amplitude-milli", "150",
+                "--duration-ms", "232090",
+                "--pcm-gain-milli", "840",
+                "--pcm-file", "/cache/a90-runtime/pkg/av/v2920/audio/badapple.s16le",
                 "--execute",
             };
             char *demo_argv[] = {
                 "video", "demo", "badapple", "play",
-                "--trust-cache", "--frames", "300",
+                "--trust-cache",
                 "--present", "pageflip",
                 "--layout", "player-hud",
                 "--sync-audio-status", "/cache/a90-audio-play/status.txt",
-                "--sync-wait-ms", "10000",
+                "--sync-wait-ms", "60000",
                 "--sync-start-offset-ms", "450",
             };
             int audio_rc;
             int rc;
 
-            a90_console_printf("menu.demo.badapple.action=play-av-preview\r\n");
-            a90_console_printf("menu.demo.badapple.frames=300\r\n");
-            a90_console_printf("menu.demo.badapple.audio_duration_ms=10000\r\n");
-            a90_console_printf("menu.demo.badapple.audio_amplitude_milli=200\r\n");
-            a90_console_printf("menu.demo.badapple.audio_pcm=/cache/a90-runtime/pkg/av/v2933/audio/badapple_preview200_limited.s16le\r\n");
+            a90_console_printf("menu.demo.badapple.action=play-av-fullsong\r\n");
+            a90_console_printf("menu.demo.badapple.frames=6962\r\n");
+            a90_console_printf("menu.demo.badapple.audio_duration_ms=232090\r\n");
+            a90_console_printf("menu.demo.badapple.audio_amplitude_milli=150\r\n");
+            a90_console_printf("menu.demo.badapple.audio_pcm_gain_milli=840\r\n");
+            a90_console_printf("menu.demo.badapple.audio_pcm=/cache/a90-runtime/pkg/av/v2920/audio/badapple.s16le\r\n");
             a90_console_printf("menu.demo.badapple.audio_sync_status=/cache/a90-audio-play/status.txt\r\n");
             a90_console_printf("menu.demo.badapple.audio_sync_start_offset_ms=450\r\n");
             a90_console_printf("menu.demo.badapple.restore=menu\r\n");

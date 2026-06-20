@@ -84,6 +84,8 @@ static int cmd_video_status(void) {
     a90_kms_info(&info);
     a90_console_printf("video.status.version=6\r\n");
     a90_console_printf("video.status.path=kms-dumb-buffer\r\n");
+    a90_console_printf("video.status.display_owner=1\r\n");
+    a90_console_printf("video.status.player_hud_fastpath=1\r\n");
     a90_console_printf("video.status.venus=not-used\r\n");
     a90_console_printf("video.status.kgsl=not-used\r\n");
     a90_console_printf("video.status.raw_dsi=blocked\r\n");
@@ -1125,6 +1127,7 @@ static int video_expand_mono1_frame_scaled(struct a90_fb *fb,
     uint32_t y;
     uint32_t scaled_width;
     uint32_t scaled_height;
+    size_t scaled_row_bytes;
 
     if (fb == NULL || fb->pixels == NULL || source == NULL || manifest == NULL ||
         scale == 0 || fb->stride < (uint64_t)fb->width * 4ULL ||
@@ -1140,25 +1143,30 @@ static int video_expand_mono1_frame_scaled(struct a90_fb *fb,
         scaled_height > fb->height - dst_y) {
         return -EINVAL;
     }
+    scaled_row_bytes = (size_t)scaled_width * sizeof(uint32_t);
     for (y = 0; y < manifest->height; ++y) {
         const uint8_t *src = source + ((size_t)y * manifest->stride);
+        uint32_t *dst0 = (uint32_t *)((char *)fb->pixels +
+                         ((size_t)(dst_y + y * scale) * fb->stride)) + dst_x;
+        uint32_t x;
         uint32_t yy;
 
-        for (yy = 0; yy < scale; ++yy) {
-            uint32_t *dst = (uint32_t *)((char *)fb->pixels +
-                            ((size_t)(dst_y + y * scale + yy) * fb->stride)) + dst_x;
-            uint32_t x;
+        for (x = 0; x < manifest->width; ++x) {
+            uint8_t byte = src[x / 8U];
+            uint32_t bit = (byte >> (7U - (x % 8U))) & 1U;
+            uint32_t color = bit ? 0x00FFFFFFU : 0x00000000U;
+            uint32_t xx;
 
-            for (x = 0; x < manifest->width; ++x) {
-                uint8_t byte = src[x / 8U];
-                uint32_t bit = (byte >> (7U - (x % 8U))) & 1U;
-                uint32_t color = bit ? 0x00FFFFFFU : 0x00000000U;
-                uint32_t xx;
-
-                for (xx = 0; xx < scale; ++xx) {
-                    dst[x * scale + xx] = color;
-                }
+            for (xx = 0; xx < scale; ++xx) {
+                dst0[x * scale + xx] = color;
             }
+        }
+        for (yy = 1; yy < scale; ++yy) {
+            void *dst = (char *)fb->pixels +
+                        ((size_t)(dst_y + y * scale + yy) * fb->stride) +
+                        ((size_t)dst_x * sizeof(uint32_t));
+
+            memcpy(dst, dst0, scaled_row_bytes);
         }
     }
     return 0;
@@ -1225,6 +1233,8 @@ static int video_render_player_hud(struct a90_fb *fb,
                                    const struct video_audio_sync_state *audio_sync) {
     static struct a90_metrics_snapshot metrics;
     static uint32_t metrics_frame = UINT32_MAX;
+    static uint32_t render_session_frames;
+    static uint32_t previous_frame_index = UINT32_MAX;
     uint32_t scale = 2;
     uint32_t video_w;
     uint32_t video_h;
@@ -1264,6 +1274,10 @@ static int video_render_player_hud(struct a90_fb *fb,
         a90_metrics_read_snapshot(&metrics);
         metrics_frame = frame_index;
     }
+    if (previous_frame_index == UINT32_MAX || frame_index <= previous_frame_index) {
+        render_session_frames = 0;
+    }
+    previous_frame_index = frame_index;
     video_x = (fb->width - video_w) / 2U;
     panel_y = video_y + video_h + 40U;
     pos_ms = ((uint64_t)frame_index * 1000ULL * (uint64_t)manifest->fps_den) /
@@ -1280,7 +1294,26 @@ static int video_render_player_hud(struct a90_fb *fb,
     lamp_color = video_sync_lamp_color(delta_ms, delta_valid);
     border_color = beat_flash_active ? 0xFFFFFF : lamp_color;
 
-    a90_draw_rect(fb, 0, 0, fb->width, fb->height, 0x05070C);
+    if (render_session_frames < 2U) {
+        a90_draw_rect(fb, 0, 0, fb->width, fb->height, 0x05070C);
+    } else {
+        uint32_t video_region_y = video_y > 8U ? video_y - 8U : 0U;
+        uint32_t video_region_h = video_h + 16U;
+
+        a90_draw_rect(fb, 0, 0, fb->width, video_region_y, 0x05070C);
+        if (video_x > 8U) {
+            a90_draw_rect(fb, 0, video_region_y, video_x - 8U, video_region_h, 0x05070C);
+        }
+        if (video_x + video_w + 8U < fb->width) {
+            a90_draw_rect(fb,
+                          video_x + video_w + 8U,
+                          video_region_y,
+                          fb->width - (video_x + video_w + 8U),
+                          video_region_h,
+                          0x05070C);
+        }
+    }
+    ++render_session_frames;
     a90_draw_text(fb, 48, 16, "DEMO / BAD APPLE", 0x66DDFF, scale);
     a90_draw_text(fb, fb->width - 300U, 16, "A90 PLAYER HUD", 0xBBBBBB, scale);
     a90_draw_rect_outline(fb, video_x - 4U, video_y - 4U, video_w + 8U, video_h + 8U, 4U, border_color);
