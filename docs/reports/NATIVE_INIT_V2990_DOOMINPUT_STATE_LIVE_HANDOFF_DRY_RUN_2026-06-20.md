@@ -1,16 +1,16 @@
-# Native Init V2990 DOOM Input State Live Handoff Dry Run
+# Native Init V2990 DOOM Input State Touch Live
 
 ## Summary
 
-- Decision: `v2990-doominput-state-dry-run`
+- Decision: `v2990-doominput-state-touch-state-not-proven`
 - Result before rollback: `0`
 - Track: active Video playback / DOOM input prerequisite.
 - Candidate: `A90 Linux init 0.10.65 (v2989-doominput-state)`
 - Candidate image: `workspace/private/inputs/boot_images/boot_linux_v2989_doominput_state.img`
 - Candidate SHA256: `30e37c64196e7ff2649291c1398c67e96efea9313b25c51dade39d1c62c9ccc2`
-- Private run dir: `workspace/private/runs/input/v2990-doominput-state-live-20260620-175847`
-- Live execution: `0`
-- Requested mode: `touch` selected_mode=`-`
+- Private run dir: `workspace/private/runs/input/v2990-doominput-state-live-20260620-180202`
+- Live execution: `1`
+- Requested mode: `touch` selected_mode=`touch`
 
 ## Dry-Run Preflight
 
@@ -24,18 +24,19 @@
 
 ## Evidence
 
-- Candidate version ok: `not-run`
-- Candidate selftest fail=0: `not-run`
-- Inputscan rc: `not-run` keyboard_candidates=`not-run` touch_candidates=`not-run`
-- Selected event: `-` name=`-` class=`-`
-- Inputcaps rc: `not-run` caps_ok=`not-run`
-- `doominput` rc: `not-run` timeout_ms=`not-run`
-- DOOM input events: `not-run` states=`not-run` touch_states=`not-run` active_states=`not-run` doom_button_states=`not-run` max_frame=`not-run`
-- Candidate post-sample selftest fail=0: `not-run`
+- Candidate version ok: `1`
+- Candidate selftest fail=0: `1`
+- Inputscan rc: `0` keyboard_candidates=`0` touch_candidates=`2`
+- Selected event: `event6` name=`sec_touchscreen` class=`touch`
+- Inputcaps rc: `0` caps_ok=`1`
+- `doominput` rc: `-110` timeout_ms=`45000`
+- DOOM input events: `0` states=`0` touch_states=`0` active_states=`0` doom_button_states=`0` max_frame=`None`
+- Candidate post-sample selftest fail=0: `1`
 
 ## Input Candidates
 
-- none captured in this run
+- touch `event8` `sec_touchpad` class=`touch`
+- touch `event6` `sec_touchscreen` class=`touch`
 
 ## Captured DOOM Input State
 
@@ -43,22 +44,24 @@
 
 ## Rollback Evidence
 
-- Rollback attempted: `0`
-- Rollback step ok: `0`
-- Rollback health: version_ok=`0` selftest_fail0=`0`
+- Rollback attempted: `1`
+- Rollback step ok: `1`
+- Rollback health: version_ok=`1` selftest_fail0=`1`
+- Post-run host recheck: resident version=`v2321-usb-clean-identity-rodata` selftest_fail0=`1`
 
 ## Interpretation
 
-- V2990 stages the live handoff for the V2989 `doominput` state candidate, covering both proven MT-capable touch nodes and the USB-keyboard fallback.
-- Pass requires `doominput.state` evidence: touch mode needs contact or x/y state; keyboard mode needs at least one active DOOM button state.
-- This dry run intentionally does not flash because meaningful validation still needs operator finger motion or an attached USB keyboard during the bounded `doominput` window.
+- V2990 live flashed the V2989 `doominput` state candidate, proved the candidate boots with `selftest fail=0`, selected `event6 sec_touchscreen`, and confirmed the event still exposes the required touch capability bits.
+- The bounded `doominput event6 32 45000` window timed out with `captured=0/32`, `0` `doominput.event` lines, and `0` `doominput.state` lines, so the V2989 touch-state surface is not yet live-proven.
+- Rollback to `v2321-usb-clean-identity-rodata` succeeded, and an additional host-side read-only version/selftest check confirmed the device is back on the clean rollback baseline with `selftest fail=0`.
+- Next meaningful branch is either an `event8` touch-state live sample with deliberate operator finger motion, or a USB-keyboard/OTG fallback validation when a keyboard-class event appears.
 
 ## Host Validation
 
-- `python3 -m py_compile workspace/public/src/scripts/revalidation/native_doominput_state_live_handoff_v2990.py tests/test_native_doominput_state_live_handoff_v2990.py`: PASS.
-- `PYTHONPATH=workspace/public/src/scripts/revalidation:workspace/public/src/harness python3 -m unittest tests.test_native_doominput_state_live_handoff_v2990`: PASS (`6` tests).
-- `PYTHONPATH=workspace/public/src/scripts/revalidation:workspace/public/src/harness python3 workspace/public/src/scripts/revalidation/native_doominput_state_live_handoff_v2990.py --mode touch --event event6 --count 32 --timeout-ms 45000`: PASS, dry-run preflight ok `1`, no flash.
-- `git diff --check`: PASS.
+- Pre-live host check: `version` showed `A90 Linux init 0.9.285 (v2321-usb-clean-identity-rodata)`; `selftest verbose` returned `fail=0`.
+- Live runner: `PYTHONPATH=workspace/public/src/scripts/revalidation:workspace/public/src/harness python3 workspace/public/src/scripts/revalidation/native_doominput_state_live_handoff_v2990.py --live --mode touch --event event6 --count 32 --timeout-ms 45000`: completed with expected non-pass result `v2990-doominput-state-touch-state-not-proven`; rollback health version/selftest passed.
+- Post-live host check: `version` again showed `v2321-usb-clean-identity-rodata`; `selftest verbose` returned `fail=0`.
+- Raw `doominput` output remains private at `workspace/private/runs/input/v2990-doominput-state-live-20260620-180202/09_candidate-doominput-touch-state-sample.txt`.
 
 ## Safety
 
