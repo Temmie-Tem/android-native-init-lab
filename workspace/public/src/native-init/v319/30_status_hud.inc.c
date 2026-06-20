@@ -1033,6 +1033,26 @@ static int video_read_exact_fd(int fd, void *buffer, size_t bytes) {
     return 0;
 }
 
+static int video_skip_exact_fd(int fd, size_t bytes) {
+    uint8_t discard[4096];
+    size_t done = 0;
+
+    while (done < bytes) {
+        size_t chunk = bytes - done;
+        int rc;
+
+        if (chunk > sizeof(discard)) {
+            chunk = sizeof(discard);
+        }
+        rc = video_read_exact_fd(fd, discard, chunk);
+        if (rc < 0) {
+            return rc;
+        }
+        done += chunk;
+    }
+    return 0;
+}
+
 static const char *video_stream_pixel_format_name(uint32_t pixel_format) {
     if (pixel_format == VIDEO_STREAM_PIXEL_FORMAT_MONO1) {
         return "mono1";
@@ -1779,6 +1799,30 @@ static int video_stream_play(const struct video_stream_manifest *manifest,
             rc = -EINVAL;
             break;
         }
+        before_wait_ns = video_monotonic_ns();
+        if (drop_late_frames && frame_index + 1U < limit_frames && before_wait_ns > deadline_ns) {
+            uint64_t late_ns = before_wait_ns - deadline_ns;
+
+            if (late_ns > interval_ns) {
+                rc = video_skip_exact_fd(fd, record.payload_bytes);
+                if (rc < 0) {
+                    break;
+                }
+                if (dropped_frames == 0) {
+                    initial_drop_late_ns = late_ns;
+                }
+                ++dropped_frames;
+                cancel = a90_console_poll_cancel(0);
+                if (cancel != CANCEL_NONE) {
+                    free(frame_buffer);
+                    close(fd);
+                    a90_console_printf("video.stream.presented=%u\r\n", presented_frames);
+                    a90_console_printf("video.stream.dropped_frames=%u\r\n", dropped_frames);
+                    return a90_console_cancelled("videostream", cancel);
+                }
+                continue;
+            }
+        }
         if (a90_kms_begin_frame_no_clear() < 0) {
             rc = negative_errno_or(ENODEV);
             break;
@@ -1806,25 +1850,6 @@ static int video_stream_play(const struct video_stream_manifest *manifest,
             break;
         }
         before_wait_ns = video_monotonic_ns();
-        if (drop_late_frames && frame_index + 1U < limit_frames && before_wait_ns > deadline_ns) {
-            uint64_t late_ns = before_wait_ns - deadline_ns;
-
-            if (late_ns > interval_ns) {
-                if (dropped_frames == 0) {
-                    initial_drop_late_ns = late_ns;
-                }
-                ++dropped_frames;
-                cancel = a90_console_poll_cancel(0);
-                if (cancel != CANCEL_NONE) {
-                    free(frame_buffer);
-                    close(fd);
-                    a90_console_printf("video.stream.presented=%u\r\n", presented_frames);
-                    a90_console_printf("video.stream.dropped_frames=%u\r\n", dropped_frames);
-                    return a90_console_cancelled("videostream", cancel);
-                }
-                continue;
-            }
-        }
         rc = video_wait_until_ns(deadline_ns);
         if (rc < 0) {
             free(frame_buffer);

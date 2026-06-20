@@ -475,14 +475,14 @@ static bool auto_hud_handle_menu_key(struct auto_hud_state *state,
             char *audio_argv[] = {
                 "audio", "play", "internal-speaker-safe",
                 "--mode", "listen",
-                "--amplitude-milli", "150",
-                "--duration-ms", "4000",
+                "--amplitude-milli", "200",
+                "--duration-ms", "10000",
                 "--pcm-file", "/cache/a90-runtime/pkg/av/v2920/audio/badapple.s16le",
                 "--execute",
             };
             char *demo_argv[] = {
                 "video", "demo", "badapple", "play",
-                "--trust-cache", "--frames", "120",
+                "--trust-cache", "--frames", "300",
                 "--present", "pageflip",
                 "--layout", "player-hud",
                 "--sync-audio-status", "/cache/a90-audio-play/status.txt",
@@ -493,9 +493,9 @@ static bool auto_hud_handle_menu_key(struct auto_hud_state *state,
             int rc;
 
             a90_console_printf("menu.demo.badapple.action=play-av-preview\r\n");
-            a90_console_printf("menu.demo.badapple.frames=120\r\n");
-            a90_console_printf("menu.demo.badapple.audio_duration_ms=4000\r\n");
-            a90_console_printf("menu.demo.badapple.audio_amplitude_milli=150\r\n");
+            a90_console_printf("menu.demo.badapple.frames=300\r\n");
+            a90_console_printf("menu.demo.badapple.audio_duration_ms=10000\r\n");
+            a90_console_printf("menu.demo.badapple.audio_amplitude_milli=200\r\n");
             a90_console_printf("menu.demo.badapple.audio_pcm=/cache/a90-runtime/pkg/av/v2920/audio/badapple.s16le\r\n");
             a90_console_printf("menu.demo.badapple.audio_sync_status=/cache/a90-audio-play/status.txt\r\n");
             a90_console_printf("menu.demo.badapple.audio_sync_start_offset_ms=450\r\n");
