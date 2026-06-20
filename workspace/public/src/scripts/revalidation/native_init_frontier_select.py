@@ -17,6 +17,9 @@ GOAL_PATH = REPO_ROOT / "GOAL.md"
 TODO_PATH = REPO_ROOT / "docs" / "plans" / "NATIVE_INIT_CURRENT_TODO_2026-06-08.md"
 INVENTORY_JSON = REPO_ROOT / "docs" / "reports" / "REVALIDATION_SCRIPT_INVENTORY_2026-06-10.json"
 FRONTIER_CANDIDATES_JSON = REPO_ROOT / "docs" / "artifacts" / "native-init-frontier-candidates.json"
+CURRENT_DOOM_FRONTIER_REPORT = (
+    REPO_ROOT / "docs" / "reports" / "NATIVE_INIT_V3008_DOOM_INPUT_FRONTIER_RECONCILIATION_2026-06-20.md"
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -31,6 +34,10 @@ def read_text(path: Path) -> str:
 
 def read_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def read_optional_text(path: Path) -> str | None:
+    return read_text(path) if path.exists() else None
 
 
 def marker_present(text: str, marker: str) -> bool:
@@ -51,14 +58,48 @@ def ready_t1_candidates(frontier_candidates: dict[str, Any]) -> list[dict[str, A
     ]
 
 
+def current_doom_input_evaluation(report_text: str | None) -> dict[str, Any] | None:
+    if not report_text:
+        return None
+    if "v3008-doom-input-frontier-keyboard-gate-still-external-stimulus" not in report_text:
+        return None
+    saturated = marker_present(report_text, "Active tier saturated without external stimulus: `1`")
+    keyboard_gate = marker_present(report_text, "USB keyboard live gate staged: `1`")
+    current_actionable = marker_present(report_text, "Current V3007 gate actionable now: `1`")
+    return {
+        "track": "VIDEO",
+        "name": "doom-input",
+        "safe_actionable_now": bool(current_actionable),
+        "status": "keyboard-otg-live-ready" if current_actionable else "external-hardware-stimulus-required",
+        "drop_trigger": (
+            "V3008 reconciles V2984..V3007: touch capability is proven but touch/button liveness "
+            "is not, V3004 USB keyboard/OTG is staged, and current evidence lacks an A90 OTG "
+            "keyboard evdev node plus operator DOOM key presses."
+        ),
+        "evidence": {
+            "v3008_reconciliation_present": True,
+            "active_tier_saturated_without_external_stimulus": saturated,
+            "keyboard_gate_staged": keyboard_gate,
+            "current_v3007_gate_actionable": current_actionable,
+            "next_live_command": (
+                "PYTHONPATH=workspace/public/src/scripts/revalidation:workspace/public/src/harness "
+                "python3 workspace/public/src/scripts/revalidation/"
+                "native_doominput_keyboard_live_gate_v3004.py --live --count 32 --timeout-ms 60000"
+            ),
+        },
+    }
+
+
 def track_evaluations(
     goal_text: str,
     todo_text: str,
     inventory: dict[str, Any],
     frontier_candidates: dict[str, Any],
+    current_doom_report_text: str | None = None,
 ) -> list[dict[str, Any]]:
     signals = inventory["consolidation_signals"]
     t1_candidates = ready_t1_candidates(frontier_candidates)
+    current_video = current_doom_input_evaluation(current_doom_report_text)
     t1_closed_boundary = all_markers_present(
         goal_text,
         (
@@ -92,7 +133,7 @@ def track_evaluations(
         "current public state names no new independent kernel-observation oracle."
     )
 
-    return [
+    evaluations = [
         {
             "track": "T1",
             "name": "kernel-observation",
@@ -139,6 +180,9 @@ def track_evaluations(
             },
         },
     ]
+    if current_video is not None:
+        return [current_video, *evaluations]
+    return evaluations
 
 
 def select_frontier() -> dict[str, Any]:
@@ -146,23 +190,36 @@ def select_frontier() -> dict[str, Any]:
     todo_text = read_text(TODO_PATH)
     inventory = read_json(INVENTORY_JSON)
     frontier_candidates = read_json(FRONTIER_CANDIDATES_JSON) if FRONTIER_CANDIDATES_JSON.exists() else {"candidates": []}
-    evaluations = track_evaluations(goal_text, todo_text, inventory, frontier_candidates)
+    current_doom_report_text = read_optional_text(CURRENT_DOOM_FRONTIER_REPORT)
+    evaluations = track_evaluations(goal_text, todo_text, inventory, frontier_candidates, current_doom_report_text)
     actionable = [evaluation for evaluation in evaluations if evaluation["safe_actionable_now"]]
+    current_video = current_doom_input_evaluation(current_doom_report_text)
+    if current_video and not current_video["safe_actionable_now"]:
+        next_operator_decision = (
+            "Attach USB keyboard/OTG to the A90 and provide operator DOOM key presses, then run "
+            "the V3004 keyboard live gate; otherwise use T3 host-only tooling only, not repeat "
+            "touch/button live flashes."
+        )
+    elif not actionable:
+        next_operator_decision = (
+            "Define a new T1 oracle, set a concrete V2254 live-validation criterion beyond V2282, "
+            "or revive a historical runner before selecting the next bounded unit."
+        )
+    else:
+        next_operator_decision = "Run the first actionable track through the normal GOAL.md cycle."
     return {
         "generated_at": dt.datetime.now(dt.timezone.utc).isoformat(),
         "decision": "frontier-selector-no-automatic-safe-unit" if not actionable else "frontier-selector-actionable-unit-present",
         "selected_track": actionable[0]["track"] if actionable else None,
         "selected_reason": actionable[0]["status"] if actionable else None,
         "track_evaluations": evaluations,
-        "next_operator_decision": (
-            "Define a new T1 oracle, set a concrete V2254 live-validation criterion beyond V2282, "
-            "or revive a historical runner before selecting the next bounded unit."
-        ) if not actionable else "Run the first actionable track through the normal GOAL.md cycle.",
+        "next_operator_decision": next_operator_decision,
         "source_paths": {
             "goal": str(GOAL_PATH.relative_to(REPO_ROOT)),
             "todo": str(TODO_PATH.relative_to(REPO_ROOT)),
             "inventory": str(INVENTORY_JSON.relative_to(REPO_ROOT)),
             "frontier_candidates": str(FRONTIER_CANDIDATES_JSON.relative_to(REPO_ROOT)),
+            "current_doom_frontier_report": str(CURRENT_DOOM_FRONTIER_REPORT.relative_to(REPO_ROOT)),
         },
     }
 
