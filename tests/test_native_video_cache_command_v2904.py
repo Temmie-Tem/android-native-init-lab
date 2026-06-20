@@ -19,8 +19,8 @@ class NativeVideoCacheCommandTests(unittest.TestCase):
             '#define VIDEO_STREAM_CACHE_ROOT "/mnt/sdext/a90/runtime/video/cache"',
             '#define VIDEO_STREAM_CACHE_DIR_PREFIX "sha256-"',
             'video.status.next_cache=video cache [status|verify|play] SHA256 [--trust-cache]',
-            'video cache preset [badapple|badapple-scale] play [--trust-cache]',
-            'video.status.next_demo=video demo [badapple|badapple-scale] [status|verify|play] [--trust-cache]',
+            'video cache preset [badapple|badapple-scale|nyan] play [--trust-cache]',
+            'video.status.next_demo=video demo [badapple|badapple-scale|nyan] [status|verify|play] [--trust-cache]',
             'video.cache.version=1',
             'video.cache.stream_size_match=%d',
             'video.cache.verify.sha256_match=%d',
@@ -100,6 +100,16 @@ class NativeVideoCacheCommandTests(unittest.TestCase):
         self.assertIn('video_render_player_hud', self.status)
         self.assertIn('--layout full|player-hud', self.status)
 
+    def test_nyan_real_preset_uses_player_hud_layout(self):
+        expected_sha = '9a8d91956218acf674b7d99d421467effec442fdde1dbbea8635b8f47085c573'
+        self.assertIn('#define VIDEO_CACHE_PRESET_NYAN_NAME "nyan"', self.status)
+        self.assertIn('#define VIDEO_CACHE_PRESET_NYAN_ASSET_ID "nyancat-v2973-pal8-rle-preview"', self.status)
+        self.assertIn(f'#define VIDEO_CACHE_PRESET_NYAN_SHA256 "{expected_sha}"', self.status)
+        self.assertIn('strcmp(preset_name, VIDEO_CACHE_PRESET_NYAN_NAME) == 0', self.status)
+        self.assertIn('return VIDEO_CACHE_PRESET_NYAN_SHA256;', self.status)
+        self.assertIn('return VIDEO_CACHE_PRESET_NYAN_ASSET_ID;', self.status)
+        self.assertIn('return VIDEO_STREAM_LAYOUT_PLAYER_HUD;', self.status)
+
     def test_unknown_preset_is_rejected_before_cache_lookup(self):
         preset_branch = self.status[self.status.index('if (strcmp(argv[2], "preset") == 0) {'):self.status.index('} else {', self.status.index('if (strcmp(argv[2], "preset") == 0) {'))]
         self.assertIn('video.cache.preset.error=unknown', preset_branch)
@@ -110,6 +120,7 @@ class NativeVideoCacheCommandTests(unittest.TestCase):
         demo_block = self.status[self.status.index('static int cmd_video_demo'):self.status.index('static int cmd_video_stream')]
         self.assertIn('strcmp(argv[2], VIDEO_CACHE_PRESET_BADAPPLE_NAME) == 0', demo_block)
         self.assertIn('strcmp(argv[2], VIDEO_CACHE_PRESET_BADAPPLE_SCALE_NAME) == 0', demo_block)
+        self.assertIn('strcmp(argv[2], VIDEO_CACHE_PRESET_NYAN_NAME) == 0', demo_block)
         self.assertIn('cache_argv[cache_argc++] = "cache";', demo_block)
         self.assertIn('cache_argv[cache_argc++] = "preset";', demo_block)
         self.assertIn('cache_argv[cache_argc++] = argc >= 4 ? argv[3] : "status";', demo_block)
@@ -117,10 +128,10 @@ class NativeVideoCacheCommandTests(unittest.TestCase):
         self.assertIn('return cmd_video_frame(argv, argc);', demo_block)
 
     def test_help_and_cmdmeta_include_cache_surface(self):
-        self.assertIn('video [status|frame|demo badapple|anim|blitbench|stream --manifest PATH --video-only|cache [status|verify|play] SHA256 [--trust-cache] [--layout full|player-hud]|cache preset [badapple|badapple-scale] [status|verify|play]]', self.help)
+        self.assertIn('video [status|frame|demo badapple|demo nyan|anim|blitbench|stream --manifest PATH --video-only|cache [status|verify|play] SHA256 [--trust-cache] [--layout full|player-hud]|cache preset [badapple|badapple-scale|nyan] [status|verify|play]]', self.help)
         self.assertIn('video [status|frame|demo|anim|blitbench|flipprobe|stream|cache]', self.help)
-        self.assertIn('demo [badapple|badapple-scale|frame-pattern]', self.dispatch)
-        self.assertIn('|cache [status|verify|play] SHA256 [--trust-cache] [--layout full|player-hud]|cache preset [badapple|badapple-scale] [status|verify|play]]', self.dispatch)
+        self.assertIn('demo [badapple|badapple-scale|nyan|frame-pattern]', self.dispatch)
+        self.assertIn('|cache [status|verify|play] SHA256 [--trust-cache] [--layout full|player-hud]|cache preset [badapple|badapple-scale|nyan] [status|verify|play]]', self.dispatch)
 
 
 if __name__ == "__main__":

@@ -82,7 +82,7 @@ static int cmd_video_status(void) {
     struct a90_kms_info info;
 
     a90_kms_info(&info);
-    a90_console_printf("video.status.version=8\r\n");
+    a90_console_printf("video.status.version=9\r\n");
     a90_console_printf("video.status.path=kms-dumb-buffer\r\n");
     a90_console_printf("video.status.display_owner=1\r\n");
     a90_console_printf("video.status.player_hud_fastpath=1\r\n");
@@ -115,8 +115,8 @@ static int cmd_video_status(void) {
     a90_console_printf("video.status.next_stream=video stream --manifest PATH --video-only [--frames N]\r\n");
     a90_console_printf("video.status.next_stream_pageflip=video stream --manifest PATH --video-only [--frames N] --present pageflip\r\n");
     a90_console_printf("video.status.next_stream_sync=video stream --manifest PATH --video-only [--frames N] --present pageflip --sync-audio-status /cache/a90-audio-play/status.txt\r\n");
-    a90_console_printf("video.status.next_cache=video cache [status|verify|play] SHA256 [--trust-cache] [--present pageflip] [--layout full|player-hud] | video cache preset [badapple|badapple-scale] play [--trust-cache]\r\n");
-    a90_console_printf("video.status.next_demo=video demo [badapple|badapple-scale] [status|verify|play] [--trust-cache]\r\n");
+    a90_console_printf("video.status.next_cache=video cache [status|verify|play] SHA256 [--trust-cache] [--present pageflip] [--layout full|player-hud] | video cache preset [badapple|badapple-scale|nyan] play [--trust-cache]\r\n");
+    a90_console_printf("video.status.next_demo=video demo [badapple|badapple-scale|nyan] [status|verify|play] [--trust-cache]\r\n");
     a90_console_printf("video.status.next_flipprobe=video flipprobe [frames<=120]\r\n");
     return 0;
 }
@@ -600,6 +600,9 @@ static int cmd_video_flipprobe(char **argv, int argc) {
 #define VIDEO_CACHE_PRESET_BADAPPLE_NAME "badapple"
 #define VIDEO_CACHE_PRESET_BADAPPLE_ASSET_ID "badapple-480x360-full-v2903"
 #define VIDEO_CACHE_PRESET_BADAPPLE_SHA256 "9e938aa83ef40aa692d0f42080821dc21a627f1dddd90cc9c2696aafe6ac6eb0"
+#define VIDEO_CACHE_PRESET_NYAN_NAME "nyan"
+#define VIDEO_CACHE_PRESET_NYAN_ASSET_ID "nyancat-v2973-pal8-rle-preview"
+#define VIDEO_CACHE_PRESET_NYAN_SHA256 "9a8d91956218acf674b7d99d421467effec442fdde1dbbea8635b8f47085c573"
 #define VIDEO_PLAYER_HUD_SCALE 2U
 
 enum video_stream_present_mode {
@@ -2453,6 +2456,10 @@ static const char *video_cache_preset_sha256(const char *preset_name) {
         strcmp(preset_name, VIDEO_CACHE_PRESET_BADAPPLE_SCALE_NAME) == 0) {
         return VIDEO_CACHE_PRESET_BADAPPLE_SCALE_SHA256;
     }
+    if (preset_name != NULL &&
+        strcmp(preset_name, VIDEO_CACHE_PRESET_NYAN_NAME) == 0) {
+        return VIDEO_CACHE_PRESET_NYAN_SHA256;
+    }
     return NULL;
 }
 
@@ -2465,6 +2472,10 @@ static const char *video_cache_preset_asset_id(const char *preset_name) {
         strcmp(preset_name, VIDEO_CACHE_PRESET_BADAPPLE_SCALE_NAME) == 0) {
         return VIDEO_CACHE_PRESET_BADAPPLE_SCALE_ASSET_ID;
     }
+    if (preset_name != NULL &&
+        strcmp(preset_name, VIDEO_CACHE_PRESET_NYAN_NAME) == 0) {
+        return VIDEO_CACHE_PRESET_NYAN_ASSET_ID;
+    }
     return "unknown";
 }
 
@@ -2473,20 +2484,25 @@ static enum video_stream_layout video_cache_preset_default_layout(const char *pr
         strcmp(preset_name, VIDEO_CACHE_PRESET_BADAPPLE_NAME) == 0) {
         return VIDEO_STREAM_LAYOUT_PLAYER_HUD;
     }
+    if (preset_name != NULL &&
+        strcmp(preset_name, VIDEO_CACHE_PRESET_NYAN_NAME) == 0) {
+        return VIDEO_STREAM_LAYOUT_PLAYER_HUD;
+    }
     return VIDEO_STREAM_LAYOUT_FULL;
 }
 
 static int cmd_video_cache(char **argv, int argc);
 
 static int cmd_video_demo(char **argv, int argc) {
-    const char *usage = "usage: video demo [bars|checker|mono|0xRRGGBB|badapple|badapple-scale [status|verify|play] [--trust-cache] [--frames N] [--present setcrtc|pageflip] [--layout full|player-hud] [--sync-audio-status /cache/a90-audio-play/status.txt] [--sync-wait-ms N] [--sync-start-offset-ms N]]\r\n";
+    const char *usage = "usage: video demo [bars|checker|mono|0xRRGGBB|badapple|badapple-scale|nyan [status|verify|play] [--trust-cache] [--frames N] [--present setcrtc|pageflip] [--layout full|player-hud] [--sync-audio-status /cache/a90-audio-play/status.txt] [--sync-wait-ms N] [--sync-start-offset-ms N]]\r\n";
     char *cache_argv[CMDV1X_MAX_ARGS];
     int cache_argc = 0;
     int index;
 
     if (argc >= 3 &&
         (strcmp(argv[2], VIDEO_CACHE_PRESET_BADAPPLE_NAME) == 0 ||
-         strcmp(argv[2], VIDEO_CACHE_PRESET_BADAPPLE_SCALE_NAME) == 0)) {
+         strcmp(argv[2], VIDEO_CACHE_PRESET_BADAPPLE_SCALE_NAME) == 0 ||
+         strcmp(argv[2], VIDEO_CACHE_PRESET_NYAN_NAME) == 0)) {
         if ((argc >= 4 && argc + 1 > CMDV1X_MAX_ARGS) ||
             (argc == 3 && 5 > CMDV1X_MAX_ARGS)) {
             a90_console_printf("%s", usage);
@@ -2645,7 +2661,7 @@ static int cmd_video_stream(char **argv, int argc) {
 }
 
 static int cmd_video_cache(char **argv, int argc) {
-    const char *usage = "usage: video cache [status|verify|play] SHA256 [--trust-cache] [--frames N] [--present setcrtc|pageflip] [--layout full|player-hud] [--sync-audio-status /cache/a90-audio-play/status.txt] [--sync-wait-ms N] [--sync-start-offset-ms N] | video cache preset [badapple|badapple-scale] [status|verify|play] [options]\r\n";
+    const char *usage = "usage: video cache [status|verify|play] SHA256 [--trust-cache] [--frames N] [--present setcrtc|pageflip] [--layout full|player-hud] [--sync-audio-status /cache/a90-audio-play/status.txt] [--sync-wait-ms N] [--sync-start-offset-ms N] | video cache preset [badapple|badapple-scale|nyan] [status|verify|play] [options]\r\n";
     const char *action;
     const char *sha256;
     const char *preset_name = NULL;
@@ -2859,7 +2875,7 @@ static int handle_video(char **argv, int argc) {
 
     if (strcmp(subcommand, "status") == 0) {
         if (argc != 1 && argc != 2) {
-            a90_console_printf("usage: video [status|frame [bars|checker|mono|0xRRGGBB]|demo [badapple|badapple-scale|frame-pattern]|anim [bars|checker|pulse] [frames] [delay_ms]|blitbench [frames]|flipprobe [frames]|stream --manifest PATH --video-only [--frames N] [--present setcrtc|pageflip] [--layout full|player-hud] [--sync-audio-status PATH]|cache [status|verify|play] SHA256 [--trust-cache] [--layout full|player-hud]|cache preset [badapple|badapple-scale] [status|verify|play]]\r\n");
+            a90_console_printf("usage: video [status|frame [bars|checker|mono|0xRRGGBB]|demo [badapple|badapple-scale|nyan|frame-pattern]|anim [bars|checker|pulse] [frames] [delay_ms]|blitbench [frames]|flipprobe [frames]|stream --manifest PATH --video-only [--frames N] [--present setcrtc|pageflip] [--layout full|player-hud] [--sync-audio-status PATH]|cache [status|verify|play] SHA256 [--trust-cache] [--layout full|player-hud]|cache preset [badapple|badapple-scale|nyan] [status|verify|play]]\r\n");
             return -EINVAL;
         }
         return cmd_video_status();
@@ -2886,7 +2902,7 @@ static int handle_video(char **argv, int argc) {
         return cmd_video_cache(argv, argc);
     }
 
-    a90_console_printf("usage: video [status|frame [bars|checker|mono|0xRRGGBB]|demo [badapple|badapple-scale|frame-pattern]|anim [bars|checker|pulse] [frames] [delay_ms]|blitbench [frames]|flipprobe [frames]|stream --manifest PATH --video-only [--frames N] [--present setcrtc|pageflip] [--layout full|player-hud] [--sync-audio-status PATH]|cache [status|verify|play] SHA256 [--trust-cache] [--layout full|player-hud]|cache preset [badapple|badapple-scale] [status|verify|play]]\r\n");
+    a90_console_printf("usage: video [status|frame [bars|checker|mono|0xRRGGBB]|demo [badapple|badapple-scale|nyan|frame-pattern]|anim [bars|checker|pulse] [frames] [delay_ms]|blitbench [frames]|flipprobe [frames]|stream --manifest PATH --video-only [--frames N] [--present setcrtc|pageflip] [--layout full|player-hud] [--sync-audio-status PATH]|cache [status|verify|play] SHA256 [--trust-cache] [--layout full|player-hud]|cache preset [badapple|badapple-scale|nyan] [status|verify|play]]\r\n");
     return -EINVAL;
 }
 

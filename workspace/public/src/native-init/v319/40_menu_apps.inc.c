@@ -520,6 +520,56 @@ static bool auto_hud_handle_menu_key(struct auto_hud_state *state,
             auto_hud_show_menu(state, false);
             break;
         }
+        case SCREEN_MENU_DEMO_NYAN: {
+            char *audio_argv[] = {
+                "audio", "play", "internal-speaker-safe",
+                "--mode", "listen",
+                "--amplitude-milli", "150",
+                "--duration-ms", "10000",
+                "--pcm-gain-milli", "780",
+                "--pcm-file", "/cache/a90-runtime/pkg/av/v2973/audio/nyancat.s16le",
+                "--execute",
+            };
+            char *demo_argv[] = {
+                "video", "demo", "nyan", "play",
+                "--trust-cache",
+                "--frames", "300",
+                "--present", "setcrtc",
+                "--layout", "player-hud",
+                "--sync-audio-status", "/cache/a90-audio-play/status.txt",
+                "--sync-wait-ms", "60000",
+                "--sync-start-offset-ms", "450",
+            };
+            int audio_rc;
+            int rc;
+
+            a90_console_printf("menu.demo.nyan.action=play-av-preview\r\n");
+            a90_console_printf("menu.demo.nyan.frames=300\r\n");
+            a90_console_printf("menu.demo.nyan.audio_duration_ms=10000\r\n");
+            a90_console_printf("menu.demo.nyan.audio_amplitude_milli=150\r\n");
+            a90_console_printf("menu.demo.nyan.audio_pcm_gain_milli=780\r\n");
+            a90_console_printf("menu.demo.nyan.audio_pcm=/cache/a90-runtime/pkg/av/v2973/audio/nyancat.s16le\r\n");
+            a90_console_printf("menu.demo.nyan.video_present=setcrtc\r\n");
+            a90_console_printf("menu.demo.nyan.audio_sync_status=/cache/a90-audio-play/status.txt\r\n");
+            a90_console_printf("menu.demo.nyan.audio_sync_start_offset_ms=450\r\n");
+            a90_console_printf("menu.demo.nyan.restore=menu\r\n");
+            state->menu_active = false;
+            a90_controller_set_menu_active(false);
+            a90_controller_clear_menu_request();
+            audio_rc = a90_audio_cmd(audio_argv,
+                                     (int)(sizeof(audio_argv) / sizeof(audio_argv[0])));
+            a90_console_printf("menu.demo.nyan.audio_rc=%d\r\n", audio_rc);
+            if (audio_rc == 0) {
+                rc = cmd_video_demo(demo_argv,
+                                    (int)(sizeof(demo_argv) / sizeof(demo_argv[0])));
+            } else {
+                rc = audio_rc;
+                a90_console_printf("menu.demo.nyan.video_skipped=audio-start-failed\r\n");
+            }
+            a90_console_printf("menu.demo.nyan.rc=%d\r\n", rc);
+            auto_hud_show_menu(state, false);
+            break;
+        }
         case SCREEN_MENU_CPU_STRESS_5:
         case SCREEN_MENU_CPU_STRESS_10:
         case SCREEN_MENU_CPU_STRESS_30:
