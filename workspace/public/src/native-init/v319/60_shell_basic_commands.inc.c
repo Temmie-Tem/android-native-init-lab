@@ -68,6 +68,7 @@ static void cmd_help(void) {
     a90_console_printf("redraw\r\n");
     a90_console_printf("testpattern\r\n");
     a90_console_printf("clear\r\n");
+    a90_console_printf("inputscan [eventX]\r\n");
     a90_console_printf("inputcaps <eventX>\r\n");
     a90_console_printf("readinput <eventX> [count]\r\n");
     a90_console_printf("waitkey [count]\r\n");

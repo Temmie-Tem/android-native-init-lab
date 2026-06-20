@@ -309,6 +309,10 @@ static int handle_inputcaps(char **argv, int argc) {
     return cmd_inputcaps(argv, argc);
 }
 
+static int handle_inputscan(char **argv, int argc) {
+    return cmd_inputscan(argv, argc);
+}
+
 static int handle_readinput(char **argv, int argc) {
     return cmd_readinput(argv, argc);
 }
@@ -1029,6 +1033,7 @@ static const struct shell_command command_table[] = {
     { "autohud", handle_autohud, "autohud [sec]", CMD_BACKGROUND, A90_CMD_GROUP_DISPLAY },
     { "stophud", handle_stophud, "stophud", CMD_BACKGROUND, A90_CMD_GROUP_DISPLAY },
     { "clear", handle_clear, "clear", CMD_DISPLAY, A90_CMD_GROUP_DISPLAY },
+    { "inputscan", handle_inputscan, "inputscan [eventX]", CMD_NONE, A90_CMD_GROUP_INPUT },
     { "inputcaps", handle_inputcaps, "inputcaps <eventX>", CMD_NONE, A90_CMD_GROUP_INPUT },
     { "readinput", handle_readinput, "readinput <eventX> [count]", CMD_BLOCKING, A90_CMD_GROUP_INPUT },
     { "waitkey", handle_waitkey, "waitkey [count]", CMD_BLOCKING, A90_CMD_GROUP_INPUT },

@@ -809,6 +809,235 @@ static bool test_key_bit(const char *bitmap, unsigned int code) {
     return false;
 }
 
+static bool inputscan_read_capability(const char *event_name,
+                                      const char *capability,
+                                      char *bitmap,
+                                      size_t bitmap_size) {
+    char path[PATH_MAX];
+
+    if (snprintf(path, sizeof(path),
+                 "/sys/class/input/%s/device/capabilities/%s",
+                 event_name,
+                 capability) >= (int)sizeof(path)) {
+        return false;
+    }
+    if (read_text_file(path, bitmap, bitmap_size) < 0) {
+        return false;
+    }
+    trim_newline(bitmap);
+    return true;
+}
+
+static void inputscan_class_text(bool touch_candidate,
+                                 bool keyboard_candidate,
+                                 bool button_candidate,
+                                 char *out,
+                                 size_t out_size) {
+    size_t used = 0;
+
+    if (out_size == 0) {
+        return;
+    }
+    out[0] = '\0';
+    if (touch_candidate) {
+        used += snprintf(out + used, used < out_size ? out_size - used : 0,
+                         "%stouch", used > 0 ? "," : "");
+    }
+    if (keyboard_candidate) {
+        used += snprintf(out + used, used < out_size ? out_size - used : 0,
+                         "%skeyboard", used > 0 ? "," : "");
+    }
+    if (button_candidate) {
+        used += snprintf(out + used, used < out_size ? out_size - used : 0,
+                         "%sbuttons", used > 0 ? "," : "");
+    }
+    if (used == 0) {
+        snprintf(out, out_size, "other");
+    }
+}
+
+static int inputscan_print_event(const char *event_name,
+                                 unsigned int *touch_count,
+                                 unsigned int *keyboard_count,
+                                 unsigned int *button_count,
+                                 unsigned int *node_count) {
+    char name_path[PATH_MAX];
+    char name_buf[256] = "";
+    char dev_info_path[PATH_MAX];
+    char dev_info[64] = "";
+    char node_path[PATH_MAX];
+    char ev_bitmap[256] = "";
+    char key_bitmap[1024] = "";
+    char abs_bitmap[512] = "";
+    char class_text[64];
+    bool has_ev_key;
+    bool has_ev_abs;
+    bool has_key_bitmap;
+    bool has_abs_bitmap;
+    bool has_btn_touch;
+    bool has_abs_xy;
+    bool has_mt_xy;
+    bool has_power;
+    bool has_volup;
+    bool has_voldown;
+    bool has_wasd;
+    bool has_enter_space_esc;
+    bool touch_candidate;
+    bool keyboard_candidate;
+    bool button_candidate;
+    bool node_ok;
+
+    if (snprintf(name_path, sizeof(name_path),
+                 "/sys/class/input/%s/device/name", event_name) >= (int)sizeof(name_path) ||
+        snprintf(dev_info_path, sizeof(dev_info_path),
+                 "/sys/class/input/%s/dev", event_name) >= (int)sizeof(dev_info_path)) {
+        a90_console_printf("inputscan: %s: path too long\r\n", event_name);
+        return -ENAMETOOLONG;
+    }
+
+    if (read_text_file(name_path, name_buf, sizeof(name_buf)) < 0) {
+        snprintf(name_buf, sizeof(name_buf), "<unknown:%s>", strerror(errno));
+    } else {
+        trim_newline(name_buf);
+    }
+    if (read_text_file(dev_info_path, dev_info, sizeof(dev_info)) < 0) {
+        snprintf(dev_info, sizeof(dev_info), "<unknown:%s>", strerror(errno));
+    } else {
+        trim_newline(dev_info);
+    }
+
+    node_ok = get_input_event_path(event_name, node_path, sizeof(node_path)) == 0;
+    if (node_ok && node_count != NULL) {
+        ++*node_count;
+    }
+
+    has_ev_key = false;
+    has_ev_abs = false;
+    if (inputscan_read_capability(event_name, "ev", ev_bitmap, sizeof(ev_bitmap))) {
+        has_ev_key = test_key_bit(ev_bitmap, EV_KEY);
+        has_ev_abs = test_key_bit(ev_bitmap, EV_ABS);
+    }
+
+    has_key_bitmap = inputscan_read_capability(event_name, "key", key_bitmap, sizeof(key_bitmap));
+    has_abs_bitmap = inputscan_read_capability(event_name, "abs", abs_bitmap, sizeof(abs_bitmap));
+
+    has_btn_touch = has_key_bitmap && test_key_bit(key_bitmap, BTN_TOUCH);
+    has_power = has_key_bitmap && test_key_bit(key_bitmap, KEY_POWER);
+    has_volup = has_key_bitmap && test_key_bit(key_bitmap, KEY_VOLUMEUP);
+    has_voldown = has_key_bitmap && test_key_bit(key_bitmap, KEY_VOLUMEDOWN);
+    has_wasd = has_key_bitmap &&
+        test_key_bit(key_bitmap, KEY_W) &&
+        test_key_bit(key_bitmap, KEY_A) &&
+        test_key_bit(key_bitmap, KEY_S) &&
+        test_key_bit(key_bitmap, KEY_D);
+    has_enter_space_esc = has_key_bitmap &&
+        test_key_bit(key_bitmap, KEY_ENTER) &&
+        test_key_bit(key_bitmap, KEY_SPACE) &&
+        test_key_bit(key_bitmap, KEY_ESC);
+    has_abs_xy = has_abs_bitmap &&
+        test_key_bit(abs_bitmap, ABS_X) &&
+        test_key_bit(abs_bitmap, ABS_Y);
+    has_mt_xy = has_abs_bitmap &&
+        test_key_bit(abs_bitmap, ABS_MT_POSITION_X) &&
+        test_key_bit(abs_bitmap, ABS_MT_POSITION_Y);
+
+    touch_candidate = has_ev_abs && (has_btn_touch || has_abs_xy || has_mt_xy);
+    keyboard_candidate = has_ev_key && has_wasd && has_enter_space_esc;
+    button_candidate = has_ev_key && (has_power || has_volup || has_voldown);
+
+    if (touch_candidate && touch_count != NULL) {
+        ++*touch_count;
+    }
+    if (keyboard_candidate && keyboard_count != NULL) {
+        ++*keyboard_count;
+    }
+    if (button_candidate && button_count != NULL) {
+        ++*button_count;
+    }
+
+    inputscan_class_text(touch_candidate,
+                         keyboard_candidate,
+                         button_candidate,
+                         class_text,
+                         sizeof(class_text));
+    a90_console_printf("inputscan.event=%s name=%s dev=%s node=%s class=%s\r\n",
+            event_name,
+            name_buf,
+            dev_info,
+            node_ok ? node_path : "<missing>",
+            class_text);
+    a90_console_printf("  ev.key=%d ev.abs=%d btn_touch=%d abs_xy=%d mt_xy=%d key_power=%d key_volup=%d key_voldown=%d key_wasd=%d key_enter_space_esc=%d\r\n",
+            has_ev_key ? 1 : 0,
+            has_ev_abs ? 1 : 0,
+            has_btn_touch ? 1 : 0,
+            has_abs_xy ? 1 : 0,
+            has_mt_xy ? 1 : 0,
+            has_power ? 1 : 0,
+            has_volup ? 1 : 0,
+            has_voldown ? 1 : 0,
+            has_wasd ? 1 : 0,
+            has_enter_space_esc ? 1 : 0);
+    return 0;
+}
+
+static int cmd_inputscan(char **argv, int argc) {
+    DIR *dir;
+    struct dirent *entry;
+    unsigned int event_count = 0;
+    unsigned int touch_count = 0;
+    unsigned int keyboard_count = 0;
+    unsigned int button_count = 0;
+    unsigned int node_count = 0;
+    int first_error = 0;
+
+    if (argc >= 2) {
+        char event_name[32];
+
+        if (normalize_event_name(argv[1], event_name, sizeof(event_name)) < 0) {
+            a90_console_printf("inputscan: invalid event name\r\n");
+            return -EINVAL;
+        }
+        return inputscan_print_event(event_name,
+                                     &touch_count,
+                                     &keyboard_count,
+                                     &button_count,
+                                     &node_count);
+    }
+
+    dir = opendir("/sys/class/input");
+    if (dir == NULL) {
+        a90_console_printf("inputscan: %s\r\n", strerror(errno));
+        return negative_errno_or(ENOENT);
+    }
+
+    while ((entry = readdir(dir)) != NULL) {
+        int result;
+
+        if (strncmp(entry->d_name, "event", 5) != 0) {
+            continue;
+        }
+        result = inputscan_print_event(entry->d_name,
+                                       &touch_count,
+                                       &keyboard_count,
+                                       &button_count,
+                                       &node_count);
+        if (result == 0) {
+            ++event_count;
+        } else if (first_error == 0) {
+            first_error = result;
+        }
+    }
+    closedir(dir);
+
+    a90_console_printf("inputscan.summary events=%u nodes=%u touch_candidates=%u keyboard_candidates=%u button_candidates=%u\r\n",
+            event_count,
+            node_count,
+            touch_count,
+            keyboard_count,
+            button_count);
+    return event_count > 0 ? 0 : first_error;
+}
+
 static int cmd_inputcaps(char **argv, int argc) {
     char event_name[32];
     char key_path[PATH_MAX];
