@@ -1080,11 +1080,13 @@ static int cmd_readinput(char **argv, int argc) {
     char event_name[32];
     char dev_path[PATH_MAX];
     int count = 16;
+    int timeout_ms = -1;
     int fd;
     int index;
+    long deadline_ms = 0;
 
     if (argc < 2) {
-        a90_console_printf("usage: readinput <eventX> [count]\r\n");
+        a90_console_printf("usage: readinput <eventX> [count] [timeout_ms]\r\n");
         return -EINVAL;
     }
 
@@ -1100,6 +1102,13 @@ static int cmd_readinput(char **argv, int argc) {
     if (count <= 0) {
         count = 1;
     }
+    if (argc >= 4 && sscanf(argv[3], "%d", &timeout_ms) != 1) {
+        a90_console_printf("readinput: invalid timeout_ms\r\n");
+        return -EINVAL;
+    }
+    if (timeout_ms < 0) {
+        timeout_ms = -1;
+    }
 
     if (get_input_event_path(event_name, dev_path, sizeof(dev_path)) < 0) {
         a90_console_printf("readinput: %s: %s\r\n", event_name, strerror(errno));
@@ -1114,11 +1123,16 @@ static int cmd_readinput(char **argv, int argc) {
 
     a90_console_printf("readinput: waiting on %s (%d events), q/Ctrl-C cancels\r\n",
             dev_path, count);
+    if (timeout_ms >= 0) {
+        deadline_ms = monotonic_millis() + timeout_ms;
+        a90_console_printf("readinput: timeout_ms=%d\r\n", timeout_ms);
+    }
 
     index = 0;
     while (index < count) {
         struct pollfd fds[2];
         int poll_rc;
+        int poll_timeout = -1;
 
         fds[0].fd = fd;
         fds[0].events = POLLIN;
@@ -1127,7 +1141,20 @@ static int cmd_readinput(char **argv, int argc) {
         fds[1].events = POLLIN;
         fds[1].revents = 0;
 
-        poll_rc = poll(fds, 2, -1);
+        if (timeout_ms >= 0) {
+            long remaining_ms = deadline_ms - monotonic_millis();
+            if (remaining_ms <= 0) {
+                a90_console_printf("readinput: timeout after %dms captured=%d/%d\r\n",
+                        timeout_ms,
+                        index,
+                        count);
+                close(fd);
+                return -ETIMEDOUT;
+            }
+            poll_timeout = remaining_ms > 2147483647L ? 2147483647 : (int)remaining_ms;
+        }
+
+        poll_rc = poll(fds, 2, poll_timeout);
         if (poll_rc < 0) {
             if (errno == EINTR) {
                 continue;
@@ -1135,6 +1162,14 @@ static int cmd_readinput(char **argv, int argc) {
             a90_console_printf("readinput: poll: %s\r\n", strerror(errno));
             close(fd);
             return negative_errno_or(EIO);
+        }
+        if (poll_rc == 0) {
+            a90_console_printf("readinput: timeout after %dms captured=%d/%d\r\n",
+                    timeout_ms,
+                    index,
+                    count);
+            close(fd);
+            return -ETIMEDOUT;
         }
 
         if ((fds[1].revents & POLLIN) != 0) {

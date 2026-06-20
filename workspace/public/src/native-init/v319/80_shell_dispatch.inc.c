@@ -1035,7 +1035,7 @@ static const struct shell_command command_table[] = {
     { "clear", handle_clear, "clear", CMD_DISPLAY, A90_CMD_GROUP_DISPLAY },
     { "inputscan", handle_inputscan, "inputscan [eventX]", CMD_NONE, A90_CMD_GROUP_INPUT },
     { "inputcaps", handle_inputcaps, "inputcaps <eventX>", CMD_NONE, A90_CMD_GROUP_INPUT },
-    { "readinput", handle_readinput, "readinput <eventX> [count]", CMD_BLOCKING, A90_CMD_GROUP_INPUT },
+    { "readinput", handle_readinput, "readinput <eventX> [count] [timeout_ms]", CMD_BLOCKING, A90_CMD_GROUP_INPUT },
     { "waitkey", handle_waitkey, "waitkey [count]", CMD_BLOCKING, A90_CMD_GROUP_INPUT },
     { "inputlayout", handle_inputlayout, "inputlayout", CMD_NONE, A90_CMD_GROUP_INPUT },
     { "waitgesture", handle_waitgesture, "waitgesture [count]", CMD_BLOCKING, A90_CMD_GROUP_INPUT },
