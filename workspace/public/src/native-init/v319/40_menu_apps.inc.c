@@ -477,14 +477,14 @@ static bool auto_hud_handle_menu_key(struct auto_hud_state *state,
                 "--mode", "listen",
                 "--amplitude-milli", "150",
                 "--duration-ms", "232090",
-                "--pcm-gain-milli", "840",
+                "--pcm-gain-milli", "780",
                 "--pcm-file", "/cache/a90-runtime/pkg/av/v2920/audio/badapple.s16le",
                 "--execute",
             };
             char *demo_argv[] = {
                 "video", "demo", "badapple", "play",
                 "--trust-cache",
-                "--present", "pageflip",
+                "--present", "setcrtc",
                 "--layout", "player-hud",
                 "--sync-audio-status", "/cache/a90-audio-play/status.txt",
                 "--sync-wait-ms", "60000",
@@ -497,8 +497,9 @@ static bool auto_hud_handle_menu_key(struct auto_hud_state *state,
             a90_console_printf("menu.demo.badapple.frames=6962\r\n");
             a90_console_printf("menu.demo.badapple.audio_duration_ms=232090\r\n");
             a90_console_printf("menu.demo.badapple.audio_amplitude_milli=150\r\n");
-            a90_console_printf("menu.demo.badapple.audio_pcm_gain_milli=840\r\n");
+            a90_console_printf("menu.demo.badapple.audio_pcm_gain_milli=780\r\n");
             a90_console_printf("menu.demo.badapple.audio_pcm=/cache/a90-runtime/pkg/av/v2920/audio/badapple.s16le\r\n");
+            a90_console_printf("menu.demo.badapple.video_present=setcrtc\r\n");
             a90_console_printf("menu.demo.badapple.audio_sync_status=/cache/a90-audio-play/status.txt\r\n");
             a90_console_printf("menu.demo.badapple.audio_sync_start_offset_ms=450\r\n");
             a90_console_printf("menu.demo.badapple.restore=menu\r\n");
