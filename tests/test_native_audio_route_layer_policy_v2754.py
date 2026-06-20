@@ -28,11 +28,12 @@ class NativeAudioRouteLayerPolicyV2754(unittest.TestCase):
     def test_route_accepts_explicit_layer_filter_api(self) -> None:
         text = source_text()
 
-        self.assertIn('--layer all|core|feedback|endpoint|blocked', text)
+        self.assertIn('--layer all|core|feedback|endpoint|playback|blocked', text)
         self.assertIn('bool a90_audio_route_layer_valid', text)
         self.assertIn('strcmp(layer, AUDIO_ROUTE_LAYER_CORE) == 0', text)
         self.assertIn('strcmp(layer, AUDIO_ROUTE_LAYER_FEEDBACK) == 0', text)
         self.assertIn('strcmp(layer, AUDIO_ROUTE_LAYER_ENDPOINT) == 0', text)
+        self.assertIn('strcmp(layer, AUDIO_ROUTE_LAYER_PLAYBACK) == 0', text)
         self.assertIn('strcmp(layer, AUDIO_ROUTE_LAYER_BLOCKED) == 0', text)
         self.assertIn('audio.route.layer=%s', text)
 
@@ -69,6 +70,7 @@ class NativeAudioRouteLayerPolicyV2754(unittest.TestCase):
         self.assertIn('audio.route.selected.apply.count=%d', text)
         self.assertIn('audio.route.selected.reset.count=%d', text)
         self.assertIn('a90_audio_route_control_matches_layer(&AUDIO_INTERNAL_SPEAKER_ROUTE[index], layer)', text)
+        self.assertIn('strcmp(control->layer, AUDIO_ROUTE_LAYER_ENDPOINT) == 0 && !control->smart_amp_boost', text)
 
 
 if __name__ == "__main__":

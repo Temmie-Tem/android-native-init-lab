@@ -33,8 +33,8 @@ class NativeAudioStopPlanApiV2762(unittest.TestCase):
         for marker in [
             "audio.stop.requires.pcm_stop=1",
             "audio.stop.requires.setcal_deallocate_reverse=1",
-            "audio.stop.requires.route_reset_core=1",
-            "audio.stop.route_reset_command=audio route %s --reset --layer core",
+            "audio.stop.requires.route_reset_playback=1",
+            "audio.stop.route_reset_command=audio route %s --reset --layer playback",
             "audio.stop.setcal_deallocate_order",
         ]:
             with self.subTest(marker=marker):
@@ -55,7 +55,7 @@ class NativeAudioStopPlanApiV2762(unittest.TestCase):
         self.assertNotIn("AUDIO_DEALLOCATE_CALIBRATION", stop_block)
         self.assertNotIn("SNDRV_CTL_IOCTL_ELEM_WRITE", stop_block)
 
-    def test_stop_execute_runs_core_route_reset_only(self) -> None:
+    def test_stop_execute_runs_playback_route_reset_only(self) -> None:
         text = source_text()
         stop_start = text.index("static int audio_stop_cmd")
         stop_end = text.index("static int audio_open_control_device")
@@ -67,7 +67,7 @@ class NativeAudioStopPlanApiV2762(unittest.TestCase):
         self.assertIn("audio.stop.route_write_attempted=1", stop_block)
         self.assertIn("audio.stop.ioctl_attempted=1", stop_block)
         self.assertIn('route_argv[3] = "--reset";', stop_block)
-        self.assertIn('route_argv[5] = "core";', stop_block)
+        self.assertIn('route_argv[5] = "playback";', stop_block)
         self.assertIn("route_rc = audio_route_cmd(route_argv, 6);", stop_block)
         self.assertIn("audio.stop.route_reset_rc=%d", stop_block)
         self.assertIn("audio.stop.done=%d rc=%d", stop_block)
@@ -77,7 +77,7 @@ class NativeAudioStopPlanApiV2762(unittest.TestCase):
         stages = {stage["stage_id"]: stage for stage in profiles.stage_manifests()}
 
         self.assertLess(stages["bounded-pcm-playback"]["order"], stages["plan-audio-stop-cleanup"]["order"])
-        self.assertLess(stages["plan-audio-stop-cleanup"]["order"], stages["reset-core-speaker-route"]["order"])
+        self.assertLess(stages["plan-audio-stop-cleanup"]["order"], stages["reset-playback-speaker-route"]["order"])
         self.assertEqual(stages["plan-audio-stop-cleanup"]["command"], ["audio", "stop", "internal-speaker-safe", "--dry-run"])
         self.assertTrue(stages["plan-audio-stop-cleanup"]["native_implemented"])
         self.assertFalse(stages["plan-audio-stop-cleanup"]["writes_runtime_state"])

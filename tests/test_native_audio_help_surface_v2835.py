@@ -32,7 +32,7 @@ class NativeAudioHelpSurfaceV2835Test(unittest.TestCase):
             "setcal [profile] [--dry-run|--execute] [--manifest PATH --verify|--prepare|--load]",
             "play [profile] [--mode probe|listen] [--amplitude-milli N] [--duration-ms N] [--manifest PATH] [--dry-run|--execute]",
             "play-status|stop [profile] [--dry-run|--execute]",
-            "route [profile] [--dry-run|--apply|--reset] [--layer all|core|feedback|endpoint|blocked]",
+            "route [profile] [--dry-run|--apply|--reset] [--layer all|core|feedback|endpoint|playback|blocked]",
         ]:
             with self.subTest(marker=marker):
                 self.assertIn(marker, audio)

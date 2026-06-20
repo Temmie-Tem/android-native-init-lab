@@ -34,7 +34,7 @@ class NativeAudioIntegratedPlayV2791(unittest.TestCase):
         self.assertIn("audio.play.requires.setcal=1", text)
         self.assertIn("audio.play.requires.route=1", text)
         self.assertIn(
-            "audio.play.execute.sequence=adsp,snd,app_type,setcal_hold,route_core,pcm,route_core_reset,setcal_deallocate",
+            "audio.play.execute.sequence=adsp,snd,app_type,setcal_hold,route_playback,pcm,route_playback_reset,setcal_deallocate",
             text,
         )
 
@@ -50,7 +50,7 @@ class NativeAudioIntegratedPlayV2791(unittest.TestCase):
             "audio_play_run_app_type_stage(profile)",
             "audio_play_load_setcal_session(profile, manifest_path, &setcal_session)",
             "audio_play_run_route_stage(profile, false)",
-            "audio_play_execute_pcm(profile, mode, amplitude_milli, duration_ms)",
+            "audio_play_execute_pcm(profile, mode, amplitude_milli, duration_ms, pcm_file_path)",
             "audio_play_run_route_stage(profile, true)",
             "audio_setcal_execute_session_cleanup(&setcal_session, rc, &ioctl_count)",
         ]

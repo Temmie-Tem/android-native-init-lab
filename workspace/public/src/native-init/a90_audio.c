@@ -1974,7 +1974,7 @@ static int audio_prereq_cmd(char **argv, int argc) {
                        AUDIO_SETCAL_DEFAULT_MANIFEST_PATH);
     print_int_list("audio.prereq.setcal.order", profile->acdb_set_order, AUDIO_PROFILE_ACDB_SET_COUNT);
     a90_console_printf("audio.prereq.route.required=1\r\n");
-    a90_console_printf("audio.prereq.route.command=audio route %s --apply --layer core\r\n", profile->id);
+    a90_console_printf("audio.prereq.route.command=audio route %s --apply --layer playback\r\n", profile->id);
     a90_console_printf("audio.prereq.play.required=1\r\n");
     a90_console_printf("audio.prereq.play.command=audio play %s --mode probe --execute\r\n", profile->id);
     a90_console_printf("audio.prereq.ready.snd=%d\r\n", snd_ready ? 1 : 0);
@@ -2833,7 +2833,7 @@ static int audio_play_load_setcal_session(const struct audio_speaker_profile *pr
 }
 
 static int audio_play_run_route_stage(const struct audio_speaker_profile *profile, bool reset) {
-    char *route_argv[] = {"audio", "route", NULL, NULL, "--layer", "core"};
+    char *route_argv[] = {"audio", "route", NULL, NULL, "--layer", "playback"};
     int rc;
 
     if (profile == NULL) {
@@ -2871,7 +2871,7 @@ static int audio_play_execute_integrated(const struct audio_speaker_profile *pro
     a90_console_printf("audio.play.integrated.pcm_file=%s\r\n",
                        pcm_file_path != NULL && pcm_file_path[0] != '\0' ? pcm_file_path : "-");
     a90_console_printf("audio.play.integrated.adsp_prebooted=%d\r\n", adsp_prebooted ? 1 : 0);
-    a90_console_printf("audio.play.integrated.sequence=adsp,snd,app_type,manifest_wait,setcal_hold,route_core,pcm,route_core_reset,setcal_deallocate\r\n");
+    a90_console_printf("audio.play.integrated.sequence=adsp,snd,app_type,manifest_wait,setcal_hold,route_playback,pcm,route_playback_reset,setcal_deallocate\r\n");
     rc = audio_play_run_adsp_stage(profile, !adsp_prebooted);
     if (rc < 0) {
         goto done;
@@ -3094,7 +3094,7 @@ static int audio_play_cmd(char **argv, int argc) {
     a90_console_printf("audio.play.requires.app_type=1\r\n");
     a90_console_printf("audio.play.requires.setcal=1\r\n");
     a90_console_printf("audio.play.requires.route=1\r\n");
-    a90_console_printf("audio.play.execute.sequence=adsp,snd,app_type,setcal_hold,route_core,pcm,route_core_reset,setcal_deallocate\r\n");
+    a90_console_printf("audio.play.execute.sequence=adsp,snd,app_type,setcal_hold,route_playback,pcm,route_playback_reset,setcal_deallocate\r\n");
     a90_console_printf("audio.play.alsa_open_attempted=0\r\n");
     a90_console_printf("audio.play.ioctl_attempted=0\r\n");
     pcm_node_ready = audio_play_print_pcm_prereq(profile, pcm_path, sizeof(pcm_path));
@@ -3312,8 +3312,8 @@ static int audio_stop_cmd(char **argv, int argc) {
     a90_console_printf("audio.stop.endpoint=%s\r\n", profile->endpoint);
     a90_console_printf("audio.stop.requires.pcm_stop=1\r\n");
     a90_console_printf("audio.stop.requires.setcal_deallocate_reverse=1\r\n");
-    a90_console_printf("audio.stop.requires.route_reset_core=1\r\n");
-    a90_console_printf("audio.stop.route_reset_command=audio route %s --reset --layer core\r\n", profile->id);
+    a90_console_printf("audio.stop.requires.route_reset_playback=1\r\n");
+    a90_console_printf("audio.stop.route_reset_command=audio route %s --reset --layer playback\r\n", profile->id);
     print_int_list("audio.stop.setcal_deallocate_order", reverse_order, AUDIO_PROFILE_ACDB_SET_COUNT);
     if (!execute_mode) {
         a90_console_printf("audio.stop.playback_stop_attempted=0\r\n");
@@ -3335,7 +3335,7 @@ static int audio_stop_cmd(char **argv, int argc) {
     route_argv[2] = (char *)profile->id;
     route_argv[3] = "--reset";
     route_argv[4] = "--layer";
-    route_argv[5] = "core";
+    route_argv[5] = "playback";
     route_argv[6] = NULL;
     route_rc = audio_route_cmd(route_argv, 6);
     a90_console_printf("audio.stop.route_reset_rc=%d\r\n", route_rc);
@@ -3805,7 +3805,7 @@ static int audio_route_cmd(char **argv, int argc) {
 
     for (argi = 2; argi < argc; ++argi) {
         if (argv == NULL || argv[argi] == NULL) {
-            a90_console_printf("usage: audio route [profile] [--dry-run|--apply|--reset] [--layer all|core|feedback|endpoint|blocked]\r\n");
+            a90_console_printf("usage: audio route [profile] [--dry-run|--apply|--reset] [--layer all|core|feedback|endpoint|playback|blocked]\r\n");
             return -EINVAL;
         }
         if (strcmp(argv[argi], "--dry-run") == 0) {
@@ -3820,7 +3820,7 @@ static int audio_route_cmd(char **argv, int argc) {
         } else if (strcmp(argv[argi], "--layer") == 0) {
             ++argi;
             if (argi >= argc || argv[argi] == NULL || !a90_audio_route_layer_valid(argv[argi])) {
-                a90_console_printf("usage: audio route [profile] [--dry-run|--apply|--reset] [--layer all|core|feedback|endpoint|blocked]\r\n");
+                a90_console_printf("usage: audio route [profile] [--dry-run|--apply|--reset] [--layer all|core|feedback|endpoint|playback|blocked]\r\n");
                 return -EINVAL;
             }
             layer = argv[argi];
@@ -3828,7 +3828,7 @@ static int audio_route_cmd(char **argv, int argc) {
             profile_id = argv[argi];
             seen_profile = true;
         } else {
-            a90_console_printf("usage: audio route [profile] [--dry-run|--apply|--reset] [--layer all|core|feedback|endpoint|blocked]\r\n");
+            a90_console_printf("usage: audio route [profile] [--dry-run|--apply|--reset] [--layer all|core|feedback|endpoint|playback|blocked]\r\n");
             return -EINVAL;
         }
     }
@@ -4901,6 +4901,6 @@ int a90_audio_cmd(char **argv, int argc) {
     if (argc >= 2 && argv != NULL && argv[1] != NULL && strcmp(argv[1], "snd-materialize-once") == 0) {
         return audio_snd_materialize_once(argv, argc);
     }
-    a90_console_printf("usage: audio [adsp-status|status|profiles|profile [id]|speaker-map [id]|stages [id]|prereq [id]|app-type [profile] [--dry-run|--write]|setcal [profile] [--dry-run|--execute] [--manifest PATH --verify|--prepare|--load]|play [profile] [--mode probe|listen] [--amplitude-milli N] [--duration-ms N] [--manifest PATH] [--dry-run|--execute]|chime [--dry-run|--execute] [--amplitude-milli N] [--duration-ms N] [--manifest PATH]|play-status|stop [profile] [--dry-run|--execute]|route [profile] [--dry-run|--apply|--reset] [--layer all|core|feedback|endpoint|blocked]|snd-status|adsp-boot-once|snd-materialize-once]\r\n");
+    a90_console_printf("usage: audio [adsp-status|status|profiles|profile [id]|speaker-map [id]|stages [id]|prereq [id]|app-type [profile] [--dry-run|--write]|setcal [profile] [--dry-run|--execute] [--manifest PATH --verify|--prepare|--load]|play [profile] [--mode probe|listen] [--amplitude-milli N] [--duration-ms N] [--manifest PATH] [--dry-run|--execute]|chime [--dry-run|--execute] [--amplitude-milli N] [--duration-ms N] [--manifest PATH]|play-status|stop [profile] [--dry-run|--execute]|route [profile] [--dry-run|--apply|--reset] [--layer all|core|feedback|endpoint|playback|blocked]|snd-status|adsp-boot-once|snd-materialize-once]\r\n");
     return -EINVAL;
 }

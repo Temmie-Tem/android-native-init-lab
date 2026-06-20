@@ -35,6 +35,7 @@ class NativeAudioStageApiContractV2756(unittest.TestCase):
         self.assertIn("prepare-acdb-payload-bundle", stage_ids)
         self.assertIn("load-acdb-payload-files", stage_ids)
         self.assertIn("replay-acdb-setcal-sequence", stage_ids)
+        self.assertIn("apply-playback-speaker-route", stage_ids)
         self.assertIn("plan-bounded-pcm-playback", stage_ids)
         self.assertIn("bounded-pcm-playback", stage_ids)
         self.assertIn("plan-audio-stop-cleanup", stage_ids)
@@ -49,12 +50,12 @@ class NativeAudioStageApiContractV2756(unittest.TestCase):
 
         self.assertEqual(stages["write-global-app-type-config"]["command"], ["audio", "app-type", "internal-speaker-safe", "--write"])
         self.assertEqual(
-            stages["apply-core-speaker-route"]["command"],
-            ["audio", "route", "internal-speaker-safe", "--apply", "--layer", "core"],
+            stages["apply-playback-speaker-route"]["command"],
+            ["audio", "route", "internal-speaker-safe", "--apply", "--layer", "playback"],
         )
         self.assertEqual(
-            stages["reset-core-speaker-route"]["command"],
-            ["audio", "route", "internal-speaker-safe", "--reset", "--layer", "core"],
+            stages["reset-playback-speaker-route"]["command"],
+            ["audio", "route", "internal-speaker-safe", "--reset", "--layer", "playback"],
         )
         self.assertEqual(
             stages["verify-private-acdb-manifest"]["command"],
@@ -135,7 +136,7 @@ class NativeAudioStageApiContractV2756(unittest.TestCase):
 
         self.assertIn("stage_api", manifest)
         self.assertIn("staged_contract", manifest)
-        self.assertIn("apply-core-speaker-route", manifest["staged_contract"])
+        self.assertIn("apply-playback-speaker-route", manifest["staged_contract"])
         self.assertNotIn("workspace/private", text)
         self.assertNotIn("local_path_private", text)
 
@@ -160,11 +161,11 @@ class NativeAudioStageApiContractV2756(unittest.TestCase):
             "prepare-acdb-payload-bundle",
             "load-acdb-payload-files",
             "replay-acdb-setcal-sequence",
-            "apply-core-speaker-route",
+            "apply-playback-speaker-route",
             "plan-bounded-pcm-playback",
             "bounded-pcm-playback",
             "plan-audio-stop-cleanup",
-            "reset-core-speaker-route",
+            "reset-playback-speaker-route",
             "rollback-v2321",
         ]
         for stage_id in required:
@@ -192,10 +193,10 @@ class NativeAudioStageApiContractV2756(unittest.TestCase):
         )
         self.assertRegex(
             text,
-            re.compile(r'\.id = "apply-core-speaker-route".*?\.native_implemented = true', re.DOTALL),
+            re.compile(r'\.id = "apply-playback-speaker-route".*?\.native_implemented = true', re.DOTALL),
         )
-        self.assertIn('.command_template = "audio route %s --apply --layer core"', text)
-        self.assertIn('.command_template = "audio route %s --reset --layer core"', text)
+        self.assertIn('.command_template = "audio route %s --apply --layer playback"', text)
+        self.assertIn('.command_template = "audio route %s --reset --layer playback"', text)
         self.assertIn('verify-private-acdb-manifest', text)
         self.assertIn('prepare-acdb-payload-bundle', text)
         self.assertIn('load-acdb-payload-files', text)

@@ -57,7 +57,7 @@ class NativeAudioCommandProfileContractV2751(unittest.TestCase):
         self.assertIn('audio.status.profile.speaker_map=%s', text)
         self.assertIn('audio.status.safety.smart_amp_boost_write_allowed=0', text)
         self.assertIn('audio.status.safety.wsa_speaker_protection_verified=0', text)
-        self.assertIn('usage: audio [adsp-status|status|profiles|profile [id]|speaker-map [id]|stages [id]|prereq [id]|app-type [profile] [--dry-run|--write]|setcal [profile] [--dry-run|--execute] [--manifest PATH --verify|--prepare|--load]|play [profile] [--mode probe|listen] [--amplitude-milli N] [--duration-ms N] [--manifest PATH] [--dry-run|--execute]|play-status|stop [profile] [--dry-run|--execute]|route [profile] [--dry-run|--apply|--reset] [--layer all|core|feedback|endpoint|blocked]|snd-status|adsp-boot-once|snd-materialize-once]', text)
+        self.assertIn('usage: audio [adsp-status|status|profiles|profile [id]|speaker-map [id]|stages [id]|prereq [id]|app-type [profile] [--dry-run|--write]|setcal [profile] [--dry-run|--execute] [--manifest PATH --verify|--prepare|--load]|play [profile] [--mode probe|listen] [--amplitude-milli N] [--duration-ms N] [--manifest PATH] [--dry-run|--execute]|chime [--dry-run|--execute] [--amplitude-milli N] [--duration-ms N] [--manifest PATH]|play-status|stop [profile] [--dry-run|--execute]|route [profile] [--dry-run|--apply|--reset] [--layer all|core|feedback|endpoint|playback|blocked]|snd-status|adsp-boot-once|snd-materialize-once]', text)
 
     def test_native_profile_preserves_speaker_safety_limits(self) -> None:
         text = source_text()

@@ -112,6 +112,7 @@ bool a90_audio_route_layer_valid(const char *layer) {
             strcmp(layer, AUDIO_ROUTE_LAYER_CORE) == 0 ||
             strcmp(layer, AUDIO_ROUTE_LAYER_FEEDBACK) == 0 ||
             strcmp(layer, AUDIO_ROUTE_LAYER_ENDPOINT) == 0 ||
+            strcmp(layer, AUDIO_ROUTE_LAYER_PLAYBACK) == 0 ||
             strcmp(layer, AUDIO_ROUTE_LAYER_BLOCKED) == 0);
 }
 
@@ -125,6 +126,13 @@ bool a90_audio_route_control_matches_layer(const struct audio_route_control *con
     }
     if (strcmp(layer, AUDIO_ROUTE_LAYER_BLOCKED) == 0) {
         return control->smart_amp_boost;
+    }
+    if (strcmp(layer, AUDIO_ROUTE_LAYER_PLAYBACK) == 0) {
+        if (strcmp(control->layer, AUDIO_ROUTE_LAYER_CORE) == 0 ||
+            strcmp(control->layer, AUDIO_ROUTE_LAYER_FEEDBACK) == 0) {
+            return true;
+        }
+        return strcmp(control->layer, AUDIO_ROUTE_LAYER_ENDPOINT) == 0 && !control->smart_amp_boost;
     }
     return strcmp(control->layer, layer) == 0;
 }
@@ -158,7 +166,9 @@ bool a90_audio_route_selected_has_smart_amp_boost(const char *layer) {
 }
 
 bool a90_audio_route_layer_write_allowed(const char *layer) {
-    return layer != NULL && strcmp(layer, AUDIO_ROUTE_LAYER_CORE) == 0;
+    return layer != NULL &&
+           (strcmp(layer, AUDIO_ROUTE_LAYER_CORE) == 0 ||
+            strcmp(layer, AUDIO_ROUTE_LAYER_PLAYBACK) == 0);
 }
 
 int a90_audio_observer_count_for_prefix(const struct audio_speaker_profile *profile,

@@ -21,11 +21,12 @@ def source_text() -> str:
 
 
 class NativeAudioRouteCoreWriterV2755(unittest.TestCase):
-    def test_only_core_layer_is_write_allowed(self) -> None:
+    def test_only_core_and_playback_layers_are_write_allowed(self) -> None:
         text = source_text()
 
         self.assertIn('bool a90_audio_route_layer_write_allowed(const char *layer)', text)
         self.assertIn('strcmp(layer, AUDIO_ROUTE_LAYER_CORE) == 0', text)
+        self.assertIn('strcmp(layer, AUDIO_ROUTE_LAYER_PLAYBACK) == 0', text)
         self.assertIn('write_mode && !a90_audio_route_layer_write_allowed(layer)', text)
         self.assertIn('audio.route.refused=write-mode-blocked-non-core-layer', text)
         self.assertIn('audio.route.refused=write-mode-blocked-smart-amp-boost-review', text)

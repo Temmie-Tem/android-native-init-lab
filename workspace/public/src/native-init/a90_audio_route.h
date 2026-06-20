@@ -10,6 +10,7 @@
 #define AUDIO_ROUTE_LAYER_CORE "core"
 #define AUDIO_ROUTE_LAYER_FEEDBACK "feedback"
 #define AUDIO_ROUTE_LAYER_ENDPOINT "endpoint"
+#define AUDIO_ROUTE_LAYER_PLAYBACK "playback"
 #define AUDIO_ROUTE_LAYER_BLOCKED "blocked"
 
 struct audio_speaker_map_entry {

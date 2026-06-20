@@ -39,7 +39,7 @@ class NativeAudioPrereqApiV2775(unittest.TestCase):
             "audio.prereq.snd.required=1",
             "audio.prereq.app_type.command=audio app-type %s --write",
             "audio.prereq.setcal.command=audio setcal %s --manifest %s --execute",
-            "audio.prereq.route.command=audio route %s --apply --layer core",
+            "audio.prereq.route.command=audio route %s --apply --layer playback",
             "audio.prereq.play.command=audio play %s --mode probe --execute",
         ]:
             with self.subTest(marker=marker):
