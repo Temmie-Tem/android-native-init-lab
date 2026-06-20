@@ -581,6 +581,12 @@ static int cmd_video_flipprobe(char **argv, int argc) {
 #define VIDEO_STREAM_PIXEL_FORMAT_XBGR8888_RAW_STRIDE 1U
 #define VIDEO_STREAM_PIXEL_FORMAT_GRAY8 2U
 #define VIDEO_STREAM_PIXEL_FORMAT_MONO1 3U
+#define VIDEO_STREAM_PIXEL_FORMAT_PAL8_RLE 4U
+#define VIDEO_STREAM_VERSION_A90VSTR1 1U
+#define VIDEO_STREAM_VERSION_A90VSTR2 2U
+#define VIDEO_STREAM_PAL8_RAW_MODE 1U
+#define VIDEO_STREAM_PAL8_RLE_MODE 2U
+#define VIDEO_STREAM_PAL8_MAX_COLORS 256U
 #define VIDEO_STREAM_AUDIO_STATUS_PATH "/cache/a90-audio-play/status.txt"
 #define VIDEO_STREAM_AUDIO_SYNC_DEFAULT_WAIT_MS 90000U
 #define VIDEO_STREAM_AUDIO_SYNC_POLL_MS 20U
@@ -619,6 +625,9 @@ struct video_stream_manifest {
     uint32_t fps_den;
     uint32_t frame_count;
     uint32_t pixel_format;
+    uint32_t stream_version;
+    uint32_t palette_count;
+    uint32_t max_payload_bytes;
 };
 
 struct video_stream_header_v1 {
@@ -637,6 +646,27 @@ struct video_stream_header_v1 {
 
 struct video_stream_frame_record_v1 {
     uint32_t index;
+    uint32_t payload_bytes;
+    uint64_t pts_ns;
+};
+
+struct video_stream_header_v2 {
+    char magic[8];
+    uint32_t version;
+    uint32_t width;
+    uint32_t height;
+    uint32_t fps_num;
+    uint32_t fps_den;
+    uint32_t frame_count;
+    uint32_t palette_count;
+    uint32_t max_payload_bytes;
+    uint32_t flags;
+    uint8_t reserved[32];
+};
+
+struct video_stream_frame_record_v2 {
+    uint32_t index;
+    uint32_t mode;
     uint32_t payload_bytes;
     uint64_t pts_ns;
 };
@@ -934,6 +964,7 @@ static int video_parse_manifest(const char *manifest_path, struct video_stream_m
     const char *object_end;
     size_t object_len;
     uint64_t expected_frame_bytes;
+    bool is_v2_pal8 = false;
     int rc;
 
     memset(manifest, 0, sizeof(*manifest));
@@ -961,9 +992,6 @@ static int video_parse_manifest(const char *manifest_path, struct video_stream_m
         !video_json_extract_string(video_object, "sha256", manifest->sha256, sizeof(manifest->sha256)) ||
         !video_json_extract_u32(video_object, "width", 1, 8192, &manifest->width) ||
         !video_json_extract_u32(video_object, "height", 1, 8192, &manifest->height) ||
-        !video_json_extract_u32(video_object, "stride", 1, VIDEO_STREAM_MAX_FRAME_BYTES, &manifest->stride) ||
-        !video_json_extract_u32(video_object, "frame_bytes", 1, VIDEO_STREAM_MAX_FRAME_BYTES, &manifest->frame_bytes) ||
-        !video_json_extract_u32(video_object, "visible_row_bytes", 1, VIDEO_STREAM_MAX_FRAME_BYTES, &manifest->visible_row_bytes) ||
         !video_json_extract_u32(video_object, "fps_num", 1, 240, &manifest->fps_num) ||
         !video_json_extract_u32(video_object, "fps_den", 1, 1000000, &manifest->fps_den) ||
         !video_json_extract_u32(video_object, "frame_count", 1, VIDEO_STREAM_MAX_FRAMES, &manifest->frame_count)) {
@@ -985,8 +1013,38 @@ static int video_parse_manifest(const char *manifest_path, struct video_stream_m
         manifest->pixel_format = VIDEO_STREAM_PIXEL_FORMAT_GRAY8;
     } else if (strcmp(manifest->format, "mono1") == 0) {
         manifest->pixel_format = VIDEO_STREAM_PIXEL_FORMAT_MONO1;
+    } else if (strcmp(manifest->format, "pal8-rle") == 0) {
+        manifest->pixel_format = VIDEO_STREAM_PIXEL_FORMAT_PAL8_RLE;
+        is_v2_pal8 = true;
     } else {
         a90_console_printf("video.stream.error=manifest-format-unsupported\r\n");
+        return -EINVAL;
+    }
+    if (is_v2_pal8) {
+        manifest->stream_version = VIDEO_STREAM_VERSION_A90VSTR2;
+        if (!video_json_extract_u32(video_object,
+                                    "stream_version",
+                                    VIDEO_STREAM_VERSION_A90VSTR2,
+                                    VIDEO_STREAM_VERSION_A90VSTR2,
+                                    &manifest->stream_version) ||
+            !video_json_extract_u32(video_object, "palette_count", 1, VIDEO_STREAM_PAL8_MAX_COLORS,
+                                    &manifest->palette_count) ||
+            !video_json_extract_u32(video_object, "max_payload_bytes", 1, VIDEO_STREAM_MAX_FRAME_BYTES,
+                                    &manifest->max_payload_bytes)) {
+            a90_console_printf("video.stream.error=manifest-field-invalid\r\n");
+            return -EINVAL;
+        }
+        manifest->stride = manifest->width;
+        manifest->visible_row_bytes = manifest->width;
+        manifest->frame_bytes = manifest->max_payload_bytes;
+        return 0;
+    }
+    manifest->stream_version = VIDEO_STREAM_VERSION_A90VSTR1;
+    if (!video_json_extract_u32(video_object, "stride", 1, VIDEO_STREAM_MAX_FRAME_BYTES, &manifest->stride) ||
+        !video_json_extract_u32(video_object, "frame_bytes", 1, VIDEO_STREAM_MAX_FRAME_BYTES, &manifest->frame_bytes) ||
+        !video_json_extract_u32(video_object, "visible_row_bytes", 1, VIDEO_STREAM_MAX_FRAME_BYTES,
+                                &manifest->visible_row_bytes)) {
+        a90_console_printf("video.stream.error=manifest-field-invalid\r\n");
         return -EINVAL;
     }
     expected_frame_bytes = (uint64_t)manifest->stride * manifest->height;
@@ -1059,6 +1117,9 @@ static int video_skip_exact_fd(int fd, size_t bytes) {
 }
 
 static const char *video_stream_pixel_format_name(uint32_t pixel_format) {
+    if (pixel_format == VIDEO_STREAM_PIXEL_FORMAT_PAL8_RLE) {
+        return "pal8-rle";
+    }
     if (pixel_format == VIDEO_STREAM_PIXEL_FORMAT_MONO1) {
         return "mono1";
     }
@@ -1173,6 +1234,149 @@ static int video_expand_mono1_frame_scaled(struct a90_fb *fb,
     return 0;
 }
 
+static int video_expand_pal8_indices_scaled(struct a90_fb *fb,
+                                            const uint8_t *indices,
+                                            const struct video_stream_manifest *manifest,
+                                            const uint32_t *palette,
+                                            uint32_t palette_count,
+                                            uint32_t dst_x,
+                                            uint32_t dst_y,
+                                            uint32_t scale) {
+    uint32_t y;
+    uint32_t scaled_width;
+    uint32_t scaled_height;
+    size_t scaled_row_bytes;
+
+    if (fb == NULL || fb->pixels == NULL || indices == NULL || manifest == NULL ||
+        palette == NULL || palette_count == 0 || palette_count > VIDEO_STREAM_PAL8_MAX_COLORS ||
+        scale == 0 || fb->stride < (uint64_t)fb->width * 4ULL) {
+        return -EINVAL;
+    }
+    scaled_width = manifest->width * scale;
+    scaled_height = manifest->height * scale;
+    if (scaled_width / scale != manifest->width ||
+        scaled_height / scale != manifest->height ||
+        dst_x > fb->width || dst_y > fb->height ||
+        scaled_width > fb->width - dst_x ||
+        scaled_height > fb->height - dst_y) {
+        return -EINVAL;
+    }
+    scaled_row_bytes = (size_t)scaled_width * sizeof(uint32_t);
+    for (y = 0; y < manifest->height; ++y) {
+        const uint8_t *src = indices + ((size_t)y * manifest->width);
+        uint32_t *dst0 = (uint32_t *)((char *)fb->pixels +
+                         ((size_t)(dst_y + y * scale) * fb->stride)) + dst_x;
+        uint32_t x;
+        uint32_t yy;
+
+        for (x = 0; x < manifest->width; ++x) {
+            uint8_t palette_index = src[x];
+            uint32_t color;
+            uint32_t xx;
+
+            if (palette_index >= palette_count) {
+                return -EINVAL;
+            }
+            color = palette[palette_index];
+            for (xx = 0; xx < scale; ++xx) {
+                dst0[x * scale + xx] = color;
+            }
+        }
+        for (yy = 1; yy < scale; ++yy) {
+            void *dst = (char *)fb->pixels +
+                        ((size_t)(dst_y + y * scale + yy) * fb->stride) +
+                        ((size_t)dst_x * sizeof(uint32_t));
+
+            memcpy(dst, dst0, scaled_row_bytes);
+        }
+    }
+    return 0;
+}
+
+static int video_decode_pal8_rle_frame(uint8_t *indices,
+                                       size_t indices_size,
+                                       const uint8_t *payload,
+                                       uint32_t payload_bytes,
+                                       const struct video_stream_manifest *manifest) {
+    uint32_t source_offset = 0;
+    uint32_t y;
+
+    if (indices == NULL || payload == NULL || manifest == NULL ||
+        indices_size < (uint64_t)manifest->width * manifest->height) {
+        return -EINVAL;
+    }
+    for (y = 0; y < manifest->height; ++y) {
+        uint32_t row_pixels = 0;
+        uint32_t row_base = y * manifest->width;
+
+        while (row_pixels < manifest->width) {
+            uint8_t run_length;
+            uint8_t palette_index;
+
+            if (source_offset + 2U > payload_bytes) {
+                return -EINVAL;
+            }
+            run_length = payload[source_offset++];
+            palette_index = payload[source_offset++];
+            if (run_length == 0 || row_pixels + run_length > manifest->width) {
+                return -EINVAL;
+            }
+            memset(indices + row_base + row_pixels, palette_index, run_length);
+            row_pixels += run_length;
+        }
+    }
+    return source_offset == payload_bytes ? 0 : -EINVAL;
+}
+
+static int video_render_pal8_player_hud_region(struct a90_fb *fb,
+                                               uint8_t *indices,
+                                               size_t indices_size,
+                                               const uint8_t *payload,
+                                               uint32_t payload_bytes,
+                                               uint32_t mode,
+                                               const struct video_stream_manifest *manifest,
+                                               const uint32_t *palette,
+                                               uint32_t palette_count,
+                                               uint32_t dst_x,
+                                               uint32_t dst_y,
+                                               uint32_t scale) {
+    uint64_t required_indices;
+
+    if (indices == NULL || payload == NULL || manifest == NULL) {
+        return -EINVAL;
+    }
+    required_indices = (uint64_t)manifest->width * manifest->height;
+    if (required_indices == 0 || required_indices > indices_size) {
+        return -EINVAL;
+    }
+    if (mode == VIDEO_STREAM_PAL8_RAW_MODE) {
+        if (payload_bytes != required_indices) {
+            return -EINVAL;
+        }
+        memcpy(indices, payload, (size_t)required_indices);
+    } else if (mode == VIDEO_STREAM_PAL8_RLE_MODE) {
+        int rc = video_decode_pal8_rle_frame(indices,
+                                             indices_size,
+                                             payload,
+                                             payload_bytes,
+                                             manifest);
+
+        if (rc < 0) {
+            return rc;
+        }
+    } else {
+        return -EINVAL;
+    }
+    return video_expand_pal8_indices_scaled(fb,
+                                            indices,
+                                            manifest,
+                                            palette,
+                                            palette_count,
+                                            dst_x,
+                                            dst_y,
+                                            scale);
+}
+
 static void video_format_time_mmss(uint64_t ms, char *out, size_t out_size) {
     uint64_t seconds;
 
@@ -1228,6 +1432,12 @@ static bool video_badapple_beat_flash_active(uint64_t audio_ms, uint32_t *neares
 static int video_render_player_hud(struct a90_fb *fb,
                                    const uint8_t *frame_buffer,
                                    const struct video_stream_manifest *manifest,
+                                   uint32_t payload_bytes,
+                                   uint32_t frame_mode,
+                                   uint8_t *decode_buffer,
+                                   size_t decode_buffer_size,
+                                   const uint32_t *palette,
+                                   uint32_t palette_count,
                                    uint32_t frame_index,
                                    uint32_t total_frames,
                                    uint64_t frame_deadline_ns,
@@ -1253,6 +1463,8 @@ static int video_render_player_hud(struct a90_fb *fb,
     bool delta_valid = false;
     bool beat_flash_active = false;
     uint32_t nearest_beat_ms = 0;
+    bool is_pal8 = manifest != NULL && manifest->pixel_format == VIDEO_STREAM_PIXEL_FORMAT_PAL8_RLE;
+    bool beat_flash_enabled = manifest != NULL && manifest->pixel_format == VIDEO_STREAM_PIXEL_FORMAT_MONO1;
     uint32_t lamp_color;
     uint32_t border_color;
     char pos[16];
@@ -1263,7 +1475,8 @@ static int video_render_player_hud(struct a90_fb *fb,
     bool storage_repaint = false;
 
     if (fb == NULL || frame_buffer == NULL || manifest == NULL ||
-        manifest->pixel_format != VIDEO_STREAM_PIXEL_FORMAT_MONO1 ||
+        (manifest->pixel_format != VIDEO_STREAM_PIXEL_FORMAT_MONO1 &&
+         manifest->pixel_format != VIDEO_STREAM_PIXEL_FORMAT_PAL8_RLE) ||
         manifest->width == 0 || manifest->height == 0) {
         return -EINVAL;
     }
@@ -1302,7 +1515,9 @@ static int video_render_player_hud(struct a90_fb *fb,
         audio_ms = (frame_deadline_ns - audio_sync->corrected_anchor_ns) / 1000000ULL;
         delta_ms = (int64_t)audio_ms - (int64_t)pos_ms;
         delta_valid = true;
-        beat_flash_active = video_badapple_beat_flash_active(audio_ms, &nearest_beat_ms);
+        if (beat_flash_enabled) {
+            beat_flash_active = video_badapple_beat_flash_active(audio_ms, &nearest_beat_ms);
+        }
     }
     lamp_color = video_sync_lamp_color(delta_ms, delta_valid);
     border_color = beat_flash_active ? 0xFFFFFF : lamp_color;
@@ -1318,17 +1533,35 @@ static int video_render_player_hud(struct a90_fb *fb,
     }
     ++render_session_frames;
     if (full_repaint) {
-        a90_draw_text(fb, 48, 16, "DEMO / BAD APPLE", 0x66DDFF, scale);
+        a90_draw_text(fb, 48, 16, is_pal8 ? "DEMO / NYAN CAT" : "DEMO / BAD APPLE", 0x66DDFF, scale);
         a90_draw_text(fb, fb->width - 300U, 16, "A90 PLAYER HUD", 0xBBBBBB, scale);
     }
     a90_draw_rect_outline(fb, video_x - 4U, video_y - 4U, video_w + 8U, video_h + 8U, 4U, border_color);
-    if (video_expand_mono1_frame_scaled(fb,
-                                        frame_buffer,
-                                        manifest,
-                                        video_x,
-                                        video_y,
-                                        VIDEO_PLAYER_HUD_SCALE) < 0) {
-        return -EINVAL;
+    if (is_pal8) {
+        if (video_render_pal8_player_hud_region(fb,
+                                                decode_buffer,
+                                                decode_buffer_size,
+                                                frame_buffer,
+                                                payload_bytes,
+                                                frame_mode,
+                                                manifest,
+                                                palette,
+                                                palette_count,
+                                                video_x,
+                                                video_y,
+                                                VIDEO_PLAYER_HUD_SCALE) < 0) {
+            return -EINVAL;
+        }
+    } else {
+        if (payload_bytes != manifest->frame_bytes ||
+            video_expand_mono1_frame_scaled(fb,
+                                            frame_buffer,
+                                            manifest,
+                                            video_x,
+                                            video_y,
+                                            VIDEO_PLAYER_HUD_SCALE) < 0) {
+            return -EINVAL;
+        }
     }
 
     progress_w = fb->width > 120U ? fb->width - 120U : fb->width;
@@ -1376,8 +1609,8 @@ static int video_render_player_hud(struct a90_fb *fb,
         a90_draw_text_fit(fb, 72, panel_y + 164U, line, 0xAAAAAA, scale, fb->width - 144U);
     }
     snprintf(line, sizeof(line), "BEAT FLASH %s  audio-clock onsets=%u nearest=%ums",
-             beat_flash_active ? "PULSE" : (delta_valid ? "armed" : "waiting"),
-             A90_BADAPPLE_BEAT_COUNT,
+             beat_flash_enabled ? (beat_flash_active ? "PULSE" : (delta_valid ? "armed" : "waiting")) : "off",
+             beat_flash_enabled ? A90_BADAPPLE_BEAT_COUNT : 0,
              nearest_beat_ms);
     a90_draw_text(fb, 72, panel_y + 200U, line, border_color, scale);
     return 0;
@@ -1441,6 +1674,30 @@ static int video_validate_stream_header(const struct video_stream_manifest *mani
     return 0;
 }
 
+static int video_validate_stream_header_v2(const struct video_stream_manifest *manifest,
+                                           const struct video_stream_header_v2 *header) {
+    if (manifest == NULL || header == NULL ||
+        memcmp(header->magic, "A90VSTR2", 8) != 0 ||
+        header->version != VIDEO_STREAM_VERSION_A90VSTR2 ||
+        manifest->stream_version != VIDEO_STREAM_VERSION_A90VSTR2 ||
+        manifest->pixel_format != VIDEO_STREAM_PIXEL_FORMAT_PAL8_RLE ||
+        header->width != manifest->width ||
+        header->height != manifest->height ||
+        header->fps_num != manifest->fps_num ||
+        header->fps_den != manifest->fps_den ||
+        header->frame_count != manifest->frame_count ||
+        header->palette_count != manifest->palette_count ||
+        header->max_payload_bytes != manifest->max_payload_bytes ||
+        header->flags != 0 ||
+        header->palette_count == 0 ||
+        header->palette_count > VIDEO_STREAM_PAL8_MAX_COLORS ||
+        header->max_payload_bytes == 0 ||
+        header->max_payload_bytes > VIDEO_STREAM_MAX_FRAME_BYTES) {
+        return -EINVAL;
+    }
+    return 0;
+}
+
 static bool video_sha256_equal_fold(const char *actual, const char *expected) {
     size_t index;
 
@@ -1483,6 +1740,9 @@ static bool video_cache_manifest_path_for_sha(const char *sha256, char *out, siz
 
 static uint64_t video_stream_expected_total_bytes(const struct video_stream_manifest *manifest) {
     if (manifest == NULL) {
+        return 0;
+    }
+    if (manifest->stream_version == VIDEO_STREAM_VERSION_A90VSTR2) {
         return 0;
     }
     return (uint64_t)sizeof(struct video_stream_header_v1) +
@@ -1742,7 +2002,9 @@ static int video_stream_play(const struct video_stream_manifest *manifest,
                              enum video_stream_present_mode present_mode,
                              enum video_stream_layout layout,
                              struct video_audio_sync_state *audio_sync) {
-    struct video_stream_header_v1 header;
+    struct video_stream_header_v1 header_v1;
+    struct video_stream_header_v2 header_v2;
+    uint32_t palette[VIDEO_STREAM_PAL8_MAX_COLORS];
     uint32_t limit_frames = requested_frames > 0 && requested_frames < manifest->frame_count ?
                             requested_frames : manifest->frame_count;
     uint64_t interval_ns = video_frame_interval_ns(manifest->fps_num, manifest->fps_den);
@@ -1767,6 +2029,7 @@ static int video_stream_play(const struct video_stream_manifest *manifest,
     bool drop_late_frames = false;
     struct a90_kms_flip_result last_flip;
     uint8_t *frame_buffer = NULL;
+    uint8_t *decode_buffer = NULL;
     uint32_t frame_index;
     int fd;
     int rc;
@@ -1780,11 +2043,27 @@ static int video_stream_play(const struct video_stream_manifest *manifest,
         a90_console_printf("video.stream.error=stream-open-failed\r\n");
         return negative_errno_or(ENOENT);
     }
-    rc = video_read_exact_fd(fd, &header, sizeof(header));
-    if (rc < 0 || video_validate_stream_header(manifest, &header) < 0) {
-        close(fd);
-        a90_console_printf("video.stream.error=stream-header-invalid\r\n");
-        return rc < 0 ? rc : -EINVAL;
+    memset(palette, 0, sizeof(palette));
+    if (manifest->stream_version == VIDEO_STREAM_VERSION_A90VSTR2) {
+        rc = video_read_exact_fd(fd, &header_v2, sizeof(header_v2));
+        if (rc < 0 || video_validate_stream_header_v2(manifest, &header_v2) < 0) {
+            close(fd);
+            a90_console_printf("video.stream.error=stream-header-invalid\r\n");
+            return rc < 0 ? rc : -EINVAL;
+        }
+        rc = video_read_exact_fd(fd, palette, (size_t)manifest->palette_count * sizeof(palette[0]));
+        if (rc < 0) {
+            close(fd);
+            a90_console_printf("video.stream.error=stream-palette-invalid\r\n");
+            return rc;
+        }
+    } else {
+        rc = video_read_exact_fd(fd, &header_v1, sizeof(header_v1));
+        if (rc < 0 || video_validate_stream_header(manifest, &header_v1) < 0) {
+            close(fd);
+            a90_console_printf("video.stream.error=stream-header-invalid\r\n");
+            return rc < 0 ? rc : -EINVAL;
+        }
     }
 
     if (a90_kms_begin_frame_no_clear() < 0) {
@@ -1817,7 +2096,8 @@ static int video_stream_play(const struct video_stream_manifest *manifest,
                 return -EINVAL;
             }
         } else {
-            if (manifest->pixel_format != VIDEO_STREAM_PIXEL_FORMAT_MONO1 ||
+            if ((manifest->pixel_format != VIDEO_STREAM_PIXEL_FORMAT_MONO1 &&
+                 manifest->pixel_format != VIDEO_STREAM_PIXEL_FORMAT_PAL8_RLE) ||
                 manifest->width * VIDEO_PLAYER_HUD_SCALE > fb->width ||
                 manifest->height * VIDEO_PLAYER_HUD_SCALE + 360U > fb->height) {
                 close(fd);
@@ -1836,8 +2116,31 @@ static int video_stream_play(const struct video_stream_manifest *manifest,
             return -ENOMEM;
         }
     }
+    if (manifest->pixel_format == VIDEO_STREAM_PIXEL_FORMAT_PAL8_RLE) {
+        uint64_t required_indices = (uint64_t)manifest->width * manifest->height;
+
+        if (layout != VIDEO_STREAM_LAYOUT_PLAYER_HUD ||
+            required_indices == 0 || required_indices > VIDEO_STREAM_MAX_FRAME_BYTES) {
+            free(frame_buffer);
+            close(fd);
+            a90_console_printf("video.stream.error=pal8-rle-layout-unsupported\r\n");
+            return -EINVAL;
+        }
+        if (frame_buffer == NULL) {
+            frame_buffer = (uint8_t *)malloc(manifest->max_payload_bytes);
+        }
+        decode_buffer = (uint8_t *)malloc((size_t)required_indices);
+        if (frame_buffer == NULL || decode_buffer == NULL) {
+            free(decode_buffer);
+            free(frame_buffer);
+            close(fd);
+            a90_console_printf("video.stream.error=frame-buffer-alloc-failed\r\n");
+            return -ENOMEM;
+        }
+    }
     if (present_mode == VIDEO_STREAM_PRESENT_PAGEFLIP &&
         a90_kms_present("videostreamprime", false) < 0) {
+        free(decode_buffer);
         free(frame_buffer);
         close(fd);
         return negative_errno_or(EIO);
@@ -1849,6 +2152,7 @@ static int video_stream_play(const struct video_stream_manifest *manifest,
         a90_console_printf("video.stream.audio_sync.wait_ms=%u\r\n", audio_sync->wait_ms);
         rc = video_audio_sync_wait_ready(audio_sync);
         if (rc < 0) {
+            free(decode_buffer);
             free(frame_buffer);
             close(fd);
             return rc;
@@ -1868,28 +2172,51 @@ static int video_stream_play(const struct video_stream_manifest *manifest,
     }
     for (frame_index = 0; frame_index < limit_frames; ++frame_index) {
         struct video_stream_frame_record_v1 record;
+        struct video_stream_frame_record_v2 record_v2;
         struct a90_fb *fb;
+        uint32_t record_payload_bytes;
+        uint32_t record_mode = 0;
         uint64_t deadline_ns = started_ns + ((uint64_t)frame_index * interval_ns);
         uint64_t before_wait_ns;
         uint64_t after_present_ns;
         enum a90_cancel_kind cancel;
 
-        rc = video_read_exact_fd(fd, &record, sizeof(record));
-        if (rc < 0) {
-            break;
-        }
-        if (record.index != frame_index || record.payload_bytes != manifest->frame_bytes) {
-            a90_console_printf("video.stream.error=frame-record-invalid index=%u payload=%u\r\n",
-                               record.index, record.payload_bytes);
-            rc = -EINVAL;
-            break;
+        if (manifest->stream_version == VIDEO_STREAM_VERSION_A90VSTR2) {
+            rc = video_read_exact_fd(fd, &record_v2, sizeof(record_v2));
+            if (rc < 0) {
+                break;
+            }
+            if (record_v2.index != frame_index ||
+                record_v2.payload_bytes == 0 ||
+                record_v2.payload_bytes > manifest->max_payload_bytes ||
+                (record_v2.mode != VIDEO_STREAM_PAL8_RAW_MODE &&
+                 record_v2.mode != VIDEO_STREAM_PAL8_RLE_MODE)) {
+                a90_console_printf("video.stream.error=frame-record-invalid index=%u payload=%u\r\n",
+                                   record_v2.index, record_v2.payload_bytes);
+                rc = -EINVAL;
+                break;
+            }
+            record_payload_bytes = record_v2.payload_bytes;
+            record_mode = record_v2.mode;
+        } else {
+            rc = video_read_exact_fd(fd, &record, sizeof(record));
+            if (rc < 0) {
+                break;
+            }
+            if (record.index != frame_index || record.payload_bytes != manifest->frame_bytes) {
+                a90_console_printf("video.stream.error=frame-record-invalid index=%u payload=%u\r\n",
+                                   record.index, record.payload_bytes);
+                rc = -EINVAL;
+                break;
+            }
+            record_payload_bytes = record.payload_bytes;
         }
         before_wait_ns = video_monotonic_ns();
         if (drop_late_frames && frame_index + 1U < limit_frames && before_wait_ns > deadline_ns) {
             uint64_t late_ns = before_wait_ns - deadline_ns;
 
             if (late_ns > interval_ns) {
-                rc = video_skip_exact_fd(fd, record.payload_bytes);
+                rc = video_skip_exact_fd(fd, record_payload_bytes);
                 if (rc < 0) {
                     break;
                 }
@@ -1899,6 +2226,7 @@ static int video_stream_play(const struct video_stream_manifest *manifest,
                 ++dropped_frames;
                 cancel = a90_console_poll_cancel(0);
                 if (cancel != CANCEL_NONE) {
+                    free(decode_buffer);
                     free(frame_buffer);
                     close(fd);
                     a90_console_printf("video.stream.presented=%u\r\n", presented_frames);
@@ -1918,18 +2246,24 @@ static int video_stream_play(const struct video_stream_manifest *manifest,
             break;
         }
         if (layout == VIDEO_STREAM_LAYOUT_PLAYER_HUD) {
-            rc = video_read_exact_fd(fd, frame_buffer, record.payload_bytes);
+            rc = video_read_exact_fd(fd, frame_buffer, record_payload_bytes);
             if (rc == 0) {
                 rc = video_render_player_hud(fb,
                                              frame_buffer,
                                              manifest,
+                                             record_payload_bytes,
+                                             record_mode,
+                                             decode_buffer,
+                                             (size_t)manifest->width * manifest->height,
+                                             palette,
+                                             manifest->palette_count,
                                              frame_index,
                                              manifest->frame_count,
                                              deadline_ns,
                                              audio_sync);
             }
         } else {
-            rc = video_read_frame_payload(fd, fb, frame_buffer, manifest, record.payload_bytes);
+            rc = video_read_frame_payload(fd, fb, frame_buffer, manifest, record_payload_bytes);
         }
         if (rc < 0) {
             break;
@@ -1937,7 +2271,8 @@ static int video_stream_play(const struct video_stream_manifest *manifest,
         if (layout == VIDEO_STREAM_LAYOUT_PLAYER_HUD &&
             audio_sync != NULL && audio_sync->ready &&
             audio_sync->corrected_anchor_ns > 0 &&
-            deadline_ns >= audio_sync->corrected_anchor_ns) {
+            deadline_ns >= audio_sync->corrected_anchor_ns &&
+            manifest->pixel_format == VIDEO_STREAM_PIXEL_FORMAT_MONO1) {
             uint64_t frame_audio_ms = (deadline_ns - audio_sync->corrected_anchor_ns) / 1000000ULL;
 
             if (video_badapple_beat_flash_active(frame_audio_ms, NULL)) {
@@ -1951,6 +2286,7 @@ static int video_stream_play(const struct video_stream_manifest *manifest,
         before_wait_ns = video_monotonic_ns();
         rc = video_wait_until_ns(deadline_ns);
         if (rc < 0) {
+            free(decode_buffer);
             free(frame_buffer);
             close(fd);
             a90_console_printf("video.stream.presented=%u\r\n", presented_frames);
@@ -1987,7 +2323,7 @@ static int video_stream_play(const struct video_stream_manifest *manifest,
                 break;
             }
         }
-        total_bytes += record.payload_bytes;
+        total_bytes += record_payload_bytes;
         if (first_presented_frame == UINT32_MAX) {
             first_presented_frame = frame_index;
         }
@@ -2003,6 +2339,7 @@ static int video_stream_play(const struct video_stream_manifest *manifest,
         }
         cancel = a90_console_poll_cancel(0);
         if (cancel != CANCEL_NONE) {
+            free(decode_buffer);
             free(frame_buffer);
             close(fd);
             a90_console_printf("video.stream.presented=%u\r\n", presented_frames);
@@ -2011,6 +2348,7 @@ static int video_stream_play(const struct video_stream_manifest *manifest,
         }
     }
     finished_ns = video_monotonic_ns();
+    free(decode_buffer);
     free(frame_buffer);
     close(fd);
     if (rc < 0) {
@@ -2035,11 +2373,17 @@ static int video_stream_play(const struct video_stream_manifest *manifest,
         a90_console_printf("video.stream.present_mode=%s\r\n", video_stream_present_mode_name(present_mode));
         a90_console_printf("video.stream.layout=%s\r\n", video_stream_layout_name(layout));
         if (layout == VIDEO_STREAM_LAYOUT_PLAYER_HUD) {
-            a90_console_printf("video.stream.beat_flash.enabled=1\r\n");
-            a90_console_printf("video.stream.beat_flash.source=%s\r\n", A90_BADAPPLE_BEAT_SOURCE_ID);
-            a90_console_printf("video.stream.beat_flash.audio_sha256=%s\r\n", A90_BADAPPLE_BEAT_AUDIO_SHA256);
-            a90_console_printf("video.stream.beat_flash.table_count=%u\r\n", A90_BADAPPLE_BEAT_COUNT);
-            a90_console_printf("video.stream.beat_flash.window_ms=%u\r\n", A90_BADAPPLE_BEAT_WINDOW_MS);
+            bool beat_enabled = manifest->pixel_format == VIDEO_STREAM_PIXEL_FORMAT_MONO1;
+
+            a90_console_printf("video.stream.beat_flash.enabled=%d\r\n", beat_enabled ? 1 : 0);
+            a90_console_printf("video.stream.beat_flash.source=%s\r\n",
+                               beat_enabled ? A90_BADAPPLE_BEAT_SOURCE_ID : "none");
+            a90_console_printf("video.stream.beat_flash.audio_sha256=%s\r\n",
+                               beat_enabled ? A90_BADAPPLE_BEAT_AUDIO_SHA256 : "none");
+            a90_console_printf("video.stream.beat_flash.table_count=%u\r\n",
+                               beat_enabled ? A90_BADAPPLE_BEAT_COUNT : 0);
+            a90_console_printf("video.stream.beat_flash.window_ms=%u\r\n",
+                               beat_enabled ? A90_BADAPPLE_BEAT_WINDOW_MS : 0);
             a90_console_printf("video.stream.beat_flash.active_frames=%u\r\n", beat_flash_active_frames);
             a90_console_printf("video.stream.beat_flash.first_frame=%u\r\n",
                                beat_flash_first_frame == UINT32_MAX ? 0 : beat_flash_first_frame);
