@@ -98,6 +98,8 @@
 #define AUDIO_BADAPPLE_LEGACY_FULL_PCM_PATH "/cache/a90-runtime/pkg/av/v2920/audio/badapple.s16le"
 #define AUDIO_BADAPPLE_FULL_PCM_DURATION_CAP_MS 240000
 #define AUDIO_BADAPPLE_FULL_PCM_EXPECTED_SHA256 "b96d2e0bc4bb6b0ada0da6e63e40168115e3818d72c386dd8764162e85238a75"
+#define AUDIO_PCM_GAIN_MILLI_DEFAULT 1000
+#define AUDIO_PCM_GAIN_MILLI_MAX 1000
 
 struct audio_ion_allocation_data {
     uint64_t len;
@@ -2152,6 +2154,28 @@ static void audio_pcm_fill_tone(int16_t *buffer,
     }
 }
 
+static void audio_pcm_apply_gain(int16_t *buffer,
+                                 size_t sample_count,
+                                 int pcm_gain_milli) {
+    size_t index;
+
+    if (buffer == NULL || sample_count == 0 || pcm_gain_milli >= AUDIO_PCM_GAIN_MILLI_DEFAULT) {
+        return;
+    }
+    if (pcm_gain_milli < 0) {
+        pcm_gain_milli = 0;
+    }
+    for (index = 0; index < sample_count; ++index) {
+        int scaled = ((int)buffer[index] * pcm_gain_milli) / 1000;
+        if (scaled > 32767) {
+            scaled = 32767;
+        } else if (scaled < -32768) {
+            scaled = -32768;
+        }
+        buffer[index] = (int16_t)scaled;
+    }
+}
+
 static int audio_pcm_write_frames(int fd,
                                   const int16_t *buffer,
                                   int frames) {
@@ -2250,6 +2274,7 @@ static int audio_pcm_file_open_validated(const struct audio_speaker_profile *pro
                                          const char *pcm_file_path,
                                          long long expected_bytes,
                                          int amplitude_milli,
+                                         int pcm_gain_milli,
                                          int *out_fd) {
     struct stat st;
     unsigned char scan_buffer[4096];
@@ -2257,6 +2282,7 @@ static int audio_pcm_file_open_validated(const struct audio_speaker_profile *pro
     int fd;
     int peak_abs = 0;
     int peak_limit;
+    int scaled_peak_abs;
     bool path_allowed;
     int rc = 0;
 
@@ -2302,6 +2328,11 @@ static int audio_pcm_file_open_validated(const struct audio_speaker_profile *pro
     }
 
     peak_limit = audio_pcm_peak_limit(amplitude_milli);
+    if (pcm_gain_milli < 0 || pcm_gain_milli > AUDIO_PCM_GAIN_MILLI_MAX) {
+        a90_console_printf("audio.play.pcm_file.error=bad-pcm-gain\r\n");
+        close(fd);
+        return -EINVAL;
+    }
     remaining = expected_bytes;
     while (remaining > 0) {
         size_t want = remaining > (long long)sizeof(scan_buffer) ? sizeof(scan_buffer) : (size_t)remaining;
@@ -2334,10 +2365,13 @@ static int audio_pcm_file_open_validated(const struct audio_speaker_profile *pro
         remaining -= (long long)want;
     }
 
+    scaled_peak_abs = (int)(((long long)peak_abs * (long long)pcm_gain_milli + 999LL) / 1000LL);
     a90_console_printf("audio.play.pcm_file.peak_abs=%d\r\n", peak_abs);
+    a90_console_printf("audio.play.pcm_file.pcm_gain_milli=%d\r\n", pcm_gain_milli);
+    a90_console_printf("audio.play.pcm_file.scaled_peak_abs=%d\r\n", scaled_peak_abs);
     a90_console_printf("audio.play.pcm_file.peak_limit=%d\r\n", peak_limit);
-    a90_console_printf("audio.play.pcm_file.amplitude_within_cap=%d\r\n", peak_abs <= peak_limit ? 1 : 0);
-    if (peak_abs > peak_limit) {
+    a90_console_printf("audio.play.pcm_file.amplitude_within_cap=%d\r\n", scaled_peak_abs <= peak_limit ? 1 : 0);
+    if (scaled_peak_abs > peak_limit) {
         a90_console_printf("audio.play.pcm_file.error=amplitude-cap-exceeded\r\n");
         close(fd);
         return -EPERM;
@@ -2357,7 +2391,8 @@ static int audio_play_execute_pcm(const struct audio_speaker_profile *profile,
                                   const char *mode,
                                   int amplitude_milli,
                                   int duration_ms,
-                                  const char *pcm_file_path) {
+                                  const char *pcm_file_path,
+                                  int pcm_gain_milli) {
     char pcm_path[64];
     int16_t *buffer;
     int source_fd = -1;
@@ -2390,6 +2425,7 @@ static int audio_play_execute_pcm(const struct audio_speaker_profile *profile,
     a90_console_printf("audio.play.execute.profile=%s\r\n", profile->id);
     a90_console_printf("audio.play.execute.mode=%s\r\n", mode);
     a90_console_printf("audio.play.execute.source=%s\r\n", use_pcm_file ? "pcm-file" : "tone");
+    a90_console_printf("audio.play.execute.pcm_gain_milli=%d\r\n", pcm_gain_milli);
     a90_console_printf("audio.play.execute.pcm_path=%s\r\n", pcm_path);
     a90_console_printf("audio.play.execute.tone_hz=%d\r\n", use_pcm_file ? 0 : AUDIO_PCM_TONE_HZ);
     a90_console_printf("audio.play.execute.sample_rate=%d\r\n", profile->sample_rate);
@@ -2413,6 +2449,7 @@ static int audio_play_execute_pcm(const struct audio_speaker_profile *profile,
                                            pcm_file_path,
                                            (long long)total_frames * (long long)frame_bytes,
                                            amplitude_milli,
+                                           pcm_gain_milli,
                                            &source_fd);
         if (rc < 0) {
             free(buffer);
@@ -2495,6 +2532,7 @@ static int audio_play_execute_pcm(const struct audio_speaker_profile *profile,
                 free(buffer);
                 return rc;
             }
+            audio_pcm_apply_gain(buffer, (size_t)frames_this_chunk * (size_t)profile->channels, pcm_gain_milli);
         } else {
             audio_pcm_fill_tone(buffer, frames_this_chunk, profile, amplitude_milli, frames_done);
         }
@@ -2565,7 +2603,8 @@ static void audio_play_print_execute_plan(const struct audio_speaker_profile *pr
                                           const char *mode,
                                           int amplitude_milli,
                                           int duration_ms,
-                                          const char *pcm_file_path) {
+                                          const char *pcm_file_path,
+                                          int pcm_gain_milli) {
     long long frame_bytes = audio_play_frame_bytes(profile);
     long long data_bytes = audio_play_data_bytes(profile, duration_ms);
     long long period_bytes = frame_bytes * AUDIO_PCM_PERIOD_SIZE;
@@ -2592,6 +2631,7 @@ static void audio_play_print_execute_plan(const struct audio_speaker_profile *pr
     a90_console_printf("audio.play.execute.plan.data_bytes=%lld\r\n", data_bytes);
     a90_console_printf("audio.play.execute.plan.chunks=%lld\r\n", chunks);
     a90_console_printf("audio.play.execute.plan.amplitude_milli=%d\r\n", amplitude_milli);
+    a90_console_printf("audio.play.execute.plan.pcm_gain_milli=%d\r\n", pcm_gain_milli);
     a90_console_printf("audio.play.execute.plan.duration_ms=%d\r\n", duration_ms);
     a90_console_printf("audio.play.execute.plan.waveform=%s\r\n",
                        use_pcm_file ? "s16le-stereo-bounded-file" : "s16le-stereo-bounded-tone");
@@ -2640,7 +2680,8 @@ static void audio_play_async_reset_status(const struct audio_speaker_profile *pr
                                           int amplitude_milli,
                                           int duration_ms,
                                           const char *manifest_path,
-                                          const char *pcm_file_path) {
+                                          const char *pcm_file_path,
+                                          int pcm_gain_milli) {
     (void)ensure_dir(AUDIO_PLAY_ASYNC_DIR, 0700);
     (void)unlink(AUDIO_PLAY_ASYNC_STATUS_PATH);
     (void)unlink(AUDIO_PLAY_ASYNC_LOG_PATH);
@@ -2648,6 +2689,7 @@ static void audio_play_async_reset_status(const struct audio_speaker_profile *pr
     audio_play_async_statusf("audio.play.worker.profile=%s\n", profile != NULL ? profile->id : "-");
     audio_play_async_statusf("audio.play.worker.mode=%s\n", mode != NULL ? mode : "-");
     audio_play_async_statusf("audio.play.worker.amplitude_milli=%d\n", amplitude_milli);
+    audio_play_async_statusf("audio.play.worker.pcm_gain_milli=%d\n", pcm_gain_milli);
     audio_play_async_statusf("audio.play.worker.duration_ms=%d\n", duration_ms);
     audio_play_async_statusf("audio.play.worker.manifest=%s\n",
                              manifest_path != NULL ? manifest_path : "-");
@@ -2881,6 +2923,7 @@ static int audio_play_execute_integrated(const struct audio_speaker_profile *pro
                                          int duration_ms,
                                          const char *manifest_path,
                                          const char *pcm_file_path,
+                                         int pcm_gain_milli,
                                          bool adsp_prebooted) {
     struct audio_setcal_execute_session setcal_session;
     bool setcal_started = false;
@@ -2898,6 +2941,7 @@ static int audio_play_execute_integrated(const struct audio_speaker_profile *pro
     a90_console_printf("audio.play.integrated.manifest=%s\r\n", manifest_path);
     a90_console_printf("audio.play.integrated.pcm_file=%s\r\n",
                        pcm_file_path != NULL && pcm_file_path[0] != '\0' ? pcm_file_path : "-");
+    a90_console_printf("audio.play.integrated.pcm_gain_milli=%d\r\n", pcm_gain_milli);
     a90_console_printf("audio.play.integrated.adsp_prebooted=%d\r\n", adsp_prebooted ? 1 : 0);
     a90_console_printf("audio.play.integrated.sequence=adsp,snd,app_type,manifest_wait,setcal_hold,route_playback,pcm,route_playback_reset,setcal_deallocate\r\n");
     rc = audio_play_run_adsp_stage(profile, !adsp_prebooted);
@@ -2922,7 +2966,7 @@ static int audio_play_execute_integrated(const struct audio_speaker_profile *pro
     if (rc < 0) {
         goto done;
     }
-    rc = audio_play_execute_pcm(profile, mode, amplitude_milli, duration_ms, pcm_file_path);
+    rc = audio_play_execute_pcm(profile, mode, amplitude_milli, duration_ms, pcm_file_path, pcm_gain_milli);
 
 done:
     if (route_apply_attempted) {
@@ -2948,13 +2992,14 @@ static int audio_play_start_worker(const struct audio_speaker_profile *profile,
                                    int duration_ms,
                                    const char *manifest_path,
                                    const char *pcm_file_path,
+                                   int pcm_gain_milli,
                                    bool adsp_prebooted) {
     pid_t pid;
 
     if (manifest_path == NULL || manifest_path[0] == '\0') {
         manifest_path = AUDIO_SETCAL_DEFAULT_MANIFEST_PATH;
     }
-    audio_play_async_reset_status(profile, mode, amplitude_milli, duration_ms, manifest_path, pcm_file_path);
+    audio_play_async_reset_status(profile, mode, amplitude_milli, duration_ms, manifest_path, pcm_file_path, pcm_gain_milli);
     audio_play_async_statusf("audio.play.worker.adsp_prebooted=%d\n", adsp_prebooted ? 1 : 0);
     pid = fork();
     if (pid < 0) {
@@ -2980,6 +3025,7 @@ static int audio_play_start_worker(const struct audio_speaker_profile *profile,
                                            duration_ms,
                                            manifest_path,
                                            pcm_file_path,
+                                           pcm_gain_milli,
                                            adsp_prebooted);
         audio_play_async_statusf("audio.play.worker.done=1 rc=%d\n", rc);
         audio_play_async_statusf("audio.play.worker.exit_code=%d\n", rc == 0 ? 0 : 1);
@@ -2990,6 +3036,7 @@ static int audio_play_start_worker(const struct audio_speaker_profile *profile,
     a90_console_printf("audio.play.worker.started=1\r\n");
     a90_console_printf("audio.play.worker.pid=%ld\r\n", (long)pid);
     a90_console_printf("audio.play.worker.adsp_prebooted=%d\r\n", adsp_prebooted ? 1 : 0);
+    a90_console_printf("audio.play.worker.pcm_gain_milli=%d\r\n", pcm_gain_milli);
     a90_console_printf("audio.play.worker.status_path=%s\r\n", AUDIO_PLAY_ASYNC_STATUS_PATH);
     a90_console_printf("audio.play.worker.log_path=%s\r\n", AUDIO_PLAY_ASYNC_LOG_PATH);
     a90_console_printf("audio.play.worker.parent_returns=1\r\n");
@@ -3012,16 +3059,18 @@ static int audio_play_cmd(char **argv, int argc) {
     bool duration_override = false;
     int requested_amplitude_milli = 0;
     int requested_duration_ms = 0;
+    int requested_pcm_gain_milli = AUDIO_PCM_GAIN_MILLI_DEFAULT;
     int amplitude_milli = 0;
     int duration_ms = 0;
     int effective_duration_cap_ms = 0;
+    int pcm_gain_milli = AUDIO_PCM_GAIN_MILLI_DEFAULT;
     char pcm_path[64];
     bool pcm_node_ready;
     int argi;
 
     for (argi = 2; argi < argc; ++argi) {
         if (argv == NULL || argv[argi] == NULL) {
-            a90_console_printf("usage: audio play [profile] [--mode probe|listen] [--amplitude-milli N] [--duration-ms N] [--manifest PATH] [--pcm-file PATH] [--dry-run|--execute]\r\n");
+            a90_console_printf("usage: audio play [profile] [--mode probe|listen] [--amplitude-milli N] [--duration-ms N] [--manifest PATH] [--pcm-file PATH] [--pcm-gain-milli N] [--dry-run|--execute]\r\n");
             return -EINVAL;
         }
         if (strcmp(argv[argi], "--dry-run") == 0) {
@@ -3030,33 +3079,39 @@ static int audio_play_cmd(char **argv, int argc) {
             execute_mode = true;
         } else if (strcmp(argv[argi], "--mode") == 0) {
             if (argi + 1 >= argc || argv[argi + 1] == NULL) {
-                a90_console_printf("usage: audio play [profile] [--mode probe|listen] [--amplitude-milli N] [--duration-ms N] [--manifest PATH] [--pcm-file PATH] [--dry-run|--execute]\r\n");
+                a90_console_printf("usage: audio play [profile] [--mode probe|listen] [--amplitude-milli N] [--duration-ms N] [--manifest PATH] [--pcm-file PATH] [--pcm-gain-milli N] [--dry-run|--execute]\r\n");
                 return -EINVAL;
             }
             mode = argv[++argi];
         } else if (strcmp(argv[argi], "--amplitude-milli") == 0) {
             if (argi + 1 >= argc || !audio_parse_nonnegative_int(argv[argi + 1], &requested_amplitude_milli)) {
-                a90_console_printf("usage: audio play [profile] [--mode probe|listen] [--amplitude-milli N] [--duration-ms N] [--manifest PATH] [--pcm-file PATH] [--dry-run|--execute]\r\n");
+                a90_console_printf("usage: audio play [profile] [--mode probe|listen] [--amplitude-milli N] [--duration-ms N] [--manifest PATH] [--pcm-file PATH] [--pcm-gain-milli N] [--dry-run|--execute]\r\n");
                 return -EINVAL;
             }
             amplitude_override = true;
             ++argi;
         } else if (strcmp(argv[argi], "--duration-ms") == 0) {
             if (argi + 1 >= argc || !audio_parse_nonnegative_int(argv[argi + 1], &requested_duration_ms)) {
-                a90_console_printf("usage: audio play [profile] [--mode probe|listen] [--amplitude-milli N] [--duration-ms N] [--manifest PATH] [--pcm-file PATH] [--dry-run|--execute]\r\n");
+                a90_console_printf("usage: audio play [profile] [--mode probe|listen] [--amplitude-milli N] [--duration-ms N] [--manifest PATH] [--pcm-file PATH] [--pcm-gain-milli N] [--dry-run|--execute]\r\n");
                 return -EINVAL;
             }
             duration_override = true;
             ++argi;
+        } else if (strcmp(argv[argi], "--pcm-gain-milli") == 0) {
+            if (argi + 1 >= argc || !audio_parse_nonnegative_int(argv[argi + 1], &requested_pcm_gain_milli)) {
+                a90_console_printf("usage: audio play [profile] [--mode probe|listen] [--amplitude-milli N] [--duration-ms N] [--manifest PATH] [--pcm-file PATH] [--pcm-gain-milli N] [--dry-run|--execute]\r\n");
+                return -EINVAL;
+            }
+            ++argi;
         } else if (strcmp(argv[argi], "--manifest") == 0) {
             if (argi + 1 >= argc || argv[argi + 1] == NULL) {
-                a90_console_printf("usage: audio play [profile] [--mode probe|listen] [--amplitude-milli N] [--duration-ms N] [--manifest PATH] [--pcm-file PATH] [--dry-run|--execute]\r\n");
+                a90_console_printf("usage: audio play [profile] [--mode probe|listen] [--amplitude-milli N] [--duration-ms N] [--manifest PATH] [--pcm-file PATH] [--pcm-gain-milli N] [--dry-run|--execute]\r\n");
                 return -EINVAL;
             }
             manifest_path = argv[++argi];
         } else if (strcmp(argv[argi], "--pcm-file") == 0) {
             if (argi + 1 >= argc || argv[argi + 1] == NULL) {
-                a90_console_printf("usage: audio play [profile] [--mode probe|listen] [--amplitude-milli N] [--duration-ms N] [--manifest PATH] [--pcm-file PATH] [--dry-run|--execute]\r\n");
+                a90_console_printf("usage: audio play [profile] [--mode probe|listen] [--amplitude-milli N] [--duration-ms N] [--manifest PATH] [--pcm-file PATH] [--pcm-gain-milli N] [--dry-run|--execute]\r\n");
                 return -EINVAL;
             }
             pcm_file_path = argv[++argi];
@@ -3065,7 +3120,7 @@ static int audio_play_cmd(char **argv, int argc) {
             profile_id = argv[argi];
             seen_profile = true;
         } else {
-            a90_console_printf("usage: audio play [profile] [--mode probe|listen] [--amplitude-milli N] [--duration-ms N] [--manifest PATH] [--pcm-file PATH] [--dry-run|--execute]\r\n");
+            a90_console_printf("usage: audio play [profile] [--mode probe|listen] [--amplitude-milli N] [--duration-ms N] [--manifest PATH] [--pcm-file PATH] [--pcm-gain-milli N] [--dry-run|--execute]\r\n");
             return -EINVAL;
         }
     }
@@ -3102,6 +3157,7 @@ static int audio_play_cmd(char **argv, int argc) {
         duration_ms = requested_duration_ms;
         a90_console_printf("audio.play.duration_override=1\r\n");
     }
+    pcm_gain_milli = requested_pcm_gain_milli;
     effective_duration_cap_ms = audio_play_effective_duration_cap_ms(profile, pcm_file_path);
     a90_console_printf("audio.play.endpoint=%s\r\n", profile->endpoint);
     a90_console_printf("audio.play.card=%d\r\n", profile->card);
@@ -3112,6 +3168,8 @@ static int audio_play_cmd(char **argv, int argc) {
     a90_console_printf("audio.play.format=s16le\r\n");
     a90_console_printf("audio.play.amplitude_milli=%d\r\n", amplitude_milli);
     a90_console_printf("audio.play.duration_ms=%d\r\n", duration_ms);
+    a90_console_printf("audio.play.pcm_gain_milli=%d\r\n", pcm_gain_milli);
+    a90_console_printf("audio.play.pcm_gain.attenuation_only=1\r\n");
     a90_console_printf("audio.play.cap.amplitude_milli=%d\r\n", profile->amplitude_cap_milli);
     a90_console_printf("audio.play.cap.duration_ms=%d\r\n", profile->duration_cap_ms);
     a90_console_printf("audio.play.cap.effective_duration_ms=%d\r\n", effective_duration_cap_ms);
@@ -3135,6 +3193,10 @@ static int audio_play_cmd(char **argv, int argc) {
     a90_console_printf("audio.play.alsa_open_attempted=0\r\n");
     a90_console_printf("audio.play.ioctl_attempted=0\r\n");
     pcm_node_ready = audio_play_print_pcm_prereq(profile, pcm_path, sizeof(pcm_path));
+    if (pcm_gain_milli < 0 || pcm_gain_milli > AUDIO_PCM_GAIN_MILLI_MAX) {
+        a90_console_printf("audio.play.refused=pcm-gain-out-of-range\r\n");
+        return -EPERM;
+    }
     if (amplitude_milli > profile->amplitude_cap_milli || duration_ms > effective_duration_cap_ms) {
         a90_console_printf("audio.play.refused=safety-cap-exceeded\r\n");
         return -EPERM;
@@ -3146,7 +3208,7 @@ static int audio_play_cmd(char **argv, int argc) {
     if (execute_mode) {
         int prime_rc;
 
-        audio_play_print_execute_plan(profile, mode, amplitude_milli, duration_ms, pcm_file_path);
+        audio_play_print_execute_plan(profile, mode, amplitude_milli, duration_ms, pcm_file_path, pcm_gain_milli);
         a90_console_printf("audio.play.initial_pcm_node_ready=%d\r\n", pcm_node_ready ? 1 : 0);
         prime_rc = audio_play_kick_adsp_stage_no_wait(profile);
         if (prime_rc < 0) {
@@ -3154,7 +3216,7 @@ static int audio_play_cmd(char **argv, int argc) {
             return prime_rc;
         }
         a90_console_printf("audio.play.execute.async_worker=1\r\n");
-        return audio_play_start_worker(profile, mode, amplitude_milli, duration_ms, manifest_path, pcm_file_path, true);
+        return audio_play_start_worker(profile, mode, amplitude_milli, duration_ms, manifest_path, pcm_file_path, pcm_gain_milli, true);
     }
     a90_console_printf("audio.play.dry_run_ok=1\r\n");
     return 0;
@@ -4938,6 +5000,6 @@ int a90_audio_cmd(char **argv, int argc) {
     if (argc >= 2 && argv != NULL && argv[1] != NULL && strcmp(argv[1], "snd-materialize-once") == 0) {
         return audio_snd_materialize_once(argv, argc);
     }
-    a90_console_printf("usage: audio [adsp-status|status|profiles|profile [id]|speaker-map [id]|stages [id]|prereq [id]|app-type [profile] [--dry-run|--write]|setcal [profile] [--dry-run|--execute] [--manifest PATH --verify|--prepare|--load]|play [profile] [--mode probe|listen] [--amplitude-milli N] [--duration-ms N] [--manifest PATH] [--dry-run|--execute]|chime [--dry-run|--execute] [--amplitude-milli N] [--duration-ms N] [--manifest PATH]|play-status|stop [profile] [--dry-run|--execute]|route [profile] [--dry-run|--apply|--reset] [--layer all|core|feedback|endpoint|playback|blocked]|snd-status|adsp-boot-once|snd-materialize-once]\r\n");
+    a90_console_printf("usage: audio [adsp-status|status|profiles|profile [id]|speaker-map [id]|stages [id]|prereq [id]|app-type [profile] [--dry-run|--write]|setcal [profile] [--dry-run|--execute] [--manifest PATH --verify|--prepare|--load]|play [profile] [--mode probe|listen] [--amplitude-milli N] [--duration-ms N] [--manifest PATH] [--pcm-file PATH] [--pcm-gain-milli N] [--dry-run|--execute]|chime [--dry-run|--execute] [--amplitude-milli N] [--duration-ms N] [--manifest PATH]|play-status|stop [profile] [--dry-run|--execute]|route [profile] [--dry-run|--apply|--reset] [--layer all|core|feedback|endpoint|playback|blocked]|snd-status|adsp-boot-once|snd-materialize-once]\r\n");
     return -EINVAL;
 }
