@@ -52,6 +52,7 @@ class NativeDoomgenericLargeDashboardQuietSourceV3040Tests(unittest.TestCase):
         self.assertEqual(runner.v3038.ENGINE_RAMDISK_PATH, "bin/a90_doomgeneric_private_engine_v3040")
         self.assertEqual(runner.v3038.NATIVE_DASHBOARD, 1)
         self.assertEqual(runner.v3038.NATIVE_DASHBOARD_LARGE_FRAME, 1)
+        self.assertEqual(runner.v3038.LOOP_FRAME_MS, runner.LOOP_FRAME_MS)
         self.assertIs(runner.v3038.render_report, runner.render_report)
         self.assertEqual(runner.v3038.v3038_adapter_source(), runner.v3040_adapter_source())
 

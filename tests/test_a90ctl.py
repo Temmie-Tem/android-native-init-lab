@@ -138,7 +138,7 @@ class A90CtlProtocolHelperTests(unittest.TestCase):
         responses = ["", "A90P1 BEGIN seq=1 cmd=status\nbody\nA90P1 END seq=1 cmd=status rc=0 status=ok\n"]
         calls: list[str] = []
 
-        def fake_bridge(host, port, line, timeout, *, markers, require_prompt_after_end):
+        def fake_bridge(host, port, line, timeout, *, markers, require_prompt_after_end, post_marker_drain_sec):
             calls.append(line)
             return responses.pop(0)
 
@@ -148,6 +148,27 @@ class A90CtlProtocolHelperTests(unittest.TestCase):
 
         self.assertEqual(result.status, "ok")
         self.assertEqual(calls, ["cmdv1 status", "cmdv1 status"])
+
+    def test_run_cmdv1_command_can_skip_prompt_and_drain_for_fast_input(self) -> None:
+        calls: list[tuple[bool, float]] = []
+
+        def fake_bridge(host, port, line, timeout, *, markers, require_prompt_after_end, post_marker_drain_sec):
+            calls.append((require_prompt_after_end, post_marker_drain_sec))
+            return "A90P1 BEGIN seq=1 cmd=doompad\nA90P1 END seq=1 cmd=doompad rc=0 status=ok\n"
+
+        with mock.patch.object(a90ctl, "bridge_exchange", side_effect=fake_bridge):
+            result = a90ctl.run_cmdv1_command(
+                "127.0.0.1",
+                54321,
+                2.0,
+                ["doompad", "key", "fire", "1"],
+                retry_unsafe=True,
+                require_prompt_after_end=False,
+                post_marker_drain_sec=0.0,
+            )
+
+        self.assertEqual(result.status, "ok")
+        self.assertEqual(calls, [(False, 0.0)])
 
     def test_run_cmdv1_command_does_not_retry_unsafe_busy_response(self) -> None:
         with mock.patch.object(a90ctl, "bridge_exchange", return_value=a90ctl.BRIDGE_BUSY_TEXT) as bridge:

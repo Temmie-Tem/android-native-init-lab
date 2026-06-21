@@ -142,7 +142,8 @@ def read_until(sock: socket.socket,
                markers: tuple[bytes, ...],
                timeout_sec: float,
                *,
-               require_prompt_after_end: bool = False) -> bytes:
+               require_prompt_after_end: bool = False,
+               post_marker_drain_sec: float = 0.15) -> bytes:
     deadline = time.monotonic() + timeout_sec
     data = bytearray()
     while time.monotonic() < deadline:
@@ -156,11 +157,12 @@ def read_until(sock: socket.socket,
         if any(marker in data for marker in markers):
             if require_prompt_after_end and b"A90P1 END " in data and not has_prompt_after_last_end(data):
                 continue
-            time.sleep(0.15)
-            try:
-                data.extend(sock.recv(8192))
-            except socket.timeout:
-                pass
+            if post_marker_drain_sec > 0.0:
+                time.sleep(post_marker_drain_sec)
+                try:
+                    data.extend(sock.recv(8192))
+                except socket.timeout:
+                    pass
             break
     return bytes(data)
 
@@ -172,7 +174,8 @@ def bridge_exchange(host: str,
                     markers: tuple[bytes, ...],
                     *,
                     input_mode: str | None = None,
-                    require_prompt_after_end: bool = False) -> str:
+                    require_prompt_after_end: bool = False,
+                    post_marker_drain_sec: float = 0.15) -> str:
     deadline = time.monotonic() + timeout_sec
     wire_line = encode_wire_line(line, input_mode=input_mode)
     mode = input_mode or os.environ.get(INPUT_MODE_ENV, "normal")
@@ -197,6 +200,7 @@ def bridge_exchange(host: str,
                 markers,
                 max(0.1, deadline - time.monotonic()),
                 require_prompt_after_end=require_prompt_after_end,
+                post_marker_drain_sec=post_marker_drain_sec,
             )
     return data.decode("utf-8", errors="replace")
 
@@ -269,7 +273,9 @@ def run_cmdv1_command(host: str,
                       timeout_sec: float,
                       command: list[str],
                       *,
-                      retry_unsafe: bool = False) -> ProtocolResult:
+                      retry_unsafe: bool = False,
+                      require_prompt_after_end: bool = True,
+                      post_marker_drain_sec: float = 0.15) -> ProtocolResult:
     deadline = time.monotonic() + timeout_sec
     last_error: OSError | None = None
     last_text = ""
@@ -291,7 +297,8 @@ def run_cmdv1_command(host: str,
                 line,
                 remaining,
                 markers=markers,
-                require_prompt_after_end=True,
+                require_prompt_after_end=require_prompt_after_end,
+                post_marker_drain_sec=post_marker_drain_sec,
             )
         except OSError as exc:
             last_error = exc

@@ -84,6 +84,10 @@ def loop_start_command(frames: int, sha256: str) -> list[str]:
     ]
 
 
+def is_doompad_key_command(command: list[str]) -> bool:
+    return len(command) == 4 and command[0] == "doompad" and command[1] == "key"
+
+
 @dataclass
 class CommandSender:
     host: str
@@ -103,6 +107,8 @@ class CommandSender:
             self.timeout,
             command,
             retry_unsafe=True,
+            require_prompt_after_end=not is_doompad_key_command(command),
+            post_marker_drain_sec=0.0 if is_doompad_key_command(command) else 0.15,
         )
         return result.rc
 

@@ -123,6 +123,8 @@ class DashboardCommandSender:
                 self.timeout,
                 command,
                 retry_unsafe=True,
+                require_prompt_after_end=not keyboard.is_doompad_key_command(command),
+                post_marker_drain_sec=0.0 if keyboard.is_doompad_key_command(command) else 0.15,
             )
         except Exception as exc:  # pragma: no cover - exercised only against live serial bridge.
             self.state.command_failures += 1
