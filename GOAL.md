@@ -136,14 +136,14 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 >   confirmed `version`/`status`/`selftest`, validated `video demo doom status` and `video demo doom engine-probe`
 >   (`engine_probe.rc=0`, `timed_out=0`), then rolled back to V2321 with `selftest fail=0`. This proves the internal
 >   serial-doompad-to-`DG_GetKey` bridge on-device; OTG keyboard is not required for this proof path.
-> - **DOOM runtime-private WAD staging preflight DONE / ASSET NEEDED (V3027)** — host-only preflight pinned the runtime
->   staging contract (`/cache/a90-runtime/pkg/doom/v3024/DOOM1.WAD`, max `67108864` bytes, SHA verify before future
->   command, cleanup after smoke, no public/ramdisk/boot WAD bytes) and confirmed public WAD count `0`. The private
->   WAD root currently has `0` candidates, so WAD-backed DOOM is now blocked on exactly one private IWAD/WAD staged
->   under `workspace/private/demo-assets/doom/wads/`.
-> - **NEXT CHECKPOINT: private WAD asset needed** — once exactly one private WAD/IWAD exists and passes size/magic
->   checks, rerun V3027; the next code unit after that is host-only WAD-backed command implementation, not immediate
->   live gameplay.
+> - **DOOM runtime-private WAD staging preflight DONE / CONTRACT READY (V3027)** — host-only preflight pinned the
+>   runtime staging contract (`/cache/a90-runtime/pkg/doom/v3024/DOOM1.WAD`, max `67108864` bytes, SHA verify before
+>   future command, cleanup after smoke, no public/ramdisk/boot WAD bytes) and confirmed public WAD count `0`.
+>   Exactly one private IWAD/WAD candidate is now present and valid: `4196020` bytes, magic `IWAD`, SHA256
+>   `1d7d43be501e67d927e415e0b8f3e29c3bf33075e859721816f652a526cac771`.
+> - **NEXT CHECKPOINT: V3028 host-only WAD-backed doomgeneric command implementation** — wire bounded
+>   runtime-private WAD verify/play command handling around the selected private WAD hash. This is not immediate
+>   live gameplay and must still keep WAD bytes out of public, ramdisk, and boot image.
 > - Parallel optional polish: dashboard formatting, fonts/ASCII charset, beat-flash tuning.
 
 **Historical recon framing (Venus HW-decode / cont-splash feasibility, VID-0/1/2):** SUPERSEDED — the display is

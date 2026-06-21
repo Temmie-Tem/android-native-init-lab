@@ -240,6 +240,16 @@ def render_report(state: dict[str, Any]) -> str:
     selected_sha = state["runtime_contract"]["selected_wad_sha256"] or "not-recorded-asset-absent"
     selected_bytes = state["runtime_contract"]["selected_wad_bytes"]
     selected_magic = state["runtime_contract"]["selected_wad_magic"] or "not-recorded-asset-absent"
+    if state["live_asset_ready"]:
+        asset_interpretation = (
+            "- Current state has exactly one private WAD/IWAD candidate with a pinned hash/size contract, "
+            "so the next bounded unit is command implementation, not immediate live gameplay."
+        )
+    else:
+        asset_interpretation = (
+            "- Current state does not have exactly one valid private WAD/IWAD candidate, so WAD-backed DOOM "
+            "remains asset-gated."
+        )
     validation = [
         "- `python3 -m py_compile workspace/public/src/scripts/revalidation/native_doomgeneric_runtime_wad_preflight_v3027.py tests/test_native_doomgeneric_runtime_wad_preflight_v3027.py`: PASS",
         "- `PYTHONPATH=tests:workspace/public/src/scripts/revalidation:workspace/public/src/harness python3 -m unittest tests.test_native_doomgeneric_runtime_wad_preflight_v3027`: PASS",
@@ -305,8 +315,7 @@ def render_report(state: dict[str, Any]) -> str:
         "## Interpretation",
         "",
         "- V3027 is host-only and does not stage, copy, or embed WAD bytes.",
-        "- Current state has no private WAD/IWAD candidate, so WAD-backed DOOM remains asset-gated.",
-        "- Once exactly one private WAD/IWAD candidate exists and passes size/magic checks, the next bounded unit is command implementation, not immediate live gameplay.",
+        asset_interpretation,
         "",
         "## Safety",
         "",

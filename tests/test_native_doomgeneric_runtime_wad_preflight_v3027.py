@@ -13,7 +13,15 @@ runner = load_script("workspace/public/src/scripts/revalidation/native_doomgener
 
 class NativeDoomgenericRuntimeWadPreflightV3027Tests(unittest.TestCase):
     def test_collect_state_reports_asset_needed_without_private_wad(self) -> None:
-        state = runner.collect_state()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            private_root = root / "private-wads"
+            public_root = root / "public"
+            public_root.mkdir()
+
+            with mock.patch.object(runner, "PRIVATE_WAD_ROOT", private_root), \
+                    mock.patch.object(runner, "PUBLIC_ROOT", public_root):
+                state = runner.collect_state()
 
         self.assertEqual(state["run_id"], "V3027")
         self.assertEqual(state["decision"], runner.DECISION_ASSET_NEEDED)
@@ -68,7 +76,15 @@ class NativeDoomgenericRuntimeWadPreflightV3027Tests(unittest.TestCase):
         self.assertIsNone(result["selected"])
 
     def test_render_report_omits_private_wad_names_and_records_asset_gate(self) -> None:
-        report = runner.render_report(runner.collect_state())
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            private_root = root / "private-wads"
+            public_root = root / "public"
+            public_root.mkdir()
+
+            with mock.patch.object(runner, "PRIVATE_WAD_ROOT", private_root), \
+                    mock.patch.object(runner, "PUBLIC_ROOT", public_root):
+                report = runner.render_report(runner.collect_state())
 
         self.assertIn("Native Init V3027 DOOMGENERIC Runtime WAD Preflight", report)
         self.assertIn(runner.DECISION_ASSET_NEEDED, report)
@@ -76,6 +92,7 @@ class NativeDoomgenericRuntimeWadPreflightV3027Tests(unittest.TestCase):
         self.assertIn("Live asset ready: `0`", report)
         self.assertIn("Selected WAD SHA256: `not-recorded-asset-absent`", report)
         self.assertIn("operator-private-asset-needed", report)
+        self.assertIn("remains asset-gated", report)
         self.assertNotIn("SECRET.WAD", report)
         self.assertNotIn("BAD.WAD", report)
 
@@ -100,6 +117,26 @@ class NativeDoomgenericRuntimeWadPreflightV3027Tests(unittest.TestCase):
             "host-only WAD-backed doomgeneric command implementation",
         )
         self.assertNotIn("SECRET.WAD", str(state))
+
+    def test_render_report_records_ready_state_without_private_wad_name(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            private_root = root / "private-wads"
+            public_root = root / "public"
+            private_root.mkdir()
+            public_root.mkdir()
+            (private_root / "SECRET.WAD").write_bytes(b"IWAD" + b"\0" * 128)
+
+            with mock.patch.object(runner, "PRIVATE_WAD_ROOT", private_root), \
+                    mock.patch.object(runner, "PUBLIC_ROOT", public_root):
+                report = runner.render_report(runner.collect_state())
+
+        self.assertIn(runner.DECISION_READY, report)
+        self.assertIn("Live asset ready: `1`", report)
+        self.assertIn("Private WAD/IWAD candidate count: `1`", report)
+        self.assertIn("exactly one private WAD/IWAD candidate", report)
+        self.assertIn("V3028", report)
+        self.assertNotIn("SECRET.WAD", report)
 
 
 if __name__ == "__main__":
