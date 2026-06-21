@@ -169,10 +169,16 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 >   one bounded raw `640x400` `xbgr8888` frame, blit it through the existing KMS dumb-buffer path, and restore
 >   the DEMO > DOOM menu preview. WAD files in ramdisk are `0`, public WAD count remains `0`, and WAD bytes
 >   are not embedded in the boot image.
-> - **NEXT CHECKPOINT: V3032 rollback-gated visible-frame live validation** — flash only the exact V3031
->   candidate through `native_init_flash.py`, confirm rollback assets/recovery first, health-check,
->   run `video demo doom frame 8 --wad runtime-private --sha256 EXPECTED`, confirm KMS presentation markers,
->   then rollback to V2321 and health-check.
+> - **DOOM WAD-backed visible frame live validation DONE (V3032)** — rollback-gated live validation flashed
+>   the exact V3031 candidate (`1fefa60b9530cf4cfeb21f2419b77e7d9ca4258078899e3826a0c99918912fb4`)
+>   through `native_init_flash.py`, confirmed candidate `version`/`status`/`selftest fail=0`, then ran
+>   `video demo doom frame 8 --wad runtime-private --sha256 EXPECTED`: WAD SHA matched, `magic=IWAD`,
+>   `render.ok=1`, `display.presented=1`, `display.rc=0`, and `doomframe` presented a 1080x2400 KMS
+>   framebuffer. A bounded `video demo doom play 4 --wad runtime-private --sha256 EXPECTED` smoke also
+>   passed (`rc=0`, `timed_out=0`). Rollback to V2321 passed with final `selftest fail=0`.
+> - **NEXT CHECKPOINT: V3033 host-only visible playable DOOM loop/menu integration** — combine the V3032-proven
+>   SD WAD hash gate, helper frame render, KMS present path, bounded play smoke, and serial-doompad input bridge
+>   into the next bounded visible/playable loop path, without embedding WAD bytes or widening the flash surface.
 > - Parallel optional polish: dashboard formatting, fonts/ASCII charset, beat-flash tuning.
 
 **Historical recon framing (Venus HW-decode / cont-splash feasibility, VID-0/1/2):** SUPERSEDED — the display is

@@ -412,6 +412,7 @@ class NativeInitFrontierSelectTests(unittest.TestCase):
         self.assertEqual(result["source_paths"]["current_doomgeneric_private_build_report"], "docs/reports/NATIVE_INIT_V3024_DOOMGENERIC_PRIVATE_INTEGRATION_BUILD_2026-06-21.md")
         self.assertEqual(result["source_paths"]["current_doomgeneric_command_bridge_report"], "docs/reports/NATIVE_INIT_V3025_DOOMGENERIC_COMMAND_BRIDGE_SOURCE_BUILD_2026-06-21.md")
         self.assertEqual(result["source_paths"]["current_doomgeneric_visible_frame_report"], "docs/reports/NATIVE_INIT_V3031_DOOMGENERIC_VISIBLE_FRAME_SOURCE_BUILD_2026-06-22.md")
+        self.assertEqual(result["source_paths"]["current_doomgeneric_visible_frame_live_report"], "docs/reports/NATIVE_INIT_V3032_DOOMGENERIC_VISIBLE_FRAME_LIVE_2026-06-22.md")
 
     def test_select_frontier_selects_first_actionable_track(self) -> None:
         with self._fake_repo(
@@ -1177,6 +1178,46 @@ class NativeInitFrontierSelectTests(unittest.TestCase):
         self.assertTrue(evidence["v3031_no_device_action"])
         self.assertEqual(evidence["v3031_next_run_id"], "V3032")
 
+    def test_current_doomgeneric_visible_frame_live_evidence_reads_pass(self) -> None:
+        report = "\n".join([
+            "v3032-doomgeneric-visible-frame-live-pass-before-rollback",
+            "Candidate flashed through checked helper: `1`",
+            "Candidate remote SHA256 matched local: `1`",
+            "Candidate boot readback SHA256 matched expected: `1`",
+            "Candidate post-flash version rc/status: `0` / `ok`",
+            "Candidate post-flash status rc/status: `0` / `ok`",
+            "Candidate post-flash selftest fail=0: `1`",
+            "`video demo doom status` rc/status: `0` / `ok`",
+            "`video demo doom frame 8 --wad runtime-private --sha256 EXPECTED` rc/status: `0` / `ok`",
+            "video.demo.doom.frame.verify.sha256_match=1",
+            "video.demo.doom.frame.render.ok=1",
+            "video.demo.doom.frame.display.presented=1",
+            "video.demo.doom.frame.display.rc=0",
+            "`video demo doom play 4 --wad runtime-private --sha256 EXPECTED` rc/status: `0` / `ok`",
+            "video.demo.doom.play.rc=0",
+            "video.demo.doom.play.timed_out=0",
+            "Rollback health: version_ok=`1` selftest_fail0=`1`",
+            "Rollback boot readback SHA256 matched expected: `1`",
+            "Final rollback selftest fail=0 re-check: `1`",
+            "Run ID: `V3033`",
+        ])
+
+        evidence = frontier.current_doomgeneric_visible_frame_live_evidence(report)
+
+        self.assertTrue(evidence["v3032_visible_frame_live_report_present"])
+        self.assertTrue(evidence["v3032_visible_frame_live_pass"])
+        self.assertTrue(evidence["v3032_candidate_flash_ok"])
+        self.assertTrue(evidence["v3032_candidate_health_ok"])
+        self.assertTrue(evidence["v3032_status_command_ok"])
+        self.assertTrue(evidence["v3032_frame_command_ok"])
+        self.assertTrue(evidence["v3032_frame_verify_sha_match"])
+        self.assertTrue(evidence["v3032_frame_render_ok"])
+        self.assertTrue(evidence["v3032_frame_display_presented"])
+        self.assertTrue(evidence["v3032_play_smoke_ok"])
+        self.assertTrue(evidence["v3032_play_not_timed_out"])
+        self.assertTrue(evidence["v3032_rollback_health_ok"])
+        self.assertEqual(evidence["v3032_next_run_id"], "V3033")
+
     def test_v3027_ready_selects_sd_wad_stage_before_command_implementation(self) -> None:
         evaluation = frontier.current_doom_input_evaluation(
             None,
@@ -1551,6 +1592,72 @@ class NativeInitFrontierSelectTests(unittest.TestCase):
         self.assertTrue(result["track_evaluations"][0]["evidence"]["v3031_visible_frame_ready"])
         self.assertIn("V3032 rollback-gated live validation", result["next_operator_decision"])
 
+    def test_select_frontier_uses_v3032_live_pass_for_v3033_visible_loop(self) -> None:
+        with self._fake_repo(
+            inventory_signals={
+                "direct_a90ctl_actionable_now_count": 0,
+                "direct_a90ctl_review_only_count": 0,
+                "direct_a90ctl_next_actionable_group": None,
+                "source_delete_review_count": 0,
+                "active_live_phase_residual_backlog_closed": True,
+            },
+            frontier_candidates=None,
+            current_doom_gameplay_loop_report="\n".join([
+                "v3017-doompad-gameplay-loop-state-consumed-pass-before-rollback",
+                "`video demo doom play 8` rc: `0` markers_ok=`1`",
+                "Player movement parsed: `1` moved_forward=`1`",
+                "Rollback health: version_ok=`1` selftest_fail0=`1`",
+                "not a WAD-backed `doomgeneric` engine",
+            ]),
+            current_doomgeneric_visible_frame_report="\n".join([
+                "v3031-doomgeneric-visible-frame-source-build-pass",
+                "Boot SHA256: `1fefa60b9530cf4cfeb21f2419b77e7d9ca4258078899e3826a0c99918912fb4`",
+                "--wad-frame-dump",
+                "--output",
+                "video demo doom frame [frames] --wad runtime-private --sha256",
+                "DEMO > DOOM menu item now launches",
+                "Frame format: `xbgr8888-raw`",
+                "Frame geometry: `640x400` stride `2560` bytes `1024000`",
+                "KMS path: `existing-kms-dumb-buffer-blit-present`",
+                "WAD files in ramdisk: `0`",
+                "Public WAD files committed/present: `0`",
+                "WAD bytes embedded in boot image: `0`",
+                "Device action: `none` in this build unit.",
+                "Run ID: `V3032`",
+            ]),
+            current_doomgeneric_visible_frame_live_report="\n".join([
+                "v3032-doomgeneric-visible-frame-live-pass-before-rollback",
+                "Candidate flashed through checked helper: `1`",
+                "Candidate remote SHA256 matched local: `1`",
+                "Candidate boot readback SHA256 matched expected: `1`",
+                "Candidate post-flash version rc/status: `0` / `ok`",
+                "Candidate post-flash status rc/status: `0` / `ok`",
+                "Candidate post-flash selftest fail=0: `1`",
+                "`video demo doom status` rc/status: `0` / `ok`",
+                "`video demo doom frame 8 --wad runtime-private --sha256 EXPECTED` rc/status: `0` / `ok`",
+                "video.demo.doom.frame.verify.sha256_match=1",
+                "video.demo.doom.frame.render.ok=1",
+                "video.demo.doom.frame.display.presented=1",
+                "video.demo.doom.frame.display.rc=0",
+                "`video demo doom play 4 --wad runtime-private --sha256 EXPECTED` rc/status: `0` / `ok`",
+                "video.demo.doom.play.rc=0",
+                "video.demo.doom.play.timed_out=0",
+                "Rollback health: version_ok=`1` selftest_fail0=`1`",
+                "Rollback boot readback SHA256 matched expected: `1`",
+                "Final rollback selftest fail=0 re-check: `1`",
+                "Run ID: `V3033`",
+            ]),
+        ) as paths:
+            with self._patch_paths(paths):
+                result = frontier.select_frontier()
+
+        self.assertEqual(result["decision"], "frontier-selector-actionable-unit-present")
+        self.assertEqual(result["selected_track"], "VIDEO")
+        self.assertEqual(result["selected_reason"], "doomgeneric-visible-playable-loop-integration-ready")
+        self.assertEqual(result["track_evaluations"][0]["name"], "doom-capstone")
+        self.assertTrue(result["track_evaluations"][0]["evidence"]["v3032_visible_frame_live_pass"])
+        self.assertIn("V3033 host-only visible playable DOOM", result["next_operator_decision"])
+
     def test_select_frontier_stops_on_v3027_asset_needed(self) -> None:
         with self._fake_repo(
             goal_text="\n".join([
@@ -1678,6 +1785,7 @@ class NativeInitFrontierSelectTests(unittest.TestCase):
         current_doomgeneric_sd_wad_command_report: str | None = None,
         current_doomgeneric_sd_wad_command_live_report: str | None = None,
         current_doomgeneric_visible_frame_report: str | None = None,
+        current_doomgeneric_visible_frame_live_report: str | None = None,
         goal_text: str = "goal text\n",
     ):
         class RepoContext:
@@ -1797,6 +1905,13 @@ class NativeInitFrontierSelectTests(unittest.TestCase):
                         / "reports"
                         / "NATIVE_INIT_V3031_DOOMGENERIC_VISIBLE_FRAME_SOURCE_BUILD_2026-06-22.md"
                     ).write_text(current_doomgeneric_visible_frame_report, encoding="utf-8")
+                if current_doomgeneric_visible_frame_live_report is not None:
+                    (
+                        root
+                        / "docs"
+                        / "reports"
+                        / "NATIVE_INIT_V3032_DOOMGENERIC_VISIBLE_FRAME_LIVE_2026-06-22.md"
+                    ).write_text(current_doomgeneric_visible_frame_live_report, encoding="utf-8")
                 self.root = root
                 return {
                     "root": root,
@@ -1884,6 +1999,12 @@ class NativeInitFrontierSelectTests(unittest.TestCase):
                         / "reports"
                         / "NATIVE_INIT_V3031_DOOMGENERIC_VISIBLE_FRAME_SOURCE_BUILD_2026-06-22.md"
                     ),
+                    "current_doomgeneric_visible_frame_live": (
+                        root
+                        / "docs"
+                        / "reports"
+                        / "NATIVE_INIT_V3032_DOOMGENERIC_VISIBLE_FRAME_LIVE_2026-06-22.md"
+                    ),
                 }
 
             def __exit__(self, exc_type, exc, tb):
@@ -1916,6 +2037,7 @@ class NativeInitFrontierSelectTests(unittest.TestCase):
             CURRENT_DOOMGENERIC_SD_WAD_COMMAND_REPORT=paths["current_doomgeneric_sd_wad_command"],
             CURRENT_DOOMGENERIC_SD_WAD_COMMAND_LIVE_REPORT=paths["current_doomgeneric_sd_wad_command_live"],
             CURRENT_DOOMGENERIC_VISIBLE_FRAME_REPORT=paths["current_doomgeneric_visible_frame"],
+            CURRENT_DOOMGENERIC_VISIBLE_FRAME_LIVE_REPORT=paths["current_doomgeneric_visible_frame_live"],
         )
 
 
