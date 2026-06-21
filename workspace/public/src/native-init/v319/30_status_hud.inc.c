@@ -2494,48 +2494,69 @@ static enum video_stream_layout video_cache_preset_default_layout(const char *pr
 }
 
 static int cmd_video_cache(char **argv, int argc);
+static int cmd_doomplay(char **argv, int argc);
 
 static int video_demo_doom_status(const char *action) {
     a90_console_printf("video.demo.preset=doom\r\n");
-    a90_console_printf("video.demo.asset_id=doomgeneric-pending\r\n");
-    a90_console_printf("video.demo.status=blocked-gameplay-loop\r\n");
+    a90_console_printf("video.demo.asset_id=doompad-loop-v3016\r\n");
+    a90_console_printf("video.demo.status=doompad-frame-loop-ready\r\n");
+    a90_console_printf("video.demo.engine=doompad-loop-not-doomgeneric\r\n");
+    a90_console_printf("video.demo.asset.wad=not-bundled\r\n");
     a90_console_printf("video.demo.display=ready-kms-player-path\r\n");
     a90_console_printf("video.demo.audio=optional-ready\r\n");
-    a90_console_printf("video.demo.input=serial-doompad-staged\r\n");
+    a90_console_printf("video.demo.gameplay_loop=doompad-kms-v3016\r\n");
+    a90_console_printf("video.demo.input=serial-doompad-consumed\r\n");
     a90_console_printf("video.demo.input.touch=event6,event8-zero-events\r\n");
     a90_console_printf("video.demo.input.physical_button_mux=v3002-zero-event-do-not-repeat\r\n");
     a90_console_printf("video.demo.input.keyboard_gate=v3004-doominput-keyboard-live-gate\r\n");
     a90_console_printf("video.demo.input.virtual_controller=doompad-serial-v3014\r\n");
+    a90_console_printf("video.demo.input.consumed=doompad-serial-v3014\r\n");
     a90_console_printf("video.demo.input.hardware_gate=none-serial-control\r\n");
-    a90_console_printf("video.demo.input.next=scripted-doompad-serial-validation\r\n");
+    a90_console_printf("video.demo.input.next=scripted-doompad-gameplay-loop-validation\r\n");
     a90_console_printf("video.demo.input.command=doompad key <role> <0|1>\r\n");
     a90_console_printf("video.demo.input.keyboard_fallback=usb-keyboard-otg\r\n");
-    a90_console_printf("video.demo.boot_asset_policy=boot-image-carries-status-not-doom\r\n");
+    a90_console_printf("video.demo.play.command=video demo doom play [frames]\r\n");
+    a90_console_printf("video.demo.boot_asset_policy=boot-image-carries-doompad-loop-not-wad\r\n");
     if (strcmp(action, "status") == 0) {
         a90_console_printf("video.demo.doom.status_rc=0\r\n");
         return 0;
     }
-    a90_console_printf("video.demo.doom.%s=blocked-gameplay-not-wired\r\n", action);
-    return -EAGAIN;
+    a90_console_printf("video.demo.doom.%s=doompad-frame-loop\r\n", action);
+    return 0;
 }
 
 static int cmd_video_demo(char **argv, int argc) {
-    const char *usage = "usage: video demo [bars|checker|mono|0xRRGGBB|badapple|badapple-scale|nyan|doom [status|verify|play] [--trust-cache] [--frames N] [--present setcrtc|pageflip] [--layout full|player-hud] [--sync-audio-status /cache/a90-audio-play/status.txt] [--sync-wait-ms N] [--sync-start-offset-ms N]]\r\n";
+    const char *usage = "usage: video demo [bars|checker|mono|0xRRGGBB|badapple|badapple-scale|nyan|doom [status|verify|play] [frames] [--trust-cache] [--frames N] [--present setcrtc|pageflip] [--layout full|player-hud] [--sync-audio-status /cache/a90-audio-play/status.txt] [--sync-wait-ms N] [--sync-start-offset-ms N]]\r\n";
     char *cache_argv[CMDV1X_MAX_ARGS];
     int cache_argc = 0;
     int index;
 
     if (argc >= 3 && strcmp(argv[2], "doom") == 0) {
         const char *action = argc >= 4 ? argv[3] : "status";
+        char *doom_argv[3];
+        int doom_argc = 0;
 
-        if (argc > 4 ||
+        if (argc > 5 ||
             (strcmp(action, "status") != 0 &&
              strcmp(action, "verify") != 0 &&
              strcmp(action, "play") != 0)) {
             a90_console_printf("%s", usage);
             return -EINVAL;
         }
-        return video_demo_doom_status(action);
+        if (argc == 5 && strcmp(action, "play") != 0) {
+            a90_console_printf("%s", usage);
+            return -EINVAL;
+        }
+        if (strcmp(action, "status") == 0) {
+            return video_demo_doom_status(action);
+        }
+        (void)video_demo_doom_status(action);
+        doom_argv[doom_argc++] = "doomplay";
+        doom_argv[doom_argc++] = (char *)action;
+        if (argc == 5) {
+            doom_argv[doom_argc++] = argv[4];
+        }
+        return cmd_doomplay(doom_argv, doom_argc);
     }
 
     if (argc >= 3 &&

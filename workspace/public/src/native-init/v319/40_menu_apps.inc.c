@@ -575,12 +575,14 @@ static bool auto_hud_handle_menu_key(struct auto_hud_state *state,
             int rc;
 
             a90_console_printf("menu.demo.doom.action=status-only\r\n");
-            a90_console_printf("menu.demo.doom.status=blocked-gameplay-loop\r\n");
-            a90_console_printf("menu.demo.doom.input=serial-doompad-staged\r\n");
-            a90_console_printf("menu.demo.doom.input.live_handoff=v3014-doompad-serial-controller\r\n");
+            a90_console_printf("menu.demo.doom.status=doompad-frame-loop-ready\r\n");
+            a90_console_printf("menu.demo.doom.input=serial-doompad-consumed\r\n");
+            a90_console_printf("menu.demo.doom.input.live_handoff=v3016-doompad-gameplay-loop\r\n");
             a90_console_printf("menu.demo.doom.input.virtual_controller=doompad-serial-v3014\r\n");
+            a90_console_printf("menu.demo.doom.input.consumed=doompad-serial-v3014\r\n");
             a90_console_printf("menu.demo.doom.input.hardware_gate=none-serial-control\r\n");
             a90_console_printf("menu.demo.doom.input.command=doompad key <role> <0|1>\r\n");
+            a90_console_printf("menu.demo.doom.play.command=video demo doom play [frames]\r\n");
             a90_console_printf("menu.demo.doom.input.keyboard_fallback=usb-keyboard-otg\r\n");
             a90_console_printf("menu.demo.doom.restore=menu\r\n");
             rc = cmd_video_demo(demo_argv,
@@ -1578,6 +1580,19 @@ static struct doominput_state doompad_state;
 static bool doompad_state_ready;
 static unsigned int doompad_seq;
 
+struct doompad_snapshot {
+    bool forward;
+    bool back;
+    bool left;
+    bool right;
+    bool fire;
+    bool use;
+    bool menu;
+    bool run;
+    bool active;
+    unsigned int seq;
+};
+
 static void doompad_init_once(void) {
     if (!doompad_state_ready) {
         doominput_reset_state(&doompad_state);
@@ -1691,6 +1706,23 @@ static void doompad_print_state(void) {
             doominput_state_active(&doompad_state) ? 1 : 0);
 }
 
+static void doompad_get_snapshot(struct doompad_snapshot *snapshot) {
+    if (snapshot == NULL) {
+        return;
+    }
+    doompad_init_once();
+    snapshot->forward = doompad_state.forward;
+    snapshot->back = doompad_state.back;
+    snapshot->left = doompad_state.left;
+    snapshot->right = doompad_state.right;
+    snapshot->fire = doompad_state.fire;
+    snapshot->use = doompad_state.use;
+    snapshot->menu = doompad_state.menu;
+    snapshot->run = doompad_state.run;
+    snapshot->active = doominput_state_active(&doompad_state);
+    snapshot->seq = doompad_seq;
+}
+
 static void doompad_apply_serial_role(unsigned int key_code,
                                       const char *canonical,
                                       int down) {
@@ -1760,6 +1792,258 @@ static int cmd_doompad(char **argv, int argc) {
     }
 
     a90_console_printf("usage: doompad [status|reset|key <role> <0|1>|tap <role>]\r\n");
+    return -EINVAL;
+}
+
+#define DOOMPLAY_DEFAULT_FRAMES 90
+#define DOOMPLAY_VERIFY_FRAMES 1
+#define DOOMPLAY_MAX_FRAMES 300
+
+static int doomplay_parse_frames(const char *text, int default_frames, int *frames_out) {
+    int frames;
+    char tail;
+
+    if (frames_out == NULL) {
+        return -EINVAL;
+    }
+    if (text == NULL) {
+        *frames_out = default_frames;
+        return 0;
+    }
+    if (sscanf(text, "%d%c", &frames, &tail) != 1 ||
+        frames <= 0 ||
+        frames > DOOMPLAY_MAX_FRAMES) {
+        return -EINVAL;
+    }
+    *frames_out = frames;
+    return 0;
+}
+
+static void doomplay_draw_state(struct a90_fb *fb,
+                                const struct doompad_snapshot *input,
+                                int player_x,
+                                int player_y,
+                                int frame_index,
+                                int total_frames) {
+    uint32_t scale;
+    uint32_t arena_x;
+    uint32_t arena_y;
+    uint32_t arena_w;
+    uint32_t arena_h;
+    uint32_t player_size;
+    uint32_t px;
+    uint32_t py;
+    uint32_t muzzle_w;
+    uint32_t muzzle_h;
+    char line[128];
+
+    if (fb == NULL || input == NULL) {
+        return;
+    }
+    scale = fb->width >= 1000 ? 3U : 2U;
+    arena_x = fb->width / 12U;
+    arena_y = fb->height / 10U;
+    arena_w = fb->width - arena_x * 2U;
+    arena_h = fb->height - arena_y * 2U - 96U;
+    player_size = scale * 12U;
+    px = player_x > 0 ? (uint32_t)player_x : 0U;
+    py = player_y > 0 ? (uint32_t)player_y : 0U;
+    muzzle_w = scale * 5U;
+    muzzle_h = scale * 18U;
+
+    a90_draw_rect(fb, arena_x, arena_y, arena_w, arena_h, 0x16120c);
+    a90_draw_rect_outline(fb, arena_x, arena_y, arena_w, arena_h, scale, 0x67513a);
+    a90_draw_rect(fb, arena_x + arena_w / 4U, arena_y + arena_h / 3U,
+                  arena_w / 2U, scale * 5U, 0x4a3a2a);
+    a90_draw_rect(fb, arena_x + arena_w / 2U, arena_y + arena_h / 2U,
+                  scale * 5U, arena_h / 3U, 0x4a3a2a);
+    if (input->use) {
+        a90_draw_rect(fb, arena_x + arena_w - scale * 26U,
+                      arena_y + arena_h / 2U - scale * 16U,
+                      scale * 16U, scale * 32U, 0x66ddff);
+    } else {
+        a90_draw_rect(fb, arena_x + arena_w - scale * 26U,
+                      arena_y + arena_h / 2U - scale * 16U,
+                      scale * 16U, scale * 32U, 0x806030);
+    }
+    a90_draw_rect(fb, px, py, player_size, player_size,
+                  input->run ? 0xffcc33 : 0x66ddff);
+    a90_draw_rect_outline(fb, px, py, player_size, player_size, scale, 0xffffff);
+    if (input->fire) {
+        a90_draw_rect(fb, px + player_size / 2U - muzzle_w / 2U,
+                      py > muzzle_h ? py - muzzle_h : 0U,
+                      muzzle_w, muzzle_h, 0xff5533);
+    }
+    if (input->menu) {
+        a90_draw_rect(fb, arena_x + scale * 8U, arena_y + scale * 8U,
+                      arena_w / 2U, scale * 24U, 0x202020);
+        a90_draw_text_fit(fb, arena_x + scale * 12U, arena_y + scale * 14U,
+                          "MENU HELD", 0xffcc33, scale, arena_w / 2U - scale * 8U);
+    }
+
+    a90_draw_text(fb, arena_x, scale * 8U, "DEMO / DOOMPAD LOOP", 0x66ddff, scale);
+    snprintf(line, sizeof(line), "FRAME %d/%d  SEQ %u",
+             frame_index + 1,
+             total_frames,
+             input->seq);
+    a90_draw_text_fit(fb, arena_x, arena_y + arena_h + scale * 10U,
+                      line, 0xffffff, scale, arena_w);
+    snprintf(line, sizeof(line),
+             "F%d B%d L%d R%d FIRE%d USE%d RUN%d ACTIVE%d",
+             input->forward ? 1 : 0,
+             input->back ? 1 : 0,
+             input->left ? 1 : 0,
+             input->right ? 1 : 0,
+             input->fire ? 1 : 0,
+             input->use ? 1 : 0,
+             input->run ? 1 : 0,
+             input->active ? 1 : 0);
+    a90_draw_text_fit(fb, arena_x, arena_y + arena_h + scale * 22U,
+                      line, 0xbbbbbb, scale, arena_w);
+}
+
+static int doomplay_run_frames(int frames, bool render_frames) {
+    struct doompad_snapshot input;
+    int player_x = 0;
+    int player_y = 0;
+    int initial_x = 0;
+    int initial_y = 0;
+    int frame;
+    int presented = 0;
+    int last_rc = 0;
+
+    doompad_get_snapshot(&input);
+    a90_console_printf("doomplay.version=1\r\n");
+    a90_console_printf("doomplay.source=doompad-state\r\n");
+    a90_console_printf("doomplay.frames_requested=%d\r\n", frames);
+    a90_console_printf("doomplay.consumed_doompad_seq=%u\r\n", input.seq);
+    a90_console_printf("doomplay.input.forward=%d back=%d left=%d right=%d fire=%d use=%d menu=%d run=%d active=%d\r\n",
+            input.forward ? 1 : 0,
+            input.back ? 1 : 0,
+            input.left ? 1 : 0,
+            input.right ? 1 : 0,
+            input.fire ? 1 : 0,
+            input.use ? 1 : 0,
+            input.menu ? 1 : 0,
+            input.run ? 1 : 0,
+            input.active ? 1 : 0);
+
+    for (frame = 0; frame < frames; ++frame) {
+        struct a90_fb *fb;
+        int speed = input.run ? 18 : 9;
+        enum a90_cancel_kind cancel;
+
+        if (render_frames) {
+            if (a90_kms_begin_frame(0x050505) < 0) {
+                return negative_errno_or(ENODEV);
+            }
+            fb = a90_kms_framebuffer();
+            if (frame == 0) {
+                player_x = (int)(fb->width / 2U);
+                player_y = (int)(fb->height / 2U);
+            }
+        } else {
+            fb = NULL;
+            if (frame == 0) {
+                player_x = 540;
+                player_y = 1200;
+            }
+        }
+        if (frame == 0) {
+            initial_x = player_x;
+            initial_y = player_y;
+        }
+        if (input.forward) {
+            player_y -= speed;
+        }
+        if (input.back) {
+            player_y += speed;
+        }
+        if (input.left) {
+            player_x -= speed;
+        }
+        if (input.right) {
+            player_x += speed;
+        }
+        if (fb != NULL) {
+            int min_x = (int)(fb->width / 12U) + (int)(fb->width >= 1000 ? 12 : 8);
+            int min_y = (int)(fb->height / 10U) + (int)(fb->width >= 1000 ? 12 : 8);
+            int max_x = (int)(fb->width - fb->width / 12U) - (int)(fb->width >= 1000 ? 56 : 40);
+            int max_y = (int)(fb->height - fb->height / 10U - 96U) - (int)(fb->width >= 1000 ? 56 : 40);
+
+            if (player_x < min_x) {
+                player_x = min_x;
+            }
+            if (player_y < min_y) {
+                player_y = min_y;
+            }
+            if (player_x > max_x) {
+                player_x = max_x;
+            }
+            if (player_y > max_y) {
+                player_y = max_y;
+            }
+            doomplay_draw_state(fb, &input, player_x, player_y, frame, frames);
+            if (a90_kms_present("doomplay", false) < 0) {
+                last_rc = negative_errno_or(EIO);
+                break;
+            }
+            ++presented;
+            usleep(33000);
+        }
+        cancel = a90_console_poll_cancel(1);
+        if (cancel != CANCEL_NONE) {
+            return a90_console_cancelled("doomplay", cancel);
+        }
+    }
+
+    a90_console_printf("doomplay.initial.x=%d y=%d\r\n", initial_x, initial_y);
+    a90_console_printf("doomplay.player.x=%d y=%d\r\n", player_x, player_y);
+    a90_console_printf("doomplay.frames_presented=%d\r\n", render_frames ? presented : 0);
+    a90_console_printf("doomplay.rendered=%d\r\n", render_frames ? 1 : 0);
+    if (last_rc < 0) {
+        a90_console_printf("doomplay.error=present-failed\r\n");
+        return last_rc;
+    }
+    a90_console_printf("doomplay.rc=0\r\n");
+    return 0;
+}
+
+static int cmd_doomplay(char **argv, int argc) {
+    const char *action = argc >= 2 ? argv[1] : "status";
+    int frames;
+
+    if (strcmp(action, "status") == 0) {
+        struct doompad_snapshot input;
+
+        doompad_get_snapshot(&input);
+        a90_console_printf("doomplay.version=1\r\n");
+        a90_console_printf("doomplay.status=ready\r\n");
+        a90_console_printf("doomplay.source=doompad-state\r\n");
+        a90_console_printf("doomplay.consumed_doompad_seq=%u\r\n", input.seq);
+        a90_console_printf("doomplay.input.active=%d\r\n", input.active ? 1 : 0);
+        return 0;
+    }
+    if (strcmp(action, "verify") == 0) {
+        if (argc > 2) {
+            a90_console_printf("usage: doomplay [status|verify|play [frames]]\r\n");
+            return -EINVAL;
+        }
+        a90_console_printf("video.demo.doom.verify=doompad-frame-loop\r\n");
+        return doomplay_run_frames(DOOMPLAY_VERIFY_FRAMES, true);
+    }
+    if (strcmp(action, "play") == 0) {
+        if (argc > 3 ||
+            doomplay_parse_frames(argc >= 3 ? argv[2] : NULL,
+                                  DOOMPLAY_DEFAULT_FRAMES,
+                                  &frames) < 0) {
+            a90_console_printf("usage: doomplay [status|verify|play [frames]]\r\n");
+            return -EINVAL;
+        }
+        a90_console_printf("video.demo.doom.play=doompad-frame-loop\r\n");
+        return doomplay_run_frames(frames, true);
+    }
+    a90_console_printf("usage: doomplay [status|verify|play [frames]]\r\n");
     return -EINVAL;
 }
 
