@@ -579,14 +579,14 @@ static bool auto_hud_handle_menu_key(struct auto_hud_state *state,
             demo_argv[0] = "video";
             demo_argv[1] = "demo";
             demo_argv[2] = "doom";
-            demo_argv[3] = "frame";
-            demo_argv[4] = "8";
+            demo_argv[3] = "loop";
+            demo_argv[4] = "90";
             demo_argv[5] = "--wad";
             demo_argv[6] = "runtime-private";
             demo_argv[7] = "--sha256";
             demo_argv[8] = (char *)doomgeneric.expected_wad_sha256;
-            a90_console_printf("menu.demo.doom.action=visible-frame-preview\r\n");
-            a90_console_printf("menu.demo.doom.status=doomgeneric-visible-frame-ready\r\n");
+            a90_console_printf("menu.demo.doom.action=visible-playable-loop\r\n");
+            a90_console_printf("menu.demo.doom.status=doomgeneric-visible-loop-ready\r\n");
             a90_console_printf("menu.demo.doom.input=serial-doompad-consumed\r\n");
             a90_console_printf("menu.demo.doom.input.live_handoff=v3016-doompad-gameplay-loop\r\n");
             a90_console_printf("menu.demo.doom.input.virtual_controller=doompad-serial-v3014\r\n");
@@ -595,6 +595,10 @@ static bool auto_hud_handle_menu_key(struct auto_hud_state *state,
             a90_console_printf("menu.demo.doom.input.command=doompad key <role> <0|1>\r\n");
             a90_console_printf("menu.demo.doom.play.command=video demo doom play [frames]\r\n");
             a90_console_printf("menu.demo.doom.frame.command=video demo doom frame 8 --wad runtime-private --sha256 %s\r\n",
+                               doomgeneric.expected_wad_sha256);
+            a90_console_printf("menu.demo.doom.loop.command=video demo doom loop 90 --wad runtime-private --sha256 %s\r\n",
+                               doomgeneric.expected_wad_sha256);
+            a90_console_printf("menu.demo.doom.loop_start.command=video demo doom loop-start 300 --wad runtime-private --sha256 %s\r\n",
                                doomgeneric.expected_wad_sha256);
             a90_console_printf("menu.demo.doom.input.keyboard_fallback=usb-keyboard-otg\r\n");
             a90_console_printf("menu.demo.doom.engine.bridge=%s\r\n", doomgeneric.candidate);
@@ -632,7 +636,7 @@ static bool auto_hud_handle_menu_key(struct auto_hud_state *state,
             a90_controller_clear_menu_request();
             rc = cmd_video_demo(demo_argv,
                                 (int)(sizeof(demo_argv) / sizeof(demo_argv[0])));
-            a90_console_printf("menu.demo.doom.frame_rc=%d\r\n", rc);
+            a90_console_printf("menu.demo.doom.loop_rc=%d\r\n", rc);
             a90_console_printf("menu.demo.doom.rc=%d\r\n", rc);
             auto_hud_show_menu(state, false);
             break;
@@ -1769,16 +1773,42 @@ static void doompad_get_snapshot(struct doompad_snapshot *snapshot) {
     snapshot->seq = doompad_seq;
 }
 
+static int doompad_mirror_bridge_input_state(void) {
+    struct a90_doomgeneric_input_state input;
+
+    doompad_init_once();
+    memset(&input, 0, sizeof(input));
+    input.forward = doompad_state.forward;
+    input.back = doompad_state.back;
+    input.left = doompad_state.left;
+    input.right = doompad_state.right;
+    input.fire = doompad_state.fire;
+    input.use = doompad_state.use;
+    input.menu = doompad_state.menu;
+    input.run = doompad_state.run;
+    input.active = doominput_state_active(&doompad_state);
+    input.seq = doompad_seq;
+    return a90_doomgeneric_bridge_write_input_state(&input);
+}
+
 static void doompad_apply_serial_role(unsigned int key_code,
                                       const char *canonical,
                                       int down) {
+    struct a90_doomgeneric_bridge_status doomgeneric;
+    int mirror_rc;
+
     doominput_apply_key(&doompad_state, key_code, down);
     ++doompad_state.frame;
     ++doompad_seq;
+    mirror_rc = doompad_mirror_bridge_input_state();
+    a90_doomgeneric_bridge_get_status(&doomgeneric);
     a90_console_printf("doompad.event seq=%u role=%s value=%d\r\n",
             doompad_seq,
             canonical,
             down ? 1 : 0);
+    a90_console_printf("doompad.input_state.path=%s\r\n", doomgeneric.input_state_path);
+    a90_console_printf("doompad.input_state.updated=%d\r\n", mirror_rc == 0 ? 1 : 0);
+    a90_console_printf("doompad.input_state.rc=%d\r\n", mirror_rc);
     doompad_print_state();
 }
 
@@ -1796,9 +1826,17 @@ static int cmd_doompad(char **argv, int argc) {
     }
 
     if (strcmp(argv[1], "reset") == 0) {
+        struct a90_doomgeneric_bridge_status doomgeneric;
+        int mirror_rc;
+
         doominput_reset_state(&doompad_state);
         ++doompad_seq;
+        mirror_rc = doompad_mirror_bridge_input_state();
+        a90_doomgeneric_bridge_get_status(&doomgeneric);
         a90_console_printf("doompad.reset seq=%u\r\n", doompad_seq);
+        a90_console_printf("doompad.input_state.path=%s\r\n", doomgeneric.input_state_path);
+        a90_console_printf("doompad.input_state.updated=%d\r\n", mirror_rc == 0 ? 1 : 0);
+        a90_console_printf("doompad.input_state.rc=%d\r\n", mirror_rc);
         doompad_print_state();
         return 0;
     }

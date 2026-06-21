@@ -2525,6 +2525,10 @@ static int cmd_doomplay(char **argv, int argc);
 #define VIDEO_DEMO_DOOMGENERIC_MAX_FRAMES 300U
 #define VIDEO_DEMO_DOOMGENERIC_TIMEOUT_MS 15000
 #define VIDEO_DEMO_DOOMGENERIC_FRAME_TIMEOUT_MS 15000
+#define VIDEO_DEMO_DOOMGENERIC_LOOP_DEFAULT_FRAMES 90U
+#define VIDEO_DEMO_DOOMGENERIC_LOOP_FRAME_MS 50
+
+static pid_t video_demo_doom_loop_pid = -1;
 
 static void video_demo_doom_bridge_status(void) {
     struct a90_doomgeneric_bridge_status status;
@@ -2562,8 +2566,12 @@ static void video_demo_doom_bridge_status(void) {
     a90_console_printf("video.demo.doom.frame.bytes=%u\r\n", status.frame_bytes);
     a90_console_printf("video.demo.doom.frame.format=xbgr8888-raw\r\n");
     a90_console_printf("video.demo.input.active=%s\r\n", status.input_path);
+    a90_console_printf("video.demo.input.state_path=%s\r\n", status.input_state_path);
     a90_console_printf("video.demo.input.otg_required=0\r\n");
+    a90_console_printf("video.demo.input.host_keyboard_bridge=host_doompad_keyboard_v3033.py\r\n");
     a90_console_printf("video.demo.sound.active=%s\r\n", status.sound_mode);
+    a90_console_printf("video.demo.doom.loop.visible=%d\r\n", status.visible_loop ? 1 : 0);
+    a90_console_printf("video.demo.doom.loop.frame_ms=%u\r\n", status.loop_frame_ms);
     a90_console_printf("video.demo.engine.probe.command=video demo doom engine-probe\r\n");
     a90_console_printf("video.demo.doom.verify.command=video demo doom verify --wad runtime-private --sha256 %s\r\n",
                        status.expected_wad_sha256);
@@ -2571,6 +2579,11 @@ static void video_demo_doom_bridge_status(void) {
                        status.expected_wad_sha256);
     a90_console_printf("video.demo.doom.frame.command=video demo doom frame [frames] --wad runtime-private --sha256 %s\r\n",
                        status.expected_wad_sha256);
+    a90_console_printf("video.demo.doom.loop.command=video demo doom loop [frames] --wad runtime-private --sha256 %s\r\n",
+                       status.expected_wad_sha256);
+    a90_console_printf("video.demo.doom.loop_start.command=video demo doom loop-start [frames] --wad runtime-private --sha256 %s\r\n",
+                       status.expected_wad_sha256);
+    a90_console_printf("video.demo.doom.loop_stop.command=video demo doom loop-stop\r\n");
 }
 
 static void video_demo_doom_print_wad_check(const char *prefix,
@@ -2650,8 +2663,9 @@ static void video_demo_doom_print_frame_render(
     a90_console_printf("%s.ok=%d\r\n", prefix, render->ok ? 1 : 0);
 }
 
-static int video_demo_doom_present_frame_file(
-        const struct a90_doomgeneric_frame_render *render) {
+static int video_demo_doom_present_frame_file_ex(
+        const struct a90_doomgeneric_frame_render *render,
+        bool verbose) {
     uint32_t *source;
     struct a90_fb *fb;
     uint32_t dst_x;
@@ -2665,26 +2679,34 @@ static int video_demo_doom_present_frame_file(
 
     if (render == NULL || !render->ok || render->path == NULL ||
         render->expected_bytes == 0 || render->expected_bytes > (8U * 1024U * 1024U)) {
-        a90_console_printf("video.demo.doom.frame.display.error=invalid-render-artifact\r\n");
+        if (verbose) {
+            a90_console_printf("video.demo.doom.frame.display.error=invalid-render-artifact\r\n");
+        }
         return -EINVAL;
     }
     source = (uint32_t *)malloc(render->expected_bytes);
     if (source == NULL) {
-        a90_console_printf("video.demo.doom.frame.display.error=alloc-failed\r\n");
+        if (verbose) {
+            a90_console_printf("video.demo.doom.frame.display.error=alloc-failed\r\n");
+        }
         return -ENOMEM;
     }
     fd = open(render->path, O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
     if (fd < 0) {
         rc = negative_errno_or(EIO);
         free(source);
-        a90_console_printf("video.demo.doom.frame.display.error=open-failed\r\n");
+        if (verbose) {
+            a90_console_printf("video.demo.doom.frame.display.error=open-failed\r\n");
+        }
         return rc;
     }
     rc = video_read_exact_fd(fd, source, render->expected_bytes);
     close(fd);
     if (rc < 0) {
         free(source);
-        a90_console_printf("video.demo.doom.frame.display.error=read-failed\r\n");
+        if (verbose) {
+            a90_console_printf("video.demo.doom.frame.display.error=read-failed\r\n");
+        }
         return rc;
     }
     if (a90_kms_begin_frame(0x05070c) < 0) {
@@ -2696,7 +2718,9 @@ static int video_demo_doom_present_frame_file(
         fb->width < render->width || fb->height < render->height ||
         fb->stride < (uint64_t)fb->width * 4ULL) {
         free(source);
-        a90_console_printf("video.demo.doom.frame.display.error=kms-geometry-mismatch\r\n");
+        if (verbose) {
+            a90_console_printf("video.demo.doom.frame.display.error=kms-geometry-mismatch\r\n");
+        }
         return -EINVAL;
     }
 
@@ -2725,11 +2749,188 @@ static int video_demo_doom_present_frame_file(
     if (a90_kms_present("doomframe", true) < 0) {
         return negative_errno_or(EIO);
     }
-    a90_console_printf("video.demo.doom.frame.display.presented=1\r\n");
-    a90_console_printf("video.demo.doom.frame.display.path=kms-dumb-buffer\r\n");
-    a90_console_printf("video.demo.doom.frame.display.format=xbgr8888-raw\r\n");
-    a90_console_printf("video.demo.doom.frame.display.x=%u\r\n", dst_x);
-    a90_console_printf("video.demo.doom.frame.display.y=%u\r\n", dst_y);
+    if (verbose) {
+        a90_console_printf("video.demo.doom.frame.display.presented=1\r\n");
+        a90_console_printf("video.demo.doom.frame.display.path=kms-dumb-buffer\r\n");
+        a90_console_printf("video.demo.doom.frame.display.format=xbgr8888-raw\r\n");
+        a90_console_printf("video.demo.doom.frame.display.x=%u\r\n", dst_x);
+        a90_console_printf("video.demo.doom.frame.display.y=%u\r\n", dst_y);
+    }
+    return 0;
+}
+
+static int video_demo_doom_present_frame_file(
+        const struct a90_doomgeneric_frame_render *render) {
+    return video_demo_doom_present_frame_file_ex(render, true);
+}
+
+static void video_demo_doom_loop_reap(void) {
+    int status = 0;
+    int reap_rc;
+
+    if (video_demo_doom_loop_pid <= 0) {
+        return;
+    }
+    reap_rc = a90_run_reap_pid(video_demo_doom_loop_pid, &status);
+    if (reap_rc == 1) {
+        video_demo_doom_loop_pid = -1;
+    }
+}
+
+static int video_demo_doom_loop_stop(void) {
+    int status = 0;
+    int rc;
+
+    video_demo_doom_loop_reap();
+    if (video_demo_doom_loop_pid <= 0) {
+        a90_console_printf("video.demo.doom.loop_stop.active=0\r\n");
+        a90_console_printf("video.demo.doom.loop_stop.rc=0\r\n");
+        return 0;
+    }
+    rc = a90_run_stop_pid_ex(video_demo_doom_loop_pid,
+                             "doomgeneric-loop-presenter",
+                             1500,
+                             true,
+                             &status);
+    a90_console_printf("video.demo.doom.loop_stop.active=1\r\n");
+    a90_console_printf("video.demo.doom.loop_stop.pid=%ld\r\n", (long)video_demo_doom_loop_pid);
+    a90_console_printf("video.demo.doom.loop_stop.rc=%d\r\n", rc);
+    video_demo_doom_loop_pid = -1;
+    return rc;
+}
+
+static int video_demo_doom_loop_status(void) {
+    video_demo_doom_loop_reap();
+    a90_console_printf("video.demo.doom.loop_status.active=%d\r\n",
+                       video_demo_doom_loop_pid > 0 ? 1 : 0);
+    a90_console_printf("video.demo.doom.loop_status.pid=%ld\r\n",
+                       (long)video_demo_doom_loop_pid);
+    return 0;
+}
+
+static int video_demo_doom_run_visible_loop(uint32_t frames,
+                                            const char *expected_sha256,
+                                            bool background_child) {
+    struct a90_doomgeneric_wad_check check;
+    struct a90_doomgeneric_frame_render render;
+    pid_t helper_pid = -1;
+    int helper_status = 0;
+    int helper_done = 0;
+    int helper_rc;
+    int present_rc = -EIO;
+    uint32_t presented = 0;
+    uint32_t poll_count = 0;
+    uint32_t max_polls = frames * 4U + 20U;
+
+    memset(&check, 0, sizeof(check));
+
+    helper_rc = a90_doomgeneric_bridge_start_frame_loop_helper((int)frames,
+                                                               expected_sha256,
+                                                               VIDEO_DEMO_DOOMGENERIC_LOOP_FRAME_MS,
+                                                               &check,
+                                                               &helper_pid);
+    if (!background_child) {
+        a90_console_printf("video.demo.doom.loop=doomgeneric-sd-wad-visible-playable-loop\r\n");
+        a90_console_printf("video.demo.doom.loop.frames=%u\r\n", frames);
+        a90_console_printf("video.demo.doom.loop.frame_ms=%d\r\n",
+                           VIDEO_DEMO_DOOMGENERIC_LOOP_FRAME_MS);
+        a90_console_printf("video.demo.doom.loop.input=serial-doompad-state-file\r\n");
+        a90_console_printf("video.demo.doom.loop.host_keyboard_bridge=host_doompad_keyboard_v3033.py\r\n");
+        video_demo_doom_print_wad_check("video.demo.doom.loop.verify", &check);
+        a90_console_printf("video.demo.doom.loop.verify.sha256_match=%d\r\n",
+                           check.sha256_match ? 1 : 0);
+        a90_console_printf("video.demo.doom.loop.verify.ok=%d\r\n", check.ok ? 1 : 0);
+        a90_console_printf("video.demo.doom.loop.helper_start_rc=%d\r\n", helper_rc);
+        a90_console_printf("video.demo.doom.loop.helper_pid=%ld\r\n", (long)helper_pid);
+    }
+    if (helper_rc < 0) {
+        return helper_rc;
+    }
+
+    while (presented < frames && poll_count < max_polls) {
+        enum a90_cancel_kind cancel;
+        int read_rc;
+
+        memset(&render, 0, sizeof(render));
+        read_rc = a90_doomgeneric_bridge_read_frame_render(&render);
+        if (read_rc == 0 && render.ok) {
+            present_rc = video_demo_doom_present_frame_file_ex(&render, !background_child);
+            if (present_rc == 0) {
+                ++presented;
+            } else {
+                break;
+            }
+        }
+        helper_done = a90_run_reap_pid(helper_pid, &helper_status);
+        if (helper_done == 1 && presented > 0) {
+            break;
+        }
+        if (helper_done < 0) {
+            present_rc = helper_done;
+            break;
+        }
+        cancel = a90_console_poll_cancel(1);
+        if (cancel != CANCEL_NONE) {
+            (void)a90_run_stop_pid_ex(helper_pid,
+                                      "doomgeneric-loop-helper",
+                                      1000,
+                                      false,
+                                      NULL);
+            return a90_console_cancelled("doomgeneric-loop", cancel);
+        }
+        usleep((useconds_t)VIDEO_DEMO_DOOMGENERIC_LOOP_FRAME_MS * 1000U);
+        ++poll_count;
+    }
+
+    if (helper_done == 0) {
+        (void)a90_run_stop_pid_ex(helper_pid,
+                                  "doomgeneric-loop-helper",
+                                  1000,
+                                  false,
+                                  &helper_status);
+    }
+    if (!background_child) {
+        a90_console_printf("video.demo.doom.loop.frames_presented=%u\r\n", presented);
+        a90_console_printf("video.demo.doom.loop.poll_count=%u\r\n", poll_count);
+        a90_console_printf("video.demo.doom.loop.helper_done=%d\r\n", helper_done == 1 ? 1 : 0);
+        a90_console_printf("video.demo.doom.loop.display.rc=%d\r\n", present_rc);
+        a90_console_printf("video.demo.doom.loop.rc=%d\r\n",
+                           (presented > 0 && present_rc == 0) ? 0 : present_rc);
+    }
+    return (presented > 0 && present_rc == 0) ? 0 : present_rc;
+}
+
+static int video_demo_doom_loop_start(uint32_t frames, const char *expected_sha256) {
+    pid_t pid;
+
+    video_demo_doom_loop_reap();
+    if (video_demo_doom_loop_pid > 0) {
+        a90_console_printf("video.demo.doom.loop_start=background-presenter\r\n");
+        a90_console_printf("video.demo.doom.loop_start.active=1\r\n");
+        a90_console_printf("video.demo.doom.loop_start.pid=%ld\r\n", (long)video_demo_doom_loop_pid);
+        a90_console_printf("video.demo.doom.loop_start.rc=%d\r\n", -EBUSY);
+        return -EBUSY;
+    }
+    pid = fork();
+    if (pid < 0) {
+        int rc = negative_errno_or(EIO);
+
+        a90_console_printf("video.demo.doom.loop_start=background-presenter\r\n");
+        a90_console_printf("video.demo.doom.loop_start.rc=%d\r\n", rc);
+        return rc;
+    }
+    if (pid == 0) {
+        (void)setsid();
+        _exit(video_demo_doom_run_visible_loop(frames, expected_sha256, true) == 0 ? 0 : 1);
+    }
+    video_demo_doom_loop_pid = pid;
+    a90_console_printf("video.demo.doom.loop_start=background-presenter\r\n");
+    a90_console_printf("video.demo.doom.loop_start.active=1\r\n");
+    a90_console_printf("video.demo.doom.loop_start.pid=%ld\r\n", (long)pid);
+    a90_console_printf("video.demo.doom.loop_start.frames=%u\r\n", frames);
+    a90_console_printf("video.demo.doom.loop_start.input=serial-doompad-state-file\r\n");
+    a90_console_printf("video.demo.doom.loop_start.host_keyboard_bridge=host_doompad_keyboard_v3033.py\r\n");
+    a90_console_printf("video.demo.doom.loop_start.rc=0\r\n");
     return 0;
 }
 
@@ -2755,7 +2956,10 @@ static int video_demo_doom_run_wad_command(const char *action,
     int index = 4;
     int rc;
 
-    if ((strcmp(action, "play") == 0 || strcmp(action, "frame") == 0) &&
+    if ((strcmp(action, "play") == 0 ||
+         strcmp(action, "frame") == 0 ||
+         strcmp(action, "loop") == 0 ||
+         strcmp(action, "loop-start") == 0) &&
         index < argc && strncmp(argv[index], "--", 2) != 0) {
         if (!parse_u32_arg(argv[index],
                            1U,
@@ -2765,6 +2969,8 @@ static int video_demo_doom_run_wad_command(const char *action,
             return -EINVAL;
         }
         ++index;
+    } else if (strcmp(action, "loop") == 0 || strcmp(action, "loop-start") == 0) {
+        frames = VIDEO_DEMO_DOOMGENERIC_LOOP_DEFAULT_FRAMES;
     } else if (strcmp(action, "verify") != 0) {
         a90_console_printf("%s", usage);
         return -EINVAL;
@@ -2872,12 +3078,18 @@ static int video_demo_doom_run_wad_command(const char *action,
         a90_console_printf("video.demo.doom.frame.display.rc=%d\r\n", present_rc);
         return rc == 0 ? present_rc : rc;
     }
+    if (strcmp(action, "loop") == 0) {
+        return video_demo_doom_run_visible_loop(frames, expected_sha256, false);
+    }
+    if (strcmp(action, "loop-start") == 0) {
+        return video_demo_doom_loop_start(frames, expected_sha256);
+    }
     a90_console_printf("%s", usage);
     return -EINVAL;
 }
 
 static int cmd_video_demo(char **argv, int argc) {
-    const char *usage = "usage: video demo [bars|checker|mono|0xRRGGBB|badapple|badapple-scale|nyan|doom [status|verify|play|frame|engine-probe] [frames] [--wad runtime-private --sha256 EXPECTED] [--trust-cache] [--frames N] [--present setcrtc|pageflip] [--layout full|player-hud] [--sync-audio-status /cache/a90-audio-play/status.txt] [--sync-wait-ms N] [--sync-start-offset-ms N]]\r\n";
+    const char *usage = "usage: video demo [bars|checker|mono|0xRRGGBB|badapple|badapple-scale|nyan|doom [status|verify|play|frame|loop|loop-start|loop-stop|loop-status|engine-probe] [frames] [--wad runtime-private --sha256 EXPECTED] [--trust-cache] [--frames N] [--present setcrtc|pageflip] [--layout full|player-hud] [--sync-audio-status /cache/a90-audio-play/status.txt] [--sync-wait-ms N] [--sync-start-offset-ms N]]\r\n";
     char *cache_argv[CMDV1X_MAX_ARGS];
     int cache_argc = 0;
     int index;
@@ -2891,6 +3103,10 @@ static int cmd_video_demo(char **argv, int argc) {
              strcmp(action, "verify") != 0 &&
              strcmp(action, "play") != 0 &&
              strcmp(action, "frame") != 0 &&
+             strcmp(action, "loop") != 0 &&
+             strcmp(action, "loop-start") != 0 &&
+             strcmp(action, "loop-stop") != 0 &&
+             strcmp(action, "loop-status") != 0 &&
              strcmp(action, "engine-probe") != 0)) {
             a90_console_printf("%s", usage);
             return -EINVAL;
@@ -2898,11 +3114,31 @@ static int cmd_video_demo(char **argv, int argc) {
         if (video_demo_doom_args_request_runtime_wad(argv, argc)) {
             if (strcmp(action, "verify") != 0 &&
                 strcmp(action, "play") != 0 &&
-                strcmp(action, "frame") != 0) {
+                strcmp(action, "frame") != 0 &&
+                strcmp(action, "loop") != 0 &&
+                strcmp(action, "loop-start") != 0) {
                 a90_console_printf("%s", usage);
                 return -EINVAL;
             }
             return video_demo_doom_run_wad_command(action, argv, argc, usage);
+        }
+        if (strcmp(action, "loop-stop") == 0) {
+            if (argc != 4) {
+                a90_console_printf("%s", usage);
+                return -EINVAL;
+            }
+            return video_demo_doom_loop_stop();
+        }
+        if (strcmp(action, "loop-status") == 0) {
+            if (argc != 4) {
+                a90_console_printf("%s", usage);
+                return -EINVAL;
+            }
+            return video_demo_doom_loop_status();
+        }
+        if (strcmp(action, "loop") == 0 || strcmp(action, "loop-start") == 0) {
+            a90_console_printf("%s", usage);
+            return -EINVAL;
         }
         if (argc > 5 || (argc == 5 && strcmp(action, "play") != 0)) {
             a90_console_printf("%s", usage);

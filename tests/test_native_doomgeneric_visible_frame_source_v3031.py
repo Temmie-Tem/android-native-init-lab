@@ -41,18 +41,18 @@ class NativeDoomgenericVisibleFrameSourceV3031Tests(unittest.TestCase):
         self.assertIn("a90_kms_present(\"doomframe\", true)", text)
         self.assertIn("video.status.doomgeneric.visible_frame=1", text)
 
-    def test_menu_doom_action_launches_visible_frame_preview_and_restores_menu(self) -> None:
+    def test_menu_doom_action_launches_current_visible_loop_and_restores_menu(self) -> None:
         text = (ROOT / "workspace/public/src/native-init/v319/40_menu_apps.inc.c").read_text(encoding="utf-8")
         menu = (ROOT / "workspace/public/src/native-init/a90_menu.c").read_text(encoding="utf-8")
 
-        self.assertIn("menu.demo.doom.action=visible-frame-preview", text)
-        self.assertIn("demo_argv[3] = \"frame\";", text)
-        self.assertIn("demo_argv[4] = \"8\";", text)
+        self.assertIn("menu.demo.doom.action=visible-playable-loop", text)
+        self.assertIn("demo_argv[3] = \"loop\";", text)
+        self.assertIn("demo_argv[4] = \"90\";", text)
         self.assertIn("demo_argv[6] = \"runtime-private\";", text)
         self.assertIn("demo_argv[8] = (char *)doomgeneric.expected_wad_sha256;", text)
-        self.assertIn("menu.demo.doom.frame_rc=%d", text)
+        self.assertIn("menu.demo.doom.loop_rc=%d", text)
         self.assertIn("auto_hud_show_menu(state, false);", text)
-        self.assertIn("WAD FRAME PREVIEW", menu)
+        self.assertIn("WAD PLAYABLE LOOP", menu)
 
     def test_builder_contract_pins_v3031_visible_frame_candidate(self) -> None:
         self.assertEqual(runner.CYCLE, "V3031")

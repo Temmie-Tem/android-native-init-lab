@@ -176,9 +176,19 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 >   `render.ok=1`, `display.presented=1`, `display.rc=0`, and `doomframe` presented a 1080x2400 KMS
 >   framebuffer. A bounded `video demo doom play 4 --wad runtime-private --sha256 EXPECTED` smoke also
 >   passed (`rc=0`, `timed_out=0`). Rollback to V2321 passed with final `selftest fail=0`.
-> - **NEXT CHECKPOINT: V3033 host-only visible playable DOOM loop/menu integration** — combine the V3032-proven
->   SD WAD hash gate, helper frame render, KMS present path, bounded play smoke, and serial-doompad input bridge
->   into the next bounded visible/playable loop path, without embedding WAD bytes or widening the flash surface.
+> - **DOOM WAD-backed visible playable loop source build DONE (V3033)** — host-only source build produced
+>   the `0.10.76` / `v3033-doomgeneric-visible-loop` private boot candidate
+>   `boot_linux_v3033_doomgeneric_visible_loop.img` with SHA256
+>   `8fa375702a5023d9cc1f0811c310993a86f58154d658047b8edbe44eece30a97`. The private helper now supports
+>   `--wad-frame-loop ... --input-state /tmp/a90-doomgeneric-v3033-input.state --frame-ms 50`; native-init
+>   exposes foreground `video demo doom loop [frames] --wad runtime-private --sha256 EXPECTED`,
+>   background `loop-start`/`loop-status`/`loop-stop`, and mirrors `doompad key` state into the helper input
+>   file. Host keyboard control is via `host_doompad_keyboard_v3033.py` over the existing serial command bridge;
+>   WAD files in ramdisk are `0`, public WAD count remains `0`, and WAD bytes are not embedded in boot.
+> - **NEXT CHECKPOINT: V3034 rollback-gated visible playable DOOM loop live validation** — flash only the exact
+>   V3033 boot image via `native_init_flash.py`, health-check, run foreground `video demo doom loop 8 --wad
+>   runtime-private --sha256 EXPECTED`, then run `loop-start` with bounded host keyboard `doompad` transitions,
+>   stop the loop, confirm presentation/input markers, and rollback to V2321.
 > - Parallel optional polish: dashboard formatting, fonts/ASCII charset, beat-flash tuning.
 
 **Historical recon framing (Venus HW-decode / cont-splash feasibility, VID-0/1/2):** SUPERSEDED — the display is

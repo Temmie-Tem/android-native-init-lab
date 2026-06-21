@@ -101,6 +101,12 @@ CURRENT_DOOMGENERIC_VISIBLE_FRAME_LIVE_REPORT = (
     / "reports"
     / "NATIVE_INIT_V3032_DOOMGENERIC_VISIBLE_FRAME_LIVE_2026-06-22.md"
 )
+CURRENT_DOOMGENERIC_VISIBLE_LOOP_REPORT = (
+    REPO_ROOT
+    / "docs"
+    / "reports"
+    / "NATIVE_INIT_V3033_DOOMGENERIC_VISIBLE_LOOP_SOURCE_BUILD_2026-06-22.md"
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -939,6 +945,65 @@ def current_doomgeneric_visible_frame_live_evidence(report_text: str | None) -> 
     }
 
 
+def current_doomgeneric_visible_loop_evidence(report_text: str | None) -> dict[str, Any]:
+    if not report_text:
+        return {
+            "v3033_visible_loop_report_present": False,
+            "v3033_visible_loop_ready": False,
+            "v3033_boot_sha_present": False,
+            "v3033_helper_loop_present": False,
+            "v3033_native_loop_command_present": False,
+            "v3033_loop_start_command_present": False,
+            "v3033_host_keyboard_bridge_present": False,
+            "v3033_input_state_path_present": False,
+            "v3033_ramdisk_wad_zero": False,
+            "v3033_public_wad_zero": False,
+            "v3033_wad_not_embedded": False,
+            "v3033_no_device_action": False,
+            "v3033_next_run_id": None,
+        }
+    decision_ready = "v3033-doomgeneric-visible-loop-source-build-pass" in report_text
+    boot_sha = "Boot SHA256: `" in report_text
+    helper_loop = "--wad-frame-loop" in report_text and "--input-state" in report_text
+    native_loop = "video demo doom loop [frames] --wad runtime-private --sha256" in report_text
+    loop_start = "video demo doom loop-start [frames] --wad runtime-private --sha256" in report_text
+    host_bridge = "host_doompad_keyboard_v3033.py" in report_text
+    input_state = "Input state path: `/tmp/a90-doomgeneric-v3033-input.state`" in report_text
+    ramdisk_wad_zero = "WAD files in ramdisk: `0`" in report_text
+    public_wad_zero = "Public WAD files committed/present: `0`" in report_text
+    wad_not_embedded = "WAD bytes embedded in boot image: `0`" in report_text
+    no_device_action = "Device action: `none` in this build unit." in report_text
+    next_run_id = "V3034" if "Run ID: `V3034`" in report_text else None
+    return {
+        "v3033_visible_loop_report_present": True,
+        "v3033_visible_loop_ready": bool(
+            decision_ready
+            and boot_sha
+            and helper_loop
+            and native_loop
+            and loop_start
+            and host_bridge
+            and input_state
+            and ramdisk_wad_zero
+            and public_wad_zero
+            and wad_not_embedded
+            and no_device_action
+            and next_run_id == "V3034"
+        ),
+        "v3033_boot_sha_present": bool(boot_sha),
+        "v3033_helper_loop_present": bool(helper_loop),
+        "v3033_native_loop_command_present": bool(native_loop),
+        "v3033_loop_start_command_present": bool(loop_start),
+        "v3033_host_keyboard_bridge_present": bool(host_bridge),
+        "v3033_input_state_path_present": bool(input_state),
+        "v3033_ramdisk_wad_zero": bool(ramdisk_wad_zero),
+        "v3033_public_wad_zero": bool(public_wad_zero),
+        "v3033_wad_not_embedded": bool(wad_not_embedded),
+        "v3033_no_device_action": bool(no_device_action),
+        "v3033_next_run_id": next_run_id,
+    }
+
+
 def current_doom_input_evaluation(
     report_text: str | None,
     flash_gate_report_text: str | None = None,
@@ -954,6 +1019,7 @@ def current_doom_input_evaluation(
     doomgeneric_sd_wad_command_live_report_text: str | None = None,
     doomgeneric_visible_frame_report_text: str | None = None,
     doomgeneric_visible_frame_live_report_text: str | None = None,
+    doomgeneric_visible_loop_report_text: str | None = None,
 ) -> dict[str, Any] | None:
     gameplay_loop = current_doom_gameplay_loop_evidence(gameplay_loop_report_text)
     if gameplay_loop["v3017_state_consumed"] and gameplay_loop["v3017_rollback_health_ok"]:
@@ -985,6 +1051,39 @@ def current_doom_input_evaluation(
         doomgeneric_visible_frame_live = current_doomgeneric_visible_frame_live_evidence(
             doomgeneric_visible_frame_live_report_text
         )
+        doomgeneric_visible_loop = current_doomgeneric_visible_loop_evidence(
+            doomgeneric_visible_loop_report_text
+        )
+        if doomgeneric_visible_loop["v3033_visible_loop_ready"]:
+            return {
+                "track": "VIDEO",
+                "name": "doom-capstone",
+                "safe_actionable_now": True,
+                "status": "doomgeneric-visible-playable-loop-live-validation-ready",
+                "drop_trigger": (
+                    "V3033 built the WAD-backed visible playable-loop candidate with a host keyboard "
+                    "doompad bridge and no WAD bytes embedded. The next bounded unit is rollback-gated "
+                    "live validation of the exact V3033 boot image and input/presentation markers."
+                ),
+                "evidence": {
+                    **gameplay_loop,
+                    **doomgeneric_policy,
+                    **doomgeneric_private_build,
+                    **doomgeneric_command_bridge,
+                    **doomgeneric_command_bridge_live,
+                    **doomgeneric_runtime_wad_preflight,
+                    **doomgeneric_sd_wad_stage,
+                    **doomgeneric_sd_wad_command,
+                    **doomgeneric_sd_wad_command_live,
+                    **doomgeneric_visible_frame,
+                    **doomgeneric_visible_frame_live,
+                    **doomgeneric_visible_loop,
+                    "next_live_unit": (
+                        "V3034 rollback-gated live validation of the exact V3033 visible-loop "
+                        "candidate, including host keyboard doompad transitions and V2321 rollback"
+                    ),
+                },
+            }
         if doomgeneric_visible_frame_live["v3032_visible_frame_live_pass"]:
             return {
                 "track": "VIDEO",
@@ -1009,6 +1108,7 @@ def current_doom_input_evaluation(
                     **doomgeneric_sd_wad_command_live,
                     **doomgeneric_visible_frame,
                     **doomgeneric_visible_frame_live,
+                    **doomgeneric_visible_loop,
                     "next_host_only_unit": (
                         "V3033 host-only visible playable DOOM loop/menu integration using the "
                         "V3032-proven SD WAD, frame render, KMS present, and serial-doompad paths"
@@ -1038,6 +1138,7 @@ def current_doom_input_evaluation(
                     **doomgeneric_sd_wad_command_live,
                     **doomgeneric_visible_frame,
                     **doomgeneric_visible_frame_live,
+                    **doomgeneric_visible_loop,
                     "next_live_unit": (
                         "V3032 rollback-gated live validation of the exact V3031 visible-frame "
                         "candidate through native_init_flash.py, followed by V2321 rollback"
@@ -1065,6 +1166,7 @@ def current_doom_input_evaluation(
                     **doomgeneric_sd_wad_command,
                     **doomgeneric_sd_wad_command_live,
                     **doomgeneric_visible_frame,
+                    **doomgeneric_visible_loop,
                     "next_host_only_unit": (
                         "V3031 host-only WAD-backed visible DOOM frame/menu integration without "
                         "embedding WAD bytes or widening the flash surface"
@@ -1365,6 +1467,7 @@ def track_evaluations(
     current_doomgeneric_sd_wad_command_live_report_text: str | None = None,
     current_doomgeneric_visible_frame_report_text: str | None = None,
     current_doomgeneric_visible_frame_live_report_text: str | None = None,
+    current_doomgeneric_visible_loop_report_text: str | None = None,
 ) -> list[dict[str, Any]]:
     signals = inventory["consolidation_signals"]
     t1_candidates = ready_t1_candidates(frontier_candidates)
@@ -1383,6 +1486,7 @@ def track_evaluations(
         current_doomgeneric_sd_wad_command_live_report_text,
         current_doomgeneric_visible_frame_report_text,
         current_doomgeneric_visible_frame_live_report_text,
+        current_doomgeneric_visible_loop_report_text,
     )
     current_demo_checkpoint = current_demo_checkpoint_evaluation(
         goal_text,
@@ -1505,6 +1609,7 @@ def select_frontier() -> dict[str, Any]:
     current_doomgeneric_visible_frame_live_report_text = read_optional_text(
         CURRENT_DOOMGENERIC_VISIBLE_FRAME_LIVE_REPORT
     )
+    current_doomgeneric_visible_loop_report_text = read_optional_text(CURRENT_DOOMGENERIC_VISIBLE_LOOP_REPORT)
     evaluations = track_evaluations(
         goal_text,
         todo_text,
@@ -1526,6 +1631,7 @@ def select_frontier() -> dict[str, Any]:
         current_doomgeneric_sd_wad_command_live_report_text,
         current_doomgeneric_visible_frame_report_text,
         current_doomgeneric_visible_frame_live_report_text,
+        current_doomgeneric_visible_loop_report_text,
     )
     actionable = [evaluation for evaluation in evaluations if evaluation["safe_actionable_now"]]
     current_video = current_doom_input_evaluation(
@@ -1543,6 +1649,7 @@ def select_frontier() -> dict[str, Any]:
         current_doomgeneric_sd_wad_command_live_report_text,
         current_doomgeneric_visible_frame_report_text,
         current_doomgeneric_visible_frame_live_report_text,
+        current_doomgeneric_visible_loop_report_text,
     )
     current_demo_checkpoint = current_demo_checkpoint_evaluation(
         goal_text,
@@ -1616,6 +1723,13 @@ def select_frontier() -> dict[str, Any]:
             "`video demo doom frame 8 --wad runtime-private --sha256 EXPECTED`, confirm KMS presentation "
             "markers, then rollback to V2321."
         )
+    elif current_video and current_video["status"] == "doomgeneric-visible-playable-loop-live-validation-ready":
+        next_operator_decision = (
+            "Run the V3034 rollback-gated live validation for the exact V3033 boot image: confirm "
+            "rollback assets/recovery first, flash only via native_init_flash.py, health-check, run "
+            "foreground `video demo doom loop`, then `loop-start` with the host keyboard doompad bridge, "
+            "stop the loop, and rollback to V2321."
+        )
     elif current_video and current_video["status"] == "doomgeneric-visible-playable-loop-integration-ready":
         next_operator_decision = (
             "Run the V3033 host-only visible playable DOOM loop/menu integration unit next. Use the "
@@ -1681,6 +1795,7 @@ def select_frontier() -> dict[str, Any]:
             "current_doomgeneric_sd_wad_command_live_report": str(CURRENT_DOOMGENERIC_SD_WAD_COMMAND_LIVE_REPORT.relative_to(REPO_ROOT)),
             "current_doomgeneric_visible_frame_report": str(CURRENT_DOOMGENERIC_VISIBLE_FRAME_REPORT.relative_to(REPO_ROOT)),
             "current_doomgeneric_visible_frame_live_report": str(CURRENT_DOOMGENERIC_VISIBLE_FRAME_LIVE_REPORT.relative_to(REPO_ROOT)),
+            "current_doomgeneric_visible_loop_report": str(CURRENT_DOOMGENERIC_VISIBLE_LOOP_REPORT.relative_to(REPO_ROOT)),
         },
     }
 
