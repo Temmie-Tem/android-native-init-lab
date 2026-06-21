@@ -65,6 +65,7 @@ FRAME_WIDTH = v3031.FRAME_WIDTH
 FRAME_HEIGHT = v3031.FRAME_HEIGHT
 FRAME_STRIDE = v3031.FRAME_STRIDE
 FRAME_BYTES = v3031.FRAME_BYTES
+NATIVE_DASHBOARD = 0
 
 HOST_KEYBOARD_BRIDGE = (
     REPO_ROOT / "workspace" / "public" / "src" / "scripts" / "revalidation" / "host_doompad_keyboard_v3033.py"
@@ -366,6 +367,11 @@ def patch_ramdisk_with_doomgeneric_helper() -> None:
             numeric_define("A90_DOOMGENERIC_BRIDGE_FRAME_BYTES", FRAME_BYTES),
             numeric_define("A90_DOOMGENERIC_BRIDGE_LOOP_FRAME_MS", LOOP_FRAME_MS),
         )
+        if NATIVE_DASHBOARD:
+            doomgeneric_flags = (
+                *doomgeneric_flags,
+                numeric_define("A90_DOOMGENERIC_NATIVE_DASHBOARD", 1),
+            )
         base.EXTRA_INIT_FLAGS = (*inherited_flags, *(flag for flag in doomgeneric_flags if flag not in inherited_flags))
 
         def ramdisk_helpers_with_doomgeneric(args: Any) -> dict[str, Path]:
