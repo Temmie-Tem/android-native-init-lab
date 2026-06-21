@@ -2584,6 +2584,7 @@ static void video_demo_doom_bridge_status(void) {
     a90_console_printf("video.demo.doom.dashboard.native=1\r\n");
     a90_console_printf("video.demo.doom.dashboard.layout=top-frame-metrics-logs-input\r\n");
     a90_console_printf("video.demo.doom.dashboard.display=demo-visible-native-kms\r\n");
+    a90_console_printf("video.demo.doom.dashboard.presenter_log=quiet-per-frame\r\n");
 #if A90_DOOMGENERIC_NATIVE_DASHBOARD_LARGE_FRAME
     a90_console_printf("video.demo.doom.dashboard.large_frame=1\r\n");
     a90_console_printf("video.demo.doom.dashboard.frame_mode=large-overlay-title\r\n");
@@ -3119,6 +3120,7 @@ static int video_demo_doom_draw_native_dashboard(
     if (verbose) {
         a90_console_printf("video.demo.doom.dashboard.native=1\r\n");
         a90_console_printf("video.demo.doom.dashboard.layout=top-frame-metrics-logs-input\r\n");
+        a90_console_printf("video.demo.doom.dashboard.presenter_log=quiet-per-frame\r\n");
 #if A90_DOOMGENERIC_NATIVE_DASHBOARD_LARGE_FRAME
         a90_console_printf("video.demo.doom.dashboard.large_frame=1\r\n");
         a90_console_printf("video.demo.doom.dashboard.frame_mode=large-overlay-title\r\n");
@@ -3208,7 +3210,7 @@ static int video_demo_doom_present_frame_file_ex(
     if (rc < 0) {
         return rc;
     }
-    if (a90_kms_present("doomdash", true) < 0) {
+    if (a90_kms_present("doomdash", false) < 0) {
         return negative_errno_or(EIO);
     }
 #else
