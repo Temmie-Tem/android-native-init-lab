@@ -572,8 +572,10 @@ static bool auto_hud_handle_menu_key(struct auto_hud_state *state,
         }
         case SCREEN_MENU_DEMO_DOOM: {
             char *demo_argv[] = { "video", "demo", "doom", "status" };
+            struct a90_doomgeneric_bridge_status doomgeneric;
             int rc;
 
+            a90_doomgeneric_bridge_get_status(&doomgeneric);
             a90_console_printf("menu.demo.doom.action=status-only\r\n");
             a90_console_printf("menu.demo.doom.status=doompad-frame-loop-ready\r\n");
             a90_console_printf("menu.demo.doom.input=serial-doompad-consumed\r\n");
@@ -584,6 +586,23 @@ static bool auto_hud_handle_menu_key(struct auto_hud_state *state,
             a90_console_printf("menu.demo.doom.input.command=doompad key <role> <0|1>\r\n");
             a90_console_printf("menu.demo.doom.play.command=video demo doom play [frames]\r\n");
             a90_console_printf("menu.demo.doom.input.keyboard_fallback=usb-keyboard-otg\r\n");
+            a90_console_printf("menu.demo.doom.engine.bridge=%s\r\n", doomgeneric.candidate);
+            a90_console_printf("menu.demo.doom.engine.active=%s\r\n",
+                               doomgeneric.helper_executable ?
+                                   doomgeneric.engine :
+                                   "doompad-loop-not-doomgeneric");
+            a90_console_printf("menu.demo.doom.engine.helper=%s\r\n", doomgeneric.helper_path);
+            a90_console_printf("menu.demo.doom.engine.helper.present=%d\r\n",
+                               doomgeneric.helper_present ? 1 : 0);
+            a90_console_printf("menu.demo.doom.engine.helper.executable=%d\r\n",
+                               doomgeneric.helper_executable ? 1 : 0);
+            a90_console_printf("menu.demo.doom.asset.wad.active=%s\r\n",
+                               doomgeneric.helper_executable ?
+                                   "runtime-private-not-bundled" :
+                                   "not-bundled");
+            a90_console_printf("menu.demo.doom.input.active=%s\r\n", doomgeneric.input_path);
+            a90_console_printf("menu.demo.doom.input.otg_required=0\r\n");
+            a90_console_printf("menu.demo.doom.engine.probe.command=video demo doom engine-probe\r\n");
             a90_console_printf("menu.demo.doom.restore=menu\r\n");
             rc = cmd_video_demo(demo_argv,
                                 (int)(sizeof(demo_argv) / sizeof(demo_argv[0])));

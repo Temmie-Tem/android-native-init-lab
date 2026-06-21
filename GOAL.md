@@ -127,8 +127,14 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 > - **DOOM private-source full-engine link DONE (V3024)** — the pinned private `doomgeneric` source now compiles 80
 >   engine C files plus the A90 serial-doompad/runtime-WAD bridge into an AArch64 static private artifact; no WAD data,
 >   ramdisk, boot image, or device action was produced.
-> - **NEXT UNIT: V3025 native-init command/boot integration candidate** — wire the V3024 private engine link into a
->   native-init candidate command surface while still keeping WAD bytes out of the public tree/ramdisk/boot image.
+> - **DOOM native-init command/boot bridge DONE (V3025)** — the V3024 private engine probe helper is now bundled into
+>   the private V3025 boot candidate ramdisk as `/bin/a90_doomgeneric_private_engine_v3024`, and native-init exposes
+>   `video demo doom engine-probe` plus `video.status.doomgeneric.*` / `video.demo.engine.active` status markers.
+>   Input remains `serial-doompad-to-DG_GetKey`, sound remains `-nosound -nomusic`, WAD files in ramdisk are `0`, and
+>   the generated private boot image SHA256 is `d028ece642793a7a6242295c86cd6caedbd533f733282120c0575116f012e95f`.
+> - **NEXT UNIT: V3026 rollback-gated live validation** — confirm rollback assets/recovery first, flash only the exact
+>   V3025 boot image through `native_init_flash.py`, health-check (`version`/`status`/`selftest`), run
+>   `video demo doom status` and `video demo doom engine-probe`, then rollback to V2321. Do not stage/copy WAD bytes yet.
 > - Parallel optional polish: dashboard formatting, fonts/ASCII charset, beat-flash tuning.
 
 **Historical recon framing (Venus HW-decode / cont-splash feasibility, VID-0/1/2):** SUPERSEDED — the display is

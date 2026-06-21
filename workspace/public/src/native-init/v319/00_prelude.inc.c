@@ -41,6 +41,7 @@
 #include "../a90_controller.h"
 #include "../a90_cmdproto.h"
 #include "../a90_diag.h"
+#include "../a90_doomgeneric_bridge.h"
 #include "../a90_draw.h"
 #include "../a90_exposure.h"
 #include "../a90_hud.h"

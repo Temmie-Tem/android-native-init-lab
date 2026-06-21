@@ -53,6 +53,12 @@ CURRENT_DOOMGENERIC_PRIVATE_BUILD_REPORT = (
     / "reports"
     / "NATIVE_INIT_V3024_DOOMGENERIC_PRIVATE_INTEGRATION_BUILD_2026-06-21.md"
 )
+CURRENT_DOOMGENERIC_COMMAND_BRIDGE_REPORT = (
+    REPO_ROOT
+    / "docs"
+    / "reports"
+    / "NATIVE_INIT_V3025_DOOMGENERIC_COMMAND_BRIDGE_SOURCE_BUILD_2026-06-21.md"
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -423,6 +429,49 @@ def current_doomgeneric_private_build_evidence(report_text: str | None) -> dict[
     }
 
 
+def current_doomgeneric_command_bridge_evidence(report_text: str | None) -> dict[str, Any]:
+    if not report_text:
+        return {
+            "v3025_command_bridge_report_present": False,
+            "v3025_command_bridge_ready": False,
+            "v3025_boot_sha_present": False,
+            "v3025_helper_bundled": False,
+            "v3025_ramdisk_wad_zero": False,
+            "v3025_engine_sha_pinned": False,
+            "v3025_engine_probe_command": False,
+            "v3025_no_otg_required": False,
+            "v3025_next_run_id": None,
+        }
+    decision_ready = "v3025-doomgeneric-command-bridge-source-build-pass" in report_text
+    boot_sha = "Boot SHA256:" in report_text
+    helper_bundled = "Helper bundled in ramdisk: `1`" in report_text
+    wad_zero = "WAD files in ramdisk: `0`" in report_text
+    engine_sha = "V3024 engine SHA256: `8b6630498b7ff217e6ad9b27593f89644ba73eb7cbbf11361838972f15581735`" in report_text
+    probe_command = "video demo doom engine-probe" in report_text
+    no_otg = "serial-doompad-to-DG_GetKey" in report_text and "input.otg_required=0" in report_text
+    next_run_id = "V3026" if "Run ID: `V3026`" in report_text else None
+    return {
+        "v3025_command_bridge_report_present": True,
+        "v3025_command_bridge_ready": bool(
+            decision_ready
+            and boot_sha
+            and helper_bundled
+            and wad_zero
+            and engine_sha
+            and probe_command
+            and no_otg
+            and next_run_id == "V3026"
+        ),
+        "v3025_boot_sha_present": bool(boot_sha),
+        "v3025_helper_bundled": bool(helper_bundled),
+        "v3025_ramdisk_wad_zero": bool(wad_zero),
+        "v3025_engine_sha_pinned": bool(engine_sha),
+        "v3025_engine_probe_command": bool(probe_command),
+        "v3025_no_otg_required": bool(no_otg),
+        "v3025_next_run_id": next_run_id,
+    }
+
+
 def current_doom_input_evaluation(
     report_text: str | None,
     flash_gate_report_text: str | None = None,
@@ -430,6 +479,7 @@ def current_doom_input_evaluation(
     gameplay_loop_report_text: str | None = None,
     doomgeneric_policy_report_text: str | None = None,
     doomgeneric_private_build_report_text: str | None = None,
+    doomgeneric_command_bridge_report_text: str | None = None,
 ) -> dict[str, Any] | None:
     gameplay_loop = current_doom_gameplay_loop_evidence(gameplay_loop_report_text)
     if gameplay_loop["v3017_state_consumed"] and gameplay_loop["v3017_rollback_health_ok"]:
@@ -437,6 +487,33 @@ def current_doom_input_evaluation(
         doomgeneric_private_build = current_doomgeneric_private_build_evidence(
             doomgeneric_private_build_report_text
         )
+        doomgeneric_command_bridge = current_doomgeneric_command_bridge_evidence(
+            doomgeneric_command_bridge_report_text
+        )
+        if doomgeneric_command_bridge["v3025_command_bridge_ready"]:
+            return {
+                "track": "VIDEO",
+                "name": "doom-capstone",
+                "safe_actionable_now": True,
+                "status": "doomgeneric-command-bridge-live-validation-ready",
+                "drop_trigger": (
+                    "V3025 built the native-init command/boot bridge candidate: the V3024 private "
+                    "engine probe helper is bundled in the private ramdisk, WAD files in the ramdisk "
+                    "are zero, and serial doompad input is exposed as the active DG_GetKey path. The "
+                    "next bounded unit is rollback-gated live validation of status plus engine-probe."
+                ),
+                "evidence": {
+                    **gameplay_loop,
+                    **doomgeneric_policy,
+                    **doomgeneric_private_build,
+                    **doomgeneric_command_bridge,
+                    "next_live_unit": (
+                        "V3026 rollback-gated live validation: flash exact V3025 boot image, health-check, "
+                        "run video demo doom status and video demo doom engine-probe, then rollback to V2321"
+                    ),
+                    "next_live_command": None,
+                },
+            }
         if doomgeneric_private_build["v3024_private_build_ready"]:
             return {
                 "track": "VIDEO",
@@ -453,6 +530,7 @@ def current_doom_input_evaluation(
                     **gameplay_loop,
                     **doomgeneric_policy,
                     **doomgeneric_private_build,
+                    **doomgeneric_command_bridge,
                     "next_host_only_unit": (
                         "V3025 native-init command/boot integration candidate using the V3024 private "
                         "engine link; no WAD data in public tree, ramdisk, or boot image"
@@ -477,6 +555,7 @@ def current_doom_input_evaluation(
                     **gameplay_loop,
                     **doomgeneric_policy,
                     **doomgeneric_private_build,
+                    **doomgeneric_command_bridge,
                     "next_host_only_unit": (
                         "V3024 private-source doomgeneric native-init integration build; no WAD data "
                         "in public tree, ramdisk, or boot image"
@@ -499,6 +578,7 @@ def current_doom_input_evaluation(
                 **gameplay_loop,
                 **doomgeneric_policy,
                 **doomgeneric_private_build,
+                **doomgeneric_command_bridge,
                 "next_host_only_unit": "doomgeneric/WAD feasibility and asset-policy source audit",
                 "next_live_command": None,
             },
@@ -563,6 +643,7 @@ def track_evaluations(
     current_demo_checkpoint_live_report_text: str | None = None,
     current_doomgeneric_policy_report_text: str | None = None,
     current_doomgeneric_private_build_report_text: str | None = None,
+    current_doomgeneric_command_bridge_report_text: str | None = None,
 ) -> list[dict[str, Any]]:
     signals = inventory["consolidation_signals"]
     t1_candidates = ready_t1_candidates(frontier_candidates)
@@ -573,6 +654,7 @@ def track_evaluations(
         current_doom_gameplay_loop_report_text,
         current_doomgeneric_policy_report_text,
         current_doomgeneric_private_build_report_text,
+        current_doomgeneric_command_bridge_report_text,
     )
     current_demo_checkpoint = current_demo_checkpoint_evaluation(
         goal_text,
@@ -681,6 +763,7 @@ def select_frontier() -> dict[str, Any]:
     current_demo_checkpoint_live_report_text = read_optional_text(CURRENT_DEMO_CHECKPOINT_LIVE_REPORT)
     current_doomgeneric_policy_report_text = read_optional_text(CURRENT_DOOMGENERIC_POLICY_REPORT)
     current_doomgeneric_private_build_report_text = read_optional_text(CURRENT_DOOMGENERIC_PRIVATE_BUILD_REPORT)
+    current_doomgeneric_command_bridge_report_text = read_optional_text(CURRENT_DOOMGENERIC_COMMAND_BRIDGE_REPORT)
     evaluations = track_evaluations(
         goal_text,
         todo_text,
@@ -694,6 +777,7 @@ def select_frontier() -> dict[str, Any]:
         current_demo_checkpoint_live_report_text,
         current_doomgeneric_policy_report_text,
         current_doomgeneric_private_build_report_text,
+        current_doomgeneric_command_bridge_report_text,
     )
     actionable = [evaluation for evaluation in evaluations if evaluation["safe_actionable_now"]]
     current_video = current_doom_input_evaluation(
@@ -703,6 +787,7 @@ def select_frontier() -> dict[str, Any]:
         current_doom_gameplay_loop_report_text,
         current_doomgeneric_policy_report_text,
         current_doomgeneric_private_build_report_text,
+        current_doomgeneric_command_bridge_report_text,
     )
     current_demo_checkpoint = current_demo_checkpoint_evaluation(
         goal_text,
@@ -735,6 +820,12 @@ def select_frontier() -> dict[str, Any]:
         next_operator_decision = (
             "Run the V3025 host-only native-init command/boot integration candidate using the V3024 "
             "private engine link. Still keep WAD data out of public, ramdisk, and boot image."
+        )
+    elif current_video and current_video["status"] == "doomgeneric-command-bridge-live-validation-ready":
+        next_operator_decision = (
+            "Run the V3026 rollback-gated live validation for the exact V3025 boot image: confirm "
+            "rollback assets/recovery first, flash only via native_init_flash.py, health-check, run "
+            "`video demo doom status` and `video demo doom engine-probe`, then rollback to V2321."
         )
     elif current_video and not current_video["safe_actionable_now"]:
         evidence = current_video["evidence"]
@@ -782,6 +873,7 @@ def select_frontier() -> dict[str, Any]:
             "current_demo_checkpoint_live_report": str(CURRENT_DEMO_CHECKPOINT_LIVE_REPORT.relative_to(REPO_ROOT)),
             "current_doomgeneric_policy_report": str(CURRENT_DOOMGENERIC_POLICY_REPORT.relative_to(REPO_ROOT)),
             "current_doomgeneric_private_build_report": str(CURRENT_DOOMGENERIC_PRIVATE_BUILD_REPORT.relative_to(REPO_ROOT)),
+            "current_doomgeneric_command_bridge_report": str(CURRENT_DOOMGENERIC_COMMAND_BRIDGE_REPORT.relative_to(REPO_ROOT)),
         },
     }
 
