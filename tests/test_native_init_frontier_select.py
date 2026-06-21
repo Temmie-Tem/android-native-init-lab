@@ -206,6 +206,51 @@ class NativeInitFrontierSelectTests(unittest.TestCase):
             "v3012-doom-input-live-precondition-current-blocked",
         )
 
+    def test_current_doom_gameplay_loop_evidence_reads_v3017_pass(self) -> None:
+        report = "\n".join([
+            "v3017-doompad-gameplay-loop-state-consumed-pass-before-rollback",
+            "`video demo doom play 8` rc: `0` markers_ok=`1`",
+            "Player movement parsed: `1` moved_forward=`1`",
+            "Rollback health: version_ok=`1` selftest_fail0=`1`",
+            "not a WAD-backed `doomgeneric` engine",
+        ])
+
+        evidence = frontier.current_doom_gameplay_loop_evidence(report)
+
+        self.assertTrue(evidence["v3017_gameplay_loop_report_present"])
+        self.assertTrue(evidence["v3017_state_consumed"])
+        self.assertTrue(evidence["v3017_doomplay_rc_ok"])
+        self.assertTrue(evidence["v3017_doomplay_markers_ok"])
+        self.assertTrue(evidence["v3017_player_moved_forward"])
+        self.assertTrue(evidence["v3017_rollback_health_ok"])
+        self.assertTrue(evidence["v3017_not_wad_backed"])
+
+    def test_current_doom_input_evaluation_prefers_v3017_gameplay_loop_frontier(self) -> None:
+        stale_report = "\n".join([
+            "v3008-doom-input-frontier-keyboard-gate-still-external-stimulus",
+            "Active tier saturated without external stimulus: `1`",
+            "USB keyboard live gate staged: `1`",
+            "Current V3007 gate actionable now: `0`",
+        ])
+        gameplay_report = "\n".join([
+            "v3017-doompad-gameplay-loop-state-consumed-pass-before-rollback",
+            "`video demo doom play 8` rc: `0` markers_ok=`1`",
+            "Player movement parsed: `1` moved_forward=`1`",
+            "Rollback health: version_ok=`1` selftest_fail0=`1`",
+            "not a WAD-backed `doomgeneric` engine",
+        ])
+
+        evaluation = frontier.current_doom_input_evaluation(stale_report, gameplay_loop_report_text=gameplay_report)
+
+        self.assertIsNotNone(evaluation)
+        assert evaluation is not None
+        self.assertEqual(evaluation["track"], "VIDEO")
+        self.assertEqual(evaluation["name"], "doom-capstone")
+        self.assertTrue(evaluation["safe_actionable_now"])
+        self.assertEqual(evaluation["status"], "doomgeneric-wad-feasibility-host-ready")
+        self.assertTrue(evaluation["evidence"]["v3017_state_consumed"])
+        self.assertIn("V3017 supersedes", evaluation["drop_trigger"])
+
     def test_track_evaluations_prioritizes_current_video_doom_gate(self) -> None:
         inventory = {
             "consolidation_signals": {
@@ -250,6 +295,7 @@ class NativeInitFrontierSelectTests(unittest.TestCase):
         self.assertEqual(result["source_paths"]["current_doom_frontier_report"], "docs/reports/NATIVE_INIT_V3008_DOOM_INPUT_FRONTIER_RECONCILIATION_2026-06-20.md")
         self.assertEqual(result["source_paths"]["current_doom_flash_gate_report"], "docs/reports/NATIVE_INIT_V3010_DOOM_INPUT_FLASH_GATE_ASSETS_2026-06-20.md")
         self.assertEqual(result["source_paths"]["current_doom_live_precondition_report"], "docs/reports/NATIVE_INIT_V3012_DOOM_INPUT_LIVE_PRECONDITION_CURRENT_2026-06-20.md")
+        self.assertEqual(result["source_paths"]["current_doom_gameplay_loop_report"], "docs/reports/NATIVE_INIT_V3017_DOOMPAD_GAMEPLAY_LOOP_LIVE_2026-06-21.md")
 
     def test_select_frontier_selects_first_actionable_track(self) -> None:
         with self._fake_repo(
@@ -374,6 +420,48 @@ class NativeInitFrontierSelectTests(unittest.TestCase):
         self.assertTrue(evidence["v3012_host_only_gate_audit_stop"])
         self.assertIn("stop DOOM input host-only gate audits", result["next_operator_decision"])
 
+    def test_select_frontier_selects_v3017_gameplay_loop_next_host_unit(self) -> None:
+        with self._fake_repo(
+            inventory_signals={
+                "direct_a90ctl_actionable_now_count": 0,
+                "direct_a90ctl_review_only_count": 0,
+                "direct_a90ctl_next_actionable_group": None,
+                "source_delete_review_count": 0,
+                "active_live_phase_residual_backlog_closed": True,
+            },
+            frontier_candidates=None,
+            current_doom_report="\n".join([
+                "v3008-doom-input-frontier-keyboard-gate-still-external-stimulus",
+                "Active tier saturated without external stimulus: `1`",
+                "USB keyboard live gate staged: `1`",
+                "Current V3007 gate actionable now: `0`",
+            ]),
+            current_doom_live_precondition_report="\n".join([
+                "v3012-doom-input-live-precondition-current-hardware-wait",
+                "Bridge/control path ready: `1`",
+                "Resident selftest fail=0: `1`",
+                "V3010 flash-gate assets ready: `1`",
+                "V3011 selector external gate retained: `1`",
+                "A90 OTG keyboard evdev evidence: `0`",
+                "V3004 live actionable now: `0`",
+            ]),
+            current_doom_gameplay_loop_report="\n".join([
+                "v3017-doompad-gameplay-loop-state-consumed-pass-before-rollback",
+                "`video demo doom play 8` rc: `0` markers_ok=`1`",
+                "Player movement parsed: `1` moved_forward=`1`",
+                "Rollback health: version_ok=`1` selftest_fail0=`1`",
+                "not a WAD-backed `doomgeneric` engine",
+            ]),
+        ) as paths:
+            with self._patch_paths(paths):
+                result = frontier.select_frontier()
+
+        self.assertEqual(result["decision"], "frontier-selector-actionable-unit-present")
+        self.assertEqual(result["selected_track"], "VIDEO")
+        self.assertEqual(result["selected_reason"], "doomgeneric-wad-feasibility-host-ready")
+        self.assertEqual(result["track_evaluations"][0]["name"], "doom-capstone")
+        self.assertIn("doomgeneric/WAD feasibility", result["next_operator_decision"])
+
     @staticmethod
     def _fake_repo(
         *,
@@ -382,6 +470,7 @@ class NativeInitFrontierSelectTests(unittest.TestCase):
         current_doom_report: str | None = None,
         current_doom_flash_gate_report: str | None = None,
         current_doom_live_precondition_report: str | None = None,
+        current_doom_gameplay_loop_report: str | None = None,
     ):
         class RepoContext:
             def __enter__(self):
@@ -416,6 +505,13 @@ class NativeInitFrontierSelectTests(unittest.TestCase):
                         / "reports"
                         / "NATIVE_INIT_V3012_DOOM_INPUT_LIVE_PRECONDITION_CURRENT_2026-06-20.md"
                     ).write_text(current_doom_live_precondition_report, encoding="utf-8")
+                if current_doom_gameplay_loop_report is not None:
+                    (
+                        root
+                        / "docs"
+                        / "reports"
+                        / "NATIVE_INIT_V3017_DOOMPAD_GAMEPLAY_LOOP_LIVE_2026-06-21.md"
+                    ).write_text(current_doom_gameplay_loop_report, encoding="utf-8")
                 self.root = root
                 return {
                     "root": root,
@@ -430,6 +526,12 @@ class NativeInitFrontierSelectTests(unittest.TestCase):
                         / "docs"
                         / "reports"
                         / "NATIVE_INIT_V3012_DOOM_INPUT_LIVE_PRECONDITION_CURRENT_2026-06-20.md"
+                    ),
+                    "current_doom_gameplay_loop": (
+                        root
+                        / "docs"
+                        / "reports"
+                        / "NATIVE_INIT_V3017_DOOMPAD_GAMEPLAY_LOOP_LIVE_2026-06-21.md"
                     ),
                 }
 
@@ -451,6 +553,7 @@ class NativeInitFrontierSelectTests(unittest.TestCase):
             CURRENT_DOOM_FRONTIER_REPORT=paths["current_doom"],
             CURRENT_DOOM_FLASH_GATE_REPORT=paths["current_doom_flash_gate"],
             CURRENT_DOOM_LIVE_PRECONDITION_REPORT=paths["current_doom_live_precondition"],
+            CURRENT_DOOM_GAMEPLAY_LOOP_REPORT=paths["current_doom_gameplay_loop"],
         )
 
 

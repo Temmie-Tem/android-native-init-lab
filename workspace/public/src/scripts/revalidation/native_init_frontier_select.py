@@ -26,6 +26,9 @@ CURRENT_DOOM_FLASH_GATE_REPORT = (
 CURRENT_DOOM_LIVE_PRECONDITION_REPORT = (
     REPO_ROOT / "docs" / "reports" / "NATIVE_INIT_V3012_DOOM_INPUT_LIVE_PRECONDITION_CURRENT_2026-06-20.md"
 )
+CURRENT_DOOM_GAMEPLAY_LOOP_REPORT = (
+    REPO_ROOT / "docs" / "reports" / "NATIVE_INIT_V3017_DOOMPAD_GAMEPLAY_LOOP_LIVE_2026-06-21.md"
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -143,11 +146,65 @@ def current_doom_live_precondition_evidence(report_text: str | None) -> dict[str
     }
 
 
+def current_doom_gameplay_loop_evidence(report_text: str | None) -> dict[str, Any]:
+    if not report_text:
+        return {
+            "v3017_gameplay_loop_report_present": False,
+            "v3017_state_consumed": False,
+            "v3017_doomplay_rc_ok": False,
+            "v3017_doomplay_markers_ok": False,
+            "v3017_player_moved_forward": False,
+            "v3017_rollback_health_ok": False,
+            "v3017_not_wad_backed": False,
+            "v3017_gameplay_loop_decision": None,
+        }
+    decision_pass = "v3017-doompad-gameplay-loop-state-consumed-pass-before-rollback" in report_text
+    doomplay_rc_ok = marker_present(report_text, "`video demo doom play 8` rc: `0`")
+    doomplay_markers_ok = marker_present(report_text, "`video demo doom play 8` rc: `0` markers_ok=`1`")
+    moved_forward = marker_present(report_text, "Player movement parsed: `1` moved_forward=`1`")
+    rollback_health_ok = marker_present(report_text, "Rollback health: version_ok=`1` selftest_fail0=`1`")
+    not_wad_backed = marker_present(report_text, "not a WAD-backed `doomgeneric` engine")
+    return {
+        "v3017_gameplay_loop_report_present": True,
+        "v3017_state_consumed": bool(decision_pass and doomplay_rc_ok and doomplay_markers_ok and moved_forward),
+        "v3017_doomplay_rc_ok": bool(doomplay_rc_ok),
+        "v3017_doomplay_markers_ok": bool(doomplay_markers_ok),
+        "v3017_player_moved_forward": bool(moved_forward),
+        "v3017_rollback_health_ok": bool(rollback_health_ok),
+        "v3017_not_wad_backed": bool(not_wad_backed),
+        "v3017_gameplay_loop_decision": (
+            "v3017-doompad-gameplay-loop-state-consumed-pass-before-rollback"
+            if decision_pass
+            else "v3017-doompad-gameplay-loop-not-proven"
+        ),
+    }
+
+
 def current_doom_input_evaluation(
     report_text: str | None,
     flash_gate_report_text: str | None = None,
     live_precondition_report_text: str | None = None,
+    gameplay_loop_report_text: str | None = None,
 ) -> dict[str, Any] | None:
+    gameplay_loop = current_doom_gameplay_loop_evidence(gameplay_loop_report_text)
+    if gameplay_loop["v3017_state_consumed"] and gameplay_loop["v3017_rollback_health_ok"]:
+        return {
+            "track": "VIDEO",
+            "name": "doom-capstone",
+            "safe_actionable_now": True,
+            "status": "doomgeneric-wad-feasibility-host-ready",
+            "drop_trigger": (
+                "V3017 supersedes the V3012 OTG-keyboard hardware wait: the serial doompad state "
+                "is consumed by a bounded foreground KMS gameplay loop and rollback health is clean. "
+                "The remaining DOOM gap is WAD-backed doomgeneric/source-asset integration, which "
+                "has a safe host-only feasibility/design unit before any flash."
+            ),
+            "evidence": {
+                **gameplay_loop,
+                "next_host_only_unit": "doomgeneric/WAD feasibility and asset-policy source audit",
+                "next_live_command": None,
+            },
+        }
     if not report_text:
         return None
     if "v3008-doom-input-frontier-keyboard-gate-still-external-stimulus" not in report_text:
@@ -185,6 +242,7 @@ def current_doom_input_evaluation(
             "current_v3007_gate_actionable": current_actionable,
             **flash_gate,
             **live_precondition,
+            **gameplay_loop,
             "next_live_command": (
                 "PYTHONPATH=workspace/public/src/scripts/revalidation:workspace/public/src/harness "
                 "python3 workspace/public/src/scripts/revalidation/"
@@ -202,6 +260,7 @@ def track_evaluations(
     current_doom_report_text: str | None = None,
     current_doom_flash_gate_report_text: str | None = None,
     current_doom_live_precondition_report_text: str | None = None,
+    current_doom_gameplay_loop_report_text: str | None = None,
 ) -> list[dict[str, Any]]:
     signals = inventory["consolidation_signals"]
     t1_candidates = ready_t1_candidates(frontier_candidates)
@@ -209,6 +268,7 @@ def track_evaluations(
         current_doom_report_text,
         current_doom_flash_gate_report_text,
         current_doom_live_precondition_report_text,
+        current_doom_gameplay_loop_report_text,
     )
     t1_closed_boundary = all_markers_present(
         goal_text,
@@ -303,6 +363,7 @@ def select_frontier() -> dict[str, Any]:
     current_doom_report_text = read_optional_text(CURRENT_DOOM_FRONTIER_REPORT)
     current_doom_flash_gate_report_text = read_optional_text(CURRENT_DOOM_FLASH_GATE_REPORT)
     current_doom_live_precondition_report_text = read_optional_text(CURRENT_DOOM_LIVE_PRECONDITION_REPORT)
+    current_doom_gameplay_loop_report_text = read_optional_text(CURRENT_DOOM_GAMEPLAY_LOOP_REPORT)
     evaluations = track_evaluations(
         goal_text,
         todo_text,
@@ -311,14 +372,22 @@ def select_frontier() -> dict[str, Any]:
         current_doom_report_text,
         current_doom_flash_gate_report_text,
         current_doom_live_precondition_report_text,
+        current_doom_gameplay_loop_report_text,
     )
     actionable = [evaluation for evaluation in evaluations if evaluation["safe_actionable_now"]]
     current_video = current_doom_input_evaluation(
         current_doom_report_text,
         current_doom_flash_gate_report_text,
         current_doom_live_precondition_report_text,
+        current_doom_gameplay_loop_report_text,
     )
-    if current_video and not current_video["safe_actionable_now"]:
+    if current_video and current_video["status"] == "doomgeneric-wad-feasibility-host-ready":
+        next_operator_decision = (
+            "Run a host-only doomgeneric/WAD feasibility and asset-policy unit next. Do not flash "
+            "a WAD-backed engine until source provenance, boot-size impact, bounded runtime controls, "
+            "and rollback validation are pinned."
+        )
+    elif current_video and not current_video["safe_actionable_now"]:
         evidence = current_video["evidence"]
         if evidence.get("v3012_host_only_gate_audit_stop"):
             next_operator_decision = (
@@ -359,6 +428,7 @@ def select_frontier() -> dict[str, Any]:
             "current_doom_frontier_report": str(CURRENT_DOOM_FRONTIER_REPORT.relative_to(REPO_ROOT)),
             "current_doom_flash_gate_report": str(CURRENT_DOOM_FLASH_GATE_REPORT.relative_to(REPO_ROOT)),
             "current_doom_live_precondition_report": str(CURRENT_DOOM_LIVE_PRECONDITION_REPORT.relative_to(REPO_ROOT)),
+            "current_doom_gameplay_loop_report": str(CURRENT_DOOM_GAMEPLAY_LOOP_REPORT.relative_to(REPO_ROOT)),
         },
     }
 

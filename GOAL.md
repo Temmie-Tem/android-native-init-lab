@@ -233,13 +233,17 @@ Enablers + demos, dependency-ordered (prereq in parens):
     within bright lines). **Decision `v2993-doom-input-frontier-pivot-keyboard-fallback`: DOOM input → USB keyboard
     over OTG** (the GOAL-anticipated fallback). The loop built an input MUX (touch/keyboard/button proxy, V2994–V2998)
     + DOOM keyboard gate (V3004–V3013).
-  - **⏳ DOOM now waits on OPERATOR HARDWARE (V3012 `…-hardware-wait`):** DOOM input live-validation needs an
-    **A90-side OTG USB keyboard** (evdev keyboard plugged into the phone via a USB-OTG adapter) **+ operator pressing
-    DOOM keys** during the read window. Flash-gate/asset/mux are ready; the only missing precondition is that physical
-    OTG keyboard + key presses. Until then DOOM input stays `external-hardware-stimulus-required`.
+  - **✅ SUPERSEDED (V3014–V3017): no OTG hardware wait for the next DOOM step.** The OTG keyboard path remains a
+    fallback diagnostic, but V3014 added a serial `doompad` controller, V3015 validated its state live, V3016 wired
+    that state into a bounded foreground KMS `doomplay` loop, and V3017 live-validated `video demo doom play 8`
+    consuming `forward+fire` (`player.y 1200→1128`) with rollback to V2321 and `selftest fail=0`. The current input
+    surface for DOOM iteration is therefore `serial-doompad-consumed`, not `external-hardware-stimulus-required`.
 - **③ DOOM = capstone** (prereq: display + input [touch *or* USB-keyboard fallback]; audio SFX
-  optional) — `doomgeneric`: `DG_DrawFrame` → framebuffer region, `DG_GetKey` → touch evdev. Combines
-  display + input + audio; biggest jump (real-time render loop + interactive input).
+  optional) — `doomgeneric`: `DG_DrawFrame` → framebuffer region, `DG_GetKey` → the proven input surface
+  (`doompad` now; touch/USB keyboard remain fallback diagnostics). Combines display + input + audio; biggest jump
+  (real-time render loop + interactive input). **Next safe unit after V3017:** host-only `doomgeneric`/WAD feasibility
+  and asset-policy work. Do not flash a WAD-backed engine until source provenance, boot-size impact, IWAD/shareware
+  asset policy, bounded runtime controls, and rollback validation are pinned in a source-build report.
 
 **Venus (HW video decode) is NOT on this demo path** — it stays an optional, separate track for
 real-video / headless-media, only if explicitly chartered later.
