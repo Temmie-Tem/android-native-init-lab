@@ -31,7 +31,7 @@ class HostDoompadFastPathV3042Tests(unittest.TestCase):
             ],
         )
 
-    def test_dashboard_sender_uses_keyboard_fast_path_predicate(self) -> None:
+    def test_dashboard_sender_uses_keyboard_and_read_status_fast_paths(self) -> None:
         state = dashboard.DashboardState()
         calls: list[tuple[list[str], bool, float]] = []
 
@@ -43,12 +43,14 @@ class HostDoompadFastPathV3042Tests(unittest.TestCase):
         with mock.patch.object(dashboard.a90ctl, "run_cmdv1_command", side_effect=fake_run):
             self.assertEqual(sender.send(["doompad", "key", "left", "1"]), 0)
             self.assertEqual(sender.send(["video", "demo", "doom", "status"]), 0)
+            self.assertEqual(sender.send(["status"]), 0)
 
         self.assertEqual(
             calls,
             [
                 (["doompad", "key", "left", "1"], False, 0.0),
-                (["video", "demo", "doom", "status"], True, 0.15),
+                (["video", "demo", "doom", "status"], False, 0.0),
+                (["status"], False, 0.0),
             ],
         )
 

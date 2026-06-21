@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+from unittest import mock
 
 from _loader import load_script
 
@@ -13,8 +14,9 @@ class HostDoompadDashboardV3035Tests(unittest.TestCase):
     def test_dashboard_contract_reuses_v3033_serial_doompad_path(self) -> None:
         self.assertEqual(dashboard.EXPECTED_WAD_SHA256, keyboard.EXPECTED_WAD_SHA256)
         self.assertEqual(dashboard.DEFAULT_LOOP_FRAMES, keyboard.DEFAULT_LOOP_FRAMES)
-        self.assertEqual(dashboard.DEFAULT_LOOP_FRAME_MS, 50)
+        self.assertEqual(dashboard.DEFAULT_LOOP_FRAME_MS, 33)
         self.assertEqual(dashboard.DEFAULT_HOLD_MS, 250)
+        self.assertEqual(dashboard.DEFAULT_SYSTEM_STATUS_INTERVAL_SEC, 10.0)
         self.assertEqual(
             dashboard.token_for_curses_key(ord("w")),
             "w",
@@ -86,6 +88,72 @@ class HostDoompadDashboardV3035Tests(unittest.TestCase):
         self.assertEqual(sender.sent, [["doompad", "key", "fire", "1"]])
         self.assertEqual(state.command_count, 1)
         self.assertIn("doompad key fire 1", state.logs[-1].message)
+
+    def test_dashboard_fast_read_command_predicate_covers_status_refreshes(self) -> None:
+        self.assertTrue(dashboard.is_dashboard_fast_read_command(["status"]))
+        self.assertTrue(dashboard.is_dashboard_fast_read_command(["video", "demo", "doom", "status"]))
+        self.assertTrue(dashboard.is_dashboard_fast_read_command(["video", "demo", "doom", "loop-status"]))
+        self.assertTrue(dashboard.is_dashboard_fast_read_command(["doompad", "status"]))
+        self.assertFalse(dashboard.is_dashboard_fast_read_command(["video", "demo", "doom", "loop-start"]))
+
+    def test_light_refresh_omits_heavy_system_status(self) -> None:
+        class FakeSender:
+            def __init__(self) -> None:
+                self.sent: list[list[str]] = []
+
+            def send_result(self, command: list[str]):
+                self.sent.append(list(command))
+                text_by_command = {
+                    ("video", "demo", "doom", "status"): "video.demo.doom.loop.frame_ms=33\n",
+                    ("video", "demo", "doom", "loop-status"): "video.demo.doom.loop_status.active=1\n",
+                    ("doompad", "status"): "doompad.state seq=9 forward=0 active=0\n",
+                }
+                return dashboard.a90ctl.ProtocolResult(
+                    {},
+                    {"rc": "0", "status": "ok", "cmd": command[-1]},
+                    text_by_command.get(tuple(command), ""),
+                )
+
+        state = dashboard.DashboardState()
+        sender = FakeSender()
+
+        dashboard.refresh_light_device_state(sender, state)
+
+        self.assertEqual(
+            sender.sent,
+            [
+                ["video", "demo", "doom", "status"],
+                ["video", "demo", "doom", "loop-status"],
+                ["doompad", "status"],
+            ],
+        )
+        self.assertEqual(state.loop_frame_ms, 33)
+        self.assertTrue(state.loop_active)
+        self.assertEqual(state.doompad_kv["doompad.state seq"], "9 forward=0 active=0")
+
+    def test_auto_restart_loop_throttles_active_status_rechecks(self) -> None:
+        class FakeSender:
+            def __init__(self) -> None:
+                self.sent: list[list[str]] = []
+
+            def send_result(self, command: list[str]):
+                self.sent.append(list(command))
+                return dashboard.a90ctl.ProtocolResult(
+                    {},
+                    {"rc": "0", "status": "ok", "cmd": command[-1]},
+                    "video.demo.doom.loop_status.active=1\n",
+                )
+
+        state = dashboard.DashboardState(loop_frames=10, loop_frame_ms=10)
+        state.loop_started_at = 1.0
+        state.loop_next_check_at = 1.6
+        sender = FakeSender()
+
+        with mock.patch.object(dashboard.time, "monotonic", return_value=1.7):
+            dashboard.maybe_auto_restart_loop(sender, state, "a" * 64)
+
+        self.assertEqual(sender.sent, [["video", "demo", "doom", "loop-status"]])
+        self.assertAlmostEqual(state.loop_next_check_at, 2.2)
 
 
 if __name__ == "__main__":

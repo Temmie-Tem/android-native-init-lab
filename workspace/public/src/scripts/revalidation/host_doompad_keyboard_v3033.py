@@ -24,7 +24,11 @@ EXPECTED_WAD_SHA256 = "1d7d43be501e67d927e415e0b8f3e29c3bf33075e859721816f652a52
 DEFAULT_HOLD_MS = 180
 DEFAULT_POLL_MS = 30
 DEFAULT_LOOP_FRAMES = 300
+DEFAULT_LOOP_FRAME_MS = 33
+DEFAULT_LOOP_RESTART_GRACE_MS = 500
 ALL_ROLES = ("forward", "back", "left", "right", "fire", "use", "menu", "run")
+LOOP_STATUS_COMMAND = ["video", "demo", "doom", "loop-status"]
+LOOP_STATUS_ACTIVE_KEY = "video.demo.doom.loop_status.active"
 
 KEY_TOKEN_TO_ROLE = {
     "w": "forward",
@@ -88,6 +92,19 @@ def is_doompad_key_command(command: list[str]) -> bool:
     return len(command) == 4 and command[0] == "doompad" and command[1] == "key"
 
 
+def parse_key_value_lines(text: str) -> dict[str, str]:
+    values: dict[str, str] = {}
+    for raw in text.splitlines():
+        line = raw.strip()
+        if "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip()
+        if key:
+            values[key] = value.strip()
+    return values
+
+
 @dataclass
 class CommandSender:
     host: str
@@ -96,21 +113,89 @@ class CommandSender:
     print_only: bool = False
     sent: list[list[str]] = field(default_factory=list)
 
-    def send(self, command: list[str]) -> int:
+    def send_result(self, command: list[str], *, fast: bool = False) -> a90ctl.ProtocolResult:
         self.sent.append(list(command))
         if self.print_only:
             print(" ".join(command))
-            return 0
+            return a90ctl.ProtocolResult(
+                begin={},
+                end={"rc": "0", "status": "print-only"},
+                text="",
+            )
+        use_fast_path = fast or is_doompad_key_command(command)
         result = a90ctl.run_cmdv1_command(
             self.host,
             self.port,
             self.timeout,
             command,
             retry_unsafe=True,
-            require_prompt_after_end=not is_doompad_key_command(command),
-            post_marker_drain_sec=0.0 if is_doompad_key_command(command) else 0.15,
+            require_prompt_after_end=not use_fast_path,
+            post_marker_drain_sec=0.0 if use_fast_path else 0.15,
         )
+        return result
+
+    def send(self, command: list[str]) -> int:
+        result = self.send_result(command)
         return result.rc
+
+
+@dataclass
+class DoomLoopKeeper:
+    sender: CommandSender
+    loop_frames: int
+    frame_ms: int
+    sha256: str
+    restart_grace_ms: int
+    enabled: bool = True
+    loop_started_at: float | None = None
+    next_check_at: float = 0.0
+
+    def expected_duration_sec(self) -> float:
+        if self.loop_frames <= 0 or self.frame_ms <= 0:
+            return 0.0
+        return (self.loop_frames * self.frame_ms) / 1000.0
+
+    def restart_grace_sec(self) -> float:
+        return max(0, self.restart_grace_ms) / 1000.0
+
+    def mark_started(self, now: float | None = None) -> None:
+        timestamp = time.monotonic() if now is None else now
+        self.loop_started_at = timestamp
+        self.next_check_at = timestamp + self.expected_duration_sec() + self.restart_grace_sec()
+
+    def start(self, now: float | None = None) -> int:
+        result = self.sender.send_result(loop_start_command(self.loop_frames, self.sha256), fast=True)
+        if result.rc == 0:
+            self.mark_started(now)
+        elif result.status == "busy" or "status=busy" in result.text:
+            timestamp = time.monotonic() if now is None else now
+            self.next_check_at = timestamp + 0.5
+        return result.rc
+
+    def maybe_restart(self, now: float | None = None) -> int:
+        if not self.enabled:
+            return 0
+        timestamp = time.monotonic() if now is None else now
+        if self.loop_started_at is None:
+            return self.start(timestamp)
+        if timestamp < self.next_check_at:
+            return 0
+
+        result = self.sender.send_result(list(LOOP_STATUS_COMMAND), fast=True)
+        if result.rc != 0:
+            self.next_check_at = timestamp + 1.0
+            return result.rc
+
+        values = parse_key_value_lines(result.text)
+        active = values.get(LOOP_STATUS_ACTIVE_KEY)
+        if active == "0":
+            self.loop_started_at = None
+            return self.start(timestamp)
+        if active == "1":
+            self.next_check_at = timestamp + 0.5
+        else:
+            self.next_check_at = timestamp + 1.0
+        return 0
 
 
 class DoompadKeyboardSession:
@@ -180,9 +265,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--hold-ms", type=int, default=DEFAULT_HOLD_MS)
     parser.add_argument("--poll-ms", type=int, default=DEFAULT_POLL_MS)
     parser.add_argument("--loop-frames", type=int, default=DEFAULT_LOOP_FRAMES)
+    parser.add_argument("--loop-frame-ms", type=int, default=DEFAULT_LOOP_FRAME_MS)
+    parser.add_argument("--loop-restart-grace-ms", type=int, default=DEFAULT_LOOP_RESTART_GRACE_MS)
     parser.add_argument("--sha256", default=EXPECTED_WAD_SHA256)
     parser.add_argument("--no-loop-start", action="store_true")
     parser.add_argument("--no-loop-stop", action="store_true")
+    parser.add_argument("--no-auto-restart", action="store_true")
     parser.add_argument("--print-only", action="store_true")
     return parser.parse_args()
 
@@ -191,10 +279,18 @@ def main() -> int:
     args = parse_args()
     sender = CommandSender(args.host, args.port, args.timeout, print_only=args.print_only)
     session = DoompadKeyboardSession(sender, args.hold_ms)
+    loop_keeper = DoomLoopKeeper(
+        sender,
+        args.loop_frames,
+        args.loop_frame_ms,
+        args.sha256,
+        args.loop_restart_grace_ms,
+        enabled=not args.no_auto_restart and not args.no_loop_start,
+    )
     poll_sec = max(args.poll_ms, 1) / 1000.0
 
     if not args.no_loop_start:
-        rc = sender.send(loop_start_command(args.loop_frames, args.sha256))
+        rc = loop_keeper.start()
         if rc != 0:
             return rc
 
@@ -205,6 +301,8 @@ def main() -> int:
                 if token is not None and not session.handle_token(token):
                     break
                 session.release_expired()
+                if not session.active_until:
+                    loop_keeper.maybe_restart()
     finally:
         session.release_all()
         if not args.no_loop_stop:

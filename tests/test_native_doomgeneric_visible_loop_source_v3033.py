@@ -92,6 +92,7 @@ class NativeDoomgenericVisibleLoopSourceV3033Tests(unittest.TestCase):
         self.assertIn("WAD PLAYABLE LOOP", menu)
 
     def test_host_keyboard_bridge_maps_keys_and_cleans_up(self) -> None:
+        self.assertEqual(keyboard.DEFAULT_LOOP_FRAME_MS, 33)
         self.assertEqual(keyboard.role_for_key_token("w"), "forward")
         self.assertEqual(keyboard.role_for_key_token("\x1b[A"), "forward")
         self.assertEqual(keyboard.role_for_key_token(" "), "fire")
@@ -129,6 +130,50 @@ class NativeDoomgenericVisibleLoopSourceV3033Tests(unittest.TestCase):
         self.assertIn(["doompad", "key", "forward", "1"], sender.sent)
         self.assertIn(["doompad", "key", "forward", "0"], sender.sent)
         self.assertIn(["doompad", "key", "run", "0"], sender.sent)
+
+    def test_host_keyboard_loop_keeper_restarts_inactive_visible_loop(self) -> None:
+        class FakeSender:
+            def __init__(self) -> None:
+                self.sent: list[tuple[list[str], bool]] = []
+                self.responses = [
+                    keyboard.a90ctl.ProtocolResult(
+                        {},
+                        {"rc": "0", "status": "ok", "cmd": "loop-status"},
+                        "video.demo.doom.loop_status.active=0\n",
+                    ),
+                    keyboard.a90ctl.ProtocolResult(
+                        {},
+                        {"rc": "0", "status": "ok", "cmd": "loop-start"},
+                        "",
+                    ),
+                ]
+
+            def send_result(self, command: list[str], *, fast: bool = False):
+                self.sent.append((list(command), fast))
+                return self.responses.pop(0)
+
+        sender = FakeSender()
+        keeper = keyboard.DoomLoopKeeper(
+            sender,
+            loop_frames=10,
+            frame_ms=10,
+            sha256="a" * 64,
+            restart_grace_ms=5,
+        )
+        keeper.loop_started_at = 1.0
+        keeper.next_check_at = 1.105
+
+        rc = keeper.maybe_restart(now=1.2)
+
+        self.assertEqual(rc, 0)
+        self.assertEqual(
+            sender.sent,
+            [
+                (["video", "demo", "doom", "loop-status"], True),
+                (keyboard.loop_start_command(10, "a" * 64), True),
+            ],
+        )
+        self.assertEqual(keeper.loop_started_at, 1.2)
 
     def test_report_template_records_v3034_next_live_gate(self) -> None:
         manifest = {
