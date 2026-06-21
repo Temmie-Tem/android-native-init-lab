@@ -3282,15 +3282,33 @@ static void video_demo_doom_loop_reap(void) {
     }
 }
 
+static int video_demo_doom_clear_presented_frame(const char *reason) {
+    int rc = 0;
+
+    if (reason == NULL) {
+        reason = "unknown";
+    }
+    if (a90_kms_begin_frame(0x000000) < 0) {
+        rc = negative_errno_or(ENODEV);
+    } else if (a90_kms_present("doomstop-clear", true) < 0) {
+        rc = negative_errno_or(EIO);
+    }
+    a90_console_printf("video.demo.doom.clear.reason=%s\r\n", reason);
+    a90_console_printf("video.demo.doom.clear.rc=%d\r\n", rc);
+    return rc;
+}
+
 static int video_demo_doom_loop_stop(void) {
     int status = 0;
     int rc;
+    int clear_rc;
 
     video_demo_doom_loop_reap();
     if (video_demo_doom_loop_pid <= 0) {
         a90_console_printf("video.demo.doom.loop_stop.active=0\r\n");
+        clear_rc = video_demo_doom_clear_presented_frame("loop-stop-inactive");
         a90_console_printf("video.demo.doom.loop_stop.rc=0\r\n");
-        return 0;
+        return clear_rc;
     }
     rc = a90_run_stop_pid_ex(video_demo_doom_loop_pid,
                              "doomgeneric-loop-presenter",
@@ -3300,10 +3318,11 @@ static int video_demo_doom_loop_stop(void) {
     a90_console_printf("video.demo.doom.loop_stop.active=1\r\n");
     a90_console_printf("video.demo.doom.loop_stop.pid=%ld\r\n", (long)video_demo_doom_loop_pid);
     a90_console_printf("video.demo.doom.loop_stop.rc=%d\r\n", rc);
+    clear_rc = video_demo_doom_clear_presented_frame("loop-stop");
     video_demo_doom_loop_pid = -1;
     video_demo_doom_loop_continuous = false;
     video_demo_doom_loop_frames = 0U;
-    return rc;
+    return rc == 0 ? clear_rc : rc;
 }
 
 static int video_demo_doom_loop_status(void) {
