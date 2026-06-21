@@ -132,9 +132,13 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 >   `video demo doom engine-probe` plus `video.status.doomgeneric.*` / `video.demo.engine.active` status markers.
 >   Input remains `serial-doompad-to-DG_GetKey`, sound remains `-nosound -nomusic`, WAD files in ramdisk are `0`, and
 >   the generated private boot image SHA256 is `d028ece642793a7a6242295c86cd6caedbd533f733282120c0575116f012e95f`.
-> - **NEXT UNIT: V3026 rollback-gated live validation** — confirm rollback assets/recovery first, flash only the exact
->   V3025 boot image through `native_init_flash.py`, health-check (`version`/`status`/`selftest`), run
->   `video demo doom status` and `video demo doom engine-probe`, then rollback to V2321. Do not stage/copy WAD bytes yet.
+> - **DOOM command bridge live validation DONE (V3026)** — rollback-gated live validation flashed the exact V3025 image,
+>   confirmed `version`/`status`/`selftest`, validated `video demo doom status` and `video demo doom engine-probe`
+>   (`engine_probe.rc=0`, `timed_out=0`), then rolled back to V2321 with `selftest fail=0`. This proves the internal
+>   serial-doompad-to-`DG_GetKey` bridge on-device; OTG keyboard is not required for this proof path.
+> - **NEXT UNIT: V3027 runtime-private WAD staging preflight** — host-only inspect the private WAD root and pin exact
+>   size/hash/staging policy for a later bounded WAD-backed DOOM smoke. Keep WAD/IWAD bytes out of public, ramdisk,
+>   and boot image.
 > - Parallel optional polish: dashboard formatting, fonts/ASCII charset, beat-flash tuning.
 
 **Historical recon framing (Venus HW-decode / cont-splash feasibility, VID-0/1/2):** SUPERSEDED — the display is
