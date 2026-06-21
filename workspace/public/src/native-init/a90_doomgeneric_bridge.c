@@ -1,11 +1,20 @@
 #include "a90_doomgeneric_bridge.h"
 
+#include "a90_helper.h"
 #include "a90_run.h"
 
+#include <ctype.h>
 #include <errno.h>
+#include <fcntl.h>
+#include <stdio.h>
 #include <string.h>
+#include <strings.h>
 #include <sys/stat.h>
 #include <unistd.h>
+
+#ifndef O_CLOEXEC
+#define O_CLOEXEC 0
+#endif
 
 #ifndef A90_DOOMGENERIC_BRIDGE_CANDIDATE
 #define A90_DOOMGENERIC_BRIDGE_CANDIDATE "v3025-doomgeneric-command-bridge"
@@ -21,6 +30,22 @@
 
 #ifndef A90_DOOMGENERIC_BRIDGE_RUNTIME_WAD_ROOT
 #define A90_DOOMGENERIC_BRIDGE_RUNTIME_WAD_ROOT "/cache/a90-runtime/pkg/doom/v3024/"
+#endif
+
+#ifndef A90_DOOMGENERIC_BRIDGE_RUNTIME_WAD_PATH
+#define A90_DOOMGENERIC_BRIDGE_RUNTIME_WAD_PATH "/cache/a90-runtime/pkg/doom/v3024/DOOM1.WAD"
+#endif
+
+#ifndef A90_DOOMGENERIC_BRIDGE_EXPECTED_WAD_SHA256
+#define A90_DOOMGENERIC_BRIDGE_EXPECTED_WAD_SHA256 ""
+#endif
+
+#ifndef A90_DOOMGENERIC_BRIDGE_MAX_WAD_BYTES
+#define A90_DOOMGENERIC_BRIDGE_MAX_WAD_BYTES 67108864LL
+#endif
+
+#ifndef A90_DOOMGENERIC_BRIDGE_MAX_PLAY_FRAMES
+#define A90_DOOMGENERIC_BRIDGE_MAX_PLAY_FRAMES 300
 #endif
 
 #ifndef A90_DOOMGENERIC_BRIDGE_INPUT
@@ -50,6 +75,47 @@ static bool doomgeneric_helper_executable(const char *path) {
     return access(path, X_OK) == 0;
 }
 
+static bool doomgeneric_is_hex_sha256(const char *text) {
+    size_t index;
+
+    if (text == NULL || strlen(text) != 64U) {
+        return false;
+    }
+    for (index = 0; index < 64U; ++index) {
+        if (!isxdigit((unsigned char)text[index])) {
+            return false;
+        }
+    }
+    return true;
+}
+
+static bool doomgeneric_magic_ok(const char magic[5]) {
+    return strcmp(magic, "IWAD") == 0 || strcmp(magic, "PWAD") == 0;
+}
+
+static void doomgeneric_fill_wad_stat(struct a90_doomgeneric_bridge_status *status) {
+    struct stat st;
+
+    if (status == NULL) {
+        return;
+    }
+    if (lstat(status->runtime_wad_path, &st) < 0) {
+        status->runtime_wad_present = false;
+        status->runtime_wad_regular = false;
+        status->runtime_wad_size_ok = false;
+        status->runtime_wad_bytes = -1;
+        return;
+    }
+    status->runtime_wad_present = true;
+    status->runtime_wad_regular = S_ISREG(st.st_mode);
+    status->runtime_wad_bytes = (long long)st.st_size;
+    status->runtime_wad_size_ok = (
+        status->runtime_wad_regular &&
+        st.st_size > 0 &&
+        (long long)st.st_size <= status->runtime_wad_max_bytes
+    );
+}
+
 void a90_doomgeneric_bridge_get_status(struct a90_doomgeneric_bridge_status *status) {
     if (status == NULL) {
         return;
@@ -59,11 +125,96 @@ void a90_doomgeneric_bridge_get_status(struct a90_doomgeneric_bridge_status *sta
     status->engine = A90_DOOMGENERIC_BRIDGE_ENGINE;
     status->helper_path = A90_DOOMGENERIC_BRIDGE_HELPER_PATH;
     status->runtime_wad_root = A90_DOOMGENERIC_BRIDGE_RUNTIME_WAD_ROOT;
+    status->runtime_wad_path = A90_DOOMGENERIC_BRIDGE_RUNTIME_WAD_PATH;
+    status->expected_wad_sha256 = A90_DOOMGENERIC_BRIDGE_EXPECTED_WAD_SHA256;
     status->input_path = A90_DOOMGENERIC_BRIDGE_INPUT;
     status->sound_mode = A90_DOOMGENERIC_BRIDGE_SOUND;
+    status->runtime_wad_max_bytes = A90_DOOMGENERIC_BRIDGE_MAX_WAD_BYTES;
     status->helper_present = doomgeneric_helper_present(status->helper_path);
     status->helper_executable = doomgeneric_helper_executable(status->helper_path);
+    doomgeneric_fill_wad_stat(status);
     status->wad_embedded_in_boot = false;
+}
+
+int a90_doomgeneric_bridge_verify_wad(const char *expected_sha256,
+                                      struct a90_doomgeneric_wad_check *check) {
+    struct a90_doomgeneric_bridge_status status;
+    struct stat st;
+    const char *expected;
+    int fd;
+    ssize_t rd;
+    int rc;
+
+    if (check == NULL) {
+        return -EINVAL;
+    }
+    memset(check, 0, sizeof(*check));
+    a90_doomgeneric_bridge_get_status(&status);
+    expected = (expected_sha256 != NULL && expected_sha256[0] != '\0') ?
+        expected_sha256 :
+        status.expected_wad_sha256;
+
+    check->path = status.runtime_wad_path;
+    check->expected_sha256 = expected;
+    check->bytes = -1;
+    snprintf(check->actual_sha256, sizeof(check->actual_sha256), "-");
+    snprintf(check->magic, sizeof(check->magic), "----");
+    check->expected_sha256_valid = doomgeneric_is_hex_sha256(expected);
+
+    if (!check->expected_sha256_valid) {
+        return -EINVAL;
+    }
+    if (lstat(status.runtime_wad_path, &st) < 0) {
+        check->stat_errno = errno;
+        return -errno;
+    }
+    check->present = true;
+    check->regular = S_ISREG(st.st_mode);
+    check->bytes = (long long)st.st_size;
+    check->size_ok = (
+        check->regular &&
+        st.st_size > 0 &&
+        (long long)st.st_size <= status.runtime_wad_max_bytes
+    );
+    if (!check->regular || !check->size_ok) {
+        return -EIO;
+    }
+
+    fd = open(status.runtime_wad_path, O_RDONLY | O_CLOEXEC);
+    if (fd < 0) {
+        return -errno;
+    }
+    rd = read(fd, check->magic, 4);
+    close(fd);
+    if (rd != 4) {
+        return -EIO;
+    }
+    check->magic[4] = '\0';
+    check->magic_ok = doomgeneric_magic_ok(check->magic);
+    if (!check->magic_ok) {
+        return -EIO;
+    }
+
+    rc = a90_helper_sha256_file(
+        status.runtime_wad_path,
+        check->actual_sha256,
+        sizeof(check->actual_sha256)
+    );
+    check->sha256_checked = rc == 0;
+    if (rc < 0) {
+        snprintf(check->actual_sha256, sizeof(check->actual_sha256), "hash-error:%d", -rc);
+        return rc;
+    }
+    check->sha256_match = strcasecmp(check->actual_sha256, expected) == 0;
+    check->ok = (
+        check->present &&
+        check->regular &&
+        check->size_ok &&
+        check->magic_ok &&
+        check->sha256_checked &&
+        check->sha256_match
+    );
+    return check->ok ? 0 : -EIO;
 }
 
 int a90_doomgeneric_bridge_probe(int timeout_ms, struct a90_run_result *result) {
@@ -108,6 +259,70 @@ int a90_doomgeneric_bridge_probe(int timeout_ms, struct a90_run_result *result) 
             result->rc = rc;
             result->saved_errno = -rc;
         }
+        return rc;
+    }
+    rc = a90_run_wait(pid, &config, result);
+    if (rc < 0) {
+        return rc;
+    }
+    return result->rc;
+}
+
+int a90_doomgeneric_bridge_play(int frames,
+                                const char *expected_sha256,
+                                int timeout_ms,
+                                struct a90_doomgeneric_wad_check *check,
+                                struct a90_run_result *result) {
+    struct a90_run_result local_result;
+    struct a90_doomgeneric_bridge_status status;
+    struct a90_run_config config;
+    char frames_arg[16];
+    char *const argv[] = {
+        (char *)A90_DOOMGENERIC_BRIDGE_HELPER_PATH,
+        (char *)"--wad-smoke",
+        (char *)A90_DOOMGENERIC_BRIDGE_RUNTIME_WAD_PATH,
+        (char *)"--frames",
+        frames_arg,
+        NULL,
+    };
+    pid_t pid = -1;
+    int rc;
+
+    if (frames <= 0 || frames > A90_DOOMGENERIC_BRIDGE_MAX_PLAY_FRAMES) {
+        return -EINVAL;
+    }
+    rc = a90_doomgeneric_bridge_verify_wad(expected_sha256, check);
+    if (rc < 0) {
+        return rc;
+    }
+    if (result == NULL) {
+        result = &local_result;
+    }
+    memset(result, 0, sizeof(*result));
+    a90_doomgeneric_bridge_get_status(&status);
+    if (!status.helper_executable) {
+        result->rc = -ENOENT;
+        result->saved_errno = ENOENT;
+        return -ENOENT;
+    }
+    if (timeout_ms <= 0) {
+        timeout_ms = 15000;
+    }
+    snprintf(frames_arg, sizeof(frames_arg), "%d", frames);
+
+    memset(&config, 0, sizeof(config));
+    config.tag = "doomgeneric-sd-wad-smoke";
+    config.argv = argv;
+    config.stdio_mode = A90_RUN_STDIO_NULL;
+    config.setsid = true;
+    config.kill_process_group = true;
+    config.timeout_ms = timeout_ms;
+    config.stop_timeout_ms = 1000;
+
+    rc = a90_run_spawn(&config, &pid);
+    if (rc < 0) {
+        result->rc = rc;
+        result->saved_errno = -rc;
         return rc;
     }
     rc = a90_run_wait(pid, &config, result);

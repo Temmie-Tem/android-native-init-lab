@@ -145,9 +145,19 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 >   path `/mnt/sdext/a90/runtime/doom/v3028/DOOM1.WAD` with device-side SHA256
 >   `1d7d43be501e67d927e415e0b8f3e29c3bf33075e859721816f652a526cac771`, size `4196020`, mode `0600`,
 >   and post-stage `selftest fail=0`. No flash, boot image, ramdisk, public WAD, or forbidden partition path was touched.
-> - **NEXT CHECKPOINT: V3029 host-only WAD-backed doomgeneric command implementation** — wire bounded
->   SD-staged WAD verify/play command handling around the selected private WAD hash. This is not immediate live
->   gameplay and must still keep WAD bytes out of public, ramdisk, and boot image.
+> - **DOOM SD-WAD command implementation DONE (V3029)** — host-only source build produced the
+>   `0.10.74` / `v3029-doomgeneric-sd-wad-command` private boot candidate
+>   `boot_linux_v3029_doomgeneric_sd_wad_command.img` with SHA256
+>   `9b45abb847ac64c9032f0e873038a3abf577e27f2dabc2ceccad8cd8e95cf804`. Native-init now has
+>   `video demo doom verify --wad runtime-private --sha256 EXPECTED` and bounded
+>   `video demo doom play [frames] --wad runtime-private --sha256 EXPECTED` handling around the SD-staged
+>   WAD path `/mnt/sdext/a90/runtime/doom/v3028/DOOM1.WAD`; the V3029 helper SHA256 is
+>   `435dc0bda50dff6c27410ed727d4d513c02bfba89e876ff654a045cf00d26b44`. WAD files in ramdisk are
+>   `0`, public WAD count remains `0`, and WAD bytes are not embedded in the boot image.
+> - **NEXT CHECKPOINT: V3030 rollback-gated SD-WAD command live validation** — flash only the exact V3029
+>   candidate through `native_init_flash.py`, confirm `version`/`status`/`selftest`, run the SD-WAD
+>   `verify` command and a short bounded `play` smoke command against the pinned SHA, then rollback to V2321
+>   and health-check. Do not proceed unless rollback images/recovery are confirmed first.
 > - Parallel optional polish: dashboard formatting, fonts/ASCII charset, beat-flash tuning.
 
 **Historical recon framing (Venus HW-decode / cont-splash feasibility, VID-0/1/2):** SUPERSEDED — the display is

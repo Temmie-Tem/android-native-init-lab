@@ -600,9 +600,21 @@ static bool auto_hud_handle_menu_key(struct auto_hud_state *state,
                                doomgeneric.helper_executable ?
                                    "runtime-private-not-bundled" :
                                    "not-bundled");
+            a90_console_printf("menu.demo.doom.asset.wad.runtime_path=%s\r\n",
+                               doomgeneric.runtime_wad_path);
+            a90_console_printf("menu.demo.doom.asset.wad.expected_sha256=%s\r\n",
+                               doomgeneric.expected_wad_sha256);
+            a90_console_printf("menu.demo.doom.asset.wad.present=%d\r\n",
+                               doomgeneric.runtime_wad_present ? 1 : 0);
+            a90_console_printf("menu.demo.doom.asset.wad.size_ok=%d\r\n",
+                               doomgeneric.runtime_wad_size_ok ? 1 : 0);
             a90_console_printf("menu.demo.doom.input.active=%s\r\n", doomgeneric.input_path);
             a90_console_printf("menu.demo.doom.input.otg_required=0\r\n");
             a90_console_printf("menu.demo.doom.engine.probe.command=video demo doom engine-probe\r\n");
+            a90_console_printf("menu.demo.doom.verify.command=video demo doom verify --wad runtime-private --sha256 %s\r\n",
+                               doomgeneric.expected_wad_sha256);
+            a90_console_printf("menu.demo.doom.sd_wad_play.command=video demo doom play [frames] --wad runtime-private --sha256 %s\r\n",
+                               doomgeneric.expected_wad_sha256);
             a90_console_printf("menu.demo.doom.restore=menu\r\n");
             rc = cmd_video_demo(demo_argv,
                                 (int)(sizeof(demo_argv) / sizeof(demo_argv[0])));

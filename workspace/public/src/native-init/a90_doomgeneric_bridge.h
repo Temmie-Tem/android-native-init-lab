@@ -10,14 +10,45 @@ struct a90_doomgeneric_bridge_status {
     const char *engine;
     const char *helper_path;
     const char *runtime_wad_root;
+    const char *runtime_wad_path;
+    const char *expected_wad_sha256;
     const char *input_path;
     const char *sound_mode;
+    long long runtime_wad_max_bytes;
+    long long runtime_wad_bytes;
     bool helper_present;
     bool helper_executable;
+    bool runtime_wad_present;
+    bool runtime_wad_regular;
+    bool runtime_wad_size_ok;
     bool wad_embedded_in_boot;
+};
+
+struct a90_doomgeneric_wad_check {
+    const char *path;
+    const char *expected_sha256;
+    char actual_sha256[65];
+    char magic[5];
+    long long bytes;
+    int stat_errno;
+    bool present;
+    bool regular;
+    bool size_ok;
+    bool magic_ok;
+    bool expected_sha256_valid;
+    bool sha256_checked;
+    bool sha256_match;
+    bool ok;
 };
 
 void a90_doomgeneric_bridge_get_status(struct a90_doomgeneric_bridge_status *status);
 int a90_doomgeneric_bridge_probe(int timeout_ms, struct a90_run_result *result);
+int a90_doomgeneric_bridge_verify_wad(const char *expected_sha256,
+                                      struct a90_doomgeneric_wad_check *check);
+int a90_doomgeneric_bridge_play(int frames,
+                                const char *expected_sha256,
+                                int timeout_ms,
+                                struct a90_doomgeneric_wad_check *check,
+                                struct a90_run_result *result);
 
 #endif

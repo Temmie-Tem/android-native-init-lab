@@ -99,6 +99,14 @@ static int cmd_video_status(void) {
     a90_console_printf("video.status.doomgeneric.helper_executable=%d\r\n",
                        doomgeneric.helper_executable ? 1 : 0);
     a90_console_printf("video.status.doomgeneric.input=%s\r\n", doomgeneric.input_path);
+    a90_console_printf("video.status.doomgeneric.runtime_wad_path=%s\r\n",
+                       doomgeneric.runtime_wad_path);
+    a90_console_printf("video.status.doomgeneric.expected_wad_sha256=%s\r\n",
+                       doomgeneric.expected_wad_sha256);
+    a90_console_printf("video.status.doomgeneric.runtime_wad_present=%d\r\n",
+                       doomgeneric.runtime_wad_present ? 1 : 0);
+    a90_console_printf("video.status.doomgeneric.runtime_wad_size_ok=%d\r\n",
+                       doomgeneric.runtime_wad_size_ok ? 1 : 0);
     a90_console_printf("video.status.doomgeneric.wad_embedded_in_boot=%d\r\n",
                        doomgeneric.wad_embedded_in_boot ? 1 : 0);
     a90_console_printf("video.status.venus=not-used\r\n");
@@ -2507,6 +2515,10 @@ static enum video_stream_layout video_cache_preset_default_layout(const char *pr
 static int cmd_video_cache(char **argv, int argc);
 static int cmd_doomplay(char **argv, int argc);
 
+#define VIDEO_DEMO_DOOMGENERIC_DEFAULT_FRAMES 16U
+#define VIDEO_DEMO_DOOMGENERIC_MAX_FRAMES 300U
+#define VIDEO_DEMO_DOOMGENERIC_TIMEOUT_MS 15000
+
 static void video_demo_doom_bridge_status(void) {
     struct a90_doomgeneric_bridge_status status;
 
@@ -2522,12 +2534,52 @@ static void video_demo_doom_bridge_status(void) {
     a90_console_printf("video.demo.asset.wad.active=%s\r\n",
                        status.helper_executable ? "runtime-private-not-bundled" : "not-bundled");
     a90_console_printf("video.demo.asset.wad.runtime_root=%s\r\n", status.runtime_wad_root);
+    a90_console_printf("video.demo.asset.wad.runtime_path=%s\r\n", status.runtime_wad_path);
+    a90_console_printf("video.demo.asset.wad.expected_sha256=%s\r\n",
+                       status.expected_wad_sha256);
+    a90_console_printf("video.demo.asset.wad.max_bytes=%lld\r\n",
+                       status.runtime_wad_max_bytes);
+    a90_console_printf("video.demo.asset.wad.present=%d\r\n",
+                       status.runtime_wad_present ? 1 : 0);
+    a90_console_printf("video.demo.asset.wad.regular=%d\r\n",
+                       status.runtime_wad_regular ? 1 : 0);
+    a90_console_printf("video.demo.asset.wad.bytes=%lld\r\n", status.runtime_wad_bytes);
+    a90_console_printf("video.demo.asset.wad.size_ok=%d\r\n",
+                       status.runtime_wad_size_ok ? 1 : 0);
     a90_console_printf("video.demo.asset.wad.embedded_in_boot=%d\r\n",
                        status.wad_embedded_in_boot ? 1 : 0);
     a90_console_printf("video.demo.input.active=%s\r\n", status.input_path);
     a90_console_printf("video.demo.input.otg_required=0\r\n");
     a90_console_printf("video.demo.sound.active=%s\r\n", status.sound_mode);
     a90_console_printf("video.demo.engine.probe.command=video demo doom engine-probe\r\n");
+    a90_console_printf("video.demo.doom.verify.command=video demo doom verify --wad runtime-private --sha256 %s\r\n",
+                       status.expected_wad_sha256);
+    a90_console_printf("video.demo.doom.play.command=video demo doom play [frames] --wad runtime-private --sha256 %s\r\n",
+                       status.expected_wad_sha256);
+}
+
+static void video_demo_doom_print_wad_check(const char *prefix,
+                                            const struct a90_doomgeneric_wad_check *check) {
+    if (prefix == NULL || check == NULL) {
+        return;
+    }
+    a90_console_printf("%s.path=%s\r\n", prefix, check->path != NULL ? check->path : "-");
+    a90_console_printf("%s.expected_sha256=%s\r\n",
+                       prefix,
+                       check->expected_sha256 != NULL ? check->expected_sha256 : "-");
+    a90_console_printf("%s.expected_sha256_valid=%d\r\n",
+                       prefix,
+                       check->expected_sha256_valid ? 1 : 0);
+    a90_console_printf("%s.actual_sha256=%s\r\n", prefix, check->actual_sha256);
+    a90_console_printf("%s.sha256_checked=%d\r\n", prefix, check->sha256_checked ? 1 : 0);
+    a90_console_printf("%s.sha256_match=%d\r\n", prefix, check->sha256_match ? 1 : 0);
+    a90_console_printf("%s.magic=%s\r\n", prefix, check->magic);
+    a90_console_printf("%s.magic_ok=%d\r\n", prefix, check->magic_ok ? 1 : 0);
+    a90_console_printf("%s.bytes=%lld\r\n", prefix, check->bytes);
+    a90_console_printf("%s.present=%d\r\n", prefix, check->present ? 1 : 0);
+    a90_console_printf("%s.regular=%d\r\n", prefix, check->regular ? 1 : 0);
+    a90_console_printf("%s.size_ok=%d\r\n", prefix, check->size_ok ? 1 : 0);
+    a90_console_printf("%s.ok=%d\r\n", prefix, check->ok ? 1 : 0);
 }
 
 static int video_demo_doom_status(const char *action) {
@@ -2564,8 +2616,114 @@ static int video_demo_doom_status(const char *action) {
     return 0;
 }
 
+static bool video_demo_doom_args_request_runtime_wad(char **argv, int argc) {
+    int index;
+
+    for (index = 4; index < argc; ++index) {
+        if (strcmp(argv[index], "--wad") == 0 || strcmp(argv[index], "--sha256") == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static int video_demo_doom_run_wad_command(const char *action,
+                                           char **argv,
+                                           int argc,
+                                           const char *usage) {
+    const char *expected_sha256 = NULL;
+    bool saw_wad = false;
+    bool saw_sha256 = false;
+    uint32_t frames = VIDEO_DEMO_DOOMGENERIC_DEFAULT_FRAMES;
+    int index = 4;
+    int rc;
+
+    if (strcmp(action, "play") == 0 && index < argc && strncmp(argv[index], "--", 2) != 0) {
+        if (!parse_u32_arg(argv[index],
+                           1U,
+                           VIDEO_DEMO_DOOMGENERIC_MAX_FRAMES,
+                           &frames)) {
+            a90_console_printf("%s", usage);
+            return -EINVAL;
+        }
+        ++index;
+    } else if (strcmp(action, "verify") != 0) {
+        a90_console_printf("%s", usage);
+        return -EINVAL;
+    }
+
+    while (index < argc) {
+        if (strcmp(argv[index], "--wad") == 0) {
+            if (index + 1 >= argc || strcmp(argv[index + 1], "runtime-private") != 0) {
+                a90_console_printf("%s", usage);
+                return -EINVAL;
+            }
+            saw_wad = true;
+            index += 2;
+            continue;
+        }
+        if (strcmp(argv[index], "--sha256") == 0) {
+            if (index + 1 >= argc || !video_text_is_sha256(argv[index + 1])) {
+                a90_console_printf("%s", usage);
+                return -EINVAL;
+            }
+            expected_sha256 = argv[index + 1];
+            saw_sha256 = true;
+            index += 2;
+            continue;
+        }
+        a90_console_printf("%s", usage);
+        return -EINVAL;
+    }
+    if (!saw_wad || !saw_sha256 || expected_sha256 == NULL) {
+        a90_console_printf("%s", usage);
+        return -EINVAL;
+    }
+
+    (void)video_demo_doom_status(action);
+    if (strcmp(action, "verify") == 0) {
+        struct a90_doomgeneric_wad_check check;
+
+        rc = a90_doomgeneric_bridge_verify_wad(expected_sha256, &check);
+        a90_console_printf("video.demo.doom.verify=doomgeneric-sd-wad\r\n");
+        video_demo_doom_print_wad_check("video.demo.doom.verify", &check);
+        a90_console_printf("video.demo.doom.verify.sha256_match=%d\r\n",
+                           check.sha256_match ? 1 : 0);
+        a90_console_printf("video.demo.doom.verify.ok=%d\r\n", check.ok ? 1 : 0);
+        a90_console_printf("video.demo.doom.verify.rc=%d\r\n", rc);
+        return rc;
+    }
+    if (strcmp(action, "play") == 0) {
+        struct a90_doomgeneric_wad_check check;
+        struct a90_run_result play_result;
+
+        memset(&play_result, 0, sizeof(play_result));
+        rc = a90_doomgeneric_bridge_play((int)frames,
+                                         expected_sha256,
+                                         VIDEO_DEMO_DOOMGENERIC_TIMEOUT_MS,
+                                         &check,
+                                         &play_result);
+        a90_console_printf("video.demo.doom.play=doomgeneric-sd-wad-smoke\r\n");
+        a90_console_printf("video.demo.doom.play.frames=%u\r\n", frames);
+        a90_console_printf("video.demo.doom.play.timeout_ms=%d\r\n",
+                           VIDEO_DEMO_DOOMGENERIC_TIMEOUT_MS);
+        video_demo_doom_print_wad_check("video.demo.doom.play.verify", &check);
+        a90_console_printf("video.demo.doom.play.verify.sha256_match=%d\r\n",
+                           check.sha256_match ? 1 : 0);
+        a90_console_printf("video.demo.doom.play.verify.ok=%d\r\n", check.ok ? 1 : 0);
+        a90_console_printf("video.demo.doom.play.rc=%d\r\n", rc);
+        a90_console_printf("video.demo.doom.play.duration_ms=%ld\r\n",
+                           play_result.duration_ms);
+        a90_console_printf("video.demo.doom.play.timed_out=%d\r\n",
+                           play_result.timed_out ? 1 : 0);
+        return rc;
+    }
+    a90_console_printf("%s", usage);
+    return -EINVAL;
+}
+
 static int cmd_video_demo(char **argv, int argc) {
-    const char *usage = "usage: video demo [bars|checker|mono|0xRRGGBB|badapple|badapple-scale|nyan|doom [status|verify|play|engine-probe] [frames] [--trust-cache] [--frames N] [--present setcrtc|pageflip] [--layout full|player-hud] [--sync-audio-status /cache/a90-audio-play/status.txt] [--sync-wait-ms N] [--sync-start-offset-ms N]]\r\n";
+    const char *usage = "usage: video demo [bars|checker|mono|0xRRGGBB|badapple|badapple-scale|nyan|doom [status|verify|play|engine-probe] [frames] [--wad runtime-private --sha256 EXPECTED] [--trust-cache] [--frames N] [--present setcrtc|pageflip] [--layout full|player-hud] [--sync-audio-status /cache/a90-audio-play/status.txt] [--sync-wait-ms N] [--sync-start-offset-ms N]]\r\n";
     char *cache_argv[CMDV1X_MAX_ARGS];
     int cache_argc = 0;
     int index;
@@ -2575,15 +2733,21 @@ static int cmd_video_demo(char **argv, int argc) {
         char *doom_argv[3];
         int doom_argc = 0;
 
-        if (argc > 5 ||
-            (strcmp(action, "status") != 0 &&
+        if ((strcmp(action, "status") != 0 &&
              strcmp(action, "verify") != 0 &&
              strcmp(action, "play") != 0 &&
              strcmp(action, "engine-probe") != 0)) {
             a90_console_printf("%s", usage);
             return -EINVAL;
         }
-        if (argc == 5 && strcmp(action, "play") != 0) {
+        if (video_demo_doom_args_request_runtime_wad(argv, argc)) {
+            if (strcmp(action, "verify") != 0 && strcmp(action, "play") != 0) {
+                a90_console_printf("%s", usage);
+                return -EINVAL;
+            }
+            return video_demo_doom_run_wad_command(action, argv, argc, usage);
+        }
+        if (argc > 5 || (argc == 5 && strcmp(action, "play") != 0)) {
             a90_console_printf("%s", usage);
             return -EINVAL;
         }

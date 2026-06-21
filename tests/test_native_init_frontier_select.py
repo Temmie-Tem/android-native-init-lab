@@ -1078,6 +1078,35 @@ class NativeInitFrontierSelectTests(unittest.TestCase):
         self.assertTrue(evidence["v3028_sd_wad_mode_0600"])
         self.assertEqual(evidence["v3028_next_run_id"], "V3029")
 
+    def test_current_doomgeneric_sd_wad_command_evidence_reads_pass(self) -> None:
+        report = "\n".join([
+            "v3029-doomgeneric-sd-wad-command-source-build-pass",
+            "Boot SHA256: `9b45abb847ac64c9032f0e873038a3abf577e27f2dabc2ceccad8cd8e95cf804`",
+            "Runtime WAD path: `/mnt/sdext/a90/runtime/doom/v3028/DOOM1.WAD`",
+            "Expected WAD SHA256: `1d7d43be501e67d927e415e0b8f3e29c3bf33075e859721816f652a526cac771`",
+            "WAD files in ramdisk: `0`",
+            "Public WAD files committed/present: `0`",
+            "WAD bytes embedded in boot image: `0`",
+            "Helper bundled in ramdisk: `1`",
+            "Device action: `none` in this build unit.",
+            "video demo doom verify --wad runtime-private --sha256",
+            "video demo doom play [frames] --wad runtime-private --sha256",
+            "Run ID: `V3030`",
+        ])
+
+        evidence = frontier.current_doomgeneric_sd_wad_command_evidence(report)
+
+        self.assertTrue(evidence["v3029_sd_wad_command_report_present"])
+        self.assertTrue(evidence["v3029_sd_wad_command_ready"])
+        self.assertTrue(evidence["v3029_boot_sha_present"])
+        self.assertTrue(evidence["v3029_runtime_wad_path_pinned"])
+        self.assertTrue(evidence["v3029_expected_wad_sha_pinned"])
+        self.assertTrue(evidence["v3029_verify_command_present"])
+        self.assertTrue(evidence["v3029_play_command_present"])
+        self.assertTrue(evidence["v3029_ramdisk_wad_zero"])
+        self.assertTrue(evidence["v3029_wad_not_embedded"])
+        self.assertEqual(evidence["v3029_next_run_id"], "V3030")
+
     def test_v3027_ready_selects_sd_wad_stage_before_command_implementation(self) -> None:
         evaluation = frontier.current_doom_input_evaluation(
             None,
@@ -1238,6 +1267,106 @@ class NativeInitFrontierSelectTests(unittest.TestCase):
         self.assertTrue(evaluation["evidence"]["v3028_sd_wad_stage_pass"])
         self.assertIn("V3029 WAD-backed doomgeneric command implementation", evaluation["evidence"]["next_host_only_unit"])
 
+    def test_v3029_sd_wad_command_build_selects_v3030_live_validation(self) -> None:
+        evaluation = frontier.current_doom_input_evaluation(
+            None,
+            gameplay_loop_report_text="\n".join([
+                "v3017-doompad-gameplay-loop-state-consumed-pass-before-rollback",
+                "`video demo doom play 8` rc: `0` markers_ok=`1`",
+                "Player movement parsed: `1` moved_forward=`1`",
+                "Rollback health: version_ok=`1` selftest_fail0=`1`",
+                "not a WAD-backed `doomgeneric` engine",
+            ]),
+            doomgeneric_policy_report_text="\n".join([
+                "v3023-doomgeneric-private-integration-policy-ready",
+                "Private doomgeneric source pinned: `1`",
+                "Private source clean: `1`",
+                "V3020 port probe pass: `1`",
+                "V3022 checkpoint live pass retained: `1`",
+                "Public WAD files committed/present: `0`",
+                "Safe next host-only unit: `1`",
+                "Run ID: `V3024`",
+            ]),
+            doomgeneric_private_build_report_text="\n".join([
+                "v3024-doomgeneric-private-full-engine-link-pass",
+                "Private engine source files compiled: `80`",
+                "AArch64 static engine linked: `1`",
+                "Marker check pass: `1`",
+                "Public WAD files committed/present: `0`",
+                "Engine-only object total within V3023 2 MiB cap: `1`",
+                "Boot-image delta: `not-produced`",
+                "Run ID: `V3025`",
+            ]),
+            doomgeneric_command_bridge_report_text="\n".join([
+                "v3025-doomgeneric-command-bridge-source-build-pass",
+                "Boot SHA256: `boot-sha`",
+                "V3024 engine SHA256: `8b6630498b7ff217e6ad9b27593f89644ba73eb7cbbf11361838972f15581735`",
+                "Helper bundled in ramdisk: `1`",
+                "WAD files in ramdisk: `0`",
+                "video demo doom engine-probe",
+                "serial-doompad-to-DG_GetKey",
+                "video.demo.input.otg_required=0",
+                "Run ID: `V3026`",
+            ]),
+            doomgeneric_command_bridge_live_report_text="\n".join([
+                "v3026-doomgeneric-command-bridge-live-pass-before-rollback",
+                "Candidate post-flash version rc/status: `0` / `ok`",
+                "Candidate post-flash status rc/status: `0` / `ok`",
+                "Candidate post-flash selftest fail=0: `1`",
+                "`video demo doom status` rc/status: `0` / `ok`",
+                "video.demo.engine.bridge=v3025-doomgeneric-command-bridge",
+                "video.demo.engine.helper.present=1",
+                "video.demo.engine.helper.executable=1",
+                "`video demo doom engine-probe` rc/status: `0` / `ok`",
+                "video.demo.doom.engine_probe.rc=0",
+                "video.demo.doom.engine_probe.timed_out=0",
+                "Rollback health: version_ok=`1` selftest_fail0=`1`",
+                "video.demo.input.otg_required=0",
+                "video.demo.asset.wad.embedded_in_boot=0",
+                "No WAD/IWAD bytes were staged",
+                "Run ID: `V3027`",
+            ]),
+            doomgeneric_runtime_wad_preflight_report_text="\n".join([
+                "v3027-doomgeneric-runtime-wad-staging-contract-ready",
+                "Preflight OK: `1`",
+                "Live asset ready: `1`",
+                "Public WAD files committed/present: `0`",
+                "Next requires command implementation: `1`",
+                "Public output records no WAD bytes and no private WAD filename.",
+                "Run ID: `V3028`",
+            ]),
+            doomgeneric_sd_wad_stage_report_text="\n".join([
+                "v3028-doomgeneric-sd-wad-stage-live-pass",
+                "Remote SD WAD path: `/mnt/sdext/a90/runtime/doom/v3028/DOOM1.WAD`",
+                "Device WAD SHA256 match: `1`",
+                "Device WAD mode: `0600`",
+                "Public WAD files committed/present: `0`",
+                "Boot image written: `0`",
+                "Ramdisk WAD bytes written: `0`",
+                "Post-stage selftest fail=0: `1`",
+                "Run ID: `V3029`",
+            ]),
+            doomgeneric_sd_wad_command_report_text="\n".join([
+                "v3029-doomgeneric-sd-wad-command-source-build-pass",
+                "Boot SHA256: `9b45abb847ac64c9032f0e873038a3abf577e27f2dabc2ceccad8cd8e95cf804`",
+                "Runtime WAD path: `/mnt/sdext/a90/runtime/doom/v3028/DOOM1.WAD`",
+                "Expected WAD SHA256: `1d7d43be501e67d927e415e0b8f3e29c3bf33075e859721816f652a526cac771`",
+                "WAD files in ramdisk: `0`",
+                "Public WAD files committed/present: `0`",
+                "WAD bytes embedded in boot image: `0`",
+                "Helper bundled in ramdisk: `1`",
+                "Device action: `none` in this build unit.",
+                "video demo doom verify --wad runtime-private --sha256",
+                "video demo doom play [frames] --wad runtime-private --sha256",
+                "Run ID: `V3030`",
+            ]),
+        )
+
+        self.assertEqual(evaluation["status"], "doomgeneric-sd-wad-command-live-validation-ready")
+        self.assertTrue(evaluation["safe_actionable_now"])
+        self.assertTrue(evaluation["evidence"]["v3029_sd_wad_command_ready"])
+        self.assertIn("V3030 rollback-gated live validation", evaluation["evidence"]["next_live_unit"])
+
     def test_select_frontier_stops_on_v3027_asset_needed(self) -> None:
         with self._fake_repo(
             goal_text="\n".join([
@@ -1362,6 +1491,7 @@ class NativeInitFrontierSelectTests(unittest.TestCase):
         current_doomgeneric_command_bridge_live_report: str | None = None,
         current_doomgeneric_runtime_wad_preflight_report: str | None = None,
         current_doomgeneric_sd_wad_stage_report: str | None = None,
+        current_doomgeneric_sd_wad_command_report: str | None = None,
         goal_text: str = "goal text\n",
     ):
         class RepoContext:
@@ -1460,6 +1590,13 @@ class NativeInitFrontierSelectTests(unittest.TestCase):
                         / "reports"
                         / "NATIVE_INIT_V3028_DOOMGENERIC_SD_WAD_STAGE_LIVE_2026-06-22.md"
                     ).write_text(current_doomgeneric_sd_wad_stage_report, encoding="utf-8")
+                if current_doomgeneric_sd_wad_command_report is not None:
+                    (
+                        root
+                        / "docs"
+                        / "reports"
+                        / "NATIVE_INIT_V3029_DOOMGENERIC_SD_WAD_COMMAND_SOURCE_BUILD_2026-06-22.md"
+                    ).write_text(current_doomgeneric_sd_wad_command_report, encoding="utf-8")
                 self.root = root
                 return {
                     "root": root,
@@ -1529,6 +1666,12 @@ class NativeInitFrontierSelectTests(unittest.TestCase):
                         / "reports"
                         / "NATIVE_INIT_V3028_DOOMGENERIC_SD_WAD_STAGE_LIVE_2026-06-22.md"
                     ),
+                    "current_doomgeneric_sd_wad_command": (
+                        root
+                        / "docs"
+                        / "reports"
+                        / "NATIVE_INIT_V3029_DOOMGENERIC_SD_WAD_COMMAND_SOURCE_BUILD_2026-06-22.md"
+                    ),
                 }
 
             def __exit__(self, exc_type, exc, tb):
@@ -1558,6 +1701,7 @@ class NativeInitFrontierSelectTests(unittest.TestCase):
             CURRENT_DOOMGENERIC_COMMAND_BRIDGE_LIVE_REPORT=paths["current_doomgeneric_command_bridge_live"],
             CURRENT_DOOMGENERIC_RUNTIME_WAD_PREFLIGHT_REPORT=paths["current_doomgeneric_runtime_wad_preflight"],
             CURRENT_DOOMGENERIC_SD_WAD_STAGE_REPORT=paths["current_doomgeneric_sd_wad_stage"],
+            CURRENT_DOOMGENERIC_SD_WAD_COMMAND_REPORT=paths["current_doomgeneric_sd_wad_command"],
         )
 
 
