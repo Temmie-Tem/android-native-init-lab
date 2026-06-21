@@ -35,6 +35,12 @@ CURRENT_DEMO_CHECKPOINT_SOURCE_REPORT = (
     / "reports"
     / "NATIVE_INIT_V3021_DEMO_CHECKPOINT_BADAPPLE_NYAN_SOURCE_BUILD_2026-06-21.md"
 )
+CURRENT_DEMO_CHECKPOINT_LIVE_REPORT = (
+    REPO_ROOT
+    / "docs"
+    / "reports"
+    / "NATIVE_INIT_V3022_DEMO_CHECKPOINT_BADAPPLE_NYAN_LIVE_2026-06-21.md"
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -225,9 +231,32 @@ def current_demo_checkpoint_source_evidence(report_text: str | None) -> dict[str
     }
 
 
+def current_demo_checkpoint_live_evidence(report_text: str | None) -> dict[str, Any]:
+    if not report_text:
+        return {
+            "v3022_live_report_present": False,
+            "v3022_same_image_live_pass": False,
+            "v3022_badapple_pass": False,
+            "v3022_nyan_pass": False,
+            "v3022_rollback_health_ok": False,
+        }
+    same_image_pass = "v3022-demo-checkpoint-badapple-nyan-same-image-live-pass-before-rollback" in report_text
+    badapple_pass = "Same-image validation: Bad Apple pass=`1` Nyan pass=`1`" in report_text
+    nyan_pass = badapple_pass
+    rollback_ok = "Rollback health: version_ok=`1` selftest_fail0=`1`" in report_text
+    return {
+        "v3022_live_report_present": True,
+        "v3022_same_image_live_pass": bool(same_image_pass),
+        "v3022_badapple_pass": bool(badapple_pass),
+        "v3022_nyan_pass": bool(nyan_pass),
+        "v3022_rollback_health_ok": bool(rollback_ok),
+    }
+
+
 def current_demo_checkpoint_evaluation(
     goal_text: str,
     source_report_text: str | None = None,
+    live_report_text: str | None = None,
 ) -> dict[str, Any] | None:
     checkpoint_chartered = all_markers_present(
         goal_text,
@@ -240,6 +269,7 @@ def current_demo_checkpoint_evaluation(
     if not checkpoint_chartered:
         return None
     source = current_demo_checkpoint_source_evidence(source_report_text)
+    live = current_demo_checkpoint_live_evidence(live_report_text)
     source_ready = bool(
         source["v3021_source_build_pass"]
         and source["v3021_boot_sha_present"]
@@ -247,16 +277,29 @@ def current_demo_checkpoint_evaluation(
         and source["v3021_nyan_contract_present"]
         and source["v3021_adoption_pending_live"]
     )
+    live_validated = bool(
+        live["v3022_same_image_live_pass"]
+        and live["v3022_badapple_pass"]
+        and live["v3022_nyan_pass"]
+        and live["v3022_rollback_health_ok"]
+    )
     return {
         "track": "VIDEO",
         "name": "demo-checkpoint",
-        "safe_actionable_now": True,
+        "safe_actionable_now": not live_validated,
         "status": (
-            "demo-checkpoint-live-validation-ready"
+            "demo-checkpoint-live-validated"
+            if live_validated
+            else "demo-checkpoint-live-validation-ready"
             if source_ready
             else "demo-checkpoint-source-build-ready"
         ),
         "drop_trigger": (
+            "V3022 validated the exact V3021 patch-level checkpoint in one resident image: "
+            "Bad Apple full-song and Nyan both passed, then rollback to V2321 passed. Resume "
+            "WAD-backed DOOM integration as the next frontier."
+            if live_validated
+            else
             "GOAL.md now requires a patch-level kept Bad Apple + Nyan checkpoint before further "
             "WAD-backed DOOM integration. V3021 has produced the exact source-built image, so the "
             "next bounded unit is same-image live validation and rollback."
@@ -267,6 +310,7 @@ def current_demo_checkpoint_evaluation(
         "evidence": {
             "goal_checkpoint_chartered": True,
             **source,
+            **live,
             "next_source_command": (
                 "PYTHONPATH=workspace/public/src/scripts/revalidation:workspace/public/src/harness "
                 "python3 workspace/public/src/scripts/revalidation/"
@@ -362,6 +406,7 @@ def track_evaluations(
     current_doom_live_precondition_report_text: str | None = None,
     current_doom_gameplay_loop_report_text: str | None = None,
     current_demo_checkpoint_source_report_text: str | None = None,
+    current_demo_checkpoint_live_report_text: str | None = None,
 ) -> list[dict[str, Any]]:
     signals = inventory["consolidation_signals"]
     t1_candidates = ready_t1_candidates(frontier_candidates)
@@ -374,6 +419,7 @@ def track_evaluations(
     current_demo_checkpoint = current_demo_checkpoint_evaluation(
         goal_text,
         current_demo_checkpoint_source_report_text,
+        current_demo_checkpoint_live_report_text,
     )
     t1_closed_boundary = all_markers_present(
         goal_text,
@@ -474,6 +520,7 @@ def select_frontier() -> dict[str, Any]:
     current_doom_live_precondition_report_text = read_optional_text(CURRENT_DOOM_LIVE_PRECONDITION_REPORT)
     current_doom_gameplay_loop_report_text = read_optional_text(CURRENT_DOOM_GAMEPLAY_LOOP_REPORT)
     current_demo_checkpoint_source_report_text = read_optional_text(CURRENT_DEMO_CHECKPOINT_SOURCE_REPORT)
+    current_demo_checkpoint_live_report_text = read_optional_text(CURRENT_DEMO_CHECKPOINT_LIVE_REPORT)
     evaluations = track_evaluations(
         goal_text,
         todo_text,
@@ -484,6 +531,7 @@ def select_frontier() -> dict[str, Any]:
         current_doom_live_precondition_report_text,
         current_doom_gameplay_loop_report_text,
         current_demo_checkpoint_source_report_text,
+        current_demo_checkpoint_live_report_text,
     )
     actionable = [evaluation for evaluation in evaluations if evaluation["safe_actionable_now"]]
     current_video = current_doom_input_evaluation(
@@ -495,6 +543,7 @@ def select_frontier() -> dict[str, Any]:
     current_demo_checkpoint = current_demo_checkpoint_evaluation(
         goal_text,
         current_demo_checkpoint_source_report_text,
+        current_demo_checkpoint_live_report_text,
     )
     if current_demo_checkpoint and current_demo_checkpoint["status"] == "demo-checkpoint-live-validation-ready":
         next_operator_decision = (
@@ -555,6 +604,7 @@ def select_frontier() -> dict[str, Any]:
             "current_doom_live_precondition_report": str(CURRENT_DOOM_LIVE_PRECONDITION_REPORT.relative_to(REPO_ROOT)),
             "current_doom_gameplay_loop_report": str(CURRENT_DOOM_GAMEPLAY_LOOP_REPORT.relative_to(REPO_ROOT)),
             "current_demo_checkpoint_source_report": str(CURRENT_DEMO_CHECKPOINT_SOURCE_REPORT.relative_to(REPO_ROOT)),
+            "current_demo_checkpoint_live_report": str(CURRENT_DEMO_CHECKPOINT_LIVE_REPORT.relative_to(REPO_ROOT)),
         },
     }
 

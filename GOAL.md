@@ -112,12 +112,17 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 > touch is a concluded dead-end, see Touch block). **DOOM render scaffold (`doomgeneric`) is the active work.**
 >
 > **📌 Versioning / checkpoint plan (operator, 2026-06-21):**
-> - **NEXT UNIT = a PATCH-level kept "demo checkpoint"** — build ONE image bundling the validated video pipeline +
->   **Bad Apple + Nyan** demos, **live-validate BOTH in that single image** (each plays, `selftest fail=0`, rollback to
->   v2321), then pin **version + SHA256 + a promotion-style report** as a *kept* milestone. This is NOT a MINOR roll and
->   does NOT replace the v2321 rollback net — it just locks in the known-good demo state before DOOM work can regress it.
+> - **PATCH-level kept "demo checkpoint" DONE (V3021/V3022)** — built ONE image bundling the validated video pipeline +
+>   **Bad Apple + Nyan** demos, then live-validated BOTH in that single image: Bad Apple full-song Player HUD and Nyan
+>   Player HUD preview both passed, `selftest fail=0`, and rollback to v2321 passed. Kept milestone:
+>   `A90 Linux init 0.10.72 (v3021-demo-checkpoint-badapple-nyan)`, boot SHA256
+>   `c860d604e3c906abf61fdd2c9bd9cd12d1aef2c88c05be57677b472ad36ef0f7`.
+>   This is NOT a MINOR roll and does NOT replace the v2321 rollback net — it locks in the known-good demo state before
+>   further DOOM work can regress it.
 > - **0.11.0 (MINOR) is RESERVED for video-epic close at DOOM completion** — i.e. the full demo ladder
 >   (Bad Apple + Nyan + DOOM) device-proven. Do not roll MINOR before DOOM lands; DOOM continues on the 0.10.x line until then.
+> - **NEXT UNIT returns to DOOM** — resume the WAD-backed `doomgeneric`/asset-policy frontier from the V3020 host probe,
+>   staying host-only until source provenance, boot-size impact, bounded runtime controls, and rollback validation are pinned.
 > - Parallel optional polish: dashboard formatting, fonts/ASCII charset, beat-flash tuning.
 
 **Historical recon framing (Venus HW-decode / cont-splash feasibility, VID-0/1/2):** SUPERSEDED — the display is
