@@ -2540,6 +2540,18 @@ static int cmd_doomplay(char **argv, int argc);
 #ifndef A90_DOOMGENERIC_NATIVE_DASHBOARD_LARGE_FRAME
 #define A90_DOOMGENERIC_NATIVE_DASHBOARD_LARGE_FRAME 0
 #endif
+#ifndef A90_DOOMGENERIC_AUDIO_CORUN
+#define A90_DOOMGENERIC_AUDIO_CORUN 0
+#endif
+#ifndef A90_DOOMGENERIC_AUDIO_CORUN_MODE
+#define A90_DOOMGENERIC_AUDIO_CORUN_MODE "disabled"
+#endif
+#ifndef A90_DOOMGENERIC_AUDIO_CORUN_DURATION_MS
+#define A90_DOOMGENERIC_AUDIO_CORUN_DURATION_MS 10000
+#endif
+#ifndef A90_DOOMGENERIC_AUDIO_CORUN_AMPLITUDE_MILLI
+#define A90_DOOMGENERIC_AUDIO_CORUN_AMPLITUDE_MILLI 80
+#endif
 
 static pid_t video_demo_doom_loop_pid = -1;
 static bool video_demo_doom_loop_continuous;
@@ -2586,6 +2598,14 @@ static void video_demo_doom_bridge_status(void) {
     a90_console_printf("video.demo.input.host_keyboard_bridge=host_doompad_keyboard_v3033.py\r\n");
     a90_console_printf("video.demo.input.host_dashboard=host_doompad_dashboard_v3035.py\r\n");
     a90_console_printf("video.demo.sound.active=%s\r\n", status.sound_mode);
+    a90_console_printf("video.demo.doom.audio_corun.enabled=%d\r\n",
+                       A90_DOOMGENERIC_AUDIO_CORUN ? 1 : 0);
+    a90_console_printf("video.demo.doom.audio_corun.mode=%s\r\n",
+                       A90_DOOMGENERIC_AUDIO_CORUN_MODE);
+    a90_console_printf("video.demo.doom.audio_corun.duration_ms=%d\r\n",
+                       A90_DOOMGENERIC_AUDIO_CORUN_DURATION_MS);
+    a90_console_printf("video.demo.doom.audio_corun.amplitude_milli=%d\r\n",
+                       A90_DOOMGENERIC_AUDIO_CORUN_AMPLITUDE_MILLI);
     a90_console_printf("video.demo.doom.loop.visible=%d\r\n", status.visible_loop ? 1 : 0);
     a90_console_printf("video.demo.doom.loop.frame_ms=%u\r\n", status.loop_frame_ms);
 #if A90_DOOMGENERIC_NATIVE_DASHBOARD
@@ -3298,14 +3318,67 @@ static int video_demo_doom_clear_presented_frame(const char *reason) {
     return rc;
 }
 
+static int video_demo_doom_audio_corun_start(void) {
+#if A90_DOOMGENERIC_AUDIO_CORUN
+    char duration_text[16];
+    char amplitude_text[16];
+    char *audio_argv[] = {
+        "audio", "play", "internal-speaker-safe",
+        "--mode", "listen",
+        "--amplitude-milli", amplitude_text,
+        "--duration-ms", duration_text,
+        "--execute",
+    };
+    int rc;
+
+    snprintf(duration_text, sizeof(duration_text), "%d", A90_DOOMGENERIC_AUDIO_CORUN_DURATION_MS);
+    snprintf(amplitude_text, sizeof(amplitude_text), "%d", A90_DOOMGENERIC_AUDIO_CORUN_AMPLITUDE_MILLI);
+    a90_console_printf("video.demo.doom.audio.corun=1\r\n");
+    a90_console_printf("video.demo.doom.audio.mode=%s\r\n", A90_DOOMGENERIC_AUDIO_CORUN_MODE);
+    a90_console_printf("video.demo.doom.audio.source=native-bounded-tone\r\n");
+    a90_console_printf("video.demo.doom.audio.profile=internal-speaker-safe\r\n");
+    a90_console_printf("video.demo.doom.audio.duration_ms=%d\r\n",
+                       A90_DOOMGENERIC_AUDIO_CORUN_DURATION_MS);
+    a90_console_printf("video.demo.doom.audio.amplitude_milli=%d\r\n",
+                       A90_DOOMGENERIC_AUDIO_CORUN_AMPLITUDE_MILLI);
+    a90_console_printf("video.demo.doom.audio.real_doom_sfx=0\r\n");
+    rc = a90_audio_cmd(audio_argv, (int)(sizeof(audio_argv) / sizeof(audio_argv[0])));
+    a90_console_printf("video.demo.doom.audio.start.rc=%d\r\n", rc);
+    return rc;
+#else
+    a90_console_printf("video.demo.doom.audio.corun=0\r\n");
+    return 0;
+#endif
+}
+
+static int video_demo_doom_audio_corun_stop(void) {
+#if A90_DOOMGENERIC_AUDIO_CORUN
+    char *audio_argv[] = {
+        "audio", "stop", "internal-speaker-safe", "--execute",
+    };
+    int rc;
+
+    a90_console_printf("video.demo.doom.audio.stop.requested=1\r\n");
+    rc = a90_audio_cmd(audio_argv, (int)(sizeof(audio_argv) / sizeof(audio_argv[0])));
+    a90_console_printf("video.demo.doom.audio.stop.rc=%d\r\n", rc);
+    return rc;
+#else
+    a90_console_printf("video.demo.doom.audio.stop.requested=0\r\n");
+    return 0;
+#endif
+}
+
 static int video_demo_doom_loop_stop(void) {
     int status = 0;
     int rc;
     int clear_rc;
+    int audio_rc;
 
     video_demo_doom_loop_reap();
     if (video_demo_doom_loop_pid <= 0) {
         a90_console_printf("video.demo.doom.loop_stop.active=0\r\n");
+        audio_rc = video_demo_doom_audio_corun_stop();
+        a90_console_printf("video.demo.doom.loop_stop.audio_rc=%d\r\n", audio_rc);
         clear_rc = video_demo_doom_clear_presented_frame("loop-stop-inactive");
         a90_console_printf("video.demo.doom.loop_stop.rc=0\r\n");
         return clear_rc;
@@ -3318,6 +3391,8 @@ static int video_demo_doom_loop_stop(void) {
     a90_console_printf("video.demo.doom.loop_stop.active=1\r\n");
     a90_console_printf("video.demo.doom.loop_stop.pid=%ld\r\n", (long)video_demo_doom_loop_pid);
     a90_console_printf("video.demo.doom.loop_stop.rc=%d\r\n", rc);
+    audio_rc = video_demo_doom_audio_corun_stop();
+    a90_console_printf("video.demo.doom.loop_stop.audio_rc=%d\r\n", audio_rc);
     clear_rc = video_demo_doom_clear_presented_frame("loop-stop");
     video_demo_doom_loop_pid = -1;
     video_demo_doom_loop_continuous = false;
@@ -3438,6 +3513,7 @@ static int video_demo_doom_run_visible_loop(uint32_t frames,
 
 static int video_demo_doom_loop_start(uint32_t frames, const char *expected_sha256) {
     pid_t pid;
+    int audio_rc;
 
     video_demo_doom_loop_reap();
     if (video_demo_doom_loop_pid > 0) {
@@ -3468,6 +3544,9 @@ static int video_demo_doom_loop_start(uint32_t frames, const char *expected_sha2
                        frames == 0U ? 1 : 0);
     a90_console_printf("video.demo.doom.loop_start.input=serial-doompad-state-file\r\n");
     a90_console_printf("video.demo.doom.loop_start.host_keyboard_bridge=host_doompad_keyboard_v3033.py\r\n");
+    audio_rc = video_demo_doom_audio_corun_start();
+    a90_console_printf("video.demo.doom.loop_start.audio_rc=%d\r\n", audio_rc);
+    a90_console_printf("video.demo.doom.loop_start.audio_nonfatal=1\r\n");
     a90_console_printf("video.demo.doom.loop_start.rc=0\r\n");
     video_demo_doom_loop_continuous = frames == 0U;
     video_demo_doom_loop_frames = frames;

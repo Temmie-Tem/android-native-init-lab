@@ -67,6 +67,11 @@ FRAME_STRIDE = v3031.FRAME_STRIDE
 FRAME_BYTES = v3031.FRAME_BYTES
 NATIVE_DASHBOARD = 0
 NATIVE_DASHBOARD_LARGE_FRAME = 0
+SOUND_MODE = "disabled-nosound-nomusic"
+AUDIO_CORUN = 0
+AUDIO_CORUN_MODE = "disabled"
+AUDIO_CORUN_DURATION_MS = 10000
+AUDIO_CORUN_AMPLITUDE_MILLI = 80
 
 HOST_KEYBOARD_BRIDGE = (
     REPO_ROOT / "workspace" / "public" / "src" / "scripts" / "revalidation" / "host_doompad_keyboard_v3033.py"
@@ -360,6 +365,8 @@ def patch_ramdisk_with_doomgeneric_helper() -> None:
             shell_define("A90_DOOMGENERIC_BRIDGE_EXPECTED_WAD_SHA256", EXPECTED_WAD_SHA256),
             shell_define("A90_DOOMGENERIC_BRIDGE_FRAME_PATH", FRAME_PATH),
             shell_define("A90_DOOMGENERIC_BRIDGE_INPUT_STATE_PATH", INPUT_STATE_PATH),
+            shell_define("A90_DOOMGENERIC_BRIDGE_SOUND", SOUND_MODE),
+            shell_define("A90_DOOMGENERIC_AUDIO_CORUN_MODE", AUDIO_CORUN_MODE),
             numeric_define("A90_DOOMGENERIC_BRIDGE_MAX_WAD_BYTES", RUNTIME_WAD_MAX_BYTES),
             numeric_define("A90_DOOMGENERIC_BRIDGE_MAX_PLAY_FRAMES", MAX_LOOP_FRAMES),
             numeric_define("A90_DOOMGENERIC_BRIDGE_FRAME_WIDTH", FRAME_WIDTH),
@@ -367,6 +374,9 @@ def patch_ramdisk_with_doomgeneric_helper() -> None:
             numeric_define("A90_DOOMGENERIC_BRIDGE_FRAME_STRIDE", FRAME_STRIDE),
             numeric_define("A90_DOOMGENERIC_BRIDGE_FRAME_BYTES", FRAME_BYTES),
             numeric_define("A90_DOOMGENERIC_BRIDGE_LOOP_FRAME_MS", LOOP_FRAME_MS),
+            numeric_define("A90_DOOMGENERIC_AUDIO_CORUN", AUDIO_CORUN),
+            numeric_define("A90_DOOMGENERIC_AUDIO_CORUN_DURATION_MS", AUDIO_CORUN_DURATION_MS),
+            numeric_define("A90_DOOMGENERIC_AUDIO_CORUN_AMPLITUDE_MILLI", AUDIO_CORUN_AMPLITUDE_MILLI),
         )
         if NATIVE_DASHBOARD:
             doomgeneric_flags = (
@@ -566,7 +576,14 @@ def main() -> int:
             "otg_required": False,
             "evdev_injection": False,
             "uinput": False,
-            "sound_mode": "disabled-nosound-nomusic",
+            "sound_mode": SOUND_MODE,
+            "audio_corun": {
+                "enabled": bool(AUDIO_CORUN),
+                "mode": AUDIO_CORUN_MODE,
+                "duration_ms": AUDIO_CORUN_DURATION_MS,
+                "amplitude_milli": AUDIO_CORUN_AMPLITUDE_MILLI,
+                "real_doom_sfx": False,
+            },
             "kms_path": "background-or-foreground-kms-dumb-buffer-presenter",
             "verify_command": f"video demo doom verify --wad runtime-private --sha256 {EXPECTED_WAD_SHA256}",
             "play_command": f"video demo doom play {DEFAULT_SMOKE_FRAMES} --wad runtime-private --sha256 {EXPECTED_WAD_SHA256}",

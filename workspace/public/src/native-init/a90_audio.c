@@ -26,6 +26,7 @@
 #include <sys/sysmacros.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
+#include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -129,6 +130,8 @@ static const char *const AUDIO_ADSP_SEGMENTS[] = {
     "adsp.b15",
     "adsp.b16",
 };
+
+static pid_t audio_play_async_worker_pid = -1;
 
 static int audio_materialize_ion_devnode_once(void);
 static int audio_materialize_msm_audio_cal_devnode_once(void);
@@ -3042,6 +3045,59 @@ static int audio_play_start_worker(const struct audio_speaker_profile *profile,
     a90_console_printf("audio.play.worker.parent_returns=1\r\n");
     audio_play_async_statusf("audio.play.worker.started=1\n");
     audio_play_async_statusf("audio.play.worker.pid=%ld\n", (long)pid);
+    audio_play_async_worker_pid = pid;
+    return 0;
+}
+
+static int audio_play_stop_tracked_worker(void) {
+    pid_t pid = audio_play_async_worker_pid;
+    int status = 0;
+    int attempt;
+    pid_t wait_rc;
+
+    if (pid <= 0) {
+        return 0;
+    }
+
+    wait_rc = waitpid(pid, &status, WNOHANG);
+    if (wait_rc == pid) {
+        audio_play_async_worker_pid = -1;
+        return 0;
+    }
+    if (wait_rc < 0 && errno == ECHILD) {
+        audio_play_async_worker_pid = -1;
+        return 0;
+    }
+    if (kill(pid, SIGTERM) < 0) {
+        if (errno == ESRCH) {
+            audio_play_async_worker_pid = -1;
+            return 0;
+        }
+        return -errno;
+    }
+
+    for (attempt = 0; attempt < 12; ++attempt) {
+        usleep(50000);
+        wait_rc = waitpid(pid, &status, WNOHANG);
+        if (wait_rc == pid) {
+            audio_play_async_worker_pid = -1;
+            return 0;
+        }
+        if (wait_rc < 0 && errno == ECHILD) {
+            audio_play_async_worker_pid = -1;
+            return 0;
+        }
+    }
+
+    if (kill(pid, SIGKILL) < 0) {
+        if (errno == ESRCH) {
+            audio_play_async_worker_pid = -1;
+            return 0;
+        }
+        return -errno;
+    }
+    (void)waitpid(pid, &status, 0);
+    audio_play_async_worker_pid = -1;
     return 0;
 }
 
@@ -3376,6 +3432,7 @@ static int audio_stop_cmd(char **argv, int argc) {
     int argi;
     int index;
     int route_rc;
+    int worker_stop_rc;
     char *route_argv[7];
 
     for (argi = 2; argi < argc; ++argi) {
@@ -3423,8 +3480,14 @@ static int audio_stop_cmd(char **argv, int argc) {
         return 0;
     }
 
-    a90_console_printf("audio.stop.playback_stop_attempted=0\r\n");
-    a90_console_printf("audio.stop.playback_stop_reason=no-active-pcm-handle\r\n");
+    a90_console_printf("audio.stop.worker.tracked_pid=%ld\r\n", (long)audio_play_async_worker_pid);
+    a90_console_printf("audio.stop.playback_stop_attempted=%d\r\n",
+                       audio_play_async_worker_pid > 0 ? 1 : 0);
+    worker_stop_rc = audio_play_stop_tracked_worker();
+    a90_console_printf("audio.stop.worker.stop_rc=%d\r\n", worker_stop_rc);
+    if (audio_play_async_worker_pid <= 0 && worker_stop_rc == 0) {
+        a90_console_printf("audio.stop.playback_stop_reason=tracked-worker-stopped-or-none\r\n");
+    }
     a90_console_printf("audio.stop.setcal_deallocate_attempted=0\r\n");
     a90_console_printf("audio.stop.setcal_deallocate_reason=no-active-setcal-session\r\n");
     a90_console_printf("audio.stop.route_write_attempted=1\r\n");
@@ -3438,6 +3501,10 @@ static int audio_stop_cmd(char **argv, int argc) {
     route_argv[6] = NULL;
     route_rc = audio_route_cmd(route_argv, 6);
     a90_console_printf("audio.stop.route_reset_rc=%d\r\n", route_rc);
+    if (worker_stop_rc < 0) {
+        a90_console_printf("audio.stop.done=0 rc=%d\r\n", worker_stop_rc);
+        return worker_stop_rc;
+    }
     a90_console_printf("audio.stop.done=%d rc=%d\r\n", route_rc == 0 ? 1 : 0, route_rc);
     return route_rc;
 }
