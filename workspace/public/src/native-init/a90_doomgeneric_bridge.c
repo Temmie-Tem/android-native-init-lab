@@ -16,6 +16,10 @@
 #define O_CLOEXEC 0
 #endif
 
+#ifndef O_NOFOLLOW
+#define O_NOFOLLOW 0
+#endif
+
 #ifndef A90_DOOMGENERIC_BRIDGE_CANDIDATE
 #define A90_DOOMGENERIC_BRIDGE_CANDIDATE "v3025-doomgeneric-command-bridge"
 #endif
@@ -40,12 +44,32 @@
 #define A90_DOOMGENERIC_BRIDGE_EXPECTED_WAD_SHA256 ""
 #endif
 
+#ifndef A90_DOOMGENERIC_BRIDGE_FRAME_PATH
+#define A90_DOOMGENERIC_BRIDGE_FRAME_PATH "/tmp/a90-doomgeneric-frame.xbgr8888"
+#endif
+
 #ifndef A90_DOOMGENERIC_BRIDGE_MAX_WAD_BYTES
 #define A90_DOOMGENERIC_BRIDGE_MAX_WAD_BYTES 67108864LL
 #endif
 
 #ifndef A90_DOOMGENERIC_BRIDGE_MAX_PLAY_FRAMES
 #define A90_DOOMGENERIC_BRIDGE_MAX_PLAY_FRAMES 300
+#endif
+
+#ifndef A90_DOOMGENERIC_BRIDGE_FRAME_WIDTH
+#define A90_DOOMGENERIC_BRIDGE_FRAME_WIDTH 640U
+#endif
+
+#ifndef A90_DOOMGENERIC_BRIDGE_FRAME_HEIGHT
+#define A90_DOOMGENERIC_BRIDGE_FRAME_HEIGHT 400U
+#endif
+
+#ifndef A90_DOOMGENERIC_BRIDGE_FRAME_STRIDE
+#define A90_DOOMGENERIC_BRIDGE_FRAME_STRIDE (A90_DOOMGENERIC_BRIDGE_FRAME_WIDTH * 4U)
+#endif
+
+#ifndef A90_DOOMGENERIC_BRIDGE_FRAME_BYTES
+#define A90_DOOMGENERIC_BRIDGE_FRAME_BYTES (A90_DOOMGENERIC_BRIDGE_FRAME_STRIDE * A90_DOOMGENERIC_BRIDGE_FRAME_HEIGHT)
 #endif
 
 #ifndef A90_DOOMGENERIC_BRIDGE_INPUT
@@ -127,9 +151,14 @@ void a90_doomgeneric_bridge_get_status(struct a90_doomgeneric_bridge_status *sta
     status->runtime_wad_root = A90_DOOMGENERIC_BRIDGE_RUNTIME_WAD_ROOT;
     status->runtime_wad_path = A90_DOOMGENERIC_BRIDGE_RUNTIME_WAD_PATH;
     status->expected_wad_sha256 = A90_DOOMGENERIC_BRIDGE_EXPECTED_WAD_SHA256;
+    status->frame_path = A90_DOOMGENERIC_BRIDGE_FRAME_PATH;
     status->input_path = A90_DOOMGENERIC_BRIDGE_INPUT;
     status->sound_mode = A90_DOOMGENERIC_BRIDGE_SOUND;
     status->runtime_wad_max_bytes = A90_DOOMGENERIC_BRIDGE_MAX_WAD_BYTES;
+    status->frame_width = A90_DOOMGENERIC_BRIDGE_FRAME_WIDTH;
+    status->frame_height = A90_DOOMGENERIC_BRIDGE_FRAME_HEIGHT;
+    status->frame_stride = A90_DOOMGENERIC_BRIDGE_FRAME_STRIDE;
+    status->frame_bytes = A90_DOOMGENERIC_BRIDGE_FRAME_BYTES;
     status->helper_present = doomgeneric_helper_present(status->helper_path);
     status->helper_executable = doomgeneric_helper_executable(status->helper_path);
     doomgeneric_fill_wad_stat(status);
@@ -266,6 +295,118 @@ int a90_doomgeneric_bridge_probe(int timeout_ms, struct a90_run_result *result) 
         return rc;
     }
     return result->rc;
+}
+
+static void doomgeneric_fill_frame_render(struct a90_doomgeneric_frame_render *render,
+                                          const struct a90_doomgeneric_bridge_status *status) {
+    struct stat st;
+
+    if (render == NULL || status == NULL) {
+        return;
+    }
+    memset(render, 0, sizeof(*render));
+    render->path = status->frame_path;
+    render->width = status->frame_width;
+    render->height = status->frame_height;
+    render->stride = status->frame_stride;
+    render->expected_bytes = status->frame_bytes;
+    render->bytes = -1;
+    render->geometry_ok = (
+        render->width == 640U &&
+        render->height == 400U &&
+        render->stride == render->width * 4U &&
+        render->expected_bytes == render->stride * render->height
+    );
+    if (lstat(status->frame_path, &st) < 0) {
+        render->stat_errno = errno;
+        return;
+    }
+    render->present = true;
+    render->regular = S_ISREG(st.st_mode);
+    render->bytes = (long long)st.st_size;
+    render->size_ok = render->regular && st.st_size == (off_t)render->expected_bytes;
+    render->ok = render->geometry_ok && render->size_ok;
+}
+
+int a90_doomgeneric_bridge_render_frame(int frames,
+                                        const char *expected_sha256,
+                                        int timeout_ms,
+                                        struct a90_doomgeneric_wad_check *check,
+                                        struct a90_doomgeneric_frame_render *render,
+                                        struct a90_run_result *result) {
+    struct a90_run_result local_result;
+    struct a90_doomgeneric_bridge_status status;
+    struct a90_run_config config;
+    char frames_arg[16];
+    char *const argv[] = {
+        (char *)A90_DOOMGENERIC_BRIDGE_HELPER_PATH,
+        (char *)"--wad-frame-dump",
+        (char *)A90_DOOMGENERIC_BRIDGE_RUNTIME_WAD_PATH,
+        (char *)"--frames",
+        frames_arg,
+        (char *)"--output",
+        (char *)A90_DOOMGENERIC_BRIDGE_FRAME_PATH,
+        NULL,
+    };
+    pid_t pid = -1;
+    int rc;
+
+    if (frames <= 0 || frames > A90_DOOMGENERIC_BRIDGE_MAX_PLAY_FRAMES) {
+        return -EINVAL;
+    }
+    rc = a90_doomgeneric_bridge_verify_wad(expected_sha256, check);
+    if (rc < 0) {
+        return rc;
+    }
+    if (result == NULL) {
+        result = &local_result;
+    }
+    memset(result, 0, sizeof(*result));
+    a90_doomgeneric_bridge_get_status(&status);
+    if (render != NULL) {
+        doomgeneric_fill_frame_render(render, &status);
+        render->present = false;
+        render->regular = false;
+        render->size_ok = false;
+        render->ok = false;
+        render->bytes = -1;
+    }
+    if (!status.helper_executable) {
+        result->rc = -ENOENT;
+        result->saved_errno = ENOENT;
+        return -ENOENT;
+    }
+    if (timeout_ms <= 0) {
+        timeout_ms = 15000;
+    }
+    snprintf(frames_arg, sizeof(frames_arg), "%d", frames);
+    (void)unlink(status.frame_path);
+
+    memset(&config, 0, sizeof(config));
+    config.tag = "doomgeneric-sd-wad-frame";
+    config.argv = argv;
+    config.stdio_mode = A90_RUN_STDIO_NULL;
+    config.setsid = true;
+    config.kill_process_group = true;
+    config.timeout_ms = timeout_ms;
+    config.stop_timeout_ms = 1000;
+
+    rc = a90_run_spawn(&config, &pid);
+    if (rc < 0) {
+        result->rc = rc;
+        result->saved_errno = -rc;
+        return rc;
+    }
+    rc = a90_run_wait(pid, &config, result);
+    if (rc < 0) {
+        doomgeneric_fill_frame_render(render, &status);
+        return rc;
+    }
+    doomgeneric_fill_frame_render(render, &status);
+    if (result->rc != 0) {
+        return result->rc;
+    }
+    return render == NULL || render->ok ? 0 : -EIO;
 }
 
 int a90_doomgeneric_bridge_play(int frames,

@@ -84,7 +84,7 @@ static int cmd_video_status(void) {
 
     a90_kms_info(&info);
     a90_doomgeneric_bridge_get_status(&doomgeneric);
-    a90_console_printf("video.status.version=9\r\n");
+    a90_console_printf("video.status.version=10\r\n");
     a90_console_printf("video.status.path=kms-dumb-buffer\r\n");
     a90_console_printf("video.status.display_owner=1\r\n");
     a90_console_printf("video.status.player_hud_fastpath=1\r\n");
@@ -109,6 +109,12 @@ static int cmd_video_status(void) {
                        doomgeneric.runtime_wad_size_ok ? 1 : 0);
     a90_console_printf("video.status.doomgeneric.wad_embedded_in_boot=%d\r\n",
                        doomgeneric.wad_embedded_in_boot ? 1 : 0);
+    a90_console_printf("video.status.doomgeneric.visible_frame=1\r\n");
+    a90_console_printf("video.status.doomgeneric.frame_path=%s\r\n", doomgeneric.frame_path);
+    a90_console_printf("video.status.doomgeneric.frame_format=xbgr8888-raw\r\n");
+    a90_console_printf("video.status.doomgeneric.frame_size=%ux%u\r\n",
+                       doomgeneric.frame_width,
+                       doomgeneric.frame_height);
     a90_console_printf("video.status.venus=not-used\r\n");
     a90_console_printf("video.status.kgsl=not-used\r\n");
     a90_console_printf("video.status.raw_dsi=blocked\r\n");
@@ -2518,6 +2524,7 @@ static int cmd_doomplay(char **argv, int argc);
 #define VIDEO_DEMO_DOOMGENERIC_DEFAULT_FRAMES 16U
 #define VIDEO_DEMO_DOOMGENERIC_MAX_FRAMES 300U
 #define VIDEO_DEMO_DOOMGENERIC_TIMEOUT_MS 15000
+#define VIDEO_DEMO_DOOMGENERIC_FRAME_TIMEOUT_MS 15000
 
 static void video_demo_doom_bridge_status(void) {
     struct a90_doomgeneric_bridge_status status;
@@ -2548,6 +2555,12 @@ static void video_demo_doom_bridge_status(void) {
                        status.runtime_wad_size_ok ? 1 : 0);
     a90_console_printf("video.demo.asset.wad.embedded_in_boot=%d\r\n",
                        status.wad_embedded_in_boot ? 1 : 0);
+    a90_console_printf("video.demo.doom.frame.path=%s\r\n", status.frame_path);
+    a90_console_printf("video.demo.doom.frame.width=%u\r\n", status.frame_width);
+    a90_console_printf("video.demo.doom.frame.height=%u\r\n", status.frame_height);
+    a90_console_printf("video.demo.doom.frame.stride=%u\r\n", status.frame_stride);
+    a90_console_printf("video.demo.doom.frame.bytes=%u\r\n", status.frame_bytes);
+    a90_console_printf("video.demo.doom.frame.format=xbgr8888-raw\r\n");
     a90_console_printf("video.demo.input.active=%s\r\n", status.input_path);
     a90_console_printf("video.demo.input.otg_required=0\r\n");
     a90_console_printf("video.demo.sound.active=%s\r\n", status.sound_mode);
@@ -2555,6 +2568,8 @@ static void video_demo_doom_bridge_status(void) {
     a90_console_printf("video.demo.doom.verify.command=video demo doom verify --wad runtime-private --sha256 %s\r\n",
                        status.expected_wad_sha256);
     a90_console_printf("video.demo.doom.play.command=video demo doom play [frames] --wad runtime-private --sha256 %s\r\n",
+                       status.expected_wad_sha256);
+    a90_console_printf("video.demo.doom.frame.command=video demo doom frame [frames] --wad runtime-private --sha256 %s\r\n",
                        status.expected_wad_sha256);
 }
 
@@ -2616,6 +2631,108 @@ static int video_demo_doom_status(const char *action) {
     return 0;
 }
 
+static void video_demo_doom_print_frame_render(
+        const char *prefix,
+        const struct a90_doomgeneric_frame_render *render) {
+    if (prefix == NULL || render == NULL) {
+        return;
+    }
+    a90_console_printf("%s.path=%s\r\n", prefix, render->path != NULL ? render->path : "-");
+    a90_console_printf("%s.width=%u\r\n", prefix, render->width);
+    a90_console_printf("%s.height=%u\r\n", prefix, render->height);
+    a90_console_printf("%s.stride=%u\r\n", prefix, render->stride);
+    a90_console_printf("%s.expected_bytes=%u\r\n", prefix, render->expected_bytes);
+    a90_console_printf("%s.bytes=%lld\r\n", prefix, render->bytes);
+    a90_console_printf("%s.present=%d\r\n", prefix, render->present ? 1 : 0);
+    a90_console_printf("%s.regular=%d\r\n", prefix, render->regular ? 1 : 0);
+    a90_console_printf("%s.size_ok=%d\r\n", prefix, render->size_ok ? 1 : 0);
+    a90_console_printf("%s.geometry_ok=%d\r\n", prefix, render->geometry_ok ? 1 : 0);
+    a90_console_printf("%s.ok=%d\r\n", prefix, render->ok ? 1 : 0);
+}
+
+static int video_demo_doom_present_frame_file(
+        const struct a90_doomgeneric_frame_render *render) {
+    uint32_t *source;
+    struct a90_fb *fb;
+    uint32_t dst_x;
+    uint32_t dst_y;
+    uint32_t border_x;
+    uint32_t border_y;
+    uint32_t row;
+    int fd;
+    int rc;
+    char detail[128];
+
+    if (render == NULL || !render->ok || render->path == NULL ||
+        render->expected_bytes == 0 || render->expected_bytes > (8U * 1024U * 1024U)) {
+        a90_console_printf("video.demo.doom.frame.display.error=invalid-render-artifact\r\n");
+        return -EINVAL;
+    }
+    source = (uint32_t *)malloc(render->expected_bytes);
+    if (source == NULL) {
+        a90_console_printf("video.demo.doom.frame.display.error=alloc-failed\r\n");
+        return -ENOMEM;
+    }
+    fd = open(render->path, O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
+    if (fd < 0) {
+        rc = negative_errno_or(EIO);
+        free(source);
+        a90_console_printf("video.demo.doom.frame.display.error=open-failed\r\n");
+        return rc;
+    }
+    rc = video_read_exact_fd(fd, source, render->expected_bytes);
+    close(fd);
+    if (rc < 0) {
+        free(source);
+        a90_console_printf("video.demo.doom.frame.display.error=read-failed\r\n");
+        return rc;
+    }
+    if (a90_kms_begin_frame(0x05070c) < 0) {
+        free(source);
+        return negative_errno_or(ENODEV);
+    }
+    fb = a90_kms_framebuffer();
+    if (fb == NULL || fb->pixels == NULL ||
+        fb->width < render->width || fb->height < render->height ||
+        fb->stride < (uint64_t)fb->width * 4ULL) {
+        free(source);
+        a90_console_printf("video.demo.doom.frame.display.error=kms-geometry-mismatch\r\n");
+        return -EINVAL;
+    }
+
+    dst_x = (fb->width - render->width) / 2U;
+    dst_y = (fb->height > render->height + 360U) ?
+        ((fb->height - render->height - 240U) / 2U) :
+        ((fb->height - render->height) / 2U);
+    for (row = 0; row < render->height; ++row) {
+        memcpy((char *)fb->pixels + ((size_t)(dst_y + row) * fb->stride) +
+                   ((size_t)dst_x * sizeof(uint32_t)),
+               (const char *)source + ((size_t)row * render->stride),
+               (size_t)render->width * sizeof(uint32_t));
+    }
+    free(source);
+
+    border_x = dst_x > 4U ? dst_x - 4U : 0U;
+    border_y = dst_y > 4U ? dst_y - 4U : 0U;
+    a90_draw_rect_outline(fb, border_x, border_y,
+                          render->width + 8U, render->height + 8U,
+                          2U, 0xd0a060);
+    a90_draw_text(fb, dst_x, dst_y + render->height + 24U,
+                  "DOOM WAD FRAME", 0xffcc66, 4U);
+    snprintf(detail, sizeof(detail),
+             "WAD-BACKED FRAME %ux%u XBGR8888", render->width, render->height);
+    a90_draw_text(fb, dst_x, dst_y + render->height + 72U, detail, 0xdddddd, 3U);
+    if (a90_kms_present("doomframe", true) < 0) {
+        return negative_errno_or(EIO);
+    }
+    a90_console_printf("video.demo.doom.frame.display.presented=1\r\n");
+    a90_console_printf("video.demo.doom.frame.display.path=kms-dumb-buffer\r\n");
+    a90_console_printf("video.demo.doom.frame.display.format=xbgr8888-raw\r\n");
+    a90_console_printf("video.demo.doom.frame.display.x=%u\r\n", dst_x);
+    a90_console_printf("video.demo.doom.frame.display.y=%u\r\n", dst_y);
+    return 0;
+}
+
 static bool video_demo_doom_args_request_runtime_wad(char **argv, int argc) {
     int index;
 
@@ -2638,7 +2755,8 @@ static int video_demo_doom_run_wad_command(const char *action,
     int index = 4;
     int rc;
 
-    if (strcmp(action, "play") == 0 && index < argc && strncmp(argv[index], "--", 2) != 0) {
+    if ((strcmp(action, "play") == 0 || strcmp(action, "frame") == 0) &&
+        index < argc && strncmp(argv[index], "--", 2) != 0) {
         if (!parse_u32_arg(argv[index],
                            1U,
                            VIDEO_DEMO_DOOMGENERIC_MAX_FRAMES,
@@ -2718,12 +2836,48 @@ static int video_demo_doom_run_wad_command(const char *action,
                            play_result.timed_out ? 1 : 0);
         return rc;
     }
+    if (strcmp(action, "frame") == 0) {
+        struct a90_doomgeneric_wad_check check;
+        struct a90_doomgeneric_frame_render render;
+        struct a90_run_result frame_result;
+        int present_rc = -EINVAL;
+
+        memset(&frame_result, 0, sizeof(frame_result));
+        memset(&render, 0, sizeof(render));
+        rc = a90_doomgeneric_bridge_render_frame((int)frames,
+                                                 expected_sha256,
+                                                 VIDEO_DEMO_DOOMGENERIC_FRAME_TIMEOUT_MS,
+                                                 &check,
+                                                 &render,
+                                                 &frame_result);
+        a90_console_printf("video.demo.doom.frame=doomgeneric-sd-wad-visible-frame\r\n");
+        a90_console_printf("video.demo.doom.frame.frames=%u\r\n", frames);
+        a90_console_printf("video.demo.doom.frame.timeout_ms=%d\r\n",
+                           VIDEO_DEMO_DOOMGENERIC_FRAME_TIMEOUT_MS);
+        video_demo_doom_print_wad_check("video.demo.doom.frame.verify", &check);
+        a90_console_printf("video.demo.doom.frame.verify.sha256_match=%d\r\n",
+                           check.sha256_match ? 1 : 0);
+        a90_console_printf("video.demo.doom.frame.verify.ok=%d\r\n", check.ok ? 1 : 0);
+        video_demo_doom_print_frame_render("video.demo.doom.frame.render", &render);
+        a90_console_printf("video.demo.doom.frame.helper_rc=%d\r\n", rc);
+        a90_console_printf("video.demo.doom.frame.duration_ms=%ld\r\n",
+                           frame_result.duration_ms);
+        a90_console_printf("video.demo.doom.frame.timed_out=%d\r\n",
+                           frame_result.timed_out ? 1 : 0);
+        if (rc == 0 && render.ok) {
+            present_rc = video_demo_doom_present_frame_file(&render);
+        } else {
+            present_rc = rc;
+        }
+        a90_console_printf("video.demo.doom.frame.display.rc=%d\r\n", present_rc);
+        return rc == 0 ? present_rc : rc;
+    }
     a90_console_printf("%s", usage);
     return -EINVAL;
 }
 
 static int cmd_video_demo(char **argv, int argc) {
-    const char *usage = "usage: video demo [bars|checker|mono|0xRRGGBB|badapple|badapple-scale|nyan|doom [status|verify|play|engine-probe] [frames] [--wad runtime-private --sha256 EXPECTED] [--trust-cache] [--frames N] [--present setcrtc|pageflip] [--layout full|player-hud] [--sync-audio-status /cache/a90-audio-play/status.txt] [--sync-wait-ms N] [--sync-start-offset-ms N]]\r\n";
+    const char *usage = "usage: video demo [bars|checker|mono|0xRRGGBB|badapple|badapple-scale|nyan|doom [status|verify|play|frame|engine-probe] [frames] [--wad runtime-private --sha256 EXPECTED] [--trust-cache] [--frames N] [--present setcrtc|pageflip] [--layout full|player-hud] [--sync-audio-status /cache/a90-audio-play/status.txt] [--sync-wait-ms N] [--sync-start-offset-ms N]]\r\n";
     char *cache_argv[CMDV1X_MAX_ARGS];
     int cache_argc = 0;
     int index;
@@ -2736,12 +2890,15 @@ static int cmd_video_demo(char **argv, int argc) {
         if ((strcmp(action, "status") != 0 &&
              strcmp(action, "verify") != 0 &&
              strcmp(action, "play") != 0 &&
+             strcmp(action, "frame") != 0 &&
              strcmp(action, "engine-probe") != 0)) {
             a90_console_printf("%s", usage);
             return -EINVAL;
         }
         if (video_demo_doom_args_request_runtime_wad(argv, argc)) {
-            if (strcmp(action, "verify") != 0 && strcmp(action, "play") != 0) {
+            if (strcmp(action, "verify") != 0 &&
+                strcmp(action, "play") != 0 &&
+                strcmp(action, "frame") != 0) {
                 a90_console_printf("%s", usage);
                 return -EINVAL;
             }

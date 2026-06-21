@@ -2,6 +2,7 @@
 #define A90_DOOMGENERIC_BRIDGE_H
 
 #include <stdbool.h>
+#include <stdint.h>
 
 struct a90_run_result;
 
@@ -12,10 +13,15 @@ struct a90_doomgeneric_bridge_status {
     const char *runtime_wad_root;
     const char *runtime_wad_path;
     const char *expected_wad_sha256;
+    const char *frame_path;
     const char *input_path;
     const char *sound_mode;
     long long runtime_wad_max_bytes;
     long long runtime_wad_bytes;
+    uint32_t frame_width;
+    uint32_t frame_height;
+    uint32_t frame_stride;
+    uint32_t frame_bytes;
     bool helper_present;
     bool helper_executable;
     bool runtime_wad_present;
@@ -41,6 +47,21 @@ struct a90_doomgeneric_wad_check {
     bool ok;
 };
 
+struct a90_doomgeneric_frame_render {
+    const char *path;
+    uint32_t width;
+    uint32_t height;
+    uint32_t stride;
+    uint32_t expected_bytes;
+    long long bytes;
+    int stat_errno;
+    bool present;
+    bool regular;
+    bool size_ok;
+    bool geometry_ok;
+    bool ok;
+};
+
 void a90_doomgeneric_bridge_get_status(struct a90_doomgeneric_bridge_status *status);
 int a90_doomgeneric_bridge_probe(int timeout_ms, struct a90_run_result *result);
 int a90_doomgeneric_bridge_verify_wad(const char *expected_sha256,
@@ -50,5 +71,11 @@ int a90_doomgeneric_bridge_play(int frames,
                                 int timeout_ms,
                                 struct a90_doomgeneric_wad_check *check,
                                 struct a90_run_result *result);
+int a90_doomgeneric_bridge_render_frame(int frames,
+                                        const char *expected_sha256,
+                                        int timeout_ms,
+                                        struct a90_doomgeneric_wad_check *check,
+                                        struct a90_doomgeneric_frame_render *render,
+                                        struct a90_run_result *result);
 
 #endif

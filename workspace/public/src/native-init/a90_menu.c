@@ -155,7 +155,7 @@ static const struct screen_menu_item screen_menu_logs_items[] = {
 static const struct screen_menu_item screen_menu_demo_items[] = {
     { "BAD APPLE HUD", "FULL A/V PLAYER HUD", SCREEN_MENU_DEMO_BADAPPLE, SCREEN_MENU_PAGE_DEMO },
     { "NYAN CAT",      "10S COLOR PLAYER",    SCREEN_MENU_DEMO_NYAN,     SCREEN_MENU_PAGE_DEMO },
-    { "DOOM",          "SERIAL DOOMPAD STATUS", SCREEN_MENU_DEMO_DOOM,   SCREEN_MENU_PAGE_DEMO },
+    { "DOOM",          "WAD FRAME PREVIEW",     SCREEN_MENU_DEMO_DOOM,   SCREEN_MENU_PAGE_DEMO },
     { "BACK",          "MAIN MENU",             SCREEN_MENU_BACK,          SCREEN_MENU_PAGE_MAIN },
 };
 

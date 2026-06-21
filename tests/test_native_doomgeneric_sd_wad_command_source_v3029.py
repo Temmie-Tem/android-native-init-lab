@@ -42,14 +42,15 @@ class NativeDoomgenericSdWadCommandSourceV3029Tests(unittest.TestCase):
         self.assertIn("video.demo.doom.play=doomgeneric-sd-wad-smoke", text)
         self.assertIn("video.demo.doom.play.verify.sha256_match=%d", text)
 
-    def test_menu_status_exposes_sd_wad_commands_without_launching_play(self) -> None:
+    def test_menu_exposes_sd_wad_commands_without_launching_play(self) -> None:
         text = (ROOT / "workspace/public/src/native-init/v319/40_menu_apps.inc.c").read_text(encoding="utf-8")
 
-        self.assertIn("menu.demo.doom.action=status-only", text)
+        self.assertIn("menu.demo.doom.action=visible-frame-preview", text)
         self.assertIn("menu.demo.doom.asset.wad.runtime_path=%s", text)
         self.assertIn("menu.demo.doom.asset.wad.expected_sha256=%s", text)
         self.assertIn("menu.demo.doom.verify.command=video demo doom verify --wad runtime-private --sha256", text)
         self.assertIn("menu.demo.doom.sd_wad_play.command=video demo doom play [frames] --wad runtime-private --sha256", text)
+        self.assertIn("menu.demo.doom.frame.command=video demo doom frame 8 --wad runtime-private --sha256", text)
 
     def test_builder_contract_uses_sd_wad_metadata_and_no_wad_ramdisk_payload(self) -> None:
         self.assertEqual(runner.CYCLE, "V3029")

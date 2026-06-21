@@ -571,13 +571,22 @@ static bool auto_hud_handle_menu_key(struct auto_hud_state *state,
             break;
         }
         case SCREEN_MENU_DEMO_DOOM: {
-            char *demo_argv[] = { "video", "demo", "doom", "status" };
             struct a90_doomgeneric_bridge_status doomgeneric;
+            char *demo_argv[9];
             int rc;
 
             a90_doomgeneric_bridge_get_status(&doomgeneric);
-            a90_console_printf("menu.demo.doom.action=status-only\r\n");
-            a90_console_printf("menu.demo.doom.status=doompad-frame-loop-ready\r\n");
+            demo_argv[0] = "video";
+            demo_argv[1] = "demo";
+            demo_argv[2] = "doom";
+            demo_argv[3] = "frame";
+            demo_argv[4] = "8";
+            demo_argv[5] = "--wad";
+            demo_argv[6] = "runtime-private";
+            demo_argv[7] = "--sha256";
+            demo_argv[8] = (char *)doomgeneric.expected_wad_sha256;
+            a90_console_printf("menu.demo.doom.action=visible-frame-preview\r\n");
+            a90_console_printf("menu.demo.doom.status=doomgeneric-visible-frame-ready\r\n");
             a90_console_printf("menu.demo.doom.input=serial-doompad-consumed\r\n");
             a90_console_printf("menu.demo.doom.input.live_handoff=v3016-doompad-gameplay-loop\r\n");
             a90_console_printf("menu.demo.doom.input.virtual_controller=doompad-serial-v3014\r\n");
@@ -585,6 +594,8 @@ static bool auto_hud_handle_menu_key(struct auto_hud_state *state,
             a90_console_printf("menu.demo.doom.input.hardware_gate=none-serial-control\r\n");
             a90_console_printf("menu.demo.doom.input.command=doompad key <role> <0|1>\r\n");
             a90_console_printf("menu.demo.doom.play.command=video demo doom play [frames]\r\n");
+            a90_console_printf("menu.demo.doom.frame.command=video demo doom frame 8 --wad runtime-private --sha256 %s\r\n",
+                               doomgeneric.expected_wad_sha256);
             a90_console_printf("menu.demo.doom.input.keyboard_fallback=usb-keyboard-otg\r\n");
             a90_console_printf("menu.demo.doom.engine.bridge=%s\r\n", doomgeneric.candidate);
             a90_console_printf("menu.demo.doom.engine.active=%s\r\n",
@@ -616,8 +627,12 @@ static bool auto_hud_handle_menu_key(struct auto_hud_state *state,
             a90_console_printf("menu.demo.doom.sd_wad_play.command=video demo doom play [frames] --wad runtime-private --sha256 %s\r\n",
                                doomgeneric.expected_wad_sha256);
             a90_console_printf("menu.demo.doom.restore=menu\r\n");
+            state->menu_active = false;
+            a90_controller_set_menu_active(false);
+            a90_controller_clear_menu_request();
             rc = cmd_video_demo(demo_argv,
                                 (int)(sizeof(demo_argv) / sizeof(demo_argv[0])));
+            a90_console_printf("menu.demo.doom.frame_rc=%d\r\n", rc);
             a90_console_printf("menu.demo.doom.rc=%d\r\n", rc);
             auto_hud_show_menu(state, false);
             break;

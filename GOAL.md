@@ -160,9 +160,19 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 >   `video demo doom verify --wad runtime-private --sha256 EXPECTED` (`sha256_match=1`, `magic=IWAD`,
 >   `ok=1`) and bounded `video demo doom play 4 --wad runtime-private --sha256 EXPECTED` (`rc=0`,
 >   `timed_out=0`), then rolled back to V2321 with final `selftest fail=0`.
-> - **NEXT CHECKPOINT: V3031 host-only WAD-backed visible DOOM frame/menu integration** — decide and implement
->   the bounded source path that carries doomgeneric frames from the WAD-backed helper/engine into the native
->   KMS/menu presentation flow, without embedding WAD bytes or widening the flash surface.
+> - **DOOM WAD-backed visible frame/menu integration source build DONE (V3031)** — host-only source build
+>   produced the `0.10.75` / `v3031-doomgeneric-visible-frame` private boot candidate
+>   `boot_linux_v3031_doomgeneric_visible_frame.img` with SHA256
+>   `1fefa60b9530cf4cfeb21f2419b77e7d9ca4258078899e3826a0c99918912fb4`. The private helper now supports
+>   `--wad-frame-dump ... --output /tmp/a90-doomgeneric-v3031-frame.xbgr8888`, and native-init exposes
+>   `video demo doom frame [frames] --wad runtime-private --sha256 EXPECTED` to verify the SD WAD, request
+>   one bounded raw `640x400` `xbgr8888` frame, blit it through the existing KMS dumb-buffer path, and restore
+>   the DEMO > DOOM menu preview. WAD files in ramdisk are `0`, public WAD count remains `0`, and WAD bytes
+>   are not embedded in the boot image.
+> - **NEXT CHECKPOINT: V3032 rollback-gated visible-frame live validation** — flash only the exact V3031
+>   candidate through `native_init_flash.py`, confirm rollback assets/recovery first, health-check,
+>   run `video demo doom frame 8 --wad runtime-private --sha256 EXPECTED`, confirm KMS presentation markers,
+>   then rollback to V2321 and health-check.
 > - Parallel optional polish: dashboard formatting, fonts/ASCII charset, beat-flash tuning.
 
 **Historical recon framing (Venus HW-decode / cont-splash feasibility, VID-0/1/2):** SUPERSEDED — the display is
