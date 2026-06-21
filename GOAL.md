@@ -121,8 +121,12 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 >   further DOOM work can regress it.
 > - **0.11.0 (MINOR) is RESERVED for video-epic close at DOOM completion** — i.e. the full demo ladder
 >   (Bad Apple + Nyan + DOOM) device-proven. Do not roll MINOR before DOOM lands; DOOM continues on the 0.10.x line until then.
-> - **NEXT UNIT returns to DOOM** — resume the WAD-backed `doomgeneric`/asset-policy frontier from the V3020 host probe,
->   staying host-only until source provenance, boot-size impact, bounded runtime controls, and rollback validation are pinned.
+> - **DOOM host-only policy gate DONE (V3023)** — the WAD-backed `doomgeneric` frontier resumed after the V3020 host
+>   probe; source provenance, WAD/runtime-private policy, boot-size caps, bounded command surface, and rollback-gated
+>   live-validation requirements are now pinned without flashing or staging WAD data.
+> - **NEXT UNIT: V3024 private-source native-init integration build** — integrate the pinned private `doomgeneric` source
+>   into native-init as a build-only unit, keep WAD bytes out of the public tree/ramdisk/boot image, and report native-init
+>   binary plus boot-image deltas before any live validation.
 > - Parallel optional polish: dashboard formatting, fonts/ASCII charset, beat-flash tuning.
 
 **Historical recon framing (Venus HW-decode / cont-splash feasibility, VID-0/1/2):** SUPERSEDED — the display is

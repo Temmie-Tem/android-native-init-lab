@@ -41,6 +41,12 @@ CURRENT_DEMO_CHECKPOINT_LIVE_REPORT = (
     / "reports"
     / "NATIVE_INIT_V3022_DEMO_CHECKPOINT_BADAPPLE_NYAN_LIVE_2026-06-21.md"
 )
+CURRENT_DOOMGENERIC_POLICY_REPORT = (
+    REPO_ROOT
+    / "docs"
+    / "reports"
+    / "NATIVE_INIT_V3023_DOOMGENERIC_INTEGRATION_POLICY_2026-06-21.md"
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -324,14 +330,84 @@ def current_demo_checkpoint_evaluation(
     }
 
 
+def current_doomgeneric_policy_evidence(report_text: str | None) -> dict[str, Any]:
+    if not report_text:
+        return {
+            "v3023_policy_report_present": False,
+            "v3023_policy_ready": False,
+            "v3023_source_pinned": False,
+            "v3023_source_clean": False,
+            "v3023_v3020_probe_pass": False,
+            "v3023_v3022_checkpoint_retained": False,
+            "v3023_no_public_wad": False,
+            "v3023_runtime_wad_staged": None,
+            "v3023_safe_next_host_only_unit": False,
+            "v3023_next_run_id": None,
+        }
+    decision_ready = "v3023-doomgeneric-private-integration-policy-ready" in report_text
+    source_pinned = "Private doomgeneric source pinned: `1`" in report_text
+    source_clean = "Private source clean: `1`" in report_text
+    v3020_probe = "V3020 port probe pass: `1`" in report_text
+    v3022_checkpoint = "V3022 checkpoint live pass retained: `1`" in report_text
+    no_public_wad = "Public WAD files committed/present: `0`" in report_text
+    runtime_wad_staged = "Runtime WAD currently staged: `1`" in report_text
+    safe_next = "Safe next host-only unit: `1`" in report_text
+    next_run_id = "V3024" if "Run ID: `V3024`" in report_text else None
+    return {
+        "v3023_policy_report_present": True,
+        "v3023_policy_ready": bool(
+            decision_ready
+            and source_pinned
+            and source_clean
+            and v3020_probe
+            and v3022_checkpoint
+            and no_public_wad
+            and safe_next
+        ),
+        "v3023_source_pinned": bool(source_pinned),
+        "v3023_source_clean": bool(source_clean),
+        "v3023_v3020_probe_pass": bool(v3020_probe),
+        "v3023_v3022_checkpoint_retained": bool(v3022_checkpoint),
+        "v3023_no_public_wad": bool(no_public_wad),
+        "v3023_runtime_wad_staged": bool(runtime_wad_staged),
+        "v3023_safe_next_host_only_unit": bool(safe_next),
+        "v3023_next_run_id": next_run_id,
+    }
+
+
 def current_doom_input_evaluation(
     report_text: str | None,
     flash_gate_report_text: str | None = None,
     live_precondition_report_text: str | None = None,
     gameplay_loop_report_text: str | None = None,
+    doomgeneric_policy_report_text: str | None = None,
 ) -> dict[str, Any] | None:
     gameplay_loop = current_doom_gameplay_loop_evidence(gameplay_loop_report_text)
     if gameplay_loop["v3017_state_consumed"] and gameplay_loop["v3017_rollback_health_ok"]:
+        doomgeneric_policy = current_doomgeneric_policy_evidence(doomgeneric_policy_report_text)
+        if doomgeneric_policy["v3023_policy_ready"]:
+            return {
+                "track": "VIDEO",
+                "name": "doom-capstone",
+                "safe_actionable_now": True,
+                "status": "doomgeneric-private-source-integration-build-ready",
+                "drop_trigger": (
+                    "V3023 closes the host-only doomgeneric/WAD policy gap after V3020: the pinned "
+                    "private doomgeneric source is clean, V3020 linked the AArch64 adapter, V3022 "
+                    "retains the Bad Apple + Nyan checkpoint, and public/WAD boundaries are fixed. "
+                    "The next bounded unit is a private-source native-init integration build without "
+                    "WAD bytes in the boot image."
+                ),
+                "evidence": {
+                    **gameplay_loop,
+                    **doomgeneric_policy,
+                    "next_host_only_unit": (
+                        "V3024 private-source doomgeneric native-init integration build; no WAD data "
+                        "in public tree, ramdisk, or boot image"
+                    ),
+                    "next_live_command": None,
+                },
+            }
         return {
             "track": "VIDEO",
             "name": "doom-capstone",
@@ -345,6 +421,7 @@ def current_doom_input_evaluation(
             ),
             "evidence": {
                 **gameplay_loop,
+                **doomgeneric_policy,
                 "next_host_only_unit": "doomgeneric/WAD feasibility and asset-policy source audit",
                 "next_live_command": None,
             },
@@ -407,6 +484,7 @@ def track_evaluations(
     current_doom_gameplay_loop_report_text: str | None = None,
     current_demo_checkpoint_source_report_text: str | None = None,
     current_demo_checkpoint_live_report_text: str | None = None,
+    current_doomgeneric_policy_report_text: str | None = None,
 ) -> list[dict[str, Any]]:
     signals = inventory["consolidation_signals"]
     t1_candidates = ready_t1_candidates(frontier_candidates)
@@ -415,6 +493,7 @@ def track_evaluations(
         current_doom_flash_gate_report_text,
         current_doom_live_precondition_report_text,
         current_doom_gameplay_loop_report_text,
+        current_doomgeneric_policy_report_text,
     )
     current_demo_checkpoint = current_demo_checkpoint_evaluation(
         goal_text,
@@ -521,6 +600,7 @@ def select_frontier() -> dict[str, Any]:
     current_doom_gameplay_loop_report_text = read_optional_text(CURRENT_DOOM_GAMEPLAY_LOOP_REPORT)
     current_demo_checkpoint_source_report_text = read_optional_text(CURRENT_DEMO_CHECKPOINT_SOURCE_REPORT)
     current_demo_checkpoint_live_report_text = read_optional_text(CURRENT_DEMO_CHECKPOINT_LIVE_REPORT)
+    current_doomgeneric_policy_report_text = read_optional_text(CURRENT_DOOMGENERIC_POLICY_REPORT)
     evaluations = track_evaluations(
         goal_text,
         todo_text,
@@ -532,6 +612,7 @@ def select_frontier() -> dict[str, Any]:
         current_doom_gameplay_loop_report_text,
         current_demo_checkpoint_source_report_text,
         current_demo_checkpoint_live_report_text,
+        current_doomgeneric_policy_report_text,
     )
     actionable = [evaluation for evaluation in evaluations if evaluation["safe_actionable_now"]]
     current_video = current_doom_input_evaluation(
@@ -539,6 +620,7 @@ def select_frontier() -> dict[str, Any]:
         current_doom_flash_gate_report_text,
         current_doom_live_precondition_report_text,
         current_doom_gameplay_loop_report_text,
+        current_doomgeneric_policy_report_text,
     )
     current_demo_checkpoint = current_demo_checkpoint_evaluation(
         goal_text,
@@ -560,6 +642,12 @@ def select_frontier() -> dict[str, Any]:
             "Run a host-only doomgeneric/WAD feasibility and asset-policy unit next. Do not flash "
             "a WAD-backed engine until source provenance, boot-size impact, bounded runtime controls, "
             "and rollback validation are pinned."
+        )
+    elif current_video and current_video["status"] == "doomgeneric-private-source-integration-build-ready":
+        next_operator_decision = (
+            "Run the V3024 host-only private-source doomgeneric native-init integration build. Keep WAD "
+            "data out of the public tree, ramdisk, and boot image; report binary/boot deltas before any "
+            "rollback-gated live validation."
         )
     elif current_video and not current_video["safe_actionable_now"]:
         evidence = current_video["evidence"]
@@ -605,6 +693,7 @@ def select_frontier() -> dict[str, Any]:
             "current_doom_gameplay_loop_report": str(CURRENT_DOOM_GAMEPLAY_LOOP_REPORT.relative_to(REPO_ROOT)),
             "current_demo_checkpoint_source_report": str(CURRENT_DEMO_CHECKPOINT_SOURCE_REPORT.relative_to(REPO_ROOT)),
             "current_demo_checkpoint_live_report": str(CURRENT_DEMO_CHECKPOINT_LIVE_REPORT.relative_to(REPO_ROOT)),
+            "current_doomgeneric_policy_report": str(CURRENT_DOOMGENERIC_POLICY_REPORT.relative_to(REPO_ROOT)),
         },
     }
 
