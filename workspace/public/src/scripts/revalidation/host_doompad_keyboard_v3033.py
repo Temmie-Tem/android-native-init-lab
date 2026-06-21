@@ -23,12 +23,14 @@ import a90ctl
 EXPECTED_WAD_SHA256 = "1d7d43be501e67d927e415e0b8f3e29c3bf33075e859721816f652a526cac771"
 DEFAULT_HOLD_MS = 180
 DEFAULT_POLL_MS = 30
-DEFAULT_LOOP_FRAMES = 300
+DEFAULT_LOOP_FRAMES = 0
 DEFAULT_LOOP_FRAME_MS = 33
 DEFAULT_LOOP_RESTART_GRACE_MS = 500
+DEFAULT_CONTINUOUS_CHECK_MS = 5000
 ALL_ROLES = ("forward", "back", "left", "right", "fire", "use", "menu", "run")
 LOOP_STATUS_COMMAND = ["video", "demo", "doom", "loop-status"]
 LOOP_STATUS_ACTIVE_KEY = "video.demo.doom.loop_status.active"
+LOOP_STATUS_CONTINUOUS_KEY = "video.demo.doom.loop_status.continuous"
 
 KEY_TOKEN_TO_ROLE = {
     "w": "forward",
@@ -146,6 +148,7 @@ class DoomLoopKeeper:
     frame_ms: int
     sha256: str
     restart_grace_ms: int
+    continuous_check_ms: int = DEFAULT_CONTINUOUS_CHECK_MS
     enabled: bool = True
     loop_started_at: float | None = None
     next_check_at: float = 0.0
@@ -158,10 +161,18 @@ class DoomLoopKeeper:
     def restart_grace_sec(self) -> float:
         return max(0, self.restart_grace_ms) / 1000.0
 
+    def continuous_check_sec(self) -> float:
+        return max(1, self.continuous_check_ms) / 1000.0
+
+    def check_delay_sec(self) -> float:
+        if self.loop_frames == 0:
+            return self.continuous_check_sec()
+        return self.expected_duration_sec() + self.restart_grace_sec()
+
     def mark_started(self, now: float | None = None) -> None:
         timestamp = time.monotonic() if now is None else now
         self.loop_started_at = timestamp
-        self.next_check_at = timestamp + self.expected_duration_sec() + self.restart_grace_sec()
+        self.next_check_at = timestamp + self.check_delay_sec()
 
     def start(self, now: float | None = None) -> int:
         result = self.sender.send_result(loop_start_command(self.loop_frames, self.sha256), fast=True)
@@ -188,11 +199,12 @@ class DoomLoopKeeper:
 
         values = parse_key_value_lines(result.text)
         active = values.get(LOOP_STATUS_ACTIVE_KEY)
+        continuous = values.get(LOOP_STATUS_CONTINUOUS_KEY) == "1" or self.loop_frames == 0
         if active == "0":
             self.loop_started_at = None
             return self.start(timestamp)
         if active == "1":
-            self.next_check_at = timestamp + 0.5
+            self.next_check_at = timestamp + (self.continuous_check_sec() if continuous else 0.5)
         else:
             self.next_check_at = timestamp + 1.0
         return 0
@@ -267,6 +279,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--loop-frames", type=int, default=DEFAULT_LOOP_FRAMES)
     parser.add_argument("--loop-frame-ms", type=int, default=DEFAULT_LOOP_FRAME_MS)
     parser.add_argument("--loop-restart-grace-ms", type=int, default=DEFAULT_LOOP_RESTART_GRACE_MS)
+    parser.add_argument("--continuous-check-ms", type=int, default=DEFAULT_CONTINUOUS_CHECK_MS)
     parser.add_argument("--sha256", default=EXPECTED_WAD_SHA256)
     parser.add_argument("--no-loop-start", action="store_true")
     parser.add_argument("--no-loop-stop", action="store_true")
@@ -285,6 +298,7 @@ def main() -> int:
         args.loop_frame_ms,
         args.sha256,
         args.loop_restart_grace_ms,
+        continuous_check_ms=args.continuous_check_ms,
         enabled=not args.no_auto_restart and not args.no_loop_start,
     )
     poll_sec = max(args.poll_ms, 1) / 1000.0

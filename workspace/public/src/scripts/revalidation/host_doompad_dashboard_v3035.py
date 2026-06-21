@@ -29,6 +29,7 @@ DEFAULT_HOLD_MS = 250
 DEFAULT_POLL_MS = 30
 DEFAULT_STATUS_INTERVAL_SEC = 1.0
 DEFAULT_SYSTEM_STATUS_INTERVAL_SEC = 10.0
+DEFAULT_SYSTEM_STATUS_IDLE_SEC = 2.0
 DEFAULT_DEVICE_TIMEOUT_SEC = 3.0
 MAX_LOG_LINES = 200
 KEY_VALUE_RE = re.compile(r"^([A-Za-z0-9_. -]+?)=(.*)$")
@@ -86,6 +87,7 @@ class DashboardState:
     last_command: str = "-"
     last_rc: int | None = None
     last_status: str = "-"
+    last_input_at: float = field(default_factory=time.monotonic)
 
     def add_log(self, channel: str, message: str, *, ok: bool = True) -> None:
         self.logs.append(DashboardLogEntry(time.monotonic(), channel, message, ok))
@@ -236,11 +238,14 @@ def start_loop(sender: DashboardCommandSender, state: DashboardState, sha256: st
     if result.rc == 0:
         state.loop_generation += 1
         state.loop_started_at = time.monotonic()
-        state.loop_next_check_at = (
-            state.loop_started_at
-            + (state.loop_frames * state.loop_frame_ms) / 1000.0
-            + 0.5
-        )
+        if state.loop_frames == 0:
+            state.loop_next_check_at = state.loop_started_at + 5.0
+        else:
+            state.loop_next_check_at = (
+                state.loop_started_at
+                + (state.loop_frames * state.loop_frame_ms) / 1000.0
+                + 0.5
+            )
         state.loop_active = True
     elif "status=busy" in result.text or result.status == "busy":
         state.loop_active = True
@@ -292,6 +297,9 @@ def refresh_loop_state(sender: DashboardCommandSender, state: DashboardState) ->
             state.loop_active = active == "1"
             if active == "0":
                 state.loop_started_at = None
+        continuous = state.loop_kv.get("video.demo.doom.loop_status.continuous")
+        if continuous == "1" and state.loop_frames != 0:
+            state.loop_frames = 0
 
 
 def refresh_doompad_state(sender: DashboardCommandSender, state: DashboardState) -> None:
@@ -319,7 +327,22 @@ def maybe_auto_restart_loop(sender: DashboardCommandSender, state: DashboardStat
         state.add_log("loop", "auto restart after inactive loop")
         start_loop(sender, state, sha256)
         return
-    if state.loop_started_at is None or state.loop_frames <= 0 or state.loop_frame_ms <= 0:
+    if state.loop_started_at is None or state.loop_frames < 0 or state.loop_frame_ms <= 0:
+        return
+    if state.loop_frames == 0:
+        now = time.monotonic()
+        if now < state.loop_next_check_at:
+            return
+        result = sender.send_result(["video", "demo", "doom", "loop-status"])
+        if result is not None:
+            state.loop_kv = parse_key_value_lines(result.text)
+            active = state.loop_kv.get("video.demo.doom.loop_status.active")
+            if active == "0":
+                state.loop_active = False
+                state.loop_started_at = None
+                start_loop(sender, state, sha256)
+            else:
+                state.loop_next_check_at = now + 5.0
         return
     duration = (state.loop_frames * state.loop_frame_ms) / 1000.0
     now = time.monotonic()
@@ -401,9 +424,10 @@ def draw_dashboard(stdscr: curses.window,
     active_roles = ",".join(sorted(session.active_until.keys())) or "-"
     loop_elapsed = 0.0 if state.loop_started_at is None else max(0.0, now - state.loop_started_at)
     loop_state = "unknown" if state.loop_active is None else ("active" if state.loop_active else "inactive")
+    loop_continuous = state.loop_kv.get("video.demo.doom.loop_status.continuous", "1" if state.loop_frames == 0 else "0")
     frame = estimated_loop_frame(state, now)
     top_lines = [
-        f"loop={loop_state} gen={state.loop_generation} frame_est={frame}/{state.loop_frames} "
+        f"loop={loop_state} continuous={loop_continuous} gen={state.loop_generation} frame_est={frame}/{state.loop_frames} "
         f"elapsed={loop_elapsed:0.1f}s target_fps={target_fps(state.loop_frame_ms):0.1f} "
         f"auto_restart={'on' if state.auto_restart else 'off'}",
         f"wad={state.doom_kv.get('video.demo.asset.wad.present', '?')} "
@@ -441,9 +465,10 @@ def render_snapshot_lines(state: DashboardState) -> list[str]:
     now = time.monotonic()
     loop_elapsed = 0.0 if state.loop_started_at is None else max(0.0, now - state.loop_started_at)
     loop_state = "unknown" if state.loop_active is None else ("active" if state.loop_active else "inactive")
+    loop_continuous = state.loop_kv.get("video.demo.doom.loop_status.continuous", "1" if state.loop_frames == 0 else "0")
     lines = [
         "A90 DOOMPAD DASHBOARD SNAPSHOT",
-        f"loop={loop_state} frame_est={estimated_loop_frame(state, now)}/{state.loop_frames} "
+        f"loop={loop_state} continuous={loop_continuous} frame_est={estimated_loop_frame(state, now)}/{state.loop_frames} "
         f"elapsed={loop_elapsed:0.1f}s target_fps={target_fps(state.loop_frame_ms):0.1f} "
         f"auto_restart={'on' if state.auto_restart else 'off'}",
         f"commands={state.command_count} failures={state.command_failures} "
@@ -487,6 +512,7 @@ def handle_dashboard_token(token: str,
     label = token_label(token)
     state.last_key = label
     state.key_events += 1
+    state.last_input_at = time.monotonic()
 
     if token in keyboard.EXIT_TOKENS:
         state.add_log("key", f"{label} quit")
@@ -557,6 +583,8 @@ def run_curses(stdscr: curses.window, args: argparse.Namespace) -> int:
 
             session.release_expired()
             input_idle = not session.active_until
+            if not input_idle:
+                state.last_input_at = time.monotonic()
             if input_idle:
                 maybe_auto_restart_loop(sender, state, args.sha256)
                 now = time.monotonic()
@@ -564,7 +592,8 @@ def run_curses(stdscr: curses.window, args: argparse.Namespace) -> int:
                     refresh_light_device_state(sender, state)
                     last_light_refresh = time.monotonic()
                 now = time.monotonic()
-                if now - last_system_refresh >= args.system_status_interval:
+                input_quiet = now - state.last_input_at >= args.system_status_idle_sec
+                if input_quiet and now - last_system_refresh >= args.system_status_interval:
                     refresh_system_state(sender, state)
                     last_system_refresh = time.monotonic()
             draw_dashboard(stdscr, state, session)
@@ -587,6 +616,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--loop-frame-ms", type=int, default=DEFAULT_LOOP_FRAME_MS)
     parser.add_argument("--status-interval", type=float, default=DEFAULT_STATUS_INTERVAL_SEC)
     parser.add_argument("--system-status-interval", type=float, default=DEFAULT_SYSTEM_STATUS_INTERVAL_SEC)
+    parser.add_argument("--system-status-idle-sec", type=float, default=DEFAULT_SYSTEM_STATUS_IDLE_SEC)
     parser.add_argument("--sha256", default=EXPECTED_WAD_SHA256)
     parser.add_argument("--no-loop-start", action="store_true")
     parser.add_argument("--no-loop-stop", action="store_true")
@@ -598,8 +628,8 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
-    if args.loop_frames <= 0:
-        print("--loop-frames must be positive", file=sys.stderr)
+    if args.loop_frames < 0:
+        print("--loop-frames must be non-negative", file=sys.stderr)
         return 2
     if args.loop_frame_ms <= 0:
         print("--loop-frame-ms must be positive", file=sys.stderr)
@@ -609,6 +639,9 @@ def main() -> int:
         return 2
     if args.system_status_interval <= 0:
         print("--system-status-interval must be positive", file=sys.stderr)
+        return 2
+    if args.system_status_idle_sec < 0:
+        print("--system-status-idle-sec must be non-negative", file=sys.stderr)
         return 2
     if args.once:
         return run_once(args)

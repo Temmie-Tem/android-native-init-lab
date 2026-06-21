@@ -560,7 +560,7 @@ int a90_doomgeneric_bridge_start_frame_loop_helper(int frames,
     };
     int rc;
 
-    if (pid_out == NULL || frames <= 0 || frames > A90_DOOMGENERIC_BRIDGE_MAX_PLAY_FRAMES) {
+    if (pid_out == NULL || frames < 0 || frames > A90_DOOMGENERIC_BRIDGE_MAX_PLAY_FRAMES) {
         return -EINVAL;
     }
     if (frame_ms <= 0 || frame_ms > 250) {

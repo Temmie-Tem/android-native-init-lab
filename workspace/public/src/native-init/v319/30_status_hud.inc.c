@@ -2542,6 +2542,8 @@ static int cmd_doomplay(char **argv, int argc);
 #endif
 
 static pid_t video_demo_doom_loop_pid = -1;
+static bool video_demo_doom_loop_continuous;
+static uint32_t video_demo_doom_loop_frames;
 
 static void video_demo_doom_bridge_status(void) {
     struct a90_doomgeneric_bridge_status status;
@@ -3275,6 +3277,8 @@ static void video_demo_doom_loop_reap(void) {
     reap_rc = a90_run_reap_pid(video_demo_doom_loop_pid, &status);
     if (reap_rc == 1) {
         video_demo_doom_loop_pid = -1;
+        video_demo_doom_loop_continuous = false;
+        video_demo_doom_loop_frames = 0U;
     }
 }
 
@@ -3297,6 +3301,8 @@ static int video_demo_doom_loop_stop(void) {
     a90_console_printf("video.demo.doom.loop_stop.pid=%ld\r\n", (long)video_demo_doom_loop_pid);
     a90_console_printf("video.demo.doom.loop_stop.rc=%d\r\n", rc);
     video_demo_doom_loop_pid = -1;
+    video_demo_doom_loop_continuous = false;
+    video_demo_doom_loop_frames = 0U;
     return rc;
 }
 
@@ -3306,6 +3312,10 @@ static int video_demo_doom_loop_status(void) {
                        video_demo_doom_loop_pid > 0 ? 1 : 0);
     a90_console_printf("video.demo.doom.loop_status.pid=%ld\r\n",
                        (long)video_demo_doom_loop_pid);
+    a90_console_printf("video.demo.doom.loop_status.continuous=%d\r\n",
+                       video_demo_doom_loop_continuous ? 1 : 0);
+    a90_console_printf("video.demo.doom.loop_status.frames=%u\r\n",
+                       video_demo_doom_loop_frames);
     return 0;
 }
 
@@ -3321,7 +3331,8 @@ static int video_demo_doom_run_visible_loop(uint32_t frames,
     int present_rc = -EIO;
     uint32_t presented = 0;
     uint32_t poll_count = 0;
-    uint32_t max_polls = frames * 4U + 20U;
+    bool continuous = frames == 0U;
+    uint32_t max_polls = continuous ? 0U : frames * 4U + 20U;
 
     memset(&check, 0, sizeof(check));
 
@@ -3333,6 +3344,7 @@ static int video_demo_doom_run_visible_loop(uint32_t frames,
     if (!background_child) {
         a90_console_printf("video.demo.doom.loop=doomgeneric-sd-wad-visible-playable-loop\r\n");
         a90_console_printf("video.demo.doom.loop.frames=%u\r\n", frames);
+        a90_console_printf("video.demo.doom.loop.continuous=%d\r\n", continuous ? 1 : 0);
         a90_console_printf("video.demo.doom.loop.frame_ms=%d\r\n",
                            VIDEO_DEMO_DOOMGENERIC_LOOP_FRAME_MS);
         a90_console_printf("video.demo.doom.loop.input=serial-doompad-state-file\r\n");
@@ -3348,7 +3360,7 @@ static int video_demo_doom_run_visible_loop(uint32_t frames,
         return helper_rc;
     }
 
-    while (presented < frames && poll_count < max_polls) {
+    while ((continuous || presented < frames) && (continuous || poll_count < max_polls)) {
         enum a90_cancel_kind cancel;
         int read_rc;
 
@@ -3433,9 +3445,13 @@ static int video_demo_doom_loop_start(uint32_t frames, const char *expected_sha2
     a90_console_printf("video.demo.doom.loop_start.active=1\r\n");
     a90_console_printf("video.demo.doom.loop_start.pid=%ld\r\n", (long)pid);
     a90_console_printf("video.demo.doom.loop_start.frames=%u\r\n", frames);
+    a90_console_printf("video.demo.doom.loop_start.continuous=%d\r\n",
+                       frames == 0U ? 1 : 0);
     a90_console_printf("video.demo.doom.loop_start.input=serial-doompad-state-file\r\n");
     a90_console_printf("video.demo.doom.loop_start.host_keyboard_bridge=host_doompad_keyboard_v3033.py\r\n");
     a90_console_printf("video.demo.doom.loop_start.rc=0\r\n");
+    video_demo_doom_loop_continuous = frames == 0U;
+    video_demo_doom_loop_frames = frames;
     return 0;
 }
 
@@ -3466,15 +3482,19 @@ static int video_demo_doom_run_wad_command(const char *action,
          strcmp(action, "loop") == 0 ||
          strcmp(action, "loop-start") == 0) &&
         index < argc && strncmp(argv[index], "--", 2) != 0) {
+        uint32_t min_frames = strcmp(action, "loop-start") == 0 ? 0U : 1U;
+
         if (!parse_u32_arg(argv[index],
-                           1U,
+                           min_frames,
                            VIDEO_DEMO_DOOMGENERIC_MAX_FRAMES,
                            &frames)) {
             a90_console_printf("%s", usage);
             return -EINVAL;
         }
         ++index;
-    } else if (strcmp(action, "loop") == 0 || strcmp(action, "loop-start") == 0) {
+    } else if (strcmp(action, "loop-start") == 0) {
+        frames = 0U;
+    } else if (strcmp(action, "loop") == 0) {
         frames = VIDEO_DEMO_DOOMGENERIC_LOOP_DEFAULT_FRAMES;
     } else if (strcmp(action, "verify") != 0) {
         a90_console_printf("%s", usage);

@@ -92,6 +92,7 @@ class NativeDoomgenericVisibleLoopSourceV3033Tests(unittest.TestCase):
         self.assertIn("WAD PLAYABLE LOOP", menu)
 
     def test_host_keyboard_bridge_maps_keys_and_cleans_up(self) -> None:
+        self.assertEqual(keyboard.DEFAULT_LOOP_FRAMES, 0)
         self.assertEqual(keyboard.DEFAULT_LOOP_FRAME_MS, 33)
         self.assertEqual(keyboard.role_for_key_token("w"), "forward")
         self.assertEqual(keyboard.role_for_key_token("\x1b[A"), "forward")
@@ -174,6 +175,42 @@ class NativeDoomgenericVisibleLoopSourceV3033Tests(unittest.TestCase):
             ],
         )
         self.assertEqual(keeper.loop_started_at, 1.2)
+
+    def test_host_keyboard_loop_keeper_throttles_continuous_status_checks(self) -> None:
+        class FakeSender:
+            def __init__(self) -> None:
+                self.sent: list[tuple[list[str], bool]] = []
+
+            def send_result(self, command: list[str], *, fast: bool = False):
+                self.sent.append((list(command), fast))
+                return keyboard.a90ctl.ProtocolResult(
+                    {},
+                    {"rc": "0", "status": "ok", "cmd": command[-1]},
+                    "\n".join(
+                        [
+                            "video.demo.doom.loop_status.active=1",
+                            "video.demo.doom.loop_status.continuous=1",
+                        ]
+                    ),
+                )
+
+        sender = FakeSender()
+        keeper = keyboard.DoomLoopKeeper(
+            sender,
+            loop_frames=0,
+            frame_ms=33,
+            sha256="a" * 64,
+            restart_grace_ms=5,
+            continuous_check_ms=5000,
+        )
+        keeper.loop_started_at = 1.0
+        keeper.next_check_at = 2.0
+
+        rc = keeper.maybe_restart(now=2.1)
+
+        self.assertEqual(rc, 0)
+        self.assertEqual(sender.sent, [(["video", "demo", "doom", "loop-status"], True)])
+        self.assertAlmostEqual(keeper.next_check_at, 7.1)
 
     def test_report_template_records_v3034_next_live_gate(self) -> None:
         manifest = {

@@ -20,7 +20,8 @@ class NativeDoomgenericNativeDashboardSourceV3036Tests(unittest.TestCase):
         self.assertEqual(runner.INPUT_STATE_PATH, "/tmp/a90-doomgeneric-v3036-input.state")
         self.assertEqual(runner.DEFAULT_LOOP_FRAMES, 300)
         self.assertEqual(runner.NATIVE_DASHBOARD, 1)
-        self.assertEqual(host_dashboard.DEFAULT_LOOP_FRAME_MS, runner.LOOP_FRAME_MS)
+        self.assertEqual(runner.LOOP_FRAME_MS, 50)
+        self.assertEqual(host_dashboard.DEFAULT_LOOP_FRAME_MS, 33)
         self.assertIn(b"video.demo.doom.dashboard.native=1", runner.REQUIRED_STRINGS)
         self.assertIn(b"host_doompad_dashboard_v3035.py", runner.REQUIRED_STRINGS)
 

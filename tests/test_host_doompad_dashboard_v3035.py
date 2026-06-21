@@ -14,9 +14,11 @@ class HostDoompadDashboardV3035Tests(unittest.TestCase):
     def test_dashboard_contract_reuses_v3033_serial_doompad_path(self) -> None:
         self.assertEqual(dashboard.EXPECTED_WAD_SHA256, keyboard.EXPECTED_WAD_SHA256)
         self.assertEqual(dashboard.DEFAULT_LOOP_FRAMES, keyboard.DEFAULT_LOOP_FRAMES)
+        self.assertEqual(dashboard.DEFAULT_LOOP_FRAMES, 0)
         self.assertEqual(dashboard.DEFAULT_LOOP_FRAME_MS, 33)
         self.assertEqual(dashboard.DEFAULT_HOLD_MS, 250)
         self.assertEqual(dashboard.DEFAULT_SYSTEM_STATUS_INTERVAL_SEC, 10.0)
+        self.assertEqual(dashboard.DEFAULT_SYSTEM_STATUS_IDLE_SEC, 2.0)
         self.assertEqual(
             dashboard.token_for_curses_key(ord("w")),
             "w",
@@ -154,6 +156,53 @@ class HostDoompadDashboardV3035Tests(unittest.TestCase):
 
         self.assertEqual(sender.sent, [["video", "demo", "doom", "loop-status"]])
         self.assertAlmostEqual(state.loop_next_check_at, 2.2)
+
+    def test_start_loop_zero_frames_marks_continuous_check_window(self) -> None:
+        class FakeSender:
+            def __init__(self) -> None:
+                self.sent: list[list[str]] = []
+
+            def send_result(self, command: list[str]):
+                self.sent.append(list(command))
+                return dashboard.a90ctl.ProtocolResult(
+                    {},
+                    {"rc": "0", "status": "ok", "cmd": command[-1]},
+                    "",
+                )
+
+        state = dashboard.DashboardState(loop_frames=0, loop_frame_ms=33)
+        sender = FakeSender()
+
+        with mock.patch.object(dashboard.time, "monotonic", return_value=10.0):
+            rc = dashboard.start_loop(sender, state, "a" * 64)
+
+        self.assertEqual(rc, 0)
+        self.assertEqual(sender.sent, [keyboard.loop_start_command(0, "a" * 64)])
+        self.assertTrue(state.loop_active)
+        self.assertEqual(state.loop_started_at, 10.0)
+        self.assertEqual(state.loop_next_check_at, 15.0)
+
+    def test_continuous_loop_status_refresh_sets_zero_frame_mode(self) -> None:
+        class FakeSender:
+            def send_result(self, command: list[str]):
+                return dashboard.a90ctl.ProtocolResult(
+                    {},
+                    {"rc": "0", "status": "ok", "cmd": command[-1]},
+                    "\n".join(
+                        [
+                            "video.demo.doom.loop_status.active=1",
+                            "video.demo.doom.loop_status.continuous=1",
+                            "video.demo.doom.loop_status.frames=0",
+                        ]
+                    ),
+                )
+
+        state = dashboard.DashboardState(loop_frames=300, loop_frame_ms=33)
+
+        dashboard.refresh_loop_state(FakeSender(), state)
+
+        self.assertTrue(state.loop_active)
+        self.assertEqual(state.loop_frames, 0)
 
 
 if __name__ == "__main__":
