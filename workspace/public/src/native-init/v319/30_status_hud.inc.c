@@ -2559,6 +2559,9 @@ static int cmd_doomplay(char **argv, int argc);
 #ifndef VIDEO_DEMO_DOOMGENERIC_FRAME_TIMING_PROBE
 #define VIDEO_DEMO_DOOMGENERIC_FRAME_TIMING_PROBE 0
 #endif
+#ifndef VIDEO_DEMO_DOOMGENERIC_SEQ_TELEMETRY
+#define VIDEO_DEMO_DOOMGENERIC_SEQ_TELEMETRY 0
+#endif
 #ifndef VIDEO_DEMO_DOOMGENERIC_PRESENT_PAGEFLIP
 #define VIDEO_DEMO_DOOMGENERIC_PRESENT_PAGEFLIP 0
 #endif
@@ -2689,6 +2692,12 @@ static void video_demo_doom_bridge_status(void) {
     a90_console_printf("video.demo.doom.loop.timing=frame-ipc-kms-stage-us\r\n");
 #else
     a90_console_printf("video.demo.doom.loop.timing_probe=0\r\n");
+#endif
+#if VIDEO_DEMO_DOOMGENERIC_SEQ_TELEMETRY
+    a90_console_printf("video.demo.doom.presenter.seq_telemetry=1\r\n");
+    a90_console_printf("video.demo.doom.presenter.seq_model=frame-id-upper32-shared-seq\r\n");
+#else
+    a90_console_printf("video.demo.doom.presenter.seq_telemetry=0\r\n");
 #endif
 #if VIDEO_DEMO_DOOMGENERIC_REUSE_FRAME_BUFFER
     if (status.shared_frame_path != NULL && status.shared_frame_path[0] != '\0') {
@@ -3641,6 +3650,128 @@ struct video_demo_doom_pace_sender {
     uint32_t failures;
 };
 
+#if VIDEO_DEMO_DOOMGENERIC_SEQ_TELEMETRY
+struct video_demo_doom_seq_stats {
+    uint32_t read_attempts;
+    uint32_t read_ok;
+    uint32_t read_errors;
+    uint32_t new_frame_polls;
+    uint32_t duplicate_frame_polls;
+    uint32_t presented_frames;
+    uint32_t shared_sequence_samples;
+    uint32_t shared_first_sequence;
+    uint32_t shared_last_sequence;
+    uint32_t shared_previous_sequence;
+    uint32_t shared_missed_frames;
+    uint32_t shared_max_sequence_gap_frames;
+    uint64_t first_frame_id;
+    uint64_t last_frame_id;
+};
+
+static uint32_t video_demo_doom_frame_id_shared_sequence(uint64_t frame_id) {
+    return (uint32_t)(frame_id >> 32U);
+}
+
+static void video_demo_doom_seq_stats_init(struct video_demo_doom_seq_stats *stats) {
+    if (stats == NULL) {
+        return;
+    }
+    memset(stats, 0, sizeof(*stats));
+}
+
+static void video_demo_doom_seq_stats_record_read(
+        struct video_demo_doom_seq_stats *stats,
+        int read_rc,
+        const struct a90_doomgeneric_frame_render *render,
+        uint64_t last_presented_frame_id) {
+    if (stats == NULL) {
+        return;
+    }
+    ++stats->read_attempts;
+    if (read_rc != 0 || render == NULL || !render->ok) {
+        ++stats->read_errors;
+        return;
+    }
+    ++stats->read_ok;
+    if (render->frame_id == last_presented_frame_id) {
+        ++stats->duplicate_frame_polls;
+        return;
+    }
+    ++stats->new_frame_polls;
+    if (stats->first_frame_id == 0ULL) {
+        stats->first_frame_id = render->frame_id;
+    }
+    stats->last_frame_id = render->frame_id;
+    if (render->shared_frame) {
+        uint32_t sequence = video_demo_doom_frame_id_shared_sequence(render->frame_id);
+
+        if (sequence != 0U) {
+            ++stats->shared_sequence_samples;
+            if (stats->shared_first_sequence == 0U) {
+                stats->shared_first_sequence = sequence;
+            }
+            if (stats->shared_previous_sequence != 0U && sequence > stats->shared_previous_sequence) {
+                uint32_t sequence_delta = sequence - stats->shared_previous_sequence;
+                uint32_t frame_gap = sequence_delta / 2U;
+
+                if (frame_gap > stats->shared_max_sequence_gap_frames) {
+                    stats->shared_max_sequence_gap_frames = frame_gap;
+                }
+                if (frame_gap > 1U) {
+                    stats->shared_missed_frames += frame_gap - 1U;
+                }
+            }
+            stats->shared_previous_sequence = sequence;
+            stats->shared_last_sequence = sequence;
+        }
+    }
+}
+
+static void video_demo_doom_seq_stats_record_present(
+        struct video_demo_doom_seq_stats *stats) {
+    if (stats == NULL) {
+        return;
+    }
+    ++stats->presented_frames;
+}
+
+static void video_demo_doom_seq_stats_print(
+        const char *prefix,
+        const struct video_demo_doom_seq_stats *stats) {
+    uint32_t polls_without_new_frame;
+
+    if (prefix == NULL || stats == NULL) {
+        return;
+    }
+    polls_without_new_frame = stats->read_errors + stats->duplicate_frame_polls;
+    a90_console_printf("%s.seq_telemetry=1\r\n", prefix);
+    a90_console_printf("%s.seq_model=frame-id-upper32-shared-seq\r\n", prefix);
+    a90_console_printf("%s.seq.read_attempts=%u\r\n", prefix, stats->read_attempts);
+    a90_console_printf("%s.seq.read_ok=%u\r\n", prefix, stats->read_ok);
+    a90_console_printf("%s.seq.read_errors=%u\r\n", prefix, stats->read_errors);
+    a90_console_printf("%s.seq.new_frame_polls=%u\r\n", prefix, stats->new_frame_polls);
+    a90_console_printf("%s.seq.duplicate_frame_polls=%u\r\n", prefix,
+                       stats->duplicate_frame_polls);
+    a90_console_printf("%s.seq.polls_without_new_frame=%u\r\n", prefix,
+                       polls_without_new_frame);
+    a90_console_printf("%s.seq.presented_frames=%u\r\n", prefix, stats->presented_frames);
+    a90_console_printf("%s.seq.shared_sequence_samples=%u\r\n", prefix,
+                       stats->shared_sequence_samples);
+    a90_console_printf("%s.seq.shared_first_sequence=%u\r\n", prefix,
+                       stats->shared_first_sequence);
+    a90_console_printf("%s.seq.shared_last_sequence=%u\r\n", prefix,
+                       stats->shared_last_sequence);
+    a90_console_printf("%s.seq.shared_missed_frames=%u\r\n", prefix,
+                       stats->shared_missed_frames);
+    a90_console_printf("%s.seq.shared_max_sequence_gap_frames=%u\r\n", prefix,
+                       stats->shared_max_sequence_gap_frames);
+    a90_console_printf("%s.seq.first_frame_id=%llu\r\n", prefix,
+                       (unsigned long long)stats->first_frame_id);
+    a90_console_printf("%s.seq.last_frame_id=%llu\r\n", prefix,
+                       (unsigned long long)stats->last_frame_id);
+}
+#endif
+
 static const char *video_demo_doom_present_mode_name(void) {
 #if VIDEO_DEMO_DOOMGENERIC_PRESENT_PAGEFLIP
     return "pageflip";
@@ -4399,6 +4530,9 @@ static int video_demo_doom_run_visible_loop(uint32_t frames,
 #if VIDEO_DEMO_DOOMGENERIC_FRAME_TIMING_PROBE
     struct video_demo_doom_timing_stats timing_stats;
 #endif
+#if VIDEO_DEMO_DOOMGENERIC_SEQ_TELEMETRY
+    struct video_demo_doom_seq_stats seq_stats;
+#endif
 
     memset(&check, 0, sizeof(check));
     memset(&bridge_status, 0, sizeof(bridge_status));
@@ -4408,6 +4542,9 @@ static int video_demo_doom_run_visible_loop(uint32_t frames,
     video_demo_doom_pace_sender_init(&pace_sender, NULL);
 #if VIDEO_DEMO_DOOMGENERIC_FRAME_TIMING_PROBE
     memset(&timing_stats, 0, sizeof(timing_stats));
+#endif
+#if VIDEO_DEMO_DOOMGENERIC_SEQ_TELEMETRY
+    video_demo_doom_seq_stats_init(&seq_stats);
 #endif
 
     helper_rc = a90_doomgeneric_bridge_start_frame_loop_helper((int)frames,
@@ -4438,6 +4575,12 @@ static int video_demo_doom_run_visible_loop(uint32_t frames,
         a90_console_printf("video.demo.doom.loop.timing=frame-ipc-kms-stage-us\r\n");
 #else
         a90_console_printf("video.demo.doom.loop.timing_probe=0\r\n");
+#endif
+#if VIDEO_DEMO_DOOMGENERIC_SEQ_TELEMETRY
+        a90_console_printf("video.demo.doom.loop.seq_telemetry=1\r\n");
+        a90_console_printf("video.demo.doom.loop.seq_model=frame-id-upper32-shared-seq\r\n");
+#else
+        a90_console_printf("video.demo.doom.loop.seq_telemetry=0\r\n");
 #endif
 #if VIDEO_DEMO_DOOMGENERIC_REUSE_FRAME_BUFFER
         if (bridge_status.shared_frame_path != NULL && bridge_status.shared_frame_path[0] != '\0') {
@@ -4529,6 +4672,12 @@ static int video_demo_doom_run_visible_loop(uint32_t frames,
         memset(&render, 0, sizeof(render));
         memset(&flip, 0, sizeof(flip));
         read_rc = a90_doomgeneric_bridge_read_frame_render(&render);
+#if VIDEO_DEMO_DOOMGENERIC_SEQ_TELEMETRY
+        video_demo_doom_seq_stats_record_read(&seq_stats,
+                                              read_rc,
+                                              &render,
+                                              last_presented_frame_id);
+#endif
         if (read_rc == 0 && render.ok && render.frame_id != last_presented_frame_id) {
             present_rc = video_demo_doom_present_frame_file_ex(&render,
                                                                !background_child,
@@ -4543,6 +4692,9 @@ static int video_demo_doom_run_visible_loop(uint32_t frames,
             if (present_rc == 0) {
                 last_presented_frame_id = render.frame_id;
                 ++presented;
+#if VIDEO_DEMO_DOOMGENERIC_SEQ_TELEMETRY
+                video_demo_doom_seq_stats_record_present(&seq_stats);
+#endif
                 video_demo_doom_flip_stats_add(&flip_stats, &flip);
                 if (VIDEO_DEMO_DOOMGENERIC_PAGEFLIP_MIN_SUBMIT_INTERVAL_MS > 0) {
                     present_not_before_ns = video_monotonic_ns() +
@@ -4609,6 +4761,9 @@ static int video_demo_doom_run_visible_loop(uint32_t frames,
 #endif
 #if VIDEO_DEMO_DOOMGENERIC_FRAME_TIMING_PROBE
         video_demo_doom_timing_stats_print("video.demo.doom.loop", &timing_stats);
+#endif
+#if VIDEO_DEMO_DOOMGENERIC_SEQ_TELEMETRY
+        video_demo_doom_seq_stats_print("video.demo.doom.loop", &seq_stats);
 #endif
         a90_console_printf("video.demo.doom.loop.flip_telemetry=pageflip-event-delta-us\r\n");
         video_demo_doom_flip_stats_print("video.demo.doom.loop", &flip_stats);

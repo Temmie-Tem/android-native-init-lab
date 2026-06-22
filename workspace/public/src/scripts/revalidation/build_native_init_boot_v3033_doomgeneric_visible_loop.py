@@ -78,6 +78,7 @@ NATIVE_DOOM_PRESENT_PAGEFLIP = 0
 REUSE_FRAME_BUFFER = 0
 DASHBOARD_METRICS_INTERVAL_FRAMES = 1
 FRAME_TIMING_PROBE = 0
+SEQ_TELEMETRY = 0
 PAGEFLIP_MIN_SUBMIT_INTERVAL_MS = 0
 SOUND_MODE = "disabled-nosound-nomusic"
 AUDIO_CORUN = 0
@@ -409,6 +410,11 @@ def patch_ramdisk_with_doomgeneric_helper() -> None:
             doomgeneric_flags = (
                 *doomgeneric_flags,
                 numeric_define("VIDEO_DEMO_DOOMGENERIC_FRAME_TIMING_PROBE", 1),
+            )
+        if SEQ_TELEMETRY:
+            doomgeneric_flags = (
+                *doomgeneric_flags,
+                numeric_define("VIDEO_DEMO_DOOMGENERIC_SEQ_TELEMETRY", 1),
             )
         if NATIVE_DASHBOARD:
             doomgeneric_flags = (
