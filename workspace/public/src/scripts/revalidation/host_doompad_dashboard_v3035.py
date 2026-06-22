@@ -27,7 +27,8 @@ DEFAULT_LOOP_FRAMES = keyboard.DEFAULT_LOOP_FRAMES
 DEFAULT_LOOP_FRAME_MS = keyboard.DEFAULT_LOOP_FRAME_MS
 DEFAULT_HOLD_MS = keyboard.DEFAULT_HOLD_MS
 DEFAULT_POLL_MS = keyboard.DEFAULT_POLL_MS
-DEFAULT_STATUS_INTERVAL_SEC = 1.0
+DEFAULT_STATUS_INTERVAL_SEC = 5.0
+DEFAULT_STATUS_IDLE_SEC = 0.75
 DEFAULT_SYSTEM_STATUS_INTERVAL_SEC = 10.0
 DEFAULT_SYSTEM_STATUS_IDLE_SEC = 2.0
 DEFAULT_DEVICE_TIMEOUT_SEC = 3.0
@@ -588,7 +589,8 @@ def run_curses(stdscr: curses.window, args: argparse.Namespace) -> int:
             if input_idle:
                 maybe_auto_restart_loop(sender, state, args.sha256)
                 now = time.monotonic()
-                if now - last_light_refresh >= args.status_interval:
+                input_quiet_for_status = now - state.last_input_at >= args.status_idle_sec
+                if input_quiet_for_status and now - last_light_refresh >= args.status_interval:
                     refresh_light_device_state(sender, state)
                     last_light_refresh = time.monotonic()
                 now = time.monotonic()
@@ -615,6 +617,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--loop-frames", type=int, default=DEFAULT_LOOP_FRAMES)
     parser.add_argument("--loop-frame-ms", type=int, default=DEFAULT_LOOP_FRAME_MS)
     parser.add_argument("--status-interval", type=float, default=DEFAULT_STATUS_INTERVAL_SEC)
+    parser.add_argument("--status-idle-sec", type=float, default=DEFAULT_STATUS_IDLE_SEC)
     parser.add_argument("--system-status-interval", type=float, default=DEFAULT_SYSTEM_STATUS_INTERVAL_SEC)
     parser.add_argument("--system-status-idle-sec", type=float, default=DEFAULT_SYSTEM_STATUS_IDLE_SEC)
     parser.add_argument("--sha256", default=EXPECTED_WAD_SHA256)
@@ -637,6 +640,9 @@ def main() -> int:
         return 2
     if args.status_interval <= 0:
         print("--status-interval must be positive", file=sys.stderr)
+        return 2
+    if args.status_idle_sec < 0:
+        print("--status-idle-sec must be non-negative", file=sys.stderr)
         return 2
     if args.system_status_interval <= 0:
         print("--system-status-interval must be positive", file=sys.stderr)
