@@ -13,6 +13,7 @@ import argparse
 import glob
 import os
 import select
+import socket
 import struct
 import sys
 import termios
@@ -31,8 +32,14 @@ DEFAULT_LOOP_FRAMES = 0
 DEFAULT_LOOP_FRAME_MS = 33
 DEFAULT_LOOP_RESTART_GRACE_MS = 500
 DEFAULT_CONTINUOUS_CHECK_MS = 5000
+DEFAULT_UDP_HOST = "192.168.7.2"
+DEFAULT_UDP_PORT = 30570
 EVDEV_EVENT_FORMAT = "llHHI"
 EVDEV_EVENT_SIZE = struct.calcsize(EVDEV_EVENT_FORMAT)
+INPUT_PACKET_MAGIC = 0x41394450
+INPUT_PACKET_VERSION = 1
+INPUT_PACKET_FORMAT = "<IIIII"
+INPUT_PACKET_SIZE = struct.calcsize(INPUT_PACKET_FORMAT)
 EV_KEY = 0x01
 EVDEV_KEY_UP = 0
 EVDEV_KEY_DOWN = 1
@@ -255,6 +262,21 @@ def doompad_state_command(seq: int, mask: int) -> list[str]:
     return ["doompad", "state", str(seq), f"0x{mask:02x}"]
 
 
+def doompad_input_packet(seq: int, mask: int) -> bytes:
+    if seq < 0:
+        raise ValueError("doompad seq must be non-negative")
+    if mask < 0 or mask > 0xff:
+        raise ValueError("doompad mask must be between 0x00 and 0xff")
+    return struct.pack(
+        INPUT_PACKET_FORMAT,
+        INPUT_PACKET_MAGIC,
+        INPUT_PACKET_VERSION,
+        seq & 0xffffffff,
+        mask & 0xffffffff,
+        1 if mask else 0,
+    )
+
+
 def loop_start_command(frames: int, sha256: str) -> list[str]:
     return [
         "video",
@@ -336,6 +358,28 @@ class CommandSender:
     def send(self, command: list[str]) -> int:
         result = self.send_result(command)
         return result.rc
+
+
+@dataclass
+class UdpInputSender:
+    host: str
+    port: int
+    print_only: bool = False
+    sent: list[list[str]] = field(default_factory=list)
+
+    def send(self, command: list[str]) -> int:
+        self.sent.append(list(command))
+        if not is_doompad_state_command(command):
+            raise ValueError("UDP input transport only supports doompad state <seq> <mask>")
+        seq = int(command[2], 0)
+        mask = int(command[3], 0)
+        packet = doompad_input_packet(seq, mask)
+        if self.print_only:
+            print(f"udp {self.host}:{self.port} seq={seq} mask=0x{mask:02x} bytes={len(packet)}")
+            return 0
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+            sock.sendto(packet, (self.host, self.port))
+        return 0
 
 
 @dataclass
@@ -601,6 +645,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--port", type=int, default=a90ctl.DEFAULT_PORT)
     parser.add_argument("--timeout", type=float, default=3.0)
     parser.add_argument("--input-backend", choices=("tty", "evdev"), default="tty")
+    parser.add_argument("--input-transport", choices=("serial", "udp"), default="serial")
+    parser.add_argument("--udp-host", default=DEFAULT_UDP_HOST)
+    parser.add_argument("--udp-port", type=int, default=DEFAULT_UDP_PORT)
     parser.add_argument("--evdev-device", action="append", help="host /dev/input/eventX to read; may be repeated")
     parser.add_argument("--list-evdev-devices", action="store_true")
     parser.add_argument("--hold-ms", type=int, default=DEFAULT_HOLD_MS)
@@ -625,10 +672,21 @@ def main() -> int:
         for device in discover_evdev_keyboard_devices():
             print(format_evdev_device(device))
         return 0
-    sender = CommandSender(args.host, args.port, args.timeout, print_only=args.print_only)
-    session = DoompadKeyboardSession(sender, args.hold_ms, use_state_batch=not args.legacy_key_events)
+    if args.input_transport == "udp" and args.legacy_key_events:
+        print("--input-transport udp requires batch state input; drop --legacy-key-events", file=sys.stderr)
+        return 2
+    if args.input_transport == "udp" and (args.udp_port <= 0 or args.udp_port > 65535):
+        print("--udp-port must be between 1 and 65535", file=sys.stderr)
+        return 2
+    serial_sender = CommandSender(args.host, args.port, args.timeout, print_only=args.print_only)
+    input_sender = (
+        UdpInputSender(args.udp_host, args.udp_port, print_only=args.print_only)
+        if args.input_transport == "udp"
+        else serial_sender
+    )
+    session = DoompadKeyboardSession(input_sender, args.hold_ms, use_state_batch=not args.legacy_key_events)
     loop_keeper = DoomLoopKeeper(
-        sender,
+        serial_sender,
         args.loop_frames,
         args.loop_frame_ms,
         args.sha256,
@@ -639,8 +697,8 @@ def main() -> int:
     poll_sec = max(args.poll_ms, 1) / 1000.0
 
     if args.input_backend == "evdev":
-        return run_evdev_loop(args, sender, session, loop_keeper, poll_sec)
-    return run_tty_loop(args, sender, session, loop_keeper, poll_sec)
+        return run_evdev_loop(args, serial_sender, session, loop_keeper, poll_sec)
+    return run_tty_loop(args, serial_sender, session, loop_keeper, poll_sec)
 
 
 if __name__ == "__main__":

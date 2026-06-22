@@ -63,6 +63,7 @@ FRAME_PATH = "/tmp/a90-doomgeneric-v3033-loop-frame.xbgr8888"
 INPUT_STATE_PATH = "/tmp/a90-doomgeneric-v3033-input.state"
 INPUT_SOCKET_PATH = ""
 INPUT_PATH = "serial-doompad-to-DG_GetKey"
+INPUT_UDP_PORT = 0
 FRAME_WIDTH = v3031.FRAME_WIDTH
 FRAME_HEIGHT = v3031.FRAME_HEIGHT
 FRAME_STRIDE = v3031.FRAME_STRIDE
@@ -395,6 +396,11 @@ def patch_ramdisk_with_doomgeneric_helper() -> None:
             doomgeneric_flags = (
                 *doomgeneric_flags,
                 shell_define("A90_DOOMGENERIC_BRIDGE_INPUT_SOCKET_PATH", INPUT_SOCKET_PATH),
+            )
+        if INPUT_UDP_PORT:
+            doomgeneric_flags = (
+                *doomgeneric_flags,
+                numeric_define("A90_DOOMGENERIC_BRIDGE_INPUT_UDP_PORT", INPUT_UDP_PORT),
             )
         base.EXTRA_INIT_FLAGS = (*inherited_flags, *(flag for flag in doomgeneric_flags if flag not in inherited_flags))
 

@@ -2595,6 +2595,7 @@ static void video_demo_doom_bridge_status(void) {
     a90_console_printf("video.demo.input.active=%s\r\n", status.input_path);
     a90_console_printf("video.demo.input.state_path=%s\r\n", status.input_state_path);
     a90_console_printf("video.demo.input.socket_path=%s\r\n", status.input_socket_path);
+    a90_console_printf("video.demo.input.udp_port=%u\r\n", status.input_udp_port);
     a90_console_printf("video.demo.input.otg_required=0\r\n");
     a90_console_printf("video.demo.input.host_keyboard_bridge=host_doompad_keyboard_v3033.py\r\n");
     a90_console_printf("video.demo.input.host_dashboard=host_doompad_dashboard_v3035.py\r\n");

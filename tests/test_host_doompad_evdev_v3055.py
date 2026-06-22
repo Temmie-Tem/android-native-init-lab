@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import contextlib
+import io
+import struct
 import unittest
 
 from _loader import load_script
@@ -72,6 +75,29 @@ B: EV=17
                 ["doompad", "state", "4", "0x00"],
             ],
         )
+
+    def test_udp_input_packet_is_fixed_little_endian_state_mask(self) -> None:
+        self.assertEqual(
+            keyboard.doompad_input_packet(12, 0x91),
+            struct.pack("<IIIII", 0x41394450, 1, 12, 0x91, 1),
+        )
+        self.assertEqual(
+            keyboard.doompad_input_packet(13, 0x00),
+            struct.pack("<IIIII", 0x41394450, 1, 13, 0x00, 0),
+        )
+
+    def test_udp_sender_accepts_only_batched_state_commands(self) -> None:
+        sender = keyboard.UdpInputSender("192.168.7.2", 30570, print_only=True)
+        stdout = io.StringIO()
+
+        with contextlib.redirect_stdout(stdout):
+            rc = sender.send(["doompad", "state", "7", "0x11"])
+
+        self.assertEqual(rc, 0)
+        self.assertEqual(sender.sent, [["doompad", "state", "7", "0x11"]])
+        self.assertIn("udp 192.168.7.2:30570 seq=7 mask=0x11 bytes=20", stdout.getvalue())
+        with self.assertRaises(ValueError):
+            sender.send(["doompad", "key", "forward", "1"])
 
     def test_loop_keeper_treats_active_loop_start_busy_as_success(self) -> None:
         class FakeSender:

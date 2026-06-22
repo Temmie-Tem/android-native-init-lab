@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <strings.h>
+#include <netinet/in.h>
 #include <sys/stat.h>
 #include <sys/socket.h>
 #include <sys/un.h>
@@ -56,6 +57,10 @@
 
 #ifndef A90_DOOMGENERIC_BRIDGE_INPUT_SOCKET_PATH
 #define A90_DOOMGENERIC_BRIDGE_INPUT_SOCKET_PATH ""
+#endif
+
+#ifndef A90_DOOMGENERIC_BRIDGE_INPUT_UDP_PORT
+#define A90_DOOMGENERIC_BRIDGE_INPUT_UDP_PORT 0U
 #endif
 
 #ifndef A90_DOOMGENERIC_BRIDGE_MAX_WAD_BYTES
@@ -187,6 +192,7 @@ void a90_doomgeneric_bridge_get_status(struct a90_doomgeneric_bridge_status *sta
     status->frame_stride = A90_DOOMGENERIC_BRIDGE_FRAME_STRIDE;
     status->frame_bytes = A90_DOOMGENERIC_BRIDGE_FRAME_BYTES;
     status->loop_frame_ms = A90_DOOMGENERIC_BRIDGE_LOOP_FRAME_MS;
+    status->input_udp_port = A90_DOOMGENERIC_BRIDGE_INPUT_UDP_PORT;
     status->helper_present = doomgeneric_helper_present(status->helper_path);
     status->helper_executable = doomgeneric_helper_executable(status->helper_path);
     doomgeneric_fill_wad_stat(status);
@@ -644,7 +650,8 @@ int a90_doomgeneric_bridge_start_frame_loop_helper(int frames,
     struct a90_run_config config;
     char frames_arg[16];
     char frame_ms_arg[16];
-    char *argv[14];
+    char udp_port_arg[16];
+    char *argv[18];
     size_t arg_index = 0U;
     int rc;
 
@@ -680,6 +687,11 @@ int a90_doomgeneric_bridge_start_frame_loop_helper(int frames,
     if (status.input_socket_path != NULL && status.input_socket_path[0] != '\0') {
         argv[arg_index++] = (char *)"--input-socket";
         argv[arg_index++] = (char *)status.input_socket_path;
+    }
+    if (status.input_udp_port > 0U && status.input_udp_port <= 65535U) {
+        snprintf(udp_port_arg, sizeof(udp_port_arg), "%u", status.input_udp_port);
+        argv[arg_index++] = (char *)"--input-udp";
+        argv[arg_index++] = udp_port_arg;
     }
     argv[arg_index] = NULL;
 

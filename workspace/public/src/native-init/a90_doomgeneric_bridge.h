@@ -26,6 +26,7 @@ struct a90_doomgeneric_bridge_status {
     uint32_t frame_stride;
     uint32_t frame_bytes;
     uint32_t loop_frame_ms;
+    uint32_t input_udp_port;
     bool helper_present;
     bool helper_executable;
     bool runtime_wad_present;
