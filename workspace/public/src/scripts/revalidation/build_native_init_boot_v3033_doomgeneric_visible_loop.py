@@ -72,6 +72,7 @@ FRAME_BYTES = v3031.FRAME_BYTES
 NATIVE_DASHBOARD = 0
 NATIVE_DASHBOARD_LARGE_FRAME = 0
 REUSE_FRAME_BUFFER = 0
+DASHBOARD_METRICS_INTERVAL_FRAMES = 1
 SOUND_MODE = "disabled-nosound-nomusic"
 AUDIO_CORUN = 0
 AUDIO_CORUN_MODE = "disabled"
@@ -389,6 +390,14 @@ def patch_ramdisk_with_doomgeneric_helper() -> None:
             doomgeneric_flags = (
                 *doomgeneric_flags,
                 numeric_define("VIDEO_DEMO_DOOMGENERIC_REUSE_FRAME_BUFFER", 1),
+            )
+        if DASHBOARD_METRICS_INTERVAL_FRAMES > 1:
+            doomgeneric_flags = (
+                *doomgeneric_flags,
+                numeric_define(
+                    "VIDEO_DEMO_DOOMGENERIC_DASHBOARD_METRICS_INTERVAL_FRAMES",
+                    DASHBOARD_METRICS_INTERVAL_FRAMES,
+                ),
             )
         if NATIVE_DASHBOARD:
             doomgeneric_flags = (

@@ -2542,6 +2542,10 @@ static int cmd_doomplay(char **argv, int argc);
 #define VIDEO_DEMO_DOOMGENERIC_REUSE_FRAME_BUFFER 0
 #endif
 
+#ifndef VIDEO_DEMO_DOOMGENERIC_DASHBOARD_METRICS_INTERVAL_FRAMES
+#define VIDEO_DEMO_DOOMGENERIC_DASHBOARD_METRICS_INTERVAL_FRAMES 1U
+#endif
+
 #ifndef A90_DOOMGENERIC_NATIVE_DASHBOARD
 #define A90_DOOMGENERIC_NATIVE_DASHBOARD 0
 #endif
@@ -2633,6 +2637,13 @@ static void video_demo_doom_bridge_status(void) {
     a90_console_printf("video.demo.doom.dashboard.layout=top-frame-metrics-logs-input\r\n");
     a90_console_printf("video.demo.doom.dashboard.display=demo-visible-native-kms\r\n");
     a90_console_printf("video.demo.doom.dashboard.presenter_log=quiet-per-frame\r\n");
+    a90_console_printf("video.demo.doom.dashboard.metrics_interval_frames=%u\r\n",
+                       (unsigned int)VIDEO_DEMO_DOOMGENERIC_DASHBOARD_METRICS_INTERVAL_FRAMES);
+#if VIDEO_DEMO_DOOMGENERIC_DASHBOARD_METRICS_INTERVAL_FRAMES > 1U
+    a90_console_printf("video.demo.doom.dashboard.metrics_pacing=cached-frame-interval\r\n");
+#else
+    a90_console_printf("video.demo.doom.dashboard.metrics_pacing=per-frame\r\n");
+#endif
 #if A90_DOOMGENERIC_NATIVE_DASHBOARD_LARGE_FRAME
     a90_console_printf("video.demo.doom.dashboard.large_frame=1\r\n");
     a90_console_printf("video.demo.doom.dashboard.frame_mode=large-overlay-title\r\n");
@@ -2976,7 +2987,9 @@ static int video_demo_doom_draw_native_dashboard(
         uint32_t frame_index,
         uint32_t total_frames,
         uint32_t poll_count) {
-    struct a90_metrics_snapshot metrics;
+    static struct a90_metrics_snapshot metrics;
+    static uint32_t metrics_frame = UINT32_MAX;
+    static bool metrics_valid;
     struct a90_doomgeneric_bridge_status status;
     struct a90_doomgeneric_input_state input;
     uint32_t margin = 40U;
@@ -3019,7 +3032,13 @@ static int video_demo_doom_draw_native_dashboard(
         return -EINVAL;
     }
     ++video_demo_doom_dashboard_present_seq;
-    a90_metrics_read_snapshot(&metrics);
+    if (!metrics_valid ||
+        frame_index < metrics_frame ||
+        frame_index - metrics_frame >= VIDEO_DEMO_DOOMGENERIC_DASHBOARD_METRICS_INTERVAL_FRAMES) {
+        a90_metrics_read_snapshot(&metrics);
+        metrics_frame = frame_index;
+        metrics_valid = true;
+    }
     a90_doomgeneric_bridge_get_status(&status);
     memset(&input, 0, sizeof(input));
     input_rc = video_demo_doom_dashboard_read_input_state(status.input_state_path, &input);
@@ -3185,6 +3204,14 @@ static int video_demo_doom_draw_native_dashboard(
         a90_console_printf("video.demo.doom.dashboard.present_seq=%u\r\n",
                            video_demo_doom_dashboard_present_seq);
         a90_console_printf("video.demo.doom.dashboard.input_seq=%u\r\n", input.seq);
+        a90_console_printf("video.demo.doom.dashboard.metrics_interval_frames=%u\r\n",
+                           (unsigned int)VIDEO_DEMO_DOOMGENERIC_DASHBOARD_METRICS_INTERVAL_FRAMES);
+#if VIDEO_DEMO_DOOMGENERIC_DASHBOARD_METRICS_INTERVAL_FRAMES > 1U
+        a90_console_printf("video.demo.doom.dashboard.metrics_pacing=cached-frame-interval\r\n");
+#else
+        a90_console_printf("video.demo.doom.dashboard.metrics_pacing=per-frame\r\n");
+#endif
+        a90_console_printf("video.demo.doom.dashboard.metrics_frame=%u\r\n", metrics_frame);
     }
     return 0;
 }
