@@ -80,6 +80,8 @@ DASHBOARD_METRICS_INTERVAL_FRAMES = 1
 FRAME_TIMING_PROBE = 0
 SEQ_TELEMETRY = 0
 PAGEFLIP_MIN_SUBMIT_INTERVAL_MS = 0
+GAMETIC_PRESENT_ONLY = 0
+TICK_PACE_INTERVAL_US = 0
 SOUND_MODE = "disabled-nosound-nomusic"
 AUDIO_CORUN = 0
 AUDIO_CORUN_MODE = "disabled"
@@ -443,6 +445,16 @@ def patch_ramdisk_with_doomgeneric_helper() -> None:
                     "VIDEO_DEMO_DOOMGENERIC_PAGEFLIP_MIN_SUBMIT_INTERVAL_MS",
                     PAGEFLIP_MIN_SUBMIT_INTERVAL_MS,
                 ),
+            )
+        if GAMETIC_PRESENT_ONLY:
+            doomgeneric_flags = (
+                *doomgeneric_flags,
+                numeric_define("VIDEO_DEMO_DOOMGENERIC_GAMETIC_PRESENT_ONLY", 1),
+            )
+        if TICK_PACE_INTERVAL_US > 0:
+            doomgeneric_flags = (
+                *doomgeneric_flags,
+                numeric_define("VIDEO_DEMO_DOOMGENERIC_TICK_PACE_INTERVAL_US", TICK_PACE_INTERVAL_US),
             )
         if INPUT_SOCKET_PATH:
             doomgeneric_flags = (

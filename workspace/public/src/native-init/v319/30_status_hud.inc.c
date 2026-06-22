@@ -2571,6 +2571,12 @@ static int cmd_doomplay(char **argv, int argc);
 #ifndef VIDEO_DEMO_DOOMGENERIC_PAGEFLIP_MIN_SUBMIT_INTERVAL_MS
 #define VIDEO_DEMO_DOOMGENERIC_PAGEFLIP_MIN_SUBMIT_INTERVAL_MS 0
 #endif
+#ifndef VIDEO_DEMO_DOOMGENERIC_GAMETIC_PRESENT_ONLY
+#define VIDEO_DEMO_DOOMGENERIC_GAMETIC_PRESENT_ONLY 0
+#endif
+#ifndef VIDEO_DEMO_DOOMGENERIC_TICK_PACE_INTERVAL_US
+#define VIDEO_DEMO_DOOMGENERIC_TICK_PACE_INTERVAL_US 16667U
+#endif
 
 #define VIDEO_DEMO_DOOMGENERIC_PACE_PACKET_MAGIC 0x41395043U
 #define VIDEO_DEMO_DOOMGENERIC_PACE_PACKET_VERSION 1U
@@ -2687,6 +2693,10 @@ static void video_demo_doom_bridge_status(void) {
     a90_console_printf("video.demo.doom.presenter.present_mode=setcrtc\r\n");
     a90_console_printf("video.demo.doom.presenter.present_path=kms-dumb-buffer-setcrtc\r\n");
 #endif
+    a90_console_printf("video.demo.doom.presenter.gametic_present_only=%d\r\n",
+                       VIDEO_DEMO_DOOMGENERIC_GAMETIC_PRESENT_ONLY ? 1 : 0);
+    a90_console_printf("video.demo.doom.presenter.tick_pace_interval_us=%u\r\n",
+                       (unsigned int)VIDEO_DEMO_DOOMGENERIC_TICK_PACE_INTERVAL_US);
 #if VIDEO_DEMO_DOOMGENERIC_FRAME_TIMING_PROBE
     a90_console_printf("video.demo.doom.loop.timing_probe=1\r\n");
     a90_console_printf("video.demo.doom.loop.timing=frame-ipc-kms-stage-us\r\n");
@@ -4527,6 +4537,10 @@ static int video_demo_doom_run_visible_loop(uint32_t frames,
     struct video_demo_doom_pace_sender pace_sender;
     uint64_t present_not_before_ns = 0ULL;
     uint32_t pace_wait_timeouts = 0U;
+    uint32_t idle_pace_tokens = 0U;
+    uint64_t next_pace_token_ns = 0ULL;
+    const uint64_t tick_pace_interval_ns =
+        (uint64_t)VIDEO_DEMO_DOOMGENERIC_TICK_PACE_INTERVAL_US * 1000ULL;
 #if VIDEO_DEMO_DOOMGENERIC_FRAME_TIMING_PROBE
     struct video_demo_doom_timing_stats timing_stats;
 #endif
@@ -4566,6 +4580,10 @@ static int video_demo_doom_run_visible_loop(uint32_t frames,
         }
         a90_console_printf("video.demo.doom.loop.presenter.poll_ms=%d\r\n",
                            VIDEO_DEMO_DOOMGENERIC_PRESENTER_POLL_MS);
+        a90_console_printf("video.demo.doom.loop.presenter.gametic_present_only=%d\r\n",
+                           VIDEO_DEMO_DOOMGENERIC_GAMETIC_PRESENT_ONLY ? 1 : 0);
+        a90_console_printf("video.demo.doom.loop.presenter.tick_pace_interval_us=%u\r\n",
+                           (unsigned int)VIDEO_DEMO_DOOMGENERIC_TICK_PACE_INTERVAL_US);
         a90_console_printf("video.demo.doom.loop.present_mode=%s\r\n",
                            video_demo_doom_present_mode_name());
         a90_console_printf("video.demo.doom.loop.present_path=%s\r\n",
@@ -4657,6 +4675,9 @@ static int video_demo_doom_run_visible_loop(uint32_t frames,
             video_demo_doom_frame_reader_cleanup(&frame_reader);
             return present_rc;
         }
+        if (VIDEO_DEMO_DOOMGENERIC_GAMETIC_PRESENT_ONLY && tick_pace_interval_ns > 0ULL) {
+            next_pace_token_ns = video_monotonic_ns() + tick_pace_interval_ns;
+        }
     }
 
     while ((continuous || presented < frames) && (continuous || poll_count < max_polls)) {
@@ -4700,13 +4721,17 @@ static int video_demo_doom_run_visible_loop(uint32_t frames,
                     present_not_before_ns = video_monotonic_ns() +
                         ((uint64_t)VIDEO_DEMO_DOOMGENERIC_PAGEFLIP_MIN_SUBMIT_INTERVAL_MS * 1000000ULL);
                 }
-                if (continuous || presented < frames) {
+                if (!VIDEO_DEMO_DOOMGENERIC_GAMETIC_PRESENT_ONLY &&
+                    (continuous || presented < frames)) {
                     int pace_rc = video_demo_doom_send_pace_token(&pace_sender);
 
                     if (pace_rc < 0) {
                         present_rc = pace_rc;
                         break;
                     }
+                } else if (VIDEO_DEMO_DOOMGENERIC_GAMETIC_PRESENT_ONLY &&
+                           tick_pace_interval_ns > 0ULL) {
+                    next_pace_token_ns = video_monotonic_ns() + tick_pace_interval_ns;
                 }
 #if VIDEO_DEMO_DOOMGENERIC_FRAME_TIMING_PROBE
                 video_demo_doom_timing_stats_add(&timing_stats, &timing);
@@ -4735,6 +4760,29 @@ static int video_demo_doom_run_visible_loop(uint32_t frames,
                 video_demo_doom_pace_sender_cleanup(&pace_sender);
                 video_demo_doom_frame_reader_cleanup(&frame_reader);
                 return a90_console_cancelled("doomgeneric-loop", cancel);
+            }
+        }
+        if (VIDEO_DEMO_DOOMGENERIC_GAMETIC_PRESENT_ONLY &&
+            video_demo_doom_pace_sender_active(&pace_sender) &&
+            tick_pace_interval_ns > 0ULL &&
+            (continuous || helper_done == 0)) {
+            uint64_t now_ns = video_monotonic_ns();
+
+            if (next_pace_token_ns == 0ULL) {
+                next_pace_token_ns = now_ns + tick_pace_interval_ns;
+            }
+            if (now_ns >= next_pace_token_ns) {
+                int pace_rc = video_demo_doom_send_pace_token(&pace_sender);
+
+                if (pace_rc < 0) {
+                    present_rc = pace_rc;
+                    break;
+                }
+                ++idle_pace_tokens;
+                next_pace_token_ns += tick_pace_interval_ns;
+                if (next_pace_token_ns <= now_ns) {
+                    next_pace_token_ns = now_ns + tick_pace_interval_ns;
+                }
             }
         }
         usleep((useconds_t)VIDEO_DEMO_DOOMGENERIC_PRESENTER_POLL_MS * 1000U);
@@ -4768,6 +4816,8 @@ static int video_demo_doom_run_visible_loop(uint32_t frames,
         a90_console_printf("video.demo.doom.loop.flip_telemetry=pageflip-event-delta-us\r\n");
         video_demo_doom_flip_stats_print("video.demo.doom.loop", &flip_stats);
         video_demo_doom_pace_sender_print("video.demo.doom.loop", &pace_sender);
+        a90_console_printf("video.demo.doom.loop.pace_socket.idle_tokens_sent=%u\r\n",
+                           idle_pace_tokens);
         a90_console_printf("video.demo.doom.loop.pace_socket.wait_timeouts=%u\r\n",
                            pace_wait_timeouts);
     }
