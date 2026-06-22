@@ -7,6 +7,25 @@
 
 struct a90_run_result;
 
+#define A90_DOOMGENERIC_SHARED_FRAME_MAGIC 0x41394652U
+#define A90_DOOMGENERIC_SHARED_FRAME_VERSION 1U
+#define A90_DOOMGENERIC_SHARED_FRAME_HEADER_BYTES 64U
+
+struct a90_doomgeneric_shared_frame_header {
+    uint32_t magic;
+    uint32_t version;
+    uint32_t header_bytes;
+    uint32_t width;
+    uint32_t height;
+    uint32_t stride;
+    uint32_t frame_bytes;
+    uint32_t sequence;
+    uint32_t flags;
+    uint32_t reserved0;
+    uint64_t frame_id;
+    uint8_t reserved[16];
+};
+
 struct a90_doomgeneric_bridge_status {
     const char *candidate;
     const char *engine;
@@ -15,6 +34,7 @@ struct a90_doomgeneric_bridge_status {
     const char *runtime_wad_path;
     const char *expected_wad_sha256;
     const char *frame_path;
+    const char *shared_frame_path;
     const char *input_state_path;
     const char *input_socket_path;
     const char *pace_socket_path;
@@ -81,6 +101,7 @@ struct a90_doomgeneric_frame_render {
     bool regular;
     bool size_ok;
     bool geometry_ok;
+    bool shared_frame;
     bool ok;
 };
 

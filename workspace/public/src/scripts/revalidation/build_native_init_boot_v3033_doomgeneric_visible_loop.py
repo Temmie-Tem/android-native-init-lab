@@ -61,6 +61,7 @@ MAX_LOOP_FRAMES = v3029.MAX_SMOKE_FRAMES
 LOOP_FRAME_MS = 50
 PRESENTER_POLL_MS = 4
 FRAME_PATH = "/tmp/a90-doomgeneric-v3033-loop-frame.xbgr8888"
+SHARED_FRAME_PATH = ""
 INPUT_STATE_PATH = "/tmp/a90-doomgeneric-v3033-input.state"
 INPUT_SOCKET_PATH = ""
 INPUT_PATH = "serial-doompad-to-DG_GetKey"
@@ -441,6 +442,11 @@ def patch_ramdisk_with_doomgeneric_helper() -> None:
             doomgeneric_flags = (
                 *doomgeneric_flags,
                 shell_define("A90_DOOMGENERIC_BRIDGE_INPUT_SOCKET_PATH", INPUT_SOCKET_PATH),
+            )
+        if SHARED_FRAME_PATH:
+            doomgeneric_flags = (
+                *doomgeneric_flags,
+                shell_define("A90_DOOMGENERIC_BRIDGE_SHARED_FRAME_PATH", SHARED_FRAME_PATH),
             )
         if PACE_SOCKET_PATH:
             doomgeneric_flags = (

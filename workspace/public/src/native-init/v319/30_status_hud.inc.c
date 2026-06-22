@@ -2,6 +2,7 @@
 
 #include "a90_badapple_beat_table.h"
 
+#include <sys/mman.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 
@@ -114,6 +115,12 @@ static int cmd_video_status(void) {
                        doomgeneric.wad_embedded_in_boot ? 1 : 0);
     a90_console_printf("video.status.doomgeneric.visible_frame=1\r\n");
     a90_console_printf("video.status.doomgeneric.frame_path=%s\r\n", doomgeneric.frame_path);
+    a90_console_printf("video.status.doomgeneric.shared_frame_path=%s\r\n",
+                       doomgeneric.shared_frame_path != NULL ? doomgeneric.shared_frame_path : "");
+    a90_console_printf("video.status.doomgeneric.frame_ipc=%s\r\n",
+                       doomgeneric.shared_frame_path != NULL &&
+                       doomgeneric.shared_frame_path[0] != '\0' ?
+                       "shared-mmap-seq" : "raw-file");
     a90_console_printf("video.status.doomgeneric.frame_format=xbgr8888-raw\r\n");
     a90_console_printf("video.status.doomgeneric.frame_size=%ux%u\r\n",
                        doomgeneric.frame_width,
@@ -2628,6 +2635,12 @@ static void video_demo_doom_bridge_status(void) {
     a90_console_printf("video.demo.asset.wad.embedded_in_boot=%d\r\n",
                        status.wad_embedded_in_boot ? 1 : 0);
     a90_console_printf("video.demo.doom.frame.path=%s\r\n", status.frame_path);
+    a90_console_printf("video.demo.doom.frame.shared_path=%s\r\n",
+                       status.shared_frame_path != NULL ? status.shared_frame_path : "");
+    a90_console_printf("video.demo.doom.frame.ipc=%s\r\n",
+                       status.shared_frame_path != NULL &&
+                       status.shared_frame_path[0] != '\0' ?
+                       "shared-mmap-seq" : "raw-file");
     a90_console_printf("video.demo.doom.frame.width=%u\r\n", status.frame_width);
     a90_console_printf("video.demo.doom.frame.height=%u\r\n", status.frame_height);
     a90_console_printf("video.demo.doom.frame.stride=%u\r\n", status.frame_stride);
@@ -2678,7 +2691,11 @@ static void video_demo_doom_bridge_status(void) {
     a90_console_printf("video.demo.doom.loop.timing_probe=0\r\n");
 #endif
 #if VIDEO_DEMO_DOOMGENERIC_REUSE_FRAME_BUFFER
-    a90_console_printf("video.demo.doom.presenter.reader=reused-loop-buffer\r\n");
+    if (status.shared_frame_path != NULL && status.shared_frame_path[0] != '\0') {
+        a90_console_printf("video.demo.doom.presenter.reader=shared-mmap-copy\r\n");
+    } else {
+        a90_console_printf("video.demo.doom.presenter.reader=reused-loop-buffer\r\n");
+    }
     a90_console_printf("video.demo.doom.presenter.buffer_reuse=1\r\n");
 #else
     a90_console_printf("video.demo.doom.presenter.reader=per-frame-alloc\r\n");
@@ -2811,6 +2828,7 @@ static void video_demo_doom_print_frame_render(
     a90_console_printf("%s.regular=%d\r\n", prefix, render->regular ? 1 : 0);
     a90_console_printf("%s.size_ok=%d\r\n", prefix, render->size_ok ? 1 : 0);
     a90_console_printf("%s.geometry_ok=%d\r\n", prefix, render->geometry_ok ? 1 : 0);
+    a90_console_printf("%s.shared_frame=%d\r\n", prefix, render->shared_frame ? 1 : 0);
     a90_console_printf("%s.ok=%d\r\n", prefix, render->ok ? 1 : 0);
 }
 
@@ -2839,6 +2857,71 @@ static int video_demo_doom_blit_raw_frame(struct a90_fb *fb,
 #endif
 
 #if A90_DOOMGENERIC_NATIVE_DASHBOARD && A90_DOOMGENERIC_NATIVE_DASHBOARD_LARGE_FRAME
+static void video_demo_doom_scale_row_3_to_2(uint32_t *dst,
+                                             const uint32_t *src,
+                                             uint32_t src_width) {
+    uint32_t src_col;
+    uint32_t dst_col = 0U;
+
+    for (src_col = 0U; src_col + 1U < src_width; src_col += 2U) {
+        uint32_t first = src[src_col];
+        uint32_t second = src[src_col + 1U];
+
+        dst[dst_col++] = first;
+        dst[dst_col++] = first;
+        dst[dst_col++] = second;
+    }
+}
+
+static int video_demo_doom_blit_raw_frame_scaled_3_to_2(
+        struct a90_fb *fb,
+        const uint32_t *source,
+        const struct a90_doomgeneric_frame_render *render,
+        uint32_t dst_x,
+        uint32_t dst_y,
+        uint32_t dst_width,
+        uint32_t dst_height) {
+    uint32_t src_row;
+    uint32_t dst_row = 0U;
+    size_t scaled_row_bytes;
+
+    if (fb == NULL || fb->pixels == NULL || source == NULL || render == NULL ||
+        render->width == 0U || render->height == 0U ||
+        (render->width & 1U) != 0U || (render->height & 1U) != 0U ||
+        render->stride < (uint64_t)render->width * sizeof(uint32_t) ||
+        render->width > UINT32_MAX / 3U || render->height > UINT32_MAX / 3U ||
+        dst_width != (render->width * 3U) / 2U ||
+        dst_height != (render->height * 3U) / 2U ||
+        dst_x > fb->width || dst_y > fb->height ||
+        dst_width > fb->width - dst_x ||
+        dst_height > fb->height - dst_y) {
+        return -EINVAL;
+    }
+
+    scaled_row_bytes = (size_t)dst_width * sizeof(uint32_t);
+    for (src_row = 0U; src_row + 1U < render->height; src_row += 2U) {
+        const uint32_t *src0 = (const uint32_t *)((const char *)source +
+            ((uint64_t)src_row * render->stride));
+        const uint32_t *src1 = (const uint32_t *)((const char *)source +
+            ((uint64_t)(src_row + 1U) * render->stride));
+        uint32_t *dst0 = (uint32_t *)((char *)fb->pixels +
+            ((uint64_t)(dst_y + dst_row) * fb->stride) +
+            ((uint64_t)dst_x * sizeof(uint32_t)));
+        uint32_t *dst1 = (uint32_t *)((char *)fb->pixels +
+            ((uint64_t)(dst_y + dst_row + 1U) * fb->stride) +
+            ((uint64_t)dst_x * sizeof(uint32_t)));
+        uint32_t *dst2 = (uint32_t *)((char *)fb->pixels +
+            ((uint64_t)(dst_y + dst_row + 2U) * fb->stride) +
+            ((uint64_t)dst_x * sizeof(uint32_t)));
+
+        video_demo_doom_scale_row_3_to_2(dst0, src0, render->width);
+        memcpy(dst1, dst0, scaled_row_bytes);
+        video_demo_doom_scale_row_3_to_2(dst2, src1, render->width);
+        dst_row += 3U;
+    }
+    return 0;
+}
+
 static int video_demo_doom_blit_raw_frame_scaled(struct a90_fb *fb,
                                                  const uint32_t *source,
                                                  const struct a90_doomgeneric_frame_render *render,
@@ -2856,6 +2939,11 @@ static int video_demo_doom_blit_raw_frame_scaled(struct a90_fb *fb,
         render->width == 0U || render->height == 0U ||
         render->stride < (uint64_t)render->width * sizeof(uint32_t)) {
         return -EINVAL;
+    }
+    if (video_demo_doom_blit_raw_frame_scaled_3_to_2(fb, source, render,
+                                                     dst_x, dst_y,
+                                                     dst_width, dst_height) == 0) {
+        return 0;
     }
     for (dst_row = 0; dst_row < dst_height; ++dst_row) {
         uint32_t src_y = (uint32_t)(((uint64_t)dst_row * render->height) / dst_height);
@@ -3060,6 +3148,8 @@ static int video_demo_doom_draw_minimal_dashboard(
     uint32_t margin = 40U;
     uint32_t frame_x;
     uint32_t frame_y = 64U;
+    uint32_t frame_w;
+    uint32_t frame_h;
     uint32_t row_y;
     uint32_t panel_w;
     uint32_t scale = 3U;
@@ -3070,9 +3160,17 @@ static int video_demo_doom_draw_minimal_dashboard(
     char line[192];
 
     if (fb == NULL || fb->pixels == NULL || source == NULL || render == NULL ||
-        fb->stride < (uint64_t)fb->width * 4ULL ||
-        fb->width < render->width ||
-        fb->height < render->height + 210U) {
+        fb->stride < (uint64_t)fb->width * 4ULL) {
+        return -EINVAL;
+    }
+    frame_w = render->width;
+    frame_h = render->height;
+#if A90_DOOMGENERIC_NATIVE_DASHBOARD_LARGE_FRAME
+    frame_w = (render->width * 3U) / 2U;
+    frame_h = (render->height * 3U) / 2U;
+    frame_y = 48U;
+#endif
+    if (fb->width < frame_w || fb->height < frame_h + 210U) {
         return -EINVAL;
     }
 
@@ -3084,7 +3182,7 @@ static int video_demo_doom_draw_minimal_dashboard(
     video_demo_doom_dashboard_roles(&input, roles, sizeof(roles));
 
     panel_w = fb->width > margin * 2U ? fb->width - margin * 2U : fb->width;
-    frame_x = (fb->width - render->width) / 2U;
+    frame_x = (fb->width - frame_w) / 2U;
 
     a90_draw_text_fit(fb, margin, 18U,
                       "DOOM LIVE", 0xffcc66, title_scale, panel_w);
@@ -3097,18 +3195,24 @@ static int video_demo_doom_draw_minimal_dashboard(
     a90_draw_text_fit(fb, margin, 18U + title_scale * 10U,
                       line, 0xbbbbbb, scale, panel_w);
 
+#if A90_DOOMGENERIC_NATIVE_DASHBOARD_LARGE_FRAME
+    blit_rc = video_demo_doom_blit_raw_frame_scaled(fb, source, render,
+                                                    frame_x, frame_y,
+                                                    frame_w, frame_h);
+#else
     blit_rc = video_demo_doom_blit_raw_frame(fb, source, render, frame_x, frame_y);
+#endif
     if (blit_rc < 0) {
         return -EINVAL;
     }
     a90_draw_rect_outline(fb, frame_x > 4U ? frame_x - 4U : frame_x,
                           frame_y > 4U ? frame_y - 4U : frame_y,
-                          render->width + 8U,
-                          render->height + 8U,
+                          frame_w + 8U,
+                          frame_h + 8U,
                           2U,
                           0xd0a060);
 
-    row_y = frame_y + render->height + 22U;
+    row_y = frame_y + frame_h + 22U;
     snprintf(line, sizeof(line),
              "INPUT seq=%u active=%d roles=%s rc=%d",
              input.seq,
@@ -3131,9 +3235,17 @@ static int video_demo_doom_draw_minimal_dashboard(
         a90_console_printf("video.demo.doom.dashboard.layout=top-frame-minimal-input\r\n");
         a90_console_printf("video.demo.doom.dashboard.redraw=doom-frame-plus-compact-status\r\n");
         a90_console_printf("video.demo.doom.dashboard.presenter_log=quiet-per-frame\r\n");
+#if A90_DOOMGENERIC_NATIVE_DASHBOARD_LARGE_FRAME
+        a90_console_printf("video.demo.doom.dashboard.large_frame=1\r\n");
+        a90_console_printf("video.demo.doom.dashboard.frame_mode=minimal-large-fastscale\r\n");
+        a90_console_printf("video.demo.doom.dashboard.frame_scale=3:2\r\n");
+        a90_console_printf("video.demo.doom.dashboard.scale_path=fast-3to2-rowcopy\r\n");
+#else
         a90_console_printf("video.demo.doom.dashboard.large_frame=0\r\n");
         a90_console_printf("video.demo.doom.dashboard.frame_mode=minimal-dashboard\r\n");
         a90_console_printf("video.demo.doom.dashboard.frame_scale=1:1\r\n");
+        a90_console_printf("video.demo.doom.dashboard.scale_path=raw-rowcopy\r\n");
+#endif
         a90_console_printf("video.demo.doom.dashboard.metrics_interval_frames=0\r\n");
         a90_console_printf("video.demo.doom.dashboard.metrics_pacing=disabled-minimal\r\n");
         a90_console_printf("video.demo.doom.dashboard.present_seq=%u\r\n",
@@ -3309,7 +3421,11 @@ static int video_demo_doom_draw_native_dashboard(
              frame_h);
     video_demo_doom_dashboard_draw_line(fb, right_x, &row_y, col_w - 24U,
                                         line, 0xffffff, dashboard_scale);
-    snprintf(line, sizeof(line), "FRAME file %s", status.frame_path);
+    snprintf(line, sizeof(line), "%s %s",
+             status.shared_frame_path != NULL && status.shared_frame_path[0] != '\0' ?
+             "FRAME shared" : "FRAME file",
+             status.shared_frame_path != NULL && status.shared_frame_path[0] != '\0' ?
+             status.shared_frame_path : status.frame_path);
     video_demo_doom_dashboard_draw_line(fb, right_x, &row_y, col_w - 24U,
                                         line, 0xbbbbbb, dashboard_scale);
     video_demo_doom_dashboard_draw_line(fb, right_x, &row_y, col_w - 24U,
@@ -3370,10 +3486,12 @@ static int video_demo_doom_draw_native_dashboard(
         a90_console_printf("video.demo.doom.dashboard.large_frame=1\r\n");
         a90_console_printf("video.demo.doom.dashboard.frame_mode=large-overlay-title\r\n");
         a90_console_printf("video.demo.doom.dashboard.frame_scale=3:2\r\n");
+        a90_console_printf("video.demo.doom.dashboard.scale_path=fast-3to2-rowcopy\r\n");
 #else
         a90_console_printf("video.demo.doom.dashboard.large_frame=0\r\n");
         a90_console_printf("video.demo.doom.dashboard.frame_mode=standard-dashboard\r\n");
         a90_console_printf("video.demo.doom.dashboard.frame_scale=1:1\r\n");
+        a90_console_printf("video.demo.doom.dashboard.scale_path=raw-rowcopy\r\n");
 #endif
         a90_console_printf("video.demo.doom.dashboard.present_seq=%u\r\n",
                            video_demo_doom_dashboard_present_seq);
@@ -3396,6 +3514,10 @@ struct video_demo_doom_frame_reader {
     uint32_t *pixels;
     uint32_t capacity_bytes;
     uint32_t allocations;
+    int shared_fd;
+    void *shared_map;
+    size_t shared_map_size;
+    char shared_path[PATH_MAX];
 };
 
 struct video_demo_doom_present_timing {
@@ -3736,12 +3858,31 @@ static void video_demo_doom_frame_reader_init(struct video_demo_doom_frame_reade
         return;
     }
     memset(reader, 0, sizeof(*reader));
+    reader->shared_fd = -1;
+}
+
+static void video_demo_doom_frame_reader_close_shared(
+        struct video_demo_doom_frame_reader *reader) {
+    if (reader == NULL) {
+        return;
+    }
+    if (reader->shared_map != NULL && reader->shared_map != MAP_FAILED) {
+        munmap(reader->shared_map, reader->shared_map_size);
+    }
+    if (reader->shared_fd >= 0) {
+        close(reader->shared_fd);
+    }
+    reader->shared_fd = -1;
+    reader->shared_map = NULL;
+    reader->shared_map_size = 0U;
+    reader->shared_path[0] = '\0';
 }
 
 static void video_demo_doom_frame_reader_cleanup(struct video_demo_doom_frame_reader *reader) {
     if (reader == NULL) {
         return;
     }
+    video_demo_doom_frame_reader_close_shared(reader);
     free(reader->pixels);
     reader->pixels = NULL;
     reader->capacity_bytes = 0U;
@@ -3751,7 +3892,7 @@ static int video_demo_doom_frame_reader_source(
         struct video_demo_doom_frame_reader *reader,
         const struct a90_doomgeneric_frame_render *render,
         uint32_t **source_out) {
-    uint32_t *source;
+    uint32_t *source = NULL;
 
     if (render == NULL || source_out == NULL || render->expected_bytes == 0U) {
         return -EINVAL;
@@ -3801,6 +3942,111 @@ static void video_demo_doom_frame_reader_release(
     free(source);
 }
 
+static bool video_demo_doom_shared_header_valid(
+        const struct a90_doomgeneric_shared_frame_header *header,
+        const struct a90_doomgeneric_frame_render *render) {
+    return header != NULL &&
+        render != NULL &&
+        header->magic == A90_DOOMGENERIC_SHARED_FRAME_MAGIC &&
+        header->version == A90_DOOMGENERIC_SHARED_FRAME_VERSION &&
+        header->header_bytes == A90_DOOMGENERIC_SHARED_FRAME_HEADER_BYTES &&
+        header->width == render->width &&
+        header->height == render->height &&
+        header->stride == render->stride &&
+        header->frame_bytes == render->expected_bytes &&
+        header->sequence != 0U &&
+        (header->sequence & 1U) == 0U;
+}
+
+static int video_demo_doom_frame_reader_map_shared(
+        struct video_demo_doom_frame_reader *reader,
+        const struct a90_doomgeneric_frame_render *render) {
+    struct stat st;
+    size_t required_size;
+    void *map;
+    int fd;
+
+    if (reader == NULL || render == NULL || render->path == NULL) {
+        return -EINVAL;
+    }
+    required_size = (size_t)A90_DOOMGENERIC_SHARED_FRAME_HEADER_BYTES +
+        (size_t)render->expected_bytes;
+    if (reader->shared_map != NULL &&
+        reader->shared_map != MAP_FAILED &&
+        reader->shared_map_size >= required_size &&
+        strcmp(reader->shared_path, render->path) == 0) {
+        return 0;
+    }
+
+    video_demo_doom_frame_reader_close_shared(reader);
+    fd = open(render->path, O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
+    if (fd < 0) {
+        return negative_errno_or(EIO);
+    }
+    if (fstat(fd, &st) < 0 || !S_ISREG(st.st_mode) || st.st_size < (off_t)required_size) {
+        close(fd);
+        return -EINVAL;
+    }
+    map = mmap(NULL, required_size, PROT_READ, MAP_SHARED, fd, 0);
+    if (map == MAP_FAILED) {
+        int saved_errno = errno;
+
+        close(fd);
+        return -saved_errno;
+    }
+    reader->shared_fd = fd;
+    reader->shared_map = map;
+    reader->shared_map_size = required_size;
+    snprintf(reader->shared_path, sizeof(reader->shared_path), "%s", render->path);
+    reader->shared_path[sizeof(reader->shared_path) - 1U] = '\0';
+    return 0;
+}
+
+static int video_demo_doom_frame_reader_copy_shared(
+        struct video_demo_doom_frame_reader *reader,
+        const struct a90_doomgeneric_frame_render *render,
+        uint32_t *source) {
+    volatile const struct a90_doomgeneric_shared_frame_header *header;
+    const uint8_t *pixels;
+    uint32_t attempt;
+    int rc;
+
+    if (reader == NULL || render == NULL || source == NULL || !render->shared_frame) {
+        return -EINVAL;
+    }
+    rc = video_demo_doom_frame_reader_map_shared(reader, render);
+    if (rc < 0) {
+        return rc;
+    }
+    header = (volatile const struct a90_doomgeneric_shared_frame_header *)reader->shared_map;
+    pixels = (const uint8_t *)reader->shared_map + A90_DOOMGENERIC_SHARED_FRAME_HEADER_BYTES;
+
+    for (attempt = 0U; attempt < 4U; ++attempt) {
+        struct a90_doomgeneric_shared_frame_header snapshot;
+        uint32_t sequence_before;
+        uint32_t sequence_after;
+
+        sequence_before = header->sequence;
+        __sync_synchronize();
+        if (sequence_before == 0U || (sequence_before & 1U) != 0U) {
+            usleep(1000);
+            continue;
+        }
+        memcpy(&snapshot, (const void *)header, sizeof(snapshot));
+        if (!video_demo_doom_shared_header_valid(&snapshot, render)) {
+            return -EINVAL;
+        }
+        memcpy(source, pixels, render->expected_bytes);
+        __sync_synchronize();
+        sequence_after = header->sequence;
+        if (sequence_before == sequence_after && (sequence_after & 1U) == 0U) {
+            return 0;
+        }
+        usleep(1000);
+    }
+    return -EAGAIN;
+}
+
 static int video_demo_doom_present_frame_file_ex(
         const struct a90_doomgeneric_frame_render *render,
         bool verbose,
@@ -3811,9 +4057,9 @@ static int video_demo_doom_present_frame_file_ex(
         struct video_demo_doom_present_timing *timing,
         uint64_t present_not_before_ns,
         struct a90_kms_flip_result *flip) {
-    uint32_t *source;
+    uint32_t *source = NULL;
     struct a90_fb *fb;
-    int fd;
+    int fd = -1;
     int rc;
 #if VIDEO_DEMO_DOOMGENERIC_FRAME_TIMING_PROBE
     uint64_t t_start;
@@ -3855,17 +4101,28 @@ static int video_demo_doom_present_frame_file_ex(
         }
         return rc < 0 ? rc : -ENOMEM;
     }
-    fd = open(render->path, O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
-    if (fd < 0) {
-        rc = negative_errno_or(EIO);
-        video_demo_doom_frame_reader_release(reader, source);
-        if (verbose) {
-            a90_console_printf("video.demo.doom.frame.display.error=open-failed\r\n");
+    if (render->shared_frame) {
+        rc = video_demo_doom_frame_reader_copy_shared(reader, render, source);
+        if (rc < 0) {
+            video_demo_doom_frame_reader_release(reader, source);
+            if (verbose) {
+                a90_console_printf("video.demo.doom.frame.display.error=shared-copy-failed\r\n");
+            }
+            return rc;
         }
-        return rc;
+    } else {
+        fd = open(render->path, O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
+        if (fd < 0) {
+            rc = negative_errno_or(EIO);
+            video_demo_doom_frame_reader_release(reader, source);
+            if (verbose) {
+                a90_console_printf("video.demo.doom.frame.display.error=open-failed\r\n");
+            }
+            return rc;
+        }
+        rc = video_read_exact_fd(fd, source, render->expected_bytes);
+        close(fd);
     }
-    rc = video_read_exact_fd(fd, source, render->expected_bytes);
-    close(fd);
 #if VIDEO_DEMO_DOOMGENERIC_FRAME_TIMING_PROBE
     t_after_read = video_monotonic_ns();
 #endif
@@ -4183,13 +4440,21 @@ static int video_demo_doom_run_visible_loop(uint32_t frames,
         a90_console_printf("video.demo.doom.loop.timing_probe=0\r\n");
 #endif
 #if VIDEO_DEMO_DOOMGENERIC_REUSE_FRAME_BUFFER
-        a90_console_printf("video.demo.doom.loop.presenter.reader=reused-loop-buffer\r\n");
+        if (bridge_status.shared_frame_path != NULL && bridge_status.shared_frame_path[0] != '\0') {
+            a90_console_printf("video.demo.doom.loop.presenter.reader=shared-mmap-copy\r\n");
+        } else {
+            a90_console_printf("video.demo.doom.loop.presenter.reader=reused-loop-buffer\r\n");
+        }
         a90_console_printf("video.demo.doom.loop.presenter.buffer_reuse=1\r\n");
 #else
         a90_console_printf("video.demo.doom.loop.presenter.reader=per-frame-alloc\r\n");
         a90_console_printf("video.demo.doom.loop.presenter.buffer_reuse=0\r\n");
 #endif
         a90_console_printf("video.demo.doom.loop.input=serial-doompad-unix-dgram-with-state-file-fallback\r\n");
+        a90_console_printf("video.demo.doom.loop.frame_ipc=%s\r\n",
+                           bridge_status.shared_frame_path != NULL &&
+                           bridge_status.shared_frame_path[0] != '\0' ?
+                           "shared-mmap-seq" : "raw-file");
         a90_console_printf("video.demo.doom.loop.host_keyboard_bridge=host_doompad_keyboard_v3033.py\r\n");
         video_demo_doom_print_wad_check("video.demo.doom.loop.verify", &check);
         a90_console_printf("video.demo.doom.loop.verify.sha256_match=%d\r\n",
@@ -4252,7 +4517,6 @@ static int video_demo_doom_run_visible_loop(uint32_t frames,
     }
 
     while ((continuous || presented < frames) && (continuous || poll_count < max_polls)) {
-        enum a90_cancel_kind cancel;
         int read_rc;
         struct a90_kms_flip_result flip;
 #if VIDEO_DEMO_DOOMGENERIC_FRAME_TIMING_PROBE
@@ -4307,16 +4571,19 @@ static int video_demo_doom_run_visible_loop(uint32_t frames,
             present_rc = helper_done;
             break;
         }
-        cancel = a90_console_poll_cancel(1);
-        if (cancel != CANCEL_NONE) {
-            (void)a90_run_stop_pid_ex(helper_pid,
-                                      "doomgeneric-loop-helper",
-                                      1000,
-                                      false,
-                                      NULL);
-            video_demo_doom_pace_sender_cleanup(&pace_sender);
-            video_demo_doom_frame_reader_cleanup(&frame_reader);
-            return a90_console_cancelled("doomgeneric-loop", cancel);
+        if (!background_child) {
+            enum a90_cancel_kind cancel = a90_console_poll_cancel(1);
+
+            if (cancel != CANCEL_NONE) {
+                (void)a90_run_stop_pid_ex(helper_pid,
+                                          "doomgeneric-loop-helper",
+                                          1000,
+                                          false,
+                                          NULL);
+                video_demo_doom_pace_sender_cleanup(&pace_sender);
+                video_demo_doom_frame_reader_cleanup(&frame_reader);
+                return a90_console_cancelled("doomgeneric-loop", cancel);
+            }
         }
         usleep((useconds_t)VIDEO_DEMO_DOOMGENERIC_PRESENTER_POLL_MS * 1000U);
         ++poll_count;
@@ -4386,6 +4653,7 @@ static int video_demo_doom_loop_start(uint32_t frames, const char *expected_sha2
     a90_console_printf("video.demo.doom.loop_start.continuous=%d\r\n",
                        frames == 0U ? 1 : 0);
     a90_console_printf("video.demo.doom.loop_start.input=serial-doompad-unix-dgram-with-state-file-fallback\r\n");
+    a90_console_printf("video.demo.doom.loop_start.background_cancel=disabled-serial-preserve\r\n");
     a90_console_printf("video.demo.doom.loop_start.host_keyboard_bridge=host_doompad_keyboard_v3033.py\r\n");
     audio_rc = video_demo_doom_audio_corun_start();
     a90_console_printf("video.demo.doom.loop_start.audio_rc=%d\r\n", audio_rc);

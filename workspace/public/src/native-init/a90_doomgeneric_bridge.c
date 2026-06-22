@@ -51,6 +51,10 @@
 #define A90_DOOMGENERIC_BRIDGE_FRAME_PATH "/tmp/a90-doomgeneric-frame.xbgr8888"
 #endif
 
+#ifndef A90_DOOMGENERIC_BRIDGE_SHARED_FRAME_PATH
+#define A90_DOOMGENERIC_BRIDGE_SHARED_FRAME_PATH ""
+#endif
+
 #ifndef A90_DOOMGENERIC_BRIDGE_INPUT_STATE_PATH
 #define A90_DOOMGENERIC_BRIDGE_INPUT_STATE_PATH "/tmp/a90-doomgeneric-input.state"
 #endif
@@ -186,6 +190,7 @@ void a90_doomgeneric_bridge_get_status(struct a90_doomgeneric_bridge_status *sta
     status->runtime_wad_path = A90_DOOMGENERIC_BRIDGE_RUNTIME_WAD_PATH;
     status->expected_wad_sha256 = A90_DOOMGENERIC_BRIDGE_EXPECTED_WAD_SHA256;
     status->frame_path = A90_DOOMGENERIC_BRIDGE_FRAME_PATH;
+    status->shared_frame_path = A90_DOOMGENERIC_BRIDGE_SHARED_FRAME_PATH;
     status->input_state_path = A90_DOOMGENERIC_BRIDGE_INPUT_STATE_PATH;
     status->input_socket_path = A90_DOOMGENERIC_BRIDGE_INPUT_SOCKET_PATH;
     status->pace_socket_path = A90_DOOMGENERIC_BRIDGE_PACE_SOCKET_PATH;
@@ -373,6 +378,85 @@ static void doomgeneric_fill_frame_render(struct a90_doomgeneric_frame_render *r
     render->ok = render->geometry_ok && render->size_ok;
 }
 
+static bool doomgeneric_shared_frame_path_active(const struct a90_doomgeneric_bridge_status *status) {
+    return status != NULL &&
+        status->shared_frame_path != NULL &&
+        status->shared_frame_path[0] != '\0';
+}
+
+static bool doomgeneric_shared_frame_header_ok(
+        const struct a90_doomgeneric_shared_frame_header *header,
+        const struct a90_doomgeneric_bridge_status *status) {
+    return header != NULL &&
+        status != NULL &&
+        header->magic == A90_DOOMGENERIC_SHARED_FRAME_MAGIC &&
+        header->version == A90_DOOMGENERIC_SHARED_FRAME_VERSION &&
+        header->header_bytes == A90_DOOMGENERIC_SHARED_FRAME_HEADER_BYTES &&
+        header->width == status->frame_width &&
+        header->height == status->frame_height &&
+        header->stride == status->frame_stride &&
+        header->frame_bytes == status->frame_bytes &&
+        header->sequence != 0U &&
+        (header->sequence & 1U) == 0U;
+}
+
+static void doomgeneric_fill_shared_frame_render(struct a90_doomgeneric_frame_render *render,
+                                                 const struct a90_doomgeneric_bridge_status *status) {
+    struct a90_doomgeneric_shared_frame_header header;
+    struct stat st;
+    ssize_t rd;
+    int fd;
+
+    if (render == NULL || status == NULL) {
+        return;
+    }
+    memset(render, 0, sizeof(*render));
+    render->path = status->shared_frame_path;
+    render->width = status->frame_width;
+    render->height = status->frame_height;
+    render->stride = status->frame_stride;
+    render->expected_bytes = status->frame_bytes;
+    render->bytes = -1;
+    render->shared_frame = true;
+    render->geometry_ok = (
+        render->width == 640U &&
+        render->height == 400U &&
+        render->stride == render->width * 4U &&
+        render->expected_bytes == render->stride * render->height
+    );
+    if (lstat(status->shared_frame_path, &st) < 0) {
+        render->stat_errno = errno;
+        return;
+    }
+    render->present = true;
+    render->regular = S_ISREG(st.st_mode);
+    render->mtime_ns = ((uint64_t)st.st_mtim.tv_sec * 1000000000ULL) +
+        (uint64_t)st.st_mtim.tv_nsec;
+    if (!render->regular ||
+        st.st_size < (off_t)(A90_DOOMGENERIC_SHARED_FRAME_HEADER_BYTES + status->frame_bytes)) {
+        render->bytes = (long long)st.st_size;
+        return;
+    }
+
+    fd = open(status->shared_frame_path, O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
+    if (fd < 0) {
+        render->stat_errno = errno;
+        return;
+    }
+    memset(&header, 0, sizeof(header));
+    rd = read(fd, &header, sizeof(header));
+    close(fd);
+    if (rd != (ssize_t)sizeof(header)) {
+        render->stat_errno = EIO;
+        return;
+    }
+
+    render->bytes = (long long)status->frame_bytes;
+    render->frame_id = header.frame_id != 0ULL ? header.frame_id : (uint64_t)header.sequence;
+    render->size_ok = doomgeneric_shared_frame_header_ok(&header, status);
+    render->ok = render->geometry_ok && render->size_ok;
+}
+
 int a90_doomgeneric_bridge_read_frame_render(struct a90_doomgeneric_frame_render *render) {
     struct a90_doomgeneric_bridge_status status;
 
@@ -380,7 +464,11 @@ int a90_doomgeneric_bridge_read_frame_render(struct a90_doomgeneric_frame_render
         return -EINVAL;
     }
     a90_doomgeneric_bridge_get_status(&status);
-    doomgeneric_fill_frame_render(render, &status);
+    if (doomgeneric_shared_frame_path_active(&status)) {
+        doomgeneric_fill_shared_frame_render(render, &status);
+    } else {
+        doomgeneric_fill_frame_render(render, &status);
+    }
     return render->ok ? 0 : -EIO;
 }
 
@@ -682,6 +770,9 @@ int a90_doomgeneric_bridge_start_frame_loop_helper(int frames,
     snprintf(frames_arg, sizeof(frames_arg), "%d", frames);
     snprintf(frame_ms_arg, sizeof(frame_ms_arg), "%d", frame_ms);
     (void)unlink(status.frame_path);
+    if (doomgeneric_shared_frame_path_active(&status)) {
+        (void)unlink(status.shared_frame_path);
+    }
 
     argv[arg_index++] = (char *)status.helper_path;
     argv[arg_index++] = (char *)"--wad-frame-loop";
@@ -702,6 +793,10 @@ int a90_doomgeneric_bridge_start_frame_loop_helper(int frames,
         (void)unlink(status.pace_socket_path);
         argv[arg_index++] = (char *)"--pace-socket";
         argv[arg_index++] = (char *)status.pace_socket_path;
+    }
+    if (doomgeneric_shared_frame_path_active(&status)) {
+        argv[arg_index++] = (char *)"--shared-frame";
+        argv[arg_index++] = (char *)status.shared_frame_path;
     }
     if (status.input_udp_port > 0U && status.input_udp_port <= 65535U) {
         snprintf(udp_port_arg, sizeof(udp_port_arg), "%u", status.input_udp_port);
