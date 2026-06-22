@@ -2546,6 +2546,10 @@ static int cmd_doomplay(char **argv, int argc);
 #define VIDEO_DEMO_DOOMGENERIC_DASHBOARD_METRICS_INTERVAL_FRAMES 1U
 #endif
 
+#ifndef VIDEO_DEMO_DOOMGENERIC_FRAME_TIMING_PROBE
+#define VIDEO_DEMO_DOOMGENERIC_FRAME_TIMING_PROBE 0
+#endif
+
 #ifndef A90_DOOMGENERIC_NATIVE_DASHBOARD
 #define A90_DOOMGENERIC_NATIVE_DASHBOARD 0
 #endif
@@ -2625,6 +2629,12 @@ static void video_demo_doom_bridge_status(void) {
     a90_console_printf("video.demo.doom.presenter.pacing=helper-frame-mtime\r\n");
     a90_console_printf("video.demo.doom.presenter.poll_ms=%d\r\n",
                        VIDEO_DEMO_DOOMGENERIC_PRESENTER_POLL_MS);
+#if VIDEO_DEMO_DOOMGENERIC_FRAME_TIMING_PROBE
+    a90_console_printf("video.demo.doom.loop.timing_probe=1\r\n");
+    a90_console_printf("video.demo.doom.loop.timing=frame-ipc-kms-stage-us\r\n");
+#else
+    a90_console_printf("video.demo.doom.loop.timing_probe=0\r\n");
+#endif
 #if VIDEO_DEMO_DOOMGENERIC_REUSE_FRAME_BUFFER
     a90_console_printf("video.demo.doom.presenter.reader=reused-loop-buffer\r\n");
     a90_console_printf("video.demo.doom.presenter.buffer_reuse=1\r\n");
@@ -3223,6 +3233,103 @@ struct video_demo_doom_frame_reader {
     uint32_t allocations;
 };
 
+struct video_demo_doom_present_timing {
+    uint64_t alloc_ns;
+    uint64_t read_ns;
+    uint64_t begin_ns;
+    uint64_t draw_ns;
+    uint64_t present_ns;
+    uint64_t total_ns;
+};
+
+struct video_demo_doom_timing_stats {
+    uint32_t frames;
+    uint64_t alloc_ns;
+    uint64_t read_ns;
+    uint64_t begin_ns;
+    uint64_t draw_ns;
+    uint64_t present_ns;
+    uint64_t total_ns;
+    uint64_t max_alloc_ns;
+    uint64_t max_read_ns;
+    uint64_t max_begin_ns;
+    uint64_t max_draw_ns;
+    uint64_t max_present_ns;
+    uint64_t max_total_ns;
+};
+
+#if VIDEO_DEMO_DOOMGENERIC_FRAME_TIMING_PROBE
+static uint64_t video_demo_doom_elapsed_ns(uint64_t start, uint64_t end) {
+    return end >= start ? end - start : 0ULL;
+}
+
+static unsigned long long video_demo_doom_ns_to_us(uint64_t ns) {
+    return (unsigned long long)((ns + 500ULL) / 1000ULL);
+}
+
+static void video_demo_doom_timing_add_stage(uint64_t value,
+                                             uint64_t *total,
+                                             uint64_t *max_value) {
+    if (total != NULL) {
+        *total += value;
+    }
+    if (max_value != NULL && value > *max_value) {
+        *max_value = value;
+    }
+}
+
+static void video_demo_doom_timing_stats_add(
+        struct video_demo_doom_timing_stats *stats,
+        const struct video_demo_doom_present_timing *timing) {
+    if (stats == NULL || timing == NULL) {
+        return;
+    }
+    ++stats->frames;
+    video_demo_doom_timing_add_stage(timing->alloc_ns, &stats->alloc_ns, &stats->max_alloc_ns);
+    video_demo_doom_timing_add_stage(timing->read_ns, &stats->read_ns, &stats->max_read_ns);
+    video_demo_doom_timing_add_stage(timing->begin_ns, &stats->begin_ns, &stats->max_begin_ns);
+    video_demo_doom_timing_add_stage(timing->draw_ns, &stats->draw_ns, &stats->max_draw_ns);
+    video_demo_doom_timing_add_stage(timing->present_ns, &stats->present_ns, &stats->max_present_ns);
+    video_demo_doom_timing_add_stage(timing->total_ns, &stats->total_ns, &stats->max_total_ns);
+}
+
+static void video_demo_doom_timing_print_stage(const char *prefix,
+                                               const char *stage,
+                                               uint64_t total_ns,
+                                               uint64_t max_ns,
+                                               uint32_t frames) {
+    uint64_t avg_ns = frames > 0U ? total_ns / frames : 0ULL;
+
+    a90_console_printf("%s.%s.avg_us=%llu\r\n",
+                       prefix, stage, video_demo_doom_ns_to_us(avg_ns));
+    a90_console_printf("%s.%s.max_us=%llu\r\n",
+                       prefix, stage, video_demo_doom_ns_to_us(max_ns));
+}
+
+static void video_demo_doom_timing_stats_print(
+        const char *prefix,
+        const struct video_demo_doom_timing_stats *stats) {
+    if (prefix == NULL || stats == NULL) {
+        return;
+    }
+    a90_console_printf("%s.timing_probe=1\r\n", prefix);
+    a90_console_printf("%s.timing.frames=%u\r\n", prefix, stats->frames);
+    a90_console_printf("%s.timing.unit=us\r\n", prefix);
+    video_demo_doom_timing_print_stage(prefix, "timing.alloc", stats->alloc_ns,
+                                       stats->max_alloc_ns, stats->frames);
+    video_demo_doom_timing_print_stage(prefix, "timing.read", stats->read_ns,
+                                       stats->max_read_ns, stats->frames);
+    video_demo_doom_timing_print_stage(prefix, "timing.begin", stats->begin_ns,
+                                       stats->max_begin_ns, stats->frames);
+    video_demo_doom_timing_print_stage(prefix, "timing.draw", stats->draw_ns,
+                                       stats->max_draw_ns, stats->frames);
+    video_demo_doom_timing_print_stage(prefix, "timing.present", stats->present_ns,
+                                       stats->max_present_ns, stats->frames);
+    video_demo_doom_timing_print_stage(prefix, "timing.total", stats->total_ns,
+                                       stats->max_total_ns, stats->frames);
+}
+#endif
+
 static void video_demo_doom_frame_reader_init(struct video_demo_doom_frame_reader *reader) {
     if (reader == NULL) {
         return;
@@ -3299,11 +3406,20 @@ static int video_demo_doom_present_frame_file_ex(
         uint32_t frame_index,
         uint32_t total_frames,
         uint32_t poll_count,
-        struct video_demo_doom_frame_reader *reader) {
+        struct video_demo_doom_frame_reader *reader,
+        struct video_demo_doom_present_timing *timing) {
     uint32_t *source;
     struct a90_fb *fb;
     int fd;
     int rc;
+#if VIDEO_DEMO_DOOMGENERIC_FRAME_TIMING_PROBE
+    uint64_t t_start;
+    uint64_t t_after_alloc;
+    uint64_t t_after_read;
+    uint64_t t_after_begin;
+    uint64_t t_after_draw;
+    uint64_t t_after_present;
+#endif
 
 #if !A90_DOOMGENERIC_NATIVE_DASHBOARD
     (void)frame_index;
@@ -3318,7 +3434,18 @@ static int video_demo_doom_present_frame_file_ex(
         }
         return -EINVAL;
     }
+#if VIDEO_DEMO_DOOMGENERIC_FRAME_TIMING_PROBE
+    if (timing != NULL) {
+        memset(timing, 0, sizeof(*timing));
+    }
+    t_start = video_monotonic_ns();
+#else
+    (void)timing;
+#endif
     rc = video_demo_doom_frame_reader_source(reader, render, &source);
+#if VIDEO_DEMO_DOOMGENERIC_FRAME_TIMING_PROBE
+    t_after_alloc = video_monotonic_ns();
+#endif
     if (rc < 0 || source == NULL) {
         if (verbose) {
             a90_console_printf("video.demo.doom.frame.display.error=alloc-failed\r\n");
@@ -3336,6 +3463,9 @@ static int video_demo_doom_present_frame_file_ex(
     }
     rc = video_read_exact_fd(fd, source, render->expected_bytes);
     close(fd);
+#if VIDEO_DEMO_DOOMGENERIC_FRAME_TIMING_PROBE
+    t_after_read = video_monotonic_ns();
+#endif
     if (rc < 0) {
         video_demo_doom_frame_reader_release(reader, source);
         if (verbose) {
@@ -3344,9 +3474,15 @@ static int video_demo_doom_present_frame_file_ex(
         return rc;
     }
     if (a90_kms_begin_frame(0x05070c) < 0) {
+#if VIDEO_DEMO_DOOMGENERIC_FRAME_TIMING_PROBE
+        t_after_begin = video_monotonic_ns();
+#endif
         video_demo_doom_frame_reader_release(reader, source);
         return negative_errno_or(ENODEV);
     }
+#if VIDEO_DEMO_DOOMGENERIC_FRAME_TIMING_PROBE
+    t_after_begin = video_monotonic_ns();
+#endif
     fb = a90_kms_framebuffer();
     if (fb == NULL || fb->pixels == NULL ||
         fb->width < render->width || fb->height < render->height ||
@@ -3367,12 +3503,21 @@ static int video_demo_doom_present_frame_file_ex(
                                                total_frames,
                                                poll_count);
     video_demo_doom_frame_reader_release(reader, source);
+#if VIDEO_DEMO_DOOMGENERIC_FRAME_TIMING_PROBE
+    t_after_draw = video_monotonic_ns();
+#endif
     if (rc < 0) {
         return rc;
     }
     if (a90_kms_present("doomdash", false) < 0) {
+#if VIDEO_DEMO_DOOMGENERIC_FRAME_TIMING_PROBE
+        t_after_present = video_monotonic_ns();
+#endif
         return negative_errno_or(EIO);
     }
+#if VIDEO_DEMO_DOOMGENERIC_FRAME_TIMING_PROBE
+    t_after_present = video_monotonic_ns();
+#endif
 #else
     {
         uint32_t dst_x;
@@ -3401,9 +3546,28 @@ static int video_demo_doom_present_frame_file_ex(
         snprintf(detail, sizeof(detail),
                  "WAD-BACKED FRAME %ux%u XBGR8888", render->width, render->height);
         a90_draw_text(fb, dst_x, dst_y + render->height + 72U, detail, 0xdddddd, 3U);
+#if VIDEO_DEMO_DOOMGENERIC_FRAME_TIMING_PROBE
+        t_after_draw = video_monotonic_ns();
+#endif
         if (a90_kms_present("doomframe", true) < 0) {
+#if VIDEO_DEMO_DOOMGENERIC_FRAME_TIMING_PROBE
+            t_after_present = video_monotonic_ns();
+#endif
             return negative_errno_or(EIO);
         }
+#if VIDEO_DEMO_DOOMGENERIC_FRAME_TIMING_PROBE
+        t_after_present = video_monotonic_ns();
+#endif
+    }
+#endif
+#if VIDEO_DEMO_DOOMGENERIC_FRAME_TIMING_PROBE
+    if (timing != NULL) {
+        timing->alloc_ns = video_demo_doom_elapsed_ns(t_start, t_after_alloc);
+        timing->read_ns = video_demo_doom_elapsed_ns(t_after_alloc, t_after_read);
+        timing->begin_ns = video_demo_doom_elapsed_ns(t_after_read, t_after_begin);
+        timing->draw_ns = video_demo_doom_elapsed_ns(t_after_begin, t_after_draw);
+        timing->present_ns = video_demo_doom_elapsed_ns(t_after_draw, t_after_present);
+        timing->total_ns = video_demo_doom_elapsed_ns(t_start, t_after_present);
     }
 #endif
     if (verbose) {
@@ -3416,7 +3580,7 @@ static int video_demo_doom_present_frame_file_ex(
 
 static int video_demo_doom_present_frame_file(
         const struct a90_doomgeneric_frame_render *render) {
-    return video_demo_doom_present_frame_file_ex(render, true, 1U, 1U, 0U, NULL);
+    return video_demo_doom_present_frame_file_ex(render, true, 1U, 1U, 0U, NULL, NULL);
 }
 
 static void video_demo_doom_loop_reap(void) {
@@ -3561,9 +3725,15 @@ static int video_demo_doom_run_visible_loop(uint32_t frames,
     uint64_t last_presented_frame_id = 0ULL;
     bool continuous = frames == 0U;
     uint32_t max_polls = continuous ? 0U : frames * 4U + 20U;
+#if VIDEO_DEMO_DOOMGENERIC_FRAME_TIMING_PROBE
+    struct video_demo_doom_timing_stats timing_stats;
+#endif
 
     memset(&check, 0, sizeof(check));
     video_demo_doom_frame_reader_init(&frame_reader);
+#if VIDEO_DEMO_DOOMGENERIC_FRAME_TIMING_PROBE
+    memset(&timing_stats, 0, sizeof(timing_stats));
+#endif
 
     helper_rc = a90_doomgeneric_bridge_start_frame_loop_helper((int)frames,
                                                                expected_sha256,
@@ -3579,6 +3749,12 @@ static int video_demo_doom_run_visible_loop(uint32_t frames,
         a90_console_printf("video.demo.doom.loop.presenter.pacing=helper-frame-mtime\r\n");
         a90_console_printf("video.demo.doom.loop.presenter.poll_ms=%d\r\n",
                            VIDEO_DEMO_DOOMGENERIC_PRESENTER_POLL_MS);
+#if VIDEO_DEMO_DOOMGENERIC_FRAME_TIMING_PROBE
+        a90_console_printf("video.demo.doom.loop.timing_probe=1\r\n");
+        a90_console_printf("video.demo.doom.loop.timing=frame-ipc-kms-stage-us\r\n");
+#else
+        a90_console_printf("video.demo.doom.loop.timing_probe=0\r\n");
+#endif
 #if VIDEO_DEMO_DOOMGENERIC_REUSE_FRAME_BUFFER
         a90_console_printf("video.demo.doom.loop.presenter.reader=reused-loop-buffer\r\n");
         a90_console_printf("video.demo.doom.loop.presenter.buffer_reuse=1\r\n");
@@ -3603,6 +3779,9 @@ static int video_demo_doom_run_visible_loop(uint32_t frames,
     while ((continuous || presented < frames) && (continuous || poll_count < max_polls)) {
         enum a90_cancel_kind cancel;
         int read_rc;
+#if VIDEO_DEMO_DOOMGENERIC_FRAME_TIMING_PROBE
+        struct video_demo_doom_present_timing timing;
+#endif
 
         memset(&render, 0, sizeof(render));
         read_rc = a90_doomgeneric_bridge_read_frame_render(&render);
@@ -3612,10 +3791,19 @@ static int video_demo_doom_run_visible_loop(uint32_t frames,
                                                                presented + 1U,
                                                                frames,
                                                                poll_count,
-                                                               &frame_reader);
+                                                               &frame_reader,
+#if VIDEO_DEMO_DOOMGENERIC_FRAME_TIMING_PROBE
+                                                               &timing
+#else
+                                                               NULL
+#endif
+                                                               );
             if (present_rc == 0) {
                 last_presented_frame_id = render.frame_id;
                 ++presented;
+#if VIDEO_DEMO_DOOMGENERIC_FRAME_TIMING_PROBE
+                video_demo_doom_timing_stats_add(&timing_stats, &timing);
+#endif
             } else {
                 break;
             }
@@ -3659,6 +3847,9 @@ static int video_demo_doom_run_visible_loop(uint32_t frames,
 #if VIDEO_DEMO_DOOMGENERIC_REUSE_FRAME_BUFFER
         a90_console_printf("video.demo.doom.loop.presenter.buffer_allocations=%u\r\n",
                            frame_reader.allocations);
+#endif
+#if VIDEO_DEMO_DOOMGENERIC_FRAME_TIMING_PROBE
+        video_demo_doom_timing_stats_print("video.demo.doom.loop", &timing_stats);
 #endif
     }
     video_demo_doom_frame_reader_cleanup(&frame_reader);
