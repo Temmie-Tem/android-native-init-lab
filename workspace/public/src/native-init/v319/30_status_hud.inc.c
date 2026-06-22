@@ -2626,6 +2626,10 @@ static void video_demo_doom_bridge_status(void) {
     a90_console_printf("video.demo.doom.dashboard.large_frame=1\r\n");
     a90_console_printf("video.demo.doom.dashboard.frame_mode=large-overlay-title\r\n");
     a90_console_printf("video.demo.doom.dashboard.frame_scale=3:2\r\n");
+#else
+    a90_console_printf("video.demo.doom.dashboard.large_frame=0\r\n");
+    a90_console_printf("video.demo.doom.dashboard.frame_mode=standard-dashboard\r\n");
+    a90_console_printf("video.demo.doom.dashboard.frame_scale=1:1\r\n");
 #endif
 #else
     a90_console_printf("video.demo.doom.dashboard.native=0\r\n");
@@ -3162,6 +3166,10 @@ static int video_demo_doom_draw_native_dashboard(
         a90_console_printf("video.demo.doom.dashboard.large_frame=1\r\n");
         a90_console_printf("video.demo.doom.dashboard.frame_mode=large-overlay-title\r\n");
         a90_console_printf("video.demo.doom.dashboard.frame_scale=3:2\r\n");
+#else
+        a90_console_printf("video.demo.doom.dashboard.large_frame=0\r\n");
+        a90_console_printf("video.demo.doom.dashboard.frame_mode=standard-dashboard\r\n");
+        a90_console_printf("video.demo.doom.dashboard.frame_scale=1:1\r\n");
 #endif
         a90_console_printf("video.demo.doom.dashboard.present_seq=%u\r\n",
                            video_demo_doom_dashboard_present_seq);
