@@ -41,8 +41,25 @@ struct a90_kms_state {
     struct drm_mode_modeinfo mode;
 };
 
+struct a90_kms_scaled_plane_state {
+    uint32_t plane_id;
+    uint32_t fb_id[2];
+    uint32_t handle[2];
+    uint32_t width;
+    uint32_t height;
+    uint32_t stride;
+    size_t map_size;
+    void *map[2];
+    uint32_t current_buffer;
+    bool enabled;
+};
+
 static struct a90_kms_state kms_state = {
     .fd = -1,
+    .map = { MAP_FAILED, MAP_FAILED },
+};
+
+static struct a90_kms_scaled_plane_state kms_scaled_plane = {
     .map = { MAP_FAILED, MAP_FAILED },
 };
 
@@ -125,6 +142,18 @@ static int drm_get_cap_value(int fd, uint64_t capability, uint64_t *value) {
     }
 
     *value = cap.value;
+    return 0;
+}
+
+static int drm_set_client_cap_value(int fd, uint64_t capability, uint64_t value) {
+    struct drm_set_client_cap cap;
+
+    memset(&cap, 0, sizeof(cap));
+    cap.capability = capability;
+    cap.value = value;
+    if (drm_ioctl_retry(fd, DRM_IOCTL_SET_CLIENT_CAP, &cap) < 0) {
+        return -1;
+    }
     return 0;
 }
 
@@ -396,6 +425,140 @@ static int kms_find_output(int fd,
         errno = ENODEV;
     }
 
+    return rc;
+}
+
+static int drm_find_crtc_index(const uint32_t *crtcs, uint32_t count_crtcs, uint32_t crtc_id) {
+    uint32_t index;
+
+    for (index = 0; index < count_crtcs; ++index) {
+        if (crtcs[index] == crtc_id) {
+            return (int)index;
+        }
+    }
+    errno = ENODEV;
+    return -1;
+}
+
+static int drm_fetch_plane_ids(int fd, uint32_t **plane_ids_out, uint32_t *count_out) {
+    struct drm_mode_get_plane_res pres;
+    uint32_t *plane_ids = NULL;
+
+    memset(&pres, 0, sizeof(pres));
+    if (drm_ioctl_retry(fd, DRM_IOCTL_MODE_GETPLANERESOURCES, &pres) < 0) {
+        return -1;
+    }
+    if (pres.count_planes > 0) {
+        plane_ids = calloc(pres.count_planes, sizeof(*plane_ids));
+        if (plane_ids == NULL) {
+            errno = ENOMEM;
+            return -1;
+        }
+        pres.plane_id_ptr = (uintptr_t)plane_ids;
+    }
+    if (drm_ioctl_retry(fd, DRM_IOCTL_MODE_GETPLANERESOURCES, &pres) < 0) {
+        free(plane_ids);
+        return -1;
+    }
+    *plane_ids_out = plane_ids;
+    *count_out = pres.count_planes;
+    return 0;
+}
+
+static int drm_fetch_plane(int fd,
+                           uint32_t plane_id,
+                           struct drm_mode_get_plane *plane,
+                           uint32_t **formats_out) {
+    uint32_t *formats = NULL;
+
+    memset(plane, 0, sizeof(*plane));
+    plane->plane_id = plane_id;
+    if (drm_ioctl_retry(fd, DRM_IOCTL_MODE_GETPLANE, plane) < 0) {
+        return -1;
+    }
+    if (plane->count_format_types > 0) {
+        formats = calloc(plane->count_format_types, sizeof(*formats));
+        if (formats == NULL) {
+            errno = ENOMEM;
+            return -1;
+        }
+        plane->format_type_ptr = (uintptr_t)formats;
+    }
+    if (drm_ioctl_retry(fd, DRM_IOCTL_MODE_GETPLANE, plane) < 0) {
+        free(formats);
+        return -1;
+    }
+    *formats_out = formats;
+    return 0;
+}
+
+static bool drm_plane_has_format(const uint32_t *formats, uint32_t count, uint32_t wanted) {
+    uint32_t index;
+
+    for (index = 0; index < count; ++index) {
+        if (formats[index] == wanted) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static int kms_select_unused_scaled_plane(uint32_t *plane_id_out) {
+    struct drm_mode_card_res res;
+    uint32_t *crtcs = NULL;
+    uint32_t *connectors = NULL;
+    uint32_t *encoders = NULL;
+    uint32_t *plane_ids = NULL;
+    uint32_t plane_count = 0;
+    uint32_t index;
+    int crtc_index;
+    int rc = -1;
+
+    if (kms_state.fd < 0 || plane_id_out == NULL) {
+        errno = ENODEV;
+        return -1;
+    }
+    (void)drm_set_client_cap_value(kms_state.fd, DRM_CLIENT_CAP_UNIVERSAL_PLANES, 1);
+    if (drm_fetch_resources(kms_state.fd, &res, &crtcs, &connectors, &encoders) < 0) {
+        return -1;
+    }
+    crtc_index = drm_find_crtc_index(crtcs, res.count_crtcs, kms_state.crtc_id);
+    if (crtc_index < 0) {
+        goto out;
+    }
+    if (drm_fetch_plane_ids(kms_state.fd, &plane_ids, &plane_count) < 0) {
+        goto out;
+    }
+    for (index = 0; index < plane_count; ++index) {
+        struct drm_mode_get_plane plane;
+        uint32_t *formats = NULL;
+        bool compatible;
+        bool idle;
+        bool xbgr;
+
+        if (drm_fetch_plane(kms_state.fd, plane_ids[index], &plane, &formats) < 0) {
+            free(formats);
+            continue;
+        }
+        compatible = (plane.possible_crtcs & (1U << (unsigned int)crtc_index)) != 0U;
+        idle = plane.crtc_id == 0 && plane.fb_id == 0;
+        xbgr = drm_plane_has_format(formats, plane.count_format_types, DRM_FORMAT_XBGR8888);
+        free(formats);
+        if (compatible && idle && xbgr) {
+            *plane_id_out = plane.plane_id;
+            rc = 0;
+            break;
+        }
+    }
+    if (rc < 0 && errno == 0) {
+        errno = ENODEV;
+    }
+
+out:
+    free(plane_ids);
+    free(crtcs);
+    free(connectors);
+    free(encoders);
     return rc;
 }
 
@@ -742,6 +905,223 @@ int a90_kms_present_pageflip(const char *label, int timeout_ms, struct a90_kms_f
         return -1;
     }
     return kms_wait_pageflip_event(label, timeout_ms, result);
+}
+
+static void kms_scaled_plane_destroy_buffers(void) {
+    uint32_t index;
+
+    for (index = 0; index < 2U; ++index) {
+        if (kms_scaled_plane.map[index] != NULL &&
+            kms_scaled_plane.map[index] != MAP_FAILED &&
+            kms_scaled_plane.map_size > 0U) {
+            munmap(kms_scaled_plane.map[index], kms_scaled_plane.map_size);
+        }
+        if (kms_state.fd >= 0 && kms_scaled_plane.fb_id[index] != 0U) {
+            uint32_t fb_id = kms_scaled_plane.fb_id[index];
+
+            (void)drm_ioctl_retry(kms_state.fd, DRM_IOCTL_MODE_RMFB, &fb_id);
+        }
+        if (kms_state.fd >= 0 && kms_scaled_plane.handle[index] != 0U) {
+            struct drm_mode_destroy_dumb destroy;
+
+            memset(&destroy, 0, sizeof(destroy));
+            destroy.handle = kms_scaled_plane.handle[index];
+            (void)drm_ioctl_retry(kms_state.fd, DRM_IOCTL_MODE_DESTROY_DUMB, &destroy);
+        }
+        kms_scaled_plane.map[index] = MAP_FAILED;
+        kms_scaled_plane.fb_id[index] = 0U;
+        kms_scaled_plane.handle[index] = 0U;
+    }
+    kms_scaled_plane.width = 0U;
+    kms_scaled_plane.height = 0U;
+    kms_scaled_plane.stride = 0U;
+    kms_scaled_plane.map_size = 0U;
+    kms_scaled_plane.current_buffer = 0U;
+}
+
+static int kms_scaled_plane_create_buffers(uint32_t width, uint32_t height) {
+    uint32_t index;
+
+    if (kms_state.fd < 0 || width == 0U || height == 0U) {
+        errno = EINVAL;
+        return -1;
+    }
+    kms_scaled_plane_destroy_buffers();
+    for (index = 0; index < 2U; ++index) {
+        struct drm_mode_create_dumb create;
+        struct drm_mode_fb_cmd2 addfb2;
+        struct drm_mode_map_dumb map_dumb;
+        void *map;
+
+        memset(&create, 0, sizeof(create));
+        create.width = width;
+        create.height = height;
+        create.bpp = 32;
+        if (drm_ioctl_retry(kms_state.fd, DRM_IOCTL_MODE_CREATE_DUMB, &create) < 0) {
+            kms_scaled_plane_destroy_buffers();
+            return -1;
+        }
+        memset(&addfb2, 0, sizeof(addfb2));
+        addfb2.width = create.width;
+        addfb2.height = create.height;
+        addfb2.pixel_format = DRM_FORMAT_XBGR8888;
+        addfb2.handles[0] = create.handle;
+        addfb2.pitches[0] = create.pitch;
+        addfb2.offsets[0] = 0;
+        if (drm_ioctl_retry(kms_state.fd, DRM_IOCTL_MODE_ADDFB2, &addfb2) < 0) {
+            struct drm_mode_destroy_dumb destroy;
+
+            memset(&destroy, 0, sizeof(destroy));
+            destroy.handle = create.handle;
+            (void)drm_ioctl_retry(kms_state.fd, DRM_IOCTL_MODE_DESTROY_DUMB, &destroy);
+            kms_scaled_plane_destroy_buffers();
+            return -1;
+        }
+        memset(&map_dumb, 0, sizeof(map_dumb));
+        map_dumb.handle = create.handle;
+        if (drm_ioctl_retry(kms_state.fd, DRM_IOCTL_MODE_MAP_DUMB, &map_dumb) < 0) {
+            uint32_t fb_id = addfb2.fb_id;
+            struct drm_mode_destroy_dumb destroy;
+
+            (void)drm_ioctl_retry(kms_state.fd, DRM_IOCTL_MODE_RMFB, &fb_id);
+            memset(&destroy, 0, sizeof(destroy));
+            destroy.handle = create.handle;
+            (void)drm_ioctl_retry(kms_state.fd, DRM_IOCTL_MODE_DESTROY_DUMB, &destroy);
+            kms_scaled_plane_destroy_buffers();
+            return -1;
+        }
+        map = mmap(NULL, create.size, PROT_READ | PROT_WRITE, MAP_SHARED,
+                   kms_state.fd, (off_t)map_dumb.offset);
+        if (map == MAP_FAILED) {
+            uint32_t fb_id = addfb2.fb_id;
+            struct drm_mode_destroy_dumb destroy;
+
+            (void)drm_ioctl_retry(kms_state.fd, DRM_IOCTL_MODE_RMFB, &fb_id);
+            memset(&destroy, 0, sizeof(destroy));
+            destroy.handle = create.handle;
+            (void)drm_ioctl_retry(kms_state.fd, DRM_IOCTL_MODE_DESTROY_DUMB, &destroy);
+            kms_scaled_plane_destroy_buffers();
+            return -1;
+        }
+        kms_scaled_plane.handle[index] = create.handle;
+        kms_scaled_plane.fb_id[index] = addfb2.fb_id;
+        kms_scaled_plane.map[index] = map;
+        kms_scaled_plane.stride = create.pitch;
+        kms_scaled_plane.map_size = create.size;
+    }
+    kms_scaled_plane.width = width;
+    kms_scaled_plane.height = height;
+    kms_scaled_plane.current_buffer = 0U;
+    return 0;
+}
+
+static int kms_scaled_plane_ensure(uint32_t width, uint32_t height) {
+    if (kms_state.fd < 0) {
+        errno = ENODEV;
+        return -1;
+    }
+    if (kms_scaled_plane.plane_id == 0U &&
+        kms_select_unused_scaled_plane(&kms_scaled_plane.plane_id) < 0) {
+        return -1;
+    }
+    if (kms_scaled_plane.map[0] != MAP_FAILED &&
+        kms_scaled_plane.map[1] != MAP_FAILED &&
+        kms_scaled_plane.width == width &&
+        kms_scaled_plane.height == height) {
+        return 0;
+    }
+    return kms_scaled_plane_create_buffers(width, height);
+}
+
+int a90_kms_present_scaled_plane_xbgr8888(const uint32_t *source,
+                                          uint32_t source_width,
+                                          uint32_t source_height,
+                                          uint32_t source_stride,
+                                          uint32_t dst_x,
+                                          uint32_t dst_y,
+                                          uint32_t dst_width,
+                                          uint32_t dst_height,
+                                          struct a90_kms_scaled_plane_result *result) {
+    struct drm_mode_set_plane setplane;
+    uint32_t next_buffer;
+    uint32_t row;
+
+    if (result != NULL) {
+        memset(result, 0, sizeof(*result));
+        result->rc = -EINVAL;
+    }
+    if (source == NULL || source_width == 0U || source_height == 0U ||
+        dst_width == 0U || dst_height == 0U ||
+        source_stride < source_width * sizeof(uint32_t) ||
+        kms_state.fd < 0 ||
+        dst_x > kms_state.width || dst_y > kms_state.height ||
+        dst_width > kms_state.width - dst_x ||
+        dst_height > kms_state.height - dst_y) {
+        errno = EINVAL;
+        return -1;
+    }
+    if (kms_scaled_plane_ensure(source_width, source_height) < 0) {
+        if (result != NULL) {
+            result->attempted = false;
+            result->rc = negative_errno_or(ENODEV);
+        }
+        return -1;
+    }
+
+    next_buffer = 1U - kms_scaled_plane.current_buffer;
+    for (row = 0; row < source_height; ++row) {
+        memcpy((char *)kms_scaled_plane.map[next_buffer] +
+                   ((size_t)row * kms_scaled_plane.stride),
+               (const char *)source + ((size_t)row * source_stride),
+               (size_t)source_width * sizeof(uint32_t));
+    }
+
+    memset(&setplane, 0, sizeof(setplane));
+    setplane.plane_id = kms_scaled_plane.plane_id;
+    setplane.crtc_id = kms_state.crtc_id;
+    setplane.fb_id = kms_scaled_plane.fb_id[next_buffer];
+    setplane.crtc_x = (int32_t)dst_x;
+    setplane.crtc_y = (int32_t)dst_y;
+    setplane.crtc_w = dst_width;
+    setplane.crtc_h = dst_height;
+    setplane.src_x = 0U;
+    setplane.src_y = 0U;
+    setplane.src_w = source_width << 16U;
+    setplane.src_h = source_height << 16U;
+    if (result != NULL) {
+        result->attempted = true;
+        result->plane_id = kms_scaled_plane.plane_id;
+        result->fb_id = kms_scaled_plane.fb_id[next_buffer];
+        result->crtc_id = kms_state.crtc_id;
+    }
+    if (drm_ioctl_retry(kms_state.fd, DRM_IOCTL_MODE_SETPLANE, &setplane) < 0) {
+        if (result != NULL) {
+            result->rc = negative_errno_or(EIO);
+        }
+        return -1;
+    }
+    kms_scaled_plane.current_buffer = next_buffer;
+    kms_scaled_plane.enabled = true;
+    if (result != NULL) {
+        result->presented = true;
+        result->rc = 0;
+    }
+    return 0;
+}
+
+int a90_kms_disable_scaled_plane(void) {
+    struct drm_mode_set_plane setplane;
+
+    if (kms_state.fd < 0 || kms_scaled_plane.plane_id == 0U || !kms_scaled_plane.enabled) {
+        return 0;
+    }
+    memset(&setplane, 0, sizeof(setplane));
+    setplane.plane_id = kms_scaled_plane.plane_id;
+    if (drm_ioctl_retry(kms_state.fd, DRM_IOCTL_MODE_SETPLANE, &setplane) < 0) {
+        return negative_errno_or(EIO);
+    }
+    kms_scaled_plane.enabled = false;
+    return 0;
 }
 
 struct a90_fb *a90_kms_framebuffer(void) {

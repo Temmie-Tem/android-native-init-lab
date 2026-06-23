@@ -74,6 +74,7 @@ FRAME_BYTES = v3031.FRAME_BYTES
 NATIVE_DASHBOARD = 0
 NATIVE_DASHBOARD_MINIMAL = 0
 NATIVE_DASHBOARD_LARGE_FRAME = 0
+HW_PLANE_SCALE = 0
 NATIVE_DOOM_PRESENT_PAGEFLIP = 0
 REUSE_FRAME_BUFFER = 0
 DASHBOARD_METRICS_INTERVAL_FRAMES = 1
@@ -432,6 +433,11 @@ def patch_ramdisk_with_doomgeneric_helper() -> None:
             doomgeneric_flags = (
                 *doomgeneric_flags,
                 numeric_define("A90_DOOMGENERIC_NATIVE_DASHBOARD_LARGE_FRAME", 1),
+            )
+        if HW_PLANE_SCALE:
+            doomgeneric_flags = (
+                *doomgeneric_flags,
+                numeric_define("VIDEO_DEMO_DOOMGENERIC_HW_PLANE_SCALE", 1),
             )
         if NATIVE_DOOM_PRESENT_PAGEFLIP:
             doomgeneric_flags = (

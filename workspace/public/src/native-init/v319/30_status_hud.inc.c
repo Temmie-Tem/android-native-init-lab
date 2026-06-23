@@ -2597,6 +2597,9 @@ static int cmd_doomplay(char **argv, int argc);
 #ifndef A90_DOOMGENERIC_NATIVE_DASHBOARD_LARGE_FRAME
 #define A90_DOOMGENERIC_NATIVE_DASHBOARD_LARGE_FRAME 0
 #endif
+#ifndef VIDEO_DEMO_DOOMGENERIC_HW_PLANE_SCALE
+#define VIDEO_DEMO_DOOMGENERIC_HW_PLANE_SCALE 0
+#endif
 #ifndef A90_DOOMGENERIC_AUDIO_CORUN
 #define A90_DOOMGENERIC_AUDIO_CORUN 0
 #endif
@@ -2745,8 +2748,14 @@ static void video_demo_doom_bridge_status(void) {
 #endif
 #if A90_DOOMGENERIC_NATIVE_DASHBOARD_LARGE_FRAME
     a90_console_printf("video.demo.doom.dashboard.large_frame=1\r\n");
+#if VIDEO_DEMO_DOOMGENERIC_HW_PLANE_SCALE
+    a90_console_printf("video.demo.doom.dashboard.frame_mode=minimal-large-hw-plane-scale\r\n");
+    a90_console_printf("video.demo.doom.dashboard.frame_scale=3:2\r\n");
+    a90_console_printf("video.demo.doom.dashboard.scale_path=drm-plane-srcdst\r\n");
+#else
     a90_console_printf("video.demo.doom.dashboard.frame_mode=large-overlay-title\r\n");
     a90_console_printf("video.demo.doom.dashboard.frame_scale=3:2\r\n");
+#endif
 #else
     a90_console_printf("video.demo.doom.dashboard.large_frame=0\r\n");
 #if A90_DOOMGENERIC_NATIVE_DASHBOARD_MINIMAL
@@ -2979,6 +2988,60 @@ static int video_demo_doom_blit_raw_frame_scaled(struct a90_fb *fb,
         }
     }
     return 0;
+}
+
+static int video_demo_doom_present_large_frame_path(
+        struct a90_fb *fb,
+        const uint32_t *source,
+        const struct a90_doomgeneric_frame_render *render,
+        uint32_t dst_x,
+        uint32_t dst_y,
+        uint32_t dst_width,
+        uint32_t dst_height,
+        bool verbose) {
+#if VIDEO_DEMO_DOOMGENERIC_HW_PLANE_SCALE
+    struct a90_kms_scaled_plane_result plane;
+    int plane_rc;
+
+    plane_rc = a90_kms_present_scaled_plane_xbgr8888(source,
+                                                     render != NULL ? render->width : 0U,
+                                                     render != NULL ? render->height : 0U,
+                                                     render != NULL ? render->stride : 0U,
+                                                     dst_x,
+                                                     dst_y,
+                                                     dst_width,
+                                                     dst_height,
+                                                     &plane);
+    if (verbose) {
+        a90_console_printf("video.demo.doom.dashboard.hw_plane_scale=1\r\n");
+        a90_console_printf("video.demo.doom.dashboard.hw_plane.attempted=%d\r\n",
+                           plane.attempted ? 1 : 0);
+        a90_console_printf("video.demo.doom.dashboard.hw_plane.presented=%d\r\n",
+                           plane.presented ? 1 : 0);
+        a90_console_printf("video.demo.doom.dashboard.hw_plane.id=%u\r\n",
+                           plane.plane_id);
+        a90_console_printf("video.demo.doom.dashboard.hw_plane.fb_id=%u\r\n",
+                           plane.fb_id);
+        a90_console_printf("video.demo.doom.dashboard.hw_plane.rc=%d\r\n",
+                           plane_rc == 0 ? 0 : plane.rc);
+    }
+    if (plane_rc == 0) {
+        return 0;
+    }
+    (void)a90_kms_disable_scaled_plane();
+    if (verbose) {
+        a90_console_printf("video.demo.doom.dashboard.hw_plane.fallback=fast-3to2-rowcopy\r\n");
+    }
+#else
+    (void)verbose;
+#endif
+    return video_demo_doom_blit_raw_frame_scaled(fb,
+                                                 source,
+                                                 render,
+                                                 dst_x,
+                                                 dst_y,
+                                                 dst_width,
+                                                 dst_height);
 }
 #endif
 
@@ -3215,9 +3278,10 @@ static int video_demo_doom_draw_minimal_dashboard(
                       line, 0xbbbbbb, scale, panel_w);
 
 #if A90_DOOMGENERIC_NATIVE_DASHBOARD_LARGE_FRAME
-    blit_rc = video_demo_doom_blit_raw_frame_scaled(fb, source, render,
-                                                    frame_x, frame_y,
-                                                    frame_w, frame_h);
+    blit_rc = video_demo_doom_present_large_frame_path(fb, source, render,
+                                                       frame_x, frame_y,
+                                                       frame_w, frame_h,
+                                                       verbose);
 #else
     blit_rc = video_demo_doom_blit_raw_frame(fb, source, render, frame_x, frame_y);
 #endif
@@ -3256,9 +3320,15 @@ static int video_demo_doom_draw_minimal_dashboard(
         a90_console_printf("video.demo.doom.dashboard.presenter_log=quiet-per-frame\r\n");
 #if A90_DOOMGENERIC_NATIVE_DASHBOARD_LARGE_FRAME
         a90_console_printf("video.demo.doom.dashboard.large_frame=1\r\n");
+#if VIDEO_DEMO_DOOMGENERIC_HW_PLANE_SCALE
+        a90_console_printf("video.demo.doom.dashboard.frame_mode=minimal-large-hw-plane-scale\r\n");
+        a90_console_printf("video.demo.doom.dashboard.frame_scale=3:2\r\n");
+        a90_console_printf("video.demo.doom.dashboard.scale_path=drm-plane-srcdst\r\n");
+#else
         a90_console_printf("video.demo.doom.dashboard.frame_mode=minimal-large-fastscale\r\n");
         a90_console_printf("video.demo.doom.dashboard.frame_scale=3:2\r\n");
         a90_console_printf("video.demo.doom.dashboard.scale_path=fast-3to2-rowcopy\r\n");
+#endif
 #else
         a90_console_printf("video.demo.doom.dashboard.large_frame=0\r\n");
         a90_console_printf("video.demo.doom.dashboard.frame_mode=minimal-dashboard\r\n");
@@ -3371,9 +3441,10 @@ static int video_demo_doom_draw_native_dashboard(
 #endif
 
 #if A90_DOOMGENERIC_NATIVE_DASHBOARD_LARGE_FRAME
-    blit_rc = video_demo_doom_blit_raw_frame_scaled(fb, source, render,
-                                                    frame_x, frame_y,
-                                                    frame_w, frame_h);
+    blit_rc = video_demo_doom_present_large_frame_path(fb, source, render,
+                                                       frame_x, frame_y,
+                                                       frame_w, frame_h,
+                                                       verbose);
 #else
     blit_rc = video_demo_doom_blit_raw_frame(fb, source, render, frame_x, frame_y);
 #endif
@@ -3503,9 +3574,15 @@ static int video_demo_doom_draw_native_dashboard(
         a90_console_printf("video.demo.doom.dashboard.presenter_log=quiet-per-frame\r\n");
 #if A90_DOOMGENERIC_NATIVE_DASHBOARD_LARGE_FRAME
         a90_console_printf("video.demo.doom.dashboard.large_frame=1\r\n");
+#if VIDEO_DEMO_DOOMGENERIC_HW_PLANE_SCALE
+        a90_console_printf("video.demo.doom.dashboard.frame_mode=large-hw-plane-scale\r\n");
+        a90_console_printf("video.demo.doom.dashboard.frame_scale=3:2\r\n");
+        a90_console_printf("video.demo.doom.dashboard.scale_path=drm-plane-srcdst\r\n");
+#else
         a90_console_printf("video.demo.doom.dashboard.frame_mode=large-overlay-title\r\n");
         a90_console_printf("video.demo.doom.dashboard.frame_scale=3:2\r\n");
         a90_console_printf("video.demo.doom.dashboard.scale_path=fast-3to2-rowcopy\r\n");
+#endif
 #else
         a90_console_printf("video.demo.doom.dashboard.large_frame=0\r\n");
         a90_console_printf("video.demo.doom.dashboard.frame_mode=standard-dashboard\r\n");
@@ -4411,6 +4488,7 @@ static int video_demo_doom_clear_presented_frame(const char *reason) {
     if (reason == NULL) {
         reason = "unknown";
     }
+    (void)a90_kms_disable_scaled_plane();
     if (a90_kms_begin_frame(0x000000) < 0) {
         rc = negative_errno_or(ENODEV);
     } else if (a90_kms_present("doomstop-clear", true) < 0) {
