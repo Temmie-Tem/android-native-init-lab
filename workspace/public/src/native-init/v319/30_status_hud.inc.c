@@ -2600,6 +2600,9 @@ static int cmd_doomplay(char **argv, int argc);
 #ifndef VIDEO_DEMO_DOOMGENERIC_HW_PLANE_SCALE
 #define VIDEO_DEMO_DOOMGENERIC_HW_PLANE_SCALE 0
 #endif
+#ifndef VIDEO_DEMO_DOOMGENERIC_PRE_SCALED_LARGE_FRAME
+#define VIDEO_DEMO_DOOMGENERIC_PRE_SCALED_LARGE_FRAME 0
+#endif
 #ifndef A90_DOOMGENERIC_AUDIO_CORUN
 #define A90_DOOMGENERIC_AUDIO_CORUN 0
 #endif
@@ -2860,7 +2863,7 @@ static void video_demo_doom_print_frame_render(
     a90_console_printf("%s.ok=%d\r\n", prefix, render->ok ? 1 : 0);
 }
 
-#if !A90_DOOMGENERIC_NATIVE_DASHBOARD || !A90_DOOMGENERIC_NATIVE_DASHBOARD_LARGE_FRAME
+#if !A90_DOOMGENERIC_NATIVE_DASHBOARD || !A90_DOOMGENERIC_NATIVE_DASHBOARD_LARGE_FRAME || VIDEO_DEMO_DOOMGENERIC_PRE_SCALED_LARGE_FRAME
 static int video_demo_doom_blit_raw_frame(struct a90_fb *fb,
                                           const uint32_t *source,
                                           const struct a90_doomgeneric_frame_render *render,
@@ -2885,6 +2888,7 @@ static int video_demo_doom_blit_raw_frame(struct a90_fb *fb,
 #endif
 
 #if A90_DOOMGENERIC_NATIVE_DASHBOARD && A90_DOOMGENERIC_NATIVE_DASHBOARD_LARGE_FRAME
+#if !VIDEO_DEMO_DOOMGENERIC_PRE_SCALED_LARGE_FRAME
 static void video_demo_doom_scale_row_3_to_2(uint32_t *dst,
                                              const uint32_t *src,
                                              uint32_t src_width) {
@@ -2989,6 +2993,7 @@ static int video_demo_doom_blit_raw_frame_scaled(struct a90_fb *fb,
     }
     return 0;
 }
+#endif
 
 static int video_demo_doom_present_large_frame_path(
         struct a90_fb *fb,
@@ -2999,6 +3004,16 @@ static int video_demo_doom_present_large_frame_path(
         uint32_t dst_width,
         uint32_t dst_height,
         bool verbose) {
+#if VIDEO_DEMO_DOOMGENERIC_PRE_SCALED_LARGE_FRAME
+    if (verbose) {
+        a90_console_printf("video.demo.doom.dashboard.pre_scaled_large_frame=1\r\n");
+        a90_console_printf("video.demo.doom.dashboard.scale_path=producer-pre-scaled-raw-rowcopy\r\n");
+    }
+    if (render == NULL || dst_width != render->width || dst_height != render->height) {
+        return -EINVAL;
+    }
+    return video_demo_doom_blit_raw_frame(fb, source, render, dst_x, dst_y);
+#else
 #if VIDEO_DEMO_DOOMGENERIC_HW_PLANE_SCALE
     struct a90_kms_scaled_plane_result plane;
     int plane_rc;
@@ -3072,6 +3087,7 @@ static int video_demo_doom_present_large_frame_path(
                                                  dst_y,
                                                  dst_width,
                                                  dst_height);
+#endif
 }
 #endif
 
@@ -3278,8 +3294,13 @@ static int video_demo_doom_draw_minimal_dashboard(
     frame_w = render->width;
     frame_h = render->height;
 #if A90_DOOMGENERIC_NATIVE_DASHBOARD_LARGE_FRAME
+#if VIDEO_DEMO_DOOMGENERIC_PRE_SCALED_LARGE_FRAME
+    frame_w = render->width;
+    frame_h = render->height;
+#else
     frame_w = (render->width * 3U) / 2U;
     frame_h = (render->height * 3U) / 2U;
+#endif
     frame_y = 48U;
 #endif
     if (fb->width < frame_w || fb->height < frame_h + 210U) {
@@ -3350,7 +3371,11 @@ static int video_demo_doom_draw_minimal_dashboard(
         a90_console_printf("video.demo.doom.dashboard.presenter_log=quiet-per-frame\r\n");
 #if A90_DOOMGENERIC_NATIVE_DASHBOARD_LARGE_FRAME
         a90_console_printf("video.demo.doom.dashboard.large_frame=1\r\n");
-#if VIDEO_DEMO_DOOMGENERIC_HW_PLANE_SCALE
+#if VIDEO_DEMO_DOOMGENERIC_PRE_SCALED_LARGE_FRAME
+        a90_console_printf("video.demo.doom.dashboard.frame_mode=minimal-large-pre-scaled-producer\r\n");
+        a90_console_printf("video.demo.doom.dashboard.frame_scale=1:1-pre-scaled\r\n");
+        a90_console_printf("video.demo.doom.dashboard.scale_path=producer-pre-scaled-raw-rowcopy\r\n");
+#elif VIDEO_DEMO_DOOMGENERIC_HW_PLANE_SCALE
         a90_console_printf("video.demo.doom.dashboard.frame_mode=minimal-large-hw-plane-scale\r\n");
         a90_console_printf("video.demo.doom.dashboard.frame_scale=3:2\r\n");
         a90_console_printf("video.demo.doom.dashboard.scale_path=drm-plane-srcdst\r\n");
@@ -3427,8 +3452,13 @@ static int video_demo_doom_draw_native_dashboard(
     frame_w = render->width;
     frame_h = render->height;
 #if A90_DOOMGENERIC_NATIVE_DASHBOARD_LARGE_FRAME
+#if VIDEO_DEMO_DOOMGENERIC_PRE_SCALED_LARGE_FRAME
+    frame_w = render->width;
+    frame_h = render->height;
+#else
     frame_w = (render->width * 3U) / 2U;
     frame_h = (render->height * 3U) / 2U;
+#endif
     frame_y = 48U;
     frame_gap = 48U;
     title_y = 24U;
@@ -3493,7 +3523,11 @@ static int video_demo_doom_draw_native_dashboard(
     a90_draw_text_fit(fb, margin, title_y,
                       "DOOM LIVE DASHBOARD", 0xffcc66, title_scale, panel_w);
     snprintf(line, sizeof(line),
+#if VIDEO_DEMO_DOOMGENERIC_PRE_SCALED_LARGE_FRAME
+             "A90 native-init %s  no OTG  serial doompad dgram  frame 960x600 pre-scaled",
+#else
              "A90 native-init %s  no OTG  serial doompad dgram  frame 640x400 -> 960x600",
+#endif
              INIT_VERSION);
     a90_draw_text_fit(fb, margin, frame_y + frame_h + 10U,
                       line, 0xbbbbbb, dashboard_scale, panel_w);
@@ -3604,7 +3638,11 @@ static int video_demo_doom_draw_native_dashboard(
         a90_console_printf("video.demo.doom.dashboard.presenter_log=quiet-per-frame\r\n");
 #if A90_DOOMGENERIC_NATIVE_DASHBOARD_LARGE_FRAME
         a90_console_printf("video.demo.doom.dashboard.large_frame=1\r\n");
-#if VIDEO_DEMO_DOOMGENERIC_HW_PLANE_SCALE
+#if VIDEO_DEMO_DOOMGENERIC_PRE_SCALED_LARGE_FRAME
+        a90_console_printf("video.demo.doom.dashboard.frame_mode=large-pre-scaled-producer\r\n");
+        a90_console_printf("video.demo.doom.dashboard.frame_scale=1:1-pre-scaled\r\n");
+        a90_console_printf("video.demo.doom.dashboard.scale_path=producer-pre-scaled-raw-rowcopy\r\n");
+#elif VIDEO_DEMO_DOOMGENERIC_HW_PLANE_SCALE
         a90_console_printf("video.demo.doom.dashboard.frame_mode=large-hw-plane-scale\r\n");
         a90_console_printf("video.demo.doom.dashboard.frame_scale=3:2\r\n");
         a90_console_printf("video.demo.doom.dashboard.scale_path=drm-plane-srcdst\r\n");

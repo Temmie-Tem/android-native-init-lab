@@ -357,8 +357,8 @@ static void doomgeneric_fill_frame_render(struct a90_doomgeneric_frame_render *r
     render->expected_bytes = status->frame_bytes;
     render->bytes = -1;
     render->geometry_ok = (
-        render->width == 640U &&
-        render->height == 400U &&
+        render->width > 0U &&
+        render->height > 0U &&
         render->stride == render->width * 4U &&
         render->expected_bytes == render->stride * render->height
     );
@@ -419,8 +419,8 @@ static void doomgeneric_fill_shared_frame_render(struct a90_doomgeneric_frame_re
     render->bytes = -1;
     render->shared_frame = true;
     render->geometry_ok = (
-        render->width == 640U &&
-        render->height == 400U &&
+        render->width > 0U &&
+        render->height > 0U &&
         render->stride == render->width * 4U &&
         render->expected_bytes == render->stride * render->height
     );
