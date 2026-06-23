@@ -30,6 +30,7 @@ struct a90_kms_state {
     uint32_t connector_id;
     uint32_t encoder_id;
     uint32_t crtc_id;
+    int crtc_index;
     uint32_t fb_id[2];
     uint32_t handle[2];
     uint32_t width;
@@ -56,8 +57,11 @@ struct a90_kms_scaled_plane_state {
 
 struct a90_kms_plane_select_result {
     int stage;
+    int crtc_index;
+    int used_cached_crtc_index;
     int universal_cap_rc;
     int atomic_cap_rc;
+    int fetch_resources_rc;
     uint32_t plane_count;
     uint32_t compatible_count;
     uint32_t idle_xbgr_count;
@@ -65,6 +69,7 @@ struct a90_kms_plane_select_result {
 
 static struct a90_kms_state kms_state = {
     .fd = -1,
+    .crtc_index = -1,
     .map = { MAP_FAILED, MAP_FAILED },
 };
 
@@ -296,17 +301,30 @@ oom:
 static int drm_pick_crtc_id(const struct drm_mode_get_encoder *encoder,
                             const uint32_t *crtcs,
                             uint32_t count_crtcs,
-                            uint32_t *crtc_id_out) {
+                            uint32_t *crtc_id_out,
+                            int *crtc_index_out) {
     uint32_t index;
 
     if (encoder->crtc_id != 0) {
-        *crtc_id_out = encoder->crtc_id;
-        return 0;
+        for (index = 0; index < count_crtcs; ++index) {
+            if (crtcs[index] == encoder->crtc_id) {
+                *crtc_id_out = encoder->crtc_id;
+                if (crtc_index_out != NULL) {
+                    *crtc_index_out = (int)index;
+                }
+                return 0;
+            }
+        }
+        errno = ENODEV;
+        return -1;
     }
 
     for (index = 0; index < count_crtcs; ++index) {
         if ((encoder->possible_crtcs & (1U << index)) != 0) {
             *crtc_id_out = crtcs[index];
+            if (crtc_index_out != NULL) {
+                *crtc_index_out = (int)index;
+            }
             return 0;
         }
     }
@@ -332,6 +350,7 @@ static int kms_find_output(int fd,
                            uint32_t *connector_id_out,
                            uint32_t *encoder_id_out,
                            uint32_t *crtc_id_out,
+                           int *crtc_index_out,
                            struct drm_mode_modeinfo *mode_out) {
     struct drm_mode_card_res res;
     uint32_t *crtcs = NULL;
@@ -379,6 +398,7 @@ static int kms_find_output(int fd,
             struct drm_mode_get_encoder encoder;
             uint32_t encoder_id = conn.encoder_id;
             uint32_t crtc_id;
+            int crtc_index;
 
             if (encoder_id == 0 && conn.count_encoders > 0) {
                 encoder_id = connector_encoders[0];
@@ -397,7 +417,7 @@ static int kms_find_output(int fd,
                 continue;
             }
 
-            if (drm_pick_crtc_id(&encoder, crtcs, res.count_crtcs, &crtc_id) < 0) {
+            if (drm_pick_crtc_id(&encoder, crtcs, res.count_crtcs, &crtc_id, &crtc_index) < 0) {
                 if (verbose) {
                     a90_console_printf("kmsprobe: no CRTC for encoder %u\r\n", encoder.encoder_id);
                 }
@@ -409,12 +429,16 @@ static int kms_find_output(int fd,
             *connector_id_out = conn.connector_id;
             *encoder_id_out = encoder.encoder_id;
             *crtc_id_out = crtc_id;
+            if (crtc_index_out != NULL) {
+                *crtc_index_out = crtc_index;
+            }
             *mode_out = modes[mode_index];
             rc = 0;
 
             if (verbose) {
-                a90_console_printf("kmsprobe: selected connector=%u encoder=%u crtc=%u mode=%s\r\n",
-                        *connector_id_out, *encoder_id_out, *crtc_id_out, mode_out->name);
+                a90_console_printf("kmsprobe: selected connector=%u encoder=%u crtc=%u crtc_index=%d mode=%s\r\n",
+                        *connector_id_out, *encoder_id_out, *crtc_id_out,
+                        crtc_index, mode_out->name);
             }
 
             free(modes);
@@ -567,8 +591,10 @@ static int kms_select_unused_scaled_plane(uint32_t *plane_id_out,
     if (select != NULL) {
         memset(select, 0, sizeof(*select));
         select->stage = A90_KMS_SCALED_PLANE_STAGE_INPUT;
+        select->crtc_index = -1;
         select->universal_cap_rc = -ENODEV;
         select->atomic_cap_rc = -ENODEV;
+        select->fetch_resources_rc = 0;
     }
     if (kms_state.fd < 0 || plane_id_out == NULL) {
         errno = ENODEV;
@@ -584,19 +610,34 @@ static int kms_select_unused_scaled_plane(uint32_t *plane_id_out,
         (void)drm_set_client_cap_value(kms_state.fd, DRM_CLIENT_CAP_UNIVERSAL_PLANES, 1);
         (void)drm_set_client_cap_value(kms_state.fd, DRM_CLIENT_CAP_ATOMIC, 1);
     }
-    if (select != NULL) {
-        select->stage = A90_KMS_SCALED_PLANE_STAGE_FETCH_RESOURCES;
-    }
-    if (drm_fetch_resources(kms_state.fd, &res, &crtcs, &connectors, &encoders) < 0) {
-        return -1;
-    }
-    if (select != NULL) {
-        select->stage = A90_KMS_SCALED_PLANE_STAGE_FIND_CRTC;
-    }
-    crtc_index = drm_find_crtc_index(crtcs, res.count_crtcs, kms_state.crtc_id);
-    if (crtc_index < 0) {
-        errno = ENODEV;
-        goto out;
+    if (kms_state.crtc_index >= 0) {
+        crtc_index = kms_state.crtc_index;
+        if (select != NULL) {
+            select->stage = A90_KMS_SCALED_PLANE_STAGE_FIND_CRTC;
+            select->crtc_index = crtc_index;
+            select->used_cached_crtc_index = 1;
+        }
+    } else {
+        if (select != NULL) {
+            select->stage = A90_KMS_SCALED_PLANE_STAGE_FETCH_RESOURCES;
+        }
+        if (drm_fetch_resources(kms_state.fd, &res, &crtcs, &connectors, &encoders) < 0) {
+            if (select != NULL) {
+                select->fetch_resources_rc = negative_errno_or(EIO);
+            }
+            return -1;
+        }
+        if (select != NULL) {
+            select->stage = A90_KMS_SCALED_PLANE_STAGE_FIND_CRTC;
+        }
+        crtc_index = drm_find_crtc_index(crtcs, res.count_crtcs, kms_state.crtc_id);
+        if (crtc_index < 0) {
+            errno = ENODEV;
+            goto out;
+        }
+        if (select != NULL) {
+            select->crtc_index = crtc_index;
+        }
     }
     if (select != NULL) {
         select->stage = A90_KMS_SCALED_PLANE_STAGE_FETCH_PLANES;
@@ -738,6 +779,7 @@ int a90_kms_begin_frame(uint32_t color) {
     uint32_t connector_id;
     uint32_t encoder_id;
     uint32_t crtc_id;
+    int crtc_index;
     struct drm_mode_modeinfo mode;
     void *map;
     uint32_t next_buffer;
@@ -769,7 +811,7 @@ int a90_kms_begin_frame(uint32_t color) {
     }
     (void)preferred_depth;
 
-    if (kms_find_output(fd, false, &connector_id, &encoder_id, &crtc_id, &mode) < 0) {
+    if (kms_find_output(fd, false, &connector_id, &encoder_id, &crtc_id, &crtc_index, &mode) < 0) {
         a90_console_printf("kmssolid: no connected output: %s\r\n", strerror(errno));
         close(fd);
         return -1;
@@ -831,6 +873,7 @@ int a90_kms_begin_frame(uint32_t color) {
     kms_state.connector_id = connector_id;
     kms_state.encoder_id = encoder_id;
     kms_state.crtc_id = crtc_id;
+    kms_state.crtc_index = crtc_index;
     kms_state.width = create.width;
     kms_state.height = create.height;
     kms_state.current_buffer = 0;
@@ -1030,8 +1073,11 @@ static void kms_scaled_plane_copy_select_result(struct a90_kms_scaled_plane_resu
         return;
     }
     result->stage = select->stage;
+    result->crtc_index = select->crtc_index;
+    result->used_cached_crtc_index = select->used_cached_crtc_index;
     result->universal_cap_rc = select->universal_cap_rc;
     result->atomic_cap_rc = select->atomic_cap_rc;
+    result->fetch_resources_rc = select->fetch_resources_rc;
     result->plane_count = select->plane_count;
     result->compatible_count = select->compatible_count;
     result->idle_xbgr_count = select->idle_xbgr_count;
@@ -1196,6 +1242,7 @@ int a90_kms_present_scaled_plane_xbgr8888(const uint32_t *source,
     if (result != NULL) {
         memset(result, 0, sizeof(*result));
         result->stage = A90_KMS_SCALED_PLANE_STAGE_NONE;
+        result->crtc_index = -1;
         result->universal_cap_rc = -ENODEV;
         result->atomic_cap_rc = -ENODEV;
         result->rc = -EINVAL;
@@ -1249,6 +1296,7 @@ int a90_kms_present_scaled_plane_xbgr8888(const uint32_t *source,
         result->plane_id = kms_scaled_plane.plane_id;
         result->fb_id = kms_scaled_plane.fb_id[next_buffer];
         result->crtc_id = kms_state.crtc_id;
+        result->crtc_index = kms_state.crtc_index;
         result->stage = A90_KMS_SCALED_PLANE_STAGE_SETPLANE;
     }
     if (drm_ioctl_retry(kms_state.fd, DRM_IOCTL_MODE_SETPLANE, &setplane) < 0) {
@@ -1306,6 +1354,7 @@ void a90_kms_info(struct a90_kms_info *info) {
     info->connector_id = kms_state.connector_id;
     info->encoder_id = kms_state.encoder_id;
     info->crtc_id = kms_state.crtc_id;
+    info->crtc_index = kms_state.crtc_index;
     info->fb_id = kms_state.fb_id[kms_state.current_buffer];
     info->current_buffer = kms_state.current_buffer;
 }
@@ -1319,6 +1368,7 @@ int a90_kms_probe(bool verbose) {
     uint32_t connector_id;
     uint32_t encoder_id;
     uint32_t crtc_id;
+    int crtc_index;
     struct drm_mode_modeinfo mode;
 
     fd = kms_open_card(verbose, node_path, sizeof(node_path));
@@ -1337,9 +1387,9 @@ int a90_kms_probe(bool verbose) {
                 (unsigned long long)preferred_depth);
     }
 
-    if (kms_find_output(fd, verbose, &connector_id, &encoder_id, &crtc_id, &mode) == 0) {
-        a90_console_printf("kmsprobe: chosen connector=%u encoder=%u crtc=%u mode=%s %ux%u@%u\r\n",
-                connector_id, encoder_id, crtc_id,
+    if (kms_find_output(fd, verbose, &connector_id, &encoder_id, &crtc_id, &crtc_index, &mode) == 0) {
+        a90_console_printf("kmsprobe: chosen connector=%u encoder=%u crtc=%u crtc_index=%d mode=%s %ux%u@%u\r\n",
+                connector_id, encoder_id, crtc_id, crtc_index,
                 mode.name, mode.hdisplay, mode.vdisplay, mode.vrefresh);
     } else {
         a90_console_printf("kmsprobe: no usable display path: %s\r\n", strerror(errno));

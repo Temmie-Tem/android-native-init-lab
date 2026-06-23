@@ -23,6 +23,7 @@ struct a90_kms_info {
     uint32_t connector_id;
     uint32_t encoder_id;
     uint32_t crtc_id;
+    int crtc_index;
     uint32_t fb_id;
     uint32_t current_buffer;
 };
@@ -44,8 +45,11 @@ struct a90_kms_scaled_plane_result {
     uint32_t compatible_count;
     uint32_t idle_xbgr_count;
     int stage;
+    int crtc_index;
+    int used_cached_crtc_index;
     int universal_cap_rc;
     int atomic_cap_rc;
+    int fetch_resources_rc;
     int rc;
 };
 
