@@ -79,6 +79,7 @@ PRE_SCALED_LARGE_FRAME = 0
 NATIVE_DOOM_PRESENT_PAGEFLIP = 0
 REUSE_FRAME_BUFFER = 0
 DIRECT_SHARED_BLIT = 0
+FOREGROUND_FRAME_LOG = 1
 NO_FULL_CLEAR = 0
 DASHBOARD_METRICS_INTERVAL_FRAMES = 1
 FRAME_TIMING_PROBE = 0
@@ -408,6 +409,11 @@ def patch_ramdisk_with_doomgeneric_helper() -> None:
             doomgeneric_flags = (
                 *doomgeneric_flags,
                 numeric_define("VIDEO_DEMO_DOOMGENERIC_DIRECT_SHARED_BLIT", 1),
+            )
+        if not FOREGROUND_FRAME_LOG:
+            doomgeneric_flags = (
+                *doomgeneric_flags,
+                numeric_define("VIDEO_DEMO_DOOMGENERIC_FOREGROUND_FRAME_LOG", 0),
             )
         if DASHBOARD_METRICS_INTERVAL_FRAMES > 1:
             doomgeneric_flags = (

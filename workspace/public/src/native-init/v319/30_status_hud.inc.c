@@ -2554,6 +2554,9 @@ static int cmd_doomplay(char **argv, int argc);
 #ifndef VIDEO_DEMO_DOOMGENERIC_DIRECT_SHARED_BLIT
 #define VIDEO_DEMO_DOOMGENERIC_DIRECT_SHARED_BLIT 0
 #endif
+#ifndef VIDEO_DEMO_DOOMGENERIC_FOREGROUND_FRAME_LOG
+#define VIDEO_DEMO_DOOMGENERIC_FOREGROUND_FRAME_LOG 1
+#endif
 
 #ifndef VIDEO_DEMO_DOOMGENERIC_DASHBOARD_METRICS_INTERVAL_FRAMES
 #define VIDEO_DEMO_DOOMGENERIC_DASHBOARD_METRICS_INTERVAL_FRAMES 1U
@@ -4855,10 +4858,63 @@ static int video_demo_doom_run_visible_loop(uint32_t frames,
                            VIDEO_DEMO_DOOMGENERIC_GAMETIC_PRESENT_ONLY ? 1 : 0);
         a90_console_printf("video.demo.doom.loop.presenter.tick_pace_interval_us=%u\r\n",
                            (unsigned int)VIDEO_DEMO_DOOMGENERIC_TICK_PACE_INTERVAL_US);
+        a90_console_printf("video.demo.doom.loop.foreground_frame_log=%d\r\n",
+                           VIDEO_DEMO_DOOMGENERIC_FOREGROUND_FRAME_LOG ? 1 : 0);
         a90_console_printf("video.demo.doom.loop.present_mode=%s\r\n",
                            video_demo_doom_present_mode_name());
         a90_console_printf("video.demo.doom.loop.present_path=%s\r\n",
                            video_demo_doom_present_path_name());
+#if A90_DOOMGENERIC_NATIVE_DASHBOARD
+        a90_console_printf("video.demo.doom.dashboard.native=1\r\n");
+#if A90_DOOMGENERIC_NATIVE_DASHBOARD_MINIMAL
+        a90_console_printf("video.demo.doom.dashboard.profile=minimal-fastdraw\r\n");
+        a90_console_printf("video.demo.doom.dashboard.layout=top-frame-minimal-input\r\n");
+        a90_console_printf("video.demo.doom.dashboard.redraw=doom-frame-plus-compact-status\r\n");
+#else
+        a90_console_printf("video.demo.doom.dashboard.layout=top-frame-metrics-logs-input\r\n");
+#endif
+        a90_console_printf("video.demo.doom.dashboard.presenter_log=%s\r\n",
+                           VIDEO_DEMO_DOOMGENERIC_FOREGROUND_FRAME_LOG ?
+                           "quiet-per-frame" : "summary-only");
+#if A90_DOOMGENERIC_NATIVE_DASHBOARD_LARGE_FRAME
+        a90_console_printf("video.demo.doom.dashboard.large_frame=1\r\n");
+#if VIDEO_DEMO_DOOMGENERIC_PRE_SCALED_LARGE_FRAME
+        a90_console_printf("video.demo.doom.dashboard.pre_scaled_large_frame=1\r\n");
+        a90_console_printf("video.demo.doom.dashboard.frame_mode=minimal-large-pre-scaled-producer\r\n");
+        a90_console_printf("video.demo.doom.dashboard.frame_scale=1:1-pre-scaled\r\n");
+        a90_console_printf("video.demo.doom.dashboard.scale_path=producer-pre-scaled-raw-rowcopy\r\n");
+#elif VIDEO_DEMO_DOOMGENERIC_HW_PLANE_SCALE
+        a90_console_printf("video.demo.doom.dashboard.frame_mode=minimal-large-hw-plane-scale\r\n");
+        a90_console_printf("video.demo.doom.dashboard.frame_scale=3:2\r\n");
+        a90_console_printf("video.demo.doom.dashboard.scale_path=drm-plane-srcdst\r\n");
+#else
+        a90_console_printf("video.demo.doom.dashboard.frame_mode=minimal-large-fastscale\r\n");
+        a90_console_printf("video.demo.doom.dashboard.frame_scale=3:2\r\n");
+        a90_console_printf("video.demo.doom.dashboard.scale_path=fast-3to2-rowcopy\r\n");
+#endif
+#else
+        a90_console_printf("video.demo.doom.dashboard.large_frame=0\r\n");
+        a90_console_printf("video.demo.doom.dashboard.frame_mode=minimal-dashboard\r\n");
+        a90_console_printf("video.demo.doom.dashboard.frame_scale=1:1\r\n");
+        a90_console_printf("video.demo.doom.dashboard.scale_path=raw-rowcopy\r\n");
+#endif
+        a90_console_printf("video.demo.doom.dashboard.metrics_interval_frames=%u\r\n",
+                           (unsigned int)VIDEO_DEMO_DOOMGENERIC_DASHBOARD_METRICS_INTERVAL_FRAMES);
+#if VIDEO_DEMO_DOOMGENERIC_DASHBOARD_METRICS_INTERVAL_FRAMES > 1U
+        a90_console_printf("video.demo.doom.dashboard.metrics_pacing=cached-frame-interval\r\n");
+#else
+        a90_console_printf("video.demo.doom.dashboard.metrics_pacing=disabled-minimal\r\n");
+#endif
+#if VIDEO_DEMO_DOOMGENERIC_NO_FULL_CLEAR
+        a90_console_printf("video.demo.doom.dashboard.full_clear=0\r\n");
+        a90_console_printf("video.demo.doom.dashboard.clear_path=dirty-dashboard-regions\r\n");
+#else
+        a90_console_printf("video.demo.doom.dashboard.full_clear=1\r\n");
+        a90_console_printf("video.demo.doom.dashboard.clear_path=full-frame-fill\r\n");
+#endif
+#else
+        a90_console_printf("video.demo.doom.dashboard.native=0\r\n");
+#endif
 #if VIDEO_DEMO_DOOMGENERIC_FRAME_TIMING_PROBE
         a90_console_printf("video.demo.doom.loop.timing_probe=1\r\n");
         a90_console_printf("video.demo.doom.loop.timing=frame-ipc-kms-stage-us\r\n");
@@ -4976,7 +5032,8 @@ static int video_demo_doom_run_visible_loop(uint32_t frames,
 #endif
         if (read_rc == 0 && render.ok && render.frame_id != last_presented_frame_id) {
             present_rc = video_demo_doom_present_frame_file_ex(&render,
-                                                               !background_child,
+                                                               !background_child &&
+                                                               VIDEO_DEMO_DOOMGENERIC_FOREGROUND_FRAME_LOG,
                                                                presented + 1U,
                                                                frames,
                                                                poll_count,
