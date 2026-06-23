@@ -3022,6 +3022,8 @@ static int video_demo_doom_present_large_frame_path(
                            plane.plane_id);
         a90_console_printf("video.demo.doom.dashboard.hw_plane.fb_id=%u\r\n",
                            plane.fb_id);
+        a90_console_printf("video.demo.doom.dashboard.hw_plane.atomic_attempted=%d\r\n",
+                           plane.atomic_attempted ? 1 : 0);
         a90_console_printf("video.demo.doom.dashboard.hw_plane.stage=%s\r\n",
                            a90_kms_scaled_plane_stage_name(plane.stage));
         a90_console_printf("video.demo.doom.dashboard.hw_plane.stage_id=%d\r\n",
@@ -3042,6 +3044,14 @@ static int video_demo_doom_present_large_frame_path(
                            plane.atomic_cap_rc);
         a90_console_printf("video.demo.doom.dashboard.hw_plane.fetch_resources_rc=%d\r\n",
                            plane.fetch_resources_rc);
+        a90_console_printf("video.demo.doom.dashboard.hw_plane.atomic_props_rc=%d\r\n",
+                           plane.atomic_props_rc);
+        a90_console_printf("video.demo.doom.dashboard.hw_plane.atomic_prop_count=%u\r\n",
+                           plane.atomic_prop_count);
+        a90_console_printf("video.demo.doom.dashboard.hw_plane.atomic_commit_rc=%d\r\n",
+                           plane.atomic_commit_rc);
+        a90_console_printf("video.demo.doom.dashboard.hw_plane.legacy_setplane_rc=%d\r\n",
+                           plane.legacy_setplane_rc);
         a90_console_printf("video.demo.doom.dashboard.hw_plane.rc=%d\r\n",
                            plane_rc == 0 ? 0 : plane.rc);
     }

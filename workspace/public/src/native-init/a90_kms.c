@@ -42,6 +42,35 @@ struct a90_kms_state {
     struct drm_mode_modeinfo mode;
 };
 
+struct a90_kms_plane_select_result {
+    int stage;
+    int crtc_index;
+    int used_cached_crtc_index;
+    int universal_cap_rc;
+    int atomic_cap_rc;
+    int fetch_resources_rc;
+    uint32_t plane_count;
+    uint32_t compatible_count;
+    uint32_t idle_xbgr_count;
+};
+
+struct a90_kms_atomic_plane_props {
+    bool fetched;
+    bool ready;
+    uint32_t count;
+    uint32_t fb_id;
+    uint32_t crtc_id;
+    uint32_t crtc_x;
+    uint32_t crtc_y;
+    uint32_t crtc_w;
+    uint32_t crtc_h;
+    uint32_t src_x;
+    uint32_t src_y;
+    uint32_t src_w;
+    uint32_t src_h;
+    int rc;
+};
+
 struct a90_kms_scaled_plane_state {
     uint32_t plane_id;
     uint32_t fb_id[2];
@@ -53,18 +82,9 @@ struct a90_kms_scaled_plane_state {
     void *map[2];
     uint32_t current_buffer;
     bool enabled;
-};
-
-struct a90_kms_plane_select_result {
-    int stage;
-    int crtc_index;
-    int used_cached_crtc_index;
-    int universal_cap_rc;
-    int atomic_cap_rc;
-    int fetch_resources_rc;
-    uint32_t plane_count;
-    uint32_t compatible_count;
-    uint32_t idle_xbgr_count;
+    struct a90_kms_plane_select_result select;
+    bool has_select;
+    struct a90_kms_atomic_plane_props atomic_props;
 };
 
 static struct a90_kms_state kms_state = {
@@ -543,6 +563,114 @@ static int drm_set_client_cap_result(int fd, uint64_t capability, uint64_t value
     return 0;
 }
 
+static void drm_note_atomic_plane_prop(struct a90_kms_atomic_plane_props *props,
+                                       uint32_t prop_id,
+                                       const char *name) {
+    if (props == NULL || name == NULL) {
+        return;
+    }
+    if (strcmp(name, "FB_ID") == 0) {
+        props->fb_id = prop_id;
+    } else if (strcmp(name, "CRTC_ID") == 0) {
+        props->crtc_id = prop_id;
+    } else if (strcmp(name, "CRTC_X") == 0) {
+        props->crtc_x = prop_id;
+    } else if (strcmp(name, "CRTC_Y") == 0) {
+        props->crtc_y = prop_id;
+    } else if (strcmp(name, "CRTC_W") == 0) {
+        props->crtc_w = prop_id;
+    } else if (strcmp(name, "CRTC_H") == 0) {
+        props->crtc_h = prop_id;
+    } else if (strcmp(name, "SRC_X") == 0) {
+        props->src_x = prop_id;
+    } else if (strcmp(name, "SRC_Y") == 0) {
+        props->src_y = prop_id;
+    } else if (strcmp(name, "SRC_W") == 0) {
+        props->src_w = prop_id;
+    } else if (strcmp(name, "SRC_H") == 0) {
+        props->src_h = prop_id;
+    }
+}
+
+static bool kms_atomic_plane_props_ready(const struct a90_kms_atomic_plane_props *props) {
+    return props != NULL &&
+           props->fb_id != 0U &&
+           props->crtc_id != 0U &&
+           props->crtc_x != 0U &&
+           props->crtc_y != 0U &&
+           props->crtc_w != 0U &&
+           props->crtc_h != 0U &&
+           props->src_x != 0U &&
+           props->src_y != 0U &&
+           props->src_w != 0U &&
+           props->src_h != 0U;
+}
+
+static int kms_fetch_atomic_plane_props(uint32_t plane_id,
+                                        struct a90_kms_atomic_plane_props *props) {
+    struct drm_mode_obj_get_properties obj_props;
+    uint32_t *prop_ids = NULL;
+    uint64_t *prop_values = NULL;
+    uint32_t index;
+
+    if (kms_state.fd < 0 || plane_id == 0U || props == NULL) {
+        errno = EINVAL;
+        return -1;
+    }
+    memset(props, 0, sizeof(*props));
+    props->rc = -ENODEV;
+    memset(&obj_props, 0, sizeof(obj_props));
+    obj_props.obj_id = plane_id;
+    obj_props.obj_type = DRM_MODE_OBJECT_PLANE;
+    if (drm_ioctl_retry(kms_state.fd, DRM_IOCTL_MODE_OBJ_GETPROPERTIES, &obj_props) < 0) {
+        props->fetched = false;
+        props->rc = negative_errno_or(EIO);
+        return -1;
+    }
+    props->fetched = true;
+    props->count = obj_props.count_props;
+    if (obj_props.count_props == 0U) {
+        errno = ENODEV;
+        props->rc = -ENODEV;
+        return -1;
+    }
+    prop_ids = calloc(obj_props.count_props, sizeof(*prop_ids));
+    prop_values = calloc(obj_props.count_props, sizeof(*prop_values));
+    if (prop_ids == NULL || prop_values == NULL) {
+        free(prop_ids);
+        free(prop_values);
+        errno = ENOMEM;
+        props->rc = -ENOMEM;
+        return -1;
+    }
+    obj_props.props_ptr = (uintptr_t)prop_ids;
+    obj_props.prop_values_ptr = (uintptr_t)prop_values;
+    if (drm_ioctl_retry(kms_state.fd, DRM_IOCTL_MODE_OBJ_GETPROPERTIES, &obj_props) < 0) {
+        props->rc = negative_errno_or(EIO);
+        free(prop_ids);
+        free(prop_values);
+        return -1;
+    }
+    for (index = 0; index < obj_props.count_props; ++index) {
+        struct drm_mode_get_property prop;
+
+        memset(&prop, 0, sizeof(prop));
+        prop.prop_id = prop_ids[index];
+        if (drm_ioctl_retry(kms_state.fd, DRM_IOCTL_MODE_GETPROPERTY, &prop) == 0) {
+            drm_note_atomic_plane_prop(props, prop_ids[index], prop.name);
+        }
+    }
+    free(prop_ids);
+    free(prop_values);
+    props->ready = kms_atomic_plane_props_ready(props);
+    props->rc = props->ready ? 0 : -ENODEV;
+    if (!props->ready) {
+        errno = ENODEV;
+        return -1;
+    }
+    return 0;
+}
+
 const char *a90_kms_scaled_plane_stage_name(int stage) {
     switch (stage) {
     case A90_KMS_SCALED_PLANE_STAGE_NONE:
@@ -571,6 +699,10 @@ const char *a90_kms_scaled_plane_stage_name(int stage) {
         return "setplane";
     case A90_KMS_SCALED_PLANE_STAGE_PRESENTED:
         return "presented";
+    case A90_KMS_SCALED_PLANE_STAGE_ATOMIC_PROPS:
+        return "atomic-props";
+    case A90_KMS_SCALED_PLANE_STAGE_ATOMIC_COMMIT:
+        return "atomic-commit";
     default:
         return "unknown";
     }
@@ -1083,6 +1215,13 @@ static void kms_scaled_plane_copy_select_result(struct a90_kms_scaled_plane_resu
     result->idle_xbgr_count = select->idle_xbgr_count;
 }
 
+static void kms_scaled_plane_copy_cached_select_result(struct a90_kms_scaled_plane_result *result) {
+    if (result == NULL || !kms_scaled_plane.has_select) {
+        return;
+    }
+    kms_scaled_plane_copy_select_result(result, &kms_scaled_plane.select);
+}
+
 static int kms_scaled_plane_create_buffers(uint32_t width,
                                            uint32_t height,
                                            struct a90_kms_scaled_plane_result *result) {
@@ -1207,10 +1346,16 @@ static int kms_scaled_plane_ensure(uint32_t width,
             }
             return -1;
         }
+        kms_scaled_plane.select = select;
+        kms_scaled_plane.has_select = true;
+        memset(&kms_scaled_plane.atomic_props, 0, sizeof(kms_scaled_plane.atomic_props));
+        kms_scaled_plane.atomic_props.rc = -ENODEV;
         selected_this_call = true;
     }
     if (selected_this_call) {
         kms_scaled_plane_copy_select_result(result, &select);
+    } else {
+        kms_scaled_plane_copy_cached_select_result(result);
     }
     if (kms_scaled_plane.plane_id != 0U) {
         if (result != NULL && result->plane_id == 0U) {
@@ -1224,6 +1369,79 @@ static int kms_scaled_plane_ensure(uint32_t width,
         return 0;
     }
     return kms_scaled_plane_create_buffers(width, height, result);
+}
+
+static int kms_scaled_plane_atomic_commit(uint32_t fb_id,
+                                          uint32_t dst_x,
+                                          uint32_t dst_y,
+                                          uint32_t dst_width,
+                                          uint32_t dst_height,
+                                          uint32_t source_width,
+                                          uint32_t source_height,
+                                          struct a90_kms_scaled_plane_result *result) {
+    const struct a90_kms_atomic_plane_props *props = &kms_scaled_plane.atomic_props;
+    uint32_t objs[1];
+    uint32_t count_props[1];
+    uint32_t prop_ids[10];
+    uint64_t prop_values[10];
+    struct drm_mode_atomic atomic;
+    uint32_t index = 0U;
+
+    if (result != NULL) {
+        result->atomic_attempted = true;
+        result->atomic_prop_count = props->count;
+        result->atomic_props_rc = props->rc;
+        result->stage = A90_KMS_SCALED_PLANE_STAGE_ATOMIC_COMMIT;
+    }
+    if (!props->ready || kms_state.fd < 0 || kms_scaled_plane.plane_id == 0U) {
+        errno = ENODEV;
+        if (result != NULL) {
+            result->atomic_commit_rc = -ENODEV;
+        }
+        return -1;
+    }
+
+    prop_ids[index] = props->fb_id;
+    prop_values[index++] = fb_id;
+    prop_ids[index] = props->crtc_id;
+    prop_values[index++] = kms_state.crtc_id;
+    prop_ids[index] = props->crtc_x;
+    prop_values[index++] = dst_x;
+    prop_ids[index] = props->crtc_y;
+    prop_values[index++] = dst_y;
+    prop_ids[index] = props->crtc_w;
+    prop_values[index++] = dst_width;
+    prop_ids[index] = props->crtc_h;
+    prop_values[index++] = dst_height;
+    prop_ids[index] = props->src_x;
+    prop_values[index++] = 0U;
+    prop_ids[index] = props->src_y;
+    prop_values[index++] = 0U;
+    prop_ids[index] = props->src_w;
+    prop_values[index++] = (uint64_t)source_width << 16U;
+    prop_ids[index] = props->src_h;
+    prop_values[index++] = (uint64_t)source_height << 16U;
+
+    objs[0] = kms_scaled_plane.plane_id;
+    count_props[0] = index;
+    memset(&atomic, 0, sizeof(atomic));
+    atomic.count_objs = 1U;
+    atomic.objs_ptr = (uintptr_t)objs;
+    atomic.count_props_ptr = (uintptr_t)count_props;
+    atomic.props_ptr = (uintptr_t)prop_ids;
+    atomic.prop_values_ptr = (uintptr_t)prop_values;
+    if (drm_ioctl_retry(kms_state.fd, DRM_IOCTL_MODE_ATOMIC, &atomic) < 0) {
+        int rc = negative_errno_or(EIO);
+
+        if (result != NULL) {
+            result->atomic_commit_rc = rc;
+        }
+        return -1;
+    }
+    if (result != NULL) {
+        result->atomic_commit_rc = 0;
+    }
+    return 0;
 }
 
 int a90_kms_present_scaled_plane_xbgr8888(const uint32_t *source,
@@ -1245,6 +1463,9 @@ int a90_kms_present_scaled_plane_xbgr8888(const uint32_t *source,
         result->crtc_index = -1;
         result->universal_cap_rc = -ENODEV;
         result->atomic_cap_rc = -ENODEV;
+        result->atomic_props_rc = -ENODEV;
+        result->atomic_commit_rc = -ENODEV;
+        result->legacy_setplane_rc = -ENODEV;
         result->rc = -EINVAL;
     }
     if (source == NULL || source_width == 0U || source_height == 0U ||
@@ -1279,6 +1500,41 @@ int a90_kms_present_scaled_plane_xbgr8888(const uint32_t *source,
                (size_t)source_width * sizeof(uint32_t));
     }
 
+    if (!kms_scaled_plane.atomic_props.fetched) {
+        if (result != NULL) {
+            result->stage = A90_KMS_SCALED_PLANE_STAGE_ATOMIC_PROPS;
+        }
+        (void)kms_fetch_atomic_plane_props(kms_scaled_plane.plane_id,
+                                           &kms_scaled_plane.atomic_props);
+    }
+    if (result != NULL) {
+        result->atomic_prop_count = kms_scaled_plane.atomic_props.count;
+        result->atomic_props_rc = kms_scaled_plane.atomic_props.rc;
+    }
+    if (kms_scaled_plane.atomic_props.ready &&
+        kms_scaled_plane_atomic_commit(kms_scaled_plane.fb_id[next_buffer],
+                                       dst_x,
+                                       dst_y,
+                                       dst_width,
+                                       dst_height,
+                                       source_width,
+                                       source_height,
+                                       result) == 0) {
+        kms_scaled_plane.current_buffer = next_buffer;
+        kms_scaled_plane.enabled = true;
+        if (result != NULL) {
+            result->attempted = true;
+            result->presented = true;
+            result->plane_id = kms_scaled_plane.plane_id;
+            result->fb_id = kms_scaled_plane.fb_id[next_buffer];
+            result->crtc_id = kms_state.crtc_id;
+            result->crtc_index = kms_state.crtc_index;
+            result->stage = A90_KMS_SCALED_PLANE_STAGE_PRESENTED;
+            result->rc = 0;
+        }
+        return 0;
+    }
+
     memset(&setplane, 0, sizeof(setplane));
     setplane.plane_id = kms_scaled_plane.plane_id;
     setplane.crtc_id = kms_state.crtc_id;
@@ -1301,7 +1557,8 @@ int a90_kms_present_scaled_plane_xbgr8888(const uint32_t *source,
     }
     if (drm_ioctl_retry(kms_state.fd, DRM_IOCTL_MODE_SETPLANE, &setplane) < 0) {
         if (result != NULL) {
-            result->rc = negative_errno_or(EIO);
+            result->legacy_setplane_rc = negative_errno_or(EIO);
+            result->rc = result->legacy_setplane_rc;
         }
         return -1;
     }
@@ -1310,6 +1567,7 @@ int a90_kms_present_scaled_plane_xbgr8888(const uint32_t *source,
     if (result != NULL) {
         result->presented = true;
         result->stage = A90_KMS_SCALED_PLANE_STAGE_PRESENTED;
+        result->legacy_setplane_rc = 0;
         result->rc = 0;
     }
     return 0;

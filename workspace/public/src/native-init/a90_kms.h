@@ -38,9 +38,11 @@ struct a90_kms_flip_result {
 struct a90_kms_scaled_plane_result {
     bool attempted;
     bool presented;
+    bool atomic_attempted;
     uint32_t plane_id;
     uint32_t fb_id;
     uint32_t crtc_id;
+    uint32_t atomic_prop_count;
     uint32_t plane_count;
     uint32_t compatible_count;
     uint32_t idle_xbgr_count;
@@ -50,6 +52,9 @@ struct a90_kms_scaled_plane_result {
     int universal_cap_rc;
     int atomic_cap_rc;
     int fetch_resources_rc;
+    int atomic_props_rc;
+    int atomic_commit_rc;
+    int legacy_setplane_rc;
     int rc;
 };
 
@@ -66,6 +71,8 @@ struct a90_kms_scaled_plane_result {
 #define A90_KMS_SCALED_PLANE_STAGE_MMAP 10
 #define A90_KMS_SCALED_PLANE_STAGE_SETPLANE 11
 #define A90_KMS_SCALED_PLANE_STAGE_PRESENTED 12
+#define A90_KMS_SCALED_PLANE_STAGE_ATOMIC_PROPS 13
+#define A90_KMS_SCALED_PLANE_STAGE_ATOMIC_COMMIT 14
 
 int a90_kms_begin_frame(uint32_t color);
 int a90_kms_begin_frame_no_clear(void);
