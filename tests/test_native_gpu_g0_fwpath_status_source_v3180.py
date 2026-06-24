@@ -64,8 +64,9 @@ class NativeGpuG0FwpathStatusSourceV3180Tests(unittest.TestCase):
     def test_dispatch_exposes_gpu_g0_commands(self) -> None:
         source = DISPATCH.read_text(encoding="utf-8")
         self.assertIn('static int handle_gpu(char **argv, int argc)', source)
-        self.assertIn('{ "gpu", handle_gpu, "gpu [g0-status|g0-open-probe', source)
+        self.assertIn('{ "gpu", handle_gpu, "gpu [g0-status|g0-fwclass-prepare|g0-open-probe', source)
         self.assertIn('strcmp(subcommand, "g0-status")', source)
+        self.assertIn('strcmp(subcommand, "g0-fwclass-prepare")', source)
         self.assertIn('strcmp(subcommand, "g0-open-probe")', source)
         self.assertIn('"--materialize-devnode"', source)
         self.assertIn('"--timeout-ms"', source)
@@ -103,7 +104,8 @@ class NativeGpuG0FwpathStatusSourceV3180Tests(unittest.TestCase):
 
         self.assertIn('GPU_G0_SYSFS_DEV "/sys/class/kgsl/kgsl-3d0/dev"', source)
         self.assertIn('GPU_G0_SYSFS_UEVENT "/sys/class/kgsl/kgsl-3d0/uevent"', source)
-        self.assertIn('"/sys/module/firmware_class/parameters/path"', status_section)
+        self.assertIn('GPU_G0_FWCLASS_PATH "/sys/module/firmware_class/parameters/path"', source)
+        self.assertIn('"fwclass_path", GPU_G0_FWCLASS_PATH', status_section)
         self.assertIn('"/vendor/firmware/a630_sqe.fw"', status_section)
         self.assertIn('"/vendor/firmware/a640_gmu.bin"', status_section)
         self.assertIn('"/firmware/a630_sqe.fw"', status_section)
@@ -121,7 +123,7 @@ class NativeGpuG0FwpathStatusSourceV3180Tests(unittest.TestCase):
 
     def test_help_lists_gpu_command(self) -> None:
         source = BASIC.read_text(encoding="utf-8")
-        self.assertIn("gpu [g0-status|g0-open-probe", source)
+        self.assertIn("gpu [g0-status|g0-fwclass-prepare|g0-open-probe", source)
 
     def test_manifest_metadata_records_g0_policy(self) -> None:
         source = Path(runner.__file__).read_text(encoding="utf-8")

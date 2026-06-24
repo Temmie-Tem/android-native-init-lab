@@ -942,6 +942,21 @@ struct gpu_g0_open_probe_result {
 #define GPU_G0_DEVNODE "/dev/kgsl-3d0"
 #define GPU_G0_SYSFS_DEV "/sys/class/kgsl/kgsl-3d0/dev"
 #define GPU_G0_SYSFS_UEVENT "/sys/class/kgsl/kgsl-3d0/uevent"
+#define GPU_G0_FWCLASS_PATH "/sys/module/firmware_class/parameters/path"
+#define GPU_G0_RUNTIME_FW_DIR "/cache/a90-runtime/pkg/gpu-g0-fw"
+#define GPU_G0_VENDOR_MNT_FW_DIR "/vendor/firmware_mnt/image"
+#define GPU_G0_FW_A630_SQE "a630_sqe.fw"
+#define GPU_G0_FW_A640_GMU "a640_gmu.bin"
+#define GPU_G0_FW_A640_ZAP_MDT "a640_zap.mdt"
+#define GPU_G0_FW_A640_ZAP_B00 "a640_zap.b00"
+#define GPU_G0_FW_A640_ZAP_B01 "a640_zap.b01"
+#define GPU_G0_FW_A640_ZAP_B02 "a640_zap.b02"
+#define GPU_G0_FW_A630_SQE_SIZE 32304
+#define GPU_G0_FW_A640_GMU_SIZE 37680
+#define GPU_G0_FW_A640_ZAP_MDT_SIZE 6860
+#define GPU_G0_FW_A640_ZAP_B00_SIZE 148
+#define GPU_G0_FW_A640_ZAP_B01_SIZE 6712
+#define GPU_G0_FW_A640_ZAP_B02_SIZE 1968
 #define GPU_G0_DEFAULT_TIMEOUT_MS 2000
 #define GPU_G0_MAX_TIMEOUT_MS 10000
 
@@ -999,6 +1014,227 @@ static void gpu_g0_print_stat(const char *key, const char *path) {
     }
 }
 
+static int gpu_g0_join_path(char *out, size_t out_size, const char *dir, const char *name) {
+    if (snprintf(out, out_size, "%s/%s", dir, name) >= (int)out_size) {
+        errno = ENAMETOOLONG;
+        return -ENAMETOOLONG;
+    }
+    return 0;
+}
+
+static int gpu_g0_ensure_runtime_fw_dir(void) {
+    if (ensure_dir("/cache/a90-runtime", 0700) < 0 ||
+        ensure_dir("/cache/a90-runtime/pkg", 0700) < 0 ||
+        ensure_dir(GPU_G0_RUNTIME_FW_DIR, 0700) < 0) {
+        return negative_errno_or(EIO);
+    }
+    return 0;
+}
+
+static int gpu_g0_verify_regular_file(const char *key, const char *path, off_t expected_size) {
+    struct stat st;
+    int saved_errno;
+
+    errno = 0;
+    if (lstat(path, &st) < 0) {
+        saved_errno = errno;
+        a90_console_printf("gpu.g0.fwclass_prepare.%s.path=%s\r\n", key, path);
+        a90_console_printf("gpu.g0.fwclass_prepare.%s.exists=0 errno=%d\r\n", key, saved_errno);
+        return -saved_errno;
+    }
+    a90_console_printf("gpu.g0.fwclass_prepare.%s.path=%s\r\n", key, path);
+    a90_console_printf("gpu.g0.fwclass_prepare.%s.exists=1\r\n", key);
+    a90_console_printf("gpu.g0.fwclass_prepare.%s.is_reg=%d\r\n", key, S_ISREG(st.st_mode) ? 1 : 0);
+    a90_console_printf("gpu.g0.fwclass_prepare.%s.size=%ld\r\n", key, (long)st.st_size);
+    a90_console_printf("gpu.g0.fwclass_prepare.%s.expected_size=%ld\r\n", key, (long)expected_size);
+    if (!S_ISREG(st.st_mode)) {
+        a90_console_printf("gpu.g0.fwclass_prepare.%s.rc=%d\r\n", key, -EINVAL);
+        return -EINVAL;
+    }
+    if (st.st_size != expected_size) {
+        a90_console_printf("gpu.g0.fwclass_prepare.%s.rc=%d\r\n", key, -EOVERFLOW);
+        return -EOVERFLOW;
+    }
+    a90_console_printf("gpu.g0.fwclass_prepare.%s.rc=0\r\n", key);
+    return 0;
+}
+
+static int gpu_g0_copy_regular_file(const char *key,
+                                    const char *src,
+                                    const char *dst,
+                                    off_t expected_size) {
+    char buf[4096];
+    ssize_t nread;
+    off_t total = 0;
+    int in_fd = -1;
+    int out_fd = -1;
+    int rc = 0;
+
+    rc = gpu_g0_verify_regular_file(key, src, expected_size);
+    if (rc < 0) {
+        return rc;
+    }
+    errno = 0;
+    in_fd = open(src, O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
+    if (in_fd < 0) {
+        int saved_errno = errno;
+        a90_console_printf("gpu.g0.fwclass_prepare.%s.open_src_errno=%d\r\n", key, saved_errno);
+        return -saved_errno;
+    }
+    errno = 0;
+    out_fd = open(dst, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC | O_NOFOLLOW, 0644);
+    if (out_fd < 0) {
+        int saved_errno = errno;
+        close(in_fd);
+        a90_console_printf("gpu.g0.fwclass_prepare.%s.open_dst_errno=%d\r\n", key, saved_errno);
+        return -saved_errno;
+    }
+    while ((nread = read(in_fd, buf, sizeof(buf))) > 0) {
+        total += nread;
+        if (total > expected_size) {
+            rc = -EOVERFLOW;
+            a90_console_printf("gpu.g0.fwclass_prepare.%s.copy_overflow=1\r\n", key);
+            break;
+        }
+        if (write_all_checked(out_fd, buf, (size_t)nread) < 0) {
+            rc = negative_errno_or(EIO);
+            a90_console_printf("gpu.g0.fwclass_prepare.%s.write_rc=%d\r\n", key, rc);
+            break;
+        }
+    }
+    if (nread < 0 && rc == 0) {
+        rc = negative_errno_or(EIO);
+        a90_console_printf("gpu.g0.fwclass_prepare.%s.read_rc=%d\r\n", key, rc);
+    }
+    if (rc == 0 && total != expected_size) {
+        rc = -EIO;
+        a90_console_printf("gpu.g0.fwclass_prepare.%s.copy_short=1\r\n", key);
+    }
+    if (rc == 0 && fsync(out_fd) < 0) {
+        rc = negative_errno_or(EIO);
+        a90_console_printf("gpu.g0.fwclass_prepare.%s.fsync_rc=%d\r\n", key, rc);
+    }
+    if (close(out_fd) < 0 && rc == 0) {
+        rc = negative_errno_or(EIO);
+        a90_console_printf("gpu.g0.fwclass_prepare.%s.close_dst_rc=%d\r\n", key, rc);
+    }
+    close(in_fd);
+    a90_console_printf("gpu.g0.fwclass_prepare.%s.dst=%s\r\n", key, dst);
+    a90_console_printf("gpu.g0.fwclass_prepare.%s.copy_bytes=%ld\r\n", key, (long)total);
+    a90_console_printf("gpu.g0.fwclass_prepare.%s.copy_rc=%d\r\n", key, rc);
+    if (rc < 0) {
+        unlink(dst);
+        return rc;
+    }
+    return gpu_g0_verify_regular_file(key, dst, expected_size);
+}
+
+static int gpu_g0_write_fwclass_path(const char *path) {
+    char readback[PATH_MAX];
+    int fd;
+    int rc = 0;
+
+    errno = 0;
+    fd = open(GPU_G0_FWCLASS_PATH, O_WRONLY | O_CLOEXEC | O_NOFOLLOW);
+    if (fd < 0) {
+        int saved_errno = errno;
+        a90_console_printf("gpu.g0.fwclass_prepare.fwpath.open_errno=%d\r\n", saved_errno);
+        return -saved_errno;
+    }
+    if (write_all_checked(fd, path, strlen(path)) < 0) {
+        rc = negative_errno_or(EIO);
+    }
+    if (close(fd) < 0 && rc == 0) {
+        rc = negative_errno_or(EIO);
+    }
+    a90_console_printf("gpu.g0.fwclass_prepare.fwpath.write_rc=%d\r\n", rc);
+    if (rc < 0) {
+        return rc;
+    }
+    if (read_trimmed_text_file(GPU_G0_FWCLASS_PATH, readback, sizeof(readback)) < 0) {
+        rc = negative_errno_or(EIO);
+        a90_console_printf("gpu.g0.fwclass_prepare.fwpath.readback_rc=%d\r\n", rc);
+        return rc;
+    }
+    flatten_inline_text(readback);
+    a90_console_printf("gpu.g0.fwclass_prepare.fwpath.readback=%s\r\n", readback);
+    if (strcmp(readback, path) != 0) {
+        return -EIO;
+    }
+    return 0;
+}
+
+static int gpu_g0_fwclass_prepare(void) {
+    struct fw_entry {
+        const char *key;
+        const char *name;
+        off_t size;
+    };
+    static const struct fw_entry zap_files[] = {
+        { "copy_a640_zap_mdt", GPU_G0_FW_A640_ZAP_MDT, GPU_G0_FW_A640_ZAP_MDT_SIZE },
+        { "copy_a640_zap_b00", GPU_G0_FW_A640_ZAP_B00, GPU_G0_FW_A640_ZAP_B00_SIZE },
+        { "copy_a640_zap_b01", GPU_G0_FW_A640_ZAP_B01, GPU_G0_FW_A640_ZAP_B01_SIZE },
+        { "copy_a640_zap_b02", GPU_G0_FW_A640_ZAP_B02, GPU_G0_FW_A640_ZAP_B02_SIZE },
+    };
+    char src[PATH_MAX];
+    char dst[PATH_MAX];
+    int rc;
+
+    a90_console_printf("gpu.g0.fwclass_prepare.version=1\r\n");
+    a90_console_printf("gpu.g0.fwclass_prepare.runtime_dir=%s\r\n", GPU_G0_RUNTIME_FW_DIR);
+    a90_console_printf("gpu.g0.fwclass_prepare.vendor_mnt_dir=%s\r\n", GPU_G0_VENDOR_MNT_FW_DIR);
+    a90_console_printf("gpu.g0.fwclass_prepare.requires_private_sqe_gmu_staged=1\r\n");
+    a90_console_printf("gpu.g0.fwclass_prepare.no_private_payload_in_ramdisk=1\r\n");
+    a90_console_printf("gpu.g0.fwclass_prepare.no_power_writes=1\r\n");
+    a90_console_printf("gpu.g0.fwclass_prepare.no_ioctl=1\r\n");
+    a90_console_printf("gpu.g0.fwclass_prepare.no_mmap=1\r\n");
+
+    rc = gpu_g0_ensure_runtime_fw_dir();
+    a90_console_printf("gpu.g0.fwclass_prepare.mkdir_rc=%d\r\n", rc);
+    if (rc < 0) {
+        return rc;
+    }
+
+    if (gpu_g0_join_path(dst, sizeof(dst), GPU_G0_RUNTIME_FW_DIR, GPU_G0_FW_A630_SQE) < 0) {
+        return -ENAMETOOLONG;
+    }
+    rc = gpu_g0_verify_regular_file("verify_a630_sqe", dst, GPU_G0_FW_A630_SQE_SIZE);
+    if (rc < 0) {
+        return rc;
+    }
+    if (gpu_g0_join_path(dst, sizeof(dst), GPU_G0_RUNTIME_FW_DIR, GPU_G0_FW_A640_GMU) < 0) {
+        return -ENAMETOOLONG;
+    }
+    rc = gpu_g0_verify_regular_file("verify_a640_gmu", dst, GPU_G0_FW_A640_GMU_SIZE);
+    if (rc < 0) {
+        return rc;
+    }
+
+    for (size_t index = 0; index < sizeof(zap_files) / sizeof(zap_files[0]); ++index) {
+        if (gpu_g0_join_path(src, sizeof(src), GPU_G0_VENDOR_MNT_FW_DIR, zap_files[index].name) < 0 ||
+            gpu_g0_join_path(dst, sizeof(dst), GPU_G0_RUNTIME_FW_DIR, zap_files[index].name) < 0) {
+            return -ENAMETOOLONG;
+        }
+        rc = gpu_g0_copy_regular_file(zap_files[index].key, src, dst, zap_files[index].size);
+        if (rc < 0) {
+            return rc;
+        }
+    }
+
+    rc = gpu_g0_write_fwclass_path(GPU_G0_RUNTIME_FW_DIR);
+    if (rc < 0) {
+        return rc;
+    }
+    gpu_g0_print_stat("fw_cache_a630_sqe", GPU_G0_RUNTIME_FW_DIR "/" GPU_G0_FW_A630_SQE);
+    gpu_g0_print_stat("fw_cache_a640_gmu", GPU_G0_RUNTIME_FW_DIR "/" GPU_G0_FW_A640_GMU);
+    gpu_g0_print_stat("fw_cache_a640_zap_mdt", GPU_G0_RUNTIME_FW_DIR "/" GPU_G0_FW_A640_ZAP_MDT);
+    gpu_g0_print_stat("fw_cache_a640_zap_b00", GPU_G0_RUNTIME_FW_DIR "/" GPU_G0_FW_A640_ZAP_B00);
+    gpu_g0_print_stat("fw_cache_a640_zap_b01", GPU_G0_RUNTIME_FW_DIR "/" GPU_G0_FW_A640_ZAP_B01);
+    gpu_g0_print_stat("fw_cache_a640_zap_b02", GPU_G0_RUNTIME_FW_DIR "/" GPU_G0_FW_A640_ZAP_B02);
+    a90_console_printf("gpu.g0.fwclass_prepare.result=ok\r\n");
+    return 0;
+}
+
 static int gpu_g0_read_sysfs_dev(unsigned int *major_num, unsigned int *minor_num) {
     char dev_text[64];
 
@@ -1048,7 +1284,7 @@ static int gpu_g0_status(void) {
     gpu_g0_print_stat("sysfs_class", "/sys/class/kgsl/kgsl-3d0");
     gpu_g0_print_read_attr("sysfs_dev", GPU_G0_SYSFS_DEV);
     gpu_g0_print_read_attr("sysfs_uevent", GPU_G0_SYSFS_UEVENT);
-    gpu_g0_print_read_attr("fwclass_path", "/sys/module/firmware_class/parameters/path");
+    gpu_g0_print_read_attr("fwclass_path", GPU_G0_FWCLASS_PATH);
     gpu_g0_print_stat("devnode", GPU_G0_DEVNODE);
     gpu_g0_print_stat("fw_vendor_a630_sqe", "/vendor/firmware/a630_sqe.fw");
     gpu_g0_print_stat("fw_vendor_a640_gmu", "/vendor/firmware/a640_gmu.bin");
@@ -1063,6 +1299,12 @@ static int gpu_g0_status(void) {
     gpu_g0_print_stat("fw_mnt_a640_zap_b00", "/firmware_mnt/image/a640_zap.b00");
     gpu_g0_print_stat("fw_mnt_a640_zap_b01", "/firmware_mnt/image/a640_zap.b01");
     gpu_g0_print_stat("fw_mnt_a640_zap_b02", "/firmware_mnt/image/a640_zap.b02");
+    gpu_g0_print_stat("fw_cache_a630_sqe", GPU_G0_RUNTIME_FW_DIR "/" GPU_G0_FW_A630_SQE);
+    gpu_g0_print_stat("fw_cache_a640_gmu", GPU_G0_RUNTIME_FW_DIR "/" GPU_G0_FW_A640_GMU);
+    gpu_g0_print_stat("fw_cache_a640_zap_mdt", GPU_G0_RUNTIME_FW_DIR "/" GPU_G0_FW_A640_ZAP_MDT);
+    gpu_g0_print_stat("fw_cache_a640_zap_b00", GPU_G0_RUNTIME_FW_DIR "/" GPU_G0_FW_A640_ZAP_B00);
+    gpu_g0_print_stat("fw_cache_a640_zap_b01", GPU_G0_RUNTIME_FW_DIR "/" GPU_G0_FW_A640_ZAP_B01);
+    gpu_g0_print_stat("fw_cache_a640_zap_b02", GPU_G0_RUNTIME_FW_DIR "/" GPU_G0_FW_A640_ZAP_B02);
     return 0;
 }
 
@@ -1232,8 +1474,16 @@ static int handle_gpu(char **argv, int argc) {
         }
         return gpu_g0_status();
     }
+    if (strcmp(subcommand, "g0-fwclass-prepare") == 0 ||
+        strcmp(subcommand, "fwclass-prepare") == 0) {
+        if (argc != 2) {
+            a90_console_printf("usage: gpu g0-fwclass-prepare\r\n");
+            return -EINVAL;
+        }
+        return gpu_g0_fwclass_prepare();
+    }
     if (strcmp(subcommand, "g0-open-probe") != 0) {
-        a90_console_printf("usage: gpu [g0-status|g0-open-probe [--timeout-ms N] [--rdwr] [--materialize-devnode]]\r\n");
+        a90_console_printf("usage: gpu [g0-status|g0-fwclass-prepare|g0-open-probe [--timeout-ms N] [--rdwr] [--materialize-devnode]]\r\n");
         return -EINVAL;
     }
     for (index = 2; index < argc; ++index) {
@@ -1328,7 +1578,7 @@ static const struct shell_command command_table[] = {
     { "pstore", handle_pstore, "pstore [summary|full|paths]", CMD_NONE, A90_CMD_GROUP_CORE },
     { "watchdoginv", handle_watchdoginv, "watchdoginv [summary|full|paths]", CMD_NONE, A90_CMD_GROUP_CORE },
     { "tracefs", handle_tracefs, "tracefs [summary|full|paths]", CMD_NONE, A90_CMD_GROUP_CORE },
-    { "gpu", handle_gpu, "gpu [g0-status|g0-open-probe [--timeout-ms N] [--rdwr] [--materialize-devnode]]", CMD_NONE, A90_CMD_GROUP_CORE },
+    { "gpu", handle_gpu, "gpu [g0-status|g0-fwclass-prepare|g0-open-probe [--timeout-ms N] [--rdwr] [--materialize-devnode]]", CMD_NONE, A90_CMD_GROUP_CORE },
     { "audio", handle_audio, "audio [status|profiles|profile|speaker-map|stages|prereq|app-type|setcal|route|play|chime|play-status|stop|adsp-status|snd-status]", CMD_NONE, A90_CMD_GROUP_ANDROID },
     { "video", handle_video, "video [status|frame [bars|checker|mono|0xRRGGBB]|demo [badapple|badapple-scale|nyan|doom [status|verify|play|frame|engine-probe] [frames] [--wad runtime-private --sha256 EXPECTED]|frame-pattern]|anim [bars|checker|pulse] [frames] [delay_ms]|blitbench [frames]|flipprobe [frames]|stream --manifest PATH --video-only [--frames N] [--present setcrtc|pageflip] [--layout full|player-hud] [--sync-audio-status PATH]|cache [status|verify|play] SHA256 [--trust-cache] [--layout full|player-hud]|cache preset [badapple|badapple-scale|nyan] [status|verify|play]]", CMD_DISPLAY, A90_CMD_GROUP_DISPLAY },
     { "wifi", handle_wifi, "wifi [status|scan [delay_ms]|connect [profile]|dhcp [profile]|ping [gateway|internet|all]|cleanup|config [status|prepare [profile]]]", CMD_NONE, A90_CMD_GROUP_NETWORK },
