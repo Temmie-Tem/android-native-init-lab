@@ -959,6 +959,40 @@ struct gpu_g1_context_probe_result {
     long total_elapsed_ms;
 };
 
+struct gpu_g2_gpuobj_probe_result {
+    int version;
+    int open_rc;
+    int open_errno;
+    int create_rc;
+    int create_errno;
+    int alloc_rc;
+    int alloc_errno;
+    int free_attempted;
+    int free_rc;
+    int free_errno;
+    int destroy_attempted;
+    int destroy_rc;
+    int destroy_errno;
+    int close_rc;
+    int close_errno;
+    unsigned int context_id;
+    unsigned int flags_in;
+    unsigned int flags_out;
+    unsigned int gpuobj_id;
+    uint64_t alloc_size_in;
+    uint64_t alloc_size_out;
+    uint64_t alloc_flags_in;
+    uint64_t alloc_flags_out;
+    uint64_t alloc_va_len;
+    uint64_t alloc_mmapsize;
+    long open_elapsed_ms;
+    long create_elapsed_ms;
+    long alloc_elapsed_ms;
+    long free_elapsed_ms;
+    long destroy_elapsed_ms;
+    long total_elapsed_ms;
+};
+
 #define GPU_G0_DEVNODE "/dev/kgsl-3d0"
 #define GPU_G0_SYSFS_DEV "/sys/class/kgsl/kgsl-3d0/dev"
 #define GPU_G0_SYSFS_UEVENT "/sys/class/kgsl/kgsl-3d0/uevent"
@@ -990,6 +1024,8 @@ struct gpu_g1_context_probe_result {
      GPU_KGSL_CONTEXT_PREAMBLE | \
      GPU_KGSL_CONTEXT_NO_SNAPSHOT | \
      (GPU_KGSL_CONTEXT_TYPE_GL << GPU_KGSL_CONTEXT_TYPE_SHIFT))
+#define GPU_G2_GPUOBJ_ALLOC_SIZE 4096ULL
+#define GPU_G2_GPUOBJ_ALLOC_FLAGS 0ULL
 
 struct gpu_kgsl_drawctxt_create {
     unsigned int flags;
@@ -1000,10 +1036,32 @@ struct gpu_kgsl_drawctxt_destroy {
     unsigned int drawctxt_id;
 };
 
+struct gpu_kgsl_gpuobj_alloc {
+    uint64_t size;
+    uint64_t flags;
+    uint64_t va_len;
+    uint64_t mmapsize;
+    unsigned int id;
+    unsigned int metadata_len;
+    uint64_t metadata;
+};
+
+struct gpu_kgsl_gpuobj_free {
+    uint64_t flags;
+    uint64_t priv;
+    unsigned int id;
+    unsigned int type;
+    unsigned int len;
+};
+
 #define GPU_IOCTL_KGSL_DRAWCTXT_CREATE \
     _IOWR(GPU_KGSL_IOC_TYPE, 0x13, struct gpu_kgsl_drawctxt_create)
 #define GPU_IOCTL_KGSL_DRAWCTXT_DESTROY \
     _IOW(GPU_KGSL_IOC_TYPE, 0x14, struct gpu_kgsl_drawctxt_destroy)
+#define GPU_IOCTL_KGSL_GPUOBJ_ALLOC \
+    _IOWR(GPU_KGSL_IOC_TYPE, 0x45, struct gpu_kgsl_gpuobj_alloc)
+#define GPU_IOCTL_KGSL_GPUOBJ_FREE \
+    _IOW(GPU_KGSL_IOC_TYPE, 0x46, struct gpu_kgsl_gpuobj_free)
 
 static bool gpu_g0_parse_int(const char *text, int *out) {
     char *end = NULL;
@@ -1715,6 +1773,285 @@ static int gpu_g1_context_probe(int timeout_ms, bool materialize_devnode) {
     return timed_out ? -ETIMEDOUT : 0;
 }
 
+static int gpu_g2_gpuobj_probe_child(int write_fd) {
+    struct gpu_g2_gpuobj_probe_result result;
+    struct gpu_kgsl_drawctxt_create create_arg;
+    long total_started_ms = monotonic_millis();
+    long stage_started_ms;
+    int fd = -1;
+
+    memset(&result, 0, sizeof(result));
+    memset(&create_arg, 0, sizeof(create_arg));
+    result.version = 1;
+    result.close_rc = -1;
+    result.create_rc = -1;
+    result.alloc_rc = -1;
+    result.free_rc = -1;
+    result.destroy_rc = -1;
+    result.flags_in = GPU_G1_CONTEXT_FLAGS;
+    result.flags_out = GPU_G1_CONTEXT_FLAGS;
+    result.alloc_size_in = GPU_G2_GPUOBJ_ALLOC_SIZE;
+    result.alloc_flags_in = GPU_G2_GPUOBJ_ALLOC_FLAGS;
+
+    errno = 0;
+    stage_started_ms = monotonic_millis();
+    fd = open(GPU_G0_DEVNODE, O_RDWR | O_CLOEXEC);
+    result.open_elapsed_ms = monotonic_millis() - stage_started_ms;
+    if (fd < 0) {
+        result.open_rc = -1;
+        result.open_errno = errno;
+        result.total_elapsed_ms = monotonic_millis() - total_started_ms;
+        (void)write_all_checked(write_fd, (const char *)&result, sizeof(result));
+        close(write_fd);
+        _exit(0);
+    }
+
+    result.open_rc = 0;
+    result.open_errno = 0;
+    create_arg.flags = GPU_G1_CONTEXT_FLAGS;
+    errno = 0;
+    stage_started_ms = monotonic_millis();
+    if (ioctl(fd, GPU_IOCTL_KGSL_DRAWCTXT_CREATE, &create_arg) < 0) {
+        result.create_rc = -1;
+        result.create_errno = errno;
+        result.create_elapsed_ms = monotonic_millis() - stage_started_ms;
+    } else {
+        struct gpu_kgsl_gpuobj_alloc alloc_arg;
+
+        result.create_rc = 0;
+        result.create_errno = 0;
+        result.create_elapsed_ms = monotonic_millis() - stage_started_ms;
+        result.context_id = create_arg.drawctxt_id;
+        result.flags_out = create_arg.flags;
+
+        memset(&alloc_arg, 0, sizeof(alloc_arg));
+        alloc_arg.size = GPU_G2_GPUOBJ_ALLOC_SIZE;
+        alloc_arg.flags = GPU_G2_GPUOBJ_ALLOC_FLAGS;
+        errno = 0;
+        stage_started_ms = monotonic_millis();
+        if (ioctl(fd, GPU_IOCTL_KGSL_GPUOBJ_ALLOC, &alloc_arg) < 0) {
+            result.alloc_elapsed_ms = monotonic_millis() - stage_started_ms;
+            result.alloc_rc = -1;
+            result.alloc_errno = errno;
+        } else {
+            struct gpu_kgsl_gpuobj_free free_arg;
+
+            result.alloc_elapsed_ms = monotonic_millis() - stage_started_ms;
+            result.alloc_rc = 0;
+            result.alloc_errno = 0;
+            result.gpuobj_id = alloc_arg.id;
+            result.alloc_size_out = alloc_arg.size;
+            result.alloc_flags_out = alloc_arg.flags;
+            result.alloc_va_len = alloc_arg.va_len;
+            result.alloc_mmapsize = alloc_arg.mmapsize;
+
+            memset(&free_arg, 0, sizeof(free_arg));
+            free_arg.id = alloc_arg.id;
+            result.free_attempted = 1;
+            errno = 0;
+            stage_started_ms = monotonic_millis();
+            if (ioctl(fd, GPU_IOCTL_KGSL_GPUOBJ_FREE, &free_arg) < 0) {
+                result.free_rc = -1;
+                result.free_errno = errno;
+            } else {
+                result.free_rc = 0;
+                result.free_errno = 0;
+            }
+            result.free_elapsed_ms = monotonic_millis() - stage_started_ms;
+        }
+
+        {
+            struct gpu_kgsl_drawctxt_destroy destroy_arg;
+
+            memset(&destroy_arg, 0, sizeof(destroy_arg));
+            destroy_arg.drawctxt_id = create_arg.drawctxt_id;
+            result.destroy_attempted = 1;
+            errno = 0;
+            stage_started_ms = monotonic_millis();
+            if (ioctl(fd, GPU_IOCTL_KGSL_DRAWCTXT_DESTROY, &destroy_arg) < 0) {
+                result.destroy_rc = -1;
+                result.destroy_errno = errno;
+            } else {
+                result.destroy_rc = 0;
+                result.destroy_errno = 0;
+            }
+            result.destroy_elapsed_ms = monotonic_millis() - stage_started_ms;
+        }
+    }
+
+    errno = 0;
+    if (close(fd) < 0) {
+        result.close_rc = -1;
+        result.close_errno = errno;
+    } else {
+        result.close_rc = 0;
+        result.close_errno = 0;
+    }
+    result.total_elapsed_ms = monotonic_millis() - total_started_ms;
+    (void)write_all_checked(write_fd, (const char *)&result, sizeof(result));
+    close(write_fd);
+    _exit(0);
+}
+
+static int gpu_g2_gpuobj_probe(int timeout_ms, bool materialize_devnode) {
+    int pipefd[2];
+    pid_t pid;
+    long deadline_ms;
+    bool got_result = false;
+    bool timed_out = false;
+    bool child_killed = false;
+    bool child_reaped = false;
+    int child_status = 0;
+    struct gpu_g2_gpuobj_probe_result result;
+
+    memset(&result, 0, sizeof(result));
+    if (timeout_ms <= 0) {
+        timeout_ms = GPU_G0_DEFAULT_TIMEOUT_MS;
+    }
+    if (timeout_ms > GPU_G0_MAX_TIMEOUT_MS) {
+        a90_console_printf("gpu.g2.gpuobj.error=timeout-too-large max_ms=%d\r\n",
+                           GPU_G0_MAX_TIMEOUT_MS);
+        return -EINVAL;
+    }
+    a90_console_printf("gpu.g2.gpuobj.version=1\r\n");
+    a90_console_printf("gpu.g2.gpuobj.scope=kgsl-gpuobj-alloc-free-probe\r\n");
+    a90_console_printf("gpu.g2.gpuobj.path=%s\r\n", GPU_G0_DEVNODE);
+    a90_console_printf("gpu.g2.gpuobj.flags=O_RDWR\r\n");
+    a90_console_printf("gpu.g2.gpuobj.timeout_ms=%d\r\n", timeout_ms);
+    a90_console_printf("gpu.g2.gpuobj.parent_enters_open=0\r\n");
+    a90_console_printf("gpu.g2.gpuobj.parent_enters_ioctl=0\r\n");
+    a90_console_printf("gpu.g2.gpuobj.ioctl_allowlist=drawctxt_create,gpuobj_alloc,gpuobj_free,drawctxt_destroy\r\n");
+    a90_console_printf("gpu.g2.gpuobj.alloc_size=%llu\r\n",
+                       (unsigned long long)GPU_G2_GPUOBJ_ALLOC_SIZE);
+    a90_console_printf("gpu.g2.gpuobj.alloc_flags=0x%llx\r\n",
+                       (unsigned long long)GPU_G2_GPUOBJ_ALLOC_FLAGS);
+    a90_console_printf("gpu.g2.gpuobj.mmap_attempted=0\r\n");
+    a90_console_printf("gpu.g2.gpuobj.submit_attempted=0\r\n");
+    a90_console_printf("gpu.g2.gpuobj.power_write_attempted=0\r\n");
+    if (materialize_devnode) {
+        int mat_rc = gpu_g0_materialize_devnode();
+
+        a90_console_printf("gpu.g2.gpuobj.materialize_requested=1\r\n");
+        a90_console_printf("gpu.g2.gpuobj.materialize_rc=%d\r\n", mat_rc);
+        if (mat_rc < 0) {
+            return mat_rc;
+        }
+    } else {
+        a90_console_printf("gpu.g2.gpuobj.materialize_requested=0\r\n");
+    }
+    if (pipe(pipefd) < 0) {
+        int saved_errno = errno;
+        a90_console_printf("gpu.g2.gpuobj.pipe_rc=-1 errno=%d\r\n", saved_errno);
+        return -saved_errno;
+    }
+    pid = fork();
+    if (pid < 0) {
+        int saved_errno = errno;
+        close(pipefd[0]);
+        close(pipefd[1]);
+        a90_console_printf("gpu.g2.gpuobj.fork_rc=-1 errno=%d\r\n", saved_errno);
+        return -saved_errno;
+    }
+    if (pid == 0) {
+        close(pipefd[0]);
+        return gpu_g2_gpuobj_probe_child(pipefd[1]);
+    }
+    close(pipefd[1]);
+    deadline_ms = monotonic_millis() + timeout_ms;
+    a90_console_printf("gpu.g2.gpuobj.child_pid=%ld\r\n", (long)pid);
+
+    while (monotonic_millis() <= deadline_ms) {
+        struct pollfd pfd;
+        long now_ms = monotonic_millis();
+        int remaining_ms = (int)(deadline_ms > now_ms ? deadline_ms - now_ms : 0);
+        int poll_ms = remaining_ms > 50 ? 50 : remaining_ms;
+        ssize_t rd;
+        pid_t wait_rc;
+
+        if (poll_ms < 0) {
+            poll_ms = 0;
+        }
+        pfd.fd = pipefd[0];
+        pfd.events = POLLIN | POLLHUP;
+        pfd.revents = 0;
+        if (poll(&pfd, 1, poll_ms) > 0 && (pfd.revents & (POLLIN | POLLHUP)) != 0) {
+            rd = read(pipefd[0], &result, sizeof(result));
+            if (rd == (ssize_t)sizeof(result)) {
+                got_result = true;
+            }
+            break;
+        }
+        wait_rc = waitpid(pid, &child_status, WNOHANG);
+        if (wait_rc == pid) {
+            child_reaped = true;
+            break;
+        }
+    }
+
+    if (!got_result && !child_reaped) {
+        timed_out = true;
+        if (kill(pid, SIGKILL) == 0) {
+            child_killed = true;
+        }
+        if (waitpid(pid, &child_status, 0) == pid) {
+            child_reaped = true;
+        }
+    } else if (!child_reaped) {
+        if (waitpid(pid, &child_status, 0) == pid) {
+            child_reaped = true;
+        }
+    }
+    close(pipefd[0]);
+
+    a90_console_printf("gpu.g2.gpuobj.result=%s\r\n",
+                       got_result ? ((result.alloc_rc == 0 && result.free_rc == 0) ?
+                                     "allocated-freed" : "returned-error") :
+                       (timed_out ? "timeout" : "no-result"));
+    a90_console_printf("gpu.g2.gpuobj.timed_out=%d\r\n", timed_out ? 1 : 0);
+    a90_console_printf("gpu.g2.gpuobj.child_killed=%d\r\n", child_killed ? 1 : 0);
+    a90_console_printf("gpu.g2.gpuobj.child_reaped=%d\r\n", child_reaped ? 1 : 0);
+    a90_console_printf("gpu.g2.gpuobj.child_status=0x%x\r\n", child_status);
+    if (got_result) {
+        a90_console_printf("gpu.g2.gpuobj.open_elapsed_ms=%ld\r\n", result.open_elapsed_ms);
+        a90_console_printf("gpu.g2.gpuobj.open_rc=%d\r\n", result.open_rc);
+        a90_console_printf("gpu.g2.gpuobj.open_errno=%d\r\n", result.open_errno);
+        a90_console_printf("gpu.g2.gpuobj.create_elapsed_ms=%ld\r\n", result.create_elapsed_ms);
+        a90_console_printf("gpu.g2.gpuobj.create_rc=%d\r\n", result.create_rc);
+        a90_console_printf("gpu.g2.gpuobj.create_errno=%d\r\n", result.create_errno);
+        a90_console_printf("gpu.g2.gpuobj.context_id=%u\r\n", result.context_id);
+        a90_console_printf("gpu.g2.gpuobj.context_flags_in=0x%x\r\n", result.flags_in);
+        a90_console_printf("gpu.g2.gpuobj.context_flags_out=0x%x\r\n", result.flags_out);
+        a90_console_printf("gpu.g2.gpuobj.alloc_elapsed_ms=%ld\r\n", result.alloc_elapsed_ms);
+        a90_console_printf("gpu.g2.gpuobj.alloc_rc=%d\r\n", result.alloc_rc);
+        a90_console_printf("gpu.g2.gpuobj.alloc_errno=%d\r\n", result.alloc_errno);
+        a90_console_printf("gpu.g2.gpuobj.alloc_size_in=%llu\r\n",
+                           (unsigned long long)result.alloc_size_in);
+        a90_console_printf("gpu.g2.gpuobj.alloc_size_out=%llu\r\n",
+                           (unsigned long long)result.alloc_size_out);
+        a90_console_printf("gpu.g2.gpuobj.alloc_flags_in=0x%llx\r\n",
+                           (unsigned long long)result.alloc_flags_in);
+        a90_console_printf("gpu.g2.gpuobj.alloc_flags_out=0x%llx\r\n",
+                           (unsigned long long)result.alloc_flags_out);
+        a90_console_printf("gpu.g2.gpuobj.alloc_va_len=%llu\r\n",
+                           (unsigned long long)result.alloc_va_len);
+        a90_console_printf("gpu.g2.gpuobj.alloc_mmapsize=%llu\r\n",
+                           (unsigned long long)result.alloc_mmapsize);
+        a90_console_printf("gpu.g2.gpuobj.gpuobj_id=%u\r\n", result.gpuobj_id);
+        a90_console_printf("gpu.g2.gpuobj.free_attempted=%d\r\n", result.free_attempted);
+        a90_console_printf("gpu.g2.gpuobj.free_elapsed_ms=%ld\r\n", result.free_elapsed_ms);
+        a90_console_printf("gpu.g2.gpuobj.free_rc=%d\r\n", result.free_rc);
+        a90_console_printf("gpu.g2.gpuobj.free_errno=%d\r\n", result.free_errno);
+        a90_console_printf("gpu.g2.gpuobj.destroy_attempted=%d\r\n", result.destroy_attempted);
+        a90_console_printf("gpu.g2.gpuobj.destroy_elapsed_ms=%ld\r\n", result.destroy_elapsed_ms);
+        a90_console_printf("gpu.g2.gpuobj.destroy_rc=%d\r\n", result.destroy_rc);
+        a90_console_printf("gpu.g2.gpuobj.destroy_errno=%d\r\n", result.destroy_errno);
+        a90_console_printf("gpu.g2.gpuobj.close_rc=%d\r\n", result.close_rc);
+        a90_console_printf("gpu.g2.gpuobj.close_errno=%d\r\n", result.close_errno);
+        a90_console_printf("gpu.g2.gpuobj.total_elapsed_ms=%ld\r\n", result.total_elapsed_ms);
+    }
+    return timed_out ? -ETIMEDOUT : 0;
+}
+
 static int handle_gpu(char **argv, int argc) {
     const char *subcommand = argc >= 2 ? argv[1] : "g0-status";
     int timeout_ms = GPU_G0_DEFAULT_TIMEOUT_MS;
@@ -1755,8 +2092,26 @@ static int handle_gpu(char **argv, int argc) {
         }
         return gpu_g1_context_probe(timeout_ms, materialize_devnode);
     }
+    if (strcmp(subcommand, "g2-gpuobj-probe") == 0 ||
+        strcmp(subcommand, "gpuobj-probe") == 0) {
+        for (index = 2; index < argc; ++index) {
+            if (strcmp(argv[index], "--timeout-ms") == 0) {
+                if (index + 1 >= argc || !gpu_g0_parse_int(argv[index + 1], &timeout_ms)) {
+                    a90_console_printf("gpu.g2.gpuobj.error=bad-timeout\r\n");
+                    return -EINVAL;
+                }
+                ++index;
+            } else if (strcmp(argv[index], "--materialize-devnode") == 0) {
+                materialize_devnode = true;
+            } else {
+                a90_console_printf("usage: gpu g2-gpuobj-probe [--timeout-ms N] [--materialize-devnode]\r\n");
+                return -EINVAL;
+            }
+        }
+        return gpu_g2_gpuobj_probe(timeout_ms, materialize_devnode);
+    }
     if (strcmp(subcommand, "g0-open-probe") != 0) {
-        a90_console_printf("usage: gpu [g0-status|g0-fwclass-prepare|g0-open-probe [--timeout-ms N] [--rdwr] [--materialize-devnode]|g1-context-probe [--timeout-ms N] [--materialize-devnode]]\r\n");
+        a90_console_printf("usage: gpu [g0-status|g0-fwclass-prepare|g0-open-probe [--timeout-ms N] [--rdwr] [--materialize-devnode]|g1-context-probe [--timeout-ms N] [--materialize-devnode]|g2-gpuobj-probe [--timeout-ms N] [--materialize-devnode]]\r\n");
         return -EINVAL;
     }
     for (index = 2; index < argc; ++index) {
