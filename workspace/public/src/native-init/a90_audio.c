@@ -98,7 +98,15 @@
 #define AUDIO_BADAPPLE_FULL_PCM_PATH "/cache/a90-runtime/pkg/av/v2903/audio/audio.s16le"
 #define AUDIO_BADAPPLE_LEGACY_FULL_PCM_PATH "/cache/a90-runtime/pkg/av/v2920/audio/badapple.s16le"
 #define AUDIO_BADAPPLE_FULL_PCM_DURATION_CAP_MS 240000
+#define AUDIO_BADAPPLE_FULL_PCM_SILENCE_TAIL_MAX_MS 1200
 #define AUDIO_BADAPPLE_FULL_PCM_EXPECTED_SHA256 "b96d2e0bc4bb6b0ada0da6e63e40168115e3818d72c386dd8764162e85238a75"
+#define AUDIO_NYAN_PREVIEW_PCM_PATH "/cache/a90-runtime/pkg/av/v2973/audio/nyancat.s16le"
+#define AUDIO_NYAN_PREVIEW_PCM_DURATION_CAP_MS 12000
+#define AUDIO_NYAN_PREVIEW_PCM_SILENCE_TAIL_MAX_MS 1500
+#define AUDIO_NYAN_PREVIEW_PCM_EXPECTED_SHA256 "4c3774553195c04166a3a83de793253696a5bee60afe83a04219419fc28e43de"
+#ifndef AUDIO_DOOM_SFX_STREAM_DURATION_CAP_MS
+#define AUDIO_DOOM_SFX_STREAM_DURATION_CAP_MS 240000
+#endif
 #define AUDIO_PCM_GAIN_MILLI_DEFAULT 1000
 #define AUDIO_PCM_GAIN_MILLI_MAX 1000
 
@@ -2223,20 +2231,67 @@ static bool audio_pcm_file_is_badapple_full_song(const char *path) {
             strcmp(path, AUDIO_BADAPPLE_LEGACY_FULL_PCM_PATH) == 0);
 }
 
+static bool audio_pcm_file_is_nyan_preview(const char *path) {
+    return path != NULL && strcmp(path, AUDIO_NYAN_PREVIEW_PCM_PATH) == 0;
+}
+
+static int audio_pcm_file_silence_tail_max_ms(const char *path) {
+    if (audio_pcm_file_is_badapple_full_song(path)) {
+        return AUDIO_BADAPPLE_FULL_PCM_SILENCE_TAIL_MAX_MS;
+    }
+    if (audio_pcm_file_is_nyan_preview(path)) {
+        return AUDIO_NYAN_PREVIEW_PCM_SILENCE_TAIL_MAX_MS;
+    }
+    return 0;
+}
+
+static bool audio_path_has_suffix(const char *path, const char *suffix) {
+    size_t path_len;
+    size_t suffix_len;
+
+    if (path == NULL || suffix == NULL) {
+        return false;
+    }
+    path_len = strlen(path);
+    suffix_len = strlen(suffix);
+    return path_len >= suffix_len &&
+           strcmp(path + path_len - suffix_len, suffix) == 0;
+}
+
+static bool audio_pcm_stream_is_doom_sfx(const char *path) {
+    return path != NULL &&
+           audio_setcal_path_has_prefix(path, AUDIO_SETCAL_RUNTIME_PREFIX "/a90-doomgeneric-") &&
+           audio_path_has_suffix(path, "-sfx.pcmstream");
+}
+
 static int audio_play_effective_duration_cap_ms(const struct audio_speaker_profile *profile,
-                                                const char *pcm_file_path) {
+                                                const char *pcm_file_path,
+                                                const char *pcm_stream_path) {
     if (profile == NULL) {
         return 0;
     }
     if (audio_pcm_file_is_badapple_full_song(pcm_file_path)) {
         return AUDIO_BADAPPLE_FULL_PCM_DURATION_CAP_MS;
     }
+    if (audio_pcm_file_is_nyan_preview(pcm_file_path)) {
+        return AUDIO_NYAN_PREVIEW_PCM_DURATION_CAP_MS;
+    }
+    if (audio_pcm_stream_is_doom_sfx(pcm_stream_path)) {
+        return AUDIO_DOOM_SFX_STREAM_DURATION_CAP_MS;
+    }
     return profile->duration_cap_ms;
 }
 
-static const char *audio_play_duration_cap_policy(const char *pcm_file_path) {
+static const char *audio_play_duration_cap_policy(const char *pcm_file_path,
+                                                  const char *pcm_stream_path) {
     if (audio_pcm_file_is_badapple_full_song(pcm_file_path)) {
         return "badapple-fullsong-pcm";
+    }
+    if (audio_pcm_file_is_nyan_preview(pcm_file_path)) {
+        return "nyan-preview-pcm-tail-pad";
+    }
+    if (audio_pcm_stream_is_doom_sfx(pcm_stream_path)) {
+        return "doom-sfx-pcm-stream";
     }
     return "profile-default";
 }
@@ -2253,10 +2308,78 @@ static int audio_read_exact_fd(int fd, void *buffer, size_t bytes) {
             if (errno == EINTR) {
                 continue;
             }
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                memset((char *)buffer + done, 0, bytes - done);
+                return 0;
+            }
             return -errno;
         }
         if (rd == 0) {
             return -EIO;
+        }
+        done += (size_t)rd;
+    }
+    return 0;
+}
+
+static int audio_read_stream_or_silence_fd(int fd, void *buffer, size_t bytes, bool *eof_seen) {
+    size_t done = 0;
+
+    if (eof_seen != NULL) {
+        *eof_seen = false;
+    }
+    if (fd < 0 || buffer == NULL) {
+        return -EINVAL;
+    }
+    while (done < bytes) {
+        ssize_t rd = read(fd, (char *)buffer + done, bytes - done);
+
+        if (rd < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                memset((char *)buffer + done, 0, bytes - done);
+                return 0;
+            }
+            return -errno;
+        }
+        if (rd == 0) {
+            memset((char *)buffer + done, 0, bytes - done);
+            if (eof_seen != NULL) {
+                *eof_seen = true;
+            }
+            return 0;
+        }
+        done += (size_t)rd;
+    }
+    return 0;
+}
+
+static int audio_read_file_tail_or_silence_fd(int fd, void *buffer, size_t bytes, bool *eof_seen) {
+    size_t done = 0;
+
+    if (eof_seen != NULL) {
+        *eof_seen = false;
+    }
+    if (fd < 0 || buffer == NULL) {
+        return -EINVAL;
+    }
+    while (done < bytes) {
+        ssize_t rd = read(fd, (char *)buffer + done, bytes - done);
+
+        if (rd < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            return -errno;
+        }
+        if (rd == 0) {
+            memset((char *)buffer + done, 0, bytes - done);
+            if (eof_seen != NULL) {
+                *eof_seen = true;
+            }
+            return 0;
         }
         done += (size_t)rd;
     }
@@ -2278,10 +2401,13 @@ static int audio_pcm_file_open_validated(const struct audio_speaker_profile *pro
                                          long long expected_bytes,
                                          int amplitude_milli,
                                          int pcm_gain_milli,
-                                         int *out_fd) {
+                                         int *out_fd,
+                                         bool *out_zero_pad_tail) {
     struct stat st;
     unsigned char scan_buffer[4096];
     long long remaining;
+    long long validated_bytes;
+    long long missing_tail_bytes = 0;
     int fd;
     int peak_abs = 0;
     int peak_limit;
@@ -2291,6 +2417,9 @@ static int audio_pcm_file_open_validated(const struct audio_speaker_profile *pro
 
     if (out_fd != NULL) {
         *out_fd = -1;
+    }
+    if (out_zero_pad_tail != NULL) {
+        *out_zero_pad_tail = false;
     }
     path_allowed = audio_pcm_file_path_allowed(pcm_file_path);
     a90_console_printf("audio.play.pcm_file.path=%s\r\n", pcm_file_path != NULL ? pcm_file_path : "-");
@@ -2324,10 +2453,43 @@ static int audio_pcm_file_open_validated(const struct audio_speaker_profile *pro
         close(fd);
         return -EINVAL;
     }
+    validated_bytes = expected_bytes;
     if ((long long)st.st_size < expected_bytes) {
-        a90_console_printf("audio.play.pcm_file.error=short-file\r\n");
-        close(fd);
-        return -EINVAL;
+        int frame_bytes = (int)audio_play_frame_bytes(profile);
+        int tail_max_ms = audio_pcm_file_silence_tail_max_ms(pcm_file_path);
+        long long max_tail_bytes = ((long long)profile->sample_rate *
+                                    (long long)tail_max_ms *
+                                    (long long)frame_bytes) / 1000LL;
+
+        missing_tail_bytes = expected_bytes - (long long)st.st_size;
+        if (tail_max_ms <= 0 || frame_bytes <= 0 ||
+            missing_tail_bytes <= 0 || missing_tail_bytes > max_tail_bytes) {
+            a90_console_printf("audio.play.pcm_file.error=short-file\r\n");
+            a90_console_printf("audio.play.pcm_file.short_file_zero_pad_allowed=0\r\n");
+            a90_console_printf("audio.play.pcm_file.missing_tail_bytes=%lld\r\n",
+                               missing_tail_bytes);
+            close(fd);
+            return -EINVAL;
+        }
+        if (((long long)st.st_size % (long long)frame_bytes) != 0 ||
+            (missing_tail_bytes % (long long)frame_bytes) != 0) {
+            a90_console_printf("audio.play.pcm_file.error=short-file-unaligned\r\n");
+            close(fd);
+            return -EINVAL;
+        }
+        validated_bytes = (long long)st.st_size;
+        if (out_zero_pad_tail != NULL) {
+            *out_zero_pad_tail = true;
+        }
+        a90_console_printf("audio.play.pcm_file.short_file_zero_pad_allowed=1\r\n");
+        a90_console_printf("audio.play.pcm_file.missing_tail_bytes=%lld\r\n",
+                           missing_tail_bytes);
+        a90_console_printf("audio.play.pcm_file.missing_tail_ms=%lld\r\n",
+                           ((missing_tail_bytes / (long long)frame_bytes) * 1000LL) /
+                           (long long)profile->sample_rate);
+    } else {
+        a90_console_printf("audio.play.pcm_file.short_file_zero_pad_allowed=0\r\n");
+        a90_console_printf("audio.play.pcm_file.missing_tail_bytes=0\r\n");
     }
 
     peak_limit = audio_pcm_peak_limit(amplitude_milli);
@@ -2336,7 +2498,7 @@ static int audio_pcm_file_open_validated(const struct audio_speaker_profile *pro
         close(fd);
         return -EINVAL;
     }
-    remaining = expected_bytes;
+    remaining = validated_bytes;
     while (remaining > 0) {
         size_t want = remaining > (long long)sizeof(scan_buffer) ? sizeof(scan_buffer) : (size_t)remaining;
         size_t sample_count;
@@ -2390,27 +2552,84 @@ static int audio_pcm_file_open_validated(const struct audio_speaker_profile *pro
     return 0;
 }
 
+static int audio_pcm_stream_open_validated(const char *pcm_stream_path, int *out_fd) {
+    struct stat st;
+    bool path_allowed;
+    int fd;
+
+    path_allowed = audio_pcm_file_path_allowed(pcm_stream_path);
+    a90_console_printf("audio.play.pcm_stream.path=%s\r\n",
+                       pcm_stream_path != NULL ? pcm_stream_path : "-");
+    a90_console_printf("audio.play.pcm_stream.path_allowed=%d\r\n", path_allowed ? 1 : 0);
+    if (pcm_stream_path == NULL || out_fd == NULL) {
+        a90_console_printf("audio.play.pcm_stream.error=bad-argument\r\n");
+        return -EINVAL;
+    }
+    *out_fd = -1;
+    if (!path_allowed) {
+        a90_console_printf("audio.play.pcm_stream.error=path-not-allowed\r\n");
+        return -EPERM;
+    }
+    if (lstat(pcm_stream_path, &st) < 0) {
+        int rc = -errno;
+
+        a90_console_printf("audio.play.pcm_stream.error=stat-failed errno=%d\r\n", errno);
+        return rc;
+    }
+    a90_console_printf("audio.play.pcm_stream.fifo=%d\r\n", S_ISFIFO(st.st_mode) ? 1 : 0);
+    if (!S_ISFIFO(st.st_mode)) {
+        a90_console_printf("audio.play.pcm_stream.error=not-fifo\r\n");
+        return -EINVAL;
+    }
+    fd = open(pcm_stream_path, O_RDONLY | O_NONBLOCK | O_CLOEXEC);
+    a90_console_printf("audio.play.pcm_stream.open.rc=%d errno=%d\r\n",
+                       fd >= 0 ? 0 : -1,
+                       fd < 0 ? errno : 0);
+    if (fd < 0) {
+        return -errno;
+    }
+    *out_fd = fd;
+    return 0;
+}
+
 static int audio_play_execute_pcm(const struct audio_speaker_profile *profile,
                                   const char *mode,
                                   int amplitude_milli,
                                   int duration_ms,
                                   const char *pcm_file_path,
+                                  const char *pcm_stream_path,
                                   int pcm_gain_milli) {
     char pcm_path[64];
     int16_t *buffer;
     int source_fd = -1;
     const bool use_pcm_file = pcm_file_path != NULL && pcm_file_path[0] != '\0';
+    const bool use_pcm_stream = pcm_stream_path != NULL && pcm_stream_path[0] != '\0';
+    bool pcm_file_zero_pad_tail = false;
     int fd;
     long long total_frames;
     long long frames_done = 0;
     int chunk_count = 0;
+    int stream_eof_chunks = 0;
+    int file_tail_zero_chunks = 0;
+    int xrun_recoveries = 0;
+    int write_eagain_retries = 0;
     int frame_bytes;
     int buffer_bytes;
     uint64_t listen_begin_ns = 0;
     uint64_t listen_end_ns = 0;
+    int post_drain_drop_rc = 0;
+    int post_drain_drop_errno = 0;
+    int post_drain_hw_free_rc = 0;
+    int post_drain_hw_free_errno = 0;
+    int pcm_fd_close_rc = 0;
+    int pcm_fd_close_errno = 0;
     int rc = 0;
 
     if (profile == NULL || mode == NULL) {
+        return -EINVAL;
+    }
+    if (use_pcm_file && use_pcm_stream) {
+        a90_console_printf("audio.play.execute.error=multiple-pcm-sources\r\n");
         return -EINVAL;
     }
     frame_bytes = (int)audio_play_frame_bytes(profile);
@@ -2427,10 +2646,12 @@ static int audio_play_execute_pcm(const struct audio_speaker_profile *profile,
     a90_console_printf("audio.play.execute.version=1\r\n");
     a90_console_printf("audio.play.execute.profile=%s\r\n", profile->id);
     a90_console_printf("audio.play.execute.mode=%s\r\n", mode);
-    a90_console_printf("audio.play.execute.source=%s\r\n", use_pcm_file ? "pcm-file" : "tone");
+    a90_console_printf("audio.play.execute.source=%s\r\n",
+                       use_pcm_stream ? "pcm-stream" : (use_pcm_file ? "pcm-file" : "tone"));
     a90_console_printf("audio.play.execute.pcm_gain_milli=%d\r\n", pcm_gain_milli);
     a90_console_printf("audio.play.execute.pcm_path=%s\r\n", pcm_path);
-    a90_console_printf("audio.play.execute.tone_hz=%d\r\n", use_pcm_file ? 0 : AUDIO_PCM_TONE_HZ);
+    a90_console_printf("audio.play.execute.tone_hz=%d\r\n",
+                       (use_pcm_file || use_pcm_stream) ? 0 : AUDIO_PCM_TONE_HZ);
     a90_console_printf("audio.play.execute.sample_rate=%d\r\n", profile->sample_rate);
     a90_console_printf("audio.play.execute.channels=%d\r\n", profile->channels);
     a90_console_printf("audio.play.execute.bit_width=%d\r\n", profile->bit_width);
@@ -2453,7 +2674,14 @@ static int audio_play_execute_pcm(const struct audio_speaker_profile *profile,
                                            (long long)total_frames * (long long)frame_bytes,
                                            amplitude_milli,
                                            pcm_gain_milli,
-                                           &source_fd);
+                                           &source_fd,
+                                           &pcm_file_zero_pad_tail);
+        if (rc < 0) {
+            free(buffer);
+            return rc;
+        }
+    } else if (use_pcm_stream) {
+        rc = audio_pcm_stream_open_validated(pcm_stream_path, &source_fd);
         if (rc < 0) {
             free(buffer);
             return rc;
@@ -2486,6 +2714,8 @@ static int audio_play_execute_pcm(const struct audio_speaker_profile *profile,
 
     a90_console_printf("audio.play.playback_attempted=1\r\n");
     a90_console_printf("audio.play.execute.pcm_write_attempted=1\r\n");
+    a90_console_printf("audio.play.execute.pcm_file_zero_pad_tail=%d\r\n",
+                       pcm_file_zero_pad_tail ? 1 : 0);
     listen_begin_ns = audio_monotonic_ns();
     a90_console_printf("audio.play.execute.timeline.version=1\r\n");
     a90_console_printf("audio.play.execute.listen_begin_ns=%llu\r\n",
@@ -2512,11 +2742,39 @@ static int audio_play_execute_pcm(const struct audio_speaker_profile *profile,
         if (frames_this_chunk > AUDIO_PCM_PERIOD_SIZE) {
             frames_this_chunk = AUDIO_PCM_PERIOD_SIZE;
         }
-        if (use_pcm_file) {
-            rc = audio_read_exact_fd(source_fd, buffer, (size_t)frames_this_chunk * (size_t)frame_bytes);
+        if (use_pcm_file || use_pcm_stream) {
+            bool stream_eof = false;
+
+            if (use_pcm_file) {
+                bool file_tail_eof = false;
+
+                if (pcm_file_zero_pad_tail) {
+                    rc = audio_read_file_tail_or_silence_fd(source_fd,
+                                                            buffer,
+                                                            (size_t)frames_this_chunk *
+                                                            (size_t)frame_bytes,
+                                                            &file_tail_eof);
+                    if (file_tail_eof) {
+                        ++file_tail_zero_chunks;
+                    }
+                } else {
+                    rc = audio_read_exact_fd(source_fd,
+                                             buffer,
+                                             (size_t)frames_this_chunk *
+                                             (size_t)frame_bytes);
+                }
+            } else {
+                rc = audio_read_stream_or_silence_fd(source_fd,
+                                                     buffer,
+                                                     (size_t)frames_this_chunk * (size_t)frame_bytes,
+                                                     &stream_eof);
+                if (stream_eof) {
+                    ++stream_eof_chunks;
+                }
+            }
             if (rc < 0) {
                 listen_end_ns = audio_monotonic_ns();
-                a90_console_printf("audio.play.execute.file_read.rc=%d frames=%d\r\n", rc, frames_this_chunk);
+                a90_console_printf("audio.play.execute.source_read.rc=%d frames=%d\r\n", rc, frames_this_chunk);
                 a90_console_printf("audio.play.execute.listen_end_ns=%llu\r\n",
                                    (unsigned long long)listen_end_ns);
                 audio_play_async_statusf("audio.play.worker.listen_end_ns=%llu\n",
@@ -2540,6 +2798,36 @@ static int audio_play_execute_pcm(const struct audio_speaker_profile *profile,
             audio_pcm_fill_tone(buffer, frames_this_chunk, profile, amplitude_milli, frames_done);
         }
         rc = audio_pcm_write_frames(fd, buffer, frames_this_chunk);
+        if (rc == -EAGAIN && write_eagain_retries < 2000) {
+            ++write_eagain_retries;
+            if (write_eagain_retries <= 3 || (write_eagain_retries % 100) == 0) {
+                a90_console_printf("audio.play.execute.write.eagain_retry=%d frames=%d\r\n",
+                                   write_eagain_retries,
+                                   frames_this_chunk);
+                audio_play_async_statusf("audio.play.worker.write_eagain_retries=%d\n",
+                                         write_eagain_retries);
+            }
+            usleep(1000);
+            continue;
+        }
+        if (rc == -EPIPE && xrun_recoveries < 8) {
+            int prepare_rc;
+            int saved_errno;
+
+            ++xrun_recoveries;
+            errno = 0;
+            prepare_rc = ioctl(fd, SNDRV_PCM_IOCTL_PREPARE);
+            saved_errno = errno;
+            a90_console_printf("audio.play.execute.write.xrun_recover=%d prepare_rc=%d errno=%d\r\n",
+                               xrun_recoveries,
+                               prepare_rc,
+                               prepare_rc < 0 ? saved_errno : 0);
+            audio_play_async_statusf("audio.play.worker.xrun_recoveries=%d\n", xrun_recoveries);
+            if (prepare_rc == 0) {
+                continue;
+            }
+            rc = prepare_rc < 0 ? -saved_errno : rc;
+        }
         if (rc < 0) {
             listen_end_ns = audio_monotonic_ns();
             a90_console_printf("audio.play.execute.listen_end_ns=%llu\r\n",
@@ -2562,6 +2850,10 @@ static int audio_play_execute_pcm(const struct audio_speaker_profile *profile,
             free(buffer);
             return rc;
         }
+        if (write_eagain_retries > 0) {
+            audio_play_async_statusf("audio.play.worker.write_eagain_retries=%d\n",
+                                     write_eagain_retries);
+        }
         frames_done += frames_this_chunk;
         ++chunk_count;
     }
@@ -2573,7 +2865,47 @@ static int audio_play_execute_pcm(const struct audio_speaker_profile *profile,
         rc = -errno;
     }
 
-    close(fd);
+    errno = 0;
+    post_drain_drop_rc = ioctl(fd, SNDRV_PCM_IOCTL_DROP);
+    post_drain_drop_errno = post_drain_drop_rc < 0 ? errno : 0;
+    a90_console_printf("audio.play.execute.post_drain_drop.rc=%d errno=%d\r\n",
+                       post_drain_drop_rc,
+                       post_drain_drop_errno);
+    audio_play_async_statusf("audio.play.worker.post_drain_drop_rc=%d\n",
+                             post_drain_drop_rc);
+    audio_play_async_statusf("audio.play.worker.post_drain_drop_errno=%d\n",
+                             post_drain_drop_errno);
+
+    errno = 0;
+    post_drain_hw_free_rc = ioctl(fd, SNDRV_PCM_IOCTL_HW_FREE);
+    post_drain_hw_free_errno = post_drain_hw_free_rc < 0 ? errno : 0;
+    a90_console_printf("audio.play.execute.post_drain_hw_free.rc=%d errno=%d\r\n",
+                       post_drain_hw_free_rc,
+                       post_drain_hw_free_errno);
+    audio_play_async_statusf("audio.play.worker.post_drain_hw_free_rc=%d\n",
+                             post_drain_hw_free_rc);
+    audio_play_async_statusf("audio.play.worker.post_drain_hw_free_errno=%d\n",
+                             post_drain_hw_free_errno);
+
+    if (use_pcm_stream) {
+        a90_console_printf("audio.play.execute.close.deferred=1 reason=route-reset-before-pcm-close\r\n");
+        audio_play_async_statusf("audio.play.worker.close_deferred=1\n");
+        audio_play_async_statusf("audio.play.worker.close_deferred_reason=route-reset-before-pcm-close\n");
+    } else {
+        errno = 0;
+        pcm_fd_close_rc = close(fd);
+        pcm_fd_close_errno = pcm_fd_close_rc < 0 ? errno : 0;
+        a90_console_printf("audio.play.execute.close.deferred=0 reason=finite-pcm-worker-owned\r\n");
+        a90_console_printf("audio.play.execute.close.rc=%d errno=%d\r\n",
+                           pcm_fd_close_rc,
+                           pcm_fd_close_errno);
+        audio_play_async_statusf("audio.play.worker.close_deferred=0\n");
+        audio_play_async_statusf("audio.play.worker.close_rc=%d\n", pcm_fd_close_rc);
+        audio_play_async_statusf("audio.play.worker.close_errno=%d\n", pcm_fd_close_errno);
+        if (pcm_fd_close_rc < 0 && rc == 0) {
+            rc = -pcm_fd_close_errno;
+        }
+    }
     if (source_fd >= 0) {
         close(source_fd);
     }
@@ -2584,6 +2916,8 @@ static int audio_play_execute_pcm(const struct audio_speaker_profile *profile,
     a90_console_printf("audio.play.execute.frames_done=%lld\r\n", frames_done);
     a90_console_printf("audio.play.execute.bytes_done=%lld\r\n",
                        (long long)frames_done * (long long)frame_bytes);
+    a90_console_printf("audio.play.execute.stream_eof_chunks=%d\r\n", stream_eof_chunks);
+    a90_console_printf("audio.play.execute.file_tail_zero_chunks=%d\r\n", file_tail_zero_chunks);
     audio_play_async_statusf("audio.play.worker.listen_end_ns=%llu\n",
                              (unsigned long long)listen_end_ns);
     audio_play_async_statusf("audio.play.worker.frames_done=%lld\n", frames_done);
@@ -2607,12 +2941,14 @@ static void audio_play_print_execute_plan(const struct audio_speaker_profile *pr
                                           int amplitude_milli,
                                           int duration_ms,
                                           const char *pcm_file_path,
+                                          const char *pcm_stream_path,
                                           int pcm_gain_milli) {
     long long frame_bytes = audio_play_frame_bytes(profile);
     long long data_bytes = audio_play_data_bytes(profile, duration_ms);
     long long period_bytes = frame_bytes * AUDIO_PCM_PERIOD_SIZE;
     long long chunks = period_bytes > 0 ? (data_bytes + period_bytes - 1) / period_bytes : 0;
     bool use_pcm_file = pcm_file_path != NULL && pcm_file_path[0] != '\0';
+    bool use_pcm_stream = pcm_stream_path != NULL && pcm_stream_path[0] != '\0';
     char pcm_path[64];
 
     if (profile == NULL) {
@@ -2623,10 +2959,15 @@ static void audio_play_print_execute_plan(const struct audio_speaker_profile *pr
     a90_console_printf("audio.play.execute.plan.profile=%s\r\n", profile->id);
     a90_console_printf("audio.play.execute.plan.mode=%s\r\n", mode);
     a90_console_printf("audio.play.execute.plan.pcm_path=%s\r\n", pcm_path);
-    a90_console_printf("audio.play.execute.plan.source=%s\r\n", use_pcm_file ? "pcm-file" : "tone");
+    a90_console_printf("audio.play.execute.plan.source=%s\r\n",
+                       use_pcm_stream ? "pcm-stream" : (use_pcm_file ? "pcm-file" : "tone"));
     a90_console_printf("audio.play.execute.plan.pcm_file=%s\r\n", use_pcm_file ? pcm_file_path : "-");
     a90_console_printf("audio.play.execute.plan.pcm_file.path_allowed=%d\r\n",
                        use_pcm_file && audio_pcm_file_path_allowed(pcm_file_path) ? 1 : 0);
+    a90_console_printf("audio.play.execute.plan.pcm_stream=%s\r\n",
+                       use_pcm_stream ? pcm_stream_path : "-");
+    a90_console_printf("audio.play.execute.plan.pcm_stream.path_allowed=%d\r\n",
+                       use_pcm_stream && audio_pcm_file_path_allowed(pcm_stream_path) ? 1 : 0);
     a90_console_printf("audio.play.execute.plan.period_size=%d\r\n", AUDIO_PCM_PERIOD_SIZE);
     a90_console_printf("audio.play.execute.plan.period_count=%d\r\n", AUDIO_PCM_PERIOD_COUNT);
     a90_console_printf("audio.play.execute.plan.frame_bytes=%lld\r\n", frame_bytes);
@@ -2637,11 +2978,14 @@ static void audio_play_print_execute_plan(const struct audio_speaker_profile *pr
     a90_console_printf("audio.play.execute.plan.pcm_gain_milli=%d\r\n", pcm_gain_milli);
     a90_console_printf("audio.play.execute.plan.duration_ms=%d\r\n", duration_ms);
     a90_console_printf("audio.play.execute.plan.waveform=%s\r\n",
-                       use_pcm_file ? "s16le-stereo-bounded-file" : "s16le-stereo-bounded-tone");
+                       use_pcm_stream ? "s16le-stereo-bounded-stream" :
+                       (use_pcm_file ? "s16le-stereo-bounded-file" : "s16le-stereo-bounded-tone"));
     a90_console_printf("audio.play.execute.plan.sequence=%s\r\n",
-                       use_pcm_file ?
+                       use_pcm_stream ?
+                       "open_fifo,open_pcm,configure_hw_params,write_bounded_stream,drain,close_pcm" :
+                       (use_pcm_file ?
                        "validate_pcm_file,open_pcm,configure_hw_params,write_bounded_file,drain,close_pcm" :
-                       "open_pcm,configure_hw_params,write_bounded_tone,drain,close_pcm");
+                       "open_pcm,configure_hw_params,write_bounded_tone,drain,close_pcm"));
     a90_console_printf("audio.play.execute.plan.foreground_prime_adsp=1\r\n");
     a90_console_printf("audio.play.execute.plan.foreground_prime_adsp_wait=0\r\n");
     a90_console_printf("audio.play.execute.plan.alsa_open_attempted=0\r\n");
@@ -2684,6 +3028,7 @@ static void audio_play_async_reset_status(const struct audio_speaker_profile *pr
                                           int duration_ms,
                                           const char *manifest_path,
                                           const char *pcm_file_path,
+                                          const char *pcm_stream_path,
                                           int pcm_gain_milli) {
     (void)ensure_dir(AUDIO_PLAY_ASYNC_DIR, 0700);
     (void)unlink(AUDIO_PLAY_ASYNC_STATUS_PATH);
@@ -2698,6 +3043,8 @@ static void audio_play_async_reset_status(const struct audio_speaker_profile *pr
                              manifest_path != NULL ? manifest_path : "-");
     audio_play_async_statusf("audio.play.worker.pcm_file=%s\n",
                              pcm_file_path != NULL && pcm_file_path[0] != '\0' ? pcm_file_path : "-");
+    audio_play_async_statusf("audio.play.worker.pcm_stream=%s\n",
+                             pcm_stream_path != NULL && pcm_stream_path[0] != '\0' ? pcm_stream_path : "-");
     audio_play_async_statusf("audio.play.worker.done=0\n");
 }
 
@@ -2926,11 +3273,13 @@ static int audio_play_execute_integrated(const struct audio_speaker_profile *pro
                                          int duration_ms,
                                          const char *manifest_path,
                                          const char *pcm_file_path,
+                                         const char *pcm_stream_path,
                                          int pcm_gain_milli,
                                          bool adsp_prebooted) {
     struct audio_setcal_execute_session setcal_session;
     bool setcal_started = false;
     bool route_apply_attempted = false;
+    const bool stop_owned_cleanup = pcm_stream_path != NULL && pcm_stream_path[0] != '\0';
     int rc;
     int cleanup_rc;
     int ioctl_count = 0;
@@ -2944,6 +3293,8 @@ static int audio_play_execute_integrated(const struct audio_speaker_profile *pro
     a90_console_printf("audio.play.integrated.manifest=%s\r\n", manifest_path);
     a90_console_printf("audio.play.integrated.pcm_file=%s\r\n",
                        pcm_file_path != NULL && pcm_file_path[0] != '\0' ? pcm_file_path : "-");
+    a90_console_printf("audio.play.integrated.pcm_stream=%s\r\n",
+                       pcm_stream_path != NULL && pcm_stream_path[0] != '\0' ? pcm_stream_path : "-");
     a90_console_printf("audio.play.integrated.pcm_gain_milli=%d\r\n", pcm_gain_milli);
     a90_console_printf("audio.play.integrated.adsp_prebooted=%d\r\n", adsp_prebooted ? 1 : 0);
     a90_console_printf("audio.play.integrated.sequence=adsp,snd,app_type,manifest_wait,setcal_hold,route_playback,pcm,route_playback_reset,setcal_deallocate\r\n");
@@ -2969,7 +3320,35 @@ static int audio_play_execute_integrated(const struct audio_speaker_profile *pro
     if (rc < 0) {
         goto done;
     }
-    rc = audio_play_execute_pcm(profile, mode, amplitude_milli, duration_ms, pcm_file_path, pcm_gain_milli);
+    rc = audio_play_execute_pcm(profile,
+                                mode,
+                                amplitude_milli,
+                                duration_ms,
+                                pcm_file_path,
+                                pcm_stream_path,
+                                pcm_gain_milli);
+    if (rc == 0) {
+        audio_play_async_statusf("audio.play.worker.pcm_done=1\n");
+        if (stop_owned_cleanup) {
+            a90_console_printf("audio.play.integrated.cleanup.deferred=1 reason=pcm-complete-await-audio-stop\r\n");
+            a90_console_printf("audio.play.integrated.cleanup.owner=audio-stop\r\n");
+            a90_console_printf("audio.play.integrated.await_stop=1\r\n");
+            audio_play_async_statusf("audio.play.worker.cleanup_deferred=1\n");
+            audio_play_async_statusf("audio.play.worker.cleanup_deferred_reason=pcm-complete-await-audio-stop\n");
+            audio_play_async_statusf("audio.play.worker.cleanup_owner=audio-stop\n");
+            audio_play_async_statusf("audio.play.worker.done=1 rc=0\n");
+            audio_play_async_statusf("audio.play.worker.exit_deferred=1\n");
+            for (;;) {
+                pause();
+            }
+        } else {
+            a90_console_printf("audio.play.integrated.cleanup.deferred=0 reason=finite-pcm-worker-owned\r\n");
+            a90_console_printf("audio.play.integrated.cleanup.owner=worker\r\n");
+            audio_play_async_statusf("audio.play.worker.cleanup_deferred=0\n");
+            audio_play_async_statusf("audio.play.worker.cleanup_owner=worker\n");
+            audio_play_async_statusf("audio.play.worker.exit_deferred=0\n");
+        }
+    }
 
 done:
     if (route_apply_attempted) {
@@ -2989,20 +3368,29 @@ done:
     return rc;
 }
 
-static int audio_play_start_worker(const struct audio_speaker_profile *profile,
-                                   const char *mode,
-                                   int amplitude_milli,
-                                   int duration_ms,
-                                   const char *manifest_path,
-                                   const char *pcm_file_path,
-                                   int pcm_gain_milli,
-                                   bool adsp_prebooted) {
+static int audio_play_start_worker_ex(const struct audio_speaker_profile *profile,
+                                      const char *mode,
+                                      int amplitude_milli,
+                                      int duration_ms,
+                                      const char *manifest_path,
+                                      const char *pcm_file_path,
+                                      const char *pcm_stream_path,
+                                      int pcm_gain_milli,
+                                      bool adsp_prebooted,
+                                      bool quiet_parent) {
     pid_t pid;
 
     if (manifest_path == NULL || manifest_path[0] == '\0') {
         manifest_path = AUDIO_SETCAL_DEFAULT_MANIFEST_PATH;
     }
-    audio_play_async_reset_status(profile, mode, amplitude_milli, duration_ms, manifest_path, pcm_file_path, pcm_gain_milli);
+    audio_play_async_reset_status(profile,
+                                  mode,
+                                  amplitude_milli,
+                                  duration_ms,
+                                  manifest_path,
+                                  pcm_file_path,
+                                  pcm_stream_path,
+                                  pcm_gain_milli);
     audio_play_async_statusf("audio.play.worker.adsp_prebooted=%d\n", adsp_prebooted ? 1 : 0);
     pid = fork();
     if (pid < 0) {
@@ -3028,6 +3416,7 @@ static int audio_play_start_worker(const struct audio_speaker_profile *profile,
                                            duration_ms,
                                            manifest_path,
                                            pcm_file_path,
+                                           pcm_stream_path,
                                            pcm_gain_milli,
                                            adsp_prebooted);
         audio_play_async_statusf("audio.play.worker.done=1 rc=%d\n", rc);
@@ -3035,18 +3424,76 @@ static int audio_play_start_worker(const struct audio_speaker_profile *profile,
         _exit(rc == 0 ? 0 : 1);
     }
 
-    a90_console_printf("audio.play.worker.version=1\r\n");
-    a90_console_printf("audio.play.worker.started=1\r\n");
-    a90_console_printf("audio.play.worker.pid=%ld\r\n", (long)pid);
-    a90_console_printf("audio.play.worker.adsp_prebooted=%d\r\n", adsp_prebooted ? 1 : 0);
-    a90_console_printf("audio.play.worker.pcm_gain_milli=%d\r\n", pcm_gain_milli);
-    a90_console_printf("audio.play.worker.status_path=%s\r\n", AUDIO_PLAY_ASYNC_STATUS_PATH);
-    a90_console_printf("audio.play.worker.log_path=%s\r\n", AUDIO_PLAY_ASYNC_LOG_PATH);
-    a90_console_printf("audio.play.worker.parent_returns=1\r\n");
+    if (!quiet_parent) {
+        a90_console_printf("audio.play.worker.version=1\r\n");
+        a90_console_printf("audio.play.worker.started=1\r\n");
+        a90_console_printf("audio.play.worker.pid=%ld\r\n", (long)pid);
+        a90_console_printf("audio.play.worker.adsp_prebooted=%d\r\n", adsp_prebooted ? 1 : 0);
+        a90_console_printf("audio.play.worker.pcm_gain_milli=%d\r\n", pcm_gain_milli);
+        a90_console_printf("audio.play.worker.status_path=%s\r\n", AUDIO_PLAY_ASYNC_STATUS_PATH);
+        a90_console_printf("audio.play.worker.log_path=%s\r\n", AUDIO_PLAY_ASYNC_LOG_PATH);
+        a90_console_printf("audio.play.worker.parent_returns=1\r\n");
+    }
     audio_play_async_statusf("audio.play.worker.started=1\n");
     audio_play_async_statusf("audio.play.worker.pid=%ld\n", (long)pid);
     audio_play_async_worker_pid = pid;
     return 0;
+}
+
+static int audio_play_start_worker(const struct audio_speaker_profile *profile,
+                                   const char *mode,
+                                   int amplitude_milli,
+                                   int duration_ms,
+                                   const char *manifest_path,
+                                   const char *pcm_file_path,
+                                   const char *pcm_stream_path,
+                                   int pcm_gain_milli,
+                                   bool adsp_prebooted) {
+    return audio_play_start_worker_ex(profile,
+                                      mode,
+                                      amplitude_milli,
+                                      duration_ms,
+                                      manifest_path,
+                                      pcm_file_path,
+                                      pcm_stream_path,
+                                      pcm_gain_milli,
+                                      adsp_prebooted,
+                                      false);
+}
+
+int a90_audio_start_pcm_stream_worker_quiet(const char *profile_id,
+                                            const char *pcm_stream_path,
+                                            int amplitude_milli,
+                                            int duration_ms) {
+    const struct audio_speaker_profile *profile;
+    int effective_duration_cap_ms;
+
+    if (profile_id == NULL || profile_id[0] == '\0' ||
+        pcm_stream_path == NULL || pcm_stream_path[0] == '\0') {
+        return -EINVAL;
+    }
+    profile = a90_audio_find_profile(profile_id);
+    if (profile == NULL) {
+        return -ENOENT;
+    }
+    effective_duration_cap_ms = audio_play_effective_duration_cap_ms(profile, NULL, pcm_stream_path);
+    if (amplitude_milli < 0 || amplitude_milli > profile->amplitude_cap_milli ||
+        duration_ms <= 0 || duration_ms > effective_duration_cap_ms) {
+        return -EPERM;
+    }
+    if (!audio_pcm_file_path_allowed(pcm_stream_path)) {
+        return -EPERM;
+    }
+    return audio_play_start_worker_ex(profile,
+                                      "listen",
+                                      amplitude_milli,
+                                      duration_ms,
+                                      AUDIO_SETCAL_DEFAULT_MANIFEST_PATH,
+                                      NULL,
+                                      pcm_stream_path,
+                                      AUDIO_PCM_GAIN_MILLI_DEFAULT,
+                                      true,
+                                      true);
 }
 
 static int audio_play_stop_tracked_worker(void) {
@@ -3101,16 +3548,139 @@ static int audio_play_stop_tracked_worker(void) {
     return 0;
 }
 
+static bool audio_status_line_value_equals(const char *text,
+                                           const char *key,
+                                           const char *value) {
+    const char *cursor = text;
+    size_t key_len;
+    size_t value_len;
+
+    if (text == NULL || key == NULL || value == NULL) {
+        return false;
+    }
+    key_len = strlen(key);
+    value_len = strlen(value);
+    while ((cursor = strstr(cursor, key)) != NULL) {
+        const char *line_value = cursor + key_len;
+        char next = line_value[value_len];
+
+        if (strncmp(line_value, value, value_len) == 0 &&
+            (next == '\0' || next == '\n' || next == '\r')) {
+            return true;
+        }
+        cursor += key_len;
+    }
+    return false;
+}
+
+static bool audio_status_latest_long(const char *text,
+                                     const char *key,
+                                     long *value_out) {
+    const char *cursor = text;
+    size_t key_len;
+    long latest = 0;
+    bool found = false;
+
+    if (text == NULL || key == NULL || value_out == NULL) {
+        return false;
+    }
+    key_len = strlen(key);
+    while ((cursor = strstr(cursor, key)) != NULL) {
+        char *end = NULL;
+        long value;
+
+        errno = 0;
+        value = strtol(cursor + key_len, &end, 10);
+        if (errno == 0 && end != cursor + key_len) {
+            latest = value;
+            found = true;
+        }
+        cursor += key_len;
+    }
+    if (!found) {
+        return false;
+    }
+    *value_out = latest;
+    return true;
+}
+
+static int audio_play_stop_status_worker(const char *profile_id, pid_t *pid_out) {
+    char status[4096];
+    long pid_value = -1;
+    long done_value = 1;
+    long cleanup_deferred_value = 0;
+    long exit_deferred_value = 0;
+    bool cleanup_deferred = false;
+    bool exit_deferred = false;
+    pid_t pid;
+    int attempt;
+
+    if (pid_out != NULL) {
+        *pid_out = -1;
+    }
+    if (profile_id == NULL || profile_id[0] == '\0') {
+        return 0;
+    }
+    if (read_text_file(AUDIO_PLAY_ASYNC_STATUS_PATH, status, sizeof(status)) < 0) {
+        return 0;
+    }
+    if (!audio_status_line_value_equals(status, "audio.play.worker.profile=", profile_id)) {
+        return 0;
+    }
+    if (!audio_status_latest_long(status, "audio.play.worker.pid=", &pid_value) || pid_value <= 1) {
+        return 0;
+    }
+    cleanup_deferred =
+        audio_status_latest_long(status,
+                                 "audio.play.worker.cleanup_deferred=",
+                                 &cleanup_deferred_value) &&
+        cleanup_deferred_value != 0;
+    exit_deferred =
+        audio_status_latest_long(status,
+                                 "audio.play.worker.exit_deferred=",
+                                 &exit_deferred_value) &&
+        exit_deferred_value != 0;
+    if (audio_status_latest_long(status, "audio.play.worker.done=", &done_value) &&
+        done_value != 0 &&
+        !cleanup_deferred &&
+        !exit_deferred) {
+        return 0;
+    }
+    pid = (pid_t)pid_value;
+    if (pid_out != NULL) {
+        *pid_out = pid;
+    }
+    if (audio_play_async_worker_pid == pid) {
+        return 0;
+    }
+    if (kill(pid, SIGTERM) < 0) {
+        return errno == ESRCH ? 0 : -errno;
+    }
+    for (attempt = 0; attempt < 12; ++attempt) {
+        usleep(50000);
+        if (kill(pid, 0) < 0) {
+            return errno == ESRCH ? 0 : -errno;
+        }
+    }
+    if (kill(pid, SIGKILL) < 0) {
+        return errno == ESRCH ? 0 : -errno;
+    }
+    return 0;
+}
+
 static int audio_play_cmd(char **argv, int argc) {
     const char *profile_id = AUDIO_DEFAULT_PROFILE_ID;
     const char *mode = "probe";
     const char *manifest_path = AUDIO_SETCAL_DEFAULT_MANIFEST_PATH;
     const char *pcm_file_path = NULL;
+    const char *pcm_stream_path = NULL;
     const struct audio_speaker_profile *profile;
     bool seen_profile = false;
     bool execute_mode = false;
     bool pcm_file_requested = false;
+    bool pcm_stream_requested = false;
     bool pcm_file_allowed = false;
+    bool pcm_stream_allowed = false;
     bool amplitude_override = false;
     bool duration_override = false;
     int requested_amplitude_milli = 0;
@@ -3172,6 +3742,13 @@ static int audio_play_cmd(char **argv, int argc) {
             }
             pcm_file_path = argv[++argi];
             pcm_file_requested = true;
+        } else if (strcmp(argv[argi], "--pcm-stream") == 0) {
+            if (argi + 1 >= argc || argv[argi + 1] == NULL) {
+                a90_console_printf("usage: audio play [profile] [--mode probe|listen] [--amplitude-milli N] [--duration-ms N] [--manifest PATH] [--pcm-file PATH|--pcm-stream PATH] [--pcm-gain-milli N] [--dry-run|--execute]\r\n");
+                return -EINVAL;
+            }
+            pcm_stream_path = argv[++argi];
+            pcm_stream_requested = true;
         } else if (!seen_profile) {
             profile_id = argv[argi];
             seen_profile = true;
@@ -3195,7 +3772,13 @@ static int audio_play_cmd(char **argv, int argc) {
     a90_console_printf("audio.play.pcm_file_supported=1\r\n");
     pcm_file_allowed = pcm_file_requested && audio_pcm_file_path_allowed(pcm_file_path);
     a90_console_printf("audio.play.pcm_file.path_allowed=%d\r\n", pcm_file_allowed ? 1 : 0);
-    a90_console_printf("audio.play.source=%s\r\n", pcm_file_requested ? "pcm-file" : "tone");
+    a90_console_printf("audio.play.pcm_stream=%s\r\n",
+                       pcm_stream_requested ? pcm_stream_path : "-");
+    a90_console_printf("audio.play.pcm_stream_supported=1\r\n");
+    pcm_stream_allowed = pcm_stream_requested && audio_pcm_file_path_allowed(pcm_stream_path);
+    a90_console_printf("audio.play.pcm_stream.path_allowed=%d\r\n", pcm_stream_allowed ? 1 : 0);
+    a90_console_printf("audio.play.source=%s\r\n",
+                       pcm_stream_requested ? "pcm-stream" : (pcm_file_requested ? "pcm-file" : "tone"));
     a90_console_printf("audio.play.playback_attempted=0\r\n");
     if (profile == NULL) {
         a90_console_printf("audio.play.error=unknown-profile\r\n");
@@ -3214,7 +3797,7 @@ static int audio_play_cmd(char **argv, int argc) {
         a90_console_printf("audio.play.duration_override=1\r\n");
     }
     pcm_gain_milli = requested_pcm_gain_milli;
-    effective_duration_cap_ms = audio_play_effective_duration_cap_ms(profile, pcm_file_path);
+    effective_duration_cap_ms = audio_play_effective_duration_cap_ms(profile, pcm_file_path, pcm_stream_path);
     a90_console_printf("audio.play.endpoint=%s\r\n", profile->endpoint);
     a90_console_printf("audio.play.card=%d\r\n", profile->card);
     a90_console_printf("audio.play.pcm_device=%d\r\n", profile->pcm_device);
@@ -3230,11 +3813,17 @@ static int audio_play_cmd(char **argv, int argc) {
     a90_console_printf("audio.play.cap.duration_ms=%d\r\n", profile->duration_cap_ms);
     a90_console_printf("audio.play.cap.effective_duration_ms=%d\r\n", effective_duration_cap_ms);
     a90_console_printf("audio.play.cap.duration_policy=%s\r\n",
-                       audio_play_duration_cap_policy(pcm_file_path));
+                       audio_play_duration_cap_policy(pcm_file_path, pcm_stream_path));
     a90_console_printf("audio.play.cap.badapple_fullsong_ms=%d\r\n",
                        AUDIO_BADAPPLE_FULL_PCM_DURATION_CAP_MS);
     a90_console_printf("audio.play.cap.badapple_fullsong_sha256=%s\r\n",
                        AUDIO_BADAPPLE_FULL_PCM_EXPECTED_SHA256);
+    a90_console_printf("audio.play.cap.nyan_preview_ms=%d\r\n",
+                       AUDIO_NYAN_PREVIEW_PCM_DURATION_CAP_MS);
+    a90_console_printf("audio.play.cap.nyan_preview_sha256=%s\r\n",
+                       AUDIO_NYAN_PREVIEW_PCM_EXPECTED_SHA256);
+    a90_console_printf("audio.play.cap.doom_sfx_stream_ms=%d\r\n",
+                       AUDIO_DOOM_SFX_STREAM_DURATION_CAP_MS);
     a90_console_printf("audio.play.safety.no_smart_amp_gain_boost_changes=1\r\n");
     a90_console_printf("audio.play.safety.amplitude_within_cap=%d\r\n",
                        amplitude_milli <= profile->amplitude_cap_milli ? 1 : 0);
@@ -3261,10 +3850,24 @@ static int audio_play_cmd(char **argv, int argc) {
         a90_console_printf("audio.play.refused=pcm-file-path-not-allowed\r\n");
         return -EPERM;
     }
+    if (pcm_stream_requested && !pcm_stream_allowed) {
+        a90_console_printf("audio.play.refused=pcm-stream-path-not-allowed\r\n");
+        return -EPERM;
+    }
+    if (pcm_file_requested && pcm_stream_requested) {
+        a90_console_printf("audio.play.refused=multiple-pcm-sources\r\n");
+        return -EINVAL;
+    }
     if (execute_mode) {
         int prime_rc;
 
-        audio_play_print_execute_plan(profile, mode, amplitude_milli, duration_ms, pcm_file_path, pcm_gain_milli);
+        audio_play_print_execute_plan(profile,
+                                      mode,
+                                      amplitude_milli,
+                                      duration_ms,
+                                      pcm_file_path,
+                                      pcm_stream_path,
+                                      pcm_gain_milli);
         a90_console_printf("audio.play.initial_pcm_node_ready=%d\r\n", pcm_node_ready ? 1 : 0);
         prime_rc = audio_play_kick_adsp_stage_no_wait(profile);
         if (prime_rc < 0) {
@@ -3272,7 +3875,15 @@ static int audio_play_cmd(char **argv, int argc) {
             return prime_rc;
         }
         a90_console_printf("audio.play.execute.async_worker=1\r\n");
-        return audio_play_start_worker(profile, mode, amplitude_milli, duration_ms, manifest_path, pcm_file_path, pcm_gain_milli, true);
+        return audio_play_start_worker(profile,
+                                       mode,
+                                       amplitude_milli,
+                                       duration_ms,
+                                       manifest_path,
+                                       pcm_file_path,
+                                       pcm_stream_path,
+                                       pcm_gain_milli,
+                                       true);
     }
     a90_console_printf("audio.play.dry_run_ok=1\r\n");
     return 0;
@@ -3433,6 +4044,8 @@ static int audio_stop_cmd(char **argv, int argc) {
     int index;
     int route_rc;
     int worker_stop_rc;
+    int status_worker_stop_rc;
+    pid_t status_worker_pid = -1;
     char *route_argv[7];
 
     for (argi = 2; argi < argc; ++argi) {
@@ -3485,6 +4098,9 @@ static int audio_stop_cmd(char **argv, int argc) {
                        audio_play_async_worker_pid > 0 ? 1 : 0);
     worker_stop_rc = audio_play_stop_tracked_worker();
     a90_console_printf("audio.stop.worker.stop_rc=%d\r\n", worker_stop_rc);
+    status_worker_stop_rc = audio_play_stop_status_worker(profile->id, &status_worker_pid);
+    a90_console_printf("audio.stop.worker.status_pid=%ld\r\n", (long)status_worker_pid);
+    a90_console_printf("audio.stop.worker.status_stop_rc=%d\r\n", status_worker_stop_rc);
     if (audio_play_async_worker_pid <= 0 && worker_stop_rc == 0) {
         a90_console_printf("audio.stop.playback_stop_reason=tracked-worker-stopped-or-none\r\n");
     }
@@ -3504,6 +4120,10 @@ static int audio_stop_cmd(char **argv, int argc) {
     if (worker_stop_rc < 0) {
         a90_console_printf("audio.stop.done=0 rc=%d\r\n", worker_stop_rc);
         return worker_stop_rc;
+    }
+    if (status_worker_stop_rc < 0) {
+        a90_console_printf("audio.stop.done=0 rc=%d\r\n", status_worker_stop_rc);
+        return status_worker_stop_rc;
     }
     a90_console_printf("audio.stop.done=%d rc=%d\r\n", route_rc == 0 ? 1 : 0, route_rc);
     return route_rc;
@@ -5067,6 +5687,6 @@ int a90_audio_cmd(char **argv, int argc) {
     if (argc >= 2 && argv != NULL && argv[1] != NULL && strcmp(argv[1], "snd-materialize-once") == 0) {
         return audio_snd_materialize_once(argv, argc);
     }
-    a90_console_printf("usage: audio [adsp-status|status|profiles|profile [id]|speaker-map [id]|stages [id]|prereq [id]|app-type [profile] [--dry-run|--write]|setcal [profile] [--dry-run|--execute] [--manifest PATH --verify|--prepare|--load]|play [profile] [--mode probe|listen] [--amplitude-milli N] [--duration-ms N] [--manifest PATH] [--pcm-file PATH] [--pcm-gain-milli N] [--dry-run|--execute]|chime [--dry-run|--execute] [--amplitude-milli N] [--duration-ms N] [--manifest PATH]|play-status|stop [profile] [--dry-run|--execute]|route [profile] [--dry-run|--apply|--reset] [--layer all|core|feedback|endpoint|playback|blocked]|snd-status|adsp-boot-once|snd-materialize-once]\r\n");
+    a90_console_printf("usage: audio [adsp-status|status|profiles|profile [id]|speaker-map [id]|stages [id]|prereq [id]|app-type [profile] [--dry-run|--write]|setcal [profile] [--dry-run|--execute] [--manifest PATH --verify|--prepare|--load]|play [profile] [--mode probe|listen] [--amplitude-milli N] [--duration-ms N] [--manifest PATH] [--pcm-file PATH|--pcm-stream PATH] [--pcm-gain-milli N] [--dry-run|--execute]|chime [--dry-run|--execute] [--amplitude-milli N] [--duration-ms N] [--manifest PATH]|play-status|stop [profile] [--dry-run|--execute]|route [profile] [--dry-run|--apply|--reset] [--layer all|core|feedback|endpoint|playback|blocked]|snd-status|adsp-boot-once|snd-materialize-once]\r\n");
     return -EINVAL;
 }

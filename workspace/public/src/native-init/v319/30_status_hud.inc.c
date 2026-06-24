@@ -6,6 +6,55 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 
+#ifndef VIDEO_PLAYER_HUD_SCALE
+#define VIDEO_PLAYER_HUD_SCALE 2U
+#endif
+#ifndef VIDEO_PLAYER_HUD_METRICS_INTERVAL_FRAMES
+#define VIDEO_PLAYER_HUD_METRICS_INTERVAL_FRAMES 900U
+#endif
+#ifndef VIDEO_PLAYER_HUD_STORAGE_INTERVAL_FRAMES
+#define VIDEO_PLAYER_HUD_STORAGE_INTERVAL_FRAMES 1800U
+#endif
+#ifndef VIDEO_PLAYER_HUD_TEXT_INTERVAL_FRAMES
+#define VIDEO_PLAYER_HUD_TEXT_INTERVAL_FRAMES 900U
+#endif
+#ifndef VIDEO_PLAYER_HUD_FULL_REPAINT_INTERVAL_FRAMES
+#define VIDEO_PLAYER_HUD_FULL_REPAINT_INTERVAL_FRAMES 0U
+#endif
+#ifndef VIDEO_PLAYER_HUD_TELEMETRY_MIN_SLACK_NS
+#define VIDEO_PLAYER_HUD_TELEMETRY_MIN_SLACK_NS 18000000ULL
+#endif
+#ifndef VIDEO_PLAYER_HUD_TEXT_SLACK_GUARD
+#define VIDEO_PLAYER_HUD_TEXT_SLACK_GUARD 1
+#endif
+#ifndef VIDEO_PLAYER_HUD_LIVE_TELEMETRY
+#define VIDEO_PLAYER_HUD_LIVE_TELEMETRY 0
+#endif
+#ifndef VIDEO_PLAYER_HUD_DYNAMIC_TEXT
+#define VIDEO_PLAYER_HUD_DYNAMIC_TEXT VIDEO_PLAYER_HUD_LIVE_TELEMETRY
+#endif
+#ifndef A90_VIDEO_STREAM_PHYSICAL_BUTTON_EXIT
+#ifdef A90_DOOMGENERIC_PHYSICAL_BUTTON_EXIT
+#define A90_VIDEO_STREAM_PHYSICAL_BUTTON_EXIT A90_DOOMGENERIC_PHYSICAL_BUTTON_EXIT
+#else
+#define A90_VIDEO_STREAM_PHYSICAL_BUTTON_EXIT 1
+#endif
+#endif
+#ifndef VIDEO_STREAM_READAHEAD_BYTES
+#define VIDEO_STREAM_READAHEAD_BYTES (8U * 1024U * 1024U)
+#endif
+#ifndef VIDEO_STREAM_READAHEAD_INTERVAL_FRAMES
+#define VIDEO_STREAM_READAHEAD_INTERVAL_FRAMES 30U
+#endif
+#ifndef VIDEO_STREAM_READAHEAD_WINDOW_ENABLED
+#define VIDEO_STREAM_READAHEAD_WINDOW_ENABLED 0
+#endif
+#ifndef VIDEO_STREAM_READAHEAD_DEADLINE_GUARD_NS
+#define VIDEO_STREAM_READAHEAD_DEADLINE_GUARD_NS 25000000ULL
+#endif
+
+static int video_demo_doom_restore_menu_after_exit(void);
+
 static struct a90_hud_storage_status current_hud_storage_status(void) {
     static struct a90_storage_status snapshot;
     static struct a90_runtime_status runtime;
@@ -25,6 +74,24 @@ static struct a90_hud_storage_status current_hud_storage_status(void) {
         storage.warning = snapshot.warning;
     }
     return storage;
+}
+
+static void video_player_hud_set_static_telemetry(struct a90_metrics_snapshot *metrics,
+                                                  struct a90_hud_storage_status *storage) {
+    if (metrics != NULL) {
+        memset(metrics, 0, sizeof(*metrics));
+        snprintf(metrics->cpu_temp, sizeof(metrics->cpu_temp), "off");
+        snprintf(metrics->cpu_usage, sizeof(metrics->cpu_usage), "static");
+        snprintf(metrics->gpu_temp, sizeof(metrics->gpu_temp), "off");
+        snprintf(metrics->gpu_usage, sizeof(metrics->gpu_usage), "static");
+        snprintf(metrics->loadavg, sizeof(metrics->loadavg), "off");
+        snprintf(metrics->memory, sizeof(metrics->memory), "off");
+    }
+    if (storage != NULL) {
+        storage->backend = "off";
+        storage->root = "playback telemetry disabled";
+        storage->warning = "";
+    }
 }
 
 static bool parse_color_arg(const char *arg, uint32_t *color_out) {
@@ -92,7 +159,42 @@ static int cmd_video_status(void) {
     a90_console_printf("video.status.path=kms-dumb-buffer\r\n");
     a90_console_printf("video.status.display_owner=1\r\n");
     a90_console_printf("video.status.player_hud_fastpath=1\r\n");
+    a90_console_printf("video.status.player_hud_fastscale=1\r\n");
     a90_console_printf("video.status.player_hud_incremental_panel=1\r\n");
+    a90_console_printf("video.status.player_hud_metrics_interval_frames=%u\r\n",
+                       VIDEO_PLAYER_HUD_METRICS_INTERVAL_FRAMES);
+    a90_console_printf("video.status.player_hud_storage_interval_frames=%u\r\n",
+                       VIDEO_PLAYER_HUD_STORAGE_INTERVAL_FRAMES);
+    a90_console_printf("video.status.player_hud_text_interval_frames=%u\r\n",
+                       VIDEO_PLAYER_HUD_TEXT_INTERVAL_FRAMES);
+    a90_console_printf("video.status.player_hud_full_repaint_interval_frames=%u\r\n",
+                       VIDEO_PLAYER_HUD_FULL_REPAINT_INTERVAL_FRAMES);
+    a90_console_printf("video.status.player_hud_deadline_guard_ns=%llu\r\n",
+                       (unsigned long long)VIDEO_PLAYER_HUD_TELEMETRY_MIN_SLACK_NS);
+    a90_console_printf("video.status.player_hud_text_slack_guard=%d\r\n",
+                       VIDEO_PLAYER_HUD_TEXT_SLACK_GUARD ? 1 : 0);
+    a90_console_printf("video.status.player_hud_live_telemetry=%d\r\n",
+                       VIDEO_PLAYER_HUD_LIVE_TELEMETRY ? 1 : 0);
+    a90_console_printf("video.status.player_hud_dynamic_text=%d\r\n",
+                       VIDEO_PLAYER_HUD_DYNAMIC_TEXT ? 1 : 0);
+    a90_console_printf("video.status.stream_physical_button_exit=%d\r\n",
+                       A90_VIDEO_STREAM_PHYSICAL_BUTTON_EXIT ? 1 : 0);
+    a90_console_printf("video.status.stream_audio_tail_guard=1\r\n");
+    a90_console_printf("video.status.stream_timing_probe=1\r\n");
+    a90_console_printf("video.status.stream_readahead=%s\r\n",
+                       VIDEO_STREAM_READAHEAD_WINDOW_ENABLED ?
+                           "sequential-window-deadline-guard" :
+                           "sequential-only-window-off");
+    a90_console_printf("video.status.stream_readahead_bytes=%u\r\n",
+                       (unsigned int)VIDEO_STREAM_READAHEAD_BYTES);
+    a90_console_printf("video.status.stream_readahead.window_enabled=%d\r\n",
+                       VIDEO_STREAM_READAHEAD_WINDOW_ENABLED ? 1 : 0);
+    a90_console_printf("video.status.stream_readahead.deadline_guard_ns=%llu\r\n",
+                       (unsigned long long)VIDEO_STREAM_READAHEAD_DEADLINE_GUARD_NS);
+    a90_console_printf("video.status.menu_av_present=setcrtc\r\n");
+    a90_console_printf("video.status.menu_av_late_drop=pageflip-only-setcrtc-cadence\r\n");
+    a90_console_printf("video.status.menu_av_tail_wait=audio-expected-duration\r\n");
+    a90_console_printf("video.status.menu_av_pageflip_diagnostic=1\r\n");
     a90_console_printf("video.status.nyan_pal8_rle=1\r\n");
     a90_console_printf("video.status.doom_stub=1\r\n");
     a90_console_printf("video.status.doom_input=serial-doompad-staged\r\n");
@@ -166,6 +268,21 @@ static uint64_t video_monotonic_ns(void) {
     }
     return ((uint64_t)ts.tv_sec * 1000000000ULL) + (uint64_t)ts.tv_nsec;
 }
+
+#if VIDEO_PLAYER_HUD_LIVE_TELEMETRY || VIDEO_PLAYER_HUD_DYNAMIC_TEXT
+static bool video_deadline_has_slack(uint64_t deadline_ns, uint64_t min_slack_ns) {
+    uint64_t now_ns;
+
+    if (deadline_ns == 0 || min_slack_ns == 0) {
+        return true;
+    }
+    now_ns = video_monotonic_ns();
+    if (now_ns == 0 || now_ns >= deadline_ns) {
+        return false;
+    }
+    return deadline_ns - now_ns >= min_slack_ns;
+}
+#endif
 
 static uint32_t video_blitbench_pixel(uint32_t x, uint32_t y, uint32_t width, uint32_t height) {
     uint32_t red = (x * 255U) / (width > 1 ? width - 1 : 1);
@@ -1221,6 +1338,58 @@ static int video_expand_mono1_frame(struct a90_fb *fb,
     return 0;
 }
 
+static int video_expand_mono1_frame_scaled2(struct a90_fb *fb,
+                                            const uint8_t *source,
+                                            const struct video_stream_manifest *manifest,
+                                            uint32_t dst_x,
+                                            uint32_t dst_y) {
+    uint32_t y;
+    uint32_t scaled_width;
+    uint32_t scaled_height;
+    size_t scaled_row_bytes;
+
+    if (fb == NULL || fb->pixels == NULL || source == NULL || manifest == NULL ||
+        fb->stride < (uint64_t)fb->width * 4ULL ||
+        manifest->stride < ((manifest->width + 7U) / 8U)) {
+        return -EINVAL;
+    }
+    scaled_width = manifest->width * 2U;
+    scaled_height = manifest->height * 2U;
+    if (scaled_width / 2U != manifest->width ||
+        scaled_height / 2U != manifest->height ||
+        dst_x > fb->width || dst_y > fb->height ||
+        scaled_width > fb->width - dst_x ||
+        scaled_height > fb->height - dst_y) {
+        return -EINVAL;
+    }
+    scaled_row_bytes = (size_t)scaled_width * sizeof(uint32_t);
+    for (y = 0; y < manifest->height; ++y) {
+        const uint8_t *src = source + ((size_t)y * manifest->stride);
+        uint32_t *dst0 = (uint32_t *)((char *)fb->pixels +
+                         ((size_t)(dst_y + y * 2U) * fb->stride)) + dst_x;
+        uint32_t *dst = dst0;
+        uint32_t x = 0;
+
+        while (x < manifest->width) {
+            uint8_t byte = src[x >> 3U];
+            uint32_t bit_index;
+
+            for (bit_index = 0; bit_index < 8U && x < manifest->width; ++bit_index, ++x) {
+                uint32_t bit = (byte >> (7U - bit_index)) & 1U;
+                uint32_t color = bit ? 0x00FFFFFFU : 0x00000000U;
+
+                *dst++ = color;
+                *dst++ = color;
+            }
+        }
+        memcpy((char *)fb->pixels + ((size_t)(dst_y + y * 2U + 1U) * fb->stride) +
+                   ((size_t)dst_x * sizeof(uint32_t)),
+               dst0,
+               scaled_row_bytes);
+    }
+    return 0;
+}
+
 static int video_expand_mono1_frame_scaled(struct a90_fb *fb,
                                            const uint8_t *source,
                                            const struct video_stream_manifest *manifest,
@@ -1232,6 +1401,9 @@ static int video_expand_mono1_frame_scaled(struct a90_fb *fb,
     uint32_t scaled_height;
     size_t scaled_row_bytes;
 
+    if (scale == 2U) {
+        return video_expand_mono1_frame_scaled2(fb, source, manifest, dst_x, dst_y);
+    }
     if (fb == NULL || fb->pixels == NULL || source == NULL || manifest == NULL ||
         scale == 0 || fb->stride < (uint64_t)fb->width * 4ULL ||
         manifest->stride < ((manifest->width + 7U) / 8U)) {
@@ -1275,6 +1447,125 @@ static int video_expand_mono1_frame_scaled(struct a90_fb *fb,
     return 0;
 }
 
+static void video_fill_u32(uint32_t *dst, uint32_t color, uint32_t count) {
+    while (count > 0U) {
+        *dst++ = color;
+        --count;
+    }
+}
+
+static int video_expand_pal8_indices_scaled2(struct a90_fb *fb,
+                                             const uint8_t *indices,
+                                             const struct video_stream_manifest *manifest,
+                                             const uint32_t *palette,
+                                             uint32_t palette_count,
+                                             uint32_t dst_x,
+                                             uint32_t dst_y) {
+    uint32_t y;
+    uint32_t scaled_width;
+    uint32_t scaled_height;
+    size_t scaled_row_bytes;
+
+    if (fb == NULL || fb->pixels == NULL || indices == NULL || manifest == NULL ||
+        palette == NULL || palette_count == 0 || palette_count > VIDEO_STREAM_PAL8_MAX_COLORS ||
+        fb->stride < (uint64_t)fb->width * 4ULL) {
+        return -EINVAL;
+    }
+    scaled_width = manifest->width * 2U;
+    scaled_height = manifest->height * 2U;
+    if (scaled_width / 2U != manifest->width ||
+        scaled_height / 2U != manifest->height ||
+        dst_x > fb->width || dst_y > fb->height ||
+        scaled_width > fb->width - dst_x ||
+        scaled_height > fb->height - dst_y) {
+        return -EINVAL;
+    }
+    scaled_row_bytes = (size_t)scaled_width * sizeof(uint32_t);
+    for (y = 0; y < manifest->height; ++y) {
+        const uint8_t *src = indices + ((size_t)y * manifest->width);
+        uint32_t *dst0 = (uint32_t *)((char *)fb->pixels +
+                         ((size_t)(dst_y + y * 2U) * fb->stride)) + dst_x;
+        uint32_t x;
+
+        for (x = 0; x < manifest->width; ++x) {
+            uint8_t palette_index = src[x];
+            uint32_t color;
+
+            if (palette_index >= palette_count) {
+                return -EINVAL;
+            }
+            color = palette[palette_index];
+            dst0[x * 2U] = color;
+            dst0[x * 2U + 1U] = color;
+        }
+        memcpy((char *)fb->pixels + ((size_t)(dst_y + y * 2U + 1U) * fb->stride) +
+                   ((size_t)dst_x * sizeof(uint32_t)),
+               dst0,
+               scaled_row_bytes);
+    }
+    return 0;
+}
+
+static int video_expand_pal8_rle_scaled2(struct a90_fb *fb,
+                                         const uint8_t *payload,
+                                         uint32_t payload_bytes,
+                                         const struct video_stream_manifest *manifest,
+                                         const uint32_t *palette,
+                                         uint32_t palette_count,
+                                         uint32_t dst_x,
+                                         uint32_t dst_y) {
+    uint32_t source_offset = 0;
+    uint32_t y;
+    uint32_t scaled_width;
+    uint32_t scaled_height;
+    size_t scaled_row_bytes;
+
+    if (fb == NULL || fb->pixels == NULL || payload == NULL || manifest == NULL ||
+        palette == NULL || palette_count == 0 || palette_count > VIDEO_STREAM_PAL8_MAX_COLORS ||
+        fb->stride < (uint64_t)fb->width * 4ULL) {
+        return -EINVAL;
+    }
+    scaled_width = manifest->width * 2U;
+    scaled_height = manifest->height * 2U;
+    if (scaled_width / 2U != manifest->width ||
+        scaled_height / 2U != manifest->height ||
+        dst_x > fb->width || dst_y > fb->height ||
+        scaled_width > fb->width - dst_x ||
+        scaled_height > fb->height - dst_y) {
+        return -EINVAL;
+    }
+    scaled_row_bytes = (size_t)scaled_width * sizeof(uint32_t);
+    for (y = 0; y < manifest->height; ++y) {
+        uint32_t row_pixels = 0;
+        uint32_t *dst0 = (uint32_t *)((char *)fb->pixels +
+                         ((size_t)(dst_y + y * 2U) * fb->stride)) + dst_x;
+
+        while (row_pixels < manifest->width) {
+            uint8_t run_length;
+            uint8_t palette_index;
+            uint32_t color;
+
+            if (source_offset + 2U > payload_bytes) {
+                return -EINVAL;
+            }
+            run_length = payload[source_offset++];
+            palette_index = payload[source_offset++];
+            if (run_length == 0 || row_pixels + run_length > manifest->width ||
+                palette_index >= palette_count) {
+                return -EINVAL;
+            }
+            color = palette[palette_index];
+            video_fill_u32(dst0 + (row_pixels * 2U), color, (uint32_t)run_length * 2U);
+            row_pixels += run_length;
+        }
+        memcpy((char *)fb->pixels + ((size_t)(dst_y + y * 2U + 1U) * fb->stride) +
+                   ((size_t)dst_x * sizeof(uint32_t)),
+               dst0,
+               scaled_row_bytes);
+    }
+    return source_offset == payload_bytes ? 0 : -EINVAL;
+}
+
 static int video_expand_pal8_indices_scaled(struct a90_fb *fb,
                                             const uint8_t *indices,
                                             const struct video_stream_manifest *manifest,
@@ -1288,6 +1579,15 @@ static int video_expand_pal8_indices_scaled(struct a90_fb *fb,
     uint32_t scaled_height;
     size_t scaled_row_bytes;
 
+    if (scale == 2U) {
+        return video_expand_pal8_indices_scaled2(fb,
+                                                 indices,
+                                                 manifest,
+                                                 palette,
+                                                 palette_count,
+                                                 dst_x,
+                                                 dst_y);
+    }
     if (fb == NULL || fb->pixels == NULL || indices == NULL || manifest == NULL ||
         palette == NULL || palette_count == 0 || palette_count > VIDEO_STREAM_PAL8_MAX_COLORS ||
         scale == 0 || fb->stride < (uint64_t)fb->width * 4ULL) {
@@ -1390,6 +1690,28 @@ static int video_render_pal8_player_hud_region(struct a90_fb *fb,
     if (required_indices == 0 || required_indices > indices_size) {
         return -EINVAL;
     }
+    if (scale == 2U && mode == VIDEO_STREAM_PAL8_RLE_MODE) {
+        return video_expand_pal8_rle_scaled2(fb,
+                                             payload,
+                                             payload_bytes,
+                                             manifest,
+                                             palette,
+                                             palette_count,
+                                             dst_x,
+                                             dst_y);
+    }
+    if (scale == 2U && mode == VIDEO_STREAM_PAL8_RAW_MODE) {
+        if (payload_bytes != required_indices) {
+            return -EINVAL;
+        }
+        return video_expand_pal8_indices_scaled2(fb,
+                                                 payload,
+                                                 manifest,
+                                                 palette,
+                                                 palette_count,
+                                                 dst_x,
+                                                 dst_y);
+    }
     if (mode == VIDEO_STREAM_PAL8_RAW_MODE) {
         if (payload_bytes != required_indices) {
             return -EINVAL;
@@ -1485,10 +1807,17 @@ static int video_render_player_hud(struct a90_fb *fb,
                                    const struct video_audio_sync_state *audio_sync) {
     static struct a90_metrics_snapshot metrics;
     static struct a90_hud_storage_status storage;
+#if VIDEO_PLAYER_HUD_LIVE_TELEMETRY
     static uint32_t metrics_frame = UINT32_MAX;
     static uint32_t storage_frame = UINT32_MAX;
+#endif
+#if VIDEO_PLAYER_HUD_DYNAMIC_TEXT
+    static uint32_t text_frame = UINT32_MAX;
+#endif
     static uint32_t render_session_frames;
     static uint32_t previous_frame_index = UINT32_MAX;
+    static uint32_t previous_border_color = UINT32_MAX;
+    static uint32_t previous_progress_fill = UINT32_MAX;
     uint32_t scale = 2;
     uint32_t video_w;
     uint32_t video_h;
@@ -1514,6 +1843,12 @@ static int video_render_player_hud(struct a90_fb *fb,
     bool full_repaint;
     bool metrics_repaint = false;
     bool storage_repaint = false;
+    bool text_repaint = false;
+    bool border_repaint = false;
+    bool reset_session;
+#if VIDEO_PLAYER_HUD_LIVE_TELEMETRY || VIDEO_PLAYER_HUD_DYNAMIC_TEXT
+    bool telemetry_has_slack;
+#endif
 
     if (fb == NULL || frame_buffer == NULL || manifest == NULL ||
         (manifest->pixel_format != VIDEO_STREAM_PIXEL_FORMAT_MONO1 &&
@@ -1528,23 +1863,67 @@ static int video_render_player_hud(struct a90_fb *fb,
         video_w > fb->width || video_h + video_y + 260U > fb->height) {
         return -EINVAL;
     }
-    if (metrics_frame == UINT32_MAX || frame_index < metrics_frame ||
-        frame_index - metrics_frame >= 15U) {
+    reset_session = previous_frame_index == UINT32_MAX || frame_index <= previous_frame_index;
+#if VIDEO_PLAYER_HUD_LIVE_TELEMETRY || VIDEO_PLAYER_HUD_DYNAMIC_TEXT
+    telemetry_has_slack = reset_session ||
+        video_deadline_has_slack(frame_deadline_ns, VIDEO_PLAYER_HUD_TELEMETRY_MIN_SLACK_NS);
+#endif
+    if (reset_session) {
+        render_session_frames = 0;
+#if VIDEO_PLAYER_HUD_LIVE_TELEMETRY
+        metrics_frame = UINT32_MAX;
+        storage_frame = UINT32_MAX;
+#endif
+#if VIDEO_PLAYER_HUD_DYNAMIC_TEXT
+        text_frame = UINT32_MAX;
+#endif
+        previous_border_color = UINT32_MAX;
+        previous_progress_fill = UINT32_MAX;
+#if !VIDEO_PLAYER_HUD_LIVE_TELEMETRY
+        video_player_hud_set_static_telemetry(&metrics, &storage);
+#endif
+    }
+#if VIDEO_PLAYER_HUD_LIVE_TELEMETRY
+    if ((metrics_frame == UINT32_MAX || frame_index < metrics_frame ||
+         frame_index - metrics_frame >= VIDEO_PLAYER_HUD_METRICS_INTERVAL_FRAMES) &&
+        telemetry_has_slack) {
         a90_metrics_read_snapshot(&metrics);
         metrics_frame = frame_index;
         metrics_repaint = true;
     }
-    if (storage_frame == UINT32_MAX || frame_index < storage_frame ||
-        frame_index - storage_frame >= 60U) {
+    if ((storage_frame == UINT32_MAX || frame_index < storage_frame ||
+         frame_index - storage_frame >= VIDEO_PLAYER_HUD_STORAGE_INTERVAL_FRAMES) &&
+        telemetry_has_slack) {
         storage = current_hud_storage_status();
         storage_frame = frame_index;
         storage_repaint = true;
     }
-    if (previous_frame_index == UINT32_MAX || frame_index <= previous_frame_index) {
-        render_session_frames = 0;
+#else
+    if (reset_session) {
+        metrics_repaint = true;
+        storage_repaint = true;
     }
+#endif
     previous_frame_index = frame_index;
-    full_repaint = render_session_frames < 2U || (frame_index % 60U) == 0U;
+    full_repaint = render_session_frames < 2U;
+#if VIDEO_PLAYER_HUD_FULL_REPAINT_INTERVAL_FRAMES > 0U
+    full_repaint = full_repaint ||
+                   (frame_index > 0U &&
+                    (frame_index % VIDEO_PLAYER_HUD_FULL_REPAINT_INTERVAL_FRAMES) == 0U);
+#endif
+#if VIDEO_PLAYER_HUD_DYNAMIC_TEXT
+    text_repaint = full_repaint ||
+                   ((text_frame == UINT32_MAX || frame_index < text_frame ||
+                     frame_index - text_frame >= VIDEO_PLAYER_HUD_TEXT_INTERVAL_FRAMES) &&
+                    (!VIDEO_PLAYER_HUD_TEXT_SLACK_GUARD || telemetry_has_slack));
+#else
+    text_repaint = full_repaint;
+#endif
+    if (text_repaint) {
+#if VIDEO_PLAYER_HUD_DYNAMIC_TEXT
+        text_frame = frame_index;
+#endif
+    }
     video_x = (fb->width - video_w) / 2U;
     panel_y = video_y + video_h + 40U;
     pos_ms = ((uint64_t)frame_index * 1000ULL * (uint64_t)manifest->fps_den) /
@@ -1562,9 +1941,47 @@ static int video_render_player_hud(struct a90_fb *fb,
     }
     lamp_color = video_sync_lamp_color(delta_ms, delta_valid);
     border_color = beat_flash_active ? 0xFFFFFF : lamp_color;
+    border_repaint = full_repaint || previous_border_color != border_color;
 
     if (full_repaint) {
-        a90_draw_rect(fb, 0, 0, fb->width, fb->height, 0x05070C);
+        uint32_t title_h = video_y > 4U ? video_y - 4U : video_y;
+        uint32_t video_region_x = video_x > 8U ? video_x - 8U : 0U;
+        uint32_t video_region_y = video_y > 8U ? video_y - 8U : 0U;
+        uint32_t video_region_w = video_w + 16U;
+        uint32_t video_region_h = video_h + 16U;
+        uint32_t video_region_right;
+        uint32_t panel_bg_y = panel_y > 16U ? panel_y - 16U : panel_y;
+        uint32_t panel_bg_h = 280U;
+
+        if (video_region_w > fb->width - video_region_x) {
+            video_region_w = fb->width - video_region_x;
+        }
+        if (video_region_h > fb->height - video_region_y) {
+            video_region_h = fb->height - video_region_y;
+        }
+        video_region_right = video_region_x + video_region_w;
+        a90_draw_rect(fb, 0, 0, fb->width, title_h, 0x05070C);
+        if (video_region_x > 0U) {
+            a90_draw_rect(fb, 0, video_region_y, video_region_x, video_region_h, 0x05070C);
+        }
+        if (video_region_right < fb->width) {
+            a90_draw_rect(fb,
+                          video_region_right,
+                          video_region_y,
+                          fb->width - video_region_right,
+                          video_region_h,
+                          0x05070C);
+        }
+        a90_draw_rect(fb, video_region_x, video_region_y, video_region_w, 8U, 0x05070C);
+        a90_draw_rect(fb,
+                      video_region_x,
+                      video_y + video_h,
+                      video_region_w,
+                      8U,
+                      0x05070C);
+        if (panel_bg_y < fb->height) {
+            a90_draw_rect(fb, 0, panel_bg_y, fb->width, panel_bg_h, 0x05070C);
+        }
     } else {
         uint32_t video_region_y = video_y > 8U ? video_y - 8U : 0U;
         uint32_t video_region_h = video_h + 16U;
@@ -1577,7 +1994,16 @@ static int video_render_player_hud(struct a90_fb *fb,
         a90_draw_text(fb, 48, 16, is_pal8 ? "DEMO / NYAN CAT" : "DEMO / BAD APPLE", 0x66DDFF, scale);
         a90_draw_text(fb, fb->width - 300U, 16, "A90 PLAYER HUD", 0xBBBBBB, scale);
     }
-    a90_draw_rect_outline(fb, video_x - 4U, video_y - 4U, video_w + 8U, video_h + 8U, 4U, border_color);
+    if (border_repaint) {
+        a90_draw_rect_outline(fb,
+                              video_x - 4U,
+                              video_y - 4U,
+                              video_w + 8U,
+                              video_h + 8U,
+                              4U,
+                              border_color);
+        previous_border_color = border_color;
+    }
     if (is_pal8) {
         if (video_render_pal8_player_hud_region(fb,
                                                 decode_buffer,
@@ -1609,51 +2035,84 @@ static int video_render_player_hud(struct a90_fb *fb,
     progress_fill = total_frames > 0 ?
                     (uint32_t)(((uint64_t)progress_w * (uint64_t)(frame_index + 1U)) /
                                (uint64_t)total_frames) : 0;
-    video_format_time_mmss(pos_ms, pos, sizeof(pos));
-    video_format_time_mmss(total_ms, total, sizeof(total));
     if (full_repaint) {
         a90_draw_rect(fb, 48, panel_y, fb->width - 96U, 240U, 0x101820);
         a90_draw_rect_outline(fb, 48, panel_y, fb->width - 96U, 240U, 2U, 0x304050);
     } else {
-        a90_draw_rect(fb, 72, panel_y + 24U, fb->width - 144U, 24U, 0x101820);
-        a90_draw_rect(fb, 72, panel_y + 92U, fb->width - 144U, 24U, 0x101820);
-        a90_draw_rect(fb, 168, panel_y + 124U, fb->width - 240U, 28U, 0x101820);
-        a90_draw_rect(fb, 72, panel_y + 200U, fb->width - 144U, 24U, 0x101820);
+        if (text_repaint) {
+            a90_draw_rect(fb, 72, panel_y + 24U, fb->width - 144U, 24U, 0x101820);
+            a90_draw_rect(fb, 72, panel_y + 92U, fb->width - 144U, 24U, 0x101820);
+            a90_draw_rect(fb, 72, panel_y + 200U, fb->width - 144U, 24U, 0x101820);
+        }
+        if (metrics_repaint) {
+            a90_draw_rect(fb, 168, panel_y + 124U, fb->width - 240U, 28U, 0x101820);
+        }
     }
-    snprintf(line, sizeof(line), "FRAME %u/%u  POS %s/%s", frame_index + 1U, total_frames, pos, total);
-    a90_draw_text(fb, 72, panel_y + 24U, line, 0xFFFFFF, scale);
-    a90_draw_rect(fb, 72, panel_y + 60U, progress_w, 16U, 0x303030);
-    a90_draw_rect(fb, 72, panel_y + 60U, progress_fill, 16U, 0x66DDFF);
-    a90_draw_rect_outline(fb, 72, panel_y + 60U, progress_w, 16U, 1U, 0xAAAAAA);
-    snprintf(line, sizeof(line), "AUDIO %s  A-V %+lldms  LAMP %s",
-             delta_valid ? "SYNC" : "WAIT",
-             (long long)delta_ms,
-             delta_valid ? (lamp_color == 0x44EE66 ? "GREEN" :
-                            (lamp_color == 0xFFCC33 ? "YELLOW" : "RED")) : "GRAY");
-    a90_draw_text(fb, 72, panel_y + 92U, line, lamp_color, scale);
+    if (text_repaint) {
+        video_format_time_mmss(pos_ms, pos, sizeof(pos));
+        video_format_time_mmss(total_ms, total, sizeof(total));
+        snprintf(line, sizeof(line), "FRAME %u/%u  POS %s/%s", frame_index + 1U, total_frames, pos, total);
+        a90_draw_text(fb, 72, panel_y + 24U, line, 0xFFFFFF, scale);
+    }
+    if (full_repaint || previous_progress_fill == UINT32_MAX) {
+        a90_draw_rect(fb, 72, panel_y + 60U, progress_w, 16U, 0x303030);
+        a90_draw_rect(fb, 72, panel_y + 60U, progress_fill, 16U, 0x66DDFF);
+        a90_draw_rect_outline(fb, 72, panel_y + 60U, progress_w, 16U, 1U, 0xAAAAAA);
+    } else if (progress_fill > previous_progress_fill) {
+        a90_draw_rect(fb,
+                      72U + previous_progress_fill,
+                      panel_y + 60U,
+                      progress_fill - previous_progress_fill,
+                      16U,
+                      0x66DDFF);
+    } else if (progress_fill < previous_progress_fill) {
+        a90_draw_rect(fb,
+                      72U + progress_fill,
+                      panel_y + 60U,
+                      previous_progress_fill - progress_fill,
+                      16U,
+                      0x303030);
+    }
+    previous_progress_fill = progress_fill;
+    if (text_repaint) {
+        snprintf(line, sizeof(line), "AUDIO %s  A-V %+lldms  LAMP %s",
+                 delta_valid ? "SYNC" : "WAIT",
+                 (long long)delta_ms,
+                 delta_valid ? (lamp_color == 0x44EE66 ? "GREEN" :
+                                (lamp_color == 0xFFCC33 ? "YELLOW" : "RED")) : "GRAY");
+        a90_draw_text(fb, 72, panel_y + 92U, line, lamp_color, scale);
+    }
     a90_draw_rect(fb, 72, panel_y + 124U, 72U, 28U, lamp_color);
-    snprintf(line, sizeof(line), "CPU %s %s  GPU %s %s  LOAD %s  MEM %s",
-             metrics.cpu_temp,
-             metrics.cpu_usage,
-             metrics.gpu_temp,
-             metrics.gpu_usage,
-             metrics.loadavg,
-             metrics.memory);
     if (full_repaint || metrics_repaint) {
+        snprintf(line, sizeof(line), "CPU %s %s  GPU %s %s  LOAD %s  MEM %s",
+                 metrics.cpu_temp,
+                 metrics.cpu_usage,
+                 metrics.gpu_temp,
+                 metrics.gpu_usage,
+                 metrics.loadavg,
+                 metrics.memory);
         a90_draw_text_fit(fb, 168, panel_y + 124U, line, 0xCCCCCC, scale, fb->width - 220U);
     }
     if (full_repaint || storage_repaint) {
         a90_draw_rect(fb, 72, panel_y + 164U, fb->width - 144U, 24U, 0x101820);
+#if VIDEO_PLAYER_HUD_LIVE_TELEMETRY
         snprintf(line, sizeof(line), "STORAGE %s %.48s  READONLY TELEMETRY /proc+/sys",
                  storage.backend != NULL ? storage.backend : "?",
                  storage.root != NULL ? storage.root : "?");
+#else
+        snprintf(line, sizeof(line), "STORAGE %s %.48s  LIVE TELEMETRY OFF DURING PLAYBACK",
+                 storage.backend != NULL ? storage.backend : "?",
+                 storage.root != NULL ? storage.root : "?");
+#endif
         a90_draw_text_fit(fb, 72, panel_y + 164U, line, 0xAAAAAA, scale, fb->width - 144U);
     }
-    snprintf(line, sizeof(line), "BEAT FLASH %s  audio-clock onsets=%u nearest=%ums",
-             beat_flash_enabled ? (beat_flash_active ? "PULSE" : (delta_valid ? "armed" : "waiting")) : "off",
-             beat_flash_enabled ? A90_BADAPPLE_BEAT_COUNT : 0,
-             nearest_beat_ms);
-    a90_draw_text(fb, 72, panel_y + 200U, line, border_color, scale);
+    if (text_repaint) {
+        snprintf(line, sizeof(line), "BEAT FLASH %s  audio-clock onsets=%u nearest=%ums",
+                 beat_flash_enabled ? (beat_flash_active ? "PULSE" : (delta_valid ? "armed" : "waiting")) : "off",
+                 beat_flash_enabled ? A90_BADAPPLE_BEAT_COUNT : 0,
+                 nearest_beat_ms);
+        a90_draw_text(fb, 72, panel_y + 200U, line, border_color, scale);
+    }
     return 0;
 }
 
@@ -1915,6 +2374,34 @@ static int video_wait_until_ns(uint64_t deadline_ns) {
     }
 }
 
+#if VIDEO_STREAM_READAHEAD_WINDOW_ENABLED
+static int video_stream_readahead_window(int fd, off_t offset) {
+#if defined(POSIX_FADV_WILLNEED)
+    if (fd < 0 || offset < 0) {
+        return EINVAL;
+    }
+    return posix_fadvise(fd, offset, (off_t)VIDEO_STREAM_READAHEAD_BYTES,
+                         POSIX_FADV_WILLNEED);
+#else
+    (void)fd;
+    (void)offset;
+    return ENOSYS;
+#endif
+}
+#endif
+
+static int video_stream_sequential_hint(int fd) {
+#if defined(POSIX_FADV_SEQUENTIAL)
+    if (fd < 0) {
+        return EINVAL;
+    }
+    return posix_fadvise(fd, 0, 0, POSIX_FADV_SEQUENTIAL);
+#else
+    (void)fd;
+    return ENOSYS;
+#endif
+}
+
 static uint64_t video_frame_interval_ns(uint32_t fps_num, uint32_t fps_den) {
     uint64_t numerator = (uint64_t)fps_den * 1000000000ULL;
 
@@ -1922,6 +2409,35 @@ static uint64_t video_frame_interval_ns(uint32_t fps_num, uint32_t fps_den) {
         return 0;
     }
     return numerator / fps_num;
+}
+
+struct video_stage_timing {
+    uint64_t sum_us;
+    uint64_t max_us;
+    uint32_t samples;
+};
+
+static void video_stage_timing_add(struct video_stage_timing *timing,
+                                   uint64_t start_ns,
+                                   uint64_t end_ns) {
+    uint64_t delta_us;
+
+    if (timing == NULL || end_ns < start_ns) {
+        return;
+    }
+    delta_us = (end_ns - start_ns) / 1000ULL;
+    timing->sum_us += delta_us;
+    if (delta_us > timing->max_us) {
+        timing->max_us = delta_us;
+    }
+    ++timing->samples;
+}
+
+static uint64_t video_stage_timing_avg_us(const struct video_stage_timing *timing) {
+    if (timing == NULL || timing->samples == 0) {
+        return 0;
+    }
+    return timing->sum_us / (uint64_t)timing->samples;
 }
 
 static const char *video_stream_present_mode_name(enum video_stream_present_mode present_mode) {
@@ -1984,6 +2500,9 @@ static bool video_audio_sync_read_status(struct video_audio_sync_state *sync) {
     if (read_text_file(sync->status_path, status, sizeof(status)) < 0) {
         return false;
     }
+    if (strstr(status, "audio.play.worker.done=1") != NULL) {
+        return false;
+    }
     if (!video_audio_sync_extract_u64(status, "audio.play.worker.listen_begin_ns", &sync->listen_begin_ns) ||
         !video_audio_sync_extract_u32(status, "audio.play.worker.sample_rate", &sync->sample_rate) ||
         !video_audio_sync_extract_u32(status, "audio.play.worker.frame_bytes", &sync->frame_bytes) ||
@@ -2042,6 +2561,93 @@ static int video_audio_sync_wait_ready(struct video_audio_sync_state *sync) {
     return -ETIMEDOUT;
 }
 
+struct video_stream_physical_exit {
+    struct a90_input_context input;
+    bool opened;
+    bool requested;
+    uint32_t events;
+    uint32_t exit_events;
+    unsigned int last_code;
+    int open_rc;
+    int last_poll_rc;
+};
+
+static void video_stream_physical_exit_init(struct video_stream_physical_exit *state) {
+    if (state == NULL) {
+        return;
+    }
+    memset(state, 0, sizeof(*state));
+    state->input.fd0 = -1;
+    state->input.fd3 = -1;
+}
+
+static void video_stream_physical_exit_close(struct video_stream_physical_exit *state) {
+    if (state == NULL || !state->opened) {
+        return;
+    }
+    a90_input_close(&state->input);
+    state->opened = false;
+}
+
+static int video_stream_physical_exit_open(struct video_stream_physical_exit *state) {
+#if A90_VIDEO_STREAM_PHYSICAL_BUTTON_EXIT
+    int rc;
+
+    if (state == NULL) {
+        return -EINVAL;
+    }
+    rc = a90_input_open(&state->input, "videostream-physical-exit");
+    state->open_rc = rc;
+    state->opened = rc == 0;
+    return rc;
+#else
+    (void)state;
+    return 0;
+#endif
+}
+
+static bool video_stream_physical_exit_poll(struct video_stream_physical_exit *state) {
+#if A90_VIDEO_STREAM_PHYSICAL_BUTTON_EXIT
+    int drain;
+
+    if (state == NULL || !state->opened || state->requested) {
+        return state != NULL && state->requested;
+    }
+    for (drain = 0; drain < 8; ++drain) {
+        struct input_event event;
+        int source_index = -1;
+        int rc = a90_input_poll_event(&state->input,
+                                      "videostream-physical-exit",
+                                      0,
+                                      false,
+                                      &event,
+                                      &source_index);
+
+        state->last_poll_rc = rc;
+        if (rc <= 0) {
+            return state->requested;
+        }
+        ++state->events;
+        if (event.type != EV_KEY || event.value != 1) {
+            continue;
+        }
+        if (event.code == KEY_POWER ||
+            event.code == KEY_VOLUMEUP ||
+            event.code == KEY_VOLUMEDOWN) {
+            (void)source_index;
+            state->requested = true;
+            state->last_code = event.code;
+            ++state->exit_events;
+            return true;
+        }
+    }
+    return state->requested;
+#else
+    (void)state;
+    return false;
+#endif
+}
+
 static int video_stream_play(const struct video_stream_manifest *manifest,
                              uint32_t requested_frames,
                              enum video_stream_present_mode present_mode,
@@ -2071,15 +2677,29 @@ static int video_stream_play(const struct video_stream_manifest *manifest,
     uint64_t flip_delta_min_us = UINT64_MAX;
     uint64_t flip_delta_max_us = 0;
     uint64_t flip_delta_sum_us = 0;
+    uint64_t audio_tail_wait_ns = 0;
+    uint32_t readahead_hints = 0;
+    uint32_t readahead_deadline_skips = 0;
+    int readahead_sequential_rc = 0;
+    int readahead_last_rc = 0;
+    struct video_stage_timing read_timing = {0, 0, 0};
+    struct video_stage_timing render_timing = {0, 0, 0};
+    struct video_stage_timing wait_timing = {0, 0, 0};
+    struct video_stage_timing present_timing = {0, 0, 0};
+    struct video_stage_timing total_timing = {0, 0, 0};
     bool drop_late_frames = false;
     struct a90_kms_flip_result last_flip;
+    struct video_stream_physical_exit physical_exit;
     uint8_t *frame_buffer = NULL;
     uint8_t *decode_buffer = NULL;
     uint32_t frame_index;
+    bool audio_tail_wait_attempted = false;
+    const char *audio_tail_wait_target = "none";
     int fd;
-    int rc;
+    int rc = 0;
 
     memset(&last_flip, 0, sizeof(last_flip));
+    video_stream_physical_exit_init(&physical_exit);
     if (interval_ns == 0) {
         return -EINVAL;
     }
@@ -2088,6 +2708,7 @@ static int video_stream_play(const struct video_stream_manifest *manifest,
         a90_console_printf("video.stream.error=stream-open-failed\r\n");
         return negative_errno_or(ENOENT);
     }
+    readahead_sequential_rc = video_stream_sequential_hint(fd);
     memset(palette, 0, sizeof(palette));
     if (manifest->stream_version == VIDEO_STREAM_VERSION_A90VSTR2) {
         rc = video_read_exact_fd(fd, &header_v2, sizeof(header_v2));
@@ -2209,12 +2830,29 @@ static int video_stream_play(const struct video_stream_manifest *manifest,
         a90_console_printf("video.stream.audio_sync.enabled=0\r\n");
         started_ns = video_monotonic_ns();
     }
+    a90_console_printf("video.stream.readahead.policy=%s\r\n",
+                       VIDEO_STREAM_READAHEAD_WINDOW_ENABLED ?
+                           "sequential-window-deadline-guard" :
+                           "sequential-only-window-off");
+    a90_console_printf("video.stream.readahead.bytes=%u\r\n",
+                       (unsigned int)VIDEO_STREAM_READAHEAD_BYTES);
+    a90_console_printf("video.stream.readahead.interval_frames=%u\r\n",
+                       (unsigned int)VIDEO_STREAM_READAHEAD_INTERVAL_FRAMES);
+    a90_console_printf("video.stream.readahead.window_enabled=%d\r\n",
+                       VIDEO_STREAM_READAHEAD_WINDOW_ENABLED ? 1 : 0);
+    a90_console_printf("video.stream.readahead.deadline_guard_ns=%llu\r\n",
+                       (unsigned long long)VIDEO_STREAM_READAHEAD_DEADLINE_GUARD_NS);
+    a90_console_printf("video.stream.readahead.sequential_rc=%d\r\n",
+                       readahead_sequential_rc);
     a90_console_printf("video.stream.audio_sync.drop_policy=%s\r\n",
-                       drop_late_frames ? "late-frame-skip" : "none");
+                       drop_late_frames ? "audio-clock-late-frame-skip" : "none");
+    a90_console_printf("video.stream.audio_sync.drop_present_modes=%s\r\n",
+                       drop_late_frames ? "pageflip" : "none");
     if (drop_late_frames) {
         a90_console_printf("video.stream.audio_sync.drop_threshold_ns=%llu\r\n",
                            (unsigned long long)interval_ns);
     }
+    (void)video_stream_physical_exit_open(&physical_exit);
     for (frame_index = 0; frame_index < limit_frames; ++frame_index) {
         struct video_stream_frame_record_v1 record;
         struct video_stream_frame_record_v2 record_v2;
@@ -2222,10 +2860,34 @@ static int video_stream_play(const struct video_stream_manifest *manifest,
         uint32_t record_payload_bytes;
         uint32_t record_mode = 0;
         uint64_t deadline_ns = started_ns + ((uint64_t)frame_index * interval_ns);
+        uint64_t frame_start_ns = video_monotonic_ns();
+        uint64_t after_read_ns = frame_start_ns;
+        uint64_t after_render_ns = frame_start_ns;
         uint64_t before_wait_ns;
+        uint64_t after_wait_ns;
+        uint64_t before_present_ns;
         uint64_t after_present_ns;
         enum a90_cancel_kind cancel;
 
+#if VIDEO_STREAM_READAHEAD_WINDOW_ENABLED
+        if (VIDEO_STREAM_READAHEAD_INTERVAL_FRAMES > 0U &&
+            (frame_index % VIDEO_STREAM_READAHEAD_INTERVAL_FRAMES) == 0U) {
+            uint64_t now_ns = video_monotonic_ns();
+            bool has_slack = VIDEO_STREAM_READAHEAD_DEADLINE_GUARD_NS == 0ULL ||
+                             (now_ns > 0 &&
+                              deadline_ns > now_ns &&
+                              deadline_ns - now_ns >= VIDEO_STREAM_READAHEAD_DEADLINE_GUARD_NS);
+
+            if (has_slack) {
+                off_t offset = lseek(fd, 0, SEEK_CUR);
+
+                readahead_last_rc = video_stream_readahead_window(fd, offset);
+                ++readahead_hints;
+            } else {
+                ++readahead_deadline_skips;
+            }
+        }
+#endif
         if (manifest->stream_version == VIDEO_STREAM_VERSION_A90VSTR2) {
             rc = video_read_exact_fd(fd, &record_v2, sizeof(record_v2));
             if (rc < 0) {
@@ -2271,6 +2933,7 @@ static int video_stream_play(const struct video_stream_manifest *manifest,
                 ++dropped_frames;
                 cancel = a90_console_poll_cancel(0);
                 if (cancel != CANCEL_NONE) {
+                    video_stream_physical_exit_close(&physical_exit);
                     free(decode_buffer);
                     free(frame_buffer);
                     close(fd);
@@ -2292,6 +2955,10 @@ static int video_stream_play(const struct video_stream_manifest *manifest,
         }
         if (layout == VIDEO_STREAM_LAYOUT_PLAYER_HUD) {
             rc = video_read_exact_fd(fd, frame_buffer, record_payload_bytes);
+            after_read_ns = video_monotonic_ns();
+            if (rc == 0) {
+                video_stage_timing_add(&read_timing, frame_start_ns, after_read_ns);
+            }
             if (rc == 0) {
                 rc = video_render_player_hud(fb,
                                              frame_buffer,
@@ -2306,9 +2973,18 @@ static int video_stream_play(const struct video_stream_manifest *manifest,
                                              manifest->frame_count,
                                              deadline_ns,
                                              audio_sync);
+                after_render_ns = video_monotonic_ns();
+                if (rc == 0) {
+                    video_stage_timing_add(&render_timing, after_read_ns, after_render_ns);
+                }
             }
         } else {
             rc = video_read_frame_payload(fd, fb, frame_buffer, manifest, record_payload_bytes);
+            after_read_ns = video_monotonic_ns();
+            if (rc == 0) {
+                video_stage_timing_add(&read_timing, frame_start_ns, after_read_ns);
+                after_render_ns = after_read_ns;
+            }
         }
         if (rc < 0) {
             break;
@@ -2330,7 +3006,9 @@ static int video_stream_play(const struct video_stream_manifest *manifest,
         }
         before_wait_ns = video_monotonic_ns();
         rc = video_wait_until_ns(deadline_ns);
+        after_wait_ns = video_monotonic_ns();
         if (rc < 0) {
+            video_stream_physical_exit_close(&physical_exit);
             free(decode_buffer);
             free(frame_buffer);
             close(fd);
@@ -2338,6 +3016,8 @@ static int video_stream_play(const struct video_stream_manifest *manifest,
             a90_console_printf("video.stream.dropped_frames=%u\r\n", dropped_frames);
             return rc;
         }
+        video_stage_timing_add(&wait_timing, before_wait_ns, after_wait_ns);
+        before_present_ns = video_monotonic_ns();
         if (present_mode == VIDEO_STREAM_PRESENT_PAGEFLIP) {
             struct a90_kms_flip_result flip;
 
@@ -2368,12 +3048,14 @@ static int video_stream_play(const struct video_stream_manifest *manifest,
                 break;
             }
         }
+        after_present_ns = video_monotonic_ns();
+        video_stage_timing_add(&present_timing, before_present_ns, after_present_ns);
+        video_stage_timing_add(&total_timing, frame_start_ns, after_present_ns);
         total_bytes += record_payload_bytes;
         if (first_presented_frame == UINT32_MAX) {
             first_presented_frame = frame_index;
         }
         ++presented_frames;
-        after_present_ns = video_monotonic_ns();
         if (after_present_ns > deadline_ns) {
             uint64_t late_ns = after_present_ns - deadline_ns;
 
@@ -2384,6 +3066,7 @@ static int video_stream_play(const struct video_stream_manifest *manifest,
         }
         cancel = a90_console_poll_cancel(0);
         if (cancel != CANCEL_NONE) {
+            video_stream_physical_exit_close(&physical_exit);
             free(decode_buffer);
             free(frame_buffer);
             close(fd);
@@ -2391,8 +3074,49 @@ static int video_stream_play(const struct video_stream_manifest *manifest,
             a90_console_printf("video.stream.dropped_frames=%u\r\n", dropped_frames);
             return a90_console_cancelled("videostream", cancel);
         }
+        if (video_stream_physical_exit_poll(&physical_exit)) {
+            rc = 0;
+            break;
+        }
+    }
+    if (rc == 0 &&
+        audio_sync != NULL &&
+        audio_sync->ready &&
+        !physical_exit.requested &&
+        limit_frames > 0) {
+        uint64_t video_end_ns = started_ns + ((uint64_t)limit_frames * interval_ns);
+        uint64_t stream_end_ns = video_end_ns;
+        uint64_t before_tail_ns = video_monotonic_ns();
+
+        audio_tail_wait_attempted = true;
+        audio_tail_wait_target = "video";
+        if (limit_frames == manifest->frame_count &&
+            audio_sync->listen_begin_ns > 0 &&
+            audio_sync->expected_duration_ns > 0 &&
+            audio_sync->listen_begin_ns <= UINT64_MAX - audio_sync->expected_duration_ns) {
+            uint64_t audio_end_ns = audio_sync->listen_begin_ns + audio_sync->expected_duration_ns;
+
+            if (audio_end_ns > stream_end_ns) {
+                stream_end_ns = audio_end_ns;
+                audio_tail_wait_target = "audio";
+            }
+        }
+        if (stream_end_ns > before_tail_ns) {
+            rc = video_wait_until_ns(stream_end_ns);
+            if (rc < 0) {
+                video_stream_physical_exit_close(&physical_exit);
+                free(decode_buffer);
+                free(frame_buffer);
+                close(fd);
+                a90_console_printf("video.stream.presented=%u\r\n", presented_frames);
+                a90_console_printf("video.stream.dropped_frames=%u\r\n", dropped_frames);
+                return rc;
+            }
+            audio_tail_wait_ns = stream_end_ns - before_tail_ns;
+        }
     }
     finished_ns = video_monotonic_ns();
+    video_stream_physical_exit_close(&physical_exit);
     free(decode_buffer);
     free(frame_buffer);
     close(fd);
@@ -2415,8 +3139,60 @@ static int video_stream_play(const struct video_stream_manifest *manifest,
         a90_console_printf("video.stream.mbps_milli=%llu\r\n", (unsigned long long)mbps_milli);
         a90_console_printf("video.stream.late_frames=%llu\r\n", (unsigned long long)late_frames);
         a90_console_printf("video.stream.max_late_ns=%llu\r\n", (unsigned long long)max_late_ns);
+        a90_console_printf("video.stream.timing.frames=%u\r\n", presented_frames);
+        a90_console_printf("video.stream.timing.unit=us\r\n");
+        a90_console_printf("video.stream.timing.read.samples=%u\r\n", read_timing.samples);
+        a90_console_printf("video.stream.timing.read.avg_us=%llu\r\n",
+                           (unsigned long long)video_stage_timing_avg_us(&read_timing));
+        a90_console_printf("video.stream.timing.read.max_us=%llu\r\n",
+                           (unsigned long long)read_timing.max_us);
+        a90_console_printf("video.stream.timing.render.samples=%u\r\n", render_timing.samples);
+        a90_console_printf("video.stream.timing.render.avg_us=%llu\r\n",
+                           (unsigned long long)video_stage_timing_avg_us(&render_timing));
+        a90_console_printf("video.stream.timing.render.max_us=%llu\r\n",
+                           (unsigned long long)render_timing.max_us);
+        a90_console_printf("video.stream.timing.wait.samples=%u\r\n", wait_timing.samples);
+        a90_console_printf("video.stream.timing.wait.avg_us=%llu\r\n",
+                           (unsigned long long)video_stage_timing_avg_us(&wait_timing));
+        a90_console_printf("video.stream.timing.wait.max_us=%llu\r\n",
+                           (unsigned long long)wait_timing.max_us);
+        a90_console_printf("video.stream.timing.present.samples=%u\r\n", present_timing.samples);
+        a90_console_printf("video.stream.timing.present.avg_us=%llu\r\n",
+                           (unsigned long long)video_stage_timing_avg_us(&present_timing));
+        a90_console_printf("video.stream.timing.present.max_us=%llu\r\n",
+                           (unsigned long long)present_timing.max_us);
+        a90_console_printf("video.stream.timing.total.samples=%u\r\n", total_timing.samples);
+        a90_console_printf("video.stream.timing.total.avg_us=%llu\r\n",
+                           (unsigned long long)video_stage_timing_avg_us(&total_timing));
+        a90_console_printf("video.stream.timing.total.max_us=%llu\r\n",
+                           (unsigned long long)total_timing.max_us);
+        a90_console_printf("video.stream.readahead.hints=%u\r\n", readahead_hints);
+        a90_console_printf("video.stream.readahead.deadline_skips=%u\r\n",
+                           readahead_deadline_skips);
+        a90_console_printf("video.stream.readahead.last_rc=%d\r\n", readahead_last_rc);
         a90_console_printf("video.stream.present_mode=%s\r\n", video_stream_present_mode_name(present_mode));
         a90_console_printf("video.stream.layout=%s\r\n", video_stream_layout_name(layout));
+        a90_console_printf("video.stream.physical_button_exit=%d\r\n",
+                           A90_VIDEO_STREAM_PHYSICAL_BUTTON_EXIT ? 1 : 0);
+        a90_console_printf("video.stream.physical_exit.open_rc=%d\r\n",
+                           physical_exit.open_rc);
+        a90_console_printf("video.stream.physical_exit.events=%u\r\n",
+                           physical_exit.events);
+        a90_console_printf("video.stream.physical_exit.exit_events=%u\r\n",
+                           physical_exit.exit_events);
+        a90_console_printf("video.stream.physical_exit.requested=%d\r\n",
+                           physical_exit.requested ? 1 : 0);
+        a90_console_printf("video.stream.physical_exit.last_code=%u\r\n",
+                           physical_exit.last_code);
+        a90_console_printf("video.stream.physical_exit.last_poll_rc=%d\r\n",
+                           physical_exit.last_poll_rc);
+        a90_console_printf("video.stream.audio_sync.tail_guard=1\r\n");
+        a90_console_printf("video.stream.audio_sync.tail_wait_attempted=%d\r\n",
+                           audio_tail_wait_attempted ? 1 : 0);
+        a90_console_printf("video.stream.audio_sync.tail_wait_ns=%llu\r\n",
+                           (unsigned long long)audio_tail_wait_ns);
+        a90_console_printf("video.stream.audio_sync.tail_wait_target=%s\r\n",
+                           audio_tail_wait_target);
         if (layout == VIDEO_STREAM_LAYOUT_PLAYER_HUD) {
             bool beat_enabled = manifest->pixel_format == VIDEO_STREAM_PIXEL_FORMAT_MONO1;
 
@@ -2528,6 +3304,15 @@ static enum video_stream_layout video_cache_preset_default_layout(const char *pr
     return VIDEO_STREAM_LAYOUT_FULL;
 }
 
+static enum video_stream_present_mode video_cache_preset_default_present(const char *preset_name) {
+    if (preset_name != NULL &&
+        (strcmp(preset_name, VIDEO_CACHE_PRESET_BADAPPLE_NAME) == 0 ||
+         strcmp(preset_name, VIDEO_CACHE_PRESET_NYAN_NAME) == 0)) {
+        return VIDEO_STREAM_PRESENT_SETCRTC;
+    }
+    return VIDEO_STREAM_PRESENT_SETCRTC;
+}
+
 static int cmd_video_cache(char **argv, int argc);
 static int cmd_doomplay(char **argv, int argc);
 
@@ -2560,6 +3345,9 @@ static int cmd_doomplay(char **argv, int argc);
 
 #ifndef VIDEO_DEMO_DOOMGENERIC_DASHBOARD_METRICS_INTERVAL_FRAMES
 #define VIDEO_DEMO_DOOMGENERIC_DASHBOARD_METRICS_INTERVAL_FRAMES 1U
+#endif
+#ifndef VIDEO_DEMO_DOOMGENERIC_DASHBOARD_STATUS_INTERVAL_FRAMES
+#define VIDEO_DEMO_DOOMGENERIC_DASHBOARD_STATUS_INTERVAL_FRAMES 1U
 #endif
 
 #ifndef VIDEO_DEMO_DOOMGENERIC_FRAME_TIMING_PROBE
@@ -2609,6 +3397,21 @@ static int cmd_doomplay(char **argv, int argc);
 #ifndef A90_DOOMGENERIC_NATIVE_DASHBOARD_LARGE_FRAME
 #define A90_DOOMGENERIC_NATIVE_DASHBOARD_LARGE_FRAME 0
 #endif
+#ifndef A90_DOOMGENERIC_NATIVE_DEMO_HUD
+#define A90_DOOMGENERIC_NATIVE_DEMO_HUD 0
+#endif
+#ifndef A90_DOOMGENERIC_NATIVE_DEMO_HUD_FAST
+#define A90_DOOMGENERIC_NATIVE_DEMO_HUD_FAST 0
+#endif
+#ifndef A90_DOOMGENERIC_NATIVE_DEMO_HUD_READABLE
+#define A90_DOOMGENERIC_NATIVE_DEMO_HUD_READABLE 0
+#endif
+#ifndef A90_DOOMGENERIC_NATIVE_DEMO_HUD_SECTIONED
+#define A90_DOOMGENERIC_NATIVE_DEMO_HUD_SECTIONED 0
+#endif
+#ifndef A90_DOOMGENERIC_NATIVE_DEMO_HUD_LARGE_GROUPS
+#define A90_DOOMGENERIC_NATIVE_DEMO_HUD_LARGE_GROUPS 0
+#endif
 #ifndef VIDEO_DEMO_DOOMGENERIC_HW_PLANE_SCALE
 #define VIDEO_DEMO_DOOMGENERIC_HW_PLANE_SCALE 0
 #endif
@@ -2627,10 +3430,112 @@ static int cmd_doomplay(char **argv, int argc);
 #ifndef A90_DOOMGENERIC_AUDIO_CORUN_AMPLITUDE_MILLI
 #define A90_DOOMGENERIC_AUDIO_CORUN_AMPLITUDE_MILLI 80
 #endif
+#ifndef A90_DOOMGENERIC_AUDIO_CORUN_STREAM
+#define A90_DOOMGENERIC_AUDIO_CORUN_STREAM 0
+#endif
+#ifndef A90_DOOMGENERIC_AUDIO_PCM_STREAM_PATH
+#define A90_DOOMGENERIC_AUDIO_PCM_STREAM_PATH ""
+#endif
+#ifndef A90_DOOMGENERIC_AUDIO_CORUN_REFRESH_MS
+#define A90_DOOMGENERIC_AUDIO_CORUN_REFRESH_MS 13000
+#endif
+#ifndef A90_DOOMGENERIC_PHYSICAL_BUTTON_EXIT
+#define A90_DOOMGENERIC_PHYSICAL_BUTTON_EXIT 0
+#endif
+#ifndef AUTO_HUD_PID_PATH
+#define AUTO_HUD_PID_PATH "/tmp/a90-autohud.pid"
+#endif
 
 static pid_t video_demo_doom_loop_pid = -1;
 static bool video_demo_doom_loop_continuous;
 static uint32_t video_demo_doom_loop_frames;
+
+struct video_demo_doom_physical_exit {
+    struct a90_input_context input;
+    bool opened;
+    bool requested;
+    uint32_t events;
+    uint32_t exit_events;
+    unsigned int last_code;
+    int open_rc;
+    int last_poll_rc;
+};
+
+static void video_demo_doom_physical_exit_init(struct video_demo_doom_physical_exit *state) {
+    if (state == NULL) {
+        return;
+    }
+    memset(state, 0, sizeof(*state));
+    state->input.fd0 = -1;
+    state->input.fd3 = -1;
+}
+
+static void video_demo_doom_physical_exit_close(struct video_demo_doom_physical_exit *state) {
+    if (state == NULL || !state->opened) {
+        return;
+    }
+    a90_input_close(&state->input);
+    state->opened = false;
+}
+
+static int video_demo_doom_physical_exit_open(struct video_demo_doom_physical_exit *state) {
+#if A90_DOOMGENERIC_PHYSICAL_BUTTON_EXIT
+    int rc;
+
+    if (state == NULL) {
+        return -EINVAL;
+    }
+    rc = a90_input_open(&state->input, "doomgeneric-physical-exit");
+    state->open_rc = rc;
+    state->opened = rc == 0;
+    return rc;
+#else
+    (void)state;
+    return 0;
+#endif
+}
+
+static bool video_demo_doom_physical_exit_poll(struct video_demo_doom_physical_exit *state) {
+#if A90_DOOMGENERIC_PHYSICAL_BUTTON_EXIT
+    int drain;
+
+    if (state == NULL || !state->opened || state->requested) {
+        return state != NULL && state->requested;
+    }
+    for (drain = 0; drain < 8; ++drain) {
+        struct input_event event;
+        int source_index = -1;
+        int rc = a90_input_poll_event(&state->input,
+                                      "doomgeneric-physical-exit",
+                                      0,
+                                      false,
+                                      &event,
+                                      &source_index);
+
+        state->last_poll_rc = rc;
+        if (rc <= 0) {
+            return state->requested;
+        }
+        ++state->events;
+        if (event.type != EV_KEY || event.value != 1) {
+            continue;
+        }
+        if (event.code == KEY_POWER ||
+            event.code == KEY_VOLUMEUP ||
+            event.code == KEY_VOLUMEDOWN) {
+            (void)source_index;
+            state->requested = true;
+            state->last_code = event.code;
+            ++state->exit_events;
+            return true;
+        }
+    }
+    return state->requested;
+#else
+    (void)state;
+    return false;
+#endif
+}
 
 static void video_demo_doom_bridge_status(void) {
     struct a90_doomgeneric_bridge_status status;
@@ -2752,6 +3657,39 @@ static void video_demo_doom_bridge_status(void) {
     a90_console_printf("video.demo.doom.dashboard.presenter_log=quiet-per-frame\r\n");
     a90_console_printf("video.demo.doom.dashboard.metrics_interval_frames=0\r\n");
     a90_console_printf("video.demo.doom.dashboard.metrics_pacing=disabled-minimal\r\n");
+#elif A90_DOOMGENERIC_NATIVE_DEMO_HUD_FAST
+    a90_console_printf("video.demo.doom.dashboard.profile=demo-hud-fast\r\n");
+#if A90_DOOMGENERIC_NATIVE_DEMO_HUD_LARGE_GROUPS
+    a90_console_printf("video.demo.doom.dashboard.layout=top-frame-large-grouped-hw-doom-input-footer\r\n");
+#elif A90_DOOMGENERIC_NATIVE_DEMO_HUD_SECTIONED
+    a90_console_printf("video.demo.doom.dashboard.layout=top-frame-sectioned-hw-doom-input-footer\r\n");
+#else
+    a90_console_printf("video.demo.doom.dashboard.layout=top-frame-compact-metrics-input-footer\r\n");
+#endif
+    a90_console_printf("video.demo.doom.dashboard.redraw=doom-frame-plus-targeted-compact-hud\r\n");
+    a90_console_printf("video.demo.doom.dashboard.display=demo-visible-native-kms\r\n");
+    a90_console_printf("video.demo.doom.dashboard.presenter_log=summary-only\r\n");
+#if A90_DOOMGENERIC_NATIVE_DEMO_HUD_LARGE_GROUPS
+    a90_console_printf("video.demo.doom.dashboard.readable_spacing=1\r\n");
+    a90_console_printf("video.demo.doom.dashboard.sectioned_info=1\r\n");
+    a90_console_printf("video.demo.doom.dashboard.large_groups=1\r\n");
+    a90_console_printf("video.demo.doom.dashboard.text_scale=group4-main4-sub3-small2\r\n");
+#elif A90_DOOMGENERIC_NATIVE_DEMO_HUD_SECTIONED
+    a90_console_printf("video.demo.doom.dashboard.readable_spacing=1\r\n");
+    a90_console_printf("video.demo.doom.dashboard.sectioned_info=1\r\n");
+    a90_console_printf("video.demo.doom.dashboard.text_scale=section3-main3-small2\r\n");
+#elif A90_DOOMGENERIC_NATIVE_DEMO_HUD_READABLE
+    a90_console_printf("video.demo.doom.dashboard.readable_spacing=1\r\n");
+    a90_console_printf("video.demo.doom.dashboard.text_scale=title5-main3-small2\r\n");
+#else
+    a90_console_printf("video.demo.doom.dashboard.readable_spacing=0\r\n");
+#endif
+    a90_console_printf("video.demo.doom.dashboard.metrics_interval_frames=%u\r\n",
+                       (unsigned int)VIDEO_DEMO_DOOMGENERIC_DASHBOARD_METRICS_INTERVAL_FRAMES);
+    a90_console_printf("video.demo.doom.dashboard.status_interval_frames=%u\r\n",
+                       (unsigned int)VIDEO_DEMO_DOOMGENERIC_DASHBOARD_STATUS_INTERVAL_FRAMES);
+    a90_console_printf("video.demo.doom.dashboard.metrics_pacing=cached-frame-interval\r\n");
+    a90_console_printf("video.demo.doom.dashboard.status_pacing=cached-frame-interval\r\n");
 #else
     a90_console_printf("video.demo.doom.dashboard.profile=full\r\n");
     a90_console_printf("video.demo.doom.dashboard.layout=top-frame-metrics-logs-input\r\n");
@@ -2779,6 +3717,8 @@ static void video_demo_doom_bridge_status(void) {
     a90_console_printf("video.demo.doom.dashboard.large_frame=0\r\n");
 #if A90_DOOMGENERIC_NATIVE_DASHBOARD_MINIMAL
     a90_console_printf("video.demo.doom.dashboard.frame_mode=minimal-dashboard\r\n");
+#elif A90_DOOMGENERIC_NATIVE_DEMO_HUD_FAST
+    a90_console_printf("video.demo.doom.dashboard.frame_mode=demo-hud-fast-1to1\r\n");
 #else
     a90_console_printf("video.demo.doom.dashboard.frame_mode=standard-dashboard\r\n");
 #endif
@@ -3458,6 +4398,584 @@ static int video_demo_doom_draw_minimal_dashboard(
 }
 #endif
 
+#if A90_DOOMGENERIC_NATIVE_DEMO_HUD_FAST
+static int video_demo_doom_draw_fast_demo_hud(
+        struct a90_fb *fb,
+        const uint32_t *source,
+        const struct a90_doomgeneric_frame_render *render,
+        bool verbose,
+        uint32_t frame_index,
+        uint32_t total_frames,
+        uint32_t poll_count) {
+    static struct a90_metrics_snapshot metrics;
+    static struct a90_doomgeneric_bridge_status status;
+    static uint32_t metrics_frame = UINT32_MAX;
+    static uint32_t status_frame = UINT32_MAX;
+    static bool metrics_valid;
+    static bool status_valid;
+    static bool background_cleared;
+    struct a90_doomgeneric_input_state input;
+    const uint32_t margin = 40U;
+    const uint32_t bg = 0x05070c;
+    const uint32_t panel_bg = 0x0f1118;
+    uint32_t frame_x;
+#if A90_DOOMGENERIC_NATIVE_DEMO_HUD_LARGE_GROUPS
+    uint32_t frame_y = 112U;
+#elif A90_DOOMGENERIC_NATIVE_DEMO_HUD_SECTIONED
+    uint32_t frame_y = 112U;
+#elif A90_DOOMGENERIC_NATIVE_DEMO_HUD_READABLE
+    uint32_t frame_y = 112U;
+#else
+    uint32_t frame_y = 66U;
+#endif
+    uint32_t frame_w;
+    uint32_t frame_h;
+    uint32_t panel_y;
+#if A90_DOOMGENERIC_NATIVE_DEMO_HUD_LARGE_GROUPS
+    uint32_t panel_h = 760U;
+    uint32_t footer_h = 100U;
+    uint32_t title_scale = 5U;
+    uint32_t subtitle_scale = 3U;
+    uint32_t main_scale = 4U;
+    uint32_t sub_scale = 3U;
+    uint32_t small_scale = 2U;
+    uint32_t section_scale = 4U;
+#elif A90_DOOMGENERIC_NATIVE_DEMO_HUD_SECTIONED
+    uint32_t panel_h = 500U;
+    uint32_t footer_h = 82U;
+    uint32_t title_scale = 5U;
+    uint32_t subtitle_scale = 3U;
+    uint32_t main_scale = 3U;
+    uint32_t sub_scale = 2U;
+    uint32_t small_scale = 2U;
+    uint32_t section_scale = 3U;
+#elif A90_DOOMGENERIC_NATIVE_DEMO_HUD_READABLE
+    uint32_t panel_h = 370U;
+    uint32_t footer_h = 82U;
+    uint32_t title_scale = 5U;
+    uint32_t subtitle_scale = 3U;
+    uint32_t main_scale = 3U;
+    uint32_t sub_scale = 2U;
+    uint32_t small_scale = 2U;
+    uint32_t section_scale = 3U;
+#else
+    uint32_t panel_h = 255U;
+    uint32_t footer_h = 46U;
+    uint32_t title_scale = 4U;
+    uint32_t subtitle_scale = 2U;
+    uint32_t main_scale = 2U;
+    uint32_t sub_scale = 2U;
+    uint32_t small_scale = 2U;
+    uint32_t section_scale = 2U;
+#endif
+    uint32_t footer_y;
+    uint32_t panel_w;
+    uint32_t row_y;
+    uint32_t fps_tenths;
+    uint32_t status_interval = VIDEO_DEMO_DOOMGENERIC_DASHBOARD_STATUS_INTERVAL_FRAMES;
+    uint32_t metrics_interval = VIDEO_DEMO_DOOMGENERIC_DASHBOARD_METRICS_INTERVAL_FRAMES;
+    uint32_t log_index;
+    int input_rc;
+    int blit_rc;
+    char roles[64];
+    char line[192];
+
+    if (fb == NULL || fb->pixels == NULL || source == NULL || render == NULL ||
+        fb->stride < (uint64_t)fb->width * 4ULL) {
+        return -EINVAL;
+    }
+    frame_w = render->width;
+    frame_h = render->height;
+    if (fb->width < frame_w || fb->height < frame_h + 360U) {
+        return -EINVAL;
+    }
+    if (status_interval == 0U) {
+        status_interval = 1U;
+    }
+    if (metrics_interval == 0U) {
+        metrics_interval = 1U;
+    }
+
+    ++video_demo_doom_dashboard_present_seq;
+    if (!status_valid ||
+        frame_index < status_frame ||
+        frame_index - status_frame >= status_interval) {
+        a90_doomgeneric_bridge_get_status(&status);
+        status_frame = frame_index;
+        status_valid = true;
+    }
+    if (!metrics_valid ||
+        frame_index < metrics_frame ||
+        frame_index - metrics_frame >= metrics_interval) {
+        a90_metrics_read_snapshot(&metrics);
+        metrics_frame = frame_index;
+        metrics_valid = true;
+    }
+
+    memset(&input, 0, sizeof(input));
+    input_rc = video_demo_doom_dashboard_read_input_state(status.input_state_path, &input);
+    video_demo_doom_dashboard_record_input(&input, input_rc);
+    video_demo_doom_dashboard_roles(&input, roles, sizeof(roles));
+    fps_tenths = status.loop_frame_ms > 0U ?
+        (10000U + status.loop_frame_ms / 2U) / status.loop_frame_ms : 0U;
+
+    frame_x = (fb->width - frame_w) / 2U;
+    panel_y = frame_y + frame_h + 20U;
+    panel_w = fb->width > margin * 2U ? fb->width - margin * 2U : fb->width;
+    footer_y = fb->height > footer_h + 20U ? fb->height - footer_h - 20U : panel_y + panel_h + 14U;
+
+#if VIDEO_DEMO_DOOMGENERIC_NO_FULL_CLEAR
+    if (!background_cleared || frame_index == 0U) {
+        video_demo_doom_clear_minimal_dashboard_regions(fb, frame_x, frame_y, frame_w, frame_h);
+        background_cleared = true;
+    } else {
+        a90_draw_rect(fb, 0, 0, fb->width, frame_y, bg);
+        if (frame_x > 0U) {
+            a90_draw_rect(fb, 0, frame_y, frame_x, frame_h, bg);
+        }
+        if (frame_x + frame_w < fb->width) {
+            a90_draw_rect(fb, frame_x + frame_w, frame_y,
+                          fb->width - frame_x - frame_w, frame_h, bg);
+        }
+        a90_draw_rect(fb, margin, panel_y, panel_w, panel_h, bg);
+        a90_draw_rect(fb, margin, footer_y, panel_w, footer_h, bg);
+    }
+#else
+    a90_draw_rect(fb, 0, 0, fb->width, fb->height, bg);
+#endif
+
+    a90_draw_text_fit(fb, margin, 14U,
+                      "DOOM LIVE", 0xffcc66, title_scale, panel_w);
+#if A90_DOOMGENERIC_NATIVE_DEMO_HUD_LARGE_GROUPS
+    snprintf(line, sizeof(line), "A90 native-init %s", INIT_VERSION);
+    a90_draw_text_fit(fb, margin, 64U,
+                      line, 0xbbbbbb, subtitle_scale, panel_w);
+    a90_draw_text_fit(fb, margin, 92U,
+                      "large grouped HW / DOOM / key input HUD",
+                      0x8fb4ff, small_scale, panel_w);
+#elif A90_DOOMGENERIC_NATIVE_DEMO_HUD_SECTIONED
+    snprintf(line, sizeof(line), "A90 native-init %s", INIT_VERSION);
+    a90_draw_text_fit(fb, margin, 64U,
+                      line, 0xbbbbbb, subtitle_scale, panel_w);
+    a90_draw_text_fit(fb, margin, 92U,
+                      "sectioned HW / DOOM / key input HUD",
+                      0x8fb4ff, small_scale, panel_w);
+#elif A90_DOOMGENERIC_NATIVE_DEMO_HUD_READABLE
+    snprintf(line, sizeof(line), "A90 native-init %s", INIT_VERSION);
+    a90_draw_text_fit(fb, margin, 64U,
+                      line, 0xbbbbbb, subtitle_scale, panel_w);
+    a90_draw_text_fit(fb, margin, 92U,
+                      "USB-NCM keyboard input / compact cached HUD",
+                      0x8fb4ff, small_scale, panel_w);
+#else
+    snprintf(line, sizeof(line),
+             "A90 native-init %s  UDP EVDEV input  compact cached HUD",
+             INIT_VERSION);
+    a90_draw_text_fit(fb, margin, 49U,
+                      line, 0xbbbbbb, subtitle_scale, panel_w);
+#endif
+
+    blit_rc = video_demo_doom_blit_raw_frame(fb, source, render, frame_x, frame_y);
+    if (blit_rc < 0) {
+        return -EINVAL;
+    }
+    a90_draw_rect_outline(fb, frame_x > 4U ? frame_x - 4U : frame_x,
+                          frame_y > 4U ? frame_y - 4U : frame_y,
+                          frame_w + 8U,
+                          frame_h + 8U,
+                          2U,
+                          0xd0a060);
+
+    a90_draw_rect(fb, margin, panel_y, panel_w, panel_h, panel_bg);
+    a90_draw_rect_outline(fb, margin, panel_y, panel_w, panel_h, 2U, 0x3d6f8f);
+    row_y = panel_y + 16U;
+#if A90_DOOMGENERIC_NATIVE_DEMO_HUD_LARGE_GROUPS
+    video_demo_doom_dashboard_draw_line(fb, margin + 18U, &row_y, panel_w - 36U,
+                                        "HW INFO", 0x8fb4ff, section_scale);
+    row_y += 8U;
+    snprintf(line, sizeof(line), "CPU %s %s",
+             metrics.cpu_temp,
+             metrics.cpu_usage);
+    video_demo_doom_dashboard_draw_line(fb, margin + 18U, &row_y, panel_w - 36U,
+                                        line, 0xffffff, main_scale);
+    snprintf(line, sizeof(line), "GPU %s %s",
+             metrics.gpu_temp,
+             metrics.gpu_usage);
+    video_demo_doom_dashboard_draw_line(fb, margin + 18U, &row_y, panel_w - 36U,
+                                        line, 0xffffff, main_scale);
+    snprintf(line, sizeof(line), "MEM %s   LOAD %s",
+             metrics.memory,
+             metrics.loadavg);
+    video_demo_doom_dashboard_draw_line(fb, margin + 18U, &row_y, panel_w - 36U,
+                                        line, 0xffffff, main_scale);
+    snprintf(line, sizeof(line), "BAT %s %s",
+             metrics.battery_pct,
+             metrics.battery_temp);
+    video_demo_doom_dashboard_draw_line(fb, margin + 18U, &row_y, panel_w - 36U,
+                                        line, 0xbbbbbb, sub_scale);
+    snprintf(line, sizeof(line), "PWR now %s   avg %s",
+             metrics.power_now,
+             metrics.power_avg);
+    video_demo_doom_dashboard_draw_line(fb, margin + 18U, &row_y, panel_w - 36U,
+                                        line, 0xbbbbbb, sub_scale);
+    row_y += 22U;
+    video_demo_doom_dashboard_draw_line(fb, margin + 18U, &row_y, panel_w - 36U,
+                                        "DOOM INFO", 0xffcc66, section_scale);
+    row_y += 8U;
+    if (total_frames > 0U) {
+        snprintf(line, sizeof(line), "FPS %u.%u   FRAME %u/%u",
+                 fps_tenths / 10U,
+                 fps_tenths % 10U,
+                 frame_index,
+                 total_frames);
+    } else {
+        snprintf(line, sizeof(line), "FPS %u.%u   FRAME %u",
+                 fps_tenths / 10U,
+                 fps_tenths % 10U,
+                 frame_index);
+    }
+    video_demo_doom_dashboard_draw_line(fb, margin + 18U, &row_y, panel_w - 36U,
+                                        line, 0xffffff, main_scale);
+    snprintf(line, sizeof(line), "POLL %u   FRAME_MS %u",
+             poll_count,
+             status.loop_frame_ms);
+    video_demo_doom_dashboard_draw_line(fb, margin + 18U, &row_y, panel_w - 36U,
+                                        line, 0xbbbbbb, sub_scale);
+    snprintf(line, sizeof(line), "WAD %d/%d %lldB   SHARED %d   HELPER %d",
+             status.runtime_wad_present ? 1 : 0,
+             status.runtime_wad_size_ok ? 1 : 0,
+             status.runtime_wad_bytes,
+             status.shared_frame_path != NULL && status.shared_frame_path[0] != '\0' ? 1 : 0,
+             status.helper_executable ? 1 : 0);
+    video_demo_doom_dashboard_draw_line(fb, margin + 18U, &row_y, panel_w - 36U,
+                                        line, 0xbbbbbb, sub_scale);
+    row_y += 22U;
+    video_demo_doom_dashboard_draw_line(fb, margin + 18U, &row_y, panel_w - 36U,
+                                        "KEY INPUT", 0x8fb4ff, section_scale);
+    row_y += 8U;
+    video_demo_doom_dashboard_draw_line(fb, margin + 18U, &row_y, panel_w - 36U,
+                                        "USB-NCM UDP EVDEV keyboard",
+                                        0xffcc66, sub_scale);
+    video_demo_doom_dashboard_draw_line(fb, margin + 18U, &row_y, panel_w - 36U,
+                                        "host_doompad_keyboard_v3033.py",
+                                        0xbbbbbb, small_scale);
+    snprintf(line, sizeof(line),
+             "KEY seq=%u active=%d roles=%s rc=%d",
+             input.seq,
+             input.active ? 1 : 0,
+             roles,
+             input_rc);
+    video_demo_doom_dashboard_draw_line(fb, margin + 18U, &row_y, panel_w - 36U,
+                                        line, 0xffffff, sub_scale);
+    snprintf(line, sizeof(line),
+             "BTNS F%d B%d L%d R%d FIRE%d USE%d MENU%d RUN%d",
+             input.forward ? 1 : 0,
+             input.back ? 1 : 0,
+             input.left ? 1 : 0,
+             input.right ? 1 : 0,
+             input.fire ? 1 : 0,
+             input.use ? 1 : 0,
+             input.menu ? 1 : 0,
+             input.run ? 1 : 0);
+    video_demo_doom_dashboard_draw_line(fb, margin + 18U, &row_y, panel_w - 36U,
+                                        line, 0xffffff, sub_scale);
+#elif A90_DOOMGENERIC_NATIVE_DEMO_HUD_SECTIONED
+    video_demo_doom_dashboard_draw_line(fb, margin + 18U, &row_y, panel_w - 36U,
+                                        "HW INFO", 0x8fb4ff, section_scale);
+    row_y += 4U;
+    snprintf(line, sizeof(line), "CPU %s %s   GPU %s %s",
+             metrics.cpu_temp,
+             metrics.cpu_usage,
+             metrics.gpu_temp,
+             metrics.gpu_usage);
+    video_demo_doom_dashboard_draw_line(fb, margin + 18U, &row_y, panel_w - 36U,
+                                        line, 0xffffff, main_scale);
+    snprintf(line, sizeof(line), "MEM %s   LOAD %s   BAT %s %s   PWR %s/%s",
+             metrics.memory,
+             metrics.loadavg,
+             metrics.battery_pct,
+             metrics.battery_temp,
+             metrics.power_now,
+             metrics.power_avg);
+    video_demo_doom_dashboard_draw_line(fb, margin + 18U, &row_y, panel_w - 36U,
+                                        line, 0xbbbbbb, small_scale);
+    row_y += 10U;
+    video_demo_doom_dashboard_draw_line(fb, margin + 18U, &row_y, panel_w - 36U,
+                                        "DOOM INFO", 0xffcc66, section_scale);
+    row_y += 4U;
+    if (total_frames > 0U) {
+        snprintf(line, sizeof(line), "FPS %u.%u   FRAME %u/%u   POLL %u",
+                 fps_tenths / 10U,
+                 fps_tenths % 10U,
+                 frame_index,
+                 total_frames,
+                 poll_count);
+    } else {
+        snprintf(line, sizeof(line), "FPS %u.%u   FRAME %u   POLL %u",
+                 fps_tenths / 10U,
+                 fps_tenths % 10U,
+                 frame_index,
+                 poll_count);
+    }
+    video_demo_doom_dashboard_draw_line(fb, margin + 18U, &row_y, panel_w - 36U,
+                                        line, 0xffffff, main_scale);
+    snprintf(line, sizeof(line), "WAD %d/%d %lldB   SHARED %d   HELPER %d",
+             status.runtime_wad_present ? 1 : 0,
+             status.runtime_wad_size_ok ? 1 : 0,
+             status.runtime_wad_bytes,
+             status.shared_frame_path != NULL && status.shared_frame_path[0] != '\0' ? 1 : 0,
+             status.helper_executable ? 1 : 0);
+    video_demo_doom_dashboard_draw_line(fb, margin + 18U, &row_y, panel_w - 36U,
+                                        line, 0xbbbbbb, small_scale);
+    row_y += 10U;
+    video_demo_doom_dashboard_draw_line(fb, margin + 18U, &row_y, panel_w - 36U,
+                                        "KEY INPUT", 0x8fb4ff, section_scale);
+    row_y += 4U;
+    video_demo_doom_dashboard_draw_line(fb, margin + 18U, &row_y, panel_w - 36U,
+                                        "USB-NCM UDP EVDEV keyboard",
+                                        0xffcc66, main_scale);
+    video_demo_doom_dashboard_draw_line(fb, margin + 18U, &row_y, panel_w - 36U,
+                                        "host_doompad_keyboard_v3033.py",
+                                        0xbbbbbb, small_scale);
+    snprintf(line, sizeof(line),
+             "KEY seq=%u active=%d roles=%s rc=%d",
+             input.seq,
+             input.active ? 1 : 0,
+             roles,
+             input_rc);
+    video_demo_doom_dashboard_draw_line(fb, margin + 18U, &row_y, panel_w - 36U,
+                                        line, 0xffffff, small_scale);
+    snprintf(line, sizeof(line),
+             "BTNS F%d B%d L%d R%d FIRE%d USE%d MENU%d RUN%d",
+             input.forward ? 1 : 0,
+             input.back ? 1 : 0,
+             input.left ? 1 : 0,
+             input.right ? 1 : 0,
+             input.fire ? 1 : 0,
+             input.use ? 1 : 0,
+             input.menu ? 1 : 0,
+             input.run ? 1 : 0);
+    video_demo_doom_dashboard_draw_line(fb, margin + 18U, &row_y, panel_w - 36U,
+                                        line, 0xffffff, small_scale);
+#elif A90_DOOMGENERIC_NATIVE_DEMO_HUD_READABLE
+    snprintf(line, sizeof(line), "HW CPU %s %s   GPU %s %s",
+             metrics.cpu_temp,
+             metrics.cpu_usage,
+             metrics.gpu_temp,
+             metrics.gpu_usage);
+    video_demo_doom_dashboard_draw_line(fb, margin + 18U, &row_y, panel_w - 36U,
+                                        line, 0xffffff, main_scale);
+    snprintf(line, sizeof(line), "MEM %s   LOAD %s   BAT %s %s",
+             metrics.memory,
+             metrics.loadavg,
+             metrics.battery_pct,
+             metrics.battery_temp);
+    video_demo_doom_dashboard_draw_line(fb, margin + 18U, &row_y, panel_w - 36U,
+                                        line, 0xffffff, main_scale);
+    snprintf(line, sizeof(line), "PWR now %s   avg %s",
+             metrics.power_now,
+             metrics.power_avg);
+    video_demo_doom_dashboard_draw_line(fb, margin + 18U, &row_y, panel_w - 36U,
+                                        line, 0xbbbbbb, small_scale);
+    snprintf(line, sizeof(line), "DOOM FPS %u.%u   FRAME %u/%u   POLL %u",
+             fps_tenths / 10U,
+             fps_tenths % 10U,
+             frame_index,
+             total_frames,
+             poll_count);
+    video_demo_doom_dashboard_draw_line(fb, margin + 18U, &row_y, panel_w - 36U,
+                                        line, 0xffcc66, main_scale);
+    snprintf(line, sizeof(line), "OUT shared=%d helper=%d wad=%d/%d bytes=%lld",
+             status.shared_frame_path != NULL && status.shared_frame_path[0] != '\0' ? 1 : 0,
+             status.helper_executable ? 1 : 0,
+             status.runtime_wad_present ? 1 : 0,
+             status.runtime_wad_size_ok ? 1 : 0,
+             status.runtime_wad_bytes);
+    video_demo_doom_dashboard_draw_line(fb, margin + 18U, &row_y, panel_w - 36U,
+                                        line, 0xbbbbbb, small_scale);
+    video_demo_doom_dashboard_draw_line(fb, margin + 18U, &row_y, panel_w - 36U,
+                                        "HOST USB-NCM UDP EVDEV keyboard",
+                                        0xffcc66, main_scale);
+    video_demo_doom_dashboard_draw_line(fb, margin + 18U, &row_y, panel_w - 36U,
+                                        "host_doompad_keyboard_v3033.py",
+                                        0xbbbbbb, small_scale);
+    snprintf(line, sizeof(line),
+             "KEY seq=%u active=%d roles=%s rc=%d",
+             input.seq,
+             input.active ? 1 : 0,
+             roles,
+             input_rc);
+    video_demo_doom_dashboard_draw_line(fb, margin + 18U, &row_y, panel_w - 36U,
+                                        line, 0xffffff, small_scale);
+    snprintf(line, sizeof(line),
+             "BTNS F%d B%d L%d R%d FIRE%d USE%d MENU%d RUN%d",
+             input.forward ? 1 : 0,
+             input.back ? 1 : 0,
+             input.left ? 1 : 0,
+             input.right ? 1 : 0,
+             input.fire ? 1 : 0,
+             input.use ? 1 : 0,
+             input.menu ? 1 : 0,
+             input.run ? 1 : 0);
+    video_demo_doom_dashboard_draw_line(fb, margin + 18U, &row_y, panel_w - 36U,
+                                        line, 0xffffff, main_scale);
+#else
+    snprintf(line, sizeof(line), "HW CPU %s %s   GPU %s %s   MEM %s   LOAD %s",
+             metrics.cpu_temp,
+             metrics.cpu_usage,
+             metrics.gpu_temp,
+             metrics.gpu_usage,
+             metrics.memory,
+             metrics.loadavg);
+    video_demo_doom_dashboard_draw_line(fb, margin + 18U, &row_y, panel_w - 36U,
+                                        line, 0xffffff, 2U);
+    snprintf(line, sizeof(line), "POWER BAT %s %s   NOW %s AVG %s",
+             metrics.battery_pct,
+             metrics.battery_temp,
+             metrics.power_now,
+             metrics.power_avg);
+    video_demo_doom_dashboard_draw_line(fb, margin + 18U, &row_y, panel_w - 36U,
+                                        line, 0xbbbbbb, 2U);
+    video_demo_doom_dashboard_draw_line(fb, margin + 18U, &row_y, panel_w - 36U,
+                                        "HOST host_doompad_keyboard_v3033.py UDP EVDEV",
+                                        0xffcc66, 2U);
+    snprintf(line, sizeof(line), "DOOM fps %u.%u   frame %u/%u   poll %u   frame_ms %u",
+             fps_tenths / 10U,
+             fps_tenths % 10U,
+             frame_index,
+             total_frames,
+             poll_count,
+             status.loop_frame_ms);
+    video_demo_doom_dashboard_draw_line(fb, margin + 18U, &row_y, panel_w - 36U,
+                                        line, 0xffcc66, 2U);
+    snprintf(line, sizeof(line), "OUT shared=%d helper=%d wad=%d/%d bytes=%lld",
+             status.shared_frame_path != NULL && status.shared_frame_path[0] != '\0' ? 1 : 0,
+             status.helper_executable ? 1 : 0,
+             status.runtime_wad_present ? 1 : 0,
+             status.runtime_wad_size_ok ? 1 : 0,
+             status.runtime_wad_bytes);
+    video_demo_doom_dashboard_draw_line(fb, margin + 18U, &row_y, panel_w - 36U,
+                                        line, 0xbbbbbb, 2U);
+    snprintf(line, sizeof(line),
+             "KEY seq=%u active=%d roles=%s rc=%d  F%d B%d L%d R%d FIRE%d USE%d MENU%d RUN%d",
+             input.seq,
+             input.active ? 1 : 0,
+             roles,
+             input_rc,
+             input.forward ? 1 : 0,
+             input.back ? 1 : 0,
+             input.left ? 1 : 0,
+             input.right ? 1 : 0,
+             input.fire ? 1 : 0,
+             input.use ? 1 : 0,
+             input.menu ? 1 : 0,
+             input.run ? 1 : 0);
+    video_demo_doom_dashboard_draw_line(fb, margin + 18U, &row_y, panel_w - 36U,
+                                        line, 0xffffff, 2U);
+#endif
+    for (log_index = 0; log_index < 2U; ++log_index) {
+        unsigned int available = video_demo_doom_dashboard_log_count <
+            (unsigned int)(sizeof(video_demo_doom_dashboard_logs) / sizeof(video_demo_doom_dashboard_logs[0])) ?
+            video_demo_doom_dashboard_log_count :
+            (unsigned int)(sizeof(video_demo_doom_dashboard_logs) / sizeof(video_demo_doom_dashboard_logs[0]));
+        unsigned int offset;
+        unsigned int slot;
+
+        if (log_index >= available) {
+            break;
+        }
+        offset = available - 1U - log_index;
+        slot = (video_demo_doom_dashboard_log_count - 1U - offset) %
+            (unsigned int)(sizeof(video_demo_doom_dashboard_logs) / sizeof(video_demo_doom_dashboard_logs[0]));
+        snprintf(line, sizeof(line), "LOG %s", video_demo_doom_dashboard_logs[slot].text);
+        video_demo_doom_dashboard_draw_line(fb, margin + 18U, &row_y, panel_w - 36U,
+                                            line, 0x8fb4ff, small_scale);
+    }
+
+    a90_draw_rect(fb, margin, footer_y, panel_w, footer_h, 0x080a0f);
+    a90_draw_rect_outline(fb, margin, footer_y, panel_w, footer_h, 2U, 0x3d6f8f);
+#if A90_DOOMGENERIC_NATIVE_DEMO_HUD_LARGE_GROUPS
+    a90_draw_text_fit(fb, margin + 18U, footer_y + 12U,
+                      "POWER / VOL = EXIT",
+                      0xffcc66, section_scale, panel_w - 36U);
+    a90_draw_text_fit(fb, margin + 18U, footer_y + 58U,
+                      "HOST KEYS VIA USB NCM   DOOM SHAREWARE WAD   ID SOFTWARE",
+                      0xbbbbbb, small_scale, panel_w - 36U);
+#elif A90_DOOMGENERIC_NATIVE_DEMO_HUD_SECTIONED
+    a90_draw_text_fit(fb, margin + 18U, footer_y + 12U,
+                      "POWER / VOL = EXIT     HOST KEYS VIA USB NCM",
+                      0xffcc66, main_scale, panel_w - 36U);
+    a90_draw_text_fit(fb, margin + 18U, footer_y + 48U,
+                      "DOOM SHAREWARE WAD   ID SOFTWARE",
+                      0xbbbbbb, small_scale, panel_w - 36U);
+#elif A90_DOOMGENERIC_NATIVE_DEMO_HUD_READABLE
+    a90_draw_text_fit(fb, margin + 18U, footer_y + 12U,
+                      "POWER / VOL = EXIT     HOST KEYS VIA USB NCM",
+                      0xffcc66, main_scale, panel_w - 36U);
+    a90_draw_text_fit(fb, margin + 18U, footer_y + 48U,
+                      "DOOM SHAREWARE WAD   ID SOFTWARE",
+                      0xbbbbbb, small_scale, panel_w - 36U);
+#else
+    a90_draw_text_fit(fb, margin + 18U, footer_y + 13U,
+                      "POWER VOL EXIT   HOST KEYS VIA USB NCM   DOOM SHAREWARE WAD   ID SOFTWARE",
+                      0xbbbbbb, 2U, panel_w - 36U);
+#endif
+
+    if (verbose) {
+        a90_console_printf("video.demo.doom.dashboard.native=1\r\n");
+        a90_console_printf("video.demo.doom.dashboard.profile=demo-hud-fast\r\n");
+#if A90_DOOMGENERIC_NATIVE_DEMO_HUD_LARGE_GROUPS
+        a90_console_printf("video.demo.doom.dashboard.layout=top-frame-large-grouped-hw-doom-input-footer\r\n");
+#elif A90_DOOMGENERIC_NATIVE_DEMO_HUD_SECTIONED
+        a90_console_printf("video.demo.doom.dashboard.layout=top-frame-sectioned-hw-doom-input-footer\r\n");
+#else
+        a90_console_printf("video.demo.doom.dashboard.layout=top-frame-compact-metrics-input-footer\r\n");
+#endif
+        a90_console_printf("video.demo.doom.dashboard.redraw=doom-frame-plus-targeted-compact-hud\r\n");
+        a90_console_printf("video.demo.doom.dashboard.presenter_log=summary-only\r\n");
+        a90_console_printf("video.demo.doom.dashboard.large_frame=0\r\n");
+        a90_console_printf("video.demo.doom.dashboard.frame_mode=demo-hud-fast-1to1\r\n");
+        a90_console_printf("video.demo.doom.dashboard.frame_scale=1:1\r\n");
+        a90_console_printf("video.demo.doom.dashboard.scale_path=raw-rowcopy\r\n");
+        a90_console_printf("video.demo.doom.dashboard.footer=physical-key-exit-and-copyright\r\n");
+#if A90_DOOMGENERIC_NATIVE_DEMO_HUD_LARGE_GROUPS
+        a90_console_printf("video.demo.doom.dashboard.readable_spacing=1\r\n");
+        a90_console_printf("video.demo.doom.dashboard.sectioned_info=1\r\n");
+        a90_console_printf("video.demo.doom.dashboard.large_groups=1\r\n");
+        a90_console_printf("video.demo.doom.dashboard.text_scale=group4-main4-sub3-small2\r\n");
+#elif A90_DOOMGENERIC_NATIVE_DEMO_HUD_SECTIONED
+        a90_console_printf("video.demo.doom.dashboard.readable_spacing=1\r\n");
+        a90_console_printf("video.demo.doom.dashboard.sectioned_info=1\r\n");
+        a90_console_printf("video.demo.doom.dashboard.text_scale=section3-main3-small2\r\n");
+#elif A90_DOOMGENERIC_NATIVE_DEMO_HUD_READABLE
+        a90_console_printf("video.demo.doom.dashboard.readable_spacing=1\r\n");
+        a90_console_printf("video.demo.doom.dashboard.text_scale=title5-main3-small2\r\n");
+#else
+        a90_console_printf("video.demo.doom.dashboard.readable_spacing=0\r\n");
+#endif
+        a90_console_printf("video.demo.doom.dashboard.metrics_interval_frames=%u\r\n",
+                           (unsigned int)VIDEO_DEMO_DOOMGENERIC_DASHBOARD_METRICS_INTERVAL_FRAMES);
+        a90_console_printf("video.demo.doom.dashboard.status_interval_frames=%u\r\n",
+                           (unsigned int)VIDEO_DEMO_DOOMGENERIC_DASHBOARD_STATUS_INTERVAL_FRAMES);
+        a90_console_printf("video.demo.doom.dashboard.metrics_pacing=cached-frame-interval\r\n");
+        a90_console_printf("video.demo.doom.dashboard.status_pacing=cached-frame-interval\r\n");
+#if VIDEO_DEMO_DOOMGENERIC_NO_FULL_CLEAR
+        a90_console_printf("video.demo.doom.dashboard.full_clear=0\r\n");
+        a90_console_printf("video.demo.doom.dashboard.clear_path=targeted-demo-hud-regions\r\n");
+#else
+        a90_console_printf("video.demo.doom.dashboard.full_clear=1\r\n");
+        a90_console_printf("video.demo.doom.dashboard.clear_path=full-frame-fill\r\n");
+#endif
+        a90_console_printf("video.demo.doom.dashboard.present_seq=%u\r\n",
+                           video_demo_doom_dashboard_present_seq);
+        a90_console_printf("video.demo.doom.dashboard.input_seq=%u\r\n", input.seq);
+        a90_console_printf("video.demo.doom.dashboard.metrics_frame=%u\r\n", metrics_frame);
+        a90_console_printf("video.demo.doom.dashboard.status_frame=%u\r\n", status_frame);
+    }
+    return 0;
+}
+#endif
+
 static int video_demo_doom_draw_native_dashboard(
         struct a90_fb *fb,
         const uint32_t *source,
@@ -3474,6 +4992,14 @@ static int video_demo_doom_draw_native_dashboard(
                                                   frame_index,
                                                   total_frames,
                                                   poll_count);
+#elif A90_DOOMGENERIC_NATIVE_DEMO_HUD_FAST
+    return video_demo_doom_draw_fast_demo_hud(fb,
+                                              source,
+                                              render,
+                                              verbose,
+                                              frame_index,
+                                              total_frames,
+                                              poll_count);
 #else
     static struct a90_metrics_snapshot metrics;
     static uint32_t metrics_frame = UINT32_MAX;
@@ -3494,6 +5020,9 @@ static int video_demo_doom_draw_native_dashboard(
     uint32_t right_x;
     uint32_t row_y;
     uint32_t input_y;
+    uint32_t input_panel_h;
+    uint32_t footer_h = 0U;
+    uint32_t footer_y = 0U;
     uint32_t log_index;
     uint32_t fps_tenths;
     uint32_t dashboard_scale = 3U;
@@ -3546,14 +5075,23 @@ static int video_demo_doom_draw_native_dashboard(
     col_w = (panel_w - 24U) / 2U;
     left_x = margin + 18U;
     right_x = margin + col_w + 42U;
+#if A90_DOOMGENERIC_NATIVE_DEMO_HUD
+    footer_h = dashboard_scale * 10U + 24U;
+#endif
 
     a90_draw_rect(fb, 0, 0, fb->width, fb->height, 0x05070c);
 #if !A90_DOOMGENERIC_NATIVE_DASHBOARD_LARGE_FRAME
     a90_draw_text_fit(fb, margin, title_y,
                       "DOOM LIVE DASHBOARD", 0xffcc66, title_scale, panel_w);
+#if A90_DOOMGENERIC_NATIVE_DEMO_HUD
+    snprintf(line, sizeof(line),
+             "A90 native-init %s  USB NCM keyboard input  cached native HUD",
+             INIT_VERSION);
+#else
     snprintf(line, sizeof(line),
              "A90 native-init %s  no OTG  serial doompad input",
              INIT_VERSION);
+#endif
     a90_draw_text_fit(fb, margin, 18U + title_scale * 10U,
                       line, 0xbbbbbb, dashboard_scale, panel_w);
 #endif
@@ -3582,7 +5120,11 @@ static int video_demo_doom_draw_native_dashboard(
                       "DOOM LIVE DASHBOARD", 0xffcc66, title_scale, panel_w);
     snprintf(line, sizeof(line),
 #if VIDEO_DEMO_DOOMGENERIC_PRE_SCALED_LARGE_FRAME
+#if A90_DOOMGENERIC_NATIVE_DEMO_HUD
+             "A90 native-init %s  USB NCM keyboard input  cached native HUD  frame 960x600",
+#else
              "A90 native-init %s  no OTG  serial doompad dgram  frame 960x600 pre-scaled",
+#endif
 #else
              "A90 native-init %s  no OTG  serial doompad dgram  frame 640x400 -> 960x600",
 #endif
@@ -3640,12 +5182,25 @@ static int video_demo_doom_draw_native_dashboard(
              status.shared_frame_path : status.frame_path);
     video_demo_doom_dashboard_draw_line(fb, right_x, &row_y, col_w - 24U,
                                         line, 0xbbbbbb, dashboard_scale);
+#if A90_DOOMGENERIC_NATIVE_DEMO_HUD
+    video_demo_doom_dashboard_draw_line(fb, right_x, &row_y, col_w - 24U,
+                                        "HOST host_doompad_keyboard_v3033.py UDP EVDEV",
+                                        0xffcc66, dashboard_scale);
+#else
     video_demo_doom_dashboard_draw_line(fb, right_x, &row_y, col_w - 24U,
                                         "HOST host_doompad_dashboard_v3035.py", 0xffcc66, dashboard_scale);
+#endif
 
     input_y = panel_y + 466U;
-    a90_draw_rect(fb, margin, input_y, panel_w, fb->height - input_y - 40U, 0x0f1118);
-    a90_draw_rect_outline(fb, margin, input_y, panel_w, fb->height - input_y - 40U, 2U, 0x6b6f94);
+    input_panel_h = fb->height > input_y + 40U ? fb->height - input_y - 40U : 0U;
+#if A90_DOOMGENERIC_NATIVE_DEMO_HUD
+    if (input_panel_h > footer_h + 24U) {
+        input_panel_h -= footer_h + 12U;
+        footer_y = input_y + input_panel_h + 12U;
+    }
+#endif
+    a90_draw_rect(fb, margin, input_y, panel_w, input_panel_h, 0x0f1118);
+    a90_draw_rect_outline(fb, margin, input_y, panel_w, input_panel_h, 2U, 0x6b6f94);
     row_y = input_y + 22U;
     video_demo_doom_dashboard_draw_line(fb, left_x, &row_y, panel_w - 36U,
                                         "KEYBOARD / DOOMPAD INPUT", 0x66ddff, dashboard_scale);
@@ -3689,11 +5244,24 @@ static int video_demo_doom_draw_native_dashboard(
         video_demo_doom_dashboard_draw_line(fb, left_x, &row_y, panel_w - 36U,
                                             line, 0xbbbbbb, dashboard_scale);
     }
+#if A90_DOOMGENERIC_NATIVE_DEMO_HUD
+    if (footer_y > 0U && footer_h > 0U) {
+        a90_draw_rect(fb, margin, footer_y, panel_w, footer_h, 0x080a0f);
+        a90_draw_rect_outline(fb, margin, footer_y, panel_w, footer_h, 2U, 0x3d6f8f);
+        a90_draw_text_fit(fb, left_x, footer_y + 12U,
+                          "POWER VOL EXIT   HOST KEYS VIA USB NCM   DOOM SHAREWARE WAD   ID SOFTWARE",
+                          0xbbbbbb, dashboard_scale, panel_w - 36U);
+    }
+#endif
 
     if (verbose) {
         a90_console_printf("video.demo.doom.dashboard.native=1\r\n");
         a90_console_printf("video.demo.doom.dashboard.layout=top-frame-metrics-logs-input\r\n");
         a90_console_printf("video.demo.doom.dashboard.presenter_log=quiet-per-frame\r\n");
+#if A90_DOOMGENERIC_NATIVE_DEMO_HUD
+        a90_console_printf("video.demo.doom.dashboard.profile=demo-hud-full\r\n");
+        a90_console_printf("video.demo.doom.dashboard.footer=physical-key-exit-and-copyright\r\n");
+#endif
 #if A90_DOOMGENERIC_NATIVE_DASHBOARD_LARGE_FRAME
         a90_console_printf("video.demo.doom.dashboard.large_frame=1\r\n");
 #if VIDEO_DEMO_DOOMGENERIC_PRE_SCALED_LARGE_FRAME
@@ -4786,31 +6354,84 @@ static int video_demo_doom_clear_presented_frame(const char *reason) {
     return rc;
 }
 
+static int video_demo_doom_audio_stream_prepare(void) {
+#if A90_DOOMGENERIC_AUDIO_CORUN && A90_DOOMGENERIC_AUDIO_CORUN_STREAM
+    int rc;
+
+    if (A90_DOOMGENERIC_AUDIO_PCM_STREAM_PATH[0] == '\0') {
+        a90_console_printf("video.demo.doom.audio.stream_prepare.rc=%d\r\n", -EINVAL);
+        return -EINVAL;
+    }
+    if (ensure_dir("/cache/a90-runtime", 0700) < 0) {
+        int saved_errno = errno;
+
+        a90_console_printf("video.demo.doom.audio.stream_prepare.dir=/cache/a90-runtime\r\n");
+        a90_console_printf("video.demo.doom.audio.stream_prepare.rc=%d errno=%d\r\n",
+                           -saved_errno,
+                           saved_errno);
+        return -saved_errno;
+    }
+    (void)unlink(A90_DOOMGENERIC_AUDIO_PCM_STREAM_PATH);
+    errno = 0;
+    rc = mkfifo(A90_DOOMGENERIC_AUDIO_PCM_STREAM_PATH, 0600);
+    if (rc < 0) {
+        int saved_errno = errno;
+
+        a90_console_printf("video.demo.doom.audio.stream_prepare.path=%s\r\n",
+                           A90_DOOMGENERIC_AUDIO_PCM_STREAM_PATH);
+        a90_console_printf("video.demo.doom.audio.stream_prepare.rc=%d errno=%d\r\n",
+                           -saved_errno,
+                           saved_errno);
+        return -saved_errno;
+    }
+    a90_console_printf("video.demo.doom.audio.stream_prepare.path=%s\r\n",
+                       A90_DOOMGENERIC_AUDIO_PCM_STREAM_PATH);
+    a90_console_printf("video.demo.doom.audio.stream_prepare.rc=0\r\n");
+    return 0;
+#else
+    return 0;
+#endif
+}
+
 static int video_demo_doom_audio_corun_start(void) {
 #if A90_DOOMGENERIC_AUDIO_CORUN
     char duration_text[16];
     char amplitude_text[16];
-    char *audio_argv[] = {
-        "audio", "play", "internal-speaker-safe",
-        "--mode", "listen",
-        "--amplitude-milli", amplitude_text,
-        "--duration-ms", duration_text,
-        "--execute",
-    };
+    char *audio_argv[13];
+    int audio_argc = 0;
     int rc;
 
     snprintf(duration_text, sizeof(duration_text), "%d", A90_DOOMGENERIC_AUDIO_CORUN_DURATION_MS);
     snprintf(amplitude_text, sizeof(amplitude_text), "%d", A90_DOOMGENERIC_AUDIO_CORUN_AMPLITUDE_MILLI);
+    audio_argv[audio_argc++] = "audio";
+    audio_argv[audio_argc++] = "play";
+    audio_argv[audio_argc++] = "internal-speaker-safe";
+    audio_argv[audio_argc++] = "--mode";
+    audio_argv[audio_argc++] = "listen";
+    audio_argv[audio_argc++] = "--amplitude-milli";
+    audio_argv[audio_argc++] = amplitude_text;
+    audio_argv[audio_argc++] = "--duration-ms";
+    audio_argv[audio_argc++] = duration_text;
+#if A90_DOOMGENERIC_AUDIO_CORUN_STREAM
+    audio_argv[audio_argc++] = "--pcm-stream";
+    audio_argv[audio_argc++] = A90_DOOMGENERIC_AUDIO_PCM_STREAM_PATH;
+#endif
+    audio_argv[audio_argc++] = "--execute";
+    audio_argv[audio_argc] = NULL;
     a90_console_printf("video.demo.doom.audio.corun=1\r\n");
     a90_console_printf("video.demo.doom.audio.mode=%s\r\n", A90_DOOMGENERIC_AUDIO_CORUN_MODE);
-    a90_console_printf("video.demo.doom.audio.source=native-bounded-tone\r\n");
+    a90_console_printf("video.demo.doom.audio.source=%s\r\n",
+                       A90_DOOMGENERIC_AUDIO_CORUN_STREAM ? "native-pcm-stream" : "native-bounded-tone");
+    a90_console_printf("video.demo.doom.audio.stream_path=%s\r\n",
+                       A90_DOOMGENERIC_AUDIO_CORUN_STREAM ? A90_DOOMGENERIC_AUDIO_PCM_STREAM_PATH : "-");
     a90_console_printf("video.demo.doom.audio.profile=internal-speaker-safe\r\n");
     a90_console_printf("video.demo.doom.audio.duration_ms=%d\r\n",
                        A90_DOOMGENERIC_AUDIO_CORUN_DURATION_MS);
     a90_console_printf("video.demo.doom.audio.amplitude_milli=%d\r\n",
                        A90_DOOMGENERIC_AUDIO_CORUN_AMPLITUDE_MILLI);
-    a90_console_printf("video.demo.doom.audio.real_doom_sfx=0\r\n");
-    rc = a90_audio_cmd(audio_argv, (int)(sizeof(audio_argv) / sizeof(audio_argv[0])));
+    a90_console_printf("video.demo.doom.audio.real_doom_sfx=%d\r\n",
+                       A90_DOOMGENERIC_AUDIO_CORUN_STREAM ? 1 : 0);
+    rc = a90_audio_cmd(audio_argv, audio_argc);
     a90_console_printf("video.demo.doom.audio.start.rc=%d\r\n", rc);
     return rc;
 #else
@@ -4829,9 +6450,30 @@ static int video_demo_doom_audio_corun_stop(void) {
     a90_console_printf("video.demo.doom.audio.stop.requested=1\r\n");
     rc = a90_audio_cmd(audio_argv, (int)(sizeof(audio_argv) / sizeof(audio_argv[0])));
     a90_console_printf("video.demo.doom.audio.stop.rc=%d\r\n", rc);
+#if A90_DOOMGENERIC_AUDIO_CORUN_STREAM
+    if (A90_DOOMGENERIC_AUDIO_PCM_STREAM_PATH[0] != '\0') {
+        (void)unlink(A90_DOOMGENERIC_AUDIO_PCM_STREAM_PATH);
+        a90_console_printf("video.demo.doom.audio.stream_cleanup.path=%s\r\n",
+                           A90_DOOMGENERIC_AUDIO_PCM_STREAM_PATH);
+    }
+#endif
     return rc;
 #else
     a90_console_printf("video.demo.doom.audio.stop.requested=0\r\n");
+    return 0;
+#endif
+}
+
+static int video_demo_doom_audio_corun_refresh_quiet(void) {
+#if A90_DOOMGENERIC_AUDIO_CORUN && A90_DOOMGENERIC_AUDIO_CORUN_STREAM
+    if (A90_DOOMGENERIC_AUDIO_PCM_STREAM_PATH[0] == '\0') {
+        return -EINVAL;
+    }
+    return a90_audio_start_pcm_stream_worker_quiet("internal-speaker-safe",
+                                                   A90_DOOMGENERIC_AUDIO_PCM_STREAM_PATH,
+                                                   A90_DOOMGENERIC_AUDIO_CORUN_AMPLITUDE_MILLI,
+                                                   A90_DOOMGENERIC_AUDIO_CORUN_DURATION_MS);
+#else
     return 0;
 #endif
 }
@@ -4900,12 +6542,20 @@ static int video_demo_doom_run_visible_loop(uint32_t frames,
     uint32_t max_polls = continuous ? 0U : frames * 4U + 20U;
     struct video_demo_doom_flip_stats flip_stats;
     struct video_demo_doom_pace_sender pace_sender;
+    struct video_demo_doom_physical_exit physical_exit;
     uint64_t present_not_before_ns = 0ULL;
     uint32_t pace_wait_timeouts = 0U;
     uint32_t idle_pace_tokens = 0U;
     uint64_t next_pace_token_ns = 0ULL;
     const uint64_t tick_pace_interval_ns =
         (uint64_t)VIDEO_DEMO_DOOMGENERIC_TICK_PACE_INTERVAL_US * 1000ULL;
+#if A90_DOOMGENERIC_AUDIO_CORUN && A90_DOOMGENERIC_AUDIO_CORUN_STREAM
+    uint64_t next_audio_refresh_ns = 0ULL;
+    uint32_t audio_refresh_count = 0U;
+    int audio_refresh_last_rc = 0;
+    const uint64_t audio_refresh_interval_ns =
+        (uint64_t)A90_DOOMGENERIC_AUDIO_CORUN_REFRESH_MS * 1000000ULL;
+#endif
 #if VIDEO_DEMO_DOOMGENERIC_FRAME_TIMING_PROBE
     struct video_demo_doom_timing_stats timing_stats;
 #endif
@@ -4919,6 +6569,7 @@ static int video_demo_doom_run_visible_loop(uint32_t frames,
     video_demo_doom_frame_reader_init(&frame_reader);
     video_demo_doom_flip_stats_init(&flip_stats);
     video_demo_doom_pace_sender_init(&pace_sender, NULL);
+    video_demo_doom_physical_exit_init(&physical_exit);
 #if VIDEO_DEMO_DOOMGENERIC_FRAME_TIMING_PROBE
     memset(&timing_stats, 0, sizeof(timing_stats));
 #endif
@@ -4961,7 +6612,36 @@ static int video_demo_doom_run_visible_loop(uint32_t frames,
         a90_console_printf("video.demo.doom.dashboard.profile=minimal-fastdraw\r\n");
         a90_console_printf("video.demo.doom.dashboard.layout=top-frame-minimal-input\r\n");
         a90_console_printf("video.demo.doom.dashboard.redraw=doom-frame-plus-compact-status\r\n");
+#elif A90_DOOMGENERIC_NATIVE_DEMO_HUD_FAST
+        a90_console_printf("video.demo.doom.dashboard.profile=demo-hud-fast\r\n");
+#if A90_DOOMGENERIC_NATIVE_DEMO_HUD_LARGE_GROUPS
+        a90_console_printf("video.demo.doom.dashboard.layout=top-frame-large-grouped-hw-doom-input-footer\r\n");
+#elif A90_DOOMGENERIC_NATIVE_DEMO_HUD_SECTIONED
+        a90_console_printf("video.demo.doom.dashboard.layout=top-frame-sectioned-hw-doom-input-footer\r\n");
 #else
+        a90_console_printf("video.demo.doom.dashboard.layout=top-frame-compact-metrics-input-footer\r\n");
+#endif
+        a90_console_printf("video.demo.doom.dashboard.redraw=doom-frame-plus-targeted-compact-hud\r\n");
+        a90_console_printf("video.demo.doom.dashboard.status_interval_frames=%u\r\n",
+                           (unsigned int)VIDEO_DEMO_DOOMGENERIC_DASHBOARD_STATUS_INTERVAL_FRAMES);
+        a90_console_printf("video.demo.doom.dashboard.status_pacing=cached-frame-interval\r\n");
+#if A90_DOOMGENERIC_NATIVE_DEMO_HUD_LARGE_GROUPS
+        a90_console_printf("video.demo.doom.dashboard.readable_spacing=1\r\n");
+        a90_console_printf("video.demo.doom.dashboard.sectioned_info=1\r\n");
+        a90_console_printf("video.demo.doom.dashboard.large_groups=1\r\n");
+        a90_console_printf("video.demo.doom.dashboard.text_scale=group4-main4-sub3-small2\r\n");
+#elif A90_DOOMGENERIC_NATIVE_DEMO_HUD_SECTIONED
+        a90_console_printf("video.demo.doom.dashboard.readable_spacing=1\r\n");
+        a90_console_printf("video.demo.doom.dashboard.sectioned_info=1\r\n");
+        a90_console_printf("video.demo.doom.dashboard.text_scale=section3-main3-small2\r\n");
+#elif A90_DOOMGENERIC_NATIVE_DEMO_HUD_READABLE
+        a90_console_printf("video.demo.doom.dashboard.readable_spacing=1\r\n");
+        a90_console_printf("video.demo.doom.dashboard.text_scale=title5-main3-small2\r\n");
+#else
+        a90_console_printf("video.demo.doom.dashboard.readable_spacing=0\r\n");
+#endif
+#else
+        a90_console_printf("video.demo.doom.dashboard.profile=full\r\n");
         a90_console_printf("video.demo.doom.dashboard.layout=top-frame-metrics-logs-input\r\n");
 #endif
         a90_console_printf("video.demo.doom.dashboard.presenter_log=%s\r\n",
@@ -4985,7 +6665,11 @@ static int video_demo_doom_run_visible_loop(uint32_t frames,
 #endif
 #else
         a90_console_printf("video.demo.doom.dashboard.large_frame=0\r\n");
+#if A90_DOOMGENERIC_NATIVE_DEMO_HUD_FAST
+        a90_console_printf("video.demo.doom.dashboard.frame_mode=demo-hud-fast-1to1\r\n");
+#else
         a90_console_printf("video.demo.doom.dashboard.frame_mode=minimal-dashboard\r\n");
+#endif
         a90_console_printf("video.demo.doom.dashboard.frame_scale=1:1\r\n");
         a90_console_printf("video.demo.doom.dashboard.scale_path=raw-rowcopy\r\n");
 #endif
@@ -4998,7 +6682,11 @@ static int video_demo_doom_run_visible_loop(uint32_t frames,
 #endif
 #if VIDEO_DEMO_DOOMGENERIC_NO_FULL_CLEAR
         a90_console_printf("video.demo.doom.dashboard.full_clear=0\r\n");
+#if A90_DOOMGENERIC_NATIVE_DEMO_HUD_FAST
+        a90_console_printf("video.demo.doom.dashboard.clear_path=targeted-demo-hud-regions\r\n");
+#else
         a90_console_printf("video.demo.doom.dashboard.clear_path=dirty-dashboard-regions\r\n");
+#endif
 #else
         a90_console_printf("video.demo.doom.dashboard.full_clear=1\r\n");
         a90_console_printf("video.demo.doom.dashboard.clear_path=full-frame-fill\r\n");
@@ -5039,6 +6727,8 @@ static int video_demo_doom_run_visible_loop(uint32_t frames,
                            bridge_status.shared_frame_path[0] != '\0' ?
                            "shared-mmap-seq" : "raw-file");
         a90_console_printf("video.demo.doom.loop.host_keyboard_bridge=host_doompad_keyboard_v3033.py\r\n");
+        a90_console_printf("video.demo.doom.loop.physical_button_exit=%d\r\n",
+                           A90_DOOMGENERIC_PHYSICAL_BUTTON_EXIT ? 1 : 0);
         video_demo_doom_print_wad_check("video.demo.doom.loop.verify", &check);
         a90_console_printf("video.demo.doom.loop.verify.sha256_match=%d\r\n",
                            check.sha256_match ? 1 : 0);
@@ -5101,6 +6791,12 @@ static int video_demo_doom_run_visible_loop(uint32_t frames,
             next_pace_token_ns = video_monotonic_ns() + tick_pace_interval_ns;
         }
     }
+#if A90_DOOMGENERIC_AUDIO_CORUN && A90_DOOMGENERIC_AUDIO_CORUN_STREAM
+    if (background_child && continuous && audio_refresh_interval_ns > 0ULL) {
+        next_audio_refresh_ns = video_monotonic_ns() + audio_refresh_interval_ns;
+    }
+#endif
+    (void)video_demo_doom_physical_exit_open(&physical_exit);
 
     while ((continuous || presented < frames) && (continuous || poll_count < max_polls)) {
         int read_rc;
@@ -5180,11 +6876,27 @@ static int video_demo_doom_run_visible_loop(uint32_t frames,
                                           1000,
                                           false,
                                           NULL);
+                video_demo_doom_physical_exit_close(&physical_exit);
                 video_demo_doom_pace_sender_cleanup(&pace_sender);
                 video_demo_doom_frame_reader_cleanup(&frame_reader);
                 return a90_console_cancelled("doomgeneric-loop", cancel);
             }
         }
+        if (video_demo_doom_physical_exit_poll(&physical_exit)) {
+            present_rc = 0;
+            break;
+        }
+#if A90_DOOMGENERIC_AUDIO_CORUN && A90_DOOMGENERIC_AUDIO_CORUN_STREAM
+        if (background_child && continuous && next_audio_refresh_ns > 0ULL) {
+            uint64_t now_ns = video_monotonic_ns();
+
+            if (now_ns >= next_audio_refresh_ns) {
+                audio_refresh_last_rc = video_demo_doom_audio_corun_refresh_quiet();
+                ++audio_refresh_count;
+                next_audio_refresh_ns = now_ns + audio_refresh_interval_ns;
+            }
+        }
+#endif
         if (VIDEO_DEMO_DOOMGENERIC_GAMETIC_PRESENT_ONLY &&
             video_demo_doom_pace_sender_active(&pace_sender) &&
             tick_pace_interval_ns > 0ULL &&
@@ -5219,6 +6931,10 @@ static int video_demo_doom_run_visible_loop(uint32_t frames,
                                   false,
                                   &helper_status);
     }
+    if (physical_exit.requested) {
+        (void)video_demo_doom_restore_menu_after_exit();
+        (void)video_demo_doom_audio_corun_stop();
+    }
     if (!background_child) {
         a90_console_printf("video.demo.doom.loop.frames_presented=%u\r\n", presented);
         a90_console_printf("video.demo.doom.loop.poll_count=%u\r\n", poll_count);
@@ -5243,10 +6959,29 @@ static int video_demo_doom_run_visible_loop(uint32_t frames,
                            idle_pace_tokens);
         a90_console_printf("video.demo.doom.loop.pace_socket.wait_timeouts=%u\r\n",
                            pace_wait_timeouts);
+        a90_console_printf("video.demo.doom.loop.physical_button_exit.open_rc=%d\r\n",
+                           physical_exit.open_rc);
+        a90_console_printf("video.demo.doom.loop.physical_button_exit.events=%u\r\n",
+                           physical_exit.events);
+        a90_console_printf("video.demo.doom.loop.physical_button_exit.exit_events=%u\r\n",
+                           physical_exit.exit_events);
+        a90_console_printf("video.demo.doom.loop.physical_button_exit.requested=%d\r\n",
+                           physical_exit.requested ? 1 : 0);
+        a90_console_printf("video.demo.doom.loop.physical_button_exit.last_code=%u\r\n",
+                           physical_exit.last_code);
+#if A90_DOOMGENERIC_AUDIO_CORUN && A90_DOOMGENERIC_AUDIO_CORUN_STREAM
+        a90_console_printf("video.demo.doom.loop.audio_refresh.interval_ms=%u\r\n",
+                           (unsigned int)A90_DOOMGENERIC_AUDIO_CORUN_REFRESH_MS);
+        a90_console_printf("video.demo.doom.loop.audio_refresh.count=%u\r\n",
+                           audio_refresh_count);
+        a90_console_printf("video.demo.doom.loop.audio_refresh.last_rc=%d\r\n",
+                           audio_refresh_last_rc);
+#endif
 #if VIDEO_DEMO_DOOMGENERIC_TICK_TELEMETRY_SUMMARY
         video_demo_doom_tick_telemetry_summary_print("video.demo.doom.loop");
 #endif
     }
+    video_demo_doom_physical_exit_close(&physical_exit);
     video_demo_doom_pace_sender_cleanup(&pace_sender);
     video_demo_doom_frame_reader_cleanup(&frame_reader);
     return (presented > 0 && present_rc == 0) ? 0 : present_rc;
@@ -5254,6 +6989,7 @@ static int video_demo_doom_run_visible_loop(uint32_t frames,
 
 static int video_demo_doom_loop_start(uint32_t frames, const char *expected_sha256) {
     pid_t pid;
+    int stream_prepare_rc;
     int audio_rc;
 
     video_demo_doom_loop_reap();
@@ -5263,6 +6999,13 @@ static int video_demo_doom_loop_start(uint32_t frames, const char *expected_sha2
         a90_console_printf("video.demo.doom.loop_start.pid=%ld\r\n", (long)video_demo_doom_loop_pid);
         a90_console_printf("video.demo.doom.loop_start.rc=%d\r\n", -EBUSY);
         return -EBUSY;
+    }
+    stream_prepare_rc = video_demo_doom_audio_stream_prepare();
+    a90_console_printf("video.demo.doom.loop_start.audio_stream_prepare_rc=%d\r\n",
+                       stream_prepare_rc);
+    if (stream_prepare_rc < 0) {
+        a90_console_printf("video.demo.doom.loop_start.rc=%d\r\n", stream_prepare_rc);
+        return stream_prepare_rc;
     }
     pid = fork();
     if (pid < 0) {
@@ -5746,6 +7489,7 @@ static int cmd_video_cache(char **argv, int argc) {
         action = argv[4];
         sha256 = preset_sha256;
         layout = video_cache_preset_default_layout(preset_name);
+        present_mode = video_cache_preset_default_present(preset_name);
         option_start = 5;
         a90_console_printf("video.cache.preset=%s\r\n", preset_name);
         a90_console_printf("video.cache.preset.asset_id=%s\r\n", video_cache_preset_asset_id(preset_name));
@@ -6073,8 +7817,84 @@ static int clamp_hud_refresh(int refresh_sec) {
     return refresh_sec;
 }
 
+static bool auto_hud_pid_alive(pid_t pid) {
+    return pid > 0 && kill(pid, 0) == 0;
+}
+
+static void auto_hud_pidfile_clear(void) {
+    (void)unlink(AUTO_HUD_PID_PATH);
+}
+
+static pid_t auto_hud_pidfile_read(void) {
+    char buf[32];
+    long value;
+    char *end = NULL;
+
+    if (read_trimmed_text_file(AUTO_HUD_PID_PATH, buf, sizeof(buf)) < 0 ||
+        buf[0] == '\0') {
+        return -1;
+    }
+    errno = 0;
+    value = strtol(buf, &end, 10);
+    if (errno != 0 || end == buf || value <= 1 || value > INT_MAX) {
+        return -1;
+    }
+    return (pid_t)value;
+}
+
+static void auto_hud_pidfile_write(pid_t pid) {
+    char buf[32];
+
+    if (pid <= 0) {
+        auto_hud_pidfile_clear();
+        return;
+    }
+    snprintf(buf, sizeof(buf), "%ld\n", (long)pid);
+    wf(AUTO_HUD_PID_PATH, buf);
+}
+
+static pid_t auto_hud_current_pid(void) {
+    pid_t pid = a90_service_pid(A90_SERVICE_HUD);
+
+    if (auto_hud_pid_alive(pid)) {
+        return pid;
+    }
+    pid = auto_hud_pidfile_read();
+    if (auto_hud_pid_alive(pid)) {
+        return pid;
+    }
+    return -1;
+}
+
+static pid_t auto_hud_adopt_pidfile(void) {
+    pid_t pid = a90_service_pid(A90_SERVICE_HUD);
+
+    if (auto_hud_pid_alive(pid)) {
+        return pid;
+    }
+    if (pid > 0) {
+        a90_service_clear(A90_SERVICE_HUD);
+    }
+    pid = auto_hud_pidfile_read();
+    if (auto_hud_pid_alive(pid)) {
+        a90_service_set_pid(A90_SERVICE_HUD, pid);
+        return pid;
+    }
+    if (pid > 0) {
+        auto_hud_pidfile_clear();
+    }
+    return -1;
+}
+
 static void reap_hud_child(void) {
+    pid_t before = a90_service_pid(A90_SERVICE_HUD);
+    pid_t current = auto_hud_adopt_pidfile();
+
+    if (before <= 0 && current > 0) {
+        return;
+    }
     if (a90_service_reap(A90_SERVICE_HUD, NULL) > 0) {
+        auto_hud_pidfile_clear();
         a90_controller_clear_menu_ipc();
     }
 }
@@ -6085,10 +7905,12 @@ static void stop_auto_hud(bool verbose) {
         if (verbose) {
             a90_console_printf("autohud: not running\r\n");
         }
+        auto_hud_pidfile_clear();
         return;
     }
 
     (void)a90_service_stop(A90_SERVICE_HUD, 2000);
+    auto_hud_pidfile_clear();
     a90_controller_clear_menu_ipc();
     if (verbose) {
         a90_console_printf("autohud: stopped\r\n");

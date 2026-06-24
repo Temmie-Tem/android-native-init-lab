@@ -8,6 +8,7 @@ static void kms_draw_menu_section(struct a90_fb *fb,
                                   size_t selected);
 static int cmd_statushud(void);
 static int cmd_recovery(void);
+static int start_auto_hud(int refresh_sec, bool verbose);
 int a90_audio_cmd(char **argv, int argc);
 static int draw_screen_input_monitor_app(void);
 static int draw_screen_display_test_page(unsigned int page_index);
@@ -287,6 +288,44 @@ static void auto_hud_draw_current_screen(struct auto_hud_state *state) {
     }
 }
 
+static int video_demo_doom_restore_menu_after_exit(void) {
+    struct auto_hud_state state;
+    pid_t existing_hud_pid = auto_hud_current_pid();
+    bool existing_hud_alive = existing_hud_pid > 0;
+    pid_t live_hud_pid = existing_hud_pid;
+    bool live_hud_alive = existing_hud_alive;
+    int spawn_rc = 0;
+
+    a90_controller_clear_menu_request();
+    auto_hud_state_init(&state);
+    auto_hud_show_menu(&state, true);
+    auto_hud_draw_current_screen(&state);
+
+    if (!live_hud_alive) {
+        spawn_rc = start_auto_hud(BOOT_HUD_REFRESH_SECONDS, false);
+        live_hud_pid = auto_hud_current_pid();
+        live_hud_alive = spawn_rc == 0 && live_hud_pid > 0;
+    }
+    a90_controller_request_menu_show();
+    a90_controller_set_menu_active(live_hud_alive);
+    a90_console_printf("video.demo.doom.return_menu.requested=1\r\n");
+    a90_console_printf("video.demo.doom.return_menu.reason=physical-button-exit\r\n");
+    a90_console_printf("video.demo.doom.return_menu.direct_present=1\r\n");
+    a90_console_printf("video.demo.doom.return_menu.existing_hud_pid=%ld\r\n",
+                       (long)existing_hud_pid);
+    a90_console_printf("video.demo.doom.return_menu.existing_hud_alive=%d\r\n",
+                       existing_hud_alive ? 1 : 0);
+    a90_console_printf("video.demo.doom.return_menu.spawn_hud_rc=%d\r\n",
+                       spawn_rc);
+    a90_console_printf("video.demo.doom.return_menu.live_hud_pid=%ld\r\n",
+                       (long)live_hud_pid);
+    a90_console_printf("video.demo.doom.return_menu.live_hud_alive=%d\r\n",
+                       live_hud_alive ? 1 : 0);
+    a90_console_printf("video.demo.doom.return_menu.active=%d\r\n",
+                       live_hud_alive ? 1 : 0);
+    return spawn_rc;
+}
+
 static bool auto_hud_handle_combo_state(struct auto_hud_state *state,
                                         const struct input_event *event) {
     unsigned int mask = a90_input_button_mask_from_key(event->code);
@@ -383,6 +422,20 @@ static void auto_hud_start_cpu_stress_app(struct auto_hud_state *state,
                                   state->app_stress.workers);
 }
 
+static int auto_hud_stop_demo_audio(const char *demo_name, const char *phase) {
+    char *audio_stop_argv[] = {
+        "audio", "stop", "internal-speaker-safe", "--execute",
+    };
+    int rc = a90_audio_cmd(audio_stop_argv,
+                           (int)(sizeof(audio_stop_argv) / sizeof(audio_stop_argv[0])));
+
+    a90_console_printf("menu.demo.%s.audio_%s_stop_rc=%d\r\n",
+                       demo_name != NULL ? demo_name : "unknown",
+                       phase != NULL ? phase : "unknown",
+                       rc);
+    return rc;
+}
+
 static bool auto_hud_handle_menu_key(struct auto_hud_state *state,
                                      struct a90_input_context *ctx,
                                      const struct input_event *event) {
@@ -476,7 +529,7 @@ static bool auto_hud_handle_menu_key(struct auto_hud_state *state,
                 "audio", "play", "internal-speaker-safe",
                 "--mode", "listen",
                 "--amplitude-milli", "150",
-                "--duration-ms", "232090",
+                "--duration-ms", "232800",
                 "--pcm-gain-milli", "780",
                 "--pcm-file", "/cache/a90-runtime/pkg/av/v2920/audio/badapple.s16le",
                 "--execute",
@@ -491,21 +544,34 @@ static bool auto_hud_handle_menu_key(struct auto_hud_state *state,
                 "--sync-start-offset-ms", "450",
             };
             int audio_rc;
+            int pre_stop_rc;
             int rc;
 
             a90_console_printf("menu.demo.badapple.action=play-av-fullsong\r\n");
             a90_console_printf("menu.demo.badapple.frames=6962\r\n");
-            a90_console_printf("menu.demo.badapple.audio_duration_ms=232090\r\n");
+            a90_console_printf("menu.demo.badapple.audio_duration_ms=232800\r\n");
+            a90_console_printf("menu.demo.badapple.audio_tail_pad_ms=707\r\n");
+            a90_console_printf("menu.demo.badapple.audio_duration_source=pcm-file-size-plus-silence-tail\r\n");
             a90_console_printf("menu.demo.badapple.audio_amplitude_milli=150\r\n");
             a90_console_printf("menu.demo.badapple.audio_pcm_gain_milli=780\r\n");
             a90_console_printf("menu.demo.badapple.audio_pcm=/cache/a90-runtime/pkg/av/v2920/audio/badapple.s16le\r\n");
             a90_console_printf("menu.demo.badapple.video_present=setcrtc\r\n");
+            a90_console_printf("menu.demo.badapple.video_physical_exit=1\r\n");
+            a90_console_printf("menu.demo.badapple.video_deadline_guard=1\r\n");
+            a90_console_printf("menu.demo.badapple.video_late_drop=setcrtc-cadence-no-drop\r\n");
+            a90_console_printf("menu.demo.badapple.video_pageflip_diagnostic=1\r\n");
             a90_console_printf("menu.demo.badapple.audio_sync_status=/cache/a90-audio-play/status.txt\r\n");
             a90_console_printf("menu.demo.badapple.audio_sync_start_offset_ms=450\r\n");
+            a90_console_printf("menu.demo.badapple.audio_tail_wait=expected-duration\r\n");
+            a90_console_printf("menu.demo.badapple.pcm_duration_wait=expected-duration\r\n");
+            a90_console_printf("menu.demo.badapple.audio_cleanup=worker-owned-finite-pcm\r\n");
             a90_console_printf("menu.demo.badapple.restore=menu\r\n");
             state->menu_active = false;
             a90_controller_set_menu_active(false);
             a90_controller_clear_menu_request();
+            pre_stop_rc = auto_hud_stop_demo_audio("badapple", "pre");
+            a90_console_printf("menu.demo.badapple.audio_pre_stop_best_effort=1\r\n");
+            a90_console_printf("menu.demo.badapple.audio_pre_stop_rc=%d\r\n", pre_stop_rc);
             audio_rc = a90_audio_cmd(audio_argv,
                                      (int)(sizeof(audio_argv) / sizeof(audio_argv[0])));
             a90_console_printf("menu.demo.badapple.audio_rc=%d\r\n", audio_rc);
@@ -525,7 +591,7 @@ static bool auto_hud_handle_menu_key(struct auto_hud_state *state,
                 "audio", "play", "internal-speaker-safe",
                 "--mode", "listen",
                 "--amplitude-milli", "150",
-                "--duration-ms", "10000",
+                "--duration-ms", "11000",
                 "--pcm-gain-milli", "780",
                 "--pcm-file", "/cache/a90-runtime/pkg/av/v2973/audio/nyancat.s16le",
                 "--execute",
@@ -541,21 +607,34 @@ static bool auto_hud_handle_menu_key(struct auto_hud_state *state,
                 "--sync-start-offset-ms", "450",
             };
             int audio_rc;
+            int pre_stop_rc;
             int rc;
 
             a90_console_printf("menu.demo.nyan.action=play-av-preview\r\n");
             a90_console_printf("menu.demo.nyan.frames=300\r\n");
-            a90_console_printf("menu.demo.nyan.audio_duration_ms=10000\r\n");
+            a90_console_printf("menu.demo.nyan.audio_duration_ms=11000\r\n");
+            a90_console_printf("menu.demo.nyan.audio_tail_pad_ms=1000\r\n");
+            a90_console_printf("menu.demo.nyan.audio_duration_source=pcm-file-size-plus-silence-tail\r\n");
             a90_console_printf("menu.demo.nyan.audio_amplitude_milli=150\r\n");
             a90_console_printf("menu.demo.nyan.audio_pcm_gain_milli=780\r\n");
             a90_console_printf("menu.demo.nyan.audio_pcm=/cache/a90-runtime/pkg/av/v2973/audio/nyancat.s16le\r\n");
             a90_console_printf("menu.demo.nyan.video_present=setcrtc\r\n");
+            a90_console_printf("menu.demo.nyan.video_physical_exit=1\r\n");
+            a90_console_printf("menu.demo.nyan.video_deadline_guard=1\r\n");
+            a90_console_printf("menu.demo.nyan.video_late_drop=setcrtc-cadence-no-drop\r\n");
+            a90_console_printf("menu.demo.nyan.video_pageflip_diagnostic=1\r\n");
             a90_console_printf("menu.demo.nyan.audio_sync_status=/cache/a90-audio-play/status.txt\r\n");
             a90_console_printf("menu.demo.nyan.audio_sync_start_offset_ms=450\r\n");
+            a90_console_printf("menu.demo.nyan.audio_tail_wait=expected-duration\r\n");
+            a90_console_printf("menu.demo.nyan.pcm_duration_wait=expected-duration\r\n");
+            a90_console_printf("menu.demo.nyan.audio_cleanup=worker-owned-finite-pcm\r\n");
             a90_console_printf("menu.demo.nyan.restore=menu\r\n");
             state->menu_active = false;
             a90_controller_set_menu_active(false);
             a90_controller_clear_menu_request();
+            pre_stop_rc = auto_hud_stop_demo_audio("nyan", "pre");
+            a90_console_printf("menu.demo.nyan.audio_pre_stop_best_effort=1\r\n");
+            a90_console_printf("menu.demo.nyan.audio_pre_stop_rc=%d\r\n", pre_stop_rc);
             audio_rc = a90_audio_cmd(audio_argv,
                                      (int)(sizeof(audio_argv) / sizeof(audio_argv[0])));
             a90_console_printf("menu.demo.nyan.audio_rc=%d\r\n", audio_rc);
@@ -781,6 +860,7 @@ static int start_auto_hud(int refresh_sec, bool verbose) {
     }
 
     a90_service_set_pid(A90_SERVICE_HUD, pid);
+    auto_hud_pidfile_write(pid);
     if (verbose) {
         a90_console_printf("autohud: pid=%ld refresh=%ds\r\n", (long)pid, refresh_sec);
     }

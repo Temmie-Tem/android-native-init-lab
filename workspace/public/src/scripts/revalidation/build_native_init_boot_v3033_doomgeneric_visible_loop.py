@@ -76,6 +76,11 @@ FRAME_BYTES = v3031.FRAME_BYTES
 NATIVE_DASHBOARD = 0
 NATIVE_DASHBOARD_MINIMAL = 0
 NATIVE_DASHBOARD_LARGE_FRAME = 0
+NATIVE_DEMO_HUD = 0
+NATIVE_DEMO_HUD_FAST = 0
+NATIVE_DEMO_HUD_READABLE = 0
+NATIVE_DEMO_HUD_SECTIONED = 0
+NATIVE_DEMO_HUD_LARGE_GROUPS = 0
 HW_PLANE_SCALE = 0
 PRE_SCALED_LARGE_FRAME = 0
 NATIVE_DOOM_PRESENT_PAGEFLIP = 0
@@ -84,6 +89,7 @@ DIRECT_SHARED_BLIT = 0
 FOREGROUND_FRAME_LOG = 1
 NO_FULL_CLEAR = 0
 DASHBOARD_METRICS_INTERVAL_FRAMES = 1
+DASHBOARD_STATUS_INTERVAL_FRAMES = 1
 FRAME_TIMING_PROBE = 0
 SEQ_TELEMETRY = 0
 PAGEFLIP_MIN_SUBMIT_INTERVAL_MS = 0
@@ -93,7 +99,11 @@ SOUND_MODE = "disabled-nosound-nomusic"
 AUDIO_CORUN = 0
 AUDIO_CORUN_MODE = "disabled"
 AUDIO_CORUN_DURATION_MS = 10000
+AUDIO_CORUN_REFRESH_MS = 13000
 AUDIO_CORUN_AMPLITUDE_MILLI = 80
+AUDIO_CORUN_STREAM = 0
+AUDIO_PCM_STREAM_PATH = ""
+PHYSICAL_BUTTON_EXIT = 0
 
 HOST_KEYBOARD_BRIDGE = (
     REPO_ROOT / "workspace" / "public" / "src" / "scripts" / "revalidation" / "host_doompad_keyboard_v3033.py"
@@ -390,6 +400,7 @@ def patch_ramdisk_with_doomgeneric_helper() -> None:
             shell_define("A90_DOOMGENERIC_BRIDGE_INPUT", INPUT_PATH),
             shell_define("A90_DOOMGENERIC_BRIDGE_SOUND", SOUND_MODE),
             shell_define("A90_DOOMGENERIC_AUDIO_CORUN_MODE", AUDIO_CORUN_MODE),
+            shell_define("A90_DOOMGENERIC_AUDIO_PCM_STREAM_PATH", AUDIO_PCM_STREAM_PATH),
             numeric_define("A90_DOOMGENERIC_BRIDGE_MAX_WAD_BYTES", RUNTIME_WAD_MAX_BYTES),
             numeric_define("A90_DOOMGENERIC_BRIDGE_MAX_PLAY_FRAMES", MAX_LOOP_FRAMES),
             numeric_define("A90_DOOMGENERIC_BRIDGE_FRAME_WIDTH", FRAME_WIDTH),
@@ -399,9 +410,16 @@ def patch_ramdisk_with_doomgeneric_helper() -> None:
             numeric_define("A90_DOOMGENERIC_BRIDGE_LOOP_FRAME_MS", LOOP_FRAME_MS),
             numeric_define("VIDEO_DEMO_DOOMGENERIC_PRESENTER_POLL_MS", PRESENTER_POLL_MS),
             numeric_define("A90_DOOMGENERIC_AUDIO_CORUN", AUDIO_CORUN),
+            numeric_define("A90_DOOMGENERIC_AUDIO_CORUN_STREAM", AUDIO_CORUN_STREAM),
             numeric_define("A90_DOOMGENERIC_AUDIO_CORUN_DURATION_MS", AUDIO_CORUN_DURATION_MS),
+            numeric_define("A90_DOOMGENERIC_AUDIO_CORUN_REFRESH_MS", AUDIO_CORUN_REFRESH_MS),
             numeric_define("A90_DOOMGENERIC_AUDIO_CORUN_AMPLITUDE_MILLI", AUDIO_CORUN_AMPLITUDE_MILLI),
         )
+        if PHYSICAL_BUTTON_EXIT:
+            doomgeneric_flags = (
+                *doomgeneric_flags,
+                numeric_define("A90_DOOMGENERIC_PHYSICAL_BUTTON_EXIT", PHYSICAL_BUTTON_EXIT),
+            )
         if REUSE_FRAME_BUFFER:
             doomgeneric_flags = (
                 *doomgeneric_flags,
@@ -423,6 +441,14 @@ def patch_ramdisk_with_doomgeneric_helper() -> None:
                 numeric_define(
                     "VIDEO_DEMO_DOOMGENERIC_DASHBOARD_METRICS_INTERVAL_FRAMES",
                     DASHBOARD_METRICS_INTERVAL_FRAMES,
+                ),
+            )
+        if DASHBOARD_STATUS_INTERVAL_FRAMES > 1:
+            doomgeneric_flags = (
+                *doomgeneric_flags,
+                numeric_define(
+                    "VIDEO_DEMO_DOOMGENERIC_DASHBOARD_STATUS_INTERVAL_FRAMES",
+                    DASHBOARD_STATUS_INTERVAL_FRAMES,
                 ),
             )
         if FRAME_TIMING_PROBE:
@@ -449,6 +475,31 @@ def patch_ramdisk_with_doomgeneric_helper() -> None:
             doomgeneric_flags = (
                 *doomgeneric_flags,
                 numeric_define("A90_DOOMGENERIC_NATIVE_DASHBOARD_LARGE_FRAME", 1),
+            )
+        if NATIVE_DEMO_HUD:
+            doomgeneric_flags = (
+                *doomgeneric_flags,
+                numeric_define("A90_DOOMGENERIC_NATIVE_DEMO_HUD", 1),
+            )
+        if NATIVE_DEMO_HUD_FAST:
+            doomgeneric_flags = (
+                *doomgeneric_flags,
+                numeric_define("A90_DOOMGENERIC_NATIVE_DEMO_HUD_FAST", 1),
+            )
+        if NATIVE_DEMO_HUD_READABLE:
+            doomgeneric_flags = (
+                *doomgeneric_flags,
+                numeric_define("A90_DOOMGENERIC_NATIVE_DEMO_HUD_READABLE", 1),
+            )
+        if NATIVE_DEMO_HUD_SECTIONED:
+            doomgeneric_flags = (
+                *doomgeneric_flags,
+                numeric_define("A90_DOOMGENERIC_NATIVE_DEMO_HUD_SECTIONED", 1),
+            )
+        if NATIVE_DEMO_HUD_LARGE_GROUPS:
+            doomgeneric_flags = (
+                *doomgeneric_flags,
+                numeric_define("A90_DOOMGENERIC_NATIVE_DEMO_HUD_LARGE_GROUPS", 1),
             )
         if HW_PLANE_SCALE:
             doomgeneric_flags = (
