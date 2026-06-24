@@ -1055,7 +1055,14 @@ static int gpu_g0_status(void) {
     gpu_g0_print_stat("fw_root_a630_sqe", "/firmware/a630_sqe.fw");
     gpu_g0_print_stat("fw_root_a640_gmu", "/firmware/a640_gmu.bin");
     gpu_g0_print_stat("fw_vendor_a640_zap_mdt", "/vendor/firmware/a640_zap.mdt");
+    gpu_g0_print_stat("fw_vendor_mnt_a640_zap_mdt", "/vendor/firmware_mnt/image/a640_zap.mdt");
+    gpu_g0_print_stat("fw_vendor_mnt_a640_zap_b00", "/vendor/firmware_mnt/image/a640_zap.b00");
+    gpu_g0_print_stat("fw_vendor_mnt_a640_zap_b01", "/vendor/firmware_mnt/image/a640_zap.b01");
+    gpu_g0_print_stat("fw_vendor_mnt_a640_zap_b02", "/vendor/firmware_mnt/image/a640_zap.b02");
     gpu_g0_print_stat("fw_mnt_a640_zap_mdt", "/firmware_mnt/image/a640_zap.mdt");
+    gpu_g0_print_stat("fw_mnt_a640_zap_b00", "/firmware_mnt/image/a640_zap.b00");
+    gpu_g0_print_stat("fw_mnt_a640_zap_b01", "/firmware_mnt/image/a640_zap.b01");
+    gpu_g0_print_stat("fw_mnt_a640_zap_b02", "/firmware_mnt/image/a640_zap.b02");
     return 0;
 }
 
