@@ -75,7 +75,7 @@ class NativeGpuG0FwpathStatusSourceV3180Tests(unittest.TestCase):
     def test_probe_is_parent_bounded_and_child_only_open(self) -> None:
         source = DISPATCH.read_text(encoding="utf-8")
         start = source.index("struct gpu_g0_open_probe_result")
-        end = source.index("static int handle_audio", start)
+        end = source.index("static int gpu_g1_context_probe_child", start)
         gpu_section = source[start:end]
 
         self.assertIn("pid = fork();", gpu_section)
