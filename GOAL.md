@@ -596,6 +596,20 @@ state counts (`submit_rc=0`, `wait_rc=0`, `retired_timestamp=1`, `fence_poll_rc=
 still stayed unchanged (`readback_changed_count=0`, `readback0=0x20202020`, `readback_center=0x20202020`). This removes
 the tested sample-location disable-state group as the primary blocker; next bounded unit should continue the remaining
 Mesa first-draw packet/linkage diff around RB/CCU/FS-output or the shader-output contract before claiming H4.
+V3242/V3243 then tested the operator-supplied CP render-mode hypothesis by adding Mesa A6xx
+`CP_SET_MARKER(RM6_DIRECT_RENDER)` (`opcode=0x65`, payload `0x00000001`) immediately after the initial WFI and before
+H3 3D state, while also keeping sysmem `RB_CCU_CNTL=0x10000000` for Adreno640v2 (`num_ccu=2`, color offset
+`0x20000`). The image flashed as `0.11.48 (v3242-gpu-h3-direct-render-marker-probe)` with SHA256
+`eb472fa77edfe20cfeeb5dd280279ba1203e2d4e3fd34d236d81e780bcb5ef13` and passed post-flash health (`selftest
+pass=12 warn=1 fail=0`). Live H3 telemetry confirmed `gpu.h3.draw.cp_set_marker=0x1`, `pm4_dwords=233`, and
+`state_reg_writes=92`; the draw still submitted and retired (`submit_rc=0`, `wait_rc=0`, `retired_timestamp=1`,
+`total_elapsed_ms=31`) with no KGSL/GPU fault/hang/snapshot/timeout signature, but readback still stayed unchanged
+(`readback_changed_count=0`, `readback0=0x20202020`, `readback_center=0x20202020`). This removes missing
+`CP_SET_MARKER(RM6_DIRECT_RENDER)` as the primary no-pixel root cause. Next bounded unit should prioritize the remaining
+shader/output contract: prove the hand-assembled ir3 VS writes the clip-space position to the VPC-consumed position
+output slot and that the FS output register/MRT linkage matches the current `r1` split, before doing another broad
+register sweep. LRZ is already programmed disabled in the state stream and RB CCU sysmem control is present, so keep
+those lower priority unless new evidence reopens them.
 
 **GPU backlog AFTER the triangle (do NOT pre-build; pull only when reached):**
 - **2nd capability = a VISIBLE compute demo (e.g. Mandelbrot/particle → KMS).** Reuses the shader path minus the
