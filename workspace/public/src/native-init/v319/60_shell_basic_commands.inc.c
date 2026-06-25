@@ -28,7 +28,7 @@ static void cmd_help(void) {
     a90_console_printf("usb [status|mass-storage add|mass-storage expose|mass-storage remove]\r\n");
     a90_console_printf("audio [status|profiles|profile|speaker-map|stages|prereq|app-type|setcal|route|play|chime|play-status|stop|adsp-status|snd-status]\r\n");
     a90_console_printf("video [status|frame|demo badapple|demo nyan|demo doom [status|verify|play|frame|engine-probe] [frames] [--wad runtime-private --sha256 EXPECTED]|anim|blitbench|stream --manifest PATH --video-only|cache [status|verify|play] SHA256 [--trust-cache] [--layout full|player-hud]|cache preset [badapple|badapple-scale|nyan] [status|verify|play]]\r\n");
-    a90_console_printf("gpu [g0-status|g0-fwclass-prepare|g0-open-probe [--timeout-ms N] [--rdwr] [--materialize-devnode]|g1-context-probe [--timeout-ms N] [--materialize-devnode]|g2-gpuobj-probe [--timeout-ms N] [--materialize-devnode]|g2-mmap-probe [--timeout-ms N] [--materialize-devnode]]\r\n");
+    a90_console_printf("gpu [g0-status|g0-fwclass-prepare|g0-open-probe [--timeout-ms N] [--rdwr] [--materialize-devnode]|g1-context-probe [--timeout-ms N] [--materialize-devnode]|g2-gpuobj-probe [--timeout-ms N] [--materialize-devnode]|g2-mmap-probe [--timeout-ms N] [--materialize-devnode]|g3-noop-submit-probe [--timeout-ms N] [--materialize-devnode]]\r\n");
     a90_console_printf("wifi [status|scan [delay_ms]|connect [profile]|dhcp [profile]|ping [gateway|internet|all]|cleanup|config [status|prepare [profile]]]\r\n");
     a90_console_printf("wifiinv [summary|full|refresh|paths]\r\n");
     a90_console_printf("wififeas [summary|full|gate|refresh|paths]\r\n");
