@@ -770,6 +770,19 @@ restore-path `CP_SET_MODE(0)` as the primary no-pixel root cause. Next bounded u
 freedreno Gallium+drm-shim reference environment to generate an `.rd` for cffdump diff, or, if that remains unavailable,
 continue source-grounded diff around remaining A6xx program/RB state that is present in Mesa but absent from H3.
 
+V3267 source-audited the new `RB_CCU_CNTL` magic hypothesis against local Mesa fd6 code before changing H3. Mesa's A640
+entry uses `a6xx_base + a6xx_gen2` with `num_ccu=2`; `a6xx_base` gives sysmem depth/color cache sizes of 64KiB per CCU;
+`fd6_calc_gmem_cache_offsets()` computes sysmem `depth_ccu_offset=0` and `color_ccu_offset=2 * 64KiB = 0x20000`; and the
+A6xx XML encodes `RB_CCU_CNTL.COLOR_OFFSET` as `(offset >> 12) << 23`, yielding exactly `0x10000000`. That matches current
+H3 (`GPU_H3_RB_CCU_CNTL=0x10000000`, color offset `0x20000`, depth offset `0`), so no boot delta was built for this
+candidate. The same audit confirmed V3255/V3256 already emit the Mesa sysmem `set_bin_size()` equivalents
+(`GRAS_SC_BIN_CNTL` and `RB_CNTL`), and that the suggested `RB_RENDER_COMPONENTS`/`SP_FS_RENDER_COMPONENTS` names are not
+A6xx register names; the current A6xx write-enable path is `RB_PS_OUTPUT_MASK`, `SP_PS_OUTPUT_MASK`, and
+`RB_MRT0_CONTROL.COMPONENT_ENABLE` for MRT0. This removes the CCU-magic replacement, bin-control absence, and A4/A5-style
+component-register hypotheses as actionable H3 fixes. Next bounded unit should be the real Mesa fd6 sysmem
+single-triangle `.rd`/cffdump diff; if host Mesa Gallium+drm-shim setup remains unavailable, continue source-grounded diff
+around remaining A6xx program/RB/static non-context state.
+
 **GPU backlog AFTER the triangle (do NOT pre-build; pull only when reached):**
 - **2nd capability = a VISIBLE compute demo (e.g. Mandelbrot/particle → KMS).** Reuses the shader path minus the
   rasterizer; gives GPU compute a *screen consumer*. **Matrix/GPGPU math is absorbed here, NOT a standalone goal** —
