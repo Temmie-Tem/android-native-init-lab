@@ -477,7 +477,12 @@ rolled back to V2321 cleanly, then flashed the corrected image. Live result: H3 
 (`readback_changed_count=0`). This proves the previous H3 timeout was at least partly a non-terminating shader-stream
 boundary, **not** H4 triangle proof. Next unit should replace the terminator-only payload with real minimal
 hand-assembled ir3 VS/FS that writes clip-space position and a fragment color; do not claim triangle rendering until
-readback changes with interior/exterior verification.
+readback changes with interior/exterior verification. V3216/V3217 made that first minimal shader-color attempt: VS uses
+cat1 `mov.f32f32` to set `r0.z=0.0` and `r0.w=1.0` while VFD supplies `r0.xy`, FS writes `r0.x=1.0`, and H3 switches MRT0
+to `FMT6_32_FLOAT` with output mask `0x1`. Live result still retired cleanly (`wait_rc=0`, `retired_timestamp=1`) but
+readback stayed unchanged (`readback_changed_count=0`) and post-probe selftest stayed `fail=0`. This narrows the next
+gap away from non-terminating shader streams and toward VS output/VPC destination, FS output/MRT linkage, or missing
+draw/raster state required for pixels.
 
 **GPU backlog AFTER the triangle (do NOT pre-build; pull only when reached):**
 - **2nd capability = a VISIBLE compute demo (e.g. Mandelbrot/particle → KMS).** Reuses the shader path minus the

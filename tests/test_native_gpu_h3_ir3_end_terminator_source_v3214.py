@@ -44,14 +44,6 @@ class NativeGpuH3Ir3EndTerminatorSourceV3214Tests(unittest.TestCase):
         self.assertIn("GPU_H1_IR3_END_LO 0x00000000U", source)
         self.assertIn("GPU_H1_IR3_END_HI 0x03000000U", source)
         self.assertIn("GPU_H1_IR3_END_LO, GPU_H1_IR3_END_HI", source)
-        self.assertIn(
-            '"gpu.h3.draw.scope=first-triangle-h3-draw-envelope-ir3-end-terminator',
-            source,
-        )
-        self.assertIn(
-            '"gpu.h3.draw.shader_payload=hand-assembled-ir3-end-only-no-full-compiler',
-            source,
-        )
         self.assertIn('"gpu.h3.draw.ir3_end_opcode_hi=0x%x', source)
 
     def test_builder_manifest_records_terminator_boundary(self) -> None:
