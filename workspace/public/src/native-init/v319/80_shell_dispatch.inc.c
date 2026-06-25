@@ -1671,7 +1671,7 @@ struct gpu_g4_solid_fill_child_run {
 #define GPU_G4_EVENT_ALLOC_SIZE 4096ULL
 #define GPU_G4_ALLOC_FLAGS 0ULL
 #define GPU_G4_WAIT_TIMEOUT_MS 1000U
-#define GPU_G4_CMD_MAX_DWORDS 256U
+#define GPU_G4_CMD_MAX_DWORDS 320U
 #define GPU_G4_FILL_BYTES 256ULL
 #define GPU_G4_FILL_DWORDS ((unsigned int)(GPU_G4_FILL_BYTES / 4ULL))
 #define GPU_G4_READBACK_DWORDS 16U
@@ -1855,6 +1855,7 @@ struct gpu_g4_solid_fill_child_run {
 #define GPU_H3_REG_TPL1_MODE_CNTL 0xb309U
 #define GPU_H3_SP_MODE_CNTL 0x00000005U
 #define GPU_H3_TPL1_MODE_CNTL 0x000000a2U
+#define GPU_H3_WINDOW_OFFSET 0x00000000U
 #define GPU_H2_REG_GRAS_CL_CNTL 0x8000U
 #define GPU_H2_REG_GRAS_CL_VS_CLIP_CULL_DISTANCE 0x8001U
 #define GPU_H2_REG_GRAS_CL_INTERP_CNTL 0x8005U
@@ -1902,6 +1903,8 @@ struct gpu_g4_solid_fill_child_run {
 #define GPU_H2_REG_RB_BLEND_CNTL 0x8865U
 #define GPU_H2_REG_RB_DEPTH_CNTL 0x8871U
 #define GPU_H2_REG_RB_STENCIL_CNTL 0x8880U
+#define GPU_H3_REG_RB_WINDOW_OFFSET 0x8890U
+#define GPU_H3_REG_RB_RESOLVE_WINDOW_OFFSET 0x88d4U
 #define GPU_H2_REG_VPC_VARYING_INTERP_MODE_0 0x9200U
 #define GPU_H2_REG_VPC_VARYING_REPLACE_MODE_0 0x9208U
 #define GPU_H2_REG_VPC_VS_CLIP_CULL_CNTL 0x9101U
@@ -1939,8 +1942,10 @@ struct gpu_g4_solid_fill_child_run {
 #define GPU_H2_REG_SP_PS_MRT_CNTL 0xa98dU
 #define GPU_H2_REG_SP_PS_OUTPUT_REG0 0xa98eU
 #define GPU_H2_REG_SP_PS_MRT_REG0 0xa996U
+#define GPU_H3_REG_TPL1_WINDOW_OFFSET 0xb307U
 #define GPU_H3_REG_TPL1_MSAA_SAMPLE_POS_CNTL 0xb304U
 #define GPU_H3_REG_TPL1_PS_SWIZZLE_CNTL 0xb183U
+#define GPU_H3_REG_SP_WINDOW_OFFSET 0xb4d1U
 #define GPU_H3_REG_SP_REG_PROG_ID_3 0xb986U
 #define GPU_H3_REG_RB_CCU_CNTL 0x8e07U
 #define GPU_KGSL_CMDLIST_IB 0x00000001U
@@ -2401,6 +2406,17 @@ static bool gpu_h2_append_3d_state_pm4(uint32_t *words,
                          GPU_H3_A6XX_CP_SET_MARKER_RM6_DIRECT_RENDER)) {
         return false;
     }
+    if (!gpu_g4_pm4_emit_reg1(words, dwords, GPU_H3_REG_RB_WINDOW_OFFSET,
+                              GPU_H3_WINDOW_OFFSET) ||
+        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H3_REG_RB_RESOLVE_WINDOW_OFFSET,
+                              GPU_H3_WINDOW_OFFSET) ||
+        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H3_REG_SP_WINDOW_OFFSET,
+                              GPU_H3_WINDOW_OFFSET) ||
+        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H3_REG_TPL1_WINDOW_OFFSET,
+                              GPU_H3_WINDOW_OFFSET)) {
+        return false;
+    }
+    reg_writes += 4;
     if (!gpu_g4_pm4_emit_pkt7(words, dwords,
                               (uint8_t)GPU_H3_PM4_CP_SKIP_IB2_ENABLE_GLOBAL, 1) ||
         !gpu_g4_pm4_push(words, dwords,
@@ -7516,7 +7532,7 @@ static int gpu_h3_draw_envelope_probe(int timeout_ms, bool materialize_devnode) 
         return -EINVAL;
     }
     a90_console_printf("gpu.h3.draw.version=1\r\n");
-    a90_console_printf("gpu.h3.draw.scope=first-triangle-h3-visibility-packets-vpc-so-override-off-sysmem-bin-control-sp-update-cntl-compiler-vs-instrlen-cache-invalidate-rb-render-cntl-r0-output-shader\r\n");
+    a90_console_printf("gpu.h3.draw.scope=first-triangle-h3-window-offset-visibility-packets-vpc-so-override-off-sysmem-bin-control-sp-update-cntl-compiler-vs-instrlen-cache-invalidate-rb-render-cntl-r0-output-shader\r\n");
     a90_console_printf("gpu.h3.draw.path=%s\r\n", GPU_G0_DEVNODE);
     a90_console_printf("gpu.h3.draw.timeout_ms=%d\r\n", timeout_ms);
     a90_console_printf("gpu.h3.draw.wait_timeout_ms=%u\r\n", GPU_H3_WAIT_TIMEOUT_MS);
@@ -7573,6 +7589,15 @@ static int gpu_h3_draw_envelope_probe(int timeout_ms, bool materialize_devnode) 
     a90_console_printf("gpu.h3.draw.render_marker_source=mesa-freedreno-a6xx-fd6-set-render-mode-rm6-direct-render\r\n");
     a90_console_printf("gpu.h3.draw.cp_set_marker=0x%x\r\n",
                        GPU_H3_A6XX_CP_SET_MARKER_RM6_DIRECT_RENDER);
+    a90_console_printf("gpu.h3.draw.window_offset_source=mesa-freedreno-a6xx-fd6-sysmem-prep-set-window-offset-zero\r\n");
+    a90_console_printf("gpu.h3.draw.rb_window_offset=0x%x\r\n",
+                       GPU_H3_WINDOW_OFFSET);
+    a90_console_printf("gpu.h3.draw.rb_resolve_window_offset=0x%x\r\n",
+                       GPU_H3_WINDOW_OFFSET);
+    a90_console_printf("gpu.h3.draw.sp_window_offset=0x%x\r\n",
+                       GPU_H3_WINDOW_OFFSET);
+    a90_console_printf("gpu.h3.draw.tpl1_window_offset=0x%x\r\n",
+                       GPU_H3_WINDOW_OFFSET);
     a90_console_printf("gpu.h3.draw.visibility_packet_source=mesa-freedreno-a6xx-fd6-sysmem-prep-visibility-override\r\n");
     a90_console_printf("gpu.h3.draw.cp_skip_ib2_enable_global=0x%x\r\n",
                        GPU_H3_PM4_CP_SKIP_IB2_ENABLE_GLOBAL);

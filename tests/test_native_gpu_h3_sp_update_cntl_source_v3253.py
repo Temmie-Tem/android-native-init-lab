@@ -56,6 +56,8 @@ class NativeGpuH3SpUpdateCntlSourceV3253Tests(unittest.TestCase):
             in source
             or '"gpu.h3.draw.scope=first-triangle-h3-visibility-packets-vpc-so-override-off-sysmem-bin-control-sp-update-cntl-compiler-vs-instrlen-cache-invalidate-rb-render-cntl-r0-output-shader'
             in source
+            or '"gpu.h3.draw.scope=first-triangle-h3-window-offset-visibility-packets-vpc-so-override-off-sysmem-bin-control-sp-update-cntl-compiler-vs-instrlen-cache-invalidate-rb-render-cntl-r0-output-shader'
+            in source
         )
         self.assertIn(
             '"gpu.h3.draw.sp_update_cntl_source=mesa-freedreno-a6xx-fd6-program-and-draw-stateobj',

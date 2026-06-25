@@ -737,6 +737,24 @@ packet guessing and capture/diff a real Mesa fd6 sysmem single-triangle command 
 not immediately available, the remaining concrete sysmem-prep gap to test is exact window-offset/order state around
 `RB_WINDOW_OFFSET`, `RB_RESOLVE_WINDOW_OFFSET`, `SP_WINDOW_OFFSET`, and `TPL1_WINDOW_OFFSET`.
 
+V3261/V3262 then tested that remaining concrete window-offset/order gap, but the first live artifact did not produce
+a valid GPU result: adding Mesa's zero `RB_WINDOW_OFFSET`, `RB_RESOLVE_WINDOW_OFFSET`, `SP_WINDOW_OFFSET`, and
+`TPL1_WINDOW_OFFSET` packets raised the expected H3 stream to `260` dwords while the shared command-buffer guard was
+still `GPU_G4_CMD_MAX_DWORDS=256`. The flashed image booted and passed health, but the live H3 run failed before
+submit (`cmd_write_rc=-1`, `pm4_dwords=0`, `submit_rc=-1`), so V3262 only proved a host-side PM4 assembly guard bug,
+not a new no-pixel datapoint. V3263 corrected that guard to `320` dwords and rebuilt from the V3259 ramdisk baseline
+as `0.11.58 (v3263-gpu-h3-window-offset-cmdroom-probe)` with SHA256
+`f38f2fdb7cb71cabc6603e606bcd28965715e128f8211bf767f47f851da7f3d8`, flashed through `native_init_flash.py`, and
+passed post-flash health after one host-side serial bridge framing retry (`selftest pass=12 warn=1 fail=0`). V3264 live
+telemetry confirmed the corrected stream assembled and submitted (`cmd_write_rc=0`, `pm4_dwords=260`,
+`state_reg_writes=98`, `submit_rc=0`, `wait_rc=0`, `retired_timestamp=1`), with no focused KGSL/GPU/GMU/A640 fault,
+hang, snapshot, or timeout signature, but two H3 runs still left readback unchanged
+(`readback_changed_count=0`, `readback0=0x20202020`, `readback_center=0x20202020`). This removes the zero window-offset
+sysmem-prep packet group and command-buffer room as the primary no-pixel root cause. The next bounded unit should be a
+real Mesa fd6 sysmem single-triangle command-stream capture/diff against H3, with special attention to any remaining
+per-MRT render-component/write-enable register names that are not equivalent to the already-programmed
+`RB_PS_OUTPUT_MASK`, `SP_PS_OUTPUT_MASK`, and `RB_MRT0_CONTROL.COMPONENT_ENABLE` path.
+
 **GPU backlog AFTER the triangle (do NOT pre-build; pull only when reached):**
 - **2nd capability = a VISIBLE compute demo (e.g. Mandelbrot/particle → KMS).** Reuses the shader path minus the
   rasterizer; gives GPU compute a *screen consumer*. **Matrix/GPGPU math is absorbed here, NOT a standalone goal** —
