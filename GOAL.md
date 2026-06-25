@@ -520,6 +520,15 @@ cleanly (`submit_rc=0`, `wait_rc=0`, `retired_timestamp=1`, `fence_poll_rc=1`, `
 `fail=0`. That removes this tested shader-mode setup gap as the primary blocker. Next bounded unit should continue the
 Mesa-equivalent first-draw packet diff and test a small, draw-relevant missing static/init state group such as
 `RB_INTERP_CNTL`/`RB_PS_INPUT_CNTL`/sample-position or the minimal `VPC_VARYING_LM_TRANSFER_CNTL`/SIV path.
+V3228/V3229 then tested the narrow fragment-input default-state group from Mesa
+`fd6_program.cc::emit_fs_inputs()` by adding explicit zero writes for `GRAS_CL_INTERP_CNTL`, `RB_INTERP_CNTL`,
+`RB_PS_INPUT_CNTL`, `RB_PS_SAMPLEFREQ_CNTL`, `GRAS_LRZ_PS_INPUT_CNTL`, and `GRAS_LRZ_PS_SAMPLEFREQ_CNTL`. Live result
+again retired cleanly (`submit_rc=0`, `wait_rc=0`, `retired_timestamp=1`, `fence_poll_rc=1`, `pm4_dwords=198`,
+`state_reg_writes=74`, `total_elapsed_ms=30`) with no GPU fault/hang signature, but readback still stayed unchanged
+(`readback_changed_count=0`, `readback0=0x20202020`, `readback_center=0x20202020`) and post-probe selftest stayed
+`fail=0`. That removes this tested fragment-input zero-state group as the primary blocker. Next bounded unit should
+continue the Mesa-equivalent first-draw packet diff and test the minimal `VPC_VARYING_LM_TRANSFER_CNTL`/SIV path or
+sample-position/static state group before claiming H4.
 
 **GPU backlog AFTER the triangle (do NOT pre-build; pull only when reached):**
 - **2nd capability = a VISIBLE compute demo (e.g. Mandelbrot/particle → KMS).** Reuses the shader path minus the
