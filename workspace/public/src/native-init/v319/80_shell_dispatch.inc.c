@@ -1110,6 +1110,10 @@ struct gpu_g4_solid_fill_probe_result {
     int dst_mmap_rc;
     int dst_mmap_errno;
     int dst_mmap_nonnull;
+    int event_alloc_rc;
+    int event_alloc_errno;
+    int event_info_rc;
+    int event_info_errno;
     int dst_prefill_attempted;
     int dst_prefill_rc;
     int cmd_write_attempted;
@@ -1149,6 +1153,10 @@ struct gpu_g4_solid_fill_probe_result {
     int dst_free_deferred;
     int dst_free_rc;
     int dst_free_errno;
+    int event_free_attempted;
+    int event_free_deferred;
+    int event_free_rc;
+    int event_free_errno;
     int destroy_attempted;
     int destroy_rc;
     int destroy_errno;
@@ -1159,6 +1167,7 @@ struct gpu_g4_solid_fill_probe_result {
     unsigned int flags_out;
     unsigned int cmd_gpuobj_id;
     unsigned int dst_gpuobj_id;
+    unsigned int event_gpuobj_id;
     unsigned int submit_timestamp;
     unsigned int retired_timestamp;
     unsigned int wait_timeout_ms;
@@ -1200,6 +1209,17 @@ struct gpu_g4_solid_fill_probe_result {
     uint64_t dst_gpuaddr;
     uint64_t dst_base_encoded;
     uint64_t dst_size;
+    uint64_t event_alloc_size_in;
+    uint64_t event_alloc_size_out;
+    uint64_t event_alloc_flags_in;
+    uint64_t event_alloc_flags_out;
+    uint64_t event_alloc_va_len;
+    uint64_t event_alloc_mmapsize;
+    uint64_t event_info_gpuaddr;
+    uint64_t event_info_flags;
+    uint64_t event_info_size;
+    uint64_t event_info_va_len;
+    uint64_t event_gpuaddr;
     uint64_t cmd_sync_length;
     uint64_t readback_sync_length;
     long open_elapsed_ms;
@@ -1210,6 +1230,8 @@ struct gpu_g4_solid_fill_probe_result {
     long dst_alloc_elapsed_ms;
     long dst_info_elapsed_ms;
     long dst_mmap_elapsed_ms;
+    long event_alloc_elapsed_ms;
+    long event_info_elapsed_ms;
     long cmd_sync_elapsed_ms;
     long submit_elapsed_ms;
     long timestamp_event_elapsed_ms;
@@ -1220,6 +1242,7 @@ struct gpu_g4_solid_fill_probe_result {
     long dst_munmap_elapsed_ms;
     long cmd_free_elapsed_ms;
     long dst_free_elapsed_ms;
+    long event_free_elapsed_ms;
     long destroy_elapsed_ms;
     long total_elapsed_ms;
 };
@@ -1268,6 +1291,7 @@ struct gpu_g4_solid_fill_probe_result {
 #define GPU_G3_PM4_CP_NOP 0x10U
 #define GPU_G4_CMD_ALLOC_SIZE 4096ULL
 #define GPU_G4_DST_ALLOC_SIZE 4096ULL
+#define GPU_G4_EVENT_ALLOC_SIZE 4096ULL
 #define GPU_G4_ALLOC_FLAGS 0ULL
 #define GPU_G4_WAIT_TIMEOUT_MS 1000U
 #define GPU_G4_CMD_MAX_DWORDS 64U
@@ -1284,6 +1308,8 @@ struct gpu_g4_solid_fill_probe_result {
 #define GPU_G4_A6XX_ROTATE_0 0x0U
 #define GPU_G4_A6XX_CP_SET_MARKER_RM6_BLIT2DSCALE 12U
 #define GPU_G4_A6XX_CP_BLIT_OP_SCALE 3U
+#define GPU_G4_EVENT_SEQNO_VALUE 0x32020001U
+#define GPU_G4_CP_EVENT_WRITE_TIMESTAMP_BIT (1U << 30)
 #define GPU_G4_PM4_CP_WAIT_FOR_IDLE 0x26U
 #define GPU_G4_PM4_CP_BLIT 0x2cU
 #define GPU_G4_PM4_CP_EVENT_WRITE 0x46U
@@ -1491,11 +1517,16 @@ static bool gpu_g4_pm4_emit_pkt7(uint32_t *words,
     return gpu_g4_pm4_push(words, dwords, gpu_g3_pm4_pkt7_hdr(opcode, count));
 }
 
-static bool gpu_g4_pm4_emit_event_raw(uint32_t *words,
-                                      unsigned int *dwords,
-                                      uint32_t event) {
-    return gpu_g4_pm4_emit_pkt7(words, dwords, (uint8_t)GPU_G4_PM4_CP_EVENT_WRITE, 1) &&
-           gpu_g4_pm4_push(words, dwords, event);
+static bool gpu_g4_pm4_emit_event_ts(uint32_t *words,
+                                     unsigned int *dwords,
+                                     uint32_t event,
+                                     uint64_t gpuaddr,
+                                     uint32_t seqno) {
+    return gpu_g4_pm4_emit_pkt7(words, dwords, (uint8_t)GPU_G4_PM4_CP_EVENT_WRITE, 4) &&
+           gpu_g4_pm4_push(words, dwords, event | GPU_G4_CP_EVENT_WRITE_TIMESTAMP_BIT) &&
+           gpu_g4_pm4_push(words, dwords, (uint32_t)(gpuaddr & 0xffffffffULL)) &&
+           gpu_g4_pm4_push(words, dwords, (uint32_t)(gpuaddr >> 32)) &&
+           gpu_g4_pm4_push(words, dwords, seqno);
 }
 
 static bool gpu_g4_pm4_emit_pkt4(uint32_t *words,
@@ -1540,6 +1571,7 @@ static bool gpu_g4_pm4_emit_reg4(uint32_t *words,
 static bool gpu_g4_build_solid_fill_pm4(uint32_t *words,
                                         unsigned int *dwords,
                                         uint64_t dst_gpuaddr,
+                                        uint64_t event_gpuaddr,
                                         uint32_t fill_value) {
     uint64_t dst_base = dst_gpuaddr & ~0x3fULL;
     uint32_t blit_cntl =
@@ -1586,7 +1618,10 @@ static bool gpu_g4_build_solid_fill_pm4(uint32_t *words,
     }
     if (!gpu_g4_pm4_emit_pkt7(words, dwords, (uint8_t)GPU_G4_PM4_CP_BLIT, 1) ||
         !gpu_g4_pm4_push(words, dwords, GPU_G4_A6XX_CP_BLIT_OP_SCALE) ||
-        !gpu_g4_pm4_emit_event_raw(words, dwords, GPU_G4_EVENT_PC_CCU_FLUSH_COLOR_TS) ||
+        !gpu_g4_pm4_emit_event_ts(words, dwords,
+                                  GPU_G4_EVENT_PC_CCU_FLUSH_COLOR_TS,
+                                  event_gpuaddr,
+                                  GPU_G4_EVENT_SEQNO_VALUE) ||
         !gpu_g4_pm4_emit_pkt7(words, dwords, (uint8_t)GPU_G4_PM4_CP_WAIT_FOR_IDLE, 0)) {
         return false;
     }
@@ -3284,6 +3319,8 @@ static int gpu_g4_solid_fill_probe_child(int write_fd) {
     result.dst_alloc_rc = -1;
     result.dst_info_rc = -1;
     result.dst_mmap_rc = -1;
+    result.event_alloc_rc = -1;
+    result.event_info_rc = -1;
     result.dst_prefill_rc = -1;
     result.cmd_write_rc = -1;
     result.cmd_sync_rc = -1;
@@ -3298,6 +3335,7 @@ static int gpu_g4_solid_fill_probe_child(int write_fd) {
     result.dst_munmap_rc = -1;
     result.cmd_free_rc = -1;
     result.dst_free_rc = -1;
+    result.event_free_rc = -1;
     result.destroy_rc = -1;
     result.flags_in = GPU_G1_CONTEXT_FLAGS;
     result.flags_out = GPU_G1_CONTEXT_FLAGS;
@@ -3305,6 +3343,8 @@ static int gpu_g4_solid_fill_probe_child(int write_fd) {
     result.cmd_alloc_flags_in = GPU_G4_ALLOC_FLAGS;
     result.dst_alloc_size_in = GPU_G4_DST_ALLOC_SIZE;
     result.dst_alloc_flags_in = GPU_G4_ALLOC_FLAGS;
+    result.event_alloc_size_in = GPU_G4_EVENT_ALLOC_SIZE;
+    result.event_alloc_flags_in = GPU_G4_ALLOC_FLAGS;
     result.dst_size = GPU_G4_FILL_BYTES;
     result.wait_timeout_ms = GPU_G4_WAIT_TIMEOUT_MS;
     result.expected_fill = GPU_G4_FILL_PATTERN;
@@ -3342,6 +3382,8 @@ static int gpu_g4_solid_fill_probe_child(int write_fd) {
         struct gpu_kgsl_gpuobj_info cmd_info_arg;
         struct gpu_kgsl_gpuobj_alloc dst_alloc_arg;
         struct gpu_kgsl_gpuobj_info dst_info_arg;
+        struct gpu_kgsl_gpuobj_alloc event_alloc_arg;
+        struct gpu_kgsl_gpuobj_info event_info_arg;
 
         memset(&cmd_alloc_arg, 0, sizeof(cmd_alloc_arg));
         cmd_alloc_arg.size = GPU_G4_CMD_ALLOC_SIZE;
@@ -3468,6 +3510,43 @@ static int gpu_g4_solid_fill_probe_child(int write_fd) {
         result.dst_mmap_rc = 0;
         result.dst_mmap_nonnull = dst_map != NULL ? 1 : 0;
 
+        memset(&event_alloc_arg, 0, sizeof(event_alloc_arg));
+        event_alloc_arg.size = GPU_G4_EVENT_ALLOC_SIZE;
+        event_alloc_arg.flags = GPU_G4_ALLOC_FLAGS;
+        errno = 0;
+        stage_started_ms = monotonic_millis();
+        if (ioctl(fd, GPU_IOCTL_KGSL_GPUOBJ_ALLOC, &event_alloc_arg) < 0) {
+            result.event_alloc_rc = -1;
+            result.event_alloc_errno = errno;
+            result.event_alloc_elapsed_ms = monotonic_millis() - stage_started_ms;
+            goto out;
+        }
+        result.event_alloc_rc = 0;
+        result.event_alloc_elapsed_ms = monotonic_millis() - stage_started_ms;
+        result.event_gpuobj_id = event_alloc_arg.id;
+        result.event_alloc_size_out = event_alloc_arg.size;
+        result.event_alloc_flags_out = event_alloc_arg.flags;
+        result.event_alloc_va_len = event_alloc_arg.va_len;
+        result.event_alloc_mmapsize = event_alloc_arg.mmapsize;
+
+        memset(&event_info_arg, 0, sizeof(event_info_arg));
+        event_info_arg.id = event_alloc_arg.id;
+        errno = 0;
+        stage_started_ms = monotonic_millis();
+        if (ioctl(fd, GPU_IOCTL_KGSL_GPUOBJ_INFO, &event_info_arg) < 0) {
+            result.event_info_rc = -1;
+            result.event_info_errno = errno;
+            result.event_info_elapsed_ms = monotonic_millis() - stage_started_ms;
+            goto out;
+        }
+        result.event_info_rc = 0;
+        result.event_info_elapsed_ms = monotonic_millis() - stage_started_ms;
+        result.event_info_gpuaddr = event_info_arg.gpuaddr;
+        result.event_info_flags = event_info_arg.flags;
+        result.event_info_size = event_info_arg.size;
+        result.event_info_va_len = event_info_arg.va_len;
+        result.event_gpuaddr = event_info_arg.gpuaddr;
+
         {
             uint32_t *dst_words = (uint32_t *)dst_map;
             unsigned int index;
@@ -3489,6 +3568,7 @@ static int gpu_g4_solid_fill_probe_child(int write_fd) {
             if (!gpu_g4_build_solid_fill_pm4(cmd_words,
                                              &pm4_dwords,
                                              dst_info_arg.gpuaddr,
+                                             event_info_arg.gpuaddr,
                                              GPU_G4_FILL_PATTERN)) {
                 result.cmd_write_rc = -1;
                 goto out;
@@ -3529,7 +3609,7 @@ static int gpu_g4_solid_fill_probe_child(int write_fd) {
 
         {
             struct gpu_kgsl_command_object cmd_obj;
-            struct gpu_kgsl_command_object mem_objs[2];
+            struct gpu_kgsl_command_object mem_objs[3];
             struct gpu_kgsl_gpu_command command_arg;
 
             memset(&cmd_obj, 0, sizeof(cmd_obj));
@@ -3550,6 +3630,11 @@ static int gpu_g4_solid_fill_probe_child(int write_fd) {
             mem_objs[1].size = dst_info_arg.size;
             mem_objs[1].flags = GPU_KGSL_OBJLIST_MEMOBJ;
             mem_objs[1].id = dst_alloc_arg.id;
+            mem_objs[2].offset = 0;
+            mem_objs[2].gpuaddr = event_info_arg.gpuaddr;
+            mem_objs[2].size = event_info_arg.size;
+            mem_objs[2].flags = GPU_KGSL_OBJLIST_MEMOBJ;
+            mem_objs[2].id = event_alloc_arg.id;
 
             memset(&command_arg, 0, sizeof(command_arg));
             command_arg.cmdlist = (uint64_t)(uintptr_t)&cmd_obj;
@@ -3557,7 +3642,7 @@ static int gpu_g4_solid_fill_probe_child(int write_fd) {
             command_arg.numcmds = 1;
             command_arg.objlist = (uint64_t)(uintptr_t)mem_objs;
             command_arg.objsize = sizeof(mem_objs[0]);
-            command_arg.numobjs = 2;
+            command_arg.numobjs = 3;
             command_arg.context_id = create_arg.drawctxt_id;
 
             errno = 0;
@@ -3740,6 +3825,34 @@ out:
         }
         result.cmd_munmap_elapsed_ms = monotonic_millis() - stage_started_ms;
     }
+    if (fd >= 0 && result.event_gpuobj_id != 0) {
+        struct gpu_kgsl_gpuobj_free free_arg;
+        struct gpu_kgsl_gpu_event_timestamp event_arg;
+
+        memset(&free_arg, 0, sizeof(free_arg));
+        memset(&event_arg, 0, sizeof(event_arg));
+        free_arg.id = result.event_gpuobj_id;
+        if (result.submit_rc == 0 && result.wait_rc != 0 && result.submit_timestamp != 0) {
+            event_arg.context_id = result.context_id;
+            event_arg.timestamp = result.submit_timestamp;
+            free_arg.flags = GPU_KGSL_GPUOBJ_FREE_ON_EVENT;
+            free_arg.priv = (uint64_t)(uintptr_t)&event_arg;
+            free_arg.type = GPU_KGSL_GPU_EVENT_TIMESTAMP;
+            free_arg.len = sizeof(event_arg);
+            result.event_free_deferred = 1;
+        }
+        result.event_free_attempted = 1;
+        errno = 0;
+        stage_started_ms = monotonic_millis();
+        if (ioctl(fd, GPU_IOCTL_KGSL_GPUOBJ_FREE, &free_arg) < 0) {
+            result.event_free_rc = -1;
+            result.event_free_errno = errno;
+        } else {
+            result.event_free_rc = 0;
+            result.event_free_errno = 0;
+        }
+        result.event_free_elapsed_ms = monotonic_millis() - stage_started_ms;
+    }
     if (fd >= 0 && result.dst_gpuobj_id != 0) {
         struct gpu_kgsl_gpuobj_free free_arg;
         struct gpu_kgsl_gpu_event_timestamp event_arg;
@@ -3858,8 +3971,10 @@ static int gpu_g4_solid_fill_probe(int timeout_ms, bool materialize_devnode) {
     a90_console_printf("gpu.g4.fill.parent_enters_open=0\r\n");
     a90_console_printf("gpu.g4.fill.parent_enters_ioctl=0\r\n");
     a90_console_printf("gpu.g4.fill.ioctl_allowlist=drawctxt_create,gpuobj_alloc,gpuobj_info,gpuobj_sync,gpu_command,timestamp_event,waittimestamp,readtimestamp,gpuobj_free,drawctxt_destroy\r\n");
-    a90_console_printf("gpu.g4.fill.pm4_source=mesa-freedreno-a6xx-fd6-clear-buffer-cp-blit-a2d-ccu-color-flush\r\n");
-    a90_console_printf("gpu.g4.fill.post_blit_event=pc_ccu_flush_color_ts\r\n");
+    a90_console_printf("gpu.g4.fill.pm4_source=mesa-freedreno-a6xx-fd6-clear-buffer-cp-blit-a2d-ccu-color-flush-seqno\r\n");
+    a90_console_printf("gpu.g4.fill.post_blit_event=pc_ccu_flush_color_ts_seqno\r\n");
+    a90_console_printf("gpu.g4.fill.post_blit_event_payload_dwords=4\r\n");
+    a90_console_printf("gpu.g4.fill.event_seqno=0x%x\r\n", GPU_G4_EVENT_SEQNO_VALUE);
     a90_console_printf("gpu.g4.fill.cache_invalidate_event=excluded-after-v3197-incident\r\n");
     a90_console_printf("gpu.g4.fill.pm4_cp_type4=0x%x\r\n", GPU_G3_PM4_CP_TYPE4_PKT);
     a90_console_printf("gpu.g4.fill.pm4_cp_type7=0x%x\r\n", GPU_G3_PM4_CP_TYPE7_PKT);
@@ -3874,6 +3989,8 @@ static int gpu_g4_solid_fill_probe(int timeout_ms, bool materialize_devnode) {
                        (unsigned long long)GPU_G4_CMD_ALLOC_SIZE);
     a90_console_printf("gpu.g4.fill.dst_alloc_size=%llu\r\n",
                        (unsigned long long)GPU_G4_DST_ALLOC_SIZE);
+    a90_console_printf("gpu.g4.fill.event_alloc_size=%llu\r\n",
+                       (unsigned long long)GPU_G4_EVENT_ALLOC_SIZE);
     a90_console_printf("gpu.g4.fill.rb_dbg_eco_mode=skipped-source-magic-not-in-this-unit\r\n");
     a90_console_printf("gpu.g4.fill.render_attempted=1\r\n");
     a90_console_printf("gpu.g4.fill.triangle_attempted=0\r\n");
@@ -3965,6 +4082,7 @@ static int gpu_g4_solid_fill_probe(int timeout_ms, bool materialize_devnode) {
                                       result.readback_verified == 1 &&
                                       result.cmd_free_rc == 0 &&
                                       result.dst_free_rc == 0 &&
+                                      result.event_free_rc == 0 &&
                                       result.destroy_rc == 0) ?
                                      "solid-fill-readback-ok" : "returned-error") :
                        (timed_out ? "timeout" : "no-result"));
@@ -4018,6 +4136,23 @@ static int gpu_g4_solid_fill_probe(int timeout_ms, bool materialize_devnode) {
         a90_console_printf("gpu.g4.fill.dst_mmap_rc=%d\r\n", result.dst_mmap_rc);
         a90_console_printf("gpu.g4.fill.dst_mmap_errno=%d\r\n", result.dst_mmap_errno);
         a90_console_printf("gpu.g4.fill.dst_mmap_nonnull=%d\r\n", result.dst_mmap_nonnull);
+        a90_console_printf("gpu.g4.fill.event_alloc_elapsed_ms=%ld\r\n",
+                           result.event_alloc_elapsed_ms);
+        a90_console_printf("gpu.g4.fill.event_alloc_rc=%d\r\n", result.event_alloc_rc);
+        a90_console_printf("gpu.g4.fill.event_alloc_errno=%d\r\n",
+                           result.event_alloc_errno);
+        a90_console_printf("gpu.g4.fill.event_gpuobj_id=%u\r\n", result.event_gpuobj_id);
+        a90_console_printf("gpu.g4.fill.event_alloc_size_out=%llu\r\n",
+                           (unsigned long long)result.event_alloc_size_out);
+        a90_console_printf("gpu.g4.fill.event_alloc_mmapsize=%llu\r\n",
+                           (unsigned long long)result.event_alloc_mmapsize);
+        a90_console_printf("gpu.g4.fill.event_info_elapsed_ms=%ld\r\n",
+                           result.event_info_elapsed_ms);
+        a90_console_printf("gpu.g4.fill.event_info_rc=%d\r\n", result.event_info_rc);
+        a90_console_printf("gpu.g4.fill.event_info_errno=%d\r\n",
+                           result.event_info_errno);
+        a90_console_printf("gpu.g4.fill.event_info_gpuaddr=0x%llx\r\n",
+                           (unsigned long long)result.event_info_gpuaddr);
         a90_console_printf("gpu.g4.fill.dst_prefill_attempted=%d\r\n",
                            result.dst_prefill_attempted);
         a90_console_printf("gpu.g4.fill.dst_prefill_rc=%d\r\n", result.dst_prefill_rc);
@@ -4115,6 +4250,15 @@ static int gpu_g4_solid_fill_probe(int timeout_ms, bool materialize_devnode) {
         a90_console_printf("gpu.g4.fill.cmd_free_rc=%d\r\n", result.cmd_free_rc);
         a90_console_printf("gpu.g4.fill.cmd_free_errno=%d\r\n",
                            result.cmd_free_errno);
+        a90_console_printf("gpu.g4.fill.event_free_attempted=%d\r\n",
+                           result.event_free_attempted);
+        a90_console_printf("gpu.g4.fill.event_free_deferred=%d\r\n",
+                           result.event_free_deferred);
+        a90_console_printf("gpu.g4.fill.event_free_elapsed_ms=%ld\r\n",
+                           result.event_free_elapsed_ms);
+        a90_console_printf("gpu.g4.fill.event_free_rc=%d\r\n", result.event_free_rc);
+        a90_console_printf("gpu.g4.fill.event_free_errno=%d\r\n",
+                           result.event_free_errno);
         a90_console_printf("gpu.g4.fill.destroy_attempted=%d\r\n",
                            result.destroy_attempted);
         a90_console_printf("gpu.g4.fill.destroy_elapsed_ms=%ld\r\n",
