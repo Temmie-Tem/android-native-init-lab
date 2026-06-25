@@ -1768,6 +1768,15 @@ struct gpu_g4_solid_fill_child_run {
 #define GPU_H3_VPC_VS_SIV_CNTL 0x0000ffffU
 #define GPU_H3_VPC_VS_SIV_CNTL_V2 0x0000ffffU
 #define GPU_H3_GRAS_SU_VS_SIV_CNTL 0x00000000U
+#define GPU_H3_GRAS_SU_CONSERVATIVE_RAS_CNTL 0x00000000U
+#define GPU_H3_VPC_RAST_STREAM_CNTL 0x00000000U
+#define GPU_H3_VPC_SO_OVERRIDE 0x00000001U
+#define GPU_H3_PC_STEREO_RENDERING_CNTL 0x00000000U
+#define GPU_H3_TPL1_PS_SWIZZLE_CNTL 0x00000000U
+#define GPU_H3_VPC_UNKNOWN_9210 0x00000000U
+#define GPU_H3_SP_INVALID_REG 0xfcU
+#define GPU_H3_SP_REG_PROG_ID_3 \
+    ((GPU_H3_SP_INVALID_REG << 0) | (GPU_H3_SP_INVALID_REG << 8))
 #define GPU_G4_REG_GRAS_A2D_BLT_CNTL 0x8400U
 #define GPU_G4_REG_GRAS_A2D_DEST_TL 0x8405U
 #define GPU_G4_REG_GRAS_A2D_DEST_BR 0x8406U
@@ -1798,6 +1807,7 @@ struct gpu_g4_solid_fill_child_run {
 #define GPU_H2_REG_GRAS_CL_VIEWPORT 0x8010U
 #define GPU_H2_REG_GRAS_CL_GUARDBAND_CLIP_ADJ 0x8006U
 #define GPU_H2_REG_GRAS_SU_CNTL 0x8090U
+#define GPU_H3_REG_GRAS_SU_CONSERVATIVE_RAS_CNTL 0x8099U
 #define GPU_H2_REG_GRAS_SU_VS_SIV_CNTL 0x809bU
 #define GPU_H2_REG_GRAS_SC_CNTL 0x80a0U
 #define GPU_H2_REG_GRAS_SC_RAS_MSAA_CNTL 0x80a2U
@@ -1839,16 +1849,20 @@ struct gpu_g4_solid_fill_child_run {
 #define GPU_H2_REG_VPC_VS_CLIP_CULL_CNTL 0x9101U
 #define GPU_H2_REG_VPC_VS_SIV_CNTL 0x9104U
 #define GPU_H2_REG_VPC_VARYING_LM_TRANSFER_CNTL0 0x9212U
+#define GPU_H3_REG_VPC_UNKNOWN_9210 0x9210U
 #define GPU_H2_REG_VPC_REPLACE_MODE_CNTL 0x9236U
 #define GPU_H2_REG_VPC_ROTATION_CNTL 0x9300U
 #define GPU_H2_REG_VPC_VS_CNTL 0x9301U
 #define GPU_H2_REG_VPC_PS_CNTL 0x9304U
+#define GPU_H3_REG_VPC_SO_OVERRIDE 0x9306U
 #define GPU_H2_REG_VPC_VS_CLIP_CULL_CNTL_V2 0x9311U
 #define GPU_H2_REG_VPC_VS_SIV_CNTL_V2 0x9314U
+#define GPU_H3_REG_VPC_RAST_STREAM_CNTL 0x9980U
 #define GPU_H2_REG_PC_RESTART_INDEX 0x9803U
 #define GPU_H2_REG_PC_MODE_CNTL 0x9804U
 #define GPU_H2_REG_PC_CNTL 0x9b00U
 #define GPU_H2_REG_PC_VS_CNTL 0x9b01U
+#define GPU_H3_REG_PC_STEREO_RENDERING_CNTL 0x9b07U
 #define GPU_H2_REG_VFD_CNTL_0 0xa000U
 #define GPU_H2_REG_VFD_CNTL_1 0xa001U
 #define GPU_H2_REG_VFD_MODE_CNTL 0xa009U
@@ -1867,6 +1881,8 @@ struct gpu_g4_solid_fill_child_run {
 #define GPU_H2_REG_SP_PS_MRT_CNTL 0xa98dU
 #define GPU_H2_REG_SP_PS_OUTPUT_REG0 0xa98eU
 #define GPU_H2_REG_SP_PS_MRT_REG0 0xa996U
+#define GPU_H3_REG_TPL1_PS_SWIZZLE_CNTL 0xb183U
+#define GPU_H3_REG_SP_REG_PROG_ID_3 0xb986U
 #define GPU_KGSL_CMDLIST_IB 0x00000001U
 #define GPU_KGSL_OBJLIST_MEMOBJ 0x00000008U
 #define GPU_KGSL_GPUMEM_CACHE_TO_GPU (1U << 0)
@@ -2311,6 +2327,8 @@ static bool gpu_h2_append_3d_state_pm4(uint32_t *words,
                               GPU_H3_GRAS_CL_INTERP_CNTL) ||
         !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_GRAS_CL_GUARDBAND_CLIP_ADJ, 0) ||
         !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_GRAS_SU_CNTL, 0) ||
+        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H3_REG_GRAS_SU_CONSERVATIVE_RAS_CNTL,
+                              GPU_H3_GRAS_SU_CONSERVATIVE_RAS_CNTL) ||
         !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_GRAS_SU_VS_SIV_CNTL,
                               GPU_H3_GRAS_SU_VS_SIV_CNTL) ||
         !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_GRAS_SC_CNTL, 2) ||
@@ -2326,7 +2344,7 @@ static bool gpu_h2_append_3d_state_pm4(uint32_t *words,
         !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_GRAS_MODE_CNTL, 2)) {
         return false;
     }
-    reg_writes += 14;
+    reg_writes += 15;
     if (!gpu_g4_pm4_emit_reg2(words, dwords, GPU_H2_REG_GRAS_SC_SCREEN_SCISSOR_TL,
                               screen_tl, screen_br) ||
         !gpu_g4_pm4_emit_reg2(words, dwords, GPU_H2_REG_GRAS_SC_VIEWPORT_SCISSOR_TL,
@@ -2381,22 +2399,30 @@ static bool gpu_h2_append_3d_state_pm4(uint32_t *words,
                               GPU_H3_VPC_VS_CLIP_CULL_CNTL) ||
         !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_VPC_VS_SIV_CNTL,
                               GPU_H3_VPC_VS_SIV_CNTL) ||
+        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H3_REG_VPC_UNKNOWN_9210,
+                              GPU_H3_VPC_UNKNOWN_9210) ||
         !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_VPC_REPLACE_MODE_CNTL, 0) ||
         !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_VPC_ROTATION_CNTL, 0) ||
         !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_VPC_VS_CNTL,
                               GPU_H3_VPC_VS_CNTL) ||
         !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_VPC_PS_CNTL, 0) ||
+        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H3_REG_VPC_SO_OVERRIDE,
+                              GPU_H3_VPC_SO_OVERRIDE) ||
         !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_VPC_VS_CLIP_CULL_CNTL_V2,
                               GPU_H3_VPC_VS_CLIP_CULL_CNTL) ||
         !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_VPC_VS_SIV_CNTL_V2,
                               GPU_H3_VPC_VS_SIV_CNTL_V2) ||
+        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H3_REG_VPC_RAST_STREAM_CNTL,
+                              GPU_H3_VPC_RAST_STREAM_CNTL) ||
         !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_PC_RESTART_INDEX, 0xffffffffU) ||
         !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_PC_MODE_CNTL, 0) ||
         !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_PC_CNTL, 0) ||
-        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_PC_VS_CNTL, 4)) {
+        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_PC_VS_CNTL, 4) ||
+        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H3_REG_PC_STEREO_RENDERING_CNTL,
+                              GPU_H3_PC_STEREO_RENDERING_CNTL)) {
         return false;
     }
-    reg_writes += 18;
+    reg_writes += 22;
     if (!gpu_g4_pm4_emit_reg2(words, dwords, GPU_H2_REG_VFD_CNTL_0, 0, 0) ||
         !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_VFD_MODE_CNTL, 3) ||
         !gpu_g4_pm4_emit_reg2(words, dwords, GPU_H2_REG_VFD_INDEX_OFFSET, 0, 0)) {
@@ -2408,15 +2434,19 @@ static bool gpu_h2_append_3d_state_pm4(uint32_t *words,
         !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_SP_VS_VPC_DEST_REG0, 0) ||
         !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_SP_BLEND_CNTL, 0) ||
         !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_SP_SRGB_CNTL, 0) ||
+        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H3_REG_TPL1_PS_SWIZZLE_CNTL,
+                              GPU_H3_TPL1_PS_SWIZZLE_CNTL) ||
         !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_SP_PS_OUTPUT_MASK,
                               color_output_mask) ||
         !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_SP_PS_OUTPUT_CNTL, 0) ||
         !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_SP_PS_MRT_CNTL, 1) ||
         !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_SP_PS_OUTPUT_REG0, 0) ||
-        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_SP_PS_MRT_REG0, sp_ps_mrt)) {
+        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_SP_PS_MRT_REG0, sp_ps_mrt) ||
+        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H3_REG_SP_REG_PROG_ID_3,
+                              GPU_H3_SP_REG_PROG_ID_3)) {
         return false;
     }
-    reg_writes += 10;
+    reg_writes += 12;
     if (!gpu_g4_pm4_emit_pkt7(words, dwords, (uint8_t)GPU_G4_PM4_CP_WAIT_FOR_IDLE, 0) ||
         !gpu_g4_pm4_emit_pkt7(words, dwords, (uint8_t)GPU_G3_PM4_CP_NOP, 1) ||
         !gpu_g4_pm4_push(words, dwords, 0)) {
@@ -7347,7 +7377,7 @@ static int gpu_h3_draw_envelope_probe(int timeout_ms, bool materialize_devnode) 
         return -EINVAL;
     }
     a90_console_printf("gpu.h3.draw.version=1\r\n");
-    a90_console_printf("gpu.h3.draw.scope=first-triangle-h3-vpc-lm-siv-mov-f32-shader\r\n");
+    a90_console_printf("gpu.h3.draw.scope=first-triangle-h3-static-context-mov-f32-shader\r\n");
     a90_console_printf("gpu.h3.draw.path=%s\r\n", GPU_G0_DEVNODE);
     a90_console_printf("gpu.h3.draw.timeout_ms=%d\r\n", timeout_ms);
     a90_console_printf("gpu.h3.draw.wait_timeout_ms=%u\r\n", GPU_H3_WAIT_TIMEOUT_MS);
@@ -7401,6 +7431,21 @@ static int gpu_h3_draw_envelope_probe(int timeout_ms, bool materialize_devnode) 
                        GPU_H3_VPC_VS_SIV_CNTL_V2);
     a90_console_printf("gpu.h3.draw.gras_su_vs_siv_cntl=0x%x\r\n",
                        GPU_H3_GRAS_SU_VS_SIV_CNTL);
+    a90_console_printf("gpu.h3.draw.static_context_source=mesa-freedreno-a6xx-fd6-emit-static-context-regs\r\n");
+    a90_console_printf("gpu.h3.draw.gras_su_conservative_ras_cntl=0x%x\r\n",
+                       GPU_H3_GRAS_SU_CONSERVATIVE_RAS_CNTL);
+    a90_console_printf("gpu.h3.draw.vpc_unknown_9210=0x%x\r\n",
+                       GPU_H3_VPC_UNKNOWN_9210);
+    a90_console_printf("gpu.h3.draw.vpc_so_override=0x%x\r\n",
+                       GPU_H3_VPC_SO_OVERRIDE);
+    a90_console_printf("gpu.h3.draw.vpc_rast_stream_cntl=0x%x\r\n",
+                       GPU_H3_VPC_RAST_STREAM_CNTL);
+    a90_console_printf("gpu.h3.draw.pc_stereo_rendering_cntl=0x%x\r\n",
+                       GPU_H3_PC_STEREO_RENDERING_CNTL);
+    a90_console_printf("gpu.h3.draw.tpl1_ps_swizzle_cntl=0x%x\r\n",
+                       GPU_H3_TPL1_PS_SWIZZLE_CNTL);
+    a90_console_printf("gpu.h3.draw.sp_reg_prog_id_3=0x%x\r\n",
+                       GPU_H3_SP_REG_PROG_ID_3);
     a90_console_printf("gpu.h3.draw.mrt_component_mask_source=mesa-freedreno-a6xx-mrt-components-full-rt0\r\n");
     a90_console_printf("gpu.h3.draw.ir3_end_opcode_hi=0x%x\r\n", GPU_H1_IR3_END_HI);
     a90_console_printf("gpu.h3.draw.ir3_mov_f32f32_r0x_hi=0x%x\r\n",

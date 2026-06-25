@@ -538,6 +538,17 @@ cleanly (`submit_rc=0`, `wait_rc=0`, `retired_timestamp=1`, `fence_poll_rc=1`, `
 `fail=0`. That removes this tested VPC LM/SIV group as the primary blocker. Next bounded unit should continue the
 Mesa-equivalent first-draw packet diff and test a small sample-position/static state group or revisit the hand-assembled
 shader output contract before claiming H4.
+V3232/V3233 then tested a bounded Mesa `fd6_emit_static_context_regs()` group that was still absent from the hand-built
+H3 stream by adding `GRAS_SU_CONSERVATIVE_RAS_CNTL=0`, `VPC_UNKNOWN_9210=0`, `VPC_SO_OVERRIDE=1`,
+`VPC_RAST_STREAM_CNTL=0`, `PC_STEREO_RENDERING_CNTL=0`, `TPL1_PS_SWIZZLE_CNTL=0`, and
+`SP_REG_PROG_ID_3=0x0000fcfc`. The flashed image booted as `0.11.43 (v3232-gpu-h3-static-context-probe)`, passed
+post-flash and post-probe selftest (`pass=12 warn=1 fail=0`), and the H3 draw again retired cleanly (`submit_rc=0`,
+`wait_rc=0`, `retired_timestamp=1`, `fence_poll_rc=1`, `pm4_dwords=223`, `state_reg_writes=88`,
+`total_elapsed_ms=31`) with no GPU fault/hang signature. Readback still stayed unchanged
+(`readback_changed_count=0`, `readback0=0x20202020`, `readback_center=0x20202020`), so H4 is still not reached. That
+removes this tested static-context no-op/disable group as the primary blocker. Next bounded unit should revisit the
+hand-assembled shader output contract or compare the remaining Mesa first-draw packet stream for a smaller
+shader-output/RB linkage delta before claiming H4.
 
 **GPU backlog AFTER the triangle (do NOT pre-build; pull only when reached):**
 - **2nd capability = a VISIBLE compute demo (e.g. Mandelbrot/particle → KMS).** Reuses the shader path minus the
