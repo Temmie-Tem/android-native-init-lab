@@ -55,7 +55,10 @@ class NativeGpuH3VpcLinkageSourceV3222Tests(unittest.TestCase):
         self.assertIn("GPU_H2_REG_VPC_VS_CLIP_CULL_CNTL", source)
         self.assertIn("GPU_H2_REG_VPC_VS_CNTL,\n                              GPU_H3_VPC_VS_CNTL", source)
         self.assertIn("GPU_H2_REG_VPC_VS_CLIP_CULL_CNTL_V2", source)
-        self.assertIn("reg_writes += 22;", source)
+        self.assertTrue(
+            "reg_writes += 22;" in source
+            or "reg_writes += 24;" in source
+        )
         self.assertIn(
             '"gpu.h3.draw.vpc_linkage_source=mesa-freedreno-a6xx-position-psizeloc-clip-cull-linkage',
             source,

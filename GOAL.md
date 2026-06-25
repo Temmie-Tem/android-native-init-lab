@@ -783,6 +783,20 @@ component-register hypotheses as actionable H3 fixes. Next bounded unit should b
 single-triangle `.rd`/cffdump diff; if host Mesa Gallium+drm-shim setup remains unavailable, continue source-grounded diff
 around remaining A6xx program/RB/static non-context state.
 
+V3268/V3269 used the now-working local freedreno `cffdump` path plus Mesa A6xx rasterizer source to test a concrete
+draw-state delta: Mesa emits `VPC_RAST_CNTL=POLYMODE6_TRIANGLES` (`0x3`) and `PC_DGEN_RAST_CNTL=POLYMODE6_TRIANGLES`
+(`0x3`), while H3 previously only emitted `VPC_RAST_STREAM_CNTL`. V3268 added both raster polygon-mode registers,
+built as `0.11.60 (v3268-gpu-h3-raster-mode-probe)` with SHA256
+`8fc356e60545ad36e412367d40b4da6f6f9a9766c6251369684f187c49323240`, flashed through `native_init_flash.py`, and
+passed post-flash health after one managed bridge restart cleared serial fragment noise (`selftest pass=12 warn=1
+fail=0`). V3269 live telemetry confirmed `vpc_rast_cntl=0x3`, `pc_dgen_rast_cntl=0x3`, `pm4_dwords=266`, and
+`state_reg_writes=100`; two H3 runs submitted and retired cleanly (`submit_rc=0`, `wait_rc=0`, `retired_timestamp=1`,
+warm `total_elapsed_ms=12`), with no focused KGSL/GPU/GMU/A640 fault, hang, snapshot, or timeout signature and
+post-probe health still clean. Readback remained unchanged (`readback_changed_count=0`, `readback0=0x20202020`,
+`readback_center=0x20202020`), so H4 is still not reached. This removes missing A6xx polygon raster-mode state as the
+primary no-pixel root cause. Next bounded unit should keep using a real Mesa command-stream/source diff and avoid
+re-testing the ruled-out CCU/bin/component/CP_SET_MODE/window-offset/visibility/raster-mode hypotheses.
+
 **GPU backlog AFTER the triangle (do NOT pre-build; pull only when reached):**
 - **2nd capability = a VISIBLE compute demo (e.g. Mandelbrot/particle → KMS).** Reuses the shader path minus the
   rasterizer; gives GPU compute a *screen consumer*. **Matrix/GPGPU math is absorbed here, NOT a standalone goal** —
