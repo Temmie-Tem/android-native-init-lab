@@ -489,6 +489,13 @@ draw/raster state required for pixels. V3218/V3219 then applied the concrete Mes
 stayed unchanged (`readback_changed_count=0`, `readback0=0x20202020`, `readback_center=0x20202020`) and post-probe
 selftest stayed `fail=0`. That removes SP footprint/merged-reg control as the primary blocker; next bounded unit should
 focus on FS output/MRT linkage, raster/depth/stencil/coverage enables, or a Mesa-diffed minimal draw-state packet gap.
+V3220/V3221 then tested the narrow raster/coverage hypothesis by adding Mesa-derived GRAS defaults:
+`GRAS_SC_RAS_MSAA_CNTL=0`, `GRAS_SC_DEST_MSAA_CNTL=0x4`, and `GRAS_SC_SCREEN_SCISSOR_CNTL=0`. Live result again
+retired cleanly (`submit_rc=0`, `wait_rc=0`, `retired_timestamp=1`, `fence_poll_rc=1`, `total_elapsed_ms=455`) with
+no GPU fault/hang signature, but readback still stayed unchanged (`readback_changed_count=0`, `readback0=0x20202020`,
+`readback_center=0x20202020`) and post-probe selftest stayed `fail=0`. That removes the tested GRAS raster coverage
+defaults as the primary blocker; next bounded unit should focus on FS output/MRT linkage, VPC/RB output state, or a
+Mesa-diffed minimal draw-state packet gap.
 
 **GPU backlog AFTER the triangle (do NOT pre-build; pull only when reached):**
 - **2nd capability = a VISIBLE compute demo (e.g. Mandelbrot/particle → KMS).** Reuses the shader path minus the
