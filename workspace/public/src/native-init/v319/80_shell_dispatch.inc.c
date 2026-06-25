@@ -1795,6 +1795,9 @@ struct gpu_g4_solid_fill_child_run {
 #define GPU_H2_CMD_MAX_DWORDS 160U
 #define GPU_H2_WAIT_TIMEOUT_MS 1000U
 #define GPU_H2_CLEAR_PATTERN 0x20202020U
+#define GPU_H5_H3_SNAPSHOT_WORDS (GPU_H2_COLOR_WIDTH * GPU_H2_COLOR_HEIGHT)
+#define GPU_H5_H3_PRESENT_MARGIN_X 28U
+#define GPU_H5_H3_PRESENT_TOP 176U
 #define GPU_H3_CMD_ALLOC_SIZE 8192ULL
 #define GPU_H3_VERTEX_ALLOC_SIZE 4096ULL
 #define GPU_H3_EVENT_ALLOC_SIZE 4096ULL
@@ -1828,6 +1831,23 @@ struct gpu_g4_solid_fill_child_run {
 #define GPU_H3_VS_POSITION_OUTPUT_REGID 8U
 #define GPU_H3_VS_VARYING_OUTPUT_REGID 0U
 #define GPU_H3_PS_OUTPUT_REGID 2U
+
+struct gpu_h3_draw_snapshot_payload {
+    struct gpu_h3_draw_envelope_probe_result result;
+    uint32_t color_words[GPU_H5_H3_SNAPSHOT_WORDS];
+};
+
+struct gpu_h3_draw_snapshot_child_run {
+    struct gpu_h3_draw_snapshot_payload payload;
+    pid_t child_pid;
+    bool got_result;
+    bool timed_out;
+    bool child_killed;
+    bool child_reaped;
+    int child_status;
+    size_t payload_bytes_read;
+};
+
 #define GPU_H3_SP_VS_OUTPUT_CNTL 2U
 #define GPU_H3_SP_VS_OUTPUT_REG0 \
     ((GPU_H3_VS_POSITION_OUTPUT_REGID & 0xffU) | (0xfU << 8) | \
@@ -7229,7 +7249,7 @@ static bool gpu_h3_draw_envelope_result_retired(const struct gpu_h3_draw_envelop
            result->destroy_rc == 0;
 }
 
-static int gpu_h3_draw_envelope_probe_child(int write_fd) {
+static int gpu_h3_draw_envelope_probe_child(int write_fd, bool include_snapshot) {
     static const uint32_t vs_shader[GPU_H3_VS_SHADER_DWORDS] = {
         GPU_H3_IR3_MOV_F32F32_R2X_R1X_LO, GPU_H3_IR3_MOV_F32F32_R2X_R1X_HI,
         GPU_H3_IR3_MOV_F32F32_R2Y_R1Y_LO, GPU_H3_IR3_MOV_F32F32_R2Y_R1Y_HI,
@@ -7266,9 +7286,12 @@ static int gpu_h3_draw_envelope_probe_child(int write_fd) {
     void *vertex_map = MAP_FAILED;
     int fd = -1;
     int fence_fd = -1;
+    uint32_t snapshot_words[GPU_H5_H3_SNAPSHOT_WORDS];
+    bool snapshot_valid = false;
 
     memset(&result, 0, sizeof(result));
     memset(&create_arg, 0, sizeof(create_arg));
+    memset(snapshot_words, 0, sizeof(snapshot_words));
     result.version = 1;
     result.close_rc = -1;
     result.create_rc = -1;
@@ -7725,6 +7748,10 @@ static int gpu_h3_draw_envelope_probe_child(int write_fd) {
                         result.color_flag_changed_count += 1U;
                     }
                 }
+                if (include_snapshot) {
+                    memcpy(snapshot_words, color_words, sizeof(snapshot_words));
+                    snapshot_valid = true;
+                }
             }
         }
 
@@ -7869,7 +7896,18 @@ out:
         }
     }
     result.total_elapsed_ms = monotonic_millis() - total_started_ms;
-    (void)write_all_checked(write_fd, (const char *)&result, sizeof(result));
+    if (include_snapshot) {
+        struct gpu_h3_draw_snapshot_payload payload;
+
+        memset(&payload, 0, sizeof(payload));
+        payload.result = result;
+        if (snapshot_valid) {
+            memcpy(payload.color_words, snapshot_words, sizeof(payload.color_words));
+        }
+        (void)write_all_checked(write_fd, (const char *)&payload, sizeof(payload));
+    } else {
+        (void)write_all_checked(write_fd, (const char *)&result, sizeof(result));
+    }
     close(write_fd);
     _exit(0);
 }
@@ -8237,7 +8275,7 @@ static int gpu_h3_draw_envelope_probe(int timeout_ms, bool materialize_devnode) 
     }
     if (pid == 0) {
         close(pipefd[0]);
-        return gpu_h3_draw_envelope_probe_child(pipefd[1]);
+        return gpu_h3_draw_envelope_probe_child(pipefd[1], false);
     }
     close(pipefd[1]);
     deadline_ms = monotonic_millis() + timeout_ms;
@@ -8401,6 +8439,219 @@ static int gpu_h3_draw_envelope_probe(int timeout_ms, bool materialize_devnode) 
                            result.total_elapsed_ms);
     }
     return timed_out ? -ETIMEDOUT : 0;
+}
+
+static int gpu_h3_draw_snapshot_collect_child(int timeout_ms,
+                                              struct gpu_h3_draw_snapshot_child_run *run) {
+    int pipefd[2];
+    long deadline_ms;
+    uint8_t *payload_bytes;
+    size_t payload_size;
+
+    if (run == NULL) {
+        return -EINVAL;
+    }
+    memset(run, 0, sizeof(*run));
+    if (pipe(pipefd) < 0) {
+        return -errno;
+    }
+    run->child_pid = fork();
+    if (run->child_pid < 0) {
+        int saved_errno = errno;
+
+        close(pipefd[0]);
+        close(pipefd[1]);
+        return -saved_errno;
+    }
+    if (run->child_pid == 0) {
+        close(pipefd[0]);
+        return gpu_h3_draw_envelope_probe_child(pipefd[1], true);
+    }
+    close(pipefd[1]);
+    {
+        int flags = fcntl(pipefd[0], F_GETFL, 0);
+
+        if (flags >= 0) {
+            (void)fcntl(pipefd[0], F_SETFL, flags | O_NONBLOCK);
+        }
+    }
+
+    payload_bytes = (uint8_t *)&run->payload;
+    payload_size = sizeof(run->payload);
+    deadline_ms = monotonic_millis() + timeout_ms;
+    while (monotonic_millis() <= deadline_ms) {
+        struct pollfd pfd;
+        long now_ms = monotonic_millis();
+        int remaining_ms = (int)(deadline_ms > now_ms ? deadline_ms - now_ms : 0);
+        int poll_ms = remaining_ms > 50 ? 50 : remaining_ms;
+        pid_t wait_rc;
+
+        if (poll_ms < 0) {
+            poll_ms = 0;
+        }
+        pfd.fd = pipefd[0];
+        pfd.events = POLLIN | POLLHUP;
+        pfd.revents = 0;
+        if (poll(&pfd, 1, poll_ms) > 0 && (pfd.revents & (POLLIN | POLLHUP)) != 0) {
+            while (run->payload_bytes_read < payload_size) {
+                ssize_t rd = read(pipefd[0],
+                                  payload_bytes + run->payload_bytes_read,
+                                  payload_size - run->payload_bytes_read);
+
+                if (rd > 0) {
+                    run->payload_bytes_read += (size_t)rd;
+                    continue;
+                }
+                if (rd == 0 || (errno != EINTR && errno != EAGAIN && errno != EWOULDBLOCK)) {
+                    break;
+                }
+                if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                    break;
+                }
+            }
+            if (run->payload_bytes_read == payload_size) {
+                run->got_result = true;
+                break;
+            }
+        }
+        wait_rc = waitpid(run->child_pid, &run->child_status, WNOHANG);
+        if (wait_rc == run->child_pid) {
+            run->child_reaped = true;
+            break;
+        }
+    }
+
+    if (!run->got_result && !run->child_reaped) {
+        run->timed_out = true;
+        if (kill(run->child_pid, SIGKILL) == 0) {
+            run->child_killed = true;
+        }
+        if (waitpid(run->child_pid, &run->child_status, 0) == run->child_pid) {
+            run->child_reaped = true;
+        }
+    } else if (!run->child_reaped) {
+        if (waitpid(run->child_pid, &run->child_status, 0) == run->child_pid) {
+            run->child_reaped = true;
+        }
+    }
+    close(pipefd[0]);
+    return run->timed_out ? -ETIMEDOUT : 0;
+}
+
+static uint32_t gpu_h5_pack_rgb_for_xbgr8888(uint32_t color) {
+    uint32_t red = (color >> 16) & 0xffU;
+    uint32_t green = (color >> 8) & 0xffU;
+    uint32_t blue = color & 0xffU;
+
+    return (blue << 16) | (green << 8) | red;
+}
+
+static uint32_t gpu_h5_h3_readback_word_to_xbgr8888(uint32_t word) {
+    if (word == GPU_H2_CLEAR_PATTERN) {
+        return gpu_h5_pack_rgb_for_xbgr8888(0x101010U);
+    }
+    return word & 0x00ffffffU;
+}
+
+static int gpu_h5_blit_h3_readback_to_kms(const uint32_t *source,
+                                          const struct gpu_h3_draw_envelope_probe_result *h3,
+                                          uint32_t *rect_x,
+                                          uint32_t *rect_y,
+                                          uint32_t *rect_w,
+                                          uint32_t *rect_h,
+                                          uint32_t *scale_out) {
+    struct a90_fb *fb = a90_kms_framebuffer();
+    uint32_t scale_x;
+    uint32_t scale_y;
+    uint32_t scale;
+    uint32_t dst_w;
+    uint32_t dst_h;
+    uint32_t x;
+    uint32_t y;
+    uint32_t sy;
+    char line[96];
+
+    if (source == NULL || h3 == NULL ||
+        fb == NULL || fb->pixels == NULL || fb->pixels == MAP_FAILED ||
+        fb->width == 0U || fb->height == 0U || fb->stride < fb->width * 4U) {
+        return -ENODEV;
+    }
+
+    scale_x = (fb->width > (GPU_H5_H3_PRESENT_MARGIN_X * 2U)) ?
+        (fb->width - (GPU_H5_H3_PRESENT_MARGIN_X * 2U)) / GPU_H2_COLOR_WIDTH : 0U;
+    scale_y = (fb->height > (GPU_H5_H3_PRESENT_TOP + 96U)) ?
+        (fb->height - GPU_H5_H3_PRESENT_TOP - 96U) / GPU_H2_COLOR_HEIGHT : 0U;
+    scale = scale_x < scale_y ? scale_x : scale_y;
+    if (scale == 0U) {
+        return -ENOSPC;
+    }
+    if (scale > 8U) {
+        scale = 8U;
+    }
+    dst_w = GPU_H2_COLOR_WIDTH * scale;
+    dst_h = GPU_H2_COLOR_HEIGHT * scale;
+    x = (fb->width - dst_w) / 2U;
+    y = GPU_H5_H3_PRESENT_TOP;
+    if (y + dst_h > fb->height) {
+        y = (fb->height - dst_h) / 2U;
+    }
+
+    a90_draw_text(fb, 36U, 48U, "GPU H5 TRIANGLE KMS", 0xffffff, 4U);
+    a90_draw_text(fb, 36U, 104U, "RAW H3 READBACK TILE ORDER", 0x80ff80, 3U);
+    a90_draw_rect_outline(fb,
+                          x > 8U ? x - 8U : x,
+                          y > 8U ? y - 8U : y,
+                          dst_w + 16U < fb->width ? dst_w + 16U : dst_w,
+                          dst_h + 16U < fb->height ? dst_h + 16U : dst_h,
+                          4U,
+                          0xffffff);
+
+    for (sy = 0; sy < GPU_H2_COLOR_HEIGHT; ++sy) {
+        uint32_t sx;
+
+        for (sx = 0; sx < GPU_H2_COLOR_WIDTH; ++sx) {
+            uint32_t pixel = gpu_h5_h3_readback_word_to_xbgr8888(
+                source[(sy * GPU_H2_COLOR_WIDTH) + sx]);
+            uint32_t dy;
+
+            for (dy = 0; dy < scale; ++dy) {
+                uint32_t *row =
+                    (uint32_t *)((char *)fb->pixels + ((y + (sy * scale) + dy) * fb->stride));
+                uint32_t dx;
+
+                for (dx = 0; dx < scale; ++dx) {
+                    row[x + (sx * scale) + dx] = pixel;
+                }
+            }
+        }
+    }
+    __sync_synchronize();
+
+    snprintf(line, sizeof(line), "CHANGED %u FIRST %u",
+             h3->readback_changed_count,
+             h3->readback_first_changed_index);
+    a90_draw_text(fb, 36U, y + dst_h + 28U, line, 0xffcc33, 3U);
+    snprintf(line, sizeof(line), "VALUE %08X FLAGS %u",
+             h3->readback_first_changed_value,
+             h3->color_flag_changed_count);
+    a90_draw_text(fb, 36U, y + dst_h + 72U, line, 0xbbbbbb, 3U);
+
+    if (rect_x != NULL) {
+        *rect_x = x;
+    }
+    if (rect_y != NULL) {
+        *rect_y = y;
+    }
+    if (rect_w != NULL) {
+        *rect_w = dst_w;
+    }
+    if (rect_h != NULL) {
+        *rect_h = dst_h;
+    }
+    if (scale_out != NULL) {
+        *scale_out = scale;
+    }
+    return 0;
 }
 
 static int gpu_g5_blit_gpu_readback_to_kms(uint32_t raw_pixel,
@@ -8609,6 +8860,156 @@ static int gpu_g5_kms_blit_probe(int timeout_ms, bool materialize_devnode) {
     return present_rc == 0 ? 0 : -EIO;
 }
 
+static int gpu_h5_triangle_kms_probe(int timeout_ms, bool materialize_devnode) {
+    struct gpu_h3_draw_snapshot_child_run run;
+    struct a90_kms_info kms_info;
+    const struct gpu_h3_draw_envelope_probe_result *h3;
+    long total_started_ms = monotonic_millis();
+    long stage_started_ms;
+    int collect_rc;
+    int begin_rc = -1;
+    int blit_rc = -1;
+    int present_rc = -1;
+    uint32_t rect_x = 0U;
+    uint32_t rect_y = 0U;
+    uint32_t rect_w = 0U;
+    uint32_t rect_h = 0U;
+    uint32_t scale = 0U;
+    long begin_elapsed_ms = 0;
+    long blit_elapsed_ms = 0;
+    long present_elapsed_ms = 0;
+
+    if (timeout_ms <= 0) {
+        timeout_ms = GPU_G0_DEFAULT_TIMEOUT_MS;
+    }
+    if (timeout_ms > GPU_G0_MAX_TIMEOUT_MS) {
+        a90_console_printf("gpu.h5.kms.error=timeout-too-large max_ms=%d\r\n",
+                           GPU_G0_MAX_TIMEOUT_MS);
+        return -EINVAL;
+    }
+
+    a90_console_printf("gpu.h5.kms.version=1\r\n");
+    a90_console_printf("gpu.h5.kms.scope=first-triangle-h5-h3-readback-to-kms-dumb-blit-probe\r\n");
+    a90_console_printf("gpu.h5.kms.kgsl_path=%s\r\n", GPU_G0_DEVNODE);
+    a90_console_printf("gpu.h5.kms.drm_path=/dev/dri/card0\r\n");
+    a90_console_printf("gpu.h5.kms.timeout_ms=%d\r\n", timeout_ms);
+    a90_console_printf("gpu.h5.kms.kgsl_source=h3-blend-output-readback-changed\r\n");
+    a90_console_printf("gpu.h5.kms.blit_mode=h3-private-buffer-readback-snapshot-to-kms-dumb-framebuffer\r\n");
+    a90_console_printf("gpu.h5.kms.raw_tile_order_visualization=1\r\n");
+    a90_console_printf("gpu.h5.kms.zero_copy_attempted=0\r\n");
+    a90_console_printf("gpu.h5.kms.scaled_plane_attempted=0\r\n");
+    a90_console_printf("gpu.h5.kms.kms_blit_attempted=1\r\n");
+    a90_console_printf("gpu.h5.kms.power_write_attempted=0\r\n");
+    a90_console_printf("gpu.h5.kms.proprietary_blob_attempted=0\r\n");
+
+    if (materialize_devnode) {
+        int mat_rc = gpu_g0_materialize_devnode();
+
+        a90_console_printf("gpu.h5.kms.materialize_requested=1\r\n");
+        a90_console_printf("gpu.h5.kms.materialize_rc=%d\r\n", mat_rc);
+        if (mat_rc < 0) {
+            return mat_rc;
+        }
+    } else {
+        a90_console_printf("gpu.h5.kms.materialize_requested=0\r\n");
+    }
+
+    collect_rc = gpu_h3_draw_snapshot_collect_child(timeout_ms, &run);
+    h3 = &run.payload.result;
+    a90_console_printf("gpu.h5.kms.child_pid=%ld\r\n", (long)run.child_pid);
+    a90_console_printf("gpu.h5.kms.child_collect_rc=%d\r\n", collect_rc);
+    a90_console_printf("gpu.h5.kms.child_payload_bytes_read=%u\r\n",
+                       (unsigned int)run.payload_bytes_read);
+    a90_console_printf("gpu.h5.kms.child_payload_bytes_expected=%u\r\n",
+                       (unsigned int)sizeof(run.payload));
+    a90_console_printf("gpu.h5.kms.h3_result=%s\r\n",
+                       run.got_result ? (gpu_h3_draw_envelope_result_retired(h3) ?
+                                         (h3->readback_changed_count > 0 ?
+                                          "draw-retired-readback-changed" :
+                                          "draw-retired-readback-unchanged") :
+                                         "returned-error") :
+                       (run.timed_out ? "timeout" : "no-result"));
+    a90_console_printf("gpu.h5.kms.h3_timed_out=%d\r\n", run.timed_out ? 1 : 0);
+    a90_console_printf("gpu.h5.kms.h3_child_killed=%d\r\n", run.child_killed ? 1 : 0);
+    a90_console_printf("gpu.h5.kms.h3_child_reaped=%d\r\n", run.child_reaped ? 1 : 0);
+    a90_console_printf("gpu.h5.kms.h3_child_status=0x%x\r\n", run.child_status);
+    if (run.got_result) {
+        a90_console_printf("gpu.h5.kms.h3_submit_rc=%d\r\n", h3->submit_rc);
+        a90_console_printf("gpu.h5.kms.h3_wait_rc=%d\r\n", h3->wait_rc);
+        a90_console_printf("gpu.h5.kms.h3_readback_sync_rc=%d\r\n", h3->readback_sync_rc);
+        a90_console_printf("gpu.h5.kms.h3_readback_changed_count=%u\r\n",
+                           h3->readback_changed_count);
+        a90_console_printf("gpu.h5.kms.h3_readback_first_changed_index=%u\r\n",
+                           h3->readback_first_changed_index);
+        a90_console_printf("gpu.h5.kms.h3_readback_first_changed_value=0x%x\r\n",
+                           h3->readback_first_changed_value);
+        a90_console_printf("gpu.h5.kms.h3_color_flag_changed_count=%u\r\n",
+                           h3->color_flag_changed_count);
+        a90_console_printf("gpu.h5.kms.h3_total_elapsed_ms=%ld\r\n",
+                           h3->total_elapsed_ms);
+    }
+
+    if (!run.got_result ||
+        !gpu_h3_draw_envelope_result_retired(h3) ||
+        h3->readback_changed_count == 0U) {
+        a90_console_printf("gpu.h5.kms.result=h3-readback-failed\r\n");
+        a90_console_printf("gpu.h5.kms.total_elapsed_ms=%ld\r\n",
+                           monotonic_millis() - total_started_ms);
+        return collect_rc < 0 ? collect_rc : -EIO;
+    }
+
+    stage_started_ms = monotonic_millis();
+    begin_rc = a90_kms_begin_frame(0x050505);
+    begin_elapsed_ms = monotonic_millis() - stage_started_ms;
+    a90_kms_info(&kms_info);
+    a90_console_printf("gpu.h5.kms.begin_frame_elapsed_ms=%ld\r\n", begin_elapsed_ms);
+    a90_console_printf("gpu.h5.kms.begin_frame_rc=%d\r\n", begin_rc);
+    a90_console_printf("gpu.h5.kms.fb_initialized=%d\r\n", kms_info.initialized ? 1 : 0);
+    a90_console_printf("gpu.h5.kms.fb_width=%u\r\n", kms_info.width);
+    a90_console_printf("gpu.h5.kms.fb_height=%u\r\n", kms_info.height);
+    a90_console_printf("gpu.h5.kms.fb_stride=%u\r\n", kms_info.stride);
+    a90_console_printf("gpu.h5.kms.fb_id=%u\r\n", kms_info.fb_id);
+    a90_console_printf("gpu.h5.kms.current_buffer=%u\r\n", kms_info.current_buffer);
+    if (begin_rc < 0) {
+        a90_console_printf("gpu.h5.kms.result=kms-begin-frame-failed\r\n");
+        a90_console_printf("gpu.h5.kms.total_elapsed_ms=%ld\r\n",
+                           monotonic_millis() - total_started_ms);
+        return -EIO;
+    }
+
+    stage_started_ms = monotonic_millis();
+    blit_rc = gpu_h5_blit_h3_readback_to_kms(run.payload.color_words,
+                                             h3,
+                                             &rect_x,
+                                             &rect_y,
+                                             &rect_w,
+                                             &rect_h,
+                                             &scale);
+    blit_elapsed_ms = monotonic_millis() - stage_started_ms;
+    a90_console_printf("gpu.h5.kms.blit_elapsed_ms=%ld\r\n", blit_elapsed_ms);
+    a90_console_printf("gpu.h5.kms.blit_rc=%d\r\n", blit_rc);
+    a90_console_printf("gpu.h5.kms.blit_rect=%u,%u,%u,%u\r\n",
+                       rect_x, rect_y, rect_w, rect_h);
+    a90_console_printf("gpu.h5.kms.blit_scale=%u\r\n", scale);
+    if (blit_rc < 0) {
+        a90_console_printf("gpu.h5.kms.result=kms-blit-failed\r\n");
+        a90_console_printf("gpu.h5.kms.total_elapsed_ms=%ld\r\n",
+                           monotonic_millis() - total_started_ms);
+        return blit_rc;
+    }
+
+    stage_started_ms = monotonic_millis();
+    present_rc = a90_kms_present("gpu-h5-triangle-kms", true);
+    present_elapsed_ms = monotonic_millis() - stage_started_ms;
+    a90_console_printf("gpu.h5.kms.present_elapsed_ms=%ld\r\n", present_elapsed_ms);
+    a90_console_printf("gpu.h5.kms.present_rc=%d\r\n", present_rc);
+    a90_console_printf("gpu.h5.kms.result=%s\r\n",
+                       present_rc == 0 ? "h3-readback-kms-presented" : "kms-present-failed");
+    a90_console_printf("gpu.h5.kms.total_elapsed_ms=%ld\r\n",
+                       monotonic_millis() - total_started_ms);
+    return present_rc == 0 ? 0 : -EIO;
+}
+
 static int handle_gpu(char **argv, int argc) {
     const char *subcommand = argc >= 2 ? argv[1] : "g0-status";
     int timeout_ms = GPU_G0_DEFAULT_TIMEOUT_MS;
@@ -8780,8 +9181,26 @@ static int handle_gpu(char **argv, int argc) {
         }
         return gpu_g5_kms_blit_probe(timeout_ms, materialize_devnode);
     }
+    if (strcmp(subcommand, "h5-triangle-kms-probe") == 0 ||
+        strcmp(subcommand, "triangle-kms-probe") == 0) {
+        for (index = 2; index < argc; ++index) {
+            if (strcmp(argv[index], "--timeout-ms") == 0) {
+                if (index + 1 >= argc || !gpu_g0_parse_int(argv[index + 1], &timeout_ms)) {
+                    a90_console_printf("gpu.h5.kms.error=bad-timeout\r\n");
+                    return -EINVAL;
+                }
+                ++index;
+            } else if (strcmp(argv[index], "--materialize-devnode") == 0) {
+                materialize_devnode = true;
+            } else {
+                a90_console_printf("usage: gpu h5-triangle-kms-probe [--timeout-ms N] [--materialize-devnode]\r\n");
+                return -EINVAL;
+            }
+        }
+        return gpu_h5_triangle_kms_probe(timeout_ms, materialize_devnode);
+    }
     if (strcmp(subcommand, "g0-open-probe") != 0) {
-        a90_console_printf("usage: gpu [g0-status|g0-fwclass-prepare|g0-open-probe [--timeout-ms N] [--rdwr] [--materialize-devnode]|g1-context-probe [--timeout-ms N] [--materialize-devnode]|g2-gpuobj-probe [--timeout-ms N] [--materialize-devnode]|g2-mmap-probe [--timeout-ms N] [--materialize-devnode]|g3-noop-submit-probe [--timeout-ms N] [--materialize-devnode]|h1-shader-state-probe [--timeout-ms N] [--materialize-devnode]|h2-3d-state-probe [--timeout-ms N] [--materialize-devnode]|h3-draw-envelope-probe [--timeout-ms N] [--materialize-devnode]|g4-solid-fill-probe [--timeout-ms N] [--materialize-devnode]|g5-kms-blit-probe [--timeout-ms N] [--materialize-devnode]]\r\n");
+        a90_console_printf("usage: gpu [g0-status|g0-fwclass-prepare|g0-open-probe [--timeout-ms N] [--rdwr] [--materialize-devnode]|g1-context-probe [--timeout-ms N] [--materialize-devnode]|g2-gpuobj-probe [--timeout-ms N] [--materialize-devnode]|g2-mmap-probe [--timeout-ms N] [--materialize-devnode]|g3-noop-submit-probe [--timeout-ms N] [--materialize-devnode]|h1-shader-state-probe [--timeout-ms N] [--materialize-devnode]|h2-3d-state-probe [--timeout-ms N] [--materialize-devnode]|h3-draw-envelope-probe [--timeout-ms N] [--materialize-devnode]|g4-solid-fill-probe [--timeout-ms N] [--materialize-devnode]|g5-kms-blit-probe [--timeout-ms N] [--materialize-devnode]|h5-triangle-kms-probe [--timeout-ms N] [--materialize-devnode]]\r\n");
         return -EINVAL;
     }
     for (index = 2; index < argc; ++index) {
@@ -8876,7 +9295,7 @@ static const struct shell_command command_table[] = {
     { "pstore", handle_pstore, "pstore [summary|full|paths]", CMD_NONE, A90_CMD_GROUP_CORE },
     { "watchdoginv", handle_watchdoginv, "watchdoginv [summary|full|paths]", CMD_NONE, A90_CMD_GROUP_CORE },
     { "tracefs", handle_tracefs, "tracefs [summary|full|paths]", CMD_NONE, A90_CMD_GROUP_CORE },
-    { "gpu", handle_gpu, "gpu [g0-status|g0-fwclass-prepare|g0-open-probe [--timeout-ms N] [--rdwr] [--materialize-devnode]|g1-context-probe [--timeout-ms N] [--materialize-devnode]|g2-gpuobj-probe [--timeout-ms N] [--materialize-devnode]|g2-mmap-probe [--timeout-ms N] [--materialize-devnode]|g3-noop-submit-probe [--timeout-ms N] [--materialize-devnode]|h1-shader-state-probe [--timeout-ms N] [--materialize-devnode]|h2-3d-state-probe [--timeout-ms N] [--materialize-devnode]|h3-draw-envelope-probe [--timeout-ms N] [--materialize-devnode]|g4-solid-fill-probe [--timeout-ms N] [--materialize-devnode]|g5-kms-blit-probe [--timeout-ms N] [--materialize-devnode]]", CMD_NONE, A90_CMD_GROUP_CORE },
+    { "gpu", handle_gpu, "gpu [g0-status|g0-fwclass-prepare|g0-open-probe [--timeout-ms N] [--rdwr] [--materialize-devnode]|g1-context-probe [--timeout-ms N] [--materialize-devnode]|g2-gpuobj-probe [--timeout-ms N] [--materialize-devnode]|g2-mmap-probe [--timeout-ms N] [--materialize-devnode]|g3-noop-submit-probe [--timeout-ms N] [--materialize-devnode]|h1-shader-state-probe [--timeout-ms N] [--materialize-devnode]|h2-3d-state-probe [--timeout-ms N] [--materialize-devnode]|h3-draw-envelope-probe [--timeout-ms N] [--materialize-devnode]|g4-solid-fill-probe [--timeout-ms N] [--materialize-devnode]|g5-kms-blit-probe [--timeout-ms N] [--materialize-devnode]|h5-triangle-kms-probe [--timeout-ms N] [--materialize-devnode]]", CMD_NONE, A90_CMD_GROUP_CORE },
     { "audio", handle_audio, "audio [status|profiles|profile|speaker-map|stages|prereq|app-type|setcal|route|play|chime|play-status|stop|adsp-status|snd-status]", CMD_NONE, A90_CMD_GROUP_ANDROID },
     { "video", handle_video, "video [status|frame [bars|checker|mono|0xRRGGBB]|demo [badapple|badapple-scale|nyan|doom [status|verify|play|frame|engine-probe] [frames] [--wad runtime-private --sha256 EXPECTED]|frame-pattern]|anim [bars|checker|pulse] [frames] [delay_ms]|blitbench [frames]|flipprobe [frames]|stream --manifest PATH --video-only [--frames N] [--present setcrtc|pageflip] [--layout full|player-hud] [--sync-audio-status PATH]|cache [status|verify|play] SHA256 [--trust-cache] [--layout full|player-hud]|cache preset [badapple|badapple-scale|nyan] [status|verify|play]]", CMD_DISPLAY, A90_CMD_GROUP_DISPLAY },
     { "wifi", handle_wifi, "wifi [status|scan [delay_ms]|connect [profile]|dhcp [profile]|ping [gateway|internet|all]|cleanup|config [status|prepare [profile]]]", CMD_NONE, A90_CMD_GROUP_NETWORK },

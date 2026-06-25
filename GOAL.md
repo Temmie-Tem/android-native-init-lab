@@ -1017,6 +1017,22 @@ ruled-out A640 magic block or VFD/VS input contract alone. Next bounded unit is 
 triangle result to `/dev/dri/card0`, or first inspect/reposition the changed region if a centered display proof is
 required.
 
+V3291 implemented the first H5 source/build unit on top of that H4 proof. The new `gpu h5-triangle-kms-probe` /
+`gpu triangle-kms-probe` command reuses the V3290-proven H3 draw/readback path, asks the KGSL child to return a bounded
+`128x128` color-buffer snapshot before cleanup, keeps KMS ownership in the parent init process, scales the raw H3
+readback into the existing `/dev/dri/card0` dumb framebuffer, and presents it with the existing `SETCRTC` path. This is
+intentionally a raw tile-order visualization because the H3 target is still `RGBA8 tile6_3`; zero-copy scanout,
+scaled-plane presentation, proprietary blob, full Mesa compiler port, and power writes are not attempted. The source
+unit built `0.11.71 (v3291-gpu-h5-triangle-kms-probe)` with SHA256
+`eea6c10b184ea19ce7c391899dae26c4bbf8b8ed4ac828409355b1d789a67f95`; no device flash or live KMS presentation was run
+in this build unit. Focused V3291 source tests, existing H3 source regression tests, `py_compile`, `git diff --check`,
+and the boot build passed. One legacy V3204 G5 source test was inspected separately and is stale against the current
+shared G4 event helper count, so it was not used as a V3291 pass criterion. Next live unit should flash V3291 through
+`native_init_flash.py` under the usual rollback gates and run
+`gpu h5-triangle-kms-probe --timeout-ms 5000 --materialize-devnode`, followed by post-probe selftest and focused GPU
+dmesg filtering. H5 should only be claimed if the command reports `gpu.h5.kms.result=h3-readback-kms-presented` and the
+panel visibly presents the H3 readback proof surface.
+
 **GPU backlog AFTER the triangle (do NOT pre-build; pull only when reached):**
 - **2nd capability = a VISIBLE compute demo (e.g. Mandelbrot/particle → KMS).** Reuses the shader path minus the
   rasterizer; gives GPU compute a *screen consumer*. **Matrix/GPGPU math is absorbed here, NOT a standalone goal** —
