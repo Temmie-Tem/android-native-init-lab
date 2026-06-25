@@ -62,6 +62,8 @@ class NativeGpuH3SPCntl0LinkageSourceV3218Tests(unittest.TestCase):
             in source
             or '"gpu.h3.draw.scope=first-triangle-h3-sp-update-cntl-compiler-vs-instrlen-cache-invalidate-rb-render-cntl-r0-output-shader'
             in source
+            or '"gpu.h3.draw.scope=first-triangle-h3-sysmem-bin-control-sp-update-cntl-compiler-vs-instrlen-cache-invalidate-rb-render-cntl-r0-output-shader'
+            in source
         )
         self.assertIn('"gpu.h3.draw.sp_vs_cntl0=0x%x', source)
         self.assertIn('"gpu.h3.draw.sp_ps_cntl0=0x%x', source)

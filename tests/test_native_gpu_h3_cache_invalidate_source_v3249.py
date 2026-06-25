@@ -81,6 +81,8 @@ class NativeGpuH3CacheInvalidateSourceV3249Tests(unittest.TestCase):
             in source
             or '"gpu.h3.draw.scope=first-triangle-h3-sp-update-cntl-compiler-vs-instrlen-cache-invalidate-rb-render-cntl-r0-output-shader'
             in source
+            or '"gpu.h3.draw.scope=first-triangle-h3-sysmem-bin-control-sp-update-cntl-compiler-vs-instrlen-cache-invalidate-rb-render-cntl-r0-output-shader'
+            in source
         )
         self.assertIn(
             '"gpu.h3.draw.cache_invalidate_source=mesa-freedreno-a6xx-fd6-emit-restore-fd6-cache-inv',

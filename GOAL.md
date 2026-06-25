@@ -693,6 +693,21 @@ focused dmesg filter found no KGSL/GPU fault, hang, snapshot, or timeout signatu
 (`readback_changed_count=0`, `readback0=0x20202020`, `readback_center=0x20202020`). This removes the missing draw-local
 `SP_UPDATE_CNTL=0x9f` packet as the primary no-pixel root cause. Remaining bounded work should stay outside shader bytes
 and now focus on restore-state ordering/`CP_SET_MODE` versus the sysmem MRT/CCU visibility path.
+V3255/V3256 then tested the Mesa sysmem render-pass bin-control delta. Source review first ruled out the proposed A640
+`RB_CCU_CNTL` magic-value change: local Mesa A640 trace and `config_sysmem` calculation both confirm current
+`RB_CCU_CNTL=0x10000000`. V3255 instead added the missing sysmem `set_bin_size` pair,
+`GRAS_SC_BIN_CNTL=0x02c00000` and `RB_CNTL=0x02c00000`, built as
+`0.11.54 (v3255-gpu-h3-sysmem-bin-control-probe)` with SHA256
+`0ccb33c25dcbbf9a8274d2d569c135a48a9ef208bb27e512d0cd73687a651501`, flashed through `native_init_flash.py`, and
+passed post-flash health after a host-side serial bridge restart cleared a transaction-lock/framing issue caused by
+parallel manual health commands (`selftest pass=12 warn=1 fail=0`). Live telemetry confirmed
+`gras_sc_bin_cntl=0x2c00000`, `rb_cntl=0x2c00000`, `pm4_dwords=246`, and `state_reg_writes=94`. Two H3 runs submitted
+and retired cleanly (`submit_rc=0`, `wait_rc=0`, `retired_timestamp=1`, warm `total_elapsed_ms=13`), with no focused
+KGSL/GPU/GMU/A640 fault, hang, snapshot, or timeout signature, but readback remained unchanged
+(`readback_changed_count=0`, `readback0=0x20202020`, `readback_center=0x20202020`). This removes missing sysmem
+`GRAS_SC_BIN_CNTL/RB_CNTL` as the primary no-pixel root cause. Next bounded unit should avoid broad register sweeping
+and diff against fd6 sysmem prep/draw ordering; one concrete remaining mismatch already visible is Mesa
+`VPC_SO_OVERRIDE(false)` while current H3 still reports `vpc_so_override=0x1`.
 
 **GPU backlog AFTER the triangle (do NOT pre-build; pull only when reached):**
 - **2nd capability = a VISIBLE compute demo (e.g. Mandelbrot/particle → KMS).** Reuses the shader path minus the

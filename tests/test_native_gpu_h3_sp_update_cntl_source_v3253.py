@@ -47,9 +47,11 @@ class NativeGpuH3SpUpdateCntlSourceV3253Tests(unittest.TestCase):
             source.index("GPU_H3_REG_SP_UPDATE_CNTL,\n                              GPU_H3_SP_UPDATE_CNTL_DRAW_STATE"),
             source.index("GPU_H3_REG_SP_MODE_CNTL,\n                              GPU_H3_SP_MODE_CNTL"),
         )
-        self.assertIn(
-            '"gpu.h3.draw.scope=first-triangle-h3-sp-update-cntl-compiler-vs-instrlen-cache-invalidate-rb-render-cntl-r0-output-shader',
-            source,
+        self.assertTrue(
+            '"gpu.h3.draw.scope=first-triangle-h3-sp-update-cntl-compiler-vs-instrlen-cache-invalidate-rb-render-cntl-r0-output-shader'
+            in source
+            or '"gpu.h3.draw.scope=first-triangle-h3-sysmem-bin-control-sp-update-cntl-compiler-vs-instrlen-cache-invalidate-rb-render-cntl-r0-output-shader'
+            in source
         )
         self.assertIn(
             '"gpu.h3.draw.sp_update_cntl_source=mesa-freedreno-a6xx-fd6-program-and-draw-stateobj',
