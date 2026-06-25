@@ -1033,6 +1033,24 @@ shared G4 event helper count, so it was not used as a V3291 pass criterion. Next
 dmesg filtering. H5 should only be claimed if the command reports `gpu.h5.kms.result=h3-readback-kms-presented` and the
 panel visibly presents the H3 readback proof surface.
 
+V3292 flashed that V3291 artifact through `native_init_flash.py` after reconfirming the rollback images and TWRP
+recovery. Flash-helper verification matched local, remote, and boot readback-prefix SHA
+`eea6c10b184ea19ce7c391899dae26c4bbf8b8ed4ac828409355b1d789a67f95`; resident came back as `0.11.71
+(v3291-gpu-h5-triangle-kms-probe)`, and health stayed clean (`selftest pass=12 warn=1 fail=0`; one immediate standalone
+selftest attempt lost serial framing due `AT` fragment noise, then `version` and slow-mode selftest passed). The live
+H5 command completed in `53ms` with `gpu.h5.kms.result=h3-readback-kms-presented`: the H3 child returned the full
+`66368`-byte payload, H3 again reported `readback_changed_count=672`, `readback_first_changed_index=9216`,
+`readback_first_changed_value=0xfb9802e6`, and `color_flag_changed_count=32`, then the parent KMS path reported
+`begin_frame_rc=0`, `fb_width=1080`, `fb_height=2400`, `fb_stride=4352`, `blit_rc=0`,
+`blit_rect=28,176,1024,1024`, `blit_scale=8`, `present_rc=0`, and
+`gpu-h5-triangle-kms: presented framebuffer 1080x2400 on crtc=133`. Post-probe selftest stayed clean, and focused dmesg
+showed no GPU fault, hang, snapshot, opcode, SMMU/IOMMU, or page-fault signature; only expected `a640_zap` load/reset
+lines matched. This device-proves the H5 KMS presentation path by serial telemetry. The only remaining H5 quality
+checkpoint is human visual confirmation of the panel, because this run has no camera/display capture and the current
+surface is a raw `RGBA8 tile6_3` readback visualization. If the operator requires a literal centered triangle rather
+than the raw proof surface, the next bounded unit should add tile/format conversion or render into a KMS-friendly linear
+presentation buffer before moving to after-triangle backlog.
+
 **GPU backlog AFTER the triangle (do NOT pre-build; pull only when reached):**
 - **2nd capability = a VISIBLE compute demo (e.g. Mandelbrot/particle → KMS).** Reuses the shader path minus the
   rasterizer; gives GPU compute a *screen consumer*. **Matrix/GPGPU math is absorbed here, NOT a standalone goal** —
