@@ -78,8 +78,8 @@ class NativeGpuH2_3DStateProbeSourceV3210Tests(unittest.TestCase):
         self.assertIn("kill(pid, SIGKILL)", source)
         self.assertIn("waitpid(pid, &child_status, 0)", source)
 
-        h2_start = source.index("static bool gpu_h2_build_3d_state_pm4")
-        h2_end = source.index("static void gpu_g0_print_read_attr", h2_start)
+        h2_start = source.index("static bool gpu_h2_append_3d_state_pm4")
+        h2_end = source.index("static bool gpu_h2_build_3d_state_pm4", h2_start)
         h2_stream = source[h2_start:h2_end]
         self.assertIn("GPU_H2_REG_GRAS_CL_VIEWPORT", h2_stream)
         self.assertIn("GPU_H2_REG_RB_MRT0_BASE", h2_stream)
