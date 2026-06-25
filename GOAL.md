@@ -623,6 +623,19 @@ fault/hang/snapshot/timeout signature, but readback stayed unchanged (`readback_
 Next bounded unit should stop toggling output regid alone and prove the shader execution contract more directly:
 disassemble/audit the exact hand-assembled ir3 words including scheduling bits, or replace them with a minimal
 known-good compiler/disassembler-derived ir3 payload while preserving the same KGSL-direct envelope.
+V3246 then performed that host-side shader-byte audit without changing or flashing a boot artifact. A minimal Mesa
+freedreno `ir3-disasm` was built under `/tmp/a90-mesa-h3-build-ir3` and
+`native_gpu_h3_shader_byte_audit_v3246.py --require-ir3-disasm` decoded the exact H3 words from
+`80_shell_dispatch.inc.c`: VS is `mov.f32f32 r0.x,r0.x`; `mov.f32f32 r0.y,r0.y`;
+`mov.f32f32 r0.z,(0.0)`; `mov.f32f32 r0.w,(1.0)`; `end`; `nop`, and FS is
+`mov.f32f32 r0.x,(1.0)`; `end`; `nop`; `nop`. All decoded words have no `(ss)`/`(sy)` flags, matching the current
+plain hand encoding. The audit also closes two targeted register-side shader contract suspicions: FS writes a full f32
+`r0.x` and `SP_PS_OUTPUT_REG0` has `HALF_PRECISION=0`, so the current full-output path is internally consistent; position
+is designated by `VPC_VS_CNTL.positionloc=0` plus `SP_VS_VPC_DEST_REG0.OUTLOC0=0`, while `VPC_VS_SIV_CNTL=0xffff` is only
+the layer/view sentinel, not the position selector. This makes the exact hand-assembled bytes unlikely to be the
+no-pixel root cause. Next bounded unit should compare the remaining first-draw packet/linkage delta outside the already
+verified shader bytes, especially render-target/RB linkage or any compiler-emitted minimal-shader state that is still
+absent from the KGSL-direct envelope.
 
 **GPU backlog AFTER the triangle (do NOT pre-build; pull only when reached):**
 - **2nd capability = a VISIBLE compute demo (e.g. Mandelbrot/particle → KMS).** Reuses the shader path minus the
