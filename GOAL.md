@@ -949,6 +949,22 @@ Next bounded unit should stop isolated magic/register guesses and use the defini
 assemble a real Mesa/freedreno A640 sysmem single-triangle `.rd`/cffdump stream and diff it against current H3,
 admitting only remaining direct-sysmem-compatible packet groups.
 
+V3286 converted that packet-level direction into a host-only cffdump/current-H3 diff using the local A640 freedreno
+trace at `/tmp/a90-h3-cffdump/triangle_list.rd` (SHA256
+`2fe5c6781058bb698e373bef3d2a9cffe4f04503d9fe3c9f81f2938cdb053011`) and decoded
+`triangle_summary.txt`. No boot image was built or flashed. The diff confirms the already-tested/closed H3 core state
+now matches the reference draw for `RB_RENDER_CNTL`, `RB_MRT[0].CONTROL`, `RB_MRT[0].BUF_INFO`,
+`SP_PS_OUTPUT_CNTL`, `SP_PS_MRT[0].REG`, `VPC_VS_CNTL`, `VPC_PS_CNTL`, SP/RB output masks, raster state, and most
+program routing. It also separates unsafe/contextual differences from candidates: the trace draw is a GMEM pass with a
+later resolve, so `RB_CCU_CNTL`, `GRAS_SC_BIN_CNTL`, `RB_CNTL`, target-size pitches/scissors/viewports, and addresses
+are not direct H3 copy targets. The top remaining deltas are now: (1) the coherent VFD/VS input contract
+(`VFD_CNTL_0=0x303`, 36-byte stride, three fetch/decode streams, vertex-id in `r2.y`) versus current H3's single
+2-float fetch (`VFD_CNTL_0=0x101`, 8-byte stride); (2) the smaller direct-sysmem-compatible blend/output group
+(`SP_BLEND_CNTL=0x100`, `RB_BLEND_CNTL=0xffff0100`, `RB_MRT[0].BLEND_CONTROL=0x08040804`) versus current zeros; and
+(3) `SP_VS_CONST_CONFIG=0x101`, which is coupled to the reference VS constants and should not be copied alone. Next
+bounded unit should prefer a coherent reference-contract VFD/VS replay, or, if a smaller live probe is desired first,
+test only the blend/output-state group together under the existing H3 timeout/readback guards.
+
 **GPU backlog AFTER the triangle (do NOT pre-build; pull only when reached):**
 - **2nd capability = a VISIBLE compute demo (e.g. Mandelbrot/particle → KMS).** Reuses the shader path minus the
   rasterizer; gives GPU compute a *screen consumer*. **Matrix/GPGPU math is absorbed here, NOT a standalone goal** —
