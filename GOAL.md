@@ -965,6 +965,17 @@ are not direct H3 copy targets. The top remaining deltas are now: (1) the cohere
 bounded unit should prefer a coherent reference-contract VFD/VS replay, or, if a smaller live probe is desired first,
 test only the blend/output-state group together under the existing H3 timeout/readback guards.
 
+V3287 then implemented the top V3286 packet-diff candidate as a source/build unit while preserving the already-tested
+V3284/V3285 A640 non-zero init-magic block. H3 now uses the cffdump-shaped VFD/VS input contract:
+`VFD_CNTL_0=0x303`, `VFD_CNTL_1=0xfcfcfc09`, three fetch/decode streams, 36-byte vertex stride, and vertex payload
+`r0.xyzw` varying color + `r1.xyzw` clip-space position + `r2.x` integer sideband. The VS was changed from the older
+constant-built position path to a constant-free `r1.xyzw -> r2.xyzw` pass-through while preserving `r0` for the existing
+cffdump barycentric FS. The source unit built `0.11.69 (v3287-gpu-h3-vfd-vs-contract-probe)` with SHA256
+`560538eb253daa013971a2492575f80797082b3359d51e159c3a76e990aa9255`; no device flash or live readback was run in this
+build unit. Focused source tests and shader/cffdump audits passed. Next live unit, if selected, should flash V3287
+through `native_init_flash.py` under the usual rollback gates and check whether `readback_changed_count` or the
+color-flag buffer changes before moving to the smaller blend/output-state group.
+
 **GPU backlog AFTER the triangle (do NOT pre-build; pull only when reached):**
 - **2nd capability = a VISIBLE compute demo (e.g. Mandelbrot/particle → KMS).** Reuses the shader path minus the
   rasterizer; gives GPU compute a *screen consumer*. **Matrix/GPGPU math is absorbed here, NOT a standalone goal** —

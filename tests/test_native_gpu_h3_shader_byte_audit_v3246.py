@@ -29,14 +29,12 @@ class NativeGpuH3ShaderByteAuditV3246Tests(unittest.TestCase):
         self.assertEqual(
             [entry["word"] for entry in result["decoded"]["vs_shader"]],
             [
-                "20044008_00000000",
-                "20044009_00000001",
-                "204cc00a_00000000",
-                "204cc00b_3f800000",
-                "20444002_00000000",
-                "20444003_3f800000",
+                "20044008_00000004",
+                "20044009_00000005",
+                "2004400a_00000006",
+                "2004400b_00000007",
                 "03000000_00000000",
-            ] + ["00000000_00000000"] * 9,
+            ] + ["00000000_00000000"] * 11,
         )
         self.assertEqual(
             [entry["word"] for entry in result["decoded"]["fs_shader"]],
@@ -55,6 +53,7 @@ class NativeGpuH3ShaderByteAuditV3246Tests(unittest.TestCase):
 
         self.assertTrue(checks["fs_uses_cffdump_bary_outputs"])
         self.assertTrue(checks["vs_routes_position_to_r2_and_varying_r0"])
+        self.assertEqual(checks["vs_position_source_regid"], 4)
         self.assertEqual(checks["vs_shader_instrlen"], 1)
         self.assertEqual(checks["fs_shader_instrlen"], 1)
         self.assertEqual(checks["ir3_instr_align"], 16)
@@ -88,6 +87,18 @@ class NativeGpuH3ShaderByteAuditV3246Tests(unittest.TestCase):
         self.assertEqual(checks["pc_power_cntl"], 0x00000001)
         self.assertEqual(checks["vfd_power_cntl"], 0x00000001)
         self.assertEqual(checks["uche_unknown_0e12"], 0x00000001)
+        self.assertEqual(checks["vertex_stride"], 36)
+        self.assertEqual(checks["vertex_dwords"], 27)
+        self.assertEqual(checks["vertex_bytes"], 108)
+        self.assertEqual(checks["vfd_cntl_0"], 0x00000303)
+        self.assertEqual(checks["vfd_cntl_1"], 0xFCFCFC09)
+        self.assertEqual(checks["vfd_fetch_instr0"], 0xC8200000)
+        self.assertEqual(checks["vfd_fetch_instr1"], 0xC8200200)
+        self.assertEqual(checks["vfd_fetch_instr2"], 0x44C00400)
+        self.assertEqual(checks["vfd_dest_cntl0"], 0xF)
+        self.assertEqual(checks["vfd_dest_cntl1"], 0x4F)
+        self.assertEqual(checks["vfd_dest_cntl2"], 0x81)
+        self.assertTrue(checks["vfd_contract_matches_a640_cffdump_draw2"])
 
         self.assertEqual(checks["sp_vs_output_reg0_a_regid"], 8)
         self.assertEqual(checks["sp_vs_output_reg0_a_compmask"], 0xF)

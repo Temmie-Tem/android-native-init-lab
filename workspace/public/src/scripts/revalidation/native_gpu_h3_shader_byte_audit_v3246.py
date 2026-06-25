@@ -24,14 +24,12 @@ DEFAULT_TMP_IR3_DISASM = Path("/tmp/a90-mesa-h3-build-ir3/src/freedreno/isa/ir3-
 DEFAULT_CHIP_ID = "06040000"
 
 EXPECTED_VS = [
-    "mov.f32f32 r2.x, r0.x",
-    "mov.f32f32 r2.y, r0.y",
-    "mov.u32u32 r2.z, 0",
-    "mov.u32u32 r2.w, 0x3f800000",
-    "mov.f32f32 r0.z, (0.0)",
-    "mov.f32f32 r0.w, (1.0)",
+    "mov.f32f32 r2.x, r1.x",
+    "mov.f32f32 r2.y, r1.y",
+    "mov.f32f32 r2.z, r1.z",
+    "mov.f32f32 r2.w, r1.w",
     "end",
-    *["nop"] * 9,
+    *["nop"] * 11,
 ]
 EXPECTED_FS = [
     "bary.f r0.z, 0, r0.x",
@@ -229,13 +227,16 @@ def decode_current_ir3_word(word: InstructionWord) -> dict[str, Any]:
             dst_name = _reg_name(dst)
             if src_is_immediate:
                 src = f"({_float32_from_u32(word.lo)})"
+                src_regid = None
             else:
-                src = _reg_name(word.lo & 0xFF)
+                src_regid = word.lo & 0xFF
+                src = _reg_name(src_regid)
             return common | {
                 "mnemonic": "mov.f32f32",
                 "dst_type": "f32",
                 "src_type": "f32",
                 "dst_regid": dst,
+                "src_regid": src_regid,
                 "src_immediate": src_is_immediate,
                 "disasm": f"mov.f32f32 {dst_name}, {src}",
             }
@@ -243,13 +244,16 @@ def decode_current_ir3_word(word: InstructionWord) -> dict[str, Any]:
             dst_name = _reg_name(dst)
             if src_is_immediate:
                 src = "0" if word.lo == 0 else f"0x{word.lo:08x}"
+                src_regid = None
             else:
-                src = _reg_name(word.lo & 0xFF)
+                src_regid = word.lo & 0xFF
+                src = _reg_name(src_regid)
             return common | {
                 "mnemonic": "mov.u32u32",
                 "dst_type": "u32",
                 "src_type": "u32",
                 "dst_regid": dst,
+                "src_regid": src_regid,
                 "src_immediate": src_is_immediate,
                 "disasm": f"mov.u32u32 {dst_name}, {src}",
             }
@@ -395,8 +399,9 @@ def run_audit(
         ] == EXPECTED_FS[:4],
         "vs_routes_position_to_r2_and_varying_r0": [
             entry.get("mesa_ir3_disasm") or entry.get("disasm")
-            for entry in decoded["vs_shader"][:6]
-        ] == EXPECTED_VS[:6],
+            for entry in decoded["vs_shader"][:macros.resolve("GPU_H3_VS_SHADER_INSTR_COUNT")]
+        ] == EXPECTED_VS[:macros.resolve("GPU_H3_VS_SHADER_INSTR_COUNT")],
+        "vs_position_source_regid": decoded["vs_shader"][0].get("src_regid", 4) if decoded["vs_shader"] else None,
         "vs_shader_instrlen": macros.resolve("GPU_H3_VS_SHADER_INSTRLEN"),
         "fs_shader_instrlen": macros.resolve("GPU_H3_FS_SHADER_INSTRLEN"),
         "ir3_instr_align": macros.resolve("GPU_H3_IR3_INSTR_ALIGN"),
@@ -439,6 +444,29 @@ def run_audit(
         "a640_nonzero_magic_all_match": all(a640_nonzero_magic_matches.values()),
         "a640_init_magic_reg_writes": a640_init_magic_reg_writes,
         "a640_init_magic_is_nonzero_block": a640_init_magic_reg_writes == 9,
+        "vertex_stride": macros.resolve("GPU_H3_VERTEX_STRIDE"),
+        "vertex_dwords": macros.resolve("GPU_H3_VERTEX_DWORDS"),
+        "vertex_bytes": macros.resolve("GPU_H3_VERTEX_DWORDS") * 4,
+        "vfd_cntl_0": macros.resolve("GPU_H3_VFD_CNTL_0"),
+        "vfd_cntl_1": macros.resolve("GPU_H3_VFD_CNTL_1"),
+        "vfd_fetch_instr0": macros.resolve("GPU_H3_VFD_FETCH_INSTR0"),
+        "vfd_fetch_instr1": macros.resolve("GPU_H3_VFD_FETCH_INSTR1"),
+        "vfd_fetch_instr2": macros.resolve("GPU_H3_VFD_FETCH_INSTR2"),
+        "vfd_dest_cntl0": macros.resolve("GPU_H3_VFD_DEST_CNTL0"),
+        "vfd_dest_cntl1": macros.resolve("GPU_H3_VFD_DEST_CNTL1"),
+        "vfd_dest_cntl2": macros.resolve("GPU_H3_VFD_DEST_CNTL2"),
+        "vfd_contract_matches_a640_cffdump_draw2": (
+            macros.resolve("GPU_H3_VERTEX_STRIDE") == 36
+            and macros.resolve("GPU_H3_VERTEX_DWORDS") == 27
+            and macros.resolve("GPU_H3_VFD_CNTL_0") == 0x303
+            and macros.resolve("GPU_H3_VFD_CNTL_1") == 0xFCFCFC09
+            and macros.resolve("GPU_H3_VFD_FETCH_INSTR0") == 0xC8200000
+            and macros.resolve("GPU_H3_VFD_FETCH_INSTR1") == 0xC8200200
+            and macros.resolve("GPU_H3_VFD_FETCH_INSTR2") == 0x44C00400
+            and macros.resolve("GPU_H3_VFD_DEST_CNTL0") == 0xF
+            and macros.resolve("GPU_H3_VFD_DEST_CNTL1") == 0x4F
+            and macros.resolve("GPU_H3_VFD_DEST_CNTL2") == 0x81
+        ),
         "sp_vs_output_reg0_a_regid": sp_vs_output_reg0 & 0xFF,
         "sp_vs_output_reg0_a_compmask": (sp_vs_output_reg0 >> 8) & 0xF,
         "sp_vs_output_reg0_b_regid": (sp_vs_output_reg0 >> 16) & 0xFF,
@@ -475,6 +503,8 @@ def run_audit(
         and checks["rb_dbg_eco_matches_a640_device_db"]
         and checks["a640_nonzero_magic_all_match"]
         and checks["a640_init_magic_is_nonzero_block"]
+        and checks["vfd_contract_matches_a640_cffdump_draw2"]
+        and checks["vs_position_source_regid"] == 4
         and checks["sp_vs_output_reg0_a_regid"] == 8
         and checks["sp_vs_output_reg0_a_compmask"] == 0xF
         and checks["sp_vs_output_reg0_b_regid"] == 0
@@ -490,8 +520,8 @@ def run_audit(
         and checks["vpc_ps_cntl_viewidloc"] == 0xFF
     )
     return {
-        "cycle": "V3284",
-        "scope": "gpu-h3-a640-nonzero-init-magic-shader-byte-audit",
+        "cycle": "V3287",
+        "scope": "gpu-h3-vfd-vs-contract-replay-shader-byte-audit",
         "dispatch": str(dispatch.relative_to(REPO_ROOT)),
         "chip_id": chip_id,
         "passed": passed,

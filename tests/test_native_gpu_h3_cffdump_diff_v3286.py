@@ -135,11 +135,11 @@ class NativeGpuH3CffdumpDiffV3286Tests(unittest.TestCase):
         vfd = result["top_candidates"][0]
         self.assertEqual(vfd["classification"], "structural_shader_vfd_coupled")
         self.assertEqual(vfd["reference"]["VFD_CNTL_0"], 0x303)
-        self.assertEqual(vfd["current_h3"]["VFD_CNTL_0"], 0x101)
+        self.assertEqual(vfd["current_h3"]["VFD_CNTL_0"], 0x303)
         self.assertEqual(vfd["reference"]["VFD_VERTEX_BUFFER[0].STRIDE"], 36)
-        self.assertEqual(vfd["current_h3"]["VFD_VERTEX_BUFFER[0].STRIDE"], 8)
+        self.assertEqual(vfd["current_h3"]["VFD_VERTEX_BUFFER[0].STRIDE"], 36)
         self.assertEqual(vfd["reference"]["VFD_DEST_CNTL[0].INSTR"], 0xF)
-        self.assertEqual(vfd["current_h3"]["VFD_DEST_CNTL[0].INSTR"], 0x3)
+        self.assertEqual(vfd["current_h3"]["VFD_DEST_CNTL[0].INSTR"], 0xF)
 
         blend = result["top_candidates"][1]
         self.assertEqual(blend["classification"], "direct_sysmem_compatible_output_state")

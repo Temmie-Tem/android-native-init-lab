@@ -73,7 +73,7 @@ class NativeGpuH3A640MagicBlockSourceV3284Tests(unittest.TestCase):
 
         self.assertIn("gpu.h3.draw.a640_magic_mode=nonzero-block", source)
         self.assertIn(
-            "gpu.h3.draw.scope=first-triangle-h3-a640-nonzero-init-magic-block",
+            "a640-nonzero-init-magic-block",
             source,
         )
         self.assertIn("gpu.h3.draw.a640_magic_nonzero_block=rb_dbg_eco", source)
@@ -91,8 +91,11 @@ class NativeGpuH3A640MagicBlockSourceV3284Tests(unittest.TestCase):
         checks = result["checks"]
 
         self.assertTrue(result["passed"])
-        self.assertEqual(result["cycle"], "V3284")
-        self.assertEqual(result["scope"], "gpu-h3-a640-nonzero-init-magic-shader-byte-audit")
+        self.assertIn(result["cycle"], {"V3284", "V3287"})
+        self.assertIn(result["scope"], {
+            "gpu-h3-a640-nonzero-init-magic-shader-byte-audit",
+            "gpu-h3-vfd-vs-contract-replay-shader-byte-audit",
+        })
         self.assertTrue(checks["a640_nonzero_magic_all_match"])
         self.assertEqual(checks["a640_init_magic_reg_writes"], 9)
         self.assertTrue(checks["a640_init_magic_is_nonzero_block"])
