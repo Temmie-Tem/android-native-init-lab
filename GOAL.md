@@ -610,6 +610,19 @@ shader/output contract: prove the hand-assembled ir3 VS writes the clip-space po
 output slot and that the FS output register/MRT linkage matches the current `r1` split, before doing another broad
 register sweep. LRZ is already programmed disabled in the state stream and RB CCU sysmem control is present, so keep
 those lower priority unless new evidence reopens them.
+V3244/V3245 then tested the smallest output-register fallback by keeping the V3242 direct-render marker, RB CCU sysmem,
+sample-location, static-context, and fullregfootprint state intact while switching the hand-assembled ir3 contract to
+`r0`: VS passes through `r0.xy` and writes `r0.zw=0/1`, FS writes color to `r0.x`, and VS/PS output regids are both
+`0` (`SP_VS_OUTPUT_REG0=0x00000f00`). The image flashed as `0.11.49 (v3244-gpu-h3-r0-output-probe)` with SHA256
+`9764d950f93ada582b5b853c17dcf480635df0aeffe5ee90d6cab7845533c66d` and passed post-flash health (`selftest
+pass=12 warn=1 fail=0`). Live telemetry confirmed the r0 contract (`vs_output_regid=0x0`, `ps_output_regid=0x0`,
+`sp_vs_output_reg0=0xf00`) with unchanged envelope counts (`pm4_dwords=233`, `state_reg_writes=92`); the draw again
+submitted and retired (`submit_rc=0`, `wait_rc=0`, `retired_timestamp=1`, `total_elapsed_ms=29`) with no KGSL/GPU
+fault/hang/snapshot/timeout signature, but readback stayed unchanged (`readback_changed_count=0`, `readback0=0x20202020`,
+`readback_center=0x20202020`). This removes a simple `r1` output-register mismatch as the primary no-pixel root cause.
+Next bounded unit should stop toggling output regid alone and prove the shader execution contract more directly:
+disassemble/audit the exact hand-assembled ir3 words including scheduling bits, or replace them with a minimal
+known-good compiler/disassembler-derived ir3 payload while preserving the same KGSL-direct envelope.
 
 **GPU backlog AFTER the triangle (do NOT pre-build; pull only when reached):**
 - **2nd capability = a VISIBLE compute demo (e.g. Mandelbrot/particle → KMS).** Reuses the shader path minus the
