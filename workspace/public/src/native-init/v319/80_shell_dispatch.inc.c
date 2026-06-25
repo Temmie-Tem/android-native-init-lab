@@ -1761,6 +1761,7 @@ struct gpu_g4_solid_fill_child_run {
 #define GPU_H3_FS_SHADER_INSTRLEN 1U
 #define GPU_H3_VS_SHADER_DWORDS GPU_H3_SHADER_ALIGNED_DWORDS
 #define GPU_H3_FS_SHADER_DWORDS GPU_H3_SHADER_ALIGNED_DWORDS
+#define GPU_H3_SP_UPDATE_CNTL_DRAW_STATE 0x0000009fU
 #define GPU_H3_VS_OUTPUT_REGID 0U
 #define GPU_H3_PS_OUTPUT_REGID 0U
 #define GPU_H3_SP_VS_OUTPUT_REG0 \
@@ -1835,6 +1836,7 @@ struct gpu_g4_solid_fill_child_run {
 #define GPU_H1_REG_SP_PS_CONFIG 0xab04U
 #define GPU_H1_REG_SP_PS_INSTR_SIZE 0xab05U
 #define GPU_H3_REG_SP_MODE_CNTL 0xab00U
+#define GPU_H3_REG_SP_UPDATE_CNTL 0xbb08U
 #define GPU_H3_REG_TPL1_MODE_CNTL 0xb309U
 #define GPU_H3_SP_MODE_CNTL 0x00000005U
 #define GPU_H3_TPL1_MODE_CNTL 0x000000a2U
@@ -2564,7 +2566,9 @@ static bool gpu_h3_append_shader_state_pm4(uint32_t *words,
     if (!gpu_g4_pm4_emit_pkt7(words, dwords, (uint8_t)GPU_G4_PM4_CP_WAIT_FOR_IDLE, 0)) {
         return false;
     }
-    if (!gpu_g4_pm4_emit_reg1(words, dwords, GPU_H3_REG_SP_MODE_CNTL,
+    if (!gpu_g4_pm4_emit_reg1(words, dwords, GPU_H3_REG_SP_UPDATE_CNTL,
+                              GPU_H3_SP_UPDATE_CNTL_DRAW_STATE) ||
+        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H3_REG_SP_MODE_CNTL,
                               GPU_H3_SP_MODE_CNTL) ||
         !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H3_REG_TPL1_MODE_CNTL,
                               GPU_H3_TPL1_MODE_CNTL) ||
@@ -7477,7 +7481,7 @@ static int gpu_h3_draw_envelope_probe(int timeout_ms, bool materialize_devnode) 
         return -EINVAL;
     }
     a90_console_printf("gpu.h3.draw.version=1\r\n");
-    a90_console_printf("gpu.h3.draw.scope=first-triangle-h3-compiler-vs-instrlen-cache-invalidate-rb-render-cntl-r0-output-shader\r\n");
+    a90_console_printf("gpu.h3.draw.scope=first-triangle-h3-sp-update-cntl-compiler-vs-instrlen-cache-invalidate-rb-render-cntl-r0-output-shader\r\n");
     a90_console_printf("gpu.h3.draw.path=%s\r\n", GPU_G0_DEVNODE);
     a90_console_printf("gpu.h3.draw.timeout_ms=%d\r\n", timeout_ms);
     a90_console_printf("gpu.h3.draw.wait_timeout_ms=%u\r\n", GPU_H3_WAIT_TIMEOUT_MS);
@@ -7498,6 +7502,9 @@ static int gpu_h3_draw_envelope_probe(int timeout_ms, bool materialize_devnode) 
     a90_console_printf("gpu.h3.draw.ps_output_regid=0x%x\r\n", GPU_H3_PS_OUTPUT_REGID);
     a90_console_printf("gpu.h3.draw.sp_vs_output_reg0=0x%x\r\n", GPU_H3_SP_VS_OUTPUT_REG0);
     a90_console_printf("gpu.h3.draw.shader_mode_source=mesa-freedreno-a6xx-fd6-emit-shader-regs-sp-tpl1-mode\r\n");
+    a90_console_printf("gpu.h3.draw.sp_update_cntl_source=mesa-freedreno-a6xx-fd6-program-and-draw-stateobj\r\n");
+    a90_console_printf("gpu.h3.draw.sp_update_cntl=0x%x\r\n",
+                       GPU_H3_SP_UPDATE_CNTL_DRAW_STATE);
     a90_console_printf("gpu.h3.draw.sp_fullregfootprint=%u\r\n", GPU_H3_SP_FULLREGFOOTPRINT);
     a90_console_printf("gpu.h3.draw.sp_mode_cntl=0x%x\r\n", GPU_H3_SP_MODE_CNTL);
     a90_console_printf("gpu.h3.draw.tpl1_mode_cntl=0x%x\r\n", GPU_H3_TPL1_MODE_CNTL);

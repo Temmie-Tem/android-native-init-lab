@@ -681,6 +681,18 @@ and shader `instrlen`/load unit count as the primary no-pixel root cause. Next b
 frozen unless a real disassembler-backed mismatch appears, and instead isolate a concrete Mesa first-draw packet delta
 outside shader bytes: draw-state bootstrap ordering, `CP_SET_MODE`/`SP_UPDATE_CNTL`-style restore state, or the sysmem
 MRT/CCU visibility path.
+V3253/V3254 then tested the next concrete Mesa first-draw packet delta by adding draw-local `SP_UPDATE_CNTL=0x0000009f`
+at register `0xbb08` before H3 shader state, matching the local freedreno A6xx draw/program state object pattern
+(`VS_STATE|HS_STATE|DS_STATE|GS_STATE|FS_STATE|GFX_UAV`, bindless masks zero). The image built as
+`0.11.53 (v3253-gpu-h3-sp-update-cntl-probe)` with SHA256
+`1395721839c41ac07ff41379fabaa298d40479b237384add1bcfb6c1837d5769`, flashed through `native_init_flash.py`, passed
+post-flash health after a serial bridge restart cleared one stale framing failure (`selftest pass=12 warn=1 fail=0`),
+and live telemetry confirmed `sp_update_cntl=0x9f`, `pm4_dwords=242`, and unchanged `state_reg_writes=92`. Two H3 runs
+submitted and retired cleanly (`submit_rc=0`, `wait_rc=0`, `retired_timestamp=1`, warm `total_elapsed_ms=12`), and the
+focused dmesg filter found no KGSL/GPU fault, hang, snapshot, or timeout signature, but readback remained unchanged
+(`readback_changed_count=0`, `readback0=0x20202020`, `readback_center=0x20202020`). This removes the missing draw-local
+`SP_UPDATE_CNTL=0x9f` packet as the primary no-pixel root cause. Remaining bounded work should stay outside shader bytes
+and now focus on restore-state ordering/`CP_SET_MODE` versus the sysmem MRT/CCU visibility path.
 
 **GPU backlog AFTER the triangle (do NOT pre-build; pull only when reached):**
 - **2nd capability = a VISIBLE compute demo (e.g. Mandelbrot/particle → KMS).** Reuses the shader path minus the
