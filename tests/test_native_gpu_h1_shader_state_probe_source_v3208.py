@@ -103,7 +103,7 @@ class NativeGpuH1ShaderStateProbeSourceV3208Tests(unittest.TestCase):
         self.assertIn("waitpid(pid, &child_status, 0)", source)
 
         h1_start = source.index("static bool gpu_h1_build_shader_state_pm4")
-        h1_end = source.index("static void gpu_g0_print_read_attr", h1_start)
+        h1_end = source.index("static uint32_t gpu_h2_float_bits", h1_start)
         h1_stream = source[h1_start:h1_end]
         self.assertIn("GPU_G4_PM4_CP_WAIT_FOR_IDLE", h1_stream)
         self.assertIn("GPU_H1_PM4_CP_LOAD_STATE6_GEOM", h1_stream)

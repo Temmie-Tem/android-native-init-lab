@@ -1703,6 +1703,8 @@ struct gpu_g4_solid_fill_child_run {
 #define GPU_H1_VS_SHADER_DWORDS 8U
 #define GPU_H1_FS_SHADER_DWORDS 8U
 #define GPU_H1_SP_CONFIG_ENABLED (1U << 8)
+#define GPU_H1_IR3_END_LO 0x00000000U
+#define GPU_H1_IR3_END_HI 0x03000000U
 #define GPU_H1_CP_LOAD_STATE6_STATE_SRC_INDIRECT (2U << 16)
 #define GPU_H1_CP_LOAD_STATE6_SB_VS_SHADER (8U << 18)
 #define GPU_H1_CP_LOAD_STATE6_SB_FS_SHADER (12U << 18)
@@ -6638,11 +6640,11 @@ static bool gpu_h3_draw_envelope_result_retired(const struct gpu_h3_draw_envelop
 
 static int gpu_h3_draw_envelope_probe_child(int write_fd) {
     static const uint32_t vs_shader[GPU_H1_VS_SHADER_DWORDS] = {
-        0x00000000U, 0x00000000U, 0x00000000U, 0x00000000U,
+        GPU_H1_IR3_END_LO, GPU_H1_IR3_END_HI, 0x00000000U, 0x00000000U,
         0x00000000U, 0x00000000U, 0x00000000U, 0x00000000U,
     };
     static const uint32_t fs_shader[GPU_H1_FS_SHADER_DWORDS] = {
-        0x00000000U, 0x00000000U, 0x00000000U, 0x00000000U,
+        GPU_H1_IR3_END_LO, GPU_H1_IR3_END_HI, 0x00000000U, 0x00000000U,
         0x00000000U, 0x00000000U, 0x00000000U, 0x00000000U,
     };
     static const uint32_t vertex_words[GPU_H3_VERTEX_DWORDS] = {
@@ -7240,14 +7242,15 @@ static int gpu_h3_draw_envelope_probe(int timeout_ms, bool materialize_devnode) 
         return -EINVAL;
     }
     a90_console_printf("gpu.h3.draw.version=1\r\n");
-    a90_console_printf("gpu.h3.draw.scope=first-triangle-h3-draw-envelope-placeholder-shader\r\n");
+    a90_console_printf("gpu.h3.draw.scope=first-triangle-h3-draw-envelope-ir3-end-terminator\r\n");
     a90_console_printf("gpu.h3.draw.path=%s\r\n", GPU_G0_DEVNODE);
     a90_console_printf("gpu.h3.draw.timeout_ms=%d\r\n", timeout_ms);
     a90_console_printf("gpu.h3.draw.wait_timeout_ms=%u\r\n", GPU_H3_WAIT_TIMEOUT_MS);
     a90_console_printf("gpu.h3.draw.parent_enters_open=0\r\n");
     a90_console_printf("gpu.h3.draw.parent_enters_ioctl=0\r\n");
     a90_console_printf("gpu.h3.draw.source=mesa-freedreno-a6xx-fd6-draw-plus-vfd-fetch-dest\r\n");
-    a90_console_printf("gpu.h3.draw.shader_payload=zero-placeholder-no-full-compiler\r\n");
+    a90_console_printf("gpu.h3.draw.shader_payload=hand-assembled-ir3-end-only-no-full-compiler\r\n");
+    a90_console_printf("gpu.h3.draw.ir3_end_opcode_hi=0x%x\r\n", GPU_H1_IR3_END_HI);
     a90_console_printf("gpu.h3.draw.vertex_format=fmt6-32-32-float\r\n");
     a90_console_printf("gpu.h3.draw.offscreen=u32-linear-128x128\r\n");
     a90_console_printf("gpu.h3.draw.draw_attempted=1\r\n");

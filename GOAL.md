@@ -463,16 +463,21 @@ to KMS. Reuses the proven G0-G3 core (context/buffer/submit/fence/readback) + G5
 - **Crux = the shader.** If hand-assembled ir3 proves too fiddly that is a real decision point — record it, do not
   escalate to the blob or to a full compiler port.
 
-**STATUS (2026-06-25) — H1/H2 landed, H3 draw-envelope probed but not retired.**
+**STATUS (2026-06-25) — H1/H2 landed, H3 draw-envelope now retires but still draws no pixels.**
 V3208 uploaded placeholder VS/FS shader objects and programmed SP shader state with no draw; V3210 programmed A6xx
 GRAS/RB/VPC/PC/VFD/SP fixed-function 3D state into a private 128x128 offscreen target and retired cleanly with no draw.
 V3212/V3213 added and flashed `gpu h3-draw-envelope-probe`: it binds command/color/event/VS/FS/3-vertex BOs, emits VFD
 vertex-buffer/fetch/dest state plus direct non-indexed `CP_DRAW_INDX_OFFSET` (`packet=0x38`, `draw_initiator=0x84`,
 `num_indices=3`), and stays inside the child-only KGSL timeout envelope. Live result: submit succeeded
 (`submit_rc=0`, `pm4_dwords=170`) but the timestamp did not retire (`wait_rc=-1`, `errno=110`, `retired_timestamp=0`);
-cleanup and post-probe selftest stayed clean. This is useful H3 boundary evidence, **not** H4 triangle proof. Next unit
-should target the shader/VFD completion gap with either a real minimal hand-assembled ir3 payload or a narrower draw-state
-diagnostic; do not claim triangle rendering until readback changes with interior/exterior verification.
+cleanup and post-probe selftest stayed clean. V3214/V3215 replaced the zero VS/FS payload with a hand-encoded ir3
+`end + nop + nop + nop` stream (`0x0300000000000000`), added a boot-size gate after a rejected oversized image was
+rolled back to V2321 cleanly, then flashed the corrected image. Live result: H3 now retires (`wait_rc=0`,
+`retired_timestamp=1`, `fence_poll_rc=1`) with no GPU fault/hang signature, but the color readback remains unchanged
+(`readback_changed_count=0`). This proves the previous H3 timeout was at least partly a non-terminating shader-stream
+boundary, **not** H4 triangle proof. Next unit should replace the terminator-only payload with real minimal
+hand-assembled ir3 VS/FS that writes clip-space position and a fragment color; do not claim triangle rendering until
+readback changes with interior/exterior verification.
 
 **GPU backlog AFTER the triangle (do NOT pre-build; pull only when reached):**
 - **2nd capability = a VISIBLE compute demo (e.g. Mandelbrot/particle → KMS).** Reuses the shader path minus the
