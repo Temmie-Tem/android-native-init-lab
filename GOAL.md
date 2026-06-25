@@ -496,6 +496,14 @@ no GPU fault/hang signature, but readback still stayed unchanged (`readback_chan
 `readback_center=0x20202020`) and post-probe selftest stayed `fail=0`. That removes the tested GRAS raster coverage
 defaults as the primary blocker; next bounded unit should focus on FS output/MRT linkage, VPC/RB output state, or a
 Mesa-diffed minimal draw-state packet gap.
+V3222/V3223 then tested the narrower VPC position/clip-cull linkage gap by changing `VPC_VS_CNTL` from stride-only
+`0x00000004` to `0x00ff0004` (`PSIZELOC=0xff`) and adding `VPC_VS_CLIP_CULL_CNTL=0x00ffff00`,
+`VPC_VS_CLIP_CULL_CNTL_V2=0x00ffff00`, plus `GRAS_CL_VS_CLIP_CULL_DISTANCE=0`. Live result again retired cleanly
+(`submit_rc=0`, `wait_rc=0`, `retired_timestamp=1`, `fence_poll_rc=1`, `total_elapsed_ms=30`) with no GPU fault/hang
+signature, but readback still stayed unchanged (`readback_changed_count=0`, `readback0=0x20202020`,
+`readback_center=0x20202020`) and post-probe selftest stayed `fail=0`. That removes this tested VPC sentinel linkage
+gap as the primary blocker; next bounded unit should focus on FS output/MRT or RB output linkage, or generate a
+minimal Mesa-equivalent packet diff for the first draw.
 
 **GPU backlog AFTER the triangle (do NOT pre-build; pull only when reached):**
 - **2nd capability = a VISIBLE compute demo (e.g. Mandelbrot/particle → KMS).** Reuses the shader path minus the
