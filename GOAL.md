@@ -119,8 +119,42 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 >   `c860d604e3c906abf61fdd2c9bd9cd12d1aef2c88c05be57677b472ad36ef0f7`.
 >   This is NOT a MINOR roll and does NOT replace the v2321 rollback net — it locks in the known-good demo state before
 >   further DOOM work can regress it.
-> - **0.11.0 (MINOR) is RESERVED for video-epic close at DOOM completion** — i.e. the full demo ladder
->   (Bad Apple + Nyan + DOOM) device-proven. Do not roll MINOR before DOOM lands; DOOM continues on the 0.10.x line until then.
+> - **DOOM CORE DONE ✅ (V3032 visible frame / V3033–V3034 visible playable loop / V3035–V3041 dashboard, init `0.10.79`):**
+>   doomgeneric runs the real shareware WAD, frames blit to the panel via KMS, serial-doompad input drives gameplay
+>   (move/fire), DOOM dashboard/HUD added; device was left on the DOOM image for operator demo.
+> - **0.11.0 (MINOR) RESERVED for video-epic close — GATED on a DOOM demo FINISHING/OPTIMIZATION pass first
+>   (operator, 2026-06-22). Do NOT roll 0.11.0 on a rough DOOM.** Before promotion, do the polish round (same spirit as
+>   Bad Apple's cadence/HUD-cost fixes): **frame pacing + sustained fps** (real-time → steadier matters more than for
+>   Bad Apple), **640×400→1080×2400 upscale quality** (integer/aspect/letterbox), **dashboard incremental repaint**
+>   (no full-HUD repaint per frame — reuse the V2963 lesson), **input responsiveness** (doompad→`DG_GetKey` latency,
+>   simultaneous move+fire, key repeat), **DOOM audio** (music/SFX → PCM path, or explicitly defer per the "SFX optional"
+>   ladder note), and **longer-session stability** (no hang over sustained play). THEN build the 0.11.0 promotion image
+>   bundling Bad Apple + Nyan + the polished DOOM, live-validate all three, pin version+SHA+promotion report = video-epic
+>   close. DOOM stays on the 0.10.x line through the finishing pass; v2321 remains the rollback net.
+> - **0.11.0 VIDEO EPIC PROMOTION CLOSED ✅ (V3157, 2026-06-25):** `A90 Linux init 0.11.0
+>   (v3157-video-epic-promotion)`, boot SHA256
+>   `cc458455e64af62720eebe2f80d7f8b49ea8c8bd3a96368b8a5311b685c4ad33`. Same image live-validated
+>   Bad Apple Player HUD 300 frames at `30065` fps_milli / 0 drops, Nyan Player HUD 300 frames at
+>   `30053` fps_milli / 0 drops, DOOM WAD SHA match + 120-frame foreground loop (`rc=0`, 120 presented,
+>   0 missed shared frames) + bounded background/SFX start (`audio_rc=0`, worker stopped cleanly). Reports:
+>   `docs/reports/NATIVE_INIT_V3157_VIDEO_EPIC_PROMOTION_SOURCE_BUILD_2026-06-25.md` and
+>   `docs/reports/NATIVE_INIT_V3157_VIDEO_EPIC_PROMOTION_LIVE_2026-06-25.md`. This closes the Video epic
+>   and unlocks the reserved GPU G0 only under its bounded/bright-line rules.
+> - **🎯 FRAME-PACING DIAGNOSIS CLOSED — next pass = SCALE optimization (operator, 2026-06-23).** The choppiness hunt
+>   (V3061→V3101) is **done; stop telemetering.** By live measurement every infra stutter source was found and removed:
+>   dashboard thermal-sysfs read (V3069/74), SETCRTC path → KMS pageflip (V3077), file handoff → `shared-mmap-seq` + pace
+>   socket (V3079–88), and the **large 3:2 per-frame CPU scaler = confirmed stutter source (V3095, decision
+>   `large-scaler-is-stutter-source`)**. At 1:1 the pageflip is flawless (`flip_delta ≈ 16.6 ms`, V3095/V3101); the only
+>   residual is **DOOM-inherent 35 Hz logic on a 60 Hz panel with no interpolation** (V3101: half the visible frames repeat
+>   the same `gametic`, `max_same_run=2`). That stepped motion is **DOOM being DOOM, NOT a bug and NOT a 0.11.0 blocker** —
+>   frame interpolation is a separate quality backlog item, not part of this pass. **Do not add more tick/phase telemetry
+>   units — the cause is proven.**
+> - **SCALE optimization RESOLVED ✅ (V3124/V3128, 2026-06-23).** "Enlarge ⇒ slow" was an artifact of the presenter's
+>   *per-frame CPU pixel scaling*, not of size. Fixed via **pre-scaled producer (1×) + `shared-mmap-direct-blit`**: the
+>   engine pre-scales once into the large buffer it owns and the presenter does a direct shared-mmap blit (no second scale
+>   copy, no full clear). V3128 audit confirmed **large per-frame scaling is off the critical path — the large DOOM frame
+>   stays within the 16.6 ms vblank budget**. HW display-plane scaling was therefore not needed. Residual stepped motion is
+>   the DOOM-inherent 35 Hz/60 Hz cadence (interpolation backlog, not a blocker). This fed directly into the V3157 promotion.
 > - **DOOM host-only policy gate DONE (V3023)** — the WAD-backed `doomgeneric` frontier resumed after the V3020 host
 >   probe; source provenance, WAD/runtime-private policy, boot-size caps, bounded command surface, and rollback-gated
 >   live-validation requirements are now pinned without flashing or staging WAD data.
@@ -394,9 +428,57 @@ the Audio section above). Full detail: `CLAUDE.md` + `docs/reports/`. No active 
    report; never `-A`. Message per project convention; end with the Co-Authored-By line.
 9. **REPEAT** → back to STATE.
 
+## 🟢 GPU epic — G0→G5 first-light DONE ✅, next rung = first triangle (overnight)
+
+**Persistent HARD FRAMING (inherited by every GPU rung, do not deviate):**
+- **freedreno / Mesa / KGSL-direct ONLY.** The proprietary Adreno blob path (libGLESv2/EGL/OpenCL via Bionic/Android
+  userspace) is structurally impossible in static native-init and is **FORBIDDEN** — never write blob/EGL bring-up
+  units (same HAL/blob wall that made audio a multi-hundred-cycle slog; chasing it = overnight churn, no device payoff).
+- **Legitimate GPU driver bring-up, NOT exploitation.** Does NOT reopen the CLOSED kernel-security recon: no
+  CVE-2023-33047 / UAF / memory-corruption / heap-spray / exploit-dev. KGSL is used only for normal command submission.
+- **Bright lines absolute:** no GDSC / regulator / PMIC / GPIO / power-rail writes; bounded/timeout-guarded probes only
+  (never an unbounded blocking `open()` as a loop unit). Recoverable boot-partition flashes only, rollback `v2321`.
+
+**DONE — G0→G5 ladder complete + device-proven (V3174→V3206, init `0.11.30`, audit `v3206-gpu-epic-completion-audit-pass`).**
+What was actually proven (first-light skeleton, *not* acceleration): G0 the `/dev/kgsl-3d0` open-hang root-cause = GPU
+**firmware visibility / GMU cold-start blocking, NOT a power wall** → cleanly resolved by `firmware_class.path` prep
+(pure sysfs, no power write), bounded open returns; G1 KGSL context create/destroy; G2 GPU buffer alloc + mmap; G3 noop
+command stream submitted → fenced → retired (GPU executes submitted packets); G4 **A6xx A2D 2D solid-fill** rendered,
+CPU-readback verified (`0xa5c3f00d`); G5 GPU-filled buffer CPU-copied into the KMS dumb framebuffer and presented
+(`1080x2400`, `kms-blit-presented`). All with `proprietary_blob_attempted=0`, `power_write_attempted=0`, selftest
+`fail=0`. **Honest boundaries (NOT done): no triangle/3D rasterization, no shader (no ir3 compiler ran), no compute, no
+zero-copy/plane scanout (G5 is CPU-copy), and no demo is GPU-accelerated yet.** This is the control-path first-light,
+the foundation — not graphics.
+
+**NEXT GPU EPIC = first triangle (H0→H5, overnight deep target).** Threshold from fixed-function plumbing to *real GPU
+graphics*: vertex buffer → vertex shader → rasterizer → fragment shader → a shaded triangle, readback-verified, blitted
+to KMS. Reuses the proven G0-G3 core (context/buffer/submit/fence/readback) + G5 blit; swaps the 2D fill for a 3D draw.
+- **H0** (host-only deep recon): study minimal A6xx 3D pipeline state (mesa fd6 + envytools regs); **hand-assemble the
+  minimal ir3 shaders** (passthrough VS + constant-color FS) — do **NOT** bring up the full Mesa ir3 compiler (huge,
+  not bounded); the freedreno "first triangle" tradition is hand-coded shaders.
+- **H1** upload hand-assembled shaders + set SP (shader processor) state, verify no GPU fault → **H2** set 3D pipeline
+  state (VFD/VPC/GRAS/RB) for one triangle into an offscreen buffer → **H3** bind a 3-vertex buffer, `CP_DRAW_INDX_OFFSET`,
+  fence, readback → **H4** verify triangle pixels (interior = shaded, exterior = clear) via CPU readback = first-triangle
+  proof → **H5** blit the triangle buffer to `/dev/dri/card0`. Each rung device-verifiable; GPU faults are recoverable.
+- **Crux = the shader.** If hand-assembled ir3 proves too fiddly that is a real decision point — record it, do not
+  escalate to the blob or to a full compiler port.
+
+**GPU backlog AFTER the triangle (do NOT pre-build; pull only when reached):**
+- **2nd capability = a VISIBLE compute demo (e.g. Mandelbrot/particle → KMS).** Reuses the shader path minus the
+  rasterizer; gives GPU compute a *screen consumer*. **Matrix/GPGPU math is absorbed here, NOT a standalone goal** —
+  there is no module/library to load (OpenCL/BLAS = blob/Bionic wall; Mesa rusticl/turnip = full-stack port, unbounded),
+  so any kernel is hand-assembled ir3, and an abstract matmul with no consumer is the forbidden "capability with no
+  consumer" anti-pattern.
+- **Modularization is NOT an epic — it is an extraction.** Do not design a `a90_gpu` API upfront. Once the triangle AND
+  the compute demo are two real consumers pulling on the same G0-G3 core (rule of three), *extract* the common
+  KGSL submit/fence/buffer layer into an internal helper as a bounded refactor. Keep the already-shared core clean
+  meanwhile; formalize an API only after 2-3 real call sites reveal its shape.
+- **zero-copy KMS/dmabuf scanout** (G5 CPU-copy → direct GPU-buffer scanout; crux = A6xx tiling/UBWC ↔ display modifier)
+  — efficiency win, do *after* the triangle (premature on a solid fill).
+
 ## Stop conditions
 
-- **ACTIVE EPIC (operator-chartered 2026-06-19) = Video PLAYBACK pipeline on the EXISTING KMS display**
+- **CLOSED EPIC (operator-chartered 2026-06-19) = Video PLAYBACK pipeline on the EXISTING KMS display**
   (see the chartered Video section). Audio is DONE: CORE device-proven + promoted `0.10.0` + first demo
   (chime) passing; **audio Tier-C polish is now optional background, NOT the primary track — do not grind
   it.** **The display is ALREADY proven (`a90_kms.c` drives `/dev/dri/card0` for HUD/menu) — this is a
@@ -408,7 +490,11 @@ the Audio section above). Full detail: `CLAUDE.md` + `docs/reports/`. No active 
   content, not a standalone format epic.**
   Recoverable boot-partition flashes only, rollback `v2321`. **Bright lines:** no backlight/PMIC/PWM/regulator/GDSC
   writes; no from-scratch panel re-init; forbidden partitions absolute. Venus HW decode NOT needed (pre-rendered frames).
-  Do NOT start a third epic (Bluetooth/sensors/etc.) — reference-only until separately chartered.
+- **ACTIVE EPIC (overnight) = GPU first triangle (H0→H5)** — the GPU G0→G5 first-light ladder is DONE/device-proven
+  (V3206, init `0.11.30`); the next rung is real GPU graphics (shaded triangle). See the "🟢 GPU epic" block for the
+  H0-H5 ladder, the hand-assembled-ir3 crux, and the after-triangle backlog (visible compute demo → extracted
+  modularization → zero-copy). Chosen deliberately as a *deep unattended overnight* target (not operator-ROI). Bluetooth /
+  sensors / haptics / Wi-Fi SoftAP remain reference-only until separately chartered (attended daytime quick-wins).
 - Device unreachable after an auto-rollback → STOP, leave an incident report.
 - The same sub-goal fails twice → STOP or shelve it and move on; do NOT retry-loop.
 - No sub-goal is safely actionable without the operator → STOP with a note (but T1 is
@@ -434,7 +520,10 @@ The "fails twice → stop" rule does not catch *successful* but low-information 
   Do NOT re-triage FastRPC/Binder/KGSL, build trigger/exploit/UAF helpers, attempt any
   memory-corruption trigger, do heap spray/reclaim, or flash `slub_debug`/debug-cmdline
   images. No exploit development.
-- **KGSL `/dev/kgsl-3d0` open-block** is a human-gated investigation, NOT a loop unit (live
-  open hangs). Leave it.
+- **KGSL `/dev/kgsl-3d0` open-block — RESOLVED (V3184, 2026-06-25).** The unbounded-`open()` hang was GPU
+  **firmware visibility / GMU cold-start blocking**, fixed cleanly via `firmware_class.path` prep (pure sysfs,
+  no power write); bounded open now returns. This unblocked the full G0→G5 GPU first-light ladder (DONE, V3206).
+  Still **NEVER** run an unbounded blocking `open()` as a loop unit (use timeout-guarded bounded probes), and GPU
+  work stays legitimate driver bring-up — it does **NOT** reopen kernel-security recon (no CVE/UAF/exploit-dev).
 - **No doc / metadata / inventory cleanup as a track** (anti-churn trap).
 - **Never reopen** external SDX50M/eSoC/PCIe/MHI/GDSC/PMIC/GPIO paths for internal `wlan0`.
